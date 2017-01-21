@@ -15,7 +15,7 @@
    Contributing authors: Roy Pollock (LLNL), Paul Crozier (SNL)
      per-atom energy/virial & group/group energy/force added by Stan Moore (BYU)
      analytic diff (2 FFT) option added by Rolf Isele-Holder (Aachen University)
-     triclinic added by Stan Moore (SNL)
+     triclinic and point-dipoles added by Stan Moore (SNL)
 ------------------------------------------------------------------------- */
 
 #include <mpi.h>
@@ -37,6 +37,7 @@
 #include "remap_wrap.h"
 #include "memory.h"
 #include "error.h"
+#include "update.h"
 
 #include "math_const.h"
 #include "math_special.h"
@@ -73,7 +74,16 @@ PPPM::PPPM(LAMMPS *lmp, int narg, char **arg) : KSpace(lmp, narg, arg),
   sf_precoeff3(NULL), sf_precoeff4(NULL), sf_precoeff5(NULL), sf_precoeff6(NULL),
   acons(NULL), density_A_brick(NULL), density_B_brick(NULL), density_A_fft(NULL),
   density_B_fft(NULL), fft1(NULL), fft2(NULL), remap(NULL), cg(NULL), cg_peratom(NULL),
-  part2grid(NULL), boxlo(NULL)
+  part2grid(NULL), boxlo(NULL), density_brick_mu0(NULL), density_brick_mu1(NULL),
+  density_brick_mu2(NULL), u_brick_mu0(NULL), u_brick_mu1(NULL), u_brick_mu2(NULL),
+  vdx_brick_mu0(NULL), vdy_brick_mu0(NULL), vdz_brick_mu0(NULL), vdx_brick_mu1(NULL),
+  vdy_brick_mu1(NULL), vdz_brick_mu1(NULL), vdx_brick_mu2(NULL), vdy_brick_mu2(NULL),
+  vdz_brick_mu2(NULL), v0_brick_mu0(NULL), v1_brick_mu0(NULL), v2_brick_mu0(NULL),
+  v3_brick_mu0(NULL), v4_brick_mu0(NULL), v5_brick_mu0(NULL), v0_brick_mu1(NULL),
+  v1_brick_mu1(NULL), v2_brick_mu1(NULL), v3_brick_mu1(NULL), v4_brick_mu1(NULL),
+  v5_brick_mu1(NULL), v0_brick_mu2(NULL), v1_brick_mu2(NULL), v2_brick_mu2(NULL),
+  v3_brick_mu2(NULL), v4_brick_mu2(NULL), v5_brick_mu2(NULL), work3(NULL), work4(NULL),
+  density_fft_mu0(NULL), density_fft_mu1(NULL), density_fft_mu2(NULL)
 {
   peratom_allocate_flag = 0;
   group_allocate_flag = 0;
@@ -81,7 +91,9 @@ PPPM::PPPM(LAMMPS *lmp, int narg, char **arg) : KSpace(lmp, narg, arg),
   if (narg < 1) error->all(FLERR,"Illegal kspace_style pppm command");
 
   pppmflag = 1;
+  dipoleflag = 1;
   group_group_enable = 1;
+  mu_flag = atom->mu?1:0;
 
   accuracy_relative = fabs(force->numeric(FLERR,arg[0]));
 
@@ -153,6 +165,8 @@ PPPM::PPPM(LAMMPS *lmp, int narg, char **arg) : KSpace(lmp, narg, arg),
   acons[7][4] = 25091609.0 / 1560084480.0;
   acons[7][5] = 1755948832039.0 / 36229939200000.0;
   acons[7][6] = 4887769399.0 / 37838389248.0;
+
+  mu_flag = 1;
 }
 
 /* ----------------------------------------------------------------------
@@ -197,7 +211,10 @@ void PPPM::init()
     error->universe_all(FLERR,"PPPM can only currently be used with "
                         "comm_style brick");
 
-  if (!atom->q_flag) error->all(FLERR,"Kspace style requires atom attribute q");
+  if (!atom->q_flag && !atom->mu) error->all(FLERR,"Kspace style requires atom attribute q or mu");
+
+  if (mu_flag && strcmp(update->unit_style,"electron") == 0)
+    error->all(FLERR,"Cannot (yet) use 'electron' units with dipoles");
 
   if (slabflag == 0 && domain->nonperiodic > 0)
     error->all(FLERR,"Cannot use nonperiodic boundaries with PPPM");
@@ -659,6 +676,9 @@ void PPPM::compute(int eflag, int vflag)
   particle_map();
   make_rho();
 
+  if (mu_flag)
+  	make_rho_dipole();
+
   // all procs communicate density values from their ghost cells
   //   to fully sum contribution in their 3d bricks
   // remap from 3d decomposition to FFT decomposition
@@ -763,10 +783,28 @@ void PPPM::allocate()
   memory->create3d_offset(density_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
                           nxlo_out,nxhi_out,"pppm:density_brick");
 
+  if (mu_flag) {
+    memory->create3d_offset(density_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:density_brick_mu0");
+    memory->create3d_offset(density_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:density_brick_mu1");
+    memory->create3d_offset(density_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:density_brick_mu2");
+  }
+
   memory->create(density_fft,nfft_both,"pppm:density_fft");
+  if (mu_flag) {
+    memory->create(density_fft,nfft_both,"pppm:density_fft_mu1");
+    memory->create(density_fft,nfft_both,"pppm:density_fft_mu1");
+    memory->create(density_fft,nfft_both,"pppm:density_fft_mu2");
+  }
   memory->create(greensfn,nfft_both,"pppm:greensfn");
   memory->create(work1,2*nfft_both,"pppm:work1");
   memory->create(work2,2*nfft_both,"pppm:work2");
+  if (mu_flag) {
+    memory->create(work3,2*nfft_both,"pppm:work3");
+    memory->create(work4,2*nfft_both,"pppm:work4");
+  }
   memory->create(vg,nfft_both,6,"pppm:vg");
 
   if (triclinic == 0) {
@@ -797,6 +835,29 @@ void PPPM::allocate()
                             nxlo_out,nxhi_out,"pppm:vdy_brick");
     memory->create3d_offset(vdz_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
                             nxlo_out,nxhi_out,"pppm:vdz_brick");
+  }
+
+  if (mu_flag) {
+    memory->create3d_offset(vdx_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdx_brick_mu0");
+    memory->create3d_offset(vdy_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdy_brick_mu0");
+    memory->create3d_offset(vdz_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdz_brick_mu0");
+
+    memory->create3d_offset(vdx_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdx_brick_mu1");
+    memory->create3d_offset(vdy_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdy_brick_mu1");
+    memory->create3d_offset(vdz_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdz_brick_mu1");
+
+    memory->create3d_offset(vdx_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdx_brick_mu2");
+    memory->create3d_offset(vdy_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdy_brick_mu2");
+    memory->create3d_offset(vdz_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdz_brick_mu2");
   }
 
   // summation coeffs
@@ -857,6 +918,12 @@ void PPPM::deallocate()
 {
   memory->destroy3d_offset(density_brick,nzlo_out,nylo_out,nxlo_out);
 
+  if (mu_flag) {
+    memory->destroy3d_offset(density_brick_mu0,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(density_brick_mu1,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(density_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+  }
+
   if (differentiation_flag == 1) {
     memory->destroy3d_offset(u_brick,nzlo_out,nylo_out,nxlo_out);
     memory->destroy(sf_precoeff1);
@@ -871,10 +938,33 @@ void PPPM::deallocate()
     memory->destroy3d_offset(vdz_brick,nzlo_out,nylo_out,nxlo_out);
   }
 
+  if (mu_flag) {
+    memory->destroy3d_offset(vdx_brick_mu0,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(vdy_brick_mu0,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(vdz_brick_mu0,nzlo_out,nylo_out,nxlo_out);
+
+    memory->destroy3d_offset(vdx_brick_mu1,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(vdy_brick_mu1,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(vdz_brick_mu1,nzlo_out,nylo_out,nxlo_out);
+
+    memory->destroy3d_offset(vdx_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(vdy_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(vdz_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+  }
+
   memory->destroy(density_fft);
+  if (mu_flag) {
+    memory->destroy(density_fft_mu0);
+    memory->destroy(density_fft_mu1);
+    memory->destroy(density_fft_mu2);
+  }
   memory->destroy(greensfn);
   memory->destroy(work1);
   memory->destroy(work2);
+  if (mu_flag) {
+    memory->destroy(work3);
+    memory->destroy(work4);
+  }
   memory->destroy(vg);
 
   if (triclinic == 0) {
@@ -912,9 +1002,17 @@ void PPPM::allocate_peratom()
     memory->create3d_offset(u_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
                             nxlo_out,nxhi_out,"pppm:u_brick");
 
+  if (mu_flag) {
+    memory->create3d_offset(u_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:u_brick_mu0");
+    memory->create3d_offset(u_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:u_brick_mu1");
+    memory->create3d_offset(u_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:u_brick_mu2");
+  }
+
   memory->create3d_offset(v0_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
                           nxlo_out,nxhi_out,"pppm:v0_brick");
-
   memory->create3d_offset(v1_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
                           nxlo_out,nxhi_out,"pppm:v1_brick");
   memory->create3d_offset(v2_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
@@ -925,6 +1023,47 @@ void PPPM::allocate_peratom()
                           nxlo_out,nxhi_out,"pppm:v4_brick");
   memory->create3d_offset(v5_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
                           nxlo_out,nxhi_out,"pppm:v5_brick");
+
+  if (mu_flag) {
+    memory->create3d_offset(v0_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v0_brick_mu0");
+    memory->create3d_offset(v1_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v1_brick_mu0");
+    memory->create3d_offset(v2_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v2_brick_mu0");
+    memory->create3d_offset(v3_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v3_brick_mu0");
+    memory->create3d_offset(v4_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v4_brick_mu0");
+    memory->create3d_offset(v5_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v5_brick_mu0");
+
+    memory->create3d_offset(v0_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v0_brick_mu1");
+    memory->create3d_offset(v1_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v1_brick_mu1");
+    memory->create3d_offset(v2_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v2_brick_mu1");
+    memory->create3d_offset(v3_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v3_brick_mu1");
+    memory->create3d_offset(v4_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v4_brick_mu1");
+    memory->create3d_offset(v5_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v5_brick_mu1");
+
+    memory->create3d_offset(v0_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v0_brick_mu2");
+    memory->create3d_offset(v1_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v1_brick_mu2");
+    memory->create3d_offset(v2_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v2_brick_mu2");
+    memory->create3d_offset(v3_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v3_brick_mu2");
+    memory->create3d_offset(v4_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v4_brick_mu2");
+    memory->create3d_offset(v5_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v5_brick_mu2");
+  }
 
   // create ghost grid object for rho and electric field communication
 
@@ -961,8 +1100,37 @@ void PPPM::deallocate_peratom()
   memory->destroy3d_offset(v4_brick,nzlo_out,nylo_out,nxlo_out);
   memory->destroy3d_offset(v5_brick,nzlo_out,nylo_out,nxlo_out);
 
+  if (mu_flag) {
+    memory->destroy3d_offset(v0_brick_mu0,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v1_brick_mu0,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v2_brick_mu0,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v3_brick_mu0,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v4_brick_mu0,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v5_brick_mu0,nzlo_out,nylo_out,nxlo_out);
+
+    memory->destroy3d_offset(v0_brick_mu1,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v1_brick_mu1,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v2_brick_mu1,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v3_brick_mu1,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v4_brick_mu1,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v5_brick_mu1,nzlo_out,nylo_out,nxlo_out);
+
+    memory->destroy3d_offset(v0_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v1_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v2_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v3_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v4_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v5_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+  }
+
   if (differentiation_flag != 1)
     memory->destroy3d_offset(u_brick,nzlo_out,nylo_out,nxlo_out);
+
+  if (mu_flag) {
+    memory->destroy3d_offset(u_brick_mu0,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(u_brick_mu1,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(u_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+  }
 
   delete cg_peratom;
 }
@@ -1981,6 +2149,74 @@ void PPPM::make_rho()
 }
 
 /* ----------------------------------------------------------------------
+   create discretized "density" on section of global grid due to my particles
+   density(x,y,z) = charge "density" at grid points of my 3d brick
+   (nxlo:nxhi,nylo:nyhi,nzlo:nzhi) is extent of my brick (including ghosts)
+   in global grid
+------------------------------------------------------------------------- */
+
+void PPPM::make_rho_dipole()
+{
+  int l,m,n,nx,ny,nz,mx,my,mz;
+  FFT_SCALAR dx,dy,dz;
+  FFT_SCALAR x0,y0,z0;
+  FFT_SCALAR x1,y1,z1;
+  FFT_SCALAR x2,y2,z2;
+
+  // clear 3d density array
+
+  memset(&(density_brick_mu0[nzlo_out][nylo_out][nxlo_out]),0,
+         ngrid*sizeof(FFT_SCALAR));
+  memset(&(density_brick_mu1[nzlo_out][nylo_out][nxlo_out]),0,
+         ngrid*sizeof(FFT_SCALAR));
+  memset(&(density_brick_mu2[nzlo_out][nylo_out][nxlo_out]),0,
+         ngrid*sizeof(FFT_SCALAR));
+
+  // loop over my charges, add their contribution to nearby grid points
+  // (nx,ny,nz) = global coords of grid pt to "lower left" of charge
+  // (dx,dy,dz) = distance to "lower left" grid pt
+  // (mx,my,mz) = global coords of moving stencil pt
+
+  double **mu = atom->mu;
+  double **x = atom->x;
+  int nlocal = atom->nlocal;
+
+  for (int i = 0; i < nlocal; i++) {
+
+    nx = part2grid[i][0];
+    ny = part2grid[i][1];
+    nz = part2grid[i][2];
+    dx = nx+shiftone - (x[i][0]-boxlo[0])*delxinv;
+    dy = ny+shiftone - (x[i][1]-boxlo[1])*delyinv;
+    dz = nz+shiftone - (x[i][2]-boxlo[2])*delzinv;
+
+    compute_rho1d(dx,dy,dz);
+
+    z0 = delvolinv * mu[i][0];
+    z1 = delvolinv * mu[i][1];
+    z2 = delvolinv * mu[i][2];
+    for (n = nlower; n <= nupper; n++) {
+      mz = n+nz;
+      y0 = z0*rho1d[2][n];
+      y1 = z1*rho1d[2][n];
+      y2 = z2*rho1d[2][n];
+      for (m = nlower; m <= nupper; m++) {
+        my = m+ny;
+        x0 = y0*rho1d[1][m];
+        x1 = y1*rho1d[1][m];
+        x2 = y2*rho1d[1][m];
+        for (l = nlower; l <= nupper; l++) {
+          mx = l+nx;
+          density_brick_mu0[mz][my][mx] += x0*rho1d[0][l];
+          density_brick_mu1[mz][my][mx] += x1*rho1d[0][l];
+          density_brick_mu2[mz][my][mx] += x2*rho1d[0][l];
+        }
+      }
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------
    remap density from 3d brick decomposition to FFT decomposition
 ------------------------------------------------------------------------- */
 
@@ -1999,6 +2235,32 @@ void PPPM::brick2fft()
         density_fft[n++] = density_brick[iz][iy][ix];
 
   remap->perform(density_fft,density_fft,work1);
+}
+
+/* ----------------------------------------------------------------------
+   remap density from 3d brick decomposition to FFT decomposition
+------------------------------------------------------------------------- */
+
+void PPPM::brick2fft_dipole()
+{
+  int n,ix,iy,iz;
+
+  // copy grabs inner portion of density from 3d brick
+  // remap could be done as pre-stage of FFT,
+  //   but this works optimally on only double values, not complex values
+
+  n = 0;
+  for (iz = nzlo_in; iz <= nzhi_in; iz++)
+    for (iy = nylo_in; iy <= nyhi_in; iy++)
+      for (ix = nxlo_in; ix <= nxhi_in; ix++) {
+        density_fft_mu0[n++] = density_brick_mu0[iz][iy][ix];
+        density_fft_mu1[n++] = density_brick_mu1[iz][iy][ix];
+        density_fft_mu2[n++] = density_brick_mu2[iz][iy][ix];
+      }
+
+  remap->perform(density_fft_mu0,density_fft_mu0,work1);
+  remap->perform(density_fft_mu1,density_fft_mu1,work1);
+  remap->perform(density_fft_mu2,density_fft_mu2,work1);
 }
 
 /* ----------------------------------------------------------------------
@@ -2049,6 +2311,150 @@ void PPPM::poisson_ik()
       for (i = 0; i < nfft; i++) {
         energy +=
           s2 * greensfn[i] * (work1[n]*work1[n] + work1[n+1]*work1[n+1]);
+        n += 2;
+      }
+    }
+  }
+
+  // scale by 1/total-grid-pts to get rho(k)
+  // multiply by Green's function to get V(k)
+
+  n = 0;
+  for (i = 0; i < nfft; i++) {
+    work1[n++] *= scaleinv * greensfn[i];
+    work1[n++] *= scaleinv * greensfn[i];
+  }
+
+  // extra FFTs for per-atom energy/virial
+
+  if (evflag_atom) poisson_peratom();
+
+  // triclinic system
+
+  if (triclinic) {
+    poisson_ik_triclinic();
+    return;
+  }
+
+  // compute gradients of V(r) in each of 3 dims by transformimg -ik*V(k)
+  // FFT leaves data in 3d brick decomposition
+  // copy it into inner portion of vdx,vdy,vdz arrays
+
+  // x direction gradient
+
+  n = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work2[n] = fkx[i]*work1[n+1];
+        work2[n+1] = -fkx[i]*work1[n];
+        n += 2;
+      }
+
+  fft2->compute(work2,work2,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        vdx_brick[k][j][i] = work2[n];
+        n += 2;
+      }
+
+  // y direction gradient
+
+  n = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work2[n] = fky[j]*work1[n+1];
+        work2[n+1] = -fky[j]*work1[n];
+        n += 2;
+      }
+
+  fft2->compute(work2,work2,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        vdy_brick[k][j][i] = work2[n];
+        n += 2;
+      }
+
+  // z direction gradient
+
+  n = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work2[n] = fkz[k]*work1[n+1];
+        work2[n+1] = -fkz[k]*work1[n];
+        n += 2;
+      }
+
+  fft2->compute(work2,work2,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        vdz_brick[k][j][i] = work2[n];
+        n += 2;
+      }
+}
+
+/* ----------------------------------------------------------------------
+   FFT-based Poisson solver for ik
+------------------------------------------------------------------------- */
+
+void PPPM::poisson_ik_dipole()
+{
+  int i,j,k,n,ii;
+  double eng;
+  double wreal,wimg;
+
+  // transform dipole density (r -> k)
+
+  n = 0;
+  for (i = 0; i < nfft; i++) {
+    work1[n++] = density_fft_mu0[i];
+    work1[n++] = ZEROF;
+    work2[n++] = density_fft_mu1[i];
+    work2[n++] = ZEROF;
+    work3[n++] = density_fft_mu2[i];
+    work3[n++] = ZEROF;
+  }
+
+  fft1->compute(work1,work1,1);
+  fft1->compute(work2,work2,1);
+  fft1->compute(work3,work3,1);
+
+  // global energy and virial contribution
+
+  double scaleinv = 1.0/(nx_pppm*ny_pppm*nz_pppm);
+  double s2 = scaleinv*scaleinv;
+
+  if (eflag_global || vflag_global) {
+    if (vflag_global) {
+      n = 0;
+      ii = 0;
+      for (k = nzlo_fft; k <= nzhi_fft; k++)
+        for (j = nylo_fft; j <= nyhi_fft; j++)
+          for (i = nxlo_fft; i <= nxhi_fft; i++) {
+            wreal = (work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+            wimg = (work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+            eng = s2 * greensfn[ii] * (wreal*wreal + wimg*wimg);
+            for (j = 0; j < 6; j++) virial[j] += eng*vg[ii][j];
+            if (eflag_global) energy += eng;
+            ii++;
+            n += 2;
+          }
+    } else {
+      n = 0;
+      for (i = 0; i < nfft; i++) {
+        energy +=
+        s2 * greensfn[i] * (work1[n]*work1[n] + work1[n+1]*work1[n+1]);
         n += 2;
       }
     }
@@ -2489,6 +2895,67 @@ void PPPM::fieldforce_ik()
     if (slabflag != 2) f[i][2] += qfactor*ekz;
   }
 }
+
+/* ----------------------------------------------------------------------
+   interpolate from grid to get electric field & force on my particles for ik
+------------------------------------------------------------------------- */
+
+/*void PPPM::fieldforce_ik_dipole()
+{
+  int i,l,m,n,nx,ny,nz,mx,my,mz;
+  FFT_SCALAR dx,dy,dz;
+  FFT_SCALAR x0,y0,z0;
+  FFT_SCALAR x1,y1,z1;
+  FFT_SCALAR x2,y2,z2;
+  FFT_SCALAR ekx,eky,ekz;
+
+  // loop over my charges, interpolate electric field from nearby grid points
+  // (nx,ny,nz) = global coords of grid pt to "lower left" of charge
+  // (dx,dy,dz) = distance to "lower left" grid pt
+  // (mx,my,mz) = global coords of moving stencil pt
+  // ek = 3 components of E-field on particle
+
+  double **mu = atom->mu;
+  double **x = atom->x;
+  double **f = atom->f;
+
+  int nlocal = atom->nlocal;
+
+  for (i = 0; i < nlocal; i++) {
+    nx = part2grid[i][0];
+    ny = part2grid[i][1];
+    nz = part2grid[i][2];
+    dx = nx+shiftone - (x[i][0]-boxlo[0])*delxinv;
+    dy = ny+shiftone - (x[i][1]-boxlo[1])*delyinv;
+    dz = nz+shiftone - (x[i][2]-boxlo[2])*delzinv;
+
+    compute_rho1d(dx,dy,dz);
+
+    ekx = eky = ekz = ZEROF;
+    for (n = nlower; n <= nupper; n++) {
+      mz = n+nz;
+      z0 = rho1d[2][n];
+      for (m = nlower; m <= nupper; m++) {
+        my = m+ny;
+        y0 = z0*rho1d[1][m];
+        for (l = nlower; l <= nupper; l++) {
+          mx = l+nx;
+          x0 = y0*rho1d[0][l];
+          ekx -= x0*vdx_brick[mz][my][mx];
+          eky -= x0*vdy_brick[mz][my][mx];
+          ekz -= x0*vdz_brick[mz][my][mx];
+        }
+      }
+    }
+
+    // convert E-field to force
+
+    const double qfactor = qqrd2e * scale * q[i];
+    f[i][0] += qfactor*ekx;
+    f[i][1] += qfactor*eky;
+    if (slabflag != 2) f[i][2] += qfactor*ekz;
+  }
+}*/
 
 /* ----------------------------------------------------------------------
    interpolate from grid to get electric field & force on my particles for ad
@@ -2933,6 +3400,7 @@ void PPPM::compute_rho_coeff()
   memory->destroy2d_offset(a,-order);
 }
 
+
 /* ----------------------------------------------------------------------
    Slab-geometry correction term to dampen inter-slab interactions between
    periodically repeating slabs.  Yields good approximation to 2D Ewald if
@@ -2953,6 +3421,11 @@ void PPPM::slabcorr()
   double dipole = 0.0;
   for (int i = 0; i < nlocal; i++) dipole += q[i]*x[i][2];
 
+  if (mu_flag) {
+    double **mu = atom->mu;
+    for (int i = 0; i < nlocal; i++) dipole += mu[i][2];
+  }
+
   // sum local contributions to get global dipole moment
 
   double dipole_all;
@@ -2963,6 +3436,11 @@ void PPPM::slabcorr()
 
   double dipole_r2 = 0.0;
   if (eflag_atom || fabs(qsum) > SMALL) {
+
+    if (mu_flag)
+      error->all(FLERR,"Cannot (yet) use kspace slab correction with "
+        "long-range dipoles and non-neutral systems or per-atom energy");
+
     for (int i = 0; i < nlocal; i++)
       dipole_r2 += q[i]*x[i][2]*x[i][2];
 
@@ -2977,7 +3455,7 @@ void PPPM::slabcorr()
 
   const double e_slabcorr = MY_2PI*(dipole_all*dipole_all -
     qsum*dipole_r2 - qsum*qsum*zprd*zprd/12.0)/volume;
-  const double qscale = qqrd2e * scale;
+  const double qscale = force->qqrd2e * scale;
 
   if (eflag_global) energy += qscale * e_slabcorr;
 
@@ -2995,7 +3473,19 @@ void PPPM::slabcorr()
   double ffact = qscale * (-4.0*MY_PI/volume);
   double **f = atom->f;
 
-  for (int i = 0; i < nlocal; i++) f[i][2] += ffact * q[i]*(dipole_all - qsum*x[i][2]);
+  for (int i = 0; i < nlocal; i++)
+    f[i][2] += ffact * q[i]*(dipole_all - qsum*x[i][2]);
+
+  // add on torque corrections
+
+  if (mu_flag && atom->torque) {
+    double **mu = atom->mu;
+    double **torque = atom->torque;
+    for (int i = 0; i < nlocal; i++) {
+      torque[i][0] += ffact * dipole_all * mu[i][1];
+      torque[i][1] += -ffact * dipole_all * mu[i][0];
+    }
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -3014,6 +3504,11 @@ int PPPM::timing_1d(int n, double &time1d)
   for (int i = 0; i < n; i++) {
     fft1->timing1d(work1,nfft_both,1);
     fft2->timing1d(work1,nfft_both,-1);
+    if (mu_flag) {
+      fft1->timing1d(work1,nfft_both,1);
+      fft1->timing1d(work1,nfft_both,1);
+      fft1->timing1d(work1,nfft_both,1);
+    }
     if (differentiation_flag != 1) {
       fft2->timing1d(work1,nfft_both,-1);
       fft2->timing1d(work1,nfft_both,-1);
@@ -3044,6 +3539,11 @@ int PPPM::timing_3d(int n, double &time3d)
   for (int i = 0; i < n; i++) {
     fft1->compute(work1,work1,1);
     fft2->compute(work1,work1,-1);
+    if (mu_flag) {
+      fft1->compute(work1,work1,1);
+      fft1->compute(work1,work1,1);
+      fft1->compute(work1,work1,1);
+    }
     if (differentiation_flag != 1) {
       fft2->compute(work1,work1,-1);
       fft2->compute(work1,work1,-1);
@@ -3077,6 +3577,11 @@ double PPPM::memory_usage()
   bytes += nfft_both * sizeof(double);
   bytes += nfft_both*5 * sizeof(FFT_SCALAR);
 
+  if (mu_flag) {
+    bytes += 3 * nbrick * sizeof(FFT_SCALAR);
+    //work?
+  }
+
   if (peratom_allocate_flag)
     bytes += 6 * nbrick * sizeof(FFT_SCALAR);
 
@@ -3107,6 +3612,10 @@ void PPPM::compute_group_group(int groupbit_A, int groupbit_B, int AA_flag)
   if (differentiation_flag)
     error->all(FLERR,"Cannot (yet) use kspace_modify "
                "diff ad with compute group/group");
+
+  if (mu_flag)
+    error->all(FLERR,"Cannot (yet) use point-dipoles "
+               "with compute group/group");
 
   if (!group_allocate_flag) allocate_groups();
 
@@ -3521,3 +4030,80 @@ void PPPM::slabcorr_groups(int groupbit_A, int groupbit_B, int AA_flag)
   const double ffact = qscale * (-4.0*MY_PI/volume);
   f2group[2] += ffact * (qsum_A*dipole_B - qsum_B*dipole_A);
 }
+
+/* ----------------------------------------------------------------------
+   compute RMS accuracy for a dimension
+------------------------------------------------------------------------- */
+/*
+double EwaldDisp::rms(int km, double prd, bigint natoms,
+                      double q2, double b2, double M2)
+{
+  double value = 0.0;
+
+  // dipole
+
+  value += 8.0*MY_PI*M2/volume*g_ewald *
+    sqrt(2.0*MY_PI*km*km*km/(15.0*natoms)) *
+    exp(-pow(MY_PI*km/(g_ewald*prd),2.0));
+
+  return value;
+}
+/*
+/* ----------------------------------------------------------------------
+   Newton solver used to find g_ewald for LJ systems
+------------------------------------------------------------------------- */
+/*
+double EwaldDisp::NewtonSolve(double x, double Rc,
+                              bigint natoms, double vol, double b2)
+{
+  double dx,tol;
+  int maxit;
+
+  maxit = 10000; //Maximum number of iterations
+  tol = 0.00001; //Convergence tolerance
+
+  //Begin algorithm
+
+  for (int i = 0; i < maxit; i++) {
+    dx = f(x,Rc,natoms,vol,b2) / derivf(x,Rc,natoms,vol,b2);
+    x = x - dx; //Update x
+    if (fabs(dx) < tol) return x;
+    if (x < 0 || x != x) // solver failed
+      return -1;
+  }
+  return -1;
+}
+/*
+/* ----------------------------------------------------------------------
+ Calculate f(x)
+ ------------------------------------------------------------------------- */
+/*
+double EwaldDisp::f(double x, double Rc, bigint natoms, double vol, double b2)
+{
+  double a = Rc*x;
+  double f = 0.0;
+
+  if (mu_flag) { // dipole
+    double rg2 = a*a;
+    double rg4 = rg2*rg2;
+    double rg6 = rg4*rg2;
+    double Cc = 4.0*rg4 + 6.0*rg2 + 3.0;
+    double Dc = 8.0*rg6 + 20.0*rg4 + 30.0*rg2 + 15.0;
+    f = (b2/(sqrt(vol*powint(x,4)*powint(Rc,9)*natoms)) *
+      sqrt(13.0/6.0*Cc*Cc + 2.0/15.0*Dc*Dc - 13.0/15.0*Cc*Dc) *
+      exp(-rg2)) - accuracy;
+  }
+
+  return f;
+}
+/*
+/* ----------------------------------------------------------------------
+ Calculate numerical derivative f'(x)
+ ------------------------------------------------------------------------- */
+/*
+double EwaldDisp::derivf(double x, double Rc,
+                         bigint natoms, double vol, double b2)
+{
+  double h = 0.000001;  //Derivative step-size
+  return (f(x + h,Rc,natoms,vol,b2) - f(x,Rc,natoms,vol,b2)) / h;
+}*/

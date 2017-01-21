@@ -68,15 +68,28 @@ class PPPM : public KSpace {
   int ngrid,nfft,nfft_both;
 
   FFT_SCALAR ***density_brick;
+  FFT_SCALAR ***density_brick_mu0,***density_brick_mu1,***density_brick_mu2;
   FFT_SCALAR ***vdx_brick,***vdy_brick,***vdz_brick;
+  FFT_SCALAR ***vdx_brick_mu0,***vdy_brick_mu0,***vdz_brick_mu0;
+  FFT_SCALAR ***vdx_brick_mu1,***vdy_brick_mu1,***vdz_brick_mu1;
+  FFT_SCALAR ***vdx_brick_mu2,***vdy_brick_mu2,***vdz_brick_mu2;
   FFT_SCALAR ***u_brick;
+  FFT_SCALAR ***u_brick_mu0,***u_brick_mu1,***u_brick_mu2;
   FFT_SCALAR ***v0_brick,***v1_brick,***v2_brick;
   FFT_SCALAR ***v3_brick,***v4_brick,***v5_brick;
+  FFT_SCALAR ***v0_brick_mu0,***v1_brick_mu0,***v2_brick_mu0;
+  FFT_SCALAR ***v3_brick_mu0,***v4_brick_mu0,***v5_brick_mu0;
+  FFT_SCALAR ***v0_brick_mu1,***v1_brick_mu1,***v2_brick_mu1;
+  FFT_SCALAR ***v3_brick_mu1,***v4_brick_mu1,***v5_brick_mu1;
+  FFT_SCALAR ***v0_brick_mu2,***v1_brick_mu2,***v2_brick_mu2;
+  FFT_SCALAR ***v3_brick_mu2,***v4_brick_mu2,***v5_brick_mu2;
+
   double *greensfn;
   double **vg;
   double *fkx,*fky,*fkz;
   FFT_SCALAR *density_fft;
-  FFT_SCALAR *work1,*work2;
+  FFT_SCALAR *density_fft_mu0,*density_fft_mu1,*density_fft_mu2;
+  FFT_SCALAR *work1,*work2,*work3,*work4;
 
   double *gf_b;
   FFT_SCALAR **rho1d,**rho_coeff,**drho1d,**drho_coeff;
@@ -161,6 +174,12 @@ class PPPM : public KSpace {
   void compute_gf_ik_triclinic();
   void poisson_ik_triclinic();
   void poisson_groups_triclinic();
+
+  // dipole
+  int mu_flag;
+  void make_rho_dipole();
+  void brick2fft_dipole();
+  void poisson_ik_dipole();
 
   // group-group interactions
 
