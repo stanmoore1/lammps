@@ -177,9 +177,11 @@ class PPPM : public KSpace {
 
   // dipole
   int mu_flag;
+  double musqsum,musum,mu2;
   void make_rho_dipole();
   void brick2fft_dipole();
   void poisson_ik_dipole();
+  void musum_musq();
 
   // group-group interactions
 

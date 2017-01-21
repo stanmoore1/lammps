@@ -52,8 +52,8 @@ using namespace MathSpecial;
 #define SMALL 0.00001
 #define EPS_HOC 1.0e-7
 
-enum{REVERSE_RHO};
-enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM};
+enum{REVERSE_RHO,REVERSE_MU};
+enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_MU,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM};
 
 #ifdef FFT_SINGLE
 #define ZEROF 0.0f
@@ -93,7 +93,6 @@ PPPM::PPPM(LAMMPS *lmp, int narg, char **arg) : KSpace(lmp, narg, arg),
   pppmflag = 1;
   dipoleflag = 1;
   group_group_enable = 1;
-  mu_flag = atom->mu?1:0;
 
   accuracy_relative = fabs(force->numeric(FLERR,arg[0]));
 
@@ -132,6 +131,8 @@ PPPM::PPPM(LAMMPS *lmp, int narg, char **arg) : KSpace(lmp, narg, arg),
   nmax = 0;
   part2grid = NULL;
 
+  mu_flag = 0;
+
   // define acons coefficients for estimation of kspace errors
   // see JCP 109, pg 7698 for derivation of coefficients
   // higher order coefficients may be computed if needed
@@ -165,8 +166,6 @@ PPPM::PPPM(LAMMPS *lmp, int narg, char **arg) : KSpace(lmp, narg, arg),
   acons[7][4] = 25091609.0 / 1560084480.0;
   acons[7][5] = 1755948832039.0 / 36229939200000.0;
   acons[7][6] = 4887769399.0 / 37838389248.0;
-
-  mu_flag = 1;
 }
 
 /* ----------------------------------------------------------------------
@@ -197,6 +196,8 @@ void PPPM::init()
   }
 
   // error check
+
+  mu_flag = atom->mu?1:0;
 
   triclinic_check();
   if (domain->triclinic && differentiation_flag == 1)
@@ -284,6 +285,8 @@ void PPPM::init()
   scale = 1.0;
   qqrd2e = force->qqrd2e;
   qsum_qsq();
+  if (mu_flag)
+    musum_musq();
   natoms_original = atom->natoms;
 
   // set accuracy (force units) from accuracy_relative or accuracy_absolute
@@ -647,12 +650,13 @@ void PPPM::compute(int eflag, int vflag)
 
   if (atom->natoms != natoms_original) {
     qsum_qsq();
+    musum_musq();
     natoms_original = atom->natoms;
   }
 
-  // return if there are no charges
+  // return if there are no charges or dipoles
 
-  if (qsqsum == 0.0) return;
+  if (qsqsum == 0.0 && musqsum == 0.0) return;
 
   // convert atoms from box to lamda coords
 
@@ -686,12 +690,19 @@ void PPPM::compute(int eflag, int vflag)
   cg->reverse_comm(this,REVERSE_RHO);
   brick2fft();
 
+  if (mu_flag) {
+    cg->reverse_comm(this,REVERSE_MU);
+  	brick2fft_dipole();
+  }
+
   // compute potential gradient on my FFT grid and
   //   portion of e_long on this proc's FFT grid
   // return gradients (electric fields) in 3d brick decomposition
   // also performs per-atom calculations via poisson_peratom()
 
   poisson();
+  if (mu_flag)
+  	poisson_ik_dipole();
 
   // all procs communicate E-field values
   // to fill ghost cells surrounding their 3d bricks
@@ -719,6 +730,7 @@ void PPPM::compute(int eflag, int vflag)
   // sum global energy across procs and add in volume-dependent term
 
   const double qscale = qqrd2e * scale;
+  const double g3 = g_ewald*g_ewald*g_ewald;
 
   if (eflag_global) {
     double energy_all;
@@ -728,6 +740,8 @@ void PPPM::compute(int eflag, int vflag)
     energy *= 0.5*volume;
     energy -= g_ewald*qsqsum/MY_PIS +
       MY_PI2*qsum*qsum / (g_ewald*g_ewald*volume);
+    //if (mu_flag)
+    //    energy -= musqsum*qqrd2e*2.0*g3/3.0/MY_PIS;
     energy *= qscale;
   }
 
@@ -794,9 +808,9 @@ void PPPM::allocate()
 
   memory->create(density_fft,nfft_both,"pppm:density_fft");
   if (mu_flag) {
-    memory->create(density_fft,nfft_both,"pppm:density_fft_mu1");
-    memory->create(density_fft,nfft_both,"pppm:density_fft_mu1");
-    memory->create(density_fft,nfft_both,"pppm:density_fft_mu2");
+    memory->create(density_fft_mu0,nfft_both,"pppm:density_fft_mu1");
+    memory->create(density_fft_mu1,nfft_both,"pppm:density_fft_mu1");
+    memory->create(density_fft_mu2,nfft_both,"pppm:density_fft_mu2");
   }
   memory->create(greensfn,nfft_both,"pppm:greensfn");
   memory->create(work1,2*nfft_both,"pppm:work1");
@@ -2253,9 +2267,10 @@ void PPPM::brick2fft_dipole()
   for (iz = nzlo_in; iz <= nzhi_in; iz++)
     for (iy = nylo_in; iy <= nyhi_in; iy++)
       for (ix = nxlo_in; ix <= nxhi_in; ix++) {
-        density_fft_mu0[n++] = density_brick_mu0[iz][iy][ix];
-        density_fft_mu1[n++] = density_brick_mu1[iz][iy][ix];
-        density_fft_mu2[n++] = density_brick_mu2[iz][iy][ix];
+        density_fft_mu0[n] = density_brick_mu0[iz][iy][ix];
+        density_fft_mu1[n] = density_brick_mu1[iz][iy][ix];
+        density_fft_mu2[n] = density_brick_mu2[iz][iy][ix];
+        n++;
       }
 
   remap->perform(density_fft_mu0,density_fft_mu0,work1);
@@ -2418,12 +2433,13 @@ void PPPM::poisson_ik_dipole()
 
   n = 0;
   for (i = 0; i < nfft; i++) {
-    work1[n++] = density_fft_mu0[i];
-    work1[n++] = ZEROF;
-    work2[n++] = density_fft_mu1[i];
-    work2[n++] = ZEROF;
-    work3[n++] = density_fft_mu2[i];
-    work3[n++] = ZEROF;
+    work1[n] = density_fft_mu0[i];
+    work1[n+1] = ZEROF;
+    work2[n] = density_fft_mu1[i];
+    work2[n+1] = ZEROF;
+    work3[n] = density_fft_mu2[i];
+    work3[n+1] = ZEROF;
+    n += 2;
   }
 
   fft1->compute(work1,work1,1);
@@ -2444,26 +2460,30 @@ void PPPM::poisson_ik_dipole()
           for (i = nxlo_fft; i <= nxhi_fft; i++) {
             wreal = (work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
             wimg = (work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
-            eng = s2 * greensfn[ii] * (wreal*wreal + wimg*wimg);
-            for (j = 0; j < 6; j++) virial[j] += eng*vg[ii][j];
+            eng = s2 * greensfn[ii] * (wreal+wimg)*(wreal+wimg);
+            for (int jj = 0; jj < 6; jj++) virial[jj] += eng*vg[ii][jj];
             if (eflag_global) energy += eng;
             ii++;
             n += 2;
           }
     } else {
       n = 0;
-      for (i = 0; i < nfft; i++) {
-        energy +=
-        s2 * greensfn[i] * (work1[n]*work1[n] + work1[n+1]*work1[n+1]);
-        n += 2;
-      }
+      for (k = nzlo_fft; k <= nzhi_fft; k++)
+        for (j = nylo_fft; j <= nyhi_fft; j++)
+          for (i = nxlo_fft; i <= nxhi_fft; i++) {
+            wreal = (work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+            wimg = (work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+            energy +=
+            s2 * greensfn[i] * (wreal*wreal + wimg*wimg);
+            n += 2;
+          }
     }
   }
 
   // scale by 1/total-grid-pts to get rho(k)
   // multiply by Green's function to get V(k)
 
-  n = 0;
+  /*n = 0;
   for (i = 0; i < nfft; i++) {
     work1[n++] *= scaleinv * greensfn[i];
     work1[n++] *= scaleinv * greensfn[i];
@@ -2545,7 +2565,7 @@ void PPPM::poisson_ik_dipole()
       for (i = nxlo_in; i <= nxhi_in; i++) {
         vdz_brick[k][j][i] = work2[n];
         n += 2;
-      }
+      }*/
 }
 
 /* ----------------------------------------------------------------------
@@ -3231,10 +3251,20 @@ void PPPM::unpack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
 
 void PPPM::pack_reverse(int flag, FFT_SCALAR *buf, int nlist, int *list)
 {
+  int n = 0;
   if (flag == REVERSE_RHO) {
     FFT_SCALAR *src = &density_brick[nzlo_out][nylo_out][nxlo_out];
     for (int i = 0; i < nlist; i++)
-      buf[i] = src[list[i]];
+      buf[n++] = src[list[i]];
+  } else if (flag == REVERSE_MU) {
+    FFT_SCALAR *src_mu0 = &density_brick_mu0[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_mu1 = &density_brick_mu1[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_mu2 = &density_brick_mu2[nzlo_out][nylo_out][nxlo_out];
+    for (int i = 0; i < nlist; i++) {
+      buf[n++] = src_mu0[list[i]];
+      buf[n++] = src_mu1[list[i]];
+      buf[n++] = src_mu2[list[i]];
+    }
   }
 }
 
@@ -4107,3 +4137,42 @@ double EwaldDisp::derivf(double x, double Rc,
   double h = 0.000001;  //Derivative step-size
   return (f(x + h,Rc,natoms,vol,b2) - f(x,Rc,natoms,vol,b2)) / h;
 }*/
+
+/* ----------------------------------------------------------------------
+   compute qsum,qsqsum,q2 and give error/warning if not charge neutral
+   called initially, when particle count changes, when charges are changed
+------------------------------------------------------------------------- */
+
+void PPPM::musum_musq()
+{
+  double** mu = atom->mu;
+  const int nlocal = atom->nlocal;
+  double musum_local(0.0), musqsum_local(0.0);
+
+  for (int i = 0; i < nlocal; i++) {
+    musum_local += mu[i][0] + mu[i][1] + mu[i][2];
+    musqsum_local += mu[i][0]*mu[i][0] + mu[i][1]*mu[i][1] + mu[i][2]*mu[i][2];
+  }
+
+  MPI_Allreduce(&musum_local,&musum,1,MPI_DOUBLE,MPI_SUM,world);
+  MPI_Allreduce(&musqsum_local,&musqsum,1,MPI_DOUBLE,MPI_SUM,world);
+
+  /*
+  if ((qsqsum == 0.0) && (comm->me == 0) && warn_nocharge) {
+    error->warning(FLERR,"Using kspace solver on system with no charge");
+    warn_nocharge = 0;
+  }*/
+
+  mu2 = musqsum * force->qqrd2e;
+
+  // not yet sure of the correction needed for non-neutral systems
+  // so issue warning or error
+  /*
+  if (fabs(qsum) > SMALL) {
+    char str[128];
+    sprintf(str,"System is not charge neutral, net charge = %g",qsum);
+    if (!warn_nonneutral) error->all(FLERR,str);
+    if (warn_nonneutral == 1 && comm->me == 0) error->warning(FLERR,str);
+    warn_nonneutral = 2;
+  }*/
+}
