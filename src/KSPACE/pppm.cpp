@@ -740,8 +740,8 @@ void PPPM::compute(int eflag, int vflag)
     energy *= 0.5*volume;
     energy -= g_ewald*qsqsum/MY_PIS +
       MY_PI2*qsum*qsum / (g_ewald*g_ewald*volume);
-    //if (mu_flag)
-    //    energy -= musqsum*qqrd2e*2.0*g3/3.0/MY_PIS;
+    if (mu_flag)
+      energy -= musqsum*qqrd2e*2.0*g3/3.0/MY_PIS;
     energy *= qscale;
   }
 
@@ -2460,7 +2460,8 @@ void PPPM::poisson_ik_dipole()
           for (i = nxlo_fft; i <= nxhi_fft; i++) {
             wreal = (work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
             wimg = (work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
-            eng = s2 * greensfn[ii] * (wreal+wimg)*(wreal+wimg);
+            eng = s2 * greensfn[ii] * (wreal*wreal + wimg*wimg);
+            //eng = s2 * greensfn[ii] * (wreal+wimg)*(wreal+wimg);
             for (int jj = 0; jj < 6; jj++) virial[jj] += eng*vg[ii][jj];
             if (eflag_global) energy += eng;
             ii++;
@@ -3274,10 +3275,20 @@ void PPPM::pack_reverse(int flag, FFT_SCALAR *buf, int nlist, int *list)
 
 void PPPM::unpack_reverse(int flag, FFT_SCALAR *buf, int nlist, int *list)
 {
+  int n = 0;
   if (flag == REVERSE_RHO) {
     FFT_SCALAR *dest = &density_brick[nzlo_out][nylo_out][nxlo_out];
     for (int i = 0; i < nlist; i++)
-      dest[list[i]] += buf[i];
+      dest[list[i]] += buf[n++];
+  } else if (flag == REVERSE_MU) {
+    FFT_SCALAR *dest_mu0 = &density_brick_mu0[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_mu1 = &density_brick_mu1[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_mu2 = &density_brick_mu2[nzlo_out][nylo_out][nxlo_out];
+    for (int i = 0; i < nlist; i++) {
+      dest_mu0[list[i]] += buf[n++];
+      dest_mu1[list[i]] += buf[n++];
+      dest_mu2[list[i]] += buf[n++];
+    }
   }
 }
 
@@ -4176,3 +4187,4 @@ void PPPM::musum_musq()
     warn_nonneutral = 2;
   }*/
 }
+
