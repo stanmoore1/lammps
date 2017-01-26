@@ -748,6 +748,8 @@ void PPPM::compute(int eflag, int vflag)
 
   if (evflag_atom) fieldforce_peratom();
 
+  if (evflag_atom && mu_flag) fieldforce_peratom_dipole();
+
   // sum global energy across procs and add in volume-dependent term
 
   const double qscale = qqrd2e * scale;
@@ -780,6 +782,7 @@ void PPPM::compute(int eflag, int vflag)
 
   if (evflag_atom) {
     double *q = atom->q;
+    double **mu = atom->mu;
     int nlocal = atom->nlocal;
     int ntotal = nlocal;
     if (tip4pflag) ntotal += atom->nghost;
@@ -789,6 +792,10 @@ void PPPM::compute(int eflag, int vflag)
         eatom[i] *= 0.5;
         eatom[i] -= g_ewald*q[i]*q[i]/MY_PIS + MY_PI2*q[i]*qsum /
           (g_ewald*g_ewald*volume);
+
+      if (mu_flag)
+        eatom[i] -= (mu[i][0]*mu[i][0] + mu[i][1]*mu[i][1] + mu[i][2]*mu[i][2])*qqrd2e*2.0*g3/3.0/MY_PIS;
+
         eatom[i] *= qscale;
       }
       for (i = nlocal; i < ntotal; i++) eatom[i] *= 0.5*qscale;
@@ -2686,6 +2693,27 @@ void PPPM::poisson_ik_dipole()
         n += 2;
       }
 
+  // Vxz
+
+  n = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = fkx[i]*fkz[k]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        work4[n+1] = -fkx[i]*fkz[k]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        n += 2;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        vdx_brick_mu2[k][j][i] = work4[n];
+        n += 2;
+      }
+
   // Vyz
 
   n = 0;
@@ -3072,7 +3100,6 @@ void PPPM::fieldforce_ik_dipole()
   // (nx,ny,nz) = global coords of grid pt to "lower left" of charge
   // (dx,dy,dz) = distance to "lower left" grid pt
   // (mx,my,mz) = global coords of moving stencil pt
-  // ek = 3 components of E-field on particle
 
 
   double **mu = atom->mu;
@@ -3103,15 +3130,15 @@ void PPPM::fieldforce_ik_dipole()
         for (l = nlower; l <= nupper; l++) {
           mx = l+nx;
           x0 = y0*rho1d[0][l];
-          ex += x0*u_brick_mu0[mz][my][mx];
-          ey += x0*u_brick_mu1[mz][my][mx];
-          ez += x0*u_brick_mu2[mz][my][mx];
-          vxx += x0*vdx_brick_mu0[mz][my][mx];
-          vyy += x0*vdy_brick_mu1[mz][my][mx];
-          vzz += x0*vdz_brick_mu2[mz][my][mx];
-          vxy += x0*vdx_brick_mu1[mz][my][mx];
-          vxz += x0*vdx_brick_mu2[mz][my][mx];
-          vyz += x0*vdy_brick_mu2[mz][my][mx];
+          ex -= x0*u_brick_mu0[mz][my][mx];
+          ey -= x0*u_brick_mu1[mz][my][mx];
+          ez -= x0*u_brick_mu2[mz][my][mx];
+          vxx -= x0*vdx_brick_mu0[mz][my][mx];
+          vyy -= x0*vdy_brick_mu1[mz][my][mx];
+          vzz -= x0*vdz_brick_mu2[mz][my][mx];
+          vxy -= x0*vdx_brick_mu1[mz][my][mx];
+          vxz -= x0*vdx_brick_mu2[mz][my][mx];
+          vyz -= x0*vdy_brick_mu2[mz][my][mx];
         }
       }
     }
@@ -3123,9 +3150,9 @@ void PPPM::fieldforce_ik_dipole()
     f[i][1] += mufactor*(vxy*mu[i][0] + vyy*mu[i][1] + vyz*mu[i][2]);
     f[i][2] += mufactor*(vxz*mu[i][0] + vyz*mu[i][1] + vzz*mu[i][2]);
 
-    t[i][0] += -mufactor*(mu[i][1]*ez - mu[i][2]*ey);
-    t[i][1] += -mufactor*(mu[i][2]*ex - mu[i][0]*ez);
-    t[i][2] += -mufactor*(mu[i][0]*ey - mu[i][1]*ex);
+    t[i][0] += mufactor*(mu[i][1]*ez - mu[i][2]*ey);
+    t[i][1] += mufactor*(mu[i][2]*ex - mu[i][0]*ez);
+    t[i][2] += mufactor*(mu[i][0]*ey - mu[i][1]*ex);
   }
 }
 
@@ -3278,6 +3305,77 @@ void PPPM::fieldforce_peratom()
       vatom[i][4] += q[i]*v4;
       vatom[i][5] += q[i]*v5;
     }
+  }
+}
+
+/* ----------------------------------------------------------------------
+   interpolate from grid to get per-atom energy/virial
+------------------------------------------------------------------------- */
+
+void PPPM::fieldforce_peratom_dipole()
+{
+  int i,l,m,n,nx,ny,nz,mx,my,mz;
+  FFT_SCALAR dx,dy,dz,x0,y0,z0;
+  FFT_SCALAR ux,uy,uz;
+  FFT_SCALAR v0,v1,v2,v3,v4,v5;
+
+  // loop over my charges, interpolate from nearby grid points
+  // (nx,ny,nz) = global coords of grid pt to "lower left" of charge
+  // (dx,dy,dz) = distance to "lower left" grid pt
+  // (mx,my,mz) = global coords of moving stencil pt
+
+  double **mu = atom->mu;
+  double **x = atom->x;
+
+  int nlocal = atom->nlocal;
+
+  for (i = 0; i < nlocal; i++) {
+    nx = part2grid[i][0];
+    ny = part2grid[i][1];
+    nz = part2grid[i][2];
+    dx = nx+shiftone - (x[i][0]-boxlo[0])*delxinv;
+    dy = ny+shiftone - (x[i][1]-boxlo[1])*delyinv;
+    dz = nz+shiftone - (x[i][2]-boxlo[2])*delzinv;
+
+    compute_rho1d(dx,dy,dz);
+
+    ux = uy = uz = ZEROF; 
+    v0 = v1 = v2 = v3 = v4 = v5 = ZEROF;
+    for (n = nlower; n <= nupper; n++) {
+      mz = n+nz;
+      z0 = rho1d[2][n];
+      for (m = nlower; m <= nupper; m++) {
+        my = m+ny;
+        y0 = z0*rho1d[1][m];
+        for (l = nlower; l <= nupper; l++) {
+          mx = l+nx;
+          x0 = y0*rho1d[0][l];
+          if (eflag_atom) {
+            ux += x0*u_brick_mu0[mz][my][mx];
+            uy += x0*u_brick_mu1[mz][my][mx];
+            uz += x0*u_brick_mu2[mz][my][mx];
+          }
+          if (vflag_atom) {
+            v0 += x0*v0_brick[mz][my][mx];
+            v1 += x0*v1_brick[mz][my][mx];
+            v2 += x0*v2_brick[mz][my][mx];
+            v3 += x0*v3_brick[mz][my][mx];
+            v4 += x0*v4_brick[mz][my][mx];
+            v5 += x0*v5_brick[mz][my][mx];
+          }
+        }
+      }
+    }
+
+    if (eflag_atom) eatom[i] += mu[i][0]*ux + mu[i][1]*uy + mu[i][2]*uz;
+    /*if (vflag_atom) {
+      vatom[i][0] += q[i]*v0;
+      vatom[i][1] += q[i]*v1;
+      vatom[i][2] += q[i]*v2;
+      vatom[i][3] += q[i]*v3;
+      vatom[i][4] += q[i]*v4;
+      vatom[i][5] += q[i]*v5;
+    }*/
   }
 }
 
