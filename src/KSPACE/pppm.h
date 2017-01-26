@@ -107,6 +107,7 @@ class PPPM : public KSpace {
   class FFT3d *fft1,*fft2;
   class Remap *remap;
   class GridComm *cg;
+  class GridComm *cg_mu;
   class GridComm *cg_peratom;
 
   int **part2grid;             // storage for particle -> grid mapping

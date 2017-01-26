@@ -53,7 +53,7 @@ using namespace MathSpecial;
 #define EPS_HOC 1.0e-7
 
 enum{REVERSE_RHO,REVERSE_MU};
-enum{FORWARD_IK,FORWARD_MU,FORWARD_AD,FORWARD_IK_MU,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM};
+enum{FORWARD_IK,FORWARD_MU,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM};
 
 #ifdef FFT_SINGLE
 #define ZEROF 0.0f
@@ -126,6 +126,7 @@ PPPM::PPPM(LAMMPS *lmp, int narg, char **arg) : KSpace(lmp, narg, arg),
   fft1 = fft2 = NULL;
   remap = NULL;
   cg = NULL;
+  cg_mu = NULL;
   cg_peratom = NULL;
 
   nmax = 0;
@@ -395,6 +396,11 @@ void PPPM::init()
   cg->ghost_notify();
   cg->setup();
 
+  if (mu_flag) {
+    cg_mu->ghost_notify();
+    cg_mu->setup();
+  }
+
   // pre-compute Green's function denomiator expansion
   // pre-compute 1d charge distribution coefficients
 
@@ -613,6 +619,14 @@ void PPPM::setup_grid()
                "beyond nearest neighbor processor");
   cg->setup();
 
+  if (mu_flag) {
+    cg_mu->ghost_notify();
+    if (overlap_allowed == 0 && cg_mu->ghost_overlap())
+      error->all(FLERR,"PPPM grid stencil extends "
+                 "beyond nearest neighbor processor");
+    cg_mu->setup();
+}
+
   // pre-compute Green's function denomiator expansion
   // pre-compute 1d charge distribution coefficients
 
@@ -691,7 +705,7 @@ void PPPM::compute(int eflag, int vflag)
   brick2fft();
 
   if (mu_flag) {
-    cg->reverse_comm(this,REVERSE_MU);
+    cg_mu->reverse_comm(this,REVERSE_MU);
   	brick2fft_dipole();
   }
 
@@ -701,6 +715,7 @@ void PPPM::compute(int eflag, int vflag)
   // also performs per-atom calculations via poisson_peratom()
 
   poisson();
+
   if (mu_flag)
     poisson_ik_dipole();
 
@@ -710,6 +725,9 @@ void PPPM::compute(int eflag, int vflag)
   if (differentiation_flag == 1) cg->forward_comm(this,FORWARD_AD);
   else cg->forward_comm(this,FORWARD_IK);
 
+  if (mu_flag)
+    cg_mu->forward_comm(this,FORWARD_MU);
+
   // extra per-atom energy/virial communication
 
   if (evflag_atom) {
@@ -718,9 +736,6 @@ void PPPM::compute(int eflag, int vflag)
     else if (differentiation_flag == 0)
       cg_peratom->forward_comm(this,FORWARD_IK_PERATOM);
   }
-
-  if (mu_flag)
-    cg->forward_comm(this,FORWARD_IK_MU);
 
   // calculate the force on my particles
 
@@ -935,6 +950,13 @@ void PPPM::allocate()
                       nxlo_out,nxhi_out,nylo_out,nyhi_out,nzlo_out,nzhi_out,
                       procneigh[0][0],procneigh[0][1],procneigh[1][0],
                       procneigh[1][1],procneigh[2][0],procneigh[2][1]);
+
+  if (mu_flag)
+    cg_mu = new GridComm(lmp,world,9,3,
+                         nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
+                         nxlo_out,nxhi_out,nylo_out,nyhi_out,nzlo_out,nzhi_out,
+                         procneigh[0][0],procneigh[0][1],procneigh[1][0],
+                         procneigh[1][1],procneigh[2][0],procneigh[2][1]);
 }
 
 /* ----------------------------------------------------------------------
@@ -1019,6 +1041,9 @@ void PPPM::deallocate()
   delete fft2;
   delete remap;
   delete cg;
+
+  if (mu_flag)
+    delete cg_mu;
 }
 
 /* ----------------------------------------------------------------------
@@ -2546,7 +2571,7 @@ void PPPM::poisson_ik_dipole()
         n += 2;
       }
 
-  fft2->compute(work2,work2,-1);
+  fft2->compute(work4,work4,-1);
 
   n = 0;
   for (k = nzlo_in; k <= nzhi_in; k++)
@@ -2583,8 +2608,8 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_fft; k <= nzhi_fft; k++)
     for (j = nylo_fft; j <= nyhi_fft; j++)
       for (i = nxlo_fft; i <= nxhi_fft; i++) {
-        work4[n] = -fkx[i]*fkx[i]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
-        work4[n+1] = fkx[i]*fkx[i]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n] = fkx[i]*fkx[i]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        work4[n+1] = -fkx[i]*fkx[i]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
         n += 2;
       }
 
@@ -2604,8 +2629,8 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_fft; k <= nzhi_fft; k++)
     for (j = nylo_fft; j <= nyhi_fft; j++)
       for (i = nxlo_fft; i <= nxhi_fft; i++) {
-        work4[n] = -fky[j]*fky[j]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
-        work4[n+1] = fky[j]*fky[j]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n] = fky[j]*fky[j]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        work4[n+1] = -fky[j]*fky[j]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
         n += 2;
       }
 
@@ -2625,8 +2650,8 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_fft; k <= nzhi_fft; k++)
     for (j = nylo_fft; j <= nyhi_fft; j++)
       for (i = nxlo_fft; i <= nxhi_fft; i++) {
-        work4[n] = -fkz[k]*fkz[k]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
-        work4[n+1] = fkz[k]*fkz[k]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n] = fkz[k]*fkz[k]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        work4[n+1] = -fkz[k]*fkz[k]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
         n += 2;
       }
 
@@ -2646,8 +2671,8 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_fft; k <= nzhi_fft; k++)
     for (j = nylo_fft; j <= nyhi_fft; j++)
       for (i = nxlo_fft; i <= nxhi_fft; i++) {
-        work4[n] = -fkx[i]*fky[j]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
-        work4[n+1] = fkx[i]*fky[j]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n] = fkx[i]*fky[j]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        work4[n+1] = -fkx[i]*fky[j]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
         n += 2;
       }
 
@@ -2667,8 +2692,8 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_fft; k <= nzhi_fft; k++)
     for (j = nylo_fft; j <= nyhi_fft; j++)
       for (i = nxlo_fft; i <= nxhi_fft; i++) {
-        work4[n] = -fky[j]*fkz[k]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
-        work4[n+1] = fky[j]*fkz[k]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n] = fky[j]*fkz[k]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        work4[n+1] = -fky[j]*fkz[k]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
         n += 2;
       }
 
@@ -3098,9 +3123,9 @@ void PPPM::fieldforce_ik_dipole()
     f[i][1] += mufactor*(vxy*mu[i][0] + vyy*mu[i][1] + vyz*mu[i][2]);
     f[i][2] += mufactor*(vxz*mu[i][0] + vyz*mu[i][1] + vzz*mu[i][2]);
 
-    t[i][0] += mufactor*(mu[i][1]*ez - mu[i][2]*ey);
-    t[i][1] += mufactor*(mu[i][2]*ex - mu[i][0]*ez);
-    t[i][2] += mufactor*(mu[i][0]*ey - mu[i][1]*ex);
+    t[i][0] += -mufactor*(mu[i][1]*ez - mu[i][2]*ey);
+    t[i][1] += -mufactor*(mu[i][2]*ex - mu[i][0]*ez);
+    t[i][2] += -mufactor*(mu[i][0]*ey - mu[i][1]*ex);
   }
 }
 
@@ -3361,7 +3386,7 @@ void PPPM::unpack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
     FFT_SCALAR *dest_vzz = &vdz_brick_mu2[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *dest_vxy = &vdx_brick_mu1[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *dest_vxz = &vdx_brick_mu2[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *dest_vyz = &vdz_brick_mu2[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_vyz = &vdy_brick_mu2[nzlo_out][nylo_out][nxlo_out];
     for (int i = 0; i < nlist; i++) {
       dest_ux[list[i]] = buf[n++];
       dest_uy[list[i]] = buf[n++];
@@ -3800,6 +3825,9 @@ double PPPM::memory_usage()
   }
 
   bytes += cg->memory_usage();
+
+  if (mu_flag)
+    bytes += cg_mu->memory_usage();
 
   return bytes;
 }
