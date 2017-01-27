@@ -68,27 +68,26 @@ class PPPM : public KSpace {
   int ngrid,nfft,nfft_both;
 
   FFT_SCALAR ***density_brick;
-  FFT_SCALAR ***density_brick_mu0,***density_brick_mu1,***density_brick_mu2;
+  FFT_SCALAR ***densityx_brick_dipole,***densityy_brick_dipole,***densityz_brick_dipole;
   FFT_SCALAR ***vdx_brick,***vdy_brick,***vdz_brick;
-  FFT_SCALAR ***vdx_brick_mu0,***vdy_brick_mu0,***vdz_brick_mu0;
-  FFT_SCALAR ***vdx_brick_mu1,***vdy_brick_mu1,***vdz_brick_mu1;
-  FFT_SCALAR ***vdx_brick_mu2,***vdy_brick_mu2,***vdz_brick_mu2;
+  FFT_SCALAR ***vdxx_brick_dipole,***vdyy_brick_dipole,***vdzz_brick_dipole;
+  FFT_SCALAR ***vdxy_brick_dipole,***vdxz_brick_dipole,***vdyz_brick_dipole;
   FFT_SCALAR ***u_brick;
-  FFT_SCALAR ***u_brick_mu0,***u_brick_mu1,***u_brick_mu2;
+  FFT_SCALAR ***ux_brick_dipole,***uy_brick_dipole,***uz_brick_dipole;
   FFT_SCALAR ***v0_brick,***v1_brick,***v2_brick;
   FFT_SCALAR ***v3_brick,***v4_brick,***v5_brick;
-  FFT_SCALAR ***v0_brick_mu0,***v1_brick_mu0,***v2_brick_mu0;
-  FFT_SCALAR ***v3_brick_mu0,***v4_brick_mu0,***v5_brick_mu0;
-  FFT_SCALAR ***v0_brick_mu1,***v1_brick_mu1,***v2_brick_mu1;
-  FFT_SCALAR ***v3_brick_mu1,***v4_brick_mu1,***v5_brick_mu1;
-  FFT_SCALAR ***v0_brick_mu2,***v1_brick_mu2,***v2_brick_mu2;
-  FFT_SCALAR ***v3_brick_mu2,***v4_brick_mu2,***v5_brick_mu2;
+  FFT_SCALAR ***v0x_brick_dipole,***v1x_brick_dipole,***v2x_brick_dipole;
+  FFT_SCALAR ***v3x_brick_dipole,***v4x_brick_dipole,***v5x_brick_dipole;
+  FFT_SCALAR ***v0y_brick_dipole,***v1y_brick_dipole,***v2y_brick_dipole;
+  FFT_SCALAR ***v3y_brick_dipole,***v4y_brick_dipole,***v5y_brick_dipole;
+  FFT_SCALAR ***v0z_brick_dipole,***v1z_brick_dipole,***v2z_brick_dipole;
+  FFT_SCALAR ***v3z_brick_dipole,***v4z_brick_dipole,***v5z_brick_dipole;
 
   double *greensfn;
   double **vg;
   double *fkx,*fky,*fkz;
   FFT_SCALAR *density_fft;
-  FFT_SCALAR *density_fft_mu0,*density_fft_mu1,*density_fft_mu2;
+  FFT_SCALAR *densityx_fft_dipole,*densityy_fft_dipole,*densityz_fft_dipole;
   FFT_SCALAR *work1,*work2,*work3,*work4;
 
   double *gf_b;
@@ -109,6 +108,7 @@ class PPPM : public KSpace {
   class GridComm *cg;
   class GridComm *cg_mu;
   class GridComm *cg_peratom;
+  class GridComm *cg_peratom_mu;
 
   int **part2grid;             // storage for particle -> grid mapping
   int nmax;
@@ -182,6 +182,7 @@ class PPPM : public KSpace {
   void make_rho_dipole();
   void brick2fft_dipole();
   void poisson_ik_dipole();
+  void poisson_peratom_dipole();
   void fieldforce_ik_dipole();
   void fieldforce_peratom_dipole();
   void musum_musq();

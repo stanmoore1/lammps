@@ -53,7 +53,7 @@ using namespace MathSpecial;
 #define EPS_HOC 1.0e-7
 
 enum{REVERSE_RHO,REVERSE_MU};
-enum{FORWARD_IK,FORWARD_MU,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM};
+enum{FORWARD_IK,FORWARD_MU,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_MU_PERATOM,FORWARD_AD_PERATOM};
 
 #ifdef FFT_SINGLE
 #define ZEROF 0.0f
@@ -73,17 +73,17 @@ PPPM::PPPM(LAMMPS *lmp, int narg, char **arg) : KSpace(lmp, narg, arg),
   rho_coeff(NULL), drho1d(NULL), drho_coeff(NULL), sf_precoeff1(NULL), sf_precoeff2(NULL),
   sf_precoeff3(NULL), sf_precoeff4(NULL), sf_precoeff5(NULL), sf_precoeff6(NULL),
   acons(NULL), density_A_brick(NULL), density_B_brick(NULL), density_A_fft(NULL),
-  density_B_fft(NULL), fft1(NULL), fft2(NULL), remap(NULL), cg(NULL), cg_peratom(NULL),
-  part2grid(NULL), boxlo(NULL), density_brick_mu0(NULL), density_brick_mu1(NULL),
-  density_brick_mu2(NULL), u_brick_mu0(NULL), u_brick_mu1(NULL), u_brick_mu2(NULL),
-  vdx_brick_mu0(NULL), vdy_brick_mu0(NULL), vdz_brick_mu0(NULL), vdx_brick_mu1(NULL),
-  vdy_brick_mu1(NULL), vdz_brick_mu1(NULL), vdx_brick_mu2(NULL), vdy_brick_mu2(NULL),
-  vdz_brick_mu2(NULL), v0_brick_mu0(NULL), v1_brick_mu0(NULL), v2_brick_mu0(NULL),
-  v3_brick_mu0(NULL), v4_brick_mu0(NULL), v5_brick_mu0(NULL), v0_brick_mu1(NULL),
-  v1_brick_mu1(NULL), v2_brick_mu1(NULL), v3_brick_mu1(NULL), v4_brick_mu1(NULL),
-  v5_brick_mu1(NULL), v0_brick_mu2(NULL), v1_brick_mu2(NULL), v2_brick_mu2(NULL),
-  v3_brick_mu2(NULL), v4_brick_mu2(NULL), v5_brick_mu2(NULL), work3(NULL), work4(NULL),
-  density_fft_mu0(NULL), density_fft_mu1(NULL), density_fft_mu2(NULL)
+  density_B_fft(NULL), fft1(NULL), fft2(NULL), remap(NULL), cg(NULL), cg_peratom(NULL), cg_mu(NULL), cg_peratom_mu(NULL),
+  part2grid(NULL), boxlo(NULL), densityx_brick_dipole(NULL), densityy_brick_dipole(NULL),
+  densityz_brick_dipole(NULL), ux_brick_dipole(NULL), uy_brick_dipole(NULL), uz_brick_dipole(NULL),
+  vdxx_brick_dipole(NULL), vdxy_brick_dipole(NULL),  vdyy_brick_dipole(NULL), vdxz_brick_dipole(NULL), 
+  vdyz_brick_dipole(NULL),
+  vdzz_brick_dipole(NULL), v0x_brick_dipole(NULL), v1x_brick_dipole(NULL), v2x_brick_dipole(NULL),
+  v3x_brick_dipole(NULL), v4x_brick_dipole(NULL), v5x_brick_dipole(NULL), v0y_brick_dipole(NULL),
+  v1y_brick_dipole(NULL), v2y_brick_dipole(NULL), v3y_brick_dipole(NULL), v4y_brick_dipole(NULL),
+  v5y_brick_dipole(NULL), v0z_brick_dipole(NULL), v1z_brick_dipole(NULL), v2z_brick_dipole(NULL),
+  v3z_brick_dipole(NULL), v4z_brick_dipole(NULL), v5z_brick_dipole(NULL), work3(NULL), work4(NULL),
+  densityx_fft_dipole(NULL), densityy_fft_dipole(NULL), densityz_fft_dipole(NULL)
 {
   peratom_allocate_flag = 0;
   group_allocate_flag = 0;
@@ -128,6 +128,7 @@ PPPM::PPPM(LAMMPS *lmp, int narg, char **arg) : KSpace(lmp, narg, arg),
   cg = NULL;
   cg_mu = NULL;
   cg_peratom = NULL;
+  cg_peratom_mu = NULL;
 
   nmax = 0;
   part2grid = NULL;
@@ -658,6 +659,11 @@ void PPPM::compute(int eflag, int vflag)
     allocate_peratom();
     cg_peratom->ghost_notify();
     cg_peratom->setup();
+
+    if (mu_flag) {
+      cg_peratom_mu->ghost_notify();
+      cg_peratom_mu->setup();
+    }
   }
 
   // if atom count has changed, update qsum and qsqsum
@@ -735,6 +741,9 @@ void PPPM::compute(int eflag, int vflag)
       cg_peratom->forward_comm(this,FORWARD_AD_PERATOM);
     else if (differentiation_flag == 0)
       cg_peratom->forward_comm(this,FORWARD_IK_PERATOM);
+
+    if (mu_flag)
+      cg_peratom_mu->forward_comm(this,FORWARD_MU_PERATOM);
   }
 
   // calculate the force on my particles
@@ -826,19 +835,19 @@ void PPPM::allocate()
                           nxlo_out,nxhi_out,"pppm:density_brick");
 
   if (mu_flag) {
-    memory->create3d_offset(density_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:density_brick_mu0");
-    memory->create3d_offset(density_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:density_brick_mu1");
-    memory->create3d_offset(density_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:density_brick_mu2");
+    memory->create3d_offset(densityx_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:densityx_brick_dipole");
+    memory->create3d_offset(densityy_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:densityy_brick_dipole");
+    memory->create3d_offset(densityz_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:densityz_brick_dipole");
   }
 
   memory->create(density_fft,nfft_both,"pppm:density_fft");
   if (mu_flag) {
-    memory->create(density_fft_mu0,nfft_both,"pppm:density_fft_mu1");
-    memory->create(density_fft_mu1,nfft_both,"pppm:density_fft_mu1");
-    memory->create(density_fft_mu2,nfft_both,"pppm:density_fft_mu2");
+    memory->create(densityx_fft_dipole,nfft_both,"pppm:densityy_fft_dipole");
+    memory->create(densityy_fft_dipole,nfft_both,"pppm:densityy_fft_dipole");
+    memory->create(densityz_fft_dipole,nfft_both,"pppm:densityz_fft_dipole");
   }
   memory->create(greensfn,nfft_both,"pppm:greensfn");
   memory->create(work1,2*nfft_both,"pppm:work1");
@@ -880,33 +889,25 @@ void PPPM::allocate()
   }
 
   if (mu_flag) {
-    memory->create3d_offset(u_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:u_brick_mu0");
-    memory->create3d_offset(u_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:u_brick_mu1");
-    memory->create3d_offset(u_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:u_brick_mu2");
+    memory->create3d_offset(ux_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:ux_brick_dipole");
+    memory->create3d_offset(uy_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:uy_brick_dipole");
+    memory->create3d_offset(uz_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:uz_brick_dipole");
 
-    memory->create3d_offset(vdx_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:vdx_brick_mu0");
-    memory->create3d_offset(vdy_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:vdy_brick_mu0");
-    memory->create3d_offset(vdz_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:vdz_brick_mu0");
-
-    memory->create3d_offset(vdx_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:vdx_brick_mu1");
-    memory->create3d_offset(vdy_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:vdy_brick_mu1");
-    memory->create3d_offset(vdz_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:vdz_brick_mu1");
-
-    memory->create3d_offset(vdx_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:vdx_brick_mu2");
-    memory->create3d_offset(vdy_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:vdy_brick_mu2");
-    memory->create3d_offset(vdz_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:vdz_brick_mu2");
+    memory->create3d_offset(vdxx_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdxx_brick_dipole");
+    memory->create3d_offset(vdxy_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdxy_brick_dipole");
+    memory->create3d_offset(vdyy_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdyy_brick_dipole");
+    memory->create3d_offset(vdxz_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdxz_brick_dipole");
+    memory->create3d_offset(vdyz_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdyz_brick_dipole");
+    memory->create3d_offset(vdzz_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:vdzz_brick_dipole");
   }
 
   // summation coeffs
@@ -975,9 +976,9 @@ void PPPM::deallocate()
   memory->destroy3d_offset(density_brick,nzlo_out,nylo_out,nxlo_out);
 
   if (mu_flag) {
-    memory->destroy3d_offset(density_brick_mu0,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(density_brick_mu1,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(density_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(densityx_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(densityy_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(densityz_brick_dipole,nzlo_out,nylo_out,nxlo_out);
   }
 
   if (differentiation_flag == 1) {
@@ -995,28 +996,23 @@ void PPPM::deallocate()
   }
 
   if (mu_flag) {
-    memory->destroy3d_offset(u_brick_mu0,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(u_brick_mu1,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(u_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(ux_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(uy_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(uz_brick_dipole,nzlo_out,nylo_out,nxlo_out);
 
-    memory->destroy3d_offset(vdx_brick_mu0,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(vdy_brick_mu0,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(vdz_brick_mu0,nzlo_out,nylo_out,nxlo_out);
-
-    memory->destroy3d_offset(vdx_brick_mu1,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(vdy_brick_mu1,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(vdz_brick_mu1,nzlo_out,nylo_out,nxlo_out);
-
-    memory->destroy3d_offset(vdx_brick_mu2,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(vdy_brick_mu2,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(vdz_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(vdxx_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(vdxy_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(vdyy_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(vdxz_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(vdyz_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(vdzz_brick_dipole,nzlo_out,nylo_out,nxlo_out);
   }
 
   memory->destroy(density_fft);
   if (mu_flag) {
-    memory->destroy(density_fft_mu0);
-    memory->destroy(density_fft_mu1);
-    memory->destroy(density_fft_mu2);
+    memory->destroy(densityx_fft_dipole);
+    memory->destroy(densityy_fft_dipole);
+    memory->destroy(densityz_fft_dipole);
   }
   memory->destroy(greensfn);
   memory->destroy(work1);
@@ -1079,44 +1075,44 @@ void PPPM::allocate_peratom()
                           nxlo_out,nxhi_out,"pppm:v5_brick");
 
   if (mu_flag) {
-    memory->create3d_offset(v0_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v0_brick_mu0");
-    memory->create3d_offset(v1_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v1_brick_mu0");
-    memory->create3d_offset(v2_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v2_brick_mu0");
-    memory->create3d_offset(v3_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v3_brick_mu0");
-    memory->create3d_offset(v4_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v4_brick_mu0");
-    memory->create3d_offset(v5_brick_mu0,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v5_brick_mu0");
+    memory->create3d_offset(v0x_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v0x_brick_dipole");
+    memory->create3d_offset(v1x_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v1x_brick_dipole");
+    memory->create3d_offset(v2x_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v2x_brick_dipole");
+    memory->create3d_offset(v3x_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v3x_brick_dipole");
+    memory->create3d_offset(v4x_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v4x_brick_dipole");
+    memory->create3d_offset(v5x_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v5x_brick_dipole");
 
-    memory->create3d_offset(v0_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v0_brick_mu1");
-    memory->create3d_offset(v1_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v1_brick_mu1");
-    memory->create3d_offset(v2_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v2_brick_mu1");
-    memory->create3d_offset(v3_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v3_brick_mu1");
-    memory->create3d_offset(v4_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v4_brick_mu1");
-    memory->create3d_offset(v5_brick_mu1,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v5_brick_mu1");
+    memory->create3d_offset(v0y_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v0y_brick_dipole");
+    memory->create3d_offset(v1y_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v1y_brick_dipole");
+    memory->create3d_offset(v2y_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v2y_brick_dipole");
+    memory->create3d_offset(v3y_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v3y_brick_dipole");
+    memory->create3d_offset(v4y_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v4y_brick_dipole");
+    memory->create3d_offset(v5y_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v5y_brick_dipole");
 
-    memory->create3d_offset(v0_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v0_brick_mu2");
-    memory->create3d_offset(v1_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v1_brick_mu2");
-    memory->create3d_offset(v2_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v2_brick_mu2");
-    memory->create3d_offset(v3_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v3_brick_mu2");
-    memory->create3d_offset(v4_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v4_brick_mu2");
-    memory->create3d_offset(v5_brick_mu2,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-                            nxlo_out,nxhi_out,"pppm:v5_brick_mu2");
+    memory->create3d_offset(v0z_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v0z_brick_dipole");
+    memory->create3d_offset(v1z_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v1z_brick_dipole");
+    memory->create3d_offset(v2z_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v2z_brick_dipole");
+    memory->create3d_offset(v3z_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v3z_brick_dipole");
+    memory->create3d_offset(v4z_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v4z_brick_dipole");
+    memory->create3d_offset(v5z_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
+                            nxlo_out,nxhi_out,"pppm:v5z_brick_dipole");
   }
 
   // create ghost grid object for rho and electric field communication
@@ -1133,6 +1129,14 @@ void PPPM::allocate_peratom()
   else
     cg_peratom =
       new GridComm(lmp,world,7,1,
+                   nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
+                   nxlo_out,nxhi_out,nylo_out,nyhi_out,nzlo_out,nzhi_out,
+                   procneigh[0][0],procneigh[0][1],procneigh[1][0],
+                   procneigh[1][1],procneigh[2][0],procneigh[2][1]);
+
+  if (mu_flag)
+    cg_peratom_mu =
+      new GridComm(lmp,world,18,1,
                    nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
                    nxlo_out,nxhi_out,nylo_out,nyhi_out,nzlo_out,nzhi_out,
                    procneigh[0][0],procneigh[0][1],procneigh[1][0],
@@ -1155,32 +1159,35 @@ void PPPM::deallocate_peratom()
   memory->destroy3d_offset(v5_brick,nzlo_out,nylo_out,nxlo_out);
 
   if (mu_flag) {
-    memory->destroy3d_offset(v0_brick_mu0,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v1_brick_mu0,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v2_brick_mu0,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v3_brick_mu0,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v4_brick_mu0,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v5_brick_mu0,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v0x_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v1x_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v2x_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v3x_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v4x_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v5x_brick_dipole,nzlo_out,nylo_out,nxlo_out);
 
-    memory->destroy3d_offset(v0_brick_mu1,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v1_brick_mu1,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v2_brick_mu1,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v3_brick_mu1,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v4_brick_mu1,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v5_brick_mu1,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v0y_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v1y_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v2y_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v3y_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v4y_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v5y_brick_dipole,nzlo_out,nylo_out,nxlo_out);
 
-    memory->destroy3d_offset(v0_brick_mu2,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v1_brick_mu2,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v2_brick_mu2,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v3_brick_mu2,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v4_brick_mu2,nzlo_out,nylo_out,nxlo_out);
-    memory->destroy3d_offset(v5_brick_mu2,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v0z_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v1z_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v2z_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v3z_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v4z_brick_dipole,nzlo_out,nylo_out,nxlo_out);
+    memory->destroy3d_offset(v5z_brick_dipole,nzlo_out,nylo_out,nxlo_out);
   }
 
   if (differentiation_flag != 1)
     memory->destroy3d_offset(u_brick,nzlo_out,nylo_out,nxlo_out);
 
   delete cg_peratom;
+
+  if (mu_flag)
+    delete cg_peratom_mu;
 }
 
 /* ----------------------------------------------------------------------
@@ -2213,11 +2220,11 @@ void PPPM::make_rho_dipole()
 
   // clear 3d density array
 
-  memset(&(density_brick_mu0[nzlo_out][nylo_out][nxlo_out]),0,
+  memset(&(densityx_brick_dipole[nzlo_out][nylo_out][nxlo_out]),0,
          ngrid*sizeof(FFT_SCALAR));
-  memset(&(density_brick_mu1[nzlo_out][nylo_out][nxlo_out]),0,
+  memset(&(densityy_brick_dipole[nzlo_out][nylo_out][nxlo_out]),0,
          ngrid*sizeof(FFT_SCALAR));
-  memset(&(density_brick_mu2[nzlo_out][nylo_out][nxlo_out]),0,
+  memset(&(densityz_brick_dipole[nzlo_out][nylo_out][nxlo_out]),0,
          ngrid*sizeof(FFT_SCALAR));
 
   // loop over my charges, add their contribution to nearby grid points
@@ -2255,9 +2262,9 @@ void PPPM::make_rho_dipole()
         x2 = y2*rho1d[1][m];
         for (l = nlower; l <= nupper; l++) {
           mx = l+nx;
-          density_brick_mu0[mz][my][mx] += x0*rho1d[0][l];
-          density_brick_mu1[mz][my][mx] += x1*rho1d[0][l];
-          density_brick_mu2[mz][my][mx] += x2*rho1d[0][l];
+          densityx_brick_dipole[mz][my][mx] += x0*rho1d[0][l];
+          densityy_brick_dipole[mz][my][mx] += x1*rho1d[0][l];
+          densityz_brick_dipole[mz][my][mx] += x2*rho1d[0][l];
         }
       }
     }
@@ -2301,15 +2308,15 @@ void PPPM::brick2fft_dipole()
   for (iz = nzlo_in; iz <= nzhi_in; iz++)
     for (iy = nylo_in; iy <= nyhi_in; iy++)
       for (ix = nxlo_in; ix <= nxhi_in; ix++) {
-        density_fft_mu0[n] = density_brick_mu0[iz][iy][ix];
-        density_fft_mu1[n] = density_brick_mu1[iz][iy][ix];
-        density_fft_mu2[n] = density_brick_mu2[iz][iy][ix];
+        densityx_fft_dipole[n] = densityx_brick_dipole[iz][iy][ix];
+        densityy_fft_dipole[n] = densityy_brick_dipole[iz][iy][ix];
+        densityz_fft_dipole[n] = densityz_brick_dipole[iz][iy][ix];
         n++;
       }
 
-  remap->perform(density_fft_mu0,density_fft_mu0,work1);
-  remap->perform(density_fft_mu1,density_fft_mu1,work1);
-  remap->perform(density_fft_mu2,density_fft_mu2,work1);
+  remap->perform(densityx_fft_dipole,densityx_fft_dipole,work1);
+  remap->perform(densityy_fft_dipole,densityy_fft_dipole,work1);
+  remap->perform(densityz_fft_dipole,densityz_fft_dipole,work1);
 }
 
 /* ----------------------------------------------------------------------
@@ -2467,11 +2474,11 @@ void PPPM::poisson_ik_dipole()
 
   n = 0;
   for (i = 0; i < nfft; i++) {
-    work1[n] = density_fft_mu0[i];
+    work1[n] = densityx_fft_dipole[i];
     work1[n+1] = ZEROF;
-    work2[n] = density_fft_mu1[i];
+    work2[n] = densityy_fft_dipole[i];
     work2[n+1] = ZEROF;
-    work3[n] = density_fft_mu2[i];
+    work3[n] = densityz_fft_dipole[i];
     work3[n+1] = ZEROF;
     n += 2;
   }
@@ -2534,11 +2541,11 @@ void PPPM::poisson_ik_dipole()
 
   // extra FFTs for per-atom energy/virial
 
-  /*if (evflag_atom) poisson_peratom();
+  if (vflag_atom) poisson_peratom_dipole();
 
   // triclinic system
 
-  if (triclinic) {
+  /*if (triclinic) {
     poisson_ik_triclinic();
     return;
   }*/
@@ -2563,7 +2570,7 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_in; k <= nzhi_in; k++)
     for (j = nylo_in; j <= nyhi_in; j++)
       for (i = nxlo_in; i <= nxhi_in; i++) {
-        u_brick_mu0[k][j][i] = work4[n];
+        ux_brick_dipole[k][j][i] = work4[n];
         n += 2;
       }
 
@@ -2584,7 +2591,7 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_in; k <= nzhi_in; k++)
     for (j = nylo_in; j <= nyhi_in; j++)
       for (i = nxlo_in; i <= nxhi_in; i++) {
-        u_brick_mu1[k][j][i] = work4[n];
+        uy_brick_dipole[k][j][i] = work4[n];
         n += 2;
       }
 
@@ -2605,7 +2612,7 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_in; k <= nzhi_in; k++)
     for (j = nylo_in; j <= nyhi_in; j++)
       for (i = nxlo_in; i <= nxhi_in; i++) {
-        u_brick_mu2[k][j][i] = work4[n];
+        uz_brick_dipole[k][j][i] = work4[n];
         n += 2;
       }
 
@@ -2626,7 +2633,7 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_in; k <= nzhi_in; k++)
     for (j = nylo_in; j <= nyhi_in; j++)
       for (i = nxlo_in; i <= nxhi_in; i++) {
-        vdx_brick_mu0[k][j][i] = work4[n];
+        vdxx_brick_dipole[k][j][i] = work4[n];
         n += 2;
       }
 
@@ -2647,7 +2654,7 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_in; k <= nzhi_in; k++)
     for (j = nylo_in; j <= nyhi_in; j++)
       for (i = nxlo_in; i <= nxhi_in; i++) {
-        vdy_brick_mu1[k][j][i] = work4[n];
+        vdyy_brick_dipole[k][j][i] = work4[n];
         n += 2;
       }
 
@@ -2668,7 +2675,7 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_in; k <= nzhi_in; k++)
     for (j = nylo_in; j <= nyhi_in; j++)
       for (i = nxlo_in; i <= nxhi_in; i++) {
-        vdz_brick_mu2[k][j][i] = work4[n];
+        vdzz_brick_dipole[k][j][i] = work4[n];
         n += 2;
       }
 
@@ -2689,7 +2696,7 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_in; k <= nzhi_in; k++)
     for (j = nylo_in; j <= nyhi_in; j++)
       for (i = nxlo_in; i <= nxhi_in; i++) {
-        vdx_brick_mu1[k][j][i] = work4[n];
+        vdxy_brick_dipole[k][j][i] = work4[n];
         n += 2;
       }
 
@@ -2710,7 +2717,7 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_in; k <= nzhi_in; k++)
     for (j = nylo_in; j <= nyhi_in; j++)
       for (i = nxlo_in; i <= nxhi_in; i++) {
-        vdx_brick_mu2[k][j][i] = work4[n];
+        vdxz_brick_dipole[k][j][i] = work4[n];
         n += 2;
       }
 
@@ -2731,7 +2738,7 @@ void PPPM::poisson_ik_dipole()
   for (k = nzlo_in; k <= nzhi_in; k++)
     for (j = nylo_in; j <= nyhi_in; j++)
       for (i = nxlo_in; i <= nxhi_in; i++) {
-        vdy_brick_mu2[k][j][i] = work4[n];
+        vdyz_brick_dipole[k][j][i] = work4[n];
         n += 2;
       }
 }
@@ -3017,6 +3024,434 @@ void PPPM::poisson_peratom()
 }
 
 /* ----------------------------------------------------------------------
+   FFT-based Poisson solver for per-atom energy/virial
+------------------------------------------------------------------------- */
+
+void PPPM::poisson_peratom_dipole()
+{
+  int i,ii,j,k,n;
+
+  // 18 components of virial in v0 thru v5
+
+  if (!vflag_atom) return;
+
+  // V0x
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][0]*fkx[i]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][0]*fkx[i]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v0x_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V0y
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][0]*fky[j]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][0]*fky[j]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v0y_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V0z
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][0]*fkz[k]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][0]*fkz[k]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v0z_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V1x
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][1]*fkx[i]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][1]*fkx[i]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v1x_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V1y
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][1]*fky[j]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][1]*fky[j]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v1y_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V1z
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][1]*fkz[k]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][1]*fkz[k]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v1z_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V2x
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][2]*fkx[i]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][2]*fkx[i]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v2x_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V2y
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][2]*fky[j]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][2]*fky[j]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v2y_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V2z
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][2]*fkz[k]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][2]*fkz[k]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v2z_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V3x
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][3]*fkx[i]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][3]*fkx[i]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v3x_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V3y
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][3]*fky[j]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][3]*fky[j]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v3y_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V3z
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][3]*fkz[k]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][3]*fkz[k]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v3z_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V4x
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][4]*fkx[i]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][4]*fkx[i]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v4x_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V4y
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][4]*fky[j]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][4]*fky[j]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v4y_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V4z
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][4]*fkz[k]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][4]*fkz[k]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v4z_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V5x
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][5]*fkx[i]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][5]*fkx[i]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v5x_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V5y
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][5]*fky[j]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][5]*fky[j]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v5y_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+
+  // V5z
+
+  n = 0;
+  ii = 0;
+  for (k = nzlo_fft; k <= nzhi_fft; k++)
+    for (j = nylo_fft; j <= nyhi_fft; j++)
+      for (i = nxlo_fft; i <= nxhi_fft; i++) {
+        work4[n] = vg[ii][5]*fkz[k]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]);
+        work4[n+1] = vg[ii][5]*fkz[k]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]);
+        n += 2;
+        ii++;
+      }
+
+  fft2->compute(work4,work4,-1);
+
+  n = 0;
+  for (k = nzlo_in; k <= nzhi_in; k++)
+    for (j = nylo_in; j <= nyhi_in; j++)
+      for (i = nxlo_in; i <= nxhi_in; i++) {
+        v5z_brick_dipole[k][j][i] = work4[n];
+        n += 2;
+      }
+}
+
+
+/* ----------------------------------------------------------------------
    interpolate from grid to get electric field & force on my particles
 ------------------------------------------------------------------------- */
 
@@ -3130,15 +3565,15 @@ void PPPM::fieldforce_ik_dipole()
         for (l = nlower; l <= nupper; l++) {
           mx = l+nx;
           x0 = y0*rho1d[0][l];
-          ex -= x0*u_brick_mu0[mz][my][mx];
-          ey -= x0*u_brick_mu1[mz][my][mx];
-          ez -= x0*u_brick_mu2[mz][my][mx];
-          vxx -= x0*vdx_brick_mu0[mz][my][mx];
-          vyy -= x0*vdy_brick_mu1[mz][my][mx];
-          vzz -= x0*vdz_brick_mu2[mz][my][mx];
-          vxy -= x0*vdx_brick_mu1[mz][my][mx];
-          vxz -= x0*vdx_brick_mu2[mz][my][mx];
-          vyz -= x0*vdy_brick_mu2[mz][my][mx];
+          ex -= x0*ux_brick_dipole[mz][my][mx];
+          ey -= x0*uy_brick_dipole[mz][my][mx];
+          ez -= x0*uz_brick_dipole[mz][my][mx];
+          vxx -= x0*vdxx_brick_dipole[mz][my][mx];
+          vyy -= x0*vdyy_brick_dipole[mz][my][mx];
+          vzz -= x0*vdzz_brick_dipole[mz][my][mx];
+          vxy -= x0*vdxy_brick_dipole[mz][my][mx];
+          vxz -= x0*vdxz_brick_dipole[mz][my][mx];
+          vyz -= x0*vdyz_brick_dipole[mz][my][mx];
         }
       }
     }
@@ -3317,7 +3752,9 @@ void PPPM::fieldforce_peratom_dipole()
   int i,l,m,n,nx,ny,nz,mx,my,mz;
   FFT_SCALAR dx,dy,dz,x0,y0,z0;
   FFT_SCALAR ux,uy,uz;
-  FFT_SCALAR v0,v1,v2,v3,v4,v5;
+  FFT_SCALAR v0x,v1x,v2x,v3x,v4x,v5x;
+  FFT_SCALAR v0y,v1y,v2y,v3y,v4y,v5y;
+  FFT_SCALAR v0z,v1z,v2z,v3z,v4z,v5z;
 
   // loop over my charges, interpolate from nearby grid points
   // (nx,ny,nz) = global coords of grid pt to "lower left" of charge
@@ -3340,7 +3777,9 @@ void PPPM::fieldforce_peratom_dipole()
     compute_rho1d(dx,dy,dz);
 
     ux = uy = uz = ZEROF; 
-    v0 = v1 = v2 = v3 = v4 = v5 = ZEROF;
+    v0x = v1x = v2x = v3x = v4x = v5x = ZEROF;
+    v0y = v1y = v2y = v3y = v4y = v5y = ZEROF;
+    v0z = v1z = v2z = v3z = v4z = v5z = ZEROF;
     for (n = nlower; n <= nupper; n++) {
       mz = n+nz;
       z0 = rho1d[2][n];
@@ -3351,31 +3790,43 @@ void PPPM::fieldforce_peratom_dipole()
           mx = l+nx;
           x0 = y0*rho1d[0][l];
           if (eflag_atom) {
-            ux += x0*u_brick_mu0[mz][my][mx];
-            uy += x0*u_brick_mu1[mz][my][mx];
-            uz += x0*u_brick_mu2[mz][my][mx];
+            ux += x0*ux_brick_dipole[mz][my][mx];
+            uy += x0*uy_brick_dipole[mz][my][mx];
+            uz += x0*uz_brick_dipole[mz][my][mx];
           }
           if (vflag_atom) {
-            v0 += x0*v0_brick[mz][my][mx];
-            v1 += x0*v1_brick[mz][my][mx];
-            v2 += x0*v2_brick[mz][my][mx];
-            v3 += x0*v3_brick[mz][my][mx];
-            v4 += x0*v4_brick[mz][my][mx];
-            v5 += x0*v5_brick[mz][my][mx];
+            v0x += x0*v0x_brick_dipole[mz][my][mx];
+            v1x += x0*v1x_brick_dipole[mz][my][mx];
+            v2x += x0*v2x_brick_dipole[mz][my][mx];
+            v3x += x0*v3x_brick_dipole[mz][my][mx];
+            v4x += x0*v4x_brick_dipole[mz][my][mx];
+            v5x += x0*v5x_brick_dipole[mz][my][mx];
+            v0y += x0*v0y_brick_dipole[mz][my][mx];
+            v1y += x0*v1y_brick_dipole[mz][my][mx];
+            v2y += x0*v2y_brick_dipole[mz][my][mx];
+            v3y += x0*v3y_brick_dipole[mz][my][mx];
+            v4y += x0*v4y_brick_dipole[mz][my][mx];
+            v5y += x0*v5y_brick_dipole[mz][my][mx];
+            v0z += x0*v0z_brick_dipole[mz][my][mx];
+            v1z += x0*v1z_brick_dipole[mz][my][mx];
+            v2z += x0*v2z_brick_dipole[mz][my][mx];
+            v3z += x0*v3z_brick_dipole[mz][my][mx];
+            v4z += x0*v4z_brick_dipole[mz][my][mx];
+            v5z += x0*v5z_brick_dipole[mz][my][mx];
           }
         }
       }
     }
 
     if (eflag_atom) eatom[i] += mu[i][0]*ux + mu[i][1]*uy + mu[i][2]*uz;
-    /*if (vflag_atom) {
-      vatom[i][0] += q[i]*v0;
-      vatom[i][1] += q[i]*v1;
-      vatom[i][2] += q[i]*v2;
-      vatom[i][3] += q[i]*v3;
-      vatom[i][4] += q[i]*v4;
-      vatom[i][5] += q[i]*v5;
-    }*/
+    if (vflag_atom) {
+      vatom[i][0] += mu[i][0]*v0x + mu[i][1]*v0y + mu[i][2]*v0z;
+      vatom[i][1] += mu[i][0]*v1x + mu[i][1]*v1y + mu[i][2]*v1z;
+      vatom[i][2] += mu[i][0]*v2x + mu[i][1]*v2y + mu[i][2]*v2z;
+      vatom[i][3] += mu[i][0]*v3x + mu[i][1]*v3y + mu[i][2]*v3z;
+      vatom[i][4] += mu[i][0]*v4x + mu[i][1]*v4y + mu[i][2]*v4z;
+      vatom[i][5] += mu[i][0]*v5x + mu[i][1]*v5y + mu[i][2]*v5z;
+    }
   }
 }
 
@@ -3397,15 +3848,15 @@ void PPPM::pack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
       buf[n++] = zsrc[list[i]];
     }
   } else if (flag == FORWARD_MU) {
-    FFT_SCALAR *src_ux = &u_brick_mu0[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *src_uy = &u_brick_mu1[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *src_uz = &u_brick_mu2[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *src_vxx = &vdx_brick_mu0[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *src_vyy = &vdy_brick_mu1[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *src_vzz = &vdz_brick_mu2[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *src_vxy = &vdx_brick_mu1[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *src_vxz = &vdx_brick_mu2[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *src_vyz = &vdy_brick_mu2[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_ux = &ux_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_uy = &uy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_uz = &uz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_vxx = &vdxx_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_vyy = &vdyy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_vzz = &vdzz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_vxy = &vdxy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_vxz = &vdxz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_vyz = &vdyz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     for (int i = 0; i < nlist; i++) {
       buf[n++] = src_ux[list[i]];
       buf[n++] = src_uy[list[i]];
@@ -3439,6 +3890,45 @@ void PPPM::pack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
         buf[n++] = v4src[list[i]];
         buf[n++] = v5src[list[i]];
       }
+    }
+  } else if (flag == FORWARD_MU_PERATOM) {
+    FFT_SCALAR *v0xsrc = &v0x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v1xsrc = &v1x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v2xsrc = &v2x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v3xsrc = &v3x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v4xsrc = &v4x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v5xsrc = &v5x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v0ysrc = &v0y_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v1ysrc = &v1y_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v2ysrc = &v2y_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v3ysrc = &v3y_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v4ysrc = &v4y_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v5ysrc = &v5y_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v0zsrc = &v0z_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v1zsrc = &v1z_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v2zsrc = &v2z_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v3zsrc = &v3z_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v4zsrc = &v4z_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v5zsrc = &v5z_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    for (int i = 0; i < nlist; i++) {
+      buf[n++] = v0xsrc[list[i]];
+      buf[n++] = v1xsrc[list[i]];
+      buf[n++] = v2xsrc[list[i]];
+      buf[n++] = v3xsrc[list[i]];
+      buf[n++] = v4xsrc[list[i]];
+      buf[n++] = v5xsrc[list[i]];
+      buf[n++] = v0ysrc[list[i]];
+      buf[n++] = v1ysrc[list[i]];
+      buf[n++] = v2ysrc[list[i]];
+      buf[n++] = v3ysrc[list[i]];
+      buf[n++] = v4ysrc[list[i]];
+      buf[n++] = v5ysrc[list[i]];
+      buf[n++] = v0zsrc[list[i]];
+      buf[n++] = v1zsrc[list[i]];
+      buf[n++] = v2zsrc[list[i]];
+      buf[n++] = v3zsrc[list[i]];
+      buf[n++] = v4zsrc[list[i]];
+      buf[n++] = v5zsrc[list[i]];
     }
   } else if (flag == FORWARD_AD_PERATOM) {
     FFT_SCALAR *v0src = &v0_brick[nzlo_out][nylo_out][nxlo_out];
@@ -3476,15 +3966,15 @@ void PPPM::unpack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
       zdest[list[i]] = buf[n++];
     }
   } else if (flag == FORWARD_MU) {
-    FFT_SCALAR *dest_ux = &u_brick_mu0[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *dest_uy = &u_brick_mu1[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *dest_uz = &u_brick_mu2[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *dest_vxx = &vdx_brick_mu0[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *dest_vyy = &vdy_brick_mu1[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *dest_vzz = &vdz_brick_mu2[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *dest_vxy = &vdx_brick_mu1[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *dest_vxz = &vdx_brick_mu2[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *dest_vyz = &vdy_brick_mu2[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_ux = &ux_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_uy = &uy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_uz = &uz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_vxx = &vdxx_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_vyy = &vdyy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_vzz = &vdzz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_vxy = &vdxy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_vxz = &vdxz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_vyz = &vdyz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     for (int i = 0; i < nlist; i++) {
       dest_ux[list[i]] = buf[n++];
       dest_uy[list[i]] = buf[n++];
@@ -3534,6 +4024,45 @@ void PPPM::unpack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
       v4src[list[i]] = buf[n++];
       v5src[list[i]] = buf[n++];
     }
+  } else if (flag == FORWARD_MU_PERATOM) {
+    FFT_SCALAR *v0xsrc = &v0x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v1xsrc = &v1x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v2xsrc = &v2x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v3xsrc = &v3x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v4xsrc = &v4x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v5xsrc = &v5x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v0ysrc = &v0y_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v1ysrc = &v1y_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v2ysrc = &v2y_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v3ysrc = &v3y_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v4ysrc = &v4y_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v5ysrc = &v5y_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v0zsrc = &v0z_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v1zsrc = &v1z_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v2zsrc = &v2z_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v3zsrc = &v3z_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v4zsrc = &v4z_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *v5zsrc = &v5z_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    for (int i = 0; i < nlist; i++) {
+      v0xsrc[list[i]] = buf[n++];
+      v1xsrc[list[i]] = buf[n++];
+      v2xsrc[list[i]] = buf[n++];
+      v3xsrc[list[i]] = buf[n++];
+      v4xsrc[list[i]] = buf[n++];
+      v5xsrc[list[i]] = buf[n++];
+      v0ysrc[list[i]] = buf[n++];
+      v1ysrc[list[i]] = buf[n++];
+      v2ysrc[list[i]] = buf[n++];
+      v3ysrc[list[i]] = buf[n++];
+      v4ysrc[list[i]] = buf[n++];
+      v5ysrc[list[i]] = buf[n++];
+      v0zsrc[list[i]] = buf[n++];
+      v1zsrc[list[i]] = buf[n++];
+      v2zsrc[list[i]] = buf[n++];
+      v3zsrc[list[i]] = buf[n++];
+      v4zsrc[list[i]] = buf[n++];
+      v5zsrc[list[i]] = buf[n++];
+    }
   }
 }
 
@@ -3549,9 +4078,9 @@ void PPPM::pack_reverse(int flag, FFT_SCALAR *buf, int nlist, int *list)
     for (int i = 0; i < nlist; i++)
       buf[n++] = src[list[i]];
   } else if (flag == REVERSE_MU) {
-    FFT_SCALAR *src_mu0 = &density_brick_mu0[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *src_mu1 = &density_brick_mu1[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *src_mu2 = &density_brick_mu2[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_mu0 = &densityx_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_mu1 = &densityy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_mu2 = &densityz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     for (int i = 0; i < nlist; i++) {
       buf[n++] = src_mu0[list[i]];
       buf[n++] = src_mu1[list[i]];
@@ -3572,9 +4101,9 @@ void PPPM::unpack_reverse(int flag, FFT_SCALAR *buf, int nlist, int *list)
     for (int i = 0; i < nlist; i++)
       dest[list[i]] += buf[n++];
   } else if (flag == REVERSE_MU) {
-    FFT_SCALAR *dest_mu0 = &density_brick_mu0[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *dest_mu1 = &density_brick_mu1[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *dest_mu2 = &density_brick_mu2[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_mu0 = &densityx_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_mu1 = &densityy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_mu2 = &densityz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     for (int i = 0; i < nlist; i++) {
       dest_mu0[list[i]] += buf[n++];
       dest_mu1[list[i]] += buf[n++];
