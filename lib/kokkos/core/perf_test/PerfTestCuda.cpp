@@ -48,9 +48,11 @@
 
 #include <Kokkos_Core.hpp>
 
-#if defined( KOKKOS_HAVE_CUDA )
+#if defined( KOKKOS_ENABLE_CUDA )
 
 #include <impl/Kokkos_Timer.hpp>
+
+#include <PerfTestMDRange.hpp>
 
 #include <PerfTestHexGrad.hpp>
 #include <PerfTestBlasKernels.hpp>
@@ -71,6 +73,14 @@ class cuda : public ::testing::Test {
       Kokkos::HostSpace::execution_space::finalize();
     }
 };
+
+//TEST_F( cuda, mdrange_lr ) {
+//  EXPECT_NO_THROW( (run_test_mdrange<Kokkos::Cuda , Kokkos::LayoutRight>( 5, 8, "Kokkos::Cuda" )) );
+//}
+
+//TEST_F( cuda, mdrange_ll ) {
+//  EXPECT_NO_THROW( (run_test_mdrange<Kokkos::Cuda , Kokkos::LayoutLeft>( 5, 8, "Kokkos::Cuda" )) );
+//}
 
 TEST_F( cuda, hexgrad )
 {
@@ -185,5 +195,5 @@ TEST_F( cuda, texture_double )
 
 } // namespace Test
 
-#endif /* #if defined( KOKKOS_HAVE_CUDA ) */
+#endif /* #if defined( KOKKOS_ENABLE_CUDA ) */
 

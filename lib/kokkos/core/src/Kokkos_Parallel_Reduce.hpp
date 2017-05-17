@@ -978,7 +978,7 @@ struct ParallelReduceReturnValue<typename std::enable_if<Kokkos::is_view<ReturnT
   typedef InvalidType reducer_type;
 
   typedef typename return_type::value_type value_type_scalar;
-  typedef typename return_type::value_type value_type_array[];
+  typedef typename return_type::value_type* const value_type_array;
 
   typedef typename if_c<return_type::rank==0,value_type_scalar,value_type_array>::type value_type;
 
@@ -1094,7 +1094,7 @@ namespace Impl {
         const PolicyType& policy,
         const FunctorType& functor,
         ReturnType& return_value) {
-          #if (KOKKOS_ENABLE_PROFILING)
+          #if defined(KOKKOS_ENABLE_PROFILING)
             uint64_t kpID = 0;
             if(Kokkos::Profiling::profileLibraryLoaded()) {
               Kokkos::Profiling::beginParallelReduce("" == label ? typeid(FunctorType).name() : label, 0, &kpID);
@@ -1116,7 +1116,7 @@ namespace Impl {
           Kokkos::Impl::shared_allocation_tracking_release_and_enable();
           closure.execute();
 
-          #if (KOKKOS_ENABLE_PROFILING)
+          #if defined(KOKKOS_ENABLE_PROFILING)
             if(Kokkos::Profiling::profileLibraryLoaded()) {
               Kokkos::Profiling::endParallelReduce(kpID);
             }

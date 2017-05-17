@@ -380,18 +380,18 @@ void PPPMDisp::init()
     alpha = qdist / (cos(0.5*theta) * blen);
   }
 
+  //if g_ewald and g_ewald_6 have not been specified, set some initial value
+  //  to avoid problems when calculating the energies!
+
+  if (!gewaldflag) g_ewald = 1;
+  if (!gewaldflag_6) g_ewald_6 = 1;
+
   // initialize the pair style to get the coefficients
 
   neighrequest_flag = 0;
   pair->init();
   neighrequest_flag = 1;
   init_coeffs();
-
-  //if g_ewald and g_ewald_6 have not been specified, set some initial value
-  //  to avoid problems when calculating the energies!
-
-  if (!gewaldflag) g_ewald = 1;
-  if (!gewaldflag_6) g_ewald_6 = 1;
 
   // set accuracy (force units) from accuracy_relative or accuracy_absolute
 
@@ -8240,7 +8240,7 @@ double PPPMDisp::memory_usage()
     bytes += 6 * nfft_both * sizeof(double);      // vg
     bytes += nfft_both * sizeof(double);          // greensfn
     bytes += nfft_both * 3 * sizeof(FFT_SCALAR);    // density_FFT, work1, work2
-    bytes += cg->memory_usage();
+    if (cg) bytes += cg->memory_usage();
   }
 
   if (function[1] + function[2] + function[3]) {
@@ -8250,7 +8250,7 @@ double PPPMDisp::memory_usage()
     bytes += 6 * nfft_both_6 * sizeof(double);      // vg
     bytes += nfft_both_6 * sizeof(double);          // greensfn
     bytes += nfft_both_6 * (mixing + 2) * sizeof(FFT_SCALAR);    // density_FFT, work1, work2
-    bytes += cg_6->memory_usage();
+    if (cg_6) bytes += cg_6->memory_usage();
   }
   return bytes;
 }

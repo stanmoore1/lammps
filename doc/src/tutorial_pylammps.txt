@@ -55,7 +55,7 @@ using the generated {auto} Makefile.
 cd $LAMMPS_DIR/src :pre
 
 # generate custom Makefile
-python2 Make.py -jpg -png -s ffmpeg exceptions -m mpi -a file :pre
+python Make.py -jpg -png -s ffmpeg exceptions -m mpi -a file :pre
 
 # add packages if necessary
 make yes-MOLECULE :pre
@@ -328,7 +328,7 @@ IPyLammps Examples :h2
 Examples of IPython notebooks can be found in the python/examples/pylammps
 subdirectory. To open these notebooks launch {jupyter notebook} inside this
 directory and navigate to one of them. If you compiled and installed 
-a LAMMPS shared library with execeptions, PNG, JPEG and FFMPEG support
+a LAMMPS shared library with exceptions, PNG, JPEG and FFMPEG support
 you should be able to rerun all of these notebooks.
 
 Validating a dihedral potential :h3

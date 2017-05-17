@@ -4451,7 +4451,7 @@ double PPPM::memory_usage()
     bytes += 2 * nfft_both * sizeof(FFT_SCALAR);;
   }
 
-  bytes += cg->memory_usage();
+  if (cg) bytes += cg->memory_usage();
 
   if (mu_flag)
     bytes += cg_mu->memory_usage();

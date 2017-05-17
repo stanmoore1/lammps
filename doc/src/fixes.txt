@@ -42,6 +42,7 @@ Fixes :h1
    fix_eos_table_rx
    fix_evaporate
    fix_external
+   fix_filter_corotate
    fix_flow_gauss
    fix_freeze
    fix_gcmc
@@ -110,6 +111,7 @@ Fixes :h1
    fix_press_berendsen
    fix_print
    fix_property_atom
+   fix_python
    fix_qbmsst
    fix_qeq
    fix_qeq_comb

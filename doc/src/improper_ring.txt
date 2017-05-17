@@ -36,7 +36,7 @@ j,k, and l.
 The "ring" improper style implements the improper potential introduced
 by Destree et al., in Equation (9) of "(Destree)"_#Destree.  This
 potential does not affect small amplitude vibrations but is used in an
-ad-hoc way to prevent the onset of accidentially large amplitude
+ad-hoc way to prevent the onset of accidentally large amplitude
 fluctuations leading to the occurrence of a planar conformation of the
 three bonds i-j, j-k and j-l, an intermediate conformation toward the
 chiral inversion of a methine carbon.  In the "Impropers" section of
@@ -49,11 +49,8 @@ above, or in the data file or restart files read by the
 "read_data"_read_data.html or "read_restart"_read_restart.html
 commands:
 
-K (energy/radian^2)
+K (energy)
 theta0 (degrees) :ul
-
-theta0 is specified in degrees, but LAMMPS converts it to radians
-internally; hence the units of K are in energy/radian^2.
 
 :line
 

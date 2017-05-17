@@ -48,7 +48,7 @@
 
 // If CUDA execution space is enabled then use this header file.
 
-#if defined( KOKKOS_HAVE_CUDA )
+#if defined( KOKKOS_ENABLE_CUDA )
 
 #include <iosfwd>
 #include <vector>
@@ -62,7 +62,6 @@
 #include <Kokkos_MemoryTraits.hpp>
 #include <impl/Kokkos_Tags.hpp>
 
-#include <KokkosExp_MDRangePolicy.hpp>
 
 /*--------------------------------------------------------------------------*/
 
@@ -94,7 +93,7 @@ public:
   //! Tag this class as a kokkos execution space
   typedef Cuda                  execution_space ;
 
-#if defined( KOKKOS_USE_CUDA_UVM )
+#if defined( KOKKOS_ENABLE_CUDA_UVM )
   //! This execution space's preferred memory space.
   typedef CudaUVMSpace          memory_space ;
 #else
@@ -240,7 +239,7 @@ struct MemorySpaceAccess
   enum { deepcopy   = false };
 };
 
-#if defined( KOKKOS_USE_CUDA_UVM )
+#if defined( KOKKOS_ENABLE_CUDA_UVM )
 
 // If forcing use of UVM everywhere
 // then must assume that CudaUVMSpace
@@ -295,9 +294,10 @@ struct VerifyExecutionCanAccessMemorySpace
 #include <Cuda/Kokkos_Cuda_Parallel.hpp>
 #include <Cuda/Kokkos_Cuda_Task.hpp>
 
+#include <KokkosExp_MDRangePolicy.hpp>
 //----------------------------------------------------------------------------
 
-#endif /* #if defined( KOKKOS_HAVE_CUDA ) */
+#endif /* #if defined( KOKKOS_ENABLE_CUDA ) */
 #endif /* #ifndef KOKKOS_CUDA_HPP */
 
 

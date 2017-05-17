@@ -89,7 +89,7 @@ class Fix : protected Pointers {
   int comm_reverse;              // size of reverse communication (0 if none)
   int comm_border;               // size of border communication (0 if none)
 
-  double virial[6];              // accumlated virial
+  double virial[6];              // accumulated virial
   double *eatom,**vatom;         // accumulated per-atom energy/virial
 
   int restart_reset;             // 1 if restart just re-initialized fix
@@ -216,6 +216,8 @@ class Fix : protected Pointers {
 
   int copymode;   // if set, do not deallocate during destruction
                   // required when classes are used as functors by Kokkos
+
+  int dynamic;    // recount atoms for temperature computes
 
   void ev_setup(int, int);
   void ev_tally(int, int *, double, double, double *);

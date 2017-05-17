@@ -37,7 +37,7 @@
 #include "math_const.h"
 #include "memory.h"
 #include "error.h"
-#include "pair_reax_c_kokkos.h"
+#include "pair_reaxc_kokkos.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -50,7 +50,8 @@ using namespace FixConst;
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-FixQEqReaxKokkos<DeviceType>::FixQEqReaxKokkos(LAMMPS *lmp, int narg, char **arg) :
+FixQEqReaxKokkos<DeviceType>::
+FixQEqReaxKokkos(LAMMPS *lmp, int narg, char **arg) :
   FixQEqReax(lmp, narg, arg)
 {
   kokkosable = 1;
@@ -82,7 +83,7 @@ void FixQEqReaxKokkos<DeviceType>::init()
 
   FixQEqReax::init();
 
-  neighflag = lmp->kokkos->neighflag;
+  neighflag = lmp->kokkos->neighflag_qeq;
   int irequest = neighbor->nrequest - 1;
   
   neighbor->requests[irequest]->
@@ -98,6 +99,7 @@ void FixQEqReaxKokkos<DeviceType>::init()
     neighbor->requests[irequest]->half = 0;
   } else { //if (neighflag == HALF || neighflag == HALFTHREAD)
     neighbor->requests[irequest]->fix = 1;
+    neighbor->requests[irequest]->pair = 0;
     neighbor->requests[irequest]->full = 0;
     neighbor->requests[irequest]->half = 1;
     neighbor->requests[irequest]->ghost = 1;
@@ -387,7 +389,7 @@ KOKKOS_INLINE_FUNCTION
 void FixQEqReaxKokkos<DeviceType>::compute_h_item(int ii, int &m_fill, const bool &final) const
 {
   const int i = d_ilist[ii];
-  int j,jj,jtag,jtype,flag;
+  int j,jj,jtype,flag;
 
   if (mask[i] & groupbit) {
 
@@ -395,7 +397,7 @@ void FixQEqReaxKokkos<DeviceType>::compute_h_item(int ii, int &m_fill, const boo
     const X_FLOAT ytmp = x(i,1);
     const X_FLOAT ztmp = x(i,2);
     const int itype = type(i);
-    const int itag = tag(i);
+    const tagint itag = tag(i);
     const int jnum = d_numneigh[i];
     if (final)
       d_firstnbr[i] = m_fill;
@@ -403,7 +405,6 @@ void FixQEqReaxKokkos<DeviceType>::compute_h_item(int ii, int &m_fill, const boo
     for (jj = 0; jj < jnum; jj++) {
       j = d_neighbors(i,jj);
       j &= NEIGHMASK;
-
       jtype = type(j);
 
       const X_FLOAT delx = x(j,0) - xtmp;
@@ -411,10 +412,11 @@ void FixQEqReaxKokkos<DeviceType>::compute_h_item(int ii, int &m_fill, const boo
       const X_FLOAT delz = x(j,2) - ztmp;
 
       if (neighflag != FULL) {
+        const tagint jtag = tag(j);
         flag = 0;
         if (j < nlocal) flag = 1;
-        else if (tag[i] < tag[j]) flag = 1;
-        else if (tag[i] == tag[j]) {
+        else if (itag < jtag) flag = 1;
+        else if (itag == jtag) {
           if (delz > SMALL) flag = 1;
           else if (fabs(delz) < SMALL) {
             if (dely > SMALL) flag = 1;

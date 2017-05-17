@@ -45,17 +45,17 @@
 
 #include <Kokkos_Core.hpp>
 
-#if defined( KOKKOS_HAVE_OPENMP )
+#if defined( KOKKOS_ENABLE_OPENMP )
 
 typedef Kokkos::OpenMP TestHostDevice ;
 const char TestHostDeviceName[] = "Kokkos::OpenMP" ;
 
-#elif defined( KOKKOS_HAVE_PTHREAD )
+#elif defined( KOKKOS_ENABLE_PTHREAD )
 
 typedef Kokkos::Threads TestHostDevice ;
 const char TestHostDeviceName[] = "Kokkos::Threads" ;
 
-#elif defined( KOKKOS_HAVE_SERIAL )
+#elif defined( KOKKOS_ENABLE_SERIAL )
 
 typedef Kokkos::Serial TestHostDevice ;
 const char TestHostDeviceName[] = "Kokkos::Serial" ;
@@ -65,6 +65,8 @@ const char TestHostDeviceName[] = "Kokkos::Serial" ;
 #endif
 
 #include <impl/Kokkos_Timer.hpp>
+
+#include <PerfTestMDRange.hpp>
 
 #include <PerfTestHexGrad.hpp>
 #include <PerfTestBlasKernels.hpp>
@@ -101,6 +103,14 @@ protected:
     TestHostDevice::finalize();
   }
 };
+
+//TEST_F( host, mdrange_lr ) {
+//  EXPECT_NO_THROW( (run_test_mdrange<TestHostDevice , Kokkos::LayoutRight> (5, 8, TestHostDeviceName) ) );
+//}
+
+//TEST_F( host, mdrange_ll ) {
+//  EXPECT_NO_THROW( (run_test_mdrange<TestHostDevice , Kokkos::LayoutLeft> (5, 8, TestHostDeviceName) ) );
+//}
 
 TEST_F( host, hexgrad ) {
   EXPECT_NO_THROW(run_test_hexgrad< TestHostDevice>( 10, 20, TestHostDeviceName ));

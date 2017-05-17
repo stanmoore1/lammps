@@ -64,6 +64,7 @@ NeighborKokkos::~NeighborKokkos()
     memory->destroy_kokkos(k_ex1_bit,ex1_bit);
     memory->destroy_kokkos(k_ex2_bit,ex2_bit);
     memory->destroy_kokkos(k_ex_mol_bit,ex_mol_bit);
+    memory->destroy_kokkos(k_ex_mol_intra,ex_mol_intra);
 
     memory->destroy_kokkos(k_bondlist,bondlist);
     memory->destroy_kokkos(k_anglelist,anglelist);
@@ -133,6 +134,14 @@ void NeighborKokkos::init_ex_mol_bit_kokkos()
   k_ex_mol_bit.modify<LMPHostType>();
 }
 
+/* ---------------------------------------------------------------------- */
+
+void NeighborKokkos::grow_ex_mol_intra_kokkos()
+{
+  memory->grow_kokkos(k_ex_mol_intra, ex_mol_intra, maxex_mol, "neigh:ex_mol_intra");
+  k_ex_mol_intra.modify<LMPHostType>();
+}
+
 /* ----------------------------------------------------------------------
    if any atom moved trigger distance (half of neighbor skin) return 1
    shrink trigger distance if box size has changed
@@ -147,9 +156,9 @@ void NeighborKokkos::init_ex_mol_bit_kokkos()
 int NeighborKokkos::check_distance()
 {
   if (device_flag)
-    check_distance_kokkos<LMPDeviceType>();
+    return check_distance_kokkos<LMPDeviceType>();
   else
-    check_distance_kokkos<LMPHostType>();
+    return check_distance_kokkos<LMPHostType>();
 }
 
 template<class DeviceType>
@@ -157,7 +166,7 @@ int NeighborKokkos::check_distance_kokkos()
 {
   typedef DeviceType device_type;
 
-  double delx,dely,delz,rsq;
+  double delx,dely,delz;
   double delta,delta1,delta2;
 
   if (boxcheck) {
@@ -306,7 +315,7 @@ void NeighborKokkos::build_kokkos(int topoflag)
   atomKK->sync(Host,ALL_MASK);
   for (i = 0; i < npair_perpetual; i++) {
     m = plist[i];
-    lists[m]->grow(nlocal,nall);
+    if (!lists[m]->copy) lists[m]->grow(nlocal,nall);
     neigh_pair[m]->build_setup();
     neigh_pair[m]->build(lists[m]);
   }
@@ -346,6 +355,12 @@ void NeighborKokkos::modify_ex_group_grow_kokkos(){
 void NeighborKokkos::modify_mol_group_grow_kokkos(){
   memory->grow_kokkos(k_ex_mol_group,ex_mol_group,maxex_mol,"neigh:ex_mol_group");
   k_ex_mol_group.modify<LMPHostType>();
+}
+
+/* ---------------------------------------------------------------------- */
+void NeighborKokkos::modify_mol_intra_grow_kokkos(){
+  memory->grow_kokkos(k_ex_mol_intra,ex_mol_intra,maxex_mol,"neigh:ex_mol_intra");
+  k_ex_mol_intra.modify<LMPHostType>();
 }
 
 /* ---------------------------------------------------------------------- */

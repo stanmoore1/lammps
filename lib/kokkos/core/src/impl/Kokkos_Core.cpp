@@ -1,13 +1,13 @@
 /*
 //@HEADER
 // ************************************************************************
-// 
+//
 //                        Kokkos v. 2.0
 //              Copyright (2014) Sandia Corporation
-// 
+//
 // Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 // the U.S. Government retains certain rights in this software.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -36,7 +36,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // Questions? Contact  H. Carter Edwards (hcedwar@sandia.gov)
-// 
+//
 // ************************************************************************
 //@HEADER
 */
@@ -70,20 +70,20 @@ void initialize_internal(const InitArguments& args)
 // This is an experimental setting
 // For KNL in Flat mode this variable should be set, so that
 // memkind allocates high bandwidth memory correctly.
-#ifdef KOKKOS_HAVE_HBWSPACE
+#ifdef KOKKOS_ENABLE_HBWSPACE
 setenv("MEMKIND_HBW_NODES", "1", 0);
 #endif
 
   // Protect declarations, to prevent "unused variable" warnings.
-#if defined( KOKKOS_HAVE_OPENMP ) || defined( KOKKOS_HAVE_PTHREAD )
+#if defined( KOKKOS_ENABLE_OPENMP ) || defined( KOKKOS_ENABLE_PTHREAD )
   const int num_threads = args.num_threads;
   const int use_numa = args.num_numa;
-#endif // defined( KOKKOS_HAVE_OPENMP ) || defined( KOKKOS_HAVE_PTHREAD )
-#if defined( KOKKOS_HAVE_CUDA )
+#endif // defined( KOKKOS_ENABLE_OPENMP ) || defined( KOKKOS_ENABLE_PTHREAD )
+#if defined( KOKKOS_ENABLE_CUDA )
   const int use_gpu = args.device_id;
-#endif // defined( KOKKOS_HAVE_CUDA )
+#endif // defined( KOKKOS_ENABLE_CUDA )
 
-#if defined( KOKKOS_HAVE_OPENMP )
+#if defined( KOKKOS_ENABLE_OPENMP )
   if( std::is_same< Kokkos::OpenMP , Kokkos::DefaultExecutionSpace >::value ||
       std::is_same< Kokkos::OpenMP , Kokkos::HostSpace::execution_space >::value ) {
     if(num_threads>0) {
@@ -103,7 +103,7 @@ setenv("MEMKIND_HBW_NODES", "1", 0);
   }
 #endif
 
-#if defined( KOKKOS_HAVE_PTHREAD )
+#if defined( KOKKOS_ENABLE_PTHREAD )
   if( std::is_same< Kokkos::Threads , Kokkos::DefaultExecutionSpace >::value ||
       std::is_same< Kokkos::Threads , Kokkos::HostSpace::execution_space >::value ) {
     if(num_threads>0) {
@@ -123,7 +123,7 @@ setenv("MEMKIND_HBW_NODES", "1", 0);
   }
 #endif
 
-#if defined( KOKKOS_HAVE_SERIAL )
+#if defined( KOKKOS_ENABLE_SERIAL )
   // Prevent "unused variable" warning for 'args' input struct.  If
   // Serial::initialize() ever needs to take arguments from the input
   // struct, you may remove this line of code.
@@ -135,7 +135,7 @@ setenv("MEMKIND_HBW_NODES", "1", 0);
   }
 #endif
 
-#if defined( KOKKOS_HAVE_CUDA )
+#if defined( KOKKOS_ENABLE_CUDA )
   if( std::is_same< Kokkos::Cuda , Kokkos::DefaultExecutionSpace >::value || 0 < use_gpu ) {
     if (use_gpu > -1) {
       Kokkos::Cuda::initialize( Kokkos::Cuda::SelectDevice( use_gpu ) );
@@ -147,7 +147,7 @@ setenv("MEMKIND_HBW_NODES", "1", 0);
   }
 #endif
 
-#if (KOKKOS_ENABLE_PROFILING)
+#if defined(KOKKOS_ENABLE_PROFILING)
     Kokkos::Profiling::initialize();
 #endif
 }
@@ -155,18 +155,18 @@ setenv("MEMKIND_HBW_NODES", "1", 0);
 void finalize_internal( const bool all_spaces = false )
 {
 
-#if (KOKKOS_ENABLE_PROFILING)
+#if defined(KOKKOS_ENABLE_PROFILING)
     Kokkos::Profiling::finalize();
 #endif
 
-#if defined( KOKKOS_HAVE_CUDA )
+#if defined( KOKKOS_ENABLE_CUDA )
   if( std::is_same< Kokkos::Cuda , Kokkos::DefaultExecutionSpace >::value || all_spaces ) {
     if(Kokkos::Cuda::is_initialized())
       Kokkos::Cuda::finalize();
   }
 #endif
 
-#if defined( KOKKOS_HAVE_OPENMP )
+#if defined( KOKKOS_ENABLE_OPENMP )
   if( std::is_same< Kokkos::OpenMP , Kokkos::DefaultExecutionSpace >::value ||
       std::is_same< Kokkos::OpenMP , Kokkos::HostSpace::execution_space >::value ||
       all_spaces ) {
@@ -175,7 +175,7 @@ void finalize_internal( const bool all_spaces = false )
   }
 #endif
 
-#if defined( KOKKOS_HAVE_PTHREAD )
+#if defined( KOKKOS_ENABLE_PTHREAD )
   if( std::is_same< Kokkos::Threads , Kokkos::DefaultExecutionSpace >::value ||
       std::is_same< Kokkos::Threads , Kokkos::HostSpace::execution_space >::value ||
       all_spaces ) {
@@ -184,7 +184,7 @@ void finalize_internal( const bool all_spaces = false )
   }
 #endif
 
-#if defined( KOKKOS_HAVE_SERIAL )
+#if defined( KOKKOS_ENABLE_SERIAL )
   if( std::is_same< Kokkos::Serial , Kokkos::DefaultExecutionSpace >::value ||
       std::is_same< Kokkos::Serial , Kokkos::HostSpace::execution_space >::value ||
       all_spaces ) {
@@ -197,27 +197,27 @@ void finalize_internal( const bool all_spaces = false )
 void fence_internal()
 {
 
-#if defined( KOKKOS_HAVE_CUDA )
+#if defined( KOKKOS_ENABLE_CUDA )
   if( std::is_same< Kokkos::Cuda , Kokkos::DefaultExecutionSpace >::value ) {
     Kokkos::Cuda::fence();
   }
 #endif
 
-#if defined( KOKKOS_HAVE_OPENMP )
+#if defined( KOKKOS_ENABLE_OPENMP )
   if( std::is_same< Kokkos::OpenMP , Kokkos::DefaultExecutionSpace >::value ||
       std::is_same< Kokkos::OpenMP , Kokkos::HostSpace::execution_space >::value ) {
     Kokkos::OpenMP::fence();
   }
 #endif
 
-#if defined( KOKKOS_HAVE_PTHREAD )
+#if defined( KOKKOS_ENABLE_PTHREAD )
   if( std::is_same< Kokkos::Threads , Kokkos::DefaultExecutionSpace >::value ||
       std::is_same< Kokkos::Threads , Kokkos::HostSpace::execution_space >::value ) {
     Kokkos::Threads::fence();
   }
 #endif
 
-#if defined( KOKKOS_HAVE_SERIAL )
+#if defined( KOKKOS_ENABLE_SERIAL )
   if( std::is_same< Kokkos::Serial , Kokkos::DefaultExecutionSpace >::value ||
       std::is_same< Kokkos::Serial , Kokkos::HostSpace::execution_space >::value ) {
     Kokkos::Serial::fence();
@@ -447,6 +447,324 @@ void finalize_all()
 void fence()
 {
   Impl::fence_internal();
+}
+
+void print_configuration( std::ostream & out , const bool detail )
+{
+  std::ostringstream msg;
+
+  msg << "Compiler:" << std::endl;
+#ifdef KOKKOS_COMPILER_APPLECC
+  msg << "  KOKKOS_COMPILER_APPLECC: " << KOKKOS_COMPILER_APPLECC << std::endl;
+#endif
+#ifdef KOKKOS_COMPILER_CLANG
+  msg << "  KOKKOS_COMPILER_CLANG: " << KOKKOS_COMPILER_CLANG << std::endl;
+#endif
+#ifdef KOKKOS_COMPILER_CRAYC
+  msg << "  KOKKOS_COMPILER_CRAYC: " << KOKKOS_COMPILER_CRAYC << std::endl;
+#endif
+#ifdef KOKKOS_COMPILER_GNU
+  msg << "  KOKKOS_COMPILER_GNU: " << KOKKOS_COMPILER_GNU << std::endl;
+#endif
+#ifdef KOKKOS_COMPILER_IBM
+  msg << "  KOKKOS_COMPILER_IBM: " << KOKKOS_COMPILER_IBM << std::endl;
+#endif
+#ifdef KOKKOS_COMPILER_INTEL
+  msg << "  KOKKOS_COMPILER_INTEL: " << KOKKOS_COMPILER_INTEL << std::endl;
+#endif
+#ifdef KOKKOS_COMPILER_NVCC
+  msg << "  KOKKOS_COMPILER_NVCC: " << KOKKOS_COMPILER_NVCC << std::endl;
+#endif
+#ifdef KOKKOS_COMPILER_PGI
+  msg << "  KOKKOS_COMPILER_PGI: " << KOKKOS_COMPILER_PGI << std::endl;
+#endif
+
+
+  msg << "Architecture:" << std::endl;
+#ifdef KOKKOS_ENABLE_ISA_KNC
+  msg << "  KOKKOS_ENABLE_ISA_KNC: yes" << std::endl;
+#else
+  msg << "  KOKKOS_ENABLE_ISA_KNC: no" << std::endl;
+#endif
+#ifdef KOKKOS_ENABLE_ISA_POWERPCLE
+  msg << "  KOKKOS_ENABLE_ISA_POWERPCLE: yes" << std::endl;
+#else
+  msg << "  KOKKOS_ENABLE_ISA_POWERPCLE: no" << std::endl;
+#endif
+#ifdef KOKKOS_ENABLE_ISA_X86_64
+  msg << "  KOKKOS_ENABLE_ISA_X86_64: yes" << std::endl;
+#else
+  msg << "  KOKKOS_ENABLE_ISA_X86_64: no" << std::endl;
+#endif
+
+
+  msg << "Devices:" << std::endl;
+  msg << "  KOKKOS_ENABLE_CUDA: ";
+#ifdef KOKKOS_ENABLE_CUDA
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_OPENMP: ";
+#ifdef KOKKOS_ENABLE_OPENMP
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_PTHREAD: ";
+#ifdef KOKKOS_ENABLE_PTHREAD
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_STDTHREAD: ";
+#ifdef KOKKOS_ENABLE_STDTHREAD
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_WINTHREAD: ";
+#ifdef KOKKOS_ENABLE_WINTHREAD
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_QTHREADS: ";
+#ifdef KOKKOS_ENABLE_QTHREADS
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_SERIAL: ";
+#ifdef KOKKOS_ENABLE_SERIAL
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+
+
+  msg << "Default Device:" << std::endl;
+  msg << "  KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_CUDA: ";
+#ifdef KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_CUDA
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_OPENMP: ";
+#ifdef KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_OPENMP
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_THREADS: ";
+#ifdef KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_THREADS
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_QTHREADS: ";
+#ifdef KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_QTHREADS
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_SERIAL: ";
+#ifdef KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_SERIAL
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+
+
+  msg << "Atomics:" << std::endl;
+  msg << "  KOKKOS_ENABLE_CUDA_ATOMICS: ";
+#ifdef KOKKOS_ENABLE_CUDA_ATOMICS
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_GNU_ATOMICS: ";
+#ifdef KOKKOS_ENABLE_GNU_ATOMICS
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_INTEL_ATOMICS: ";
+#ifdef KOKKOS_ENABLE_INTEL_ATOMICS
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_OPENMP_ATOMICS: ";
+#ifdef KOKKOS_ENABLE_OPENMP_ATOMICS
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_WINDOWS_ATOMICS: ";
+#ifdef KOKKOS_ENABLE_WINDOWS_ATOMICS
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+
+
+  msg << "Vectorization:" << std::endl;
+  msg << "  KOKKOS_ENABLE_PRAGMA_IVDEP: ";
+#ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_PRAGMA_LOOPCOUNT: ";
+#ifdef KOKKOS_ENABLE_PRAGMA_LOOPCOUNT
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_PRAGMA_SIMD: ";
+#ifdef KOKKOS_ENABLE_PRAGMA_SIMD
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_PRAGMA_UNROLL: ";
+#ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_PRAGMA_VECTOR: ";
+#ifdef KOKKOS_ENABLE_PRAGMA_VECTOR
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+
+  msg << "Memory:" << std::endl;
+  msg << "  KOKKOS_ENABLE_HBWSPACE: ";
+#ifdef KOKKOS_ENABLE_HBWSPACE
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_INTEL_MM_ALLOC: ";
+#ifdef KOKKOS_ENABLE_INTEL_MM_ALLOC
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_POSIX_MEMALIGN: ";
+#ifdef KOKKOS_ENABLE_POSIX_MEMALIGN
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+
+
+  msg << "Options:" << std::endl;
+  msg << "  KOKKOS_ENABLE_ASM: ";
+#ifdef KOKKOS_ENABLE_ASM
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_CXX1Z: ";
+#ifdef KOKKOS_ENABLE_CXX1Z
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_DEBUG_BOUNDS_CHECK: ";
+#ifdef KOKKOS_ENABLE_DEBUG_BOUNDS_CHECK
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_HWLOC: ";
+#ifdef KOKKOS_ENABLE_HWLOC
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_LIBRT: ";
+#ifdef KOKKOS_ENABLE_LIBRT
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_MPI: ";
+#ifdef KOKKOS_ENABLE_MPI
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_PROFILING: ";
+#ifdef KOKKOS_ENABLE_PROFILING
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+
+#ifdef KOKKOS_ENABLE_CUDA
+  msg << "Cuda Options:" << std::endl;
+  msg << "  KOKKOS_ENABLE_CUDA_LAMBDA: ";
+#ifdef KOKKOS_ENABLE_CUDA_LAMBDA
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_CUDA_LDG_INTRINSIC: ";
+#ifdef KOKKOS_ENABLE_CUDA_LDG_INTRINSIC
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE: ";
+#ifdef KOKKOS_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_CUDA_UVM: ";
+#ifdef KOKKOS_ENABLE_CUDA_UVM
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_CUSPARSE: ";
+#ifdef KOKKOS_ENABLE_CUSPARSE
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+  msg << "  KOKKOS_ENABLE_CXX11_DISPATCH_LAMBDA: ";
+#ifdef KOKKOS_ENABLE_CXX11_DISPATCH_LAMBDA
+  msg << "yes" << std::endl;
+#else
+  msg << "no" << std::endl;
+#endif
+
+#endif
+
+  msg << "\nRuntime Configuration:" << std::endl;
+#ifdef KOKKOS_ENABLE_CUDA
+  Cuda::print_configuration(msg, detail);
+#endif
+#ifdef KOKKOS_ENABLE_OPENMP
+  OpenMP::print_configuration(msg, detail);
+#endif
+#if defined( KOKKOS_ENABLE_PTHREAD ) || defined( WINTHREAD )
+  Threads::print_configuration(msg, detail);
+#endif
+#ifdef KOKKOS_ENABLE_QTHREADS
+  Qthreads::print_configuration(msg, detail);
+#endif
+#ifdef KOKKOS_ENABLE_SERIAL
+  Serial::print_configuration(msg, detail);
+#endif
+
+  out << msg.str() << std::endl;
 }
 
 } // namespace Kokkos

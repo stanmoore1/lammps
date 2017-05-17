@@ -1,13 +1,13 @@
 /*
 //@HEADER
 // ************************************************************************
-// 
+//
 //                        Kokkos v. 2.0
 //              Copyright (2014) Sandia Corporation
-// 
+//
 // Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 // the U.S. Government retains certain rights in this software.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -36,29 +36,29 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // Questions? Contact  H. Carter Edwards (hcedwar@sandia.gov)
-// 
+//
 // ************************************************************************
 //@HEADER
 */
 
 #include <algorithm>
 #include <Kokkos_Macros.hpp>
-#if (KOKKOS_ENABLE_PROFILING)
+#if defined(KOKKOS_ENABLE_PROFILING)
 #include <impl/Kokkos_Profiling_Interface.hpp>
 #endif
 /*--------------------------------------------------------------------------*/
 
-#if defined( __INTEL_COMPILER ) && ! defined ( KOKKOS_HAVE_CUDA )
+#if defined( __INTEL_COMPILER ) && ! defined ( KOKKOS_ENABLE_CUDA )
 
 // Intel specialized allocator does not interoperate with CUDA memory allocation
 
-#define KOKKOS_INTEL_MM_ALLOC_AVAILABLE
+#define KOKKOS_ENABLE_INTEL_MM_ALLOC
 
 #endif
 
 /*--------------------------------------------------------------------------*/
 
-#if defined(KOKKOS_POSIX_MEMALIGN_AVAILABLE)
+#if defined(KOKKOS_ENABLE_POSIX_MEMALIGN)
 
 #include <unistd.h>
 #include <sys/mman.h>
@@ -66,18 +66,18 @@
 /* mmap flags for private anonymous memory allocation */
 
 #if defined( MAP_ANONYMOUS ) && defined( MAP_PRIVATE )
-  #define KOKKOS_POSIX_MMAP_FLAGS (MAP_PRIVATE | MAP_ANONYMOUS)
+  #define KOKKOS_IMPL_POSIX_MMAP_FLAGS (MAP_PRIVATE | MAP_ANONYMOUS)
 #elif defined( MAP_ANON ) && defined( MAP_PRIVATE )
-  #define KOKKOS_POSIX_MMAP_FLAGS (MAP_PRIVATE | MAP_ANON)
+  #define KOKKOS_IMPL_POSIX_MMAP_FLAGS (MAP_PRIVATE | MAP_ANON)
 #endif
 
 // mmap flags for huge page tables
 // the Cuda driver does not interoperate with MAP_HUGETLB
-#if defined( KOKKOS_POSIX_MMAP_FLAGS )
-  #if defined( MAP_HUGETLB ) && ! defined( KOKKOS_HAVE_CUDA )
-    #define KOKKOS_POSIX_MMAP_FLAGS_HUGE (KOKKOS_POSIX_MMAP_FLAGS | MAP_HUGETLB )
+#if defined( KOKKOS_IMPL_POSIX_MMAP_FLAGS )
+  #if defined( MAP_HUGETLB ) && ! defined( KOKKOS_ENABLE_CUDA )
+    #define KOKKOS_IMPL_POSIX_MMAP_FLAGS_HUGE (KOKKOS_IMPL_POSIX_MMAP_FLAGS | MAP_HUGETLB )
   #else
-    #define KOKKOS_POSIX_MMAP_FLAGS_HUGE KOKKOS_POSIX_MMAP_FLAGS
+    #define KOKKOS_IMPL_POSIX_MMAP_FLAGS_HUGE KOKKOS_IMPL_POSIX_MMAP_FLAGS
   #endif
 #endif
 
@@ -162,11 +162,11 @@ namespace Kokkos {
 /* Default allocation mechanism */
 HostSpace::HostSpace()
   : m_alloc_mech(
-#if defined( KOKKOS_INTEL_MM_ALLOC_AVAILABLE )
+#if defined( KOKKOS_ENABLE_INTEL_MM_ALLOC )
       HostSpace::INTEL_MM_ALLOC
-#elif defined( KOKKOS_POSIX_MMAP_FLAGS )
+#elif defined( KOKKOS_IMPL_POSIX_MMAP_FLAGS )
       HostSpace::POSIX_MMAP
-#elif defined( KOKKOS_POSIX_MEMALIGN_AVAILABLE )
+#elif defined( KOKKOS_ENABLE_POSIX_MEMALIGN )
       HostSpace::POSIX_MEMALIGN
 #else
       HostSpace::STD_MALLOC
@@ -181,15 +181,15 @@ HostSpace::HostSpace( const HostSpace::AllocationMechanism & arg_alloc_mech )
   if ( arg_alloc_mech == STD_MALLOC ) {
     m_alloc_mech = HostSpace::STD_MALLOC ;
   }
-#if defined( KOKKOS_INTEL_MM_ALLOC_AVAILABLE )
+#if defined( KOKKOS_ENABLE_INTEL_MM_ALLOC )
   else if ( arg_alloc_mech == HostSpace::INTEL_MM_ALLOC ) {
     m_alloc_mech = HostSpace::INTEL_MM_ALLOC ;
   }
-#elif defined( KOKKOS_POSIX_MEMALIGN_AVAILABLE )
+#elif defined( KOKKOS_ENABLE_POSIX_MEMALIGN )
   else if ( arg_alloc_mech == HostSpace::POSIX_MEMALIGN ) {
     m_alloc_mech = HostSpace::POSIX_MEMALIGN ;
   }
-#elif defined( KOKKOS_POSIX_MMAP_FLAGS )
+#elif defined( KOKKOS_IMPL_POSIX_MMAP_FLAGS )
   else if ( arg_alloc_mech == HostSpace::POSIX_MMAP ) {
     m_alloc_mech = HostSpace::POSIX_MMAP ;
   }
@@ -244,25 +244,25 @@ void * HostSpace::allocate( const size_t arg_alloc_size ) const
       }
     }
 
-#if defined( KOKKOS_INTEL_MM_ALLOC_AVAILABLE )
+#if defined( KOKKOS_ENABLE_INTEL_MM_ALLOC )
     else if ( m_alloc_mech == INTEL_MM_ALLOC ) {
       ptr = _mm_malloc( arg_alloc_size , alignment );
     }
 #endif
 
-#if defined( KOKKOS_POSIX_MEMALIGN_AVAILABLE )
+#if defined( KOKKOS_ENABLE_POSIX_MEMALIGN )
     else if ( m_alloc_mech == POSIX_MEMALIGN ) {
       posix_memalign( & ptr, alignment , arg_alloc_size );
     }
 #endif
 
-#if defined( KOKKOS_POSIX_MMAP_FLAGS )
+#if defined( KOKKOS_IMPL_POSIX_MMAP_FLAGS )
     else if ( m_alloc_mech == POSIX_MMAP ) {
       constexpr size_t use_huge_pages = (1u << 27);
       constexpr int    prot  = PROT_READ | PROT_WRITE ;
       const int flags = arg_alloc_size < use_huge_pages
-                      ? KOKKOS_POSIX_MMAP_FLAGS
-                      : KOKKOS_POSIX_MMAP_FLAGS_HUGE ;
+                      ? KOKKOS_IMPL_POSIX_MMAP_FLAGS
+                      : KOKKOS_IMPL_POSIX_MMAP_FLAGS_HUGE ;
 
       // read write access to private memory
 
@@ -292,7 +292,7 @@ void * HostSpace::allocate( const size_t arg_alloc_size ) const
     case INTEL_MM_ALLOC: msg << "INTEL_MM_ALLOC" ; break ;
     }
     msg << " ]( " << arg_alloc_size << " ) FAILED" ;
-    if ( ptr == NULL ) { msg << " NULL" ; } 
+    if ( ptr == NULL ) { msg << " NULL" ; }
     else { msg << " NOT ALIGNED " << ptr ; }
 
     std::cerr << msg.str() << std::endl ;
@@ -312,21 +312,21 @@ void HostSpace::deallocate( void * const arg_alloc_ptr , const size_t arg_alloc_
     if ( m_alloc_mech == STD_MALLOC ) {
       void * alloc_ptr = *(reinterpret_cast<void **>(arg_alloc_ptr) -1);
       free( alloc_ptr );
-    }    
+    }
 
-#if defined( KOKKOS_INTEL_MM_ALLOC_AVAILABLE )
+#if defined( KOKKOS_ENABLE_INTEL_MM_ALLOC )
     else if ( m_alloc_mech == INTEL_MM_ALLOC ) {
       _mm_free( arg_alloc_ptr );
     }
 #endif
 
-#if defined( KOKKOS_POSIX_MEMALIGN_AVAILABLE )
+#if defined( KOKKOS_ENABLE_POSIX_MEMALIGN )
     else if ( m_alloc_mech == POSIX_MEMALIGN ) {
       free( arg_alloc_ptr );
     }
 #endif
 
-#if defined( KOKKOS_POSIX_MMAP_FLAGS )
+#if defined( KOKKOS_IMPL_POSIX_MMAP_FLAGS )
     else if ( m_alloc_mech == POSIX_MMAP ) {
       munmap( arg_alloc_ptr , arg_alloc_size );
     }
@@ -359,7 +359,7 @@ deallocate( SharedAllocationRecord< void , void > * arg_rec )
 SharedAllocationRecord< Kokkos::HostSpace , void >::
 ~SharedAllocationRecord()
 {
-  #if (KOKKOS_ENABLE_PROFILING)
+  #if defined(KOKKOS_ENABLE_PROFILING)
   if(Kokkos::Profiling::profileLibraryLoaded()) {
     Kokkos::Profiling::deallocateData(
       Kokkos::Profiling::SpaceHandle(Kokkos::HostSpace::name()),RecordBase::m_alloc_ptr->m_label,
@@ -388,7 +388,7 @@ SharedAllocationRecord( const Kokkos::HostSpace & arg_space
       )
   , m_space( arg_space )
 {
-#if (KOKKOS_ENABLE_PROFILING)
+#if defined(KOKKOS_ENABLE_PROFILING)
   if(Kokkos::Profiling::profileLibraryLoaded()) {
     Kokkos::Profiling::allocateData(Kokkos::Profiling::SpaceHandle(arg_space.name()),arg_label,data(),arg_alloc_size);
    }
@@ -406,7 +406,7 @@ SharedAllocationRecord( const Kokkos::HostSpace & arg_space
 
 void * SharedAllocationRecord< Kokkos::HostSpace , void >::
 allocate_tracked( const Kokkos::HostSpace & arg_space
-                , const std::string & arg_alloc_label 
+                , const std::string & arg_alloc_label
                 , const size_t arg_alloc_size )
 {
   if ( ! arg_alloc_size ) return (void *) 0 ;
