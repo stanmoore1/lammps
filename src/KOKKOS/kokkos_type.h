@@ -291,6 +291,13 @@ struct s_EV_FLOAT {
 };
 typedef struct s_EV_FLOAT EV_FLOAT;
 
+namespace Kokkos {
+template<>
+struct reduction_identity<EV_FLOAT> {
+  KOKKOS_FORCEINLINE_FUNCTION static EV_FLOAT sum()  {return EV_FLOAT();}
+};
+}
+
 struct s_EV_FLOAT_REAX {
   E_FLOAT evdwl;
   E_FLOAT ecoul;

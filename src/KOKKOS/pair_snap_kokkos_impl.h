@@ -435,8 +435,10 @@ void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAP<NEIGHFLAG,EVFLAG>,const
   Kokkos::View<double*,Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Unmanaged>>
     d_coeffi(d_coeffelem,elem_i,Kokkos::ALL);
 
-  Kokkos::parallel_for (Kokkos::TeamThreadRange(team,ninside),
-      [&] (const int jj) {
+  EV_FLOAT ev_inner;
+
+  Kokkos::parallel_reduce (Kokkos::TeamThreadRange(team,ninside),
+      [&] (const int jj, EV_FLOAT &ev) {
   //for (int jj = 0; jj < ninside; jj++) {
     int j = my_sna.inside[jj];
 
@@ -523,7 +525,7 @@ void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAP<NEIGHFLAG,EVFLAG>,const
     }
 
     });
-  });
+  },ev_inner);
   //t5 += timer.seconds(); timer.reset();
 
   // tally energy contribution
@@ -543,6 +545,8 @@ void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAP<NEIGHFLAG,EVFLAG>,const
 
       if (team.team_rank() == 0)
       Kokkos::single(Kokkos::PerThread(team), [&] () {
+
+      ev += ev_inner;
 
       // evdwl = energy of atom I, sum over coeffs_k * Bi_k
     
