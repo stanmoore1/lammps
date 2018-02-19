@@ -1040,7 +1040,9 @@ template<class DeviceType>
 inline
 T_INT SNAKokkos<DeviceType>::size_team_scratch_arrays() {
   T_INT size = 0;
-  int jdim = twojmax + 1;
+  int jdim = roundUp8(twojmax + 1);
+  printf("who %i\n",jdim);
+  int nmax_8 = roundUp8(nmax);
 
   size += t_sna_3d::shmem_size(jdim,jdim,jdim); // uarraytot_r_a
   size += t_sna_3d::shmem_size(jdim,jdim,jdim); // uarraytot_i_a
@@ -1072,17 +1074,23 @@ void SNAKokkos<DeviceType>::create_thread_scratch_arrays(const typename Kokkos::
   uarray_i = t_sna_3d(team.thread_scratch(1),jdim,jdim,jdim);
   duarray_r = t_sna_4d(team.thread_scratch(1),jdim,jdim,jdim);
   duarray_i = t_sna_4d(team.thread_scratch(1),jdim,jdim,jdim);
+
+  int dum1 = sizeof(Kokkos::View<double, Kokkos::LayoutRight, DeviceType, Kokkos::MemoryUnmanaged>);
+  int dum2 = sizeof(Kokkos::View<double*, Kokkos::LayoutRight, DeviceType>);
 }
 
 template<class DeviceType>
 inline
 T_INT SNAKokkos<DeviceType>::size_thread_scratch_arrays() {
   T_INT size = 0;
-  int jdim = twojmax + 1;
-  size += Kokkos::View<double*, Kokkos::LayoutRight, DeviceType>::shmem_size(ncoeff); // bvec
+  int jdim = roundUp8(twojmax + 1);
+  int ncoeff_8 = roundUp8(ncoeff);
+  printf("nc8 %i \n",ncoeff_8);
+
+  size += Kokkos::View<double*, Kokkos::LayoutRight, DeviceType>::shmem_size(ncoeff_8-2); // bvec
   size += t_sna_3d::shmem_size(jdim,jdim,jdim); // barray
 
-  size += Kokkos::View<double*[3], Kokkos::LayoutRight, DeviceType>::shmem_size(ncoeff); // dbvec
+  size += Kokkos::View<double*[3], Kokkos::LayoutRight, DeviceType>::shmem_size(ncoeff_8-2); // dbvec
   size += t_sna_4d::shmem_size(jdim,jdim,jdim); // dbarray
 
   size += t_sna_3d::shmem_size(jdim,jdim,jdim); // uarray_r
@@ -1090,6 +1098,21 @@ T_INT SNAKokkos<DeviceType>::size_thread_scratch_arrays() {
   size += t_sna_4d::shmem_size(jdim,jdim,jdim); // duarray_r
   size += t_sna_4d::shmem_size(jdim,jdim,jdim); // duarray_i
   return size;
+}
+
+/* ----------------------------------------------------------------------
+   round up the nearest multiple of 8
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+int SNAKokkos<DeviceType>::roundUp8(int numToRound)
+{
+  int remainder = numToRound % 8;
+  if (remainder == 0)
+    return numToRound;
+
+  return numToRound + 8 - remainder;
 }
 
 /* ----------------------------------------------------------------------

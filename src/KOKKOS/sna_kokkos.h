@@ -142,6 +142,8 @@ private:
   t_sna_5d cgarray;
   t_sna_2d rootpqarray;
 
+  KOKKOS_INLINE_FUNCTION
+  int roundUp8(int);
 
   static const int nmaxfactorial = 167;
   KOKKOS_INLINE_FUNCTION
