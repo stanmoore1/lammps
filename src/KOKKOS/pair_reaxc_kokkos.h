@@ -62,6 +62,9 @@ struct LR_lookup_table_kk
   t_cubic_spline_coef_1d d_ele, d_CEclmb;
 };
 
+template<int NEIGHFLAG>
+struct PairReaxShortNeighList{};
+
 template<int NEIGHFLAG, int EVFLAG>
 struct PairReaxComputePolar{};
 
@@ -144,6 +147,10 @@ class PairReaxCKokkos : public PairReaxC {
   void FindBond(int &);
   void PackBondBuffer(DAT::tdual_ffloat_1d, int &);
   void FindBondSpecies();
+
+  template<int NEIGHFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator()(PairReaxShortNeighList<NEIGHFLAG>, const int&) const;
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
@@ -468,6 +475,12 @@ class PairReaxCKokkos : public PairReaxC {
 
   typename AT::t_ffloat_1d d_buf;
   DAT::tdual_int_scalar k_nbuf_local;
+
+  Kokkos::View<int**,DeviceType> d_neighbors_bonded;
+  Kokkos::View<int*,DeviceType> d_numneigh_bonded;
+
+  Kokkos::View<int**,DeviceType> d_neighbors_nonbonded;
+  Kokkos::View<int*,DeviceType> d_numneigh_nonbonded;
 };
 
 template <class DeviceType>

@@ -722,6 +722,24 @@ void PairReaxCKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       pvector[i] = 0.0;
   }
 
+  // build short neighbor list
+
+  int max_neighs = d_neighbors.dimension_1();
+
+  if ((d_neighbors_bonded.dimension_1() != max_neighs) ||
+     (d_neighbors_bonded.dimension_0() != ignum)) {
+    d_neighbors_bonded = Kokkos::View<int**,DeviceType>("PairReaxC::neighbors_bonded",ignum,max_neighs);
+    d_neighbors_nonbonded = Kokkos::View<int**,DeviceType>("PairReaxC::neighbors_nonbonded",ignum,max_neighs);
+  }
+  if (d_numneigh_bonded.dimension_0() != ignum) {
+    d_numneigh_bonded = Kokkos::View<int*,DeviceType>("PairReaxC::numneighs_bonded",ignum);
+    d_numneigh_nonbonded = Kokkos::View<int*,DeviceType>("PairReaxC::numneighs_nonbonded",ignum);
+  }
+  if (neighflag == FULL)
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,PairReaxShortNeighList<FULL> >(0,ignum), *this);
+  else
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,PairReaxShortNeighList<HALFTHREAD> >(0,ignum), *this);
+
   EV_FLOAT_REAX ev;
   EV_FLOAT_REAX ev_all;
 
@@ -1038,6 +1056,66 @@ void PairReaxCKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+template<int NEIGHFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairReaxCKokkos<DeviceType>::operator()(PairReaxShortNeighList<NEIGHFLAG>, const int& ii) const {
+  const int i = d_ilist[ii];
+  const X_FLOAT xtmp = x(i,0);
+  const X_FLOAT ytmp = x(i,1);
+  const X_FLOAT ztmp = x(i,2);
+  const tagint itag = tag(i);
+
+  const int jnum = d_numneigh[i];
+  int inside_bonded = 0;
+  int inside_nonbonded = 0;
+  for (int jj = 0; jj < jnum; jj++) {
+    int j = d_neighbors(i,jj);
+    j &= NEIGHMASK;
+
+    const X_FLOAT delx = x(j,0) - xtmp;
+    const X_FLOAT dely = x(j,1) - ytmp;
+    const X_FLOAT delz = x(j,2) - ztmp;
+    const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+
+    int cutoffsq = cut_bosq;
+    if (i < nlocal) cutoffsq = MAX(cut_bosq,cut_hbsq);
+    if (rsq <= cutoffsq) {
+      d_neighbors_bonded(i,inside_bonded) = j;
+      inside_bonded++;
+    }
+
+    if (i >= nlocal) continue;
+    if (rsq > cut_nbsq) continue;
+
+    const int jtype = type(j);
+    const tagint jtag = tag(j);
+
+    if (NEIGHFLAG != FULL) {
+      // skip half of the interactions
+      if (j >= nlocal) {
+        if (itag > jtag) {
+          if ((itag+jtag) % 2 == 0) continue;
+        } else if (itag < jtag) {
+          if ((itag+jtag) % 2 == 1) continue;
+        } else {
+          if (x(j,2) < ztmp) continue;
+          if (x(j,2) == ztmp && x(j,1)  < ytmp) continue;
+          if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
+        }
+      }
+    }
+
+    d_neighbors_nonbonded(i,inside_nonbonded) = j;
+    inside_nonbonded++;
+  }
+
+  d_numneigh_bonded(i) = inside_bonded;
+  d_numneigh_nonbonded(i) = inside_nonbonded;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairReaxCKokkos<DeviceType>::operator()(PairReaxComputePolar<NEIGHFLAG,EVFLAG>, const int &ii, EV_FLOAT_REAX& ev) const {
@@ -1086,13 +1164,13 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxComputeLJCoulomb<NEIGHFLAG,
   const F_FLOAT qi = q(i);
   const int itype = type(i);
   const tagint itag = tag(i);
-  const int jnum = d_numneigh[i];
+  const int jnum = d_numneigh_nonbonded[i];
 
   F_FLOAT fxtmp, fytmp, fztmp;
   fxtmp = fytmp = fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
-    int j = d_neighbors(i,jj);
+    int j = d_neighbors_nonbonded(i,jj);
     j &= NEIGHMASK;
     const int jtype = type(j);
     const tagint jtag = tag(j);
@@ -1242,13 +1320,13 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxComputeTabulatedLJCoulomb<N
   const F_FLOAT qi = q(i);
   const int itype = type(i);
   const tagint itag = tag(i);
-  const int jnum = d_numneigh[i];
+  const int jnum = d_numneigh_nonbonded[i];
 
   F_FLOAT fxtmp, fytmp, fztmp;
   fxtmp = fytmp = fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
-    int j = d_neighbors(i,jj);
+    int j = d_neighbors_nonbonded(i,jj);
     j &= NEIGHMASK;
     const int jtype = type(j);
     const tagint jtag = tag(j);
@@ -1461,7 +1539,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxBuildListsFull, const int &
   const X_FLOAT ytmp = x(i,1);
   const X_FLOAT ztmp = x(i,2);
   const int itype = type(i);
-  const int jnum = d_numneigh[i];
+  const int jnum = d_numneigh_bonded[i];
 
   F_FLOAT C12, C34, C56, BO_s, BO_pi, BO_pi2, BO, delij[3], dBOp_i[3], dln_BOp_pi_i[3], dln_BOp_pi2_i[3];
   F_FLOAT total_bo = 0.0;
@@ -1484,7 +1562,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxBuildListsFull, const int &
   }
 
   for (int jj = 0; jj < jnum; jj++) {
-    int j = d_neighbors(i,jj);
+    int j = d_neighbors_bonded(i,jj);
     j &= NEIGHMASK;
     delij[0] = x(j,0) - xtmp;
     delij[1] = x(j,1) - ytmp;
@@ -1625,7 +1703,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxBuildListsHalf<NEIGHFLAG>, 
   const X_FLOAT ztmp = x(i,2);
   const int itype = type(i);
   const tagint itag = tag(i);
-  const int jnum = d_numneigh[i];
+  const int jnum = d_numneigh_bonded[i];
 
   F_FLOAT C12, C34, C56, BO_s, BO_pi, BO_pi2, BO, delij[3], dBOp_i[3], dln_BOp_pi_i[3], dln_BOp_pi2_i[3];
   F_FLOAT total_bo = 0.0;
@@ -1647,7 +1725,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxBuildListsHalf<NEIGHFLAG>, 
   }
 
   for (int jj = 0; jj < jnum; jj++) {
-    int j = d_neighbors(i,jj);
+    int j = d_neighbors_bonded(i,jj);
     j &= NEIGHMASK;
     const tagint jtag = tag(j);
 
@@ -1849,7 +1927,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxBuildListsHalf_LessAtomics<
   const X_FLOAT ztmp = x(i,2);
   const int itype = type(i);
   const tagint itag = tag(i);
-  const int jnum = d_numneigh[i];
+  const int jnum = d_numneigh_bonded[i];
 
   F_FLOAT C12, C34, C56, BO_s, BO_pi, BO_pi2, BO, delij[3];
 
@@ -1870,7 +1948,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxBuildListsHalf_LessAtomics<
   }
 
   for (int jj = 0; jj < jnum; jj++) {
-    int j = d_neighbors(i,jj);
+    int j = d_neighbors_bonded(i,jj);
     j &= NEIGHMASK;
     const tagint jtag = tag(j);
 
