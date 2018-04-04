@@ -678,10 +678,12 @@ int Comm::binary(double value, int n, double *vec)
      using original inbuf, which may have been updated
    for non-NULL outbuf, final updated inbuf is copied to it
      ok to specify outbuf = inbuf
+   the ptr argument is a pointer to the instance of calling class
 ------------------------------------------------------------------------- */
 
 void Comm::ring(int n, int nper, void *inbuf, int messtag,
-                void (*callback)(int, char *), void *outbuf, int self)
+                void (*callback)(int, char *, void *),
+                void *outbuf, void *ptr, int self)
 {
   MPI_Request request;
   MPI_Status status;
@@ -694,10 +696,15 @@ void Comm::ring(int n, int nper, void *inbuf, int messtag,
 
   if (maxbytes == 0) return;
 
+  // sanity check
+
+  if ((nbytes > 0) && inbuf == NULL)
+    error->one(FLERR,"Cannot put data on ring from NULL pointer");
+
   char *buf,*bufcopy;
   memory->create(buf,maxbytes,"comm:buf");
   memory->create(bufcopy,maxbytes,"comm:bufcopy");
-  memcpy(buf,inbuf,nbytes);
+  if (nbytes && inbuf) memcpy(buf,inbuf,nbytes);
 
   int next = me + 1;
   int prev = me - 1;
@@ -710,12 +717,12 @@ void Comm::ring(int n, int nper, void *inbuf, int messtag,
       MPI_Send(buf,nbytes,MPI_CHAR,next,messtag,world);
       MPI_Wait(&request,&status);
       MPI_Get_count(&status,MPI_CHAR,&nbytes);
-      memcpy(buf,bufcopy,nbytes);
+      if (nbytes) memcpy(buf,bufcopy,nbytes);
     }
-    if (self || loop < nprocs-1) callback(nbytes/nper,buf);
+    if (self || loop < nprocs-1) callback(nbytes/nper,buf,ptr);
   }
 
-  if (outbuf) memcpy(outbuf,buf,nbytes);
+  if (nbytes && outbuf) memcpy(outbuf,buf,nbytes);
 
   memory->destroy(buf);
   memory->destroy(bufcopy);
@@ -736,8 +743,8 @@ int Comm::read_lines_from_file(FILE *fp, int nlines, int maxline, char *buf)
     m = 0;
     for (int i = 0; i < nlines; i++) {
       if (!fgets(&buf[m],maxline,fp)) {
-	m = 0;
-	break;
+        m = 0;
+        break;
       }
       m += strlen(&buf[m]);
     }
@@ -772,8 +779,8 @@ int Comm::read_lines_from_file_universe(FILE *fp, int nlines, int maxline,
     m = 0;
     for (int i = 0; i < nlines; i++) {
       if (!fgets(&buf[m],maxline,fp)) {
-	m = 0;
-	break;
+        m = 0;
+        break;
       }
       m += strlen(&buf[m]);
     }

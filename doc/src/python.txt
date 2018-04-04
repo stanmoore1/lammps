@@ -406,7 +406,7 @@ cases, LAMMPS has no simple way to check that something illogical is
 being attempted.
 
 The same applies to Python functions called during a simulation run at
-each time step using "fix python"_fix_python.html.
+each time step using "fix python/invoke"_fix_python_invoke.html.
 
 :line
 
@@ -489,10 +489,10 @@ python"_Section_python.html.  Note that it is important that the
 stand-alone LAMMPS executable and the LAMMPS shared library be
 consistent (built from the same source code files) in order for this
 to work.  If the two have been built at different times using
-different source files, problems may occur. 
+different source files, problems may occur.
 
 [Related commands:]
 
-"shell"_shell.html, "variable"_variable.html, "fix python"_fix_python.html
+"shell"_shell.html, "variable"_variable.html, "fix python/invoke"_fix_python_invoke.html
 
 [Default:] none

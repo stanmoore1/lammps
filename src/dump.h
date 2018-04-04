@@ -33,9 +33,10 @@ class Dump : protected Pointers {
   int comm_forward;          // size of forward communication (0 if none)
   int comm_reverse;          // size of reverse communication (0 if none)
 
+#if defined(LMP_QSORT)
   // static variable across all Dump objects
-
   static Dump *dumpptr;         // holds a ptr to Dump currently being used
+#endif
 
   Dump(class LAMMPS *, int, char **);
   virtual ~Dump();
@@ -76,6 +77,12 @@ class Dump : protected Pointers {
   int sortcol;               // 0 to sort on ID, 1-N on columns
   int sortcolm1;             // sortcol - 1
   int sortorder;             // ASCEND or DESCEND
+  int delay_flag;            // 1 if delay output until delaystep
+  bigint delaystep;
+
+  int refreshflag;           // 1 if dump_modify refresh specified
+  char *refresh;             // compute ID to invoke refresh() on
+  int irefresh;              // index of compute
 
   char boundstr[9];          // encoding of boundary flags
 
@@ -132,11 +139,17 @@ class Dump : protected Pointers {
   virtual int convert_string(int, double *) {return 0;}
   virtual void write_data(int, double *) = 0;
   void pbc_allocate();
-    
+
   void sort();
+#if defined(LMP_QSORT)
   static int idcompare(const void *, const void *);
   static int bufcompare(const void *, const void *);
   static int bufcompare_reverse(const void *, const void *);
+#else
+  static int idcompare(const int, const int, void *);
+  static int bufcompare(const int, const int, void *);
+  static int bufcompare_reverse(const int, const int, void *);
+#endif
 };
 
 }

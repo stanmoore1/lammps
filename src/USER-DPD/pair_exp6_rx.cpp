@@ -84,11 +84,15 @@ PairExp6rx::PairExp6rx(LAMMPS *lmp) : Pair(lmp)
 
 PairExp6rx::~PairExp6rx()
 {
-  for (int i=0; i < nparams; ++i) {
-    delete[] params[i].name;
-    delete[] params[i].potential;
+  if (copymode) return;
+
+  if (params != NULL) {
+    for (int i=0; i < nparams; ++i) {
+      delete[] params[i].name;
+      delete[] params[i].potential;
+    }
+    memory->destroy(params);
   }
-  memory->destroy(params);
   memory->destroy(mol2param);
 
   if (allocated) {
@@ -562,7 +566,7 @@ void PairExp6rx::settings(int narg, char **arg)
   if (allocated) {
     int i,j;
     for (i = 1; i <= atom->ntypes; i++)
-      for (j = i+1; j <= atom->ntypes; j++)
+      for (j = i; j <= atom->ntypes; j++)
         if (setflag[i][j]) cut[i][j] = cut_global;
   }
 

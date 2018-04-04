@@ -30,7 +30,7 @@
 using namespace LAMMPS_NS;
 
 ComputeSNADAtom::ComputeSNADAtom(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg), cutsq(NULL), list(NULL), snad(NULL), 
+  Compute(lmp, narg, arg), cutsq(NULL), list(NULL), snad(NULL),
   radelem(NULL), wjelem(NULL)
 {
   double rfac0, rmin0;
@@ -50,9 +50,9 @@ ComputeSNADAtom::ComputeSNADAtom(LAMMPS *lmp, int narg, char **arg) :
   switchflag = 1;
   bzeroflag = 1;
   quadraticflag = 0;
-  
+
   // process required arguments
-  
+
   memory->create(radelem,ntypes+1,"sna/atom:radelem"); // offset by 1 to match up with types
   memory->create(wjelem,ntypes+1,"sna/atom:wjelem");
   rcutfac = atof(arg[3]);
@@ -85,10 +85,10 @@ ComputeSNADAtom::ComputeSNADAtom(LAMMPS *lmp, int narg, char **arg) :
   while (iarg < narg) {
     if (strcmp(arg[iarg],"diagonal") == 0) {
       if (iarg+2 > narg)
-	error->all(FLERR,"Illegal compute snad/atom command");
+        error->all(FLERR,"Illegal compute snad/atom command");
       diagonalstyle = atof(arg[iarg+1]);
       if (diagonalstyle < 0 || diagonalstyle > 3)
-	error->all(FLERR,"Illegal compute snad/atom command");
+        error->all(FLERR,"Illegal compute snad/atom command");
       iarg += 2;
     } else if (strcmp(arg[iarg],"rmin0") == 0) {
       if (iarg+2 > narg)
@@ -97,12 +97,12 @@ ComputeSNADAtom::ComputeSNADAtom(LAMMPS *lmp, int narg, char **arg) :
       iarg += 2;
     } else if (strcmp(arg[iarg],"switchflag") == 0) {
       if (iarg+2 > narg)
-	error->all(FLERR,"Illegal compute snad/atom command");
+        error->all(FLERR,"Illegal compute snad/atom command");
       switchflag = atoi(arg[iarg+1]);
       iarg += 2;
     } else if (strcmp(arg[iarg],"quadraticflag") == 0) {
       if (iarg+2 > narg)
-	error->all(FLERR,"Illegal compute snad/atom command");
+        error->all(FLERR,"Illegal compute snad/atom command");
       quadraticflag = atoi(arg[iarg+1]);
       iarg += 2;
     } else error->all(FLERR,"Illegal compute snad/atom command");
@@ -125,11 +125,11 @@ ComputeSNADAtom::ComputeSNADAtom(LAMMPS *lmp, int narg, char **arg) :
   threencoeff = 3*ncoeff;
   size_peratom_cols = threencoeff*atom->ntypes;
   if (quadraticflag) {
-    ncoeffsq = ncoeff*ncoeff;
-    twoncoeffsq = 2*ncoeffsq;
-    threencoeffsq = 3*ncoeffsq;
+    ncoeffq = (ncoeff*(ncoeff+1))/2;
+    twoncoeffq = 2*ncoeffq;
+    threencoeffq = 3*ncoeffq;
     size_peratom_cols +=
-      threencoeffsq*atom->ntypes;
+      threencoeffq*atom->ntypes;
   }
   comm_reverse = size_peratom_cols;
   peratom_flag = 1;
@@ -205,7 +205,7 @@ void ComputeSNADAtom::compute_peratom()
     memory->destroy(snad);
     nmax = atom->nmax;
     memory->create(snad,nmax,size_peratom_cols,
-		   "snad/atom:snad");
+                   "snad/atom:snad");
     array_atom = snad;
   }
 
@@ -250,7 +250,7 @@ void ComputeSNADAtom::compute_peratom()
 
       const int typeoffset = threencoeff*(atom->type[i]-1);
       const int quadraticoffset = threencoeff*atom->ntypes +
-        threencoeffsq*(atom->type[i]-1);
+        threencoeffq*(atom->type[i]-1);
 
       // insure rij, inside, and typej  are of size jnum
 
@@ -263,23 +263,23 @@ void ComputeSNADAtom::compute_peratom()
 
       int ninside = 0;
       for (int jj = 0; jj < jnum; jj++) {
-	int j = jlist[jj];
-	j &= NEIGHMASK;
+        int j = jlist[jj];
+        j &= NEIGHMASK;
 
-	const double delx = x[j][0] - xtmp;
-	const double dely = x[j][1] - ytmp;
-	const double delz = x[j][2] - ztmp;
-	const double rsq = delx*delx + dely*dely + delz*delz;
+        const double delx = x[j][0] - xtmp;
+        const double dely = x[j][1] - ytmp;
+        const double delz = x[j][2] - ztmp;
+        const double rsq = delx*delx + dely*dely + delz*delz;
         int jtype = type[j];
-	if (rsq < cutsq[itype][jtype]&&rsq>1e-20) {
-	  snaptr[tid]->rij[ninside][0] = delx;
-	  snaptr[tid]->rij[ninside][1] = dely;
-	  snaptr[tid]->rij[ninside][2] = delz;
-	  snaptr[tid]->inside[ninside] = j;
-	  snaptr[tid]->wj[ninside] = wjelem[jtype];
-	  snaptr[tid]->rcutij[ninside] = (radi+radelem[jtype])*rcutfac;
-	  ninside++;
-	}
+        if (rsq < cutsq[itype][jtype]&&rsq>1e-20) {
+          snaptr[tid]->rij[ninside][0] = delx;
+          snaptr[tid]->rij[ninside][1] = dely;
+          snaptr[tid]->rij[ninside][2] = delz;
+          snaptr[tid]->inside[ninside] = j;
+          snaptr[tid]->wj[ninside] = wjelem[jtype];
+          snaptr[tid]->rcutij[ninside] = (radi+radelem[jtype])*rcutfac;
+          ninside++;
+        }
       }
 
       snaptr[tid]->compute_ui(ninside);
@@ -288,28 +288,28 @@ void ComputeSNADAtom::compute_peratom()
         snaptr[tid]->compute_bi();
         snaptr[tid]->copy_bi2bvec();
       }
-      
+
       for (int jj = 0; jj < ninside; jj++) {
-	const int j = snaptr[tid]->inside[jj];
-	snaptr[tid]->compute_duidrj(snaptr[tid]->rij[jj],
-				    snaptr[tid]->wj[jj],
-				    snaptr[tid]->rcutij[jj]);
-	snaptr[tid]->compute_dbidrj();
-	snaptr[tid]->copy_dbi2dbvec();
+        const int j = snaptr[tid]->inside[jj];
+        snaptr[tid]->compute_duidrj(snaptr[tid]->rij[jj],
+                                    snaptr[tid]->wj[jj],
+                                    snaptr[tid]->rcutij[jj]);
+        snaptr[tid]->compute_dbidrj();
+        snaptr[tid]->copy_dbi2dbvec();
 
-	// Accumulate -dBi/dRi, -dBi/dRj
+        // Accumulate -dBi/dRi, -dBi/dRj
 
-	double *snadi = snad[i]+typeoffset;
-	double *snadj = snad[j]+typeoffset;
+        double *snadi = snad[i]+typeoffset;
+        double *snadj = snad[j]+typeoffset;
 
-	for (int icoeff = 0; icoeff < ncoeff; icoeff++) {
-	  snadi[icoeff] += snaptr[tid]->dbvec[icoeff][0];
-	  snadi[icoeff+ncoeff] += snaptr[tid]->dbvec[icoeff][1];
-	  snadi[icoeff+twoncoeff] += snaptr[tid]->dbvec[icoeff][2];
-	  snadj[icoeff] -= snaptr[tid]->dbvec[icoeff][0];
-	  snadj[icoeff+ncoeff] -= snaptr[tid]->dbvec[icoeff][1];
-	  snadj[icoeff+twoncoeff] -= snaptr[tid]->dbvec[icoeff][2];
-	}
+        for (int icoeff = 0; icoeff < ncoeff; icoeff++) {
+          snadi[icoeff] += snaptr[tid]->dbvec[icoeff][0];
+          snadi[icoeff+ncoeff] += snaptr[tid]->dbvec[icoeff][1];
+          snadi[icoeff+twoncoeff] += snaptr[tid]->dbvec[icoeff][2];
+          snadj[icoeff] -= snaptr[tid]->dbvec[icoeff][0];
+          snadj[icoeff+ncoeff] -= snaptr[tid]->dbvec[icoeff][1];
+          snadj[icoeff+twoncoeff] -= snaptr[tid]->dbvec[icoeff][2];
+        }
 
         if (quadraticflag) {
           double *snadi = snad[i]+quadraticoffset;
@@ -320,7 +320,10 @@ void ComputeSNADAtom::compute_peratom()
             double bix = snaptr[tid]->dbvec[icoeff][0];
             double biy = snaptr[tid]->dbvec[icoeff][1];
             double biz = snaptr[tid]->dbvec[icoeff][2];
-            for (int jcoeff = 0; jcoeff < ncoeff; jcoeff++) {
+
+            // upper-triangular elements of quadratic matrix
+
+            for (int jcoeff = icoeff; jcoeff < ncoeff; jcoeff++) {
               double dbxtmp = bi*snaptr[tid]->dbvec[jcoeff][0]
                 + bix*snaptr[tid]->bvec[jcoeff];
               double dbytmp = bi*snaptr[tid]->dbvec[jcoeff][1]
@@ -328,11 +331,11 @@ void ComputeSNADAtom::compute_peratom()
               double dbztmp = bi*snaptr[tid]->dbvec[jcoeff][2]
                 + biz*snaptr[tid]->bvec[jcoeff];
               snadi[ncount] += dbxtmp;
-              snadi[ncount+ncoeffsq] += dbytmp;
-              snadi[ncount+twoncoeffsq] += dbztmp;
+              snadi[ncount+ncoeffq] += dbytmp;
+              snadi[ncount+twoncoeffq] += dbztmp;
               snadj[ncount] -= dbxtmp;
-              snadj[ncount+ncoeffsq] -= dbytmp;
-              snadj[ncount+twoncoeffsq] -= dbztmp;
+              snadj[ncount+ncoeffq] -= dbytmp;
+              snadj[ncount+twoncoeffq] -= dbztmp;
               ncount++;
             }
           }
@@ -385,7 +388,7 @@ double ComputeSNADAtom::memory_usage()
   bytes += 3*njmax*sizeof(double);
   bytes += njmax*sizeof(int);
   bytes += threencoeff*atom->ntypes;
-  if (quadraticflag) bytes += threencoeffsq*atom->ntypes;
+  if (quadraticflag) bytes += threencoeffq*atom->ntypes;
   bytes += snaptr[0]->memory_usage()*comm->nthreads;
   return bytes;
 }

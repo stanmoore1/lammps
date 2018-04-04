@@ -11,6 +11,7 @@
 #define COLVARATOMS_H
 
 #include "colvarmodule.h"
+#include "colvarproxy.h"
 #include "colvarparse.h"
 #include "colvardeps.h"
 
@@ -150,12 +151,21 @@ class colvarmodule::atom_group
 {
 public:
 
-  /// \brief Initialize the group by looking up its configuration
-  /// string in conf and parsing it; this is actually done by parse(),
-  /// which is a member function so that a group can be initialized
-  /// also after construction
-  atom_group(std::string const &conf,
-             char const        *key);
+
+  /// \brief Default constructor
+  atom_group();
+
+  /// \brief Create a group object, assign a name to it
+  atom_group(char const *key);
+
+  /// \brief Initialize the group after a (temporary) vector of atoms
+  atom_group(std::vector<cvm::atom> const &atoms_in);
+
+  /// \brief Destructor
+  ~atom_group();
+
+  /// \brief Optional name to reuse properties of this in other groups
+  std::string name;
 
   /// \brief Keyword used to define the group
   // TODO Make this field part of the data structures that link a group to a CVC
@@ -172,14 +182,12 @@ public:
   int parse(std::string const &conf);
 
   int add_atom_numbers(std::string const &numbers_conf);
+  int add_atoms_of_group(atom_group const * ag);
   int add_index_group(std::string const &index_group_name);
   int add_atom_numbers_range(std::string const &range_conf);
   int add_atom_name_residue_range(std::string const &psf_segid,
                                   std::string const &range_conf);
   int parse_fitting_options(std::string const &group_conf);
-
-  /// \brief Initialize the group after a (temporary) vector of atoms
-  atom_group(std::vector<cvm::atom> const &atoms_in);
 
   /// \brief Add an atom object to this group
   int add_atom(cvm::atom const &a);
@@ -199,15 +207,20 @@ public:
   static std::vector<feature *> ag_features;
 
   /// \brief Implementation of the feature list accessor for atom group
-  virtual std::vector<feature *> &features() {
+  virtual const std::vector<feature *> &features()
+  {
     return ag_features;
   }
-
-  /// \brief Default constructor
-  atom_group();
-
-  /// \brief Destructor
-  ~atom_group();
+  virtual std::vector<feature *> &modify_features()
+  {
+    return ag_features;
+  }
+  static void delete_features() {
+    for (size_t i=0; i < ag_features.size(); i++) {
+      delete ag_features[i];
+    }
+    ag_features.clear();
+  }
 
 protected:
 
@@ -274,6 +287,10 @@ public:
   /// Allocates and populates the sorted list of atom ids
   int create_sorted_ids(void);
 
+  /// Detect whether two groups share atoms
+  /// If yes, returns 1-based number of a common atom; else, returns 0
+  static int overlap(const atom_group &g1, const atom_group &g2);
+
   /// \brief When updating atomic coordinates, translate them to align with the
   /// center of mass of the reference coordinates
   bool b_center;
@@ -293,10 +310,6 @@ public:
   /// rotateReference, and the corresponding reference:
   /// cvc's (eg rmsd, eigenvector) will not override the user's choice
   bool b_user_defined_fit;
-
-  /// \brief Whether or not the derivatives of the roto-translation
-  /// should be included when calculating the colvar's gradients (default: yes)
-  bool b_fit_gradients;
 
   /// \brief use reference coordinates for b_center or b_rotate
   std::vector<cvm::atom_pos> ref_pos;
@@ -464,6 +477,10 @@ public:
   /// apply_colvar_force() once that is implemented for non-scalar values
   void apply_force(cvm::rvector const &force);
 
+  /// Implements possible actions to be carried out
+  /// when a given feature is enabled
+  /// This overloads the base function in colvardeps
+  void do_feature_side_effects(int id);
 };
 
 
