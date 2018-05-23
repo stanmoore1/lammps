@@ -971,10 +971,10 @@ void PPPM::allocate()
 
   if (mu_flag)
     cg_mu = new GridComm(lmp,world,9,3,
-                         nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
-                         nxlo_out,nxhi_out,nylo_out,nyhi_out,nzlo_out,nzhi_out,
-                         procneigh[0][0],procneigh[0][1],procneigh[1][0],
-                         procneigh[1][1],procneigh[2][0],procneigh[2][1]);
+                         nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
+                         nxlo_out,nxhi_out,nylo_out,nyhi_out,nzlo_out,nzhi_out,
+                         procneigh[0][0],procneigh[0][1],procneigh[1][0],
+                         procneigh[1][1],procneigh[2][0],procneigh[2][1]);
 }
 
 /* ----------------------------------------------------------------------
@@ -4912,8 +4912,8 @@ void PPPM::slabcorr_groups(int groupbit_A, int groupbit_B, int AA_flag)
 /* ----------------------------------------------------------------------
    compute RMS accuracy for a dimension
 ------------------------------------------------------------------------- */
-/*
-double EwaldDisp::rms(int km, double prd, bigint natoms,
+
+double PPPM::rms(int km, double prd, bigint natoms,
                       double q2, double b2, double M2)
 {
   double value = 0.0;
@@ -4926,12 +4926,12 @@ double EwaldDisp::rms(int km, double prd, bigint natoms,
 
   return value;
 }
-/*
+
 /* ----------------------------------------------------------------------
    Newton solver used to find g_ewald for LJ systems
 ------------------------------------------------------------------------- */
-/*
-double EwaldDisp::NewtonSolve(double x, double Rc,
+
+double PPPM::NewtonSolve(double x, double Rc,
                               bigint natoms, double vol, double b2)
 {
   double dx,tol;
@@ -4951,12 +4951,12 @@ double EwaldDisp::NewtonSolve(double x, double Rc,
   }
   return -1;
 }
-/*
+
 /* ----------------------------------------------------------------------
  Calculate f(x)
  ------------------------------------------------------------------------- */
-/*
-double EwaldDisp::f(double x, double Rc, bigint natoms, double vol, double b2)
+
+double PPPM::f(double x, double Rc, bigint natoms, double vol, double b2)
 {
   double a = Rc*x;
   double f = 0.0;
@@ -4974,17 +4974,17 @@ double EwaldDisp::f(double x, double Rc, bigint natoms, double vol, double b2)
 
   return f;
 }
-/*
+
 /* ----------------------------------------------------------------------
  Calculate numerical derivative f'(x)
  ------------------------------------------------------------------------- */
-/*
-double EwaldDisp::derivf(double x, double Rc,
+
+double PPPM::derivf(double x, double Rc,
                          bigint natoms, double vol, double b2)
 {
   double h = 0.000001;  //Derivative step-size
   return (f(x + h,Rc,natoms,vol,b2) - f(x,Rc,natoms,vol,b2)) / h;
-}*/
+}
 
 /* ----------------------------------------------------------------------
    compute qsum,qsqsum,q2 and give error/warning if not charge neutral

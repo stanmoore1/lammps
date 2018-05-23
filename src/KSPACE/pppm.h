@@ -177,6 +177,7 @@ class PPPM : public KSpace {
   void poisson_groups_triclinic();
 
   // dipole
+
   int mu_flag;
   double musqsum,musum,mu2;
   void make_rho_dipole();
@@ -186,6 +187,10 @@ class PPPM : public KSpace {
   void fieldforce_ik_dipole();
   void fieldforce_peratom_dipole();
   void musum_musq();
+  double NewtonSolve(double, double, bigint, double, double);
+  double f(double, double, bigint, double, double);
+  double derivf(double, double, bigint, double, double);
+  double rms(int, double, bigint, double, double, double);
 
   // group-group interactions
 
