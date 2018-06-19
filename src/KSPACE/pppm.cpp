@@ -2518,6 +2518,12 @@ void PPPM::poisson_ik_dipole()
             eng = s2 * greensfn[ii] * (wreal*wreal + wimg*wimg);
             //eng = s2 * greensfn[ii] * (wreal+wimg)*(wreal+wimg);
             for (int jj = 0; jj < 6; jj++) virial[jj] += eng*vg[ii][jj];
+            virial[0] += 2.0*s2*greensfn[ii]*fkx[i]*(work1[n]*wreal + work1[n+1]*wimg);
+            virial[1] += 2.0*s2*greensfn[ii]*fky[j]*(work2[n]*wreal + work2[n+1]*wimg);
+            virial[2] += 2.0*s2*greensfn[ii]*fkz[k]*(work3[n]*wreal + work3[n+1]*wimg);
+            virial[3] += 2.0*s2*greensfn[ii]*fky[j]*(work1[n]*wreal + work1[n+1]*wimg);
+            virial[4] += 2.0*s2*greensfn[ii]*fkz[k]*(work1[n]*wreal + work1[n+1]*wimg);
+            virial[5] += 2.0*s2*greensfn[ii]*fkz[k]*(work2[n]*wreal + work2[n+1]*wimg);
             if (eflag_global) energy += eng;
             ii++;
             n += 2;
