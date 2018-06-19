@@ -783,7 +783,7 @@ void PPPM::compute(int eflag, int vflag)
     energy -= g_ewald*qsqsum/MY_PIS +
       MY_PI2*qsum*qsum / (g_ewald*g_ewald*volume);
     if (mu_flag)
-      energy -= musqsum*qqrd2e*2.0*g3/3.0/MY_PIS;
+      energy -= musqsum*2.0*g3/3.0/MY_PIS;
     energy *= qscale;
   }
 
