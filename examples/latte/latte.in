@@ -11,7 +11,6 @@ LATTE INPUT FILE
 CONTROL{
   xControl= 1
   BASISTYPE= NONORTHO
-  COORDSFILE= "./coords.dat"
   PARAMPATH= "./TBparam"
   KBT= 0.0
   ENTROPYKIND= 1
@@ -32,9 +31,3 @@ CONTROL{
   XBODISORDER= 5
   KON= 0
 }
-
-#Controls for QMD (if using lammps MAXITER must be set to -1)
-MDCONTROL{
-  MAXITER= -1
-}
-
