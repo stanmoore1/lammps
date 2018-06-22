@@ -812,12 +812,10 @@ void PPPM::compute(int eflag, int vflag)
         eatom[i] -= g_ewald*q[i]*q[i]/MY_PIS + MY_PI2*q[i]*qsum /
           (g_ewald*g_ewald*volume);
 
-      if (mu_flag)
-        eatom[i] -= (mu[i][0]*mu[i][0] + mu[i][1]*mu[i][1] + mu[i][2]*mu[i][2])*qqrd2e*2.0*g3/3.0/MY_PIS;
-
+        if (mu_flag)
+          eatom[i] -= (mu[i][0]*mu[i][0] + mu[i][1]*mu[i][1] + mu[i][2]*mu[i][2])*2.0*g3/3.0/MY_PIS;
         eatom[i] *= qscale;
       }
-      for (i = nlocal; i < ntotal; i++) eatom[i] *= 0.5*qscale;
     }
 
     if (vflag_atom) {
