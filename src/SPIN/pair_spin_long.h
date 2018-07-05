@@ -49,9 +49,11 @@ class PairSpinLong : public PairSpin {
   void read_restart_settings(FILE *);
 
  protected:
-  double mub2mu0;		// general prefactor
-  double ggmub2mu0;		// prefactor for mech force
-  double ggmub2mu0hbinv;	// prefactor for mag force
+  double hbar;	 		// reduced Planck's constant
+  double mub;			// Bohr's magneton
+  double mu_0;			// vacuum permeability
+  double mub2mu0;		// prefactor for mech force
+  double mub2mu0hbinv;		// prefactor for mag force
   double cut_spin, cut_spinsq;
 
   double g_ewald;

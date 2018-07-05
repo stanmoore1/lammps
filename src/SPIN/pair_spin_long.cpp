@@ -60,11 +60,16 @@ lockfixnvespin(NULL)
 {
   single_enable = 0;
   ewaldflag = pppmflag = 1;
-
   respa_enable = 0;
-
   no_virial_fdotr_compute = 1;
   lattice_flag = 0;
+
+  hbar = force->hplanck/MY_2PI;		// eV/(rad.THz)
+  mub = 5.78901e-5;                	// in eV/T
+  mu_0 = 1.2566370614e-6;		// in T.m/A
+  mub2mu0 = mub * mub * mu_0;		// in eV
+  mub2mu0hbinv = mub2mu0 / hbar;	// in rad.THz
+
 }
 
 /* ----------------------------------------------------------------------
@@ -83,30 +88,16 @@ PairSpinLong::~PairSpinLong()
 
 void PairSpinLong::compute(int eflag, int vflag)
 {
-  
-  double qtmp,xtmp,ytmp,ztmp,delx,dely,delz;
-  double r,rinv,r2inv,r6inv;
-  double forcecoulx,forcecouly,forcecoulz,fforce;
-  double tixcoul,tiycoul,tizcoul,tjxcoul,tjycoul,tjzcoul;
-  
-//  double pdotp,pidotr,pjdotr,pre1,pre2,pre3;
+  int i,j,ii,jj,inum,jnum,itype,jtype;  
+  double r,rinv,r2inv,rsq,inorm;
   double fdx,fdy,fdz,fmdx,fmdy,fmdz;
   double grij,expm2,t,erfc;
-  double g0,g1,g2,b0,b1,b2,b3,d0,d1,d2,d3;
-  double zdix,zdiy,zdiz,zdjx,zdjy,zdjz,zaix,zaiy,zaiz,zajx,zajy,zajz;
-  double g0b1_g1b2_g2b3,g1b2_g2b3;
-  double forcelj,factor_coul,factor_lj,facm1;
-  
- 
-
-  int i,j,ii,jj,inum,jnum,itype,jtype;  
+  double gigj,g1,g2,b0,b1,b2,b3,g1b2_g2b3;
   double evdwl,ecoul;
-  double xi[3], rij[3], eij[3];
-  double spi[3], spj[3];
-  double fi[3], fmi[3];
+  double xi[3],rij[3],eij[3];
+  double spi[3],spj[3],fi[3],fmi[3];
   double sdots,sidotr,sjdotr,pre1,pre2,pre3;
   double local_cut2;
-  double rsq, inorm;
   int *ilist,*jlist,*numneigh,**firstneigh;  
 
   evdwl = ecoul = 0.0;
@@ -183,8 +174,10 @@ void PairSpinLong::compute(int eflag, int vflag)
 
           sdots = sp[i][0]*sp[j][0] + sp[i][1]*sp[j][1] + 
 	    sp[i][2]*sp[j][2];
-          sidotr = sp[i][0]*delx + sp[i][1]*dely + sp[i][2]*delz;
-          sjdotr = sp[j][0]*delx + sp[j][1]*dely + sp[j][2]*delz;
+          sidotr = sp[i][0]*rij[0] + sp[i][1]*rij[1] + 
+	    sp[i][2]*rij[2];
+          sjdotr = sp[j][0]*rij[0] + sp[j][1]*rij[1] + 
+	    sp[j][2]*rij[2];
 
           b0 = erfc * rinv;
           b1 = (b0 + pre1*expm2) * r2inv;
@@ -196,26 +189,28 @@ void PairSpinLong::compute(int eflag, int vflag)
 
           g1b2_g2b3 = g1*b2 + g2*b3;
 
-	  fdx = delx * g1b2_g2b3 + 
+	  fdx = rij[0] * g1b2_g2b3 + 
 	    b2 * (sjdotr*sp[i][0] + sidotr*sp[j][0]);
-          fdy = dely * g1b2_g2b3 + 
+          fdy = rij[1] * g1b2_g2b3 + 
 	    b2 * (sjdotr*sp[i][1] + sidotr*sp[j][1]);
-          fdz = delz * g1b2_g2b3 + 
+          fdz = rij[2] * g1b2_g2b3 + 
 	    b2 * (sjdotr*sp[i][2] + sidotr*sp[j][2]);
 
-	  fmdx = b2 * sjdotr *delx - b1 * sp[j][0] ;
-	  fmdy = b2 * sjdotr *dely - b1 * sp[j][1] ;
-	  fmdz = b2 * sjdotr *delz - b1 * sp[j][2] ;
+	  fmdx = b2 * sjdotr *rij[0] - b1 * sp[j][0] ;
+	  fmdy = b2 * sjdotr *rij[1] - b1 * sp[j][1] ;
+	  fmdz = b2 * sjdotr *rij[2] - b1 * sp[j][2] ;
 
 	}
       }
 
-      fi[0] = ggmub2mu0*fdx;
-      fi[1] = ggmub2mu0*fdy;
-      fi[2] = ggmub2mu0*fdz;
-      fmi[0] = ggmub2mu0*fmdx;
-      fmi[1] = ggmub2mu0*fmdy;
-      fmi[2] = ggmub2mu0*fmdz;
+      gigj = sp[i][3]*sp[j][3];
+
+      fi[0] = gigj * mub2mu0 * fdx;
+      fi[1] = gigj * mub2mu0 * fdy;
+      fi[2] = gigj * mub2mu0 * fdz;
+      fmi[0] = gigj * mub2mu0hbinv * fmdx;
+      fmi[1] = gigj * mub2mu0hbinv * fmdy;
+      fmi[2] = gigj * mub2mu0hbinv * fmdz;
       
       // force accumulation
 
@@ -234,7 +229,8 @@ void PairSpinLong::compute(int eflag, int vflag)
 
       if (eflag) {
 	if (rsq <= local_cut2) {
-	  evdwl -= (spi[0]*fmi[0] + spi[1]*fmi[1] + spi[2]*fmi[2]);
+	  evdwl -= spi[0]*fmi[0] + spi[1]*fmi[1] + 
+	    spi[2]*fmi[2];
 	  evdwl *= hbar;
 	}
       } else evdwl = 0.0;
