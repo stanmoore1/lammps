@@ -310,7 +310,7 @@ void PairSpinExchange::compute(int eflag, int vflag)
 }
 
 /* ----------------------------------------------------------------------
-   update the pair interactions fmi acting on the spin ii
+   update the pair interaction fmi acting on the spin ii
 ------------------------------------------------------------------------- */
 
 void PairSpinExchange::compute_single_pair(int ii, double fmi[3]) 

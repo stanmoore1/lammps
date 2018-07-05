@@ -45,6 +45,7 @@
 #include "pair_spin_exchange.h"
 #include "pair_spin_neel.h"
 #include "pair_spin_me.h"
+#include "pair_spin_long.h"
 #include "update.h"
 
 using namespace LAMMPS_NS;
