@@ -89,14 +89,13 @@ PairSpinLong::~PairSpinLong()
 void PairSpinLong::compute(int eflag, int vflag)
 {
   int i,j,ii,jj,inum,jnum,itype,jtype;  
-  double r,rinv,r2inv,rsq,inorm;
+  double r,rinv,r2inv,rsq;
   double grij,expm2,t,erfc;
-  double gigj;
-  double pre[3],bij[4];
+  double bij[4];
   double evdwl,ecoul;
   double xi[3],rij[3];
-  double spi[3],spj[3],fi[3],fmi[3];
-  double sdots,sidotr,sjdotr,pre1,pre2,pre3;
+  double spi[4],spj[4],fi[3],fmi[3];
+  double pre1,pre2,pre3;
   int *ilist,*jlist,*numneigh,**firstneigh;  
 
   evdwl = ecoul = 0.0;
@@ -119,9 +118,6 @@ void PairSpinLong::compute(int eflag, int vflag)
   pre1 = 2.0 * g_ewald / MY_PIS;
   pre2 = 4.0 * pow(g_ewald,3.0) / MY_PIS;
   pre3 = 8.0 * pow(g_ewald,5.0) / MY_PIS;
-  pre[0] = 2.0 * g_ewald / MY_PIS;
-  pre[1] = 4.0 * pow(g_ewald,3.0) / MY_PIS;
-  pre[2] = 8.0 * pow(g_ewald,5.0) / MY_PIS;
 
   // computation of the exchange interaction
   // loop over atoms and their neighbors
@@ -136,6 +132,7 @@ void PairSpinLong::compute(int eflag, int vflag)
     spi[0] = sp[i][0]; 
     spi[1] = sp[i][1]; 
     spi[2] = sp[i][2];
+    spi[3] = sp[i][3];
     itype = type[i];
 
     for (jj = 0; jj < jnum; jj++) {
@@ -146,6 +143,7 @@ void PairSpinLong::compute(int eflag, int vflag)
       spj[0] = sp[j][0]; 
       spj[1] = sp[j][1]; 
       spj[2] = sp[j][2]; 
+      spj[3] = sp[j][3]; 
 
       evdwl = 0.0;
 
@@ -174,29 +172,20 @@ void PairSpinLong::compute(int eflag, int vflag)
           bij[2] = (3.0*bij[1] + pre2*expm2) * r2inv;
           bij[3] = (5.0*bij[2] + pre3*expm2) * r2inv;
 
-	  compute_long(i,j,erfc,expm2,rij,bij,fmi,spi,spj);
-	  compute_long_mech(i,j,erfc,expm2,rij,bij,fmi,spi,spj);
+	  compute_long(i,j,rij,bij,fmi,spi,spj);
+	  compute_long_mech(i,j,rij,bij,fmi,spi,spj);
           
 	}
       }
 
-      gigj = sp[i][3]*sp[j][3];
-
-      fi[0] *= gigj * mub2mu0;
-      fi[1] *= gigj * mub2mu0;
-      fi[2] *= gigj * mub2mu0;
-      fmi[0] *= gigj * mub2mu0hbinv;
-      fmi[1] *= gigj * mub2mu0hbinv;
-      fmi[2] *= gigj * mub2mu0hbinv;
-      
       // force accumulation
 
-      f[i][0] += fi[0];	 
-      f[i][1] += fi[1];	  	  
-      f[i][2] += fi[2];
-      fm[i][0] += fmi[0];	 
-      fm[i][1] += fmi[1];	  	  
-      fm[i][2] += fmi[2];
+      f[i][0] += fi[0] * mub2mu0;	 
+      f[i][1] += fi[1] * mub2mu0;	  	  
+      f[i][2] += fi[2] * mub2mu0;
+      fm[i][0] += fmi[0] * mub2mu0hbinv;	 
+      fm[i][1] += fmi[1] * mub2mu0hbinv;	  	  
+      fm[i][2] += fmi[2] * mub2mu0hbinv;
 
       if (newton_pair || j < nlocal) {
 	f[j][0] -= fi[0];	 
@@ -226,60 +215,135 @@ void PairSpinLong::compute(int eflag, int vflag)
 
 void PairSpinLong::compute_single_pair(int ii, double fmi[3])
 {
+  int i,j,jj,jnum,itype,jtype;  
+  double r,rinv,r2inv,rsq;
+  double grij,expm2,t,erfc;
+  double bij[4],xi[3],rij[3],spi[4],spj[4];
+  double pre1,pre2,pre3;
+  int *ilist,*jlist,*numneigh,**firstneigh;  
 
+  double **x = atom->x;
+  double **sp = atom->sp;	
+  int *type = atom->type;  
+
+  ilist = list->ilist;
+  numneigh = list->numneigh;
+  firstneigh = list->firstneigh;
+
+  pre1 = 2.0 * g_ewald / MY_PIS;
+  pre2 = 4.0 * pow(g_ewald,3.0) / MY_PIS;
+  pre3 = 8.0 * pow(g_ewald,5.0) / MY_PIS;
+
+  // computation of the exchange interaction
+  // loop over neighbors of atom i
+    
+  i = ilist[ii];
+  xi[0] = x[i][0];
+  xi[1] = x[i][1];
+  xi[2] = x[i][2];
+  spi[0] = sp[i][0]; 
+  spi[1] = sp[i][1]; 
+  spi[2] = sp[i][2];
+  spi[3] = sp[i][3];
+  jlist = firstneigh[i];
+  jnum = numneigh[i]; 
+  itype = type[i];
+
+  for (jj = 0; jj < jnum; jj++) {
+    j = jlist[jj];
+    j &= NEIGHMASK;
+    jtype = type[j];
+
+    spj[0] = sp[j][0]; 
+    spj[1] = sp[j][1]; 
+    spj[2] = sp[j][2]; 
+    spj[3] = sp[j][3]; 
+
+    fmi[0] = fmi[1] = fmi[2] = 0.0;
+    bij[0] = bij[1] = bij[2] = bij[3] = 0.0;
+   
+    rij[0] = x[j][0] - xi[0];
+    rij[1] = x[j][1] - xi[1];
+    rij[2] = x[j][2] - xi[2];
+    rsq = rij[0]*rij[0] + rij[1]*rij[1] + rij[2]*rij[2];
+
+    if (rsq < cutsq[itype][jtype]) {
+      r2inv = 1.0/rsq;
+      rinv = sqrt(r2inv);
+
+      if (rsq < cut_spinsq) {
+        r = sqrt(rsq);
+        grij = g_ewald * r;
+        expm2 = exp(-grij*grij);
+        t = 1.0 / (1.0 + EWALD_P*grij);
+        erfc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * expm2;
+
+        bij[0] = erfc * rinv;
+        bij[1] = (bij[0] + pre1*expm2) * r2inv;
+        bij[2] = (3.0*bij[1] + pre2*expm2) * r2inv;
+        bij[3] = (5.0*bij[2] + pre3*expm2) * r2inv;
+
+        compute_long(i,j,rij,bij,fmi,spi,spj);
+        
+      }
+    }
+  }
+
+  // force accumulation
+
+  fmi[0] *= mub2mu0hbinv;	 
+  fmi[1] *= mub2mu0hbinv;	  	  
+  fmi[2] *= mub2mu0hbinv;
 }
 
 /* ----------------------------------------------------------------------
    compute exchange interaction between spins i and j
 ------------------------------------------------------------------------- */
 
-void PairSpinLong::compute_long(int i, int j, double erfc, 
-    double expm2, double rij[3], double bij[4], double fmi[3], 
-    double spi[3], double spj[3])
+void PairSpinLong::compute_long(int i, int j, double rij[3], 
+    double bij[4], double fmi[3], double spi[4], double spj[4])
 {
-  double sdots,sidotr,sjdotr;
-  double b0,b1,b2;
+  double sjdotr;
+  double b1,b2,gigj;
 
-  sdots = spi[0]*spj[0] + spi[1]*spj[1] + spi[2]*spj[2];
+  gigj = spi[3] * spj[3];
   sjdotr = spj[0]*rij[0] + spj[1]*rij[1] + spj[2]*rij[2];
 
   b1 = bij[1];
   b2 = bij[2];
 
-  fmi[0] = b2 * sjdotr *rij[0] - b1 * spj[0] ;
-  fmi[1] = b2 * sjdotr *rij[1] - b1 * spj[1] ;
-  fmi[2] = b2 * sjdotr *rij[2] - b1 * spj[2] ;
+  fmi[0] += gigj * (b2 * sjdotr *rij[0] - b1 * spj[0]);
+  fmi[1] += gigj * (b2 * sjdotr *rij[1] - b1 * spj[1]);
+  fmi[2] += gigj * (b2 * sjdotr *rij[2] - b1 * spj[2]);
 }
 
 /* ----------------------------------------------------------------------
    compute the mechanical force due to the exchange interaction between atom i and atom j
 ------------------------------------------------------------------------- */
 
-void PairSpinLong::compute_long_mech(int i, int j, double erfc, 
-    double expm2, double rij[3], double bij[4], double fi[3], 
-    double spi[3], double spj[3])
+void PairSpinLong::compute_long_mech(int i, int j, double rij[3],
+    double bij[4], double fi[3], double spi[3], double spj[3])
 {
-  double sdots,sidotr,sjdotr;
-  double b1,b2,b3;
-  double g1,g2,g1b2_g2b3;
+  double sdots,sidotr,sjdotr,b2,b3;
+  double g1,g2,g1b2_g2b3,gigj;
 
+  gigj = spi[3] * spj[3];
   sdots = spi[0]*spj[0] + spi[1]*spj[1] + spi[2]*spj[2];
   sidotr = spi[0]*rij[0] + spi[1]*rij[1] + spi[2]*rij[2];
   sjdotr = spj[0]*rij[0] + spj[1]*rij[1] + spj[2]*rij[2];
 
-  b1 = bij[1];
   b2 = bij[2];
   b3 = bij[3];
   g1 = sdots;
   g2 = -sidotr*sjdotr;
   g1b2_g2b3 = g1*b2 + g2*b3;
 
-  fi[0] = rij[0] * g1b2_g2b3 + 
-    b2 * (sjdotr*spi[0] + sidotr*spj[0]);
-  fi[1] = rij[1] * g1b2_g2b3 + 
-    b2 * (sjdotr*spi[1] + sidotr*spj[1]);
-  fi[2] = rij[2] * g1b2_g2b3 + 
-    b2 * (sjdotr*spi[2] + sidotr*spj[2]);
+  fi[0] += gigj * (rij[0] * g1b2_g2b3 + 
+      b2 * (sjdotr*spi[0] + sidotr*spj[0]));
+  fi[1] += gigj * (rij[1] * g1b2_g2b3 + 
+      b2 * (sjdotr*spi[1] + sidotr*spj[1]));
+  fi[2] += gigj * (rij[2] * g1b2_g2b3 + 
+      b2 * (sjdotr*spi[2] + sidotr*spj[2]));
 }
 
 

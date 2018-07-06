@@ -40,10 +40,10 @@ class PairSpinLong : public PairSpin {
   void compute(int, int);
   void compute_single_pair(int, double *);
 
-  void compute_long(int, int, double, double, double *, 
-      double *, double *, double *, double *);
-  void compute_long_mech(int, int, double, double, double *, 
-      double *, double *, double *, double *);
+  void compute_long(int, int, double *, double *, double *, 
+      double *, double *);
+  void compute_long_mech(int, int, double *, double *, double *, 
+      double *, double *);
 
   void write_restart(FILE *);
   void read_restart(FILE *);
