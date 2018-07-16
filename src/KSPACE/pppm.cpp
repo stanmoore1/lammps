@@ -525,6 +525,8 @@ void PPPM::setup()
 
   if (differentiation_flag == 1) compute_gf_ad();
   else compute_gf_ik();
+
+  if (mu_flag) compute_gf_dipole();
 }
 
 /* ----------------------------------------------------------------------
@@ -1999,6 +2001,9 @@ void PPPM::set_grid_local()
 
 void PPPM::compute_gf_denom()
 {
+  if (gf_b) memory->destroy(gf_b);
+  memory->create(gf_b,order,"pppm:gf_b");
+
   int k,l,m;
 
   for (l = 1; l < order; l++) gf_b[l] = 0.0;
