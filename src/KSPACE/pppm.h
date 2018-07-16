@@ -125,6 +125,7 @@ class PPPM : public KSpace {
   double newton_raphson_f();
   double derivf();
   double final_accuracy();
+  double final_accuracy_dipole();
 
   virtual void allocate();
   virtual void allocate_peratom();
@@ -180,6 +181,9 @@ class PPPM : public KSpace {
 
   int mu_flag;
   double musqsum,musum,mu2;
+  double compute_df_kspace_dipole();
+  double compute_qopt_dipole();
+  void compute_gf_dipole();
   void make_rho_dipole();
   void brick2fft_dipole();
   void poisson_ik_dipole();
