@@ -303,7 +303,6 @@ void PPPM::init()
 
   // set accuracy (force units) from accuracy_relative or accuracy_absolute
 
-  printf("HERE 1 !!!!!!\n");
   if (accuracy_absolute >= 0.0) accuracy = accuracy_absolute;
   else accuracy = accuracy_relative * two_charge_force;
 
@@ -329,12 +328,9 @@ void PPPM::init()
       error->warning(FLERR,"Reducing PPPM order b/c stencil extends "
                      "beyond nearest neighbor processor");
 
-    printf("Here 2 !!!\n");
     if ((stagger_flag && !differentiation_flag) || mu_flag) compute_gf_denom();
     set_grid_global();
-    printf("Here 3 !!!\n");
     set_grid_local();
-    printf("Here 4 !!!\n");
     if (overlap_allowed) break;
 
     cgtmp = new GridComm(lmp,world,1,1,
@@ -349,7 +345,6 @@ void PPPM::init()
     order--;
     iteration++;
   }
-  printf("HERE!!!!!!\n");
 
   if (order < minorder) error->all(FLERR,"PPPM order < minimum allowed order");
   if (!overlap_allowed && cgtmp->ghost_overlap())
@@ -1242,11 +1237,10 @@ void PPPM::set_grid_global()
       //Try Newton Solver
       double g_ewald_new =
         NewtonSolve(g_ewald,cutoff,natoms,xprd*yprd*zprd,mu2);
-      printf("GE = %g\n",g_ewald_new);
       if (g_ewald_new > 0.0) g_ewald = g_ewald_new;
       else error->warning(FLERR,"PPPM dipole Newton solver failed, "
                           "using old method to estimate g_ewald");
-    } 
+    }
   }
 
   // set optimal nx_pppm,ny_pppm,nz_pppm based on order and accuracy
@@ -1288,9 +1282,7 @@ void PPPM::set_grid_global()
         nzhi_fft = (me_z+1)*nz_pppm/npez_fft - 1;
 
         double df_kspace = compute_df_kspace();
-        printf("Before!!!\n");
         if (mu_flag) df_kspace = compute_df_kspace_dipole();
-        printf("df_kspace = %g\n",df_kspace);
 
         count++;
 
@@ -1430,10 +1422,8 @@ double PPPM::compute_df_kspace_dipole()
   double zprd = domain->zprd;
   double zprd_slab = zprd*slab_volfactor;
   bigint natoms = atom->natoms;
-  double df_kspace = 0.0;
   double qopt = compute_qopt_dipole();
-  printf("qopt %g\n",qopt);
-  df_kspace = sqrt(qopt/natoms)*mu2/(xprd*yprd*zprd_slab);
+  double df_kspace = sqrt(qopt/natoms)*mu2/(3.0*xprd*yprd*zprd_slab);
   return df_kspace;
 }
 
@@ -1551,7 +1541,6 @@ double PPPM::compute_qopt_dipole()
   const int nbx = 2;
   const int nby = 2;
   const int nbz = 2;
-  printf("Starting qopt\n");
 
   const int twoorder = 2*order;
 
@@ -1598,13 +1587,14 @@ double PPPM::compute_qopt_dipole()
 
                 dot1 = unitkx*kper*qx + unitky*lper*qy + unitkz*mper*qz;
                 dot2 = qx*qx + qy*qy + qz*qz;
-                dot1 = dot1*dot1*dot1; // power of 3 for dipole forces
-                dot2 = dot2*dot2*dot2;
-                u1   = sx*sy*sz;
-                u2   = wx*wy*wz;
-                u3   = numerator*u1*u2*dot1;
-                sum1 += u1*u1*MY_4PI*MY_4PI/dot2;
-                sum2 += u3*u3/dot2;
+                //dot1 = dot1*dot1*dot1; // power of 3 for dipole forces
+                //dot2 = dot2*dot2*dot2;
+                u1 = sx*sy*sz;
+                const double w2 = wx*wy*wz;
+                const double phi = u1*MY_4PI/dot2;
+                const double top = dot1*dot1*dot1*w2*phi;
+                sum1 += phi*phi*dot2*dot2*dot2;
+                sum2 += top*top/sqk/sqk/sqk;
               }
             }
           }
@@ -1643,12 +1633,15 @@ void PPPM::compute_gf_dipole()
 
   int k,l,m,n,nx,ny,nz,kper,lper,mper;
 
-  const int nbx = static_cast<int> ((g_ewald*xprd/(MY_PI*nx_pppm)) *
-                                    pow(-log(EPS_HOC),0.25));
-  const int nby = static_cast<int> ((g_ewald*yprd/(MY_PI*ny_pppm)) *
-                                    pow(-log(EPS_HOC),0.25));
-  const int nbz = static_cast<int> ((g_ewald*zprd_slab/(MY_PI*nz_pppm)) *
-                                    pow(-log(EPS_HOC),0.25));
+  int nbx = static_cast<int> ((g_ewald*xprd/(MY_PI*nx_pppm)) *
+                              pow(-log(EPS_HOC),0.25));
+  int nby = static_cast<int> ((g_ewald*yprd/(MY_PI*ny_pppm)) *
+                              pow(-log(EPS_HOC),0.25));
+  int nbz = static_cast<int> ((g_ewald*zprd_slab/(MY_PI*nz_pppm)) *
+                              pow(-log(EPS_HOC),0.25));
+  nbx = MAX(nbx,2);
+  nby = MAX(nby,2);
+  nbz = MAX(nbz,2);
   const int twoorder = 2*order;
 
   n = 0;
@@ -1693,14 +1686,15 @@ void PPPM::compute_gf_dipole()
                 wz = powsinxx(argz,twoorder);
 
                 dot1 = unitkx*kper*qx + unitky*lper*qy + unitkz*mper*qz;
-                dot2 = qx*qx+qy*qy+qz*qz;
-                dot1 = dot1*dot1*dot1; // power of 3 for dipole forces
-                dot2 = dot2*dot2*dot2;
-                sum1 += (dot1/dot2) * sx*sy*sz * wx*wy*wz;
+                dot2 = qx*qx + qy*qy + qz*qz;
+                const double u1 = sx*sy*sz;
+                const double w2 = wx*wy*wz;
+                const double phi = u1*MY_4PI/dot2;
+                sum1 += dot1*dot1*dot1*w2*phi/sqk/sqk/sqk;
               }
             }
           }
-          greensfn[n++] = numerator*sum1/denominator;
+          greensfn[n++] = sum1/denominator;
         } else greensfn[n++] = 0.0;
       }
     }
@@ -1754,10 +1748,23 @@ double PPPM::newton_raphson_f()
   double zprd = domain->zprd;
   bigint natoms = atom->natoms;
 
-  double df_rspace = 2.0*q2*exp(-g_ewald*g_ewald*cutoff*cutoff) /
-       sqrt(natoms*cutoff*xprd*yprd*zprd);
-
-  double df_kspace = compute_df_kspace();
+  double df_rspace,df_kspace;
+  if (!mu_flag) {
+    df_rspace = 2.0*q2*exp(-g_ewald*g_ewald*cutoff*cutoff) /
+         sqrt(natoms*cutoff*xprd*yprd*zprd);
+    df_kspace = compute_df_kspace();
+  } else {
+    double vol = xprd*yprd*zprd;
+    double a = cutoff*g_ewald;
+    double rg2 = a*a;
+    double rg4 = rg2*rg2;
+    double rg6 = rg4*rg2;
+    double Cc = 4.0*rg4 + 6.0*rg2 + 3.0;
+    double Dc = 8.0*rg6 + 20.0*rg4 + 30.0*rg2 + 15.0;
+    df_rspace = (mu2/(sqrt(vol*powint(g_ewald,4)*powint(cutoff,9)*natoms)) *
+      sqrt(13.0/6.0*Cc*Cc + 2.0/15.0*Dc*Dc - 13.0/15.0*Cc*Dc) * exp(-rg2));
+    df_kspace = compute_df_kspace_dipole();
+  }
 
   return df_rspace - df_kspace;
 }
@@ -1829,7 +1836,7 @@ double PPPM::final_accuracy_dipole()
     sqrt(13.0/6.0*Cc*Cc + 2.0/15.0*Dc*Dc - 13.0/15.0*Cc*Dc) *
     exp(-rg2));
 
-  //double df_table = estimate_table_accuracy(q2_over_sqrt,df_rspace); Need this???
+  //double df_table = estimate_table_accuracy(q2_over_sqrt,df_rspace);
   double estimated_accuracy = sqrt(df_kspace*df_kspace + df_rspace*df_rspace);// +
                                    //df_table*df_table);
 
@@ -5168,25 +5175,7 @@ void PPPM::slabcorr_groups(int groupbit_A, int groupbit_B, int AA_flag)
 }
 
 /* ----------------------------------------------------------------------
-   compute RMS accuracy for a dimension
-------------------------------------------------------------------------- */
-
-double PPPM::rms(int km, double prd, bigint natoms,
-                      double q2, double b2, double M2)
-{
-  double value = 0.0;
-
-  // dipole
-
-  value += 8.0*MY_PI*M2/volume*g_ewald *
-    sqrt(2.0*MY_PI*km*km*km/(15.0*natoms)) *
-    exp(-pow(MY_PI*km/(g_ewald*prd),2.0));
-
-  return value;
-}
-
-/* ----------------------------------------------------------------------
-   Newton solver used to find g_ewald for LJ systems
+   Newton solver used to find g_ewald for Dipole systems
 ------------------------------------------------------------------------- */
 
 double PPPM::NewtonSolve(double x, double Rc,
@@ -5229,6 +5218,7 @@ double PPPM::f(double x, double Rc, bigint natoms, double vol, double b2)
       sqrt(13.0/6.0*Cc*Cc + 2.0/15.0*Dc*Dc - 13.0/15.0*Cc*Dc) *
       exp(-rg2)) - accuracy;
   }
+
 
   return f;
 }

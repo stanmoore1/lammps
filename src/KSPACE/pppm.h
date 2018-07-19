@@ -194,7 +194,6 @@ class PPPM : public KSpace {
   double NewtonSolve(double, double, bigint, double, double);
   double f(double, double, bigint, double, double);
   double derivf(double, double, bigint, double, double);
-  double rms(int, double, bigint, double, double, double);
 
   // group-group interactions
 
