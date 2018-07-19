@@ -1,7 +1,7 @@
 
 log             tmp.log
 variable        n equal 100                # number of particles (choose an even integer)
-variable        box_length equal 30        # size of the box in real units
+variable        box_length equal 10        # size of the box in real units
 variable        rmin equal 2               # minimum separation between particles
 
 units           real
@@ -41,23 +41,25 @@ next            a
 jump            SELF loopa
 
 mass            1 1.0
-pair_style      lj/cut/dipole/long 10.0
+pair_style      lj/cut/dipole/long 4.0
 pair_coeff      1 1 0.0 0.0
-pair_modify     table 0
+pair_modify     table 0 compute yes
 
 mass    1 1.0
 set   group all mass 1.0
 set   group all dipole/random 98934 0.75
 
 kspace_style    ewald/disp 1e-18
+kspace_modify   compute yes
 run             0
 fix             ref all store/state 0 fx fy fz
 
-pair_style      lj/cut/dipole/long 10.0
+pair_style      lj/cut/dipole/long 4.0
 pair_coeff      1 1 0.0 0.0
-pair_modify     table 0
+pair_modify     table 0 compute yes
+#kspace_style    ewald/disp 1e-5
 kspace_style    pppm 1e-5
-kspace_modify   
+#kspace_modify   compute yes mesh 8 8 8 order 3
 thermo_style    one
 run             0
 fix             test all store/state 0 fx fy fz
@@ -67,7 +69,9 @@ thermo_style    custom step c_avefersq cpu
 log             test12.log
 run             100
 variable        rms_force_error equal sqrt(c_avefersq)
+variable        rms_rel_force_error equal sqrt(c_avefersq)/332.063
 print           "computed absolute RMS force accuracy = ${rms_force_error}"
+print           "computed relative RMS force accuracy = ${rms_rel_force_error}"
 unfix           test
 uncompute       avefersq
 
