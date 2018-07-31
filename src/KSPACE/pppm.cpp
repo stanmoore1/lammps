@@ -52,8 +52,8 @@ using namespace MathSpecial;
 #define SMALL 0.00001
 #define EPS_HOC 1.0e-7
 
-enum{REVERSE_RHO,REVERSE_MU};
-enum{FORWARD_IK,FORWARD_MU,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_MU_PERATOM,FORWARD_AD_PERATOM};
+enum{REVERSE_RHO,REVERSE_dipole};
+enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM,FORWARD_dipole,FORWARD_dipole_PERATOM};
 
 #ifdef FFT_SINGLE
 #define ZEROF 0.0f
@@ -73,7 +73,7 @@ PPPM::PPPM(LAMMPS *lmp, int narg, char **arg) : KSpace(lmp, narg, arg),
   rho_coeff(NULL), drho1d(NULL), drho_coeff(NULL), sf_precoeff1(NULL), sf_precoeff2(NULL),
   sf_precoeff3(NULL), sf_precoeff4(NULL), sf_precoeff5(NULL), sf_precoeff6(NULL),
   acons(NULL), density_A_brick(NULL), density_B_brick(NULL), density_A_fft(NULL),
-  density_B_fft(NULL), fft1(NULL), fft2(NULL), remap(NULL), cg(NULL), cg_peratom(NULL), cg_mu(NULL), cg_peratom_mu(NULL),
+  density_B_fft(NULL), fft1(NULL), fft2(NULL), remap(NULL), cg(NULL), cg_peratom(NULL), cg_dipole(NULL), cg_peratom_dipole(NULL),
   part2grid(NULL), boxlo(NULL), densityx_brick_dipole(NULL), densityy_brick_dipole(NULL),
   densityz_brick_dipole(NULL), ux_brick_dipole(NULL), uy_brick_dipole(NULL), uz_brick_dipole(NULL),
   vdxx_brick_dipole(NULL), vdxy_brick_dipole(NULL),  vdyy_brick_dipole(NULL), vdxz_brick_dipole(NULL), 
@@ -132,14 +132,15 @@ PPPM::PPPM(LAMMPS *lmp, int narg, char **arg) : KSpace(lmp, narg, arg),
   fft1 = fft2 = NULL;
   remap = NULL;
   cg = NULL;
-  cg_mu = NULL;
+  cg_dipole = NULL;
   cg_peratom = NULL;
-  cg_peratom_mu = NULL;
+  cg_peratom_dipole = NULL;
 
   nmax = 0;
   part2grid = NULL;
 
-  mu_flag = 0;
+  dipole_flag = 0;
+  only_dipole_flag = 0;
 
   // define acons coefficients for estimation of kspace errors
   // see JCP 109, pg 7698 for derivation of coefficients
@@ -205,7 +206,10 @@ void PPPM::init()
 
   // error check
 
-  mu_flag = atom->mu?1:0;
+  dipole_flag = atom->mu?1:0;
+  only_dipole_flag = (dipole_flag && !atom->q)?1:0;
+  if (dipole_flag && !only_dipole_flag)
+    error->all(FLERR,"Cannot (yet) mix charge and dipoles in Kspace style PPPM");
 
   triclinic_check();
 
@@ -226,7 +230,10 @@ void PPPM::init()
 
   if (!atom->q_flag && !atom->mu) error->all(FLERR,"Kspace style requires atom attribute q or mu");
 
-  if (mu_flag && strcmp(update->unit_style,"electron") == 0)
+  if (atom->mu && differentiation_flag == 1) error->all(FLERR,"Cannot (yet) use kspace_modify diff"
+       " ad with dipoles");
+
+  if (dipole_flag && strcmp(update->unit_style,"electron") == 0)
     error->all(FLERR,"Cannot (yet) use 'electron' units with dipoles");
 
   if (slabflag == 0 && domain->nonperiodic > 0)
@@ -297,8 +304,6 @@ void PPPM::init()
   scale = 1.0;
   qqrd2e = force->qqrd2e;
   qsum_qsq();
-  if (mu_flag)
-    musum_musq();
   natoms_original = atom->natoms;
 
   // set accuracy (force units) from accuracy_relative or accuracy_absolute
@@ -328,7 +333,7 @@ void PPPM::init()
       error->warning(FLERR,"Reducing PPPM order b/c stencil extends "
                      "beyond nearest neighbor processor");
 
-    if ((stagger_flag && !differentiation_flag) || mu_flag) compute_gf_denom();
+    if ((stagger_flag && !differentiation_flag) || only_dipole_flag) compute_gf_denom();
     set_grid_global();
     set_grid_local();
     if (overlap_allowed) break;
@@ -358,9 +363,11 @@ void PPPM::init()
 
   // calculate the final accuracy
 
-  double estimated_accuracy = final_accuracy();
-  if (mu_flag)
+  double estimated_accuracy;
+  if (only_dipole_flag)
     estimated_accuracy = final_accuracy_dipole();
+  else
+    estimated_accuracy = final_accuracy();
 
   // print stats
 
@@ -409,9 +416,9 @@ void PPPM::init()
   cg->ghost_notify();
   cg->setup();
 
-  if (mu_flag) {
-    cg_mu->ghost_notify();
-    cg_mu->setup();
+  if (dipole_flag) {
+    cg_dipole->ghost_notify();
+    cg_dipole->setup();
   }
 
   // pre-compute Green's function denomiator expansion
@@ -521,7 +528,7 @@ void PPPM::setup()
   if (differentiation_flag == 1) compute_gf_ad();
   else compute_gf_ik();
 
-  if (mu_flag) compute_gf_dipole();
+  if (dipole_flag) compute_gf_dipole();
 }
 
 /* ----------------------------------------------------------------------
@@ -634,12 +641,12 @@ void PPPM::setup_grid()
                "beyond nearest neighbor processor");
   cg->setup();
 
-  if (mu_flag) {
-    cg_mu->ghost_notify();
-    if (overlap_allowed == 0 && cg_mu->ghost_overlap())
+  if (dipole_flag) {
+    cg_dipole->ghost_notify();
+    if (overlap_allowed == 0 && cg_dipole->ghost_overlap())
       error->all(FLERR,"PPPM grid stencil extends "
                  "beyond nearest neighbor processor");
-    cg_mu->setup();
+    cg_dipole->setup();
 }
 
   // pre-compute Green's function denomiator expansion
@@ -674,9 +681,9 @@ void PPPM::compute(int eflag, int vflag)
     cg_peratom->ghost_notify();
     cg_peratom->setup();
 
-    if (mu_flag) {
-      cg_peratom_mu->ghost_notify();
-      cg_peratom_mu->setup();
+    if (dipole_flag) {
+      cg_peratom_dipole->ghost_notify();
+      cg_peratom_dipole->setup();
     }
   }
 
@@ -684,7 +691,6 @@ void PPPM::compute(int eflag, int vflag)
 
   if (atom->natoms != natoms_original) {
     qsum_qsq();
-    musum_musq();
     natoms_original = atom->natoms;
   }
 
@@ -714,7 +720,7 @@ void PPPM::compute(int eflag, int vflag)
   particle_map();
   make_rho();
 
-  if (mu_flag)
+  if (dipole_flag)
     make_rho_dipole();
 
   // all procs communicate density values from their ghost cells
@@ -724,9 +730,9 @@ void PPPM::compute(int eflag, int vflag)
   cg->reverse_comm(this,REVERSE_RHO);
   brick2fft();
 
-  if (mu_flag) {
-    cg_mu->reverse_comm(this,REVERSE_MU);
-  	brick2fft_dipole();
+  if (dipole_flag) {
+    cg_dipole->reverse_comm(this,REVERSE_dipole);
+    brick2fft_dipole();
   }
 
   // compute potential gradient on my FFT grid and
@@ -736,7 +742,7 @@ void PPPM::compute(int eflag, int vflag)
 
   poisson();
 
-  if (mu_flag)
+  if (dipole_flag)
     poisson_ik_dipole();
 
   // all procs communicate E-field values
@@ -745,8 +751,8 @@ void PPPM::compute(int eflag, int vflag)
   if (differentiation_flag == 1) cg->forward_comm(this,FORWARD_AD);
   else cg->forward_comm(this,FORWARD_IK);
 
-  if (mu_flag)
-    cg_mu->forward_comm(this,FORWARD_MU);
+  if (dipole_flag)
+    cg_dipole->forward_comm(this,FORWARD_dipole);
 
   // extra per-atom energy/virial communication
 
@@ -756,22 +762,22 @@ void PPPM::compute(int eflag, int vflag)
     else if (differentiation_flag == 0)
       cg_peratom->forward_comm(this,FORWARD_IK_PERATOM);
 
-    if (mu_flag)
-      cg_peratom_mu->forward_comm(this,FORWARD_MU_PERATOM);
+    if (dipole_flag)
+      cg_peratom_dipole->forward_comm(this,FORWARD_dipole_PERATOM);
   }
 
   // calculate the force on my particles
 
   fieldforce();
 
-  if (mu_flag)
+  if (dipole_flag)
     fieldforce_ik_dipole();
 
   // extra per-atom energy/virial communication
 
   if (evflag_atom) fieldforce_peratom();
 
-  if (evflag_atom && mu_flag) fieldforce_peratom_dipole();
+  if (evflag_atom && dipole_flag) fieldforce_peratom_dipole();
 
   // sum global energy across procs and add in volume-dependent term
 
@@ -786,7 +792,7 @@ void PPPM::compute(int eflag, int vflag)
     energy *= 0.5*volume;
     energy -= g_ewald*qsqsum/MY_PIS +
       MY_PI2*qsum*qsum / (g_ewald*g_ewald*volume);
-    if (mu_flag)
+    if (dipole_flag)
       energy -= musqsum*2.0*g3/3.0/MY_PIS;
     energy *= qscale;
   }
@@ -816,7 +822,7 @@ void PPPM::compute(int eflag, int vflag)
         eatom[i] -= g_ewald*q[i]*q[i]/MY_PIS + MY_PI2*q[i]*qsum /
           (g_ewald*g_ewald*volume);
 
-        if (mu_flag)
+        if (dipole_flag)
           eatom[i] -= (mu[i][0]*mu[i][0] + mu[i][1]*mu[i][1] + mu[i][2]*mu[i][2])*2.0*g3/3.0/MY_PIS;
         eatom[i] *= qscale;
       }
@@ -846,7 +852,7 @@ void PPPM::allocate()
   memory->create3d_offset(density_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
                           nxlo_out,nxhi_out,"pppm:density_brick");
 
-  if (mu_flag) {
+  if (dipole_flag) {
     memory->create3d_offset(densityx_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
                             nxlo_out,nxhi_out,"pppm:densityx_brick_dipole");
     memory->create3d_offset(densityy_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
@@ -856,7 +862,7 @@ void PPPM::allocate()
   }
 
   memory->create(density_fft,nfft_both,"pppm:density_fft");
-  if (mu_flag) {
+  if (dipole_flag) {
     memory->create(densityx_fft_dipole,nfft_both,"pppm:densityy_fft_dipole");
     memory->create(densityy_fft_dipole,nfft_both,"pppm:densityy_fft_dipole");
     memory->create(densityz_fft_dipole,nfft_both,"pppm:densityz_fft_dipole");
@@ -864,7 +870,7 @@ void PPPM::allocate()
   memory->create(greensfn,nfft_both,"pppm:greensfn");
   memory->create(work1,2*nfft_both,"pppm:work1");
   memory->create(work2,2*nfft_both,"pppm:work2");
-  if (mu_flag) {
+  if (dipole_flag) {
     memory->create(work3,2*nfft_both,"pppm:work3");
     memory->create(work4,2*nfft_both,"pppm:work4");
   }
@@ -900,7 +906,7 @@ void PPPM::allocate()
                             nxlo_out,nxhi_out,"pppm:vdz_brick");
   }
 
-  if (mu_flag) {
+  if (dipole_flag) {
     memory->create3d_offset(ux_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
                             nxlo_out,nxhi_out,"pppm:ux_brick_dipole");
     memory->create3d_offset(uy_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
@@ -971,8 +977,8 @@ void PPPM::allocate()
                       procneigh[0][0],procneigh[0][1],procneigh[1][0],
                       procneigh[1][1],procneigh[2][0],procneigh[2][1]);
 
-  if (mu_flag)
-    cg_mu = new GridComm(lmp,world,9,3,
+  if (dipole_flag)
+    cg_dipole = new GridComm(lmp,world,9,3,
                          nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
                          nxlo_out,nxhi_out,nylo_out,nyhi_out,nzlo_out,nzhi_out,
                          procneigh[0][0],procneigh[0][1],procneigh[1][0],
@@ -987,7 +993,7 @@ void PPPM::deallocate()
 {
   memory->destroy3d_offset(density_brick,nzlo_out,nylo_out,nxlo_out);
 
-  if (mu_flag) {
+  if (dipole_flag) {
     memory->destroy3d_offset(densityx_brick_dipole,nzlo_out,nylo_out,nxlo_out);
     memory->destroy3d_offset(densityy_brick_dipole,nzlo_out,nylo_out,nxlo_out);
     memory->destroy3d_offset(densityz_brick_dipole,nzlo_out,nylo_out,nxlo_out);
@@ -1007,7 +1013,7 @@ void PPPM::deallocate()
     memory->destroy3d_offset(vdz_brick,nzlo_out,nylo_out,nxlo_out);
   }
 
-  if (mu_flag) {
+  if (dipole_flag) {
     memory->destroy3d_offset(ux_brick_dipole,nzlo_out,nylo_out,nxlo_out);
     memory->destroy3d_offset(uy_brick_dipole,nzlo_out,nylo_out,nxlo_out);
     memory->destroy3d_offset(uz_brick_dipole,nzlo_out,nylo_out,nxlo_out);
@@ -1021,7 +1027,7 @@ void PPPM::deallocate()
   }
 
   memory->destroy(density_fft);
-  if (mu_flag) {
+  if (dipole_flag) {
     memory->destroy(densityx_fft_dipole);
     memory->destroy(densityy_fft_dipole);
     memory->destroy(densityz_fft_dipole);
@@ -1029,7 +1035,7 @@ void PPPM::deallocate()
   memory->destroy(greensfn);
   memory->destroy(work1);
   memory->destroy(work2);
-  if (mu_flag) {
+  if (dipole_flag) {
     memory->destroy(work3);
     memory->destroy(work4);
   }
@@ -1057,8 +1063,8 @@ void PPPM::deallocate()
   delete remap;
   delete cg;
 
-  if (mu_flag)
-    delete cg_mu;
+  if (dipole_flag)
+    delete cg_dipole;
 }
 
 /* ----------------------------------------------------------------------
@@ -1086,7 +1092,7 @@ void PPPM::allocate_peratom()
   memory->create3d_offset(v5_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
                           nxlo_out,nxhi_out,"pppm:v5_brick");
 
-  if (mu_flag) {
+  if (dipole_flag) {
     memory->create3d_offset(v0x_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
                             nxlo_out,nxhi_out,"pppm:v0x_brick_dipole");
     memory->create3d_offset(v1x_brick_dipole,nzlo_out,nzhi_out,nylo_out,nyhi_out,
@@ -1146,8 +1152,8 @@ void PPPM::allocate_peratom()
                    procneigh[0][0],procneigh[0][1],procneigh[1][0],
                    procneigh[1][1],procneigh[2][0],procneigh[2][1]);
 
-  if (mu_flag)
-    cg_peratom_mu =
+  if (dipole_flag)
+    cg_peratom_dipole =
       new GridComm(lmp,world,18,1,
                    nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
                    nxlo_out,nxhi_out,nylo_out,nyhi_out,nzlo_out,nzhi_out,
@@ -1170,7 +1176,7 @@ void PPPM::deallocate_peratom()
   memory->destroy3d_offset(v4_brick,nzlo_out,nylo_out,nxlo_out);
   memory->destroy3d_offset(v5_brick,nzlo_out,nylo_out,nxlo_out);
 
-  if (mu_flag) {
+  if (dipole_flag) {
     memory->destroy3d_offset(v0x_brick_dipole,nzlo_out,nylo_out,nxlo_out);
     memory->destroy3d_offset(v1x_brick_dipole,nzlo_out,nylo_out,nxlo_out);
     memory->destroy3d_offset(v2x_brick_dipole,nzlo_out,nylo_out,nxlo_out);
@@ -1198,8 +1204,8 @@ void PPPM::deallocate_peratom()
 
   delete cg_peratom;
 
-  if (mu_flag)
-    delete cg_peratom_mu;
+  if (dipole_flag)
+    delete cg_peratom_dipole;
 }
 
 /* ----------------------------------------------------------------------
@@ -1229,17 +1235,20 @@ void PPPM::set_grid_global()
   if (!gewaldflag) {
     if (accuracy <= 0.0)
       error->all(FLERR,"KSpace accuracy must be > 0");
-    //if (!mu_flag && q2 == 0.0)
-    //  error->all(FLERR,"Must use kspace_modify gewald for uncharged system");
-    //g_ewald = accuracy*sqrt(natoms*cutoff*xprd*yprd*zprd) / (2.0*q2);
-    g_ewald = (1.35 - 0.15*log(accuracy))/cutoff;
-    if (mu_flag) {   
+    if (q2 == 0.0 && mu2 == 0.0)
+     error->all(FLERR,"Must use kspace_modify gewald for uncharged systems");
+    if (only_dipole_flag) {
+      g_ewald = (1.35 - 0.15*log(accuracy))/cutoff;
       //Try Newton Solver
       double g_ewald_new =
-        NewtonSolve(g_ewald,cutoff,natoms,xprd*yprd*zprd,mu2);
+        find_gewald_dipole(g_ewald,cutoff,natoms,xprd*yprd*zprd,mu2);
       if (g_ewald_new > 0.0) g_ewald = g_ewald_new;
       else error->warning(FLERR,"PPPM dipole Newton solver failed, "
                           "using old method to estimate g_ewald");
+    } else {
+      g_ewald = accuracy*sqrt(natoms*cutoff*xprd*yprd*zprd) / (2.0*q2);
+      if (g_ewald >= 1.0) g_ewald = (1.35 - 0.15*log(accuracy))/cutoff;
+      else g_ewald = sqrt(-log(g_ewald)) / cutoff;
     }
   }
 
@@ -1249,7 +1258,7 @@ void PPPM::set_grid_global()
 
   if (!gridflag) {
 
-    if (differentiation_flag == 1 || stagger_flag || mu_flag) {
+    if (differentiation_flag == 1 || stagger_flag || only_dipole_flag) {
 
       h = h_x = h_y = h_z = 4.0/g_ewald;
       int count = 0;
@@ -1281,8 +1290,9 @@ void PPPM::set_grid_global()
         nzlo_fft = me_z*nz_pppm/npez_fft;
         nzhi_fft = (me_z+1)*nz_pppm/npez_fft - 1;
 
-        double df_kspace = compute_df_kspace();
-        if (mu_flag) df_kspace = compute_df_kspace_dipole();
+        double df_kspace;
+        if (only_dipole_flag) df_kspace = compute_df_kspace_dipole();
+        else df_kspace = compute_df_kspace();
 
         count++;
 
@@ -1738,7 +1748,7 @@ void PPPM::adjust_gewald()
 }
 
 /* ----------------------------------------------------------------------
-   calculate f(x) using Newton-Raphson solver
+   calculate f(x) for use in Newton-Raphson solver
 ------------------------------------------------------------------------- */
 
 double PPPM::newton_raphson_f()
@@ -1749,11 +1759,7 @@ double PPPM::newton_raphson_f()
   bigint natoms = atom->natoms;
 
   double df_rspace,df_kspace;
-  if (!mu_flag) {
-    df_rspace = 2.0*q2*exp(-g_ewald*g_ewald*cutoff*cutoff) /
-         sqrt(natoms*cutoff*xprd*yprd*zprd);
-    df_kspace = compute_df_kspace();
-  } else {
+  if (only_dipole_flag) {
     double vol = xprd*yprd*zprd;
     double a = cutoff*g_ewald;
     double rg2 = a*a;
@@ -1762,8 +1768,12 @@ double PPPM::newton_raphson_f()
     double Cc = 4.0*rg4 + 6.0*rg2 + 3.0;
     double Dc = 8.0*rg6 + 20.0*rg4 + 30.0*rg2 + 15.0;
     df_rspace = (mu2/(sqrt(vol*powint(g_ewald,4)*powint(cutoff,9)*natoms)) *
-      sqrt(13.0/6.0*Cc*Cc + 2.0/15.0*Dc*Dc - 13.0/15.0*Cc*Dc) * exp(-rg2));
+        sqrt(13.0/6.0*Cc*Cc + 2.0/15.0*Dc*Dc - 13.0/15.0*Cc*Dc) * exp(-rg2));
     df_kspace = compute_df_kspace_dipole();
+  } else {
+    df_rspace = 2.0*q2*exp(-g_ewald*g_ewald*cutoff*cutoff) /
+        sqrt(natoms*cutoff*xprd*yprd*zprd);
+    df_kspace = compute_df_kspace();
   }
 
   return df_rspace - df_kspace;
@@ -1787,6 +1797,63 @@ double PPPM::derivf()
   df = (f2 - f1)/h;
 
   return df;
+}
+
+/* ----------------------------------------------------------------------
+   find g_ewald parameter for dipoles based on desired accuracy
+   using a Newton-Raphson solver
+------------------------------------------------------------------------- */
+
+double PPPM::find_gewald_dipole(double x, double Rc,
+                              bigint natoms, double vol, double b2)
+{
+  double dx,tol;
+  int maxit;
+
+  maxit = 10000; //Maximum number of iterations
+  tol = 0.00001; //Convergence tolerance
+
+  //Begin algorithm
+
+  for (int i = 0; i < maxit; i++) {
+    dx = newton_raphson_f_dipole(x,Rc,natoms,vol,b2) / derivf_dipole(x,Rc,natoms,vol,b2);
+    x = x - dx; //Update x
+    if (fabs(dx) < tol) return x;
+    if (x < 0 || x != x) // solver failed
+      return -1;
+  }
+  return -1;
+}
+
+/* ----------------------------------------------------------------------
+   calculate f(x) objective function for dipoles
+ ------------------------------------------------------------------------- */
+
+double PPPM::newton_raphson_f_dipole(double x, double Rc, bigint
+natoms, double vol, double b2)
+{
+  double a = Rc*x;
+  double rg2 = a*a;
+  double rg4 = rg2*rg2;
+  double rg6 = rg4*rg2;
+  double Cc = 4.0*rg4 + 6.0*rg2 + 3.0;
+  double Dc = 8.0*rg6 + 20.0*rg4 + 30.0*rg2 + 15.0;
+  double f = (b2/(sqrt(vol*powint(x,4)*powint(Rc,9)*natoms)) *
+    sqrt(13.0/6.0*Cc*Cc + 2.0/15.0*Dc*Dc - 13.0/15.0*Cc*Dc) *
+    exp(-rg2)) - accuracy;
+
+  return f;
+}
+
+/* ----------------------------------------------------------------------
+   calculate numerical derivative f'(x) of objective function for dipoles
+ ------------------------------------------------------------------------- */
+
+double PPPM::derivf_dipole(double x, double Rc,
+                         bigint natoms, double vol, double b2)
+{
+  double h = 0.000001;  //Derivative step-size
+  return (newton_raphson_f_dipole(x + h,Rc,natoms,vol,b2) - newton_raphson_f_dipole(x,Rc,natoms,vol,b2)) / h;
 }
 
 /* ----------------------------------------------------------------------
@@ -1825,7 +1892,7 @@ double PPPM::final_accuracy_dipole()
   if (natoms == 0) natoms = 1; // avoid division by zero
 
   double df_kspace = compute_df_kspace_dipole();
-  
+
   double a = cutoff*g_ewald;
   double rg2 = a*a;
   double rg4 = rg2*rg2;
@@ -1836,9 +1903,7 @@ double PPPM::final_accuracy_dipole()
     sqrt(13.0/6.0*Cc*Cc + 2.0/15.0*Dc*Dc - 13.0/15.0*Cc*Dc) *
     exp(-rg2));
 
-  //double df_table = estimate_table_accuracy(q2_over_sqrt,df_rspace);
-  double estimated_accuracy = sqrt(df_kspace*df_kspace + df_rspace*df_rspace);// +
-                                   //df_table*df_table);
+  double estimated_accuracy = sqrt(df_kspace*df_kspace + df_rspace*df_rspace);
 
   return estimated_accuracy;
 }
@@ -2008,8 +2073,10 @@ void PPPM::set_grid_local()
 
 void PPPM::compute_gf_denom()
 {
-  if (gf_b) memory->destroy(gf_b);
-  memory->create(gf_b,order,"pppm:gf_b");
+  if (only_dipole_flag) {
+    if (gf_b) memory->destroy(gf_b);
+    memory->create(gf_b,order,"pppm:gf_b");
+  }
 
   int k,l,m;
 
@@ -2802,7 +2869,7 @@ void PPPM::poisson_ik_dipole()
             energy +=
             //s2 * greensfn[ii] * (wreal+wimg)*(wreal+wimg);
             s2 * greensfn[ii] * (wreal*wreal + wimg*wimg);
-	    ii++;
+   ii++;
             n += 2;
           }
     }
@@ -3556,7 +3623,8 @@ void PPPM::poisson_peratom_dipole()
     for (j = nylo_fft; j <= nyhi_fft; j++)
       for (i = nxlo_fft; i <= nxhi_fft; i++) {
         work4[n] = fky[j]*(vg[ii][3]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]) + 2.0*fky[j]*work1[n]);
-        work4[n+1] = fky[j]*(vg[ii][3]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]) + 2.0*fky[j]*work1[n+1]);        n += 2;
+        work4[n+1] = fky[j]*(vg[ii][3]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]) + 2.0*fky[j]*work1[n+1]);
+        n += 2;
         ii++;
       }
 
@@ -3578,7 +3646,8 @@ void PPPM::poisson_peratom_dipole()
     for (j = nylo_fft; j <= nyhi_fft; j++)
       for (i = nxlo_fft; i <= nxhi_fft; i++) {
         work4[n] = fkz[k]*(vg[ii][3]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]) + 2.0*fky[j]*work1[n]);
-        work4[n+1] = fkz[k]*(vg[ii][3]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]) + 2.0*fky[j]*work1[n+1]);        n += 2;
+        work4[n+1] = fkz[k]*(vg[ii][3]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]) + 2.0*fky[j]*work1[n+1]);
+        n += 2;
         ii++;
       }
 
@@ -3692,7 +3761,8 @@ void PPPM::poisson_peratom_dipole()
     for (j = nylo_fft; j <= nyhi_fft; j++)
       for (i = nxlo_fft; i <= nxhi_fft; i++) {
         work4[n] = fky[j]*(vg[ii][5]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]) + 2.0*fkz[k]*work2[n]);
-        work4[n+1] = fky[j]*(vg[ii][5]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]) + 2.0*fkz[k]*work2[n+1]);        n += 2;
+        work4[n+1] = fky[j]*(vg[ii][5]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]) + 2.0*fkz[k]*work2[n+1]);
+        n += 2;
         ii++;
       }
 
@@ -3714,7 +3784,8 @@ void PPPM::poisson_peratom_dipole()
     for (j = nylo_fft; j <= nyhi_fft; j++)
       for (i = nxlo_fft; i <= nxhi_fft; i++) {
         work4[n] = fkz[k]*(vg[ii][5]*(work1[n]*fkx[i] + work2[n]*fky[j] + work3[n]*fkz[k]) + 2.0*fkz[k]*work2[n]);
-        work4[n+1] = fkz[k]*(vg[ii][5]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]) + 2.0*fkz[k]*work2[n+1]);        n += 2;
+        work4[n+1] = fkz[k]*(vg[ii][5]*(work1[n+1]*fkx[i] + work2[n+1]*fky[j] + work3[n+1]*fkz[k]) + 2.0*fkz[k]*work2[n+1]);
+        n += 2;
         ii++;
       }
 
@@ -4055,7 +4126,7 @@ void PPPM::fieldforce_peratom_dipole()
 
     compute_rho1d(dx,dy,dz);
 
-    ux = uy = uz = ZEROF; 
+    ux = uy = uz = ZEROF;
     v0x = v1x = v2x = v3x = v4x = v5x = ZEROF;
     v0y = v1y = v2y = v3y = v4y = v5y = ZEROF;
     v0z = v1z = v2z = v3z = v4z = v5z = ZEROF;
@@ -4126,7 +4197,7 @@ void PPPM::pack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
       buf[n++] = ysrc[list[i]];
       buf[n++] = zsrc[list[i]];
     }
-  } else if (flag == FORWARD_MU) {
+  } else if (flag == FORWARD_dipole) {
     FFT_SCALAR *src_ux = &ux_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *src_uy = &uy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *src_uz = &uz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
@@ -4170,7 +4241,7 @@ void PPPM::pack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
         buf[n++] = v5src[list[i]];
       }
     }
-  } else if (flag == FORWARD_MU_PERATOM) {
+  } else if (flag == FORWARD_dipole_PERATOM) {
     FFT_SCALAR *v0xsrc = &v0x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *v1xsrc = &v1x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *v2xsrc = &v2x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
@@ -4244,7 +4315,7 @@ void PPPM::unpack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
       ydest[list[i]] = buf[n++];
       zdest[list[i]] = buf[n++];
     }
-  } else if (flag == FORWARD_MU) {
+  } else if (flag == FORWARD_dipole) {
     FFT_SCALAR *dest_ux = &ux_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *dest_uy = &uy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *dest_uz = &uz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
@@ -4303,7 +4374,7 @@ void PPPM::unpack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
       v4src[list[i]] = buf[n++];
       v5src[list[i]] = buf[n++];
     }
-  } else if (flag == FORWARD_MU_PERATOM) {
+  } else if (flag == FORWARD_dipole_PERATOM) {
     FFT_SCALAR *v0xsrc = &v0x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *v1xsrc = &v1x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *v2xsrc = &v2x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
@@ -4356,14 +4427,14 @@ void PPPM::pack_reverse(int flag, FFT_SCALAR *buf, int nlist, int *list)
     FFT_SCALAR *src = &density_brick[nzlo_out][nylo_out][nxlo_out];
     for (int i = 0; i < nlist; i++)
       buf[n++] = src[list[i]];
-  } else if (flag == REVERSE_MU) {
-    FFT_SCALAR *src_mu0 = &densityx_brick_dipole[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *src_mu1 = &densityy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *src_mu2 = &densityz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+  } else if (flag == REVERSE_dipole) {
+    FFT_SCALAR *src_dipole0 = &densityx_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_dipole1 = &densityy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *src_dipole2 = &densityz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     for (int i = 0; i < nlist; i++) {
-      buf[n++] = src_mu0[list[i]];
-      buf[n++] = src_mu1[list[i]];
-      buf[n++] = src_mu2[list[i]];
+      buf[n++] = src_dipole0[list[i]];
+      buf[n++] = src_dipole1[list[i]];
+      buf[n++] = src_dipole2[list[i]];
     }
   }
 }
@@ -4379,14 +4450,14 @@ void PPPM::unpack_reverse(int flag, FFT_SCALAR *buf, int nlist, int *list)
     FFT_SCALAR *dest = &density_brick[nzlo_out][nylo_out][nxlo_out];
     for (int i = 0; i < nlist; i++)
       dest[list[i]] += buf[n++];
-  } else if (flag == REVERSE_MU) {
-    FFT_SCALAR *dest_mu0 = &densityx_brick_dipole[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *dest_mu1 = &densityy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
-    FFT_SCALAR *dest_mu2 = &densityz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+  } else if (flag == REVERSE_dipole) {
+    FFT_SCALAR *dest_dipole0 = &densityx_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_dipole1 = &densityy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
+    FFT_SCALAR *dest_dipole2 = &densityz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     for (int i = 0; i < nlist; i++) {
-      dest_mu0[list[i]] += buf[n++];
-      dest_mu1[list[i]] += buf[n++];
-      dest_mu2[list[i]] += buf[n++];
+      dest_dipole0[list[i]] += buf[n++];
+      dest_dipole1[list[i]] += buf[n++];
+      dest_dipole2[list[i]] += buf[n++];
     }
   }
 }
@@ -4561,7 +4632,7 @@ void PPPM::slabcorr()
   double dipole = 0.0;
   for (int i = 0; i < nlocal; i++) dipole += q[i]*x[i][2];
 
-  if (mu_flag) {
+  if (dipole_flag) {
     double **mu = atom->mu;
     for (int i = 0; i < nlocal; i++) dipole += mu[i][2];
   }
@@ -4577,7 +4648,7 @@ void PPPM::slabcorr()
   double dipole_r2 = 0.0;
   if (eflag_atom || fabs(qsum) > SMALL) {
 
-    if (mu_flag)
+    if (dipole_flag)
       error->all(FLERR,"Cannot (yet) use kspace slab correction with "
         "long-range dipoles and non-neutral systems or per-atom energy");
 
@@ -4595,7 +4666,7 @@ void PPPM::slabcorr()
 
   const double e_slabcorr = MY_2PI*(dipole_all*dipole_all -
     qsum*dipole_r2 - qsum*qsum*zprd*zprd/12.0)/volume;
-  const double qscale = force->qqrd2e * scale;
+  const double qscale = qqrd2e * scale;
 
   if (eflag_global) energy += qscale * e_slabcorr;
 
@@ -4618,7 +4689,7 @@ void PPPM::slabcorr()
 
   // add on torque corrections
 
-  if (mu_flag && atom->torque) {
+  if (dipole_flag && atom->torque) {
     double **mu = atom->mu;
     double **torque = atom->torque;
     for (int i = 0; i < nlocal; i++) {
@@ -4644,7 +4715,7 @@ int PPPM::timing_1d(int n, double &time1d)
   for (int i = 0; i < n; i++) {
     fft1->timing1d(work1,nfft_both,1);
     fft2->timing1d(work1,nfft_both,-1);
-    if (mu_flag) {
+    if (dipole_flag) {
       fft1->timing1d(work1,nfft_both,1);
       fft1->timing1d(work1,nfft_both,1);
       fft1->timing1d(work1,nfft_both,1);
@@ -4679,7 +4750,7 @@ int PPPM::timing_3d(int n, double &time3d)
   for (int i = 0; i < n; i++) {
     fft1->compute(work1,work1,1);
     fft2->compute(work1,work1,-1);
-    if (mu_flag) {
+    if (dipole_flag) {
       fft1->compute(work1,work1,1);
       fft1->compute(work1,work1,1);
       fft1->compute(work1,work1,1);
@@ -4717,13 +4788,15 @@ double PPPM::memory_usage()
   bytes += nfft_both * sizeof(double);
   bytes += nfft_both*5 * sizeof(FFT_SCALAR);
 
-  if (mu_flag) {
-    bytes += 3 * nbrick * sizeof(FFT_SCALAR);
-    //work?
+  if (dipole_flag) {
+    bytes += 9 * nbrick * sizeof(FFT_SCALAR);
+    bytes += nfft_both*7 * sizeof(FFT_SCALAR);
   }
 
-  if (peratom_allocate_flag)
+  if (peratom_allocate_flag) {
     bytes += 6 * nbrick * sizeof(FFT_SCALAR);
+    if (dipole_flag) bytes += 21 * nbrick * sizeof(FFT_SCALAR);
+  }
 
   if (group_allocate_flag) {
     bytes += 2 * nbrick * sizeof(FFT_SCALAR);
@@ -4731,9 +4804,10 @@ double PPPM::memory_usage()
   }
 
   if (cg) bytes += cg->memory_usage();
+  if (cg_peratom) bytes += cg_peratom->memory_usage();
 
-  if (mu_flag)
-    bytes += cg_mu->memory_usage();
+  if (cg_dipole) bytes += cg_dipole->memory_usage();
+  if (cg_peratom_dipole) bytes += cg_peratom_dipole->memory_usage();
 
   return bytes;
 }
@@ -4756,7 +4830,7 @@ void PPPM::compute_group_group(int groupbit_A, int groupbit_B, int AA_flag)
     error->all(FLERR,"Cannot (yet) use kspace_modify "
                "diff ad with compute group/group");
 
-  if (mu_flag)
+  if (dipole_flag)
     error->all(FLERR,"Cannot (yet) use point-dipoles "
                "with compute group/group");
 
@@ -5174,102 +5248,28 @@ void PPPM::slabcorr_groups(int groupbit_A, int groupbit_B, int AA_flag)
   f2group[2] += ffact * (qsum_A*dipole_B - qsum_B*dipole_A);
 }
 
-/* ----------------------------------------------------------------------
-   Newton solver used to find g_ewald for Dipole systems
-------------------------------------------------------------------------- */
-
-double PPPM::NewtonSolve(double x, double Rc,
-                              bigint natoms, double vol, double b2)
-{
-  double dx,tol;
-  int maxit;
-
-  maxit = 10000; //Maximum number of iterations
-  tol = 0.00001; //Convergence tolerance
-
-  //Begin algorithm
-
-  for (int i = 0; i < maxit; i++) {
-    dx = f(x,Rc,natoms,vol,b2) / derivf(x,Rc,natoms,vol,b2);
-    x = x - dx; //Update x
-    if (fabs(dx) < tol) return x;
-    if (x < 0 || x != x) // solver failed
-      return -1;
-  }
-  return -1;
-}
-
-/* ----------------------------------------------------------------------
- Calculate f(x)
- ------------------------------------------------------------------------- */
-
-double PPPM::f(double x, double Rc, bigint natoms, double vol, double b2)
-{
-  double a = Rc*x;
-  double f = 0.0;
-
-  if (mu_flag) { // dipole
-    double rg2 = a*a;
-    double rg4 = rg2*rg2;
-    double rg6 = rg4*rg2;
-    double Cc = 4.0*rg4 + 6.0*rg2 + 3.0;
-    double Dc = 8.0*rg6 + 20.0*rg4 + 30.0*rg2 + 15.0;
-    f = (b2/(sqrt(vol*powint(x,4)*powint(Rc,9)*natoms)) *
-      sqrt(13.0/6.0*Cc*Cc + 2.0/15.0*Dc*Dc - 13.0/15.0*Cc*Dc) *
-      exp(-rg2)) - accuracy;
-  }
 
 
-  return f;
-}
 
-/* ----------------------------------------------------------------------
- Calculate numerical derivative f'(x)
- ------------------------------------------------------------------------- */
 
-double PPPM::derivf(double x, double Rc,
-                         bigint natoms, double vol, double b2)
-{
-  double h = 0.000001;  //Derivative step-size
-  return (f(x + h,Rc,natoms,vol,b2) - f(x,Rc,natoms,vol,b2)) / h;
-}
 
-/* ----------------------------------------------------------------------
-   compute qsum,qsqsum,q2 and give error/warning if not charge neutral
-   called initially, when particle count changes, when charges are changed
-------------------------------------------------------------------------- */
 
-void PPPM::musum_musq()
-{
-  double** mu = atom->mu;
-  const int nlocal = atom->nlocal;
-  double musum_local(0.0), musqsum_local(0.0);
 
-  for (int i = 0; i < nlocal; i++) {
-    musum_local += mu[i][0] + mu[i][1] + mu[i][2];
-    musqsum_local += mu[i][0]*mu[i][0] + mu[i][1]*mu[i][1] + mu[i][2]*mu[i][2];
-  }
 
-  MPI_Allreduce(&musum_local,&musum,1,MPI_DOUBLE,MPI_SUM,world);
-  MPI_Allreduce(&musqsum_local,&musqsum,1,MPI_DOUBLE,MPI_SUM,world);
 
-  /*
-  if ((qsqsum == 0.0) && (comm->me == 0) && warn_nocharge) {
-    error->warning(FLERR,"Using kspace solver on system with no charge");
-    warn_nocharge = 0;
-  }*/
 
-  mu2 = musqsum * force->qqrd2e;
 
-  // not yet sure of the correction needed for non-neutral systems
-  // so issue warning or error
-  /*
-  if (fabs(qsum) > SMALL) {
-    char str[128];
-    sprintf(str,"System is not charge neutral, net charge = %g",qsum);
-    if (!warn_nonneutral) error->all(FLERR,str);
-    if (warn_nonneutral == 1 && comm->me == 0) error->warning(FLERR,str);
-    warn_nonneutral = 2;
-  }*/
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
 

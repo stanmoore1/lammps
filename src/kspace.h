@@ -180,6 +180,7 @@ class KSpace : protected Pointers {
   bigint natoms_original;
   double scale,qqrd2e;
   double qsum,qsqsum,q2;
+  double musum,musqsum,mu2;
   double **gcons,**dgcons;          // accumulated per-atom energy/virial
 
   int evflag,evflag_atom;
@@ -193,7 +194,7 @@ class KSpace : protected Pointers {
   void pair_check();
   void ev_setup(int, int, int alloc = 1);
   double estimate_table_accuracy(double, double);
-};
+  };
 
 }
 
@@ -215,7 +216,7 @@ E: KSpace style is incompatible with Pair style
 Setting a kspace style requires that a pair style with matching
 long-range Coulombic or dispersion components be used.
 
-W: Using kspace solver on system with no charge
+W: Using kspace solver on system with no charge or dipoles
 
 Self-explanatory.
 
@@ -237,7 +238,7 @@ feature is disabled by using 'pair_modify table 0'.
 E: Illegal ... command
 
 Self-explanatory.  Check the input script syntax and compare to the
-documentation for the command.  You can use -echo screen as a
+documentation for the command.  You can use -echo screen asa 
 command-line option when running LAMMPS to see the offending line.
 
 E: Bad kspace_modify slab parameter

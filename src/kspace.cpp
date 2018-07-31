@@ -162,7 +162,7 @@ void KSpace::triclinic_check()
 {
   if (domain->triclinic && triclinic_support != 1)
     error->all(FLERR,"KSpace style does not yet support triclinic geometries");
-}
+    }
 
 /* ---------------------------------------------------------------------- */
 
@@ -199,7 +199,7 @@ void KSpace::pair_check()
     error->all(FLERR,"KSpace style is incompatible with Pair style");
   if (force->pair->tip4pflag && !tip4pflag)
     error->all(FLERR,"KSpace style is incompatible with Pair style");
-}
+    }
 
 /* ----------------------------------------------------------------------
    setup for energy, virial computation
@@ -285,8 +285,24 @@ void KSpace::qsum_qsq()
   MPI_Allreduce(&qsum_local,&qsum,1,MPI_DOUBLE,MPI_SUM,world);
   MPI_Allreduce(&qsqsum_local,&qsqsum,1,MPI_DOUBLE,MPI_SUM,world);
 
-  if ((qsqsum == 0.0) && (comm->me == 0) && warn_nocharge) {
-    error->warning(FLERR,"Using kspace solver on system with no charge");
+  musum = musqsum = mu2 = 0.0;
+  if (atom->mu_flag) {
+    double** mu = atom->mu;
+    double musum_local(0.0), musqsum_local(0.0);
+
+    for (int i = 0; i < nlocal; i++) {
+      musum_local += mu[i][0] + mu[i][1] + mu[i][2];
+      musqsum_local += mu[i][0]*mu[i][0] + mu[i][1]*mu[i][1] + mu[i][2]*mu[i][2];
+    }
+
+    MPI_Allreduce(&musum_local,&musum,1,MPI_DOUBLE,MPI_SUM,world);
+    MPI_Allreduce(&musqsum_local,&musqsum,1,MPI_DOUBLE,MPI_SUM,world);
+
+    mu2 = musqsum * force->qqrd2e;
+  }
+
+  if ((qsqsum == 0.0 && musqsum == 0.0) && (comm->me == 0) && warn_nocharge) {
+    error->warning(FLERR,"Using kspace solver on system with no charge or dipoles");
     warn_nocharge = 0;
   }
 

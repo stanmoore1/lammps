@@ -68,27 +68,16 @@ class PPPM : public KSpace {
   int ngrid,nfft,nfft_both;
 
   FFT_SCALAR ***density_brick;
-  FFT_SCALAR ***densityx_brick_dipole,***densityy_brick_dipole,***densityz_brick_dipole;
   FFT_SCALAR ***vdx_brick,***vdy_brick,***vdz_brick;
-  FFT_SCALAR ***vdxx_brick_dipole,***vdyy_brick_dipole,***vdzz_brick_dipole;
-  FFT_SCALAR ***vdxy_brick_dipole,***vdxz_brick_dipole,***vdyz_brick_dipole;
   FFT_SCALAR ***u_brick;
-  FFT_SCALAR ***ux_brick_dipole,***uy_brick_dipole,***uz_brick_dipole;
   FFT_SCALAR ***v0_brick,***v1_brick,***v2_brick;
   FFT_SCALAR ***v3_brick,***v4_brick,***v5_brick;
-  FFT_SCALAR ***v0x_brick_dipole,***v1x_brick_dipole,***v2x_brick_dipole;
-  FFT_SCALAR ***v3x_brick_dipole,***v4x_brick_dipole,***v5x_brick_dipole;
-  FFT_SCALAR ***v0y_brick_dipole,***v1y_brick_dipole,***v2y_brick_dipole;
-  FFT_SCALAR ***v3y_brick_dipole,***v4y_brick_dipole,***v5y_brick_dipole;
-  FFT_SCALAR ***v0z_brick_dipole,***v1z_brick_dipole,***v2z_brick_dipole;
-  FFT_SCALAR ***v3z_brick_dipole,***v4z_brick_dipole,***v5z_brick_dipole;
 
   double *greensfn;
   double **vg;
   double *fkx,*fky,*fkz;
   FFT_SCALAR *density_fft;
-  FFT_SCALAR *densityx_fft_dipole,*densityy_fft_dipole,*densityz_fft_dipole;
-  FFT_SCALAR *work1,*work2,*work3,*work4;
+  FFT_SCALAR *work1,*work2;
 
   double *gf_b;
   FFT_SCALAR **rho1d,**rho_coeff,**drho1d,**drho_coeff;
@@ -106,9 +95,7 @@ class PPPM : public KSpace {
   class FFT3d *fft1,*fft2;
   class Remap *remap;
   class GridComm *cg;
-  class GridComm *cg_mu;
   class GridComm *cg_peratom;
-  class GridComm *cg_peratom_mu;
 
   int **part2grid;             // storage for particle -> grid mapping
   int nmax;
@@ -125,7 +112,6 @@ class PPPM : public KSpace {
   double newton_raphson_f();
   double derivf();
   double final_accuracy();
-  double final_accuracy_dipole();
 
   virtual void allocate();
   virtual void allocate_peratom();
@@ -179,8 +165,25 @@ class PPPM : public KSpace {
 
   // dipole
 
-  int mu_flag;
-  double musqsum,musum,mu2;
+  FFT_SCALAR ***densityx_brick_dipole,***densityy_brick_dipole,***densityz_brick_dipole;
+  FFT_SCALAR ***vdxx_brick_dipole,***vdyy_brick_dipole,***vdzz_brick_dipole;
+  FFT_SCALAR ***vdxy_brick_dipole,***vdxz_brick_dipole,***vdyz_brick_dipole;
+  FFT_SCALAR ***ux_brick_dipole,***uy_brick_dipole,***uz_brick_dipole;
+  FFT_SCALAR ***v0x_brick_dipole,***v1x_brick_dipole,***v2x_brick_dipole;
+  FFT_SCALAR ***v3x_brick_dipole,***v4x_brick_dipole,***v5x_brick_dipole;
+  FFT_SCALAR ***v0y_brick_dipole,***v1y_brick_dipole,***v2y_brick_dipole;
+  FFT_SCALAR ***v3y_brick_dipole,***v4y_brick_dipole,***v5y_brick_dipole;
+  FFT_SCALAR ***v0z_brick_dipole,***v1z_brick_dipole,***v2z_brick_dipole;
+  FFT_SCALAR ***v3z_brick_dipole,***v4z_brick_dipole,***v5z_brick_dipole;
+  FFT_SCALAR *work3,*work4;
+  FFT_SCALAR *densityx_fft_dipole,*densityy_fft_dipole,*densityz_fft_dipole;
+  class GridComm *cg_dipole;
+  class GridComm *cg_peratom_dipole;
+  int dipole_flag;
+  int only_dipole_flag;
+  double find_gewald_dipole(double, double, bigint, double, double);
+  double newton_raphson_f_dipole(double, double, bigint, double, double);
+  double derivf_dipole(double, double, bigint, double, double);
   double compute_df_kspace_dipole();
   double compute_qopt_dipole();
   void compute_gf_dipole();
@@ -190,10 +193,7 @@ class PPPM : public KSpace {
   void poisson_peratom_dipole();
   void fieldforce_ik_dipole();
   void fieldforce_peratom_dipole();
-  void musum_musq();
-  double NewtonSolve(double, double, bigint, double, double);
-  double f(double, double, bigint, double, double);
-  double derivf(double, double, bigint, double, double);
+  double final_accuracy_dipole();
 
   // group-group interactions
 
@@ -232,148 +232,161 @@ class PPPM : public KSpace {
 }
 
 #endif
-#endif
+#endif 
 
-/* ERROR/WARNING messages:
+/* ERROR/WARNING messages: 
 
-E: Illegal ... command
+E: Illegal ... command 
 
-Self-explanatory.  Check the input script syntax and compare to the
-documentation for the command.  You can use -echo screen as a
-command-line option when running LAMMPS to see the offending line.
+Self-explanatory. Check the input script syntax and compare to the 
+documentation for the command. You can use -echo screen as a 
+command-line option when running LAMMPS to see the offending line. 
 
-E: Must redefine kspace_style after changing to triclinic box
+E: Must redefine kspace_style after changing to triclinic box 
 
-UNDOCUMENTED
+UNDOCUMENTED 
 
-E: Cannot (yet) use PPPM with triclinic box and kspace_modify diff ad
+E: Cannot (yet) mix charge and dipoles in Kspace style PPPM 
 
-This feature is not yet supported.
+Charge-dipole interactions are not yet implemented in PPPM so this 
+feature is not yet supported. 
 
-E: Cannot (yet) use PPPM with triclinic box and slab correction
+E: Cannot (yet) use PPPM with triclinic box and kspace_modify diff ad 
 
-This feature is not yet supported.
+This feature is not yet supported. 
 
-E: Cannot use PPPM with 2d simulation
+E: Cannot (yet) use PPPM with triclinic box and slab correction 
 
-The kspace style pppm cannot be used in 2d simulations.  You can use
-2d PPPM in a 3d simulation; see the kspace_modify command.
+This feature is not yet supported. 
 
-E: PPPM can only currently be used with comm_style brick
+E: Cannot use PPPM with 2d simulation 
 
-This is a current restriction in LAMMPS.
+The kspace style pppm cannot be used in 2d simulations. You can use
+2d PPPM in a 3d simulation; see the kspace_modify command. 
 
-E: Kspace style requires atom attribute q
+E: PPPM can only currently be used with comm_style brick 
 
-The atom style defined does not have these attributes.
+This is a current restriction in LAMMPS. 
 
-E: Cannot use nonperiodic boundaries with PPPM
+E: Kspace style requires atom attribute q or mu 
 
-For kspace style pppm, all 3 dimensions must have periodic boundaries
-unless you use the kspace_modify command to define a 2d slab with a
-non-periodic z dimension.
+The atom style defined does not have these attributes. 
 
-E: Incorrect boundaries with slab PPPM
+E: Cannot (yet) use 'electron' units with dipoles 
+
+This feature is not yet supported. 
+
+E: Cannot (yet) use kspace_modify diff ad with dipoles 
+
+This feature is not yet supported. 
+
+E: Cannot use nonperiodic boundaries with PPPM 
+
+For kspace style pppm, all 3 dimensions must have periodic boundaries 
+unless you use the kspace_modify command to define a 2d slab with a 
+non-periodic z dimension. 
+
+E: Incorrect boundaries with slab PPPM 
 
 Must have periodic x,y dimensions and non-periodic z dimension to use
-2d slab option with PPPM.
+2d slab option with PPPM. 
 
-E: PPPM order cannot be < 2 or > than %d
+E: PPPM order cannot be < 2 or > than %d 
 
-This is a limitation of the PPPM implementation in LAMMPS.
+This is a limitation of the PPPM implementation in LAMMPS. 
 
-E: KSpace style is incompatible with Pair style
+E: KSpace style is incompatible with Pair style 
 
-Setting a kspace style requires that a pair style with matching
-long-range Coulombic or dispersion components be used.
+Setting a kspace style requires that a pair style with matching 
+long-range Coulombic or dispersion components be used. 
 
-E: Pair style is incompatible with TIP4P KSpace style
+E: Pair style is incompatible with TIP4P KSpace style 
 
-The pair style does not have the requires TIP4P settings.
+The pair style does not have the requires TIP4P settings. 
 
-E: Bond and angle potentials must be defined for TIP4P
+E: Bond and angle potentials must be defined for TIP4P 
 
 Cannot use TIP4P pair potential unless bond and angle potentials
-are defined.
+are defined. 
 
-E: Bad TIP4P angle type for PPPM/TIP4P
+E: Bad TIP4P angle type for PPPM/TIP4P 
 
-Specified angle type is not valid.
+Specified angle type is not valid. 
 
-E: Bad TIP4P bond type for PPPM/TIP4P
+E: Bad TIP4P bond type for PPPM/TIP4P 
 
-Specified bond type is not valid.
+Specified bond type is not valid. 
 
-W: Reducing PPPM order b/c stencil extends beyond nearest neighbor processor
+W: Reducing PPPM order b/c stencil extends beyond nearest neighbor processor 
 
-This may lead to a larger grid than desired.  See the kspace_modify overlap
-command to prevent changing of the PPPM order.
+This may lead to a larger grid than desired. See the kspace_modify overlap
+command to prevent changing of the PPPM order. 
 
-E: PPPM order < minimum allowed order
+E: PPPM order < minimum allowed order 
 
-The default minimum order is 2.  This can be reset by the
-kspace_modify minorder command.
+The default minimum order is 2. This can be reset by the
+kspace_modify minorder command. 
 
-E: PPPM grid stencil extends beyond nearest neighbor processor
+E: PPPM grid stencil extends beyond nearest neighbor processor 
 
-This is not allowed if the kspace_modify overlap setting is no.
+This is not allowed if the kspace_modify overlap setting is no. 
 
-E: KSpace accuracy must be > 0
+E: KSpace accuracy must be > 0 
 
-The kspace accuracy designated in the input must be greater than zero.
+The kspace accuracy designated in the input must be greater than zero. 
 
-E: Must use kspace_modify gewald for uncharged system
+E: Must use kspace_modify gewald for uncharged system 
 
-UNDOCUMENTED
+UNDOCUMENTED 
 
-E: Could not compute grid size
+E: Could not compute grid size 
 
-The code is unable to compute a grid size consistent with the desired
-accuracy.  This error should not occur for typical problems.  Please
-send an email to the developers.
+The code is unable to compute a grid size consistent with the desired 
+accuracy. This error should not occur for typical problems. Please
+send an email to the developers. 
 
-E: PPPM grid is too large
+E: PPPM grid is too large 
 
-The global PPPM grid is larger than OFFSET in one or more dimensions.
-OFFSET is currently set to 4096.  You likely need to decrease the
-requested accuracy.
+The global PPPM grid is larger than OFFSET in one or more dimensions. 
+OFFSET is currently set to 4096. You likely need to decrease the 
+requested accuracy. 
 
-E: Could not compute g_ewald
+E: Could not compute g_ewald 
 
-The Newton-Raphson solver failed to converge to a good value for
-g_ewald.  This error should not occur for typical problems.  Please
-send an email to the developers.
+The Newton-Raphson solver failed to converge to a good value for 
+g_ewald. This error should not occur for typical problems. Please
+send an email to the developers. 
 
-E: Non-numeric box dimensions - simulation unstable
+E: Non-numeric box dimensions - simulation unstable 
 
-The box size has apparently blown up.
+The box size has apparently blown up. 
 
-E: Out of range atoms - cannot compute PPPM
+E: Out of range atoms - cannot compute PPPM 
 
-One or more atoms are attempting to map their charge to a PPPM grid
-point that is not owned by a processor.  This is likely for one of two
-reasons, both of them bad.  First, it may mean that an atom near the
-boundary of a processor's sub-domain has moved more than 1/2 the
-"neighbor skin distance"_neighbor.html without neighbor lists being
-rebuilt and atoms being migrated to new processors.  This also means
+One or more atoms are attempting to map their charge to a PPPM grid 
+point that is not owned by a processor. This is likely for one of two 
+reasons, both of them bad. First, it may mean that an atom near the 
+boundary of a processor's sub-domain has moved more than 1/2 the 
+"neighbor skin distance"_neighbor.html without neighbor lists being 
+rebuilt and atoms being migrated to new processors. This also means
 you may be missing pairwise interactions that need to be computed.
-The solution is to change the re-neighboring criteria via the
-"neigh_modify"_neigh_modify command.  The safest settings are "delay 0
-every 1 check yes".  Second, it may mean that an atom has moved far
+The solution is to change the re-neighboring criteria via the 
+"neigh_modify"_neigh_modify command. The safest settings are "delay 0 
+every 1 check yes". Second, it may mean that an atom has moved far 
 outside a processor's sub-domain or even the entire simulation box.
 This indicates bad physics, e.g. due to highly overlapping atoms, too
-large a timestep, etc.
+large a timestep, etc. 
 
-E: Cannot (yet) use K-space slab correction with compute group/group for triclinic systems
+E: Cannot (yet) use K-space slab correction with compute group/group for triclinic systems 
 
-This option is not yet supported.
+This option is not yet supported. 
 
-E: Cannot (yet) use kspace_modify diff ad with compute group/group
+E: Cannot (yet) use kspace_modify diff ad with compute group/group 
 
-This option is not yet supported.
+This option is not yet supported. 
 
-U: Cannot (yet) use PPPM with triclinic box and TIP4P
+U: Cannot (yet) use PPPM with triclinic box and TIP4P 
 
-This feature is not yet supported.
+This feature is not yet supported. 
 
-*/
+*/ 
