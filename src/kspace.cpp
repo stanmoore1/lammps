@@ -162,7 +162,7 @@ void KSpace::triclinic_check()
 {
   if (domain->triclinic && triclinic_support != 1)
     error->all(FLERR,"KSpace style does not yet support triclinic geometries");
-    }
+  }
 
 /* ---------------------------------------------------------------------- */
 
@@ -199,7 +199,7 @@ void KSpace::pair_check()
     error->all(FLERR,"KSpace style is incompatible with Pair style");
   if (force->pair->tip4pflag && !tip4pflag)
     error->all(FLERR,"KSpace style is incompatible with Pair style");
-    }
+  }
 
 /* ----------------------------------------------------------------------
    setup for energy, virial computation

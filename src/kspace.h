@@ -194,7 +194,7 @@ class KSpace : protected Pointers {
   void pair_check();
   void ev_setup(int, int, int alloc = 1);
   double estimate_table_accuracy(double, double);
-  };
+};
 
 }
 
@@ -238,7 +238,7 @@ feature is disabled by using 'pair_modify table 0'.
 E: Illegal ... command
 
 Self-explanatory.  Check the input script syntax and compare to the
-documentation for the command.  You can use -echo screen asa 
+documentation for the command.  You can use -echo screen as a 
 command-line option when running LAMMPS to see the offending line.
 
 E: Bad kspace_modify slab parameter

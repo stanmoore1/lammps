@@ -52,8 +52,8 @@ using namespace MathSpecial;
 #define SMALL 0.00001
 #define EPS_HOC 1.0e-7
 
-enum{REVERSE_RHO,REVERSE_dipole};
-enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM,FORWARD_dipole,FORWARD_dipole_PERATOM};
+enum{REVERSE_RHO,REVERSE_MU};
+enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM,FORWARD_MU,FORWARD_MU_PERATOM};
 
 #ifdef FFT_SINGLE
 #define ZEROF 0.0f
@@ -76,7 +76,7 @@ PPPM::PPPM(LAMMPS *lmp, int narg, char **arg) : KSpace(lmp, narg, arg),
   density_B_fft(NULL), fft1(NULL), fft2(NULL), remap(NULL), cg(NULL), cg_peratom(NULL), cg_dipole(NULL), cg_peratom_dipole(NULL),
   part2grid(NULL), boxlo(NULL), densityx_brick_dipole(NULL), densityy_brick_dipole(NULL),
   densityz_brick_dipole(NULL), ux_brick_dipole(NULL), uy_brick_dipole(NULL), uz_brick_dipole(NULL),
-  vdxx_brick_dipole(NULL), vdxy_brick_dipole(NULL),  vdyy_brick_dipole(NULL), vdxz_brick_dipole(NULL), 
+  vdxx_brick_dipole(NULL), vdxy_brick_dipole(NULL),  vdyy_brick_dipole(NULL), vdxz_brick_dipole(NULL),
   vdyz_brick_dipole(NULL),
   vdzz_brick_dipole(NULL), v0x_brick_dipole(NULL), v1x_brick_dipole(NULL), v2x_brick_dipole(NULL),
   v3x_brick_dipole(NULL), v4x_brick_dipole(NULL), v5x_brick_dipole(NULL), v0y_brick_dipole(NULL),
@@ -731,7 +731,7 @@ void PPPM::compute(int eflag, int vflag)
   brick2fft();
 
   if (dipole_flag) {
-    cg_dipole->reverse_comm(this,REVERSE_dipole);
+    cg_dipole->reverse_comm(this,REVERSE_MU);
     brick2fft_dipole();
   }
 
@@ -752,7 +752,7 @@ void PPPM::compute(int eflag, int vflag)
   else cg->forward_comm(this,FORWARD_IK);
 
   if (dipole_flag)
-    cg_dipole->forward_comm(this,FORWARD_dipole);
+    cg_dipole->forward_comm(this,FORWARD_MU);
 
   // extra per-atom energy/virial communication
 
@@ -763,7 +763,7 @@ void PPPM::compute(int eflag, int vflag)
       cg_peratom->forward_comm(this,FORWARD_IK_PERATOM);
 
     if (dipole_flag)
-      cg_peratom_dipole->forward_comm(this,FORWARD_dipole_PERATOM);
+      cg_peratom_dipole->forward_comm(this,FORWARD_MU_PERATOM);
   }
 
   // calculate the force on my particles
@@ -4197,7 +4197,7 @@ void PPPM::pack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
       buf[n++] = ysrc[list[i]];
       buf[n++] = zsrc[list[i]];
     }
-  } else if (flag == FORWARD_dipole) {
+  } else if (flag == FORWARD_MU) {
     FFT_SCALAR *src_ux = &ux_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *src_uy = &uy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *src_uz = &uz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
@@ -4241,7 +4241,7 @@ void PPPM::pack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
         buf[n++] = v5src[list[i]];
       }
     }
-  } else if (flag == FORWARD_dipole_PERATOM) {
+  } else if (flag == FORWARD_MU_PERATOM) {
     FFT_SCALAR *v0xsrc = &v0x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *v1xsrc = &v1x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *v2xsrc = &v2x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
@@ -4315,7 +4315,7 @@ void PPPM::unpack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
       ydest[list[i]] = buf[n++];
       zdest[list[i]] = buf[n++];
     }
-  } else if (flag == FORWARD_dipole) {
+  } else if (flag == FORWARD_MU) {
     FFT_SCALAR *dest_ux = &ux_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *dest_uy = &uy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *dest_uz = &uz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
@@ -4374,7 +4374,7 @@ void PPPM::unpack_forward(int flag, FFT_SCALAR *buf, int nlist, int *list)
       v4src[list[i]] = buf[n++];
       v5src[list[i]] = buf[n++];
     }
-  } else if (flag == FORWARD_dipole_PERATOM) {
+  } else if (flag == FORWARD_MU_PERATOM) {
     FFT_SCALAR *v0xsrc = &v0x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *v1xsrc = &v1x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *v2xsrc = &v2x_brick_dipole[nzlo_out][nylo_out][nxlo_out];
@@ -4427,7 +4427,7 @@ void PPPM::pack_reverse(int flag, FFT_SCALAR *buf, int nlist, int *list)
     FFT_SCALAR *src = &density_brick[nzlo_out][nylo_out][nxlo_out];
     for (int i = 0; i < nlist; i++)
       buf[n++] = src[list[i]];
-  } else if (flag == REVERSE_dipole) {
+  } else if (flag == REVERSE_MU) {
     FFT_SCALAR *src_dipole0 = &densityx_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *src_dipole1 = &densityy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *src_dipole2 = &densityz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
@@ -4450,7 +4450,7 @@ void PPPM::unpack_reverse(int flag, FFT_SCALAR *buf, int nlist, int *list)
     FFT_SCALAR *dest = &density_brick[nzlo_out][nylo_out][nxlo_out];
     for (int i = 0; i < nlist; i++)
       dest[list[i]] += buf[n++];
-  } else if (flag == REVERSE_dipole) {
+  } else if (flag == REVERSE_MU) {
     FFT_SCALAR *dest_dipole0 = &densityx_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *dest_dipole1 = &densityy_brick_dipole[nzlo_out][nylo_out][nxlo_out];
     FFT_SCALAR *dest_dipole2 = &densityz_brick_dipole[nzlo_out][nylo_out][nxlo_out];
@@ -5247,29 +5247,3 @@ void PPPM::slabcorr_groups(int groupbit_A, int groupbit_B, int AA_flag)
   const double ffact = qscale * (-4.0*MY_PI/volume);
   f2group[2] += ffact * (qsum_A*dipole_B - qsum_B*dipole_A);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
