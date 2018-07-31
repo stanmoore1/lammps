@@ -179,7 +179,6 @@ class PPPM : public KSpace {
   FFT_SCALAR *densityx_fft_dipole,*densityy_fft_dipole,*densityz_fft_dipole;
   class GridComm *cg_dipole;
   class GridComm *cg_peratom_dipole;
-  int dipole_flag;
   int only_dipole_flag;
   double find_gewald_dipole(double, double, bigint, double, double);
   double newton_raphson_f_dipole(double, double, bigint, double, double);
