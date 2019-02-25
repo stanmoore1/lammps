@@ -340,7 +340,8 @@ void VerletKokkos::run(int n)
 
     //ktimer.reset();
     timer->stamp();
-    modify->initial_integrate(vflag);
+    if (i == 0)
+      modify->initial_integrate(vflag);
     //time += ktimer.seconds();
     if (n_post_integrate) modify->post_integrate();
     timer->stamp(Timer::MODIFY);
@@ -403,7 +404,7 @@ void VerletKokkos::run(int n)
     // since some bonded potentials tally pairwise energy/virial
     // and Pair:ev_tally() needs to be called before any tallying
 
-    force_clear();
+    //force_clear();
 
     timer->stamp();
 
@@ -557,7 +558,10 @@ void VerletKokkos::run(int n)
     // force modifications, final time integration, diagnostics
 
     if (n_post_force) modify->post_force(vflag);
-    modify->final_integrate();
+
+    if (i != n-1) modify->squash_integrate();
+    else modify->final_integrate();
+
     if (n_end_of_step) modify->end_of_step();
     timer->stamp(Timer::MODIFY);
 

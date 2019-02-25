@@ -170,6 +170,35 @@ void FixNVEKokkos<DeviceType>::cleanup_copy()
   vatom = NULL;
 }
 
+/* ----------------------------------------------------------------------
+   allow for both per-type and per-atom mass
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void FixNVEKokkos<DeviceType>::squash_integrate()
+{
+  atomKK->sync(execution_space,datamask_read);
+  atomKK->modified(execution_space,datamask_modify);
+
+  x = atomKK->k_x.view<DeviceType>();
+  v = atomKK->k_v.view<DeviceType>();
+  f = atomKK->k_f.view<DeviceType>();
+  rmass = atomKK->k_rmass.view<DeviceType>();
+  mass = atomKK->k_mass.view<DeviceType>();
+  type = atomKK->k_type.view<DeviceType>();
+  mask = atomKK->k_mask.view<DeviceType>();
+  int nlocal = atomKK->nlocal;
+  if (igroup == atomKK->firstgroup) nlocal = atomKK->nfirst;
+
+  if (rmass.data()) {
+    FixNVEKokkosSquashIntegrateFunctor<DeviceType,1> functor(this);
+    Kokkos::parallel_for(nlocal,functor);
+  } else {
+    FixNVEKokkosSquashIntegrateFunctor<DeviceType,0> functor(this);
+    Kokkos::parallel_for(nlocal,functor);
+  }
+}
+
 namespace LAMMPS_NS {
 template class FixNVEKokkos<LMPDeviceType>;
 #ifdef KOKKOS_HAVE_CUDA

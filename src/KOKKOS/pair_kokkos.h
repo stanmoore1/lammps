@@ -274,7 +274,13 @@ struct PairComputeFunctor  {
       const X_FLOAT ytmp = c.x(i,1);
       const X_FLOAT ztmp = c.x(i,2);
       const int itype = c.type(i);
-    
+
+      Kokkos::single(Kokkos::PerThread(team), [&] (){
+        f(i,0) = 0.0;
+        f(i,1) = 0.0;
+        f(i,2) = 0.0;
+      });
+
       const AtomNeighborsConst neighbors_i = list.get_neighbors_const(i);
       const int jnum = list.d_numneigh[i];
 
@@ -331,6 +337,12 @@ struct PairComputeFunctor  {
       const X_FLOAT ztmp = c.x(i,2);
       const int itype = c.type(i);
       const F_FLOAT qtmp = c.q(i);
+
+      Kokkos::single(Kokkos::PerThread(team), [&] (){
+        f(i,0) = 0.0;
+        f(i,1) = 0.0;
+        f(i,2) = 0.0;
+      });
 
       const AtomNeighborsConst neighbors_i = list.get_neighbors_const(i);
       const int jnum = list.d_numneigh[i];
@@ -394,6 +406,12 @@ struct PairComputeFunctor  {
       const X_FLOAT ytmp = c.x(i,1);
       const X_FLOAT ztmp = c.x(i,2);
       const int itype = c.type(i);
+
+      Kokkos::single(Kokkos::PerThread(team), [&] (){
+        f(i,0) = 0.0;
+        f(i,1) = 0.0;
+        f(i,2) = 0.0;
+      });
     
       const AtomNeighborsConst neighbors_i = list.get_neighbors_const(i);
       const int jnum = list.d_numneigh[i];
@@ -490,6 +508,12 @@ struct PairComputeFunctor  {
       const X_FLOAT ztmp = c.x(i,2);
       const int itype = c.type(i);
       const F_FLOAT qtmp = c.q(i);
+
+      Kokkos::single(Kokkos::PerThread(team), [&] (){
+        f(i,0) = 0.0;
+        f(i,1) = 0.0;
+        f(i,2) = 0.0;
+      });
 
       const AtomNeighborsConst neighbors_i = list.get_neighbors_const(i);
       const int jnum = list.d_numneigh[i];

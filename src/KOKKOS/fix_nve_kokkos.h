@@ -44,6 +44,7 @@ class FixNVEKokkos : public FixNVE {
   void init();
   void initial_integrate(int);
   void final_integrate();
+  void squash_integrate();
 
   KOKKOS_INLINE_FUNCTION
   void initial_integrate_item(int) const;
@@ -91,6 +92,25 @@ struct FixNVEKokkosFinalIntegrateFunctor  {
   void operator()(const int i) const {
     if (RMass) c.final_integrate_rmass_item(i);
     else c.final_integrate_item(i);
+  }
+};
+
+template <class DeviceType, int RMass>
+struct FixNVEKokkosSquashIntegrateFunctor  {
+  typedef DeviceType  device_type ;
+  FixNVEKokkos<DeviceType> c;
+
+  FixNVEKokkosSquashIntegrateFunctor(FixNVEKokkos<DeviceType>* c_ptr):
+  c(*c_ptr) {c.cleanup_copy();};
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const int i) const {
+    if (RMass) {
+      c.final_integrate_rmass_item(i);
+      c.initial_integrate_rmass_item(i);
+    } else {
+      c.final_integrate_item(i);
+      c.initial_integrate_item(i);
+    }
   }
 };
 

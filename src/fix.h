@@ -118,6 +118,7 @@ class Fix : protected Pointers {
   virtual void setup_pre_reverse(int, int) {}
   virtual void min_setup(int) {}
   virtual void initial_integrate(int) {}
+  virtual void squash_integrate() {}
   virtual void post_integrate() {}
   virtual void pre_exchange() {}
   virtual void pre_neighbor() {}

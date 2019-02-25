@@ -471,6 +471,17 @@ void Modify::final_integrate()
     fix[list_final_integrate[i]]->final_integrate();
 }
 
+
+/* ----------------------------------------------------------------------
+   2nd half of integrate call, only for relevant fixes
+------------------------------------------------------------------------- */
+
+void Modify::squash_integrate()
+{
+  for (int i = 0; i < n_final_integrate; i++)
+    fix[list_final_integrate[i]]->squash_integrate();
+}
+
 /* ----------------------------------------------------------------------
    end-of-timestep call, only for relevant fixes
    only call fix->end_of_step() on timesteps that are multiples of nevery
