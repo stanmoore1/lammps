@@ -231,6 +231,128 @@ int AtomVecAtomicKokkos::pack_border_kokkos(int n, DAT::tdual_int_2d k_sendlist,
   return n*6;
 }
 
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType,int TRICLINIC>
+struct AtomVecAtomicKokkos_PackBorderFused {
+  typedef DeviceType device_type;
+
+  const typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
+  const typename ArrayTypes<DeviceType>::t_tagint_1d_randomread _tag;
+  const typename ArrayTypes<DeviceType>::t_int_1d_randomread _type;
+  const typename ArrayTypes<DeviceType>::t_int_1d_randomread _mask;
+  const typename ArrayTypes<DeviceType>::t_x_array _xw;
+  const typename ArrayTypes<DeviceType>::t_tagint_1d _tagw;
+  const typename ArrayTypes<DeviceType>::t_int_1d _typew;
+  const typename ArrayTypes<DeviceType>::t_int_1d _maskw;
+
+  typename ArrayTypes<DeviceType>::t_int_2d_const _list;
+  typename ArrayTypes<DeviceType>::t_int_2d_const _pbc;
+  typename ArrayTypes<DeviceType>::t_int_1d_const _pbc_flag;
+  typename ArrayTypes<DeviceType>::t_int_1d_const _firstrecv;
+  typename ArrayTypes<DeviceType>::t_int_1d_const _sendnum_scan;
+  X_FLOAT _xprd,_yprd,_zprd;
+
+  AtomVecAtomicKokkos_PackBorderFused(
+      const typename DAT::tdual_x_array &x,
+      const typename DAT::tdual_tagint_1d &tag,
+      const typename DAT::tdual_int_1d &type,
+      const typename DAT::tdual_int_1d &mask,
+      const typename DAT::tdual_int_2d &list,
+      const typename DAT::tdual_int_2d &pbc,
+      const typename DAT::tdual_int_1d &pbc_flag,
+      const typename DAT::tdual_int_1d &firstrecv,
+      const typename DAT::tdual_int_1d &sendnum_scan,
+      const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd):
+      _x(x.view<DeviceType>()),_tag(tag.view<DeviceType>()),
+      _type(type.view<DeviceType>()),_mask(mask.view<DeviceType>()),
+      _xw(x.view<DeviceType>()),_tagw(tag.view<DeviceType>()),
+      _typew(type.view<DeviceType>()),_maskw(mask.view<DeviceType>()),
+      _list(list.view<DeviceType>()),
+      _pbc(pbc.view<DeviceType>()),
+      _pbc_flag(pbc_flag.view<DeviceType>()),
+      _firstrecv(firstrecv.view<DeviceType>()),
+      _sendnum_scan(sendnum_scan.view<DeviceType>()),
+      _xprd(xprd),_yprd(yprd),_zprd(zprd) {}
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const int& ii) const {
+
+    int iswap = 0;
+    while (ii >= _sendnum_scan[iswap]) iswap++;
+    int i = ii;
+    if (iswap > 0)
+      i = ii - _sendnum_scan[iswap-1];
+    const int _nfirst = _firstrecv[iswap];
+
+    const int j = _list(iswap,i);
+    printf("%i %i %i\n",iswap,i,j);
+    if (_pbc_flag(iswap) == 0) {
+        _xw(i+_nfirst,0)  = _x(j,0);
+        _xw(i+_nfirst,1)  = _x(j,1);
+        _xw(i+_nfirst,2)  = _x(j,2);
+    } else {
+      if (TRICLINIC == 0) {
+        _xw(i+_nfirst,0) = _x(j,0) + _pbc(iswap,0)*_xprd;
+        _xw(i+_nfirst,1) = _x(j,1) + _pbc(iswap,1)*_yprd;
+        _xw(i+_nfirst,2) = _x(j,2) + _pbc(iswap,2)*_zprd;
+      } else {
+        _xw(i+_nfirst,0) = _x(j,0) + _pbc(iswap,0);
+        _xw(i+_nfirst,1) = _x(j,1) + _pbc(iswap,1);
+        _xw(i+_nfirst,2) = _x(j,2) + _pbc(iswap,2);
+      }
+    }
+
+    _tagw(i+_nfirst)  = _tag(j);
+    _typew(i+_nfirst) = _type(j);
+    _maskw(i+_nfirst) = _mask(j);
+  }
+};
+
+/* ---------------------------------------------------------------------- */
+
+int AtomVecAtomicKokkos::pack_border_kokkos_fused(const int &n, const DAT::tdual_int_2d &list,
+                                       const DAT::tdual_int_1d &sendnum_scan,
+                                       const DAT::tdual_int_1d &firstrecv,
+                                       const DAT::tdual_int_1d &pbc_flag,
+                                       const DAT::tdual_int_2d &pbc,
+                                       ExecutionSpace space) {
+  modified(space,X_MASK|TAG_MASK|TYPE_MASK|MASK_MASK);
+  while (firstrecv.h_view[0]+n >= nmax) grow(0);
+  if (domain->triclinic == 1) {
+    if(space==Host) {
+      AtomVecAtomicKokkos_PackBorderFused<LMPHostType,1> f(atomKK->k_x,
+                                 atomKK->k_tag,atomKK->k_type,atomKK->k_mask,
+                                 list,pbc,pbc_flag,firstrecv,sendnum_scan,
+                                 domain->xprd,domain->yprd,domain->zprd);
+      Kokkos::parallel_for(n,f);
+    } else {
+      AtomVecAtomicKokkos_PackBorderFused<LMPDeviceType,1> f(atomKK->k_x,
+                                 atomKK->k_tag,atomKK->k_type,atomKK->k_mask,
+                                 list,pbc,pbc_flag,firstrecv,sendnum_scan,
+                                 domain->xprd,domain->yprd,domain->zprd);
+      Kokkos::parallel_for(n,f);
+    }
+  } else {
+    if(space==Host) {
+      AtomVecAtomicKokkos_PackBorderFused<LMPHostType,0> f(atomKK->k_x,
+                                 atomKK->k_tag,atomKK->k_type,atomKK->k_mask,
+                                 list,pbc,pbc_flag,firstrecv,sendnum_scan,
+                                 domain->xprd,domain->yprd,domain->zprd);
+      Kokkos::parallel_for(n,f);
+    } else {
+      AtomVecAtomicKokkos_PackBorderFused<LMPDeviceType,0> f(atomKK->k_x,
+                                 atomKK->k_tag,atomKK->k_type,atomKK->k_mask,
+                                 list,pbc,pbc_flag,firstrecv,sendnum_scan,
+                                 domain->xprd,domain->yprd,domain->zprd);
+      Kokkos::parallel_for(n,f);
+    }
+  }
+  modified(space,X_MASK|TAG_MASK|TYPE_MASK|MASK_MASK);
+  return n*6;
+}
+
 /* ---------------------------------------------------------------------- */
 
 int AtomVecAtomicKokkos::pack_border(int n, int *list, double *buf,

@@ -773,8 +773,13 @@ void CommKokkos::borders()
   }
 
   if (!exchange_comm_classic) {
-    if (exchange_comm_on_host) borders_device<LMPHostType>();
-    else borders_device<LMPDeviceType>();
+    if (comm->nprocs == 1 && !ghost_velocity) {
+      if (exchange_comm_on_host) borders_device_fused<LMPHostType>();
+      else borders_device_fused<LMPDeviceType>();
+    } else {
+      if (exchange_comm_on_host) borders_device<LMPHostType>();
+      else borders_device<LMPDeviceType>();
+    }
   } else {
     atomKK->sync(Host,ALL_MASK);
     k_sendlist.sync<LMPHostType>();
@@ -783,7 +788,7 @@ void CommKokkos::borders()
     atomKK->modified(Host,ALL_MASK);
   }
 
-  if (comm->nprocs == 1 && !forward_comm_classic)
+  if (comm->nprocs == 1 && exchange_comm_classic && !forward_comm_classic)
     copy_swap_info();
 }
 
@@ -1056,6 +1061,168 @@ void CommKokkos::borders_device() {
       iswap++;
     }
   }
+
+  // insure send/recv buffers are long enough for all forward & reverse comm
+
+  int max = MAX(maxforward*smax,maxreverse*rmax);
+  if (max > maxsend) grow_send_kokkos(max,0);
+  max = MAX(maxforward*rmax,maxreverse*smax);
+  if (max > maxrecv) grow_recv_kokkos(max);
+
+  // reset global->local map
+
+  atomKK->modified(exec_space,ALL_MASK);
+  if (map_style) {
+    atomKK->sync(Host,TAG_MASK);
+    atom->map_set();
+  }
+}
+
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void CommKokkos::borders_device_fused() {
+  int iswap,dim,ineed,twoneed,smax,rmax;
+  int nsend,nrecv,sendflag,nfirst,nlast;
+  double lo,hi;
+  int *type;
+  double *mlo,*mhi;
+  AtomVecKokkos *avec = (AtomVecKokkos *) atom->avec;
+
+  ExecutionSpace exec_space = ExecutionSpaceFromDevice<DeviceType>::space;
+  k_sendlist.sync<DeviceType>();
+  atomKK->sync(exec_space,ALL_MASK);
+
+  // do swaps over all 3 dimensions
+
+  iswap = 0;
+  smax = rmax = 0;
+  int nghost = atom->nghost;
+
+  for (dim = 0; dim < 3; dim++) {
+    nlast = 0;
+    twoneed = 2*maxneed[dim];
+    for (ineed = 0; ineed < twoneed; ineed++) {
+
+      // find atoms within slab boundaries lo/hi using <= and >=
+      // check atoms between nfirst and nlast
+      //   for first swaps in a dim, check owned and ghost
+      //   for later swaps in a dim, only check newly arrived ghosts
+      // store sent atom indices in list for use in future timesteps
+
+      if (mode == Comm::SINGLE) {
+        lo = slablo[iswap];
+        hi = slabhi[iswap];
+      } else {
+        type = atom->type;
+        mlo = multilo[iswap];
+        mhi = multihi[iswap];
+      }
+      if (ineed % 2 == 0) {
+        nfirst = nlast;
+        nlast = atom->nlocal + nghost;
+      }
+
+      printf("bounds %i %i %i\n",iswap,nfirst,nlast);
+
+      nsend = 0;
+
+      // sendflag = 0 if I do not send on this swap
+      // sendneed test indicates receiver no longer requires data
+      // e.g. due to non-PBC or non-uniform sub-domains
+
+      if (ineed/2 >= sendneed[dim][ineed % 2]) sendflag = 0;
+      else sendflag = 1;
+
+      // find send atoms according to SINGLE vs MULTI
+      // all atoms eligible versus atoms in bordergroup
+      // only need to limit loop to bordergroup for first sends (ineed < 2)
+      // on these sends, break loop in two: owned (in group) and ghost
+
+      if (sendflag) {
+        if (!bordergroup || ineed >= 2) {
+          if (mode == Comm::SINGLE) {
+            k_total_send.h_view() = 0;
+            k_total_send.template modify<LMPHostType>();
+            k_total_send.template sync<LMPDeviceType>();
+
+            BuildBorderListFunctor<DeviceType> f(atomKK->k_x,k_sendlist,
+                k_total_send,nfirst,nlast,dim,lo,hi,iswap,maxsendlist[iswap]);
+            Kokkos::TeamPolicy<DeviceType> config((nlast-nfirst+127)/128,128);
+            Kokkos::parallel_for(config,f);
+
+            k_total_send.template modify<DeviceType>();
+            k_total_send.template sync<LMPHostType>();
+
+            k_sendlist.modify<DeviceType>();
+
+            if(k_total_send.h_view() >= maxsendlist[iswap]) {
+              grow_list(iswap,k_total_send.h_view());
+
+              k_total_send.h_view() = 0;
+              k_total_send.template modify<LMPHostType>();
+              k_total_send.template sync<LMPDeviceType>();
+
+              BuildBorderListFunctor<DeviceType> f(atomKK->k_x,k_sendlist,
+                  k_total_send,nfirst,nlast,dim,lo,hi,iswap,maxsendlist[iswap]);
+              Kokkos::TeamPolicy<DeviceType> config((nlast-nfirst+127)/128,128);
+              Kokkos::parallel_for(config,f);
+
+              k_total_send.template modify<DeviceType>();
+              k_total_send.template sync<LMPHostType>();
+
+              k_sendlist.modify<DeviceType>();
+            }
+            nsend = k_total_send.h_view();
+          } else {
+            error->all(FLERR,"Required border comm not yet "
+                       "implemented with Kokkos");
+          }
+
+        } else {
+          error->all(FLERR,"Required border comm not yet "
+                     "implemented with Kokkos");
+        }
+      }
+
+      nrecv = nsend;
+
+      // set all pointers & counters
+
+      smax = MAX(smax,nsend);
+      rmax = MAX(rmax,nrecv);
+      sendnum[iswap] = nsend;
+      recvnum[iswap] = nrecv;
+      size_forward_recv[iswap] = nrecv*size_forward;
+      size_reverse_send[iswap] = nrecv*size_reverse;
+      size_reverse_recv[iswap] = nsend*size_reverse;
+      firstrecv[iswap] = atom->nlocal + nghost;
+      printf("comm %i %i %i\n",iswap,nrecv,firstrecv[iswap]);
+      nghost += nrecv;
+      iswap++;
+    }
+  }
+
+  copy_swap_info();
+
+  k_swap.sync<DeviceType>();
+  k_pbc.sync<DeviceType>();
+
+  // pack up list of border atoms
+//if (ghost_velocity) {
+
+  // swap atoms with other proc
+  // no MPI calls except SendRecv if nsend/nrecv = 0
+  // put incoming ghosts at end of my atom arrays
+  // if swapping with self, simply copy, no messages
+
+  // unpack buffer
+
+  avec->pack_border_kokkos_fused(totalsend,k_sendlist,k_sendnum_scan,
+                                 k_firstrecv,k_pbc_flag,
+                                 k_pbc,exec_space);
+  atom->nghost += nghost;
 
   // insure send/recv buffers are long enough for all forward & reverse comm
 

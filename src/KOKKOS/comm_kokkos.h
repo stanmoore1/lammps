@@ -54,6 +54,7 @@ class CommKokkos : public CommBrick {
   template<class DeviceType> void forward_comm_pair_device(Pair *pair);
   template<class DeviceType> void exchange_device();
   template<class DeviceType> void borders_device();
+  template<class DeviceType> void borders_device_fused();
 
  protected:
   DAT::tdual_int_2d k_sendlist;

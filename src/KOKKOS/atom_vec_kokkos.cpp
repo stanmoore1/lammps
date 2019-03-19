@@ -365,7 +365,7 @@ int AtomVecKokkos::pack_comm_self_fused(const int &n, const DAT::tdual_int_2d &l
     Kokkos::parallel_for(n,f);
     }
   }
-        return n*3;
+  return n*3;
 }
 
 /* ---------------------------------------------------------------------- */
