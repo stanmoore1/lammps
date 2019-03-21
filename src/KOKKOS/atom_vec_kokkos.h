@@ -100,6 +100,7 @@ class AtomVecKokkos : public AtomVec {
                              const DAT::tdual_int_1d &firstrecv,
                              const DAT::tdual_int_1d &pbc_flag,
                              const DAT::tdual_int_2d &pbc,
+                             const DAT::tdual_int_1d &g2l,
                              ExecutionSpace space) { return 0; }
 
   virtual void

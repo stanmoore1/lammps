@@ -1054,6 +1054,124 @@ void CommKokkos::borders_device() {
   }
 }
 
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+struct BuildBorderListFusedFunctor {
+        typedef DeviceType device_type;
+        typedef ArrayTypes<DeviceType> AT;
+  X_FLOAT lo,hi;
+  typename AT::t_x_array x;
+  int iswap,maxsendlist;
+  int nfirst,nlast,dim;
+  int prd,nlocal,triclinic,nghost;
+  typename AT::t_int_2d sendlist;
+  typename AT::t_int_1d g2l;
+  typename AT::t_int_scalar nsend;
+  typename AT::t_int_1d pbc_flag;
+  typename AT::t_int_2d pbc;
+  int pbc_flag_iswap,pbc_iswap_0;
+  int pbc_iswap_1,pbc_iswap_2;
+  int pbc_iswap_3,pbc_iswap_4,pbc_iswap_5;
+
+  BuildBorderListFusedFunctor(typename AT::tdual_x_array _x,
+                         typename AT::tdual_int_2d _sendlist,
+                         typename AT::tdual_int_1d _g2l,
+                         typename AT::tdual_int_1d _pbc_flag,
+                         typename AT::tdual_int_2d _pbc,
+                         typename AT::tdual_int_scalar _nsend,int _nfirst,
+                         int _nlast, int _dim,
+                         X_FLOAT _lo, X_FLOAT _hi, int _iswap,
+                         int _maxsendlist, int _prd, int _nlocal, int _triclinic, int _nghost,
+                         int _pbc_flag_iswap, int _pbc_iswap_0,
+                         int _pbc_iswap_1, int _pbc_iswap_2,
+                         int _pbc_iswap_3, int _pbc_iswap_4, int _pbc_iswap_5):
+    x(_x.template view<DeviceType>()),
+    sendlist(_sendlist.template view<DeviceType>()),
+    g2l(_g2l.template view<DeviceType>()),
+    pbc_flag(_pbc_flag.template view<DeviceType>()),
+    pbc(_pbc.template view<DeviceType>()),
+    nsend(_nsend.template view<DeviceType>()),
+    nfirst(_nfirst),nlast(_nlast),dim(_dim),
+    lo(_lo),hi(_hi),iswap(_iswap),maxsendlist(_maxsendlist),
+    prd(_prd),nlocal(_nlocal),triclinic(_triclinic),nghost(_nghost),
+    pbc_flag_iswap(_pbc_flag_iswap),pbc_iswap_0(_pbc_iswap_0),
+    pbc_iswap_1(_pbc_iswap_1),pbc_iswap_2(_pbc_iswap_2),
+    pbc_iswap_3(_pbc_iswap_3),pbc_iswap_4(_pbc_iswap_4),
+    pbc_iswap_5(_pbc_iswap_5){}
+
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (typename Kokkos::TeamPolicy<DeviceType>::member_type dev) const {
+    const int chunk = ((nlast - nfirst + dev.league_size() - 1 ) /
+                       dev.league_size());
+    const int teamstart = chunk*dev.league_rank() + nfirst;
+    const int teamend = (teamstart + chunk) < nlast?(teamstart + chunk):nlast;
+    int mysend = 0;
+    for (int i=teamstart + dev.team_rank(); i<teamend; i+=dev.team_size()) {
+      double xval;
+      if (i < nlocal) xval = x(i,dim);
+      else {
+        int ilocal = g2l(i-nlocal);
+        xval = x(ilocal,dim);
+        if (pbc_flag(i-nlocal)) {
+          if (!triclinic)
+            xval += pbc(i-nlocal,dim)*prd;
+          else
+            xval += pbc(i-nlocal,dim);
+        }
+      }
+      if (xval >= lo && xval <= hi) mysend++;
+    }
+    const int my_store_pos = dev.team_scan(mysend,&nsend());
+
+    if (my_store_pos+mysend < maxsendlist) {
+    mysend = my_store_pos;
+      for(int i=teamstart + dev.team_rank(); i<teamend; i+=dev.team_size()){
+        double xval;
+        if (i < nlocal) xval = x(i,dim);
+        else {
+          int ilocal = g2l(i-nlocal);
+          xval = x(ilocal,dim);
+          if (pbc_flag(i-nlocal)) {
+            if (!triclinic)
+              xval += pbc(i-nlocal,dim)*prd;
+            else
+              xval += pbc(i-nlocal,dim);
+          }
+        }
+        if (xval >= lo && xval <= hi) {
+          sendlist(iswap,mysend) = i;
+
+          int source = i - nlocal;
+          int dest = nghost + mysend;
+          pbc_flag(dest) = pbc_flag_iswap;
+          pbc(dest,0) = pbc_iswap_0;
+          pbc(dest,1) = pbc_iswap_1;
+          pbc(dest,2) = pbc_iswap_2;
+          pbc(dest,3) = pbc_iswap_3;
+          pbc(dest,4) = pbc_iswap_4;
+          pbc(dest,5) = pbc_iswap_5;
+          g2l(dest) = nlocal + source;
+
+          if (source >= 0) {
+            pbc_flag(dest) = pbc_flag(dest) || pbc_flag(source);
+            pbc(dest,0) += pbc(source,0);
+            pbc(dest,1) += pbc(source,1);
+            pbc(dest,2) += pbc(source,2);
+            pbc(dest,3) += pbc(source,3);
+            pbc(dest,4) += pbc(source,4);
+            pbc(dest,5) += pbc(source,5);
+            g2l(dest) = g2l(source);
+          }
+          mysend++;
+        }
+      }
+    }
+  }
+
+  size_t shmem_size(const int team_size) const { (void) team_size; return 1000u;}
+};
 
 /* ---------------------------------------------------------------------- */
 
@@ -1067,8 +1185,32 @@ void CommKokkos::borders_device_fused() {
   AtomVecKokkos *avec = (AtomVecKokkos *) atom->avec;
 
   ExecutionSpace exec_space = ExecutionSpaceFromDevice<DeviceType>::space;
-  k_sendlist.sync<DeviceType>();
   atomKK->sync(exec_space,ALL_MASK);
+
+
+      // create map of ghost to local atom id
+      // store periodic boundary transform from local to ghost
+
+      //k_swap2.modify<DeviceType>();
+      //k_pbc.modify<DeviceType>();
+      
+      //if (!k_pbc.d_view.data()) {
+        k_pbc = DAT::tdual_int_2d("comm:pbc",k_sendlist.extent(1),6);
+        k_swap2 = DAT::tdual_int_2d("comm:swap2",2,k_sendlist.extent(1));
+        k_pbc_flag = Kokkos::subview(k_swap2,0,Kokkos::ALL);
+        k_g2l = Kokkos::subview(k_swap2,1,Kokkos::ALL);
+      //} else if (nghost > k_pbc.extent(0)) {
+      //  k_pbc.resize(nghost,6);
+      //  k_swap2.resize(2,nghost);
+      //  k_pbc_flag = Kokkos::subview(k_swap2,0,Kokkos::ALL);
+      //  k_g2l = Kokkos::subview(k_swap2,1,Kokkos::ALL);
+      //}
+
+      //k_swap2.sync<DeviceType>();
+      //k_pbc.sync<DeviceType>();
+      k_swap2.modify<DeviceType>();
+      k_pbc.modify<DeviceType>();
+
 
   // do swaps over all 3 dimensions
 
@@ -1100,8 +1242,6 @@ void CommKokkos::borders_device_fused() {
         nlast = atom->nlocal + nghost;
       }
 
-      printf("bounds %i %i %i\n",iswap,nfirst,nlast);
-
       nsend = 0;
 
       // sendflag = 0 if I do not send on this swap
@@ -1123,8 +1263,12 @@ void CommKokkos::borders_device_fused() {
             k_total_send.template modify<LMPHostType>();
             k_total_send.template sync<LMPDeviceType>();
 
-            BuildBorderListFunctor<DeviceType> f(atomKK->k_x,k_sendlist,
-                k_total_send,nfirst,nlast,dim,lo,hi,iswap,maxsendlist[iswap]);
+            BuildBorderListFusedFunctor<DeviceType> f(atomKK->k_x,k_sendlist,
+                k_g2l,k_pbc_flag,k_pbc,
+                k_total_send,nfirst,nlast,dim,lo,hi,iswap,maxsendlist[iswap],
+                domain->prd[dim],atom->nlocal,domain->triclinic,nghost,
+                pbc_flag[iswap],pbc[iswap][0],pbc[iswap][1],pbc[iswap][2],
+                pbc[iswap][3],pbc[iswap][4],pbc[iswap][5]);
             Kokkos::TeamPolicy<DeviceType> config((nlast-nfirst+127)/128,128);
             Kokkos::parallel_for(config,f);
 
@@ -1135,13 +1279,21 @@ void CommKokkos::borders_device_fused() {
 
             if(k_total_send.h_view() >= maxsendlist[iswap]) {
               grow_list(iswap,k_total_send.h_view());
+              k_pbc.resize(nghost + k_total_send.h_view()*BUFFACTOR,6);
+              k_swap2.resize(2,nghost + k_total_send.h_view()*BUFFACTOR);
+              k_pbc_flag = Kokkos::subview(k_swap2,0,Kokkos::ALL);
+              k_g2l = Kokkos::subview(k_swap2,1,Kokkos::ALL);
 
               k_total_send.h_view() = 0;
               k_total_send.template modify<LMPHostType>();
               k_total_send.template sync<LMPDeviceType>();
 
-              BuildBorderListFunctor<DeviceType> f(atomKK->k_x,k_sendlist,
-                  k_total_send,nfirst,nlast,dim,lo,hi,iswap,maxsendlist[iswap]);
+              BuildBorderListFusedFunctor<DeviceType> f(atomKK->k_x,k_sendlist,
+                  k_g2l,k_pbc_flag,k_pbc,
+                  k_total_send,nfirst,nlast,dim,lo,hi,iswap,maxsendlist[iswap],
+                  domain->prd[dim],atom->nlocal,domain->triclinic,nghost,
+                  pbc_flag[iswap],pbc[iswap][0],pbc[iswap][1],pbc[iswap][2],
+                  pbc[iswap][3],pbc[iswap][4],pbc[iswap][5]);
               Kokkos::TeamPolicy<DeviceType> config((nlast-nfirst+127)/128,128);
               Kokkos::parallel_for(config,f);
 
@@ -1174,7 +1326,6 @@ void CommKokkos::borders_device_fused() {
       size_reverse_send[iswap] = nrecv*size_reverse;
       size_reverse_recv[iswap] = nsend*size_reverse;
       firstrecv[iswap] = atom->nlocal + nghost;
-      printf("comm %i %i %i\n",iswap,nrecv,firstrecv[iswap]);
       nghost += nrecv;
       iswap++;
     }
@@ -1183,7 +1334,8 @@ void CommKokkos::borders_device_fused() {
   copy_swap_info();
 
   k_swap.sync<DeviceType>();
-  k_pbc.sync<DeviceType>();
+  //k_swap2.sync<DeviceType>();
+  //k_pbc.sync<DeviceType>();
 
   // pack up list of border atoms
 //if (ghost_velocity) {
@@ -1197,7 +1349,7 @@ void CommKokkos::borders_device_fused() {
 
   avec->pack_border_kokkos_fused(totalsend,k_sendlist,k_sendnum_scan,
                                  k_firstrecv,k_pbc_flag,
-                                 k_pbc,exec_space);
+                                 k_pbc,k_g2l,exec_space);
   atom->nghost += nghost;
 
   // insure send/recv buffers are long enough for all forward & reverse comm
@@ -1238,44 +1390,44 @@ void CommKokkos::copy_swap_info()
   // create map of ghost to local atom id
   // store periodic boundary transform from local to ghost
 
-  k_sendlist.sync<LMPHostType>();
-
-  if (totalsend > k_pbc.extent(0)) {
-    k_pbc = DAT::tdual_int_2d("comm:pbc",totalsend,6);
-    k_swap2 = DAT::tdual_int_2d("comm:swap2",2,totalsend);
-    k_pbc_flag = Kokkos::subview(k_swap2,0,Kokkos::ALL);
-    k_g2l = Kokkos::subview(k_swap2,1,Kokkos::ALL);
-  }
-
-  for (int iswap = 0; iswap < nswap; iswap++) {
-    for (int i = 0; i < sendnum[iswap]; i++) {
-      int source = sendlist[iswap][i] - atom->nlocal;
-      int dest = firstrecv[iswap] + i - atom->nlocal;
-      k_pbc_flag.h_view(dest) = pbc_flag[iswap];
-      k_pbc.h_view(dest,0) = pbc[iswap][0];
-      k_pbc.h_view(dest,1) = pbc[iswap][1];
-      k_pbc.h_view(dest,2) = pbc[iswap][2];
-      k_pbc.h_view(dest,3) = pbc[iswap][3];
-      k_pbc.h_view(dest,4) = pbc[iswap][4];
-      k_pbc.h_view(dest,5) = pbc[iswap][5];
-      k_g2l.h_view(dest) = atom->nlocal + source;
-
-      if (source >= 0) {
-        k_pbc_flag.h_view(dest) = k_pbc_flag.h_view(dest) || k_pbc_flag.h_view(source);
-        k_pbc.h_view(dest,0) += k_pbc.h_view(source,0);
-        k_pbc.h_view(dest,1) += k_pbc.h_view(source,1);
-        k_pbc.h_view(dest,2) += k_pbc.h_view(source,2);
-        k_pbc.h_view(dest,3) += k_pbc.h_view(source,3);
-        k_pbc.h_view(dest,4) += k_pbc.h_view(source,4);
-        k_pbc.h_view(dest,5) += k_pbc.h_view(source,5);
-        k_g2l.h_view(dest) = k_g2l.h_view(source);
-      }
-    }
-  }
-
+  //k_sendlist.sync<LMPHostType>();
+  //
+  //if (totalsend > k_pbc.extent(0)) {
+  //  k_pbc = DAT::tdual_int_2d("comm:pbc",totalsend,6);
+  //  k_swap2 = DAT::tdual_int_2d("comm:swap2",2,totalsend);
+  //  k_pbc_flag = Kokkos::subview(k_swap2,0,Kokkos::ALL);
+  //  k_g2l = Kokkos::subview(k_swap2,1,Kokkos::ALL);
+  //}
+  //
+  //for (int iswap = 0; iswap < nswap; iswap++) {
+  //  for (int i = 0; i < sendnum[iswap]; i++) {
+  //    int source = sendlist[iswap][i] - atom->nlocal;
+  //    int dest = firstrecv[iswap] + i - atom->nlocal;
+  //    k_pbc_flag.h_view(dest) = pbc_flag[iswap];
+  //    k_pbc.h_view(dest,0) = pbc[iswap][0];
+  //    k_pbc.h_view(dest,1) = pbc[iswap][1];
+  //    k_pbc.h_view(dest,2) = pbc[iswap][2];
+  //    k_pbc.h_view(dest,3) = pbc[iswap][3];
+  //    k_pbc.h_view(dest,4) = pbc[iswap][4];
+  //    k_pbc.h_view(dest,5) = pbc[iswap][5];
+  //    k_g2l.h_view(dest) = atom->nlocal + source;
+  //
+  //    if (source >= 0) {
+  //      k_pbc_flag.h_view(dest) = k_pbc_flag.h_view(dest) || k_pbc_flag.h_view(source);
+  //      k_pbc.h_view(dest,0) += k_pbc.h_view(source,0);
+  //      k_pbc.h_view(dest,1) += k_pbc.h_view(source,1);
+  //      k_pbc.h_view(dest,2) += k_pbc.h_view(source,2);
+  //      k_pbc.h_view(dest,3) += k_pbc.h_view(source,3);
+  //      k_pbc.h_view(dest,4) += k_pbc.h_view(source,4);
+  //      k_pbc.h_view(dest,5) += k_pbc.h_view(source,5);
+  //      k_g2l.h_view(dest) = k_g2l.h_view(source);
+  //    }
+  //  }
+  //}
+  //
   k_swap.modify<LMPHostType>();
-  k_swap2.modify<LMPHostType>();
-  k_pbc.modify<LMPHostType>();
+  //k_swap2.modify<LMPHostType>();
+  //k_pbc.modify<LMPHostType>();
 }
 
 /* ----------------------------------------------------------------------

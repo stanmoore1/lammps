@@ -57,6 +57,7 @@ class AtomVecAtomicKokkos : public AtomVecKokkos {
                                const DAT::tdual_int_1d &firstrecv,
                                const DAT::tdual_int_1d &pbc_flag,
                                const DAT::tdual_int_2d &pbc,
+                               const DAT::tdual_int_1d &g2l,
                                ExecutionSpace space);
   void unpack_border_kokkos(const int &n, const int &nfirst,
                             const DAT::tdual_xfloat_2d &buf,
