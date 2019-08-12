@@ -1,0 +1,406 @@
+/* ----------------------------------------------------------------------
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
+
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
+
+   See the README file in the top-level LAMMPS directory.
+------------------------------------------------------------------------- */
+
+/* ----------------------------------------------------------------------
+   Contributing author: Stan Moore (SNL)
+------------------------------------------------------------------------- */
+
+#include "min_kokkos.h"
+#include <mpi.h>
+#include <cmath>
+#include <cstring>
+#include "atom.h"
+#include "atom_vec.h"
+#include "domain.h"
+#include "comm.h"
+#include "update.h"
+#include "modify.h"
+#include "fix_minimize.h"
+#include "compute.h"
+#include "neighbor.h"
+#include "force.h"
+#include "pair.h"
+#include "bond.h"
+#include "angle.h"
+#include "dihedral.h"
+#include "improper.h"
+#include "kspace.h"
+#include "output.h"
+#include "thermo.h"
+#include "timer.h"
+#include "memory.h"
+#include "error.h"
+
+using namespace LAMMPS_NS;
+
+/* ---------------------------------------------------------------------- */
+
+MinKokkos::MinKokkos(LAMMPS *lmp) : Min(lmp)
+{
+
+}
+
+/* ---------------------------------------------------------------------- */
+
+MinKokkos::~Min()
+{
+
+}
+
+/* ----------------------------------------------------------------------
+   setup before run
+------------------------------------------------------------------------- */
+
+void MinKokkos::setup(int flag)
+{
+  lmp->kokkos->auto_sync = 1;
+  Min::setup(flag);
+  lmp->kokkos->auto_sync = 0;
+  
+}
+
+/* ----------------------------------------------------------------------
+   setup without output or one-time post-init setup
+   flag = 0 = just force calculation
+   flag = 1 = reneighbor and force calculation
+------------------------------------------------------------------------- */
+
+void MinKokkos::setup_minimal(int flag)
+{
+  lmp->kokkos->auto_sync = 1;
+  Min::setup(flag);
+  lmp->kokkos->auto_sync = 0;
+}
+
+/* ----------------------------------------------------------------------
+   perform minimization, calling iterate() for N steps
+------------------------------------------------------------------------- */
+
+void MinKokkos::run(int n)
+{
+  // minimizer iterations
+
+  lmp->kokkos->auto_sync = 0;
+  atomKK->sync(Device,ALL_MASK);
+
+  stop_condition = iterate(n);
+  stopstr = stopstrings(stop_condition);
+
+  // if early exit from iterate loop:
+  // set update->nsteps to niter for Finish stats to print
+  // set output->next values to this timestep
+  // call energy_force() to insure vflag is set when forces computed
+  // output->write does final output for thermo, dump, restart files
+  // add ntimestep to all computes that store invocation times
+  //   since are hardwiring call to thermo/dumps and computes may not be ready
+
+  if (stop_condition != MAXITER) {
+    update->nsteps = niter;
+
+    if (update->restrict_output == 0) {
+      for (int idump = 0; idump < output->ndump; idump++)
+        output->next_dump[idump] = update->ntimestep;
+      output->next_dump_any = update->ntimestep;
+      if (output->restart_flag) {
+        output->next_restart = update->ntimestep;
+        if (output->restart_every_single)
+          output->next_restart_single = update->ntimestep;
+        if (output->restart_every_double)
+          output->next_restart_double = update->ntimestep;
+      }
+    }
+    output->next_thermo = update->ntimestep;
+
+    modify->addstep_compute_all(update->ntimestep);
+    ecurrent = energy_force(0);
+
+    atomKK->sync(Host,ALL_MASK);
+
+    output->write(update->ntimestep);
+  }
+
+  atomKK->sync(Host,ALL_MASK);
+  lmp->kokkos->auto_sync = 1;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void MinKokkos::cleanup()
+{
+  modify->post_run();
+
+  // stats for Finish to print
+
+  efinal = ecurrent;
+  fnorm2_final = sqrt(fnorm_sqr());
+  fnorminf_final = fnorm_inf();
+
+  // reset reneighboring criteria
+
+  neighbor->every = neigh_every;
+  neighbor->delay = neigh_delay;
+  neighbor->dist_check = neigh_dist_check;
+
+  // delete fix at end of run, so its atom arrays won't persist
+
+  modify->delete_fix("MINIMIZE");
+  domain->box_too_small_check(); /// need KK version?
+}
+
+/* ----------------------------------------------------------------------
+   evaluate potential energy and forces
+   may migrate atoms due to reneighboring
+   return new energy, which should include nextra_global dof
+   return negative gradient stored in atom->f
+   return negative gradient for nextra_global dof in fextra
+------------------------------------------------------------------------- */
+
+double MinKokkos::energy_force(int resetflag)
+{
+  // check for reneighboring
+  // always communicate since minimizer moved atoms
+
+  int nflag = neighbor->decide();
+
+  if (nflag == 0) {
+    timer->stamp();
+    comm->forward_comm();
+    timer->stamp(Timer::COMM);
+  } else {
+    if (modify->n_min_pre_exchange) {
+      timer->stamp();
+      modify->min_pre_exchange();
+      timer->stamp(Timer::MODIFY);
+    }
+    if (triclinic) domain->x2lamda(atom->nlocal);
+    domain->pbc();
+    if (domain->box_change) {
+      domain->reset_box();
+      comm->setup();
+      if (neighbor->style) neighbor->setup_bins();
+    }
+    timer->stamp();
+    comm->exchange();
+    if (atom->sortfreq > 0 &&
+        update->ntimestep >= atom->nextsort) atom->sort();
+    comm->borders();
+    if (triclinic) domain->lamda2x(atom->nlocal+atom->nghost);
+    timer->stamp(Timer::COMM);
+    if (modify->n_min_pre_neighbor) {
+      modify->min_pre_neighbor();
+      timer->stamp(Timer::MODIFY);
+    }
+    neighbor->build(1);
+    timer->stamp(Timer::NEIGH);
+    if (modify->n_min_post_neighbor) {
+      modify->min_post_neighbor();
+      timer->stamp(Timer::MODIFY);
+    }
+  }
+
+  ev_set(update->ntimestep); // need kk version?
+  force_clear();
+
+  timer->stamp();
+
+  if (modify->n_min_pre_force) {
+    modify->min_pre_force(vflag);
+    timer->stamp(Timer::MODIFY);
+  }
+
+  if (pair_compute_flag) {
+    atomKK->sync(force->pair->execution_space,force->pair->datamask_read);
+    force->pair->compute(eflag,vflag);
+    atomKK->modified(force->pair->execution_space,force->pair->datamask_modify);
+    timer->stamp(Timer::PAIR);
+  }
+
+  if (atom->molecular) {
+    if (force->bond) {
+      atomKK->sync(force->bond->execution_space,force->bond->datamask_read);
+      force->bond->compute(eflag,vflag);
+      atomKK->modified(force->bond->execution_space,force->bond->datamask_modify);
+    }
+    if (force->angle) {
+      atomKK->sync(force->angle->execution_space,force->angle->datamask_read);
+      force->angle->compute(eflag,vflag);
+      atomKK->modified(force->angle->execution_space,force->angle->datamask_modify);
+    }
+    if (force->dihedral) {
+      atomKK->sync(force->dihedral->execution_space,force->dihedral->datamask_read);
+      force->dihedral->compute(eflag,vflag);
+      atomKK->modified(force->dihedral->execution_space,force->dihedral->datamask_modify);
+    }
+    if (force->improper) {
+      atomKK->sync(force->improper->execution_space,force->improper->datamask_read);
+      force->improper->compute(eflag,vflag);
+      atomKK->modified(force->improper->execution_space,force->improper->datamask_modify);
+    }
+    timer->stamp(Timer::BOND);
+  }
+
+  if (kspace_compute_flag) {
+    atomKK->sync(force->kspace->execution_space,force->kspace->datamask_read);
+    force->kspace->compute(eflag,vflag);
+    atomKK->modified(force->kspace->execution_space,force->kspace->datamask_modify);
+    timer->stamp(Timer::KSPACE);
+  }
+
+  if (modify->n_min_pre_reverse) {
+    modify->min_pre_reverse(eflag,vflag);
+    timer->stamp(Timer::MODIFY);
+  }
+
+  if (force->newton) {
+    comm->reverse_comm();
+    timer->stamp(Timer::COMM);
+  }
+
+  // update per-atom minimization variables stored by pair styles
+
+  if (nextra_atom)
+    for (int m = 0; m < nextra_atom; m++)
+      requestor[m]->min_xf_get(m);
+
+  // fixes that affect minimization
+
+  if (modify->n_min_post_force) {
+     timer->stamp();
+     modify->min_post_force(vflag);
+     timer->stamp(Timer::MODIFY);
+  }
+
+  // compute potential energy of system
+  // normalize if thermo PE does
+
+  atomKK->sync(pe_compute->execution_space,pe_compute->datamask_read);
+  double energy = pe_compute->compute_scalar();
+  atomKK->modified(pe_compute->execution_space,pe_compute->datamask_modify);
+  if (nextra_global) energy += modify->min_energy(fextra);
+  if (output->thermo->normflag) energy /= atom->natoms;
+
+  // if reneighbored, atoms migrated
+  // if resetflag = 1, update x0 of atoms crossing PBC
+  // reset vectors used by lo-level minimizer
+
+  if (nflag) {
+    if (resetflag) fix_minimize->reset_coords();
+    reset_vectors();
+  }
+
+  return energy;
+}
+
+/* ----------------------------------------------------------------------
+   clear force on own & ghost atoms
+   clear other arrays as needed
+------------------------------------------------------------------------- */
+
+void MinKokkos::force_clear()
+{
+  if (external_force_clear) return;
+
+  // clear global force array
+  // if either newton flag is set, also include ghosts
+
+  atomKK->k_f.clear_sync_state(); // ignore host forces/torques since device views
+  atomKK->k_torque.clear_sync_state(); // will be cleared below
+
+  int nzero = atom->nlocal;
+  if (force->newton) nzero += atom->nghost;
+
+  auto l_f = atomKK->k_f.view<DeviceType>(); 
+  auto l_torque = atomKK->k_torque.view<DeviceType>(); 
+
+  if (nbytes) {
+    Kokkos::parallel_for(nzero, LAMMPS_LAMBDA(int i) {
+    l_f(i,0) = 0.0;
+    l_f(i,1) = 0.0;
+    l_f(i,2) = 0.0;
+    if (torqueflag) {
+      l_torque(i,0) = 0.0;
+      l_torque(i,1) = 0.0;
+      l_torque(i,2) = 0.0;
+    });
+    //if (extraflag) atom->avec->force_clear(0,nbytes);
+  }
+}
+
+/* ----------------------------------------------------------------------
+   compute and return ||force||_2^2
+------------------------------------------------------------------------- */
+
+double MinKokkos::fnorm_sqr()
+{
+  int i,n;
+  double *fatom;
+
+  double local_norm2_sqr = 0.0;
+  Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(int i, double& local_norm_sqr) {
+    local_norm2_sqr += fvec[i]*fvec[i];
+  },local_norm2_sqr);
+  /*if (nextra_atom) {
+    for (int m = 0; m < nextra_atom; m++) {
+      fatom = fextra_atom[m];
+      n = extra_nlen[m];
+      for (i = 0; i < n; i++)
+        local_norm2_sqr += fatom[i]*fatom[i];
+    }
+  }*/
+
+  double norm2_sqr = 0.0;
+  MPI_Allreduce(&local_norm2_sqr,&norm2_sqr,1,MPI_DOUBLE,MPI_SUM,world);
+
+  /*if (nextra_global)
+    for (i = 0; i < nextra_global; i++)
+      norm2_sqr += fextra[i]*fextra[i];
+  */
+  return norm2_sqr;
+}
+
+/* ----------------------------------------------------------------------
+   compute and return ||force||_inf
+------------------------------------------------------------------------- */
+
+double MinKokkos::fnorm_inf()
+{
+  int i,n;
+  double *fatom;
+
+  auto l_f = atomKK->k_f.view<DeviceType>();
+  auto l_torque = atomKK->k_torque.view<DeviceType>();
+
+  double local_norm_inf = 0.0;
+  Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(int i, double& local_norm_inf) {
+    local_norm_inf = MAX(fabs(fvec[i]),local_norm_inf); /// how to do this??????
+  },local_norm_inf);
+
+  /*if (nextra_atom) {
+    for (int m = 0; m < nextra_atom; m++) {
+      fatom = fextra_atom[m];
+      n = extra_nlen[m];
+      for (i = 0; i < n; i++)
+        local_norm_inf = MAX(fabs(fatom[i]),local_norm_inf);
+    }
+  }*/
+
+  double norm_inf = 0.0;
+  MPI_Allreduce(&local_norm_inf,&norm_inf,1,MPI_DOUBLE,MPI_MAX,world);
+
+  /*if (nextra_global)
+    for (i = 0; i < nextra_global; i++)
+      norm_inf = MAX(fabs(fextra[i]),norm_inf);
+  */
+  return norm_inf;
+}
+
