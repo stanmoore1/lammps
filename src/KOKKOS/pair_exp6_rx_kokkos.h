@@ -135,8 +135,8 @@ class PairExp6rxKokkos : public PairExp6rx {
   template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &epair, const F_FLOAT &fpair, const F_FLOAT &delx,
-                  const F_FLOAT &dely, const F_FLOAT &delz) const;
+      const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx,
+                  const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
@@ -153,8 +153,8 @@ class PairExp6rxKokkos : public PairExp6rx {
   typename AT::t_efloat_1d uCG, uCGnew;
   typename AT::t_float_2d dvector;
 
-  typedef Kokkos::View<F_FLOAT**[3],Kokkos::LayoutRight,DeviceType> t_f_array_thread;
-  typedef Kokkos::View<E_FLOAT**,Kokkos::LayoutRight,DeviceType> t_efloat_1d_thread;
+  typedef Kokkos::View<KK_FLOAT**[3],Kokkos::LayoutRight,DeviceType> t_f_array_thread;
+  typedef Kokkos::View<KK_FLOAT**,Kokkos::LayoutRight,DeviceType> t_efloat_1d_thread;
 
   t_f_array_thread t_f;
   t_efloat_1d_thread t_uCG, t_uCGnew;

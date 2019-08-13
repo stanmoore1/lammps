@@ -523,13 +523,13 @@ typedef double4 V_FLOAT4;
 #endif
 
 #if PREC_KSPACE==1
-typedef float K_FLOAT;
-typedef float2 K_FLOAT2;
-typedef float4 K_FLOAT4;
+typedef float KK_FLOAT;
+typedef float2 KK_FLOAT2;
+typedef float4 KK_FLOAT4;
 #else
-typedef double K_FLOAT;
-typedef double2 K_FLOAT2;
-typedef double4 K_FLOAT4;
+typedef double KK_FLOAT;
+typedef double2 KK_FLOAT2;
+typedef double4 KK_FLOAT4;
 #endif
 
 typedef int T_INT;

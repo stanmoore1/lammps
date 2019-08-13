@@ -329,7 +329,7 @@ class PPPMKokkos : public PPPM, public KokkosBase {
   typename AT::t_FFT_SCALAR_2d d_rho_coeff;
   HAT::t_FFT_SCALAR_2d h_rho_coeff;
   //double **acons;
-  typename Kokkos::DualView<F_FLOAT[8][7],Kokkos::LayoutRight,DeviceType>::t_host acons;
+  typename Kokkos::DualView<KK_FLOAT[8][7],Kokkos::LayoutRight,DeviceType>::t_host acons;
 
   class FFT3d *fft1,*fft2;
   class Remap *remap;

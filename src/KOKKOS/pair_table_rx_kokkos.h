@@ -76,7 +76,7 @@ class PairTableRXKokkos : public PairTable {
   TableDevice* d_table;
   TableHost* h_table;
 
-  Few<Few<F_FLOAT, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> m_cutsq;
+  Few<Few<KK_FLOAT, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> m_cutsq;
 
   typename ArrayTypes<DeviceType>::t_ffloat_2d d_cutsq;
 

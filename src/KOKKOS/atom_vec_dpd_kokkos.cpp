@@ -202,8 +202,8 @@ struct AtomVecDPDKokkos_PackComm {
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
-  X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
-  X_FLOAT _pbc[6];
+  KK_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
+  KK_FLOAT _pbc[6];
 
   AtomVecDPDKokkos_PackComm(
       const typename DAT::tdual_x_array &x,
@@ -214,8 +214,8 @@ struct AtomVecDPDKokkos_PackComm {
       const typename DAT::tdual_xfloat_2d &buf,
       const typename DAT::tdual_int_2d &list,
       const int & iswap,
-      const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
-      const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz, const int* const pbc):
+      const KK_FLOAT &xprd, const KK_FLOAT &yprd, const KK_FLOAT &zprd,
+      const KK_FLOAT &xy, const KK_FLOAT &xz, const KK_FLOAT &yz, const int* const pbc):
       _x(x.view<DeviceType>()),
       _dpdTheta(dpdTheta.view<DeviceType>()),
       _uCond(uCond.view<DeviceType>()),
@@ -355,8 +355,8 @@ struct AtomVecDPDKokkos_PackCommSelf {
   int _nfirst;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
-  X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
-  X_FLOAT _pbc[6];
+  KK_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
+  KK_FLOAT _pbc[6];
 
   AtomVecDPDKokkos_PackCommSelf(
       const typename DAT::tdual_x_array &x,
@@ -367,8 +367,8 @@ struct AtomVecDPDKokkos_PackCommSelf {
       const int &nfirst,
       const typename DAT::tdual_int_2d &list,
       const int & iswap,
-      const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
-      const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz, const int* const pbc):
+      const KK_FLOAT &xprd, const KK_FLOAT &yprd, const KK_FLOAT &zprd,
+      const KK_FLOAT &xy, const KK_FLOAT &xz, const KK_FLOAT &yz, const int* const pbc):
       _x(x.view<DeviceType>()),_xw(x.view<DeviceType>()),
       _dpdTheta(dpdTheta.view<DeviceType>()),
       _uCond(uCond.view<DeviceType>()),
@@ -762,7 +762,7 @@ struct AtomVecDPDKokkos_PackBorder {
   const typename ArrayTypes<DeviceType>::t_int_1d _type;
   const typename ArrayTypes<DeviceType>::t_int_1d _mask;
   typename ArrayTypes<DeviceType>::t_efloat_1d _dpdTheta,_uCond,_uMech,_uChem,_uCG,_uCGnew;
-  X_FLOAT _dx,_dy,_dz;
+  KK_FLOAT _dx,_dy,_dz;
 
   AtomVecDPDKokkos_PackBorder(
       const typename ArrayTypes<DeviceType>::t_xfloat_2d &buf,
@@ -778,7 +778,7 @@ struct AtomVecDPDKokkos_PackBorder {
       const typename ArrayTypes<DeviceType>::t_efloat_1d &uChem,
       const typename ArrayTypes<DeviceType>::t_efloat_1d &uCG,
       const typename ArrayTypes<DeviceType>::t_efloat_1d &uCGnew,
-      const X_FLOAT &dx, const X_FLOAT &dy, const X_FLOAT &dz):
+      const KK_FLOAT &dx, const KK_FLOAT &dy, const KK_FLOAT &dz):
       _buf(buf),_list(list),_iswap(iswap),
       _x(x),_tag(tag),_type(type),_mask(mask),
       _dpdTheta(dpdTheta),
@@ -818,7 +818,7 @@ struct AtomVecDPDKokkos_PackBorder {
 int AtomVecDPDKokkos::pack_border_kokkos(int n, DAT::tdual_int_2d k_sendlist, DAT::tdual_xfloat_2d buf,int iswap,
                                int pbc_flag, int *pbc, ExecutionSpace space)
 {
-  X_FLOAT dx,dy,dz;
+  KK_FLOAT dx,dy,dz;
 
   atomKK->sync(space,ALL_MASK);
 
@@ -1292,14 +1292,14 @@ struct AtomVecDPDKokkos_PackExchangeFunctor {
   typename AT::t_int_1d_const _sendlist;
   typename AT::t_int_1d_const _copylist;
   int _nlocal,_dim;
-  X_FLOAT _lo,_hi;
+  KK_FLOAT _lo,_hi;
 
   AtomVecDPDKokkos_PackExchangeFunctor(
       const AtomKokkos* atom,
       const typename AT::tdual_xfloat_2d buf,
       typename AT::tdual_int_1d sendlist,
       typename AT::tdual_int_1d copylist,int nlocal, int dim,
-                X_FLOAT lo, X_FLOAT hi):
+                KK_FLOAT lo, KK_FLOAT hi):
                 _x(atom->k_x.view<DeviceType>()),
                 _v(atom->k_v.view<DeviceType>()),
                 _tag(atom->k_tag.view<DeviceType>()),
@@ -1379,7 +1379,7 @@ struct AtomVecDPDKokkos_PackExchangeFunctor {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecDPDKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &k_buf, DAT::tdual_int_1d k_sendlist,DAT::tdual_int_1d k_copylist,ExecutionSpace space,int dim,X_FLOAT lo,X_FLOAT hi )
+int AtomVecDPDKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &k_buf, DAT::tdual_int_1d k_sendlist,DAT::tdual_int_1d k_copylist,ExecutionSpace space,int dim,KK_FLOAT lo,KK_FLOAT hi )
 {
   if(nsend > (int) (k_buf.view<LMPHostType>().extent(0)*k_buf.view<LMPHostType>().extent(1))/17) {
     int newsize = nsend*17/k_buf.view<LMPHostType>().extent(1)+1;
@@ -1456,13 +1456,13 @@ struct AtomVecDPDKokkos_UnpackExchangeFunctor {
   typename AT::t_xfloat_2d_um _buf;
   typename AT::t_int_1d _nlocal;
   int _dim;
-  X_FLOAT _lo,_hi;
+  KK_FLOAT _lo,_hi;
 
   AtomVecDPDKokkos_UnpackExchangeFunctor(
       const AtomKokkos* atom,
       const typename AT::tdual_xfloat_2d buf,
       typename AT::tdual_int_1d nlocal,
-      int dim, X_FLOAT lo, X_FLOAT hi):
+      int dim, KK_FLOAT lo, KK_FLOAT hi):
                 _x(atom->k_x.view<DeviceType>()),
                 _v(atom->k_v.view<DeviceType>()),
                 _tag(atom->k_tag.view<DeviceType>()),
@@ -1479,7 +1479,7 @@ struct AtomVecDPDKokkos_UnpackExchangeFunctor {
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int &myrecv) const {
-    X_FLOAT x = _buf(myrecv,_dim+1);
+    KK_FLOAT x = _buf(myrecv,_dim+1);
     if (x >= _lo && x < _hi) {
       int i = Kokkos::atomic_fetch_add(&_nlocal(0),1);
       _x(i,0) = _buf(myrecv,1);
@@ -1504,7 +1504,7 @@ struct AtomVecDPDKokkos_UnpackExchangeFunctor {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecDPDKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf,int nrecv,int nlocal,int dim,X_FLOAT lo,X_FLOAT hi,ExecutionSpace space) {
+int AtomVecDPDKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf,int nrecv,int nlocal,int dim,KK_FLOAT lo,KK_FLOAT hi,ExecutionSpace space) {
   if(space == Host) {
     k_count.h_view(0) = nlocal;
     AtomVecDPDKokkos_UnpackExchangeFunctor<LMPHostType> f(atomKK,k_buf,k_count,dim,lo,hi);

@@ -41,16 +41,16 @@ struct AtomVecKokkos_PackComm {
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
-  X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
-  X_FLOAT _pbc[6];
+  KK_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
+  KK_FLOAT _pbc[6];
 
   AtomVecKokkos_PackComm(
       const typename DAT::tdual_x_array &x,
       const typename DAT::tdual_xfloat_2d &buf,
       const typename DAT::tdual_int_2d &list,
       const int & iswap,
-      const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
-      const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz, const int* const pbc):
+      const KK_FLOAT &xprd, const KK_FLOAT &yprd, const KK_FLOAT &zprd,
+      const KK_FLOAT &xy, const KK_FLOAT &xz, const KK_FLOAT &yz, const int* const pbc):
       _x(x.view<DeviceType>()),_list(list.view<DeviceType>()),_iswap(iswap),
       _xprd(xprd),_yprd(yprd),_zprd(zprd),
       _xy(xy),_xz(xz),_yz(yz) {
@@ -164,16 +164,16 @@ struct AtomVecKokkos_PackCommSelf {
   int _nfirst;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
-  X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
-  X_FLOAT _pbc[6];
+  KK_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
+  KK_FLOAT _pbc[6];
 
   AtomVecKokkos_PackCommSelf(
       const typename DAT::tdual_x_array &x,
       const int &nfirst,
       const typename DAT::tdual_int_2d &list,
       const int & iswap,
-      const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
-      const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz, const int* const pbc):
+      const KK_FLOAT &xprd, const KK_FLOAT &yprd, const KK_FLOAT &zprd,
+      const KK_FLOAT &xy, const KK_FLOAT &xz, const KK_FLOAT &yz, const int* const pbc):
       _x(x.view<DeviceType>()),_xw(x.view<DeviceType>()),_nfirst(nfirst),_list(list.view<DeviceType>()),_iswap(iswap),
       _xprd(xprd),_yprd(yprd),_zprd(zprd),
       _xy(xy),_xz(xz),_yz(yz) {
@@ -282,7 +282,7 @@ struct AtomVecKokkos_PackCommSelfFused {
   typename ArrayTypes<DeviceType>::t_int_1d_const _firstrecv;
   typename ArrayTypes<DeviceType>::t_int_1d_const _sendnum_scan;
   typename ArrayTypes<DeviceType>::t_int_1d_const _g2l;
-  X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
+  KK_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
 
   AtomVecKokkos_PackCommSelfFused(
       const typename DAT::tdual_x_array &x,
@@ -292,8 +292,8 @@ struct AtomVecKokkos_PackCommSelfFused {
       const typename DAT::tdual_int_1d &firstrecv,
       const typename DAT::tdual_int_1d &sendnum_scan,
       const typename DAT::tdual_int_1d &g2l,
-      const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
-      const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz):
+      const KK_FLOAT &xprd, const KK_FLOAT &yprd, const KK_FLOAT &zprd,
+      const KK_FLOAT &xy, const KK_FLOAT &xz, const KK_FLOAT &yz):
       _x(x.view<DeviceType>()),_xw(x.view<DeviceType>()),
       _list(list.view<DeviceType>()),
       _pbc(pbc.view<DeviceType>()),
@@ -429,9 +429,9 @@ struct AtomVecKokkos_PackCommVel {
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
-  X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
-  X_FLOAT _pbc[6];
-  X_FLOAT _h_rate[6];
+  KK_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
+  KK_FLOAT _pbc[6];
+  KK_FLOAT _h_rate[6];
   const int _deform_vremap;
 
   AtomVecKokkos_PackCommVel(
@@ -441,8 +441,8 @@ struct AtomVecKokkos_PackCommVel {
     const typename DAT::tdual_xfloat_2d &buf,
     const typename DAT::tdual_int_2d &list,
     const int &iswap,
-    const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
-    const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz, const int* const pbc,
+    const KK_FLOAT &xprd, const KK_FLOAT &yprd, const KK_FLOAT &zprd,
+    const KK_FLOAT &xy, const KK_FLOAT &xz, const KK_FLOAT &yz, const int* const pbc,
     const double * const h_rate,
     const int &deform_vremap):
     _x(x.view<DeviceType>()),

@@ -189,12 +189,12 @@ void PairLJCutCoulDSFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJCutCoulDSFKokkos<DeviceType>::
-compute_fpair(const F_FLOAT& rsq, const int& i, const int&j,
+KK_FLOAT PairLJCutCoulDSFKokkos<DeviceType>::
+compute_fpair(const KK_FLOAT& rsq, const int& i, const int&j,
               const int& itype, const int& jtype) const {
-  const F_FLOAT r2inv = 1.0/rsq;
-  const F_FLOAT r6inv = r2inv*r2inv*r2inv;
-  F_FLOAT forcelj;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
+  KK_FLOAT forcelj;
 
   forcelj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj1:params(itype,jtype).lj1)*r6inv -
@@ -209,11 +209,11 @@ compute_fpair(const F_FLOAT& rsq, const int& i, const int&j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJCutCoulDSFKokkos<DeviceType>::
-compute_evdwl(const F_FLOAT& rsq, const int& i, const int&j,
+KK_FLOAT PairLJCutCoulDSFKokkos<DeviceType>::
+compute_evdwl(const KK_FLOAT& rsq, const int& i, const int&j,
               const int& itype, const int& jtype) const {
-  const F_FLOAT r2inv = 1.0/rsq;
-  const F_FLOAT r6inv = r2inv*r2inv*r2inv;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
 
   return r6inv*
     ((STACKPARAMS?m_params[itype][jtype].lj3:params(itype,jtype).lj3)*r6inv
@@ -228,16 +228,16 @@ compute_evdwl(const F_FLOAT& rsq, const int& i, const int&j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJCutCoulDSFKokkos<DeviceType>::
-compute_fcoul(const F_FLOAT& rsq, const int& i, const int&j,
-              const int& itype, const int& jtype, const F_FLOAT& factor_coul, const F_FLOAT& qtmp) const {
+KK_FLOAT PairLJCutCoulDSFKokkos<DeviceType>::
+compute_fcoul(const KK_FLOAT& rsq, const int& i, const int&j,
+              const int& itype, const int& jtype, const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const {
 
-  const F_FLOAT r2inv = 1.0/rsq;
-  const F_FLOAT r = sqrt(rsq);
-  const F_FLOAT prefactor = factor_coul * qqrd2e * qtmp * q(j);
-  const F_FLOAT erfcd = exp(-alpha*alpha*rsq);
-  const F_FLOAT t = 1.0 / (1.0 + EWALD_P*alpha*r);
-  const F_FLOAT erfcc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * erfcd;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT r = sqrt(rsq);
+  const KK_FLOAT prefactor = factor_coul * qqrd2e * qtmp * q(j);
+  const KK_FLOAT erfcd = exp(-alpha*alpha*rsq);
+  const KK_FLOAT t = 1.0 / (1.0 + EWALD_P*alpha*r);
+  const KK_FLOAT erfcc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * erfcd;
 
   return prefactor * (erfcc/r + 2.0*alpha/MY_PIS * erfcd + r*f_shift) *
           r2inv;
@@ -249,15 +249,15 @@ compute_fcoul(const F_FLOAT& rsq, const int& i, const int&j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJCutCoulDSFKokkos<DeviceType>::
-compute_ecoul(const F_FLOAT& rsq, const int& i, const int&j,
-              const int& itype, const int& jtype, const F_FLOAT& factor_coul, const F_FLOAT& qtmp) const {
+KK_FLOAT PairLJCutCoulDSFKokkos<DeviceType>::
+compute_ecoul(const KK_FLOAT& rsq, const int& i, const int&j,
+              const int& itype, const int& jtype, const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const {
 
-  const F_FLOAT r = sqrt(rsq);
-  const F_FLOAT prefactor = factor_coul * qqrd2e * qtmp * q(j);
-  const F_FLOAT erfcd = exp(-alpha*alpha*rsq);
-  const F_FLOAT t = 1.0 / (1.0 + EWALD_P*alpha*r);
-  const F_FLOAT erfcc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * erfcd;
+  const KK_FLOAT r = sqrt(rsq);
+  const KK_FLOAT prefactor = factor_coul * qqrd2e * qtmp * q(j);
+  const KK_FLOAT erfcd = exp(-alpha*alpha*rsq);
+  const KK_FLOAT t = 1.0 / (1.0 + EWALD_P*alpha*r);
+  const KK_FLOAT erfcc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * erfcd;
 
   return prefactor * (erfcc - r*e_shift - rsq*f_shift) / r;
 

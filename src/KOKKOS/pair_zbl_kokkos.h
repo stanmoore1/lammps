@@ -40,7 +40,7 @@ class PairZBLKokkos : public PairZBL {
   virtual ~PairZBLKokkos();
   void compute(int, int);
   void init_style();
-  F_FLOAT init_one(int, int);
+  KK_FLOAT init_one(int, int);
 
  private:
   DAT::tdual_ffloat_1d k_z;
@@ -58,7 +58,7 @@ class PairZBLKokkos : public PairZBL {
   typename AT::t_efloat_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
-  F_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   typename AT::t_ffloat_2d_dl d_cutsq;
 
   int newton_pair;
@@ -67,23 +67,23 @@ class PairZBLKokkos : public PairZBL {
   double special_lj[4];
 
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT e_zbl(F_FLOAT, int, int) const;
+  KK_FLOAT e_zbl(KK_FLOAT, int, int) const;
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT dzbldr(F_FLOAT, int, int) const;
+  KK_FLOAT dzbldr(KK_FLOAT, int, int) const;
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT d2zbldr2(F_FLOAT, int, int) const;
+  KK_FLOAT d2zbldr2(KK_FLOAT, int, int) const;
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT compute_fpair(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
+  KK_FLOAT compute_fpair(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT compute_evdwl(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
+  KK_FLOAT compute_evdwl(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT compute_ecoul(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const {
+  KK_FLOAT compute_ecoul(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const {
     return 0;
   }
 

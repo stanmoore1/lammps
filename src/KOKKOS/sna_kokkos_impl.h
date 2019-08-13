@@ -387,7 +387,7 @@ void SNAKokkos<DeviceType>::compute_zi(const typename Kokkos::TeamPolicy<DeviceT
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void SNAKokkos<DeviceType>::compute_yi(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int iatom,
- const Kokkos::View<F_FLOAT**, DeviceType> &beta)
+ const Kokkos::View<KK_FLOAT**, DeviceType> &beta)
 {
   double betaj;
   const int ii = iatom;

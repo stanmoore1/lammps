@@ -166,21 +166,21 @@ void BondFENEKokkos<DeviceType>::operator()(TagBondFENECompute<NEWTON_BOND,EVFLA
   if (d_error_flag()) return;
 
   // The f array is atomic
-  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<KK_FLOAT*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
 
   const int i1 = bondlist(n,0);
   const int i2 = bondlist(n,1);
   const int type = bondlist(n,2);
 
-  const F_FLOAT delx = x(i1,0) - x(i2,0);
-  const F_FLOAT dely = x(i1,1) - x(i2,1);
-  const F_FLOAT delz = x(i1,2) - x(i2,2);
+  const KK_FLOAT delx = x(i1,0) - x(i2,0);
+  const KK_FLOAT dely = x(i1,1) - x(i2,1);
+  const KK_FLOAT delz = x(i1,2) - x(i2,2);
 
   // force from log term
 
-  const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
-  const F_FLOAT r0sq = d_r0[type] * d_r0[type];
-  F_FLOAT rlogarg = 1.0 - rsq/r0sq;
+  const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+  const KK_FLOAT r0sq = d_r0[type] * d_r0[type];
+  KK_FLOAT rlogarg = 1.0 - rsq/r0sq;
 
   // if r -> r0, then rlogarg < 0.0 which is an error
   // issue a warning and reset rlogarg = epsilon
@@ -194,20 +194,20 @@ void BondFENEKokkos<DeviceType>::operator()(TagBondFENECompute<NEWTON_BOND,EVFLA
     rlogarg = 0.1;
   }
 
-  F_FLOAT fbond = -d_k[type]/rlogarg;
+  KK_FLOAT fbond = -d_k[type]/rlogarg;
 
   // force from LJ term
 
-  F_FLOAT sr6 = 0.0;
+  KK_FLOAT sr6 = 0.0;
   if (rsq < TWO_1_3*d_sigma[type]*d_sigma[type]) {
-    const F_FLOAT sr2 = d_sigma[type]*d_sigma[type]/rsq;
+    const KK_FLOAT sr2 = d_sigma[type]*d_sigma[type]/rsq;
     sr6 = sr2*sr2*sr2;
     fbond += 48.0*d_epsilon[type]*sr6*(sr6-0.5)/rsq;
   }
 
   // energy
 
-  F_FLOAT ebond = 0.0;
+  KK_FLOAT ebond = 0.0;
   if (eflag) {
     ebond = -0.5 * d_k[type]*r0sq*log(rlogarg);
     if (rsq < TWO_1_3*d_sigma[type]*d_sigma[type])
@@ -313,15 +313,15 @@ template<class DeviceType>
 //template<int NEWTON_BOND>
 KOKKOS_INLINE_FUNCTION
 void BondFENEKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &ebond, const F_FLOAT &fbond, const F_FLOAT &delx,
-                const F_FLOAT &dely, const F_FLOAT &delz) const
+      const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx,
+                const KK_FLOAT &dely, const KK_FLOAT &delz) const
 {
-  E_FLOAT ebondhalf;
-  F_FLOAT v[6];
+  KK_FLOAT ebondhalf;
+  KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<KK_FLOAT*, typename DAT::t_efloat_1d::array_layout,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_virial_array::array_layout,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
 
   if (eflag_either) {
     if (eflag_global) {

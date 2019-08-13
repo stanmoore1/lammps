@@ -82,7 +82,7 @@ void NPairHalffullKokkos<DeviceType,NEWTON>::operator()(TagNPairHalffullCompute,
   int n = 0;
 
   const int i = d_ilist_full(ii);
-  F_FLOAT xtmp,ytmp,ztmp;
+  KK_FLOAT xtmp,ytmp,ztmp;
   if (NEWTON) {
     xtmp = x(i,0);
     ytmp = x(i,1);

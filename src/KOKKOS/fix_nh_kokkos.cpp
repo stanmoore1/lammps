@@ -563,14 +563,14 @@ KOKKOS_INLINE_FUNCTION
 void FixNHKokkos<DeviceType>::operator()(TagFixNH_nve_v<RMASS>, const int &i) const {
   if (RMASS) {
     if (mask[i] & groupbit) {
-      const F_FLOAT dtfm = dtf / rmass[i];
+      const KK_FLOAT dtfm = dtf / rmass[i];
       v(i,0) += dtfm*f(i,0);
       v(i,1) += dtfm*f(i,1);
       v(i,2) += dtfm*f(i,2);
     }
   } else {
     if (mask[i] & groupbit) {
-      const F_FLOAT dtfm = dtf / mass[type[i]];
+      const KK_FLOAT dtfm = dtf / mass[type[i]];
       v(i,0) += dtfm*f(i,0);
       v(i,1) += dtfm*f(i,1);
       v(i,2) += dtfm*f(i,2);

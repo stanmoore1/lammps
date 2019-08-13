@@ -50,7 +50,7 @@ class FixNeighHistoryKokkos : public FixNeighHistory {
   void post_neighbor_item(const int &ii) const;
 
   typename Kokkos::View<int**> d_firstflag;
-  typename Kokkos::View<LMP_FLOAT**> d_firstvalue;
+  typename Kokkos::View<KK_FLOAT**> d_firstvalue;
 
  private:
   typename ArrayTypes<DeviceType>::tdual_int_1d k_npartner;

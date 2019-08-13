@@ -78,9 +78,9 @@ class AtomVecMolecularKokkos : public AtomVecKokkos {
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            ExecutionSpace space, int dim,
-                           X_FLOAT lo, X_FLOAT hi);
+                           KK_FLOAT lo, KK_FLOAT hi);
   int unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int nrecv,
-                             int nlocal, int dim, X_FLOAT lo, X_FLOAT hi,
+                             int nlocal, int dim, KK_FLOAT lo, KK_FLOAT hi,
                              ExecutionSpace space);
 
   void sync(ExecutionSpace space, unsigned int mask);

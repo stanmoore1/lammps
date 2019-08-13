@@ -80,8 +80,8 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &epair, const F_FLOAT &fpair, const F_FLOAT &delx,
-                  const F_FLOAT &dely, const F_FLOAT &delz) const;
+      const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx,
+                  const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
@@ -91,7 +91,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
     params_dpd(){cut=0;a0=0;sigma=0;kappa=0;alpha=0;};
     KOKKOS_INLINE_FUNCTION
     params_dpd(int i){cut=0;a0=0;sigma=0;kappa=0;alpha=0;};
-    F_FLOAT cut,a0,sigma,kappa,alpha;
+    KK_FLOAT cut,a0,sigma,kappa,alpha;
   };
 
   DAT::tdual_efloat_1d k_duCond,k_duMech;
@@ -125,7 +125,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   // hardwired to space for MAX_TYPES_STACKPARAMS (12) atom types
   params_dpd m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
-  F_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   typename ArrayTypes<DeviceType>::t_x_array_randomread x;
   typename ArrayTypes<DeviceType>::t_x_array c_x;
   typename ArrayTypes<DeviceType>::t_v_array_randomread v;

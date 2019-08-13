@@ -220,12 +220,12 @@ void NPairKokkos<DeviceType,HALF_NEIGH,GHOST,TRI,SIZE>::build(NeighList *list_)
 #endif
 
     if (GHOST) {
-      NPairKokkosBuildFunctorGhost<DeviceType,HALF_NEIGH> f(data,atoms_per_bin * 5 * sizeof(X_FLOAT) * factor);
+      NPairKokkosBuildFunctorGhost<DeviceType,HALF_NEIGH> f(data,atoms_per_bin * 5 * sizeof(KK_FLOAT) * factor);
       Kokkos::parallel_for(nall, f);
     } else {
       if (newton_pair) {
 	if (SIZE) {
-	  NPairKokkosBuildFunctorSize<DeviceType,TRI?0:HALF_NEIGH,1,TRI> f(data,atoms_per_bin * 5 * sizeof(X_FLOAT) * factor);
+	  NPairKokkosBuildFunctorSize<DeviceType,TRI?0:HALF_NEIGH,1,TRI> f(data,atoms_per_bin * 5 * sizeof(KK_FLOAT) * factor);
 #ifdef KOKKOS_ENABLE_CUDA
 	  if (ExecutionSpaceFromDevice<DeviceType>::space == Device)
 	    Kokkos::parallel_for(config, f);
@@ -235,7 +235,7 @@ void NPairKokkos<DeviceType,HALF_NEIGH,GHOST,TRI,SIZE>::build(NeighList *list_)
 	  Kokkos::parallel_for(nall, f);
 #endif
 	} else {
-	  NPairKokkosBuildFunctor<DeviceType,TRI?0:HALF_NEIGH,1,TRI> f(data,atoms_per_bin * 5 * sizeof(X_FLOAT) * factor);
+	  NPairKokkosBuildFunctor<DeviceType,TRI?0:HALF_NEIGH,1,TRI> f(data,atoms_per_bin * 5 * sizeof(KK_FLOAT) * factor);
 #ifdef KOKKOS_ENABLE_CUDA
 	  if (ExecutionSpaceFromDevice<DeviceType>::space == Device)
 	    Kokkos::parallel_for(config, f);
@@ -247,7 +247,7 @@ void NPairKokkos<DeviceType,HALF_NEIGH,GHOST,TRI,SIZE>::build(NeighList *list_)
 	}
       } else {
 	if (SIZE) {
-	  NPairKokkosBuildFunctorSize<DeviceType,HALF_NEIGH,0,0> f(data,atoms_per_bin * 5 * sizeof(X_FLOAT) * factor);
+	  NPairKokkosBuildFunctorSize<DeviceType,HALF_NEIGH,0,0> f(data,atoms_per_bin * 5 * sizeof(KK_FLOAT) * factor);
 #ifdef KOKKOS_ENABLE_CUDA
 	  if (ExecutionSpaceFromDevice<DeviceType>::space == Device)
 	    Kokkos::parallel_for(config, f);
@@ -257,7 +257,7 @@ void NPairKokkos<DeviceType,HALF_NEIGH,GHOST,TRI,SIZE>::build(NeighList *list_)
 	  Kokkos::parallel_for(nall, f);
 #endif
 	} else {
-	  NPairKokkosBuildFunctor<DeviceType,HALF_NEIGH,0,0> f(data,atoms_per_bin * 5 * sizeof(X_FLOAT) * factor);
+	  NPairKokkosBuildFunctor<DeviceType,HALF_NEIGH,0,0> f(data,atoms_per_bin * 5 * sizeof(KK_FLOAT) * factor);
 #ifdef KOKKOS_ENABLE_CUDA
 	  if (ExecutionSpaceFromDevice<DeviceType>::space == Device)
 	    Kokkos::parallel_for(config, f);
@@ -366,9 +366,9 @@ void NeighborKokkosExecute<DeviceType>::
   // get subview of neighbors of i
 
   const AtomNeighbors neighbors_i = neigh_list.get_neighbors(i);
-  const X_FLOAT xtmp = x(i, 0);
-  const X_FLOAT ytmp = x(i, 1);
-  const X_FLOAT ztmp = x(i, 2);
+  const KK_FLOAT xtmp = x(i, 0);
+  const KK_FLOAT ytmp = x(i, 1);
+  const KK_FLOAT ztmp = x(i, 2);
   const int itype = type(i);
 
   const int ibin = c_atom2bin(i);
@@ -390,10 +390,10 @@ void NeighborKokkosExecute<DeviceType>::
       ) continue;
     if(exclude && exclusion(i,j,itype,jtype)) continue;
 
-    const X_FLOAT delx = xtmp - x(j, 0);
-    const X_FLOAT dely = ytmp - x(j, 1);
-    const X_FLOAT delz = ztmp - x(j, 2);
-    const X_FLOAT rsq = delx * delx + dely * dely + delz * delz;
+    const KK_FLOAT delx = xtmp - x(j, 0);
+    const KK_FLOAT dely = ytmp - x(j, 1);
+    const KK_FLOAT delz = ztmp - x(j, 2);
+    const KK_FLOAT rsq = delx * delx + dely * dely + delz * delz;
     if(rsq <= cutneighsq(itype,jtype)) {
       if (molecular) {
         if (!moltemplate)
@@ -446,10 +446,10 @@ void NeighborKokkosExecute<DeviceType>::
         }
         if(exclude && exclusion(i,j,itype,jtype)) continue;
 
-        const X_FLOAT delx = xtmp - x(j, 0);
-        const X_FLOAT dely = ytmp - x(j, 1);
-        const X_FLOAT delz = ztmp - x(j, 2);
-        const X_FLOAT rsq = delx * delx + dely * dely + delz * delz;
+        const KK_FLOAT delx = xtmp - x(j, 0);
+        const KK_FLOAT dely = ytmp - x(j, 1);
+        const KK_FLOAT delz = ztmp - x(j, 2);
+        const KK_FLOAT rsq = delx * delx + dely * dely + delz * delz;
 
         if(rsq <= cutneighsq(itype,jtype)) {
           if (molecular) {
@@ -494,7 +494,7 @@ void NeighborKokkosExecute<DeviceType>::
 /* ---------------------------------------------------------------------- */
 
 #ifdef KOKKOS_ENABLE_CUDA
-extern __shared__ X_FLOAT sharedmem[];
+extern __shared__ KK_FLOAT sharedmem[];
 
 /* ---------------------------------------------------------------------- */
 
@@ -512,7 +512,7 @@ void NeighborKokkosExecute<DeviceType>::build_ItemCuda(typename Kokkos::TeamPoli
   const int ibin = dev.league_rank()*BINS_PER_TEAM+MY_BIN;
 
   if(ibin >= mbins) return;
-  X_FLOAT* other_x = sharedmem;
+  KK_FLOAT* other_x = sharedmem;
   other_x = other_x + 5*atoms_per_bin*MY_BIN;
 
   int* other_id = (int*) &other_x[4 * atoms_per_bin];
@@ -526,9 +526,9 @@ void NeighborKokkosExecute<DeviceType>::build_ItemCuda(typename Kokkos::TeamPoli
 
   int n = 0;
 
-  X_FLOAT xtmp;
-  X_FLOAT ytmp;
-  X_FLOAT ztmp;
+  KK_FLOAT xtmp;
+  KK_FLOAT ytmp;
+  KK_FLOAT ztmp;
   int itype;
   const AtomNeighbors neighbors_i = neigh_list.get_neighbors((i>=0&&i<nlocal)?i:0);
 
@@ -572,10 +572,10 @@ void NeighborKokkosExecute<DeviceType>::build_ItemCuda(typename Kokkos::TeamPoli
           }
         }
       if(exclude && exclusion(i,j,itype,jtype)) continue;
-      const X_FLOAT delx = xtmp - other_x[m];
-      const X_FLOAT dely = ytmp - other_x[m + atoms_per_bin];
-      const X_FLOAT delz = ztmp - other_x[m + 2 * atoms_per_bin];
-      const X_FLOAT rsq = delx * delx + dely * dely + delz * delz;
+      const KK_FLOAT delx = xtmp - other_x[m];
+      const KK_FLOAT dely = ytmp - other_x[m + atoms_per_bin];
+      const KK_FLOAT delz = ztmp - other_x[m + 2 * atoms_per_bin];
+      const KK_FLOAT rsq = delx * delx + dely * dely + delz * delz;
 
       if(rsq <= cutneighsq(itype,jtype)) {
         if (molecular) {
@@ -650,10 +650,10 @@ void NeighborKokkosExecute<DeviceType>::build_ItemCuda(typename Kokkos::TeamPoli
         }
         if(exclude && exclusion(i,j,itype,jtype)) continue;
 
-        const X_FLOAT delx = xtmp - other_x[m];
-        const X_FLOAT dely = ytmp - other_x[m + atoms_per_bin];
-        const X_FLOAT delz = ztmp - other_x[m + 2 * atoms_per_bin];
-        const X_FLOAT rsq = delx * delx + dely * dely + delz * delz;
+        const KK_FLOAT delx = xtmp - other_x[m];
+        const KK_FLOAT dely = ytmp - other_x[m + atoms_per_bin];
+        const KK_FLOAT delz = ztmp - other_x[m + 2 * atoms_per_bin];
+        const KK_FLOAT rsq = delx * delx + dely * dely + delz * delz;
 
         if(rsq <= cutneighsq(itype,jtype)) {
           if (molecular) {
@@ -716,9 +716,9 @@ void NeighborKokkosExecute<DeviceType>::
   // get subview of neighbors of i
 
   const AtomNeighbors neighbors_i = neigh_list.get_neighbors(i);
-  const X_FLOAT xtmp = x(i, 0);
-  const X_FLOAT ytmp = x(i, 1);
-  const X_FLOAT ztmp = x(i, 2);
+  const KK_FLOAT xtmp = x(i, 0);
+  const KK_FLOAT ytmp = x(i, 1);
+  const KK_FLOAT ztmp = x(i, 2);
   const int itype = type(i);
 
   const typename ArrayTypes<DeviceType>::t_int_1d_const_um stencil
@@ -744,10 +744,10 @@ void NeighborKokkosExecute<DeviceType>::
         const int jtype = type[j];
         if(exclude && exclusion(i,j,itype,jtype)) continue;
 
-        const X_FLOAT delx = xtmp - x(j,0);
-        const X_FLOAT dely = ytmp - x(j,1);
-        const X_FLOAT delz = ztmp - x(j,2);
-        const X_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+        const KK_FLOAT delx = xtmp - x(j,0);
+        const KK_FLOAT dely = ytmp - x(j,1);
+        const KK_FLOAT delz = ztmp - x(j,2);
+        const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
         if (rsq <= cutneighsq(itype,jtype)) {
           if (molecular) {
@@ -800,10 +800,10 @@ void NeighborKokkosExecute<DeviceType>::
         const int jtype = type[j];
         if(exclude && exclusion(i,j,itype,jtype)) continue;
 
-        const X_FLOAT delx = xtmp - x(j,0);
-        const X_FLOAT dely = ytmp - x(j,1);
-        const X_FLOAT delz = ztmp - x(j,2);
-        const X_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+        const KK_FLOAT delx = xtmp - x(j,0);
+        const KK_FLOAT dely = ytmp - x(j,1);
+        const KK_FLOAT delz = ztmp - x(j,2);
+        const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
         if (rsq <= cutneighsq(itype,jtype)) {
           if(n<neigh_list.maxneighs) neighbors_i(n++) = j;
@@ -835,10 +835,10 @@ void NeighborKokkosExecute<DeviceType>::
   // get subview of neighbors of i
 
   const AtomNeighbors neighbors_i = neigh_list.get_neighbors(i);
-  const X_FLOAT xtmp = x(i, 0);
-  const X_FLOAT ytmp = x(i, 1);
-  const X_FLOAT ztmp = x(i, 2);
-  const X_FLOAT radi = radius(i);
+  const KK_FLOAT xtmp = x(i, 0);
+  const KK_FLOAT ytmp = x(i, 1);
+  const KK_FLOAT ztmp = x(i, 2);
+  const KK_FLOAT radi = radius(i);
   const int itype = type(i);
 
   const int ibin = c_atom2bin(i);
@@ -862,12 +862,12 @@ void NeighborKokkosExecute<DeviceType>::
       ) continue;
     if(exclude && exclusion(i,j,itype,jtype)) continue;
 
-    const X_FLOAT delx = xtmp - x(j, 0);
-    const X_FLOAT dely = ytmp - x(j, 1);
-    const X_FLOAT delz = ztmp - x(j, 2);
-    const X_FLOAT rsq = delx * delx + dely * dely + delz * delz;
-    const X_FLOAT radsum = radi + radius(j);
-    const X_FLOAT cutsq = (radsum + skin) * (radsum + skin);
+    const KK_FLOAT delx = xtmp - x(j, 0);
+    const KK_FLOAT dely = ytmp - x(j, 1);
+    const KK_FLOAT delz = ztmp - x(j, 2);
+    const KK_FLOAT rsq = delx * delx + dely * dely + delz * delz;
+    const KK_FLOAT radsum = radi + radius(j);
+    const KK_FLOAT cutsq = (radsum + skin) * (radsum + skin);
 
     if(rsq <= cutsq) {
       if(n<neigh_list.maxneighs) {
@@ -903,12 +903,12 @@ void NeighborKokkosExecute<DeviceType>::
       }
       if(exclude && exclusion(i,j,itype,jtype)) continue;
 
-      const X_FLOAT delx = xtmp - x(j, 0);
-      const X_FLOAT dely = ytmp - x(j, 1);
-      const X_FLOAT delz = ztmp - x(j, 2);
-      const X_FLOAT rsq = delx * delx + dely * dely + delz * delz;
-      const X_FLOAT radsum = radi + radius(j);
-      const X_FLOAT cutsq = (radsum + skin) * (radsum + skin);
+      const KK_FLOAT delx = xtmp - x(j, 0);
+      const KK_FLOAT dely = ytmp - x(j, 1);
+      const KK_FLOAT delz = ztmp - x(j, 2);
+      const KK_FLOAT rsq = delx * delx + dely * dely + delz * delz;
+      const KK_FLOAT radsum = radi + radius(j);
+      const KK_FLOAT cutsq = (radsum + skin) * (radsum + skin);
 
       if(rsq <= cutsq) {
 	if(n<neigh_list.maxneighs) {
@@ -948,7 +948,7 @@ void NeighborKokkosExecute<DeviceType>::build_ItemSizeCuda(typename Kokkos::Team
   const int ibin = dev.league_rank()*BINS_PER_TEAM+MY_BIN;
 
   if(ibin >= mbins) return;
-  X_FLOAT* other_x = sharedmem;
+  KK_FLOAT* other_x = sharedmem;
   other_x = other_x + 6*atoms_per_bin*MY_BIN;
 
   int* other_id = (int*) &other_x[5 * atoms_per_bin];
@@ -962,10 +962,10 @@ void NeighborKokkosExecute<DeviceType>::build_ItemSizeCuda(typename Kokkos::Team
 
     int n = 0;
 
-    X_FLOAT xtmp;
-    X_FLOAT ytmp;
-    X_FLOAT ztmp;
-    X_FLOAT radi;
+    KK_FLOAT xtmp;
+    KK_FLOAT ytmp;
+    KK_FLOAT ztmp;
+    KK_FLOAT radi;
     int itype;
     const AtomNeighbors neighbors_i = neigh_list.get_neighbors((i>=0&&i<nlocal)?i:0);
     const int mask_history = 3 << SBBITS;
@@ -1012,12 +1012,12 @@ void NeighborKokkosExecute<DeviceType>::build_ItemSizeCuda(typename Kokkos::Team
           }
         }
 	if(exclude && exclusion(i,j,itype,jtype)) continue;
-	const X_FLOAT delx = xtmp - other_x[m];
-	const X_FLOAT dely = ytmp - other_x[m + atoms_per_bin];
-	const X_FLOAT delz = ztmp - other_x[m + 2 * atoms_per_bin];
-	const X_FLOAT rsq = delx * delx + dely * dely + delz * delz;
-	const X_FLOAT radsum = radi + other_x[m + 4 * atoms_per_bin];
-	const X_FLOAT cutsq = (radsum + skin) * (radsum + skin);
+	const KK_FLOAT delx = xtmp - other_x[m];
+	const KK_FLOAT dely = ytmp - other_x[m + atoms_per_bin];
+	const KK_FLOAT delz = ztmp - other_x[m + 2 * atoms_per_bin];
+	const KK_FLOAT rsq = delx * delx + dely * dely + delz * delz;
+	const KK_FLOAT radsum = radi + other_x[m + 4 * atoms_per_bin];
+	const KK_FLOAT cutsq = (radsum + skin) * (radsum + skin);
 
 	if(rsq <= cutsq) {
 	  if(n<neigh_list.maxneighs) {
@@ -1073,12 +1073,12 @@ void NeighborKokkosExecute<DeviceType>::build_ItemSizeCuda(typename Kokkos::Team
 	  }
 	  if(exclude && exclusion(i,j,itype,jtype)) continue;
 
-	  const X_FLOAT delx = xtmp - other_x[m];
-	  const X_FLOAT dely = ytmp - other_x[m + atoms_per_bin];
-	  const X_FLOAT delz = ztmp - other_x[m + 2 * atoms_per_bin];
-	  const X_FLOAT rsq = delx * delx + dely * dely + delz * delz;
-	  const X_FLOAT radsum = radi + other_x[m + 4 * atoms_per_bin];
-	  const X_FLOAT cutsq = (radsum + skin) * (radsum + skin);
+	  const KK_FLOAT delx = xtmp - other_x[m];
+	  const KK_FLOAT dely = ytmp - other_x[m + atoms_per_bin];
+	  const KK_FLOAT delz = ztmp - other_x[m + 2 * atoms_per_bin];
+	  const KK_FLOAT rsq = delx * delx + dely * dely + delz * delz;
+	  const KK_FLOAT radsum = radi + other_x[m + 4 * atoms_per_bin];
+	  const KK_FLOAT cutsq = (radsum + skin) * (radsum + skin);
 
 	  if(rsq <= cutsq) {
 	    if(n<neigh_list.maxneighs) {

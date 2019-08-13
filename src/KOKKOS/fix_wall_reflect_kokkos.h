@@ -47,7 +47,7 @@ class FixWallReflectKokkos : public FixWallReflect {
 
 
   int dim,side;
-  X_FLOAT coord;
+  KK_FLOAT coord;
 };
 
 }

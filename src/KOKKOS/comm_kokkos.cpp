@@ -514,7 +514,7 @@ template<class DeviceType>
 struct BuildExchangeListFunctor {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  X_FLOAT _lo,_hi;
+  KK_FLOAT _lo,_hi;
   typename AT::t_x_array _x;
 
   int _nlocal,_dim;
@@ -528,7 +528,7 @@ struct BuildExchangeListFunctor {
       const typename AT::tdual_int_1d sendlist,
       typename AT::tdual_int_scalar nsend,
       typename AT::tdual_int_1d sendflag,int nlocal, int dim,
-                X_FLOAT lo, X_FLOAT hi):
+                KK_FLOAT lo, KK_FLOAT hi):
                 _x(x.template view<DeviceType>()),
                 _sendlist(sendlist.template view<DeviceType>()),
                 _nsend(nsend.template view<DeviceType>()),
@@ -769,7 +769,7 @@ template<class DeviceType>
 struct BuildBorderListFunctor {
         typedef DeviceType device_type;
         typedef ArrayTypes<DeviceType> AT;
-  X_FLOAT lo,hi;
+  KK_FLOAT lo,hi;
   typename AT::t_x_array x;
   int iswap,maxsendlist;
   int nfirst,nlast,dim;
@@ -780,7 +780,7 @@ struct BuildBorderListFunctor {
                          typename AT::tdual_int_2d _sendlist,
                          typename AT::tdual_int_scalar _nsend,int _nfirst,
                          int _nlast, int _dim,
-                         X_FLOAT _lo, X_FLOAT _hi, int _iswap,
+                         KK_FLOAT _lo, KK_FLOAT _hi, int _iswap,
                          int _maxsendlist):
     x(_x.template view<DeviceType>()),
     sendlist(_sendlist.template view<DeviceType>()),

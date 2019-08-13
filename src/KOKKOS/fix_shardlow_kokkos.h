@@ -65,7 +65,7 @@ class FixShardlowKokkos : public FixShardlow {
     params_ssa(){cutinv=FLT_MAX;halfsigma=0;kappa=0;alpha=0;};
     KOKKOS_INLINE_FUNCTION
     params_ssa(int i){cutinv=FLT_MAX;halfsigma=0;kappa=0;alpha=0;};
-    F_FLOAT cutinv,halfsigma,kappa,alpha;
+    KK_FLOAT cutinv,halfsigma,kappa,alpha;
   };
 
   template<bool STACKPARAMS>
@@ -98,7 +98,7 @@ class FixShardlowKokkos : public FixShardlow {
   // hardwired to space for MAX_TYPES_STACKPARAMS (12) atom types
   params_ssa m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
-  F_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   typename ArrayTypes<DeviceType>::t_ffloat_2d d_cutsq;
 
   typename DAT::tdual_v_array k_v_t0;

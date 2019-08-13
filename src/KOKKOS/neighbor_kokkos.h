@@ -69,7 +69,7 @@ class NeighborKokkos : public Neighbor {
   DAT::tdual_x_array x;
   DAT::tdual_x_array xhold;
 
-  X_FLOAT deltasq;
+  KK_FLOAT deltasq;
   int device_flag;
 
   void init_cutneighsq_kokkos(int);

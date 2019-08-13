@@ -134,14 +134,14 @@ class FixQEqReaxKokkos : public FixQEqReax {
   void calculate_q_item(int) const;
 
   KOKKOS_INLINE_FUNCTION
-  double calculate_H_k(const F_FLOAT &r, const F_FLOAT &shld) const;
+  double calculate_H_k(const KK_FLOAT &r, const KK_FLOAT &shld) const;
 
   struct params_qeq{
     KOKKOS_INLINE_FUNCTION
     params_qeq(){chi=0;eta=0;gamma=0;};
     KOKKOS_INLINE_FUNCTION
     params_qeq(int i){chi=0;eta=0;gamma=0;};
-    F_FLOAT chi, eta, gamma;
+    KK_FLOAT chi, eta, gamma;
   };
 
   virtual int pack_forward_comm(int, int *, double *, int, int *);
@@ -200,8 +200,8 @@ class FixQEqReaxKokkos : public FixQEqReax {
   HAT::t_ffloat_2d h_s_hist, h_t_hist;
   typename AT::t_ffloat_2d_randomread r_s_hist, r_t_hist;
 
-  Kokkos::Experimental::ScatterView<F_FLOAT*, typename AT::t_ffloat_1d::array_layout, DeviceType, Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated> dup_o;
-  Kokkos::Experimental::ScatterView<F_FLOAT*, typename AT::t_ffloat_1d::array_layout, DeviceType, Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated> ndup_o;
+  Kokkos::Experimental::ScatterView<KK_FLOAT*, typename AT::t_ffloat_1d::array_layout, DeviceType, Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated> dup_o;
+  Kokkos::Experimental::ScatterView<KK_FLOAT*, typename AT::t_ffloat_1d::array_layout, DeviceType, Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated> ndup_o;
 
   void init_shielding_k();
   void init_hist();
@@ -295,7 +295,7 @@ struct FixQEqReaxKokkosComputeHFunctor {
             shmem_size(atoms_per_team, vector_length) + // s_jtype
         Kokkos::View<int **, scratch_space, Kokkos::MemoryUnmanaged>::
             shmem_size(atoms_per_team, vector_length) + // s_j
-        Kokkos::View<F_FLOAT **, scratch_space,
+        Kokkos::View<KK_FLOAT **, scratch_space,
                      Kokkos::MemoryUnmanaged>::shmem_size(atoms_per_team,
                                                           vector_length); // s_r
     return shmem_size;

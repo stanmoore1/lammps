@@ -601,7 +601,7 @@ void DomainKokkos::x2lamda(int n)
 
 KOKKOS_INLINE_FUNCTION
 void DomainKokkos::operator()(TagDomain_x2lamda, const int &i) const {
-  F_FLOAT delta[3];
+  KK_FLOAT delta[3];
   delta[0] = x(i,0) - boxlo[0];
   delta[1] = x(i,1) - boxlo[1];
   delta[2] = x(i,2) - boxlo[2];

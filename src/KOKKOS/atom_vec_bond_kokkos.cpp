@@ -194,7 +194,7 @@ struct AtomVecBondKokkos_PackBorder {
   const typename AT::t_int_1d _type;
   const typename AT::t_int_1d _mask;
   const typename AT::t_tagint_1d _molecule;
-  X_FLOAT _dx,_dy,_dz;
+  KK_FLOAT _dx,_dy,_dz;
 
   AtomVecBondKokkos_PackBorder(
       const typename AT::t_xfloat_2d &buf,
@@ -205,7 +205,7 @@ struct AtomVecBondKokkos_PackBorder {
       const typename AT::t_int_1d &type,
       const typename AT::t_int_1d &mask,
       const typename AT::t_tagint_1d &molecule,
-      const X_FLOAT &dx, const X_FLOAT &dy, const X_FLOAT &dz):
+      const KK_FLOAT &dx, const KK_FLOAT &dy, const KK_FLOAT &dz):
       _buf(buf),_list(list),_iswap(iswap),
       _x(x),_tag(tag),_type(type),_mask(mask),_molecule(molecule),
       _dx(dx),_dy(dy),_dz(dz) {}
@@ -239,7 +239,7 @@ int AtomVecBondKokkos::pack_border_kokkos(int n, DAT::tdual_int_2d k_sendlist,
                                           DAT::tdual_xfloat_2d buf,int iswap,
                                           int pbc_flag, int *pbc, ExecutionSpace space)
 {
-  X_FLOAT dx,dy,dz;
+  KK_FLOAT dx,dy,dz;
 
   if (pbc_flag != 0) {
     if (domain->triclinic == 0) {
@@ -586,7 +586,7 @@ struct AtomVecBondKokkos_PackExchangeFunctor {
   typename AT::t_int_1d_const _sendlist;
   typename AT::t_int_1d_const _copylist;
   int _nlocal,_dim;
-  X_FLOAT _lo,_hi;
+  KK_FLOAT _lo,_hi;
   size_t elements;
 
   AtomVecBondKokkos_PackExchangeFunctor(
@@ -594,7 +594,7 @@ struct AtomVecBondKokkos_PackExchangeFunctor {
       const typename AT::tdual_xfloat_2d buf,
       typename AT::tdual_int_1d sendlist,
       typename AT::tdual_int_1d copylist,int nlocal, int dim,
-                X_FLOAT lo, X_FLOAT hi):
+                KK_FLOAT lo, KK_FLOAT hi):
     _x(atom->k_x.view<DeviceType>()),
     _v(atom->k_v.view<DeviceType>()),
     _tag(atom->k_tag.view<DeviceType>()),
@@ -693,8 +693,8 @@ struct AtomVecBondKokkos_PackExchangeFunctor {
 int AtomVecBondKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &k_buf,
                                             DAT::tdual_int_1d k_sendlist,
                                             DAT::tdual_int_1d k_copylist,
-                                            ExecutionSpace space,int dim,X_FLOAT lo,
-                                            X_FLOAT hi )
+                                            ExecutionSpace space,int dim,KK_FLOAT lo,
+                                            KK_FLOAT hi )
 {
   const int elements = 16+atomKK->maxspecial+atomKK->bond_per_atom+atomKK->bond_per_atom;
   if(nsend > (int) (k_buf.view<LMPHostType>().extent(0)*
@@ -774,14 +774,14 @@ struct AtomVecBondKokkos_UnpackExchangeFunctor {
   typename AT::t_xfloat_2d_um _buf;
   typename AT::t_int_1d _nlocal;
   int _dim;
-  X_FLOAT _lo,_hi;
+  KK_FLOAT _lo,_hi;
   size_t elements;
 
   AtomVecBondKokkos_UnpackExchangeFunctor(
       const AtomKokkos* atom,
       const typename AT::tdual_xfloat_2d buf,
       typename AT::tdual_int_1d nlocal,
-      int dim, X_FLOAT lo, X_FLOAT hi):
+      int dim, KK_FLOAT lo, KK_FLOAT hi):
     _x(atom->k_x.view<DeviceType>()),
     _v(atom->k_v.view<DeviceType>()),
     _tag(atom->k_tag.view<DeviceType>()),
@@ -804,7 +804,7 @@ struct AtomVecBondKokkos_UnpackExchangeFunctor {
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int &myrecv) const {
-    X_FLOAT x = _buf(myrecv,_dim+1);
+    KK_FLOAT x = _buf(myrecv,_dim+1);
     if (x >= _lo && x < _hi) {
       int i = Kokkos::atomic_fetch_add(&_nlocal(0),1);
       int m = 1;
@@ -838,7 +838,7 @@ struct AtomVecBondKokkos_UnpackExchangeFunctor {
 /* ---------------------------------------------------------------------- */
 
 int AtomVecBondKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf,int nrecv,
-                                              int nlocal,int dim,X_FLOAT lo,X_FLOAT hi,
+                                              int nlocal,int dim,KK_FLOAT lo,KK_FLOAT hi,
                                               ExecutionSpace space) {
   const size_t elements = 16+atomKK->maxspecial+atomKK->bond_per_atom+atomKK->bond_per_atom;
   if(space == Host) {

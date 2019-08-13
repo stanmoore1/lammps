@@ -59,7 +59,7 @@ class NBinKokkos : public NBinStandard {
   void binatomsItem(const int &i) const;
 
   KOKKOS_INLINE_FUNCTION
-  int coord2bin(const X_FLOAT & x,const X_FLOAT & y,const X_FLOAT & z) const
+  int coord2bin(const KK_FLOAT & x,const KK_FLOAT & y,const KK_FLOAT & z) const
   {
     int ix,iy,iz;
 
@@ -91,7 +91,7 @@ class NBinKokkos : public NBinStandard {
   }
 
   KOKKOS_INLINE_FUNCTION
-  int coord2bin(const X_FLOAT & x,const X_FLOAT & y,const X_FLOAT & z, int* i) const
+  int coord2bin(const KK_FLOAT & x,const KK_FLOAT & y,const KK_FLOAT & z, int* i) const
   {
     int ix,iy,iz;
 

@@ -148,16 +148,16 @@ void PairLJClass2Kokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJClass2Kokkos<DeviceType>::
-compute_fpair(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const {
+KK_FLOAT PairLJClass2Kokkos<DeviceType>::
+compute_fpair(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const {
   (void) i;
   (void) j;
-  const F_FLOAT r2inv = 1.0/rsq;
-  const F_FLOAT rinv = sqrt(r2inv);
-  const F_FLOAT r3inv = r2inv*rinv;
-  const F_FLOAT r6inv = r3inv*r3inv;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT rinv = sqrt(r2inv);
+  const KK_FLOAT r3inv = r2inv*rinv;
+  const KK_FLOAT r6inv = r3inv*r3inv;
 
-  const F_FLOAT forcelj = r6inv *
+  const KK_FLOAT forcelj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj1:params(itype,jtype).lj1)*r3inv -
      (STACKPARAMS?m_params[itype][jtype].lj2:params(itype,jtype).lj2));
 
@@ -168,14 +168,14 @@ compute_fpair(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, c
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJClass2Kokkos<DeviceType>::
-compute_evdwl(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const {
+KK_FLOAT PairLJClass2Kokkos<DeviceType>::
+compute_evdwl(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const {
   (void) i;
   (void) j;
-  const F_FLOAT r2inv = 1.0/rsq;
-  const F_FLOAT rinv = sqrt(r2inv);
-  const F_FLOAT r3inv = r2inv*rinv;
-  const F_FLOAT r6inv = r3inv*r3inv;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT rinv = sqrt(r2inv);
+  const KK_FLOAT r3inv = r2inv*rinv;
+  const KK_FLOAT r6inv = r3inv*r3inv;
 
   return r6inv*((STACKPARAMS?m_params[itype][jtype].lj3:params(itype,jtype).lj3)*r3inv -
                 (STACKPARAMS?m_params[itype][jtype].lj4:params(itype,jtype).lj4)) -

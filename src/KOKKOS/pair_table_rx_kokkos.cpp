@@ -201,8 +201,8 @@ KOKKOS_INLINE_FUNCTION static int sbmask(const int& j)
 
 template <class DeviceType, int TABSTYLE>
 KOKKOS_INLINE_FUNCTION
-static F_FLOAT
-compute_fpair(F_FLOAT rsq,
+static KK_FLOAT
+compute_fpair(KK_FLOAT rsq,
               int itype, int jtype,
               typename PairTableRXKokkos<DeviceType>::TableDeviceConst const& d_table_const
               ) {
@@ -235,9 +235,9 @@ compute_fpair(F_FLOAT rsq,
 
 template<class DeviceType, int TABSTYLE>
 KOKKOS_INLINE_FUNCTION
-static F_FLOAT
+static KK_FLOAT
 compute_evdwl(
-    F_FLOAT rsq,
+    KK_FLOAT rsq,
     int itype, int jtype,
     typename PairTableRXKokkos<DeviceType>::TableDeviceConst const& d_table_const
     ) {
@@ -280,13 +280,13 @@ ev_tally(
     int nlocal,
     int i, int j,
     EV_FLOAT& ev,
-    F_FLOAT epair, F_FLOAT fpair,
-    F_FLOAT delx, F_FLOAT dely, F_FLOAT delz,
-    Kokkos::View<F_FLOAT*[6],
+    KK_FLOAT epair, KK_FLOAT fpair,
+    KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz,
+    Kokkos::View<KK_FLOAT*[6],
                  typename ArrayTypes<DeviceType>::t_virial_array::array_layout,
                  DeviceType,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& v_vatom,
-    Kokkos::View<E_FLOAT*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_efloat_1d::array_layout,
                  DeviceType,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& v_eatom)
@@ -395,17 +395,17 @@ compute_item(
     Kokkos::View<double*, DeviceType> const& mixWtSite1,
     Kokkos::View<double*, DeviceType> const& mixWtSite2,
     Few<int, 4> const& special_lj,
-    Few<Few<F_FLOAT, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> const& m_cutsq,
+    Few<Few<KK_FLOAT, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> const& m_cutsq,
     typename ArrayTypes<DeviceType>::t_ffloat_2d const& d_cutsq,
-    Kokkos::View<F_FLOAT*[3],
+    Kokkos::View<KK_FLOAT*[3],
       typename ArrayTypes<DeviceType>::t_f_array::array_layout,
       DeviceType,
       Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& f,
-    Kokkos::View<E_FLOAT*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_efloat_1d::array_layout,
                  DeviceType,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& uCG,
-    Kokkos::View<E_FLOAT*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_efloat_1d::array_layout,
                  DeviceType,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& uCGnew,
@@ -416,11 +416,11 @@ compute_item(
     int vflag,
     int vflag_global,
     int vflag_atom,
-    Kokkos::View<F_FLOAT*[6],
+    Kokkos::View<KK_FLOAT*[6],
                  typename ArrayTypes<DeviceType>::t_virial_array::array_layout,
                  DeviceType,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& v_vatom,
-    Kokkos::View<E_FLOAT*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_efloat_1d::array_layout,
                  DeviceType,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& v_eatom) {
@@ -446,7 +446,7 @@ compute_item(
 
   for (int jj = 0; jj < jnum; jj++) {
     auto j = jlist(jj);
-    const F_FLOAT factor_lj = special_lj[sbmask(j)];
+    const KK_FLOAT factor_lj = special_lj[sbmask(j)];
     j &= NEIGHMASK;
 
     auto delx = xtmp - x(j,0);
@@ -540,16 +540,16 @@ static void compute_all_items(
     Kokkos::View<double*, DeviceType> const& mixWtSite1,
     Kokkos::View<double*, DeviceType> const& mixWtSite2,
     Few<int, 4> special_lj,
-    Few<Few<F_FLOAT, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> m_cutsq,
+    Few<Few<KK_FLOAT, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> m_cutsq,
     typename ArrayTypes<DeviceType>::t_ffloat_2d d_cutsq,
-    Kokkos::View<F_FLOAT*[3],
+    Kokkos::View<KK_FLOAT*[3],
       typename ArrayTypes<DeviceType>::t_f_array::array_layout,
       DeviceType,
       Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > f,
-    Kokkos::View<E_FLOAT*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_efloat_1d::array_layout,
                  DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > uCG,
-    Kokkos::View<E_FLOAT*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_efloat_1d::array_layout,
                  DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > uCGnew,
     int isite1, int isite2,
@@ -559,11 +559,11 @@ static void compute_all_items(
     int vflag,
     int vflag_global,
     int vflag_atom,
-    Kokkos::View<F_FLOAT*[6],
+    Kokkos::View<KK_FLOAT*[6],
                  typename ArrayTypes<DeviceType>::t_virial_array::array_layout,
                  DeviceType,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom,
-    Kokkos::View<E_FLOAT*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_efloat_1d::array_layout,
                  DeviceType,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom) {

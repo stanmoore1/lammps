@@ -106,7 +106,7 @@ PPPMKokkos<DeviceType>::PPPMKokkos(LAMMPS *lmp) : PPPM(lmp)
   // see JCP 109, pg 7698 for derivation of coefficients
   // higher order coefficients may be computed if needed
 
-  acons = typename Kokkos::DualView<F_FLOAT[8][7],Kokkos::LayoutRight,LMPDeviceType>::t_host("pppm:acons");
+  acons = typename Kokkos::DualView<KK_FLOAT[8][7],Kokkos::LayoutRight,LMPDeviceType>::t_host("pppm:acons");
   acons(1,0) = 2.0 / 3.0;
   acons(2,0) = 1.0 / 50.0;
   acons(2,1) = 5.0 / 294.0;
