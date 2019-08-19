@@ -203,19 +203,19 @@ compute_fpair(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, 
   (void) i;
   (void) j;
   union_int_float_t rsq_lookup;
-  double fpair;
+  KK_FLOAT fpair;
   const int tidx = d_table_const.tabindex(itype,jtype);
   if (Specialisation::TabStyle == LOOKUP) {
     const int itable = static_cast<int> ((rsq - d_table_const.innersq(tidx)) * d_table_const.invdelta(tidx));
     fpair = d_table_const.f(tidx,itable);
   } else if (Specialisation::TabStyle == LINEAR) {
     const int itable = static_cast<int> ((rsq - d_table_const.innersq(tidx)) * d_table_const.invdelta(tidx));
-    const double fraction = (rsq - d_table_const.rsq(tidx,itable)) * d_table_const.invdelta(tidx);
+    const KK_FLOAT fraction = (rsq - d_table_const.rsq(tidx,itable)) * d_table_const.invdelta(tidx);
     fpair = d_table_const.f(tidx,itable) + fraction*d_table_const.df(tidx,itable);
   } else if (Specialisation::TabStyle == SPLINE) {
     const int itable = static_cast<int> ((rsq - d_table_const.innersq(tidx)) * d_table_const.invdelta(tidx));
-    const double b = (rsq - d_table_const.rsq(tidx,itable)) * d_table_const.invdelta(tidx);
-    const double a = 1.0 - b;
+    const KK_FLOAT b = (rsq - d_table_const.rsq(tidx,itable)) * d_table_const.invdelta(tidx);
+    const KK_FLOAT a = 1.0 - b;
     fpair = a * d_table_const.f(tidx,itable) + b * d_table_const.f(tidx,itable+1) +
       ((a*a*a-a)*d_table_const.f2(tidx,itable) + (b*b*b-b)*d_table_const.f2(tidx,itable+1)) *
       d_table_const.deltasq6(tidx);
@@ -223,7 +223,7 @@ compute_fpair(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, 
     rsq_lookup.f = rsq;
     int itable = rsq_lookup.i & d_table_const.nmask(tidx);
     itable >>= d_table_const.nshiftbits(tidx);
-    const double fraction = (rsq_lookup.f - d_table_const.rsq(tidx,itable)) * d_table_const.drsq(tidx,itable);
+    const KK_FLOAT fraction = (rsq_lookup.f - d_table_const.rsq(tidx,itable)) * d_table_const.drsq(tidx,itable);
     fpair = d_table_const.f(tidx,itable) + fraction*d_table_const.df(tidx,itable);
   }
   return fpair;
@@ -236,7 +236,7 @@ KK_FLOAT PairTableKokkos<DeviceType>::
 compute_evdwl(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const {
   (void) i;
   (void) j;
-  double evdwl;
+  KK_FLOAT evdwl;
   union_int_float_t rsq_lookup;
   const int tidx = d_table_const.tabindex(itype,jtype);
   if (Specialisation::TabStyle == LOOKUP) {
@@ -244,12 +244,12 @@ compute_evdwl(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, 
     evdwl = d_table_const.e(tidx,itable);
   } else if (Specialisation::TabStyle == LINEAR) {
     const int itable = static_cast<int> ((rsq - d_table_const.innersq(tidx)) * d_table_const.invdelta(tidx));
-    const double fraction = (rsq - d_table_const.rsq(tidx,itable)) * d_table_const.invdelta(tidx);
+    const KK_FLOAT fraction = (rsq - d_table_const.rsq(tidx,itable)) * d_table_const.invdelta(tidx);
     evdwl = d_table_const.e(tidx,itable) + fraction*d_table_const.de(tidx,itable);
   } else if (Specialisation::TabStyle == SPLINE) {
     const int itable = static_cast<int> ((rsq - d_table_const.innersq(tidx)) * d_table_const.invdelta(tidx));
-    const double b = (rsq - d_table_const.rsq(tidx,itable)) * d_table_const.invdelta(tidx);
-    const double a = 1.0 - b;
+    const KK_FLOAT b = (rsq - d_table_const.rsq(tidx,itable)) * d_table_const.invdelta(tidx);
+    const KK_FLOAT a = 1.0 - b;
     evdwl = a * d_table_const.e(tidx,itable) + b * d_table_const.e(tidx,itable+1) +
         ((a*a*a-a)*d_table_const.e2(tidx,itable) + (b*b*b-b)*d_table_const.e2(tidx,itable+1)) *
         d_table_const.deltasq6(tidx);
@@ -257,7 +257,7 @@ compute_evdwl(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, 
     rsq_lookup.f = rsq;
     int itable = rsq_lookup.i & d_table_const.nmask(tidx);
     itable >>= d_table_const.nshiftbits(tidx);
-    const double fraction = (rsq_lookup.f - d_table_const.rsq(tidx,itable)) * d_table_const.drsq(tidx,itable);
+    const KK_FLOAT fraction = (rsq_lookup.f - d_table_const.rsq(tidx,itable)) * d_table_const.drsq(tidx,itable);
     evdwl = d_table_const.e(tidx,itable) + fraction*d_table_const.de(tidx,itable);
   }
   return evdwl;
@@ -419,7 +419,7 @@ void PairTableKokkos<DeviceType>::allocate()
   d_table_const.tabindex = d_table->tabindex;
 
   memset(&setflag[0][0],0,nt*nt*sizeof(int));
-  memset(&cutsq[0][0],0,nt*nt*sizeof(double));
+  memset(&cutsq[0][0],0,nt*nt*sizeof(KK_FLOAT));
   memset(&tabindex[0][0],0,nt*nt*sizeof(int));
 }
 
@@ -482,7 +482,7 @@ void PairTableKokkos<DeviceType>::settings(int narg, char **arg)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairTableKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairTableKokkos<DeviceType>::init_one(int i, int j)
 {
   if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
 

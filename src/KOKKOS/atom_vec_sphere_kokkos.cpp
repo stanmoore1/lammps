@@ -31,7 +31,7 @@ using namespace LAMMPS_NS;
 
 #define DELTA 10
 
-static const double MY_PI  = 3.14159265358979323846; // pi
+static const KK_FLOAT MY_PI  = 3.14159265358979323846; // pi
 
 /* ---------------------------------------------------------------------- */
 
@@ -371,9 +371,9 @@ struct AtomVecSphereKokkos_PackCommVel {
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
-  KK_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
-  KK_FLOAT _pbc[6];
-  KK_FLOAT _h_rate[6];
+  double _xprd,_yprd,_zprd,_xy,_xz,_yz;
+  double _pbc[6];
+  double _h_rate[6];
   const int _deform_vremap;
 
   AtomVecSphereKokkos_PackCommVel(
@@ -386,8 +386,8 @@ struct AtomVecSphereKokkos_PackCommVel {
     const typename DAT::tdual_xfloat_2d &buf,
     const typename DAT::tdual_int_2d &list,
     const int &iswap,
-    const KK_FLOAT &xprd, const KK_FLOAT &yprd, const KK_FLOAT &zprd,
-    const KK_FLOAT &xy, const KK_FLOAT &xz, const KK_FLOAT &yz, const int* const pbc,
+    const double &xprd, const double &yprd, const double &zprd,
+    const double &xy, const double &xz, const double &yz, const int* const pbc,
     const double * const h_rate,
     const int &deform_vremap):
     _x(x.view<DeviceType>()),
@@ -1040,7 +1040,7 @@ int AtomVecSphereKokkos::pack_comm(int n, int *list, double *buf,
 			           int pbc_flag, int *pbc)
 {
   int i,j,m;
-  double dx,dy,dz;
+  KK_FLOAT dx,dy,dz;
 
   if (radvary == 0) {
     // Not sure if we need to call sync for X here
@@ -1112,7 +1112,7 @@ int AtomVecSphereKokkos::pack_comm_vel(int n, int *list, double *buf,
 				       int pbc_flag, int *pbc)
 {
   int i,j,m;
-  double dx,dy,dz,dvx,dvy,dvz;
+  KK_FLOAT dx,dy,dz,dvx,dvy,dvz;
 
   if (radvary == 0) {
     atomKK->sync(Host,X_MASK|V_MASK|OMEGA_MASK);
@@ -1547,7 +1547,7 @@ int AtomVecSphereKokkos::pack_border(
   int pbc_flag, int *pbc)
 {
   int i,j,m;
-  double dx,dy,dz;
+  KK_FLOAT dx,dy,dz;
 
   atomKK->sync(Host,ALL_MASK);
 
@@ -1774,7 +1774,7 @@ int AtomVecSphereKokkos::pack_border_vel(int n, int *list, double *buf,
                                          int pbc_flag, int *pbc)
 {
   int i,j,m;
-  double dx,dy,dz,dvx,dvy,dvz;
+  KK_FLOAT dx,dy,dz,dvx,dvy,dvz;
 
   atomKK->sync(Host,ALL_MASK);
 
@@ -2556,7 +2556,7 @@ void AtomVecSphereKokkos::data_atom(double *coord, imageint imagetmp, char **val
   if (radius[nlocal] < 0.0)
     error->one(FLERR,"Invalid radius in Atoms section of data file");
 
-  double density = utils::numeric(FLERR,values[3],true,lmp);
+  KK_FLOAT density = utils::numeric(FLERR,values[3],true,lmp);
   if (density <= 0.0)
     error->one(FLERR,"Invalid density in Atoms section of data file");
 
@@ -2595,7 +2595,7 @@ int AtomVecSphereKokkos::data_atom_hybrid(int nlocal, char **values)
   if (radius[nlocal] < 0.0)
     error->one(FLERR,"Invalid radius in Atoms section of data file");
 
-  double density = utils::numeric(FLERR,values[1],true,lmp);
+  KK_FLOAT density = utils::numeric(FLERR,values[1],true,lmp);
   if (density <= 0.0)
     error->one(FLERR,"Invalid density in Atoms section of data file");
 

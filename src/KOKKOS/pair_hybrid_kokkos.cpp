@@ -83,7 +83,7 @@ void PairHybridKokkos::compute(int eflag, int vflag)
   if (vflag % 4 == 2) vflag_substyle = vflag/4 * 4;
   else vflag_substyle = vflag;
 
-  double *saved_special = save_special();
+  KK_FLOAT *saved_special = save_special();
 
   // check if we are running with r-RESPA using the hybrid keyword
 
@@ -127,13 +127,13 @@ void PairHybridKokkos::compute(int eflag, int vflag)
     if (eflag_atom) {
       n = atom->nlocal;
       if (force->newton_pair) n += atom->nghost;
-      double *eatom_substyle = styles[m]->eatom;
+      KK_FLOAT *eatom_substyle = styles[m]->eatom;
       for (i = 0; i < n; i++) eatom[i] += eatom_substyle[i];
     }
     if (vflag_atom) {
       n = atom->nlocal;
       if (force->newton_pair) n += atom->nghost;
-      double **vatom_substyle = styles[m]->vatom;
+      KK_FLOAT **vatom_substyle = styles[m]->vatom;
       for (i = 0; i < n; i++)
         for (j = 0; j < 6; j++)
           vatom[i][j] += vatom_substyle[i][j];

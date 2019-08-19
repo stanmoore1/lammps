@@ -147,8 +147,8 @@ void FixNHKokkos<DeviceType>::setup(int vflag)
   // masses and initial forces on barostat variables
 
   if (pstat_flag) {
-    double kt = boltz * t_target;
-    double nkt = (atom->natoms + 1) * kt;
+    KK_FLOAT kt = boltz * t_target;
+    KK_FLOAT nkt = (atom->natoms + 1) * kt;
 
     for (int i = 0; i < 3; i++)
       if (p_flag[i])
@@ -296,11 +296,11 @@ void FixNHKokkos<DeviceType>::final_integrate()
 template<class DeviceType>
 void FixNHKokkos<DeviceType>::remap()
 {
-  double oldlo,oldhi;
-  double expfac;
+  KK_FLOAT oldlo,oldhi;
+  KK_FLOAT expfac;
 
   int nlocal = atom->nlocal;
-  double *h = domain->h;
+  KK_FLOAT *h = domain->h;
 
   // omega is not used, except for book-keeping
 
@@ -336,9 +336,9 @@ void FixNHKokkos<DeviceType>::remap()
   //
   // Ordering of operations preserves time symmetry.
 
-  double dto2 = dto/2.0;
-  double dto4 = dto/4.0;
-  double dto8 = dto/8.0;
+  KK_FLOAT dto2 = dto/2.0;
+  KK_FLOAT dto4 = dto/4.0;
+  KK_FLOAT dto8 = dto/8.0;
 
   // off-diagonal components, first half
 
@@ -673,14 +673,14 @@ void FixNHKokkos<DeviceType>::operator()(TagFixNH_nh_v_temp, const int &i) const
 template<class DeviceType>
 void FixNHKokkos<DeviceType>::pre_exchange()
 {
-  double xprd = domain->xprd;
-  double yprd = domain->yprd;
+  KK_FLOAT xprd = domain->xprd;
+  KK_FLOAT yprd = domain->yprd;
 
   // flip is only triggered when tilt exceeds 0.5 by DELTAFLIP
   // this avoids immediate re-flipping due to tilt oscillations
 
-  double xtiltmax = (0.5+DELTAFLIP)*xprd;
-  double ytiltmax = (0.5+DELTAFLIP)*yprd;
+  KK_FLOAT xtiltmax = (0.5+DELTAFLIP)*xprd;
+  KK_FLOAT ytiltmax = (0.5+DELTAFLIP)*yprd;
 
   int flipxy,flipxz,flipyz;
   flipxy = flipxz = flipyz = 0;

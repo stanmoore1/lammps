@@ -141,9 +141,9 @@ void PairYukawaKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 // Rewrite this.
 template<class DeviceType>
-double PairYukawaKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairYukawaKokkos<DeviceType>::init_one(int i, int j)
 {
-  double cutone = PairYukawa::init_one(i,j);
+  KK_FLOAT cutone = PairYukawa::init_one(i,j);
 
   k_params.h_view(i,j).a      = a[i][j];
   k_params.h_view(i,j).offset = offset[i][j];

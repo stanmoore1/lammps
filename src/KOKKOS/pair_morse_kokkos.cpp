@@ -271,9 +271,9 @@ void PairMorseKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 // Rewrite this.
 template<class DeviceType>
-double PairMorseKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairMorseKokkos<DeviceType>::init_one(int i, int j)
 {
-  double cutone = PairMorse::init_one(i,j);
+  KK_FLOAT cutone = PairMorse::init_one(i,j);
 
   k_params.h_view(i,j).d0     = d0[i][j];
   k_params.h_view(i,j).alpha  = alpha[i][j];

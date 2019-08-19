@@ -417,7 +417,7 @@ int AtomVecFullKokkos::pack_border(int n, int *list, double *buf,
                                         int pbc_flag, int *pbc)
 {
   int i,j,m;
-  double dx,dy,dz;
+  KK_FLOAT dx,dy,dz;
 
   m = 0;
   if (pbc_flag == 0) {
@@ -468,7 +468,7 @@ int AtomVecFullKokkos::pack_border_vel(int n, int *list, double *buf,
                                             int pbc_flag, int *pbc)
 {
   int i,j,m;
-  double dx,dy,dz,dvx,dvy,dvz;
+  KK_FLOAT dx,dy,dz,dvx,dvy,dvz;
 
   m = 0;
   if (pbc_flag == 0) {

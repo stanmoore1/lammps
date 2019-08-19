@@ -25,7 +25,7 @@
 
 namespace LAMMPS_NS {
 
-typedef double SNAreal;
+typedef KK_FLOAT SNAreal;
 typedef struct { SNAreal re, im; } SNAcomplex;
 
 struct SNAKK_ZINDICES {
@@ -65,7 +65,7 @@ inline
   SNAKokkos(const SNAKokkos<DeviceType>& sna, const typename Kokkos::TeamPolicy<DeviceType>::member_type& team);
 
 inline
-  SNAKokkos(double, int, double, int, int);
+  SNAKokkos(KK_FLOAT, int, KK_FLOAT, int, int);
 
   KOKKOS_INLINE_FUNCTION
   ~SNAKokkos();
@@ -76,7 +76,7 @@ inline
 inline
   void init();            //
 
-  double memory_usage();
+  KK_FLOAT memory_usage();
 
   int ncoeff;
 
@@ -91,7 +91,7 @@ inline
   void compute_zi(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int);    // ForceSNAP
   KOKKOS_INLINE_FUNCTION
   void compute_yi(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int,
-   const Kokkos::View<KK_FLOAT**, DeviceType> &beta); // ForceSNAP
+   const Kokkos::View<double**, DeviceType> &beta); // ForceSNAP
   KOKKOS_INLINE_FUNCTION
   void compute_bi(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int);    // ForceSNAP
 
@@ -102,12 +102,12 @@ inline
   KOKKOS_INLINE_FUNCTION
   void compute_deidrj(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int); // ForceSNAP
   KOKKOS_INLINE_FUNCTION
-  double compute_sfac(double, double); // add_uarraytot, compute_duarray
+  KK_FLOAT compute_sfac(KK_FLOAT, KK_FLOAT); // add_uarraytot, compute_duarray
   KOKKOS_INLINE_FUNCTION
-  double compute_dsfac(double, double); // compute_duarray
+  KK_FLOAT compute_dsfac(KK_FLOAT, KK_FLOAT); // compute_duarray
 
 #ifdef TIMING_INFO
-  double* timers;
+  KK_FLOAT* timers;
   timespec starttime, endtime;
   int print;
   int counter;
@@ -139,7 +139,7 @@ inline
   t_sna_4c dulist;
 
 private:
-  double rmin0, rfac0;
+  KK_FLOAT rmin0, rfac0;
 
   //use indexlist instead of loops, constructor generates these
   // Same across all SNAKokkos
@@ -158,9 +158,9 @@ private:
   t_sna_2d rootpqarray;
 
   static const int nmaxfactorial = 167;
-  static const double nfac_table[];
+  static const KK_FLOAT nfac_table[];
   inline
-  double factorial(int);
+  KK_FLOAT factorial(int);
 
   KOKKOS_INLINE_FUNCTION
   void create_team_scratch_arrays(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team); // SNAKokkos()
@@ -175,23 +175,23 @@ inline
   KOKKOS_INLINE_FUNCTION
   void zero_uarraytot(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int);      // compute_ui
   KOKKOS_INLINE_FUNCTION
-  void addself_uarraytot(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, double); // compute_ui
+  void addself_uarraytot(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, KK_FLOAT); // compute_ui
   KOKKOS_INLINE_FUNCTION
-  void add_uarraytot(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int, double, double, double); // compute_ui
+  void add_uarraytot(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int, KK_FLOAT, KK_FLOAT, KK_FLOAT); // compute_ui
 
   KOKKOS_INLINE_FUNCTION
   void compute_uarray(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int,
-                      double, double, double,
-                      double, double); // compute_ui
+                      KK_FLOAT, KK_FLOAT, KK_FLOAT,
+                      KK_FLOAT, KK_FLOAT); // compute_ui
   inline
-  double deltacg(int, int, int);  // init_clebsch_gordan
+  KK_FLOAT deltacg(int, int, int);  // init_clebsch_gordan
 
 inline
   int compute_ncoeff();           // SNAKokkos()
   KOKKOS_INLINE_FUNCTION
   void compute_duarray(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int,
-                       double, double, double, // compute_duidrj
-                       double, double, double, double, double);
+                       KK_FLOAT, KK_FLOAT, KK_FLOAT, // compute_duidrj
+                       KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT);
 
   // Sets the style for the switching function
   // 0 = none
@@ -199,7 +199,7 @@ inline
   int switch_flag;
 
   // Self-weight
-  double wself;
+  KK_FLOAT wself;
 
   int bzero_flag; // 1 if bzero subtracted from barray
   Kokkos::View<double*, DeviceType> bzero; // array of B values for isolated atoms

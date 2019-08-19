@@ -85,10 +85,10 @@ template <class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void FixNVESphereKokkos<DeviceType>::initial_integrate_item(const int i) const
 {
-  const double dtfrotate = dtf / inertia;
+  const KK_FLOAT dtfrotate = dtf / inertia;
 
   if (mask(i) & groupbit) {
-    const double dtfm = dtf / rmass(i);
+    const KK_FLOAT dtfm = dtf / rmass(i);
     v(i,0) += dtfm * f(i,0);
     v(i,1) += dtfm * f(i,1);
     v(i,2) += dtfm * f(i,2);
@@ -96,7 +96,7 @@ void FixNVESphereKokkos<DeviceType>::initial_integrate_item(const int i) const
     x(i,1) += dtv * v(i,1);
     x(i,2) += dtv * v(i,2);
 
-    const double dtirotate = dtfrotate / (radius(i)*radius(i)*rmass(i));
+    const KK_FLOAT dtirotate = dtfrotate / (radius(i)*radius(i)*rmass(i));
     omega(i,0) += dtirotate * torque(i,0);
     omega(i,1) += dtirotate * torque(i,1);
     omega(i,2) += dtirotate * torque(i,2);
@@ -132,15 +132,15 @@ template <class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void FixNVESphereKokkos<DeviceType>::final_integrate_item(const int i) const
 {
-  const double dtfrotate = dtf / inertia;
+  const KK_FLOAT dtfrotate = dtf / inertia;
 
   if (mask(i) & groupbit) {
-    const double dtfm = dtf / rmass(i);
+    const KK_FLOAT dtfm = dtf / rmass(i);
     v(i,0) += dtfm * f(i,0);
     v(i,1) += dtfm * f(i,1);
     v(i,2) += dtfm * f(i,2);
 
-    const double dtirotate = dtfrotate / (radius(i)*radius(i)*rmass(i));
+    const KK_FLOAT dtirotate = dtfrotate / (radius(i)*radius(i)*rmass(i));
     omega(i,0) += dtirotate * torque(i,0);
     omega(i,1) += dtirotate * torque(i,1);
     omega(i,2) += dtirotate * torque(i,2);

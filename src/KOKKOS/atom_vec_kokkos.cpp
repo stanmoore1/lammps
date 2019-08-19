@@ -429,9 +429,9 @@ struct AtomVecKokkos_PackCommVel {
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
-  KK_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
-  KK_FLOAT _pbc[6];
-  KK_FLOAT _h_rate[6];
+  double _xprd,_yprd,_zprd,_xy,_xz,_yz;
+  double _pbc[6];
+  double _h_rate[6];
   const int _deform_vremap;
 
   AtomVecKokkos_PackCommVel(
@@ -441,8 +441,8 @@ struct AtomVecKokkos_PackCommVel {
     const typename DAT::tdual_xfloat_2d &buf,
     const typename DAT::tdual_int_2d &list,
     const int &iswap,
-    const KK_FLOAT &xprd, const KK_FLOAT &yprd, const KK_FLOAT &zprd,
-    const KK_FLOAT &xy, const KK_FLOAT &xz, const KK_FLOAT &yz, const int* const pbc,
+    const double &xprd, const double &yprd, const double &zprd,
+    const double &xy, const double &xz, const double &yz, const int* const pbc,
     const double * const h_rate,
     const int &deform_vremap):
     _x(x.view<DeviceType>()),
@@ -693,7 +693,7 @@ int AtomVecKokkos::pack_comm(int n, int *list, double *buf,
                              int pbc_flag, int *pbc)
 {
   int i,j,m;
-  double dx,dy,dz;
+  KK_FLOAT dx,dy,dz;
 
   m = 0;
   if (pbc_flag == 0) {
@@ -729,7 +729,7 @@ int AtomVecKokkos::pack_comm_vel(int n, int *list, double *buf,
                                  int pbc_flag, int *pbc)
 {
   int i,j,m;
-  double dx,dy,dz,dvx,dvy,dvz;
+  KK_FLOAT dx,dy,dz,dvx,dvy,dvz;
 
   m = 0;
   if (pbc_flag == 0) {

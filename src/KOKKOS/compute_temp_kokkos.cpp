@@ -41,7 +41,7 @@ ComputeTempKokkos<DeviceType>::ComputeTempKokkos(LAMMPS *lmp, int narg, char **a
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-double ComputeTempKokkos<DeviceType>::compute_scalar()
+KK_FLOAT ComputeTempKokkos<DeviceType>::compute_scalar()
 {
   atomKK->sync(execution_space,datamask_read);
   atomKK->k_mass.sync<DeviceType>();
@@ -57,7 +57,7 @@ double ComputeTempKokkos<DeviceType>::compute_scalar()
   mask = atomKK->k_mask.view<DeviceType>();
   int nlocal = atom->nlocal;
 
-  double t = 0.0;
+  KK_FLOAT t = 0.0;
   CTEMP t_kk;
 
   copymode = 1;
@@ -112,7 +112,7 @@ void ComputeTempKokkos<DeviceType>::compute_vector()
   mask = atomKK->k_mask.view<DeviceType>();
   int nlocal = atom->nlocal;
 
-  double t[6];
+  KK_FLOAT t[6];
   for (i = 0; i < 6; i++) t[i] = 0.0;
   CTEMP t_kk;
 

@@ -77,8 +77,8 @@ class PairCoulDSFKokkos : public PairCoulDSF {
   int neighflag,newton_pair;
   int nlocal,nall,eflag,vflag;
 
-  double special_coul[4];
-  double qqrd2e;
+  KK_FLOAT special_coul[4];
+  KK_FLOAT qqrd2e;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;

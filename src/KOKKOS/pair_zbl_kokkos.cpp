@@ -275,9 +275,9 @@ void PairZBLKokkos<DeviceType>::allocate()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairZBLKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairZBLKokkos<DeviceType>::init_one(int i, int j)
 {
-  double cutone = PairZBL::init_one(i,j);
+  KK_FLOAT cutone = PairZBL::init_one(i,j);
 
   k_z.h_view(i) = z[i];
   k_z.h_view(j) = z[j];

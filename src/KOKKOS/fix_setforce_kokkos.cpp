@@ -106,7 +106,7 @@ void FixSetForceKokkos<DeviceType>::post_force(int vflag)
   }
 
   foriginal[0] = foriginal[1] = foriginal[2] = 0.0;
-  double_3 foriginal_kk;
+  KK_FLOAT_3 foriginal_kk;
   force_flag = 0;
 
   if (varflag == CONSTANT) {
@@ -153,7 +153,7 @@ void FixSetForceKokkos<DeviceType>::post_force(int vflag)
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixSetForceKokkos<DeviceType>::operator()(TagFixSetForceConstant, const int &i, double_3& foriginal_kk) const {
+void FixSetForceKokkos<DeviceType>::operator()(TagFixSetForceConstant, const int &i, KK_FLOAT_3& foriginal_kk) const {
   if (mask[i] & groupbit) {
     if (region && !d_match[i]) return;
     foriginal_kk.d0 += f(i,0);
@@ -167,7 +167,7 @@ void FixSetForceKokkos<DeviceType>::operator()(TagFixSetForceConstant, const int
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixSetForceKokkos<DeviceType>::operator()(TagFixSetForceNonConstant, const int &i, double_3& foriginal_kk) const {
+void FixSetForceKokkos<DeviceType>::operator()(TagFixSetForceNonConstant, const int &i, KK_FLOAT_3& foriginal_kk) const {
   if (mask[i] & groupbit) {
     if (region && !d_match[i]) return;
     foriginal_kk.d0 += f(i,0);

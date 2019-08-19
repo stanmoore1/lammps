@@ -59,19 +59,19 @@ class FixEOStableRXKokkos : public FixEOStableRX {
   void operator()(TagFixEOStableRXTemperatureLookup2, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void energy_lookup(int, double, double &) const;
+  void energy_lookup(int, KK_FLOAT, KK_FLOAT &) const;
 
   KOKKOS_INLINE_FUNCTION
-  void temperature_lookup(int, double, double &) const;
+  void temperature_lookup(int, KK_FLOAT, KK_FLOAT &) const;
 
  protected:
   //struct Table {
   //  int ninput;
-  //  double lo,hi;
-  //  double *rfile,*efile;
-  //  double *e2file;
-  //  double delta,invdelta,deltasq6;
-  //  double *r,*e,*de,*e2;
+  //  KK_FLOAT lo,hi;
+  //  KK_FLOAT *rfile,*efile;
+  //  KK_FLOAT *e2file;
+  //  KK_FLOAT delta,invdelta,deltasq6;
+  //  KK_FLOAT *r,*e,*de,*e2;
   //};
   //Table *tables, *tables2;
 
@@ -105,7 +105,7 @@ class FixEOStableRXKokkos : public FixEOStableRX {
 
   int **tabindex;
 
-  double boltz;
+  KK_FLOAT boltz;
 
   void allocate();
   void error_check();
@@ -122,10 +122,10 @@ class FixEOStableRXKokkos : public FixEOStableRX {
   DAT::tdual_int_scalar k_error_flag;
   DAT::tdual_int_scalar k_warning_flag;
 
-  int pack_reverse_comm(int, int, double *);
-  void unpack_reverse_comm(int, int *, double *);
-  int pack_forward_comm(int , int *, double *, int, int *);
-  void unpack_forward_comm(int , int , double *);
+  int pack_reverse_comm(int, int, KK_FLOAT *);
+  void unpack_reverse_comm(int, int *, KK_FLOAT *);
+  int pack_forward_comm(int , int *, KK_FLOAT *, int, int *);
+  void unpack_forward_comm(int , int , KK_FLOAT *);
 
   };
 }

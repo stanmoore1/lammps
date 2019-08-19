@@ -165,8 +165,8 @@ int NeighborKokkos::check_distance_kokkos()
 {
   typedef DeviceType device_type;
 
-  double delx,dely,delz;
-  double delta,delta1,delta2;
+  KK_FLOAT delx,dely,delz;
+  KK_FLOAT delta,delta1,delta2;
 
   if (boxcheck) {
     if (triclinic == 0) {

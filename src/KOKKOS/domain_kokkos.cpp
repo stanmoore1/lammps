@@ -49,7 +49,7 @@ public:
   typename ArrayTypes<DeviceType>::t_x_array x;
 
   struct value_type {
-    double value[3][2] ;
+    KK_FLOAT value[3][2] ;
   };
 
   DomainResetBoxFunctor(DAT::tdual_x_array _x):
@@ -101,8 +101,8 @@ void DomainKokkos::reset_box()
       f(atomKK->k_x);
     Kokkos::parallel_reduce(nlocal,f,result);
 
-    double (*extent)[2] = result.value;
-    double all[3][2];
+    KK_FLOAT (*extent)[2] = result.value;
+    KK_FLOAT all[3][2];
 
     // compute extent across all procs
     // flip sign of MIN to do it in one Allreduce MAX
@@ -151,7 +151,7 @@ void DomainKokkos::reset_box()
       }
 
     } else {
-      double lo[3],hi[3];
+      KK_FLOAT lo[3],hi[3];
       if (xperiodic == 0) {
         lo[0] = -all[0][0]; lo[1] = 0.0; lo[2] = 0.0;
         Domain::lamda2x(lo,lo);
@@ -218,19 +218,19 @@ void DomainKokkos::reset_box()
 template<class DeviceType, int PERIODIC, int DEFORM_VREMAP>
 struct DomainPBCFunctor {
   typedef DeviceType device_type;
-  double lo[3],hi[3],period[3];
+  KK_FLOAT lo[3],hi[3],period[3];
   typename ArrayTypes<DeviceType>::t_x_array x;
   typename ArrayTypes<DeviceType>::t_v_array v;
   typename ArrayTypes<DeviceType>::t_int_1d mask;
   typename ArrayTypes<DeviceType>::t_imageint_1d image;
   int deform_groupbit;
-  double h_rate[6];
+  KK_FLOAT h_rate[6];
   int xperiodic,yperiodic,zperiodic;
 
-  DomainPBCFunctor(double* _lo, double* _hi, double* _period,
+  DomainPBCFunctor(KK_FLOAT* _lo, KK_FLOAT* _hi, KK_FLOAT* _period,
                    DAT::tdual_x_array _x, DAT::tdual_v_array _v,
                    DAT::tdual_int_1d _mask, DAT::tdual_imageint_1d _image,
-                   int _deform_groupbit, double* _h_rate,
+                   int _deform_groupbit, KK_FLOAT* _h_rate,
                    int _xperiodic, int _yperiodic, int _zperiodic):
     x(_x.view<DeviceType>()), v(_v.view<DeviceType>()),
     mask(_mask.view<DeviceType>()), image(_image.view<DeviceType>()),
@@ -351,7 +351,7 @@ void DomainKokkos::pbc()
     return;
   }
 
-  double *lo,*hi,*period;
+  KK_FLOAT *lo,*hi,*period;
   int nlocal = atomKK->nlocal;
 
   if (triclinic == 0) {

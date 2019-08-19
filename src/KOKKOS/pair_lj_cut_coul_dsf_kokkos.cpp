@@ -148,7 +148,7 @@ void PairLJCutCoulDSFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   for (int ii = 0; ii < inum; ii ++) {
     //int i = list->ilist[ii];
-    double qtmp = atom->q[ii];
+    KK_FLOAT qtmp = atom->q[ii];
     eng_coul += -(e_shift/2.0 + alpha/MY_PIS) * qtmp*qtmp*qqrd2e;
   }
 
@@ -335,11 +335,11 @@ void PairLJCutCoulDSFKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairLJCutCoulDSFKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairLJCutCoulDSFKokkos<DeviceType>::init_one(int i, int j)
 {
-  double cutone = PairLJCutCoulDSF::init_one(i,j);
-  double cut_ljsqm = cut_ljsq[i][j];
-  double cut_coulsqm = cut_coulsq;
+  KK_FLOAT cutone = PairLJCutCoulDSF::init_one(i,j);
+  KK_FLOAT cut_ljsqm = cut_ljsq[i][j];
+  KK_FLOAT cut_coulsqm = cut_coulsq;
 
   k_params.h_view(i,j).lj1 = lj1[i][j];
   k_params.h_view(i,j).lj2 = lj2[i][j];

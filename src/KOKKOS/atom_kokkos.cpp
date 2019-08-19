@@ -243,7 +243,7 @@ void AtomKokkos::grow(unsigned int mask){
 }
 
 /* ----------------------------------------------------------------------
-   add a custom variable with name of type flag = 0/1 for int/double
+   add a custom variable with name of type flag = 0/1 for int/KK_FLOAT
    assumes name does not already exist
    return index in ivector or dvector of its location
 ------------------------------------------------------------------------- */
@@ -281,7 +281,7 @@ int AtomKokkos::add_custom(const char *name, int flag)
 }
 
 /* ----------------------------------------------------------------------
-   remove a custom variable of type flag = 0/1 for int/double at index
+   remove a custom variable of type flag = 0/1 for int/KK_FLOAT at index
    free memory for vector and name and set ptrs to NULL
    ivector/dvector and iname/dname lists never shrink
 ------------------------------------------------------------------------- */

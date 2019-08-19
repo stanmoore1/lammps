@@ -104,16 +104,16 @@ class FixQEqReaxKokkos : public FixQEqReax {
   void vecsum2_item(int) const;
 
   KOKKOS_INLINE_FUNCTION
-  double norm1_item(int) const;
+  KK_FLOAT norm1_item(int) const;
 
   KOKKOS_INLINE_FUNCTION
-  double norm2_item(int) const;
+  KK_FLOAT norm2_item(int) const;
 
   KOKKOS_INLINE_FUNCTION
-  double dot1_item(int) const;
+  KK_FLOAT dot1_item(int) const;
 
   KOKKOS_INLINE_FUNCTION
-  double dot2_item(int) const;
+  KK_FLOAT dot2_item(int) const;
 
   KOKKOS_INLINE_FUNCTION
   void precon1_item(int) const;
@@ -122,19 +122,19 @@ class FixQEqReaxKokkos : public FixQEqReax {
   void precon2_item(int) const;
 
   KOKKOS_INLINE_FUNCTION
-  double precon_item(int) const;
+  KK_FLOAT precon_item(int) const;
 
   KOKKOS_INLINE_FUNCTION
-  double vecacc1_item(int) const;
+  KK_FLOAT vecacc1_item(int) const;
 
   KOKKOS_INLINE_FUNCTION
-  double vecacc2_item(int) const;
+  KK_FLOAT vecacc2_item(int) const;
 
   KOKKOS_INLINE_FUNCTION
   void calculate_q_item(int) const;
 
   KOKKOS_INLINE_FUNCTION
-  double calculate_H_k(const KK_FLOAT &r, const KK_FLOAT &shld) const;
+  KK_FLOAT calculate_H_k(const KK_FLOAT &r, const KK_FLOAT &shld) const;
 
   struct params_qeq{
     KOKKOS_INLINE_FUNCTION
@@ -144,11 +144,11 @@ class FixQEqReaxKokkos : public FixQEqReax {
     KK_FLOAT chi, eta, gamma;
   };
 
-  virtual int pack_forward_comm(int, int *, double *, int, int *);
-  virtual void unpack_forward_comm(int, int, double *);
-  int pack_reverse_comm(int, int, double *);
-  void unpack_reverse_comm(int, int *, double *);
-  double memory_usage();
+  virtual int pack_forward_comm(int, int *, KK_FLOAT *, int, int *);
+  virtual void unpack_forward_comm(int, int, KK_FLOAT *);
+  int pack_reverse_comm(int, int, KK_FLOAT *);
+  void unpack_reverse_comm(int, int *, KK_FLOAT *);
+  KK_FLOAT memory_usage();
 
  private:
   int inum;
@@ -200,8 +200,8 @@ class FixQEqReaxKokkos : public FixQEqReax {
   HAT::t_ffloat_2d h_s_hist, h_t_hist;
   typename AT::t_ffloat_2d_randomread r_s_hist, r_t_hist;
 
-  Kokkos::Experimental::ScatterView<KK_FLOAT*, typename AT::t_ffloat_1d::array_layout, DeviceType, Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated> dup_o;
-  Kokkos::Experimental::ScatterView<KK_FLOAT*, typename AT::t_ffloat_1d::array_layout, DeviceType, Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated> ndup_o;
+  Kokkos::Experimental::ScatterView<double*, typename AT::t_ffloat_1d::array_layout, DeviceType, Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated> dup_o;
+  Kokkos::Experimental::ScatterView<double*, typename AT::t_ffloat_1d::array_layout, DeviceType, Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated> ndup_o;
 
   void init_shielding_k();
   void init_hist();
@@ -214,7 +214,7 @@ class FixQEqReaxKokkos : public FixQEqReax {
   int neighflag, pack_flag;
   int nlocal,nall,nmax,newton_pair;
   int count, isuccess;
-  double alpha, beta, delta, cutsq;
+  KK_FLOAT alpha, beta, delta, cutsq;
 
   int iswap;
   int first;
@@ -223,8 +223,8 @@ class FixQEqReaxKokkos : public FixQEqReax {
 
   void grow_arrays(int);
   void copy_arrays(int, int, int);
-  int pack_exchange(int, double *);
-  int unpack_exchange(int, double *);
+  int pack_exchange(int, KK_FLOAT *);
+  int unpack_exchange(int, KK_FLOAT *);
 };
 
 template <class DeviceType>
@@ -295,7 +295,7 @@ struct FixQEqReaxKokkosComputeHFunctor {
             shmem_size(atoms_per_team, vector_length) + // s_jtype
         Kokkos::View<int **, scratch_space, Kokkos::MemoryUnmanaged>::
             shmem_size(atoms_per_team, vector_length) + // s_j
-        Kokkos::View<KK_FLOAT **, scratch_space,
+        Kokkos::View<double **, scratch_space,
                      Kokkos::MemoryUnmanaged>::shmem_size(atoms_per_team,
                                                           vector_length); // s_r
     return shmem_size;
@@ -410,7 +410,7 @@ template <class DeviceType>
 struct FixQEqReaxKokkosNorm1Functor  {
   typedef DeviceType  device_type ;
   FixQEqReaxKokkos<DeviceType> c;
-  typedef double value_type;
+  typedef KK_FLOAT value_type;
   FixQEqReaxKokkosNorm1Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
   };
@@ -424,7 +424,7 @@ template <class DeviceType>
 struct FixQEqReaxKokkosNorm2Functor  {
   typedef DeviceType  device_type ;
   FixQEqReaxKokkos<DeviceType> c;
-  typedef double value_type;
+  typedef KK_FLOAT value_type;
   FixQEqReaxKokkosNorm2Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
   };
@@ -438,7 +438,7 @@ template <class DeviceType>
 struct FixQEqReaxKokkosDot1Functor  {
   typedef DeviceType  device_type ;
   FixQEqReaxKokkos<DeviceType> c;
-  typedef double value_type;
+  typedef KK_FLOAT value_type;
   FixQEqReaxKokkosDot1Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
   };
@@ -452,7 +452,7 @@ template <class DeviceType>
 struct FixQEqReaxKokkosDot2Functor  {
   typedef DeviceType  device_type ;
   FixQEqReaxKokkos<DeviceType> c;
-  typedef double value_type;
+  typedef KK_FLOAT value_type;
   FixQEqReaxKokkosDot2Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
   };
@@ -492,7 +492,7 @@ template <class DeviceType>
 struct FixQEqReaxKokkosPreconFunctor  {
   typedef DeviceType  device_type ;
   FixQEqReaxKokkos<DeviceType> c;
-  typedef double value_type;
+  typedef KK_FLOAT value_type;
   FixQEqReaxKokkosPreconFunctor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
   };
@@ -506,7 +506,7 @@ template <class DeviceType>
 struct FixQEqReaxKokkosVecAcc1Functor  {
   typedef DeviceType  device_type ;
   FixQEqReaxKokkos<DeviceType> c;
-  typedef double value_type;
+  typedef KK_FLOAT value_type;
   FixQEqReaxKokkosVecAcc1Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
   };
@@ -520,7 +520,7 @@ template <class DeviceType>
 struct FixQEqReaxKokkosVecAcc2Functor  {
   typedef DeviceType  device_type ;
   FixQEqReaxKokkos<DeviceType> c;
-  typedef double value_type;
+  typedef KK_FLOAT value_type;
   FixQEqReaxKokkosVecAcc2Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
   };

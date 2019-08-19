@@ -42,7 +42,7 @@ class PairBuckCoulCutKokkos : public PairBuckCoulCut {
 
   void settings(int, char **);
   void init_style();
-  double init_one(int, int);
+  KK_FLOAT init_one(int, int);
 
   struct params_buck_coul{
     KOKKOS_INLINE_FUNCTION
@@ -108,8 +108,8 @@ class PairBuckCoulCutKokkos : public PairBuckCoulCut {
   int neighflag;
   int nlocal,nall,eflag,vflag;
 
-  double special_lj[4], special_coul[4];
-  double qqrd2e;
+  KK_FLOAT special_lj[4], special_coul[4];
+  KK_FLOAT qqrd2e;
 
   void allocate();
 

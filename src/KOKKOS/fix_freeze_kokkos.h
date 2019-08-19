@@ -31,7 +31,7 @@ template<class DeviceType>
 class FixFreezeKokkos : public FixFreeze {
  public:
   struct OriginalForce {
-    double values[3];
+    KK_FLOAT values[3];
 
     KOKKOS_INLINE_FUNCTION
     OriginalForce() {
@@ -62,7 +62,7 @@ class FixFreezeKokkos : public FixFreeze {
   void setup(int);
   void post_force(int);
   void post_force_respa(int, int, int);
-  double compute_vector(int);
+  KK_FLOAT compute_vector(int);
 
   KOKKOS_INLINE_FUNCTION
   void operator()(const int i, OriginalForce &original) const;

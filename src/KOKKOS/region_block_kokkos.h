@@ -53,13 +53,13 @@ class RegBlockKokkos : public RegBlock, public KokkosBase {
   typename AT::t_int_1d_randomread mask;
 
   KOKKOS_INLINE_FUNCTION
-  int k_inside(double, double, double) const;
+  int k_inside(KK_FLOAT, KK_FLOAT, KK_FLOAT) const;
   KOKKOS_INLINE_FUNCTION
-  int match(double, double, double) const;
+  int match(KK_FLOAT, KK_FLOAT, KK_FLOAT) const;
   KOKKOS_INLINE_FUNCTION
-  void inverse_transform(double &, double &, double &) const;
+  void inverse_transform(KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;
   KOKKOS_INLINE_FUNCTION
-  void rotate(double &, double &, double &, double) const;
+  void rotate(KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT) const;
 
 };
 

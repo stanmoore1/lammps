@@ -314,7 +314,7 @@ void VerletKokkos::run(int n)
   f_merge_copy = DAT::t_f_array("VerletKokkos::f_merge_copy",atomKK->k_f.extent(0));
 
   atomKK->sync(Device,ALL_MASK);
-  //static double time = 0.0;
+  //static KK_FLOAT time = 0.0;
   //Kokkos::Impl::Timer ktimer;
 
   timer->init_timeout();

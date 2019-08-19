@@ -144,7 +144,7 @@ class PairExp6rxKokkos : public PairExp6rx {
  protected:
   int eflag,vflag;
   int nlocal,newton_pair,neighflag;
-  double special_lj[4];
+  KK_FLOAT special_lj[4];
   int nthreads,ntypes;
 
   typename AT::t_x_array_randomread x;
@@ -153,8 +153,8 @@ class PairExp6rxKokkos : public PairExp6rx {
   typename AT::t_efloat_1d uCG, uCGnew;
   typename AT::t_float_2d dvector;
 
-  typedef Kokkos::View<KK_FLOAT**[3],Kokkos::LayoutRight,DeviceType> t_f_array_thread;
-  typedef Kokkos::View<KK_FLOAT**,Kokkos::LayoutRight,DeviceType> t_efloat_1d_thread;
+  typedef Kokkos::View<double**[3],Kokkos::LayoutRight,DeviceType> t_f_array_thread;
+  typedef Kokkos::View<double**,Kokkos::LayoutRight,DeviceType> t_efloat_1d_thread;
 
   t_f_array_thread t_f;
   t_efloat_1d_thread t_uCG, t_uCGnew;
@@ -190,24 +190,24 @@ class PairExp6rxKokkos : public PairExp6rx {
   void setup();
 
   KOKKOS_INLINE_FUNCTION
-  void getMixingWeights(int, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &) const;
+  void getMixingWeights(int, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;
 
   template <class ArrayT>
   void getMixingWeightsVect(const int, int, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &) const;
 
   KOKKOS_INLINE_FUNCTION
-  void exponentScaling(double, double &, double &) const;
+  void exponentScaling(KK_FLOAT, KK_FLOAT &, KK_FLOAT &) const;
 
   KOKKOS_INLINE_FUNCTION
-  void polynomialScaling(double, double &, double &, double &) const;
+  void polynomialScaling(KK_FLOAT, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;
 
-  double s_coeffAlpha[6],s_coeffEps[6],s_coeffRm[6];
-
-  KOKKOS_INLINE_FUNCTION
-  double func_rin(const double &) const;
+  KK_FLOAT s_coeffAlpha[6],s_coeffEps[6],s_coeffRm[6];
 
   KOKKOS_INLINE_FUNCTION
-  double expValue(const double) const;
+  KK_FLOAT func_rin(const KK_FLOAT &) const;
+
+  KOKKOS_INLINE_FUNCTION
+  KK_FLOAT expValue(const KK_FLOAT) const;
 
   friend void pair_virial_fdotr_compute<PairExp6rxKokkos>(PairExp6rxKokkos*);
 };

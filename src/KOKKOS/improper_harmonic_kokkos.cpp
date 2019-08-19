@@ -299,8 +299,8 @@ void ImproperHarmonicKokkos<DeviceType>::allocate()
   ImproperHarmonic::allocate();
 
   int n = atom->nimpropertypes;
-  k_k = Kokkos::DualView<KK_FLOAT*,DeviceType>("ImproperHarmonic::k",n+1);
-  k_chi = Kokkos::DualView<KK_FLOAT*,DeviceType>("ImproperHarmonic::chi",n+1);
+  k_k = Kokkos::DualView<double*,DeviceType>("ImproperHarmonic::k",n+1);
+  k_chi = Kokkos::DualView<double*,DeviceType>("ImproperHarmonic::chi",n+1);
 
   d_k = k_k.template view<DeviceType>();
   d_chi = k_chi.template view<DeviceType>();

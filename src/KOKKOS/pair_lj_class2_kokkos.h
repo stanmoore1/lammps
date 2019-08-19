@@ -42,7 +42,7 @@ class PairLJClass2Kokkos : public PairLJClass2 {
 
   void settings(int, char **);
   void init_style();
-  double init_one(int, int);
+  KK_FLOAT init_one(int, int);
 
   struct params_lj{
     KOKKOS_INLINE_FUNCTION
@@ -92,7 +92,7 @@ class PairLJClass2Kokkos : public PairLJClass2 {
   typename AT::t_virial_array d_vatom;
 
   int newton_pair;
-  double special_lj[4];
+  KK_FLOAT special_lj[4];
 
   typename AT::tdual_ffloat_2d k_cutsq;
   typename AT::t_ffloat_2d d_cutsq;

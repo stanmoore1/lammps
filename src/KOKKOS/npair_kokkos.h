@@ -365,7 +365,7 @@ class NeighborKokkosExecute
   int find_special(const int &i, const int &j) const;
 
   KOKKOS_INLINE_FUNCTION
-  int minimum_image_check(double dx, double dy, double dz) const {
+  int minimum_image_check(KK_FLOAT dx, KK_FLOAT dy, KK_FLOAT dz) const {
     if (xperiodic && fabs(dx) > xprd_half) return 1;
     if (yperiodic && fabs(dy) > yprd_half) return 1;
     if (zperiodic && fabs(dz) > zprd_half) return 1;

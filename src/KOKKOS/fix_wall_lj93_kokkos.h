@@ -32,10 +32,10 @@ class FixWallLJ93Kokkos : public FixWallLJ93 {
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  typedef double value_type[];
+  typedef KK_FLOAT value_type[];
 
   FixWallLJ93Kokkos(class LAMMPS *, int, char **);
-  void wall_particle(int, int, double);
+  void wall_particle(int, int, KK_FLOAT);
 
   int m;
 
@@ -44,7 +44,7 @@ class FixWallLJ93Kokkos : public FixWallLJ93 {
 
  private:
   int dim,side;
-  double coord;
+  KK_FLOAT coord;
 
   typename AT::t_x_array x;
   typename AT::t_f_array f;
@@ -55,7 +55,7 @@ class FixWallLJ93Kokkos : public FixWallLJ93 {
 template <class DeviceType>
 struct FixWallLJ93KokkosFunctor  {
   typedef DeviceType device_type ;
-  typedef double value_type[];
+  typedef KK_FLOAT value_type[];
   const int value_count;
 
   FixWallLJ93Kokkos<DeviceType> c;

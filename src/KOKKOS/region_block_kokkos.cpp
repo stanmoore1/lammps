@@ -42,7 +42,7 @@ RegBlockKokkos<DeviceType>::~RegBlockKokkos()
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-int RegBlockKokkos<DeviceType>::k_inside(double x, double y, double z) const
+int RegBlockKokkos<DeviceType>::k_inside(KK_FLOAT x, KK_FLOAT y, KK_FLOAT z) const
 {
   if (x >= xlo && x <= xhi && y >= ylo && y <= yhi && z >= zlo && z <= zhi)
     return 1;
@@ -72,9 +72,9 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void RegBlockKokkos<DeviceType>::operator()(TagRegBlockMatchAll, const int &i) const {
   if (mask[i] & groupbit) {
-    double x_tmp = x(i,0);
-    double y_tmp = x(i,1);
-    double z_tmp = x(i,2);
+    KK_FLOAT x_tmp = x(i,0);
+    KK_FLOAT y_tmp = x(i,1);
+    KK_FLOAT z_tmp = x(i,2);
     d_match[i] = match(x_tmp,y_tmp,z_tmp);
   }
 }
@@ -93,7 +93,7 @@ void RegBlockKokkos<DeviceType>::operator()(TagRegBlockMatchAll, const int &i) c
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-int RegBlockKokkos<DeviceType>::match(double x, double y, double z) const
+int RegBlockKokkos<DeviceType>::match(KK_FLOAT x, KK_FLOAT y, KK_FLOAT z) const
 {
   if (dynamic) inverse_transform(x,y,z);
   return !(k_inside(x,y,z) ^ interior);
@@ -106,7 +106,7 @@ int RegBlockKokkos<DeviceType>::match(double x, double y, double z) const
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void RegBlockKokkos<DeviceType>::inverse_transform(double &x, double &y, double &z) const
+void RegBlockKokkos<DeviceType>::inverse_transform(KK_FLOAT &x, KK_FLOAT &y, KK_FLOAT &z) const
 {
   if (moveflag) {
     x -= dx;
@@ -134,16 +134,16 @@ void RegBlockKokkos<DeviceType>::inverse_transform(double &x, double &y, double 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void RegBlockKokkos<DeviceType>::rotate(double &x, double &y, double &z, double angle) const
+void RegBlockKokkos<DeviceType>::rotate(KK_FLOAT &x, KK_FLOAT &y, KK_FLOAT &z, KK_FLOAT angle) const
 {
-  double a[3],b[3],c[3],d[3],disp[3];
+  KK_FLOAT a[3],b[3],c[3],d[3],disp[3];
 
-  double sine = sin(angle);
-  double cosine = cos(angle);
+  KK_FLOAT sine = sin(angle);
+  KK_FLOAT cosine = cos(angle);
   d[0] = x - point[0];
   d[1] = y - point[1];
   d[2] = z - point[2];
-  double x0dotr = d[0]*runit[0] + d[1]*runit[1] + d[2]*runit[2];
+  KK_FLOAT x0dotr = d[0]*runit[0] + d[1]*runit[1] + d[2]*runit[2];
   c[0] = x0dotr * runit[0];
   c[1] = x0dotr * runit[1];
   c[2] = x0dotr * runit[2];

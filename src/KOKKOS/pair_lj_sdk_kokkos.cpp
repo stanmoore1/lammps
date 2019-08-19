@@ -171,7 +171,7 @@ compute_fpair(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, 
 
   } else if (ljt == LJ12_6) {
 
-    const double r6inv = r2inv*r2inv*r2inv;
+    const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
     return r6inv*(lj_1*r6inv - lj_2) * r2inv;
 
   }
@@ -208,7 +208,7 @@ compute_evdwl(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, 
     return r6inv*(lj_3*r3inv - lj_4) - offset;
 
   } else if (ljt == LJ12_6) {
-    const double r6inv = r2inv*r2inv*r2inv;
+    const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
     return r6inv*(lj_3*r6inv - lj_4) - offset;
   } else
     return 0.0;
@@ -292,9 +292,9 @@ void PairLJSDKKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairLJSDKKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairLJSDKKokkos<DeviceType>::init_one(int i, int j)
 {
-  double cutone = PairLJSDK::init_one(i,j);
+  KK_FLOAT cutone = PairLJSDK::init_one(i,j);
 
   k_params.h_view(i,j).lj1 = lj1[i][j];
   k_params.h_view(i,j).lj2 = lj2[i][j];

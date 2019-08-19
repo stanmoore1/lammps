@@ -306,10 +306,10 @@ void PairLJGromacsKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairLJGromacsKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairLJGromacsKokkos<DeviceType>::init_one(int i, int j)
 {
-  double cutone = PairLJGromacs::init_one(i,j);
-  double cut_inner_sqm = cut_inner_sq[i][j];
+  KK_FLOAT cutone = PairLJGromacs::init_one(i,j);
+  KK_FLOAT cut_inner_sqm = cut_inner_sq[i][j];
 
   k_params.h_view(i,j).lj1 = lj1[i][j];
   k_params.h_view(i,j).lj2 = lj2[i][j];

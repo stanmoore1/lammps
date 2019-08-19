@@ -41,7 +41,7 @@ class PairLJCutCoulDSFKokkos : public PairLJCutCoulDSF {
   void compute(int, int);
 
   void init_style();
-  double init_one(int, int);
+  KK_FLOAT init_one(int, int);
 
  protected:
   void cleanup_copy();
@@ -99,9 +99,9 @@ class PairLJCutCoulDSFKokkos : public PairLJCutCoulDSF {
   int neighflag;
   int nlocal,nall,eflag,vflag;
 
-  double special_coul[4];
-  double special_lj[4];
-  double qqrd2e;
+  KK_FLOAT special_coul[4];
+  KK_FLOAT special_lj[4];
+  KK_FLOAT qqrd2e;
 
   void allocate();
   friend class PairComputeFunctor<PairLJCutCoulDSFKokkos,FULL,true>;

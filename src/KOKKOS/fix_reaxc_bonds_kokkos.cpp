@@ -65,7 +65,7 @@ void FixReaxCBondsKokkos::Output_ReaxC_Bonds(bigint ntimestep, FILE *fp)
 {
   int nbuf_local;
   int nlocal_max, numbonds, numbonds_max;
-  double *buf;
+  KK_FLOAT *buf;
   DAT::tdual_ffloat_1d k_buf;
 
   int nlocal = atom->nlocal;
@@ -99,14 +99,14 @@ void FixReaxCBondsKokkos::Output_ReaxC_Bonds(bigint ntimestep, FILE *fp)
 
 /* ---------------------------------------------------------------------- */
 
-double FixReaxCBondsKokkos::memory_usage()
+KK_FLOAT FixReaxCBondsKokkos::memory_usage()
 {
-  double bytes;
+  KK_FLOAT bytes;
 
-  bytes = nbuf*sizeof(double);
+  bytes = nbuf*sizeof(KK_FLOAT);
   // These are accounted for in PairReaxCKokkos:
   //bytes += nmax*sizeof(int);
-  //bytes += 1.0*nmax*MAXREAXBOND*sizeof(double);
+  //bytes += 1.0*nmax*MAXREAXBOND*sizeof(KK_FLOAT);
   //bytes += 1.0*nmax*MAXREAXBOND*sizeof(int);
 
   return bytes;

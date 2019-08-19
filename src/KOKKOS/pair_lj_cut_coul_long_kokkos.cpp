@@ -312,7 +312,7 @@ void PairLJCutCoulLongKokkos<DeviceType>::allocate()
 }
 
 template<class DeviceType>
-void PairLJCutCoulLongKokkos<DeviceType>::init_tables(double cut_coul, double *cut_respa)
+void PairLJCutCoulLongKokkos<DeviceType>::init_tables(KK_FLOAT cut_coul, KK_FLOAT *cut_respa)
 {
   Pair::init_tables(cut_coul,cut_respa);
 
@@ -473,11 +473,11 @@ void PairLJCutCoulLongKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairLJCutCoulLongKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairLJCutCoulLongKokkos<DeviceType>::init_one(int i, int j)
 {
-  double cutone = PairLJCutCoulLong::init_one(i,j);
-  double cut_ljsqm = cut_ljsq[i][j];
-  double cut_coulsqm = cut_coulsq;
+  KK_FLOAT cutone = PairLJCutCoulLong::init_one(i,j);
+  KK_FLOAT cut_ljsqm = cut_ljsq[i][j];
+  KK_FLOAT cut_coulsqm = cut_coulsq;
 
   k_params.h_view(i,j).lj1 = lj1[i][j];
   k_params.h_view(i,j).lj2 = lj2[i][j];

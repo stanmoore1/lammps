@@ -27,14 +27,14 @@ FixStyle(setforce/kk/host,FixSetForceKokkos<LMPHostType>)
 
 namespace LAMMPS_NS {
 
-struct s_double_3 {
-  double d0, d1, d2;
+struct s_KK_FLOAT_3 {
+  KK_FLOAT d0, d1, d2;
   KOKKOS_INLINE_FUNCTION
-  s_double_3() {
+  s_KK_FLOAT_3() {
     d0 = d1 = d2 = 0.0;
   }
   KOKKOS_INLINE_FUNCTION
-  s_double_3& operator+=(const s_double_3 &rhs){
+  s_KK_FLOAT_3& operator+=(const s_KK_FLOAT_3 &rhs){
     d0 += rhs.d0;
     d1 += rhs.d1;
     d2 += rhs.d2;
@@ -42,13 +42,13 @@ struct s_double_3 {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator+=(const volatile s_double_3 &rhs) volatile {
+  void operator+=(const volatile s_KK_FLOAT_3 &rhs) volatile {
     d0 += rhs.d0;
     d1 += rhs.d1;
     d2 += rhs.d2;
   }
 };
-typedef s_double_3 double_3;
+typedef s_KK_FLOAT_3 KK_FLOAT_3;
 
 struct TagFixSetForceConstant{};
 
@@ -58,7 +58,7 @@ template<class DeviceType>
 class FixSetForceKokkos : public FixSetForce {
  public:
   typedef DeviceType device_type;
-  typedef double_3 value_type;
+  typedef KK_FLOAT_3 value_type;
   typedef ArrayTypes<DeviceType> AT;
 
   FixSetForceKokkos(class LAMMPS *, int, char **);
@@ -67,10 +67,10 @@ class FixSetForceKokkos : public FixSetForce {
   void post_force(int);
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagFixSetForceConstant, const int&, double_3&) const;
+  void operator()(TagFixSetForceConstant, const int&, KK_FLOAT_3&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagFixSetForceNonConstant, const int&, double_3&) const;
+  void operator()(TagFixSetForceNonConstant, const int&, KK_FLOAT_3&) const;
 
  private:
   DAT::tdual_ffloat_2d k_sforce;

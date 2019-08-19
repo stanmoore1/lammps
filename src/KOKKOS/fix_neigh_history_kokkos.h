@@ -36,11 +36,11 @@ class FixNeighHistoryKokkos : public FixNeighHistory {
   void pre_exchange();
   void setup_post_neighbor();
   virtual void post_neighbor();
-  double memory_usage();
+  KK_FLOAT memory_usage();
   void grow_arrays(int);
   void copy_arrays(int, int, int);
-  int pack_exchange(int, double *);
-  int unpack_exchange(int, double *);
+  int pack_exchange(int, KK_FLOAT *);
+  int unpack_exchange(int, KK_FLOAT *);
 
   KOKKOS_INLINE_FUNCTION
   void zero_partner_count_item(const int &i) const;
@@ -50,7 +50,7 @@ class FixNeighHistoryKokkos : public FixNeighHistory {
   void post_neighbor_item(const int &ii) const;
 
   typename Kokkos::View<int**> d_firstflag;
-  typename Kokkos::View<KK_FLOAT**> d_firstvalue;
+  typename Kokkos::View<double**> d_firstvalue;
 
  private:
   typename ArrayTypes<DeviceType>::tdual_int_1d k_npartner;

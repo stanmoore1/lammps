@@ -38,13 +38,13 @@ namespace LAMMPS_NS {
 // 1. there seems to a problem with compute_optimized energy calc
 // it does not match compute_regular, even when quadratic coeffs = 0
 
-//static double t1 = 0.0;
-//static double t2 = 0.0;
-//static double t3 = 0.0;
-//static double t4 = 0.0;
-//static double t5 = 0.0;
-//static double t6 = 0.0;
-//static double t7 = 0.0;
+//static KK_FLOAT t1 = 0.0;
+//static KK_FLOAT t2 = 0.0;
+//static KK_FLOAT t3 = 0.0;
+//static KK_FLOAT t4 = 0.0;
+//static KK_FLOAT t5 = 0.0;
+//static KK_FLOAT t6 = 0.0;
+//static KK_FLOAT t7 = 0.0;
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
@@ -204,7 +204,7 @@ void PairSNAPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (beta_max < inum) {
     beta_max = inum;
-    d_beta = Kokkos::View<KK_FLOAT**, DeviceType>("PairSNAPKokkos:beta",inum,ncoeff);
+    d_beta = Kokkos::View<double**, DeviceType>("PairSNAPKokkos:beta",inum,ncoeff);
     d_ninside = Kokkos::View<int*, DeviceType>("PairSNAPKokkos:ninside",inum);
   }
 
@@ -347,11 +347,11 @@ void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAPBeta,const typename Kokk
   if (quadraticflag) {
     int k = ncoeff+1;
     for (int icoeff = 0; icoeff < ncoeff; icoeff++) {
-      double bveci = my_sna.blist(ii,icoeff);
+      KK_FLOAT bveci = my_sna.blist(ii,icoeff);
       d_beta(ii,icoeff) += d_coeffi[k]*bveci;
       k++;
       for (int jcoeff = icoeff+1; jcoeff < ncoeff; jcoeff++) {
-        double bvecj = my_sna.blist(ii,jcoeff);
+        KK_FLOAT bvecj = my_sna.blist(ii,jcoeff);
         d_beta(ii,icoeff) += d_coeffi[k]*bvecj;
         d_beta(ii,jcoeff) += d_coeffi[k]*bveci;
         k++;
@@ -370,7 +370,7 @@ void PairSNAPKokkos<DeviceType>::allocate()
   PairSNAP::allocate();
 
   int n = atom->ntypes;
-  d_map = Kokkos::View<T_INT*, DeviceType>("PairSNAPKokkos::map",n+1);
+  d_map = Kokkos::View<int*, DeviceType>("PairSNAPKokkos::map",n+1);
 }
 
 
@@ -379,9 +379,9 @@ void PairSNAPKokkos<DeviceType>::allocate()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairSNAPKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairSNAPKokkos<DeviceType>::init_one(int i, int j)
 {
-  double cutone = PairSNAP::init_one(i,j);
+  KK_FLOAT cutone = PairSNAP::init_one(i,j);
   k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutone*cutone;
   k_cutsq.template modify<LMPHostType>();
 
@@ -399,9 +399,9 @@ void PairSNAPKokkos<DeviceType>::coeff(int narg, char **arg)
 
   // Set up element lists
 
-  d_radelem = Kokkos::View<KK_FLOAT*, DeviceType>("pair:radelem",nelements);
-  d_wjelem = Kokkos::View<KK_FLOAT*, DeviceType>("pair:wjelem",nelements);
-  d_coeffelem = Kokkos::View<KK_FLOAT**, Kokkos::LayoutRight, DeviceType>("pair:coeffelem",nelements,ncoeffall);
+  d_radelem = Kokkos::View<double*, DeviceType>("pair:radelem",nelements);
+  d_wjelem = Kokkos::View<double*, DeviceType>("pair:wjelem",nelements);
+  d_coeffelem = Kokkos::View<double**, Kokkos::LayoutRight, DeviceType>("pair:coeffelem",nelements,ncoeffall);
 
   auto h_radelem = Kokkos::create_mirror_view(d_radelem);
   auto h_wjelem = Kokkos::create_mirror_view(d_wjelem);
@@ -440,12 +440,12 @@ void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAPComputeNeigh,const typen
   int ii = team.league_rank();
   const int i = d_ilist[ii + chunk_offset];
   SNAKokkos<DeviceType> my_sna = snaKK;
-  const double xtmp = x(i,0);
-  const double ytmp = x(i,1);
-  const double ztmp = x(i,2);
+  const KK_FLOAT xtmp = x(i,0);
+  const KK_FLOAT ytmp = x(i,1);
+  const KK_FLOAT ztmp = x(i,2);
   const int itype = type[i];
   const int ielem = d_map[itype];
-  const double radi = d_radelem[ielem];
+  const KK_FLOAT radi = d_radelem[ielem];
 
   const int num_neighs = d_numneigh[i];
 
@@ -459,7 +459,7 @@ void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAPComputeNeigh,const typen
   Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team,num_neighs),
       [&] (const int jj, int& count) {
     Kokkos::single(Kokkos::PerThread(team), [&] (){
-      T_INT j = d_neighbors(i,jj);
+      int j = d_neighbors(i,jj);
       const KK_FLOAT dx = x(j,0) - xtmp;
       const KK_FLOAT dy = x(j,1) - ytmp;
       const KK_FLOAT dz = x(j,2) - ztmp;
@@ -479,7 +479,7 @@ void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAPComputeNeigh,const typen
   Kokkos::parallel_scan(Kokkos::ThreadVectorRange(team,num_neighs),
       [&] (const int jj, int& offset, bool final) {
   //for (int jj = 0; jj < num_neighs; jj++) {
-    T_INT j = d_neighbors(i,jj);
+    int j = d_neighbors(i,jj);
     const KK_FLOAT dx = x(j,0) - xtmp;
     const KK_FLOAT dy = x(j,1) - ytmp;
     const KK_FLOAT dz = x(j,2) - ztmp;
@@ -645,7 +645,7 @@ void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAPComputeForce<NEIGHFLAG,E
 
         // evdwl = energy of atom I, sum over coeffs_k * Bi_k
 
-        double evdwl = d_coeffi[0];
+        KK_FLOAT evdwl = d_coeffi[0];
         
         // E = beta.B + 0.5*B^t.alpha.B
 
@@ -659,10 +659,10 @@ void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAPComputeForce<NEIGHFLAG,E
         if (quadraticflag) {
           int k = ncoeff+1;
           for (int icoeff = 0; icoeff < ncoeff; icoeff++) {
-            double bveci = my_sna.blist(ii,icoeff);
+            KK_FLOAT bveci = my_sna.blist(ii,icoeff);
             evdwl += 0.5*d_coeffi[k++]*bveci*bveci;
             for (int jcoeff = icoeff+1; jcoeff < ncoeff; jcoeff++) {
-              double bvecj = my_sna.blist(ii,jcoeff);
+              KK_FLOAT bvecj = my_sna.blist(ii,jcoeff);
               evdwl += d_coeffi[k++]*bveci*bvecj;
             }
           }
@@ -735,14 +735,14 @@ void PairSNAPKokkos<DeviceType>::v_tally_xyz(EV_FLOAT &ev, const int &i, const i
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairSNAPKokkos<DeviceType>::memory_usage()
+KK_FLOAT PairSNAPKokkos<DeviceType>::memory_usage()
 {
-  double bytes = Pair::memory_usage();
+  KK_FLOAT bytes = Pair::memory_usage();
   int n = atom->ntypes+1;
   bytes += n*n*sizeof(int);
-  bytes += n*n*sizeof(double);
-  bytes += (2*ncoeffall)*sizeof(double);
-  bytes += (ncoeff*3)*sizeof(double);
+  bytes += n*n*sizeof(KK_FLOAT);
+  bytes += (2*ncoeffall)*sizeof(KK_FLOAT);
+  bytes += (ncoeff*3)*sizeof(KK_FLOAT);
   bytes += snaKK.memory_usage();
   return bytes;
 }

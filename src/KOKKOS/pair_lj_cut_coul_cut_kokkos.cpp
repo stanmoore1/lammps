@@ -313,11 +313,11 @@ void PairLJCutCoulCutKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairLJCutCoulCutKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairLJCutCoulCutKokkos<DeviceType>::init_one(int i, int j)
 {
-  double cutone = PairLJCutCoulCut::init_one(i,j);
-  double cut_ljsqm = cut_ljsq[i][j];
-  double cut_coulsqm = cut_coulsq[i][j];
+  KK_FLOAT cutone = PairLJCutCoulCut::init_one(i,j);
+  KK_FLOAT cut_ljsqm = cut_ljsq[i][j];
+  KK_FLOAT cut_coulsqm = cut_coulsq[i][j];
 
   k_params.h_view(i,j).lj1 = lj1[i][j];
   k_params.h_view(i,j).lj2 = lj2[i][j];

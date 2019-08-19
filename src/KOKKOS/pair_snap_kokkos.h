@@ -57,9 +57,9 @@ public:
 
   void coeff(int, char**);
   void init_style();
-  double init_one(int, int);
+  KK_FLOAT init_one(int, int);
   void compute(int, int);
-  double memory_usage();
+  KK_FLOAT memory_usage();
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
@@ -112,9 +112,9 @@ protected:
   typename AT::t_efloat_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
-  typedef Kokkos::View<KK_FLOAT**> t_bvec;
+  typedef Kokkos::View<double**> t_bvec;
   t_bvec bvec;
-  typedef Kokkos::View<KK_FLOAT***> t_dbvec;
+  typedef Kokkos::View<double***> t_dbvec;
   t_dbvec dbvec;
   SNAKokkos<DeviceType> snaKK;
 
@@ -125,40 +125,40 @@ protected:
   void allocate();
   //void read_files(char *, char *);
   /*template<class DeviceType>
-inline int equal(double* x,double* y);
+inline int equal(KK_FLOAT* x,KK_FLOAT* y);
   template<class DeviceType>
-inline double dist2(double* x,double* y);
-  double extra_cutoff();
+inline KK_FLOAT dist2(KK_FLOAT* x,KK_FLOAT* y);
+  KK_FLOAT extra_cutoff();
   void load_balance();
   void set_sna_to_shared(int snaid,int i);
   void build_per_atom_arrays();*/
 
   int neighflag;
 
-  Kokkos::View<T_INT*, DeviceType> ilistmast;
-  Kokkos::View<T_INT*, DeviceType> ghostilist;
-  Kokkos::View<T_INT*, DeviceType> ghostnumneigh;
-  Kokkos::View<T_INT*, DeviceType> ghostneighs;
-  Kokkos::View<T_INT*, DeviceType> ghostfirstneigh;
+  Kokkos::View<int*, DeviceType> ilistmast;
+  Kokkos::View<int*, DeviceType> ghostilist;
+  Kokkos::View<int*, DeviceType> ghostnumneigh;
+  Kokkos::View<int*, DeviceType> ghostneighs;
+  Kokkos::View<int*, DeviceType> ghostfirstneigh;
 
-  Kokkos::View<T_INT**, Kokkos::LayoutRight, DeviceType> i_pairs;
-  Kokkos::View<T_INT***, Kokkos::LayoutRight, DeviceType> i_rij;
-  Kokkos::View<T_INT**, Kokkos::LayoutRight, DeviceType> i_inside;
-  Kokkos::View<KK_FLOAT**, Kokkos::LayoutRight, DeviceType> i_wj;
-  Kokkos::View<KK_FLOAT***, Kokkos::LayoutRight, DeviceType>i_rcutij;
-  Kokkos::View<T_INT*, DeviceType> i_ninside;
-  Kokkos::View<KK_FLOAT****, Kokkos::LayoutRight, DeviceType> i_uarraytot_r, i_uarraytot_i;
-  Kokkos::View<KK_FLOAT******, Kokkos::LayoutRight, DeviceType> i_zarray_r, i_zarray_i;
+  Kokkos::View<int**, Kokkos::LayoutRight, DeviceType> i_pairs;
+  Kokkos::View<int***, Kokkos::LayoutRight, DeviceType> i_rij;
+  Kokkos::View<int**, Kokkos::LayoutRight, DeviceType> i_inside;
+  Kokkos::View<double**, Kokkos::LayoutRight, DeviceType> i_wj;
+  Kokkos::View<double***, Kokkos::LayoutRight, DeviceType>i_rcutij;
+  Kokkos::View<int*, DeviceType> i_ninside;
+  Kokkos::View<double****, Kokkos::LayoutRight, DeviceType> i_uarraytot_r, i_uarraytot_i;
+  Kokkos::View<double******, Kokkos::LayoutRight, DeviceType> i_zarray_r, i_zarray_i;
 
-  Kokkos::View<KK_FLOAT*, DeviceType> d_radelem;              // element radii
-  Kokkos::View<KK_FLOAT*, DeviceType> d_wjelem;               // elements weights
-  Kokkos::View<KK_FLOAT**, Kokkos::LayoutRight, DeviceType> d_coeffelem;           // element bispectrum coefficients
-  Kokkos::View<T_INT*, DeviceType> d_map;                    // mapping from atom types to elements
-  Kokkos::View<T_INT*, DeviceType> d_ninside;                // ninside for all atoms in list
-  Kokkos::View<KK_FLOAT**, DeviceType> d_beta;                // betas for all atoms in list
-  Kokkos::View<KK_FLOAT**, DeviceType> d_bispectrum;          // bispectrum components for all atoms in list
+  Kokkos::View<double*, DeviceType> d_radelem;              // element radii
+  Kokkos::View<double*, DeviceType> d_wjelem;               // elements weights
+  Kokkos::View<double**, Kokkos::LayoutRight, DeviceType> d_coeffelem;           // element bispectrum coefficients
+  Kokkos::View<int*, DeviceType> d_map;                    // mapping from atom types to elements
+  Kokkos::View<int*, DeviceType> d_ninside;                // ninside for all atoms in list
+  Kokkos::View<double**, DeviceType> d_beta;                // betas for all atoms in list
+  Kokkos::View<double**, DeviceType> d_bispectrum;          // bispectrum components for all atoms in list
 
-  typedef Kokkos::DualView<KK_FLOAT**, DeviceType> tdual_fparams;
+  typedef Kokkos::DualView<double**, DeviceType> tdual_fparams;
   tdual_fparams k_cutsq;
   typedef Kokkos::View<const KK_FLOAT**, DeviceType,
       Kokkos::MemoryTraits<Kokkos::RandomAccess> > t_fparams_rnd;
@@ -169,10 +169,10 @@ inline double dist2(double* x,double* y);
   typename AT::t_int_1d_randomread type;
 
   int need_dup;
-  Kokkos::Experimental::ScatterView<KK_FLOAT*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterDuplicated> dup_f;
-  Kokkos::Experimental::ScatterView<KK_FLOAT*[6], typename DAT::t_virial_array::array_layout,DeviceType,Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterDuplicated> dup_vatom;
-  Kokkos::Experimental::ScatterView<KK_FLOAT*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_f;
-  Kokkos::Experimental::ScatterView<KK_FLOAT*[6], typename DAT::t_virial_array::array_layout,DeviceType,Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_vatom;
+  Kokkos::Experimental::ScatterView<double*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterDuplicated> dup_f;
+  Kokkos::Experimental::ScatterView<double*[6], typename DAT::t_virial_array::array_layout,DeviceType,Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterDuplicated> dup_vatom;
+  Kokkos::Experimental::ScatterView<double*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_f;
+  Kokkos::Experimental::ScatterView<double*[6], typename DAT::t_virial_array::array_layout,DeviceType,Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_vatom;
 
   friend void pair_virial_fdotr_compute<PairSNAPKokkos>(PairSNAPKokkos*);
 

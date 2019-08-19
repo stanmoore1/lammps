@@ -430,9 +430,9 @@ int PairReaxCKokkos<DeviceType>::Init_Lookup_Tables()
 {
   int i, j, r;
   int num_atom_types;
-  double dr;
-  double *h, *fh, *fvdw, *fele, *fCEvd, *fCEclmb;
-  double v0_vdw, v0_ele, vlast_vdw, vlast_ele;
+  KK_FLOAT dr;
+  KK_FLOAT *h, *fh, *fvdw, *fele, *fCEvd, *fCEclmb;
+  KK_FLOAT v0_vdw, v0_ele, vlast_vdw, vlast_ele;
   LR_lookup_table ** & LR = system->LR;
 
   /* initializations */
@@ -443,18 +443,18 @@ int PairReaxCKokkos<DeviceType>::Init_Lookup_Tables()
 
   num_atom_types = atom->ntypes;
   dr = control->nonb_cut / control->tabulate;
-  h = (double*)
-    smalloc( control->error_ptr, (control->tabulate+2) * sizeof(double), "lookup:h");
-  fh = (double*)
-    smalloc( control->error_ptr, (control->tabulate+2) * sizeof(double), "lookup:fh");
-  fvdw = (double*)
-    smalloc( control->error_ptr, (control->tabulate+2) * sizeof(double), "lookup:fvdw");
-  fCEvd = (double*)
-    smalloc( control->error_ptr, (control->tabulate+2) * sizeof(double), "lookup:fCEvd");
-  fele = (double*)
-    smalloc( control->error_ptr, (control->tabulate+2) * sizeof(double), "lookup:fele");
-  fCEclmb = (double*)
-    smalloc( control->error_ptr, (control->tabulate+2) * sizeof(double), "lookup:fCEclmb");
+  h = (KK_FLOAT*)
+    smalloc( control->error_ptr, (control->tabulate+2) * sizeof(KK_FLOAT), "lookup:h");
+  fh = (KK_FLOAT*)
+    smalloc( control->error_ptr, (control->tabulate+2) * sizeof(KK_FLOAT), "lookup:fh");
+  fvdw = (KK_FLOAT*)
+    smalloc( control->error_ptr, (control->tabulate+2) * sizeof(KK_FLOAT), "lookup:fvdw");
+  fCEvd = (KK_FLOAT*)
+    smalloc( control->error_ptr, (control->tabulate+2) * sizeof(KK_FLOAT), "lookup:fCEvd");
+  fele = (KK_FLOAT*)
+    smalloc( control->error_ptr, (control->tabulate+2) * sizeof(KK_FLOAT), "lookup:fele");
+  fCEclmb = (KK_FLOAT*)
+    smalloc( control->error_ptr, (control->tabulate+2) * sizeof(KK_FLOAT), "lookup:fCEclmb");
 
   LR = (LR_lookup_table**)
     scalloc( control->error_ptr, num_atom_types+1, sizeof(LR_lookup_table*), "lookup:LR");
@@ -560,16 +560,16 @@ void PairReaxCKokkos<DeviceType>::Deallocate_Lookup_Tables()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairReaxCKokkos<DeviceType>::LR_vdW_Coulomb( int i, int j, double r_ij, LR_data *lr )
+void PairReaxCKokkos<DeviceType>::LR_vdW_Coulomb( int i, int j, KK_FLOAT r_ij, LR_data *lr )
 {
-  double p_vdW1 = system->reax_param.gp.l[28];
-  double p_vdW1i = 1.0 / p_vdW1;
-  double powr_vdW1, powgi_vdW1;
-  double tmp, fn13, exp1, exp2;
-  double Tap, dTap, dfn13;
-  double dr3gamij_1, dr3gamij_3;
-  double e_core, de_core;
-  double e_lg, de_lg, r_ij5, r_ij6, re6;
+  KK_FLOAT p_vdW1 = system->reax_param.gp.l[28];
+  KK_FLOAT p_vdW1i = 1.0 / p_vdW1;
+  KK_FLOAT powr_vdW1, powgi_vdW1;
+  KK_FLOAT tmp, fn13, exp1, exp2;
+  KK_FLOAT Tap, dTap, dfn13;
+  KK_FLOAT dr3gamij_1, dr3gamij_3;
+  KK_FLOAT e_core, de_core;
+  KK_FLOAT e_lg, de_lg, r_ij5, r_ij6, re6;
   two_body_parameters *twbp;
 
   twbp = &(system->reax_param.tbp[map[i]][map[j]]);
@@ -1307,7 +1307,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxComputeTabulatedLJCoulomb<N
     /* Cubic Spline Interpolation */
     int r = (int)(rij * t.inv_dx);
     if (r == 0)  ++r;
-    const KK_FLOAT base = (double)(r+1) * t.dx;
+    const KK_FLOAT base = (KK_FLOAT)(r+1) * t.dx;
     const KK_FLOAT dif = rij - base;
 
     const cubic_spline_coef vdW = t.d_vdW[r];
@@ -1505,7 +1505,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxBuildListsFull, const int &
     delij[2] = x(j,2) - ztmp;
     const KK_FLOAT rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
 
-    double cutoffsq;
+    KK_FLOAT cutoffsq;
     if(i < nlocal) cutoffsq = MAX(cut_bosq,cut_hbsq);
     else cutoffsq = cut_bosq;
     if (rsq > cutoffsq) continue;
@@ -1675,7 +1675,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxBuildListsHalf<NEIGHFLAG>, 
     delij[2] = x(j,2) - ztmp;
     const KK_FLOAT rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
 
-    double cutoffsq;
+    KK_FLOAT cutoffsq;
     if(i < nlocal) cutoffsq = MAX(cut_bosq,cut_hbsq);
     else cutoffsq = cut_bosq;
     if (rsq > cutoffsq) continue;
@@ -1898,7 +1898,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxBuildListsHalf_LessAtomics<
     delij[2] = x(j,2) - ztmp;
     const KK_FLOAT rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
 
-    double cutoffsq;
+    KK_FLOAT cutoffsq;
     if(i < nlocal) cutoffsq = MAX(cut_bosq,cut_hbsq);
     else cutoffsq = cut_bosq;
     if (rsq > cutoffsq) continue;
@@ -2477,7 +2477,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxComputeAngular<NEIGHFLAG,EV
 
   auto v_f = ScatterViewHelper<NeedDup<NEIGHFLAG,DeviceType>::value,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
   auto a_f = v_f.template access<AtomicDup<NEIGHFLAG,DeviceType>::value>();
-  Kokkos::View<KK_FLOAT**, typename DAT::t_ffloat_2d_dl::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_Cdbo = d_Cdbo;
+  Kokkos::View<double**, typename DAT::t_ffloat_2d_dl::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_Cdbo = d_Cdbo;
 
   auto v_CdDelta = ScatterViewHelper<NeedDup<NEIGHFLAG,DeviceType>::value,decltype(dup_CdDelta),decltype(ndup_CdDelta)>::get(dup_CdDelta,ndup_CdDelta);
   auto a_CdDelta = v_CdDelta.template access<AtomicDup<NEIGHFLAG,DeviceType>::value>();
@@ -2792,7 +2792,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxComputeTorsion<NEIGHFLAG,EV
 
   auto v_CdDelta = ScatterViewHelper<NeedDup<NEIGHFLAG,DeviceType>::value,decltype(dup_CdDelta),decltype(ndup_CdDelta)>::get(dup_CdDelta,ndup_CdDelta);
   auto a_CdDelta = v_CdDelta.template access<AtomicDup<NEIGHFLAG,DeviceType>::value>();
-  Kokkos::View<KK_FLOAT**, typename DAT::t_ffloat_2d_dl::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_Cdbo = d_Cdbo;
+  Kokkos::View<double**, typename DAT::t_ffloat_2d_dl::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_Cdbo = d_Cdbo;
   //auto a_Cdbo = dup_Cdbo.template access<AtomicDup<NEIGHFLAG,DeviceType>::value>();
 
   // in reaxc_torsion_angles: j = i, k = j, i = k;
@@ -3311,9 +3311,9 @@ template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairReaxCKokkos<DeviceType>::operator()(PairReaxUpdateBond<NEIGHFLAG>, const int &ii) const {
 
-  Kokkos::View<KK_FLOAT**, typename DAT::t_ffloat_2d_dl::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_Cdbo = d_Cdbo;
-  Kokkos::View<KK_FLOAT**, typename DAT::t_ffloat_2d_dl::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_Cdbopi = d_Cdbopi;
-  Kokkos::View<KK_FLOAT**, typename DAT::t_ffloat_2d_dl::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_Cdbopi2 = d_Cdbopi2;
+  Kokkos::View<double**, typename DAT::t_ffloat_2d_dl::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_Cdbo = d_Cdbo;
+  Kokkos::View<double**, typename DAT::t_ffloat_2d_dl::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_Cdbopi = d_Cdbopi;
+  Kokkos::View<double**, typename DAT::t_ffloat_2d_dl::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_Cdbopi2 = d_Cdbopi2;
   //auto a_Cdbo = dup_Cdbo.template access<AtomicDup<NEIGHFLAG,DeviceType>::value>();
   //auto a_Cdbopi = dup_Cdbopi.template access<AtomicDup<NEIGHFLAG,DeviceType>::value>();
   //auto a_Cdbopi2 = dup_Cdbopi2.template access<AtomicDup<NEIGHFLAG,DeviceType>::value>();
@@ -4056,9 +4056,9 @@ void PairReaxCKokkos<DeviceType>::ev_setup(int eflag, int vflag, int)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairReaxCKokkos<DeviceType>::memory_usage()
+KK_FLOAT PairReaxCKokkos<DeviceType>::memory_usage()
 {
-  double bytes = 0.0;
+  KK_FLOAT bytes = 0.0;
 
   if (cut_hbsq > 0.0) {
     bytes += nmax*3*sizeof(int);
@@ -4131,7 +4131,7 @@ void PairReaxCKokkos<DeviceType>::calculate_find_bond_item(int ii, int &numbonds
     j &= NEIGHMASK;
     const tagint jtag = tag[j];
     const int j_index = jj - j_start;
-    double bo_tmp = d_BO(i,j_index);
+    KK_FLOAT bo_tmp = d_BO(i,j_index);
 
     if (bo_tmp > bo_cut_bond) {
       d_neighid(i,nj) = jtag;
@@ -4269,7 +4269,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxFindBondSpecies, const int 
     if (j < i) continue;
     const int j_index = jj - j_start;
 
-    double bo_tmp = d_BO(i,j_index);
+    KK_FLOAT bo_tmp = d_BO(i,j_index);
 
     if (bo_tmp >= 0.10 ) { // Why is this a hardcoded value?
       k_tmpid.view<DeviceType>()(i,nj) = j;

@@ -204,8 +204,8 @@ void BondHarmonicKokkos<DeviceType>::coeff(int narg, char **arg)
   BondHarmonic::coeff(narg, arg);
 
   int n = atom->nbondtypes;
-  Kokkos::DualView<KK_FLOAT*,DeviceType> k_k("BondHarmonic::k",n+1);
-  Kokkos::DualView<KK_FLOAT*,DeviceType> k_r0("BondHarmonic::r0",n+1);
+  Kokkos::DualView<double*,DeviceType> k_k("BondHarmonic::k",n+1);
+  Kokkos::DualView<double*,DeviceType> k_r0("BondHarmonic::r0",n+1);
 
   d_k = k_k.template view<DeviceType>();
   d_r0 = k_r0.template view<DeviceType>();
@@ -231,8 +231,8 @@ void BondHarmonicKokkos<DeviceType>::read_restart(FILE *fp)
   BondHarmonic::read_restart(fp);
 
   int n = atom->nbondtypes;
-  Kokkos::DualView<KK_FLOAT*,DeviceType> k_k("BondHarmonic::k",n+1);
-  Kokkos::DualView<KK_FLOAT*,DeviceType> k_r0("BondHarmonic::r0",n+1);
+  Kokkos::DualView<double*,DeviceType> k_k("BondHarmonic::k",n+1);
+  Kokkos::DualView<double*,DeviceType> k_r0("BondHarmonic::r0",n+1);
 
   d_k = k_k.template view<DeviceType>();
   d_r0 = k_r0.template view<DeviceType>();

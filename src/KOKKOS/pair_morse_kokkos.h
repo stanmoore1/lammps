@@ -41,7 +41,7 @@ class PairMorseKokkos : public PairMorse {
 
   void settings(int, char **);
   void init_style();
-  double init_one(int, int);
+  KK_FLOAT init_one(int, int);
 
   struct params_morse{
     KOKKOS_INLINE_FUNCTION
@@ -85,7 +85,7 @@ class PairMorseKokkos : public PairMorse {
   typename ArrayTypes<DeviceType>::t_tagint_1d tag;
 
   int newton_pair;
-  double special_lj[4];
+  KK_FLOAT special_lj[4];
 
   typename ArrayTypes<DeviceType>::tdual_ffloat_2d k_cutsq;
   typename ArrayTypes<DeviceType>::t_ffloat_2d d_cutsq;

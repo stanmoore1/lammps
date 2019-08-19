@@ -63,10 +63,10 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
   int pack_forward_comm_kokkos(int, DAT::tdual_int_2d, int, DAT::tdual_xfloat_1d&,
                                int, int *);
   void unpack_forward_comm_kokkos(int, int, DAT::tdual_xfloat_1d&);
-  int pack_forward_comm(int, int *, double *, int, int *);
-  void unpack_forward_comm(int, int, double *);
-  int pack_reverse_comm(int, int, double *);
-  void unpack_reverse_comm(int, int *, double *);
+  int pack_forward_comm(int, int *, KK_FLOAT *, int, int *);
+  void unpack_forward_comm(int, int, KK_FLOAT *);
+  int pack_reverse_comm(int, int, KK_FLOAT *);
+  void unpack_reverse_comm(int, int *, KK_FLOAT *);
   void computeLocalDensity();
 
   KOKKOS_INLINE_FUNCTION
@@ -104,19 +104,19 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
   int neighflag;
   int eflag,vflag;
 
-  double cutsq_type11;
-  double rcut_type11;
-  double factor_type11;
+  KK_FLOAT cutsq_type11;
+  KK_FLOAT rcut_type11;
+  KK_FLOAT factor_type11;
 
   enum{LOOKUP,LINEAR,SPLINE,BITMAP};
 
   //struct Table {
   //  int ninput,rflag,fpflag,match;
-  //  double rlo,rhi,fplo,fphi,cut;
-  //  double *rfile,*efile,*ffile;
-  //  double *e2file,*f2file;
-  //  double innersq,delta,invdelta,deltasq6;
-  //  double *rsq,*drsq,*e,*de,*f,*df,*e2,*f2;
+  //  KK_FLOAT rlo,rhi,fplo,fphi,cut;
+  //  KK_FLOAT *rfile,*efile,*ffile;
+  //  KK_FLOAT *e2file,*f2file;
+  //  KK_FLOAT innersq,delta,invdelta,deltasq6;
+  //  KK_FLOAT *rsq,*drsq,*e,*de,*f,*df,*e2,*f2;
   //};
 
   /*struct TableDeviceConst {
@@ -154,7 +154,7 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
   void create_kokkos_tables();
 
   KOKKOS_INLINE_FUNCTION
-  void getMixingWeights(int, double &, double &, double &, double &) const;
+  void getMixingWeights(int, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;
 
   typename AT::t_float_1d d_mixWtSite1old,d_mixWtSite2old,d_mixWtSite1,d_mixWtSite2;
 

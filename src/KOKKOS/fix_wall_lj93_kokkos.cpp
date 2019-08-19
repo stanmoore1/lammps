@@ -42,7 +42,7 @@ FixWallLJ93Kokkos<DeviceType>::FixWallLJ93Kokkos(LAMMPS *lmp, int narg, char **a
 ------------------------------------------------------------------------- */
 
 template <class DeviceType>
-void FixWallLJ93Kokkos<DeviceType>::wall_particle(int m_in, int which, double coord_in)
+void FixWallLJ93Kokkos<DeviceType>::wall_particle(int m_in, int which, KK_FLOAT coord_in)
 {
   m = m_in;
   coord = coord_in;
@@ -76,7 +76,7 @@ template <class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void FixWallLJ93Kokkos<DeviceType>::wall_particle_item(int i, value_type ewall) const {
   if (mask(i) & groupbit) {
-    double delta;
+    KK_FLOAT delta;
     if (side < 0) delta = x(i,dim) - coord;
     else delta = coord - x(i,dim);
     if (delta >= cutoff[m]) return;
@@ -84,11 +84,11 @@ void FixWallLJ93Kokkos<DeviceType>::wall_particle_item(int i, value_type ewall) 
       d_oneflag() = 1;
       return;
     }
-    double rinv = 1.0/delta;
-    double r2inv = rinv*rinv;
-    double r4inv = r2inv*r2inv;
-    double r10inv = r4inv*r4inv*r2inv;
-    double fwall = side * (coeff1[m]*r10inv - coeff2[m]*r4inv);
+    KK_FLOAT rinv = 1.0/delta;
+    KK_FLOAT r2inv = rinv*rinv;
+    KK_FLOAT r4inv = r2inv*r2inv;
+    KK_FLOAT r10inv = r4inv*r4inv*r2inv;
+    KK_FLOAT fwall = side * (coeff1[m]*r10inv - coeff2[m]*r4inv);
     f(i,dim) -= fwall;
     ewall[0] += coeff3[m]*r4inv*r4inv*rinv -
       coeff4[m]*r2inv*rinv - offset[m];

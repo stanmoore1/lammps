@@ -92,13 +92,13 @@ class PairGranHookeHistoryKokkos : public PairGranHookeHistory {
   typename AT::t_int_1d_randomread d_numneigh;
 
   typename Kokkos::View<int**> d_firsttouch;
-  typename Kokkos::View<KK_FLOAT**> d_firstshear;
+  typename Kokkos::View<double**> d_firstshear;
 
   typename AT::t_neighbors_2d d_neighbors_touch;
   typename AT::t_int_1d d_numneigh_touch;
 
   int newton_pair;
-  double special_lj[4];
+  KK_FLOAT special_lj[4];
 
   int neighflag;
   int nlocal,nall,eflag,vflag;

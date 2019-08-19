@@ -270,19 +270,19 @@ KOKKOS_INLINE_FUNCTION
 void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXCompute<NEIGHFLAG,NEWTON_PAIR,EVFLAG,TABSTYLE>, const int &ii, EV_FLOAT& ev) const {
 
   // The f array is atomic for Half/Thread neighbor style
-  Kokkos::View<KK_FLOAT*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
+  Kokkos::View<double*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
 
   int i,jj,jnum,itype,jtype,itable;
-  double xtmp,ytmp,ztmp,delx,dely,delz,evdwl,evdwlOld,fpair;
-  double rsq;
+  KK_FLOAT xtmp,ytmp,ztmp,delx,dely,delz,evdwl,evdwlOld,fpair;
+  KK_FLOAT rsq;
 
-  double mixWtSite1old_i,mixWtSite1old_j;
-  double mixWtSite2old_i,mixWtSite2old_j;
-  double mixWtSite1_i;
+  KK_FLOAT mixWtSite1old_i,mixWtSite1old_j;
+  KK_FLOAT mixWtSite2old_i,mixWtSite2old_j;
+  KK_FLOAT mixWtSite1_i;
 
-  double pi = MathConst::MY_PI;
-  double A_i, A_j;
-  double fraction_i,fraction_j;
+  KK_FLOAT pi = MathConst::MY_PI;
+  KK_FLOAT A_i, A_j;
+  KK_FLOAT fraction_i,fraction_j;
   int jtable;
 
   int tlm1 = tablength - 1;
@@ -294,9 +294,9 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXCompute<NEI
   itype = type[i];
   jnum = d_numneigh[i];
 
-  double fx_i = 0.0;
-  double fy_i = 0.0;
-  double fz_i = 0.0;
+  KK_FLOAT fx_i = 0.0;
+  KK_FLOAT fy_i = 0.0;
+  KK_FLOAT fz_i = 0.0;
 
   mixWtSite1old_i = d_mixWtSite1old[i];
   mixWtSite2old_i = d_mixWtSite2old[i];
@@ -339,7 +339,7 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXCompute<NEI
         //A_j = tb->f[jtable];
         A_j = d_table_const.f(tidx,jtable);
 
-        const double rfactor = 1.0-sqrt(rsq/d_cutsq(itype,jtype));
+        const KK_FLOAT rfactor = 1.0-sqrt(rsq/d_cutsq(itype,jtype));
         fpair = 0.5*(A_i + A_j)*(4.0-3.0*rfactor)*rfactor*rfactor*rfactor;
         fpair /= sqrt(rsq);
 
@@ -371,7 +371,7 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXCompute<NEI
         //A_j = tb->f[jtable] + fraction_j*tb->df[jtable];
         A_j = d_table_const.f(tidx,jtable) + fraction_j*d_table_const.df(tidx,jtable);
 
-        const double rfactor = 1.0-sqrt(rsq/d_cutsq(itype,jtype));
+        const KK_FLOAT rfactor = 1.0-sqrt(rsq/d_cutsq(itype,jtype));
         fpair = 0.5*(A_i + A_j)*(4.0-3.0*rfactor)*rfactor*rfactor*rfactor;
         fpair /= sqrt(rsq);
 
@@ -456,7 +456,7 @@ void PairMultiLucyRXKokkos<DeviceType>::computeLocalDensity()
   d_neighbors = k_list->d_neighbors;
   d_ilist = k_list->d_ilist;
 
-  const double pi = MathConst::MY_PI;
+  const KK_FLOAT pi = MathConst::MY_PI;
 
   const bool newton_pair = force->newton_pair;
   const bool one_type = (atom->ntypes == 1);
@@ -532,46 +532,46 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXComputeLoca
 
 
   // The rho array is atomic for Half/Thread neighbor style
-  Kokkos::View<KK_FLOAT*, typename DAT::t_efloat_1d::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_rho = rho;
+  Kokkos::View<double*, typename DAT::t_efloat_1d::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_rho = rho;
 
   const int i = d_ilist[ii];
 
-  const double xtmp = x(i,0);
-  const double ytmp = x(i,1);
-  const double ztmp = x(i,2);
+  const KK_FLOAT xtmp = x(i,0);
+  const KK_FLOAT ytmp = x(i,1);
+  const KK_FLOAT ztmp = x(i,2);
 
-  double rho_i_contrib = 0.0;
+  KK_FLOAT rho_i_contrib = 0.0;
 
   const int itype = type[i];
   const int jnum = d_numneigh[i];
 
-  const double pi = MathConst::MY_PI;
+  const KK_FLOAT pi = MathConst::MY_PI;
 
   for (int jj = 0; jj < jnum; jj++){
     const int j = (d_neighbors(i,jj) & NEIGHMASK);
     const int jtype = type[j];
 
-    const double delx = xtmp - x(j,0);
-    const double dely = ytmp - x(j,1);
-    const double delz = ztmp - x(j,2);
-    const double rsq = delx*delx + dely*dely + delz*delz;
+    const KK_FLOAT delx = xtmp - x(j,0);
+    const KK_FLOAT dely = ytmp - x(j,1);
+    const KK_FLOAT delz = ztmp - x(j,2);
+    const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
     if (ONE_TYPE) {
       if (rsq < cutsq_type11) {
-        const double rcut = rcut_type11;
-        const double r_over_rcut = sqrt(rsq) / rcut;
-        const double tmpFactor = 1.0 - r_over_rcut;
-        const double tmpFactor4 = tmpFactor*tmpFactor*tmpFactor*tmpFactor;
-        const double factor = factor_type11*(1.0 + 1.5*r_over_rcut)*tmpFactor4;
+        const KK_FLOAT rcut = rcut_type11;
+        const KK_FLOAT r_over_rcut = sqrt(rsq) / rcut;
+        const KK_FLOAT tmpFactor = 1.0 - r_over_rcut;
+        const KK_FLOAT tmpFactor4 = tmpFactor*tmpFactor*tmpFactor*tmpFactor;
+        const KK_FLOAT factor = factor_type11*(1.0 + 1.5*r_over_rcut)*tmpFactor4;
         rho_i_contrib += factor;
         if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || j < nlocal))
           a_rho[j] += factor;
       }
     } else if (rsq < d_cutsq(itype,jtype)) {
-      const double rcut = sqrt(d_cutsq(itype,jtype));
-      const double tmpFactor = 1.0-sqrt(rsq)/rcut;
-      const double tmpFactor4 = tmpFactor*tmpFactor*tmpFactor*tmpFactor;
-      const double factor = (84.0/(5.0*pi*rcut*rcut*rcut))*(1.0+3.0*sqrt(rsq)/(2.0*rcut))*tmpFactor4;
+      const KK_FLOAT rcut = sqrt(d_cutsq(itype,jtype));
+      const KK_FLOAT tmpFactor = 1.0-sqrt(rsq)/rcut;
+      const KK_FLOAT tmpFactor4 = tmpFactor*tmpFactor*tmpFactor*tmpFactor;
+      const KK_FLOAT factor = (84.0/(5.0*pi*rcut*rcut*rcut))*(1.0+3.0*sqrt(rsq)/(2.0*rcut))*tmpFactor4;
       rho_i_contrib += factor;
       if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || j < nlocal))
         a_rho[j] += factor;
@@ -585,15 +585,15 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXComputeLoca
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairMultiLucyRXKokkos<DeviceType>::getMixingWeights(int id, double &mixWtSite1old, double &mixWtSite2old, double &mixWtSite1, double &mixWtSite2) const
+void PairMultiLucyRXKokkos<DeviceType>::getMixingWeights(int id, KK_FLOAT &mixWtSite1old, KK_FLOAT &mixWtSite2old, KK_FLOAT &mixWtSite1, KK_FLOAT &mixWtSite2) const
 {
-  double fractionOFAold, fractionOFA;
-  double fractionOld1, fraction1;
-  double fractionOld2, fraction2;
-  double nMoleculesOFAold, nMoleculesOFA;
-  double nMoleculesOld1, nMolecules1;
-  double nMoleculesOld2, nMolecules2;
-  double nTotal, nTotalOld;
+  KK_FLOAT fractionOFAold, fractionOFA;
+  KK_FLOAT fractionOld1, fraction1;
+  KK_FLOAT fractionOld2, fraction2;
+  KK_FLOAT nMoleculesOFAold, nMoleculesOFA;
+  KK_FLOAT nMoleculesOld1, nMolecules1;
+  KK_FLOAT nMoleculesOld2, nMolecules2;
+  KK_FLOAT nTotal, nTotalOld;
 
 
   nTotal = 0.0;
@@ -699,7 +699,7 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXUnpackForwa
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int PairMultiLucyRXKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, int pbc_flag, int *pbc)
+int PairMultiLucyRXKokkos<DeviceType>::pack_forward_comm(int n, int *list, KK_FLOAT *buf, int pbc_flag, int *pbc)
 {
   int i,j,m;
 
@@ -716,7 +716,7 @@ int PairMultiLucyRXKokkos<DeviceType>::pack_forward_comm(int n, int *list, doubl
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairMultiLucyRXKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
+void PairMultiLucyRXKokkos<DeviceType>::unpack_forward_comm(int n, int first, KK_FLOAT *buf)
 {
   int i,m,last;
 
@@ -730,7 +730,7 @@ void PairMultiLucyRXKokkos<DeviceType>::unpack_forward_comm(int n, int first, do
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int PairMultiLucyRXKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)
+int PairMultiLucyRXKokkos<DeviceType>::pack_reverse_comm(int n, int first, KK_FLOAT *buf)
 {
   int i,m,last;
 
@@ -745,7 +745,7 @@ int PairMultiLucyRXKokkos<DeviceType>::pack_reverse_comm(int n, int first, doubl
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairMultiLucyRXKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, double *buf)
+void PairMultiLucyRXKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, KK_FLOAT *buf)
 {
   int i,j,m;
 
@@ -771,8 +771,8 @@ void PairMultiLucyRXKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, con
   const int VFLAG = vflag_either;
 
   // The eatom and vatom arrays are atomic for Half/Thread neighbor style
-  Kokkos::View<KK_FLOAT*, typename DAT::t_efloat_1d::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<KK_FLOAT*[6], typename DAT::t_virial_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<double*, typename DAT::t_efloat_1d::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<double*[6], typename DAT::t_virial_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
 
   if (EFLAG) {
     if (eflag_atom) {
@@ -934,7 +934,7 @@ void PairMultiLucyRXKokkos<DeviceType>::allocate()
   d_table_const.tabindex = d_table->tabindex;
 
   memset(&setflag[0][0],0,nt*nt*sizeof(int));
-  memset(&cutsq[0][0],0,nt*nt*sizeof(double));
+  memset(&cutsq[0][0],0,nt*nt*sizeof(KK_FLOAT));
   memset(&tabindex[0][0],0,nt*nt*sizeof(int));
 }
 

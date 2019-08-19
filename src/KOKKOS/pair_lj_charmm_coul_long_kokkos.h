@@ -40,9 +40,9 @@ class PairLJCharmmCoulLongKokkos : public PairLJCharmmCoulLong {
 
   void compute(int, int);
 
-  void init_tables(double cut_coul, double *cut_respa);
+  void init_tables(KK_FLOAT cut_coul, KK_FLOAT *cut_respa);
   void init_style();
-  double init_one(int, int);
+  KK_FLOAT init_one(int, int);
 
  protected:
   void cleanup_copy();
@@ -103,9 +103,9 @@ class PairLJCharmmCoulLongKokkos : public PairLJCharmmCoulLong {
   int neighflag;
   int nlocal,nall,eflag,vflag;
 
-  double special_coul[4];
-  double special_lj[4];
-  double qqrd2e;
+  KK_FLOAT special_coul[4];
+  KK_FLOAT special_lj[4];
+  KK_FLOAT qqrd2e;
 
   void allocate();
 

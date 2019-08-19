@@ -106,7 +106,7 @@ PPPMKokkos<DeviceType>::PPPMKokkos(LAMMPS *lmp) : PPPM(lmp)
   // see JCP 109, pg 7698 for derivation of coefficients
   // higher order coefficients may be computed if needed
 
-  acons = typename Kokkos::DualView<KK_FLOAT[8][7],Kokkos::LayoutRight,LMPDeviceType>::t_host("pppm:acons");
+  acons = typename Kokkos::DualView<double[8][7],Kokkos::LayoutRight,LMPDeviceType>::t_host("pppm:acons");
   acons(1,0) = 2.0 / 3.0;
   acons(2,0) = 1.0 / 50.0;
   acons(2,1) = 5.0 / 294.0;
@@ -216,7 +216,7 @@ void PPPMKokkos<DeviceType>::init()
   pair_check();
 
   int itmp = 0;
-  double *p_cutoff = (double *) force->pair->extract("cut_coul",itmp);
+  KK_FLOAT *p_cutoff = (KK_FLOAT *) force->pair->extract("cut_coul",itmp);
   if (p_cutoff == NULL)
     error->all(FLERR,"KSpace style is incompatible with Pair style");
   cutoff = *p_cutoff;
@@ -291,7 +291,7 @@ void PPPMKokkos<DeviceType>::init()
 
   // calculate the final accuracy
 
-  double estimated_accuracy = final_accuracy();
+  KK_FLOAT estimated_accuracy = final_accuracy();
 
   // print stats
 
@@ -367,7 +367,7 @@ void PPPMKokkos<DeviceType>::setup()
       error->all(FLERR,"Incorrect boundaries with slab PPPM");
   }
 
-  double *prd;
+  KK_FLOAT *prd;
 
   // volume-dependent factors
   // adjust z dimension for 2d slab PPPM
@@ -376,10 +376,10 @@ void PPPMKokkos<DeviceType>::setup()
   if (triclinic == 0) prd = domain->prd;
   else prd = domain->prd_lamda;
 
-  double xprd = prd[0];
-  double yprd = prd[1];
-  double zprd = prd[2];
-  double zprd_slab = zprd*slab_volfactor;
+  KK_FLOAT xprd = prd[0];
+  KK_FLOAT yprd = prd[1];
+  KK_FLOAT zprd = prd[2];
+  KK_FLOAT zprd_slab = zprd*slab_volfactor;
   volume = xprd * yprd * zprd_slab;
 
   delxinv = nx_pppm/xprd;
@@ -424,7 +424,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMKokkos<DeviceType>::operator()(TagPPPM_setup1, const int &i) const
 {
-  double per = i - nx_pppm*(2*i/nx_pppm);
+  KK_FLOAT per = i - nx_pppm*(2*i/nx_pppm);
   d_fkx[i-nxlo_fft] = unitkx*per;
 }
 
@@ -432,7 +432,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMKokkos<DeviceType>::operator()(TagPPPM_setup2, const int &i) const
 {
-  double per = i - ny_pppm*(2*i/ny_pppm);
+  KK_FLOAT per = i - ny_pppm*(2*i/ny_pppm);
   d_fky[i-nylo_fft] = unitky*per;
 }
 
@@ -440,7 +440,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMKokkos<DeviceType>::operator()(TagPPPM_setup3, const int &i) const
 {
-  double per = i - nz_pppm*(2*i/nz_pppm);
+  KK_FLOAT per = i - nz_pppm*(2*i/nz_pppm);
   d_fkz[i-nzlo_fft] = unitkz*per;
 }
 
@@ -451,7 +451,7 @@ void PPPMKokkos<DeviceType>::operator()(TagPPPM_setup4, const int &n) const
   const int k = n/(numy_fft*numx_fft);
   const int j = (n - k*numy_fft*numx_fft) / numx_fft;
   const int i = n - k*numy_fft*numx_fft - j*numx_fft;
-  const double sqk = d_fkx[i]*d_fkx[i] + d_fky[j]*d_fky[j] + d_fkz[k]*d_fkz[k];
+  const KK_FLOAT sqk = d_fkx[i]*d_fkx[i] + d_fky[j]*d_fky[j] + d_fkz[k]*d_fkz[k];
   if (sqk == 0.0) {
     d_vg(n,0) = 0.0;
     d_vg(n,1) = 0.0;
@@ -460,7 +460,7 @@ void PPPMKokkos<DeviceType>::operator()(TagPPPM_setup4, const int &n) const
     d_vg(n,4) = 0.0;
     d_vg(n,5) = 0.0;
   } else {
-    const double vterm = -2.0 * (1.0/sqk + 0.25/(g_ewald*g_ewald));
+    const KK_FLOAT vterm = -2.0 * (1.0/sqk + 0.25/(g_ewald*g_ewald));
     d_vg(n,0) = 1.0 + vterm*d_fkx[i]*d_fkx[i];
     d_vg(n,1) = 1.0 + vterm*d_fky[j]*d_fky[j];
     d_vg(n,2) = 1.0 + vterm*d_fkz[k]*d_fkz[k];
@@ -479,7 +479,7 @@ template<class DeviceType>
 void PPPMKokkos<DeviceType>::setup_triclinic()
 {
 //  int i,j,k,n;
-//  double *prd;
+//  KK_FLOAT *prd;
 //
 //  // volume-dependent factors
 //  // adjust z dimension for 2d slab PPPM
@@ -487,10 +487,10 @@ void PPPMKokkos<DeviceType>::setup_triclinic()
 //
 //  prd = domain->prd;
 //
-//  double xprd = prd[0];
-//  double yprd = prd[1];
-//  double zprd = prd[2];
-//  double zprd_slab = zprd*slab_volfactor;
+//  KK_FLOAT xprd = prd[0];
+//  KK_FLOAT yprd = prd[1];
+//  KK_FLOAT zprd = prd[2];
+//  KK_FLOAT zprd_slab = zprd*slab_volfactor;
 //  volume = xprd * yprd * zprd_slab;
 //
 //  // use lamda (0-1) coordinates
@@ -502,7 +502,7 @@ void PPPMKokkos<DeviceType>::setup_triclinic()
 //
 //  // d_fkx,d_fky,d_fkz for my FFT grid pts
 //
-//  double per_i,per_j,per_k;
+//  KK_FLOAT per_i,per_j,per_k;
 //
 //  n = 0;
 //  for (k = nzlo_fft; k <= nzhi_fft; k++) { // parallel_for
@@ -512,7 +512,7 @@ void PPPMKokkos<DeviceType>::setup_triclinic()
 //      for (i = nxlo_fft; i <= nxhi_fft; i++) {
 //        per_i = i - nx_pppm*(2*i/nx_pppm);
 //
-//        double unitk_lamda[3];
+//        KK_FLOAT unitk_lamda[3];
 //        unitk_lamda[0] = 2.0*MY_PI*per_i;
 //        unitk_lamda[1] = 2.0*MY_PI*per_j;
 //        unitk_lamda[2] = 2.0*MY_PI*per_k;
@@ -527,7 +527,7 @@ void PPPMKokkos<DeviceType>::setup_triclinic()
 //
 //  // virial coefficients
 //
-//  double sqk,vterm;
+//  KK_FLOAT sqk,vterm;
 //
 //  for (n = 0; n < nfft; n++) { // parallel_for
 //    sqk = d_fkx[n]*d_fkx[n] + d_fky[n]*d_fky[n] + d_fkz[n]*d_fkz[n];
@@ -711,7 +711,7 @@ void PPPMKokkos<DeviceType>::compute(int eflag, int vflag)
   qscale = qqrd2e * scale;
 
   if (eflag_global) {
-    double energy_all;
+    KK_FLOAT energy_all;
     MPI_Allreduce(&energy,&energy_all,1,MPI_DOUBLE,MPI_SUM,world);
     energy = energy_all;
 
@@ -724,7 +724,7 @@ void PPPMKokkos<DeviceType>::compute(int eflag, int vflag)
   // sum global virial across procs
 
   if (vflag_global) {
-    double virial_all[6];
+    KK_FLOAT virial_all[6];
     MPI_Allreduce(virial,virial_all,6,MPI_DOUBLE,MPI_SUM,world);
     for (i = 0; i < 6; i++) virial[i] = 0.5*qscale*volume*virial_all[i];
   }
@@ -945,10 +945,10 @@ void PPPMKokkos<DeviceType>::set_grid_global()
   // adjust z dimension for 2d slab PPPM
   // 3d PPPM just uses zprd since slab_volfactor = 1.0
 
-  double xprd = domain->xprd;
-  double yprd = domain->yprd;
-  double zprd = domain->zprd;
-  double zprd_slab = zprd*slab_volfactor;
+  KK_FLOAT xprd = domain->xprd;
+  KK_FLOAT yprd = domain->yprd;
+  KK_FLOAT zprd = domain->zprd;
+  KK_FLOAT zprd_slab = zprd*slab_volfactor;
 
   // make initial g_ewald estimate
   // based on desired accuracy and real space cutoff
@@ -973,7 +973,7 @@ void PPPMKokkos<DeviceType>::set_grid_global()
 
   if (!gridflag) {
 
-    double err;
+    KK_FLOAT err;
     h_x = h_y = h_z = 1.0/g_ewald;
 
     nx_pppm = static_cast<int> (xprd/h_x) + 1;
@@ -1004,7 +1004,7 @@ void PPPMKokkos<DeviceType>::set_grid_global()
     // scale grid for triclinic skew
 
     if (triclinic) {
-      double tmp[3];
+      KK_FLOAT tmp[3];
       tmp[0] = nx_pppm/xprd;
       tmp[1] = ny_pppm/yprd;
       tmp[2] = nz_pppm/zprd;
@@ -1026,7 +1026,7 @@ void PPPMKokkos<DeviceType>::set_grid_global()
     h_y = yprd/ny_pppm;
     h_z = zprd_slab/nz_pppm;
   } else {
-    double tmp[3];
+    KK_FLOAT tmp[3];
     tmp[0] = nx_pppm;
     tmp[1] = ny_pppm;
     tmp[2] = nz_pppm;
@@ -1068,17 +1068,17 @@ int PPPMKokkos<DeviceType>::factorable(int n)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PPPMKokkos<DeviceType>::compute_df_kspace()
+KK_FLOAT PPPMKokkos<DeviceType>::compute_df_kspace()
 {
-  double xprd = domain->xprd;
-  double yprd = domain->yprd;
-  double zprd = domain->zprd;
-  double zprd_slab = zprd*slab_volfactor;
+  KK_FLOAT xprd = domain->xprd;
+  KK_FLOAT yprd = domain->yprd;
+  KK_FLOAT zprd = domain->zprd;
+  KK_FLOAT zprd_slab = zprd*slab_volfactor;
   bigint natoms = atomKK->natoms;
-  double df_kspace = 0.0;
-  double lprx = estimate_ik_error(h_x,xprd,natoms);
-  double lpry = estimate_ik_error(h_y,yprd,natoms);
-  double lprz = estimate_ik_error(h_z,zprd_slab,natoms);
+  KK_FLOAT df_kspace = 0.0;
+  KK_FLOAT lprx = estimate_ik_error(h_x,xprd,natoms);
+  KK_FLOAT lpry = estimate_ik_error(h_y,yprd,natoms);
+  KK_FLOAT lprz = estimate_ik_error(h_z,zprd_slab,natoms);
   df_kspace = sqrt(lprx*lprx + lpry*lpry + lprz*lprz) / sqrt(3.0);
   return df_kspace;
 }
@@ -1088,12 +1088,12 @@ double PPPMKokkos<DeviceType>::compute_df_kspace()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PPPMKokkos<DeviceType>::estimate_ik_error(double h, double prd, bigint natoms)
+KK_FLOAT PPPMKokkos<DeviceType>::estimate_ik_error(KK_FLOAT h, KK_FLOAT prd, bigint natoms)
 {
-  double sum = 0.0;
+  KK_FLOAT sum = 0.0;
   for (int m = 0; m < order; m++)
     sum += acons(order,m) * pow(h*g_ewald,2.0*m);
-  double value = q2 * pow(h*g_ewald,(double)order) *
+  KK_FLOAT value = q2 * pow(h*g_ewald,(KK_FLOAT)order) *
     sqrt(g_ewald*prd*sqrt(MY_2PI)*sum/natoms) / (prd*prd);
 
   return value;
@@ -1107,7 +1107,7 @@ double PPPMKokkos<DeviceType>::estimate_ik_error(double h, double prd, bigint na
 template<class DeviceType>
 void PPPMKokkos<DeviceType>::adjust_gewald()
 {
-  double dx;
+  KK_FLOAT dx;
 
   for (int i = 0; i < LARGE; i++) {
     dx = newton_raphson_f() / derivf();
@@ -1125,17 +1125,17 @@ void PPPMKokkos<DeviceType>::adjust_gewald()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PPPMKokkos<DeviceType>::newton_raphson_f()
+KK_FLOAT PPPMKokkos<DeviceType>::newton_raphson_f()
 {
-  double xprd = domain->xprd;
-  double yprd = domain->yprd;
-  double zprd = domain->zprd;
+  KK_FLOAT xprd = domain->xprd;
+  KK_FLOAT yprd = domain->yprd;
+  KK_FLOAT zprd = domain->zprd;
   bigint natoms = atomKK->natoms;
 
-  double df_rspace = 2.0*q2*exp(-g_ewald*g_ewald*cutoff*cutoff) /
+  KK_FLOAT df_rspace = 2.0*q2*exp(-g_ewald*g_ewald*cutoff*cutoff) /
        sqrt(natoms*cutoff*xprd*yprd*zprd);
 
-  double df_kspace = compute_df_kspace();
+  KK_FLOAT df_kspace = compute_df_kspace();
 
   return df_rspace - df_kspace;
 }
@@ -1146,10 +1146,10 @@ double PPPMKokkos<DeviceType>::newton_raphson_f()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PPPMKokkos<DeviceType>::derivf()
+KK_FLOAT PPPMKokkos<DeviceType>::derivf()
 {
-  double h = 0.000001;  //Derivative step-size
-  double df,f1,f2,g_ewald_old;
+  KK_FLOAT h = 0.000001;  //Derivative step-size
+  KK_FLOAT df,f1,f2,g_ewald_old;
 
   f1 = newton_raphson_f();
   g_ewald_old = g_ewald;
@@ -1166,19 +1166,19 @@ double PPPMKokkos<DeviceType>::derivf()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PPPMKokkos<DeviceType>::final_accuracy()
+KK_FLOAT PPPMKokkos<DeviceType>::final_accuracy()
 {
-  double xprd = domain->xprd;
-  double yprd = domain->yprd;
-  double zprd = domain->zprd;
+  KK_FLOAT xprd = domain->xprd;
+  KK_FLOAT yprd = domain->yprd;
+  KK_FLOAT zprd = domain->zprd;
   bigint natoms = atomKK->natoms;
   if (natoms == 0) natoms = 1; // avoid division by zero
 
-  double df_kspace = compute_df_kspace();
-  double q2_over_sqrt = q2 / sqrt(natoms*cutoff*xprd*yprd*zprd);
-  double df_rspace = 2.0 * q2_over_sqrt * exp(-g_ewald*g_ewald*cutoff*cutoff);
-  double df_table = estimate_table_accuracy(q2_over_sqrt,df_rspace);
-  double estimated_accuracy = sqrt(df_kspace*df_kspace + df_rspace*df_rspace +
+  KK_FLOAT df_kspace = compute_df_kspace();
+  KK_FLOAT q2_over_sqrt = q2 / sqrt(natoms*cutoff*xprd*yprd*zprd);
+  KK_FLOAT df_rspace = 2.0 * q2_over_sqrt * exp(-g_ewald*g_ewald*cutoff*cutoff);
+  KK_FLOAT df_table = estimate_table_accuracy(q2_over_sqrt,df_rspace);
+  KK_FLOAT estimated_accuracy = sqrt(df_kspace*df_kspace + df_rspace*df_rspace +
                                    df_table*df_table);
 
   return estimated_accuracy;
@@ -1234,7 +1234,7 @@ void PPPMKokkos<DeviceType>::set_grid_local()
   // nlo_out,nhi_out = nlo,nhi + stencil size for particle mapping
   // for slab PPPM, assign z grid as if it were not extended
 
-  double *prd,*sublo,*subhi;
+  KK_FLOAT *prd,*sublo,*subhi;
 
   if (triclinic == 0) {
     prd = domain->prd;
@@ -1253,13 +1253,13 @@ void PPPMKokkos<DeviceType>::set_grid_local()
     subhi = domain->subhi_lamda;
   }
 
-  double xprd = prd[0];
-  double yprd = prd[1];
-  double zprd = prd[2];
-  double zprd_slab = zprd*slab_volfactor;
+  KK_FLOAT xprd = prd[0];
+  KK_FLOAT yprd = prd[1];
+  KK_FLOAT zprd = prd[2];
+  KK_FLOAT zprd_slab = zprd*slab_volfactor;
 
-  double dist[3];
-  double cuthalf = 0.5*neighbor->skin + qdist;
+  KK_FLOAT dist[3];
+  KK_FLOAT cuthalf = 0.5*neighbor->skin + qdist;
   if (triclinic == 0) dist[0] = dist[1] = dist[2] = cuthalf;
   else kspacebbox(cuthalf,&dist[0]);
 
@@ -1363,7 +1363,7 @@ void PPPMKokkos<DeviceType>::compute_gf_denom()
 
   bigint ifact = 1;
   for (k = 1; k < 2*order; k++) ifact *= k;
-  double gaminv = 1.0/ifact;
+  KK_FLOAT gaminv = 1.0/ifact;
   for (l = 0; l < order; l++) k_gf_b.h_view[l] *= gaminv;
 
   k_gf_b.template modify<LMPHostType>();
@@ -1377,11 +1377,11 @@ void PPPMKokkos<DeviceType>::compute_gf_denom()
 template<class DeviceType>
 void PPPMKokkos<DeviceType>::compute_gf_ik()
 {
-  const double * const prd = domain->prd;
+  const KK_FLOAT * const prd = domain->prd;
 
   xprd = prd[0];
   yprd = prd[1];
-  const double zprd = prd[2];
+  const KK_FLOAT zprd = prd[2];
   zprd_slab = zprd*slab_volfactor;
   unitkx = (MY_2PI/xprd);
   unitky = (MY_2PI/yprd);
@@ -1419,41 +1419,41 @@ void PPPMKokkos<DeviceType>::operator()(TagPPPM_compute_gf_ik, const int &n) con
   k += nxlo_fft;
 
   const int mper = m - nz_pppm*(2*m/nz_pppm);
-  const double snz = square(sin(0.5*unitkz*mper*zprd_slab/nz_pppm));
+  const KK_FLOAT snz = square(sin(0.5*unitkz*mper*zprd_slab/nz_pppm));
 
   const int lper = l - ny_pppm*(2*l/ny_pppm);
-  const double sny = square(sin(0.5*unitky*lper*yprd/ny_pppm));
+  const KK_FLOAT sny = square(sin(0.5*unitky*lper*yprd/ny_pppm));
 
   const int kper = k - nx_pppm*(2*k/nx_pppm);
-  const double snx = square(sin(0.5*unitkx*kper*xprd/nx_pppm));
+  const KK_FLOAT snx = square(sin(0.5*unitkx*kper*xprd/nx_pppm));
 
-  const double sqk = square(unitkx*kper) + square(unitky*lper) + square(unitkz*mper);
+  const KK_FLOAT sqk = square(unitkx*kper) + square(unitky*lper) + square(unitkz*mper);
 
   if (sqk != 0.0) {
-    const double numerator = 12.5663706/sqk;
-    const double denominator = gf_denom(snx,sny,snz);
-    double sum1 = 0.0;
+    const KK_FLOAT numerator = 12.5663706/sqk;
+    const KK_FLOAT denominator = gf_denom(snx,sny,snz);
+    KK_FLOAT sum1 = 0.0;
 
     for (int nx = -nbx; nx <= nbx; nx++) {
-      const double qx = unitkx*(kper+nx_pppm*nx);
-      const double sx = exp(-0.25*square(qx/g_ewald));
-      const double argx = 0.5*qx*xprd/nx_pppm;
-      const double wx = powsinxx(argx,twoorder);
+      const KK_FLOAT qx = unitkx*(kper+nx_pppm*nx);
+      const KK_FLOAT sx = exp(-0.25*square(qx/g_ewald));
+      const KK_FLOAT argx = 0.5*qx*xprd/nx_pppm;
+      const KK_FLOAT wx = powsinxx(argx,twoorder);
 
       for (int ny = -nby; ny <= nby; ny++) {
-        const double qy = unitky*(lper+ny_pppm*ny);
-        const double sy = exp(-0.25*square(qy/g_ewald));
-        const double argy = 0.5*qy*yprd/ny_pppm;
-        const double wy = powsinxx(argy,twoorder);
+        const KK_FLOAT qy = unitky*(lper+ny_pppm*ny);
+        const KK_FLOAT sy = exp(-0.25*square(qy/g_ewald));
+        const KK_FLOAT argy = 0.5*qy*yprd/ny_pppm;
+        const KK_FLOAT wy = powsinxx(argy,twoorder);
 
         for (int nz = -nbz; nz <= nbz; nz++) {
-          const double qz = unitkz*(mper+nz_pppm*nz);
-          const double sz = exp(-0.25*square(qz/g_ewald));
-          const double argz = 0.5*qz*zprd_slab/nz_pppm;
-          const double wz = powsinxx(argz,twoorder);
+          const KK_FLOAT qz = unitkz*(mper+nz_pppm*nz);
+          const KK_FLOAT sz = exp(-0.25*square(qz/g_ewald));
+          const KK_FLOAT argz = 0.5*qz*zprd_slab/nz_pppm;
+          const KK_FLOAT wz = powsinxx(argz,twoorder);
 
-          const double dot1 = unitkx*kper*qx + unitky*lper*qy + unitkz*mper*qz;
-          const double dot2 = qx*qx+qy*qy+qz*qz;
+          const KK_FLOAT dot1 = unitkx*kper*qx + unitky*lper*qy + unitkz*mper*qz;
+          const KK_FLOAT dot2 = qx*qx+qy*qy+qz*qz;
           sum1 += (dot1/dot2) * sx*sy*sz * wx*wy*wz;
         }
       }
@@ -1470,7 +1470,7 @@ void PPPMKokkos<DeviceType>::operator()(TagPPPM_compute_gf_ik, const int &n) con
 template<class DeviceType>
 void PPPMKokkos<DeviceType>::compute_gf_ik_triclinic()
 {
-  double tmp[3];
+  KK_FLOAT tmp[3];
   tmp[0] = (g_ewald/(MY_PI*nx_pppm)) * pow(-log(EPS_HOC),0.25);
   tmp[1] = (g_ewald/(MY_PI*ny_pppm)) * pow(-log(EPS_HOC),0.25);
   tmp[2] = (g_ewald/(MY_PI*nz_pppm)) * pow(-log(EPS_HOC),0.25);
@@ -1493,58 +1493,58 @@ void PPPMKokkos<DeviceType>::operator()(TagPPPM_compute_gf_ik_triclinic, const i
   //int n = (m - nzlo_fft)*(nyhi_fft+1 - nylo_fft)*(nxhi_fft+1 - nxlo_fft);
   //
   //const int mper = m - nz_pppm*(2*m/nz_pppm);
-  //const double snz = square(sin(MY_PI*mper/nz_pppm));
+  //const KK_FLOAT snz = square(sin(MY_PI*mper/nz_pppm));
   //
   //for (int l = nylo_fft; l <= nyhi_fft; l++) {
   //  const int lper = l - ny_pppm*(2*l/ny_pppm);
-  //  const double sny = square(sin(MY_PI*lper/ny_pppm));
+  //  const KK_FLOAT sny = square(sin(MY_PI*lper/ny_pppm));
   //
   //  for (int k = nxlo_fft; k <= nxhi_fft; k++) {
   //    const int kper = k - nx_pppm*(2*k/nx_pppm);
-  //    const double snx = square(sin(MY_PI*kper/nx_pppm));
+  //    const KK_FLOAT snx = square(sin(MY_PI*kper/nx_pppm));
   //
-  //    double unitk_lamda[3];
+  //    KK_FLOAT unitk_lamda[3];
   //    unitk_lamda[0] = 2.0*MY_PI*kper;
   //    unitk_lamda[1] = 2.0*MY_PI*lper;
   //    unitk_lamda[2] = 2.0*MY_PI*mper;
   //    x2lamdaT(&unitk_lamda[0],&unitk_lamda[0]);
   //
-  //    const double sqk = square(unitk_lamda[0]) + square(unitk_lamda[1]) + square(unitk_lamda[2]);
+  //    const KK_FLOAT sqk = square(unitk_lamda[0]) + square(unitk_lamda[1]) + square(unitk_lamda[2]);
   //
   //    if (sqk != 0.0) {
-  //      const double numerator = 12.5663706/sqk;
-  //      const double denominator = gf_denom(snx,sny,snz);
-  //      double sum1 = 0.0;
+  //      const KK_FLOAT numerator = 12.5663706/sqk;
+  //      const KK_FLOAT denominator = gf_denom(snx,sny,snz);
+  //      KK_FLOAT sum1 = 0.0;
   //
   //      for (int nx = -nbx; nx <= nbx; nx++) {
-  //        const double argx = MY_PI*kper/nx_pppm + MY_PI*nx;
-  //        const double wx = powsinxx(argx,twoorder);
+  //        const KK_FLOAT argx = MY_PI*kper/nx_pppm + MY_PI*nx;
+  //        const KK_FLOAT wx = powsinxx(argx,twoorder);
   //
   //        for (int ny = -nby; ny <= nby; ny++) {
-  //          const double argy = MY_PI*lper/ny_pppm + MY_PI*ny;
-  //          const double wy = powsinxx(argy,twoorder);
+  //          const KK_FLOAT argy = MY_PI*lper/ny_pppm + MY_PI*ny;
+  //          const KK_FLOAT wy = powsinxx(argy,twoorder);
   //
   //          for (int nz = -nbz; nz <= nbz; nz++) {
-  //            const double argz = MY_PI*mper/nz_pppm + MY_PI*nz;
-  //            const double wz = powsinxx(argz,twoorder);
+  //            const KK_FLOAT argz = MY_PI*mper/nz_pppm + MY_PI*nz;
+  //            const KK_FLOAT wz = powsinxx(argz,twoorder);
   //
-  //            double b[3];
+  //            KK_FLOAT b[3];
   //            b[0] = 2.0*MY_PI*nx_pppm*nx;
   //            b[1] = 2.0*MY_PI*ny_pppm*ny;
   //            b[2] = 2.0*MY_PI*nz_pppm*nz;
   //            x2lamdaT(&b[0],&b[0]);
   //
-  //            const double qx = unitk_lamda[0]+b[0];
-  //            const double sx = exp(-0.25*square(qx/g_ewald));
+  //            const KK_FLOAT qx = unitk_lamda[0]+b[0];
+  //            const KK_FLOAT sx = exp(-0.25*square(qx/g_ewald));
   //
-  //            const double qy = unitk_lamda[1]+b[1];
-  //            const double sy = exp(-0.25*square(qy/g_ewald));
+  //            const KK_FLOAT qy = unitk_lamda[1]+b[1];
+  //            const KK_FLOAT sy = exp(-0.25*square(qy/g_ewald));
   //
-  //            const double qz = unitk_lamda[2]+b[2];
-  //            const double sz = exp(-0.25*square(qz/g_ewald));
+  //            const KK_FLOAT qz = unitk_lamda[2]+b[2];
+  //            const KK_FLOAT sz = exp(-0.25*square(qz/g_ewald));
   //
-  //            const double dot1 = unitk_lamda[0]*qx + unitk_lamda[1]*qy + unitk_lamda[2]*qz;
-  //            const double dot2 = qx*qx+qy*qy+qz*qz;
+  //            const KK_FLOAT dot1 = unitk_lamda[0]*qx + unitk_lamda[1]*qy + unitk_lamda[2]*qz;
+  //            const KK_FLOAT dot2 = qx*qx+qy*qy+qz*qz;
   //            sum1 += (dot1/dot2) * sx*sy*sz * wx*wy*wz;
   //          }
   //        }
@@ -1768,7 +1768,7 @@ void PPPMKokkos<DeviceType>::brick2fft()
 {
   // copy grabs inner portion of density from 3d brick
   // remap could be done as pre-stage of FFT,
-  //   but this works optimally on only double values, not complex values
+  //   but this works optimally on only KK_FLOAT values, not complex values
 
   numz_inout = (nzhi_in-nzlo_out)-(nzlo_in-nzlo_out) + 1;
   numy_inout = (nyhi_in-nylo_out)-(nylo_in-nylo_out) + 1;
@@ -1954,7 +1954,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMKokkos<DeviceType>::operator()(TagPPPM_poisson_ik2, const int &i, EV_FLOAT& ev) const
 {
-  const double eng = s2 * d_greensfn[i] * (d_work1[2*i]*d_work1[2*i] + d_work1[2*i+1]*d_work1[2*i+1]);
+  const KK_FLOAT eng = s2 * d_greensfn[i] * (d_work1[2*i]*d_work1[2*i] + d_work1[2*i+1]*d_work1[2*i+1]);
   for (int j = 0; j < 6; j++) ev.v[j] += eng*d_vg(i,j);
   if (eflag_global) ev.ecoul += eng;
 }
@@ -2541,7 +2541,7 @@ void PPPMKokkos<DeviceType>::operator()(TagPPPM_fieldforce_ik, const int &i) con
 
   // convert E-field to force
 
-  const double qfactor = qqrd2e * scale * q[i];
+  const KK_FLOAT qfactor = qqrd2e * scale * q[i];
   f(i,0) += qfactor*ekx;
   f(i,1) += qfactor*eky;
   if (slabflag != 2) f(i,2) += qfactor*ekz;
@@ -2650,7 +2650,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMKokkos<DeviceType>::operator()(TagPPPM_pack_forward1, const int &i) const
 {
-  const double dlist = (double) d_list_index[i];
+  const KK_FLOAT dlist = (KK_FLOAT) d_list_index[i];
   const int iz = (int) (dlist/(nx*ny));
   const int iy = (int) ((dlist - iz*nx*ny)/nx);
   const int ix = d_list_index[i] - iz*nx*ny - iy*nx;
@@ -2663,7 +2663,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMKokkos<DeviceType>::operator()(TagPPPM_pack_forward2, const int &i) const
 {
-  const double dlist = (double) d_list_index[i];
+  const KK_FLOAT dlist = (KK_FLOAT) d_list_index[i];
   const int iz = (int) (dlist/(nx*ny));
   const int iy = (int) ((dlist - iz*nx*ny)/nx);
   const int ix = d_list_index[i] - iz*nx*ny - iy*nx;
@@ -2706,7 +2706,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMKokkos<DeviceType>::operator()(TagPPPM_unpack_forward1, const int &i) const
 {
-  const double dlist = (double) d_list_index[i];
+  const KK_FLOAT dlist = (KK_FLOAT) d_list_index[i];
   const int iz = (int) (dlist/(nx*ny));
   const int iy = (int) ((dlist - iz*nx*ny)/nx);
   const int ix = d_list_index[i] - iz*nx*ny - iy*nx;
@@ -2719,7 +2719,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMKokkos<DeviceType>::operator()(TagPPPM_unpack_forward2, const int &i) const
 {
-  const double dlist = (double) d_list_index[i];
+  const KK_FLOAT dlist = (KK_FLOAT) d_list_index[i];
   const int iz = (int) (dlist/(nx*ny));
   const int iy = (int) ((dlist - iz*nx*ny)/nx);
   const int ix = d_list_index[i] - iz*nx*ny - iy*nx;
@@ -2757,7 +2757,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMKokkos<DeviceType>::operator()(TagPPPM_pack_reverse, const int &i) const
 {
-  const double dlist = (double) d_list_index[i];
+  const KK_FLOAT dlist = (KK_FLOAT) d_list_index[i];
   const int iz = (int) (dlist/(nx*ny));
   const int iy = (int) ((dlist - iz*nx*ny)/nx);
   const int ix = d_list_index[i] - iz*nx*ny - iy*nx;
@@ -2787,7 +2787,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMKokkos<DeviceType>::operator()(TagPPPM_unpack_reverse, const int &i) const
 {
-  const double dlist = (double) d_list_index[i];
+  const KK_FLOAT dlist = (KK_FLOAT) d_list_index[i];
   const int iz = (int) (dlist/(nx*ny));
   const int iy = (int) ((dlist - iz*nx*ny)/nx);
   const int ix = d_list_index[i] - iz*nx*ny - iy*nx;
@@ -2903,8 +2903,8 @@ void PPPMKokkos<DeviceType>::compute_rho_coeff()
         s += powf(0.5,(float) l+1) *
           (a[l][k-1+order] + powf(-1.0,(float) l) * a[l][k+1+order]) / (l+1);
 #else
-        s += pow(0.5,(double) l+1) *
-          (a[l][k-1+order] + pow(-1.0,(double) l) * a[l][k+1+order]) / (l+1);
+        s += pow(0.5,(KK_FLOAT) l+1) *
+          (a[l][k-1+order] + pow(-1.0,(KK_FLOAT) l) * a[l][k+1+order]) / (l+1);
 #endif
       }
       a[0][k+order] = s;
@@ -2936,7 +2936,7 @@ void PPPMKokkos<DeviceType>::slabcorr()
   zprd = domain->zprd;
   int nlocal = atomKK->nlocal;
 
-  double dipole = 0.0;
+  KK_FLOAT dipole = 0.0;
   copymode = 1;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPPPM_slabcorr1>(0,nlocal),*this,dipole);
   copymode = 0;
@@ -2956,14 +2956,14 @@ void PPPMKokkos<DeviceType>::slabcorr()
 
     // sum local contributions
 
-    double tmp;
+    KK_FLOAT tmp;
     MPI_Allreduce(&dipole_r2,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     dipole_r2 = tmp;
   }
 
   // compute corrections
 
-  const double e_slabcorr = MY_2PI*(dipole_all*dipole_all -
+  const KK_FLOAT e_slabcorr = MY_2PI*(dipole_all*dipole_all -
     qsum*dipole_r2 - qsum*qsum*zprd*zprd/12.0)/volume;
   qscale = qqrd2e * scale;
 
@@ -2989,14 +2989,14 @@ void PPPMKokkos<DeviceType>::slabcorr()
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMKokkos<DeviceType>::operator()(TagPPPM_slabcorr1, const int &i, double &dipole) const
+void PPPMKokkos<DeviceType>::operator()(TagPPPM_slabcorr1, const int &i, KK_FLOAT &dipole) const
 {
   dipole += q[i]*x(i,2);
 }
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMKokkos<DeviceType>::operator()(TagPPPM_slabcorr2, const int &i, double &dipole_r2) const
+void PPPMKokkos<DeviceType>::operator()(TagPPPM_slabcorr2, const int &i, KK_FLOAT &dipole_r2) const
 {
   dipole_r2 += q[i]*x(i,2)*x(i,2);
 }
@@ -3021,9 +3021,9 @@ void PPPMKokkos<DeviceType>::operator()(TagPPPM_slabcorr4, const int &i) const
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-int PPPMKokkos<DeviceType>::timing_1d(int n, double &time1d)
+int PPPMKokkos<DeviceType>::timing_1d(int n, KK_FLOAT &time1d)
 {
-  double time1,time2;
+  KK_FLOAT time1,time2;
 
   copymode = 1;
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPM_timing_zero>(0,2*nfft_both),*this);
@@ -3058,9 +3058,9 @@ void PPPMKokkos<DeviceType>::operator()(TagPPPM_timing_zero, const int &i) const
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-int PPPMKokkos<DeviceType>::timing_3d(int n, double &time3d)
+int PPPMKokkos<DeviceType>::timing_3d(int n, KK_FLOAT &time3d)
 {
-  double time1,time2;
+  KK_FLOAT time1,time2;
 
   copymode = 1;
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPM_timing_zero>(0,2*nfft_both),*this);
@@ -3088,15 +3088,15 @@ int PPPMKokkos<DeviceType>::timing_3d(int n, double &time3d)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PPPMKokkos<DeviceType>::memory_usage()
+KK_FLOAT PPPMKokkos<DeviceType>::memory_usage()
 {
-  double bytes = nmax*3 * sizeof(double);
+  KK_FLOAT bytes = nmax*3 * sizeof(KK_FLOAT);
   int nbrick = (nxhi_out-nxlo_out+1) * (nyhi_out-nylo_out+1) *
     (nzhi_out-nzlo_out+1);
   bytes += 4 * nbrick * sizeof(FFT_SCALAR);
-  if (triclinic) bytes += 3 * nfft_both * sizeof(double);
-  bytes += 6 * nfft_both * sizeof(double);
-  bytes += nfft_both * sizeof(double);
+  if (triclinic) bytes += 3 * nfft_both * sizeof(KK_FLOAT);
+  bytes += 6 * nfft_both * sizeof(KK_FLOAT);
+  bytes += nfft_both * sizeof(KK_FLOAT);
   bytes += nfft_both*5 * sizeof(FFT_SCALAR);
 
   if (peratom_allocate_flag)

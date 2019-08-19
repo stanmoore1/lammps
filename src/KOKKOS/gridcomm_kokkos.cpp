@@ -644,9 +644,9 @@ int GridCommKokkos<DeviceType>::indices(DAT::tdual_int_2d &k_list, int index,
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double GridCommKokkos<DeviceType>::memory_usage()
+KK_FLOAT GridCommKokkos<DeviceType>::memory_usage()
 {
-  double bytes = 2*nbuf * sizeof(double);
+  KK_FLOAT bytes = 2*nbuf * sizeof(KK_FLOAT);
   return bytes;
 }
 

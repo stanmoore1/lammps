@@ -163,8 +163,8 @@ class NBinSSAKokkos : public NBinStandard {
   }
 
  private:
-  double bboxlo_[3],bboxhi_[3];
-  double sublo_[3], subhi_[3];
+  KK_FLOAT bboxlo_[3],bboxhi_[3];
+  KK_FLOAT sublo_[3], subhi_[3];
 };
 
 template<class DeviceType>

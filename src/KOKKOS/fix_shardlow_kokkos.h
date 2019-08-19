@@ -53,12 +53,12 @@ class FixShardlowKokkos : public FixShardlow {
   void setup_pre_neighbor();
   void pre_neighbor();
 
-  double memory_usage();
+  KK_FLOAT memory_usage();
 
-  int pack_reverse_comm(int, int, double *);
-  void unpack_reverse_comm(int, int *, double *);
-  int pack_forward_comm(int , int *, double *, int, int *);
-  void unpack_forward_comm(int , int , double *);
+  int pack_reverse_comm(int, int, KK_FLOAT *);
+  void unpack_reverse_comm(int, int *, KK_FLOAT *);
+  int pack_forward_comm(int , int *, KK_FLOAT *, int, int *);
+  void unpack_forward_comm(int , int , KK_FLOAT *);
 
   struct params_ssa {
     KOKKOS_INLINE_FUNCTION
@@ -85,7 +85,7 @@ class FixShardlowKokkos : public FixShardlow {
 
  protected:
   int workPhase;
-  double theta_ij_inv,boltz_inv,ftm2v,dt;
+  KK_FLOAT theta_ij_inv,boltz_inv,ftm2v,dt;
 
 #ifdef ENABLE_KOKKOS_DPD_CONSTANT_TEMPERATURE
 //  class PairDPDfdt *pairDPD; FIXME as per k_pairDPDE below
@@ -119,7 +119,7 @@ class FixShardlowKokkos : public FixShardlow {
   typedef Kokkos::View<random_external_state::es_RNG_t*,DeviceType> es_RNGs_type;
   es_RNGs_type d_rand_state;
 
-  double dtsqrt; // = sqrt(update->dt);
+  KK_FLOAT dtsqrt; // = sqrt(update->dt);
   int ghostmax;
   int nlocal, nghost;
 

@@ -28,7 +28,7 @@ ComputeStyle(temp/kk/host,ComputeTempKokkos<LMPHostType>)
 namespace LAMMPS_NS {
 
   struct s_CTEMP {
-    double t0, t1, t2, t3, t4, t5;
+    KK_FLOAT t0, t1, t2, t3, t4, t5;
     KOKKOS_INLINE_FUNCTION
     s_CTEMP() {
       t0 = t1 = t2 = t3 = t4 = t5 = 0.0;
@@ -71,7 +71,7 @@ class ComputeTempKokkos : public ComputeTemp {
 
   ComputeTempKokkos(class LAMMPS *, int, char **);
   virtual ~ComputeTempKokkos() {}
-  double compute_scalar();
+  KK_FLOAT compute_scalar();
   void compute_vector();
 
   template<int RMASS>

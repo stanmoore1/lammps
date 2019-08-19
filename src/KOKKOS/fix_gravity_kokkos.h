@@ -38,9 +38,9 @@ class FixGravityKokkos : public FixGravity {
     void post_force(int);
 
     KOKKOS_INLINE_FUNCTION
-    void operator()(TagFixGravityRMass, const int, double &) const;
+    void operator()(TagFixGravityRMass, const int, KK_FLOAT &) const;
     KOKKOS_INLINE_FUNCTION
-    void operator()(TagFixGravityMass, const int, double &) const;
+    void operator()(TagFixGravityMass, const int, KK_FLOAT &) const;
 
   private:
     typename ArrayTypes<DeviceType>::t_x_array x;

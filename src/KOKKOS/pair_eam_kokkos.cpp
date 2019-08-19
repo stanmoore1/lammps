@@ -391,7 +391,7 @@ void PairEAMKokkos<DeviceType>::array2spline()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairEAMKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_host_ffloat_2d_n7 h_spline, int i)
+void PairEAMKokkos<DeviceType>::interpolate(int n, KK_FLOAT delta, KK_FLOAT *f, t_host_ffloat_2d_n7 h_spline, int i)
 {
   for (int m = 1; m <= n; m++) h_spline(i,m,6) = f[m];
 
@@ -460,7 +460,7 @@ void PairEAMKokkos<DeviceType>::operator()(TagPairEAMUnpackForwardComm, const in
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int PairEAMKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
+int PairEAMKokkos<DeviceType>::pack_forward_comm(int n, int *list, KK_FLOAT *buf,
                                int pbc_flag, int *pbc)
 {
   int i,j;
@@ -475,7 +475,7 @@ int PairEAMKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairEAMKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
+void PairEAMKokkos<DeviceType>::unpack_forward_comm(int n, int first, KK_FLOAT *buf)
 {
   for (int i = 0; i < n; i++) {
     h_fp[i + first] = buf[i];
@@ -485,7 +485,7 @@ void PairEAMKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *bu
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int PairEAMKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)
+int PairEAMKokkos<DeviceType>::pack_reverse_comm(int n, int first, KK_FLOAT *buf)
 {
   int i,m,last;
 
@@ -498,7 +498,7 @@ int PairEAMKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairEAMKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, double *buf)
+void PairEAMKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, KK_FLOAT *buf)
 {
   int i,j,m;
 

@@ -61,8 +61,8 @@ class CommKokkos : public CommBrick {
   DAT::tdual_int_2d k_exchange_lists;
   DAT::tdual_int_1d k_exchange_sendlist,k_exchange_copylist,k_sendflag;
   DAT::tdual_int_scalar k_count;
-  //double *buf_send;                 // send buffer for all comm
-  //double *buf_recv;                 // recv buffer for all comm
+  //KK_FLOAT *buf_send;                 // send buffer for all comm
+  //KK_FLOAT *buf_recv;                 // recv buffer for all comm
 
   DAT::tdual_int_2d k_swap;
   DAT::tdual_int_2d k_swap2;

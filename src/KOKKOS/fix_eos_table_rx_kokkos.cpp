@@ -140,7 +140,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void FixEOStableRXKokkos<DeviceType>::operator()(TagFixEOStableRXSetup, const int &i) const {
   if (mask[i] & groupbit) {
-    const double duChem = uCG[i] - uCGnew[i];
+    const KK_FLOAT duChem = uCG[i] - uCGnew[i];
     uChem[i] += duChem;
     uCG[i] = 0.0;
     uCGnew[i] = 0.0;
@@ -191,7 +191,7 @@ void FixEOStableRXKokkos<DeviceType>::init()
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void FixEOStableRXKokkos<DeviceType>::operator()(TagFixEOStableRXInit, const int &i) const {
-  double tmp;
+  KK_FLOAT tmp;
   if (mask[i] & groupbit) {
     if(dpdTheta[i] <= 0.0)
       k_error_flag.template view<DeviceType>()() = 1;
@@ -291,11 +291,11 @@ void FixEOStableRXKokkos<DeviceType>::end_of_step()
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixEOStableRXKokkos<DeviceType>::energy_lookup(int id, double thetai, double &ui) const
+void FixEOStableRXKokkos<DeviceType>::energy_lookup(int id, KK_FLOAT thetai, KK_FLOAT &ui) const
 {
   int itable, nPG;
-  double fraction, uTmp, nMolecules, nTotal, nTotalPG;
-  double tolerance = 1.0e-10;
+  KK_FLOAT fraction, uTmp, nMolecules, nTotal, nTotalPG;
+  KK_FLOAT tolerance = 1.0e-10;
 
   ui = 0.0;
   nTotal = 0.0;
@@ -332,14 +332,14 @@ void FixEOStableRXKokkos<DeviceType>::energy_lookup(int id, double thetai, doubl
       uTmp += d_dHf[ispecies];
       uTmp += d_tempCorrCoeff[ispecies]*thetai; // temperature correction
       uTmp += d_energyCorr[ispecies]; // energy correction
-      if (nPG > 0) ui += d_moleculeCorrCoeff[ispecies]*nTotalPG/double(nPG); // molecule correction
+      if (nPG > 0) ui += d_moleculeCorrCoeff[ispecies]*nTotalPG/KK_FLOAT(nPG); // molecule correction
 
       if (rx_flag) nMolecules = dvector(ispecies,id);
       else nMolecules = 1.0;
       ui += nMolecules*uTmp;
     }
   }
-  ui = ui - double(nTotal+1.5)*boltz*thetai;
+  ui = ui - KK_FLOAT(nTotal+1.5)*boltz*thetai;
 }
 
 /* ----------------------------------------------------------------------
@@ -348,16 +348,16 @@ void FixEOStableRXKokkos<DeviceType>::energy_lookup(int id, double thetai, doubl
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixEOStableRXKokkos<DeviceType>::temperature_lookup(int id, double ui, double &thetai) const
+void FixEOStableRXKokkos<DeviceType>::temperature_lookup(int id, KK_FLOAT ui, KK_FLOAT &thetai) const
 {
   //Table *tb = &tables[0];
 
   int it;
-  double t1,t2,u1,u2,f1,f2;
-  double maxit = 100;
-  double temp;
-  double delta = 0.001;
-  double tolerance = 1.0e-10;
+  KK_FLOAT t1,t2,u1,u2,f1,f2;
+  KK_FLOAT maxit = 100;
+  KK_FLOAT temp;
+  KK_FLOAT delta = 0.001;
+  KK_FLOAT tolerance = 1.0e-10;
   int lo = d_table_const.lo(0);
   int hi = d_table_const.hi(0);
 
@@ -411,7 +411,7 @@ void FixEOStableRXKokkos<DeviceType>::temperature_lookup(int id, double ui, doub
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixEOStableRXKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, int pbc_flag, int *pbc)
+int FixEOStableRXKokkos<DeviceType>::pack_forward_comm(int n, int *list, KK_FLOAT *buf, int pbc_flag, int *pbc)
 {
   int ii,jj,m;
   HAT::t_efloat_1d h_uChem = atomKK->k_uChem.h_view;
@@ -431,7 +431,7 @@ int FixEOStableRXKokkos<DeviceType>::pack_forward_comm(int n, int *list, double 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixEOStableRXKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
+void FixEOStableRXKokkos<DeviceType>::unpack_forward_comm(int n, int first, KK_FLOAT *buf)
 {
   int ii,m,last;
   HAT::t_efloat_1d h_uChem = atomKK->k_uChem.h_view;
@@ -450,7 +450,7 @@ void FixEOStableRXKokkos<DeviceType>::unpack_forward_comm(int n, int first, doub
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixEOStableRXKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)
+int FixEOStableRXKokkos<DeviceType>::pack_reverse_comm(int n, int first, KK_FLOAT *buf)
 {
   int i,m,last;
   HAT::t_efloat_1d h_uCG = atomKK->k_uCG.h_view;
@@ -468,7 +468,7 @@ int FixEOStableRXKokkos<DeviceType>::pack_reverse_comm(int n, int first, double 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixEOStableRXKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, double *buf)
+void FixEOStableRXKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, KK_FLOAT *buf)
 {
   int i,j,m;
   HAT::t_efloat_1d h_uCG = atomKK->k_uCG.h_view;

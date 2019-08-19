@@ -242,9 +242,9 @@ void PairBuckKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairBuckKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairBuckKokkos<DeviceType>::init_one(int i, int j)
 {
-  double cutone = PairBuck::init_one(i,j);
+  KK_FLOAT cutone = PairBuck::init_one(i,j);
 
   k_params.h_view(i,j).a = a[i][j];
   k_params.h_view(i,j).c = c[i][j];

@@ -320,11 +320,11 @@ void PairBuckCoulCutKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairBuckCoulCutKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairBuckCoulCutKokkos<DeviceType>::init_one(int i, int j)
 {
-  double cutone = PairBuckCoulCut::init_one(i,j);
-  double cut_ljsqm = cut_ljsq[i][j];
-  double cut_coulsqm = cut_coulsq[i][j];
+  KK_FLOAT cutone = PairBuckCoulCut::init_one(i,j);
+  KK_FLOAT cut_ljsqm = cut_ljsq[i][j];
+  KK_FLOAT cut_coulsqm = cut_coulsq[i][j];
 
   k_params.h_view(i,j).a = a[i][j];
   k_params.h_view(i,j).c = c[i][j];

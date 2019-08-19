@@ -241,9 +241,9 @@ void PairCoulCutKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairCoulCutKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairCoulCutKokkos<DeviceType>::init_one(int i, int j)
 {
-  double cutone = PairCoulCut::init_one(i,j);
+  KK_FLOAT cutone = PairCoulCut::init_one(i,j);
 
   k_params.h_view(i,j).scale = scale[i][j];
   k_params.h_view(i,j).cutsq = cutone*cutone;

@@ -107,10 +107,10 @@ class FixRxKokkos : public FixRX {
 
  //protected:
   PairDPDfdtEnergyKokkos<DeviceType>* pairDPDEKK;
-  double VDPD;
+  KK_FLOAT VDPD;
 
-  double boltz;
-  double t_stop;
+  KK_FLOAT boltz;
+  KK_FLOAT t_stop;
 
   template <typename T, int stride = 1>
   struct StridedArrayType
@@ -134,65 +134,65 @@ class FixRxKokkos : public FixRX {
   template <int stride = 1>
   struct UserRHSDataKokkos
   {
-    StridedArrayType<double,1> kFor;
-    StridedArrayType<double,1> rxnRateLaw;
+    StridedArrayType<KK_FLOAT,1> kFor;
+    StridedArrayType<KK_FLOAT,1> rxnRateLaw;
   };
 
   void solve_reactions(const int vflag, const bool isPreForce);
 
-  int rhs       (double, const double *, double *, void *) const;
-  int rhs_dense (double, const double *, double *, void *) const;
-  int rhs_sparse(double, const double *, double *, void *) const;
+  int rhs       (KK_FLOAT, const KK_FLOAT *, KK_FLOAT *, void *) const;
+  int rhs_dense (KK_FLOAT, const KK_FLOAT *, KK_FLOAT *, void *) const;
+  int rhs_sparse(KK_FLOAT, const KK_FLOAT *, KK_FLOAT *, void *) const;
 
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  int k_rhs       (double, const VectorType&, VectorType&, UserDataType& ) const;
+  int k_rhs       (KK_FLOAT, const VectorType&, VectorType&, UserDataType& ) const;
 
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  int k_rhs_dense (double, const VectorType&, VectorType&, UserDataType& ) const;
+  int k_rhs_dense (KK_FLOAT, const VectorType&, VectorType&, UserDataType& ) const;
 
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  int k_rhs_sparse(double, const VectorType&, VectorType&, UserDataType& ) const;
+  int k_rhs_sparse(KK_FLOAT, const VectorType&, VectorType&, UserDataType& ) const;
 
   //!< Classic Runge-Kutta 4th-order stepper.
-  void rk4(const double t_stop, double *y, double *rwork, void *v_params) const;
+  void rk4(const KK_FLOAT t_stop, KK_FLOAT *y, KK_FLOAT *rwork, void *v_params) const;
 
   //!< Runge-Kutta-Fehlberg ODE Solver.
-  void rkf45(const int neq, const double t_stop, double *y, double *rwork, void *v_params, CounterType& counter) const;
+  void rkf45(const int neq, const KK_FLOAT t_stop, KK_FLOAT *y, KK_FLOAT *rwork, void *v_params, CounterType& counter) const;
 
   //!< Runge-Kutta-Fehlberg ODE stepper function.
-  void rkf45_step (const int neq, const double h, double y[], double y_out[],
-                   double rwk[], void *) const;
+  void rkf45_step (const int neq, const KK_FLOAT h, KK_FLOAT y[], KK_FLOAT y_out[],
+                   KK_FLOAT rwk[], void *) const;
 
   //!< Initial step size estimation for the Runge-Kutta-Fehlberg ODE solver.
-  int rkf45_h0 (const int neq, const double t, const double t_stop,
-                     const double hmin, const double hmax,
-                     double& h0, double y[], double rwk[], void *v_params) const;
+  int rkf45_h0 (const int neq, const KK_FLOAT t, const KK_FLOAT t_stop,
+                     const KK_FLOAT hmin, const KK_FLOAT hmax,
+                     KK_FLOAT& h0, KK_FLOAT y[], KK_FLOAT rwk[], void *v_params) const;
 
   //!< Classic Runge-Kutta 4th-order stepper.
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  void k_rk4(const double t_stop, VectorType& y, VectorType& rwork, UserDataType& userData) const;
+  void k_rk4(const KK_FLOAT t_stop, VectorType& y, VectorType& rwork, UserDataType& userData) const;
 
   //!< Runge-Kutta-Fehlberg ODE Solver.
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  void k_rkf45(const int neq, const double t_stop, VectorType& y, VectorType& rwork, UserDataType& userData, CounterType& counter) const;
+  void k_rkf45(const int neq, const KK_FLOAT t_stop, VectorType& y, VectorType& rwork, UserDataType& userData, CounterType& counter) const;
 
   //!< Runge-Kutta-Fehlberg ODE stepper function.
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  void k_rkf45_step (const int neq, const double h, VectorType& y, VectorType& y_out,
+  void k_rkf45_step (const int neq, const KK_FLOAT h, VectorType& y, VectorType& y_out,
                      VectorType& rwk, UserDataType& userData) const;
 
   //!< Initial step size estimation for the Runge-Kutta-Fehlberg ODE solver.
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  int k_rkf45_h0 (const int neq, const double t, const double t_stop,
-                  const double hmin, const double hmax,
-                  double& h0, VectorType& y, VectorType& rwk, UserDataType& userData) const;
+  int k_rkf45_h0 (const int neq, const KK_FLOAT t, const KK_FLOAT t_stop,
+                  const KK_FLOAT hmin, const KK_FLOAT hmax,
+                  KK_FLOAT& h0, VectorType& y, VectorType& rwk, UserDataType& userData) const;
 
   //!< ODE Solver diagnostics.
   void odeDiagnostics(void);
@@ -244,7 +244,7 @@ class FixRxKokkos : public FixRX {
 
   typename ArrayTypes<DeviceType>::tdual_ffloat_2d k_cutsq;
   typename ArrayTypes<DeviceType>::t_ffloat_2d     d_cutsq;
-  //double **h_cutsq;
+  //KK_FLOAT **h_cutsq;
 
   typename ArrayTypes<DeviceType>::t_neighbors_2d d_neighbors;
   typename ArrayTypes<DeviceType>::t_int_1d       d_ilist    ;
@@ -253,7 +253,7 @@ class FixRxKokkos : public FixRX {
   typename ArrayTypes<DeviceType>::t_float_2d  d_dvector;
   typename ArrayTypes<DeviceType>::t_int_1d    d_mask   ;
 
-  typename ArrayTypes<DeviceType>::t_double_1d d_scratchSpace;
+  typename ArrayTypes<DeviceType>::t_KK_FLOAT_1d d_scratchSpace;
   size_t scratchSpaceSize;
 
   // Error flag for any failures.
@@ -262,10 +262,10 @@ class FixRxKokkos : public FixRX {
   template <int WT_FLAG, int LOCAL_TEMP_FLAG, bool NEWTON_PAIR, int NEIGHFLAG>
   void computeLocalTemperature();
 
-  int pack_reverse_comm(int, int, double *);
-  void unpack_reverse_comm(int, int *, double *);
-  int pack_forward_comm(int , int *, double *, int, int *);
-  void unpack_forward_comm(int , int , double *);
+  int pack_reverse_comm(int, int, KK_FLOAT *);
+  void unpack_reverse_comm(int, int *, KK_FLOAT *);
+  int pack_forward_comm(int , int *, KK_FLOAT *, int, int *);
+  void unpack_forward_comm(int , int , KK_FLOAT *);
 
  //private: // replicate a few from FixRX
   int my_restartFlag;

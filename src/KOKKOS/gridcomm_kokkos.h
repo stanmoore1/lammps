@@ -21,7 +21,7 @@
 typedef float FFT_SCALAR;
 #define MPI_FFT_SCALAR MPI_FLOAT
 #else
-typedef double FFT_SCALAR;
+typedef KK_FLOAT FFT_SCALAR;
 #define MPI_FFT_SCALAR MPI_DOUBLE
 #endif
 
@@ -48,7 +48,7 @@ class GridCommKokkos : protected Pointers {
   void setup();
   void forward_comm(class KSpace *, int);
   void reverse_comm(class KSpace *, int);
-  double memory_usage();
+  KK_FLOAT memory_usage();
 
  private:
   int me;

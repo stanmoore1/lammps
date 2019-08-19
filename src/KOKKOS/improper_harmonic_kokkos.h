@@ -67,10 +67,10 @@ class ImproperHarmonicKokkos : public ImproperHarmonic {
   typename Kokkos::View<double*[3],typename AT::t_f_array::array_layout,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d improperlist;
 
-  Kokkos::DualView<KK_FLOAT*,Kokkos::LayoutRight,DeviceType> k_eatom;
-  Kokkos::DualView<KK_FLOAT*[6],Kokkos::LayoutRight,DeviceType> k_vatom;
-  Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
-  Kokkos::View<KK_FLOAT*[6],Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
+  Kokkos::DualView<double*,Kokkos::LayoutRight,DeviceType> k_eatom;
+  Kokkos::DualView<double*[6],Kokkos::LayoutRight,DeviceType> k_vatom;
+  Kokkos::View<double*,Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
+  Kokkos::View<double*[6],Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;
@@ -79,11 +79,11 @@ class ImproperHarmonicKokkos : public ImproperHarmonic {
   typename Kokkos::DualView<int,DeviceType>::t_dev d_warning_flag;
   typename Kokkos::DualView<int,DeviceType>::t_host h_warning_flag;
 
-  Kokkos::DualView<KK_FLOAT*,DeviceType> k_k;
-  Kokkos::DualView<KK_FLOAT*,DeviceType> k_chi;
+  Kokkos::DualView<double*,DeviceType> k_k;
+  Kokkos::DualView<double*,DeviceType> k_chi;
 
-  typename Kokkos::DualView<KK_FLOAT*,DeviceType>::t_dev d_k;
-  typename Kokkos::DualView<KK_FLOAT*,DeviceType>::t_dev d_chi;
+  typename Kokkos::DualView<double*,DeviceType>::t_dev d_k;
+  typename Kokkos::DualView<double*,DeviceType>::t_dev d_chi;
 
   void allocate();
 };

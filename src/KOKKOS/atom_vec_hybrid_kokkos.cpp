@@ -310,7 +310,7 @@ int AtomVecHybridKokkos::pack_comm(int n, int *list, double *buf,
   atomKK->sync(Host,X_MASK);
 
   int i,j,k,m;
-  double dx,dy,dz;
+  KK_FLOAT dx,dy,dz;
 
   m = 0;
   if (pbc_flag == 0) {
@@ -354,7 +354,7 @@ int AtomVecHybridKokkos::pack_comm_vel(int n, int *list, double *buf,
   atomKK->sync(Host,X_MASK|V_MASK|OMEGA_MASK/*|ANGMOM_MASK*/);
 
   int i,j,k,m;
-  double dx,dy,dz,dvx,dvy,dvz;
+  KK_FLOAT dx,dy,dz,dvx,dvy,dvz;
   int omega_flag = atom->omega_flag;
   int angmom_flag = atom->angmom_flag;
 
@@ -562,7 +562,7 @@ int AtomVecHybridKokkos::pack_border(int n, int *list, double *buf,
   atomKK->sync(Host,X_MASK|TAG_MASK|TYPE_MASK|MASK_MASK);
 
   int i,j,k,m;
-  double dx,dy,dz;
+  KK_FLOAT dx,dy,dz;
 
   m = 0;
   if (pbc_flag == 0) {
@@ -615,7 +615,7 @@ int AtomVecHybridKokkos::pack_border_vel(int n, int *list, double *buf,
 {
   atomKK->sync(Host,X_MASK|TAG_MASK|TYPE_MASK|MASK_MASK|V_MASK|OMEGA_MASK/*|ANGMOM_MASK*/);
   int i,j,k,m;
-  double dx,dy,dz,dvx,dvy,dvz;
+  KK_FLOAT dx,dy,dz,dvx,dvy,dvz;
   int omega_flag = atom->omega_flag;
   int angmom_flag = atom->angmom_flag;
 

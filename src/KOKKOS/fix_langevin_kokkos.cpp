@@ -73,7 +73,7 @@ FixLangevinKokkos<DeviceType>::FixLangevinKokkos(LAMMPS *lmp, int narg, char **a
     k_franprev.template modify<LMPHostType>();
   }
   if(zeroflag){
-    k_fsumall = tdual_double_1d_3n("langevin:fsumall");
+    k_fsumall = tdual_KK_FLOAT_1d_3n("langevin:fsumall");
     h_fsumall = k_fsumall.template view<LMPHostType>();
     d_fsumall = k_fsumall.template view<DeviceType>();
   }
@@ -150,7 +150,7 @@ void FixLangevinKokkos<DeviceType>::post_force(int vflag)
   compute_target(); // modifies tforce vector, hence sync here
   k_tforce.template sync<DeviceType>();
 
-  double fsum[3],fsumall[3];
+  KK_FLOAT fsum[3],fsumall[3];
   bigint count;
   int nlocal = atomKK->nlocal;
 
@@ -514,10 +514,10 @@ KOKKOS_INLINE_FUNCTION
 FSUM FixLangevinKokkos<DeviceType>::post_force_item(int i) const
 {
   FSUM fsum;
-  double fdrag[3],fran[3];
-  double gamma1,gamma2;
-  double fswap;
-  double tsqrt_t = tsqrt;
+  KK_FLOAT fdrag[3],fran[3];
+  KK_FLOAT gamma1,gamma2;
+  KK_FLOAT fswap;
+  KK_FLOAT tsqrt_t = tsqrt;
 
   if (mask[i] & groupbit) {
     rand_type rand_gen = rand_pool.get_state();
@@ -617,7 +617,7 @@ void FixLangevinKokkos<DeviceType>::compute_target()
   mask = atomKK->k_mask.template view<DeviceType>();
   int nlocal = atomKK->nlocal;
 
-  double delta = update->ntimestep - update->beginstep;
+  KK_FLOAT delta = update->ntimestep - update->beginstep;
   if (delta != 0.0) delta /= update->endstep - update->beginstep;
 
   // if variable temp, evaluate variable, wrap with clear/add
@@ -673,7 +673,7 @@ void FixLangevinKokkos<DeviceType>::reset_dt()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-double FixLangevinKokkos<DeviceType>::compute_scalar()
+KK_FLOAT FixLangevinKokkos<DeviceType>::compute_scalar()
 {
   if (!tallyflag || flangevin == NULL) return 0.0;
 
@@ -693,8 +693,8 @@ double FixLangevinKokkos<DeviceType>::compute_scalar()
   }
 
   // convert midstep energy back to previous fullstep energy
-  double energy_me = energy - 0.5*energy_onestep*update->dt;
-  double energy_all;
+  KK_FLOAT energy_me = energy - 0.5*energy_onestep*update->dt;
+  KK_FLOAT energy_all;
   MPI_Allreduce(&energy_me,&energy_all,1,MPI_DOUBLE,MPI_SUM,world);
   return -energy_all;
 }
@@ -703,9 +703,9 @@ double FixLangevinKokkos<DeviceType>::compute_scalar()
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixLangevinKokkos<DeviceType>::compute_energy_item(int i) const
+KK_FLOAT FixLangevinKokkos<DeviceType>::compute_energy_item(int i) const
 {
-  double energy;
+  KK_FLOAT energy;
   if (mask[i] & groupbit)
     energy = d_flangevin(i,0)*v(i,0) + d_flangevin(i,1)*v(i,1) +
       d_flangevin(i,2)*v(i,2);

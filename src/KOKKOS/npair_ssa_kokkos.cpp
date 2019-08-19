@@ -338,7 +338,7 @@ fprintf(stdout, "phas%03d phase %3d could use %6d inums, expected %6d inums. max
   ,inum - h_ssa_itemLoc(workPhase, 0)
   ,(nlocal*4 + ssa_phaseCt - 1) / ssa_phaseCt
   ,workItem
-  ,(inum - h_ssa_itemLoc(workPhase, 0)) / (double) workItem
+  ,(inum - h_ssa_itemLoc(workPhase, 0)) / (KK_FLOAT) workItem
 );
 #endif
     // record where workPhase ends
@@ -350,7 +350,7 @@ fprintf(stdout, "tota%03d total %3d could use %6d inums, expected %6d inums. inu
   ,workPhase
   ,inum
   ,nlocal*4
-  ,inum / (double) workPhase
+  ,inum / (KK_FLOAT) workPhase
 );
 #endif
   nl_size = inum; // record how much space is needed for the local work plan
@@ -644,7 +644,7 @@ fprintf(stdout, "Phas%03d phase %3d used %6d inums, workItems = %3d, skipped = %
   ,inum - d_ssa_itemLoc(workPhase, 0)
   ,workItem
   ,skippedItems
-  ,(inum - d_ssa_itemLoc(workPhase, 0)) / (double) workItem
+  ,(inum - d_ssa_itemLoc(workPhase, 0)) / (KK_FLOAT) workItem
 );
 #endif
     // record where workPhase actually ends

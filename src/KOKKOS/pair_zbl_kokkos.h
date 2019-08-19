@@ -64,7 +64,7 @@ class PairZBLKokkos : public PairZBL {
   int newton_pair;
   int neighflag;
   int nlocal,nall,eflag,vflag;
-  double special_lj[4];
+  KK_FLOAT special_lj[4];
 
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT e_zbl(KK_FLOAT, int, int) const;

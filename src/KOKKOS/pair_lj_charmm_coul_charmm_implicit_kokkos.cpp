@@ -322,7 +322,7 @@ void PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::allocate()
 }
 
 template<class DeviceType>
-void PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::init_tables(double cut_coul, double *cut_respa)
+void PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::init_tables(KK_FLOAT cut_coul, KK_FLOAT *cut_respa)
 {
   Pair::init_tables(cut_coul,cut_respa);
 
@@ -483,11 +483,11 @@ void PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::init_one(int i, int j)
+KK_FLOAT PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::init_one(int i, int j)
 {
-  double cutone = PairLJCharmmCoulCharmmImplicit::init_one(i,j);
-  double cut_ljsqm = cut_ljsq;
-  double cut_coulsqm = cut_coulsq;
+  KK_FLOAT cutone = PairLJCharmmCoulCharmmImplicit::init_one(i,j);
+  KK_FLOAT cut_ljsqm = cut_ljsq;
+  KK_FLOAT cut_coulsqm = cut_coulsq;
 
   k_params.h_view(i,j).lj1 = lj1[i][j];
   k_params.h_view(i,j).lj2 = lj2[i][j];

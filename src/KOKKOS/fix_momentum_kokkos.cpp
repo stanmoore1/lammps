@@ -46,7 +46,7 @@ FixMomentumKokkos<DeviceType>::FixMomentumKokkos(LAMMPS *lmp, int narg, char **a
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-static double get_kinetic_energy(
+static KK_FLOAT get_kinetic_energy(
     AtomKokkos* atomKK,
     MPI_Comm world,
     int groupbit,
@@ -56,11 +56,11 @@ static double get_kinetic_energy(
 {
   using AT = ArrayTypes<DeviceType>;
   auto execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
-  double ke=0.0;
+  KK_FLOAT ke=0.0;
   if (atomKK->rmass) {
     atomKK->sync(execution_space, RMASS_MASK);
     typename AT::t_float_1d_randomread rmass = atomKK->k_rmass.view<DeviceType>();
-    Kokkos::parallel_reduce(nlocal, LAMMPS_LAMBDA(int i, double& update) {
+    Kokkos::parallel_reduce(nlocal, LAMMPS_LAMBDA(int i, KK_FLOAT& update) {
       if (mask(i) & groupbit)
         update += rmass(i) *
           (v(i,0)*v(i,0) + v(i,1)*v(i,1) + v(i,2)*v(i,2));
@@ -70,13 +70,13 @@ static double get_kinetic_energy(
     atomKK->sync(execution_space, TYPE_MASK);
     typename AT::t_int_1d_randomread type = atomKK->k_type.view<DeviceType>();
     typename AT::t_float_1d_randomread mass = atomKK->k_mass.view<DeviceType>();
-    Kokkos::parallel_reduce(nlocal, LAMMPS_LAMBDA(int i, double& update) {
+    Kokkos::parallel_reduce(nlocal, LAMMPS_LAMBDA(int i, KK_FLOAT& update) {
       if (mask(i) & groupbit)
         update += mass(type(i)) *
           (v(i,0)*v(i,0) + v(i,1)*v(i,1) + v(i,2)*v(i,2));
     }, ke);
   }
-  double ke_total;
+  KK_FLOAT ke_total;
   MPI_Allreduce(&ke,&ke_total,1,MPI_DOUBLE,MPI_SUM,world);
   return ke_total;
 }
@@ -90,7 +90,7 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
   typename AT::t_int_1d_randomread mask = atomKK->k_mask.view<DeviceType>();
 
   const int nlocal = atom->nlocal;
-  double ekin_old,ekin_new;
+  KK_FLOAT ekin_old,ekin_new;
   ekin_old = ekin_new = 0.0;
 
   if (dynamic)
@@ -111,9 +111,9 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
     /* this is needed because Group is not Kokkos-aware ! */
     atomKK->sync(ExecutionSpaceFromDevice<LMPHostType>::space,
         V_MASK | MASK_MASK | TYPE_MASK | RMASS_MASK);
-    Few<double, 3> tmpvcm;
+    Few<KK_FLOAT, 3> tmpvcm;
     group->vcm(igroup,masstotal,&tmpvcm[0]);
-    const Few<double, 3> vcm(tmpvcm);
+    const Few<KK_FLOAT, 3> vcm(tmpvcm);
 
     // adjust velocities by vcm to zero linear momentum
     // only adjust a component if flag is set
@@ -133,8 +133,8 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
   }
 
   if (angular) {
-    Few<double, 3> tmpxcm, tmpangmom, tmpomega;
-    double inertia[3][3];
+    Few<KK_FLOAT, 3> tmpxcm, tmpangmom, tmpomega;
+    KK_FLOAT inertia[3][3];
     /* syncs for each Kokkos-unaware Group method */
     atomKK->sync(ExecutionSpaceFromDevice<LMPHostType>::space,
         X_MASK | MASK_MASK | TYPE_MASK | IMAGE_MASK | RMASS_MASK);
@@ -146,7 +146,7 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
         X_MASK | MASK_MASK | TYPE_MASK | IMAGE_MASK | RMASS_MASK);
     group->inertia(igroup,&tmpxcm[0],inertia);
     group->omega(&tmpangmom[0],inertia,&tmpomega[0]);
-    const Few<double, 3> xcm(tmpxcm), angmom(tmpangmom), omega(tmpomega);
+    const Few<KK_FLOAT, 3> xcm(tmpxcm), angmom(tmpangmom), omega(tmpomega);
 
     // adjust velocities to zero omega
     // vnew_i = v_i - w x r_i
@@ -157,12 +157,12 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
     typename AT::t_imageint_1d_randomread image = atomKK->k_image.view<DeviceType>();
     int nlocal = atom->nlocal;
 
-    auto prd = Few<double,3>(domain->prd);
-    auto h = Few<double,6>(domain->h);
+    auto prd = Few<KK_FLOAT,3>(domain->prd);
+    auto h = Few<KK_FLOAT,6>(domain->h);
     auto triclinic = domain->triclinic;
     Kokkos::parallel_for(nlocal, LAMMPS_LAMBDA(int i) {
       if (mask[i] & groupbit2) {
-        Few<double,3> x_i;
+        Few<KK_FLOAT,3> x_i;
         x_i[0] = x(i,0);
         x_i[1] = x(i,1);
         x_i[2] = x(i,2);
@@ -184,7 +184,7 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
 
     ekin_new = get_kinetic_energy<DeviceType>(atomKK, world, groupbit, nlocal, v, mask);
 
-    double factor = 1.0;
+    KK_FLOAT factor = 1.0;
     if (ekin_new != 0.0) factor = sqrt(ekin_old/ekin_new);
     Kokkos::parallel_for(nlocal, LAMMPS_LAMBDA(int i) {
       if (mask(i) & groupbit2) {

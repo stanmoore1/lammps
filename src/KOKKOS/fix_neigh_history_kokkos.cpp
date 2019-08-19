@@ -175,7 +175,7 @@ void FixNeighHistoryKokkos<DeviceType>::post_neighbor()
   if (maxatom < nlocal || k_list->maxneighs > d_firstflag.extent(1)) {
     maxatom = nall;
     d_firstflag = Kokkos::View<int**>("neighbor_history:firstflag",maxatom,k_list->maxneighs);
-    d_firstvalue = Kokkos::View<KK_FLOAT**>("neighbor_history:firstvalue",maxatom,k_list->maxneighs*dnum);
+    d_firstvalue = Kokkos::View<double**>("neighbor_history:firstvalue",maxatom,k_list->maxneighs*dnum);
   }
 
   copymode = 1;
@@ -231,13 +231,13 @@ void FixNeighHistoryKokkos<DeviceType>::post_neighbor_item(const int &ii) const
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double FixNeighHistoryKokkos<DeviceType>::memory_usage()
+KK_FLOAT FixNeighHistoryKokkos<DeviceType>::memory_usage()
 {
-  double bytes = d_firstflag.extent(0)*d_firstflag.extent(1)*sizeof(int);
-  bytes += d_firstvalue.extent(0)*d_firstvalue.extent(1)*sizeof(double);
+  KK_FLOAT bytes = d_firstflag.extent(0)*d_firstflag.extent(1)*sizeof(int);
+  bytes += d_firstvalue.extent(0)*d_firstvalue.extent(1)*sizeof(KK_FLOAT);
   bytes += 2*k_npartner.extent(0)*sizeof(int);
   bytes += 2*k_partner.extent(0)*k_partner.extent(1)*sizeof(int);
-  bytes += 2*k_valuepartner.extent(0)*k_valuepartner.extent(1)*sizeof(double);
+  bytes += 2*k_valuepartner.extent(0)*k_valuepartner.extent(1)*sizeof(KK_FLOAT);
   return bytes;
 }
 
@@ -292,7 +292,7 @@ void FixNeighHistoryKokkos<DeviceType>::copy_arrays(int i, int j, int delflag)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixNeighHistoryKokkos<DeviceType>::pack_exchange(int i, double *buf)
+int FixNeighHistoryKokkos<DeviceType>::pack_exchange(int i, KK_FLOAT *buf)
 {
   k_npartner.template sync<LMPHostType>();
   k_partner.template sync<LMPHostType>();
@@ -311,7 +311,7 @@ int FixNeighHistoryKokkos<DeviceType>::pack_exchange(int i, double *buf)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixNeighHistoryKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
+int FixNeighHistoryKokkos<DeviceType>::unpack_exchange(int nlocal, KK_FLOAT *buf)
 {
   int n = 0;
   npartner[nlocal] = static_cast<int>(buf[n++]);

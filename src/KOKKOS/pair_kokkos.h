@@ -65,18 +65,18 @@ struct PairComputeFunctor  {
   typename AT::t_virial_array d_vatom;
 
   // The force array is atomic for Half/Thread neighbor style
-  //Kokkos::View<KK_FLOAT*[3], typename DAT::t_f_array::array_layout,
+  //Kokkos::View<double*[3], typename DAT::t_f_array::array_layout,
   //             device_type,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > f;
-  Kokkos::Experimental::ScatterView<KK_FLOAT*[3], typename DAT::t_f_array::array_layout,device_type,Kokkos::Experimental::ScatterSum,NeedDup<NEIGHFLAG,device_type>::value > dup_f;
+  Kokkos::Experimental::ScatterView<double*[3], typename DAT::t_f_array::array_layout,device_type,Kokkos::Experimental::ScatterSum,NeedDup<NEIGHFLAG,device_type>::value > dup_f;
 
   // The eatom and vatom arrays are atomic for Half/Thread neighbor style
-  //Kokkos::View<KK_FLOAT*, typename DAT::t_efloat_1d::array_layout,
+  //Kokkos::View<double*, typename DAT::t_efloat_1d::array_layout,
   //             device_type,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > eatom;
-  Kokkos::Experimental::ScatterView<KK_FLOAT*, typename DAT::t_efloat_1d::array_layout,device_type,Kokkos::Experimental::ScatterSum,NeedDup<NEIGHFLAG,device_type>::value > dup_eatom;
+  Kokkos::Experimental::ScatterView<double*, typename DAT::t_efloat_1d::array_layout,device_type,Kokkos::Experimental::ScatterSum,NeedDup<NEIGHFLAG,device_type>::value > dup_eatom;
 
-  //Kokkos::View<KK_FLOAT*[6], typename DAT::t_virial_array::array_layout,
+  //Kokkos::View<double*[6], typename DAT::t_virial_array::array_layout,
   //             device_type,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > vatom;
-  Kokkos::Experimental::ScatterView<KK_FLOAT*[6], typename DAT::t_virial_array::array_layout,device_type,Kokkos::Experimental::ScatterSum,NeedDup<NEIGHFLAG,device_type>::value > dup_vatom;
+  Kokkos::Experimental::ScatterView<double*[6], typename DAT::t_virial_array::array_layout,device_type,Kokkos::Experimental::ScatterSum,NeedDup<NEIGHFLAG,device_type>::value > dup_vatom;
 
 
 
@@ -278,10 +278,10 @@ struct PairComputeFunctor  {
       const AtomNeighborsConst neighbors_i = list.get_neighbors_const(i);
       const int jnum = list.d_numneigh[i];
 
-      t_scalar3<double> fsum;
+      t_scalar3<KK_FLOAT> fsum;
 
       Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team,jnum),
-        [&] (const int jj, t_scalar3<double>& ftmp) {
+        [&] (const int jj, t_scalar3<KK_FLOAT>& ftmp) {
 
         int j = neighbors_i(jj);
         const KK_FLOAT factor_lj = c.special_lj[sbmask(j)];
@@ -335,10 +335,10 @@ struct PairComputeFunctor  {
       const AtomNeighborsConst neighbors_i = list.get_neighbors_const(i);
       const int jnum = list.d_numneigh[i];
 
-      t_scalar3<double> fsum;
+      t_scalar3<KK_FLOAT> fsum;
 
       Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team,jnum),
-        [&] (const int jj, t_scalar3<double>& ftmp) {
+        [&] (const int jj, t_scalar3<KK_FLOAT>& ftmp) {
         int j = neighbors_i(jj);
         const KK_FLOAT factor_lj = c.special_lj[sbmask(j)];
         const KK_FLOAT factor_coul = c.special_coul[sbmask(j)];

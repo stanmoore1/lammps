@@ -393,7 +393,7 @@ void PairEAMFSKokkos<DeviceType>::array2spline()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairEAMFSKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_host_ffloat_2d_n7 h_spline, int i)
+void PairEAMFSKokkos<DeviceType>::interpolate(int n, KK_FLOAT delta, KK_FLOAT *f, t_host_ffloat_2d_n7 h_spline, int i)
 {
   for (int m = 1; m <= n; m++) h_spline(i,m,6) = f[m];
 
@@ -462,7 +462,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSUnpackForwardComm, cons
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int PairEAMFSKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
+int PairEAMFSKokkos<DeviceType>::pack_forward_comm(int n, int *list, KK_FLOAT *buf,
                                int pbc_flag, int *pbc)
 {
   int i,j;
@@ -477,7 +477,7 @@ int PairEAMFSKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairEAMFSKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
+void PairEAMFSKokkos<DeviceType>::unpack_forward_comm(int n, int first, KK_FLOAT *buf)
 {
   for (int i = 0; i < n; i++) {
     h_fp[i + first] = buf[i];
@@ -487,7 +487,7 @@ void PairEAMFSKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int PairEAMFSKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)
+int PairEAMFSKokkos<DeviceType>::pack_reverse_comm(int n, int first, KK_FLOAT *buf)
 {
   int i,m,last;
 
@@ -500,7 +500,7 @@ int PairEAMFSKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairEAMFSKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, double *buf)
+void PairEAMFSKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, KK_FLOAT *buf)
 {
   int i,j,m;
 
@@ -1041,7 +1041,7 @@ void PairEAMFSKokkos<DeviceType>::read_file(char *filename)
   MPI_Bcast(&file->dr,1,MPI_DOUBLE,0,world);
   MPI_Bcast(&file->cut,1,MPI_DOUBLE,0,world);
 
-  file->mass = new double[file->nelements];
+  file->mass = new KK_FLOAT[file->nelements];
   memory->create(file->frho,file->nelements,file->nrho+1,
                                               "pair:frho");
   memory->create(file->rhor,file->nelements,file->nelements,

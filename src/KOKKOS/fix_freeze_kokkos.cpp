@@ -94,7 +94,7 @@ void FixFreezeKokkos<DeviceType>::post_force_respa(int vflag, int ilevel, int il
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double FixFreezeKokkos<DeviceType>::compute_vector(int n)
+KK_FLOAT FixFreezeKokkos<DeviceType>::compute_vector(int n)
 {
   return FixFreeze::compute_vector(n);
 }

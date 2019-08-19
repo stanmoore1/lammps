@@ -793,7 +793,7 @@ void PairTersoffKokkos<DeviceType>::operator()(TagPairTersoffComputeFullB<NEIGHF
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double PairTersoffKokkos<DeviceType>::ters_fc_k(const int &i, const int &j,
+KK_FLOAT PairTersoffKokkos<DeviceType>::ters_fc_k(const int &i, const int &j,
                 const int &k, const KK_FLOAT &r) const
 {
   const KK_FLOAT ters_R = paramskk(i,j,k).bigr;
@@ -808,7 +808,7 @@ double PairTersoffKokkos<DeviceType>::ters_fc_k(const int &i, const int &j,
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double PairTersoffKokkos<DeviceType>::ters_dfc(const int &i, const int &j,
+KK_FLOAT PairTersoffKokkos<DeviceType>::ters_dfc(const int &i, const int &j,
                 const int &k, const KK_FLOAT &r) const
 {
   const KK_FLOAT ters_R = paramskk(i,j,k).bigr;
@@ -823,7 +823,7 @@ double PairTersoffKokkos<DeviceType>::ters_dfc(const int &i, const int &j,
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double PairTersoffKokkos<DeviceType>::bondorder(const int &i, const int &j, const int &k,
+KK_FLOAT PairTersoffKokkos<DeviceType>::bondorder(const int &i, const int &j, const int &k,
         const KK_FLOAT &rij, const KK_FLOAT &dx1, const KK_FLOAT &dy1, const KK_FLOAT &dz1,
         const KK_FLOAT &rik, const KK_FLOAT &dx2, const KK_FLOAT &dy2, const KK_FLOAT &dz2) const
 {
@@ -846,7 +846,7 @@ double PairTersoffKokkos<DeviceType>::bondorder(const int &i, const int &j, cons
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double PairTersoffKokkos<DeviceType>::
+KK_FLOAT PairTersoffKokkos<DeviceType>::
         ters_gijk(const int &i, const int &j, const int &k, const KK_FLOAT &cos) const
 {
   const KK_FLOAT ters_c = paramskk(i,j,k).c * paramskk(i,j,k).c;
@@ -860,7 +860,7 @@ double PairTersoffKokkos<DeviceType>::
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double PairTersoffKokkos<DeviceType>::
+KK_FLOAT PairTersoffKokkos<DeviceType>::
         ters_dgijk(const int &i, const int &j, const int &k, const KK_FLOAT &cos) const
 {
   const KK_FLOAT ters_c = paramskk(i,j,k).c * paramskk(i,j,k).c;
@@ -875,7 +875,7 @@ double PairTersoffKokkos<DeviceType>::
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double PairTersoffKokkos<DeviceType>::ters_fa_k(const int &i, const int &j,
+KK_FLOAT PairTersoffKokkos<DeviceType>::ters_fa_k(const int &i, const int &j,
                 const int &k, const KK_FLOAT &r) const
 {
   if (r > paramskk(i,j,k).bigr + paramskk(i,j,k).bigd) return 0.0;
@@ -887,7 +887,7 @@ double PairTersoffKokkos<DeviceType>::ters_fa_k(const int &i, const int &j,
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double PairTersoffKokkos<DeviceType>::ters_dfa(const int &i, const int &j,
+KK_FLOAT PairTersoffKokkos<DeviceType>::ters_dfa(const int &i, const int &j,
                 const int &k, const KK_FLOAT &r) const
 {
   if (r > paramskk(i,j,k).bigr + paramskk(i,j,k).bigd) return 0.0;
@@ -899,7 +899,7 @@ double PairTersoffKokkos<DeviceType>::ters_dfa(const int &i, const int &j,
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double PairTersoffKokkos<DeviceType>::ters_bij_k(const int &i, const int &j,
+KK_FLOAT PairTersoffKokkos<DeviceType>::ters_bij_k(const int &i, const int &j,
                 const int &k, const KK_FLOAT &bo) const
 {
   const KK_FLOAT tmp = paramskk(i,j,k).beta * bo;
@@ -916,7 +916,7 @@ double PairTersoffKokkos<DeviceType>::ters_bij_k(const int &i, const int &j,
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double PairTersoffKokkos<DeviceType>::ters_dbij(const int &i, const int &j,
+KK_FLOAT PairTersoffKokkos<DeviceType>::ters_dbij(const int &i, const int &j,
                 const int &k, const KK_FLOAT &bo) const
 {
   const KK_FLOAT tmp = paramskk(i,j,k).beta * bo;

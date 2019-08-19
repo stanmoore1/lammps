@@ -132,19 +132,19 @@ class DihedralCharmmKokkos : public DihedralCharmm {
   typename AT::t_f_array f;
   typename AT::t_int_2d dihedrallist;
 
-  Kokkos::DualView<KK_FLOAT*,Kokkos::LayoutRight,DeviceType> k_eatom;
-  Kokkos::DualView<KK_FLOAT*[6],Kokkos::LayoutRight,DeviceType> k_vatom;
-  Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
-  Kokkos::View<KK_FLOAT*[6],Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
+  Kokkos::DualView<double*,Kokkos::LayoutRight,DeviceType> k_eatom;
+  Kokkos::DualView<double*[6],Kokkos::LayoutRight,DeviceType> k_vatom;
+  Kokkos::View<double*,Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
+  Kokkos::View<double*[6],Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
 
-  Kokkos::DualView<KK_FLOAT*,Kokkos::LayoutRight,DeviceType> k_eatom_pair;
-  Kokkos::DualView<KK_FLOAT*[6],Kokkos::LayoutRight,DeviceType> k_vatom_pair;
-  Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom_pair;
-  Kokkos::View<KK_FLOAT*[6],Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom_pair;
+  Kokkos::DualView<double*,Kokkos::LayoutRight,DeviceType> k_eatom_pair;
+  Kokkos::DualView<double*[6],Kokkos::LayoutRight,DeviceType> k_vatom_pair;
+  Kokkos::View<double*,Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom_pair;
+  Kokkos::View<double*[6],Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom_pair;
 
   int nlocal,newton_bond;
   int eflag,vflag;
-  double qqrd2e;
+  KK_FLOAT qqrd2e;
 
   Kokkos::DualView<int,DeviceType> k_warning_flag;
   typename Kokkos::DualView<int,DeviceType>::t_dev d_warning_flag;

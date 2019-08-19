@@ -551,7 +551,7 @@ int AtomVecDPDKokkos::pack_comm(int n, int *list, double *buf,
                              int pbc_flag, int *pbc)
 {
   int i,j,m;
-  double dx,dy,dz;
+  KK_FLOAT dx,dy,dz;
 
   atomKK->sync(Host,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
 
@@ -597,7 +597,7 @@ int AtomVecDPDKokkos::pack_comm_vel(int n, int *list, double *buf,
                                  int pbc_flag, int *pbc)
 {
   int i,j,m;
-  double dx,dy,dz,dvx,dvy,dvz;
+  KK_FLOAT dx,dy,dz,dvx,dvy,dvz;
 
   atomKK->sync(Host,X_MASK|V_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
 
@@ -875,7 +875,7 @@ int AtomVecDPDKokkos::pack_border(int n, int *list, double *buf,
                                int pbc_flag, int *pbc)
 {
   int i,j,m;
-  double dx,dy,dz;
+  KK_FLOAT dx,dy,dz;
 
   atomKK->sync(Host,ALL_MASK);
 
@@ -936,7 +936,7 @@ int AtomVecDPDKokkos::pack_border_vel(int n, int *list, double *buf,
                                    int pbc_flag, int *pbc)
 {
   int i,j,m;
-  double dx,dy,dz,dvx,dvy,dvz;
+  KK_FLOAT dx,dy,dz,dvx,dvy,dvz;
 
   atomKK->sync(Host,ALL_MASK);
 

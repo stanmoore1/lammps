@@ -99,9 +99,9 @@ class PPPMKokkos : public PPPM, public KokkosBase {
   void setup_grid();
   virtual void settings(int, char **);
   virtual void compute(int, int);
-  virtual int timing_1d(int, double &);
-  virtual int timing_3d(int, double &);
-  virtual double memory_usage();
+  virtual int timing_1d(int, KK_FLOAT &);
+  virtual int timing_3d(int, KK_FLOAT &);
+  virtual KK_FLOAT memory_usage();
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_setup1, const int&) const;
@@ -257,10 +257,10 @@ class PPPMKokkos : public PPPM, public KokkosBase {
   void operator()(TagPPPM_unpack_reverse, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPM_slabcorr1, const int&, double&) const;
+  void operator()(TagPPPM_slabcorr1, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPM_slabcorr2, const int&, double&) const;
+  void operator()(TagPPPM_slabcorr2, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_slabcorr3, const int&) const;
@@ -276,10 +276,10 @@ class PPPMKokkos : public PPPM, public KokkosBase {
   //void operator()(TagPPPMKernelA<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
 
  protected:
-  double unitkx,unitky,unitkz;
-  double scaleinv,s2;
-  double qscale,efact,ffact,dipole_all,dipole_r2,zprd;
-  double xprd,yprd,zprd_slab;
+  KK_FLOAT unitkx,unitky,unitkz;
+  KK_FLOAT scaleinv,s2;
+  KK_FLOAT qscale,efact,ffact,dipole_all,dipole_r2,zprd;
+  KK_FLOAT xprd,yprd,zprd_slab;
   int nbx,nby,nbz,twoorder;
   int numx_fft,numy_fft,numz_fft;
   int numx_inout,numy_inout,numz_inout;
@@ -328,8 +328,8 @@ class PPPMKokkos : public PPPM, public KokkosBase {
   DAT::tdual_FFT_SCALAR_2d k_rho_coeff;
   typename AT::t_FFT_SCALAR_2d d_rho_coeff;
   HAT::t_FFT_SCALAR_2d h_rho_coeff;
-  //double **acons;
-  typename Kokkos::DualView<KK_FLOAT[8][7],Kokkos::LayoutRight,DeviceType>::t_host acons;
+  //KK_FLOAT **acons;
+  typename Kokkos::DualView<double[8][7],Kokkos::LayoutRight,DeviceType>::t_host acons;
 
   class FFT3d *fft1,*fft2;
   class Remap *remap;
@@ -339,23 +339,23 @@ class PPPMKokkos : public PPPM, public KokkosBase {
   //int **part2grid;             // storage for particle -> grid mapping
   typename AT::t_int_1d_3 d_part2grid;
 
-  //double *boxlo;
-  double boxlo[3];
+  //KK_FLOAT *boxlo;
+  KK_FLOAT boxlo[3];
 
   void set_grid_global();
   void set_grid_local();
   void adjust_gewald();
-  double newton_raphson_f();
-  double derivf();
-  double final_accuracy();
+  KK_FLOAT newton_raphson_f();
+  KK_FLOAT derivf();
+  KK_FLOAT final_accuracy();
 
   virtual void allocate();
   virtual void allocate_peratom();
   virtual void deallocate();
   virtual void deallocate_peratom();
   int factorable(int);
-  double compute_df_kspace();
-  double estimate_ik_error(double, double, bigint);
+  KK_FLOAT compute_df_kspace();
+  KK_FLOAT estimate_ik_error(KK_FLOAT, KK_FLOAT, bigint);
   virtual void compute_gf_denom();
   virtual void compute_gf_ik();
 
@@ -406,16 +406,16 @@ class PPPMKokkos : public PPPM, public KokkosBase {
 ------------------------------------------------------------------------- */
 
   KOKKOS_INLINE_FUNCTION
-  double gf_denom(const double &x, const double &y,
-                         const double &z) const {
-    double sx,sy,sz;
+  KK_FLOAT gf_denom(const KK_FLOAT &x, const KK_FLOAT &y,
+                         const KK_FLOAT &z) const {
+    KK_FLOAT sx,sy,sz;
     sz = sy = sx = 0.0;
     for (int l = order-1; l >= 0; l--) {
       sx = d_gf_b[l] + sx*x;
       sy = d_gf_b[l] + sy*y;
       sz = d_gf_b[l] + sz*z;
     }
-    double s = sx*sy*sz;
+    KK_FLOAT s = sx*sy*sz;
     return s*s;
   };
 };

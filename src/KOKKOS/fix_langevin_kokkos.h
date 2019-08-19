@@ -30,7 +30,7 @@ FixStyle(langevin/kk/host,FixLangevinKokkos<LMPHostType>)
 namespace LAMMPS_NS {
 
   struct s_FSUM {
-    double fx, fy, fz;
+    KK_FLOAT fx, fy, fz;
     KOKKOS_INLINE_FUNCTION
     s_FSUM() {
       fx = fy = fz = 0.0;
@@ -76,7 +76,7 @@ namespace LAMMPS_NS {
     void reset_dt();
     void grow_arrays(int);
     void copy_arrays(int i, int j, int delflag);
-    double compute_scalar();
+    KK_FLOAT compute_scalar();
     void end_of_step();
 
     template<int Tp_TSTYLEATOM, int Tp_GJF, int Tp_TALLY,
@@ -88,40 +88,40 @@ namespace LAMMPS_NS {
       void zero_force_item(int) const;
 
     KOKKOS_INLINE_FUNCTION
-      double compute_energy_item(int) const;
+      KK_FLOAT compute_energy_item(int) const;
 
   private:
     class CommKokkos *commKK;
 
     typename ArrayTypes<DeviceType>::t_float_1d rmass;
-    typename ArrayTypes<DeviceType>::tdual_double_2d k_franprev;
-    typename ArrayTypes<DeviceType>::t_double_2d d_franprev;
-    HAT::t_double_2d h_franprev;
+    typename ArrayTypes<DeviceType>::tdual_KK_FLOAT_2d k_franprev;
+    typename ArrayTypes<DeviceType>::t_KK_FLOAT_2d d_franprev;
+    HAT::t_KK_FLOAT_2d h_franprev;
 
-    typename ArrayTypes<DeviceType>::tdual_double_2d k_flangevin;
-    typename ArrayTypes<DeviceType>::t_double_2d d_flangevin;
-    HAT::t_double_2d h_flangevin;
+    typename ArrayTypes<DeviceType>::tdual_KK_FLOAT_2d k_flangevin;
+    typename ArrayTypes<DeviceType>::t_KK_FLOAT_2d d_flangevin;
+    HAT::t_KK_FLOAT_2d h_flangevin;
 
-    typename ArrayTypes<DeviceType>::tdual_double_1d k_tforce;
-    typename ArrayTypes<DeviceType>::t_double_1d d_tforce;
-    HAT::t_double_1d h_tforce;
+    typename ArrayTypes<DeviceType>::tdual_KK_FLOAT_1d k_tforce;
+    typename ArrayTypes<DeviceType>::t_KK_FLOAT_1d d_tforce;
+    HAT::t_KK_FLOAT_1d h_tforce;
 
     typename ArrayTypes<DeviceType>::t_v_array v;
     typename ArrayTypes<DeviceType>::t_f_array f;
     typename ArrayTypes<DeviceType>::t_int_1d type;
     typename ArrayTypes<DeviceType>::t_int_1d mask;
 
-    typename ArrayTypes<DeviceType>::tdual_double_1d k_gfactor1, k_gfactor2, k_ratio;
-    typename ArrayTypes<DeviceType>::t_double_1d d_gfactor1, d_gfactor2, d_ratio;
-    HAT::t_double_1d h_gfactor1, h_gfactor2, h_ratio;
+    typename ArrayTypes<DeviceType>::tdual_KK_FLOAT_1d k_gfactor1, k_gfactor2, k_ratio;
+    typename ArrayTypes<DeviceType>::t_KK_FLOAT_1d d_gfactor1, d_gfactor2, d_ratio;
+    HAT::t_KK_FLOAT_1d h_gfactor1, h_gfactor2, h_ratio;
 
     typedef Kokkos::DualView<double[3], DeviceType>
-      tdual_double_1d_3n;
-    tdual_double_1d_3n k_fsumall;
-    typename tdual_double_1d_3n::t_dev d_fsumall;
-    typename tdual_double_1d_3n::t_host h_fsumall;
+      tdual_KK_FLOAT_1d_3n;
+    tdual_KK_FLOAT_1d_3n k_fsumall;
+    typename tdual_KK_FLOAT_1d_3n::t_dev d_fsumall;
+    typename tdual_KK_FLOAT_1d_3n::t_host h_fsumall;
 
-    double boltz,dt,mvv2e,ftm2v,fran_prop_const;
+    KK_FLOAT boltz,dt,mvv2e,ftm2v,fran_prop_const;
 
     void compute_target();
 
@@ -189,7 +189,7 @@ namespace LAMMPS_NS {
     struct FixLangevinKokkosTallyEnergyFunctor {
       typedef DeviceType  device_type ;
       FixLangevinKokkos<DeviceType> c;
-      typedef double value_type;
+      typedef KK_FLOAT value_type;
     FixLangevinKokkosTallyEnergyFunctor(FixLangevinKokkos<DeviceType>* c_ptr):
       c(*c_ptr) {c.cleanup_copy();}
 

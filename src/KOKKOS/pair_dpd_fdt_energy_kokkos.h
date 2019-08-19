@@ -56,7 +56,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   virtual ~PairDPDfdtEnergyKokkos();
   virtual void compute(int, int);
   void init_style();
-  double init_one(int, int);
+  KK_FLOAT init_one(int, int);
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairDPDfdtEnergyZero, const int&) const;
@@ -113,9 +113,9 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
  protected:
   int eflag,vflag;
   int nlocal,neighflag;
-  double dtinvsqrt;
-  double boltz,ftm2v;
-  double special_lj[4];
+  KK_FLOAT dtinvsqrt;
+  KK_FLOAT boltz,ftm2v;
+  KK_FLOAT special_lj[4];
 
   virtual void allocate();
 

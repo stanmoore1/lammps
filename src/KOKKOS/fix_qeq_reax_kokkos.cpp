@@ -496,7 +496,7 @@ void FixQEqReaxKokkos<DeviceType>::compute_h_team(
   Kokkos::View<int **, Kokkos::ScratchMemorySpace<DeviceType>,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>>
       s_jlist(team.team_shmem(), atoms_per_team, vector_length);
-  Kokkos::View<KK_FLOAT **, Kokkos::ScratchMemorySpace<DeviceType>,
+  Kokkos::View<double **, Kokkos::ScratchMemorySpace<DeviceType>,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>>
       s_r(team.team_shmem(), atoms_per_team, vector_length);
 
@@ -680,7 +680,7 @@ void FixQEqReaxKokkos<DeviceType>::compute_h_team(
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixQEqReaxKokkos<DeviceType>::calculate_H_k(const KK_FLOAT &r, const KK_FLOAT &shld) const
+KK_FLOAT FixQEqReaxKokkos<DeviceType>::calculate_H_k(const KK_FLOAT &r, const KK_FLOAT &shld) const
 {
   KK_FLOAT taper, denom;
 
@@ -1209,7 +1209,7 @@ void FixQEqReaxKokkos<DeviceType>::vecsum2_item(int ii) const
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixQEqReaxKokkos<DeviceType>::norm1_item(int ii) const
+KK_FLOAT FixQEqReaxKokkos<DeviceType>::norm1_item(int ii) const
 {
   KK_FLOAT tmp = 0;
   const int i = d_ilist[ii];
@@ -1225,7 +1225,7 @@ double FixQEqReaxKokkos<DeviceType>::norm1_item(int ii) const
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixQEqReaxKokkos<DeviceType>::norm2_item(int ii) const
+KK_FLOAT FixQEqReaxKokkos<DeviceType>::norm2_item(int ii) const
 {
   KK_FLOAT tmp = 0;
   const int i = d_ilist[ii];
@@ -1241,7 +1241,7 @@ double FixQEqReaxKokkos<DeviceType>::norm2_item(int ii) const
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixQEqReaxKokkos<DeviceType>::dot1_item(int ii) const
+KK_FLOAT FixQEqReaxKokkos<DeviceType>::dot1_item(int ii) const
 {
   KK_FLOAT tmp = 0.0;
   const int i = d_ilist[ii];
@@ -1254,9 +1254,9 @@ double FixQEqReaxKokkos<DeviceType>::dot1_item(int ii) const
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixQEqReaxKokkos<DeviceType>::dot2_item(int ii) const
+KK_FLOAT FixQEqReaxKokkos<DeviceType>::dot2_item(int ii) const
 {
-  double tmp = 0.0;
+  KK_FLOAT tmp = 0.0;
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
     tmp = d_d[i] * d_o[i];
@@ -1294,7 +1294,7 @@ void FixQEqReaxKokkos<DeviceType>::precon2_item(int ii) const
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixQEqReaxKokkos<DeviceType>::precon_item(int ii) const
+KK_FLOAT FixQEqReaxKokkos<DeviceType>::precon_item(int ii) const
 {
   KK_FLOAT tmp = 0.0;
   const int i = d_ilist[ii];
@@ -1309,7 +1309,7 @@ double FixQEqReaxKokkos<DeviceType>::precon_item(int ii) const
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixQEqReaxKokkos<DeviceType>::vecacc1_item(int ii) const
+KK_FLOAT FixQEqReaxKokkos<DeviceType>::vecacc1_item(int ii) const
 {
   KK_FLOAT tmp = 0.0;
   const int i = d_ilist[ii];
@@ -1322,7 +1322,7 @@ double FixQEqReaxKokkos<DeviceType>::vecacc1_item(int ii) const
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixQEqReaxKokkos<DeviceType>::vecacc2_item(int ii) const
+KK_FLOAT FixQEqReaxKokkos<DeviceType>::vecacc2_item(int ii) const
 {
   KK_FLOAT tmp = 0.0;
   const int i = d_ilist[ii];
@@ -1355,7 +1355,7 @@ void FixQEqReaxKokkos<DeviceType>::calculate_q_item(int ii) const
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixQEqReaxKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
+int FixQEqReaxKokkos<DeviceType>::pack_forward_comm(int n, int *list, KK_FLOAT *buf,
                                int pbc_flag, int *pbc)
 {
   int m;
@@ -1375,7 +1375,7 @@ int FixQEqReaxKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *bu
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixQEqReaxKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
+void FixQEqReaxKokkos<DeviceType>::unpack_forward_comm(int n, int first, KK_FLOAT *buf)
 {
   int i, m;
 
@@ -1392,7 +1392,7 @@ void FixQEqReaxKokkos<DeviceType>::unpack_forward_comm(int n, int first, double 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixQEqReaxKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)
+int FixQEqReaxKokkos<DeviceType>::pack_reverse_comm(int n, int first, KK_FLOAT *buf)
 {
   int i, m;
   for(m = 0, i = first; m < n; m++, i++) {
@@ -1404,7 +1404,7 @@ int FixQEqReaxKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *bu
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixQEqReaxKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, double *buf)
+void FixQEqReaxKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, KK_FLOAT *buf)
 {
   for(int m = 0; m < n; m++) {
     h_o[list[m]] += buf[m];
@@ -1424,9 +1424,9 @@ void FixQEqReaxKokkos<DeviceType>::cleanup_copy()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-double FixQEqReaxKokkos<DeviceType>::memory_usage()
+KK_FLOAT FixQEqReaxKokkos<DeviceType>::memory_usage()
 {
-  double bytes;
+  KK_FLOAT bytes;
 
   bytes = atom->nmax*nprev*2 * sizeof(KK_FLOAT); // s_hist & t_hist
   bytes += atom->nmax*8 * sizeof(KK_FLOAT); // storage
@@ -1484,7 +1484,7 @@ void FixQEqReaxKokkos<DeviceType>::copy_arrays(int i, int j, int delflag)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixQEqReaxKokkos<DeviceType>::pack_exchange(int i, double *buf)
+int FixQEqReaxKokkos<DeviceType>::pack_exchange(int i, KK_FLOAT *buf)
 {
   k_s_hist.template sync<LMPHostType>();
   k_t_hist.template sync<LMPHostType>();
@@ -1499,7 +1499,7 @@ int FixQEqReaxKokkos<DeviceType>::pack_exchange(int i, double *buf)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixQEqReaxKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
+int FixQEqReaxKokkos<DeviceType>::unpack_exchange(int nlocal, KK_FLOAT *buf)
 {
   for (int m = 0; m < nprev; m++) s_hist[nlocal][m] = buf[m];
   for (int m = 0; m < nprev; m++) t_hist[nlocal][m] = buf[nprev+m];
