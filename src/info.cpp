@@ -60,7 +60,7 @@
 #include <sys/utsname.h>
 #endif
 
-#if defined __linux
+#if defined(__linux)
 #include <malloc.h>
 #endif
 
@@ -354,10 +354,15 @@ void Info::command(int narg, char **arg)
 
   if (flags & COMM) {
     int major,minor,len;
+#if (defined(MPI_VERSION) && (MPI_VERSION > 2)) || defined(MPI_STUBS)
     char version[MPI_MAX_LIBRARY_VERSION_STRING];
+    MPI_Get_library_version(version,&len);
+#else
+    char version[] = "Undetected MPI implementation";
+    len = strlen(version);
+#endif
 
     MPI_Get_version(&major,&minor);
-    MPI_Get_library_version(version,&len);
     if (len > 80) {
       char *ptr = strchr(version+80,'\n');
       if (ptr) *ptr = '\0';
