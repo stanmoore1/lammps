@@ -68,6 +68,8 @@ Min::Min(LAMMPS *lmp) : Pointers(lmp)
   requestor = NULL;
 
   external_force_clear = 0;
+
+  kokkosable = 0;
 }
 
 /* ---------------------------------------------------------------------- */

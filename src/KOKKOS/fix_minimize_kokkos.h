@@ -30,7 +30,7 @@ class FixMinimizeKokkos : public FixMinimize {
 
  public:
   FixMinimizeKokkos(class LAMMPS *, int, char **);
-  ~FixMinimizeKokkos();
+  virtual ~FixMinimizeKokkos();
   void init() {}
 
   void grow_arrays(int);
@@ -42,7 +42,6 @@ class FixMinimizeKokkos : public FixMinimize {
 
   void add_vector();
   DAT::t_float_1d request_vector_kokkos(int);
-  void store_box();
   void reset_coords();
 
  private:

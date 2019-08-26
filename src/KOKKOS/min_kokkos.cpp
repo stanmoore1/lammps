@@ -50,6 +50,8 @@ using namespace LAMMPS_NS;
 MinKokkos::MinKokkos(LAMMPS *lmp) : Min(lmp)
 {
   atomKK = (AtomKokkos *) atom;
+
+  kokkosable = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -77,6 +79,10 @@ void MinKokkos::init()
   modify->add_fix(3,fixarg);
   delete [] fixarg;
   fix_minimize_kk = (FixMinimizeKokkos *) modify->fix[modify->nfix-1];
+
+  if (!kokkosable)
+    error->all(FLERR,"Must use a Kokkos-enabled min style (e.g. min_style cg) "
+     "with Kokkos minimize");
 }
 
 /* ----------------------------------------------------------------------
@@ -88,7 +94,6 @@ void MinKokkos::setup(int flag)
   lmp->kokkos->auto_sync = 1;
   Min::setup(flag);
   lmp->kokkos->auto_sync = 0;
-  
 }
 
 /* ----------------------------------------------------------------------
@@ -110,6 +115,16 @@ void MinKokkos::setup_minimal(int flag)
 
 void MinKokkos::run(int n)
 {
+  printf("HERE yes KK min !!!!!!!!!!!!!!!!!!!!!!!\n");
+
+  if (nextra_global)
+    error->all(FLERR,"Cannot yet use extra global DOFs (e.g. fix box/relax) "
+     "with Kokkos minimize");
+
+  if (nextra_global || nextra_atom)
+    error->all(FLERR,"Cannot yet use extra atom DOFs (e.g. USER-AWPMD and USER-EFF packages) "
+     "with Kokkos minimize");
+
   // minimizer iterations
 
   lmp->kokkos->auto_sync = 0;

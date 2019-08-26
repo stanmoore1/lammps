@@ -64,7 +64,8 @@ void MinLineSearchKokkos::init()
   Min::init();
 
   if (linestyle == 1) linemin = &MinLineSearchKokkos::linemin_quadratic;
-  else error->all(FLERR,"Cannot yet use line??????"); ///
+  else error->all(FLERR,"Kokkos minimize only supports the 'min_modify line "
+   "quadratic' option");
 }
 
 /* ---------------------------------------------------------------------- */

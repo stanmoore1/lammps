@@ -25,6 +25,7 @@ FixMinimizeKokkos::FixMinimizeKokkos(LAMMPS *lmp, int narg, char **arg) :
   FixMinimize(lmp, narg, arg)
 {
   atomKK = (AtomKokkos *) atom;
+  vectors = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -48,8 +49,11 @@ void FixMinimizeKokkos::add_vector()
   //vectors = (double **)
   //  memory->srealloc(vectors,(nvector+1)*sizeof(double *),"minimize:vectors");
   //memory->create(vectors[nvector],atom->nmax*n,"minimize:vector");
-
+  vectors = NULL;
   //this->sync(Device,DVECTOR_MASK);
+  printf("%p\n",vectors);
+  printf("%p\n",atomKK);
+  printf("%p\n",atom);
   memoryKK->grow_kokkos(k_vectors,vectors,nvector+1,atom->nmax*n,
                       "minimize:vectors");
   d_vectors = k_vectors.d_view;
