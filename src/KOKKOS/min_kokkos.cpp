@@ -51,8 +51,6 @@ MinKokkos::MinKokkos(LAMMPS *lmp) : Min(lmp)
 {
   atomKK = (AtomKokkos *) atom;
   fix_minimize_kk = NULL;
-
-  kokkosable = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -69,10 +67,6 @@ void MinKokkos::init()
   Min::init();
 
   fix_minimize_kk = (FixMinimizeKokkos*) fix_minimize;
-
-  if (!kokkosable)
-    error->all(FLERR,"Must use a Kokkos-enabled min style (e.g. min_style cg) "
-     "with Kokkos minimize");
 }
 
 /* ----------------------------------------------------------------------

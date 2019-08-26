@@ -31,6 +31,7 @@ using namespace LAMMPS_NS;
 MinCGKokkos::MinCGKokkos(LAMMPS *lmp) : MinLineSearchKokkos(lmp)
 {
   atomKK = (AtomKokkos *) atom;
+  kokkosable = 1;
 }
 
 /* ----------------------------------------------------------------------

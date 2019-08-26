@@ -47,6 +47,7 @@ using namespace LAMMPS_NS;
 
 MinLineSearchKokkos::MinLineSearchKokkos(LAMMPS *lmp) : MinKokkos(lmp)
 {
+  searchflag = 1;
   atomKK = (AtomKokkos *) atom;
 }
 
