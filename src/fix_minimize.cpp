@@ -59,7 +59,6 @@ int FixMinimize::setmask()
 
 void FixMinimize::add_vector(int n)
 {
-  printf("HOST ADD VECTOR !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
   memory->grow(peratom,nvector+1,"minimize:peratom");
   peratom[nvector] = n;
 
@@ -175,7 +174,6 @@ double FixMinimize::memory_usage()
 
 void FixMinimize::grow_arrays(int nmax)
 {
-  printf("HOST GROW VECTOR !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
   for (int m = 0; m < nvector; m++)
     memory->grow(vectors[m],peratom[m]*nmax,"minimize:vector");
 }

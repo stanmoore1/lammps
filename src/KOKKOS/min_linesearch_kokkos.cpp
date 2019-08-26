@@ -61,7 +61,7 @@ MinLineSearchKokkos::~MinLineSearchKokkos()
 
 void MinLineSearchKokkos::init()
 {
-  Min::init();
+  MinKokkos::init();
 
   if (linestyle == 1) linemin = &MinLineSearchKokkos::linemin_quadratic;
   else error->all(FLERR,"Kokkos minimize only supports the 'min_modify line "

@@ -13,7 +13,9 @@
 
 #ifdef FIX_CLASS
 
-FixStyle(MINIMIZE/KK,FixMinimizeKokkos)
+FixStyle(MINIMIZE/kk,FixMinimizeKokkos)
+FixStyle(MINIMIZE/kk/device,FixMinimizeKokkos)
+FixStyle(MINIMIZE/kk/host,FixMinimizeKokkos)
 
 #else
 

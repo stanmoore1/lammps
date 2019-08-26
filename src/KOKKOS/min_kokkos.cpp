@@ -50,6 +50,7 @@ using namespace LAMMPS_NS;
 MinKokkos::MinKokkos(LAMMPS *lmp) : Min(lmp)
 {
   atomKK = (AtomKokkos *) atom;
+  fix_minimize_kk = NULL;
 
   kokkosable = 1;
 }
@@ -67,18 +68,7 @@ void MinKokkos::init()
 {
   Min::init();
 
-  modify->delete_fix("MINIMIZE");
-
-  // create fix needed for storing atom-based quantities
-  // will delete it at end of run
-
-  char **fixarg = new char*[3];
-  fixarg[0] = (char *) "MINIMIZE/KK";
-  fixarg[1] = (char *) "all";
-  fixarg[2] = (char *) "MINIMIZE/KK";
-  modify->add_fix(3,fixarg);
-  delete [] fixarg;
-  fix_minimize_kk = (FixMinimizeKokkos *) modify->fix[modify->nfix-1];
+  fix_minimize_kk = (FixMinimizeKokkos*) fix_minimize;
 
   if (!kokkosable)
     error->all(FLERR,"Must use a Kokkos-enabled min style (e.g. min_style cg) "
@@ -115,8 +105,6 @@ void MinKokkos::setup_minimal(int flag)
 
 void MinKokkos::run(int n)
 {
-  printf("HERE yes KK min !!!!!!!!!!!!!!!!!!!!!!!\n");
-
   if (nextra_global)
     error->all(FLERR,"Cannot yet use extra global DOFs (e.g. fix box/relax) "
      "with Kokkos minimize");
@@ -189,7 +177,7 @@ void MinKokkos::cleanup()
 
   // delete fix at end of run, so its atom arrays won't persist
 
-  modify->delete_fix("MINIMIZE/KK");
+  modify->delete_fix("MINIMIZE");
   domain->box_too_small_check(); /// need KK version
 }
 
