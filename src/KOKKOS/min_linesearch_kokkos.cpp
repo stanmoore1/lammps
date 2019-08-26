@@ -18,12 +18,13 @@
 #include "min_linesearch_kokkos.h"
 #include <mpi.h>
 #include <cmath>
-#include "atom.h"
+#include "atom_kokkos.h"
 #include "modify.h"
-#include "fix_minimize.h"
+#include "fix_minimize_kokkos.h"
 #include "pair.h"
 #include "output.h"
 #include "thermo.h"
+#include "error.h"
 
 using namespace LAMMPS_NS;
 
@@ -44,35 +45,37 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-MinLineSearch::MinLineSearch(LAMMPS *lmp) : Min(lmp)
+MinLineSearchKokkos::MinLineSearchKokkos(LAMMPS *lmp) : MinKokkos(lmp)
 {
+  atomKK = (AtomKokkos *) atom;
 }
 
 /* ---------------------------------------------------------------------- */
 
-MinLineSearch::~MinLineSearch()
+MinLineSearchKokkos::~MinLineSearchKokkos()
 {
+
 }
 
 /* ---------------------------------------------------------------------- */
 
-void MinLineSearch::init()
+void MinLineSearchKokkos::init()
 {
   Min::init();
 
   if (linestyle == 1) linemin = &MinLineSearchKokkos::linemin_quadratic;
-  else error->all(FLERR,"Cannot yet use line?");
+  else error->all(FLERR,"Cannot yet use line??????"); ///
 }
 
 /* ---------------------------------------------------------------------- */
 
-void MinLineSearch::setup_style()
+void MinLineSearchKokkos::setup_style()
 {
   // memory for x0,g,h for atomic dof
 
-  fix_minimize->add_vector(3);
-  fix_minimize->add_vector(3);
-  fix_minimize->add_vector(3);
+  fix_minimize_kk->add_vector();
+  fix_minimize_kk->add_vector();
+  fix_minimize_kk->add_vector();
 }
 
 /* ----------------------------------------------------------------------
@@ -80,17 +83,19 @@ void MinLineSearch::setup_style()
    called after atoms have migrated
 ------------------------------------------------------------------------- */
 
-void MinLineSearch::reset_vectors()
+void MinLineSearchKokkos::reset_vectors()
 {
   // atomic dof
 
   nvec = 3 * atom->nlocal;
-  if (nvec) xvec = atom->x[0];
-  if (nvec) fvec = atom->f[0];
-  x0 = fix_minimize->request_vector(0);
-  g = fix_minimize->request_vector(1);
-  h = fix_minimize->request_vector(2);
-
+  auto d_x = atomKK->k_x.d_view;
+  auto d_f = atomKK->k_f.d_view;
+  
+  if (nvec) xvec = DAT::t_ffloat_1d(d_x.data(),d_x.size());
+  if (nvec) fvec = DAT::t_ffloat_1d(d_f.data(),d_f.size());
+  x0 = fix_minimize_kk->request_vector_kokkos(0);
+  g = fix_minimize_kk->request_vector_kokkos(1);
+  h = fix_minimize_kk->request_vector_kokkos(2);
 }
 
 /* ----------------------------------------------------------------------
@@ -147,21 +152,29 @@ void MinLineSearch::reset_vectors()
     //
 ------------------------------------------------------------------------- */
 
-int MinLineSearch::linemin_quadratic(double eoriginal, double &alpha)
+int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
 {
   int i,m,n;
   double fdothall,fdothme,hme,hmax,hmaxall;
   double de_ideal,de;
   double delfh,engprev,relerr,alphaprev,fhprev,ff,fh,alpha0;
   double dot[2],dotall[2];
-  double *xatom,*x0atom,*fatom,*hatom;
   double alphamax;
+
+  // local variables for lambda capture
+
+  auto l_xvec = xvec;
+  auto l_fvec = fvec;
+  auto l_x0 = x0;
+  auto l_h = h;
 
   // fdothall = projection of search dir along downhill gradient
   // if search direction is not downhill, exit with error
 
   fdothme = 0.0;
-  for (i = 0; i < nvec; i++) fdothme += fvec[i]*h[i];
+  Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, double& fdothme) {
+    fdothme += l_fvec[i]*l_h[i];
+  },fdothme);
   MPI_Allreduce(&fdothme,&fdothall,1,MPI_DOUBLE,MPI_SUM,world);
   if (output->thermo->normflag) fdothall /= atom->natoms;
   if (fdothall <= 0.0) return DOWNHILL;
@@ -175,7 +188,9 @@ int MinLineSearch::linemin_quadratic(double eoriginal, double &alpha)
   // if all search dir components are already 0.0, exit with error
 
   hme = 0.0;
-  for (i = 0; i < nvec; i++) hme = MAX(hme,fabs(h[i]));
+  Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, double& hme) {
+    hme = MAX(hme,fabs(l_h[i]));
+  },Kokkos::Max<double>(hme));
   MPI_Allreduce(&hme,&hmaxall,1,MPI_DOUBLE,MPI_MAX,world);
   alphamax = MIN(ALPHA_MAX,dmax/hmaxall);
 
@@ -184,7 +199,9 @@ int MinLineSearch::linemin_quadratic(double eoriginal, double &alpha)
   // store box and values of all dof at start of linesearch
 
   fix_minimize->store_box();
-  for (i = 0; i < nvec; i++) x0[i] = xvec[i];
+  Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
+    l_x0[i] = l_xvec[i];
+  });
 
   // backtrack with alpha until energy decrease is sufficient
   // or until get to small energy change, then perform quadratic projection
@@ -208,11 +225,14 @@ int MinLineSearch::linemin_quadratic(double eoriginal, double &alpha)
 
     // compute new fh, alpha, delfh
 
-    dot[0] = dot[1] = 0.0;
-    for (i = 0; i < nvec; i++) {
-      dot[0] += fvec[i]*fvec[i];
-      dot[1] += fvec[i]*h[i];
-    }
+    s_double2 sdot;
+    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_double2& sdot) {
+      sdot.d0 += l_fvec[i]*l_fvec[i];
+      sdot.d1 += l_fvec[i]*l_h[i];
+    },sdot);
+    dot[0] = sdot.d0;
+    dot[1] = sdot.d1;
+    
     MPI_Allreduce(dot,dotall,2,MPI_DOUBLE,MPI_SUM,world);
     ff = dotall[0];
     fh = dotall[1];
@@ -270,19 +290,28 @@ int MinLineSearch::linemin_quadratic(double eoriginal, double &alpha)
 
 /* ---------------------------------------------------------------------- */
 
-double MinLineSearch::alpha_step(double alpha, int resetflag)
+double MinLineSearchKokkos::alpha_step(double alpha, int resetflag)
 {
   int i,n,m;
-  double *xatom,*x0atom,*hatom;
+
+  // local variables for lambda capture
+  
+  auto l_xvec = xvec;
+  auto l_h = h;
+  auto l_x0 = x0;
 
   // reset to starting point
 
-  for (i = 0; i < nvec; i++) xvec[i] = x0[i];
+  Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
+    l_xvec[i] = l_x0[i];
+  });
 
   // step forward along h
 
   if (alpha > 0.0) {
-    for (i = 0; i < nvec; i++) xvec[i] += alpha*h[i];
+    Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
+      l_xvec[i] += alpha*l_h[i];
+    });
   }
 
   // compute and return new energy
@@ -295,29 +324,35 @@ double MinLineSearch::alpha_step(double alpha, int resetflag)
 
 // compute projection of force on: itself and the search direction
 
-double MinLineSearch::compute_dir_deriv(double &ff)
+double MinLineSearchKokkos::compute_dir_deriv(double &ff)
 {
-   int i,m,n;
-   double *hatom, *fatom;
-   double dot[2],dotall[2];
-   double fh;
+  int i,m,n;
+  double dot[2],dotall[2];
+  double fh;
 
-   // compute new fh, alpha, delfh
+  // local variables for lambda capture
 
-    dot[0] = dot[1] = 0.0;
-    for (i = 0; i < nvec; i++) {
-      dot[0] += fvec[i]*fvec[i];
-      dot[1] += fvec[i]*h[i];
-    }
+  auto l_fvec = fvec;
+  auto l_h = h;
 
-    MPI_Allreduce(dot,dotall,2,MPI_DOUBLE,MPI_SUM,world);
+  // compute new fh, alpha, delfh
 
-    ff = dotall[0];
-    fh = dotall[1];
-    if (output->thermo->normflag) {
-      ff /= atom->natoms;
-      fh /= atom->natoms;
-    }
+  s_double2 sdot;
+  Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_double2& sdot) {
+    sdot.d0 += l_fvec[i]*l_fvec[i];
+    sdot.d1 += l_fvec[i]*l_h[i];
+  },sdot);
+  dot[0] = sdot.d0;
+  dot[1] = sdot.d1;
 
-    return fh;
+  MPI_Allreduce(dot,dotall,2,MPI_DOUBLE,MPI_SUM,world);
+
+  ff = dotall[0];
+  fh = dotall[1];
+  if (output->thermo->normflag) {
+    ff /= atom->natoms;
+    fh /= atom->natoms;
+  }
+
+  return fh;
 }

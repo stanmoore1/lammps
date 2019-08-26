@@ -13,7 +13,7 @@
 
 #ifdef FIX_CLASS
 
-FixStyle(MINIMIZEKK,FixMinimizeKokkosKokkos)
+FixStyle(MINIMIZE/KK,FixMinimizeKokkos)
 
 #else
 
@@ -21,6 +21,7 @@ FixStyle(MINIMIZEKK,FixMinimizeKokkosKokkos)
 #define LMP_FIX_MINIMIZE_KOKKOS_H
 
 #include "fix_minimize.h"
+#include "kokkos_type.h"
 
 namespace LAMMPS_NS {
 
@@ -30,25 +31,24 @@ class FixMinimizeKokkos : public FixMinimize {
  public:
   FixMinimizeKokkos(class LAMMPS *, int, char **);
   ~FixMinimizeKokkos();
-  int setmask();
   void init() {}
 
-  double memory_usage();
   void grow_arrays(int);
   void copy_arrays(int, int, int);
   int pack_exchange(int, double *);
+  int pack_exchange_kokkos(int, DAT::t_float_1d &);
   int unpack_exchange(int, double *);
+  int unpack_exchange_kokkos(int, DAT::t_float_1d &);
 
-  void add_vector(int);
-  double *request_vector(int);
+  void add_vector();
+  DAT::t_float_1d request_vector_kokkos(int);
   void store_box();
   void reset_coords();
 
  private:
-  int *peratom;
-  double **vectors;
-
-  void box_swap();
+  DAT::tdual_float_2d k_vectors;
+  DAT::t_float_2d d_vectors;
+  HAT::t_float_2d h_vectors;
 };
 
 }

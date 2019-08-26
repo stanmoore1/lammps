@@ -15,6 +15,7 @@
 #define LMP_MIN_KOKKOS_H
 
 #include "min.h"
+#include "kokkos_type.h"
 
 namespace LAMMPS_NS {
 
@@ -22,6 +23,7 @@ class MinKokkos : public Min {
  public:
   MinKokkos(class LAMMPS *);
   virtual ~MinKokkos();
+  void init();
   void setup(int flag=1);
   void setup_minimal(int);
   void run(int);
@@ -39,10 +41,10 @@ class MinKokkos : public Min {
        ZEROQUAD,TRSMALL,INTERROR,TIMEOUT};
 
  protected:
-  class FixMinimize *fix_minimize;  // fix that stores auxiliary data
+  class FixMinimizeKokkos *fix_minimize_kk;  // fix that stores auxiliary data
 
-  double *xvec;               // variables for atomic dof, as 1d vector
-  double *fvec;               // force vector for atomic dof, as 1d vector
+  DAT::t_ffloat_1d xvec;            // variables for atomic dof, as 1d vector
+  DAT::t_ffloat_1d fvec;            // force vector for atomic dof, as 1d vector
 
   double energy_force(int);
   void force_clear();

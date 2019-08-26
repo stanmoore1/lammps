@@ -17,6 +17,8 @@
 #include "update.h"
 #include "output.h"
 #include "timer.h"
+#include "atom_kokkos.h"
+#include "atom_masks.h"
 
 using namespace LAMMPS_NS;
 
@@ -26,7 +28,10 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-MinCGKokkos::MinCGKokkos(LAMMPS *lmp) : MinLineSearchKokkos(lmp) {}
+MinCGKokkos::MinCGKokkos(LAMMPS *lmp) : MinLineSearchKokkos(lmp)
+{
+  atomKK = (AtomKokkos *) atom;
+}
 
 /* ----------------------------------------------------------------------
    minimization via conjugate gradient iterations
@@ -38,6 +43,12 @@ int MinCGKokkos::iterate(int maxiter)
   double beta,gg,dot[2],dotall[2];
   double *fatom,*gatom,*hatom;
 
+  // local variables for lambda capture
+
+  auto l_h = h;
+  auto l_g = g;
+  auto l_fvec = fvec;
+
   // nlimit = max # of CG iterations before restarting
   // set to ndoftotal unless too big
 
@@ -45,7 +56,10 @@ int MinCGKokkos::iterate(int maxiter)
 
   // initialize working vectors
 
-  for (i = 0; i < nvec; i++) h[i] = g[i] = fvec[i];
+  Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
+    l_h[i] = l_fvec[i];
+    l_g[i] = l_fvec[i];
+  });
 
   gg = fnorm_sqr();
 
@@ -75,11 +89,13 @@ int MinCGKokkos::iterate(int maxiter)
 
     // force tolerance criterion
 
-    dot[0] = dot[1] = 0.0;
-    for (i = 0; i < nvec; i++) {
-      dot[0] += fvec[i]*fvec[i];
-      dot[1] += fvec[i]*g[i];
-    }
+    s_double2 sdot;
+    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_double2& sdot) {
+      sdot.d0 += l_fvec[i]*l_fvec[i];
+      sdot.d1 += l_fvec[i]*l_g[i];
+    },sdot);
+    dot[0] = sdot.d0;
+    dot[1] = sdot.d1;
     MPI_Allreduce(dot,dotall,2,MPI_DOUBLE,MPI_SUM,world);
 
     if (dotall[0] < update->ftol*update->ftol) return FTOL;
@@ -93,24 +109,31 @@ int MinCGKokkos::iterate(int maxiter)
     if ((niter+1) % nlimit == 0) beta = 0.0;
     gg = dotall[0];
 
-    for (i = 0; i < nvec; i++) {
-      g[i] = fvec[i];
-      h[i] = g[i] + beta*h[i];
-    }
+    Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
+      l_g[i] = l_fvec[i];
+      l_h[i] = l_g[i] + beta*l_h[i];
+    });
 
     // reinitialize CG if new search direction h is not downhill
 
-    dot[0] = 0.0;
-    for (i = 0; i < nvec; i++) dot[0] += g[i]*h[i];
+    double dot_0 = 0.0;
+    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, double& dot_0) {
+      dot_0 += l_g[i]*l_h[i];
+    },dot_0);
+    dot[0] = dot_0;
     MPI_Allreduce(dot,dotall,1,MPI_DOUBLE,MPI_SUM,world);
 
     if (dotall[0] <= 0.0) {
-      for (i = 0; i < nvec; i++) h[i] = g[i];
+      Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
+         l_h[i] = l_g[i];
+      });
     }
 
     // output for thermo, dump, restart files
 
     if (output->next == ntimestep) {
+      atomKK->sync(Host,ALL_MASK);
+
       timer->stamp();
       output->write(ntimestep);
       timer->stamp(Timer::OUTPUT);

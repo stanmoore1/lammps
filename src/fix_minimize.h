@@ -44,7 +44,7 @@ class FixMinimize : public Fix {
   void store_box();
   void reset_coords();
 
- private:
+ protected:
   int nvector;
   int *peratom;
   double **vectors;

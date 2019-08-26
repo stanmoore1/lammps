@@ -19,13 +19,13 @@
 #include <mpi.h>
 #include <cmath>
 #include <cstring>
-#include "atom.h"
+#include "atom_kokkos.h"
 #include "atom_vec.h"
 #include "domain.h"
 #include "comm.h"
 #include "update.h"
 #include "modify.h"
-#include "fix_minimize.h"
+#include "fix_minimize_kokkos.h"
 #include "compute.h"
 #include "neighbor.h"
 #include "force.h"
@@ -40,6 +40,8 @@
 #include "timer.h"
 #include "memory.h"
 #include "error.h"
+#include "kokkos.h"
+#include "atom_masks.h"
 
 using namespace LAMMPS_NS;
 
@@ -47,14 +49,34 @@ using namespace LAMMPS_NS;
 
 MinKokkos::MinKokkos(LAMMPS *lmp) : Min(lmp)
 {
+  atomKK = (AtomKokkos *) atom;
+}
+
+/* ---------------------------------------------------------------------- */
+
+MinKokkos::~MinKokkos()
+{
 
 }
 
 /* ---------------------------------------------------------------------- */
 
-MinKokkos::~Min()
+void MinKokkos::init()
 {
+  Min::init();
 
+  modify->delete_fix("MINIMIZE");
+
+  // create fix needed for storing atom-based quantities
+  // will delete it at end of run
+
+  char **fixarg = new char*[3];
+  fixarg[0] = (char *) "MINIMIZE/KK";
+  fixarg[1] = (char *) "all";
+  fixarg[2] = (char *) "MINIMIZE/KK";
+  modify->add_fix(3,fixarg);
+  delete [] fixarg;
+  fix_minimize_kk = (FixMinimizeKokkos *) modify->fix[modify->nfix-1];
 }
 
 /* ----------------------------------------------------------------------
@@ -125,7 +147,6 @@ void MinKokkos::run(int n)
     ecurrent = energy_force(0);
 
     atomKK->sync(Host,ALL_MASK);
-
     output->write(update->ntimestep);
   }
 
@@ -153,8 +174,8 @@ void MinKokkos::cleanup()
 
   // delete fix at end of run, so its atom arrays won't persist
 
-  modify->delete_fix("MINIMIZE");
-  domain->box_too_small_check(); /// need KK version?
+  modify->delete_fix("MINIMIZE/KK");
+  domain->box_too_small_check(); /// need KK version
 }
 
 /* ----------------------------------------------------------------------
@@ -266,12 +287,6 @@ double MinKokkos::energy_force(int resetflag)
     timer->stamp(Timer::COMM);
   }
 
-  // update per-atom minimization variables stored by pair styles
-
-  if (nextra_atom)
-    for (int m = 0; m < nextra_atom; m++)
-      requestor[m]->min_xf_get(m);
-
   // fixes that affect minimization
 
   if (modify->n_min_post_force) {
@@ -319,20 +334,20 @@ void MinKokkos::force_clear()
   int nzero = atom->nlocal;
   if (force->newton) nzero += atom->nghost;
 
-  auto l_f = atomKK->k_f.view<DeviceType>(); 
-  auto l_torque = atomKK->k_torque.view<DeviceType>(); 
+  auto l_f = atomKK->k_f.d_view; 
+  auto l_torque = atomKK->k_torque.d_view; 
 
-  if (nbytes) {
+  if (nzero) {
     Kokkos::parallel_for(nzero, LAMMPS_LAMBDA(int i) {
-    l_f(i,0) = 0.0;
-    l_f(i,1) = 0.0;
-    l_f(i,2) = 0.0;
-    if (torqueflag) {
-      l_torque(i,0) = 0.0;
-      l_torque(i,1) = 0.0;
-      l_torque(i,2) = 0.0;
+      l_f(i,0) = 0.0;
+      l_f(i,1) = 0.0;
+      l_f(i,2) = 0.0;
+      if (torqueflag) {
+        l_torque(i,0) = 0.0;
+        l_torque(i,1) = 0.0;
+        l_torque(i,2) = 0.0;
+      }
     });
-    //if (extraflag) atom->avec->force_clear(0,nbytes);
   }
 }
 
@@ -345,26 +360,16 @@ double MinKokkos::fnorm_sqr()
   int i,n;
   double *fatom;
 
+  auto l_fvec = fvec;
+
   double local_norm2_sqr = 0.0;
-  Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(int i, double& local_norm_sqr) {
-    local_norm2_sqr += fvec[i]*fvec[i];
+  Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm2_sqr) {
+    local_norm2_sqr += l_fvec[i]*l_fvec[i];
   },local_norm2_sqr);
-  /*if (nextra_atom) {
-    for (int m = 0; m < nextra_atom; m++) {
-      fatom = fextra_atom[m];
-      n = extra_nlen[m];
-      for (i = 0; i < n; i++)
-        local_norm2_sqr += fatom[i]*fatom[i];
-    }
-  }*/
 
   double norm2_sqr = 0.0;
   MPI_Allreduce(&local_norm2_sqr,&norm2_sqr,1,MPI_DOUBLE,MPI_SUM,world);
 
-  /*if (nextra_global)
-    for (i = 0; i < nextra_global; i++)
-      norm2_sqr += fextra[i]*fextra[i];
-  */
   return norm2_sqr;
 }
 
@@ -377,30 +382,15 @@ double MinKokkos::fnorm_inf()
   int i,n;
   double *fatom;
 
-  auto l_f = atomKK->k_f.view<DeviceType>();
-  auto l_torque = atomKK->k_torque.view<DeviceType>();
+  auto l_fvec = fvec;
 
   double local_norm_inf = 0.0;
-  Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(int i, double& local_norm_inf) {
-    local_norm_inf = MAX(fabs(fvec[i]),local_norm_inf); /// how to do this??????
-  },local_norm_inf);
-
-  /*if (nextra_atom) {
-    for (int m = 0; m < nextra_atom; m++) {
-      fatom = fextra_atom[m];
-      n = extra_nlen[m];
-      for (i = 0; i < n; i++)
-        local_norm_inf = MAX(fabs(fatom[i]),local_norm_inf);
-    }
-  }*/
+  Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm_inf) {
+    local_norm_inf = MAX(fabs(l_fvec[i]),local_norm_inf);
+  },Kokkos::Max<double>(local_norm_inf));
 
   double norm_inf = 0.0;
   MPI_Allreduce(&local_norm_inf,&norm_inf,1,MPI_DOUBLE,MPI_MAX,world);
 
-  /*if (nextra_global)
-    for (i = 0; i < nextra_global; i++)
-      norm_inf = MAX(fabs(fextra[i]),norm_inf);
-  */
   return norm_inf;
 }
-
