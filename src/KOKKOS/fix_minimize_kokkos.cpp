@@ -99,77 +99,82 @@ void FixMinimizeKokkos::reset_coords()
   auto xz = domain->xz;
   auto yz = domain->yz;
 
-  auto l_x = atomKK->k_x.d_view; 
-  auto l_x0 = Kokkos::subview(d_vectors,0,Kokkos::ALL);
   int nlocal = atom->nlocal;
 
-  Kokkos::parallel_for(nlocal, LAMMPS_LAMBDA(const int& i) {
-    const int n = i*3;
-    double dx0 = l_x(i,0) - l_x0[n];
-    double dy0 = l_x(i,1) - l_x0[n+1];
-    double dz0 = l_x(i,2) - l_x0[n+2];
-    double dx = dx0;
-    double dy = dy0;
-    double dz = dz0;
-    // domain->minimum_image(dx,dy,dz);
-    {
-      if (triclinic == 0) {
-        if (xperiodic) {
-          if (fabs(dx) > xprd_half) {
-            if (dx < 0.0) dx += xprd;
-            else dx -= xprd;
+  {
+    // local variables for lambda capture
+
+    auto l_x = atomKK->k_x.d_view;
+    auto l_x0 = Kokkos::subview(d_vectors,0,Kokkos::ALL);
+
+    Kokkos::parallel_for(nlocal, LAMMPS_LAMBDA(const int& i) {
+      const int n = i*3;
+      double dx0 = l_x(i,0) - l_x0[n];
+      double dy0 = l_x(i,1) - l_x0[n+1];
+      double dz0 = l_x(i,2) - l_x0[n+2];
+      double dx = dx0;
+      double dy = dy0;
+      double dz = dz0;
+      // domain->minimum_image(dx,dy,dz);
+      {
+        if (triclinic == 0) {
+          if (xperiodic) {
+            if (fabs(dx) > xprd_half) {
+              if (dx < 0.0) dx += xprd;
+              else dx -= xprd;
+            }
           }
-        }
-        if (yperiodic) {
-          if (fabs(dy) > yprd_half) {
-            if (dy < 0.0) dy += yprd;
-            else dy -= yprd;
+          if (yperiodic) {
+            if (fabs(dy) > yprd_half) {
+              if (dy < 0.0) dy += yprd;
+              else dy -= yprd;
+            }
           }
-        }
-        if (zperiodic) {
-          if (fabs(dz) > zprd_half) {
-            if (dz < 0.0) dz += zprd;
-            else dz -= zprd;
+          if (zperiodic) {
+            if (fabs(dz) > zprd_half) {
+              if (dz < 0.0) dz += zprd;
+              else dz -= zprd;
+            }
           }
-        }
-      
-      } else {
-        if (zperiodic) {
-          if (fabs(dz) > zprd_half) {
-            if (dz < 0.0) {
-              dz += zprd;
-              dy += yz;
-              dx += xz;
-            } else {
-              dz -= zprd;
-              dy -= yz;
-              dx -= xz;
+
+        } else {
+          if (zperiodic) {
+            if (fabs(dz) > zprd_half) {
+              if (dz < 0.0) {
+                dz += zprd;
+                dy += yz;
+                dx += xz;
+              } else {
+                dz -= zprd;
+                dy -= yz;
+                dx -= xz;
+              }
+            }
+          }
+          if (yperiodic) {
+            if (fabs(dy) > yprd_half) {
+              if (dy < 0.0) {
+                dy += yprd;
+                dx += xy;
+              } else {
+                dy -= yprd;
+                dx -= xy;
+              }
+            }
+          }
+          if (xperiodic) {
+            if (fabs(dx) > xprd_half) {
+              if (dx < 0.0) dx += xprd;
+              else dx -= xprd;
             }
           }
         }
-        if (yperiodic) {
-          if (fabs(dy) > yprd_half) {
-            if (dy < 0.0) {
-              dy += yprd;
-              dx += xy;
-            } else {
-              dy -= yprd;
-              dx -= xy;
-            }
-          }
-        }
-        if (xperiodic) {
-          if (fabs(dx) > xprd_half) {
-            if (dx < 0.0) dx += xprd;
-            else dx -= xprd;
-          }
-        }
-      }
-    } // end domain->minimum_image(dx,dy,dz);
-    if (dx != dx0) l_x0[n] = l_x(i,0) - dx;
-    if (dy != dy0) l_x0[n+1] = l_x(i,1) - dy;
-    if (dz != dz0) l_x0[n+2] = l_x(i,2) - dz;
-  });
+      } // end domain->minimum_image(dx,dy,dz);
+      if (dx != dx0) l_x0[n] = l_x(i,0) - dx;
+      if (dy != dy0) l_x0[n+1] = l_x(i,1) - dy;
+      if (dz != dz0) l_x0[n+2] = l_x(i,2) - dz;
+    });
+  }
 
   box_swap();
   domain->set_global_box();

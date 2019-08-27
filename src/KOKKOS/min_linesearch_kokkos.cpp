@@ -92,7 +92,7 @@ void MinLineSearchKokkos::reset_vectors()
   nvec = 3 * atom->nlocal;
   auto d_x = atomKK->k_x.d_view;
   auto d_f = atomKK->k_f.d_view;
-  
+
   if (nvec) xvec = DAT::t_ffloat_1d(d_x.data(),d_x.size());
   if (nvec) fvec = DAT::t_ffloat_1d(d_f.data(),d_f.size());
   x0 = fix_minimize_kk->request_vector_kokkos(0);
@@ -163,22 +163,23 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
   double dot[2],dotall[2];
   double alphamax;
 
-  // local variables for lambda capture
-
-  auto l_xvec = xvec;
-  auto l_fvec = fvec;
-  auto l_x0 = x0;
-  auto l_h = h;
-
   // fdothall = projection of search dir along downhill gradient
   // if search direction is not downhill, exit with error
 
   fdothme = 0.0;
-  Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, double& fdothme) {
-    fdothme += l_fvec[i]*l_h[i];
-  },fdothme);
+  {
+    // local variables for lambda capture
+
+    auto l_fvec = fvec;
+    auto l_h = h;
+
+    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, double& fdothme) {
+      fdothme += l_fvec[i]*l_h[i];
+    },fdothme);
+  }
   MPI_Allreduce(&fdothme,&fdothall,1,MPI_DOUBLE,MPI_SUM,world);
   if (output->thermo->normflag) fdothall /= atom->natoms;
+
   if (fdothall <= 0.0) return DOWNHILL;
 
   // set alphamax so no dof is changed by more than max allowed amount
@@ -189,10 +190,17 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
   // else will have to backtrack from huge value when forces are tiny
   // if all search dir components are already 0.0, exit with error
 
+
   hme = 0.0;
-  Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, double& hme) {
-    hme = MAX(hme,fabs(l_h[i]));
-  },Kokkos::Max<double>(hme));
+  {
+    // local variables for lambda capture
+
+    auto l_h = h;
+
+    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, double& hme) {
+      hme = MAX(hme,fabs(l_h[i]));
+    },Kokkos::Max<double>(hme));
+  }
   MPI_Allreduce(&hme,&hmaxall,1,MPI_DOUBLE,MPI_MAX,world);
   alphamax = MIN(ALPHA_MAX,dmax/hmaxall);
 
@@ -200,10 +208,17 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
 
   // store box and values of all dof at start of linesearch
 
-  fix_minimize->store_box();
-  Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
-    l_x0[i] = l_xvec[i];
-  });
+  {
+    // local variables for lambda capture
+
+    auto l_xvec = xvec;
+    auto l_x0 = x0;
+
+    fix_minimize_kk->store_box();
+    Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
+      l_x0[i] = l_xvec[i];
+    });
+  }
 
   // backtrack with alpha until energy decrease is sufficient
   // or until get to small energy change, then perform quadratic projection
@@ -228,13 +243,20 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
     // compute new fh, alpha, delfh
 
     s_double2 sdot;
-    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_double2& sdot) {
-      sdot.d0 += l_fvec[i]*l_fvec[i];
-      sdot.d1 += l_fvec[i]*l_h[i];
-    },sdot);
+    {
+      // local variables for lambda capture
+
+      auto l_fvec = fvec;
+      auto l_h = h;
+
+      Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_double2& sdot) {
+        sdot.d0 += l_fvec[i]*l_fvec[i];
+        sdot.d1 += l_fvec[i]*l_h[i];
+      },sdot);
+    }
     dot[0] = sdot.d0;
     dot[1] = sdot.d1;
-    
+
     MPI_Allreduce(dot,dotall,2,MPI_DOUBLE,MPI_SUM,world);
     ff = dotall[0];
     fh = dotall[1];
@@ -270,6 +292,9 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
     de_ideal = -BACKTRACK_SLOPE*alpha*fdothall;
     de = ecurrent - eoriginal;
 
+    if (de <= de_ideal)
+      return 0;
+
     // save previous state
 
     fhprev = fh;
@@ -296,21 +321,27 @@ double MinLineSearchKokkos::alpha_step(double alpha, int resetflag)
 {
   int i,n,m;
 
-  // local variables for lambda capture
-  
-  auto l_xvec = xvec;
-  auto l_h = h;
-  auto l_x0 = x0;
-
   // reset to starting point
 
-  Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
-    l_xvec[i] = l_x0[i];
-  });
+  {
+    // local variables for lambda capture
+
+    auto l_xvec = xvec;
+    auto l_x0 = x0;
+
+    Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
+      l_xvec[i] = l_x0[i];
+    });
+  }
 
   // step forward along h
 
   if (alpha > 0.0) {
+    // local variables for lambda capture
+
+    auto l_xvec = xvec;
+    auto l_h = h;
+
     Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
       l_xvec[i] += alpha*l_h[i];
     });
@@ -332,18 +363,20 @@ double MinLineSearchKokkos::compute_dir_deriv(double &ff)
   double dot[2],dotall[2];
   double fh;
 
-  // local variables for lambda capture
-
-  auto l_fvec = fvec;
-  auto l_h = h;
-
   // compute new fh, alpha, delfh
 
   s_double2 sdot;
-  Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_double2& sdot) {
-    sdot.d0 += l_fvec[i]*l_fvec[i];
-    sdot.d1 += l_fvec[i]*l_h[i];
-  },sdot);
+  {
+    // local variables for lambda capture
+
+    auto l_fvec = fvec;
+    auto l_h = h;
+
+    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_double2& sdot) {
+      sdot.d0 += l_fvec[i]*l_fvec[i];
+      sdot.d1 += l_fvec[i]*l_h[i];
+    },sdot);
+  }
   dot[0] = sdot.d0;
   dot[1] = sdot.d1;
 

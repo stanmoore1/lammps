@@ -44,12 +44,6 @@ int MinCGKokkos::iterate(int maxiter)
   double beta,gg,dot[2],dotall[2];
   double *fatom,*gatom,*hatom;
 
-  // local variables for lambda capture
-
-  auto l_h = h;
-  auto l_g = g;
-  auto l_fvec = fvec;
-
   // nlimit = max # of CG iterations before restarting
   // set to ndoftotal unless too big
 
@@ -57,10 +51,18 @@ int MinCGKokkos::iterate(int maxiter)
 
   // initialize working vectors
 
-  Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
-    l_h[i] = l_fvec[i];
-    l_g[i] = l_fvec[i];
-  });
+  {
+    // local variables for lambda capture
+
+    auto l_h = h;
+    auto l_g = g;
+    auto l_fvec = fvec;
+
+    Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
+      l_h[i] = l_fvec[i];
+      l_g[i] = l_fvec[i];
+    });
+  }
 
   gg = fnorm_sqr();
 
@@ -91,10 +93,17 @@ int MinCGKokkos::iterate(int maxiter)
     // force tolerance criterion
 
     s_double2 sdot;
-    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_double2& sdot) {
-      sdot.d0 += l_fvec[i]*l_fvec[i];
-      sdot.d1 += l_fvec[i]*l_g[i];
-    },sdot);
+    {
+      // local variables for lambda capture
+
+      auto l_g = g;
+      auto l_fvec = fvec;
+
+      Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_double2& sdot) {
+        sdot.d0 += l_fvec[i]*l_fvec[i];
+        sdot.d1 += l_fvec[i]*l_g[i];
+      },sdot);
+    }
     dot[0] = sdot.d0;
     dot[1] = sdot.d1;
     MPI_Allreduce(dot,dotall,2,MPI_DOUBLE,MPI_SUM,world);
@@ -110,21 +119,42 @@ int MinCGKokkos::iterate(int maxiter)
     if ((niter+1) % nlimit == 0) beta = 0.0;
     gg = dotall[0];
 
-    Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
-      l_g[i] = l_fvec[i];
-      l_h[i] = l_g[i] + beta*l_h[i];
-    });
+    {
+      // local variables for lambda capture
+
+      auto l_h = h;
+      auto l_g = g;
+      auto l_fvec = fvec;
+
+      Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
+        l_g[i] = l_fvec[i];
+        l_h[i] = l_g[i] + beta*l_h[i];
+      });
+    }
 
     // reinitialize CG if new search direction h is not downhill
 
     double dot_0 = 0.0;
-    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, double& dot_0) {
-      dot_0 += l_g[i]*l_h[i];
-    },dot_0);
+
+    {
+      // local variables for lambda capture
+
+      auto l_h = h;
+      auto l_g = g;
+
+      Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, double& dot_0) {
+        dot_0 += l_g[i]*l_h[i];
+      },dot_0);
+    }
     dot[0] = dot_0;
     MPI_Allreduce(dot,dotall,1,MPI_DOUBLE,MPI_SUM,world);
 
     if (dotall[0] <= 0.0) {
+      // local variables for lambda capture
+
+      auto l_h = h;
+      auto l_g = g;
+
       Kokkos::parallel_for(nvec, LAMMPS_LAMBDA(const int& i) {
          l_h[i] = l_g[i];
       });

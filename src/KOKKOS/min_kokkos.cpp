@@ -226,7 +226,7 @@ double MinKokkos::energy_force(int resetflag)
     }
   }
 
-  ev_set(update->ntimestep); // need kk version?
+  ev_set(update->ntimestep); /// need kk version?
   force_clear();
 
   timer->stamp();
@@ -306,7 +306,7 @@ double MinKokkos::energy_force(int resetflag)
   // reset vectors used by lo-level minimizer
 
   if (nflag) {
-    if (resetflag) fix_minimize->reset_coords();
+    if (resetflag) fix_minimize_kk->reset_coords();
     reset_vectors();
   }
 
@@ -331,10 +331,12 @@ void MinKokkos::force_clear()
   int nzero = atom->nlocal;
   if (force->newton) nzero += atom->nghost;
 
-  auto l_f = atomKK->k_f.d_view; 
-  auto l_torque = atomKK->k_torque.d_view; 
-
   if (nzero) {
+    // local variables for lambda capture
+
+    auto l_f = atomKK->k_f.d_view;
+    auto l_torque = atomKK->k_torque.d_view;
+
     Kokkos::parallel_for(nzero, LAMMPS_LAMBDA(int i) {
       l_f(i,0) = 0.0;
       l_f(i,1) = 0.0;
@@ -355,14 +357,17 @@ void MinKokkos::force_clear()
 double MinKokkos::fnorm_sqr()
 {
   int i,n;
-  double *fatom;
-
-  auto l_fvec = fvec;
 
   double local_norm2_sqr = 0.0;
-  Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm2_sqr) {
-    local_norm2_sqr += l_fvec[i]*l_fvec[i];
-  },local_norm2_sqr);
+  {
+    // local variables for lambda capture
+
+    auto l_fvec = fvec;
+
+    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm2_sqr) {
+      local_norm2_sqr += l_fvec[i]*l_fvec[i];
+    },local_norm2_sqr);
+  }
 
   double norm2_sqr = 0.0;
   MPI_Allreduce(&local_norm2_sqr,&norm2_sqr,1,MPI_DOUBLE,MPI_SUM,world);
@@ -377,14 +382,17 @@ double MinKokkos::fnorm_sqr()
 double MinKokkos::fnorm_inf()
 {
   int i,n;
-  double *fatom;
-
-  auto l_fvec = fvec;
 
   double local_norm_inf = 0.0;
-  Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm_inf) {
-    local_norm_inf = MAX(fabs(l_fvec[i]),local_norm_inf);
-  },Kokkos::Max<double>(local_norm_inf));
+  {
+    // local variables for lambda capture
+
+    auto l_fvec = fvec;
+
+    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm_inf) {
+      local_norm_inf = MAX(fabs(l_fvec[i]),local_norm_inf);
+    },Kokkos::Max<double>(local_norm_inf));
+  }
 
   double norm_inf = 0.0;
   MPI_Allreduce(&local_norm_inf,&norm_inf,1,MPI_DOUBLE,MPI_MAX,world);
