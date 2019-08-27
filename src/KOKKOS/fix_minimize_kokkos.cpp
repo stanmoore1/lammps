@@ -216,8 +216,6 @@ int FixMinimizeKokkos::pack_exchange(int i, double *buf)
 {
   int m,iper,nper,ni;
 
-  printf("Exchange FMKK!!!\n");
-
   k_vectors.sync<LMPHostType>();
 
   int n = 0;

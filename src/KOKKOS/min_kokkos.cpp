@@ -354,7 +354,6 @@ void MinKokkos::setup_minimal(int flag)
 
 void MinKokkos::run(int n)
 {
-  printf("Started RUnning!!!\n");
   if (nextra_global)
     error->all(FLERR,"Cannot yet use extra global DOFs (e.g. fix box/relax) "
      "with Kokkos minimize");
@@ -482,7 +481,7 @@ double MinKokkos::energy_force(int resetflag)
     }
   }
 
-  ev_set(update->ntimestep); /// need kk version?
+  ev_set(update->ntimestep);
   force_clear();
 
   timer->stamp();
@@ -565,7 +564,6 @@ double MinKokkos::energy_force(int resetflag)
     if (resetflag) fix_minimize_kk->reset_coords();
     reset_vectors();
   }
-  printf("ENERGY computed: %g\n",energy);
   return energy;
 }
 
@@ -605,6 +603,7 @@ void MinKokkos::force_clear()
       }
     });
   }
+  atomKK->modified(Device,F_MASK);
 }
 
 /* ----------------------------------------------------------------------

@@ -103,7 +103,6 @@ void MinLineSearchKokkos::reset_vectors()
 
   auto h_fvec = Kokkos::create_mirror_view(fvec);
   Kokkos::deep_copy(h_fvec,fvec);
-  printf("F0 %g !!!!!\n",h_fvec[0]);
 }
 
 /* ----------------------------------------------------------------------
@@ -170,7 +169,6 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
 
   auto h_fvec = Kokkos::create_mirror_view(fvec);
   Kokkos::deep_copy(h_fvec,fvec);
-  printf("F0 LMQ %g !!!!!\n",h_fvec[0]);
 
   // fdothall = projection of search dir along downhill gradient
   // if search direction is not downhill, exit with error
@@ -184,7 +182,6 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
 
     Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, double& fdothme) {
       fdothme += l_fvec[i]*l_h[i];
-  printf("fdothme %i %g %g %g\n",i,fdothme,l_fvec[i],l_h[i]);
     },fdothme);
   }
   MPI_Allreduce(&fdothme,&fdothall,1,MPI_DOUBLE,MPI_SUM,world);
@@ -249,7 +246,7 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
 
   while (1) {
     ecurrent = alpha_step(alpha,1);
-    printf("ecurrent = %g\n",ecurrent);
+
     // compute new fh, alpha, delfh
 
     s_double2 sdot;
@@ -331,6 +328,8 @@ double MinLineSearchKokkos::alpha_step(double alpha, int resetflag)
 {
   // reset to starting point
 
+  atomKK->k_x.clear_sync_state(); // ignore if host positions since device
+                                  //  positions will be reset below
   {
     // local variables for lambda capture
 
@@ -354,6 +353,8 @@ double MinLineSearchKokkos::alpha_step(double alpha, int resetflag)
       l_xvec[i] += alpha*l_h[i];
     });
   }
+
+  atomKK->modified(Device,X_MASK);
 
   // compute and return new energy
 
