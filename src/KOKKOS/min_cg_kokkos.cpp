@@ -43,6 +43,10 @@ int MinCGKokkos::iterate(int maxiter)
   int fail,ntimestep;
   double beta,gg,dot[2],dotall[2];
 
+  auto h_fvec = Kokkos::create_mirror_view(fvec);
+  Kokkos::deep_copy(h_fvec,fvec);
+  printf("F0 MCP Iterate %g !!!!!\n",h_fvec[0]);
+
   // nlimit = max # of CG iterations before restarting
   // set to ndoftotal unless too big
 

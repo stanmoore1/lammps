@@ -75,9 +75,168 @@ void MinKokkos::init()
 
 void MinKokkos::setup(int flag)
 {
-  lmp->kokkos->auto_sync = 1;
-  Min::setup(flag);
+  if (comm->me == 0 && screen) {
+    fprintf(screen,"Setting up %s style minimization ...\n",
+            update->minimize_style);
+    if (flag) {
+      fprintf(screen,"  Unit style    : %s\n", update->unit_style);
+      fprintf(screen,"  Current step  : " BIGINT_FORMAT "\n",
+              update->ntimestep);
+      timer->print_timeout(screen);
+    }
+  }
+  update->setupflag = 1;
+
+  // setup extra global dof due to fixes
+  // cannot be done in init() b/c update init() is before modify init()
+
+  nextra_global = modify->min_dof();
+  if (nextra_global) {
+    fextra = new double[nextra_global];
+    if (comm->me == 0 && screen)
+      fprintf(screen,"WARNING: Energy due to %d extra global DOFs will"
+              " be included in minimizer energies\n",nextra_global);
+  }
+
+  // compute for potential energy
+
+  int id = modify->find_compute("thermo_pe");
+  if (id < 0) error->all(FLERR,"Minimization could not find thermo_pe compute");
+  pe_compute = modify->compute[id];
+
+  // style-specific setup does two tasks
+  // setup extra global dof vectors
+  // setup extra per-atom dof vectors due to requests from Pair classes
+  // cannot be done in init() b/c update init() is before modify/pair init()
+
+  setup_style();
+
+  // ndoftotal = total dof for entire minimization problem
+  // dof for atoms, extra per-atom, extra global
+
+  bigint ndofme = 3 * static_cast<bigint>(atom->nlocal);
+  for (int m = 0; m < nextra_atom; m++)
+    ndofme += extra_peratom[m]*atom->nlocal;
+  MPI_Allreduce(&ndofme,&ndoftotal,1,MPI_LMP_BIGINT,MPI_SUM,world);
+  ndoftotal += nextra_global;
+
+  // setup domain, communication and neighboring
+  // acquire ghosts
+  // build neighbor lists
+
+  atom->setup();
+  modify->setup_pre_exchange();
+  if (triclinic) domain->x2lamda(atom->nlocal);
+  domain->pbc();
+  domain->reset_box();
+  comm->setup();
+  if (neighbor->style) neighbor->setup_bins();
+  comm->exchange();
+  if (atom->sortfreq > 0) atom->sort();
+  comm->borders();
+  if (triclinic) domain->lamda2x(atom->nlocal+atom->nghost);
+  domain->image_check();
+  domain->box_too_small_check();
+  modify->setup_pre_neighbor();
+  neighbor->build(1);
+  modify->setup_post_neighbor();
+  neighbor->ncalls = 0;
+
+  // remove these restriction eventually
+
+  if (searchflag == 0) {
+    if (nextra_global)
+      error->all(FLERR,
+                 "Cannot use a damped dynamics min style with fix box/relax");
+    if (nextra_atom)
+      error->all(FLERR,
+                 "Cannot use a damped dynamics min style with per-atom DOF");
+  }
+
+  if (strcmp(update->minimize_style,"hftn") == 0) {
+    if (nextra_global)
+      error->all(FLERR, "Cannot use hftn min style with fix box/relax");
+    if (nextra_atom)
+      error->all(FLERR, "Cannot use hftn min style with per-atom DOF");
+  }
+
+  // atoms may have migrated in comm->exchange()
+
+  reset_vectors();
+
+  // compute all forces
+
+  force->setup();
+  ev_set(update->ntimestep);
+  force_clear();
+  modify->setup_pre_force(vflag);
+
+  if (pair_compute_flag) {
+    atomKK->sync(force->pair->execution_space,force->pair->datamask_read);
+    force->pair->compute(eflag,vflag);
+    atomKK->modified(force->pair->execution_space,force->pair->datamask_modify);
+    timer->stamp(Timer::PAIR);
+  }
+  else if (force->pair) force->pair->compute_dummy(eflag,vflag);
+
+  if (atomKK->molecular) {
+    if (force->bond) {
+      atomKK->sync(force->bond->execution_space,force->bond->datamask_read);
+      force->bond->compute(eflag,vflag);
+      atomKK->modified(force->bond->execution_space,force->bond->datamask_modify);
+    }
+    if (force->angle) {
+      atomKK->sync(force->angle->execution_space,force->angle->datamask_read);
+      force->angle->compute(eflag,vflag);
+      atomKK->modified(force->angle->execution_space,force->angle->datamask_modify);
+    }
+    if (force->dihedral) {
+      atomKK->sync(force->dihedral->execution_space,force->dihedral->datamask_read);
+      force->dihedral->compute(eflag,vflag);
+      atomKK->modified(force->dihedral->execution_space,force->dihedral->datamask_modify);
+    }
+    if (force->improper) {
+      atomKK->sync(force->improper->execution_space,force->improper->datamask_read);
+      force->improper->compute(eflag,vflag);
+      atomKK->modified(force->improper->execution_space,force->improper->datamask_modify);
+    }
+    timer->stamp(Timer::BOND);
+  }
+
+  if(force->kspace) {
+    force->kspace->setup();
+    if (kspace_compute_flag) {
+      atomKK->sync(force->kspace->execution_space,force->kspace->datamask_read);
+      force->kspace->compute(eflag,vflag);
+      atomKK->modified(force->kspace->execution_space,force->kspace->datamask_modify);
+      timer->stamp(Timer::KSPACE);
+    } else force->kspace->compute_dummy(eflag,vflag);
+  }
+
+  modify->setup_pre_reverse(eflag,vflag);
+  if (force->newton) comm->reverse_comm();
+
+  // update per-atom minimization variables stored by pair styles
+
+  if (nextra_atom)
+    for (int m = 0; m < nextra_atom; m++)
+      requestor[m]->min_xf_get(m);
+
   lmp->kokkos->auto_sync = 0;
+  modify->setup(vflag);
+  output->setup(flag);
+  lmp->kokkos->auto_sync = 1;
+  update->setupflag = 0;
+
+  // stats for initial thermo output
+
+  ecurrent = pe_compute->compute_scalar();
+  if (nextra_global) ecurrent += modify->min_energy(fextra);
+  if (output->thermo->normflag) ecurrent /= atom->natoms;
+
+  einitial = ecurrent;
+  fnorm2_init = sqrt(fnorm_sqr());
+  fnorminf_init = fnorm_inf();
 }
 
 /* ----------------------------------------------------------------------
@@ -88,9 +247,105 @@ void MinKokkos::setup(int flag)
 
 void MinKokkos::setup_minimal(int flag)
 {
-  lmp->kokkos->auto_sync = 1;
-  Min::setup(flag);
+  update->setupflag = 1;
+
+  // setup domain, communication and neighboring
+  // acquire ghosts
+  // build neighbor lists
+
+  if (flag) {
+    modify->setup_pre_exchange();
+    if (triclinic) domain->x2lamda(atom->nlocal);
+    domain->pbc();
+    domain->reset_box();
+    comm->setup();
+    if (neighbor->style) neighbor->setup_bins();
+    comm->exchange();
+    comm->borders();
+    if (triclinic) domain->lamda2x(atom->nlocal+atom->nghost);
+    domain->image_check();
+    domain->box_too_small_check();
+    modify->setup_pre_neighbor();
+    neighbor->build(1);
+    modify->setup_post_neighbor();
+    neighbor->ncalls = 0;
+  }
+
+  // atoms may have migrated in comm->exchange()
+
+  reset_vectors();
+
+  // compute all forces
+
+  ev_set(update->ntimestep);
+  force_clear();
+  modify->setup_pre_force(vflag);
+
+  if (pair_compute_flag) {
+    atomKK->sync(force->pair->execution_space,force->pair->datamask_read);
+    force->pair->compute(eflag,vflag);
+    atomKK->modified(force->pair->execution_space,force->pair->datamask_modify);
+    timer->stamp(Timer::PAIR);
+  }
+  else if (force->pair) force->pair->compute_dummy(eflag,vflag);
+
+  if (atomKK->molecular) {
+    if (force->bond) {
+      atomKK->sync(force->bond->execution_space,force->bond->datamask_read);
+      force->bond->compute(eflag,vflag);
+      atomKK->modified(force->bond->execution_space,force->bond->datamask_modify);
+    }
+    if (force->angle) {
+      atomKK->sync(force->angle->execution_space,force->angle->datamask_read);
+      force->angle->compute(eflag,vflag);
+      atomKK->modified(force->angle->execution_space,force->angle->datamask_modify);
+    }
+    if (force->dihedral) {
+      atomKK->sync(force->dihedral->execution_space,force->dihedral->datamask_read);
+      force->dihedral->compute(eflag,vflag);
+      atomKK->modified(force->dihedral->execution_space,force->dihedral->datamask_modify);
+    }
+    if (force->improper) {
+      atomKK->sync(force->improper->execution_space,force->improper->datamask_read);
+      force->improper->compute(eflag,vflag);
+      atomKK->modified(force->improper->execution_space,force->improper->datamask_modify);
+    }
+    timer->stamp(Timer::BOND);
+  }
+
+  if(force->kspace) {
+    force->kspace->setup();
+    if (kspace_compute_flag) {
+      atomKK->sync(force->kspace->execution_space,force->kspace->datamask_read);
+      force->kspace->compute(eflag,vflag);
+      atomKK->modified(force->kspace->execution_space,force->kspace->datamask_modify);
+      timer->stamp(Timer::KSPACE);
+    } else force->kspace->compute_dummy(eflag,vflag);
+  }
+
+  modify->setup_pre_reverse(eflag,vflag);
+  if (force->newton) comm->reverse_comm();
+
+  // update per-atom minimization variables stored by pair styles
+
+  if (nextra_atom)
+    for (int m = 0; m < nextra_atom; m++)
+      requestor[m]->min_xf_get(m);
+
   lmp->kokkos->auto_sync = 0;
+  modify->setup(vflag);
+  lmp->kokkos->auto_sync = 1;
+  update->setupflag = 0;
+
+  // stats for Finish to print
+
+  ecurrent = pe_compute->compute_scalar();
+  if (nextra_global) ecurrent += modify->min_energy(fextra);
+  if (output->thermo->normflag) ecurrent /= atom->natoms;
+
+  einitial = ecurrent;
+  fnorm2_init = sqrt(fnorm_sqr());
+  fnorminf_init = fnorm_inf();
 }
 
 /* ----------------------------------------------------------------------
@@ -99,6 +354,7 @@ void MinKokkos::setup_minimal(int flag)
 
 void MinKokkos::run(int n)
 {
+  printf("Started RUnning!!!\n");
   if (nextra_global)
     error->all(FLERR,"Cannot yet use extra global DOFs (e.g. fix box/relax) "
      "with Kokkos minimize");
@@ -309,7 +565,7 @@ double MinKokkos::energy_force(int resetflag)
     if (resetflag) fix_minimize_kk->reset_coords();
     reset_vectors();
   }
-
+  printf("ENERGY computed: %g\n",energy);
   return energy;
 }
 
@@ -336,12 +592,13 @@ void MinKokkos::force_clear()
 
     auto l_f = atomKK->k_f.d_view;
     auto l_torque = atomKK->k_torque.d_view;
+    auto l_torqueflag = torqueflag;
 
     Kokkos::parallel_for(nzero, LAMMPS_LAMBDA(int i) {
       l_f(i,0) = 0.0;
       l_f(i,1) = 0.0;
       l_f(i,2) = 0.0;
-      if (torqueflag) {
+      if (l_torqueflag) {
         l_torque(i,0) = 0.0;
         l_torque(i,1) = 0.0;
         l_torque(i,2) = 0.0;

@@ -48,16 +48,14 @@ void FixMinimizeKokkos::add_vector_kokkos()
 
   // d_vectors needs to be LayoutRight for subviews
 
-  //vectors = (double **)
-  //  memory->srealloc(vectors,(nvector+1)*sizeof(double *),"minimize:vectors");
-  //memory->create(vectors[nvector],atom->nmax*n,"minimize:vector");
-  //this->sync(Device,DVECTOR_MASK);
+  k_vectors.sync<LMPDeviceType>();
 
   memoryKK->grow_kokkos(k_vectors,vectors,nvector+1,atom->nmax*n,
                       "minimize:vectors");
   d_vectors = k_vectors.d_view;
   h_vectors = k_vectors.h_view;
-  //this->modified(Device,DVECTOR_MASK);
+
+  k_vectors.modify<LMPDeviceType>();
 
   nvector++;
 }
@@ -68,6 +66,8 @@ void FixMinimizeKokkos::add_vector_kokkos()
 
 DAT::t_ffloat_1d FixMinimizeKokkos::request_vector_kokkos(int m)
 {
+  k_vectors.sync<LMPDeviceType>();
+
   return Kokkos::subview(d_vectors,m,Kokkos::ALL);
 }
 
@@ -83,27 +83,24 @@ void FixMinimizeKokkos::reset_coords()
   box_swap();
   domain->set_global_box();
 
-  // local variables for lambda capture
-
-  auto triclinic = domain->triclinic;
-  auto xperiodic = domain->xperiodic;
-  auto xprd_half = domain->xprd_half;
-  auto xprd = domain->xprd;
-  auto yperiodic = domain->yperiodic;
-  auto yprd_half = domain->yprd_half;
-  auto yprd = domain->yprd;
-  auto zperiodic = domain->zperiodic;
-  auto zprd_half = domain->zprd_half;
-  auto zprd = domain->zprd;
-  auto xy = domain->xy;
-  auto xz = domain->xz;
-  auto yz = domain->yz;
-
   int nlocal = atom->nlocal;
 
   {
     // local variables for lambda capture
 
+    auto triclinic = domain->triclinic;
+    auto xperiodic = domain->xperiodic;
+    auto xprd_half = domain->xprd_half;
+    auto xprd = domain->xprd;
+    auto yperiodic = domain->yperiodic;
+    auto yprd_half = domain->yprd_half;
+    auto yprd = domain->yprd;
+    auto zperiodic = domain->zperiodic;
+    auto zprd_half = domain->zprd_half;
+    auto zprd = domain->zprd;
+    auto xy = domain->xy;
+    auto xz = domain->xz;
+    auto yz = domain->yz;
     auto l_x = atomKK->k_x.d_view;
     auto l_x0 = Kokkos::subview(d_vectors,0,Kokkos::ALL);
 
@@ -207,6 +204,7 @@ void FixMinimizeKokkos::copy_arrays(int i, int j, int /*delflag*/)
     nj = nper*j;
     for (iper = 0; iper < nper; iper++) h_vectors(m,nj++) = h_vectors(m,ni++);
   }
+
   k_vectors.modify<LMPHostType>();
 }
 
@@ -218,27 +216,15 @@ int FixMinimizeKokkos::pack_exchange(int i, double *buf)
 {
   int m,iper,nper,ni;
 
+  printf("Exchange FMKK!!!\n");
+
+  k_vectors.sync<LMPHostType>();
+
   int n = 0;
   for (m = 0; m < nvector; m++) {
     nper = peratom[m];
     ni = nper*i;
     for (iper = 0; iper < nper; iper++) buf[n++] = h_vectors(m,ni++);
-  }
-  return n;
-}
-
-/* ---------------------------------------------------------------------- */
-
-KOKKOS_INLINE_FUNCTION
-int FixMinimizeKokkos::pack_exchange_kokkos(int i, DAT::t_float_1d& d_buf)
-{
-  int m,iper,nper,ni;
-
-  int n = 0;
-  for (m = 0; m < nvector; m++) {
-    nper = 3;
-    ni = nper*i;
-    for (iper = 0; iper < nper; iper++) d_buf[n++] = d_vectors(m,ni++);
   }
   return n;
 }
@@ -257,21 +243,8 @@ int FixMinimizeKokkos::unpack_exchange(int nlocal, double *buf)
     ni = nper*nlocal;
     for (iper = 0; iper < nper; iper++) h_vectors(m,ni++) = buf[n++];
   }
-  return n;
-}
 
-/* ---------------------------------------------------------------------- */
+  k_vectors.modify<LMPHostType>();
 
-KOKKOS_INLINE_FUNCTION
-int FixMinimizeKokkos::unpack_exchange_kokkos(int nlocal, DAT::t_float_1d& d_buf)
-{
-  int m,iper,nper,ni;
-
-  int n = 0;
-  for (m = 0; m < nvector; m++) {
-    nper = 3;
-    ni = nper*nlocal;
-    for (iper = 0; iper < nper; iper++) d_vectors(m,ni++) = d_buf[n++];
-  }
   return n;
 }

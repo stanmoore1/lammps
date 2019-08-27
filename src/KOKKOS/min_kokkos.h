@@ -48,10 +48,6 @@ class MinKokkos : public Min {
 
   double energy_force(int);
   void force_clear();
-
-  double compute_force_norm_sqr();
-  double compute_force_norm_inf();
-
 };
 
 }

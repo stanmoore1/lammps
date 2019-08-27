@@ -38,9 +38,7 @@ class FixMinimizeKokkos : public FixMinimize {
   void grow_arrays(int);
   void copy_arrays(int, int, int);
   int pack_exchange(int, double *);
-  int pack_exchange_kokkos(int, DAT::t_float_1d &);
   int unpack_exchange(int, double *);
-  int unpack_exchange_kokkos(int, DAT::t_float_1d &);
 
   void add_vector_kokkos();
   DAT::t_float_1d request_vector_kokkos(int);

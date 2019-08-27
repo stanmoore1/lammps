@@ -25,6 +25,7 @@
 #include "output.h"
 #include "thermo.h"
 #include "error.h"
+#include "atom_masks.h"
 
 using namespace LAMMPS_NS;
 
@@ -90,6 +91,7 @@ void MinLineSearchKokkos::reset_vectors()
   // atomic dof
 
   nvec = 3 * atom->nlocal;
+  atomKK->sync(Device,F_MASK|X_MASK);
   auto d_x = atomKK->k_x.d_view;
   auto d_f = atomKK->k_f.d_view;
 
@@ -98,6 +100,10 @@ void MinLineSearchKokkos::reset_vectors()
   x0 = fix_minimize_kk->request_vector_kokkos(0);
   g = fix_minimize_kk->request_vector_kokkos(1);
   h = fix_minimize_kk->request_vector_kokkos(2);
+
+  auto h_fvec = Kokkos::create_mirror_view(fvec);
+  Kokkos::deep_copy(h_fvec,fvec);
+  printf("F0 %g !!!!!\n",h_fvec[0]);
 }
 
 /* ----------------------------------------------------------------------
@@ -162,6 +168,10 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
   double dot[2],dotall[2];
   double alphamax;
 
+  auto h_fvec = Kokkos::create_mirror_view(fvec);
+  Kokkos::deep_copy(h_fvec,fvec);
+  printf("F0 LMQ %g !!!!!\n",h_fvec[0]);
+
   // fdothall = projection of search dir along downhill gradient
   // if search direction is not downhill, exit with error
 
@@ -174,6 +184,7 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
 
     Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, double& fdothme) {
       fdothme += l_fvec[i]*l_h[i];
+  printf("fdothme %i %g %g %g\n",i,fdothme,l_fvec[i],l_h[i]);
     },fdothme);
   }
   MPI_Allreduce(&fdothme,&fdothall,1,MPI_DOUBLE,MPI_SUM,world);
@@ -238,7 +249,7 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
 
   while (1) {
     ecurrent = alpha_step(alpha,1);
-
+    printf("ecurrent = %g\n",ecurrent);
     // compute new fh, alpha, delfh
 
     s_double2 sdot;
