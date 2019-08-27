@@ -427,7 +427,9 @@ void MinKokkos::cleanup()
   // delete fix at end of run, so its atom arrays won't persist
 
   modify->delete_fix("MINIMIZE");
+  atomKK->sync(Host,ALL_MASK);
   domain->box_too_small_check(); /// need KK version
+  atomKK->modified(Host,ALL_MASK);
 }
 
 /* ----------------------------------------------------------------------

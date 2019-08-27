@@ -15,6 +15,7 @@
 #include "atom_kokkos.h"
 #include "domain.h"
 #include "memory_kokkos.h"
+#include "atom_masks.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -84,6 +85,9 @@ void FixMinimizeKokkos::reset_coords()
   domain->set_global_box();
 
   int nlocal = atom->nlocal;
+
+  atomKK->sync(Device,X_MASK);
+  k_vectors.sync<LMPDeviceType>();
 
   {
     // local variables for lambda capture
@@ -172,6 +176,8 @@ void FixMinimizeKokkos::reset_coords()
       if (dz != dz0) l_x0[n+2] = l_x(i,2) - dz;
     });
   }
+
+  k_vectors.modify<LMPDeviceType>();
 
   box_swap();
   domain->set_global_box();
