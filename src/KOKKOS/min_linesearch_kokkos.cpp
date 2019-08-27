@@ -75,9 +75,9 @@ void MinLineSearchKokkos::setup_style()
 {
   // memory for x0,g,h for atomic dof
 
-  fix_minimize_kk->add_vector();
-  fix_minimize_kk->add_vector();
-  fix_minimize_kk->add_vector();
+  fix_minimize_kk->add_vector_kokkos();
+  fix_minimize_kk->add_vector_kokkos();
+  fix_minimize_kk->add_vector_kokkos();
 }
 
 /* ----------------------------------------------------------------------
@@ -156,8 +156,7 @@ void MinLineSearchKokkos::reset_vectors()
 
 int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
 {
-  int i,m,n;
-  double fdothall,fdothme,hme,hmax,hmaxall;
+  double fdothall,fdothme,hme,hmaxall;
   double de_ideal,de;
   double delfh,engprev,relerr,alphaprev,fhprev,ff,fh,alpha0;
   double dot[2],dotall[2];
@@ -319,8 +318,6 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
 
 double MinLineSearchKokkos::alpha_step(double alpha, int resetflag)
 {
-  int i,n,m;
-
   // reset to starting point
 
   {
@@ -359,7 +356,6 @@ double MinLineSearchKokkos::alpha_step(double alpha, int resetflag)
 
 double MinLineSearchKokkos::compute_dir_deriv(double &ff)
 {
-  int i,m,n;
   double dot[2],dotall[2];
   double fh;
 

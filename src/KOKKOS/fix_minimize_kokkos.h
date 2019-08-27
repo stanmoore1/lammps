@@ -42,7 +42,7 @@ class FixMinimizeKokkos : public FixMinimize {
   int unpack_exchange(int, double *);
   int unpack_exchange_kokkos(int, DAT::t_float_1d &);
 
-  void add_vector();
+  void add_vector_kokkos();
   DAT::t_float_1d request_vector_kokkos(int);
   void reset_coords();
 

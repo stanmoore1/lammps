@@ -40,7 +40,7 @@ class MinKokkos : public Min {
   enum{MAXITER,MAXEVAL,ETOL,FTOL,DOWNHILL,ZEROALPHA,ZEROFORCE,
        ZEROQUAD,TRSMALL,INTERROR,TIMEOUT};
 
- protected:
+ //protected: // won't compile with CUDA
   class FixMinimizeKokkos *fix_minimize_kk;  // fix that stores auxiliary data
 
   DAT::t_ffloat_1d xvec;            // variables for atomic dof, as 1d vector

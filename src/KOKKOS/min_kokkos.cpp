@@ -356,7 +356,6 @@ void MinKokkos::force_clear()
 
 double MinKokkos::fnorm_sqr()
 {
-  int i,n;
 
   double local_norm2_sqr = 0.0;
   {
@@ -381,7 +380,6 @@ double MinKokkos::fnorm_sqr()
 
 double MinKokkos::fnorm_inf()
 {
-  int i,n;
 
   double local_norm_inf = 0.0;
   {

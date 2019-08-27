@@ -39,7 +39,7 @@ FixMinimizeKokkos::~FixMinimizeKokkos()
    allocate/initialize memory for a new vector with 3 elements per atom
 ------------------------------------------------------------------------- */
 
-void FixMinimizeKokkos::add_vector()
+void FixMinimizeKokkos::add_vector_kokkos()
 {
   int n = 3;
 

@@ -47,7 +47,7 @@ class MinLineSearchKokkos : public MinKokkos {
   void setup_style();
   void reset_vectors();
 
- protected:
+ //protected: // won't compile with CUDA
   // vectors needed by linesearch minimizers
   // allocated and stored by fix_minimize
   // x,f are stored by parent or Atom class or Pair class

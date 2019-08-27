@@ -40,9 +40,8 @@ MinCGKokkos::MinCGKokkos(LAMMPS *lmp) : MinLineSearchKokkos(lmp)
 
 int MinCGKokkos::iterate(int maxiter)
 {
-  int i,m,n,fail,ntimestep;
+  int fail,ntimestep;
   double beta,gg,dot[2],dotall[2];
-  double *fatom,*gatom,*hatom;
 
   // nlimit = max # of CG iterations before restarting
   // set to ndoftotal unless too big
