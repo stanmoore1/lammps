@@ -176,7 +176,6 @@ void FixMinimizeKokkos::reset_coords()
       if (dz != dz0) l_x0[n+2] = l_x(i,2) - dz;
     });
   }
-
   k_vectors.modify<LMPDeviceType>();
 
   box_swap();
@@ -189,9 +188,11 @@ void FixMinimizeKokkos::reset_coords()
 
 void FixMinimizeKokkos::grow_arrays(int nmax)
 {
+  k_vectors.sync<LMPDeviceType>();
   memoryKK->grow_kokkos(k_vectors,vectors,nvector,3*nmax,"minimize:vector");
   d_vectors = k_vectors.d_view;
   h_vectors = k_vectors.h_view;
+  k_vectors.modify<LMPDeviceType>();
 }
 
 /* ----------------------------------------------------------------------
@@ -240,6 +241,8 @@ int FixMinimizeKokkos::pack_exchange(int i, double *buf)
 int FixMinimizeKokkos::unpack_exchange(int nlocal, double *buf)
 {
   int m,iper,nper,ni;
+
+  k_vectors.sync<LMPHostType>();
 
   int n = 0;
   for (m = 0; m < nvector; m++) {

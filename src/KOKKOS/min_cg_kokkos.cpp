@@ -19,6 +19,7 @@
 #include "timer.h"
 #include "atom_kokkos.h"
 #include "atom_masks.h"
+#include "fix_minimize_kokkos.h"
 
 using namespace LAMMPS_NS;
 
@@ -42,6 +43,9 @@ int MinCGKokkos::iterate(int maxiter)
 {
   int fail,ntimestep;
   double beta,gg,dot[2],dotall[2];
+
+  fix_minimize_kk->k_vectors.sync<LMPDeviceType>();
+  fix_minimize_kk->k_vectors.modify<LMPDeviceType>();
 
   // nlimit = max # of CG iterations before restarting
   // set to ndoftotal unless too big

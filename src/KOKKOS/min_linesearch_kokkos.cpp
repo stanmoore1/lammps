@@ -167,8 +167,8 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
   double dot[2],dotall[2];
   double alphamax;
 
-  auto h_fvec = Kokkos::create_mirror_view(fvec);
-  Kokkos::deep_copy(h_fvec,fvec);
+  fix_minimize_kk->k_vectors.sync<LMPDeviceType>();
+  fix_minimize_kk->k_vectors.modify<LMPDeviceType>();
 
   // fdothall = projection of search dir along downhill gradient
   // if search direction is not downhill, exit with error
