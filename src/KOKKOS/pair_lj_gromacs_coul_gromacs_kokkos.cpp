@@ -307,7 +307,7 @@ void PairLJGromacsCoulGromacsKokkos<DeviceType>::allocate()
 }
 
 template<class DeviceType>
-void PairLJGromacsCoulGromacsKokkos<DeviceType>::init_tables(KK_FLOAT cut_coul, KK_FLOAT *cut_respa)
+void PairLJGromacsCoulGromacsKokkos<DeviceType>::init_tables(double cut_coul, double *cut_respa)
 {
   Pair::init_tables(cut_coul,cut_respa);
 

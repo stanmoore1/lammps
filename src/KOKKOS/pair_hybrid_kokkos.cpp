@@ -83,7 +83,7 @@ void PairHybridKokkos::compute(int eflag, int vflag)
   if (vflag % 4 == 2) vflag_substyle = vflag/4 * 4;
   else vflag_substyle = vflag;
 
-  KK_FLOAT *saved_special = save_special();
+  double *saved_special = save_special();
 
   // check if we are running with r-RESPA using the hybrid keyword
 

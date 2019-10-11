@@ -41,7 +41,7 @@ class PairLJGromacsCoulGromacsKokkos : public PairLJGromacsCoulGromacs {
   void compute(int, int);
 
   void settings(int, char **);
-  void init_tables(KK_FLOAT cut_coul, KK_FLOAT *cut_respa);
+  void init_tables(double cut_coul, double *cut_respa);
   void init_style();
   double init_one(int, int);
 

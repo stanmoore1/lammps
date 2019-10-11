@@ -206,7 +206,7 @@ class NeighborKokkosExecute
   const int mbinx,mbiny,mbinz;
   const int mbinxlo,mbinylo,mbinzlo;
   const KK_FLOAT bininvx,bininvy,bininvz;
-  KK_FLOAT bboxhi[3],bboxlo[3];
+  double bboxhi[3],bboxlo[3];
 
   const int nlocal;
 
@@ -257,7 +257,7 @@ class NeighborKokkosExecute
                         const typename AT::t_int_1d_const & _ex_mol_group,
                         const typename AT::t_int_1d_const & _ex_mol_bit,
                         const typename AT::t_int_1d_const & _ex_mol_intra,
-                        const KK_FLOAT *_bboxhi, const KK_FLOAT* _bboxlo,
+                        const double *_bboxhi, const double* _bboxlo,
                         const int & _xperiodic, const int & _yperiodic, const int & _zperiodic,
                         const int & _xprd_half, const int & _yprd_half, const int & _zprd_half,
                         const KK_FLOAT _skin,
