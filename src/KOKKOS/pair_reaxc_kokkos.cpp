@@ -4056,7 +4056,7 @@ void PairReaxCKokkos<DeviceType>::ev_setup(int eflag, int vflag, int)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT PairReaxCKokkos<DeviceType>::memory_usage()
+double PairReaxCKokkos<DeviceType>::memory_usage()
 {
   KK_FLOAT bytes = 0.0;
 

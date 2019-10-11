@@ -111,9 +111,9 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
     /* this is needed because Group is not Kokkos-aware ! */
     atomKK->sync(ExecutionSpaceFromDevice<LMPHostType>::space,
         V_MASK | MASK_MASK | TYPE_MASK | RMASS_MASK);
-    Few<KK_FLOAT, 3> tmpvcm;
+    Few<double, 3> tmpvcm;
     group->vcm(igroup,masstotal,&tmpvcm[0]);
-    const Few<KK_FLOAT, 3> vcm(tmpvcm);
+    const Few<double, 3> vcm(tmpvcm);
 
     // adjust velocities by vcm to zero linear momentum
     // only adjust a component if flag is set
@@ -133,8 +133,8 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
   }
 
   if (angular) {
-    Few<KK_FLOAT, 3> tmpxcm, tmpangmom, tmpomega;
-    KK_FLOAT inertia[3][3];
+    Few<double, 3> tmpxcm, tmpangmom, tmpomega;
+    double inertia[3][3];
     /* syncs for each Kokkos-unaware Group method */
     atomKK->sync(ExecutionSpaceFromDevice<LMPHostType>::space,
         X_MASK | MASK_MASK | TYPE_MASK | IMAGE_MASK | RMASS_MASK);
@@ -146,7 +146,7 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
         X_MASK | MASK_MASK | TYPE_MASK | IMAGE_MASK | RMASS_MASK);
     group->inertia(igroup,&tmpxcm[0],inertia);
     group->omega(&tmpangmom[0],inertia,&tmpomega[0]);
-    const Few<KK_FLOAT, 3> xcm(tmpxcm), angmom(tmpangmom), omega(tmpomega);
+    const Few<double, 3> xcm(tmpxcm), angmom(tmpangmom), omega(tmpomega);
 
     // adjust velocities to zero omega
     // vnew_i = v_i - w x r_i
@@ -157,8 +157,8 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
     typename AT::t_imageint_1d_randomread image = atomKK->k_image.view<DeviceType>();
     int nlocal = atom->nlocal;
 
-    auto prd = Few<KK_FLOAT,3>(domain->prd);
-    auto h = Few<KK_FLOAT,6>(domain->h);
+    auto prd = Few<double,3>(domain->prd);
+    auto h = Few<double,6>(domain->h);
     auto triclinic = domain->triclinic;
     Kokkos::parallel_for(nlocal, LAMMPS_LAMBDA(int i) {
       if (mask[i] & groupbit2) {

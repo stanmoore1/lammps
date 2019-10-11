@@ -1424,7 +1424,7 @@ void FixQEqReaxKokkos<DeviceType>::cleanup_copy()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT FixQEqReaxKokkos<DeviceType>::memory_usage()
+double FixQEqReaxKokkos<DeviceType>::memory_usage()
 {
   KK_FLOAT bytes;
 

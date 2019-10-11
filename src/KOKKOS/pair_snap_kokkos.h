@@ -60,7 +60,7 @@ public:
   void init_style();
   double init_one(int, int);
   void compute(int, int);
-  double memory_usage
+  double memory_usage();
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION

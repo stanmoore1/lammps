@@ -99,7 +99,7 @@ void FixReaxCBondsKokkos::Output_ReaxC_Bonds(bigint ntimestep, FILE *fp)
 
 /* ---------------------------------------------------------------------- */
 
-KK_FLOAT FixReaxCBondsKokkos::memory_usage()
+double FixReaxCBondsKokkos::memory_usage()
 {
   KK_FLOAT bytes;
 

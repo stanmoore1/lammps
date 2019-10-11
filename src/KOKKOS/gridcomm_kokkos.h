@@ -48,7 +48,7 @@ class GridCommKokkos : protected Pointers {
   void setup();
   void forward_comm(class KSpace *, int);
   void reverse_comm(class KSpace *, int);
-  double memory_usage
+  double memory_usage();
 
  private:
   int me;

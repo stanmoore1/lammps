@@ -60,6 +60,8 @@ void FixWallLJ93Kokkos<DeviceType>::wall_particle(int m_in, int which, KK_FLOAT 
   side = which % 2;
   if (side == 0) side = -1;
 
+  KK_FLOAT ewall = 0.0;
+
   copymode = 1;
   FixWallLJ93KokkosFunctor<DeviceType> wp_functor(this);
   Kokkos::parallel_reduce(nlocal,wp_functor,ewall);

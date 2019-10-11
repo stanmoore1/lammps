@@ -791,7 +791,7 @@ void FixShardlowKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, KK_FLO
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT FixShardlowKokkos<DeviceType>::memory_usage()
+double FixShardlowKokkos<DeviceType>::memory_usage()
 {
   KK_FLOAT bytes = 0.0;
   bytes += sizeof(KK_FLOAT)*3*ghostmax; // v_t0[]

@@ -36,7 +36,7 @@ class FixNeighHistoryKokkos : public FixNeighHistory {
   void pre_exchange();
   void setup_post_neighbor();
   virtual void post_neighbor();
-  double memory_usage
+  double memory_usage();
   void grow_arrays(int);
   void copy_arrays(int, int, int);
   int pack_exchange(int, KK_FLOAT *);

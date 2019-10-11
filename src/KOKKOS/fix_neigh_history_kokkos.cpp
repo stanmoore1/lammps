@@ -231,7 +231,7 @@ void FixNeighHistoryKokkos<DeviceType>::post_neighbor_item(const int &ii) const
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT FixNeighHistoryKokkos<DeviceType>::memory_usage()
+double FixNeighHistoryKokkos<DeviceType>::memory_usage()
 {
   KK_FLOAT bytes = d_firstflag.extent(0)*d_firstflag.extent(1)*sizeof(int);
   bytes += d_firstvalue.extent(0)*d_firstvalue.extent(1)*sizeof(KK_FLOAT);

@@ -151,7 +151,7 @@ void DomainKokkos::reset_box()
       }
 
     } else {
-      KK_FLOAT lo[3],hi[3];
+      double lo[3],hi[3];
       if (xperiodic == 0) {
         lo[0] = -all[0][0]; lo[1] = 0.0; lo[2] = 0.0;
         Domain::lamda2x(lo,lo);
@@ -227,10 +227,10 @@ struct DomainPBCFunctor {
   KK_FLOAT h_rate[6];
   int xperiodic,yperiodic,zperiodic;
 
-  DomainPBCFunctor(KK_FLOAT* _lo, KK_FLOAT* _hi, KK_FLOAT* _period,
+  DomainPBCFunctor(double* _lo, double* _hi, double* _period,
                    DAT::tdual_x_array _x, DAT::tdual_v_array _v,
                    DAT::tdual_int_1d _mask, DAT::tdual_imageint_1d _image,
-                   int _deform_groupbit, KK_FLOAT* _h_rate,
+                   int _deform_groupbit, double* _h_rate,
                    int _xperiodic, int _yperiodic, int _zperiodic):
     x(_x.view<DeviceType>()), v(_v.view<DeviceType>()),
     mask(_mask.view<DeviceType>()), image(_image.view<DeviceType>()),
@@ -351,7 +351,7 @@ void DomainKokkos::pbc()
     return;
   }
 
-  KK_FLOAT *lo,*hi,*period;
+  double *lo,*hi,*period;
   int nlocal = atomKK->nlocal;
 
   if (triclinic == 0) {

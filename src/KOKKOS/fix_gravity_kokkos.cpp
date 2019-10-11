@@ -76,7 +76,7 @@ void FixGravityKokkos<DeviceType>::post_force(int vflag)
   copymode = 1;
 
   eflag = 0;
-  egrav = 0.0;
+  KK_FLOAT egrav = 0.0;
 
   if (atomKK->rmass) {
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagFixGravityRMass>(0,nlocal), *this, egrav);

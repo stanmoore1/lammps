@@ -1541,7 +1541,7 @@ void FixRxKokkos<DeviceType>::solve_reactions(const int vflag, const bool isPreF
   this->scratchSpaceSize = (8*nspecies + 2*nreactions);
   //KK_FLOAT *scratchSpace = new KK_FLOAT[ scratchSpaceSize * nlocal ];
 
-  //typename ArrayTypes<DeviceType>::t_KK_FLOAT_1d d_scratchSpace("d_scratchSpace", scratchSpaceSize * nlocal);
+  //typename ArrayTypes<DeviceType>::t_float_1d d_scratchSpace("d_scratchSpace", scratchSpaceSize * nlocal);
   if (nlocal*scratchSpaceSize > d_scratchSpace.extent(0)) {
     memoryKK->destroy_kokkos (d_scratchSpace);
     memoryKK->create_kokkos (d_scratchSpace, nlocal*scratchSpaceSize, "FixRxKokkos::d_scratchSpace");

@@ -76,7 +76,7 @@ FixLangevinKokkos<DeviceType>::FixLangevinKokkos(LAMMPS *lmp, int narg, char **a
     k_lv.template modify<LMPHostType>();
   }
   if(zeroflag){
-    k_fsumall = tdual_KK_FLOAT_1d_3n("langevin:fsumall");
+    k_fsumall = tdual_float_1d_3n("langevin:fsumall");
     h_fsumall = k_fsumall.template view<LMPHostType>();
     d_fsumall = k_fsumall.template view<DeviceType>();
   }
@@ -732,7 +732,7 @@ void FixLangevinKokkos<DeviceType>::reset_dt()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT FixLangevinKokkos<DeviceType>::compute_scalar()
+double FixLangevinKokkos<DeviceType>::compute_scalar()
 {
   if (!tallyflag || flangevin == NULL) return 0.0;
 
@@ -742,7 +742,7 @@ KK_FLOAT FixLangevinKokkos<DeviceType>::compute_scalar()
   // capture the very first energy transfer to thermal reservoir
 
   if (update->ntimestep == update->beginstep) {
-    energy_onestep = 0.0;
+    KK_FLOAT energy_onestep = 0.0;
     atomKK->sync(execution_space,V_MASK | MASK_MASK);
     int nlocal = atomKK->nlocal;
     k_flangevin.template sync<DeviceType>();
@@ -787,7 +787,7 @@ void FixLangevinKokkos<DeviceType>::end_of_step()
   atomKK->sync(execution_space,V_MASK | MASK_MASK);
   int nlocal = atomKK->nlocal;
 
-  energy_onestep = 0.0;
+  KK_FLOAT energy_onestep = 0.0;
 
   k_flangevin.template sync<DeviceType>();
   FixLangevinKokkosTallyEnergyFunctor<DeviceType> tally_functor(this);

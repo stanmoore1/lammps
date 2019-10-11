@@ -253,7 +253,7 @@ class FixRxKokkos : public FixRX {
   typename ArrayTypes<DeviceType>::t_float_2d  d_dvector;
   typename ArrayTypes<DeviceType>::t_int_1d    d_mask   ;
 
-  typename ArrayTypes<DeviceType>::t_KK_FLOAT_1d d_scratchSpace;
+  typename ArrayTypes<DeviceType>::t_float_1d d_scratchSpace;
   size_t scratchSpaceSize;
 
   // Error flag for any failures.

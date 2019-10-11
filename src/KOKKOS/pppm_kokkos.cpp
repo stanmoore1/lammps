@@ -3088,7 +3088,7 @@ int PPPMKokkos<DeviceType>::timing_3d(int n, KK_FLOAT &time3d)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT PPPMKokkos<DeviceType>::memory_usage()
+double PPPMKokkos<DeviceType>::memory_usage()
 {
   KK_FLOAT bytes = nmax*3 * sizeof(KK_FLOAT);
   int nbrick = (nxhi_out-nxlo_out+1) * (nyhi_out-nylo_out+1) *

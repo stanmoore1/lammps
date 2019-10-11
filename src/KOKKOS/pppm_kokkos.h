@@ -101,7 +101,7 @@ class PPPMKokkos : public PPPM, public KokkosBase {
   virtual void compute(int, int);
   virtual int timing_1d(int, KK_FLOAT &);
   virtual int timing_3d(int, KK_FLOAT &);
-  virtual double memory_usage
+  virtual double memory_usage();
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_setup1, const int&) const;
