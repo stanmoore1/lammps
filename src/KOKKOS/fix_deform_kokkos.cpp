@@ -198,7 +198,7 @@ void FixDeformKokkos::end_of_step()
   // for other styles, target is linear value between start and stop values
 
   if (triclinic) {
-    KK_FLOAT *h = domain->h;
+    double *h = domain->h;
 
     for (i = 3; i < 6; i++) {
       if (set[i].style == NONE) {

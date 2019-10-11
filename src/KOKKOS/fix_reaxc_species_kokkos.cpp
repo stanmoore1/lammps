@@ -72,7 +72,7 @@ void FixReaxCSpeciesKokkos::FindMolecule()
   int change,done,anychange;
   int *mask = atom->mask;
   KK_FLOAT bo_tmp,bo_cut;
-  KK_FLOAT **spec_atom = f_SPECBOND->array_atom;
+  double **spec_atom = f_SPECBOND->array_atom;
 
   inum = reaxc->list->inum;
   typename ArrayTypes<LMPHostType>::t_int_1d ilist;

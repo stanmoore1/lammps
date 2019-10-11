@@ -127,13 +127,13 @@ void PairHybridKokkos::compute(int eflag, int vflag)
     if (eflag_atom) {
       n = atom->nlocal;
       if (force->newton_pair) n += atom->nghost;
-      KK_FLOAT *eatom_substyle = styles[m]->eatom;
+      double *eatom_substyle = styles[m]->eatom;
       for (i = 0; i < n; i++) eatom[i] += eatom_substyle[i];
     }
     if (vflag_atom) {
       n = atom->nlocal;
       if (force->newton_pair) n += atom->nghost;
-      KK_FLOAT **vatom_substyle = styles[m]->vatom;
+      double **vatom_substyle = styles[m]->vatom;
       for (i = 0; i < n; i++)
         for (j = 0; j < 6; j++)
           vatom[i][j] += vatom_substyle[i][j];

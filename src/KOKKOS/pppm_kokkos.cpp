@@ -216,7 +216,7 @@ void PPPMKokkos<DeviceType>::init()
   pair_check();
 
   int itmp = 0;
-  KK_FLOAT *p_cutoff = (KK_FLOAT *) force->pair->extract("cut_coul",itmp);
+  double *p_cutoff = (KK_FLOAT *) force->pair->extract("cut_coul",itmp);
   if (p_cutoff == NULL)
     error->all(FLERR,"KSpace style is incompatible with Pair style");
   cutoff = *p_cutoff;
@@ -1377,7 +1377,7 @@ void PPPMKokkos<DeviceType>::compute_gf_denom()
 template<class DeviceType>
 void PPPMKokkos<DeviceType>::compute_gf_ik()
 {
-  const KK_FLOAT * const prd = domain->prd;
+  const double * const prd = domain->prd;
 
   xprd = prd[0];
   yprd = prd[1];

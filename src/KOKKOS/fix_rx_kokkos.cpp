@@ -919,8 +919,8 @@ int FixRxKokkos<DeviceType>::rhs_dense(KK_FLOAT t, const KK_FLOAT *y, KK_FLOAT *
 {
   UserRHSData *userData = (UserRHSData *) params;
 
-  KK_FLOAT *rxnRateLaw = userData->rxnRateLaw;
-  KK_FLOAT *kFor       = userData->kFor;
+  double *rxnRateLaw = userData->rxnRateLaw;
+  double *kFor       = userData->kFor;
 
   //const KK_FLOAT VDPD = domain->xprd * domain->yprd * domain->zprd / atom->natoms;
   //const int nspecies = atom->nspecies_dpd;
