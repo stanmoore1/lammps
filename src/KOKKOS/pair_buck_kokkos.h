@@ -41,7 +41,7 @@ class PairBuckKokkos : public PairBuck {
   void compute(int, int);
 
   void init_style();
-  KK_FLOAT init_one(int, int);
+  double init_one(int, int);
 
   struct params_buck{
     KOKKOS_INLINE_FUNCTION

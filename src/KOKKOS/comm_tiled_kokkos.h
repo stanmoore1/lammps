@@ -43,8 +43,8 @@ class CommTiledKokkos : public CommTiled {
   void forward_comm_dump(class Dump *);    // forward comm from a Dump
   void reverse_comm_dump(class Dump *);    // reverse comm from a Dump
 
-  void forward_comm_array(int, KK_FLOAT **);          // forward comm of array
-  int exchange_variable(int, KK_FLOAT *, KK_FLOAT *&);  // exchange on neigh stencil
+  void forward_comm_array(int, double **);          // forward comm of array
+  int exchange_variable(int, double *, double *&);  // exchange on neigh stencil
 
  private:
 

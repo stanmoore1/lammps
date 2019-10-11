@@ -254,7 +254,7 @@ void PairLJCutKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT PairLJCutKokkos<DeviceType>::init_one(int i, int j)
+double PairLJCutKokkos<DeviceType>::init_one(int i, int j)
 {
   KK_FLOAT cutone = PairLJCut::init_one(i,j);
 

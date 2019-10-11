@@ -661,7 +661,7 @@ void PairDPDfdtEnergyKokkos<DeviceType>::allocate()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT PairDPDfdtEnergyKokkos<DeviceType>::init_one(int i, int j)
+double PairDPDfdtEnergyKokkos<DeviceType>::init_one(int i, int j)
 {
   KK_FLOAT cutone = PairDPDfdtEnergy::init_one(i,j);
 

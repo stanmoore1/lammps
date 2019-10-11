@@ -289,7 +289,7 @@ void PairCoulDebyeKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT PairCoulDebyeKokkos<DeviceType>::init_one(int i, int j)
+double PairCoulDebyeKokkos<DeviceType>::init_one(int i, int j)
 {
   KK_FLOAT cutone = PairCoulDebye::init_one(i,j);
 

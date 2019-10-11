@@ -41,7 +41,7 @@ ComputeTempKokkos<DeviceType>::ComputeTempKokkos(LAMMPS *lmp, int narg, char **a
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT ComputeTempKokkos<DeviceType>::compute_scalar()
+double ComputeTempKokkos<DeviceType>::compute_scalar()
 {
   atomKK->sync(execution_space,datamask_read);
   atomKK->k_mass.sync<DeviceType>();

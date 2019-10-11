@@ -43,7 +43,7 @@ class PairTableRXKokkos : public PairTable {
 
   void settings(int, char **);
   void coeff(int, char **);
-  KK_FLOAT init_one(int, int);
+  double init_one(int, int);
   virtual KK_FLOAT single(int, int, int, int, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT &);
 
   void init_style();

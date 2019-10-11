@@ -55,7 +55,7 @@ class PairTableKokkos : public PairTable {
   void compute_style(int, int);
 
   void settings(int, char **);
-  KK_FLOAT init_one(int, int);
+  double init_one(int, int);
 
   void init_style();
 

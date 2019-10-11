@@ -482,7 +482,7 @@ void PairTableKokkos<DeviceType>::settings(int narg, char **arg)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT PairTableKokkos<DeviceType>::init_one(int i, int j)
+double PairTableKokkos<DeviceType>::init_one(int i, int j)
 {
   if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
 

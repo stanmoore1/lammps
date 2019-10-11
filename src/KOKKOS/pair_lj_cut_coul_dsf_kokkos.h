@@ -41,7 +41,7 @@ class PairLJCutCoulDSFKokkos : public PairLJCutCoulDSF {
   void compute(int, int);
 
   void init_style();
-  KK_FLOAT init_one(int, int);
+  double init_one(int, int);
 
  protected:
   void cleanup_copy();

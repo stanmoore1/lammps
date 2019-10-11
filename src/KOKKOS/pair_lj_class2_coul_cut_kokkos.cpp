@@ -322,7 +322,7 @@ void PairLJClass2CoulCutKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT PairLJClass2CoulCutKokkos<DeviceType>::init_one(int i, int j)
+double PairLJClass2CoulCutKokkos<DeviceType>::init_one(int i, int j)
 {
   KK_FLOAT cutone = PairLJClass2CoulCut::init_one(i,j);
   KK_FLOAT cut_ljsqm = cut_ljsq[i][j];

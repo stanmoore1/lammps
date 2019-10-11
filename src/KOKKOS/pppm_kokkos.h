@@ -339,8 +339,8 @@ class PPPMKokkos : public PPPM, public KokkosBase {
   //int **part2grid;             // storage for particle -> grid mapping
   typename AT::t_int_1d_3 d_part2grid;
 
-  //KK_FLOAT *boxlo;
-  KK_FLOAT boxlo[3];
+  //double *boxlo;
+  double boxlo[3];
 
   void set_grid_global();
   void set_grid_local();

@@ -260,7 +260,7 @@ void PairLJClass2Kokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT PairLJClass2Kokkos<DeviceType>::init_one(int i, int j)
+double PairLJClass2Kokkos<DeviceType>::init_one(int i, int j)
 {
   KK_FLOAT cutone = PairLJClass2::init_one(i,j);
 
