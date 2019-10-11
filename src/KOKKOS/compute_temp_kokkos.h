@@ -71,7 +71,7 @@ class ComputeTempKokkos : public ComputeTemp {
 
   ComputeTempKokkos(class LAMMPS *, int, char **);
   virtual ~ComputeTempKokkos() {}
-  KK_FLOAT compute_scalar();
+  double compute_scalar();
   void compute_vector();
 
   template<int RMASS>

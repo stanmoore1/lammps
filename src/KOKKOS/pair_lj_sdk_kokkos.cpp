@@ -292,7 +292,7 @@ void PairLJSDKKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT PairLJSDKKokkos<DeviceType>::init_one(int i, int j)
+double PairLJSDKKokkos<DeviceType>::init_one(int i, int j)
 {
   KK_FLOAT cutone = PairLJSDK::init_one(i,j);
 

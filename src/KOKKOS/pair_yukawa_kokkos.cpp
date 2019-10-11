@@ -141,7 +141,7 @@ void PairYukawaKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 // Rewrite this.
 template<class DeviceType>
-KK_FLOAT PairYukawaKokkos<DeviceType>::init_one(int i, int j)
+double PairYukawaKokkos<DeviceType>::init_one(int i, int j)
 {
   KK_FLOAT cutone = PairYukawa::init_one(i,j);
 

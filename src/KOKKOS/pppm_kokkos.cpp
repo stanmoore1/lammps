@@ -367,7 +367,7 @@ void PPPMKokkos<DeviceType>::setup()
       error->all(FLERR,"Incorrect boundaries with slab PPPM");
   }
 
-  KK_FLOAT *prd;
+  double *prd;
 
   // volume-dependent factors
   // adjust z dimension for 2d slab PPPM

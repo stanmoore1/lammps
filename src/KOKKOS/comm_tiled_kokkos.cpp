@@ -247,7 +247,7 @@ void CommTiledKokkos::reverse_comm_dump(Dump *dump)
    forward communication of Nsize values in per-atom array
 ------------------------------------------------------------------------- */
 
-void CommTiledKokkos::forward_comm_array(int nsize, KK_FLOAT **array)
+void CommTiledKokkos::forward_comm_array(int nsize, double **array)
 {
   CommTiled::forward_comm_array(nsize,array);
 }
@@ -257,7 +257,7 @@ void CommTiledKokkos::forward_comm_array(int nsize, KK_FLOAT **array)
    NOTE: this method is currently not used
 ------------------------------------------------------------------------- */
 
-int CommTiledKokkos::exchange_variable(int n, KK_FLOAT *inbuf, KK_FLOAT *&outbuf)
+int CommTiledKokkos::exchange_variable(int n, double *inbuf, double *&outbuf)
 {
   return CommTiled::exchange_variable(n,inbuf,outbuf);
 }

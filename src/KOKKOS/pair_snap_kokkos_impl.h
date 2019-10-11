@@ -378,9 +378,9 @@ void PairSNAPKokkos<DeviceType>::allocate()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT PairSNAPKokkos<DeviceType>::init_one(int i, int j)
+double PairSNAPKokkos<DeviceType>::init_one(int i, int j)
 {
-  KK_FLOAT cutone = PairSNAP::init_one(i,j);
+  double cutone = PairSNAP::init_one(i,j);
   k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutone*cutone;
   k_cutsq.template modify<LMPHostType>();
 

@@ -262,7 +262,7 @@ void PairLJExpandKokkos<DeviceType>::init_style()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KK_FLOAT PairLJExpandKokkos<DeviceType>::init_one(int i, int j)
+double PairLJExpandKokkos<DeviceType>::init_one(int i, int j)
 {
   KK_FLOAT cutone = PairLJExpand::init_one(i,j);
 
