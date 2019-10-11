@@ -53,7 +53,7 @@ class FixShardlowKokkos : public FixShardlow {
   void setup_pre_neighbor();
   void pre_neighbor();
 
-  KK_FLOAT memory_usage();
+  double memory_usage
 
   int pack_reverse_comm(int, int, KK_FLOAT *);
   void unpack_reverse_comm(int, int *, KK_FLOAT *);

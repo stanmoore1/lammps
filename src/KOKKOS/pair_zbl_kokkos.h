@@ -40,7 +40,7 @@ class PairZBLKokkos : public PairZBL {
   virtual ~PairZBLKokkos();
   void compute(int, int);
   void init_style();
-  KK_FLOAT init_one(int, int);
+  double init_one(int, int);
 
  private:
   DAT::tdual_ffloat_1d k_z;

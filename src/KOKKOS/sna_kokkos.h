@@ -109,7 +109,7 @@ inline
 inline
   void init();            //
 
-  KK_FLOAT memory_usage();
+  double memory_usage
 
   int ncoeff;
 

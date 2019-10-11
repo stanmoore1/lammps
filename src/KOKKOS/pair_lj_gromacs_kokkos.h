@@ -42,7 +42,7 @@ class PairLJGromacsKokkos : public PairLJGromacs {
 
   void settings(int, char **);
   void init_style();
-  KK_FLOAT init_one(int, int);
+  double init_one(int, int);
 
   struct params_lj{
     KOKKOS_INLINE_FUNCTION

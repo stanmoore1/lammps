@@ -128,7 +128,7 @@ class PairReaxCKokkos : public PairReaxC {
   void compute(int, int);
   void *extract(const char *, int &);
   void init_style();
-  KK_FLOAT memory_usage();
+  double memory_usage
   void FindBond(int &);
   void PackBondBuffer(DAT::tdual_ffloat_1d, int &);
   void FindBondSpecies();

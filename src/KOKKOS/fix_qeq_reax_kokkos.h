@@ -148,7 +148,7 @@ class FixQEqReaxKokkos : public FixQEqReax {
   virtual void unpack_forward_comm(int, int, KK_FLOAT *);
   int pack_reverse_comm(int, int, KK_FLOAT *);
   void unpack_reverse_comm(int, int *, KK_FLOAT *);
-  KK_FLOAT memory_usage();
+  double memory_usage
 
  private:
   int inum;

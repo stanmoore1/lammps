@@ -58,9 +58,9 @@ public:
 
   void coeff(int, char**);
   void init_style();
-  KK_FLOAT init_one(int, int);
+  double init_one(int, int);
   void compute(int, int);
-  KK_FLOAT memory_usage();
+  double memory_usage
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
