@@ -38,6 +38,8 @@
 #include "error.h"
 #include "reaxc_defs.h"
 #include "reaxc_types.h"
+#include "fix_efield.h"
+#include "utils.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -98,6 +100,7 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
 
   Hdia_inv = NULL;
   b_s = NULL;
+  chi_field = NULL;
   b_t = NULL;
   b_prc = NULL;
   b_prm = NULL;
@@ -244,6 +247,7 @@ void FixQEqReax::allocate_storage()
 
   memory->create(Hdia_inv,nmax,"qeq:Hdia_inv");
   memory->create(b_s,nmax,"qeq:b_s");
+  memory->create(chi_field,nmax,"qeq:chi_field");
   memory->create(b_t,nmax,"qeq:b_t");
   memory->create(b_prc,nmax,"qeq:b_prc");
   memory->create(b_prm,nmax,"qeq:b_prm");
@@ -267,6 +271,7 @@ void FixQEqReax::deallocate_storage()
 
   memory->destroy( Hdia_inv );
   memory->destroy( b_s );
+  memory->destroy( chi_field );
   memory->destroy( b_t );
   memory->destroy( b_prc );
   memory->destroy( b_prm );
@@ -361,6 +366,11 @@ void FixQEqReax::init()
 
   ngroup = group->count(igroup);
   if (ngroup == 0) error->all(FLERR,"Fix qeq/reax group has no atoms");
+
+  field_flag = 0;
+  for (int n = 0; n < modify->nfix; n++)
+    if (utils::strmatch(modify->fix[n]->style,"^efield"))
+      field_flag = 1;
 
   // need a half neighbor list w/ Newton off and ghost neighbors
   // built whenever re-neighboring occurs
@@ -465,6 +475,9 @@ void FixQEqReax::min_setup_pre_force(int vflag)
 
 void FixQEqReax::init_storage()
 {
+  if (field_flag)
+    field_affinity();
+
   int NN;
 
   if (reaxc)
@@ -474,7 +487,7 @@ void FixQEqReax::init_storage()
 
   for (int i = 0; i < NN; i++) {
     Hdia_inv[i] = 1. / eta[atom->type[i]];
-    b_s[i] = -chi[atom->type[i]];
+    b_s[i] = -chi[atom->type[i]] - chi_field[i];
     b_t[i] = -1.0;
     b_prc[i] = 0;
     b_prm[i] = 0;
@@ -500,6 +513,9 @@ void FixQEqReax::pre_force(int /*vflag*/)
   if (atom->nmax > nmax) reallocate_storage();
   if (n > n_cap*DANGER_ZONE || m_fill > m_cap*DANGER_ZONE)
     reallocate_matrix();
+
+  if (field_flag)
+    field_affinity();
 
   init_matvec();
 
@@ -553,7 +569,7 @@ void FixQEqReax::init_matvec()
 
       /* init pre-conditioner for H and init solution vectors */
       Hdia_inv[i] = 1. / eta[ atom->type[i] ];
-      b_s[i]      = -chi[ atom->type[i] ];
+      b_s[i]      = -chi[ atom->type[i] ] - chi_field[i];
       b_t[i]      = -1.0;
 
       /* quadratic extrapolation for s & t from previous solutions */
@@ -1098,3 +1114,33 @@ void FixQEqReax::vector_add( double* dest, double c, double* v, int k)
       dest[kk] += c * v[kk];
   }
 }
+
+/* ---------------------------------------------------------------------- */
+
+void FixQEqReax::field_affinity()
+{
+  double **x = atom->x;
+  imageint *image = atom->image;
+  int nall = atom->nlocal + atom->nghost;
+  
+  double unwrap[3];
+
+  // loop over all fixes, find fix efield
+
+  for (int n = 0; n < modify->nfix; n++) {
+    if (utils::strmatch(modify->fix[n]->style,"^efield")) {
+
+    FixEfield* fix_efield = (FixEfield*) modify->fix[n];
+    double** efield = fix_efield->get_field();
+      
+      // charge interactions
+      // force = qE, potential energy = F dot x in unwrapped coords
+      
+      for (int i = 0; i < nall; i++) {
+        domain->unmap(x[i],image[i],unwrap);
+        chi_field[i] = -(efield[i][0]*unwrap[0] + efield[i][1]*unwrap[1] + efield[i][2]*unwrap[2]);
+      }
+    }
+  }
+}
+

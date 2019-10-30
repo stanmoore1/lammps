@@ -41,7 +41,7 @@ enum{NONE,CONSTANT,EQUAL,ATOM};
 
 FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg), xstr(NULL), ystr(NULL), zstr(NULL),
-  estr(NULL), idregion(NULL), efield(NULL)
+  estr(NULL), idregion(NULL), efield(NULL), efield_var(NULL)
 {
   if (narg < 6) error->all(FLERR,"Illegal fix efield command");
 
@@ -131,6 +131,7 @@ FixEfield::~FixEfield()
   delete [] estr;
   delete [] idregion;
   memory->destroy(efield);
+  memory->destroy(efield_var);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -458,4 +459,73 @@ double FixEfield::compute_vector(int n)
     force_flag = 1;
   }
   return fsum_all[n+1];
+}
+
+/* ----------------------------------------------------------------------
+   get E
+------------------------------------------------------------------------- */
+
+double** FixEfield::get_field()
+{
+  int *mask = atom->mask;
+  int nall = atom->nlocal + atom->nghost;
+
+  // reallocate efield array if necessary
+
+  if (atom->nmax > maxatom) {
+    maxatom = atom->nmax;
+    memory->destroy(efield);
+    memory->create(efield,maxatom,4,"efield:efield");
+  }
+  memset(&efield[0][0],0.0,maxatom*4*sizeof(double));
+
+  if (atom->nmax > maxatom_var) {
+    maxatom_var = atom->nmax;
+    memory->destroy(efield_var);
+    memory->create(efield_var,maxatom_var,4,"efield:efield");
+  }
+
+  // update region if necessary
+
+  Region *region = NULL;
+  if (iregion >= 0) {
+    region = domain->regions[iregion];
+    region->prematch();
+  }
+
+  double **x = atom->x;
+
+  if (!(varflag == CONSTANT)) {
+
+    modify->clearstep_compute();
+
+    if (xstyle == EQUAL) ex = qe2f * input->variable->compute_equal(xvar);
+    else if (xstyle == ATOM)
+      input->variable->compute_atom(xvar,igroup,&efield_var[0][0],4,0);
+
+    if (ystyle == EQUAL) ey = qe2f * input->variable->compute_equal(yvar);
+    else if (ystyle == ATOM)
+      input->variable->compute_atom(yvar,igroup,&efield_var[0][1],4,0);
+
+    if (zstyle == EQUAL) ez = qe2f * input->variable->compute_equal(zvar);
+    else if (zstyle == ATOM)
+      input->variable->compute_atom(zvar,igroup,&efield_var[0][2],4,0);
+
+    modify->addstep_compute(update->ntimestep + 1);
+  }
+
+  for (int i = 0; i < nall; i++)
+    if (mask[i] & groupbit) {
+      if (region && !region->match(x[i][0],x[i][1],x[i][2])) continue;
+
+      if (xstyle == ATOM) ex = qe2f * efield_var[i][0];
+      if (ystyle == ATOM) ey = qe2f * efield_var[i][1];
+      if (zstyle == ATOM) ez = qe2f * efield_var[i][2];
+
+      efield[i][0] = ex;
+      efield[i][1] = ey;
+      efield[i][2] = ez;
+    }
+
+  return efield;
 }

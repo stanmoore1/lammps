@@ -91,6 +91,7 @@ class FixQEqReax : public Fix {
   double *Hdia_inv;
   double *b_s, *b_t;
   double *b_prc, *b_prm;
+  double *chi_field;
 
   //CG storage
   double *p, *q, *r, *d;
@@ -139,9 +140,13 @@ class FixQEqReax : public Fix {
   virtual void vector_sum(double*,double,double*,double,double*,int);
   virtual void vector_add(double*, double, double*,int);
 
+  void field_affinity();
+
   // dual CG support
   int dual_enabled;  // 0: Original, separate s & t optimization; 1: dual optimization
   int matvecs_s, matvecs_t; // Iteration count for each system
+
+  int field_flag;
 };
 
 }
