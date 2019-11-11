@@ -476,7 +476,7 @@ void FixQEqReax::min_setup_pre_force(int vflag)
 void FixQEqReax::init_storage()
 {
   if (field_flag)
-    field_affinity();
+    get_chi_field();
 
   int NN;
 
@@ -515,7 +515,7 @@ void FixQEqReax::pre_force(int /*vflag*/)
     reallocate_matrix();
 
   if (field_flag)
-    field_affinity();
+    get_chi_field();
 
   init_matvec();
 
@@ -1117,29 +1117,26 @@ void FixQEqReax::vector_add( double* dest, double c, double* v, int k)
 
 /* ---------------------------------------------------------------------- */
 
-void FixQEqReax::field_affinity()
+void FixQEqReax::get_chi_field()
 {
-  double **x = atom->x;
-  imageint *image = atom->image;
   int nall = atom->nlocal + atom->nghost;
-  
-  double unwrap[3];
+
+  if (!(strcmp(update->unit_style,"real") == 0))
+    error->all(FLERR,"Must use unit_style real with fix qeq/reax and external fields");
+
+  double Na = 6.0221409e+23;
+  double factor = force->qe2f/Na;
 
   // loop over all fixes, find fix efield
 
   for (int n = 0; n < modify->nfix; n++) {
     if (utils::strmatch(modify->fix[n]->style,"^efield")) {
 
-    FixEfield* fix_efield = (FixEfield*) modify->fix[n];
-    double** efield = fix_efield->get_field();
-      
-      // charge interactions
-      // force = qE, potential energy = F dot x in unwrapped coords
-      
-      for (int i = 0; i < nall; i++) {
-        domain->unmap(x[i],image[i],unwrap);
-        chi_field[i] = -(efield[i][0]*unwrap[0] + efield[i][1]*unwrap[1] + efield[i][2]*unwrap[2]);
-      }
+      FixEfield* fix_efield = (FixEfield*) modify->fix[n];
+      double* field_energy = fix_efield->get_energy(); // Real units of kcal/mol/angstrom, need to convert to eV
+
+      for (int i = 0; i < nall; i++)
+        chi_field[i] += field_energy[i]*factor;
     }
   }
 }
