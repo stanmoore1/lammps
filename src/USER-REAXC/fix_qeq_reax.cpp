@@ -1124,8 +1124,7 @@ void FixQEqReax::get_chi_field()
   if (!(strcmp(update->unit_style,"real") == 0))
     error->all(FLERR,"Must use unit_style real with fix qeq/reax and external fields");
 
-  double Na = 6.0221409e+23;
-  double factor = force->qe2f/Na;
+  double factor = 1.0/force->qe2f;
 
   // loop over all fixes, find fix efield
 
