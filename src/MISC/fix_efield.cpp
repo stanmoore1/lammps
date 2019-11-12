@@ -503,9 +503,9 @@ double* FixEfield::get_energy()
       for (int i = 0; i < nall; i++) {
         if (mask[i] & groupbit) {
           if (region && !region->match(x[i][0],x[i][1],x[i][2])) continue;
-          const double fx = q[i]*ex;
-          const double fy = q[i]*ey;
-          const double fz = q[i]*ez;
+          const double fx = ex;
+          const double fy = ey;
+          const double fz = ez;
 
           domain->unmap(x[i],image[i],unwrap);
           energy[i] -= fx*unwrap[0] + fy*unwrap[1] + fz*unwrap[2];

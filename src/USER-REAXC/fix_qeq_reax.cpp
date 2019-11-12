@@ -1121,10 +1121,13 @@ void FixQEqReax::get_chi_field()
 {
   int nall = atom->nlocal + atom->nghost;
 
+  memset(&chi_field[0],0.0,atom->nmax*sizeof(double));
+
   if (!(strcmp(update->unit_style,"real") == 0))
     error->all(FLERR,"Must use unit_style real with fix qeq/reax and external fields");
 
   double factor = 1.0/force->qe2f;
+  
 
   // loop over all fixes, find fix efield
 
