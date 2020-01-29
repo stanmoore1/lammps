@@ -48,197 +48,9 @@ using namespace MathConst;
 
 template<class DeviceType>
 FixShakeKokkos<DeviceType>::FixShakeKokkos(LAMMPS *lmp, int narg, char **arg) :
-  FixShake(lmp, narg, arg), bond_flag(NULL), angle_flag(NULL),
-  type_flag(NULL), mass_list(NULL), d_bond_distance(NULL), d_angle_distance(NULL),
-  loop_respa(NULL), step_respa(NULL), x(NULL), v(NULL), f(NULL), ftmp(NULL),
-  vtmp(NULL), mass(NULL), rmass(NULL), type(NULL), d_shake_flag(NULL),
-  d_shake_atom(NULL), d_shake_type(NULL), xshake(NULL), nshake(NULL),
-  list(NULL), b_count(NULL), b_count_all(NULL), b_ave(NULL), b_max(NULL),
-  b_min(NULL), b_ave_all(NULL), b_max_all(NULL), b_min_all(NULL),
-  a_count(NULL), a_count_all(NULL), a_ave(NULL), a_max(NULL), a_min(NULL),
-  a_ave_all(NULL), a_max_all(NULL), a_min_all(NULL), atommols(NULL),
-  onemols(NULL)
+  FixShake(lmp, narg, arg)
 {
-  MPI_Comm_rank(world,&me);
-  MPI_Comm_size(world,&nprocs);
 
-  virial_flag = 1;
-  thermo_virial = 1;
-  create_attribute = 1;
-  dof_flag = 1;
-
-  // error check
-
-  molecular = atom->molecular;
-  if (molecular == 0)
-    error->all(FLERR,"Cannot use fix shake with non-molecular system");
-
-  // perform initial allocation of atom-based arrays
-  // register with Atom class
-
-  d_shake_flag = NULL;
-  d_shake_atom = NULL;
-  d_shake_type = NULL;
-  xshake = NULL;
-
-  ftmp = NULL;
-  vtmp = NULL;
-
-  grow_arrays(atom->nmax);
-  atom->add_callback(0);
-
-  // set comm size needed by this fix
-
-  comm_forward = 3;
-
-  // parse SHAKE args
-
-  if (narg < 8) error->all(FLERR,"Illegal fix shake command");
-
-  tolerance = force->numeric(FLERR,arg[3]);
-  max_iter = force->inumeric(FLERR,arg[4]);
-  output_every = force->inumeric(FLERR,arg[5]);
-
-  // parse SHAKE args for bond and angle types
-  // will be used by find_clusters
-  // store args for "b" "a" "t" as flags in (1:n) list for fast access
-  // store args for "m" in list of length nmass for looping over
-  // for "m" verify that atom masses have been set
-
-  bond_flag = new int[atom->nbondtypes+1];
-  for (int i = 1; i <= atom->nbondtypes; i++) bond_flag[i] = 0;
-  angle_flag = new int[atom->nangletypes+1];
-  for (int i = 1; i <= atom->nangletypes; i++) angle_flag[i] = 0;
-  type_flag = new int[atom->ntypes+1];
-  for (int i = 1; i <= atom->ntypes; i++) type_flag[i] = 0;
-  mass_list = new double[atom->ntypes];
-  nmass = 0;
-
-  char mode = '\0';
-  int next = 6;
-  while (next < narg) {
-    if (strcmp(arg[next],"b") == 0) mode = 'b';
-    else if (strcmp(arg[next],"a") == 0) mode = 'a';
-    else if (strcmp(arg[next],"t") == 0) mode = 't';
-    else if (strcmp(arg[next],"m") == 0) {
-      mode = 'm';
-      atom->check_mass(FLERR);
-
-    // break if keyword that is not b,a,t,m
-
-    } else if (isalpha(arg[next][0])) break;
-
-    // read numeric args of b,a,t,m
-
-    else if (mode == 'b') {
-      int i = force->inumeric(FLERR,arg[next]);
-      if (i < 1 || i > atom->nbondtypes)
-        error->all(FLERR,"Invalid bond type index for fix shake");
-      bond_flag[i] = 1;
-
-    } else if (mode == 'a') {
-      int i = force->inumeric(FLERR,arg[next]);
-      if (i < 1 || i > atom->nangletypes)
-        error->all(FLERR,"Invalid angle type index for fix shake");
-      angle_flag[i] = 1;
-
-    } else if (mode == 't') {
-      int i = force->inumeric(FLERR,arg[next]);
-      if (i < 1 || i > atom->ntypes)
-        error->all(FLERR,"Invalid atom type index for fix shake");
-      type_flag[i] = 1;
-
-    } else if (mode == 'm') {
-      double massone = force->numeric(FLERR,arg[next]);
-      if (massone == 0.0) error->all(FLERR,"Invalid atom mass for fix shake");
-      if (nmass == atom->ntypes)
-        error->all(FLERR,"Too many masses for fix shake");
-      mass_d_list[nmass++] = massone;
-
-    } else error->all(FLERR,"Illegal fix shake command");
-    next++;
-  }
-
-  // parse optional args
-
-  onemols = NULL;
-
-  int iarg = next;
-  while (iarg < narg) {
-    if (strcmp(arg[next],"mol") == 0) {
-      if (iarg+2 > narg) error->all(FLERR,"Illegal fix shake command");
-      int imol = atom->find_molecule(arg[iarg+1]);
-      if (imol == -1)
-        error->all(FLERR,"Molecule template ID for fix shake does not exist");
-      if (atom->molecules[imol]->nset > 1 && comm->me == 0)
-        error->warning(FLERR,"Molecule template for "
-                       "fix shake has multiple molecules");
-      onemols = &atom->molecules[imol];
-      nmol = onemols[0]->nset;
-      iarg += 2;
-    } else error->all(FLERR,"Illegal fix shake command");
-  }
-
-  // error check for Molecule template
-
-  if (onemols) {
-    for (int i = 0; i < nmol; i++)
-      if (onemols[i]->shakeflag == 0)
-        error->all(FLERR,"Fix shake molecule template must have shake info");
-  }
-
-  // allocate bond and angle distance arrays, indexed from 1 to n
-
-  d_bond_distance = new double[atom->nbondtypes+1];
-  d_angle_distance = new double[atom->nangletypes+1];
-
-  // allocate statistics arrays
-
-  if (output_every) {
-    int nb = atom->nbondtypes + 1;
-    b_count = new int[nb];
-    b_count_all = new int[nb];
-    b_ave = new double[nb];
-    b_ave_all = new double[nb];
-    b_max = new double[nb];
-    b_max_all = new double[nb];
-    b_min = new double[nb];
-    b_min_all = new double[nb];
-
-    int na = atom->nangletypes + 1;
-    a_count = new int[na];
-    a_count_all = new int[na];
-    a_ave = new double[na];
-    a_ave_all = new double[na];
-    a_max = new double[na];
-    a_max_all = new double[na];
-    a_min = new double[na];
-    a_min_all = new double[na];
-  }
-
-  // SHAKE vs RATTLE
-
-  rattle = 0;
-
-  // identify all SHAKE clusters
-
-  double time1 = MPI_Wtime();
-
-  find_clusters();
-
-  double time2 = MPI_Wtime();
-
-  if (comm->me == 0) {
-    if (screen)
-      fprintf(screen,"  find clusters CPU = %g secs\n",time2-time1);
-    if (logfile)
-      fprintf(logfile,"  find clusters CPU = %g secs\n",time2-time1);
-  }
-
-  // initialize list of SHAKE clusters to constrain
-
-  maxlist = 0;
-  list = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -246,72 +58,7 @@ FixShakeKokkos<DeviceType>::FixShakeKokkos(LAMMPS *lmp, int narg, char **arg) :
 template<class DeviceType>
 FixShakeKokkos<DeviceType>::~FixShakeKokkos()
 {
-  // unregister callbacks to this fix from Atom class
 
-  atom->delete_callback(id,0);
-
-  // set bond_type and angle_type back to positive for SHAKE clusters
-  // must set for all SHAKE bonds and angles stored by each atom
-
-  int nlocal = atom->nlocal;
-
-  for (int i = 0; i < nlocal; i++) {
-    if (d_shake_flag[i] == 0) continue;
-    else if (d_shake_flag[i] == 1) {
-      bondtype_findset(i,d_shake_atom(i,0),d_shake_atom(i,1),1);
-      bondtype_findset(i,d_shake_atom(i,0),d_shake_atom(i,2),1);
-      angletype_findset(i,d_shake_atom(i,1),d_shake_atom(i,2),1);
-    } else if (d_shake_flag[i] == 2) {
-      bondtype_findset(i,d_shake_atom(i,0),d_shake_atom(i,1),1);
-    } else if (d_shake_flag[i] == 3) {
-      bondtype_findset(i,d_shake_atom(i,0),d_shake_atom(i,1),1);
-      bondtype_findset(i,d_shake_atom(i,0),d_shake_atom(i,2),1);
-    } else if (d_shake_flag[i] == 4) {
-      bondtype_findset(i,d_shake_atom(i,0),d_shake_atom(i,1),1);
-      bondtype_findset(i,d_shake_atom(i,0),d_shake_atom(i,2),1);
-      bondtype_findset(i,d_shake_atom(i,0),d_shake_atom(i,3),1);
-    }
-  }
-
-  // delete locally stored arrays
-
-  memory->destroy(d_shake_flag);
-  memory->destroy(d_shake_atom);
-  memory->destroy(d_shake_type);
-  memory->destroy(xshake);
-  memory->destroy(ftmp);
-  memory->destroy(vtmp);
-
-
-  delete [] bond_flag;
-  delete [] angle_flag;
-  delete [] type_flag;
-  delete [] mass_list;
-
-  delete [] d_bond_distance;
-  delete [] d_angle_distance;
-
-  if (output_every) {
-    delete [] b_count;
-    delete [] b_count_all;
-    delete [] b_ave;
-    delete [] b_ave_all;
-    delete [] b_max;
-    delete [] b_max_all;
-    delete [] b_min;
-    delete [] b_min_all;
-
-    delete [] a_count;
-    delete [] a_count_all;
-    delete [] a_ave;
-    delete [] a_ave_all;
-    delete [] a_max;
-    delete [] a_max_all;
-    delete [] a_min;
-    delete [] a_min_all;
-  }
-
-  memory->destroy(list);
 }
 
 /* ----------------------------------------------------------------------
@@ -331,67 +78,14 @@ void FixShakeKokkos<DeviceType>::init()
   // set equilibrium bond distances
 
   for (i = 1; i <= atom->nbondtypes; i++)
-    h_bond_distance[i] = bond_distance[i];
+    k_bond_distance.h_view[i] = bond_distance[i];
 
   // set equilibrium angle distances
 
-  int nlocal = atom->nlocal;
-
-  for (i = 1; i <= atom->nangletypes; i++) {
-    if (angle_flag[i] == 0) continue;
-
-  }
+  for (i = 1; i <= atom->nangletypes; i++)
+    k_angle_distance.h_view[i] = angle_distance[i];
 }
 
-/* ----------------------------------------------------------------------
-   SHAKE as pre-integrator constraint
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void FixShakeKokkos<DeviceType>::setup(int vflag)
-{
-  pre_neighbor();
-
-  if (output_every) stats();
-
-  // setup SHAKE output
-
-  bigint ntimestep = update->ntimestep;
-  if (output_every) {
-    next_output = ntimestep + output_every;
-    if (ntimestep % output_every != 0)
-      next_output = (ntimestep/output_every)*output_every + output_every;
-  } else next_output = -1;
-
-  // set respa to 0 if verlet is used and to 1 otherwise
-
-  //if (strstr(update->integrate_style,"verlet"))
-    respa = 0;
-  //else
-  //  respa = 1;
-
-  //if (!respa) {
-    dtv     = update->dt;
-    dtfsq   = 0.5 * update->dt * update->dt * force->ftm2v;
-    if (!rattle) dtfsq = update->dt * update->dt * force->ftm2v;
-  //} else {
-  //  dtv = step_respa[0];
-  //  dtf_innerhalf = 0.5 * step_respa[0] * force->ftm2v;
-  //  dtf_inner = dtf_innerhalf;
-  //}
-
-  // correct geometry of cluster if necessary
-
-  correct_coordinates(vflag);
-
-  // remove velocities along any bonds
-
-  correct_velocities();
-
-  // precalculate constraining forces for first integration step
-
-  shake_end_of_step(vflag);
-}
 
 /* ----------------------------------------------------------------------
    build list of SHAKE clusters to constrain
@@ -419,8 +113,8 @@ void FixShakeKokkos<DeviceType>::pre_neighbor()
 
   if (nlocal > maxlist) {
     maxlist = nlocal;
-    memory->destroy(list);
-    memory->create(list,maxlist,"shake:list");
+    memory->destroy_kokkos(k_list,list);
+    memory->create(k_list,list,maxlist,"shake:list");
   }
 
   // build list of SHAKE clusters I compute
@@ -430,45 +124,39 @@ void FixShakeKokkos<DeviceType>::pre_neighbor()
   for (int i = 0; i < nlocal; i++) // parallel_for, error flag
     if (d_shake_flag[i]) {
       if (d_shake_flag[i] == 2) {
-        atom1 = atom->map(d_shake_atom(i,0));
-        atom2 = atom->map(d_shake_atom(i,1));
+        atom1 = atom->map(d_shake_atom(i,0)); /// need device function--like in bond. Use hash?
+        atom2 = atom->map(d_shake_atom(i,1)); ///
         if (atom1 == -1 || atom2 == -1) {
-          char str[128];
-          sprintf(str,"Shake atoms "
-                  "missing on proc %d at step " BIGINT_FORMAT,
-                  me,update->ntimestep);
-          d_error_flag = 1;
+          d_error_flag() = 1;
         }
         if (i <= atom1 && i <= atom2) d_list[nlist++] = i;
       } else if (d_shake_flag[i] % 2 == 1) {
         atom1 = atom->map(d_shake_atom(i,0));
         atom2 = atom->map(d_shake_atom(i,1));
         atom3 = atom->map(d_shake_atom(i,2));
-        if (atom1 == -1 || atom2 == -1 || atom3 == -1) {
-          char str[128];
-          sprintf(str,"Shake atoms "
-                  "missing on proc %d at step " BIGINT_FORMAT,
-                  me,update->ntimestep);
-          d_error_flag = 1;
-        }
+        if (atom1 == -1 || atom2 == -1 || atom3 == -1)
+          d_error_flag() = 1;
         if (i <= atom1 && i <= atom2 && i <= atom3) d_list[nlist++] = i;
       } else {
         atom1 = atom->map(d_shake_atom(i,0));
         atom2 = atom->map(d_shake_atom(i,1));
         atom3 = atom->map(d_shake_atom(i,2));
         atom4 = atom->map(d_shake_atom(i,3));
-        if (atom1 == -1 || atom2 == -1 || atom3 == -1 || atom4 == -1) {
-          char str[128];
-          sprintf(str,"Shake atoms "
-                  "missing on proc %d at step " BIGINT_FORMAT,
-                  me,update->ntimestep);
-          d_error_flag = 1;
-        }
+        if (atom1 == -1 || atom2 == -1 || atom3 == -1 || atom4 == -1)
+          d_error_flag() = 1;
         if (i <= atom1 && i <= atom2 && i <= atom3 && i <= atom4)
           d_list[nlist++] = i;
       }
     }
 }
+
+  // deep_copy
+  if (h_error_flag() == 1) {
+          char str[128];
+          sprintf(str,"Shake atoms "
+                  "missing on proc %d at step " BIGINT_FORMAT,
+                  me,update->ntimestep);
+  }
 
   ///KK notes
   // need d_d_shake_flag
@@ -505,9 +193,8 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
 
   // loop over clusters to add constraint forces
 
-  int m;
-  for (int i = 0; i < nlist; i++) { // parallel_for
-    m = d_list[i];
+  Kokkos::parallel_for(nlist, LAMMPS_LAMBDA(const int& i) {
+    const int m = d_list[i];
     if (d_shake_flag[m] == 2) shake(m);
     else if (d_shake_flag[m] == 3) shake3(m);
     else if (d_shake_flag[m] == 4) shake4(m);
@@ -528,22 +215,31 @@ int FixShakeKokkos<DeviceType>::dof(int igroup)
 {
   int groupbit = group->bitmask[igroup];
 
-  int *mask = atom->mask;
-  tagint *tag = atom->tag;
+  mask = atomKK->k_mask.view<DeviceType>();
+  tag = atomKK->k_tag.view<DeviceType>();
   int nlocal = atom->nlocal;
 
   // count dof in a cluster if and only if
   // the central atom is in group and atom i is the central atom
 
   int n = 0;
-  for (int i = 0; i < nlocal; i++) {
-    if (!(mask[i] & groupbit)) continue;
-    if (d_shake_flag[i] == 0) continue;
-    if (d_shake_atom(i,0) != tag[i]) continue;
-    if (d_shake_flag[i] == 1) n += 3;
-    else if (d_shake_flag[i] == 2) n += 1;
-    else if (d_shake_flag[i] == 3) n += 2;
-    else if (d_shake_flag[i] == 4) n += 3;
+  {
+    // local variables for lambda capture
+
+    auto l_shake_flag = d_shake_flag;
+    auto l_shake_atom = d_shake_atom;
+    auto l_tag = tag;
+    auto l_mask = mask;
+
+    Kokkos::parallel_reduce(nlocal, LAMMPS_LAMBDA(const int& i, int& n) {
+      if (!(l_mask[i] & groupbit)) continue;
+      if (l_shake_flag[i] == 0) continue;
+      if (l_shake_atom(i,0) != l_tag[i]) continue;
+      if (l_shake_flag[i] == 1) n += 3;
+      else if (l_shake_flag[i] == 2) n += 1;
+      else if (l_shake_flag[i] == 3) n += 2;
+      else if (l_shake_flag[i] == 4) n += 3;
+    },n);
   }
 
   int nall;
@@ -586,7 +282,7 @@ void FixShakeKokkos<DeviceType>::unconstrained_update()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
+KOKKOS_INLINE_FUNCTION ///
 void FixShakeKokkos<DeviceType>::shake(int m)
 {
   int nlist,d_list[2];
@@ -595,8 +291,8 @@ void FixShakeKokkos<DeviceType>::shake(int m)
 
   // local atom IDs and constraint distances
 
-  int i0 = atom->map(d_shake_atom(m,0));
-  int i1 = atom->map(d_shake_atom(m,1));
+  int i0 = atom->map(d_shake_atom(m,0)); ///
+  int i1 = atom->map(d_shake_atom(m,1)); ///
   double bond1 = d_bond_distance[d_shake_type(m,0)];
 
   // r01 = distance vec between atoms, with PBC
@@ -615,7 +311,7 @@ void FixShakeKokkos<DeviceType>::shake(int m)
   s01[0] = d_xshake(i0,0) - d_xshake(i1,0);
   s01[1] = d_xshake(i0,1) - d_xshake(i1,1);
   s01[2] = d_xshake(i0,2) - d_xshake(i1,2);
-  domain->minimum_image_once(s01);
+  domain->minimum_image_once(s01); ///
 
   // scalar distances between atoms
 
@@ -641,7 +337,7 @@ void FixShakeKokkos<DeviceType>::shake(int m)
 
   double determ = b*b - 4.0*a*c;
   if (determ < 0.0) {
-    error->warning(FLERR,"Shake determinant < 0.0",0);
+    error->warning(FLERR,"Shake determinant < 0.0",0); ///
     d_error_flag = 2;
     determ = 0.0;
   }
@@ -683,7 +379,7 @@ void FixShakeKokkos<DeviceType>::shake(int m)
     v[4] = lamda*r01[0]*r01[2];
     v[5] = lamda*r01[1]*r01[2];
 
-    v_tally(nlist,list,2.0,v);
+    v_tally(nlist,list,2.0,v); ///
   }
 }
 
@@ -1143,7 +839,7 @@ void FixShakeKokkos<DeviceType>::shake3angle(int m)
   r01[0] = x(i0,0) - x(i1,0);
   r01[1] = x(i0,1) - x(i1,1);
   r01[2] = x(i0,2) - x(i1,2);
-  domain->minimum_image(r01);
+  domain->minimum_image(r01); ///
 
   double r02[3];
   r02[0] = x(i0,0) - x(i2,0);
@@ -1223,7 +919,7 @@ void FixShakeKokkos<DeviceType>::shake3angle(int m)
 
   double determ = a11*a22*a33 + a12*a23*a31 + a13*a21*a32 -
     a11*a23*a32 - a12*a21*a33 - a13*a22*a31;
-  if (determ == 0.0) d_error_flag = 3;
+  if (determ == 0.0) d_error_flag = 3; ///
   //error->one(FLERR,"Shake determinant = 0.0");
   double determinv = 1.0/determ;
 
@@ -1371,15 +1067,15 @@ void FixShakeKokkos<DeviceType>::shake3angle(int m)
 template<class DeviceType>
 void FixShakeKokkos<DeviceType>::grow_arrays(int nmax)
 {
-  memory->grow(d_shake_flag,nmax,"shake:d_shake_flag");
-  memory->grow(d_shake_atom,nmax,4,"shake:d_shake_atom");
-  memory->grow(d_shake_type,nmax,3,"shake:d_shake_type");
-  memory->destroy(xshake);
-  memory->create(xshake,nmax,3,"shake:xshake");
-  memory->destroy(ftmp);
-  memory->create(ftmp,nmax,3,"shake:ftmp");
-  memory->destroy(vtmp);
-  memory->create(vtmp,nmax,3,"shake:vtmp");
+  memory->grow_kokkos(k_shake_flag,shake_flag,nmax,"shake:shake_flag");
+  memory->grow_kokkos(k_shake_atom,shake_atom,nmax,4,"shake:shake_atom");
+  memory->grow_kokkos(k_shake_type,shake_type,nmax,3,"shake:shake_type");
+  memory->destroy_kokkos(k_xshake,xshake);
+  memory->create_kokkos(k_xshake,xshake,nmax,3,"shake:xshake");
+  //memory->destroy(ftmp);
+  //memory->create(ftmp,nmax,3,"shake:ftmp");
+  //memory->destroy(vtmp);
+  //memory->create(vtmp,nmax,3,"shake:vtmp");
 }
 
 /* ----------------------------------------------------------------------
@@ -1387,35 +1083,14 @@ void FixShakeKokkos<DeviceType>::grow_arrays(int nmax)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixShakeKokkos<DeviceType>::copy_arrays(int i, int j, int /*delflag*/)
+void FixShakeKokkos<DeviceType>::copy_arrays(int i, int j, int delflag)
 {
-  int flag = d_shake_flag[j] = d_shake_flag[i];
-  if (flag == 1) {
-    d_shake_atom(j,0) = d_shake_atom(i,0);
-    d_shake_atom(j,1) = d_shake_atom(i,1);
-    d_shake_atom(j,2) = d_shake_atom(i,2);
-    d_shake_type(j,0) = d_shake_type(i,0);
-    d_shake_type(j,1) = d_shake_type(i,1);
-    d_shake_type(j,2) = d_shake_type(i,2);
-  } else if (flag == 2) {
-    d_shake_atom(j,0) = d_shake_atom(i,0);
-    d_shake_atom(j,1) = d_shake_atom(i,1);
-    d_shake_type(j,0) = d_shake_type(i,0);
-  } else if (flag == 3) {
-    d_shake_atom(j,0) = d_shake_atom(i,0);
-    d_shake_atom(j,1) = d_shake_atom(i,1);
-    d_shake_atom(j,2) = d_shake_atom(i,2);
-    d_shake_type(j,0) = d_shake_type(i,0);
-    d_shake_type(j,1) = d_shake_type(i,1);
-  } else if (flag == 4) {
-    d_shake_atom(j,0) = d_shake_atom(i,0);
-    d_shake_atom(j,1) = d_shake_atom(i,1);
-    d_shake_atom(j,2) = d_shake_atom(i,2);
-    d_shake_atom(j,3) = d_shake_atom(i,3);
-    d_shake_type(j,0) = d_shake_type(i,0);
-    d_shake_type(j,1) = d_shake_type(i,1);
-    d_shake_type(j,2) = d_shake_type(i,2);
-  }
+  k_shake_flag.modify<LMPHostType>();
+  k_shake_atom.modify<LMPHostType>();
+  k_shake_type.modify<LMPHostType>();
+  FixShake::copy_arrays(i,j,delflag);
+  k_shake_atom.modify<LMPHostType>();
+  k_shake_type.modify<LMPHostType>();
 }
 
 /* ----------------------------------------------------------------------
@@ -1425,7 +1100,9 @@ void FixShakeKokkos<DeviceType>::copy_arrays(int i, int j, int /*delflag*/)
 template<class DeviceType>
 void FixShakeKokkos<DeviceType>::set_arrays(int i)
 {
-  d_shake_flag[i] = 0;
+  k_shake_flag.sync<LMPHostType>();
+  shake_flag[i] = 0;
+  k_shake_flag.modify<LMPHostType>();
 }
 
 /* ----------------------------------------------------------------------
@@ -1436,25 +1113,10 @@ void FixShakeKokkos<DeviceType>::set_arrays(int i)
 template<class DeviceType>
 void FixShakeKokkos<DeviceType>::update_arrays(int i, int atom_offset)
 {
-  int flag = d_shake_flag[i];
-
-  if (flag == 1) {
-    d_shake_atom(i,0) += atom_offset;
-    d_shake_atom(i,1) += atom_offset;
-    d_shake_atom(i,2) += atom_offset;
-  } else if (flag == 2) {
-    d_shake_atom(i,0) += atom_offset;
-    d_shake_atom(i,1) += atom_offset;
-  } else if (flag == 3) {
-    d_shake_atom(i,0) += atom_offset;
-    d_shake_atom(i,1) += atom_offset;
-    d_shake_atom(i,2) += atom_offset;
-  } else if (flag == 4) {
-    d_shake_atom(i,0) += atom_offset;
-    d_shake_atom(i,1) += atom_offset;
-    d_shake_atom(i,2) += atom_offset;
-    d_shake_atom(i,3) += atom_offset;
-  }
+  k_shake_atom.sync<LMPHostType>();
+  k_shake_flag.sync<LMPHostType>();
+  FixShake::update_arrays(i,atom_offset);
+  k_shake_atom.modify<LMPHostType>();
 }
 
 ///* ----------------------------------------------------------------------
@@ -1641,27 +1303,4 @@ void FixShakeKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first, do
     d_xshake(i,1) = d_buf[m++];
     d_xshake(i,2) = d_buf[m++];
   }
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-void FixShakeKokkos<DeviceType>::reset_dt()
-{
-  dtv = update->dt;
-  if (rattle) dtfsq   = 0.5 * update->dt * update->dt * force->ftm2v;
-  else dtfsq = update->dt * update->dt * force->ftm2v;
-}
-
-/* ----------------------------------------------------------------------
-   add coordinate constraining forces
-   this method is called at the end of a timestep
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void FixShakeKokkos<DeviceType>::shake_end_of_step(int vflag) {
-  dtv     = update->dt;
-  dtfsq   = 0.5 * update->dt * update->dt * force->ftm2v;
-  FixShakeKokkos<DeviceType>::post_force(vflag);
-  if (!rattle) dtfsq = update->dt * update->dt * force->ftm2v;
 }
