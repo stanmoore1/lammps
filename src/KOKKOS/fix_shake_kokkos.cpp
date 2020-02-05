@@ -50,7 +50,9 @@ template<class DeviceType>
 FixShakeKokkos<DeviceType>::FixShakeKokkos(LAMMPS *lmp, int narg, char **arg) :
   FixShake(lmp, narg, arg)
 {
-
+  kokkosable = 1;
+  atomKK = (AtomKokkos *)atom;
+  execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -58,6 +60,15 @@ FixShakeKokkos<DeviceType>::FixShakeKokkos(LAMMPS *lmp, int narg, char **arg) :
 template<class DeviceType>
 FixShakeKokkos<DeviceType>::~FixShakeKokkos()
 {
+
+  if (copymode) return;
+
+  memory->destroy_kokkos(k_shake_flag,shake_flag);
+  memory->destroy_kokkos(k_shake_atom,shake_atom);
+  memory->destroy_kokkos(k_shake_type,shake_type);
+  memory->destroy_kokkos(k_xshake,xshake);
+  //memory->destroy(ftmp);
+  //memory->destroy(vtmp);
 
 }
 
@@ -245,6 +256,22 @@ int FixShakeKokkos<DeviceType>::dof(int igroup)
   int nall;
   MPI_Allreduce(&n,&nall,1,MPI_INT,MPI_SUM,world);
   return nall;
+}
+
+/* ----------------------------------------------------------------------
+   identify whether each atom is in a SHAKE cluster
+   only include atoms in fix group and those bonds/angles specified in input
+   test whether all clusters are valid
+   set shake_flag, shake_atom, shake_type values
+   set bond,angle types negative so will be ignored in neighbor lists
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void FixShakeKokkos<DeviceType>::find_clusters()
+{
+ //sync
+ FixShake::find_clusters();
+ //modify
 }
 
 /* ----------------------------------------------------------------------
@@ -1088,7 +1115,9 @@ void FixShakeKokkos<DeviceType>::copy_arrays(int i, int j, int delflag)
   k_shake_flag.modify<LMPHostType>();
   k_shake_atom.modify<LMPHostType>();
   k_shake_type.modify<LMPHostType>();
+
   FixShake::copy_arrays(i,j,delflag);
+
   k_shake_atom.modify<LMPHostType>();
   k_shake_type.modify<LMPHostType>();
 }
@@ -1101,7 +1130,9 @@ template<class DeviceType>
 void FixShakeKokkos<DeviceType>::set_arrays(int i)
 {
   k_shake_flag.sync<LMPHostType>();
+
   shake_flag[i] = 0;
+
   k_shake_flag.modify<LMPHostType>();
 }
 
@@ -1115,7 +1146,9 @@ void FixShakeKokkos<DeviceType>::update_arrays(int i, int atom_offset)
 {
   k_shake_atom.sync<LMPHostType>();
   k_shake_flag.sync<LMPHostType>();
+
   FixShake::update_arrays(i,atom_offset);
+
   k_shake_atom.modify<LMPHostType>();
 }
 
@@ -1179,38 +1212,13 @@ void FixShakeKokkos<DeviceType>::update_arrays(int i, int atom_offset)
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-int FixShakeKokkos<DeviceType>::pack_exchange_kokkos(int i, double *buf)
+int FixShakeKokkos<DeviceType>::pack_exchange(int i, double *buf)
 {
-  int m = 0;
-  d_buf[m++] = d_shake_flag[i];
-  int flag = d_shake_flag[i];
-  if (flag == 1) {
-    d_buf[m++] = d_shake_atom(i,0);
-    d_buf[m++] = d_shake_atom[i,1);
-    d_buf[m++] = d_shake_atom[i,2);
-    d_buf[m++] = d_shake_type[i,0);
-    d_buf[m++] = d_shake_type[i,1);
-    d_buf[m++] = d_shake_type[i,2);
-  } else if (flag == 2) {
-    d_buf[m++] = d_shake_atom[i,0);
-    d_buf[m++] = d_shake_atom[i,1);
-    d_buf[m++] = d_shake_type[i,0);
-  } else if (flag == 3) {
-    d_buf[m++] = d_shake_atom[i,0);
-    d_buf[m++] = d_shake_atom[i,1);
-    d_buf[m++] = d_shake_atom[i,2);
-    d_buf[m++] = d_shake_type[i,0);
-    d_buf[m++] = d_shake_type[i,1);
-  } else if (flag == 4) {
-    d_buf[m++] = d_shake_atom[i,0);
-    d_buf[m++] = d_shake_atom[i,1);
-    d_buf[m++] = d_shake_atom[i,2);
-    d_buf[m++] = d_shake_atom[i,3);
-    d_buf[m++] = d_shake_type[i,0);
-    d_buf[m++] = d_shake_type[i,1);
-    d_buf[m++] = d_shake_type[i,2);
-  }
-  return m;
+  k_shake_flag.sync<LMPHostType>();
+  k_shake_atom.sync<LMPHostType>();
+  k_shake_type.sync<LMPDeviceType>();
+
+  FixShake::pack_exchange(i,buf);
 }
 
 /* ----------------------------------------------------------------------
@@ -1219,88 +1227,32 @@ int FixShakeKokkos<DeviceType>::pack_exchange_kokkos(int i, double *buf)
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-int FixShakeKokkos<DeviceType>::unpack_exchange_kokkos(int nlocal, double *buf)
+int FixShakeKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 {
-  int m = 0;
-  int flag = d_shake_flag[nlocal] = static_cast<int> (d_buf[m++]);
-  if (flag == 1) {
-    d_shake_atom(nlocal,0) = static_cast<tagint> (d_buf[m++]);
-    d_shake_atom(nlocal,1) = static_cast<tagint> (d_buf[m++]);
-    d_shake_atom(nlocal,2) = static_cast<tagint> (d_buf[m++]);
-    d_shake_type(nlocal,0) = static_cast<int> (d_buf[m++]);
-    d_shake_type(nlocal,1) = static_cast<int> (d_buf[m++]);
-    d_shake_type(nlocal,2) = static_cast<int> (d_buf[m++]);
-  } else if (flag == 2) {
-    d_shake_atom(nlocal,0) = static_cast<tagint> (d_buf[m++]);
-    d_shake_atom(nlocal,1) = static_cast<tagint> (d_buf[m++]);
-    d_shake_type(nlocal,0) = static_cast<int> (d_buf[m++]);
-  } else if (flag == 3) {
-    d_shake_atom(nlocal,0) = static_cast<tagint> (d_buf[m++]);
-    d_shake_atom(nlocal,1) = static_cast<tagint> (d_buf[m++]);
-    d_shake_atom(nlocal,2) = static_cast<tagint> (d_buf[m++]);
-    d_shake_type(nlocal,0) = static_cast<int> (d_buf[m++]);
-    d_shake_type(nlocal,1) = static_cast<int> (d_buf[m++]);
-  } else if (flag == 4) {
-    d_shake_atom(nlocal,0) = static_cast<tagint> (d_buf[m++]);
-    d_shake_atom(nlocal,1) = static_cast<tagint> (d_buf[m++]);
-    d_shake_atom(nlocal,2) = static_cast<tagint> (d_buf[m++]);
-    d_shake_atom(nlocal,3) = static_cast<tagint> (d_buf[m++]);
-    d_shake_type(nlocal,0) = static_cast<int> (d_buf[m++]);
-    d_shake_type(nlocal,1) = static_cast<int> (d_buf[m++]);
-    d_shake_type(nlocal,2) = static_cast<int> (d_buf[m++]);
-  }
-  return m;
+  FixShake::unpack_exchange(nlocal,buf);
+
+  k_shake_atom.modify<LMPHostType>();
+  k_shake_type.modify<LMPHostType>();
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixShakeKokkos<DeviceType>::pack_forward_comm_kokkos(int n, int *list, double *buf,
+int FixShakeKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
                                 int pbc_flag, int *pbc)
 {
-  int i,j,m;
-  double dx,dy,dz;
+  k_xshake.sync<LMPHostType>();
 
-  m = 0;
-  if (pbc_flag == 0) {
-    for (i = 0; i < n; i++) {
-      j = d_list[i];
-      d_buf[m++] = d_xshake(j,0);
-      d_buf[m++] = d_xshake(j,1);
-      d_buf[m++] = d_xshake(j,2);
-    }
-  } else {
-    if (domain->triclinic == 0) {
-      dx = pbc[0]*domain->xprd;
-      dy = pbc[1]*domain->yprd;
-      dz = pbc[2]*domain->zprd;
-    } else {
-      dx = pbc[0]*domain->xprd + pbc[5]*domain->xy + pbc[4]*domain->xz;
-      dy = pbc[1]*domain->yprd + pbc[3]*domain->yz;
-      dz = pbc[2]*domain->zprd;
-    }
-    for (i = 0; i < n; i++) {
-      j = d_list[i];
-      d_buf[m++] = d_xshake(j,0) + dx;
-      d_buf[m++] = d_xshake(j,1) + dy;
-      d_buf[m++] = d_xshake(j,2) + dz;
-    }
-  }
-  return m;
+  return FixShake::pack_forward_comm(n,list,buf,pbc_flag,pbc);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixShakeKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first, double *buf)
+void FixShakeKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
 {
-  int i,m,last;
+  FixShake::unpack_forward_comm(n,first,buf);
 
-  m = 0;
-  last = first + n;
-  for (i = first; i < last; i++) {
-    d_xshake(i,0) = d_buf[m++];
-    d_xshake(i,1) = d_buf[m++];
-    d_xshake(i,2) = d_buf[m++];
-  }
+  k_xshake.modify<LMPHostType>();
 }
+
