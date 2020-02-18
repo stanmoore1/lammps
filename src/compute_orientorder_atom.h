@@ -48,18 +48,18 @@ class ComputeOrientOrderAtom : public Compute {
   double **qnm_r;
   double **qnm_i;
 
-  virtual void select3(int, int, double *, int *, double **);
-  virtual void calc_boop(double **rlist, int numNeighbors,
-                         double qn[], int nlist[], int nnlist);
+  void select3(int, int, double *, int *, double **);
+  void calc_boop(double **rlist, int numNeighbors,
+                 double qn[], int nlist[], int nnlist);
   double dist(const double r[]);
 
-  virtual double polar_prefactor(int, int, double);
-  virtual double associated_legendre(int, int, double);
+  double polar_prefactor(int, int, double);
+  double associated_legendre(int, int, double);
 
   static const int nmaxfactorial = 167;
   static const double nfac_table[];
   double factorial(int);
-  virtual void init_clebsch_gordan();
+  void init_clebsch_gordan();
   double *cglist;                      // Clebsch-Gordan coeffs
   int idxcg_max;
 };

@@ -134,9 +134,9 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::compute_peratom()
   // insure distsq and nearest arrays are long enough
 
   if (atom->nmax > nmax || maxneigh > d_distsq.extent(1)) {
-    d_distsq = t_sna_2d("orientorder/atom:distsq",nmax,maxneigh);
-    d_nearest = t_sna_2i("orientorder/atom:nearest",nmax,maxneigh);
-    d_rlist = t_sna_3d("orientorder/atom:rlist",nmax,maxneigh,3);
+    d_distsq = t_sna_2d_lr("orientorder/atom:distsq",nmax,maxneigh);
+    d_nearest = t_sna_2i_lr("orientorder/atom:nearest",nmax,maxneigh);
+    d_rlist = t_sna_3d_lr("orientorder/atom:rlist",nmax,maxneigh,3);
 
     d_distsq_um = d_distsq;
     d_rlist_um = d_rlist;
@@ -463,7 +463,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop(int ncount, int nqlist,
           idxcg_count++;
         }
       }
-      d_qnarray(iatom,jj++) = wlsum/sqrt(2*l+1);
+      d_qnarray(iatom,jj++) = wlsum/sqrt(2.0*l+1.0);
     }
   }
 
@@ -490,7 +490,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop(int ncount, int nqlist,
       else {
         const double qnormfac = sqrt(MY_4PI/(2*l+1));
         const double qnfac = qnormfac/d_qnarray(iatom,il);
-        d_qnarray(iatom,jj++) = wlsum/sqrt(2*l+1)*(qnfac*qnfac*qnfac);
+        d_qnarray(iatom,jj++) = wlsum/sqrt(2.0*l+1.0)*(qnfac*qnfac*qnfac);
       }
     }
   }
