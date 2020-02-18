@@ -23,59 +23,106 @@ ComputeStyle(orientorder/atom/kk/host,ComputeOrientOrderAtomKokkos<LMPHostType>)
 #define LMP_COMPUTE_ORIENTORDER_ATOM_KOKKOS_H
 
 #include "compute_orientorder_atom.h"
+#include "kokkos_type.h"
 
 namespace LAMMPS_NS {
 
+typedef double SNAreal;
+
+struct alignas(2*sizeof(SNAreal)) SNAcomplex{
+  SNAreal re, im;
+
+  KOKKOS_INLINE_FUNCTION
+  SNAcomplex() : re(0),im(0)
+  {}
+
+  KOKKOS_INLINE_FUNCTION
+  SNAcomplex(SNAreal real_in, SNAreal imag_in)
+      :re(real_in),im(imag_in)
+  {}
+};
+
 struct TagComputeOrientOrderAtom{};
 
+template<class DeviceType>
 class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
  public:
+
+  typedef Kokkos::View<int*, DeviceType> t_sna_1i;
+  typedef Kokkos::View<double*, DeviceType> t_sna_1d;
+  typedef Kokkos::View<double*, DeviceType, Kokkos::MemoryTraits<Kokkos::Atomic> > t_sna_1d_atomic;
+  typedef Kokkos::View<int**, Kokkos::LayoutRight, DeviceType> t_sna_2i_lr;
+  typedef Kokkos::View<int**, Kokkos::LayoutRight, DeviceType, Kokkos::MemoryTraits<Kokkos::Unmanaged> > t_sna_2i_lr_um;
+  typedef Kokkos::View<int**, DeviceType> t_sna_2i;
+  typedef Kokkos::View<double**, DeviceType> t_sna_2d;
+  typedef Kokkos::View<double**, Kokkos::LayoutRight, DeviceType> t_sna_2d_lr;
+  typedef Kokkos::DualView<double**, Kokkos::LayoutRight, DeviceType> tdual_sna_2d_lr;
+  typedef Kokkos::View<double**, Kokkos::LayoutRight, DeviceType, Kokkos::MemoryTraits<Kokkos::Unmanaged> > t_sna_2d_lr_um;
+  typedef Kokkos::View<double***, DeviceType> t_sna_3d;
+  typedef Kokkos::View<double***, Kokkos::LayoutRight, DeviceType> t_sna_3d_lr;
+  typedef Kokkos::View<double***, Kokkos::LayoutRight, DeviceType, Kokkos::MemoryTraits<Kokkos::Unmanaged> > t_sna_3d_lr_um;
+  typedef Kokkos::View<double***[3], DeviceType> t_sna_4d;
+  typedef Kokkos::View<double**[3], DeviceType> t_sna_3d3;
+  typedef Kokkos::View<double*****, DeviceType> t_sna_5d;
+
+  typedef Kokkos::View<SNAcomplex*, DeviceType> t_sna_1c;
+  typedef Kokkos::View<SNAcomplex*, DeviceType, Kokkos::MemoryTraits<Kokkos::Atomic> > t_sna_1c_atomic;
+  typedef Kokkos::View<SNAcomplex**, DeviceType> t_sna_2c;
+  typedef Kokkos::View<SNAcomplex**, Kokkos::LayoutRight, DeviceType> t_sna_2c_lr;
+  typedef Kokkos::View<SNAcomplex***, DeviceType> t_sna_3c;
+  typedef Kokkos::View<SNAcomplex***[3], DeviceType> t_sna_4c;
+  typedef Kokkos::View<SNAcomplex**[3], DeviceType> t_sna_3c3;
+  typedef Kokkos::View<SNAcomplex*****, DeviceType> t_sna_5c;
+
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
+
   ComputeOrientOrderAtomKokkos(class LAMMPS *, int, char **);
   ~ComputeOrientOrderAtomKokkos();
   void init();
   void compute_peratom();
-  int *qlist;
+  t_sna_1i d_qlist;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagComputeOrientOrderAtom, const int&) const;
+  void operator() (TagComputeOrientOrderAtom, const typename Kokkos::TeamPolicy<DeviceType, TagComputeOrientOrderAtom>::member_type& team) const;
 
  private:
+  int inum;
+
   typename AT::t_x_array_randomread x;
-  typename AT::t_f_array f;
-  typename AT::t_float_1d_randomread q;
+  typename ArrayTypes<DeviceType>::t_int_1d mask;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;
   typename AT::t_int_1d_randomread d_numneigh;
   //NeighListKokkos<DeviceType> k_list;
 
-  class NeighList *list;
-  double *distsq;
-  int *nearest;
-  double **rlist;
-  double **qnarray;
-  double **qnm_r;
-  double **qnm_i;
+  t_sna_2d_lr d_distsq;
+  t_sna_2i_lr d_nearest;
+  t_sna_3d_lr d_rlist;
+
+  t_sna_2d_lr_um d_distsq_um;
+  t_sna_2i_lr_um d_nearest_um;
+  t_sna_3d_lr_um d_rlist_um;
+
+  tdual_sna_2d_lr k_qnarray;
+  t_sna_2d_lr d_qnarray;
+  t_sna_3c d_qnm;
 
   KOKKOS_INLINE_FUNCTION
-  void select3(int, int, double *, int *, double **);
+  void select3(int, int, double *, int *, double **) const;
 
   KOKKOS_INLINE_FUNCTION
-  void calc_boop(double **rlist, int numNeighbors,
-                 double qn[], int nlist[], int nnlist);
+  void calc_boop(int, int, int) const;
 
   KOKKOS_INLINE_FUNCTION
-  double dist(const double r[]);
+  double polar_prefactor(int, int, double) const;
 
   KOKKOS_INLINE_FUNCTION
-  double polar_prefactor(int, int, double);
-
-  KOKKOS_INLINE_FUNCTION
-  double associated_legendre(int, int, double);
+  double associated_legendre(int, int, double) const;
 
   void init_clebsch_gordan();
-  typedef Kokkos::View<double*, DeviceType> t_sna_1d;
-  t_sna_1d cglist;                      // Clebsch-Gordan coeffs
+  t_sna_1d d_cglist;                     // Clebsch-Gordan coeffs
 };
 
 }
