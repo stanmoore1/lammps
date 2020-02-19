@@ -119,30 +119,6 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::compute_peratom()
 {
   invoked_peratom = update->ntimestep;
 
-  // grow order parameter array if necessary
-
-  if (atom->nmax > nmax) {
-    memoryKK->destroy_kokkos(k_qnarray,qnarray);
-    nmax = atom->nmax;
-    memoryKK->create_kokkos(k_qnarray,qnarray,nmax,ncol,"orientorder/atom:qnarray");
-    array_atom = qnarray;
-    d_qnarray = k_qnarray.template view<DeviceType>();
-
-    d_qnm = t_sna_3c("orientorder/atom:qnm",nmax,nqlist,2*qmax+1);
-  }
-
-  // insure distsq and nearest arrays are long enough
-
-  if (atom->nmax > nmax || maxneigh > d_distsq.extent(1)) {
-    d_distsq = t_sna_2d_lr("orientorder/atom:distsq",nmax,maxneigh);
-    d_nearest = t_sna_2i_lr("orientorder/atom:nearest",nmax,maxneigh);
-    d_rlist = t_sna_3d_lr("orientorder/atom:rlist",nmax,maxneigh,3);
-
-    d_distsq_um = d_distsq;
-    d_rlist_um = d_rlist;
-    d_nearest_um = d_nearest;
-  }
-
   // invoke full neighbor list (will copy or build if necessary)
 
   neighbor->build_one(list);
@@ -153,16 +129,39 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::compute_peratom()
   d_neighbors = k_list->d_neighbors;
   d_ilist = k_list->d_ilist;
 
+  maxneigh = 0;
+  Kokkos::parallel_reduce("ComputeOrientOrderAtomKokkos::find_max_neighs",inum, FindMaxNumNeighs<DeviceType>(k_list), Kokkos::Experimental::Max<int>(maxneigh));
+
+  // grow order parameter array if necessary
+
+  if (atom->nmax > nmax) {
+    memoryKK->destroy_kokkos(k_qnarray,qnarray);
+    nmax = atom->nmax;
+    memoryKK->create_kokkos(k_qnarray,qnarray,nmax,ncol,"orientorder/atom:qnarray");
+    array_atom = qnarray;
+    d_qnarray = k_qnarray.template view<DeviceType>();
+
+    d_qnm = t_sna_3c("orientorder/atom:qnm",nmax,nqlist,2*qmax+1);
+
+    // insure distsq and nearest arrays are long enough
+    
+    if (maxneigh > d_distsq.extent(1)) {
+      d_distsq = t_sna_2d_lr("orientorder/atom:distsq",nmax,maxneigh);
+      d_nearest = t_sna_2i_lr("orientorder/atom:nearest",nmax,maxneigh);
+      d_rlist = t_sna_3d_lr("orientorder/atom:rlist",nmax,maxneigh,3);
+    
+      d_distsq_um = d_distsq;
+      d_rlist_um = d_rlist;
+      d_nearest_um = d_nearest;
+    }
+  }
+
   // compute order parameter for each atom in group
   // use full neighbor list to count atoms less than cutoff
 
   atomKK->sync(execution_space,X_MASK|MASK_MASK);
   x = atomKK->k_x.view<DeviceType>();
   mask = atomKK->k_mask.view<DeviceType>();
-
-  copymode = 1;
-  maxneigh = 0;
-  Kokkos::parallel_reduce("ComputeOrientOrderAtomKokkos::find_max_neighs",inum, FindMaxNumNeighs<DeviceType>(k_list), Kokkos::Experimental::Max<int>(maxneigh));
 
   Kokkos::deep_copy(d_qnm,{0.0,0.0});
 
@@ -175,6 +174,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::compute_peratom()
     team_size = team_size_max/vector_length;
 #endif
 
+  copymode = 1;
   typename Kokkos::TeamPolicy<DeviceType, TagComputeOrientOrderAtom> policy(inum,team_size,vector_length);
   Kokkos::parallel_for("ComputeOrientOrderAtom",policy,*this);
   copymode = 0;
@@ -248,17 +248,12 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrder
 
     // if nnn > 0, use only nearest nnn neighbors
 
-    auto d_distsq_ii = Kokkos::subview(d_distsq_um, ii, Kokkos::ALL);
-    auto d_nearest_ii = Kokkos::subview(d_nearest_um, ii, Kokkos::ALL);
-    auto d_rlist_ii = Kokkos::subview(d_rlist_um, ii, Kokkos::ALL, Kokkos::ALL);
-
     if (nnn > 0) {
-      select3(nnn,ncount,(double*)d_distsq_ii.data(),(int*)d_nearest_ii.data(),(double**)d_rlist.data());
+      select3(nnn, ncount, ii);
       ncount = nnn;
     }
 
     calc_boop(ncount, nqlist, ii);
-
   }
 }
 
@@ -270,92 +265,161 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrder
 
 // Use no-op do while to create single statement
 
-#define SWAP(a,b) do {       \
-    tmp = a; a = b; b = tmp; \
+#define SWAP(view,i,j) do {       \
+    tmp = view(i); view(i) = view(j); view(j) = tmp; \
   } while(0)
 
-#define ISWAP(a,b) do {        \
-    itmp = a; a = b; b = itmp; \
+#define ISWAP(view,i,j) do {        \
+    itmp = view(i); view(i) = view(j); view(j) = itmp; \
   } while(0)
 
-#define SWAP3(a,b) do {                  \
-    tmp = a[0]; a[0] = b[0]; b[0] = tmp; \
-    tmp = a[1]; a[1] = b[1]; b[1] = tmp; \
-    tmp = a[2]; a[2] = b[2]; b[2] = tmp; \
+#define SWAP3(view,i,j) do {                  \
+    tmp = view(i,0); view(i,0) = view(j,0); view(j,0) = tmp; \
+    tmp = view(i,1); view(i,1) = view(j,1); view(j,1) = tmp; \
+    tmp = view(i,2); view(i,2) = view(j,2); view(j,2) = tmp; \
   } while(0)
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void ComputeOrientOrderAtomKokkos<DeviceType>::select3(int k, int n, double *arr, int *iarr, double **arr3) const
+void ComputeOrientOrderAtomKokkos<DeviceType>::select3(int k, int n, int iatom) const
 {
   int i,ir,j,l,mid,ia,itmp;
   double a,tmp,a3[3];
 
-  arr--;
-  iarr--;
-  arr3--;
-  l = 1;
-  ir = n;
+  auto arr = Kokkos::subview(d_distsq_um, iatom, Kokkos::ALL);
+  auto iarr = Kokkos::subview(d_nearest_um, iatom, Kokkos::ALL);
+  auto arr3 = Kokkos::subview(d_rlist_um, iatom, Kokkos::ALL, Kokkos::ALL);
+
+  l = 0;
+  ir = n-1;
   for (;;) {
     if (ir <= l+1) {
       if (ir == l+1 && arr[ir] < arr[l]) {
-        SWAP(arr[l],arr[ir]);
-        ISWAP(iarr[l],iarr[ir]);
-        SWAP3(arr3[l],arr3[ir]);
+        SWAP(arr,l,ir);
+        ISWAP(iarr,l,ir);
+        SWAP3(arr3,l,ir);
       }
       return;
     } else {
-      mid=(l+ir) >> 1;
-      SWAP(arr[mid],arr[l+1]);
-      ISWAP(iarr[mid],iarr[l+1]);
-      SWAP3(arr3[mid],arr3[l+1]);
+      mid=((l+ir+2) >> 1) - 1;
+      SWAP(arr,mid,l+1);
+      ISWAP(iarr,mid,l+1);
+      SWAP3(arr3,mid,l+1);
       if (arr[l] > arr[ir]) {
-        SWAP(arr[l],arr[ir]);
-        ISWAP(iarr[l],iarr[ir]);
-        SWAP3(arr3[l],arr3[ir]);
+        SWAP(arr,l,ir);
+        ISWAP(iarr,l,ir);
+        SWAP3(arr3,l,ir);
       }
       if (arr[l+1] > arr[ir]) {
-        SWAP(arr[l+1],arr[ir]);
-        ISWAP(iarr[l+1],iarr[ir]);
-        SWAP3(arr3[l+1],arr3[ir]);
+        SWAP(arr,l+1,ir);
+        ISWAP(iarr,l+1,ir);
+        SWAP3(arr3,l+1,ir);
       }
       if (arr[l] > arr[l+1]) {
-        SWAP(arr[l],arr[l+1]);
-        ISWAP(iarr[l],iarr[l+1]);
-        SWAP3(arr3[l],arr3[l+1]);
+        SWAP(arr,l,l+1);
+        ISWAP(iarr,l,l+1);
+        SWAP3(arr3,l,l+1);
       }
       i = l+1;
       j = ir;
       a = arr[l+1];
       ia = iarr[l+1];
-      a3[0] = arr3[l+1][0];
-      a3[1] = arr3[l+1][1];
-      a3[2] = arr3[l+1][2];
+      a3[0] = arr3(l+1,0);
+      a3[1] = arr3(l+1,1);
+      a3[2] = arr3(l+1,2);
       for (;;) {
         do i++; while (arr[i] < a);
         do j--; while (arr[j] > a);
         if (j < i) break;
-        SWAP(arr[i],arr[j]);
-        ISWAP(iarr[i],iarr[j]);
-        SWAP3(arr3[i],arr3[j]);
+        SWAP(arr,i,j);
+        ISWAP(iarr,i,j);
+        SWAP3(arr3,i,j);
       }
       arr[l+1] = arr[j];
       arr[j] = a;
       iarr[l+1] = iarr[j];
       iarr[j] = ia;
-      arr3[l+1][0] = arr3[j][0];
-      arr3[l+1][1] = arr3[j][1];
-      arr3[l+1][2] = arr3[j][2];
-      arr3[j][0] = a3[0];
-      arr3[j][1] = a3[1];
-      arr3[j][2] = a3[2];
-      if (j >= k) ir = j-1;
-      if (j <= k) l = i;
+      arr3(l+1,0) = arr3(j,0);
+      arr3(l+1,1) = arr3(j,1);
+      arr3(l+1,2) = arr3(j,2);
+      arr3(j,0) = a3[0];
+      arr3(j,1) = a3[1];
+      arr3(j,2) = a3[2];
+      if (j+1 >= k) ir = j-1;
+      if (j+1 <= k) l = i;
     }
   }
 }
+
+//template<class DeviceType>
+//KOKKOS_INLINE_FUNCTION
+//void ComputeOrientOrderAtomKokkos<DeviceType>::select3(int k, int n, double *arr, int *iarr, double **arr3) const
+//{
+//  int i,ir,j,l,mid,ia,itmp;
+//  double a,tmp,a3[3];
+//
+//  l = 0;
+//  ir = n-1;
+//  for (;;) {
+//    if (ir <= l+1) {
+//      if (ir == l+1 && arr[ir] < arr[l]) {
+//        SWAP(arr[l],arr[ir]);
+//        ISWAP(iarr[l],iarr[ir]);
+//        SWAP3(arr3[l],arr3[ir]);
+//      }
+//      return;
+//    } else {
+//      mid=((l+ir+2) >> 1) - 1;
+//      SWAP(arr[mid],arr[l+1]);
+//      ISWAP(iarr[mid],iarr[l+1]);
+//      SWAP3(arr3[mid],arr3[l+1]);
+//      if (arr[l] > arr[ir]) {
+//        SWAP(arr[l],arr[ir]);
+//        ISWAP(iarr[l],iarr[ir]);
+//        SWAP3(arr3[l],arr3[ir]);
+//      }
+//      if (arr[l+1] > arr[ir]) {
+//        SWAP(arr[l+1],arr[ir]);
+//        ISWAP(iarr[l+1],iarr[ir]);
+//        SWAP3(arr3[l+1],arr3[ir]);
+//      }
+//      if (arr[l] > arr[l+1]) {
+//        SWAP(arr[l],arr[l+1]);
+//        ISWAP(iarr[l],iarr[l+1]);
+//        SWAP3(arr3[l],arr3[l+1]);
+//      }
+//      i = l+1;
+//      j = ir;
+//      a = arr[l+1];
+//      ia = iarr[l+1];
+//      a3[0] = arr3[l+1][0];
+//      a3[1] = arr3[l+1][1];
+//      a3[2] = arr3[l+1][2];
+//      for (;;) {
+//        do i++; while (arr[i] < a);
+//        do j--; while (arr[j] > a);
+//        if (j < i) break;
+//        SWAP(arr[i],arr[j]);
+//        ISWAP(iarr[i],iarr[j]);
+//        SWAP3(arr3[i],arr3[j]);
+//      }
+//      arr[l+1] = arr[j];
+//      arr[j] = a;
+//      iarr[l+1] = iarr[j];
+//      iarr[j] = ia;
+//      arr3[l+1][0] = arr3[j][0];
+//      arr3[l+1][1] = arr3[j][1];
+//      arr3[l+1][2] = arr3[j][2];
+//      arr3[j][0] = a3[0];
+//      arr3[j][1] = a3[1];
+//      arr3[j][2] = a3[2];
+//      if (j+1 >= k) ir = j-1;
+//      if (j+1 <= k) l = i;
+//    }
+//  }
+//}
 
 /* ----------------------------------------------------------------------
    calculate the bond orientational order parameters

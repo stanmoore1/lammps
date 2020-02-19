@@ -59,7 +59,7 @@ class ComputeOrientOrderAtom : public Compute {
   static const int nmaxfactorial = 167;
   static const double nfac_table[];
   double factorial(int);
-  void init_clebsch_gordan();
+  virtual void init_clebsch_gordan();
   double *cglist;                      // Clebsch-Gordan coeffs
   int idxcg_max;
 };

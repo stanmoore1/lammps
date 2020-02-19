@@ -95,7 +95,6 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;
   typename AT::t_int_1d_randomread d_numneigh;
-  //NeighListKokkos<DeviceType> k_list;
 
   t_sna_2d_lr d_distsq;
   t_sna_2i_lr d_nearest;
@@ -110,7 +109,7 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
   t_sna_3c d_qnm;
 
   KOKKOS_INLINE_FUNCTION
-  void select3(int, int, double *, int *, double **) const;
+  void select3(int, int, int) const;
 
   KOKKOS_INLINE_FUNCTION
   void calc_boop(int, int, int) const;
