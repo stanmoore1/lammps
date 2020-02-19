@@ -237,6 +237,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrder
         offset++;
       }
     });
+    team.team_barrier();
 
     // if not nnn neighbors, order parameter = 0;
 
@@ -429,7 +430,6 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop(int ncount, int nqlist, int iatom) const
 {
-
   //for (int il = 0; il < nqlist; il++) { // move to outside deep_copy
   //  int l = qlist[il];
   //  for(int m = 0; m < 2*l+1; m++) {
@@ -490,7 +490,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop(int ncount, int nqlist,
 
   double facn = 1.0 / ncount;
   for (int il = 0; il < nqlist; il++) {
-    int l = qlist[il];
+    int l = d_qlist[il];
     for(int m = 0; m < 2*l+1; m++) {
       d_qnm(iatom,il,m).re *= facn;
       d_qnm(iatom,il,m).im *= facn;
@@ -502,7 +502,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop(int ncount, int nqlist,
 
   int jj = 0;
   for (int il = 0; il < nqlist; il++) {
-    int l = qlist[il];
+    int l = d_qlist[il];
     double qnormfac = sqrt(MY_4PI/(2*l+1));
     double qm_sum = 0.0;
     for(int m = 0; m < 2*l+1; m++)
@@ -515,7 +515,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop(int ncount, int nqlist,
   if (wlflag) {
     int idxcg_count = 0;
     for (int il = 0; il < nqlist; il++) {
-      int l = qlist[il];
+      int l = d_qlist[il];
       double wlsum = 0.0;
       for(int m1 = 0; m1 < 2*l+1; m1++) {
         for(int m2 = MAX(0,l-m1); m2 < MIN(2*l+1,3*l-m1+1); m2++) {
