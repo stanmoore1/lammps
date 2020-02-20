@@ -42,7 +42,10 @@ struct alignas(2*sizeof(SNAreal)) SNAcomplex{
   {}
 };
 
-struct TagComputeOrientOrderAtom{};
+struct TagComputeOrientOrderAtomNeigh{};
+struct TagComputeOrientOrderAtomSelect3{};
+struct TagComputeOrientOrderAtomBOOP1{};
+struct TagComputeOrientOrderAtomBOOP2{};
 
 template<class DeviceType>
 class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
@@ -84,7 +87,16 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
   t_sna_1i d_qlist;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagComputeOrientOrderAtom, const typename Kokkos::TeamPolicy<DeviceType, TagComputeOrientOrderAtom>::member_type& team) const;
+  void operator() (TagComputeOrientOrderAtomNeigh, const typename Kokkos::TeamPolicy<DeviceType, TagComputeOrientOrderAtomNeigh>::member_type& team) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeOrientOrderAtomSelect3, const int& ii) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeOrientOrderAtomBOOP1, const typename Kokkos::TeamPolicy<DeviceType, TagComputeOrientOrderAtomBOOP1>::member_type& team) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeOrientOrderAtomBOOP2, const int& ii) const;
 
  private:
   int inum;
@@ -96,6 +108,7 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
   typename AT::t_int_1d_randomread d_ilist;
   typename AT::t_int_1d_randomread d_numneigh;
 
+  t_sna_1i d_ncount;
   t_sna_2d_lr d_distsq;
   t_sna_2i_lr d_nearest;
   t_sna_3d_lr d_rlist;
@@ -112,7 +125,10 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
   void select3(int, int, int) const;
 
   KOKKOS_INLINE_FUNCTION
-  void calc_boop(int, int, int) const;
+  void calc_boop1(int, int, int) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void calc_boop2(int, int) const;
 
   KOKKOS_INLINE_FUNCTION
   double polar_prefactor(int, int, double) const;

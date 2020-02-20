@@ -105,10 +105,10 @@ struct FindMaxNumNeighs {
   ~FindMaxNumNeighs() {k_list.copymode = 1;}
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (const int& ii, int& max_neighs) const {
+  void operator() (const int& ii, int& maxneigh) const {
     const int i = k_list.d_ilist[ii];
     const int num_neighs = k_list.d_numneigh[i];
-    if (max_neighs < num_neighs) max_neighs = num_neighs;
+    if (maxneigh < num_neighs) maxneigh = num_neighs;
   }
 };
 
@@ -142,6 +142,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::compute_peratom()
     d_qnarray = k_qnarray.template view<DeviceType>();
 
     d_qnm = t_sna_3c("orientorder/atom:qnm",nmax,nqlist,2*qmax+1);
+    d_ncount = t_sna_1i("orientorder/atom:ncount",nmax);
 
     // insure distsq and nearest arrays are long enough
     
@@ -169,14 +170,29 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::compute_peratom()
   int team_size = 1;
   int team_size_max = Kokkos::TeamPolicy<DeviceType>::team_size_max(*this);
 #ifdef KOKKOS_ENABLE_CUDA
-  team_size = 32;//max_neighs;
+  team_size = 32;//maxneigh;
   if (team_size*vector_length > team_size_max)
     team_size = team_size_max/vector_length;
 #endif
 
   copymode = 1;
-  typename Kokkos::TeamPolicy<DeviceType, TagComputeOrientOrderAtom> policy(inum,team_size,vector_length);
-  Kokkos::parallel_for("ComputeOrientOrderAtom",policy,*this);
+
+  //Neigh
+  typename Kokkos::TeamPolicy<DeviceType, TagComputeOrientOrderAtomNeigh> policy_neigh(inum,team_size,vector_length);
+  Kokkos::parallel_for("ComputeOrientOrderAtomNeigh",policy_neigh,*this);
+
+  //Select3
+  typename Kokkos::RangePolicy<DeviceType, TagComputeOrientOrderAtomSelect3> policy_select3(0,inum);
+  Kokkos::parallel_for("ComputeOrientOrderAtomSelect3",policy_select3,*this);
+
+  //BOOP1
+  typename Kokkos::TeamPolicy<DeviceType, TagComputeOrientOrderAtomBOOP1> policy_boop1(((inum+team_size-1)/team_size)*maxneigh,team_size,vector_length);
+  Kokkos::parallel_for("ComputeOrientOrderAtomBOOP1",policy_boop1,*this);
+
+  //BOOP2
+  typename Kokkos::RangePolicy<DeviceType, TagComputeOrientOrderAtomBOOP2> policy_boop2(0,inum);
+  Kokkos::parallel_for("ComputeOrientOrderAtomBOOP2",policy_boop2,*this);
+
   copymode = 0;
 
   k_qnarray.template modify<DeviceType>();
@@ -187,7 +203,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::compute_peratom()
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrderAtom,const typename Kokkos::TeamPolicy<DeviceType, TagComputeOrientOrderAtom>::member_type& team) const
+void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrderAtomNeigh,const typename Kokkos::TeamPolicy<DeviceType, TagComputeOrientOrderAtomNeigh>::member_type& team) const
 {
   const int ii = team.league_rank();
   const int i = d_ilist[ii];
@@ -217,6 +233,8 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrder
       });
     },ncount);
 
+    d_ncount(ii) = ncount;
+
     if (team.team_rank() == 0)
     Kokkos::parallel_scan(Kokkos::ThreadVectorRange(team,jnum),
         [&] (const int jj, int& offset, bool final) {
@@ -237,26 +255,61 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrder
         offset++;
       }
     });
-    team.team_barrier();
-
-    // if not nnn neighbors, order parameter = 0;
-
-    if ((ncount == 0) || (ncount < nnn)) {
-      for (int jj = 0; jj < ncol; jj++)
-        d_qnarray(i,jj) = 0.0;
-      return;
-    }
-
-    // if nnn > 0, use only nearest nnn neighbors
-
-    if (nnn > 0) {
-      select3(nnn, ncount, ii);
-      ncount = nnn;
-    }
-
-    calc_boop(ncount, nqlist, ii);
   }
 }
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrderAtomSelect3,const int& ii) const {
+
+  const int i = d_ilist[ii];
+  const int ncount = d_ncount(ii);
+
+  // if not nnn neighbors, order parameter = 0;
+
+  if ((ncount == 0) || (ncount < nnn)) {
+    for (int jj = 0; jj < ncol; jj++)
+      d_qnarray(i,jj) = 0.0;
+    return;
+  }
+
+  // if nnn > 0, use only nearest nnn neighbors
+
+  if (nnn > 0) {
+    select3(nnn, ncount, ii);
+    d_ncount(ii) = nnn;
+  }
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrderAtomBOOP1,const typename Kokkos::TeamPolicy<DeviceType, TagComputeOrientOrderAtomBOOP1>::member_type& team) const {
+
+  // Extract the atom number
+  int ii = team.team_rank() + team.team_size() * (team.league_rank() % ((inum+team.team_size()-1)/team.team_size()));
+  if (ii >= inum) return;
+
+  // Extract the neighbor number
+  const int jj = team.league_rank() / ((inum+team.team_size()-1)/team.team_size());
+  const int ncount = d_ncount(ii);
+  if (jj >= ncount) return;
+
+  // if not nnn neighbors, order parameter = 0;
+
+  if ((ncount == 0) || (ncount < nnn))
+    return;
+
+  calc_boop1(ncount, ii, jj);
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrderAtomBOOP2,const int& ii) const {
+  const int i = d_ilist[ii];
+  const int ncount = d_ncount(ii);
+  calc_boop2(ncount, ii);
+}
+
 
 /* ----------------------------------------------------------------------
    select3 routine from Numerical Recipes (slightly modified)
@@ -360,64 +413,62 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::select3(int k, int n, int iatom) 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop(int ncount, int nqlist, int iatom) const
+void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop1(int ncount, int iatom, int ineigh) const
 {
-  //for (int il = 0; il < nqlist; il++) { // move to outside deep_copy
-  //  int l = qlist[il];
-  //  for(int m = 0; m < 2*l+1; m++) {
-  //    d_qnm(il,m).re = 0.0;
-  //    d_qnm(il,m).im = 0.0;
-  //  }
-  //}
-
-  for(int ineigh = 0; ineigh < ncount; ineigh++) { // 
-    const double r0 = d_rlist(iatom,ineigh,0);
-    const double r1 = d_rlist(iatom,ineigh,1);
-    const double r2 = d_rlist(iatom,ineigh,2);
-    const double rmag = sqrt(r0*r0 + r1*r1 + r2*r2);
-    if(rmag <= MY_EPSILON) {
-      return;
-    }
-
-    const double costheta = r2 / rmag;
-    SNAcomplex expphi = {r0,r1};
-    const double rxymag = sqrt(expphi.re*expphi.re+expphi.im*expphi.im);
-    if(rxymag <= MY_EPSILON) {
-      expphi.re = 1.0;
-      expphi.im = 0.0;
-    } else {
-      const double rxymaginv = 1.0/rxymag;
-      expphi.re *= rxymaginv;
-      expphi.im *= rxymaginv;
-    }
-
-    for (int il = 0; il < nqlist; il++) {
-      const int l = d_qlist[il];
-
-      d_qnm(iatom,il,l).re += polar_prefactor(l, 0, costheta);
-      SNAcomplex expphim = {expphi.re,expphi.im};
-      for(int m = 1; m <= +l; m++) {
-        const double prefactor = polar_prefactor(l, m, costheta);
-        SNAcomplex c = {prefactor * expphim.re, prefactor * expphim.im};
-        d_qnm(iatom,il,m+l).re += c.re;
-        d_qnm(iatom,il,m+l).im += c.im;
-        if(m & 1) {
-          d_qnm(iatom,il,-m+l).re -= c.re;
-          d_qnm(iatom,il,-m+l).im += c.im;
-        } else {
-          d_qnm(iatom,il,-m+l).re += c.re;
-          d_qnm(iatom,il,-m+l).im -= c.im;
-        }
-        SNAcomplex tmp;
-        tmp.re = expphim.re*expphi.re - expphim.im*expphi.im;
-        tmp.im = expphim.re*expphi.im + expphim.im*expphi.re;
-        expphim.re = tmp.re;
-        expphim.im = tmp.im;
-      }
-
-    }
+  const double r0 = d_rlist(iatom,ineigh,0);
+  const double r1 = d_rlist(iatom,ineigh,1);
+  const double r2 = d_rlist(iatom,ineigh,2);
+  const double rmag = sqrt(r0*r0 + r1*r1 + r2*r2);
+  if(rmag <= MY_EPSILON) {
+    return;
   }
 
+  const double costheta = r2 / rmag;
+  SNAcomplex expphi = {r0,r1};
+  const double rxymag = sqrt(expphi.re*expphi.re+expphi.im*expphi.im);
+  if(rxymag <= MY_EPSILON) {
+    expphi.re = 1.0;
+    expphi.im = 0.0;
+  } else {
+    const double rxymaginv = 1.0/rxymag;
+    expphi.re *= rxymaginv;
+    expphi.im *= rxymaginv;
+  }
+
+  for (int il = 0; il < nqlist; il++) {
+    const int l = d_qlist[il];
+
+    d_qnm(iatom,il,l).re += polar_prefactor(l, 0, costheta);
+    SNAcomplex expphim = {expphi.re,expphi.im};
+    for(int m = 1; m <= +l; m++) {
+      const double prefactor = polar_prefactor(l, m, costheta);
+      SNAcomplex c = {prefactor * expphim.re, prefactor * expphim.im};
+      d_qnm(iatom,il,m+l).re += c.re;
+      d_qnm(iatom,il,m+l).im += c.im;
+      if(m & 1) {
+        d_qnm(iatom,il,-m+l).re -= c.re;
+        d_qnm(iatom,il,-m+l).im += c.im;
+      } else {
+        d_qnm(iatom,il,-m+l).re += c.re;
+        d_qnm(iatom,il,-m+l).im -= c.im;
+      }
+      SNAcomplex tmp;
+      tmp.re = expphim.re*expphi.re - expphim.im*expphi.im;
+      tmp.im = expphim.re*expphi.im + expphim.im*expphi.re;
+      expphim.re = tmp.re;
+      expphim.im = tmp.im;
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------
+   calculate the bond orientational order parameters
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop2(int ncount, int iatom) const
+{
   // convert sums to averages
 
   double facn = 1.0 / ncount;
