@@ -50,7 +50,6 @@ struct TagComputeOrientOrderAtomBOOP2{};
 template<class DeviceType>
 class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
  public:
-
   typedef Kokkos::View<int*, DeviceType> t_sna_1i;
   typedef Kokkos::View<double*, DeviceType> t_sna_1d;
   typedef Kokkos::View<double*, DeviceType, Kokkos::MemoryTraits<Kokkos::Atomic> > t_sna_1d_atomic;
@@ -79,6 +78,7 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
 
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef int value_type;
 
   ComputeOrientOrderAtomKokkos(class LAMMPS *, int, char **);
   ~ComputeOrientOrderAtomKokkos();

@@ -438,19 +438,27 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop1(int ncount, int iatom,
   for (int il = 0; il < nqlist; il++) {
     const int l = d_qlist[il];
 
-    d_qnm(iatom,il,l).re += polar_prefactor(l, 0, costheta);
+    //d_qnm(iatom,il,l).re += polar_prefactor(l, 0, costheta);
+    const double polar_pf = polar_prefactor(l, 0, costheta);
+    Kokkos::atomic_add(&(d_qnm(iatom,il,l).re), polar_pf);
     SNAcomplex expphim = {expphi.re,expphi.im};
     for(int m = 1; m <= +l; m++) {
       const double prefactor = polar_prefactor(l, m, costheta);
       SNAcomplex c = {prefactor * expphim.re, prefactor * expphim.im};
-      d_qnm(iatom,il,m+l).re += c.re;
-      d_qnm(iatom,il,m+l).im += c.im;
+      //d_qnm(iatom,il,m+l).re += c.re;
+      //d_qnm(iatom,il,m+l).im += c.im;
+      Kokkos::atomic_add(&(d_qnm(iatom,il,m+l).re), c.re);
+      Kokkos::atomic_add(&(d_qnm(iatom,il,m+l).im), c.im);
       if(m & 1) {
-        d_qnm(iatom,il,-m+l).re -= c.re;
-        d_qnm(iatom,il,-m+l).im += c.im;
+        //d_qnm(iatom,il,-m+l).re -= c.re;
+        //d_qnm(iatom,il,-m+l).im += c.im;
+        Kokkos::atomic_add(&(d_qnm(iatom,il,-m+l).re), -c.re);
+        Kokkos::atomic_add(&(d_qnm(iatom,il,-m+l).im), c.im);
       } else {
-        d_qnm(iatom,il,-m+l).re += c.re;
-        d_qnm(iatom,il,-m+l).im -= c.im;
+        //d_qnm(iatom,il,-m+l).re += c.re;
+        //d_qnm(iatom,il,-m+l).im -= c.im;
+        Kokkos::atomic_add(&(d_qnm(iatom,il,-m+l).re), c.re);
+        Kokkos::atomic_add(&(d_qnm(iatom,il,-m+l).im), -c.im);
       }
       SNAcomplex tmp;
       tmp.re = expphim.re*expphi.re - expphim.im*expphi.im;
