@@ -354,74 +354,6 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::select3(int k, int n, int iatom) 
   }
 }
 
-//template<class DeviceType>
-//KOKKOS_INLINE_FUNCTION
-//void ComputeOrientOrderAtomKokkos<DeviceType>::select3(int k, int n, double *arr, int *iarr, double **arr3) const
-//{
-//  int i,ir,j,l,mid,ia,itmp;
-//  double a,tmp,a3[3];
-//
-//  l = 0;
-//  ir = n-1;
-//  for (;;) {
-//    if (ir <= l+1) {
-//      if (ir == l+1 && arr[ir] < arr[l]) {
-//        SWAP(arr[l],arr[ir]);
-//        ISWAP(iarr[l],iarr[ir]);
-//        SWAP3(arr3[l],arr3[ir]);
-//      }
-//      return;
-//    } else {
-//      mid=((l+ir+2) >> 1) - 1;
-//      SWAP(arr[mid],arr[l+1]);
-//      ISWAP(iarr[mid],iarr[l+1]);
-//      SWAP3(arr3[mid],arr3[l+1]);
-//      if (arr[l] > arr[ir]) {
-//        SWAP(arr[l],arr[ir]);
-//        ISWAP(iarr[l],iarr[ir]);
-//        SWAP3(arr3[l],arr3[ir]);
-//      }
-//      if (arr[l+1] > arr[ir]) {
-//        SWAP(arr[l+1],arr[ir]);
-//        ISWAP(iarr[l+1],iarr[ir]);
-//        SWAP3(arr3[l+1],arr3[ir]);
-//      }
-//      if (arr[l] > arr[l+1]) {
-//        SWAP(arr[l],arr[l+1]);
-//        ISWAP(iarr[l],iarr[l+1]);
-//        SWAP3(arr3[l],arr3[l+1]);
-//      }
-//      i = l+1;
-//      j = ir;
-//      a = arr[l+1];
-//      ia = iarr[l+1];
-//      a3[0] = arr3[l+1][0];
-//      a3[1] = arr3[l+1][1];
-//      a3[2] = arr3[l+1][2];
-//      for (;;) {
-//        do i++; while (arr[i] < a);
-//        do j--; while (arr[j] > a);
-//        if (j < i) break;
-//        SWAP(arr[i],arr[j]);
-//        ISWAP(iarr[i],iarr[j]);
-//        SWAP3(arr3[i],arr3[j]);
-//      }
-//      arr[l+1] = arr[j];
-//      arr[j] = a;
-//      iarr[l+1] = iarr[j];
-//      iarr[j] = ia;
-//      arr3[l+1][0] = arr3[j][0];
-//      arr3[l+1][1] = arr3[j][1];
-//      arr3[l+1][2] = arr3[j][2];
-//      arr3[j][0] = a3[0];
-//      arr3[j][1] = a3[1];
-//      arr3[j][2] = a3[2];
-//      if (j+1 >= k) ir = j-1;
-//      if (j+1 <= k) l = i;
-//    }
-//  }
-//}
-
 /* ----------------------------------------------------------------------
    calculate the bond orientational order parameters
 ------------------------------------------------------------------------- */
@@ -705,4 +637,3 @@ template class ComputeOrientOrderAtomKokkos<LMPDeviceType>;
 template class ComputeOrientOrderAtomKokkos<LMPHostType>;
 #endif
 }
-
