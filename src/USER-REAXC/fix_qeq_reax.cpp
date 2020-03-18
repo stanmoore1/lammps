@@ -16,6 +16,7 @@
    (now at Lawrence Berkeley National Laboratory, hmaktulga@lbl.gov)
 
      Hybrid and sub-group capabilities: Ray Shan (Sandia)
+     ACKS2: Stan Moore (Sandia)
 ------------------------------------------------------------------------- */
 
 #include "fix_qeq_reax.h"
@@ -38,6 +39,8 @@
 #include "error.h"
 #include "reaxc_defs.h"
 #include "reaxc_types.h"
+#include "fix_efield.h"
+#include "utils.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -79,6 +82,8 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   pertype_option = new char[len];
   strcpy(pertype_option,arg[7]);
 
+  acks2_flag = 1; /////////////////////////
+
   // dual CG support only available for USER-OMP variant
   // check for compatibility is in Fix::post_constructor()
   dual_enabled = 0;
@@ -98,6 +103,7 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
 
   Hdia_inv = NULL;
   b_s = NULL;
+  chi_field = NULL;
   b_t = NULL;
   b_prc = NULL;
   b_prm = NULL;
@@ -238,15 +244,19 @@ void FixQEqReax::pertype_parameters(char *arg)
 void FixQEqReax::allocate_storage()
 {
   nmax = atom->nmax;
+  int ncm = nmax;
+  if (acks2_flag)
+    ncm = 2*nmax + 2;
 
-  memory->create(s,nmax,"qeq:s");
-  memory->create(t,nmax,"qeq:t");
+  memory->create(s,ncm,"qeq:s");
+  memory->create(t,ncm,"qeq:t");
 
-  memory->create(Hdia_inv,nmax,"qeq:Hdia_inv");
-  memory->create(b_s,nmax,"qeq:b_s");
-  memory->create(b_t,nmax,"qeq:b_t");
-  memory->create(b_prc,nmax,"qeq:b_prc");
-  memory->create(b_prm,nmax,"qeq:b_prm");
+  memory->create(Hdia_inv,ncm,"qeq:Hdia_inv");
+  memory->create(b_s,ncm,"qeq:b_s");
+  memory->create(chi_field,ncm,"qeq:chi_field");
+  memory->create(b_t,ncm,"qeq:b_t");
+  memory->create(b_prc,ncm,"qeq:b_prc");
+  memory->create(b_prm,ncm,"qeq:b_prm");
 
   // dual CG support
   int size = nmax;
@@ -267,6 +277,7 @@ void FixQEqReax::deallocate_storage()
 
   memory->destroy( Hdia_inv );
   memory->destroy( b_s );
+  memory->destroy( chi_field );
   memory->destroy( b_t );
   memory->destroy( b_prc );
   memory->destroy( b_prm );
@@ -305,6 +316,8 @@ void FixQEqReax::allocate_matrix()
   }
 
   n = atom->nlocal;
+  if (acks2_flag)
+    n = 2*n + 2;
   n_cap = MAX( (int)(n * safezone), mincap);
 
   // determine the total space for the H matrix
@@ -324,6 +337,8 @@ void FixQEqReax::allocate_matrix()
     i = ilist[ii];
     m += numneigh[i];
   }
+  if (acks2_flag)
+    m = m + atom->nlocal + 2;
   m_cap = MAX( (int)(m * safezone), mincap * MIN_NBRS);
 
   H.n = n_cap;
@@ -361,6 +376,11 @@ void FixQEqReax::init()
 
   ngroup = group->count(igroup);
   if (ngroup == 0) error->all(FLERR,"Fix qeq/reax group has no atoms");
+
+  field_flag = 0;
+  for (int n = 0; n < modify->nfix; n++)
+    if (utils::strmatch(modify->fix[n]->style,"^efield"))
+      field_flag = 1;
 
   // need a half neighbor list w/ Newton off and ghost neighbors
   // built whenever re-neighboring occurs
@@ -465,6 +485,9 @@ void FixQEqReax::min_setup_pre_force(int vflag)
 
 void FixQEqReax::init_storage()
 {
+  if (field_flag)
+    get_chi_field();
+
   int NN;
 
   if (reaxc)
@@ -474,12 +497,30 @@ void FixQEqReax::init_storage()
 
   for (int i = 0; i < NN; i++) {
     Hdia_inv[i] = 1. / eta[atom->type[i]];
-    b_s[i] = -chi[atom->type[i]];
+    b_s[i] = -chi[atom->type[i]] - chi_field[i];
     b_t[i] = -1.0;
     b_prc[i] = 0;
     b_prm[i] = 0;
     s[i] = t[i] = 0;
   }
+
+  // Assume net charge is zero for ACKS2 (for now), as is the case for QeQ
+
+  for (int i = 0; i < N_cm; i++)
+    b_s[NN + i] = 0.0;
+
+  //double cm_q_net = 0.0;
+
+  /* Non-zero total charge can lead to unphysical results.
+   * As such, set the ACKS2 reference charge of every atom
+   * to the total charge divided by the number of atoms.
+   * Except for trivial cases, this leads to fractional
+   * reference charges, which is usually not desirable. */
+  //for (int i = 0; i < N_cm - 1; i++)
+  //  b_s[i + NN] = cm_q_net / NN;
+
+  /* system charge defines the total charge constraint */
+  //b_s[N_cm - 1] = cm_q_net;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -500,6 +541,9 @@ void FixQEqReax::pre_force(int /*vflag*/)
   if (atom->nmax > nmax) reallocate_storage();
   if (n > n_cap*DANGER_ZONE || m_fill > m_cap*DANGER_ZONE)
     reallocate_matrix();
+
+  if (field_flag)
+    get_chi_field();
 
   init_matvec();
 
@@ -553,7 +597,7 @@ void FixQEqReax::init_matvec()
 
       /* init pre-conditioner for H and init solution vectors */
       Hdia_inv[i] = 1. / eta[ atom->type[i] ];
-      b_s[i]      = -chi[ atom->type[i] ];
+      b_s[i]      = -chi[ atom->type[i] ] - chi_field[i];
       b_t[i]      = -1.0;
 
       /* quadratic extrapolation for s & t from previous solutions */
@@ -1098,3 +1142,32 @@ void FixQEqReax::vector_add( double* dest, double c, double* v, int k)
       dest[kk] += c * v[kk];
   }
 }
+
+/* ---------------------------------------------------------------------- */
+
+void FixQEqReax::get_chi_field()
+{
+  int nall = atom->nlocal + atom->nghost;
+
+  memset(&chi_field[0],0.0,atom->nmax*sizeof(double));
+
+  if (!(strcmp(update->unit_style,"real") == 0))
+    error->all(FLERR,"Must use unit_style real with fix qeq/reax and external fields");
+
+  double factor = 1.0/force->qe2f;
+  
+
+  // loop over all fixes, find fix efield
+
+  for (int n = 0; n < modify->nfix; n++) {
+    if (utils::strmatch(modify->fix[n]->style,"^efield")) {
+
+      FixEfield* fix_efield = (FixEfield*) modify->fix[n];
+      double* field_energy = fix_efield->get_energy(); // Real units of kcal/mol/angstrom, need to convert to eV
+
+      for (int i = 0; i < nall; i++)
+        chi_field[i] += field_energy[i]*factor;
+    }
+  }
+}
+
