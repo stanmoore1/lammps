@@ -64,7 +64,7 @@ neighbor atom in each requested ADF.
    those pairs will not be included in the ADF. This does not apply when
    using long-range coulomb interactions (\ *coul/long*\ , *coul/msm*\ ,
    *coul/wolf* or similar.  One way to get around this would be to set
-   special\_bond scaling factors to very tiny numbers that are not exactly
+   special_bond scaling factors to very tiny numbers that are not exactly
    zero (e.g. 1.0e-50). Another workaround is to write a dump file, and
    use the :doc:`rerun <rerun>` command to compute the ADF for snapshots in
    the dump file.  The rerun script can use a
@@ -106,7 +106,7 @@ in the range of types represented by *ktypeN*\ .
 If no *itypeN*\ , *jtypeN*\ , *ktypeN* settings are specified, then
 LAMMPS will generate a single ADF for all atoms in the group.
 The inner cutoff is set to zero and the outer cutoff is set
-to the force cutoff. If no pair\_style is specified, there is no
+to the force cutoff. If no pair_style is specified, there is no
 force cutoff and LAMMPS will give an error message. Note that
 in most cases, generating an ADF for all atoms is not a good thing.
 Such an ADF is both uninformative and
@@ -209,7 +209,7 @@ atoms further away than that distance.  If you want an ADF for larger
 distances, you can use the :doc:`rerun <rerun>` command to post-process
 a dump file and set the cutoff for the potential to be longer in the
 rerun script.  Note that in the rerun context, the force cutoff is
-arbitrary, since you aren't running dynamics and thus are not changing
+arbitrary, since you are not running dynamics and thus are not changing
 your model.
 
 Related commands

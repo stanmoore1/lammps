@@ -45,7 +45,7 @@ Apply a spring force to a group of atoms or between two groups of
 atoms.  This is useful for applying an umbrella force to a small
 molecule or lightly tethering a large group of atoms (e.g. all the
 solvent or a large molecule) to the center of the simulation box so
-that it doesn't wander away over the course of a long simulation.  It
+that it does not wander away over the course of a long simulation.  It
 can also be used to hold the centers of mass of two groups of atoms at
 a given distance or orientation with respect to each other.
 
@@ -97,7 +97,7 @@ last example holds the ion a distance 5 away from the pore axis
    spring connecting two groups or a group and the tether point can cross
    a periodic boundary and its length be calculated correctly.
 
-**Restart, fix\_modify, output, run start/stop, minimize info:**
+**Restart, fix_modify, output, run start/stop, minimize info:**
 
 No information about this fix is written to :doc:`binary restart files <restart>`.
 

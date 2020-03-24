@@ -40,33 +40,61 @@ own sub-directories with their own Makefiles and/or README files.
 Pre-processing tools
 ====================
 
-+-----------------------------+------------------------+----------------------+----------------------------------+----------------------------------+-----------------------------+
-| :ref:`amber2lmp <amber>`    | :ref:`ch2lmp <charmm>` | :ref:`chain <chain>` | :ref:`createatoms <createatoms>` | :ref:`drude <drude>`             | :ref:`eam database <eamdb>` |
-+-----------------------------+------------------------+----------------------+----------------------------------+----------------------------------+-----------------------------+
-| :ref:`eam generate <eamgn>` | :ref:`eff <eff>`       | :ref:`ipp <ipp>`     | :ref:`micelle2d <micelle>`       | :ref:`moltemplate <moltemplate>` | :ref:`msi2lmp <msi>`        |
-+-----------------------------+------------------------+----------------------+----------------------------------+----------------------------------+-----------------------------+
-| :ref:`polybond <polybond>`  |                        |                      |                                  |                                  |                             |
-+-----------------------------+------------------------+----------------------+----------------------------------+----------------------------------+-----------------------------+
+.. table_from_list::
+   :columns: 6
+
+   * :ref:`amber2lmp <amber>`
+   * :ref:`ch2lmp <charmm>`
+   * :ref:`chain <chain>`
+   * :ref:`createatoms <createatoms>`
+   * :ref:`drude <drude>`
+   * :ref:`eam database <eamdb>`
+   * :ref:`eam generate <eamgn>`
+   * :ref:`eff <eff>`
+   * :ref:`ipp <ipp>`
+   * :ref:`micelle2d <micelle>`
+   * :ref:`moltemplate <moltemplate>`
+   * :ref:`msi2lmp <msi>`
+   * :ref:`polybond <polybond>`
+
 
 Post-processing tools
 =====================
 
-+--------------------------+----------------------------+------------------------+--------------------------+-------------------------------+-----------------------------+
-| :ref:`amber2lmp <amber>` | :ref:`binary2txt <binary>` | :ref:`ch2lmp <charmm>` | :ref:`colvars <colvars>` | :ref:`eff <eff>`              | :ref:`fep <fep>`            |
-+--------------------------+----------------------------+------------------------+--------------------------+-------------------------------+-----------------------------+
-| :ref:`lmp2arc <arc>`     | :ref:`lmp2cfg <cfg>`       | :ref:`matlab <matlab>` | :ref:`phonon <phonon>`   | :ref:`pymol_asphere <pymol>`  | :ref:`python <pythontools>` |
-+--------------------------+----------------------------+------------------------+--------------------------+-------------------------------+-----------------------------+
-| :ref:`reax <reax_tool>`  | :ref:`replica <replica>`   | :ref:`smd <smd>`       | :ref:`spin <spin>`       | :ref:`xmgrace <xmgrace>`      |                             |
-+--------------------------+----------------------------+------------------------+--------------------------+-------------------------------+-----------------------------+
+.. table_from_list::
+   :columns: 6
+
+   * :ref:`amber2lmp <amber>`
+   * :ref:`binary2txt <binary>`
+   * :ref:`ch2lmp <charmm>`
+   * :ref:`colvars <colvars>`
+   * :ref:`eff <eff>`
+   * :ref:`fep <fep>`
+   * :ref:`lmp2arc <arc>`
+   * :ref:`lmp2cfg <cfg>`
+   * :ref:`matlab <matlab>`
+   * :ref:`phonon <phonon>`
+   * :ref:`pymol_asphere <pymol>`
+   * :ref:`python <pythontools>`
+   * :ref:`reax <reax_tool>`
+   * :ref:`replica <replica>`
+   * :ref:`smd <smd>`
+   * :ref:`spin <spin>`
+   * :ref:`xmgrace <xmgrace>`
 
 Miscellaneous tools
 ===================
 
-+--------------------------+----------------------+-------------------+--------------------+---------------------------------------+
-| :ref:`doxygen <doxygen>` | :ref:`emacs <emacs>` | :ref:`i-pi <ipi>` | :ref:`kate <kate>` | :ref:`singularity <singularity_tool>` |
-+--------------------------+----------------------+-------------------+--------------------+---------------------------------------+
-| :ref:`vim <vim>`         |                      |                   |                    |                                       |
-+--------------------------+----------------------+-------------------+--------------------+---------------------------------------+
+.. table_from_list::
+   :columns: 6
+
+   * :ref:`CMake <cmake>`
+   * :ref:`doxygen <doxygen>`
+   * :ref:`emacs <emacs>`
+   * :ref:`i-pi <ipi>`
+   * :ref:`kate <kate>`
+   * :ref:`singularity <singularity_tool>`
+   * :ref:`vim <vim>`
 
 ----------
 
@@ -99,7 +127,7 @@ binary2txt tool
 The file binary2txt.cpp converts one or more binary LAMMPS dump file
 into ASCII text files.  The syntax for running the tool is
 
-.. parsed-literal::
+.. code-block:: bash
 
    binary2txt file1 file2 ...
 
@@ -149,13 +177,37 @@ chains and solvent atoms can strongly overlap, so LAMMPS needs to run
 the system initially with a "soft" pair potential to un-overlap it.
 The syntax for running the tool is
 
-.. parsed-literal::
+.. code-block:: bash
 
    chain < def.chain > data.file
 
 See the def.chain or def.chain.ab files in the tools directory for
 examples of definition files.  This tool was used to create the system
 for the :doc:`chain benchmark <Speed_bench>`.
+
+----------
+
+.. _cmake:
+
+CMake tools
+-----------
+
+The ``cmbuild`` script is a wrapper around using ``cmake --build <dir>
+--target`` and allows compiling LAMMPS in a :ref:`CMake build folder
+<cmake_build>` with a make-like syntax regardless of the actual build
+tool and the specific name of the program used (e.g. ``ninja-v1.10`` or
+``gmake``) when using ``-D CMAKE_MAKE_PROGRAM=<name>``.
+
+.. parsed-literal::
+
+  Usage: cmbuild [-v] [-h] [-C <dir>] [-j <num>] [<target>]
+
+  Options:
+    -h                print this message
+    -j <NUM>          allow processing of NUM concurrent tasks
+    -C DIRECTORY      execute build in folder DIRECTORY
+    -v                produce verbose output
+
 
 ----------
 
@@ -171,18 +223,18 @@ To compile the tools, edit the makefile for your system and run "make".
 Please report problems and issues the colvars library and its tools
 at: https://github.com/colvars/colvars/issues
 
-abf\_integrate:
+abf_integrate:
 
 MC-based integration of multidimensional free energy gradient
 Version 20110511
 
 .. parsed-literal::
 
-   Syntax: ./abf_integrate < filename > [-n < nsteps >] [-t < temp >] [-m [0\|1] (metadynamics)] [-h < hill_height >] [-f < variable_hill_factor >]
+   ./abf_integrate < filename > [-n < nsteps >] [-t < temp >] [-m [0\|1] (metadynamics)] [-h < hill_height >] [-f < variable_hill_factor >]
 
 The LAMMPS interface to the colvars collective variable library, as
 well as these tools, were created by Axel Kohlmeyer (akohlmey at
-gmail.com) at ICTP, Italy.
+gmail.com) while at ICTP, Italy.
 
 ----------
 
@@ -238,7 +290,7 @@ at univ-bpclermont.fr, alain.dequidt at univ-bpclermont.fr
 eam database tool
 -----------------------------
 
-The tools/eam\_database directory contains a Fortran program that will
+The tools/eam_database directory contains a Fortran program that will
 generate EAM alloy setfl potential files for any combination of 16
 elements: Cu, Ag, Au, Ni, Pd, Pt, Al, Pb, Fe, Mo, Ta, W, Mg, Co, Ti,
 Zr.  The files can then be used with the :doc:`pair_style eam/alloy <pair_eam>` command.
@@ -256,7 +308,7 @@ X. W. Zhou, R. A. Johnson, and H. N. G. Wadley, Phys. Rev. B, 69,
 eam generate tool
 -----------------------------
 
-The tools/eam\_generate directory contains several one-file C programs
+The tools/eam_generate directory contains several one-file C programs
 that convert an analytic formula into a tabulated :doc:`embedded atom method (EAM) <pair_eam>` setfl potential file.  The potentials they
 produce are in the potentials directory, and can be used with the
 :doc:`pair_style eam/alloy <pair_eam>` command.
@@ -427,7 +479,7 @@ atoms can strongly overlap, so LAMMPS needs to run the system
 initially with a "soft" pair potential to un-overlap it.  The syntax
 for running the tool is
 
-.. parsed-literal::
+.. code-block:: bash
 
    micelle2d < def.micelle2d > data.file
 
@@ -512,10 +564,10 @@ This tool was written by Zachary Kraus at Georgia Tech.
 
 .. _pymol:
 
-pymol\_asphere tool
+pymol_asphere tool
 -------------------------------
 
-The pymol\_asphere sub-directory contains a tool for converting a
+The pymol_asphere sub-directory contains a tool for converting a
 LAMMPS dump file that contains orientation info for ellipsoidal
 particles into an input file for the `PyMol visualization package <pymolhome_>`_ or its `open source variant <pymolopen_>`_.
 
@@ -525,7 +577,7 @@ particles into an input file for the `PyMol visualization package <pymolhome_>`_
 
 Specifically, the tool triangulates the ellipsoids so they can be
 viewed as true ellipsoidal particles within PyMol.  See the README and
-examples directory within pymol\_asphere for more information.
+examples directory within pymol_asphere for more information.
 
 This tool was written by Mike Brown at Sandia.
 
@@ -555,7 +607,7 @@ README for more info on Pizza.py and how to use these scripts.
 replica tool
 --------------------------
 
-The tools/replica directory contains the reorder\_remd\_traj python script which
+The tools/replica directory contains the reorder_remd_traj python script which
 can be used to reorder the replica trajectories (resulting from the use of the
 temper command) according to temperature. This will produce discontinuous
 trajectories with all frames at the same temperature in each trajectory.
@@ -568,7 +620,7 @@ while at the Shell lab at UC Santa Barbara. (tanmoy dot 7989 at gmail.com)
 
 ----------
 
-.. _reax\_tool:
+.. _reax_tool:
 
 reax tool
 --------------------------
@@ -587,7 +639,7 @@ These tools were written by Aidan Thompson at Sandia.
 smd tool
 ------------------
 
-The smd sub-directory contains a C++ file dump2vtk\_tris.cpp and
+The smd sub-directory contains a C++ file dump2vtk_tris.cpp and
 Makefile which can be compiled and used to convert triangle output
 files created by the Smooth-Mach Dynamics (USER-SMD) package into a
 VTK-compatible unstructured grid file.  It could then be read in and
@@ -610,7 +662,7 @@ The spin sub-directory contains a C file interpolate.c which can
 be compiled and used to perform a cubic polynomial interpolation of
 the MEP following a GNEB calculation.
 
-See the README file in tools/spin/interpolate\_gneb for more details.
+See the README file in tools/spin/interpolate_gneb for more details.
 
 This tool was written by the SPIN package author, Julien
 Tranchida at Sandia National Labs (jtranch at sandia.gov, and by Aleksei
@@ -618,7 +670,7 @@ Ivanov, at University of Iceland (ali5 at hi.is).
 
 ----------
 
-.. _singularity\_tool:
+.. _singularity_tool:
 
 singularity tool
 ----------------------------------------

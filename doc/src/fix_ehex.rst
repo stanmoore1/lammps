@@ -99,7 +99,7 @@ velocity of that reservoir. The thermostatting force does not affect
 the center of mass velocities of the individual reservoirs and the
 entire simulation box. A derivation of the equations and details on
 the numerical implementation with velocity Verlet in LAMMPS can be
-found in reference "(Wirnsberger)"#\_Wirnsberger.
+found in reference "(Wirnsberger)"#_Wirnsberger.
 
 .. note::
 
@@ -109,7 +109,7 @@ found in reference "(Wirnsberger)"#\_Wirnsberger.
 
 This fix is different from a thermostat such as :doc:`fix nvt <fix_nh>`
 or :doc:`fix temp/rescale <fix_temp_rescale>` in that energy is
-added/subtracted continually.  Thus if there isn't another mechanism
+added/subtracted continually.  Thus if there is not another mechanism
 in place to counterbalance this effect, the entire system will heat or
 cool continuously.
 
@@ -163,7 +163,7 @@ constraints will be satisfied.
 
 ----------
 
-**Restart, fix\_modify, output, run start/stop, minimize info:**
+**Restart, fix_modify, output, run start/stop, minimize info:**
 
 No information about this fix is written to :doc:`binary restart files <restart>`.  None of the :doc:`fix_modify <fix_modify>` options
 are relevant to this fix.

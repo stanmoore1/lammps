@@ -108,7 +108,7 @@ non-zero molecule ID, but does not check for this at the time of
 swapping.
 
 If not using *semi-grand* this fix checks to ensure all atoms of the
-given types have the same atomic charge. LAMMPS doesn't enforce this
+given types have the same atomic charge. LAMMPS does not enforce this
 in general, but it is needed for this fix to simplify the
 swapping procedure. Successful swaps will swap the atom type and charge
 of the swapped atoms. Conversely, when using *semi-grand*\ , it is assumed that all the atom
@@ -141,7 +141,7 @@ you MUST enable the :doc:`fix_modify <fix_modify>` *energy* option for
 that fix.  The doc pages for individual :doc:`fix <fix>` commands
 specify if this should be done.
 
-**Restart, fix\_modify, output, run start/stop, minimize info:**
+**Restart, fix_modify, output, run start/stop, minimize info:**
 
 This fix writes the state of the fix to :doc:`binary restart files <restart>`.  This includes information about the random
 number generator seed, the next timestep for MC exchanges, the number

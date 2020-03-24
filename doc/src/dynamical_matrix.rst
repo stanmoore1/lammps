@@ -70,10 +70,10 @@ See the :doc:`Build package <Build_package>` doc page for more info.
 Related commands
 """"""""""""""""
 
-:doc:`fix phonon <fix_phonon>`
+:doc:`fix phonon <fix_phonon>`, :doc:`fix numdiff <fix_numdiff>`, 
 
 :doc:`compute hma <compute_hma>` uses an analytic formulation of the
-Hessian provided by a pair_style's Pair::single\_hessian() function,
+Hessian provided by a pair_style's Pair::single_hessian() function,
 if implemented.
 
 Default

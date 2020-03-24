@@ -57,7 +57,7 @@ shell of distances in 3d and a thin ring of distances in 2d.
    those pairs will not be included in the RDF. This does not apply when
    using long-range coulomb interactions (\ *coul/long*\ , *coul/msm*\ ,
    *coul/wolf* or similar.  One way to get around this would be to set
-   special\_bond scaling factors to very tiny numbers that are not exactly
+   special_bond scaling factors to very tiny numbers that are not exactly
    zero (e.g. 1.0e-50). Another workaround is to write a dump file, and
    use the :doc:`rerun <rerun>` command to compute the RDF for snapshots in
    the dump file.  The rerun script can use a
@@ -74,7 +74,7 @@ distance specified.
    Normally, you should only use the *cutoff* keyword if no pair
    style is defined, e.g. the :doc:`rerun <rerun>` command is being used to
    post-process a dump file of snapshots.  Or if you really want the RDF
-   for distances beyond the pair\_style force cutoff and cannot easily
+   for distances beyond the pair_style force cutoff and cannot easily
    post-process a dump file to calculate it.  This is because using the
    *cutoff* keyword incurs extra computation and possibly communication,
    which may slow down your simulation.  If you specify a *Rcut* <= force
@@ -180,7 +180,7 @@ atoms further away than that distance.  If you want an RDF for larger
 distances, you can use the :doc:`rerun <rerun>` command to post-process
 a dump file and set the cutoff for the potential to be longer in the
 rerun script.  Note that in the rerun context, the force cutoff is
-arbitrary, since you aren't running dynamics and thus are not changing
+arbitrary, since you are not running dynamics and thus are not changing
 your model.  The definition of g(r) used by LAMMPS is only appropriate
 for characterizing atoms that are uniformly distributed throughout the
 simulation cell. In such cases, the coordination number is still
