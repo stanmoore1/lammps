@@ -70,7 +70,7 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
 {
   if (lmp->citeme) lmp->citeme->add(cite_fix_qeq_reax);
 
-  if (narg<8 || narg>9) error->all(FLERR,"Illegal fix qeq/reax command");
+  if (narg<8 || narg>10) error->all(FLERR,"Illegal fix qeq/reax command");
 
   nevery = force->inumeric(FLERR,arg[3]);
   if (nevery <= 0) error->all(FLERR,"Illegal fix qeq/reax command");
@@ -82,15 +82,20 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   pertype_option = new char[len];
   strcpy(pertype_option,arg[7]);
 
-  acks2_flag = 1; /////////////////////////
-
   // dual CG support only available for USER-OMP variant
   // check for compatibility is in Fix::post_constructor()
   dual_enabled = 0;
-  if (narg == 9) {
-    if (strcmp(arg[8],"dual") == 0) dual_enabled = 1;
-    else error->all(FLERR,"Illegal fix qeq/reax command");
+
+  acks2_flag = 0;
+
+  if (narg > 8) {
+    for (int iarg = 8; iarg < narg; iarg++) {
+      if (strcmp(arg[iarg],"dual") == 0) dual_enabled = 1;
+      else if (strcmp(arg[iarg],"acks2") == 0) acks2_flag = 1;
+      else error->all(FLERR,"Illegal fix qeq/reax command");
+    }
   }
+
   shld = NULL;
 
   n = n_cap = 0;
@@ -163,6 +168,8 @@ FixQEqReax::~FixQEqReax()
     memory->destroy(chi);
     memory->destroy(eta);
     memory->destroy(gamma);
+    if (acks2_flag)
+      memory->destroy(b_s_acks2);
   }
 }
 
@@ -202,11 +209,20 @@ void FixQEqReax::pertype_parameters(char *arg)
     if (chi == NULL || eta == NULL || gamma == NULL)
       error->all(FLERR,
                  "Fix qeq/reax could not extract params from pair reax/c");
+
+    if (acks2_flag) {
+      b_s_acks2 = (double *) pair->extract("b_s_acks2",tmp);
+      bond_softness = (double *) pair->extract("bond_softness",tmp);
+      if (b_s_acks2 == NULL || bond_softness == NULL)
+        error->all(FLERR,
+                   "Fix qeq/reax could not extract params from pair reax/c");      
+    }
+
     return;
   }
 
   int i,itype,ntypes,rv;
-  double v1,v2,v3;
+  double v1,v2,v3,v4;
   FILE *pf;
 
   reaxflag = 0;
@@ -215,20 +231,37 @@ void FixQEqReax::pertype_parameters(char *arg)
   memory->create(chi,ntypes+1,"qeq/reax:chi");
   memory->create(eta,ntypes+1,"qeq/reax:eta");
   memory->create(gamma,ntypes+1,"qeq/reax:gamma");
+  if (acks2_flag)
+    memory->create(b_s_acks2,ntypes+1,"qeq/reax:b_s_acks2");
 
   if (comm->me == 0) {
     if ((pf = fopen(arg,"r")) == NULL)
       error->one(FLERR,"Fix qeq/reax parameter file could not be found");
 
-    for (i = 1; i <= ntypes && !feof(pf); i++) {
-      rv = fscanf(pf,"%d %lg %lg %lg",&itype,&v1,&v2,&v3);
-      if (rv != 4)
+    if (acks2_flag) {
+      rv = fscanf(pf,"%lg",&v1);
+      if (rv != 1)
         error->one(FLERR,"Fix qeq/reax: Incorrect format of param file");
+      *bond_softness = v1;
+    }
+
+    for (i = 1; i <= ntypes && !feof(pf); i++) {
+      if (!acks2_flag) {
+        rv = fscanf(pf,"%d %lg %lg %lg",&itype,&v1,&v2,&v3);
+        if (rv != 4)
+          error->one(FLERR,"Fix qeq/reax: Incorrect format of param file");
+      } else {
+        rv = fscanf(pf,"%d %lg %lg %lg %lg",&itype,&v1,&v2,&v3,&v4);
+        if (rv != 5)
+          error->one(FLERR,"Fix qeq/reax: Incorrect format of param file");
+      }
       if (itype < 1 || itype > ntypes)
         error->one(FLERR,"Fix qeq/reax: invalid atom type in param file");
       chi[itype] = v1;
       eta[itype] = v2;
       gamma[itype] = v3;
+      if (acks2_flag)
+        b_s_acks2[itype] = v4;
     }
     if (i <= ntypes) error->one(FLERR,"Invalid param file for fix qeq/reax");
     fclose(pf);
@@ -237,6 +270,7 @@ void FixQEqReax::pertype_parameters(char *arg)
   MPI_Bcast(&chi[1],ntypes,MPI_DOUBLE,0,world);
   MPI_Bcast(&eta[1],ntypes,MPI_DOUBLE,0,world);
   MPI_Bcast(&gamma[1],ntypes,MPI_DOUBLE,0,world);
+  MPI_Bcast(&b_s_acks2[1],ntypes,MPI_DOUBLE,0,world);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -506,8 +540,8 @@ void FixQEqReax::init_storage()
 
   // Assume net charge is zero for ACKS2 (for now), as is the case for QeQ
 
-  for (int i = 0; i < N_cm; i++)
-    b_s[NN + i] = 0.0;
+  for (int i = 0; i < N+2; i++)
+    b_s[N + i] = 0.0;
 
   //double cm_q_net = 0.0;
 
@@ -534,6 +568,10 @@ void FixQEqReax::pre_force(int /*vflag*/)
 
   n = atom->nlocal;
   N = atom->nlocal + atom->nghost;
+
+  N_cm = n;
+  if (acks2_flag)
+    N_cm = 2*n + 2;
 
   // grow arrays if necessary
   // need to be atom->nmax in length
@@ -710,6 +748,84 @@ double FixQEqReax::calculate_H( double r, double gamma)
   denom = pow(denom,0.3333333333333);
 
   return Taper * EV_TO_KCAL_PER_MOL / denom;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixQEqReax::compute_X()
+{
+  int inum, jnum, *ilist, *jlist, *numneigh, **firstneigh;
+  int i, j, ii, jj, flag;
+  double dx, dy, dz, r_sqr;
+  const double SMALL = 0.0001;
+
+  int *type = atom->type;
+  tagint *tag = atom->tag;
+  double **x = atom->x;
+  int *mask = atom->mask;
+
+  if (reaxc) {
+    inum = reaxc->list->inum;
+    ilist = reaxc->list->ilist;
+    numneigh = reaxc->list->numneigh;
+    firstneigh = reaxc->list->firstneigh;
+  } else {
+    inum = list->inum;
+    ilist = list->ilist;
+    numneigh = list->numneigh;
+    firstneigh = list->firstneigh;
+  }
+
+  // fill in the H matrix
+  m_fill = 0;
+  r_sqr = 0;
+  for (ii = 0; ii < inum; ii++) {
+    i = ilist[ii];
+    if (mask[i] & groupbit) {
+      jlist = firstneigh[i];
+      jnum = numneigh[i];
+      H.firstnbr[i] = m_fill;
+
+      for (jj = 0; jj < jnum; jj++) {
+        j = jlist[jj];
+        j &= NEIGHMASK;
+
+        dx = x[j][0] - x[i][0];
+        dy = x[j][1] - x[i][1];
+        dz = x[j][2] - x[i][2];
+        r_sqr = SQR(dx) + SQR(dy) + SQR(dz);
+
+        flag = 0;
+        if (r_sqr <= SQR(swb)) {
+          if (j < n) flag = 1;
+          else if (tag[i] < tag[j]) flag = 1;
+          else if (tag[i] == tag[j]) {
+            if (dz > SMALL) flag = 1;
+            else if (fabs(dz) < SMALL) {
+              if (dy > SMALL) flag = 1;
+              else if (fabs(dy) < SMALL && dx > SMALL)
+                flag = 1;
+            }
+          }
+        }
+
+        if (flag) {
+          H.jlist[m_fill] = j;
+          H.val[m_fill] = calculate_H( sqrt(r_sqr), shld[type[i]][type[j]]);
+          m_fill++;
+        }
+      }
+      H.numnbrs[i] = m_fill - H.firstnbr[i];
+    }
+  }
+
+  if (m_fill >= H.m) {
+    char str[128];
+    sprintf(str,"H matrix size has been exceeded: m_fill=%d H.m=%d\n",
+             m_fill, H.m);
+    error->warning(FLERR,str);
+    error->all(FLERR,"Fix qeq/reax has insufficient QEq matrix size");
+  }
 }
 
 /* ---------------------------------------------------------------------- */

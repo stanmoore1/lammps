@@ -209,7 +209,7 @@ char Read_Force_Field( FILE *fp, reax_interaction *reax,
     val = atof(tmp[3]); reax->sbp[i].b_o_131    = val;
     val = atof(tmp[4]); reax->sbp[i].b_o_132    = val;
     val = atof(tmp[5]); reax->sbp[i].b_o_133    = val;
-    val = atof(tmp[6]);
+    val = atof(tmp[6]); reax->sbp[i].b_s_acks2  = val;
     val = atof(tmp[7]);
 
     /* line 4  */

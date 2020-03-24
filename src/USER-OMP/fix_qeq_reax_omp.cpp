@@ -86,6 +86,8 @@ FixQEqReaxOMP::~FixQEqReaxOMP()
 void FixQEqReaxOMP::post_constructor()
 {
   pertype_parameters(pertype_option);
+  if (acks2_flag)
+    error->all(FLERR,"Acks2 keyword not yet supported with fix qeq/reax/omp"); 
 }
 
 /* ---------------------------------------------------------------------- */

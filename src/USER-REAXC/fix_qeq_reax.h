@@ -57,7 +57,7 @@ class FixQEqReax : public Fix {
 
  protected:
   int nevery,reaxflag;
-  int n, N, m_fill;
+  int n, N, m_fill, N_cm;
   int n_cap, nmax, m_cap;
   int pack_flag;
   int nlevels_respa;
@@ -68,7 +68,8 @@ class FixQEqReax : public Fix {
   double Tap[8];        // Taper function
   double tolerance;     // tolerance for the norm of the rel residual in CG
 
-  double *chi,*eta,*gamma;  // qeq parameters
+  double *chi,*eta,*gamma;          // qeq parameters
+  double *b_s_acks2,*bond_softness; // acks2 parameters
   double **shld;
 
   bigint ngroup;
@@ -117,6 +118,7 @@ class FixQEqReax : public Fix {
   void init_H();
   virtual void compute_H();
   double calculate_H(double,double);
+  void compute_X();
   virtual void calculate_Q();
 
   virtual int CG(double*,double*);

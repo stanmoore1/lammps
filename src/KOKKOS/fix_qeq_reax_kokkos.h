@@ -42,6 +42,7 @@ class FixQEqReaxKokkos : public FixQEqReax {
   FixQEqReaxKokkos(class LAMMPS *, int, char **);
   ~FixQEqReaxKokkos();
 
+  void post_constructor();
   void cleanup_copy();
   void init();
   void setup_pre_force(int);

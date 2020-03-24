@@ -67,7 +67,7 @@ class PairReaxC : public Pair {
   int *map;
   class FixReaxC *fix_reax;
 
-  double *chi,*eta,*gamma;
+  double *chi,*eta,*gamma,*b_s_acks2;
   int qeqflag;
   int setup_flag;
   int firstwarn;

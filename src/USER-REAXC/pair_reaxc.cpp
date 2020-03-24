@@ -180,6 +180,7 @@ PairReaxC::~PairReaxC()
     delete [] chi;
     delete [] eta;
     delete [] gamma;
+    delete [] b_s_acks2;
   }
 
   memory->destroy(tmpid);
@@ -204,6 +205,7 @@ void PairReaxC::allocate( )
   chi = new double[n+1];
   eta = new double[n+1];
   gamma = new double[n+1];
+  b_s_acks2 = new double[n+1];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -809,6 +811,16 @@ void *PairReaxC::extract(const char *str, int &dim)
       if (map[i] >= 0) gamma[i] = system->reax_param.sbp[map[i]].gamma;
       else gamma[i] = 0.0;
     return (void *) gamma;
+  }
+  if (strcmp(str,"b_s_acks2") == 0 && b_s_acks2) {
+    for (int i = 1; i <= atom->ntypes; i++)
+      if (map[i] >= 0) b_s_acks2[i] = system->reax_param.sbp[map[i]].b_s_acks2;
+      else b_s_acks2[i] = 0.0;
+    return (void *) b_s_acks2;
+  }
+  if (strcmp(str,"bond_softness") == 0) {
+      double* bond_softness = &system->reax_param.gp.l[34];
+    return (void *) bond_softness;
   }
   return NULL;
 }

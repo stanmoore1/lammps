@@ -172,6 +172,7 @@ typedef struct
   double b_o_131;
   double b_o_132;
   double b_o_133;
+  double b_s_asks2; // ACKS2 bond softness 
 
   /* Line four in the field file */
   double p_ovun2;

@@ -77,6 +77,17 @@ FixQEqReaxKokkos<DeviceType>::~FixQEqReaxKokkos()
   memoryKK->destroy_kokkos(k_t_hist,t_hist);
 }
 
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void FixQEqReaxKokkos<DeviceType>::post_constructor()
+{
+  pertype_parameters(pertype_option);
+  if (acks2_flag)
+    error->all(FLERR,"Acks2 keyword not yet supported with fix qeq/reax/kk");
+}
+
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>

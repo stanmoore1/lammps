@@ -41,7 +41,7 @@ enum{NONE,CONSTANT,EQUAL,ATOM};
 
 FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg), xstr(NULL), ystr(NULL), zstr(NULL),
-  estr(NULL), idregion(NULL), efield(NULL)
+  estr(NULL), idregion(NULL), efield(NULL), energy(NULL)
 {
   if (narg < 6) error->all(FLERR,"Illegal fix efield command");
 
@@ -131,6 +131,7 @@ FixEfield::~FixEfield()
   delete [] estr;
   delete [] idregion;
   memory->destroy(efield);
+  memory->destroy(energy);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -458,4 +459,62 @@ double FixEfield::compute_vector(int n)
     force_flag = 1;
   }
   return fsum_all[n+1];
+}
+
+/* ----------------------------------------------------------------------
+   get E
+------------------------------------------------------------------------- */
+
+double* FixEfield::get_energy()
+{
+  double **x = atom->x;
+  double *q = atom->q;
+  int *mask = atom->mask;
+  imageint *image = atom->image;
+
+  int nall = atom->nlocal + atom->nghost;
+
+  // reallocate energy array if necessary
+
+  if (atom->nmax > maxatom_energy) {
+    maxatom_energy = atom->nmax;
+    memory->destroy(energy);
+    memory->create(energy,maxatom_energy,"efield:energy");
+  }
+  memset(&energy[0],0.0,maxatom_energy*sizeof(double));
+
+  // update region if necessary
+
+  Region *region = NULL;
+  if (iregion >= 0) {
+    region = domain->regions[iregion];
+    region->prematch();
+  }
+
+  // constant efield
+
+  if (varflag == CONSTANT) {
+    double unwrap[3];
+
+    // charge interactions
+    // force = qE, potential energy = F dot x in unwrapped coords
+
+    if (qflag) {
+      for (int i = 0; i < nall; i++) {
+        if (mask[i] & groupbit) {
+          if (region && !region->match(x[i][0],x[i][1],x[i][2])) continue;
+          const double fx = ex;
+          const double fy = ey;
+          const double fz = ez;
+
+          domain->unmap(x[i],image[i],unwrap);
+          energy[i] -= fx*unwrap[0] + fy*unwrap[1] + fz*unwrap[2];
+        }
+      }
+    }
+  } else {
+    error->all(FLERR,"Cannot yet use fix qeq/reax with variable efield");
+  }
+
+  return energy;
 }
