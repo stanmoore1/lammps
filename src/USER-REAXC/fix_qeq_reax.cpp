@@ -112,6 +112,7 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   b_t = NULL;
   b_prc = NULL;
   b_prm = NULL;
+  X_diag = NULL;
 
   // CG
   p = NULL;
@@ -212,10 +213,11 @@ void FixQEqReax::pertype_parameters(char *arg)
 
     if (acks2_flag) {
       b_s_acks2 = (double *) pair->extract("b_s_acks2",tmp);
-      bond_softness = (double *) pair->extract("bond_softness",tmp);
-      if (b_s_acks2 == NULL || bond_softness == NULL)
+      double* bond_softness_ptr = (double *) pair->extract("bond_softness",tmp);
+      if (b_s_acks2 == NULL || bond_softness_ptr == NULL)
         error->all(FLERR,
-                   "Fix qeq/reax could not extract params from pair reax/c");      
+                   "Fix qeq/reax could not extract params from pair reax/c");
+      bond_softness = *bond_softness_ptr;
     }
 
     return;
@@ -242,7 +244,7 @@ void FixQEqReax::pertype_parameters(char *arg)
       rv = fscanf(pf,"%lg",&v1);
       if (rv != 1)
         error->one(FLERR,"Fix qeq/reax: Incorrect format of param file");
-      *bond_softness = v1;
+      bond_softness = v1;
     }
 
     for (i = 1; i <= ntypes && !feof(pf); i++) {
@@ -292,6 +294,8 @@ void FixQEqReax::allocate_storage()
   memory->create(b_prc,ncm,"qeq:b_prc");
   memory->create(b_prm,ncm,"qeq:b_prm");
 
+  memory->create(X_diag,nmax,"qeq:X_diag");
+
   // dual CG support
   int size = nmax;
   if (dual_enabled) size*= 2;
@@ -315,6 +319,7 @@ void FixQEqReax::deallocate_storage()
   memory->destroy( b_t );
   memory->destroy( b_prc );
   memory->destroy( b_prm );
+  memory->destroy( X_diag );
 
   memory->destroy( p );
   memory->destroy( q );
@@ -427,6 +432,7 @@ void FixQEqReax::init()
 
   init_shielding();
   init_taper();
+  if (acks2_flag) init_bondcut();
 
   if (strstr(update->integrate_style,"respa"))
     nlevels_respa = ((Respa *) update->integrate)->nlevels;
@@ -483,6 +489,22 @@ void FixQEqReax::init_taper()
   Tap[1] = 140.0 * swa3 * swb3 / d7;
   Tap[0] = (-35.0*swa3*swb2*swb2 + 21.0*swa2*swb3*swb2 -
             7.0*swa*swb3*swb3 + swb3*swb3*swb) / d7;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixQEqReax::init_bondcut()
+{
+  int i,j;
+  int ntypes;
+
+  ntypes = atom->ntypes;
+  if (bcut == NULL)
+    memory->create(bcut,ntypes+1,ntypes+1,"qeq:bondcut");
+
+  for (i = 1; i <= ntypes; ++i)
+    for (j = 1; j <= ntypes; ++j)
+      bcut[i][j] = 0.5*(b_s_acks2[i] + b_s_acks2[j]);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -617,6 +639,8 @@ void FixQEqReax::init_matvec()
 {
   /* fill-in H matrix */
   compute_H();
+
+  if (acks2_flag) compute_X();
 
   int nn, ii, i;
   int *ilist;
@@ -776,15 +800,21 @@ void FixQEqReax::compute_X()
     firstneigh = list->firstneigh;
   }
 
-  // fill in the H matrix
-  m_fill = 0;
+  memset(X_diag,0.0,atom->nmax*sizeof(double));
+
+  // fill in the X matrix
+  m_fill = H.firstnbr[N - 1] + H.numnbrs[N - 1];
   r_sqr = 0;
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
     if (mask[i] & groupbit) {
       jlist = firstneigh[i];
       jnum = numneigh[i];
-      H.firstnbr[i] = m_fill;
+      H.firstnbr[N + i] = m_fill;
+
+      H.jlist[m_fill] = i;
+      H.val[m_fill] = 1.0;
+      m_fill++;
 
       for (jj = 0; jj < jnum; jj++) {
         j = jlist[jj];
@@ -810,14 +840,62 @@ void FixQEqReax::compute_X()
         }
 
         if (flag) {
-          H.jlist[m_fill] = j;
-          H.val[m_fill] = calculate_H( sqrt(r_sqr), shld[type[i]][type[j]]);
-          m_fill++;
+          double bcutoff = bcut[type[i]][type[j]];
+          double bcutoff2 = bcutoff*bcutoff;
+          if (r_sqr <= bcutoff2) {
+            H.jlist[m_fill] = N + j;
+            double X_val = calculate_X(sqrt(r_sqr), bcutoff);
+            H.val[m_fill] = X_val;
+            X_diag[i] -= X_val;
+            X_diag[j] -= X_val;
+            m_fill++;
+          }
         }
       }
-      H.numnbrs[i] = m_fill - H.firstnbr[i];
+
+      // diagonal entry placeholder, to be replaced below
+      H.jlist[m_fill] = N + i;
+      H.val[m_fill] = 0.0;
+      m_fill++;
+
+      H.numnbrs[N + i] = m_fill - H.firstnbr[N + i];
     }
   }
+
+  // go back and replace diagonal entries
+
+  for (i = N; i < 2*N; i++)
+    for (j = H.firstnbr[i]; j < H.firstnbr[i] + H.numnbrs[i]; j++)
+      if (i == H.jlist[j])
+        H.val[j] = X_diag[i - N];
+
+  // second to last row
+
+  H.firstnbr[N_cm - 2] = m_fill;
+  for (j = 0; j < N; j++) {
+    H.jlist[m_fill] = N + j;
+    H.val[m_fill] = 1.0;
+    m_fill++;
+  }
+  // explicitly store zero on the diagonal
+  H.jlist[m_fill] = N_cm - 2;
+  H.val[m_fill] = 0.0;
+  m_fill++;
+  H.numnbrs[N_cm - 2] = m_fill - H.firstnbr[N_cm - 2];
+
+  // last row
+  
+  H.firstnbr[N_cm - 1] = m_fill;
+  for (j = 0; j < N; j++) {
+    H.jlist[m_fill] = j;
+    H.val[m_fill] = 1.0;
+    m_fill++;
+  }
+  // explicitly store zero on the diagonal
+  H.jlist[m_fill] = N_cm - 1;
+  H.val[m_fill] = 0.0;
+  m_fill++;
+  H.numnbrs[N_cm - 1] = m_fill - H.firstnbr[N_cm - 1];
 
   if (m_fill >= H.m) {
     char str[128];
@@ -826,6 +904,20 @@ void FixQEqReax::compute_X()
     error->warning(FLERR,str);
     error->all(FLERR,"Fix qeq/reax has insufficient QEq matrix size");
   }
+}
+
+
+/* ---------------------------------------------------------------------- */
+
+double FixQEqReax::calculate_X( double r, double bcut)
+{
+  double d = r/bcut;
+  double d3 = d*d*d;
+  double omd = 1.0 - d;
+  double omd2 = omd*omd;
+  double omd6 = omd2*omd2*omd2;
+
+  return bond_softness*d3*omd6;
 }
 
 /* ---------------------------------------------------------------------- */

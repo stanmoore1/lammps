@@ -68,8 +68,8 @@ class FixQEqReax : public Fix {
   double Tap[8];        // Taper function
   double tolerance;     // tolerance for the norm of the rel residual in CG
 
-  double *chi,*eta,*gamma;          // qeq parameters
-  double *b_s_acks2,*bond_softness; // acks2 parameters
+  double *chi,*eta,*gamma; // qeq parameters
+  double *b_s_acks2,bond_softness,**bcut; // acks2 parameters
   double **shld;
 
   bigint ngroup;
@@ -92,6 +92,7 @@ class FixQEqReax : public Fix {
   double *Hdia_inv;
   double *b_s, *b_t;
   double *b_prc, *b_prm;
+  double *X_diag;
   double *chi_field;
 
   //CG storage
@@ -107,6 +108,7 @@ class FixQEqReax : public Fix {
   virtual void pertype_parameters(char*);
   void init_shielding();
   void init_taper();
+  void init_bondcut();
   virtual void allocate_storage();
   virtual void deallocate_storage();
   void reallocate_storage();
@@ -119,6 +121,7 @@ class FixQEqReax : public Fix {
   virtual void compute_H();
   double calculate_H(double,double);
   void compute_X();
+  double calculate_X(double,double);
   virtual void calculate_Q();
 
   virtual int CG(double*,double*);
