@@ -86,6 +86,7 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   // check for compatibility is in Fix::post_constructor()
   dual_enabled = 0;
 
+  bicgstab_flag = 0;
   acks2_flag = 0;
 
   if (narg > 8) {
@@ -95,6 +96,7 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
       else error->all(FLERR,"Illegal fix qeq/reax command");
     }
   }
+  if (acks2_flag) bicgstab_flag = 1;
 
   shld = NULL;
 
@@ -119,6 +121,13 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   q = NULL;
   r = NULL;
   d = NULL;
+
+  // BiCGStab
+  g = NULL;
+  q_hat = NULL;
+  r_hat = NULL;
+  y = NULL;
+  z = NULL;
 
   // H matrix
   H.firstnbr = NULL;
@@ -304,6 +313,14 @@ void FixQEqReax::allocate_storage()
   memory->create(q,size,"qeq:q");
   memory->create(r,size,"qeq:r");
   memory->create(d,size,"qeq:d");
+
+  if (bicgstab_flag) {
+    memory->create(g,size,"qeq:g");
+    memory->create(q_hat,size,"qeq:q_hat");
+    memory->create(r_hat,size,"qeq:r_hat");
+    memory->create(y,size,"qeq:y");
+    memory->create(z,size,"qeq:z");
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -325,6 +342,14 @@ void FixQEqReax::deallocate_storage()
   memory->destroy( q );
   memory->destroy( r );
   memory->destroy( d );
+
+  if (bicgstab_flag) {
+    memory->destroy( g );
+    memory->destroy( q_hat );
+    memory->destroy( r_hat );
+    memory->destroy( y );
+    memory->destroy( z );
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -944,7 +969,7 @@ int FixQEqReax::CG( double *b, double *x)
   sparse_matvec( &H, x, q);
   comm->reverse_comm_fix(this); //Coll_Vector( q );
 
-  vector_sum( r , 1.,  b, -1., q, nn);
+  vector_sum( r , 1.,  b, -1., d, nn);
 
   for (jj = 0; jj < nn; ++jj) {
     j = ilist[jj];
@@ -990,6 +1015,124 @@ int FixQEqReax::CG( double *b, double *x)
   return i;
 }
 
+/* ---------------------------------------------------------------------- */
+
+int FixQEqReax::BiCGStab( double *b, double *x)
+{
+  int  i, j, imax;
+  double tmp, alpha, beta, omega, sigma, rho, rho_old, rnorm, bnorm;
+  double sig_old, sig_new;
+
+  int nn, jj;
+  int *ilist;
+  if (reaxc) {
+    nn = reaxc->list->inum;
+    ilist = reaxc->list->ilist;
+  } else {
+    nn = list->inum;
+    ilist = list->ilist;
+  }
+
+  imax = 200;
+
+  sparse_matvec( &H, x, d);
+  pack_flag = 6;
+  comm->reverse_comm_fix(this); //Coll_Vector( d );
+
+  vector_sum( r , 1.,  b, -1., d, nn);
+  bnorm = parallel_norm( b, nn);
+  rnorm = parallel_norm( r, nn);
+
+  if ( bnorm == 0.0 ) bnorm = 1.0;
+  vector_copy( r_hat, r, nn);
+  omega = 1.0;
+  rho = 1.0;
+
+  /*for (jj = 0; jj < nn; ++jj) {
+    j = ilist[jj];
+    if (atom->mask[j] & groupbit)
+      d[j] = r[j] * Hdia_inv[j]; //pre-condition
+  }*/
+
+  for (i = 1; i < imax && rnorm / bnorm > tolerance; ++i) {
+    rho = parallel_dot( r_hat, r, nn);
+    if (rho == 0.0) break;
+
+
+    if (i > 0) {
+      beta = (rho / rho_old) * (alpha / omega);
+      vector_sum( q , 1., p, -1., z, nn);     
+      vector_sum( p , 1., r, beta, q, nn);     
+    } else {
+      vector_copy( p, r, nn);
+    }
+
+    for (jj = 0; jj < nn; ++jj) {
+      j = ilist[jj];
+      if (atom->mask[j] & groupbit)
+        d[j] = p[j] * Hdia_inv[j]; //pre-condition
+    }
+ 
+    pack_flag = 1;
+    comm->forward_comm_fix(this); //Dist_vector( d );
+    sparse_matvec( &H, d, z );
+    pack_flag = 8;
+    comm->reverse_comm_fix(this); //Coll_vector( z );
+
+    tmp = parallel_dot( r_hat, z, nn);
+    alpha = rho / tmp;
+
+    vector_sum( q , 1., r, -alpha, z, nn);
+
+    tmp = parallel_dot( q, q, nn);
+
+    // early convergence check
+    if (tmp < tolerance) {
+      vector_add( x, alpha, d, nn);
+      break;
+    }
+
+    // pre-conditioning
+    for (jj = 0; jj < nn; ++jj) {
+      j = ilist[jj];
+      if (atom->mask[j] & groupbit)
+        q_hat[j] = q[j] * Hdia_inv[j];
+    }
+
+    pack_flag = 6;
+    comm->forward_comm_fix(this); //Dist_vector( q_hat );
+    sparse_matvec( &H, q_hat, y );
+    pack_flag = 7;
+    comm->reverse_comm_fix(this); //Dist_vector( y );
+
+    sigma = parallel_dot( y, q, nn);
+    tmp = parallel_dot( y, y, nn);
+    omega = sigma/tmp;
+
+    vector_sum( g , alpha, d, omega, q_hat, nn);
+    vector_add( x, 1., g, nn);
+    vector_sum( r , 1., q, -omega, y, nn);
+
+    rnorm = parallel_norm( r, nn);
+    if (omega == 0) break;
+    rho_old = rho;
+  }
+
+  if (comm->me) {
+    if (omega == 0 || rho == 0) {
+      char str[128];
+      sprintf(str,"Fix qeq/reax BiCGStab numerical breakdown, omega = %g, rho = %g",omega,rho);
+      error->warning(FLERR,str);
+    } else if (i >= imax) {
+      char str[128];
+      sprintf(str,"Fix qeq/reax BiCGStab convergence failed after %d iterations "
+              "at " BIGINT_FORMAT " step",i,update->ntimestep);
+      error->warning(FLERR,str);
+    }
+  }
+
+  return i;
+}
 
 /* ---------------------------------------------------------------------- */
 
@@ -1125,7 +1268,8 @@ void FixQEqReax::unpack_forward_comm(int n, int first, double *buf)
       d[j  ] = buf[m++];
       d[j+1] = buf[m++];
     }
-  }
+  } else if (pack_flag == 6)
+    for(m = 0, i = first; m < n; m++, i++) q_hat[i] = buf[m];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1142,10 +1286,17 @@ int FixQEqReax::pack_reverse_comm(int n, int first, double *buf)
       buf[m++] = q[indxI+1];
     }
     return m;
-  } else {
+
+  } else if (pack_flag == 6)
+    for (m = 0, i = first; m < n; m++, i++) buf[m] = d[i];
+  else if (pack_flag == 7)
+    for (m = 0, i = first; m < n; m++, i++) buf[m] = y[i];
+  else if (pack_flag == 8)
+    for (m = 0, i = first; m < n; m++, i++) buf[m] = z[i];
+  else
     for (m = 0, i = first; m < n; m++, i++) buf[m] = q[i];
-    return n;
-  }
+
+  return n;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1348,6 +1499,26 @@ void FixQEqReax::vector_add( double* dest, double c, double* v, int k)
     kk = ilist[k];
     if (atom->mask[kk] & groupbit)
       dest[kk] += c * v[kk];
+  }
+}
+
+
+/* ---------------------------------------------------------------------- */
+
+void FixQEqReax::vector_copy( double* dest, double* v, int k)
+{
+  int kk;
+  int *ilist;
+
+  if (reaxc)
+    ilist = reaxc->list->ilist;
+  else
+    ilist = list->ilist;
+
+  for (--k; k>=0; --k) {
+    kk = ilist[k];
+    if (atom->mask[kk] & groupbit)
+      dest[kk] = v[kk];
   }
 }
 

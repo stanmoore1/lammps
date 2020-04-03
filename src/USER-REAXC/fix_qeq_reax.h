@@ -98,6 +98,9 @@ class FixQEqReax : public Fix {
   //CG storage
   double *p, *q, *r, *d;
 
+  //BiCGStab storage
+  double *g, *q_hat, *r_hat, *y, *z;
+
   //GMRES storage
   //double *g,*y;
   //double **v;
@@ -125,6 +128,7 @@ class FixQEqReax : public Fix {
   virtual void calculate_Q();
 
   virtual int CG(double*,double*);
+  int BiCGStab(double*,double*);
   //int GMRES(double*,double*);
   virtual void sparse_matvec(sparse_matrix*,double*,double*);
 
@@ -144,6 +148,7 @@ class FixQEqReax : public Fix {
 
   virtual void vector_sum(double*,double,double*,double,double*,int);
   virtual void vector_add(double*, double, double*,int);
+  void vector_copy(double*, double*,int);
 
   void get_chi_field();
 
@@ -151,7 +156,7 @@ class FixQEqReax : public Fix {
   int dual_enabled;  // 0: Original, separate s & t optimization; 1: dual optimization
   int matvecs_s, matvecs_t; // Iteration count for each system
 
-  int field_flag,acks2_flag;
+  int field_flag,bicgstab_flag,acks2_flag;
 };
 
 }
