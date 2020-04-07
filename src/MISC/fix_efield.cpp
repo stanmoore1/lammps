@@ -119,6 +119,8 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
 
   maxatom = atom->nmax;
   memory->create(efield,maxatom,4,"efield:efield");
+
+  maxatom_energy = 0;
 }
 
 /* ---------------------------------------------------------------------- */

@@ -99,6 +99,7 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   if (acks2_flag) bicgstab_flag = 1;
 
   shld = NULL;
+  bcut = NULL;
 
   n = n_cap = 0;
   N = nmax = 0;
@@ -588,8 +589,10 @@ void FixQEqReax::init_storage()
 
   // Assume net charge is zero for ACKS2 (for now), as is the case for QeQ
 
-  for (int i = 0; i < N+2; i++)
-    b_s[N + i] = 0.0;
+  if (acks2_flag) {
+    for (int i = 0; i < N+2; i++)
+      b_s[N + i] = 0.0;
+  }
 
   //double cm_q_net = 0.0;
 
@@ -737,7 +740,6 @@ void FixQEqReax::compute_H()
   r_sqr = 0;
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
-
     if (mask[i] & groupbit) {
       jlist = firstneigh[i];
       jnum = numneigh[i];
@@ -986,7 +988,7 @@ int FixQEqReax::CG( double *b, double *x)
   sparse_matvec( &H, x, q);
   comm->reverse_comm_fix(this); //Coll_Vector( q );
 
-  vector_sum( r , 1.,  b, -1., d, nn);
+  vector_sum( r , 1.,  b, -1., q, nn);
 
   for (jj = 0; jj < nn; ++jj) {
     j = ilist[jj];
