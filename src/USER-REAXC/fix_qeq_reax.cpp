@@ -86,7 +86,7 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   // check for compatibility is in Fix::post_constructor()
   dual_enabled = 0;
 
-  bicgstab_flag = 1;
+  bicgstab_flag = 0;
   acks2_flag = 0;
 
   if (narg > 8) {
@@ -530,7 +530,6 @@ void FixQEqReax::init_bondcut()
 
   for (i = 1; i <= ntypes; ++i)
     for (j = 1; j <= ntypes; ++j) {
-      printf("%i %i %i\n",i,j,ntypes);
       bcut[i][j] = 0.5*(b_s_acks2[i] + b_s_acks2[j]);
     }
 }
@@ -634,9 +633,13 @@ void FixQEqReax::pre_force(int /*vflag*/)
 
   init_matvec();
 
-  matvecs_s = BiCGStab(b_s, s);       // CG on s - parallel
-  matvecs_t = BiCGStab(b_t, t);       // CG on t - parallel
-  matvecs = matvecs_s + matvecs_t;
+  if (acks2_flag)
+    matvecs = BiCGStab(b_s, s); // BiCGStab on s - parallel
+  else {
+    matvecs_s = CG(b_s, s);       // CG on s - parallel
+    matvecs_t = CG(b_t, t);       // CG on t - parallel
+    matvecs = matvecs_s + matvecs_t;
+  }
 
   calculate_Q();
 
@@ -687,7 +690,6 @@ void FixQEqReax::init_matvec()
       /* init pre-conditioner for H and init solution vectors */
       Hdia_inv[i] = 1. / eta[ atom->type[i] ];
       b_s[i]      = -chi[ atom->type[i] ] - chi_field[i];
-    printf("cf %g\n",chi_field[i]);
       b_t[i]      = -1.0;
 
       /* quadratic extrapolation for s & t from previous solutions */
@@ -1221,14 +1223,19 @@ void FixQEqReax::calculate_Q()
     ilist = list->ilist;
   }
 
-  s_sum = parallel_vector_acc( s, nn);
-  t_sum = parallel_vector_acc( t, nn);
-  u = s_sum / t_sum;
+  if (!acks2_flag) {
+    s_sum = parallel_vector_acc( s, nn);
+    t_sum = parallel_vector_acc( t, nn);
+    u = s_sum / t_sum;
+  }
 
   for (ii = 0; ii < nn; ++ii) {
     i = ilist[ii];
     if (atom->mask[i] & groupbit) {
-      q[i] = s[i] - 0.0*u * t[i];
+      if (acks2_flag)
+        q[i] = s[i];
+      else
+        q[i] = s[i] - u * t[i];
 
       /* backup s & t */
       for (k = nprev-1; k > 0; --k) {
