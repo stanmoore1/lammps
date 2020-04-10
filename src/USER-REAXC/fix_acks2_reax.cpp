@@ -50,8 +50,8 @@ FixACKS2Reax::FixACKS2Reax(LAMMPS *lmp, int narg, char **arg) :
 {
   bcut = NULL;
 
-  chi_field = NULL;
   X_diag = NULL;
+  Xdia_inv = NULL;
 
   // BiCGStab
   g = NULL;
