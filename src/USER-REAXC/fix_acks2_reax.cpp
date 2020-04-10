@@ -311,8 +311,17 @@ void FixACKS2Reax::init_matvec()
 
   /* fill-in X matrix */
   compute_X();
+  pack_flag = 4;
+  comm->reverse_comm_fix(this); //Coll_Vector( X_diag );
 
   int ii, i;
+
+  for (int i = 0; i < nn; i++) {
+    if (X_diag[i] == 0.0)
+      Xdia_inv[i] = 1.0;
+    else
+      Xdia_inv[i] = 1.0 / X_diag[i];
+  }
 
   for (ii = 0; ii < nn; ++ii) {
     i = ilist[ii];
@@ -407,13 +416,6 @@ void FixACKS2Reax::compute_X()
 
       X.numnbrs[i] = m_fill - X.firstnbr[i];
     }
-  }
-
-  for (i = 0; i < nn; i++) {
-    if (X_diag[i] == 0.0)
-      Xdia_inv[i] = 1.0;
-    else
-      Xdia_inv[i] = 1.0 / X_diag[i];
   }
 
   if (m_fill >= X.m) {
@@ -737,6 +739,9 @@ int FixACKS2Reax::pack_reverse_comm(int n, int first, double *buf)
       buf[m++] = y[i];
       buf[m++] = y[NN+i];
     }
+  } else if (pack_flag == 4) {
+    for(i = first; i < last; i++)
+      buf[m++] = X_diag[i];
   }
 
   return m;
@@ -746,21 +751,30 @@ int FixACKS2Reax::pack_reverse_comm(int n, int first, double *buf)
 
 void FixACKS2Reax::unpack_reverse_comm(int n, int *list, double *buf)
 {
+  int j;
   int m = 0;
   if (pack_flag == 1) {
     for(int i = 0; i < n; i++) {
-      d[i] += buf[m++];
-      d[NN+i] += buf[m++];
+      j = list[i];
+      d[j] += buf[m++];
+      d[NN+j] += buf[m++];
     }
   } else if (pack_flag == 2) {
     for(int i = 0; i < n; i++) {
-      z[i] += buf[m++];
-      z[NN+i] += buf[m++];
+      j = list[i];
+      z[j] += buf[m++];
+      z[NN+j] += buf[m++];
     }
   } else if (pack_flag == 3) {
     for(int i = 0; i < n; i++) {
-      y[i] += buf[m++];
-      y[NN+i] += buf[m++];
+      j = list[i];
+      y[j] += buf[m++];
+      y[NN+j] += buf[m++];
+    }
+  } else if (pack_flag == 4) {
+    for(int i = 0; i < n; i++) {
+      j = list[i];
+     X_diag[j] += buf[m++];
     }
   }
 }

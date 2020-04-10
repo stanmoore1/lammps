@@ -86,8 +86,6 @@ FixQEqReaxOMP::~FixQEqReaxOMP()
 void FixQEqReaxOMP::post_constructor()
 {
   pertype_parameters(pertype_option);
-  if (acks2_flag)
-    error->all(FLERR,"Acks2 keyword not yet supported with fix qeq/reax/omp"); 
 }
 
 /* ---------------------------------------------------------------------- */
@@ -150,7 +148,6 @@ void FixQEqReaxOMP::init()
 
 void FixQEqReaxOMP::compute_H()
 {
-  int inum, *ilist, *numneigh, **firstneigh;
   double SMALL = 0.0001;
 
   int *type = atom->type;
@@ -158,17 +155,6 @@ void FixQEqReaxOMP::compute_H()
   double **x = atom->x;
   int *mask = atom->mask;
 
-  if (reaxc) {
-    inum = reaxc->list->inum;
-    ilist = reaxc->list->ilist;
-    numneigh = reaxc->list->numneigh;
-    firstneigh = reaxc->list->firstneigh;
-  } else {
-    inum = list->inum;
-    ilist = list->ilist;
-    numneigh = list->numneigh;
-    firstneigh = list->firstneigh;
-  }
   int ai, num_nbrs;
 
   // sumscan of the number of neighbors per atom to determine the offsets
@@ -177,7 +163,7 @@ void FixQEqReaxOMP::compute_H()
 
   num_nbrs = 0;
 
-  for (int itr_i = 0; itr_i < inum; ++itr_i) {
+  for (int itr_i = 0; itr_i < nn; ++itr_i) {
     ai = ilist[itr_i];
     H.firstnbr[ai] = num_nbrs;
     num_nbrs += numneigh[ai];
@@ -199,7 +185,7 @@ void FixQEqReaxOMP::compute_H()
 #if defined(_OPENMP)
 #pragma omp for schedule(guided)
 #endif
-    for (int ii = 0; ii < inum; ii++) {
+    for (int ii = 0; ii < nn; ii++) {
       int i = ilist[ii];
       if (mask[i] & groupbit) {
         jlist = firstneigh[i];
@@ -216,7 +202,7 @@ void FixQEqReaxOMP::compute_H()
 
           flag = 0;
           if (r_sqr <= SQR(swb)) {
-            if (j < n) flag = 1;
+            if (j < atom->nlocal) flag = 1;
             else if (tag[i] < tag[j]) flag = 1;
             else if (tag[i] == tag[j]) {
               if (dz > SMALL) flag = 1;
@@ -253,11 +239,6 @@ void FixQEqReaxOMP::compute_H()
 
 void FixQEqReaxOMP::init_storage()
 {
-  int NN;
-
-  if (reaxc) NN = reaxc->list->inum + reaxc->list->gnum;
-  else NN = list->inum + list->gnum;
-
 #if defined(_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
@@ -286,8 +267,7 @@ void FixQEqReaxOMP::pre_force(int /* vflag */)
   if (update->ntimestep % nevery) return;
   if (comm->me == 0) t_start = MPI_Wtime();
 
-  n = atom->nlocal;
-  N = atom->nlocal + atom->nghost;
+  int n = atom->nlocal;
 
   // grow arrays if necessary
   // need to be atom->nmax in length
@@ -295,6 +275,20 @@ void FixQEqReaxOMP::pre_force(int /* vflag */)
   if (atom->nmax > nmax) reallocate_storage();
   if (n > n_cap*DANGER_ZONE || m_fill > m_cap*DANGER_ZONE)
     reallocate_matrix();
+
+  if (reaxc) {
+    nn = reaxc->list->inum;
+    NN = reaxc->list->inum + reaxc->list->gnum;
+    ilist = reaxc->list->ilist;
+    numneigh = reaxc->list->numneigh;
+    firstneigh = reaxc->list->firstneigh;
+  } else {
+    nn = list->inum;
+    NN = list->inum + list->gnum;
+    ilist = list->ilist;
+    numneigh = list->numneigh;
+    firstneigh = list->firstneigh;
+  }
 
 #ifdef OMP_TIMING
   startTimeBase = MPI_Wtime();
@@ -367,16 +361,7 @@ void FixQEqReaxOMP::init_matvec()
   /* fill-in H matrix */
   compute_H();
 
-  int nn,i;
-  int *ilist;
-
-  if (reaxc) {
-    nn = reaxc->list->inum;
-    ilist = reaxc->list->ilist;
-  } else {
-    nn = list->inum;
-    ilist = list->ilist;
-  }
+  int i;
 
   // Should really be more careful with initialization and first (aspc_order+2) MD steps
   if (do_aspc) {
@@ -457,16 +442,6 @@ int FixQEqReaxOMP::CG( double *b, double *x)
   double sig_old, sig_new;
 
   double my_buf[2], buf[2];
-
-  int nn;
-  int *ilist;
-  if (reaxc) {
-    nn = reaxc->list->inum;
-    ilist = reaxc->list->ilist;
-  } else {
-    nn = list->inum;
-    ilist = list->ilist;
-  }
 
   imax = 200;
 
@@ -581,24 +556,13 @@ void FixQEqReaxOMP::sparse_matvec( sparse_matrix *A, double *x, double *b)
 #endif
   {
     int i, j, itr_j;
-    int nn, NN, ii;
-    int *ilist;
+    int ii;
     int nthreads = comm->nthreads;
 #if defined(_OPENMP)
     int tid = omp_get_thread_num();
 #else
     int tid = 0;
 #endif
-
-    if (reaxc) {
-      nn = reaxc->list->inum;
-      NN = reaxc->list->inum + reaxc->list->gnum;
-      ilist = reaxc->list->ilist;
-    } else {
-      nn = list->inum;
-      NN = list->inum + list->gnum;
-      ilist = list->ilist;
-    }
 
 #if defined(_OPENMP)
 #pragma omp for schedule(dynamic,50)
@@ -657,17 +621,6 @@ void FixQEqReaxOMP::calculate_Q()
   int i;
   double *q = atom->q;
 
-  int nn;
-  int *ilist;
-
-  if (reaxc) {
-    nn = reaxc->list->inum;
-    ilist = reaxc->list->ilist;
-  } else {
-    nn = list->inum;
-    ilist = list->ilist;
-  }
-
   double tmp1, tmp2;
   tmp1 = tmp2 = 0.0;
 #if defined(_OPENMP)
@@ -720,10 +673,6 @@ void FixQEqReaxOMP::vector_sum( double* dest, double c, double* v,
                                 double d, double* y, int k)
 {
   int i;
-  int *ilist;
-
-  if (reaxc) ilist = reaxc->list->ilist;
-  else ilist = list->ilist;
 
 #if defined(_OPENMP)
 #pragma omp parallel for schedule(static) private(i)
@@ -739,10 +688,6 @@ void FixQEqReaxOMP::vector_sum( double* dest, double c, double* v,
 void FixQEqReaxOMP::vector_add( double* dest, double c, double* v, int k)
 {
   int i;
-  int *ilist;
-
-  if (reaxc) ilist = reaxc->list->ilist;
-  else ilist = list->ilist;
 
 #if defined(_OPENMP)
 #pragma omp parallel for schedule(static) private(i)
@@ -772,16 +717,6 @@ int FixQEqReaxOMP::dual_CG( double *b1, double *b2, double *x1, double *x2)
   double sig_old_s, sig_old_t, sig_new_s, sig_new_t;
 
   double my_buf[4], buf[4];
-
-  int nn;
-  int *ilist;
-  if (reaxc) {
-    nn = reaxc->list->inum;
-    ilist = reaxc->list->ilist;
-  } else {
-    nn = list->inum;
-    ilist = list->ilist;
-  }
 
   imax = 200;
 
@@ -977,8 +912,7 @@ void FixQEqReaxOMP::dual_sparse_matvec( sparse_matrix *A, double *x1, double *x2
 #endif
   {
     int i, j, itr_j;
-    int nn, NN, ii;
-    int *ilist;
+    int ii;
     int indxI, indxJ;
 
     int nthreads = comm->nthreads;
@@ -987,16 +921,6 @@ void FixQEqReaxOMP::dual_sparse_matvec( sparse_matrix *A, double *x1, double *x2
 #else
     int tid = 0;
 #endif
-
-    if (reaxc) {
-      nn = reaxc->list->inum;
-      NN = reaxc->list->inum + reaxc->list->gnum;
-      ilist = reaxc->list->ilist;
-    } else {
-      nn = list->inum;
-      NN = list->inum + list->gnum;
-      ilist = list->ilist;
-    }
 
 #if defined(_OPENMP)
 #pragma omp for schedule(dynamic,50)
@@ -1079,8 +1003,7 @@ void FixQEqReaxOMP::dual_sparse_matvec( sparse_matrix *A, double *x, double *b )
 #endif
   {
     int i, j, itr_j;
-    int nn, NN, ii;
-    int *ilist;
+    int ii;
     int indxI, indxJ;
 
     int nthreads = comm->nthreads;
@@ -1089,16 +1012,6 @@ void FixQEqReaxOMP::dual_sparse_matvec( sparse_matrix *A, double *x, double *b )
 #else
     int tid = 0;
 #endif
-
-    if (reaxc) {
-      nn = reaxc->list->inum;
-      NN = reaxc->list->inum + reaxc->list->gnum;
-      ilist = reaxc->list->ilist;
-    } else {
-      nn = list->inum;
-      NN = list->inum + list->gnum;
-      ilist = list->ilist;
-    }
 
 #if defined(_OPENMP)
 #pragma omp for schedule(dynamic,50)
