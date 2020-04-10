@@ -57,19 +57,19 @@ class FixQEqReax : public Fix {
 
  protected:
   int nevery,reaxflag;
-  int n, N, m_fill, N_cm;
+  int nn, NN, m_fill;
   int n_cap, nmax, m_cap;
   int pack_flag;
   int nlevels_respa;
   class NeighList *list;
   class PairReaxC *reaxc;
+  int *ilist, *jlist, *numneigh, **firstneigh;
 
   double swa, swb;      // lower/upper Taper cutoff radius
   double Tap[8];        // Taper function
   double tolerance;     // tolerance for the norm of the rel residual in CG
 
-  double *chi,*eta,*gamma; // qeq parameters
-  double *b_s_acks2,bond_softness,**bcut; // acks2 parameters
+  double *chi,*eta,*gamma;  // qeq parameters
   double **shld;
 
   bigint ngroup;
@@ -92,14 +92,10 @@ class FixQEqReax : public Fix {
   double *Hdia_inv;
   double *b_s, *b_t;
   double *b_prc, *b_prm;
-  double *X_diag;
   double *chi_field;
 
   //CG storage
   double *p, *q, *r, *d;
-
-  //BiCGStab storage
-  double *g, *q_hat, *r_hat, *y, *z;
 
   //GMRES storage
   //double *g,*y;
@@ -111,24 +107,20 @@ class FixQEqReax : public Fix {
   virtual void pertype_parameters(char*);
   void init_shielding();
   void init_taper();
-  void init_bondcut();
   virtual void allocate_storage();
   virtual void deallocate_storage();
   void reallocate_storage();
   virtual void allocate_matrix();
-  void deallocate_matrix();
+  virtual void deallocate_matrix();
   void reallocate_matrix();
 
   virtual void init_matvec();
   void init_H();
   virtual void compute_H();
   double calculate_H(double,double);
-  void compute_X();
-  double calculate_X(double,double);
   virtual void calculate_Q();
 
   virtual int CG(double*,double*);
-  int BiCGStab(double*,double*);
   //int GMRES(double*,double*);
   virtual void sparse_matvec(sparse_matrix*,double*,double*);
 
@@ -148,7 +140,6 @@ class FixQEqReax : public Fix {
 
   virtual void vector_sum(double*,double,double*,double,double*,int);
   virtual void vector_add(double*, double, double*,int);
-  void vector_copy(double*, double*,int);
 
   void get_chi_field();
 
@@ -156,7 +147,7 @@ class FixQEqReax : public Fix {
   int dual_enabled;  // 0: Original, separate s & t optimization; 1: dual optimization
   int matvecs_s, matvecs_t; // Iteration count for each system
 
-  int field_flag,bicgstab_flag,acks2_flag;
+  int field_flag;
 };
 
 }
