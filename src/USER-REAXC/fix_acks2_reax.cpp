@@ -92,7 +92,6 @@ FixACKS2Reax::~FixACKS2Reax()
 
 void FixACKS2Reax::post_constructor()
 {
-  printf("Yes PC\n");
   memory->create(s_hist_last,2,nprev,"acks2/reax:s_hist_last");
   for (int i = 0; i < 2; i++)
     for (int j = 0; j < nprev; ++j)
@@ -375,7 +374,6 @@ void FixACKS2Reax::init_matvec()
       /* cubic extrapolation for s from previous solutions */
       s[i] = 4*(s_hist[i][0]+s_hist[i][2])-(6*s_hist[i][1]+s_hist[i][3]);
       s[NN+i] = 4*(s_hist_X[i][0]+s_hist_X[i][2])-(6*s_hist_X[i][1]+s_hist_X[i][3]);
-      printf("s %i %g %g\n",i,s[i],s[NN+i]);
     }
   }
 
@@ -867,7 +865,6 @@ double FixACKS2Reax::memory_usage()
 
 void FixACKS2Reax::grow_arrays(int nmax)
 {
-  printf("HERE grow\n");
   memory->grow(s_hist,nmax,nprev,"acks2:s_hist");
   memory->grow(s_hist_X,nmax,nprev,"acks2:s_hist_X");
 }
@@ -890,7 +887,6 @@ void FixACKS2Reax::copy_arrays(int i, int j, int /*delflag*/)
 
 int FixACKS2Reax::pack_exchange(int i, double *buf)
 {
-  printf("HERE pack\n");
   for (int m = 0; m < nprev; m++) buf[m] = s_hist[i][m];
   for (int m = 0; m < nprev; m++) buf[nprev+m] = s_hist_X[i][m];
   return nprev*2;
