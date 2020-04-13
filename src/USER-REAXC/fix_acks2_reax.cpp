@@ -68,6 +68,8 @@ FixACKS2Reax::FixACKS2Reax(LAMMPS *lmp, int narg, char **arg) :
 
   // Update comm sizes for this fix
   comm_forward = comm_reverse = 2;
+
+  s_hist_X = s_hist_last = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -80,6 +82,30 @@ FixACKS2Reax::~FixACKS2Reax()
 
   if (!reaxflag)
     memory->destroy(b_s_acks2);
+
+  memory->destroy(s_hist_X);
+  memory->destroy(s_hist_last);
+}
+
+
+/* ---------------------------------------------------------------------- */
+
+void FixACKS2Reax::post_constructor()
+{
+  printf("Yes PC\n");
+  memory->create(s_hist_last,2,nprev,"acks2/reax:s_hist_last");
+  for (int i = 0; i < 2; i++)
+    for (int j = 0; j < nprev; ++j)
+      s_hist_last[i][j] = 0.0;
+
+  grow_arrays(atom->nmax);
+  for (int i = 0; i < atom->nmax; i++)
+    for (int j = 0; j < nprev; ++j)
+      s_hist[i][j] = s_hist_X[i][j] = 0.0;
+
+  pertype_parameters(pertype_option);
+  if (dual_enabled)
+    error->all(FLERR,"Dual keyword only supported with fix qeq/reax/omp");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -280,6 +306,20 @@ void FixACKS2Reax::pre_force(int /*vflag*/)
 
   int n = atom->nlocal;
 
+  if (reaxc) {
+    nn = reaxc->list->inum;
+    NN = reaxc->list->inum + reaxc->list->gnum;
+    ilist = reaxc->list->ilist;
+    numneigh = reaxc->list->numneigh;
+    firstneigh = reaxc->list->firstneigh;
+  } else {
+    nn = list->inum;
+    NN = list->inum + list->gnum;
+    ilist = list->ilist;
+    numneigh = list->numneigh;
+    firstneigh = list->firstneigh;
+  }
+
   // grow arrays if necessary
   // need to be atom->nmax in length
 
@@ -334,15 +374,16 @@ void FixACKS2Reax::init_matvec()
 
       /* cubic extrapolation for s from previous solutions */
       s[i] = 4*(s_hist[i][0]+s_hist[i][2])-(6*s_hist[i][1]+s_hist[i][3]);
-      s[NN+i] = 4*(s_hist[NN+i][0]+s_hist[NN+i][2])-(6*s_hist[NN+i][1]+s_hist[NN+i][3]);
+      s[NN+i] = 4*(s_hist_X[i][0]+s_hist_X[i][2])-(6*s_hist_X[i][1]+s_hist_X[i][3]);
+      printf("s %i %g %g\n",i,s[i],s[NN+i]);
     }
   }
 
   // last two rows
   if (comm->me == 0) {
-    for (i = 2*NN; i < 2*NN+2; i++) {
-      b_s[i] = 0.0;
-      s[i] = 4*(s_hist[i][0]+s_hist[i][2])-(6*s_hist[i][1]+s_hist[i][3]);
+    for (i = 0; i < 2; i++) {
+      b_s[2*NN+i] = 0.0;
+      s[2*NN+i] = 4*(s_hist_last[i][0]+s_hist_last[i][2])-(6*s_hist_last[i][1]+s_hist_last[i][3]);
     }
   }
 
@@ -636,18 +677,18 @@ void FixACKS2Reax::calculate_Q()
       /* backup s */
       for (k = nprev-1; k > 0; --k) {
         s_hist[i][k] = s_hist[i][k-1];
-        s_hist[NN+i][k] = s_hist[NN+i][k-1];
+        s_hist_X[i][k] = s_hist_X[i][k-1];
       }
       s_hist[i][0] = s[i];
-      s_hist[NN+i][0] = s[NN+i];
+      s_hist_X[i][0] = s[NN+i];
     }
   }
   // last two rows
   if (comm->me == 0) {
-    for (int i = 2*NN; i < 2*NN+2; ++i) {
+    for (int i = 0; i < 2; ++i) {
       for (k = nprev-1; k > 0; --k)
-        s_hist[i][k] = s_hist[i][k-1];
-      s_hist[i][0] = s[i];
+        s_hist_last[i][k] = s_hist_last[i][k-1];
+      s_hist_last[i][0] = s[2*NN+i];
     }
   }
 
@@ -826,7 +867,9 @@ double FixACKS2Reax::memory_usage()
 
 void FixACKS2Reax::grow_arrays(int nmax)
 {
-  memory->grow(s_hist,2*nmax+2,nprev,"acks2:s_hist");
+  printf("HERE grow\n");
+  memory->grow(s_hist,nmax,nprev,"acks2:s_hist");
+  memory->grow(s_hist_X,nmax,nprev,"acks2:s_hist_X");
 }
 
 /* ----------------------------------------------------------------------
@@ -837,7 +880,7 @@ void FixACKS2Reax::copy_arrays(int i, int j, int /*delflag*/)
 {
   for (int m = 0; m < nprev; m++) {
     s_hist[j][m] = s_hist[i][m];
-    s_hist[NN+j][m] = s_hist[NN+i][m];
+    s_hist_X[j][m] = s_hist_X[i][m];
   }
 }
 
@@ -847,8 +890,9 @@ void FixACKS2Reax::copy_arrays(int i, int j, int /*delflag*/)
 
 int FixACKS2Reax::pack_exchange(int i, double *buf)
 {
+  printf("HERE pack\n");
   for (int m = 0; m < nprev; m++) buf[m] = s_hist[i][m];
-  for (int m = 0; m < nprev; m++) buf[nprev+m] = s_hist[NN+i][m];
+  for (int m = 0; m < nprev; m++) buf[nprev+m] = s_hist_X[i][m];
   return nprev*2;
 }
 
@@ -859,7 +903,7 @@ int FixACKS2Reax::pack_exchange(int i, double *buf)
 int FixACKS2Reax::unpack_exchange(int nlocal, double *buf)
 {
   for (int m = 0; m < nprev; m++) s_hist[nlocal][m] = buf[m];
-  for (int m = 0; m < nprev; m++) s_hist[NN+nlocal][m] = buf[nprev+m];
+  for (int m = 0; m < nprev; m++) s_hist_X[nlocal][m] = buf[nprev+m];
   return nprev*2;
 }
 

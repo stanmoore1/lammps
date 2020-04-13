@@ -85,6 +85,11 @@ FixQEqReaxOMP::~FixQEqReaxOMP()
 
 void FixQEqReaxOMP::post_constructor()
 {
+  grow_arrays(atom->nmax);
+  for (int i = 0; i < atom->nmax; i++)
+    for (int j = 0; j < nprev; ++j)
+      s_hist[i][j] = t_hist[i][j] = 0;
+
   pertype_parameters(pertype_option);
 }
 
@@ -269,13 +274,6 @@ void FixQEqReaxOMP::pre_force(int /* vflag */)
 
   int n = atom->nlocal;
 
-  // grow arrays if necessary
-  // need to be atom->nmax in length
-
-  if (atom->nmax > nmax) reallocate_storage();
-  if (n > n_cap*DANGER_ZONE || m_fill > m_cap*DANGER_ZONE)
-    reallocate_matrix();
-
   if (reaxc) {
     nn = reaxc->list->inum;
     NN = reaxc->list->inum + reaxc->list->gnum;
@@ -289,6 +287,13 @@ void FixQEqReaxOMP::pre_force(int /* vflag */)
     numneigh = list->numneigh;
     firstneigh = list->firstneigh;
   }
+
+  // grow arrays if necessary
+  // need to be atom->nmax in length
+
+  if (atom->nmax > nmax) reallocate_storage();
+  if (n > n_cap*DANGER_ZONE || m_fill > m_cap*DANGER_ZONE)
+    reallocate_matrix();
 
 #ifdef OMP_TIMING
   startTimeBase = MPI_Wtime();

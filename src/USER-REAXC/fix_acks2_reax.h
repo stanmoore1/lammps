@@ -28,11 +28,14 @@ class FixACKS2Reax : public FixQEqReax {
  public:
   FixACKS2Reax(class LAMMPS *, int, char **);
   virtual ~FixACKS2Reax();
+  void post_constructor();
   void init();
   void init_storage();
   void pre_force(int);
 
  protected:
+  double **s_hist_X,**s_hist_last;
+
   double *b_s_acks2,bond_softness,**bcut; // acks2 parameters
 
   sparse_matrix X;
