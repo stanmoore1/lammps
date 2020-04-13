@@ -808,8 +808,11 @@ double FixACKS2Reax::memory_usage()
 {
   double bytes;
 
-  bytes = atom->nmax*nprev * sizeof(double); // s_hist
-  bytes += atom->nmax*11 * sizeof(double); // storage
+  int size = 2*nmax + 2;
+
+  bytes = size*nprev * sizeof(double); // s_hist
+  bytes += nmax*4 * sizeof(double); // storage
+  bytes += size*11 * sizeof(double); // storage
   bytes += n_cap*4 * sizeof(int); // matrix...
   bytes += m_cap*2 * sizeof(int);
   bytes += m_cap*2 * sizeof(double);
