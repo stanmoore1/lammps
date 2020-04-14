@@ -43,6 +43,17 @@ using namespace FixConst;
 
 #define SQR(x) ((x)*(x))
 
+static const char cite_fix_acks2_reax[] =
+  "fix acks2/reax command:\n\n"
+  "@Article{O'Hearn2020,\n"
+  " author = {K. A. O'Hearn, A. Alperen, and H. M. Aktulga},\n"
+  " title = {Fast Solvers for Charge Distribution Models on Shared Memory Platforms},\n"
+  " journal = {SIAM J. Sci. Comput.},\n"
+  " year =    2020,\n"
+  " volume =  42,\n"
+  " pages =   {1--22}\n"
+  "}\n\n";
+
 /* ---------------------------------------------------------------------- */
 
 FixACKS2Reax::FixACKS2Reax(LAMMPS *lmp, int narg, char **arg) :
@@ -92,6 +103,8 @@ FixACKS2Reax::~FixACKS2Reax()
 
 void FixACKS2Reax::post_constructor()
 {
+  if (lmp->citeme) lmp->citeme->add(cite_fix_acks2_reax);
+
   memory->create(s_hist_last,2,nprev,"acks2/reax:s_hist_last");
   for (int i = 0; i < 2; i++)
     for (int j = 0; j < nprev; ++j)

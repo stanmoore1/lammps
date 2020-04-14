@@ -67,8 +67,6 @@ static const char cite_fix_qeq_reax[] =
 FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg), pertype_option(NULL)
 {
-  if (lmp->citeme) lmp->citeme->add(cite_fix_qeq_reax);
-
   if (narg<8 || narg>9) error->all(FLERR,"Illegal fix qeq/reax command");
 
   nevery = force->inumeric(FLERR,arg[3]);
@@ -163,6 +161,8 @@ FixQEqReax::~FixQEqReax()
 
 void FixQEqReax::post_constructor()
 {
+  if (lmp->citeme) lmp->citeme->add(cite_fix_qeq_reax);
+
   grow_arrays(atom->nmax);
   for (int i = 0; i < atom->nmax; i++)
     for (int j = 0; j < nprev; ++j)
