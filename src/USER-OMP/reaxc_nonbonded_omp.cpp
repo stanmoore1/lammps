@@ -246,7 +246,7 @@ void vdW_Coulomb_Energy_OMP( reax_system *system, control_params *control,
   data->my_en.e_vdW = total_EvdW;
   data->my_en.e_ele = total_Eele;
 
-  Compute_Polarization_Energy( system, data );
+  Compute_Polarization_Energy( system, data, workspace );
 }
 
 /* ---------------------------------------------------------------------- */
@@ -385,5 +385,5 @@ void Tabulated_vdW_Coulomb_Energy_OMP(reax_system *system,control_params *contro
   data->my_en.e_vdW = total_EvdW;
   data->my_en.e_ele = total_Eele;
 
-  Compute_Polarization_Energy( system, data );
+  Compute_Polarization_Energy( system, data, workspace );
 }
