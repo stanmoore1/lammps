@@ -141,6 +141,9 @@ void PairReaxCKokkos<DeviceType>::init_style()
   if (fix_reax) modify->delete_fix(fix_id); // not needed in the Kokkos version
   fix_reax = NULL;
 
+  if (system->acks2_flag)
+    error->all(FLERR,"Cannot (yet) use ACKS2 with Kokkos ReaxFF"
+
   // irequest = neigh request made by parent class
 
   neighflag = lmp->kokkos->neighflag;

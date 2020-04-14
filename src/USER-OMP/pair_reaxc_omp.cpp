@@ -325,9 +325,16 @@ void PairReaxCOMP::init_style( )
   // firstwarn = 1;
 
   bool have_qeq = ((modify->find_fix_by_style("^qeq/reax") != -1)
-                   || (modify->find_fix_by_style("^qeq/shielded") != -1));
+                   || (modify->find_fix_by_style("^qeq/shielded") != -1)
+                   || (modify->find_fix_by_style("^acks2/reax") != -1));
   if (!have_qeq && qeqflag == 1)
-    error->all(FLERR,"Pair reax/c requires use of fix qeq/reax or qeq/shielded");
+    error->all(FLERR,"Pair reax/c requires use of fix qeq/reax or qeq/shielded"
+                       " or fix acks2/reax");
+
+  int have_acks2 = (modify->find_fix_by_style("^acks2/reax") != -1);
+  system->acks2_flag = have_acks2;
+  if (system->acks2_flag)
+    error->all(FLERR,"Cannot (yet) use ACKS2 with USER-OMP ReaxFF"
 
   system->n = atom->nlocal; // my atoms
   system->N = atom->nlocal + atom->nghost; // mine + ghosts
