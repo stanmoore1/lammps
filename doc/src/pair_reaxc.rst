@@ -22,7 +22,7 @@ Syntax
   .. parsed-literal::
 
      keyword = *checkqeq* or *lgvdw* or *safezone* or *mincap*
-       *checkqeq* value = *yes* or *no* = whether or not to require qeq/reax fix
+       *checkqeq* value = *yes* or *no* = whether or not to require qeq/reax or acks2/reax fix
        *enobonds* value = *yes* or *no* = whether or not to tally energy of atoms with no bonds
        *lgvdw* value = *yes* or *no* = whether or not to use a low gradient vdW correction
        *safezone* = factor used for array allocation
@@ -118,15 +118,15 @@ charges.
 
 The ReaxFF parameter files provided were created using a charge
 equilibration (QEq) model for handling the electrostatic interactions.
-Therefore, by default, LAMMPS requires that the :doc:`fix qeq/reax <fix_qeq_reax>` command be used with *pair_style reax/c*
+Therefore, by default, LAMMPS requires that the :doc:`fix qeq/reax <fix_qeq_reax>` or :doc:`fix acks2/reax <fix_acks2_reax>` command be used with *pair_style reax/c*
 when simulating a ReaxFF model, to equilibrate charge each timestep.
 Using the keyword *checkqeq* with the value *no*
-turns off the check for *fix qeq/reax*\ ,
+turns off the check for *fix qeq/reax* or *fix acks2/reax*\ ,
 allowing a simulation to be run without charge equilibration.
 In this case, the static charges you
 assign to each atom will be used for computing the electrostatic
 interactions in the system.
-See the :doc:`fix qeq/reax <fix_qeq_reax>` command for details.
+See the :doc:`fix qeq/reax <fix_qeq_reax>` or :doc:`fix acks2/reax <fix_acks2_reax>` command for details.
 
 Using the optional keyword *lgvdw* with the value *yes* turns on the
 low-gradient correction of the ReaxFF/C for long-range London
@@ -346,7 +346,7 @@ appropriate units if your simulation does not use "real" units.
 Related commands
 """"""""""""""""
 
-:doc:`pair_coeff <pair_coeff>`, :doc:`fix qeq/reax <fix_qeq_reax>`, :doc:`fix reax/c/bonds <fix_reaxc_bonds>`, :doc:`fix reax/c/species <fix_reaxc_species>`
+:doc:`pair_coeff <pair_coeff>`, :doc:`fix qeq/reax <fix_qeq_reax>`, :doc:`fix acks2/reax <fix_acks2_reax>`, :doc:`fix reax/c/bonds <fix_reaxc_bonds>`, :doc:`fix reax/c/species <fix_reaxc_species>`
 
 Default
 """""""
