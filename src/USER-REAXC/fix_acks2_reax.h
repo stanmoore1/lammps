@@ -33,6 +33,8 @@ class FixACKS2Reax : public FixQEqReax {
   void init_storage();
   void pre_force(int);
 
+  double* get_s() {return s;}
+
  protected:
   double **s_hist_X,**s_hist_last;
 

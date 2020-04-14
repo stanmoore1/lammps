@@ -36,6 +36,7 @@
 #include "modify.h"
 #include "fix.h"
 #include "fix_reaxc.h"
+#include "fix_acks2_reax.h"
 #include "citeme.h"
 #include "memory.h"
 #include "error.h"
@@ -382,6 +383,14 @@ void PairReaxC::init_style( )
     error->all(FLERR,"Pair reax/c requires use of fix qeq/reax or qeq/shielded"
                        " or fix acks2/reax");
 
+  int have_acks2 = (modify->find_fix_by_style("^acks2/reax") != -1);
+  system->acks2_flag = have_acks2;
+  if (system->acks2_flag) {
+    int ifix = modify->find_fix_by_style("^acks2/reax");
+    FixACKS2Reax* acks2_fix = (FixACKS2Reax*) modify->fix[ifix];
+    workspace->s = acks2_fix->get_s();
+  }
+
   system->n = atom->nlocal; // my atoms
   system->N = atom->nlocal + atom->nghost; // mine + ghosts
   system->bigN = static_cast<int> (atom->natoms);  // all atoms in the system
@@ -531,6 +540,12 @@ void PairReaxC::compute(int eflag, int vflag)
   system->n = atom->nlocal; // my atoms
   system->N = atom->nlocal + atom->nghost; // mine + ghosts
   system->bigN = static_cast<int> (atom->natoms);  // all atoms in the system
+
+  if (system->acks2_flag) {
+    int ifix = modify->find_fix_by_style("^acks2/reax");
+    FixACKS2Reax* acks2_fix = (FixACKS2Reax*) modify->fix[ifix];
+    workspace->s = acks2_fix->get_s();
+  }
 
   system->big_box.V = 0;
   system->big_box.box_norms[0] = 0;

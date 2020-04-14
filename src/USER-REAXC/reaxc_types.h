@@ -416,6 +416,7 @@ struct _reax_system
   _LR_lookup_table **LR;
 
   int omp_active;
+  int acks2_flag; 
 };
 typedef _reax_system reax_system;
 
