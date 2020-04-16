@@ -600,7 +600,7 @@ int FixACKS2Reax::BiCGStab( double *b, double *x)
     rho_old = rho;
   }
 
-  if (comm->me) {
+  if (comm->me == 0) {
     if (omega == 0 || rho == 0) {
       char str[128];
       sprintf(str,"Fix acks2/reax BiCGStab numerical breakdown, omega = %g, rho = %g",omega,rho);
