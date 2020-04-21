@@ -96,6 +96,7 @@ class FixQEqReax : public Fix {
 
   //CG storage
   double *p, *q, *r, *d;
+  int imax;
 
   //GMRES storage
   //double *g,*y;

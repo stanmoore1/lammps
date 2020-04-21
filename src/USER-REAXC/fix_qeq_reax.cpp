@@ -67,7 +67,7 @@ static const char cite_fix_qeq_reax[] =
 FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg), pertype_option(NULL)
 {
-  if (narg<8 || narg>9) error->all(FLERR,"Illegal fix qeq/reax command");
+  if (narg<8 || narg>10) error->all(FLERR,"Illegal fix qeq/reax command");
 
   nevery = force->inumeric(FLERR,arg[3]);
   if (nevery <= 0) error->all(FLERR,"Illegal fix qeq/reax command");
@@ -82,9 +82,18 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   // dual CG support only available for USER-OMP variant
   // check for compatibility is in Fix::post_constructor()
   dual_enabled = 0;
-  if (narg == 9) {
-    if (strcmp(arg[8],"dual") == 0) dual_enabled = 1;
+  imax = 200;
+  int iarg = 8;
+  while (iarg < narg) {
+    if (strcmp(arg[iarg],"dual") == 0) dual_enabled = 1;
+    else if (strcmp(arg[iarg],"imax") == 0) {
+      if (iarg+1 > narg-1)
+        error->all(FLERR,"Illegal fix qeq/reax command");
+      imax = force->numeric(FLERR,arg[iarg+1]);
+      iarg++;
+    }
     else error->all(FLERR,"Illegal fix qeq/reax command");
+    iarg++;
   }
   shld = NULL;
 
@@ -677,13 +686,11 @@ double FixQEqReax::calculate_H( double r, double gamma)
 
 int FixQEqReax::CG( double *b, double *x)
 {
-  int  i, j, imax;
+  int  i, j;
   double tmp, alpha, beta, b_norm;
   double sig_old, sig_new;
 
   int jj;
-
-  imax = 200;
 
   pack_flag = 1;
   sparse_matvec( &H, x, q);

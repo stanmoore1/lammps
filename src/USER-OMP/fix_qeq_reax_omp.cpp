@@ -442,13 +442,11 @@ void FixQEqReaxOMP::init_matvec()
 
 int FixQEqReaxOMP::CG( double *b, double *x)
 {
-  int  i, imax;
+  int  i;
   double alpha, beta, b_norm;
   double sig_old, sig_new;
 
   double my_buf[2], buf[2];
-
-  imax = 200;
 
   pack_flag = 1;
   sparse_matvec( &H, x, q );
@@ -717,13 +715,11 @@ int FixQEqReaxOMP::dual_CG( double *b1, double *b2, double *x1, double *x2)
   startTimeBase = MPI_Wtime();
 #endif
 
-  int i, imax;
+  int i;
   double alpha_s, alpha_t, beta_s, beta_t, b_norm_s, b_norm_t;
   double sig_old_s, sig_old_t, sig_new_s, sig_new_t;
 
   double my_buf[4], buf[4];
-
-  imax = 200;
 
   pack_flag = 5; // forward 2x d and reverse 2x q
   dual_sparse_matvec( &H, x1, x2, q );

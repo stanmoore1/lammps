@@ -773,8 +773,7 @@ void FixQEqReaxKokkos<DeviceType>::cg_solve1()
   F_FLOAT sig_new = dot_sqr;
 
   int loop;
-  const int loopmax = 200;
-  for (loop = 1; loop < loopmax & sqrt(sig_new)/b_norm > tolerance; loop++) {
+  for (loop = 1; loop < imax & sqrt(sig_new)/b_norm > tolerance; loop++) {
 
     // comm->forward_comm_fix(this); //Dist_vector( d );
     pack_flag = 1;
@@ -842,7 +841,7 @@ void FixQEqReaxKokkos<DeviceType>::cg_solve1()
     Kokkos::parallel_for(inum,vecsum2_functor);
   }
 
-  if (loop >= loopmax && comm->me == 0) {
+  if (loop >= imax && comm->me == 0) {
     char str[128];
     sprintf(str,"Fix qeq/reax cg_solve1 convergence failed after %d iterations "
             "at " BIGINT_FORMAT " step: %f",loop,update->ntimestep,sqrt(sig_new)/b_norm);
@@ -910,8 +909,7 @@ void FixQEqReaxKokkos<DeviceType>::cg_solve2()
   F_FLOAT sig_new = dot_sqr;
 
   int loop;
-  const int loopmax = 200;
-  for (loop = 1; loop < loopmax & sqrt(sig_new)/b_norm > tolerance; loop++) {
+  for (loop = 1; loop < imax & sqrt(sig_new)/b_norm > tolerance; loop++) {
 
     // comm->forward_comm_fix(this); //Dist_vector( d );
     pack_flag = 1;
@@ -979,7 +977,7 @@ void FixQEqReaxKokkos<DeviceType>::cg_solve2()
     Kokkos::parallel_for(inum,vecsum2_functor);
   }
 
-  if (loop >= loopmax && comm->me == 0) {
+  if (loop >= imax && comm->me == 0) {
     char str[128];
     sprintf(str,"Fix qeq/reax cg_solve2 convergence failed after %d iterations "
             "at " BIGINT_FORMAT " step: %f",loop,update->ntimestep,sqrt(sig_new)/b_norm);

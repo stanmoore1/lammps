@@ -496,13 +496,11 @@ double FixACKS2Reax::calculate_X( double r, double bcut)
 
 int FixACKS2Reax::BiCGStab( double *b, double *x)
 {
-  int  i, j, imax;
+  int  i, j;
   double tmp, alpha, beta, omega, sigma, rho, rho_old, rnorm, bnorm;
   double sig_old, sig_new;
 
   int jj;
-
-  imax = 200;
 
   sparse_matvec_acks2( &H, &X, x, d);
   pack_flag = 1;
