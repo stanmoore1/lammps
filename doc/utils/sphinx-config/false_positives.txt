@@ -499,6 +499,7 @@ cuda
 Cuda
 CUDA
 CuH
+cuFFT
 Cummins
 Curk
 customIDs
@@ -1544,6 +1545,7 @@ libmeam
 libmessage
 libmpi
 libmpich
+libnuma
 libplumed
 libplumedKernel
 libpng
@@ -1663,6 +1665,7 @@ manybody
 MANYBODY
 Maras
 Marchetti
+Marchi
 Mariella
 Marrink
 Marroquin
@@ -2442,6 +2445,7 @@ Ravelo
 rc
 Rc
 Rcm
+rcmax
 Rcmx
 Rcmy
 Rcut
@@ -2560,6 +2564,7 @@ Rockett
 Rodrigues
 Rohart
 Ronchetti
+Ronevich
 Rosati
 Rosenberger
 Rossky
