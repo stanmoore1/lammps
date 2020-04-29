@@ -98,7 +98,6 @@ FixACKS2Reax::~FixACKS2Reax()
   memory->destroy(s_hist_last);
 }
 
-
 /* ---------------------------------------------------------------------- */
 
 void FixACKS2Reax::post_constructor()

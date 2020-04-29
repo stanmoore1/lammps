@@ -474,7 +474,7 @@ double* FixEfield::get_energy()
   int *mask = atom->mask;
   imageint *image = atom->image;
 
-  int nall = atom->nlocal + atom->nghost;
+  int nlocal = atom->nlocal;
 
   // reallocate energy array if necessary
 
@@ -493,6 +493,8 @@ double* FixEfield::get_energy()
     region->prematch();
   }
 
+  int warn_flag_local = 0;
+
   // constant efield
 
   if (varflag == CONSTANT) {
@@ -502,7 +504,7 @@ double* FixEfield::get_energy()
     // force = qE, potential energy = F dot x in unwrapped coords
 
     if (qflag) {
-      for (int i = 0; i < nall; i++) {
+      for (int i = 0; i < nlocal; i++) {
         if (mask[i] & groupbit) {
           if (region && !region->match(x[i][0],x[i][1],x[i][2])) continue;
           const double fx = ex;
@@ -511,12 +513,20 @@ double* FixEfield::get_energy()
 
           domain->unmap(x[i],image[i],unwrap);
           energy[i] -= fx*unwrap[0] + fy*unwrap[1] + fz*unwrap[2];
+          if (fabs(fx*(x[i][0]-unwrap[0])) + fabs(fy*(x[i][1]-unwrap[1])) + 
+              fabs(fz*(x[i][2]-unwrap[2])) > 0.0)
+            warn_flag_local = 1;
         }
       }
     }
   } else {
     error->all(FLERR,"Cannot yet use fix qeq/reax with variable efield");
   }
+
+  int warn_flag;
+  MPI_Allreduce(&warn_flag_local,&warn_flag,1,MPI_INT,MPI_SUM,world);
+  if (warn_flag && comm->me == 0)
+    error->warning(FLERR,"Using non-zero image flags in field direction with fix qeq/reax");
 
   return energy;
 }

@@ -1057,7 +1057,7 @@ void FixQEqReax::vector_add( double* dest, double c, double* v, int k)
 
 void FixQEqReax::get_chi_field()
 {
-  int nall = atom->nlocal + atom->nghost;
+  int nlocal = atom->nlocal;
 
   memset(&chi_field[0],0.0,atom->nmax*sizeof(double));
 
@@ -1075,7 +1075,7 @@ void FixQEqReax::get_chi_field()
       FixEfield* fix_efield = (FixEfield*) modify->fix[n];
       double* field_energy = fix_efield->get_energy(); // Real units of kcal/mol/angstrom, need to convert to eV
 
-      for (int i = 0; i < nall; i++)
+      for (int i = 0; i < nlocal; i++)
         chi_field[i] += field_energy[i]*factor;
     }
   }
