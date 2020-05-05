@@ -45,11 +45,8 @@ using namespace LAMMPS_NS;
 using namespace FixConst;
 
 #define EV_TO_KCAL_PER_MOL 14.4
-//#define DANGER_ZONE     0.95
-//#define LOOSE_ZONE      0.7
 #define SQR(x) ((x)*(x))
 #define CUBE(x) ((x)*(x)*(x))
-#define MIN_NBRS 100
 
 static const char cite_fix_qeq_reax[] =
   "fix qeq/reax command:\n\n"
@@ -314,8 +311,8 @@ void FixQEqReax::allocate_matrix()
     mincap = reaxc->system->mincap;
     safezone = reaxc->system->safezone;
   } else {
-    mincap = MIN_CAP;
-    safezone = SAFE_ZONE;
+    mincap = REAX_MIN_CAP;
+    safezone = REAX_SAFE_ZONE;
   }
 
   n = atom->nlocal;
@@ -328,7 +325,7 @@ void FixQEqReax::allocate_matrix()
     i = ilist[ii];
     m += numneigh[i];
   }
-  m_cap = MAX( (int)(m * safezone), mincap * MIN_NBRS);
+  m_cap = MAX( (int)(m * safezone), mincap * REAX_MIN_NBRS);
 
   H.n = n_cap;
   H.m = m_cap;
