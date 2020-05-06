@@ -59,6 +59,8 @@ static const char cite_fix_acks2_reax[] =
 FixACKS2Reax::FixACKS2Reax(LAMMPS *lmp, int narg, char **arg) :
   FixQEqReax(lmp, narg, arg)
 {
+  refcharges = NULL;
+
   bcut = NULL;
 
   X_diag = NULL;
@@ -89,7 +91,8 @@ FixACKS2Reax::~FixACKS2Reax()
 {
   if (copymode) return;
 
-  memory->destroy(shld);
+  memory->destroy(refcharges);
+  memory->destroy(bcut);
 
   if (!reaxflag)
     memory->destroy(b_s_acks2);
@@ -123,6 +126,13 @@ void FixACKS2Reax::post_constructor()
 
 void FixACKS2Reax::pertype_parameters(char *arg)
 {
+  int i,itype,ntypes,rv;
+  double v1,v2,v3,v4,v5;
+  FILE *pf;
+
+  ntypes = atom->ntypes;
+  memory->create(refcharges,ntypes+1,"acks2/reax:refcharges");
+
   if (strcmp(arg,"reax/c") == 0) {
     reaxflag = 1;
     Pair *pair = force->pair_match("reax/c",0);
@@ -139,12 +149,33 @@ void FixACKS2Reax::pertype_parameters(char *arg)
       error->all(FLERR,
                  "Fix acks2/reax could not extract params from pair reax/c");
     bond_softness = *bond_softness_ptr;
+
+    if (!refcharge_file)
+      error->all(FLERR,
+                 "Must specify a refcharge file when using pair reax/c with fix acks2/reax");
+
+    if (comm->me == 0) {
+      if ((pf = fopen(refcharge_file,"r")) == NULL)
+        error->one(FLERR,"Fix acks2/reax refcharge file could not be found");
+
+      for (i = 1; i <= ntypes && !feof(pf); i++) {
+        rv = fscanf(pf,"%d %lg",&itype,&v1);
+        if (rv != 2)
+          error->one(FLERR,"Fix acks2/reax: Incorrect format of refcharge file");
+        if (itype < 1 || itype > ntypes)
+          error->one(FLERR,"Fix acks2/reax: invalid atom type in refcharge file");
+        refcharges[itype] = v1;
+      }
+      if (i <= ntypes) error->one(FLERR,"Invalid refcharge file for fix acks2/reax");
+      fclose(pf);
+    } 
+    MPI_Bcast(&refcharges[1],ntypes,MPI_DOUBLE,0,world);
+
     return;
   }
 
-  int i,itype,ntypes,rv;
-  double v1,v2,v3,v4;
-  FILE *pf;
+  if (refcharge_file)
+    error->all(FLERR,"Cannot specify both a refcharge and param file for fix acks2/reax");
 
   reaxflag = 0;
   ntypes = atom->ntypes;
@@ -164,8 +195,8 @@ void FixACKS2Reax::pertype_parameters(char *arg)
     bond_softness = v1;
 
     for (i = 1; i <= ntypes && !feof(pf); i++) {
-      rv = fscanf(pf,"%d %lg %lg %lg %lg",&itype,&v1,&v2,&v3,&v4);
-      if (rv != 5)
+      rv = fscanf(pf,"%d %lg %lg %lg %lg",&itype,&v1,&v2,&v3,&v4,&v5);
+      if (rv != 6)
         error->one(FLERR,"Fix acks2/reax: Incorrect format of param file");
       if (itype < 1 || itype > ntypes)
         error->one(FLERR,"Fix acks2/reax: invalid atom type in param file");
@@ -173,6 +204,7 @@ void FixACKS2Reax::pertype_parameters(char *arg)
       eta[itype] = v2;
       gamma[itype] = v3;
       b_s_acks2[itype] = v4;
+      refcharges[itype] = v5;
     }
     if (i <= ntypes) error->one(FLERR,"Invalid param file for fix acks2/reax");
     fclose(pf);
@@ -182,6 +214,7 @@ void FixACKS2Reax::pertype_parameters(char *arg)
   MPI_Bcast(&eta[1],ntypes,MPI_DOUBLE,0,world);
   MPI_Bcast(&gamma[1],ntypes,MPI_DOUBLE,0,world);
   MPI_Bcast(&b_s_acks2[1],ntypes,MPI_DOUBLE,0,world);
+  MPI_Bcast(&refcharges[1],ntypes,MPI_DOUBLE,0,world);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -298,11 +331,16 @@ void FixACKS2Reax::init_storage()
     s[i] = 0.0;
   }
 
-  // Assume net charge is zero for ACKS2 (for now), as is the case for QEq
+  // Reference charges
 
-  for (int i = 0; i < NN+2; i++) {
-    b_s[NN + i] = 0.0;
+  for (int i = 0; i < NN; i++) {
+    b_s[NN + i] = refcharges[atom->type[i]];
     s[NN + i] = 0.0;
+  }
+
+  for (int i = 0; i < 2; i++) {
+    b_s[2*NN + i] = 0.0;
+    s[2*NN + i] = 0.0;
   }
 }
 
@@ -381,7 +419,7 @@ void FixACKS2Reax::init_matvec()
       /* init pre-conditioner for H and init solution vectors */
       Hdia_inv[i] = 1. / eta[ atom->type[i] ];
       b_s[i] = -chi[ atom->type[i] ] - chi_field[i];
-      b_s[NN+i] = 0.0;
+      b_s[NN+i] = refcharges[ atom->type[i] ];
 
       /* cubic extrapolation for s from previous solutions */
       s[i] = 4*(s_hist[i][0]+s_hist[i][2])-(6*s_hist[i][1]+s_hist[i][3]);

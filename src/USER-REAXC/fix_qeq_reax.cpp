@@ -62,9 +62,9 @@ static const char cite_fix_qeq_reax[] =
 /* ---------------------------------------------------------------------- */
 
 FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg), pertype_option(NULL)
+  Fix(lmp, narg, arg), pertype_option(NULL), refcharge_file(NULL)
 {
-  if (narg<8 || narg>10) error->all(FLERR,"Illegal fix qeq/reax command");
+  if (narg<8 || narg>12) error->all(FLERR,"Illegal fix qeq/reax command");
 
   nevery = force->inumeric(FLERR,arg[3]);
   if (nevery <= 0) error->all(FLERR,"Illegal fix qeq/reax command");
@@ -87,6 +87,13 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
       if (iarg+1 > narg-1)
         error->all(FLERR,"Illegal fix qeq/reax command");
       imax = force->numeric(FLERR,arg[iarg+1]);
+      iarg++;
+    } else if (strcmp(arg[iarg],"refcharge") == 0) {
+      if (iarg+1 > narg-1)
+        error->all(FLERR,"Illegal fix qeq/reax command");
+      int len = strlen(arg[iarg+1]) + 1;
+      refcharge_file = new char[len];
+      strcpy(refcharge_file,arg[iarg+1]);
       iarg++;
     }
     else error->all(FLERR,"Illegal fix qeq/reax command");
@@ -143,6 +150,8 @@ FixQEqReax::~FixQEqReax()
   if (copymode) return;
 
   delete[] pertype_option;
+  if (refcharge_file)
+    delete[] refcharge_file;
 
   // unregister callbacks to this fix from Atom class
 

@@ -38,7 +38,7 @@ class FixACKS2Reax : public FixQEqReax {
  protected:
   double **s_hist_X,**s_hist_last;
 
-  double *b_s_acks2,bond_softness,**bcut; // acks2 parameters
+  double *b_s_acks2,*refcharges,bond_softness,**bcut; // acks2 parameters
 
   sparse_matrix X;
   double *Xdia_inv;

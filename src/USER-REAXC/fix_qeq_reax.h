@@ -105,6 +105,7 @@ class FixQEqReax : public Fix {
   //double *hc, *hs;
 
   char *pertype_option;  // argument to determine how per-type info is obtained
+  char *refcharge_file;
   virtual void pertype_parameters(char*);
   void init_shielding();
   void init_taper();
