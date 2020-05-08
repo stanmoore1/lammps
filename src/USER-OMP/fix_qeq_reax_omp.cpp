@@ -63,8 +63,6 @@ using namespace FixConst;
 FixQEqReaxOMP::FixQEqReaxOMP(LAMMPS *lmp, int narg, char **arg) :
   FixQEqReax(lmp, narg, arg)
 {
-  if (narg<8 || narg>9) error->all(FLERR,"Illegal fix qeq/reax/omp command");
-
   b_temp = NULL;
 
   // ASPC: Kolafa, J. Comp. Chem., 25(3), 335 (2003)

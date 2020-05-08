@@ -59,7 +59,7 @@ static const char cite_fix_acks2_reax[] =
 FixACKS2Reax::FixACKS2Reax(LAMMPS *lmp, int narg, char **arg) :
   FixQEqReax(lmp, narg, arg)
 {
-  refcharges = NULL;
+  refcharge = NULL;
 
   bcut = NULL;
 
@@ -91,7 +91,9 @@ FixACKS2Reax::~FixACKS2Reax()
 {
   if (copymode) return;
 
-  memory->destroy(refcharges);
+  if (!reaxflag)
+    memory->destroy(refcharge);
+
   memory->destroy(bcut);
 
   if (!reaxflag)
@@ -126,13 +128,6 @@ void FixACKS2Reax::post_constructor()
 
 void FixACKS2Reax::pertype_parameters(char *arg)
 {
-  int i,itype,ntypes,rv;
-  double v1,v2,v3,v4,v5;
-  FILE *pf;
-
-  ntypes = atom->ntypes;
-  memory->create(refcharges,ntypes+1,"acks2/reax:refcharges");
-
   if (strcmp(arg,"reax/c") == 0) {
     reaxflag = 1;
     Pair *pair = force->pair_match("reax/c",0);
@@ -143,39 +138,22 @@ void FixACKS2Reax::pertype_parameters(char *arg)
     eta = (double *) pair->extract("eta",tmp);
     gamma = (double *) pair->extract("gamma",tmp);
     b_s_acks2 = (double *) pair->extract("b_s_acks2",tmp);
+    refcharge = (double *) pair->extract("refcharge",tmp);
     double* bond_softness_ptr = (double *) pair->extract("bond_softness",tmp);
+    if (!reaxc->refcharge_flag)
+      error->all(FLERR,"Fix acks2/reax requires specifying refcharges in ReaxFF pair coeffs");
+
     if (chi == NULL || eta == NULL || gamma == NULL ||
-        b_s_acks2 == NULL || bond_softness_ptr == NULL)
+        b_s_acks2 == NULL || refcharge == NULL || bond_softness_ptr == NULL)
       error->all(FLERR,
                  "Fix acks2/reax could not extract params from pair reax/c");
     bond_softness = *bond_softness_ptr;
-
-    if (!refcharge_file)
-      error->all(FLERR,
-                 "Must specify a refcharge file when using pair reax/c with fix acks2/reax");
-
-    if (comm->me == 0) {
-      if ((pf = fopen(refcharge_file,"r")) == NULL)
-        error->one(FLERR,"Fix acks2/reax refcharge file could not be found");
-
-      for (i = 1; i <= ntypes && !feof(pf); i++) {
-        rv = fscanf(pf,"%d %lg",&itype,&v1);
-        if (rv != 2)
-          error->one(FLERR,"Fix acks2/reax: Incorrect format of refcharge file");
-        if (itype < 1 || itype > ntypes)
-          error->one(FLERR,"Fix acks2/reax: invalid atom type in refcharge file");
-        refcharges[itype] = v1;
-      }
-      if (i <= ntypes) error->one(FLERR,"Invalid refcharge file for fix acks2/reax");
-      fclose(pf);
-    } 
-    MPI_Bcast(&refcharges[1],ntypes,MPI_DOUBLE,0,world);
-
     return;
   }
 
-  if (refcharge_file)
-    error->all(FLERR,"Cannot specify both a refcharge and param file for fix acks2/reax");
+  int i,itype,ntypes,rv;
+  double v1,v2,v3,v4,v5;
+  FILE *pf;
 
   reaxflag = 0;
   ntypes = atom->ntypes;
@@ -184,6 +162,7 @@ void FixACKS2Reax::pertype_parameters(char *arg)
   memory->create(eta,ntypes+1,"acks2/reax:eta");
   memory->create(gamma,ntypes+1,"acks2/reax:gamma");
   memory->create(b_s_acks2,ntypes+1,"acks2/reax:b_s_acks2");
+  memory->create(refcharge,ntypes+1,"acks2/reax:refcharge");
 
   if (comm->me == 0) {
     if ((pf = fopen(arg,"r")) == NULL)
@@ -204,7 +183,7 @@ void FixACKS2Reax::pertype_parameters(char *arg)
       eta[itype] = v2;
       gamma[itype] = v3;
       b_s_acks2[itype] = v4;
-      refcharges[itype] = v5;
+      refcharge[itype] = v5;
     }
     if (i <= ntypes) error->one(FLERR,"Invalid param file for fix acks2/reax");
     fclose(pf);
@@ -214,7 +193,7 @@ void FixACKS2Reax::pertype_parameters(char *arg)
   MPI_Bcast(&eta[1],ntypes,MPI_DOUBLE,0,world);
   MPI_Bcast(&gamma[1],ntypes,MPI_DOUBLE,0,world);
   MPI_Bcast(&b_s_acks2[1],ntypes,MPI_DOUBLE,0,world);
-  MPI_Bcast(&refcharges[1],ntypes,MPI_DOUBLE,0,world);
+  MPI_Bcast(&refcharge[1],ntypes,MPI_DOUBLE,0,world);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -334,7 +313,7 @@ void FixACKS2Reax::init_storage()
   // Reference charges
 
   for (int i = 0; i < NN; i++) {
-    b_s[NN + i] = refcharges[atom->type[i]];
+    b_s[NN + i] = refcharge[atom->type[i]];
     s[NN + i] = 0.0;
   }
 
@@ -419,7 +398,7 @@ void FixACKS2Reax::init_matvec()
       /* init pre-conditioner for H and init solution vectors */
       Hdia_inv[i] = 1. / eta[ atom->type[i] ];
       b_s[i] = -chi[ atom->type[i] ] - chi_field[i];
-      b_s[NN+i] = refcharges[ atom->type[i] ];
+      b_s[NN+i] = refcharge[ atom->type[i] ];
 
       /* cubic extrapolation for s from previous solutions */
       s[i] = 4*(s_hist[i][0]+s_hist[i][2])-(6*s_hist[i][1]+s_hist[i][3]);

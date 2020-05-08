@@ -187,6 +187,9 @@ typedef struct
   double lgcij;
   double lgre;
 
+  /* ACKS2 reference charge */
+  double refcharge;
+
 } single_body_parameters;
 
 /* Two Body Parameters */

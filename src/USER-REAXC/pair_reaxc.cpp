@@ -182,6 +182,7 @@ PairReaxC::~PairReaxC()
     delete [] eta;
     delete [] gamma;
     delete [] b_s_acks2;
+    delete [] refcharge;
   }
 
   memory->destroy(tmpid);
@@ -207,6 +208,7 @@ void PairReaxC::allocate( )
   eta = new double[n+1];
   gamma = new double[n+1];
   b_s_acks2 = new double[n+1];
+  refcharge = new double[n+1];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -308,8 +310,16 @@ void PairReaxC::coeff( int nargs, char **args )
 {
   if (!allocated) allocate();
 
-  if (nargs != 3 + atom->ntypes)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+  int nargs_types = 3 + atom->ntypes;
+  refcharge_flag = (strcmp(args[nargs_types],"refcharges") == 0);
+
+  if (!refcharge_flag) {
+    if (nargs != nargs_types)
+      error->all(FLERR,"Incorrect args for pair coefficients");
+  } else {
+    if (nargs != nargs_types + 1 + atom->ntypes)
+      error->all(FLERR,"Incorrect args for pair coefficients");
+  }
 
   // insure I,J args are * *
 
@@ -334,7 +344,7 @@ void PairReaxC::coeff( int nargs, char **args )
 
   int itmp = 0;
   int nreax_types = system->reax_param.num_atom_types;
-  for (int i = 3; i < nargs; i++) {
+  for (int i = 3; i < nargs_types; i++) {
     if (strcmp(args[i],"NULL") == 0) {
       map[i-2] = -1;
       itmp ++;
@@ -345,7 +355,7 @@ void PairReaxC::coeff( int nargs, char **args )
   int n = atom->ntypes;
 
   // pair_coeff element map
-  for (int i = 3; i < nargs; i++)
+  for (int i = 3; i < nargs_types; i++)
     for (int j = 0; j < nreax_types; j++)
       if (strcasecmp(args[i],system->reax_param.sbp[j].name) == 0) {
         map[i-2] = j;
@@ -371,6 +381,15 @@ void PairReaxC::coeff( int nargs, char **args )
       }
 
   if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+
+  // parse optional refcharges for fix acks2
+
+  if (refcharge_flag) {
+    for (int i = 3; i < nargs_types; i++) {
+      if (map[i-2] == -1) continue;
+      system->reax_param.sbp[map[i-2]].refcharge = force->numeric(FLERR,args[nargs_types-2+i]);
+    }
+  }
 
 }
 
@@ -841,6 +860,13 @@ void *PairReaxC::extract(const char *str, int &dim)
       if (map[i] >= 0) b_s_acks2[i] = system->reax_param.sbp[map[i]].b_s_acks2;
       else b_s_acks2[i] = 0.0;
     return (void *) b_s_acks2;
+  }
+  if (strcmp(str,"refcharge") == 0 && refcharge) {
+    for (int i = 1; i <= atom->ntypes; i++) {
+      if (map[i] >= 0) refcharge[i] = system->reax_param.sbp[map[i]].refcharge;
+      else refcharge[i] = 0.0;
+    }
+    return (void *) refcharge;
   }
   if (strcmp(str,"bond_softness") == 0) {
       double* bond_softness = &system->reax_param.gp.l[34];

@@ -58,6 +58,7 @@ class PairReaxC : public Pair {
   mpi_datatypes *mpi_data;
 
   bigint ngroup;
+  int refcharge_flag;
 
  protected:
   char *fix_id;
@@ -67,7 +68,7 @@ class PairReaxC : public Pair {
   int *map;
   class FixReaxC *fix_reax;
 
-  double *chi,*eta,*gamma,*b_s_acks2;
+  double *chi,*eta,*gamma,*b_s_acks2,*refcharge;
   int qeqflag;
   int setup_flag;
   int firstwarn;
