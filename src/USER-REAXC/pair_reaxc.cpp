@@ -311,7 +311,14 @@ void PairReaxC::coeff( int nargs, char **args )
   if (!allocated) allocate();
 
   int nargs_types = 3 + atom->ntypes;
-  refcharge_flag = (strcmp(args[nargs_types],"refcharges") == 0);
+
+  refcharge_flag = 0;
+  if (nargs > nargs_types) {
+    if (strcmp(args[nargs_types],"refcharges") == 0)
+      refcharge_flag = 1;
+    else
+      error->all(FLERR,"Incorrect args for pair coefficients");
+  }
 
   if (!refcharge_flag) {
     if (nargs != nargs_types)
