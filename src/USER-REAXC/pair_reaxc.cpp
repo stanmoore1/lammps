@@ -869,10 +869,9 @@ void *PairReaxC::extract(const char *str, int &dim)
     return (void *) b_s_acks2;
   }
   if (strcmp(str,"refcharge") == 0 && refcharge) {
-    for (int i = 1; i <= atom->ntypes; i++) {
-      if (map[i] >= 0) refcharge[i] = system->reax_param.sbp[map[i]].refcharge;
+    for (int i = 1; i <= atom->ntypes; i++)
+      if (refcharge_flag && map[i] >= 0) refcharge[i] = system->reax_param.sbp[map[i]].refcharge;
       else refcharge[i] = 0.0;
-    }
     return (void *) refcharge;
   }
   if (strcmp(str,"bond_softness") == 0) {

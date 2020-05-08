@@ -140,8 +140,6 @@ void FixACKS2Reax::pertype_parameters(char *arg)
     b_s_acks2 = (double *) pair->extract("b_s_acks2",tmp);
     refcharge = (double *) pair->extract("refcharge",tmp);
     double* bond_softness_ptr = (double *) pair->extract("bond_softness",tmp);
-    if (!reaxc->refcharge_flag)
-      error->all(FLERR,"Fix acks2/reax requires specifying refcharges in ReaxFF pair coeffs");
 
     if (chi == NULL || eta == NULL || gamma == NULL ||
         b_s_acks2 == NULL || refcharge == NULL || bond_softness_ptr == NULL)
