@@ -29,9 +29,7 @@ FixDPDenergy::FixDPDenergy(LAMMPS *lmp, int narg, char **arg) :
   if (narg != 3 ) error->all(FLERR,"Illegal fix dpd/energy command");
 
   pairDPDE = NULL;
-  pairDPDE = (PairDPDfdtEnergy *) force->pair_match("dpd/fdt/energy",1);
-  if (pairDPDE == NULL)
-    pairDPDE = (PairDPDfdtEnergy *) force->pair_match("dpd/fdt/energy/kk",1);
+  pairDPDE = (PairDPDfdtEnergy *) force->pair_match("^dpd/fdt/energy",1);
 
   if (pairDPDE == NULL)
     error->all(FLERR,"Must use pair_style dpd/fdt/energy with fix dpd/energy");
