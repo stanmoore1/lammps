@@ -32,6 +32,18 @@ enum{FULL=1u,HALFTHREAD=2u,HALF=4u};
 #define MAX_TYPES_STACKPARAMS 12
 #define NeighClusterSize 8
 
+typedef double LMP_FLOAT;
+
+#ifndef KOKKOS_PRECISION
+#define KOKKOS_PRECISION 2
+#endif
+
+#if PRECISION==1
+typedef float KK_FLOAT;
+#else
+typedef double KK_FLOAT;
+#endif
+
   struct lmp_float3 {
     float x,y,z;
     KOKKOS_INLINE_FUNCTION
@@ -287,38 +299,6 @@ public:
 };
 
 
-// define precision
-// handle global precision, force, energy, positions, kspace separately
-
-#ifndef PRECISION
-#define PRECISION 2
-#endif
-#if PRECISION==1
-typedef float LMP_FLOAT;
-#else
-typedef double LMP_FLOAT;
-#endif
-
-#ifndef PREC_FORCE
-#define PREC_FORCE PRECISION
-#endif
-
-#if PREC_FORCE==1
-typedef float F_FLOAT;
-#else
-typedef double F_FLOAT;
-#endif
-
-#ifndef PREC_ENERGY
-#define PREC_ENERGY PRECISION
-#endif
-
-#if PREC_ENERGY==1
-typedef float E_FLOAT;
-#else
-typedef double E_FLOAT;
-#endif
-
 struct s_EV_FLOAT {
   E_FLOAT evdwl;
   E_FLOAT ecoul;
@@ -463,34 +443,6 @@ struct s_FEV_FLOAT {
 };
 typedef struct s_FEV_FLOAT FEV_FLOAT;
 
-#ifndef PREC_POS
-#define PREC_POS PRECISION
-#endif
-
-#if PREC_POS==1
-typedef float X_FLOAT;
-#else
-typedef double X_FLOAT;
-#endif
-
-#ifndef PREC_VELOCITIES
-#define PREC_VELOCITIES PRECISION
-#endif
-
-#if PREC_VELOCITIES==1
-typedef float V_FLOAT;
-#else
-typedef double V_FLOAT;
-#endif
-
-#if PREC_KSPACE==1
-typedef float K_FLOAT;
-#else
-typedef double K_FLOAT;
-#endif
-
-typedef int T_INT;
-
 // ------------------------------------------------------------------------
 
 // LAMMPS types
@@ -580,7 +532,7 @@ typedef tdual_imageint_1d::t_dev_const_um t_imageint_1d_const_um;
 typedef tdual_imageint_1d::t_dev_const_randomread t_imageint_1d_randomread;
 
 typedef Kokkos::
-  DualView<double*, Kokkos::LayoutRight, LMPDeviceType> tdual_double_1d;
+  DualView<LMP_FLOAT*, Kokkos::LayoutRight, LMPDeviceType> tdual_double_1d;
 typedef tdual_double_1d::t_dev t_double_1d;
 typedef tdual_double_1d::t_dev_const t_double_1d_const;
 typedef tdual_double_1d::t_dev_um t_double_1d_um;
