@@ -161,21 +161,21 @@ class FixQEqReaxKokkos : public FixQEqReax {
   Kokkos::DualView<params_qeq*,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_qeq*, Kokkos::LayoutRight,DeviceType>::t_dev_const params;
 
-  typename ArrayTypes<DeviceType>::t_x_array x;
-  typename ArrayTypes<DeviceType>::t_v_array v;
-  typename ArrayTypes<DeviceType>::t_f_array_const f;
-  //typename ArrayTypes<DeviceType>::t_float_1d_randomread mass, q;
-  typename ArrayTypes<DeviceType>::t_float_1d_randomread mass;
-  typename ArrayTypes<DeviceType>::t_float_1d q;
-  typename ArrayTypes<DeviceType>::t_int_1d type, mask;
-  typename ArrayTypes<DeviceType>::t_tagint_1d tag;
+  typename AT::t_x_array x;
+  typename AT::t_v_array v;
+  typename AT::t_f_array_const f;
+  //typename AT::t_float_1d_randomread mass, q;
+  typename AT::t_float_1d_randomread mass;
+  typename AT::t_float_1d q;
+  typename AT::t_int_1d type, mask;
+  typename AT::t_tagint_1d tag;
 
   DAT::tdual_float_1d k_q;
   typename AT::t_float_1d d_q;
   HAT::t_float_1d h_q;
 
-  typename ArrayTypes<DeviceType>::t_neighbors_2d d_neighbors;
-  typename ArrayTypes<DeviceType>::t_int_1d_randomread d_ilist, d_numneigh;
+  typename AT::t_neighbors_2d d_neighbors;
+  typename AT::t_int_1d_randomread d_ilist, d_numneigh;
 
   DAT::tdual_ffloat_1d k_tap;
   typename AT::t_ffloat_1d d_tap;
@@ -229,8 +229,8 @@ class FixQEqReaxKokkos : public FixQEqReax {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosNumNeighFunctor  {
-  typedef DeviceType  device_type ;
-  typedef int value_type ;
+  typedef DeviceType device_type;
+  typedef int value_type;
   FixQEqReaxKokkos<DeviceType> c;
   FixQEqReaxKokkosNumNeighFunctor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
@@ -243,7 +243,7 @@ struct FixQEqReaxKokkosNumNeighFunctor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosMatVecFunctor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   FixQEqReaxKokkosMatVecFunctor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
@@ -256,6 +256,7 @@ struct FixQEqReaxKokkosMatVecFunctor  {
 
 template <class DeviceType, int NEIGHFLAG>
 struct FixQEqReaxKokkosComputeHFunctor {
+  typedef DeviceType device_type;
   int atoms_per_team, vector_length;
   typedef int value_type;
   typedef Kokkos::ScratchMemorySpace<DeviceType> scratch_space;
@@ -304,7 +305,7 @@ struct FixQEqReaxKokkosComputeHFunctor {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosZeroFunctor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   FixQEqReaxKokkosZeroFunctor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
@@ -317,7 +318,7 @@ struct FixQEqReaxKokkosZeroFunctor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosSparse12Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   FixQEqReaxKokkosSparse12Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
@@ -330,7 +331,7 @@ struct FixQEqReaxKokkosSparse12Functor  {
 
 template <class DeviceType,int NEIGHFLAG>
 struct FixQEqReaxKokkosSparse13Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   FixQEqReaxKokkosSparse13Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
@@ -343,7 +344,7 @@ struct FixQEqReaxKokkosSparse13Functor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosSparse22Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   FixQEqReaxKokkosSparse22Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
@@ -356,7 +357,7 @@ struct FixQEqReaxKokkosSparse22Functor  {
 
 template <class DeviceType,int NEIGHFLAG>
 struct FixQEqReaxKokkosSparse23Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   FixQEqReaxKokkosSparse23Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
@@ -369,7 +370,7 @@ struct FixQEqReaxKokkosSparse23Functor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosSparse32Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   FixQEqReaxKokkosSparse32Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
@@ -382,7 +383,7 @@ struct FixQEqReaxKokkosSparse32Functor  {
 
 template <class DeviceType,int NEIGHFLAG>
 struct FixQEqReaxKokkosSparse33Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   FixQEqReaxKokkosSparse33Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
@@ -395,7 +396,7 @@ struct FixQEqReaxKokkosSparse33Functor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosVecSum2Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   FixQEqReaxKokkosVecSum2Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
@@ -408,7 +409,7 @@ struct FixQEqReaxKokkosVecSum2Functor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosNorm1Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   typedef double value_type;
   FixQEqReaxKokkosNorm1Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
@@ -422,7 +423,7 @@ struct FixQEqReaxKokkosNorm1Functor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosNorm2Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   typedef double value_type;
   FixQEqReaxKokkosNorm2Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
@@ -436,7 +437,7 @@ struct FixQEqReaxKokkosNorm2Functor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosDot1Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   typedef double value_type;
   FixQEqReaxKokkosDot1Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
@@ -450,7 +451,7 @@ struct FixQEqReaxKokkosDot1Functor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosDot2Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   typedef double value_type;
   FixQEqReaxKokkosDot2Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
@@ -464,7 +465,7 @@ struct FixQEqReaxKokkosDot2Functor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosPrecon1Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   FixQEqReaxKokkosPrecon1Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
@@ -477,7 +478,7 @@ struct FixQEqReaxKokkosPrecon1Functor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosPrecon2Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   FixQEqReaxKokkosPrecon2Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
@@ -490,7 +491,7 @@ struct FixQEqReaxKokkosPrecon2Functor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosPreconFunctor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   typedef double value_type;
   FixQEqReaxKokkosPreconFunctor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
@@ -504,7 +505,7 @@ struct FixQEqReaxKokkosPreconFunctor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosVecAcc1Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   typedef double value_type;
   FixQEqReaxKokkosVecAcc1Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
@@ -518,7 +519,7 @@ struct FixQEqReaxKokkosVecAcc1Functor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosVecAcc2Functor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   typedef double value_type;
   FixQEqReaxKokkosVecAcc2Functor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
@@ -532,7 +533,7 @@ struct FixQEqReaxKokkosVecAcc2Functor  {
 
 template <class DeviceType>
 struct FixQEqReaxKokkosCalculateQFunctor  {
-  typedef DeviceType  device_type ;
+  typedef DeviceType device_type;
   FixQEqReaxKokkos<DeviceType> c;
   FixQEqReaxKokkosCalculateQFunctor(FixQEqReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
     c.cleanup_copy();
