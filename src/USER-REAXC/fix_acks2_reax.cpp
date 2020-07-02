@@ -838,7 +838,7 @@ void FixACKS2Reax::unpack_reverse_comm(int n, int *list, double *buf)
   } else if (pack_flag == 4) {
     for(int i = 0; i < n; i++) {
       j = list[i];
-     X_diag[j] += buf[m++];
+      X_diag[j] += buf[m++];
     }
   }
 }

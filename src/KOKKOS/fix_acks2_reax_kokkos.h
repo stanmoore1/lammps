@@ -109,9 +109,6 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
   void operator()(TagZeroQGhosts, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void vecsum2_item(int) const;
-
-  KOKKOS_INLINE_FUNCTION
   double norm1_item(int) const;
 
   KOKKOS_INLINE_FUNCTION
@@ -450,19 +447,6 @@ struct FixACKS2ReaxKokkosSparse33Functor  {
   KOKKOS_INLINE_FUNCTION
   void operator()(const int ii) const {
     c.template sparse33_item<NEIGHFLAG>(ii);
-  }
-};
-
-template <class DeviceType>
-struct FixACKS2ReaxKokkosVecSum2Functor  {
-  typedef DeviceType  device_type ;
-  FixACKS2ReaxKokkos<DeviceType> c;
-  FixACKS2ReaxKokkosVecSum2Functor(FixACKS2ReaxKokkos<DeviceType>* c_ptr):c(*c_ptr) {
-    c.cleanup_copy();
-  };
-  KOKKOS_INLINE_FUNCTION
-  void operator()(const int ii) const {
-    c.vecsum2_item(ii);
   }
 };
 
