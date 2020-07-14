@@ -1079,7 +1079,6 @@ void FixACKS2ReaxKokkos<DeviceType>::matvec_item(int ii) const
       d_b_s[2*NN+i] = 0.0;
       d_s[2*NN+i] = 4*(d_s_hist_last[i][0]+d_s_hist_last[i][2])-(6*d_s_hist_last[i][1]+d_s_hist_last[i][3]);
     }
-  }
 
 }
 
@@ -1088,7 +1087,7 @@ void FixACKS2ReaxKokkos<DeviceType>::matvec_item(int ii) const
 template<class DeviceType>
 void FixACKS2ReaxKokkos<DeviceType>::bicgstab_solve()
 {
-  F_FLOAT tmp, sig_old, b_norm;
+  F_FLOAT my_norm,norm_sqr,my_dot,dot_sqr;
 
   int teamsize;
   if (execution_space == Host) teamsize = 1;
@@ -1110,16 +1109,15 @@ void FixACKS2ReaxKokkos<DeviceType>::bicgstab_solve()
 
   // vector_sum( r , 1.,  b, -1., d, nn );
   // b_norm = parallel_norm( b, nn );
-  F_FLOAT my_norm = 0.0;
+  my_norm = 0.0;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType,TagNorm1>(0,nn),*this,my_norm);
-  F_FLOAT norm_sqr = 0.0;
+  norm_sqr = 0.0;
   MPI_Allreduce( &my_norm, &norm_sqr, 1, MPI_DOUBLE, MPI_SUM, world );
   b_norm = sqrt(norm_sqr);
 
   // rnorm = parallel_norm( r, nn);
   my_norm = 0.0;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType,TagNorm2>(0,nn),*this,my_norm);
-  Kokkos::parallel_reduce(nn,,my_norm);
   norm_sqr = 0.0;
   MPI_Allreduce( &my_norm, &norm_sqr, 1, MPI_DOUBLE, MPI_SUM, world );
   r_norm = sqrt(norm_sqr);
@@ -1129,9 +1127,22 @@ void FixACKS2ReaxKokkos<DeviceType>::bicgstab_solve()
   omega = 1.0;
   rho = 1.0;
 
+  for (loop = 1; loop < imax && rnorm / b_norm > tolerance; ++loop) {
+    // rho = parallel_dot( r_hat, r, nn);
+    my_dot = 0.0;
+    Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType,TagDot1>(0,nn),*this,my_dot);
+    dot_sqr = 0.0;
+    MPI_Allreduce( &my_dot, &dot_sqr, 1, MPI_DOUBLE, MPI_SUM, world );
+    rho = dot_sqr;
+    if (rho == 0.0) break;
 
-  int loop;
-  for (loop = 1; loop < imax & sqrt(sig_new)/b_norm > tolerance; loop++) {
+    if (loop > 1)
+      beta = (rho / rho_old) * (alpha / omega);
+
+    // vector_sum( p , 1., r, beta, q, nn);
+    // vector_sum( q , 1., p, -omega, z, nn);
+    // pre-conditioning
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagPrecon1>(0,nn),*this);
 
     // comm->forward_comm_fix(this); //Dist_vector( d );
     pack_flag = 1;
@@ -1156,44 +1167,86 @@ void FixACKS2ReaxKokkos<DeviceType>::bicgstab_solve()
     } else
       sparse_matvec_acks2_full(d_d, d_z);
 
-    // tmp = parallel_dot( d, q, nn);
+    // tmp = parallel_dot( r_hat, z, nn);
     my_dot = dot_sqr = 0.0;
-    FixACKS2ReaxKokkosDot2Functor<DeviceType> dot2_functor(this);
-    Kokkos::parallel_reduce(nn,dot2_functor,my_dot);
+    Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType,TagDot2>(0,nn),*this,my_dot);
+    MPI_Allreduce( &my_dot, &dot_sqr, 1, MPI_DOUBLE, MPI_SUM, world );
+    tmp = dot_sqr;
+    alpha = rho / tmp;
+
+    // vector_sum( q, 1., r, -alpha, z, nn);
+    // tmp = parallel_dot( q, q, nn);
+    my_dot = dot_sqr = 0.0;
+    Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType,TagDot3>(0,nn),*this,my_dot);
     MPI_Allreduce( &my_dot, &dot_sqr, 1, MPI_DOUBLE, MPI_SUM, world );
     tmp = dot_sqr;
 
-    alpha = sig_new / tmp;
+    // early convergence check
+    if (tmp < tolerance) {
+      // vector_add( x, alpha, d, nn);
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagAdd>(0,nn),*this);
+      break;
+    }
 
-    sig_old = sig_new;
+    // pre-conditioning
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagPrecon2>(0,nn),*this);
 
-    // vector_add( s, alpha, d, nn );
-    // vector_add( r, -alpha, q, nn );
-    my_dot = dot_sqr = 0.0;
-    FixACKS2ReaxKokkosPrecon1Functor<DeviceType> precon1_functor(this);
-    Kokkos::parallel_for(nn,precon1_functor);
-    // preconditioning: p[j] = r[j] * Hdia_inv[j];
-    // sig_new = parallel_dot( r, p, nn);
-    FixACKS2ReaxKokkosPreconFunctor<DeviceType> precon_functor(this);
-    Kokkos::parallel_reduce(nn,precon_functor,my_dot);
-    MPI_Allreduce( &my_dot, &dot_sqr, 1, MPI_DOUBLE, MPI_SUM, world );
-    sig_new = dot_sqr;
+    // comm->forward_comm_fix(this); //Dist_vector( q_hat );
+    pack_flag = 3;
+    k_q_hat.template modify<DeviceType>();
+    k_q_hat.template sync<LMPHostType>();
+    comm->forward_comm_fix(this);
+    more_forward_comm(k_q_hat.h_view.data());
+    k_q_hat.template modify<LMPHostType>();
+    k_q_hat.template sync<DeviceType>();
 
-    beta = sig_new / sig_old;
+    sparse_matvec_acks2( &H, &X, q_hat, y );
+    pack_flag = 3;
+    comm->reverse_comm_fix(this); //Dist_vector( y );
+    more_reverse_comm(y);
 
-    // vector_sum( d, 1., p, beta, d, nn );
-    FixACKS2ReaxKokkosVecSum2Functor<DeviceType> vecsum2_functor(this);
-    Kokkos::parallel_for(nn,vecsum2_functor);
+    // sparse_matvec( &H, &X, q_hat, y );
+    if (neighflag != FULL) {
+      sparse_matvec_acks2_half(d_q_hat, d_y);
+
+      k_d.template modify<DeviceType>();
+      k_d.template sync<LMPHostType>();
+      pack_flag = 2;
+      comm->reverse_comm_fix(this); //Coll_vector( z );
+      more_reverse_comm(k_z.h_view.data());
+      k_d.template modify<LMPHostType>();
+      k_d.template sync<DeviceType>();
+    } else
+      sparse_matvec_acks2_full(d_d, d_z);
+
+    sigma = parallel_dot( y, q, nn);
+    tmp = parallel_dot( y, y, nn);
+    omega = sigma / tmp;
+
+    // vector_sum( g , alpha, d, omega, q_hat, nn);
+    // vector_add( x, 1., g, nn);
+    // vector_sum( r , 1., q, -omega, y, nn);
+    // rnorm = parallel_norm( r, nn);
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagNorm2>(0,nn),*this);
+
+    if (omega == 0) break;
+    rho_old = rho;
   }
 
-  if (loop >= imax && comm->me == 0) {
-    char str[128];
-    sprintf(str,"Fix acks2/reax cg_solve1 convergence failed after %d iterations "
-            "at " BIGINT_FORMAT " step: %f",loop,update->ntimestep,sqrt(sig_new)/b_norm);
-    error->warning(FLERR,str);
-    //error->all(FLERR,str);
+  if (comm->me == 0) {
+    if (omega == 0 || rho == 0) {
+      char str[128];
+      sprintf(str,"Fix acks2/reax/kk BiCGStab numerical breakdown, omega = %g, rho = %g",omega,rho);
+      error->warning(FLERR,str);
+    } else if (loop >= imax) {
+      char str[128];
+      sprintf(str,"Fix acks2/reax/kk BiCGStab convergence failed after %d iterations "
+              "at " BIGINT_FORMAT " step",i,update->ntimestep);
+      error->warning(FLERR,str);
+    }
   }
 
+  return loop;
 }
 
 
@@ -1364,15 +1417,17 @@ void FixACKS2ReaxKokkos<DeviceType>::operator() (TagSparseMatvec3_Full, const me
   }
 }
 
+
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixACKS2ReaxKokkos<DeviceType>::norm1_item(int ii) const
+void FixACKS2ReaxKokkos<DeviceType>::operator() (TagNorm1, const int &i) const
 {
   F_FLOAT tmp = 0;
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
-    d_r[i] = 1.0*d_b_s[i] + -1.0*d_o[i];
-    d_d[i] = d_r[i] * d_Hdia_inv[i];
+    d_r[i] = 1.0*d_b_s[i] + -1.0*d_d[i];
     tmp = d_b_s[i] * d_b_s[i];
   }
   return tmp;
@@ -1382,14 +1437,12 @@ double FixACKS2ReaxKokkos<DeviceType>::norm1_item(int ii) const
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixACKS2ReaxKokkos<DeviceType>::norm2_item(int ii) const
+void FixACKS2ReaxKokkos<DeviceType>::operator() (TagNorm2, const int &i) const
 {
   F_FLOAT tmp = 0;
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
-    d_r[i] = 1.0*d_b_t[i] + -1.0*d_o[i];
-    d_d[i] = d_r[i] * d_Hdia_inv[i];
-    tmp = d_b_t[i] * d_b_t[i];
+    tmp = d_r[i] * d_r[i];
   }
   return tmp;
 }
@@ -1398,12 +1451,28 @@ double FixACKS2ReaxKokkos<DeviceType>::norm2_item(int ii) const
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixACKS2ReaxKokkos<DeviceType>::dot1_item(int ii) const
+void FixACKS2ReaxKokkos<DeviceType>::operator() (TagDot1, const int &i) const
 {
   F_FLOAT tmp = 0.0;
   const int i = d_ilist[ii];
   if (mask[i] & groupbit)
-    tmp = d_r[i] * d_d[i];
+    tmp = d_r_hat[i] * d_r[i];
+  return tmp;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void FixACKS2ReaxKokkos<DeviceType>::operator() (TagPrecon1, const int &i) const
+{
+  F_FLOAT tmp = 0.0;
+  const int i = d_ilist[ii];
+  if (mask[i] & groupbit) {
+    if (loop > 1) {
+      d_q[i] = 1.0*d_p[i] - omega*d_z[i];
+      d_p[i] = 1.0*d_r[i] + beta*d_q[i];
+  }
   return tmp;
 }
 
