@@ -303,16 +303,22 @@ void FixACKS2Reax::init_storage()
   if (field_flag)
     get_chi_field();
 
-  for (int i = 0; i < NN; i++) {
-    b_s[i] = -chi[atom->type[i]] - chi_field[i];
-    s[i] = 0.0;
+  for (int ii = 0; ii < NN; ii++) {
+    int i = ilist[ii];
+    if (atom->mask[i] & groupbit) {
+      b_s[i] = -chi[atom->type[i]] - chi_field[i];
+      s[i] = 0.0;
+    }
   }
 
   // Reference charges
 
-  for (int i = 0; i < NN; i++) {
-    b_s[NN + i] = refcharge[atom->type[i]];
-    s[NN + i] = 0.0;
+  for (int ii = 0; ii < NN; ii++) {
+    int i = ilist[ii];
+    if (atom->mask[i] & groupbit) {
+      b_s[NN + i] = refcharge[atom->type[i]];
+      s[NN + i] = 0.0;
+    }
   }
 
   for (int i = 0; i < 2; i++) {
