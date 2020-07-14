@@ -227,7 +227,7 @@ void Input::file()
 
     // execute the command
 
-    if (execute_command())
+    if (execute_command() && line)
       error->all(FLERR,fmt::format("Unknown command: {}",line));
   }
 }
@@ -1096,7 +1096,7 @@ void Input::label()
 
 void Input::log()
 {
-  if (narg > 2) error->all(FLERR,"Illegal log command");
+  if ((narg < 1) || (narg > 2)) error->all(FLERR,"Illegal log command");
 
   int appendflag = 0;
   if (narg == 2) {
@@ -1904,12 +1904,16 @@ void Input::suffix()
   if (narg < 1) error->all(FLERR,"Illegal suffix command");
 
   if (strcmp(arg[0],"off") == 0) lmp->suffix_enable = 0;
-  else if (strcmp(arg[0],"on") == 0) lmp->suffix_enable = 1;
-  else {
+  else if (strcmp(arg[0],"on") == 0) {
+    if (!lmp->suffix)
+      error->all(FLERR,"May only enable suffixes after defining one");
+    lmp->suffix_enable = 1;
+  } else {
     lmp->suffix_enable = 1;
 
     delete [] lmp->suffix;
     delete [] lmp->suffix2;
+    lmp->suffix = lmp->suffix2 = nullptr;
 
     if (strcmp(arg[0],"hybrid") == 0) {
       if (narg != 3) error->all(FLERR,"Illegal suffix command");

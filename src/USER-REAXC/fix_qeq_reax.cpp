@@ -488,13 +488,27 @@ void FixQEqReax::init_storage()
   if (field_flag)
     get_chi_field();
 
-  for (int i = 0; i < NN; i++) {
-    Hdia_inv[i] = 1. / eta[atom->type[i]];
-    b_s[i] = -chi[atom->type[i]] - chi_field[i];
-    b_t[i] = -1.0;
-    b_prc[i] = 0;
-    b_prm[i] = 0;
-    s[i] = t[i] = 0;
+  int NN;
+  int *ilist;
+
+  if (reaxc) {
+    NN = reaxc->list->inum + reaxc->list->gnum;
+    ilist = reaxc->list->ilist;
+  } else {
+    NN = list->inum + list->gnum;
+    ilist = list->ilist;
+  }
+
+  for (int ii = 0; ii < NN; ii++) {
+    int i = ilist[ii];
+    if (atom->mask[i] & groupbit) {
+      Hdia_inv[i] = 1. / eta[atom->type[i]];
+      b_s[i] = -chi[atom->type[i]];
+      b_t[i] = -1.0;
+      b_prc[i] = 0;
+      b_prm[i] = 0;
+      s[i] = t[i] = 0;
+    }
   }
 }
 

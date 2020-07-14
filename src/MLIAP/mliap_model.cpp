@@ -41,6 +41,16 @@ MLIAPModel::MLIAPModel(LAMMPS* lmp, char* coefffilename) : Pointers(lmp)
 
 /* ---------------------------------------------------------------------- */
 
+MLIAPModel::MLIAPModel(LAMMPS* lmp, int nelements_in, int nparams_in) : Pointers(lmp)
+{
+  nelements = nelements_in;
+  nparams = nparams_in;
+  coeffelem = NULL;
+  nonlinearflag = 0;
+}
+
+/* ---------------------------------------------------------------------- */
+
 MLIAPModel::~MLIAPModel()
 {
   memory->destroy(coeffelem);
@@ -142,7 +152,6 @@ void MLIAPModel::read_coeffs(char *coefffilename)
   }
 
   if (comm->me == 0) fclose(fpcoeff);
-
 }
 
 /* ----------------------------------------------------------------------
@@ -153,9 +162,7 @@ double MLIAPModel::memory_usage()
 {
   double bytes = 0;
 
-  int n = atom->ntypes+1;
   bytes += nelements*nparams*sizeof(double);  // coeffelem
-
   return bytes;
 }
 
