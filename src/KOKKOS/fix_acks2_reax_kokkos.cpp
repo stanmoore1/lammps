@@ -240,8 +240,10 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
 
   // get max number of neighbor
 
-  if (!allocated_flag || update->ntimestep == neighbor->lastcall)
+  if (!allocated_flag || last_allocate < neighbor->lastcall) {
     allocate_matrix();
+    last_allocate = update->ntimestep;
+  }
 
   // compute_H
 
@@ -1873,6 +1875,9 @@ int FixACKS2ReaxKokkos<DeviceType>::pack_exchange(int i, double *buf)
 template<class DeviceType>
 int FixACKS2ReaxKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 {
+  k_s_hist.template sync<LMPHostType>();
+  k_s_hist_X.template sync<LMPHostType>();
+
   int n = FixACKS2Reax::unpack_exchange(nlocal,buf);
 
   k_s_hist.template modify<LMPHostType>();
