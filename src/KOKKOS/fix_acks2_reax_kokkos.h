@@ -166,12 +166,6 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
     F_FLOAT chi, eta, gamma, b_s_acks2, refcharge;
   };
 
-  virtual int pack_forward_comm(int, int *, double *, int, int *);
-  virtual void unpack_forward_comm(int, int, double *);
-  int pack_reverse_comm(int, int, double *);
-  void unpack_reverse_comm(int, int *, double *);
-  double memory_usage();
-
  private:
   int inum;
   int allocated_flag;
@@ -195,8 +189,8 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
   typename ArrayTypes<DeviceType>::t_neighbors_2d d_neighbors;
   typename ArrayTypes<DeviceType>::t_int_1d_randomread d_ilist, d_numneigh;
 
-  DAT::tdual_ffloat_1d k_tap, k_b_s_acks2, k_refcharge;
-  typename AT::t_ffloat_1d d_tap, d_b_s_acks2, d_refcharge;
+  DAT::tdual_ffloat_1d k_tap;
+  typename AT::t_ffloat_1d d_tap;
 
   DAT::tdual_ffloat_2d k_bcut;
   typename AT::t_ffloat_2d d_bcut;
@@ -211,19 +205,16 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
   typename AT::t_int_1d d_jlist_X;
   typename AT::t_ffloat_1d d_val_X;
 
-  DAT::tdual_ffloat_1d k_s;
+  DAT::tdual_ffloat_1d k_s, k_X_diag, k_chi_field;
   typename AT::t_ffloat_1d d_Hdia_inv,d_Xdia_inv, d_X_diag, d_chi_field, d_b_s,  d_s;
-  HAT::t_ffloat_1d h_s;
   typename AT::t_ffloat_1d_randomread r_b_s, r_s;
 
-  DAT::tdual_ffloat_1d k_d, k_z, k_q_hat;
+  DAT::tdual_ffloat_1d k_d, k_q_hat, k_z, k_y;
   typename AT::t_ffloat_1d d_p, d_q, d_r, d_d, d_g, d_q_hat, d_r_hat, d_y, d_z, d_bb, d_xx;
-  HAT::t_ffloat_1d h_d;
   typename AT::t_ffloat_1d_randomread r_p, r_r, r_d;
 
   DAT::tdual_ffloat_2d k_shield, k_s_hist, k_s_hist_X, k_s_hist_last;
   typename AT::t_ffloat_2d d_shield, d_s_hist, d_s_hist_X, d_s_hist_last;
-  HAT::t_ffloat_2d h_s_hist, h_s_hist_X, h_s_hist_last;
   typename AT::t_ffloat_2d_randomread r_s_hist, r_s_hist_X, r_s_hist_last;
 
   Kokkos::Experimental::ScatterView<F_FLOAT*, typename AT::t_ffloat_1d::array_layout, typename KKDevice<DeviceType>::value, Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated> dup_bb;
@@ -233,6 +224,7 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
   void init_hist();
   void allocate_matrix();
   void allocate_array();
+  void deallocate_array();
   int bicgstab_solve();
   void calculate_Q();
 
@@ -250,6 +242,7 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
   void copy_arrays(int, int, int);
   int pack_exchange(int, double *);
   int unpack_exchange(int, double *);
+  double memory_usage();
 
   void sparse_matvec_acks2_half(typename AT::t_ffloat_1d &, typename AT::t_ffloat_1d &);
   void sparse_matvec_acks2_full(typename AT::t_ffloat_1d &, typename AT::t_ffloat_1d &);

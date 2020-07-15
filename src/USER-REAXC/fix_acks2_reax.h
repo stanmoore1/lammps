@@ -29,9 +29,9 @@ class FixACKS2Reax : public FixQEqReax {
   FixACKS2Reax(class LAMMPS *, int, char **);
   virtual ~FixACKS2Reax();
   void post_constructor();
-  void init();
+  virtual void init();
   void init_storage();
-  void pre_force(int);
+  virtual void pre_force(int);
 
   double* get_s() {return s;}
 
@@ -69,10 +69,10 @@ class FixACKS2Reax : public FixQEqReax {
   void more_forward_comm(double *);
   void more_reverse_comm(double *);
   double memory_usage();
-  void grow_arrays(int);
-  void copy_arrays(int, int, int);
-  int pack_exchange(int, double *);
-  int unpack_exchange(int, double *);
+  virtual void grow_arrays(int);
+  virtual void copy_arrays(int, int, int);
+  virtual int pack_exchange(int, double *);
+  virtual int unpack_exchange(int, double *);
 
   double parallel_norm( double*, int );
   double parallel_dot( double*, double*, int );
