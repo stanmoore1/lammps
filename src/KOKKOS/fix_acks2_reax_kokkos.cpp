@@ -329,9 +329,9 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
   need_dup = lmp->kokkos->need_dup<DeviceType>();
 
   if (need_dup)
-    dup_bb = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated> (d_bb); // allocate duplicated memory
+    dup_bb = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated> (d_d); // allocate duplicated memory
   else
-    ndup_bb = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated> (d_bb);
+    ndup_bb = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated> (d_d);
 
   // bicgstab solve over b_s, s
 
@@ -1316,10 +1316,10 @@ void FixACKS2ReaxKokkos<DeviceType>::calculate_Q()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixACKS2ReaxKokkos<DeviceType>::sparse_matvec_acks2_half(typename AT::t_ffloat_1d &d_bb_in, typename AT::t_ffloat_1d &d_xx_in)
+void FixACKS2ReaxKokkos<DeviceType>::sparse_matvec_acks2_half(typename AT::t_ffloat_1d &d_xx_in, typename AT::t_ffloat_1d &d_bb_in)
 {
-  d_bb = d_bb_in;
   d_xx = d_xx_in;
+  d_bb = d_bb_in;
 
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec1>(0,nn),*this);
 
@@ -1337,10 +1337,10 @@ void FixACKS2ReaxKokkos<DeviceType>::sparse_matvec_acks2_half(typename AT::t_ffl
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixACKS2ReaxKokkos<DeviceType>::sparse_matvec_acks2_full(typename AT::t_ffloat_1d &d_bb_in, typename AT::t_ffloat_1d &d_xx_in)
+void FixACKS2ReaxKokkos<DeviceType>::sparse_matvec_acks2_full(typename AT::t_ffloat_1d &d_xx_in, typename AT::t_ffloat_1d &d_bb_in)
 {
-  d_bb = d_bb_in;
   d_xx = d_xx_in;
+  d_bb = d_bb_in;
 
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec1>(0,nn),*this);
 

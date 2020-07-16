@@ -168,7 +168,7 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
 
  private:
   int inum;
-  int allocated_flag;
+  int allocated_flag, last_allocate;
   int need_dup;
   int comm_me_0_flag;
 
