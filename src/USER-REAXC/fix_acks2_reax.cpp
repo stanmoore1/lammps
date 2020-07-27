@@ -388,14 +388,12 @@ void FixACKS2Reax::init_matvec()
 
   int ii, i;
 
-  for (int i = 0; i < nn; i++) {
-    if (X_diag[i] == 0.0)
-      Xdia_inv[i] = 1.0;
-    else
-      Xdia_inv[i] = 1.0 / X_diag[i];
-  }
-
   for (ii = 0; ii < nn; ++ii) {
+    if (X_diag[ii] == 0.0)
+      Xdia_inv[ii] = 1.0;
+    else
+      Xdia_inv[ii] = 1.0 / X_diag[ii];
+
     i = ilist[ii];
     if (atom->mask[i] & groupbit) {
 

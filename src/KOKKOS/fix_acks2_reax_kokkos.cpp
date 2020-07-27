@@ -60,13 +60,12 @@ FixACKS2ReaxKokkos(LAMMPS *lmp, int narg, char **arg) :
   memory->destroy(s_hist_X);
   memory->destroy(s_hist_last);
   grow_arrays(atom->nmax);
+  memoryKK->create_kokkos(k_s_hist_last,s_hist_last,2,nprev,"acks2/reax:s_hist_last");
+  d_s_hist_last = k_s_hist_last.template view<DeviceType>();
 
   d_mfill_offset = typename AT::t_int_scalar("acks2/kk:mfill_offset");
 
   comm_me_0_flag = (comm->me == 0);
-
-  memoryKK->create_kokkos(k_s_hist_last,s_hist_last,2,nprev,"acks2/reax:s_hist_last");
-  d_s_hist_last = k_s_hist_last.template view<DeviceType>();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -309,6 +308,11 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
 
   pack_flag = 4;
   //comm->reverse_comm_fix(this); //Coll_Vector( X_diag );
+  k_X_diag.template modify<DeviceType>();
+  k_X_diag.template sync<LMPHostType>();
+  comm->reverse_comm_fix(this);
+  k_X_diag.template modify<LMPHostType>();
+  k_X_diag.template sync<DeviceType>();
 
   // init_matvec
 
