@@ -1075,6 +1075,7 @@ GPa
 gpu
 gpuID
 gpus
+gradgradflag
 gradV
 GradVidottan
 graining
@@ -3249,6 +3250,8 @@ whitesmoke
 whitespace
 Wi
 Wicaksono
+Widom
+widom
 Wijk
 Wikipedia
 wildcard
@@ -3377,3 +3380,5 @@ zy
 Zybin
 zz
 Zm
+PowerShell
+filesystems

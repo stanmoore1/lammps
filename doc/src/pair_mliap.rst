@@ -34,8 +34,8 @@ Examples
 Description
 """""""""""
 
-Pair style *mliap* provides a general interface to families of 
-machine-learning interatomic potentials. It allows separate 
+Pair style *mliap* provides a general interface to families of
+machine-learning interatomic potentials. It allows separate
 definitions of the interatomic potential functional form (*model*)
 and the geometric quantities that characterize the atomic positions
 (*descriptor*). By defining *model* and *descriptor* separately,
@@ -61,8 +61,8 @@ where N is the number of LAMMPS atom types.
 
 The *model* keyword is followed by a model style, currently limited to
 either *linear* or *quadratic*. In both cases,
-this is followed by a single argument specifying the model filename containing the 
-parameters for a set of elements. 
+this is followed by a single argument specifying the model filename containing the
+parameters for a set of elements.
 The model filename usually ends in the *.mliap.model* extension.
 It may contain parameters for many elements. The only requirement is that it
 contain at least those element names appearing in the
@@ -86,8 +86,7 @@ The *descriptor* keyword is followed by a descriptor style, and additional argum
 Currently the only descriptor style is *sna*, indicating the bispectrum component
 descriptors used by the Spectral Neighbor Analysis Potential (SNAP) potentials of
 :doc:`pair_style snap <pair_snap>`.
-The \'p\' in SNAP is dropped, because keywords that match pair_styles are silently stripped
-out by the LAMMPS command parser. A single additional argument specifies the descriptor filename
+A single additional argument specifies the descriptor filename
 containing the parameters and setting used by the SNAP descriptor.
 The descriptor filename usually ends in the *.mliap.descriptor* extension.
 
