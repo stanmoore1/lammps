@@ -169,7 +169,6 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
  private:
   int inum;
   int allocated_flag, last_allocate;
-  int need_dup;
   int comm_me_0_flag;
 
   typename AT::t_int_scalar d_mfill_offset;

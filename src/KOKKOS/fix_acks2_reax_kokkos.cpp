@@ -330,13 +330,6 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
   k_s.template modify<LMPHostType>();
   k_s.template sync<DeviceType>();
 
-  need_dup = lmp->kokkos->need_dup<DeviceType>();
-
-  if (need_dup)
-    dup_bb = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated> (d_d); // allocate duplicated memory
-  else
-    ndup_bb = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated> (d_d);
-
   // bicgstab solve over b_s, s
 
   bicgstab_solve();
@@ -351,11 +344,6 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
 
   if (!allocated_flag)
     allocated_flag = 1;
-
-  // free duplicated memory
-
-  if (need_dup)
-    dup_bb = decltype(dup_bb)();
 
   atomKK->modified(execution_space,datamask_modify);
 }
@@ -843,7 +831,8 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_x_item(int ii, int &m_fill, const b
         const F_FLOAT X_val = calculate_X_k(r,bcutoff);
         d_val_X(m_fill) = X_val;
         d_X_diag[i] -= X_val;
-        d_X_diag[j] -= X_val;
+        if (NEIGHFLAG != FULL)
+          d_X_diag[j] -= X_val;
       }
       m_fill++;
     }
@@ -1047,7 +1036,8 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_x_team(
                         d_val_X[atomi_nbr_writeIdx + m_fill] =
                             X_val;
                         X_diag[i] -= X_val;
-                        X_diag[j] -= X_val;
+                        if (NEIGHFLAG != FULL)
+                          X_diag[j] -= X_val;
                       }
                     }
 
@@ -1325,6 +1315,13 @@ void FixACKS2ReaxKokkos<DeviceType>::sparse_matvec_acks2_half(typename AT::t_ffl
   d_xx = d_xx_in;
   d_bb = d_bb_in;
 
+  int need_dup = lmp->kokkos->need_dup<DeviceType>();
+
+  if (need_dup)
+    dup_bb = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated> (d_bb); // allocate duplicated memory
+  else
+    ndup_bb = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated> (d_bb);
+
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec1>(0,nn),*this);
 
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec2>(nn,NN),*this);
@@ -1334,8 +1331,13 @@ void FixACKS2ReaxKokkos<DeviceType>::sparse_matvec_acks2_half(typename AT::t_ffl
   else if (neighflag == HALFTHREAD)
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec3_Half<HALFTHREAD> >(0,nn),*this);
 
-  if (need_dup)
+  if (need_dup) {
     Kokkos::Experimental::contribute(d_bb, dup_bb);
+
+    // free duplicated memory
+
+    dup_bb = decltype(dup_bb)();
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1454,11 +1456,11 @@ void FixACKS2ReaxKokkos<DeviceType>::operator() (TagACKS2SparseMatvec3_Full, con
     // X Matrix
     Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, d_firstnbr_X[i], d_firstnbr_X[i] + d_numnbrs_X[i]), [&] (const int &jj, F_FLOAT &doi) {
       const int j = d_jlist_X(jj);
-      doi += d_val_X(jj) * d_xx[j];
+      doi += d_val_X(jj) * d_xx[NN + j];
     }, doitmp);
 
     Kokkos::single(Kokkos::PerTeam(team), [&] () {
-      d_bb[i] += doitmp;
+      d_bb[NN + i] += doitmp;
 
       // Identity Matrix
       d_bb[NN + i] += d_xx[i];
@@ -1510,7 +1512,8 @@ void FixACKS2ReaxKokkos<DeviceType>::operator() (TagACKS2Norm2, const int &ii, d
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
-    lsum = d_r[i] * d_r[i];
+    lsum += d_r[i] * d_r[i];
+    lsum += d_r[NN + i] * d_r[NN + i];
   }
 
   // last two rows
@@ -1565,8 +1568,8 @@ void FixACKS2ReaxKokkos<DeviceType>::operator() (TagACKS2Precon1A, const int &ii
     d_p[2*NN] = d_r[2*NN] + beta*d_q[2*NN];
     d_p[2*NN + 1] = d_r[2*NN + 1] + beta*d_q[2*NN + 1];
 
-    d_d[2*NN] = d_p[2*NN]*d_Hdia_inv[i];
-    d_d[2*NN + 1] = d_p[2*NN + 1]*d_Xdia_inv[i];
+    d_d[2*NN] = d_p[2*NN];
+    d_d[2*NN + 1] = d_p[2*NN + 1];
   }
 }
 
@@ -1590,8 +1593,8 @@ void FixACKS2ReaxKokkos<DeviceType>::operator() (TagACKS2Precon1B, const int &ii
     d_p[2*NN] = d_r[2*NN];
     d_p[2*NN + 1] = d_r[2*NN + 1];
 
-    d_d[2*NN] = d_p[2*NN]*d_Hdia_inv[i];
-    d_d[2*NN + 1] = d_p[2*NN + 1]*d_Xdia_inv[i];
+    d_d[2*NN] = d_p[2*NN];
+    d_d[2*NN + 1] = d_p[2*NN + 1];
   }
 }
 
@@ -1726,8 +1729,8 @@ void FixACKS2ReaxKokkos<DeviceType>::operator() (TagACKS2Norm3, const int &ii, d
     d_g[i] = alpha*d_d[i] + omega*d_q_hat[i];
     d_g[NN+i] = alpha*d_d[NN+i] + omega*d_q_hat[NN+i];
 
-    d_s[i] += d_q[i];
-    d_s[NN+i] += d_q[NN+i];
+    d_s[i] += d_g[i];
+    d_s[NN+i] += d_g[NN+i];
 
     d_r[i] = d_q[i] - omega*d_y[i];
     d_r[NN+i] = d_q[NN+i] - omega*d_y[NN+i];
@@ -1741,8 +1744,8 @@ void FixACKS2ReaxKokkos<DeviceType>::operator() (TagACKS2Norm3, const int &ii, d
     d_g[2*NN] = alpha*d_d[2*NN] + omega*d_q_hat[2*NN];
     d_g[2*NN + 1] = alpha*d_d[2*NN + 1] + omega*d_q_hat[2*NN + 1];
 
-    d_s[2*NN] += d_q[2*NN];
-    d_s[2*NN + 1] += d_q[2*NN + 1];
+    d_s[2*NN] += d_g[2*NN];
+    d_s[2*NN + 1] += d_g[2*NN + 1];
 
     d_r[2*NN] = d_q[2*NN] - omega*d_y[2*NN];
     d_r[2*NN + 1] = d_q[2*NN + 1] - omega*d_y[2*NN + 1];
