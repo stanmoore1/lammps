@@ -102,10 +102,7 @@ void FixACKS2ReaxKokkos<DeviceType>::init()
     kokkos_device = std::is_same<DeviceType,LMPDeviceType>::value;
 
   if (neighflag == FULL) {
-    neighbor->requests[irequest]->fix = 1;
-    neighbor->requests[irequest]->pair = 0;
-    neighbor->requests[irequest]->full = 1;
-    neighbor->requests[irequest]->half = 0;
+    error->all(FLERR,"Full neighborlist not yet supported by fix acks2/kk");
   } else { //if (neighflag == HALF || neighflag == HALFTHREAD)
     neighbor->requests[irequest]->fix = 1;
     neighbor->requests[irequest]->pair = 0;
@@ -247,13 +244,9 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
   // compute_H
 
   if (execution_space == Host) { // CPU
-    if (neighflag == FULL) {
-      FixACKS2ReaxKokkosComputeHFunctor<DeviceType, FULL> computeH_functor(this);
-      Kokkos::parallel_scan(nn,computeH_functor);
-    } else { // HALF and HALFTHREAD are the same
-      FixACKS2ReaxKokkosComputeHFunctor<DeviceType, HALF> computeH_functor(this);
-      Kokkos::parallel_scan(nn,computeH_functor);
-    }
+    // HALF and HALFTHREAD are the same
+    FixACKS2ReaxKokkosComputeHFunctor<DeviceType, HALF> computeH_functor(this);
+    Kokkos::parallel_scan(nn,computeH_functor);
   } else { // GPU, use teams
     Kokkos::deep_copy(d_mfill_offset,0);
 
@@ -263,26 +256,28 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
 
     Kokkos::TeamPolicy<DeviceType> policy(num_teams, atoms_per_team,
                                           vector_length);
-    if (neighflag == FULL) {
-      FixACKS2ReaxKokkosComputeHFunctor<DeviceType, FULL> computeH_functor(
-          this, atoms_per_team, vector_length);
-      Kokkos::parallel_for(policy, computeH_functor);
-    } else { // HALF and HALFTHREAD are the same
-      FixACKS2ReaxKokkosComputeHFunctor<DeviceType, HALF> computeH_functor(
-          this, atoms_per_team, vector_length);
-      Kokkos::parallel_for(policy, computeH_functor);
-    }
+    // HALF and HALFTHREAD are the same
+    FixACKS2ReaxKokkosComputeHFunctor<DeviceType, HALF> computeH_functor(
+        this, atoms_per_team, vector_length);
+    Kokkos::parallel_for(policy, computeH_functor);
   }
+
+  need_dup = lmp->kokkos->need_dup<DeviceType>(1);
+
+  if (need_dup)
+    dup_X_diag = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated> (d_X_diag); // allocate duplicated memory
+  else
+    ndup_X_diag = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated> (d_X_diag);
 
   // compute_X
 
   Kokkos::deep_copy(d_X_diag,0.0);
 
-  if (execution_space == Host) { // CPU
-    if (neighflag == FULL) {
-      FixACKS2ReaxKokkosComputeXFunctor<DeviceType, FULL> computeX_functor(this);
+  if (execution_space == Host || 1) { // CPU
+    if (neighflag == HALFTHREAD) { 
+      FixACKS2ReaxKokkosComputeXFunctor<DeviceType, HALFTHREAD> computeX_functor(this);
       Kokkos::parallel_scan(nn,computeX_functor);
-    } else { // HALF and HALFTHREAD are the same
+    } else {
       FixACKS2ReaxKokkosComputeXFunctor<DeviceType, HALF> computeX_functor(this);
       Kokkos::parallel_scan(nn,computeX_functor);
     }
@@ -295,15 +290,23 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
 
     Kokkos::TeamPolicy<DeviceType> policy(num_teams, atoms_per_team,
                                           vector_length);
-    if (neighflag == FULL) {
-      FixACKS2ReaxKokkosComputeHFunctor<DeviceType, FULL> computeX_functor(
+    if (neighflag == HALFTHREAD) {
+      FixACKS2ReaxKokkosComputeXFunctor<DeviceType, HALFTHREAD> computeX_functor(
           this, atoms_per_team, vector_length);
       Kokkos::parallel_for(policy, computeX_functor);
-    } else { // HALF and HALFTHREAD are the same
-      FixACKS2ReaxKokkosComputeHFunctor<DeviceType, HALF> computeX_functor(
+    } else {
+      FixACKS2ReaxKokkosComputeXFunctor<DeviceType, HALF> computeX_functor(
           this, atoms_per_team, vector_length);
       Kokkos::parallel_for(policy, computeX_functor);
     }
+  }
+
+  if (need_dup) {
+    Kokkos::Experimental::contribute(d_X_diag, dup_X_diag);
+
+    // free duplicated memory
+
+    dup_X_diag = decltype(dup_X_diag)();
   }
 
   pack_flag = 4;
@@ -507,19 +510,17 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_h_item(int ii, int &m_fill, const b
       const X_FLOAT dely = x(j,1) - ytmp;
       const X_FLOAT delz = x(j,2) - ztmp;
 
-      if (NEIGHFLAG != FULL) {
-        // skip half of the interactions
-        const tagint jtag = tag(j);
-        if (j >= nlocal) {
-          if (itag > jtag) {
-            if ((itag+jtag) % 2 == 0) continue;
-          } else if (itag < jtag) {
-            if ((itag+jtag) % 2 == 1) continue;
-          } else {
-            if (x(j,2) < ztmp) continue;
-            if (x(j,2) == ztmp && x(j,1)  < ytmp) continue;
-            if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
-          }
+      // skip half of the interactions
+      const tagint jtag = tag(j);
+      if (j >= nlocal) {
+        if (itag > jtag) {
+          if ((itag+jtag) % 2 == 0) continue;
+        } else if (itag < jtag) {
+          if ((itag+jtag) % 2 == 1) continue;
+        } else {
+          if (x(j,2) < ztmp) continue;
+          if (x(j,2) == ztmp && x(j,1)  < ytmp) continue;
+          if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
         }
       }
 
@@ -682,25 +683,22 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_h_team(
 
                       // valid nbr interaction
                       bool valid = true;
-                      if (NEIGHFLAG != FULL) {
-                        // skip half of the interactions
-                        const tagint jtag = tag(j);
-                        if (j >= nlocal) {
-                          if (itag > jtag) {
-                            if ((itag + jtag) % 2 == 0)
-                              valid = false;
-                          } else if (itag < jtag) {
-                            if ((itag + jtag) % 2 == 1)
-                              valid = false;
-                          } else {
-                            if (x(j, 2) < ztmp)
-                              valid = false;
-                            if (x(j, 2) == ztmp && x(j, 1) < ytmp)
-                              valid = false;
-                            if (x(j, 2) == ztmp && x(j, 1) == ytmp &&
-                                x(j, 0) < xtmp)
-                              valid = false;
-                          }
+                      // skip half of the interactions
+                      const tagint jtag = tag(j);
+                      if (j >= nlocal) {
+                        if (itag > jtag) {
+                          if ((itag + jtag) % 2 == 0)
+                            valid = false;
+                        } else if (itag < jtag) {
+                          if ((itag + jtag) % 2 == 1)
+                            valid = false;
+                        } else {
+                          if (x(j, 2) < ztmp)
+                            valid = false;
+                          if (x(j, 2) == ztmp && x(j, 1) < ytmp)
+                            valid = false;
+                          if (x(j, 2) == ztmp && x(j, 1) == ytmp && x(j, 0) < xtmp)
+                            valid = false;
                         }
                       }
 
@@ -779,8 +777,13 @@ template <int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void FixACKS2ReaxKokkos<DeviceType>::compute_x_item(int ii, int &m_fill, const bool &final) const
 {
+  // The X_diag array is duplicated for OpenMP, atomic for CUDA, and neither for Serial
+  auto v_X_diag = ScatterViewHelper<NeedDup<NEIGHFLAG,DeviceType>::value,decltype(dup_X_diag),decltype(ndup_X_diag)>::get(dup_X_diag,ndup_X_diag);
+  auto a_X_diag = v_X_diag.template access<AtomicDup<NEIGHFLAG,DeviceType>::value>();
+
   const int i = d_ilist[ii];
   int j,jj,jtype;
+  F_FLOAT tmp = 0.0;
 
   if (mask[i] & groupbit) {
 
@@ -802,19 +805,17 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_x_item(int ii, int &m_fill, const b
       const X_FLOAT dely = x(j,1) - ytmp;
       const X_FLOAT delz = x(j,2) - ztmp;
 
-      if (NEIGHFLAG != FULL) {
-        // skip half of the interactions
-        const tagint jtag = tag(j);
-        if (j >= nlocal) {
-          if (itag > jtag) {
-            if ((itag+jtag) % 2 == 0) continue;
-          } else if (itag < jtag) {
-            if ((itag+jtag) % 2 == 1) continue;
-          } else {
-            if (x(j,2) < ztmp) continue;
-            if (x(j,2) == ztmp && x(j,1)  < ytmp) continue;
-            if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
-          }
+      // skip half of the interactions
+      const tagint jtag = tag(j);
+      if (j >= nlocal) {
+        if (itag > jtag) {
+          if ((itag+jtag) % 2 == 0) continue;
+        } else if (itag < jtag) {
+          if ((itag+jtag) % 2 == 1) continue;
+        } else {
+          if (x(j,2) < ztmp) continue;
+          if (x(j,2) == ztmp && x(j,1)  < ytmp) continue;
+          if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
         }
       }
 
@@ -830,14 +831,15 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_x_item(int ii, int &m_fill, const b
         d_jlist_X(m_fill) = j;
         const F_FLOAT X_val = calculate_X_k(r,bcutoff);
         d_val_X(m_fill) = X_val;
-        d_X_diag[i] -= X_val;
-        if (NEIGHFLAG != FULL)
-          d_X_diag[j] -= X_val;
+        tmp -= X_val;
+        a_X_diag[j] -= X_val;
       }
       m_fill++;
     }
-    if (final)
+    if (final) {
+      a_X_diag[i] += tmp;
       d_numnbrs_X[i] = m_fill - d_firstnbr_X[i];
+    }
   }
 }
 
@@ -848,6 +850,10 @@ template <int NEIGHFLAG>
 void FixACKS2ReaxKokkos<DeviceType>::compute_x_team(
     const typename Kokkos::TeamPolicy<DeviceType>::member_type &team,
     int atoms_per_team, int vector_length) const {
+
+  // The X_diag array is duplicated for OpenMP, atomic for CUDA, and neither for Serial
+  auto v_X_diag = ScatterViewHelper<NeedDup<NEIGHFLAG,DeviceType>::value,decltype(dup_X_diag),decltype(ndup_X_diag)>::get(dup_X_diag,ndup_X_diag);
+  auto a_X_diag = v_X_diag.template access<AtomicDup<NEIGHFLAG,DeviceType>::value>();
 
   // scratch space setup
   Kokkos::View<int *, Kokkos::ScratchMemorySpace<DeviceType>,
@@ -978,25 +984,23 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_x_team(
 
                       // valid nbr interaction
                       bool valid = true;
-                      if (NEIGHFLAG != FULL) {
-                        // skip half of the interactions
-                        const tagint jtag = tag(j);
-                        if (j >= nlocal) {
-                          if (itag > jtag) {
-                            if ((itag + jtag) % 2 == 0)
-                              valid = false;
-                          } else if (itag < jtag) {
-                            if ((itag + jtag) % 2 == 1)
-                              valid = false;
-                          } else {
-                            if (x(j, 2) < ztmp)
-                              valid = false;
-                            if (x(j, 2) == ztmp && x(j, 1) < ytmp)
-                              valid = false;
-                            if (x(j, 2) == ztmp && x(j, 1) == ytmp &&
-                                x(j, 0) < xtmp)
-                              valid = false;
-                          }
+                      // skip half of the interactions
+                      const tagint jtag = tag(j);
+                      if (j >= nlocal) {
+                        if (itag > jtag) {
+                          if ((itag + jtag) % 2 == 0)
+                            valid = false;
+                        } else if (itag < jtag) {
+                          if ((itag + jtag) % 2 == 1)
+                            valid = false;
+                        } else {
+                          if (x(j, 2) < ztmp)
+                            valid = false;
+                          if (x(j, 2) == ztmp && x(j, 1) < ytmp)
+                            valid = false;
+                          if (x(j, 2) == ztmp && x(j, 1) == ytmp &&
+                            x(j, 0) < xtmp)
+                            valid = false;
                         }
                       }
 
@@ -1035,9 +1039,8 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_x_team(
                         const F_FLOAT X_val = calculate_X_k(r, bcutoff);
                         d_val_X[atomi_nbr_writeIdx + m_fill] =
                             X_val;
-                        X_diag[i] -= X_val;
-                        if (NEIGHFLAG != FULL)
-                          X_diag[j] -= X_val;
+                        a_X_diag[i] -= X_val;
+                        a_X_diag[j] -= X_val;
                       }
                     }
 
@@ -1117,18 +1120,15 @@ int FixACKS2ReaxKokkos<DeviceType>::bicgstab_solve()
   else teamsize = 128;
 
   // sparse_matvec( &H, &X, x, d );
-  if (neighflag != FULL) {
-    sparse_matvec_acks2_half(d_s, d_d);
+  sparse_matvec_acks2(d_s, d_d);
 
-    pack_flag = 1;
-    k_d.template modify<DeviceType>();
-    k_d.template sync<LMPHostType>();
-    comm->reverse_comm_fix(this); //Coll_vector( d );
-    more_reverse_comm(k_d.h_view.data());
-    k_d.template modify<LMPHostType>();
-    k_d.template sync<DeviceType>();
-  } else
-    sparse_matvec_acks2_full(d_s, d_d);
+  pack_flag = 1;
+  k_d.template modify<DeviceType>();
+  k_d.template sync<LMPHostType>();
+  comm->reverse_comm_fix(this); //Coll_vector( d );
+  more_reverse_comm(k_d.h_view.data());
+  k_d.template modify<LMPHostType>();
+  k_d.template sync<DeviceType>();
 
   // vector_sum( r , 1.,  b, -1., d, nn );
   // bnorm = parallel_norm( b, nn );
@@ -1183,18 +1183,15 @@ int FixACKS2ReaxKokkos<DeviceType>::bicgstab_solve()
     k_d.template sync<DeviceType>();
 
     // sparse_matvec( &H, &X, d, z );
-    if (neighflag != FULL) {
-      sparse_matvec_acks2_half(d_d, d_z);
+    sparse_matvec_acks2(d_d, d_z);
 
-      pack_flag = 2;
-      k_z.template modify<DeviceType>();
-      k_z.template sync<LMPHostType>();
-      comm->reverse_comm_fix(this); //Coll_vector( z );
-      more_reverse_comm(k_z.h_view.data());
-      k_z.template modify<LMPHostType>();
-      k_z.template sync<DeviceType>();
-    } else
-      sparse_matvec_acks2_full(d_d, d_z);
+    pack_flag = 2;
+    k_z.template modify<DeviceType>();
+    k_z.template sync<LMPHostType>();
+    comm->reverse_comm_fix(this); //Coll_vector( z );
+    more_reverse_comm(k_z.h_view.data());
+    k_z.template modify<LMPHostType>();
+    k_z.template sync<DeviceType>();
 
     // tmp = parallel_dot( r_hat, z, nn);
     my_dot = dot_sqr = 0.0;
@@ -1230,18 +1227,15 @@ int FixACKS2ReaxKokkos<DeviceType>::bicgstab_solve()
     k_q_hat.template modify<LMPHostType>();
     k_q_hat.template sync<DeviceType>();
 
-    if (neighflag != FULL) {
-      sparse_matvec_acks2_half(d_q_hat, d_y);
+    sparse_matvec_acks2(d_q_hat, d_y);
 
-      pack_flag = 3;
-      k_y.template modify<DeviceType>();
-      k_y.template sync<LMPHostType>();
-      comm->reverse_comm_fix(this); //Coll_vector( y );
-      more_reverse_comm(k_y.h_view.data());
-      k_y.template modify<LMPHostType>();
-      k_y.template sync<DeviceType>();
-    } else
-      sparse_matvec_acks2_full(d_q_hat, d_y);
+    pack_flag = 3;
+    k_y.template modify<DeviceType>();
+    k_y.template sync<LMPHostType>();
+    comm->reverse_comm_fix(this); //Coll_vector( y );
+    more_reverse_comm(k_y.h_view.data());
+    k_y.template modify<LMPHostType>();
+    k_y.template sync<DeviceType>();
 
     // sigma = parallel_dot( y, q, nn);
     my_dot = dot_sqr = 0.0;
@@ -1310,12 +1304,10 @@ void FixACKS2ReaxKokkos<DeviceType>::calculate_Q()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixACKS2ReaxKokkos<DeviceType>::sparse_matvec_acks2_half(typename AT::t_ffloat_1d &d_xx_in, typename AT::t_ffloat_1d &d_bb_in)
+void FixACKS2ReaxKokkos<DeviceType>::sparse_matvec_acks2(typename AT::t_ffloat_1d &d_xx_in, typename AT::t_ffloat_1d &d_bb_in)
 {
   d_xx = d_xx_in;
   d_bb = d_bb_in;
-
-  int need_dup = lmp->kokkos->need_dup<DeviceType>();
 
   if (need_dup)
     dup_bb = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated> (d_bb); // allocate duplicated memory
@@ -1338,23 +1330,6 @@ void FixACKS2ReaxKokkos<DeviceType>::sparse_matvec_acks2_half(typename AT::t_ffl
 
     dup_bb = decltype(dup_bb)();
   }
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-void FixACKS2ReaxKokkos<DeviceType>::sparse_matvec_acks2_full(typename AT::t_ffloat_1d &d_xx_in, typename AT::t_ffloat_1d &d_bb_in)
-{
-  d_xx = d_xx_in;
-  d_bb = d_bb_in;
-
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec1>(0,nn),*this);
-
-  int teamsize;
-  if (execution_space == Host) teamsize = 1;
-  else teamsize = 128;
-
-  Kokkos::parallel_for(Kokkos::TeamPolicy<DeviceType, TagACKS2SparseMatvec3_Full>(nn, teamsize),*this);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1435,49 +1410,6 @@ void FixACKS2ReaxKokkos<DeviceType>::operator() (TagACKS2SparseMatvec3_Half<NEIG
     a_bb[i] += d_xx[2*NN + 1];
   }
 }
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxKokkos<DeviceType>::operator() (TagACKS2SparseMatvec3_Full, const membertype1 &team) const
-{
-  const int i = d_ilist[team.league_rank()];
-  if (mask[i] & groupbit) {
-    F_FLOAT doitmp;
-
-    // H Matrix
-    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, d_firstnbr[i], d_firstnbr[i] + d_numnbrs[i]), [&] (const int &jj, F_FLOAT &doi) {
-      const int j = d_jlist(jj);
-      doi += d_val(jj) * d_xx[j];
-    }, doitmp);
-    Kokkos::single(Kokkos::PerTeam(team), [&] () {d_bb[i] += doitmp;});
-
-    // X Matrix
-    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, d_firstnbr_X[i], d_firstnbr_X[i] + d_numnbrs_X[i]), [&] (const int &jj, F_FLOAT &doi) {
-      const int j = d_jlist_X(jj);
-      doi += d_val_X(jj) * d_xx[NN + j];
-    }, doitmp);
-
-    Kokkos::single(Kokkos::PerTeam(team), [&] () {
-      d_bb[NN + i] += doitmp;
-
-      // Identity Matrix
-      d_bb[NN + i] += d_xx[i];
-      d_bb[i] += d_xx[NN + i];
-
-      // Second-to-last row/column
-      d_bb[2*NN] += d_xx[NN + i];
-      d_bb[NN + i] += d_xx[2*NN];
-
-      // Last row/column
-      d_bb[2*NN + 1] += d_xx[i];
-      d_bb[i] += d_xx[2*NN + 1];
-    });
-
-  }
-}
-
 
 /* ---------------------------------------------------------------------- */
 

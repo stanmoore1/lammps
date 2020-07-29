@@ -169,7 +169,7 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
  private:
   int inum;
   int allocated_flag, last_allocate;
-  int comm_me_0_flag;
+  int need_dup,comm_me_0_flag;
 
   typename AT::t_int_scalar d_mfill_offset;
 
@@ -216,6 +216,9 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
   typename AT::t_ffloat_2d d_shield, d_s_hist, d_s_hist_X, d_s_hist_last;
   typename AT::t_ffloat_2d_randomread r_s_hist, r_s_hist_X, r_s_hist_last;
 
+  Kokkos::Experimental::ScatterView<F_FLOAT*, typename AT::t_ffloat_1d::array_layout, typename KKDevice<DeviceType>::value, Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated> dup_X_diag;
+  Kokkos::Experimental::ScatterView<F_FLOAT*, typename AT::t_ffloat_1d::array_layout, typename KKDevice<DeviceType>::value, Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated> ndup_X_diag;
+
   Kokkos::Experimental::ScatterView<F_FLOAT*, typename AT::t_ffloat_1d::array_layout, typename KKDevice<DeviceType>::value, Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated> dup_bb;
   Kokkos::Experimental::ScatterView<F_FLOAT*, typename AT::t_ffloat_1d::array_layout, typename KKDevice<DeviceType>::value, Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated> ndup_bb;
 
@@ -243,8 +246,7 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
   int unpack_exchange(int, double *);
   double memory_usage();
 
-  void sparse_matvec_acks2_half(typename AT::t_ffloat_1d &, typename AT::t_ffloat_1d &);
-  void sparse_matvec_acks2_full(typename AT::t_ffloat_1d &, typename AT::t_ffloat_1d &);
+  void sparse_matvec_acks2(typename AT::t_ffloat_1d &, typename AT::t_ffloat_1d &);
 };
 
 template <class DeviceType>
