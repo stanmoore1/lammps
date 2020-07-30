@@ -349,6 +349,7 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
     allocated_flag = 1;
 
   atomKK->modified(execution_space,datamask_modify);
+  k_s.modify<DeviceType>();
 }
 
 /* ---------------------------------------------------------------------- */

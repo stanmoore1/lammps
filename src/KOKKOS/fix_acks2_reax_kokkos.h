@@ -68,6 +68,8 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
   void setup_pre_force(int);
   void pre_force(int);
 
+  DAT::tdual_ffloat_1d get_s() {return k_s;}
+
   KOKKOS_INLINE_FUNCTION
   void num_neigh_item(int, int&) const;
 
