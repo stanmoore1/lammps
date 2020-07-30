@@ -185,8 +185,8 @@ class FixQEqReaxKokkos : public FixQEqReax {
   typename AT::t_int_1d d_jlist;
   typename AT::t_ffloat_1d d_val;
 
-  DAT::tdual_ffloat_1d k_t, k_s;
-  typename AT::t_ffloat_1d d_Hdia_inv, d_b_s, d_b_t, d_t, d_s;
+  DAT::tdual_ffloat_1d k_t, k_s, k_chi_field;
+  typename AT::t_ffloat_1d d_Hdia_inv, d_b_s, d_b_t, d_t, d_s, d_chi_field;
   HAT::t_ffloat_1d h_t, h_s;
   typename AT::t_ffloat_1d_randomread r_b_s, r_b_t, r_t, r_s;
 
@@ -225,6 +225,7 @@ class FixQEqReaxKokkos : public FixQEqReax {
   void copy_arrays(int, int, int);
   int pack_exchange(int, double *);
   int unpack_exchange(int, double *);
+  void get_chi_field();
 };
 
 template <class DeviceType>

@@ -244,6 +244,7 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
   void copy_arrays(int, int, int);
   int pack_exchange(int, double *);
   int unpack_exchange(int, double *);
+  void get_chi_field();
   double memory_usage();
 
   void sparse_matvec_acks2(typename AT::t_ffloat_1d &, typename AT::t_ffloat_1d &);

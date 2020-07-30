@@ -1827,6 +1827,16 @@ int FixACKS2ReaxKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 
 /* ---------------------------------------------------------------------- */
 
+template<class DeviceType>
+void FixACKS2ReaxKokkos<DeviceType>::get_chi_field()
+{ 
+  FixQEqReax::get_chi_field();
+  k_chi_field.modify_host();
+  k_chi_field.sync_device();
+}
+
+/* ---------------------------------------------------------------------- */
+
 namespace LAMMPS_NS {
 template class FixACKS2ReaxKokkos<LMPDeviceType>;
 #ifdef KOKKOS_ENABLE_CUDA
