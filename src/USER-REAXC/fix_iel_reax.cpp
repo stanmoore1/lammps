@@ -165,17 +165,13 @@ void FixIELReax::initial_integrate(int /*vflag*/)
 
   // evolve O(t) for BAOAB Scheme
 
-  //if (update->ntimestep % atom->respaLatent == 0) {
-    //double dto = dtv * atom->respaLatent;
-    double dto = dtv; /////////////////////////////////////////////
-    if (atom->XLMDFlag == 2) {
-      if (update->ntimestep > 1000) {
-        Berendersen(dto);
-      }
-    } else if (atom->XLMDFlag == 3) {
-      Langevin(dto);
+  if (atom->XLMDFlag == 2) {
+    if (update->ntimestep > 1000) {
+      Berendersen(dtv);
     }
-  //}
+  } else if (atom->XLMDFlag == 3) {
+    Langevin(dtv);
+  }
 
   if (atom->XLMDFlag) {
     for (int i = 0; i < nlocal; i++) {
