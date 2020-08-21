@@ -82,7 +82,7 @@ using namespace LAMMPS_NS;
  *  even with char * type variables.
  *  Example: utils::strmatch(text, std::string("^") + charptr)
  */
-bool utils::strmatch(std::string text, std::string pattern)
+bool utils::strmatch(const std::string &text, const std::string &pattern)
 {
   const int pos = re_match(text.c_str(),pattern.c_str());
   return (pos >= 0);
@@ -346,6 +346,19 @@ tagint utils::tnumeric(const char *file, int line, const char *str,
   }
 
   return ATOTAGINT(str);
+}
+
+/* ----------------------------------------------------------------------
+   Return string without leading or trailing whitespace
+------------------------------------------------------------------------- */
+
+std::string utils::trim(const std::string & line) {
+  int beg = re_match(line.c_str(),"\\S+");
+  int end = re_match(line.c_str(),"\\s+$");
+  if (beg < 0) beg = 0;
+  if (end < 0) end = line.size();
+
+  return line.substr(beg,end-beg);
 }
 
 /* ----------------------------------------------------------------------
@@ -690,6 +703,38 @@ double utils::get_conversion_factor(const int property, const int conversion)
     }
   }
   return 0.0;
+}
+
+/* ----------------------------------------------------------------------
+   convert a timespec ([[HH:]MM:]SS) to seconds
+   the strings "off" and "unlimited" result in -1.0;
+------------------------------------------------------------------------- */
+
+double utils::timespec2seconds(const std::string & timespec)
+{
+  double vals[3];
+  int i = 0;
+
+  // first handle allowed textual inputs
+  if (timespec == "off") return -1.0;
+  if (timespec == "unlimited") return -1.0;
+
+  vals[0] = vals[1] = vals[2] = 0;
+
+  ValueTokenizer values(timespec, ":");
+
+  try {
+    for (i = 0; i < 3; i++) {
+      if (!values.has_next()) break;
+      vals[i] = values.next_int();
+    }
+  } catch (TokenizerException & e) {
+    return -1.0;
+  }
+
+  if (i == 3) return (vals[0]*60 + vals[1])*60 + vals[2];
+  else if (i == 2) return vals[0]*60 + vals[1];
+  return vals[0];
 }
 
 /* ------------------------------------------------------------------ */

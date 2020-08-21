@@ -25,6 +25,24 @@ using ::testing::EndsWith;
 using ::testing::Eq;
 using ::testing::StrEq;
 
+TEST(Utils, trim)
+{
+    auto trimmed = utils::trim("\t some text");
+    ASSERT_THAT(trimmed, StrEq("some text"));
+
+    trimmed = utils::trim("some text \r\n");
+    ASSERT_THAT(trimmed, StrEq("some text"));
+
+    trimmed = utils::trim("\v some text \f");
+    ASSERT_THAT(trimmed, StrEq("some text"));
+
+    trimmed = utils::trim("   some\t text    ");
+    ASSERT_THAT(trimmed, StrEq("some\t text"));
+
+    trimmed = utils::trim("  \t\n   ");
+    ASSERT_THAT(trimmed, StrEq(""));
+}
+
 TEST(Utils, trim_comment)
 {
     auto trimmed = utils::trim_comment("some text # comment");
@@ -443,4 +461,19 @@ TEST(Utils, unit_conversion)
     ASSERT_DOUBLE_EQ(factor, 23.060549);
     factor = utils::get_conversion_factor(utils::ENERGY, utils::REAL2METAL);
     ASSERT_DOUBLE_EQ(factor, 1.0 / 23.060549);
+}
+
+TEST(Utils, timespec2seconds_ss)
+{
+    ASSERT_DOUBLE_EQ(utils::timespec2seconds("45"), 45.0);
+}
+
+TEST(Utils, timespec2seconds_mmss)
+{
+    ASSERT_DOUBLE_EQ(utils::timespec2seconds("10:45"), 645.0);
+}
+
+TEST(Utils, timespec2seconds_hhmmss)
+{
+    ASSERT_DOUBLE_EQ(utils::timespec2seconds("2:10:45"), 7845.0);
 }

@@ -184,7 +184,7 @@ void FixQEqReaxKokkos<DeviceType>::setup_pre_force(int vflag)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixQEqReaxKokkos<DeviceType>::pre_force(int vflag)
+void FixQEqReaxKokkos<DeviceType>::pre_force(int /*vflag*/)
 {
   if (update->ntimestep % nevery) return;
 
@@ -489,6 +489,7 @@ void FixQEqReaxKokkos<DeviceType>::compute_h_item(int ii, int &m_fill, const boo
 
 template <class DeviceType>
 template <int NEIGHFLAG>
+KOKKOS_INLINE_FUNCTION
 void FixQEqReaxKokkos<DeviceType>::compute_h_team(
     const typename Kokkos::TeamPolicy<DeviceType>::member_type &team,
     int atoms_per_team, int vector_length) const {
@@ -789,7 +790,7 @@ void FixQEqReaxKokkos<DeviceType>::cg_solve1()
   F_FLOAT sig_new = dot_sqr;
 
   int loop;
-  for (loop = 1; loop < imax & sqrt(sig_new)/b_norm > tolerance; loop++) {
+  for (loop = 1; (loop < imax) && (sqrt(sig_new)/b_norm > tolerance); loop++) {
 
     // comm->forward_comm_fix(this); //Dist_vector( d );
     pack_flag = 1;
@@ -927,7 +928,7 @@ void FixQEqReaxKokkos<DeviceType>::cg_solve2()
   F_FLOAT sig_new = dot_sqr;
 
   int loop;
-  for (loop = 1; loop < imax & sqrt(sig_new)/b_norm > tolerance; loop++) {
+  for (loop = 1; (loop < imax) && (sqrt(sig_new)/b_norm > tolerance); loop++) {
 
     // comm->forward_comm_fix(this); //Dist_vector( d );
     pack_flag = 1;
@@ -1372,7 +1373,7 @@ void FixQEqReaxKokkos<DeviceType>::calculate_q_item(int ii) const
 
 template<class DeviceType>
 int FixQEqReaxKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
-                               int pbc_flag, int *pbc)
+                                                    int /*pbc_flag*/, int * /*pbc*/)
 {
   int m;
 
@@ -1481,7 +1482,7 @@ void FixQEqReaxKokkos<DeviceType>::grow_arrays(int nmax)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixQEqReaxKokkos<DeviceType>::copy_arrays(int i, int j, int delflag)
+void FixQEqReaxKokkos<DeviceType>::copy_arrays(int i, int j, int /*delflag*/)
 {
   k_s_hist.template sync<LMPHostType>();
   k_t_hist.template sync<LMPHostType>();
@@ -1543,7 +1544,7 @@ void FixQEqReaxKokkos<DeviceType>::get_chi_field()
 
 namespace LAMMPS_NS {
 template class FixQEqReaxKokkos<LMPDeviceType>;
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef LMP_KOKKOS_GPU
 template class FixQEqReaxKokkos<LMPHostType>;
 #endif
 }
