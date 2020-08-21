@@ -153,7 +153,7 @@ void PairReaxCKokkos<DeviceType>::init_style()
       k_s.sync<DeviceType>();
       d_s = k_s.view<DeviceType>();
     } else {
-      FixACKS2ReaxKokkos<LMPDeviceType>* acks2_fix = (FixACKS2ReaxKokkos<LMPHostType>*) modify->fix[ifix];
+      FixACKS2ReaxKokkos<LMPDeviceType>* acks2_fix = (FixACKS2ReaxKokkos<LMPDeviceType>*) modify->fix[ifix];
       auto k_s = acks2_fix->get_s();
       k_s.sync<DeviceType>();
       d_s = k_s.view<DeviceType>();
@@ -735,7 +735,7 @@ void PairReaxCKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       k_s.sync<DeviceType>();
       d_s = k_s.view<DeviceType>();
     } else {
-      FixACKS2ReaxKokkos<LMPDeviceType>* acks2_fix = (FixACKS2ReaxKokkos<LMPHostType>*) modify->fix[ifix];
+      FixACKS2ReaxKokkos<LMPDeviceType>* acks2_fix = (FixACKS2ReaxKokkos<LMPDeviceType>*) modify->fix[ifix];
       auto k_s = acks2_fix->get_s();
       k_s.sync<DeviceType>();
       d_s = k_s.view<DeviceType>();
