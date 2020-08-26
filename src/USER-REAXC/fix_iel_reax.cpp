@@ -197,8 +197,21 @@ void FixIELReax::pre_force(int /*vflag*/)
   if (update->ntimestep % nevery) return;
   if (comm->me == 0) t_start = MPI_Wtime();
 
-  n = atom->nlocal;
-  N = atom->nlocal + atom->nghost;
+  int n = atom->nlocal;
+
+  if (reaxc) {
+    nn = reaxc->list->inum;
+    NN = reaxc->list->inum + reaxc->list->gnum;
+    ilist = reaxc->list->ilist;
+    numneigh = reaxc->list->numneigh;
+    firstneigh = reaxc->list->firstneigh;
+  } else {
+    nn = list->inum;
+    NN = list->inum + list->gnum;
+    ilist = list->ilist;
+    numneigh = list->numneigh;
+    firstneigh = list->firstneigh;
+  }
 
   // grow arrays if necessary
   // need to be atom->nmax in length
@@ -216,24 +229,12 @@ void FixIELReax::pre_force(int /*vflag*/)
       calculate_Q();
 
       // init q
-      int nn, NN, ii, i;
-      int *ilist;
-
-      if (reaxc) {
-        nn = reaxc->list->inum;
-        ilist = reaxc->list->ilist;
-        NN = reaxc->list->inum + reaxc->list->gnum;
-      } else {
-        nn = list->inum;
-        ilist = list->ilist;
-        NN = list->inum + list->gnum;
-      }
 
       double *qLatent;
       get_names("qLatent", qLatent);
       
-      for (ii = 0; ii < nn; ++ii) {
-        i = ilist[ii];
+      for (int ii = 0; ii < nn; ++ii) {
+        const int i = ilist[ii];
         if (atom->mask[i] & groupbit) {
           qLatent[i] = atom->q[i];
         }
@@ -264,19 +265,9 @@ void FixIELReax::calculate_XLMD() {
   get_names("qLatent", qLatent);
   get_names("pLatent", pLatent);
   get_names("fLatent", fLatent);
-  int nn, ii, i;
-  int *ilist;
 
-  if (reaxc) {
-    nn = reaxc->list->inum;
-    ilist = reaxc->list->ilist;
-  } else {
-    nn = list->inum;
-    ilist = list->ilist;
-  };
-
-  for (ii = 0; ii < nn; ++ii) {
-    i = ilist[ii];
+  for (int ii = 0; ii < nn; ++ii) {
+    const int i = ilist[ii];
     if (atom->mask[i] & groupbit) {
       atom->q[i] = qLatent[i];
     }
@@ -288,8 +279,8 @@ void FixIELReax::calculate_XLMD() {
   pack_flag = 1;
   sparse_matvec( &H, atom->q, q);
   comm->reverse_comm_fix(this);
-  for (ii = 0; ii < nn; ++ii) {
-    i = ilist[ii];
+  for (int ii = 0; ii < nn; ++ii) {
+    const int i = ilist[ii];
     if (atom->mask[i] & groupbit) {
       fLatent[i] = (b_s[i] - q[i]) * ATOMIC_TO_REAL + atom->qConst;
     }
@@ -300,8 +291,8 @@ void FixIELReax::calculate_XLMD() {
   // Apply constraint on f
   double sumFLatent = parallel_vector_acc(fLatent, nn);
   double fDev = sumFLatent / atom->natoms;
-  for (ii = 0; ii < nn; ++ii) {
-    i = ilist[ii];
+  for (int ii = 0; ii < nn; ++ii) {
+    const int i = ilist[ii];
     if (atom->mask[i] & groupbit) {
       fLatent[i] = fLatent[i] - fDev;
     }
