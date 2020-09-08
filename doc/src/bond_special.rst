@@ -1,7 +1,7 @@
 .. index:: bond_style special
 
 bond_style special command
-=================================
+==========================
 
 Syntax
 """"""
@@ -103,4 +103,7 @@ Related commands
 
 :doc:`bond_coeff <bond_coeff>`, :doc:`special_bonds <special_bonds>`
 
-**Default:** none
+Default
+"""""""
+
+none

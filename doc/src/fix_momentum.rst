@@ -1,10 +1,11 @@
 .. index:: fix momentum
+.. index:: fix momentum/kk
+.. index:: fix momentum/chunk
 
 fix momentum command
 ====================
 
-fix momentum/kk command
-=======================
+Accelerator Variants: *momentum/kk*
 
 fix momentum/chunk command
 ==========================
@@ -82,7 +83,8 @@ initial velocities with zero aggregate linear and/or angular momentum.
 
 .. include:: accel_styles.rst
 
-**Restart, fix_modify, output, run start/stop, minimize info:**
+Restart, fix_modify, output, run start/stop, minimize info
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 No information about this fix is written to :doc:`binary restart files
 <restart>`.  None of the :doc:`fix_modify <fix_modify>` options are
@@ -105,4 +107,7 @@ Related commands
 
 :doc:`fix recenter <fix_recenter>`, :doc:`velocity <velocity>`
 
-**Default:** none
+Default
+"""""""
+
+none
