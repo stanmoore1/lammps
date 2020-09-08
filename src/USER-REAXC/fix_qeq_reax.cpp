@@ -38,7 +38,6 @@
 #include "error.h"
 #include "reaxc_defs.h"
 #include "reaxc_types.h"
-#include "utils.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
