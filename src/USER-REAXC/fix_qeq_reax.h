@@ -43,7 +43,7 @@ class FixQEqReax : public Fix {
   virtual void init();
   void init_list(int,class NeighList *);
   virtual void init_storage();
-  void setup_pre_force(int);
+  virtual void setup_pre_force(int);
   virtual void pre_force(int);
 
   void setup_pre_force_respa(int, int);
@@ -57,12 +57,13 @@ class FixQEqReax : public Fix {
 
  protected:
   int nevery,reaxflag;
-  int n, N, m_fill;
+  int nn, NN, m_fill;
   int n_cap, nmax, m_cap;
   int pack_flag;
   int nlevels_respa;
   class NeighList *list;
   class PairReaxC *reaxc;
+  int *ilist, *jlist, *numneigh, **firstneigh;
 
   double swa, swb;      // lower/upper Taper cutoff radius
   double Tap[8];        // Taper function
@@ -94,6 +95,7 @@ class FixQEqReax : public Fix {
 
   //CG storage
   double *p, *q, *r, *d;
+  int imax;
 
   //GMRES storage
   //double *g,*y;
@@ -109,7 +111,7 @@ class FixQEqReax : public Fix {
   virtual void deallocate_storage();
   void reallocate_storage();
   virtual void allocate_matrix();
-  void deallocate_matrix();
+  virtual void deallocate_matrix();
   void reallocate_matrix();
 
   virtual void init_matvec();
@@ -142,6 +144,7 @@ class FixQEqReax : public Fix {
   // dual CG support
   int dual_enabled;  // 0: Original, separate s & t optimization; 1: dual optimization
   int matvecs_s, matvecs_t; // Iteration count for each system
+
 };
 
 }
