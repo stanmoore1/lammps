@@ -43,7 +43,7 @@ class FixQEqReax : public Fix {
   virtual void init();
   void init_list(int,class NeighList *);
   virtual void init_storage();
-  virtual void setup_pre_force(int);
+  void setup_pre_force(int);
   virtual void pre_force(int);
 
   void setup_pre_force_respa(int, int);
@@ -111,7 +111,7 @@ class FixQEqReax : public Fix {
   virtual void deallocate_storage();
   void reallocate_storage();
   virtual void allocate_matrix();
-  virtual void deallocate_matrix();
+  void deallocate_matrix();
   void reallocate_matrix();
 
   virtual void init_matvec();

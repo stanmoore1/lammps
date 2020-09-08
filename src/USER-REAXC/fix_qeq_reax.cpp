@@ -61,7 +61,7 @@ static const char cite_fix_qeq_reax[] =
 /* ---------------------------------------------------------------------- */
 
 FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg), pertype_option(NULL) 
+  Fix(lmp, narg, arg), pertype_option(NULL)
 {
   if (narg<8 || narg>11) error->all(FLERR,"Illegal fix qeq/reax command");
 
