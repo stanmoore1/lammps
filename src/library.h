@@ -77,7 +77,7 @@ extern "C" {
 void *lammps_open(int argc, char **argv, MPI_Comm comm, void **ptr);
 #endif
 void *lammps_open_no_mpi(int argc, char **argv, void **ptr);
-void *lammps_open_fortran(int argc, char **argv, int f_comm, void **ptr);
+void *lammps_open_fortran(int argc, char **argv, int f_comm);
 void  lammps_close(void *handle);
 void  lammps_mpi_init();
 void  lammps_mpi_finalize();
@@ -98,6 +98,7 @@ void  lammps_commands_string(void *handle, const char *str);
  * ----------------------------------------------------------------------- */
 
 int    lammps_version(void *handle);
+int    lammps_get_mpi_comm(void* handle);
 double lammps_get_natoms(void *handle);
 double lammps_get_thermo(void *handle, char *keyword);
 
