@@ -107,11 +107,6 @@ class Atom : protected Pointers {
   double *vfrac,*s0;
   double **x0;
 
-  // SC-XLMD
-  int XLMDFlag; // 0 -> CG, 1 -> C-XLMD, 2 -> B/C-XLMD, 3 -> S/C-XLMD
-  double mLatent, tLatent, tauLatent; // mass, temperature and coupling parameter
-  double qConst; // Chemical potential
-
   // SPIN package
 
   double **sp,**fm,**fm_long;

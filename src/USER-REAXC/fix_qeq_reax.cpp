@@ -64,7 +64,14 @@ static const char cite_fix_qeq_reax[] =
 FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg), pertype_option(NULL) 
 {
-  if (narg<8 || narg>11) error->all(FLERR,"Illegal fix qeq/reax command");
+  int xlmd_flag = 0;
+  if (utils::strmatch(style,"^iel/reax"))
+    xlmd_flag = 1;
+
+  if (!xlmd_flag)
+    if (narg<8 || narg>11) error->all(FLERR,"Illegal fix qeq/reax command");
+  else
+    if (narg<8 || narg>15) error->all(FLERR,"Illegal fix iel/reax command");
 
   nevery = utils::inumeric(FLERR,arg[3],false,lmp);
   if (nevery <= 0) error->all(FLERR,"Illegal fix qeq/reax command");
@@ -82,6 +89,7 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   imax = 200;
 
   int iarg = 8;
+  if (xlmd_flag) iarg += 4;
   while (iarg < narg) {
     if (strcmp(arg[iarg],"dual") == 0) dual_enabled = 1;
     else if (strcmp(arg[iarg],"maxiter") == 0) {
@@ -487,17 +495,6 @@ void FixQEqReax::init_storage()
 {
   if (field_flag)
     get_chi_field();
-
-  int NN;
-  int *ilist;
-
-  if (reaxc) {
-    NN = reaxc->list->inum + reaxc->list->gnum;
-    ilist = reaxc->list->ilist;
-  } else {
-    NN = list->inum + list->gnum;
-    ilist = list->ilist;
-  }
 
   for (int ii = 0; ii < NN; ii++) {
     int i = ilist[ii];

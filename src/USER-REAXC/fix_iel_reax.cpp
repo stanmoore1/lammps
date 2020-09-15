@@ -19,7 +19,7 @@
 #include <mpi.h>
 #include <cmath>
 #include <cstring>
-#include <random> ////////////////////////////////
+#include <random>
 #include "pair_reaxc.h"
 #include "atom.h"
 #include "comm.h"
@@ -36,6 +36,7 @@
 #include "error.h"
 #include "reaxc_defs.h"
 #include "reaxc_types.h"
+#include "utils.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -45,15 +46,15 @@ using namespace FixConst;
 #define SQR(x) ((x)*(x))
 #define CUBE(x) ((x)*(x)*(x))
 
-static const char cite_fix_qeq_reax[] =
-  "fix qeq/reax command:\n\n"
-  "@Article{Aktulga12,\n"
-  " author = {H. M. Aktulga, J. C. Fogarty, S. A. Pandit, A. Y. Grama},\n"
-  " title = {Parallel reactive molecular dynamics: Numerical methods and algorithmic techniques},\n"
-  " journal = {Parallel Computing},\n"
-  " year =    2012,\n"
-  " volume =  38,\n"
-  " pages =   {245--259}\n"
+static const char cite_fix_iel_reax[] =
+  "fix iel/reax command:\n\n"
+  "@misc{Tan2020stochastic,\n"
+  " title={Stochastic Constrained Extended System Dynamics for Solving Charge Equilibration Models},\n"
+  " author={Songchen Tan and Itai Leven and Dong An and Lin Lin and Teresa Head-Gordon},\n"
+  " year={2020},\n"
+  " eprint={2005.10736},\n"
+  " archivePrefix={arXiv},\n"
+  " primaryClass={physics.comp-ph}\n"
   "}\n\n";
 
 /* ---------------------------------------------------------------------- */
@@ -61,25 +62,12 @@ static const char cite_fix_qeq_reax[] =
 FixIELReax::FixIELReax(LAMMPS *lmp, int narg, char **arg) :
   FixQEqReax(lmp, narg, arg)
 {
-  if (lmp->citeme) lmp->citeme->add(cite_fix_qeq_reax);
+  xlmd_flag = utils::inumeric(FLERR,arg[8],false,lmp); // 0 (Exact) 1 (XLMD) 2 (Ber) 3 (NH) 4 (Lang)
+  mLatent = utils::numeric(FLERR,arg[9],false,lmp);  // latent mass
+  tauLatent = utils::numeric(FLERR,arg[10],false,lmp);  // latent thermostat strength
+  tLatent = utils::numeric(FLERR,arg[11],false,lmp);  // latent temperature
 
-  if (narg<8+1 || narg>9+1) error->all(FLERR,"Illegal fix qeq/reax command");
-
-  strcpy(pertype_option,arg[7]);
-  atom->XLMDFlag = force->inumeric(FLERR,arg[8]);
-
-  // dual CG support only available for USER-OMP variant
-  // check for compatibility is in Fix::post_constructor()
-  dual_enabled = 0;
-  if (narg == 9+1) {
-    if (strcmp(arg[8+1],"dual") == 0) dual_enabled = 1;
-    else error->all(FLERR,"Illegal fix qeq/reax command");
-  }
-
-  atom->XLMDFlag = force->inumeric(FLERR, arg[3]); // 0 (Exact) 1 (XLMD) 2 (Ber) 3 (NH) 4 (Lang)
-  atom->mLatent = force->numeric(FLERR, arg[4]);  // latent mass
-  atom->tauLatent = force->numeric(FLERR, arg[5]);  // latent thermostat strength
-  atom->tLatent = force->numeric(FLERR, arg[6]);  // latent temperature
+  qLatent = pLatent = fLatent = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -87,6 +75,31 @@ FixIELReax::FixIELReax(LAMMPS *lmp, int narg, char **arg) :
 FixIELReax::~FixIELReax()
 {
   if (copymode) return;
+
+  memory->destroy(qLatent);
+  memory->destroy(pLatent);
+  memory->destroy(fLatent);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixIELReax::post_constructor()
+{
+  if (lmp->citeme) lmp->citeme->add(cite_fix_iel_reax);
+
+  grow_arrays(atom->nmax);
+  for (int i = 0; i < atom->nmax; i++) {
+    for (int j = 0; j < nprev; ++j)
+      s_hist[i][j] = t_hist[i][j] = 0;
+
+    qLatent[i] = atom->q[i];
+    pLatent[i] = 0;
+    fLatent[i] = 0;    
+  }
+
+  pertype_parameters(pertype_option);
+  if (dual_enabled)
+    error->all(FLERR,"Dual keyword only supported with fix qeq/reax/omp");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -107,26 +120,22 @@ int FixIELReax::setmask()
 
 void FixIELReax::init()
 {
+  FixQEqReax::init();
+
   dtv = update->dt;
   dth = update->dt/2;
   dtf = 0.5 * update->dt * force->ftm2v;
 
   // init XLMD
 
-  double *qLatent;
-  double *pLatent;
-  double *fLatent;
-  get_names("qLatent", qLatent);
-  get_names("pLatent", pLatent);
-  get_names("fLatent", fLatent);
-
-  for (int i = 0; i < atom->nlocal; i++){
+  for (int i = 0; i < nn; i++){
     if (atom->mask[i] & groupbit) {
       qLatent[i] = atom->q[i];
       pLatent[i] = 0;
       fLatent[i] = 0;
     }
   }
+
 }
 
 /* ----------------------------------------------------------------------
@@ -143,49 +152,34 @@ void FixIELReax::initial_integrate(int /*vflag*/)
   int nlocal = atom->nlocal;
   if (igroup == atom->firstgroup) nlocal = atom->nfirst;
 
-  // obtain Latents
-
-  double *qLatent;
-  double *pLatent;
-  double *fLatent;
-  get_names("qLatent", qLatent);
-  get_names("pLatent", pLatent);
-  get_names("fLatent", fLatent);
-
   // evolve B(t/2) A(t/2)
 
-  if (atom->XLMDFlag) {
+  if (xlmd_flag) {
     for (int i = 0; i < nlocal; i++) {
       if (mask[i] & groupbit) {
         pLatent[i] += dth * fLatent[i];
-        qLatent[i] += dth * pLatent[i] / atom->mLatent;
+        qLatent[i] += dth * pLatent[i] / mLatent;
       }
     }
   }
 
   // evolve O(t) for BAOAB Scheme
 
-  if (atom->XLMDFlag == 2) {
+  if (xlmd_flag == 2) {
     if (update->ntimestep > 1000) {
       Berendersen(dtv);
     }
-  } else if (atom->XLMDFlag == 3) {
+  } else if (xlmd_flag == 3) {
     Langevin(dtv);
   }
 
-  if (atom->XLMDFlag) {
+  if (xlmd_flag) {
     for (int i = 0; i < nlocal; i++) {
       if (mask[i] & groupbit) {
-        qLatent[i] += dth * pLatent[i] / atom->mLatent;
+        qLatent[i] += dth * pLatent[i] / mLatent;
       }
     }
   }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixIELReax::setup_pre_force(int vflag)
-{
 }
 
 /* ---------------------------------------------------------------------- */
@@ -221,7 +215,8 @@ void FixIELReax::pre_force(int /*vflag*/)
     reallocate_matrix();
 
   init_matvec();
-  if (atom->XLMDFlag) {
+
+  if (xlmd_flag) {
     if (update->ntimestep == 0) {
       matvecs_s = CG(b_s, s);       // CG on s - parallel
       matvecs_t = CG(b_t, t);       // CG on t - parallel
@@ -230,18 +225,12 @@ void FixIELReax::pre_force(int /*vflag*/)
 
       // init q
 
-      double *qLatent;
-      get_names("qLatent", qLatent);
-      
       for (int ii = 0; ii < nn; ++ii) {
         const int i = ilist[ii];
         if (atom->mask[i] & groupbit) {
           qLatent[i] = atom->q[i];
         }
       }
-
-      pack_flag = 6;
-      comm->forward_comm_fix(this); //Dist_vector( atom->qLatent );
     } else {
       calculate_XLMD();
     }
@@ -258,13 +247,9 @@ void FixIELReax::pre_force(int /*vflag*/)
   }
 }
 
+/* ---------------------------------------------------------------------- */
+
 void FixIELReax::calculate_XLMD() {
-  double *qLatent;
-  double *pLatent;
-  double *fLatent;
-  get_names("qLatent", qLatent);
-  get_names("pLatent", pLatent);
-  get_names("fLatent", fLatent);
 
   for (int ii = 0; ii < nn; ++ii) {
     const int i = ilist[ii];
@@ -282,11 +267,9 @@ void FixIELReax::calculate_XLMD() {
   for (int ii = 0; ii < nn; ++ii) {
     const int i = ilist[ii];
     if (atom->mask[i] & groupbit) {
-      fLatent[i] = (b_s[i] - q[i]) * ATOMIC_TO_REAL + atom->qConst;
+      fLatent[i] = (b_s[i] - q[i]) * ATOMIC_TO_REAL + qConst;
     }
   }
-  pack_flag = 8;
-  comm->forward_comm_fix(this); //Dist_vector( fLatent );
 
   // Apply constraint on f
   double sumFLatent = parallel_vector_acc(fLatent, nn);
@@ -297,8 +280,6 @@ void FixIELReax::calculate_XLMD() {
       fLatent[i] = fLatent[i] - fDev;
     }
   }
-  pack_flag = 8;
-  comm->forward_comm_fix(this); //Dist_vector( fLatent );
 }
 
 /* ---------------------------------------------------------------------- */
@@ -313,19 +294,9 @@ void FixIELReax::final_integrate()
   int nlocal = atom->nlocal;
   if (igroup == atom->firstgroup) nlocal = atom->nfirst;
 
-  // Obtain Latents
-
-  double *qLatent;
-  double *pLatent;
-  double *fLatent;
-  get_names("qLatent", qLatent);
-  get_names("pLatent", pLatent);
-  get_names("fLatent", fLatent);
-
   // Evolve B(t/2)
 
-
-  if (atom->XLMDFlag) {
+  if (xlmd_flag) {
     for (int i = 0; i < nlocal; i++) {
       if (mask[i] & groupbit) {
         pLatent[i] += dth * fLatent[i];
@@ -337,24 +308,9 @@ void FixIELReax::final_integrate()
 /* ---------------------------------------------------------------------- */
 
 void FixIELReax::end_of_step() {
-  int nn, ii, i;
-  int *ilist;
-
-  if (reaxc) {
-    nn = reaxc->list->inum;
-    ilist = reaxc->list->ilist;
-  } else {
-    nn = list->inum;
-    ilist = list->ilist;
-  };
-
-  double *qLatent;
-  double *pLatent;
-  get_names("qLatent", qLatent);
-  get_names("pLatent", pLatent);
-  if (atom->XLMDFlag) {
+  if (xlmd_flag) {
     double qDev = parallel_vector_acc(qLatent, nn) / atom->natoms;
-    double KineticLatent = parallel_dot(pLatent, pLatent, nn) / 2 / atom->mLatent;
+    double KineticLatent = parallel_dot(pLatent, pLatent, nn) / 2 / mLatent;
     // Show charge conservation and latent temperature
     if (update->ntimestep % 100 == 0 && comm->me == 0) {
       printf("%d\t%.8f\t%.8f\n", update->ntimestep, qDev, KineticLatent);
@@ -375,9 +331,6 @@ void FixIELReax::reset_dt()
 
 double FixIELReax::kinetic_latent()
 {
-  double *pLatent;
-  get_names("pLatent", pLatent);
-
   int nlocal = atom->nlocal;
   double sum_p2 = 0.0;
   double sum_p2_mpi = 0.0;
@@ -385,7 +338,7 @@ double FixIELReax::kinetic_latent()
 
   // find the total kinetic energy and auxiliary temperatures
   for (int i = 0; i < nlocal; i++) {
-    sum_p2 = sum_p2 + pLatent[i] * pLatent[i] / atom->mLatent / 2.0;
+    sum_p2 = sum_p2 + pLatent[i] * pLatent[i] / mLatent / 2.0;
   }
   MPI_Allreduce(&sum_p2, &sum_p2_mpi, 1, MPI_DOUBLE, MPI_SUM, world);
   avg_p2 = sum_p2_mpi / atom->natoms;
@@ -398,12 +351,10 @@ void FixIELReax::Berendersen(const double dt)
 {
   
   int nlocal = atom->nlocal;
-  double *pLatent;
-  get_names("pLatent", pLatent);   
 
   double avg_p2 = kinetic_latent();
-  double target_p2 = atom->tLatent / 2.0;
-  double scale = sqrt(1.0 + (dt/(atom->tauLatent))*(target_p2/avg_p2-1.0));
+  double target_p2 = tLatent / 2.0;
+  double scale = sqrt(1.0 + (dt/(tauLatent))*(target_p2/avg_p2-1.0));
 
   for (int i = 0; i < nlocal; i++) {
     pLatent[i] = pLatent[i] * scale;
@@ -416,11 +367,9 @@ void FixIELReax::Langevin(const double dt) {
   int nlocal = atom->nlocal;
   int *mask = atom->mask;
   if (igroup == atom->firstgroup) nlocal = atom->nfirst;
-  double *pLatent;
-  get_names("pLatent",pLatent); 
 
-  double pLatentAvg = sqrt(atom->mLatent * atom->tLatent);
-  double dissipationLatent = exp(-dt/atom->tauLatent);
+  double pLatentAvg = sqrt(mLatent * tLatent);
+  double dissipationLatent = exp(-dt/tauLatent);
   double fluctuationLatent = sqrt(1 - dissipationLatent * dissipationLatent);
 
   // change to LAMMPS RNG
@@ -447,42 +396,18 @@ void FixIELReax::Langevin(const double dt) {
 
 /* ---------------------------------------------------------------------- */
 
-void FixIELReax::get_names(char *c,double *&ptr)
-{
-  int index,flag;
-  index = atom->find_custom(c,flag);
-  
-  if (index!=-1)
-    ptr = atom->dvector[index];
-  else
-    error->all(FLERR,"fix iEL-Scf requires fix property/atom ?? command");
-}
-
-/* ---------------------------------------------------------------------- */
-
 void FixIELReax::calculate_Q()
 {
-  int i, k;
+  int i, ii, k;
   double u, s_sum, t_sum;
   double *q = atom->q;
-
-  int nn, ii;
-  int *ilist;
-
-  if (reaxc) {
-    nn = reaxc->list->inum;
-    ilist = reaxc->list->ilist;
-  } else {
-    nn = list->inum;
-    ilist = list->ilist;
-  }
 
   s_sum = parallel_vector_acc( s, nn);
   t_sum = parallel_vector_acc( t, nn);
   u = s_sum / t_sum;
 
-  // in SC-XLMD, init the chemical potential
-  atom->qConst = u * ATOMIC_TO_REAL;
+  // init the chemical potential
+  qConst = u * ATOMIC_TO_REAL;
 
   for (ii = 0; ii < nn; ++ii) {
     i = ilist[ii];
@@ -503,85 +428,65 @@ void FixIELReax::calculate_Q()
   comm->forward_comm_fix(this); //Dist_vector( atom->q );
 }
 
-/* ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+   allocate fictitious charge arrays
+------------------------------------------------------------------------- */
 
-int FixIELReax::pack_forward_comm(int n, int *list, double *buf,
-                                  int /*pbc_flag*/, int * /*pbc*/)
-{
-  int m;
+void FixIELReax::grow_arrays(int nmax)
+{ 
+  memory->grow(s_hist,nmax,nprev,"iel:s_hist");
+  memory->grow(t_hist,nmax,nprev,"iel:t_hist");
 
-  if (pack_flag == 1)
-    for(m = 0; m < n; m++) buf[m] = d[list[m]];
-  else if (pack_flag == 2)
-    for(m = 0; m < n; m++) buf[m] = s[list[m]];
-  else if (pack_flag == 3)
-    for(m = 0; m < n; m++) buf[m] = t[list[m]];
-  else if (pack_flag == 4)
-    for(m = 0; m < n; m++) buf[m] = atom->q[list[m]];
-  else if (pack_flag == 5) {
-    m = 0;
-    for(int i = 0; i < n; i++) {
-      int j = 2 * list[i];
-      buf[m++] = d[j  ];
-      buf[m++] = d[j+1];
-    }
-    return m;
-  }
-  else if (pack_flag == 6) {
-    double *qLatent;
-    get_names("qLatent", qLatent);
-    for(m = 0; m < n; m++) buf[m] = qLatent[list[m]];
-  }
-  else if (pack_flag == 7) {
-    double *pLatent;
-    get_names("pLatent", pLatent);
-    for(m = 0; m < n; m++) buf[m] = pLatent[list[m]];
-  }
-  else if (pack_flag == 8) {
-    double *fLatent;
-    get_names("fLatent", fLatent);
-    for(m = 0; m < n; m++) buf[m] = fLatent[list[m]];
-  }
-  return n;
+  memory->grow(qLatent,nmax,"iel:qLatent");
+  memory->grow(pLatent,nmax,"iel:pLatent");
+  memory->grow(fLatent,nmax,"iel:fLatent");
 }
 
-/* ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+   copy values within fictitious charge arrays
+------------------------------------------------------------------------- */
 
-void FixIELReax::unpack_forward_comm(int n, int first, double *buf)
+void FixIELReax::copy_arrays(int i, int j, int /*delflag*/)
 {
-  int i, m;
+  for (int m = 0; m < nprev; m++) {
+    s_hist[j][m] = s_hist[i][m];
+    t_hist[j][m] = t_hist[i][m];
+  }
 
-  if (pack_flag == 1)
-    for(m = 0, i = first; m < n; m++, i++) d[i] = buf[m];
-  else if (pack_flag == 2)
-    for(m = 0, i = first; m < n; m++, i++) s[i] = buf[m];
-  else if (pack_flag == 3)
-    for(m = 0, i = first; m < n; m++, i++) t[i] = buf[m];
-  else if (pack_flag == 4)
-    for(m = 0, i = first; m < n; m++, i++) atom->q[i] = buf[m];
-  else if (pack_flag == 5) {
-    int last = first + n;
-    m = 0;
-    for(i = first; i < last; i++) {
-      int j = 2 * i;
-      d[j  ] = buf[m++];
-      d[j+1] = buf[m++];
-    }
-  }
-  else if (pack_flag == 6) {
-    double *qLatent;
-    get_names("qLatent", qLatent);
-    for(m = 0, i = first; m < n; m++, i++) qLatent[i] = buf[m];
-  }
-  else if (pack_flag == 7) {
-    double *pLatent;
-    get_names("pLatent", pLatent);
-    for(m = 0, i = first; m < n; m++, i++) pLatent[i] = buf[m];
-  }
-  else if (pack_flag == 8) {
-    double *fLatent;
-    get_names("fLatent", fLatent);
-    for(m = 0, i = first; m < n; m++, i++) fLatent[i] = buf[m];
-  }
+  qLatent[j] = qLatent[i];
+  pLatent[j] = pLatent[i];
+  fLatent[j] = fLatent[i];
+}
+
+/* ----------------------------------------------------------------------
+   pack values in local atom-based array for exchange with another proc
+------------------------------------------------------------------------- */
+
+int FixIELReax::pack_exchange(int i, double *buf)
+{
+  for (int m = 0; m < nprev; m++) buf[m] = s_hist[i][m];
+  for (int m = 0; m < nprev; m++) buf[nprev+m] = t_hist[i][m];
+
+  buf[nprev*2+1] = qLatent[i];
+  buf[nprev*2+2] = pLatent[i];
+  buf[nprev*2+3] = fLatent[i];
+
+  return nprev*2+3;
+}
+
+/* ----------------------------------------------------------------------
+   unpack values in local atom-based array from exchange with another proc
+------------------------------------------------------------------------- */
+
+int FixIELReax::unpack_exchange(int nlocal, double *buf)
+{
+  for (int m = 0; m < nprev; m++) s_hist[nlocal][m] = buf[m];
+  for (int m = 0; m < nprev; m++) t_hist[nlocal][m] = buf[nprev+m];
+
+  qLatent[nlocal] = buf[nprev*2+1];
+  pLatent[nlocal] = buf[nprev*2+2];
+  fLatent[nlocal] = buf[nprev*2+3];
+
+  return nprev*2+3;
 }
 
