@@ -62,7 +62,7 @@ static const char cite_fix_iel_reax[] =
 FixIELReax::FixIELReax(LAMMPS *lmp, int narg, char **arg) :
   FixQEqReax(lmp, narg, arg)
 {
-  xlmd_flag = utils::inumeric(FLERR,arg[8],false,lmp); // 0 (Exact) 1 (XLMD) 2 (Ber) 3 (NH) 4 (Lang)
+  xlmd_flag = utils::inumeric(FLERR,arg[8],false,lmp); // 1 (XLMD) 2 (Ber) 3 (NH) 4 (Lang)
   mLatent = utils::numeric(FLERR,arg[9],false,lmp);  // latent mass
   tauLatent = utils::numeric(FLERR,arg[10],false,lmp);  // latent thermostat strength
   tLatent = utils::numeric(FLERR,arg[11],false,lmp);  // latent temperature
@@ -154,12 +154,10 @@ void FixIELReax::initial_integrate(int /*vflag*/)
 
   // evolve B(t/2) A(t/2)
 
-  if (xlmd_flag) {
-    for (int i = 0; i < nlocal; i++) {
-      if (mask[i] & groupbit) {
-        pLatent[i] += dth * fLatent[i];
-        qLatent[i] += dth * pLatent[i] / mLatent;
-      }
+  for (int i = 0; i < nlocal; i++) {
+    if (mask[i] & groupbit) {
+      pLatent[i] += dth * fLatent[i];
+      qLatent[i] += dth * pLatent[i] / mLatent;
     }
   }
 
@@ -173,11 +171,9 @@ void FixIELReax::initial_integrate(int /*vflag*/)
     Langevin(dtv);
   }
 
-  if (xlmd_flag) {
-    for (int i = 0; i < nlocal; i++) {
-      if (mask[i] & groupbit) {
-        qLatent[i] += dth * pLatent[i] / mLatent;
-      }
+  for (int i = 0; i < nlocal; i++) {
+    if (mask[i] & groupbit) {
+      qLatent[i] += dth * pLatent[i] / mLatent;
     }
   }
 }
@@ -216,30 +212,22 @@ void FixIELReax::pre_force(int /*vflag*/)
 
   init_matvec();
 
-  if (xlmd_flag) {
-    if (update->ntimestep == 0) {
-      matvecs_s = CG(b_s, s);       // CG on s - parallel
-      matvecs_t = CG(b_t, t);       // CG on t - parallel
-      matvecs = matvecs_s + matvecs_t;
-      calculate_Q();
-
-      // init q
-
-      for (int ii = 0; ii < nn; ++ii) {
-        const int i = ilist[ii];
-        if (atom->mask[i] & groupbit) {
-          qLatent[i] = atom->q[i];
-        }
-      }
-    } else {
-      calculate_XLMD();
-    }
-  } else {
+  if (update->ntimestep == 0) {
     matvecs_s = CG(b_s, s);       // CG on s - parallel
     matvecs_t = CG(b_t, t);       // CG on t - parallel
     matvecs = matvecs_s + matvecs_t;
     calculate_Q();
-  }
+
+    // init q
+
+    for (int ii = 0; ii < nn; ++ii) {
+      const int i = ilist[ii];
+      if (atom->mask[i] & groupbit) {
+        qLatent[i] = atom->q[i];
+      }
+    }
+  } else
+    calculate_XLMD();
 
   if (comm->me == 0) {
     t_end = MPI_Wtime();
@@ -296,11 +284,9 @@ void FixIELReax::final_integrate()
 
   // Evolve B(t/2)
 
-  if (xlmd_flag) {
-    for (int i = 0; i < nlocal; i++) {
-      if (mask[i] & groupbit) {
-        pLatent[i] += dth * fLatent[i];
-      }
+  for (int i = 0; i < nlocal; i++) {
+    if (mask[i] & groupbit) {
+      pLatent[i] += dth * fLatent[i];
     }
   }
 }
@@ -308,14 +294,11 @@ void FixIELReax::final_integrate()
 /* ---------------------------------------------------------------------- */
 
 void FixIELReax::end_of_step() {
-  if (xlmd_flag) {
-    double qDev = parallel_vector_acc(qLatent, nn) / atom->natoms;
-    double KineticLatent = parallel_dot(pLatent, pLatent, nn) / 2 / mLatent;
-    // Show charge conservation and latent temperature
-    if (update->ntimestep % 100 == 0 && comm->me == 0) {
-      printf("%d\t%.8f\t%.8f\n", update->ntimestep, qDev, KineticLatent);
-    }
-  }
+  double qDev = parallel_vector_acc(qLatent, nn) / atom->natoms;
+  double KineticLatent = parallel_dot(pLatent, pLatent, nn) / 2 / mLatent;
+  // Show charge conservation and latent temperature
+  if (update->ntimestep % 100 == 0 && comm->me == 0)
+    printf("%d\t%.8f\t%.8f\n", update->ntimestep, qDev, KineticLatent);
 }
 
 
@@ -413,14 +396,6 @@ void FixIELReax::calculate_Q()
     i = ilist[ii];
     if (atom->mask[i] & groupbit) {
       q[i] = s[i] - u * t[i];
-
-      /* backup s & t */
-      for (k = nprev-1; k > 0; --k) {
-        s_hist[i][k] = s_hist[i][k-1];
-        t_hist[i][k] = t_hist[i][k-1];
-      }
-      s_hist[i][0] = s[i];
-      t_hist[i][0] = t[i];
     }
   }
 
@@ -448,11 +423,6 @@ void FixIELReax::grow_arrays(int nmax)
 
 void FixIELReax::copy_arrays(int i, int j, int /*delflag*/)
 {
-  for (int m = 0; m < nprev; m++) {
-    s_hist[j][m] = s_hist[i][m];
-    t_hist[j][m] = t_hist[i][m];
-  }
-
   qLatent[j] = qLatent[i];
   pLatent[j] = pLatent[i];
   fLatent[j] = fLatent[i];
@@ -464,14 +434,11 @@ void FixIELReax::copy_arrays(int i, int j, int /*delflag*/)
 
 int FixIELReax::pack_exchange(int i, double *buf)
 {
-  for (int m = 0; m < nprev; m++) buf[m] = s_hist[i][m];
-  for (int m = 0; m < nprev; m++) buf[nprev+m] = t_hist[i][m];
+  buf[0] = qLatent[i];
+  buf[1] = pLatent[i];
+  buf[2] = fLatent[i];
 
-  buf[nprev*2+1] = qLatent[i];
-  buf[nprev*2+2] = pLatent[i];
-  buf[nprev*2+3] = fLatent[i];
-
-  return nprev*2+3;
+  return 3;
 }
 
 /* ----------------------------------------------------------------------
@@ -480,13 +447,10 @@ int FixIELReax::pack_exchange(int i, double *buf)
 
 int FixIELReax::unpack_exchange(int nlocal, double *buf)
 {
-  for (int m = 0; m < nprev; m++) s_hist[nlocal][m] = buf[m];
-  for (int m = 0; m < nprev; m++) t_hist[nlocal][m] = buf[nprev+m];
+  qLatent[nlocal] = buf[0];
+  pLatent[nlocal] = buf[1];
+  fLatent[nlocal] = buf[2];
 
-  qLatent[nlocal] = buf[nprev*2+1];
-  pLatent[nlocal] = buf[nprev*2+2];
-  fLatent[nlocal] = buf[nprev*2+3];
-
-  return nprev*2+3;
+  return 3;
 }
 

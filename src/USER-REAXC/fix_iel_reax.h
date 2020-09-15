@@ -46,7 +46,7 @@ class FixIELReax : public FixQEqReax {
 
   double dtv,dtf,dth;
 
-  int xlmd_flag; // 0 -> CG, 1 -> C-XLMD, 2 -> B/C-XLMD, 3 -> S/C-XLMD
+  int xlmd_flag; // 1 -> C-XLMD, 2 -> B/C-XLMD, 3 -> S/C-XLMD
   double *qLatent,*pLatent,*fLatent;
   double mLatent, tLatent, tauLatent; // mass, temperature and coupling parameter
   double qConst; // Chemical potential
