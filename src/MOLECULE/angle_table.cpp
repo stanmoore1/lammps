@@ -47,7 +47,7 @@ AngleTable::AngleTable(LAMMPS *lmp) : Angle(lmp)
 {
   writedata = 0;
   ntables = 0;
-  tables = NULL;
+  tables = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -205,7 +205,7 @@ void AngleTable::settings(int narg, char **arg)
   allocated = 0;
 
   ntables = 0;
-  tables = NULL;
+  tables = nullptr;
 }
 
 /* ----------------------------------------------------------------------
@@ -311,8 +311,8 @@ void AngleTable::write_restart_settings(FILE *fp)
 void AngleTable::read_restart_settings(FILE *fp)
 {
   if (comm->me == 0) {
-    utils::sfread(FLERR,&tabstyle,sizeof(int),1,fp,NULL,error);
-    utils::sfread(FLERR,&tablength,sizeof(int),1,fp,NULL,error);
+    utils::sfread(FLERR,&tabstyle,sizeof(int),1,fp,nullptr,error);
+    utils::sfread(FLERR,&tablength,sizeof(int),1,fp,nullptr,error);
   }
   MPI_Bcast(&tabstyle,1,MPI_INT,0,world);
   MPI_Bcast(&tablength,1,MPI_INT,0,world);
@@ -351,10 +351,10 @@ double AngleTable::single(int type, int i1, int i2, int i3)
 
 void AngleTable::null_table(Table *tb)
 {
-  tb->afile = tb->efile = tb->ffile = NULL;
-  tb->e2file = tb->f2file = NULL;
-  tb->ang = tb->e = tb->de = NULL;
-  tb->f = tb->df = tb->e2 = tb->f2 = NULL;
+  tb->afile = tb->efile = tb->ffile = nullptr;
+  tb->e2file = tb->f2file = nullptr;
+  tb->ang = tb->e = tb->de = nullptr;
+  tb->f = tb->df = tb->e2 = tb->f2 = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -411,7 +411,7 @@ void AngleTable::read_table(Table *tb, char *file, char *keyword)
       tb->afile[i] = values.next_double();
       tb->efile[i] = values.next_double();
       tb->ffile[i] = values.next_double();
-    } catch (TokenizerException & e) {
+    } catch (TokenizerException &e) {
       ++cerror;
     }
   }
@@ -526,7 +526,7 @@ void AngleTable::param_extract(Table *tb, char *line)
         error->one(FLERR,"Invalid keyword in angle table parameters");
       }
     }
-  } catch(TokenizerException & e) {
+  } catch(TokenizerException &e) {
     error->one(FLERR, e.what());
   }
 
