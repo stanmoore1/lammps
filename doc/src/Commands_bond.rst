@@ -46,6 +46,7 @@ OPT.
    * :doc:`oxdna2/fene <bond_oxdna>`
    * :doc:`oxrna2/fene <bond_oxdna>`
    * :doc:`quartic (o) <bond_quartic>`
+   * :doc:`special <bond_special>`
    * :doc:`table (o) <bond_table>`
 
 .. _angle:
@@ -98,7 +99,6 @@ All LAMMPS :doc:`dihedral_style <dihedral_style>` commands.  Some styles
 have accelerated versions.  This is indicated by additional letters in
 parenthesis: g = GPU, i = USER-INTEL, k = KOKKOS, o = USER-OMP, t =
 OPT.
-
 
 .. table_from_list::
    :columns: 4

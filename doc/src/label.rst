@@ -6,7 +6,6 @@ label command
 Syntax
 """"""
 
-
 .. parsed-literal::
 
    label ID
@@ -16,8 +15,7 @@ Syntax
 Examples
 """"""""
 
-
-.. parsed-literal::
+.. code-block:: LAMMPS
 
    label xyz
    label loop
@@ -37,11 +35,13 @@ Restrictions
 """"""""""""
  none
 
-**Related commands:** none
+Related commands
+""""""""""""""""
 
-**Default:** none
+none
 
 
-.. _lws: http://lammps.sandia.gov
-.. _ld: Manual.html
-.. _lc: Commands_all.html
+Default
+"""""""
+
+none

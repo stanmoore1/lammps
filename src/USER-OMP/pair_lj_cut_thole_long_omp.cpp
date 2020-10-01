@@ -16,23 +16,20 @@
 ------------------------------------------------------------------------- */
 
 #include "pair_lj_cut_thole_long_omp.h"
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+
 #include "atom.h"
 #include "comm.h"
 #include "domain.h"
+#include "error.h"
 #include "fix_drude.h"
 #include "force.h"
-#include "neighbor.h"
-#include "neigh_list.h"
-#include "neigh_request.h"
 #include "math_const.h"
-#include "error.h"
+#include "neigh_list.h"
 #include "suffix.h"
-#include "timer.h"
 
+#include <cmath>
+
+#include "omp_compat.h"
 using namespace LAMMPS_NS;
 using namespace MathConst;
 
@@ -45,6 +42,10 @@ using namespace MathConst;
 #define B4       -5.80844129e-3
 #define B5        1.14652755e-1
 
+#define EPSILON 1.0e-20
+#define EPS_EWALD 1.0e-6
+#define EPS_EWALD_SQR 1.0e-12
+
 /* ---------------------------------------------------------------------- */
 
 PairLJCutTholeLongOMP::PairLJCutTholeLongOMP(LAMMPS *lmp) :
@@ -52,7 +53,7 @@ PairLJCutTholeLongOMP::PairLJCutTholeLongOMP(LAMMPS *lmp) :
 {
     suffix_flag |= Suffix::OMP;
     respa_enable = 0;
-    cut_respa = NULL;
+    cut_respa = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -66,7 +67,7 @@ void PairLJCutTholeLongOMP::compute(int eflag, int vflag)
   const int inum = list->inum;
 
 #if defined(_OPENMP)
-#pragma omp parallel default(none) shared(eflag,vflag)
+#pragma omp parallel LMP_DEFAULT_NONE LMP_SHARED(eflag,vflag)
 #endif
   {
     int ifrom, ito, tid;
@@ -74,7 +75,7 @@ void PairLJCutTholeLongOMP::compute(int eflag, int vflag)
     loop_setup_thr(ifrom, ito, tid, inum, nthreads);
     ThrData *thr = fix->get_thr(tid);
     thr->timer(Timer::START);
-    ev_setup_thr(eflag, vflag, nall, eatom, vatom, NULL, thr);
+    ev_setup_thr(eflag, vflag, nall, eatom, vatom, nullptr, thr);
 
     if (evflag) {
       if (eflag) {
@@ -168,6 +169,7 @@ void PairLJCutTholeLongOMP::eval(int iifrom, int iito, ThrData * const thr)
       jtype = type[j];
 
       if (rsq < cutsqi[jtype]) {
+        rsq += EPSILON; // Add Epsilon for case: r = 0; DC-DP 1-1 interaction must be removed by special bond;
         r2inv = 1.0/rsq;
 
         if (rsq < cut_coulsq) {
@@ -175,14 +177,15 @@ void PairLJCutTholeLongOMP::eval(int iifrom, int iito, ThrData * const thr)
           r = sqrt(rsq);
 
           if (!ncoultablebits || rsq <= tabinnersq) {
-            grij = g_ewald * r;
+            grij = g_ewald * (r + EPS_EWALD);
             expm2 = exp(-grij*grij);
             t = 1.0 / (1.0 + EWALD_P*grij);
             u = 1. - t;
             erfc = t * (1.+u*(B0+u*(B1+u*(B2+u*(B3+u*(B4+u*B5)))))) * expm2;
-            prefactor = qqrd2e * qi*qj/r;
+            prefactor = qqrd2e * qi*qj/(r + EPS_EWALD);
             forcecoul = prefactor * (erfc + EWALD_F*grij*expm2);
             if (factor_coul < 1.0) forcecoul -= (1.0-factor_coul)*prefactor;
+            r2inv = 1.0/(rsq + EPS_EWALD_SQR);
           } else {
             union_int_float_t rsq_lookup;
             rsq_lookup.f = rsq;

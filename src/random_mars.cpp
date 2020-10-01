@@ -16,6 +16,7 @@
 
 #include "random_mars.h"
 #include <cmath>
+#include <cstring>
 #include "error.h"
 #include "math_const.h"
 
@@ -26,7 +27,7 @@ enum{ADD,SUBTRACT};
 /* ---------------------------------------------------------------------- */
 
 RanMars::RanMars(LAMMPS *lmp, int seed) : Pointers(lmp),
-  u(NULL)
+  u(nullptr)
 {
   int ij,kl,i,j,k,l,ii,jj,m;
   double s,t;
@@ -36,6 +37,7 @@ RanMars::RanMars(LAMMPS *lmp, int seed) : Pointers(lmp),
 
   save = 0;
   u = new double[97+1];
+  memset(u,0,98*sizeof(double));
 
   ij = (seed-1)/30082;
   kl = (seed-1) - 30082*ij;
@@ -151,7 +153,7 @@ double RanMars::besselexp(double theta, double alpha, double cp)
 {
   double first,v1,v2;
 
-  if (theta < 0.0 || alpha < 0.0 || alpha < 1.0)
+  if (theta < 0.0 || alpha < 0.0 || alpha > 1.0)
     error->all(FLERR,"Invalid Bessel exponential distribution parameters");
 
   v1 = uniform();
@@ -181,9 +183,9 @@ double RanMars::besselexp(double theta, double alpha, double cp)
 void RanMars::select_subset(bigint ntarget, int nmine, int *mark, int *next)
 {
   int mode,index,oldindex,newvalue,nflip,which,niter;
-  int active[2],first[2],last[2];
+  int active[2],first[2];
   int newactive[2],newfirst[2],newlast[2];
-  bigint nmark,nactive,nactiveall,nflipall,bnflip;
+  bigint nmark,nflipall;
   bigint activeall[2],bsum[3],bsumall[3];
   double thresh;
 
@@ -191,8 +193,6 @@ void RanMars::select_subset(bigint ntarget, int nmine, int *mark, int *next)
   active[1] = 0;
   first[0] = 0;
   first[1] = -1;
-  last[0] = nmine-1;
-  last[1] = -1;
 
   bigint bnmine = nmine;
   bigint bnall;
@@ -201,7 +201,7 @@ void RanMars::select_subset(bigint ntarget, int nmine, int *mark, int *next)
 
   for (int i = 0; i < nmine; i++) mark[i] = 0;
   for (int i = 0; i < nmine; i++) next[i] = i+1;
-  next[nmine-1] = -1;
+  if (nmine > 0) next[nmine-1] = -1;
 
   nmark = 0;
   niter = 0;
@@ -210,15 +210,12 @@ void RanMars::select_subset(bigint ntarget, int nmine, int *mark, int *next)
 
     // choose to ADD or SUBTRACT from current nmark
     // thresh = desired flips / size of active set
-    // nactive = size of current active set, only for debug output below
 
     if (ntarget-nmark > 0) {
       mode = ADD;
-      // nactive = active[mode];
       thresh = 1.0 * (ntarget-nmark) / activeall[mode];
     } else {
       mode = SUBTRACT;
-      // nactive = active[mode];
       thresh = 1.0 * (nmark-ntarget) / activeall[mode];
     }
 
@@ -244,7 +241,7 @@ void RanMars::select_subset(bigint ntarget, int nmine, int *mark, int *next)
     // flip each value based on RN < thresh
 
     nflip = 0;
-    while (index >= 0) {
+    while ((nmine > 0) && (index >= 0)) {
       if (uniform() < thresh) {
         mark[index] = newvalue;
         nflip++;
@@ -269,8 +266,6 @@ void RanMars::select_subset(bigint ntarget, int nmine, int *mark, int *next)
       active[1] = newactive[1];
       first[0] = newfirst[0];
       first[1] = newfirst[1];
-      last[0] = newlast[0];
-      last[1] = newlast[1];
     }
 
     // update nmark and activeall
@@ -278,12 +273,10 @@ void RanMars::select_subset(bigint ntarget, int nmine, int *mark, int *next)
     bsum[0] = nflip;
     bsum[1] = active[0];
     bsum[2] = active[1];
-    bsum[3] = nactive;
-    MPI_Allreduce(&bsum,&bsumall,4,MPI_LMP_BIGINT,MPI_SUM,world);
+    MPI_Allreduce(&bsum,&bsumall,3,MPI_LMP_BIGINT,MPI_SUM,world);
     nflipall = bsumall[0];
     activeall[0] = bsumall[1];
     activeall[1] = bsumall[2];
-    nactiveall = bsumall[3];
 
     if (mode == ADD) nmark += nflipall;
     else if (mode == SUBTRACT) nmark -= nflipall;
@@ -295,4 +288,32 @@ void RanMars::select_subset(bigint ntarget, int nmine, int *mark, int *next)
     //if (comm->me == 0) printf("%d %ld %ld %g %ld\n",
     //                          niter,nmark,nactiveall,thresh,nflipall);
   }
+}
+
+/* ----------------------------------------------------------------------
+   store state in buffer
+------------------------------------------------------------------------- */
+
+void RanMars::get_state(double *state)
+{
+  for (int i=0; i < 98; ++i) state[i] = u[i];
+  state[98] = i97;
+  state[99] = j97;
+  state[100]= c;
+  state[101]= cd;
+  state[102]= cm;
+}
+
+/* ----------------------------------------------------------------------
+   restore state from buffer
+------------------------------------------------------------------------- */
+
+void RanMars::set_state(double *state)
+{
+  for (int i=0; i < 98; ++i) u[i] = state[i];
+  i97 = state[98];
+  j97 = state[99];
+  c   = state[100];
+  cd  = state[101];
+  cm  = state[102];
 }

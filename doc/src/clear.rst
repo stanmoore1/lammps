@@ -6,14 +6,12 @@ clear command
 Syntax
 """"""
 
-
 .. parsed-literal::
 
    clear
 
 Examples
 """"""""
-
 
 .. parsed-literal::
 
@@ -39,11 +37,13 @@ Restrictions
 """"""""""""
  none
 
-**Related commands:** none
+Related commands
+""""""""""""""""
 
-**Default:** none
+none
 
 
-.. _lws: http://lammps.sandia.gov
-.. _ld: Manual.html
-.. _lc: Commands_all.html
+Default
+"""""""
+
+none

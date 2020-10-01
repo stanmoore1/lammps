@@ -16,21 +16,22 @@
 ------------------------------------------------------------------------- */
 
 #include "compute_saed.h"
-#include <mpi.h>
-#include <cmath>
-#include <cstdlib>
-#include <cstring>
-#include "math_const.h"
-#include "compute_saed_consts.h"
-#include "atom.h"
-#include "comm.h"
-#include "update.h"
-#include "domain.h"
-#include "group.h"
-#include "citeme.h"
-#include "memory.h"
-#include "error.h"
 
+#include "atom.h"
+#include "citeme.h"
+#include "comm.h"
+#include "compute_saed_consts.h"
+#include "domain.h"
+#include "error.h"
+#include "group.h"
+#include "math_const.h"
+#include "memory.h"
+#include "update.h"
+
+#include <cmath>
+#include <cstring>
+
+#include "omp_compat.h"
 using namespace LAMMPS_NS;
 using namespace MathConst;
 
@@ -48,7 +49,7 @@ static const char cite_compute_saed_c[] =
 /* ---------------------------------------------------------------------- */
 
 ComputeSAED::ComputeSAED(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg), ztype(NULL), store_tmp(NULL)
+  Compute(lmp, narg, arg), ztype(nullptr), store_tmp(nullptr)
 {
   if (lmp->citeme) lmp->citeme->add(cite_compute_saed_c);
 
@@ -75,7 +76,7 @@ ComputeSAED::ComputeSAED(LAMMPS *lmp, int narg, char **arg) :
   if (lambda < 0)
     error->all(FLERR,"Compute SAED: Wavelength must be greater than zero");
 
-  // Define atom types for atomic scattering factor coefficents
+  // Define atom types for atomic scattering factor coefficients
   int iarg = 4;
   ztype = new int[ntypes];
   for (int i = 0; i < ntypes; i++){
@@ -394,7 +395,7 @@ void ComputeSAED::compute_vector()
 */
 
 
- // determining paramater set to use based on maximum S = sin(theta)/lambda
+ // determining parameter set to use based on maximum S = sin(theta)/lambda
   double Smax = Kmax / 2;
 
   int offset = 0;                 // offset the ASFSAED matrix for appropriate value
@@ -418,7 +419,7 @@ void ComputeSAED::compute_vector()
   double frac = 0.1;
 
 #if defined(_OPENMP)
-#pragma omp parallel default(none) shared(offset,ASFSAED,typelocal,xlocal,Fvec,m,frac)
+#pragma omp parallel LMP_DEFAULT_NONE LMP_SHARED(offset,ASFSAED,typelocal,xlocal,Fvec,m,frac)
 #endif
   {
     double *f = new double[ntypes];    // atomic structure factor by type
@@ -449,8 +450,8 @@ void ComputeSAED::compute_vector()
       Fatom1 = 0.0;
       Fatom2 = 0.0;
 
-      // Calculate the atomic structre factor by type
-      // determining paramater set to use based on S = sin(theta)/lambda <> 2
+      // Calculate the atomic structure factor by type
+      // determining parameter set to use based on S = sin(theta)/lambda <> 2
       for (int ii = 0; ii < ntypes; ii++){
         f[ii] = 0;
         for (int C = 0; C < 5; C++){

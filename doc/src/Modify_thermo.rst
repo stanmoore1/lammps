@@ -20,13 +20,8 @@ for output.  Search for the word "customize" with references to
 "keyword" in thermo.cpp to see the several locations where code will
 need to be added.
 
-Note that the :doc:`thermo_style custom <thermo>` command already allows
+Note that the :doc:`thermo_style custom <thermo_style>` command already allows
 for thermo output of quantities calculated by :doc:`fixes <fix>`,
 :doc:`computes <compute>`, and :doc:`variables <variable>`.  Thus, it may
 be simpler to compute what you wish via one of those constructs, than
 by adding a new keyword to the thermo command.
-
-
-.. _lws: http://lammps.sandia.gov
-.. _ld: Manual.html
-.. _lc: Commands_all.html

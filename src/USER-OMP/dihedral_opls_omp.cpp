@@ -15,12 +15,13 @@
    Contributing author: Axel Kohlmeyer (Temple U)
 ------------------------------------------------------------------------- */
 
+#include "omp_compat.h"
 #include <cmath>
 #include "dihedral_opls_omp.h"
 #include "atom.h"
 #include "comm.h"
 #include "neighbor.h"
-#include "timer.h"
+
 #include "force.h"
 #include "update.h"
 #include "error.h"
@@ -51,7 +52,7 @@ void DihedralOPLSOMP::compute(int eflag, int vflag)
   const int inum = neighbor->ndihedrallist;
 
 #if defined(_OPENMP)
-#pragma omp parallel default(none) shared(eflag,vflag)
+#pragma omp parallel LMP_DEFAULT_NONE LMP_SHARED(eflag,vflag)
 #endif
   {
     int ifrom, ito, tid;

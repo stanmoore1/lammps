@@ -16,32 +16,31 @@
 ------------------------------------------------------------------------- */
 
 #include "min_kokkos.h"
-#include <mpi.h>
-#include <cmath>
-#include <cstring>
-#include "atom_kokkos.h"
-#include "atom_vec.h"
-#include "domain.h"
-#include "comm.h"
-#include "update.h"
-#include "modify.h"
-#include "fix_minimize_kokkos.h"
-#include "compute.h"
-#include "neighbor.h"
-#include "force.h"
-#include "pair.h"
-#include "bond.h"
+
 #include "angle.h"
+#include "atom_kokkos.h"
+#include "atom_masks.h"
+#include "bond.h"
+#include "comm.h"
+#include "compute.h"
 #include "dihedral.h"
+#include "domain.h"
+#include "error.h"
+#include "fix_minimize_kokkos.h"
+#include "force.h"
 #include "improper.h"
+#include "kokkos.h"
 #include "kspace.h"
+#include "modify.h"
+#include "neighbor.h"
 #include "output.h"
+#include "pair.h"
 #include "thermo.h"
 #include "timer.h"
-#include "memory.h"
-#include "error.h"
-#include "kokkos.h"
-#include "atom_masks.h"
+#include "update.h"
+
+#include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 
@@ -50,7 +49,7 @@ using namespace LAMMPS_NS;
 MinKokkos::MinKokkos(LAMMPS *lmp) : Min(lmp)
 {
   atomKK = (AtomKokkos *) atom;
-  fix_minimize_kk = NULL;
+  fix_minimize_kk = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -236,7 +235,7 @@ void MinKokkos::setup(int flag)
 
   einitial = ecurrent;
   fnorm2_init = sqrt(fnorm_sqr());
-  fnorminf_init = fnorm_inf();
+  fnorminf_init = sqrt(fnorm_inf());
 }
 
 /* ----------------------------------------------------------------------
@@ -345,7 +344,7 @@ void MinKokkos::setup_minimal(int flag)
 
   einitial = ecurrent;
   fnorm2_init = sqrt(fnorm_sqr());
-  fnorminf_init = fnorm_inf();
+  fnorminf_init = sqrt(fnorm_inf());
 }
 
 /* ----------------------------------------------------------------------
@@ -620,7 +619,7 @@ double MinKokkos::fnorm_inf()
     auto l_fvec = fvec;
 
     Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm_inf) {
-      local_norm_inf = MAX(fabs(l_fvec[i]),local_norm_inf);
+      local_norm_inf = MAX(l_fvec[i]*l_fvec[i],local_norm_inf);
     },Kokkos::Max<double>(local_norm_inf));
   }
 
@@ -628,4 +627,29 @@ double MinKokkos::fnorm_inf()
   MPI_Allreduce(&local_norm_inf,&norm_inf,1,MPI_DOUBLE,MPI_MAX,world);
 
   return norm_inf;
+}
+
+/* ----------------------------------------------------------------------
+   compute and return ||force||_max (inf norm per-vector)
+------------------------------------------------------------------------- */
+
+double MinKokkos::fnorm_max()
+{
+
+  double local_norm_max = 0.0;
+  {
+    // local variables for lambda capture
+
+    auto l_fvec = fvec;
+
+    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm_max) {
+      double fdotf = l_fvec[i]*l_fvec[i]+l_fvec[i+1]*l_fvec[i+1]+l_fvec[i+2]*l_fvec[i+2];
+      local_norm_max = MAX(fdotf,local_norm_max);
+    },Kokkos::Max<double>(local_norm_max));
+  }
+
+  double norm_max = 0.0;
+  MPI_Allreduce(&local_norm_max,&norm_max,1,MPI_DOUBLE,MPI_MAX,world);
+
+  return norm_max;
 }
