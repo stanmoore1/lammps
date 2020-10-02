@@ -570,7 +570,7 @@ void FixShakeKokkos<DeviceType>::shake(int m, EV_FLOAT& ev) const
 
   double determ = b*b - 4.0*a*c;
   if (determ < 0.0) {
-    error->warning(FLERR,"Shake determinant < 0.0",0); ///
+    //error->warning(FLERR,"Shake determinant < 0.0",0); ///
     d_error_flag() = 2;
     determ = 0.0;
   }
@@ -1386,18 +1386,19 @@ void FixShakeKokkos<DeviceType>::update_arrays(int i, int atom_offset)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
 int FixShakeKokkos<DeviceType>::pack_exchange(int i, double *buf)
 {
   k_shake_flag.sync_host();
   k_shake_atom.sync_host();
   k_shake_type.sync_host();
 
-  FixShake::pack_exchange(i,buf);
+  int m = FixShake::pack_exchange(i,buf);
 
   k_shake_flag.modify_host();
   k_shake_atom.modify_host();
   k_shake_type.modify_host();
+
+  return m;
 }
 
 /* ----------------------------------------------------------------------
@@ -1405,18 +1406,19 @@ int FixShakeKokkos<DeviceType>::pack_exchange(int i, double *buf)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
 int FixShakeKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 {
   k_shake_flag.sync_host();
   k_shake_atom.sync_host();
   k_shake_type.sync_host();
 
-  FixShake::unpack_exchange(nlocal,buf);
+  int m = FixShake::unpack_exchange(nlocal,buf);
 
   k_shake_flag.modify_host();
   k_shake_atom.modify_host();
   k_shake_type.modify_host();
+
+  return m;
 }
 
 /* ---------------------------------------------------------------------- */

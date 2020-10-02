@@ -58,6 +58,8 @@ class FixShakeKokkos : public FixShake {
 
   int dof(int);
 
+  void unconstrained_update();
+
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixShakePostForce<NEIGHFLAG,EVFLAG>, const int&, EV_FLOAT&) const;
@@ -110,7 +112,6 @@ class FixShakeKokkos : public FixShake {
   DAT::tdual_int_scalar k_error_flag;
   DAT::tdual_int_scalar k_nlist;
 
-  void unconstrained_update();
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
