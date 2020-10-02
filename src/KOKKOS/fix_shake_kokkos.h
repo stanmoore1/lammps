@@ -150,6 +150,9 @@ class FixShakeKokkos : public FixShake {
   KOKKOS_INLINE_FUNCTION
   void v_tally(EV_FLOAT&, int, int *, double, double *) const;
 
+  DAT::tdual_int_1d k_map_array;
+  typename AT::t_int_1d_randomread map_array;
+
   // copied from Domain
 
   KOKKOS_INLINE_FUNCTION

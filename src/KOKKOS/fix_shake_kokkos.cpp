@@ -184,6 +184,22 @@ void FixShakeKokkos<DeviceType>::pre_neighbor()
     memoryKK->create_kokkos(k_list,list,maxlist,"shake:list");
   }
 
+  // don't yet have atom_map_kokkos routines, so move data from host to device
+
+  if (atom->map_style != Atom::MAP_ARRAY)
+    error->all(FLERR,"Must use atom map style array with Kokkos");
+
+  int* map_array_host = atom->get_map_array();
+  int map_size = atom->get_map_size();
+  int map_maxarray = atom->get_map_maxarray();
+  if (map_maxarray > (int)k_map_array.extent(0))
+    k_map_array = DAT::tdual_int_1d("NeighBond:map_array",map_maxarray);
+  for (int i=0; i<map_size; i++)
+    k_map_array.h_view[i] = map_array_host[i];
+  k_map_array.template modify<LMPHostType>();
+  k_map_array.template sync<DeviceType>();
+  map_array = k_map_array.view<DeviceType>();
+
   // build list of SHAKE clusters I compute
 
   Kokkos::deep_copy(d_scalars,0);
@@ -196,12 +212,13 @@ void FixShakeKokkos<DeviceType>::pre_neighbor()
     auto d_list = this->d_list;
     auto d_error_flag = this->d_error_flag;
     auto d_nlist = this->d_nlist;
+    auto map_array = this->map_array;
 
     Kokkos::parallel_for(nlocal, LAMMPS_LAMBDA(const int& i) {
       if (d_shake_flag[i]) {
         if (d_shake_flag[i] == 2) {
-          const int atom1 = atom->map(d_shake_atom(i,0)); /// need device function--like in bond. Use hash?
-          const int atom2 = atom->map(d_shake_atom(i,1)); ///
+          const int atom1 = map_array(d_shake_atom(i,0)); 
+          const int atom2 = map_array(d_shake_atom(i,1));
           if (atom1 == -1 || atom2 == -1) {
             d_error_flag() = 1;
           }
@@ -210,9 +227,9 @@ void FixShakeKokkos<DeviceType>::pre_neighbor()
             d_list[nlist] = i;
           }
         } else if (d_shake_flag[i] % 2 == 1) {
-          const int atom1 = atom->map(d_shake_atom(i,0));
-          const int atom2 = atom->map(d_shake_atom(i,1));
-          const int atom3 = atom->map(d_shake_atom(i,2));
+          const int atom1 = map_array(d_shake_atom(i,0));
+          const int atom2 = map_array(d_shake_atom(i,1));
+          const int atom3 = map_array(d_shake_atom(i,2));
           if (atom1 == -1 || atom2 == -1 || atom3 == -1)
             d_error_flag() = 1;
           if (i <= atom1 && i <= atom2 && i <= atom3) {
@@ -220,10 +237,10 @@ void FixShakeKokkos<DeviceType>::pre_neighbor()
             d_list[nlist] = i;
           }
         } else {
-          const int atom1 = atom->map(d_shake_atom(i,0));
-          const int atom2 = atom->map(d_shake_atom(i,1));
-          const int atom3 = atom->map(d_shake_atom(i,2));
-          const int atom4 = atom->map(d_shake_atom(i,3));
+          const int atom1 = map_array(d_shake_atom(i,0));
+          const int atom2 = map_array(d_shake_atom(i,1));
+          const int atom3 = map_array(d_shake_atom(i,2));
+          const int atom4 = map_array(d_shake_atom(i,3));
           if (atom1 == -1 || atom2 == -1 || atom3 == -1 || atom4 == -1)
             d_error_flag() = 1;
           if (i <= atom1 && i <= atom2 && i <= atom3 && i <= atom4) {
@@ -244,14 +261,6 @@ void FixShakeKokkos<DeviceType>::pre_neighbor()
             me,update->ntimestep);
   }
 }
-
-  ///KK notes
-  // need d_shake_flag
-  // eflag, vflag
-  // atom map (see neigh bond), may need to add KK hash for atom map
-  // stats()--sync to host, don't do on device for now
-  // comm->forward_comm_fix(this)
-
 
 /* ----------------------------------------------------------------------
    compute the force adjustment for SHAKE constraint
@@ -515,8 +524,8 @@ void FixShakeKokkos<DeviceType>::shake(int m, EV_FLOAT& ev) const
 
   // local atom IDs and constraint distances
 
-  int i0 = atom->map(d_shake_atom(m,0)); ///
-  int i1 = atom->map(d_shake_atom(m,1)); ///
+  int i0 = map_array(d_shake_atom(m,0));
+  int i1 = map_array(d_shake_atom(m,1));
   double bond1 = d_bond_distance[d_shake_type(m,0)];
 
   // r01 = distance vec between atoms, with PBC
@@ -626,9 +635,9 @@ void FixShakeKokkos<DeviceType>::shake3(int m, EV_FLOAT& ev) const
 
   // local atom IDs and constraint distances
 
-  int i0 = atom->map(d_shake_atom(m,0));
-  int i1 = atom->map(d_shake_atom(m,1));
-  int i2 = atom->map(d_shake_atom(m,2));
+  int i0 = map_array(d_shake_atom(m,0));
+  int i1 = map_array(d_shake_atom(m,1));
+  int i2 = map_array(d_shake_atom(m,2));
   double bond1 = d_bond_distance[d_shake_type(m,0)];
   double bond2 = d_bond_distance[d_shake_type(m,1)];
 
@@ -809,10 +818,10 @@ void FixShakeKokkos<DeviceType>::shake4(int m, EV_FLOAT& ev) const
 
   // local atom IDs and constraint distances
 
-  int i0 = atom->map(d_shake_atom(m,0));
-  int i1 = atom->map(d_shake_atom(m,1));
-  int i2 = atom->map(d_shake_atom(m,2));
-  int i3 = atom->map(d_shake_atom(m,3));
+  int i0 = map_array(d_shake_atom(m,0));
+  int i1 = map_array(d_shake_atom(m,1));
+  int i2 = map_array(d_shake_atom(m,2));
+  int i3 = map_array(d_shake_atom(m,3));
   double bond1 = d_bond_distance[d_shake_type(m,0)];
   double bond2 = d_bond_distance[d_shake_type(m,1)];
   double bond3 = d_bond_distance[d_shake_type(m,2)];
@@ -1071,9 +1080,9 @@ void FixShakeKokkos<DeviceType>::shake3angle(int m, EV_FLOAT& ev) const
 
   // local atom IDs and constraint distances
 
-  int i0 = atom->map(d_shake_atom(m,0));
-  int i1 = atom->map(d_shake_atom(m,1));
-  int i2 = atom->map(d_shake_atom(m,2));
+  int i0 = map_array(d_shake_atom(m,0));
+  int i1 = map_array(d_shake_atom(m,1));
+  int i2 = map_array(d_shake_atom(m,2));
   double bond1 = d_bond_distance[d_shake_type(m,0)];
   double bond2 = d_bond_distance[d_shake_type(m,1)];
   double bond12 = d_angle_distance[d_shake_type(m,2)];
@@ -1084,7 +1093,7 @@ void FixShakeKokkos<DeviceType>::shake3angle(int m, EV_FLOAT& ev) const
   r01[0] = x(i0,0) - x(i1,0);
   r01[1] = x(i0,1) - x(i1,1);
   r01[2] = x(i0,2) - x(i1,2);
-  minimum_image(r01); ///
+  minimum_image(r01);
 
   double r02[3];
   r02[0] = x(i0,0) - x(i2,0);
