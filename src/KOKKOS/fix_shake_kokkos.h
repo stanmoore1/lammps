@@ -23,89 +23,148 @@ FixStyle(shake/kk/host,FixShakeKokkos<LMPHostType>)
 #define LMP_FIX_SHAKE_KOKKOS_H
 
 #include "fix_shake.h"
+#include "kokkos_type.h"
 
 namespace LAMMPS_NS {
 
+template<int NEIGHFLAG, int EVFLAG>
+struct TagFixShakePostForce{};
+
+template<class DeviceType>
 class FixShakeKokkos : public FixShake {
 
  //friend class FixEHEX;
 
  public:
+  typedef DeviceType device_type;
+  typedef EV_FLOAT value_type;
+  typedef ArrayTypes<DeviceType> AT;
+
   FixShakeKokkos(class LAMMPS *, int, char **);
   virtual ~FixShakeKokkos();
-  virtual void init();
-  void setup(int);
+  void init();
   void pre_neighbor();
-  virtual void post_force(int);
+  void post_force(int);
 
-  virtual double memory_usage();
-  virtual void grow_arrays(int);
-  virtual void copy_arrays(int, int, int);
+  void grow_arrays(int);
+  void copy_arrays(int, int, int);
   void set_arrays(int);
-  virtual void update_arrays(int, int);
-  void set_molecule(int, tagint, int, double *, double *, double *);
+  void update_arrays(int, int);
 
-  virtual int pack_exchange(int, double *);
-  virtual int unpack_exchange(int, double *);
-  virtual int pack_forward_comm(int, int *, double *, int, int *);
-  virtual void unpack_forward_comm(int, int, double *);
-
-  virtual void shake_end_of_step(int vflag);
-  virtual void correct_coordinates(int vflag);
-  virtual void correct_velocities();
+  int pack_exchange(int, double *);
+  int unpack_exchange(int, double *);
+  int pack_forward_comm(int, int *, double *, int, int *);
+  void unpack_forward_comm(int, int, double *);
 
   int dof(int);
-  virtual void reset_dt();
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixShakePostForce<NEIGHFLAG,EVFLAG>, const int&, EV_FLOAT&) const;
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixShakePostForce<NEIGHFLAG,EVFLAG>, const int&) const;
 
  protected:
 
-  typename ArrayTypes<DeviceType>::t_x_array x;
-  typename ArrayTypes<DeviceType>::t_v_array v;
-  typename ArrayTypes<DeviceType>::t_f_array f;
-  typename ArrayTypes<DeviceType>::t_float_1d rmass;
-  typename ArrayTypes<DeviceType>::t_float_1d mass;
-  typename ArrayTypes<DeviceType>::t_int_1d type;
+  typename AT::t_x_array x;
+  typename AT::t_v_array v;
+  typename AT::t_f_array f;
+  typename AT::t_float_1d rmass;
+  typename AT::t_float_1d mass;
+  typename AT::t_tagint_1d_randomread tag;
+  typename AT::t_int_1d type;
+  typename AT::t_int_1d mask;
 
-                                         // settings from input command
-  typename ArrayTypes<DeviceType>::t_int_1d d_bond_flag; // bond/angle types to constrain
-  typename ArrayTypes<DeviceType>::t_int_1d d_angle_flag;
-  typename ArrayTypes<DeviceType>::t_float_1d d_bond_distance; // constraint distances
-  typename ArrayTypes<DeviceType>::t_float_1d d_angle_distance;
+  DAT::tdual_efloat_1d k_eatom;
+  typename AT::t_efloat_1d d_eatom;
+
+  DAT::tdual_virial_array k_vatom;
+  typename AT::t_virial_array d_vatom;
+
+  DAT::tdual_float_1d k_bond_distance; // constraint distances
+  typename AT::t_float_1d d_bond_distance;
+  DAT::tdual_float_1d k_angle_distance;
+  typename AT::t_float_1d d_angle_distance;
 
                                          // atom-based arrays
-  typename ArrayTypes<DeviceType>::t_int_1d d_shake_list; // 0 if atom not in SHAKE cluster
+  DAT::tdual_int_1d k_shake_flag;
+  typename AT::t_int_1d d_shake_flag; // 0 if atom not in SHAKE cluster
                                          // 1 = size 3 angle cluster
                                          // 2,3,4 = size of bond-only cluster
-  typename ArrayTypes<DeviceType>::t_tagint_2d d_shake_atom; // global IDs of atoms in cluster
+  DAT::tdual_tagint_2d k_shake_atom;
+  typename AT::t_tagint_2d d_shake_atom; // global IDs of atoms in cluster
                                          // central atom is 1st
                                          // lowest global ID is 1st for size 2
-  typename ArrayTypes<DeviceType>::t_int_2d d_shake_type; // bondtype of each bond in cluster
+  DAT::tdual_int_2d k_shake_type;
+  typename AT::t_int_2d d_shake_type; // bondtype of each bond in cluster
                                          // for angle cluster, 3rd value
                                          //   is angletype
-  typename ArrayTypes<DeviceType>::t_x_array d_xshake; // unconstrained atom coords
-  typename ArrayTypes<DeviceType>::t_int_1d d_nshake; // count
+  DAT::tdual_x_array k_xshake;
+  typename AT::t_x_array d_xshake; // unconstrained atom coords
 
-  typename ArrayTypes<DeviceType>::t_int_1d d_list // list of clusters to SHAKE
+  DAT::tdual_int_1d k_list;
+  typename AT::t_int_1d d_list; // list of clusters to SHAKE
 
-  class Molecule **atommols;            // atom style template pointer
-  class Molecule **onemols;             // molecule added on-the-fly
+  DAT::tdual_int_scalar k_error_flag;
+  DAT::tdual_int_scalar k_nlist;
 
-  void find_clusters();
-  void atom_owners();
-  void partner_info(int *, tagint **, int **, int **, int **, int **);
-  void nshake_info(int *, tagint **, int **);
-  void shake_info(int *, tagint **, int **);
-
-  int masscheck(double);
   void unconstrained_update();
-  void unconstrained_update_respa(int);
-  void shake(int);
-  void shake3(int);
-  void shake4(int);
-  void shake3angle(int);
-  void stats();
-  int bondtype_findset(int, tagint, tagint, int);
-  int angletype_findset(int, tagint, tagint, int);
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void shake(int, EV_FLOAT&) const;
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void shake3(int, EV_FLOAT&) const;
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void shake4(int, EV_FLOAT&) const;
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void shake3angle(int, EV_FLOAT&) const;
+
+  typedef typename KKDevice<DeviceType>::value KKDeviceType;
+  Kokkos::Experimental::ScatterView<F_FLOAT*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterDuplicated> dup_f;
+  Kokkos::Experimental::ScatterView<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterDuplicated> dup_eatom;
+  Kokkos::Experimental::ScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterDuplicated> dup_vatom;
+
+  Kokkos::Experimental::ScatterView<F_FLOAT*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_f;
+  Kokkos::Experimental::ScatterView<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_eatom;
+  Kokkos::Experimental::ScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_vatom;
+
+  int neighflag,need_dup;
+
+  typename AT::t_int_1d d_scalars;
+  HAT::t_int_1d h_scalars;
+  typename AT::t_int_scalar d_error_flag;
+  typename AT::t_int_scalar d_nlist;
+  HAT::t_int_scalar h_error_flag;
+  HAT::t_int_scalar h_nlist;
+
+  template<int NEIGHFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void v_tally(EV_FLOAT&, int, int *, double, double *) const;
+
+  // copied from Domain
+
+  KOKKOS_INLINE_FUNCTION
+  void minimum_image(double *) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void minimum_image_once(double *) const;
+
+  void update_domain_variables();
+
+  int triclinic;
+  int xperiodic,yperiodic,zperiodic;
+  X_FLOAT xprd_half,yprd_half,zprd_half;
+  X_FLOAT xprd,yprd,zprd;
+  X_FLOAT xy,xz,yz;
 };
 
 }
@@ -114,9 +173,5 @@ class FixShakeKokkos : public FixShake {
 #endif
 
 /* ERROR/WARNING messages:
-
-E: Cannot use fix shake with non-molecular system
-
-Your choice of atom style does not have bonds.
 
 */
