@@ -34,7 +34,7 @@ class FixShake : public Fix {
   virtual int setmask();
   virtual void init();
   void setup(int);
-  void pre_neighbor();
+  virtual void pre_neighbor();
   virtual void post_force(int);
   virtual void post_force_respa(int, int, int);
 

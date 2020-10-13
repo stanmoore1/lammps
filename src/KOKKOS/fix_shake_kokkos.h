@@ -56,6 +56,9 @@ class FixShakeKokkos : public FixShake {
   int pack_forward_comm(int, int *, double *, int, int *);
   void unpack_forward_comm(int, int, double *);
 
+  void shake_end_of_step(int vflag);
+  void correct_coordinates(int vflag);
+
   int dof(int);
 
   void unconstrained_update();
@@ -70,14 +73,14 @@ class FixShakeKokkos : public FixShake {
 
  protected:
 
-  typename AT::t_x_array x;
-  typename AT::t_v_array v;
-  typename AT::t_f_array f;
-  typename AT::t_float_1d rmass;
-  typename AT::t_float_1d mass;
-  typename AT::t_tagint_1d_randomread tag;
-  typename AT::t_int_1d type;
-  typename AT::t_int_1d mask;
+  typename AT::t_x_array d_x;
+  typename AT::t_v_array d_v;
+  typename AT::t_f_array d_f;
+  typename AT::t_float_1d d_rmass;
+  typename AT::t_float_1d d_mass;
+  typename AT::t_tagint_1d_randomread d_tag;
+  typename AT::t_int_1d d_type;
+  typename AT::t_int_1d d_mask;
 
   DAT::tdual_efloat_1d k_eatom;
   typename AT::t_efloat_1d d_eatom;
