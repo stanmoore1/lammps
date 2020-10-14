@@ -391,7 +391,7 @@ void CommKokkos::forward_comm_fix_device(Fix *fix, int size)
 
     // pack buffer
 
-    n = fixKKBase->pack_forward_comm_kokkos(sendnum[iswap],k_sendlist,
+    n = fixKKBase->pack_forward_comm_fix_kokkos(sendnum[iswap],k_sendlist,
                                       iswap,k_buf_send_fix,pbc_flag[iswap],pbc[iswap]);
     DeviceType().fence();
 
@@ -427,7 +427,7 @@ void CommKokkos::forward_comm_fix_device(Fix *fix, int size)
 
     // unpack buffer
 
-    fixKKBase->unpack_forward_comm_kokkos(recvnum[iswap],firstrecv[iswap],k_buf_recv_fix);
+    fixKKBase->unpack_forward_comm_fix_kokkos(recvnum[iswap],firstrecv[iswap],k_buf_recv_fix);
     DeviceType().fence();
   }
 }
@@ -571,8 +571,8 @@ void CommKokkos::exchange()
     if(!exchange_comm_classic) {
       static int print = 1;
       if(print && comm->me==0) {
-        error->warning(FLERR,"Fixes cannot yet send data in Kokkos communication, "
-                      "switching to classic communication");
+        error->warning(FLERR,"Fixes cannot yet send exchange data in Kokkos communication, "
+                      "switching to classic exchange/border communication");
       }
       print = 0;
       exchange_comm_classic = true;
@@ -822,7 +822,7 @@ void CommKokkos::borders()
          (ghost_velocity && ((AtomVecKokkos*)atom->avec)->no_border_vel_flag)) {
       if (print && comm->me==0) {
         error->warning(FLERR,"Required border comm not yet implemented in Kokkos communication, "
-                      "switching to classic communication");
+                      "switching to classic exchange/border communication");
       }
       print = 0;
       exchange_comm_classic = true;
