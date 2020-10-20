@@ -56,6 +56,9 @@ FixShakeKokkos<DeviceType>::FixShakeKokkos(LAMMPS *lmp, int narg, char **arg) :
   atomKK = (AtomKokkos *)atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
 
+  datamask_read = EMPTY_MASK;
+  datamask_modify = EMPTY_MASK;
+
   shake_flag_tmp = shake_flag;
   shake_atom_tmp = shake_atom;
   shake_type_tmp = shake_type;
@@ -103,9 +106,6 @@ FixShakeKokkos<DeviceType>::FixShakeKokkos(LAMMPS *lmp, int narg, char **arg) :
 
   h_error_flag = Kokkos::subview(h_scalars,0);
   h_nlist = Kokkos::subview(h_scalars,1);
-
-  // forces modified in 
-  atomKK->modified(Host,F_MASK);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -267,6 +267,7 @@ void FixShakeKokkos<DeviceType>::pre_neighbor()
 
   Kokkos::deep_copy(h_scalars,d_scalars);
   nlist = h_nlist();
+  printf("nlist %i\n",nlist);
 
   if (h_error_flag() == 1) {
     char str[128];
@@ -375,12 +376,7 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
   if (need_dup)
     Kokkos::Experimental::contribute(d_f,dup_f);
 
-  // free duplicated memory
-
-  if (need_dup) {
-    dup_f = decltype(dup_f)();
-    dup_vatom = decltype(dup_vatom)();
-  }
+  atomKK->modified(Device,F_MASK);
 
   if (vflag_global) {
     virial[0] += ev.v[0];
@@ -394,6 +390,13 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
   if (vflag_atom) {
     k_vatom.template modify<DeviceType>();
     k_vatom.template sync<LMPHostType>();
+  }
+
+  // free duplicated memory
+
+  if (need_dup) {
+    dup_f = decltype(dup_f)();
+    dup_vatom = decltype(dup_vatom)();
   }
 }
 
@@ -458,6 +461,7 @@ int FixShakeKokkos<DeviceType>::dof(int igroup)
 
   int nall;
   MPI_Allreduce(&n,&nall,1,MPI_INT,MPI_SUM,world);
+  printf("Dof %i\n",nall);
   return nall;
 }
 
