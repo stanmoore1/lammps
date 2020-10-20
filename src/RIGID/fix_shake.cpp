@@ -240,6 +240,8 @@ FixShake::FixShake(LAMMPS *lmp, int narg, char **arg) :
 
 FixShake::~FixShake()
 {
+  if (copymode) return;
+
   // unregister callbacks to this fix from Atom class
 
   atom->delete_callback(id,Atom::GROW);
@@ -558,8 +560,6 @@ void FixShake::pre_neighbor()
 
 void FixShake::post_force(int vflag)
 {
-  printf("PF Host!!!!!!!!!!!!!!!!!!!\n");
-
   if (update->ntimestep == next_output) stats();
 
   // xshake = unconstrained move with current v,f
@@ -677,7 +677,6 @@ int FixShake::dof(int igroup)
 
 void FixShake::find_clusters()
 {
-  printf("find clusters!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
   int i,j,m,n,imol,iatom;
   int flag,flag_all;
   tagint tagprev;
@@ -1734,7 +1733,6 @@ void FixShake::shake(int m)
   // update forces if atom is owned by this processor
 
   lamda /= dtfsq;
-  printf("%i %i %i\n",i0,i1,lamda);
 
   if (i0 < nlocal) {
     f[i0][0] += lamda*r01[0];

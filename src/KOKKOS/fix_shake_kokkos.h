@@ -157,6 +157,10 @@ class FixShakeKokkos : public FixShake {
   DAT::tdual_int_1d k_map_array;
   typename AT::t_int_1d_randomread map_array;
 
+  int *shake_flag_tmp;
+  tagint **shake_atom_tmp;
+  int **shake_type_tmp;
+
   // copied from Domain
 
   KOKKOS_INLINE_FUNCTION
