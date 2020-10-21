@@ -2987,7 +2987,6 @@ void *FixShake::extract(const char *str, int &dim)
 ------------------------------------------------------------------------- */
 
 void FixShake::shake_end_of_step(int vflag) {
-
   if (!respa) {
     dtv     = update->dt;
     dtfsq   = 0.5 * update->dt * update->dt * force->ftm2v;

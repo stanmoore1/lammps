@@ -86,10 +86,6 @@ FixShakeKokkos<DeviceType>::FixShakeKokkos(LAMMPS *lmp, int narg, char **arg) :
   k_shake_atom.modify_host();
   k_shake_type.modify_host();
 
-  k_shake_flag.sync<DeviceType>();
-  k_shake_atom.sync<DeviceType>();
-  k_shake_type.sync<DeviceType>();
-
   k_bond_distance = DAT::tdual_float_1d("fix_shake:bond_distance",atom->nbondtypes+1);
   k_angle_distance = DAT::tdual_float_1d("fix_shake:angle_distance",atom->nangletypes+1);
 
@@ -154,6 +150,9 @@ void FixShakeKokkos<DeviceType>::init()
 
   k_bond_distance.modify_host();
   k_angle_distance.modify_host();
+
+  k_bond_distance.sync<DeviceType>();
+  k_angle_distance.sync<DeviceType>();
 }
 
 
@@ -177,16 +176,8 @@ void FixShakeKokkos<DeviceType>::pre_neighbor()
   type = atom->type;
   nlocal = atom->nlocal;
 
-  // Kokkos copies
-
-  d_x = atomKK->k_x.view<DeviceType>();
-  d_v = atomKK->k_v.view<DeviceType>();
-  d_f = atomKK->k_f.view<DeviceType>();
-  d_mass = atomKK->k_mass.view<DeviceType>();
-  d_rmass = atomKK->k_rmass.view<DeviceType>();
-  d_type = atomKK->k_type.view<DeviceType>();
-
-  atomKK->sync(Device,X_MASK|V_MASK|F_MASK|RMASS_MASK|TYPE_MASK);
+  k_shake_flag.sync<DeviceType>();
+  k_shake_atom.sync<DeviceType>();
 
   // extend size of SHAKE list if necessary
 
@@ -267,7 +258,6 @@ void FixShakeKokkos<DeviceType>::pre_neighbor()
 
   Kokkos::deep_copy(h_scalars,d_scalars);
   nlist = h_nlist();
-  printf("nlist %i\n",nlist);
 
   if (h_error_flag() == 1) {
     char str[128];
@@ -286,13 +276,38 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
 {
   d_x = atomKK->k_x.view<DeviceType>();
   d_f = atomKK->k_f.view<DeviceType>();
-  d_tag = atomKK->k_tag.view<DeviceType>();
   d_type = atomKK->k_type.view<DeviceType>();
+  d_rmass = atomKK->k_rmass.view<DeviceType>();
+  d_mass = atomKK->k_mass.view<DeviceType>();
   nlocal = atomKK->nlocal;
 
-  //rmass//////////
+  if (d_rmass.data())
+    atomKK->sync(Device,X_MASK|F_MASK|RMASS_MASK);
+  else
+    atomKK->sync(Device,X_MASK|F_MASK|TYPE_MASK);
 
-  atomKK->sync(Device,X_MASK|F_MASK|TAG_MASK|TYPE_MASK);
+  k_shake_flag.sync<DeviceType>();
+  k_shake_atom.sync<DeviceType>();
+  k_shake_type.sync<DeviceType>();
+
+  if (update->ntimestep == next_output) {
+    atomKK->sync(Host,X_MASK);
+    k_shake_flag.sync_host();
+    k_shake_atom.sync_host();
+    stats();
+  }
+
+  // xshake = unconstrained move with current v,f
+  // communicate results if necessary
+
+  unconstrained_update();
+  if (nprocs > 1) comm->forward_comm_fix(this);
+  k_xshake.sync<DeviceType>();
+
+  // virial setup
+
+  if (vflag) v_setup(vflag);
+  else evflag = 0;
 
   // reallocate per-atom arrays if necessary
 
@@ -315,27 +330,6 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
     ndup_vatom        = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
   }
 
-  if (update->ntimestep == next_output) {
-    atomKK->sync(Host,X_MASK);
-    k_shake_flag.sync_host();
-    k_shake_atom.sync_host();
-    stats();
-  }
-
-  // xshake = unconstrained move with current v,f
-  // communicate results if necessary
-
-  unconstrained_update();
-  if (nprocs > 1) comm->forward_comm_fix(this);
-
-  // virial setup
-
-  if (vflag) v_setup(vflag);
-  else evflag = 0;
-
-  k_bond_distance.sync<DeviceType>();
-  k_angle_distance.sync<DeviceType>();
-
   Kokkos::deep_copy(d_scalars,0);
 
   update_domain_variables();
@@ -347,7 +341,7 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
   copymode = 1;
 
   if (neighflag == HALF) {
-    if (evflag)
+   if (evflag)
       Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagFixShakePostForce<1,1> >(0,nlist),*this,ev);
     else
       Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixShakePostForce<HALF,0> >(0,nlist),*this);
@@ -434,6 +428,8 @@ int FixShakeKokkos<DeviceType>::dof(int igroup)
   nlocal = atom->nlocal;
 
   atomKK->sync(Device,MASK_MASK|TAG_MASK);
+  k_shake_flag.sync<DeviceType>();
+  k_shake_atom.sync<DeviceType>();
 
   // count dof in a cluster if and only if
   // the central atom is in group and atom i is the central atom
@@ -461,7 +457,6 @@ int FixShakeKokkos<DeviceType>::dof(int igroup)
 
   int nall;
   MPI_Allreduce(&n,&nall,1,MPI_INT,MPI_SUM,world);
-  printf("Dof %i\n",nall);
   return nall;
 }
 
@@ -473,17 +468,22 @@ int FixShakeKokkos<DeviceType>::dof(int igroup)
 template<class DeviceType>
 void FixShakeKokkos<DeviceType>::unconstrained_update()
 {
-
   d_x = atomKK->k_x.view<DeviceType>();
   d_v = atomKK->k_v.view<DeviceType>();
-  d_rmass = atomKK->k_rmass.view<DeviceType>();
+  d_f = atomKK->k_f.view<DeviceType>();
   d_type = atomKK->k_type.view<DeviceType>();
+  d_rmass = atomKK->k_rmass.view<DeviceType>();
+  d_mass = atomKK->k_mass.view<DeviceType>();
   nlocal = atom->nlocal;
 
   if (d_rmass.data())
     atomKK->sync(Device,X_MASK|V_MASK|F_MASK|RMASS_MASK);
   else
     atomKK->sync(Device,X_MASK|V_MASK|F_MASK|TYPE_MASK);
+
+
+  k_shake_flag.sync<DeviceType>();
+  k_xshake.sync<DeviceType>();
 
   {
     // local variables for lambda capture
@@ -503,9 +503,9 @@ void FixShakeKokkos<DeviceType>::unconstrained_update()
       Kokkos::parallel_for(nlocal, LAMMPS_LAMBDA(const int& i) {
         if (d_shake_flag[i]) {
           const double dtfmsq = dtfsq / rmass[i];
-          d_xshake(i,0) = d_x(i,0) + dtv*d_v(i,0) + dtfmsq*f(i,0);
-          d_xshake(i,1) = d_x(i,1) + dtv*d_v(i,1) + dtfmsq*f(i,1);
-          d_xshake(i,2) = d_x(i,2) + dtv*d_v(i,2) + dtfmsq*f(i,2);
+          d_xshake(i,0) = x(i,0) + dtv*v(i,0) + dtfmsq*f(i,0);
+          d_xshake(i,1) = x(i,1) + dtv*v(i,1) + dtfmsq*f(i,1);
+          d_xshake(i,2) = x(i,2) + dtv*v(i,2) + dtfmsq*f(i,2);
         } else d_xshake(i,2) = d_xshake(i,1) = d_xshake(i,0) = 0.0;
       });
     } else {
@@ -516,9 +516,9 @@ void FixShakeKokkos<DeviceType>::unconstrained_update()
       Kokkos::parallel_for(nlocal, LAMMPS_LAMBDA(const int& i) {
         if (d_shake_flag[i]) {
           const double dtfmsq = dtfsq / mass[type[i]];
-          d_xshake(i,0) = d_x(i,0) + dtv*v(i,0) + dtfmsq*f(i,0);
-          d_xshake(i,1) = d_x(i,1) + dtv*v(i,1) + dtfmsq*f(i,1);
-          d_xshake(i,2) = d_x(i,2) + dtv*v(i,2) + dtfmsq*f(i,2);
+          d_xshake(i,0) = x(i,0) + dtv*v(i,0) + dtfmsq*f(i,0);
+          d_xshake(i,1) = x(i,1) + dtv*v(i,1) + dtfmsq*f(i,1);
+          d_xshake(i,2) = x(i,2) + dtv*v(i,2) + dtfmsq*f(i,2);
         } else d_xshake(i,2) = d_xshake(i,1) = d_xshake(i,0) = 0.0;
       });
     }
@@ -576,11 +576,11 @@ void FixShakeKokkos<DeviceType>::shake(int m, EV_FLOAT& ev) const
   // a,b,c = coeffs in quadratic equation for lamda
 
   if (d_rmass.data()) {
-    invmass0 = 1.0/rmass[i0];
-    invmass1 = 1.0/rmass[i1];
+    invmass0 = 1.0/d_rmass[i0];
+    invmass1 = 1.0/d_rmass[i1];
   } else {
-    invmass0 = 1.0/mass[type[i0]];
-    invmass1 = 1.0/mass[type[i1]];
+    invmass0 = 1.0/d_mass[d_type[i0]];
+    invmass1 = 1.0/d_mass[d_type[i1]];
   }
 
   double a = (invmass0+invmass1)*(invmass0+invmass1) * r01sq;
@@ -611,7 +611,7 @@ void FixShakeKokkos<DeviceType>::shake(int m, EV_FLOAT& ev) const
   lamda /= dtfsq;
 
   if (i0 < nlocal) {
-    a_f(i0,0) += lamda*r01[0]; // need atomic?
+    a_f(i0,0) += lamda*r01[0];
     a_f(i0,1) += lamda*r01[1];
     a_f(i0,2) += lamda*r01[2];
   }
@@ -703,13 +703,13 @@ void FixShakeKokkos<DeviceType>::shake3(int m, EV_FLOAT& ev) const
   // matrix coeffs and rhs for lamda equations
 
   if (d_rmass.data()) {
-    invmass0 = 1.0/rmass[i0];
-    invmass1 = 1.0/rmass[i1];
-    invmass2 = 1.0/rmass[i2];
+    invmass0 = 1.0/d_rmass[i0];
+    invmass1 = 1.0/d_rmass[i1];
+    invmass2 = 1.0/d_rmass[i2];
   } else {
-    invmass0 = 1.0/mass[type[i0]];
-    invmass1 = 1.0/mass[type[i1]];
-    invmass2 = 1.0/mass[type[i2]];
+    invmass0 = 1.0/d_mass[d_type[i0]];
+    invmass1 = 1.0/d_mass[d_type[i1]];
+    invmass2 = 1.0/d_mass[d_type[i2]];
   }
 
   double a11 = 2.0 * (invmass0+invmass1) *
@@ -902,15 +902,15 @@ void FixShakeKokkos<DeviceType>::shake4(int m, EV_FLOAT& ev) const
   // matrix coeffs and rhs for lamda equations
 
   if (d_rmass.data()) {
-    invmass0 = 1.0/rmass[i0];
-    invmass1 = 1.0/rmass[i1];
-    invmass2 = 1.0/rmass[i2];
-    invmass3 = 1.0/rmass[i3];
+    invmass0 = 1.0/d_rmass[i0];
+    invmass1 = 1.0/d_rmass[i1];
+    invmass2 = 1.0/d_rmass[i2];
+    invmass3 = 1.0/d_rmass[i3];
   } else {
-    invmass0 = 1.0/mass[type[i0]];
-    invmass1 = 1.0/mass[type[i1]];
-    invmass2 = 1.0/mass[type[i2]];
-    invmass3 = 1.0/mass[type[i3]];
+    invmass0 = 1.0/d_mass[d_type[i0]];
+    invmass1 = 1.0/d_mass[d_type[i1]];
+    invmass2 = 1.0/d_mass[d_type[i2]];
+    invmass3 = 1.0/d_mass[d_type[i3]];
   }
 
   double a11 = 2.0 * (invmass0+invmass1) *
@@ -1163,13 +1163,13 @@ void FixShakeKokkos<DeviceType>::shake3angle(int m, EV_FLOAT& ev) const
   // matrix coeffs and rhs for lamda equations
 
   if (d_rmass.data()) {
-    invmass0 = 1.0/rmass[i0];
-    invmass1 = 1.0/rmass[i1];
-    invmass2 = 1.0/rmass[i2];
+    invmass0 = 1.0/d_rmass[i0];
+    invmass1 = 1.0/d_rmass[i1];
+    invmass2 = 1.0/d_rmass[i2];
   } else {
-    invmass0 = 1.0/mass[type[i0]];
-    invmass1 = 1.0/mass[type[i1]];
-    invmass2 = 1.0/mass[type[i2]];
+    invmass0 = 1.0/d_mass[d_type[i0]];
+    invmass1 = 1.0/d_mass[d_type[i1]];
+    invmass2 = 1.0/d_mass[d_type[i2]];
   }
 
   double a11 = 2.0 * (invmass0+invmass1) *
@@ -1367,9 +1367,9 @@ void FixShakeKokkos<DeviceType>::grow_arrays(int nmax)
 template<class DeviceType>
 void FixShakeKokkos<DeviceType>::copy_arrays(int i, int j, int delflag)
 {
-  k_shake_flag.modify_host();
-  k_shake_atom.modify_host();
-  k_shake_type.modify_host();
+  k_shake_flag.sync_host();
+  k_shake_atom.sync_host();
+  k_shake_type.sync_host();
 
   FixShake::copy_arrays(i,j,delflag);
 
@@ -1400,11 +1400,12 @@ void FixShakeKokkos<DeviceType>::set_arrays(int i)
 template<class DeviceType>
 void FixShakeKokkos<DeviceType>::update_arrays(int i, int atom_offset)
 {
-  k_shake_atom.sync_host();
   k_shake_flag.sync_host();
+  k_shake_atom.sync_host();
 
   FixShake::update_arrays(i,atom_offset);
 
+  k_shake_flag.modify_host();
   k_shake_atom.modify_host();
 }
 
@@ -1496,7 +1497,77 @@ void FixShakeKokkos<DeviceType>::shake_end_of_step(int vflag) {
 template<class DeviceType>
 void FixShakeKokkos<DeviceType>::correct_coordinates(int vflag) {
   atomKK->sync(Host,X_MASK|V_MASK|F_MASK);
-  FixShake::correct_coordinates(vflag);
+
+  // save current forces and velocities so that you
+  // initialize them to zero such that FixShake::unconstrained_coordinate_update has no effect
+
+  for (int j=0; j<nlocal; j++) {
+    for (int k=0; k<3; k++) {
+
+      // store current value of forces and velocities
+      ftmp[j][k] = f[j][k];
+      vtmp[j][k] = v[j][k];
+
+      // set f and v to zero for SHAKE
+
+      v[j][k] = 0;
+      f[j][k] = 0;
+    }
+  }
+
+  atomKK->modified(Host,V_MASK|F_MASK);
+
+  // call SHAKE to correct the coordinates which were updated without constraints
+  // IMPORTANT: use 1 as argument and thereby enforce velocity Verlet
+
+  dtfsq   = 0.5 * update->dt * update->dt * force->ftm2v;
+  FixShakeKokkos<DeviceType>::post_force(vflag);
+  
+  atomKK->sync(Host,X_MASK|F_MASK);
+
+  // integrate coordinates: x' = xnp1 + dt^2/2m_i * f, where f is the constraining force
+  // NOTE: After this command, the coordinates geometry of the molecules will be correct!
+
+  double dtfmsq;
+  if (rmass) {
+    for (int i = 0; i < nlocal; i++) {
+      dtfmsq = dtfsq/ rmass[i];
+      x[i][0] = x[i][0] + dtfmsq*f[i][0];
+      x[i][1] = x[i][1] + dtfmsq*f[i][1];
+      x[i][2] = x[i][2] + dtfmsq*f[i][2];
+    }
+  }
+  else {
+    for (int i = 0; i < nlocal; i++) {
+      dtfmsq = dtfsq / mass[type[i]];
+      x[i][0] = x[i][0] + dtfmsq*f[i][0];
+      x[i][1] = x[i][1] + dtfmsq*f[i][1];
+      x[i][2] = x[i][2] + dtfmsq*f[i][2];
+    }
+  }
+
+  // copy forces and velocities back
+
+  for (int j=0; j<nlocal; j++) {
+    for (int k=0; k<3; k++) {
+      f[j][k] = ftmp[j][k];
+      v[j][k] = vtmp[j][k];
+    }
+  }
+
+  if (!rattle) dtfsq = update->dt * update->dt * force->ftm2v;
+
+  // communicate changes
+  // NOTE: for compatibility xshake is temporarily set to x, such that pack/unpack_forward
+  //       can be used for communicating the coordinates.
+
+  double **xtmp = xshake;
+  xshake = x;
+  if (nprocs > 1) {
+    comm->forward_comm_fix(this);
+  }
+  xshake = xtmp;
+
   atomKK->modified(Host,X_MASK|V_MASK|F_MASK);
 }
 
