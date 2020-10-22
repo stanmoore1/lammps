@@ -1,14 +1,16 @@
-Library interface utility functions
-===================================
+Utility functions
+=================
 
-To simplify some of the tasks, the library interface contains
-some utility functions that are not directly calling LAMMPS:
+To simplify some tasks, the library interface contains these utility
+functions.  They do not directly call the LAMMPS library.
 
 - :cpp:func:`lammps_encode_image_flags`
 - :cpp:func:`lammps_decode_image_flags`
 - :cpp:func:`lammps_set_fix_external_callback`
 - :cpp:func:`lammps_fix_external_set_energy_global`
 - :cpp:func:`lammps_fix_external_set_virial_global`
+- :cpp:func:`lammps_is_running`
+- :cpp:func:`lammps_force_timeout`
 - :cpp:func:`lammps_has_error`
 - :cpp:func:`lammps_get_last_error_message`
 
@@ -35,6 +37,16 @@ some utility functions that are not directly calling LAMMPS:
 -----------------------
 
 .. doxygenfunction:: lammps_fix_external_set_virial_global
+   :project: progguide
+
+-----------------------
+
+.. doxygenfunction:: lammps_is_running
+   :project: progguide
+
+-----------------------
+
+.. doxygenfunction:: lammps_force_timeout
    :project: progguide
 
 -----------------------
