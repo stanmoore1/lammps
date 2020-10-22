@@ -47,6 +47,7 @@ FixQEqReaxKokkos(LAMMPS *lmp, int narg, char **arg) :
   FixQEqReax(lmp, narg, arg)
 {
   kokkosable = 1;
+  forward_comm_device = 1;
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
 

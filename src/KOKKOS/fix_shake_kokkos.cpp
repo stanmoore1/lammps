@@ -53,6 +53,7 @@ FixShakeKokkos<DeviceType>::FixShakeKokkos(LAMMPS *lmp, int narg, char **arg) :
   FixShake(lmp, narg, arg)
 {
   kokkosable = 1;
+  forward_comm_device = 1;
   atomKK = (AtomKokkos *)atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
 
@@ -260,10 +261,8 @@ void FixShakeKokkos<DeviceType>::pre_neighbor()
   nlist = h_nlist();
 
   if (h_error_flag() == 1) {
-    char str[128];
-    sprintf(str,"Shake atoms missing on proc %d at step " BIGINT_FORMAT,
-            me,update->ntimestep);
-    error->one(FLERR,str);
+    error->one(FLERR,fmt::format("Shake atoms missing on proc "
+                                 "{} at step {}",me,update->ntimestep));
   }
 }
 
@@ -330,7 +329,7 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
     ndup_vatom        = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
   }
 
-  Kokkos::deep_copy(d_scalars,0);
+  Kokkos::deep_copy(d_error_flag,0);
 
   update_domain_variables();
 
@@ -354,12 +353,12 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
 
   copymode = 0;
 
-  if (h_error_flag() == 2) {
-    char str[128];
-    sprintf(str,"Shake atoms missing on proc %d at step " BIGINT_FORMAT,
-            me,update->ntimestep);
-    error->one(FLERR,str);
-  }
+  Kokkos::deep_copy(h_error_flag,d_error_flag);
+
+  if (h_error_flag() == 2)
+    error->warning(FLERR,"Shake determinant < 0.0",0);
+  else if (h_error_flag() == 3)
+    error->one(FLERR,"Shake determinant = 0.0");
 
   // store vflag for coordinate_constraints_end_of_step()
 
@@ -592,7 +591,7 @@ void FixShakeKokkos<DeviceType>::shake(int m, EV_FLOAT& ev) const
 
   double determ = b*b - 4.0*a*c;
   if (determ < 0.0) {
-    //error->warning(FLERR,"Shake determinant < 0.0",0); ///
+    //error->warning(FLERR,"Shake determinant < 0.0",0);
     d_error_flag() = 2;
     determ = 0.0;
   }
@@ -1195,7 +1194,7 @@ void FixShakeKokkos<DeviceType>::shake3angle(int m, EV_FLOAT& ev) const
 
   double determ = a11*a22*a33 + a12*a23*a31 + a13*a21*a32 -
     a11*a23*a32 - a12*a21*a33 - a13*a22*a31;
-  if (determ == 0.0) d_error_flag() = 3; ///
+  if (determ == 0.0) d_error_flag() = 3;
   //error->one(FLERR,"Shake determinant = 0.0");
   double determinv = 1.0/determ;
 
@@ -1452,6 +1451,51 @@ int FixShakeKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+int FixShakeKokkos<DeviceType>::pack_forward_comm_fix_kokkos(int n, DAT::tdual_int_2d k_sendlist,
+                                                        int iswap_in, DAT::tdual_xfloat_1d &k_buf,
+                                                        int pbc_flag, int* pbc)
+{
+  d_sendlist = k_sendlist.view<DeviceType>();
+  iswap = iswap_in;
+  d_buf = k_buf.view<DeviceType>();
+
+  if (domain->triclinic == 0) {
+    dx = pbc[0]*domain->xprd;
+    dy = pbc[1]*domain->yprd;
+    dz = pbc[2]*domain->zprd;
+  } else {
+    dx = pbc[0]*domain->xprd + pbc[5]*domain->xy + pbc[4]*domain->xz;
+    dy = pbc[1]*domain->yprd + pbc[3]*domain->yz;
+    dz = pbc[2]*domain->zprd;
+  }
+
+  if (pbc_flag)
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixShakePackForwardComm<1> >(0,n),*this);
+  else
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixShakePackForwardComm<0> >(0,n),*this);
+  return n*3;
+}
+
+template<class DeviceType>
+template<int PBC_FLAG>
+KOKKOS_INLINE_FUNCTION
+void FixShakeKokkos<DeviceType>::operator()(TagFixShakePackForwardComm<PBC_FLAG>, const int &i) const {
+  const int j = d_sendlist(iswap, i);
+
+  if (PBC_FLAG == 0) {
+    d_buf[3*i] = d_xshake(j,0);
+    d_buf[3*i+1] = d_xshake(j,1);
+    d_buf[3*i+2] = d_xshake(j,2);
+  } else {
+    d_buf[3*i] = d_xshake(j,0) + dx;
+    d_buf[3*i+1] = d_xshake(j,1) + dy;
+    d_buf[3*i+2] = d_xshake(j,2) + dz;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
 int FixShakeKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
                                 int pbc_flag, int *pbc)
 {
@@ -1462,6 +1506,24 @@ int FixShakeKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
   k_xshake.modify_host();
 
   return m;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void FixShakeKokkos<DeviceType>::unpack_forward_comm_fix_kokkos(int n, int first_in, DAT::tdual_xfloat_1d &buf)
+{
+  first = first_in;
+  d_buf = buf.view<DeviceType>();
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixShakeUnpackForwardComm>(0,n),*this);
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void FixShakeKokkos<DeviceType>::operator()(TagFixShakeUnpackForwardComm, const int &i) const {
+  d_xshake(i + first,0) = d_buf[3*i];
+  d_xshake(i + first,1) = d_buf[3*i+1];
+  d_xshake(i + first,2) = d_buf[3*i+2];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1564,7 +1626,9 @@ void FixShakeKokkos<DeviceType>::correct_coordinates(int vflag) {
   double **xtmp = xshake;
   xshake = x;
   if (nprocs > 1) {
+    forward_comm_device = 0;
     comm->forward_comm_fix(this);
+    forward_comm_device = 1;
   }
   xshake = xtmp;
 

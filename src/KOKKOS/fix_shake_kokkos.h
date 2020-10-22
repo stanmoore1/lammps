@@ -24,14 +24,20 @@ FixStyle(shake/kk/host,FixShakeKokkos<LMPHostType>)
 
 #include "fix_shake.h"
 #include "kokkos_type.h"
+#include "kokkos_base.h"
 
 namespace LAMMPS_NS {
 
 template<int NEIGHFLAG, int EVFLAG>
 struct TagFixShakePostForce{};
 
+template<int PBC_FLAG>
+struct TagFixShakePackForwardComm{};
+
+struct TagFixShakeUnpackForwardComm{};
+
 template<class DeviceType>
-class FixShakeKokkos : public FixShake {
+class FixShakeKokkos : public FixShake, public KokkosBase {
 
  //friend class FixEHEX;
 
@@ -53,6 +59,9 @@ class FixShakeKokkos : public FixShake {
 
   int pack_exchange(int, double *);
   int unpack_exchange(int, double *);
+  int pack_forward_comm_fix_kokkos(int, DAT::tdual_int_2d, int, DAT::tdual_xfloat_1d&,
+                       int, int *);
+  void unpack_forward_comm_fix_kokkos(int, int, DAT::tdual_xfloat_1d&);
   int pack_forward_comm(int, int *, double *, int, int *);
   void unpack_forward_comm(int, int, double *);
 
@@ -70,6 +79,13 @@ class FixShakeKokkos : public FixShake {
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixShakePostForce<NEIGHFLAG,EVFLAG>, const int&) const;
+
+  template<int PBC_FLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixShakePackForwardComm<PBC_FLAG>, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixShakeUnpackForwardComm, const int&) const;
 
  protected:
 
@@ -156,6 +172,12 @@ class FixShakeKokkos : public FixShake {
 
   DAT::tdual_int_1d k_map_array;
   typename AT::t_int_1d_randomread map_array;
+
+  int iswap;
+  int first;
+  typename AT::t_int_2d d_sendlist;
+  typename AT::t_xfloat_1d_um d_buf;
+  X_FLOAT dx,dy,dz;
 
   int *shake_flag_tmp;
   tagint **shake_atom_tmp;
