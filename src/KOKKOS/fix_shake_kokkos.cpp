@@ -273,6 +273,8 @@ void FixShakeKokkos<DeviceType>::pre_neighbor()
 template<class DeviceType>
 void FixShakeKokkos<DeviceType>::post_force(int vflag)
 {
+  copymode = 1;
+
   d_x = atomKK->k_x.view<DeviceType>();
   d_f = atomKK->k_f.view<DeviceType>();
   d_type = atomKK->k_type.view<DeviceType>();
@@ -336,8 +338,6 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
   EV_FLOAT ev;
 
   // loop over clusters to add constraint forces
-
-  copymode = 1;
 
   if (neighflag == HALF) {
    if (evflag)
