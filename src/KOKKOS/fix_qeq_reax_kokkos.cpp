@@ -263,11 +263,15 @@ void FixQEqReaxKokkos<DeviceType>::pre_force(int /*vflag*/)
 
   // comm->forward_comm_fix(this); //Dist_vector( s );
   pack_flag = 2;
+  k_s.template sync<DeviceType>();
   comm->forward_comm_fix(this);
+  k_s.template modify<DeviceType>();
 
   // comm->forward_comm_fix(this); //Dist_vector( t );
   pack_flag = 3;
+  k_t.template sync<DeviceType>();
   comm->forward_comm_fix(this);
+  k_t.template modify<DeviceType>();
 
   need_dup = lmp->kokkos->need_dup<DeviceType>();
 
@@ -777,7 +781,9 @@ void FixQEqReaxKokkos<DeviceType>::cg_solve1()
 
     // comm->forward_comm_fix(this); //Dist_vector( d );
     pack_flag = 1;
+    k_d.template sync<DeviceType>();
     comm->forward_comm_fix(this);
+    k_d.template modify<DeviceType>();
 
     // sparse_matvec( &H, d, q );
     FixQEqReaxKokkosSparse22Functor<DeviceType> sparse22_functor(this);
@@ -911,7 +917,9 @@ void FixQEqReaxKokkos<DeviceType>::cg_solve2()
 
     // comm->forward_comm_fix(this); //Dist_vector( d );
     pack_flag = 1;
+    k_d.template sync<DeviceType>();
     comm->forward_comm_fix(this);
+    k_d.template modify<DeviceType>();
 
     // sparse_matvec( &H, d, q );
     FixQEqReaxKokkosSparse22Functor<DeviceType> sparse22_functor(this);
@@ -1012,7 +1020,9 @@ void FixQEqReaxKokkos<DeviceType>::calculate_q()
 
   pack_flag = 4;
   //comm->forward_comm_fix( this ); //Dist_vector( atom->q );
+  atomKK->k_q.sync<DeviceType>();
   comm->forward_comm_fix(this);
+  atomKK->k_q.modify<DeviceType>();
 
 }
 
