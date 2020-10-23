@@ -92,10 +92,16 @@ void PairADPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     nmax = atom->nmax;
     k_rho = DAT::tdual_ffloat_1d("pair:rho",nmax);
     k_fp = DAT::tdual_ffloat_1d("pair:fp",nmax);
+    k_mu = DAT::tdual_f_array("pair:mu",nmax);
+    k_lambda = DAT::tdual_virial_array("pair:lambda",nmax);
     d_rho = k_rho.template view<DeviceType>();
     d_fp = k_fp.template view<DeviceType>();
+    d_mu = k_mu.template view<DeviceType>();
+    d_lambda = k_lambda.template view<DeviceType>();
     h_rho = k_rho.h_view;
     h_fp = k_fp.h_view;
+    h_mu = k_mu.h_view;
+    h_lambda = k_lambda.h_view;
   }
 
   x = atomKK->k_x.view<DeviceType>();
@@ -115,11 +121,15 @@ void PairADPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   need_dup = lmp->kokkos->need_dup<DeviceType>();
   if (need_dup) {
     dup_rho   = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_rho);
+    dup_mu   = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_mu);
+    dup_lambda   = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_lambda);
     dup_f     = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(f);
     dup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_eatom);
     dup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_vatom);
   } else {
     ndup_rho   = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_rho);
+    ndup_mu   = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_mu);
+    ndup_lambda   = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_lambda);
     ndup_f     = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(f);
     ndup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_eatom);
     ndup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
@@ -156,17 +166,32 @@ void PairADPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       }
     }
 
-    if (need_dup)
+    if (need_dup) {
       Kokkos::Experimental::contribute(d_rho, dup_rho);
+      Kokkos::Experimental::contribute(d_mu, dup_mu);
+      Kokkos::Experimental::contribute(d_lambda, dup_lambda);
+    }
 
     // communicate and sum densities (on the host)
 
     if (newton_pair) {
       k_rho.template modify<DeviceType>();
+      k_mu.template modify<DeviceType>();
+      k_lambda.template modify<DeviceType>();
+      
       k_rho.template sync<LMPHostType>();
+      k_mu.template sync<LMPHostType>();
+      k_lambda.template sync<LMPHostType>();
+
       comm->reverse_comm_pair(this);
+
       k_rho.template modify<LMPHostType>();
+      k_mu.template modify<LMPHostType>();
+      k_lambda.template modify<LMPHostType>();
+
       k_rho.template sync<DeviceType>();
+      k_mu.template sync<DeviceType>();
+      k_lambda.template sync<DeviceType>();
     }
 
     // compute kernel B
@@ -272,10 +297,12 @@ void PairADPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   // free duplicated memory
   if (need_dup) {
-    dup_rho   = decltype(dup_rho)();
-    dup_f     = decltype(dup_f)();
-    dup_eatom = decltype(dup_eatom)();
-    dup_vatom = decltype(dup_vatom)();
+    dup_rho    = decltype(dup_rho)();
+    dup_mu     = decltype(dup_mu)();
+    dup_lambda = decltype(dup_lambda)();
+    dup_f      = decltype(dup_f)();
+    dup_eatom  = decltype(dup_eatom)();
+    dup_vatom  = decltype(dup_vatom)();
   }
 }
 
@@ -756,7 +783,22 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelB<EFLAG>, const int &
   if (EFLAG) {
     F_FLOAT phi = ((d_frho_spline(d_type2frho_i,m,3)*p + d_frho_spline(d_type2frho_i,m,4))*p +
                     d_frho_spline(d_type2frho_i,m,5))*p + d_frho_spline(d_type2frho_i,m,6);
-    if (d_rho[i] > rhomax) phi += d_fp[i] * (d_rho[i]-rhomax);
+    const double mu0 = d_mu(i,0);
+    const double mu1 = d_mu(i,1);
+    const double mu2 = d_mu(i,2);
+    const double lambda0 = d_lambda(i,0);
+    const double lambda1 = d_lambda(i,1);
+    const double lambda2 = d_lambda(i,2);
+    const double lambda3 = d_lambda(i,3);
+    const double lambda4 = d_lambda(i,4);
+    const double lambda5 = d_lambda(i,5);
+    phi += 0.5*(mu0*mu0 + mu1*mu1 + mu2*mu2);
+    phi += 0.5*(lambda0*lambda0 + lambda1*
+                lambda1 + lambda2*lambda2);
+    phi += 1.0*(lambda3*lambda3 + lambda4*
+                lambda4 + lambda5*lambda5);
+    phi -= 1.0/6.0*(lambda0 + lambda1 + lambda2)*
+                   (lambda0 + lambda1 + lambda2);
     if (eflag_global) ev.evdwl += phi;
     if (eflag_atom) d_eatom[i] += phi;
   }
@@ -791,6 +833,19 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelAB<EFLAG>, const int 
 
   F_FLOAT rhotmp = 0.0;
 
+  F_FLOAT mutmp[3];
+  mutmp[0] = 0.0;
+  mutmp[1] = 0.0;
+  mutmp[2] = 0.0;
+
+  F_FLOAT lambdatmp[6];
+  lambdatmp[0] = 0.0;
+  lambdatmp[1] = 0.0;
+  lambdatmp[2] = 0.0;
+  lambdatmp[3] = 0.0;
+  lambdatmp[4] = 0.0;
+  lambdatmp[5] = 0.0;
+
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
     j &= NEIGHMASK;
@@ -809,10 +864,34 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelAB<EFLAG>, const int 
       const int d_type2rhor_ji = d_type2rhor(jtype,itype);
       rhotmp += ((d_rhor_spline(d_type2rhor_ji,m,3)*p + d_rhor_spline(d_type2rhor_ji,m,4))*p +
                   d_rhor_spline(d_type2rhor_ji,m,5))*p + d_rhor_spline(d_type2rhor_ji,m,6);
+      const int d_type2u2r_ji = d_type2u2r(jtype,itype);
+      const int u2 = ((d_u2r_spline(d_type2u2r_ji,m,3)*p + d_u2r_spline(d_type2u2r_ji,m,4))*p +
+                       d_u2r_spline(d_type2u2r_ji,m,5))*p + d_u2r_spline(d_type2u2r_ji,m,6);
+      mutmp[0] += u2*delx;
+      mutmp[1] += u2*dely;
+      mutmp[2] += u2*delz;
+      const int d_type2w2r_ji = d_type2w2r(jtype,itype);
+      const int w2 = ((d_w2r_spline(d_type2w2r_ji,m,3)*p + d_w2r_spline(d_type2w2r_ji,m,4))*p +
+                       d_w2r_spline(d_type2w2r_ji,m,5))*p + d_w2r_spline(d_type2w2r_ji,m,6);
+      lambdatmp[0] += w2*delx*delx;
+      lambdatmp[1] += w2*dely*dely;
+      lambdatmp[2] += w2*delz*delz;
+      lambdatmp[3] += w2*dely*delz;
+      lambdatmp[4] += w2*delx*delz;
+      lambdatmp[5] += w2*delx*dely;
     }
 
   }
   d_rho[i] += rhotmp;
+  d_mu(i,0) += mutmp[0];
+  d_mu(i,1) += mutmp[1];
+  d_mu(i,2) += mutmp[2];
+  d_lambda(i,0) += mutmp[0];
+  d_lambda(i,1) += mutmp[1];
+  d_lambda(i,2) += mutmp[2];
+  d_lambda(i,3) += mutmp[3];
+  d_lambda(i,4) += mutmp[4];
+  d_lambda(i,5) += mutmp[5];
 
   // fp = derivative of embedding energy at each atom
   // phi = embedding energy at each atom
@@ -829,7 +908,22 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelAB<EFLAG>, const int 
   if (EFLAG) {
     F_FLOAT phi = ((d_frho_spline(d_type2frho_i,m,3)*p + d_frho_spline(d_type2frho_i,m,4))*p +
                     d_frho_spline(d_type2frho_i,m,5))*p + d_frho_spline(d_type2frho_i,m,6);
-    if (d_rho[i] > rhomax) phi += d_fp[i] * (d_rho[i]-rhomax);
+    const double mu0 = d_mu(i,0);
+    const double mu1 = d_mu(i,1);
+    const double mu2 = d_mu(i,2);
+    const double lambda0 = d_lambda(i,0);
+    const double lambda1 = d_lambda(i,1);
+    const double lambda2 = d_lambda(i,2);
+    const double lambda3 = d_lambda(i,3);
+    const double lambda4 = d_lambda(i,4);
+    const double lambda5 = d_lambda(i,5);
+    phi += 0.5*(mu0*mu0 + mu1*mu1 + mu2*mu2);
+    phi += 0.5*(lambda0*lambda0 + lambda1*
+                lambda1 + lambda2*lambda2);
+    phi += 1.0*(lambda3*lambda3 + lambda4*
+                lambda4 + lambda5*lambda5);
+    phi -= 1.0/6.0*(lambda0 + lambda1 + lambda2)*
+                   (lambda0 + lambda1 + lambda2);
     if (eflag_global) ev.evdwl += phi;
     if (eflag_atom) d_eatom[i] += phi;
   }
@@ -907,6 +1001,13 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelC<NEIGHFLAG,NEWTON_PA
                            d_z2r_spline(d_type2z2r_ij,m,2);
       const F_FLOAT z2 = ((d_z2r_spline(d_type2z2r_ij,m,3)*p + d_z2r_spline(d_type2z2r_ij,m,4))*p +
                            d_z2r_spline(d_type2z2r_ij,m,5))*p + d_z2r_spline(d_type2z2r_ij,m,6);
+
+      coeff = u2r_spline[type2u2r[itype][jtype]][m];
+      u2p = (coeff[0]*p + coeff[1])*p + coeff[2];
+      u2 = ((coeff[3]*p + coeff[4])*p + coeff[5])*p + coeff[6];
+      coeff = w2r_spline[type2w2r[itype][jtype]][m];
+      w2p = (coeff[0]*p + coeff[1])*p + coeff[2];
+      w2 = ((coeff[3]*p + coeff[4])*p + coeff[5])*p + coeff[6];
 
       const F_FLOAT recip = 1.0/r;
       const F_FLOAT phi = z2*recip;
