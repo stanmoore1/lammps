@@ -1,0 +1,99 @@
+/* -*- c++ -*- ----------------------------------------------------------
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
+
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
+
+   See the README file in the top-level LAMMPS directory.
+------------------------------------------------------------------------- */
+
+#ifdef FIX_CLASS
+
+FixStyle(iel/reax,FixIELReax)
+
+#else
+
+#ifndef LMP_FIX_IEL_REAX_H
+#define LMP_FIX_IEL_REAX_H
+
+#include "fix_qeq_reax.h"
+
+namespace LAMMPS_NS {
+
+class FixIELReax : public FixQEqReax {
+ public:
+  FixIELReax(class LAMMPS *, int, char **);
+  virtual ~FixIELReax();
+  void post_constructor();
+  int setmask();
+  void init();
+  void initial_integrate(int);
+  void final_integrate();
+  void reset_dt();
+  void pre_force(int);
+  void end_of_step();
+
+ private:
+
+  // from NVE
+
+  virtual void Nose_Hoover();
+  virtual void Berendersen();
+  virtual void kinaux(double &,double &); // add by Itai for the iEL_Scf
+  void get_names(char *, double *&);
+
+  double Omega_t;
+  double Omega_s;
+  double Omega;
+  double gamma_t;
+  double gamma_s;
+  double Energy_s_init;
+  double Energy_t_init;
+  int iEL_Scf_flag;
+  int thermo_flag;
+  int t_s_flag;
+  double tautemp_aux;
+  double kelvin_aux_t;
+  double kelvin_aux_s;
+  double tgnhaux[4];
+  double tvnhaux[4];
+  double tnhaux[4];
+
+  double sgnhaux[4];
+  double svnhaux[4];
+  double snhaux[4];
+
+  double Chi_eq_iEL_Scf,aChi_eq_iEL_Scf,vChi_eq_iEL_Scf,x_last;
+
+  d_t_EL_Scf d_vt_EL_Scf d_at_EL_Scf d_s_EL_Scf d_vs_EL_Scf d_as_EL_Scf d_s d_t;
+
+  double *q_vec;
+  double i_tolerance;
+  int tol_flag;
+  int iEL_Scf_flag,Precon_flag;
+  int t_s_flag,n1_Scf_flag;
+  double q_last, r_last, d_last, b_last;
+  double x_hist_0,x_hist_1,x_hist_2;
+  int matvecs_q;
+
+  sparse_maxtrix H_q;
+  double *Hdia_inv_q;
+  double *b_s_q;
+
+  double *p_q, *q_q, *r_q, *d_q;
+
+  void calculate_Q();
+  void grow_arrays(int);
+  void copy_arrays(int, int, int);
+  int pack_exchange(int, double *);
+  int unpack_exchange(int, double *);
+};
+
+}
+
+#endif
+#endif
