@@ -15,7 +15,7 @@
    Contributing author: Songchen Tan (UC Berkeley)
 ------------------------------------------------------------------------- */
 
-#include "fix_iel_reax.h"
+#include "fix_xlmd_reax.h"
 #include <mpi.h>
 #include <cmath>
 #include <cstring>
@@ -46,8 +46,8 @@ using namespace FixConst;
 #define SQR(x) ((x)*(x))
 #define CUBE(x) ((x)*(x)*(x))
 
-static const char cite_fix_iel_reax[] =
-  "fix iel/reax command:\n\n"
+static const char cite_fix_xlmd_reax[] =
+  "fix xlmd/reax command:\n\n"
   "@misc{Tan2020stochastic,\n"
   " title={Stochastic Constrained Extended System Dynamics for Solving Charge Equilibration Models},\n"
   " author={Songchen Tan and Itai Leven and Dong An and Lin Lin and Teresa Head-Gordon},\n"
@@ -59,7 +59,7 @@ static const char cite_fix_iel_reax[] =
 
 /* ---------------------------------------------------------------------- */
 
-FixIELReax::FixIELReax(LAMMPS *lmp, int narg, char **arg) :
+FixXLMDReax::FixXLMDReax(LAMMPS *lmp, int narg, char **arg) :
   FixQEqReax(lmp, narg, arg)
 {
   xlmd_flag = utils::inumeric(FLERR,arg[8],false,lmp); // 1 (XLMD) 2 (Ber) 3 (NH) 4 (Lang)
@@ -72,7 +72,7 @@ FixIELReax::FixIELReax(LAMMPS *lmp, int narg, char **arg) :
 
 /* ---------------------------------------------------------------------- */
 
-FixIELReax::~FixIELReax()
+FixXLMDReax::~FixXLMDReax()
 {
   if (copymode) return;
 
@@ -83,9 +83,9 @@ FixIELReax::~FixIELReax()
 
 /* ---------------------------------------------------------------------- */
 
-void FixIELReax::post_constructor()
+void FixXLMDReax::post_constructor()
 {
-  if (lmp->citeme) lmp->citeme->add(cite_fix_iel_reax);
+  if (lmp->citeme) lmp->citeme->add(cite_fix_xlmd_reax);
 
   grow_arrays(atom->nmax);
   for (int i = 0; i < atom->nmax; i++) {
@@ -104,7 +104,7 @@ void FixIELReax::post_constructor()
 
 /* ---------------------------------------------------------------------- */
 
-int FixIELReax::setmask()
+int FixXLMDReax::setmask()
 {
   int mask = 0;
   mask |= INITIAL_INTEGRATE;
@@ -118,7 +118,7 @@ int FixIELReax::setmask()
 
 /* ---------------------------------------------------------------------- */
 
-void FixIELReax::init()
+void FixXLMDReax::init()
 {
   FixQEqReax::init();
 
@@ -142,7 +142,7 @@ void FixIELReax::init()
    allow for both per-type and per-atom mass
 ------------------------------------------------------------------------- */
 
-void FixIELReax::initial_integrate(int /*vflag*/)
+void FixXLMDReax::initial_integrate(int /*vflag*/)
 {
   double dtfm;
 
@@ -180,7 +180,7 @@ void FixIELReax::initial_integrate(int /*vflag*/)
 
 /* ---------------------------------------------------------------------- */
 
-void FixIELReax::pre_force(int /*vflag*/)
+void FixXLMDReax::pre_force(int /*vflag*/)
 {
   double t_start, t_end;
 
@@ -237,7 +237,7 @@ void FixIELReax::pre_force(int /*vflag*/)
 
 /* ---------------------------------------------------------------------- */
 
-void FixIELReax::calculate_XLMD() {
+void FixXLMDReax::calculate_XLMD() {
 
   for (int ii = 0; ii < nn; ++ii) {
     const int i = ilist[ii];
@@ -272,7 +272,7 @@ void FixIELReax::calculate_XLMD() {
 
 /* ---------------------------------------------------------------------- */
 
-void FixIELReax::final_integrate()
+void FixXLMDReax::final_integrate()
 {
   double dtfm;
 
@@ -293,7 +293,7 @@ void FixIELReax::final_integrate()
 
 /* ---------------------------------------------------------------------- */
 
-void FixIELReax::end_of_step() {
+void FixXLMDReax::end_of_step() {
   double qDev = parallel_vector_acc(qLatent, nn) / atom->natoms;
   double KineticLatent = parallel_dot(pLatent, pLatent, nn) / 2 / mLatent;
   // Show charge conservation and latent temperature
@@ -304,7 +304,7 @@ void FixIELReax::end_of_step() {
 
 /* ---------------------------------------------------------------------- */
 
-void FixIELReax::reset_dt()
+void FixXLMDReax::reset_dt()
 {
   dtv = update->dt;
   dtf = 0.5 * update->dt * force->ftm2v;
@@ -312,7 +312,7 @@ void FixIELReax::reset_dt()
 
 /* ---------------------------------------------------------------------- */
 
-double FixIELReax::kinetic_latent()
+double FixXLMDReax::kinetic_latent()
 {
   int nlocal = atom->nlocal;
   double sum_p2 = 0.0;
@@ -330,7 +330,7 @@ double FixIELReax::kinetic_latent()
 
 /* ---------------------------------------------------------------------- */
 
-void FixIELReax::Berendersen(const double dt)
+void FixXLMDReax::Berendersen(const double dt)
 {
   
   int nlocal = atom->nlocal;
@@ -346,7 +346,7 @@ void FixIELReax::Berendersen(const double dt)
 
 /* ---------------------------------------------------------------------- */
 
-void FixIELReax::Langevin(const double dt) {
+void FixXLMDReax::Langevin(const double dt) {
   int nlocal = atom->nlocal;
   int *mask = atom->mask;
   if (igroup == atom->firstgroup) nlocal = atom->nfirst;
@@ -379,7 +379,7 @@ void FixIELReax::Langevin(const double dt) {
 
 /* ---------------------------------------------------------------------- */
 
-void FixIELReax::calculate_Q()
+void FixXLMDReax::calculate_Q()
 {
   int i, ii, k;
   double u, s_sum, t_sum;
@@ -407,21 +407,21 @@ void FixIELReax::calculate_Q()
    allocate fictitious charge arrays
 ------------------------------------------------------------------------- */
 
-void FixIELReax::grow_arrays(int nmax)
+void FixXLMDReax::grow_arrays(int nmax)
 { 
-  memory->grow(s_hist,nmax,nprev,"iel:s_hist");
-  memory->grow(t_hist,nmax,nprev,"iel:t_hist");
+  memory->grow(s_hist,nmax,nprev,"xlmd:s_hist");
+  memory->grow(t_hist,nmax,nprev,"xlmd:t_hist");
 
-  memory->grow(qLatent,nmax,"iel:qLatent");
-  memory->grow(pLatent,nmax,"iel:pLatent");
-  memory->grow(fLatent,nmax,"iel:fLatent");
+  memory->grow(qLatent,nmax,"xlmd:qLatent");
+  memory->grow(pLatent,nmax,"xlmd:pLatent");
+  memory->grow(fLatent,nmax,"xlmd:fLatent");
 }
 
 /* ----------------------------------------------------------------------
    copy values within fictitious charge arrays
 ------------------------------------------------------------------------- */
 
-void FixIELReax::copy_arrays(int i, int j, int /*delflag*/)
+void FixXLMDReax::copy_arrays(int i, int j, int /*delflag*/)
 {
   qLatent[j] = qLatent[i];
   pLatent[j] = pLatent[i];
@@ -432,7 +432,7 @@ void FixIELReax::copy_arrays(int i, int j, int /*delflag*/)
    pack values in local atom-based array for exchange with another proc
 ------------------------------------------------------------------------- */
 
-int FixIELReax::pack_exchange(int i, double *buf)
+int FixXLMDReax::pack_exchange(int i, double *buf)
 {
   buf[0] = qLatent[i];
   buf[1] = pLatent[i];
@@ -445,7 +445,7 @@ int FixIELReax::pack_exchange(int i, double *buf)
    unpack values in local atom-based array from exchange with another proc
 ------------------------------------------------------------------------- */
 
-int FixIELReax::unpack_exchange(int nlocal, double *buf)
+int FixXLMDReax::unpack_exchange(int nlocal, double *buf)
 {
   qLatent[nlocal] = buf[0];
   pLatent[nlocal] = buf[1];

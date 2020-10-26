@@ -13,21 +13,21 @@
 
 #ifdef FIX_CLASS
 
-FixStyle(iel/reax,FixIELReax)
+FixStyle(xlmd/reax,FixXLMDReax)
 
 #else
 
-#ifndef LMP_FIX_IEL_REAX_H
-#define LMP_FIX_IEL_REAX_H
+#ifndef LMP_FIX_XLMD_REAX_H
+#define LMP_FIX_XLMD_REAX_H
 
 #include "fix_qeq_reax.h"
 
 namespace LAMMPS_NS {
 
-class FixIELReax : public FixQEqReax {
+class FixXLMDReax : public FixQEqReax {
  public:
-  FixIELReax(class LAMMPS *, int, char **);
-  virtual ~FixIELReax();
+  FixXLMDReax(class LAMMPS *, int, char **);
+  virtual ~FixXLMDReax();
   void post_constructor();
   int setmask();
   void init();
