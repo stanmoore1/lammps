@@ -90,6 +90,7 @@ if(BUILD_SHARED_LIBS) # for all pkg libs, mpi_stubs and linalg
 endif()
 
 option(BUILD_TOOLS "Build and install LAMMPS tools (msi2lmp, binary2txt, chain)" OFF)
+option(BUILD_LAMMPS_SHELL "Build and install the LAMMPS shell" OFF)
 
 include(GNUInstallDirs)
 file(GLOB ALL_SOURCES ${LAMMPS_SOURCE_DIR}/[^.]*.cpp)
@@ -343,20 +344,22 @@ find_program(GZIP_EXECUTABLE gzip)
 find_package_handle_standard_args(GZIP REQUIRED_VARS GZIP_EXECUTABLE)
 option(WITH_GZIP "Enable GZIP support" ${GZIP_FOUND})
 if(WITH_GZIP)
-  if(NOT GZIP_FOUND)
+  if(GZIP_FOUND OR ((CMAKE_SYSTEM_NAME STREQUAL Windows) AND CMAKE_CROSSCOMPILING))
+    target_compile_definitions(lammps PRIVATE -DLAMMPS_GZIP)
+  else()
     message(FATAL_ERROR "gzip executable not found")
   endif()
-  target_compile_definitions(lammps PRIVATE -DLAMMPS_GZIP)
 endif()
 
 find_program(FFMPEG_EXECUTABLE ffmpeg)
 find_package_handle_standard_args(FFMPEG REQUIRED_VARS FFMPEG_EXECUTABLE)
 option(WITH_FFMPEG "Enable FFMPEG support" ${FFMPEG_FOUND})
 if(WITH_FFMPEG)
-  if(NOT FFMPEG_FOUND)
+  if(FFMPEG_FOUND OR ((CMAKE_SYSTEM_NAME STREQUAL Windows) AND CMAKE_CROSSCOMPILING))
+    target_compile_definitions(lammps PRIVATE -DLAMMPS_FFMPEG)
+  else()
     message(FATAL_ERROR "ffmpeg executable not found")
   endif()
-  target_compile_definitions(lammps PRIVATE -DLAMMPS_FFMPEG)
 endif()
 
 if(BUILD_SHARED_LIBS)
@@ -375,6 +378,13 @@ foreach(PKG_WITH_INCL KSPACE PYTHON VORONOI USER-COLVARS USER-MOLFILE USER-NETCD
     include(Packages/${PKG_WITH_INCL})
   endif()
 endforeach()
+
+# optionally enable building script wrappers using swig
+option(WITH_SWIG "Build scripting language wrappers with SWIG" OFF)
+if(WITH_SWIG)
+  get_filename_component(LAMMPS_SWIG_DIR ${LAMMPS_SOURCE_DIR}/../tools/swig ABSOLUTE)
+  add_subdirectory(${LAMMPS_SWIG_DIR} swig)
+endif()
 
 set(CMAKE_TUNE_FLAGS "${CMAKE_TUNE_DEFAULT}" CACHE STRING "Compiler and machine specific optimization flags (compilation only)")
 separate_arguments(CMAKE_TUNE_FLAGS)
@@ -581,7 +591,7 @@ endif()
 
 set_target_properties(lammps PROPERTIES OUTPUT_NAME lammps${LAMMPS_MACHINE})
 set_target_properties(lammps PROPERTIES SOVERSION ${SOVERSION})
-target_include_directories(lammps PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+target_include_directories(lammps PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/lammps>)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/includes/lammps)
 foreach(_HEADER ${LAMMPS_CXX_HEADERS})
   add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/includes/lammps/${_HEADER} COMMAND ${CMAKE_COMMAND} -E copy_if_different ${LAMMPS_SOURCE_DIR}/${_HEADER} ${CMAKE_CURRENT_BINARY_DIR}/includes/lammps/${_HEADER} DEPENDS ${LAMMPS_SOURCE_DIR}/${_HEADER})
@@ -610,36 +620,7 @@ if(BUILD_SHARED_LIBS)
 endif()
 install(FILES ${LAMMPS_DOC_DIR}/lammps.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 RENAME ${LAMMPS_BINARY}.1)
 
-if(BUILD_TOOLS)
-  add_executable(binary2txt ${LAMMPS_TOOLS_DIR}/binary2txt.cpp)
-  target_compile_definitions(binary2txt PRIVATE -DLAMMPS_${LAMMPS_SIZES})
-  install(TARGETS binary2txt DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-  include(CheckGeneratorSupport)
-  if(CMAKE_GENERATOR_SUPPORT_FORTRAN)
-    include(CheckLanguage)
-    check_language(Fortran)
-    if(CMAKE_Fortran_COMPILER)
-      enable_language(Fortran)
-      add_executable(chain.x ${LAMMPS_TOOLS_DIR}/chain.f)
-      target_link_libraries(chain.x PRIVATE ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES})
-      install(TARGETS chain.x DESTINATION ${CMAKE_INSTALL_BINDIR})
-    else()
-      message(WARNING "No suitable Fortran compiler found, skipping building 'chain.x'")
-    endif()
-  else()
-    message(WARNING "CMake build doesn't support fortran, skipping building 'chain.x'")
-  endif()
-
-  enable_language(C)
-  get_filename_component(MSI2LMP_SOURCE_DIR ${LAMMPS_TOOLS_DIR}/msi2lmp/src ABSOLUTE)
-  file(GLOB MSI2LMP_SOURCES ${MSI2LMP_SOURCE_DIR}/[^.]*.c)
-  add_executable(msi2lmp ${MSI2LMP_SOURCES})
-  target_link_libraries(msi2lmp PRIVATE ${MATH_LIBRARIES})
-  install(TARGETS msi2lmp DESTINATION ${CMAKE_INSTALL_BINDIR})
-  install(FILES ${LAMMPS_DOC_DIR}/msi2lmp.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
-endif()
-
+include(Tools)
 include(Documentation)
 
 ###############################################################################
@@ -722,23 +703,31 @@ include(Testing)
 include(CodeCoverage)
 include(CodingStandard)
 
-###############################################################################
-# Print package summary
-###############################################################################
-foreach(PKG ${STANDARD_PACKAGES} ${SUFFIX_PACKAGES})
-  if(PKG_${PKG})
-    message(STATUS "Building package: ${PKG}")
-  endif()
-endforeach()
-
 get_target_property(DEFINES lammps COMPILE_DEFINITIONS)
 include(FeatureSummary)
 feature_summary(DESCRIPTION "The following tools and libraries have been found and configured:" WHAT PACKAGES_FOUND)
 message(STATUS "<<< Build configuration >>>
+   Operating System: ${CMAKE_SYSTEM_NAME}
    Build type:       ${CMAKE_BUILD_TYPE}
    Install path:     ${CMAKE_INSTALL_PREFIX}
-   Generator:        ${CMAKE_GENERATOR} using ${CMAKE_MAKE_PROGRAM}
--- <<< Compilers and Flags: >>>
+   Generator:        ${CMAKE_GENERATOR} using ${CMAKE_MAKE_PROGRAM}")
+###############################################################################
+# Print package summary
+###############################################################################
+set(ENABLED_PACKAGES)
+foreach(PKG ${STANDARD_PACKAGES} ${SUFFIX_PACKAGES})
+  if(PKG_${PKG})
+    list(APPEND ENABLED_PACKAGES ${PKG})
+  endif()
+endforeach()
+if(ENABLED_PACKAGES)
+  list(SORT ENABLED_PACKAGES)
+else()
+  set(ENABLED_PACKAGES "<None>")
+endif()
+message(STATUS "Enabled packages: ${ENABLED_PACKAGES}")
+
+message(STATUS "<<< Compilers and Flags: >>>
 -- C++ Compiler:     ${CMAKE_CXX_COMPILER}
       Type:          ${CMAKE_CXX_COMPILER_ID}
       Version:       ${CMAKE_CXX_COMPILER_VERSION}
@@ -833,4 +822,16 @@ if(PKG_KSPACE)
 endif()
 if(BUILD_DOC)
   message(STATUS "<<< Building HTML Manual >>>")
+endif()
+if(BUILD_TOOLS)
+  message(STATUS "<<< Building Tools >>>")
+endif()
+if(BUILD_LAMMPS_SHELL)
+  message(STATUS "<<< Building LAMMPS Shell >>>")
+endif()
+if(ENABLE_TESTING)
+  message(STATUS "<<< Building Unit Tests >>>")
+  if(ENABLE_COVERAGE)
+    message(STATUS "Collecting code coverage data")
+  endif()
 endif()

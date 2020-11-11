@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -1234,12 +1234,11 @@ void Input::shell()
   } else if (strcmp(arg[0],"putenv") == 0) {
     if (narg < 2) error->all(FLERR,"Illegal shell putenv command");
     for (int i = 1; i < narg; i++) {
-      char *ptr = strdup(arg[i]);
       rv = 0;
 #ifdef _WIN32
-      if (ptr != nullptr) rv = _putenv(ptr);
+      if (arg[i]) rv = _putenv(arg[i]);
 #else
-      if (ptr != nullptr) rv = putenv(ptr);
+      if (arg[i]) rv = putenv(arg[i]);
 #endif
       rv = (rv < 0) ? errno : 0;
       MPI_Reduce(&rv,&err,1,MPI_INT,MPI_MAX,0,world);

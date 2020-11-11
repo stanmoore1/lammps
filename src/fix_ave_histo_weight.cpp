@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -403,7 +403,7 @@ void FixAveHistoWeight::end_of_step()
   }
 
   irepeat = 0;
-  nvalid = ntimestep + nfreq - (nrepeat-1)*nevery;
+  nvalid = ntimestep + nfreq - static_cast<bigint>(nrepeat-1)*nevery;
   modify->addstep_compute(nvalid);
 
   // merge histogram stats across procs if necessary
