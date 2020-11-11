@@ -1298,7 +1298,7 @@ void FixACKS2ReaxKokkos<DeviceType>::calculate_Q()
   k_s.modify<LMPHostType>();
   k_s.sync<DeviceType>();
 
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2CalculateQ2>(0,nn),*this);
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2CalculateQ2>(0,NN),*this);
 
 }
 
