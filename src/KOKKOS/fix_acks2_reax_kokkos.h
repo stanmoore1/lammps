@@ -232,7 +232,7 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
   int bicgstab_solve();
   void calculate_Q();
 
-  int neighflag, pack_flag;
+  int neighflag;
   int nlocal,nall,nmax,newton_pair;
   int count, isuccess;
   double alpha, beta, omega, cutsq;

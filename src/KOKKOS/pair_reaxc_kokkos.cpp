@@ -1099,8 +1099,8 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxComputePolar<NEIGHFLAG,EVFL
 
   F_FLOAT epol = KCALpMOL_to_EV*(chi*qi+(eta/2.0)*qi*qi);
 
+  /* energy due to coupling with kinetic energy potential */
   if (system->acks2_flag)
-    /* energy due to coupling with kinetic energy potential */
     epol += KCALpMOL_to_EV*qi*d_s[NN + i];
 
   if (eflag) ev.ecoul += epol;
