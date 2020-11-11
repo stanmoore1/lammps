@@ -334,7 +334,7 @@ void PairReaxCOMP::init_style( )
   int have_acks2 = (modify->find_fix_by_style("^acks2/reax") != -1);
   system->acks2_flag = have_acks2;
   if (system->acks2_flag)
-    error->all(FLERR,"Cannot (yet) use ACKS2 with USER-OMP ReaxFF"
+    error->all(FLERR,"Cannot (yet) use ACKS2 with USER-OMP ReaxFF");
 
   system->n = atom->nlocal; // my atoms
   system->N = atom->nlocal + atom->nghost; // mine + ghosts
