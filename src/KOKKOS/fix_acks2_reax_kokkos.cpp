@@ -1148,10 +1148,6 @@ int FixACKS2ReaxKokkos<DeviceType>::bicgstab_solve()
   F_FLOAT my_norm,norm_sqr,my_dot,dot_sqr;
   double tmp, sigma, rho, rho_old, rnorm, bnorm;
 
-  int teamsize;
-  if (execution_space == Host) teamsize = 1;
-  else teamsize = 128;
-
   // sparse_matvec( &H, &X, x, d );
   sparse_matvec_acks2(d_s, d_d);
 
@@ -1469,6 +1465,7 @@ void FixACKS2ReaxKokkos<DeviceType>::operator() (TagACKS2SparseMatvec3_Full, con
       const int j = d_jlist(jj);
       sum += d_val(jj) * d_xx[j];
     }, sum);
+    team.team_barrier();
 
     Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, d_firstnbr_X[i], d_firstnbr_X[i] + d_numnbrs_X[i]), [&] (const int &jj, F_FLOAT &sum2) {
       const int j = d_jlist_X(jj);
@@ -1484,11 +1481,11 @@ void FixACKS2ReaxKokkos<DeviceType>::operator() (TagACKS2SparseMatvec3_Full, con
       d_bb[i] += d_xx[NN + i];
 
       // Second-to-last row/column
-      d_bb[2*NN] += d_xx[NN + i];
+      Kokkos::atomic_add(&(d_bb[2*NN]),d_xx[NN + i]);
       d_bb[NN + i] += d_xx[2*NN];
 
       // Last row/column
-      d_bb[2*NN + 1] += d_xx[i];
+      Kokkos::atomic_add(&(d_bb[2*NN + 1]),d_xx[i]);
       d_bb[i] += d_xx[2*NN + 1];
     });
   }
