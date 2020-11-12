@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -1100,7 +1100,7 @@ void PairReaxCKokkos<DeviceType>::operator()(PairReaxComputePolar<NEIGHFLAG,EVFL
   F_FLOAT epol = KCALpMOL_to_EV*(chi*qi+(eta/2.0)*qi*qi);
 
   /* energy due to coupling with kinetic energy potential */
-  if (system->acks2_flag)
+  if (acks2_flag)
     epol += KCALpMOL_to_EV*qi*d_s[NN + i];
 
   if (eflag) ev.ecoul += epol;

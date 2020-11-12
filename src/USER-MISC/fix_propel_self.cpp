@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -160,13 +160,13 @@ template <int filter_by_type>
 void FixPropelSelf::post_force_quaternion(int /* vflag */ )
 {
   double **f = atom->f;
-  AtomVecEllipsoid *av = static_cast<AtomVecEllipsoid*>(atom->avec);
 
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
   int *type = atom->type;
   int* ellipsoid = atom->ellipsoid;
 
+  AtomVecEllipsoid *av = static_cast<AtomVecEllipsoid*>(atom->style_match("ellipsoid"));
   AtomVecEllipsoid::Bonus *bonus = av->bonus;
 
   // Add the active force to the atom force:
