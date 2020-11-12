@@ -105,9 +105,9 @@ class FixACKS2ReaxKokkos : public FixACKS2Reax {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagACKS2SparseMatvec3_Half<NEIGHFLAG>, const int&) const;
 
-  typedef typename Kokkos::TeamPolicy<DeviceType, TagACKS2SparseMatvec3_Full>::member_type membertype1;
+  typedef typename Kokkos::TeamPolicy<DeviceType, TagACKS2SparseMatvec3_Full>::member_type membertype;
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagACKS2SparseMatvec3_Full, const membertype1 &team) const;
+  void operator() (TagACKS2SparseMatvec3_Full, const membertype &team) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagACKS2Norm1, const int&, double&) const;

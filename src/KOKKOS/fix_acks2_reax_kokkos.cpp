@@ -102,7 +102,10 @@ void FixACKS2ReaxKokkos<DeviceType>::init()
     kokkos_device = std::is_same<DeviceType,LMPDeviceType>::value;
 
   if (neighflag == FULL) {
-    error->all(FLERR,"Full neighborlist not yet supported by fix acks2/kk");
+    neighbor->requests[irequest]->fix = 1;
+    neighbor->requests[irequest]->pair = 0;
+    neighbor->requests[irequest]->full = 1;
+    neighbor->requests[irequest]->half = 0;
   } else { //if (neighflag == HALF || neighflag == HALFTHREAD)
     neighbor->requests[irequest]->fix = 1;
     neighbor->requests[irequest]->pair = 0;
@@ -244,9 +247,13 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
   // compute_H
 
   if (execution_space == Host) { // CPU
-    // HALF and HALFTHREAD are the same
-    FixACKS2ReaxKokkosComputeHFunctor<DeviceType, HALF> computeH_functor(this);
-    Kokkos::parallel_scan(nn,computeH_functor);
+    if (neighflag == FULL) {
+      FixACKS2ReaxKokkosComputeHFunctor<DeviceType, FULL> computeH_functor(this);
+      Kokkos::parallel_scan(nn,computeH_functor);
+    } else { // HALF and HALFTHREAD are the same
+      FixACKS2ReaxKokkosComputeHFunctor<DeviceType, HALF> computeH_functor(this);
+      Kokkos::parallel_scan(nn,computeH_functor);
+    }
   } else { // GPU, use teams
     Kokkos::deep_copy(d_mfill_offset,0);
 
@@ -256,10 +263,16 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
 
     Kokkos::TeamPolicy<DeviceType> policy(num_teams, atoms_per_team,
                                           vector_length);
-    // HALF and HALFTHREAD are the same
-    FixACKS2ReaxKokkosComputeHFunctor<DeviceType, HALF> computeH_functor(
-        this, atoms_per_team, vector_length);
-    Kokkos::parallel_for(policy, computeH_functor);
+
+    if (neighflag == FULL) {
+      FixACKS2ReaxKokkosComputeHFunctor<DeviceType, FULL> computeH_functor(
+          this, atoms_per_team, vector_length);
+      Kokkos::parallel_for(policy, computeH_functor);
+    } else { // HALF and HALFTHREAD are the same
+      FixACKS2ReaxKokkosComputeHFunctor<DeviceType, HALF> computeH_functor(
+          this, atoms_per_team, vector_length);
+      Kokkos::parallel_for(policy, computeH_functor);
+    }
   }
 
   need_dup = lmp->kokkos->need_dup<DeviceType>(1);
@@ -274,7 +287,10 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
   Kokkos::deep_copy(d_X_diag,0.0);
 
   if (execution_space == Host || 1) { // CPU
-    if (neighflag == HALFTHREAD) { 
+    if (neighflag == FULL) {
+      FixACKS2ReaxKokkosComputeXFunctor<DeviceType, FULL> computeX_functor(this);
+      Kokkos::parallel_scan(nn,computeX_functor);
+    } else if (neighflag == HALFTHREAD) { 
       FixACKS2ReaxKokkosComputeXFunctor<DeviceType, HALFTHREAD> computeX_functor(this);
       Kokkos::parallel_scan(nn,computeX_functor);
     } else {
@@ -290,7 +306,11 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
 
     Kokkos::TeamPolicy<DeviceType> policy(num_teams, atoms_per_team,
                                           vector_length);
-    if (neighflag == HALFTHREAD) {
+    if (neighflag == FULL) {
+      FixACKS2ReaxKokkosComputeXFunctor<DeviceType, FULL> computeX_functor(
+          this, atoms_per_team, vector_length);
+      Kokkos::parallel_for(policy, computeX_functor);
+    } else if (neighflag == HALFTHREAD) {
       FixACKS2ReaxKokkosComputeXFunctor<DeviceType, HALFTHREAD> computeX_functor(
           this, atoms_per_team, vector_length);
       Kokkos::parallel_for(policy, computeX_functor);
@@ -309,13 +329,15 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
     dup_X_diag = decltype(dup_X_diag)();
   }
 
-  pack_flag = 4;
-  //comm->reverse_comm_fix(this); //Coll_Vector( X_diag );
-  k_X_diag.template modify<DeviceType>();
-  k_X_diag.template sync<LMPHostType>();
-  comm->reverse_comm_fix(this);
-  k_X_diag.template modify<LMPHostType>();
-  k_X_diag.template sync<DeviceType>();
+  if (neighflag != FULL) {
+    pack_flag = 4;
+    //comm->reverse_comm_fix(this); //Coll_Vector( X_diag );
+    k_X_diag.template modify<DeviceType>();
+    k_X_diag.template sync<LMPHostType>();
+    comm->reverse_comm_fix(this);
+    k_X_diag.template modify<LMPHostType>();
+    k_X_diag.template sync<DeviceType>();
+  }
 
   // init_matvec
 
@@ -511,17 +533,19 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_h_item(int ii, int &m_fill, const b
       const X_FLOAT dely = x(j,1) - ytmp;
       const X_FLOAT delz = x(j,2) - ztmp;
 
-      // skip half of the interactions
-      const tagint jtag = tag(j);
-      if (j >= nlocal) {
-        if (itag > jtag) {
-          if ((itag+jtag) % 2 == 0) continue;
-        } else if (itag < jtag) {
-          if ((itag+jtag) % 2 == 1) continue;
-        } else {
-          if (x(j,2) < ztmp) continue;
-          if (x(j,2) == ztmp && x(j,1)  < ytmp) continue;
-          if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
+      if (NEIGHFLAG != FULL) {
+        // skip half of the interactions
+        const tagint jtag = tag(j);
+        if (j >= nlocal) {
+          if (itag > jtag) {
+            if ((itag+jtag) % 2 == 0) continue;
+          } else if (itag < jtag) {
+            if ((itag+jtag) % 2 == 1) continue;
+          } else {
+            if (x(j,2) < ztmp) continue;
+            if (x(j,2) == ztmp && x(j,1)  < ytmp) continue;
+            if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
+          }
         }
       }
 
@@ -684,22 +708,24 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_h_team(
 
                       // valid nbr interaction
                       bool valid = true;
-                      // skip half of the interactions
-                      const tagint jtag = tag(j);
-                      if (j >= nlocal) {
-                        if (itag > jtag) {
-                          if ((itag + jtag) % 2 == 0)
-                            valid = false;
-                        } else if (itag < jtag) {
-                          if ((itag + jtag) % 2 == 1)
-                            valid = false;
-                        } else {
-                          if (x(j, 2) < ztmp)
-                            valid = false;
-                          if (x(j, 2) == ztmp && x(j, 1) < ytmp)
-                            valid = false;
-                          if (x(j, 2) == ztmp && x(j, 1) == ytmp && x(j, 0) < xtmp)
-                            valid = false;
+                      if (NEIGHFLAG != FULL) {
+                        // skip half of the interactions
+                        const tagint jtag = tag(j);
+                        if (j >= nlocal) {
+                          if (itag > jtag) {
+                            if ((itag + jtag) % 2 == 0)
+                              valid = false;
+                          } else if (itag < jtag) {
+                            if ((itag + jtag) % 2 == 1)
+                              valid = false;
+                          } else {
+                            if (x(j, 2) < ztmp)
+                              valid = false;
+                            if (x(j, 2) == ztmp && x(j, 1) < ytmp)
+                              valid = false;
+                            if (x(j, 2) == ztmp && x(j, 1) == ytmp && x(j, 0) < xtmp)
+                              valid = false;
+                          }
                         }
                       }
 
@@ -806,17 +832,19 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_x_item(int ii, int &m_fill, const b
       const X_FLOAT dely = x(j,1) - ytmp;
       const X_FLOAT delz = x(j,2) - ztmp;
 
-      // skip half of the interactions
-      const tagint jtag = tag(j);
-      if (j >= nlocal) {
-        if (itag > jtag) {
-          if ((itag+jtag) % 2 == 0) continue;
-        } else if (itag < jtag) {
-          if ((itag+jtag) % 2 == 1) continue;
-        } else {
-          if (x(j,2) < ztmp) continue;
-          if (x(j,2) == ztmp && x(j,1)  < ytmp) continue;
-          if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
+      if (NEIGHFLAG != FULL) {
+        // skip half of the interactions
+        const tagint jtag = tag(j);
+        if (j >= nlocal) {
+          if (itag > jtag) {
+            if ((itag+jtag) % 2 == 0) continue;
+          } else if (itag < jtag) {
+            if ((itag+jtag) % 2 == 1) continue;
+          } else {
+            if (x(j,2) < ztmp) continue;
+            if (x(j,2) == ztmp && x(j,1)  < ytmp) continue;
+            if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
+          }
         }
       }
 
@@ -833,7 +861,8 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_x_item(int ii, int &m_fill, const b
         const F_FLOAT X_val = calculate_X_k(r,bcutoff);
         d_val_X(m_fill) = X_val;
         tmp -= X_val;
-        a_X_diag[j] -= X_val;
+        if (NEIGHFLAG != FULL)
+          a_X_diag[j] -= X_val;
       }
       m_fill++;
     }
@@ -985,23 +1014,25 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_x_team(
 
                       // valid nbr interaction
                       bool valid = true;
-                      // skip half of the interactions
-                      const tagint jtag = tag(j);
-                      if (j >= nlocal) {
-                        if (itag > jtag) {
-                          if ((itag + jtag) % 2 == 0)
-                            valid = false;
-                        } else if (itag < jtag) {
-                          if ((itag + jtag) % 2 == 1)
-                            valid = false;
-                        } else {
-                          if (x(j, 2) < ztmp)
-                            valid = false;
-                          if (x(j, 2) == ztmp && x(j, 1) < ytmp)
-                            valid = false;
-                          if (x(j, 2) == ztmp && x(j, 1) == ytmp &&
-                            x(j, 0) < xtmp)
-                            valid = false;
+                      if (NEIGHFLAG != FULL) {
+                        // skip half of the interactions
+                        const tagint jtag = tag(j);
+                        if (j >= nlocal) {
+                          if (itag > jtag) {
+                            if ((itag + jtag) % 2 == 0)
+                              valid = false;
+                          } else if (itag < jtag) {
+                            if ((itag + jtag) % 2 == 1)
+                              valid = false;
+                          } else {
+                            if (x(j, 2) < ztmp)
+                              valid = false;
+                            if (x(j, 2) == ztmp && x(j, 1) < ytmp)
+                              valid = false;
+                            if (x(j, 2) == ztmp && x(j, 1) == ytmp &&
+                              x(j, 0) < xtmp)
+                              valid = false;
+                          }
                         }
                       }
 
@@ -1041,7 +1072,8 @@ void FixACKS2ReaxKokkos<DeviceType>::compute_x_team(
                         d_val_X[atomi_nbr_writeIdx + m_fill] =
                             X_val;
                         a_X_diag[i] -= X_val;
-                        a_X_diag[j] -= X_val;
+                        if (NEIGHFLAG != FULL)
+                          a_X_diag[j] -= X_val;
                       }
                     }
 
@@ -1126,7 +1158,8 @@ int FixACKS2ReaxKokkos<DeviceType>::bicgstab_solve()
   pack_flag = 1;
   k_d.template modify<DeviceType>();
   k_d.template sync<LMPHostType>();
-  comm->reverse_comm_fix(this); //Coll_vector( d );
+  if (neighflag != FULL)
+    comm->reverse_comm_fix(this); //Coll_vector( d );
   more_reverse_comm(k_d.h_view.data());
   k_d.template modify<LMPHostType>();
   k_d.template sync<DeviceType>();
@@ -1189,7 +1222,8 @@ int FixACKS2ReaxKokkos<DeviceType>::bicgstab_solve()
     pack_flag = 2;
     k_z.template modify<DeviceType>();
     k_z.template sync<LMPHostType>();
-    comm->reverse_comm_fix(this); //Coll_vector( z );
+    if (neighflag != FULL)
+      comm->reverse_comm_fix(this); //Coll_vector( z );
     more_reverse_comm(k_z.h_view.data());
     k_z.template modify<LMPHostType>();
     k_z.template sync<DeviceType>();
@@ -1233,7 +1267,8 @@ int FixACKS2ReaxKokkos<DeviceType>::bicgstab_solve()
     pack_flag = 3;
     k_y.template modify<DeviceType>();
     k_y.template sync<LMPHostType>();
-    comm->reverse_comm_fix(this); //Coll_vector( y );
+    if (neighflag != FULL) 
+      comm->reverse_comm_fix(this); //Coll_vector( y );
     more_reverse_comm(k_y.h_view.data());
     k_y.template modify<LMPHostType>();
     k_y.template sync<DeviceType>();
@@ -1317,12 +1352,19 @@ void FixACKS2ReaxKokkos<DeviceType>::sparse_matvec_acks2(typename AT::t_ffloat_1
 
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec1>(0,nn),*this);
 
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec2>(nn,NN),*this);
+  if (neighflag != FULL)
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec2>(nn,NN),*this);
 
-  if (neighflag == HALF)
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec3_Half<HALF> >(0,nn),*this);
-  else if (neighflag == HALFTHREAD)
+  if (neighflag == FULL) {
+    int teamsize;
+    if (execution_space == Host) teamsize = 1;
+    else teamsize = 128;
+
+    Kokkos::parallel_for(Kokkos::TeamPolicy<DeviceType,TagACKS2SparseMatvec3_Full>(nn,teamsize),*this);
+  } else if (neighflag == HALFTHREAD)
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec3_Half<HALFTHREAD> >(0,nn),*this);
+  else if (neighflag == HALF)
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec3_Half<HALF> >(0,nn),*this);
 
   if (need_dup) {
     Kokkos::Experimental::contribute(d_bb, dup_bb);
@@ -1394,7 +1436,7 @@ void FixACKS2ReaxKokkos<DeviceType>::operator() (TagACKS2SparseMatvec3_Half<NEIG
     for(int jj = d_firstnbr_X[i]; jj < d_firstnbr_X[i] + d_numnbrs_X[i]; jj++) {
       const int j = d_jlist_X(jj);
       tmp += d_val_X(jj) * d_xx[NN + j];
-      a_bb[NN + j] += d_val_X(jj) * d_xx[NN + i];
+     a_bb[NN + j] += d_val_X(jj) * d_xx[NN + i];
     }
     a_bb[NN + i] += tmp;
 
@@ -1409,6 +1451,46 @@ void FixACKS2ReaxKokkos<DeviceType>::operator() (TagACKS2SparseMatvec3_Half<NEIG
     // Last row/column
     a_bb[2*NN + 1] += d_xx[i];
     a_bb[i] += d_xx[2*NN + 1];
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void FixACKS2ReaxKokkos<DeviceType>::operator() (TagACKS2SparseMatvec3_Full, const membertype &team) const
+{
+  const int i = d_ilist[team.league_rank()];
+  if (mask[i] & groupbit) {
+    F_FLOAT sum;
+    F_FLOAT sum2;
+
+    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, d_firstnbr[i], d_firstnbr[i] + d_numnbrs[i]), [&] (const int &jj, F_FLOAT &sum) {
+      const int j = d_jlist(jj);
+      sum += d_val(jj) * d_xx[j];
+    }, sum);
+
+    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, d_firstnbr_X[i], d_firstnbr_X[i] + d_numnbrs_X[i]), [&] (const int &jj, F_FLOAT &sum2) {
+      const int j = d_jlist_X(jj);
+      sum2 += d_val_X(jj) * d_xx[NN + j];
+    }, sum2);
+
+    Kokkos::single(Kokkos::PerTeam(team), [&] () {
+      d_bb[i] += sum;
+      d_bb[NN + i] += sum2;
+
+      // Identity Matrix
+      d_bb[NN + i] += d_xx[i];
+      d_bb[i] += d_xx[NN + i];
+
+      // Second-to-last row/column
+      d_bb[2*NN] += d_xx[NN + i];
+      d_bb[NN + i] += d_xx[2*NN];
+
+      // Last row/column
+      d_bb[2*NN + 1] += d_xx[i];
+      d_bb[i] += d_xx[2*NN + 1];
+    });
   }
 }
 
