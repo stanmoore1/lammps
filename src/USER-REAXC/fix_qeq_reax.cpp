@@ -65,13 +65,13 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg), pertype_option(nullptr)
 {
   int xlmd_flag = 0;
-  if (utils::strmatch(style,"^iel/reax"))
+  if (utils::strmatch(style,"^xlmd/reax"))
     xlmd_flag = 1;
 
   if (!xlmd_flag)
     if (narg<8 || narg>11) error->all(FLERR,"Illegal fix qeq/reax command");
   else
-    if (narg<8 || narg>15) error->all(FLERR,"Illegal fix iel/reax command");
+    if (narg<8 || narg>15) error->all(FLERR,"Illegal fix xlmd/reax command");
 
   nevery = utils::inumeric(FLERR,arg[3],false,lmp);
   if (nevery <= 0) error->all(FLERR,"Illegal fix qeq/reax command");

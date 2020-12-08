@@ -412,10 +412,11 @@ void PairReaxC::init_style( )
   bool have_qeq = ((modify->find_fix_by_style("^qeq/reax") != -1)
                    || (modify->find_fix_by_style("^qeq/shielded") != -1)
                    || (modify->find_fix_by_style("^acks2/reax") != -1)
+                   || (modify->find_fix_by_style("^xlmd/reax") != -1)
                    || (modify->find_fix_by_style("^iel/reax") != -1));
   if (!have_qeq && qeqflag == 1)
     error->all(FLERR,"Pair reax/c requires use of fix qeq/reax or qeq/shielded"
-                       " or fix acks2/reax or fix iel/reax");
+                       " or fix acks2/reax or fix xlmd/reax or fix iel/reax");
 
   int have_acks2 = (modify->find_fix_by_style("^acks2/reax") != -1);
   system->acks2_flag = have_acks2;
