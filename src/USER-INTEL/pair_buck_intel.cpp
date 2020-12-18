@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -15,20 +15,20 @@
    Contributing author: Rodrigo Canales (RWTH Aachen University)
 ------------------------------------------------------------------------- */
 
-#include <cmath>
 #include "pair_buck_intel.h"
+
 #include "atom.h"
 #include "comm.h"
-#include "force.h"
-#include "group.h"
-#include "neighbor.h"
-#include "neigh_list.h"
-#include "neigh_request.h"
+#include "error.h"
 #include "math_const.h"
 #include "memory.h"
-#include "suffix.h"
-#include "force.h"
 #include "modify.h"
+#include "neigh_list.h"
+#include "neigh_request.h"
+#include "neighbor.h"
+#include "suffix.h"
+
+#include <cmath>
 
 using namespace LAMMPS_NS;
 using namespace MathConst;
@@ -66,9 +66,9 @@ void PairBuckIntel::compute(int eflag, int vflag,
                             IntelBuffers<flt_t,acc_t> *buffers,
                             const ForceConst<flt_t> &fc)
 {
-  if (eflag || vflag) {
-    ev_setup(eflag,vflag);
-  } else evflag = vflag_fdotr = 0;
+  ev_init(eflag,vflag);
+  if (vflag_atom)
+    error->all(FLERR,"USER-INTEL package does not support per-atom stress");
 
   const int inum = list->inum;
   const int nthreads = comm->nthreads;
@@ -227,7 +227,7 @@ void PairBuckIntel::eval(const int offload, const int vflag,
         fxtmp = fytmp = fztmp = (acc_t)0;
         if (EFLAG) fwtmp = sevdwl =  (acc_t)0;
         if (NEWTON_PAIR == 0)
-          if (vflag==1) sv0 = sv1 = sv2 = sv3 = sv4 = sv5 = (acc_t)0;
+          if (vflag == VIRIAL_PAIR) sv0 = sv1 = sv2 = sv3 = sv4 = sv5 = (acc_t)0;
 
         #if defined(LMP_SIMD_COMPILER)
         #pragma vector aligned
@@ -449,8 +449,8 @@ void PairBuckIntel::ForceConst<flt_t>::set_ntypes(const int ntypes,
       c_force_t * oc_force = c_force[0];
       c_energy_t * oc_energy = c_energy[0];
 
-      if (ospecial_lj != NULL && oc_force != NULL &&
-          oc_energy != NULL  &&
+      if (ospecial_lj != nullptr && oc_force != nullptr &&
+          oc_energy != nullptr  &&
           _cop >= 0) {
         #pragma offload_transfer target(mic:cop) \
           nocopy(ospecial_lj: alloc_if(0) free_if(1)) \
@@ -473,8 +473,8 @@ void PairBuckIntel::ForceConst<flt_t>::set_ntypes(const int ntypes,
       c_force_t * oc_force = c_force[0];
       c_energy_t * oc_energy = c_energy[0];
       int tp1sq = ntypes*ntypes;
-      if (ospecial_lj != NULL && oc_force != NULL &&
-          oc_energy != NULL &&
+      if (ospecial_lj != nullptr && oc_force != nullptr &&
+          oc_energy != nullptr &&
           cop >= 0) {
         #pragma offload_transfer target(mic:cop) \
           nocopy(ospecial_lj: length(4) alloc_if(1) free_if(0)) \

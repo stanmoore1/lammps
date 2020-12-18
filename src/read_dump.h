@@ -22,8 +22,6 @@ CommandStyle(read_dump,ReadDump)
 #ifndef LMP_READ_DUMP_H
 #define LMP_READ_DUMP_H
 
-#include <mpi.h>
-#include <cstdio>
 #include "pointers.h"
 
 namespace LAMMPS_NS {
@@ -60,6 +58,7 @@ private:
   int firstfile;           // index of 1st dump file my cluster reads
                            //   (0 to multiproc_nfile-1)
   int filereader;          // 1 if this proc reads from a dump file(s)
+  int parallel;            // 1 if parallel reading (e.g. via ADIOS2)
 
   int dimension;           // same as in Domain
   int triclinic;
@@ -86,7 +85,7 @@ private:
   double xlo,xhi,ylo,yhi,zlo,zhi,xy,xz,yz;  // dump snapshot box params
   double xprd,yprd,zprd;
 
-  bigint *nsnapatoms;       // # of atoms in one snapshot from 
+  bigint *nsnapatoms;       // # of atoms in one snapshot from
                             //   one (parallel) dump file
                             // nreader-length vector b/c a reader proc
                             //   may read from multiple parallel dump files
@@ -134,7 +133,7 @@ E: Dump file does not contain requested snapshot
 
 Self-explanatory.
 
-E: Unknown dump reader style
+E: Unrecognized dump reader style
 
 The choice of dump reader style via the format keyword is unknown.
 

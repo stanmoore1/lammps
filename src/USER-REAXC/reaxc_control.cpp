@@ -21,12 +21,16 @@
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
   See the GNU General Public License for more details:
-  <http://www.gnu.org/licenses/>.
+  <https://www.gnu.org/licenses/>.
   ----------------------------------------------------------------------*/
 
-#include "pair_reaxc.h"
 #include "reaxc_control.h"
+#include <cstdlib>
+#include <cstring>
+#include "reaxc_defs.h"
 #include "reaxc_tool_box.h"
+
+#include "error.h"
 
 char Read_Control_File( char *control_file, control_params* control,
                         output_controls *out_control )
@@ -37,9 +41,8 @@ char Read_Control_File( char *control_file, control_params* control,
   double  val;
 
   /* open control file */
-  if ( (fp = fopen( control_file, "r" ) ) == NULL ) {
-    fprintf( stderr, "error opening the control file! terminating...\n" );
-    MPI_Abort( MPI_COMM_WORLD,  FILE_NOT_FOUND );
+  if ( (fp = fopen( control_file, "r" ) ) == nullptr ) {
+    control->error_ptr->all(FLERR, "The control file cannot be opened");
   }
 
   /* assign default values */
@@ -364,8 +367,9 @@ char Read_Control_File( char *control_file, control_params* control,
       control->restrict_type = ival;
     }
     else {
-      fprintf( stderr, "WARNING: unknown parameter %s\n", tmp[0] );
-      MPI_Abort( MPI_COMM_WORLD, 15 );
+      char errmsg[128];
+      snprintf(errmsg,128,"Unknown parameter %s in the control file", tmp[0]);
+      control->error_ptr->all(FLERR, errmsg);
     }
   }
 

@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -17,7 +17,7 @@
 ------------------------------------------------------------------------- */
 
 #include <cmath>
-#include <cstdlib>
+
 #include <cstring>
 
 #include "atom.h"
@@ -33,6 +33,8 @@
 #include "compute.h"
 #include "modify.h"
 #include "pair.h"
+
+#include "timer.h"
 
 #include "plumed/wrapper/Plumed.h"
 
@@ -51,8 +53,8 @@ using namespace FixConst;
 
 FixPlumed::FixPlumed(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg),
-  p(NULL), nlocal(0), gatindex(NULL), masses(NULL), charges(NULL),
-  id_pe(NULL), id_press(NULL)
+  p(nullptr), nlocal(0), gatindex(nullptr), masses(nullptr), charges(nullptr),
+  id_pe(nullptr), id_press(nullptr)
 {
 
   if (!atom->tag_enable)
@@ -66,7 +68,7 @@ FixPlumed::FixPlumed(LAMMPS *lmp, int narg, char **arg) :
                    "Group will be ignored.");
 
 #if defined(__PLUMED_DEFAULT_KERNEL)
-  if (getenv("PLUMED_KERNEL") == NULL)
+  if (getenv("PLUMED_KERNEL") == nullptr)
     putenv(plumed_default_kernel);
 #endif
 
@@ -74,11 +76,13 @@ FixPlumed::FixPlumed(LAMMPS *lmp, int narg, char **arg) :
 
   // Check API version
 
-  int api_version;
+  int api_version=0;
   p->cmd("getApiVersion",&api_version);
-  if (api_version > 6)
-    error->all(FLERR,"Incompatible API version for PLUMED in fix plumed");
+  if ((api_version < 5) || (api_version > 7))
+    error->all(FLERR,"Incompatible API version for PLUMED in fix plumed. "
+               "Only Plumed 2.4.x, 2.5.x, and 2.6.x are tested and supported.");
 
+#if !defined(MPI_STUBS)
   // If the -partition option is activated then enable
   // inter-partition communication
 
@@ -97,7 +101,7 @@ FixPlumed::FixPlumed(LAMMPS *lmp, int narg, char **arg) :
       //    it is defined inside plumed.
       p->cmd("GREX setMPIIntercomm",&inter_comm);
     }
-    p->cmd("GREX init",NULL);
+    p->cmd("GREX init",nullptr);
   }
 
   // The general communicator is independent of the existence of partitions,
@@ -105,7 +109,10 @@ FixPlumed::FixPlumed(LAMMPS *lmp, int narg, char **arg) :
   // whereas if partitions are not defined then world is equal to
   // MPI_COMM_WORLD.
 
+  // plumed does not know about LAMMPS using the MPI STUBS library and will
+  // fail if this is called under these circumstances
   p->cmd("setMPIComm",&world);
+#endif
 
   // Set up units
   // LAMMPS units wrt kj/mol - nm - ps
@@ -250,15 +257,15 @@ FixPlumed::FixPlumed(LAMMPS *lmp, int narg, char **arg) :
     // Avoid conflict with fixes that define internal pressure computes.
     // See comment in the setup method
 
-    if ((strncmp(check_style,"nph",3) == 0) ||
-        (strncmp(check_style,"npt",3) == 0) ||
-        (strncmp(check_style,"rigid/nph",9) == 0) ||
-        (strncmp(check_style,"rigid/npt",9) == 0) ||
-        (strncmp(check_style,"msst",4) == 0) ||
-        (strncmp(check_style,"nphug",5) == 0) ||
-        (strncmp(check_style,"ipi",3) == 0) ||
-        (strncmp(check_style,"press/berendsen",15) == 0) ||
-        (strncmp(check_style,"qbmsst",6) == 0))
+    if (utils::strmatch(check_style,"^nph") ||
+        utils::strmatch(check_style,"^npt") ||
+        utils::strmatch(check_style,"^rigid/nph") ||
+        utils::strmatch(check_style,"^rigid/npt") ||
+        utils::strmatch(check_style,"^msst") ||
+        utils::strmatch(check_style,"^nphug") ||
+        utils::strmatch(check_style,"^ipi") ||
+        utils::strmatch(check_style,"^press/berendsen") ||
+        utils::strmatch(check_style,"^qbmsst"))
       error->all(FLERR,"Fix plumed must be defined before any other fixes, "
                  "that compute pressure internally");
   }
@@ -289,7 +296,7 @@ int FixPlumed::setmask()
 
 void FixPlumed::init()
 {
-  if (strcmp(update->integrate_style,"respa") == 0)
+  if (utils::strmatch(update->integrate_style,"^respa"))
     nlevels_respa = ((Respa *) update->integrate)->nlevels;
 
   // This avoids nan pressure if compute_pressure is called
@@ -309,12 +316,12 @@ void FixPlumed::setup(int vflag)
   // has to be executed first. This creates a race condition with the
   // setup method of fix_nh. This is why in the constructor I check if
   // nh fixes have already been called.
-  if (strcmp(update->integrate_style,"verlet") == 0)
-    post_force(vflag);
-  else {
+  if (utils::strmatch(update->integrate_style,"^respa")) {
     ((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);
     post_force_respa(vflag,nlevels_respa-1,0);
     ((Respa *) update->integrate)->copy_f_flevel(nlevels_respa-1);
+  } else {
+    post_force(vflag);
   }
 }
 
@@ -405,6 +412,8 @@ void FixPlumed::post_force(int /* vflag */)
 
   // pass all pointers to plumed:
   p->cmd("setStep",&step);
+  int plumedStopCondition=0;
+  p->cmd("setStopFlag",&plumedStopCondition);
   p->cmd("setPositions",&atom->x[0][0]);
   p->cmd("setBox",&box[0][0]);
   p->cmd("setForces",&atom->f[0][0]);
@@ -476,6 +485,8 @@ void FixPlumed::post_force(int /* vflag */)
   }
   // do the real calculation:
   p->cmd("performCalc");
+
+  if(plumedStopCondition) timer->force_timeout();
 
   // retransform virial to lammps representation and assign it to this
   // fix's virial. If the energy is biased, Plumed is giving back the full

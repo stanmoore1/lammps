@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -15,19 +15,18 @@
    Contributing author: Tod A Pascal (Caltech)
 ------------------------------------------------------------------------- */
 
-#include <mpi.h>
-#include <cmath>
-#include <cstdlib>
 #include "improper_umbrella.h"
+
+#include <cmath>
 #include "atom.h"
 #include "comm.h"
 #include "neighbor.h"
-#include "domain.h"
 #include "force.h"
 #include "update.h"
 #include "math_const.h"
 #include "memory.h"
 #include "error.h"
+
 
 using namespace LAMMPS_NS;
 using namespace MathConst;
@@ -65,8 +64,7 @@ void ImproperUmbrella::compute(int eflag, int vflag)
   double ax,ay,az,ra2,rh2,ra,rh,rar,rhr,arx,ary,arz,hrx,hry,hrz;
 
   eimproper = 0.0;
-  if (eflag || vflag) ev_setup(eflag,vflag);
-  else evflag = 0;
+  ev_init(eflag,vflag);
 
   double **x = atom->x;
   double **f = atom->f;
@@ -278,10 +276,10 @@ void ImproperUmbrella::coeff(int narg, char **arg)
   if (!allocated) allocate();
 
   int ilo,ihi;
-  force->bounds(FLERR,arg[0],atom->nimpropertypes,ilo,ihi);
+  utils::bounds(FLERR,arg[0],1,atom->nimpropertypes,ilo,ihi,error);
 
-  double k_one = force->numeric(FLERR,arg[1]);
-  double w_one = force->numeric(FLERR,arg[2]);
+  double k_one = utils::numeric(FLERR,arg[1],false,lmp);
+  double w_one = utils::numeric(FLERR,arg[2],false,lmp);
 
   // convert w0 from degrees to radians
 
@@ -318,9 +316,9 @@ void ImproperUmbrella::read_restart(FILE *fp)
   allocate();
 
   if (comm->me == 0) {
-    fread(&kw[1],sizeof(double),atom->nimpropertypes,fp);
-    fread(&w0[1],sizeof(double),atom->nimpropertypes,fp);
-    fread(&C[1],sizeof(double),atom->nimpropertypes,fp);
+    utils::sfread(FLERR,&kw[1],sizeof(double),atom->nimpropertypes,fp,nullptr,error);
+    utils::sfread(FLERR,&w0[1],sizeof(double),atom->nimpropertypes,fp,nullptr,error);
+    utils::sfread(FLERR,&C[1],sizeof(double),atom->nimpropertypes,fp,nullptr,error);
   }
   MPI_Bcast(&kw[1],atom->nimpropertypes,MPI_DOUBLE,0,world);
   MPI_Bcast(&w0[1],atom->nimpropertypes,MPI_DOUBLE,0,world);

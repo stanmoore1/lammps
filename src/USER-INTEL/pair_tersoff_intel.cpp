@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -12,12 +12,12 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: Markus Höhnerbach (RWTH)
+   Contributing author: Markus HÃ¶hnerbach (RWTH)
 ------------------------------------------------------------------------- */
 
 #include <cmath>
 #include <cstdio>
-#include <cstdlib>
+
 #include <cstring>
 #include "pair_tersoff_intel.h"
 #include "atom.h"
@@ -107,9 +107,9 @@ void PairTersoffIntel::compute(int eflag, int vflag,
                                      IntelBuffers<flt_t,acc_t> *buffers,
                                      const ForceConst<flt_t> &fc)
 {
-  if (eflag || vflag) {
-    ev_setup(eflag,vflag);
-  } else evflag = vflag_fdotr = 0;
+  ev_init(eflag,vflag);
+  if (vflag_atom)
+    error->all(FLERR,"USER-INTEL package does not support per-atom stress");
 
   const int inum = list->inum;
   const int nthreads = comm->nthreads;
@@ -576,8 +576,8 @@ void PairTersoffIntel::ForceConst<flt_t>::set_ntypes(const int ntypes,
       c_cutoff_t * oc_cutoff_outer = c_cutoff_outer[0];
       c_inner_t * oc_inner = c_inner[0][0];
       c_outer_t * oc_outer = c_outer[0];
-      if (c_first_loop != NULL && c_second_loop != NULL &&
-          c_inner_loop != NULL &&  _cop >= 0) {
+      if (c_first_loop != nullptr && c_second_loop != nullptr &&
+          c_inner_loop != nullptr &&  _cop >= 0) {
 
         #pragma offload_transfer target(mic:cop) \
           nocopy(oc_first_loop, oc_second_loop, oc_inner_loop: alloc_if(0) free_if(1)) \
@@ -615,8 +615,8 @@ void PairTersoffIntel::ForceConst<flt_t>::set_ntypes(const int ntypes,
       int tp1sq = ntypes * ntypes;
       int tp1cb = ntypes * ntypes * ntypes;
       int tp1cb_pad = ntypes * ntypes * ntypes_pad;
-      if (oc_first_loop != NULL && oc_second_loop != NULL &&
-          oc_inner_loop != NULL && cop >= 0) {
+      if (oc_first_loop != nullptr && oc_second_loop != nullptr &&
+          oc_inner_loop != nullptr && cop >= 0) {
         #pragma offload_transfer target(mic:cop) \
           nocopy(oc_first_loop: length(tp1sq) alloc_if(1) free_if(0)) \
           nocopy(oc_second_loop: length(tp1sq) alloc_if(1) free_if(0)) \
