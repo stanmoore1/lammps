@@ -31,20 +31,17 @@ class FixIELReax : public FixQEqReax {
   void post_constructor();
   int setmask();
   void init();
+  void init_storage();
   void initial_integrate(int);
+  void pre_force(int);
   void final_integrate();
   void reset_dt();
-  void pre_force(int);
-  void end_of_step();
 
  private:
 
-  // from NVE
+  double *t_EL_Scf, *vt_EL_Scf, *at_EL_Scf, *s_EL_Scf, *vs_EL_Scf, *as_EL_Scf;
 
-  virtual void Nose_Hoover();
-  virtual void Berendersen();
-  virtual void kinaux(double &,double &); // add by Itai for the iEL_Scf
-  void get_names(char *, double *&);
+  double dtv,dtf,dth;
 
   double Omega_t;
   double Omega_s;
@@ -53,9 +50,7 @@ class FixIELReax : public FixQEqReax {
   double gamma_s;
   double Energy_s_init;
   double Energy_t_init;
-  int iEL_Scf_flag;
   int thermo_flag;
-  int t_s_flag;
   double tautemp_aux;
   double kelvin_aux_t;
   double kelvin_aux_s;
@@ -69,10 +64,12 @@ class FixIELReax : public FixQEqReax {
 
   double Chi_eq_iEL_Scf,aChi_eq_iEL_Scf,vChi_eq_iEL_Scf,x_last;
 
-  d_t_EL_Scf d_vt_EL_Scf d_at_EL_Scf d_s_EL_Scf d_vs_EL_Scf d_as_EL_Scf d_s d_t;
-
   double *q_vec;
-  double i_tolerance;
+  int m_fill_q;
+  double tolerance_s;
+  double tolerance_t;
+  int i_tolerance_s;
+  int i_tolerance_t;
   int tol_flag;
   int iEL_Scf_flag,Precon_flag;
   int t_s_flag,n1_Scf_flag;
@@ -80,17 +77,17 @@ class FixIELReax : public FixQEqReax {
   double x_hist_0,x_hist_1,x_hist_2;
   int matvecs_q;
 
-  sparse_maxtrix H_q;
+  sparse_matrix H_q;
   double *Hdia_inv_q;
   double *b_s_q;
 
   double *p_q, *q_q, *r_q, *d_q;
 
+  void init_matvec();
   void calculate_Q();
-  void grow_arrays(int);
-  void copy_arrays(int, int, int);
-  int pack_exchange(int, double *);
-  int unpack_exchange(int, double *);
+  void kinaux(double &,double &);
+  void Berendersen();
+  void Nose_Hoover();
 };
 
 }

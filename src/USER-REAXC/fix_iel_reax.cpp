@@ -12,7 +12,7 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: Songchen Tan (UC Berkeley)
+   Contributing author: Itai Leven (UC Berkeley)
 ------------------------------------------------------------------------- */
 
 #include "fix_iel_reax.h"
@@ -64,24 +64,41 @@ FixIELReax::FixIELReax(LAMMPS *lmp, int narg, char **arg) :
 {
   if (narg<15 || narg>16) error->all(FLERR,"Illegal fix qeq/reax command");
 
-  tolerance_t = force->numeric(FLERR,arg[8]);
-  tolerance_s = force->numeric(FLERR,arg[9]);
-  t_s_flag = force->numeric(FLERR,arg[10]);
-  iEL_Scf_flag = force->numeric(FLERR,arg[11]); //iEL_Scf_flag=0 no iEL-Scf://if iEL_Scf_flag=1 with Scf
-  n1_Scf_flag = force->numeric(FLERR,arg[12]); //if=0 no nScf://if =1 with 1 nScf
-  Precon_flag = force->numeric(FLERR,arg[13]); //if=0 no CG Pre conditioning://if =1 with CG Pre conditioning
-  i_tolerance_t = force->numeric(FLERR,arg[14]);
-  i_tolerance_s = force->numeric(FLERR,arg[15]);
+  tolerance_t = utils::numeric(FLERR,arg[8],false,lmp);
+  tolerance_s = utils::numeric(FLERR,arg[9],false,lmp);
+  t_s_flag = utils::numeric(FLERR,arg[10],false,lmp);
+  iEL_Scf_flag = utils::numeric(FLERR,arg[11],false,lmp); //iEL_Scf_flag=0 no iEL-Scf://if iEL_Scf_flag=1 with Scf
+  n1_Scf_flag = utils::numeric(FLERR,arg[12],false,lmp); //if=0 no nScf://if =1 with 1 nScf
+  Precon_flag = utils::numeric(FLERR,arg[13],false,lmp); //if=0 no CG Pre conditioning://if =1 with CG Pre conditioning
+  i_tolerance_t = utils::numeric(FLERR,arg[14],false,lmp);
+  i_tolerance_s = utils::numeric(FLERR,arg[15],false,lmp);
 
   if(comm->me == 0)
     printf("\nQeq params:\ntolerance_t= %.16f tolerance_s= %.16f  t_s_flag= %i iEL_Scf_flag= %i n1_Scf_flag= %i Precon_flag= %i\n\n",tolerance_t,tolerance_s,t_s_flag,iEL_Scf_flag,n1_Scf_flag,Precon_flag);
 
-  xlmd_flag = utils::inumeric(FLERR,arg[8],false,lmp); // 1 (XLMD) 2 (Ber) 3 (NH) 4 (Lang)
-  mLatent = utils::numeric(FLERR,arg[9],false,lmp);  // latent mass
-  tauLatent = utils::numeric(FLERR,arg[10],false,lmp);  // latent thermostat strength
-  tLatent = utils::numeric(FLERR,arg[11],false,lmp);  // latent temperature
 
-  qLatent = pLatent = fLatent = NULL;
+
+  t_s_flag     =utils::numeric(FLERR,arg[3],false,lmp); //t_s_flag=1:solve for t and s t_s_flag=0 q solve for q (s only)
+  iEL_Scf_flag =utils::numeric(FLERR,arg[4],false,lmp);
+  thermo_flag  =utils::numeric(FLERR,arg[5],false,lmp);
+  tautemp_aux  =utils::numeric(FLERR,arg[6],false,lmp); //100000.0; //t_S //1000000    //100000
+  kelvin_aux_t =utils::numeric(FLERR,arg[7],false,lmp);  //0.000001; //t_S//0.00000001
+  kelvin_aux_s =utils::numeric(FLERR,arg[8],false,lmp); //0.00000001; //t_s//0.0000001  //0.0000001
+  Omega_t        =utils::numeric(FLERR,arg[9],false,lmp);
+  Omega_s        =utils::numeric(FLERR,arg[10],false,lmp);
+
+  if(comm->me == 0)
+    printf("\niEL_Scf params:\nt_s_flag= %i iEL_Scf_flag= %i  thermo_flag= %i tau= %.4f T0_t= %.10f T0_s= %.10f Omega_t= %.5f Omega_s=%.5f\n\n",t_s_flag,iEL_Scf_flag,thermo_flag,tautemp_aux,kelvin_aux_t,kelvin_aux_s,Omega_t,Omega_s);
+
+  for (int i=0;i < 5; i++)
+    {
+      tgnhaux[i] = 0.0;
+      tvnhaux[i] = 0.0;
+      tnhaux[i] = 0.0;
+      sgnhaux[i] = 0.0;
+      svnhaux[i] = 0.0;
+      snhaux[i] = 0.0;
+    }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -89,10 +106,6 @@ FixIELReax::FixIELReax(LAMMPS *lmp, int narg, char **arg) :
 FixIELReax::~FixIELReax()
 {
   if (copymode) return;
-
-  memory->destroy(qLatent);
-  memory->destroy(pLatent);
-  memory->destroy(fLatent);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -105,10 +118,6 @@ void FixIELReax::post_constructor()
   for (int i = 0; i < atom->nmax; i++) {
     for (int j = 0; j < nprev; ++j)
       s_hist[i][j] = t_hist[i][j] = 0;
-
-    qLatent[i] = atom->q[i];
-    pLatent[i] = 0;
-    fLatent[i] = 0;    
   }
 
   pertype_parameters(pertype_option);
@@ -140,22 +149,36 @@ void FixIELReax::init()
   dth = update->dt/2;
   dtf = 0.5 * update->dt * force->ftm2v;
 
-  b_last = 0.0;    //added by itai for the iEL_Scf q
-  atom->x_last = x_hist_2 = x_hist_1 = x_hist_0 = 0.0;
-  q_last = 0.0; //added by itai for the iEL_Scf q
-  r_last = 0.0; //added by itai for the iEL_Scf q
+  b_last = 0.0;   
+  x_last = x_hist_2 = x_hist_1 = x_hist_0 = 0.0;
+  q_last = 0.0;
+  r_last = 0.0;
   d_last = 0.0;
+}
 
-  // init XLMD
+/* ---------------------------------------------------------------------- */
 
-  for (int i = 0; i < nn; i++){
-    if (atom->mask[i] & groupbit) {
-      qLatent[i] = atom->q[i];
-      pLatent[i] = 0;
-      fLatent[i] = 0;
-    }
+void FixIELReax::init_storage()
+{
+  int NN;
+
+  if (reaxc)
+    NN = reaxc->list->inum + reaxc->list->gnum;
+  else
+    NN = list->inum + list->gnum;
+
+  for (int i = 0; i < NN; i++) {
+    if(Precon_flag)
+      Hdia_inv[i] = 1. / eta[atom->type[i]];
+    else
+      Hdia_inv[i] = 1.0;
+
+    b_s[i] = -chi[atom->type[i]];
+    b_t[i] = -1.0;
+    b_prc[i] = 0;
+    b_prm[i] = 0;
+    s[i] = t[i] = 0;
   }
-
 }
 
 /* ----------------------------------------------------------------------
@@ -172,30 +195,28 @@ void FixIELReax::initial_integrate(int /*vflag*/)
   int nlocal = atom->nlocal;
   if (igroup == atom->firstgroup) nlocal = atom->nfirst;
 
-  // evolve B(t/2) A(t/2)
+  double term = 2.0/(dtv*dtv);
+  double dt = dtv;
+  double dt_2 = 0.5*dtv;
 
-  for (int i = 0; i < nlocal; i++) {
+  for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
-      pLatent[i] += dth * fLatent[i];
-      qLatent[i] += dth * pLatent[i] / mLatent;
+      vt_EL_Scf[i] += at_EL_Scf[i]*dt_2*Omega_t;
+      t_EL_Scf[i]  += vt_EL_Scf[i]*dtv*Omega_t;    
+      vs_EL_Scf[i] += as_EL_Scf[i]*dt_2*Omega_s;
+      s_EL_Scf[i]  += vs_EL_Scf[i]*dtv*Omega_s;    
     }
+
+  if(t_s_flag==0 and iEL_Scf_flag){
+    vChi_eq_iEL_Scf = vChi_eq_iEL_Scf + aChi_eq_iEL_Scf*dt_2;
+    Chi_eq_iEL_Scf  = Chi_eq_iEL_Scf + vChi_eq_iEL_Scf*dt;    
   }
 
-  // evolve O(t) for BAOAB Scheme
+  if(thermo_flag==1 and iEL_Scf_flag)
+    Nose_Hoover();
+  else if(thermo_flag==2 and iEL_Scf_flag)
+    Berendersen();
 
-  if (xlmd_flag == 2) {
-    if (update->ntimestep > 1000) {
-      Berendersen(dtv);
-    }
-  } else if (xlmd_flag == 3) {
-    Langevin(dtv);
-  }
-
-  for (int i = 0; i < nlocal; i++) {
-    if (mask[i] & groupbit) {
-      qLatent[i] += dth * pLatent[i] / mLatent;
-    }
-  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -232,22 +253,17 @@ void FixIELReax::pre_force(int /*vflag*/)
 
   init_matvec();
 
-  if (update->ntimestep == 0) {
-    matvecs_s = CG(b_s, s);       // CG on s - parallel
+  tol_flag=0;
+  matvecs_s = CG(b_s, s);       // CG on s - parallel
+  tol_flag=1;
+  if(t_s_flag)
     matvecs_t = CG(b_t, t);       // CG on t - parallel
-    matvecs = matvecs_s + matvecs_t;
-    calculate_Q();
+  else
+    matvecs_t = 0;
 
-    // init q
+  matvecs = matvecs_s + matvecs_t;
 
-    for (int ii = 0; ii < nn; ++ii) {
-      const int i = ilist[ii];
-      if (atom->mask[i] & groupbit) {
-        qLatent[i] = atom->q[i];
-      }
-    }
-  } else
-    calculate_XLMD();
+  calculate_Q();
 
   if (comm->me == 0) {
     t_end = MPI_Wtime();
@@ -257,70 +273,73 @@ void FixIELReax::pre_force(int /*vflag*/)
 
 /* ---------------------------------------------------------------------- */
 
-void FixIELReax::calculate_XLMD() {
-
-  for (int ii = 0; ii < nn; ++ii) {
-    const int i = ilist[ii];
-    if (atom->mask[i] & groupbit) {
-      atom->q[i] = qLatent[i];
-    }
+void FixIELReax::init_matvec()
+{ 
+  /* fill-in H matrix */
+  compute_H();
+  
+  r_last = b_last = q_last = d_last = 0.0;
+  
+  int nn, ii, i;
+  int *ilist;
+  
+  if (reaxc) {
+    nn = reaxc->list->inum;
+    ilist = reaxc->list->ilist;
+  } else {
+    nn = list->inum;
+    ilist = list->ilist;
   }
-  pack_flag = 4;
-  comm->forward_comm_fix(this); // Dist_vector( atom-> q);
-
-  // Force for Latent
-  pack_flag = 1;
-  sparse_matvec( &H, atom->q, q);
-  comm->reverse_comm_fix(this);
-  for (int ii = 0; ii < nn; ++ii) {
-    const int i = ilist[ii];
-    if (atom->mask[i] & groupbit) {
-      fLatent[i] = (b_s[i] - q[i]) * ATOMIC_TO_REAL + qConst;
-    }
+    
+    for (ii = 0; ii < nn; ++ii) {
+      i = ilist[ii];
+        if (atom->mask[i] & groupbit) {
+          /* init pre-conditioner for H and init solution vectors */
+          Hdia_inv[i] = 1. / eta[ atom->type[i] ];
+          b_s[i]      = -chi[ atom->type[i] ];
+          b_t[i]      = -1.0;
+          s[i]=s_EL_Scf[i];
+          t[i]=t_EL_Scf[i];
+        }
   }
-
-  // Apply constraint on f
-  double sumFLatent = parallel_vector_acc(fLatent, nn);
-  double fDev = sumFLatent / atom->natoms;
-  for (int ii = 0; ii < nn; ++ii) {
-    const int i = ilist[ii];
-    if (atom->mask[i] & groupbit) {
-      fLatent[i] = fLatent[i] - fDev;
-    }
-  }
+  //if(update->ntimestep%1000 == 0 and comm->me ==0)printf("x_last=%.16f x_hist_0=%.16f x_hist_1=%.16f x_hist_2=%.16f\n'",atom->x_last,x_hist_0,x_hist_1,x_hist_2);
+  
+  if (t_s_flag == 0) 
+      x_last = Chi_eq_iEL_Scf;
+  else
+    r_last = b_last = q_last = x_last = d_last = 0.0;
+  
+  pack_flag = 2;
+  comm->forward_comm_fix(this); //Dist_vector( s );
+  pack_flag = 3;
+  comm->forward_comm_fix(this); //Dist_vector( t );
 }
 
 /* ---------------------------------------------------------------------- */
 
 void FixIELReax::final_integrate()
 {
-  double dtfm;
-
-  // update v of atoms in group
-
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
-  if (igroup == atom->firstgroup) nlocal = atom->nfirst;
 
-  // Evolve B(t/2)
+  double term_t,term_s;
+  double term = 2.0/(dtv*dtv);
+  double dt = dtv;
+  double dt_2 = 0.5*dtv;
+  term_t = term;
+  term_s = term;
 
-  for (int i = 0; i < nlocal; i++) {
+  for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
-      pLatent[i] += dth * fLatent[i];
+      at_EL_Scf[i] = term_t * (t_EL_Scf[i]-t[i]);         
+      vt_EL_Scf[i] = vt_EL_Scf[i] + at_EL_Scf[i]*dt_2*Omega_t;  
+      as_EL_Scf[i] = term_s * (s_EL_Scf[i]-s[i]);         
+      vs_EL_Scf[i] = vs_EL_Scf[i] + as_EL_Scf[i]*dt_2*Omega_s;  
     }
-  }
+
+  if(thermo_flag==1 and iEL_Scf_flag)
+    Nose_Hoover();
 }
-
-/* ---------------------------------------------------------------------- */
-
-void FixIELReax::end_of_step() {
-  double qDev = parallel_vector_acc(qLatent, nn) / atom->natoms;
-  double KineticLatent = parallel_dot(pLatent, pLatent, nn) / 2 / mLatent;
-  // Show charge conservation and latent temperature
-  if (update->ntimestep % 100 == 0 && comm->me == 0)
-    printf("%d\t%.8f\t%.8f\n", update->ntimestep, qDev, KineticLatent);
-}
-
 
 /* ---------------------------------------------------------------------- */
 
@@ -332,145 +351,247 @@ void FixIELReax::reset_dt()
 
 /* ---------------------------------------------------------------------- */
 
-double FixIELReax::kinetic_latent()
-{
-  int nlocal = atom->nlocal;
-  double sum_p2 = 0.0;
-  double sum_p2_mpi = 0.0;
-  double avg_p2 = 0.0;
-
-  // find the total kinetic energy and auxiliary temperatures
-  for (int i = 0; i < nlocal; i++) {
-    sum_p2 = sum_p2 + pLatent[i] * pLatent[i] / mLatent / 2.0;
-  }
-  MPI_Allreduce(&sum_p2, &sum_p2_mpi, 1, MPI_DOUBLE, MPI_SUM, world);
-  avg_p2 = sum_p2_mpi / atom->natoms;
-  return avg_p2;
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixIELReax::Berendersen(const double dt)
-{
-  
-  int nlocal = atom->nlocal;
-
-  double avg_p2 = kinetic_latent();
-  double target_p2 = tLatent / 2.0;
-  double scale = sqrt(1.0 + (dt/(tauLatent))*(target_p2/avg_p2-1.0));
-
-  for (int i = 0; i < nlocal; i++) {
-    pLatent[i] = pLatent[i] * scale;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixIELReax::Langevin(const double dt) {
-  int nlocal = atom->nlocal;
-  int *mask = atom->mask;
-  if (igroup == atom->firstgroup) nlocal = atom->nfirst;
-
-  double pLatentAvg = sqrt(mLatent * tLatent);
-  double dissipationLatent = exp(-dt/tauLatent);
-  double fluctuationLatent = sqrt(1 - dissipationLatent * dissipationLatent);
-
-  // change to LAMMPS RNG
-  std::default_random_engine gen;
-  std::normal_distribution<double> dis(0,1);
-
-  // Log the prior kinetic energy.
-
-  double kineticBefore = kinetic_latent();
-
-  // Perform the Langevin integration.
-
-  for (int i = 0; i < nlocal; i++) {
-    pLatent[i] = pLatent[i] * dissipationLatent + pLatentAvg * fluctuationLatent * dis(gen);
-  }
-
-  double pDev = parallel_vector_acc(pLatent, nn) / atom->natoms;
-
-  for (int i = 0; i < nlocal; i++) {
-    pLatent[i] = pLatent[i] - pDev;
-  }
-}
-
-
-/* ---------------------------------------------------------------------- */
-
 void FixIELReax::calculate_Q()
 {
-  int i, ii, k;
+  int i, k;
   double u, s_sum, t_sum;
   double *q = atom->q;
 
-  s_sum = parallel_vector_acc( s, nn);
-  t_sum = parallel_vector_acc( t, nn);
-  u = s_sum / t_sum;
+  int nn, ii;
+  int *ilist;
 
-  // init the chemical potential
-  qConst = u * ATOMIC_TO_REAL;
+  if (reaxc) {
+    nn = reaxc->list->inum;
+    ilist = reaxc->list->ilist;
+  } else {
+    nn = list->inum;
+    ilist = list->ilist;
+  }
+
+  if(t_s_flag)
+    {
+      s_sum = parallel_vector_acc( s, nn);
+      t_sum = parallel_vector_acc( t, nn);
+      u = s_sum / t_sum;
+    }
+
+  //printf("timestep=%i\n",update->ntimestep);
+  //printf("u=%.16f\n",u);
 
   for (ii = 0; ii < nn; ++ii) {
     i = ilist[ii];
     if (atom->mask[i] & groupbit) {
-      q[i] = s[i] - u * t[i];
+      if(t_s_flag)
+        q[i] = s[i] - u * t[i];
+      else
+        q[i] = s[i];
+      if(update->ntimestep==0){
+        s_EL_Scf[i]=s[i];
+        t_EL_Scf[i]=t[i];
+        if(t_s_flag==0)
+          Chi_eq_iEL_Scf = x_last;
+      }
+      /* backup s & t */
+      for (k = nprev-1; k > 0; --k) {
+        s_hist[i][k] = s_hist[i][k-1];
+        t_hist[i][k] = t_hist[i][k-1];
+      }
+      s_hist[i][0] = s[i];
+      t_hist[i][0] = t[i];
     }
   }
+  if(t_s_flag==0)
+    {
+      x_hist_2=x_hist_1;
+      x_hist_1=x_hist_0;
+      x_hist_0=x_last;
+    }
 
   pack_flag = 4;
   comm->forward_comm_fix(this); //Dist_vector( atom->q );
 }
 
-/* ----------------------------------------------------------------------
-   allocate fictitious charge arrays
-------------------------------------------------------------------------- */
-
-void FixIELReax::grow_arrays(int nmax)
-{ 
-  memory->grow(s_hist,nmax,nprev,"iel:s_hist");
-  memory->grow(t_hist,nmax,nprev,"iel:t_hist");
-
-  memory->grow(qLatent,nmax,"iel:qLatent");
-  memory->grow(pLatent,nmax,"iel:pLatent");
-  memory->grow(fLatent,nmax,"iel:fLatent");
-}
-
-/* ----------------------------------------------------------------------
-   copy values within fictitious charge arrays
-------------------------------------------------------------------------- */
-
-void FixIELReax::copy_arrays(int i, int j, int /*delflag*/)
+void FixIELReax::kinaux (double &temp_aux_t,double &temp_aux_s)
 {
-  qLatent[j] = qLatent[i];
-  pLatent[j] = pLatent[i];
-  fLatent[j] = fLatent[i];
+  int i;
+  double term;
+  double eksum_aux;
+  double ekaux_t=0.0;
+  double ekaux_s=0.0;
+  int nfree_aux =atom->natoms;
+  int nlocal = atom->nlocal;
+  //zero out the temperature and kinetic energy components
+  double ekaux_t_mpi = 0.0;
+  double ekaux_s_mpi = 0.0;
+
+  temp_aux_t = 0.0;
+  temp_aux_s = 0.0;
+
+  //get the kinetic energy tensor for auxiliary variables
+  term = 0.5;
+
+  if(t_s_flag==1)
+    {
+      for (i = 0; i < nlocal ;i++){
+        ekaux_t = ekaux_t + term*vt_EL_Scf[i]*vt_EL_Scf[i];
+        ekaux_s = ekaux_s + term*vs_EL_Scf[i]*vs_EL_Scf[i];
+      }
+      MPI_Allreduce( &ekaux_t, &ekaux_t_mpi, 1, MPI_DOUBLE, MPI_SUM, world);
+      temp_aux_t = 2.0 * ekaux_t_mpi / nfree_aux;
+    }
+  else
+    {
+      for (i = 0; i < nlocal ;i++){
+        ekaux_s = ekaux_s + term*vs_EL_Scf[i]*vs_EL_Scf[i];
+      }
+      ekaux_t = term*vChi_eq_iEL_Scf*vChi_eq_iEL_Scf;
+      temp_aux_t = 2.0 * ekaux_t ;
+    }
+
+  MPI_Allreduce( &ekaux_s, &ekaux_s_mpi, 1, MPI_DOUBLE, MPI_SUM, world);
+
+  // find the total kinetic energy and auxiliary temperatures
+
+  //eksum_aux = ekaux;
+
+  //if (nfree_aux =! 0){
+  temp_aux_s = 2.0 * ekaux_s_mpi / (nfree_aux);
+
 }
 
-/* ----------------------------------------------------------------------
-   pack values in local atom-based array for exchange with another proc
-------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
 
-int FixIELReax::pack_exchange(int i, double *buf)
+void FixIELReax::Berendersen()
 {
-  buf[0] = qLatent[i];
-  buf[1] = pLatent[i];
-  buf[2] = fLatent[i];
+  
+  int nlocal = atom->nlocal;
 
-  return 3;
+  double scale_t = 1.0;
+  double scale_s = 1.0;
+  double temp_aux_t = 0.0;
+  double temp_aux_s = 0.0;
+  kinaux (temp_aux_t, temp_aux_s);
+  
+  if(temp_aux_s != 0)
+    scale_s = sqrt(1.0 + (dtv/tautemp_aux)*(kelvin_aux_s/temp_aux_s-1.0));
+  
+  if(temp_aux_t != 0)
+    scale_t = sqrt(1.0 + (dtv/tautemp_aux)*(kelvin_aux_t/temp_aux_t-1.0));
+  
+  if(t_s_flag){
+    for (int i = 0; i < nlocal; i++){
+      vt_EL_Scf[i] = scale_t * vt_EL_Scf[i];
+      vs_EL_Scf[i] = scale_s * vs_EL_Scf[i];
+      if(abs(vt_EL_Scf[i]) > 0.1)vt_EL_Scf[i]*=0.1;
+      if(abs(vs_EL_Scf[i]) > 0.1)vs_EL_Scf[i]*=0.1;
+    }
+  }
+  else{
+    for (int i = 0; i < nlocal; i++){
+      vs_EL_Scf[i] = scale_s * vs_EL_Scf[i];
+      if(abs(vs_EL_Scf[i]) > 1.0)vs_EL_Scf[i]*=0.1;
+    }
+    vChi_eq_iEL_Scf=vChi_eq_iEL_Scf*scale_t;
+  }
+
 }
-
-/* ----------------------------------------------------------------------
-   unpack values in local atom-based array from exchange with another proc
-------------------------------------------------------------------------- */
-
-int FixIELReax::unpack_exchange(int nlocal, double *buf)
+  
+void FixIELReax::Nose_Hoover()
 {
-  qLatent[nlocal] = buf[0];
-  pLatent[nlocal] = buf[1];
-  fLatent[nlocal] = buf[2];
+  
+  int nlocal = atom->nlocal;
+  
+  double scale_t = 1.0;
+  double scale_s = 1.0;
+  double temp_aux_t = 0.0;
+  double temp_aux_s = 0.0;
+  kinaux (temp_aux_t, temp_aux_s);
+  
+  int nc = 5;
+  int ns = 3;
+  double dtc = dtv / nc;
+  double w[3];
+  w[0] = 1.0 / (2.0-pow(2.0,(1.0/3.0)));
+  w[1] = 1.0 - 2.0*w[0];
+  w[2] = w[0];
+   
+  double expterm;
+  double dts,dt2,dt4,dt8;
+  int nfree_aux =atom->natoms;
+  
+  for (int i = 0;i < nc; i++){
+    for (int j = 0; j < ns; j++){
+      dts = w[j] * dtc;
+      dt2 = 0.5 * dts;
+      dt4 = 0.25 * dts;
+      dt8 = 0.125 * dts;
+      
+      if(t_s_flag)
+	{
+	  // t aux calculation
+	  tgnhaux[4]=(tnhaux[3]*tvnhaux[3]*tvnhaux[3]-kelvin_aux_t)/tnhaux[4];
+	  //printf("tgnhaux[4]= %.16f tnhaux[3]= %.16f tvnhaux[3]=%.16f tnhaux[4]=%.16f kelvin_aux=%.16f\n",tgnhaux[4],tnhaux[3],tvnhaux[3],tnhaux[4],kelvin_aux);
+	  tvnhaux[4]=tvnhaux[4]+tgnhaux[4]*dt4;
+	  tgnhaux[3]=(tnhaux[2]*tvnhaux[2]*tvnhaux[2]-kelvin_aux_t)/tnhaux[3];
+	  expterm=exp(-tvnhaux[4]*dt8);
+	  tvnhaux[3]=expterm*(tvnhaux[3]*expterm+tgnhaux[3]*dt4);
+	  tgnhaux[2]=(tnhaux[1]*tvnhaux[1]*tvnhaux[1]-kelvin_aux_t)/tnhaux[2];
+	  expterm=exp(-tvnhaux[3]*dt8);
+	  tvnhaux[2]=expterm*(tvnhaux[2]*expterm+tgnhaux[2]*dt4);
+	  tgnhaux[1]=((nfree_aux)*temp_aux_t-(nfree_aux)*kelvin_aux_t)/tnhaux[1];
+	  expterm=exp(-tvnhaux[2]*dt8);
+	  tvnhaux[1]=expterm*(tvnhaux[1]*expterm+tgnhaux[1]*dt4);
+	  scale_t=scale_t*exp(-tvnhaux[1]*dt2);
+	  
+	  temp_aux_t=temp_aux_t*exp(-tvnhaux[1]*dt2)*exp(-tvnhaux[1]*dt2);
+	  tgnhaux[1]=((nfree_aux)*temp_aux_t-(nfree_aux)*kelvin_aux_t)/tnhaux[1];
+	  expterm=exp(-tvnhaux[2]*dt8);
+	  tvnhaux[1]=expterm*(tvnhaux[1]*expterm+tgnhaux[1]*dt4);
+	  tgnhaux[2]=(tnhaux[1]*tvnhaux[1]*tvnhaux[1]-kelvin_aux_t)/tnhaux[2];
+	  expterm=exp(-tvnhaux[3]*dt8);
+	  tvnhaux[2]=expterm*(tvnhaux[2]*expterm+tgnhaux[2]*dt4);
+	  tgnhaux[3]=(tnhaux[2]*tvnhaux[2]*tvnhaux[2]-kelvin_aux_t)/tnhaux[3];
+	  expterm=exp(-tvnhaux[4]*dt8);
+	  tvnhaux[3]=expterm*(tvnhaux[3]*expterm+tgnhaux[3]*dt4);
+	  tgnhaux[4]=(tnhaux[3]*tvnhaux[3]*tvnhaux[3]-kelvin_aux_t)/tnhaux[4];
+	  tvnhaux[4]=tvnhaux[4]+tgnhaux[4]*dt4;
+	} 
+      //printf("scale_t= %.16f exp(tvn)= %.16f dt2=%.16f tvnhaux[1]=%.16f \n",scale_t,exp(-tvnhaux[1]*dt2),dt2,tvnhaux[1]);
+      // s aux calculation
+      sgnhaux[4]=(snhaux[3]*svnhaux[3]*svnhaux[3]-kelvin_aux_s)/snhaux[4];
+      svnhaux[4]=svnhaux[4]+sgnhaux[4]*dt4;
+      sgnhaux[3]=(snhaux[2]*svnhaux[2]*svnhaux[2]-kelvin_aux_s)/snhaux[3];
+      expterm=exp(-svnhaux[4]*dt8);
+      svnhaux[3]=expterm*(svnhaux[3]*expterm+sgnhaux[3]*dt4);
+      sgnhaux[2]=(snhaux[1]*svnhaux[1]*svnhaux[1]-kelvin_aux_s)/snhaux[2];
+      expterm=exp(-svnhaux[3]*dt8);
+      svnhaux[2]=expterm*(svnhaux[2]*expterm+sgnhaux[2]*dt4);
+      sgnhaux[1]=((nfree_aux)*temp_aux_s-(nfree_aux)*kelvin_aux_s)/snhaux[1];
+      expterm=exp(-svnhaux[2]*dt8);
+      svnhaux[1]=expterm*(svnhaux[1]*expterm+sgnhaux[1]*dt4);
+      scale_s=scale_s*exp(-svnhaux[1]*dt2);
+      temp_aux_s=temp_aux_s*exp(-svnhaux[1]*dt2)*exp(-svnhaux[1]*dt2);
+      sgnhaux[1]=((nfree_aux)*temp_aux_s-(nfree_aux)*kelvin_aux_s)/snhaux[1];
+      expterm=exp(-svnhaux[2]*dt8);
+      svnhaux[1]=expterm*(svnhaux[1]*expterm+sgnhaux[1]*dt4);
+      sgnhaux[2]=(snhaux[1]*svnhaux[1]*svnhaux[1]-kelvin_aux_s)/snhaux[2];
+      expterm=exp(-svnhaux[3]*dt8);
+      svnhaux[2]=expterm*(svnhaux[2]*expterm+sgnhaux[2]*dt4);
+      sgnhaux[3]=(snhaux[2]*svnhaux[2]*svnhaux[2]-kelvin_aux_s)/snhaux[3];
+      expterm=exp(-svnhaux[4]*dt8);
+      svnhaux[3]=expterm*(svnhaux[3]*expterm+sgnhaux[3]*dt4);
+      sgnhaux[4]=(snhaux[3]*svnhaux[3]*svnhaux[3]-kelvin_aux_s)/snhaux[4];
+      svnhaux[4]=svnhaux[4]+sgnhaux[4]*dt4;
+      
+    }
+  }
+  //printf("scale_t= %.16f scale_s= %.16f \n",scale_t,scale_s);
+  for (int i = 0; i < nlocal; i++){
+    if(t_s_flag)
+      vt_EL_Scf[i]=vt_EL_Scf[i]*scale_t;
+    vs_EL_Scf[i]=vs_EL_Scf[i]*scale_s;
+  }
+  if(t_s_flag==0)
+    vChi_eq_iEL_Scf=vChi_eq_iEL_Scf*scale_s;
 
-  return 3;
 }
-
