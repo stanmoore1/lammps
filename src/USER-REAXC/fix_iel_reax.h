@@ -64,26 +64,19 @@ class FixIELReax : public FixQEqReax {
 
   double Chi_eq_iEL_Scf,aChi_eq_iEL_Scf,vChi_eq_iEL_Scf,x_last;
 
-  double *q_vec;
-  int m_fill_q;
-  double tolerance_s;
-  double tolerance_t;
-  int i_tolerance_s;
-  int i_tolerance_t;
-  int tol_flag;
-  int iEL_Scf_flag,Precon_flag;
-  int t_s_flag,n1_Scf_flag;
+  int i_tolerance;
+  int Precon_flag;
+  int t_s_flag;
   double q_last, r_last, d_last, b_last;
   double x_hist_0,x_hist_1,x_hist_2;
-  int matvecs_q;
-
-  sparse_matrix H_q;
-  double *Hdia_inv_q;
-  double *b_s_q;
-
-  double *p_q, *q_q, *r_q, *d_q;
 
   void init_matvec();
+  int CG(double*,double*);
+  void grow_arrays(int);
+  void copy_arrays(int, int, int);
+  int pack_exchange(int, double *);
+  int unpack_exchange(int, double *);
+  void sparse_matvec(sparse_matrix*,double*,double*,double);
   void calculate_Q();
   void kinaux(double &,double &);
   void Berendersen();

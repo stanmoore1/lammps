@@ -64,14 +64,20 @@ static const char cite_fix_qeq_reax[] =
 FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg), pertype_option(nullptr)
 {
+  int iel_flag = 0;
+  if (utils::strmatch(style,"^iel/reax"))
+    iel_flag = 1;
+
   int xlmd_flag = 0;
   if (utils::strmatch(style,"^xlmd/reax"))
     xlmd_flag = 1;
 
-  if (!xlmd_flag)
-    if (narg<8 || narg>11) error->all(FLERR,"Illegal fix qeq/reax command");
-  else
+  if (iel_flag)
+    if (narg<8 || narg>20) error->all(FLERR,"Illegal fix iel/reax command");
+  else if (xlmd_flag)
     if (narg<8 || narg>15) error->all(FLERR,"Illegal fix xlmd/reax command");
+  else
+    if (narg<8 || narg>11) error->all(FLERR,"Illegal fix qeq/reax command");
 
   nevery = utils::inumeric(FLERR,arg[3],false,lmp);
   if (nevery <= 0) error->all(FLERR,"Illegal fix qeq/reax command");
@@ -89,7 +95,8 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   imax = 200;
 
   int iarg = 8;
-  if (xlmd_flag) iarg += 4;
+  if (iel_flag) iarg += 9;
+  else if (xlmd_flag) iarg += 4;
   while (iarg < narg) {
     if (strcmp(arg[iarg],"dual") == 0) dual_enabled = 1;
     else if (strcmp(arg[iarg],"maxiter") == 0) {
@@ -549,6 +556,7 @@ void FixQEqReax::pre_force(int /*vflag*/)
   matvecs_s = CG(b_s, s);       // CG on s - parallel
   matvecs_t = CG(b_t, t);       // CG on t - parallel
   matvecs = matvecs_s + matvecs_t;
+  printf("matvecs %i %i\n",matvecs_s,matvecs_t);
 
   calculate_Q();
 
