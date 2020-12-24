@@ -172,7 +172,7 @@ void FixNVEKokkos<DeviceType>::cleanup_copy()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixNVEKokkos<DeviceType>::squash_integrate()
+void FixNVEKokkos<DeviceType>::fused_integrate()
 {
   atomKK->sync(execution_space,datamask_read);
   atomKK->modified(execution_space,datamask_modify);

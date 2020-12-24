@@ -36,7 +36,7 @@ class ModifyKokkos : public Modify {
   void pre_reverse(int,int);
   void post_force(int);
   void final_integrate();
-  void squash_integrate();
+  void fused_integrate();
   void end_of_step();
   double thermo_energy();
   void post_run();

@@ -395,7 +395,8 @@ void VerletKokkos::run(int n)
     // since some bonded potentials tally pairwise energy/virial
     // and Pair:ev_tally() needs to be called before any tallying
 
-    //force_clear();
+    if (!fused_force_clear)
+      force_clear();
 
     timer->stamp();
 
@@ -550,7 +551,7 @@ void VerletKokkos::run(int n)
 
     if (n_post_force) modify->post_force(vflag);
 
-    if (i != n-1) modify->squash_integrate();
+    if (i != n-1) modify->fused_integrate();
     else modify->final_integrate();
 
     if (n_end_of_step) modify->end_of_step();
@@ -626,3 +627,46 @@ void VerletKokkos::force_clear()
 }
 
 
+/* ----------------------------------------------------------------------
+   check if can fuse clear_force() with pair compute()
+   Requirements:
+   - no pre_force fixes
+   - neigh/thread option set
+   - no torques or includegroup set
+   - pair compute() must be called
+   - chosen pair_style must support fusing
+------------------------------------------------------------------------- */
+
+int VerletKokkos::fuse_force_clear_check()
+{
+  int fuse_force_clear = 1;
+
+  if (n_pre_force) fuse_force_clear = 0;
+  if (!lmp->kokkos->neigh_thread) fuse_force_clear = 0;
+  if (torqueflag || neighbor->includegroup) fuse_force_clear = 0;
+  if (!pair_compute_flag) fuse_force_clear = 0;
+  if (!force->pair->has_fused_force_clear) fuse_force_clear = 0;
+
+  return fuse_force_clear;
+}
+
+/* ----------------------------------------------------------------------
+   check if can fuse final_integrate() with initial_integrate()
+   Requirements:
+   - no end_of_step fixes
+   - not on first, last, or output step
+   - no timers to break out of loop
+   - chosen integrate style must support fusing
+------------------------------------------------------------------------- */
+
+int VerletKokkos::fuse_integrate_check(int n)
+{
+  int fuse_integrate = 1;
+
+  if (n_end_of_step) fuse_integrate = 0;
+  if (ntimestep == ) fuse_integrate = 0;
+  if (ntimestep == output->next) fuse_integrate = 0;
+  if (!pair_compute_flag) fuse_integrate = 0;
+
+  return fuse_integrate;
+}

@@ -45,7 +45,7 @@ class FixNVEKokkos : public FixNVE {
   void init();
   void initial_integrate(int);
   void final_integrate();
-  void squash_integrate();
+  void fused_integrate();
 
   KOKKOS_INLINE_FUNCTION
   void initial_integrate_item(int) const;
