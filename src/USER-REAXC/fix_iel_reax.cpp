@@ -48,13 +48,14 @@ using namespace FixConst;
 
 static const char cite_fix_iel_reax[] =
   "fix iel/reax command:\n\n"
-  "@misc{Tan2020stochastic,\n"
-  " title={Stochastic Constrained Extended System Dynamics for Solving Charge Equilibration Models},\n"
-  " author={Songchen Tan and Itai Leven and Dong An and Lin Lin and Teresa Head-Gordon},\n"
-  " year={2020},\n"
-  " eprint={2005.10736},\n"
-  " archivePrefix={arXiv},\n"
-  " primaryClass={physics.comp-ph}\n"
+  "@article{Leven2019},\n"
+  " title={Inertial extended-Lagrangian scheme for solving charge equilibration models},\n"
+  " author={Leven, Itai and Head-Gordon, Teresa},\n"
+  " issue={34},\n"
+  " journal={Phys. Chem. Chem. Phys.},\n"
+  " pages={18652-18659},\n"
+  " volume={21},\n"
+  " year={2019},\n"
   "}\n\n";
 
 /* ---------------------------------------------------------------------- */
@@ -62,18 +63,16 @@ static const char cite_fix_iel_reax[] =
 FixIELReax::FixIELReax(LAMMPS *lmp, int narg, char **arg) :
   FixQEqReax(lmp, narg, arg)
 {
-  t_s_flag     = utils::inumeric(FLERR,arg[8],false,lmp); //t_s_flag=1:solve for t and s t_s_flag=0 q solve for q (s only)
-  Precon_flag  = utils::inumeric(FLERR,arg[9],false,lmp); //if=0 no CG Pre conditioning://if =1 with CG Pre conditioning
-  i_tolerance  = utils::inumeric(FLERR,arg[10],false,lmp);
-  thermo_flag  = utils::inumeric(FLERR,arg[11],false,lmp);
-  tautemp_aux  = utils::numeric(FLERR,arg[12],false,lmp); //100000.0; //t_S //1000000    //100000
-  kelvin_aux_t = utils::numeric(FLERR,arg[13],false,lmp);  //0.000001; //t_S//0.00000001
-  kelvin_aux_s = utils::numeric(FLERR,arg[14],false,lmp); //0.00000001; //t_s//0.0000001  //0.0000001
-  Omega_t      = utils::numeric(FLERR,arg[15],false,lmp);
-  Omega_s      = utils::numeric(FLERR,arg[16],false,lmp);
+  thermo_flag  = utils::inumeric(FLERR,arg[9],false,lmp);
+  tautemp_aux  = utils::numeric(FLERR,arg[10],false,lmp);
+  kelvin_aux_t = utils::numeric(FLERR,arg[11],false,lmp);
+  kelvin_aux_s = utils::numeric(FLERR,arg[12],false,lmp);
+
+  tolerance_t = tolerance;
+  tolerance_s = tolerance2;
 
   if(comm->me == 0)
-    printf("\niEL_Scf params:\n t_s_flag= %i Precon_flag= %i thermo_flag= %i tau= %.4f T0_t= %.10f T0_s= %.10f Omega_t= %.5f Omega_s=%.5f\n\n",t_s_flag,Precon_flag,thermo_flag,tautemp_aux,kelvin_aux_t,kelvin_aux_s,Omega_t,Omega_s);
+    printf("\niEL_Scf params:\n thermo_flag= %i tau= %.4f T0_t= %.10f T0_s= %.10f\n",thermo_flag,tautemp_aux,kelvin_aux_t,kelvin_aux_s);
 
   for (int i = 0; i < 5; i++) {
     tgnhaux[i] = 0.0;
@@ -166,7 +165,7 @@ void FixIELReax::init()
 
 
   b_last = 0.0;   
-  x_last = x_hist_2 = x_hist_1 = x_hist_0 = 0.0;
+  x_last = 0.0;
   q_last = 0.0;
   r_last = 0.0;
   d_last = 0.0;
@@ -177,10 +176,7 @@ void FixIELReax::init()
 void FixIELReax::init_storage()
 {
   for (int i = 0; i < NN; i++) {
-    if(Precon_flag)
-      Hdia_inv[i] = 1. / eta[atom->type[i]];
-    else
-      Hdia_inv[i] = 1.0;
+    Hdia_inv[i] = 1. / eta[atom->type[i]];
 
     b_s[i] = -chi[atom->type[i]];
     b_t[i] = -1.0;
@@ -210,16 +206,11 @@ void FixIELReax::initial_integrate(int /*vflag*/)
 
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
-      vt_EL_Scf[i] += at_EL_Scf[i]*dt_2*Omega_t;
-      t_EL_Scf[i]  += vt_EL_Scf[i]*dtv*Omega_t;    
-      vs_EL_Scf[i] += as_EL_Scf[i]*dt_2*Omega_s;
-      s_EL_Scf[i]  += vs_EL_Scf[i]*dtv*Omega_s;
+      vt_EL_Scf[i] += at_EL_Scf[i]*dt_2;
+      t_EL_Scf[i]  += vt_EL_Scf[i]*dtv;    
+      vs_EL_Scf[i] += as_EL_Scf[i]*dt_2;
+      s_EL_Scf[i]  += vs_EL_Scf[i]*dtv;
     }
-
-  if (t_s_flag == 0) {
-    vChi_eq_iEL_Scf = vChi_eq_iEL_Scf + aChi_eq_iEL_Scf*dt_2;
-    Chi_eq_iEL_Scf  = Chi_eq_iEL_Scf + vChi_eq_iEL_Scf*dt;    
-  }
 
   if (thermo_flag == 1)
     Nose_Hoover();
@@ -261,11 +252,10 @@ void FixIELReax::pre_force(int /*vflag*/)
 
   init_matvec();
 
+  tolerance = tolerance_s;
   matvecs_s = CG(b_s, s);       // CG on s - parallel
-  if(t_s_flag)
-    matvecs_t = CG(b_t, t);       // CG on t - parallel
-  else
-    matvecs_t = 0;
+  tolerance = tolerance_t;
+  matvecs_t = CG(b_t, t);       // CG on t - parallel
 
   matvecs = matvecs_s + matvecs_t;
   printf("matvecs %i %i\n",matvecs_s,matvecs_t);
@@ -289,38 +279,19 @@ void FixIELReax::init_matvec()
   
   int ii, i;
  
-  if (Precon_flag) {
-    for (ii = 0; ii < nn; ++ii) {
-      i = ilist[ii];
-      if (atom->mask[i] & groupbit) {
-        /* init pre-conditioner for H and init solution vectors */Hdia_inv[i] = 1. / eta[ atom->type[i] ];
-        Hdia_inv[i] = 1. / eta[ atom->type[i] ];
-        b_s[i]      = -chi[ atom->type[i] ];
-        b_t[i]      = -1.0;
-        s[i] = s_EL_Scf[i];
-        t[i] = t_EL_Scf[i];
-      }
-    }
-  } else {
-    for (ii = 0; ii < nn; ++ii) {
-      i = ilist[ii];
-      if (atom->mask[i] & groupbit) {
-        /* init pre-conditioner for H and init solution vectors */
-        Hdia_inv[i] = 1.0;
-        b_s[i]      = -chi[ atom->type[i] ];
-        b_t[i]      = -1.0;
-        s[i] = s_EL_Scf[i];
-        t[i] = t_EL_Scf[i];
-      }
+  for (ii = 0; ii < nn; ++ii) {
+    i = ilist[ii];
+    if (atom->mask[i] & groupbit) {
+      /* init pre-conditioner for H and init solution vectors */Hdia_inv[i] = 1. / eta[ atom->type[i] ];
+      Hdia_inv[i] = 1. / eta[ atom->type[i] ];
+      b_s[i]      = -chi[ atom->type[i] ];
+      b_t[i]      = -1.0;
+      s[i] = s_EL_Scf[i];
+      t[i] = t_EL_Scf[i];
     }
   }
-  //if(update->ntimestep%1000 == 0 and comm->me ==0)printf("x_last=%.16f x_hist_0=%.16f x_hist_1=%.16f x_hist_2=%.16f\n'",atom->x_last,x_hist_0,x_hist_1,x_hist_2);
-
   
-  if (t_s_flag == 0) 
-      x_last = Chi_eq_iEL_Scf;
-  else
-    r_last = b_last = q_last = x_last = d_last = 0.0;
+  r_last = b_last = q_last = x_last = d_last = 0.0;
   
   pack_flag = 2;
   comm->forward_comm_fix(this); //Dist_vector( s );
@@ -337,7 +308,6 @@ int FixIELReax::CG( double *b, double *x)
   double sig_old, sig_new;
   int jj;
   double tolerance_tmp;
-  int i_tolerance_tmp;
 
   pack_flag = 1;
   sparse_matvec( &H, x, q, x_last);
@@ -360,18 +330,14 @@ int FixIELReax::CG( double *b, double *x)
 
   sig_new = parallel_dot( r, d, nn);
 
-  sig_new+=r_last*r_last;// For t_s_flag=1
+  sig_new += r_last*r_last;
 
-  if (update->ntimestep == 0) {
+  if (update->ntimestep == 0)
     tolerance_tmp = 0.0000000001;
-    i_tolerance_tmp = 1;
-  }
-  else {
+  else
     tolerance_tmp = tolerance;
-    i_tolerance_tmp = i_tolerance;
-  }
 
-  for (i = 1; (i < imax && (sqrt(sig_new) / b_norm > tolerance_tmp)) || i < i_tolerance_tmp; ++i) {
+  for (i = 1; (i < imax && (sqrt(sig_new) / b_norm > tolerance_tmp)); ++i) {
     comm->forward_comm_fix(this); //Dist_vector( d );
     sparse_matvec( &H, d, q , d_last);
     comm->reverse_comm_fix(this); //Coll_vector( q );
@@ -435,9 +401,9 @@ void FixIELReax::final_integrate()
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
       at_EL_Scf[i] = term * (t[i]-t_EL_Scf[i]);         
-      vt_EL_Scf[i] = vt_EL_Scf[i] + at_EL_Scf[i]*dt_2*Omega_t;  
+      vt_EL_Scf[i] = vt_EL_Scf[i] + at_EL_Scf[i]*dt_2;  
       as_EL_Scf[i] = term * (s[i]-s_EL_Scf[i]);         
-      vs_EL_Scf[i] = vs_EL_Scf[i] + as_EL_Scf[i]*dt_2*Omega_s;
+      vs_EL_Scf[i] = vs_EL_Scf[i] + as_EL_Scf[i]*dt_2;
     }
 
   if (thermo_flag == 1)
@@ -487,8 +453,6 @@ void FixIELReax::sparse_matvec( sparse_matrix *A, double *x, double *b, double l
     q_last_tmp+=x[i];
 
   }
-  if(t_s_flag==0)
-    MPI_Allreduce( &q_last_tmp, &q_last, 1, MPI_DOUBLE, MPI_SUM, world);
 }
 
 
@@ -502,12 +466,9 @@ void FixIELReax::calculate_Q()
 
   int ii;
 
-  if(t_s_flag)
-    {
-      s_sum = parallel_vector_acc( s, nn);
-      t_sum = parallel_vector_acc( t, nn);
-      u = s_sum / t_sum;
-    }
+  s_sum = parallel_vector_acc( s, nn);
+  t_sum = parallel_vector_acc( t, nn);
+  u = s_sum / t_sum;
 
   //printf("timestep=%i\n",update->ntimestep);
   //printf("u=%.16f\n",u);
@@ -515,24 +476,13 @@ void FixIELReax::calculate_Q()
   for (ii = 0; ii < nn; ++ii) {
     i = ilist[ii];
     if (atom->mask[i] & groupbit) {
-      if(t_s_flag)
-        q[i] = s[i] - u * t[i];
-      else
-        q[i] = s[i];
+      q[i] = s[i] - u * t[i];
       if(update->ntimestep==0){
         s_EL_Scf[i]=s[i];
         t_EL_Scf[i]=t[i];
-        if(t_s_flag==0)
-          Chi_eq_iEL_Scf = x_last;
       }
     }
   }
-  if(t_s_flag==0)
-    {
-      x_hist_2=x_hist_1;
-      x_hist_1=x_hist_0;
-      x_hist_0=x_last;
-    }
 
   pack_flag = 4;
   comm->forward_comm_fix(this); //Dist_vector( atom->q );
@@ -620,23 +570,12 @@ void FixIELReax::kinaux (double &temp_aux_t,double &temp_aux_s)
   //get the kinetic energy tensor for auxiliary variables
   term = 0.5;
 
-  if(t_s_flag==1)
-    {
-      for (i = 0; i < nlocal ;i++){
-        ekaux_t = ekaux_t + term*vt_EL_Scf[i]*vt_EL_Scf[i];
-        ekaux_s = ekaux_s + term*vs_EL_Scf[i]*vs_EL_Scf[i];
-      }
-      MPI_Allreduce( &ekaux_t, &ekaux_t_mpi, 1, MPI_DOUBLE, MPI_SUM, world);
-      temp_aux_t = 2.0 * ekaux_t_mpi / nfree_aux;
-    }
-  else
-    {
-      for (i = 0; i < nlocal ;i++){
-        ekaux_s = ekaux_s + term*vs_EL_Scf[i]*vs_EL_Scf[i];
-      }
-      ekaux_t = term*vChi_eq_iEL_Scf*vChi_eq_iEL_Scf;
-      temp_aux_t = 2.0 * ekaux_t ;
-    }
+  for (i = 0; i < nlocal ;i++) {
+    ekaux_t = ekaux_t + term*vt_EL_Scf[i]*vt_EL_Scf[i];
+    ekaux_s = ekaux_s + term*vs_EL_Scf[i]*vs_EL_Scf[i];
+  }
+  MPI_Allreduce( &ekaux_t, &ekaux_t_mpi, 1, MPI_DOUBLE, MPI_SUM, world);
+  temp_aux_t = 2.0 * ekaux_t_mpi / nfree_aux;
 
   MPI_Allreduce( &ekaux_s, &ekaux_s_mpi, 1, MPI_DOUBLE, MPI_SUM, world);
 
@@ -668,22 +607,12 @@ void FixIELReax::Berendersen()
   if(temp_aux_t != 0)
     scale_t = sqrt(1.0 + (dtv/tautemp_aux)*(kelvin_aux_t/temp_aux_t-1.0));
   
-  if(t_s_flag){
-    for (int i = 0; i < nlocal; i++){
-      vt_EL_Scf[i] = scale_t * vt_EL_Scf[i];
-      vs_EL_Scf[i] = scale_s * vs_EL_Scf[i];
-      if(abs(vt_EL_Scf[i]) > 0.1)vt_EL_Scf[i]*=0.1;
-      if(abs(vs_EL_Scf[i]) > 0.1)vs_EL_Scf[i]*=0.1;
-    }
+  for (int i = 0; i < nlocal; i++){
+    vt_EL_Scf[i] = scale_t * vt_EL_Scf[i];
+    vs_EL_Scf[i] = scale_s * vs_EL_Scf[i];
+    if(abs(vt_EL_Scf[i]) > 0.1)vt_EL_Scf[i]*=0.1;
+    if(abs(vs_EL_Scf[i]) > 0.1)vs_EL_Scf[i]*=0.1;
   }
-  else{
-    for (int i = 0; i < nlocal; i++){
-      vs_EL_Scf[i] = scale_s * vs_EL_Scf[i];
-      if(abs(vs_EL_Scf[i]) > 1.0)vs_EL_Scf[i]*=0.1;
-    }
-    vChi_eq_iEL_Scf=vChi_eq_iEL_Scf*scale_t;
-  }
-
 }
   
 void FixIELReax::Nose_Hoover()
@@ -716,8 +645,6 @@ void FixIELReax::Nose_Hoover()
       dt4 = 0.25 * dts;
       dt8 = 0.125 * dts;
       
-      if(t_s_flag)
-	{
 	  // t aux calculation
 	  tgnhaux[4]=(tnhaux[3]*tvnhaux[3]*tvnhaux[3]-kelvin_aux_t)/tnhaux[4];
 	  //printf("tgnhaux[4]= %.16f tnhaux[3]= %.16f tvnhaux[3]=%.16f tnhaux[4]=%.16f kelvin_aux=%.16f\n",tgnhaux[4],tnhaux[3],tvnhaux[3],tnhaux[4],kelvin_aux);
@@ -745,7 +672,6 @@ void FixIELReax::Nose_Hoover()
 	  tvnhaux[3]=expterm*(tvnhaux[3]*expterm+tgnhaux[3]*dt4);
 	  tgnhaux[4]=(tnhaux[3]*tvnhaux[3]*tvnhaux[3]-kelvin_aux_t)/tnhaux[4];
 	  tvnhaux[4]=tvnhaux[4]+tgnhaux[4]*dt4;
-	} 
       //printf("scale_t= %.16f exp(tvn)= %.16f dt2=%.16f tvnhaux[1]=%.16f \n",scale_t,exp(-tvnhaux[1]*dt2),dt2,tvnhaux[1]);
       // s aux calculation
       sgnhaux[4]=(snhaux[3]*svnhaux[3]*svnhaux[3]-kelvin_aux_s)/snhaux[4];
@@ -777,11 +703,8 @@ void FixIELReax::Nose_Hoover()
   }
   //printf("scale_t= %.16f scale_s= %.16f \n",scale_t,scale_s);
   for (int i = 0; i < nlocal; i++){
-    if(t_s_flag)
-      vt_EL_Scf[i]=vt_EL_Scf[i]*scale_t;
+    vt_EL_Scf[i]=vt_EL_Scf[i]*scale_t;
     vs_EL_Scf[i]=vs_EL_Scf[i]*scale_s;
   }
-  if(t_s_flag==0)
-    vChi_eq_iEL_Scf=vChi_eq_iEL_Scf*scale_s;
 
 }

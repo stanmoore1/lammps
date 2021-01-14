@@ -250,7 +250,6 @@ class PairReaxCKokkos : public PairReaxC {
 
   struct params_sing{
     KOKKOS_INLINE_FUNCTION
-<<<<<<< HEAD
     params_sing() {mass=0;chi=0;eta=0;r_s=0;r_pi=0;r_pi2=0;valency=0;valency_val=0;valency_e=0;valency_boc=0;nlp_opt=0;
       p_lp2=0;p_ovun2=0;p_ovun5=0;p_val3=0;p_val5=0;p_hbond=0;b_s_acks2=0;};
     KOKKOS_INLINE_FUNCTION

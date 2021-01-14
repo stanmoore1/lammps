@@ -64,11 +64,8 @@ class FixIELReax : public FixQEqReax {
 
   double Chi_eq_iEL_Scf,aChi_eq_iEL_Scf,vChi_eq_iEL_Scf,x_last;
 
-  int i_tolerance;
-  int Precon_flag;
-  int t_s_flag;
+  double tolerance_t,tolerance_s;
   double q_last, r_last, d_last, b_last;
-  double x_hist_0,x_hist_1,x_hist_2;
 
   void init_matvec();
   int CG(double*,double*);

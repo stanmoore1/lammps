@@ -68,6 +68,7 @@ class FixQEqReax : public Fix {
   double swa, swb;      // lower/upper Taper cutoff radius
   double Tap[8];        // Taper function
   double tolerance;     // tolerance for the norm of the rel residual in CG
+  double tolerance2;
 
   double *chi,*eta,*gamma;  // qeq parameters
   double **shld;

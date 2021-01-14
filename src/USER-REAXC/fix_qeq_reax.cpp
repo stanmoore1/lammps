@@ -65,46 +65,50 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg), pertype_option(nullptr)
 {
   int iel_flag = 0;
-  if (utils::strmatch(style,"^iel/reax"))
-    iel_flag = 1;
-
   int xlmd_flag = 0;
-  if (utils::strmatch(style,"^xlmd/reax"))
-    xlmd_flag = 1;
+  int required = 8;
 
-  if (iel_flag)
-    if (narg<8 || narg>20) error->all(FLERR,"Illegal fix iel/reax command");
-  else if (xlmd_flag)
-    if (narg<8 || narg>15) error->all(FLERR,"Illegal fix xlmd/reax command");
-  else
-    if (narg<8 || narg>11) error->all(FLERR,"Illegal fix qeq/reax command");
+  if (utils::strmatch(style,"^iel/reax")) {
+    iel_flag = 1;
+    required = 13;
+  }
+
+  if (utils::strmatch(style,"^xlmd/reax")) {
+    xlmd_flag = 1;
+    required = 12;
+  }
+
+  if (narg < required || narg > required+2) error->all(FLERR, fmt::format("Illegal fix {} command", style));
 
   nevery = utils::inumeric(FLERR,arg[3],false,lmp);
-  if (nevery <= 0) error->all(FLERR,"Illegal fix qeq/reax command");
+  if (nevery <= 0) error->all(FLERR,fmt::format("Illegal fix {} command", style));
 
   swa = utils::numeric(FLERR,arg[4],false,lmp);
   swb = utils::numeric(FLERR,arg[5],false,lmp);
   tolerance = utils::numeric(FLERR,arg[6],false,lmp);
-  int len = strlen(arg[7]) + 1;
+  int iarg = 7;
+  if (iel_flag) {
+    tolerance2 = utils::numeric(FLERR,arg[7],false,lmp);
+    iarg = 8;
+  }
+  int len = strlen(arg[iarg]) + 1;
   pertype_option = new char[len];
-  strcpy(pertype_option,arg[7]);
+  strcpy(pertype_option,arg[iarg]);
 
   // dual CG support only available for USER-OMP variant
   // check for compatibility is in Fix::post_constructor()
   dual_enabled = 0;
   imax = 200;
 
-  int iarg = 8;
-  if (iel_flag) iarg += 9;
-  else if (xlmd_flag) iarg += 4;
+  iarg = required;
   while (iarg < narg) {
     if (strcmp(arg[iarg],"dual") == 0) dual_enabled = 1;
     else if (strcmp(arg[iarg],"maxiter") == 0) {
       if (iarg+1 > narg-1)
-        error->all(FLERR,"Illegal fix qeq/reax command");
+        error->all(FLERR,fmt::format("Illegal fix {} command", style));
       imax = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       iarg++;
-    } else error->all(FLERR,"Illegal fix qeq/reax command");
+    } else error->all(FLERR,fmt::format("Illegal fix {} command", style));
     iarg++;
   }
   shld = nullptr;
