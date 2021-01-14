@@ -19,7 +19,6 @@
 #include <mpi.h>
 #include <cmath>
 #include <cstring>
-#include <random>
 #include "pair_reaxc.h"
 #include "atom.h"
 #include "comm.h"
@@ -70,9 +69,6 @@ FixIELReax::FixIELReax(LAMMPS *lmp, int narg, char **arg) :
 
   tolerance_t = tolerance;
   tolerance_s = tolerance2;
-
-  if(comm->me == 0)
-    printf("\niEL_Scf params:\n thermo_flag= %i tau= %.4f T0_t= %.10f T0_s= %.10f\n",thermo_flag,tautemp_aux,kelvin_aux_t,kelvin_aux_s);
 
   for (int i = 0; i < 5; i++) {
     tgnhaux[i] = 0.0;
@@ -139,14 +135,14 @@ void FixIELReax::init()
   double qterm_aux_s;
 
   vChi_eq_iEL_Scf = 0.0;
-  aChi_eq_iEL_Scf = 0.0; // add by Itai for the iEL_ScF
+  aChi_eq_iEL_Scf = 0.0;
 
   for (int i = 0; i < nlocal; i++){
     if (mask[i] & groupbit) {
       vs_EL_Scf[i] = 0.0;
-      as_EL_Scf[i] = 0.0; // add by Itai for the iEL_ScF
+      as_EL_Scf[i] = 0.0;
       vt_EL_Scf[i] = 0.0;
-      at_EL_Scf[i] = 0.0; // add by Itai for the iEL_ScF
+      at_EL_Scf[i] = 0.0;
     }
   }
 
@@ -258,7 +254,6 @@ void FixIELReax::pre_force(int /*vflag*/)
   matvecs_t = CG(b_t, t);       // CG on t - parallel
 
   matvecs = matvecs_s + matvecs_t;
-  printf("matvecs %i %i\n",matvecs_s,matvecs_t);
 
   calculate_Q();
 
@@ -275,14 +270,12 @@ void FixIELReax::init_matvec()
   /* fill-in H matrix */
   compute_H();
   
-  r_last = b_last = q_last = d_last = 0.0;
-  
   int ii, i;
  
   for (ii = 0; ii < nn; ++ii) {
     i = ilist[ii];
     if (atom->mask[i] & groupbit) {
-      /* init pre-conditioner for H and init solution vectors */Hdia_inv[i] = 1. / eta[ atom->type[i] ];
+      /* init pre-conditioner for H and init solution vectors */
       Hdia_inv[i] = 1. / eta[ atom->type[i] ];
       b_s[i]      = -chi[ atom->type[i] ];
       b_t[i]      = -1.0;
@@ -294,14 +287,14 @@ void FixIELReax::init_matvec()
   r_last = b_last = q_last = x_last = d_last = 0.0;
   
   pack_flag = 2;
-  comm->forward_comm_fix(this); //Dist_vector( s );
+  comm->forward_comm_fix(this); //Dist_vector(s);
   pack_flag = 3;
-  comm->forward_comm_fix(this); //Dist_vector( t );
+  comm->forward_comm_fix(this); //Dist_vector(t);
 }
 
 /* ---------------------------------------------------------------------- */
 
-int FixIELReax::CG( double *b, double *x)
+int FixIELReax::CG(double *b, double *x)
 {
   int  i, j;
   double tmp, alpha, beta, b_norm;
@@ -310,10 +303,10 @@ int FixIELReax::CG( double *b, double *x)
   double tolerance_tmp;
 
   pack_flag = 1;
-  sparse_matvec( &H, x, q, x_last);
-  comm->reverse_comm_fix(this); //Coll_Vector( q );
+  sparse_matvec(&H, x, q, x_last);
+  comm->reverse_comm_fix(this); //Coll_Vector(q);
 
-  vector_sum( r , 1.,  b, -1., q, nn);
+  vector_sum(r , 1.,  b, -1., q, nn);
 
   r_last = b_last - q_last;
 
@@ -324,11 +317,11 @@ int FixIELReax::CG( double *b, double *x)
     }
   }
 
-  d_last=r_last;
+  d_last = r_last;
 
-  b_norm = parallel_norm( b, nn);
+  b_norm = parallel_norm(b, nn);
 
-  sig_new = parallel_dot( r, d, nn);
+  sig_new = parallel_dot(r, d, nn);
 
   sig_new += r_last*r_last;
 
@@ -338,20 +331,20 @@ int FixIELReax::CG( double *b, double *x)
     tolerance_tmp = tolerance;
 
   for (i = 1; (i < imax && (sqrt(sig_new) / b_norm > tolerance_tmp)); ++i) {
-    comm->forward_comm_fix(this); //Dist_vector( d );
-    sparse_matvec( &H, d, q , d_last);
-    comm->reverse_comm_fix(this); //Coll_vector( q );
+    comm->forward_comm_fix(this); //Dist_vector(d);
+    sparse_matvec(&H, d, q , d_last);
+    comm->reverse_comm_fix(this); //Coll_vector(q);
 
-    tmp = parallel_dot( d, q, nn);
+    tmp = parallel_dot(d, q, nn);
 
-    tmp+=d_last*q_last;
+    tmp +=d_last*q_last;
 
     alpha = sig_new / tmp;
 
-    vector_add( x, alpha, d, nn );
+    vector_add(x, alpha, d, nn);
 
     x_last += alpha*d_last;
-    vector_add( r, -alpha, q, nn );
+    vector_add(r, -alpha, q, nn);
 
     r_last += -alpha*q_last;
 
@@ -364,22 +357,20 @@ int FixIELReax::CG( double *b, double *x)
     }
     sig_old = sig_new;
 
-    sig_new = parallel_dot( r, p, nn);
+    sig_new = parallel_dot(r, p, nn);
 
-    sig_new+= r_last*r_last;
+    sig_new += r_last*r_last;
 
     beta = sig_new / sig_old;
 
-    vector_sum( d, 1., p, beta, d, nn );
+    vector_sum(d, 1., p, beta, d, nn);
 
     d_last = r_last + beta*d_last;
   }
 
-  //if(comm->me ==0) printf("Number of SCF iterations= %i\n",i); // added by Itai EL-Scf
-
   if (i >= imax && comm->me == 0) {
     char str[128];
-    sprintf(str,"Fix qeq/reax CG convergence failed after %d iterations "
+    sprintf(str,"Fix iel/reax CG convergence failed after %d iterations "
             "at " BIGINT_FORMAT " step",i,update->ntimestep);
     error->warning(FLERR,str);
   }
@@ -420,7 +411,7 @@ void FixIELReax::reset_dt()
 
 /* ---------------------------------------------------------------------- */
 
-void FixIELReax::sparse_matvec( sparse_matrix *A, double *x, double *b, double last)
+void FixIELReax::sparse_matvec(sparse_matrix *A, double *x, double *b, double last)
 {
   int i, j, itr_j;
   int ii;
@@ -450,7 +441,7 @@ void FixIELReax::sparse_matvec( sparse_matrix *A, double *x, double *b, double l
         b[j] += A->val[itr_j] * x[i];
       }
     }
-    q_last_tmp+=x[i];
+    q_last_tmp += x[i];
 
   }
 }
@@ -466,12 +457,9 @@ void FixIELReax::calculate_Q()
 
   int ii;
 
-  s_sum = parallel_vector_acc( s, nn);
-  t_sum = parallel_vector_acc( t, nn);
+  s_sum = parallel_vector_acc(s, nn);
+  t_sum = parallel_vector_acc(t, nn);
   u = s_sum / t_sum;
-
-  //printf("timestep=%i\n",update->ntimestep);
-  //printf("u=%.16f\n",u);
 
   for (ii = 0; ii < nn; ++ii) {
     i = ilist[ii];
@@ -485,7 +473,7 @@ void FixIELReax::calculate_Q()
   }
 
   pack_flag = 4;
-  comm->forward_comm_fix(this); //Dist_vector( atom->q );
+  comm->forward_comm_fix(this); //Dist_vector(atom->q);
 }
 
 
@@ -526,12 +514,12 @@ void FixIELReax::copy_arrays(int i, int j, int /*delflag*/)
 int FixIELReax::pack_exchange(int i, double *buf)
 {
   buf[0] = s_EL_Scf[i];
-  buf[0] = vs_EL_Scf[i];
-  buf[0] = as_EL_Scf[i];
+  buf[1] = vs_EL_Scf[i];
+  buf[2] = as_EL_Scf[i];
 
-  buf[1] = t_EL_Scf[i];
-  buf[1] = vt_EL_Scf[i];
-  buf[1] = at_EL_Scf[i];
+  buf[3] = t_EL_Scf[i];
+  buf[4] = vt_EL_Scf[i];
+  buf[5] = at_EL_Scf[i];
   return 6;
 }
 
@@ -542,12 +530,12 @@ int FixIELReax::pack_exchange(int i, double *buf)
 int FixIELReax::unpack_exchange(int nlocal, double *buf)
 {
   s_EL_Scf[nlocal] = buf[0];
-  vs_EL_Scf[nlocal] = buf[0];
-  as_EL_Scf[nlocal] = buf[0];
+  vs_EL_Scf[nlocal] = buf[1];
+  as_EL_Scf[nlocal] = buf[2];
 
-  t_EL_Scf[nlocal] = buf[1];
-  vt_EL_Scf[nlocal] = buf[1];
-  at_EL_Scf[nlocal] = buf[1];
+  t_EL_Scf[nlocal] = buf[3];
+  vt_EL_Scf[nlocal] = buf[4];
+  at_EL_Scf[nlocal] = buf[5];
   return 6;
 }
 
@@ -574,10 +562,10 @@ void FixIELReax::kinaux (double &temp_aux_t,double &temp_aux_s)
     ekaux_t = ekaux_t + term*vt_EL_Scf[i]*vt_EL_Scf[i];
     ekaux_s = ekaux_s + term*vs_EL_Scf[i]*vs_EL_Scf[i];
   }
-  MPI_Allreduce( &ekaux_t, &ekaux_t_mpi, 1, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(&ekaux_t, &ekaux_t_mpi, 1, MPI_DOUBLE, MPI_SUM, world);
   temp_aux_t = 2.0 * ekaux_t_mpi / nfree_aux;
 
-  MPI_Allreduce( &ekaux_s, &ekaux_s_mpi, 1, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(&ekaux_s, &ekaux_s_mpi, 1, MPI_DOUBLE, MPI_SUM, world);
 
   // find the total kinetic energy and auxiliary temperatures
 
@@ -647,7 +635,6 @@ void FixIELReax::Nose_Hoover()
       
 	  // t aux calculation
 	  tgnhaux[4]=(tnhaux[3]*tvnhaux[3]*tvnhaux[3]-kelvin_aux_t)/tnhaux[4];
-	  //printf("tgnhaux[4]= %.16f tnhaux[3]= %.16f tvnhaux[3]=%.16f tnhaux[4]=%.16f kelvin_aux=%.16f\n",tgnhaux[4],tnhaux[3],tvnhaux[3],tnhaux[4],kelvin_aux);
 	  tvnhaux[4]=tvnhaux[4]+tgnhaux[4]*dt4;
 	  tgnhaux[3]=(tnhaux[2]*tvnhaux[2]*tvnhaux[2]-kelvin_aux_t)/tnhaux[3];
 	  expterm=exp(-tvnhaux[4]*dt8);
@@ -672,7 +659,6 @@ void FixIELReax::Nose_Hoover()
 	  tvnhaux[3]=expterm*(tvnhaux[3]*expterm+tgnhaux[3]*dt4);
 	  tgnhaux[4]=(tnhaux[3]*tvnhaux[3]*tvnhaux[3]-kelvin_aux_t)/tnhaux[4];
 	  tvnhaux[4]=tvnhaux[4]+tgnhaux[4]*dt4;
-      //printf("scale_t= %.16f exp(tvn)= %.16f dt2=%.16f tvnhaux[1]=%.16f \n",scale_t,exp(-tvnhaux[1]*dt2),dt2,tvnhaux[1]);
       // s aux calculation
       sgnhaux[4]=(snhaux[3]*svnhaux[3]*svnhaux[3]-kelvin_aux_s)/snhaux[4];
       svnhaux[4]=svnhaux[4]+sgnhaux[4]*dt4;
@@ -701,7 +687,6 @@ void FixIELReax::Nose_Hoover()
       
     }
   }
-  //printf("scale_t= %.16f scale_s= %.16f \n",scale_t,scale_s);
   for (int i = 0; i < nlocal; i++){
     vt_EL_Scf[i]=vt_EL_Scf[i]*scale_t;
     vs_EL_Scf[i]=vs_EL_Scf[i]*scale_s;

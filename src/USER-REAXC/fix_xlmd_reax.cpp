@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstring>
 #include <random>
+#include "random_mars.h"
 #include "pair_reaxc.h"
 #include "atom.h"
 #include "comm.h"
@@ -60,12 +61,19 @@ static const char cite_fix_xlmd_reax[] =
 /* ---------------------------------------------------------------------- */
 
 FixXLMDReax::FixXLMDReax(LAMMPS *lmp, int narg, char **arg) :
-  FixQEqReax(lmp, narg, arg)
+  FixQEqReax(lmp, narg, arg), random(nullptr)
 {
   xlmd_flag = utils::inumeric(FLERR,arg[8],false,lmp); // 1 (XLMD) 2 (Ber) 3 (NH) 4 (Lang)
   mLatent = utils::numeric(FLERR,arg[9],false,lmp);  // latent mass
   tauLatent = utils::numeric(FLERR,arg[10],false,lmp);  // latent thermostat strength
   tLatent = utils::numeric(FLERR,arg[11],false,lmp);  // latent temperature
+  seed = utils::inumeric(FLERR,arg[13],false,lmp);
+
+  if (seed <= 0) error->all(FLERR,"Illegal fix iel/reax command");
+
+  // initialize Marsaglia RNG with processor-unique seed
+
+  random = new RanMars(lmp,seed + comm->me);
 
   qLatent = pLatent = fLatent = NULL;
 }
@@ -79,6 +87,8 @@ FixXLMDReax::~FixXLMDReax()
   memory->destroy(qLatent);
   memory->destroy(pLatent);
   memory->destroy(fLatent);
+
+  delete random;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -367,6 +377,7 @@ void FixXLMDReax::Langevin(const double dt) {
 
   for (int i = 0; i < nlocal; i++) {
     pLatent[i] = pLatent[i] * dissipationLatent + pLatentAvg * fluctuationLatent * dis(gen);
+   // pLatent[i] = pLatent[i] * dissipationLatent + pLatentAvg * fluctuationLatent * random->gaussian();
   }
 
   double pDev = parallel_vector_acc(pLatent, nn) / atom->natoms;

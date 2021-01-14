@@ -75,7 +75,7 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
 
   if (utils::strmatch(style,"^xlmd/reax")) {
     xlmd_flag = 1;
-    required = 12;
+    required = 13;
   }
 
   if (narg < required || narg > required+2) error->all(FLERR, fmt::format("Illegal fix {} command", style));
