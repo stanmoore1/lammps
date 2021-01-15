@@ -63,7 +63,7 @@ static const char cite_fix_xlmd_reax[] =
 FixXLMDReax::FixXLMDReax(LAMMPS *lmp, int narg, char **arg) :
   FixQEqReax(lmp, narg, arg), random(nullptr)
 {
-  xlmd_flag = utils::inumeric(FLERR,arg[8],false,lmp); // 1 (XLMD) 2 (Ber) 3 (Lang)
+  xlmd_flag = utils::inumeric(FLERR,arg[8],false,lmp); // 1 (Ber) 2 (Lang)
   mLatent = utils::numeric(FLERR,arg[9],false,lmp);  // latent mass
   tauLatent = utils::numeric(FLERR,arg[10],false,lmp);  // latent thermostat strength
   tLatent = utils::numeric(FLERR,arg[11],false,lmp);  // latent temperature
@@ -101,11 +101,7 @@ void FixXLMDReax::post_constructor()
   grow_arrays(atom->nmax);
   for (int i = 0; i < atom->nmax; i++) {
     for (int j = 0; j < nprev; ++j)
-      s_hist[i][j] = t_hist[i][j] = 0;
-
-    qLatent[i] = atom->q[i];
-    pLatent[i] = 0;
-    fLatent[i] = 0;    
+      s_hist[i][j] = t_hist[i][j] = 0.0;
   }
 
   pertype_parameters(pertype_option);
@@ -138,16 +134,14 @@ void FixXLMDReax::init()
 
   // init XLMD
 
-  for (int i = 0; i < nn; i++){
+  for (int i = 0; i < nn; i++) {
     if (atom->mask[i] & groupbit) {
       qLatent[i] = atom->q[i];
       pLatent[i] = 0;
       fLatent[i] = 0;
     }
   }
-
 }
-
 
 /* ---------------------------------------------------------------------- */
 
@@ -183,19 +177,16 @@ void FixXLMDReax::initial_integrate(int /*vflag*/)
 
   // evolve O(t) for BAOAB Scheme
 
-  if (xlmd_flag == 2) {
+  if (xlmd_flag == 1) {
     //if (update->ntimestep > 1000) {
       Berendersen(dtv);
     //}
-  } else if (xlmd_flag == 3) {
+  } else if (xlmd_flag == 2)
     Langevin(dtv);
-  }
 
-  for (int i = 0; i < nlocal; i++) {
-    if (mask[i] & groupbit) {
+  for (int i = 0; i < nlocal; i++)
+    if (mask[i] & groupbit)
       qLatent[i] += dth * pLatent[i] / mLatent;
-    }
-  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -261,9 +252,8 @@ void FixXLMDReax::calculate_XLMD() {
 
   for (int ii = 0; ii < nn; ++ii) {
     const int i = ilist[ii];
-    if (atom->mask[i] & groupbit) {
+    if (atom->mask[i] & groupbit)
       atom->q[i] = qLatent[i];
-    }
   }
   pack_flag = 4;
   comm->forward_comm_fix(this); // Dist_vector( atom-> q);
@@ -274,9 +264,8 @@ void FixXLMDReax::calculate_XLMD() {
   comm->reverse_comm_fix(this);
   for (int ii = 0; ii < nn; ++ii) {
     const int i = ilist[ii];
-    if (atom->mask[i] & groupbit) {
+    if (atom->mask[i] & groupbit)
       fLatent[i] = (b_s[i] - q[i]) * ATOMIC_TO_REAL + qConst;
-    }
   }
 
   // Apply constraint on f
@@ -284,9 +273,8 @@ void FixXLMDReax::calculate_XLMD() {
   double fDev = sumFLatent / atom->natoms;
   for (int ii = 0; ii < nn; ++ii) {
     const int i = ilist[ii];
-    if (atom->mask[i] & groupbit) {
+    if (atom->mask[i] & groupbit)
       fLatent[i] = fLatent[i] - fDev;
-    }
   }
 }
 
@@ -304,11 +292,9 @@ void FixXLMDReax::final_integrate()
 
   // Evolve B(t/2)
 
-  for (int i = 0; i < nlocal; i++) {
-    if (mask[i] & groupbit) {
+  for (int i = 0; i < nlocal; i++)
+    if (mask[i] & groupbit)
       pLatent[i] += dth * fLatent[i];
-    }
-  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -329,9 +315,8 @@ double FixXLMDReax::kinetic_latent()
   double avg_p2 = 0.0;
 
   // find the total kinetic energy and auxiliary temperatures
-  for (int i = 0; i < nlocal; i++) {
+  for (int i = 0; i < nlocal; i++)
     sum_p2 = sum_p2 + pLatent[i] * pLatent[i] / mLatent / 2.0;
-  }
   MPI_Allreduce(&sum_p2, &sum_p2_mpi, 1, MPI_DOUBLE, MPI_SUM, world);
   avg_p2 = sum_p2_mpi / atom->natoms;
   return avg_p2;
@@ -348,9 +333,8 @@ void FixXLMDReax::Berendersen(const double dt)
   double target_p2 = tLatent / 2.0;
   double scale = sqrt(1.0 + (dt/(tauLatent))*(target_p2/avg_p2-1.0));
 
-  for (int i = 0; i < nlocal; i++) {
+  for (int i = 0; i < nlocal; i++)
     pLatent[i] = pLatent[i] * scale;
-  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -364,7 +348,6 @@ void FixXLMDReax::Langevin(const double dt) {
   double dissipationLatent = exp(-dt/tauLatent);
   double fluctuationLatent = sqrt(1 - dissipationLatent * dissipationLatent);
 
-  // change to LAMMPS RNG
   std::default_random_engine gen;
   std::normal_distribution<double> dis(0,1);
 
@@ -375,15 +358,14 @@ void FixXLMDReax::Langevin(const double dt) {
   // Perform the Langevin integration.
 
   for (int i = 0; i < nlocal; i++) {
-    pLatent[i] = pLatent[i] * dissipationLatent + pLatentAvg * fluctuationLatent * dis(gen);
-   // pLatent[i] = pLatent[i] * dissipationLatent + pLatentAvg * fluctuationLatent * random->gaussian();
+   //pLatent[i] = pLatent[i] * dissipationLatent + pLatentAvg * fluctuationLatent * dis(gen);
+   pLatent[i] = pLatent[i] * dissipationLatent + pLatentAvg * fluctuationLatent * random->gaussian();
   }
 
   double pDev = parallel_vector_acc(pLatent, nn) / atom->natoms;
 
-  for (int i = 0; i < nlocal; i++) {
+  for (int i = 0; i < nlocal; i++)
     pLatent[i] = pLatent[i] - pDev;
-  }
 }
 
 
@@ -463,4 +445,3 @@ int FixXLMDReax::unpack_exchange(int nlocal, double *buf)
 
   return 3;
 }
-

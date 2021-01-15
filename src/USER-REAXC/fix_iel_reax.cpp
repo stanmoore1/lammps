@@ -139,7 +139,7 @@ void FixIELReax::init()
   vChi_eq_iEL_Scf = 0.0;
   aChi_eq_iEL_Scf = 0.0;
 
-  for (int i = 0; i < nlocal; i++){
+  for (int i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) {
       vs_EL_Scf[i] = 0.0;
       as_EL_Scf[i] = 0.0;
@@ -151,22 +151,17 @@ void FixIELReax::init()
   qterm_aux_t = kelvin_aux_t * tautemp_aux * tautemp_aux;
   qterm_aux_s = kelvin_aux_s * tautemp_aux * tautemp_aux;
 
-  for (int i=0;i < 5; i++)
+  for (int i = 0; i < 5; i++)
     {
-      if (tgnhaux[i]==0.0)tgnhaux[i] = qterm_aux_t;
+      if (tgnhaux[i] == 0.0) tgnhaux[i] = qterm_aux_t;
       tvnhaux[i] = 0.0;
-      if (tnhaux[i]==0.0)tnhaux[i]  = qterm_aux_t;
-      if (sgnhaux[i]==0.0)sgnhaux[i] = qterm_aux_s;
+      if (tnhaux[i] == 0.0) tnhaux[i] = qterm_aux_t;
+      if (sgnhaux[i] == 0.0) sgnhaux[i] = qterm_aux_s;
       svnhaux[i] = 0.0;
-      if (snhaux[i]==0.0)snhaux[i]  = qterm_aux_s;
+      if (snhaux[i] == 0.0) snhaux[i] = qterm_aux_s;
     }
 
-
-  b_last = 0.0;   
-  x_last = 0.0;
-  q_last = 0.0;
-  r_last = 0.0;
-  d_last = 0.0;
+  b_last = x_last = q_last = r_last = d_last = 0.0;   
 }
 
 /* ---------------------------------------------------------------------- */
@@ -178,9 +173,9 @@ void FixIELReax::init_storage()
 
     b_s[i] = -chi[atom->type[i]];
     b_t[i] = -1.0;
-    b_prc[i] = 0;
-    b_prm[i] = 0;
-    s[i] = t[i] = 0;
+    b_prc[i] = 0.0;
+    b_prm[i] = 0.0;
+    s[i] = t[i] = 0.0;
   }
 }
 
@@ -323,7 +318,7 @@ int FixIELReax::CG(double *b, double *x)
 
   for (jj = 0; jj < nn; ++jj) {
     j = ilist[jj];
-    if (atom->mask[j] & groupbit){
+    if (atom->mask[j] & groupbit) {
       d[j] = r[j] * Hdia_inv[j]; //pre-condition
     }
   }
@@ -432,9 +427,8 @@ void FixIELReax::sparse_matvec(sparse_matrix *A, double *x, double *b, double la
 
   for (ii = 0; ii < nn; ++ii) {
     i = ilist[ii];
-    if (atom->mask[i] & groupbit){
+    if (atom->mask[i] & groupbit)
       b[i] = eta[ atom->type[i] ] * x[i]-last;
-    }
   }
 
   for (ii = nn; ii < NN; ++ii) {
@@ -476,9 +470,9 @@ void FixIELReax::calculate_Q()
     i = ilist[ii];
     if (atom->mask[i] & groupbit) {
       q[i] = s[i] - u * t[i];
-      if(update->ntimestep==0){
-        s_EL_Scf[i]=s[i];
-        t_EL_Scf[i]=t[i];
+      if(update->ntimestep == 0) {
+        s_EL_Scf[i] = s[i];
+        t_EL_Scf[i] = t[i];
       }
     }
   }
@@ -555,8 +549,8 @@ void FixIELReax::kinaux (double &temp_aux_t,double &temp_aux_s)
   int i;
   double term;
   double eksum_aux;
-  double ekaux_t=0.0;
-  double ekaux_s=0.0;
+  double ekaux_t = 0.0;
+  double ekaux_s = 0.0;
   int nfree_aux =atom->natoms;
   int nlocal = atom->nlocal;
   //zero out the temperature and kinetic energy components
@@ -582,7 +576,7 @@ void FixIELReax::kinaux (double &temp_aux_t,double &temp_aux_s)
 
   //eksum_aux = ekaux;
 
-  //if (nfree_aux =! 0){
+  //if (nfree_aux =! 0) {
   temp_aux_s = 2.0 * ekaux_s_mpi / (nfree_aux);
 
 }
@@ -606,11 +600,11 @@ void FixIELReax::Berendersen()
   if(temp_aux_t != 0)
     scale_t = sqrt(1.0 + (dtv/tautemp_aux)*(kelvin_aux_t/temp_aux_t-1.0));
   
-  for (int i = 0; i < nlocal; i++){
+  for (int i = 0; i < nlocal; i++) {
     vt_EL_Scf[i] = scale_t * vt_EL_Scf[i];
     vs_EL_Scf[i] = scale_s * vs_EL_Scf[i];
-    if(abs(vt_EL_Scf[i]) > 0.1)vt_EL_Scf[i]*=0.1;
-    if(abs(vs_EL_Scf[i]) > 0.1)vs_EL_Scf[i]*=0.1;
+    if(abs(vt_EL_Scf[i]) > 0.1)vt_EL_Scf[i] *= 0.1;
+    if(abs(vs_EL_Scf[i]) > 0.1)vs_EL_Scf[i] *= 0.1;
   }
 }
   
@@ -635,72 +629,72 @@ void FixIELReax::Nose_Hoover()
    
   double expterm;
   double dts,dt2,dt4,dt8;
-  int nfree_aux =atom->natoms;
+  int nfree_aux = atom->natoms;
   
-  for (int i = 0;i < nc; i++){
-    for (int j = 0; j < ns; j++){
+  for (int i = 0;i < nc; i++) {
+    for (int j = 0; j < ns; j++) {
       dts = w[j] * dtc;
       dt2 = 0.5 * dts;
       dt4 = 0.25 * dts;
       dt8 = 0.125 * dts;
       
-	  // t aux calculation
-	  tgnhaux[4]=(tnhaux[3]*tvnhaux[3]*tvnhaux[3]-kelvin_aux_t)/tnhaux[4];
-	  tvnhaux[4]=tvnhaux[4]+tgnhaux[4]*dt4;
-	  tgnhaux[3]=(tnhaux[2]*tvnhaux[2]*tvnhaux[2]-kelvin_aux_t)/tnhaux[3];
-	  expterm=exp(-tvnhaux[4]*dt8);
-	  tvnhaux[3]=expterm*(tvnhaux[3]*expterm+tgnhaux[3]*dt4);
-	  tgnhaux[2]=(tnhaux[1]*tvnhaux[1]*tvnhaux[1]-kelvin_aux_t)/tnhaux[2];
-	  expterm=exp(-tvnhaux[3]*dt8);
-	  tvnhaux[2]=expterm*(tvnhaux[2]*expterm+tgnhaux[2]*dt4);
-	  tgnhaux[1]=((nfree_aux)*temp_aux_t-(nfree_aux)*kelvin_aux_t)/tnhaux[1];
-	  expterm=exp(-tvnhaux[2]*dt8);
-	  tvnhaux[1]=expterm*(tvnhaux[1]*expterm+tgnhaux[1]*dt4);
-	  scale_t=scale_t*exp(-tvnhaux[1]*dt2);
+      // t aux calculation
+      tgnhaux[4] = (tnhaux[3]*tvnhaux[3]*tvnhaux[3]-kelvin_aux_t)/tnhaux[4];
+      tvnhaux[4] = tvnhaux[4]+tgnhaux[4]*dt4;
+      tgnhaux[3] = (tnhaux[2]*tvnhaux[2]*tvnhaux[2]-kelvin_aux_t)/tnhaux[3];
+      expterm=exp(-tvnhaux[4]*dt8);
+      tvnhaux[3] = expterm*(tvnhaux[3]*expterm+tgnhaux[3]*dt4);
+      tgnhaux[2] = (tnhaux[1]*tvnhaux[1]*tvnhaux[1]-kelvin_aux_t)/tnhaux[2];
+      expterm=exp(-tvnhaux[3]*dt8);
+      tvnhaux[2] = expterm*(tvnhaux[2]*expterm+tgnhaux[2]*dt4);
+      tgnhaux[1] = ((nfree_aux)*temp_aux_t-(nfree_aux)*kelvin_aux_t)/tnhaux[1];
+      expterm = exp(-tvnhaux[2]*dt8);
+      tvnhaux[1] = expterm*(tvnhaux[1]*expterm+tgnhaux[1]*dt4);
+      scale_t = scale_t*exp(-tvnhaux[1]*dt2);
 	  
-	  temp_aux_t=temp_aux_t*exp(-tvnhaux[1]*dt2)*exp(-tvnhaux[1]*dt2);
-	  tgnhaux[1]=((nfree_aux)*temp_aux_t-(nfree_aux)*kelvin_aux_t)/tnhaux[1];
-	  expterm=exp(-tvnhaux[2]*dt8);
-	  tvnhaux[1]=expterm*(tvnhaux[1]*expterm+tgnhaux[1]*dt4);
-	  tgnhaux[2]=(tnhaux[1]*tvnhaux[1]*tvnhaux[1]-kelvin_aux_t)/tnhaux[2];
-	  expterm=exp(-tvnhaux[3]*dt8);
-	  tvnhaux[2]=expterm*(tvnhaux[2]*expterm+tgnhaux[2]*dt4);
-	  tgnhaux[3]=(tnhaux[2]*tvnhaux[2]*tvnhaux[2]-kelvin_aux_t)/tnhaux[3];
-	  expterm=exp(-tvnhaux[4]*dt8);
-	  tvnhaux[3]=expterm*(tvnhaux[3]*expterm+tgnhaux[3]*dt4);
-	  tgnhaux[4]=(tnhaux[3]*tvnhaux[3]*tvnhaux[3]-kelvin_aux_t)/tnhaux[4];
-	  tvnhaux[4]=tvnhaux[4]+tgnhaux[4]*dt4;
+      temp_aux_t = temp_aux_t*exp(-tvnhaux[1]*dt2)*exp(-tvnhaux[1]*dt2);
+      tgnhaux[1] = ((nfree_aux)*temp_aux_t-(nfree_aux)*kelvin_aux_t)/tnhaux[1];
+      expterm = exp(-tvnhaux[2]*dt8);
+      tvnhaux[1] = expterm*(tvnhaux[1]*expterm+tgnhaux[1]*dt4);
+      tgnhaux[2] = (tnhaux[1]*tvnhaux[1]*tvnhaux[1]-kelvin_aux_t)/tnhaux[2];
+      expterm=exp(-tvnhaux[3]*dt8);
+      tvnhaux[2] = expterm*(tvnhaux[2]*expterm+tgnhaux[2]*dt4);
+      tgnhaux[3] = (tnhaux[2]*tvnhaux[2]*tvnhaux[2]-kelvin_aux_t)/tnhaux[3];
+      expterm = exp(-tvnhaux[4]*dt8);
+      tvnhaux[3] = expterm*(tvnhaux[3]*expterm+tgnhaux[3]*dt4);
+      tgnhaux[4] = (tnhaux[3]*tvnhaux[3]*tvnhaux[3]-kelvin_aux_t)/tnhaux[4];
+      tvnhaux[4] = tvnhaux[4]+tgnhaux[4]*dt4;
+
       // s aux calculation
-      sgnhaux[4]=(snhaux[3]*svnhaux[3]*svnhaux[3]-kelvin_aux_s)/snhaux[4];
-      svnhaux[4]=svnhaux[4]+sgnhaux[4]*dt4;
-      sgnhaux[3]=(snhaux[2]*svnhaux[2]*svnhaux[2]-kelvin_aux_s)/snhaux[3];
-      expterm=exp(-svnhaux[4]*dt8);
-      svnhaux[3]=expterm*(svnhaux[3]*expterm+sgnhaux[3]*dt4);
-      sgnhaux[2]=(snhaux[1]*svnhaux[1]*svnhaux[1]-kelvin_aux_s)/snhaux[2];
-      expterm=exp(-svnhaux[3]*dt8);
-      svnhaux[2]=expterm*(svnhaux[2]*expterm+sgnhaux[2]*dt4);
-      sgnhaux[1]=((nfree_aux)*temp_aux_s-(nfree_aux)*kelvin_aux_s)/snhaux[1];
-      expterm=exp(-svnhaux[2]*dt8);
-      svnhaux[1]=expterm*(svnhaux[1]*expterm+sgnhaux[1]*dt4);
-      scale_s=scale_s*exp(-svnhaux[1]*dt2);
-      temp_aux_s=temp_aux_s*exp(-svnhaux[1]*dt2)*exp(-svnhaux[1]*dt2);
-      sgnhaux[1]=((nfree_aux)*temp_aux_s-(nfree_aux)*kelvin_aux_s)/snhaux[1];
-      expterm=exp(-svnhaux[2]*dt8);
-      svnhaux[1]=expterm*(svnhaux[1]*expterm+sgnhaux[1]*dt4);
-      sgnhaux[2]=(snhaux[1]*svnhaux[1]*svnhaux[1]-kelvin_aux_s)/snhaux[2];
-      expterm=exp(-svnhaux[3]*dt8);
-      svnhaux[2]=expterm*(svnhaux[2]*expterm+sgnhaux[2]*dt4);
-      sgnhaux[3]=(snhaux[2]*svnhaux[2]*svnhaux[2]-kelvin_aux_s)/snhaux[3];
-      expterm=exp(-svnhaux[4]*dt8);
-      svnhaux[3]=expterm*(svnhaux[3]*expterm+sgnhaux[3]*dt4);
-      sgnhaux[4]=(snhaux[3]*svnhaux[3]*svnhaux[3]-kelvin_aux_s)/snhaux[4];
-      svnhaux[4]=svnhaux[4]+sgnhaux[4]*dt4;
-      
+      sgnhaux[4] = (snhaux[3]*svnhaux[3]*svnhaux[3]-kelvin_aux_s)/snhaux[4];
+      svnhaux[4] = svnhaux[4]+sgnhaux[4]*dt4;
+      sgnhaux[3] = (snhaux[2]*svnhaux[2]*svnhaux[2]-kelvin_aux_s)/snhaux[3];
+      expterm = exp(-svnhaux[4]*dt8);
+      svnhaux[3] = expterm*(svnhaux[3]*expterm+sgnhaux[3]*dt4);
+      sgnhaux[2] = (snhaux[1]*svnhaux[1]*svnhaux[1]-kelvin_aux_s)/snhaux[2];
+      expterm = exp(-svnhaux[3]*dt8);
+      svnhaux[2] = expterm*(svnhaux[2]*expterm+sgnhaux[2]*dt4);
+      sgnhaux[1] = ((nfree_aux)*temp_aux_s-(nfree_aux)*kelvin_aux_s)/snhaux[1];
+      expterm = exp(-svnhaux[2]*dt8);
+      svnhaux[1] = expterm*(svnhaux[1]*expterm+sgnhaux[1]*dt4);
+      scale_s = scale_s*exp(-svnhaux[1]*dt2);
+      temp_aux_s = temp_aux_s*exp(-svnhaux[1]*dt2)*exp(-svnhaux[1]*dt2);
+      sgnhaux[1] = ((nfree_aux)*temp_aux_s-(nfree_aux)*kelvin_aux_s)/snhaux[1];
+      expterm = exp(-svnhaux[2]*dt8);
+      svnhaux[1] = expterm*(svnhaux[1]*expterm+sgnhaux[1]*dt4);
+      sgnhaux[2] = (snhaux[1]*svnhaux[1]*svnhaux[1]-kelvin_aux_s)/snhaux[2];
+      expterm = exp(-svnhaux[3]*dt8);
+      svnhaux[2] = expterm*(svnhaux[2]*expterm+sgnhaux[2]*dt4);
+      sgnhaux[3] = (snhaux[2]*svnhaux[2]*svnhaux[2]-kelvin_aux_s)/snhaux[3];
+      expterm = exp(-svnhaux[4]*dt8);
+      svnhaux[3] = expterm*(svnhaux[3]*expterm+sgnhaux[3]*dt4);
+      sgnhaux[4] = (snhaux[3]*svnhaux[3]*svnhaux[3]-kelvin_aux_s)/snhaux[4];
+      svnhaux[4] = svnhaux[4]+sgnhaux[4]*dt4;
     }
   }
-  for (int i = 0; i < nlocal; i++){
-    vt_EL_Scf[i]=vt_EL_Scf[i]*scale_t;
-    vs_EL_Scf[i]=vs_EL_Scf[i]*scale_s;
-  }
 
+  for (int i = 0; i < nlocal; i++) {
+    vt_EL_Scf[i] = vt_EL_Scf[i]*scale_t;
+    vs_EL_Scf[i] = vs_EL_Scf[i]*scale_s;
+  }
 }

@@ -560,7 +560,6 @@ void FixQEqReax::pre_force(int /*vflag*/)
   matvecs_s = CG(b_s, s);       // CG on s - parallel
   matvecs_t = CG(b_t, t);       // CG on t - parallel
   matvecs = matvecs_s + matvecs_t;
-  printf("matvecs %i %i\n",matvecs_s,matvecs_t);
 
   calculate_Q();
 

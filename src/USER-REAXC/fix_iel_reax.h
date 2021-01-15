@@ -40,7 +40,7 @@ class FixIELReax : public FixQEqReax {
 
  private:
 
- int setup_flag;
+  int setup_flag;
 
   double *t_EL_Scf, *vt_EL_Scf, *at_EL_Scf, *s_EL_Scf, *vs_EL_Scf, *as_EL_Scf;
 

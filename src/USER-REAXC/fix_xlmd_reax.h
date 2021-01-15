@@ -46,7 +46,7 @@ class FixXLMDReax : public FixQEqReax {
 
   double dtv,dtf,dth;
 
-  int xlmd_flag; // 1 -> C-XLMD, 2 -> B/C-XLMD, 3 -> S/C-XLMD
+  int xlmd_flag; // 0 -> C-XLMD, 1 -> B/C-XLMD, 2 -> S/C-XLMD
   int setup_flag;
   double *qLatent,*pLatent,*fLatent;
   double mLatent, tLatent, tauLatent; // mass, temperature and coupling parameter
