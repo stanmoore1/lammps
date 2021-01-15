@@ -33,11 +33,14 @@ class FixIELReax : public FixQEqReax {
   void init();
   void init_storage();
   void initial_integrate(int);
+  void setup_pre_force(int);
   void pre_force(int);
   void final_integrate();
   void reset_dt();
 
  private:
+
+ int setup_flag;
 
   double *t_EL_Scf, *vt_EL_Scf, *at_EL_Scf, *s_EL_Scf, *vs_EL_Scf, *as_EL_Scf;
 

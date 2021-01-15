@@ -85,6 +85,8 @@ FixIELReax::FixIELReax(LAMMPS *lmp, int narg, char **arg) :
   s_EL_Scf = nullptr;
   vs_EL_Scf = nullptr;
   as_EL_Scf = nullptr;
+
+  setup_flag = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -216,6 +218,15 @@ void FixIELReax::initial_integrate(int /*vflag*/)
 
 /* ---------------------------------------------------------------------- */
 
+void FixIELReax::setup_pre_force(int vflag)
+{
+  setup_flag = 1;
+  FixQEqReax::setup_pre_force(vflag);
+  setup_flag = 0;
+}
+
+/* ---------------------------------------------------------------------- */
+
 void FixIELReax::pre_force(int /*vflag*/)
 {
   double t_start, t_end;
@@ -325,7 +336,7 @@ int FixIELReax::CG(double *b, double *x)
 
   sig_new += r_last*r_last;
 
-  if (update->ntimestep == 0)
+  if (setup_flag)
     tolerance_tmp = 0.0000000001;
   else
     tolerance_tmp = tolerance;

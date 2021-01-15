@@ -34,8 +34,8 @@ class FixXLMDReax : public FixQEqReax {
   void initial_integrate(int);
   void final_integrate();
   void reset_dt();
+  void setup_pre_force(int);
   void pre_force(int);
-  void end_of_step();
 
  private:
 
@@ -47,6 +47,7 @@ class FixXLMDReax : public FixQEqReax {
   double dtv,dtf,dth;
 
   int xlmd_flag; // 1 -> C-XLMD, 2 -> B/C-XLMD, 3 -> S/C-XLMD
+  int setup_flag;
   double *qLatent,*pLatent,*fLatent;
   double mLatent, tLatent, tauLatent; // mass, temperature and coupling parameter
   double qConst; // Chemical potential

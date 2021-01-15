@@ -63,11 +63,11 @@ static const char cite_fix_xlmd_reax[] =
 FixXLMDReax::FixXLMDReax(LAMMPS *lmp, int narg, char **arg) :
   FixQEqReax(lmp, narg, arg), random(nullptr)
 {
-  xlmd_flag = utils::inumeric(FLERR,arg[8],false,lmp); // 1 (XLMD) 2 (Ber) 3 (NH) 4 (Lang)
+  xlmd_flag = utils::inumeric(FLERR,arg[8],false,lmp); // 1 (XLMD) 2 (Ber) 3 (Lang)
   mLatent = utils::numeric(FLERR,arg[9],false,lmp);  // latent mass
   tauLatent = utils::numeric(FLERR,arg[10],false,lmp);  // latent thermostat strength
   tLatent = utils::numeric(FLERR,arg[11],false,lmp);  // latent temperature
-  seed = utils::inumeric(FLERR,arg[13],false,lmp);
+  seed = utils::inumeric(FLERR,arg[12],false,lmp);
 
   if (seed <= 0) error->all(FLERR,"Illegal fix iel/reax command");
 
@@ -76,6 +76,7 @@ FixXLMDReax::FixXLMDReax(LAMMPS *lmp, int narg, char **arg) :
   random = new RanMars(lmp,seed + comm->me);
 
   qLatent = pLatent = fLatent = NULL;
+  setup_flag = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -122,7 +123,6 @@ int FixXLMDReax::setmask()
   mask |= PRE_FORCE;
   mask |= PRE_FORCE_RESPA;
   mask |= MIN_PRE_FORCE;
-  mask |= END_OF_STEP;
   return mask;
 }
 
@@ -146,6 +146,16 @@ void FixXLMDReax::init()
     }
   }
 
+}
+
+
+/* ---------------------------------------------------------------------- */
+
+void FixXLMDReax::setup_pre_force(int vflag)
+{
+  setup_flag = 1;
+  FixQEqReax::setup_pre_force(vflag);
+  setup_flag = 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -174,9 +184,9 @@ void FixXLMDReax::initial_integrate(int /*vflag*/)
   // evolve O(t) for BAOAB Scheme
 
   if (xlmd_flag == 2) {
-    if (update->ntimestep > 1000) {
+    //if (update->ntimestep > 1000) {
       Berendersen(dtv);
-    }
+    //}
   } else if (xlmd_flag == 3) {
     Langevin(dtv);
   }
@@ -222,7 +232,7 @@ void FixXLMDReax::pre_force(int /*vflag*/)
 
   init_matvec();
 
-  if (update->ntimestep == 0) {
+  if (setup_flag) {
     matvecs_s = CG(b_s, s);       // CG on s - parallel
     matvecs_t = CG(b_t, t);       // CG on t - parallel
     matvecs = matvecs_s + matvecs_t;
@@ -300,17 +310,6 @@ void FixXLMDReax::final_integrate()
     }
   }
 }
-
-/* ---------------------------------------------------------------------- */
-
-void FixXLMDReax::end_of_step() {
-  double qDev = parallel_vector_acc(qLatent, nn) / atom->natoms;
-  double KineticLatent = parallel_dot(pLatent, pLatent, nn) / 2 / mLatent;
-  // Show charge conservation and latent temperature
-  if (update->ntimestep % 100 == 0 && comm->me == 0)
-    printf("%d\t%.8f\t%.8f\n", update->ntimestep, qDev, KineticLatent);
-}
-
 
 /* ---------------------------------------------------------------------- */
 
