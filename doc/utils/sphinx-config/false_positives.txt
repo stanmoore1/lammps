@@ -200,6 +200,7 @@ barostatted
 barostatting
 Barostatting
 Barrat
+Bartelt
 Bartels
 barycenter
 barye
@@ -329,6 +330,7 @@ Buyl
 Bybee
 bz
 cadetblue
+Cagin
 calc
 calibre
 caltech
@@ -506,6 +508,7 @@ cpp
 cpu
 createatoms
 createAtoms
+CreateIDs
 crespi
 Crespi
 Critchley
@@ -595,6 +598,7 @@ Dcut
 de
 dE
 De
+deallocated
 decorrelation
 debye
 Debye
@@ -690,6 +694,7 @@ dmi
 dnf
 DNi
 Dobson
+Dobnikar
 Dodds
 docenv
 dodgerblue
@@ -784,6 +789,7 @@ ees
 eFF
 efield
 effm
+eflag
 eflux
 eg
 Eggebrecht
@@ -1218,6 +1224,7 @@ Herrmann
 Hertizian
 hertzian
 Hertzsch
+heterostructures
 hexahedrons
 hexatic
 hexorder
@@ -1229,6 +1236,7 @@ Hibbs
 Higdon
 Hijazi
 Hilger
+Hinestrosa
 histo
 histogrammed
 histogramming
@@ -2473,6 +2481,9 @@ Poresag
 pos
 Poschel
 posix
+postfix
+postfixed
+postfixes
 Postma
 Potapkin
 potin
@@ -2529,6 +2540,8 @@ Px
 pxx
 Pxx
 Pxy
+pxy
+pxz
 py
 Py
 pydir
@@ -2540,10 +2553,13 @@ pymol
 pypar
 pythonic
 pytorch
+pyy
 Pyy
+pyz
 pz
 Pz
 Pzz
+pzz
 qbmsst
 qcore
 qdist
@@ -2672,12 +2688,15 @@ rfile
 rg
 Rg
 Rhaphson
+Rhe
 rheological
 rheology
 rhodo
 Rhodo
 rhodopsin
 rhok
+rhomax
+rhomin
 rhorho
 rhosum
 ri
@@ -2726,6 +2745,7 @@ rNEMD
 ro
 Rochus
 Rockett
+rocksalt
 Rodrigues
 Rohart
 Ronchetti
@@ -3323,6 +3343,7 @@ verlet
 Verlet
 versa
 ves
+vflag
 vhi
 vibrational
 Vij
@@ -3400,6 +3421,7 @@ WeinanE
 Wennberg
 Westmere
 Westview
+wf
 wget
 Whelan
 whitesmoke
@@ -3545,6 +3567,7 @@ zz
 Zm
 PowerShell
 filesystems
+zincblende
 Zstandard
 Zstd
 zstd
