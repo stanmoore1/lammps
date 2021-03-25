@@ -339,6 +339,9 @@ void FixACKS2ReaxKokkos<DeviceType>::pre_force(int vflag)
     k_X_diag.template sync<DeviceType>();
   }
 
+  if (field_flag)
+    get_chi_field();
+
   // init_matvec
 
   k_s_hist.template sync<DeviceType>();
@@ -463,6 +466,9 @@ void FixACKS2ReaxKokkos<DeviceType>::allocate_array()
     memoryKK->create_kokkos(k_z,z,size,"acks2/kk:z");
     d_z = k_z.template view<DeviceType>();
   }
+
+  if (field_flag)
+    get_chi_field();
 
   // init_storage
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2Zero>(0,NN),*this);
@@ -1909,7 +1915,7 @@ int FixACKS2ReaxKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 
 template<class DeviceType>
 void FixACKS2ReaxKokkos<DeviceType>::get_chi_field()
-{ 
+{
   FixQEqReax::get_chi_field();
   k_chi_field.modify_host();
   k_chi_field.sync_device();
