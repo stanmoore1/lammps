@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -18,7 +18,7 @@
 ------------------------------------------------------------------------- */
 
 #include "fix_rigid_nh_small.h"
-#include <mpi.h>
+
 #include <cmath>
 #include <cstring>
 #include "math_extra.h"
@@ -34,28 +34,25 @@
 #include "kspace.h"
 #include "memory.h"
 #include "error.h"
+#include "rigid_const.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
 using namespace MathExtra;
-
-enum{NONE,XYZ,XY,YZ,XZ};     // same as in FixRigid
-enum{ISO,ANISO,TRICLINIC};   // same as in FixRigid
-
-#define EPSILON 1.0e-7
-
-enum{FULL_BODY,INITIAL,FINAL,FORCE_TORQUE,VCM_ANGMOM,XCM_MASS,ITENSOR,DOF};
+using namespace RigidConst;
 
 /* ---------------------------------------------------------------------- */
 
 FixRigidNHSmall::FixRigidNHSmall(LAMMPS *lmp, int narg, char **arg) :
-  FixRigidSmall(lmp, narg, arg), w(NULL), wdti1(NULL),
-  wdti2(NULL), wdti4(NULL), q_t(NULL), q_r(NULL), eta_t(NULL),
-  eta_r(NULL), eta_dot_t(NULL), eta_dot_r(NULL), f_eta_t(NULL),
-  f_eta_r(NULL), q_b(NULL), eta_b(NULL), eta_dot_b(NULL),
-  f_eta_b(NULL), rfix(NULL), id_temp(NULL), id_press(NULL),
-  temperature(NULL), pressure(NULL)
+  FixRigidSmall(lmp, narg, arg), w(nullptr), wdti1(nullptr),
+  wdti2(nullptr), wdti4(nullptr), q_t(nullptr), q_r(nullptr), eta_t(nullptr),
+  eta_r(nullptr), eta_dot_t(nullptr), eta_dot_r(nullptr), f_eta_t(nullptr),
+  f_eta_r(nullptr), q_b(nullptr), eta_b(nullptr), eta_dot_b(nullptr),
+  f_eta_b(nullptr), rfix(nullptr), id_temp(nullptr), id_press(nullptr),
+  temperature(nullptr), pressure(nullptr)
 {
+  if (tstat_flag || pstat_flag) ecouple_flag = 1;
+
   // error checks
 
   if ((p_flag[0] == 1 && p_period[0] <= 0.0) ||
@@ -125,6 +122,10 @@ FixRigidNHSmall::FixRigidNHSmall(LAMMPS *lmp, int narg, char **arg) :
        p_period[0] != p_period[2]))
     error->all(FLERR,"Invalid fix rigid/small npt/nph command pressure settings");
 
+  if (p_flag[0]) box_change |= BOX_CHANGE_X;
+  if (p_flag[1]) box_change |= BOX_CHANGE_Y;
+  if (p_flag[2]) box_change |= BOX_CHANGE_Z;
+
   if ((tstat_flag && t_period <= 0.0) ||
       (p_flag[0] && p_period[0] <= 0.0) ||
       (p_flag[1] && p_period[1] <= 0.0) ||
@@ -160,7 +161,7 @@ FixRigidNHSmall::FixRigidNHSmall(LAMMPS *lmp, int narg, char **arg) :
   // rigid body pointers
 
   nrigidfix = 0;
-  rfix = NULL;
+  rfix = nullptr;
 
   vol0 = 0.0;
   t0 = 1.0;
@@ -168,8 +169,8 @@ FixRigidNHSmall::FixRigidNHSmall(LAMMPS *lmp, int narg, char **arg) :
   tcomputeflag = 0;
   pcomputeflag = 0;
 
-  id_temp = NULL;
-  id_press = NULL;
+  id_temp = nullptr;
+  id_press = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -200,8 +201,6 @@ int FixRigidNHSmall::setmask()
 {
   int mask = 0;
   mask = FixRigidSmall::setmask();
-  if (tstat_flag || pstat_flag) mask |= THERMO_ENERGY;
-
   return mask;
 }
 
@@ -302,7 +301,7 @@ void FixRigidNHSmall::init()
 
     if (rfix) delete [] rfix;
     nrigidfix = 0;
-    rfix = NULL;
+    rfix = nullptr;
 
     for (int i = 0; i < modify->nfix; i++)
       if (modify->fix[i]->rigid_flag) nrigidfix++;
@@ -592,8 +591,7 @@ void FixRigidNHSmall::initial_integrate(int vflag)
 
   // virial setup before call to set_xv
 
-  if (vflag) v_setup(vflag);
-  else evflag = 0;
+  v_init(vflag);
 
   // remap simulation box by 1/2 step
 
@@ -1321,9 +1319,7 @@ int FixRigidNHSmall::modify_param(int narg, char **arg)
       tcomputeflag = 0;
     }
     delete [] id_temp;
-    int n = strlen(arg[1]) + 1;
-    id_temp = new char[n];
-    strcpy(id_temp,arg[1]);
+    id_temp = utils::strdup(arg[1]);
 
     int icompute = modify->find_compute(arg[1]);
     if (icompute < 0)
@@ -1355,9 +1351,7 @@ int FixRigidNHSmall::modify_param(int narg, char **arg)
       pcomputeflag = 0;
     }
     delete [] id_press;
-    int n = strlen(arg[1]) + 1;
-    id_press = new char[n];
-    strcpy(id_press,arg[1]);
+    id_press = utils::strdup(arg[1]);
 
     int icompute = modify->find_compute(arg[1]);
     if (icompute < 0) error->all(FLERR,"Could not find fix_modify pressure ID");

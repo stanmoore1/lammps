@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -30,10 +30,10 @@
 #include "math_const.h"
 #include "memory.h"
 #include "modify.h"
-#include "random_park.h"
+// #include "random_park.h"
+#include "random_mars.h"
 #include "respa.h"
 #include "update.h"
-#include "utils.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -42,19 +42,13 @@ using namespace MathConst;
 /* ---------------------------------------------------------------------- */
 
 FixLangevinSpin::FixLangevinSpin(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg), id_temp(NULL), random(NULL)
+  Fix(lmp, narg, arg), id_temp(nullptr), random(nullptr)
 {
   if (narg != 6) error->all(FLERR,"Illegal langevin/spin command");
 
-  dynamic_group_allow = 1;
-  scalar_flag = 1;
-  global_freq = 1;
-  extscalar = 1;
-  nevery = 1;
-
-  temp = force->numeric(FLERR,arg[3]);
-  alpha_t = force->numeric(FLERR,arg[4]);
-  seed = force->inumeric(FLERR,arg[5]);
+  temp = utils::numeric(FLERR,arg[3],false,lmp);
+  alpha_t = utils::numeric(FLERR,arg[4],false,lmp);
+  seed = utils::inumeric(FLERR,arg[5],false,lmp);
 
   if (alpha_t < 0.0) {
     error->all(FLERR,"Illegal langevin/spin command");
@@ -74,16 +68,14 @@ FixLangevinSpin::FixLangevinSpin(LAMMPS *lmp, int narg, char **arg) :
 
   // initialize Marsaglia RNG with processor-unique seed
 
-  random = new RanPark(lmp,seed + comm->me);
-
+  // random = new RanPark(lmp,seed + comm->me);
+  random = new RanMars(lmp,seed + comm->me);
 }
 
 /* ---------------------------------------------------------------------- */
 
 FixLangevinSpin::~FixLangevinSpin()
 {
-  memory->destroy(spi);
-  memory->destroy(fmi);
   delete random;
 }
 
@@ -92,10 +84,6 @@ FixLangevinSpin::~FixLangevinSpin()
 int FixLangevinSpin::setmask()
 {
   int mask = 0;
-  mask |= POST_FORCE;
-  mask |= POST_FORCE_RESPA;
-  mask |= END_OF_STEP;
-  mask |= THERMO_ENERGY;
   return mask;
 }
 
@@ -113,15 +101,15 @@ void FixLangevinSpin::init()
   }
   if (flag_force >= flag_lang) error->all(FLERR,"Fix langevin/spin has to come after all other spin fixes");
 
-  memory->create(spi,3,"langevin:spi");
-  memory->create(fmi,3,"langevin:fmi");
-
   gil_factor = 1.0/(1.0+(alpha_t)*(alpha_t));
-  dts = update->dt;
+  dts = 0.25 * update->dt;
 
   double hbar = force->hplanck/MY_2PI;  // eV/(rad.THz)
   double kb = force->boltz;             // eV/K
-  D = (MY_2PI*alpha_t*gil_factor*kb*temp);
+  // D = (MY_2PI*alpha_t*gil_factor*kb*temp);
+
+  D = (alpha_t*gil_factor*kb*temp);
+  // D = (12.0/MY_2PI)*(MY_2PI*alpha_t*gil_factor*kb*temp);
   D /= (hbar*dts);
   sigma = sqrt(2.0*D);
 }
@@ -156,10 +144,12 @@ void FixLangevinSpin::add_tdamping(double spi[3], double fmi[3])
 
 void FixLangevinSpin::add_temperature(double fmi[3])
 {
-
-  double rx = sigma*(2.0*random->uniform() - 1.0);
-  double ry = sigma*(2.0*random->uniform() - 1.0);
-  double rz = sigma*(2.0*random->uniform() - 1.0);
+  // double rx = sigma*(2.0*random->uniform() - 1.0);
+  // double ry = sigma*(2.0*random->uniform() - 1.0);
+  // double rz = sigma*(2.0*random->uniform() - 1.0);
+  double rx = sigma*random->gaussian();
+  double ry = sigma*random->gaussian();
+  double rz = sigma*random->gaussian();
 
   // adding the random field
 
@@ -172,14 +162,4 @@ void FixLangevinSpin::add_temperature(double fmi[3])
   fmi[0] *= gil_factor;
   fmi[1] *= gil_factor;
   fmi[2] *= gil_factor;
-
 }
-
-
-/* ---------------------------------------------------------------------- */
-
-void FixLangevinSpin::post_force_respa(int vflag, int ilevel, int /*iloop*/)
-{
-  if (ilevel == nlevels_respa-1) post_force(vflag);
-}
-

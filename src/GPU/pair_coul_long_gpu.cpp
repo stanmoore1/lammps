@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -18,7 +18,7 @@
 #include "pair_coul_long_gpu.h"
 #include <cmath>
 #include <cstdio>
-#include <cstdlib>
+
 #include <cstring>
 #include "atom.h"
 #include "atom_vec.h"
@@ -35,6 +35,7 @@
 #include "domain.h"
 #include "kspace.h"
 #include "gpu_extra.h"
+#include "suffix.h"
 
 #define EWALD_F   1.12837917
 #define EWALD_P   0.3275911
@@ -78,6 +79,7 @@ PairCoulLongGPU::PairCoulLongGPU(LAMMPS *lmp) :
 {
   respa_enable = 0;
   cpu_time = 0.0;
+  suffix_flag |= Suffix::GPU;
   GPU_EXTRA::gpu_ready(lmp->modify, lmp->error);
 }
 
@@ -102,9 +104,20 @@ void PairCoulLongGPU::compute(int eflag, int vflag)
   bool success = true;
   int *ilist, *numneigh, **firstneigh;
   if (gpu_mode != GPU_FORCE) {
+    double sublo[3],subhi[3];
+    if (domain->triclinic == 0) {
+      sublo[0] = domain->sublo[0];
+      sublo[1] = domain->sublo[1];
+      sublo[2] = domain->sublo[2];
+      subhi[0] = domain->subhi[0];
+      subhi[1] = domain->subhi[1];
+      subhi[2] = domain->subhi[2];
+    } else {
+      domain->bbox(domain->sublo_lamda,domain->subhi_lamda,sublo,subhi);
+    }
     inum = atom->nlocal;
     firstneigh = cl_gpu_compute_n(neighbor->ago, inum, nall, atom->x,
-                                  atom->type, domain->sublo, domain->subhi,
+                                  atom->type, sublo, subhi,
                                   atom->tag, atom->nspecial, atom->special,
                                   eflag, vflag, eflag_atom, vflag_atom,
                                   host_start, &ilist, &numneigh, cpu_time,
@@ -136,7 +149,7 @@ void PairCoulLongGPU::compute(int eflag, int vflag)
 
 void PairCoulLongGPU::init_style()
 {
-  cut_respa = NULL;
+  cut_respa = nullptr;
 
   if (!atom->q_flag)
     error->all(FLERR,"Pair style coul/long/gpu requires atom attribute q");
@@ -157,7 +170,7 @@ void PairCoulLongGPU::init_style()
 
   // insure use of KSpace long-range solver, set g_ewald
 
-  if (force->kspace == NULL)
+  if (force->kspace == nullptr)
     error->all(FLERR,"Pair style requires a KSpace style");
   g_ewald = force->kspace->g_ewald;
 
@@ -166,10 +179,11 @@ void PairCoulLongGPU::init_style()
   if (ncoultablebits) init_tables(cut_coul,cut_respa);
 
   int maxspecial=0;
-  if (atom->molecular)
+  if (atom->molecular != Atom::ATOMIC)
     maxspecial=atom->maxspecial;
+  int mnf = 5e-2 * neighbor->oneatom;
   int success = cl_gpu_init(atom->ntypes+1, scale,
-                            atom->nlocal, atom->nlocal+atom->nghost, 300,
+                            atom->nlocal, atom->nlocal+atom->nghost, mnf,
                             maxspecial, cell_size, gpu_mode, screen, cut_coulsq,
                             force->special_coul, force->qqrd2e, g_ewald);
 

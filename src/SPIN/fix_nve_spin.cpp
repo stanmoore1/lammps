@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -60,9 +60,9 @@ enum{NONE};
 
 FixNVESpin::FixNVESpin(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg),
-  pair(NULL), spin_pairs(NULL),
-  rsec(NULL), stack_head(NULL), stack_foot(NULL),
-  backward_stacks(NULL), forward_stacks(NULL)
+  pair(nullptr), spin_pairs(nullptr),
+  rsec(nullptr), stack_head(nullptr), stack_foot(nullptr),
+  backward_stacks(nullptr), forward_stacks(nullptr)
 {
   if (lmp->citeme) lmp->citeme->add(cite_fix_nve_spin);
 
@@ -77,7 +77,7 @@ FixNVESpin::FixNVESpin(LAMMPS *lmp, int narg, char **arg) :
 
   // checking if map array or hash is defined
 
-  if (atom->map_style == 0)
+  if (atom->map_style == Atom::MAP_NONE)
     error->all(FLERR,"Fix NVE/spin requires an atom map, see atom_modify");
 
   // defining sector_flag
@@ -91,12 +91,17 @@ FixNVESpin::FixNVESpin(LAMMPS *lmp, int narg, char **arg) :
 
   // defining lattice_flag
 
+  // changing the lattice option, from (yes,no) -> (moving,frozen)
+  // for now, (yes,no) still works (to avoid user's confusions).
+
   int iarg = 3;
   while (iarg < narg) {
     if (strcmp(arg[iarg],"lattice") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix/NVE/spin command");
       if (strcmp(arg[iarg+1],"no") == 0) lattice_flag = 0;
+      else if (strcmp(arg[iarg+1],"frozen") == 0) lattice_flag = 0;
       else if (strcmp(arg[iarg+1],"yes") == 0) lattice_flag = 1;
+      else if (strcmp(arg[iarg+1],"moving") == 0) lattice_flag = 1;
       else error->all(FLERR,"Illegal fix/NVE/spin command");
       iarg += 2;
     } else error->all(FLERR,"Illegal fix/NVE/spin command");
@@ -242,7 +247,7 @@ void FixNVESpin::init()
       locksetforcespin = (FixSetForceSpin *) modify->fix[iforce];
     }
   }
-  
+
   // setting the sector variables/lists
 
   nsectors = 0;
@@ -302,7 +307,7 @@ void FixNVESpin::initial_integrate(int /*vflag*/)
           ComputeInteractionsSpin(i);
           AdvanceSingleSpin(i);
           i = forward_stacks[i];
-	}
+        }
       }
     }
     for (int j = nsectors-1; j >= 0; j--) {     // advance quarter s for nlocal
@@ -313,18 +318,18 @@ void FixNVESpin::initial_integrate(int /*vflag*/)
           ComputeInteractionsSpin(i);
           AdvanceSingleSpin(i);
           i = backward_stacks[i];
-	}
+        }
       }
     }
   } else if (sector_flag == 0) {                // serial seq. update
     comm->forward_comm();                       // comm. positions of ghost atoms
-    for (int i = 0; i < nlocal; i++){           // advance quarter s for nlocal
+    for (int i = 0; i < nlocal; i++) {           // advance quarter s for nlocal
       if (mask[i] & groupbit) {
         ComputeInteractionsSpin(i);
         AdvanceSingleSpin(i);
       }
     }
-    for (int i = nlocal-1; i >= 0; i--){        // advance quarter s for nlocal
+    for (int i = nlocal-1; i >= 0; i--) {        // advance quarter s for nlocal
       if (mask[i] & groupbit) {
         ComputeInteractionsSpin(i);
         AdvanceSingleSpin(i);
@@ -355,7 +360,7 @@ void FixNVESpin::initial_integrate(int /*vflag*/)
           ComputeInteractionsSpin(i);
           AdvanceSingleSpin(i);
           i = forward_stacks[i];
-	}
+        }
       }
     }
     for (int j = nsectors-1; j >= 0; j--) {     // advance quarter s for nlocal
@@ -366,18 +371,18 @@ void FixNVESpin::initial_integrate(int /*vflag*/)
           ComputeInteractionsSpin(i);
           AdvanceSingleSpin(i);
           i = backward_stacks[i];
-	}
+        }
       }
     }
   } else if (sector_flag == 0) {                // serial seq. update
     comm->forward_comm();                       // comm. positions of ghost atoms
-    for (int i = 0; i < nlocal; i++){           // advance quarter s for nlocal-1
+    for (int i = 0; i < nlocal; i++) {           // advance quarter s for nlocal-1
       if (mask[i] & groupbit) {
         ComputeInteractionsSpin(i);
         AdvanceSingleSpin(i);
       }
     }
-    for (int i = nlocal-1; i >= 0; i--){        // advance quarter s for nlocal-1
+    for (int i = nlocal-1; i >= 0; i--) {        // advance quarter s for nlocal-1
       if (mask[i] & groupbit) {
         ComputeInteractionsSpin(i);
         AdvanceSingleSpin(i);
