@@ -1176,3 +1176,4 @@ void FixQEqReax::vector_add( double* dest, double c, double* v, int k)
       dest[kk] += c * v[kk];
   }
 }
+
