@@ -73,6 +73,21 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
 
   if (narg<8 || narg>11) error->all(FLERR,"Illegal fix qeq/reax command");
 
+  reaxc->qtpie->flag = 0;
+  for (int i = 0; i < narg-1; i++) {
+    if (strcmp(arg[i],"qtpie") == 0) {
+      reaxc->qtpie->flag = 1;
+      int len_q = strlen(arg[i+1]) + 1;
+      reaxc->qtpie->file = new char[len_q];
+      strcpy(reaxc->qtpie->file,arg[i+1]);
+      break;
+    }
+  }
+
+  if (reaxc->qtpie->flag == 0)
+    if (narg<8 || narg>9)
+      error->all(FLERR,"Illegal fix qeq/reax command");
+
   nevery = utils::inumeric(FLERR,arg[3],false,lmp);
   if (nevery <= 0) error->all(FLERR,"Illegal fix qeq/reax command");
 
@@ -94,7 +109,8 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
         error->all(FLERR,"Illegal fix qeq/reax command");
       imax = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       iarg++;
-    } else error->all(FLERR,"Illegal fix qeq/reax command");
+    } else if (!reaxc->qtpie->flag)
+      error->all(FLERR,"Illegal fix qeq/reax command");
     iarg++;
   }
   shld = nullptr;
@@ -135,21 +151,6 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
 
   reaxc = nullptr;
   reaxc = (PairReaxC *) force->pair_match("^reax/c",0);
-
-  reaxc->qtpie->flag = 0;
-  for (int i = 0; i < narg-1; i++) {
-    if (strcmp(arg[i],"qtpie") == 0) {
-      reaxc->qtpie->flag = 1;
-      int len_q = strlen(arg[i+1]) + 1;
-      reaxc->qtpie->file = new char[len_q];
-      strcpy(reaxc->qtpie->file,arg[i+1]);
-      break;
-    }
-  }
-
-  if (reaxc->qtpie->flag == 0)
-    if (narg<8 || narg>9) 
-      error->all(FLERR,"Illegal fix qeq/reax command");
 
   s_hist = t_hist = NULL;
   grow_arrays(atom->nmax);
