@@ -22,6 +22,7 @@
 #include <mpi.h>
 #include <cmath>
 #include <cstring>
+#include <math.h> 
 #include "pair_reaxc.h"
 #include "atom.h"
 #include "comm.h"
@@ -38,6 +39,7 @@
 #include "error.h"
 #include "reaxc_defs.h"
 #include "reaxc_types.h"
+#include "reaxc_chi_effective.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -67,7 +69,7 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
 {
   if (lmp->citeme) lmp->citeme->add(cite_fix_qeq_reax);
 
-  if (narg<8 || narg>9) error->all(FLERR,"Illegal fix qeq/reax command");
+  if (narg<8 || narg>11) error->all(FLERR,"Illegal fix qeq/reax command");
 
   nevery = force->inumeric(FLERR,arg[3]);
   if (nevery <= 0) error->all(FLERR,"Illegal fix qeq/reax command");
@@ -124,6 +126,21 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
 
   reaxc = NULL;
   reaxc = (PairReaxC *) force->pair_match("^reax/c",0);
+
+  reaxc->qtpie->flag = 0;
+  for (int i = 0; i < narg-1; i++) {
+    if (strcmp(arg[i],"qtpie") == 0) {
+      reaxc->qtpie->flag = 1;
+      int len_q = strlen(arg[i+1]) + 1;
+      reaxc->qtpie->file = new char[len_q];
+      strcpy(reaxc->qtpie->file,arg[i+1]);
+      break;
+    }
+  }
+
+  if (reaxc->qtpie->flag == 0)
+    if (narg<8 || narg>9) 
+      error->all(FLERR,"Illegal fix qeq/reax command");
 
   s_hist = t_hist = NULL;
   grow_arrays(atom->nmax);
@@ -184,6 +201,44 @@ int FixQEqReax::setmask()
 
 void FixQEqReax::pertype_parameters(char *arg)
 {
+  int i,itype,ntypes,rv;
+  double v1,v2,v3;
+  FILE *pf;
+
+  reaxflag = 0;
+  ntypes = atom->ntypes;
+
+  if (reaxc->qtpie->flag == 1) {
+    memory->create(reaxc->qtpie->gauss_exp,ntypes+1,"qtpie/reax:gauss_exp");
+    if (comm->me == 0) {
+      if ((pf = fopen(reaxc->qtpie->file,"r")) == NULL)
+        error->one(FLERR,"Fix qeq/reax qtpie parameter file could not be found");
+      int count = 0;
+      for (char c = getc(pf); c != EOF; c = getc(pf)) 
+        if (c == '\n') count = count + 1; 
+      fclose(pf); 
+      if (count != ntypes) 
+        error->one(FLERR,"Fix qeq/reax qtpie parameter file has less/extra atom types");
+      if ((pf = fopen(reaxc->qtpie->file,"r")) == NULL)
+        error->one(FLERR,"Fix qeq/reax qtpie parameter file could not be found");
+      fprintf(screen,"\nGTO exponentials for QTPIE method:\n");
+      fprintf(screen,"Type\tExponential\n");
+      reaxc->qtpie->gauss_exp[0] = 0.0;
+      for (i = 1; i <= ntypes && !feof(pf); i++) {
+        rv = fscanf(pf,"%d %lg",&itype,&v1);
+        if (rv != 2)
+          error->one(FLERR,"Fix qeq/reax qtpie: Incorrect format of param file");
+        if (itype < 1 || itype > ntypes)
+          error->one(FLERR,"Fix qeq/reax qtpie: Invalid atom type in param file");
+        reaxc->qtpie->gauss_exp[itype] = v1;
+      fprintf(screen,"%d\t%f\n",itype,reaxc->qtpie->gauss_exp[itype]);
+      }
+      if (i <= ntypes) error->one(FLERR,"Invalid param file for fix qeq/reax qtpie.");
+      fclose(pf);
+    }
+    MPI_Bcast(&reaxc->qtpie->gauss_exp[1],ntypes,MPI_DOUBLE,0,world);
+  }
+
   if (strcmp(arg,"reax/c") == 0) {
     reaxflag = 1;
     Pair *pair = force->pair_match("reax/c",0);
@@ -198,13 +253,6 @@ void FixQEqReax::pertype_parameters(char *arg)
                  "Fix qeq/reax could not extract params from pair reax/c");
     return;
   }
-
-  int i,itype,ntypes,rv;
-  double v1,v2,v3;
-  FILE *pf;
-
-  reaxflag = 0;
-  ntypes = atom->ntypes;
 
   memory->create(chi,ntypes+1,"qeq/reax:chi");
   memory->create(eta,ntypes+1,"qeq/reax:eta");
@@ -465,16 +513,33 @@ void FixQEqReax::min_setup_pre_force(int vflag)
 
 void FixQEqReax::init_storage()
 {
-  int NN;
+  int nn,NN;
 
-  if (reaxc)
+  if (reaxc) {
+    nn = reaxc->list->inum;
     NN = reaxc->list->inum + reaxc->list->gnum;
-  else
+  } else {
+    nn = list->inum;
     NN = list->inum + list->gnum;
+  }
+
+  if (reaxc->qtpie->flag) 
+  {
+    // chi_eff_init & cutghost are created here since pertype_parameters() 
+    // has no information on ghost cells
+    reaxc->qtpie->nn_prev = nn;
+    memory->create(reaxc->qtpie->chi_eff,nn,"qtpie/reax:chi_eff");
+    memory->create(reaxc->qtpie->chi_eff_init,NN,"qtpie/reax:chi_eff_init");
+    reaxc->qtpie->cutghost = MAX(neighbor->cutneighmax,comm->cutghostuser);
+    calculate_chi_eff(reaxc->qtpie,atom,reaxc->system,chi,NN,NN,reaxc->qtpie->chi_eff_init);
+  }
 
   for (int i = 0; i < NN; i++) {
     Hdia_inv[i] = 1. / eta[atom->type[i]];
-    b_s[i] = -chi[atom->type[i]];
+    if (reaxc->qtpie->flag) 
+      b_s[i] = -reaxc->qtpie->chi_eff_init[i];
+    else
+      b_s[i] = -chi[atom->type[i]];
     b_t[i] = -1.0;
     b_prc[i] = 0;
     b_prm[i] = 0;
@@ -536,15 +601,26 @@ void FixQEqReax::init_matvec()
   /* fill-in H matrix */
   compute_H();
 
-  int nn, ii, i;
+  int nn, NN, ii, i;
   int *ilist;
 
   if (reaxc) {
     nn = reaxc->list->inum;
     ilist = reaxc->list->ilist;
+    NN = reaxc->list->inum + reaxc->list->gnum;
   } else {
     nn = list->inum;
     ilist = list->ilist;
+    NN = list->inum + list->gnum;
+  }
+
+  if (reaxc->qtpie->flag) {
+    if (reaxc->qtpie->nn_prev != nn) {
+      memory->destroy(reaxc->qtpie->chi_eff);
+      memory->create(reaxc->qtpie->chi_eff,nn,"qtpie/reax:chi_eff");
+      reaxc->qtpie->nn_prev = nn;
+    }
+    calculate_chi_eff(reaxc->qtpie,atom,reaxc->system,chi,nn,NN,reaxc->qtpie->chi_eff);
   }
 
   for (ii = 0; ii < nn; ++ii) {
@@ -552,10 +628,12 @@ void FixQEqReax::init_matvec()
     if (atom->mask[i] & groupbit) {
 
       /* init pre-conditioner for H and init solution vectors */
-      Hdia_inv[i] = 1. / eta[ atom->type[i] ];
-      b_s[i]      = -chi[ atom->type[i] ];
-      b_t[i]      = -1.0;
-
+      Hdia_inv[i]   = 1. / eta[ atom->type[i] ];
+      if (reaxc->qtpie->flag) 
+        b_s[i]      = -reaxc->qtpie->chi_eff[i];
+      else 
+        b_s[i]      = -chi[ atom->type[i] ];
+      b_t[i]        = -1.0;
       /* quadratic extrapolation for s & t from previous solutions */
       t[i] = t_hist[i][2] + 3 * ( t_hist[i][0] - t_hist[i][1]);
 

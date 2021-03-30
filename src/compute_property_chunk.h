@@ -9,6 +9,9 @@
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
+
+   File modified to include the enum option which enumerates the number of 
+   chunks, i.e. outputs numbers 1 to nchunks
 ------------------------------------------------------------------------- */
 
 #ifdef COMPUTE_CLASS
@@ -60,6 +63,7 @@ class ComputePropertyChunk : public Compute {
   void pack_coord1(int);
   void pack_coord2(int);
   void pack_coord3(int);
+  void pack_enum(int);
 };
 
 }

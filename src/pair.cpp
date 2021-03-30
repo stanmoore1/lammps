@@ -107,6 +107,9 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
   datamask_modify = ALL_MASK;
 
   copymode = 0;
+
+  efield_flag = 0;
+  ex = ey = ez = 0.0;
 }
 
 /* ---------------------------------------------------------------------- */

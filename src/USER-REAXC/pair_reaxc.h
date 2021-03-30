@@ -59,6 +59,9 @@ class PairReaxC : public Pair {
 
   bigint ngroup;
 
+  // QTPIE method
+  qtpie_parameters *qtpie;
+
  protected:
   char *fix_id;
   double cutmax;

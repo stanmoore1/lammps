@@ -72,8 +72,10 @@ ComputePropertyChunk::ComputePropertyChunk(LAMMPS *lmp, int narg, char **arg) :
         error->all(FLERR,"Compute chunk/atom stores no coord3 for "
                    "compute property/chunk");
       pack_choice[i] = &ComputePropertyChunk::pack_coord3;
+    } else if (strcmp(arg[iarg],"enum") == 0) {
+      pack_choice[i] = &ComputePropertyChunk::pack_enum;
     } else error->all(FLERR,
-                    "Invalid keyword in compute property/chunk command");
+                   "Invalid keyword in compute property/chunk command");
   }
 
   // initialization
@@ -332,6 +334,16 @@ void ComputePropertyChunk::pack_coord3(int n)
   double **coord = cchunk->coord;
   for (int m = 0; m < nchunk; m++) {
     buf[n] = coord[m][2];
+    n += nvalues;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyChunk::pack_enum(int n)
+{
+  for (int m = 0; m < nchunk; m++) {
+    buf[n] = m + 1;
     n += nvalues;
   }
 }

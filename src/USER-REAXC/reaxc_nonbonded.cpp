@@ -31,10 +31,11 @@
 #include "reaxc_types.h"
 #include "reaxc_list.h"
 #include "reaxc_vector.h"
+#include "reaxc_chi_effective.h"
 
 void vdW_Coulomb_Energy( reax_system *system, control_params *control,
                          simulation_data *data, storage *workspace,
-                         reax_list **lists, output_controls * /*out_control*/ )
+                         reax_list **lists, output_controls * /*out_control*/, qtpie_parameters *qtpie )
 {
   int i, j, pj, natoms;
   int start_i, end_i, flag;
@@ -198,7 +199,7 @@ void vdW_Coulomb_Energy( reax_system *system, control_params *control,
     }
   }
 
-  Compute_Polarization_Energy( system, data );
+  Compute_Polarization_Energy( system, data, qtpie );
 }
 
 
@@ -206,7 +207,7 @@ void vdW_Coulomb_Energy( reax_system *system, control_params *control,
 void Tabulated_vdW_Coulomb_Energy( reax_system *system,control_params *control,
                                    simulation_data *data, storage *workspace,
                                    reax_list **lists,
-                                   output_controls * /*out_control*/ )
+                                   output_controls * /*out_control*/, qtpie_parameters *qtpie )
 {
   int i, j, pj, r, natoms;
   int type_i, type_j, tmin, tmax;
@@ -311,23 +312,28 @@ void Tabulated_vdW_Coulomb_Energy( reax_system *system,control_params *control,
     }
   }
 
-  Compute_Polarization_Energy( system, data );
+  Compute_Polarization_Energy( system, data, qtpie );
 }
 
 
 
-void Compute_Polarization_Energy( reax_system *system, simulation_data *data )
+void Compute_Polarization_Energy( reax_system *system, simulation_data *data, qtpie_parameters *qtpie )
 {
   int  i, type_i;
-  double q, en_tmp;
+  double q, en_tmp,chi_tmp;
 
   data->my_en.e_pol = 0.0;
+
   for( i = 0; i < system->n; i++ ) {
     type_i = system->my_atoms[i].type;
     if (type_i < 0) continue;
     q = system->my_atoms[i].q;
 
-    en_tmp = KCALpMOL_to_EV * (system->reax_param.sbp[type_i].chi * q +
+    if (qtpie->flag)
+      chi_tmp = qtpie->chi_eff[i];
+    else 
+      chi_tmp = system->reax_param.sbp[type_i].chi;
+    en_tmp = KCALpMOL_to_EV * (chi_tmp * q +
                 (system->reax_param.sbp[type_i].eta / 2.) * SQR(q));
     data->my_en.e_pol += en_tmp;
 

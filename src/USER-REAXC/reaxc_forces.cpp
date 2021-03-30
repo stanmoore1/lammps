@@ -84,16 +84,16 @@ void Compute_Bonded_Forces( reax_system *system, control_params *control,
 void Compute_NonBonded_Forces( reax_system *system, control_params *control,
                                simulation_data *data, storage *workspace,
                                reax_list **lists, output_controls *out_control,
-                               MPI_Comm /*comm*/ )
+                               MPI_Comm /*comm*/, qtpie_parameters *qtpie )
 {
 
   /* van der Waals and Coulomb interactions */
   if (control->tabulate == 0)
     vdW_Coulomb_Energy( system, control, data, workspace,
-                        lists, out_control );
+                        lists, out_control, qtpie );
   else
     Tabulated_vdW_Coulomb_Energy( system, control, data, workspace,
-                                  lists, out_control );
+                                  lists, out_control, qtpie );
 }
 
 
@@ -436,7 +436,7 @@ void Estimate_Storages( reax_system *system, control_params *control,
 void Compute_Forces( reax_system *system, control_params *control,
                      simulation_data *data, storage *workspace,
                      reax_list **lists, output_controls *out_control,
-                     mpi_datatypes *mpi_data )
+                     mpi_datatypes *mpi_data, qtpie_parameters *qtpie )
 {
 
   Init_Forces_noQEq( system, control, data, workspace,
@@ -448,7 +448,7 @@ void Compute_Forces( reax_system *system, control_params *control,
 
   /********* nonbonded interactions ************/
   Compute_NonBonded_Forces( system, control, data, workspace,
-                            lists, out_control, mpi_data->world );
+                            lists, out_control, mpi_data->world, qtpie );
 
   /*********** total force ***************/
   Compute_Total_Force( system, control, data, workspace, lists, mpi_data );

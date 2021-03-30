@@ -72,6 +72,10 @@ class Pair : protected Pointers {
   int eflag_either,eflag_global,eflag_atom;
   int vflag_either,vflag_global,vflag_atom;
 
+  // Electric Field parameters for reaxc user package
+  int efield_flag;               // 1 if fix efield is used
+  double ex,ey,ez;               // electric field values in Volts/Angstrom
+
   int ncoultablebits;            // size of Coulomb table, accessed by KSpace
   int ndisptablebits;            // size of dispersion table
   double tabinnersq;

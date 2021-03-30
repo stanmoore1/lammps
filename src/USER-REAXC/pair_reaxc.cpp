@@ -99,6 +99,9 @@ PairReaxC::PairReaxC(LAMMPS *lmp) : Pair(lmp)
   memset(out_control,0,sizeof(output_controls));
   mpi_data = (mpi_datatypes *)
     memory->smalloc(sizeof(mpi_datatypes),"reax:mpi");
+  qtpie = (qtpie_parameters *)
+    memory->smalloc(sizeof(qtpie_parameters),"reax:qtpie_parameters");
+  memset(qtpie,0,sizeof(qtpie_parameters));
 
   control->me = system->my_rank = comm->me;
 
@@ -180,6 +183,8 @@ PairReaxC::~PairReaxC()
     delete [] eta;
     delete [] gamma;
   }
+
+  memory->destroy(qtpie);
 
   memory->destroy(tmpid);
   memory->destroy(tmpbo);
@@ -549,7 +554,7 @@ void PairReaxC::compute(int eflag, int vflag)
 
   // forces
 
-  Compute_Forces(system,control,data,workspace,&lists,out_control,mpi_data);
+  Compute_Forces(system,control,data,workspace,&lists,out_control,mpi_data,qtpie);
   read_reax_forces(vflag);
 
   for(int k = 0; k < system->N; ++k) {

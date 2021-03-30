@@ -21,6 +21,17 @@
    Algorithmic Techniques", Parallel Computing, in press.
 ------------------------------------------------------------------------- */
 
+/* ----------------------------------------------------------------------
+   Additional variables for the QTPIE option: 
+     fix qeq/reax ... qtpie file_name
+   where file_name is the file containing the Gaussian exponentials with
+   the format of: <Atom type> <GTO exponential>
+   where <Atom type> corresponds to the atoms used in each simulation
+
+   Attention : GTO exponents must be given in atomic units, i.e. 1/a_0,
+               where a_0 is the Bohr radius. 
+------------------------------------------------------------------------- */
+
 #ifdef FIX_CLASS
 
 FixStyle(qeq/reax,FixQEqReax)
@@ -31,6 +42,7 @@ FixStyle(qeq/reax,FixQEqReax)
 #define LMP_FIX_QEQ_REAX_H
 
 #include "fix.h"
+#include "reaxc_types.h"
 
 namespace LAMMPS_NS {
 

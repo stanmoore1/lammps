@@ -31,6 +31,7 @@
 #include "region.h"
 #include "memory.h"
 #include "error.h"
+#include "pair.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -55,6 +56,7 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
   respa_level_support = 1;
   ilevel_respa = 0;
   virial_flag = 1;
+  force->pair->efield_flag = 1;
 
   qe2f = force->qe2f;
   xstr = ystr = zstr = NULL;
@@ -65,6 +67,7 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
     strcpy(xstr,&arg[3][2]);
   } else {
     ex = qe2f * force->numeric(FLERR,arg[3]);
+    force->pair->ex = force->numeric(FLERR,arg[3]);
     xstyle = CONSTANT;
   }
 
@@ -74,6 +77,7 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
     strcpy(ystr,&arg[4][2]);
   } else {
     ey = qe2f * force->numeric(FLERR,arg[4]);
+    force->pair->ey = force->numeric(FLERR,arg[4]);
     ystyle = CONSTANT;
   }
 
@@ -83,6 +87,7 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
     strcpy(zstr,&arg[5][2]);
   } else {
     ez = qe2f * force->numeric(FLERR,arg[5]);
+    force->pair->ez = force->numeric(FLERR,arg[5]);
     zstyle = CONSTANT;
   }
 

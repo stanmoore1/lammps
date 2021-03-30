@@ -101,6 +101,18 @@ typedef double rvec4[4];
 typedef LAMMPS_NS::tagint rc_tagint;
 typedef LAMMPS_NS::bigint rc_bigint;
 
+typedef struct 
+{
+  int flag;                                     // 1/0 for qtpie on/off
+  char *file;                                   // input file for gaussian exponents for each type of the REAXFF file
+  double cutghost;                              // ghost atoms cutoff (used for check)
+  int nn_prev;                                  // number of local atoms; needed for memory reallocation of chi_eff (when multiprocessing)
+ 
+  double *gauss_exp;                            // array of gaussian exponents
+  double *chi_eff;                              // array of effective electronegativities
+  double *chi_eff_init;                         // array of effective electronegativities for FixQEqReax::init_storage()
+} qtpie_parameters;
+
 typedef struct
 {
   int  cnt;
