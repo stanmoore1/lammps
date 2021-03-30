@@ -53,7 +53,7 @@ DumpValues::DumpValues(LAMMPS *lmp, int narg, char **arg) :
 
   clearstep = 1;
 
-  nevery = force->inumeric(FLERR,arg[3]);
+  nevery = utils::inumeric(FLERR,arg[3],false,lmp);
   if (nevery <= 0) error->all(FLERR,"Illegal dump custom command");
 
   // expand args if any have wildcard character "*"
@@ -62,7 +62,7 @@ DumpValues::DumpValues(LAMMPS *lmp, int narg, char **arg) :
   // nfield may be shrunk below if extra optional args exist
 
   expand = 0;
-  nfield = nargnew = input->expand_args(narg-5,&arg[5],1,earg);
+  nfield = nargnew = utils::expand_args(FLERR,narg-5,&arg[5],1,earg,lmp);
   if (earg != &arg[5]) expand = 1;
 
   // allocate field vectors
@@ -1616,7 +1616,7 @@ int DumpValues::modify_param(int narg, char **arg)
       strcpy(format_float_user,arg[2]);
 
     } else {
-      int i = force->inumeric(FLERR,arg[1]) - 1;
+      int i = utils::inumeric(FLERR,arg[1],false,lmp) - 1;
       if (i < 0 || i >= size_one)
         error->all(FLERR,"Illegal dump_modify command");
       if (format_column_user[i]) delete [] format_column_user[i];
@@ -1928,7 +1928,7 @@ int DumpValues::modify_param(int narg, char **arg)
     // id = dump-ID + nthreshlast + DUMP_STORE, fix group = dump group
 
     if (strcmp(arg[3],"LAST") != 0) {
-      thresh_value[nthresh] = force->numeric(FLERR,arg[3]);
+      thresh_value[nthresh] = utils::numeric(FLERR,arg[3],false,lmp);
       thresh_last[nthresh] = -1;
     } else {
       thresh_fix = (FixStore **)
@@ -1972,9 +1972,9 @@ int DumpValues::modify_param(int narg, char **arg)
    return # of bytes of allocated memory in buf, choose, variable arrays
 ------------------------------------------------------------------------- */
 
-bigint DumpValues::memory_usage()
+double DumpValues::memory_usage()
 {
-  bigint bytes = Dump::memory_usage();
+  double bytes = Dump::memory_usage();
   bytes += memory->usage(choose,maxlocal);
   bytes += memory->usage(dchoose,maxlocal);
   bytes += memory->usage(clist,maxlocal);
