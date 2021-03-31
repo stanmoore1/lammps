@@ -400,8 +400,8 @@ void FixQEqReaxKokkos<DeviceType>::zero_item(int ii) const
   const int itype = type(i);
 
   if (mask[i] & groupbit) {
-    d_Hdia_inv[i] = 1.0 / params(itype).eta - d_chi_field[i];
-    d_b_s[i] = -params(itype).chi;
+    d_Hdia_inv[i] = 1.0 / params(itype).eta;
+    d_b_s[i] = -params(itype).chi - d_chi_field[i];
     d_b_t[i] = -1.0;
     d_s[i] = 0.0;
     d_t[i] = 0.0;
