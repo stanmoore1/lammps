@@ -73,6 +73,9 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
 
   if (narg<8 || narg>11) error->all(FLERR,"Illegal fix qeq/reax command");
 
+  reaxc = NULL;
+  reaxc = (PairReaxC *) force->pair_match("^reax/c",0);
+
   reaxc->qtpie->flag = 0;
   for (int i = 0; i < narg-1; i++) {
     if (strcmp(arg[i],"qtpie") == 0) {
@@ -148,9 +151,6 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
 
   // perform initial allocation of atom-based arrays
   // register with Atom class
-
-  reaxc = nullptr;
-  reaxc = (PairReaxC *) force->pair_match("^reax/c",0);
 
   s_hist = t_hist = NULL;
   grow_arrays(atom->nmax);
