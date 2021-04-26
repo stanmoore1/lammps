@@ -40,10 +40,11 @@ ComputePhaseAtom::ComputePhaseAtom(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg),
   phase(nullptr)
 {
-  if (narg != 3) error->all(FLERR,"Illegal compute phase/atom command");
+  if (narg != 4) error->all(FLERR,"Illegal compute phase/atom command");
 
-  cutoff = utils::numeric(FLERR,arg[4],false,lmp);
+  cutoff = utils::numeric(FLERR,arg[3],false,lmp);
   cutsq = cutoff*cutoff;
+  sphere_vol = 4.0/3.0*MY_PI*cutsq*cutoff;
 
   peratom_flag = 1;
   size_peratom_cols = 2;
@@ -64,11 +65,10 @@ ComputePhaseAtom::~ComputePhaseAtom()
 
 void ComputePhaseAtom::init()
 {
-  if (force->pair == nullptr)
-    error->all(FLERR,"Compute phase/atom requires a pair style be defined");
-  if (sqrt(cutsq) > force->pair->cutforce)
-    error->all(FLERR,
-               "Compute phase/atom cutoff is longer than pairwise cutoff");
+  int cutflag = 1;
+  double cutneigh = neighbor->cutneighmax;
+  if (force->pair && sqrt(cutsq) <= force->pair->cutforce)
+    cutflag = 0;
 
   // need an occasional full neighbor list
 
@@ -78,6 +78,10 @@ void ComputePhaseAtom::init()
   neighbor->requests[irequest]->half = 0;
   neighbor->requests[irequest]->full = 1;
   neighbor->requests[irequest]->occasional = 1;
+  if (cutflag) {
+    neighbor->requests[irequest]->cut = 1;
+    neighbor->requests[irequest]->cutoff = cutoff;
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -124,9 +128,6 @@ void ComputePhaseAtom::compute_peratom()
   // compute phase for each atom in group
   // use full neighbor list to count atoms less than cutoff
 
-  double cut3 = cutsq*cutoff;
-  double sphere_vol = 4.0/3.0*MY_PI*cut3;
-
   double **x = atom->x;
   double **v = atom->v;
   int *type = atom->type;
@@ -134,8 +135,10 @@ void ComputePhaseAtom::compute_peratom()
 
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
-    
-    count = 0;
+
+    // i atom contribution
+
+    count = 1;
 
     if (mask[i] & groupbit) {
       xtmp = x[i][0];
@@ -144,9 +147,9 @@ void ComputePhaseAtom::compute_peratom()
       jlist = firstneigh[i];
       jnum = numneigh[i];
 
-      vsum[0] = x[i][0];
-      vsum[1] = x[i][1];
-      vsum[2] = x[i][2];
+      vsum[0] = v[i][0];
+      vsum[1] = v[i][1];
+      vsum[2] = v[i][2];
 
       for (jj = 0; jj < jnum; jj++) {
 	j = jlist[jj];
@@ -159,9 +162,9 @@ void ComputePhaseAtom::compute_peratom()
 	rsq = delx*delx + dely*dely + delz*delz;
 	if (rsq < cutsq) {
 	  count++;
-          vsum[0] += x[j][0];
-          vsum[1] += x[j][1];
-          vsum[2] += x[j][2];
+          vsum[0] += v[j][0];
+          vsum[1] += v[j][1];
+          vsum[2] += v[j][2];
 	}
       }
 
@@ -169,6 +172,9 @@ void ComputePhaseAtom::compute_peratom()
       vavg[1] = vsum[1]/count;
       vavg[2] = vsum[2]/count;
 
+      // i atom contribution
+
+      count = 1;
       vnet[0] = v[i][0] - vavg[0];
       vnet[1] = v[i][1] - vavg[1];
       vnet[2] = v[i][2] - vavg[2];

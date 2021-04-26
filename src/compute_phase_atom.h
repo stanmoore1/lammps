@@ -37,7 +37,7 @@ class ComputePhaseAtom : public Compute {
 
  protected:
   int nmax;
-  double cutoff,cutsq;
+  double cutoff,cutsq,sphere_vol;
   class NeighList *list;
 
   double **phase;
