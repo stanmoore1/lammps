@@ -49,6 +49,8 @@ ComputePhaseAtom::ComputePhaseAtom(LAMMPS *lmp, int narg, char **arg) :
   peratom_flag = 1;
   size_peratom_cols = 2;
 
+  comm_forward = 3;
+
   nmax = 0;
 }
 
@@ -66,7 +68,6 @@ ComputePhaseAtom::~ComputePhaseAtom()
 void ComputePhaseAtom::init()
 {
   int cutflag = 1;
-  double cutneigh = neighbor->cutneighmax;
   if (force->pair && sqrt(cutsq) <= force->pair->cutforce)
     cutflag = 0;
 
@@ -95,7 +96,7 @@ void ComputePhaseAtom::init_list(int /*id*/, NeighList *ptr)
 
 void ComputePhaseAtom::compute_peratom()
 {
-  int i,j,m,ii,jj,inum,jnum,jtype,n;
+  int i,j,ii,jj,inum,jnum;
   double xtmp,ytmp,ztmp,delx,dely,delz,rsq;
   int *ilist,*jlist,*numneigh,**firstneigh;
   int count;
@@ -136,10 +137,6 @@ void ComputePhaseAtom::compute_peratom()
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
 
-    // i atom contribution
-
-    count = 1;
-
     if (mask[i] & groupbit) {
       xtmp = x[i][0];
       ytmp = x[i][1];
@@ -147,6 +144,9 @@ void ComputePhaseAtom::compute_peratom()
       jlist = firstneigh[i];
       jnum = numneigh[i];
 
+      // i atom contribution
+
+      count = 1;
       vsum[0] = v[i][0];
       vsum[1] = v[i][1];
       vsum[2] = v[i][2];
@@ -155,7 +155,6 @@ void ComputePhaseAtom::compute_peratom()
 	j = jlist[jj];
 	j &= NEIGHMASK;
 
-	jtype = type[j];
 	delx = xtmp - x[j][0];
 	dely = ytmp - x[j][1];
 	delz = ztmp - x[j][2];
@@ -184,7 +183,6 @@ void ComputePhaseAtom::compute_peratom()
         j = jlist[jj];
         j &= NEIGHMASK;
 
-        jtype = type[j];
         delx = xtmp - x[j][0];
         dely = ytmp - x[j][1];
         delz = ztmp - x[j][2];
@@ -212,11 +210,11 @@ int ComputePhaseAtom::pack_forward_comm(int n, int *list, double *buf,
 {
   double **v = atom->v;
 
-  int i,m=0,j;
+  int i,m=0;
   for (i = 0; i < n; ++i) {
-    for (j = 0; j < 3; ++j) {
-      buf[m++] = v[list[i]][j];
-    }
+    buf[m++] = v[list[i]][0];
+    buf[m++] = v[list[i]][1];
+    buf[m++] = v[list[i]][2];
   }
 
   return m;
@@ -228,12 +226,12 @@ void ComputePhaseAtom::unpack_forward_comm(int n, int first, double *buf)
 {
   double **v = atom->v;
 
-  int i,last,m=0,j;
+  int i,last,m=0;
   last = first + n;
   for (i = first; i < last; ++i) {
-    for (j = 0; j < 3; ++j) {
-      v[i][j] = buf[m++];
-    }
+    v[i][0] = buf[m++];
+    v[i][1] = buf[m++];
+    v[i][2] = buf[m++];
   }
 }
 
