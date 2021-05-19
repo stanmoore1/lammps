@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
  *
  *                    *** Smooth Mach Dynamics ***
@@ -208,7 +209,7 @@ void FixSMDSetVel::init() {
 /* ---------------------------------------------------------------------- */
 
 void FixSMDSetVel::setup(int vflag) {
-        if (strstr(update->integrate_style, "verlet"))
+        if (utils::strmatch(update->integrate_style,"^verlet"))
                 post_force(vflag);
         else
       error->all(FLERR,"Fix smd/setvel does not support RESPA");

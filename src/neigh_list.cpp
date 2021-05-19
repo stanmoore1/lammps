@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -143,6 +144,7 @@ void NeighList::post_constructor(NeighRequest *nq)
   respamiddle = nq->respamiddle;
   respainner = nq->respainner;
   copy = nq->copy;
+  id = nq->id;
 
   if (nq->copy) {
     listcopy = neighbor->lists[nq->copylist];

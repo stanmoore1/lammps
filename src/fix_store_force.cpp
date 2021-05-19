@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -12,12 +13,12 @@
 ------------------------------------------------------------------------- */
 
 #include "fix_store_force.h"
-#include <cstring>
+
 #include "atom.h"
-#include "update.h"
-#include "respa.h"
-#include "memory.h"
 #include "error.h"
+#include "memory.h"
+#include "respa.h"
+#include "update.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -68,7 +69,7 @@ int FixStoreForce::setmask()
 
 void FixStoreForce::init()
 {
-  if (strstr(update->integrate_style,"respa"))
+  if (utils::strmatch(update->integrate_style,"^respa"))
     nlevels_respa = ((Respa *) update->integrate)->nlevels;
 }
 
@@ -76,7 +77,7 @@ void FixStoreForce::init()
 
 void FixStoreForce::setup(int vflag)
 {
-  if (strstr(update->integrate_style,"verlet"))
+  if (utils::strmatch(update->integrate_style,"^verlet"))
     post_force(vflag);
   else {
     ((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);

@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -38,7 +39,7 @@ enum{NOHYPER,GLOBAL,LOCAL};
 
 /* ---------------------------------------------------------------------- */
 
-Hyper::Hyper(LAMMPS *lmp) : Pointers(lmp), dumplist(nullptr) {}
+Hyper::Hyper(LAMMPS *lmp) : Command(lmp), dumplist(nullptr) {}
 
 /* ----------------------------------------------------------------------
    perform hyperdynamics simulation

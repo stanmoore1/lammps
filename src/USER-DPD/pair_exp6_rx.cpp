@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -587,7 +588,6 @@ void PairExp6rx::coeff(int narg, char **arg)
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
-  int n;
   utils::bounds(FLERR,arg[0],1,atom->ntypes,ilo,ihi,error);
   utils::bounds(FLERR,arg[1],1,atom->ntypes,jlo,jhi,error);
 
@@ -833,8 +833,8 @@ void PairExp6rx::read_file2(char *file)
   if (comm->me == 0) {
     fp = fopen(file,"r");
     if (fp == nullptr)
-      error->one(FLERR,fmt::format("Cannot open polynomial file {}: {}",
-                                   file,utils::getsyserror()));
+      error->one(FLERR,"Cannot open polynomial file {}: {}",
+                                   file,utils::getsyserror());
   }
 
   // one set of params can span multiple lines

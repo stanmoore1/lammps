@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -18,7 +19,9 @@
 #include "math_eigen.h"
 #include "math_eigen_impl.h"
 
-#include<array>
+#include <array>
+#include <utility>
+#include <vector>
 
 using std::vector;
 using std::array;

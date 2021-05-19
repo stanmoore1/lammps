@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -17,18 +18,18 @@
 
 #include "fix_qeq_comb_omp.h"
 
-#include <cmath>
-#include <cstring>
-#include "pair_comb.h"
 #include "atom.h"
 #include "comm.h"
+#include "error.h"
 #include "force.h"
 #include "group.h"
 #include "memory.h"
-#include "error.h"
 #include "neigh_list.h"
+#include "pair_comb.h"
 #include "respa.h"
 #include "update.h"
+
+#include <cmath>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -58,7 +59,7 @@ void FixQEQCombOMP::init()
     error->all(FLERR,"Must use pair_style comb or "
                "comb/omp with fix qeq/comb/omp");
 
-  if (strstr(update->integrate_style,"respa")) {
+  if (utils::strmatch(update->integrate_style,"^respa")) {
     ilevel_respa = ((Respa *) update->integrate)->nlevels-1;
     if (respa_level >= 0) ilevel_respa = MIN(respa_level,ilevel_respa);
   }

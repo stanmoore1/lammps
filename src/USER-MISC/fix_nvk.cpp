@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -17,14 +18,14 @@
 
 #include "fix_nvk.h"
 
-#include <cmath>
-#include <cstring>
 #include "atom.h"
-#include "force.h"
-#include "update.h"
-#include "respa.h"
 #include "error.h"
+#include "force.h"
 #include "math_extra.h"
+#include "respa.h"
+#include "update.h"
+
+#include <cmath>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -59,7 +60,7 @@ void FixNVK::init()
   dtv = update->dt;
   dtf = 0.5 * update->dt;
 
-  if (strstr(update->integrate_style,"respa")) {
+  if (utils::strmatch(update->integrate_style,"^respa")) {
     error->all(FLERR,"Fix nvk not yet enabled for RESPA");
     step_respa = ((Respa *) update->integrate)->step;
   }

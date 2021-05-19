@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -21,7 +22,6 @@
 #include "memory.h"
 
 #include <cstring>
-#include <cctype>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -172,6 +172,11 @@ void Fix::modify_params(int narg, char **arg)
       iarg += n;
     }
   }
+}
+
+void::Fix::set_molecule(int, tagint, int, double *, double *, double *)
+{
+  error->all(FLERR,"Molecule update not implemented for fix {}", style);
 }
 
 /* ----------------------------------------------------------------------

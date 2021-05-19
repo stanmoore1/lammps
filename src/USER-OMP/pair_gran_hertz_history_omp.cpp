@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -224,6 +225,7 @@ void PairGranHertzHistoryOMP::eval(int iifrom, int iito, ThrData * const thr)
         ccel = kn*(radsum-r)*rinv - damp;
         polyhertz = sqrt((radsum-r)*radi*radj / radsum);
         ccel *= polyhertz;
+        if (limit_damping && (ccel < 0.0)) ccel = 0.0;
 
         // relative velocities
 

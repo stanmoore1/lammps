@@ -49,9 +49,11 @@ This is the list of packages that may require additional steps.
    * :ref:`USER-COLVARS <user-colvars>`
    * :ref:`USER-H5MD <user-h5md>`
    * :ref:`USER-INTEL <user-intel>`
+   * :ref:`USER-MDI <user-mdi>`
    * :ref:`USER-MESONT <user-mesont>`
    * :ref:`USER-MOLFILE <user-molfile>`
    * :ref:`USER-NETCDF <user-netcdf>`
+   * :ref:`USER-PACE <user-pace>`
    * :ref:`USER-PLUMED <user-plumed>`
    * :ref:`USER-OMP <user-omp>`
    * :ref:`USER-QMMM <user-qmmm>`
@@ -125,7 +127,7 @@ CMake build
                                 # default is sm_50
    -D HIP_ARCH=value            # primary GPU hardware choice for GPU_API=hip
                                 # value depends on selected HIP_PLATFORM
-                                # default is 'gfx906' for HIP_PLATFORM=hcc and 'sm_50' for HIP_PLATFORM=nvcc
+                                # default is 'gfx906' for HIP_PLATFORM=amd and 'sm_50' for HIP_PLATFORM=nvcc
    -D HIP_USE_DEVICE_SORT=value # enables GPU sorting
                                 # value = yes (default) or no
    -D CUDPP_OPT=value           # use GPU binning on with CUDA (should be off for modern GPUs)
@@ -169,14 +171,21 @@ desired, you can set :code:`USE_STATIC_OPENCL_LOADER` to :code:`no`.
 
 If you are compiling with HIP, note that before running CMake you will have to
 set appropriate environment variables. Some variables such as
-:code:`HCC_AMDGPU_TARGET` or :code:`CUDA_PATH` are necessary for :code:`hipcc`
+:code:`HCC_AMDGPU_TARGET` (for ROCm <= 4.0) or :code:`CUDA_PATH` are necessary for :code:`hipcc`
 and the linker to work correctly.
 
 .. code:: bash
 
-   # AMDGPU target
+   # AMDGPU target (ROCm <= 4.0)
    export HIP_PLATFORM=hcc
    export HCC_AMDGPU_TARGET=gfx906
+   cmake -D PKG_GPU=on -D GPU_API=HIP -D HIP_ARCH=gfx906 -D CMAKE_CXX_COMPILER=hipcc ..
+   make -j 4
+
+.. code:: bash
+
+   # AMDGPU target (ROCm >= 4.1)
+   export HIP_PLATFORM=amd
    cmake -D PKG_GPU=on -D GPU_API=HIP -D HIP_ARCH=gfx906 -D CMAKE_CXX_COMPILER=hipcc ..
    make -j 4
 
@@ -459,6 +468,9 @@ They must be specified in uppercase.
    *  - ARMV8_THUNDERX2
       - HOST
       - ARMv8 Cavium ThunderX2 CPU
+   *  - A64FX
+      - HOST
+      - ARMv8.2 with SVE Support
    *  - WSM
       - HOST
       - Intel Westmere CPU (SSE 4.2)
@@ -531,6 +543,9 @@ They must be specified in uppercase.
    *  - AMPERE80
       - GPU
       - NVIDIA Ampere generation CC 8.0 GPU
+   *  - AMPERE86
+      - GPU
+      - NVIDIA Ampere generation CC 8.6 GPU
    *  - VEGA900
       - GPU
       - AMD GPU MI25 GFX900
@@ -539,12 +554,12 @@ They must be specified in uppercase.
       - AMD GPU MI50/MI60 GFX906
    *  - VEGA908
       - GPU
-      - AMD GPU GFX908
+      - AMD GPU MI100 GFX908
    *  - INTEL_GEN
       - GPU
       - Intel GPUs Gen9+
 
-This list was last updated for version 3.3 of the Kokkos library.
+This list was last updated for version 3.4 of the Kokkos library.
 
 .. tabs::
 
@@ -1240,6 +1255,46 @@ be built for the most part with all major versions of the C++ language.
 
 ----------
 
+.. _user-pace:
+
+USER-PACE package
+-----------------------------
+
+This package requires a library that can be downloaded and built
+in lib/pace or somewhere else, which must be done before building
+LAMMPS with this package. The code for the library can be found
+at: `https://github.com/ICAMS/lammps-user-pace/ <https://github.com/ICAMS/lammps-user-pace/>`_
+
+.. tabs::
+
+   .. tab:: CMake build
+
+      By default the library will be downloaded from the git repository
+      and built automatically when the USER-PACE package is enabled with
+      ``-D PKG_USER-PACE=yes``.  The location for the sources may be
+      customized by setting the variable ``PACELIB_URL`` when
+      configuring with CMake (e.g. to use a local archive on machines
+      without internet access).  Since CMake checks the validity of the
+      archive with ``md5sum`` you may also need to set ``PACELIB_MD5``
+      if you provide a different library version than what is downloaded
+      automatically.
+
+
+   .. tab:: Traditional make
+
+      You can download and build the USER-PACE library
+      in one step from the ``lammps/src`` dir, using these commands,
+      which invoke the ``lib/pace/Install.py`` script.
+
+      .. code-block:: bash
+
+         $ make lib-pace                          # print help message
+         $ make lib-pace args="-b"                # download and build the default version in lib/pace
+
+      You should not need to edit the ``lib/pace/Makefile.lammps`` file.
+
+----------
+
 .. _user-plumed:
 
 USER-PLUMED package
@@ -1482,6 +1537,35 @@ Best performance is achieved with Intel hardware, Intel compilers, as
 well as the Intel TBB and MKL libraries. However, the code also
 compiles, links, and runs with other compilers / hardware and without
 TBB and MKL.
+
+----------
+
+.. _user-mdi:
+
+USER-MDI package
+-----------------------------
+
+.. tabs::
+
+   .. tab:: CMake build
+
+      .. code-block:: bash
+
+         -D DOWNLOAD_MDI=value    # download MDI Library for build, value = no (default) or yes
+
+   .. tab:: Traditional make
+
+      Before building LAMMPS, you must build the MDI Library in
+      ``lib/mdi``\ .  You can do this by executing a command like one
+      of the following from the ``lib/mdi`` directory:
+
+      .. code-block:: bash
+
+         $ python Install.py -m gcc       # build using gcc compiler
+         $ python Install.py -m icc       # build using icc compiler
+
+      The build should produce two files: ``lib/mdi/includelink/mdi.h``
+      and ``lib/mdi/liblink/libmdi.so``\ .
 
 ----------
 

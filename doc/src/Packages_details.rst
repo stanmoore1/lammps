@@ -50,6 +50,7 @@ page gives those details.
    * :ref:`MSCG <PKG-MSCG>`
    * :ref:`OPT <PKG-OPT>`
    * :ref:`PERI <PKG-PERI>`
+   * :ref:`PLUGIN <PKG-PLUGIN>`
    * :ref:`POEMS <PKG-POEMS>`
    * :ref:`PYTHON <PKG-PYTHON>`
    * :ref:`QEQ <PKG-QEQ>`
@@ -68,6 +69,7 @@ page gives those details.
    * :ref:`USER-ATC <PKG-USER-ATC>`
    * :ref:`USER-AWPMD <PKG-USER-AWPMD>`
    * :ref:`USER-BOCS <PKG-USER-BOCS>`
+   * :ref:`USER-BROWNIAN <PKG-USER-BROWNIAN>`
    * :ref:`USER-CGDNA <PKG-USER-CGDNA>`
    * :ref:`USER-CGSDK <PKG-USER-CGSDK>`
    * :ref:`USER-COLVARS <PKG-USER-COLVARS>`
@@ -80,6 +82,7 @@ page gives those details.
    * :ref:`USER-INTEL <PKG-USER-INTEL>`
    * :ref:`USER-LB <PKG-USER-LB>`
    * :ref:`USER-MANIFOLD <PKG-USER-MANIFOLD>`
+   * :ref:`USER-MDI <PKG-USER-MDI>`
    * :ref:`USER-MEAMC <PKG-USER-MEAMC>`
    * :ref:`USER-MESODPD <PKG-USER-MESODPD>`
    * :ref:`USER-MESONT <PKG-USER-MESONT>`
@@ -89,6 +92,7 @@ page gives those details.
    * :ref:`USER-MOLFILE <PKG-USER-MOLFILE>`
    * :ref:`USER-NETCDF <PKG-USER-NETCDF>`
    * :ref:`USER-OMP <PKG-USER-OMP>`
+   * :ref:`USER-PACE <PKG-USER-PACE>`
    * :ref:`USER-PHONON <PKG-USER-PHONON>`
    * :ref:`USER-PLUMED <PKG-USER-PLUMED>`
    * :ref:`USER-PTM <PKG-USER-PTM>`
@@ -584,7 +588,7 @@ MC package
 Several fixes and a pair style that have Monte Carlo (MC) or MC-like
 attributes.  These include fixes for creating, breaking, and swapping
 bonds, for performing atomic swaps, and performing grand-canonical MC
-(GCMC) in conjunction with dynamics.
+(GCMC) or similar processes in conjunction with dynamics.
 
 **Supporting info:**
 
@@ -592,8 +596,12 @@ bonds, for performing atomic swaps, and performing grand-canonical MC
 * :doc:`fix atom/swap <fix_atom_swap>`
 * :doc:`fix bond/break <fix_bond_break>`
 * :doc:`fix bond/create <fix_bond_create>`
+* :doc:`fix bond/create/angle <fix_bond_create>`
 * :doc:`fix bond/swap <fix_bond_swap>`
+* :doc:`fix charge/regulation <fix_charge_regulation>`
 * :doc:`fix gcmc <fix_gcmc>`
+* :doc:`fix tfmc <fix_tfmc>`
+* :doc:`fix widom <fix_widom>`
 * :doc:`pair_style dsmc <pair_dsmc>`
 * https://lammps.sandia.gov/movies.html#gcmc
 
@@ -840,6 +848,28 @@ Foster (UTSA).
 * :doc:`compute plasticity/atom <compute_plasticity_atom>`
 * examples/peri
 * https://lammps.sandia.gov/movies.html#peri
+
+----------
+
+.. _PKG-PLUGIN:
+
+PLUGIN package
+--------------
+
+**Contents:**
+
+A :doc:`plugin <plugin>` command that can load and unload several
+kind of styles in LAMMPS from shared object files at runtime without
+having to recompile and relink LAMMPS.
+
+**Authors:** Axel Kohlmeyer (Temple U)
+
+**Supporting info:**
+
+* src/PLUGIN: filenames -> commands
+* :doc:`plugin command <plugin>`
+* :doc:`Information on writing plugins <Developer_plugins>`
+* examples/plugin
 
 ----------
 
@@ -1238,6 +1268,26 @@ Example inputs are in the examples/USER/bocs folder.
 
 ----------
 
+.. _PKG-USER-BROWNIAN:
+
+USER-BROWNIAN package
+---------------------
+
+**Contents:**
+
+This package provides :doc:`fix brownian, fix brownian/sphere, and
+fix brownian/asphere <fix_brownian>` as well as
+:doc:`fix propel/self <fix_propel_self>` which allow to do Brownian
+Dynamics time integration of point, spherical and aspherical particles
+and also support self-propelled particles.
+
+**Authors:** Sam Cameron (University of Bristol),
+Stefan Paquay (while at Brandeis University) (initial version of fix propel/self)
+
+Example inputs are in the examples/USER/brownian folder.
+
+----------
+
 .. _PKG-USER-CGDNA:
 
 USER-CGDNA package
@@ -1323,6 +1373,46 @@ This package has :ref:`specific installation instructions <user-colvars>` on the
 * lib/colvars/README
 * :doc:`fix colvars <fix_colvars>`
 * examples/USER/colvars
+
+----------
+
+.. _PKG-USER-PACE:
+
+USER-PACE package
+-------------------
+
+**Contents:**
+
+A pair style for the Atomic Cluster Expansion potential (ACE).
+ACE is a methodology for deriving a highly accurate classical potential
+fit to a large archive of quantum mechanical (DFT) data. The USER-PACE
+package provides an efficient implementation for running simulations
+with ACE potentials.
+
+**Authors:**
+
+This package was written by Yury Lysogorskiy^1,
+Cas van der Oord^2, Anton Bochkarev^1,
+Sarath Menon^1, Matteo Rinaldi^1, Thomas Hammerschmidt^1, Matous Mrovec^1,
+Aidan Thompson^3, Gabor Csanyi^2, Christoph Ortner^4, Ralf Drautz^1.
+
+ ^1: Ruhr-University Bochum, Bochum, Germany
+
+ ^2: University of Cambridge, Cambridge, United Kingdom
+
+ ^3: Sandia National Laboratories, Albuquerque, New Mexico, USA
+
+ ^4: University of British Columbia, Vancouver, BC, Canada
+
+**Install:**
+
+This package has :ref:`specific installation instructions <user-pace>` on the :doc:`Build extras <Build_extras>` page.
+
+**Supporting info:**
+
+* src/USER-PACE: filenames -> commands
+* :doc:`pair_style pace <pair_pace>`
+* examples/USER/pace
 
 ----------
 
@@ -1699,6 +1789,28 @@ Waltham, MA, USA)
 * :doc:`fix nvt/manifold/rattle <fix_nvt_manifold_rattle>`
 * examples/USER/manifold
 * https://lammps.sandia.gov/movies.html#manifold
+
+----------
+
+.. _PKG-USER-MDI:
+
+USER-MDI package
+----------------
+
+**Contents:**
+
+A LAMMPS command and fix to allow client-server coupling of LAMMPS to
+other atomic or molecular simulation codes via the `MolSSI Driver Interface
+(MDI) library <https://molssi-mdi.github.io/MDI_Library/html/index.html>`_.
+
+**Author:** Taylor Barnes - MolSSI, taylor.a.barnes at gmail.com
+
+**Supporting info:**
+
+* src/USER-MDI/README
+* :doc:`mdi/engine <mdi_engine>`
+* :doc:`fix mdi/engine <fix_mdi_engine>`
+* examples/USER/mdi
 
 ----------
 
@@ -2456,6 +2568,6 @@ which discuss the `QuickFF <quickff_>`_ methodology.
 * :doc:`bond_style mm3 <bond_mm3>`
 * :doc:`improper_style distharm <improper_distharm>`
 * :doc:`improper_style sqdistharm <improper_sqdistharm>`
-* :doc:`pair_style mm3/switch3/coulgauss/long <pair_mm3_switch3_coulgauss_long>`
+* :doc:`pair_style mm3/switch3/coulgauss/long <pair_lj_switch3_coulgauss_long>`
 * :doc:`pair_style lj/switch3/coulgauss/long <pair_lj_switch3_coulgauss_long>`
 * examples/USER/yaff

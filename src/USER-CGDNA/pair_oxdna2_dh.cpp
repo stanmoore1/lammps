@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -273,7 +274,7 @@ void PairOxdna2Dh::coeff(int narg, char **arg)
 {
   int count;
 
-  if (narg != 5) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/dh");
+  if (narg != 5) error->all(FLERR,"Incorrect args for pair coefficients in oxdna2/dh");
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -356,7 +357,7 @@ void PairOxdna2Dh::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/dh");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients in oxdna2/dh");
 }
 
 /* ----------------------------------------------------------------------

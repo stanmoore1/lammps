@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -13,15 +14,14 @@
 
 #include "compute_temp_region.h"
 
-#include <cstring>
 #include "atom.h"
-#include "update.h"
-#include "force.h"
 #include "domain.h"
-#include "region.h"
+#include "error.h"
+#include "force.h"
 #include "group.h"
 #include "memory.h"
-#include "error.h"
+#include "region.h"
+#include "update.h"
 
 using namespace LAMMPS_NS;
 

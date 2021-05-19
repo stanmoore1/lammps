@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -1171,7 +1172,6 @@ void AtomVecHybridKokkos::build_styles()
 
   allstyles = new char*[nallstyles];
 
-  int n;
   nallstyles = 0;
 #define ATOM_CLASS
 #define AtomStyle(key,Class)                   \

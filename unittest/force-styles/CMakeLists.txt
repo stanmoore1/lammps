@@ -33,7 +33,7 @@ else()
   target_link_libraries(style_tests PUBLIC mpi_stubs)
 endif()
 # propagate sanitizer options to test tools
-if (NOT ENABLE_SANITIZER STREQUAL "none")
+if (ENABLE_SANITIZER AND (NOT ENABLE_SANITIZER STREQUAL "none"))
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.13)
     target_compile_options(style_tests PUBLIC -fsanitize=${ENABLE_SANITIZER})
     target_link_options(style_tests PUBLIC -fsanitize=${ENABLE_SANITIZER})
@@ -124,7 +124,7 @@ file(GLOB FIX_TIMESTEP_TESTS LIST_DIRECTORIES false ${TEST_INPUT_FOLDER}/fix-tim
 foreach(TEST ${FIX_TIMESTEP_TESTS})
   string(REGEX REPLACE "^.*fix-timestep-(.*)\.yaml" "FixTimestep:\\1" TNAME ${TEST})
   add_test(NAME ${TNAME} COMMAND test_fix_timestep ${TEST} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-  set_tests_properties(${TNAME} PROPERTIES ENVIRONMENT "LAMMPS_POTENTIALS=${LAMMPS_POTENTIALS_DIR};PYTHONPATH=${TEST_INPUT_FOLDER}:$ENV{PYTHONPATH}")
+  set_tests_properties(${TNAME} PROPERTIES ENVIRONMENT "LAMMPS_POTENTIALS=${LAMMPS_POTENTIALS_DIR};PYTHONPATH=${TEST_INPUT_FOLDER}:${LAMMPS_PYTHON_DIR}:$ENV{PYTHONPATH}")
 endforeach()
 
 # dihedral style tester

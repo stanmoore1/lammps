@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -22,7 +23,6 @@
 #include "modify.h"
 
 #include <cstring>
-#include <cctype>
 
 using namespace LAMMPS_NS;
 

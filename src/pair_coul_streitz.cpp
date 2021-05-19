@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -36,7 +37,6 @@
 using namespace LAMMPS_NS;
 using namespace MathConst;
 
-#define MAXLINE 1024
 #define DELTA 4
 #define PGDELTA 1
 #define MAXNEIGH 24

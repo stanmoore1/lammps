@@ -1,3 +1,4 @@
+// clang-format off
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -46,11 +47,15 @@ ZstdFileWriter::~ZstdFileWriter()
 
 /* ---------------------------------------------------------------------- */
 
-void ZstdFileWriter::open(const std::string &path)
+void ZstdFileWriter::open(const std::string &path, bool append)
 {
     if (isopen()) return;
 
-    fp = fopen(path.c_str(), "wb");
+    if (append) {
+      fp = fopen(path.c_str(), "ab");
+    } else {
+      fp = fopen(path.c_str(), "wb");
+    }
 
     if (!fp) {
         throw FileWriterException(fmt::format("Could not open file '{}'", path));

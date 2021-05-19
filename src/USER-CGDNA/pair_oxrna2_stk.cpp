@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://lammps.sandia.gov/, Sandia National Laboratories
@@ -1022,7 +1023,7 @@ void PairOxrna2Stk::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/stk");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients in oxrna2/stk");
 
 }
 
