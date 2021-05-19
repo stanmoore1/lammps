@@ -20,11 +20,7 @@
 ------------------------------------------------------------------------- */
 
 #include "fix_qeq_reax.h"
-#include <mpi.h>
-#include <cmath>
-#include <cstring>
-#include <math.h> 
-#include "pair_reaxc.h"
+
 #include "atom.h"
 #include "citeme.h"
 #include "comm.h"
@@ -73,6 +69,9 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   if (lmp->citeme) lmp->citeme->add(cite_fix_qeq_reax);
 
   if (narg<8 || narg>11) error->all(FLERR,"Illegal fix qeq/reax command");
+
+  reaxc = NULL;
+  reaxc = (PairReaxC *) force->pair_match("^reax/c",0);
 
   reaxc->qtpie->flag = 0;
   for (int i = 0; i < narg-1; i++) {
@@ -150,15 +149,6 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   // perform initial allocation of atom-based arrays
   // register with Atom class
 
-  reaxc = nullptr;
-  reaxc = (PairReaxC *) force->pair_match("^reax/c",0);
-
-  s_hist = t_hist = NULL;
-  grow_arrays(atom->nmax);
-  atom->add_callback(0);
-  for (int i = 0; i < atom->nmax; i++)
-    for (int j = 0; j < nprev; ++j)
-      s_hist[i][j] = t_hist[i][j] = 0;
   s_hist = t_hist = nullptr;
   atom->add_callback(Atom::GROW);
 }
@@ -664,7 +654,7 @@ void FixQEqReax::init_matvec()
     if (atom->mask[i] & groupbit) {
 
       /* init pre-conditioner for H and init solution vectors */
-      Hdia_inv[i]   = 1. / eta[ atom->type[i] ];
+      Hdia_inv[i] = 1. / eta[ atom->type[i] ];
       if (reaxc->qtpie->flag) 
         b_s[i]      = -reaxc->qtpie->chi_eff[i];
       else 

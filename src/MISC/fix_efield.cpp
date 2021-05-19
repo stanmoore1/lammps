@@ -67,7 +67,7 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
     xstr = utils::strdup(arg[3]+2);
   } else {
     ex = qe2f * utils::numeric(FLERR,arg[3],false,lmp);
-    force->pair->ex = ex;
+    force->pair->ex = utils::numeric(FLERR,arg[3],false,lmp);
     xstyle = CONSTANT;
   }
 
@@ -75,7 +75,7 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
     ystr = utils::strdup(arg[4]+2);
   } else {
     ey = qe2f * utils::numeric(FLERR,arg[4],false,lmp);
-    force->pair->ey = ey;
+    force->pair->ey = utils::numeric(FLERR,arg[4],false,lmp);
     ystyle = CONSTANT;
   }
 
@@ -83,7 +83,7 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
     zstr = utils::strdup(arg[5]+2);
   } else {
     ez = qe2f * utils::numeric(FLERR,arg[5],false,lmp);
-    force->pair->ez = ez;
+    force->pair->ez = utils::numeric(FLERR,arg[5],false,lmp);
     zstyle = CONSTANT;
   }
 
