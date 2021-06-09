@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -12,9 +12,9 @@
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
-
-FixStyle(wall/piston,FixWallPiston)
-
+// clang-format off
+FixStyle(wall/piston,FixWallPiston);
+// clang-format on
 #else
 
 #ifndef FIX_WALL_PISTON_H
@@ -45,11 +45,20 @@ class FixWallPiston : public Fix {
   int wall_flag;
   int nlevels_respa;
   int ifix_mw;
-
   class Fix *fix_mw; // fix_mw
+
+  int xloflag, xhiflag, yloflag, yhiflag, zloflag, zhiflag;
+  int scaleflag, roughflag, rampflag, rampNL1flag, rampNL2flag, rampNL3flag, rampNL4flag,
+      rampNL5flag;
+  double roughdist, roughoff, x0, y0, z0, vx, vy, vz, maxvx, maxvy, maxvz, paccelx, paccely,
+      paccelz, angfreq;
+  int tempflag, tseed;
+  double t_target, t_period, t_extent;
+  class RanMars *randomt;
+  double *gfactor1, *gfactor2;
 };
 
-}
+}    // namespace LAMMPS_NS
 
 #endif
 #endif

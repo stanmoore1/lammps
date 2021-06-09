@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -18,9 +19,9 @@
 #include "mliap_model_nn.h"
 #include "pair_mliap.h"
 #include "mliap_data.h"
-#include "error.h"
 
 #include "comm.h"
+#include "error.h"
 #include "memory.h"
 #include "tokenizer.h"
 
@@ -73,8 +74,8 @@ void MLIAPModelNN::read_coeffs(char *coefffilename)
   if (comm->me == 0) {
     fpcoeff = utils::open_potential(coefffilename,lmp,nullptr);
     if (fpcoeff == nullptr)
-      error->one(FLERR,fmt::format("Cannot open MLIAPModel coeff file {}: {}",
-                                   coefffilename,utils::getsyserror()));
+      error->one(FLERR,"Cannot open MLIAPModel coeff file {}: {}",
+                                   coefffilename,utils::getsyserror());
   }
 
   char line[MAXLINE], *ptr, *tstr;
@@ -111,8 +112,8 @@ void MLIAPModelNN::read_coeffs(char *coefffilename)
     nelements = coeffs.next_int();
     nparams = coeffs.next_int();
   } catch (TokenizerException &e) {
-    error->all(FLERR,fmt::format("Incorrect format in MLIAPModel coefficient "
-                                 "file: {}",e.what()));
+    error->all(FLERR,"Incorrect format in MLIAPModel coefficient "
+                                 "file: {}",e.what());
   }
 
   // set up coeff lists
@@ -378,7 +379,7 @@ void MLIAPModelNN::compute_gradients(MLIAPData* data)
    egradient is derivative of energy w.r.t. parameters
    ---------------------------------------------------------------------- */
 
-void MLIAPModelNN::compute_gradgrads(class MLIAPData* data)
+void MLIAPModelNN::compute_gradgrads(class MLIAPData * /*data*/)
 {
   error->all(FLERR,"compute_gradgrads not implemented");
 }
@@ -388,7 +389,7 @@ void MLIAPModelNN::compute_gradgrads(class MLIAPData* data)
    egradient is derivative of energy w.r.t. parameters
    ---------------------------------------------------------------------- */
 
-void MLIAPModelNN::compute_force_gradients(class MLIAPData* data)
+void MLIAPModelNN::compute_force_gradients(class MLIAPData * /*data*/)
 {
   error->all(FLERR,"compute_force_gradients not implemented");
 }
@@ -397,7 +398,7 @@ void MLIAPModelNN::compute_force_gradients(class MLIAPData* data)
    count the number of non-zero entries in gamma matrix
    ---------------------------------------------------------------------- */
 
-int MLIAPModelNN::get_gamma_nnz(class MLIAPData* data)
+int MLIAPModelNN::get_gamma_nnz(class MLIAPData * /*data*/)
 {
   // todo: get_gamma_nnz
   return 0;
