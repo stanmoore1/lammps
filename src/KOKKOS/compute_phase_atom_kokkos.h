@@ -13,9 +13,9 @@
 
 #ifdef COMPUTE_CLASS
 
-ComputeStyle(phase/kk,ComputePhaseAtomKokkos<LMPDeviceType>)
-ComputeStyle(phase/kk/device,ComputePhaseAtomKokkos<LMPDeviceType>)
-ComputeStyle(phase/kk/host,ComputePhaseAtomKokkos<LMPHostType>)
+ComputeStyle(phase/atom/kk,ComputePhaseAtomKokkos<LMPDeviceType>)
+ComputeStyle(phase/atom/kk/device,ComputePhaseAtomKokkos<LMPDeviceType>)
+ComputeStyle(phase/atom/kk/host,ComputePhaseAtomKokkos<LMPHostType>)
 
 #else
 

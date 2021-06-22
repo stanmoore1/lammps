@@ -62,6 +62,8 @@ ComputePhaseAtomKokkos<DeviceType>::~ComputePhaseAtomKokkos()
 template<class DeviceType>
 void ComputePhaseAtomKokkos<DeviceType>::init()
 {
+  ComputePhaseAtom::init();
+
   // need an occasional full neighbor list
 
   // irequest = neigh request made by parent class
@@ -96,7 +98,7 @@ void ComputePhaseAtomKokkos<DeviceType>::compute_peratom()
 
   atomKK->sync(Host,V_MASK);
   comm->forward_comm_compute(this);
-  atomKK->sync(Host,V_MASK);
+  atomKK->modified(Host,V_MASK);
 
   // invoke full neighbor list (will copy or build if necessary)
 
@@ -117,10 +119,15 @@ void ComputePhaseAtomKokkos<DeviceType>::compute_peratom()
   type = atomKK->k_type.view<DeviceType>();
   mask = atomKK->k_mask.view<DeviceType>();
 
+  Kokkos::deep_copy(d_phase,0.0);
+
   copymode = 1;
   typename Kokkos::RangePolicy<DeviceType, TagComputePhaseAtom> policy(0,inum);
   Kokkos::parallel_for("ComputePhaseAtom",policy,*this);
   copymode = 0;
+
+  k_phase.modify<DeviceType>();
+  k_phase.sync_host();
 }
 
 template<class DeviceType>
@@ -146,7 +153,6 @@ void ComputePhaseAtomKokkos<DeviceType>::operator()(TagComputePhaseAtom, const i
       int j = d_neighbors(i,jj);
       j &= NEIGHMASK;
 
-      const int jtype = type[j];
       const F_FLOAT delx = x(j,0) - xtmp;
       const F_FLOAT dely = x(j,1) - ytmp;
       const F_FLOAT delz = x(j,2) - ztmp;
@@ -177,7 +183,6 @@ void ComputePhaseAtomKokkos<DeviceType>::operator()(TagComputePhaseAtom, const i
       int j = d_neighbors(i,jj);
       j &= NEIGHMASK;
       
-      const int jtype = type[j];
       const F_FLOAT delx = x(j,0) - xtmp;
       const F_FLOAT dely = x(j,1) - ytmp;
       const F_FLOAT delz = x(j,2) - ztmp;
