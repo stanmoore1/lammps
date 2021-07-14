@@ -244,6 +244,10 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
     exchange_comm_on_host = forward_comm_on_host = reverse_comm_on_host = 0;
   }
 
+  serial_flag = 0;
+  if (nthreads == 1 && ngpus == 0)
+    serial_flag = 1;
+
 #ifdef LMP_KOKKOS_GPU
 
   // check and warn about GPU-aware MPI availability when using multiple MPI tasks

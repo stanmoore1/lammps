@@ -47,6 +47,7 @@ class KokkosLMP : protected Pointers {
   int neigh_thread;
   int neigh_thread_set;
   int newtonflag;
+  int serial_flag;
   double binsize;
 
   static int is_finalized;

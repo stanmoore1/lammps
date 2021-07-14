@@ -26,6 +26,7 @@
 #include "math_const.h"
 #include "memory_kokkos.h"
 #include "neighbor_kokkos.h"
+#include "kokkos.h"
 
 #include <cmath>
 
@@ -99,6 +100,21 @@ void BondFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   nlocal = atom->nlocal;
   newton_bond = force->newton_bond;
 
+  need_dup = 0;
+  if (!lmp->kokkos->serial_flag) {
+    need_dup = std::is_same<typename NeedDup<HALFTHREAD,DeviceType>::value,Kokkos::Experimental::ScatterDuplicated>::value;
+  }
+
+  if (need_dup) {
+    dup_f     = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(f);
+    dup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_eatom);
+    dup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_vatom);
+  } else {
+    ndup_f     = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(f);
+    ndup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_eatom);
+    ndup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
+  }
+
   h_warning_flag() = 0;
   k_warning_flag.template modify<LMPHostType>();
   k_warning_flag.template sync<DeviceType>();
@@ -113,17 +129,33 @@ void BondFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   EV_FLOAT ev;
 
-  if (evflag) {
-    if (newton_bond) {
-      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondFENECompute<1,1> >(0,nbondlist),*this,ev);
+  if (lmp->kokkos->serial_flag) {
+    if (evflag) {
+      if (newton_bond) {
+	Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondFENECompute<HALF,1,1> >(0,nbondlist),*this,ev);
+      } else {
+	Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondFENECompute<HALF,0,1> >(0,nbondlist),*this,ev);
+      }
     } else {
-      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondFENECompute<0,1> >(0,nbondlist),*this,ev);
+      if (newton_bond) {
+	Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagBondFENECompute<HALF,1,0> >(0,nbondlist),*this);
+      } else {
+	Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagBondFENECompute<HALF,0,0> >(0,nbondlist),*this);
+      }
     }
   } else {
-    if (newton_bond) {
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagBondFENECompute<1,0> >(0,nbondlist),*this);
+    if (evflag) {
+      if (newton_bond) {
+	Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondFENECompute<HALFTHREAD,1,1> >(0,nbondlist),*this,ev);
+      } else {
+	Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondFENECompute<HALFTHREAD,0,1> >(0,nbondlist),*this,ev);
+      }
     } else {
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagBondFENECompute<0,0> >(0,nbondlist),*this);
+      if (newton_bond) {
+	Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagBondFENECompute<HALFTHREAD,1,0> >(0,nbondlist),*this);
+      } else {
+	Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagBondFENECompute<HALFTHREAD,0,0> >(0,nbondlist),*this);
+      }
     }
   }
 
@@ -136,6 +168,12 @@ void BondFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   k_error_flag.template sync<LMPHostType>();
   if (h_error_flag())
     error->one(FLERR,"Bad FENE bond");
+
+  if (need_dup) {
+    Kokkos::Experimental::contribute(f, dup_f);
+    if (eflag_atom) Kokkos::Experimental::contribute(d_eatom, dup_eatom);
+    if (vflag_atom) Kokkos::Experimental::contribute(d_vatom, dup_vatom);
+  }
 
   if (eflag_global) energy += ev.evdwl;
   if (vflag_global) {
@@ -161,14 +199,16 @@ void BondFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 }
 
 template<class DeviceType>
-template<int NEWTON_BOND, int EVFLAG>
+template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void BondFENEKokkos<DeviceType>::operator()(TagBondFENECompute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
+void BondFENEKokkos<DeviceType>::operator()(TagBondFENECompute<NEIGHFLAG,NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
 
   if (d_error_flag()) return;
 
-  // The f array is atomic
-  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  // The f array is duplicated for OpenMP, atomic for CUDA, and neither for Serial
+
+  auto v_f = ScatterViewHelper<typename NeedDup<NEIGHFLAG,DeviceType>::value,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  auto a_f = v_f.template access<typename AtomicDup<NEIGHFLAG,DeviceType>::value>();
 
   const int i1 = bondlist(n,0);
   const int i2 = bondlist(n,1);
@@ -230,15 +270,15 @@ void BondFENEKokkos<DeviceType>::operator()(TagBondFENECompute<NEWTON_BOND,EVFLA
     a_f(i2,2) -= delz*fbond;
   }
 
-  if (EVFLAG) ev_tally(ev,i1,i2,ebond,fbond,delx,dely,delz);
+  if (EVFLAG) ev_tally<NEIGHFLAG>(ev,i1,i2,ebond,fbond,delx,dely,delz);
 }
 
 template<class DeviceType>
-template<int NEWTON_BOND, int EVFLAG>
+template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void BondFENEKokkos<DeviceType>::operator()(TagBondFENECompute<NEWTON_BOND,EVFLAG>, const int &n) const {
+void BondFENEKokkos<DeviceType>::operator()(TagBondFENECompute<NEIGHFLAG,NEWTON_BOND,EVFLAG>, const int &n) const {
   EV_FLOAT ev;
-  this->template operator()<NEWTON_BOND,EVFLAG>(TagBondFENECompute<NEWTON_BOND,EVFLAG>(), n, ev);
+  this->template operator()<NEIGHFLAG,NEWTON_BOND,EVFLAG>(TagBondFENECompute<NEIGHFLAG,NEWTON_BOND,EVFLAG>(), n, ev);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -312,7 +352,7 @@ void BondFENEKokkos<DeviceType>::read_restart(FILE *fp)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-//template<int NEWTON_BOND>
+template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void BondFENEKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int &j,
       const F_FLOAT &ebond, const F_FLOAT &fbond, const F_FLOAT &delx,
@@ -321,9 +361,13 @@ void BondFENEKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int 
   E_FLOAT ebondhalf;
   F_FLOAT v[6];
 
-  // The eatom and vatom arrays are atomic
-  Kokkos::View<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
+  // The eatom and vatom arrays are duplicated for OpenMP, atomic for CUDA, and neither for Serial
+
+  auto v_eatom = ScatterViewHelper<typename NeedDup<NEIGHFLAG,DeviceType>::value,decltype(dup_eatom),decltype(ndup_eatom)>::get(dup_eatom,ndup_eatom);
+  auto a_eatom = v_eatom.template access<typename AtomicDup<NEIGHFLAG,DeviceType>::value>();
+
+  auto v_vatom = ScatterViewHelper<typename NeedDup<NEIGHFLAG,DeviceType>::value,decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
+  auto a_vatom = v_vatom.template access<typename AtomicDup<NEIGHFLAG,DeviceType>::value>();
 
   if (eflag_either) {
     if (eflag_global) {
@@ -336,8 +380,8 @@ void BondFENEKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int 
     }
     if (eflag_atom) {
       ebondhalf = 0.5*ebond;
-      if (newton_bond || i < nlocal) v_eatom[i] += ebondhalf;
-      if (newton_bond || j < nlocal) v_eatom[j] += ebondhalf;
+      if (newton_bond || i < nlocal) a_eatom[i] += ebondhalf;
+      if (newton_bond || j < nlocal) a_eatom[j] += ebondhalf;
     }
   }
 
@@ -379,20 +423,20 @@ void BondFENEKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int 
 
     if (vflag_atom) {
       if (newton_bond || i < nlocal) {
-        v_vatom(i,0) += 0.5*v[0];
-        v_vatom(i,1) += 0.5*v[1];
-        v_vatom(i,2) += 0.5*v[2];
-        v_vatom(i,3) += 0.5*v[3];
-        v_vatom(i,4) += 0.5*v[4];
-        v_vatom(i,5) += 0.5*v[5];
+        a_vatom(i,0) += 0.5*v[0];
+        a_vatom(i,1) += 0.5*v[1];
+        a_vatom(i,2) += 0.5*v[2];
+        a_vatom(i,3) += 0.5*v[3];
+        a_vatom(i,4) += 0.5*v[4];
+        a_vatom(i,5) += 0.5*v[5];
       }
       if (newton_bond || j < nlocal) {
-        v_vatom(j,0) += 0.5*v[0];
-        v_vatom(j,1) += 0.5*v[1];
-        v_vatom(j,2) += 0.5*v[2];
-        v_vatom(j,3) += 0.5*v[3];
-        v_vatom(j,4) += 0.5*v[4];
-        v_vatom(j,5) += 0.5*v[5];
+        a_vatom(j,0) += 0.5*v[0];
+        a_vatom(j,1) += 0.5*v[1];
+        a_vatom(j,2) += 0.5*v[2];
+        a_vatom(j,3) += 0.5*v[3];
+        a_vatom(j,4) += 0.5*v[4];
+        a_vatom(j,5) += 0.5*v[5];
       }
     }
   }

@@ -28,7 +28,7 @@ BondStyle(fene/kk/host,BondFENEKokkos<LMPHostType>);
 
 namespace LAMMPS_NS {
 
-template<int NEWTON_BOND, int EVFLAG>
+template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
 struct TagBondFENECompute{};
 
 template<class DeviceType>
@@ -44,15 +44,15 @@ class BondFENEKokkos : public BondFENE {
   void coeff(int, char **);
   void read_restart(FILE *);
 
-  template<int NEWTON_BOND, int EVFLAG>
+  template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagBondFENECompute<NEWTON_BOND,EVFLAG>, const int&, EV_FLOAT&) const;
+  void operator()(TagBondFENECompute<NEIGHFLAG,NEWTON_BOND,EVFLAG>, const int&, EV_FLOAT&) const;
 
-  template<int NEWTON_BOND, int EVFLAG>
+  template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagBondFENECompute<NEWTON_BOND,EVFLAG>, const int&) const;
+  void operator()(TagBondFENECompute<NEIGHFLAG,NEWTON_BOND,EVFLAG>, const int&) const;
 
-  //template<int NEWTON_BOND>
+  template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
       const F_FLOAT &ebond, const F_FLOAT &fbond, const F_FLOAT &delx,
@@ -70,6 +70,14 @@ class BondFENEKokkos : public BondFENE {
   DAT::tdual_virial_array k_vatom;
   typename ArrayTypes<DeviceType>::t_efloat_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
+
+  int need_dup;
+  Kokkos::Experimental::ScatterView<F_FLOAT*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterDuplicated> dup_f;
+  Kokkos::Experimental::ScatterView<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterDuplicated> dup_eatom;
+  Kokkos::Experimental::ScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterDuplicated> dup_vatom;
+  Kokkos::Experimental::ScatterView<F_FLOAT*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_f;
+  Kokkos::Experimental::ScatterView<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_eatom;
+  Kokkos::Experimental::ScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_vatom;
 
   DAT::tdual_int_scalar k_warning_flag;
   typename AT::t_int_scalar d_warning_flag;
