@@ -613,5 +613,4 @@ void LR_vdW_Coulomb( reax_system *system, storage *workspace,
   lr->e_ele = C_ele * tmp;
 
   lr->CEclmb = C_ele * ( dTap -  Tap * r_ij / dr3gamij_1 ) / dr3gamij_3;
-
 }

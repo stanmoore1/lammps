@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -23,7 +24,7 @@
    by Hasan Metin Aktulga (MSU), Chris Knight (ALCF), Paul Coffman (ALCF),
    Kurt O'Hearn (MSU), Ray Shan (Materials Design), Wei Jiang (ALCF)
 
-   Integration of the pair_style reax/c/omp into the User-OMP package
+   Integration of the pair_style reax/c/omp into the OPENMP package
    by Axel Kohlmeyer (Temple U.)
 
    Please cite the related publication:
