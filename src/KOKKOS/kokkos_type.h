@@ -1,6 +1,7 @@
+// clang-format off
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -22,6 +23,7 @@
 #include <impl/Kokkos_Timer.hpp>
 #include <Kokkos_Vectorization.hpp>
 #include <Kokkos_ScatterView.hpp>
+#include <Kokkos_UnorderedMap.hpp>
 
 enum{FULL=1u,HALFTHREAD=2u,HALF=4u};
 
@@ -44,7 +46,9 @@ enum{FULL=1u,HALFTHREAD=2u,HALF=4u};
 static constexpr LAMMPS_NS::bigint LMP_KOKKOS_AV_DELTA = 10;
 
 namespace Kokkos {
-  using NoInit = ViewAllocateWithoutInitializing;
+  static auto NoInit = [](std::string const& label) {
+    return Kokkos::view_alloc(Kokkos::WithoutInitializing, label);
+  };
 }
 
   struct lmp_float3 {
@@ -550,6 +554,23 @@ typedef int T_INT;
 
 // LAMMPS types
 
+typedef Kokkos::UnorderedMap<LAMMPS_NS::tagint,int,LMPDeviceType> hash_type;
+typedef hash_type::HostMirror host_hash_type;
+
+struct dual_hash_type {
+  hash_type d_view;
+  host_hash_type h_view;
+
+  template<class DeviceType>
+  KOKKOS_INLINE_FUNCTION
+  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),hash_type&> view() {return d_view;}
+
+  template<class DeviceType>
+  KOKKOS_INLINE_FUNCTION
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),host_hash_type&> view() {return h_view;}
+
+};
+
 template <class DeviceType>
 struct ArrayTypes;
 
@@ -768,6 +789,36 @@ typedef tdual_virial_array::t_dev_const t_virial_array_const;
 typedef tdual_virial_array::t_dev_um t_virial_array_um;
 typedef tdual_virial_array::t_dev_const_um t_virial_array_const_um;
 typedef tdual_virial_array::t_dev_const_randomread t_virial_array_randomread;
+
+// Spin Types
+
+//3d SP_FLOAT array n*4
+#ifdef LMP_KOKKOS_NO_LEGACY
+typedef Kokkos::DualView<X_FLOAT*[4], Kokkos::LayoutLeft, LMPDeviceType> tdual_float_1d_4;
+#else
+typedef Kokkos::DualView<X_FLOAT*[4], Kokkos::LayoutRight, LMPDeviceType> tdual_float_1d_4;
+#endif
+typedef tdual_float_1d_4::t_dev t_sp_array;
+typedef tdual_float_1d_4::t_dev_const t_sp_array_const;
+typedef tdual_float_1d_4::t_dev_um t_sp_array_um;
+typedef tdual_float_1d_4::t_dev_const_um t_sp_array_const_um;
+typedef tdual_float_1d_4::t_dev_const_randomread t_sp_array_randomread;
+
+//3d FM_FLOAT array n*3
+
+typedef tdual_f_array::t_dev t_fm_array;
+typedef tdual_f_array::t_dev_const t_fm_array_const;
+typedef tdual_f_array::t_dev_um t_fm_array_um;
+typedef tdual_f_array::t_dev_const_um t_fm_array_const_um;
+typedef tdual_f_array::t_dev_const_randomread t_fm_array_randomread;
+
+//3d FML_FLOAT array n*3
+
+typedef tdual_f_array::t_dev t_fm_long_array;
+typedef tdual_f_array::t_dev_const t_fm_long_array_const;
+typedef tdual_f_array::t_dev_um t_fm_long_array_um;
+typedef tdual_f_array::t_dev_const_um t_fm_long_array_const_um;
+typedef tdual_f_array::t_dev_const_randomread t_fm_long_array_randomread;
 
 //Energy Types
 //1d E_FLOAT array n
@@ -1005,6 +1056,33 @@ typedef tdual_virial_array::t_host_um t_virial_array_um;
 typedef tdual_virial_array::t_host_const_um t_virial_array_const_um;
 typedef tdual_virial_array::t_host_const_randomread t_virial_array_randomread;
 
+// Spin types
+
+//2d X_FLOAT array n*4
+#ifdef LMP_KOKKOS_NO_LEGACY
+typedef Kokkos::DualView<X_FLOAT*[4], Kokkos::LayoutLeft, LMPDeviceType> tdual_float_1d_4;
+#else
+typedef Kokkos::DualView<X_FLOAT*[4], Kokkos::LayoutRight, LMPDeviceType> tdual_float_1d_4;
+#endif
+typedef tdual_float_1d_4::t_host t_sp_array;
+typedef tdual_float_1d_4::t_host_const t_sp_array_const;
+typedef tdual_float_1d_4::t_host_um t_sp_array_um;
+typedef tdual_float_1d_4::t_host_const_um t_sp_array_const_um;
+typedef tdual_float_1d_4::t_host_const_randomread t_sp_array_randomread;
+
+//2d F_FLOAT array n*3
+typedef tdual_f_array::t_host t_fm_array;
+typedef tdual_f_array::t_host_const t_fm_array_const;
+typedef tdual_f_array::t_host_um t_fm_array_um;
+typedef tdual_f_array::t_host_const_um t_fm_array_const_um;
+typedef tdual_f_array::t_host_const_randomread t_fm_array_randomread;
+
+//2d F_FLOAT array n*3
+typedef tdual_f_array::t_host t_fm_long_array;
+typedef tdual_f_array::t_host_const t_fm_long_array_const;
+typedef tdual_f_array::t_host_um t_fm_long_array_um;
+typedef tdual_f_array::t_host_const_um t_fm_long_array_const_um;
+typedef tdual_f_array::t_host_const_randomread t_fm_long_array_randomread;
 
 
 //Energy Types

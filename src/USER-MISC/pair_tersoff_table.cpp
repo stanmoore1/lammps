@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -22,21 +23,19 @@
 
 #include "pair_tersoff_table.h"
 
-#include <cmath>
-
-#include <cstring>
 #include "atom.h"
-#include "neighbor.h"
+#include "comm.h"
+#include "error.h"
+#include "force.h"
+#include "memory.h"
 #include "neigh_list.h"
 #include "neigh_request.h"
-#include "force.h"
-#include "comm.h"
-#include "memory.h"
-
-#include "tokenizer.h"
+#include "neighbor.h"
 #include "potential_file_reader.h"
+#include "tokenizer.h"
 
-#include "error.h"
+#include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 
@@ -64,11 +63,7 @@ PairTersoffTable::PairTersoffTable(LAMMPS *lmp) : Pair(lmp)
   centroidstressflag = CENTROID_NOTAVAIL;
   unit_convert_flag = utils::get_supported_conversions(utils::ENERGY);
 
-  nelements = 0;
-  elements = nullptr;
-  nparams = maxparam = 0;
   params = nullptr;
-  elem2param = nullptr;
   allocated = 0;
 
   preGtetaFunction = preGtetaFunctionDerived = nullptr;
@@ -88,17 +83,12 @@ PairTersoffTable::PairTersoffTable(LAMMPS *lmp) : Pair(lmp)
 
 PairTersoffTable::~PairTersoffTable()
 {
-  if (elements)
-    for (int i = 0; i < nelements; i++) delete [] elements[i];
-  delete [] elements;
   memory->destroy(params);
-  memory->destroy(elem2param);
+  memory->destroy(elem3param);
 
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(cutsq);
-    delete [] map;
-
   }
   deallocateGrids();
   deallocatePreLoops();
@@ -155,13 +145,10 @@ void PairTersoffTable::compute(int eflag, int vflag)
     jlist = firstneigh[i];
     jnum = numneigh[i];
 
-    if (jnum > leadingDimensionInteractionList) {
-      char errmsg[256];
-      sprintf(errmsg,"Too many neighbors for interaction list: %d vs %d.\n"
-              "Check your system or increase 'leadingDimensionInteractionList'",
-              jnum, leadingDimensionInteractionList);
-      error->one(FLERR,errmsg);
-    }
+    if (jnum > leadingDimensionInteractionList)
+      error->one(FLERR,"Too many neighbors for interaction list: {} vs {}.\n"
+                 "Check your system or increase 'leadingDimensionInteractionList'",
+                 jnum, leadingDimensionInteractionList);
 
     // Pre-calculate gteta and cutoff function
     for (int neighbor_j = 0; neighbor_j < jnum; neighbor_j++) {
@@ -177,7 +164,7 @@ void PairTersoffTable::compute(int eflag, int vflag)
       r_ij = dr_ij[0]*dr_ij[0] + dr_ij[1]*dr_ij[1] + dr_ij[2]*dr_ij[2];
 
       jtype = map[type[j]];
-      ijparam = elem2param[itype][jtype][jtype];
+      ijparam = elem3param[itype][jtype][jtype];
 
       if (r_ij > params[ijparam].cutsq) continue;
 
@@ -208,8 +195,8 @@ void PairTersoffTable::compute(int eflag, int vflag)
         k = jlist[neighbor_k];
         k &= NEIGHMASK;
         ktype = map[type[k]];
-        ikparam = elem2param[itype][ktype][ktype];
-        ijkparam = elem2param[itype][jtype][ktype];
+        ikparam = elem3param[itype][ktype][ktype];
+        ijkparam = elem3param[itype][jtype][ktype];
 
         dr_ik[0] = xtmp -x[k][0];
         dr_ik[1] = ytmp -x[k][1];
@@ -264,7 +251,7 @@ void PairTersoffTable::compute(int eflag, int vflag)
       r_ij = dr_ij[0]*dr_ij[0] + dr_ij[1]*dr_ij[1] + dr_ij[2]*dr_ij[2];
 
       jtype = map[type[j]];
-      ijparam = elem2param[itype][jtype][jtype];
+      ijparam = elem3param[itype][jtype][jtype];
 
       if (r_ij > params[ijparam].cutsq) continue;
 
@@ -308,8 +295,8 @@ void PairTersoffTable::compute(int eflag, int vflag)
         k = jlist[neighbor_k];
         k &= NEIGHMASK;
         ktype = map[type[k]];
-        ikparam = elem2param[itype][ktype][ktype];
-        ijkparam = elem2param[itype][jtype][ktype];
+        ikparam = elem3param[itype][ktype][ktype];
+        ijkparam = elem3param[itype][jtype][ktype];
 
         dr_ik[0] = xtmp -x[k][0];
         dr_ik[1] = ytmp -x[k][1];
@@ -333,8 +320,8 @@ void PairTersoffTable::compute(int eflag, int vflag)
         k = jlist[neighbor_k];
         k &= NEIGHMASK;
         ktype = map[type[k]];
-        ikparam = elem2param[itype][ktype][ktype];
-        ijkparam = elem2param[itype][jtype][ktype];
+        ikparam = elem3param[itype][ktype][ktype];
+        ijkparam = elem3param[itype][jtype][ktype];
 
         dr_ik[0] = xtmp -x[k][0];
         dr_ik[1] = ytmp -x[k][1];
@@ -392,8 +379,8 @@ void PairTersoffTable::compute(int eflag, int vflag)
         k = jlist[neighbor_k];
         k &= NEIGHMASK;
         ktype = map[type[k]];
-        ikparam = elem2param[itype][ktype][ktype];
-        ijkparam = elem2param[itype][jtype][ktype];
+        ikparam = elem3param[itype][ktype][ktype];
+        ijkparam = elem3param[itype][jtype][ktype];
 
         dr_ik[0] = xtmp -x[k][0];
         dr_ik[1] = ytmp -x[k][1];
@@ -444,10 +431,7 @@ void PairTersoffTable::compute(int eflag, int vflag)
         fytmp += f_ij[1] + f_ik[1];
         fztmp += f_ij[2] + f_ik[2];
 
-        // potential energy
-        evdwl = 0.0;
-
-        if (evflag) ev_tally3(i,j,k,evdwl,0.0,f_ij,f_ik,dr_ij,dr_ik);
+        if (vflag_either) v_tally3(i,j,k,f_ij,f_ik,dr_ij,dr_ik);
       }
 
       // second loop over neighbors of atom i except j, forces and virial only - part 2/2
@@ -457,8 +441,8 @@ void PairTersoffTable::compute(int eflag, int vflag)
         k = jlist[neighbor_k];
         k &= NEIGHMASK;
         ktype = map[type[k]];
-        ikparam = elem2param[itype][ktype][ktype];
-        ijkparam = elem2param[itype][jtype][ktype];
+        ikparam = elem3param[itype][ktype][ktype];
+        ijkparam = elem3param[itype][jtype][ktype];
 
         dr_ik[0] = xtmp -x[k][0];
         dr_ik[1] = ytmp -x[k][1];
@@ -509,11 +493,7 @@ void PairTersoffTable::compute(int eflag, int vflag)
         fytmp += f_ij[1] + f_ik[1];
         fztmp += f_ij[2] + f_ik[2];
 
-        // potential energy
-        evdwl = 0.0;
-
-        if (evflag) ev_tally3(i,j,k,evdwl,0.0,f_ij,f_ik,dr_ij,dr_ik);
-
+        if (vflag_either) v_tally3(i,j,k,f_ij,f_ik,dr_ij,dr_ik);
       }
     } // loop on J
     f[i][0] += fxtmp;
@@ -608,7 +588,7 @@ void PairTersoffTable::allocateGrids(void)
     r = -1.0;
     deltaArgumentGtetaFunction = 1.0 / GRIDDENSITY_GTETA;
 
-    int iparam = elem2param[i][i][i];
+    int iparam = elem3param[i][i][i];
     double c = params[iparam].c;
     double d = params[iparam].d;
     double h = params[iparam].h;
@@ -628,7 +608,7 @@ void PairTersoffTable::allocateGrids(void)
 
   for (i=0; i<nelements; i++) {
 
-    int iparam = elem2param[i][i][i];
+    int iparam = elem3param[i][i][i];
     double c = params[iparam].c;
     double d = params[iparam].d;
     double beta = params[iparam].beta;
@@ -639,7 +619,7 @@ void PairTersoffTable::allocateGrids(void)
     for (j=0; j<nelements; j++) {
       for (k=0; k<nelements; k++) {
 
-        int ijparam = elem2param[i][j][k];
+        int ijparam = elem3param[i][j][k];
         double cutoffR = params[ijparam].cutoffR;
         double cutoffS = params[ijparam].cutoffS;
 
@@ -660,7 +640,7 @@ void PairTersoffTable::allocateGrids(void)
   for (i=0; i<nelements; i++) {
     for (j=0; j<nelements; j++) {
       for (j=0; j<nelements; j++) {
-        int ijparam = elem2param[i][j][j];
+        int ijparam = elem3param[i][j][j];
         double cutoffR = params[ijparam].cutoffR;
         double cutoffS = params[ijparam].cutoffS;
 
@@ -693,7 +673,7 @@ void PairTersoffTable::allocateGrids(void)
 
   for (i=0; i<nelements; i++) {
 
-    int iparam = elem2param[i][i][i];
+    int iparam = elem3param[i][i][i];
     double c = params[iparam].c;
     double d = params[iparam].d;
     double beta = params[iparam].beta;
@@ -743,72 +723,17 @@ void PairTersoffTable::settings(int narg, char **/*arg*/)
 
 void PairTersoffTable::coeff(int narg, char **arg)
 {
-  int i,j,n;
-
   if (!allocated) allocate();
 
-  if (narg != 3 + atom->ntypes)
-    error->all(FLERR,"Incorrect args for pair coefficients");
-
-  // insure I,J args are * *
-
-  if (strcmp(arg[0],"*") != 0 || strcmp(arg[1],"*") != 0)
-    error->all(FLERR,"Incorrect args for pair coefficients");
-
-  // read args that map atom types to elements in potential file
-  // map[i] = which element the Ith atom type is, -1 if "NULL"
-  // nelements = # of unique elements
-  // elements = list of element names
-
-  if (elements) {
-    for (i = 0; i < nelements; i++) delete [] elements[i];
-    delete [] elements;
-  }
-  elements = new char*[atom->ntypes];
-  for (i = 0; i < atom->ntypes; i++) elements[i] = nullptr;
-
-  nelements = 0;
-  for (i = 3; i < narg; i++) {
-    if (strcmp(arg[i],"NULL") == 0) {
-      map[i-2] = -1;
-      continue;
-    }
-    for (j = 0; j < nelements; j++)
-      if (strcmp(arg[i],elements[j]) == 0) break;
-    map[i-2] = j;
-    if (j == nelements) {
-      n = strlen(arg[i]) + 1;
-      elements[j] = new char[n];
-      strcpy(elements[j],arg[i]);
-      nelements++;
-    }
-  }
+  map_element2type(narg-3,arg+3);
 
   // read potential file and initialize potential parameters
 
   read_file(arg[2]);
   setup_params();
 
-  // clear setflag since coeff() called once with I,J = * *
-
-  n = atom->ntypes;
-  for (int i = 1; i <= n; i++)
-    for (int j = i; j <= n; j++)
-      setflag[i][j] = 0;
-
-  // set setflag i,j for type pairs where both are mapped to elements
-
-  int count = 0;
-  for (int i = 1; i <= n; i++)
-    for (int j = i; j <= n; j++)
-      if (map[i] >= 0 && map[j] >= 0) {
-        setflag[i][j] = 1;
-        count++;
-      }
-
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
-
   // allocate tables and internal structures
+
   allocatePreLoops();
   allocateGrids();
 }
@@ -820,7 +745,7 @@ void PairTersoffTable::coeff(int narg, char **arg)
 void PairTersoffTable::init_style()
 {
   if (force->newton_pair == 0)
-    error->all(FLERR,"Pair style Tersoff requires newton pair on");
+    error->all(FLERR,"Pair style tersoff/table requires newton pair on");
 
   // need a full neighbor list
 
@@ -953,9 +878,8 @@ void PairTersoffTable::read_file(char *file)
   MPI_Bcast(&nparams, 1, MPI_INT, 0, world);
   MPI_Bcast(&maxparam, 1, MPI_INT, 0, world);
 
-  if (comm->me != 0) {
+  if (comm->me != 0)
     params = (Param *) memory->srealloc(params,maxparam*sizeof(Param), "pair:params");
-  }
 
   MPI_Bcast(params, maxparam*sizeof(Param), MPI_BYTE, 0, world);
 }
@@ -966,12 +890,12 @@ void PairTersoffTable::setup_params()
 {
   int i,j,k,m,n;
 
-  // set elem2param for all triplet combinations
+  // set elem3param for all triplet combinations
   // must be a single exact match to lines read from file
   // do not allow for ACB in place of ABC
 
-  memory->destroy(elem2param);
-  memory->create(elem2param,nelements,nelements,nelements,"pair:elem2param");
+  memory->destroy(elem3param);
+  memory->create(elem3param,nelements,nelements,nelements,"pair:elem3param");
 
   for (i = 0; i < nelements; i++)
     for (j = 0; j < nelements; j++)
@@ -985,7 +909,7 @@ void PairTersoffTable::setup_params()
           }
         }
         if (n < 0) error->all(FLERR,"Potential file is missing an entry");
-        elem2param[i][j][k] = n;
+        elem3param[i][j][k] = n;
       }
 
   // set cutoff square
