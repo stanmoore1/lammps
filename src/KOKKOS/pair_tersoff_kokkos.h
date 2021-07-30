@@ -26,7 +26,6 @@ PairStyle(tersoff/kk/host,PairTersoffKokkos<LMPHostType>);
 
 #include "pair_kokkos.h"
 #include "pair_tersoff.h"
-#include "neigh_list_kokkos.h"
 
 namespace LAMMPS_NS {
 
@@ -149,20 +148,6 @@ class PairTersoffKokkos : public PairTersoff {
     z[0] = k*x[0]+y[0]; z[1] = k*x[1]+y[1]; z[2] = k*x[2]+y[2];
   }
 
-  KOKKOS_INLINE_FUNCTION
-  int sbmask(const int& j) const;
-
-  struct params_ters{
-    KOKKOS_INLINE_FUNCTION
-    params_ters() {powerm=0;gamma=0;lam3=0;c=0;d=0;h=0;powern=0;beta=0;lam2=0;bigb=0;
-                  bigr=0;bigd=0;lam1=0;biga=0;cutsq=0;c1=0;c2=0;c3=0;c4=0;};
-    KOKKOS_INLINE_FUNCTION
-    params_ters(int /*i*/) {powerm=0;gamma=0;lam3=0;c=0;d=0;h=0;powern=0;beta=0;lam2=0;bigb=0;
-                  bigr=0;bigd=0;lam1=0;biga=0;cutsq=0;c1=0;c2=0;c3=0;c4=0;};
-    F_FLOAT powerm, gamma, lam3, c, d, h, powern, beta, lam2, bigb, bigr,
-            bigd, lam1, biga, cutsq, c1, c2, c3, c4;
-  };
-
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
@@ -183,22 +168,27 @@ class PairTersoffKokkos : public PairTersoff {
 
  protected:
   typedef Kokkos::DualView<int***,DeviceType> tdual_int_3d;
-  Kokkos::DualView<params_ters***,Kokkos::LayoutRight,DeviceType> k_params;
-  typename Kokkos::DualView<params_ters***,
-    Kokkos::LayoutRight,DeviceType>::t_dev_const_um paramskk;
-  // hardwired to space for 12 atom types
-  //params_ters m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  typedef typename tdual_int_3d::t_dev_const_randomread t_int_3d_randomread;
+  typedef typename tdual_int_3d::t_host t_host_int_3d;
 
-  int inum;
+  t_int_3d_randomread d_elem3param;
+  typename AT::t_int_1d_randomread d_map;
+
+  typedef Kokkos::DualView<Param*,DeviceType> tdual_param_1d;
+  typedef typename tdual_param_1d::t_dev t_param_1d;
+  typedef typename tdual_param_1d::t_host t_host_param_1d;
+
+  t_param_1d d_params;
+
   typename AT::t_x_array_randomread x;
   typename AT::t_f_array f;
-  typename AT::t_int_1d_randomread type;
   typename AT::t_tagint_1d tag;
+  typename AT::t_int_1d_randomread type;
 
   DAT::tdual_efloat_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename ArrayTypes<DeviceType>::t_efloat_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
+  typename AT::t_efloat_1d d_eatom;
+  typename AT::t_virial_array d_vatom;
 
   int need_dup;
   Kokkos::Experimental::ScatterView<F_FLOAT*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterDuplicated> dup_f;
@@ -208,16 +198,11 @@ class PairTersoffKokkos : public PairTersoff {
   Kokkos::Experimental::ScatterView<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_eatom;
   Kokkos::Experimental::ScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_vatom;
 
-  typedef Kokkos::DualView<F_FLOAT**[7],Kokkos::LayoutRight,DeviceType> tdual_ffloat_2d_n7;
-  typedef typename tdual_ffloat_2d_n7::t_dev_const_randomread t_ffloat_2d_n7_randomread;
-  typedef typename tdual_ffloat_2d_n7::t_host t_host_ffloat_2d_n7;
-
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;
   typename AT::t_int_1d_randomread d_numneigh;
-  //NeighListKokkos<DeviceType> k_list;
 
-  int neighflag,newton_pair;
+  int neighflag;
   int nlocal,nall,eflag,vflag;
 
   Kokkos::View<int**,DeviceType> d_neighbors_short;

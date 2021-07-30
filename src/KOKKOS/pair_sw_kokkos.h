@@ -23,8 +23,10 @@ PairStyle(sw/kk/host,PairSWKokkos<LMPHostType>);
 #ifndef LMP_PAIR_SW_KOKKOS_H
 #define LMP_PAIR_SW_KOKKOS_H
 
-#include "pair_sw.h"
 #include "pair_kokkos.h"
+#include "pair_sw.h"
+
+namespace LAMMPS_NS {
 
 template<int NEIGHFLAG, int EVFLAG>
 struct TagPairSWComputeHalf{};
@@ -37,8 +39,6 @@ struct TagPairSWComputeFullB{};
 
 struct TagPairSWComputeShortNeigh{};
 
-namespace LAMMPS_NS {
-
 template<class DeviceType>
 class PairSWKokkos : public PairSW {
  public:
@@ -50,9 +50,9 @@ class PairSWKokkos : public PairSW {
 
   PairSWKokkos(class LAMMPS *);
   virtual ~PairSWKokkos();
-  virtual void compute(int, int);
-  virtual void coeff(int, char **);
-  virtual void init_style();
+  void compute(int, int);
+  void coeff(int, char **);
+  void init_style();
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
@@ -112,7 +112,7 @@ class PairSWKokkos : public PairSW {
 
   t_param_1d d_params;
 
-  virtual void setup_params();
+  void setup_params();
 
   KOKKOS_INLINE_FUNCTION
   void twobody(const Param&, const F_FLOAT&, F_FLOAT&, const int&, F_FLOAT&) const;
@@ -143,19 +143,13 @@ class PairSWKokkos : public PairSW {
   Kokkos::Experimental::ScatterView<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_eatom;
   Kokkos::Experimental::ScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,typename Kokkos::Experimental::ScatterSum,Kokkos::Experimental::ScatterNonDuplicated> ndup_vatom;
 
-  typename AT::t_int_1d_randomread d_type2frho;
-  typename AT::t_int_2d_randomread d_type2rhor;
-  typename AT::t_int_2d_randomread d_type2z2r;
-
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;
   typename AT::t_int_1d_randomread d_numneigh;
-  //NeighListKokkos<DeviceType> k_list;
 
-  int neighflag,newton_pair;
+  int neighflag;
   int nlocal,nall,eflag,vflag;
 
-  int inum;
   Kokkos::View<int**,DeviceType> d_neighbors_short;
   Kokkos::View<int*,DeviceType> d_numneigh_short;
 
