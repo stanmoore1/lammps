@@ -101,6 +101,9 @@ FixACKS2Reax::~FixACKS2Reax()
 
   memory->destroy(s_hist_X);
   memory->destroy(s_hist_last);
+
+  deallocate_storage();
+  deallocate_matrix();
 }
 
 /* ---------------------------------------------------------------------- */
