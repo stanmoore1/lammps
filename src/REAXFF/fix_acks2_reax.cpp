@@ -175,7 +175,7 @@ void FixACKS2Reax::pertype_parameters(char *arg)
     bond_softness = v1;
 
     for (i = 1; i <= ntypes && !feof(pf); i++) {
-      rv = fscanf(pf,"%d %lg %lg %lg %lg",&itype,&v1,&v2,&v3,&v4,&v5);
+      rv = fscanf(pf,"%d %lg %lg %lg %lg %lg",&itype,&v1,&v2,&v3,&v4,&v5);
       if (rv != 6)
         error->one(FLERR,"Fix acks2/reax: Incorrect format of param file");
       if (itype < 1 || itype > ntypes)
