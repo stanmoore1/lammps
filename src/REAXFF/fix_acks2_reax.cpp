@@ -309,7 +309,9 @@ void FixACKS2Reax::init_storage()
   for (int ii = 0; ii < NN; ii++) {
     int i = ilist[ii];
     if (atom->mask[i] & groupbit) {
-      b_s[i] = -chi[atom->type[i]] - chi_field[i];
+      b_s[i] = -chi[atom->type[i]];
+      if (field_flag)
+        b_s[i] -= chi_field[i];
       s[i] = 0.0;
     }
   }
@@ -402,7 +404,9 @@ void FixACKS2Reax::init_matvec()
 
       /* init pre-conditioner for H and init solution vectors */
       Hdia_inv[i] = 1. / eta[ atom->type[i] ];
-      b_s[i] = -chi[ atom->type[i] ] - chi_field[i];
+      b_s[i] = -chi[ atom->type[i] ];
+      if (field_flag)
+        b_s[i] -= chi_field[i];
       b_s[NN+i] = refcharge[ atom->type[i] ];
 
       /* cubic extrapolation for s from previous solutions */
