@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -43,11 +44,7 @@ FixNeighHistoryKokkos<DeviceType>::FixNeighHistoryKokkos(LAMMPS *lmp, int narg, 
   grow_arrays(atom->nmax);
 
   d_resize = typename ArrayTypes<DeviceType>::t_int_scalar("FixNeighHistoryKokkos::resize");
-#ifndef KOKKOS_USE_CUDA_UVM
   h_resize = Kokkos::create_mirror_view(d_resize);
-#else
-  h_resize = d_resize;
-#endif
   h_resize() = 1;
 }
 
@@ -89,6 +86,9 @@ template <class DeviceType>
 void FixNeighHistoryKokkos<DeviceType>::pre_exchange()
 {
   copymode = 1;
+
+  k_firstflag.sync<DeviceType>();
+  k_firstvalue.sync<DeviceType>();
 
   h_resize() = 1;
   while (h_resize() > 0) {
@@ -171,6 +171,9 @@ void FixNeighHistoryKokkos<DeviceType>::post_neighbor()
 {
   tag = atomKK->k_tag.view<DeviceType>();
 
+  k_firstflag.sync<DeviceType>();
+  k_firstvalue.sync<DeviceType>();
+
   int inum = pair->list->inum;
   NeighListKokkos<DeviceType>* k_list = static_cast<NeighListKokkos<DeviceType>*>(pair->list);
   d_numneigh = k_list->d_numneigh;
@@ -186,16 +189,21 @@ void FixNeighHistoryKokkos<DeviceType>::post_neighbor()
 
   // realloc firstflag and firstvalue if needed
 
-  if (maxatom < nlocal || k_list->maxneighs > d_firstflag.extent(1)) {
+  if (maxatom < nlocal || k_list->maxneighs > (int)d_firstflag.extent(1)) {
     maxatom = nall;
-    d_firstflag = Kokkos::View<int**>("neighbor_history:firstflag",maxatom,k_list->maxneighs);
-    d_firstvalue = Kokkos::View<LMP_FLOAT**>("neighbor_history:firstvalue",maxatom,k_list->maxneighs*dnum);
+    k_firstflag = DAT::tdual_int_2d("neighbor_history:firstflag",maxatom,k_list->maxneighs);
+    k_firstvalue = DAT::tdual_float_2d("neighbor_history:firstvalue",maxatom,k_list->maxneighs*dnum);
+    d_firstflag = k_firstflag.view<DeviceType>();
+    d_firstvalue = k_firstvalue.view<DeviceType>();
   }
 
   copymode = 1;
 
   FixNeighHistoryKokkosPostNeighborFunctor<DeviceType> f(this);
   Kokkos::parallel_for(inum,f);
+
+  k_firstflag.modify<DeviceType>();
+  k_firstvalue.modify<DeviceType>();
 
   copymode = 0;
 }
@@ -247,11 +255,11 @@ void FixNeighHistoryKokkos<DeviceType>::post_neighbor_item(const int &ii) const
 template<class DeviceType>
 double FixNeighHistoryKokkos<DeviceType>::memory_usage()
 {
-  double bytes = d_firstflag.extent(0)*d_firstflag.extent(1)*sizeof(int);
-  bytes += d_firstvalue.extent(0)*d_firstvalue.extent(1)*sizeof(double);
-  bytes += 2*k_npartner.extent(0)*sizeof(int);
-  bytes += 2*k_partner.extent(0)*k_partner.extent(1)*sizeof(int);
-  bytes += 2*k_valuepartner.extent(0)*k_valuepartner.extent(1)*sizeof(double);
+  double bytes = (double)d_firstflag.extent(0)*d_firstflag.extent(1)*sizeof(int);
+  bytes += (double)d_firstvalue.extent(0)*d_firstvalue.extent(1)*sizeof(double);
+  bytes += (double)2*k_npartner.extent(0)*sizeof(int);
+  bytes += (double)2*k_partner.extent(0)*k_partner.extent(1)*sizeof(int);
+  bytes += (double)2*k_valuepartner.extent(0)*k_valuepartner.extent(1)*sizeof(double);
   return bytes;
 }
 

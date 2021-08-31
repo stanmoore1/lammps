@@ -56,7 +56,7 @@ is slightly modified only for the computation of long-range forces. A
 good cluster decomposition constitutes in building clusters which
 contain the fastest covalent bonds inside clusters.
 
-If the clusters are chosen suitably, the :doc:`run_style respa <run_style>` is stable for outer time-steps of at least 8fs.
+If the clusters are chosen suitably, the :doc:`run_style respa <run_style>` is stable for outer timesteps of at least 8fs.
 
 ----------
 
@@ -72,8 +72,8 @@ fixes are not invoked during :doc:`energy minimization <minimize>`.
 Restrictions
 """"""""""""
 
-This fix is part of the USER-MISC package. It is only enabled if
-LAMMPS was built with that package. See the :doc:`Build package <Build_package>` doc page for more info.
+This fix is part of the EXTRA-FIX package. It is only enabled if
+LAMMPS was built with that package. See the :doc:`Build package <Build_package>` page for more info.
 
 Currently, it does not support :doc:`molecule templates <molecule>`.
 

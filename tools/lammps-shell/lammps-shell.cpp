@@ -11,7 +11,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <ctime>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -128,6 +127,7 @@ const char *cmdlist[] = {"clear",
                          "pair_modify",
                          "pair_style",
                          "pair_write",
+                         "plugin",
                          "processors",
                          "region",
                          "reset_timestep",
@@ -347,6 +347,59 @@ static char *variable_expand_generator(const char *text, int state)
     return nullptr;
 }
 
+static char *plugin_generator(const char *text, int state)
+{
+    const char *subcmd[] = {"load", "unload", "list", "clear", NULL};
+    const char *sub;
+    static std::size_t idx=0, len;
+    if (!state) idx = 0;
+    len = strlen(text);
+
+    while ((sub = subcmd[idx]) != NULL) {
+        ++idx;
+        if (strncmp(text,sub,len) == 0)
+            return dupstring(sub);
+    }
+    return nullptr;
+}
+
+static char *plugin_style_generator(const char *text, int state)
+{
+    const char *styles[] = {"pair", "fix", "command", NULL};
+    const char *s;
+    static std::size_t idx=0, len;
+    if (!state) idx = 0;
+    len = strlen(text);
+    while ((s = styles[idx]) != NULL) {
+        ++idx;
+        if (strncmp(text,s,len) == 0)
+            return dupstring(s);
+    }
+    return nullptr;
+}
+
+static char *plugin_name_generator(const char *text, int state)
+{
+    auto words = utils::split_words(text);
+    if (words.size() < 4) return nullptr;
+
+    static std::size_t idx, len, nmax;
+    if (!state) idx = 0;
+    len = words[3].size();
+    nmax = lammps_plugin_count();
+
+    while (idx < nmax) {
+        char style[buflen], name[buflen];
+        lammps_plugin_name(idx, style, name, buflen);
+        ++idx;
+        if (words[2] == style) {
+            if (strncmp(name, words[3].c_str(), len) == 0)
+                return dupstring(name);
+        }
+    }
+    return nullptr;
+}
+
 static char *atom_generator(const char *text, int state)
 {
     return style_generator<ATOM_STYLE>(text, state);
@@ -477,14 +530,21 @@ static char **cmd_completion(const char *text, int start, int)
                 matches = rl_completion_matches(text, dump_id_generator);
             } else if (words[0] == "fix_modify") {
                 matches = rl_completion_matches(text, fix_id_generator);
+            } else if (words[0] == "plugin") {
+                matches = rl_completion_matches(text, plugin_generator);
             }
         } else if (words.size() == 2) { // expand third word
 
             // these commands have a group name as 3rd word
-            if ((words[0] == "fix") || (words[0] == "compute") || (words[0] == "dump")) {
+            if ((words[0] == "fix")
+                || (words[0] == "compute")
+                || (words[0] == "dump")) {
                 matches = rl_completion_matches(text, group_generator);
             } else if (words[0] == "region") {
                 matches = rl_completion_matches(text, region_generator);
+            // plugin style is the third word
+            } else if ((words[0] == "plugin") && (words[1] == "unload")) {
+                matches = rl_completion_matches(text, plugin_style_generator);
             }
         } else if (words.size() == 3) { // expand fourth word
 
@@ -495,6 +555,9 @@ static char **cmd_completion(const char *text, int start, int)
                 matches = rl_completion_matches(text, compute_generator);
             } else if (words[0] == "dump") {
                 matches = rl_completion_matches(text, dump_generator);
+            // plugin name is the fourth word
+            } else if ((words[0] == "plugin") && (words[1] == "unload")) {
+                matches = rl_completion_matches(rl_line_buffer, plugin_name_generator);
             }
         }
     }
@@ -563,7 +626,7 @@ static int help_cmd()
                  "in the current working directory and - if present - this file will be\n"
                  "read at the beginning of the next session of the LAMMPS shell.\n\n"
                  "Additional information is at https://packages.lammps.org/lammps-shell.html\n\n";
-        return 0;
+    return 0;
 }
 
 static int shell_end()
@@ -681,7 +744,7 @@ int main(int argc, char **argv)
     // switch to the user's documents directory. Avoid buffer overflow
     // and skip this step if the path is too long for our buffer.
     if (getcwd(buf, buflen)) {
-      if ((strstr(buf, "System32") || strstr(buf, "system32"))) {
+        if ((strstr(buf, "System32") || strstr(buf, "system32"))) {
             char *drive = getenv("HOMEDRIVE");
             char *path  = getenv("HOMEPATH");
             buf[0]      = '\0';
@@ -719,11 +782,14 @@ int main(int argc, char **argv)
     // handle the special case where the first argument is not a flag but a file
     // this happens for example when using file type associations on Windows.
     // in this case we save the pointer and remove it from argv.
-    char *input_file = nullptr;
+    // we also get the directory name and switch to that folder
+    std::string input_file;
     if ((argc > 1) && (argv[1][0] != '-')) {
         --argc;
-        input_file = argv[1];
-        for (int i = 1; i < argc; ++i) argv[i] = argv[i+1];
+        input_file = utils::path_basename(argv[1]);
+        chdir(utils::path_dirname(input_file).c_str());
+        for (int i = 1; i < argc; ++i)
+            argv[i] = argv[i + 1];
     }
 
     lmp = lammps_open_no_mpi(argc, argv, nullptr);
@@ -733,8 +799,8 @@ int main(int argc, char **argv)
     init_commands();
 
     // pre-load an input file that was provided on the command line
-    if (input_file) {
-        lammps_file(lmp, input_file);
+    if (!input_file.empty()) {
+        lammps_file(lmp, input_file.c_str());
     } else {
         for (int i = 0; i < argc; ++i) {
             if ((strcmp(argv[i], "-in") == 0) || (strcmp(argv[i], "-i") == 0)) {

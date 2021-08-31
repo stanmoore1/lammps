@@ -62,7 +62,7 @@ in concentration of a given species as a function of time are then
 constructed based on the *n* reaction rate equations.
 
 The ODE systems are solved over the full DPD timestep *dt* using either a fourth
-order Runge-Kutta *rk4* method with a fixed step-size *h*\ , specified
+order Runge-Kutta *rk4* method with a fixed step-size *h*, specified
 by the *lammps_rk4* keyword, or a fourth order Runge-Kutta-Fehlberg (rkf45) method
 with an adaptive step-size for *h*\ . The number of ODE steps per DPD timestep
 for the rk4 method is optionally specified immediately after the rk4
@@ -90,10 +90,10 @@ accepted, *h* is increased by a proportional amount, and the next ODE step is be
 Otherwise, *h* is shrunk and the ODE step is repeated.
 
 Run-time diagnostics are available for the rkf45 ODE solver. The frequency
-(in time-steps) that diagnostics are reported is controlled by the last (optional)
+(in timesteps) that diagnostics are reported is controlled by the last (optional)
 12th argument. A negative frequency means that diagnostics are reported once at the
 end of each run. A positive value N means that the diagnostics are reported once
-per N time-steps.
+per N timesteps.
 
 The diagnostics report the average # of integrator steps and RHS function evaluations
 and run-time per ODE as well as the average/RMS/min/max per process. If the
@@ -182,8 +182,8 @@ through its stoichiometric coefficient and a species tag.  Reactant
 species are specified on the left-hand side of the equation and
 product species are specified on the right-hand side of the equation.
 After specifying the reactant and product species, the final three
-arguments of each line represent the Arrhenius parameter *A*\ , the
-temperature exponent *n*\ , and the activation energy *Ea*\ .
+arguments of each line represent the Arrhenius parameter *A*, the
+temperature exponent *n*, and the activation energy *Ea*\ .
 
 Note that the species tags that are defined in the reaction equations
 are used by the :doc:`fix eos/table/rx <fix_eos_table_rx>` command to
@@ -206,8 +206,8 @@ read_data    data.dpd fix foo_SPECIES NULL Species
 Restrictions
 """"""""""""
 
-This command is part of the USER-DPD package.  It is only enabled if
-LAMMPS was built with that package.  See the :doc:`Build package <Build_package>` doc page for more info.
+This command is part of the DPD-REACT package.  It is only enabled if
+LAMMPS was built with that package.  See the :doc:`Build package <Build_package>` page for more info.
 
 This command also requires use of the :doc:`atom_style dpd <atom_style>`
 command.

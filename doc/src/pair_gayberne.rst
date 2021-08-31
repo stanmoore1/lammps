@@ -160,7 +160,7 @@ For atom type pairs I,J and I != J, the epsilon and sigma coefficients
 and cutoff distance for this pair style can be mixed.  The default mix
 value is *geometric*\ .  See the "pair_modify" command for details.
 
-This pair styles supports the :doc:`pair_modify <pair_modify>` shift
+This pair style supports the :doc:`pair_modify <pair_modify>` shift
 option for the energy of the Lennard-Jones portion of the pair
 interaction, but only for sphere-sphere interactions.  There is no
 shifting performed for ellipsoidal interactions due to the anisotropic
@@ -178,7 +178,7 @@ to be specified in an input script that reads a restart file.
 
 This pair style can only be used via the *pair* keyword of the
 :doc:`run_style respa <run_style>` command.  It does not support the
-*inner*\ , *middle*\ , *outer* keywords.
+*inner*, *middle*, *outer* keywords.
 
 ----------
 
@@ -186,9 +186,9 @@ Restrictions
 """"""""""""
 
 The *gayberne* style is part of the ASPHERE package.  It is only
-enabled if LAMMPS was built with that package.  See the :doc:`Build package <Build_package>` doc page for more info.
+enabled if LAMMPS was built with that package.  See the :doc:`Build package <Build_package>` page for more info.
 
-These pair style require that atoms store torque and a quaternion to
+These pair styles require that atoms store torque and a quaternion to
 represent their orientation, as defined by the
 :doc:`atom_style <atom_style>`.  It also require they store a per-type
 :doc:`shape <set>`.  The particles cannot store a per-particle

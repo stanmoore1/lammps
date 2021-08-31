@@ -173,7 +173,7 @@ equation for the Hamaker constant presented here.  Mixing of sigma and
 epsilon followed by calculation of the energy prefactors using the
 equations above is recommended.
 
-This pair styles supports the :doc:`pair_modify <pair_modify>` shift
+This pair style supports the :doc:`pair_modify <pair_modify>` shift
 option for the energy of the Lennard-Jones portion of the pair
 interaction, but only for sphere-sphere interactions.  There is no
 shifting performed for ellipsoidal interactions due to the anisotropic
@@ -191,7 +191,7 @@ to be specified in an input script that reads a restart file.
 
 This pair style can only be used via the *pair* keyword of the
 :doc:`run_style respa <run_style>` command.  It does not support the
-*inner*\ , *middle*\ , *outer* keywords of the :doc:`run_style command <run_style>`.
+*inner*, *middle*, *outer* keywords of the :doc:`run_style command <run_style>`.
 
 ----------
 
@@ -199,7 +199,7 @@ Restrictions
 """"""""""""
 
 This style is part of the ASPHERE package.  It is only enabled if
-LAMMPS was built with that package.  See the :doc:`Build package <Build_package>` doc page for more info.
+LAMMPS was built with that package.  See the :doc:`Build package <Build_package>` page for more info.
 
 This pair style requires that atoms be ellipsoids as defined by the
 :doc:`atom_style ellipsoid <atom_style>` command.
