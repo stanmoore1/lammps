@@ -56,6 +56,8 @@ action comm_kokkos.cpp
 action comm_kokkos.h
 action comm_tiled_kokkos.cpp
 action comm_tiled_kokkos.h
+action compute_temp_kokkos.cpp
+action compute_temp_kokkos.h
 action domain_kokkos.cpp
 action domain_kokkos.h
 action fix_nve_kokkos.cpp
