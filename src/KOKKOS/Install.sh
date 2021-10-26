@@ -78,20 +78,9 @@ action npair_kokkos.cpp
 action npair_kokkos.h
 action nbin_kokkos.cpp
 action nbin_kokkos.h
-action pair_hybrid_kokkos.cpp
-action pair_hybrid_kokkos.h
-action pair_hybrid_overlay_kokkos.cpp
-action pair_hybrid_overlay_kokkos.h
 action pair_kokkos.h
 action pair_lj_cut_kokkos.cpp
 action pair_lj_cut_kokkos.h
-action pair_snap_kokkos.cpp pair_snap.cpp
-action pair_snap_kokkos.h pair_snap.h
-action pair_snap_kokkos_impl.h pair_snap.cpp
-action pair_tersoff_kokkos.cpp pair_tersoff.cpp
-action pair_tersoff_kokkos.h pair_tersoff.h
-action sna_kokkos.h sna.h
-action sna_kokkos_impl.h sna.cpp
 action verlet_kokkos.cpp
 action verlet_kokkos.h
 
