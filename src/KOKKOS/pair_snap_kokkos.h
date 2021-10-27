@@ -85,16 +85,19 @@ public:
   using complex = SNAComplex<real_type>;
 
   // Static team/tile sizes for device offload
-  static constexpr int team_size_compute_neigh = 4;
+  static constexpr int team_size_compute_neigh = 32;
+//  static constexpr int team_size_compute_neigh = 4;
   static constexpr int tile_size_compute_ck = 4;
   static constexpr int tile_size_pre_ui = 4;
-  static constexpr int team_size_compute_ui = sizeof(real_type) == 4 ? 8 : 4;
+  static constexpr int team_size_compute_ui = 32;
+//  static constexpr int team_size_compute_ui = sizeof(real_type) == 4 ? 8 : 4;
   static constexpr int tile_size_transform_ui = 4;
   static constexpr int tile_size_compute_zi = 8;
   static constexpr int tile_size_compute_bi = 4;
   static constexpr int tile_size_transform_bi = 4;
   static constexpr int tile_size_compute_yi = 8;
-  static constexpr int team_size_compute_fused_deidrj = sizeof(real_type) == 4 ? 4 : 2;
+  static constexpr int team_size_compute_fused_deidrj = 32;
+//  static constexpr int team_size_compute_fused_deidrj = sizeof(real_type) == 4 ? 4 : 2;
 
   // Custom MDRangePolicy, Rank3, to reduce verbosity of kernel launches
   // This hides the Kokkos::IndexType<int> and Kokkos::Rank<3...>

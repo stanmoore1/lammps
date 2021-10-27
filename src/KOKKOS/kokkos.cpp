@@ -23,7 +23,15 @@
 #include <cstring>
 #include <cctype>
 #include <csignal>
-#include <unistd.h>
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>            // for _getpid()
+#else
+#include <unistd.h>             // for getpid()
+#endif
 
 #ifdef LMP_KOKKOS_GPU
 
@@ -36,7 +44,7 @@
 #define GPU_AWARE_UNKNOWN static int have_gpu_aware = -1;
 
 // TODO HIP: implement HIP-aware MPI support (UCX) detection
-#if defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL)
+#if defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL) || defined(KOKKOS_ENABLE_OPENMPTARGET)
 GPU_AWARE_UNKNOWN
 #elif defined(KOKKOS_ENABLE_CUDA)
 
@@ -591,6 +599,10 @@ int KokkosLMP::neigh_count(int m)
 void KokkosLMP::my_signal_handler(int sig)
 {
   if (sig == SIGSEGV) {
+#if defined(_WIN32)
+    kill(_getpid(),SIGABRT);
+#else
     kill(getpid(),SIGABRT);
+#endif
   }
 }

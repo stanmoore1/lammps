@@ -488,20 +488,21 @@ void SNAKokkos<DeviceType, real_type, vector_length>::compute_ui_small(const typ
 
   // get shared memory offset
   // scratch size: 32 atoms * (twojmax+1) cached values, no double buffer
-  const int tile_size = vector_length * (twojmax + 1);
+  const int vector_length_ = 1;
+  const int tile_size = vector_length_ * (twojmax + 1);
 
   const int team_rank = team.team_rank();
   const int scratch_shift = team_rank * tile_size;
 
   // extract and wrap
-  const WignerWrapper<real_type, vector_length> ulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
+  const WignerWrapper<real_type, vector_length_> ulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
 
   // load parameters
   const complex a = a_pack(iatom_mod, jnbor, iatom_div);
   const complex b = b_pack(iatom_mod, jnbor, iatom_div);
   const real_type sfac = sfac_pack(iatom_mod, jnbor, iatom_div, 0);
 
-  const int jelem = element(iatom_mod + vector_length * iatom_div, jnbor);
+  const int jelem = element(iatom_mod + vector_length_ * iatom_div, jnbor);
 
   // we need to "choose" when to bend
   // this for loop is here for context --- we expose additional
@@ -960,14 +961,15 @@ void SNAKokkos<DeviceType, real_type, vector_length>::compute_fused_deidrj_small
 {
   // get shared memory offset
   // scratch size: 32 atoms * (twojmax+1) cached values, no double buffer
-  const int tile_size = vector_length * (twojmax + 1);
+  const int vector_length_ = 1;
+  const int tile_size = vector_length_ * (twojmax + 1);
 
   const int team_rank = team.team_rank();
   const int scratch_shift = team_rank * tile_size;
 
   // extract, wrap shared memory buffer
-  WignerWrapper<real_type, vector_length> ulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
-  WignerWrapper<real_type, vector_length> dulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
+  WignerWrapper<real_type, vector_length_> ulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
+  WignerWrapper<real_type, vector_length_> dulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
 
   // load parameters
   const complex a = a_pack(iatom_mod, jnbor, iatom_div);
@@ -977,14 +979,14 @@ void SNAKokkos<DeviceType, real_type, vector_length>::compute_fused_deidrj_small
   const real_type sfac = sfac_pack(iatom_mod, jnbor, iatom_div, 0);
   const real_type dsfacu = sfac_pack(iatom_mod, jnbor, iatom_div, dir + 1); // dsfac * u
 
-  const int jelem = element(iatom_mod + vector_length * iatom_div, jnbor);
+  const int jelem = element(iatom_mod + vector_length_ * iatom_div, jnbor);
 
   // compute the contribution to dedr_full_sum for one "bend" location
   const real_type dedr_full_sum = evaluate_duidrj_jbend(ulist_wrapper, a, b, sfac, dulist_wrapper, da, db, dsfacu,
                                                        jelem, iatom_mod, j_bend, iatom_div);
 
   // dedr gets zeroed out at the start of each iteration in compute_cayley_klein
-  Kokkos::atomic_add(&(dedr(iatom_mod + vector_length * iatom_div, jnbor, dir)), static_cast<real_type>(2.0) * dedr_full_sum);
+  Kokkos::atomic_add(&(dedr(iatom_mod + vector_length_ * iatom_div, jnbor, dir)), static_cast<real_type>(2.0) * dedr_full_sum);
 
 }
 

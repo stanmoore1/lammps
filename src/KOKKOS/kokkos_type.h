@@ -34,7 +34,7 @@ constexpr int HALF = 4;
 #define ISFINITE(x) std::isfinite(x)
 #endif
 
-#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL)
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL) || defined(KOKKOS_ENABLE_OPENMPTARGET)
 #define LMP_KOKKOS_GPU
 #endif
 
@@ -223,6 +223,11 @@ template<>
 struct ExecutionSpaceFromDevice<Kokkos::Experimental::SYCL> {
   static const LAMMPS_NS::ExecutionSpace space = LAMMPS_NS::Device;
 };
+#elif defined(KOKKOS_ENABLE_OPENMPTARGET)
+template<>
+struct ExecutionSpaceFromDevice<Kokkos::Experimental::OpenMPTarget> {
+  static const LAMMPS_NS::ExecutionSpace space = LAMMPS_NS::Device;
+};
 #endif
 
 // set host pinned space
@@ -232,6 +237,8 @@ typedef Kokkos::CudaHostPinnedSpace LMPPinnedHostType;
 typedef Kokkos::Experimental::HIPHostPinnedSpace LMPPinnedHostType;
 #elif defined(KOKKOS_ENABLE_SYCL)
 typedef Kokkos::Experimental::SYCLSharedUSMSpace LMPPinnedHostType;
+#elif defined(KOKKOS_ENABLE_OPENMPTARGET)
+typedef Kokkos::Serial LMPPinnedHostType;
 #endif
 
 // create simple LMPDeviceSpace typedef for non CUDA-, HIP-, or SYCL-specific
@@ -242,6 +249,8 @@ typedef Kokkos::Cuda LMPDeviceSpace;
 typedef Kokkos::Experimental::HIP LMPDeviceSpace;
 #elif defined(KOKKOS_ENABLE_SYCL)
 typedef Kokkos::Experimental::SYCL LMPDeviceSpace;
+#elif defined(KOKKOS_ENABLE_OPENMPTARGET)
+typedef Kokkos::Experimental::OpenMPTarget LMPDeviceSpace;
 #endif
 
 
@@ -278,6 +287,11 @@ struct AtomicDup<HALFTHREAD,Kokkos::Experimental::HIP> {
 #elif defined(KOKKOS_ENABLE_SYCL)
 template<>
 struct AtomicDup<HALFTHREAD,Kokkos::Experimental::SYCL> {
+  using value = Kokkos::Experimental::ScatterAtomic;
+};
+#elif defined(KOKKOS_ENABLE_SYCL)
+template<>
+struct AtomicDup<HALFTHREAD,Kokkos::Experimental::OpenMPTarget> {
   using value = Kokkos::Experimental::ScatterAtomic;
 };
 #endif
@@ -1170,7 +1184,7 @@ struct params_lj_coul {
 #define SNAP_KOKKOS_HOST_VECLEN 1
 
 #ifdef LMP_KOKKOS_GPU
-#define SNAP_KOKKOS_DEVICE_VECLEN 32
+#define SNAP_KOKKOS_DEVICE_VECLEN 1
 #else
 #define SNAP_KOKKOS_DEVICE_VECLEN 1
 #endif
