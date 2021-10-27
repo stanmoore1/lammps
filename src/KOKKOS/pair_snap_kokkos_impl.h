@@ -37,12 +37,6 @@
 
 
 namespace LAMMPS_NS {
-//template<class DeviceType, typename real_type, int vector_length>
-//const int* PairSNAPKokkos<DeviceType, real_type, vector_length> ::keep_vector_length_alive = &PairSNAPKokkos<DeviceType, real_type, vector_length>::vector_length;
-//
-//#pragma omp declare target
-//int vector_length_loc = vector_length;
-//#pragma omp end declare target
 
 // Outstanding issues with quadratic term
 // 1. there seems to a problem with compute_optimized energy calc
@@ -629,7 +623,11 @@ KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPBeta,const int& ii) const {
 
   if (ii >= chunk_size) return;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
 
   const int iatom_mod = ii % vector_length_;
   const int iatom_div = ii / vector_length_;
@@ -670,7 +668,11 @@ template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeNeigh,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeNeigh>::member_type& team) const {
 
-    const int vector_length_ = 1;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // extract atom number
@@ -760,7 +762,11 @@ KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeCayleyKlein,const int iatom_mod, const int jnbor, const int iatom_div) const {
   SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
 
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
 
   const int ii = iatom_mod + iatom_div * vector_length_;
   if (ii >= chunk_size) return;
@@ -774,7 +780,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPPreUi, const int iatom_mod, const int j, const int iatom_div) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   const int ii = iatom_mod + iatom_div * vector_length_;
@@ -789,7 +799,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeUiSmall,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeUiSmall>::member_type& team) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // extract flattened atom_div / neighbor number / bend location
@@ -817,7 +831,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeUiLarge,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeUiLarge>::member_type& team) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // extract flattened atom_div / neighbor number / bend location
@@ -844,7 +862,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPTransformUi,const int iatom_mod, const int idxu, const int iatom_div) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   const int iatom = iatom_mod + iatom_div * vector_length_;
@@ -879,7 +901,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeYi,const int iatom_mod, const int jjz, const int iatom_div) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   const int iatom = iatom_mod + iatom_div * vector_length_;
@@ -893,7 +919,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeYiWithZlist,const int iatom_mod, const int jjz, const int iatom_div) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   const int iatom = iatom_mod + iatom_div * vector_length_;
@@ -907,7 +937,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeZi,const int iatom_mod, const int jjz, const int iatom_div) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   const int iatom = iatom_mod + iatom_div * vector_length_;
@@ -921,7 +955,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeBi,const int iatom_mod, const int jjb, const int iatom_div) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   const int iatom = iatom_mod + iatom_div * vector_length_;
@@ -935,7 +973,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPTransformBi,const int iatom_mod, const int idxb, const int iatom_div) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   const int iatom = iatom_mod + iatom_div * vector_length_;
@@ -958,7 +1000,11 @@ template<class DeviceType, typename real_type, int vector_length>
 template<int dir>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeFusedDeidrjSmall<dir>,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeFusedDeidrjSmall<dir> >::member_type& team) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // extract flattened atom_div / neighbor number / bend location
@@ -988,7 +1034,11 @@ template<class DeviceType, typename real_type, int vector_length>
 template<int dir>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeFusedDeidrjLarge<dir>,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeFusedDeidrjLarge<dir> >::member_type& team) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // extract flattened atom_div / neighbor number / bend location
@@ -1026,7 +1076,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
   const int i = d_ilist[ii + chunk_offset];
   const int itype = type[i];
   const int ielem = d_map[itype];
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   auto d_coeffi = Kokkos::subview(d_coeffelem, ielem, Kokkos::ALL);
@@ -1062,7 +1116,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 
   int ii = team.league_rank();
   const int i = d_ilist[ii + chunk_offset];
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
   const double xtmp = x(i,0);
   const double ytmp = x(i,1);
@@ -1133,7 +1191,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPPreUiCPU,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPPreUiCPU>::member_type& team) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // Extract the atom number
@@ -1150,7 +1212,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeUiCPU,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeUiCPU>::member_type& team) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // Extract the atom number
@@ -1168,7 +1234,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPTransformUiCPU, const int j, const int iatom) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   if (iatom >= chunk_size) return;
@@ -1219,7 +1289,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeYiCPU,const int& ii) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
   my_sna.compute_yi_cpu(ii,d_beta);
 }
@@ -1227,7 +1301,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeZiCPU,const int& ii) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
   my_sna.compute_zi_cpu(ii);
 }
@@ -1236,7 +1314,11 @@ template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeBiCPU,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeBiCPU>::member_type& team) const {
   int ii = team.league_rank();
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
   my_sna.compute_bi_cpu(team,ii);
 }
@@ -1244,7 +1326,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeDuidrjCPU,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeDuidrjCPU>::member_type& team) const {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // Extract the atom number
@@ -1263,7 +1349,11 @@ template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeDeidrjCPU,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeDeidrjCPU>::member_type& team) const {
 
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // Extract the atom number
@@ -1295,7 +1385,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 
   const int i = d_ilist[ii + chunk_offset];
 
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
   const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
   SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   const int ninside = d_ninside(ii);

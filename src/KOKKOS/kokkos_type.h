@@ -1183,10 +1183,15 @@ struct params_lj_coul {
 #define SNAP_KOKKOS_REAL double
 #define SNAP_KOKKOS_HOST_VECLEN 1
 
-#ifdef LMP_KOKKOS_GPU
+// Keep the vector length 1 for OpenMPTarget
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
 #define SNAP_KOKKOS_DEVICE_VECLEN 1
 #else
+#ifdef LMP_KOKKOS_GPU
+#define SNAP_KOKKOS_DEVICE_VECLEN 32
+#else
 #define SNAP_KOKKOS_DEVICE_VECLEN 1
+#endif
 #endif
 
 
