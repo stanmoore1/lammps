@@ -622,14 +622,19 @@ KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPBeta,const int& ii) const {
 
   if (ii >= chunk_size) return;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
 
-  const int iatom_mod = ii % vector_length;
-  const int iatom_div = ii / vector_length;
+  const int iatom_mod = ii % vector_length_;
+  const int iatom_div = ii / vector_length_;
 
   const int i = d_ilist[ii + chunk_offset];
   const int itype = type[i];
   const int ielem = d_map[itype];
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   auto d_coeffi = Kokkos::subview(d_coeffelem, ielem, Kokkos::ALL);
 
@@ -662,7 +667,12 @@ template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeNeigh,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeNeigh>::member_type& team) const {
 
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // extract atom number
   int ii = team.team_rank() + team.league_rank() * team.team_size();
@@ -751,7 +761,13 @@ KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeCayleyKlein,const int iatom_mod, const int jnbor, const int iatom_div) const {
   SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
 
-  const int ii = iatom_mod + iatom_div * vector_length;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+
+  const int ii = iatom_mod + iatom_div * vector_length_;
   if (ii >= chunk_size) return;
 
   const int ninside = d_ninside(ii);
@@ -763,9 +779,14 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPPreUi, const int iatom_mod, const int j, const int iatom_div) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
-  const int ii = iatom_mod + iatom_div * vector_length;
+  const int ii = iatom_mod + iatom_div * vector_length_;
   if (ii >= chunk_size) return;
 
   int itype = type(ii);
@@ -777,7 +798,12 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeUiSmall,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeUiSmall>::member_type& team) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // extract flattened atom_div / neighbor number / bend location
   int flattened_idx = team.team_rank() + team.league_rank() * team_size_compute_ui;
@@ -788,9 +814,9 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
   const int jbend = jj_jbend / max_neighs;
   int jj = jj_jbend - jbend * max_neighs; // removed "const" to work around GCC 7 bug
 
-  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, vector_length),
+  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, vector_length_),
     [&] (const int iatom_mod) {
-    const int ii = iatom_mod + vector_length * iatom_div;
+    const int ii = iatom_mod + vector_length_ * iatom_div;
     if (ii >= chunk_size) return;
 
     const int ninside = d_ninside(ii);
@@ -804,7 +830,12 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeUiLarge,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeUiLarge>::member_type& team) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // extract flattened atom_div / neighbor number / bend location
   int flattened_idx = team.team_rank() + team.league_rank() * team_size_compute_ui;
@@ -813,9 +844,9 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
   int iatom_div = flattened_idx / max_neighs; // removed "const" to work around GCC 7 bug
   int jj = flattened_idx - iatom_div * max_neighs;
 
-  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, vector_length),
+  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, vector_length_),
     [&] (const int iatom_mod) {
-    const int ii = iatom_mod + vector_length * iatom_div;
+    const int ii = iatom_mod + vector_length_ * iatom_div;
     if (ii >= chunk_size) return;
 
     const int ninside = d_ninside(ii);
@@ -830,9 +861,14 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPTransformUi,const int iatom_mod, const int idxu, const int iatom_div) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
-  const int iatom = iatom_mod + iatom_div * vector_length;
+  const int iatom = iatom_mod + iatom_div * vector_length_;
   if (iatom >= chunk_size) return;
 
   if (idxu > my_sna.idxu_max) return;
@@ -864,9 +900,14 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeYi,const int iatom_mod, const int jjz, const int iatom_div) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
-  const int iatom = iatom_mod + iatom_div * vector_length;
+  const int iatom = iatom_mod + iatom_div * vector_length_;
   if (iatom >= chunk_size) return;
 
   if (jjz >= my_sna.idxz_max) return;
@@ -877,9 +918,14 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeYiWithZlist,const int iatom_mod, const int jjz, const int iatom_div) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
-  const int iatom = iatom_mod + iatom_div * vector_length;
+  const int iatom = iatom_mod + iatom_div * vector_length_;
   if (iatom >= chunk_size) return;
 
   if (jjz >= my_sna.idxz_max) return;
@@ -890,9 +936,14 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeZi,const int iatom_mod, const int jjz, const int iatom_div) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
-  const int iatom = iatom_mod + iatom_div * vector_length;
+  const int iatom = iatom_mod + iatom_div * vector_length_;
   if (iatom >= chunk_size) return;
 
   if (jjz >= my_sna.idxz_max) return;
@@ -903,9 +954,14 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeBi,const int iatom_mod, const int jjb, const int iatom_div) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
-  const int iatom = iatom_mod + iatom_div * vector_length;
+  const int iatom = iatom_mod + iatom_div * vector_length_;
   if (iatom >= chunk_size) return;
 
   if (jjb >= my_sna.idxb_max) return;
@@ -916,9 +972,14 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPTransformBi,const int iatom_mod, const int idxb, const int iatom_div) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
-  const int iatom = iatom_mod + iatom_div * vector_length;
+  const int iatom = iatom_mod + iatom_div * vector_length_;
   if (iatom >= chunk_size) return;
 
   if (idxb >= my_sna.idxb_max) return;
@@ -938,7 +999,12 @@ template<class DeviceType, typename real_type, int vector_length>
 template<int dir>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeFusedDeidrjSmall<dir>,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeFusedDeidrjSmall<dir> >::member_type& team) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // extract flattened atom_div / neighbor number / bend location
   int flattened_idx = team.team_rank() + team.league_rank() * team_size_compute_fused_deidrj;
@@ -949,9 +1015,9 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
   const int jbend = jj_jbend / max_neighs;
   int jj = jj_jbend - jbend * max_neighs; // removed "const" to work around GCC 7 bug
 
-  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, vector_length),
+  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, vector_length_),
     [&] (const int iatom_mod) {
-    const int ii = iatom_mod + vector_length * iatom_div;
+    const int ii = iatom_mod + vector_length_ * iatom_div;
     if (ii >= chunk_size) return;
 
     const int ninside = d_ninside(ii);
@@ -967,7 +1033,12 @@ template<class DeviceType, typename real_type, int vector_length>
 template<int dir>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeFusedDeidrjLarge<dir>,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeFusedDeidrjLarge<dir> >::member_type& team) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // extract flattened atom_div / neighbor number / bend location
   int flattened_idx = team.team_rank() + team.league_rank() * team_size_compute_fused_deidrj;
@@ -976,9 +1047,9 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
   int iatom_div = flattened_idx / max_neighs; // removed "const" to work around GCC 7 bug
   int jj = flattened_idx - max_neighs * iatom_div;
 
-  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, vector_length),
+  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, vector_length_),
     [&] (const int iatom_mod) {
-    const int ii = iatom_mod + vector_length * iatom_div;
+    const int ii = iatom_mod + vector_length_ * iatom_div;
     if (ii >= chunk_size) return;
 
     const int ninside = d_ninside(ii);
@@ -1004,7 +1075,12 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
   const int i = d_ilist[ii + chunk_offset];
   const int itype = type[i];
   const int ielem = d_map[itype];
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   auto d_coeffi = Kokkos::subview(d_coeffelem, ielem, Kokkos::ALL);
 
@@ -1039,7 +1115,12 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 
   int ii = team.league_rank();
   const int i = d_ilist[ii + chunk_offset];
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
   const double xtmp = x(i,0);
   const double ytmp = x(i,1);
   const double ztmp = x(i,2);
@@ -1109,7 +1190,12 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPPreUiCPU,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPPreUiCPU>::member_type& team) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // Extract the atom number
   const int ii = team.team_rank() + team.team_size() * team.league_rank();
@@ -1125,7 +1211,12 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeUiCPU,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeUiCPU>::member_type& team) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // Extract the atom number
   int ii = team.team_rank() + team.team_size() * (team.league_rank() % ((chunk_size+team.team_size()-1)/team.team_size()));
@@ -1142,7 +1233,12 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPTransformUiCPU, const int j, const int iatom) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   if (iatom >= chunk_size) return;
 
@@ -1192,14 +1288,24 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeYiCPU,const int& ii) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
   my_sna.compute_yi_cpu(ii,d_beta);
 }
 
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeZiCPU,const int& ii) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
   my_sna.compute_zi_cpu(ii);
 }
 
@@ -1207,14 +1313,24 @@ template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeBiCPU,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeBiCPU>::member_type& team) const {
   int ii = team.league_rank();
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
   my_sna.compute_bi_cpu(team,ii);
 }
 
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeDuidrjCPU,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeDuidrjCPU>::member_type& team) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // Extract the atom number
   int ii = team.team_rank() + team.team_size() * (team.league_rank() % ((chunk_size+team.team_size()-1)/team.team_size()));
@@ -1231,7 +1347,13 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 template<class DeviceType, typename real_type, int vector_length>
 KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSNAPComputeDeidrjCPU,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPComputeDeidrjCPU>::member_type& team) const {
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   // Extract the atom number
   int ii = team.team_rank() + team.team_size() * (team.league_rank() % ((chunk_size+team.team_size()-1)/team.team_size()));
@@ -1262,7 +1384,12 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
 
   const int i = d_ilist[ii + chunk_offset];
 
-  SNAKokkos<DeviceType, real_type, vector_length> my_sna = snaKK;
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+  const int vector_length_ = 1;
+#else
+  const int vector_length_ = vector_length;
+#endif
+  SNAKokkos<DeviceType, real_type, vector_length_> my_sna = snaKK;
 
   const int ninside = d_ninside(ii);
 
