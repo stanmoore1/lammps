@@ -35,7 +35,6 @@
 #define MAXLINE 1024
 #define MAXWORD 3
 
-
 namespace LAMMPS_NS {
 
 // Outstanding issues with quadratic term
