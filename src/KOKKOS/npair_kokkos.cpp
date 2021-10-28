@@ -632,7 +632,6 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGPU(typename Kokkos::TeamPolic
 #elif defined(KOKKOS_ENABLE_OPENMPTARGET)
   dev.team_barrier();
 #endif
-#endif
 
   if (i >= 0 && i < nlocal) {
     #pragma unroll 4
@@ -1083,7 +1082,6 @@ void NeighborKokkosExecute<DeviceType>::build_ItemSizeGPU(typename Kokkos::TeamP
     if(not_done == 0) return;
 #elif defined(KOKKOS_ENABLE_OPENMPTARGET)
     dev.team_barrier();
-#endif
 #endif
 
     if (i >= 0 && i < nlocal) {
