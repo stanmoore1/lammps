@@ -56,6 +56,8 @@ action comm_kokkos.cpp
 action comm_kokkos.h
 action comm_tiled_kokkos.cpp
 action comm_tiled_kokkos.h
+action compute_temp_kokkos.cpp
+action compute_temp_kokkos.h
 action domain_kokkos.cpp
 action domain_kokkos.h
 action fix_nve_kokkos.cpp
@@ -76,6 +78,8 @@ action neighbor_kokkos.cpp
 action neighbor_kokkos.h
 action npair_kokkos.cpp
 action npair_kokkos.h
+action npair_halffull_kokkos.h
+action npair_halffull_kokkos.cpp
 action nbin_kokkos.cpp
 action nbin_kokkos.h
 action pair_hybrid_kokkos.cpp
@@ -90,6 +94,8 @@ action pair_snap_kokkos.h pair_snap.h
 action pair_snap_kokkos_impl.h pair_snap.cpp
 action pair_tersoff_kokkos.cpp pair_tersoff.cpp
 action pair_tersoff_kokkos.h pair_tersoff.h
+action pair_zbl_kokkos.cpp
+action pair_zbl_kokkos.h
 action sna_kokkos.h sna.h
 action sna_kokkos_impl.h sna.cpp
 action verlet_kokkos.cpp
