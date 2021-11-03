@@ -78,6 +78,8 @@ action neighbor_kokkos.cpp
 action neighbor_kokkos.h
 action npair_kokkos.cpp
 action npair_kokkos.h
+action npair_halffull_kokkos.h
+action npair_halffull_kokkos.cpp
 action nbin_kokkos.cpp
 action nbin_kokkos.h
 action pair_kokkos.h

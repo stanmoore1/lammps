@@ -239,6 +239,7 @@ typedef Kokkos::Experimental::HIPHostPinnedSpace LMPPinnedHostType;
 typedef Kokkos::Experimental::SYCLSharedUSMSpace LMPPinnedHostType;
 #elif defined(KOKKOS_ENABLE_OPENMPTARGET)
 typedef Kokkos::Serial LMPPinnedHostType;
+//typedef Kokkos::DefaultHostSpace LMPPinnedHostType;
 #endif
 
 // create simple LMPDeviceSpace typedef for non CUDA-, HIP-, or SYCL-specific
@@ -1183,10 +1184,16 @@ struct params_lj_coul {
 #define SNAP_KOKKOS_REAL double
 #define SNAP_KOKKOS_HOST_VECLEN 1
 
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+#define SNAP_KOKKOS_DEVICE_VECLEN 1
+#elif defined(KOKKOS_ENABLE_SYCL)
+#define SNAP_KOKKOS_DEVICE_VECLEN 4
+#else
 #ifdef LMP_KOKKOS_GPU
 #define SNAP_KOKKOS_DEVICE_VECLEN 32
 #else
 #define SNAP_KOKKOS_DEVICE_VECLEN 1
+#endif
 #endif
 
 
