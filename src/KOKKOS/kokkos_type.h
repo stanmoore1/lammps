@@ -1275,6 +1275,17 @@ KOKKOS_FORCEINLINE_FUNCTION SNAComplex<real_type> operator*(const real_type& r, 
 
 typedef SNAComplex<SNAreal> SNAcomplex;
 
+// Cayley-Klein pack
+// Can guarantee it's aligned to 2 complex
+struct alignas(32) CayleyKleinPack {
+
+  SNAcomplex a, b;
+  SNAcomplex da[3], db[3];
+  SNAreal sfac;
+  SNAreal dsfacu[3];
+
+};
+
 #if defined(KOKKOS_ENABLE_CXX11)
 #undef ISFINITE
 #define ISFINITE(x) std::isfinite(x)
