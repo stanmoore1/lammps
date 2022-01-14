@@ -15,9 +15,9 @@
    Contributing authors: Christian Trott (SNL), Stan Moore (SNL)
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <cstdlib>
-#include <cstring>
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
 #include "pair_snap_kokkos.h"
 #include "atom_kokkos.h"
 #include "error.h"
@@ -32,7 +32,7 @@
 #define MAXLINE 1024
 #define MAXWORD 3
 
-namespace LAMMPS_NS {
+using namespace LAMMPS_NS;
 
 // Outstanding issues with quadratic term
 // 1. there seems to a problem with compute_optimized energy calc
@@ -61,6 +61,8 @@ PairSNAPKokkos<DeviceType>::PairSNAPKokkos(LAMMPS *lmp) : PairSNAP(lmp)
   k_cutsq = tdual_fparams("PairSNAPKokkos::cutsq",atom->ntypes+1,atom->ntypes+1);
   auto d_cutsq = k_cutsq.template view<DeviceType>();
   rnd_cutsq = d_cutsq;
+
+  nmax = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -111,8 +113,8 @@ struct FindMaxNumNeighs {
   typedef DeviceType device_type;
   NeighListKokkos<DeviceType> k_list;
 
-  FindMaxNumNeighs(NeighListKokkos<DeviceType>* nl): k_list(*nl) {}
-  ~FindMaxNumNeighs() {k_list.copymode = 1;}
+  FindMaxNumNeighs(NeighListKokkos<DeviceType>* nl): k_list(*nl) {}  
+  ~FindMaxNumNeighs() {k_list.copymode = 1;}  
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& ii, int& max_neighs) const {
@@ -131,13 +133,14 @@ void PairSNAPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 {
   eflag = eflag_in;
   vflag = vflag_in;
-
+  
   if (neighflag == FULL) no_virial_fdotr_compute = 1;
-
-  ev_init(eflag,vflag,0);
+  
+  if (eflag || vflag) ev_setup(eflag,vflag,0);
+  else evflag = vflag_fdotr = 0;
 
   // reallocate per-atom arrays if necessary
-
+  
   if (eflag_atom) {
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"pair:eatom");
@@ -166,15 +169,6 @@ void PairSNAPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   d_ilist = k_list->d_ilist;
   int inum = list->inum;
 
-  need_dup = lmp->kokkos->need_dup<DeviceType>();
-  if (need_dup) {
-    dup_f     = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(f);
-    dup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_vatom);
-  } else {
-    ndup_f     = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(f);
-    ndup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
-  }
-
   /*
   for (int i = 0; i < nlocal; i++) {
     typename t_neigh_list::t_neighs neighs_i = neigh_list.get_neighs(i);
@@ -186,45 +180,31 @@ void PairSNAPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   snaKK.nmax = max_neighs;
 
-  team_scratch_size = snaKK.size_team_scratch_arrays();
-  thread_scratch_size = snaKK.size_thread_scratch_arrays();
+  T_INT team_scratch_size = snaKK.size_team_scratch_arrays();
+  T_INT thread_scratch_size = snaKK.size_thread_scratch_arrays();
 
   //printf("Sizes: %i %i\n",team_scratch_size/1024,thread_scratch_size/1024);
   int team_size_max = 1e6;
-  vector_length = 8;
+  int vector_length = 8;
 #ifdef LMP_KOKKOS_GPU
-  team_size = 32;//max_neighs;
+  int team_size = 32;//max_neighs;
   if (team_size*vector_length > team_size_max)
     team_size = team_size_max/vector_length;
 #else
-  team_size = 1;
+  int team_size = 1;
 #endif
-
-  if (beta_max < list->inum) {
-    d_beta = Kokkos::View<F_FLOAT**, DeviceType>("PairSNAPKokkos:beta",
-     list->inum,ncoeff);
-    d_bispectrum = Kokkos::View<F_FLOAT**, DeviceType>("PairSNAPKokkos:bispectrum",
-     list->inum,ncoeff);
-    beta_max = list->inum;
-  }
-
-  // compute dE_i/dB_i = beta_i for all i in list
-
-  if (quadraticflag || eflag) 
-    compute_bispectrum();
-  compute_beta();
 
   EV_FLOAT ev;
 
   if (eflag) {
     if (neighflag == HALF) {
-      typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPCompute<HALF,1> > policy(inum,team_size,vector_length);
+      typename Kokkos::TeamPolicy<DeviceType, TagPairSNAP<HALF,1> > policy(inum,team_size,vector_length);
       Kokkos::parallel_reduce(policy
           .set_scratch_size(1,Kokkos::PerThread(thread_scratch_size))
           .set_scratch_size(1,Kokkos::PerTeam(team_scratch_size))
         ,*this,ev);
     } else if (neighflag == HALFTHREAD) {
-      typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPCompute<HALFTHREAD,1> > policy(inum,team_size,vector_length);
+      typename Kokkos::TeamPolicy<DeviceType, TagPairSNAP<HALFTHREAD,1> > policy(inum,team_size,vector_length);
       Kokkos::parallel_reduce(policy
           .set_scratch_size(1,Kokkos::PerThread(thread_scratch_size))
           .set_scratch_size(1,Kokkos::PerTeam(team_scratch_size))
@@ -232,13 +212,13 @@ void PairSNAPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
   } else {
     if (neighflag == HALF) {
-      typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPCompute<HALF,0> > policy(inum,team_size,vector_length);
+      typename Kokkos::TeamPolicy<DeviceType, TagPairSNAP<HALF,0> > policy(inum,team_size,vector_length);
       Kokkos::parallel_for(policy
           .set_scratch_size(1,Kokkos::PerThread(thread_scratch_size))
           .set_scratch_size(1,Kokkos::PerTeam(team_scratch_size))
         ,*this);
     } else if (neighflag == HALFTHREAD) {
-      typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPCompute<HALFTHREAD,0> > policy(inum,team_size,vector_length);
+      typename Kokkos::TeamPolicy<DeviceType, TagPairSNAP<HALFTHREAD,0> > policy(inum,team_size,vector_length);
       Kokkos::parallel_for(policy
           .set_scratch_size(1,Kokkos::PerThread(thread_scratch_size))
           .set_scratch_size(1,Kokkos::PerTeam(team_scratch_size))
@@ -246,8 +226,10 @@ void PairSNAPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
   }
 
-  if (need_dup)
-    Kokkos::Experimental::contribute(f, dup_f);
+//static int step =0;
+//step++;
+//if (step%10==0)
+//        printf(" %e %e %e %e %e (%e %e): %e\n",t1,t2,t3,t4,t5,t6,t7,t1+t2+t3+t4+t5);
 
   if (eflag_global) eng_vdwl += ev.evdwl;
   if (vflag_global) {
@@ -258,7 +240,7 @@ void PairSNAPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     virial[4] += ev.v[4];
     virial[5] += ev.v[5];
   }
-
+  
   if (vflag_fdotr) pair_virial_fdotr_compute(this);
 
   if (eflag_atom) {
@@ -267,168 +249,12 @@ void PairSNAPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   }
 
   if (vflag_atom) {
-    if (need_dup)
-      Kokkos::Experimental::contribute(d_vatom, dup_vatom);
     k_vatom.template modify<DeviceType>();
     k_vatom.template sync<LMPHostType>();
   }
 
   atomKK->modified(execution_space,F_MASK);
-
   copymode = 0;
-
-  // free duplicated memory
-  if (need_dup) {
-    dup_f     = decltype(dup_f)();
-    dup_vatom = decltype(dup_vatom)();
-  }
-}
-
-/* ----------------------------------------------------------------------
-   compute beta
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairSNAPKokkos<DeviceType>::compute_beta()
-{
-  // TODO: use RangePolicy instead, or thread over ncoeff?
-  int inum = list->inum;
-  typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPBeta> policy(inum,team_size,vector_length);
-  Kokkos::parallel_for(policy
-      .set_scratch_size(1,Kokkos::PerThread(thread_scratch_size))
-      .set_scratch_size(1,Kokkos::PerTeam(team_scratch_size))
-    ,*this);
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAPBeta,const typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPBeta>::member_type& team) const {
-
-  const int ii = team.league_rank();
-  const int i = d_ilist[ii];
-  const int itype = type[i];
-  const int ielem = d_map[itype];
-  Kokkos::View<double*,Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-    d_coeffi(d_coeffelem,ielem,Kokkos::ALL);
-
-  for (int icoeff = 0; icoeff < ncoeff; icoeff++)
-    d_beta(ii,icoeff) = d_coeffi[icoeff+1];
-
-  if (quadraticflag) {
-    int k = ncoeff+1;
-    for (int icoeff = 0; icoeff < ncoeff; icoeff++) {
-      double bveci = d_bispectrum(ii,icoeff);
-      d_beta(ii,icoeff) += d_coeffi[k]*bveci;
-      k++;
-      for (int jcoeff = icoeff+1; jcoeff < ncoeff; jcoeff++) {
-        double bvecj = d_bispectrum(ii,jcoeff);
-        d_beta(ii,icoeff) += d_coeffi[k]*bvecj;
-        d_beta(ii,jcoeff) += d_coeffi[k]*bveci;
-        k++;
-      }
-    }
-  }
-}
-
-/* ----------------------------------------------------------------------
-   compute bispectrum
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairSNAPKokkos<DeviceType>::compute_bispectrum()
-{
-  int inum = list->inum;
-  typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPBispectrum> policy(inum,team_size,vector_length);
-  Kokkos::parallel_for(policy
-      .set_scratch_size(1,Kokkos::PerThread(thread_scratch_size))
-      .set_scratch_size(1,Kokkos::PerTeam(team_scratch_size))
-    ,*this);
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAPBispectrum,const typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPBispectrum>::member_type& team) const {
-
-  const int ii = team.league_rank();
-  const int i = d_ilist[ii];
-  SNAKokkos<DeviceType> my_sna(snaKK,team);
-  const double xtmp = x(i,0);
-  const double ytmp = x(i,1);
-  const double ztmp = x(i,2);
-  const int itype = type[i];
-  const int ielem = d_map[itype];
-  const double radi = d_radelem[ielem];
-
-  const int num_neighs = d_numneigh[i];
-
-  // rij[][3] = displacements between atom I and those neighbors
-  // inside = indices of neighbors of I within cutoff
-  // wj = weights for neighbors of I within cutoff
-  // rcutij = cutoffs for neighbors of I within cutoff
-  // note Rij sign convention => dU/dRij = dU/dRj = -dU/dRi
-
-  int ninside = 0;
-  Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team,num_neighs),
-      [&] (const int jj, int& count) {
-    Kokkos::single(Kokkos::PerThread(team), [&] (){
-      T_INT j = d_neighbors(i,jj);
-      const F_FLOAT dx = x(j,0) - xtmp;
-      const F_FLOAT dy = x(j,1) - ytmp;
-      const F_FLOAT dz = x(j,2) - ztmp;
-
-      const int jtype = type(j);
-      const F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
-      const int elem_j = d_map[jtype];
-
-      if ( rsq < rnd_cutsq(itype,jtype) )
-       count++;
-    });
-  },ninside);
-
-  if (team.team_rank() == 0)
-  Kokkos::parallel_scan(Kokkos::ThreadVectorRange(team,num_neighs),
-      [&] (const int jj, int& offset, bool final) {
-  //for (int jj = 0; jj < num_neighs; jj++) {
-    T_INT j = d_neighbors(i,jj);
-    const F_FLOAT dx = x(j,0) - xtmp;
-    const F_FLOAT dy = x(j,1) - ytmp;
-    const F_FLOAT dz = x(j,2) - ztmp;
-
-    const int jtype = type(j);
-    const F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
-    const int elem_j = d_map[jtype];
-
-    if ( rsq < rnd_cutsq(itype,jtype) ) {
-      if (final) {
-        my_sna.rij(offset,0) = dx;
-        my_sna.rij(offset,1) = dy;
-        my_sna.rij(offset,2) = dz;
-        my_sna.inside[offset] = j;
-        my_sna.wj[offset] = d_wjelem[elem_j];
-        my_sna.rcutij[offset] = (radi + d_radelem[elem_j])*rcutfac;
-      }
-      offset++;
-    }
-  });
-  team.team_barrier();
-
-  // compute Ui, Zi, and Bi for atom I
-
-  my_sna.compute_ui(team,ninside);
-  team.team_barrier();
-
-  my_sna.compute_zi(team);
-  team.team_barrier();
-
-  my_sna.compute_bi(team);
-  team.team_barrier();
-
-  for (int icoeff = 0; icoeff < ncoeff; icoeff++)
-    d_bispectrum(ii,icoeff) = my_sna.blist[icoeff];
 }
 
 /* ----------------------------------------------------------------------
@@ -455,7 +281,7 @@ double PairSNAPKokkos<DeviceType>::init_one(int i, int j)
   double cutone = PairSNAP::init_one(i,j);
   k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutone*cutone;
   k_cutsq.template modify<LMPHostType>();
-
+  
   return cutone;
 }
 
@@ -500,8 +326,9 @@ void PairSNAPKokkos<DeviceType>::coeff(int narg, char **arg)
   // is wrapped into the sna class
 
   snaKK = SNAKokkos<DeviceType>(rfac0,twojmax,
+                  3,0,
                   rmin0,switchflag,bzeroflag);
-  snaKK.grow_rij(0);
+  snaKK.grow_rij(nmax);
   snaKK.init();
 }
 
@@ -510,22 +337,19 @@ void PairSNAPKokkos<DeviceType>::coeff(int narg, char **arg)
 template<class DeviceType>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAPCompute<NEIGHFLAG,EVFLAG>,const typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPCompute<NEIGHFLAG,EVFLAG> >::member_type& team, EV_FLOAT& ev) const {
-
-  // The f array is duplicated for OpenMP, atomic for CUDA, and neither for Serial
-
-  auto v_f = ScatterViewHelper<typename NeedDup<NEIGHFLAG,DeviceType>::value,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
-  auto a_f = v_f.template access<typename AtomicDup<NEIGHFLAG,DeviceType>::value>();
+void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAP<NEIGHFLAG,EVFLAG>,const typename Kokkos::TeamPolicy<DeviceType, TagPairSNAP<NEIGHFLAG,EVFLAG> >::member_type& team, EV_FLOAT& ev) const {
+  // The f array is atomic for Half/Thread neighbor style
+  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
 
   const int ii = team.league_rank();
   const int i = d_ilist[ii];
   SNAKokkos<DeviceType> my_sna(snaKK,team);
-  const double xtmp = x(i,0);
-  const double ytmp = x(i,1);
-  const double ztmp = x(i,2);
-  const int itype = type[i];
-  const int ielem = d_map[itype];
-  const double radi = d_radelem[ielem];
+  const double x_i = x(i,0);
+  const double y_i = x(i,1);
+  const double z_i = x(i,2);
+  const int type_i = type[i];
+  const int elem_i = d_map[type_i];
+  const double radi = d_radelem[elem_i];
 
   const int num_neighs = d_numneigh[i];
 
@@ -535,38 +359,41 @@ void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAPCompute<NEIGHFLAG,EVFLAG
   // rcutij = cutoffs for neighbors of I within cutoff
   // note Rij sign convention => dU/dRij = dU/dRj = -dU/dRi
 
+  //Kokkos::Timer timer;
   int ninside = 0;
   Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team,num_neighs),
       [&] (const int jj, int& count) {
     Kokkos::single(Kokkos::PerThread(team), [&] (){
       T_INT j = d_neighbors(i,jj);
-      const F_FLOAT dx = x(j,0) - xtmp;
-      const F_FLOAT dy = x(j,1) - ytmp;
-      const F_FLOAT dz = x(j,2) - ztmp;
+      const F_FLOAT dx = x(j,0) - x_i;
+      const F_FLOAT dy = x(j,1) - y_i;
+      const F_FLOAT dz = x(j,2) - z_i;
 
-      const int jtype = type(j);
+      const int type_j = type(j);
       const F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
-      const int elem_j = d_map[jtype];
+      const int elem_j = d_map[type_j];
 
-      if ( rsq < rnd_cutsq(itype,jtype) )
+      if ( rsq < rnd_cutsq(type_i,type_j) )
        count++;
     });
   },ninside);
 
+  //t1 += timer.seconds(); timer.reset();
+
   if (team.team_rank() == 0)
   Kokkos::parallel_scan(Kokkos::ThreadVectorRange(team,num_neighs),
-      [&] (const int jj, int& offset, bool final) {
+      [&] (const int jj, int& offset, bool final){
   //for (int jj = 0; jj < num_neighs; jj++) {
     T_INT j = d_neighbors(i,jj);
-    const F_FLOAT dx = x(j,0) - xtmp;
-    const F_FLOAT dy = x(j,1) - ytmp;
-    const F_FLOAT dz = x(j,2) - ztmp;
+    const F_FLOAT dx = x(j,0) - x_i;
+    const F_FLOAT dy = x(j,1) - y_i;
+    const F_FLOAT dz = x(j,2) - z_i;
 
-    const int jtype = type(j);
+    const int type_j = type(j);
     const F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
-    const int elem_j = d_map[jtype];
+    const int elem_j = d_map[type_j];
 
-    if ( rsq < rnd_cutsq(itype,jtype) ) {
+    if ( rsq < rnd_cutsq(type_i,type_j) ) {
       if (final) {
         my_sna.rij(offset,0) = dx;
         my_sna.rij(offset,1) = dy;
@@ -578,91 +405,159 @@ void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAPCompute<NEIGHFLAG,EVFLAG
       offset++;
     }
   });
+
+  //t2 += timer.seconds(); timer.reset();
+
   team.team_barrier();
-
-  // compute Ui, Yi for atom I
-
+  // compute Ui, Zi, and Bi for atom I
   my_sna.compute_ui(team,ninside);
+  //t3 += timer.seconds(); timer.reset();
+  team.team_barrier();
+  my_sna.compute_zi(team);
+  //t4 += timer.seconds(); timer.reset();
   team.team_barrier();
 
   // for neighbors of I within cutoff:
-  // compute Fij = dEi/dRj = -dEi/dRi 
-  // add to Fi, subtract from Fj
-
-  my_sna.compute_yi(team,d_beta,ii);
-  team.team_barrier();
+  // compute dUi/drj and dBi/drj
+  // Fij = dEi/dRj = -dEi/dRi => add to Fi, subtract from Fj
 
   Kokkos::View<double*,Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-    d_coeffi(d_coeffelem,ielem,Kokkos::ALL);
+    d_coeffi(d_coeffelem,elem_i,Kokkos::ALL);
 
   Kokkos::parallel_for (Kokkos::TeamThreadRange(team,ninside),
       [&] (const int jj) {
   //for (int jj = 0; jj < ninside; jj++) {
     int j = my_sna.inside[jj];
 
+    //Kokkos::Timer timer2;
     my_sna.compute_duidrj(team,&my_sna.rij(jj,0),
-                           my_sna.wj[jj],my_sna.rcutij[jj],jj);
-
-    F_FLOAT fij[3];
-    my_sna.compute_deidrj(team,fij);
+                           my_sna.wj[jj],my_sna.rcutij[jj]);
+    //t6 += timer2.seconds(); timer2.reset();
+    my_sna.compute_dbidrj(team);
+    //t7 += timer2.seconds(); timer2.reset();
+    my_sna.copy_dbi2dbvec(team);
+    if (quadraticflag) {
+      my_sna.compute_bi(team);
+      my_sna.copy_bi2bvec(team);
+    }
 
     Kokkos::single(Kokkos::PerThread(team), [&] (){
-      a_f(i,0) += fij[0];
-      a_f(i,1) += fij[1];
-      a_f(i,2) += fij[2];
-      a_f(j,0) -= fij[0];
-      a_f(j,1) -= fij[1];
-      a_f(j,2) -= fij[2];
-      
-      // tally global and per-atom virial contribution
-      
-      if (EVFLAG) {
-        if (vflag_either) {
-          v_tally_xyz<NEIGHFLAG>(ev,i,j,
-            fij[0],fij[1],fij[2],
-            -my_sna.rij(jj,0),-my_sna.rij(jj,1),
-            -my_sna.rij(jj,2));
+    F_FLOAT fij[3];
+
+    fij[0] = 0.0;
+    fij[1] = 0.0;
+    fij[2] = 0.0;
+
+    // linear contributions
+
+    for (int k = 1; k <= ncoeff; k++) {
+      double bgb = d_coeffi[k];
+      fij[0] += bgb*my_sna.dbvec(k-1,0);
+      fij[1] += bgb*my_sna.dbvec(k-1,1);
+      fij[2] += bgb*my_sna.dbvec(k-1,2);
+    }
+
+    if (quadraticflag) {
+    
+      int k = ncoeff+1;
+      for (int icoeff = 0; icoeff < ncoeff; icoeff++) {
+        double bveci = my_sna.bvec[icoeff];
+        double fack = d_coeffi[k]*bveci;
+        double dbvecix = my_sna.dbvec(icoeff,0);
+        double dbveciy = my_sna.dbvec(icoeff,1);
+        double dbveciz = my_sna.dbvec(icoeff,2);
+        fij[0] += fack*dbvecix;
+        fij[1] += fack*dbveciy;
+        fij[2] += fack*dbveciz;
+        k++;
+        for (int jcoeff = icoeff+1; jcoeff < ncoeff; jcoeff++) {
+          double facki = d_coeffi[k]*bveci;
+          double fackj = d_coeffi[k]*my_sna.bvec[jcoeff];
+          fij[0] += facki*my_sna.dbvec(jcoeff,0)+fackj*dbvecix;
+          fij[1] += facki*my_sna.dbvec(jcoeff,1)+fackj*dbveciy;
+          fij[2] += facki*my_sna.dbvec(jcoeff,2)+fackj*dbveciz;
+          k++;
         }
       }
-      
+    }
+
+    // Hard-coded ZBL potential
+    //const double dx = my_sna.rij(jj,0);
+    //const double dy = my_sna.rij(jj,1);
+    //const double dz = my_sna.rij(jj,2);
+    //const double fdivr = -1.5e6/pow(dx*dx + dy*dy + dz*dz,7.0);
+    //fij[0] += dx*fdivr;
+    //fij[1] += dy*fdivr;
+    //fij[2] += dz*fdivr;
+
+    //OK
+    //printf("%lf %lf %lf %lf %lf %lf %lf %lf %lf SNAP-COMPARE: FIJ\n"
+    //    ,x(i,0),x(i,1),x(i,2),x(j,0),x(j,1),x(j,2),fij[0],fij[1],fij[2] );
+    a_f(i,0) += fij[0];
+    a_f(i,1) += fij[1];
+    a_f(i,2) += fij[2];
+    a_f(j,0) -= fij[0];
+    a_f(j,1) -= fij[1];
+    a_f(j,2) -= fij[2];
+
+    // tally per-atom virial contribution
+
+    if (EVFLAG) {
+      if (vflag) {
+        v_tally_xyz<NEIGHFLAG>(ev,i,j,
+          fij[0],fij[1],fij[2],
+          -my_sna.rij(jj,0),-my_sna.rij(jj,1),
+          -my_sna.rij(jj,2));
+      }
+    }
+
     });
   });
+  //t5 += timer.seconds(); timer.reset();
 
   // tally energy contribution
 
   if (EVFLAG) {
-    if (eflag_either) {
+    if (eflag) {
 
-      Kokkos::single(Kokkos::PerTeam(team), [&] () {
+      if (!quadraticflag) {
+        my_sna.compute_bi(team);
+        my_sna.copy_bi2bvec(team);
+      }
+      
+      // E = beta.B + 0.5*B^t.alpha.B
+      // coeff[k] = beta[k-1] or
+      // coeff[k] = alpha_ii or
+      // coeff[k] = alpha_ij = alpha_ji, j != i
 
-        // evdwl = energy of atom I, sum over coeffs_k * Bi_k
+      if (team.team_rank() == 0)
+      Kokkos::single(Kokkos::PerThread(team), [&] () {
 
-        double evdwl = d_coeffi[0];
-        
-        // E = beta.B + 0.5*B^t.alpha.B
-        
-        // linear contributions
-        
-        for (int icoeff = 0; icoeff < ncoeff; icoeff++)
-          evdwl += d_coeffi[icoeff+1]*d_bispectrum(ii,icoeff);
-        
+      // evdwl = energy of atom I, sum over coeffs_k * Bi_k
+    
+      double evdwl = d_coeffi[0];
+
+      // linear contributions
+        for (int k = 1; k <= ncoeff; k++)
+          evdwl += d_coeffi[k]*my_sna.bvec[k-1];
+
         // quadratic contributions
         
         if (quadraticflag) {
           int k = ncoeff+1;
           for (int icoeff = 0; icoeff < ncoeff; icoeff++) {
-            double bveci = d_bispectrum(ii,icoeff);
+            double bveci = my_sna.bvec[icoeff];
             evdwl += 0.5*d_coeffi[k++]*bveci*bveci;
             for (int jcoeff = icoeff+1; jcoeff < ncoeff; jcoeff++) {
-              double bvecj = d_bispectrum(ii,jcoeff);
-              evdwl += d_coeffi[k++]*bveci*bvecj;
+              evdwl += d_coeffi[k++]*bveci*my_sna.bvec[jcoeff];
             }
           }
         }
-
-        //ev_tally_full(i,2.0*evdwl,0.0,0.0,0.0,0.0,0.0);
-        if (eflag_global) ev.evdwl += evdwl;
-        if (eflag_atom) d_eatom[i] += evdwl;
+//        ev_tally_full(i,2.0*evdwl,0.0,0.0,0.0,0.0,0.0);
+        if (eflag_either) {
+          if (eflag_global) ev.evdwl += evdwl;
+          if (eflag_atom) d_eatom[i] += evdwl;
+        }
       });
     }
   }
@@ -671,9 +566,9 @@ void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAPCompute<NEIGHFLAG,EVFLAG
 template<class DeviceType>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAPCompute<NEIGHFLAG,EVFLAG>,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAPCompute<NEIGHFLAG,EVFLAG> >::member_type& team) const {
+void PairSNAPKokkos<DeviceType>::operator() (TagPairSNAP<NEIGHFLAG,EVFLAG>,const typename Kokkos::TeamPolicy<DeviceType,TagPairSNAP<NEIGHFLAG,EVFLAG> >::member_type& team) const {
   EV_FLOAT ev;
-  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairSNAPCompute<NEIGHFLAG,EVFLAG>(), team, ev);
+  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairSNAP<NEIGHFLAG,EVFLAG>(), team, ev);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -685,10 +580,8 @@ void PairSNAPKokkos<DeviceType>::v_tally_xyz(EV_FLOAT &ev, const int &i, const i
       const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz,
       const F_FLOAT &delx, const F_FLOAT &dely, const F_FLOAT &delz) const
 {
-  // The vatom array is duplicated for OpenMP, atomic for CUDA, and neither for Serial
-
-  auto v_vatom = ScatterViewHelper<typename NeedDup<NEIGHFLAG,DeviceType>::value,decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
-  auto a_vatom = v_vatom.template access<typename AtomicDup<NEIGHFLAG,DeviceType>::value>();
+  // The vatom array is atomic for Half/Thread neighbor style
+  Kokkos::View<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
 
   const E_FLOAT v0 = delx*fx;
   const E_FLOAT v1 = dely*fy;
@@ -707,18 +600,18 @@ void PairSNAPKokkos<DeviceType>::v_tally_xyz(EV_FLOAT &ev, const int &i, const i
   }
 
   if (vflag_atom) {
-    a_vatom(i,0) += 0.5*v0;
-    a_vatom(i,1) += 0.5*v1;
-    a_vatom(i,2) += 0.5*v2;
-    a_vatom(i,3) += 0.5*v3;
-    a_vatom(i,4) += 0.5*v4;
-    a_vatom(i,5) += 0.5*v5;
-    a_vatom(j,0) += 0.5*v0;
-    a_vatom(j,1) += 0.5*v1;
-    a_vatom(j,2) += 0.5*v2;
-    a_vatom(j,3) += 0.5*v3;
-    a_vatom(j,4) += 0.5*v4;
-    a_vatom(j,5) += 0.5*v5;
+    v_vatom(i,0) += 0.5*v0;
+    v_vatom(i,1) += 0.5*v1;
+    v_vatom(i,2) += 0.5*v2;
+    v_vatom(i,3) += 0.5*v3;
+    v_vatom(i,4) += 0.5*v4;
+    v_vatom(i,5) += 0.5*v5;
+    v_vatom(j,0) += 0.5*v0;
+    v_vatom(j,1) += 0.5*v1;
+    v_vatom(j,2) += 0.5*v2;
+    v_vatom(j,3) += 0.5*v3;
+    v_vatom(j,4) += 0.5*v4;
+    v_vatom(j,5) += 0.5*v5;
   }
 }
 
@@ -733,9 +626,10 @@ double PairSNAPKokkos<DeviceType>::memory_usage()
   int n = atom->ntypes+1;
   bytes += n*n*sizeof(int);
   bytes += n*n*sizeof(double);
+  bytes += 3*nmax*sizeof(double);
+  bytes += nmax*sizeof(int);
   bytes += (2*ncoeffall)*sizeof(double);
   bytes += (ncoeff*3)*sizeof(double);
   bytes += snaKK.memory_usage();
   return bytes;
-}
 }
