@@ -36,7 +36,7 @@ template <typename real>
 struct alignas(2*sizeof(real)) SNAComplex
 {
   real re,im;
-
+  
   KOKKOS_FORCEINLINE_FUNCTION SNAComplex() = default;
 
   KOKKOS_FORCEINLINE_FUNCTION SNAComplex(real re)
@@ -139,9 +139,13 @@ inline
   KOKKOS_INLINE_FUNCTION
   void pre_ui(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team,const int&); // ForceSNAP
   KOKKOS_INLINE_FUNCTION
-  void compute_ui(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, const int, const int); // ForceSNAP
+  void compute_ui(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int); // ForceSNAP
   KOKKOS_INLINE_FUNCTION
   void compute_ui_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int); // ForceSNAP
+  KOKKOS_INLINE_FUNCTION
+  void compute_ui_orig(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int); // ForceSNAP
+  KOKKOS_INLINE_FUNCTION
+  void compute_uitot(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int, int); // ForceSNAP
   KOKKOS_INLINE_FUNCTION
   void compute_zi(const int&);    // ForceSNAP
   KOKKOS_INLINE_FUNCTION
@@ -155,9 +159,11 @@ inline
   // functions for derivatives
 
   KOKKOS_INLINE_FUNCTION
-  void compute_fused_deidrj(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, const int, const int); //ForceSNAP
+  void compute_duidrj(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int); //ForceSNAP
   KOKKOS_INLINE_FUNCTION
   void compute_duidrj_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int); //ForceSNAP
+  KOKKOS_INLINE_FUNCTION
+  void compute_deidrj(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int); // ForceSNAP
   KOKKOS_INLINE_FUNCTION
   void compute_deidrj_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int); // ForceSNAP
   KOKKOS_INLINE_FUNCTION
@@ -187,7 +193,7 @@ inline
   static KOKKOS_FORCEINLINE_FUNCTION
   void caxpy(const SNAcomplex& a, const SNAcomplex& x, SNAcomplex& y);
 
-  // efficient complex FMA, conjugate of scalar
+  // efficient complex FMA, conjugate of scalar 
   static KOKKOS_FORCEINLINE_FUNCTION
   void caconjxpy(const SNAcomplex& a, const SNAcomplex& x, SNAcomplex& y);
 
@@ -216,7 +222,7 @@ inline
   void grow_rij(int, int);
 
   int twojmax, diagonalstyle;
-
+  
   t_sna_2d_ll blist;
   t_sna_2c_ll ulisttot;
   t_sna_2c_ll zlist;
@@ -243,7 +249,7 @@ private:
 
   // data for bispectrum coefficients
 
-  // Same across all SNAKokkos
+  // Same accross all SNAKokkos
   t_sna_1d cglist;
   t_sna_2d rootpqarray;
 
@@ -267,6 +273,10 @@ inline
   void add_uarraytot(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int, double, double, double); // compute_ui
 
   KOKKOS_INLINE_FUNCTION
+  void compute_uarray(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int,
+                      double, double, double,
+                      double, double); // compute_ui
+  KOKKOS_INLINE_FUNCTION
   void compute_uarray_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int,
                       double, double, double,
                       double, double); // compute_ui_cpu
@@ -278,8 +288,12 @@ inline
 inline
   int compute_ncoeff();           // SNAKokkos()
   KOKKOS_INLINE_FUNCTION
+  void compute_duarray(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int,
+                       double, double, double, // compute_duidrj
+                       double, double, double, double, double);
+  KOKKOS_INLINE_FUNCTION
   void compute_duarray_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int, int,
-                       double, double, double, // compute_duidrj_cpu
+                       double, double, double, // compute_duidrj
                        double, double, double, double, double);
 
   // Sets the style for the switching function

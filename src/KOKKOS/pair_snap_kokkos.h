@@ -37,13 +37,15 @@ struct TagPairSNAPBeta{};
 struct TagPairSNAPComputeNeigh{};
 struct TagPairSNAPPreUi{};
 struct TagPairSNAPComputeUi{};
-struct TagPairSNAPComputeUiCPU{};
+struct TagPairSNAPComputeUiTot{}; // accumulate ulist into ulisttot separately
+struct TagPairSNAPComputeUiCPU{}; 
 struct TagPairSNAPComputeZi{};
 struct TagPairSNAPComputeBi{};
 struct TagPairSNAPZeroYi{};
 struct TagPairSNAPComputeYi{};
-struct TagPairSNAPComputeFusedDeidrj{};
+struct TagPairSNAPComputeDuidrj{};
 struct TagPairSNAPComputeDuidrjCPU{};
+struct TagPairSNAPComputeDeidrj{};
 struct TagPairSNAPComputeDeidrjCPU{};
 
 template<class DeviceType>
@@ -82,6 +84,9 @@ public:
   void operator() (TagPairSNAPComputeUi,const typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPComputeUi>::member_type& team) const;
 
   KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairSNAPComputeUiTot,const typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPComputeUiTot>::member_type& team) const;
+
+  KOKKOS_INLINE_FUNCTION
   void operator() (TagPairSNAPComputeUiCPU,const typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPComputeUiCPU>::member_type& team) const;
 
   KOKKOS_INLINE_FUNCTION
@@ -97,10 +102,13 @@ public:
   void operator() (TagPairSNAPComputeYi,const int& ii) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairSNAPComputeFusedDeidrj,const typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPComputeFusedDeidrj>::member_type& team) const;
+  void operator() (TagPairSNAPComputeDuidrj,const typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPComputeDuidrj>::member_type& team) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairSNAPComputeDuidrjCPU,const typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPComputeDuidrjCPU>::member_type& team) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairSNAPComputeDeidrj,const typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPComputeDeidrj>::member_type& team) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairSNAPComputeDeidrjCPU,const typename Kokkos::TeamPolicy<DeviceType, TagPairSNAPComputeDeidrjCPU>::member_type& team) const;
