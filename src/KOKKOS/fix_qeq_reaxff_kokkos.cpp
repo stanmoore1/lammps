@@ -788,7 +788,7 @@ int FixQEqReaxFFKokkos<DeviceType>::cg_solve()
     }
 
     // tmp = parallel_dot(d, q, nn);
-  Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType,TagQEqDot2>(0,nn),*this,my_dot);
+    Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType,TagQEqDot2>(0,nn),*this,my_dot);
     MPI_Allreduce(&my_dot.v, &dot_sqr.v, 2, MPI_DOUBLE, MPI_SUM, world);
     tmp = dot_sqr;
     if (!(converged & 1))
@@ -863,30 +863,30 @@ void FixQEqReaxFFKokkos<DeviceType>::sparse_matvec_kokkos(typename AT::t_ffloat2
 
     if (need_dup)
       dup_o.reset_except(d_o);
-
-    if (neighflag == HALF)
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagQEqSparseMatvec2_Half<HALF> >(0,nn),*this);
-    else if (neighflag == HALFTHREAD)
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagQEqSparseMatvec2_Half<HALFTHREAD> >(0,nn),*this);
-
-    if (need_dup)
-      Kokkos::Experimental::contribute(d_o, dup_o);
-  } else { // FULL
-    int teamsize;
-    int vectorsize;
-    int leaguesize;
-    if (execution_space == Host) {
-      teamsize = 1;
-      vectorsize = 1;
-      leaguesize = nn;
-    } else {
-      teamsize = FixQEqReaxFFKokkos<DeviceType>::spmv_teamsize;
-      vectorsize = FixQEqReaxFFKokkos<DeviceType>::vectorsize;
-      leaguesize = (nn + teamsize - 1) / (teamsize);
-    }
-
-    Kokkos::parallel_for(Kokkos::TeamPolicy <DeviceType, TagQEqSparseMatvec2_Full>(leaguesize, teamsize, vectorsize), *this);
   }
+
+  int teamsize;
+  int vectorsize;
+  int leaguesize;
+  if (execution_space == Host) {
+    teamsize = 1;
+    vectorsize = 1;
+    leaguesize = nn;
+  } else {
+    teamsize = FixQEqReaxFFKokkos<DeviceType>::spmv_teamsize;
+    vectorsize = FixQEqReaxFFKokkos<DeviceType>::vectorsize;
+    leaguesize = (nn + teamsize - 1) / (teamsize);
+  }
+
+  if (neighflag == HALF)
+    Kokkos::parallel_for(Kokkos::TeamPolicy<DeviceType, TagQEqSparseMatvec2_Vector<HALF>>(leaguesize, teamsize, vectorsize), *this);
+  else if (neighflag == HALFTHREAD)
+    Kokkos::parallel_for(Kokkos::TeamPolicy<DeviceType, TagQEqSparseMatvec2_Vector<HALFTHREAD>>(leaguesize, teamsize, vectorsize), *this);
+  else // FULL
+    Kokkos::parallel_for(Kokkos::TeamPolicy<DeviceType, TagQEqSparseMatvec2_Vector<FULL>>(leaguesize, teamsize, vectorsize), *this);
+
+  if (neighflag != FULL && need_dup)
+    Kokkos::Experimental::contribute(d_o, dup_o);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -925,7 +925,7 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqZeroQGhosts, const int &i)
 template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
-void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqSparseMatvec2_Half<NEIGHFLAG>, const int &ii) const
+void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqSparseMatvec2<NEIGHFLAG>, const int &ii) const
 {
   // The q array is duplicated for OpenMP, atomic for CUDA, and neither for Serial
   auto v_o = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_o),decltype(ndup_o)>::get(dup_o,ndup_o);
@@ -959,27 +959,41 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqSparseMatvec2_Half<NEIGHFL
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
-void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqSparseMatvec2_Full, const membertype_vec &team) const
+void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqSparseMatvec2_Vector<NEIGHFLAG>, const typename Kokkos::TeamPolicy<DeviceType, TagQEqSparseMatvec2_Vector<NEIGHFLAG>>::member_type &team) const
 {
-  int k = team.league_rank () * team.team_size () + team.team_rank ();
+  int k = team.league_rank() * team.team_size() + team.team_rank();
   if (k < nn) {
+    // The q array is duplicated for OpenMP, atomic for CUDA, and neither for Serial
+    auto v_o = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_o),decltype(ndup_o)>::get(dup_o,ndup_o);
+    auto a_o = v_o.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
     const int i = d_ilist[k];
     if (mask[i] & groupbit) {
-      F_FLOAT2 doitmp;
-      Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, d_firstnbr[i], d_firstnbr[i] + d_numnbrs[i]), [&] (const int &jj, F_FLOAT2& doi) {
+      F_FLOAT2 tmp;
+      const double d_xx_i0 = d_xx(i,0);
+      const double d_xx_i1 = d_xx(i,1);
+
+      Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, d_firstnbr[i], d_firstnbr[i] + d_numnbrs[i]), [&] (const int &jj, F_FLOAT2& tmp) {
         const int j = d_jlist(jj);
         const auto d_val_jj = d_val(jj);
-        if (!(converged & 1))
-          doi.v[0] += d_val_jj * d_xx(j,0);
-        if (!(converged & 2))
-          doi.v[1] += d_val_jj * d_xx(j,1);
-      }, doitmp);
+        if (!(converged & 1)) {
+          tmp.v[0] += d_val_jj * d_xx(j,0);
+          if (NEIGHFLAG != FULL)
+            a_o(j,0) += d_val_jj * d_xx_i0;
+        }
+        if (!(converged & 2)) {
+          tmp.v[1] += d_val_jj * d_xx(j,1);
+          if (NEIGHFLAG != FULL)
+            a_o(j,1) += d_val_jj * d_xx_i1;
+        }
+      }, tmp);
       Kokkos::single(Kokkos::PerThread(team), [&] () {
         if (!(converged & 1))
-          d_o(i,0) += doitmp.v[0];
+          a_o(i,0) += tmp.v[0];
         if (!(converged & 2))
-          d_o(i,1) += doitmp.v[1];
+          a_o(i,1) += tmp.v[1];
       });
     }
   }

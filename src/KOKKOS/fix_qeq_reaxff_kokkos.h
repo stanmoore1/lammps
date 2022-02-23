@@ -40,9 +40,11 @@ struct TagQEqSparseMatvec1{};
 struct TagQEqZeroQGhosts{};
 
 template<int NEIGHFLAG>
-struct TagQEqSparseMatvec2_Half{};
+struct TagQEqSparseMatvec2{};
 
-struct TagQEqSparseMatvec2_Full{};
+template<int NEIGHFLAG>
+struct TagQEqSparseMatvec2_Vector{};
+
 struct TagQEqNorm1{};
 struct TagQEqDot1{};
 struct TagQEqDot2{};
@@ -82,7 +84,7 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void compute_h_team(const typename Kokkos::TeamPolicy <DeviceType> ::member_type &team, int, int) const;
+  void compute_h_team(const typename Kokkos::TeamPolicy<DeviceType>::member_type &team, int, int) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagQEqSparseMatvec1, const int&) const;
@@ -92,11 +94,11 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagQEqSparseMatvec2_Half<NEIGHFLAG>, const int&) const;
+  void operator()(TagQEqSparseMatvec2<NEIGHFLAG>, const int&) const;
 
-  typedef typename Kokkos::TeamPolicy <DeviceType, TagQEqSparseMatvec2_Full> ::member_type membertype_vec;
+  template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagQEqSparseMatvec2_Full, const membertype_vec &team) const;
+  void operator()(TagQEqSparseMatvec2_Vector<NEIGHFLAG>, const typename Kokkos::TeamPolicy<DeviceType, TagQEqSparseMatvec2_Vector<NEIGHFLAG>>::member_type &team) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagQEqNorm1, const int&, F_FLOAT2&) const;
