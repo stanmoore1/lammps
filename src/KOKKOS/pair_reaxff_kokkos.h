@@ -52,10 +52,14 @@ struct TagPairReaxComputePolar{};
 template<int NEIGHFLAG, int EVFLAG>
 struct TagPairReaxComputeLJCoulomb{};
 
-struct TagPairReaxComputeLJCoulombShortNeigh{};
-
 template<int NEIGHFLAG, int EVFLAG>
 struct TagPairReaxComputeTabulatedLJCoulomb{};
+
+template<int EVFLAG>
+struct TagPairReaxComputeLJCoulombFull{};
+
+template<int EVFLAG>
+struct TagPairReaxComputeTabulatedLJCoulombFull{};
 
 template<int NEIGHFLAG>
 struct TagPairReaxBuildListsHalfBlocking{};
@@ -133,6 +137,7 @@ class PairReaxFFKokkos : public PairReaxFF {
   void ev_setup(int, int, int alloc = 1);
   void compute(int, int);
   void init_style();
+  void init_list(int, class NeighList *);
   double memory_usage();
   void FindBond(int &);
   void PackBondBuffer(DAT::tdual_ffloat_1d, int &);
@@ -162,8 +167,21 @@ class PairReaxFFKokkos : public PairReaxFF {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairReaxComputeTabulatedLJCoulomb<NEIGHFLAG,EVFLAG>, const int&) const;
 
+  template<int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairReaxComputeLJCoulombShortNeigh, const int&) const;
+  void operator()(TagPairReaxComputeLJCoulombFull<EVFLAG>, const int&, EV_FLOAT_REAX&) const;
+
+  template<int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairReaxComputeLJCoulombFull<EVFLAG>, const int&) const;
+
+  template<int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairReaxComputeTabulatedLJCoulombFull<EVFLAG>, const int&, EV_FLOAT_REAX&) const;
+
+  template<int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairReaxComputeTabulatedLJCoulombFull<EVFLAG>, const int&) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
@@ -322,6 +340,10 @@ class PairReaxFFKokkos : public PairReaxFF {
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT_REAX &ev, const int &i, const int &j, const F_FLOAT &epair, const F_FLOAT &fpair, const F_FLOAT &delx,
                   const F_FLOAT &dely, const F_FLOAT &delz) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void ev_tally_full(EV_FLOAT_REAX &ev, const int &i, const int &j, const F_FLOAT &epair, const F_FLOAT &fpair, const F_FLOAT &delx,
+                       const F_FLOAT &dely, const F_FLOAT &delz) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
