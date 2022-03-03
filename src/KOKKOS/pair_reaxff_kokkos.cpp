@@ -722,7 +722,8 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   eflag = eflag_in;
   vflag = vflag_in;
 
-  if (neighflag == FULL) no_virial_fdotr_compute = 1;
+  if (lmp->kokkos->neighflag_qeq == FULL)
+    no_virial_fdotr_compute = 1;
 
   ev_init(eflag,vflag);
 
