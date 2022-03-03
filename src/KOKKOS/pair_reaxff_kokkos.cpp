@@ -182,6 +182,7 @@ void PairReaxFFKokkos<DeviceType>::init_style()
   neighbor->requests[irequest]->full = 0;
   neighbor->requests[irequest]->half = 1;
   neighbor->requests[irequest]->ghost = 1;
+  neighbor->requests[irequest]->id = 1;
 
   if (lmp->kokkos->neighflag_qeq == FULL) {
     int irequest_full = neighbor->request(this,instance_me);
@@ -194,7 +195,8 @@ void PairReaxFFKokkos<DeviceType>::init_style()
     neighbor->requests[irequest_full]->full = 1;
     neighbor->requests[irequest_full]->half = 0;
     neighbor->requests[irequest_full]->ghost = 0;
-    neighbor->requests[irequest_full]->newton = 1;
+    neighbor->requests[irequest_full]->newton = 2;
+    neighbor->requests[irequest_full]->id = 2;
   }
 
   allocate();
