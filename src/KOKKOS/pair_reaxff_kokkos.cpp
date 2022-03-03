@@ -194,6 +194,7 @@ void PairReaxFFKokkos<DeviceType>::init_style()
     neighbor->requests[irequest_full]->full = 1;
     neighbor->requests[irequest_full]->half = 0;
     neighbor->requests[irequest_full]->ghost = 0;
+    neighbor->requests[irequest_full]->newton = 1;
   }
 
   allocate();
@@ -741,16 +742,24 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   nlocal = atomKK->nlocal;
   newton_pair = force->newton_pair;
 
-  nn = list->inum;
-  NN = list->inum + list->gnum;
-
   const int inum = list->inum;
   const int ignum = inum + list->gnum;
+  NN = ignum;
   NeighListKokkos<DeviceType>* k_list = static_cast<NeighListKokkos<DeviceType>*>(list);
   d_numneigh = k_list->d_numneigh;
   d_neighbors = k_list->d_neighbors;
   d_ilist = k_list->d_ilist;
-  NeighListKokkos<DeviceType>* k_listfull = static_cast<NeighListKokkos<DeviceType>*>(listfull);
+
+  int inum_full, ignum_full;
+  if (lmp->kokkos->neighflag_qeq == FULL) {
+    inum_full = listfull->inum;
+    ignum_full = inum_full + listfull->gnum;
+    NN = ignum_full;
+    NeighListKokkos<DeviceType>* k_listfull = static_cast<NeighListKokkos<DeviceType>*>(listfull);
+    d_numneigh_full = k_listfull->d_numneigh;
+    d_neighbors_full = k_listfull->d_neighbors;
+    d_ilist_full = k_listfull->d_ilist;
+  }
 
   if (acks2_flag) {
     auto ifix = modify->get_fix_by_style("^acks2/reax").front();
@@ -804,17 +813,10 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // LJ + Coulomb
   if (api->control->tabulate) {
     if (lmp->kokkos->neighflag_qeq == FULL) {
-      d_numneigh = k_listfull->d_numneigh;
-      d_neighbors = k_listfull->d_neighbors;
-      d_ilist = k_listfull->d_ilist;
-
       if (evflag)
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairReaxComputeTabulatedLJCoulombFull<1>>(0,inum),*this,ev);
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairReaxComputeTabulatedLJCoulombFull<1>>(0,inum_full),*this,ev);
       else
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxComputeTabulatedLJCoulombFull<0>>(0,inum),*this);
-      d_numneigh = k_list->d_numneigh;
-      d_neighbors = k_list->d_neighbors;
-      d_ilist = k_list->d_ilist;
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxComputeTabulatedLJCoulombFull<0>>(0,inum_full),*this);
     } else if (neighflag == HALF) {
       if (evflag)
         Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairReaxComputeTabulatedLJCoulomb<HALF,1>>(0,inum),*this,ev);
@@ -828,18 +830,10 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
   } else {
     if (lmp->kokkos->neighflag_qeq == FULL) {
-      d_numneigh = k_listfull->d_numneigh;
-      d_neighbors = k_listfull->d_neighbors;
-      d_ilist = k_listfull->d_ilist;
-
       if (evflag)
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairReaxComputeLJCoulombFull<1>>(0,inum),*this,ev);
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairReaxComputeLJCoulombFull<1>>(0,inum_full),*this,ev);
       else
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxComputeLJCoulombFull<0>>(0,inum),*this);
-
-      d_numneigh = k_list->d_numneigh;
-      d_neighbors = k_list->d_neighbors;
-      d_ilist = k_list->d_ilist;
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxComputeLJCoulombFull<0>>(0,inum_full),*this);
     } else if (neighflag == HALF) {
       if (evflag)
         Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairReaxComputeLJCoulomb<HALF,1>>(0,inum),*this,ev);
@@ -1555,20 +1549,20 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeLJCoulombFull<EV
   F_FLOAT evdwl, fvdwl;
   evdwl = fvdwl = 0.0;
 
-  const int i = d_ilist[ii];
+  const int i = d_ilist_full[ii];
   const X_FLOAT xtmp = x(i,0);
   const X_FLOAT ytmp = x(i,1);
   const X_FLOAT ztmp = x(i,2);
   const F_FLOAT qi = q(i);
   const int itype = type(i);
   const tagint itag = tag(i);
-  const int jnum = d_numneigh[i];
+  const int jnum = d_numneigh_full[i];
 
   F_FLOAT fxtmp, fytmp, fztmp;
   fxtmp = fytmp = fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
-    int j = d_neighbors(i,jj);
+    int j = d_neighbors_full(i,jj);
     j &= NEIGHMASK;
     const int jtype = type(j);
     const tagint jtag = tag(j);
@@ -1724,20 +1718,20 @@ template<int EVFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTabulatedLJCoulombFull<EVFLAG>, const int &ii, EV_FLOAT_REAX& ev) const {
 
-  const int i = d_ilist[ii];
+  const int i = d_ilist_full[ii];
   const X_FLOAT xtmp = x(i,0);
   const X_FLOAT ytmp = x(i,1);
   const X_FLOAT ztmp = x(i,2);
   const F_FLOAT qi = q(i);
   const int itype = type(i);
   const tagint itag = tag(i);
-  const int jnum = d_numneigh[i];
+  const int jnum = d_numneigh_full[i];
 
   F_FLOAT fxtmp, fytmp, fztmp;
   fxtmp = fytmp = fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
-    int j = d_neighbors(i,jj);
+    int j = d_neighbors_full(i,jj);
     j &= NEIGHMASK;
     const int jtype = type(j);
     const tagint jtag = tag(j);
