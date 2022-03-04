@@ -423,7 +423,6 @@ void FixQEqReaxFF::init()
   neighbor->requests[irequest]->pair = 0;
   neighbor->requests[irequest]->fix = 1;
   neighbor->requests[irequest]->newton = 2;
-  neighbor->requests[irequest]->ghost = 0;
 
   init_shielding();
   init_taper();
