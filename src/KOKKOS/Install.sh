@@ -288,8 +288,6 @@ action pair_snap_kokkos.h pair_snap.h
 action pair_snap_kokkos_impl.h pair_snap.cpp
 action pair_sw_kokkos.cpp pair_sw.cpp
 action pair_sw_kokkos.h pair_sw.h
-action pair_vashishta_kokkos.cpp pair_vashishta.cpp
-action pair_vashishta_kokkos.h pair_vashishta.h
 action pair_table_kokkos.cpp
 action pair_table_kokkos.h
 action pair_table_rx_kokkos.cpp pair_table_rx.cpp
@@ -300,6 +298,10 @@ action pair_tersoff_mod_kokkos.cpp pair_tersoff_mod.cpp
 action pair_tersoff_mod_kokkos.h pair_tersoff_mod.h
 action pair_tersoff_zbl_kokkos.cpp pair_tersoff_zbl.cpp
 action pair_tersoff_zbl_kokkos.h pair_tersoff_zbl.h
+action pair_vashishta_kokkos.cpp pair_vashishta.cpp
+action pair_vashishta_kokkos.h pair_vashishta.h
+action pair_wqlfun_kokkos.cpp pair_wqlfun.cpp
+action pair_wqlfun_kokkos.h pair_wqlfun.h
 action pair_yukawa_kokkos.cpp
 action pair_yukawa_kokkos.h
 action pair_zbl_kokkos.cpp
