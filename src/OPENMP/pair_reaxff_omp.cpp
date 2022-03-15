@@ -219,16 +219,14 @@ void PairReaxFFOMP::setup()
 
 void PairReaxFFOMP::compute(int eflag, int vflag)
 {
-  double evdwl,ecoul;
 
   // communicate num_bonds once every reneighboring
   // 2 num arrays stored by fix, grab ptr to them
 
-  if (neighbor->ago == 0) comm->forward_comm_fix(fix_reaxff);
+  if (neighbor->ago == 0) comm->forward_comm(fix_reaxff);
   int *num_bonds = fix_reaxff->num_bonds;
   int *num_hbonds = fix_reaxff->num_hbonds;
 
-  evdwl = ecoul = 0.0;
   ev_init(eflag,vflag);
 
   api->system->n = atom->nlocal; // my atoms
@@ -296,20 +294,6 @@ void PairReaxFFOMP::compute(int eflag, int vflag)
   // energies and pressure
 
   if (eflag_global) {
-    evdwl += api->data->my_en.e_bond;
-    evdwl += api->data->my_en.e_ov;
-    evdwl += api->data->my_en.e_un;
-    evdwl += api->data->my_en.e_lp;
-    evdwl += api->data->my_en.e_ang;
-    evdwl += api->data->my_en.e_pen;
-    evdwl += api->data->my_en.e_coa;
-    evdwl += api->data->my_en.e_hb;
-    evdwl += api->data->my_en.e_tor;
-    evdwl += api->data->my_en.e_con;
-    evdwl += api->data->my_en.e_vdW;
-
-    ecoul += api->data->my_en.e_ele;
-    ecoul += api->data->my_en.e_pol;
 
     // Store the different parts of the energy
     // in a list for output by compute pair command
@@ -418,8 +402,7 @@ int PairReaxFFOMP::estimate_reax_lists()
 
 int PairReaxFFOMP::write_reax_lists()
 {
-  int itr_i, itr_j, i, j, num_mynbrs;
-  int *jlist;
+  int num_mynbrs;
   double d_sqr, dist, cutoff_sqr;
   rvec dvec;
 
@@ -441,19 +424,19 @@ int PairReaxFFOMP::write_reax_lists()
 
   num_nbrs = 0;
 
-  for (itr_i = 0; itr_i < numall; ++itr_i) {
-    i = ilist[itr_i];
+  for (int itr_i = 0; itr_i < numall; ++itr_i) {
+    int i = ilist[itr_i];
     num_nbrs_offset[i] = num_nbrs;
     num_nbrs += numneigh[i];
   }
 
 #if defined(_OPENMP)
 #pragma omp parallel for schedule(dynamic,50) default(shared)           \
-  private(itr_i, itr_j, i, j, jlist, cutoff_sqr, num_mynbrs, d_sqr, dvec, dist)
+  private(cutoff_sqr, num_mynbrs, d_sqr, dvec, dist)
 #endif
-  for (itr_i = 0; itr_i < numall; ++itr_i) {
-    i = ilist[itr_i];
-    jlist = firstneigh[i];
+  for (int itr_i = 0; itr_i < numall; ++itr_i) {
+    int i = ilist[itr_i];
+    auto jlist = firstneigh[i];
     Set_Start_Index(i, num_nbrs_offset[i], far_nbrs);
 
     if (i < inum)
@@ -463,8 +446,8 @@ int PairReaxFFOMP::write_reax_lists()
 
     num_mynbrs = 0;
 
-    for (itr_j = 0; itr_j < numneigh[i]; ++itr_j) {
-      j = jlist[itr_j];
+    for (int itr_j = 0; itr_j < numneigh[i]; ++itr_j) {
+      int j = jlist[itr_j];
       j &= NEIGHMASK;
       get_distance(x[j], x[i], &d_sqr, &dvec);
 

@@ -27,7 +27,6 @@
 #include "neigh_request.h"
 #include "neighbor.h"
 #include "potential_file_reader.h"
-#include "tokenizer.h"
 
 #include <cmath>
 #include <cstring>
@@ -293,7 +292,7 @@ void PairSW::read_file(char *file)
 
   if (comm->me == 0) {
     PotentialFileReader reader(lmp, file, "sw", unit_convert_flag);
-    char * line;
+    char *line;
 
     // transparently convert units for supported conversions
 

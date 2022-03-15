@@ -112,6 +112,8 @@ PairReaxFF::PairReaxFF(LAMMPS *lmp) : Pair(lmp)
   fixspecies_flag = 0;
 
   nmax = 0;
+
+  list_blocking_flag = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -229,9 +231,6 @@ void PairReaxFF::settings(int narg, char **arg)
     if (strcmp(arg[iarg],"checkqeq") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal pair_style reaxff command");
       qeqflag = utils::logical(FLERR,arg[iarg+1],false,lmp);
-      if (strcmp(arg[iarg+1],"yes") == 0) qeqflag = 1;
-      else if (strcmp(arg[iarg+1],"no") == 0) qeqflag = 0;
-      else error->all(FLERR,"Illegal pair_style reaxff command");
       iarg += 2;
     } else if (strcmp(arg[iarg],"enobonds") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal pair_style reaxff command");
@@ -259,6 +258,16 @@ void PairReaxFF::settings(int narg, char **arg)
       api->system->minhbonds = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
       if (api->system->minhbonds < 0)
         error->all(FLERR,"Illegal pair_style reaxff minhbonds command");
+      iarg += 2;
+    } else if (strcmp(arg[iarg],"list/blocking") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal pair_style reaxff command");
+      list_blocking_flag = utils::logical(FLERR,arg[iarg+1],false,lmp);
+      iarg += 2;
+    } else if (strcmp(arg[iarg],"tabulate") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal pair_style reaxff command");
+      api->control->tabulate = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
+      if (api->control->tabulate < 0)
+        error->all(FLERR,"Illegal pair_style reaxff tabulate command");
       iarg += 2;
     } else error->all(FLERR,"Illegal pair_style reaxff command");
   }
@@ -447,16 +456,13 @@ double PairReaxFF::init_one(int i, int j)
 
 void PairReaxFF::compute(int eflag, int vflag)
 {
-  double evdwl,ecoul;
-
   // communicate num_bonds once every reneighboring
   // 2 num arrays stored by fix, grab ptr to them
 
-  if (neighbor->ago == 0) comm->forward_comm_fix(fix_reaxff);
+  if (neighbor->ago == 0) comm->forward_comm(fix_reaxff);
   int *num_bonds = fix_reaxff->num_bonds;
   int *num_hbonds = fix_reaxff->num_hbonds;
 
-  evdwl = ecoul = 0.0;
   ev_init(eflag,vflag);
 
   api->system->n = atom->nlocal; // my atoms
@@ -487,20 +493,6 @@ void PairReaxFF::compute(int eflag, int vflag)
   // energies and pressure
 
   if (eflag_global) {
-    evdwl += api->data->my_en.e_bond;
-    evdwl += api->data->my_en.e_ov;
-    evdwl += api->data->my_en.e_un;
-    evdwl += api->data->my_en.e_lp;
-    evdwl += api->data->my_en.e_ang;
-    evdwl += api->data->my_en.e_pen;
-    evdwl += api->data->my_en.e_coa;
-    evdwl += api->data->my_en.e_hb;
-    evdwl += api->data->my_en.e_tor;
-    evdwl += api->data->my_en.e_con;
-    evdwl += api->data->my_en.e_vdW;
-
-    ecoul += api->data->my_en.e_ele;
-    ecoul += api->data->my_en.e_pol;
 
     // Store the different parts of the energy
     // in a list for output by compute pair command
