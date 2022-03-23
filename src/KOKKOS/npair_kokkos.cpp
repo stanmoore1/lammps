@@ -959,7 +959,7 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGhostGPU(typename Kokkos::Team
     }
     other_id[MY_II] = i;
 #if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
-    int test = (__syncthreads_count(i >= 0 && i <= nall) == 0);
+    int test = (__syncthreads_count(i >= 0 && i < nall) == 0);
     if (test) return;
 #elif defined(KOKKOS_ENABLE_SYCL)
     int not_done = (i >= 0 && i < nall);
@@ -1073,7 +1073,7 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGhostGPU(typename Kokkos::Team
 
       dev.team_barrier();
 
-      if (i >= 0 && i < nall) {
+      if (i >= nlocal && i < nall) {
         #pragma unroll 8
         for (int m = 0; m < bincount_current; m++) {
           const int j = other_id[m];
