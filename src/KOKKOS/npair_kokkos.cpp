@@ -593,7 +593,7 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGPU(typename Kokkos::TeamPolic
   const int ibin = dev.league_rank()*BINS_PER_TEAM+MY_BIN;
 
   if (ibin >= mbins) return;
-  
+
   X_FLOAT* other_x = sharedmem + 5*atoms_per_bin*MY_BIN;
   int* other_id = (int*) &other_x[4 * atoms_per_bin];
 
