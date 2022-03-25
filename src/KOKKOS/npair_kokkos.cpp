@@ -339,6 +339,7 @@ void NPairKokkos<DeviceType,HALF_NEIGH,GHOST,TRI,SIZE>::build(NeighList *list_)
       data.neigh_list.d_neighbors = typename AT::t_neighbors_2d();
       list->d_neighbors = typename AT::t_neighbors_2d();
       list->d_neighbors = typename AT::t_neighbors_2d(Kokkos::NoInit("neighlist:neighbors"), maxatoms, list->maxneighs);
+      data.neigh_list.d_neighbors_build = typename AT::t_neighbors_2d_lr();
       list->d_neighbors_build = typename AT::t_neighbors_2d_lr();
       list->d_neighbors_build = typename AT::t_neighbors_2d_lr(Kokkos::NoInit("neighlist:neighbors"), maxatoms, list->maxneighs);
 
