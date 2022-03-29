@@ -17,7 +17,7 @@ Syntax
 
      *load* file = load plugin(s) from shared object in *file*
      *unload* style name = unload plugin *name* of style *style*
-         *style* = *pair* or *bond* or *angle* or *dihedral* or *improper* or *compute* or *fix* or *region* or *command*
+         *style* = *pair* or *bond* or *angle* or *dihedral* or *improper* or *kspace* or *compute* or *fix* or *region* or *command*
      *list* = print a list of currently loaded plugins
      *clear* = unload all currently loaded plugins
 
@@ -55,6 +55,15 @@ The *list* command will print a list of the loaded plugins and their
 styles and names.
 
 The *clear* command will unload all currently loaded plugins.
+
+.. admonition:: Automatic loading of plugins
+   :class: note
+
+   When the environment variable ``LAMMPS_PLUGIN_PATH`` is set, then
+   LAMMPS will search the directory (or directories) listed in this path
+   for files with names that end in ``plugin.so``
+   (e.g. ``helloplugin.so``) and will try to load the contained plugins
+   automatically at start-up.
 
 
 Restrictions
