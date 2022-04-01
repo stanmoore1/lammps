@@ -135,9 +135,9 @@ void FixACKS2ReaxFFKokkos<DeviceType>::init_shielding_k()
   k_shield = DAT::tdual_ffloat_2d("acks2/kk:shield",ntypes+1,ntypes+1);
   d_shield = k_shield.template view<DeviceType>();
 
-  for( i = 1; i <= ntypes; ++i )
-    for( j = 1; j <= ntypes; ++j )
-      k_shield.h_view(i,j) = pow( gamma[i] * gamma[j], -1.5 );
+  for (i = 1; i <= ntypes; ++i)
+    for (j = 1; j <= ntypes; ++j)
+      k_shield.h_view(i,j) = pow( gamma[i] * gamma[j], -1.5);
 
   k_shield.template modify<LMPHostType>();
   k_shield.template sync<DeviceType>();
@@ -145,8 +145,8 @@ void FixACKS2ReaxFFKokkos<DeviceType>::init_shielding_k()
   k_bcut = DAT::tdual_ffloat_2d("acks2/kk:bcut",ntypes+1,ntypes+1);
   d_bcut = k_bcut.template view<DeviceType>();
 
-  for( i = 1; i <= ntypes; ++i )
-    for( j = 1; j <= ntypes; ++j )
+  for (i = 1; i <= ntypes; ++i)
+    for (j = 1; j <= ntypes; ++j)
       k_bcut.h_view(i,j) = 0.5*(bcut_acks2[i] + bcut_acks2[j]);
 
   k_bcut.template modify<LMPHostType>();
@@ -205,7 +205,6 @@ void FixACKS2ReaxFFKokkos<DeviceType>::pre_force(int vflag)
   type = atomKK->k_type.view<DeviceType>();
   mask = atomKK->k_mask.view<DeviceType>();
   nlocal = atomKK->nlocal;
-  nall = atom->nlocal + atom->nghost;
   newton_pair = force->newton_pair;
 
   k_params.template sync<DeviceType>();
@@ -1409,11 +1408,21 @@ void FixACKS2ReaxFFKokkos<DeviceType>::sparse_matvec_acks2(typename AT::t_ffloat
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec1>(0,nn),*this);
 
   if (neighflag == FULL) {
-    int teamsize;
-    if (execution_space == Host) teamsize = 1;
-    else teamsize = 128;
 
-    Kokkos::parallel_for(Kokkos::TeamPolicy<DeviceType,TagACKS2SparseMatvec3_Full>(nn,teamsize),*this);
+    int teamsize;
+    int vectorsize;
+    int leaguesize;
+    if (execution_space == Host) {
+      teamsize = 1;
+      vectorsize = 1;
+      leaguesize = nn;
+    } else {
+      teamsize = FixQEqReaxFFKokkos<DeviceType>::spmv_teamsize;
+      vectorsize = FixQEqReaxFFKokkos<DeviceType>::vectorsize;
+      leaguesize = (nn + teamsize - 1) / (teamsize);
+    }
+
+    Kokkos::parallel_for(Kokkos::TeamPolicy<DeviceType,TagACKS2SparseMatvec3_Full>(leaguesize, teamsize, vectorsize),*this);
   } else if (neighflag == HALFTHREAD)
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2SparseMatvec3_Half<HALFTHREAD> >(0,nn),*this);
   else if (neighflag == HALF)
@@ -1512,7 +1521,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2SparseMatvec3_Full, c
     F_FLOAT sum;
     F_FLOAT sum2;
 
-    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, d_firstnbr[i], d_firstnbr[i] + d_numnbrs[i]), [&] (const int &jj, F_FLOAT &sum) {
+      Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, d_firstnbr[i], d_firstnbr[i] + d_numnbrs[i]), [&] (const int &jj, F_FLOAT& sum) {
       const int j = d_jlist(jj);
       sum += d_val(jj) * d_xx[j];
     }, sum);
@@ -1884,6 +1893,125 @@ double FixACKS2ReaxFFKokkos<DeviceType>::memory_usage()
   bytes += m_cap*2 * sizeof(double);
 
   return bytes;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+int FixACKS2ReaxFFKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
+                                                    int /*pbc_flag*/, int * /*pbc*/)
+{
+  int m;
+
+  k_d.sync_host();
+  if (pack_flag == 1) {
+    k_d.sync_host();
+    for (m = 0; m < n; m++) {
+      if (!(converged & 1))
+        buf[m*2] = h_d(list[m],0);
+      if (!(converged & 2))
+        buf[m*2+1] = h_d(list[m],1);
+    }
+  } else if (pack_flag == 2) {
+    k_st.sync_host();
+    for (m = 0; m < n; m++) {
+      buf[m*2] = h_st(list[m],0);
+      buf[m*2+1] = h_st(list[m],1);
+    }
+  } else if (pack_flag == 3) {
+    atomKK->sync(Host,Q_MASK);
+    for (m = 0; m < n; m++) buf[m] = atom->q[list[m]];
+  }
+
+  if (pack_flag == 3) return n;
+  else return n*2;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void FixACKS2ReaxFFKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
+  if (pack_flag == 1) {
+    k_d.sync_host();
+    for (m = 0, i = first; m < n; m++, i++) {
+      if (!(converged & 1))
+        h_d(i,0) = buf[m*2];
+      if (!(converged & 2))
+        h_d(i,1) = buf[m*2+1];
+    }
+    k_d.modify_host();
+  } else if (pack_flag == 2) {
+    k_st.sync_host();
+    for (m = 0, i = first; m < n; m++, i++) {
+      h_st(i,0) = buf[m*2];
+      h_st(i,1) = buf[m*2+1];
+    }
+    k_st.modify_host();
+  } else if (pack_flag == 3) {
+    atomKK->sync(Host,Q_MASK);
+    for (m = 0, i = first; m < n; m++, i++) atom->q[i] = buf[m];
+    atomKK->modified(Host,Q_MASK);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+int FixACKS2ReaxFFKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_2d k_sendlist,
+                                                        int iswap_in, DAT::tdual_xfloat_1d &k_buf,
+                                                        int /*pbc_flag*/, int * /*pbc*/)
+{
+  d_sendlist = k_sendlist.view<DeviceType>();
+  iswap = iswap_in;
+  d_buf = k_buf.view<DeviceType>();
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagACKS2PackForwardComm>(0,n),*this);
+  if (pack_flag == 3) return n;
+  else return n*2;
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void FixACKS2ReaxFFKokkos<DeviceType>::operator()(TagACKS2PackForwardComm, const int &i) const {
+  int j = d_sendlist(iswap, i);
+
+  if (pack_flag == 1) {
+    if (!(converged & 1))
+      d_buf[i*2] = d_d(j,0);
+    if (!(converged & 2))
+      d_buf[i*2+1] = d_d(j,1);
+  } else if (pack_flag == 2) {
+    d_buf[i*2] = d_st(j,0);
+    d_buf[i*2+1] = d_st(j,1);
+  } else if (pack_flag == 3)
+    d_buf[i] = q[j];
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void FixACKS2ReaxFFKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_xfloat_1d &buf)
+{
+  first = first_in;
+  d_buf = buf.view<DeviceType>();
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagACKS2UnpackForwardComm>(0,n),*this);
+
+  if (pack_flag == 3)
+    atomKK->modified(execution_space,Q_MASK); // needed for auto_sync
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void FixACKS2ReaxFFKokkos<DeviceType>::operator()(TagACKS2UnpackForwardComm, const int &i) const {
+  if (pack_flag == 1) {
+    if (!(converged & 1))
+      d_d(i+first,0) = d_buf[i*2];
+    if (!(converged & 2))
+      d_d(i+first,1) = d_buf[i*2+1];
+  } else if (pack_flag == 2) {
+    d_st(i+first,0) = d_buf[i*2];
+    d_st(i+first,1) = d_buf[i*2+1];
+  } else if (pack_flag == 3)
+    q[i + first] = d_buf[i];
 }
 
 /* ----------------------------------------------------------------------
