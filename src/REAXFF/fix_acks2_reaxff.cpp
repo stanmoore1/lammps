@@ -698,14 +698,14 @@ void FixACKS2ReaxFF::calculate_Q()
     }
   }
 
-  pack_flag = 2;
-  comm->forward_comm(this); //Dist_vector(s);
-
-  for (int ii = 0; ii < NN; ++ii) {
+  for (int ii = 0; ii < nn; ++ii) {
     i = ilist[ii];
     if (atom->mask[i] & groupbit)
       atom->q[i] = s[i];
   }
+
+ pack_flag = 4;
+ comm->forward_comm(this); //Dist_vector(q);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -732,6 +732,11 @@ int FixACKS2ReaxFF::pack_forward_comm(int n, int *list, double *buf,
       int j = list[i];
       buf[m++] = q_hat[j];
       buf[m++] = q_hat[NN+j];
+    }
+  }  else if (pack_flag == 4) {
+    for(int i = 0; i < n; i++) {
+      int j = list[i];
+      buf[m++] = q[j];
     }
   }
   return m;
@@ -760,6 +765,11 @@ void FixACKS2ReaxFF::unpack_forward_comm(int n, int first, double *buf)
     for(i = first; i < last; i++) {
       q_hat[i] = buf[m++];
       q_hat[NN+i] = buf[m++];
+    }
+  } else if (pack_flag == 4) {
+    for(i = first; i < last; i++) {
+      q[i] = buf[m++];
+      q[NN+i] = buf[m++];
     }
   }
 }
