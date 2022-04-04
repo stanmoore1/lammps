@@ -680,6 +680,8 @@ void FixACKS2ReaxFF::calculate_Q()
     i = ilist[ii];
     if (atom->mask[i] & groupbit) {
 
+      atom->q[i] = s[i];
+
       /* backup s */
       for (k = nprev-1; k > 0; --k) {
         s_hist[i][k] = s_hist[i][k-1];
@@ -696,12 +698,6 @@ void FixACKS2ReaxFF::calculate_Q()
         s_hist_last[i][k] = s_hist_last[i][k-1];
       s_hist_last[i][0] = s[2*NN+i];
     }
-  }
-
-  for (int ii = 0; ii < nn; ++ii) {
-    i = ilist[ii];
-    if (atom->mask[i] & groupbit)
-      atom->q[i] = s[i];
   }
 
  pack_flag = 4;
