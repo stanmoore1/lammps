@@ -1286,6 +1286,11 @@ struct alignas(2*sizeof(real_type_)) SNAComplex
   KOKKOS_INLINE_FUNCTION
   const complex conj() { return complex(re, -im); }
 
+  KOKKOS_INLINE_FUNCTION
+  const real_type real_part_product(const complex &cm2) { return re * cm2.re - im * cm2.im; }
+
+  KOKKOS_INLINE_FUNCTION
+  const real_type real_part_product(const real_type &r) const { return re * r; }
 };
 
 template <typename real_type>
