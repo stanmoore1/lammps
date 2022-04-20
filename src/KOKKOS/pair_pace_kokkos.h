@@ -33,7 +33,6 @@ namespace LAMMPS_NS {
 template<class DeviceType>
 class PairPACEKokkos : public PairPACE {
  public:
-
   struct TagPairPACEComputeNeigh{};
   struct TagPairPACEComputeRadial{};
   struct TagPairPACEComputeYlm{};
@@ -41,7 +40,7 @@ class PairPACEKokkos : public PairPACE {
   struct TagPairPACEConjugateAi{};
   struct TagPairPACEComputeWeights{};
   struct TagPairPACEComputeRho{};
-  struct TagPairPACEComputeFS;
+  struct TagPairPACEComputeFS{};
 
   template<int NEIGHFLAG, int EVFLAG>
   struct TagPairPACEComputeForce{};
