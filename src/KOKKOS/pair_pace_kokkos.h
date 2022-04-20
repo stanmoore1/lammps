@@ -93,7 +93,12 @@ class PairPACEKokkos : public PairPACE {
   void operator() (TagPairPACEComputeForce<NEIGHFLAG,EVFLAG>,const int& ii, EV_FLOAT&) const;
 
  protected:
+  int inum, maxneigh, chunk_size, chunk_offset;
   int host_flag;
+
+  int eflag, vflag;
+
+  int neighflag, max_ndensity;
   int nelements, lmax, nradmax, nradbase;
 
   typename AT::t_neighbors_2d d_neighbors;
@@ -108,6 +113,13 @@ class PairPACEKokkos : public PairPACE {
   typename AT::t_x_array_randomread x;
   typename AT::t_f_array f;
   typename AT::t_int_1d_randomread type;
+
+  typedef Kokkos::DualView<F_FLOAT**, DeviceType> tdual_fparams;
+  tdual_fparams k_cutsq, k_scale;
+  typedef Kokkos::View<F_FLOAT**, DeviceType> t_fparams;
+  tdual_fparams d_cutsq, d_scale;
+
+  typename AT::t_int_1d d_map;
 
   int need_dup;
 
@@ -132,6 +144,49 @@ class PairPACEKokkos : public PairPACE {
   void copy_pertype();
   void copy_splines();
   void copy_tilde();
+  void allocate() override;
+  void precompute_harmonics();
+
+  template<int NEIGHFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void v_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
+      const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz,
+      const F_FLOAT &delx, const F_FLOAT &dely, const F_FLOAT &delz) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void compute_barplm(int, int, double, int) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void compute_ylm(int, int, double, double, double, int) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void cutoff_func_poly(const double, const double, const double, double &, double &) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void Fexp(const double, const double, double &, double &) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void FexpShiftedScaled(const double, const double, double &, double &) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void inner_cutoff(const double, const double, const double, double &, double &) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void FS_values_and_derivatives(const int, double&, const int) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void evaluate_splines(const int, const int, double, int, int, int, int, bool calc_second_derivatives = false) const;
+
+  template<class TagStyle>
+  void check_team_size_for(int, int&);
+
+  template<class TagStyle>
+  void check_team_size_reduce(int, int&);
+
+  // Utility routine which wraps computing per-team scratch size requirements for
+  // ComputeNeigh, ComputeUi, and ComputeFusedDeidrj
+  template <typename scratch_type>
+  int scratch_size_helper(int values_per_team);
 
   typedef Kokkos::View<int*, DeviceType> t_ace_1i;
   typedef Kokkos::View<int**, DeviceType> t_ace_2i;
@@ -140,6 +195,7 @@ class PairPACEKokkos : public PairPACE {
   typedef Kokkos::View<double*[3], DeviceType> t_ace_2d3;
   typedef Kokkos::View<double***, DeviceType> t_ace_3d;
   typedef Kokkos::View<double**[3], DeviceType> t_ace_3d3;
+  typedef Kokkos::View<double****, DeviceType> t_ace_4d;
   typedef Kokkos::View<complex*, DeviceType> t_ace_1c;
   typedef Kokkos::View<complex**, DeviceType> t_ace_2c;
   typedef Kokkos::View<complex***, DeviceType> t_ace_3c;
@@ -147,33 +203,39 @@ class PairPACEKokkos : public PairPACE {
   typedef Kokkos::View<complex****, DeviceType> t_ace_4c;
   typedef Kokkos::View<complex***[3], DeviceType> t_ace_4c3;
 
-  t_ace_3c A;
+  t_ace_4c A;
   t_ace_3d A_rank1;
 
   t_ace_2c A_list;
   t_ace_2c A_forward_prod;
   t_ace_2c A_backward_prod;
 
-  t_ace_2c weights;
-  t_ace_2d weights_rank1;
+  t_ace_4c weights;
+  t_ace_3d weights_rank1;
 
-  t_ace_1d rhos;
-  t_ace_1d dF_drho;
+  t_ace_1d e_atom;
+  t_ace_2d rhos;
+  t_ace_2d dF_drho;
 
   // hard-core repulsion
   t_ace_1d rho_core;
   t_ace_2c dB_flatten;
   t_ace_2d cr;
   t_ace_2d dcr;
+  t_ace_2d d2cr;
+  t_ace_1d dF_drho_core;
 
   // radial functions
-  t_ace_3d fr;
-  t_ace_3d dfr;
+  t_ace_4d fr;
+  t_ace_4d dfr;
+  t_ace_4d d2fr;
+  t_ace_3d gr;
   t_ace_3d dgr;
+  t_ace_3d d2gr;
 
   // Spherical Harmonics
 
-  void pre_compute_harmonics();
+  void pre_compute_harmonics(int);
 
   KOKKOS_INLINE_FUNCTION
   void compute_barplm(double rz, int lmaxi);
@@ -190,11 +252,13 @@ class PairPACEKokkos : public PairPACE {
   t_ace_3d dplm;
 
   t_ace_3c ylm;
-  t_ace_3c3 dylm;
+  t_ace_4c3 dylm;
 
   // short neigh list
-  t_ace_3d3 d_rlist;
-  t_ace_2d d_distsq;
+  t_ace_1i d_ncount;
+  t_ace_2d d_mu;
+  t_ace_2d d_rnorms;
+  t_ace_3d3 d_rhats;
   t_ace_2i d_nearest;
 
   // per-type
@@ -209,11 +273,14 @@ class PairPACEKokkos : public PairPACE {
   t_ace_2d d_mexp;
 
   // tilde
+  t_ace_3d d_ctildes_rank1;
+  t_ace_3d d_ctildes;
   t_ace_2d d_rank;
   t_ace_3d d_mus;
   t_ace_3d d_ns;
   t_ace_3d d_ls;
-  t_ace_3d d_ms;
+  t_ace_4d d_ms_combs;
+  t_ace_2d d_num_ms_combs;
 
   class SplineInterpolatorKokkos {
    public:
@@ -253,6 +320,9 @@ class PairPACEKokkos : public PairPACE {
       second_derivatives = t_ace_1d();
       lookupTable = t_ace_3d4();
     }
+
+    KOKKOS_INLINE_FUNCTION
+    void calcSplines(double r, bool calc_second_derivatives) const;
   };
 
   Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType> k_splines_gk;

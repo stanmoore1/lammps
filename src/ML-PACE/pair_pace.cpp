@@ -91,6 +91,8 @@ PairPACE::PairPACE(LAMMPS *lmp) : Pair(lmp)
   recursive = false;
 
   scale = nullptr;
+
+  chunksize = 8192;
 }
 
 /* ----------------------------------------------------------------------
