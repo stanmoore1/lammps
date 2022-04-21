@@ -54,7 +54,6 @@ class PairPACEKokkos : public PairPACE {
   ~PairPACEKokkos() override;
 
   void compute(int, int) override;
-  void settings(int, char **) override;
   void coeff(int, char **) override;
   void init_style() override;
   double init_one(int, int) override;
@@ -116,7 +115,7 @@ class PairPACEKokkos : public PairPACE {
   typedef Kokkos::DualView<F_FLOAT**, DeviceType> tdual_fparams;
   tdual_fparams k_cutsq, k_scale;
   typedef Kokkos::View<F_FLOAT**, DeviceType> t_fparams;
-  tdual_fparams d_cutsq, d_scale;
+  t_fparams d_cutsq, d_scale;
 
   typename AT::t_int_1d d_map;
 
@@ -138,7 +137,6 @@ class PairPACEKokkos : public PairPACE {
 
   friend void pair_virial_fdotr_compute<PairPACEKokkos>(PairPACEKokkos*);
 
-  void init();
   void grow(int, int);
   void copy_pertype();
   void copy_splines();
@@ -177,10 +175,10 @@ class PairPACEKokkos : public PairPACE {
   void evaluate_splines(const int, const int, double, int, int, int, int, bool calc_second_derivatives = false) const;
 
   template<class TagStyle>
-  void check_team_size_for(int, int&);
+  void check_team_size_for(int, int&, int);
 
   template<class TagStyle>
-  void check_team_size_reduce(int, int&);
+  void check_team_size_reduce(int, int&, int);
 
   // Utility routine which wraps computing per-team scratch size requirements for
   // ComputeNeigh, ComputeUi, and ComputeFusedDeidrj
@@ -261,7 +259,7 @@ class PairPACEKokkos : public PairPACE {
   t_ace_2i d_nearest;
 
   // per-type
-  t_ace_1i d_total_basis_size_rank1 = t_ace_1i("total_basis_size_rank1", nelements);
+  t_ace_1i d_total_basis_size_rank1;
   t_ace_1i d_total_basis_size;
   t_ace_1i d_ndensity;
   t_ace_1i d_npoti;
