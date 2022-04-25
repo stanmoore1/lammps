@@ -287,15 +287,19 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
   }
 
   d_ctildes_rank1 = t_ace_3d("ctildes_rank1", nelements, max_total_basis_size_rank1, max_ndensity);
+  d_mus_rank1 = t_ace_2i("mus", nelements, max_total_basis_size_rank1);
+  d_ns_rank1 = t_ace_2i("ns", nelements, max_total_basis_size_rank1);
   d_ctildes = t_ace_3d("ctildes", nelements, max_total_basis_size, max_num_ms_combs*max_ndensity);
-  d_rank = t_ace_2d("rank", nelements, max_total_basis_size);
-  d_mus = t_ace_3d("mus", nelements, max_total_basis_size, max_rank); 
-  d_ns = t_ace_3d("ns", nelements, max_total_basis_size, max_rank); 
-  d_ls = t_ace_3d("ls", nelements, max_total_basis_size, max_rank); 
-  d_ms_combs = t_ace_4d("ms_combs", nelements, max_total_basis_size, max_num_ms_combs, max_rank); 
-  d_num_ms_combs = t_ace_2d("num_ms_combs", nelements, max_total_basis_size); 
+  d_rank = t_ace_2i("rank", nelements, max_total_basis_size);
+  d_mus = t_ace_3i("mus", nelements, max_total_basis_size, max_rank); 
+  d_ns = t_ace_3i("ns", nelements, max_total_basis_size, max_rank); 
+  d_ls = t_ace_3i("ls", nelements, max_total_basis_size, max_rank); 
+  d_ms_combs = t_ace_4i("ms_combs", nelements, max_total_basis_size, max_num_ms_combs, max_rank); 
+  d_num_ms_combs = t_ace_2i("num_ms_combs", nelements, max_total_basis_size); 
 
   auto h_ctildes_rank1 = Kokkos::create_mirror_view(d_ctildes_rank1);
+  auto h_mus_rank1 = Kokkos::create_mirror_view(d_mus_rank1);
+  auto h_ns_rank1 = Kokkos::create_mirror_view(d_ns_rank1);
   auto h_ctildes = Kokkos::create_mirror_view(d_ctildes);
   auto h_rank = Kokkos::create_mirror_view(d_rank);
   auto h_mus = Kokkos::create_mirror_view(d_mus);
@@ -318,6 +322,8 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
     // rank=1
     for (int func_rank1_ind = 0; func_rank1_ind < total_basis_size_rank1; ++func_rank1_ind) {
       ACECTildeBasisFunction *func = &basis_rank1[func_rank1_ind];
+      h_mus_rank1(n, func_rank1_ind) = func->mus[0]; // pointer
+      h_ns_rank1(n, func_rank1_ind) = func->ns[0]; // pointer
       for (int p = 0; p < ndensity; p++)
         h_ctildes_rank1(n, func_rank1_ind, p) = func->ctildes[p];
     }
@@ -354,6 +360,8 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
   }
 
   Kokkos::deep_copy(d_ctildes_rank1, h_ctildes_rank1);
+  Kokkos::deep_copy(d_mus_rank1, h_mus_rank1);
+  Kokkos::deep_copy(d_ns_rank1, h_ns_rank1);
   Kokkos::deep_copy(d_ctildes, h_ctildes);
   Kokkos::deep_copy(d_rank, h_rank);
   Kokkos::deep_copy(d_mus, h_mus);
@@ -543,14 +551,14 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   auto basis_set = aceimpl->basis_set;
 
-  //TODO: shift nullifications to place where arrays are used
-  //Kokkos::deep_copy(dB_flatten,0.0); // need to move out of device code
-  //weights.fill({0}); //// shift out of device code
-  //weights_rank1.fill(0); ////
-  //A.fill({0}); ////
-  //A_rank1.fill(0); ////
-  //rhos.fill(0); ////
-  //dF_drho.fill(0); ////
+  //TODO: shift nullifications to place where arrays are used, make this more efficient
+  Kokkos::deep_copy(dB_flatten, 0.0);
+  Kokkos::deep_copy(weights, 0.0);
+  Kokkos::deep_copy(weights_rank1, 0.0);
+  Kokkos::deep_copy(A, 0.0);
+  Kokkos::deep_copy(A_rank1, 0.0);
+  Kokkos::deep_copy(rhos, 0.0);
+  Kokkos::deep_copy(dF_drho, 0.0);
 
   //proxy references to radial functions arrays
 
@@ -805,7 +813,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeYlm, const typena
   const double xn = d_rhats(ii, jj, 0);
   const double yn = d_rhats(ii, jj, 1);
   const double zn = d_rhats(ii, jj, 2);
-  compute_ylm(ii,jj,xn,yn,zn,lmax);
+  compute_ylm(ii,jj,-xn,-yn,-zn,lmax);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -818,6 +826,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
   int ii = team.team_rank() + team.team_size() * (team.league_rank() %
            ((chunk_size+team.team_size()-1)/team.team_size()));
   if (ii >= chunk_size) return;
+  const int i = d_ilist[ii + chunk_offset];
 
   // Extract the neighbor number
   const int jj = team.league_rank() / ((chunk_size+team.team_size()-1)/team.team_size());
@@ -827,21 +836,25 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
   const int mu_j = d_mu(ii, jj);
 
   // rank = 1
-  for (int n = 0; n < nradbase; n++) 
-    A_rank1(ii, mu_j, n) += gr(ii, jj, n) * Y00; // need atomics?
+  for (int n = 0; n < nradbase; n++) {
+    A_rank1(ii, mu_j, n) += gr(ii, jj, n) * Y00;
+    //printf("%i %i %i %g %g\n",i,jj,n,gr(ii, jj, n),Y00);
+  }
 
   // rank > 1
   for (int n = 0; n < nradmax; n++) {
     for (int l = 0; l <= lmax; l++) {
       for (int m = 0; m <= l; m++) {
         const int idx = l * (l + 1) + m; // (l, m)
-        A(ii, mu_j, n, idx) += fr(ii, jj, n, l) * ylm(ii, jj, idx); //accumulation sum over neighbours, need atomics?
+        A(ii, mu_j, n, idx) += fr(ii, jj, n, l) * ylm(ii, jj, idx); // accumulation sum over neighbours
+
+//printf("A %i %i %i %i %i %g %g %g\n",i,jj,n,l,m,fr(ii, jj, n, l), ylm(ii, jj, idx).re,ylm(ii, jj, idx).im);
       }
     }
   }
 
   // hard-core repulsion
-  rho_core(ii) += cr(ii, jj); //// need atomics?
+  rho_core(ii) += cr(ii, jj);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -884,12 +897,13 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& i
   // Basis functions B with iterative product and density rho(p) calculation
   // rank=1
   for (int func_rank1_ind = 0; func_rank1_ind < total_basis_size_rank1; ++func_rank1_ind) {
-    const int mu = d_mus(mu_i, func_rank1_ind, 0);
-    const int n = d_ns(mu_i, func_rank1_ind, 0);
+    const int mu = d_mus_rank1(mu_i, func_rank1_ind);
+    const int n = d_ns_rank1(mu_i, func_rank1_ind);
     double A_cur = A_rank1(ii, mu, n - 1);
     for (int p = 0; p < ndensity; ++p) {
       //for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
       rhos(ii, p) += d_ctildes_rank1(mu_i, func_rank1_ind, p) * A_cur;
+      //printf("%i %i %i %i %g %g %g\n",i,p,mu, n - 1,d_ctildes_rank1(mu_i, func_rank1_ind, p),A_cur,rhos(ii,p));
     }
   } // end loop for rank=1
 
@@ -935,6 +949,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& i
       for (int p = 0; p < ndensity; ++p) {
         // real-part only multiplication
         rhos(ii, p) += B.real_part_product(d_ctildes(mu_i, func_ind, ms_ind * ndensity + p));
+//printf("rhos %i %i %g %g\n",i,p,d_ctildes(mu_i, func_ind, ms_ind * ndensity + p),B.real_part_product(d_ctildes(mu_i, func_ind, ms_ind * ndensity + p)));
       }
     } // end of loop over {ms} combinations in sum
   } // end loop for rank>1
@@ -955,6 +970,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeFS, const int& ii
   const int ndensity = d_ndensity(mu_i);
 
   double evdwl, fcut, dfcut;
+  evdwl = fcut = dfcut = 0.0;
 
   inner_cutoff(rho_core(ii), rho_cut, drho_cut, fcut, dfcut);
   FS_values_and_derivatives(ii, evdwl, mu_i);
@@ -963,11 +979,13 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeFS, const int& ii
   for (int p = 0; p < ndensity; ++p)
     dF_drho(ii, p) *= fcut;
 
+
   // tally energy contribution
   if (eflag) {
     double evdwl_cut = evdwl * fcut + rho_core(ii);
     // E0 shift 
     evdwl_cut += d_E0vals(mu_i);
+  //printf("%i %g %g %g %g\n",i,rho_core(ii),evdwl_cut,fcut,d_E0vals(mu_i));
     e_atom(ii) = evdwl_cut;
   }
 }
@@ -989,8 +1007,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const in
 
   // rank = 1
   for (int f_ind = 0; f_ind < total_basis_size_rank1; ++f_ind) {
-    const int mu = d_mus(mu_i, f_ind, 0);
-    const int n = d_ns(mu_i, f_ind, 0);
+    const int mu = d_mus_rank1(mu_i, f_ind);
+    const int n = d_ns_rank1(mu_i, f_ind);
     for (int p = 0; p < ndensity; ++p) {
       // for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
       weights_rank1(ii, mu, n - 1) += dF_drho(ii, p) * d_ctildes_rank1(mu_i, f_ind, p);
@@ -1481,6 +1499,7 @@ void PairPACEKokkos<DeviceType>::FS_values_and_derivatives(const int ii, double 
 
     evdwl += F * wpre; // * weight (wpre)
     dF_drho(ii, p) = DF * wpre; // * weight (wpre)
+    //printf("%i %g %g %g %g %g\n",p,rhos(ii, p),F,wpre,DF,wpre);
   }
 }
 
@@ -1491,9 +1510,9 @@ KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::evaluate_splines(const int ii, const int jj, double r, int nradbase_c, int nradial_c, int mu_i,
                                                   int mu_j, bool calc_second_derivatives) const
 {
-  auto &spline_gk = k_splines_gk.template view<DeviceType>()(mu_i, mu_j); /////
-  auto &spline_rnl = k_splines_rnl.template view<DeviceType>()(mu_i, mu_j); /////
-  auto &spline_hc = k_splines_hc.template view<DeviceType>()(mu_i, mu_j); /////
+  auto &spline_gk = k_splines_gk.template view<DeviceType>()(mu_i, mu_j);
+  auto &spline_rnl = k_splines_rnl.template view<DeviceType>()(mu_i, mu_j);
+  auto &spline_hc = k_splines_hc.template view<DeviceType>()(mu_i, mu_j);
 
   spline_gk.calcSplines(r, calc_second_derivatives); // populate splines_gk.values, splines_gk.derivatives;
   for (int nr = 0; nr < nradbase_c; nr++) {
@@ -1506,10 +1525,11 @@ void PairPACEKokkos<DeviceType>::evaluate_splines(const int ii, const int jj, do
   spline_rnl.calcSplines(r, calc_second_derivatives);
   for (int kk = 0; kk < fr.extent(2); kk++) {
     for (int ll = 0; ll < fr.extent(3); ll++) {
-      fr(ii, jj, kk, ll) = spline_rnl.values(kk); //////// need to flatten this somehow
-      dfr(ii, jj, kk, ll) = spline_rnl.derivatives(kk);
+      const int flatten = kk*fr.extent(3) + ll;
+      fr(ii, jj, kk, ll) = spline_rnl.values(flatten); //////// need to flatten this somehow
+      dfr(ii, jj, kk, ll) = spline_rnl.derivatives(flatten);
       if (calc_second_derivatives)
-        d2fr(ii, jj, kk, ll) = spline_rnl.second_derivatives(kk);
+        d2fr(ii, jj, kk, ll) = spline_rnl.second_derivatives(flatten);
     }
   }
 

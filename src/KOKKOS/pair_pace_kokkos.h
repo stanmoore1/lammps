@@ -187,6 +187,8 @@ class PairPACEKokkos : public PairPACE {
 
   typedef Kokkos::View<int*, DeviceType> t_ace_1i;
   typedef Kokkos::View<int**, DeviceType> t_ace_2i;
+  typedef Kokkos::View<int***, DeviceType> t_ace_3i;
+  typedef Kokkos::View<int****, DeviceType> t_ace_4i;
   typedef Kokkos::View<double*, DeviceType> t_ace_1d;
   typedef Kokkos::View<double**, DeviceType> t_ace_2d;
   typedef Kokkos::View<double*[3], DeviceType> t_ace_2d3;
@@ -271,13 +273,15 @@ class PairPACEKokkos : public PairPACE {
 
   // tilde
   t_ace_3d d_ctildes_rank1;
+  t_ace_2i d_mus_rank1;
+  t_ace_2i d_ns_rank1;
   t_ace_3d d_ctildes;
-  t_ace_2d d_rank;
-  t_ace_3d d_mus;
-  t_ace_3d d_ns;
-  t_ace_3d d_ls;
-  t_ace_4d d_ms_combs;
-  t_ace_2d d_num_ms_combs;
+  t_ace_2i d_rank;
+  t_ace_3i d_mus;
+  t_ace_3i d_ns;
+  t_ace_3i d_ls;
+  t_ace_4i d_ms_combs;
+  t_ace_2i d_num_ms_combs;
 
   class SplineInterpolatorKokkos {
    public:
