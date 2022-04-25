@@ -283,8 +283,8 @@ class PairPACEKokkos : public PairPACE {
   t_ace_4i d_ms_combs;
   t_ace_2i d_num_ms_combs;
 
-  class SplineInterpolatorKokkos {
-   public:
+ public:
+  struct SplineInterpolatorKokkos {
     int ntot, nlut, num_of_functions;
     double cutoff, deltaSplineBins, invrscalelookup, rscalelookup;
 

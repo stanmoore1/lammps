@@ -1545,7 +1545,7 @@ void PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos::calcSplines(double r,
   int nl = static_cast<int>(floor(x));
 
   if (nl <= 0)
-    throw std::invalid_argument("Encountered very small distance. Stopping.");
+    Kokkos::abort("Encountered very small distance. Stopping.");
 
   if (nl < nlut) {
     wl = x - double(nl);
