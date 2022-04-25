@@ -761,9 +761,9 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeNeigh,const typen
       const int mu_j = d_map(type(j));
       d_mu(ii,offset) = mu_j;
       d_rnorms(ii,offset) = r;
-      d_rhats(ii,offset,0) = delx*rinv;
-      d_rhats(ii,offset,1) = dely*rinv;
-      d_rhats(ii,offset,2) = delz*rinv;
+      d_rhats(ii,offset,0) = -delx*rinv;
+      d_rhats(ii,offset,1) = -dely*rinv;
+      d_rhats(ii,offset,2) = -delz*rinv;
       d_nearest(ii,offset) = j;
     }
     offset++;
@@ -813,7 +813,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeYlm, const typena
   const double xn = d_rhats(ii, jj, 0);
   const double yn = d_rhats(ii, jj, 1);
   const double zn = d_rhats(ii, jj, 2);
-  compute_ylm(ii,jj,-xn,-yn,-zn,lmax);
+  compute_ylm(ii,jj,xn,yn,zn,lmax);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -836,10 +836,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
   const int mu_j = d_mu(ii, jj);
 
   // rank = 1
-  for (int n = 0; n < nradbase; n++) {
+  for (int n = 0; n < nradbase; n++)
     A_rank1(ii, mu_j, n) += gr(ii, jj, n) * Y00;
-    //printf("%i %i %i %g %g\n",i,jj,n,gr(ii, jj, n),Y00);
-  }
 
   // rank > 1
   for (int n = 0; n < nradmax; n++) {
@@ -847,8 +845,6 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
       for (int m = 0; m <= l; m++) {
         const int idx = l * (l + 1) + m; // (l, m)
         A(ii, mu_j, n, idx) += fr(ii, jj, n, l) * ylm(ii, jj, idx); // accumulation sum over neighbours
-
-//printf("A %i %i %i %i %i %g %g %g\n",i,jj,n,l,m,fr(ii, jj, n, l), ylm(ii, jj, idx).re,ylm(ii, jj, idx).im);
       }
     }
   }
@@ -903,7 +899,6 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& i
     for (int p = 0; p < ndensity; ++p) {
       //for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
       rhos(ii, p) += d_ctildes_rank1(mu_i, func_rank1_ind, p) * A_cur;
-      //printf("%i %i %i %i %g %g %g\n",i,p,mu, n - 1,d_ctildes_rank1(mu_i, func_rank1_ind, p),A_cur,rhos(ii,p));
     }
   } // end loop for rank=1
 
@@ -949,7 +944,6 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& i
       for (int p = 0; p < ndensity; ++p) {
         // real-part only multiplication
         rhos(ii, p) += B.real_part_product(d_ctildes(mu_i, func_ind, ms_ind * ndensity + p));
-//printf("rhos %i %i %g %g\n",i,p,d_ctildes(mu_i, func_ind, ms_ind * ndensity + p),B.real_part_product(d_ctildes(mu_i, func_ind, ms_ind * ndensity + p)));
       }
     } // end of loop over {ms} combinations in sum
   } // end loop for rank>1
@@ -985,7 +979,6 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeFS, const int& ii
     double evdwl_cut = evdwl * fcut + rho_core(ii);
     // E0 shift 
     evdwl_cut += d_E0vals(mu_i);
-  //printf("%i %g %g %g %g\n",i,rho_core(ii),evdwl_cut,fcut,d_E0vals(mu_i));
     e_atom(ii) = evdwl_cut;
   }
 }
@@ -1073,9 +1066,9 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeForce<NEIGHFLAG,E
     r_hat[2] = d_rhats(ii, jj, 2);
     const double r = d_rnorms(ii, jj);
     const double rinv = 1.0/r;
-    const double delx = r_hat[0]*r;
-    const double dely = r_hat[1]*r;
-    const double delz = r_hat[2]*r;
+    const double delx = -r_hat[0]*r;
+    const double dely = -r_hat[1]*r;
+    const double delz = -r_hat[2]*r;
 
     double f_ji[3];
     f_ji[0] = f_ji[1] = f_ji[2] = 0;
@@ -1142,7 +1135,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeForce<NEIGHFLAG,E
 
     // tally per-atom virial contribution
     if (EVFLAG && vflag_either)
-      v_tally_xyz<NEIGHFLAG>(ev, i, j, fij[0], fij[1], fij[2], -delx, -dely, -delz);
+      v_tally_xyz<NEIGHFLAG>(ev, i, j, fij[0], fij[1], fij[2], delx, dely, delz);
   }
 
   a_f(i,0) += fitmp[0];
@@ -1499,7 +1492,6 @@ void PairPACEKokkos<DeviceType>::FS_values_and_derivatives(const int ii, double 
 
     evdwl += F * wpre; // * weight (wpre)
     dF_drho(ii, p) = DF * wpre; // * weight (wpre)
-    //printf("%i %g %g %g %g %g\n",p,rhos(ii, p),F,wpre,DF,wpre);
   }
 }
 
