@@ -172,7 +172,7 @@ class PairPACEKokkos : public PairPACE {
   void FS_values_and_derivatives(const int, double&, const int) const;
 
   KOKKOS_INLINE_FUNCTION
-  void evaluate_splines(const int, const int, double, int, int, int, int, bool calc_second_derivatives = false) const;
+  void evaluate_splines(const int, const int, double, int, int, int, int) const;
 
   template<class TagStyle>
   void check_team_size_for(int, int&, int);
@@ -194,6 +194,7 @@ class PairPACEKokkos : public PairPACE {
   typedef Kokkos::View<double*[3], DeviceType> t_ace_2d3;
   typedef Kokkos::View<double***, DeviceType> t_ace_3d;
   typedef Kokkos::View<double**[3], DeviceType> t_ace_3d3;
+  typedef Kokkos::View<double**[4], DeviceType> t_ace_3d4;
   typedef Kokkos::View<double****, DeviceType> t_ace_4d;
   typedef Kokkos::View<complex*, DeviceType> t_ace_1c;
   typedef Kokkos::View<complex**, DeviceType> t_ace_2c;
@@ -221,16 +222,15 @@ class PairPACEKokkos : public PairPACE {
   t_ace_2c dB_flatten;
   t_ace_2d cr;
   t_ace_2d dcr;
-  t_ace_2d d2cr;
   t_ace_1d dF_drho_core;
 
   // radial functions
   t_ace_4d fr;
   t_ace_4d dfr;
-  t_ace_4d d2fr;
   t_ace_3d gr;
   t_ace_3d dgr;
-  t_ace_3d d2gr;
+  t_ace_3d d_values;
+  t_ace_3d d_derivatives;
 
   // Spherical Harmonics
 
@@ -288,9 +288,6 @@ class PairPACEKokkos : public PairPACE {
     int ntot, nlut, num_of_functions;
     double cutoff, deltaSplineBins, invrscalelookup, rscalelookup;
 
-    t_ace_1d values, derivatives, second_derivatives;
-
-    typedef Kokkos::View<double**[4], DeviceType> t_ace_3d4;
     t_ace_3d4 lookupTable;
 
     void operator=(const SplineInterpolator &spline) {
@@ -302,10 +299,6 @@ class PairPACEKokkos : public PairPACE {
       rscalelookup = spline.rscalelookup;
       num_of_functions = spline.num_of_functions;
 
-      values = t_ace_1d("values", num_of_functions);
-      derivatives = t_ace_1d("derivatives", num_of_functions);
-      second_derivatives = t_ace_1d("second_derivatives", num_of_functions);
-
       lookupTable = t_ace_3d4("lookupTable", ntot+1, num_of_functions);
       auto h_lookupTable = Kokkos::create_mirror_view(lookupTable);
       for (int i = 0; i < ntot+1; i++)
@@ -316,14 +309,11 @@ class PairPACEKokkos : public PairPACE {
     }
 
     void deallocate() {
-      values = t_ace_1d();
-      derivatives = t_ace_1d();
-      second_derivatives = t_ace_1d();
       lookupTable = t_ace_3d4();
     }
 
     KOKKOS_INLINE_FUNCTION
-    void calcSplines(double r, bool calc_second_derivatives) const;
+    void calcSplines(const int ii, const int jj, const double r, const t_ace_3d &d_values, const t_ace_3d &d_derivatives) const;
   };
 
   Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType> k_splines_gk;

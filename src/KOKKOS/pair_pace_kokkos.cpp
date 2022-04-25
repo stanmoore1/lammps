@@ -128,15 +128,15 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
     // radial functions
     fr = t_ace_4d("fr", natom, maxneigh, nradmax, lmax + 1);
     dfr = t_ace_4d("dfr", natom, maxneigh, nradmax, lmax + 1);
-    d2fr = t_ace_4d("d2fr", natom, maxneigh, nradmax, lmax + 1);
     gr = t_ace_3d("gr", natom, maxneigh, nradbase);
     dgr = t_ace_3d("dgr", natom, maxneigh, nradbase);
-    d2gr = t_ace_3d("d2gr", natom, maxneigh, nradbase);
+    const int max_num_functions = MAX(nradbase, nradmax*(lmax + 1));
+    d_values = t_ace_3d("d_values", natom, maxneigh, max_num_functions);
+    d_derivatives = t_ace_3d("d_derivatives", natom, maxneigh, max_num_functions);
 
     // hard-core repulsion
     cr = t_ace_2d("cr", natom, maxneigh);
     dcr = t_ace_2d("dcr", natom, maxneigh);
-    d2cr = t_ace_2d("d2cr", natom, maxneigh);
 
     // spherical harmonics
     plm = t_ace_3d("plm", natom, maxneigh, (lmax + 1) * (lmax + 1));
@@ -1500,43 +1500,33 @@ void PairPACEKokkos<DeviceType>::FS_values_and_derivatives(const int ii, double 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::evaluate_splines(const int ii, const int jj, double r, int nradbase_c, int nradial_c, int mu_i,
-                                                  int mu_j, bool calc_second_derivatives) const
+                                                  int mu_j) const
 {
   auto &spline_gk = k_splines_gk.template view<DeviceType>()(mu_i, mu_j);
   auto &spline_rnl = k_splines_rnl.template view<DeviceType>()(mu_i, mu_j);
   auto &spline_hc = k_splines_hc.template view<DeviceType>()(mu_i, mu_j);
 
-  spline_gk.calcSplines(r, calc_second_derivatives); // populate splines_gk.values, splines_gk.derivatives;
-  for (int nr = 0; nr < nradbase_c; nr++) {
-    gr(ii, jj, nr) = spline_gk.values(nr);
-    dgr(ii, jj, nr) = spline_gk.derivatives(nr);
-    if (calc_second_derivatives)
-      d2gr(ii, jj, nr) = spline_gk.second_derivatives(nr);
-  }
+  spline_gk.calcSplines(ii, jj, r, gr, dgr);
 
-  spline_rnl.calcSplines(r, calc_second_derivatives);
+  spline_rnl.calcSplines(ii, jj, r, d_values, d_derivatives);
   for (int kk = 0; kk < fr.extent(2); kk++) {
     for (int ll = 0; ll < fr.extent(3); ll++) {
       const int flatten = kk*fr.extent(3) + ll;
-      fr(ii, jj, kk, ll) = spline_rnl.values(flatten); //////// need to flatten this somehow
-      dfr(ii, jj, kk, ll) = spline_rnl.derivatives(flatten);
-      if (calc_second_derivatives)
-        d2fr(ii, jj, kk, ll) = spline_rnl.second_derivatives(flatten);
+      fr(ii, jj, kk, ll) = d_values(ii, jj, flatten);
+      dfr(ii, jj, kk, ll) = d_derivatives(ii, jj, flatten);
     }
   }
 
-  spline_hc.calcSplines(r, calc_second_derivatives);
-  cr(ii, jj) = spline_hc.values(0);
-  dcr(ii, jj) = spline_hc.derivatives(0);
-  if (calc_second_derivatives)
-    d2cr(ii, jj) = spline_hc.second_derivatives(0);
+  spline_hc.calcSplines(ii, jj, r, d_values, d_derivatives);
+  cr(ii, jj) = d_values(ii, jj, 0);
+  dcr(ii, jj) = d_derivatives(ii, jj, 0);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos::calcSplines(double r, bool calc_second_derivatives) const
+void PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos::calcSplines(const int ii, const int jj, const double r, const t_ace_3d &d_values, const t_ace_3d &d_derivatives) const
 {
   double wl, wl2, wl3, w2l1, w3l2, w4l2;
   double c[4];
@@ -1557,17 +1547,13 @@ void PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos::calcSplines(double r,
     for (int func_id = 0; func_id < num_of_functions; func_id++) {
       for (int idx = 0; idx < 4; idx++)
         c[idx] = lookupTable(nl, func_id, idx);
-      values(func_id) = c[0] + c[1] * wl + c[2] * wl2 + c[3] * wl3;
-      derivatives(func_id) = (c[1] + c[2] * w2l1 + c[3] * w3l2) * rscalelookup;
-      if (calc_second_derivatives)
-        second_derivatives(func_id) = (c[2] + c[3] * w4l2) * rscalelookup * rscalelookup * 2;
+      d_values(ii, jj, func_id) = c[0] + c[1] * wl + c[2] * wl2 + c[3] * wl3;
+      d_derivatives(ii, jj, func_id) = (c[1] + c[2] * w2l1 + c[3] * w3l2) * rscalelookup;
     }
   } else { // fill with zeroes
     for (int func_id = 0; func_id < num_of_functions; func_id++) {
-      values(func_id) = 0.0;
-      derivatives(func_id) = 0.0;
-      if (calc_second_derivatives)
-        second_derivatives(func_id) = 0.0;
+      d_values(ii, jj, func_id) = 0.0;
+      d_derivatives(ii, jj, func_id) = 0.0;
     }
   }       
 }
