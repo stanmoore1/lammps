@@ -55,7 +55,7 @@ struct ACEImpl {
     delete ace;
   }
   ACECTildeBasisSet *basis_set;
-  ACERecursiveEvaluator *ace;
+  ACECTildeEvaluator *ace;
 };
 }    // namespace LAMMPS_NS
 
@@ -312,8 +312,8 @@ void PairPACE::coeff(int narg, char **arg)
   // map[0] is not used
 
   delete aceimpl->ace;
-  aceimpl->ace = new ACERecursiveEvaluator();
-  aceimpl->ace->set_recursive(recursive);
+  aceimpl->ace = new ACECTildeEvaluator();
+  //aceimpl->ace->set_recursive(recursive);
   aceimpl->ace->element_type_mapping.init(atom->ntypes + 1);
 
   const int n = atom->ntypes;
@@ -341,7 +341,7 @@ void PairPACE::coeff(int narg, char **arg)
     for (int j = i; j <= n; j++) { scale[i][j] = 1.0; }
   }
 
-  aceimpl->ace->set_basis(*aceimpl->basis_set, 1);
+  aceimpl->ace->set_basis(*aceimpl->basis_set);
 }
 
 /* ----------------------------------------------------------------------
