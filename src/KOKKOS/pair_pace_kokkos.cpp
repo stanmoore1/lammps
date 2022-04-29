@@ -837,20 +837,21 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
 
   // rank = 1
   for (int n = 0; n < nradbase; n++)
-    A_rank1(ii, mu_j, n) += gr(ii, jj, n) * Y00;
+    Kokkos::atomic_add(&A_rank1(ii, mu_j, n), gr(ii, jj, n) * Y00);
 
   // rank > 1
   for (int n = 0; n < nradmax; n++) {
     for (int l = 0; l <= lmax; l++) {
       for (int m = 0; m <= l; m++) {
         const int idx = l * (l + 1) + m; // (l, m)
-        A(ii, mu_j, n, idx) += fr(ii, jj, n, l) * ylm(ii, jj, idx); // accumulation sum over neighbours
+        Kokkos::atomic_add(&A(ii, mu_j, n, idx).re, fr(ii, jj, n, l) * ylm(ii, jj, idx).re);
+        Kokkos::atomic_add(&A(ii, mu_j, n, idx).im, fr(ii, jj, n, l) * ylm(ii, jj, idx).im);
       }
     }
   }
 
   // hard-core repulsion
-  rho_core(ii) += cr(ii, jj);
+  Kokkos::atomic_add(&rho_core(ii), cr(ii, jj));
 }
 
 /* ---------------------------------------------------------------------- */
