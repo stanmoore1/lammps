@@ -1069,73 +1069,70 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivative, const
   const int itype = type(i);
   const double scale = d_scale(itype,itype);
 
-  F_FLOAT fitmp[3] = {0.0,0.0,0.0};
-  for (int jj = 0; jj < ncount; jj++) {
-    int j = d_nearest(ii,jj);
+  int j = d_nearest(ii,jj);
 
-    const int mu_j = d_mu(ii, jj);
-    double r_hat[3];
-    r_hat[0] = d_rhats(ii, jj, 0);
-    r_hat[1] = d_rhats(ii, jj, 1);
-    r_hat[2] = d_rhats(ii, jj, 2);
-    const double r = d_rnorms(ii, jj);
-    const double rinv = 1.0/r;
+  const int mu_j = d_mu(ii, jj);
+  double r_hat[3];
+  r_hat[0] = d_rhats(ii, jj, 0);
+  r_hat[1] = d_rhats(ii, jj, 1);
+  r_hat[2] = d_rhats(ii, jj, 2);
+  const double r = d_rnorms(ii, jj);
+  const double rinv = 1.0/r;
 
-    double f_ji[3];
-    f_ji[0] = f_ji[1] = f_ji[2] = 0;
+  double f_ji[3];
+  f_ji[0] = f_ji[1] = f_ji[2] = 0;
 
-    // for rank = 1
-    for (int n = 0; n < nradbase; ++n) {
-      if (weights_rank1(ii, mu_j, n) == 0) continue;
-      double &DG = dgr(ii, jj, n);
-      double DGR = DG * Y00;
-      DGR *= weights_rank1(ii, mu_j, n);
-      f_ji[0] += DGR * r_hat[0];
-      f_ji[1] += DGR * r_hat[1];
-      f_ji[2] += DGR * r_hat[2];
-    }
+  // for rank = 1
+  for (int n = 0; n < nradbase; ++n) {
+    if (weights_rank1(ii, mu_j, n) == 0) continue;
+    double &DG = dgr(ii, jj, n);
+    double DGR = DG * Y00;
+    DGR *= weights_rank1(ii, mu_j, n);
+    f_ji[0] += DGR * r_hat[0];
+    f_ji[1] += DGR * r_hat[1];
+    f_ji[2] += DGR * r_hat[2];
+  }
 
-    // for rank > 1
-    for (int n = 0; n < nradmax; n++) {
-      for (int l = 0; l <= lmax; l++) {
-        const double R_over_r = fr(ii, jj, n, l) * rinv;
-        const double DR = dfr(ii, jj, n, l);
+  // for rank > 1
+  for (int n = 0; n < nradmax; n++) {
+    for (int l = 0; l <= lmax; l++) {
+      const double R_over_r = fr(ii, jj, n, l) * rinv;
+      const double DR = dfr(ii, jj, n, l);
 
-        // for m >= 0
-        for (int m = 0; m <= l; m++) {
-          const int idx = l * (l + 1) + m; // (l, m)
-          complex w = weights(ii, mu_j, n, idx);
-          if (w.re == 0.0 && w.im == 0.0) continue;
-          // counting for -m cases if m > 0
-          if (m > 0) {
-            w.re *= 2.0;
-            w.im *= 2.0;
-          }
+      // for m >= 0
+      for (int m = 0; m <= l; m++) {
+	const int idx = l * (l + 1) + m; // (l, m)
+	complex w = weights(ii, mu_j, n, idx);
+	if (w.re == 0.0 && w.im == 0.0) continue;
+	// counting for -m cases if m > 0
+	if (m > 0) {
+	  w.re *= 2.0;
+	  w.im *= 2.0;
+	}
 
-          complex DY[3];
-          DY[0] = dylm(ii, jj, idx, 0);
-          DY[1] = dylm(ii, jj, idx, 1);
-          DY[2] = dylm(ii, jj, idx, 2);
-          const complex Y_DR = ylm(ii, jj, idx) * DR;
+	complex DY[3];
+	DY[0] = dylm(ii, jj, idx, 0);
+	DY[1] = dylm(ii, jj, idx, 1);
+	DY[2] = dylm(ii, jj, idx, 2);
+	const complex Y_DR = ylm(ii, jj, idx) * DR;
 
-          complex grad_phi_nlm[3];
-          grad_phi_nlm[0] = Y_DR * r_hat[0] + DY[0] * R_over_r;
-          grad_phi_nlm[1] = Y_DR * r_hat[1] + DY[1] * R_over_r;
-          grad_phi_nlm[2] = Y_DR * r_hat[2] + DY[2] * R_over_r;
-          // real-part multiplication only
-          f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
-          f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
-          f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
-        }
+	complex grad_phi_nlm[3];
+	grad_phi_nlm[0] = Y_DR * r_hat[0] + DY[0] * R_over_r;
+	grad_phi_nlm[1] = Y_DR * r_hat[1] + DY[1] * R_over_r;
+	grad_phi_nlm[2] = Y_DR * r_hat[2] + DY[2] * R_over_r;
+	// real-part multiplication only
+	f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
+	f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
+	f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
       }
     }
-
-    // hard-core repulsion
-    const double fpair = dF_drho_core(ii) * dcr(ii,jj);
-    f_ij(ii, jj, 0) = scale * f_ji[0] + fpair * r_hat[0];
-    f_ij(ii, jj, 1) = scale * f_ji[1] + fpair * r_hat[1];
-    f_ij(ii, jj, 2) = scale * f_ji[2] + fpair * r_hat[2];
   }
+
+  // hard-core repulsion
+  const double fpair = dF_drho_core(ii) * dcr(ii,jj);
+  f_ij(ii, jj, 0) = scale * f_ji[0] + fpair * r_hat[0];
+  f_ij(ii, jj, 1) = scale * f_ji[1] + fpair * r_hat[1];
+  f_ij(ii, jj, 2) = scale * f_ji[2] + fpair * r_hat[2];
 }
 
 /* ---------------------------------------------------------------------- */
