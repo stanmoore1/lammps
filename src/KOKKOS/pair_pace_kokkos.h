@@ -38,9 +38,10 @@ class PairPACEKokkos : public PairPACE {
   struct TagPairPACEComputeYlm{};
   struct TagPairPACEComputeAi{};
   struct TagPairPACEConjugateAi{};
-  struct TagPairPACEComputeWeights{};
   struct TagPairPACEComputeRho{};
   struct TagPairPACEComputeFS{};
+  struct TagPairPACEComputeWeights{};
+  struct TagPairPACEComputeDerivative{};
 
   template<int NEIGHFLAG, int EVFLAG>
   struct TagPairPACEComputeForce{};
@@ -81,6 +82,9 @@ class PairPACEKokkos : public PairPACE {
 
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairPACEComputeWeights,const int& ii) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeDerivative,const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeDerivative>::member_type& team) const;
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
@@ -282,6 +286,8 @@ class PairPACEKokkos : public PairPACE {
   t_ace_3i d_ls;
   t_ace_4i d_ms_combs;
   t_ace_2i d_num_ms_combs;
+
+  t_ace_3d3 f_ij;
 
  public:
   struct SplineInterpolatorKokkos {

@@ -150,6 +150,8 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
     d_rhats = t_ace_3d3("pace:rhats", natom, maxneigh);
     d_rnorms = t_ace_2d("pace:rnorms", natom, maxneigh);
     d_nearest = t_ace_2i("pace:nearest", natom, maxneigh);
+
+    f_ij = t_ace_3d3(Kokkos::NoInit("f_ij"), natom, maxneigh);
   }
 }
 
@@ -633,6 +635,15 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       Kokkos::parallel_for("ComputeWeights",policy_weights,*this);
     }
 
+    //ComputeDerivative
+    { 
+      int vector_length = vector_length_default;
+      int team_size = team_size_default;
+      check_team_size_for<TagPairPACEComputeDerivative>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
+      typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeDerivative> policy_derivative(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
+      Kokkos::parallel_for("ComputeDerivative",policy_derivative,*this);
+    }
+
     //ComputeForce
     {
       if (evflag) {
@@ -1040,21 +1051,23 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const in
 }
 
 /* ---------------------------------------------------------------------- */
-
 template<class DeviceType>
-template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeForce<NEIGHFLAG,EVFLAG>, const int& ii, EV_FLOAT& ev) const
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivative, const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeDerivative>::member_type& team) const
 {
-  // The f array is duplicated for OpenMP, atomic for CUDA, and neither for Serial
-  const auto v_f = ScatterViewHelper<typename NeedDup<NEIGHFLAG,DeviceType>::value,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
-  const auto a_f = v_f.template access<typename AtomicDup<NEIGHFLAG,DeviceType>::value>();
-
+  // Extract the atom number
+  int ii = team.team_rank() + team.team_size() * (team.league_rank() %
+           ((chunk_size+team.team_size()-1)/team.team_size()));
+  if (ii >= chunk_size) return;
   const int i = d_ilist[ii + chunk_offset];
+
+  // Extract the neighbor number
+  const int jj = team.league_rank() / ((chunk_size+team.team_size()-1)/team.team_size());
+  const int ncount = d_ncount(ii);
+  if (jj >= ncount) return;
+
   const int itype = type(i);
   const double scale = d_scale(itype,itype);
-
-  const int ncount = d_ncount(ii);
 
   F_FLOAT fitmp[3] = {0.0,0.0,0.0};
   for (int jj = 0; jj < ncount; jj++) {
@@ -1067,9 +1080,6 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeForce<NEIGHFLAG,E
     r_hat[2] = d_rhats(ii, jj, 2);
     const double r = d_rnorms(ii, jj);
     const double rinv = 1.0/r;
-    const double delx = -r_hat[0]*r;
-    const double dely = -r_hat[1]*r;
-    const double delz = -r_hat[2]*r;
 
     double f_ji[3];
     f_ji[0] = f_ji[1] = f_ji[2] = 0;
@@ -1122,21 +1132,58 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeForce<NEIGHFLAG,E
 
     // hard-core repulsion
     const double fpair = dF_drho_core(ii) * dcr(ii,jj);
-    double fij[3];
-    fij[0] = scale * f_ji[0] + fpair * r_hat[0];
-    fij[1] = scale * f_ji[1] + fpair * r_hat[1];
-    fij[2] = scale * f_ji[2] + fpair * r_hat[2];
+    f_ij(ii, jj, 0) = scale * f_ji[0] + fpair * r_hat[0];
+    f_ij(ii, jj, 1) = scale * f_ji[1] + fpair * r_hat[1];
+    f_ij(ii, jj, 2) = scale * f_ji[2] + fpair * r_hat[2];
+  }
+}
 
-    fitmp[0] += fij[0];
-    fitmp[1] += fij[1];
-    fitmp[2] += fij[2];
-    a_f(j,0) -= fij[0];
-    a_f(j,1) -= fij[1];
-    a_f(j,2) -= fij[2];
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeForce<NEIGHFLAG,EVFLAG>, const int& ii, EV_FLOAT& ev) const
+{
+  // The f array is duplicated for OpenMP, atomic for CUDA, and neither for Serial
+  const auto v_f = ScatterViewHelper<typename NeedDup<NEIGHFLAG,DeviceType>::value,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  const auto a_f = v_f.template access<typename AtomicDup<NEIGHFLAG,DeviceType>::value>();
+
+  const int i = d_ilist[ii + chunk_offset];
+  const int itype = type(i);
+  const double scale = d_scale(itype,itype);
+
+  const int ncount = d_ncount(ii);
+
+  F_FLOAT fitmp[3] = {0.0,0.0,0.0};
+  for (int jj = 0; jj < ncount; jj++) {
+    int j = d_nearest(ii,jj);
+
+    const int mu_j = d_mu(ii, jj);
+    double r_hat[3];
+    r_hat[0] = d_rhats(ii, jj, 0);
+    r_hat[1] = d_rhats(ii, jj, 1);
+    r_hat[2] = d_rhats(ii, jj, 2);
+    const double r = d_rnorms(ii, jj);
+    const double rinv = 1.0/r;
+    const double delx = -r_hat[0]*r;
+    const double dely = -r_hat[1]*r;
+    const double delz = -r_hat[2]*r;
+
+    const double fpairx = f_ij(ii, jj, 0);
+    const double fpairy = f_ij(ii, jj, 1);
+    const double fpairz = f_ij(ii, jj, 2);
+
+    fitmp[0] += fpairx;
+    fitmp[1] += fpairy;
+    fitmp[2] += fpairz;
+    a_f(j,0) -= fpairx;
+    a_f(j,1) -= fpairy;
+    a_f(j,2) -= fpairz;
 
     // tally per-atom virial contribution
     if (EVFLAG && vflag_either)
-      v_tally_xyz<NEIGHFLAG>(ev, i, j, fij[0], fij[1], fij[2], delx, dely, delz);
+      v_tally_xyz<NEIGHFLAG>(ev, i, j, fpairx, fpairy, fpairz, delx, dely, delz);
   }
 
   a_f(i,0) += fitmp[0];
