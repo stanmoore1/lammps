@@ -38,11 +38,10 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-DumpAtomMPIIO::DumpAtomMPIIO(LAMMPS *lmp, int narg, char **arg)
-  : DumpAtom(lmp, narg, arg)
+DumpAtomMPIIO::DumpAtomMPIIO(LAMMPS *lmp, int narg, char **arg) : DumpAtom(lmp, narg, arg)
 {
   if (me == 0)
-    error->warning(FLERR,"MPI-IO output is unmaintained and unreliable. Use with caution.");
+    error->warning(FLERR, "MPI-IO output is unmaintained and unreliable. Use with caution.");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -86,8 +85,8 @@ void DumpAtomMPIIO::openfile()
   }
 
   if (append_flag) {    // append open
-    int err = MPI_File_open(world, filecurrent, MPI_MODE_CREATE | MPI_MODE_APPEND |
-                            MPI_MODE_WRONLY, MPI_INFO_NULL, &mpifh);
+    int err = MPI_File_open(world, filecurrent, MPI_MODE_CREATE | MPI_MODE_APPEND | MPI_MODE_WRONLY,
+                            MPI_INFO_NULL, &mpifh);
     if (err != MPI_SUCCESS)
       error->one(FLERR, "Cannot open dump file {}: {}", filecurrent, utils::getsyserror());
 
@@ -100,8 +99,8 @@ void DumpAtomMPIIO::openfile()
 
   } else {    // replace open
 
-    int err = MPI_File_open(world, filecurrent, MPI_MODE_CREATE | MPI_MODE_WRONLY,
-                            MPI_INFO_NULL, &mpifh);
+    int err =
+        MPI_File_open(world, filecurrent, MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &mpifh);
     if (err != MPI_SUCCESS)
       error->one(FLERR, "Cannot open dump file {}: {}", filecurrent, utils::getsyserror());
 
@@ -212,20 +211,12 @@ void DumpAtomMPIIO::init_style()
 
   delete[] format;
   if (format_line_user) {
-    int n = strlen(format_line_user) + 2;
-    format = new char[n];
-    strcpy(format, format_line_user);
-    strcat(format, "\n");
+    format = utils::strdup(std::string(format_line_user) + "\n");
   } else {
-    char *str;
     if (image_flag == 0)
-      str = (char *) TAGINT_FORMAT " %d %g %g %g";
+      format = utils::strdup(TAGINT_FORMAT " %d %g %g %g\n");
     else
-      str = (char *) TAGINT_FORMAT " %d %g %g %g %d %d %d";
-    int n = strlen(str) + 2;
-    format = new char[n];
-    strcpy(format, str);
-    strcat(format, "\n");
+      format = utils::strdup(TAGINT_FORMAT " %d %g %g %g %d %d %d\n");
   }
 
   // setup boundary string
@@ -234,14 +225,27 @@ void DumpAtomMPIIO::init_style()
 
   // setup column string
 
+  std::string default_columns;
+
   if (scale_flag == 0 && image_flag == 0)
-    columns = (char *) "id type x y z";
+    default_columns = "id type x y z";
   else if (scale_flag == 0 && image_flag == 1)
-    columns = (char *) "id type x y z ix iy iz";
+    default_columns = "id type x y z ix iy iz";
   else if (scale_flag == 1 && image_flag == 0)
-    columns = (char *) "id type xs ys zs";
+    default_columns = "id type xs ys zs";
   else if (scale_flag == 1 && image_flag == 1)
-    columns = (char *) "id type xs ys zs ix iy iz";
+    default_columns = "id type xs ys zs ix iy iz";
+
+  int icol = 0;
+  columns.clear();
+  for (auto item : utils::split_words(default_columns)) {
+    if (columns.size()) columns += " ";
+    if (keyword_user[icol].size())
+      columns += keyword_user[icol];
+    else
+      columns += item;
+    ++icol;
+  }
 
   // setup function ptrs
 
