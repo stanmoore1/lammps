@@ -1014,24 +1014,26 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const in
   for (int f_ind = 0; f_ind < total_basis_size_rank1; ++f_ind) {
     const int mu = d_mus_rank1(mu_i, f_ind);
     const int n = d_ns_rank1(mu_i, f_ind);
+    double theta = 0.0;
     for (int p = 0; p < ndensity; ++p) {
       // for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
-      weights_rank1(ii, mu, n - 1) += dF_drho(ii, p) * d_ctildes_rank1(mu_i, f_ind, p);
+      theta += dF_drho(ii, p) * d_ctildes_rank1(mu_i, f_ind, p);
     }
+    weights_rank1(ii, mu, n - 1) = theta;
   }
 
   // rank > 1
   int func_ms_ind = 0;
   int func_ms_t_ind = 0; // index for dB
-  double theta = 0;
+  double theta = 0.0;
   for (int func_ind = 0; func_ind < total_basis_size; ++func_ind) {
+    const int rank = d_rank(mu_i, func_ind);
     for (int ms_ind = 0; ms_ind < d_num_ms_combs(mu_i, func_ind) ; ++ms_ind, ++func_ms_ind) {
-      theta = 0;
+      theta = 0.0;
       for (int p = 0; p < ndensity; ++p)
         theta += dF_drho(ii, p) * d_ctildes(mu_i, func_ind, ms_ind * ndensity + p);
 
       theta *= 0.5; // 0.5 factor due to possible double counting ???
-      const int rank = d_rank(mu_i, func_ind);
       for (int t = 0; t < rank; ++t, ++func_ms_t_ind) {
         const int m_t = d_ms_combs(mu_i, func_ind, ms_ind, t);
         const int factor = (m_t % 2 == 0 ? 1 : -1);
@@ -1156,7 +1158,6 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeForce<NEIGHFLAG,E
   for (int jj = 0; jj < ncount; jj++) {
     int j = d_nearest(ii,jj);
 
-    const int mu_j = d_mu(ii, jj);
     double r_hat[3];
     r_hat[0] = d_rhats(ii, jj, 0);
     r_hat[1] = d_rhats(ii, jj, 1);
