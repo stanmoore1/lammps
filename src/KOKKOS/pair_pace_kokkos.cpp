@@ -262,7 +262,6 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
     const int total_basis_size_rank1 = basis_set->total_basis_size_rank1[n];
     const int total_basis_size = basis_set->total_basis_size[n];
 
-    ACECTildeBasisFunction *basis_rank1 = basis_set->basis_rank1[n];
     ACECTildeBasisFunction *basis = basis_set->basis[n];
 
     // rank=1
@@ -1339,7 +1338,6 @@ void PairPACEKokkos<DeviceType>::compute_ylm(int ii, int jj, double rx, double r
   compute_barplm(ii, jj, rz, lmax);
 
   // m = 0
-  int m = 0;
   for (int l = 0; l <= lmax; l++) {
     const int idx = l * (l + 1);
 
@@ -1357,7 +1355,6 @@ void PairPACEKokkos<DeviceType>::compute_ylm(int ii, int jj, double rx, double r
     dylm(ii, jj, idx, 2).im = 0;
   }
   // m = 1
-  m = 1;
   for (int l = 1; l <= lmax; l++) {
     const int idx = l * (l + 1) + 1;
 
@@ -1511,7 +1508,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::FS_values_and_derivatives(const int ii, double &evdwl, const int mu_i) const
 {
-  double F, DF = 0, wpre, mexp;
+  double F, DF = 0;
   int npoti = d_npoti(mu_i);
   int ndensity = d_ndensity(mu_i);
   for (int p = 0; p < ndensity; p++) {
@@ -1575,7 +1572,6 @@ void PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos::calcSplines(const int
     wl3 = wl2 * wl;
     w2l1 = 2.0 * wl;
     w3l2 = 3.0 * wl2;
-    w4l2 = 6.0 * wl;
     for (int func_id = 0; func_id < num_of_functions; func_id++) {
       for (int idx = 0; idx < 4; idx++)
         c[idx] = lookupTable(nl, func_id, idx);
