@@ -105,10 +105,9 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
     A = t_ace_4c(Kokkos::NoInit("A"), natom, nelements, nradmax + 1, (lmax + 1)*(lmax + 1));
     A_rank1 = t_ace_3d(Kokkos::NoInit("A_rank1"), natom, nelements, nradbase);
 
-    A_list = t_ace_2c("A_list", natom, basis_set->rankmax);
+    A_list = t_ace_3c("A_list", natom, idx_rho_max, basis_set->rankmax);
     //size is +1 of max to avoid out-of-boundary array access in double-triangular scheme
-    A_forward_prod = t_ace_2c("A_forward_prod", natom, basis_set->rankmax + 1);
-    A_backward_prod = t_ace_2c("A_backward_prod", natom, basis_set->rankmax + 1);
+    A_forward_prod = t_ace_3c("A_forward_prod", natom, idx_rho_max, basis_set->rankmax + 1);
     
     e_atom = t_ace_1d(Kokkos::NoInit("e_atom"), natom);
     rhos = t_ace_2d(Kokkos::NoInit("rhos"), natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
@@ -119,8 +118,8 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
 
     // hard-core repulsion
     rho_core = t_ace_1d("cr", natom);
-    dB_flatten = t_ace_2c(Kokkos::NoInit("dB_flatten"), natom, basis_set->max_dB_array_size);
     dF_drho_core = t_ace_1d(Kokkos::NoInit("dF_drho_core"), natom);
+    dB_flatten = t_ace_3c(Kokkos::NoInit("dB_flatten"), natom, idx_rho_max, basis_set->rankmax);
   }
 
   if (ylm.extent(0) < natom || ylm.extent(1) < maxneigh) {
@@ -162,35 +161,25 @@ void PairPACEKokkos<DeviceType>::copy_pertype()
 {
   auto basis_set = aceimpl->basis_set;
 
-  d_total_basis_size_rank1 = t_ace_1i("total_basis_size_rank1", nelements);
-  d_total_basis_size = t_ace_1i("total_basis_size", nelements);
   d_rho_core_cutoff = t_ace_1d("rho_core_cutoff", nelements);
   d_drho_core_cutoff = t_ace_1d("drho_core_cutoff", nelements);
   d_E0vals = t_ace_1d("E0vals", nelements);
   d_ndensity = t_ace_1i("ndensity", nelements);
   d_npoti = t_ace_1i("npoti", nelements);
 
-  auto h_total_basis_size_rank1 = Kokkos::create_mirror_view(d_total_basis_size_rank1);
-  auto h_total_basis_size = Kokkos::create_mirror_view(d_total_basis_size);
   auto h_rho_core_cutoff = Kokkos::create_mirror_view(d_rho_core_cutoff);
   auto h_drho_core_cutoff = Kokkos::create_mirror_view(d_drho_core_cutoff);
   auto h_E0vals = Kokkos::create_mirror_view(d_E0vals);
   auto h_ndensity = Kokkos::create_mirror_view(d_ndensity);
   auto h_npoti = Kokkos::create_mirror_view(d_npoti);
 
-  max_ndensity = 0;
-
   for (int n = 0; n < nelements; n++) {
-    h_total_basis_size_rank1[n] = basis_set->total_basis_size_rank1[n];
-    h_total_basis_size[n] = basis_set->total_basis_size[n];
-
     h_rho_core_cutoff[n] = basis_set->map_embedding_specifications.at(n).rho_core_cutoff;
     h_drho_core_cutoff[n] = basis_set->map_embedding_specifications.at(n).drho_core_cutoff;
 
     h_E0vals(n)= basis_set->E0vals(n);
 
     const int ndensity = h_ndensity(n) = basis_set->map_embedding_specifications.at(n).ndensity;
-    max_ndensity = MAX(max_ndensity, ndensity);
 
     string npoti = basis_set->map_embedding_specifications.at(n).npoti;
     if (npoti == "FinnisSinclair")
@@ -199,16 +188,14 @@ void PairPACEKokkos<DeviceType>::copy_pertype()
       h_npoti(n) = FS_SHIFTEDSCALED;
   }
 
-  Kokkos::deep_copy(d_total_basis_size_rank1, h_total_basis_size_rank1);
-  Kokkos::deep_copy(d_total_basis_size, h_total_basis_size);
   Kokkos::deep_copy(d_rho_core_cutoff, h_rho_core_cutoff);
   Kokkos::deep_copy(d_drho_core_cutoff, h_drho_core_cutoff);
   Kokkos::deep_copy(d_E0vals, h_E0vals);
   Kokkos::deep_copy(d_ndensity, h_ndensity);
   Kokkos::deep_copy(d_npoti, h_npoti);
 
-  d_wpre = t_ace_2d("wpre", nelements, max_ndensity);
-  d_mexp = t_ace_2d("mexp", nelements, max_ndensity);
+  d_wpre = t_ace_2d("wpre", nelements, basis_set->ndensitymax);
+  d_mexp = t_ace_2d("mexp", nelements, basis_set->ndensitymax);
 
   auto h_wpre = Kokkos::create_mirror_view(d_wpre);
   auto h_mexp = Kokkos::create_mirror_view(d_mexp);
@@ -262,53 +249,58 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
 {
   auto basis_set = aceimpl->basis_set;
 
-  // get max number of functions, max rank, etc.
+  // flatten loops, get per-element count and max
 
-  int max_total_basis_size_rank1 = 0;
-  int max_total_basis_size = 0;
-  int max_rank = 0;
-  int max_num_ms_combs = 0;
+  idx_rho_max = 0;
+  int total_basis_size_max = 0;
+
+  d_idx_rho_count = t_ace_1i("idx_rho_count", nelements);
+  auto h_idx_rho_count = Kokkos::create_mirror_view(d_idx_rho_count);
+
   for (int n = 0; n < nelements; n++) {
+    int idx_rho = 0;
     const int total_basis_size_rank1 = basis_set->total_basis_size_rank1[n];
     const int total_basis_size = basis_set->total_basis_size[n];
-    max_total_basis_size_rank1 = MAX(max_total_basis_size_rank1,total_basis_size_rank1);
-    max_total_basis_size = MAX(max_total_basis_size,total_basis_size);
 
     ACECTildeBasisFunction *basis_rank1 = basis_set->basis_rank1[n];
     ACECTildeBasisFunction *basis = basis_set->basis[n];
 
-    // rank > 1
-    int func_ms_ind = 0;
-    int func_ms_t_ind = 0;// index for dB
+    // rank=1
+    for (int func_rank1_ind = 0; func_rank1_ind < total_basis_size_rank1; ++func_rank1_ind)
+      idx_rho++;
 
+    // rank > 1
     for (int func_ind = 0; func_ind < total_basis_size; ++func_ind) {
       ACECTildeBasisFunction *func = &basis[func_ind];
-      max_rank = MAX(max_rank,func->rank);
-      max_num_ms_combs = MAX(max_num_ms_combs,func->num_ms_combs);
+
+      // loop over {ms} combinations in sum
+      for (int ms_ind = 0; ms_ind < func->num_ms_combs; ++ms_ind)
+        idx_rho++;
     }
+    h_idx_rho_count(n) = idx_rho;
+    idx_rho_max = MAX(idx_rho_max, idx_rho);
+    total_basis_size_max = MAX(total_basis_size_max, total_basis_size_rank1 + total_basis_size);
   }
 
-  d_ctildes_rank1 = t_ace_3d("ctildes_rank1", nelements, max_total_basis_size_rank1, max_ndensity);
-  d_mus_rank1 = t_ace_2i("mus", nelements, max_total_basis_size_rank1);
-  d_ns_rank1 = t_ace_2i("ns", nelements, max_total_basis_size_rank1);
-  d_ctildes = t_ace_3d("ctildes", nelements, max_total_basis_size, max_num_ms_combs*max_ndensity);
-  d_rank = t_ace_2i("rank", nelements, max_total_basis_size);
-  d_mus = t_ace_3i("mus", nelements, max_total_basis_size, max_rank); 
-  d_ns = t_ace_3i("ns", nelements, max_total_basis_size, max_rank); 
-  d_ls = t_ace_3i("ls", nelements, max_total_basis_size, max_rank); 
-  d_ms_combs = t_ace_4i("ms_combs", nelements, max_total_basis_size, max_num_ms_combs, max_rank); 
-  d_num_ms_combs = t_ace_2i("num_ms_combs", nelements, max_total_basis_size); 
+  Kokkos::deep_copy(d_idx_rho_count, h_idx_rho_count);
 
-  auto h_ctildes_rank1 = Kokkos::create_mirror_view(d_ctildes_rank1);
-  auto h_mus_rank1 = Kokkos::create_mirror_view(d_mus_rank1);
-  auto h_ns_rank1 = Kokkos::create_mirror_view(d_ns_rank1);
-  auto h_ctildes = Kokkos::create_mirror_view(d_ctildes);
+  d_rank = t_ace_2i("rank", nelements, total_basis_size_max);
+  d_num_ms_combs = t_ace_2i("num_ms_combs", nelements, total_basis_size_max); 
+  d_offsets = t_ace_2i("offsets", nelements, idx_rho_max); 
+  d_mus = t_ace_3i("mus", nelements, total_basis_size_max, basis_set->rankmax); 
+  d_ns = t_ace_3i("ns", nelements, total_basis_size_max, basis_set->rankmax); 
+  d_ls = t_ace_3i("ls", nelements, total_basis_size_max, basis_set->rankmax); 
+  d_ms_combs = t_ace_3i("ms_combs", nelements, idx_rho_max, basis_set->rankmax); 
+  d_ctildes = t_ace_3d("ctildes", nelements, idx_rho_max, basis_set->ndensitymax);
+
   auto h_rank = Kokkos::create_mirror_view(d_rank);
+  auto h_num_ms_combs = Kokkos::create_mirror_view(d_num_ms_combs);
+  auto h_offsets = Kokkos::create_mirror_view(d_offsets);
   auto h_mus = Kokkos::create_mirror_view(d_mus);
   auto h_ns = Kokkos::create_mirror_view(d_ns);
   auto h_ls = Kokkos::create_mirror_view(d_ls);
   auto h_ms_combs = Kokkos::create_mirror_view(d_ms_combs);
-  auto h_num_ms_combs = Kokkos::create_mirror_view(d_num_ms_combs);
+  auto h_ctildes = Kokkos::create_mirror_view(d_ctildes);
 
   // copy values on host  
 
@@ -321,56 +313,59 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
 
     const int ndensity = basis_set->map_embedding_specifications.at(n).ndensity;
 
+    int idx_rho = 0;
+
     // rank=1
-    for (int func_rank1_ind = 0; func_rank1_ind < total_basis_size_rank1; ++func_rank1_ind) {
-      ACECTildeBasisFunction *func = &basis_rank1[func_rank1_ind];
-      h_mus_rank1(n, func_rank1_ind) = func->mus[0]; // pointer
-      h_ns_rank1(n, func_rank1_ind) = func->ns[0]; // pointer
+    for (int offset = 0; offset < total_basis_size_rank1; ++offset) {
+      ACECTildeBasisFunction *func = &basis_rank1[offset];
+      h_rank(n, offset) = 1;
+      h_mus(n, offset, 0) = func->mus[0];
+      h_ns(n, offset, 0) = func->ns[0];
       for (int p = 0; p < ndensity; p++)
-        h_ctildes_rank1(n, func_rank1_ind, p) = func->ctildes[p];
+        h_ctildes(n, idx_rho, p) = func->ctildes[p];
+      h_offsets(n, idx_rho) = offset;
+      idx_rho++;
     }
 
     // rank > 1
-    int func_ms_ind = 0;
-    int func_ms_t_ind = 0;// index for dB
-
     for (int func_ind = 0; func_ind < total_basis_size; ++func_ind) {
       ACECTildeBasisFunction *func = &basis[func_ind];
       // TODO: check if func->ctildes are zero, then skip
 
-      const int rank = h_rank(n, func_ind) = func->rank;
+      const int offset = total_basis_size_rank1 + func_ind;
+
+      const int rank = h_rank(n, offset) = func->rank;
+      h_num_ms_combs(n, offset) = func->num_ms_combs;
       for (int t = 0; t < rank; t++) {
-        h_mus(n, func_ind, t) = func->mus[t]; // pointer
-        h_ns(n, func_ind, t) = func->ns[t]; // pointer
-        h_ls(n, func_ind, t) = func->ls[t]; // pointer
+        h_mus(n, offset, t) = func->mus[t];
+        h_ns(n, offset, t) = func->ns[t];
+        h_ls(n, offset, t) = func->ls[t];
       }
 
-      h_num_ms_combs(n, func_ind) = func->num_ms_combs;
-
       // loop over {ms} combinations in sum
-      for (int ms_ind = 0; ms_ind < func->num_ms_combs; ++ms_ind, ++func_ms_ind) {
+      for (int ms_ind = 0; ms_ind < func->num_ms_combs; ++ms_ind) {
         auto ms = &func->ms_combs[ms_ind * rank]; // current ms-combination (of length = rank)
         for (int t = 0; t < rank; t++)
-          h_ms_combs(n, func_ind, ms_ind, t) = ms[t];
+          h_ms_combs(n, idx_rho, t) = ms[t];
 
         for (int p = 0; p < ndensity; ++p) {
           // real-part only multiplication
-          h_ctildes(n, func_ind, ms_ind * ndensity + p) = func->ctildes[ms_ind * ndensity + p];
+          h_ctildes(n, idx_rho, p) = func->ctildes[ms_ind * ndensity + p];
         }
+        h_offsets(n, idx_rho) = offset;
+        idx_rho++;
       }
     }
   }
 
-  Kokkos::deep_copy(d_ctildes_rank1, h_ctildes_rank1);
-  Kokkos::deep_copy(d_mus_rank1, h_mus_rank1);
-  Kokkos::deep_copy(d_ns_rank1, h_ns_rank1);
-  Kokkos::deep_copy(d_ctildes, h_ctildes);
   Kokkos::deep_copy(d_rank, h_rank);
+  Kokkos::deep_copy(d_num_ms_combs, h_num_ms_combs);
+  Kokkos::deep_copy(d_offsets, h_offsets);
   Kokkos::deep_copy(d_mus, h_mus);
   Kokkos::deep_copy(d_ns, h_ns);
   Kokkos::deep_copy(d_ls, h_ls);
   Kokkos::deep_copy(d_ms_combs, h_ms_combs);
-  Kokkos::deep_copy(d_num_ms_combs, h_num_ms_combs);
+  Kokkos::deep_copy(d_ctildes, h_ctildes);
 }
 
 /* ----------------------------------------------------------------------
@@ -549,7 +544,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   chunk_size = MIN(chunksize,inum); // "chunksize" variable is set by user
   chunk_offset = 0;
 
-  grow(chunk_size,maxneigh);
+  grow(chunk_size, maxneigh);
 
   auto basis_set = aceimpl->basis_set;
 
@@ -619,7 +614,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     //ComputeRho
     { 
-      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeRho> policy_rho(0,chunk_size);
+      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeRho> policy_rho(0,chunk_size*idx_rho_max);
       Kokkos::parallel_for("ComputeRho",policy_rho,*this);
     }
 
@@ -631,7 +626,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     //ComputeWeights
     {
-      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeWeights> policy_weights(0,chunk_size);
+      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeWeights> policy_weights(0,chunk_size*idx_rho_max);
       Kokkos::parallel_for("ComputeWeights",policy_weights,*this);
     }
 
@@ -894,71 +889,67 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEConjugateAi, const int& 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& ii) const
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& iter) const
 {
+  const int ii = iter / idx_rho_max;
+  const int idx_rho = iter % idx_rho_max;
+
   const int i = d_ilist[ii + chunk_offset];
   const int mu_i = d_map(type(i));
-  const int total_basis_size_rank1 = d_total_basis_size_rank1[mu_i];
-  const int total_basis_size = d_total_basis_size[mu_i];
+
+  if (idx_rho >= d_idx_rho_count(mu_i)) return;
+
   const int ndensity = d_ndensity(mu_i);
 
+  const int offset = d_offsets(mu_i, idx_rho);
+  const int rank = d_rank(mu_i, offset);
+  const int r = rank - 1;
+
   // Basis functions B with iterative product and density rho(p) calculation
-  // rank=1
-  for (int func_rank1_ind = 0; func_rank1_ind < total_basis_size_rank1; ++func_rank1_ind) {
-    const int mu = d_mus_rank1(mu_i, func_rank1_ind);
-    const int n = d_ns_rank1(mu_i, func_rank1_ind);
+  if (rank == 1) {
+    const int mu = d_mus(mu_i, offset, 0);
+    const int n = d_ns(mu_i, offset, 0);
     double A_cur = A_rank1(ii, mu, n - 1);
     for (int p = 0; p < ndensity; ++p) {
       //for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
-      rhos(ii, p) += d_ctildes_rank1(mu_i, func_rank1_ind, p) * A_cur;
+      Kokkos::atomic_add(&rhos(ii, p), d_ctildes(mu_i, idx_rho, p) * A_cur);
     }
-  } // end loop for rank=1
-
-  // rank > 1
-  int func_ms_ind = 0;
-  int func_ms_t_ind = 0;// index for dB
-
-  for (int func_ind = 0; func_ind < total_basis_size; ++func_ind) {
-    const int rank = d_rank(mu_i, func_ind);
-    const int r = rank - 1;
-
+  } else { // rank > 1
     // loop over {ms} combinations in sum
-    for (int ms_ind = 0; ms_ind < d_num_ms_combs(mu_i, func_ind) ; ++ms_ind, ++func_ms_ind) {
 
-      // loop over m, collect B  = product of A with given ms
-      A_forward_prod(ii, 0) = 1;
-      A_backward_prod(ii, r) = 1;
+    // loop over m, collect B  = product of A with given ms
+    A_forward_prod(ii, idx_rho, 0) = complex::one();
 
-      int t;
-      // fill forward A-product triangle
-      for (t = 0; t < rank; t++) {
-        //TODO: optimize ns[t]-1 -> ns[t] during functions construction
-        const int mu = d_mus(mu_i, func_ind, t);
-        const int n = d_ns(mu_i, func_ind, t);
-        const int l = d_ls(mu_i, func_ind, t);
-        const int m = d_ms_combs(mu_i, func_ind, ms_ind, t); // current ms-combination (of length = rank)
-        const int idx = l * (l + 1) + m; // (l, m)
-        A_list(ii, t) = A(ii, mu, n - 1, idx);
-        A_forward_prod(ii, t + 1) = A_forward_prod(ii, t) * A_list(ii, t);
-      }
+    // fill forward A-product triangle
+    for (int t = 0; t < rank; t++) {
+      //TODO: optimize ns[t]-1 -> ns[t] during functions construction
+      const int mu = d_mus(mu_i, offset, t);
+      const int n = d_ns(mu_i, offset, t);
+      const int l = d_ls(mu_i, offset, t);
+      const int m = d_ms_combs(mu_i, idx_rho, t); // current ms-combination (of length = rank)
+      const int idx = l * (l + 1) + m; // (l, m)
+      A_list(ii, idx_rho, t) = A(ii, mu, n - 1, idx);
+      A_forward_prod(ii, idx_rho, t + 1) = A_forward_prod(ii, idx_rho, t) * A_list(ii, idx_rho, t);
+    }
 
-      const complex B = A_forward_prod(ii, t);
+    complex A_backward_prod = complex::one();
 
-      // fill backward A-product triangle
-      for (t = r; t >= 1; t--)
-        A_backward_prod(ii, t - 1) = A_backward_prod(ii, t) * A_list(ii, t);
+    // fill backward A-product triangle
+    for (int t = r; t >= 1; t--) {
+      const complex dB = A_forward_prod(ii, idx_rho, t) * A_backward_prod; // dB - product of all A's except t-th
+      dB_flatten(ii, idx_rho, t) = dB;
 
-      for (t = 0; t < rank; ++t, ++func_ms_t_ind) {
-        const complex dB = A_forward_prod(ii, t) * A_backward_prod(ii, t); // dB - product of all A's except t-th
-        dB_flatten(ii, func_ms_t_ind) = dB;
-      }
+      A_backward_prod = A_backward_prod * A_list(ii, idx_rho, t);
+    }
+    dB_flatten(ii, idx_rho, 0) = A_forward_prod(ii, idx_rho, 0) * A_backward_prod;
 
-      for (int p = 0; p < ndensity; ++p) {
-        // real-part only multiplication
-        rhos(ii, p) += B.real_part_product(d_ctildes(mu_i, func_ind, ms_ind * ndensity + p));
-      }
-    } // end of loop over {ms} combinations in sum
-  } // end loop for rank>1
+    const complex B = A_forward_prod(ii, idx_rho, rank);
+
+    for (int p = 0; p < ndensity; ++p) {
+      // real-part only multiplication
+      Kokkos::atomic_add(&rhos(ii, p), B.real_part_product(d_ctildes(mu_i, idx_rho, p)));
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -999,55 +990,54 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeFS, const int& ii
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const int& ii) const
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const int& iter) const
 {
+  const int ii = iter / idx_rho_max;
+  const int idx_rho = iter % idx_rho_max;
+
   const int i = d_ilist[ii + chunk_offset];
   const int mu_i = d_map(type(i));
 
-  const int total_basis_size_rank1 = d_total_basis_size_rank1[mu_i];
-  const int total_basis_size = d_total_basis_size[mu_i];
+  if (idx_rho >= d_idx_rho_count(mu_i)) return;
+
   const int ndensity = d_ndensity(mu_i);
+
+  const int offset = d_offsets(mu_i, idx_rho);
+  const int rank = d_rank(mu_i, offset);
 
   // Weights and theta calculation
 
-  // rank = 1
-  for (int f_ind = 0; f_ind < total_basis_size_rank1; ++f_ind) {
-    const int mu = d_mus_rank1(mu_i, f_ind);
-    const int n = d_ns_rank1(mu_i, f_ind);
+  if (rank == 1) {
+    const int mu = d_mus(mu_i, offset, 0);
+    const int n = d_ns(mu_i, offset, 0);
     double theta = 0.0;
     for (int p = 0; p < ndensity; ++p) {
       // for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
-      theta += dF_drho(ii, p) * d_ctildes_rank1(mu_i, f_ind, p);
+      theta += dF_drho(ii, p) * d_ctildes(mu_i, idx_rho, p);
     }
-    weights_rank1(ii, mu, n - 1) = theta;
-  }
+    Kokkos::atomic_add(&weights_rank1(ii, mu, n - 1), theta);
+  } else { // rank > 1
+    double theta = 0.0;
+    for (int p = 0; p < ndensity; ++p)
+      theta += dF_drho(ii, p) * d_ctildes(mu_i, idx_rho, p);
 
-  // rank > 1
-  int func_ms_ind = 0;
-  int func_ms_t_ind = 0; // index for dB
-  double theta = 0.0;
-  for (int func_ind = 0; func_ind < total_basis_size; ++func_ind) {
-    const int rank = d_rank(mu_i, func_ind);
-    for (int ms_ind = 0; ms_ind < d_num_ms_combs(mu_i, func_ind) ; ++ms_ind, ++func_ms_ind) {
-      theta = 0.0;
-      for (int p = 0; p < ndensity; ++p)
-        theta += dF_drho(ii, p) * d_ctildes(mu_i, func_ind, ms_ind * ndensity + p);
-
-      theta *= 0.5; // 0.5 factor due to possible double counting ???
-      for (int t = 0; t < rank; ++t, ++func_ms_t_ind) {
-        const int m_t = d_ms_combs(mu_i, func_ind, ms_ind, t);
-        const int factor = (m_t % 2 == 0 ? 1 : -1);
-        const complex dB = dB_flatten(ii, func_ms_t_ind);
-        const int mu_t = d_mus(mu_i, func_ind, t);
-        const int n_t = d_ns(mu_i, func_ind, t);
-        const int l_t = d_ls(mu_i, func_ind, t);
-        const int idx = l_t * (l_t + 1) + m_t; // (l, m)
-        weights(ii, mu_t, n_t - 1, idx) += theta * dB; // Theta_array(func_ms_ind);
-        // update -m_t (that could also be positive), because the basis is half_basis
-        const int idxm = l_t * (l_t + 1) - m_t; // (l, -m)
-        weights(ii, mu_t, n_t - 1, idxm) +=
-                theta * dB.conj() * (double)factor; // Theta_array(func_ms_ind);
-      }
+    theta *= 0.5; // 0.5 factor due to possible double counting ???
+    for (int t = 0; t < rank; ++t) {
+      const int m_t = d_ms_combs(mu_i, idx_rho, t);
+      const int factor = (m_t % 2 == 0 ? 1 : -1);
+      const complex dB = dB_flatten(ii, idx_rho, t);
+      const int mu_t = d_mus(mu_i, offset, t);
+      const int n_t = d_ns(mu_i, offset, t);
+      const int l_t = d_ls(mu_i, offset, t);
+      const int idx = l_t * (l_t + 1) + m_t; // (l, m)
+      const complex value = theta * dB;
+      Kokkos::atomic_add(&(weights(ii, mu_t, n_t - 1, idx).re), value.re);
+      Kokkos::atomic_add(&(weights(ii, mu_t, n_t - 1, idx).im), value.im);
+      // update -m_t (that could also be positive), because the basis is half_basis
+      const int idxm = l_t * (l_t + 1) - m_t; // (l, -m)
+      const complex valuem = theta * dB.conj() * (double)factor;
+      Kokkos::atomic_add(&(weights(ii, mu_t, n_t - 1, idxm).re), valuem.re);
+      Kokkos::atomic_add(&(weights(ii, mu_t, n_t - 1, idxm).im), valuem.im);
     }
   }
 }

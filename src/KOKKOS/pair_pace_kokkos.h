@@ -75,13 +75,13 @@ class PairPACEKokkos : public PairPACE {
   void operator() (TagPairPACEConjugateAi,const int& ii) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairPACEComputeRho,const int& ii) const;
+  void operator() (TagPairPACEComputeRho,const int& iter) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairPACEComputeFS,const int& ii) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairPACEComputeWeights,const int& ii) const;
+  void operator() (TagPairPACEComputeWeights,const int& iter) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairPACEComputeDerivative,const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeDerivative>::member_type& team) const;
@@ -95,7 +95,7 @@ class PairPACEKokkos : public PairPACE {
   void operator() (TagPairPACEComputeForce<NEIGHFLAG,EVFLAG>,const int& ii, EV_FLOAT&) const;
 
  protected:
-  int inum, maxneigh, chunk_size, chunk_offset;
+  int inum, maxneigh, chunk_size, chunk_offset, idx_rho_max;
   int host_flag;
 
   int eflag, vflag;
@@ -207,15 +207,14 @@ class PairPACEKokkos : public PairPACE {
   typedef Kokkos::View<complex****, DeviceType> t_ace_4c;
   typedef Kokkos::View<complex***[3], DeviceType> t_ace_4c3;
 
-  t_ace_4c A;
   t_ace_3d A_rank1;
+  t_ace_4c A;
 
-  t_ace_2c A_list;
-  t_ace_2c A_forward_prod;
-  t_ace_2c A_backward_prod;
+  t_ace_3c A_list;
+  t_ace_3c A_forward_prod;
 
-  t_ace_4c weights;
   t_ace_3d weights_rank1;
+  t_ace_4c weights;
 
   t_ace_1d e_atom;
   t_ace_2d rhos;
@@ -223,7 +222,7 @@ class PairPACEKokkos : public PairPACE {
 
   // hard-core repulsion
   t_ace_1d rho_core;
-  t_ace_2c dB_flatten;
+  t_ace_3c dB_flatten;
   t_ace_2d cr;
   t_ace_2d dcr;
   t_ace_1d dF_drho_core;
@@ -265,8 +264,6 @@ class PairPACEKokkos : public PairPACE {
   t_ace_2i d_nearest;
 
   // per-type
-  t_ace_1i d_total_basis_size_rank1;
-  t_ace_1i d_total_basis_size;
   t_ace_1i d_ndensity;
   t_ace_1i d_npoti;
   t_ace_1d d_rho_core_cutoff;
@@ -276,16 +273,15 @@ class PairPACEKokkos : public PairPACE {
   t_ace_2d d_mexp;
 
   // tilde
-  t_ace_3d d_ctildes_rank1;
-  t_ace_2i d_mus_rank1;
-  t_ace_2i d_ns_rank1;
-  t_ace_3d d_ctildes;
+  t_ace_1i d_idx_rho_count;
   t_ace_2i d_rank;
+  t_ace_2i d_num_ms_combs;
+  t_ace_2i d_offsets;
   t_ace_3i d_mus;
   t_ace_3i d_ns;
   t_ace_3i d_ls;
-  t_ace_4i d_ms_combs;
-  t_ace_2i d_num_ms_combs;
+  t_ace_3i d_ms_combs;
+  t_ace_3d d_ctildes;
 
   t_ace_3d3 f_ij;
 
