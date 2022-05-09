@@ -546,8 +546,6 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   grow(chunk_size, maxneigh);
 
-  auto basis_set = aceimpl->basis_set;
-
   //TODO: shift nullifications to place where arrays are used, make this more efficient
   Kokkos::deep_copy(dB_flatten, 0.0);
   Kokkos::deep_copy(weights, 0.0);
@@ -1153,7 +1151,6 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeForce<NEIGHFLAG,E
     r_hat[1] = d_rhats(ii, jj, 1);
     r_hat[2] = d_rhats(ii, jj, 2);
     const double r = d_rnorms(ii, jj);
-    const double rinv = 1.0/r;
     const double delx = -r_hat[0]*r;
     const double dely = -r_hat[1]*r;
     const double delz = -r_hat[2]*r;
@@ -1564,9 +1561,8 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos::calcSplines(const int ii, const int jj, const double r, const t_ace_3d &d_values, const t_ace_3d &d_derivatives) const
 {
-  double wl, wl2, wl3, w2l1, w3l2, w4l2;
+  double wl, wl2, wl3, w2l1, w3l2;
   double c[4];
-  int func_id, idx;
   double x = r * rscalelookup;
   int nl = static_cast<int>(floor(x));
 
