@@ -888,8 +888,8 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& iter) const
 {
-  const int ii = iter / idx_rho_max;
-  const int idx_rho = iter % idx_rho_max;
+  const int idx_rho = iter / chunk_size;
+  const int ii = iter % chunk_size;
 
   const int i = d_ilist[ii + chunk_offset];
   const int mu_i = d_map(type(i));
@@ -989,8 +989,8 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const int& iter) const
 {
-  const int ii = iter / idx_rho_max;
-  const int idx_rho = iter % idx_rho_max;
+  const int idx_rho = iter / chunk_size;
+  const int ii = iter % chunk_size;
 
   const int i = d_ilist[ii + chunk_offset];
   const int mu_i = d_map(type(i));
