@@ -77,7 +77,7 @@ PairPACEKokkos<DeviceType>::PairPACEKokkos(LAMMPS *lmp) : PairPACE(lmp)
 template<class DeviceType>
 PairPACEKokkos<DeviceType>::~PairPACEKokkos()
 {
-  if (copymode) return;
+  if (copymode || host_flag) return;
 
   memoryKK->destroy_kokkos(k_eatom,eatom);
   memoryKK->destroy_kokkos(k_vatom,vatom);
@@ -1599,6 +1599,8 @@ void PairPACEKokkos<DeviceType>::check_team_size_for(int inum, int &team_size, i
     team_size = team_size_max/vector_length;
 }
 
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 template<class TagStyle>
 void PairPACEKokkos<DeviceType>::check_team_size_reduce(int inum, int &team_size, int vector_length) {
@@ -1616,7 +1618,69 @@ int PairPACEKokkos<DeviceType>::scratch_size_helper(int values_per_team) {
   typedef Kokkos::View<scratch_type*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > ScratchViewType;
 
   return ScratchViewType::shmem_size(values_per_team);
-} 
+}
+
+/* ----------------------------------------------------------------------
+   memory usage of arrays
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+double PairPACEKokkos<DeviceType>::memory_usage()
+{
+  double bytes = 0;
+
+  bytes += A.span() * sizeof(typename decltype(A)::value_type);
+  bytes += A_rank1.span() * sizeof(typename decltype(A_rank1)::value_type);
+  bytes += A_list.span() * sizeof(typename decltype(A_list)::value_type);
+  bytes += A_forward_prod.span() * sizeof(typename decltype(A_forward_prod)::value_type);
+  bytes += e_atom.span() * sizeof(typename decltype(e_atom)::value_type);
+  bytes += rhos.span() * sizeof(typename decltype(rhos)::value_type);
+  bytes += dF_drho.span() * sizeof(typename decltype(dF_drho)::value_type);
+  bytes += weights.span() * sizeof(typename decltype(weights)::value_type);
+  bytes += weights_rank1.span() * sizeof(typename decltype(weights_rank1)::value_type);
+  bytes += rho_core.span() * sizeof(typename decltype(rho_core)::value_type);
+  bytes += dF_drho_core.span() * sizeof(typename decltype(dF_drho_core)::value_type);
+  bytes += fr.span() * sizeof(typename decltype(fr)::value_type);
+  bytes += dfr.span() * sizeof(typename decltype(dfr)::value_type);
+  bytes += gr.span() * sizeof(typename decltype(gr)::value_type);
+  bytes += dgr.span() * sizeof(typename decltype(dgr)::value_type);
+  bytes += d_values.span() * sizeof(typename decltype(d_values)::value_type);
+  bytes += d_derivatives.span() * sizeof(typename decltype(d_derivatives)::value_type);
+  bytes += cr.span() * sizeof(typename decltype(cr)::value_type);
+  bytes += dcr.span() * sizeof(typename decltype(dcr)::value_type);
+  bytes += plm.span() * sizeof(typename decltype(plm)::value_type);
+  bytes += dplm.span() * sizeof(typename decltype(dplm)::value_type);
+  bytes += ylm.span() * sizeof(typename decltype(ylm)::value_type);
+  bytes += dylm.span() * sizeof(typename decltype(dylm)::value_type);
+  bytes += d_ncount.span() * sizeof(typename decltype(d_ncount)::value_type);
+  bytes += d_mu.span() * sizeof(typename decltype(d_mu)::value_type);
+  bytes += d_rhats.span() * sizeof(typename decltype(d_rhats)::value_type);
+  bytes += d_rnorms.span() * sizeof(typename decltype(d_rnorms)::value_type);
+  bytes += d_nearest.span() * sizeof(typename decltype(d_nearest)::value_type);
+  bytes += f_ij.span() * sizeof(typename decltype(f_ij)::value_type);
+  bytes += d_rho_core_cutoff.span() * sizeof(typename decltype(d_rho_core_cutoff)::value_type);
+  bytes += d_drho_core_cutoff.span() * sizeof(typename decltype(d_drho_core_cutoff)::value_type);
+  bytes += d_E0vals.span() * sizeof(typename decltype(d_E0vals)::value_type);
+  bytes += d_ndensity.span() * sizeof(typename decltype(d_ndensity)::value_type);
+  bytes += d_npoti.span() * sizeof(typename decltype(d_npoti)::value_type);
+  bytes += d_wpre.span() * sizeof(typename decltype(d_wpre)::value_type);
+  bytes += d_mexp.span() * sizeof(typename decltype(d_mexp)::value_type);
+  bytes += d_idx_rho_count.span() * sizeof(typename decltype(d_idx_rho_count)::value_type);
+  bytes += d_rank.span() * sizeof(typename decltype(d_rank)::value_type);
+  bytes += d_num_ms_combs.span() * sizeof(typename decltype(d_num_ms_combs)::value_type);
+  bytes += d_offsets.span() * sizeof(typename decltype(d_offsets)::value_type);
+  bytes += d_mus.span() * sizeof(typename decltype(d_mus)::value_type);
+  bytes += d_ns.span() * sizeof(typename decltype(d_ns)::value_type);
+  bytes += d_ls.span() * sizeof(typename decltype(d_ls)::value_type);
+  bytes += d_ms_combs.span() * sizeof(typename decltype(d_ms_combs)::value_type);
+  bytes += d_ctildes.span() * sizeof(typename decltype(d_ctildes)::value_type);
+  bytes += alm.span() * sizeof(typename decltype(alm)::value_type);
+  bytes += blm.span() * sizeof(typename decltype(blm)::value_type);
+  bytes += cl.span() * sizeof(typename decltype(cl)::value_type);
+  bytes += dl.span() * sizeof(typename decltype(dl)::value_type);
+
+  return bytes;
+}
 
 /* ---------------------------------------------------------------------- */
 

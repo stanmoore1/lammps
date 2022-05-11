@@ -147,6 +147,7 @@ class PairPACEKokkos : public PairPACE {
   void copy_tilde();
   void allocate() override;
   void precompute_harmonics();
+  double memory_usage();
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
