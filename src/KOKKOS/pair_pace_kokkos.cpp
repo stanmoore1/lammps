@@ -102,106 +102,55 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
 
   if (A.extent(0) < natom) {
 
-    // dellocate views first to reduce memory use
-    {
-      A = t_ace_4c();
-      A_rank1 = t_ace_3d();
+    memoryKK->realloc_kokkos(A, "pace:A", natom, nelements, nradmax + 1, (lmax + 1) * (lmax + 1));
+    memoryKK->realloc_kokkos(A_rank1, "pace:A_rank1", natom, nelements, nradbase);
 
-      A_list = t_ace_3c();
-      A_forward_prod = t_ace_3c();
-      
-      e_atom = t_ace_1d();
-      rhos = t_ace_2d();
-      dF_drho = t_ace_2d();
-      
-      weights = t_ace_4c();
-      weights_rank1 = t_ace_3d();
-
-      // hard-core repulsion
-      rho_core = t_ace_1d();
-      dF_drho_core = t_ace_1d();
-      dB_flatten = t_ace_3c();
-    }
-
-    A = t_ace_4c(Kokkos::NoInit("pace:A"), natom, nelements, nradmax + 1, (lmax + 1)*(lmax + 1));
-    A_rank1 = t_ace_3d(Kokkos::NoInit("pace:A_rank1"), natom, nelements, nradbase);
-
-    A_list = t_ace_3c(Kokkos::NoInit("pace:A_list"), natom, idx_rho_max, basis_set->rankmax);
+    memoryKK->realloc_kokkos(A_list, "pace:A_list", natom, idx_rho_max, basis_set->rankmax);
     //size is +1 of max to avoid out-of-boundary array access in double-triangular scheme
-    A_forward_prod = t_ace_3c(Kokkos::NoInit("pace:A_forward_prod"), natom, idx_rho_max, basis_set->rankmax + 1);
-    
-    e_atom = t_ace_1d(Kokkos::NoInit("pace:e_atom"), natom);
-    rhos = t_ace_2d(Kokkos::NoInit("pace:rhos"), natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
-    dF_drho = t_ace_2d(Kokkos::NoInit("pace:dF_drho"), natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
-    
-    weights = t_ace_4c(Kokkos::NoInit("pace:weights"), natom, nelements, nradmax + 1, (lmax + 1)*(lmax + 1));
-    weights_rank1 = t_ace_3d(Kokkos::NoInit("pace:weights_rank1"), natom, nelements, nradbase);
+    memoryKK->realloc_kokkos(A_forward_prod, "pace:A_forward_prod", natom, idx_rho_max, basis_set->rankmax + 1);
+
+    memoryKK->realloc_kokkos(e_atom, "pace:e_atom", natom);
+    memoryKK->realloc_kokkos(rhos, "pace:rhos", natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
+    memoryKK->realloc_kokkos(dF_drho, "pace:dF_drho", natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
+
+    memoryKK->realloc_kokkos(weights, "pace:weights", natom, nelements, nradmax + 1, (lmax + 1) * (lmax + 1));
+    memoryKK->realloc_kokkos(weights_rank1, "pace:weights_rank1", natom, nelements, nradbase);
 
     // hard-core repulsion
-    rho_core = t_ace_1d(Kokkos::NoInit("pace:cr"), natom);
-    dF_drho_core = t_ace_1d(Kokkos::NoInit("pace:dF_drho_core"), natom);
-    dB_flatten = t_ace_3c(Kokkos::NoInit("pace:dB_flatten"), natom, idx_rho_max, basis_set->rankmax);
+    memoryKK->realloc_kokkos(rho_core, "pace:rho_core", natom);
+    memoryKK->realloc_kokkos(dF_drho_core, "pace:dF_drho_core", natom);
+    memoryKK->realloc_kokkos(dB_flatten, "pace:dB_flatten", natom, idx_rho_max, basis_set->rankmax);
   }
 
   if (ylm.extent(0) < natom || ylm.extent(1) < maxneigh) {
 
-    // deallocate views first to reduce memory use
-    {
-      // radial functions
-      fr = t_ace_4d();
-      dfr = t_ace_4d();
-      gr = t_ace_3d();
-      dgr = t_ace_3d();
-      d_values = t_ace_3d();
-      d_derivatives = t_ace_3d();
-
-      // hard-core repulsion
-      cr = t_ace_2d();
-      dcr = t_ace_2d();
-
-      // spherical harmonics
-      plm = t_ace_3d();
-      dplm = t_ace_3d();
-      ylm = t_ace_3c();
-      dylm = t_ace_4c3();
-
-      // short neigh list
-      d_ncount = t_ace_1i();
-      d_mu = t_ace_2d();
-      d_rhats = t_ace_3d3();
-      d_rnorms = t_ace_2d();
-      d_nearest = t_ace_2i();
-
-      f_ij = t_ace_3d3();
-    }
-
     // radial functions
-    fr = t_ace_4d(Kokkos::NoInit("pace:fr"), natom, maxneigh, nradmax, lmax + 1);
-    dfr = t_ace_4d(Kokkos::NoInit("pace:dfr"), natom, maxneigh, nradmax, lmax + 1);
-    gr = t_ace_3d(Kokkos::NoInit("pace:gr"), natom, maxneigh, nradbase);
-    dgr = t_ace_3d(Kokkos::NoInit("pace:dgr"), natom, maxneigh, nradbase);
+    memoryKK->realloc_kokkos(fr, "pace:fr", natom, maxneigh, nradmax, lmax + 1);
+    memoryKK->realloc_kokkos(dfr, "pace:dfr", natom, maxneigh, nradmax, lmax + 1);
+    memoryKK->realloc_kokkos(gr, "pace:gr", natom, maxneigh, nradbase);
+    memoryKK->realloc_kokkos(dgr, "pace:dgr", natom, maxneigh, nradbase);
     const int max_num_functions = MAX(nradbase, nradmax*(lmax + 1));
-    d_values = t_ace_3d(Kokkos::NoInit("pace:d_values"), natom, maxneigh, max_num_functions);
-    d_derivatives = t_ace_3d(Kokkos::NoInit("pace:d_derivatives"), natom, maxneigh, max_num_functions);
+    memoryKK->realloc_kokkos(d_values, "pace:d_values", natom, maxneigh, max_num_functions);
+    memoryKK->realloc_kokkos(d_derivatives, "pace:d_derivatives", natom, maxneigh, max_num_functions);
 
     // hard-core repulsion
-    cr = t_ace_2d(Kokkos::NoInit("pace:cr"), natom, maxneigh);
-    dcr = t_ace_2d(Kokkos::NoInit("pace:dcr"), natom, maxneigh);
+    memoryKK->realloc_kokkos(cr, "pace:cr", natom, maxneigh);
+    memoryKK->realloc_kokkos(dcr, "pace:dcr", natom, maxneigh);
 
     // spherical harmonics
-    plm = t_ace_3d(Kokkos::NoInit("pace:plm"), natom, maxneigh, (lmax + 1) * (lmax + 1));
-    dplm = t_ace_3d(Kokkos::NoInit("pace:dplm"), natom, maxneigh, (lmax + 1) * (lmax + 1));
-    ylm = t_ace_3c(Kokkos::NoInit("pace:ylm"), natom, maxneigh, (lmax + 1) * (lmax + 1));
-    dylm = t_ace_4c3(Kokkos::NoInit("pace:dylm"), natom, maxneigh, (lmax + 1) * (lmax + 1));
+    memoryKK->realloc_kokkos(plm, "pace:plm", natom, maxneigh, (lmax + 1) * (lmax + 1));
+    memoryKK->realloc_kokkos(dplm, "pace:dplm", natom, maxneigh, (lmax + 1) * (lmax + 1));
+    memoryKK->realloc_kokkos(ylm, "pace:ylm", natom, maxneigh, (lmax + 1) * (lmax + 1));
+    memoryKK->realloc_kokkos(dylm, "pace:dylm", natom, maxneigh, (lmax + 1) * (lmax + 1));
 
     // short neigh list
-    d_ncount = t_ace_1i(Kokkos::NoInit("pace:ncount"), natom);
-    d_mu = t_ace_2d(Kokkos::NoInit("pace:mu"), natom, maxneigh);
-    d_rhats = t_ace_3d3(Kokkos::NoInit("pace:rhats"), natom, maxneigh);
-    d_rnorms = t_ace_2d(Kokkos::NoInit("pace:rnorms"), natom, maxneigh);
-    d_nearest = t_ace_2i(Kokkos::NoInit("pace:nearest"), natom, maxneigh);
+    memoryKK->realloc_kokkos(d_ncount, "pace:ncount", natom);
+    memoryKK->realloc_kokkos(d_mu, "pace:mu", natom, maxneigh);
+    memoryKK->realloc_kokkos(d_rhats, "pace:rhats", natom, maxneigh);
+    memoryKK->realloc_kokkos(d_rnorms, "pace:rnorms", natom, maxneigh);
+    memoryKK->realloc_kokkos(d_nearest, "pace:nearest", natom, maxneigh);
 
-    f_ij = t_ace_3d3(Kokkos::NoInit("pace:f_ij"), natom, maxneigh);
+    memoryKK->realloc_kokkos(f_ij, "pace:f_ij", natom, maxneigh);
   }
 }
 
@@ -212,20 +161,11 @@ void PairPACEKokkos<DeviceType>::copy_pertype()
 {
   auto basis_set = aceimpl->basis_set;
 
-  // deallocate views first to reduce memory use
-  {
-    d_rho_core_cutoff = t_ace_1d();
-    d_drho_core_cutoff = t_ace_1d();
-    d_E0vals = t_ace_1d();
-    d_ndensity = t_ace_1i();
-    d_npoti = t_ace_1i();
-  }
-
-  d_rho_core_cutoff = t_ace_1d(Kokkos::NoInit("pace:rho_core_cutoff"), nelements);
-  d_drho_core_cutoff = t_ace_1d(Kokkos::NoInit("pace:drho_core_cutoff"), nelements);
-  d_E0vals = t_ace_1d(Kokkos::NoInit("pace:E0vals"), nelements);
-  d_ndensity = t_ace_1i(Kokkos::NoInit("pace:ndensity"), nelements);
-  d_npoti = t_ace_1i(Kokkos::NoInit("pace:npoti"), nelements);
+  memoryKK->realloc_kokkos(d_rho_core_cutoff, "pace:rho_core_cutoff", nelements);
+  memoryKK->realloc_kokkos(d_drho_core_cutoff, "pace:drho_core_cutoff", nelements);
+  memoryKK->realloc_kokkos(d_E0vals, "pace:E0vals", nelements);
+  memoryKK->realloc_kokkos(d_ndensity, "pace:ndensity", nelements);
+  memoryKK->realloc_kokkos(d_npoti, "pace:npoti", nelements);
 
   auto h_rho_core_cutoff = Kokkos::create_mirror_view(d_rho_core_cutoff);
   auto h_drho_core_cutoff = Kokkos::create_mirror_view(d_drho_core_cutoff);
@@ -254,14 +194,8 @@ void PairPACEKokkos<DeviceType>::copy_pertype()
   Kokkos::deep_copy(d_ndensity, h_ndensity);
   Kokkos::deep_copy(d_npoti, h_npoti);
 
-  // deallocate views first to reduce memory use
-  {
-    d_wpre = t_ace_2d();
-    d_mexp = t_ace_2d();
-  }
-
-  d_wpre = t_ace_2d(Kokkos::NoInit("pace:wpre"), nelements, basis_set->ndensitymax);
-  d_mexp = t_ace_2d(Kokkos::NoInit("pace:mexp"), nelements, basis_set->ndensitymax);
+  memoryKK->realloc_kokkos(d_wpre, "pace:wpre", nelements, basis_set->ndensitymax);
+  memoryKK->realloc_kokkos(d_mexp, "pace:mexp", nelements, basis_set->ndensitymax);
 
   auto h_wpre = Kokkos::create_mirror_view(d_wpre);
   auto h_mexp = Kokkos::create_mirror_view(d_mexp);
@@ -295,9 +229,9 @@ void PairPACEKokkos<DeviceType>::copy_splines()
     }
   }
 
-  k_splines_gk = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>(Kokkos::NoInit("pace:splines_gk"), nelements, nelements);
-  k_splines_rnl = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>(Kokkos::NoInit("pace:splines_rnl"), nelements, nelements);
-  k_splines_hc = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>(Kokkos::NoInit("pace:splines_hc"), nelements, nelements);
+  k_splines_gk = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>("pace:splines_gk", nelements, nelements);
+  k_splines_rnl = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>("pace:splines_rnl", nelements, nelements);
+  k_splines_hc = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>("pace:splines_hc", nelements, nelements);
 
   ACERadialFunctions* radial_functions = dynamic_cast<ACERadialFunctions*>(basis_set->radial_functions);
 
@@ -330,7 +264,7 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
   idx_rho_max = 0;
   int total_basis_size_max = 0;
 
-  d_idx_rho_count = t_ace_1i(Kokkos::NoInit("pace:idx_rho_count"), nelements);
+  memoryKK->realloc_kokkos(d_idx_rho_count, "pace:idx_rho_count", nelements);
   auto h_idx_rho_count = Kokkos::create_mirror_view(d_idx_rho_count);
 
   for (int n = 0; n < nelements; n++) {
@@ -359,27 +293,14 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
 
   Kokkos::deep_copy(d_idx_rho_count, h_idx_rho_count);
 
-  // deallocate views to reduce memory use
-  {
-    d_rank = t_ace_2i();
-    d_num_ms_combs = t_ace_2i();
-    d_offsets = t_ace_2i();
-    d_mus = t_ace_3i();
-    d_ns = t_ace_3i();
-    d_ls = t_ace_3i();
-    d_ms_combs = t_ace_3i();
-    d_ctildes = t_ace_3d();
-  }
-
-  d_idx_rho_count = t_ace_1i(Kokkos::NoInit("pace:idx_rho_count"), nelements);
-  d_rank = t_ace_2i(Kokkos::NoInit("pace:rank"), nelements, total_basis_size_max);
-  d_num_ms_combs = t_ace_2i(Kokkos::NoInit("pace:num_ms_combs"), nelements, total_basis_size_max); 
-  d_offsets = t_ace_2i(Kokkos::NoInit("pace:offsets"), nelements, idx_rho_max); 
-  d_mus = t_ace_3i(Kokkos::NoInit("pace:mus"), nelements, total_basis_size_max, basis_set->rankmax); 
-  d_ns = t_ace_3i(Kokkos::NoInit("pace:ns"), nelements, total_basis_size_max, basis_set->rankmax); 
-  d_ls = t_ace_3i(Kokkos::NoInit("pace:ls"), nelements, total_basis_size_max, basis_set->rankmax); 
-  d_ms_combs = t_ace_3i(Kokkos::NoInit("pace:ms_combs"), nelements, idx_rho_max, basis_set->rankmax); 
-  d_ctildes = t_ace_3d(Kokkos::NoInit("pace:ctildes"), nelements, idx_rho_max, basis_set->ndensitymax);
+  memoryKK->realloc_kokkos(d_rank, "pace:rank", nelements, total_basis_size_max);
+  memoryKK->realloc_kokkos(d_num_ms_combs, "pace:num_ms_combs", nelements, total_basis_size_max);
+  memoryKK->realloc_kokkos(d_offsets, "pace:offsets", nelements, idx_rho_max);
+  memoryKK->realloc_kokkos(d_mus, "pace:mus", nelements, total_basis_size_max, basis_set->rankmax);
+  memoryKK->realloc_kokkos(d_ns, "pace:ns", nelements, total_basis_size_max, basis_set->rankmax);
+  memoryKK->realloc_kokkos(d_ls, "pace:ls", nelements, total_basis_size_max, basis_set->rankmax);
+  memoryKK->realloc_kokkos(d_ms_combs, "pace:ms_combs", nelements, idx_rho_max, basis_set->rankmax);
+  memoryKK->realloc_kokkos(d_ctildes, "pace:ctildes", nelements, idx_rho_max, basis_set->ndensitymax);
 
   auto h_rank = Kokkos::create_mirror_view(d_rank);
   auto h_num_ms_combs = Kokkos::create_mirror_view(d_num_ms_combs);
@@ -390,7 +311,7 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
   auto h_ms_combs = Kokkos::create_mirror_view(d_ms_combs);
   auto h_ctildes = Kokkos::create_mirror_view(d_ctildes);
 
-  // copy values on host  
+  // copy values on host
 
   for (int n = 0; n < nelements; n++) {
     const int total_basis_size_rank1 = basis_set->total_basis_size_rank1[n];
@@ -486,10 +407,10 @@ void PairPACEKokkos<DeviceType>::init_style()
 
   // spherical harmonics
 
-  alm = t_ace_1d(Kokkos::NoInit("pace:alm"), (lmax + 1) * (lmax + 1));
-  blm = t_ace_1d(Kokkos::NoInit("pace:blm"), (lmax + 1) * (lmax + 1));
-  cl = t_ace_1d(Kokkos::NoInit("pace:cl"), lmax + 1);
-  dl = t_ace_1d(Kokkos::NoInit("pace:dl"), lmax + 1);
+  memoryKK->realloc_kokkos(alm, "pace:alm", (lmax + 1) * (lmax + 1));
+  memoryKK->realloc_kokkos(blm, "pace:blm", (lmax + 1) * (lmax + 1));
+  memoryKK->realloc_kokkos(cl, "pace:cl", lmax + 1);
+  memoryKK->realloc_kokkos(dl, "pace:dl", lmax + 1);
 
   pre_compute_harmonics(lmax);
   copy_pertype();
@@ -542,12 +463,12 @@ void PairPACEKokkos<DeviceType>::allocate()
   PairPACE::allocate();
 
   int n = atom->ntypes + 1;
-  d_map = Kokkos::View<int*, DeviceType>(Kokkos::NoInit("pace:map"),n);
+  memoryKK->realloc_kokkos(d_map, "pace:map", n);
 
-  k_cutsq = tdual_fparams(Kokkos::NoInit("pace:cutsq"),n,n);
+  memoryKK->realloc_kokkos(k_cutsq, "pace:cutsq", n, n);
   d_cutsq = k_cutsq.template view<DeviceType>();
 
-  k_scale = tdual_fparams(Kokkos::NoInit("pace:scale"),n,n);
+  memoryKK->realloc_kokkos(k_scale, "pace:scale", n, n);
   d_scale = k_scale.template view<DeviceType>();
 }
 
@@ -699,7 +620,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
 
     //ComputeRho
-    { 
+    {
       typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeRho> policy_rho(0,chunk_size*idx_rho_max);
       Kokkos::parallel_for("ComputeRho",policy_rho,*this);
     }
@@ -717,7 +638,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
 
     //ComputeDerivative
-    { 
+    {
       int vector_length = vector_length_default;
       int team_size = team_size_default;
       check_team_size_for<TagPairPACEComputeDerivative>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
@@ -1066,7 +987,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeFS, const int& ii
   // tally energy contribution
   if (eflag) {
     double evdwl_cut = evdwl * fcut + rho_core(ii);
-    // E0 shift 
+    // E0 shift
     evdwl_cut += d_E0vals(mu_i);
     e_atom(ii) = evdwl_cut;
   }
@@ -1345,7 +1266,7 @@ void PairPACEKokkos<DeviceType>::pre_compute_harmonics(int lmax)
       const double msq = m * m;
       const double a = sqrt((double(l1)) / (double(lsq - msq)));
       const double b = -sqrt((double(l2 - msq)) / (double(4 * l2 - 1)));
-      const int idx = l * (l + 1) + m; // (l, m) 
+      const int idx = l * (l + 1) + m; // (l, m)
       h_alm(idx) = a;
       h_blm(idx) = b;
     }
@@ -1672,7 +1593,7 @@ void PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos::calcSplines(const int
       d_values(ii, jj, func_id) = 0.0;
       d_derivatives(ii, jj, func_id) = 0.0;
     }
-  }       
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1718,60 +1639,60 @@ double PairPACEKokkos<DeviceType>::memory_usage()
 {
   double bytes = 0;
 
-  bytes += A.span() * sizeof(typename decltype(A)::value_type);
-  bytes += A_rank1.span() * sizeof(typename decltype(A_rank1)::value_type);
-  bytes += A_list.span() * sizeof(typename decltype(A_list)::value_type);
-  bytes += A_forward_prod.span() * sizeof(typename decltype(A_forward_prod)::value_type);
-  bytes += e_atom.span() * sizeof(typename decltype(e_atom)::value_type);
-  bytes += rhos.span() * sizeof(typename decltype(rhos)::value_type);
-  bytes += dF_drho.span() * sizeof(typename decltype(dF_drho)::value_type);
-  bytes += weights.span() * sizeof(typename decltype(weights)::value_type);
-  bytes += weights_rank1.span() * sizeof(typename decltype(weights_rank1)::value_type);
-  bytes += rho_core.span() * sizeof(typename decltype(rho_core)::value_type);
-  bytes += dF_drho_core.span() * sizeof(typename decltype(dF_drho_core)::value_type);
-  bytes += dB_flatten.span() * sizeof(typename decltype(dB_flatten)::value_type);
-  bytes += fr.span() * sizeof(typename decltype(fr)::value_type);
-  bytes += dfr.span() * sizeof(typename decltype(dfr)::value_type);
-  bytes += gr.span() * sizeof(typename decltype(gr)::value_type);
-  bytes += dgr.span() * sizeof(typename decltype(dgr)::value_type);
-  bytes += d_values.span() * sizeof(typename decltype(d_values)::value_type);
-  bytes += d_derivatives.span() * sizeof(typename decltype(d_derivatives)::value_type);
-  bytes += cr.span() * sizeof(typename decltype(cr)::value_type);
-  bytes += dcr.span() * sizeof(typename decltype(dcr)::value_type);
-  bytes += plm.span() * sizeof(typename decltype(plm)::value_type);
-  bytes += dplm.span() * sizeof(typename decltype(dplm)::value_type);
-  bytes += ylm.span() * sizeof(typename decltype(ylm)::value_type);
-  bytes += dylm.span() * sizeof(typename decltype(dylm)::value_type);
-  bytes += d_ncount.span() * sizeof(typename decltype(d_ncount)::value_type);
-  bytes += d_mu.span() * sizeof(typename decltype(d_mu)::value_type);
-  bytes += d_rhats.span() * sizeof(typename decltype(d_rhats)::value_type);
-  bytes += d_rnorms.span() * sizeof(typename decltype(d_rnorms)::value_type);
-  bytes += d_nearest.span() * sizeof(typename decltype(d_nearest)::value_type);
-  bytes += f_ij.span() * sizeof(typename decltype(f_ij)::value_type);
-  bytes += d_rho_core_cutoff.span() * sizeof(typename decltype(d_rho_core_cutoff)::value_type);
-  bytes += d_drho_core_cutoff.span() * sizeof(typename decltype(d_drho_core_cutoff)::value_type);
-  bytes += d_E0vals.span() * sizeof(typename decltype(d_E0vals)::value_type);
-  bytes += d_ndensity.span() * sizeof(typename decltype(d_ndensity)::value_type);
-  bytes += d_npoti.span() * sizeof(typename decltype(d_npoti)::value_type);
-  bytes += d_wpre.span() * sizeof(typename decltype(d_wpre)::value_type);
-  bytes += d_mexp.span() * sizeof(typename decltype(d_mexp)::value_type);
-  bytes += d_idx_rho_count.span() * sizeof(typename decltype(d_idx_rho_count)::value_type);
-  bytes += d_rank.span() * sizeof(typename decltype(d_rank)::value_type);
-  bytes += d_num_ms_combs.span() * sizeof(typename decltype(d_num_ms_combs)::value_type);
-  bytes += d_offsets.span() * sizeof(typename decltype(d_offsets)::value_type);
-  bytes += d_mus.span() * sizeof(typename decltype(d_mus)::value_type);
-  bytes += d_ns.span() * sizeof(typename decltype(d_ns)::value_type);
-  bytes += d_ls.span() * sizeof(typename decltype(d_ls)::value_type);
-  bytes += d_ms_combs.span() * sizeof(typename decltype(d_ms_combs)::value_type);
-  bytes += d_ctildes.span() * sizeof(typename decltype(d_ctildes)::value_type);
-  bytes += alm.span() * sizeof(typename decltype(alm)::value_type);
-  bytes += blm.span() * sizeof(typename decltype(blm)::value_type);
-  bytes += cl.span() * sizeof(typename decltype(cl)::value_type);
-  bytes += dl.span() * sizeof(typename decltype(dl)::value_type);
+  bytes += memoryKK->memory_usage(A);
+  bytes += memoryKK->memory_usage(A_rank1);
+  bytes += memoryKK->memory_usage(A_list);
+  bytes += memoryKK->memory_usage(A_forward_prod);
+  bytes += memoryKK->memory_usage(e_atom);
+  bytes += memoryKK->memory_usage(rhos);
+  bytes += memoryKK->memory_usage(dF_drho);
+  bytes += memoryKK->memory_usage(weights);
+  bytes += memoryKK->memory_usage(weights_rank1);
+  bytes += memoryKK->memory_usage(rho_core);
+  bytes += memoryKK->memory_usage(dF_drho_core);
+  bytes += memoryKK->memory_usage(dB_flatten);
+  bytes += memoryKK->memory_usage(fr);
+  bytes += memoryKK->memory_usage(dfr);
+  bytes += memoryKK->memory_usage(gr);
+  bytes += memoryKK->memory_usage(dgr);
+  bytes += memoryKK->memory_usage(d_values);
+  bytes += memoryKK->memory_usage(d_derivatives);
+  bytes += memoryKK->memory_usage(cr);
+  bytes += memoryKK->memory_usage(dcr);
+  bytes += memoryKK->memory_usage(plm);
+  bytes += memoryKK->memory_usage(dplm);
+  bytes += memoryKK->memory_usage(ylm);
+  bytes += memoryKK->memory_usage(dylm);
+  bytes += memoryKK->memory_usage(d_ncount);
+  bytes += memoryKK->memory_usage(d_mu);
+  bytes += memoryKK->memory_usage(d_rhats);
+  bytes += memoryKK->memory_usage(d_rnorms);
+  bytes += memoryKK->memory_usage(d_nearest);
+  bytes += memoryKK->memory_usage(f_ij);
+  bytes += memoryKK->memory_usage(d_rho_core_cutoff);
+  bytes += memoryKK->memory_usage(d_drho_core_cutoff);
+  bytes += memoryKK->memory_usage(d_E0vals);
+  bytes += memoryKK->memory_usage(d_ndensity);
+  bytes += memoryKK->memory_usage(d_npoti);
+  bytes += memoryKK->memory_usage(d_wpre);
+  bytes += memoryKK->memory_usage(d_mexp);
+  bytes += memoryKK->memory_usage(d_idx_rho_count);
+  bytes += memoryKK->memory_usage(d_rank);
+  bytes += memoryKK->memory_usage(d_num_ms_combs);
+  bytes += memoryKK->memory_usage(d_offsets);
+  bytes += memoryKK->memory_usage(d_mus);
+  bytes += memoryKK->memory_usage(d_ns);
+  bytes += memoryKK->memory_usage(d_ls);
+  bytes += memoryKK->memory_usage(d_ms_combs);
+  bytes += memoryKK->memory_usage(d_ctildes);
+  bytes += memoryKK->memory_usage(alm);
+  bytes += memoryKK->memory_usage(blm);
+  bytes += memoryKK->memory_usage(cl);
+  bytes += memoryKK->memory_usage(dl);
 
   for (int i = 0; i < nelements; i++)
     for (int j = 0; j < nelements; j++)
-      bytes += k_splines_gk.h_view(i, j).memory_usage();  
+      bytes += k_splines_gk.h_view(i, j).memory_usage();
 
   return bytes;
 }
