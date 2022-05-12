@@ -384,6 +384,15 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
 template<class DeviceType>
 void PairPACEKokkos<DeviceType>::init_style()
 {
+  if (host_flag) {
+    if (lmp->kokkos->nthreads > 1)
+      error->all(FLERR,"Pair style pace/kk can currently only run on a single "
+                         "CPU thread");
+
+    PairPACE::init_style();
+    return;
+  }
+
   if (atom->tag_enable == 0) error->all(FLERR, "Pair style PACE requires atom IDs");
   if (force->newton_pair == 0) error->all(FLERR, "Pair style PACE requires newton pair on");
 
@@ -495,6 +504,13 @@ struct FindMaxNumNeighs {
 template<class DeviceType>
 void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 {
+  if (host_flag) {
+    atomKK->sync(Host,X_MASK|TYPE_MASK);
+    PairPACE::compute(eflag_in,vflag_in);
+    atomKK->modified(Host,F_MASK);
+    return;
+  }
+
   eflag = eflag_in;
   vflag = vflag_in;
 
