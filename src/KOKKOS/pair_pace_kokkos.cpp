@@ -567,14 +567,12 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   int vector_length_default = 1;
   int team_size_default = 1;
   if (!host_flag)
-    team_size_default = 32;//maxneigh;
+    team_size_default = 32;
 
   chunk_size = MIN(chunksize,inum); // "chunksize" variable is set by user
   chunk_offset = 0;
 
   grow(chunk_size, maxneigh);
-
-  //proxy references to radial functions arrays
 
   EV_FLOAT ev;
 
@@ -614,7 +612,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     //ComputeYlm
     {
       int vector_length = vector_length_default;
-      int team_size = team_size_default;
+      int team_size = 16;
       check_team_size_for<TagPairPACEComputeYlm>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
       typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeYlm> policy_ylm(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
       Kokkos::parallel_for("ComputeYlm",policy_ylm,*this);
