@@ -102,46 +102,46 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
 
   if (A.extent(0) < natom) {
 
-    A = t_ace_4c(Kokkos::NoInit("A"), natom, nelements, nradmax + 1, (lmax + 1)*(lmax + 1));
-    A_rank1 = t_ace_3d(Kokkos::NoInit("A_rank1"), natom, nelements, nradbase);
+    A = t_ace_4c(Kokkos::NoInit("pace:A"), natom, nelements, nradmax + 1, (lmax + 1)*(lmax + 1));
+    A_rank1 = t_ace_3d(Kokkos::NoInit("pace:A_rank1"), natom, nelements, nradbase);
 
-    A_list = t_ace_3c(Kokkos::NoInit("A_list"), natom, idx_rho_max, basis_set->rankmax);
+    A_list = t_ace_3c(Kokkos::NoInit("pace:A_list"), natom, idx_rho_max, basis_set->rankmax);
     //size is +1 of max to avoid out-of-boundary array access in double-triangular scheme
-    A_forward_prod = t_ace_3c(Kokkos::NoInit("A_forward_prod"), natom, idx_rho_max, basis_set->rankmax + 1);
+    A_forward_prod = t_ace_3c(Kokkos::NoInit("pace:A_forward_prod"), natom, idx_rho_max, basis_set->rankmax + 1);
     
-    e_atom = t_ace_1d(Kokkos::NoInit("e_atom"), natom);
-    rhos = t_ace_2d(Kokkos::NoInit("rhos"), natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
-    dF_drho = t_ace_2d(Kokkos::NoInit("dF_drho"), natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
+    e_atom = t_ace_1d(Kokkos::NoInit("pace:e_atom"), natom);
+    rhos = t_ace_2d(Kokkos::NoInit("pace:rhos"), natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
+    dF_drho = t_ace_2d(Kokkos::NoInit("pace:dF_drho"), natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
     
-    weights = t_ace_4c(Kokkos::NoInit("weights"), natom, nelements, nradmax + 1, (lmax + 1)*(lmax + 1));
-    weights_rank1 = t_ace_3d(Kokkos::NoInit("weights_rank1"), natom, nelements, nradbase);
+    weights = t_ace_4c(Kokkos::NoInit("pace:weights"), natom, nelements, nradmax + 1, (lmax + 1)*(lmax + 1));
+    weights_rank1 = t_ace_3d(Kokkos::NoInit("pace:weights_rank1"), natom, nelements, nradbase);
 
     // hard-core repulsion
-    rho_core = t_ace_1d(Kokkos::NoInit("cr"), natom);
-    dF_drho_core = t_ace_1d(Kokkos::NoInit("dF_drho_core"), natom);
-    dB_flatten = t_ace_3c(Kokkos::NoInit("dB_flatten"), natom, idx_rho_max, basis_set->rankmax);
+    rho_core = t_ace_1d(Kokkos::NoInit("pace:cr"), natom);
+    dF_drho_core = t_ace_1d(Kokkos::NoInit("pace:dF_drho_core"), natom);
+    dB_flatten = t_ace_3c(Kokkos::NoInit("pace:dB_flatten"), natom, idx_rho_max, basis_set->rankmax);
   }
 
   if (ylm.extent(0) < natom || ylm.extent(1) < maxneigh) {
 
     // radial functions
-    fr = t_ace_4d(Kokkos::NoInit("fr"), natom, maxneigh, nradmax, lmax + 1);
-    dfr = t_ace_4d(Kokkos::NoInit("dfr"), natom, maxneigh, nradmax, lmax + 1);
-    gr = t_ace_3d(Kokkos::NoInit("gr"), natom, maxneigh, nradbase);
-    dgr = t_ace_3d(Kokkos::NoInit("dgr"), natom, maxneigh, nradbase);
+    fr = t_ace_4d(Kokkos::NoInit("pace:fr"), natom, maxneigh, nradmax, lmax + 1);
+    dfr = t_ace_4d(Kokkos::NoInit("pace:dfr"), natom, maxneigh, nradmax, lmax + 1);
+    gr = t_ace_3d(Kokkos::NoInit("pace:gr"), natom, maxneigh, nradbase);
+    dgr = t_ace_3d(Kokkos::NoInit("pace:dgr"), natom, maxneigh, nradbase);
     const int max_num_functions = MAX(nradbase, nradmax*(lmax + 1));
-    d_values = t_ace_3d(Kokkos::NoInit("d_values"), natom, maxneigh, max_num_functions);
-    d_derivatives = t_ace_3d(Kokkos::NoInit("d_derivatives"), natom, maxneigh, max_num_functions);
+    d_values = t_ace_3d(Kokkos::NoInit("pace:d_values"), natom, maxneigh, max_num_functions);
+    d_derivatives = t_ace_3d(Kokkos::NoInit("pace:d_derivatives"), natom, maxneigh, max_num_functions);
 
     // hard-core repulsion
-    cr = t_ace_2d(Kokkos::NoInit("cr"), natom, maxneigh);
-    dcr = t_ace_2d(Kokkos::NoInit("dcr"), natom, maxneigh);
+    cr = t_ace_2d(Kokkos::NoInit("pace:cr"), natom, maxneigh);
+    dcr = t_ace_2d(Kokkos::NoInit("pace:dcr"), natom, maxneigh);
 
     // spherical harmonics
-    plm = t_ace_3d(Kokkos::NoInit("plm"), natom, maxneigh, (lmax + 1) * (lmax + 1));
-    dplm = t_ace_3d(Kokkos::NoInit("dplm"), natom, maxneigh, (lmax + 1) * (lmax + 1));
-    ylm = t_ace_3c(Kokkos::NoInit("ylm"), natom, maxneigh, (lmax + 1) * (lmax + 1));
-    dylm = t_ace_4c3(Kokkos::NoInit("dylm"), natom, maxneigh, (lmax + 1) * (lmax + 1));
+    plm = t_ace_3d(Kokkos::NoInit("pace:plm"), natom, maxneigh, (lmax + 1) * (lmax + 1));
+    dplm = t_ace_3d(Kokkos::NoInit("pace:dplm"), natom, maxneigh, (lmax + 1) * (lmax + 1));
+    ylm = t_ace_3c(Kokkos::NoInit("pace:ylm"), natom, maxneigh, (lmax + 1) * (lmax + 1));
+    dylm = t_ace_4c3(Kokkos::NoInit("pace:dylm"), natom, maxneigh, (lmax + 1) * (lmax + 1));
 
     // short neigh list
     d_ncount = t_ace_1i(Kokkos::NoInit("pace:ncount"), natom);
@@ -150,7 +150,7 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
     d_rnorms = t_ace_2d(Kokkos::NoInit("pace:rnorms"), natom, maxneigh);
     d_nearest = t_ace_2i(Kokkos::NoInit("pace:nearest"), natom, maxneigh);
 
-    f_ij = t_ace_3d3(Kokkos::NoInit("f_ij"), natom, maxneigh);
+    f_ij = t_ace_3d3(Kokkos::NoInit("pace:f_ij"), natom, maxneigh);
   }
 }
 
@@ -161,11 +161,11 @@ void PairPACEKokkos<DeviceType>::copy_pertype()
 {
   auto basis_set = aceimpl->basis_set;
 
-  d_rho_core_cutoff = t_ace_1d(Kokkos::NoInit("rho_core_cutoff"), nelements);
-  d_drho_core_cutoff = t_ace_1d(Kokkos::NoInit("drho_core_cutoff"), nelements);
-  d_E0vals = t_ace_1d(Kokkos::NoInit("E0vals"), nelements);
-  d_ndensity = t_ace_1i(Kokkos::NoInit("ndensity"), nelements);
-  d_npoti = t_ace_1i(Kokkos::NoInit("npoti"), nelements);
+  d_rho_core_cutoff = t_ace_1d(Kokkos::NoInit("pace:rho_core_cutoff"), nelements);
+  d_drho_core_cutoff = t_ace_1d(Kokkos::NoInit("pace:drho_core_cutoff"), nelements);
+  d_E0vals = t_ace_1d(Kokkos::NoInit("pace:E0vals"), nelements);
+  d_ndensity = t_ace_1i(Kokkos::NoInit("pace:ndensity"), nelements);
+  d_npoti = t_ace_1i(Kokkos::NoInit("pace:npoti"), nelements);
 
   auto h_rho_core_cutoff = Kokkos::create_mirror_view(d_rho_core_cutoff);
   auto h_drho_core_cutoff = Kokkos::create_mirror_view(d_drho_core_cutoff);
@@ -194,8 +194,8 @@ void PairPACEKokkos<DeviceType>::copy_pertype()
   Kokkos::deep_copy(d_ndensity, h_ndensity);
   Kokkos::deep_copy(d_npoti, h_npoti);
 
-  d_wpre = t_ace_2d(Kokkos::NoInit("wpre"), nelements, basis_set->ndensitymax);
-  d_mexp = t_ace_2d(Kokkos::NoInit("mexp"), nelements, basis_set->ndensitymax);
+  d_wpre = t_ace_2d(Kokkos::NoInit("pace:wpre"), nelements, basis_set->ndensitymax);
+  d_mexp = t_ace_2d(Kokkos::NoInit("pace:mexp"), nelements, basis_set->ndensitymax);
 
   auto h_wpre = Kokkos::create_mirror_view(d_wpre);
   auto h_mexp = Kokkos::create_mirror_view(d_mexp);
@@ -219,9 +219,9 @@ void PairPACEKokkos<DeviceType>::copy_splines()
 {
   auto basis_set = aceimpl->basis_set;
 
-  k_splines_gk = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>(Kokkos::NoInit("splines_gk"), nelements, nelements);
-  k_splines_rnl = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>(Kokkos::NoInit("splines_rnl"), nelements, nelements);
-  k_splines_hc = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>(Kokkos::NoInit("splines_hc"), nelements, nelements);
+  k_splines_gk = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>(Kokkos::NoInit("pace:splines_gk"), nelements, nelements);
+  k_splines_rnl = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>(Kokkos::NoInit("pace:splines_rnl"), nelements, nelements);
+  k_splines_hc = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>(Kokkos::NoInit("pace:splines_hc"), nelements, nelements);
 
   ACERadialFunctions* radial_functions = dynamic_cast<ACERadialFunctions*>(basis_set->radial_functions);
 
@@ -254,7 +254,7 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
   idx_rho_max = 0;
   int total_basis_size_max = 0;
 
-  d_idx_rho_count = t_ace_1i(Kokkos::NoInit("idx_rho_count"), nelements);
+  d_idx_rho_count = t_ace_1i(Kokkos::NoInit("pace:idx_rho_count"), nelements);
   auto h_idx_rho_count = Kokkos::create_mirror_view(d_idx_rho_count);
 
   for (int n = 0; n < nelements; n++) {
@@ -283,14 +283,14 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
 
   Kokkos::deep_copy(d_idx_rho_count, h_idx_rho_count);
 
-  d_rank = t_ace_2i(Kokkos::NoInit("rank"), nelements, total_basis_size_max);
-  d_num_ms_combs = t_ace_2i(Kokkos::NoInit("num_ms_combs"), nelements, total_basis_size_max); 
-  d_offsets = t_ace_2i(Kokkos::NoInit("offsets"), nelements, idx_rho_max); 
-  d_mus = t_ace_3i(Kokkos::NoInit("mus"), nelements, total_basis_size_max, basis_set->rankmax); 
-  d_ns = t_ace_3i(Kokkos::NoInit("ns"), nelements, total_basis_size_max, basis_set->rankmax); 
-  d_ls = t_ace_3i(Kokkos::NoInit("ls"), nelements, total_basis_size_max, basis_set->rankmax); 
-  d_ms_combs = t_ace_3i(Kokkos::NoInit("ms_combs"), nelements, idx_rho_max, basis_set->rankmax); 
-  d_ctildes = t_ace_3d(Kokkos::NoInit("ctildes"), nelements, idx_rho_max, basis_set->ndensitymax);
+  d_rank = t_ace_2i(Kokkos::NoInit("pace:rank"), nelements, total_basis_size_max);
+  d_num_ms_combs = t_ace_2i(Kokkos::NoInit("pace:num_ms_combs"), nelements, total_basis_size_max); 
+  d_offsets = t_ace_2i(Kokkos::NoInit("pace:offsets"), nelements, idx_rho_max); 
+  d_mus = t_ace_3i(Kokkos::NoInit("pace:mus"), nelements, total_basis_size_max, basis_set->rankmax); 
+  d_ns = t_ace_3i(Kokkos::NoInit("pace:ns"), nelements, total_basis_size_max, basis_set->rankmax); 
+  d_ls = t_ace_3i(Kokkos::NoInit("pace:ls"), nelements, total_basis_size_max, basis_set->rankmax); 
+  d_ms_combs = t_ace_3i(Kokkos::NoInit("pace:ms_combs"), nelements, idx_rho_max, basis_set->rankmax); 
+  d_ctildes = t_ace_3d(Kokkos::NoInit("pace:ctildes"), nelements, idx_rho_max, basis_set->ndensitymax);
 
   auto h_rank = Kokkos::create_mirror_view(d_rank);
   auto h_num_ms_combs = Kokkos::create_mirror_view(d_num_ms_combs);
@@ -397,10 +397,10 @@ void PairPACEKokkos<DeviceType>::init_style()
 
   // spherical harmonics
 
-  alm = t_ace_1d(Kokkos::NoInit("alm"), (lmax + 1) * (lmax + 1));
-  blm = t_ace_1d(Kokkos::NoInit("blm"), (lmax + 1) * (lmax + 1));
-  cl = t_ace_1d(Kokkos::NoInit("cl"), lmax + 1);
-  dl = t_ace_1d(Kokkos::NoInit("dl"), lmax + 1);
+  alm = t_ace_1d(Kokkos::NoInit("pace:alm"), (lmax + 1) * (lmax + 1));
+  blm = t_ace_1d(Kokkos::NoInit("pace:blm"), (lmax + 1) * (lmax + 1));
+  cl = t_ace_1d(Kokkos::NoInit("pace:cl"), lmax + 1);
+  dl = t_ace_1d(Kokkos::NoInit("pace:dl"), lmax + 1);
 
   pre_compute_harmonics(lmax);
   copy_pertype();
@@ -453,12 +453,12 @@ void PairPACEKokkos<DeviceType>::allocate()
   PairPACE::allocate();
 
   int n = atom->ntypes + 1;
-  d_map = Kokkos::View<int*, DeviceType>(Kokkos::NoInit("pace::map"),n);
+  d_map = Kokkos::View<int*, DeviceType>(Kokkos::NoInit("pace:map"),n);
 
-  k_cutsq = tdual_fparams(Kokkos::NoInit("pace::cutsq"),n,n);
+  k_cutsq = tdual_fparams(Kokkos::NoInit("pace:cutsq"),n,n);
   d_cutsq = k_cutsq.template view<DeviceType>();
 
-  k_scale = tdual_fparams(Kokkos::NoInit("pace::scale"),n,n);
+  k_scale = tdual_fparams(Kokkos::NoInit("pace:scale"),n,n);
   d_scale = k_scale.template view<DeviceType>();
 }
 
@@ -1640,6 +1640,7 @@ double PairPACEKokkos<DeviceType>::memory_usage()
   bytes += weights_rank1.span() * sizeof(typename decltype(weights_rank1)::value_type);
   bytes += rho_core.span() * sizeof(typename decltype(rho_core)::value_type);
   bytes += dF_drho_core.span() * sizeof(typename decltype(dF_drho_core)::value_type);
+  bytes += dB_flatten.span() * sizeof(typename decltype(dB_flatten)::value_type);
   bytes += fr.span() * sizeof(typename decltype(fr)::value_type);
   bytes += dfr.span() * sizeof(typename decltype(dfr)::value_type);
   bytes += gr.span() * sizeof(typename decltype(gr)::value_type);
@@ -1678,6 +1679,10 @@ double PairPACEKokkos<DeviceType>::memory_usage()
   bytes += blm.span() * sizeof(typename decltype(blm)::value_type);
   bytes += cl.span() * sizeof(typename decltype(cl)::value_type);
   bytes += dl.span() * sizeof(typename decltype(dl)::value_type);
+
+  for (int i = 0; i < nelements; i++)
+    for (int j = 0; j < nelements; j++)
+      bytes += k_splines_gk.h_view(i, j).memory_usage();  
 
   return bytes;
 }

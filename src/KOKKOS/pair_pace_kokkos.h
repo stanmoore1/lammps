@@ -315,6 +315,10 @@ class PairPACEKokkos : public PairPACE {
       lookupTable = t_ace_3d4();
     }
 
+    double memory_usage() {
+      return lookupTable.span() * sizeof(typename decltype(lookupTable)::value_type);
+    }
+
     KOKKOS_INLINE_FUNCTION
     void calcSplines(const int ii, const int jj, const double r, const t_ace_3d &d_values, const t_ace_3d &d_derivatives) const;
   };
