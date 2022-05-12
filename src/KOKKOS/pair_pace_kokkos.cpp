@@ -77,7 +77,7 @@ PairPACEKokkos<DeviceType>::PairPACEKokkos(LAMMPS *lmp) : PairPACE(lmp)
 template<class DeviceType>
 PairPACEKokkos<DeviceType>::~PairPACEKokkos()
 {
-  if (copymode || host_flag) return;
+  if (copymode) return;
 
   memoryKK->destroy_kokkos(k_eatom,eatom);
   memoryKK->destroy_kokkos(k_vatom,vatom);
@@ -102,6 +102,27 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
 
   if (A.extent(0) < natom) {
 
+    // dellocate views first to reduce memory use
+    {
+      A = t_ace_4c();
+      A_rank1 = t_ace_3d();
+
+      A_list = t_ace_3c();
+      A_forward_prod = t_ace_3c();
+      
+      e_atom = t_ace_1d();
+      rhos = t_ace_2d();
+      dF_drho = t_ace_2d();
+      
+      weights = t_ace_4c();
+      weights_rank1 = t_ace_3d();
+
+      // hard-core repulsion
+      rho_core = t_ace_1d();
+      dF_drho_core = t_ace_1d();
+      dB_flatten = t_ace_3c();
+    }
+
     A = t_ace_4c(Kokkos::NoInit("pace:A"), natom, nelements, nradmax + 1, (lmax + 1)*(lmax + 1));
     A_rank1 = t_ace_3d(Kokkos::NoInit("pace:A_rank1"), natom, nelements, nradbase);
 
@@ -123,6 +144,36 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
   }
 
   if (ylm.extent(0) < natom || ylm.extent(1) < maxneigh) {
+
+    // deallocate views first to reduce memory use
+    {
+      // radial functions
+      fr = t_ace_4d();
+      dfr = t_ace_4d();
+      gr = t_ace_3d();
+      dgr = t_ace_3d();
+      d_values = t_ace_3d();
+      d_derivatives = t_ace_3d();
+
+      // hard-core repulsion
+      cr = t_ace_2d();
+      dcr = t_ace_2d();
+
+      // spherical harmonics
+      plm = t_ace_3d();
+      dplm = t_ace_3d();
+      ylm = t_ace_3c();
+      dylm = t_ace_4c3();
+
+      // short neigh list
+      d_ncount = t_ace_1i();
+      d_mu = t_ace_2d();
+      d_rhats = t_ace_3d3();
+      d_rnorms = t_ace_2d();
+      d_nearest = t_ace_2i();
+
+      f_ij = t_ace_3d3();
+    }
 
     // radial functions
     fr = t_ace_4d(Kokkos::NoInit("pace:fr"), natom, maxneigh, nradmax, lmax + 1);
@@ -161,6 +212,15 @@ void PairPACEKokkos<DeviceType>::copy_pertype()
 {
   auto basis_set = aceimpl->basis_set;
 
+  // deallocate views first to reduce memory use
+  {
+    d_rho_core_cutoff = t_ace_1d();
+    d_drho_core_cutoff = t_ace_1d();
+    d_E0vals = t_ace_1d();
+    d_ndensity = t_ace_1i();
+    d_npoti = t_ace_1i();
+  }
+
   d_rho_core_cutoff = t_ace_1d(Kokkos::NoInit("pace:rho_core_cutoff"), nelements);
   d_drho_core_cutoff = t_ace_1d(Kokkos::NoInit("pace:drho_core_cutoff"), nelements);
   d_E0vals = t_ace_1d(Kokkos::NoInit("pace:E0vals"), nelements);
@@ -194,6 +254,12 @@ void PairPACEKokkos<DeviceType>::copy_pertype()
   Kokkos::deep_copy(d_ndensity, h_ndensity);
   Kokkos::deep_copy(d_npoti, h_npoti);
 
+  // deallocate views first to reduce memory use
+  {
+    d_wpre = t_ace_2d();
+    d_mexp = t_ace_2d();
+  }
+
   d_wpre = t_ace_2d(Kokkos::NoInit("pace:wpre"), nelements, basis_set->ndensitymax);
   d_mexp = t_ace_2d(Kokkos::NoInit("pace:mexp"), nelements, basis_set->ndensitymax);
 
@@ -218,6 +284,16 @@ template<class DeviceType>
 void PairPACEKokkos<DeviceType>::copy_splines()
 {
   auto basis_set = aceimpl->basis_set;
+
+  if (k_splines_gk.d_view.data()) {
+    for (int i = 0; i < nelements; i++) {
+      for (int j = 0; j < nelements; j++) {
+	k_splines_gk.h_view(i, j).deallocate();
+	k_splines_rnl.h_view(i, j).deallocate();
+	k_splines_hc.h_view(i, j).deallocate();
+      }
+    }
+  }
 
   k_splines_gk = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>(Kokkos::NoInit("pace:splines_gk"), nelements, nelements);
   k_splines_rnl = Kokkos::DualView<SplineInterpolatorKokkos**, DeviceType>(Kokkos::NoInit("pace:splines_rnl"), nelements, nelements);
@@ -283,6 +359,19 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
 
   Kokkos::deep_copy(d_idx_rho_count, h_idx_rho_count);
 
+  // deallocate views to reduce memory use
+  {
+    d_rank = t_ace_2i();
+    d_num_ms_combs = t_ace_2i();
+    d_offsets = t_ace_2i();
+    d_mus = t_ace_3i();
+    d_ns = t_ace_3i();
+    d_ls = t_ace_3i();
+    d_ms_combs = t_ace_3i();
+    d_ctildes = t_ace_3d();
+  }
+
+  d_idx_rho_count = t_ace_1i(Kokkos::NoInit("pace:idx_rho_count"), nelements);
   d_rank = t_ace_2i(Kokkos::NoInit("pace:rank"), nelements, total_basis_size_max);
   d_num_ms_combs = t_ace_2i(Kokkos::NoInit("pace:num_ms_combs"), nelements, total_basis_size_max); 
   d_offsets = t_ace_2i(Kokkos::NoInit("pace:offsets"), nelements, idx_rho_max); 
