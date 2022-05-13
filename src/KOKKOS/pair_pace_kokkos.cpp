@@ -222,9 +222,9 @@ void PairPACEKokkos<DeviceType>::copy_splines()
   if (k_splines_gk.d_view.data()) {
     for (int i = 0; i < nelements; i++) {
       for (int j = 0; j < nelements; j++) {
-	k_splines_gk.h_view(i, j).deallocate();
-	k_splines_rnl.h_view(i, j).deallocate();
-	k_splines_hc.h_view(i, j).deallocate();
+        k_splines_gk.h_view(i, j).deallocate();
+        k_splines_rnl.h_view(i, j).deallocate();
+        k_splines_hc.h_view(i, j).deallocate();
       }
     }
   }
@@ -537,7 +537,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     error->all(FLERR,"PairPACEKokkos requires 'newton on'");
 
   if (recursive)
-    error->all(FLERR,"Must use 'product' algorithm with pair pace/kk");
+    error->all(FLERR,"Must use 'product' algorithm with pair pace/kk on the GPU");
 
   atomKK->sync(execution_space,X_MASK|F_MASK|TYPE_MASK);
   x = atomKK->k_x.view<DeviceType>();
@@ -1114,29 +1114,29 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivative, const
 
       // for m >= 0
       for (int m = 0; m <= l; m++) {
-	const int idx = l * (l + 1) + m; // (l, m)
-	complex w = weights(ii, mu_j, n, idx);
-	if (w.re == 0.0 && w.im == 0.0) continue;
-	// counting for -m cases if m > 0
-	if (m > 0) {
-	  w.re *= 2.0;
-	  w.im *= 2.0;
-	}
+        const int idx = l * (l + 1) + m; // (l, m)
+        complex w = weights(ii, mu_j, n, idx);
+        if (w.re == 0.0 && w.im == 0.0) continue;
+        // counting for -m cases if m > 0
+        if (m > 0) {
+          w.re *= 2.0;
+          w.im *= 2.0;
+        }
 
-	complex DY[3];
-	DY[0] = dylm(ii, jj, idx, 0);
-	DY[1] = dylm(ii, jj, idx, 1);
-	DY[2] = dylm(ii, jj, idx, 2);
-	const complex Y_DR = ylm(ii, jj, idx) * DR;
+        complex DY[3];
+        DY[0] = dylm(ii, jj, idx, 0);
+        DY[1] = dylm(ii, jj, idx, 1);
+        DY[2] = dylm(ii, jj, idx, 2);
+        const complex Y_DR = ylm(ii, jj, idx) * DR;
 
-	complex grad_phi_nlm[3];
-	grad_phi_nlm[0] = Y_DR * r_hat[0] + DY[0] * R_over_r;
-	grad_phi_nlm[1] = Y_DR * r_hat[1] + DY[1] * R_over_r;
-	grad_phi_nlm[2] = Y_DR * r_hat[2] + DY[2] * R_over_r;
-	// real-part multiplication only
-	f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
-	f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
-	f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
+        complex grad_phi_nlm[3];
+        grad_phi_nlm[0] = Y_DR * r_hat[0] + DY[0] * R_over_r;
+        grad_phi_nlm[1] = Y_DR * r_hat[1] + DY[1] * R_over_r;
+        grad_phi_nlm[2] = Y_DR * r_hat[2] + DY[2] * R_over_r;
+        // real-part multiplication only
+        f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
+        f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
+        f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
       }
     }
   }
