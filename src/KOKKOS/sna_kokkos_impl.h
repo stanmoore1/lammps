@@ -317,6 +317,7 @@ void SNAKokkos<DeviceType, real_type, vector_length>::grow_rij(int newnatom, int
     ulisttot_re_pack = t_sna_4d_ll(Kokkos::NoInit("sna:ulisttot_re_pack"),vector_length,idxu_half_max,nelements,natom_div);
     ulisttot_im_pack = t_sna_4d_ll(Kokkos::NoInit("sna:ulisttot_im_pack"),vector_length,idxu_half_max,nelements,natom_div);
     ulisttot_pack = t_sna_3c_ll(Kokkos::NoInit("sna:ulisttot_pack"),vector_length,idxu_max,natom_div);
+    ulisttot_pack_um = ulisttot_pack;
     ulist = t_sna_3c_ll(Kokkos::NoInit("sna:ulist"),1,1,1);
     zlist = t_sna_3c_ll(Kokkos::NoInit("sna:zlist"),1,1,1);
     zlist_pack = t_sna_4c_ll(Kokkos::NoInit("sna:zlist_pack"),vector_length,idxz_max,ndoubles,natom_div);
@@ -338,6 +339,7 @@ void SNAKokkos<DeviceType, real_type, vector_length>::grow_rij(int newnatom, int
     ulisttot_re_pack = t_sna_4d_ll(Kokkos::NoInit("sna:ulisttot_re"),1,1,1,1);
     ulisttot_im_pack = t_sna_4d_ll(Kokkos::NoInit("sna:ulisttot_im"),1,1,1,1);
     ulisttot_pack = t_sna_3c_ll(Kokkos::NoInit("sna:ulisttot_pack"),1,1,1,1);
+    ulisttot_pack_um = ulisttot_pack;
     ulist = t_sna_3c_ll(Kokkos::NoInit("sna:ulist"),idxu_cache_max,natom,nmax);
     zlist = t_sna_3c_ll(Kokkos::NoInit("sna:zlist"),idxz_max,ndoubles,natom);
     zlist_pack = t_sna_4c_ll(Kokkos::NoInit("sna:zlist_pack"),1,1,1,1);
@@ -878,6 +880,8 @@ typename SNAKokkos<DeviceType, real_type, vector_length>::complex SNAKokkos<Devi
   int jju2 = idxu_block[j2] + (j2+1)*mb2max;
   int icgb = mb1min*(j2+1) + mb2max;
 
+  auto ulisttot_small = Kokkos::subview(ulisttot_pack_um,iatom_mod,Kokkos::ALL,iatom_div);
+
   #ifdef LMP_KK_DEVICE_COMPILE
   #pragma unroll
   #endif
@@ -891,8 +895,8 @@ typename SNAKokkos<DeviceType, real_type, vector_length>::complex SNAKokkos<Devi
     #pragma unroll
     #endif
     for (int ia = 0; ia < na; ia++) {
-      const complex utot1 = ulisttot_pack(iatom_mod, jju1+ma1, iatom_div);
-      const complex utot2 = ulisttot_pack(iatom_mod, jju2+ma2, iatom_div);
+      const complex utot1 = ulisttot_small(jju1+ma1);
+      const complex utot2 = ulisttot_small(jju2+ma2);
       const real_type cgcoeff_a = cgblock[icga];
       const real_type cgcoeff_b = cgblock[icgb];
       ztmp.re += cgcoeff_a * cgcoeff_b * (utot1.re * utot2.re - utot1.im * utot2.im);

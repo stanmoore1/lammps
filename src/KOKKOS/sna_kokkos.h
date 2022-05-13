@@ -91,6 +91,7 @@ class SNAKokkos {
   typedef Kokkos::View<complex**, Kokkos::LayoutRight, DeviceType> t_sna_2c_lr;
   typedef Kokkos::View<complex***, DeviceType> t_sna_3c;
   typedef Kokkos::View<complex***, Kokkos::LayoutLeft, DeviceType> t_sna_3c_ll;
+  typedef Kokkos::View<complex***, Kokkos::LayoutLeft, DeviceType, Kokkos::MemoryTraits<Kokkos::Unmanaged>> t_sna_3c_ll_um;
   typedef Kokkos::View<complex***[3], DeviceType> t_sna_4c;
   typedef Kokkos::View<complex***[3], Kokkos::LayoutLeft, DeviceType> t_sna_4c3_ll;
   typedef Kokkos::View<complex****, Kokkos::LayoutLeft, DeviceType> t_sna_4c_ll;
@@ -246,6 +247,7 @@ class SNAKokkos {
   t_sna_4d_ll ulisttot_re_pack; // split real,
   t_sna_4d_ll ulisttot_im_pack; // imag, AoSoA, flattened
   t_sna_3c_ll ulisttot_pack; // AoSoA layout
+  t_sna_3c_ll_um ulisttot_pack_um; // AoSoA layout
   t_sna_4c_ll zlist_pack; // AoSoA layout
   t_sna_4d_ll blist_pack;
   t_sna_3d_ll ylist_pack_re; // split real,
