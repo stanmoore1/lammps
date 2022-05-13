@@ -162,10 +162,10 @@ class SNAKokkos {
   // plugged into compute_zi, compute_yi
   KOKKOS_FORCEINLINE_FUNCTION
   complex evaluate_zi(const int&, const int&, const int&, const int&, const int&, const int&, const int&, const int&, const int&,
-                        const int&, const int&, const int&, const int&, const real_type*);
+                        const int&, const int&, const real_type*);
   // plugged into compute_yi, compute_yi_with_zlist
   KOKKOS_FORCEINLINE_FUNCTION
-  real_type evaluate_beta_scaled(const int&, const int&, const int&, const int&, const int&, const int&, const int&, const int&,
+  real_type evaluate_beta_scaled(const int&, const int&, const int&, const int&, const int&,
                         const Kokkos::View<real_type***, Kokkos::LayoutLeft, DeviceType> &);
   // plugged into compute_fused_deidrj_small, compute_fused_deidrj_large
   KOKKOS_FORCEINLINE_FUNCTION
@@ -245,11 +245,11 @@ class SNAKokkos {
 
   t_sna_4d_ll ulisttot_re_pack; // split real,
   t_sna_4d_ll ulisttot_im_pack; // imag, AoSoA, flattened
-  t_sna_4c_ll ulisttot_pack; // AoSoA layout
+  t_sna_3c_ll ulisttot_pack; // AoSoA layout
   t_sna_4c_ll zlist_pack; // AoSoA layout
   t_sna_4d_ll blist_pack;
-  t_sna_4d_ll ylist_pack_re; // split real,
-  t_sna_4d_ll ylist_pack_im; // imag AoSoA layout
+  t_sna_3d_ll ylist_pack_re; // split real,
+  t_sna_3d_ll ylist_pack_im; // imag AoSoA layout
 
   int idxcg_max, idxu_max, idxu_half_max, idxu_cache_max, idxz_max, idxb_max;
 

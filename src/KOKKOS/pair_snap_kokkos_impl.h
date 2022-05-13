@@ -859,11 +859,11 @@ void PairSNAPKokkos<DeviceType, real_type, vector_length>::operator() (TagPairSN
       utot_re = -utot_re;
     }
 
-    my_sna.ulisttot_pack(iatom_mod, idxu, ielem, iatom_div) = { utot_re, utot_im };
+    my_sna.ulisttot_pack(iatom_mod, idxu, iatom_div) = { utot_re, utot_im };
 
     if (mapper.flip_sign == 0) {
-      my_sna.ylist_pack_re(iatom_mod, mapper.idxu_half, ielem, iatom_div) = 0.;
-      my_sna.ylist_pack_im(iatom_mod, mapper.idxu_half, ielem, iatom_div) = 0.;
+      my_sna.ylist_pack_re(iatom_mod, mapper.idxu_half, iatom_div) = 0.;
+      my_sna.ylist_pack_im(iatom_mod, mapper.idxu_half, iatom_div) = 0.;
     }
   }
 }
