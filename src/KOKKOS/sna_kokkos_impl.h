@@ -880,7 +880,7 @@ typename SNAKokkos<DeviceType, real_type, vector_length>::complex SNAKokkos<Devi
   int jju2 = idxu_block[j2] + (j2+1)*mb2max;
   int icgb = mb1min*(j2+1) + mb2max;
 
-  auto ulisttot_small = Kokkos::subview(ulisttot_pack_um,iatom_mod,Kokkos::ALL,iatom_div);
+  //auto ulisttot_small = Kokkos::subview(ulisttot_pack_um,iatom_mod,Kokkos::ALL,iatom_div);
 
   #ifdef LMP_KK_DEVICE_COMPILE
   #pragma unroll
@@ -895,8 +895,10 @@ typename SNAKokkos<DeviceType, real_type, vector_length>::complex SNAKokkos<Devi
     #pragma unroll
     #endif
     for (int ia = 0; ia < na; ia++) {
-      const complex utot1 = ulisttot_small(jju1+ma1);
-      const complex utot2 = ulisttot_small(jju2+ma2);
+      //const complex utot1 = ulisttot_small(jju1+ma1);
+      //const complex utot2 = ulisttot_small(jju2+ma2);
+      const complex utot1 = ulisttot_pack(iatom_mod,jju1+ma1,iatom_div);
+      const complex utot2 = ulisttot_pack(iatom_mod,jju2+ma2,iatom_div);
       const real_type cgcoeff_a = cgblock[icga];
       const real_type cgcoeff_b = cgblock[icgb];
       ztmp.re += cgcoeff_a * cgcoeff_b * (utot1.re * utot2.re - utot1.im * utot2.im);
