@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -12,65 +12,46 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: Greg Wagner (SNL)
+   Contributing author: Naga Vydyanathan (NVIDIA)
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-//KK*
 #include "meam_kokkos.h"
-#include "kokkos.h"
 #include "pair_kokkos.h"
-//#include "pair_meam.h"
-
 #include "pair_meam_kokkos.h"
+
 #include "atom_kokkos.h"
-//*KK
-#include "force.h"
-#include "comm.h"
-//KK*
-//#include "memory.h"
-#include "memory_kokkos.h"
-//*KK
-#include "neighbor.h"
-//KK*
-//#include "neigh_list.h"
-#include "neigh_list_kokkos.h"
-//*KK
-#include "neigh_request.h"
-#include "error.h"
-//*KK
 #include "atom_masks.h"
-//*KK
+#include "comm.h"
+#include "error.h"
+#include "force.h"
+#include "kokkos.h"
+#include "memory_kokkos.h"
+#include "neigh_list_kokkos.h"
+#include "neigh_request.h"
+#include "neighbor.h"
+
+#include <cmath>
 
 using namespace LAMMPS_NS;
 
-#if 0
-static const int nkeywords = 21;
-static const char *keywords[] = {
-  "Ec","alpha","rho0","delta","lattce",
-  "attrac","repuls","nn2","Cmin","Cmax","rc","delr",
-  "augt1","gsmooth_factor","re","ialloy",
-  "mixture_ref_t","erose_form","zbl",
-  "emb_lin_neg","bkgd_dyn"};
-#endif
-
 /* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 PairMEAMKokkos<DeviceType>::PairMEAMKokkos(LAMMPS *lmp) : PairMEAM(lmp)
 {
   respa_enable = 0;
+  single_enable = 0;
 
+  kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read = X_MASK | F_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | ENERGY_MASK | VIRIAL_MASK;
-  meam_inst_kk = new MEAMKokkos<DeviceType>(memory);
   delete meam_inst;
+  meam_inst_kk = new MEAMKokkos<DeviceType>(memory);
   meam_inst = meam_inst_kk;
 }
+
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
@@ -86,13 +67,12 @@ PairMEAMKokkos<DeviceType>::~PairMEAMKokkos()
 
 /* ---------------------------------------------------------------------- */
 
-/* ---------------------------------------------------------------------- */
 template<class DeviceType>
 void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 {
   eflag = eflag_in;
   vflag = vflag_in;
-  
+
   if (neighflag == FULL) no_virial_fdotr_compute = 1;
 
   ev_init(eflag,vflag,0);
@@ -106,7 +86,7 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   }
   if (vflag_atom) {
     memoryKK->destroy_kokkos(k_vatom,vatom);
-    memoryKK->create_kokkos(k_vatom,vatom,maxvatom,6,"pair:vatom");
+    memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"pair:vatom");
     d_vatom = k_vatom.view<DeviceType>();
   }
 
@@ -149,13 +129,8 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   meam_inst_kk->meam_dens_setup(atom->nmax, nall, n);
 
-  //double **x = atom->x;
   x = atomKK->k_x.view<DeviceType>();
-
-  //double **f = atom->f;
   f = atomKK->k_f.view<DeviceType>();
-
-  //int *type = atom->type;
   type = atomKK->k_type.view<DeviceType>();
 
   int ntype = atom->ntypes;

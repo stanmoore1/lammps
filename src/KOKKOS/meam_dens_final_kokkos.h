@@ -77,7 +77,7 @@ void MEAMKokkos<DeviceType>::operator()(TagMEAMDensFinal, const int &i, EV_FLOAT
       Z = 0.0; //// this->Z_meam[elti];
 
       G = G_gam(d_gamma[i], this->ibar_meam[elti], errorflag);
-      if (errorflag != 0)
+      if (errorflag != 0) ////////////////
       {
         //char str[128];
         //sprintf(str,"MEAMKokkos library error %d",errorflag);
