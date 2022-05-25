@@ -76,11 +76,11 @@ PairMEAMKokkos<DeviceType>::PairMEAMKokkos(LAMMPS *lmp) : PairMEAM(lmp)
 template<class DeviceType>
 PairMEAMKokkos<DeviceType>::~PairMEAMKokkos()
 {
-  if (!copymode) {
-    memoryKK->destroy_kokkos(k_eatom,eatom);
-    memoryKK->destroy_kokkos(k_vatom,vatom);
-    delete meam_inst_kk;
-  }
+  if (copymode) return;
+
+  memoryKK->destroy_kokkos(k_eatom,eatom);
+  memoryKK->destroy_kokkos(k_vatom,vatom);
+  delete meam_inst_kk;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -332,17 +332,15 @@ void PairMEAMKokkos<DeviceType>::init_style()
   // adjust neighbor list request for KOKKOS
 
   neighflag = lmp->kokkos->neighflag;
-  auto request = neighbor->find_request(this); //// need to add id
+  auto request = neighbor->find_request(this,1);
   request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
                            !std::is_same<DeviceType,LMPDeviceType>::value);
   request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
-  if (neighflag == FULL) request->enable_full();
 
-  request = neighbor->find_request(this); //// need to add id
+  request = neighbor->find_request(this,2);
   request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
                            !std::is_same<DeviceType,LMPDeviceType>::value);
   request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
-  if (neighflag == FULL) request->enable_full();
 }
 
 /* ---------------------------------------------------------------------- */
