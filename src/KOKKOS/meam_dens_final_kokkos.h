@@ -20,8 +20,10 @@ MEAMKokkos<DeviceType>::meam_dens_final(int nlocal, int eflag_either, int eflag_
 
   //     Complete the calculation of density
 
+  copymode = 1;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMDensFinal>(0,nlocal),*this,ev);
   *eng_vdwl = ev.evdwl;
+  copymode = 0;
 }
 
 template<class DeviceType>

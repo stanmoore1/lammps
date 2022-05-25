@@ -25,7 +25,7 @@ public:
   typedef ArrayTypes<DeviceType> AT;
   typedef EV_FLOAT value_type;
   MEAMKokkos(Memory* mem);
-  ~MEAMKokkos();
+  ~MEAMKokkos() override;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagMEAMDensFinal, const int&, EV_FLOAT&) const;
@@ -61,7 +61,7 @@ protected:
 
 public:
   void meam_dens_setup(int, int, int);
-  void meam_setup_done(void);
+  void meam_setup_done(double*);
   void meam_dens_init(int , int , typename AT::t_int_1d_randomread , typename AT::t_int_1d_randomread, typename AT::t_x_array_randomread, typename AT::t_int_1d_randomread, 
                       typename AT::t_int_1d_randomread , int* , typename AT::t_int_1d_randomread, typename AT::t_neighbors_2d,typename AT::t_neighbors_2d,typename AT::t_int_1d_randomread, int );
   void meam_dens_final(int , int , int , int , double* ,
@@ -108,9 +108,7 @@ public:
   DAT::tdual_ffloat_2d k_arho1, k_arho2, k_arho3, k_arho3b, k_t_ave, k_tsq_ave;
   typename ArrayTypes<DeviceType>::t_ffloat_2d d_arho1, d_arho2, d_arho3, d_arho3b, d_t_ave, d_tsq_ave;
   HAT::t_ffloat_2d h_arho1, h_arho2, h_arho3, h_arho3b, h_t_ave, h_tsq_ave;
-  DAT::tdual_ffloat_2d k_phir, k_phirar, k_phirar1, k_phirar2, k_phirar3, k_phirar4, k_phirar5, k_phirar6;
   typename ArrayTypes<DeviceType>::t_ffloat_2d d_phir, d_phirar, d_phirar1, d_phirar2, d_phirar3, d_phirar4, d_phirar5, d_phirar6;
-  HAT::t_ffloat_2d h_phir, h_phirar, h_phirar1, h_phirar2, h_phirar3, h_phirar4, h_phirar5, h_phirar6;
   DAT::tdual_ffloat_1d k_scrfcn, k_dscrfcn, k_fcpair;
   typename ArrayTypes<DeviceType>::t_ffloat_1d d_scrfcn, d_dscrfcn, d_fcpair;
   HAT::t_ffloat_1d h_scrfcn, h_dscrfcn, h_fcpair;

@@ -81,6 +81,7 @@ PairMEAMKokkos<DeviceType>::~PairMEAMKokkos()
   memoryKK->destroy_kokkos(k_eatom,eatom);
   memoryKK->destroy_kokkos(k_vatom,vatom);
   delete meam_inst_kk;
+  meam_inst = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -129,6 +130,7 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   d_neighbors_full = k_fulllist->d_neighbors;
 
   copymode = 1;
+  meam_inst_kk->copymode = 1;
 
   // strip neighbor lists of any special bond flags before using with MEAM
   // necessary before doing neigh_f2c and neigh_c2f conversions each step
@@ -217,10 +219,7 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   meam_inst_kk->k_tsq_ave.template modify<DeviceType>();
   meam_inst_kk->k_tsq_ave.template sync<LMPHostType>();
 
-  printf("NV: Before reverse_comm_pair\n");
   comm->reverse_comm(this);
-  printf("NV: After reverse_comm_pair\n");
-
 
   meam_inst_kk->k_rho0.template modify<LMPHostType>();
   meam_inst_kk->k_rho0.template sync<DeviceType>();
@@ -291,6 +290,8 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     k_vatom.template sync<LMPHostType>();
   }
 
+  copymode = 0;
+  meam_inst_kk->copymode = 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -315,10 +316,7 @@ void PairMEAMKokkos<DeviceType>::coeff(int narg, char **arg)
 
   d_map = k_map.template view<DeviceType>();
 
-//NV :: need to synchronize phirar variables
-   
-  meam_inst_kk->meam_setup_done(); 
-  
+  meam_inst_kk->meam_setup_done(&cutmax); 
 }
 
 /* ----------------------------------------------------------------------

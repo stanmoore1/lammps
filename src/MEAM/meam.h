@@ -27,7 +27,9 @@ typedef enum { FCC, BCC, HCP, DIM, DIA, DIA3, B1, C11, L12, B2, CH4, LIN, ZIG, T
 class MEAM {
  public:
   MEAM(Memory *mem);
-  ~MEAM();
+  virtual ~MEAM();
+
+  int copymode;
 
  protected:
   Memory *memory;

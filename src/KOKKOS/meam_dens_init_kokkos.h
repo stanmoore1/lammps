@@ -155,7 +155,9 @@ MEAMKokkos<DeviceType>::meam_dens_setup(int atom_nmax, int nall, int n_neigh)
 
   // zero out local arrays
 
-   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagMEAMInitialize>(0, nall),*this);   
+  copymode = 1;
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagMEAMInitialize>(0, nall),*this);
+  copymode = 0;
 }
 
 template<class DeviceType>
@@ -176,6 +178,7 @@ MEAMKokkos<DeviceType>::meam_dens_init(int inum_half, int ntype, typename AT::t_
   this->d_neighbors_half = d_neighbors_half;
   this->d_neighbors_full = d_neighbors_full;
   this->d_offset = d_offset;
+  copymode = 1;
   if (neighflag == FULL)
       Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMDensInit<FULL> >(0,inum_half),*this, ev);
   else if (neighflag == HALF)
@@ -183,6 +186,7 @@ MEAMKokkos<DeviceType>::meam_dens_init(int inum_half, int ntype, typename AT::t_
   else if (neighflag == HALFTHREAD)
       Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMDensInit<HALFTHREAD> >(0,inum_half),*this, ev);
   *fnoffset = (int)ev.evdwl;
+  copymode = 0;
 }
 
 // ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

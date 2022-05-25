@@ -29,16 +29,9 @@ MEAMKokkos<DeviceType>::MEAMKokkos(Memory *mem) : MEAM(mem)
 template<class DeviceType>
 MEAMKokkos<DeviceType>::~MEAMKokkos()
 {
+  if (copymode) return;
+
   MemoryKokkos *memoryKK = (MemoryKokkos *)memory;
-  
-  memoryKK->destroy_kokkos(k_phirar6,phirar6);
-  memoryKK->destroy_kokkos(k_phirar5,phirar5);
-  memoryKK->destroy_kokkos(k_phirar4,phirar4);
-  memoryKK->destroy_kokkos(k_phirar3,phirar3);
-  memoryKK->destroy_kokkos(k_phirar2,phirar2);
-  memoryKK->destroy_kokkos(k_phirar1,phirar1);
-  memoryKK->destroy_kokkos(k_phirar,phirar);
-  memoryKK->destroy_kokkos(k_phir,phir);
 
   memoryKK->destroy_kokkos(k_rho,rho);
   memoryKK->destroy_kokkos(k_rho0,rho0);

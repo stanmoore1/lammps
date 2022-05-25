@@ -32,7 +32,8 @@ MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_either, int eflag_gl
     this->d_vatom = vatom;
     this->d_ilist_half = d_ilist_half;
     this->d_offset = d_offset;
-  
+
+    copymode = 1;
     if (neighflag == FULL) 
        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<FULL>>(0,inum_half),*this,ev);
     else if (neighflag == HALF)
@@ -40,6 +41,7 @@ MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_either, int eflag_gl
     else if (neighflag == HALFTHREAD)
        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<HALFTHREAD>>(0,inum_half),*this,ev);
     *eng_vdwl = ev.evdwl;
+    copymode = 0;
 }
 
 template<class DeviceType>
@@ -339,19 +341,18 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
         //     Compute derivatives of total density wrt rij, sij and rij(3)
          get_shpfcn(this->lattce_meam[elti][elti], shpi);
          get_shpfcn(this->lattce_meam[eltj][eltj], shpj);
-        drhodr1 = dgamma1[i] * drho0dr1 +
-          dgamma2[i] * (dt1dr1 * d_rho1[i] + t1i * drho1dr1 + dt2dr1 * d_rho2[i] + t2i * drho2dr1 +
+        drhodr1 = d_dgamma1[i] * drho0dr1 +
+          d_dgamma2[i] * (dt1dr1 * d_rho1[i] + t1i * drho1dr1 + dt2dr1 * d_rho2[i] + t2i * drho2dr1 +
                         dt3dr1 * d_rho3[i] + t3i * drho3dr1) -
-          dgamma3[i] * (shpi[0] * dt1dr1 + shpi[1] * dt2dr1 + shpi[2] * dt3dr1);
-        drhodr2 = dgamma1[j] * drho0dr2 +
-          dgamma2[j] * (dt1dr2 * d_rho1[j] + t1j * drho1dr2 + dt2dr2 * d_rho2[j] + t2j * drho2dr2 +
+          d_dgamma3[i] * (shpi[0] * dt1dr1 + shpi[1] * dt2dr1 + shpi[2] * dt3dr1);
+        drhodr2 = d_dgamma1[j] * drho0dr2 +
+          d_dgamma2[j] * (dt1dr2 * d_rho1[j] + t1j * drho1dr2 + dt2dr2 * d_rho2[j] + t2j * drho2dr2 +
                         dt3dr2 * d_rho3[j] + t3j * drho3dr2) -
-          dgamma3[j] * (shpj[0] * dt1dr2 + shpj[1] * dt2dr2 + shpj[2] * dt3dr2);
+          d_dgamma3[j] * (shpj[0] * dt1dr2 + shpj[1] * dt2dr2 + shpj[2] * dt3dr2);
         for (m = 0; m < 3; m++) {
           drhodrm1[m] = 0.0;
           drhodrm2[m] = 0.0;
-          drhodrm1[m] = dgamma2[i] * (t1i * drho1drm1[m] + t2i * drho2drm1[m] + t3i * drho3drm1[m]);
-          drhodrm2[m] = dgamma2[j] * (t1j * drho1drm2[m] + t2j * drho2drm2[m] + t3j * drho3drm2[m]);
+          drhodrm1[m] = d_dgamma2[i] * (t1i * drho1drm1[m] + t2i * drho2drm1[m] + t3i * drho3drm1[m]);
         }
 
         //     Compute derivatives wrt sij, but only if necessary
