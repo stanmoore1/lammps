@@ -99,26 +99,14 @@ void PairExp6rxKokkos<DeviceType>::init_style()
 {
   PairExp6rx::init_style();
 
-  // irequest = neigh request made by parent class
+  // adjust neighbor list request for KOKKOS
 
   neighflag = lmp->kokkos->neighflag;
-  int irequest = neighbor->nrequest - 1;
-
-  neighbor->requests[irequest]->
-    kokkos_host = std::is_same<DeviceType,LMPHostType>::value &&
-    !std::is_same<DeviceType,LMPDeviceType>::value;
-  neighbor->requests[irequest]->
-    kokkos_device = std::is_same<DeviceType,LMPDeviceType>::value;
-
-  if (neighflag == FULL) {
-    neighbor->requests[irequest]->full = 1;
-    neighbor->requests[irequest]->half = 0;
-  } else if (neighflag == HALF || neighflag == HALFTHREAD) {
-    neighbor->requests[irequest]->full = 0;
-    neighbor->requests[irequest]->half = 1;
-  } else {
-    error->all(FLERR,"Cannot use chosen neighbor list style with exp6/rx/kk");
-  }
+  auto request = neighbor->find_request(this);
+  request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
+                           !std::is_same<DeviceType,LMPDeviceType>::value);
+  request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
+  if (neighflag == FULL) request->enable_full();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1266,7 +1254,7 @@ void PairExp6rxKokkos<DeviceType>::vectorized_operator(const int &ii, EV_FLOAT& 
         delx_j [niters] = delx;
         dely_j [niters] = dely;
         delz_j [niters] = delz;
-        if (OneType == false)
+        if (!OneType)
           cutsq_j[niters] = cutsq_ij;
 
         neigh_j[niters] = d_neighbors(i,jptr);
@@ -1717,7 +1705,7 @@ void PairExp6rxKokkos<DeviceType>::read_file(char *file)
   char line[MAXLINE],*ptr;
   int eof = 0;
 
-  while (1) {
+  while (true) {
     if (comm->me == 0) {
       ptr = fgets(line,MAXLINE,fp);
       if (ptr == nullptr) {

@@ -43,13 +43,6 @@ PairHybridKokkos::PairHybridKokkos(LAMMPS *lmp) : PairHybrid(lmp)
   datamask_modify = EMPTY_MASK;
 }
 
-/* ---------------------------------------------------------------------- */
-
-PairHybridKokkos::~PairHybridKokkos()
-{
-
-}
-
 /* ----------------------------------------------------------------------
   call each sub-style's compute() or compute_outer() function
   accumulate sub-style global/peratom energy/virial in hybrid
@@ -71,8 +64,7 @@ void PairHybridKokkos::compute(int eflag, int vflag)
   // if so, reset vflag as if global component were VIRIAL_PAIR
   // necessary since one or more sub-styles cannot compute virial as F dot r
 
-  int neighflag = lmp->kokkos->neighflag;
-  if (neighflag == FULL) no_virial_fdotr_compute = 1;
+  if (lmp->kokkos->neighflag == FULL) no_virial_fdotr_compute = 1;
 
   if (no_virial_fdotr_compute && (vflag & VIRIAL_FDOTR))
     vflag = VIRIAL_PAIR | (vflag & ~VIRIAL_FDOTR);

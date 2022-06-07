@@ -5,6 +5,8 @@ on:
   push:
     branches: [develop]
 
+  workflow_dispatch:
+
 jobs:
   build:
     name: Windows Compilation Test
@@ -26,6 +28,7 @@ jobs:
       shell: bash
       run: |
         python3 -m pip install numpy
+        python3 -m pip install pyyaml
         cmake -C cmake/presets/windows.cmake \
               -D PKG_PYTHON=on \
               -S cmake -B build \

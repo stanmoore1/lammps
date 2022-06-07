@@ -98,26 +98,14 @@ void FixQEqReaxFFKokkos<DeviceType>::init()
 
   FixQEqReaxFF::init();
 
+  // adjust neighbor list request for KOKKOS
+
   neighflag = lmp->kokkos->neighflag_qeq;
-  int irequest = neighbor->nrequest - 1;
-
-  neighbor->requests[irequest]->
-    kokkos_host = std::is_same<DeviceType,LMPHostType>::value &&
-    !std::is_same<DeviceType,LMPDeviceType>::value;
-  neighbor->requests[irequest]->
-    kokkos_device = std::is_same<DeviceType,LMPDeviceType>::value;
-
-  if (neighflag == FULL) {
-    neighbor->requests[irequest]->fix = 1;
-    neighbor->requests[irequest]->pair = 0;
-    neighbor->requests[irequest]->full = 1;
-    neighbor->requests[irequest]->half = 0;
-  } else { //if (neighflag == HALF || neighflag == HALFTHREAD)
-    neighbor->requests[irequest]->fix = 1;
-    neighbor->requests[irequest]->pair = 0;
-    neighbor->requests[irequest]->full = 0;
-    neighbor->requests[irequest]->half = 1;
-  }
+  auto request = neighbor->find_request(this);
+  request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
+                           !std::is_same<DeviceType,LMPDeviceType>::value);
+  request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
+  if (neighflag == FULL) request->enable_full();
 
   int ntypes = atom->ntypes;
   k_params = Kokkos::DualView<params_qeq*,Kokkos::LayoutRight,DeviceType>
@@ -220,7 +208,6 @@ void FixQEqReaxFFKokkos<DeviceType>::pre_force(int /*vflag*/)
   d_neighbors = k_list->d_neighbors;
   d_ilist = k_list->d_ilist;
   nn = list->inum;
-  NN = list->inum + list->gnum;
 
   copymode = 1;
 
@@ -309,6 +296,8 @@ void FixQEqReaxFFKokkos<DeviceType>::pre_force(int /*vflag*/)
     dup_o = decltype(dup_o)();
 
   atomKK->modified(execution_space,datamask_modify);
+
+  d_neighbors = typename AT::t_neighbors_2d();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -331,8 +320,19 @@ void FixQEqReaxFFKokkos<DeviceType>::allocate_matrix()
   // determine the total space for the H matrix
 
   m_cap = 0;
-  FixQEqReaxFFKokkosNumNeighFunctor<DeviceType> neigh_functor(this);
-  Kokkos::parallel_reduce(nn,neigh_functor,m_cap);
+
+  // limit scope of functor to allow deallocation of views
+  {
+    FixQEqReaxFFKokkosNumNeighFunctor<DeviceType> neigh_functor(this);
+    Kokkos::parallel_reduce(nn,neigh_functor,m_cap);
+  }
+
+  // deallocate first to reduce memory overhead
+
+  d_firstnbr = typename AT::t_int_1d();
+  d_numnbrs = typename AT::t_int_1d();
+  d_jlist = typename AT::t_int_1d();
+  d_val = typename AT::t_ffloat_1d();
 
   d_firstnbr = typename AT::t_int_1d("qeq/kk:firstnbr",nmax);
   d_numnbrs = typename AT::t_int_1d("qeq/kk:numnbrs",nmax);
@@ -374,7 +374,7 @@ void FixQEqReaxFFKokkos<DeviceType>::allocate_array()
 
   if (efield) get_chi_field();
 
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagQEqZero>(0,NN),*this);
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagQEqZero>(0,nn),*this);
 
 }
 /* ---------------------------------------------------------------------- */
@@ -871,7 +871,8 @@ void FixQEqReaxFFKokkos<DeviceType>::sparse_matvec_kokkos(typename AT::t_ffloat2
   }
 
   if (neighflag != FULL) {
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagQEqZeroQGhosts>(nn,NN),*this);
+    int nall = nlocal + atomKK->nghost;
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagQEqZeroQGhosts>(atom->nlocal,nall),*this);
 
     if (need_dup)
       dup_o.reset_except(d_o);
