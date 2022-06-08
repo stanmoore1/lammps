@@ -144,8 +144,10 @@ void PairMEAM::compute(int eflag, int vflag)
 
   comm->reverse_comm(this);
 
+  printf("before dens_final %g\n",eng_vdwl);
   meam_inst->meam_dens_final(nlocal,eflag_either,eflag_global,eflag_atom,
                    &eng_vdwl,eatom,ntype,type,map,scale,errorflag);
+  printf("after dens_final %g\n",eng_vdwl);
   if (errorflag)
     error->one(FLERR,"MEAM library error {}",errorflag);
 

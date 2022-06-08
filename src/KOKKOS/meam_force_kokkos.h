@@ -8,7 +8,7 @@ using namespace MathSpecialKokkos;
 template<class DeviceType>
 void
 MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_global, int eflag_atom, int vflag_global, int vflag_atom,
-                 typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d fmap, typename AT::t_x_array x, typename AT::t_int_1d numneigh,
+                 typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d d_map, typename AT::t_x_array x, typename AT::t_int_1d numneigh,
                  typename AT::t_int_1d numneigh_full, typename AT::t_f_array f, typename ArrayTypes<DeviceType>::t_virial_array vatom, typename AT::t_int_1d d_ilist_half, typename AT::t_int_1d d_offset, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, int neighflag, EV_FLOAT &ev_all)
 {
   EV_FLOAT ev;
@@ -23,7 +23,7 @@ MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_global, int eflag_at
   this->d_eatom = eatom;
   this->ntype = ntype;
   this->type = type;
-  this->fmap = fmap;
+  this->d_map = d_map;
   this->x = x;
   this->d_numneigh_half = numneigh;
   this->d_numneigh_full = numneigh_full;
@@ -93,7 +93,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
   third = 1.0 / 3.0;
   sixth = 1.0 / 6.0;
 
-  elti = fmap[type[i]];
+  elti = d_map[type[i]];
   if (elti < 0) return;
 
   xitmp = x(i,0);
@@ -103,7 +103,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
   // Treat each pair
   for (jn = 0; jn < d_numneigh_half[i]; jn++) {
     j = d_neighbors_half(i,jn);
-    eltj = fmap[type[j]];
+    eltj = d_map[type[j]];
 
     if (!iszero_kk(d_scrfcn[fnoffset + jn]) && eltj >= 0) {
 
@@ -470,7 +470,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
 
         for (kn = 0; kn < d_numneigh_full[i]; kn++) {
           k = d_neighbors_full(i,kn);
-          eltk = fmap[type[k]];
+          eltk = d_map[type[k]];
           if (k != j && eltk >= 0) {
             double xik, xjk, cikj, sikj, dfc, a;
             double dCikj1, dCikj2;

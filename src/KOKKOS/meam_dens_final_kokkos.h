@@ -8,7 +8,7 @@ using namespace LAMMPS_NS;
 template<class DeviceType>
 void
 MEAMKokkos<DeviceType>::meam_dens_final(int nlocal, int eflag_either, int eflag_global, int eflag_atom,
-                      typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d fmap, int& errorflag, EV_FLOAT &ev_all)
+                      typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d d_map, int& errorflag, EV_FLOAT &ev_all)
 {
   EV_FLOAT ev;
   this->eflag_either = eflag_either;
@@ -17,7 +17,7 @@ MEAMKokkos<DeviceType>::meam_dens_final(int nlocal, int eflag_either, int eflag_
   this->d_eatom = eatom;
   this->ntype = ntype;
   this->type = type;
-  this->fmap = fmap;
+  this->d_map = d_map;
 
   // Complete the calculation of density
 
@@ -37,7 +37,7 @@ void MEAMKokkos<DeviceType>::operator()(TagMEAMDensFinal, const int &i, EV_FLOAT
   F_FLOAT rhob, G, dG, Gbar, dGbar, gam, shp[3], Z;
   F_FLOAT B, denom, rho_bkgd;
 
-  int elti = fmap[type[i]];
+  int elti = d_map[type[i]];
   if (elti >= 0) {
     d_rho1[i] = 0.0;
     d_rho2[i] = -1.0 / 3.0 * d_arho2b[i] * d_arho2b[i];

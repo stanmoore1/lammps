@@ -45,7 +45,7 @@ protected:
   int ntype;
   typename AT::t_int_1d type;
   typename AT::t_int_1d d_offset;
-  typename AT::t_int_1d fmap;
+  typename AT::t_int_1d d_map;
   typename AT::t_x_array x;
   typename AT::t_int_1d d_numneigh_half;
   typename AT::t_int_1d d_numneigh_full;

@@ -182,8 +182,10 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     meam_inst_kk->k_tsq_ave.template sync<DeviceType>();
   //}
 
+  printf("before dens_final %g\n",ev.evdwl);
   meam_inst_kk->meam_dens_final(nlocal,eflag_either,eflag_global,eflag_atom,
                    d_eatom,ntype,type,d_map,errorflag,ev);
+  printf("after dens_final %g\n",ev.evdwl);
   if (errorflag) {
     char str[128];
     sprintf(str,"MEAM library error %d",errorflag);
