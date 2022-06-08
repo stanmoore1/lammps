@@ -261,7 +261,7 @@ const {
         // atom k can't possibly screen i-j
         if (a <= 0.0) continue;
 
-        const double cikj = (2.0 * (xik + xjk) + a - 2.0) / a;
+        double cikj = (2.0 * (xik + xjk) + a - 2.0) / a;
         const double Cmax = Cmax_meam[elti][eltj][eltk];
         const double Cmin = Cmin_meam[elti][eltj][eltk];
         double sikj;
@@ -274,7 +274,7 @@ const {
           break;
         } else {
           const double delc = Cmax - Cmin;
-          const double cikj = (cikj - Cmin) / delc;
+          cikj = (cikj - Cmin) / delc;
           sikj = fcut(cikj);
         }
         sij *= sikj;
