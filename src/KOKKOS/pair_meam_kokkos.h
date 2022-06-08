@@ -20,7 +20,6 @@ PairStyle(meam/kk,PairMEAMKokkos<LMPDeviceType>)
 PairStyle(meam/kk/device,PairMEAMKokkos<LMPDeviceType>)
 PairStyle(meam/kk/host,PairMEAMKokkos<LMPHostType>)
 // clang-format on
-
 #else
 
 // clang-format off
@@ -30,7 +29,6 @@ PairStyle(meam/kk/host,PairMEAMKokkos<LMPHostType>)
 #include "kokkos_base.h"
 #include "pair_kokkos.h"
 #include "pair_meam.h"
-#include "neigh_list_kokkos.h"
 #include "meam_kokkos.h"
 
 namespace LAMMPS_NS {
@@ -49,7 +47,7 @@ class PairMEAMKokkos : public PairMEAM, public KokkosBase {
   enum {COUL_FLAG=0};
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  //typedef EV_FLOAT value_type;
+  typedef int value_type;
 
   PairMEAMKokkos(class LAMMPS *);
   ~PairMEAMKokkos() override;
@@ -91,24 +89,22 @@ class PairMEAMKokkos : public PairMEAM, public KokkosBase {
 
   DAT::tdual_int_1d k_offset; 
   HAT::t_int_1d h_offset;
-  typename AT::t_int_1d_randomread d_offset;
+  typename AT::t_int_1d d_offset;
   
   DAT::tdual_int_1d k_map; 
-  typename AT::t_int_1d_randomread d_map;
-  typename AT::t_int_1d_randomread d_ilist_half;
-  typename AT::t_int_1d_randomread d_numneigh_half;
+  typename AT::t_int_1d d_map;
+  typename AT::t_int_1d d_ilist_half;
+  typename AT::t_int_1d d_numneigh_half;
   typename AT::t_neighbors_2d d_neighbors_half;
-  typename AT::t_int_1d_randomread d_numneigh_full;
+  typename AT::t_int_1d d_numneigh_full;
   typename AT::t_neighbors_2d d_neighbors_full;
   typename AT::t_int_2d d_sendlist;
   typename AT::t_xfloat_1d_um v_buf;
-   
+
+  int iswap,first;   
   int neighflag,nlocal,nall,eflag,vflag;
-  int iswap; 
-  int first;
 
   friend void pair_virial_fdotr_compute<PairMEAMKokkos>(PairMEAMKokkos*);
-
 };
 
 }

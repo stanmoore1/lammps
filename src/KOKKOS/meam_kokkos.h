@@ -43,15 +43,15 @@ public:
 protected:
 //Parameters to meam_dens_init - is there a better way to do this?
   int ntype;
-  typename AT::t_int_1d_randomread type;
-  typename AT::t_int_1d_randomread d_offset;
-  typename AT::t_int_1d_randomread fmap;
-  typename AT::t_x_array_randomread x;
-  typename AT::t_int_1d_randomread d_numneigh_half;
-  typename AT::t_int_1d_randomread d_numneigh_full;
+  typename AT::t_int_1d type;
+  typename AT::t_int_1d d_offset;
+  typename AT::t_int_1d fmap;
+  typename AT::t_x_array x;
+  typename AT::t_int_1d d_numneigh_half;
+  typename AT::t_int_1d d_numneigh_full;
   typename AT::t_neighbors_2d d_neighbors_half;
   typename AT::t_neighbors_2d d_neighbors_full;
-  typename AT::t_int_1d_randomread d_ilist_half;
+  typename AT::t_int_1d d_ilist_half;
   typename AT::t_f_array f;
   typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
 //Parameters to meam_dens_final - is there a better way to do this?
@@ -62,20 +62,20 @@ protected:
 public:
   void meam_dens_setup(int, int, int);
   void meam_setup_done(double*);
-  void meam_dens_init(int , int , typename AT::t_int_1d_randomread , typename AT::t_int_1d_randomread, typename AT::t_x_array_randomread, typename AT::t_int_1d_randomread, 
-                      typename AT::t_int_1d_randomread , int* , typename AT::t_int_1d_randomread, typename AT::t_neighbors_2d,typename AT::t_neighbors_2d,typename AT::t_int_1d_randomread, int );
+  void meam_dens_init(int , int , typename AT::t_int_1d , typename AT::t_int_1d, typename AT::t_x_array, typename AT::t_int_1d, 
+                      typename AT::t_int_1d , int* , typename AT::t_int_1d, typename AT::t_neighbors_2d,typename AT::t_neighbors_2d,typename AT::t_int_1d, int, EV_FLOAT &);
   void meam_dens_final(int , int , int , int , double* ,
-                       typename ArrayTypes<DeviceType>::t_efloat_1d , int , typename AT::t_int_1d_randomread , typename AT::t_int_1d_randomread , int& );
+                       typename ArrayTypes<DeviceType>::t_efloat_1d , int , typename AT::t_int_1d , typename AT::t_int_1d , int& );
   void meam_force(int , int , int , int , int , double* ,
-                  typename ArrayTypes<DeviceType>::t_efloat_1d , int , typename AT::t_int_1d_randomread , typename AT::t_int_1d_randomread , typename AT::t_x_array_randomread , typename AT::t_int_1d_randomread , 
-                  typename AT::t_int_1d_randomread , typename AT::t_f_array , typename ArrayTypes<DeviceType>::t_virial_array ,typename AT::t_int_1d_randomread , typename AT::t_int_1d_randomread, typename AT::t_neighbors_2d, typename AT::t_neighbors_2d, int);
+                  typename ArrayTypes<DeviceType>::t_efloat_1d , int , typename AT::t_int_1d , typename AT::t_int_1d , typename AT::t_x_array , typename AT::t_int_1d , 
+                  typename AT::t_int_1d , typename AT::t_f_array , typename ArrayTypes<DeviceType>::t_virial_array ,typename AT::t_int_1d , typename AT::t_int_1d, typename AT::t_neighbors_2d, typename AT::t_neighbors_2d, int);
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void getscreen(int , int, typename AT::t_x_array_randomread , typename AT::t_int_1d_randomread,
-                 typename AT::t_int_1d_randomread, int , typename AT::t_int_1d_randomread , typename AT::t_int_1d_randomread ) const;
+  void getscreen(int , int, typename AT::t_x_array , typename AT::t_int_1d,
+                 typename AT::t_int_1d, int , typename AT::t_int_1d , typename AT::t_int_1d ) const;
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void calc_rho1(int , int , typename AT::t_int_1d_randomread , typename AT::t_int_1d_randomread , typename AT::t_x_array_randomread , typename AT::t_int_1d_randomread, int ) const;
+  void calc_rho1(int , int , typename AT::t_int_1d , typename AT::t_int_1d , typename AT::t_x_array , typename AT::t_int_1d, int ) const;
   KOKKOS_INLINE_FUNCTION
   double fcut(const double xi) const;
   KOKKOS_INLINE_FUNCTION
@@ -112,14 +112,12 @@ public:
   DAT::tdual_ffloat_1d k_scrfcn, k_dscrfcn, k_fcpair;
   typename ArrayTypes<DeviceType>::t_ffloat_1d d_scrfcn, d_dscrfcn, d_fcpair;
   HAT::t_ffloat_1d h_scrfcn, h_dscrfcn, h_fcpair;
-
-  
 };
+
 KOKKOS_INLINE_FUNCTION
 static bool iszero_kk(const double f) {
   return fabs(f) < 1e-20;
 }
-
 
 KOKKOS_INLINE_FUNCTION
 static double fdiv_zero_kk(const double n, const double d) {
@@ -132,9 +130,5 @@ static double fdiv_zero_kk(const double n, const double d) {
 
 }
 #include "meam_impl_kokkos.h"
-//#include "meam_setup_done_kokkos.h"
-//#include "meam_funcs_kokkos.h"
-//#include "meam_dens_init_kokkos.h"
-//#include "meam_dens_final_kokkos.h"
-//#include "meam_force_kokkos.h"
+
 #endif

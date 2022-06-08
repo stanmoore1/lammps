@@ -17,6 +17,7 @@
 
 #include "memory_kokkos.h"
 #include "meam_kokkos.h"
+
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
@@ -56,10 +57,10 @@ MEAMKokkos<DeviceType>::~MEAMKokkos()
   memoryKK->destroy_kokkos(k_dscrfcn,dscrfcn);
   memoryKK->destroy_kokkos(k_fcpair,fcpair);
 }
+
 #include "meam_setup_done_kokkos.h"
 #include "meam_funcs_kokkos.h"
 #include "meam_dens_init_kokkos.h"
 #include "meam_dens_final_kokkos.h"
 #include "meam_force_kokkos.h"
-//
 

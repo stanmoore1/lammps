@@ -5,43 +5,42 @@
 using namespace LAMMPS_NS;
 using namespace MathSpecialKokkos;
 
-
 template<class DeviceType>
 void
 MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_either, int eflag_global, int eflag_atom, int vflag_atom, double* eng_vdwl,
                  typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d_randomread type, typename AT::t_int_1d_randomread fmap, typename AT::t_x_array_randomread x, typename AT::t_int_1d_randomread numneigh,
                  typename AT::t_int_1d_randomread numneigh_full, typename AT::t_f_array f, typename ArrayTypes<DeviceType>::t_virial_array vatom, typename AT::t_int_1d_randomread d_ilist_half, typename AT::t_int_1d_randomread d_offset, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, int neighflag)
 {
-    EV_FLOAT ev;
-    ev.evdwl = *eng_vdwl;
+  EV_FLOAT ev;
+  ev.evdwl = *eng_vdwl;
 
-    this->eflag_either = eflag_either;
-    this->eflag_global = eflag_global;
-    this->eflag_atom = eflag_atom;
-    this->vflag_atom = vflag_atom;
-    this->d_eatom = eatom;
-    this->ntype = ntype;
-    this->type = type;
-    this->fmap = fmap;
-    this->x = x;
-    this->d_numneigh_half = numneigh;
-    this->d_numneigh_full = numneigh_full;
-    this->d_neighbors_half = d_neighbors_half;
-    this->d_neighbors_full = d_neighbors_full;
-    this->f = f;
-    this->d_vatom = vatom;
-    this->d_ilist_half = d_ilist_half;
-    this->d_offset = d_offset;
+  this->eflag_either = eflag_either;
+  this->eflag_global = eflag_global;
+  this->eflag_atom = eflag_atom;
+  this->vflag_atom = vflag_atom;
+  this->d_eatom = eatom;
+  this->ntype = ntype;
+  this->type = type;
+  this->fmap = fmap;
+  this->x = x;
+  this->d_numneigh_half = numneigh;
+  this->d_numneigh_full = numneigh_full;
+  this->d_neighbors_half = d_neighbors_half;
+  this->d_neighbors_full = d_neighbors_full;
+  this->f = f;
+  this->d_vatom = vatom;
+  this->d_ilist_half = d_ilist_half;
+  this->d_offset = d_offset;
 
-    copymode = 1;
-    if (neighflag == FULL) 
-       Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<FULL>>(0,inum_half),*this,ev);
-    else if (neighflag == HALF)
-       Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<HALF>>(0,inum_half),*this,ev);
-    else if (neighflag == HALFTHREAD)
-       Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<HALFTHREAD>>(0,inum_half),*this,ev);
-    *eng_vdwl = ev.evdwl;
-    copymode = 0;
+  copymode = 1;
+  if (neighflag == FULL) 
+     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<FULL>>(0,inum_half),*this,ev);
+  else if (neighflag == HALF)
+     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<HALF>>(0,inum_half),*this,ev);
+  else if (neighflag == HALFTHREAD)
+     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<HALFTHREAD>>(0,inum_half),*this,ev);
+  *eng_vdwl = ev.evdwl;
+  copymode = 0;
 }
 
 template<class DeviceType>
@@ -52,50 +51,45 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
   int i, j, jn, k, kn, kk, m, n, p, q;
   int nv2, nv3, elti, eltj, eltk, ind;
   X_FLOAT xitmp, yitmp, zitmp, delij[3];
-  F_FLOAT rij2, rij, rij3;
-  F_FLOAT v[6], fi[3], fj[3];
-  F_FLOAT third, sixth;
-  F_FLOAT pp, dUdrij, dUdsij, dUdrijm[3], force, forcem;
-  F_FLOAT r, recip, phi, phip;
-  F_FLOAT sij;
-  F_FLOAT a1, a1i, a1j, a2, a2i, a2j;
-  F_FLOAT a3i, a3j;
-  F_FLOAT shpi[3], shpj[3];
-  F_FLOAT ai, aj, ro0i, ro0j, invrei, invrej;
-  F_FLOAT rhoa0j, drhoa0j, rhoa0i, drhoa0i;
-  F_FLOAT rhoa1j, drhoa1j, rhoa1i, drhoa1i;
-  F_FLOAT rhoa2j, drhoa2j, rhoa2i, drhoa2i;
-  F_FLOAT a3, a3a, rhoa3j, drhoa3j, rhoa3i, drhoa3i;
-  F_FLOAT drho0dr1, drho0dr2, drho0ds1, drho0ds2;
-  F_FLOAT drho1dr1, drho1dr2, drho1ds1, drho1ds2;
-  F_FLOAT drho1drm1[3], drho1drm2[3];
-  F_FLOAT drho2dr1, drho2dr2, drho2ds1, drho2ds2;
-  F_FLOAT drho2drm1[3], drho2drm2[3];
-  F_FLOAT drho3dr1, drho3dr2, drho3ds1, drho3ds2;
-  F_FLOAT drho3drm1[3], drho3drm2[3];
-  F_FLOAT dt1dr1, dt1dr2, dt1ds1, dt1ds2;
-  F_FLOAT dt2dr1, dt2dr2, dt2ds1, dt2ds2;
-  F_FLOAT dt3dr1, dt3dr2, dt3ds1, dt3ds2;
-  F_FLOAT drhodr1, drhodr2, drhods1, drhods2, drhodrm1[3], drhodrm2[3];
-  F_FLOAT arg;
-  F_FLOAT arg1i1, arg1j1, arg1i2, arg1j2, arg1i3, arg1j3, arg3i3, arg3j3;
-  F_FLOAT dsij1, dsij2, force1, force2;
-  F_FLOAT t1i, t2i, t3i, t1j, t2j, t3j;
+  double rij2, rij, rij3;
+  double v[6], fi[3], fj[3];
+  double third, sixth;
+  double pp, dUdrij, dUdsij, dUdrijm[3], force, forcem;
+  double r, recip, phi, phip;
+  double sij;
+  double a1, a1i, a1j, a2, a2i, a2j;
+  double a3i, a3j;
+  double shpi[3], shpj[3];
+  double ai, aj, ro0i, ro0j, invrei, invrej;
+  double rhoa0j, drhoa0j, rhoa0i, drhoa0i;
+  double rhoa1j, drhoa1j, rhoa1i, drhoa1i;
+  double rhoa2j, drhoa2j, rhoa2i, drhoa2i;
+  double a3, a3a, rhoa3j, drhoa3j, rhoa3i, drhoa3i;
+  double drho0dr1, drho0dr2, drho0ds1, drho0ds2;
+  double drho1dr1, drho1dr2, drho1ds1, drho1ds2;
+  double drho1drm1[3], drho1drm2[3];
+  double drho2dr1, drho2dr2, drho2ds1, drho2ds2;
+  double drho2drm1[3], drho2drm2[3];
+  double drho3dr1, drho3dr2, drho3ds1, drho3ds2;
+  double drho3drm1[3], drho3drm2[3];
+  double dt1dr1, dt1dr2, dt1ds1, dt1ds2;
+  double dt2dr1, dt2dr2, dt2ds1, dt2ds2;
+  double dt3dr1, dt3dr2, dt3ds1, dt3ds2;
+  double drhodr1, drhodr2, drhods1, drhods2, drhodrm1[3], drhodrm2[3];
+  double arg;
+  double arg1i1, arg1j1, arg1i2, arg1j2, arg1i3, arg1j3, arg3i3, arg3j3;
+  double dsij1, dsij2, force1, force2;
+  double t1i, t2i, t3i, t1j, t2j, t3j;
   int fnoffset;
-//NV: Dont understand NIEGHFLAG of HALF, HALFTHREAD and FULL.
-//NV: eatom vatom and f are atomic for CUDA
 
  Kokkos::View<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_eatom = d_eatom;
   Kokkos::View<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_vatom = d_vatom;
   Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
 
-
   i = d_ilist_half[ii];
   fnoffset = d_offset[i];
   third = 1.0 / 3.0;
   sixth = 1.0 / 6.0;
-//NV: Should d_eatom, d_vatom, f - access be atomic? what about the rest?
-  //     Compute forces atom i
 
   elti = fmap[type[i]];
   if (elti < 0) return;
@@ -104,9 +98,8 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
   yitmp = x(i,1);
   zitmp = x(i,2);
 
-  //     Treat each pair
+  // Treat each pair
   for (jn = 0; jn < d_numneigh_half[i]; jn++) {
-    //j = firstneigh[jn];
     j = d_neighbors_half(i,jn);
     eltj = fmap[type[j]];
 
@@ -117,20 +110,20 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
       delij[1] = x(j,1) - yitmp;
       delij[2] = x(j,2) - zitmp;
       rij2 = delij[0] * delij[0] + delij[1] * delij[1] + delij[2] * delij[2];
-      if (rij2 < this->cutforcesq) {
+      if (rij2 < cutforcesq) {
         rij = sqrt(rij2);
         r = rij;
 
-        //     Compute phi and phip
-        ind = this->eltind[elti][eltj];
-        pp = rij * this->rdrar;
+        // Compute phi and phip
+        ind = eltind[elti][eltj];
+        pp = rij * rdrar;
         kk = (int)pp;
-        kk = (kk <= (this->nrar - 2))?kk:this->nrar - 2;
+        kk = (kk <= (nrar - 2))?kk:nrar - 2;
         pp = pp - kk;
         pp = (pp <= 1.0)?pp:1.0;
-        phi = ((this->d_phirar3(ind,kk) * pp + this->d_phirar2(ind,kk)) * pp + this->d_phirar1(ind,kk)) * pp +
-          this->d_phirar(ind,kk);
-        phip = (this->d_phirar6(ind,kk) * pp + this->d_phirar5(ind,kk)) * pp + this->d_phirar4(ind,kk);
+        phi = ((d_phirar3(ind,kk) * pp + d_phirar2(ind,kk)) * pp + d_phirar1(ind,kk)) * pp +
+          d_phirar(ind,kk);
+        phip = (d_phirar6(ind,kk) * pp + d_phirar5(ind,kk)) * pp + d_phirar4(ind,kk);
         recip = 1.0 / r;
 
         if (eflag_either != 0) {
@@ -144,34 +137,34 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           }
         }
 
-        //     write(1,*) "force_meamf: phi: ",phi
-        //     write(1,*) "force_meamf: phip: ",phip
+        // write(1,*) "force_meamf: phi: ",phi
+        // write(1,*) "force_meamf: phip: ",phip
 
-        //     Compute pair densities and derivatives
-        invrei = 1.0 / this->re_meam[elti][elti];
+        // Compute pair densities and derivatives
+        invrei = 1.0 / re_meam[elti][elti];
         ai = rij * invrei - 1.0;
-        ro0i = this->rho0_meam[elti];
-        rhoa0i = ro0i * MathSpecialKokkos::fm_exp(-this->beta0_meam[elti] * ai);
-        drhoa0i = -this->beta0_meam[elti] * invrei * rhoa0i;
-        rhoa1i = ro0i * MathSpecialKokkos::fm_exp(-this->beta1_meam[elti] * ai);
-        drhoa1i = -this->beta1_meam[elti] * invrei * rhoa1i;
-        rhoa2i = ro0i * MathSpecialKokkos::fm_exp(-this->beta2_meam[elti] * ai);
-        drhoa2i = -this->beta2_meam[elti] * invrei * rhoa2i;
-        rhoa3i = ro0i * MathSpecialKokkos::fm_exp(-this->beta3_meam[elti] * ai);
-        drhoa3i = -this->beta3_meam[elti] * invrei * rhoa3i;
+        ro0i = rho0_meam[elti];
+        rhoa0i = ro0i * MathSpecialKokkos::fm_exp(-beta0_meam[elti] * ai);
+        drhoa0i = -beta0_meam[elti] * invrei * rhoa0i;
+        rhoa1i = ro0i * MathSpecialKokkos::fm_exp(-beta1_meam[elti] * ai);
+        drhoa1i = -beta1_meam[elti] * invrei * rhoa1i;
+        rhoa2i = ro0i * MathSpecialKokkos::fm_exp(-beta2_meam[elti] * ai);
+        drhoa2i = -beta2_meam[elti] * invrei * rhoa2i;
+        rhoa3i = ro0i * MathSpecialKokkos::fm_exp(-beta3_meam[elti] * ai);
+        drhoa3i = -beta3_meam[elti] * invrei * rhoa3i;
 
         if (elti != eltj) {
-          invrej = 1.0 / this->re_meam[eltj][eltj];
+          invrej = 1.0 / re_meam[eltj][eltj];
           aj = rij * invrej - 1.0;
-          ro0j = this->rho0_meam[eltj];
-          rhoa0j = ro0j * MathSpecialKokkos::fm_exp(-this->beta0_meam[eltj] * aj);
-          drhoa0j = -this->beta0_meam[eltj] * invrej * rhoa0j;
-          rhoa1j = ro0j * MathSpecialKokkos::fm_exp(-this->beta1_meam[eltj] * aj);
-          drhoa1j = -this->beta1_meam[eltj] * invrej * rhoa1j;
-          rhoa2j = ro0j * MathSpecialKokkos::fm_exp(-this->beta2_meam[eltj] * aj);
-          drhoa2j = -this->beta2_meam[eltj] * invrej * rhoa2j;
-          rhoa3j = ro0j * MathSpecialKokkos::fm_exp(-this->beta3_meam[eltj] * aj);
-          drhoa3j = -this->beta3_meam[eltj] * invrej * rhoa3j;
+          ro0j = rho0_meam[eltj];
+          rhoa0j = ro0j * MathSpecialKokkos::fm_exp(-beta0_meam[eltj] * aj);
+          drhoa0j = -beta0_meam[eltj] * invrej * rhoa0j;
+          rhoa1j = ro0j * MathSpecialKokkos::fm_exp(-beta1_meam[eltj] * aj);
+          drhoa1j = -beta1_meam[eltj] * invrej * rhoa1j;
+          rhoa2j = ro0j * MathSpecialKokkos::fm_exp(-beta2_meam[eltj] * aj);
+          drhoa2j = -beta2_meam[eltj] * invrej * rhoa2j;
+          rhoa3j = ro0j * MathSpecialKokkos::fm_exp(-beta3_meam[eltj] * aj);
+          drhoa3j = -beta3_meam[eltj] * invrej * rhoa3j;
         } else {
           rhoa0j = rhoa0i;
           drhoa0j = drhoa0i;
@@ -183,14 +176,14 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           drhoa3j = drhoa3i;
         }
 
-        const double t1mi = this->t1_meam[elti];
-        const double t2mi = this->t2_meam[elti];
-        const double t3mi = this->t3_meam[elti];
-        const double t1mj = this->t1_meam[eltj];
-        const double t2mj = this->t2_meam[eltj];
-        const double t3mj = this->t3_meam[eltj];
+        const double t1mi = t1_meam[elti];
+        const double t2mi = t2_meam[elti];
+        const double t3mi = t3_meam[elti];
+        const double t1mj = t1_meam[eltj];
+        const double t2mj = t2_meam[eltj];
+        const double t3mj = t3_meam[eltj];
 
-        if (this->ialloy == 1) {
+        if (ialloy == 1) {
           rhoa1j  *= t1mj;
           rhoa2j  *= t2mj;
           rhoa3j  *= t3mj;
@@ -218,12 +211,12 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
         for (n = 0; n < 3; n++) {
           for (p = n; p < 3; p++) {
             for (q = p; q < 3; q++) {
-              arg = delij[n] * delij[p] * delij[q] * this->v3D[nv3];
+              arg = delij[n] * delij[p] * delij[q] * v3D[nv3];
               arg1i3 = arg1i3 + d_arho3(i,nv3) * arg;
               arg1j3 = arg1j3 - d_arho3(j,nv3) * arg;
               nv3 = nv3 + 1;
             }
-            arg = delij[n] * delij[p] * this->v2D[nv2];
+            arg = delij[n] * delij[p] * v2D[nv2];
             arg1i2 = arg1i2 + d_arho2(i,nv2) * arg;
             arg1j2 = arg1j2 + d_arho2(j,nv2) * arg;
             nv2 = nv2 + 1;
@@ -234,11 +227,11 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           arg3j3 = arg3j3 - d_arho3b(j,n) * delij[n];
         }
 
-        //     rho0 terms
+        // rho0 terms
         drho0dr1 = drhoa0j * sij;
         drho0dr2 = drhoa0i * sij;
 
-        //     rho1 terms
+        // rho1 terms
         a1 = 2 * sij / rij;
         drho1dr1 = a1 * (drhoa1j - rhoa1j / rij) * arg1i1;
         drho1dr2 = a1 * (drhoa1i - rhoa1i / rij) * arg1j1;
@@ -248,7 +241,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           drho1drm2[m] = -a1 * rhoa1i * d_arho1(j,m);
         }
 
-        //     rho2 terms
+        // rho2 terms
         a2 = 2 * sij / rij2;
         drho2dr1 = a2 * (drhoa2j - 2 * rhoa2j / rij) * arg1i2 - 2.0 / 3.0 * d_arho2b[i] * drhoa2j * sij;
         drho2dr2 = a2 * (drhoa2i - 2 * rhoa2i / rij) * arg1j2 - 2.0 / 3.0 * d_arho2b[j] * drhoa2i * sij;
@@ -257,14 +250,14 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           drho2drm1[m] = 0.0;
           drho2drm2[m] = 0.0;
           for (n = 0; n < 3; n++) {
-            drho2drm1[m] = drho2drm1[m] + d_arho2(i,this->vind2D[m][n]) * delij[n];
-            drho2drm2[m] = drho2drm2[m] - d_arho2(j,this->vind2D[m][n]) * delij[n];
+            drho2drm1[m] = drho2drm1[m] + d_arho2(i,vind2D[m][n]) * delij[n];
+            drho2drm2[m] = drho2drm2[m] - d_arho2(j,vind2D[m][n]) * delij[n];
           }
           drho2drm1[m] = a2 * rhoa2j * drho2drm1[m];
           drho2drm2[m] = -a2 * rhoa2i * drho2drm2[m];
         }
 
-        //     rho3 terms
+        // rho3 terms
         rij3 = rij * rij2;
         a3 = 2 * sij / rij3;
         a3a = 6.0 / 5.0 * sij / rij;
@@ -278,9 +271,9 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           nv2 = 0;
           for (n = 0; n < 3; n++) {
             for (p = n; p < 3; p++) {
-              arg = delij[n] * delij[p] * this->v2D[nv2];
-              drho3drm1[m] = drho3drm1[m] + d_arho3(i,this->vind3D[m][n][p]) * arg;
-              drho3drm2[m] = drho3drm2[m] + d_arho3(j,this->vind3D[m][n][p]) * arg;
+              arg = delij[n] * delij[p] * v2D[nv2];
+              drho3drm1[m] = drho3drm1[m] + d_arho3(i,vind3D[m][n][p]) * arg;
+              drho3drm2[m] = drho3drm2[m] + d_arho3(j,vind3D[m][n][p]) * arg;
               nv2 = nv2 + 1;
             }
           }
@@ -288,7 +281,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           drho3drm2[m] = (-a3 * drho3drm2[m] + a3a * d_arho3b(j,m)) * rhoa3i;
         }
 
-        //     Compute derivatives of weighting functions t wrt rij
+        // Compute derivatives of weighting functions t wrt rij
         t1i = d_t_ave(i,0);
         t2i = d_t_ave(i,1);
         t3i = d_t_ave(i,2);
@@ -296,7 +289,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
         t2j = d_t_ave(j,1);
         t3j = d_t_ave(j,2);
 
-        if (this->ialloy == 1) {
+        if (ialloy == 1) {
 
           a1i = fdiv_zero_kk(drhoa0j * sij, d_tsq_ave(i,0));
           a1j = fdiv_zero_kk(drhoa0i * sij, d_tsq_ave(j,0));
@@ -312,7 +305,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           dt3dr1 = a3i * (t3mj - t3i * MathSpecialKokkos::square(t3mj));
           dt3dr2 = a3j * (t3mi - t3j * MathSpecialKokkos::square(t3mi));
 
-        } else if (this->ialloy == 2) {
+        } else if (ialloy == 2) {
 
           dt1dr1 = 0.0;
           dt1dr2 = 0.0;
@@ -338,9 +331,9 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           dt3dr2 = aj * (t3mi - t3j);
         }
 
-        //     Compute derivatives of total density wrt rij, sij and rij(3)
-         get_shpfcn(this->lattce_meam[elti][elti], shpi);
-         get_shpfcn(this->lattce_meam[eltj][eltj], shpj);
+        // Compute derivatives of total density wrt rij, sij and rij(3)
+         get_shpfcn(lattce_meam[elti][elti], shpi);
+         get_shpfcn(lattce_meam[eltj][eltj], shpj);
         drhodr1 = d_dgamma1[i] * drho0dr1 +
           d_dgamma2[i] * (dt1dr1 * d_rho1[i] + t1i * drho1dr1 + dt2dr1 * d_rho2[i] + t2i * drho2dr1 +
                         dt3dr1 * d_rho3[i] + t3i * drho3dr1) -
@@ -355,7 +348,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           drhodrm1[m] = d_dgamma2[i] * (t1i * drho1drm1[m] + t2i * drho2drm1[m] + t3i * drho3drm1[m]);
         }
 
-        //     Compute derivatives wrt sij, but only if necessary
+        // Compute derivatives wrt sij, but only if necessary
         if (!iszero_kk(d_dscrfcn[fnoffset + jn])) {
           drho0ds1 = rhoa0j;
           drho0ds2 = rhoa0i;
@@ -370,7 +363,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           drho3ds1 = a3 * rhoa3j * arg1i3 - a3a * rhoa3j * arg3i3;
           drho3ds2 = a3 * rhoa3i * arg1j3 - a3a * rhoa3i * arg3j3;
 
-          if (this->ialloy == 1) {
+          if (ialloy == 1) {
             a1i = fdiv_zero_kk(rhoa0j, d_tsq_ave(i,0));
             a1j = fdiv_zero_kk(rhoa0i, d_tsq_ave(j,0));
             a2i = fdiv_zero_kk(rhoa0j, d_tsq_ave(i,1));
@@ -385,7 +378,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
             dt3ds1 = a3i * (t3mj - t3i * MathSpecialKokkos::square(t3mj));
             dt3ds2 = a3j * (t3mi - t3j * MathSpecialKokkos::square(t3mi));
 
-          } else if (this->ialloy == 2) {
+          } else if (ialloy == 2) {
 
             dt1ds1 = 0.0;
             dt1ds2 = 0.0;
@@ -421,7 +414,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
             d_dgamma3[j] * (shpj[0] * dt1ds2 + shpj[1] * dt2ds2 + shpj[2] * dt3ds2);
         }
 
-        //     Compute derivatives of energy wrt rij, sij and rij[3]
+        // Compute derivatives of energy wrt rij, sij and rij[3]
         dUdrij = phip * sij + d_frhop[i] * drhodr1 + d_frhop[j] * drhodr2;
         dUdsij = 0.0;
         if (!iszero_kk(d_dscrfcn[fnoffset + jn])) {
@@ -431,7 +424,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           dUdrijm[m] = d_frhop[i] * drhodrm1[m] + d_frhop[j] * drhodrm2[m];
         }
 
-        //     Add the part of the force due to dUdrij and dUdsij
+        // Add the part of the force due to dUdrij and dUdsij
 //NV: Should the access of f and vatom be atomic?
         force = dUdrij * recip + dUdsij * d_dscrfcn[fnoffset + jn];
         for (m = 0; m < 3; m++) {
@@ -440,7 +433,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           a_f(j,m) = a_f(j,m) - forcem;
         }
 
-        //     Tabulate per-atom virial as symmetrized stress tensor
+        // Tabulate per-atom virial as symmetrized stress tensor
 
         if (vflag_atom != 0) {
           fi[0] = delij[0] * force + dUdrijm[0];
@@ -459,7 +452,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           }
         }
 
-        //     Now compute forces on other atoms k due to change in sij
+        // Now compute forces on other atoms k due to change in sij
 
         if (iszero_kk(sij) || iszero_kk(sij - 1.0)) continue; //: cont jn loop
 
@@ -467,7 +460,6 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
         double dxjk(0), dyjk(0), dzjk(0);
 
         for (kn = 0; kn < d_numneigh_full[i]; kn++) {
-          //k = firstneigh_full[kn];
           k = d_neighbors_full(i,kn);
           eltk = fmap[type[k]];
           if (k != j && eltk >= 0) {
@@ -476,13 +468,13 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
             double delc, rik2, rjk2;
 
             sij = d_scrfcn[jn+fnoffset] * d_fcpair[jn+fnoffset];
-            const double Cmax = this->Cmax_meam[elti][eltj][eltk];
-            const double Cmin = this->Cmin_meam[elti][eltj][eltk];
+            const double Cmax = Cmax_meam[elti][eltj][eltk];
+            const double Cmin = Cmin_meam[elti][eltj][eltk];
 
             dsij1 = 0.0;
             dsij2 = 0.0;
             if (!iszero_kk(sij) && !iszero_kk(sij - 1.0)) {
-              const double rbound = rij2 * this->ebound_meam[elti][eltj];
+              const double rbound = rij2 * ebound_meam[elti][eltj];
               delc = Cmax - Cmin;
               dxjk = x(k,0) - x(j,0);
               dyjk = x(k,1) - x(j,1);
@@ -526,7 +518,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
               a_f(k,1) -= force1 * dyik + force2 * dyjk;
               a_f(k,2) -= force1 * dzik + force2 * dzjk;
 
-              //     Tabulate per-atom virial as symmetrized stress tensor
+              // Tabulate per-atom virial as symmetrized stress tensor
 
               if (vflag_atom != 0) {
                 fi[0] = force1 * dxik;
@@ -550,10 +542,10 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
               }
             }
           }
-          //     end of k loop
+          // end of k loop
         }
       }
     }
-    //     end of j loop
+    // end of j loop
   }
 }

@@ -22,12 +22,12 @@ using namespace MathSpecialKokkos;
 
 //-----------------------------------------------------------------------------
 // Compute G(gamma) based on selection flag ibar:
-//   0 => G = sqrt(1+gamma)
-//   1 => G = exp(gamma/2)
-//   2 => not implemented
-//   3 => G = 2/(1+exp(-gamma))
-//   4 => G = sqrt(1+gamma)
-//  -5 => G = +-sqrt(abs(1+gamma))
+// 0 => G = sqrt(1+gamma)
+// 1 => G = exp(gamma/2)
+// 2 => not implemented
+// 3 => G = 2/(1+exp(-gamma))
+// 4 => G = sqrt(1+gamma)
+// -5 => G = +-sqrt(abs(1+gamma))
 //
 template<class DeviceType> 
 KOKKOS_INLINE_FUNCTION
@@ -40,9 +40,9 @@ double MEAMKokkos<DeviceType>::G_gam(const double gamma, const int ibar, int &er
     case 4:
       gsmooth_switchpoint = -gsmooth_factor / (gsmooth_factor + 1);
       if (gamma < gsmooth_switchpoint) {
-        //         e.g. gsmooth_factor is 99, {:
-        //         gsmooth_switchpoint = -0.99
-        //         G = 0.01*(-0.99/gamma)**99
+        // e.g. gsmooth_factor is 99, {:
+        // gsmooth_switchpoint = -0.99
+        // G = 0.01*(-0.99/gamma)**99
         double G = 1 / (gsmooth_factor + 1) * pow((gsmooth_switchpoint / gamma), gsmooth_factor);
         return sqrt(G);
       } else {
@@ -65,12 +65,12 @@ double MEAMKokkos<DeviceType>::G_gam(const double gamma, const int ibar, int &er
 
 //-----------------------------------------------------------------------------
 // Compute G(gamma and dG(gamma) based on selection flag ibar:
-//   0 => G = sqrt(1+gamma)
-//   1 => G = exp(gamma/2)
-//   2 => not implemented
-//   3 => G = 2/(1+exp(-gamma))
-//   4 => G = sqrt(1+gamma)
-//  -5 => G = +-sqrt(abs(1+gamma))
+// 0 => G = sqrt(1+gamma)
+// 1 => G = exp(gamma/2)
+// 2 => not implemented
+// 3 => G = 2/(1+exp(-gamma))
+// 4 => G = sqrt(1+gamma)
+// -5 => G = +-sqrt(abs(1+gamma))
 //
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
@@ -84,9 +84,9 @@ double MEAMKokkos<DeviceType>::dG_gam(const double gamma, const int ibar, double
     case 4:
       gsmooth_switchpoint = -gsmooth_factor / (gsmooth_factor + 1);
       if (gamma < gsmooth_switchpoint) {
-        //         e.g. gsmooth_factor is 99, {:
-        //         gsmooth_switchpoint = -0.99
-        //         G = 0.01*(-0.99/gamma)**99
+        // e.g. gsmooth_factor is 99, {:
+        // gsmooth_switchpoint = -0.99
+        // G = 0.01*(-0.99/gamma)**99
         G = 1 / (gsmooth_factor + 1) * pow((gsmooth_switchpoint / gamma), gsmooth_factor);
         G = sqrt(G);
         dG = -gsmooth_factor * G / (2.0 * gamma);
@@ -202,12 +202,12 @@ void MEAMKokkos<DeviceType>::get_shpfcn(const lattice_t latt, double (&s)[3]) co
     case DIM:
       s[0] = 1.0;
       s[1] = 2.0 / 3.0;
-      //        s(3) = 1.d0
+      // s(3) = 1.d0
       s[2] = 0.40;
       break;
     default:
       s[0] = 0.0;
-      //        call error('Lattice not defined in get_shpfcn.')
+      // call error('Lattice not defined in get_shpfcn.')
   }
 }
 
@@ -237,15 +237,15 @@ int MEAMKokkos<DeviceType>::get_Zij(const lattice_t latt) const
       return 12;
     case B2:
       return 8;
-      //        call error('Lattice not defined in get_Zij.')
+      // call error('Lattice not defined in get_Zij.')
   }
   return 0;
 }
 
 //-----------------------------------------------------------------------------
 // Number of second neighbors for the reference structure
-//   a = distance ratio R1/R2
-//   S = second neighbor screening function
+// a = distance ratio R1/R2
+// S = second neighbor screening function
 //
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
@@ -286,12 +286,12 @@ int MEAMKokkos<DeviceType>::get_Zij2(const lattice_t latt, const double cmin, co
     a = sqrt(8.0 / 3.0);
     numscr = 1;
     if (cmin < 0.500001) {
-        //          call error('can not do 2NN MEAM for dia')
+        // call error('can not do 2NN MEAM for dia')
     }
     break;
 
   case DIM:
-    //        this really shouldn't be allowed; make sure screening is zero
+    // this really shouldn't be allowed; make sure screening is zero
     a = 1.0;
     S = 0.0;
     return 0;
@@ -312,7 +312,7 @@ int MEAMKokkos<DeviceType>::get_Zij2(const lattice_t latt, const double cmin, co
     break;
   default:
     // unknown lattic flag in get Zij
-    //        call error('Lattice not defined in get_Zij.')
+    // call error('Lattice not defined in get_Zij.')
     break;
   }
 

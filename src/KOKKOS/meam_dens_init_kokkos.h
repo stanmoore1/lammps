@@ -1,9 +1,10 @@
 #include "meam_kokkos.h"
-#include "math_special.h"
-#include "mpi.h"
+#include "math_special_kokkos.h"
 
 using namespace LAMMPS_NS;
 using namespace MathSpecialKokkos;
+
+/* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 template<int NEIGHFLAG>
@@ -12,29 +13,33 @@ void MEAMKokkos<DeviceType>::operator()(TagMEAMDensInit<NEIGHFLAG>, const int &i
   int ii, offsetval;
   ii = d_ilist_half[i];
   offsetval = d_offset[i];
-  //     Compute screening function and derivatives
+  // compute screening function and derivatives
   this->template getscreen<NEIGHFLAG>(ii, offsetval, x, d_numneigh_half, 
             d_numneigh_full, ntype, type, fmap);
 
-  //     Calculate intermediate density terms to be communicated
+  // calculate intermediate density terms to be communicated
   this->template calc_rho1<NEIGHFLAG>(ii, ntype, type, fmap, x, d_numneigh_half, offsetval);
   ev.evdwl += d_numneigh_half[i];
 }
 
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void MEAMKokkos<DeviceType>::operator()(TagMEAMInitialize, const int &i) const {
-    d_rho0[i] = 0.0;
-    d_arho2b[i] = 0.0;
-    d_arho1(i,0) = d_arho1(i,1) = d_arho1(i,2) = 0.0;
-    for (int j = 0; j < 6; j++)
-      d_arho2(i,j) = 0.0;
-    for (int j = 0; j < 10; j++)
-      d_arho3(i,j) = 0.0;
-    d_arho3b(i,0) = d_arho3b(i,1) = d_arho3b(i,2) = 0.0;
-    d_t_ave(i,0) = d_t_ave(i,1) = d_t_ave(i,2) = 0.0;
-    d_tsq_ave(i,0) = d_tsq_ave(i,1) = d_tsq_ave(i,2) = 0.0;
+  d_rho0[i] = 0.0;
+  d_arho2b[i] = 0.0;
+  d_arho1(i,0) = d_arho1(i,1) = d_arho1(i,2) = 0.0;
+  for (int j = 0; j < 6; j++)
+    d_arho2(i,j) = 0.0;
+  for (int j = 0; j < 10; j++)
+    d_arho3(i,j) = 0.0;
+  d_arho3b(i,0) = d_arho3b(i,1) = d_arho3b(i,2) = 0.0;
+  d_t_ave(i,0) = d_t_ave(i,1) = d_t_ave(i,2) = 0.0;
+  d_tsq_ave(i,0) = d_tsq_ave(i,1) = d_tsq_ave(i,2) = 0.0;
 }
+
+/* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 void
@@ -160,10 +165,12 @@ MEAMKokkos<DeviceType>::meam_dens_setup(int atom_nmax, int nall, int n_neigh)
   copymode = 0;
 }
 
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 void
 MEAMKokkos<DeviceType>::meam_dens_init(int inum_half, int ntype, typename AT::t_int_1d_randomread type, typename AT::t_int_1d_randomread fmap, typename AT::t_x_array_randomread x, typename AT::t_int_1d_randomread d_numneigh_half, typename AT::t_int_1d_randomread d_numneigh_full,
-                     int *fnoffset, typename AT::t_int_1d_randomread d_ilist_half, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, typename AT::t_int_1d_randomread d_offset, int neighflag)
+                     typename AT::t_int_1d_randomread d_ilist_half, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, typename AT::t_int_1d_randomread d_offset, int neighflag, EV_FLOAT &ev_all)
 {
   EV_FLOAT ev;
  
@@ -185,11 +192,12 @@ MEAMKokkos<DeviceType>::meam_dens_init(int inum_half, int ntype, typename AT::t_
       Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMDensInit<HALF> >(0,inum_half),*this, ev);
   else if (neighflag == HALFTHREAD)
       Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMDensInit<HALFTHREAD> >(0,inum_half),*this, ev);
-  *fnoffset = (int)ev.evdwl;
+  ev_all += ev.evdwl;
   copymode = 0;
 }
 
-// ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
@@ -220,7 +228,6 @@ const {
   zitmp = x(i,2);
 
   for (jn = 0; jn < numneigh_half[i]; jn++) {
-    //j = firstneigh[jn];
     j = d_neighbors_half(i,jn);
 
     eltj = fmap[type[j]];
@@ -366,7 +373,8 @@ const {
   }
 }
 
-// ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
@@ -481,12 +489,13 @@ MEAMKokkos<DeviceType>::calc_rho1(int i, int /*ntype*/, typename AT::t_int_1d_ra
   }
 }
 
+/* ---------------------------------------------------------------------- */
+
 //Cutoff function and derivative
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 double MEAMKokkos<DeviceType>::dfcut(const double xi, double& dfc) const {
-    double a, a3, a4, a1m4;
     if (xi >= 1.0) {
       dfc = 0.0;
       return 1.0;
@@ -494,10 +503,10 @@ double MEAMKokkos<DeviceType>::dfcut(const double xi, double& dfc) const {
       dfc = 0.0;
       return 0.0;
     } else {
-      a = 1.0 - xi;
-      a3 = a * a * a;
-      a4 = a * a3;
-      a1m4 = 1.0-a4;
+      const double a = 1.0 - xi;
+      const double a3 = a * a * a;
+      const double a4 = a * a3;
+      const double a1m4 = 1.0 - a4;
 
       dfc = 8 * a1m4 * a3;
       return a1m4*a1m4;
@@ -514,46 +523,47 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 double MEAMKokkos<DeviceType>::dCfunc(const double rij2, const double rik2, const double rjk2) const
 {
-    double rij4, a, asq, b,denom;
-
-    rij4 = rij2 * rij2;
-    a = rik2 - rjk2;
-    b = rik2 + rjk2;
-    asq = a*a;
-    denom = rij4 - asq;
-    denom = denom * denom;
-    return -4 * (-2 * rij2 * asq + rij4 * b + asq * b) / denom;
+  const double rij4 = rij2 * rij2;
+  const double a = rik2 - rjk2;
+  const double b = rik2 + rjk2;
+  const double asq = a*a;
+  double denom = rij4 - asq;
+  denom = denom * denom;
+  return -4 * (-2 * rij2 * asq + rij4 * b + asq * b) / denom;
 }
+
+/* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void MEAMKokkos<DeviceType>::dCfunc2(const double rij2, const double rik2, const double rjk2, double& dCikj1, double& dCikj2) const
 {
-    double rij4, rik4, rjk4, a, denom;
-
-    rij4 = rij2 * rij2;
-    rik4 = rik2 * rik2;
-    rjk4 = rjk2 * rjk2;
-    a = rik2 - rjk2;
-    denom = rij4 - a * a;
-    denom = denom * denom;
-    dCikj1 = 4 * rij2 * (rij4 + rik4 + 2 * rik2 * rjk2 - 3 * rjk4 - 2 * rij2 * a) / denom;
-    dCikj2 = 4 * rij2 * (rij4 - 3 * rik4 + 2 * rik2 * rjk2 + rjk4 + 2 * rij2 * a) / denom;
-
+  const double rij4 = rij2 * rij2;
+  const double rik4 = rik2 * rik2;
+  const double rjk4 = rjk2 * rjk2;
+  const double a = rik2 - rjk2;
+  double denom = rij4 - a * a;
+  denom = denom * denom;
+  dCikj1 = 4 * rij2 * (rij4 + rik4 + 2 * rik2 * rjk2 - 3 * rjk4 - 2 * rij2 * a) / denom;
+  dCikj2 = 4 * rij2 * (rij4 - 3 * rik4 + 2 * rik2 * rjk2 + rjk4 + 2 * rij2 * a) / denom;
 }
+
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double MEAMKokkos<DeviceType>::fcut(const double xi) const{
-    double a;
-    if (xi >= 1.0)
-      return 1.0;
-    else if (xi <= 0.0)
-      return 0.0;
-    else {
-      a = 1.0 - xi;
-      a *= a; a *= a;
-      a = 1.0 - a;
-      return a * a;
-    }
+double MEAMKokkos<DeviceType>::fcut(const double xi) const
+{
+  double a;
+  if (xi >= 1.0)
+    return 1.0;
+  else if (xi <= 0.0)
+    return 0.0;
+  else {
+    a = 1.0 - xi;
+    a *= a; a *= a;
+    a = 1.0 - a;
+    return a * a;
   }
+}
 
