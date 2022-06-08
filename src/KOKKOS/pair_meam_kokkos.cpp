@@ -195,7 +195,7 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // vptr is first value in vatom if it will be used by meam_force()
   // else vatom may not exist, so pass dummy ptr
 
-  meam_inst_kk->meam_force(inum_half,eflag_either,eflag_global,eflag_atom,
+  meam_inst_kk->meam_force(inum_half,eflag_global,eflag_atom,vflag_global,
                 vflag_atom,d_eatom,ntype,type,d_map,x,
                 d_numneigh_half, d_numneigh_full,f,d_vatom,d_ilist_half, d_offset, d_neighbors_half, d_neighbors_full, neighflag, ev);
 

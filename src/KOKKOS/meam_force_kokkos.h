@@ -7,7 +7,7 @@ using namespace MathSpecialKokkos;
 
 template<class DeviceType>
 void
-MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_either, int eflag_global, int eflag_atom, int vflag_atom,
+MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_global, int eflag_atom, int vflag_global, int vflag_atom,
                  typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d fmap, typename AT::t_x_array x, typename AT::t_int_1d numneigh,
                  typename AT::t_int_1d numneigh_full, typename AT::t_f_array f, typename ArrayTypes<DeviceType>::t_virial_array vatom, typename AT::t_int_1d d_ilist_half, typename AT::t_int_1d d_offset, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, int neighflag, EV_FLOAT &ev_all)
 {
@@ -16,7 +16,10 @@ MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_either, int eflag_gl
   this->eflag_either = eflag_either;
   this->eflag_global = eflag_global;
   this->eflag_atom = eflag_atom;
+  this->vflag_global = vflag_global;
   this->vflag_atom = vflag_atom;
+  eflag_either = eflag_atom || eflag_global;
+  vflag_either = vflag_atom || vflag_global;
   this->d_eatom = eatom;
   this->ntype = ntype;
   this->type = type;
@@ -38,7 +41,7 @@ MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_either, int eflag_gl
      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<HALF>>(0,inum_half),*this,ev);
   else if (neighflag == HALFTHREAD)
      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<HALFTHREAD>>(0,inum_half),*this,ev);
-  ev_all.evdwl = ev.evdwl;
+  ev_all += ev;
   copymode = 0;
 }
 
@@ -434,7 +437,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
 
         // Tabulate per-atom virial as symmetrized stress tensor
 
-        if (vflag_atom != 0) {
+        if (vflag_either) {
           fi[0] = delij[0] * force + dUdrijm[0];
           fi[1] = delij[1] * force + dUdrijm[1];
           fi[2] = delij[2] * force + dUdrijm[2];
@@ -445,9 +448,16 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           v[4] = -0.25 * (delij[0] * fi[2] + delij[2] * fi[0]);
           v[5] = -0.25 * (delij[1] * fi[2] + delij[2] * fi[1]);
 
-          for (m = 0; m < 6; m++) {
-            a_vatom(i,m) = a_vatom(i,m) + v[m];
-            a_vatom(j,m) = a_vatom(j,m) + v[m];
+          if (vflag_global) {
+            for (m = 0; m < 6; m++) {
+              ev.v[m] += 2.0*v[m];
+            }
+          }
+          if (vflag_atom) {
+            for (m = 0; m < 6; m++) {
+              a_vatom(i,m) += v[m];
+              a_vatom(j,m) += v[m];
+            }
           }
         }
 
