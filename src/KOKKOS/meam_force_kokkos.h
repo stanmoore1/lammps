@@ -7,12 +7,11 @@ using namespace MathSpecialKokkos;
 
 template<class DeviceType>
 void
-MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_either, int eflag_global, int eflag_atom, int vflag_atom, double* eng_vdwl,
-                 typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d_randomread type, typename AT::t_int_1d_randomread fmap, typename AT::t_x_array_randomread x, typename AT::t_int_1d_randomread numneigh,
-                 typename AT::t_int_1d_randomread numneigh_full, typename AT::t_f_array f, typename ArrayTypes<DeviceType>::t_virial_array vatom, typename AT::t_int_1d_randomread d_ilist_half, typename AT::t_int_1d_randomread d_offset, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, int neighflag)
+MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_either, int eflag_global, int eflag_atom, int vflag_atom,
+                 typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d fmap, typename AT::t_x_array x, typename AT::t_int_1d numneigh,
+                 typename AT::t_int_1d numneigh_full, typename AT::t_f_array f, typename ArrayTypes<DeviceType>::t_virial_array vatom, typename AT::t_int_1d d_ilist_half, typename AT::t_int_1d d_offset, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, int neighflag, EV_FLOAT &ev_all)
 {
   EV_FLOAT ev;
-  ev.evdwl = *eng_vdwl;
 
   this->eflag_either = eflag_either;
   this->eflag_global = eflag_global;
@@ -39,7 +38,7 @@ MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_either, int eflag_gl
      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<HALF>>(0,inum_half),*this,ev);
   else if (neighflag == HALFTHREAD)
      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<HALFTHREAD>>(0,inum_half),*this,ev);
-  *eng_vdwl = ev.evdwl;
+  ev_all.evdwl = ev.evdwl;
   copymode = 0;
 }
 

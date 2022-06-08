@@ -156,7 +156,7 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   k_offset.template modify<LMPHostType>();
   k_offset.template sync<DeviceType>();
 
-  meam_inst_kk->meam_dens_init(inum_half,ntype,type,d_map,x,d_numneigh_half,d_numneigh_full,d_ilist_half,d_neighbors_half, d_neighbors_full, d_offset, neighflag, ev);
+  meam_inst_kk->meam_dens_init(inum_half,ntype,type,d_map,x,d_numneigh_half,d_numneigh_full,d_ilist_half,d_neighbors_half, d_neighbors_full, d_offset, neighflag);
 
   //// move sync to inside comm kernel
 
@@ -183,7 +183,7 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   //}
 
   meam_inst_kk->meam_dens_final(nlocal,eflag_either,eflag_global,eflag_atom,
-                   &eng_vdwl,d_eatom,ntype,type,d_map,errorflag);
+                   d_eatom,ntype,type,d_map,errorflag,ev);
   if (errorflag) {
     char str[128];
     sprintf(str,"MEAM library error %d",errorflag);

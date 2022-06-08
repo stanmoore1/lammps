@@ -7,11 +7,10 @@ using namespace LAMMPS_NS;
 
 template<class DeviceType>
 void
-MEAMKokkos<DeviceType>::meam_dens_final(int nlocal, int eflag_either, int eflag_global, int eflag_atom, double* eng_vdwl,
-                      typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d_randomread type, typename AT::t_int_1d_randomread fmap, int& errorflag)
+MEAMKokkos<DeviceType>::meam_dens_final(int nlocal, int eflag_either, int eflag_global, int eflag_atom,
+                      typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d fmap, int& errorflag, EV_FLOAT &ev_all)
 {
   EV_FLOAT ev;
-  ev.evdwl = *eng_vdwl;
   this->eflag_either = eflag_either;
   this->eflag_global = eflag_global;
   this->eflag_atom = eflag_atom;
@@ -24,7 +23,7 @@ MEAMKokkos<DeviceType>::meam_dens_final(int nlocal, int eflag_either, int eflag_
 
   copymode = 1;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMDensFinal>(0,nlocal),*this,ev);
-  *eng_vdwl = ev.evdwl;
+  ev_all.evdwl =+ ev.evdwl;
   copymode = 0;
 }
 

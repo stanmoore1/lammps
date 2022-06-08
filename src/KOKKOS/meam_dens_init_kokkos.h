@@ -9,7 +9,7 @@ using namespace MathSpecialKokkos;
 template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
-void MEAMKokkos<DeviceType>::operator()(TagMEAMDensInit<NEIGHFLAG>, const int &i, EV_FLOAT &ev) const {
+void MEAMKokkos<DeviceType>::operator()(TagMEAMDensInit<NEIGHFLAG>, const int &i) const {
   int ii, offsetval;
   ii = d_ilist_half[i];
   offsetval = d_offset[i];
@@ -19,14 +19,13 @@ void MEAMKokkos<DeviceType>::operator()(TagMEAMDensInit<NEIGHFLAG>, const int &i
 
   // calculate intermediate density terms to be communicated
   this->template calc_rho1<NEIGHFLAG>(ii, ntype, type, fmap, x, d_numneigh_half, offsetval);
-  ev.evdwl += d_numneigh_half[i];
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void MEAMKokkos<DeviceType>::operator()(TagMEAMInitialize, const int &i) const {
+void MEAMKokkos<DeviceType>::operator()(TagMEAMZero, const int &i) const {
   d_rho0[i] = 0.0;
   d_arho2b[i] = 0.0;
   d_arho1(i,0) = d_arho1(i,1) = d_arho1(i,2) = 0.0;
@@ -161,7 +160,7 @@ MEAMKokkos<DeviceType>::meam_dens_setup(int atom_nmax, int nall, int n_neigh)
   // zero out local arrays
 
   copymode = 1;
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagMEAMInitialize>(0, nall),*this);
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagMEAMZero>(0, nall),*this);
   copymode = 0;
 }
 
@@ -169,12 +168,9 @@ MEAMKokkos<DeviceType>::meam_dens_setup(int atom_nmax, int nall, int n_neigh)
 
 template<class DeviceType>
 void
-MEAMKokkos<DeviceType>::meam_dens_init(int inum_half, int ntype, typename AT::t_int_1d_randomread type, typename AT::t_int_1d_randomread fmap, typename AT::t_x_array_randomread x, typename AT::t_int_1d_randomread d_numneigh_half, typename AT::t_int_1d_randomread d_numneigh_full,
-                     typename AT::t_int_1d_randomread d_ilist_half, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, typename AT::t_int_1d_randomread d_offset, int neighflag, EV_FLOAT &ev_all)
+MEAMKokkos<DeviceType>::meam_dens_init(int inum_half, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d fmap, typename AT::t_x_array x, typename AT::t_int_1d d_numneigh_half, typename AT::t_int_1d d_numneigh_full,
+                     typename AT::t_int_1d d_ilist_half, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, typename AT::t_int_1d d_offset, int neighflag)
 {
-  EV_FLOAT ev;
- 
-  ev.evdwl = 0; 
   this->ntype = ntype;
   this->type = type;
   this->fmap = fmap;
@@ -187,12 +183,11 @@ MEAMKokkos<DeviceType>::meam_dens_init(int inum_half, int ntype, typename AT::t_
   this->d_offset = d_offset;
   copymode = 1;
   if (neighflag == FULL)
-      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMDensInit<FULL> >(0,inum_half),*this, ev);
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagMEAMDensInit<FULL> >(0,inum_half),*this);
   else if (neighflag == HALF)
-      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMDensInit<HALF> >(0,inum_half),*this, ev);
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagMEAMDensInit<HALF> >(0,inum_half),*this);
   else if (neighflag == HALFTHREAD)
-      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMDensInit<HALFTHREAD> >(0,inum_half),*this, ev);
-  ev_all += ev.evdwl;
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagMEAMDensInit<HALFTHREAD> >(0,inum_half),*this);
   copymode = 0;
 }
 
@@ -202,8 +197,8 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void
-MEAMKokkos<DeviceType>::getscreen(int i, int offset, typename AT::t_x_array_randomread x, typename AT::t_int_1d_randomread numneigh_half,
-                typename AT::t_int_1d_randomread numneigh_full, int /*ntype*/, typename AT::t_int_1d_randomread type, typename AT::t_int_1d_randomread fmap)
+MEAMKokkos<DeviceType>::getscreen(int i, int offset, typename AT::t_x_array x, typename AT::t_int_1d numneigh_half,
+                typename AT::t_int_1d numneigh_full, int /*ntype*/, typename AT::t_int_1d type, typename AT::t_int_1d fmap)
 const {
   int jn, j, kn, k;
   int elti, eltj, eltk;
@@ -233,7 +228,7 @@ const {
     eltj = fmap[type[j]];
     if (eltj < 0) continue;
 
-    //     First compute screening function itself, sij
+    // First compute screening function itself, sij
     xjtmp = x(j,0);
     yjtmp = x(j,1);
     zjtmp = x(j,2);
@@ -253,9 +248,8 @@ const {
       rnorm = (this->rc_meam - rij) * drinv;
       sij = 1.0;
 
-      //     if rjk2 > ebound*rijsq, atom k is definitely outside the ellipse
+      // if rjk2 > ebound*rijsq, atom k is definitely outside the ellipse
       for (kn = 0; kn < numneigh_full[i]; kn++) {
-        //k = firstneigh_full[kn];
         k = d_neighbors_full(i,kn);
         eltk = fmap[type[k]];
         if (eltk < 0) continue;
@@ -276,17 +270,17 @@ const {
         xik = rik2 / rij2;
         xjk = rjk2 / rij2;
         a = 1 - (xik - xjk) * (xik - xjk);
-        //     if a < 0, then ellipse equation doesn't describe this case and
-        //     atom k can't possibly screen i-j
+        // if a < 0, then ellipse equation doesn't describe this case and
+        // atom k can't possibly screen i-j
         if (a <= 0.0) continue;
 
         cikj = (2.0 * (xik + xjk) + a - 2.0) / a;
         Cmax = this->Cmax_meam[elti][eltj][eltk];
         Cmin = this->Cmin_meam[elti][eltj][eltk];
         if (cikj >= Cmax) continue;
-        //     note that cikj may be slightly negative (within numerical
-        //     tolerance) if atoms are colinear, so don't reject that case here
-        //     (other negative cikj cases were handled by the test on "a" above)
+        // note that cikj may be slightly negative (within numerical
+        // tolerance) if atoms are colinear, so don't reject that case here
+        // (other negative cikj cases were handled by the test on "a" above)
         else if (cikj <= Cmin) {
           sij = 0.0;
           break;
@@ -302,7 +296,7 @@ const {
       fcij = fc;
       dfcij = dfc * drinv;
     }
-    //     Now compute derivatives
+    // Now compute derivatives
     d_dscrfcn[offset+jn] = 0.0;
     sfcij = sij * fcij;
     if (iszero_kk(sfcij) || iszero_kk(sfcij - 1.0))
@@ -338,8 +332,8 @@ const {
       xik = rik2 / rij2;
       xjk = rjk2 / rij2;
       a = 1 - (xik - xjk) * (xik - xjk);
-      //     if a < 0, then ellipse equation doesn't describe this case and
-      //     atom k can't possibly screen i-j
+      // if a < 0, then ellipse equation doesn't describe this case and
+      // atom k can't possibly screen i-j
       if (a <= 0.0) continue;
 
       cikj = (2.0 * (xik + xjk) + a - 2.0) / a;
@@ -347,13 +341,13 @@ const {
       Cmin = this->Cmin_meam[elti][eltj][eltk];
       if (cikj >= Cmax) {
         continue;
-        //     Note that cikj may be slightly negative (within numerical
-        //     tolerance) if atoms are colinear, so don't reject that case
-        //     here
-        //     (other negative cikj cases were handled by the test on "a"
-        //     above)
-        //     Note that we never have 0<cikj<Cmin here, else sij=0
-        //     (rejected above)
+        // Note that cikj may be slightly negative (within numerical
+        // tolerance) if atoms are colinear, so don't reject that case
+        // here
+        // (other negative cikj cases were handled by the test on "a"
+        // above)
+        // Note that we never have 0<cikj<Cmin here, else sij=0
+        // (rejected above)
       } else {
         delc = Cmax - Cmin;
         cikj = (cikj - Cmin) / delc;
@@ -379,7 +373,7 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void
-MEAMKokkos<DeviceType>::calc_rho1(int i, int /*ntype*/, typename AT::t_int_1d_randomread type, typename AT::t_int_1d_randomread fmap, typename AT::t_x_array_randomread x, typename AT::t_int_1d_randomread numneigh,
+MEAMKokkos<DeviceType>::calc_rho1(int i, int /*ntype*/, typename AT::t_int_1d type, typename AT::t_int_1d fmap, typename AT::t_x_array x, typename AT::t_int_1d numneigh,
                 int offset) const
 {
   int jn, j, m, n, p, elti, eltj;
@@ -495,28 +489,29 @@ MEAMKokkos<DeviceType>::calc_rho1(int i, int /*ntype*/, typename AT::t_int_1d_ra
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double MEAMKokkos<DeviceType>::dfcut(const double xi, double& dfc) const {
-    if (xi >= 1.0) {
-      dfc = 0.0;
-      return 1.0;
-    } else if (xi <= 0.0) {
-      dfc = 0.0;
-      return 0.0;
-    } else {
-      const double a = 1.0 - xi;
-      const double a3 = a * a * a;
-      const double a4 = a * a3;
-      const double a1m4 = 1.0 - a4;
+double MEAMKokkos<DeviceType>::dfcut(const double xi, double& dfc) const
+{
+  if (xi >= 1.0) {
+    dfc = 0.0;
+    return 1.0;
+  } else if (xi <= 0.0) {
+    dfc = 0.0;
+    return 0.0;
+  } else {
+    const double a = 1.0 - xi;
+    const double a3 = a * a * a;
+    const double a4 = a * a3;
+    const double a1m4 = 1.0 - a4;
 
-      dfc = 8 * a1m4 * a3;
-      return a1m4*a1m4;
-    }
+    dfc = 8 * a1m4 * a3;
+    return a1m4*a1m4;
   }
+}
 
   //-----------------------------------------------------------------------------
   //  // Derivative of Cikj w.r.t. rij
-  //    //     Inputs: rij,rij2,rik2,rjk2
-  //      //
+  //    // Inputs: rij,rij2,rik2,rjk2
+  //  //
   //
 
 template<class DeviceType>

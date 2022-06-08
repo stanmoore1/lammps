@@ -14,7 +14,7 @@ namespace LAMMPS_NS {
 struct TagMEAMDensFinal{};
 template<int NEIGHFLAG>
 struct TagMEAMDensInit{};
-struct TagMEAMInitialize{};
+struct TagMEAMZero{};
 template<int NEIGHFLAG>
 struct TagMEAMforce{};
 
@@ -32,10 +32,10 @@ public:
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagMEAMDensInit<NEIGHFLAG>, const int&, EV_FLOAT&) const;
+  void operator()(TagMEAMDensInit<NEIGHFLAG>, const int&) const;
   
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagMEAMInitialize, const int&) const;
+  void operator()(TagMEAMZero, const int&) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
@@ -62,20 +62,23 @@ protected:
 public:
   void meam_dens_setup(int, int, int);
   void meam_setup_done(double*);
-  void meam_dens_init(int , int , typename AT::t_int_1d , typename AT::t_int_1d, typename AT::t_x_array, typename AT::t_int_1d, 
-                      typename AT::t_int_1d , int* , typename AT::t_int_1d, typename AT::t_neighbors_2d,typename AT::t_neighbors_2d,typename AT::t_int_1d, int, EV_FLOAT &);
-  void meam_dens_final(int , int , int , int , double* ,
-                       typename ArrayTypes<DeviceType>::t_efloat_1d , int , typename AT::t_int_1d , typename AT::t_int_1d , int& );
-  void meam_force(int , int , int , int , int , double* ,
-                  typename ArrayTypes<DeviceType>::t_efloat_1d , int , typename AT::t_int_1d , typename AT::t_int_1d , typename AT::t_x_array , typename AT::t_int_1d , 
-                  typename AT::t_int_1d , typename AT::t_f_array , typename ArrayTypes<DeviceType>::t_virial_array ,typename AT::t_int_1d , typename AT::t_int_1d, typename AT::t_neighbors_2d, typename AT::t_neighbors_2d, int);
+  void meam_dens_init(int, int, typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_x_array,
+                      typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_int_1d,
+                      typename AT::t_neighbors_2d, typename AT::t_neighbors_2d, typename AT::t_int_1d, int);
+  void meam_dens_final(int, int, int, int, typename ArrayTypes<DeviceType>::t_efloat_1d,
+                       int, typename AT::t_int_1d, typename AT::t_int_1d, int&, EV_FLOAT&);
+  void meam_force(int, int, int, int, int, typename ArrayTypes<DeviceType>::t_efloat_1d, 
+                  int, typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_x_array, typename AT::t_int_1d, 
+                  typename AT::t_int_1d, typename AT::t_f_array, typename ArrayTypes<DeviceType>::t_virial_array,
+                  typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_neighbors_2d, typename AT::t_neighbors_2d,
+                  int, EV_FLOAT&);
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void getscreen(int , int, typename AT::t_x_array , typename AT::t_int_1d,
-                 typename AT::t_int_1d, int , typename AT::t_int_1d , typename AT::t_int_1d ) const;
+  void getscreen(int, int, typename AT::t_x_array, typename AT::t_int_1d,
+                 typename AT::t_int_1d, int, typename AT::t_int_1d, typename AT::t_int_1d) const;
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void calc_rho1(int , int , typename AT::t_int_1d , typename AT::t_int_1d , typename AT::t_x_array , typename AT::t_int_1d, int ) const;
+  void calc_rho1(int, int, typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_x_array, typename AT::t_int_1d, int) const;
   KOKKOS_INLINE_FUNCTION
   double fcut(const double xi) const;
   KOKKOS_INLINE_FUNCTION
@@ -95,7 +98,7 @@ public:
   KOKKOS_INLINE_FUNCTION
   void get_shpfcn(const lattice_t latt, double (&s)[3]) const;
   KOKKOS_INLINE_FUNCTION
-  int get_Zij(const lattice_t ) const;
+  int get_Zij(const lattice_t) const;
   KOKKOS_INLINE_FUNCTION
   int get_Zij2(const lattice_t, const double, const double, double&, double&) const; 
 public:

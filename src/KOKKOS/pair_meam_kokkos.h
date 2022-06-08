@@ -74,7 +74,6 @@ class PairMEAMKokkos : public PairMEAM, public KokkosBase {
   void unpack_forward_comm(int, int, double *) override;
   int pack_reverse_comm(int, int, double *) override;
   void unpack_reverse_comm(int, int *, double *) override;
-  double memory_usage();
 
  protected:
   class MEAMKokkos<DeviceType> *meam_inst_kk;
