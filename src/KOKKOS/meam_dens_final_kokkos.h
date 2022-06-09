@@ -35,21 +35,24 @@ void MEAMKokkos<DeviceType>::operator()(TagMEAMDensFinal, const int &i, EV_FLOAT
 
   int errorflag;
   F_FLOAT rhob, G, dG, Gbar, dGbar, gam, shp[3], Z;
-  F_FLOAT B, denom, rho_bkgd;
+  F_FLOAT denom, rho_bkgd, Fl;
+  double scaleii;
 
   int elti = d_map[type[i]];
   if (elti >= 0) {
+    //scaleii = scale[type[i]][type[i]]; /////
+    scaleii = 1.0;
     d_rho1[i] = 0.0;
     d_rho2[i] = -1.0 / 3.0 * d_arho2b[i] * d_arho2b[i];
     d_rho3[i] = 0.0;
     for (int m = 0; m < 3; m++) {
-      d_rho1[i] = d_rho1[i] + d_arho1(i,m) * d_arho1(i,m);
-      d_rho3[i] = d_rho3[i] - 3.0 / 5.0 * d_arho3b(i,m) * d_arho3b(i,m);
+      d_rho1[i] += d_arho1(i,m) * d_arho1(i,m);
+      d_rho3[i] -= 3.0 / 5.0 * d_arho3b(i,m) * d_arho3b(i,m);
     }
     for (int m = 0; m < 6; m++)
-      d_rho2[i] = d_rho2[i] + v2D[m] * d_arho2(i,m) * d_arho2(i,m);
+      d_rho2[i] += v2D[m] * d_arho2(i,m) * d_arho2(i,m);
     for (int m = 0; m < 10; m++)
-      d_rho3[i] = d_rho3[i] + v3D[m] * d_arho3(i,m) * d_arho3(i,m);
+      d_rho3[i] += v3D[m] * d_arho3(i,m) * d_arho3(i,m);
 
     if (d_rho0[i] > 0.0) {
       if (ialloy == 1) {
@@ -61,16 +64,16 @@ void MEAMKokkos<DeviceType>::operator()(TagMEAMDensFinal, const int &i, EV_FLOAT
 	d_t_ave(i,1) = t2_meam[elti];
 	d_t_ave(i,2) = t3_meam[elti];
       } else {
-	d_t_ave(i,0) = d_t_ave(i,0) / d_rho0[i];
-	d_t_ave(i,1) = d_t_ave(i,1) / d_rho0[i];
-	d_t_ave(i,2) = d_t_ave(i,2) / d_rho0[i];
+	d_t_ave(i,0) /= d_rho0[i];
+	d_t_ave(i,1) /= d_rho0[i];
+	d_t_ave(i,2) /= d_rho0[i];
       }
     }
 
     d_gamma[i] = d_t_ave(i,0) * d_rho1[i] + d_t_ave(i,1) * d_rho2[i] + d_t_ave(i,2) * d_rho3[i];
 
     if (d_rho0[i] > 0.0)
-      d_gamma[i] = d_gamma[i] / (d_rho0[i] * d_rho0[i]);
+      d_gamma[i] /= (d_rho0[i] * d_rho0[i]);
 
     Z = get_Zij(lattce_meam[elti][elti]);
 
@@ -130,34 +133,19 @@ void MEAMKokkos<DeviceType>::operator()(TagMEAMDensFinal, const int &i, EV_FLOAT
     else
       d_dgamma3[i] = 0.0;
 
-    B = A_meam[elti] * Ec_meam[elti][elti];
+    Fl = embedding(A_meam[elti], Ec_meam[elti][elti], rhob, d_frhop[i]);
 
-    if (!iszero_kk(rhob)) {
-      if (emb_lin_neg == 1 && rhob <= 0)
-	d_frhop[i] = -B;
-      else
-	d_frhop[i] = B * (log(rhob) + 1.0);
-      if (eflag_either != 0) {
-	if (eflag_global != 0) {
-	  if (emb_lin_neg == 1 && rhob <= 0)
-	    ev.evdwl -= B * rhob;
-	  else
-	    ev.evdwl += B * rhob * log(rhob);
-        }
-	if (eflag_atom != 0) {
-	  if (emb_lin_neg == 1 && rhob <= 0)
-	    d_eatom[i] = d_eatom[i] - B * rhob;
-	  else
-	    d_eatom[i] = d_eatom[i] + B * rhob * log(rhob);
-	}
+    if (eflag_either) {
+      Fl *= scaleii;
+      if (eflag_global) {
+        ev.evdwl += Fl;
       }
-    } else {
-      if (emb_lin_neg == 1)
-	d_frhop[i] = -B;
-      else
-	d_frhop[i] = B;
+      if (eflag_atom) {
+        d_eatom[i] += Fl;
+      }
     }
   }
+
   if (errorflag)
   {
     //char str[128];

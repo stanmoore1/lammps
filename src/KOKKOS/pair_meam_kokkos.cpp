@@ -234,8 +234,6 @@ void PairMEAMKokkos<DeviceType>::coeff(int narg, char **arg)
     h_map[i] = map[i];
 
   Kokkos::deep_copy(d_map,h_map);
-
-  meam_inst_kk->meam_setup_done(&cutmax); 
 }
 
 /* ----------------------------------------------------------------------

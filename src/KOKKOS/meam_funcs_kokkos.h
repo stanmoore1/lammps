@@ -51,7 +51,7 @@ double MEAMKokkos<DeviceType>::G_gam(const double gamma, const int ibar, int &er
     case 1:
       return MathSpecialKokkos::fm_exp(gamma / 2.0);
     case 3:
-      return 2.0 / (1.0 + exp(-gamma));
+      return 2.0 / (1.0 + MathSpecialKokkos::fm_exp(-gamma));
     case -5:
       if ((1.0 + gamma) >= 0) {
         return sqrt(1.0 + gamma);
@@ -142,6 +142,30 @@ double MEAMKokkos<DeviceType>::zbl(const double r, const int z1, const int z2) c
   if (r > 0.0)
     result = result * z1 * z2 / r * cc;
   return result;
+}
+
+//-----------------------------------------------------------------------------
+// Compute embedding function F(rhobar) and derivative F'(rhobar), eqn I.5
+//
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+double MEAMKokkos<DeviceType>::embedding(const double A, const double Ec, const double rhobar, double& dF) const
+{
+  const double AEc = A * Ec;
+
+  if (rhobar > 0.0) {
+      const double lrb = log(rhobar);
+      dF = AEc * (1.0 + lrb);
+      return AEc * rhobar * lrb;
+  } else {
+    if (emb_lin_neg == 0) {
+      dF = 0.0;
+      return 0.0;
+    } else {
+      dF = - AEc;
+      return - AEc * rhobar;
+    }
+  }
 }
 
 //-----------------------------------------------------------------------------

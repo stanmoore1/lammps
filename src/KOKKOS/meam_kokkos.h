@@ -59,8 +59,8 @@ protected:
   typename ArrayTypes<DeviceType>::t_efloat_1d d_eatom;
 
 public:
-  void meam_dens_setup(int, int, int);
-  void meam_setup_done(double*);
+  void meam_dens_setup(int, int, int) override;
+  void meam_setup_done(double*) override;
   void meam_dens_init(int, int, typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_x_array,
                       typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_int_1d,
                       typename AT::t_neighbors_2d, typename AT::t_neighbors_2d, typename AT::t_int_1d, int);
@@ -91,7 +91,9 @@ public:
   KOKKOS_INLINE_FUNCTION
   double dG_gam(const double, const int, double&) const;
   KOKKOS_INLINE_FUNCTION
-  double zbl(const double, const int, const int) const; 
+  double zbl(const double, const int, const int) const;
+  KOKKOS_INLINE_FUNCTION
+  double embedding(const double, const double, const double, double&) const; 
   KOKKOS_INLINE_FUNCTION
   double erose(const double, const double, const double, const double, const double, const double, const int) const;
   KOKKOS_INLINE_FUNCTION
@@ -119,6 +121,11 @@ public:
 KOKKOS_INLINE_FUNCTION
 static bool iszero_kk(const double f) {
   return fabs(f) < 1e-20;
+}
+
+KOKKOS_INLINE_FUNCTION
+static bool isone_kk(const double f) {
+  return fabs(f-1.0) < 1e-20;
 }
 
 KOKKOS_INLINE_FUNCTION

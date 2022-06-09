@@ -223,24 +223,83 @@ const {
     const double delzij = zjtmp - zitmp;
 
     const double rij2 = delxij * delxij + delyij * delyij + delzij * delzij;
-    const double rij = sqrt(rij2);
 
+    if (rij2 > cutforcesq) {
+      d_dscrfcn[offset+jn] = 0.0;
+      d_scrfcn[offset+jn] = 0.0;
+      d_fcpair[offset+jn] = 0.0;
+      continue;
+    }
+
+    // Now compute derivatives
     const double rbound = ebound_meam[elti][eltj] * rij2;
-    double fcij,dfcij,sij;
-    if (rij > rc_meam) {
-      fcij = 0.0;
-      dfcij = 0.0;
-      sij = 0.0;
-    } else {
-      const double rnorm = (rc_meam - rij) * drinv;
-      sij = 1.0;
+    const double rij = sqrt(rij2);
+    const double rnorm = (cutforce - rij) * drinv;
+    double sij = 1.0;
 
-      // if rjk2 > ebound*rijsq, atom k is definitely outside the ellipse
+    // if rjk2 > ebound*rijsq, atom k is definitely outside the ellipse
+    for (int kn = 0; kn < d_numneigh_full[i]; kn++) {
+      int k = d_neighbors_full(i,kn);
+      if (k == j) continue;
+      int eltk = d_map[type[k]];
+      if (eltk < 0) continue;
+
+      const double xktmp = x(k,0);
+      const double yktmp = x(k,1);
+      const double zktmp = x(k,2);
+
+      const double delxjk = xktmp - xjtmp;
+      const double delyjk = yktmp - yjtmp;
+      const double delzjk = zktmp - zjtmp;
+      const double rjk2 = delxjk * delxjk + delyjk * delyjk + delzjk * delzjk;
+      if (rjk2 > rbound) continue;
+
+      const double delxik = xktmp - xitmp;
+      const double delyik = yktmp - yitmp;
+      const double delzik = zktmp - zitmp;
+      const double rik2 = delxik * delxik + delyik * delyik + delzik * delzik;
+      if (rik2 > rbound) continue;
+
+      const double xik = rik2 / rij2;
+      const double xjk = rjk2 / rij2;
+      const double a = 1 - (xik - xjk) * (xik - xjk);
+      // if a < 0, then ellipse equation doesn't describe this case and
+      // atom k can't possibly screen i-j
+      if (a <= 0.0) continue;
+
+      double cikj = (2.0 * (xik + xjk) + a - 2.0) / a;
+      const double Cmax = Cmax_meam[elti][eltj][eltk];
+      const double Cmin = Cmin_meam[elti][eltj][eltk];
+      double sikj;
+      if (cikj >= Cmax) continue;
+      // note that cikj may be slightly negative (within numerical
+      // tolerance) if atoms are colinear, so don't reject that case here
+      // (other negative cikj cases were handled by the test on "a" above)
+      else if (cikj <= Cmin) {
+        sij = 0.0;
+        break;
+      } else {
+        const double delc = Cmax - Cmin;
+        cikj = (cikj - Cmin) / delc;
+        sikj = fcut(cikj);
+      }
+      sij *= sikj;
+    }
+
+    double dfc;
+    const double fc = dfcut(rnorm, dfc);
+    const double fcij = fc;
+    const double dfcij = dfc * drinv;
+
+    // Now compute derivatives
+    d_dscrfcn[offset+jn] = 0.0;
+    const double sfcij = sij * fcij;
+    if (!iszero_kk(sfcij) && !isone_kk(sfcij)) {
       for (int kn = 0; kn < d_numneigh_full[i]; kn++) {
-        int k = d_neighbors_full(i,kn);
-        int eltk = d_map[type[k]];
-        if (eltk < 0) continue;
+        const int k = d_neighbors_full(i,kn);
         if (k == j) continue;
+        const int eltk = d_map[type[k]];
+        if (eltk < 0) continue;
 
         const double delxjk = x(k,0) - xjtmp;
         const double delyjk = x(k,1) - yjtmp;
@@ -264,91 +323,29 @@ const {
         double cikj = (2.0 * (xik + xjk) + a - 2.0) / a;
         const double Cmax = Cmax_meam[elti][eltj][eltk];
         const double Cmin = Cmin_meam[elti][eltj][eltk];
-        double sikj;
-        if (cikj >= Cmax) continue;
-        // note that cikj may be slightly negative (within numerical
-        // tolerance) if atoms are colinear, so don't reject that case here
-        // (other negative cikj cases were handled by the test on "a" above)
-        else if (cikj <= Cmin) {
-          sij = 0.0;
-          break;
+        if (cikj >= Cmax) {
+          continue;
+          // Note that cikj may be slightly negative (within numerical
+          // tolerance) if atoms are colinear, so don't reject that case
+          // here
+          // (other negative cikj cases were handled by the test on "a"
+          // above)
+          // Note that we never have 0<cikj<Cmin here, else sij=0
+          // (rejected above)
         } else {
           const double delc = Cmax - Cmin;
           cikj = (cikj - Cmin) / delc;
-          sikj = fcut(cikj);
+          double dfikj;
+          const double sikj = dfcut(cikj, dfikj);
+          const double coef1 = dfikj / (delc * sikj);
+          const double dCikj = dCfunc(rij2, rik2, rjk2);
+          d_dscrfcn[offset+jn] += coef1 * dCikj;
         }
-        sij *= sikj;
       }
-
-      double dfc;
-      const double fc = dfcut(rnorm, dfc);
-      fcij = fc;
-      dfcij = dfc * drinv;
+      const double coef1 = sfcij;
+      const double coef2 = sij * dfcij / rij;
+      d_dscrfcn[offset+jn] += coef1 - coef2;
     }
-    // Now compute derivatives
-    d_dscrfcn[offset+jn] = 0.0;
-    const double sfcij = sij * fcij;
-    if (iszero_kk(sfcij) || iszero_kk(sfcij - 1.0))
-    {
-      d_scrfcn[offset+jn] = sij;
-      d_fcpair[offset+jn] = fcij;
-      continue;
-      //goto LABEL_100;
-    }
-
-    for (int kn = 0; kn < d_numneigh_full[i]; kn++) {
-      int k = d_neighbors_full(i,kn);
-      if (k == j) continue;
-      int eltk = d_map[type[k]];
-      if (eltk < 0) continue;
-
-      const double xktmp = x(k,0);
-      const double yktmp = x(k,1);
-      const double zktmp = x(k,2);
-      const double delxjk = xktmp - xjtmp;
-      const double delyjk = yktmp - yjtmp;
-      const double delzjk = zktmp - zjtmp;
-      const double rjk2 = delxjk * delxjk + delyjk * delyjk + delzjk * delzjk;
-      if (rjk2 > rbound) continue;
-
-      const double delxik = xktmp - xitmp;
-      const double delyik = yktmp - yitmp;
-      const double delzik = zktmp - zitmp;
-      const double rik2 = delxik * delxik + delyik * delyik + delzik * delzik;
-      if (rik2 > rbound) continue;
-
-      const double xik = rik2 / rij2;
-      const double xjk = rjk2 / rij2;
-      const double a = 1 - (xik - xjk) * (xik - xjk);
-      // if a < 0, then ellipse equation doesn't describe this case and
-      // atom k can't possibly screen i-j
-      if (a <= 0.0) continue;
-
-      const double cikj = (2.0 * (xik + xjk) + a - 2.0) / a;
-      const double Cmax = Cmax_meam[elti][eltj][eltk];
-      const double Cmin = Cmin_meam[elti][eltj][eltk];
-      if (cikj >= Cmax) {
-        continue;
-        // Note that cikj may be slightly negative (within numerical
-        // tolerance) if atoms are colinear, so don't reject that case
-        // here
-        // (other negative cikj cases were handled by the test on "a"
-        // above)
-        // Note that we never have 0<cikj<Cmin here, else sij=0
-        // (rejected above)
-      } else {
-        const double delc = Cmax - Cmin;
-        const double cikj = (cikj - Cmin) / delc;
-        double dfikj;
-        const double sikj = dfcut(cikj, dfikj);
-        const double coef1 = dfikj / (delc * sikj);
-        const double dCikj = dCfunc(rij2, rik2, rjk2);
-        d_dscrfcn[offset+jn] += coef1 * dCikj;
-      }
-    }
-    const double coef1 = sfcij;
-    const double coef2 = sij * dfcij / rij;
-    d_dscrfcn[offset+jn] += coef1 - coef2;
 
     d_scrfcn[offset+jn] = sij;
     d_fcpair[offset+jn] = fcij;
@@ -532,6 +529,7 @@ double MEAMKokkos<DeviceType>::fcut(const double xi) const
   else if (xi <= 0.0)
     return 0.0;
   else {
+    // ( 1.d0 - (1.d0 - xi)**4 )**2, but with better codegen
     a = 1.0 - xi;
     a *= a; a *= a;
     a = 1.0 - a;

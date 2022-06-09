@@ -463,7 +463,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
 
         // Now compute forces on other atoms k due to change in sij
 
-        if (iszero_kk(sij) || iszero_kk(sij - 1.0)) continue; //: cont jn loop
+        if (iszero_kk(sij) || isone_kk(sij)) continue; //: cont jn loop
 
         double dxik(0), dyik(0), dzik(0);
         double dxjk(0), dyjk(0), dzjk(0);
@@ -482,7 +482,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
 
             dsij1 = 0.0;
             dsij2 = 0.0;
-            if (!iszero_kk(sij) && !iszero_kk(sij - 1.0)) {
+            if (!iszero_kk(sij) && !isone_kk(sij)) {
               const double rbound = rij2 * ebound_meam[elti][eltj];
               delc = Cmax - Cmin;
               dxjk = x(k,0) - x(j,0);
