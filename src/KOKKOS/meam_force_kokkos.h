@@ -36,11 +36,11 @@ MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_global, int eflag_at
 
   copymode = 1;
   if (neighflag == FULL) 
-     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<FULL>>(0,inum_half),*this,ev);
+     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMForce<FULL>>(0,inum_half),*this,ev);
   else if (neighflag == HALF)
-     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<HALF>>(0,inum_half),*this,ev);
+     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMForce<HALF>>(0,inum_half),*this,ev);
   else if (neighflag == HALFTHREAD)
-     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMforce<HALFTHREAD>>(0,inum_half),*this,ev);
+     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMForce<HALFTHREAD>>(0,inum_half),*this,ev);
   ev_all += ev;
   copymode = 0;
 }
@@ -49,7 +49,7 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void
-MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FLOAT& ev) const {
+MEAMKokkos<DeviceType>::operator()(TagMEAMForce<NEIGHFLAG>, const int &ii, EV_FLOAT& ev) const {
   int i, j, jn, k, kn, kk, m, n, p, q;
   int nv2, nv3, elti, eltj, eltk, ind;
   X_FLOAT xitmp, yitmp, zitmp, delij[3];
@@ -57,7 +57,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
   double v[6], fi[3], fj[3];
   double third, sixth;
   double pp, dUdrij, dUdsij, dUdrijm[3], force, forcem;
-  double r, recip, phi, phip;
+  double recip, phi, phip;
   double sij;
   double a1, a1i, a1j, a2, a2i, a2j;
   double a3i, a3j;
@@ -114,7 +114,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
       rij2 = delij[0] * delij[0] + delij[1] * delij[1] + delij[2] * delij[2];
       if (rij2 < cutforcesq) {
         rij = sqrt(rij2);
-        r = rij;
+        recip = 1.0 / rij;
 
         // Compute phi and phip
         ind = eltind[elti][eltj];
@@ -126,16 +126,15 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
         phi = ((d_phirar3(ind,kk) * pp + d_phirar2(ind,kk)) * pp + d_phirar1(ind,kk)) * pp +
           d_phirar(ind,kk);
         phip = (d_phirar6(ind,kk) * pp + d_phirar5(ind,kk)) * pp + d_phirar4(ind,kk);
-        recip = 1.0 / r;
 
-        if (eflag_either != 0) {
-          if (eflag_global != 0)
-            //*eng_vdwl = *eng_vdwl + phi * sij;
-            ev.evdwl = ev.evdwl + phi * sij;
-          if (eflag_atom != 0) {
-            a_eatom[i] = a_eatom[i] + 0.5 * phi * sij;
-//NV:: should access of eatom[j] be atomic?
-            a_eatom[j] = a_eatom[j] + 0.5 * phi * sij;
+        if (eflag_either) {
+          double scaleij = 1.0; ////////
+          double phi_sc = phi * scaleij;
+          if (eflag_global)
+            ev.evdwl += phi_sc * sij;
+          if (eflag_atom) {
+            a_eatom[i] += 0.5 * phi * sij;
+            a_eatom[j] += 0.5 * phi * sij;
           }
         }
 
@@ -334,8 +333,9 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
         }
 
         // Compute derivatives of total density wrt rij, sij and rij(3)
-         get_shpfcn(lattce_meam[elti][elti], shpi);
-         get_shpfcn(lattce_meam[eltj][eltj], shpj);
+        get_shpfcn(lattce_meam[elti][elti], stheta_meam[elti][elti], ctheta_meam[elti][elti], shpi);
+        get_shpfcn(lattce_meam[eltj][eltj], stheta_meam[elti][elti], ctheta_meam[elti][elti], shpj);
+
         drhodr1 = d_dgamma1[i] * drho0dr1 +
           d_dgamma2[i] * (dt1dr1 * d_rho1[i] + t1i * drho1dr1 + dt2dr1 * d_rho2[i] + t2i * drho2dr1 +
                         dt3dr1 * d_rho3[i] + t3i * drho3dr1) -
@@ -348,6 +348,8 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           drhodrm1[m] = 0.0;
           drhodrm2[m] = 0.0;
           drhodrm1[m] = d_dgamma2[i] * (t1i * drho1drm1[m] + t2i * drho2drm1[m] + t3i * drho3drm1[m]);
+          drhodrm2[m] = d_dgamma2[j] * (t1j * drho1drm2[m] + t2j * drho2drm2[m] + t3j * drho3drm2[m]);
+
         }
 
         // Compute derivatives wrt sij, but only if necessary
@@ -427,7 +429,6 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
         }
 
         // Add the part of the force due to dUdrij and dUdsij
-//NV: Should the access of f and vatom be atomic?
         force = dUdrij * recip + dUdsij * d_dscrfcn[fnoffset + jn];
         for (m = 0; m < 3; m++) {
           forcem = delij[m] * force + dUdrijm[m];
@@ -448,11 +449,10 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
           v[4] = -0.25 * (delij[0] * fi[2] + delij[2] * fi[0]);
           v[5] = -0.25 * (delij[1] * fi[2] + delij[2] * fi[1]);
 
-          if (vflag_global) {
-            for (m = 0; m < 6; m++) {
+          if (vflag_global)
+            for (m = 0; m < 6; m++)
               ev.v[m] += 2.0*v[m];
-            }
-          }
+
           if (vflag_atom) {
             for (m = 0; m < 6; m++) {
               a_vatom(i,m) += v[m];
@@ -529,7 +529,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
 
               // Tabulate per-atom virial as symmetrized stress tensor
 
-              if (vflag_atom != 0) {
+              if (vflag_either) {
                 fi[0] = force1 * dxik;
                 fi[1] = force1 * dyik;
                 fi[2] = force1 * dzik;
@@ -543,10 +543,16 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMforce<NEIGHFLAG>, const int &ii, EV_FL
                 v[4] = -sixth * (dxik * fi[2] + dxjk * fj[2] + dzik * fi[0] + dzjk * fj[0]);
                 v[5] = -sixth * (dyik * fi[2] + dyjk * fj[2] + dzik * fi[1] + dzjk * fj[1]);
 
-                for (m = 0; m < 6; m++) {
-                  a_vatom(i,m) = a_vatom(i,m) + v[m];
-                  a_vatom(j,m) = a_vatom(j,m) + v[m];
-                  a_vatom(k,m) = a_vatom(k,m) + v[m];
+                if (vflag_global)
+                  for (m = 0; m < 6; m++)
+                    ev.v[m] += 3.0*v[m];
+
+                if (vflag_atom) {
+                  for (m = 0; m < 6; m++) {
+                    a_vatom(i,m) += v[m];
+                    a_vatom(j,m) += v[m];
+                    a_vatom(k,m) += v[m];
+                  }
                 }
               }
             }

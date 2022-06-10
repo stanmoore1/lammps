@@ -73,6 +73,7 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   vflag = vflag_in;
 
   if (neighflag == FULL) no_virial_fdotr_compute = 1;
+no_virial_fdotr_compute = 1;
 
   ev_init(eflag,vflag,0);
 
@@ -182,10 +183,8 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     meam_inst_kk->k_tsq_ave.template sync<DeviceType>();
   //}
 
-  printf("before dens_final %g\n",ev.evdwl);
   meam_inst_kk->meam_dens_final(nlocal,eflag_either,eflag_global,eflag_atom,
                    d_eatom,ntype,type,d_map,errorflag,ev);
-  printf("after dens_final %g\n",ev.evdwl);
   if (errorflag) {
     char str[128];
     sprintf(str,"MEAM library error %d",errorflag);
@@ -200,6 +199,16 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   meam_inst_kk->meam_force(inum_half,eflag_global,eflag_atom,vflag_global,
                 vflag_atom,d_eatom,ntype,type,d_map,x,
                 d_numneigh_half, d_numneigh_full,f,d_vatom,d_ilist_half, d_offset, d_neighbors_half, d_neighbors_full, neighflag, ev);
+
+  if (eflag_global) eng_vdwl += ev.evdwl;
+  if (vflag_global) {
+    virial[0] += ev.v[0];
+    virial[1] += ev.v[1];
+    virial[2] += ev.v[2];
+    virial[3] += ev.v[3];
+    virial[4] += ev.v[4];
+    virial[5] += ev.v[5];
+  }
 
   if (vflag_fdotr) pair_virial_fdotr_compute(this);
   if (eflag_atom) {

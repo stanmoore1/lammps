@@ -84,7 +84,7 @@ void MEAMKokkos<DeviceType>::operator()(TagMEAMDensFinal, const int &i, EV_FLOAT
       //sprintf(str,"MEAMKokkos library error %d",errorflag);
       //error->one(FLERR,str);
     }
-    get_shpfcn(lattce_meam[elti][elti], shp);
+    get_shpfcn(lattce_meam[elti][elti], stheta_meam[elti][elti], ctheta_meam[elti][elti], shp);
     if (ibar_meam[elti] <= 0) {
       Gbar = 1.0;
       dGbar = 0.0;

@@ -22,11 +22,11 @@ using namespace MathSpecialKokkos;
 
 //-----------------------------------------------------------------------------
 // Compute G(gamma) based on selection flag ibar:
-// 0 => G = sqrt(1+gamma)
-// 1 => G = exp(gamma/2)
-// 2 => not implemented
-// 3 => G = 2/(1+exp(-gamma))
-// 4 => G = sqrt(1+gamma)
+//  0 => G = sqrt(1+gamma)
+//  1 => G = exp(gamma/2)
+//  2 => not implemented
+//  3 => G = 2/(1+exp(-gamma))
+//  4 => G = sqrt(1+gamma)
 // -5 => G = +-sqrt(abs(1+gamma))
 //
 template<class DeviceType> 
@@ -65,11 +65,11 @@ double MEAMKokkos<DeviceType>::G_gam(const double gamma, const int ibar, int &er
 
 //-----------------------------------------------------------------------------
 // Compute G(gamma and dG(gamma) based on selection flag ibar:
-// 0 => G = sqrt(1+gamma)
-// 1 => G = exp(gamma/2)
-// 2 => not implemented
-// 3 => G = 2/(1+exp(-gamma))
-// 4 => G = sqrt(1+gamma)
+//  0 => G = sqrt(1+gamma)
+//  1 => G = exp(gamma/2)
+//  2 => not implemented
+//  3 => G = 2/(1+exp(-gamma))
+//  4 => G = sqrt(1+gamma)
 // -5 => G = +-sqrt(abs(1+gamma))
 //
 template<class DeviceType>
@@ -202,7 +202,7 @@ double MEAMKokkos<DeviceType>::erose(const double r, const double re, const doub
 //
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void MEAMKokkos<DeviceType>::get_shpfcn(const lattice_t latt, double (&s)[3]) const
+void MEAMKokkos<DeviceType>::get_shpfcn(const lattice_t latt, const double sthe, const double cthe, double (&s)[3]) const
 {
   switch (latt) {
     case FCC:
@@ -218,7 +218,9 @@ void MEAMKokkos<DeviceType>::get_shpfcn(const lattice_t latt, double (&s)[3]) co
       s[1] = 0.0;
       s[2] = 1.0 / 3.0;
       break;
+    case CH4: // CH4 actually needs shape factor for diamond for C, dimer for H
     case DIA:
+    case DIA3:
       s[0] = 0.0;
       s[1] = 0.0;
       s[2] = 32.0 / 9.0;
@@ -226,8 +228,20 @@ void MEAMKokkos<DeviceType>::get_shpfcn(const lattice_t latt, double (&s)[3]) co
     case DIM:
       s[0] = 1.0;
       s[1] = 2.0 / 3.0;
-      // s(3) = 1.d0
-      s[2] = 0.40;
+      // s(4) = 1.d0 // this should be 0.4 unless (1-legendre) is multiplied in the density calc.
+      s[2] = 0.40; // this is (1-legendre) where legendre = 0.6 in dynamo is accounted.
+      break;
+    case LIN: // linear, theta being 180
+      s[0] = 0.0;
+      s[1] = 8.0 / 3.0; // 4*(co**4 + si**4 - 1.0/3.0) in zig become 4*(1-1/3)
+      s[2] = 0.0;
+      break;
+    case ZIG: //zig-zag
+    case TRI: //trimer e.g. H2O
+      s[0] = 4.0*pow(cthe,2);
+      s[1] = 4.0*(pow(cthe,4) + pow(sthe,4) - 1.0/3.0);
+      s[2] = 4.0*(pow(cthe,2) * (3*pow(sthe,4) + pow(cthe,4)));
+      s[2] = s[2] - 0.6*s[0]; //legend in dyn, 0.6 is default value.
       break;
     default:
       s[0] = 0.0;
@@ -249,102 +263,26 @@ int MEAMKokkos<DeviceType>::get_Zij(const lattice_t latt) const
       return 8;
     case HCP:
       return 12;
-    case B1:
-      return 6;
     case DIA:
+    case DIA3:
       return 4;
     case DIM:
       return 1;
+    case B1:
+      return 6;
     case C11:
       return 10;
     case L12:
       return 12;
     case B2:
       return 8;
+    case CH4: // DYNAMO currently implemented this way while it needs two Z values, 4 and 1
+      return 4;
+    case LIN:
+    case ZIG:
+    case TRI:
+      return 2;
       // call error('Lattice not defined in get_Zij.')
   }
   return 0;
-}
-
-//-----------------------------------------------------------------------------
-// Number of second neighbors for the reference structure
-// a = distance ratio R1/R2
-// S = second neighbor screening function
-//
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-int MEAMKokkos<DeviceType>::get_Zij2(const lattice_t latt, const double cmin, const double cmax, double& a, double& S) const
-{
-
-  double C, x, sijk;
-  int Zij2 = 0, numscr = 0;
-
-  switch (latt) {
-
-  case FCC:
-    Zij2 = 6;
-    a = sqrt(2.0);
-    numscr = 4;
-    break;
-
-  case BCC:
-    Zij2 = 6;
-    a = 2.0 / sqrt(3.0);
-    numscr = 4;
-    break;
-
-  case HCP:
-    Zij2 = 6;
-    a = sqrt(2.0);
-    numscr = 4;
-    break;
-
-  case B1:
-    Zij2 = 12;
-    a = sqrt(2.0);
-    numscr = 2;
-    break;
-
-  case DIA:
-    Zij2 = 12;
-    a = sqrt(8.0 / 3.0);
-    numscr = 1;
-    if (cmin < 0.500001) {
-        // call error('can not do 2NN MEAM for dia')
-    }
-    break;
-
-  case DIM:
-    // this really shouldn't be allowed; make sure screening is zero
-    a = 1.0;
-    S = 0.0;
-    return 0;
-
-  case L12:
-    Zij2 = 6;
-    a = sqrt(2.0);
-    numscr = 4;
-    break;
-
-  case B2:
-    Zij2 = 6;
-    a = 2.0 / sqrt(3.0);
-    numscr = 4;
-    break;
-  case C11:
-    // unsupported lattice flag C11 in get_Zij
-    break;
-  default:
-    // unknown lattic flag in get Zij
-    // call error('Lattice not defined in get_Zij.')
-    break;
-  }
-
-  // Compute screening for each first neighbor
-  C = 4.0 / (a * a) - 1.0;
-  x = (C - cmin) / (cmax - cmin);
-  sijk = fcut(x);
-  // There are numscr first neighbors screening the second neighbors
-  S = MathSpecialKokkos::powint(sijk, numscr);
-  return Zij2;
 }

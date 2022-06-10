@@ -344,7 +344,7 @@ const {
       }
       const double coef1 = sfcij;
       const double coef2 = sij * dfcij / rij;
-      d_dscrfcn[offset+jn] += coef1 - coef2;
+      d_dscrfcn[offset+jn] = d_dscrfcn[offset+jn] * coef1 - coef2;
     }
 
     d_scrfcn[offset+jn] = sij;

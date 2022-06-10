@@ -16,7 +16,7 @@ template<int NEIGHFLAG>
 struct TagMEAMDensInit{};
 struct TagMEAMZero{};
 template<int NEIGHFLAG>
-struct TagMEAMforce{};
+struct TagMEAMForce{};
 
 template<class DeviceType>
 class MEAMKokkos : public MEAM
@@ -39,7 +39,7 @@ public:
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagMEAMforce<NEIGHFLAG>, const int&, EV_FLOAT&) const;
+  void operator()(TagMEAMForce<NEIGHFLAG>, const int&, EV_FLOAT&) const;
 protected:
 //Parameters to meam_dens_init - is there a better way to do this?
   int ntype;
@@ -97,11 +97,10 @@ public:
   KOKKOS_INLINE_FUNCTION
   double erose(const double, const double, const double, const double, const double, const double, const int) const;
   KOKKOS_INLINE_FUNCTION
-  void get_shpfcn(const lattice_t latt, double (&s)[3]) const;
+  void get_shpfcn(const lattice_t latt, const double sthe, const double cthe,
+                  double (&s)[3]) const;
   KOKKOS_INLINE_FUNCTION
   int get_Zij(const lattice_t) const;
-  KOKKOS_INLINE_FUNCTION
-  int get_Zij2(const lattice_t, const double, const double, double&, double&) const; 
 public:
   DAT::tdual_ffloat_1d k_rho, k_rho0, k_rho1, k_rho2, k_rho3, k_frhop;
   typename ArrayTypes<DeviceType>::t_ffloat_1d d_rho, d_rho0,d_rho1, d_rho2, d_rho3, d_frhop;
