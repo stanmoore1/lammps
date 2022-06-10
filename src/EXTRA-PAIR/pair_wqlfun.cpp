@@ -581,11 +581,8 @@ void PairWQLFun::init_style()
 {
   // need a full neighbor list
 
-  int irequest = neighbor->request(this,instance_me);
-  neighbor->requests[irequest]->half = 0;
-  neighbor->requests[irequest]->full = 1;
-  //neighbor->requests[irequest]->cut = 1;
-  //neighbor->requests[irequest]->cutoff = cut_global + neighbor->skin;
+  auto req = neighbor->add_request(this, NeighConst::REQ_FULL);
+  //if (cutflag) req->set_cutoff(cut_global + neighbor->skin);
 }
 
 /* ----------------------------------------------------------------------

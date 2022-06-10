@@ -69,24 +69,18 @@ void PairWQLFunKokkos<DeviceType>::init_style()
 {
   PairWQLFun::init_style();
 
-  // irequest = neigh request made by parent class
+  // adjust neighbor list request for KOKKOS
 
   neighflag = lmp->kokkos->neighflag;
+  auto request = neighbor->find_request(this);
+  request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
+                           !std::is_same<DeviceType,LMPDeviceType>::value);
+  request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
 
-  int irequest = neighbor->nrequest - 1;
+  // still need atomics, even though using a full neigh list
 
-  neighbor->requests[irequest]->
-    kokkos_host = std::is_same<DeviceType,LMPHostType>::value &&
-    !std::is_same<DeviceType,LMPDeviceType>::value;
-  neighbor->requests[irequest]->
-    kokkos_device = std::is_same<DeviceType,LMPDeviceType>::value;
-
-  if (neighflag == HALF || neighflag == HALFTHREAD) { // still need atomics, even though using a full neigh list
-    neighbor->requests[irequest]->full = 1;
-    neighbor->requests[irequest]->half = 0;
-  } else {
+  if (neighflag == FULL)
     error->all(FLERR,"Must use half neighbor list style with pair wqlfun/kk");
-  }
 }
 
 /* ---------------------------------------------------------------------- */
