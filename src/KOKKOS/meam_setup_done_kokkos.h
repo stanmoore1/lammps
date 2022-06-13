@@ -5,8 +5,6 @@ void MEAMKokkos<DeviceType>::meam_setup_done(double* cutmax)
 {
   MEAM::meam_setup_done(cutmax);
 
-  MemoryKokkos* memoryKK = (MemoryKokkos*)memory;
-
   MemKK::realloc_kokkos(d_phir, "pair:phir", (neltypes * (neltypes + 1)) / 2, nr);
   MemKK::realloc_kokkos(d_phirar, "pair:phirar", (neltypes * (neltypes + 1)) / 2, nr);
   MemKK::realloc_kokkos(d_phirar1, "pair:phirar1", (neltypes * (neltypes + 1)) / 2, nr);

@@ -363,14 +363,14 @@ MEAMKokkos<DeviceType>::calc_rho1(int i, int /*ntype*/, typename AT::t_int_1d ty
 {
   // Atomic views for CUDA
 
-  Kokkos::View<F_FLOAT*, typename DAT::t_ffloat_1d::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_rho0 = d_rho0;
-  Kokkos::View<F_FLOAT*, typename DAT::t_ffloat_1d::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho2b = d_arho2b;
-  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_t_ave = d_t_ave;
-  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_tsq_ave = d_tsq_ave;
-  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho1 = d_arho1;
-  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho2 = d_arho2;
-  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho3 = d_arho3;
-  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho3b = d_arho3b;
+  Kokkos::View<F_FLOAT*, typename DAT::t_ffloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_rho0 = d_rho0;
+  Kokkos::View<F_FLOAT*, typename DAT::t_ffloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho2b = d_arho2b;
+  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_t_ave = d_t_ave;
+  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_tsq_ave = d_tsq_ave;
+  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho1 = d_arho1;
+  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho2 = d_arho2;
+  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho3 = d_arho3;
+  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho3b = d_arho3b;
 
   const int elti = d_map[type[i]];
   const double xtmp = x(i,0);
