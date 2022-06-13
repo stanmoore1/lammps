@@ -432,8 +432,8 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMForce<NEIGHFLAG>, const int &ii, EV_FL
         force = dUdrij * recip + dUdsij * d_dscrfcn[fnoffset + jn];
         for (m = 0; m < 3; m++) {
           forcem = delij[m] * force + dUdrijm[m];
-          a_f(i,m) = a_f(i,m) + forcem;
-          a_f(j,m) = a_f(j,m) - forcem;
+          a_f(i,m) += forcem;
+          a_f(j,m) -= forcem;
         }
 
         // Tabulate per-atom virial as symmetrized stress tensor
