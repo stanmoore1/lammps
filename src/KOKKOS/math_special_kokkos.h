@@ -49,21 +49,10 @@ namespace MathSpecialKokkos {
   /* IEEE 754 double precision floating point data manipulation */
   typedef union
   {
-      double   f;
-      uint64_t u;
-      struct {int32_t  i0,i1;} s;
+    double   f;
+    uint64_t u;
+    struct {int32_t  i0,i1;} s;
   }  udi_t;
-
-  static const double fm_exp2_q[] = {
-  /*  1.00000000000000000000e0, */
-      2.33184211722314911771e2,
-      4.36821166879210612817e3
-  };
-  static const double fm_exp2_p[] = {
-      2.30933477057345225087e-2,
-      2.02020656693165307700e1,
-      1.51390680115615096133e3
-  };
 
   /* double precision constants */
   #define FM_DOUBLE_LOG2OFE  1.4426950408889634074
@@ -87,6 +76,17 @@ namespace MathSpecialKokkos {
   #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
       double   ipart, fpart, px, qx;
       udi_t    epart;
+
+  const double fm_exp2_q[2] = {
+  /*  1.00000000000000000000e0, */
+      2.33184211722314911771e2,
+      4.36821166879210612817e3
+  };
+  const double fm_exp2_p[3] = {
+      2.30933477057345225087e-2,
+      2.02020656693165307700e1,
+      1.51390680115615096133e3
+  };
 
       ipart = floor(x+0.5);
       fpart = x - ipart;
