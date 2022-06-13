@@ -73,7 +73,6 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   vflag = vflag_in;
 
   if (neighflag == FULL) no_virial_fdotr_compute = 1;
-no_virial_fdotr_compute = 1;
 
   ev_init(eflag,vflag,0);
 
@@ -89,10 +88,6 @@ no_virial_fdotr_compute = 1;
     memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"pair:vatom");
     d_vatom = k_vatom.view<DeviceType>();
   }
-
-  atomKK->sync(execution_space,datamask_read);
-  if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
-  else atomKK->modified(execution_space,F_MASK);
 
   // neighbor list info
 
@@ -115,7 +110,7 @@ no_virial_fdotr_compute = 1;
   // necessary before doing neigh_f2c and neigh_c2f conversions each step
 
   if (neighbor->ago == 0)
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairMEAMKernelNeighStrip >(0,inum_half),*this);
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairMEAMNeighStrip >(0,inum_half),*this);
 
   // check size of scrfcn based on half neighbor list
 
@@ -123,13 +118,15 @@ no_virial_fdotr_compute = 1;
   nall = nlocal + atom->nghost;
 
   int n = 0;
-  Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairMEAMKernelA>(0,inum_half),*this,n);
+  Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairMEAMOffsets>(0,inum_half),*this,n);
 
   meam_inst_kk->meam_dens_setup(atom->nmax, nall, n);
 
   x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();
   type = atomKK->k_type.view<DeviceType>();
+
+  atomKK->sync(execution_space,datamask_read);
 
   int ntype = atom->ntypes;
 
@@ -141,10 +138,8 @@ no_virial_fdotr_compute = 1;
   k_offset = DAT::tdual_int_1d("pair:offset",inum_half+1);
   h_offset = k_offset.h_view;
   d_offset = k_offset.template view<DeviceType>();
-  ArrayTypes<LMPHostType>::t_int_1d h_ilist;
-  ArrayTypes<LMPHostType>::t_int_1d h_numneigh;
-  h_ilist = Kokkos::create_mirror_view(k_halflist->d_ilist);
-  h_numneigh = Kokkos::create_mirror_view(k_halflist->d_numneigh);
+  auto h_ilist = Kokkos::create_mirror_view(k_halflist->d_ilist);
+  auto h_numneigh = Kokkos::create_mirror_view(k_halflist->d_numneigh);
   Kokkos::deep_copy(h_ilist,k_halflist->d_ilist);
   Kokkos::deep_copy(h_numneigh,k_halflist->d_numneigh);
 
@@ -154,12 +149,10 @@ no_virial_fdotr_compute = 1;
     int i = h_ilist[ii];
     h_offset[ii+1] = h_offset[ii] + h_numneigh[i]; 
   }
-  k_offset.template modify<LMPHostType>();
+  k_offset.modify_host();
   k_offset.template sync<DeviceType>();
 
   meam_inst_kk->meam_dens_init(inum_half,ntype,type,d_map,x,d_numneigh_half,d_numneigh_full,d_ilist_half,d_neighbors_half, d_neighbors_full, d_offset, neighflag);
-
-  //// move sync to inside comm kernel
 
   //if (newton_flag) {
     meam_inst_kk->k_rho0.template modify<DeviceType>();
@@ -191,13 +184,45 @@ no_virial_fdotr_compute = 1;
     error->one(FLERR,str);
   }
 
+  meam_inst_kk->k_rho0.template modify<DeviceType>();
+  meam_inst_kk->k_rho1.template modify<DeviceType>();
+  meam_inst_kk->k_rho2.template modify<DeviceType>();
+  meam_inst_kk->k_rho3.template modify<DeviceType>();
+  meam_inst_kk->k_frhop.template modify<DeviceType>();
+  meam_inst_kk->k_gamma.template modify<DeviceType>();
+  meam_inst_kk->k_dgamma1.template modify<DeviceType>();
+  meam_inst_kk->k_dgamma2.template modify<DeviceType>();
+  meam_inst_kk->k_dgamma3.template modify<DeviceType>();
+  meam_inst_kk->k_arho2b.template modify<DeviceType>();
+  meam_inst_kk->k_arho1.template modify<DeviceType>();
+  meam_inst_kk->k_arho2.template modify<DeviceType>();
+  meam_inst_kk->k_arho3.template modify<DeviceType>();
+  meam_inst_kk->k_arho3b.template modify<DeviceType>();
+  meam_inst_kk->k_t_ave.template modify<DeviceType>();
+  meam_inst_kk->k_tsq_ave.template modify<DeviceType>();
   comm->forward_comm(this);
+  meam_inst_kk->k_rho0.template sync<DeviceType>();
+  meam_inst_kk->k_rho1.template sync<DeviceType>();
+  meam_inst_kk->k_rho2.template sync<DeviceType>();
+  meam_inst_kk->k_rho3.template sync<DeviceType>();
+  meam_inst_kk->k_frhop.template sync<DeviceType>();
+  meam_inst_kk->k_gamma.template sync<DeviceType>();
+  meam_inst_kk->k_dgamma1.template sync<DeviceType>();
+  meam_inst_kk->k_dgamma2.template sync<DeviceType>();
+  meam_inst_kk->k_dgamma3.template sync<DeviceType>();
+  meam_inst_kk->k_arho2b.template sync<DeviceType>();
+  meam_inst_kk->k_arho1.template sync<DeviceType>();
+  meam_inst_kk->k_arho2.template sync<DeviceType>();
+  meam_inst_kk->k_arho3.template sync<DeviceType>();
+  meam_inst_kk->k_arho3b.template sync<DeviceType>();
+  meam_inst_kk->k_t_ave.template sync<DeviceType>();
+  meam_inst_kk->k_tsq_ave.template sync<DeviceType>();
 
   // vptr is first value in vatom if it will be used by meam_force()
   // else vatom may not exist, so pass dummy ptr
 
   meam_inst_kk->meam_force(inum_half,eflag_global,eflag_atom,vflag_global,
-                vflag_atom,d_eatom,ntype,type,d_map,x,
+               vflag_atom,d_eatom,ntype,type,d_map,x,
                 d_numneigh_half, d_numneigh_full,f,d_vatom,d_ilist_half, d_offset, d_neighbors_half, d_neighbors_full, neighflag, ev);
 
   if (eflag_global) eng_vdwl += ev.evdwl;
@@ -213,13 +238,16 @@ no_virial_fdotr_compute = 1;
   if (vflag_fdotr) pair_virial_fdotr_compute(this);
   if (eflag_atom) {
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
+
+  if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
+  else atomKK->modified(execution_space,F_MASK);
 
   copymode = 0;
   meam_inst_kk->copymode = 0;
@@ -366,8 +394,24 @@ template<class DeviceType>
 int PairMEAMKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
                                int pbc_flag, int *pbc)
 {
-  int m = 0;
+  meam_inst_kk->k_rho0.sync_host();
+  meam_inst_kk->k_rho1.sync_host();
+  meam_inst_kk->k_rho2.sync_host();
+  meam_inst_kk->k_rho3.sync_host();
+  meam_inst_kk->k_frhop.sync_host();
+  meam_inst_kk->k_gamma.sync_host();
+  meam_inst_kk->k_dgamma1.sync_host();
+  meam_inst_kk->k_dgamma2.sync_host();
+  meam_inst_kk->k_dgamma3.sync_host();
+  meam_inst_kk->k_arho2b.sync_host();
+  meam_inst_kk->k_arho1.sync_host();
+  meam_inst_kk->k_arho2.sync_host();
+  meam_inst_kk->k_arho3.sync_host();
+  meam_inst_kk->k_arho3b.sync_host();
+  meam_inst_kk->k_t_ave.sync_host();
+  meam_inst_kk->k_tsq_ave.sync_host();
 
+  int m = 0;
   for (int i = 0; i < n; i++) {
     const int j = list[i];
     buf[m++] = meam_inst_kk->h_rho0[j];
@@ -409,6 +453,23 @@ int PairMEAMKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
 template<class DeviceType>
 void PairMEAMKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
 {
+  meam_inst_kk->k_rho0.sync_host();
+  meam_inst_kk->k_rho1.sync_host();
+  meam_inst_kk->k_rho2.sync_host();
+  meam_inst_kk->k_rho3.sync_host();
+  meam_inst_kk->k_frhop.sync_host();
+  meam_inst_kk->k_gamma.sync_host();
+  meam_inst_kk->k_dgamma1.sync_host();
+  meam_inst_kk->k_dgamma2.sync_host();
+  meam_inst_kk->k_dgamma3.sync_host();
+  meam_inst_kk->k_arho2b.sync_host();
+  meam_inst_kk->k_arho1.sync_host();
+  meam_inst_kk->k_arho2.sync_host();
+  meam_inst_kk->k_arho3.sync_host();
+  meam_inst_kk->k_arho3b.sync_host();
+  meam_inst_kk->k_t_ave.sync_host();
+  meam_inst_kk->k_tsq_ave.sync_host();
+
   int m = 0;
   const int last = first + n;
   for (int i = first; i < last; i++) {
@@ -442,6 +503,23 @@ void PairMEAMKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *b
     meam_inst_kk->h_tsq_ave(i,1) = buf[m++];
     meam_inst_kk->h_tsq_ave(i,2) = buf[m++];
   }
+
+  meam_inst_kk->k_rho0.modify_host();
+  meam_inst_kk->k_rho1.modify_host();
+  meam_inst_kk->k_rho2.modify_host();
+  meam_inst_kk->k_rho3.modify_host();
+  meam_inst_kk->k_frhop.modify_host();
+  meam_inst_kk->k_gamma.modify_host();
+  meam_inst_kk->k_dgamma1.modify_host();
+  meam_inst_kk->k_dgamma2.modify_host();
+  meam_inst_kk->k_dgamma3.modify_host();
+  meam_inst_kk->k_arho2b.modify_host();
+  meam_inst_kk->k_arho1.modify_host();
+  meam_inst_kk->k_arho2.modify_host();
+  meam_inst_kk->k_arho3.modify_host();
+  meam_inst_kk->k_arho3b.modify_host();
+  meam_inst_kk->k_t_ave.modify_host();
+  meam_inst_kk->k_tsq_ave.modify_host();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -449,6 +527,15 @@ void PairMEAMKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *b
 template<class DeviceType>
 int PairMEAMKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)
 {
+  meam_inst_kk->k_rho0.sync_host();
+  meam_inst_kk->k_arho2b.sync_host();
+  meam_inst_kk->k_arho1.sync_host();
+  meam_inst_kk->k_arho2.sync_host();
+  meam_inst_kk->k_arho3.sync_host();
+  meam_inst_kk->k_arho3b.sync_host();
+  meam_inst_kk->k_t_ave.sync_host();
+  meam_inst_kk->k_tsq_ave.sync_host();
+
   int m = 0;
   const int last = first + n;
   for (int i = first; i < last; i++) {
@@ -483,6 +570,15 @@ int PairMEAMKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)
 template<class DeviceType>
 void PairMEAMKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, double *buf)
 {
+  meam_inst_kk->k_rho0.sync_host();
+  meam_inst_kk->k_arho2b.sync_host();
+  meam_inst_kk->k_arho1.sync_host();
+  meam_inst_kk->k_arho2.sync_host();
+  meam_inst_kk->k_arho3.sync_host();
+  meam_inst_kk->k_arho3b.sync_host();
+  meam_inst_kk->k_t_ave.sync_host();
+  meam_inst_kk->k_tsq_ave.sync_host();
+
   int m = 0;
   for (int i = 0; i < n; i++) {
     const int j = list[i];
@@ -508,6 +604,15 @@ void PairMEAMKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, double *b
     meam_inst_kk->h_tsq_ave(j,1) += buf[m++];
     meam_inst_kk->h_tsq_ave(j,2) += buf[m++];
   }
+
+  meam_inst_kk->k_rho0.modify_host();
+  meam_inst_kk->k_arho2b.modify_host();
+  meam_inst_kk->k_arho1.modify_host();
+  meam_inst_kk->k_arho2.modify_host();
+  meam_inst_kk->k_arho3.modify_host();
+  meam_inst_kk->k_arho3b.modify_host();
+  meam_inst_kk->k_t_ave.modify_host();
+  meam_inst_kk->k_tsq_ave.modify_host();
 }
 
 /* ----------------------------------------------------------------------
@@ -519,7 +624,7 @@ void PairMEAMKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, double *b
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairMEAMKokkos<DeviceType>::operator()(TagPairMEAMKernelNeighStrip, const int &ii) const {
+void PairMEAMKokkos<DeviceType>::operator()(TagPairMEAMNeighStrip, const int &ii) const {
 
   const int i = d_ilist_half[ii];
   const int jnum_half = d_numneigh_half[i];
@@ -534,7 +639,7 @@ void PairMEAMKokkos<DeviceType>::operator()(TagPairMEAMKernelNeighStrip, const i
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairMEAMKokkos<DeviceType>::operator()(TagPairMEAMKernelA, const int ii, int &n) const {
+void PairMEAMKokkos<DeviceType>::operator()(TagPairMEAMOffsets, const int ii, int &n) const {
   const int i = d_ilist_half[ii];
   n += d_numneigh_half[i]; 
 }

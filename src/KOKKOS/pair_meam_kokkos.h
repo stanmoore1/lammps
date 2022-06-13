@@ -32,8 +32,8 @@ PairStyle(meam/kk/host,PairMEAMKokkos<LMPHostType>)
 #include "meam_kokkos.h"
 
 namespace LAMMPS_NS {
-struct TagPairMEAMKernelNeighStrip{};
-struct TagPairMEAMKernelA{};
+struct TagPairMEAMNeighStrip{};
+struct TagPairMEAMOffsets{};
 struct TagPairMEAMPackForwardComm{};
 struct TagPairMEAMUnpackForwardComm{};
 
@@ -62,10 +62,10 @@ class PairMEAMKokkos : public PairMEAM, public KokkosBase {
   void operator()(TagPairMEAMUnpackForwardComm, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairMEAMKernelNeighStrip,  const int&) const;
+  void operator()(TagPairMEAMNeighStrip,  const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairMEAMKernelA,  const int, int&) const;
+  void operator()(TagPairMEAMOffsets,  const int, int&) const;
 
   int pack_forward_comm_kokkos(int, DAT::tdual_int_2d, int, DAT::tdual_xfloat_1d&,
                        int, int *) override;
