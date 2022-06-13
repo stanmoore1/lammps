@@ -35,12 +35,12 @@ void MEAMKokkos<DeviceType>::meam_setup_done(double* cutmax)
       h_phirar6(i,j) = phirar6[i][j];
     }
 
-  Kokkos::deep_copy(h_phir,d_phir);
-  Kokkos::deep_copy(h_phirar,d_phirar);
-  Kokkos::deep_copy(h_phirar1,d_phirar1);
-  Kokkos::deep_copy(h_phirar2,d_phirar2);
-  Kokkos::deep_copy(h_phirar3,d_phirar3);
-  Kokkos::deep_copy(h_phirar4,d_phirar4);
-  Kokkos::deep_copy(h_phirar5,d_phirar5);
-  Kokkos::deep_copy(h_phirar6,d_phirar6);
+  Kokkos::deep_copy(d_phir,h_phir);
+  Kokkos::deep_copy(d_phirar,h_phirar);
+  Kokkos::deep_copy(d_phirar1,h_phirar1);
+  Kokkos::deep_copy(d_phirar2,h_phirar2);
+  Kokkos::deep_copy(d_phirar3,h_phirar3);
+  Kokkos::deep_copy(d_phirar4,h_phirar4);
+  Kokkos::deep_copy(d_phirar5,h_phirar5);
+  Kokkos::deep_copy(d_phirar6,h_phirar6);
 }

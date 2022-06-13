@@ -178,6 +178,7 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   meam_inst_kk->meam_dens_final(nlocal,eflag_either,eflag_global,eflag_atom,
                    d_eatom,ntype,type,d_map,errorflag,ev);
+
   if (errorflag) {
     char str[128];
     sprintf(str,"MEAM library error %d",errorflag);
@@ -200,7 +201,9 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   meam_inst_kk->k_arho3b.template modify<DeviceType>();
   meam_inst_kk->k_t_ave.template modify<DeviceType>();
   meam_inst_kk->k_tsq_ave.template modify<DeviceType>();
+
   comm->forward_comm(this);
+
   meam_inst_kk->k_rho0.template sync<DeviceType>();
   meam_inst_kk->k_rho1.template sync<DeviceType>();
   meam_inst_kk->k_rho2.template sync<DeviceType>();
@@ -217,9 +220,6 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   meam_inst_kk->k_arho3b.template sync<DeviceType>();
   meam_inst_kk->k_t_ave.template sync<DeviceType>();
   meam_inst_kk->k_tsq_ave.template sync<DeviceType>();
-
-  // vptr is first value in vatom if it will be used by meam_force()
-  // else vatom may not exist, so pass dummy ptr
 
   meam_inst_kk->meam_force(inum_half,eflag_global,eflag_atom,vflag_global,
                vflag_atom,d_eatom,ntype,type,d_map,x,
