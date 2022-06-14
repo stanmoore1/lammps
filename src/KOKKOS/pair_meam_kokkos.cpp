@@ -135,46 +135,44 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   int errorflag = 0;
   
-  k_offset = DAT::tdual_int_1d("pair:offset",inum_half+1);
-  h_offset = k_offset.h_view;
-  d_offset = k_offset.template view<DeviceType>();
-  auto h_ilist = Kokkos::create_mirror_view(k_halflist->d_ilist);
-  auto h_numneigh = Kokkos::create_mirror_view(k_halflist->d_numneigh);
-  Kokkos::deep_copy(h_ilist,k_halflist->d_ilist);
-  Kokkos::deep_copy(h_numneigh,k_halflist->d_numneigh);
+  d_offset = typename AT::t_int_1d("pair:offset",inum_half+1);
 
-  //// use parallel scan
-  h_offset[0] = 0;
-  for (int ii = 0; ii < inum_half; ii++) {
-    int i = h_ilist[ii];
-    h_offset[ii+1] = h_offset[ii] + h_numneigh[i]; 
+  {
+    // local variables for lambda capture
+
+    auto l_ilist_half = d_ilist_half;
+    auto l_numneigh_half = d_numneigh_half;
+    auto l_offset = d_offset;
+
+    Kokkos::parallel_scan(inum_half, LAMMPS_LAMBDA(int ii, int &m_fill, bool final) {
+      int i = l_ilist_half[ii];
+      m_fill += l_numneigh_half[i];
+      if (final)
+        l_offset[ii+1] = m_fill;
+    });
   }
-  k_offset.modify_host();
-  k_offset.template sync<DeviceType>();
 
   meam_inst_kk->meam_dens_init(inum_half,ntype,type,d_map,x,d_numneigh_half,d_numneigh_full,d_ilist_half,d_neighbors_half, d_neighbors_full, d_offset, neighflag);
 
-  //if (newton_flag) {
-    meam_inst_kk->k_rho0.template modify<DeviceType>();
-    meam_inst_kk->k_arho2b.template modify<DeviceType>();
-    meam_inst_kk->k_arho1.template modify<DeviceType>();
-    meam_inst_kk->k_arho2.template modify<DeviceType>();
-    meam_inst_kk->k_arho3.template modify<DeviceType>();
-    meam_inst_kk->k_arho3b.template modify<DeviceType>();
-    meam_inst_kk->k_t_ave.template modify<DeviceType>();
-    meam_inst_kk->k_tsq_ave.template modify<DeviceType>();
+  meam_inst_kk->k_rho0.template modify<DeviceType>();
+  meam_inst_kk->k_arho2b.template modify<DeviceType>();
+  meam_inst_kk->k_arho1.template modify<DeviceType>();
+  meam_inst_kk->k_arho2.template modify<DeviceType>();
+  meam_inst_kk->k_arho3.template modify<DeviceType>();
+  meam_inst_kk->k_arho3b.template modify<DeviceType>();
+  meam_inst_kk->k_t_ave.template modify<DeviceType>();
+  meam_inst_kk->k_tsq_ave.template modify<DeviceType>();
 
-    comm->reverse_comm(this);
+  comm->reverse_comm(this);
 
-    meam_inst_kk->k_rho0.template sync<DeviceType>();
-    meam_inst_kk->k_arho2b.template sync<DeviceType>();
-    meam_inst_kk->k_arho1.template sync<DeviceType>();
-    meam_inst_kk->k_arho2.template sync<DeviceType>();
-    meam_inst_kk->k_arho3.template sync<DeviceType>();
-    meam_inst_kk->k_arho3b.template sync<DeviceType>();
-    meam_inst_kk->k_t_ave.template sync<DeviceType>();
-    meam_inst_kk->k_tsq_ave.template sync<DeviceType>();
-  //}
+  meam_inst_kk->k_rho0.template sync<DeviceType>();
+  meam_inst_kk->k_arho2b.template sync<DeviceType>();
+  meam_inst_kk->k_arho1.template sync<DeviceType>();
+  meam_inst_kk->k_arho2.template sync<DeviceType>();
+  meam_inst_kk->k_arho3.template sync<DeviceType>();
+  meam_inst_kk->k_arho3b.template sync<DeviceType>();
+  meam_inst_kk->k_t_ave.template sync<DeviceType>();
+  meam_inst_kk->k_tsq_ave.template sync<DeviceType>();
 
   meam_inst_kk->meam_dens_final(nlocal,eflag_either,eflag_global,eflag_atom,
                    d_eatom,ntype,type,d_map,errorflag,ev);

@@ -86,8 +86,6 @@ class PairMEAMKokkos : public PairMEAM, public KokkosBase {
   typename AT::t_efloat_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
-  DAT::tdual_int_1d k_offset; 
-  HAT::t_int_1d h_offset;
   typename AT::t_int_1d d_offset;
   
   DAT::tdual_int_1d k_map; 
