@@ -136,7 +136,6 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   int errorflag = 0;
   
   d_offset = typename AT::t_int_1d("pair:offset",inum_half+1);
-
   {
     // local variables for lambda capture
 
@@ -294,6 +293,7 @@ void PairMEAMKokkos<DeviceType>::init_style()
 }
 
 /* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 int PairMEAMKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_2d k_sendlist, int iswap_in, DAT::tdual_xfloat_1d &buf,
                                 int pbc_flag, int *pbc)
@@ -304,6 +304,8 @@ int PairMEAMKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_2
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairMEAMPackForwardComm>(0,n),*this);
   return n;
 }
+
+/* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
@@ -342,6 +344,7 @@ void PairMEAMKokkos<DeviceType>::operator()(TagPairMEAMPackForwardComm, const in
 } 
 
 /* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 void PairMEAMKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_xfloat_1d &buf)
 {
@@ -349,6 +352,8 @@ void PairMEAMKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in,
   v_buf = buf.view<DeviceType>();
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairMEAMUnpackForwardComm>(0,n),*this);
 }
+
+/* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
