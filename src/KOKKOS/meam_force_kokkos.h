@@ -128,7 +128,7 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMForce<NEIGHFLAG>, const int &ii, EV_FL
         phip = (d_phirar6(ind,kk) * pp + d_phirar5(ind,kk)) * pp + d_phirar4(ind,kk);
 
         if (eflag_either) {
-          double scaleij = 1.0; ////////
+          double scaleij = d_scale(type[i],type[i]);
           double phi_sc = phi * scaleij;
           if (eflag_global)
             ev.evdwl += phi_sc * sij;

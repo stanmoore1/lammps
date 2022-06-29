@@ -8,7 +8,7 @@ using namespace LAMMPS_NS;
 template<class DeviceType>
 void
 MEAMKokkos<DeviceType>::meam_dens_final(int nlocal, int eflag_either, int eflag_global, int eflag_atom,
-                      typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d d_map, int& errorflag, EV_FLOAT &ev_all)
+                      typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d d_map, typename AT::t_int_2d d_scale, int& errorflag, EV_FLOAT &ev_all)
 {
   EV_FLOAT ev;
   this->eflag_either = eflag_either;
@@ -18,6 +18,7 @@ MEAMKokkos<DeviceType>::meam_dens_final(int nlocal, int eflag_either, int eflag_
   this->ntype = ntype;
   this->type = type;
   this->d_map = d_map;
+  this->d_scale = d_scale;
 
   Kokkos::deep_copy(d_errorflag,0);
 
@@ -44,8 +45,7 @@ void MEAMKokkos<DeviceType>::operator()(TagMEAMDensFinal, const int &i, EV_FLOAT
 
   int elti = d_map[type[i]];
   if (elti >= 0) {
-    //scaleii = scale[type[i]][type[i]]; /////
-    scaleii = 1.0;
+    scaleii = d_scale(type[i],type[i]);
     d_rho1[i] = 0.0;
     d_rho2[i] = -1.0 / 3.0 * d_arho2b[i] * d_arho2b[i];
     d_rho3[i] = 0.0;

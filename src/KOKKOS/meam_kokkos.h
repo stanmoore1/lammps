@@ -46,6 +46,7 @@ protected:
   typename AT::t_int_1d type;
   typename AT::t_int_1d d_offset;
   typename AT::t_int_1d d_map;
+  typename AT::t_int_2d d_scale;
   typename AT::t_x_array x;
   typename AT::t_int_1d d_numneigh_half;
   typename AT::t_int_1d d_numneigh_full;
@@ -66,7 +67,7 @@ public:
                       typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_int_1d,
                       typename AT::t_neighbors_2d, typename AT::t_neighbors_2d, typename AT::t_int_1d, int);
   void meam_dens_final(int, int, int, int, typename ArrayTypes<DeviceType>::t_efloat_1d,
-                       int, typename AT::t_int_1d, typename AT::t_int_1d, int&, EV_FLOAT&);
+                       int, typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_int_2d, int&, EV_FLOAT&);
   void meam_force(int, int, int, int, int, typename ArrayTypes<DeviceType>::t_efloat_1d, 
                   int, typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_x_array, typename AT::t_int_1d, 
                   typename AT::t_int_1d, typename AT::t_f_array, typename ArrayTypes<DeviceType>::t_virial_array,

@@ -174,7 +174,7 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   meam_inst_kk->k_tsq_ave.template sync<DeviceType>();
 
   meam_inst_kk->meam_dens_final(nlocal,eflag_either,eflag_global,eflag_atom,
-                   d_eatom,ntype,type,d_map,errorflag,ev);
+                   d_eatom,ntype,type,d_map,d_scale,errorflag,ev);
 
   if (errorflag)
     error->one(FLERR,"MEAM library error {}",errorflag);
@@ -255,16 +255,22 @@ void PairMEAMKokkos<DeviceType>::coeff(int narg, char **arg)
 {
   PairMEAM::coeff(narg,arg);
 
-  // sync map
+  // sync map and scale
 
   int n = atom->ntypes;
   MemKK::realloc_kokkos(d_map,"pair:map",n+1);
+  MemKK::realloc_kokkos(d_scale,"pair:scale",n+1,n+1);
   auto h_map = Kokkos::create_mirror_view(d_map);
+  auto h_scale = Kokkos::create_mirror_view(d_scale);
 
-  for (int i = 1; i <= n; i++)
+  for (int i = 1; i <= n; i++) {
     h_map[i] = map[i];
+    for (int j = 1; j <= n; j++)
+      h_scale(i,j) = scale[i][j];
+  }
 
   Kokkos::deep_copy(d_map,h_map);
+  Kokkos::deep_copy(d_scale,h_scale);
 }
 
 /* ----------------------------------------------------------------------
