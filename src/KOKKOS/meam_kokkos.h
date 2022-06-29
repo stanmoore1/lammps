@@ -55,6 +55,7 @@ protected:
   typename AT::t_f_array f;
   typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
 //Parameters to meam_dens_final - is there a better way to do this?
+  typename AT::t_int_scalar d_errorflag;
   int eflag_either, eflag_global, eflag_atom, vflag_either, vflag_global, vflag_atom;
   typename ArrayTypes<DeviceType>::t_efloat_1d d_eatom;
 

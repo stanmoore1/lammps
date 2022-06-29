@@ -19,12 +19,17 @@ MEAMKokkos<DeviceType>::meam_dens_final(int nlocal, int eflag_either, int eflag_
   this->type = type;
   this->d_map = d_map;
 
+  Kokkos::deep_copy(d_errorflag,0);
+
   // Complete the calculation of density
 
   copymode = 1;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMDensFinal>(0,nlocal),*this,ev);
   ev_all.evdwl =+ ev.evdwl;
   copymode = 0;
+
+  auto h_errorflag = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_errorflag);
+  errorflag = h_errorflag();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -33,7 +38,6 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void MEAMKokkos<DeviceType>::operator()(TagMEAMDensFinal, const int &i, EV_FLOAT& ev) const {
 
-  int errorflag;
   F_FLOAT rhob, G, dG, Gbar, dGbar, gam, shp[3], Z;
   F_FLOAT denom, rho_bkgd, Fl;
   double scaleii;
@@ -77,13 +81,10 @@ void MEAMKokkos<DeviceType>::operator()(TagMEAMDensFinal, const int &i, EV_FLOAT
 
     Z = get_Zij(lattce_meam[elti][elti]);
 
-    G = G_gam(d_gamma[i], ibar_meam[elti], errorflag);
-    if (errorflag != 0) ////////////////
-    {
-      //char str[128];
-      //sprintf(str,"MEAMKokkos library error %d",errorflag);
-      //error->one(FLERR,str);
-    }
+    G = G_gam(d_gamma[i], ibar_meam[elti], d_errorflag());
+    if (d_errorflag() != 0)
+      return;
+
     get_shpfcn(lattce_meam[elti][elti], stheta_meam[elti][elti], ctheta_meam[elti][elti], shp);
     if (ibar_meam[elti] <= 0) {
       Gbar = 1.0;
@@ -94,7 +95,7 @@ void MEAMKokkos<DeviceType>::operator()(TagMEAMDensFinal, const int &i, EV_FLOAT
       else
 	gam = (t1_meam[elti] * shp[0] + t2_meam[elti] * shp[1] + t3_meam[elti] * shp[2]) /
 	      (Z * Z);
-      Gbar = G_gam(gam, ibar_meam[elti], errorflag);
+      Gbar = G_gam(gam, ibar_meam[elti], d_errorflag());
     }
     d_rho[i] = d_rho0[i] * G;
 
@@ -144,13 +145,6 @@ void MEAMKokkos<DeviceType>::operator()(TagMEAMDensFinal, const int &i, EV_FLOAT
         d_eatom[i] += Fl;
       }
     }
-  }
-
-  if (errorflag)
-  {
-    //char str[128];
-    //sprintf(str,"MEAMKokkos library error %d",errorflag);
-    //error->one(FLERR,str);
   }
 }
 
