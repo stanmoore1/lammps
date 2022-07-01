@@ -12,7 +12,7 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: Naga Vydyanathan (NVIDIA)
+   Contributing author: Naga Vydyanathan (NVIDIA), Stan Moore (SNL)
 ------------------------------------------------------------------------- */
 
 #include "memory_kokkos.h"

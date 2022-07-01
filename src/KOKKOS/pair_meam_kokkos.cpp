@@ -12,7 +12,7 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: Naga Vydyanathan (NVIDIA)
+   Contributing authors: Naga Vydyanathan (NVIDIA), Stan Moore (SNL)
 ------------------------------------------------------------------------- */
 
 #include "pair_meam_kokkos.h"
