@@ -9,7 +9,7 @@ template<class DeviceType>
 void
 MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_global, int eflag_atom, int vflag_global, int vflag_atom,
                  typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d d_map, typename AT::t_x_array x, typename AT::t_int_1d numneigh,
-                 typename AT::t_int_1d numneigh_full, typename AT::t_f_array f, typename ArrayTypes<DeviceType>::t_virial_array vatom, typename AT::t_int_1d d_ilist_half, typename AT::t_int_1d d_offset, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, int neighflag, EV_FLOAT &ev_all)
+                 typename AT::t_int_1d numneigh_full, typename AT::t_f_array f, typename ArrayTypes<DeviceType>::t_virial_array vatom, typename AT::t_int_1d d_ilist_half, typename AT::t_int_1d d_offset, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, int neighflag, int need_dup, EV_FLOAT &ev_all)
 {
   EV_FLOAT ev;
 
@@ -34,15 +34,34 @@ MEAMKokkos<DeviceType>::meam_force(int inum_half, int eflag_global, int eflag_at
   this->d_ilist_half = d_ilist_half;
   this->d_offset = d_offset;
 
+  if (need_dup) {
+    dup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(f);
+    if (eflag_atom) dup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_eatom);
+    if (vflag_atom) dup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_vatom);
+  } else {
+    ndup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(f);
+    if (eflag_atom) ndup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_eatom);
+    if (vflag_atom) ndup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
+  }
+
   copymode = 1;
-  if (neighflag == FULL) 
-     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMForce<FULL>>(0,inum_half),*this,ev);
-  else if (neighflag == HALF)
+  if (neighflag == HALF)
      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMForce<HALF>>(0,inum_half),*this,ev);
   else if (neighflag == HALFTHREAD)
      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagMEAMForce<HALFTHREAD>>(0,inum_half),*this,ev);
   ev_all += ev;
   copymode = 0;
+
+  if (need_dup) {
+    Kokkos::Experimental::contribute(f, dup_f);
+    if (eflag_atom) Kokkos::Experimental::contribute(d_eatom, dup_eatom);
+    if (vflag_atom) Kokkos::Experimental::contribute(d_vatom, dup_vatom);
+
+    // free duplicated memory
+    dup_f = decltype(dup_f)();
+    if (eflag_atom) dup_eatom = decltype(dup_eatom)();
+    if (vflag_atom) dup_vatom = decltype(dup_vatom)();
+  }
 }
 
 template<class DeviceType>
@@ -84,9 +103,14 @@ MEAMKokkos<DeviceType>::operator()(TagMEAMForce<NEIGHFLAG>, const int &ii, EV_FL
   double t1i, t2i, t3i, t1j, t2j, t3j;
   int fnoffset;
 
- Kokkos::View<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_eatom = d_eatom;
-  Kokkos::View<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_vatom = d_vatom;
-  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
+  // The f, etc. arrays are duplicated for OpenMP, atomic for CUDA, and neither for Serial
+
+  auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto v_eatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_eatom),decltype(ndup_eatom)>::get(dup_eatom,ndup_eatom);
+  auto a_eatom = v_eatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
+  auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   i = d_ilist_half[ii];
   fnoffset = d_offset[i];

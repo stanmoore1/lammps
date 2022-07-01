@@ -32,10 +32,13 @@ PairStyle(meam/kk/host,PairMEAMKokkos<LMPHostType>)
 #include "meam_kokkos.h"
 
 namespace LAMMPS_NS {
+
 struct TagPairMEAMNeighStrip{};
 struct TagPairMEAMOffsets{};
 struct TagPairMEAMPackForwardComm{};
 struct TagPairMEAMUnpackForwardComm{};
+struct TagPairMEAMPackReverseComm{};
+struct TagPairMEAMUnpackReverseComm{};
 
 template<class DeviceType>
 class MEAMKokkos;
@@ -62,17 +65,26 @@ class PairMEAMKokkos : public PairMEAM, public KokkosBase {
   void operator()(TagPairMEAMUnpackForwardComm, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairMEAMPackReverseComm, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairMEAMUnpackReverseComm, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
   void operator()(TagPairMEAMNeighStrip,  const int&) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairMEAMOffsets,  const int, int&) const;
 
   int pack_forward_comm_kokkos(int, DAT::tdual_int_2d, int, DAT::tdual_xfloat_1d&,
-                       int, int *) override;
-  void unpack_forward_comm_kokkos(int, int, DAT::tdual_xfloat_1d&) override;
+                               int, int *) override;
   int pack_forward_comm(int, int *, double *, int, int *) override;
+  void unpack_forward_comm_kokkos(int, int, DAT::tdual_xfloat_1d&) override;
   void unpack_forward_comm(int, int, double *) override;
+  int pack_reverse_comm_kokkos(int, int, DAT::tdual_xfloat_1d&) override;
   int pack_reverse_comm(int, int, double *) override;
+  void unpack_reverse_comm_kokkos(int, DAT::tdual_int_2d,
+                                  int, DAT::tdual_xfloat_1d&) override;
   void unpack_reverse_comm(int, int *, double *) override;
 
  protected:

@@ -169,7 +169,7 @@ MEAMKokkos<DeviceType>::meam_dens_setup(int atom_nmax, int nall, int n_neigh)
 template<class DeviceType>
 void
 MEAMKokkos<DeviceType>::meam_dens_init(int inum_half, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d d_map, typename AT::t_x_array x, typename AT::t_int_1d d_numneigh_half, typename AT::t_int_1d d_numneigh_full,
-                     typename AT::t_int_1d d_ilist_half, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, typename AT::t_int_1d d_offset, int neighflag)
+                     typename AT::t_int_1d d_ilist_half, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, typename AT::t_int_1d d_offset, int neighflag, int need_dup)
 {
   this->ntype = ntype;
   this->type = type;
@@ -181,14 +181,55 @@ MEAMKokkos<DeviceType>::meam_dens_init(int inum_half, int ntype, typename AT::t_
   this->d_neighbors_half = d_neighbors_half;
   this->d_neighbors_full = d_neighbors_full;
   this->d_offset = d_offset;
+  this->nlocal = nlocal;
+
+  if (need_dup) {
+    dup_rho0 = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_rho0);
+    dup_arho2b = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_arho2b);
+    dup_arho1 = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_arho1);
+    dup_arho2 = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_arho2);
+    dup_arho3 = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_arho3);
+    dup_arho3b = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_arho3b);
+    dup_t_ave = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_t_ave);
+    dup_tsq_ave = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_tsq_ave);
+  } else {
+    ndup_rho0 = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_rho0);
+    ndup_arho2b = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_arho2b);
+    ndup_arho1 = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_arho1);
+    ndup_arho2 = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_arho2);
+    ndup_arho3 = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_arho3);
+    ndup_arho3b = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_arho3b);
+    ndup_t_ave = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_t_ave);
+    ndup_tsq_ave = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_tsq_ave);
+  }
+
   copymode = 1;
-  if (neighflag == FULL)
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagMEAMDensInit<FULL> >(0,inum_half),*this);
-  else if (neighflag == HALF)
+  if (neighflag == HALF)
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagMEAMDensInit<HALF> >(0,inum_half),*this);
   else if (neighflag == HALFTHREAD)
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagMEAMDensInit<HALFTHREAD> >(0,inum_half),*this);
   copymode = 0;
+
+  if (need_dup) {
+    Kokkos::Experimental::contribute(d_rho0, dup_rho0);
+    Kokkos::Experimental::contribute(d_arho2b, dup_arho2b);
+    Kokkos::Experimental::contribute(d_arho1, dup_arho1);
+    Kokkos::Experimental::contribute(d_arho2, dup_arho2);
+    Kokkos::Experimental::contribute(d_arho3, dup_arho3);
+    Kokkos::Experimental::contribute(d_arho3b, dup_arho3b);
+    Kokkos::Experimental::contribute(d_t_ave, dup_t_ave);
+    Kokkos::Experimental::contribute(d_tsq_ave, dup_tsq_ave);
+
+    // free duplicated memory
+    dup_rho0 = decltype(dup_rho0)();
+    dup_arho2b = decltype(dup_arho2b)();
+    dup_arho1 = decltype(dup_arho1)();
+    dup_arho2 = decltype(dup_arho2)();
+    dup_arho3 = decltype(dup_arho3)();
+    dup_arho3b = decltype(dup_arho3b)();
+    dup_t_ave = decltype(dup_t_ave)();
+    dup_tsq_ave = decltype(dup_tsq_ave)();
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -361,16 +402,24 @@ void
 MEAMKokkos<DeviceType>::calc_rho1(int i, int /*ntype*/, typename AT::t_int_1d type, typename AT::t_int_1d d_map, typename AT::t_x_array x, typename AT::t_int_1d d_numneigh,
                 int offset) const
 {
-  // Atomic views for CUDA
+  // The rho0, etc. arrays are duplicated for OpenMP, atomic for CUDA, and neither for Serial
 
-  Kokkos::View<F_FLOAT*, typename DAT::t_ffloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_rho0 = d_rho0;
-  Kokkos::View<F_FLOAT*, typename DAT::t_ffloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho2b = d_arho2b;
-  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_t_ave = d_t_ave;
-  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_tsq_ave = d_tsq_ave;
-  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho1 = d_arho1;
-  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho2 = d_arho2;
-  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho3 = d_arho3;
-  Kokkos::View<F_FLOAT**, typename DAT::t_ffloat_2d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_arho3b = d_arho3b;
+  auto v_rho0 = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_rho0),decltype(ndup_rho0)>::get(dup_rho0,ndup_rho0);
+  auto a_rho0 = v_rho0.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto v_arho2b = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_arho2b),decltype(ndup_arho2b)>::get(dup_arho2b,ndup_arho2b);
+  auto a_arho2b = v_arho2b.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto v_arho1 = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_arho1),decltype(ndup_arho1)>::get(dup_arho1,ndup_arho1);
+  auto a_arho1 = v_arho1.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto v_arho2 = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_arho2),decltype(ndup_arho2)>::get(dup_arho2,ndup_arho2);
+  auto a_arho2 = v_arho2.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto v_arho3 = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_arho3),decltype(ndup_arho3)>::get(dup_arho3,ndup_arho3);
+  auto a_arho3 = v_arho3.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto v_arho3b = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_arho3b),decltype(ndup_arho3b)>::get(dup_arho3b,ndup_arho3b);
+  auto a_arho3b = v_arho3b.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto v_t_ave = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_t_ave),decltype(ndup_t_ave)>::get(dup_t_ave,ndup_t_ave);
+  auto a_t_ave = v_t_ave.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto v_tsq_ave = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_tsq_ave),decltype(ndup_tsq_ave)>::get(dup_tsq_ave,ndup_tsq_ave);
+  auto a_tsq_ave = v_tsq_ave.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   const int elti = d_map[type[i]];
   const double xtmp = x(i,0);

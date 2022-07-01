@@ -41,6 +41,7 @@ PairMEAMKokkos<DeviceType>::PairMEAMKokkos(LAMMPS *lmp) : PairMEAM(lmp)
   respa_enable = 0;
 
   kokkosable = 1;
+  reverse_comm_device = 1;
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read = X_MASK | F_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
@@ -151,7 +152,9 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     });
   }
 
-  meam_inst_kk->meam_dens_init(inum_half,ntype,type,d_map,x,d_numneigh_half,d_numneigh_full,d_ilist_half,d_neighbors_half, d_neighbors_full, d_offset, neighflag);
+  int need_dup = lmp->kokkos->need_dup<DeviceType>();
+
+  meam_inst_kk->meam_dens_init(inum_half,ntype,type,d_map,x,d_numneigh_half,d_numneigh_full,d_ilist_half,d_neighbors_half, d_neighbors_full, d_offset, neighflag, need_dup);
 
   meam_inst_kk->k_rho0.template modify<DeviceType>();
   meam_inst_kk->k_arho2b.template modify<DeviceType>();
@@ -216,8 +219,10 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   meam_inst_kk->k_tsq_ave.template sync<DeviceType>();
 
   meam_inst_kk->meam_force(inum_half,eflag_global,eflag_atom,vflag_global,
-               vflag_atom,d_eatom,ntype,type,d_map,x,
-                d_numneigh_half, d_numneigh_full,f,d_vatom,d_ilist_half, d_offset, d_neighbors_half, d_neighbors_full, neighflag, ev);
+                           vflag_atom,d_eatom,ntype,type,d_map,x,
+                           d_numneigh_half, d_numneigh_full,f,d_vatom,
+                           d_ilist_half, d_offset, d_neighbors_half, d_neighbors_full,
+                           neighflag, need_dup, ev);
 
   if (eflag_global) eng_vdwl += ev.evdwl;
   if (vflag_global) {
@@ -293,6 +298,9 @@ void PairMEAMKokkos<DeviceType>::init_style()
   request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
                            !std::is_same<DeviceType,LMPDeviceType>::value);
   request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
+
+  if (neighflag == FULL)
+    error->all(FLERR,"Must use half neighbor list style with pair meam/kk");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -531,6 +539,47 @@ void PairMEAMKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *b
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+int PairMEAMKokkos<DeviceType>::pack_reverse_comm_kokkos(int n, int first_in, DAT::tdual_xfloat_1d &buf)
+{
+  first = first_in;
+  v_buf = buf.view<DeviceType>();
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairMEAMPackReverseComm>(0,n),*this);
+  return n*30;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairMEAMKokkos<DeviceType>::operator()(TagPairMEAMPackReverseComm, const int &i) const {
+  int m = i*30;
+
+  v_buf[m++] = meam_inst_kk->d_rho0[i+first];
+  v_buf[m++] = meam_inst_kk->d_arho2b[i+first];
+  v_buf[m++] = meam_inst_kk->d_arho1(i+first,0);
+  v_buf[m++] = meam_inst_kk->d_arho1(i+first,1);
+  v_buf[m++] = meam_inst_kk->d_arho1(i+first,2);
+  v_buf[m++] = meam_inst_kk->d_arho2(i+first,0);
+  v_buf[m++] = meam_inst_kk->d_arho2(i+first,1);
+  v_buf[m++] = meam_inst_kk->d_arho2(i+first,2);
+  v_buf[m++] = meam_inst_kk->d_arho2(i+first,3);
+  v_buf[m++] = meam_inst_kk->d_arho2(i+first,4);
+  v_buf[m++] = meam_inst_kk->d_arho2(i+first,5);
+  for (int k = 0; k < 10; k++) v_buf[m++] = meam_inst_kk->d_arho3(i+first,k);
+  v_buf[m++] = meam_inst_kk->d_arho3b(i+first,0);
+  v_buf[m++] = meam_inst_kk->d_arho3b(i+first,1);
+  v_buf[m++] = meam_inst_kk->d_arho3b(i+first,2);
+  v_buf[m++] = meam_inst_kk->d_t_ave(i+first,0);
+  v_buf[m++] = meam_inst_kk->d_t_ave(i+first,1);
+  v_buf[m++] = meam_inst_kk->d_t_ave(i+first,2);
+  v_buf[m++] = meam_inst_kk->d_tsq_ave(i+first,0);
+  v_buf[m++] = meam_inst_kk->d_tsq_ave(i+first,1);
+  v_buf[m++] = meam_inst_kk->d_tsq_ave(i+first,2);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
 int PairMEAMKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)
 {
   meam_inst_kk->k_rho0.sync_host();
@@ -569,6 +618,48 @@ int PairMEAMKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)
   }
 
   return m;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairMEAMKokkos<DeviceType>::unpack_reverse_comm_kokkos(int n, DAT::tdual_int_2d k_sendlist, int iswap_in, DAT::tdual_xfloat_1d &buf)
+{
+  d_sendlist = k_sendlist.view<DeviceType>();
+  iswap = iswap_in;
+  v_buf = buf.view<DeviceType>();
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairMEAMUnpackReverseComm>(0,n),*this);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairMEAMKokkos<DeviceType>::operator()(TagPairMEAMUnpackReverseComm, const int &i) const {
+  int j = d_sendlist(iswap, i);
+  int m = i*30;
+
+  meam_inst_kk->d_rho0[j] += v_buf[m++];
+  meam_inst_kk->d_arho2b[j] += v_buf[m++];
+  meam_inst_kk->d_arho1(j,0) += v_buf[m++];
+  meam_inst_kk->d_arho1(j,1) += v_buf[m++];
+  meam_inst_kk->d_arho1(j,2) += v_buf[m++];
+  meam_inst_kk->d_arho2(j,0) += v_buf[m++];
+  meam_inst_kk->d_arho2(j,1) += v_buf[m++];
+  meam_inst_kk->d_arho2(j,2) += v_buf[m++];
+  meam_inst_kk->d_arho2(j,3) += v_buf[m++];
+  meam_inst_kk->d_arho2(j,4) += v_buf[m++];
+  meam_inst_kk->d_arho2(j,5) += v_buf[m++];
+  for (int k = 0; k < 10; k++) meam_inst_kk->d_arho3(j,k) += v_buf[m++];
+  meam_inst_kk->d_arho3b(j,0) += v_buf[m++];
+  meam_inst_kk->d_arho3b(j,1) += v_buf[m++];
+  meam_inst_kk->d_arho3b(j,2) += v_buf[m++];
+  meam_inst_kk->d_t_ave(j,0) += v_buf[m++];
+  meam_inst_kk->d_t_ave(j,1) += v_buf[m++];
+  meam_inst_kk->d_t_ave(j,2) += v_buf[m++];
+  meam_inst_kk->d_tsq_ave(j,0) += v_buf[m++];
+  meam_inst_kk->d_tsq_ave(j,1) += v_buf[m++];
+  meam_inst_kk->d_tsq_ave(j,2) += v_buf[m++];
 }
 
 /* ---------------------------------------------------------------------- */
