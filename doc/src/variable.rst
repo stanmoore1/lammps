@@ -685,7 +685,9 @@ of a run, according to this formula:
 The run begins on startstep and ends on stopstep.  Startstep and
 stopstep can span multiple runs, using the *start* and *stop* keywords
 of the :doc:`run <run>` command.  See the :doc:`run <run>` command for
-details of how to do this.
+details of how to do this.  If called in between runs or during a
+:doc:`run 0 <run>` command, the ramp(x,y) function will return the
+value of x.
 
 The stagger(x,y) function uses the current timestep to generate a new
 timestep.  X,y > 0 and x > y are required.  The generated timesteps
@@ -781,10 +783,14 @@ according to this formula:
 where dt = the timestep size.
 
 The run begins on startstep.  Startstep can span multiple runs, using
-the *start* keyword of the :doc:`run <run>` command.  See the
-:doc:`run <run>` command for details of how to do this.  Note that the
-:doc:`thermo_style <thermo_style>` keyword elaplong =
-timestep-startstep.
+the *start* keyword of the :doc:`run <run>` command.  See the :doc:`run
+<run>` command for details of how to do this.  Note that the
+:doc:`thermo_style <thermo_style>` keyword elaplong = timestep-startstep.
+If used between runs this function will return
+the value according to the end of the last run or the value of x if
+used before *any* runs.  This function assumes the length of the time
+step does not change and thus may not be used in combination with
+:doc:`fix dt/reset <fix_dt_reset>`.
 
 The swiggle(x,y,z) and cwiggle(x,y,z) functions each take 3 arguments:
 x = value0, y = amplitude, z = period.  They use the elapsed time to
@@ -799,10 +805,14 @@ run, according to one of these formulas, where omega = 2 PI / period:
 where dt = the timestep size.
 
 The run begins on startstep.  Startstep can span multiple runs, using
-the *start* keyword of the :doc:`run <run>` command.  See the
-:doc:`run <run>` command for details of how to do this.  Note that the
-:doc:`thermo_style <thermo_style>` keyword elaplong =
-timestep-startstep.
+the *start* keyword of the :doc:`run <run>` command.  See the :doc:`run
+<run>` command for details of how to do this.  Note that the
+:doc:`thermo_style <thermo_style>` keyword elaplong = timestep-startstep.
+If used between runs these functions will return
+the value according to the end of the last run or the value of x if
+used before *any* runs.  These functions assume the length of the time
+step does not change and thus may not be used in combination with
+:doc:`fix dt/reset <fix_dt_reset>`.
 
 ----------
 
@@ -846,15 +856,6 @@ Special Functions
 
 Special functions take specific kinds of arguments, meaning their
 arguments cannot be formulas themselves.
-
-The is_file(name) function is a test whether *name* is a (readable) file
-and returns 1 in this case, otherwise it returns 0.  For that *name*
-is taken as a literal string and must not have any blanks in it.
-
-The extract_setting(name) function allows to access some basic settings
-through calling the :cpp:func:`lammps_extract_setting` library function.
-For available keywords *name* and their meaning, please see the
-documentation of that function.
 
 The sum(x), min(x), max(x), ave(x), trap(x), and slope(x) functions
 each take 1 argument which is of the form "c_ID" or "c_ID[N]" or
@@ -933,6 +934,19 @@ returned the first time the next() function is invoked.  If next() is
 invoked more times than there are lines or sets of lines in the file,
 the variable is deleted, similar to how the :doc:`next <next>` command
 operates.
+
+The is_file(name) function is a test whether *name* is a (readable) file
+and returns 1 in this case, otherwise it returns 0.  For that *name*
+is taken as a literal string and must not have any blanks in it.
+
+The extract_setting(name) function enables access to basic settings for
+the LAMMPS executable and the running simulation via calling the
+:cpp:func:`lammps_extract_setting` library function.  For example, the
+number of processors (MPI ranks) being used by the simulation or the MPI
+process ID (for this processor) can be queried, or the number of atom
+types, bond types and so on. For the full list of available keywords
+*name* and their meaning, see the documentation for extract_setting()
+via the link in this paragraph.
 
 ----------
 

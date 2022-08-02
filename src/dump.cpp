@@ -142,7 +142,8 @@ Dump::Dump(LAMMPS *lmp, int /*narg*/, char **arg) : Pointers(lmp)
 
   if (strchr(filename,'*')) multifile = 1;
 
-  if (utils::strmatch(filename, "\\.bin$")) binary = 1;
+  if (utils::strmatch(filename, "\\.bin$")
+      || utils::strmatch(filename, "\\.lammpsbin$")) binary = 1;
   if (platform::has_compress_extension(filename)) compressed = 1;
 }
 
@@ -331,6 +332,7 @@ void Dump::write()
   // if file per timestep, open new file
 
   if (multifile) openfile();
+  if (fp) clearerr(fp);
 
   // simulation box bounds
 
@@ -415,10 +417,10 @@ void Dump::write()
   // if sorting on IDs also request ID list from pack()
   // sort buf as needed
 
-  if (sort_flag && sortcol == 0) pack(ids);
+  if (sort_flag && (ntotal > 1) && sortcol == 0) pack(ids);
   else pack(nullptr);
-  if (sort_flag) sort();
-  if (balance_flag) balance();
+  if (sort_flag && (ntotal > 1)) sort();
+  if (balance_flag && (ntotal > 1)) balance();
 
   // write timestep header
   // for multiproc,
@@ -515,6 +517,10 @@ void Dump::write()
   // currently used for incremental dump files
 
   if (refreshflag) modify->compute[irefresh]->refresh();
+
+  if (filewriter && fp != nullptr) write_footer();
+
+  if (fp && ferror(fp)) error->one(FLERR,"Error writing dump {}: {}", id, utils::getsyserror());
 
   // if file per timestep, close file if I am filewriter
 
@@ -1145,7 +1151,8 @@ void Dump::modify_params(int narg, char **arg)
           }
         }
         if ((icol < 0) || (icol >= (int)keyword_user.size()))
-          error->all(FLERR, "Illegal thermo_modify command");
+          error->all(FLERR, "Incorrect dump_modify arguments: {} {} {}",
+                     arg[iarg], arg[iarg+1], arg[iarg+2]);
         keyword_user[icol] = arg[iarg+2];
         iarg += 3;
       }

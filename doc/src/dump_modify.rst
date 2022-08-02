@@ -380,6 +380,8 @@ performed with dump style *xtc*\ .
 
 ----------
 
+.. versionadded:: 4May2022
+
 The *colname* keyword can be used to change the default header keyword
 for dump styles: *atom*, *custom*, and *cfg* and their compressed, ADIOS,
 and MPIIO variants.  The setting for *ID string* replaces the default
@@ -392,9 +394,8 @@ keyword. For *atom* dump styles only the keywords "id", "type", "x",
 "y", "z", "ix", "iy", "iz" can be accessed via string regardless of
 whether scaled or unwrapped coordinates were enabled or disabled, and
 it always assumes 8 columns for indexing regardless of whether image
-flags are enabled or not.  For dump style *cfg* only the "auxiliary"
-keywords (6th or later keyword) may be changed and the column indexing
-considers only them (i.e. the 6th keyword is the the 1st column).
+flags are enabled or not.  For dump style *cfg* only changes to the
+"auxiliary" keywords (6th or later keyword) will become visible.
 
 The *colname* keyword can be used multiple times. If multiple *colname*
 settings refer to the same keyword, the last setting has precedence.  A

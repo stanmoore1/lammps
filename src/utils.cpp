@@ -234,7 +234,6 @@ void utils::sfgets(const char *srcname, int srcline, char *s, int size, FILE *fp
     if (error) error->one(srcname, srcline, errmsg);
     if (s) *s = '\0';    // truncate string to empty in case error is null pointer
   }
-  return;
 }
 
 /* like fread() but aborts with an error or EOF is encountered */
@@ -262,7 +261,6 @@ void utils::sfread(const char *srcname, int srcline, void *s, size_t size, size_
 
     if (error) error->one(srcname, srcline, errmsg);
   }
-  return;
 }
 
 /* ------------------------------------------------------------------ */
@@ -303,7 +301,7 @@ std::string utils::check_packages_for_style(const std::string &style, const std:
 
   if (pkg) {
     errmsg += fmt::format(" is part of the {} package", pkg);
-    if (lmp->is_installed_pkg(pkg))
+    if (LAMMPS::is_installed_pkg(pkg))
       errmsg += ", but seems to be missing because of a dependency";
     else
       errmsg += " which is not enabled in this LAMMPS binary.";
@@ -671,7 +669,7 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
           }
         }
 
-      // fix
+        // fix
 
       } else if (word[0] == 'f') {
         auto fix = lmp->modify->get_fix_by_id(id);
@@ -694,7 +692,7 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
           }
         }
 
-      // vector variable
+        // vector variable
 
       } else if (word[0] == 'v') {
         int index = lmp->input->variable->find(id.c_str());
@@ -711,8 +709,8 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
           }
         }
 
-      // only match custom array reference with a '*' wildcard
-      // number range in the first pair of square brackets
+        // only match custom array reference with a '*' wildcard
+        // number range in the first pair of square brackets
 
       } else if ((word[0] == 'i') || (word[0] == 'd')) {
         int flag, cols;
@@ -984,6 +982,19 @@ size_t utils::count_words(const std::string &text, const std::string &separators
 size_t utils::trim_and_count_words(const std::string &text, const std::string &separators)
 {
   return utils::count_words(trim_comment(text), separators);
+}
+
+/* ----------------------------------------------------------------------
+   combine words in vector to single string with separator added between words
+------------------------------------------------------------------------- */
+std::string utils::join_words(const std::vector<std::string> &words, const std::string &sep)
+{
+  std::string result;
+
+  if (words.size() > 0) result = words[0];
+  for (std::size_t i = 1; i < words.size(); ++i) result += sep + words[i];
+
+  return result;
 }
 
 /* ----------------------------------------------------------------------
