@@ -1176,7 +1176,7 @@ struct ViewOffset<
   template <typename I0, typename I1>
   KOKKOS_INLINE_FUNCTION constexpr size_type operator()(I0 const& i0,
                                                         I1 const& i1) const {
-    return static_cast<size_type>(static_cast<double>(i0) + static_cast<double>(m_stride) * static_cast<double>(i1));
+    return i0 + m_stride * i1;
   }
 
   // rank 3
@@ -1184,7 +1184,7 @@ struct ViewOffset<
   KOKKOS_INLINE_FUNCTION constexpr size_type operator()(I0 const& i0,
                                                         I1 const& i1,
                                                         I2 const& i2) const {
-    return static_cast<size_type>(static_cast<double>(i0) + static_cast<double>(m_stride) * (static_cast<double>(i1) + static_cast<double>(m_dim.N1) * static_cast<double>(i2)));
+    return i0 + m_stride * (i1 + m_dim.N1 * i2);
   }
 
   // rank 4
@@ -1193,7 +1193,7 @@ struct ViewOffset<
                                                         I1 const& i1,
                                                         I2 const& i2,
                                                         I3 const& i3) const {
-    return static_cast<size_type>(static_cast<double>(i0) + static_cast<double>(m_stride) * (static_cast<double>(i1) + static_cast<double>(m_dim.N1) * (static_cast<double>(i2) + static_cast<double>(m_dim.N2) * static_cast<double>(i3))));
+    return i0 + m_stride * (i1 + m_dim.N1 * (i2 + m_dim.N2 * i3));
   }
 
   // rank 5
