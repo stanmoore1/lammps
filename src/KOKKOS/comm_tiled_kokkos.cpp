@@ -22,8 +22,7 @@ using namespace LAMMPS_NS;
 
 #define BUFFACTOR 1.5
 #define BUFFACTOR 1.5
-#define BUFMIN 1000
-#define BUFEXTRA 1000
+#define BUFMIN 1024
 #define EPSILON 1.0e-6
 
 #define DELTA_PROCS 16
@@ -50,6 +49,12 @@ CommTiledKokkos::CommTiledKokkos(LAMMPS *lmp, Comm *oldcomm) : CommTiled(lmp,old
 
 void CommTiledKokkos::forward_comm(int dummy)
 {
+  if (!forward_comm_classic) {
+    if (forward_comm_on_host) forward_comm_device<LMPHostType>(dummy);
+    else forward_comm_device<LMPDeviceType>(dummy);
+    return;
+  }
+
   if (comm_x_only) {
     atomKK->sync(Host,X_MASK);
     atomKK->modified(Host,X_MASK);
@@ -62,6 +67,106 @@ void CommTiledKokkos::forward_comm(int dummy)
   }
 
   CommTiled::forward_comm(dummy);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void CommTiledKokkos::forward_comm_device(int)
+{
+  int i,irecv,n,nsend,nrecv;
+  AtomVecKokkos *avec = (AtomVecKokkos *) atom->avec;
+  double *buf;
+
+  // exchange data with another set of procs in each swap
+  // post recvs from all procs except self
+  // send data to all procs except self
+  // copy data to self if sendself is set
+  // wait on all procs except self and unpack received data
+  // if comm_x_only set, exchange or copy directly to x, don't unpack
+
+  for (int iswap = 0; iswap < nswap; iswap++) {
+    nsend = nsendproc[iswap] - sendself[iswap];
+    nrecv = nrecvproc[iswap] - sendself[iswap];
+
+    if (comm_x_only) {
+      if (recvother[iswap]) {
+        for (i = 0; i < nrecv; i++) {
+          buf = atomKK->k_x.view<DeviceType>().data() +
+            firstrecv[iswap][i]*atomKK->k_x.view<DeviceType>().extent(1);
+          MPI_Irecv(buf,size_forward_recv[iswap][i],
+                    MPI_DOUBLE,recvproc[iswap][i],0,world,&requests[i]);
+        }
+      }
+      if (sendother[iswap]) {
+        for (i = 0; i < nsend; i++) {
+          k_sendlist_small = Kokkos::subview(k_sendlist,std::make_pair(iswap,i,Kokkos::ALL));
+          n = avec->pack_comm_kokkos(sendnum[iswap][i],k_sendlist_small,
+                              k_buf_send,pbc_flag[iswap][i],pbc[iswap][i]);
+          DeviceType().fence();
+          MPI_Send(k_buf_send.view<DeviceType>.data(),n,MPI_DOUBLE,sendproc[iswap][i],0,world);
+        }
+      }
+      if (sendself[iswap]) {
+        k_sendlist_small = Kokkos::subview(k_sendlist,std::make_pair(iswap,nsend,Kokkos::ALL));
+        avec->pack_comm_self(sendnum[iswap][nsend],k_sendlist_small,
+                        firstrecv[iswap][nrecv],pbc_flag[iswap][nsend],pbc[iswap][nsend]);
+      }
+      if (recvother[iswap]) MPI_Waitall(nrecv,requests,MPI_STATUS_IGNORE);
+
+    } else if (ghost_velocity) {
+      if (recvother[iswap]) {
+        for (i = 0; i < nrecv; i++)
+          MPI_Irecv(&buf_recv[size_forward*forward_recv_offset[iswap][i]],
+                    size_forward_recv[iswap][i],MPI_DOUBLE,recvproc[iswap][i],0,world,&requests[i]);
+      }
+      if (sendother[iswap]) {
+        for (i = 0; i < nsend; i++) {
+          n = avec->pack_comm_vel(sendnum[iswap][i],sendlist[iswap][i],
+                                  buf_send,pbc_flag[iswap][i],pbc[iswap][i]);
+          MPI_Send(buf_send,n,MPI_DOUBLE,sendproc[iswap][i],0,world);
+        }
+      }
+      if (sendself[iswap]) {
+        avec->pack_comm_vel(sendnum[iswap][nsend],sendlist[iswap][nsend],
+                            buf_send,pbc_flag[iswap][nsend],pbc[iswap][nsend]);
+        avec->unpack_comm_vel(recvnum[iswap][nrecv],firstrecv[iswap][nrecv],buf_send);
+      }
+      if (recvother[iswap]) {
+        for (i = 0; i < nrecv; i++) {
+          MPI_Waitany(nrecv,requests,&irecv,MPI_STATUS_IGNORE);
+          avec->unpack_comm_vel(recvnum[iswap][irecv],firstrecv[iswap][irecv],
+                                &buf_recv[size_forward*forward_recv_offset[iswap][irecv]]);
+        }
+      }
+
+    } else {
+      if (recvother[iswap]) {
+        for (i = 0; i < nrecv; i++)
+          MPI_Irecv(&buf_recv[size_forward*forward_recv_offset[iswap][i]],
+                    size_forward_recv[iswap][i],MPI_DOUBLE,recvproc[iswap][i],0,world,&requests[i]);
+      }
+      if (sendother[iswap]) {
+        for (i = 0; i < nsend; i++) {
+          n = avec->pack_comm(sendnum[iswap][i],sendlist[iswap][i],
+                              buf_send,pbc_flag[iswap][i],pbc[iswap][i]);
+          MPI_Send(buf_send,n,MPI_DOUBLE,sendproc[iswap][i],0,world);
+        }
+      }
+      if (sendself[iswap]) {
+        avec->pack_comm(sendnum[iswap][nsend],sendlist[iswap][nsend],
+                        buf_send,pbc_flag[iswap][nsend],pbc[iswap][nsend]);
+        avec->unpack_comm(recvnum[iswap][nrecv],firstrecv[iswap][nrecv],buf_send);
+      }
+      if (recvother[iswap]) {
+        for (i = 0; i < nrecv; i++) {
+          MPI_Waitany(nrecv,requests,&irecv,MPI_STATUS_IGNORE);
+          avec->unpack_comm(recvnum[iswap][irecv],firstrecv[iswap][irecv],
+                            &buf_recv[size_forward*forward_recv_offset[iswap][irecv]]);
+        }
+      }
+    }
+  }
 }
 
 /* ----------------------------------------------------------------------
