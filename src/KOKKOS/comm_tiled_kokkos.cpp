@@ -148,21 +148,22 @@ void CommTiledKokkos::forward_comm_device(int)
       }
       if (sendother[iswap]) {
         for (i = 0; i < nsend; i++) {
-          n = avec->pack_comm(sendnum[iswap][i],sendlist[iswap][i],
+          n = avec->pack_comm_kokkos(sendnum[iswap][i],sendlist[iswap][i],
                               buf_send,pbc_flag[iswap][i],pbc[iswap][i]);
           MPI_Send(buf_send,n,MPI_DOUBLE,sendproc[iswap][i],0,world);
         }
       }
       if (sendself[iswap]) {
-        avec->pack_comm(sendnum[iswap][nsend],sendlist[iswap][nsend],
-                        buf_send,pbc_flag[iswap][nsend],pbc[iswap][nsend]);
-        avec->unpack_comm(recvnum[iswap][nrecv],firstrecv[iswap][nrecv],buf_send);
+        avec->pack_comm_self(sendnum[iswap][nsend],k_sendlist_small,
+                        k_buf_send,pbc_flag[iswap][nsend],pbc[iswap][nsend]);
+        DeviceType().fence();
       }
       if (recvother[iswap]) {
         for (i = 0; i < nrecv; i++) {
           MPI_Waitany(nrecv,requests,&irecv,MPI_STATUS_IGNORE);
-          avec->unpack_comm(recvnum[iswap][irecv],firstrecv[iswap][irecv],
-                            &buf_recv[size_forward*forward_recv_offset[iswap][irecv]]);
+          avec->unpack_comm_kokkos(recvnum[iswap][irecv],firstrecv[iswap][irecv],
+                                   k_buf_recv.view<DeviceType>.data() + size_forward*forward_recv_offset[iswap][irecv]);
+          DeviceType().fence();
         }
       }
     }
