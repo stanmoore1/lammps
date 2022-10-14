@@ -67,6 +67,13 @@ action kokkos.h
 action kokkos_base.h
 action kokkos_few.h
 action kokkos_type.h
+action meam_kokkos.h meam.h
+action meam_dens_final_kokkos.h meam_dens_final.cpp
+action meam_dens_init_kokkos.h meam_dens_init.cpp
+action meam_force_kokkos.h meam_force.cpp
+action meam_funcs_kokkos.h meam_funcs.cpp
+action meam_impl_kokkos.h meam_impl.cpp
+action meam_setup_done_kokkos.h meam_setup_done.cpp
 action memory_kokkos.h
 action modify_kokkos.cpp
 action modify_kokkos.h
@@ -76,6 +83,14 @@ action neigh_list_kokkos.cpp
 action neigh_list_kokkos.h
 action neighbor_kokkos.cpp
 action neighbor_kokkos.h
+action npair_copy_kokkos.cpp
+action npair_copy_kokkos.h
+action npair_halffull_kokkos.cpp
+action npair_halffull_kokkos.h
+action npair_skip_kokkos.cpp
+action npair_skip_kokkos.h
+action npair_trim_kokkos.cpp
+action npair_trim_kokkos.h
 action npair_kokkos.cpp
 action npair_kokkos.h
 action npair_halffull_kokkos.h
@@ -89,6 +104,27 @@ action pair_hybrid_overlay_kokkos.h
 action pair_kokkos.h
 action pair_lj_cut_kokkos.cpp
 action pair_lj_cut_kokkos.h
+<<<<<<< HEAD
+=======
+action pair_lj_expand_kokkos.cpp
+action pair_lj_expand_kokkos.h
+action pair_lj_gromacs_coul_gromacs_kokkos.cpp pair_lj_gromacs_coul_gromacs.cpp
+action pair_lj_gromacs_coul_gromacs_kokkos.h pair_lj_gromacs_coul_gromacs.h
+action pair_lj_gromacs_kokkos.cpp pair_lj_gromacs.cpp
+action pair_lj_gromacs_kokkos.h pair_lj_gromacs.h
+action pair_lj_spica_kokkos.cpp pair_lj_spica.cpp
+action pair_lj_spica_kokkos.h pair_lj_spica.h
+action pair_meam_kokkos.cpp pair_meam.cpp
+action pair_meam_kokkos.h pair_meam.h
+action pair_morse_kokkos.cpp
+action pair_morse_kokkos.h
+action pair_multi_lucy_rx_kokkos.cpp pair_multi_lucy_rx.cpp
+action pair_multi_lucy_rx_kokkos.h pair_multi_lucy_rx.h
+action pair_pace_kokkos.cpp pair_pace.cpp
+action pair_pace_kokkos.h pair_pace.h
+action pair_reaxff_kokkos.cpp pair_reaxff.cpp
+action pair_reaxff_kokkos.h pair_reaxff.h
+>>>>>>> 77740c4f072b9d4cd4a59fc66cfdd3739d2c32bb
 action pair_snap_kokkos.cpp pair_snap.cpp
 action pair_snap_kokkos.h pair_snap.h
 action pair_snap_kokkos_impl.h pair_snap.cpp

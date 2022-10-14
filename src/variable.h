@@ -71,6 +71,7 @@ class Variable : protected Pointers {
     ATOM,
     VECTOR,
     PYTHON,
+    TIMER,
     INTERNAL
   };
   static constexpr int VALUELENGTH = 64;
@@ -150,7 +151,7 @@ class Variable : protected Pointers {
 
 class VarReader : protected Pointers {
  public:
-  class FixStore *fixstore;
+  class FixStorePeratom *fixstore;
   char *id_fix;
 
   VarReader(class LAMMPS *, char *, char *, int);

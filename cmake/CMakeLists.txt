@@ -12,6 +12,11 @@ endif()
 if(POLICY CMP0109)
   cmake_policy(SET CMP0109 OLD)
 endif()
+# set policy to silence warnings about timestamps of downloaded files. review occasionally if it may be set to NEW
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 OLD)
+endif()
+
 ########################################
 
 project(lammps CXX)
@@ -100,14 +105,14 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 17.3 OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 17.4)
       set(CMAKE_TUNE_DEFAULT "-xCOMMON-AVX512")
     else()
-      set(CMAKE_TUNE_DEFAULT "-xHost")
+      set(CMAKE_TUNE_DEFAULT "-xHost -fp-model fast=2 -no-prec-div -qoverride-limits -diag-disable=10441 -diag-disable=2196")
     endif()
   endif()
 endif()
 
 # silence excessive warnings for new Intel Compilers
 if(CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
-  set(CMAKE_TUNE_DEFAULT "-Wno-tautological-constant-compare")
+  set(CMAKE_TUNE_DEFAULT "-Wno-tautological-constant-compare -Wno-unused-command-line-argument")
 endif()
 
 # silence excessive warnings for PGI/NVHPC compilers
@@ -116,7 +121,7 @@ if((CMAKE_CXX_COMPILER_ID STREQUAL "NVHPC") OR (CMAKE_CXX_COMPILER_ID STREQUAL "
 endif()
 
 # silence nvcc warnings
-if((PKG_KOKKOS) AND (Kokkos_ENABLE_CUDA))
+if((PKG_KOKKOS) AND (Kokkos_ENABLE_CUDA) AND NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
   set(CMAKE_TUNE_DEFAULT "${CMAKE_TUNE_DEFAULT} -Xcudafe --diag_suppress=unrecognized_pragma")
 endif()
 
@@ -135,9 +140,12 @@ set(CMAKE_CXX_EXTENSIONS OFF CACHE BOOL "Use compiler extensions")
 # ugly hacks for MSVC which by default always reports an old C++ standard in the __cplusplus macro
 # and prints lots of pointless warnings about "unsafe" functions
 if(MSVC)
-  add_compile_options(/Zc:__cplusplus)
-  add_compile_options(/wd4244)
-  add_compile_options(/wd4267)
+  if((CMAKE_CXX_COMPILER_ID STREQUAL "MSVC") OR (CMAKE_CXX_COMPILER_ID STREQUAL "Intel"))
+    add_compile_options(/Zc:__cplusplus)
+    add_compile_options(/wd4244)
+    add_compile_options(/wd4267)
+    add_compile_options(/EHsc)
+  endif()
   add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
@@ -149,6 +157,19 @@ endif()
 ########################################################################
 # User input options                                                   #
 ########################################################################
+# set path to python interpreter and thus enforcing python version if
+# when in a virtual environment and PYTHON_EXECUTABLE is not set on command line
+if(DEFINED ENV{VIRTUAL_ENV} AND NOT PYTHON_EXECUTABLE)
+  if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+    set(PYTHON_EXECUTABLE "$ENV{VIRTUAL_ENV}/Scripts/python.exe")
+  else()
+    set(PYTHON_EXECUTABLE "$ENV{VIRTUAL_ENV}/bin/python")
+  endif()
+  set(Python_EXECUTABLE "${PYTHON_EXECUTABLE}")
+  message(STATUS "Running in virtual environment: $ENV{VIRTUAL_ENV}\n"
+    "   Setting Python interpreter to: ${PYTHON_EXECUTABLE}")
+endif()
+
 set(LAMMPS_MACHINE "" CACHE STRING "Suffix to append to lmp binary (WON'T enable any features automatically")
 mark_as_advanced(LAMMPS_MACHINE)
 if(LAMMPS_MACHINE)
@@ -161,10 +182,12 @@ option(CMAKE_POSITION_INDEPENDENT_CODE "Create object compatible with shared lib
 option(BUILD_TOOLS "Build and install LAMMPS tools (msi2lmp, binary2txt, chain)" OFF)
 option(BUILD_LAMMPS_SHELL "Build and install the LAMMPS shell" OFF)
 
-# allow enabling clang-tidy for C++ files
+# Support using clang-tidy for C++ files with selected options
 set(ENABLE_CLANG_TIDY OFF CACHE BOOL "Include clang-tidy processing when compiling")
 if(ENABLE_CLANG_TIDY)
-  set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=*-header-filter=.*" CACHE STRING "")
+  set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=-*,performance-trivially-destructible,performance-unnecessary-copy-initialization,performance-unnecessary-value-param,readability-redundant-control-flow,readability-redundant-declaration,readability-redundant-function-ptr-dereference,readability-redundant-member-init,readability-redundant-string-cstr,readability-redundant-string-init,readability-simplify-boolean-expr,readability-static-accessed-through-instance,readability-static-definition-in-anonymous-namespace,modernize-use-override,modernize-use-bool-literals,modernize-use-emplace,modernize-return-braced-init-list,modernize-use-equals-default,modernize-use-equals-delete,modernize-replace-random-shuffle,modernize-deprecated-headers,modernize-use-nullptr,modernize-use-noexcept,modernize-redundant-void-arg;-fix;-header-filter=.*,header-filter=library.h,header-filter=fmt/*.h" CACHE STRING "clang-tidy settings")
+else()
+  unset(CMAKE_CXX_CLANG_TIDY CACHE)
 endif()
 
 include(GNUInstallDirs)
@@ -187,6 +210,7 @@ option(CMAKE_VERBOSE_MAKEFILE "Generate verbose Makefiles" OFF)
 
 set(STANDARD_PACKAGES
   ADIOS
+  AMOEBA
   ASPHERE
   ATC
   AWPMD
@@ -195,7 +219,7 @@ set(STANDARD_PACKAGES
   BPM
   BROWNIAN
   CG-DNA
-  CG-SDK
+  CG-SPICA
   CLASS2
   COLLOID
   COLVARS
@@ -328,7 +352,9 @@ string(TOUPPER ${LAMMPS_SIZES} LAMMPS_SIZES)
 target_compile_definitions(lammps PUBLIC -DLAMMPS_${LAMMPS_SIZES})
 
 # posix_memalign is not available on Windows
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+# with INTEL package and Intel compilers we use TBB's aligned malloc
+if((CMAKE_SYSTEM_NAME STREQUAL "Windows")
+   AND NOT (PKG_INTEL AND ((CMAKE_CXX_COMPILER_ID STREQUAL "Intel") OR (CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM"))))
   set(LAMMPS_MEMALIGN "0" CACHE STRING "posix_memalign() is not available on Windows" FORCE)
 else()
   set(LAMMPS_MEMALIGN "64" CACHE STRING "enables the use of the posix_memalign() call instead of malloc() when large chunks or memory are allocated by LAMMPS. Set to 0 to disable")
@@ -349,11 +375,13 @@ pkg_depends(MPIIO MPI)
 pkg_depends(ATC MANYBODY)
 pkg_depends(LATBOLTZ MPI)
 pkg_depends(SCAFACOS MPI)
+pkg_depends(AMOEBA KSPACE)
 pkg_depends(DIELECTRIC KSPACE)
 pkg_depends(DIELECTRIC EXTRA-PAIR)
 pkg_depends(CG-DNA MOLECULE)
 pkg_depends(CG-DNA ASPHERE)
 pkg_depends(ELECTRODE KSPACE)
+pkg_depends(EXTRA-MOLECULE MOLECULE)
 
 # detect if we may enable OpenMP support by default
 set(BUILD_OMP_DEFAULT OFF)
@@ -393,9 +421,11 @@ endif()
 
 if(PKG_MSCG OR PKG_ATC OR PKG_AWPMD OR PKG_ML-QUIP OR PKG_LATTE OR PKG_ELECTRODE)
   enable_language(C)
-  find_package(LAPACK)
-  find_package(BLAS)
-  if(NOT LAPACK_FOUND OR NOT BLAS_FOUND)
+  if (NOT USE_INTERNAL_LINALG)
+    find_package(LAPACK)
+    find_package(BLAS)
+  endif()
+  if(NOT LAPACK_FOUND OR NOT BLAS_FOUND OR USE_INTERNAL_LINALG)
     include(CheckGeneratorSupport)
     if(NOT CMAKE_GENERATOR_SUPPORT_FORTRAN)
       status(FATAL_ERROR "Cannot build internal linear algebra library as CMake build tool lacks Fortran support")
@@ -624,7 +654,7 @@ endif()
 # packages which selectively include variants based on enabled styles
 # e.g. accelerator packages
 ######################################################################
-foreach(PKG_WITH_INCL CORESHELL DPD-SMOOTH PHONON QEQ OPENMP KOKKOS OPT INTEL GPU)
+foreach(PKG_WITH_INCL CORESHELL DPD-SMOOTH MISC PHONON QEQ OPENMP KOKKOS OPT INTEL GPU)
   if(PKG_${PKG_WITH_INCL})
     include(Packages/${PKG_WITH_INCL})
   endif()
@@ -771,20 +801,26 @@ if(BUILD_SHARED_LIBS)
     set(Python_ADDITIONAL_VERSIONS 3.12 3.11 3.10 3.9 3.8 3.7 3.6)
     find_package(PythonInterp) # Deprecated since version 3.12
     if(PYTHONINTERP_FOUND)
-        set(Python_EXECUTABLE ${PYTHON_EXECUTABLE})
+      set(Python_EXECUTABLE ${PYTHON_EXECUTABLE})
     endif()
   else()
+    # backward compatibility
+    if(PYTHON_EXECUTABLE)
+      set(Python_EXECUTABLE ${PYTHON_EXECUTABLE})
+    endif()
     find_package(Python COMPONENTS Interpreter)
   endif()
   if(BUILD_IS_MULTI_CONFIG)
-    set(LIBLAMMPS_SHARED_BINARY ${CMAKE_BINARY_DIR}/$<CONFIG>/liblammps${LAMMPS_MACHINE}${CMAKE_SHARED_LIBRARY_SUFFIX})
+    set(MY_BUILD_DIR ${CMAKE_BINARY_DIR}/$<CONFIG>)
   else()
-    set(LIBLAMMPS_SHARED_BINARY ${CMAKE_BINARY_DIR}/liblammps${LAMMPS_MACHINE}${CMAKE_SHARED_LIBRARY_SUFFIX})
+    set(MY_BUILD_DIR ${CMAKE_BINARY_DIR})
   endif()
+  set(LIBLAMMPS_SHARED_BINARY ${MY_BUILD_DIR}/liblammps${LAMMPS_MACHINE}${CMAKE_SHARED_LIBRARY_SUFFIX})
   if(Python_EXECUTABLE)
     add_custom_target(
       install-python ${CMAKE_COMMAND} -E remove_directory build
-      COMMAND ${Python_EXECUTABLE} ${LAMMPS_PYTHON_DIR}/install.py -p ${LAMMPS_PYTHON_DIR}/lammps -l ${LIBLAMMPS_SHARED_BINARY}
+      COMMAND ${Python_EXECUTABLE} ${LAMMPS_PYTHON_DIR}/install.py -p ${LAMMPS_PYTHON_DIR}/lammps
+              -l ${LIBLAMMPS_SHARED_BINARY} -w ${MY_BUILD_DIR}
       COMMENT "Installing LAMMPS Python module")
   else()
     add_custom_target(
@@ -804,16 +840,25 @@ endif()
 ###############################################################################
 if(BUILD_SHARED_LIBS OR PKG_PYTHON)
   if(CMAKE_VERSION VERSION_LESS 3.12)
+    # adjust so we find Python 3 versions before Python 2 on old systems with old CMake
+    set(Python_ADDITIONAL_VERSIONS 3.12 3.11 3.10 3.9 3.8 3.7 3.6)
     find_package(PythonInterp) # Deprecated since version 3.12
     if(PYTHONINTERP_FOUND)
-        set(Python_EXECUTABLE ${PYTHON_EXECUTABLE})
+      set(Python_EXECUTABLE ${PYTHON_EXECUTABLE})
     endif()
   else()
+    # backward compatibility
+    if(PYTHON_EXECUTABLE)
+      set(Python_EXECUTABLE ${PYTHON_EXECUTABLE})
+    endif()
     find_package(Python COMPONENTS Interpreter)
   endif()
   if(Python_EXECUTABLE)
-    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/python)
-    install(CODE "execute_process(COMMAND ${Python_EXECUTABLE} setup.py build -b ${CMAKE_BINARY_DIR}/python install --prefix=${CMAKE_INSTALL_PREFIX} --root=\$ENV{DESTDIR}/ WORKING_DIRECTORY ${LAMMPS_PYTHON_DIR})")
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/python/lib)
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/python/src)
+    file(COPY ${LAMMPS_SOURCE_DIR}/version.h  DESTINATION ${CMAKE_BINARY_DIR}/python/src)
+    file(COPY ${LAMMPS_PYTHON_DIR}/README ${LAMMPS_PYTHON_DIR}/pyproject.toml ${LAMMPS_PYTHON_DIR}/setup.py ${LAMMPS_PYTHON_DIR}/lammps  DESTINATION ${CMAKE_BINARY_DIR}/python/lib)
+    install(CODE "if(\"\$ENV{DESTDIR}\" STREQUAL \"\")\n execute_process(COMMAND ${Python_EXECUTABLE} -m pip install -v ${CMAKE_BINARY_DIR}/python/lib --prefix=${CMAKE_INSTALL_PREFIX})\n else()\n execute_process(COMMAND ${Python_EXECUTABLE} -m pip install -v ${CMAKE_BINARY_DIR}/python/lib --prefix=${CMAKE_INSTALL_PREFIX} --root=\$ENV{DESTDIR})\n endif()")
   endif()
 endif()
 
@@ -946,6 +991,12 @@ if(PKG_KSPACE)
         message(STATUS "Kokkos FFT: KISS")
       else()
         message(STATUS "Kokkos FFT: cuFFT")
+      endif()
+    elseif(Kokkos_ENABLE_HIP)
+      if(FFT STREQUAL "KISS")
+        message(STATUS "Kokkos FFT: KISS")
+      else()
+        message(STATUS "Kokkos FFT: hipFFT")
       endif()
     else()
       message(STATUS "Kokkos FFT: ${FFT}")

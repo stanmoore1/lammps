@@ -39,10 +39,10 @@ using namespace LAMMPS_NS;
 using namespace InterLayer;
 
 static const char cite_ilp_cur[] =
-    "ilp/graphene/hbn/opt potential doi:10.1145/3458817.3476137\n"
+    "ilp/graphene/hbn/opt potential: doi:10.1145/3458817.3476137\n"
     "@inproceedings{gao2021lmff\n"
-    " author = {Gao, Ping and Duan, Xiaohui and Others},\n"
-    " title = {LMFF: Efficient and Scalable Layered Materials Force Field on Heterogeneous "
+    " author = {Gao, Ping and Duan, Xiaohui and others},\n"
+    " title = {{LMFF}: Efficient and Scalable Layered Materials Force Field on Heterogeneous "
     "Many-Core Processors},\n"
     " year = {2021},\n"
     " isbn = {9781450384421},\n"
@@ -52,9 +52,9 @@ static const char cite_ilp_cur[] =
     " doi = {10.1145/3458817.3476137},\n"
     " booktitle = {Proceedings of the International Conference for High Performance Computing, "
     "Networking, Storage and Analysis},\n"
-    " articleno = {42},\n"
+    " pages    = {42},\n"
     " numpages = {14},\n"
-    " location = {St. Louis, Missouri},\n"
+    " location = {St.~Louis, Missouri},\n"
     " series = {SC'21},\n"
     "}\n\n";
 
@@ -64,7 +64,7 @@ static bool check_vdw(tagint itag, tagint jtag, double *xi, double *xj);
 
 PairILPGrapheneHBNOpt::PairILPGrapheneHBNOpt(LAMMPS *lmp) :
     PairILPGrapheneHBN(lmp), layered_neigh(nullptr), first_layered_neigh(nullptr),
-    num_intra(nullptr), num_inter(nullptr), num_vdw(nullptr), special_type(nullptr)
+    special_type(nullptr), num_intra(nullptr), num_inter(nullptr), num_vdw(nullptr)
 {
   if (lmp->citeme) lmp->citeme->add(cite_ilp_cur);
 

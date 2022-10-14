@@ -65,8 +65,7 @@ enum { FORWARD_IK, FORWARD_AD, FORWARD_IK_PERATOM, FORWARD_AD_PERATOM };
 /* ---------------------------------------------------------------------- */
 
 PPPMElectrode::PPPMElectrode(LAMMPS *lmp) :
-    PPPM(lmp), ElectrodeKSpace(), electrolyte_density_brick(nullptr),
-    electrolyte_density_fft(nullptr)
+    PPPM(lmp), electrolyte_density_brick(nullptr), electrolyte_density_fft(nullptr)
 {
   group_group_enable = 0;
   electrolyte_density_brick = nullptr;
@@ -553,7 +552,7 @@ void PPPMElectrode::compute(int eflag, int vflag)
     }
   }
 
-  boundcorr->compute_corr(qsum, eflag_atom, eflag_global, energy, eatom);
+  boundcorr->compute_corr(qsum, slab_volfactor, eflag_atom, eflag_global, energy, eatom);
   compute_vector_called = false;
 }
 
@@ -670,7 +669,7 @@ void PPPMElectrode::compute_matrix(bigint *imat, double **matrix, bool timer_fla
   compute(1, 0);
 
   // fft green's function k -> r
-  std::vector<double> greens_real(nz_pppm * ny_pppm * nx_pppm, 0.);
+  std::vector<double> greens_real((std::size_t) nz_pppm * ny_pppm * nx_pppm, 0.0);
   for (int i = 0, n = 0; i < nfft; i++) {
     work2[n++] = greensfn[i];
     work2[n++] = ZEROF;
