@@ -109,40 +109,14 @@ set(KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/atom_vec_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/comm_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/comm_tiled_kokkos.cpp
-                       ${KOKKOS_PKG_SOURCES_DIR}/min_kokkos.cpp
-                       ${KOKKOS_PKG_SOURCES_DIR}/min_linesearch_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/neighbor_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/neigh_list_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/neigh_bond_kokkos.cpp
-                       ${KOKKOS_PKG_SOURCES_DIR}/fix_nh_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/nbin_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/npair_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/npair_halffull_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/domain_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/modify_kokkos.cpp)
-
-if(PKG_KSPACE)
-  list(APPEND KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/fft3d_kokkos.cpp
-                                 ${KOKKOS_PKG_SOURCES_DIR}/gridcomm_kokkos.cpp
-                                 ${KOKKOS_PKG_SOURCES_DIR}/remap_kokkos.cpp)
-  if(Kokkos_ENABLE_CUDA)
-    if(NOT (FFT STREQUAL "KISS"))
-      target_compile_definitions(lammps PRIVATE -DFFT_CUFFT)
-      target_link_libraries(lammps PRIVATE cufft)
-    endif()
-  elseif(Kokkos_ENABLE_HIP)
-    if(NOT (FFT STREQUAL "KISS"))
-      target_compile_definitions(lammps PRIVATE -DFFT_HIPFFT)
-      target_link_libraries(lammps PRIVATE hipfft)
-    endif()
-  endif()
-endif()
-
-
-if(PKG_PHONON)
-  list(APPEND KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/dynamical_matrix_kokkos.cpp)
-  list(APPEND KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/third_order_kokkos.cpp)
-endif()
 
 set_property(GLOBAL PROPERTY "KOKKOS_PKG_SOURCES" "${KOKKOS_PKG_SOURCES}")
 
