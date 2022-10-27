@@ -126,7 +126,6 @@ void PairSWKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   copymode = 1;
 
   EV_FLOAT ev;
-  EV_FLOAT ev_all;
 
   // build short neighbor list
 
@@ -143,30 +142,34 @@ void PairSWKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // loop over neighbor list of my atoms
 
   if (neighflag == HALF) {
-    if (evflag)
-      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairSWCompute<HALF,1> >(0,inum),*this,ev);
-    else
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairSWCompute<HALF,0> >(0,inum),*this);
-    ev_all += ev;
+    if (evflag) {
+      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>, Kokkos::Rank<2, Kokkos::Iterate::Left, Kokkos::Iterate::Right>, TagPairSWCompute<HALF,1>> policy({0, 0}, {inum, max_neighs}, {32, 4});
+      Kokkos::parallel_reduce(policy,*this,ev);
+    } else {
+      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>, Kokkos::Rank<2, Kokkos::Iterate::Left, Kokkos::Iterate::Right>, TagPairSWCompute<HALF,0>> policy({0, 0}, {inum, max_neighs}, {32, 4});
+      Kokkos::parallel_for(policy,*this);
+    }
   } else if (neighflag == HALFTHREAD) {
-    if (evflag)
-      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairSWCompute<HALFTHREAD,1> >(0,inum),*this,ev);
-    else
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairSWCompute<HALFTHREAD,0> >(0,inum),*this);
-    ev_all += ev;
+    if (evflag) {
+      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>, Kokkos::Rank<2, Kokkos::Iterate::Left, Kokkos::Iterate::Right>, TagPairSWCompute<HALFTHREAD,1>> policy({0, 0}, {inum, max_neighs}, {32, 4});
+      Kokkos::parallel_reduce(policy,*this,ev);
+    } else {
+      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>, Kokkos::Rank<2, Kokkos::Iterate::Left, Kokkos::Iterate::Right>, TagPairSWCompute<HALFTHREAD,0>> policy({0, 0}, {inum, max_neighs}, {32, 4});
+      Kokkos::parallel_for(policy,*this);
+    }
   }
 
   if (need_dup)
     Kokkos::Experimental::contribute(f, dup_f);
 
-  if (eflag_global) eng_vdwl += ev_all.evdwl;
+  if (eflag_global) eng_vdwl += ev.evdwl;
   if (vflag_global) {
-    virial[0] += ev_all.v[0];
-    virial[1] += ev_all.v[1];
-    virial[2] += ev_all.v[2];
-    virial[3] += ev_all.v[3];
-    virial[4] += ev_all.v[4];
-    virial[5] += ev_all.v[5];
+    virial[0] += ev.v[0];
+    virial[1] += ev.v[1];
+    virial[2] += ev.v[2];
+    virial[3] += ev.v[3];
+    virial[4] += ev.v[4];
+    virial[5] += ev.v[5];
   }
 
   if (eflag_atom) {
@@ -233,7 +236,7 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWComputeShortNeigh, const int&
 template<class DeviceType>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, const int &ii, EV_FLOAT& ev) const {
+void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, const int &ii, const int &jj, EV_FLOAT& ev) const {
 
   // The f array is duplicated for OpenMP, atomic for CUDA, and neither for Serial
 
@@ -255,62 +258,68 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, co
 
   const int jnum = d_numneigh_short[ii];
 
+  if (jj >= jnum) return;
+
   F_FLOAT fxtmpi = 0.0;
   F_FLOAT fytmpi = 0.0;
   F_FLOAT fztmpi = 0.0;
 
-  for (int jj = 0; jj < jnum; jj++) {
-    int j = d_neighbors_short(ii,jj);
-    const tagint jtag = tag[j];
+  F_FLOAT fxtmpj = 0.0;
+  F_FLOAT fytmpj = 0.0;
+  F_FLOAT fztmpj = 0.0;
 
+  int j = d_neighbors_short(ii,jj);
+  const tagint jtag = tag[j];
+
+  // 2-body part
+  {
+    bool flag = true;
     if (itag > jtag) {
-      if ((itag+jtag) % 2 == 0) continue;
+      if ((itag+jtag) % 2 == 0) flag = false;
     } else if (itag < jtag) {
-      if ((itag+jtag) % 2 == 1) continue;
+      if ((itag+jtag) % 2 == 1) flag = false;
     } else {
-      if (x(j,2) < ztmp) continue;
-      if (x(j,2) == ztmp && x(j,1) < ytmp) continue;
-      if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
+      if (x(j,2) < ztmp) flag = false;
+      if (x(j,2) == ztmp && x(j,1) < ytmp) flag = false;
+      if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) flag = false;
     }
 
-    const int jtype = d_map[type[j]];
+    if (flag) {
+      const int jtype = d_map[type[j]];
 
-    const X_FLOAT delx = xtmp - x(j,0);
-    const X_FLOAT dely = ytmp - x(j,1);
-    const X_FLOAT delz = ztmp - x(j,2);
-    const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+      const X_FLOAT delx = xtmp - x(j,0);
+      const X_FLOAT dely = ytmp - x(j,1);
+      const X_FLOAT delz = ztmp - x(j,2);
+      const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
-    const int ijparam = d_elem3param(itype,jtype,jtype);
+      const int ijparam = d_elem3param(itype,jtype,jtype);
 
-    twobody(d_params[ijparam],rsq,fpair,eflag,evdwl);
+      twobody(d_params[ijparam],rsq,fpair,eflag,evdwl);
 
-    fxtmpi += delx*fpair;
-    fytmpi += dely*fpair;
-    fztmpi += delz*fpair;
-    a_f(j,0) -= delx*fpair;
-    a_f(j,1) -= dely*fpair;
-    a_f(j,2) -= delz*fpair;
+      fxtmpi += delx*fpair;
+      fytmpi += dely*fpair;
+      fztmpi += delz*fpair;
+      fxtmpj -= delx*fpair;
+      fytmpj -= dely*fpair;
+      fztmpj -= delz*fpair;
 
-    if (EVFLAG) {
-      if (eflag) ev.evdwl += evdwl;
-      if (vflag_either || eflag_atom) this->template ev_tally<NEIGHFLAG>(ev,i,j,evdwl,fpair,delx,dely,delz);
+      if (EVFLAG) {
+        if (eflag) ev.evdwl += evdwl;
+        if (vflag_either || eflag_atom) this->template ev_tally<NEIGHFLAG>(ev,i,j,evdwl,fpair,delx,dely,delz);
+      }
     }
   }
 
   const int jnumm1 = jnum - 1;
 
-  for (int jj = 0; jj < jnumm1; jj++) {
-    int j = d_neighbors_short(ii,jj);
+  if (jj < jnumm1) {
+
     const int jtype = d_map[type[j]];
     const int ijparam = d_elem3param(itype,jtype,jtype);
     delr1[0] = x(j,0) - xtmp;
     delr1[1] = x(j,1) - ytmp;
     delr1[2] = x(j,2) - ztmp;
     const F_FLOAT rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
-
-    F_FLOAT fxtmpj = 0.0;
-    F_FLOAT fytmpj = 0.0;
-    F_FLOAT fztmpj = 0.0;
 
     for (int kk = jj+1; kk < jnum; kk++) {
       int k = d_neighbors_short(ii,kk);
@@ -341,11 +350,11 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, co
         if (vflag_either || eflag_atom) this->template ev_tally3<NEIGHFLAG>(ev,i,j,k,evdwl,0.0,fj,fk,delr1,delr2);
       }
     }
-
-    a_f(j,0) += fxtmpj;
-    a_f(j,1) += fytmpj;
-    a_f(j,2) += fztmpj;
   }
+
+  a_f(j,0) += fxtmpj;
+  a_f(j,1) += fytmpj;
+  a_f(j,2) += fztmpj;
 
   a_f(i,0) += fxtmpi;
   a_f(i,1) += fytmpi;
@@ -355,9 +364,9 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, co
 template<class DeviceType>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, const int &ii) const {
+void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, const int &ii, const int &jj) const {
   EV_FLOAT ev;
-  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairSWCompute<NEIGHFLAG,EVFLAG>(), ii, ev);
+  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairSWCompute<NEIGHFLAG,EVFLAG>(), ii, jj, ev);
 }
 
 /* ----------------------------------------------------------------------

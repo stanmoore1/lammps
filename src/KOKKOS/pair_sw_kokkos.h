@@ -50,11 +50,11 @@ class PairSWKokkos : public PairSW {
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, const int&, EV_FLOAT&) const;
+  void operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, const int&, const int&, EV_FLOAT&) const;
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, const int&) const;
+  void operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, const int&, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairSWComputeShortNeigh, const int&) const;
