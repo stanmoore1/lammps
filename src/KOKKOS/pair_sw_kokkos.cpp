@@ -143,18 +143,18 @@ void PairSWKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (neighflag == HALF) {
     if (evflag) {
-      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>, Kokkos::Rank<2, Kokkos::Iterate::Left, Kokkos::Iterate::Right>, TagPairSWCompute<HALF,1>> policy({0, 0}, {inum, max_neighs}, {32, 4});
+      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>, Kokkos::Rank<2, Kokkos::Iterate::Right, Kokkos::Iterate::Left>, TagPairSWCompute<HALF,1>> policy({0, 0}, {inum, max_neighs}, {32, 4});
       Kokkos::parallel_reduce(policy,*this,ev);
     } else {
-      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>, Kokkos::Rank<2, Kokkos::Iterate::Left, Kokkos::Iterate::Right>, TagPairSWCompute<HALF,0>> policy({0, 0}, {inum, max_neighs}, {32, 4});
+      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>, Kokkos::Rank<2, Kokkos::Iterate::Right, Kokkos::Iterate::Left>, TagPairSWCompute<HALF,0>> policy({0, 0}, {inum, max_neighs}, {32, 4});
       Kokkos::parallel_for(policy,*this);
     }
   } else if (neighflag == HALFTHREAD) {
     if (evflag) {
-      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>, Kokkos::Rank<2, Kokkos::Iterate::Left, Kokkos::Iterate::Right>, TagPairSWCompute<HALFTHREAD,1>> policy({0, 0}, {inum, max_neighs}, {32, 4});
+      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>, Kokkos::Rank<2, Kokkos::Iterate::Right, Kokkos::Iterate::Left>, TagPairSWCompute<HALFTHREAD,1>> policy({0, 0}, {inum, max_neighs}, {32, 4});
       Kokkos::parallel_reduce(policy,*this,ev);
     } else {
-      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>, Kokkos::Rank<2, Kokkos::Iterate::Left, Kokkos::Iterate::Right>, TagPairSWCompute<HALFTHREAD,0>> policy({0, 0}, {inum, max_neighs}, {32, 4});
+      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>, Kokkos::Rank<2, Kokkos::Iterate::Right, Kokkos::Iterate::Left>, TagPairSWCompute<HALFTHREAD,0>> policy({0, 0}, {inum, max_neighs}, {32, 4});
       Kokkos::parallel_for(policy,*this);
     }
   }
