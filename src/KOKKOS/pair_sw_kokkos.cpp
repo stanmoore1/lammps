@@ -105,12 +105,17 @@ void PairSWKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   newton_pair = force->newton_pair;
   nall = atom->nlocal + atom->nghost;
 
+  // neighbor list info
+
   const int inum = list->inum;
-  const int ignum = inum + list->gnum;
   NeighListKokkos<DeviceType>* k_list = static_cast<NeighListKokkos<DeviceType>*>(list);
   d_ilist = k_list->d_ilist;
   d_numneigh = k_list->d_numneigh;
   d_neighbors = k_list->d_neighbors;
+
+  NeighListKokkos<DeviceType>* k_halflist = static_cast<NeighListKokkos<DeviceType>*>(listhalf);
+  d_numneigh_half = k_halflist->d_numneigh;
+  d_neighbors_half = k_halflist->d_neighbors;
 
   need_dup = lmp->kokkos->need_dup<DeviceType>();
   if (need_dup) {
@@ -128,31 +133,45 @@ void PairSWKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   EV_FLOAT ev;
   EV_FLOAT ev_all;
 
-  // build short neighbor list
+  // build short neighbor lists
+
+  // half
+
+  int max_neighs_half = d_neighbors_half.extent(1);
+
+  if (((int) d_neighbors_half_short.extent(1) < max_neighs_half) ||
+      ((int) d_neighbors_half_short.extent(0) < inum)) {
+    d_neighbors_half_short = Kokkos::View<int**,DeviceType>("SW::neighbors_half_short",inum*1.2,max_neighs_half);
+  }
+  if ((int)d_numneigh_half_short.extent(0) < inum)
+    d_numneigh_half_short = Kokkos::View<int*,DeviceType>("SW::numneighs_half_short",inum*1.2);
+
+  // full
 
   int max_neighs = d_neighbors.extent(1);
 
   if (((int) d_neighbors_short.extent(1) < max_neighs) ||
-      ((int) d_neighbors_short.extent(0) < ignum)) {
-    d_neighbors_short = Kokkos::View<int**,DeviceType>("SW::neighbors_short",ignum*1.2,max_neighs);
+      ((int) d_neighbors_short.extent(0) < inum)) {
+    d_neighbors_short = Kokkos::View<int**,DeviceType>("SW::neighbors_short",inum*1.2,max_neighs);
   }
-  if ((int)d_numneigh_short.extent(0) < ignum)
-    d_numneigh_short = Kokkos::View<int*,DeviceType>("SW::numneighs_short",ignum*1.2);
+  if ((int)d_numneigh_short.extent(0) < inum)
+    d_numneigh_short = Kokkos::View<int*,DeviceType>("SW::numneighs_short",inum*1.2);
+
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagPairSWComputeShortNeigh>(0,inum), *this);
 
   // loop over neighbor list of my atoms
 
   if (neighflag == HALF) {
     if (evflag)
-      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairSWCompute<HALF,1> >(0,inum),*this,ev);
+      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairSWCompute1<HALF,1> >(0,inum),*this,ev);
     else
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairSWCompute<HALF,0> >(0,inum),*this);
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairSWCompute1<HALF,0> >(0,inum),*this);
     ev_all += ev;
   } else if (neighflag == HALFTHREAD) {
     if (evflag)
-      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairSWCompute<HALFTHREAD,1> >(0,inum),*this,ev);
+      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairSWCompute1<HALFTHREAD,1> >(0,inum),*this,ev);
     else
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairSWCompute<HALFTHREAD,0> >(0,inum),*this);
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairSWCompute1<HALFTHREAD,0> >(0,inum),*this);
     ev_all += ev;
   }
 
@@ -207,8 +226,28 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWComputeShortNeigh, const int&
     const X_FLOAT ytmp = x(i,1);
     const X_FLOAT ztmp = x(i,2);
 
-    const int jnum = d_numneigh[i];
+    const int jnum_half = d_numneigh_half[i];
     int inside = 0;
+    for (int jj = 0; jj < jnum_half; jj++) {
+      int j = d_neighbors_half(i,jj);
+      j &= NEIGHMASK;
+      const int jtype = d_map[type[j]];
+
+      const X_FLOAT delx = xtmp - x(j,0);
+      const X_FLOAT dely = ytmp - x(j,1);
+      const X_FLOAT delz = ztmp - x(j,2);
+      const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+
+      const int ijparam = d_elem3param(itype,jtype,jtype);
+      if (rsq < d_params[ijparam].cutsq) {
+        d_neighbors_half_short(ii,inside) = j;
+        inside++;
+      }
+    }
+    d_numneigh_half_short(ii) = inside;
+
+    const int jnum = d_numneigh[i];
+    inside = 0;
     for (int jj = 0; jj < jnum; jj++) {
       int j = d_neighbors(i,jj);
       j &= NEIGHMASK;
@@ -233,7 +272,7 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWComputeShortNeigh, const int&
 template<class DeviceType>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, const int &ii, EV_FLOAT& ev) const {
+void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute1<NEIGHFLAG,EVFLAG>, const int &ii, EV_FLOAT& ev) const {
 
   // The f array is duplicated for OpenMP, atomic for CUDA, and neither for Serial
 
@@ -251,27 +290,17 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, co
   const X_FLOAT ytmp = x(i,1);
   const X_FLOAT ztmp = x(i,2);
 
-  // two-body interactions, skip half of them
+  // two-body interactions
 
-  const int jnum = d_numneigh_short[ii];
+  const int jnum_half = d_numneigh_half_short[ii];
 
   F_FLOAT fxtmpi = 0.0;
   F_FLOAT fytmpi = 0.0;
   F_FLOAT fztmpi = 0.0;
 
-  for (int jj = 0; jj < jnum; jj++) {
-    int j = d_neighbors_short(ii,jj);
+  for (int jj = 0; jj < jnum_half; jj++) {
+    int j = d_neighbors_half_short(ii,jj);
     const tagint jtag = tag[j];
-
-    if (itag > jtag) {
-      if ((itag+jtag) % 2 == 0) continue;
-    } else if (itag < jtag) {
-      if ((itag+jtag) % 2 == 1) continue;
-    } else {
-      if (x(j,2) < ztmp) continue;
-      if (x(j,2) == ztmp && x(j,1) < ytmp) continue;
-      if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
-    }
 
     const int jtype = d_map[type[j]];
 
@@ -297,6 +326,7 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, co
     }
   }
 
+  const int jnum = d_numneigh_short[ii];
   const int jnumm1 = jnum - 1;
 
   for (int jj = 0; jj < jnumm1; jj++) {
@@ -355,9 +385,9 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, co
 template<class DeviceType>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, const int &ii) const {
+void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute1<NEIGHFLAG,EVFLAG>, const int &ii) const {
   EV_FLOAT ev;
-  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairSWCompute<NEIGHFLAG,EVFLAG>(), ii, ev);
+  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairSWCompute1<NEIGHFLAG,EVFLAG>(), ii, ev);
 }
 
 /* ----------------------------------------------------------------------
@@ -398,16 +428,38 @@ void PairSWKokkos<DeviceType>::init_style()
   PairSW::init_style();
   skip_threebody_flag = tmp_threebody;
 
+  // need a half list too
+
+  neighbor->find_request(this)->set_id(1);
+  neighbor->add_request(this)->set_id(2);
+
   // adjust neighbor list request for KOKKOS
 
   neighflag = lmp->kokkos->neighflag;
-  auto request = neighbor->find_request(this);
+  auto request = neighbor->find_request(this,1);
+  request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
+                           !std::is_same<DeviceType,LMPDeviceType>::value);
+  request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
+
+  request = neighbor->find_request(this,2);
   request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
                            !std::is_same<DeviceType,LMPDeviceType>::value);
   request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
 
   if (neighflag == FULL)
     error->all(FLERR,"Must use half neighbor list style with pair sw/kk");
+}
+
+/* ----------------------------------------------------------------------
+   neighbor callback to inform pair style of neighbor list to use
+   half or full
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairSWKokkos<DeviceType>::init_list(int id, NeighList *ptr)
+{
+  if (id == 1) list = ptr;
+  else if (id == 2) listhalf = ptr;
 }
 
 /* ---------------------------------------------------------------------- */

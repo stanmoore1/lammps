@@ -27,7 +27,7 @@ PairStyle(sw/kk/host,PairSWKokkos<LMPHostType>);
 #include "pair_kokkos.h"
 
 template<int NEIGHFLAG, int EVFLAG>
-struct TagPairSWCompute{};
+struct TagPairSWCompute1{};
 
 struct TagPairSWComputeShortNeigh{};
 
@@ -47,14 +47,15 @@ class PairSWKokkos : public PairSW {
   void compute(int, int) override;
   void coeff(int, char **) override;
   void init_style() override;
+  void init_list(int, class NeighList *) override;
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, const int&, EV_FLOAT&) const;
+  void operator()(TagPairSWCompute1<NEIGHFLAG,EVFLAG>, const int&, EV_FLOAT&) const;
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, const int&) const;
+  void operator()(TagPairSWCompute1<NEIGHFLAG,EVFLAG>, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairSWComputeShortNeigh, const int&) const;
@@ -131,18 +132,20 @@ class PairSWKokkos : public PairSW {
   typename AT::t_int_2d_randomread d_type2rhor;
   typename AT::t_int_2d_randomread d_type2z2r;
 
-  typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;
+  typename AT::t_neighbors_2d d_neighbors_half;
+  typename AT::t_int_1d_randomread d_numneigh_half;
+  typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_numneigh;
-  //NeighListKokkos<DeviceType> k_list;
 
   int neighflag,newton_pair;
   int nlocal,nall,eflag,vflag;
 
   int inum;
+  Kokkos::View<int**,DeviceType> d_neighbors_half_short;
+  Kokkos::View<int*,DeviceType> d_numneigh_half_short;
   Kokkos::View<int**,DeviceType> d_neighbors_short;
   Kokkos::View<int*,DeviceType> d_numneigh_short;
-
 
   friend void pair_virial_fdotr_compute<PairSWKokkos>(PairSWKokkos*);
 };
