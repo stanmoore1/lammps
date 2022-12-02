@@ -21,6 +21,8 @@
 #include "modify.h"
 #include "neighbor_kokkos.h"
 
+#include <Kokkos_Sort.hpp>
+
 #include <cmath>
 
 using namespace LAMMPS_NS;
@@ -135,11 +137,6 @@ void AtomKokkos::map_set()
 {
   int nall = nlocal + nghost;
 
-  atomKK->sync(Host, TAG_MASK);
-
-  k_sametag.sync_host();
-  if (map_style == Atom::MAP_ARRAY) k_map_array.sync_host();
-
   if (map_style == MAP_ARRAY) {
 
     // possible reallocation of sametag must come before loop over atoms
@@ -151,10 +148,111 @@ void AtomKokkos::map_set()
       memoryKK->create_kokkos(k_sametag, sametag, max_same, "atom:sametag");
     }
 
-    for (int i = nall - 1; i >= 0; i--) {
-      sametag[i] = map_array[tag[i]];
-      map_array[tag[i]] = i;
+    int host_map_flag = 1; /////////////////
+    if (host_map_flag) {
+
+      atomKK->sync(Host, TAG_MASK);
+      k_map_array.sync_host();
+      k_sametag.sync_host();
+
+      for (int i = nall - 1; i >= 0; i--) {
+        sametag[i] = map_array[tag[i]];
+        map_array[tag[i]] = i;
+      }
+
+      k_map_array.modify_host();
+      k_sametag.modify_host();
+
+    } else {
+
+      atomKK->sync(Device, TAG_MASK);
+      k_map_array.sync_device();
+      k_sametag.sync_device();
+
+      auto d_tag = atomKK->k_tag.d_view;
+      auto d_map_array = k_map_array.d_view;
+      auto d_sametag = k_sametag.d_view;
+
+      // sort by tag
+
+      auto d_tag_sorted = DAT::t_tagint_1d(Kokkos::NoInit("atom:tag_sorted"),nall);
+      auto d_i_sorted = DAT::t_int_1d(Kokkos::NoInit("atom:i_sorted"),nall);
+
+      typedef Kokkos::DualView<tagint[2], LMPDeviceType::array_layout, LMPDeviceType> tdual_tagint_2;
+      typedef tdual_tagint_2::t_dev t_tagint_2;
+      typedef tdual_tagint_2::t_host t_host_tagint_2;
+
+      auto d_tag_min_max = t_tagint_2(Kokkos::NoInit("atom:tag_min_max"));
+      auto h_tag_min_max = t_host_tagint_2(Kokkos::NoInit("atom:tag_min_max"));
+
+      auto d_tag_min = Kokkos::subview(d_tag_min_max,0);
+      auto d_tag_max = Kokkos::subview(d_tag_min_max,1);
+
+      auto h_tag_min = Kokkos::subview(h_tag_min_max,0);
+      auto h_tag_max = Kokkos::subview(h_tag_min_max,1);
+
+      h_tag_min() = MAXTAGINT;
+      h_tag_max() = 0;
+
+      Kokkos::deep_copy(d_tag_min_max,h_tag_min_max);
+
+      Kokkos::parallel_for(nall, LAMMPS_LAMBDA(int i) {
+        d_i_sorted(i) = i;
+        tagint tag_i = d_tag(i);
+        d_tag_sorted(i) = tag_i;
+        Kokkos::atomic_min(&d_tag_min(),tag_i);
+        Kokkos::atomic_max(&d_tag_max(),tag_i);
+      });
+
+      Kokkos::deep_copy(h_tag_min_max,d_tag_min_max);
+
+      tagint min = h_tag_min();
+      tagint max = h_tag_max();
+
+      using KeyViewType = decltype(d_tag_sorted);
+      using BinOp = Kokkos::BinOp1D<KeyViewType>;
+
+      BinOp binner(nall, min, max);
+
+      Kokkos::BinSort<KeyViewType, BinOp> Sorter(d_tag_sorted, 0, nall, binner);
+      Sorter.create_permute_vector(LMPDeviceType());
+      Sorter.sort(LMPDeviceType(), d_tag_sorted, 0, nall);
+      Sorter.sort(LMPDeviceType(), d_i_sorted, 0, nall);
+
+      Kokkos::parallel_for(nall, LAMMPS_LAMBDA(int ii) {
+        const int i = d_i_sorted(ii);
+        const tagint tag_i = d_tag_sorted(ii);
+
+        tagint tag_min = tag_i;
+        tagint tag_closest = tag_i;
+
+        int jj = ii+1;
+
+        while (jj < nall) {
+          const tagint tag_j = d_tag_sorted(jj);
+          if (tag_j != tag_i) break;
+          tag_min = MIN(tag_min,tag_j);
+          if (tag_j < tag_i) tag_closest = MAX(tag_closest,tag_j);
+          jj++;
+        }
+
+        jj = ii-1;
+
+        while (jj >= 0) {
+          const tagint tag_j = d_tag_sorted(jj);
+          if (tag_j != tag_i) break;
+          tag_min = MIN(tag_min,tag_j);
+          if (tag_j < tag_i) tag_closest = MAX(tag_closest,tag_j);
+          jj--;
+        }
+
+        d_map_array(tag_i) = tag_min;
+        d_sametag(i) = tag_closest;
+      });
     }
+
+    k_map_array.modify_device();
+    k_sametag.modify_device();
 
   } else {
 
@@ -240,6 +338,7 @@ void AtomKokkos::map_set()
   }
 
   k_sametag.modify_host();
+
   if (map_style == Atom::MAP_ARRAY)
     k_map_array.modify_host();
   else if (map_style == Atom::MAP_HASH) {
