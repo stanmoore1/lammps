@@ -148,7 +148,7 @@ void AtomKokkos::map_set()
       memoryKK->create_kokkos(k_sametag, sametag, max_same, "atom:sametag");
     }
 
-    int host_map_flag = 1; /////////////////
+    int host_map_flag = 0; /////////////////
     if (host_map_flag) {
 
       atomKK->sync(Host, TAG_MASK);
@@ -172,6 +172,8 @@ void AtomKokkos::map_set()
       auto d_tag = atomKK->k_tag.d_view;
       auto d_map_array = k_map_array.d_view;
       auto d_sametag = k_sametag.d_view;
+
+      Kokkos::deep_copy(d_map_array,-1);
 
       // sort by tag
 
@@ -214,7 +216,7 @@ void AtomKokkos::map_set()
 
       BinOp binner(nall, min, max);
 
-      Kokkos::BinSort<KeyViewType, BinOp> Sorter(d_tag_sorted, 0, nall, binner);
+      Kokkos::BinSort<KeyViewType, BinOp> Sorter(d_tag_sorted, 0, nall, binner, true);
       Sorter.create_permute_vector(LMPDeviceType());
       Sorter.sort(LMPDeviceType(), d_tag_sorted, 0, nall);
       Sorter.sort(LMPDeviceType(), d_i_sorted, 0, nall);
@@ -223,36 +225,49 @@ void AtomKokkos::map_set()
         const int i = d_i_sorted(ii);
         const tagint tag_i = d_tag_sorted(ii);
 
-        tagint tag_min = tag_i;
-        tagint tag_closest = tag_i;
+        int i_min = i;
+        int i_closest = i;
+
+        // search in the forward direction
 
         int jj = ii+1;
 
         while (jj < nall) {
           const tagint tag_j = d_tag_sorted(jj);
           if (tag_j != tag_i) break;
-          tag_min = MIN(tag_min,tag_j);
-          if (tag_j < tag_i) tag_closest = MAX(tag_closest,tag_j);
+          const int j = d_i_sorted(jj);
+          i_min = MIN(i_min,j);
+          if (j < i) i_closest = MAX(i_closest,j);
           jj++;
         }
+
+        // search in the reverse direction
 
         jj = ii-1;
 
         while (jj >= 0) {
           const tagint tag_j = d_tag_sorted(jj);
           if (tag_j != tag_i) break;
-          tag_min = MIN(tag_min,tag_j);
-          if (tag_j < tag_i) tag_closest = MAX(tag_closest,tag_j);
+          const int j = d_i_sorted(jj);
+          i_min = MIN(i_min,j);
+          if (j < i) i_closest = MAX(i_closest,j);
           jj--;
         }
 
-        d_map_array(tag_i) = tag_min;
-        d_sametag(i) = tag_closest;
+        if (i_closest == i)
+          i_closest = -1;
+
+        d_map_array(tag_i) = i_min;
+        d_sametag(i) = i_closest;
       });
+
+      k_map_array.modify_device();
+      k_sametag.modify_device();
     }
 
-    k_map_array.modify_device();
-    k_sametag.modify_device();
+   for (int i = 0; i < nall; i++) {
+     printf("%i %i %i %i\n",i,tag[i],sametag[i],map_array[tag[i]]);
+   }
 
   } else {
 
