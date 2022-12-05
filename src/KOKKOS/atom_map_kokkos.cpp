@@ -138,6 +138,7 @@ void AtomKokkos::map_set()
 
   if (map_style == MAP_ARRAY) {
 
+    int host_map_flag = 0; /////////////////
     if (host_map_flag) k_sametag.sync_host();
     else k_sametag.sync_device();
 
@@ -150,7 +151,6 @@ void AtomKokkos::map_set()
       memoryKK->create_kokkos(k_sametag, sametag, max_same, "atom:sametag");
     }
 
-    int host_map_flag = 0; /////////////////
     if (host_map_flag) {
 
       atomKK->sync(Host, TAG_MASK);
@@ -172,8 +172,6 @@ void AtomKokkos::map_set()
       auto d_tag = atomKK->k_tag.d_view;
       auto d_map_array = k_map_array.d_view;
       auto d_sametag = k_sametag.d_view;
-
-      Kokkos::deep_copy(d_map_array,-1);
 
       // sort by tag
 
