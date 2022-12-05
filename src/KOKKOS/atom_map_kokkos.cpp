@@ -226,18 +226,22 @@ void AtomKokkos::map_set()
         const tagint tag_i = d_tag_sorted(ii);
 
         int i_min = i;
-        int i_closest = i;
+        int i_closest = MAXTAGINT;
 
         // search in the forward direction
 
         int jj = ii+1;
+        int closest_flag = 0;
 
         while (jj < nall) {
           const tagint tag_j = d_tag_sorted(jj);
           if (tag_j != tag_i) break;
           const int j = d_i_sorted(jj);
           i_min = MIN(i_min,j);
-          if (j < i) i_closest = MAX(i_closest,j);
+          if (j > i) {
+            i_closest = MIN(i_closest,j);
+            closest_flag = 1;
+          }
           jj++;
         }
 
@@ -250,11 +254,14 @@ void AtomKokkos::map_set()
           if (tag_j != tag_i) break;
           const int j = d_i_sorted(jj);
           i_min = MIN(i_min,j);
-          if (j < i) i_closest = MAX(i_closest,j);
+          if (j > i) {
+            i_closest = MIN(i_closest,j);
+            closest_flag = 1;
+          }
           jj--;
         }
 
-        if (i_closest == i)
+        if (!closest_flag)
           i_closest = -1;
 
         d_map_array(tag_i) = i_min;
@@ -264,11 +271,6 @@ void AtomKokkos::map_set()
       k_map_array.modify_device();
       k_sametag.modify_device();
     }
-
-   for (int i = 0; i < nall; i++) {
-     printf("%i %i %i %i\n",i,tag[i],sametag[i],map_array[tag[i]]);
-   }
-
   } else {
 
     // if this proc has more atoms than hash table size, call map_init()
