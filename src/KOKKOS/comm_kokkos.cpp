@@ -1202,10 +1202,8 @@ void CommKokkos::borders_device() {
 
   // reset global->local map
 
-  if (map_style != Atom::MAP_NONE) {
-    atomKK->sync(Host,TAG_MASK);
+  if (map_style != Atom::MAP_NONE)
     atom->map_set();
-  }
 }
 
 /* ----------------------------------------------------------------------

@@ -119,7 +119,6 @@ void AtomKokkos::map_init(int check)
     }
   }
 
-  k_sametag.modify_host();
   if (map_style == Atom::MAP_ARRAY) k_map_array.modify_host();
 }
 
@@ -139,6 +138,9 @@ void AtomKokkos::map_set()
 
   if (map_style == MAP_ARRAY) {
 
+    if (host_map_flag) k_sametag.sync_host();
+    else k_sametag.sync_device();
+
     // possible reallocation of sametag must come before loop over atoms
     // since loop sets sametag
 
@@ -153,7 +155,6 @@ void AtomKokkos::map_set()
 
       atomKK->sync(Host, TAG_MASK);
       k_map_array.sync_host();
-      k_sametag.sync_host();
 
       for (int i = nall - 1; i >= 0; i--) {
         sametag[i] = map_array[tag[i]];
@@ -167,7 +168,6 @@ void AtomKokkos::map_set()
 
       atomKK->sync(Device, TAG_MASK);
       k_map_array.sync_device();
-      k_sametag.sync_device();
 
       auto d_tag = atomKK->k_tag.d_view;
       auto d_map_array = k_map_array.d_view;
@@ -273,6 +273,9 @@ void AtomKokkos::map_set()
     }
   } else {
 
+    atomKK->sync(Host, TAG_MASK);
+    k_sametag.sync_host();
+
     // if this proc has more atoms than hash table size, call map_init()
     //   call with 0 since max atomID in system has not changed
     // possible reallocation of sametag must come after map_init(),
@@ -354,11 +357,7 @@ void AtomKokkos::map_set()
     }
   }
 
-  k_sametag.modify_host();
-
-  if (map_style == Atom::MAP_ARRAY)
-    k_map_array.modify_host();
-  else if (map_style == Atom::MAP_HASH) {
+  if (map_style == Atom::MAP_HASH) {
 
     // use "view" template method to avoid unnecessary deep_copy
 
