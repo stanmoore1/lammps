@@ -138,7 +138,7 @@ void AtomKokkos::map_set()
 
   if (map_style == MAP_ARRAY) {
 
-    int host_map_flag = 0; /////////////////
+    host_map_flag = 0; /////////////////
     if (host_map_flag) k_sametag.sync_host();
     else k_sametag.sync_device();
 

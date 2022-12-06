@@ -69,6 +69,7 @@ class AtomKokkos : public Atom {
   AtomKokkos(class LAMMPS *);
   ~AtomKokkos() override;
 
+  int host_map_flag;
   void map_init(int check = 1) override;
   void map_set() override;
   void map_delete() override;
@@ -80,6 +81,17 @@ class AtomKokkos : public Atom {
 
   // map lookup function inlined for efficiency
   // return -1 if no map defined
+
+  inline int map(tagint global) override
+  {
+    if (map_style == 1) {
+      k_map_array.sync_host();
+      return map_array[global];
+    } else if (map_style == 2)
+      return map_find_hash(global);
+    else
+      return -1;
+  };
 
   template<class DeviceType>
   KOKKOS_INLINE_FUNCTION

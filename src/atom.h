@@ -388,7 +388,7 @@ class Atom : protected Pointers {
   // map lookup function inlined for efficiency
   // return -1 if no map defined
 
-  inline int map(tagint global)
+  virtual inline int map(tagint global)
   {
     if (map_style == 1)
       return map_array[global];
