@@ -50,6 +50,8 @@ void AtomKokkos::map_init(int check)
   int recreate = 0;
   if (check) recreate = map_style_set();
 
+  if (map_style == Atom::MAP_ARRAY) k_map_array.sync_host();
+
   if (map_style == MAP_ARRAY && map_tag_max > map_maxarray)
     recreate = 1;
   else if (map_style == MAP_HASH && nlocal + nghost > map_nhash)
@@ -121,6 +123,39 @@ void AtomKokkos::map_init(int check)
 
   if (map_style == Atom::MAP_ARRAY) k_map_array.modify_host();
 }
+
+/* ----------------------------------------------------------------------
+   clear global -> local map for all of my own and ghost atoms
+   for hash table option:
+     global ID may not be in table if image atom was already cleared
+------------------------------------------------------------------------- */
+
+void AtomKokkos::map_clear()
+{
+  k_sametag.clear_sync_state();
+  if (map_style == Atom::MAP_ARRAY) 
+    k_map_array.clear_sync_state();
+
+  Atom::map_clear();
+
+  k_sametag.modify_host();
+  if (map_style == Atom::MAP_ARRAY)
+    k_map_array.modify_host();
+}
+
+void AtomKokkos::map_clear_kokkos()
+{
+  k_sametag.clear_sync_state();
+  Kokkos::deep_copy(k_sametag.d_view,-1);  
+  k_sametag.modify_device();
+
+  if (map_style == Atom::MAP_ARRAY) {
+    k_map_array.clear_sync_state();
+    Kokkos::deep_copy(k_map_array.d_view,-1);
+    k_map_array.modify_device();
+  }
+}
+
 
 /* ----------------------------------------------------------------------
    set global -> local map for all of my own and ghost atoms
@@ -378,6 +413,20 @@ void AtomKokkos::map_set()
       k_map_hash.view<LMPDeviceType>() = d_map_hash;
     }
   }
+}
+
+/* ----------------------------------------------------------------------
+   set global to local map for one atom
+   for hash table option:
+     global ID may already be in table if atom was already set
+   called by Special class
+------------------------------------------------------------------------- */
+
+void AtomKokkos::map_one(tagint global, int local)
+{
+  k_map_array.sync_host();
+  Atom::map_one(global, local);
+  k_map_array.modify_host();
 }
 
 /* ----------------------------------------------------------------------

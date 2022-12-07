@@ -725,7 +725,7 @@ void CommKokkos::exchange_device()
   // map_set() is done at end of borders()
   // clear ghost count and any ghost bonus data internal to AtomVec
 
-  if (map_style != Atom::MAP_NONE) atom->map_clear();
+  if (map_style != Atom::MAP_NONE) ((AtomKokkos*)atom)->map_clear_kokkos();
   atom->nghost = 0;
   atom->avec->clear_bonus();
 
