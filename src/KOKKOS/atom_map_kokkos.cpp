@@ -146,8 +146,6 @@ void AtomKokkos::map_clear()
 void AtomKokkos::map_clear_kokkos()
 {
   k_sametag.clear_sync_state();
-  Kokkos::deep_copy(k_sametag.d_view,-1);  
-  k_sametag.modify_device();
 
   if (map_style == Atom::MAP_ARRAY) {
     k_map_array.clear_sync_state();

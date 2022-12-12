@@ -756,7 +756,7 @@ void CommKokkos::exchange_device()
       i = nsend = 0;
 
       if (true) {
-        if ((int)k_sendflag.h_view.extent(0) < nlocal) k_sendflag.resize(nlocal);
+        if ((int)k_sendflag.h_view.extent(0) < nlocal) MemoryKokkos::realloc_kokkos(k_sendflag,"comm:k_sendflag",nlocal);
         k_sendflag.sync<DeviceType>();
         k_count.h_view() = k_exchange_sendlist.h_view.extent(0);
         while (k_count.h_view() >= (int)k_exchange_sendlist.h_view.extent(0)) {
