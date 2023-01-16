@@ -64,8 +64,8 @@ action atom_vec_bond_kokkos.cpp atom_vec_bond.cpp
 action atom_vec_bond_kokkos.h atom_vec_bond.h
 action atom_vec_charge_kokkos.cpp
 action atom_vec_charge_kokkos.h
-action atom_vec_spin_kokkos.cpp atom_vec_spin.cpp
-action atom_vec_spin_kokkos.h atom_vec_spin.h
+action atom_vec_dipole_kokkos.cpp atom_vec_dipole.cpp
+action atom_vec_dipole_kokkos.h atom_vec_dipole.h
 action atom_vec_dpd_kokkos.cpp atom_vec_dpd.cpp
 action atom_vec_dpd_kokkos.h atom_vec_dpd.h
 action atom_vec_full_kokkos.cpp atom_vec_full.cpp
@@ -78,6 +78,8 @@ action atom_vec_molecular_kokkos.cpp atom_vec_molecular.cpp
 action atom_vec_molecular_kokkos.h atom_vec_molecular.h
 action atom_vec_sphere_kokkos.cpp atom_vec_sphere.cpp
 action atom_vec_sphere_kokkos.h atom_vec_sphere.h
+action atom_vec_spin_kokkos.cpp atom_vec_spin.cpp
+action atom_vec_spin_kokkos.h atom_vec_spin.h
 action bond_class2_kokkos.cpp bond_class2.cpp
 action bond_class2_kokkos.h bond_class2.h
 action bond_fene_kokkos.cpp bond_fene.cpp
@@ -302,6 +304,8 @@ action pair_lj_cut_coul_dsf_kokkos.cpp pair_lj_cut_coul_dsf.cpp
 action pair_lj_cut_coul_dsf_kokkos.h pair_lj_cut_coul_dsf.h
 action pair_lj_cut_coul_long_kokkos.cpp pair_lj_cut_coul_long.cpp
 action pair_lj_cut_coul_long_kokkos.h pair_lj_cut_coul_long.h
+action pair_lj_cut_dipole_cut_kokkos.cpp pair_lj_cut_dipole_cut.cpp
+action pair_lj_cut_dipole_cut_kokkos.h pair_lj_cut_dipole_cut.h
 action pair_lj_cut_kokkos.cpp
 action pair_lj_cut_kokkos.h
 action pair_lj_expand_kokkos.cpp
