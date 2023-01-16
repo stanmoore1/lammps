@@ -1,7 +1,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/ Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -73,7 +73,7 @@ void PairCoulLongDielectric::compute(int eflag, int vflag)
 
   double **x = atom->x;
   double **f = atom->f;
-  double *q = atom->q;
+  double *q = atom->q_scaled;
   double *eps = atom->epsilon;
   double **norm = atom->mu;
   double *curvature = atom->curvature;

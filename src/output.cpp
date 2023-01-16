@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -545,11 +545,9 @@ void Output::calculate_next_dump(int which, int idump, bigint ntimestep)
       // if delta is too small to reach next timestep, use multiple of delta
 
       if (nextdump == ntimestep) {
-        double tnext = update->atime +
-          (ntimestep+1 - update->atimestep) * update->dt;
-        int multiple = static_cast<int>
-          ((tnext - nexttime) / every_time_dump[idump]);
-        nexttime = nexttime + (multiple+1)*every_time_dump[idump];
+        double tnext = update->atime + (ntimestep + 1 - update->atimestep) * update->dt;
+        int multiple = static_cast<int>((tnext - nexttime) / every_time_dump[idump]);
+        nexttime = nexttime + (multiple + 1) * every_time_dump[idump];
         nextdump = ntimestep +
           static_cast<bigint> ((nexttime - tcurrent - EPSDT*update->dt) / update->dt) + 1;
       }

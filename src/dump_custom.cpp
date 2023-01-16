@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -1150,6 +1150,7 @@ int DumpCustom::count()
 void DumpCustom::pack(tagint *ids)
 {
   for (int n = 0; n < size_one; n++) (this->*pack_choice[n])(n);
+
   if (ids) {
     tagint *tag = atom->tag;
     for (int i = 0; i < nchoose; i++)
@@ -1244,11 +1245,14 @@ int DumpCustom::parse_fields(int narg, char **arg)
 {
   // customize by adding to if statement
 
+  has_id = 0;
+
   for (int iarg = 0; iarg < narg; iarg++) {
     if (strcmp(arg[iarg],"id") == 0) {
       pack_choice[iarg] = &DumpCustom::pack_id;
       if (sizeof(tagint) == sizeof(smallint)) vtype[iarg] = Dump::INT;
       else vtype[iarg] = Dump::BIGINT;
+      has_id = 1;
     } else if (strcmp(arg[iarg],"mol") == 0) {
       if (!atom->molecule_flag)
         error->all(FLERR,"Dumping an atom property that isn't allocated");

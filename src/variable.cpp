@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -266,11 +266,8 @@ void Variable::set(int narg, char **arg)
       num[nvar] = utils::inumeric(FLERR,arg[2],false,lmp);
       data[nvar] = new char*[1];
       data[nvar][0] = nullptr;
-      if (narg == 4) {
-        char digits[12];
-        sprintf(digits,"%d",num[nvar]);
-        pad[nvar] = strlen(digits);
-      } else pad[nvar] = 0;
+      if (narg == 4) pad[nvar] = std::to_string(num[nvar]).size();
+      else pad[nvar] = 0;
     }
 
     if (num[nvar] < universe->nworlds)
@@ -833,6 +830,18 @@ void Variable::set_arrays(int /*i*/)
 }
 
 /* ----------------------------------------------------------------------
+   delete all atomfile style variables.
+   must scan list in reverse since remove() will compact list.
+   called from LAMMPS::destroy()
+------------------------------------------------------------------------- */
+
+void Variable::purge_atomfile()
+{
+  for (int i = nvar-1; i >= 0; --i)
+    if (style[i] == ATOMFILE) remove(i);
+}
+
+/* ----------------------------------------------------------------------
    called by python command in input script
    simply pass input script line args to Python class
 ------------------------------------------------------------------------- */
@@ -943,18 +952,15 @@ char *Variable::retrieve(const char *name)
       style[ivar] == SCALARFILE) {
     str = data[ivar][which[ivar]];
   } else if (style[ivar] == LOOP || style[ivar] == ULOOP) {
-    char result[16];
-    if (pad[ivar] == 0) sprintf(result,"%d",which[ivar]+1);
-    else {
-      char padstr[16];
-      sprintf(padstr,"%%0%dd",pad[ivar]);
-      sprintf(result,padstr,which[ivar]+1);
-    }
+    std::string result;
+    if (pad[ivar] == 0) result = std::to_string(which[ivar]+1);
+    else result = fmt::format("{:0>{}d}",which[ivar]+1, pad[ivar]);
     delete[] data[ivar][0];
     str = data[ivar][0] = utils::strdup(result);
   } else if (style[ivar] == EQUAL) {
     double answer = evaluate(data[ivar][0],nullptr,ivar);
-    sprintf(data[ivar][1],"%.15g",answer);
+    delete[] data[ivar][1];
+    data[ivar][1] = utils::strdup(fmt::format("{:.15g}",answer));
     str = data[ivar][1];
   } else if (style[ivar] == FORMAT) {
     int jvar = find(data[ivar][0]);
@@ -973,8 +979,21 @@ char *Variable::retrieve(const char *name)
     str = data[ivar][1] = utils::strdup(result);
   } else if (style[ivar] == PYTHON) {
     int ifunc = python->variable_match(data[ivar][0],name,0);
-    if (ifunc < 0)
-      error->all(FLERR,"Python variable {} does not match Python function {}", name, data[ivar][0]);
+    if (ifunc < 0) {
+      if (ifunc == -1) {
+        error->all(FLERR, "Could not find Python function {} linked to variable {}",
+                   data[ivar][0], name);
+      } else if (ifunc == -2) {
+        error->all(FLERR, "Python function {} for variable {} does not have a return value",
+                   data[ivar][0], name);
+      } else if (ifunc == -3) {
+        error->all(FLERR,"Python variable {} does not match variable name registered with "
+                   "Python function {}", name, data[ivar][0]);
+      } else {
+        error->all(FLERR, "Unknown error verifying function {} linked to python style variable {}",
+                   data[ivar][0],name);
+      }
+    }
     python->invoke_function(ifunc,data[ivar][1]);
     str = data[ivar][1];
     // if Python func returns a string longer than VALUELENGTH
@@ -982,7 +1001,8 @@ char *Variable::retrieve(const char *name)
     char *strlong = python->long_string(ifunc);
     if (strlong) str = strlong;
   } else if (style[ivar] == TIMER || style[ivar] == INTERNAL) {
-    sprintf(data[ivar][0],"%.15g",dvalue[ivar]);
+    delete[] data[ivar][0];
+    data[ivar][0] = utils::strdup(fmt::format("{:.15g}",dvalue[ivar]));
     str = data[ivar][0];
   } else if (style[ivar] == ATOM || style[ivar] == ATOMFILE ||
              style[ivar] == VECTOR) return nullptr;
@@ -4504,7 +4524,7 @@ void Variable::peratom2global(int flag, char *word, double *vector, int nstride,
           error->one(FLERR,"Variable uses atom property that isn't allocated");
         mine = atom->q[index];
       }
-      else error->one(FLERR,"Invalid atom vector in variable formula");
+      else error->one(FLERR,"Invalid atom vector {} in variable formula", word);
 
     } else mine = vector[index*nstride];
 
