@@ -247,6 +247,8 @@ action pair_buck_coul_long_kokkos.cpp pair_buck_coul_long.cpp
 action pair_buck_coul_long_kokkos.h pair_buck_coul_long.h
 action pair_buck_kokkos.cpp
 action pair_buck_kokkos.h
+action pair_cosine_squared_kokkos.cpp pair_cosine_squared.cpp
+action pair_cosine_squared_kokkos.h pair_cosine_squared.h
 action pair_coul_cut_kokkos.cpp
 action pair_coul_cut_kokkos.h
 action pair_coul_debye_kokkos.cpp
@@ -281,6 +283,8 @@ action pair_hybrid_kokkos.cpp
 action pair_hybrid_kokkos.h
 action pair_hybrid_overlay_kokkos.cpp
 action pair_hybrid_overlay_kokkos.h
+action pair_John4_kokkos.cpp
+action pair_John4_kokkos.h
 action pair_kokkos.h
 action pair_lj_charmm_coul_charmm_implicit_kokkos.cpp pair_lj_charmm_coul_charmm_implicit.cpp
 action pair_lj_charmm_coul_charmm_implicit_kokkos.h pair_lj_charmm_coul_charmm_implicit.h
@@ -331,6 +335,12 @@ action pair_snap_kokkos.h pair_snap.h
 action pair_snap_kokkos_impl.h pair_snap.cpp
 action pair_sw_kokkos.cpp pair_sw.cpp
 action pair_sw_kokkos.h pair_sw.h
+action pair_soft_kokkos.cpp pair_soft.cpp
+action pair_soft_kokkos.h pair_soft.h
+action pair_srlr_gauss_kokkos.cpp pair_srlr_gauss.cpp
+action pair_srlr_gauss_kokkos.h pair_srlr_gauss.h
+action pair_two_gauss_kokkos.cpp pair_two_gauss.cpp
+action pair_two_gauss_kokkos.h pair_two_gauss.h
 action pair_vashishta_kokkos.cpp pair_vashishta.cpp
 action pair_vashishta_kokkos.h pair_vashishta.h
 action pair_table_kokkos.cpp
