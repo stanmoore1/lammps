@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -12,13 +12,14 @@
 ------------------------------------------------------------------------- */
 
 #ifdef PAIR_CLASS
-
+// clang-format off
 PairStyle(soft/kk,PairSoftKokkos<LMPDeviceType>)
 PairStyle(soft/kk/device,PairSoftKokkos<LMPDeviceType>)
 PairStyle(soft/kk/host,PairSoftKokkos<LMPHostType>)
-
+// clang-format on
 #else
 
+// clang-format off
 #ifndef LMP_PAIR_SOFT_KOKKOS_H
 #define LMP_PAIR_SOFT_KOKKOS_H
 
@@ -36,12 +37,12 @@ class PairSoftKokkos : public PairSoft {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   PairSoftKokkos(class LAMMPS *);
-  ~PairSoftKokkos();
+  ~PairSoftKokkos() override;
 
   void compute(int, int);
 
-  void init_style();
-  double init_one(int, int);
+  void init_style() override;
+  double init_one(int, int) override;
 
   struct params_soft{
     KOKKOS_INLINE_FUNCTION
@@ -52,8 +53,6 @@ class PairSoftKokkos : public PairSoft {
   };
 
  protected:
-  void cleanup_copy() {}
-
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
   F_FLOAT compute_fpair(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
@@ -75,7 +74,6 @@ class PairSoftKokkos : public PairSoft {
   typename AT::t_x_array c_x;
   typename AT::t_f_array f;
   typename AT::t_int_1d_randomread type;
-  typename AT::t_tagint_1d tag;
 
   DAT::tdual_efloat_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
@@ -92,7 +90,7 @@ class PairSoftKokkos : public PairSoft {
   int neighflag;
   int nlocal,nall,eflag,vflag;
 
-  void allocate();
+  void allocate() override;
   friend struct PairComputeFunctor<PairSoftKokkos,FULL,true>;
   friend struct PairComputeFunctor<PairSoftKokkos,HALF,true>;
   friend struct PairComputeFunctor<PairSoftKokkos,HALFTHREAD,true>;
@@ -111,14 +109,3 @@ class PairSoftKokkos : public PairSoft {
 #endif
 #endif
 
-/* ERROR/WARNING messages:
-
-E: Cannot use Kokkos pair style with rRESPA inner/middle
-
-Self-explanatory.
-
-E: Cannot use chosen neighbor list style with soft/kk
-
-That style is not supported by Kokkos.
-
-*/
