@@ -1,7 +1,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -34,8 +34,6 @@
 using namespace LAMMPS_NS;
 using namespace MathConst;
 
-#define KOKKOS_CUDA_MAX_THREADS 256
-#define KOKKOS_CUDA_MIN_BLOCKS 8
 
 /* ---------------------------------------------------------------------- */
 
@@ -49,7 +47,6 @@ PairTwoGaussKokkos<DeviceType>::PairTwoGaussKokkos(LAMMPS *lmp) : PairTwoGauss(l
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read = X_MASK | F_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | ENERGY_MASK | VIRIAL_MASK;
-  cutsq = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -57,15 +54,11 @@ PairTwoGaussKokkos<DeviceType>::PairTwoGaussKokkos(LAMMPS *lmp) : PairTwoGauss(l
 template<class DeviceType>
 PairTwoGaussKokkos<DeviceType>::~PairTwoGaussKokkos()
 {
-  if (!copymode) {
-    memoryKK->destroy_kokkos(k_eatom,eatom);
-    memoryKK->destroy_kokkos(k_vatom,vatom);
-    k_cutsq = DAT::tdual_ffloat_2d();
-    memory->sfree(cutsq);
-    eatom = nullptr;
-    vatom = nullptr;
-    cutsq = nullptr;
-  }
+  if (copymode) return;
+
+  memoryKK->destroy_kokkos(k_eatom,eatom);
+  memoryKK->destroy_kokkos(k_vatom,vatom);
+  memoryKK->destroy_kokkos(k_cutsq,cutsq);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -103,7 +96,6 @@ void PairTwoGaussKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   c_x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();
   type = atomKK->k_type.view<DeviceType>();
-  tag = atomKK->k_tag.view<DeviceType>();
   nlocal = atom->nlocal;
   nall = atom->nlocal + atom->nghost;
   newton_pair = force->newton_pair;
@@ -115,6 +107,7 @@ void PairTwoGaussKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // loop over neighbors of my atoms
 
   copymode = 1;
+
   EV_FLOAT ev = pair_compute<PairTwoGaussKokkos<DeviceType>,void >(this,(NeighListKokkos<DeviceType>*)list);
 
   if (eflag_global) eng_vdwl += ev.evdwl;
@@ -127,8 +120,6 @@ void PairTwoGaussKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     virial[5] += ev.v[5];
   }
 
-  if (vflag_fdotr) pair_virial_fdotr_compute(this);
-
   if (eflag_atom) {
     k_eatom.template modify<DeviceType>();
     k_eatom.template sync<LMPHostType>();
@@ -138,6 +129,8 @@ void PairTwoGaussKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     k_vatom.template modify<DeviceType>();
     k_vatom.template sync<LMPHostType>();
   }
+
+  if (vflag_fdotr) pair_virial_fdotr_compute(this);
 
   copymode = 0;
 }
@@ -262,7 +255,7 @@ void PairTwoGaussKokkos<DeviceType>::init_style()
 
   // error if rRESPA with inner levels
 
-  if (update->whichflag == 1 && strstr(update->integrate_style,"respa")) {
+  if (update->whichflag == 1 && utils::strmatch(update->integrate_style,"^respa")) {
     int respa = 0;
     if (((Respa *) update->integrate)->level_inner >= 0) respa = 1;
     if (((Respa *) update->integrate)->level_middle >= 0) respa = 2;
@@ -273,12 +266,10 @@ void PairTwoGaussKokkos<DeviceType>::init_style()
   // modify neigh request made by parent class
 
   neighflag = lmp->kokkos->neighflag;
-  
   auto request = neighbor->find_request(this);
   request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
                            !std::is_same<DeviceType,LMPDeviceType>::value);
   request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
-  
   if (neighflag == FULL) request->enable_full();
 }
 
@@ -305,7 +296,8 @@ double PairTwoGaussKokkos<DeviceType>::init_one(int i, int j)
     m_params[i][j] = m_params[j][i] = k_params.h_view(i,j);
     m_cutsq[j][i] = m_cutsq[i][j] = cutone*cutone;
   }
-  k_cutsq.h_view(i,j) = cutone*cutone;
+
+  k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutone*cutone;
   k_cutsq.template modify<LMPHostType>();
   k_params.template modify<LMPHostType>();
 
