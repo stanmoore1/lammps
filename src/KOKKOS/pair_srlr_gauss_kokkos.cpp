@@ -145,7 +145,7 @@ compute_fpair(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, c
   const F_FLOAT c_ij = STACKPARAMS?m_params[itype][jtype].c:params(itype,jtype).c;
   const F_FLOAT d_ij = STACKPARAMS?m_params[itype][jtype].d:params(itype,jtype).d;
 
-  const F_FLOAT fpair = - 2.0*a_ij*b_ij*exp(-b_ij*rsq) - 2.0*c_ij*d_ij*exp(-d_ij*rsq); //This is wrong in both regular SRLR gauss and here. F !=-d/dr E (idiot AJPak)
+  const F_FLOAT fpair = -2.0*a_ij*b_ij*exp(-b_ij*rsq) -2.0*c_ij*d_ij*exp(-d_ij*rsq); //This is wrong in both regular SRLR gauss and here. F !=-d/dr E (idiot AJPak)
 
   return fpair;
 }
@@ -165,7 +165,7 @@ compute_evdwl(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, c
 
   const F_FLOAT offset_ij = STACKPARAMS?m_params[itype][jtype].offset:params(itype,jtype).offset;
 
-  const F_FLOAT ev = - a_ij*b_ij*exp(-b_ij*rsq) - c_ij*d_ij*exp(-d_ij*rsq)- 2.0*offset_ij; //This is wrong in both regular SRLR gauss and here. F !=-d/dr E (idiot AJPak)
+  const F_FLOAT ev = -a_ij*exp(-b_ij*rsq) - c_ij*exp(-d_ij*rsq) + 2.0*offset_ij;
 
   return ev;
 }
