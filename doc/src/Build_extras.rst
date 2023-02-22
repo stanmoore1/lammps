@@ -47,7 +47,6 @@ This is the list of packages that may require additional steps.
    * :ref:`LEPTON <lepton>`
    * :ref:`MACHDYN <machdyn>`
    * :ref:`MDI <mdi>`
-   * :ref:`MESONT <mesont>`
    * :ref:`ML-HDNNP <ml-hdnnp>`
    * :ref:`ML-IAP <mliap>`
    * :ref:`ML-PACE <ml-pace>`
@@ -127,10 +126,11 @@ CMake build
    -D GPU_API=value             # value = opencl (default) or cuda or hip
    -D GPU_PREC=value            # precision setting
                                 # value = double or mixed (default) or single
-   -D HIP_PATH                  # path to HIP installation. Must be set if GPU_API=HIP
    -D GPU_ARCH=value            # primary GPU hardware choice for GPU_API=cuda
-                                # value = sm_XX, see below
-                                # default is sm_50
+                                # value = sm_XX (see below, default is sm_50)
+   -D GPU_DEBUG=value           # enable debug code in the GPU package library, mostly useful for developers
+                                # value = yes or no (default)
+   -D HIP_PATH=value            # value = path to HIP installation. Must be set if GPU_API=HIP
    -D HIP_ARCH=value            # primary GPU hardware choice for GPU_API=hip
                                 # value depends on selected HIP_PLATFORM
                                 # default is 'gfx906' for HIP_PLATFORM=amd and 'sm_50' for HIP_PLATFORM=nvcc
@@ -288,7 +288,7 @@ your machine are not correct, the LAMMPS build will fail, and
 .. note::
 
    If you re-build the GPU library in ``lib/gpu``, you should always
-   un-install the GPU package in ``lammps/src``, then re-install it and
+   uninstall the GPU package in ``lammps/src``, then re-install it and
    re-build LAMMPS.  This is because the compilation of files in the GPU
    package uses the library settings from the ``lib/gpu/Makefile.machine``
    used to build the GPU library.
@@ -606,6 +606,12 @@ They must be specified in uppercase.
    *  - AMPERE86
       - GPU
       - NVIDIA Ampere generation CC 8.6 GPU
+   *  - ADA89
+      - GPU
+      - NVIDIA Ada Lovelace generation CC 8.9 GPU
+   *  - HOPPER90
+      - GPU
+      - NVIDIA Hopper generation CC 9.0 GPU
    *  - VEGA900
       - GPU
       - AMD GPU MI25 GFX900
@@ -640,7 +646,7 @@ They must be specified in uppercase.
       - GPU
       - Intel GPU Ponte Vecchio
 
-This list was last updated for version 3.7.0 of the Kokkos library.
+This list was last updated for version 3.7.1 of the Kokkos library.
 
 .. tabs::
 
@@ -1129,7 +1135,7 @@ VORONOI package
 -----------------------------
 
 To build with this package, you must download and build the
-`Voro++ library <https://math.lbl.gov/voro++>`_ or install a
+`Voro++ library <https://math.lbl.gov/voro++/>`_ or install a
 binary package provided by your operating system.
 
 .. tabs::
@@ -1359,7 +1365,7 @@ module included in the LAMMPS source distribution.
       auto-generated consistent with those used in the core LAMMPS makefiles.
 
 
-      .. versionchanged:: TBD
+      .. versionchanged:: 8Feb2023
 
       Please note that Colvars uses the Lepton library, which is now
       included with the LEPTON package; if you use anything other than
@@ -1849,48 +1855,6 @@ MDI package
 
       The build should produce two files: ``lib/mdi/includelink/mdi.h``
       and ``lib/mdi/liblink/libmdi.so``\ .
-
-----------
-
-.. _mesont:
-
-MESONT package
--------------------------
-
-This package includes a library written in Fortran 90 in the
-``lib/mesont`` folder, so a working Fortran 90 compiler is required to
-compile it.  Also, the files with the force field data for running the
-bundled examples are not included in the source distribution. Instead
-they will be downloaded the first time this package is installed.
-
-.. tabs::
-
-   .. tab:: CMake build
-
-      No additional settings are needed besides ``-D PKG_MESONT=yes``
-
-   .. tab:: Traditional make
-
-      Before building LAMMPS, you must build the *mesont* library in
-      ``lib/mesont``\ .  You can also do it in one step from the
-      ``lammps/src`` dir, using a command like these, which simply
-      invokes the ``lib/mesont/Install.py`` script with the specified
-      args:
-
-      .. code-block:: bash
-
-         make lib-mesont                    # print help message
-         make lib-mesont args="-m gfortran" # build with GNU g++ compiler (settings as with "make serial")
-         make lib-mesont args="-m ifort"    # build with Intel icc compiler
-
-      The build should produce two files: ``lib/mesont/libmesont.a`` and
-      ``lib/mesont/Makefile.lammps``\ .  The latter is copied from an
-      existing ``Makefile.lammps.\*`` and has settings needed to build
-      LAMMPS with the *mesont* library (though typically the settings
-      contain only the Fortran runtime library).  If necessary, you can
-      edit/create a new ``lib/mesont/Makefile.machine`` file for your
-      system, which should define an ``EXTRAMAKE`` variable to specify a
-      corresponding ``Makefile.lammps.machine`` file.
 
 ----------
 
