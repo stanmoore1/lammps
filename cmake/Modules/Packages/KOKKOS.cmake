@@ -121,55 +121,6 @@ set(KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/domain_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/modify_kokkos.cpp)
 
-<<<<<<< HEAD
-=======
-if(PKG_KSPACE)
-  list(APPEND KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/fft3d_kokkos.cpp
-                                 ${KOKKOS_PKG_SOURCES_DIR}/grid3d_kokkos.cpp
-                                 ${KOKKOS_PKG_SOURCES_DIR}/remap_kokkos.cpp)
-  if(Kokkos_ENABLE_CUDA)
-    if(NOT (FFT STREQUAL "KISS"))
-      target_compile_definitions(lammps PRIVATE -DFFT_CUFFT)
-      target_link_libraries(lammps PRIVATE cufft)
-    endif()
-  elseif(Kokkos_ENABLE_HIP)
-    if(NOT (FFT STREQUAL "KISS"))
-      target_compile_definitions(lammps PRIVATE -DFFT_HIPFFT)
-      target_link_libraries(lammps PRIVATE hipfft)
-    endif()
-  endif()
-endif()
-
-if(PKG_ML-IAP)
-  list(APPEND KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/mliap_data_kokkos.cpp
-                                 ${KOKKOS_PKG_SOURCES_DIR}/mliap_descriptor_so3_kokkos.cpp
-                                 ${KOKKOS_PKG_SOURCES_DIR}/mliap_model_linear_kokkos.cpp
-                                 ${KOKKOS_PKG_SOURCES_DIR}/mliap_model_python_kokkos.cpp
-                                 ${KOKKOS_PKG_SOURCES_DIR}/mliap_unified_kokkos.cpp
-                                 ${KOKKOS_PKG_SOURCES_DIR}/mliap_so3_kokkos.cpp)
-
-  # Add KOKKOS version of ML-IAP Python coupling if non-KOKKOS version is included
-  if(MLIAP_ENABLE_PYTHON AND Cythonize_EXECUTABLE)
-    file(GLOB MLIAP_KOKKOS_CYTHON_SRC ${CONFIGURE_DEPENDS} ${LAMMPS_SOURCE_DIR}/KOKKOS/*.pyx)
-    foreach(MLIAP_CYTHON_FILE ${MLIAP_KOKKOS_CYTHON_SRC})
-      get_filename_component(MLIAP_CYTHON_BASE ${MLIAP_CYTHON_FILE} NAME_WE)
-      add_custom_command(OUTPUT  ${MLIAP_BINARY_DIR}/${MLIAP_CYTHON_BASE}.cpp ${MLIAP_BINARY_DIR}/${MLIAP_CYTHON_BASE}.h
-              COMMAND            ${CMAKE_COMMAND} -E copy_if_different ${MLIAP_CYTHON_FILE} ${MLIAP_BINARY_DIR}/${MLIAP_CYTHON_BASE}.pyx
-              COMMAND            ${Cythonize_EXECUTABLE} -3 ${MLIAP_BINARY_DIR}/${MLIAP_CYTHON_BASE}.pyx
-              WORKING_DIRECTORY  ${MLIAP_BINARY_DIR}
-              MAIN_DEPENDENCY    ${MLIAP_CYTHON_FILE}
-              COMMENT "Generating C++ sources with cythonize...")
-      list(APPEND KOKKOS_PKG_SOURCES ${MLIAP_BINARY_DIR}/${MLIAP_CYTHON_BASE}.cpp)
-    endforeach()
-  endif()
-endif()
-
-if(PKG_PHONON)
-  list(APPEND KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/dynamical_matrix_kokkos.cpp)
-  list(APPEND KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/third_order_kokkos.cpp)
-endif()
-
->>>>>>> 2542778fa8734f45ded4cdbb94998d43714141f8
 set_property(GLOBAL PROPERTY "KOKKOS_PKG_SOURCES" "${KOKKOS_PKG_SOURCES}")
 
 # detects styles which have KOKKOS version
