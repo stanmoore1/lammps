@@ -12,21 +12,20 @@ FixStyle(cluster_switch,FixClusterSwitch)
 
 namespace LAMMPS_NS {
   class FixClusterSwitch : public Fix {
-  public:
+   public:
     FixClusterSwitch(class LAMMPS *, int, char **);
-    ~FixClusterSwitch();
-    int setmask();
-    void allocate();
-    void init();
-    void init_list(int, class NeighList *);
-    void pre_exchange();
-    int pack_forward_comm(int, int *, double *, int, int *);
-    void unpack_forward_comm(int, int, double *);
-    double memory_usage();
-    double compute_vector(int);
+    ~FixClusterSwitch() override;
+    int setmask() override;
+    virtual void allocate();
+    void init() override;
+    void init_list(int, class NeighList *) override;
+    void pre_exchange() override;
+    int pack_forward_comm(int, int *, double *, int, int *) override;
+    void unpack_forward_comm(int, int, double *) override;
+    double memory_usage() override;
+    double compute_vector(int) override;
 
-
-  private:
+   protected:
     int confirm_molecule(tagint); // checks molID state (returns 1 for ON and 0 for off)
     int switch_flag(int); // uses random to decided if this molID should switch state (returns 1 for YES)
     void read_file(char *);

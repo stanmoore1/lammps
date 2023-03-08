@@ -117,6 +117,8 @@ action fft3d_kokkos.h fft3d.h
 action fftdata_kokkos.h fft3d.h
 action fix_acks2_reaxff_kokkos.cpp fix_acks2_reaxff.cpp
 action fix_acks2_reaxff_kokkos.h fix_acks2_reaxff.h
+action fix_cluster_switch_kokkos.cpp fix_cluster_switch.cpp
+action fix_cluster_switch_kokkos.h fix_cluster_switch.h
 action fix_deform_kokkos.cpp
 action fix_deform_kokkos.h
 action fix_dpd_energy_kokkos.cpp fix_dpd_energy.cpp
