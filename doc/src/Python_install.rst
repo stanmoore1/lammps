@@ -15,9 +15,6 @@ Two components are necessary for Python to be able to invoke LAMMPS code:
   ``liblammps.dll``) from the folder where you compiled LAMMPS.
 
 .. _ctypes: https://docs.python.org/3/library/ctypes.html
-.. _python_virtualenv: https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment
-.. _python_venv: https://docs.python.org/3/library/venv.html
-.. _python_pep405: https://www.python.org/dev/peps/pep-0405
 
 .. _python_install_guides:
 
@@ -54,7 +51,7 @@ folder that the dynamic loader searches or inside of the installed
       ``-DBUILD_SHARED_LIBS=on``, ``-DLAMMPS_EXCEPTIONS=on`` and
       ``-DPKG_PYTHON=on`` (The first option is required, the other two
       are optional by recommended).  The exact file name of the shared
-      library depends on the platform (Unix/Linux, MacOS, Windows) and
+      library depends on the platform (Unix/Linux, macOS, Windows) and
       the build configuration being used.  The installation base folder
       is already set by default to the ``$HOME/.local`` directory, but
       it can be changed to a custom location defined by the
@@ -121,7 +118,7 @@ folder that the dynamic loader searches or inside of the installed
       the folder containing the LAMMPS shared library is either included
       in a path searched by the shared linker (e.g. like
       ``/usr/lib64/``) or part of the ``LD_LIBRARY_PATH`` environment
-      variable (or ``DYLD_LIBRARY_PATH`` on MacOS).  Otherwise you will
+      variable (or ``DYLD_LIBRARY_PATH`` on macOS).  Otherwise you will
       get an error when trying to create a LAMMPS object through the
       Python module.
 
@@ -130,7 +127,7 @@ folder that the dynamic loader searches or inside of the installed
          # Unix/Linux
          export LD_LIBRARY_PATH=$HOME/.local/lib:$LD_LIBRARY_PATH
 
-         # MacOS
+         # macOS
          export DYLD_LIBRARY_PATH=$HOME/.local/lib:$DYLD_LIBRARY_PATH
 
       If you plan to use the LAMMPS executable (e.g., ``lmp``), you may
@@ -214,7 +211,7 @@ folder that the dynamic loader searches or inside of the installed
 
       .. code-block:: bash
 
-         $ python install.py -p <python package> -l <shared library> [-n]
+         python install.py -p <python package> -l <shared library> [-n]
 
       * The ``-p`` flag points to the ``lammps`` Python package folder to be installed,
       * the ``-l`` flag points to the LAMMPS shared library file to be installed,
@@ -232,11 +229,11 @@ folder that the dynamic loader searches or inside of the installed
       install (newer/different) versions of Python packages that would
       potentially conflict with already installed system packages.  It
       also does not requite any superuser privileges. See `PEP 405:
-      Python Virtual Environments <python_pep405>`_ for more
+      Python Virtual Environments <https://peps.python.org/pep-0405/>`_ for more
       information.
 
       To create a virtual environment in the folder ``$HOME/myenv``,
-      use the `venv <python_venv>`_ module as follows.
+      use the `venv <https://docs.python.org/3/library/venv.html>`_ module as follows.
 
       .. code-block:: bash
 
@@ -244,8 +241,9 @@ folder that the dynamic loader searches or inside of the installed
          python3 -m venv $HOME/myenv
 
       For Python versions prior 3.3 you can use `virtualenv
-      <python_virtualenv>`_ command instead of "python3 -m venv".  This
-      step has to be done only once.
+      <https://packaging.python.org/en/latest/key_projects/#virtualenv>`_
+      command instead of "python3 -m venv".  This step has to be done
+      only once.
 
       To activate the virtual environment type:
 
@@ -294,7 +292,7 @@ folder that the dynamic loader searches or inside of the installed
       script in a similar fashion you need to update your
       ``$HOME/.bashrc`` file to include the shared library and
       executable locations in ``LD_LIBRARY_PATH`` (or
-      ``DYLD_LIBRARY_PATH`` on MacOS) and ``PATH``, respectively.
+      ``DYLD_LIBRARY_PATH`` on macOS) and ``PATH``, respectively.
 
       For example with:
 
@@ -303,7 +301,7 @@ folder that the dynamic loader searches or inside of the installed
          # Unix/Linux
          echo 'export LD_LIBRARY_PATH=$VIRTUAL_ENV/lib:$LD_LIBRARY_PATH' >> $HOME/myenv/bin/activate
 
-         # MacOS
+         # macOS
          echo 'export DYLD_LIBRARY_PATH=$VIRTUAL_ENV/lib:$DYLD_LIBRARY_PATH' >> $HOME/myenv/bin/activate
 
    .. tab:: In place usage
@@ -313,7 +311,7 @@ folder that the dynamic loader searches or inside of the installed
       package inside the source/compilation folders. Instead of
       copying the files where they can be found, you need to set the environment
       variables ``PYTHONPATH`` (for the Python package) and
-      ``LD_LIBRARY_PATH`` (or ``DYLD_LIBRARY_PATH`` on MacOS
+      ``LD_LIBRARY_PATH`` (or ``DYLD_LIBRARY_PATH`` on macOS
 
       For Bourne shells (bash, ksh and similar) the commands are:
 
@@ -329,7 +327,7 @@ folder that the dynamic loader searches or inside of the installed
          setenv PYTHONPATH ${PYTHONPATH}:${HOME}/lammps/python
          setenv LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:${HOME}/lammps/src
 
-      On MacOS you may also need to set ``DYLD_LIBRARY_PATH`` accordingly.
+      On macOS you may also need to set ``DYLD_LIBRARY_PATH`` accordingly.
       You can make those changes permanent by editing your ``$HOME/.bashrc``
       or ``$HOME/.login`` files, respectively.
 
@@ -343,7 +341,7 @@ Python interpreter, load the ``lammps`` Python module and create a
 LAMMPS instance.  This should not generate an error message and produce
 output similar to the following:
 
-   .. code-block:: bash
+   .. code-block:: console
 
       $ python
       Python 3.8.5 (default, Sep  5 2020, 10:50:12)
@@ -403,7 +401,7 @@ follows:
 
 - Via ``pip`` into a virtual environment (see above):
 
-  .. code-block:: bash
+  .. code-block:: console
 
      $ source $HOME/myenv/activate
      (myenv)$ pip install mpi4py
@@ -414,10 +412,8 @@ follows:
 
      sudo pip install mpi4py
 
-.. _mpi4py_install: https://mpi4py.readthedocs.io/en/stable/install.html
-
 For more detailed installation instructions and additional options,
-please see the `mpi4py installation <mpi4py_install>`_ page.
+please see the `mpi4py installation <https://mpi4py.readthedocs.io/en/stable/install.html>`_ page.
 
 
 To use ``mpi4py`` and LAMMPS in parallel from Python, you **must** make
@@ -449,7 +445,7 @@ on a simple test script
 
 .. code-block:: bash
 
-   $ mpirun -np 4 python3 test.py
+   mpirun -np 4 python3 test.py
 
 where ``test.py`` contains the lines
 
@@ -459,11 +455,11 @@ where ``test.py`` contains the lines
    comm = MPI.COMM_WORLD
    print("Proc %d out of %d procs" % (comm.Get_rank(),comm.Get_size()))
 
-and see one line of output for each processor you run on.
+and see one line of output for each processor you run on.  Please note
+that the order of the lines is not deterministic
 
-.. code-block:: bash
+.. code-block:: console
 
-   # NOTE: the line order is not deterministic
    $ mpirun -np 4 python3 test.py
    Proc 0 out of 4 procs
    Proc 1 out of 4 procs
