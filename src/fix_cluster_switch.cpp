@@ -123,8 +123,7 @@ FixClusterSwitch::FixClusterSwitch(LAMMPS *lmp, int narg, char **arg) : Fix(lmp,
 
   if(maxmol < 0) error->all(FLERR,"Selected group does not have any mols (fix cluster_switch)");
 
-  allocate_flag = 1;
-  allocate();
+  allocate(1);
 
   //populate mol_restrict list with -1 if restricted and 1 if molecule is switch enabled, then share data across processors
   int *mol_restrict_local = new int[maxmol+1];
@@ -269,8 +268,7 @@ void FixClusterSwitch::read_file(char *file)
 	sprintf(str,"Incorrect number of atom switching types (fix cluster_switch)");
 	error->one(FLERR,str);
       }
-      allocate_flag = 2;
-      allocate();
+      allocate(2);
     }
     else if (lineNum == 3) {
       for(int i = 0; i < nSwitchTypes; i++) atomtypesON[i] = atoi(words[i]);
@@ -343,8 +341,7 @@ void FixClusterSwitch::read_contacts(char *file)
     else if (lineNum == 2) {
       nAtomsPerContact = atoi(words[1]);
       //      printf("Atoms per Contact %d\n",nAtomsPerContact);
-      allocate_flag = 3;
-      allocate();
+      allocate(3);
     }
     else {
       int lineOffset = lineNum - 3;
@@ -388,12 +385,12 @@ void FixClusterSwitch::init_list(int id, NeighList *ptr)
 }
 
 /* ---------------------------------------------------------------------- */
-void FixClusterSwitch::allocate()
+void FixClusterSwitch::allocate(int flag)
 {
 
   //printf("Debug Flag: Allocation\n");
 
-  if (allocate_flag == 1)
+  if (flag == 1)
     {
       memory->create(mol_restrict,maxmol+1,"fix:mol_restrict");
       memory->create(mol_state,maxmol+1,"fix:mol_state");
@@ -415,18 +412,18 @@ void FixClusterSwitch::allocate()
 
     }
 
-  else if(allocate_flag == 2)
+  else if(flag == 2)
     {
       memory->create(atomtypesON,nSwitchTypes,"fix:atomtypesON");
       memory->create(atomtypesOFF,nSwitchTypes,"fix:atomtypesOFF");
     }
 
-  else if(allocate_flag == 3)
+  else if(flag == 3)
     {
       memory->create(contactMap,nContactTypes,nAtomsPerContact,2,"fix:contactMap");
     }
 
-  //  printf("FixClusterSwitch allocate(=%d) finished.\n",allocate_flag);
+  //  printf("FixClusterSwitch allocate(=%d) finished.\n",flag);
 }
 
 

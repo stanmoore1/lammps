@@ -16,7 +16,7 @@ namespace LAMMPS_NS {
     FixClusterSwitch(class LAMMPS *, int, char **);
     ~FixClusterSwitch() override;
     int setmask() override;
-    virtual void allocate();
+    virtual void allocate(int);
     void init() override;
     void init_list(int, class NeighList *) override;
     void pre_exchange() override;
@@ -41,7 +41,6 @@ namespace LAMMPS_NS {
 
     int me, nprocs;
     int nlevels_respa;
-    int allocate_flag; // flag that controls memory allocation
     int pack_flag; //flag that controls which information is sent via comms
     //    int nlocal, nall; // number of atoms local to this processor, and including ghost atoms
     bigint ngroup; // number of atoms in group

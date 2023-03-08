@@ -19,6 +19,7 @@
 #include "force.h"
 #include "random_park.h" //random number generator
 #include "atom_masks.h"
+#include "kokkos.h"
 
 #include "error.h" //error
 #include <string.h> //strcmp()
@@ -37,8 +38,6 @@
 #include "domain.h"
 #include "comm.h"
 #include "utils.h"
-#include <fstream> //read input files 
-#include <string> //read input files 
 
 using namespace LAMMPS_NS;
 using namespace FixConst; //in fix.h, defines POST_FORCE, etc.
@@ -55,6 +54,8 @@ FixClusterSwitchKokkos<DeviceType>::FixClusterSwitchKokkos(LAMMPS *lmp, int narg
 
   datamask_read = EMPTY_MASK;
   datamask_modify = EMPTY_MASK;
+
+  d_done = DAT::t_int_scalar("fix_cluster_switch:done");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -83,32 +84,52 @@ void FixClusterSwitchKokkos<DeviceType>::init()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixClusterSwitchKokkos<DeviceType>::allocate()
+void FixClusterSwitchKokkos<DeviceType>::allocate(int flag)
 {
-  if (allocate_flag == 1) {
-    memory->create(mol_restrict,maxmol+1,"fix:mol_restrict");
-    memory->create(mol_state,maxmol+1,"fix:mol_state");
-    memory->create(mol_accept,maxmol+1,"fix:mol_accept");
-    memory->create(mol_cluster,maxmol+1,"fix:mol_cluster");
-    //      memory->create(mol_atoms,maxmol+1,nSwitchTypes,"fix:mol_atoms");
-    memory->create(mol_atoms,maxmol+1,nSwitchPerMol,"fix:mol_atoms");
+  if (flag == 1) {
+    memoryKK->create_kokkos(k_mol_restrict,mol_restrict,maxmol+1,"fix:mol_restrict");
+    memoryKK->create_kokkos(k_mol_state,mol_state,maxmol+1,"fix:mol_state");
+    memoryKK->create_kokkos(k_mol_accept,mol_accept,maxmol+1,"fix:mol_accept");
+    memoryKK->create_kokkos(k_mol_cluster,mol_cluster,maxmol+1,"fix:mol_cluster");
+    memoryKK->create_kokkos(k_mol_atoms,mol_atoms,maxmol+1,nSwitchPerMol,"fix:mol_atoms");
 
-    // no memory; initialize array such that every state is -1 to start
+    d_mol_restrict = k_mol_restrict.template view<DeviceType>();
+    d_mol_state = k_mol_state.template view<DeviceType>();
+    d_mol_accept = k_mol_accept.template view<DeviceType>();
+    d_mol_cluster = k_mol_cluster.template view<DeviceType>();
+    d_mol_atoms = k_mol_atoms.template view<DeviceType>();
 
-    for (int i = 0; i <= maxmol; i++) {
-      mol_restrict[i] = -1;
-      mol_state[i] = -1;
-      mol_accept[i] = -1;
-      //        for (int j = 0; j < nSwitchTypes; j++) {
-      for (int j = 0; j < nSwitchPerMol; j++) {
-        mol_atoms[i][j] = -1;
-      }
+    d_mol_cluster_local = DAT::t_int_1d("fix:mol_cluster_local",maxmol+1);
+    d_mol_accept_local = DAT::t_int_1d("fix:mol_accept_local",maxmol+1);
+
+    // initialize arrays such that every state is -1 to start
+
+    {
+      // local variables for lambda capture
+
+      auto l_mol_restrict = d_mol_restrict;
+      auto l_mol_state = d_mol_state;
+      auto l_mol_accept = d_mol_accept;
+      auto l_mol_atoms = d_mol_atoms;
+
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,maxmol), LAMMPS_LAMBDA(int i) {
+        l_mol_restrict[i] = -1;
+        l_mol_state[i] = -1;
+        l_mol_accept[i] = -1;
+        for (int j = 0; j < nSwitchPerMol; j++)
+          l_mol_atoms(i,j) = -1;
+      });
     }
-  } else if (allocate_flag == 2) {
-    memory->create(atomtypesON,nSwitchTypes,"fix:atomtypesON");
-    memory->create(atomtypesOFF,nSwitchTypes,"fix:atomtypesOFF");
-  } else if (allocate_flag == 3) {
-    memory->create(contactMap,nContactTypes,nAtomsPerContact,2,"fix:contactMap");
+  } else if (flag == 2) {
+    memoryKK->create_kokkos(k_atomtypesON,atomtypesON,nSwitchTypes,"fix:atomtypesON");
+    memoryKK->create_kokkos(k_atomtypesOFF,atomtypesOFF,nSwitchTypes,"fix:atomtypesOFF");
+
+    d_atomtypesON = k_atomtypesON.template view<DeviceType>();
+    d_atomtypesOFF = k_atomtypesOFF.template view<DeviceType>();
+  } else if (flag == 3) {
+    memoryKK->create_kokkos(k_contactMap,contactMap,nContactTypes,nAtomsPerContact,2,"fix:contactMap");
+
+    d_contactMap = k_contactMap.template view<DeviceType>();
   }
 }
 
@@ -143,6 +164,8 @@ void FixClusterSwitchKokkos<DeviceType>::pre_exchange()
 template<class DeviceType>
 int FixClusterSwitchKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, int pbc_flag, int *pbc)
 {
+  atomKK->sync(Host, TYPE_MASK);
+
   int m;
 
   for (m = 0; m < n; m++) buf[m] = atom->type[list[m]];
@@ -155,9 +178,13 @@ int FixClusterSwitchKokkos<DeviceType>::pack_forward_comm(int n, int *list, doub
 template<class DeviceType>
 void FixClusterSwitchKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
 {
+  atomKK->sync(Host, TYPE_MASK);
+
   int i, m;
 
   for (m = 0, i = first; m < n; m++, i++) atom->type[i] = static_cast<int> (buf[m]);
+
+  atomKK->modified(Host, TYPE_MASK);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -173,6 +200,8 @@ void FixClusterSwitchKokkos<DeviceType>::check_cluster()
   x = atomKK->k_x.view<DeviceType>();
   int nlocal = atom->nlocal;
 
+  atomKK->sync(execution_space, MASK_MASK|MOLECULE_MASK|TYPE_MASK|X_MASK);
+
   // invoke neighbor list (full)
 
   neighbor->build_one(list);
@@ -182,37 +211,57 @@ void FixClusterSwitchKokkos<DeviceType>::check_cluster()
   d_neighbors = k_list->d_neighbors;
   d_ilist = k_list->d_ilist;
 
-  int *mol_cluster_local = new int[maxmol+1];
-  for (int i = 0; i <= maxmol; i++) {
-    mol_cluster_local[i] = -1;
-    mol_cluster[i] = -1;
+  {
+    // local variables for lambda capture
+
+    auto l_mol_cluster_local = d_mol_cluster_local;
+    auto l_mol_cluster = d_mol_cluster;
+
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,maxmol), LAMMPS_LAMBDA(int i) {
+      l_mol_cluster_local[i] = -1;
+      l_mol_cluster[i] = -1;
+
+      //preset mol_seed and mol_offset
+      l_mol_cluster_local[mol_seed] = d_mol_cluster[mol_seed] = mol_seed;
+      l_mol_cluster_local[mol_seed-mol_offset] = d_mol_cluster[mol_seed-mol_offset] = mol_seed;
+    });
   }
 
-  //preset mol_seed and mol_offset
-  mol_cluster_local[mol_seed] = mol_cluster[mol_seed] = mol_seed;
-  mol_cluster_local[mol_seed-mol_offset] = mol_cluster[mol_seed-mol_offset] = mol_seed;
+  { 
+    // local variables for lambda capture
+    
+    auto l_mask = mask;
+    auto l_molecule = molecule;
+    auto l_mol_cluster_local = d_mol_cluster_local;
+    auto l_mol_state = d_mol_state;
+    
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,inum), LAMMPS_LAMBDA(int ii) {
+      const int i = d_ilist[ii];
+      if (l_mask[i] & groupbit) {
+        const int molID = l_molecule[i];
+        l_mol_cluster_local[molID] = molID;
+  
+        // make sure mol_offset criteria is also accounted for
 
-  for (int ii = 0; ii < inum; ii++) { // parallel loop
-    int i = d_ilist[ii];
-    if (mask[i] & groupbit) {
-      int molID = molecule[i];
-      mol_cluster_local[molID] = molID;
-    }
-  }
-
-  //make sure mol_offset criteria is also accounted for
-  for (int ii = 0; ii < inum; ii++) { // parallel loop
-    int i = d_ilist[ii];
-    if (mask[i] & groupbit) {
-      int molID = molecule[i];
-      if (mol_state[molID] == 0 || mol_state[molID] == 1) {
-        mol_cluster_local[molID-mol_offset] = molID;
+        if (l_mol_state[molID] == 0 || l_mol_state[molID] == 1) {
+          l_mol_cluster_local[molID-mol_offset] = molID;
+        }
       }
-    }
+    });
   }
 
   // use MPI_MAX here since we start with -1
-  MPI_Allreduce(mol_cluster_local,mol_cluster,maxmol+1,MPI_INT,MPI_MAX,world);
+
+  if (lmp->kokkos->gpu_aware_flag)
+    MPI_Allreduce(d_mol_cluster_local.data(),d_mol_cluster.data(),maxmol+1,MPI_INT,MPI_MAX,world);
+  else {
+    auto h_mol_cluster_local = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_mol_cluster_local);
+    auto h_mol_cluster = k_mol_cluster.h_view;
+
+    MPI_Allreduce(h_mol_cluster_local.data(),h_mol_cluster.data(),maxmol+1,MPI_INT,MPI_MAX,world);
+
+    Kokkos::deep_copy(d_mol_cluster,h_mol_cluster);
+  }
 
   // loop until no more changes to mol_cluster (local copy on mol_cluster_local) on any proc
 
@@ -221,113 +270,81 @@ void FixClusterSwitchKokkos<DeviceType>::check_cluster()
   while (1) {
 
     //update local copy
-    for (int i = 0; i <= maxmol; i++) mol_cluster_local[i] = mol_cluster[i];
+    Kokkos::deep_copy(d_mol_cluster_local,d_mol_cluster);
 
     change = 0;
     while (1) {
-      done = 1;
-      for (int ii = 0; ii < inum; ii++) {
-        const int i = d_ilist[ii];
-        if (!(mask[i] & groupbit)) continue;
-        const int i_molID = molecule[i];
-        const int itype = type[i];
+      Kokkos::deep_copy(d_done,1);
 
-        const double xtmp = x(i,0);
-        const double ytmp = x(i,1);
-        const double ztmp = x(i,2);
-        const int jnum = d_numneigh[i];
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagFixClusterSwitchCheckCluster>(0,inum),*this);
 
-        for (int jj = 0; jj < jnum; jj++) {
-          const int j = d_neighbors(i,jj) & NEIGHMASK;
-          if (!(mask[j] & groupbit)) continue;          
-          const int j_molID = molecule[j];
-          const int jtype = type[j];
+      auto h_done = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_done);
+      done = h_done();
 
-          if (mol_cluster_local[i_molID] == mol_cluster_local[j_molID]) continue;
-
-          // first check to see if valid contact types
-
-          int contactFlag = -1;
-          for (int m = 0; m < nContactTypes; m++) {
-            if (contactFlag > -1) break;
-            for (int n = 0; n < nAtomsPerContact; n++) {
-              if (contactFlag > -1) break;
-              if (contactMap[m][n][0] == itype && contactMap[m][n][1] == jtype) contactFlag = 1;
-            }
-          }
-
-          if (contactFlag == 1) {
-
-            const double delx = xtmp - x(j,0);
-            const double dely = ytmp - x(j,1);
-            const double delz = ztmp - x(j,2);
-            const double rsq = delx*delx + dely*dely + delz*delz;
-            //then check if distance criteria is valid and update mols and offset mols
-            //next version needs to incorporate explicit contact maps
-            if (rsq < cutsq) {
-              int newID_v1 = MIN(mol_cluster_local[i_molID],mol_cluster_local[j_molID]);
-              int newID_v2 = newID_v1;
-              int newID_v3 = newID_v2;
-              //if mol is a switchable mol, check -mol_offset; else, check mol_offset
-              if (mol_state[i_molID] == 0 || mol_state[i_molID] == 1) newID_v2 = MIN(mol_cluster_local[i_molID-mol_offset],newID_v1);
-              else newID_v2 = MIN(mol_cluster_local[i_molID+mol_offset],newID_v1);
-
-              if (mol_state[j_molID] == 0 || mol_state[j_molID] == 1) newID_v3 = MIN(mol_cluster_local[j_molID-mol_offset],newID_v2);
-              else newID_v3 = MIN(mol_cluster_local[j_molID+mol_offset],newID_v2);
-            
-              //now update cluster ID of i, j
-              mol_cluster_local[i_molID] = mol_cluster_local[j_molID] = newID_v3;
-
-              //and update cluster ID of offset mols to be consistent
-              if (mol_state[i_molID] == 0 || mol_state[i_molID] == 1) mol_cluster_local[i_molID-mol_offset] = newID_v3;
-              else mol_cluster_local[i_molID+mol_offset] = newID_v3;
-
-              if (mol_state[j_molID] == 0 || mol_state[j_molID] == 1) mol_cluster_local[j_molID-mol_offset] = newID_v3;
-              else mol_cluster_local[j_molID+mol_offset] = newID_v3;
-
-              done = 0;
-            }
-          }
-        }
-      }
       if (!done) change = 1;
       if (done) break;
     }
 
     MPI_Allreduce(&change,&anychange,1,MPI_INT,MPI_MAX,world);
-    MPI_Allreduce(mol_cluster_local,mol_cluster,maxmol+1,MPI_INT,MPI_MIN,world); // send min cluster ID to global array
+
+    if (lmp->kokkos->gpu_aware_flag)
+      MPI_Allreduce(d_mol_cluster_local.data(),d_mol_cluster.data(),maxmol+1,MPI_INT,MPI_MIN,world);
+    else {
+      auto h_mol_cluster_local = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_mol_cluster_local);
+      auto h_mol_cluster = k_mol_cluster.h_view;
+
+      MPI_Allreduce(h_mol_cluster_local.data(),h_mol_cluster.data(),maxmol+1,MPI_INT,MPI_MIN,world);
+
+      Kokkos::deep_copy(d_mol_cluster,h_mol_cluster);
+    }
+
     if (!anychange) break;
   }
 
-  // now switch mol_restrict flags based on cluster ID of mol_seed (mol_cluster should be copied beforehand)
-  int clusterID = mol_cluster[mol_seed];
-  nCluster = 0.0;
-  for (int i = 0; i <= maxmol; i++) {
-    if (mol_cluster[i] != -1) {
-      // if this is a switchable mol, mol_restrict should be updated
-      if (mol_state[i] == 0 || mol_state[i] == 1) {
-        if (mol_cluster[i] == clusterID) {
-          mol_restrict[i] = -1;
-          mol_state[i] = 1;
+  {
+    // local variables for lambda capture
+
+    auto l_mask = mask;
+    auto l_molecule = molecule;
+    auto l_mol_cluster_local = d_mol_cluster_local;
+    auto l_mol_state = d_mol_state;
+
+    nCluster = 0.0;
+
+    Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,maxmol+1), LAMMPS_LAMBDA(int i, double &nCluster) {
+      // now switch mol_restrict flags based on cluster ID of mol_seed (mol_cluster should be copied beforehand)
+      if (d_mol_cluster[i] != -1) {
+        const int clusterID = d_mol_cluster[mol_seed];
+        // if this is a switchable mol, mol_restrict should be updated
+        if (d_mol_state[i] == 0 || d_mol_state[i] == 1) {
+          if (d_mol_cluster[i] == clusterID) {
+            d_mol_restrict[i] = -1;
+            d_mol_state[i] = 1;
+          }
+          else d_mol_restrict[i] = 1;
         }
-        else mol_restrict[i] = 1;
+        if (d_mol_cluster[i] == clusterID) nCluster += 1.0;
       }
-      if (mol_cluster[i] == clusterID) nCluster += 1.0;
-    }
+    },nCluster);
   }
 
   // print cluster stats here
   if (comm->me == 0) {
 
-    //    printf("Debugging 1\n");
+    k_mol_cluster.template modify<DeviceType>();
+    k_mol_state.template modify<DeviceType>();
+
+    k_mol_cluster.sync_host();
+    k_mol_state.sync_host();
+
+    int clusterID = mol_cluster[mol_seed];
+
     int currtime = update->ntimestep;
-    //    printf("Debugging 2\n");
     fprintf(fp1,"%d ",currtime);
     fprintf(fp2,"%d ",currtime);
-    //    printf("Debugging 3\n");
     for (int i = 0; i <= maxmol; i++) {
       int clusterflag = 0;
-      if (mol_cluster[i] == clusterID) clusterflag = 1;
+      if (d_mol_cluster[i] == clusterID) clusterflag = 1;
       fprintf(fp1, "%d ",clusterflag);
       fprintf(fp2, "%d ",mol_state[i]);
     }
@@ -338,9 +355,78 @@ void FixClusterSwitchKokkos<DeviceType>::check_cluster()
     fflush(fp2);
   }
   
-  delete [] mol_cluster_local;
-
   //  modify->addstep_compute(update->ntimestep + nevery);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void FixClusterSwitchKokkos<DeviceType>::operator()(TagFixClusterSwitchCheckCluster, const int &ii) const
+{
+  const int i = d_ilist[ii];
+  if (!(mask[i] & groupbit)) return;
+  const int i_molID = molecule[i];
+  const int itype = type[i];
+
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
+  const int jnum = d_numneigh[i];
+
+  for (int jj = 0; jj < jnum; jj++) {
+    const int j = d_neighbors(i,jj) & NEIGHMASK;
+    if (!(mask[j] & groupbit)) continue;
+    const int j_molID = molecule[j];
+    const int jtype = type[j];
+
+    if (d_mol_cluster_local[i_molID] == d_mol_cluster_local[j_molID]) continue;
+
+    // first check to see if valid contact types
+
+    int contactFlag = -1;
+    for (int m = 0; m < nContactTypes; m++) {
+      if (contactFlag > -1) break;
+      for (int n = 0; n < nAtomsPerContact; n++) {
+        if (contactFlag > -1) break;
+        if (d_contactMap(m,n,0) == itype && d_contactMap(m,n,1) == jtype) contactFlag = 1;
+      }
+    }
+
+    if (contactFlag == 1) {
+
+      const double delx = xtmp - x(j,0);
+      const double dely = ytmp - x(j,1);
+      const double delz = ztmp - x(j,2);
+      const double rsq = delx*delx + dely*dely + delz*delz;
+
+      //then check if distance criteria is valid and update mols and offset mols
+      //next version needs to incorporate explicit contact maps
+      if (rsq < cutsq) {
+        int newID_v1 = MIN(d_mol_cluster_local[i_molID],d_mol_cluster_local[j_molID]);
+        int newID_v2 = newID_v1;
+        int newID_v3 = newID_v2;
+        //if mol is a switchable mol, check -mol_offset; else, check mol_offset
+        if (d_mol_state[i_molID] == 0 || d_mol_state[i_molID] == 1) newID_v2 = MIN(d_mol_cluster_local[i_molID-mol_offset],newID_v1);
+        else newID_v2 = MIN(d_mol_cluster_local[i_molID+mol_offset],newID_v1);
+
+        if (d_mol_state[j_molID] == 0 || d_mol_state[j_molID] == 1) newID_v3 = MIN(d_mol_cluster_local[j_molID-mol_offset],newID_v2);
+        else newID_v3 = MIN(d_mol_cluster_local[j_molID+mol_offset],newID_v2);
+      
+        //now update cluster ID of i, j
+        d_mol_cluster_local[i_molID] = d_mol_cluster_local[j_molID] = newID_v3;
+
+        //and update cluster ID of offset mols to be consistent
+        if (d_mol_state[i_molID] == 0 || d_mol_state[i_molID] == 1) d_mol_cluster_local[i_molID-mol_offset] = newID_v3;
+        else d_mol_cluster_local[i_molID+mol_offset] = newID_v3;
+
+        if (d_mol_state[j_molID] == 0 || d_mol_state[j_molID] == 1) d_mol_cluster_local[j_molID-mol_offset] = newID_v3;
+        else d_mol_cluster_local[j_molID+mol_offset] = newID_v3;
+
+        d_done() = 0;
+      }
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -351,7 +437,10 @@ void FixClusterSwitchKokkos<DeviceType>::attempt_switch()
   mask = atomKK->k_mask.view<DeviceType>();
   molecule = atomKK->k_molecule.view<DeviceType>(); // molecule[i] = mol IDs for atom tag i
   type = atomKK->k_type.view<DeviceType>(); // molecule[i] = mol IDs for atom tag i
+  tag = atomKK->k_tag.view<DeviceType>();
   int nlocal = atom->nlocal;
+
+  atomKK->sync(execution_space, MASK_MASK|MOLECULE_MASK|TYPE_MASK|TAG_MASK);
 
   //first gather unique molIDs on this processor
   hash = new std::map<int,int>();
@@ -359,6 +448,29 @@ void FixClusterSwitchKokkos<DeviceType>::attempt_switch()
   typedef hash_type::size_type size_type;    // uint32_t
   typedef hash_type::key_type key_type;      // int
   typedef hash_type::value_type value_type;  // int
+
+  { 
+    // local variables for lambda capture
+    
+    auto l_mask = mask;
+    auto l_molecule = molecule;
+    auto l_hash = d_hash;
+    
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,nlocal), LAMMPS_LAMBDA(int i) {
+      if (l_mask[i] & groupbit) {
+
+      /*size_type h_index = hash_kk.find(molecule[i]);
+      if (hash_kk.valid_at(h_index))
+
+      auto insert_result = h_map_hash.insert(global, local);
+      if (insert_result.failed()) error->one(FLERR, "Kokkos::UnorderedMap insertion failed");*/
+
+        if (hash->find(molecule[i]) == hash->end()) {
+          (*hash)[l_molecule[i]] = 1;
+        }
+      }    
+    });
+  }
 
   for (int i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) {
@@ -369,80 +481,84 @@ void FixClusterSwitchKokkos<DeviceType>::attempt_switch()
   }
   int nmol_local = hash->size();
 
-  //no memory; initialize array such that every state is -1 to start
+  // initialize arrays such that every state is -1 to start
   for (int i = 0; i <= nmol; i++) {
-    //    for (int j = 0; j < nSwitchTypes; j++) {
-    for (int j = 0; j < nSwitchPerMol; j++) {
-      mol_atoms[i][j] = -1;
-    }
+    for (int j = 0; j < nSwitchPerMol; j++)
+      d_mol_atoms(i,j) = -1;
   }
 
   //local copy of mol_accept (this should be zero'd at every attempt
-  int *mol_accept_local = new int[maxmol+1];
   for (int i = 0; i <= maxmol; i++) {
-    mol_accept_local[i] = -1;
-    mol_accept[i] = -1;
-    for (int j = 0; j < nSwitchPerMol; j++) mol_atoms[i][j] = -1;
+    d_mol_accept_local[i] = -1;
+    d_mol_accept[i] = -1;
+    for (int j = 0; j < nSwitchPerMol; j++) d_mol_atoms(i,j) = -1;
   }
 
   std::map<int,int>::iterator pos;
   for (pos = hash->begin(); pos != hash->end(); ++pos) {
     int mID = pos->first;
     int confirmflag;
-    //    mol_restrict[n] = mID;
-    //    if (mol_restrict[mID] != 1) error->all(FLERR,"Current molID in fix cluster_switch is not valid!");
-    if (mol_restrict[mID] == 1) confirmflag = confirm_molecule(mID); //checks if this proc should be decision-maker
+    if (d_mol_restrict[mID] == 1) confirmflag = confirm_molecule(mID); //checks if this proc should be decision-maker
     else confirmflag = 0;
 
-    if (mol_accept_local[mID] == -1 && confirmflag != 0)  mol_accept_local[mID] = switch_flag(mID);
+    if (d_mol_accept_local[mID] == -1 && confirmflag != 0)  d_mol_accept_local[mID] = switch_flag(mID);
   }
 
-  // communicate accept flags across processors...
-  MPI_Allreduce(mol_accept_local, mol_accept, maxmol+1, MPI_INT, MPI_MAX, world);
+  // communicate accept flags across processors
+  if (lmp->kokkos->gpu_aware_flag)
+    MPI_Allreduce(d_mol_accept_local.data(),d_mol_accept.data(),maxmol+1,MPI_INT,MPI_MAX,world);
+  else {
+    auto h_mol_accept_local = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_mol_accept_local);
+    auto h_mol_accept = k_mol_accept.h_view;
+
+    MPI_Allreduce(h_mol_accept_local.data(),h_mol_accept.data(),maxmol+1,MPI_INT,MPI_MAX,world);
+
+    Kokkos::deep_copy(d_mol_accept,h_mol_accept);
+  }
+
   gather_statistics(); //keep track of MC statistics
   check_arrays();
 
   //now perform switchings on each proc
   for (int i = 0; i <= maxmol; i++) {
     //if acceptance flag is turned on
-    if (mol_accept[i] == 1) {
+    if (d_mol_accept[i] == 1) {
       for (int j = 0; j < nSwitchPerMol; j++) {
-        int tagi = mol_atoms[i][j];
+        int tagi = d_mol_atoms(i,j);
         //if originally in OFF state
-        if (mol_state[i] == 0 && tagi > -1) {
+        if (d_mol_state[i] == 0 && tagi > -1) {
           for (int k = 0; k < nSwitchTypes; k++) {
-            if (type[tagi] == atomtypesOFF[k]) type[tagi] = atomtypesON[k];
+            if (type[tagi] == d_atomtypesOFF[k]) type[tagi] = d_atomtypesON[k];
           }
         }
         //if originally in ON state
-        else if (mol_state[i] == 1 && tagi > -1) {        
+        else if (d_mol_state[i] == 1 && tagi > -1) {        
           for (int k = 0; k < nSwitchTypes; k++) {
-            if (type[tagi] == atomtypesON[k]) type[tagi] = atomtypesOFF[k];
+            if (type[tagi] == d_atomtypesON[k]) type[tagi] = d_atomtypesOFF[k];
           }
         }
       }
       //update mol_state
-      if (mol_state[i] == 0) mol_state[i] = 1;
-      else if (mol_state[i] == 1) mol_state[i] = 0;
+      if (d_mol_state[i] == 0) d_mol_state[i] = 1;
+      else if (d_mol_state[i] == 1) d_mol_state[i] = 0;
     }
   } 
 
   //communicate changed types
-  comm->forward_comm(this);
 
-  delete [] mol_accept_local;
+  atomKK->modified(execution_space, TYPE_MASK);
+  comm->forward_comm(this);
+  atomKK->sync(execution_space, TYPE_MASK);
+
   delete hash;
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixClusterSwitchKokkos<DeviceType>::confirm_molecule( int molID )
+KOKKOS_INLINE_FUNCTION
+int FixClusterSwitchKokkos<DeviceType>::confirm_molecule( int molID ) const
 {
-  molecule = atomKK->k_molecule.view<DeviceType>();
-  type = atomKK->k_type.view<DeviceType>();
-  tag = atomKK->k_tag.view<DeviceType>();
-
   double sumState = 0.0;
   double decisionBuffer = (double)nSwitchPerMol/2.0 - 1.0 + 0.01; // just to ensure that the proc with the majority of the switching types makes the switching decision
 
@@ -453,29 +569,27 @@ int FixClusterSwitchKokkos<DeviceType>::confirm_molecule( int molID )
       int itype = type[i];
       for (int k = 0; k < nSwitchTypes; k++) {
 
-        if (itype == atomtypesON[k]) {
+        if (itype == d_atomtypesON[k]) {
 
           for (int j = 0; j < nSwitchPerMol; j++) {
 
-            if (mol_atoms[molID][j] == -1) {
-              mol_atoms[molID][j] = i; //tag[i]; //i;
+            if (d_mol_atoms(molID,j) == -1) {
+              d_mol_atoms(molID,j) = i; //tag[i]; //i;
               sumState += 1.0;          
               break;
             }
           }
-        } else if (itype == atomtypesOFF[k]) {
+        } else if (itype == d_atomtypesOFF[k]) {
 
           for (int j = 0; j < nSwitchPerMol; j++) {
 
-            if (mol_atoms[molID][j] == -1) {
-              mol_atoms[molID][j] = i; //tag[i]; //i;
+            if (d_mol_atoms(molID,j) == -1) {
+              d_mol_atoms(molID,j) = i; //tag[i]; //i;
               sumState -= 1.0;
               break;
             }
-
           }
         }
-          
       }
     }
   }
@@ -488,23 +602,21 @@ int FixClusterSwitchKokkos<DeviceType>::confirm_molecule( int molID )
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixClusterSwitchKokkos<DeviceType>::switch_flag( int molID )
+KOKKOS_INLINE_FUNCTION
+int FixClusterSwitchKokkos<DeviceType>::switch_flag( int molID ) const
 {
-  int state = mol_state[molID];
+  int state = d_mol_state[molID];
   double checkProb;
 
   // if current state is OFF (0), then use probability to turn ON
-  if (state == 0) {
+  if (state == 0)
     checkProb = probON;
-  }
-  else {
+  else
     checkProb = probOFF;
-  }
   
   double rand = random_unequal->uniform();
-  if (rand < checkProb) {
+  if (rand < checkProb)
     return 1;
-  }
   else
     return 0;
 }
@@ -529,21 +641,22 @@ double FixClusterSwitchKokkos<DeviceType>::compute_vector(int n)
 template<class DeviceType>
 void FixClusterSwitchKokkos<DeviceType>::gather_statistics()
 {
+  //// need parallel_reduce
   //gather these stats before mol_state is updated
   double dt_AttemptsTotal = 0.0, dt_AttemptsON = 0.0, dt_AttemptsOFF = 0.0;
   double dt_SuccessTotal = 0.0, dt_SuccessON = 0.0, dt_SuccessOFF = 0.0;
   for (int i = 0; i <= maxmol; i++) {
-    if (mol_restrict[i] == 1) {
+    if (d_mol_restrict[i] == 1) {
       dt_AttemptsTotal += 1.0;
-      if (mol_state[i] == 0) {
+      if (d_mol_state[i] == 0) {
         dt_AttemptsON += 1.0;
-        if (mol_accept[i] == 1) {
+        if (d_mol_accept[i] == 1) {
           dt_SuccessTotal += 1.0;
           dt_SuccessON += 1.0;
         }
-      } else if (mol_state[i] == 1) {
+      } else if (d_mol_state[i] == 1) {
         dt_AttemptsOFF += 1.0;
-        if (mol_accept[i] == 1) {
+        if (d_mol_accept[i] == 1) {
           dt_SuccessTotal += 1.0;
           dt_SuccessOFF += 1.0;
         }
