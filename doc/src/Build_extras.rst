@@ -606,6 +606,12 @@ They must be specified in uppercase.
    *  - AMPERE86
       - GPU
       - NVIDIA Ampere generation CC 8.6 GPU
+   *  - ADA89
+      - GPU
+      - NVIDIA Ada Lovelace generation CC 8.9 GPU
+   *  - HOPPER90
+      - GPU
+      - NVIDIA Hopper generation CC 9.0 GPU
    *  - VEGA900
       - GPU
       - AMD GPU MI25 GFX900
@@ -640,7 +646,7 @@ They must be specified in uppercase.
       - GPU
       - Intel GPU Ponte Vecchio
 
-This list was last updated for version 3.7.0 of the Kokkos library.
+This list was last updated for version 3.7.1 of the Kokkos library.
 
 .. tabs::
 
@@ -1129,7 +1135,7 @@ VORONOI package
 -----------------------------
 
 To build with this package, you must download and build the
-`Voro++ library <https://math.lbl.gov/voro++>`_ or install a
+`Voro++ library <https://math.lbl.gov/voro++/>`_ or install a
 binary package provided by your operating system.
 
 .. tabs::
@@ -1359,7 +1365,7 @@ module included in the LAMMPS source distribution.
       auto-generated consistent with those used in the core LAMMPS makefiles.
 
 
-      .. versionchanged:: TBD
+      .. versionchanged:: 8Feb2023
 
       Please note that Colvars uses the Lepton library, which is now
       included with the LEPTON package; if you use anything other than
