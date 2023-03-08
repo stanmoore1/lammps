@@ -55,7 +55,7 @@ class PairGaussWall : public Pair {
   double **pgauss,**offset;
   double **pgauss2;
 
-  void allocate();
+  virtual void allocate();
 };
 
 }

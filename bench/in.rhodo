@@ -20,7 +20,7 @@ fix             2 all npt temp 300.0 300.0 100.0 &
 
 special_bonds   charmm
  
-thermo          50
+thermo          10
 thermo_style    multi 
 timestep        2.0
 

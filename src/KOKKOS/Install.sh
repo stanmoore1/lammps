@@ -281,6 +281,9 @@ action pair_eam_kokkos.cpp pair_eam.cpp
 action pair_eam_kokkos.h pair_eam.h
 action pair_exp6_rx_kokkos.cpp pair_exp6_rx.cpp
 action pair_exp6_rx_kokkos.h pair_exp6_rx.h
+action pair_gauss_wall_kokkos.h pair_gauss_wall.h
+action pair_gauss_wall_kokkos.cpp pair_gauss_wall.cpp
+action pair_gran_hooke_history_kokkos.h pair_gran_hooke_history.h
 action pair_gran_hooke_history_kokkos.cpp pair_gran_hooke_history.cpp
 action pair_gran_hooke_history_kokkos.h pair_gran_hooke_history.h
 action pair_hybrid_kokkos.cpp
