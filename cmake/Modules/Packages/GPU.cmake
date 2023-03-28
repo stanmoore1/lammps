@@ -98,8 +98,10 @@ if(GPU_API STREQUAL "CUDA")
   # comparison chart according to: https://en.wikipedia.org/wiki/CUDA#GPUs_supported
   if(CUDA_VERSION VERSION_LESS 8.0)
     message(FATAL_ERROR "CUDA Toolkit version 8.0 or later is required")
-  elseif(CUDA_VERSION VERSION_GREATER_EQUAL "12.0")
+  elseif(CUDA_VERSION VERSION_GREATER_EQUAL "13.0")
     message(WARNING "Untested CUDA Toolkit version ${CUDA_VERSION}. Use at your own risk")
+    set(GPU_CUDA_GENCODE "-arch=all")
+  elseif(CUDA_VERSION VERSION_GREATER_EQUAL "12.0")
     set(GPU_CUDA_GENCODE "-arch=all")
   else()
     # Kepler (GPU Arch 3.0) is supported by CUDA 5 to CUDA 10.2
@@ -175,8 +177,6 @@ if(GPU_API STREQUAL "CUDA")
     target_compile_definitions(gpu PRIVATE -DUSE_CUDPP)
   endif()
 
-  target_link_libraries(lammps PRIVATE gpu)
-
   add_executable(nvc_get_devices ${LAMMPS_LIB_SOURCE_DIR}/gpu/geryon/ucl_get_devices.cpp)
   target_compile_definitions(nvc_get_devices PRIVATE -DUCL_CUDADR)
   target_link_libraries(nvc_get_devices PRIVATE ${CUDA_LIBRARIES} ${CUDA_CUDA_LIBRARY})
@@ -249,12 +249,12 @@ elseif(GPU_API STREQUAL "OPENCL")
   else()
     target_compile_definitions(gpu PRIVATE -DMPI_GERYON -DGERYON_NUMA_FISSION -DUCL_NO_EXIT)
   endif()
-  target_link_libraries(lammps PRIVATE gpu)
 
   add_executable(ocl_get_devices ${LAMMPS_LIB_SOURCE_DIR}/gpu/geryon/ucl_get_devices.cpp)
   target_compile_definitions(ocl_get_devices PRIVATE -DUCL_OPENCL)
   target_link_libraries(ocl_get_devices PRIVATE OpenCL::OpenCL)
   add_dependencies(ocl_get_devices OpenCL::OpenCL)
+
 elseif(GPU_API STREQUAL "HIP")
   if(NOT DEFINED HIP_PATH)
       if(NOT DEFINED ENV{HIP_PATH})
@@ -473,9 +473,13 @@ elseif(GPU_API STREQUAL "HIP")
     target_include_directories(hip_get_devices PRIVATE ${CUDA_INCLUDE_DIRS})
     target_link_libraries(hip_get_devices PRIVATE ${CUDA_LIBRARIES} ${CUDA_CUDA_LIBRARY})
   endif()
-
-  target_link_libraries(lammps PRIVATE gpu)
 endif()
+
+if(BUILD_OMP)
+  find_package(OpenMP COMPONENTS CXX REQUIRED)
+  target_link_libraries(gpu PRIVATE OpenMP::OpenMP_CXX)
+endif()
+target_link_libraries(lammps PRIVATE gpu)
 
 set_property(GLOBAL PROPERTY "GPU_SOURCES" "${GPU_SOURCES}")
 # detect styles which have a GPU version
