@@ -160,7 +160,12 @@ FixChargeRegulation::~FixChargeRegulation() {
 
   if (exclusion_group_bit && group) {
     auto group_id = std::string("FixChargeRegulation:gcmc_exclusion_group:") + id;
-    group->assign(group_id + " delete");
+    try {
+      group->assign(group_id + " delete");
+    } catch (std::exception &e) {
+      if (comm->me == 0)
+        fprintf(stderr, "Error deleting group %s: %s\n", group_id.c_str(), e.what());
+    }
   }
 
   if (group) {
@@ -1294,16 +1299,13 @@ void FixChargeRegulation::restart(char *buf)
 /* ---------------------------------------------------------------------- */
 
 void FixChargeRegulation::setThermoTemperaturePointer() {
-  int ifix = -1;
-  ifix = modify->find_fix(idftemp);
-  if (ifix == -1) {
-    error->all(FLERR, "fix charge/regulation regulation could not find "
-               "a temperature fix id provided by tempfixid\n");
-  }
-  Fix *temperature_fix = modify->fix[ifix];
-  int dim;
-  target_temperature_tcp = (double *) temperature_fix->extract("t_target", dim);
+  Fix *ifix = modify->get_fix_by_id(idftemp);
+  if (!ifix)
+    error->all(FLERR, "fix charge/regulation could not find thermostat fix id {}", idftemp);
 
+  int dim;
+  target_temperature_tcp = (double *) ifix->extract("t_target", dim);
+  if (!target_temperature_tcp) error->all(FLERR, "Fix id {} does not control temperature", idftemp);
 }
 
 /* ---------------------------------------------------------------------- */
