@@ -12,10 +12,13 @@ FixStyle(cluster_switch/kk/host,FixClusterSwitchKokkos<LMPHostType>);
 #include "fix_cluster_switch.h"
 #include "kokkos_type.h"
 #include <Kokkos_UnorderedMap.hpp>
+#include <Kokkos_Random.hpp>
 
 namespace LAMMPS_NS {
 
 struct TagFixClusterSwitchCheckCluster{};
+struct TagFixClusterSwitchConfirmMolecule{};
+struct TagFixClusterSwitchAttemptSwitch{};
 
 template<class DeviceType>
 class FixClusterSwitchKokkos : public FixClusterSwitch {
@@ -36,12 +39,21 @@ typedef ArrayTypes<DeviceType> AT;
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixClusterSwitchCheckCluster, const int&) const;
 
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixClusterSwitchConfirmMolecule, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixClusterSwitchAttemptSwitch, const int&) const;
+
 private:
+  Kokkos::Random_XorShift64_Pool<DeviceType> rand_pool;
+  typedef typename Kokkos::Random_XorShift64_Pool<DeviceType>::generator_type rand_type;
+
   KOKKOS_INLINE_FUNCTION
   int confirm_molecule(tagint) const; // checks molID state (returns 1 for ON and 0 for off)
 
   KOKKOS_INLINE_FUNCTION
-  int switch_flag(int) const; // uses random to decided if this molID should switch state (returns 1 for YES)
+  int switch_flag(int, rand_type &rand_gen) const; // uses random to decided if this molID should switch state (returns 1 for YES)
 
   void attempt_switch(); // where all the MC switching happens
   void check_cluster(); // checks recursively molecules part of central cluster and updates mol_restrict
@@ -84,11 +96,14 @@ private:
   DAT::t_int_1d d_mol_state;
   DAT::t_int_1d d_mol_accept;
   DAT::t_int_1d d_mol_cluster;
+  DAT::t_int_1d d_sumState;
 
   DAT::t_int_1d d_mol_cluster_local;
   DAT::t_int_1d d_mol_accept_local;
 
   DAT::t_int_scalar d_done;
+
+  int decide();
 };
 
 }
