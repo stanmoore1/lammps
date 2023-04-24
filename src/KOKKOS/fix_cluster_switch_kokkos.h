@@ -16,15 +16,22 @@ FixStyle(cluster_switch/kk/host,FixClusterSwitchKokkos<LMPHostType>);
 
 namespace LAMMPS_NS {
 
-struct TagFixClusterSwitchCheckCluster{};
+struct TagFixClusterSwitchInit{};
+struct TagFixClusterSwitchCheckCluster1{};
+struct TagFixClusterSwitchCheckCluster2{};
+struct TagFixClusterSwitchCheckCluster3{};
+struct TagFixClusterSwitchCheckCluster4{};
 struct TagFixClusterSwitchConfirmMolecule{};
-struct TagFixClusterSwitchAttemptSwitch{};
+struct TagFixClusterSwitchAttemptSwitch1{};
+struct TagFixClusterSwitchAttemptSwitch2{};
+struct TagFixClusterSwitchAttemptSwitch3{};
+struct TagFixClusterSwitchAttemptSwitch4{};
 
 template<class DeviceType>
 class FixClusterSwitchKokkos : public FixClusterSwitch {
 public:
 typedef DeviceType device_type;
-typedef EV_FLOAT value_type;
+typedef double value_type;
 typedef ArrayTypes<DeviceType> AT;
 
   FixClusterSwitchKokkos(class LAMMPS *, int, char **);
@@ -37,13 +44,34 @@ typedef ArrayTypes<DeviceType> AT;
   double compute_vector(int) override;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagFixClusterSwitchCheckCluster, const int&) const;
+  void operator()(TagFixClusterSwitchInit, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixClusterSwitchCheckCluster1, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixClusterSwitchCheckCluster2, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixClusterSwitchCheckCluster3, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixClusterSwitchCheckCluster4, const int&, double &) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixClusterSwitchConfirmMolecule, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagFixClusterSwitchAttemptSwitch, const int&) const;
+  void operator()(TagFixClusterSwitchAttemptSwitch1, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixClusterSwitchAttemptSwitch2, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixClusterSwitchAttemptSwitch3, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixClusterSwitchAttemptSwitch4, const int&) const;
 
 private:
   Kokkos::Random_XorShift64_Pool<DeviceType> rand_pool;
@@ -67,15 +95,15 @@ private:
   DAT::tdual_int_1d k_atomtypesON; // atom types associated with ON
   DAT::tdual_int_1d k_atomtypesOFF; // atom types associated with OFF
   DAT::tdual_int_3d k_contactMap; // atom types associated with successful intermolecule contact
-  DAT::t_int_1d d_atomtypesON;
-  DAT::t_int_1d d_atomtypesOFF;
-  DAT::t_int_3d d_contactMap;
+  typename AT::t_int_1d d_atomtypesON;
+  typename AT::t_int_1d d_atomtypesOFF;
+  typename AT::t_int_3d d_contactMap;
 
 
   DAT::tdual_int_1d k_mol_restrict; // list of molecule ID tags that are open to switching (mol cluster can consider more mols than mol_restrict)
   //mol_restrict should be updated such that mols part of cluster are turned off to switching
   //is equal to 1 when open to switching, otherwise -1
-  DAT::t_int_1d d_mol_restrict;
+  typename AT::t_int_1d d_mol_restrict;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d d_ilist;
@@ -92,17 +120,18 @@ private:
   DAT::tdual_int_1d k_mol_accept; //list of switching decisions for each molecule (-1 initial, 0 fail, 1 switch true
   DAT::tdual_int_1d k_mol_cluster; //list of cluster IDs for each molecule
 
-  DAT::t_tagint_2d d_mol_atoms;
-  DAT::t_int_1d d_mol_state;
-  DAT::t_int_1d d_mol_accept;
-  DAT::t_int_1d d_mol_cluster;
-  DAT::t_int_1d d_sumState;
+  typename AT::t_tagint_2d d_mol_atoms;
+  typename AT::t_int_1d d_mol_state;
+  typename AT::t_int_1d d_mol_accept;
+  typename AT::t_int_1d d_mol_cluster;
+  typename AT::t_int_1d d_sumState;
 
-  DAT::t_int_1d d_mol_cluster_local;
-  DAT::t_int_1d d_mol_accept_local;
+  typename AT::t_int_1d d_mol_cluster_local;
+  typename AT::t_int_1d d_mol_accept_local;
 
-  DAT::t_int_scalar d_done;
+  typename AT::t_int_scalar d_done;
 
+  KOKKOS_INLINE_FUNCTION
   int decide();
 };
 
