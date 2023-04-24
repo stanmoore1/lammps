@@ -197,7 +197,6 @@ void FixClusterSwitchKokkos<DeviceType>::check_cluster()
   molecule = atomKK->k_molecule.view<DeviceType>();
   type = atomKK->k_type.view<DeviceType>();
   x = atomKK->k_x.view<DeviceType>();
-  int nlocal = atom->nlocal;
 
   atomKK->sync(execution_space, MASK_MASK|MOLECULE_MASK|TYPE_MASK|X_MASK);
 
@@ -434,7 +433,7 @@ void FixClusterSwitchKokkos<DeviceType>::attempt_switch()
   molecule = atomKK->k_molecule.view<DeviceType>(); // molecule[i] = mol IDs for atom tag i
   type = atomKK->k_type.view<DeviceType>(); // molecule[i] = mol IDs for atom tag i
   tag = atomKK->k_tag.view<DeviceType>();
-  int nlocal = atom->nlocal;
+  int inum = list->inum;
 
   atomKK->sync(execution_space, MASK_MASK|MOLECULE_MASK|TYPE_MASK|TAG_MASK);
 
@@ -446,7 +445,7 @@ void FixClusterSwitchKokkos<DeviceType>::attempt_switch()
 
   copymode = 1;
 
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagFixClusterSwitchAttemptSwitch1>(0,nlocal),*this);
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagFixClusterSwitchAttemptSwitch1>(0,inum),*this);
 
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagFixClusterSwitchAttemptSwitch2>(0,maxmol+1),*this);
     
@@ -487,16 +486,10 @@ KOKKOS_INLINE_FUNCTION
 void FixClusterSwitchKokkos<DeviceType>::operator()(TagFixClusterSwitchAttemptSwitch1, const int &i) const
 {
   if (mask[i] & groupbit) {
-
-  /*size_type h_index = hash_kk.find(molecule[i]);
-  if (hash_kk.valid_at(h_index))
-
-  auto insert_result = h_map_hash.insert(global, local);
-  if (insert_result.failed()) error->one(FLERR, "Kokkos::UnorderedMap insertion failed");*/
-
-    //if (hash->find(molecule[i]) == hash->end()) {
-    //  (*hash)[molecule[i]] = 1;
-    //}
+    auto mID = molecule[i];
+    auto index = d_hash.find(mID);
+    if (!d_hash.valid_at(index))
+      d_hash.insert(mID,1);
   }
 }
 
@@ -562,9 +555,6 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 int FixClusterSwitchKokkos<DeviceType>::confirm_molecule( int molID ) const
 {
- int *molecule = atom->molecule;
-  int *atype = atom->type;
-  int *atag = atom->tag;
   double sumState = 0.0;
   double decisionBuffer = (double)nSwitchPerMol/2.0 - 1.0 + 0.01; // just to ensure that the proc with the majority of the switching types makes the switching decision
   for(int i = 0; i < atom->nlocal; i++){
@@ -572,7 +562,7 @@ int FixClusterSwitchKokkos<DeviceType>::confirm_molecule( int molID ) const
     //printf("Checking molecule[i] with tagid %d against molID %d on proc %d\n",molecule[i],molID,comm->me);
     if(molecule[i] == molID){
 
-      int itype = atype[i];
+      int itype = type[i];
       //      printf("Found a matching molecule for local id %d! Now checking against nSwitchPerMol %d and nSwitchType %d using current itype %d on proc %d\n",i,nSwitchPerMol,nSwitchTypes,itype,comm->me);
       for(int k = 0; k < nSwitchTypes; k++){
 
