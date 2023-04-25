@@ -11,6 +11,8 @@ FixStyle(cluster_switch/kk/host,FixClusterSwitchKokkos<LMPHostType>);
 
 #include "fix_cluster_switch.h"
 #include "kokkos_type.h"
+#include "kokkos_base.h"
+#include "rand_pool_wrap_kokkos.h"
 #include <Kokkos_UnorderedMap.hpp>
 #include <Kokkos_Random.hpp>
 
@@ -21,27 +23,52 @@ struct TagFixClusterSwitchCheckCluster1{};
 struct TagFixClusterSwitchCheckCluster2{};
 struct TagFixClusterSwitchCheckCluster3{};
 struct TagFixClusterSwitchCheckCluster4{};
-struct TagFixClusterSwitchConfirmMolecule{};
 struct TagFixClusterSwitchAttemptSwitch1{};
 struct TagFixClusterSwitchAttemptSwitch2{};
 struct TagFixClusterSwitchAttemptSwitch3{};
 struct TagFixClusterSwitchAttemptSwitch4{};
 
+template<int PBC_FLAG>
+struct TagFixClusterSwitchPackForwardComm{};
+
+struct TagFixClusterSwitchUnpackForwardComm{};
+
 template<class DeviceType>
-class FixClusterSwitchKokkos : public FixClusterSwitch {
-public:
-typedef DeviceType device_type;
-typedef double value_type;
-typedef ArrayTypes<DeviceType> AT;
+class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
+ public:
+
+  struct REDUCE_DOUBLE_6 {
+    double d0, d1, d2, d3, d4, d5;
+    KOKKOS_INLINE_FUNCTION
+    REDUCE_DOUBLE_6() {
+      d0 = d1 = d2 = d3 = d4 = d5 = 0.0;
+    }
+    KOKKOS_INLINE_FUNCTION
+    REDUCE_DOUBLE_6& operator+=(const REDUCE_DOUBLE_6 &rhs) {
+      d0 += rhs.d0;
+      d1 += rhs.d1;
+      d2 += rhs.d2;
+      d3 += rhs.d3;
+      d4 += rhs.d4;
+      d5 += rhs.d5;
+      return *this;
+    }
+  };
+
+  typedef DeviceType device_type;
+  typedef double value_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   FixClusterSwitchKokkos(class LAMMPS *, int, char **);
   ~FixClusterSwitchKokkos() override;
   void allocate(int) override;
   void init() override;
   void pre_exchange() override;
+  int pack_forward_comm_kokkos(int, DAT::tdual_int_2d, int, DAT::tdual_xfloat_1d&,
+                       int, int *) override;
+  void unpack_forward_comm_kokkos(int, int, DAT::tdual_xfloat_1d&) override;
   int pack_forward_comm(int, int *, double *, int, int *) override;
   void unpack_forward_comm(int, int, double *) override;
-  double compute_vector(int) override;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixClusterSwitchInit, const int&) const;
@@ -59,9 +86,6 @@ typedef ArrayTypes<DeviceType> AT;
   void operator()(TagFixClusterSwitchCheckCluster4, const int&, double &) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagFixClusterSwitchConfirmMolecule, const int&) const;
-
-  KOKKOS_INLINE_FUNCTION
   void operator()(TagFixClusterSwitchAttemptSwitch1, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
@@ -73,9 +97,24 @@ typedef ArrayTypes<DeviceType> AT;
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixClusterSwitchAttemptSwitch4, const int&) const;
 
-private:
+  template<int PBC_FLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixClusterSwitchPackForwardComm<PBC_FLAG>, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixClusterSwitchUnpackForwardComm, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void gather_statistics_item(const int&, REDUCE_DOUBLE_6&) const;
+
+ private:
+#ifdef LMP_KOKKOS_DEBUG
+  RandPoolWrap rand_pool;
+  typedef RandWrap rand_type;
+#else
   Kokkos::Random_XorShift64_Pool<DeviceType> rand_pool;
   typedef typename Kokkos::Random_XorShift64_Pool<DeviceType>::generator_type rand_type;
+#endif
 
   KOKKOS_INLINE_FUNCTION
   int confirm_molecule(tagint) const; // checks molID state (returns 1 for ON and 0 for off)
@@ -98,7 +137,6 @@ private:
   typename AT::t_int_1d d_atomtypesON;
   typename AT::t_int_1d d_atomtypesOFF;
   typename AT::t_int_3d d_contactMap;
-
 
   DAT::tdual_int_1d k_mol_restrict; // list of molecule ID tags that are open to switching (mol cluster can consider more mols than mol_restrict)
   //mol_restrict should be updated such that mols part of cluster are turned off to switching
@@ -124,6 +162,7 @@ private:
   typename AT::t_int_1d d_mol_state;
   typename AT::t_int_1d d_mol_accept;
   typename AT::t_int_1d d_mol_cluster;
+  typename AT::t_tagint_1d d_mol_count;
   typename AT::t_int_1d d_sumState;
 
   typename AT::t_int_1d d_mol_cluster_local;
@@ -131,8 +170,29 @@ private:
 
   typename AT::t_int_scalar d_done;
 
+  int iswap,first,nsend;
+
+  typename AT::t_int_2d d_sendlist;
+  typename AT::t_xfloat_1d_um d_buf;
+
+  typename AT::t_int_1d d_exchange_sendlist;
+  typename AT::t_int_1d d_copylist;
+  typename AT::t_int_1d d_indices;
+
+  X_FLOAT dx,dy,dz;
+};
+
+template <class DeviceType>
+struct FixClusterSwitchGatherStatisticsFunctor {
+  typedef DeviceType device_type;
+  typedef typename FixClusterSwitchKokkos<DeviceType>::REDUCE_DOUBLE_6 value_type;
+  FixClusterSwitchKokkos<DeviceType> c;
+  FixClusterSwitchGatherStatisticsFunctor(FixClusterSwitchKokkos<DeviceType>* c_ptr):c(*c_ptr) {c.set_copymode(1);}
+
   KOKKOS_INLINE_FUNCTION
-  int decide();
+  void operator()(const int i, value_type &reduce) const {
+    c.gather_statistics_item(i, reduce);
+  }
 };
 
 }
