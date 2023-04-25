@@ -18,26 +18,31 @@
 #include "pointers.h"
 #include "kokkos_type.h"
 #include "random_mars.h"
+#include "random_park.h"
 #include "error.h"
 
 namespace LAMMPS_NS {
 
 struct RandWrap {
-  class RanMars* rng;
+  class RanMars* rng_mars;
+  class RanPark* rng_park;
 
   KOKKOS_INLINE_FUNCTION
   RandWrap() {
-    rng = nullptr;
+    rng_mars = nullptr;
+    rng_park = nullptr;
   }
 
   KOKKOS_INLINE_FUNCTION
   double drand() {
-    return rng->uniform();
+   if (rng_mars) return rng_mars->uniform();
+   else return rng_park->uniform();
   }
 
   KOKKOS_INLINE_FUNCTION
   double normal() {
-    return rng->gaussian();
+   if (rng_mars) return rng_mars->gaussian();
+   else return rng_park->gaussian();
   }
 };
 
@@ -46,23 +51,18 @@ class RandPoolWrap : protected Pointers {
   RandPoolWrap(int, class LAMMPS *);
   ~RandPoolWrap() override;
   void destroy();
-  void init(RanMars*, int);
+  void init(RanMars*);
+  void init(RanPark*);
 
   RandWrap get_state() const
   {
 #ifdef LMP_KOKKOS_GPU
-    error->all(FLERR,"Cannot use Marsaglia RNG with GPUs");
+    error->all(FLERR,"Cannot use Marsaglia or Park RNG with GPUs");
 #endif
 
     RandWrap rand_wrap;
-
-    typedef Kokkos::Experimental::UniqueToken<
-      LMPHostType, Kokkos::Experimental::UniqueTokenScope::Global> unique_token_type;
-
-    unique_token_type unique_token;
-    int tid = (int) unique_token.acquire();
-    rand_wrap.rng = random_thr[tid];
-    unique_token.release(tid);
+    if (random_mars) rand_wrap.rng_mars = random_mars;
+    else rand_wrap.rng_park = random_park;
 
     return rand_wrap;
   }
@@ -70,8 +70,8 @@ class RandPoolWrap : protected Pointers {
   void free_state(RandWrap) const {}
 
  private:
-  class RanMars **random_thr;
-  int nthreads;
+  class RanMars* random_mars;
+  class RanPark* random_park;  
 };
 
 }
