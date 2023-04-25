@@ -619,9 +619,11 @@ void FixClusterSwitchKokkos<DeviceType>::operator()(TagFixClusterSwitchConfirmMo
 
       for (int j = 0; j < nSwitchPerMol; j++) {
 
-        if (d_mol_atoms(molID,j) == -1) {
+        int test = Kokkos::atomic_load(&d_mol_atoms(molID,j));
+
+        if (test == -1) {
           d_mol_atoms(molID,j) = i; //tag[i]; //i;
-          d_sumState(molID) += 1.0;          
+          Kokkos::atomic_add(&d_sumState(molID), 1.0);
           break;
         }
       }
@@ -629,9 +631,11 @@ void FixClusterSwitchKokkos<DeviceType>::operator()(TagFixClusterSwitchConfirmMo
 
       for (int j = 0; j < nSwitchPerMol; j++) {
 
-        if (d_mol_atoms(molID,j) == -1) {
+        int test = Kokkos::atomic_load(&d_mol_atoms(molID,j));
+
+        if (test == -1) {
           d_mol_atoms(molID,j) = i; //tag[i]; //i;
-          d_sumState(molID) -= 1.0;
+          Kokkos::atomic_add(&d_sumState(molID), -1.0);
           break;
         }
       }
