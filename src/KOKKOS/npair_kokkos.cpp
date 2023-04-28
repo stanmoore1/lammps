@@ -325,7 +325,7 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::build(NeighList *list_)
 
   list->k_ilist.template modify<DeviceType>();
 
-  if (lmp->kokkos->neigh_transpose)
+  if (lmp->kokkos->neigh_transpose && !lmp->kokkos->neigh_thread)
     TransposeHelperKokkos<DeviceType, typename AT::t_neighbors_2d,
       typename AT::t_neighbors_2d_lr>(list->d_neighbors, list->d_neighbors_transpose);
 }

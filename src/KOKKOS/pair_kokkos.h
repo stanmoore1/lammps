@@ -280,7 +280,7 @@ struct PairComputeFunctor  {
       const X_FLOAT ztmp = c.x(i,2);
       const int itype = c.type(i);
 
-      const AtomNeighborsConst neighbors_i = list.get_neighbors_const(i);
+      const AtomNeighborsConst neighbors_i = list.get_neighbors_transpose_const(i);
       const int jnum = list.d_numneigh[i];
 
       t_scalar3<double> fsum;
@@ -337,7 +337,7 @@ struct PairComputeFunctor  {
       const int itype = c.type(i);
       const F_FLOAT qtmp = c.q(i);
 
-      const AtomNeighborsConst neighbors_i = list.get_neighbors_const(i);
+      const AtomNeighborsConst neighbors_i = list.get_neighbors_transpose_const(i);
       const int jnum = list.d_numneigh[i];
 
       t_scalar3<double> fsum;
@@ -399,7 +399,7 @@ struct PairComputeFunctor  {
       const X_FLOAT ztmp = c.x(i,2);
       const int itype = c.type(i);
 
-      const AtomNeighborsConst neighbors_i = list.get_neighbors_const(i);
+      const AtomNeighborsConst neighbors_i = list.get_neighbors_transpose_const(i);
       const int jnum = list.d_numneigh[i];
 
       FEV_FLOAT fev;
@@ -495,7 +495,7 @@ struct PairComputeFunctor  {
       const int itype = c.type(i);
       const F_FLOAT qtmp = c.q(i);
 
-      const AtomNeighborsConst neighbors_i = list.get_neighbors_const(i);
+      const AtomNeighborsConst neighbors_i = list.get_neighbors_transpose_const(i);
       const int jnum = list.d_numneigh[i];
 
       FEV_FLOAT fev;

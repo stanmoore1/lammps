@@ -104,6 +104,12 @@ public:
   }
 
   KOKKOS_INLINE_FUNCTION
+  AtomNeighborsConst get_neighbors_transpose_const(const int &i) const {
+    return AtomNeighborsConst(&d_neighbors_transpose(i,0),d_numneigh(i),
+                         &d_neighbors_transpose(i,1)-&d_neighbors_transpose(i,0));
+  }
+
+  KOKKOS_INLINE_FUNCTION
   int& num_neighs(const int & i) const {
     return d_numneigh(i);
   }
