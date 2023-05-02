@@ -249,7 +249,7 @@ void AtomKokkos::map_set()
       d_map_array(tag_i) = i_min;
     else {
       auto insert_result = d_map_hash.insert(tag_i, i_min);
-      if (!insert_result.success()) d_error_flag() = 1;
+      if (insert_result.failed()) d_error_flag() = 1;
     }
   
   });
