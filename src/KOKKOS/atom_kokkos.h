@@ -79,11 +79,16 @@ class AtomKokkos : public Atom {
   void map_set() override;
   void map_one(tagint, int) override;
   void map_delete() override;
+  int map_find_hash(tagint) override;
 
+  DAT::tdual_int_scalar k_error_flag;
   DAT::tdual_int_1d k_sametag;
   DAT::tdual_int_1d k_map_array;
-  DAT::tdual_int_scalar k_error_flag;
+  DAT::t_int_1d d_map_array;
+  HAT::t_int_1d h_map_array;
   dual_hash_type k_map_hash;
+  hash_type d_map_hash;
+  host_hash_type h_map_hash;
 
   class AtomVecKokkos* avecKK;
 

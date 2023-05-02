@@ -570,6 +570,11 @@ struct dual_hash_type {
   hash_type d_view;
   host_hash_type h_view;
 
+  bool modified_device;
+  bool modified_host;
+
+  dual_hash_type() {modified_device = modified_host = false;}
+
   template<class DeviceType>
   std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),hash_type&> view() {return d_view;}
 
@@ -584,6 +589,35 @@ struct dual_hash_type {
   KOKKOS_INLINE_FUNCTION
   std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const host_hash_type&> const_view() const {return h_view;}
 
+  void modify_device()
+  {
+    modified_device = true;
+    if (modified_device && modified_host)
+      Kokkos::abort("Concurrent modification of host and device hashes");
+  }
+
+  void modify_host()
+  {
+    modified_host = true;
+    if (modified_device && modified_host)
+      Kokkos::abort("Concurrent modification of host and device hashes");
+  }
+
+  void sync_device()
+  {
+    if (modified_host) {
+      Kokkos::deep_copy(d_view,h_view);
+      modified_host = false;
+    }
+  }
+
+  void sync_host()
+  {
+    if (modified_device) {
+      Kokkos::deep_copy(h_view,d_view);
+      modified_device = false;
+    }
+  }
 };
 
 template <class DeviceType>

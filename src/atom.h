@@ -401,7 +401,7 @@ class Atom : protected Pointers {
   virtual void map_one(tagint, int);
   int map_style_set();
   virtual void map_delete();
-  int map_find_hash(tagint);
+  virtual int map_find_hash(tagint);
 
  protected:
   // global to local ID mapping
