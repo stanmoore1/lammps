@@ -72,10 +72,8 @@ class AtomKokkos : public Atom {
   AtomKokkos(class LAMMPS *);
   ~AtomKokkos() override;
 
-  int host_map_flag;
   void map_init(int check = 1) override;
   void map_clear() override;
-  void map_clear_kokkos();
   void map_set() override;
   void map_one(tagint, int) override;
   void map_delete() override;

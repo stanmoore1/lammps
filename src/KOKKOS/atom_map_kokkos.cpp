@@ -85,6 +85,8 @@ void AtomKokkos::map_init(int check)
       map_nhash *= 2;
       map_nhash = MAX(map_nhash, 1000);
 
+      k_map_hash = dual_hash_type();
+
       d_map_hash = hash_type(map_nhash);
       k_map_hash.d_view = d_map_hash;
 
@@ -312,10 +314,9 @@ void AtomKokkos::map_delete()
     h_map_array = decltype(h_map_array)();
     d_map_array = decltype(d_map_array)();
   } else {
-    h_map_hash = host_hash_type();
-    k_map_hash.h_view = host_hash_type();
+    k_map_hash = dual_hash_type();
 
+    h_map_hash = host_hash_type();
     d_map_hash = hash_type();
-    k_map_hash.d_view = hash_type();
   }
 }
