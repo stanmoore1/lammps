@@ -579,6 +579,12 @@ struct dual_hash_type {
     h_view = host_hash_type();
  }
 
+  dual_hash_type(int capacity) {
+    modified_device = modified_host = false;
+    d_view = hash_type(capacity);
+    h_view = host_hash_type(capacity);
+ }
+
   template<class DeviceType>
   std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),hash_type&> view() {return d_view;}
 
@@ -627,7 +633,7 @@ struct dual_hash_type {
   std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_device();}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {this->sync_host();}
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_host();}
 
 };
 

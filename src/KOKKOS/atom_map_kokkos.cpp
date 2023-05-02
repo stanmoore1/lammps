@@ -68,9 +68,7 @@ void AtomKokkos::map_init(int check)
     if (map_style == MAP_ARRAY) {
       map_maxarray = map_tag_max;
       memoryKK->create_kokkos(k_map_array, map_array, map_maxarray + 1, "atom:map_array");
-      d_map_array = k_map_array.d_view;
-      h_map_array = k_map_array.h_view;
-      Kokkos::deep_copy(d_map_array,-1);
+      Kokkos::deep_copy(k_map_array.d_view,-1);
       k_map_array.modify_device();
 
     } else {
@@ -85,13 +83,7 @@ void AtomKokkos::map_init(int check)
       map_nhash *= 2;
       map_nhash = MAX(map_nhash, 1000);
 
-      k_map_hash = dual_hash_type();
-
-      d_map_hash = hash_type(map_nhash);
-      k_map_hash.d_view = d_map_hash;
-
-      h_map_hash = host_hash_type(map_nhash);
-      k_map_hash.h_view = h_map_hash;
+      k_map_hash = dual_hash_type(map_nhash);
     }
   }
 }
@@ -105,10 +97,10 @@ void AtomKokkos::map_init(int check)
 void AtomKokkos::map_clear()
 {
   if (map_style == Atom::MAP_ARRAY) {
-    Kokkos::deep_copy(d_map_array,-1);
+    Kokkos::deep_copy(k_map_array.d_view,-1);
     k_map_array.modify_device();
   } else {
-    d_map_hash.clear();
+    k_map_hash.d_view.clear();
     k_map_hash.modify_device();
   }
 }
@@ -198,8 +190,11 @@ void AtomKokkos::map_set()
   Sorter.sort(LMPDeviceType(), d_i_sorted, 0, nall);
 
   auto d_map_array = k_map_array.d_view;
-  auto d_map_hash = k_map_hash.view<LMPDeviceType>();
+  auto d_map_hash = k_map_hash.d_view;
   d_map_hash.clear();
+
+  auto d_error_flag = k_error_flag.d_view;
+  Kokkos::deep_copy(d_error_flag,0);  
 
   // for each tag find:
   //  neighboring atoms with closest local id for sametag
@@ -252,9 +247,16 @@ void AtomKokkos::map_set()
 
     if (map_style == MAP_ARRAY)
       d_map_array(tag_i) = i_min;
-    else
+    else {
       auto insert_result = d_map_hash.insert(tag_i, i_min);
+      if (!insert_result.success()) d_error_flag() = 1;
+    }
+  
   });
+
+  auto h_error_flag = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_error_flag);
+  if (h_error_flag())
+    error->one(FLERR,"Failed to insert into Kokkos hash atom map");
 
   k_sametag.modify_device();
 
@@ -275,10 +277,20 @@ void AtomKokkos::map_one(tagint global, int local)
 {
   if (map_style == MAP_ARRAY) {
     k_map_array.sync_host();
-    h_map_array[global] = local;
+    k_map_array.h_view[global] = local;
   } else {
     k_map_hash.sync_host();
-    auto insert_result = d_map_hash.insert(global, local);
+    auto& h_map_hash = k_map_hash.h_view;
+
+    auto insert_result = h_map_hash.insert(global, local);
+    if (insert_result.existing()) {
+      h_map_hash.begin_erase();
+      h_map_hash.erase(global);
+      h_map_hash.end_erase();
+      insert_result = h_map_hash.insert(global, local);
+    }
+    if (!insert_result.success())
+      error->one(FLERR,"Failed to insert into Kokkos hash atom map");
   }
 }
 
@@ -290,6 +302,7 @@ void AtomKokkos::map_one(tagint global, int local)
 int AtomKokkos::map_find_hash(tagint global)
 {
   k_map_hash.sync_host();
+  auto& h_map_hash = k_map_hash.h_view;
 
   int local = -1;
   auto index = h_map_hash.find(global);
@@ -310,13 +323,6 @@ void AtomKokkos::map_delete()
   if (map_style == MAP_ARRAY) {
     memoryKK->destroy_kokkos(k_map_array, map_array);
     map_array = nullptr;
-
-    h_map_array = decltype(h_map_array)();
-    d_map_array = decltype(d_map_array)();
-  } else {
+  } else
     k_map_hash = dual_hash_type();
-
-    h_map_hash = host_hash_type();
-    d_map_hash = hash_type();
-  }
 }
