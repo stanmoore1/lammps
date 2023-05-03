@@ -108,6 +108,7 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
   void gather_statistics_item(const int&, REDUCE_DOUBLE_6&) const;
 
  private:
+#define LMP_KOKKOS_DEBUG
 #ifdef LMP_KOKKOS_DEBUG
   RandPoolWrap rand_pool;
   typedef RandWrap rand_type;

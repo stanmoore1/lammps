@@ -26,10 +26,12 @@ namespace LAMMPS_NS {
     double compute_vector(int) override;
 
    protected:
+    std::string rate_file,contact_file;
+
     int confirm_molecule(tagint); // checks molID state (returns 1 for ON and 0 for off)
     int switch_flag(int); // uses random to decided if this molID should switch state (returns 1 for YES)
-    void read_file(char *);
-    void read_contacts(char *);
+    void read_file(const char *);
+    void read_contacts(const char *);
     void attempt_switch(); // where all the MC switching happens
     void check_cluster(); // checks recursively molecules part of central cluster and updates mol_restrict
     void computecross(double *, double *, double *); // auxilliary functions cross product

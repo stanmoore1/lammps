@@ -35,6 +35,7 @@ using namespace FixConst; //in fix.h, defines POST_FORCE, etc.
 //#define MYDEBUG1
 
 /* ---------------------------------------------------------------------- */
+
 FixClusterSwitch::FixClusterSwitch(LAMMPS *lmp, int narg, char **arg) : Fix(lmp,narg,arg)
 {
   /*
@@ -55,10 +56,6 @@ FixClusterSwitch::FixClusterSwitch(LAMMPS *lmp, int narg, char **arg) : Fix(lmp,
   switchFreq = utils::inumeric(FLERR, arg[8], false, lmp); // how often attempts to switch are made, equivalent to "nevery"
   random_equal = new RanPark(lmp, seed);
   random_unequal = new RanPark(lmp, seed);
-
-  // READ INPUT FILE THAT CONTAINS RATES AND ATOM TYPE INFO
-  read_file(arg[10]); // reads the rate file and initializes/populates arrays
-  read_contacts(arg[12]); // reads contact map file
 
   // ERROR CHECKPOINT: make sure pair style has cutoff attribute
   if (force->pair == NULL) error->all(FLERR,"fix cluster_switch requires a pair style");
@@ -93,97 +90,15 @@ FixClusterSwitch::FixClusterSwitch(LAMMPS *lmp, int narg, char **arg) : Fix(lmp,
   // check molecule flag
   if(atom->molecule_flag == 0) error->all(FLERR,"fix cluster_switch requires that atoms have molecule attributes");
 
-  int nmolatoms = 0;
-  int maxmol_local = -1;
-  int *atypes = atom->type;
-  int *molecule = atom->molecule;
-  int nSwitchPerMol_local = 0;
-  for(int i = 0; i < atom->nlocal; i++){
-    if(atom->mask[i] & groupbit){
-      if(molecule[i] > maxmol_local) maxmol_local = molecule[i];
-      for(int j = 0; j < nSwitchTypes; j++){
-	if(atypes[i] == atomtypesON[j] || atypes[i] == atomtypesOFF[j]) {
-	  nmolatoms++; // the number of atoms that are viable for switching
-	  if(molecule[i] == mol_seed) {
-	    nSwitchPerMol_local++; // the number of switchable atoms per molecule
-	  }
-	}
-      }
-    }
-  }
-  MPI_Allreduce(&nmolatoms, &nmol, 1, MPI_INT, MPI_SUM, world);
-  MPI_Allreduce(&maxmol_local, &maxmol, 1, MPI_INT, MPI_MAX, world);
-  MPI_Allreduce(&nSwitchPerMol_local, &nSwitchPerMol, 1, MPI_INT, MPI_SUM, world);
-  //printf("nmol init: %d\n", nmol);
-  //nmol = nmol / nSwitchTypes; //this logic doesn't work when nSwitchTypes != switchable_atoms_per_molecule
-  //this is now corrected to find the total number of molecules that are switchable
-  nmol = nmol / nSwitchPerMol;
-  //printf("nmol reduce: %d\n", nmol);
-  //printf("Maximum mol number is %d\n",maxmol);
-
-  if(maxmol < 0) error->all(FLERR,"Selected group does not have any mols (fix cluster_switch)");
-
-  allocate(1);
-
-  //populate mol_restrict list with -1 if restricted and 1 if molecule is switch enabled, then share data across processors
-  int *mol_restrict_local = new int[maxmol+1];
-  int *mol_state_local = new int[maxmol+1];
-  for(int i = 0; i <= maxmol; i++){
-    mol_restrict_local[i] = -1;
-    mol_state_local[i] = -1;
-  }
-  
-  for(int i = 0; i < atom->nlocal; i++){
-    if(atom->mask[i] & groupbit){
-      int molID = molecule[i];
-
-      for(int j = 0; j < nSwitchTypes; j++){
-	if(atypes[i] == atomtypesON[j] && mol_state_local[molID] == -1) {
-	  mol_state_local[molID] = 1;
-	  if(molID != mol_seed && molID != (mol_seed - mol_offset)){
-	    mol_restrict_local[molID] = 1;
-	  }
-	}
-	else if(atypes[i] == atomtypesOFF[j] && mol_state_local[molID] == -1) {
-	  mol_state_local[molID] = 0;
-	  if(molID != mol_seed && molID != (mol_seed - mol_offset)){
-	    mol_restrict_local[molID] = 1;
-	  }
-	}
-      }
-    }
-  }
-
-  MPI_Allreduce(mol_restrict_local, mol_restrict, maxmol+1, MPI_INT, MPI_MAX, world);
-  MPI_Allreduce(mol_state_local, mol_state, maxmol+1, MPI_INT, MPI_MAX, world); 
-
-  delete [] mol_restrict_local;
-  delete [] mol_state_local;
-  
-  check_arrays();
-
-  // open file for debugging 
-  if(comm->me == 0) {
-    fp1 = fopen("cluster_assignment.log","w");
-    if(fp1 == NULL) {
-      error->one(FLERR,"File cluster_assignment.log in cluster_switch not open!\n");
-    }     
-    fp2 = fopen("state_assignment.log","w");
-    if(fp2 == NULL) {
-      error->one(FLERR,"File state_assignment.log in cluster_switch not open!\n");
-    }     
-  }
-
-  
-  //  // init cluster
-  //  check_cluster();
-  //  attempt_switch();
-  
+ rate_file = std::string(arg[10]);
+ contact_file = std::string(arg[12]); 
 }
 
 /* ---------------------------------------------------------------------- */
 FixClusterSwitch::~FixClusterSwitch()
 {
+  if (copymode) return;
+
   memory->destroy(atomtypesON);
   memory->destroy(atomtypesOFF);
   memory->destroy(contactMap);
@@ -202,7 +117,7 @@ FixClusterSwitch::~FixClusterSwitch()
 }
 
 /* ---------------------------------------------------------------------- */
-void FixClusterSwitch::read_file(char *file)
+void FixClusterSwitch::read_file(const char *file)
 {
   // open file on proc 0
 
@@ -284,7 +199,7 @@ void FixClusterSwitch::read_file(char *file)
 
 
 /* ---------------------------------------------------------------------- */
-void FixClusterSwitch::read_contacts(char *file)
+void FixClusterSwitch::read_contacts(const char *file)
 {
   // open file on proc 0
 
@@ -368,6 +283,95 @@ int FixClusterSwitch::setmask()
 /* ---------------------------------------------------------------------- */
 void FixClusterSwitch::init()
 {
+  // READ INPUT FILE THAT CONTAINS RATES AND ATOM TYPE INFO
+  read_file(rate_file.c_str()); // reads the rate file and initializes/populates arrays
+  read_contacts(contact_file.c_str()); // reads contact map file
+
+  int nmolatoms = 0;
+  int maxmol_local = -1;
+  int *atypes = atom->type;
+  int *molecule = atom->molecule;
+  int nSwitchPerMol_local = 0;
+  for(int i = 0; i < atom->nlocal; i++){
+    if(atom->mask[i] & groupbit){
+      if(molecule[i] > maxmol_local) maxmol_local = molecule[i];
+      for(int j = 0; j < nSwitchTypes; j++){
+	if(atypes[i] == atomtypesON[j] || atypes[i] == atomtypesOFF[j]) {
+	  nmolatoms++; // the number of atoms that are viable for switching
+	  if(molecule[i] == mol_seed) {
+	    nSwitchPerMol_local++; // the number of switchable atoms per molecule
+	  }
+	}
+      }
+    }
+  }
+  MPI_Allreduce(&nmolatoms, &nmol, 1, MPI_INT, MPI_SUM, world);
+  MPI_Allreduce(&maxmol_local, &maxmol, 1, MPI_INT, MPI_MAX, world);
+  MPI_Allreduce(&nSwitchPerMol_local, &nSwitchPerMol, 1, MPI_INT, MPI_SUM, world);
+  //printf("nmol init: %d\n", nmol);
+  //nmol = nmol / nSwitchTypes; //this logic doesn't work when nSwitchTypes != switchable_atoms_per_molecule
+  //this is now corrected to find the total number of molecules that are switchable
+  nmol = nmol / nSwitchPerMol;
+  //printf("nmol reduce: %d\n", nmol);
+  //printf("Maximum mol number is %d\n",maxmol);
+
+  if(maxmol < 0) error->all(FLERR,"Selected group does not have any mols (fix cluster_switch)");
+
+  allocate(1);
+
+  //populate mol_restrict list with -1 if restricted and 1 if molecule is switch enabled, then share data across processors
+  int *mol_restrict_local = new int[maxmol+1];
+  int *mol_state_local = new int[maxmol+1];
+  for(int i = 0; i <= maxmol; i++){
+    mol_restrict_local[i] = -1;
+    mol_state_local[i] = -1;
+  }
+  
+  for(int i = 0; i < atom->nlocal; i++){
+    if(atom->mask[i] & groupbit){
+      int molID = molecule[i];
+
+      for(int j = 0; j < nSwitchTypes; j++){
+	if(atypes[i] == atomtypesON[j] && mol_state_local[molID] == -1) {
+	  mol_state_local[molID] = 1;
+	  if(molID != mol_seed && molID != (mol_seed - mol_offset)){
+	    mol_restrict_local[molID] = 1;
+	  }
+	}
+	else if(atypes[i] == atomtypesOFF[j] && mol_state_local[molID] == -1) {
+	  mol_state_local[molID] = 0;
+	  if(molID != mol_seed && molID != (mol_seed - mol_offset)){
+	    mol_restrict_local[molID] = 1;
+	  }
+	}
+      }
+    }
+  }
+
+  MPI_Allreduce(mol_restrict_local, mol_restrict, maxmol+1, MPI_INT, MPI_MAX, world);
+  MPI_Allreduce(mol_state_local, mol_state, maxmol+1, MPI_INT, MPI_MAX, world); 
+
+  delete [] mol_restrict_local;
+  delete [] mol_state_local;
+  
+  check_arrays();
+
+  // open file for debugging 
+  if(comm->me == 0) {
+    fp1 = fopen("cluster_assignment.log","w");
+    if(fp1 == NULL) {
+      error->one(FLERR,"File cluster_assignment.log in cluster_switch not open!\n");
+    }     
+    fp2 = fopen("state_assignment.log","w");
+    if(fp2 == NULL) {
+      error->one(FLERR,"File state_assignment.log in cluster_switch not open!\n");
+    }     
+  }
+  
+  //  // init cluster
+  //  check_cluster();
+  //  attempt_switch();
+
   ngroup = group->count(igroup);
   //groupbit = group->bitmask[igroup];
     
