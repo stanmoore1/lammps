@@ -58,8 +58,8 @@ FixClusterSwitch::FixClusterSwitch(LAMMPS *lmp, int narg, char **arg) : Fix(lmp,
   random_unequal = new RanPark(lmp, seed);
 
   // ERROR CHECKPOINT: make sure pair style has cutoff attribute
-  if (force->pair == NULL) error->all(FLERR,"fix cluster_switch requires a pair style");
-  if (force->pair->cutsq == NULL) error->all(FLERR,"fix cluster_switch is incompatible with pair style");
+  if (force->pair == nullptr) error->all(FLERR,"fix cluster_switch requires a pair style");
+  if (force->pair->cutsq == nullptr) error->all(FLERR,"fix cluster_switch is incompatible with pair style");
   cutsq = cutoff * cutoff; //force->pair->cutsq;
   
   // INITIALIZE FLAGS
@@ -69,9 +69,17 @@ FixClusterSwitch::FixClusterSwitch(LAMMPS *lmp, int narg, char **arg) : Fix(lmp,
   comm_forward = 1; //Flag for forward communication (send local atom data to other procs as ghost particles)
   pack_flag = 0; //This may or may not be used later (to set which information is transmitted to adjacent nodes)
 
-  fp1 = NULL;
-  fp2 = NULL;
-
+  fp1 = nullptr;
+  fp2 = nullptr;
+  atomtypesON = nullptr;
+  atomtypesOFF = nullptr;
+  contactMap = nullptr;
+  mol_restrict = nullptr;
+  mol_atoms = nullptr;
+  mol_state = nullptr;
+  mol_cluster = nullptr;
+  mol_accept = nullptr;
+  
   vector_flag = 1;
   size_vector = 7; 
   global_freq = 1;
@@ -124,7 +132,7 @@ void FixClusterSwitch::read_file(const char *file)
   FILE *fp;
   if (comm->me == 0) {
     fp = utils::open_potential(file, lmp, nullptr);
-    if (fp == NULL) {
+    if (fp == nullptr) {
       char str[128];
       sprintf(str,"Cannot open rates file (fix cluster_switch) called %s",file);
       error->one(FLERR,str);
@@ -143,7 +151,7 @@ void FixClusterSwitch::read_file(const char *file)
   while (1) {
     if (comm->me == 0) {
       ptr = fgets(line,MAXLINE,fp);
-      if (ptr == NULL) {
+      if (ptr == nullptr) {
         eof = 1;
         fclose(fp);
       } else n = strlen(line) + 1;
@@ -165,7 +173,7 @@ void FixClusterSwitch::read_file(const char *file)
 
     nwords = 0;
     words[nwords++] = strtok(line," \t\n\r\f");
-    while ((words[nwords++] = strtok(NULL," \t\n\r\f"))) continue;
+    while ((words[nwords++] = strtok(nullptr," \t\n\r\f"))) continue;
 
     if(lineNum == 1) {
       probON  = atof(words[0]);
@@ -206,7 +214,7 @@ void FixClusterSwitch::read_contacts(const char *file)
   FILE *fp;
   if (comm->me == 0) {
     fp = utils::open_potential(file, lmp, nullptr);
-    if (fp == NULL) {
+    if (fp == nullptr) {
       char str[128];
       sprintf(str,"Cannot open contact file (fix cluster_switch) called %s",file);
       error->one(FLERR,str);
@@ -225,7 +233,7 @@ void FixClusterSwitch::read_contacts(const char *file)
   while (1) {
     if (comm->me == 0) {
       ptr = fgets(line,MAXLINE,fp);
-      if (ptr == NULL) {
+      if (ptr == nullptr) {
         eof = 1;
         fclose(fp);
       } else n = strlen(line) + 1;
@@ -247,7 +255,7 @@ void FixClusterSwitch::read_contacts(const char *file)
 
     nwords = 0;
     words[nwords++] = strtok(line," \t\n\r\f");
-    while ((words[nwords++] = strtok(NULL," \t\n\r\f"))) continue;
+    while ((words[nwords++] = strtok(nullptr," \t\n\r\f"))) continue;
 
     if(lineNum == 1) {
       nContactTypes  = atoi(words[1]);
@@ -359,11 +367,11 @@ void FixClusterSwitch::init()
   // open file for debugging 
   if(comm->me == 0) {
     fp1 = fopen("cluster_assignment.log","w");
-    if(fp1 == NULL) {
+    if(fp1 == nullptr) {
       error->one(FLERR,"File cluster_assignment.log in cluster_switch not open!\n");
     }     
     fp2 = fopen("state_assignment.log","w");
-    if(fp2 == NULL) {
+    if(fp2 == nullptr) {
       error->one(FLERR,"File state_assignment.log in cluster_switch not open!\n");
     }     
   }

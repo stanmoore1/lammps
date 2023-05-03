@@ -74,9 +74,14 @@ FixClusterSwitchKokkos<DeviceType>::~FixClusterSwitchKokkos()
 {
   if (copymode) return;
 
-#ifdef LMP_KOKKOS_DEBUG
-  rand_pool.destroy();
-#endif
+    memoryKK->destroy_kokkos(k_mol_restrict,mol_restrict);
+    memoryKK->destroy_kokkos(k_mol_state,mol_state);
+    memoryKK->destroy_kokkos(k_mol_accept,mol_accept);
+    memoryKK->destroy_kokkos(k_mol_cluster,mol_cluster);
+    memoryKK->destroy_kokkos(k_mol_atoms,mol_atoms);
+    memoryKK->destroy_kokkos(k_atomtypesON,atomtypesON);
+    memoryKK->destroy_kokkos(k_atomtypesOFF,atomtypesOFF);
+    memoryKK->destroy_kokkos(k_contactMap,contactMap);
 }
 
 /* ---------------------------------------------------------------------- */
