@@ -61,6 +61,7 @@ FixClusterSwitchKokkos<DeviceType>::FixClusterSwitchKokkos(LAMMPS *lmp, int narg
   datamask_modify = EMPTY_MASK;
 
   d_done = typename AT::t_int_scalar("fix_cluster_switch:done");
+  d_error_flag = typename AT::t_int_scalar("fix_cluster_switch:error_flag");
 
 #ifdef LMP_KOKKOS_DEBUG
   rand_pool.init(random_unequal);
@@ -139,7 +140,6 @@ void FixClusterSwitchKokkos<DeviceType>::allocate(int flag)
     d_atomtypesOFF = k_atomtypesOFF.template view<DeviceType>();
   } else if (flag == 3) {
     memoryKK->create_kokkos(k_contactMap,contactMap,nContactTypes,nAtomsPerContact,2,"fix:contactMap");
-    printf("ALLOCATE CM %i %i \n",nContactTypes,nAtomsPerContact);
 
     d_contactMap = k_contactMap.template view<DeviceType>();
   }
@@ -393,7 +393,7 @@ void FixClusterSwitchKokkos<DeviceType>::check_cluster()
     fprintf(fp2,"%d ",currtime);
     for (int i = 0; i <= maxmol; i++) {
       int clusterflag = 0;
-      if (d_mol_cluster[i] == clusterID) clusterflag = 1;
+      if (mol_cluster[i] == clusterID) clusterflag = 1;
       fprintf(fp1, "%d ",clusterflag);
       fprintf(fp2, "%d ",mol_state[i]);
     }
@@ -761,6 +761,34 @@ void FixClusterSwitchKokkos<DeviceType>::gather_statistics_item(const int& i, RE
       }
     }
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void FixClusterSwitchKokkos<DeviceType>::check_arrays()
+{
+  // local variables for lambda capture
+
+  auto l_mol_restrict = d_mol_restrict;
+  auto l_mol_state = d_mol_state;
+  auto l_error_flag = d_error_flag;
+
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagFixClusterSwitchCheckArrays>(0,maxmol+1),*this);
+
+  auto h_error_flag = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_error_flag);
+  if (h_error_flag())
+    error->all(FLERR,"Communication of mol_state inconsistent: fix cluster_switch");
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void FixClusterSwitchKokkos<DeviceType>::operator()(TagFixClusterSwitchCheckArrays, const int &i) const
+{
+  if (d_mol_restrict[i] == 1 && !(d_mol_state[i] == 1 || d_mol_state[i] == 0))
+    d_error_flag() = 1;
 }
 
 /* ---------------------------------------------------------------------- */

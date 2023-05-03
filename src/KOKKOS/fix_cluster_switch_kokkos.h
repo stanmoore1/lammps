@@ -27,6 +27,7 @@ struct TagFixClusterSwitchAttemptSwitch1{};
 struct TagFixClusterSwitchAttemptSwitch2{};
 struct TagFixClusterSwitchAttemptSwitch3{};
 struct TagFixClusterSwitchAttemptSwitch4{};
+struct TagFixClusterSwitchCheckArrays{};
 
 template<int PBC_FLAG>
 struct TagFixClusterSwitchPackForwardComm{};
@@ -97,6 +98,9 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixClusterSwitchAttemptSwitch4, const int&) const;
 
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixClusterSwitchCheckArrays, const int&) const;
+
   template<int PBC_FLAG>
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixClusterSwitchPackForwardComm<PBC_FLAG>, const int&) const;
@@ -108,7 +112,7 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
   void gather_statistics_item(const int&, REDUCE_DOUBLE_6&) const;
 
  private:
-#define LMP_KOKKOS_DEBUG
+
 #ifdef LMP_KOKKOS_DEBUG
   RandPoolWrap rand_pool;
   typedef RandWrap rand_type;
@@ -126,6 +130,7 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
   void attempt_switch(); // where all the MC switching happens
   void check_cluster(); // checks recursively molecules part of central cluster and updates mol_restrict
   void gather_statistics(); // uses newly communicated mol arrays to gather MC statistics
+  void check_arrays();
 
   // hash map (key value) to keep track of mols
 
@@ -169,7 +174,7 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
   typename AT::t_int_1d d_mol_cluster_local;
   typename AT::t_int_1d d_mol_accept_local;
 
-  typename AT::t_int_scalar d_done;
+  typename AT::t_int_scalar d_done,d_error_flag;
 
   int iswap,first,nsend;
 
