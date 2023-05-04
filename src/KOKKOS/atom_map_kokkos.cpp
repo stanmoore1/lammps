@@ -283,13 +283,9 @@ void AtomKokkos::map_one(tagint global, int local)
     auto& h_map_hash = k_map_hash.h_view;
 
     auto insert_result = h_map_hash.insert(global, local);
-    if (insert_result.existing()) {
-      h_map_hash.begin_erase();
-      h_map_hash.erase(global);
-      h_map_hash.end_erase();
-      insert_result = h_map_hash.insert(global, local);
-    }
-    if (!insert_result.success())
+    if (insert_result.existing())
+      h_map_hash.value_at(h_map_hash.find(global)) = local;
+    else if (insert_result.failed())
       error->one(FLERR,"Failed to insert into Kokkos hash atom map");
   }
 }
