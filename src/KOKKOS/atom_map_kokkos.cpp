@@ -245,11 +245,13 @@ void AtomKokkos::map_set()
 
     d_sametag(i) = i_closest;
 
-    if (map_style == MAP_ARRAY)
-      d_map_array(tag_i) = i_min;
-    else {
-      auto insert_result = d_map_hash.insert(tag_i, i_min);
-      if (insert_result.failed()) d_error_flag() = 1;
+    if (i == i_min) {
+      if (map_style == MAP_ARRAY)
+        d_map_array(tag_i) = i_min;
+      else {
+        auto insert_result = d_map_hash.insert(tag_i, i_min);
+        if (insert_result.failed()) d_error_flag() = 1;
+      }
     }
   
   });
