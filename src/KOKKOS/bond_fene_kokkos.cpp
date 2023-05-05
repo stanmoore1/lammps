@@ -43,13 +43,16 @@ BondFENEKokkos<DeviceType>::BondFENEKokkos(LAMMPS *lmp) : BondFENE(lmp)
   datamask_read = X_MASK | F_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | ENERGY_MASK | VIRIAL_MASK;
 
-  k_warning_flag = DAT::tdual_int_scalar("Bond:warning_flag");
-  d_warning_flag = k_warning_flag.view<DeviceType>();
-  h_warning_flag = k_warning_flag.h_view;
+  // use 1D view for scalars to reduce GPU memory operations
 
-  k_error_flag = DAT::tdual_int_scalar("Bond:error_flag");
-  d_error_flag = k_error_flag.view<DeviceType>();
-  h_error_flag = k_error_flag.h_view;
+  d_scalars = typename AT::t_int_1d("bond:scalars",2);
+  h_scalars = HAT::t_int_1d("bond:scalars_mirror",2);
+
+  d_warning_flag = Kokkos::subview(d_scalars,0);
+  d_error_flag = Kokkos::subview(d_scalars,1);
+
+  h_warning_flag = Kokkos::subview(h_scalars,0);
+  h_error_flag = Kokkos::subview(h_scalars,1);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -99,13 +102,7 @@ void BondFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   nlocal = atom->nlocal;
   newton_bond = force->newton_bond;
 
-  h_warning_flag() = 0;
-  k_warning_flag.template modify<LMPHostType>();
-  k_warning_flag.template sync<DeviceType>();
-
-  h_error_flag() = 0;
-  k_error_flag.template modify<LMPHostType>();
-  k_error_flag.template sync<DeviceType>();
+  Kokkos::deep_copy(d_scalars,0);
 
   copymode = 1;
 
@@ -127,13 +124,11 @@ void BondFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
   }
 
-  k_warning_flag.template modify<DeviceType>();
-  k_warning_flag.template sync<LMPHostType>();
+  Kokkos::deep_copy(h_scalars,d_scalars);
+
   if (h_warning_flag())
     error->warning(FLERR,"FENE bond too long");
 
-  k_error_flag.template modify<DeviceType>();
-  k_error_flag.template sync<LMPHostType>();
   if (h_error_flag())
     error->one(FLERR,"Bad FENE bond");
 

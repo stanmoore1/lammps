@@ -71,11 +71,10 @@ class BondFENEKokkos : public BondFENE {
   typename ArrayTypes<DeviceType>::t_efloat_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
 
-  DAT::tdual_int_scalar k_warning_flag;
+  typename AT::t_int_1d d_scalars;
+  HAT::t_int_1d h_scalars;
   typename AT::t_int_scalar d_warning_flag;
   HAT::t_int_scalar h_warning_flag;
-
-  DAT::tdual_int_scalar k_error_flag;
   typename AT::t_int_scalar d_error_flag;
   HAT::t_int_scalar h_error_flag;
 
