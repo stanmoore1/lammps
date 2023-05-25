@@ -202,7 +202,10 @@ void FixLangevinKokkos<DeviceType>::post_force(int /*vflag*/)
   ftm2v = force->ftm2v;
   fran_prop_const = sqrt(24.0*boltz/t_period/dt/mvv2e);
 
-  compute_target(); // modifies tforce vector, hence sync here
+  if (constantflag < 2) {
+    compute_target(); // modifies tforce vector, hence sync here
+    if (constantflag) constantflag++;
+  }
   k_tforce.template sync<DeviceType>();
 
   double fsum[3],fsumall[3];

@@ -99,6 +99,7 @@ FixLangevin::FixLangevin(LAMMPS *lmp, int narg, char **arg) :
   oflag = 0;
   tallyflag = 0;
   zeroflag = 0;
+  constantflag = 0;
   osflag = 0;
 
   int iarg = 7;
@@ -142,6 +143,10 @@ FixLangevin::FixLangevin(LAMMPS *lmp, int narg, char **arg) :
     } else if (strcmp(arg[iarg], "zero") == 0) {
       if (iarg + 2 > narg) error->all(FLERR, "Illegal fix langevin command");
       zeroflag = utils::logical(FLERR, arg[iarg + 1], false, lmp);
+      iarg += 2;
+    } else if (strcmp(arg[iarg], "constant") == 0) {
+      if (iarg + 2 > narg) error->all(FLERR, "Illegal fix langevin command");
+      constantflag = utils::logical(FLERR, arg[iarg + 1], false, lmp);
       iarg += 2;
     } else
       error->all(FLERR, "Illegal fix langevin command");
@@ -223,6 +228,7 @@ int FixLangevin::setmask()
 
 void FixLangevin::init()
 {
+  if (constantflag) constantflag = 1;
   if (gjfflag) {
     if (t_period * 2 == update->dt)
       error->all(FLERR, "Fix langevin gjf cannot have t_period equal to dt/2");
@@ -614,7 +620,10 @@ void FixLangevin::post_force_templated()
   double mvv2e = force->mvv2e;
   double ftm2v = force->ftm2v;
 
-  compute_target();
+  if (constantflag < 2) {
+    compute_target(); // modifies tforce vector, hence sync here
+    if (constantflag) constantflag++;
+  }
 
   if (Tp_ZERO) {
     fsum[0] = fsum[1] = fsum[2] = 0.0;
