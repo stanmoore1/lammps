@@ -38,12 +38,12 @@ NBinKokkos<DeviceType>::NBinKokkos(LAMMPS *lmp) : NBinStandard(lmp) {
 
   kokkos = 1;
 
-  for (int i = 0; i < atom->nlocal; i++) {
-    for (int j = 1; j < group->ngroup; ++j) { 
-      if (atom->mask[i] & group->bitmask[j]) break;
-      printf("%i %i\n",i,j);
-    }
-  }
+  ngroup = group->ngroup;
+  MemKK::realloc_kokkos(d_bitmask,"bitmask",ngroup);
+  auto h_bitmask = Kokkos::create_mirror_view(d_bitmask);
+  for (int j = 0; j < ngroup; j++)
+    h_bitmask(j) = group->bitmask[j];
+  Kokkos::deep_copy(d_bitmask,h_bitmask);
 }
 
 /* ----------------------------------------------------------------------
@@ -108,8 +108,9 @@ void NBinKokkos<DeviceType>::bin_atoms()
     f_zero.ptr = (void*) k_bincount_groups.view<DeviceType>().data();
     Kokkos::parallel_for(mbins, f_zero);
 
-    atomKK->sync(ExecutionSpaceFromDevice<DeviceType>::space,X_MASK);
+    atomKK->sync(ExecutionSpaceFromDevice<DeviceType>::space,X_MASK|MASK_MASK);
     x = atomKK->k_x.view<DeviceType>();
+    mask = atomKK->k_mask.view<DeviceType>();
 
     bboxlo_[0] = bboxlo[0]; bboxlo_[1] = bboxlo[1]; bboxlo_[2] = bboxlo[2];
     bboxhi_[0] = bboxhi[0]; bboxhi_[1] = bboxhi[1]; bboxhi_[2] = bboxhi[2];
@@ -141,10 +142,18 @@ void NBinKokkos<DeviceType>::binatomsItem(const int &i) const
 {
   const int ibin = coord2bin(x(i, 0), x(i, 1), x(i, 2));
 
+  int my_group;
+  for (int j = 1; j < ngroup; ++j) {
+    if (mask[i] & d_bitmask[j]) {
+      my_group = j;
+      break;
+    }
+  }
+
   atom2bin(i) = ibin;
-  const int ac = Kokkos::atomic_fetch_add(&bincount_groups(ibin,0), (int)1);
+  const int ac = Kokkos::atomic_fetch_add(&bincount_groups(ibin,my_group), (int)1);
   if (ac < (int)bins_groups.extent(1)) {
-    bins_groups(ibin, ac, 0) = i;
+    bins_groups(ibin, ac, my_group) = i;
   } else {
     d_resize() = 1;
   }

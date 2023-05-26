@@ -910,6 +910,14 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGhostGPU(typename Kokkos::Team
   auto* sharedmem = static_cast<X_FLOAT *>(dev.team_shmem().get_shmem(sharedsize));
   // loop over atoms in i's bin
 
+  int my_group;
+  for (int j = 1; j < ngroup; ++j) {
+    if (mask[i] & d_bitmask[j]) {
+      my_group = j;
+      break;
+    }
+  }
+
   const int atoms_per_bin = c_bins_groups.extent(1);
   const int BINS_PER_TEAM = dev.team_size()/atoms_per_bin <1?1:dev.team_size()/atoms_per_bin;
   const int TEAMS_PER_BIN = atoms_per_bin/dev.team_size()<1?1:atoms_per_bin/dev.team_size();
@@ -922,11 +930,11 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGhostGPU(typename Kokkos::Team
   X_FLOAT* other_x = sharedmem + 5*atoms_per_bin*MY_BIN;
   int* other_id = (int*) &other_x[4 * atoms_per_bin];
 
-  int bincount_current = c_bincount_groups(ibin,0);
+  int bincount_current = c_bincount_groups(ibin,my_group);
 
   for (int kk = 0; kk < TEAMS_PER_BIN; kk++) {
     const int MY_II = dev.team_rank()%atoms_per_bin+kk*dev.team_size();
-    const int i = MY_II < bincount_current ? c_bins_groups(ibin, MY_II, 0) : -1;
+    const int i = MY_II < bincount_current ? c_bins_groups(ibin, MY_II, my_group) : -1;
 
     int n = 0;
 
@@ -994,8 +1002,8 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGhostGPU(typename Kokkos::Team
       }
 
       const int jbin = ibin + stencil[k];
-      bincount_current = c_bincount_groups(jbin,0);
-      int j = MY_II < bincount_current ? c_bins_groups(jbin, MY_II, 0) : -1;
+      bincount_current = c_bincount_groups(jbin,my_group);
+      int j = MY_II < bincount_current ? c_bins_groups(jbin, MY_II, my_group) : -1;
 
       if (j >= 0) {
         other_x[MY_II] = x(j, 0);

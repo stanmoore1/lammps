@@ -61,6 +61,8 @@ class NBinKokkos : public NBinStandard {
   typename AT::t_int_scalar d_resize;
   typename ArrayTypes<LMPHostType>::t_int_scalar h_resize;
   typename AT::t_x_array_randomread x;
+  typename AT::t_int_1d mask,d_bitmask;
+  int ngroup;
 
   KOKKOS_INLINE_FUNCTION
   void binatomsItem(const int &i) const;
