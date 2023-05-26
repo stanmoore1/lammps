@@ -45,12 +45,18 @@ class NBinKokkos : public NBinStandard {
   int atoms_per_bin;
   DAT::tdual_int_1d k_bincount;
   DAT::tdual_int_2d k_bins;
+  DAT::tdual_int_2d k_bincount_groups;
+  DAT::tdual_int_3d k_bins_groups;
   DAT::tdual_int_1d k_atom2bin;
 
   typename AT::t_int_1d bincount;
   const typename AT::t_int_1d_const c_bincount;
   typename AT::t_int_2d bins;
   typename AT::t_int_2d_const c_bins;
+  typename AT::t_int_2d bincount_groups;
+  const typename AT::t_int_2d_const c_bincount_groups;
+  typename AT::t_int_3d bins_groups;
+  typename AT::t_int_3d_const c_bins_groups;
   typename AT::t_int_1d atom2bin;
   typename AT::t_int_scalar d_resize;
   typename ArrayTypes<LMPHostType>::t_int_scalar h_resize;

@@ -172,6 +172,8 @@ class NPairKokkos : public NPair {
   int atoms_per_bin;
   DAT::tdual_int_1d k_bincount;
   DAT::tdual_int_2d k_bins;
+  DAT::tdual_int_2d k_bincount_groups;
+  DAT::tdual_int_3d k_bins_groups;
   DAT::tdual_int_1d k_atom2bin;
 
   // data from NStencil class
@@ -216,6 +218,10 @@ class NeighborKokkosExecute
   const typename AT::t_int_1d_const c_bincount;
   typename AT::t_int_2d bins;
   typename AT::t_int_2d_const c_bins;
+  const typename AT::t_int_2d bincount_groups;
+  const typename AT::t_int_2d_const c_bincount_groups;
+  typename AT::t_int_3d bins_groups;
+  typename AT::t_int_3d_const c_bins_groups;
   const typename AT::t_int_1d atom2bin;
   const typename AT::t_int_1d_const c_atom2bin;
 
@@ -264,6 +270,8 @@ class NeighborKokkosExecute
                         const typename AT::t_xfloat_2d_randomread &_cutneighsq,
                         const typename AT::t_int_1d &_bincount,
                         const typename AT::t_int_2d &_bins,
+                        const typename AT::t_int_2d &_bincount_groups,
+                        const typename AT::t_int_3d &_bins_groups,
                         const typename AT::t_int_1d &_atom2bin,
                         const int _mbins,const int _nstencil,
                         const typename AT::t_int_1d &_d_stencil,
@@ -308,6 +316,7 @@ class NeighborKokkosExecute
     nex_mol(_nex_mol),ex_mol_group(_ex_mol_group),ex_mol_bit(_ex_mol_bit),
     ex_mol_intra(_ex_mol_intra),mbins(_mbins),
     bincount(_bincount),c_bincount(_bincount),bins(_bins),c_bins(_bins),
+    bincount_groups(_bincount_groups),c_bincount_groups(_bincount_groups),bins_groups(_bins_groups),c_bins_groups(_bins_groups),
     atom2bin(_atom2bin),c_atom2bin(_atom2bin),
     nstencil(_nstencil),d_stencil(_d_stencil),d_stencilxyz(_d_stencilxyz),
     x(_x),radius(_radius),type(_type),mask(_mask),molecule(_molecule),

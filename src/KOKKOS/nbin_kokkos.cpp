@@ -19,6 +19,7 @@
 #include "comm.h"
 #include "memory_kokkos.h"
 #include "update.h"
+#include "group.h"
 
 using namespace LAMMPS_NS;
 
@@ -36,6 +37,13 @@ NBinKokkos<DeviceType>::NBinKokkos(LAMMPS *lmp) : NBinStandard(lmp) {
   h_resize() = 1;
 
   kokkos = 1;
+
+  for (int i = 0; i < atom->nlocal; i++) {
+    for (int j = 1; j < group->ngroup; ++j) { 
+      if (atom->mask[i] & group->bitmask[j]) break;
+      printf("%i %i\n",i,j);
+    }
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -62,12 +70,14 @@ NBinKokkos<DeviceType>::NBinKokkos(LAMMPS *lmp) : NBinStandard(lmp) {
 template<class DeviceType>
 void NBinKokkos<DeviceType>::bin_atoms_setup(int nall)
 {
-  if (mbins > (int)k_bins.d_view.extent(0)) {
-    MemoryKokkos::realloc_kokkos(k_bins,"Neighbor::d_bins",mbins,atoms_per_bin);
-    bins = k_bins.view<DeviceType>();
+  int ngroups = group->ngroup - 1;
 
-    MemoryKokkos::realloc_kokkos(k_bincount,"Neighbor::d_bincount",mbins);
-    bincount = k_bincount.view<DeviceType>();
+  if (mbins > (int)k_bins_groups.d_view.extent(0)) {
+    MemoryKokkos::realloc_kokkos(k_bins_groups,"Neighbor::d_bins",mbins,atoms_per_bin,ngroups);
+    bins_groups = k_bins_groups.view<DeviceType>();
+
+    MemoryKokkos::realloc_kokkos(k_bincount_groups,"Neighbor::d_bincount",mbins,ngroups);
+    bincount_groups = k_bincount_groups.view<DeviceType>();
   }
   if (nall > (int)k_atom2bin.d_view.extent(0)) {
     MemoryKokkos::realloc_kokkos(k_atom2bin,"Neighbor::d_atom2bin",nall);
@@ -84,8 +94,8 @@ void NBinKokkos<DeviceType>::bin_atoms()
 {
   last_bin = update->ntimestep;
 
-  k_bins.template sync<DeviceType>();
-  k_bincount.template sync<DeviceType>();
+  k_bins_groups.template sync<DeviceType>();
+  k_bincount_groups.template sync<DeviceType>();
   k_atom2bin.template sync<DeviceType>();
 
   h_resize() = 1;
@@ -95,7 +105,7 @@ void NBinKokkos<DeviceType>::bin_atoms()
     Kokkos::deep_copy(d_resize, h_resize);
 
     MemsetZeroFunctor<DeviceType> f_zero;
-    f_zero.ptr = (void*) k_bincount.view<DeviceType>().data();
+    f_zero.ptr = (void*) k_bincount_groups.view<DeviceType>().data();
     Kokkos::parallel_for(mbins, f_zero);
 
     atomKK->sync(ExecutionSpaceFromDevice<DeviceType>::space,X_MASK);
@@ -112,14 +122,14 @@ void NBinKokkos<DeviceType>::bin_atoms()
     if (h_resize()) {
 
       atoms_per_bin += 16;
-      k_bins = DAT::tdual_int_2d("bins", mbins, atoms_per_bin);
-      bins = k_bins.view<DeviceType>();
-      c_bins = bins;
+      k_bins_groups = DAT::tdual_int_3d("bins", mbins, atoms_per_bin, group->ngroup - 1);
+      bins_groups = k_bins_groups.view<DeviceType>();
+      c_bins_groups = bins_groups;
     }
   }
 
-  k_bins.template modify<DeviceType>();
-  k_bincount.template modify<DeviceType>();
+  k_bins_groups.template modify<DeviceType>();
+  k_bincount_groups.template modify<DeviceType>();
   k_atom2bin.template modify<DeviceType>();
 }
 
@@ -132,9 +142,9 @@ void NBinKokkos<DeviceType>::binatomsItem(const int &i) const
   const int ibin = coord2bin(x(i, 0), x(i, 1), x(i, 2));
 
   atom2bin(i) = ibin;
-  const int ac = Kokkos::atomic_fetch_add(&bincount[ibin], (int)1);
-  if (ac < (int)bins.extent(1)) {
-    bins(ibin, ac) = i;
+  const int ac = Kokkos::atomic_fetch_add(&bincount_groups(ibin,0), (int)1);
+  if (ac < (int)bins_groups.extent(1)) {
+    bins_groups(ibin, ac, 0) = i;
   } else {
     d_resize() = 1;
   }
