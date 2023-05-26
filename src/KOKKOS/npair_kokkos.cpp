@@ -22,6 +22,8 @@
 #include "nstencil.h"
 #include "force.h"
 #include "kokkos.h"
+#include "group.h"
+#include "memory_kokkos.h"
 #include "transpose_helper_kokkos.h"
 
 namespace LAMMPS_NS {
@@ -43,6 +45,13 @@ NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::NPairKokkos(LAMMPS *lmp) : N
 
   h_resize = Kokkos::subview(h_scalars,0);
   h_new_maxneighs = Kokkos::subview(h_scalars,1);
+
+  ngroup = group->ngroup;
+  MemKK::realloc_kokkos(k_bitmask,"bitmask",ngroup);
+  for (int j = 0; j < ngroup; j++)
+    k_bitmask.h_view(j) = group->bitmask[j];
+  k_bitmask.modify_host();
+  k_bitmask.sync<DeviceType>();
 }
 
 /* ----------------------------------------------------------------------
@@ -164,6 +173,8 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::build(NeighList *list_)
          k_bins.view<DeviceType>(),
          k_bincount_groups.view<DeviceType>(),
          k_bins_groups.view<DeviceType>(),
+	 k_bitmask.view<DeviceType>(),
+	 ngroup,
          k_atom2bin.view<DeviceType>(),
          mbins,nstencil,
          k_stencil.view<DeviceType>(),
@@ -910,14 +921,6 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGhostGPU(typename Kokkos::Team
   auto* sharedmem = static_cast<X_FLOAT *>(dev.team_shmem().get_shmem(sharedsize));
   // loop over atoms in i's bin
 
-  int my_group;
-  for (int j = 1; j < ngroup; ++j) {
-    if (mask[i] & d_bitmask[j]) {
-      my_group = j;
-      break;
-    }
-  }
-
   const int atoms_per_bin = c_bins_groups.extent(1);
   const int BINS_PER_TEAM = dev.team_size()/atoms_per_bin <1?1:dev.team_size()/atoms_per_bin;
   const int TEAMS_PER_BIN = atoms_per_bin/dev.team_size()<1?1:atoms_per_bin/dev.team_size();
@@ -932,8 +935,8 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGhostGPU(typename Kokkos::Team
 
   int bincount_current = c_bincount_groups(ibin,my_group);
 
-  for (int kk = 0; kk < TEAMS_PER_BIN; kk++) {
-    const int MY_II = dev.team_rank()%atoms_per_bin+kk*dev.team_size();
+  ccvkbffbvdcfklighgekbbktbeejfrllgcgkdeng
+
     const int i = MY_II < bincount_current ? c_bins_groups(ibin, MY_II, my_group) : -1;
 
     int n = 0;
@@ -955,6 +958,13 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGhostGPU(typename Kokkos::Team
       other_x[MY_II + atoms_per_bin] = ytmp;
       other_x[MY_II + 2 * atoms_per_bin] = ztmp;
       other_x[MY_II + 3 * atoms_per_bin] = itype;
+    }
+    int my_group;
+    for (int j = 1; j < ngroup; ++j) {
+      if (mask[i] & c_bitmask[j]) {
+        my_group = j;
+        break;
+      }
     }
     other_id[MY_II] = i;
 #if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
