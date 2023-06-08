@@ -156,10 +156,11 @@ compute_fpair(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, c
   } else {
     const F_FLOAT taperR = r / cutm0p95_ij;
     const F_FLOAT taperRR = taperR * taperR;
-    const F_FLOAT taperRR4 = taperRR * taperRR * taperRR * taperRR;
-
-    // taperRR^30 = tapperRR^16 + taperRR^8 + taperRR^4
-    const F_FLOAT taperRR30 = ((taperRR4 * taperRR4 + 1.) * taperRR4 + 1.)* taperRR4;
+    const F_FLOAT taperRR2 = taperRR * taperRR;
+    const F_FLOAT taperRR4 = taperRR2 * taperRR2;
+    const F_FLOAT taperRR8 = taperRR4 * taperRR4;
+    const F_FLOAT taperRR16 = taperRR8 * taperRR8;
+    const F_FLOAT taperRR30 = taperRR16 * taperRR8 * taperRR4 * taperRR2;
     const F_FLOAT taperRR60 = taperRR30 * taperRR30;
     taper = (1. - taperRR30) / (1. - taperRR60);
   }
@@ -201,10 +202,11 @@ compute_evdwl(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, c
   } else {
     const F_FLOAT taperR = r / cutm0p95_ij;
     const F_FLOAT taperRR = taperR * taperR;
-    const F_FLOAT taperRR4 = taperRR * taperRR * taperRR * taperRR;
-
-    // taperRR^30 = tapperRR^16 + taperRR^8 + taperRR^4
-    const F_FLOAT taperRR30 = ((taperRR4 * taperRR4 + 1.) * taperRR4 + 1.)* taperRR4;
+    const F_FLOAT taperRR2 = taperRR * taperRR;
+    const F_FLOAT taperRR4 = taperRR2 * taperRR2;
+    const F_FLOAT taperRR8 = taperRR4 * taperRR4;
+    const F_FLOAT taperRR16 = taperRR8 * taperRR8;
+    const F_FLOAT taperRR30 = taperRR16 * taperRR8 * taperRR4 * taperRR2;
     const F_FLOAT taperRR60 = taperRR30 * taperRR30;
     taper = (1. - taperRR30) / (1. - taperRR60);
   }
