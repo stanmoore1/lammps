@@ -13,6 +13,10 @@
 #include <string.h>
 #include <ctype.h>
 
+#if defined(_WIN32)
+#define strdup(x) _strdup(x)
+#endif
+
 static int blank_line(char *line)
 {
   while (*line != '\0') {
@@ -44,6 +48,7 @@ const char *SearchAndCheck(const char *keyword)
       fprintf(stderr," Exiting....\n");
       exit(1);
     }
+    if (has_utf8(line)) utf8_subst(line);
     if (line[0] == '@') {
       if (string_match(strtok(line+1," '\t\n\r\f("),keyword)) {
         got_it = 1;
@@ -78,6 +83,7 @@ void SearchAndFill(struct FrcFieldItem *item)
       fprintf(stderr," Exiting....\n");
       exit(1);
     }
+    if (has_utf8(line)) utf8_subst(line);
     if (line[0] == '#') {
       if (string_match(strtok(line," '\t\r\n("),item->keyword)) got_it = 1;
     }
@@ -112,13 +118,16 @@ void SearchAndFill(struct FrcFieldItem *item)
   ctr = 0;
   while ( strncmp(line,"!---", 4) != 0 ) {
     fgets(line, MAX_LINE_LENGTH, FrcF);
+    if (has_utf8(line)) utf8_subst(line);
   }
 
   /* Get first line of data that isn't commented out */
 
   fgets(line, MAX_LINE_LENGTH, FrcF);
+  if (has_utf8(line)) utf8_subst(line);
   while (strncmp(line,"!",1) == 0) {
     fgets( line, MAX_LINE_LENGTH, FrcF);
+    if (has_utf8(line)) utf8_subst(line);
   }
 
   /* Read data into structure */
@@ -221,11 +230,13 @@ void SearchAndFill(struct FrcFieldItem *item)
       ctr++;
     }
     fgets( line, MAX_LINE_LENGTH, FrcF);
+    if (has_utf8(line)) utf8_subst(line);
+
     /*if blank line encountered, get next */
-    while((blank_line(line)) ||
-          (strncmp(line,"!",1) == 0)) {
+    while((blank_line(line)) || (strncmp(line,"!",1) == 0)) {
       status = fgets( line, MAX_LINE_LENGTH, FrcF);
       if (status == NULL) break;
+      if (has_utf8(line)) utf8_subst(line);
     }
   }
   item->entries = ctr;

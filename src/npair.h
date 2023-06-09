@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -14,7 +14,7 @@
 #ifndef LMP_NPAIR_H
 #define LMP_NPAIR_H
 
-#include "pointers.h"
+#include "pointers.h"    // IWYU pragma: keep
 
 namespace LAMMPS_NS {
 
@@ -28,7 +28,7 @@ class NPair : protected Pointers {
   double cutoff_custom;    // cutoff set by requestor
 
   NPair(class LAMMPS *);
-  virtual ~NPair();
+  ~NPair() override;
   void post_constructor(class NeighRequest *);
   virtual void copy_neighbor_info();
   void build_setup();
@@ -164,11 +164,3 @@ class NPair : protected Pointers {
 }    // namespace LAMMPS_NS
 
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Non-numeric positions - simulation unstable
-
-UNDOCUMENTED
-
-*/

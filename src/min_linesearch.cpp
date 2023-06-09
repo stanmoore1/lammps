@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -63,11 +63,11 @@ MinLineSearch::MinLineSearch(LAMMPS *lmp) : Min(lmp)
 
 MinLineSearch::~MinLineSearch()
 {
-  delete [] gextra;
-  delete [] hextra;
-  delete [] x0extra_atom;
-  delete [] gextra_atom;
-  delete [] hextra_atom;
+  delete[] gextra;
+  delete[] hextra;
+  delete[] x0extra_atom;
+  delete[] gextra_atom;
+  delete[] hextra_atom;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -76,17 +76,17 @@ void MinLineSearch::init()
 {
   Min::init();
 
-  if (linestyle == 0) linemin = &MinLineSearch::linemin_backtrack;
-  else if (linestyle == 1) linemin = &MinLineSearch::linemin_quadratic;
-  else if (linestyle == 2) linemin = &MinLineSearch::linemin_forcezero;
+  if (linestyle == BACKTRACK) linemin = &MinLineSearch::linemin_backtrack;
+  else if (linestyle == QUADRATIC) linemin = &MinLineSearch::linemin_quadratic;
+  else if (linestyle == FORCEZERO) linemin = &MinLineSearch::linemin_forcezero;
 
-  delete [] gextra;
-  delete [] hextra;
+  delete[] gextra;
+  delete[] hextra;
   gextra = hextra = nullptr;
 
-  delete [] x0extra_atom;
-  delete [] gextra_atom;
-  delete [] hextra_atom;
+  delete[] x0extra_atom;
+  delete[] gextra_atom;
+  delete[] hextra_atom;
   x0extra_atom = gextra_atom = hextra_atom = nullptr;
 }
 
@@ -203,7 +203,7 @@ int MinLineSearch::linemin_backtrack(double eoriginal, double &alpha)
   // for atom coords, max amount = dmax
   // for extra per-atom dof, max amount = extra_max[]
   // for extra global dof, max amount is set by fix
-  // also insure alpha <= ALPHA_MAX
+  // also ensure alpha <= ALPHA_MAX
   // else will have to backtrack from huge value when forces are tiny
   // if all search dir components are already 0.0, exit with error
 
@@ -253,7 +253,7 @@ int MinLineSearch::linemin_backtrack(double eoriginal, double &alpha)
 
   // backtrack with alpha until energy decrease is sufficient
 
-  while (1) {
+  while (true) {
     ecurrent = alpha_step(alpha,1);
 
     // if energy change is better than ideal, exit with success
@@ -328,7 +328,7 @@ int MinLineSearch::linemin_quadratic(double eoriginal, double &alpha)
   int i,m,n;
   double fdothall,fdothme,hme,hmax,hmaxall;
   double de_ideal,de;
-  double delfh,engprev,relerr,alphaprev,fhprev,ff,fh,alpha0;
+  double delfh,engprev,relerr,alphaprev,fhprev,fh,alpha0;
   double dot[2],dotall[2];
   double *xatom,*x0atom,*fatom,*hatom;
   double alphamax;
@@ -355,7 +355,7 @@ int MinLineSearch::linemin_quadratic(double eoriginal, double &alpha)
   // for atom coords, max amount = dmax
   // for extra per-atom dof, max amount = extra_max[]
   // for extra global dof, max amount is set by fix
-  // also insure alphamax <= ALPHA_MAX
+  // also ensure alphamax <= ALPHA_MAX
   // else will have to backtrack from huge value when forces are tiny
   // if all search dir components are already 0.0, exit with error
 
@@ -412,7 +412,7 @@ int MinLineSearch::linemin_quadratic(double eoriginal, double &alpha)
   //        etmp-eoriginal+alphatmp*fdothall);
   // alpha_step(0.0,1);
 
-  while (1) {
+  while (true) {
     ecurrent = alpha_step(alpha,1);
 
     // compute new fh, alpha, delfh
@@ -439,12 +439,8 @@ int MinLineSearch::linemin_quadratic(double eoriginal, double &alpha)
         dotall[1] += fextra[i]*hextra[i];
       }
     }
-    ff = dotall[0];
     fh = dotall[1];
-    if (output->thermo->normflag) {
-      ff /= atom->natoms;
-      fh /= atom->natoms;
-    }
+    if (output->thermo->normflag) fh /= atom->natoms;
 
     delfh = fh - fhprev;
 
@@ -634,7 +630,7 @@ int MinLineSearch::linemin_forcezero(double eoriginal, double &alpha)
   // for extra per-atom dof, max amount = extra_max[]
   // for extra global dof, max amount is set by fix
 
-  // also insure alpha <= ALPHA_MAX else will have
+  // also ensure alpha <= ALPHA_MAX else will have
   // to backtrack from huge value when forces are tiny
 
   // if all search dir components are already 0.0, exit with error
@@ -708,7 +704,7 @@ int MinLineSearch::linemin_forcezero(double eoriginal, double &alpha)
 
   // main linesearch loop
 
-  while (1) {
+  while (true) {
     backtrack = false;
     fhPrev = fhCurr;
     engPrev = engCurr;

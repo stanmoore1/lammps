@@ -1,8 +1,7 @@
-// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -13,19 +12,14 @@
 ------------------------------------------------------------------------- */
 
 #include "nstencil_half_multi_3d_tri.h"
-#include "neighbor.h"
+
 #include "neigh_list.h"
-#include "nbin.h"
-#include "memory.h"
-#include "atom.h"
-#include <math.h>
 
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-NStencilHalfMulti3dTri::NStencilHalfMulti3dTri(LAMMPS *lmp) :
-  NStencil(lmp) {}
+NStencilHalfMulti3dTri::NStencilHalfMulti3dTri(LAMMPS *lmp) : NStencil(lmp) {}
 
 /* ---------------------------------------------------------------------- */
 
@@ -41,15 +35,15 @@ void NStencilHalfMulti3dTri::set_stencil_properties()
 
   for (i = 0; i < n; i++) {
     for (j = 0; j < n; j++) {
-      if(cutcollectionsq[i][i] > cutcollectionsq[j][j]) continue;
+      if (cutcollectionsq[i][i] > cutcollectionsq[j][j]) continue;
 
-      flag_skip_multi[i][j] = 0;
+      flag_skip_multi[i][j] = false;
 
-      if(cutcollectionsq[i][i] == cutcollectionsq[j][j]){
-        flag_half_multi[i][j] = 1;
+      if (cutcollectionsq[i][i] == cutcollectionsq[j][j]) {
+        flag_half_multi[i][j] = true;
         bin_collection_multi[i][j] = i;
       } else {
-        flag_half_multi[i][j] = 0;
+        flag_half_multi[i][j] = false;
         bin_collection_multi[i][j] = j;
       }
     }
@@ -65,7 +59,6 @@ void NStencilHalfMulti3dTri::create()
   int icollection, jcollection, bin_collection, i, j, k, ns;
   int n = ncollections;
   double cutsq;
-
 
   for (icollection = 0; icollection < n; icollection++) {
     for (jcollection = 0; jcollection < n; jcollection++) {
@@ -85,25 +78,21 @@ void NStencilHalfMulti3dTri::create()
       mbinz = stencil_mbinz_multi[icollection][jcollection];
 
       bin_collection = bin_collection_multi[icollection][jcollection];
-
       cutsq = cutcollectionsq[icollection][jcollection];
 
       if (flag_half_multi[icollection][jcollection]) {
         for (k = 0; k <= sz; k++)
           for (j = -sy; j <= sy; j++)
             for (i = -sx; i <= sx; i++)
-              if (bin_distance_multi(i,j,k,bin_collection) < cutsq)
-	            stencil_multi[icollection][jcollection][ns++] =
-                        k*mbiny*mbinx + j*mbinx + i;
+              if (bin_distance_multi(i, j, k, bin_collection) < cutsq)
+                stencil_multi[icollection][jcollection][ns++] = k * mbiny * mbinx + j * mbinx + i;
       } else {
         for (k = -sz; k <= sz; k++)
           for (j = -sy; j <= sy; j++)
             for (i = -sx; i <= sx; i++)
-	          if (bin_distance_multi(i,j,k,bin_collection) < cutsq)
-	            stencil_multi[icollection][jcollection][ns++] =
-                        k*mbiny*mbinx + j*mbinx + i;
+              if (bin_distance_multi(i, j, k, bin_collection) < cutsq)
+                stencil_multi[icollection][jcollection][ns++] = k * mbiny * mbinx + j * mbinx + i;
       }
-
       nstencil_multi[icollection][jcollection] = ns;
     }
   }

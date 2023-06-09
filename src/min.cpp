@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -72,6 +72,7 @@ Min::Min(LAMMPS *lmp) : Pointers(lmp)
   delaystep_start_flag = 1;
   max_vdotf_negatif = 2000;
   alpha_final = 0.0;
+  abcflag = 0;
 
   elist_global = elist_atom = nullptr;
   vlist_global = vlist_atom = cvlist_atom = nullptr;
@@ -94,13 +95,13 @@ Min::Min(LAMMPS *lmp) : Pointers(lmp)
 
 Min::~Min()
 {
-  delete [] elist_global;
-  delete [] elist_atom;
-  delete [] vlist_global;
-  delete [] vlist_atom;
-  delete [] cvlist_atom;
+  delete[] elist_global;
+  delete[] elist_atom;
+  delete[] vlist_global;
+  delete[] vlist_atom;
+  delete[] cvlist_atom;
 
-  delete [] fextra;
+  delete[] fextra;
 
   memory->sfree(xextra_atom);
   memory->sfree(fextra_atom);
@@ -121,15 +122,14 @@ void Min::init()
   // create fix needed for storing atom-based quantities
   // will delete it at end of run
 
-  modify->add_fix("MINIMIZE all MINIMIZE");
-  fix_minimize = (FixMinimize *) modify->fix[modify->nfix-1];
+  fix_minimize = dynamic_cast<FixMinimize *>(modify->add_fix("MINIMIZE all MINIMIZE"));
 
   // clear out extra global and per-atom dof
   // will receive requests for new per-atom dof during pair init()
   // can then add vectors to fix_minimize in setup()
 
   nextra_global = 0;
-  delete [] fextra;
+  delete[] fextra;
   fextra = nullptr;
 
   nextra_atom = 0;
@@ -158,8 +158,7 @@ void Min::init()
 
   // detect if fix omp is present for clearing force arrays
 
-  int ifix = modify->find_fix("package_omp");
-  if (ifix >= 0) external_force_clear = 1;
+  if (modify->get_fix_by_id("package_omp")) external_force_clear = 1;
 
   // set flags for arrays to clear in force_clear()
 
@@ -184,15 +183,14 @@ void Min::init()
   neigh_delay = neighbor->delay;
   neigh_dist_check = neighbor->dist_check;
 
-  if (neigh_every != 1 || neigh_delay != 0 || neigh_dist_check != 1) {
+  if ((neigh_every != 1) || (neigh_delay != 0)) {
     if (comm->me == 0)
-      error->warning(FLERR, "Using 'neigh_modify every 1 delay 0 check"
-                     " yes' setting during minimization");
+      utils::logmesg(lmp, "Switching to 'neigh_modify every 1 delay 0 check yes' "
+                     "setting during minimization\n");
+    neighbor->every = 1;
+    neighbor->delay = 0;
+    neighbor->dist_check = 1;
   }
-
-  neighbor->every = 1;
-  neighbor->delay = 0;
-  neighbor->dist_check = 1;
 
   niter = neval = 0;
 
@@ -208,8 +206,7 @@ void Min::init()
 void Min::setup(int flag)
 {
   if (comm->me == 0 && screen) {
-    fmt::print(screen,"Setting up {} style minimization ...\n",
-               update->minimize_style);
+    fmt::print(screen,"Setting up {} style minimization ...\n", update->minimize_style);
     if (flag) {
       fmt::print(screen,"  Unit style    : {}\n", update->unit_style);
       fmt::print(screen,"  Current step  : {}\n", update->ntimestep);
@@ -224,16 +221,15 @@ void Min::setup(int flag)
   nextra_global = modify->min_dof();
   if (nextra_global) {
     fextra = new double[nextra_global];
-    if (comm->me == 0 && screen)
-      fprintf(screen,"WARNING: Energy due to %d extra global DOFs will"
-              " be included in minimizer energies\n",nextra_global);
+    if (comm->me == 0)
+      error->warning(FLERR, "Energy due to {} extra global DOFs will"
+                     " be included in minimizer energies\n",nextra_global);
   }
 
   // compute for potential energy
 
-  int id = modify->find_compute("thermo_pe");
-  if (id < 0) error->all(FLERR,"Minimization could not find thermo_pe compute");
-  pe_compute = modify->compute[id];
+  pe_compute = modify->get_compute_by_id("thermo_pe");
+  if (!pe_compute) error->all(FLERR,"Minimization could not find thermo_pe compute");
 
   // style-specific setup does two tasks
   // setup extra global dof vectors
@@ -437,7 +433,7 @@ void Min::run(int n)
   // if early exit from iterate loop:
   // set update->nsteps to niter for Finish stats to print
   // set output->next values to this timestep
-  // call energy_force() to insure vflag is set when forces computed
+  // call energy_force() to ensure vflag is set when forces computed
   // output->write does final output for thermo, dump, restart files
   // add ntimestep to all computes that store invocation times
   //   since are hardwiring call to thermo/dumps and computes may not be ready
@@ -706,15 +702,11 @@ void Min::modify_params(int narg, char **arg)
       iarg += 2;
     } else if (strcmp(arg[iarg],"halfstepback") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal min_modify command");
-      if (strcmp(arg[iarg+1],"yes") == 0) halfstepback_flag = 1;
-      else if (strcmp(arg[iarg+1],"no") == 0) halfstepback_flag = 0;
-      else error->all(FLERR,"Illegal min_modify command");
+      halfstepback_flag = utils::logical(FLERR,arg[iarg+1],false,lmp);
       iarg += 2;
     } else if (strcmp(arg[iarg],"initialdelay") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal min_modify command");
-      if (strcmp(arg[iarg+1],"yes") == 0) delaystep_start_flag = 1;
-      else if (strcmp(arg[iarg+1],"no") == 0) delaystep_start_flag = 0;
-      else error->all(FLERR,"Illegal min_modify command");
+      delaystep_start_flag = utils::logical(FLERR,arg[iarg+1],false,lmp);
       iarg += 2;
     } else if (strcmp(arg[iarg],"vdfmax") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal min_modify command");
@@ -722,19 +714,23 @@ void Min::modify_params(int narg, char **arg)
       iarg += 2;
     } else if (strcmp(arg[iarg],"integrator") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal min_modify command");
-      if (strcmp(arg[iarg+1],"eulerimplicit") == 0) integrator = 0;
-      else if (strcmp(arg[iarg+1],"verlet") == 0) integrator = 1;
-      else if (strcmp(arg[iarg+1],"leapfrog") == 0) integrator = 2;
-      else if (strcmp(arg[iarg+1],"eulerexplicit") == 0) integrator = 3;
+      if (strcmp(arg[iarg+1],"eulerimplicit") == 0) integrator = EULERIMPLICIT;
+      else if (strcmp(arg[iarg+1],"verlet") == 0) integrator = VERLET;
+      else if (strcmp(arg[iarg+1],"leapfrog") == 0) integrator = LEAPFROG;
+      else if (strcmp(arg[iarg+1],"eulerexplicit") == 0) integrator = EULEREXPLICIT;
       else error->all(FLERR,"Illegal min_modify command");
+      iarg += 2;
+    } else if (strcmp(arg[iarg],"abcfire") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal min_modify command");
+      abcflag = utils::logical(FLERR,arg[iarg+1],false,lmp);
       iarg += 2;
     } else if (strcmp(arg[iarg],"line") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal min_modify command");
-      if (strcmp(arg[iarg+1],"backtrack") == 0) linestyle = 0;
-      else if (strcmp(arg[iarg+1],"quadratic") == 0) linestyle = 1;
-      else if (strcmp(arg[iarg+1],"forcezero") == 0) linestyle = 2;
-      else if (strcmp(arg[iarg+1],"spin_cubic") == 0) linestyle = 3;
-      else if (strcmp(arg[iarg+1],"spin_none") == 0) linestyle = 4;
+      if (strcmp(arg[iarg+1],"backtrack") == 0) linestyle = BACKTRACK;
+      else if (strcmp(arg[iarg+1],"quadratic") == 0) linestyle = QUADRATIC;
+      else if (strcmp(arg[iarg+1],"forcezero") == 0) linestyle = FORCEZERO;
+      else if (strcmp(arg[iarg+1],"spin_cubic") == 0) linestyle = SPIN_CUBIC;
+      else if (strcmp(arg[iarg+1],"spin_none") == 0) linestyle = SPIN_NONE;
       else error->all(FLERR,"Illegal min_modify command");
       iarg += 2;
     } else if (strcmp(arg[iarg],"norm") == 0) {
@@ -758,11 +754,11 @@ void Min::modify_params(int narg, char **arg)
 
 void Min::ev_setup()
 {
-  delete [] elist_global;
-  delete [] elist_atom;
-  delete [] vlist_global;
-  delete [] vlist_atom;
-  delete [] cvlist_atom;
+  delete[] elist_global;
+  delete[] elist_atom;
+  delete[] vlist_global;
+  delete[] vlist_atom;
+  delete[] cvlist_atom;
   elist_global = elist_atom = nullptr;
   vlist_global = vlist_atom = cvlist_atom = nullptr;
 
@@ -960,20 +956,19 @@ double Min::fnorm_max()
 
 double Min::total_torque()
 {
-  double fmsq,ftotsqone,ftotsqall;
+  double ftotsqone,ftotsqall;
   int nlocal = atom->nlocal;
   double hbar = force->hplanck/MY_2PI;
   double tx,ty,tz;
   double **sp = atom->sp;
   double **fm = atom->fm;
 
-  fmsq = ftotsqone = ftotsqall = 0.0;
+  ftotsqone = ftotsqall = 0.0;
   for (int i = 0; i < nlocal; i++) {
     tx = fm[i][1]*sp[i][2] - fm[i][2]*sp[i][1];
     ty = fm[i][2]*sp[i][0] - fm[i][0]*sp[i][2];
     tz = fm[i][0]*sp[i][1] - fm[i][1]*sp[i][0];
-    fmsq = tx*tx + ty*ty + tz*tz;
-    ftotsqone += fmsq;
+    ftotsqone += tx*tx + ty*ty + tz*tz;
   }
 
   // summing all fmsqtot on this replica
@@ -1031,7 +1026,7 @@ double Min::max_torque()
   double **sp = atom->sp;
   double **fm = atom->fm;
 
-  fmsq = fmaxsqone = fmaxsqall = 0.0;
+  fmaxsqone = fmaxsqall = 0.0;
   for (int i = 0; i < nlocal; i++) {
     tx = fm[i][1]*sp[i][2] - fm[i][2]*sp[i][1];
     ty = fm[i][2]*sp[i][0] - fm[i][0]*sp[i][2];

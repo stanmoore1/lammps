@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -36,11 +36,9 @@ int Compute::instance_total = 0;
 /* ---------------------------------------------------------------------- */
 
 Compute::Compute(LAMMPS *lmp, int narg, char **arg) :
-  Pointers(lmp),
-  id(nullptr), style(nullptr),
-  vector(nullptr), array(nullptr), vector_atom(nullptr),
-  array_atom(nullptr), vector_local(nullptr), array_local(nullptr), extlist(nullptr),
-  tlist(nullptr), vbiasall(nullptr)
+  Pointers(lmp), id(nullptr), style(nullptr), vector(nullptr), array(nullptr),
+  vector_atom(nullptr), array_atom(nullptr), vector_local(nullptr), array_local(nullptr),
+  extlist(nullptr), tlist(nullptr), vbiasall(nullptr)
 {
   instance_me = instance_total++;
 
@@ -62,13 +60,14 @@ Compute::Compute(LAMMPS *lmp, int narg, char **arg) :
   // set child class defaults
 
   scalar_flag = vector_flag = array_flag = 0;
-  peratom_flag = local_flag = 0;
+  peratom_flag = local_flag = pergrid_flag = 0;
   size_vector_variable = size_array_rows_variable = 0;
 
   tempflag = pressflag = peflag = 0;
   pressatomflag = peatomflag = 0;
   create_attribute = 0;
   tempbias = 0;
+  scalar = 0.0;
 
   timeflag = 0;
   comm_forward = comm_reverse = 0;
@@ -105,8 +104,8 @@ Compute::~Compute()
 {
   if (copymode) return;
 
-  delete [] id;
-  delete [] style;
+  delete[] id;
+  delete[] style;
   memory->destroy(tlist);
 }
 
@@ -128,9 +127,7 @@ void Compute::modify_params(int narg, char **arg)
     } else if (strcmp(arg[iarg],"dynamic") == 0 ||
                strcmp(arg[iarg],"dynamic/dof") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal compute_modify command");
-      if (strcmp(arg[iarg+1],"no") == 0) dynamic_user = 0;
-      else if (strcmp(arg[iarg+1],"yes") == 0) dynamic_user = 1;
-      else error->all(FLERR,"Illegal compute_modify command");
+      dynamic_user = utils::logical(FLERR,arg[iarg+1],false,lmp);
       iarg += 2;
     } else error->all(FLERR,"Illegal compute_modify command");
   }
@@ -142,13 +139,10 @@ void Compute::modify_params(int narg, char **arg)
 
 void Compute::adjust_dof_fix()
 {
-  Fix **fix = modify->fix;
-  int nfix = modify->nfix;
-
   fix_dof = 0;
-  for (int i = 0; i < nfix; i++)
-    if (fix[i]->dof_flag)
-      fix_dof += fix[i]->dof(igroup);
+  for (auto &ifix : modify->get_fix_list())
+    if (ifix->dof_flag)
+      fix_dof += ifix->dof(igroup);
 }
 
 /* ----------------------------------------------------------------------

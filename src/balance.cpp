@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -26,7 +26,8 @@
 #include "neighbor.h"
 #include "comm.h"
 #include "domain.h"
-#include "fix_store.h"
+#include "fix_store_atom.h"
+#include "force.h"
 #include "imbalance.h"
 #include "imbalance_group.h"
 #include "imbalance_neigh.h"
@@ -36,6 +37,7 @@
 #include "irregular.h"
 #include "memory.h"
 #include "modify.h"
+#include "pair.h"
 #include "rcb.h"
 #include "error.h"
 
@@ -78,26 +80,26 @@ Balance::~Balance()
   memory->destroy(proccost);
   memory->destroy(allproccost);
 
-  delete [] user_xsplit;
-  delete [] user_ysplit;
-  delete [] user_zsplit;
+  delete[] user_xsplit;
+  delete[] user_ysplit;
+  delete[] user_zsplit;
 
   if (shift_allocate) {
-    delete [] bdim;
-    delete [] onecost;
-    delete [] allcost;
-    delete [] sum;
-    delete [] target;
-    delete [] lo;
-    delete [] hi;
-    delete [] losum;
-    delete [] hisum;
+    delete[] bdim;
+    delete[] onecost;
+    delete[] allcost;
+    delete[] sum;
+    delete[] target;
+    delete[] lo;
+    delete[] hi;
+    delete[] losum;
+    delete[] hisum;
   }
 
   delete rcb;
 
   for (int i = 0; i < nimbalance; i++) delete imbalances[i];
-  delete [] imbalances;
+  delete[] imbalances;
 
   // check nfix in case all fixes have already been deleted
 
@@ -143,7 +145,7 @@ void Balance::command(int narg, char **arg)
         if (1 + procgrid[0]-1 > narg)
           error->all(FLERR,"Illegal balance command");
         xflag = USER;
-        delete [] user_xsplit;
+        delete[] user_xsplit;
         user_xsplit = new double[procgrid[0]+1];
         user_xsplit[0] = 0.0;
         iarg++;
@@ -163,7 +165,7 @@ void Balance::command(int narg, char **arg)
         if (1 + procgrid[1]-1 > narg)
           error->all(FLERR,"Illegal balance command");
         yflag = USER;
-        delete [] user_ysplit;
+        delete[] user_ysplit;
         user_ysplit = new double[procgrid[1]+1];
         user_ysplit[0] = 0.0;
         iarg++;
@@ -183,7 +185,7 @@ void Balance::command(int narg, char **arg)
         if (1 + procgrid[2]-1 > narg)
           error->all(FLERR,"Illegal balance command");
         zflag = USER;
-        delete [] user_zsplit;
+        delete[] user_zsplit;
         user_zsplit = new double[procgrid[2]+1];
         user_zsplit[0] = 0.0;
         iarg++;
@@ -196,8 +198,8 @@ void Balance::command(int narg, char **arg)
       if (style != -1) error->all(FLERR,"Illegal balance command");
       if (iarg+4 > narg) error->all(FLERR,"Illegal balance command");
       style = SHIFT;
-      if (strlen(arg[iarg+1]) > 3) error->all(FLERR,"Illegal balance command");
-      strcpy(bstr,arg[iarg+1]);
+      if (strlen(arg[iarg+1]) > BSTR_SIZE) error->all(FLERR,"Illegal balance command");
+      strncpy(bstr,arg[iarg+1],BSTR_SIZE+1);
       nitermax = utils::inumeric(FLERR,arg[iarg+2],false,lmp);
       if (nitermax <= 0) error->all(FLERR,"Illegal balance command");
       stopthresh = utils::numeric(FLERR,arg[iarg+3],false,lmp);
@@ -245,21 +247,21 @@ void Balance::command(int narg, char **arg)
     }
   }
 
-  if (style == BISECTION && comm->style == 0)
+  if (style == BISECTION && comm->style == Comm::BRICK)
     error->all(FLERR,"Balance rcb cannot be used with comm_style brick");
 
   // process remaining optional args
 
-  options(iarg,narg,arg);
+  options(iarg,narg,arg,1);
   if (wtflag) weight_storage(nullptr);
 
-  // insure particles are in current box & update box via shrink-wrap
+  // ensure particles are in current box & update box via shrink-wrap
   // init entire system since comm->setup is done
   // comm::init needs neighbor::init needs pair::init needs kspace::init, etc
   // must reset atom map after exchange() since it clears it
 
   MPI_Barrier(world);
-  double start_time = MPI_Wtime();
+  double start_time = platform::walltime();
 
   lmp->init();
 
@@ -342,7 +344,7 @@ void Balance::command(int narg, char **arg)
 
   if (style == BISECTION) {
     comm->layout = Comm::LAYOUT_TILED;
-    bisection(1);
+    bisection();
   }
 
   // reset proc sub-domains
@@ -355,16 +357,23 @@ void Balance::command(int narg, char **arg)
   // set disable = 0, so weights migrate with atoms for imbfinal calculation
 
   if (domain->triclinic) domain->x2lamda(atom->nlocal);
-  Irregular *irregular = new Irregular(lmp);
+  auto irregular = new Irregular(lmp);
   if (wtflag) fixstore->disable = 0;
-  if (style == BISECTION) irregular->migrate_atoms(1,1,rcb->sendproc);
-  else irregular->migrate_atoms(1);
+  if (style == BISECTION) irregular->migrate_atoms(sortflag,1,rcb->sendproc);
+  else irregular->migrate_atoms(sortflag);
   delete irregular;
   if (domain->triclinic) domain->lamda2x(atom->nlocal);
 
   // output of final result
 
   if (outflag) dumpout(update->ntimestep);
+
+  // notify all classes that store distributed grids
+  // so they can adjust to new proc sub-domains
+  // no need to invoke kspace->reset_grid() b/c it does this in its init()
+
+  modify->reset_grid();
+  if (force->pair) force->pair->reset_grid();
 
   // check if any particles were lost
 
@@ -386,7 +395,7 @@ void Balance::command(int narg, char **arg)
 
   if (me == 0) {
     std::string mesg = fmt::format(" rebalancing time: {:.3f} seconds\n",
-                                   MPI_Wtime()-start_time);
+                                   platform::walltime()-start_time);
     mesg += fmt::format("  iteration count = {}\n",niter);
     for (int i = 0; i < nimbalance; ++i) mesg += imbalances[i]->info();
     mesg += fmt::format("  initial/final maximal load/proc = {:.8} {:.8}\n"
@@ -412,9 +421,10 @@ void Balance::command(int narg, char **arg)
 
 /* ----------------------------------------------------------------------
    process optional command args for Balance and FixBalance
+   sortflag_default is different for the 2 classes
 ------------------------------------------------------------------------- */
 
-void Balance::options(int iarg, int narg, char **arg)
+void Balance::options(int iarg, int narg, char **arg, int sortflag_default)
 {
   // count max number of weight settings
 
@@ -426,10 +436,11 @@ void Balance::options(int iarg, int narg, char **arg)
 
   wtflag = 0;
   varflag = 0;
-  oldrcb = 0;
+  sortflag = sortflag_default;
   outflag = 0;
   int outarg = 0;
   fp = nullptr;
+  oldrcb = 0;
 
   while (iarg < narg) {
     if (strcmp(arg[iarg],"weight") == 0) {
@@ -462,14 +473,20 @@ void Balance::options(int iarg, int narg, char **arg)
       }
       iarg += 2+nopt;
 
-    } else if (strcmp(arg[iarg],"old") == 0) {
-      oldrcb = 1;
-      iarg++;
+    } else if (strcmp(arg[iarg+1],"sort") == 0) {
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "balance sort", error);
+      sortflag = utils::logical(FLERR,arg[iarg+1],false,lmp);
+      iarg += 2;
     } else if (strcmp(arg[iarg],"out") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal (fix) balance command");
       outflag = 1;
       outarg = iarg+1;
       iarg += 2;
+
+    } else if (strcmp(arg[iarg],"old") == 0) {
+      oldrcb = 1;
+      iarg++;
+
     } else error->all(FLERR,"Illegal (fix) balance command");
   }
 
@@ -491,17 +508,14 @@ void Balance::options(int iarg, int narg, char **arg)
 
 void Balance::weight_storage(char *prefix)
 {
-  std::string cmd = "";
+  std::string cmd;
 
   if (prefix) cmd = prefix;
   cmd += "IMBALANCE_WEIGHTS";
 
-  int ifix = modify->find_fix(cmd);
-  if (ifix < 1) {
-    cmd += " all STORE peratom 0 1";
-    modify->add_fix(cmd);
-    fixstore = (FixStore *) modify->fix[modify->nfix-1];
-  } else fixstore = (FixStore *) modify->fix[ifix];
+  fixstore = dynamic_cast<FixStoreAtom *>(modify->get_fix_by_id(cmd));
+  if (!fixstore)
+    fixstore = dynamic_cast<FixStoreAtom *>(modify->add_fix(cmd + " all STORE/ATOM 1 0 0 0"));
 
   // do not carry weights with atoms during normal atom migration
 
@@ -563,11 +577,10 @@ double Balance::imbalance_factor(double &maxcost)
 
 /* ----------------------------------------------------------------------
    perform balancing via RCB class
-   sortflag = flag for sorting order of received messages by proc ID
    return list of procs to send my atoms to
 ------------------------------------------------------------------------- */
 
-int *Balance::bisection(int sortflag)
+int *Balance::bisection()
 {
   if (!rcb) rcb = new RCB(lmp);
 
@@ -635,6 +648,7 @@ int *Balance::bisection(int sortflag)
 
   // invoke RCB
   // then invert() to create list of proc assignments for my atoms
+  // sortflag = flag for sorting order of received messages by proc ID
   // if triclinic, RCB operates on lamda coords
   // NOTE: (3/2017) can remove undocumented "old" option at some point
   //       ditto in rcb.cpp, or make it an option
@@ -931,7 +945,7 @@ int Balance::shift()
         // else add split I-1 or J+1 to set and try again
         // delta = size of expanded split set that will satisy criterion
 
-        while (1) {
+        while (true) {
           delta = (j-i) * close;
           midpt = 0.5 * (split[i]+split[j]);
           start = midpt - 0.5*delta;
@@ -1030,12 +1044,12 @@ void Balance::tally(int dim, int n, double *split)
   if (wtflag) {
     weight = fixstore->vstore;
     for (int i = 0; i < nlocal; i++) {
-      index = binary(x[i][dim],n,split);
+      index = utils::binary_search(x[i][dim],n,split);
       onecost[index] += weight[i];
     }
   } else {
     for (int i = 0; i < nlocal; i++) {
-      index = binary(x[i][dim],n,split);
+      index = utils::binary_search(x[i][dim],n,split);
       onecost[index] += 1.0;
     }
   }
@@ -1067,8 +1081,8 @@ int Balance::adjust(int n, double *split)
   double fraction;
 
   // reset lo/hi based on current sum and splits
-  // insure lo is monotonically increasing, ties are OK
-  // insure hi is monotonically decreasing, ties are OK
+  // ensure lo is monotonically increasing, ties are OK
+  // ensure hi is monotonically decreasing, ties are OK
   // this effectively uses info from nearby splits
   // to possibly tighten bounds on lo/hi
 
@@ -1132,16 +1146,16 @@ double Balance::imbalance_splits()
   if (wtflag) {
     weight = fixstore->vstore;
     for (int i = 0; i < nlocal; i++) {
-      ix = binary(x[i][0],nx,xsplit);
-      iy = binary(x[i][1],ny,ysplit);
-      iz = binary(x[i][2],nz,zsplit);
+      ix = utils::binary_search(x[i][0],nx,xsplit);
+      iy = utils::binary_search(x[i][1],ny,ysplit);
+      iz = utils::binary_search(x[i][2],nz,zsplit);
       proccost[iz*nx*ny + iy*nx + ix] += weight[i];
     }
   } else {
     for (int i = 0; i < nlocal; i++) {
-      ix = binary(x[i][0],nx,xsplit);
-      iy = binary(x[i][1],ny,ysplit);
-      iz = binary(x[i][2],nz,zsplit);
+      ix = utils::binary_search(x[i][0],nx,xsplit);
+      iy = utils::binary_search(x[i][1],ny,ysplit);
+      iz = utils::binary_search(x[i][2],nz,zsplit);
       proccost[iz*nx*ny + iy*nx + ix] += 1.0;
     }
   }
@@ -1160,40 +1174,6 @@ double Balance::imbalance_splits()
   double imbalance = 1.0;
   if (maxcost > 0.0) imbalance = maxcost / (totalcost/nprocs);
   return imbalance;
-}
-
-/* ----------------------------------------------------------------------
-   binary search for where value falls in N-length vec
-   note that vec actually has N+1 values, but ignore last one
-   values in vec are monotonically increasing, but adjacent values can be ties
-   value may be outside range of vec limits
-   always return index from 0 to N-1 inclusive
-   return 0 if value < vec[0]
-   reutrn N-1 if value >= vec[N-1]
-   return index = 1 to N-2 inclusive if vec[index] <= value < vec[index+1]
-   note that for adjacent tie values, index of lower tie is not returned
-     since never satisfies 2nd condition that value < vec[index+1]
-------------------------------------------------------------------------- */
-
-int Balance::binary(double value, int n, double *vec)
-{
-  int lo = 0;
-  int hi = n-1;
-
-  if (value < vec[lo]) return lo;
-  if (value >= vec[hi]) return hi;
-
-  // insure vec[lo] <= value < vec[hi] at every iteration
-  // done when lo,hi are adjacent
-
-  int index = (lo+hi)/2;
-  while (lo < hi-1) {
-    if (value < vec[index]) hi = index;
-    else if (value >= vec[index]) lo = index;
-    index = (lo+hi)/2;
-  }
-
-  return index;
 }
 
 /* ----------------------------------------------------------------------

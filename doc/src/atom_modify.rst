@@ -40,7 +40,7 @@ command.  The *id* and *map* keywords must be specified before a
 simulation box is defined; other keywords can be specified any time.
 
 The *id* keyword determines whether non-zero atom IDs can be assigned
-to each atom.  If the value is *yes*\ , which is the default, IDs are
+to each atom.  If the value is *yes*, which is the default, IDs are
 assigned, whether you use the :doc:`create atoms <create_atoms>` or
 :doc:`read_data <read_data>` or :doc:`read_restart <read_restart>`
 commands to initialize atoms.  If the value is *no* the IDs for all
@@ -113,7 +113,7 @@ your input script.  LAMMPS does not use the group until a simulation
 is run.
 
 The *sort* keyword turns on a spatial sorting or reordering of atoms
-within each processor's sub-domain every *Nfreq* timesteps.  If
+within each processor's subdomain every *Nfreq* timesteps.  If
 *Nfreq* is set to 0, then sorting is turned off.  Sorting can improve
 cache performance and thus speed-up a LAMMPS simulation, as discussed
 in a paper by :ref:`(Meloni) <Meloni>`.  Its efficacy depends on the problem
@@ -152,6 +152,13 @@ cache locality will be undermined.
    results which depend on the order in which atoms are processed.  The
    order of atoms in a :doc:`dump <dump>` file will also typically change
    if sorting is enabled.
+
+.. note::
+
+   When running simple pair-wise potentials like Lennard Jones on GPUs
+   with the KOKKOS package, using a larger binsize (e.g. 2x larger than
+   default) and a more frequent reordering than default (e.g. every 100
+   time steps) may improve performance.
 
 Restrictions
 """"""""""""

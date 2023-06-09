@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -19,24 +19,24 @@
 
 #include "pair_brownian_poly.h"
 
-#include <cmath>
-#include <cstring>
 #include "atom.h"
-#include "force.h"
-#include "neighbor.h"
-#include "neigh_list.h"
-#include "neigh_request.h"
 #include "domain.h"
-#include "update.h"
-#include "modify.h"
+#include "error.h"
 #include "fix.h"
 #include "fix_wall.h"
+#include "force.h"
 #include "input.h"
-#include "variable.h"
-#include "random_mars.h"
 #include "math_const.h"
 #include "math_special.h"
-#include "error.h"
+#include "modify.h"
+#include "neigh_list.h"
+#include "neighbor.h"
+#include "random_mars.h"
+#include "update.h"
+#include "variable.h"
+
+#include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 using namespace MathConst;
@@ -72,7 +72,6 @@ void PairBrownianPoly::compute(int eflag, int vflag)
   int nlocal = atom->nlocal;
 
   double vxmu2f = force->vxmu2f;
-  int overlaps = 0;
   double randr;
   double prethermostat;
   double xl[3],a_sq,a_sh,a_pu,Fbmag;
@@ -175,10 +174,6 @@ void PairBrownianPoly::compute(int eflag, int vflag)
         // scalar resistances a_sq and a_sh
 
         h_sep = r - radi-radj;
-
-        // check for overlaps
-
-        if (h_sep < 0.0) overlaps++;
 
         // if less than minimum gap, use minimum gap instead
 
@@ -330,7 +325,7 @@ void PairBrownianPoly::init_style()
   if (!atom->sphere_flag)
     error->all(FLERR,"Pair brownian/poly requires atom style sphere");
 
-  // insure all particles are finite-size
+  // ensure all particles are finite-size
   // for pair hybrid, should limit test to types using the pair style
 
   double *radius = atom->radius;
@@ -340,9 +335,7 @@ void PairBrownianPoly::init_style()
     if (radius[i] == 0.0)
       error->one(FLERR,"Pair brownian/poly requires extended particles");
 
-  int irequest = neighbor->request(this,instance_me);
-  neighbor->requests[irequest]->half = 0;
-  neighbor->requests[irequest]->full = 1;
+  neighbor->add_request(this, NeighConst::REQ_FULL);
 
   // set the isotropic constants that depend on the volume fraction
   // vol_T = total volume
@@ -364,7 +357,7 @@ void PairBrownianPoly::init_style()
         error->all(FLERR,
                    "Cannot use multiple fix wall commands with pair brownian");
       flagwall = 1; // Walls exist
-      wallfix = (FixWall *) modify->fix[i];
+      wallfix = dynamic_cast<FixWall *>(modify->fix[i]);
       if (wallfix->xflag) flagwall = 2; // Moving walls exist
     }
   }

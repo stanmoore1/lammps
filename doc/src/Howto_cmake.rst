@@ -46,7 +46,7 @@ This tutorial assumes that you are operating in a command-line environment
 using a shell like Bash.
 
 - Linux: any Terminal window will work
-- MacOS X: launch the Terminal application.
+- macOS: launch the Terminal application.
 - Windows 10: install and run the :doc:`Windows Subsystem for Linux <Howto_wsl>`
 
 We also assume that you have downloaded and unpacked a recent LAMMPS source code package
@@ -56,7 +56,7 @@ You should change into the top level directory of the LAMMPS source tree all
 paths mentioned in the tutorial are relative to that.  Immediately after downloading
 it should look like this:
 
-.. code-block:: bash
+.. code-block:: console
 
     $ ls
     bench  doc       lib      potentials  README  tools
@@ -89,7 +89,7 @@ different options (``build-parallel``, ``build-serial``) or with
 different compilers (``build-gnu``, ``build-clang``, ``build-intel``)
 and so on.  All the auxiliary files created by one build process
 (executable, object files, log files, etc) are stored in this directory
-or sub-directories within it that CMake creates.
+or subdirectories within it that CMake creates.
 
 
 Running CMake
@@ -104,7 +104,7 @@ the progress of the configuration printed to the screen followed by a
 summary of the enabled features, options and compiler settings. A typical
 summary screen will look like this:
 
-.. code-block::
+.. code-block:: console
 
    $ cmake ../cmake/
    -- The CXX compiler identification is GNU 8.2.0
@@ -362,7 +362,7 @@ have to be enabled to be included into a LAMMPS executable.  Packages
 are enabled through setting variables of the kind ``PKG_<NAME>`` to
 ``on`` and disabled by setting them to ``off`` (or using ``yes``,
 ``no``, ``1``, ``0`` correspondingly).  ``<NAME>`` has to be replaced by
-the name of the package, e.g. ``MOLECULE`` or ``USER-MISC``.
+the name of the package, e.g. ``MOLECULE`` or ``EXTRA-PAIR``.
 
 
 Using presets
@@ -382,9 +382,9 @@ change some variables later with additional *-D* flags.  A few examples:
 
 .. code-block:: bash
 
-   cmake -C ../cmake/presets/minimal.cmake -D PKG_MISC=on ../cmake
+   cmake -C ../cmake/presets/basic.cmake -D PKG_MISC=on ../cmake
    cmake -C ../cmake/presets/clang.cmake -C ../cmake/presets/most.cmake ../cmake
-   cmake -C ../cmake/presets/minimal.cmake -D BUILD_MPI=off ../cmake
+   cmake -C ../cmake/presets/basic.cmake -D BUILD_MPI=off ../cmake
 
 The first command will install the packages ``KSPACE``, ``MANYBODY``,
 ``MOLECULE``, ``RIGID`` and ``MISC``; the first four from the preset
@@ -400,7 +400,7 @@ It is also possible to do this incrementally.
 
 .. code-block:: bash
 
-   cmake -C ../cmake/presets/minimal.cmake ../cmake
+   cmake -C ../cmake/presets/basic.cmake ../cmake
    cmake -D PKG_MISC=on .
 
 will achieve the same final configuration as in the first example above.

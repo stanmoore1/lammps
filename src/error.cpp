@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -49,7 +49,7 @@ Error::Error(LAMMPS *lmp)
 /* ----------------------------------------------------------------------
    called by all procs in universe
    close all output, screen, and log files in world and universe
-   no abort, so insure all procs in universe call, else will hang
+   no abort, so ensure all procs in universe call, else will hang
 ------------------------------------------------------------------------- */
 
 void Error::universe_all(const std::string &file, int line, const std::string &str)
@@ -58,7 +58,8 @@ void Error::universe_all(const std::string &file, int line, const std::string &s
   std::string mesg = "ERROR: " + str;
   try {
     mesg += fmt::format(" ({}:{})\n",truncpath(file),line);
-  } catch (fmt::format_error &e) {
+  } catch (fmt::format_error &) {
+    ; // do nothing
   }
   if (universe->me == 0) {
     if (universe->uscreen)  fputs(mesg.c_str(),universe->uscreen);
@@ -81,7 +82,7 @@ void Error::universe_all(const std::string &file, int line, const std::string &s
 
   throw LAMMPSException(mesg);
 #else
-  if (lmp->kokkos) Kokkos::finalize();
+  KokkosLMP::finalize();
   MPI_Finalize();
   exit(1);
 #endif
@@ -107,6 +108,7 @@ void Error::universe_one(const std::string &file, int line, const std::string &s
 
   throw LAMMPSAbortException(mesg, universe->uworld);
 #else
+  KokkosLMP::finalize();
   MPI_Abort(universe->uworld,1);
   exit(1); // to trick "smart" compilers into believing this does not return
 #endif
@@ -120,7 +122,7 @@ void Error::universe_one(const std::string &file, int line, const std::string &s
 void Error::universe_warn(const std::string &file, int line, const std::string &str)
 {
   ++numwarn;
-  if ((numwarn > maxwarn) || (allwarn > maxwarn) || (maxwarn < 0)) return;
+  if ((maxwarn != 0) && ((numwarn > maxwarn) || (allwarn > maxwarn) || (maxwarn < 0))) return;
   if (universe->uscreen)
     fmt::print(universe->uscreen,"WARNING on proc {}: {} ({}:{})\n",
                universe->me,str,truncpath(file),line);
@@ -129,7 +131,7 @@ void Error::universe_warn(const std::string &file, int line, const std::string &
 /* ----------------------------------------------------------------------
    called by all procs in one world
    close all output, screen, and log files in world
-   insure all procs in world call, else will hang
+   ensure all procs in world call, else will hang
    force MPI_Abort if running in multi-partition mode
 ------------------------------------------------------------------------- */
 
@@ -146,9 +148,9 @@ void Error::all(const std::string &file, int line, const std::string &str)
     std::string mesg = "ERROR: " + str;
     if (input && input->line) lastcmd = input->line;
     try {
-      mesg += fmt::format(" ({}:{})\nLast command: {}\n",
-                          truncpath(file),line,lastcmd);
-    } catch (fmt::format_error &e) {
+      mesg += fmt::format(" ({}:{})\nLast command: {}\n", truncpath(file),line,lastcmd);
+    } catch (fmt::format_error &) {
+      ; // do nothing
     }
     utils::logmesg(lmp,mesg);
   }
@@ -173,8 +175,8 @@ void Error::all(const std::string &file, int line, const std::string &str)
   if (screen && screen != stdout) fclose(screen);
   if (logfile) fclose(logfile);
 
+  KokkosLMP::finalize();
   if (universe->nworlds > 1) MPI_Abort(universe->uworld,1);
-  if (lmp->kokkos) Kokkos::finalize();
   MPI_Finalize();
   exit(1);
 #endif
@@ -194,7 +196,7 @@ void Error::one(const std::string &file, int line, const std::string &str)
   MPI_Comm_rank(world,&me);
 
   if (input && input->line) lastcmd = input->line;
-  std::string mesg = fmt::format("ERROR on proc {}: {} ({}:{})\n",
+  std::string mesg = fmt::format("ERROR on proc {}: {} ({}:{})\nLast command: {}\n",
                                  me,str,truncpath(file),line,lastcmd);
   utils::logmesg(lmp,mesg);
 
@@ -211,8 +213,8 @@ void Error::one(const std::string &file, int line, const std::string &str)
 
   throw LAMMPSAbortException(mesg, world);
 #else
-  if (screen) fflush(screen);
-  if (logfile) fflush(logfile);
+  utils::flush_buffers(lmp);
+  KokkosLMP::finalize();
   MPI_Abort(world,1);
   exit(1); // to trick "smart" compilers into believing this does not return
 #endif
@@ -252,7 +254,7 @@ void Error::_one(const std::string &file, int line, fmt::string_view format,
 void Error::warning(const std::string &file, int line, const std::string &str)
 {
   ++numwarn;
-  if ((numwarn > maxwarn) || (allwarn > maxwarn) || (maxwarn < 0)) return;
+  if ((maxwarn != 0) && ((numwarn > maxwarn) || (allwarn > maxwarn) || (maxwarn < 0))) return;
   std::string mesg = fmt::format("WARNING: {} ({}:{})\n",
                                  str,truncpath(file),line);
   if (screen) fputs(mesg.c_str(),screen);
@@ -304,7 +306,7 @@ void Error::_message(const std::string &file, int line, fmt::string_view format,
    shutdown LAMMPS
    called by all procs in one world
    close all output, screen, and log files in world
-   no abort, so insure all procs in world call, else will hang
+   no abort, so ensure all procs in world call, else will hang
 ------------------------------------------------------------------------- */
 
 void Error::done(int status)
@@ -315,7 +317,7 @@ void Error::done(int status)
   if (screen && screen != stdout) fclose(screen);
   if (logfile) fclose(logfile);
 
-  if (lmp->kokkos) Kokkos::finalize();
+  KokkosLMP::finalize();
   MPI_Finalize();
   exit(status);
 }

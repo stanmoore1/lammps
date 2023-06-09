@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -366,17 +366,15 @@ void Temper::scale_velocities(int t_partner, int t_me)
 
 void Temper::print_status()
 {
-  if (universe->uscreen) {
-    fprintf(universe->uscreen,BIGINT_FORMAT,update->ntimestep);
-    for (int i = 0; i < nworlds; i++)
-      fprintf(universe->uscreen," %d",world2temp[i]);
-    fprintf(universe->uscreen,"\n");
-  }
+  std::string status = std::to_string(update->ntimestep);
+  for (int i = 0; i < nworlds; i++)
+    status += " " + std::to_string(world2temp[i]);
+
+  status += "\n";
+
+  if (universe->uscreen) fputs(status.c_str(), universe->uscreen);
   if (universe->ulogfile) {
-    fprintf(universe->ulogfile,BIGINT_FORMAT,update->ntimestep);
-    for (int i = 0; i < nworlds; i++)
-      fprintf(universe->ulogfile," %d",world2temp[i]);
-    fprintf(universe->ulogfile,"\n");
+    fputs(status.c_str(), universe->ulogfile);
     fflush(universe->ulogfile);
   }
 }

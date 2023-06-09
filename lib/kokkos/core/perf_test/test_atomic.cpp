@@ -47,7 +47,7 @@
 #include <cstdlib>
 
 #include <Kokkos_Core.hpp>
-#include <impl/Kokkos_Timer.hpp>
+#include <Kokkos_Timer.hpp>
 
 using exec_space = Kokkos::DefaultExecutionSpace;
 
@@ -73,7 +73,7 @@ void textcolor(int attr, int fg, int bg) {
   char command[40];
 
   /* Command is the control command to the terminal */
-  sprintf(command, "%c[%d;%d;%dm", 0x1B, attr, fg + 30, bg + 40);
+  snprintf(command, 40, "%c[%d;%d;%dm", 0x1B, attr, fg + 30, bg + 40);
   printf("%s", command);
 }
 void textcolor_standard() { textcolor(RESET, BLACK, WHITE); }
@@ -401,7 +401,7 @@ template <class T>
 void Loop(int loop, int test, const char* type_name) {
   LoopVariant<T>(loop, test);
 
-  Kokkos::Impl::Timer timer;
+  Kokkos::Timer timer;
   T res       = LoopVariant<T>(loop, test);
   double time = timer.seconds();
 

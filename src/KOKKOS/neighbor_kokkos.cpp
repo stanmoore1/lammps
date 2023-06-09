@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -59,8 +59,6 @@ NeighborKokkos::~NeighborKokkos()
     memoryKK->destroy_kokkos(k_ex_type,ex_type);
     memoryKK->destroy_kokkos(k_ex1_type,ex1_type);
     memoryKK->destroy_kokkos(k_ex2_type,ex2_type);
-    memoryKK->destroy_kokkos(k_ex1_group,ex1_group);
-    memoryKK->destroy_kokkos(k_ex2_group,ex2_group);
     memoryKK->destroy_kokkos(k_ex_mol_group,ex_mol_group);
     memoryKK->destroy_kokkos(k_ex1_bit,ex1_bit);
     memoryKK->destroy_kokkos(k_ex2_bit,ex2_bit);
@@ -226,7 +224,7 @@ void NeighborKokkos::operator()(TagNeighborCheckDistance<DeviceType>, const int 
 /* ----------------------------------------------------------------------
    build perpetuals neighbor lists
    called at setup and every few timesteps during run or minimization
-   topology lists also built if topoflag = 1, USER-CUDA calls with topoflag = 0
+   topology lists also built if topoflag = 1, CUDA calls with topoflag = 0
 ------------------------------------------------------------------------- */
 
 
@@ -338,14 +336,6 @@ void NeighborKokkos::modify_ex_type_grow_kokkos() {
 }
 
 /* ---------------------------------------------------------------------- */
-void NeighborKokkos::modify_ex_group_grow_kokkos() {
-  memoryKK->grow_kokkos(k_ex1_group,ex1_group,maxex_group,"neigh:ex1_group");
-  k_ex1_group.modify<LMPHostType>();
-  memoryKK->grow_kokkos(k_ex2_group,ex2_group,maxex_group,"neigh:ex2_group");
-  k_ex2_group.modify<LMPHostType>();
-}
-
-/* ---------------------------------------------------------------------- */
 void NeighborKokkos::modify_mol_group_grow_kokkos() {
   memoryKK->grow_kokkos(k_ex_mol_group,ex_mol_group,maxex_mol,"neigh:ex_mol_group");
   k_ex_mol_group.modify<LMPHostType>();
@@ -377,7 +367,7 @@ void NeighborKokkos::init_topology() {
 
 /* ----------------------------------------------------------------------
    build all topology neighbor lists every few timesteps
-   normally built with pair lists, but USER-CUDA separates them
+   normally built with pair lists, but CUDA separates them
 ------------------------------------------------------------------------- */
 
 void NeighborKokkos::build_topology() {

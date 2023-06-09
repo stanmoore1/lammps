@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -264,8 +264,8 @@ int FixAppendAtoms::get_spatial()
       else failed = 0;
       count++;
     }
-    double *pos = new double[count-2];
-    double *val = new double[count-2];
+    auto pos = new double[count-2];
+    auto val = new double[count-2];
     for (int loop=0; loop < count-2; loop++) {
       pos[loop] = fix->compute_vector(2*loop);
       val[loop] = fix->compute_vector(2*loop+1);

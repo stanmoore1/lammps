@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -38,7 +38,7 @@ using namespace LAMMPS_NS;
 using namespace FixConst;
 using namespace MathConst;
 
-enum{NONE,FINAL,DELTA,SCALE,VEL,ERATE,TRATE,VOLUME,WIGGLE,VARIABLE};
+enum{NONE=0,FINAL,DELTA,SCALE,VEL,ERATE,TRATE,VOLUME,WIGGLE,VARIABLE};
 enum{ONE_FROM_ONE,ONE_FROM_TWO,TWO_FROM_ONE};
 
 /* ---------------------------------------------------------------------- */
@@ -143,7 +143,7 @@ void FixDeformKokkos::end_of_step()
   // set new box size for VOLUME dims that are linked to other dims
   // NOTE: still need to set h_rate for these dims
 
-  for (int i = 0; i < 3; i++) {
+  for (i = 0; i < 3; i++) {
     if (set[i].style != VOLUME) continue;
 
     if (set[i].substyle == ONE_FROM_ONE) {
@@ -227,7 +227,7 @@ void FixDeformKokkos::end_of_step()
       // tilt_target can be large positive or large negative value
       // add/subtract box lengths until tilt_target is closest to current value
 
-      int idenom;
+      int idenom = 0;
       if (i == 5) idenom = 0;
       else if (i == 4) idenom = 0;
       else if (i == 3) idenom = 1;
@@ -315,14 +315,13 @@ void FixDeformKokkos::end_of_step()
     int nlocal = atom->nlocal;
 
     domainKK->x2lamda(nlocal);
-    //for (i = 0; i < nlocal; i++)
-    //  if (mask[i] & groupbit)
-    //    domain->x2lamda(x[i],x[i]);
 
-    if (nrigid)
-      error->all(FLERR,"Cannot (yet) use rigid bodies with fix deform and Kokkos");
-      //for (i = 0; i < nrigid; i++)
-      //  modify->fix[rfix[i]]->deform(0);
+    if (rfix.size() > 0) {
+      atomKK->sync(Host,ALL_MASK);
+      for (auto &ifix : rfix)
+        ifix->deform(0);
+      atomKK->modified(Host,ALL_MASK);
+    }
   }
 
   // reset global and local box to new size/shape
@@ -355,13 +354,13 @@ void FixDeformKokkos::end_of_step()
     int nlocal = atom->nlocal;
 
     domainKK->lamda2x(nlocal);
-    //for (i = 0; i < nlocal; i++)
-    //  if (mask[i] & groupbit)
-    //    domain->lamda2x(x[i],x[i]);
 
-    //if (nrigid)
-    //  for (i = 0; i < nrigid; i++)
-    //    modify->fix[rfix[i]]->deform(1);
+    if (rfix.size() > 0) {
+      atomKK->sync(Host,ALL_MASK);
+      for (auto &ifix : rfix)
+        ifix->deform(1);
+      atomKK->modified(Host,ALL_MASK);
+    }
   }
 
   // redo KSpace coeffs since box has changed

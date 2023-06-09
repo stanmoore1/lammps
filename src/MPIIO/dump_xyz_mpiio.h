@@ -1,7 +1,7 @@
 /* -*- c++ -*- ---------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -27,7 +27,7 @@ namespace LAMMPS_NS {
 class DumpXYZMPIIO : public DumpXYZ {
  public:
   DumpXYZMPIIO(class LAMMPS *, int, char **);
-  virtual ~DumpXYZMPIIO();
+  ~DumpXYZMPIIO() override;
 
  protected:
   bigint
@@ -43,12 +43,12 @@ class DumpXYZMPIIO : public DumpXYZ {
   int convert_string_omp(int, double *);    // multithreaded version of convert_string
 #endif
 
-  virtual void openfile();
-  virtual void write_header(bigint);
-  virtual void write();
-  virtual void write_data(int, double *);
+  void openfile() override;
+  void write_header(bigint) override;
+  void write() override;
+  void write_data(int, double *) override;
 
-  virtual void init_style();
+  void init_style() override;
 
   typedef void (DumpXYZMPIIO::*FnPtrData)(int, double *);
   FnPtrData write_choice;    // ptr to write data functions
@@ -59,17 +59,3 @@ class DumpXYZMPIIO : public DumpXYZ {
 
 #endif
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Cannot open dump file %s
-
-The output file for the dump command cannot be opened.  Check that the
-path and name are correct.
-
-E: Too much per-proc info for dump
-
-Number of local atoms times number of columns must fit in a 32-bit
-integer for dump.
-
-*/

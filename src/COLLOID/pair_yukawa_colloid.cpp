@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -124,14 +124,13 @@ void PairYukawaColloid::init_style()
   if (!atom->sphere_flag)
     error->all(FLERR,"Pair yukawa/colloid requires atom style sphere");
 
-  neighbor->request(this,instance_me);
+  neighbor->add_request(this);
 
   // require that atom radii are identical within each type
 
   for (int i = 1; i <= atom->ntypes; i++)
     if (!atom->radius_consistency(i,rad[i]))
-      error->all(FLERR,"Pair yukawa/colloid requires atoms with same type "
-                 "have same radius");
+      error->all(FLERR,"Pair yukawa/colloid requires atoms with same type have same radius");
 }
 
 /* ----------------------------------------------------------------------

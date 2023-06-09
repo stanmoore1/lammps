@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -20,6 +20,8 @@
 #include "update.h"
 #include "domain.h"
 #include "memory.h"
+
+#include <cmath>
 
 using namespace LAMMPS_NS;
 
@@ -204,8 +206,8 @@ void NStencil::copy_bin_info_multi()
 }
 
 /* ----------------------------------------------------------------------
-   insure NBin data is current
-   insure stencils are allocated large enough
+   ensure NBin data is current
+   ensure stencils are allocated large enough
 ------------------------------------------------------------------------- */
 
 void NStencil::create_setup()
@@ -335,7 +337,7 @@ void NStencil::create_setup()
       for (i = 0; i < n; ++i) {
         stencil_multi[i] = new int*[n]();
         for (j = 0; j < n; ++j) {
-	      maxstencil_multi[i][j] = 0;
+              maxstencil_multi[i][j] = 0;
           nstencil_multi[i][j] = 0;
           stencil_multi[i][j] = nullptr;
         }
@@ -346,7 +348,7 @@ void NStencil::create_setup()
     // Skip all stencils by default, initialize smax
     for (i = 0; i < n; i++) {
       for (j = 0; j < n; j++) {
-        flag_skip_multi[i][j] = 1;
+        flag_skip_multi[i][j] = true;
       }
     }
 
@@ -390,7 +392,7 @@ void NStencil::create_setup()
           if(stencil_multi[i][j])
             memory->destroy(stencil_multi[i][j]);
           memory->create(stencil_multi[i][j], smax,
-	  	                 "neighstencil::stencil_multi");
+                                 "neighstencil::stencil_multi");
         }
       }
     }

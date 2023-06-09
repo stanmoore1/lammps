@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -179,13 +179,13 @@ void FixWallBodyPolygon::init()
 {
   dt = update->dt;
 
-  avec = (AtomVecBody *) atom->style_match("body");
+  avec = dynamic_cast<AtomVecBody *>(atom->style_match("body"));
   if (!avec)
     error->all(FLERR,"Pair body/rounded/polygon requires atom style body");
   if (strcmp(avec->bptr->style,"rounded/polygon") != 0)
     error->all(FLERR,"Pair body/rounded/polygon requires "
                "body style rounded/polygon");
-  bptr = (BodyRoundedPolygon *) avec->bptr;
+  bptr = dynamic_cast<BodyRoundedPolygon *>(avec->bptr);
 
   // set pairstyle from body/polygonular pair style
 
@@ -337,8 +337,7 @@ void FixWallBodyPolygon::post_force(int /*vflag*/)
 
       num_contacts = 0;
       facc[0] = facc[1] = facc[2] = 0;
-      vertex_against_wall(i, wall_pos, x, f, torque, side,
-                          contact_list, num_contacts, facc);
+      vertex_against_wall(i, wall_pos, x, f, torque, side, contact_list, num_contacts, facc);
 
       if (num_contacts >= 2) {
 

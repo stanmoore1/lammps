@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -55,11 +55,15 @@
 
 namespace LAMMPS_NS {
 
-// reserve 2 hi bits in molecular system neigh list for special bonds flag
-// max local + ghost atoms per processor = 2^30 - 1
+// reserve 2 highest bits in molecular system neigh list for special bonds flag
+// reserve 3rd highest bit in neigh list for fix neigh/history flag
+// max local + ghost atoms per processor = 2^29 - 1
 
 #define SBBITS 30
-#define NEIGHMASK 0x3FFFFFFF
+#define HISTBITS 29
+#define NEIGHMASK 0x1FFFFFFF
+#define HISTMASK 0xDFFFFFFF
+#define SPECIALMASK 0x3FFFFFFF
 
 // default to 32-bit smallint and other ints, 64-bit bigint
 
@@ -91,6 +95,7 @@ typedef int64_t bigint;
 #define MAXSMALLINT INT_MAX
 #define MAXTAGINT INT_MAX
 #define MAXBIGINT INT64_MAX
+#define MAXDOUBLEINT 9007199254740992    // 2^53
 
 #define MPI_LMP_TAGINT MPI_INT
 #define MPI_LMP_IMAGEINT MPI_INT
@@ -128,6 +133,7 @@ typedef int64_t bigint;
 #define MAXSMALLINT INT_MAX
 #define MAXTAGINT INT64_MAX
 #define MAXBIGINT INT64_MAX
+#define MAXDOUBLEINT 9007199254740992    // 2^53
 
 #define MPI_LMP_TAGINT MPI_LL
 #define MPI_LMP_IMAGEINT MPI_LL
@@ -164,6 +170,7 @@ typedef int bigint;
 #define MAXSMALLINT INT_MAX
 #define MAXTAGINT INT_MAX
 #define MAXBIGINT INT_MAX
+#define MAXDOUBLEINT INT_MAX
 
 #define MPI_LMP_TAGINT MPI_INT
 #define MPI_LMP_IMAGEINT MPI_INT
@@ -225,6 +232,84 @@ union ubuf {
   ubuf(const int64_t &arg) : i(arg) {}
   ubuf(const int &arg) : i(arg) {}
 };
+
+/** Data structure for dynamic typing of int, bigint, and double
+ *
+ * Using this union allows to store any of the supported data types
+ * in the same container and allows to "see" its current type.
+\verbatim embed:rst
+
+**Usage:**
+
+.. code-block:: c++
+   :caption: To store data in multitype array:
+
+   multitype m[5];
+   int    foo = 1;
+   double bar = 2.5;
+   bigint baz = 1<<40 - 1;
+   m[0] = foo;
+   m[1] = bar;
+   m[2] = -1;
+   m[3] = 2.0;
+   m[4] = baz;
+
+.. code-block:: c++
+   :caption: To format data from multitype array into a space separated string:
+
+   std::string str;
+   for (int i = 0; i < 5; ++i) {
+       switch (m[i].type) {
+           case multitype::DOUBLE:
+               str += std::to_string(m[i].data.d) + ' ';
+               break;
+           case multitype::INT:
+               str += std::to_string(m[i].data.i) + ' ';
+               break;
+           case multitype::BIGINT:
+               str += std::to_string(m[i].data.b) + ' ';
+               break;
+           default:
+               break;
+       }
+   }
+\endverbatim
+  */
+struct multitype {
+  enum { NONE, DOUBLE, INT, BIGINT };
+
+  int type;
+  union {
+    double d;
+    int i;
+    int64_t b;
+  } data;
+
+  multitype() : type(NONE) { data.d = 0.0; }
+  multitype(const multitype &) = default;
+  multitype(multitype &&) = default;
+  ~multitype() = default;
+
+  multitype &operator=(const double &_d)
+  {
+    type = DOUBLE;
+    data.d = _d;
+    return *this;
+  }
+  multitype &operator=(const int &_i)
+  {
+    type = INT;
+    data.i = _i;
+    return *this;
+  }
+  multitype &operator=(const int64_t &_b)
+  {
+    type = BIGINT;
+    data.b = _b;
+    return *this;
+  }
+};
+
 }    // namespace LAMMPS_NS
 
 // preprocessor macros for compiler specific settings
@@ -242,9 +327,9 @@ union ubuf {
 
 // define stack variable alignment
 
-#if defined(__INTEL_LLVM_COMPILER) || defined(__INTEL_COMPILER)
+#if defined(__INTEL_COMPILER)
 #define _alignvar(expr, val) __declspec(align(val)) expr
-#elif defined(__GNUC__) || defined(__PGI)
+#elif defined(__GNUC__) || defined(__PGI) || defined(__INTEL_LLVM_COMPILER)
 #define _alignvar(expr, val) expr __attribute((aligned(val)))
 #else
 #define _alignvar(expr, val) expr
@@ -252,9 +337,9 @@ union ubuf {
 
 // declaration to lift aliasing restrictions
 
-#if defined(__INTEL_COMPILER) || defined(__PGI)
+#if defined(__INTEL_COMPILER) || (defined(__PGI) && !defined(__NVCOMPILER))
 #define _noalias restrict
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
+#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER) || defined(__NVCOMPILER)
 #define _noalias __restrict
 #else
 #define _noalias
@@ -266,7 +351,7 @@ union ubuf {
 
 #if defined(__clang__)
 #define _noopt __attribute__((optnone))
-#elif defined(__INTEL_COMPILER)
+#elif defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
 #define _noopt
 #elif defined(__PGI)
 #define _noopt
@@ -286,12 +371,6 @@ union ubuf {
 #endif
 #else
 #define _noopt
-#endif
-
-// settings to enable LAMMPS to build under Windows
-
-#ifdef _WIN32
-#include "lmpwindows.h"
 #endif
 
 // suppress unused parameter warning

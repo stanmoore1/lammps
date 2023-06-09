@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -34,8 +34,13 @@ class Image : protected Pointers {
   double *boxcolor;           // color to draw box outline with
   int background[3];          // RGB values of background
 
+  double ambientColor[3];     // light color settings (adjustable by caller)
+  double keyLightColor[3];
+  double fillLightColor[3];
+  double backLightColor[3];
+
   Image(class LAMMPS *, int);
-  ~Image();
+  ~Image() override;
   void buffers();
   void clear();
   void merge();
@@ -80,19 +85,19 @@ class Image : protected Pointers {
   // constant view params
 
   double FOV;
-  double ambientColor[3];
+  //double ambientColor[3];
 
   double keyLightTheta;
   double keyLightPhi;
-  double keyLightColor[3];
+  //double keyLightColor[3];
 
   double fillLightTheta;
   double fillLightPhi;
-  double fillLightColor[3];
+  //double fillLightColor[3];
 
   double backLightTheta;
   double backLightPhi;
-  double backLightColor[3];
+  //double backLightColor[3];
 
   double specularHardness;
   double specularIntensity;
@@ -150,7 +155,7 @@ class ColorMap : protected Pointers {
   int dynamic;    // 0/1 if lo/hi bounds are static/dynamic
 
   ColorMap(class LAMMPS *, class Image *);
-  ~ColorMap();
+  ~ColorMap() override;
   int reset(int, char **);
   int minmax(double, double);
   double *value2color(double);
@@ -177,11 +182,3 @@ class ColorMap : protected Pointers {
 }    // namespace LAMMPS_NS
 
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Invalid image up vector
-
-Up vector cannot be (0,0,0).
-
-*/

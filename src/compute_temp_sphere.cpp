@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -276,7 +276,7 @@ void ComputeTempSphere::compute_vector()
   // point particles will not contribute rotation due to radius = 0
 
   double massone,inertiaone,t[6];
-  for (int i = 0; i < 6; i++) t[i] = 0.0;
+  for (auto &ti : t) ti = 0.0;
 
   if (mode == ALL) {
     for (int i = 0; i < nlocal; i++)

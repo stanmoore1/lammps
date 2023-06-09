@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -163,7 +163,7 @@ void ProcMap::numa_grid(int nprocs, int *user_procgrid, int *procgrid,
   char node_name[MPI_MAX_PROCESSOR_NAME];
   MPI_Get_processor_name(node_name,&name_length);
   node_name[name_length] = '\0';
-  char *node_names = new char[MPI_MAX_PROCESSOR_NAME*nprocs];
+  auto node_names = new char[MPI_MAX_PROCESSOR_NAME*nprocs];
   MPI_Allgather(node_name,MPI_MAX_PROCESSOR_NAME,MPI_CHAR,node_names,
                 MPI_MAX_PROCESSOR_NAME,MPI_CHAR,world);
   std::string node_string = std::string(node_name);
@@ -294,7 +294,7 @@ void ProcMap::custom_grid(char *cfile, int nprocs,
     char *ptr;
     if (!fgets(line,MAXLINE,fp))
       error->one(FLERR,"Unexpected end of custom file");
-    while (1) {
+    while (true) {
       if ((ptr = strchr(line,'#'))) *ptr = '\0';
       if (strspn(line," \t\n\r") != strlen(line)) break;
       if (!fgets(line,MAXLINE,fp))

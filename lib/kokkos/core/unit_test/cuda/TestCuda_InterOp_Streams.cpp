@@ -48,10 +48,11 @@
 namespace Test {
 // Test Interoperability with Cuda Streams
 TEST(cuda, raw_cuda_streams) {
+  // Make sure that we use the same device for all allocations
+  Kokkos::initialize();
+
   cudaStream_t stream;
   cudaStreamCreate(&stream);
-  Kokkos::InitArguments arguments{-1, -1, -1, false};
-  Kokkos::initialize(arguments);
   int* p;
   cudaMalloc(&p, sizeof(int) * 100);
   using MemorySpace = typename TEST_EXECSPACE::memory_space;
@@ -99,12 +100,12 @@ TEST(cuda, raw_cuda_streams) {
   }
   Kokkos::finalize();
   offset_streams<<<100, 64, 0, stream>>>(p);
-  CUDA_SAFE_CALL(cudaDeviceSynchronize());
+  KOKKOS_IMPL_CUDA_SAFE_CALL(cudaDeviceSynchronize());
   cudaStreamDestroy(stream);
 
   int h_p[100];
   cudaMemcpy(h_p, p, sizeof(int) * 100, cudaMemcpyDefault);
-  CUDA_SAFE_CALL(cudaDeviceSynchronize());
+  KOKKOS_IMPL_CUDA_SAFE_CALL(cudaDeviceSynchronize());
   int64_t sum        = 0;
   int64_t sum_expect = 0;
   for (int i = 0; i < 100; i++) {
