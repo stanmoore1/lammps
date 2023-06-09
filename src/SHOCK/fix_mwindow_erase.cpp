@@ -165,10 +165,10 @@ FixMWindowErase::FixMWindowErase(LAMMPS *lmp, int narg, char **arg) :
   nfreq = atoi(arg[13]);
   nfreq_u_d = atoi(arg[14]);
   nevery = 1;
-  iregion = domain->find_region(arg[15]);
+  auto region = domain->get_region_by_id(arg[15]);
 
   if (nfreq <= 0) error->all(FLERR,"Illegal fix mwindow/erase command");
-  if (iregion == -1) error->all(FLERR,"Fix mwindow/erase region ID does not exist");
+  if (!region) error->all(FLERR,"Fix mwindow/erase region ID does not exist");
 
   int n = strlen(arg[15]) + 1;
   id_compute_pe = new char[n];
@@ -270,7 +270,7 @@ void FixMWindowErase::pre_exchange()
   int ncount = 0;
   for (i = 0; i < nlocal; i++)
     if (mask[i] & groupbit)
-//      if (domain->regions[iregion]->match(x[i][0],x[i][1],x[i][2]))
+//      if (region->match(x[i][0],x[i][1],x[i][2]))
 	list[ncount++] = i;
 
   int nall,nwhack;
