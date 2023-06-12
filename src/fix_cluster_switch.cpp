@@ -455,14 +455,7 @@ void FixClusterSwitch::pre_exchange()
   neighbor->build(1);
 
   check_cluster();
-
-    for (int i = 0; i <= maxmol; i++)
-      printf("First %i %i\n",i,mol_state[i]);
-
   attempt_switch();
-
-    for (int i = 0; i <= maxmol; i++)
-      printf("Second %i %i\n",i,mol_state[i]);
 
   next_reneighbor = update->ntimestep + switchFreq;
 }
@@ -688,16 +681,13 @@ void FixClusterSwitch::check_cluster()
   nCluster = 0.0;
   for(int i = 0; i <= maxmol; i++){
     if(mol_cluster[i] != -1){
-  printf("c s %i %i %i %i\n",i,mol_cluster[i],mol_state[i],mol_cluster[mol_seed]);
       // if this is a switchable mol, mol_restrict should be updated
       if(mol_state[i] == 0 || mol_state[i] == 1) {
 	if(mol_cluster[i] == clusterID) {
 	  mol_restrict[i] = -1;
 	  mol_state[i] = 1;
-	} else {
+	} else
           mol_restrict[i] = 1;
-        printf("ms 1 %i\n",i);
-        }
       }
       if(mol_cluster[i] == clusterID) nCluster += 1.0;
     }
@@ -784,16 +774,10 @@ void FixClusterSwitch::attempt_switch()
     if(mol_restrict[mID] == 1) confirmflag = confirm_molecule(mID); //checks if this proc should be decision-maker
     else confirmflag = 0;
 
-  if (confirmflag)
-  printf("cf: %i %i %i\n",mID,confirmflag,mol_restrict[mID]);
-
     //printf("For molID %d, we have confirmflag %d\n", mID, confirmflag);
 
-    if(mol_accept_local[mID] == -1 && confirmflag != 0) {
-      int val = switch_flag(mID);
-      printf("sf: %i %i\n",mID,val);
-      mol_accept_local[mID] = val;
-    }
+    if(mol_accept_local[mID] == -1 && confirmflag != 0)
+      mol_accept_local[mID] = switch_flag(mID);
 
     //printf("For molID %d, we have mol_accept_local[mID] = %d\n", mID, mol_accept_local[mID]);
   }
@@ -828,8 +812,6 @@ void FixClusterSwitch::attempt_switch()
       //update mol_state
       if(mol_state[i] == 0) mol_state[i] = 1;
       else if(mol_state[i] == 1) mol_state[i] = 0;
-      if (mol_state[i] == 1 || mol_state[i] == 0)
-        printf("%i new MS = %i\n",i,mol_state[i]);
     }
   } 
 
@@ -924,7 +906,6 @@ int FixClusterSwitch::switch_flag( int molID )
   //  printf("Check 3\n");
 
   double rand = random_unequal->uniform();
-  printf("rand %i %g %g\n",molID,rand,checkProb);
   if(rand < checkProb){
     return 1;
   }

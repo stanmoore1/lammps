@@ -113,7 +113,6 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
 
  private:
 
-#define LMP_KOKKOS_DEBUG
 #ifdef LMP_KOKKOS_DEBUG
   RandPoolWrap rand_pool;
   typedef RandWrap rand_type;
@@ -133,11 +132,8 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
   void gather_statistics(); // uses newly communicated mol arrays to gather MC statistics
   void check_arrays();
 
-  // hash map (key value) to keep track of mols
-
-  int maxhash;
-  typedef Kokkos::UnorderedMap<int,int> hash_type;
-  hash_type d_hash;
+  int maxarray;
+  typename AT::t_int_1d d_array;
 
   DAT::tdual_int_1d k_atomtypesON; // atom types associated with ON
   DAT::tdual_int_1d k_atomtypesOFF; // atom types associated with OFF
