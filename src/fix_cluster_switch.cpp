@@ -534,9 +534,6 @@ void FixClusterSwitch::check_cluster()
   int *mask = atom->mask;
   int *molecule = atom->molecule;
   int *type = atom->type;
-  int nlocal = atom->nlocal;
-  int nghost = atom->nghost;
-  int nall = nlocal + nghost;
 
   // invoke neighbor list (full)
   neighbor->build_one(list);
@@ -835,7 +832,7 @@ int FixClusterSwitch::confirm_molecule( int molID )
 {
   int *molecule = atom->molecule;
   int *atype = atom->type;
-  int *atag = atom->tag;
+  //int *atag = atom->tag;
   double sumState = 0.0;
   double decisionBuffer = (double)nSwitchPerMol/2.0 - 1.0 + 0.01; // just to ensure that the proc with the majority of the switching types makes the switching decision
   for(int i = 0; i < atom->nlocal; i++){

@@ -92,7 +92,20 @@ FixClusterSwitchKokkos<DeviceType>::~FixClusterSwitchKokkos()
 template<class DeviceType>
 void FixClusterSwitchKokkos<DeviceType>::init()
 {
+  atomKK->sync(Host,TYPE_MASK|MOLECULE_MASK|MASK_MASK);
   FixClusterSwitch::init();
+
+  k_mol_restrict.modify_host();
+  k_mol_state.modify_host();
+  k_atomtypesON.modify_host();
+  k_atomtypesOFF.modify_host();
+  k_contactMap.modify_host();
+
+  k_mol_restrict.sync<DeviceType>();
+  k_mol_state.sync<DeviceType>();
+  k_atomtypesON.sync<DeviceType>();
+  k_atomtypesOFF.sync<DeviceType>();
+  k_contactMap.sync<DeviceType>();
 
   // adjust neighbor list request for KOKKOS
 
@@ -545,10 +558,10 @@ void FixClusterSwitchKokkos<DeviceType>::attempt_switch()
   mask = atomKK->k_mask.view<DeviceType>();
   molecule = atomKK->k_molecule.view<DeviceType>(); // molecule[i] = mol IDs for atom tag i
   type = atomKK->k_type.view<DeviceType>(); // molecule[i] = mol IDs for atom tag i
-  tag = atomKK->k_tag.view<DeviceType>();
+  //tag = atomKK->k_tag.view<DeviceType>();
   int nlocal = atom->nlocal;
 
-  atomKK->sync(execution_space, MASK_MASK|MOLECULE_MASK|TYPE_MASK|TAG_MASK);
+  atomKK->sync(execution_space, MASK_MASK|MOLECULE_MASK|TYPE_MASK/*|TAG_MASK*/);
 
   copymode = 1;
 
@@ -734,8 +747,6 @@ void FixClusterSwitchKokkos<DeviceType>::gather_statistics()
   FixClusterSwitchGatherStatisticsFunctor<DeviceType> functor(this);
   Kokkos::parallel_reduce(maxmol+1,functor,reduce);
 
-  printf("%i %i %i %i %i %i\n",reduce.d0,reduce.d1,reduce.d2,reduce.d3,reduce.d4,reduce.d5);
-
   //now update
 
   nAttemptsTotal += reduce.d0;
@@ -752,7 +763,6 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void FixClusterSwitchKokkos<DeviceType>::gather_statistics_item(const int& i, REDUCE_INT_6& reduce) const
 {
-  printf("stats %i %i %i %i\n",i,d_mol_restrict[i],d_mol_state[i],d_mol_accept[i]);
   if (d_mol_restrict[i] == 1) {
     reduce.d0++; // dt_AttemptsTotal
     if (d_mol_state[i] == 0) {
