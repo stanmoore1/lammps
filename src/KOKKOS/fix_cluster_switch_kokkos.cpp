@@ -63,6 +63,8 @@ FixClusterSwitchKokkos<DeviceType>::FixClusterSwitchKokkos(LAMMPS *lmp, int narg
   d_done = typename AT::t_int_scalar("fix_cluster_switch:done");
   d_error_flag = typename AT::t_int_scalar("fix_cluster_switch:error_flag");
 
+  maxhash = 0;
+
 #ifdef LMP_KOKKOS_DEBUG
   rand_pool.init(random_unequal);
 #endif
@@ -177,7 +179,14 @@ void FixClusterSwitchKokkos<DeviceType>::pre_exchange()
   neighbor->build(1);
 
   check_cluster();
+
+    for (int i = 0; i <= maxmol; i++) 
+      printf("First %i %i\n",i,d_mol_state[i]);
+
   attempt_switch();
+
+    for (int i = 0; i <= maxmol; i++)
+      printf("Second %i %i\n",i,d_mol_state[i]);
 
   next_reneighbor = update->ntimestep + switchFreq;
 }
@@ -523,13 +532,16 @@ void FixClusterSwitchKokkos<DeviceType>::operator()(TagFixClusterSwitchCheckClus
   // now switch mol_restrict flags based on cluster ID of mol_seed (mol_cluster should be copied beforehand)
   if (d_mol_cluster[i] != -1) {
     const int clusterID = d_mol_cluster[mol_seed];
+  printf("c s %i %i %i %i\n",i,d_mol_cluster[i],d_mol_state[i],d_mol_cluster[mol_seed]);
     // if this is a switchable mol, mol_restrict should be updated
     if (d_mol_state[i] == 0 || d_mol_state[i] == 1) {
       if (d_mol_cluster[i] == clusterID) {
         d_mol_restrict[i] = -1;
         d_mol_state[i] = 1;
+      } else {
+        d_mol_restrict[i] = 1;
+        printf("ms 1 %i\n",i);
       }
-      else d_mol_restrict[i] = 1;
     }
     if (d_mol_cluster[i] == clusterID) nCluster += 1.0;
   }
@@ -549,6 +561,13 @@ void FixClusterSwitchKokkos<DeviceType>::attempt_switch()
   atomKK->sync(execution_space, MASK_MASK|MOLECULE_MASK|TYPE_MASK|TAG_MASK);
 
   copymode = 1;
+
+  int nhash = 2*(maxmol+1);
+  if (maxhash < nhash) {
+    maxhash = nhash;
+    d_hash = hash_type(maxhash);
+  } else
+    d_hash.clear();
 
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagFixClusterSwitchAttemptSwitch1>(0,maxmol+1),*this);
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagFixClusterSwitchAttemptSwitch2>(0,nlocal),*this);
@@ -645,9 +664,16 @@ void FixClusterSwitchKokkos<DeviceType>::operator()(TagFixClusterSwitchAttemptSw
   if (d_mol_restrict[mID] == 1) confirmflag = confirm_molecule(mID); //checks if this proc should be decision-maker
   else confirmflag = 0;
 
+  if (confirmflag)
+  printf("cf: %i %i %i\n",mID,confirmflag,d_mol_restrict[mID]);
+
   rand_type rand_gen = rand_pool.get_state();
 
-  if (d_mol_accept_local[mID] == -1 && confirmflag != 0)  d_mol_accept_local[mID] = switch_flag(mID, rand_gen);
+  if (d_mol_accept_local[mID] == -1 && confirmflag != 0) {
+    int val = switch_flag(mID, rand_gen);
+    printf("sf: %i %i\n",mID,val);
+    d_mol_accept_local[mID] = val;
+  }
 
   rand_pool.free_state(rand_gen);
 }
@@ -678,6 +704,8 @@ void FixClusterSwitchKokkos<DeviceType>::operator()(TagFixClusterSwitchAttemptSw
     //update mol_state
     if (d_mol_state[i] == 0) d_mol_state[i] = 1;
     else if (d_mol_state[i] == 1) d_mol_state[i] = 0;
+      if (d_mol_state[i] == 1 || d_mol_state[i] == 0)
+        printf("%i new MS = %i\n",i,d_mol_state[i]);
   }
 }
 
@@ -699,7 +727,7 @@ int FixClusterSwitchKokkos<DeviceType>::confirm_molecule( int molID ) const
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-int FixClusterSwitchKokkos<DeviceType>::switch_flag( int molID, rand_type &rand_gen ) const
+int FixClusterSwitchKokkos<DeviceType>::switch_flag(int molID, rand_type &rand_gen) const
 {
   int state = d_mol_state[molID];
   double checkProb;
@@ -711,6 +739,7 @@ int FixClusterSwitchKokkos<DeviceType>::switch_flag( int molID, rand_type &rand_
     checkProb = probOFF;
 
   double rand = rand_gen.drand();
+  printf("rand %i %g %g\n",molID,rand,checkProb);
   if (rand < checkProb)
     return 1;
   else
@@ -768,12 +797,6 @@ void FixClusterSwitchKokkos<DeviceType>::gather_statistics_item(const int& i, RE
 template<class DeviceType>
 void FixClusterSwitchKokkos<DeviceType>::check_arrays()
 {
-  // local variables for lambda capture
-
-  auto l_mol_restrict = d_mol_restrict;
-  auto l_mol_state = d_mol_state;
-  auto l_error_flag = d_error_flag;
-
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagFixClusterSwitchCheckArrays>(0,maxmol+1),*this);
 
   auto h_error_flag = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_error_flag);

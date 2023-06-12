@@ -113,6 +113,7 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
 
  private:
 
+#define LMP_KOKKOS_DEBUG
 #ifdef LMP_KOKKOS_DEBUG
   RandPoolWrap rand_pool;
   typedef RandWrap rand_type;
@@ -134,6 +135,7 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
 
   // hash map (key value) to keep track of mols
 
+  int maxhash;
   typedef Kokkos::UnorderedMap<int,int> hash_type;
   hash_type d_hash;
 
