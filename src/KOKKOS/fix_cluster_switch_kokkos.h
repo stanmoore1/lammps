@@ -38,14 +38,14 @@ template<class DeviceType>
 class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
  public:
 
-  struct REDUCE_DOUBLE_6 {
-    double d0, d1, d2, d3, d4, d5;
+  struct REDUCE_INT_6 {
+    int d0, d1, d2, d3, d4, d5;
     KOKKOS_INLINE_FUNCTION
-    REDUCE_DOUBLE_6() {
-      d0 = d1 = d2 = d3 = d4 = d5 = 0.0;
+    REDUCE_INT_6() {
+      d0 = d1 = d2 = d3 = d4 = d5 = 0;
     }
     KOKKOS_INLINE_FUNCTION
-    REDUCE_DOUBLE_6& operator+=(const REDUCE_DOUBLE_6 &rhs) {
+    REDUCE_INT_6& operator+=(const REDUCE_INT_6 &rhs) {
       d0 += rhs.d0;
       d1 += rhs.d1;
       d2 += rhs.d2;
@@ -64,7 +64,7 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
   ~FixClusterSwitchKokkos() override;
   void allocate(int) override;
   void init() override;
-  void pre_exchange() override;
+  void post_neighbor() override;
   int pack_forward_comm_kokkos(int, DAT::tdual_int_2d, int, DAT::tdual_xfloat_1d&,
                        int, int *) override;
   void unpack_forward_comm_kokkos(int, int, DAT::tdual_xfloat_1d&) override;
@@ -109,7 +109,7 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
   void operator()(TagFixClusterSwitchUnpackForwardComm, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void gather_statistics_item(const int&, REDUCE_DOUBLE_6&) const;
+  void gather_statistics_item(const int&, REDUCE_INT_6&) const;
 
  private:
 
@@ -189,7 +189,7 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
 template <class DeviceType>
 struct FixClusterSwitchGatherStatisticsFunctor {
   typedef DeviceType device_type;
-  typedef typename FixClusterSwitchKokkos<DeviceType>::REDUCE_DOUBLE_6 value_type;
+  typedef typename FixClusterSwitchKokkos<DeviceType>::REDUCE_INT_6 value_type;
   FixClusterSwitchKokkos<DeviceType> c;
   FixClusterSwitchGatherStatisticsFunctor(FixClusterSwitchKokkos<DeviceType>* c_ptr):c(*c_ptr) {c.set_copymode(1);}
 

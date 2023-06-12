@@ -284,7 +284,7 @@ void FixClusterSwitch::read_contacts(const char *file)
 int FixClusterSwitch::setmask()
 {
   int mask=0;
-  mask |= PRE_EXCHANGE;
+  mask |= POST_NEIGHBOR;
   return mask;
 }
 
@@ -441,18 +441,18 @@ void FixClusterSwitch::allocate(int flag)
 
 /* ---------------------------------------------------------------------- */
 //void FixClusterSwitch::pre_force(int /*vflag*/)
-void FixClusterSwitch::pre_exchange()
+void FixClusterSwitch::post_neighbor()
 {
   // printf("The current timestep is %d, switchFreq is %d, mod of the two is %d\n", int(update->ntimestep), switchFreq, int(update->ntimestep) % switchFreq);
   if (switchFreq == 0) return; 
   //if (update->ntimestep % switchFreq) return;
   if (next_reneighbor != update->ntimestep) return;
 
-  domain->pbc();
+  /*domain->pbc();
   comm->exchange();
   comm->borders();
   if(modify->n_pre_neighbor) modify->pre_neighbor();
-  neighbor->build(1);
+  neighbor->build(1);*/
 
   check_cluster();
   attempt_switch();

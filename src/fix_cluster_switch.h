@@ -19,7 +19,7 @@ namespace LAMMPS_NS {
     virtual void allocate(int);
     void init() override;
     void init_list(int, class NeighList *) override;
-    void pre_exchange() override;
+    void post_neighbor() override;
     int pack_forward_comm(int, int *, double *, int, int *) override;
     void unpack_forward_comm(int, int, double *) override;
     double memory_usage() override;

@@ -166,17 +166,17 @@ void FixClusterSwitchKokkos<DeviceType>::operator()(TagFixClusterSwitchInit, con
 //void FixClusterSwitchKokkos<DeviceType>::pre_force(int /*vflag*/)
 
 template<class DeviceType>
-void FixClusterSwitchKokkos<DeviceType>::pre_exchange()
+void FixClusterSwitchKokkos<DeviceType>::post_neighbor()
 {
   if (switchFreq == 0) return; 
   //if (update->ntimestep % switchFreq) return;
   if (next_reneighbor != update->ntimestep) return;
 
-  domain->pbc();
+  /*domain->pbc();
   comm->exchange();
   comm->borders();
   if (modify->n_pre_neighbor) modify->pre_neighbor();
-  neighbor->build(1);
+  neighbor->build(1);*/
 
   check_cluster();
   attempt_switch();
@@ -255,7 +255,7 @@ void FixClusterSwitchKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int f
 
   copymode = 0;
 
-  atomKK->sync(execution_space,TYPE_MASK);
+  atomKK->modified(execution_space,TYPE_MASK);
 }
 
 template<class DeviceType>
@@ -729,10 +729,12 @@ void FixClusterSwitchKokkos<DeviceType>::gather_statistics()
 {
   //gather these stats before mol_state is updated
 
-  REDUCE_DOUBLE_6 reduce;
+  REDUCE_INT_6 reduce;
 
   FixClusterSwitchGatherStatisticsFunctor<DeviceType> functor(this);
   Kokkos::parallel_reduce(maxmol+1,functor,reduce);
+
+  printf("%i %i %i %i %i %i\n",reduce.d0,reduce.d1,reduce.d2,reduce.d3,reduce.d4,reduce.d5);
 
   //now update
 
@@ -748,21 +750,22 @@ void FixClusterSwitchKokkos<DeviceType>::gather_statistics()
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixClusterSwitchKokkos<DeviceType>::gather_statistics_item(const int& i, REDUCE_DOUBLE_6& reduce) const
+void FixClusterSwitchKokkos<DeviceType>::gather_statistics_item(const int& i, REDUCE_INT_6& reduce) const
 {
+  printf("stats %i %i %i %i\n",i,d_mol_restrict[i],d_mol_state[i],d_mol_accept[i]);
   if (d_mol_restrict[i] == 1) {
-    reduce.d0 += 1.0; // dt_AttemptsTotal
+    reduce.d0++; // dt_AttemptsTotal
     if (d_mol_state[i] == 0) {
-      reduce.d1 += 1.0; // dt_AttemptsON
+      reduce.d1++; // dt_AttemptsON
       if (d_mol_accept[i] == 1) {
-        reduce.d3 += 1.0; // dt_SuccessTotal
-        reduce.d4 += 1.0; // dt_SuccessON
+        reduce.d3++; // dt_SuccessTotal
+        reduce.d4++; // dt_SuccessON
       }
     } else if (d_mol_state[i] == 1) {
-      reduce.d2 += 1.0; // dt_AttemptsOFF
+      reduce.d2++; // dt_AttemptsOFF
       if (d_mol_accept[i] == 1) {
-        reduce.d3 += 1.0; // dt_SuccessTotal
-        reduce.d5 += 1.0; // dt_SuccessOFF
+        reduce.d3++; // dt_SuccessTotal
+        reduce.d5++; // dt_SuccessOFF
       }
     }
   }
