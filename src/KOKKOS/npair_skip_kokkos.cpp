@@ -28,6 +28,7 @@ NPairSkipKokkos<DeviceType>::NPairSkipKokkos(LAMMPS *lmp) : NPair(lmp) {
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   d_inum = typename AT::t_int_scalar("npair_skip:inum");
+  ntypes = 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -61,12 +62,13 @@ void NPairSkipKokkos<DeviceType>::build(NeighList *list)
   d_numneigh = k_list->d_numneigh;
   d_neighbors = k_list->d_neighbors;
 
-  int ntypes = atom->ntypes;
-
-  k_iskip = DAT::tdual_int_1d("npair_skip:iskip",ntypes+1);
-  k_ijskip = DAT::tdual_int_2d("npair_skip:ijskip",ntypes+1,ntypes+1);
-  d_iskip = k_iskip.view<DeviceType>();
-  d_ijskip = k_ijskip.view<DeviceType>();
+  if (ntypes < atom->ntypes) {
+    ntypes = atom->ntypes;
+    k_iskip = DAT::tdual_int_1d("npair_skip:iskip",ntypes+1);
+    k_ijskip = DAT::tdual_int_2d("npair_skip:ijskip",ntypes+1,ntypes+1);
+    d_iskip = k_iskip.view<DeviceType>();
+    d_ijskip = k_ijskip.view<DeviceType>();
+  }
 
   for (int itype = 1; itype <= ntypes; itype++) {
     k_iskip.h_view(itype) = list->iskip[itype];
@@ -87,8 +89,7 @@ void NPairSkipKokkos<DeviceType>::build(NeighList *list)
   copymode = 1;
   Kokkos::parallel_scan(Kokkos::RangePolicy<DeviceType, TagNPairSkipCompute>(0,num_skip),*this);
 
-  auto h_inum = Kokkos::create_mirror_view(d_inum);
-  Kokkos::deep_copy(h_inum,d_inum);
+  auto h_inum = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_inum);
   const int inum = h_inum();
   list->inum = inum;
   if (list->ghost) {

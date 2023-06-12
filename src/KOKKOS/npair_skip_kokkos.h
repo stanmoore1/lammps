@@ -72,7 +72,7 @@ class NPairSkipKokkos : public NPair {
   void operator()(TagNPairSkipCountLocal, const int&, int&) const;
 
  private:
-  int nlocal,num_skip;
+  int nlocal,num_skip,ntypes;
 
   typename AT::t_int_1d_randomread type;
 
