@@ -215,6 +215,8 @@ FixAdapt::FixAdapt(LAMMPS *lmp, int narg, char **arg) :
 
 FixAdapt::~FixAdapt()
 {
+  if (copymode) return;
+
   for (int m = 0; m < nadapt; m++) {
     delete[] adapt[m].var;
     if (adapt[m].which == PAIR) {
