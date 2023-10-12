@@ -2,7 +2,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -376,7 +376,7 @@ ComputePropertyAtom::ComputePropertyAtom(LAMMPS *lmp, int narg, char **arg) :
       index[i] = atom->avec->property_atom(arg[iarg]);
       if (index[i] < 0)
         error->all(FLERR,"Invalid keyword {} for atom style {} in compute property/atom command ",
-                   atom->get_style(), arg[iarg]);
+                   arg[iarg], atom->get_style());
       pack_choice[i] = &ComputePropertyAtom::pack_atom_style;
     }
   }
@@ -1268,7 +1268,7 @@ void ComputePropertyAtom::pack_shapex(int n)
   for (int i = 0; i < nlocal; i++) {
     if ((mask[i] & groupbit) && ellipsoid[i] >= 0)
       buf[n] = 2.0*bonus[ellipsoid[i]].shape[0];
-    else buf[n] = 0.0;
+    else buf[n] = 1.0;
     n += nvalues;
   }
 }
@@ -1285,7 +1285,7 @@ void ComputePropertyAtom::pack_shapey(int n)
   for (int i = 0; i < nlocal; i++) {
     if ((mask[i] & groupbit) && ellipsoid[i] >= 0)
       buf[n] = 2.0*bonus[ellipsoid[i]].shape[1];
-    else buf[n] = 0.0;
+    else buf[n] = 1.0;
     n += nvalues;
   }
 }
@@ -1302,7 +1302,7 @@ void ComputePropertyAtom::pack_shapez(int n)
   for (int i = 0; i < nlocal; i++) {
     if ((mask[i] & groupbit) && ellipsoid[i] >= 0)
       buf[n] = 2.0*bonus[ellipsoid[i]].shape[2];
-    else buf[n] = 0.0;
+    else buf[n] = 1.0;
     n += nvalues;
   }
 }
@@ -1320,7 +1320,7 @@ void ComputePropertyAtom::pack_quatw(int n)
     for (int i = 0; i < nlocal; i++) {
       if ((mask[i] & groupbit) && ellipsoid[i] >= 0)
         buf[n] = bonus[ellipsoid[i]].quat[0];
-      else buf[n] = 0.0;
+      else buf[n] = 1.0;
       n += nvalues;
     }
 

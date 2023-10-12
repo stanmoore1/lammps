@@ -6,14 +6,14 @@ fix imd command
 Syntax
 """"""
 
-.. parsed-literal::
+.. code-block:: LAMMPS
 
    fix ID group-ID imd trate port keyword values ...
 
 * ID, group-ID are documented in :doc:`fix <fix>` command
 * imd = style name of this fix command
 * port = port number on which the fix listens for an IMD client
-* keyword = *unwrap* or *fscale* or *trate*
+* keyword = *unwrap* or *fscale* or *trate* or *nowait*
 
   .. parsed-literal::
 

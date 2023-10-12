@@ -44,7 +44,7 @@ endif
 # PACKLIB    = all packages that require an additional lib
 #              should be PACKSYS + PACKINT + PACKEXT
 # PACKSYS    = subset that reqiure a common system library
-#              include MPIIO and LB b/c require full MPI, not just STUBS
+#              include LATBOLTZ b/c it requires a full MPI, not just STUBS
 # PACKINT    = subset that require an internal (provided) library
 # PACKEXT    = subset that require an external (downloaded) library
 
@@ -55,7 +55,7 @@ PACKAGE = \
 	awpmd \
 	bocs \
 	body \
-        bpm \
+	bpm \
 	brownian \
 	cg-dna \
 	cg-spica \
@@ -87,7 +87,7 @@ PACKAGE = \
 	kokkos \
 	kspace \
 	latboltz \
-	latte \
+	lepton \
 	machdyn \
 	manifold \
 	manybody \
@@ -99,14 +99,13 @@ PACKAGE = \
 	misc \
 	ml-hdnnp \
 	ml-pace \
+	ml-pod \
 	ml-quip \
 	ml-rann \
 	ml-snap \
 	mofff \
 	molecule \
 	molfile \
-	mpiio \
-	mscg \
 	netcdf \
 	openmp \
 	opt \
@@ -152,7 +151,7 @@ PACKMOST = \
 	bocs \
 	body \
 	bpm \
-        brownian \
+	brownian \
 	cg-dna \
 	cg-spica \
 	class2 \
@@ -178,6 +177,7 @@ PACKMOST = \
 	manybody \
 	mc \
 	meam \
+	mesont \
 	misc \
 	ml-snap \
 	mofff \
@@ -210,9 +210,7 @@ PACKLIB = \
 	gpu \
 	kim \
 	kokkos \
-	latte \
-	mpiio \
-	mscg \
+	lepton \
 	poems \
 	python \
 	voronoi \
@@ -223,11 +221,12 @@ PACKLIB = \
 	h5md \
 	ml-hdnnp \
 	latboltz \
+	lepton \
 	mdi \
-	mesont \
 	molfile \
 	netcdf \
 	ml-pace \
+	ml-pod \
 	plumed \
 	qmmm \
 	ml-quip \
@@ -236,21 +235,19 @@ PACKLIB = \
 	vtk \
 	electrode
 
-PACKSYS = compress latboltz mpiio python
+PACKSYS = compress latboltz python
 
-PACKINT = atc awpmd colvars electrode gpu kokkos mesont poems
+PACKINT = atc awpmd colvars electrode gpu kokkos lepton ml-pod poems
 
 PACKEXT = \
 	adios \
 	h5md \
 	kim \
-	latte \
 	machdyn \
 	ml-hdnnp \
 	ml-pace \
 	ml-quip \
 	molfile \
-	mscg \
 	netcdf \
 	plumed \
 	qmmm \
@@ -463,7 +460,7 @@ mpi-stubs:
 sinclude ../lib/python/Makefile.lammps
 install-python:
 	@rm -rf ../python/build
-	@$(PYTHON) ../python/install.py -p ../python/lammps -l ../src/liblammps.so -w $(PWD)
+	@$(PYTHON) ../python/install.py -p ../python/lammps -l ../src/liblammps.so -w $(PWD) -v $(PWD)/version.h
 
 # Create a tarball of src dir and packages
 
@@ -633,6 +630,8 @@ lib-%:
 	else \
 	  echo "Install script for lib $(@:lib-%=%) does not exist"; \
 	fi; touch main.cpp
+
+lib-colvars: lib-lepton
 
 # status = list src files that differ from package files
 # installed = list of installed packages
