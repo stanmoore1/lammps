@@ -303,6 +303,8 @@ void CommKokkos::reverse_comm()
   //atomKK->sync(Device,ALL_MASK); // is this needed?
 }
 
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 void CommKokkos::reverse_comm_device()
 {
@@ -358,7 +360,14 @@ void CommKokkos::reverse_comm_device()
   }
 }
 
-/* ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+   forward communication invoked by a Fix
+   size/nsize used only to set recv buffer limit
+   size = 0 (default) -> use comm_forward from Fix
+   size > 0 -> Fix passes max size per atom
+   the latter is only useful if Fix does several comm modes,
+     some are smaller than max stored in its comm_forward
+------------------------------------------------------------------------- */
 
 void CommKokkos::forward_comm(Fix *fix, int size)
 {
@@ -370,6 +379,8 @@ void CommKokkos::forward_comm(Fix *fix, int size)
     forward_comm_device<LMPDeviceType>(fix,size);
   }
 }
+
+/* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 void CommKokkos::forward_comm_device(Fix *fix, int size)
@@ -435,7 +446,14 @@ void CommKokkos::forward_comm_device(Fix *fix, int size)
   }
 }
 
-/* ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+   reverse communication invoked by a Fix
+   size/nsize used only to set recv buffer limit
+   size = 0 (default) -> use comm_forward from Fix
+   size > 0 -> Fix passes max size per atom
+   the latter is only useful if Fix does several comm modes,
+     some are smaller than max stored in its comm_forward
+------------------------------------------------------------------------- */
 
 void CommKokkos::reverse_comm(Fix *fix, int size)
 {
@@ -443,16 +461,51 @@ void CommKokkos::reverse_comm(Fix *fix, int size)
   CommBrick::reverse_comm(fix, size);
 }
 
+
+/* ----------------------------------------------------------------------
+   reverse communication invoked by a Fix with variable size data
+   query fix for pack size to ensure buf_send is big enough
+   handshake sizes before each Irecv/Send to ensure buf_recv is big enough
+------------------------------------------------------------------------- */
+
+void CommKokkos::reverse_comm_variable(Fix *fix)
+{
+  k_sendlist.sync<LMPHostType>();
+  CommBrick::reverse_comm_variable(fix);
+}
+
+/* ----------------------------------------------------------------------
+   forward communication invoked by a Compute
+   nsize used only to set recv buffer limit
+------------------------------------------------------------------------- */
+
 void CommKokkos::forward_comm(Compute *compute)
 {
   k_sendlist.sync<LMPHostType>();
   CommBrick::forward_comm(compute);
 }
 
+
+/* ----------------------------------------------------------------------
+   reverse communication invoked by a Compute
+   nsize used only to set recv buffer limit
+------------------------------------------------------------------------- */
+
 void CommKokkos::reverse_comm(Compute *compute)
 {
   k_sendlist.sync<LMPHostType>();
   CommBrick::reverse_comm(compute);
+}
+
+/* ----------------------------------------------------------------------
+   forward communication invoked by a Dump
+   nsize used only to set recv buffer limit
+------------------------------------------------------------------------- */
+
+void CommKokkos::forward_comm(Dump *dump)
+{
+  k_sendlist.sync<LMPHostType>();
+  CommBrick::reverse_comm(dump);
 }
 
 void CommKokkos::forward_comm(Pair *pair)
@@ -465,6 +518,8 @@ void CommKokkos::forward_comm(Pair *pair)
     forward_comm_device<LMPDeviceType>(pair);
   }
 }
+
+/* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 void CommKokkos::forward_comm_device(Pair *pair)
@@ -530,17 +585,23 @@ void CommKokkos::forward_comm_device(Pair *pair)
   }
 }
 
+/* ---------------------------------------------------------------------- */
+
 void CommKokkos::grow_buf_pair(int n) {
   max_buf_pair = n * BUFFACTOR;
   k_buf_send_pair.resize(max_buf_pair);
   k_buf_recv_pair.resize(max_buf_pair);
 }
 
+/* ---------------------------------------------------------------------- */
+
 void CommKokkos::grow_buf_fix(int n) {
   max_buf_fix = n * BUFFACTOR;
   k_buf_send_fix.resize(max_buf_fix);
   k_buf_recv_fix.resize(max_buf_fix);
 }
+
+/* ---------------------------------------------------------------------- */
 
 void CommKokkos::reverse_comm(Pair *pair)
 {
@@ -552,6 +613,8 @@ void CommKokkos::reverse_comm(Pair *pair)
     reverse_comm_device<LMPDeviceType>(pair);
   }
 }
+
+/* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 void CommKokkos::reverse_comm_device(Pair *pair)
@@ -616,11 +679,15 @@ void CommKokkos::reverse_comm_device(Pair *pair)
   }
 }
 
+/* ---------------------------------------------------------------------- */
+
 void CommKokkos::forward_comm(Dump *dump)
 {
   k_sendlist.sync<LMPHostType>();
   CommBrick::forward_comm(dump);
 }
+
+/* ---------------------------------------------------------------------- */
 
 void CommKokkos::reverse_comm(Dump *dump)
 {
