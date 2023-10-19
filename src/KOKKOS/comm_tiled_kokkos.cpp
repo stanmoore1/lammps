@@ -418,11 +418,9 @@ void CommTiledKokkos::grow_recv_kokkos(int n, ExecutionSpace /*space*/)
   buf_recv = k_buf_recv.view<LMPHostType>().data();
 }
 
-
 /* ----------------------------------------------------------------------
- *    realloc the size of the iswap sendlist as needed with BUFFACTOR
- *    -------------------------------------------------------------------------
- *    */
+    realloc the size of the iswap sendlist as needed with BUFFACTOR
+------------------------------------------------------------------------- */
 
 void CommTiled::grow_list(int iswap, int iwhich, int n)
 {
@@ -475,5 +473,5 @@ void CommTiledKokkos::grow_swap(int n)
   memoryKK->grow_kokkos(k_sendlist,sendlist,maxswap,size,"comm:sendlist");
 
   memory->grow(maxsendlist,n,"comm:maxsendlist");
-  for (int i=0;i<maxswap;i++) maxsendlist[i]=size;
+  for (int i = 0; i < maxswap; i++) maxsendlist[i] = size;
 }

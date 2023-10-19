@@ -211,7 +211,8 @@ void CommKokkos::forward_comm_device(int)
             MPI_Irecv(buf,size_forward_recv[iswap],MPI_DOUBLE,
                       recvproc[iswap],0,world,&request);
           }
-          n = atomKK->avecKK->pack_comm_kokkos(sendnum[iswap],k_sendlist,
+          auto k_sendlist_iswap = Kokkos::subview(k_sendlist,std::make_pair(iswap,Kokkos::ALL));
+          n = atomKK->avecKK->pack_comm_kokkos(sendnum[iswap],k_sendlist_iswap,
                                      iswap,k_buf_send,pbc_flag[iswap],pbc[iswap]);
           DeviceType().fence();
           if (n) {
@@ -230,7 +231,8 @@ void CommKokkos::forward_comm_device(int)
                       size_forward_recv[iswap],MPI_DOUBLE,
                       recvproc[iswap],0,world,&request);
           }
-          n = atomKK->avecKK->pack_comm_vel_kokkos(sendnum[iswap],k_sendlist,iswap,
+          auto k_sendlist_iswap = Kokkos::subview(k_sendlist,std::make_pair(iswap,Kokkos::ALL));
+          n = atomKK->avecKK->pack_comm_vel_kokkos(sendnum[iswap],k_sendlist_iswap,
                                          k_buf_send,pbc_flag[iswap],pbc[iswap]);
           DeviceType().fence();
           if (n) {
@@ -245,7 +247,8 @@ void CommKokkos::forward_comm_device(int)
             MPI_Irecv(k_buf_recv.view<DeviceType>().data(),
                       size_forward_recv[iswap],MPI_DOUBLE,
                       recvproc[iswap],0,world,&request);
-          n = atomKK->avecKK->pack_comm_kokkos(sendnum[iswap],k_sendlist,iswap,
+          auto k_sendlist_iswap = Kokkos::subview(k_sendlist,std::make_pair(iswap,Kokkos::ALL));
+          n = atomKK->avecKK->pack_comm_kokkos(sendnum[iswap],k_sendlist_iswap,
                                      k_buf_send,pbc_flag[iswap],pbc[iswap]);
           DeviceType().fence();
           if (n)
@@ -257,12 +260,15 @@ void CommKokkos::forward_comm_device(int)
         }
       } else {
         if (!ghost_velocity) {
-          if (sendnum[iswap])
-            n = atomKK->avecKK->pack_comm_self(sendnum[iswap],k_sendlist,iswap,
+          if (sendnum[iswap]) {
+            auto k_sendlist_iswap = Kokkos::subview(k_sendlist,std::make_pair(iswap,Kokkos::ALL));
+            n = atomKK->avecKK->pack_comm_self(sendnum[iswap],k_sendlist_iswap,
                                      firstrecv[iswap],pbc_flag[iswap],pbc[iswap]);
-          DeviceType().fence();
+            DeviceType().fence();
+          }
         } else {
-          n = atomKK->avecKK->pack_comm_vel_kokkos(sendnum[iswap],k_sendlist,iswap,
+          auto k_sendlist_iswap = Kokkos::subview(k_sendlist,std::make_pair(iswap,Kokkos::ALL));
+          n = atomKK->avecKK->pack_comm_vel_kokkos(sendnum[iswap],k_sendlist_iswap,
                                          k_buf_send,pbc_flag[iswap],pbc[iswap]);
           DeviceType().fence();
           atomKK->avecKK->unpack_comm_vel_kokkos(recvnum[iswap],firstrecv[iswap],k_buf_send);
@@ -349,13 +355,16 @@ void CommKokkos::reverse_comm_device()
                    MPI_DOUBLE,recvproc[iswap],0,world);
         if (size_reverse_recv[iswap]) MPI_Wait(&request,MPI_STATUS_IGNORE);
       }
-      atomKK->avecKK->unpack_reverse_kokkos(sendnum[iswap],k_sendlist,iswap,
+      auto k_sendlist_iswap = Kokkos::subview(k_sendlist,std::make_pair(iswap,Kokkos::ALL));
+      atomKK->avecKK->unpack_reverse_kokkos(sendnum[iswap],k_sendlist_iswap,
                                 k_buf_recv);
       DeviceType().fence();
     } else {
-      if (sendnum[iswap])
-        n = atomKK->avecKK->unpack_reverse_self(sendnum[iswap],k_sendlist,iswap,
+      if (sendnum[iswap]) {
+        auto k_sendlist_iswap = Kokkos::subview(k_sendlist,std::make_pair(iswap,Kokkos::ALL));
+        n = atomKK->avecKK->unpack_reverse_self(sendnum[iswap],k_sendlist_iswap,
                                  firstrecv[iswap]);
+      }
     }
   }
 }
@@ -404,8 +413,9 @@ void CommKokkos::forward_comm_device(Fix *fix, int size)
 
     // pack buffer
 
-    n = fixKKBase->pack_forward_comm_kokkos(sendnum[iswap],k_sendlist,
-                                      iswap,k_buf_send_fix,pbc_flag[iswap],pbc[iswap]);
+    auto k_sendlist_iswap = Kokkos::subview(k_sendlist,std::make_pair(iswap,Kokkos::ALL));
+    n = fixKKBase->pack_forward_comm_kokkos(sendnum[iswap],k_sendlist_iswap,
+                                      k_buf_send_fix,pbc_flag[iswap],pbc[iswap]);
     DeviceType().fence();
 
     // exchange with another proc
@@ -543,8 +553,9 @@ void CommKokkos::forward_comm_device(Pair *pair)
 
     // pack buffer
 
-    n = pairKKBase->pack_forward_comm_kokkos(sendnum[iswap],k_sendlist,
-                                       iswap,k_buf_send_pair,pbc_flag[iswap],pbc[iswap]);
+    auto k_sendlist_iswap = Kokkos::subview(k_sendlist,std::make_pair(iswap,Kokkos::ALL));
+    n = pairKKBase->pack_forward_comm_kokkos(sendnum[iswap],k_sendlist_iswap,
+                                       k_buf_send_pair,pbc_flag[iswap],pbc[iswap]);
     DeviceType().fence();
 
     // exchange with another proc
@@ -673,8 +684,9 @@ void CommKokkos::reverse_comm_device(Pair *pair)
 
     // unpack buffer
 
-    pairKKBase->unpack_reverse_comm_kokkos(sendnum[iswap],k_sendlist,
-                                       iswap,k_buf_tmp);
+    auto k_sendlist_iswap = Kokkos::subview(k_sendlist,std::make_pair(iswap,Kokkos::ALL));
+    pairKKBase->unpack_reverse_comm_kokkos(sendnum[iswap],k_sendlist_iswap,
+                                       k_buf_tmp);
     DeviceType().fence();
   }
 }
@@ -1260,14 +1272,15 @@ void CommKokkos::borders_device() {
       if (nsend*size_border > maxsend)
         grow_send_kokkos(nsend*size_border,0);
       if (ghost_velocity) {
+        auto k_sendlist_iswap = Kokkos::subview(k_sendlist,std::make_pair(iswap,Kokkos::ALL));
         n = atomKK->avecKK->
-          pack_border_vel_kokkos(nsend,k_sendlist,k_buf_send,iswap,
+          pack_border_vel_kokkos(nsend,k_sendlist_iswap,k_buf_send,
                                  pbc_flag[iswap],pbc[iswap],exec_space);
         DeviceType().fence();
-      }
-      else {
+      } else {
+        auto k_sendlist_iswap = Kokkos::subview(k_sendlist,std::make_pair(iswap,Kokkos::ALL));
         n = atomKK->avecKK->
-          pack_border_kokkos(nsend,k_sendlist,k_buf_send,iswap,
+          pack_border_kokkos(nsend,k_sendlist_iswap,k_buf_send,
                              pbc_flag[iswap],pbc[iswap],exec_space);
         DeviceType().fence();
       }

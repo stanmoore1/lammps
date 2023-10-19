@@ -50,7 +50,7 @@ class AtomVecKokkos : virtual public AtomVec {
   virtual void sync_overlapping_device(ExecutionSpace space, unsigned int mask) = 0;
 
   virtual int
-    pack_comm_self(const int &n, const DAT::tdual_int_2d &list,
+    pack_comm_self(const int &n, const DAT::tdual_int_1d &list,
                    const int & iswap, const int nfirst,
                    const int &pbc_flag, const int pbc[]);
 
@@ -63,7 +63,7 @@ class AtomVecKokkos : virtual public AtomVec {
                          const DAT::tdual_int_1d &g2l);
 
   virtual int
-    pack_comm_kokkos(const int &n, const DAT::tdual_int_2d &list,
+    pack_comm_kokkos(const int &n, const DAT::tdual_int_1d &list,
                      const int & iswap, const DAT::tdual_xfloat_2d &buf,
                      const int &pbc_flag, const int pbc[]);
 
@@ -72,7 +72,7 @@ class AtomVecKokkos : virtual public AtomVec {
                        const DAT::tdual_xfloat_2d &buf);
 
   virtual int
-    pack_comm_vel_kokkos(const int &n, const DAT::tdual_int_2d &list,
+    pack_comm_vel_kokkos(const int &n, const DAT::tdual_int_1d &list,
                          const int & iswap, const DAT::tdual_xfloat_2d &buf,
                          const int &pbc_flag, const int pbc[]);
 
@@ -81,7 +81,7 @@ class AtomVecKokkos : virtual public AtomVec {
                            const DAT::tdual_xfloat_2d &buf);
 
   virtual int
-    unpack_reverse_self(const int &n, const DAT::tdual_int_2d &list,
+    unpack_reverse_self(const int &n, const DAT::tdual_int_1d &list,
                       const int & iswap, const int nfirst);
 
   virtual int
@@ -89,7 +89,7 @@ class AtomVecKokkos : virtual public AtomVec {
                         const DAT::tdual_ffloat_2d &buf);
 
   virtual void
-    unpack_reverse_kokkos(const int &n, const DAT::tdual_int_2d &list,
+    unpack_reverse_kokkos(const int &n, const DAT::tdual_int_1d &list,
                           const int & iswap, const DAT::tdual_ffloat_2d &buf);
 
   virtual int
