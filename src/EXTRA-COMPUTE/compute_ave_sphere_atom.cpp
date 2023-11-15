@@ -58,7 +58,7 @@ ComputeAveSphereAtom::ComputeAveSphereAtom(LAMMPS *lmp, int narg, char **arg) :
   }
 
   peratom_flag = 1;
-  size_peratom_cols = 2;
+  size_peratom_cols = 3;
   comm_forward = 3;
 
   nmax = 0;
@@ -129,7 +129,7 @@ void ComputeAveSphereAtom::compute_peratom()
   double xtmp, ytmp, ztmp, delx, dely, delz, rsq;
   int *ilist, *jlist, *numneigh, **firstneigh;
   int count;
-  double p[3], vcom[3], vnet[3];
+  double vcom[3], vnet[3], xcom[3], xnet[3];
 
   invoked_peratom = update->ntimestep;
 
@@ -138,7 +138,7 @@ void ComputeAveSphereAtom::compute_peratom()
   if (atom->nmax > nmax) {
     memory->destroy(result);
     nmax = atom->nmax;
-    memory->create(result, nmax, 2, "ave/sphere/atom:result");
+    memory->create(result, nmax, size_peratom_cols, "ave/sphere/atom:result");
     array_atom = result;
   }
 
@@ -190,9 +190,13 @@ void ComputeAveSphereAtom::compute_peratom()
 
       count = 1;
       totalmass = massone_i;
-      p[0] = v[i][0] * massone_i;
-      p[1] = v[i][1] * massone_i;
-      p[2] = v[i][2] * massone_i;
+      vcom[0] = v[i][0] * massone_i;
+      vcom[1] = v[i][1] * massone_i;
+      vcom[2] = v[i][2] * massone_i;
+
+      xcom[0] = x[i][0] * massone_i;
+      xcom[1] = x[i][1] * massone_i;
+      xcom[2] = x[i][2] * massone_i;
 
       for (jj = 0; jj < jnum; jj++) {
         j = jlist[jj];
@@ -209,15 +213,23 @@ void ComputeAveSphereAtom::compute_peratom()
         if (rsq < cutsq) {
           count++;
           totalmass += massone_j;
-          p[0] += v[j][0] * massone_j;
-          p[1] += v[j][1] * massone_j;
-          p[2] += v[j][2] * massone_j;
+          vcom[0] += v[j][0] * massone_j;
+          vcom[1] += v[j][1] * massone_j;
+          vcom[2] += v[j][2] * massone_j;
+
+          xcom[0] += x[i][0] * massone_j;
+          xcom[1] += x[i][1] * massone_j;
+          xcom[2] += x[i][2] * massone_j;
         }
       }
 
-      vcom[0] = p[0] / totalmass;
-      vcom[1] = p[1] / totalmass;
-      vcom[2] = p[2] / totalmass;
+      vcom[0] /= totalmass;
+      vcom[1] /= totalmass;
+      vcom[2] /= totalmass;
+
+      xcom[0] /= totalmass;
+      xcom[1] /= totalmass;
+      xcom[2] /= totalmass;
 
       // i atom contribution
 
@@ -247,8 +259,16 @@ void ComputeAveSphereAtom::compute_peratom()
       }
       double density = mv2d * totalmass / volume;
       double temp = mvv2e * ke_sum / (adof * count * boltz);
+
+      xnet[0] = xcom[0] - x[i][0];
+      xnet[1] = xcom[1] - x[i][1];
+      xnet[2] = xcom[2] - x[i][2];
+      double xcom_mag = sqrt(xnet[0]*xnet[0] + xnet[1]*xnet[1] + xnet[2]*xnet[2]);
+      double imbalance = xcom_mag / cutoff;
+
       result[i][0] = density;
       result[i][1] = temp;
+      result[i][2] = imbalance;
     }
   }
 }
