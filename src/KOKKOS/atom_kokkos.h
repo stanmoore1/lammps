@@ -35,6 +35,7 @@ class AtomKokkos : public Atom {
 
   DAT::tdual_float_1d k_mass;
 
+  DAT::tdual_int_1d k_ellipsoid;
   DAT::tdual_float_1d k_q;
   DAT::tdual_float_1d k_radius;
   DAT::tdual_float_1d k_rmass;
