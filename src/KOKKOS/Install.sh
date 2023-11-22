@@ -68,6 +68,8 @@ action atom_vec_dipole_kokkos.cpp atom_vec_dipole.cpp
 action atom_vec_dipole_kokkos.h atom_vec_dipole.h
 action atom_vec_dpd_kokkos.cpp atom_vec_dpd.cpp
 action atom_vec_dpd_kokkos.h atom_vec_dpd.h
+action atom_vec_ellipsoid_kokkos.cpp atom_vec_ellipsoid.cpp
+action atom_vec_ellipsoid_kokkos.h atom_vec_ellipsoid.h
 action atom_vec_full_kokkos.cpp atom_vec_full.cpp
 action atom_vec_full_kokkos.h atom_vec_full.h
 action atom_vec_hybrid_kokkos.cpp
