@@ -83,7 +83,7 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   void sync_overlapping_device(ExecutionSpace space, unsigned int mask) override;
 
  private:
-  int *ellipsoid;
+  int *ellipsoid; // IS THIS CORRECT?
   double **torque;  
     
   DAT::t_tagint_1d d_tag;
@@ -108,29 +108,6 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   HAT::t_f_array h_torque;
   DAT::t_int_1d d_ellipsoid;
   HAT::t_int_1d h_ellipsoid;
-    
-/* From atom_vec_sphere_kokkos.h:
-  double **torque;
-
-  DAT::t_tagint_1d d_tag;
-  HAT::t_tagint_1d h_tag;
-  DAT::t_imageint_1d d_image;
-  HAT::t_imageint_1d h_image;
-  DAT::t_int_1d d_type, d_mask;
-  HAT::t_int_1d h_type, h_mask;
-
-  DAT::t_x_array d_x;
-  DAT::t_v_array d_v;
-  DAT::t_f_array d_f;
-  DAT::t_float_1d d_radius;
-  HAT::t_float_1d h_radius;
-  DAT::t_float_1d d_rmass;
-  HAT::t_float_1d h_rmass;
-  DAT::t_v_array d_omega;
-  HAT::t_v_array h_omega;
-  DAT::t_f_array d_torque;
-  HAT::t_f_array h_torque;
-*/
     
 };
 
