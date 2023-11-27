@@ -94,11 +94,11 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   HAT::t_int_1d h_type, h_mask;
     
   DAT::t_x_array d_x;
-  HAT::t_x_array h_x;
+  //HAT::t_x_array h_x; // NOT SURE THESE 3 HATs ARE NEEDED - EXIST (PROTECTED MEMBERS) WITHIN AtomVecKokkos
   DAT::t_v_array d_v;
-  HAT::t_v_array h_v;
+  //HAT::t_v_array h_v;
   DAT::t_f_array d_f;
-  DAT::t_f_array h_f;
+  //DAT::t_f_array h_f;
     
   DAT::t_float_1d d_rmass;
   HAT::t_float_1d h_rmass;
