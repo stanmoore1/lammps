@@ -1507,7 +1507,7 @@ void AtomVecEllipsoidKokkos::sync_overlapping_device(ExecutionSpace space, unsig
     if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync<LMPDeviceType>())
       perform_async_copy<DAT::tdual_f_array>(atomKK->k_torque,space);
     if ((mask & ELLIPSOID_MASK) && atomKK->k_ellipsoid.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::tdual_float_1d>(atomKK->k_ellipsoid,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_ellipsoid,space);
   } else {
     if ((mask & X_MASK) && atomKK->k_x.need_sync<LMPHostType>())
       perform_async_copy<DAT::tdual_x_array>(atomKK->k_x,space);
@@ -1530,7 +1530,7 @@ void AtomVecEllipsoidKokkos::sync_overlapping_device(ExecutionSpace space, unsig
     if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync<LMPHostType>())
       perform_async_copy<DAT::tdual_f_array>(atomKK->k_torque,space);
     if ((mask & ELLIPSOID_MASK) && atomKK->k_ellipsoid.need_sync<LMPHostType>())
-      perform_async_copy<DAT::tdual_float_1d>(atomKK->k_ellipsoid,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_ellipsoid,space);
   }
 }
 
