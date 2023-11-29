@@ -1452,6 +1452,24 @@ int AtomVecEllipsoidKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, 
 
 /* ---------------------------------------------------------------------- */
 
+int AtomVecEllipsoidKokkos::pack_comm_bonus_kokkos(int n, DAT::tdual_int_2d k_sendlist,
+                             DAT::tdual_xfloat_2d buf,int iswap, 
+                             ExecutionSpace space)
+{
+    return 0;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &nfirst,
+                             const DAT::tdual_xfloat_2d &buf,
+                             ExecutionSpace space)
+{
+    //
+}
+
+/* ---------------------------------------------------------------------- */
+
 void AtomVecEllipsoidKokkos::sync(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
