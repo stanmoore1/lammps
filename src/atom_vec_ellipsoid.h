@@ -65,7 +65,7 @@ class AtomVecEllipsoid : virtual public AtomVec {
 
   int nlocal_bonus;
 
- private:
+ protected:
   int *ellipsoid;
   double *rmass;
   double **angmom;
@@ -77,7 +77,6 @@ class AtomVecEllipsoid : virtual public AtomVec {
   void grow_bonus();
   void copy_bonus_all(int, int);
     
-  friend class AtomVecEllipsoidKokkos;  
 };
 
 }    // namespace LAMMPS_NS
