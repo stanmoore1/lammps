@@ -81,7 +81,7 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   void sync(ExecutionSpace space, unsigned int mask) override;
   void modified(ExecutionSpace space, unsigned int mask) override;
   void sync_overlapping_device(ExecutionSpace space, unsigned int mask) override;
-
+    
  private:
   int *ellipsoid; // IS THIS CORRECT?
   double **torque;  
@@ -108,6 +108,31 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   HAT::t_f_array h_torque;
   DAT::t_int_1d d_ellipsoid;
   HAT::t_int_1d h_ellipsoid;
+    
+  /* Bonus struct */
+    
+  typedef Kokkos::DualView<F_FLOAT[3],LMPDeviceType::array_layout,LMPDeviceType> tdual_float_3d;
+  typedef typename tdual_float_3d::t_dev t_float_3d;
+  typedef typename tdual_float_3d::t_host t_host_float_3d;
+    
+  typedef Kokkos::DualView<F_FLOAT[4],LMPDeviceType::array_layout,LMPDeviceType> tdual_float_4d;
+  typedef typename tdual_float_4d::t_dev t_float_4d;
+  typedef typename tdual_float_4d::t_host t_host_float_4d;
+    
+  struct BonusDevice {
+    t_float_3d d_shape;
+    t_float_4d d_quat;
+    DAT::t_int_1d d_ilocal; // Maybe need tdual ilocal somewhere before this?
+  };
+
+  struct BonusHost {
+    t_host_float_3d h_shape;
+    t_host_float_4d h_quat;
+    HAT::t_int_1d h_ilocal; // Maybe need tdual ilocal somewhere before this?
+  };
+
+  BonusDevice* d_bonus;
+  BonusHost* h_bonus;
     
 };
 
