@@ -111,26 +111,29 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
     
   /* Bonus struct */
     
-  typedef Kokkos::DualView<X_FLOAT**[3],LMPDeviceType::array_layout,LMPDeviceType> tdual_float_3d; //array_layout ok?
-  typedef typename tdual_float_3d::t_dev t_float_3d;
-  typedef typename tdual_float_3d::t_host t_host_float_3d;
+  //typedef Kokkos::DualView<X_FLOAT**[3],LMPDeviceType::array_layout,LMPDeviceType> tdual_float_3d; //array_layout ok?
+  //typedef typename tdual_float_3d::t_dev t_float_3d;
+  //typedef typename tdual_float_3d::t_host t_host_float_3d;
     
-  typedef Kokkos::DualView<X_FLOAT**[4],LMPDeviceType::array_layout,LMPDeviceType> tdual_float_4d; //array_layout ok?
-  typedef typename tdual_float_4d::t_dev t_float_4d;
-  typedef typename tdual_float_4d::t_host t_host_float_4d;
+  //typedef Kokkos::DualView<LMP_FLOAT****,Kokkos::LayoutRight,LMPDeviceType> 
+  //    tdual_float_4d; //array_layout ok?
+  //typedef typename tdual_float_4d::t_dev t_float_4d;
+  //typedef typename tdual_float_4d::t_host t_host_float_4d;
     
-  // DAT::tdual_int_1d k_ilocal;  // Like this?
+  // DAT::tdual_float_3d k_shape;  // Like this?
+  // DAT::tdual_float_4d k_quat;   // Like this?
+  // DAT::tdual_int_1d k_ilocal;   // Like this?
     
-  struct BonusDevice {
-    t_float_3d d_shape;
-    t_float_4d d_quat;
-    DAT::t_int_1d d_ilocal; // Is tdual ilocal needed above (L122)?
+  struct BonusDevice {          // Is tdual needed above (L123)?
+    DAT::t_float_3d d_shape;
+    DAT::t_float_4d d_quat;
+    DAT::t_int_1d d_ilocal;
   };
 
-  struct BonusHost {
-    t_host_float_3d h_shape;
-    t_host_float_4d h_quat;
-    HAT::t_int_1d h_ilocal; // Is tdual ilocal needed above (L122)?
+  struct BonusHost {            // Is tdual needed above (L123)?
+    HAT::t_float_3d h_shape;
+    HAT::t_float_4d h_quat;
+    HAT::t_int_1d h_ilocal;
   };
 
   BonusDevice* d_bonus;
