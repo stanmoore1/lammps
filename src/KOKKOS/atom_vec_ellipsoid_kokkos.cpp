@@ -35,8 +35,12 @@ using namespace MathConst;
 AtomVecEllipsoidKokkos::AtomVecEllipsoidKokkos(LAMMPS *lmp) : AtomVec(lmp),
 AtomVecKokkos(lmp), AtomVecEllipsoid(lmp)
 {
-  no_border_vel_flag = 0;
-  unpack_exchange_indices_flag = 1;
+  no_border_vel_flag = 0;           // Came From AtVeSphereKo
+  unpack_exchange_indices_flag = 1; // Came From AtVeSphereKo
+  if (bonus_flag) { 
+    h_bonus = new BonusHost();      // Not sure about this h/d_bonus
+    d_bonus = new BonusDevice();
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -1535,7 +1539,7 @@ template<class DeviceType>
 struct AtomVecEllipsoidKokkos_PackCommBonus {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_float_4d_randomread _quat;
+  typename ArrayTypes<DeviceType>::t_float_4d _quat;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
@@ -1566,13 +1570,10 @@ int AtomVecEllipsoidKokkos::pack_comm_bonus_kokkos(int n, DAT::tdual_int_2d k_se
                              DAT::tdual_xfloat_2d buf,int iswap, 
                              ExecutionSpace space)
 {
-    //struct AtomVecEllipsoidKokkos_PackComm<LMPHostType,0,1,1> f(
-    //        atomKK->k_x,
-    //        atomKK->k_rmass,
-     //       buf,list,iswap,
-     //       domain->xprd,domain->yprd,domain->zprd,
-     //       domain->xy,domain->xz,domain->yz,pbc);
-      //    Kokkos::parallel_for(n,f);    
+    struct AtomVecEllipsoidKokkos_PackComm<LMPHostType> f(
+            BONUS_STRUCT_HERE,
+            buf,list,iswap);
+          Kokkos::parallel_for(n,f);    
     
     return 0;
 }
