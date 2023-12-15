@@ -120,22 +120,25 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   //typedef typename tdual_float_4d::t_dev t_float_4d;
   //typedef typename tdual_float_4d::t_host t_host_float_4d;
     
-  // DAT::tdual_float_3d k_shape;  // Like this?
-  // DAT::tdual_float_4d k_quat;   // Like this?
-  // DAT::tdual_int_1d k_ilocal;   // Like this?
+  struct BonusKokkos {
+    DAT::tdual_float_3d k_shape;  // Like this?
+    DAT::tdual_float_1d_4 k_quat;   // Like this?
+    DAT::tdual_int_1d k_ilocal;   // Like this?
+  };
     
   struct BonusDevice {          // Is tdual needed above (L123)?
     DAT::t_float_3d d_shape;
-    DAT::t_float_4d d_quat;
+    DAT::t_mu_array d_quat;
     DAT::t_int_1d d_ilocal;
   };
 
   struct BonusHost {            // Is tdual needed above (L123)?
     HAT::t_float_3d h_shape;
-    HAT::t_float_4d h_quat;
+    HAT::t_mu_array h_quat;
     HAT::t_int_1d h_ilocal;
   };
 
+  BonusKokkos* k_bonus;
   BonusDevice* d_bonus;
   BonusHost* h_bonus;
     
