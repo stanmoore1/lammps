@@ -764,14 +764,6 @@ typedef tdual_float_3d::t_dev_um t_float_3d_um;
 typedef tdual_float_3d::t_dev_const_um t_float_3d_const_um;
 typedef tdual_float_3d::t_dev_const_randomread t_float_3d_randomread;
 
-//4d float array n
-typedef Kokkos::DualView<LMP_FLOAT****, Kokkos::LayoutRight, LMPDeviceType> tdual_float_4d;
-typedef tdual_float_4d::t_dev t_float_4d;
-typedef tdual_float_4d::t_dev_const t_float_4d_const;
-typedef tdual_float_4d::t_dev_um t_float_4d_um;
-typedef tdual_float_4d::t_dev_const_um t_float_4d_const_um;
-typedef tdual_float_4d::t_dev_const_randomread t_float_4d_randomread;
-
 #ifdef LMP_KOKKOS_NO_LEGACY
 typedef Kokkos::DualView<X_FLOAT*[4], Kokkos::LayoutLeft, LMPDeviceType> tdual_float_1d_4;
 #else
