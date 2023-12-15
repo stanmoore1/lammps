@@ -62,6 +62,8 @@ action domain_kokkos.cpp
 action domain_kokkos.h
 action fix_nve_kokkos.cpp
 action fix_nve_kokkos.h
+action fix_property_atom_kokkos.cpp
+action fix_property_atom_kokkos.h
 action kokkos.cpp
 action kokkos.h
 action kokkos_base.h
