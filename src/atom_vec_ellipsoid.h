@@ -74,7 +74,7 @@ class AtomVecEllipsoid : virtual public AtomVec {
   int ellipsoid_flag;
   double rmass_one;
 
-  void grow_bonus();
+  virtual void grow_bonus();
   void copy_bonus_all(int, int);
     
 };

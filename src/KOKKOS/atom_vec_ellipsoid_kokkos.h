@@ -111,37 +111,15 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
     
   /* Bonus struct */
     
-  //typedef Kokkos::DualView<X_FLOAT**[3],LMPDeviceType::array_layout,LMPDeviceType> tdual_float_3d; //array_layout ok?
-  //typedef typename tdual_float_3d::t_dev t_float_3d;
-  //typedef typename tdual_float_3d::t_host t_host_float_3d;
-    
-  //typedef Kokkos::DualView<LMP_FLOAT****,Kokkos::LayoutRight,LMPDeviceType> 
-  //    tdual_float_4d; //array_layout ok?
-  //typedef typename tdual_float_4d::t_dev t_float_4d;
-  //typedef typename tdual_float_4d::t_host t_host_float_4d;
-    
-  struct BonusKokkos {
-    DAT::tdual_float_3d k_shape;  // Like this?
-    DAT::tdual_float_1d_4 k_quat;   // Like this?
-    DAT::tdual_int_1d k_ilocal;   // Like this?
-  };
-    
-  struct BonusDevice {          // Is tdual needed above (L123)?
-    DAT::t_float_3d d_shape;
-    DAT::t_mu_array d_quat;
-    DAT::t_int_1d d_ilocal;
-  };
+  typedef Kokkos::DualView<Bonus*,DeviceType> tdual_bonus_1d;
+  typedef typename tdual_bonus_1d::t_dev_const t_bonus_1d;
+  typedef typename tdual_bonus_1d::t_host t_host_bonus_1d;
 
-  struct BonusHost {            // Is tdual needed above (L123)?
-    HAT::t_float_3d h_shape;
-    HAT::t_mu_array h_quat;
-    HAT::t_int_1d h_ilocal;
-  };
+  tdual_bonus_1d k_bonus; 
+  t_bonus_1d d_bonus; 
+  t_host_bonus_1d h_bonus;
 
-  BonusKokkos* k_bonus;
-  BonusDevice* d_bonus;
-  BonusHost* h_bonus;
-    
+  void grow_bonus() override; 
 };
 
 }    // namespace LAMMPS_NS

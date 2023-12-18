@@ -127,6 +127,20 @@ void AtomVecEllipsoidKokkos::grow_pointers()
 }
 
 /* ----------------------------------------------------------------------
+   grow bonus data structure
+------------------------------------------------------------------------- */
+
+void AtomVecEllipsoidKokkos::grow_bonus()
+{
+  nmax_bonus = grow_nmax_bonus(nmax_bonus);
+  if (nmax_bonus < 0) error->one(FLERR, "Per-processor system is too big");
+
+  memoryKK->grow_kokkos(k_bonus,bonus,nmax_bonus,"atom:bonus");
+  d_bonus = k_bonus.d_view;
+  h_bonus = k_bonus.h_view;
+}
+
+/* ----------------------------------------------------------------------
    sort atom arrays on device
 ------------------------------------------------------------------------- */
 
