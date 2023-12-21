@@ -110,8 +110,8 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   HAT::t_int_1d h_ellipsoid;
     
   /* Bonus struct */
-    
-  typedef Kokkos::DualView<Bonus*,DeviceType> tdual_bonus_1d;
+      
+  typedef Kokkos::DualView<Bonus*,LMPDeviceType> tdual_bonus_1d;
   typedef typename tdual_bonus_1d::t_dev_const t_bonus_1d;
   typedef typename tdual_bonus_1d::t_host t_host_bonus_1d;
 
