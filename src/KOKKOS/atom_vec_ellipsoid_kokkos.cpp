@@ -37,10 +37,6 @@ AtomVecKokkos(lmp), AtomVecEllipsoid(lmp)
 {
   no_border_vel_flag = 0;           // Came From AtVeSphereKo
   unpack_exchange_indices_flag = 1; // Came From AtVeSphereKo
-  if (bonus_flag) { 
-    h_bonus = new BonusHost();      // Not sure about this h/d_bonus
-    d_bonus = new BonusDevice();
-  }
 }
 
 /* ----------------------------------------------------------------------
@@ -146,7 +142,7 @@ void AtomVecEllipsoidKokkos::grow_bonus()
 
 void AtomVecEllipsoidKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter)
 {
-  atomKK->sync(Device, ALL_MASK & ~F_MASK & ~TORQUE_MASK & ~ELLIPSOID_MASK);
+  atomKK->sync(Device, ALL_MASK & ~F_MASK & ~TORQUE_MASK);
 
   Sorter.sort(LMPDeviceType(), d_tag);
   Sorter.sort(LMPDeviceType(), d_type);
@@ -156,9 +152,10 @@ void AtomVecEllipsoidKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &So
   Sorter.sort(LMPDeviceType(), d_v);
   Sorter.sort(LMPDeviceType(), d_rmass);
   Sorter.sort(LMPDeviceType(), d_angmom);
-  //Sorter.sort(LMPDeviceType(), d_ellipsoid); // IS THIS NEEDED, or MASK?
+  Sorter.sort(LMPDeviceType(), d_ellipsoid); // IS THIS NEEDED, or MASK?
+  Sorter.sort(LMPDeviceType(), d_bonus); // IS THIS NEEDED, or MASK?
 
-  atomKK->modified(Device, ALL_MASK & ~F_MASK & ~TORQUE_MASK & ~ELLIPSOID_MASK);
+  atomKK->modified(Device, ALL_MASK & ~F_MASK & ~TORQUE_MASK);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1604,7 +1601,7 @@ int AtomVecEllipsoidKokkos::pack_comm_bonus_kokkos(int n, DAT::tdual_int_2d k_se
 {
     if (space==Host) {
       struct AtomVecEllipsoidKokkos_PackCommBonus<LMPHostType> f(
-            k_bonus->k_quat,
+            k_bonus.u_quad_t,
             buf,k_sendlist,iswap);
           Kokkos::parallel_for(n,f);  
     } else {
