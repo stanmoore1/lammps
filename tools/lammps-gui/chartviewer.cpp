@@ -15,12 +15,23 @@
 
 #include "lammpsgui.h"
 
+#include <QAction>
+#include <QApplication>
+#include <QFileDialog>
 #include <QHBoxLayout>
+#include <QKeySequence>
+#include <QLabel>
+#include <QLayout>
 #include <QLineSeries>
+#include <QMenu>
+#include <QMenuBar>
 #include <QPushButton>
 #include <QSettings>
 #include <QSpacerItem>
+#include <QTextStream>
 #include <QVBoxLayout>
+
+#include <cmath>
 
 using namespace QtCharts;
 
@@ -53,13 +64,13 @@ ChartWindow::ChartWindow(const QString &_filename, QWidget *parent) :
     file->addSeparator();
     stopAct = file->addAction("Stop &Run", this, &ChartWindow::stop_run);
     stopAct->setIcon(QIcon(":/icons/process-stop.png"));
-    stopAct->setShortcut(QKeySequence::fromString("Ctrl+/"));
+    stopAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Slash));
     closeAct = file->addAction("&Close", this, &QWidget::close);
     closeAct->setIcon(QIcon(":/icons/window-close.png"));
-    closeAct->setShortcut(QKeySequence::fromString("Ctrl+W"));
+    closeAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_W));
     quitAct = file->addAction("&Quit", this, &ChartWindow::quit);
     quitAct->setIcon(QIcon(":/icons/application-exit.png"));
-    quitAct->setShortcut(QKeySequence::fromString("Ctrl+Q"));
+    quitAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Q));
     auto *layout = new QVBoxLayout;
     layout->addLayout(top);
     setLayout(layout);
@@ -76,7 +87,10 @@ int ChartWindow::get_step() const
 {
     if (charts.size() > 0) {
         auto *v = charts[0];
-        return (int)v->get_step(v->get_count() - 1);
+        if (v)
+            return (int)v->get_step(v->get_count() - 1);
+        else
+            return -1;
     } else {
         return -1;
     }
@@ -115,10 +129,10 @@ void ChartWindow::add_data(int step, double data, int index)
 
 void ChartWindow::quit()
 {
-    LammpsGui *main;
+    LammpsGui *main = nullptr;
     for (QWidget *widget : QApplication::topLevelWidgets())
         if (widget->objectName() == "LammpsGui") main = dynamic_cast<LammpsGui *>(widget);
-    main->quit();
+    if (main) main->quit();
 }
 
 void ChartWindow::reset_zoom()
@@ -129,10 +143,10 @@ void ChartWindow::reset_zoom()
 
 void ChartWindow::stop_run()
 {
-    LammpsGui *main;
+    LammpsGui *main = nullptr;
     for (QWidget *widget : QApplication::topLevelWidgets())
         if (widget->objectName() == "LammpsGui") main = dynamic_cast<LammpsGui *>(widget);
-    main->stop_run();
+    if (main) main->stop_run();
 }
 
 void ChartWindow::saveAs()
@@ -288,20 +302,7 @@ void ChartViewer::add_data(int step, double data)
     if (last_step < step) {
         last_step = step;
         series->append(step, data);
-        auto points = series->pointsVector();
-
-        qreal xmin = 1.0e100;
-        qreal xmax = -1.0e100;
-        qreal ymin = 1.0e100;
-        qreal ymax = -1.0e100;
-        for (auto &p : points) {
-            xmin = qMin(xmin, p.x());
-            xmax = qMax(xmax, p.x());
-            ymin = qMin(ymin, p.y());
-            ymax = qMax(ymax, p.y());
-        }
-        xaxis->setRange(xmin, xmax);
-        yaxis->setRange(ymin, ymax);
+        reset_zoom();
     }
 }
 
@@ -309,7 +310,7 @@ void ChartViewer::add_data(int step, double data)
 
 void ChartViewer::reset_zoom()
 {
-    auto points = series->pointsVector();
+    auto points = series->points();
 
     qreal xmin = 1.0e100;
     qreal xmax = -1.0e100;
@@ -321,6 +322,30 @@ void ChartViewer::reset_zoom()
         ymin = qMin(ymin, p.y());
         ymax = qMax(ymax, p.y());
     }
+
+    // avoid (nearly) empty ranges
+    double deltax = xmax - xmin;
+    if ((deltax / ((xmax == 0.0) ? 1.0 : xmax)) < 1.0e-10) {
+        if ((xmin == 0.0) || (xmax == 0.0)) {
+            xmin = -0.025;
+            xmax = 0.025;
+        } else {
+            xmin -= 0.025 * fabs(xmin);
+            xmax += 0.025 * fabs(xmax);
+        }
+    }
+
+    double deltay = ymax - ymin;
+    if ((deltay / ((ymax == 0.0) ? 1.0 : ymax)) < 1.0e-10) {
+        if ((ymin == 0.0) || (ymax == 0.0)) {
+            ymin = -0.025;
+            ymax = 0.025;
+        } else {
+            ymin -= 0.025 * fabs(ymin);
+            ymax += 0.025 * fabs(ymax);
+        }
+    }
+
     xaxis->setRange(xmin, xmax);
     yaxis->setRange(ymin, ymax);
 }

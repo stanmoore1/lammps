@@ -35,6 +35,7 @@
 #include <QLabel>
 #include <QLocale>
 #include <QMessageBox>
+#include <QMetaType>
 #include <QPlainTextEdit>
 #include <QProcess>
 #include <QProgressBar>
@@ -57,7 +58,7 @@
 #endif
 
 static const QString blank(" ");
-static constexpr int BUFLEN = 128;
+static constexpr int BUFLEN = 256;
 
 LammpsGui::LammpsGui(QWidget *parent, const char *filename) :
     QMainWindow(parent), ui(new Ui::LammpsGui), highlighter(nullptr), capturer(nullptr),
@@ -69,8 +70,10 @@ LammpsGui::LammpsGui(QWidget *parent, const char *filename) :
     // enforce using the plain ASCII C locale within the GUI.
     QLocale::setDefault(QLocale("C"));
 
-    // register QList<QString>
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    // register QList<QString> only needed for Qt5
     qRegisterMetaTypeStreamOperators<QList<QString>>("QList<QString>");
+#endif
 
     ui->setupUi(this);
     this->setCentralWidget(ui->textEdit);
@@ -81,9 +84,13 @@ LammpsGui::LammpsGui(QWidget *parent, const char *filename) :
     // use $HOME if we get dropped to "/" like on macOS
     if (current_dir == "/") current_dir = QDir::homePath();
 
+#define stringify(x) myxstr(x)
+#define myxstr(x) #x
     QCoreApplication::setOrganizationName("The LAMMPS Developers");
     QCoreApplication::setOrganizationDomain("lammps.org");
-    QCoreApplication::setApplicationName("LAMMPS GUI");
+    QCoreApplication::setApplicationName("LAMMPS GUI - QT" stringify(QT_VERSION_MAJOR));
+#undef stringify
+#undef myxstr
 
     // restore and initialize settings
     QSettings settings;
@@ -588,7 +595,8 @@ void LammpsGui::open_file(const QString &fileName)
     if (!file.open(QIODevice::ReadOnly | QFile::Text)) {
         QMessageBox::warning(this, "Warning",
                              "Cannot open file " + path.absoluteFilePath() + ": " +
-                                 file.errorString() + ".\nWill create new file on saving editor buffer.");
+                                 file.errorString() +
+                                 ".\nWill create new file on saving editor buffer.");
         ui->textEdit->document()->setPlainText(QString());
     } else {
         QTextStream in(&file);
@@ -770,11 +778,11 @@ void LammpsGui::logupdate()
 
         if (varwindow) {
             int nvar = lammps.id_count("variable");
-            char buffer[200];
+            char buffer[BUFLEN];
             QString varinfo("\n");
             for (int i = 0; i < nvar; ++i) {
-                lammps.variable_info(i, buffer, 200);
-                varinfo += buffer;
+                memset(buffer, 0, BUFLEN);
+                if (lammps.variable_info(i, buffer, BUFLEN)) varinfo += buffer;
             }
             if (nvar == 0) varinfo += "  (none)  ";
 
@@ -1039,9 +1047,9 @@ void LammpsGui::do_run(bool use_buffer)
     logwindow->document()->setDefaultFont(text_font);
     logwindow->setLineWrapMode(LogWindow::NoWrap);
     logwindow->setMinimumSize(400, 300);
-    QShortcut *shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_W), logwindow);
+    QShortcut *shortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_W), logwindow);
     QObject::connect(shortcut, &QShortcut::activated, logwindow, &LogWindow::close);
-    shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Slash), logwindow);
+    shortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Slash), logwindow);
     QObject::connect(shortcut, &QShortcut::activated, this, &LammpsGui::stop_run);
     if (settings.value("viewlog", true).toBool())
         logwindow->show();
@@ -1058,9 +1066,9 @@ void LammpsGui::do_run(bool use_buffer)
             .arg(run_counter));
     chartwindow->setWindowIcon(QIcon(":/icons/lammps-icon-128x128.png"));
     chartwindow->setMinimumSize(400, 300);
-    shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_W), chartwindow);
+    shortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_W), chartwindow);
     QObject::connect(shortcut, &QShortcut::activated, chartwindow, &ChartWindow::close);
-    shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Slash), chartwindow);
+    shortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Slash), chartwindow);
     QObject::connect(shortcut, &QShortcut::activated, this, &LammpsGui::stop_run);
     if (settings.value("viewchart", true).toBool())
         chartwindow->show();
@@ -1424,12 +1432,12 @@ void LammpsGui::start_lammps()
     lammps.open(narg, args);
     lammpsstatus->show();
 
-    // must have at least 2 August 2023 version of LAMMPS
+    // must have a version newer than the 2 August 2023 release of LAMMPS
     // TODO: must update this check before next feature release
-    if (lammps.version() < 20230802) {
+    if (lammps.version() <= 20230802) {
         QMessageBox::critical(this, "Incompatible LAMMPS Version",
                               "LAMMPS-GUI version " LAMMPS_GUI_VERSION " requires\n"
-                              "LAMMPS version 2 August 2023 or later");
+                              "a LAMMPS version more recent than 2 August 2023");
         exit(1);
     }
 
