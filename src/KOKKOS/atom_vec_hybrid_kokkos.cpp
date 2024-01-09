@@ -64,7 +64,6 @@ void AtomVecHybridKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorte
 /* ---------------------------------------------------------------------- */
 
 int AtomVecHybridKokkos::pack_comm_kokkos(const int &/*n*/, const DAT::tdual_int_2d &/*k_sendlist*/,
-                                          const int & /*iswap*/,
                                           const DAT::tdual_xfloat_2d &/*buf*/,
                                           const int &/*pbc_flag*/, const int pbc[])
 {
@@ -79,15 +78,15 @@ void AtomVecHybridKokkos::unpack_comm_kokkos(const int &/*n*/, const int &/*nfir
 }
 
 int AtomVecHybridKokkos::pack_comm_self(const int &/*n*/, const DAT::tdual_int_2d &/*list*/,
-                                        const int & /*iswap*/, const int /*nfirst*/,
+                                         const int /*nfirst*/,
                                         const int &/*pbc_flag*/, const int pbc[])
 {
   error->all(FLERR,"AtomVecHybridKokkos doesn't yet support threaded comm");
   return 0;
 }
 
-int AtomVecHybridKokkos::pack_border_kokkos(int /*n*/, DAT::tdual_int_2d /*k_sendlist*/,
-                                            DAT::tdual_xfloat_2d /*buf*/,int /*iswap*/,
+int AtomVecHybridKokkos::pack_border_kokkos(int /*n*/, DAT::tdual_int_1d /*k_sendlist*/,
+                                            DAT::tdual_xfloat_2d /*buf*/,
                                             int /*pbc_flag*/, int * /*pbc*/, ExecutionSpace /*space*/)
 {
   error->all(FLERR,"AtomVecHybridKokkos doesn't yet support threaded comm");

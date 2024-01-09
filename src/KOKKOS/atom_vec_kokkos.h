@@ -51,7 +51,7 @@ class AtomVecKokkos : virtual public AtomVec {
 
   virtual int
     pack_comm_self(const int &n, const DAT::tdual_int_1d &list,
-                   const int & iswap, const int nfirst,
+                   const int nfirst,
                    const int &pbc_flag, const int pbc[]);
 
   virtual int
@@ -64,7 +64,7 @@ class AtomVecKokkos : virtual public AtomVec {
 
   virtual int
     pack_comm_kokkos(const int &n, const DAT::tdual_int_1d &list,
-                     const int & iswap, const DAT::tdual_xfloat_2d &buf,
+                     const DAT::tdual_xfloat_2d &buf,
                      const int &pbc_flag, const int pbc[]);
 
   virtual void
@@ -73,7 +73,7 @@ class AtomVecKokkos : virtual public AtomVec {
 
   virtual int
     pack_comm_vel_kokkos(const int &n, const DAT::tdual_int_1d &list,
-                         const int & iswap, const DAT::tdual_xfloat_2d &buf,
+                         const DAT::tdual_xfloat_2d &buf,
                          const int &pbc_flag, const int pbc[]);
 
   virtual void
@@ -82,7 +82,7 @@ class AtomVecKokkos : virtual public AtomVec {
 
   virtual int
     unpack_reverse_self(const int &n, const DAT::tdual_int_1d &list,
-                      const int & iswap, const int nfirst);
+                        const int nfirst);
 
   virtual int
     pack_reverse_kokkos(const int &n, const int &nfirst,
@@ -90,11 +90,11 @@ class AtomVecKokkos : virtual public AtomVec {
 
   virtual void
     unpack_reverse_kokkos(const int &n, const DAT::tdual_int_1d &list,
-                          const int & iswap, const DAT::tdual_ffloat_2d &buf);
+                          const DAT::tdual_ffloat_2d &buf);
 
   virtual int
-    pack_border_kokkos(int n, DAT::tdual_int_2d k_sendlist,
-                       DAT::tdual_xfloat_2d buf,int iswap,
+    pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
+                       DAT::tdual_xfloat_2d buf,
                        int pbc_flag, int *pbc, ExecutionSpace space) = 0;
 
   virtual void
@@ -103,8 +103,8 @@ class AtomVecKokkos : virtual public AtomVec {
                          ExecutionSpace space) = 0;
 
   virtual int
-    pack_border_vel_kokkos(int /*n*/, DAT::tdual_int_2d /*k_sendlist*/,
-                           DAT::tdual_xfloat_2d /*buf*/,int /*iswap*/,
+    pack_border_vel_kokkos(int /*n*/, DAT::tdual_int_1d /*k_sendlist*/,
+                           DAT::tdual_xfloat_2d /*buf*/,
                            int /*pbc_flag*/, int * /*pbc*/, ExecutionSpace /*space*/) { return 0; }
 
   virtual void
