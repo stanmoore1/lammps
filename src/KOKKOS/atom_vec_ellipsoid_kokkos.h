@@ -83,7 +83,7 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   void sync_overlapping_device(ExecutionSpace space, unsigned int mask) override;
     
  private:
-  int *ellipsoid; // IS THIS CORRECT?
+  //int *ellipsoid; // IS THIS CORRECT?
   double **torque;  
     
   DAT::t_tagint_1d d_tag;
