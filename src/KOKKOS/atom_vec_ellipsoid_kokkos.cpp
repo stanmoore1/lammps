@@ -1568,14 +1568,13 @@ template<class DeviceType>
 struct AtomVecEllipsoidKokkos_PackCommBonus {
   typedef DeviceType device_type;
 
-  //typename AtomVecEllipsoidKokkos::tdual_bonus_1d::t_dev_const _bonus;
+  typename AtomVecEllipsoidKokkos::t_bonus_1d _bonus;
   typename ArrayTypes<DeviceType>::t_int_1d _ellipsoid;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
 
   AtomVecEllipsoidKokkos_PackCommBonus(
-    //const tdual_bonus_1d &bonus,
     const typename AtomVecEllipsoidKokkos::tdual_bonus_1d &bonus,
     const typename DAT::tdual_int_1d &ellipsoid,
     const typename DAT::tdual_xfloat_2d &buf,

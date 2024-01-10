@@ -81,6 +81,12 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   void sync(ExecutionSpace space, unsigned int mask) override;
   void modified(ExecutionSpace space, unsigned int mask) override;
   void sync_overlapping_device(ExecutionSpace space, unsigned int mask) override;
+
+  // Bonus struct
+
+  typedef Kokkos::DualView<Bonus*,LMPDeviceType> tdual_bonus_1d;
+  typedef typename tdual_bonus_1d::t_dev t_bonus_1d;
+  typedef typename tdual_bonus_1d::t_host t_host_bonus_1d;
     
  private:
   //int *ellipsoid; // IS THIS CORRECT?
@@ -109,12 +115,6 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   DAT::t_int_1d d_ellipsoid;
   HAT::t_int_1d h_ellipsoid;
     
-  /* Bonus struct */
-      
-  typedef Kokkos::DualView<Bonus*,LMPDeviceType> tdual_bonus_1d;
-  typedef typename tdual_bonus_1d::t_dev_const t_bonus_1d;
-  typedef typename tdual_bonus_1d::t_host t_host_bonus_1d;
-
   tdual_bonus_1d k_bonus; 
   t_bonus_1d d_bonus; 
   t_host_bonus_1d h_bonus;
