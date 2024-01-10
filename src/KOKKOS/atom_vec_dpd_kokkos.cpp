@@ -168,7 +168,7 @@ struct AtomVecDPDKokkos_PackComm {
   typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
   typename ArrayTypes<DeviceType>::t_efloat_1d _dpdTheta,_uCond,_uMech,_uChem;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
-  typename ArrayTypes<DeviceType>::t_int_2d_const _list;
+  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
   X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
   X_FLOAT _pbc[6];
 
@@ -179,7 +179,7 @@ struct AtomVecDPDKokkos_PackComm {
       const typename DAT::tdual_efloat_1d &uMech,
       const typename DAT::tdual_efloat_1d &uChem,
       const typename DAT::tdual_xfloat_2d &buf,
-      const typename DAT::tdual_int_2d &list,
+      const typename DAT::tdual_int_1d &list,
       const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
       const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz, const int* const pbc):
       _x(x.view<DeviceType>()),
@@ -225,7 +225,7 @@ struct AtomVecDPDKokkos_PackComm {
 /* ---------------------------------------------------------------------- */
 
 int AtomVecDPDKokkos::pack_comm_kokkos(const int &n,
-                                          const DAT::tdual_int_2d &list,
+                                          const DAT::tdual_int_1d &list,
                                           const DAT::tdual_xfloat_2d &buf,
                                           const int &pbc_flag,
                                           const int* const pbc)
@@ -318,7 +318,7 @@ struct AtomVecDPDKokkos_PackCommSelf {
   typename ArrayTypes<DeviceType>::t_x_array _xw;
   typename ArrayTypes<DeviceType>::t_efloat_1d _dpdTheta,_uCond,_uMech,_uChem;
   int _nfirst;
-  typename ArrayTypes<DeviceType>::t_int_2d_const _list;
+  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
   X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
   X_FLOAT _pbc[6];
 
@@ -329,7 +329,7 @@ struct AtomVecDPDKokkos_PackCommSelf {
       const typename DAT::tdual_efloat_1d &uMech,
       const typename DAT::tdual_efloat_1d &uChem,
       const int &nfirst,
-      const typename DAT::tdual_int_2d &list,
+      const typename DAT::tdual_int_1d &list,
       const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
       const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz, const int* const pbc):
       _x(x.view<DeviceType>()),_xw(x.view<DeviceType>()),
@@ -371,7 +371,7 @@ struct AtomVecDPDKokkos_PackCommSelf {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecDPDKokkos::pack_comm_self(const int &n, const DAT::tdual_int_2d &list,
+int AtomVecDPDKokkos::pack_comm_self(const int &n, const DAT::tdual_int_1d &list,
                                                                                 const int nfirst, const int &pbc_flag, const int* const pbc) {
   if (commKK->forward_comm_on_host) {
     atomKK->sync(Host,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
@@ -515,7 +515,7 @@ struct AtomVecDPDKokkos_PackBorder {
   typedef DeviceType device_type;
 
   typename ArrayTypes<DeviceType>::t_xfloat_2d _buf;
-  const typename ArrayTypes<DeviceType>::t_int_2d_const _list;
+  const typename ArrayTypes<DeviceType>::t_int_1d_const _list;
   const typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
   const typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   const typename ArrayTypes<DeviceType>::t_int_1d _type;
@@ -525,7 +525,7 @@ struct AtomVecDPDKokkos_PackBorder {
 
   AtomVecDPDKokkos_PackBorder(
       const typename ArrayTypes<DeviceType>::t_xfloat_2d &buf,
-      const typename ArrayTypes<DeviceType>::t_int_2d_const &list,
+      const typename ArrayTypes<DeviceType>::t_int_1d_const &list,
       const typename ArrayTypes<DeviceType>::t_x_array &x,
       const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
       const typename ArrayTypes<DeviceType>::t_int_1d &type,

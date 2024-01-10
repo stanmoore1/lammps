@@ -63,7 +63,7 @@ void AtomVecHybridKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorte
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecHybridKokkos::pack_comm_kokkos(const int &/*n*/, const DAT::tdual_int_2d &/*k_sendlist*/,
+int AtomVecHybridKokkos::pack_comm_kokkos(const int &/*n*/, const DAT::tdual_int_1d &/*k_sendlist*/,
                                           const DAT::tdual_xfloat_2d &/*buf*/,
                                           const int &/*pbc_flag*/, const int pbc[])
 {
@@ -77,7 +77,7 @@ void AtomVecHybridKokkos::unpack_comm_kokkos(const int &/*n*/, const int &/*nfir
   error->all(FLERR,"AtomVecHybridKokkos doesn't yet support threaded comm");
 }
 
-int AtomVecHybridKokkos::pack_comm_self(const int &/*n*/, const DAT::tdual_int_2d &/*list*/,
+int AtomVecHybridKokkos::pack_comm_self(const int &/*n*/, const DAT::tdual_int_1d &/*list*/,
                                          const int /*nfirst*/,
                                         const int &/*pbc_flag*/, const int pbc[])
 {

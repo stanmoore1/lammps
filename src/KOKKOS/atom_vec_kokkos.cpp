@@ -57,7 +57,7 @@ struct AtomVecKokkos_PackComm {
 
   typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
-  typename ArrayTypes<DeviceType>::t_int_2d_const _list;
+  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
   X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
   X_FLOAT _pbc[6];
 
@@ -177,7 +177,7 @@ struct AtomVecKokkos_PackCommSelf {
   typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
   typename ArrayTypes<DeviceType>::t_x_array _xw;
   int _nfirst;
-  typename ArrayTypes<DeviceType>::t_int_2d_const _list;
+  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
   X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
   X_FLOAT _pbc[6];
 
@@ -440,7 +440,7 @@ struct AtomVecKokkos_PackCommVel {
   typename ArrayTypes<DeviceType>::t_int_1d _mask;
   typename ArrayTypes<DeviceType>::t_v_array _v;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
-  typename ArrayTypes<DeviceType>::t_int_2d_const _list;
+  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
   X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
   X_FLOAT _pbc[6];
   X_FLOAT _h_rate[6];
@@ -747,12 +747,12 @@ struct AtomVecKokkos_UnPackReverseSelf {
   typename ArrayTypes<DeviceType>::t_f_array_randomread _f;
   typename ArrayTypes<DeviceType>::t_f_array _fw;
   int _nfirst;
-  typename ArrayTypes<DeviceType>::t_int_2d_const _list;
+  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
 
   AtomVecKokkos_UnPackReverseSelf(
       const typename DAT::tdual_f_array &f,
       const int &nfirst,
-      const typename DAT::tdual_int_2d const typename DAT::tdual_int_1d &list,list):
+      const typename DAT::tdual_int_1d &list):
       _f(f.view<DeviceType>()),_fw(f.view<DeviceType>()),_nfirst(nfirst),_list(list.view<DeviceType>()) {
   };
 
@@ -791,12 +791,12 @@ struct AtomVecKokkos_UnPackReverse {
 
   typename ArrayTypes<DeviceType>::t_f_array _f;
   typename ArrayTypes<DeviceType>::t_ffloat_2d_const _buf;
-  typename ArrayTypes<DeviceType>::t_int_2d_const _list;
+  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
 
   AtomVecKokkos_UnPackReverse(
       const typename DAT::tdual_f_array &f,
       const typename DAT::tdual_ffloat_2d &buf,
-      const typename DAT::tdual_int_2d const typename DAT::tdual_int_1d &list,list):
+      const typename DAT::tdual_int_1d &list):
       _f(f.view<DeviceType>()),_list(list.view<DeviceType>()) {
         const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/3;
         const size_t elements = 3;

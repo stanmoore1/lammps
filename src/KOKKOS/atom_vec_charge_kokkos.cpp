@@ -134,14 +134,14 @@ struct AtomVecChargeKokkos_PackComm {
 
   typename AT::t_x_array_randomread _x;
   typename AT::t_xfloat_2d_um _buf;
-  typename AT::t_int_2d_const _list;
+  typename AT::t_int_1d_const _list;
   X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
   X_FLOAT _pbc[6];
 
   AtomVecChargeKokkos_PackComm(
       const typename DAT::tdual_x_array &x,
       const typename DAT::tdual_xfloat_2d &buf,
-      const typename DAT::tdual_int_2d &list,
+      const typename DAT::tdual_int_1d &list,
       const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
       const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz, const int* const pbc):
       _x(x.view<DeviceType>()),_list(list.view<DeviceType>()),
@@ -183,7 +183,7 @@ struct AtomVecChargeKokkos_PackBorder {
   typedef ArrayTypes<DeviceType> AT;
 
   typename AT::t_xfloat_2d _buf;
-  const typename AT::t_int_2d_const _list;
+  const typename AT::t_int_1d_const _list;
   const typename AT::t_x_array_randomread _x;
   const typename AT::t_tagint_1d _tag;
   const typename AT::t_int_1d _type;
@@ -193,7 +193,7 @@ struct AtomVecChargeKokkos_PackBorder {
 
   AtomVecChargeKokkos_PackBorder(
       const typename AT::t_xfloat_2d &buf,
-      const typename AT::t_int_2d_const &list,
+      const typename AT::t_int_1d_const &list,
       const typename AT::t_x_array &x,
       const typename AT::t_tagint_1d &tag,
       const typename AT::t_int_1d &type,

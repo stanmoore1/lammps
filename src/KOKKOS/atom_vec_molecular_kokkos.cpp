@@ -266,14 +266,14 @@ struct AtomVecMolecularKokkos_PackComm {
 
   typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
-  typename ArrayTypes<DeviceType>::t_int_2d_const _list;
+  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
   X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
   X_FLOAT _pbc[6];
 
   AtomVecMolecularKokkos_PackComm(
       const typename DAT::tdual_x_array &x,
       const typename DAT::tdual_xfloat_2d &buf,
-      const typename DAT::tdual_int_2d &list,
+      const typename DAT::tdual_int_1d &list,
       const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
       const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz, const int* const pbc):
       _x(x.view<DeviceType>()),_list(list.view<DeviceType>()),
@@ -311,7 +311,7 @@ struct AtomVecMolecularKokkos_PackComm {
 /* ---------------------------------------------------------------------- */
 
 int AtomVecMolecularKokkos::pack_comm_kokkos(const int &n,
-                                             const DAT::tdual_int_2d &list,
+                                             const DAT::tdual_int_1d &list,
                                              const DAT::tdual_xfloat_2d &buf,
                                              const int &pbc_flag,
                                              const int* const pbc)
@@ -387,14 +387,14 @@ struct AtomVecMolecularKokkos_PackCommSelf {
   typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
   typename ArrayTypes<DeviceType>::t_x_array _xw;
   int _nfirst;
-  typename ArrayTypes<DeviceType>::t_int_2d_const _list;
+  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
   X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
   X_FLOAT _pbc[6];
 
   AtomVecMolecularKokkos_PackCommSelf(
       const typename DAT::tdual_x_array &x,
       const int &nfirst,
-      const typename DAT::tdual_int_2d &list,
+      const typename DAT::tdual_int_1d &list,
       const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
       const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz, const int* const pbc):
     _x(x.view<DeviceType>()),_xw(x.view<DeviceType>()),_nfirst(nfirst),
@@ -429,7 +429,7 @@ struct AtomVecMolecularKokkos_PackCommSelf {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecMolecularKokkos::pack_comm_self(const int &n, const DAT::tdual_int_2d &list,
+int AtomVecMolecularKokkos::pack_comm_self(const int &n, const DAT::tdual_int_1d &list,
                                            const int nfirst, const int &pbc_flag,
                                            const int* const pbc) {
   if (commKK->forward_comm_on_host) {
@@ -541,7 +541,7 @@ struct AtomVecMolecularKokkos_PackBorder {
   typedef ArrayTypes<DeviceType> AT;
 
   typename AT::t_xfloat_2d _buf;
-  const typename AT::t_int_2d_const _list;
+  const typename AT::t_int_1d_const _list;
   const typename AT::t_x_array_randomread _x;
   const typename AT::t_tagint_1d _tag;
   const typename AT::t_int_1d _type;
@@ -551,7 +551,7 @@ struct AtomVecMolecularKokkos_PackBorder {
 
   AtomVecMolecularKokkos_PackBorder(
       const typename AT::t_xfloat_2d &buf,
-      const typename AT::t_int_2d_const &list,
+      const typename AT::t_int_1d_const &list,
       const typename AT::t_x_array &x,
       const typename AT::t_tagint_1d &tag,
       const typename AT::t_int_1d &type,

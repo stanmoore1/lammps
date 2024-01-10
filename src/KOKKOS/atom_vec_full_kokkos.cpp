@@ -275,7 +275,7 @@ struct AtomVecFullKokkos_PackBorder {
   typedef ArrayTypes<DeviceType> AT;
 
   typename AT::t_xfloat_2d _buf;
-  const typename AT::t_int_2d_const _list;
+  const typename AT::t_int_1d_const _list;
   const typename AT::t_x_array_randomread _x;
   const typename AT::t_tagint_1d _tag;
   const typename AT::t_int_1d _type;
@@ -286,7 +286,7 @@ struct AtomVecFullKokkos_PackBorder {
 
   AtomVecFullKokkos_PackBorder(
       const typename AT::t_xfloat_2d &buf,
-      const typename AT::t_int_2d_const &list,
+      const typename AT::t_int_1d_const &list,
       const typename AT::t_x_array &x,
       const typename AT::t_tagint_1d &tag,
       const typename AT::t_int_1d &type,
