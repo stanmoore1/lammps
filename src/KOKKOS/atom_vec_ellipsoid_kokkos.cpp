@@ -1568,7 +1568,7 @@ template<class DeviceType>
 struct AtomVecEllipsoidKokkos_PackCommBonus {
   typedef DeviceType device_type;
 
-  typename AtomVecEllipsoidKokkos::t_bonus_1d _bonus;
+  typename AtomVecEllipsoidKokkos::t_bonus_1d _bonus; //Device target ok?
   typename ArrayTypes<DeviceType>::t_int_1d _ellipsoid;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
@@ -1589,8 +1589,8 @@ struct AtomVecEllipsoidKokkos_PackCommBonus {
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& i) const {
     const int j = _list(_iswap,i);
-    if (_ellipsoid[i] >= 0) {
-      const double *quat = _bonus[_ellipsoid[i]].quat;
+    if (_ellipsoid[j] >= 0) {
+      const double *quat = _bonus[_ellipsoid[j]].quat;
       //const Bonus &bonus = _bonus[_ellipsoid[i]];
       //double *quat = bonus.quat;
       _buf(i,4) = quat[0];
@@ -1629,39 +1629,50 @@ struct AtomVecEllipsoidKokkos_UnpackCommBonus {
   typedef DeviceType device_type;
 
   typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
-  typename ArrayTypes<DeviceType>::t_mu_array _quat;
+  typename AtomVecEllipsoidKokkos::t_bonus_1d _bonus; //Device target ok?
+  typename ArrayTypes<DeviceType>::t_int_1d _ellipsoid;
   int _first;
 
   AtomVecEllipsoidKokkos_UnpackCommBonus(
-    const typename ArrayTypes<DeviceType>::t_xfloat_2d_const &buf,
-    const typename ArrayTypes<DeviceType>::t_mu_array &quat,
+    const typename DAT::tdual_xfloat_2d &buf,
+    const typename AtomVecEllipsoidKokkos::tdual_bonus_1d &bonus,
+    const typename DAT::tdual_int_1d &ellipsoid,
     const int& first):
-    _buf(buf),_quat(quat),_first(first){
+    _bonus(bonus.view<DeviceType>()),
+    _ellipsoid(ellipsoid.view<DeviceType>()),
+    _first(first)
+  {
+    const size_t elements = 8;
+    const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/elements;
+    _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um(buf.view<DeviceType>().data(),maxsend,elements);
   }
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& i) const {
-    _quat(i+_first,0) = _buf(i,4);
-    _quat(i+_first,1) = _buf(i,5);
-    _quat(i+_first,2) = _buf(i,6);
-    _quat(i+_first,3) = _buf(i,7);
+    if (_ellipsoid[i+_first] >= 0) {
+      double *quat = _bonus[_ellipsoid[i+_first]].quat;
+      quat[0] = _buf(i,4);  //quat
+      quat[1] = _buf(i,5);  //quat+8
+      quat[2] = _buf(i,6);  //quat+16
+      quat[3] = _buf(i,7);  //quat+24
+    }
   }
 };
 
 /* ---------------------------------------------------------------------- */
 
-/*void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &nfirst,
+void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &nfirst,
                              const DAT::tdual_xfloat_2d &buf,
                              ExecutionSpace space)
 {
   while (nfirst+n >= nmax) grow(0);
   if (space==Host) {
-    struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPHostType> f(buf.view<LMPHostType>(),
-      k_bonus.view<LMPHostType>(),nfirst);
+    struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPHostType> f(buf,
+      k_bonus,atomKK->k_ellipsoid,nfirst);
     Kokkos::parallel_for(n,f);
   } else {
-    struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPDeviceType> f(buf.view<LMPDeviceType>(),
-      k_bonus.view<LMPDeviceType>(),nfirst);
+    struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPDeviceType> f(buf,
+      k_bonus,atomKK->k_ellipsoid,nfirst);
     Kokkos::parallel_for(n,f);
   }
 
