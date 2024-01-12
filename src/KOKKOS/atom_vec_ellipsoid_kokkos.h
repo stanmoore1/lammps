@@ -52,8 +52,8 @@ struct AtomVecEllipsoidKokkosBonusArray<LMPHostType> {
 };
 #endif
 
-typedef AtomVecEllipsoidKokkosBonusArray<LMPDeviceType> DBonusAT;
-typedef AtomVecEllipsoidKokkosBonusArray<LMPHostType> HBonusAT;
+typedef AtomVecEllipsoidKokkosBonusArray<LMPDeviceType> DEllipsoidBonusAT;
+typedef AtomVecEllipsoidKokkosBonusArray<LMPHostType> HEllipsoidBonusAT;
 
 /* ---------------------------------------------------------------------- */
 
@@ -159,9 +159,9 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   DAT::t_int_1d d_ellipsoid;
   HAT::t_int_1d h_ellipsoid;
     
-  DBonusAT::tdual_bonus_1d k_bonus; 
-  DBonusAT::t_bonus_1d d_bonus; 
-  HBonusAT::t_bonus_1d h_bonus;
+  DEllipsoidBonusAT::tdual_bonus_1d k_bonus; 
+  DEllipsoidBonusAT::t_bonus_1d d_bonus; 
+  HEllipsoidBonusAT::t_bonus_1d h_bonus;
 
   void grow_bonus() override; 
 };

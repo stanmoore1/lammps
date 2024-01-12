@@ -1576,7 +1576,7 @@ struct AtomVecEllipsoidKokkos_PackCommBonus {
   const int _iswap;
 
   AtomVecEllipsoidKokkos_PackCommBonus(
-    const typename DBonusAT::tdual_bonus_1d &bonus,
+    const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
     const typename DAT::tdual_int_1d &ellipsoid,
     const typename DAT::tdual_xfloat_2d &buf,
     const typename DAT::tdual_int_2d &list,
@@ -1634,7 +1634,7 @@ struct AtomVecEllipsoidKokkos_UnpackCommBonus {
   int _first;
 
   AtomVecEllipsoidKokkos_UnpackCommBonus(
-    const typename DBonusAT::tdual_bonus_1d &bonus,
+    const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
     const typename DAT::tdual_int_1d &ellipsoid,
     const typename DAT::tdual_xfloat_2d &buf,
     const int& first):
