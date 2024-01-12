@@ -1568,14 +1568,15 @@ template<class DeviceType>
 struct AtomVecEllipsoidKokkos_PackCommBonus {
   typedef DeviceType device_type;
 
-  typename AtomVecEllipsoidKokkos::t_bonus_1d _bonus; //Device target ok?
+  typename AtomVecEllipsoidKokkosBonusArray
+           <DeviceType>::t_bonus_1d _bonus; //Device target ok?
   typename ArrayTypes<DeviceType>::t_int_1d _ellipsoid;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
 
   AtomVecEllipsoidKokkos_PackCommBonus(
-    const typename AtomVecEllipsoidKokkos::tdual_bonus_1d &bonus,
+    const typename DBonusAT::tdual_bonus_1d &bonus,
     const typename DAT::tdual_int_1d &ellipsoid,
     const typename DAT::tdual_xfloat_2d &buf,
     const typename DAT::tdual_int_2d &list,
@@ -1591,8 +1592,6 @@ struct AtomVecEllipsoidKokkos_PackCommBonus {
     const int j = _list(_iswap,i);
     if (_ellipsoid[j] >= 0) {
       const double *quat = _bonus[_ellipsoid[j]].quat;
-      //const Bonus &bonus = _bonus[_ellipsoid[i]];
-      //double *quat = bonus.quat;
       _buf(i,4) = quat[0];
       _buf(i,5) = quat[1];
       _buf(i,6) = quat[2];
@@ -1628,15 +1627,16 @@ template<class DeviceType>
 struct AtomVecEllipsoidKokkos_UnpackCommBonus {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
-  typename AtomVecEllipsoidKokkos::t_bonus_1d _bonus; //Device target ok?
+  typename AtomVecEllipsoidKokkosBonusArray
+           <DeviceType>::t_bonus_1d _bonus; //Device target ok?
   typename ArrayTypes<DeviceType>::t_int_1d _ellipsoid;
+  typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
   int _first;
 
   AtomVecEllipsoidKokkos_UnpackCommBonus(
-    const typename DAT::tdual_xfloat_2d &buf,
-    const typename AtomVecEllipsoidKokkos::tdual_bonus_1d &bonus,
+    const typename DBonusAT::tdual_bonus_1d &bonus,
     const typename DAT::tdual_int_1d &ellipsoid,
+    const typename DAT::tdual_xfloat_2d &buf,
     const int& first):
     _bonus(bonus.view<DeviceType>()),
     _ellipsoid(ellipsoid.view<DeviceType>()),
@@ -1649,8 +1649,9 @@ struct AtomVecEllipsoidKokkos_UnpackCommBonus {
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& i) const {
+    double *quat;
     if (_ellipsoid[i+_first] >= 0) {
-      double *quat = _bonus[_ellipsoid[i+_first]].quat;
+      quat = _bonus[_ellipsoid[i+_first]].quat;
       quat[0] = _buf(i,4);  //quat
       quat[1] = _buf(i,5);  //quat+8
       quat[2] = _buf(i,6);  //quat+16
@@ -1667,16 +1668,74 @@ void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &n
 {
   while (nfirst+n >= nmax) grow(0);
   if (space==Host) {
-    struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPHostType> f(buf,
-      k_bonus,atomKK->k_ellipsoid,nfirst);
+    struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPHostType> f(
+      k_bonus,atomKK->k_ellipsoid,buf,nfirst);
     Kokkos::parallel_for(n,f);
   } else {
-    struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPDeviceType> f(buf,
-      k_bonus,atomKK->k_ellipsoid,nfirst);
+    struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPDeviceType> f(
+      k_bonus,atomKK->k_ellipsoid,buf,nfirst);
     Kokkos::parallel_for(n,f);
   }
 
   //atomKK->modified(space,???_MASK);
+}
+
+/* ---------------------------------------------------------------------- */
+
+
+
+/* ---------------------------------------------------------------------- */
+
+/*int AtomVecEllipsoidKokkos::pack_border_bonus_kokkos(int n, 
+                             DAT::tdual_int_2d k_sendlist,
+                             DAT::tdual_xfloat_2d buf,int iswap,
+                             ExecutionSpace space)                     
+{
+
+}
+
+/* ---------------------------------------------------------------------- */
+
+
+
+/* ---------------------------------------------------------------------- */
+
+/*void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n, 
+                               const int & nfirst,
+                               const DAT::tdual_xfloat_2d & buf,
+                               ExecutionSpace space)
+{
+
+}
+
+/* ---------------------------------------------------------------------- */
+
+
+
+/* ---------------------------------------------------------------------- */
+
+/*int AtomVecEllipsoidKokkos::pack_exchange_bonus_kokkos(const int &nsend, 
+                               DAT::tdual_xfloat_2d &buf,
+                               DAT::tdual_int_1d k_sendlist,
+                               DAT::tdual_int_1d k_copylist,
+                               ExecutionSpace space)
+{
+
+}
+
+/* ---------------------------------------------------------------------- */
+
+
+/* ---------------------------------------------------------------------- */
+
+/*int AtomVecEllipsoidKokkos::unpack_exchange_bonus_kokkos(
+                                 DAT::tdual_xfloat_2d &k_buf, 
+                                 int nrecv, int nlocal,
+                                 int dim, X_FLOAT lo, X_FLOAT hi,
+                                 ExecutionSpace space,
+                                 DAT::tdual_int_1d &k_indices)
+{
+
 }
 
 /* ---------------------------------------------------------------------- */

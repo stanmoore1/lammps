@@ -29,6 +29,34 @@ AtomStyle(ellipsoid/kk/host,AtomVecEllipsoidKokkos);
 
 namespace LAMMPS_NS {
 
+/* ---------------------------------------------------------------------- */
+// DualViews for Bonus struct - shape,quat,ilocal.
+
+template <class DeviceType>
+struct AtomVecEllipsoidKokkosBonusArray;
+
+template <>
+struct AtomVecEllipsoidKokkosBonusArray<LMPDeviceType> {
+  typedef Kokkos::
+    DualView<AtomVecEllipsoid::Bonus*,
+    LMPDeviceType::array_layout,LMPDeviceType> tdual_bonus_1d;
+  typedef tdual_bonus_1d::t_dev t_bonus_1d;
+};
+#ifdef LMP_KOKKOS_GPU
+template <>
+struct AtomVecEllipsoidKokkosBonusArray<LMPHostType> {
+  typedef Kokkos::
+    DualView<AtomVecEllipsoid::Bonus*,
+    LMPHostType::array_layout,LMPHostType> tdual_bonus_1d;
+  typedef tdual_bonus_1d::t_host t_bonus_1d;
+};
+#endif
+
+typedef AtomVecEllipsoidKokkosBonusArray<LMPDeviceType> DBonusAT;
+typedef AtomVecEllipsoidKokkosBonusArray<LMPHostType> HBonusAT;
+
+/* ---------------------------------------------------------------------- */
+
 class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
  public:
   AtomVecEllipsoidKokkos(class LAMMPS *);
@@ -77,6 +105,22 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   void unpack_comm_bonus_kokkos(const int &n, const int &nfirst,
                              const DAT::tdual_xfloat_2d &buf,
                              ExecutionSpace space) override;
+  int pack_border_bonus_kokkos(int n, DAT::tdual_int_2d k_sendlist,
+                             DAT::tdual_xfloat_2d buf,int iswap,
+                             ExecutionSpace space) override;
+  void unpack_border_bonus_kokkos(const int &n, const int & nfirst,
+                               const DAT::tdual_xfloat_2d & buf,
+                               ExecutionSpace space) override;
+  int pack_exchange_bonus_kokkos(const int &nsend, 
+                               DAT::tdual_xfloat_2d &buf,
+                               DAT::tdual_int_1d k_sendlist,
+                               DAT::tdual_int_1d k_copylist,
+                               ExecutionSpace space) override;
+  int unpack_exchange_bonus_kokkos(DAT::tdual_xfloat_2d &k_buf, 
+                                 int nrecv, int nlocal,
+                                 int dim, X_FLOAT lo, X_FLOAT hi,
+                                 ExecutionSpace space,
+                                 DAT::tdual_int_1d &k_indices) override;
 
   void sync(ExecutionSpace space, unsigned int mask) override;
   void modified(ExecutionSpace space, unsigned int mask) override;
@@ -84,9 +128,9 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
 
   // Bonus struct
 
-  typedef Kokkos::DualView<Bonus*,LMPDeviceType> tdual_bonus_1d;
-  typedef typename tdual_bonus_1d::t_dev t_bonus_1d;
-  typedef typename tdual_bonus_1d::t_host t_host_bonus_1d;
+  //typedef Kokkos::DualView<Bonus*,LMPDeviceType> tdual_bonus_1d;
+  //typedef typename tdual_bonus_1d::t_dev t_bonus_1d;
+  //typedef typename tdual_bonus_1d::t_host t_host_bonus_1d;
     
  private:
   //int *ellipsoid; // IS THIS CORRECT?
@@ -115,9 +159,9 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   DAT::t_int_1d d_ellipsoid;
   HAT::t_int_1d h_ellipsoid;
     
-  tdual_bonus_1d k_bonus; 
-  t_bonus_1d d_bonus; 
-  t_host_bonus_1d h_bonus;
+  DBonusAT::tdual_bonus_1d k_bonus; 
+  DBonusAT::t_bonus_1d d_bonus; 
+  HBonusAT::t_bonus_1d h_bonus;
 
   void grow_bonus() override; 
 };
