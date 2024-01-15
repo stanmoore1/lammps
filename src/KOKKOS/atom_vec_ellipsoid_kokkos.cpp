@@ -1003,9 +1003,7 @@ int AtomVecEllipsoidKokkos::pack_border_kokkos(
         dx,dy,dz);
         Kokkos::parallel_for(n,f);
         n_return += pack_border_bonus_kokkos(
-                                n, k_sendlist.view<LMPHostType>(),
-                                buf.view<LMPHostType>(), iswap,
-                                Host);
+                                n, k_sendlist, buf, iswap, Host);
       }
     } else {
       if (bonus_flag==0) {
@@ -1021,9 +1019,7 @@ int AtomVecEllipsoidKokkos::pack_border_kokkos(
         dx,dy,dz);
         Kokkos::parallel_for(n,f);
         n_return += pack_border_bonus_kokkos(
-                                n, k_sendlist.view<LMPDeviceType>(),
-                                buf.view<LMPDeviceType>(), iswap,
-                                Device);
+                                n, k_sendlist, buf, iswap, Device);
       }
     }
   } else {
@@ -1042,9 +1038,7 @@ int AtomVecEllipsoidKokkos::pack_border_kokkos(
         dx,dy,dz);
         Kokkos::parallel_for(n,f);
         n_return += pack_border_bonus_kokkos(
-                                n, k_sendlist.view<LMPHostType>(),
-                                buf.view<LMPHostType>(), iswap,
-                                Host);
+                                n, k_sendlist, buf, iswap, Host);
       }
     } else {
       if (bonus_flag==0) {
@@ -1060,9 +1054,7 @@ int AtomVecEllipsoidKokkos::pack_border_kokkos(
         dx,dy,dz);
         Kokkos::parallel_for(n,f);
         n_return += pack_border_bonus_kokkos(
-                                n, k_sendlist.view<LMPDeviceType>(),
-                                buf.view<LMPDeviceType>(), iswap,
-                                Device);
+                                n, k_sendlist, buf, iswap, Device);
       }
     }
   }
@@ -1734,30 +1726,23 @@ template<class DeviceType>
 struct AtomVecEllipsoidKokkos_PackBorderBonus {
   typedef DeviceType device_type;
 
+  typename AtomVecEllipsoidKokkosBonusArray
+           <DeviceType>::t_bonus_1d _bonus; //Device target ok?
+  typename ArrayTypes<DeviceType>::t_int_1d _ellipsoid;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   const typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
-  const typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
-  const typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
-  const typename ArrayTypes<DeviceType>::t_int_1d _type;
-  const typename ArrayTypes<DeviceType>::t_int_1d _mask;
-  typename ArrayTypes<DeviceType>::t_float_1d _rmass;
-  X_FLOAT _dx,_dy,_dz;
 
   AtomVecEllipsoidKokkos_PackBorderBonus(
-    const typename ArrayTypes<DeviceType>::t_xfloat_2d &buf,
+    const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
+    const typename DAT::tdual_int_1d &ellipsoid,
+    const typename ArrayTypes<DeviceType>::tdual_xfloat_2d &buf,
     const typename ArrayTypes<DeviceType>::t_int_2d_const &list,
-    const int &iswap,
-    const typename ArrayTypes<DeviceType>::t_x_array &x,
-    const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
-    const typename ArrayTypes<DeviceType>::t_int_1d &type,
-    const typename ArrayTypes<DeviceType>::t_int_1d &mask,
-    const typename ArrayTypes<DeviceType>::t_float_1d &rmass,
-    const X_FLOAT &dx, const X_FLOAT &dy, const X_FLOAT &dz):
+    const int &iswap):
     _list(list),_iswap(iswap),
-    _x(x),_tag(tag),_type(type),_mask(mask),
-    _rmass(rmass),
-    _dx(dx),_dy(dy),_dz(dz)
+    _bonus(bonus.view<DeviceType>()),
+    _ellipsoid(ellipsoid.view<DeviceType>())
+    //_buf(buf.view<DeviceType>())
   {
     const size_t elements = 15; // 7 + 8*bonus_flag
     const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
@@ -1767,9 +1752,41 @@ struct AtomVecEllipsoidKokkos_PackBorderBonus {
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& i) const {
     const int j = _list(_iswap,i);
-    
+    if (_ellipsoid[j] < 0) {
+      _buf(i,?) = d_ubuf?;
+    } else {
+      _buf(i,?) = d_ubuf?;
+      shape = _bonus[_ellipsoid[j]].shape;
+      quat = _bonus[_ellipsoid[j]].quat;
+      _buf(i,) = shape[0];
+      _buf(i,) = shape[1];
+      _buf(i,) = shape[2];
+      _buf(i,) = quat[0];
+      _buf(i,) = quat[1];
+      _buf(i,) = quat[2];
+      _buf(i,) = quat[3];
+    }
   }
 };
+
+/*  m = 0;
+  for (i = 0; i < n; i++) {
+    j = list[i];
+    if (ellipsoid[j] < 0)
+      buf[m++] = ubuf(0).d;
+    else {
+      buf[m++] = ubuf(1).d;
+      shape = bonus[ellipsoid[j]].shape;
+      quat = bonus[ellipsoid[j]].quat;
+      buf[m++] = shape[0];
+      buf[m++] = shape[1];
+      buf[m++] = shape[2];
+      buf[m++] = quat[0];
+      buf[m++] = quat[1];
+      buf[m++] = quat[2];
+      buf[m++] = quat[3];
+    }
+  }
 
 /* ---------------------------------------------------------------------- */
 
