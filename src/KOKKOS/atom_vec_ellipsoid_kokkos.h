@@ -41,6 +41,7 @@ struct AtomVecEllipsoidKokkosBonusArray<LMPDeviceType> {
     DualView<AtomVecEllipsoid::Bonus*,
     LMPDeviceType::array_layout,LMPDeviceType> tdual_bonus_1d;
   typedef tdual_bonus_1d::t_dev t_bonus_1d;
+  typedef tdual_bonus_1d::t_dev_const_randomread t_bonus_1d_randomread;
 };
 #ifdef LMP_KOKKOS_GPU
 template <>
@@ -49,6 +50,7 @@ struct AtomVecEllipsoidKokkosBonusArray<LMPHostType> {
     DualView<AtomVecEllipsoid::Bonus*,
     LMPHostType::array_layout,LMPHostType> tdual_bonus_1d;
   typedef tdual_bonus_1d::t_host t_bonus_1d;
+  typedef tdual_bonus_1d::t_host_const_randomread t_bonus_1d_randomread;
 };
 #endif
 
