@@ -1797,20 +1797,28 @@ template<class DeviceType>
 struct AtomVecEllipsoidKokkos_UnpackBorderBonus {
   typedef DeviceType device_type;
 
+  AtomVecEllipsoidKokkos* _avecEllipsoidKK;
+
   typename AtomVecEllipsoidKokkosBonusArray
            <DeviceType>::t_bonus_1d _bonus; //Device target ok?
   typename ArrayTypes<DeviceType>::t_int_1d _ellipsoid;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
   int _first;
+  int _nlocal_bonus, _nmax_bonus; // do I need these to instead be static?
+  mutable int _nghost_bonus;      // mutable to allow for const operator() ok?
 
   AtomVecEllipsoidKokkos_UnpackBorderBonus(
+    AtomVecEllipsoidKokkos* avecEllipsoidKK,
     const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
     const typename DAT::tdual_int_1d &ellipsoid,
     const typename ArrayTypes<DeviceType>::t_xfloat_2d &buf,
-    const int& first):
+    const int& first,
+    int& nlocal_bonus, int& nghost_bonus, int& nmax_bonus):
     _bonus(bonus.view<DeviceType>()),
     _ellipsoid(ellipsoid.view<DeviceType>()),
-    _first(first)
+    _first(first),
+    _nlocal_bonus(nlocal_bonus), _nghost_bonus(nghost_bonus), _nmax_bonus(nmax_bonus),
+    _avecEllipsoidKK(avecEllipsoidKK)
   {
     const size_t elements = 15; // 7 + 8*bonus_flag
     const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
@@ -1824,17 +1832,8 @@ struct AtomVecEllipsoidKokkos_UnpackBorderBonus {
     if (d_ubuf(_buf(i,7)).i == 0) {
       _ellipsoid[i+_first] = -1;
     } else {
-      j = nlocal_bonus + nghost_bonus;
-      if (j==nmax_bonus) grow_bonus();
-      /*shape = _bonus[_ellipsoid[i+_first]].shape;
-      quat = _bonus[_ellipsoid[i+_first]].quat;
-      shape[0] = _buf(i,8);
-      shape[1] = _buf(i,9);
-      shape[2] = _buf(i,10);
-      quat[0] = _buf(i,11);
-      quat[1] = _buf(i,12);
-      quat[2] = _buf(i,13);
-      quat[3] = _buf(i,14);*/
+      j = _nlocal_bonus + _nghost_bonus;
+      if (j==_nmax_bonus) _avecEllipsoidKK->grow_bonus();
       _bonus(j).shape[0] = _buf(i,8);
       _bonus(j).shape[1] = _buf(i,9); 
       _bonus(j).shape[2] = _buf(i,10);
@@ -1844,7 +1843,7 @@ struct AtomVecEllipsoidKokkos_UnpackBorderBonus {
       _bonus(j).quat[3] = _buf(i,14);
       _bonus(j).ilocal = i+_first;
       _ellipsoid(i+_first) = j;
-      nghost_bonus++;
+      _nghost_bonus++;
     }
   }
 };
@@ -1858,12 +1857,16 @@ void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n,
 {
   while (nfirst+n >= nmax) grow(0);
   if (space==Host) {
-    struct AtomVecEllipsoidKokkos_UnpackBorderBonus<LMPHostType> f(
-      k_bonus,atomKK->k_ellipsoid,buf.view<LMPHostType>(),nfirst);
+    struct AtomVecEllipsoidKokkos_UnpackBorderBonus<LMPHostType> f(this,
+      k_bonus,atomKK->k_ellipsoid,buf.view<LMPHostType>(),nfirst,
+      this->nlocal_bonus, this->nghost_bonus, 
+      this->nmax_bonus);
     Kokkos::parallel_for(n,f);
   } else {
-    struct AtomVecEllipsoidKokkos_UnpackBorderBonus<LMPDeviceType> f(
-      k_bonus,atomKK->k_ellipsoid,buf.view<LMPDeviceType>(),nfirst);
+    struct AtomVecEllipsoidKokkos_UnpackBorderBonus<LMPDeviceType> f(this,
+      k_bonus,atomKK->k_ellipsoid,buf.view<LMPDeviceType>(),nfirst,
+      this->nlocal_bonus, this->nghost_bonus, 
+      this->nmax_bonus);
     Kokkos::parallel_for(n,f);
   }
 

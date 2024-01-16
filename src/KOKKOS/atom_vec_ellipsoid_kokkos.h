@@ -128,6 +128,8 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
 
   // Bonus struct
 
+  void grow_bonus() override; 
+
   //typedef Kokkos::DualView<Bonus*,LMPDeviceType> tdual_bonus_1d;
   //typedef typename tdual_bonus_1d::t_dev t_bonus_1d;
   //typedef typename tdual_bonus_1d::t_host t_host_bonus_1d;
@@ -163,7 +165,6 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   DEllipsoidBonusAT::t_bonus_1d d_bonus; 
   HEllipsoidBonusAT::t_bonus_1d h_bonus;
 
-  void grow_bonus() override; 
 };
 
 }    // namespace LAMMPS_NS
