@@ -1476,9 +1476,9 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
     _buf(mysend,14) = _angmom(i,2);
     if (BONUS_FLAG==1) {
       if (_ellipsoid[i] < 0)
-        _buf(mysend,15) = d_ubuf(_ellipsoid[i]).d; // Unsure this is correct - is "ubuf(0).d;" on CPU version
+        _buf(mysend,15) = d_ubuf(0).d; // Unsure this is correct - is "ubuf(0).d;" on CPU version
       else {
-        _buf(mysend,15) = d_ubuf(_ellipsoid[i]).d; // Unsure this is correct - is "ubuf(1).d;" on CPU version
+        _buf(mysend,15) = d_ubuf(1).d; // Unsure this is correct - is "ubuf(1).d;" on CPU version
         int k = _ellipsoid[i];
         _buf(mysend,16) = _bonus(k).shape[0];
         _buf(mysend,17) = _bonus(k).shape[1];
