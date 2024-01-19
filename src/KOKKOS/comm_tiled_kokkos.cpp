@@ -105,7 +105,7 @@ void CommTiledKokkos::forward_comm_device(int)
       }
       if (sendother[iswap]) {
         for (i = 0; i < nsend; i++) {
-          k_sendlist_small = Kokkos::subview(k_sendlist,iswap,i,Kokkos::ALL);
+          auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,i,Kokkos::ALL);
           n = atomKK->avecKK->pack_comm_kokkos(sendnum[iswap][i],k_sendlist_small,
                               iswap,k_buf_send,pbc_flag[iswap][i],pbc[iswap][i]);
           DeviceType().fence();
@@ -113,7 +113,7 @@ void CommTiledKokkos::forward_comm_device(int)
         }
       }
       if (sendself[iswap]) {
-        k_sendlist_small = Kokkos::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
+        auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
         atomKK->avecKK->pack_comm_self(sendnum[iswap][nsend],k_sendlist_small,
                         firstrecv[iswap][nrecv],pbc_flag[iswap][nsend],pbc[iswap][nsend]);
         DeviceType().fence();
@@ -132,7 +132,7 @@ void CommTiledKokkos::forward_comm_device(int)
       }
       if (sendother[iswap]) {
         for (i = 0; i < nsend; i++) {
-          k_sendlist_small = Kokkos::subview(k_sendlist,iswap,i,Kokkos::ALL);
+          auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,i,Kokkos::ALL);
           n = atomKK->avecKK->pack_comm_vel(sendnum[iswap][i],k_sendlist_small,iswap,
                                   k_buf_send,pbc_flag[iswap][i],pbc[iswap][i]);
           DeviceType().fence();
@@ -141,7 +141,7 @@ void CommTiledKokkos::forward_comm_device(int)
         }
       }
       if (sendself[iswap]) {
-        k_sendlist_small = Kokkos::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
+        auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
         atomKK->avecKK->pack_comm_vel_kokkos(sendnum[iswap][nsend],k_sendlist_small,iswap,
                             k_buf_send,pbc_flag[iswap][nsend],pbc[iswap][nsend]);
         atomKK->avecKK->unpack_comm_vel_kokkos(recvnum[iswap][nrecv],firstrecv[iswap][nrecv],buf_send);
