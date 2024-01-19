@@ -152,8 +152,8 @@ void AtomVecEllipsoidKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &So
   Sorter.sort(LMPDeviceType(), d_v);
   Sorter.sort(LMPDeviceType(), d_rmass);
   Sorter.sort(LMPDeviceType(), d_angmom);
-  Sorter.sort(LMPDeviceType(), d_ellipsoid); // IS THIS NEEDED, or MASK?
-  Sorter.sort(LMPDeviceType(), d_bonus); // IS THIS NEEDED, or MASK?
+  Sorter.sort(LMPDeviceType(), d_ellipsoid);
+  Sorter.sort(LMPDeviceType(), d_bonus);
 
   atomKK->modified(Device, ALL_MASK & ~F_MASK & ~TORQUE_MASK);
 }
@@ -1540,6 +1540,7 @@ int AtomVecEllipsoidKokkos::pack_exchange_kokkos(
   }
   atomKK->sync(space,X_MASK | V_MASK | TAG_MASK | TYPE_MASK |
              MASK_MASK | IMAGE_MASK | RMASS_MASK | ANGMOM_MASK);
+  if (bonus_flag==1) atomKK->sync(space,ELLIPSOID_MASK);
 
   if (space == Host) {
     if (bonus_flag==0) {
@@ -1730,6 +1731,8 @@ int AtomVecEllipsoidKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, 
   atomKK->modified(space,X_MASK | V_MASK | TAG_MASK | TYPE_MASK |
                  MASK_MASK | IMAGE_MASK | RMASS_MASK | ANGMOM_MASK);
 
+  if (bonus_flag==1) atomKK->modified(space,ELLIPSOID_MASK);
+
   return k_count.h_view(0);
 }
 
@@ -1788,7 +1791,6 @@ int AtomVecEllipsoidKokkos::pack_comm_bonus_kokkos(int n, DAT::tdual_int_2d k_se
             buf,k_sendlist,iswap);
           Kokkos::parallel_for(n,f);  
     }
-    
     return n*size_forward;
 }
 
@@ -1847,8 +1849,7 @@ void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &n
       k_bonus,atomKK->k_ellipsoid,buf,nfirst);
     Kokkos::parallel_for(n,f);
   }
-
-  //atomKK->modified(space,???_MASK);
+  atomKK->modified(space,ELLIPSOID_MASK);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -2000,8 +2001,7 @@ void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n,
       this->nmax_bonus);
     Kokkos::parallel_for(n,f);
   }
-
-  //atomKK->modified(space,???_MASK);
+  atomKK->modified(space,ELLIPSOID_MASK);
 }
 
 /* ---------------------------------------------------------------------- */
