@@ -113,7 +113,7 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   void unpack_border_bonus_kokkos(const int &n, const int & nfirst,
                                const DAT::tdual_xfloat_2d & buf,
                                ExecutionSpace space) override;
-  int pack_exchange_bonus_kokkos(const int &nsend, 
+  /*int pack_exchange_bonus_kokkos(const int &nsend, 
                                DAT::tdual_xfloat_2d &buf,
                                DAT::tdual_int_1d k_sendlist,
                                DAT::tdual_int_1d k_copylist,
@@ -122,7 +122,7 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
                                  int nrecv, int nlocal,
                                  int dim, X_FLOAT lo, X_FLOAT hi,
                                  ExecutionSpace space,
-                                 DAT::tdual_int_1d &k_indices) override;
+                                 DAT::tdual_int_1d &k_indices) override;*/
 
   void sync(ExecutionSpace space, unsigned int mask) override;
   void modified(ExecutionSpace space, unsigned int mask) override;
