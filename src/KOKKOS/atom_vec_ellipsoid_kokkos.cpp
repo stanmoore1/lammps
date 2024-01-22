@@ -1645,11 +1645,11 @@ struct AtomVecEllipsoidKokkos_UnpackExchangeFunctor {
       _angmom(i,0) = _buf(myrecv,12);
       _angmom(i,1) = _buf(myrecv,13);
       _angmom(i,2) = _buf(myrecv,14);
-      if (BONUS_FLAG==1) {
+      /*if (BONUS_FLAG==1) {
         if (d_ubuf(_buf(myrecv,15)).i == 0) // Unsure this is correct - is "ubuf(buf[m++]).i;" on CPU version
           _ellipsoid[i] = -1; 
         else {
-          if (_nlocal_bonus==_nmax_bonus) _avecEllipsoidKK->grow_bonus();
+          //if (_nlocal_bonus==_nmax_bonus) _avecEllipsoidKK->grow_bonus();
           int k = _nlocal_bonus;            // k correct here?
           _bonus(k).shape[0] = _buf(myrecv,16);
           _bonus(k).shape[1] = _buf(myrecv,17);
@@ -1661,10 +1661,73 @@ struct AtomVecEllipsoidKokkos_UnpackExchangeFunctor {
           _bonus(k).ilocal = i;             // Is _nlocal (i) the same as ilocal from CPU version?
           _ellipsoid(i) = _nlocal_bonus++;  // i or k?
         }
+      }*/
+      if (BONUS_FLAG==1 && d_ubuf(_buf(myrecv,15)).i == 1) {
+        int k = _nlocal_bonus;            // k correct here?
+        _bonus(k).shape[0] = _buf(myrecv,16);
+        _bonus(k).shape[1] = _buf(myrecv,17);
+        _bonus(k).shape[2] = _buf(myrecv,18);
+        _bonus(k).quat[0] = _buf(myrecv,19);
+        _bonus(k).quat[1] = _buf(myrecv,20);
+        _bonus(k).quat[2] = _buf(myrecv,21);
+        _bonus(k).quat[3] = _buf(myrecv,22);
+        _bonus(k).ilocal = i;             // Is _nlocal (i) the same as ilocal from CPU version?
+        _ellipsoid(i) = _nlocal_bonus++;  // i or k?
       }
     }
     if (OUTPUT_INDICES)
       _indices(myrecv) = i;
+  }
+};
+
+template<class DeviceType>
+struct AtomVecEllipsoidKokkos_UnpackExchangeSizeBonusFunctor {
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
+  typename AT::t_xfloat_2d_um _buf;
+  typename AT::t_int_1d _nlocal;
+  int _dim;
+  X_FLOAT _lo,_hi;
+  int _size_exchange;
+  typename AT::t_int_1d _ellipsoid;
+  mutable int _nlocal_bonus;
+  int _nmax_bonus;
+  Kokkos::View<int, DeviceType> new_size;  // new nmax_bonus size for unpack exchange
+
+  AtomVecEllipsoidKokkos_UnpackExchangeSizeBonusFunctor(
+    const AtomKokkos* atom,
+    const typename AT::tdual_xfloat_2d buf,
+    typename AT::tdual_int_1d nlocal,
+    int dim, X_FLOAT lo, X_FLOAT hi,
+    int &nlocal_bonus, int &nmax_bonus
+    ):
+    _size_exchange(atom->avecKK->size_exchange),
+    _nlocal(nlocal.template view<DeviceType>()),
+    _dim(dim),
+    _lo(lo),_hi(hi),
+    _ellipsoid(atom->k_ellipsoid.view<DeviceType>()),
+    _nlocal_bonus(nlocal_bonus),
+    _nmax_bonus(nmax_bonus)
+  {
+    const size_t size_exchange = 23; //15 + (8*BONUS_FLAG)
+    const int maxsendlist = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/size_exchange;
+    buffer_view<DeviceType>(_buf,buf,maxsendlist,size_exchange);
+    Kokkos::deep_copy(new_size, 0);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const int& myrecv) const {
+  X_FLOAT x = _buf(myrecv,_dim+1);
+  int i = -1;
+  if (x >= _lo && x < _hi) {
+    i = Kokkos::atomic_fetch_add(&_nlocal(0),1);
+    if (d_ubuf(_buf(myrecv,15)).i == 0)
+      _ellipsoid(i) = -1; 
+    else {
+        if (_nlocal_bonus==_nmax_bonus) Kokkos::atomic_fetch_add(&new_size(), 1);
+        _ellipsoid(i) = _nlocal_bonus++;
+      }
+    }
   }
 };
 
@@ -1684,9 +1747,13 @@ int AtomVecEllipsoidKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, 
         k_buf,k_count,k_indices,dim,lo,hi,nmax_bonus);
         Kokkos::parallel_for(nrecv/size_exchange,f);
       } else {
-        AtomVecEllipsoidKokkos_UnpackExchangeFunctor<LMPHostType,1,1> f(atomKK,this,k_bonus,
+        AtomVecEllipsoidKokkos_UnpackExchangeSizeBonusFunctor<LMPHostType> f1(atomKK,k_buf,
+        k_count,dim,lo,hi,nlocal_bonus,nmax_bonus);
+        Kokkos::parallel_for(nrecv/size_exchange,f1);
+        if (f1.new_size()!=0) grow_bonus();
+        AtomVecEllipsoidKokkos_UnpackExchangeFunctor<LMPHostType,1,1> f2(atomKK,this,k_bonus,
         k_buf,k_count,k_indices,dim,lo,hi,nmax_bonus);
-        Kokkos::parallel_for(nrecv/size_exchange,f);
+        Kokkos::parallel_for(nrecv/size_exchange,f2);
       }
     } else {
       if (bonus_flag==0) {
@@ -1694,9 +1761,13 @@ int AtomVecEllipsoidKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, 
         k_buf,k_count,k_indices,dim,lo,hi,nmax_bonus);
         Kokkos::parallel_for(nrecv/size_exchange,f);
       } else {
-        AtomVecEllipsoidKokkos_UnpackExchangeFunctor<LMPHostType,0,1> f(atomKK,this,k_bonus,
+        AtomVecEllipsoidKokkos_UnpackExchangeSizeBonusFunctor<LMPHostType> f1(atomKK,k_buf,
+        k_count,dim,lo,hi,nlocal_bonus,nmax_bonus);
+        Kokkos::parallel_for(nrecv/size_exchange,f1);
+        if (f1.new_size()!=0) grow_bonus();
+        AtomVecEllipsoidKokkos_UnpackExchangeFunctor<LMPHostType,0,1> f2(atomKK,this,k_bonus,
         k_buf,k_count,k_indices,dim,lo,hi,nmax_bonus);
-        Kokkos::parallel_for(nrecv/size_exchange,f);
+        Kokkos::parallel_for(nrecv/size_exchange,f2);
       }
     }
   } else {
