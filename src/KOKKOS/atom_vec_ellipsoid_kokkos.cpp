@@ -1650,7 +1650,7 @@ struct AtomVecEllipsoidKokkos_UnpackExchangeFunctor {
           _ellipsoid[i] = -1; 
         else {
           if (_nlocal_bonus==_nmax_bonus) _avecEllipsoidKK->grow_bonus();
-          int k = _ellipsoid[i];
+          int k = _nlocal_bonus;            // k correct here?
           _bonus(k).shape[0] = _buf(myrecv,16);
           _bonus(k).shape[1] = _buf(myrecv,17);
           _bonus(k).shape[2] = _buf(myrecv,18);
@@ -1658,8 +1658,8 @@ struct AtomVecEllipsoidKokkos_UnpackExchangeFunctor {
           _bonus(k).quat[1] = _buf(myrecv,20);
           _bonus(k).quat[2] = _buf(myrecv,21);
           _bonus(k).quat[3] = _buf(myrecv,22);
-          _bonus(_nlocal_bonus).ilocal = i; // Is _nlocal (i) the same as ilocal from CPU version?
-          _ellipsoid(k) = _nlocal_bonus++;  // i or k?
+          _bonus(k).ilocal = i;             // Is _nlocal (i) the same as ilocal from CPU version?
+          _ellipsoid(i) = _nlocal_bonus++;  // i or k?
         }
       }
     }
