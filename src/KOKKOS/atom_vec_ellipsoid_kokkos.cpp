@@ -1750,7 +1750,7 @@ int AtomVecEllipsoidKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, 
         AtomVecEllipsoidKokkos_UnpackExchangeSizeBonusFunctor<LMPHostType> f1(atomKK,k_buf,
         k_count,dim,lo,hi,nlocal_bonus,nmax_bonus);
         Kokkos::parallel_for(nrecv/size_exchange,f1);
-        if (f1.new_size()!=0) grow_bonus();
+        for (int i=0; i<f1.new_size(); i++) grow_bonus();
         AtomVecEllipsoidKokkos_UnpackExchangeFunctor<LMPHostType,1,1> f2(atomKK,this,k_bonus,
         k_buf,k_count,k_indices,dim,lo,hi,nmax_bonus);
         Kokkos::parallel_for(nrecv/size_exchange,f2);
@@ -1764,7 +1764,7 @@ int AtomVecEllipsoidKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, 
         AtomVecEllipsoidKokkos_UnpackExchangeSizeBonusFunctor<LMPHostType> f1(atomKK,k_buf,
         k_count,dim,lo,hi,nlocal_bonus,nmax_bonus);
         Kokkos::parallel_for(nrecv/size_exchange,f1);
-        if (f1.new_size()!=0) grow_bonus();
+        for (int i=0; i<f1.new_size(); i++) grow_bonus();
         AtomVecEllipsoidKokkos_UnpackExchangeFunctor<LMPHostType,0,1> f2(atomKK,this,k_bonus,
         k_buf,k_count,k_indices,dim,lo,hi,nmax_bonus);
         Kokkos::parallel_for(nrecv/size_exchange,f2);
