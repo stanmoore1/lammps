@@ -793,8 +793,19 @@ std::string Atom::get_style()
 
 AtomVec *Atom::style_match(const char *style)
 {
-  if (strcmp(atom_style,style) == 0) return avec;
-  else if (strcmp(atom_style,"hybrid") == 0) {
+  printf("Atom::style_match: %s\n",atom_style);
+  printf("Atom::style_match: %s\n",style);
+  printf(strcmp(atom_style,style) == 0 ? "true\n" : "false\n");
+  char alt_atom_style[256];
+  strcpy(alt_atom_style, atom_style);
+  char* kk_position = strstr(alt_atom_style, "/kk");
+  if (kk_position != nullptr) {
+    *kk_position = '\0';  // Replace the slash with a null terminator
+  }
+  printf("Atom::new_style_match: %s\n",alt_atom_style);
+
+  if (strcmp(alt_atom_style,style) == 0) return avec; 
+  else if (strcmp(alt_atom_style,"hybrid") == 0) {
     auto avec_hybrid = dynamic_cast<AtomVecHybrid *>(avec);
     for (int i = 0; i < avec_hybrid->nstyles; i++)
       if (strcmp(avec_hybrid->keywords[i],style) == 0)

@@ -101,6 +101,11 @@ ReadData::ReadData(LAMMPS *_lmp) : Command(_lmp), fp(nullptr), coeffarg(nullptr)
 
   nellipsoids = 0;
   avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
+  if (avec_ellipsoid) {
+    printf("avec_ellipsoid is not null\n");
+} else {
+    printf("avec_ellipsoid is null\n");
+}
   nlines = 0;
   avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
   ntris = 0;
