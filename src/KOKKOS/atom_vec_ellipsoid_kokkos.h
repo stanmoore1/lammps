@@ -152,7 +152,7 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   DAT::t_v_array d_v;
   //HAT::t_v_array h_v;
   DAT::t_f_array d_f;
-  //DAT::t_f_array h_f;
+  //HAT::t_f_array h_f;
     
   DAT::t_float_1d d_rmass;
   HAT::t_float_1d h_rmass;
