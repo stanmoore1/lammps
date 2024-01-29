@@ -62,6 +62,7 @@ typedef AtomVecEllipsoidKokkosBonusArray<LMPHostType> HEllipsoidBonusAT;
 class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
  public:
   AtomVecEllipsoidKokkos(class LAMMPS *);
+  ~AtomVecEllipsoidKokkos() override;
 
   void grow(int) override;
   void grow_pointers() override;

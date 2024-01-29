@@ -39,6 +39,15 @@ AtomVecKokkos(lmp), AtomVecEllipsoid(lmp)
   unpack_exchange_indices_flag = 1; // Came From AtVeSphereKo
 }
 
+/* ---------------------------------------------------------------------- */
+
+AtomVecEllipsoidKokkos::~AtomVecEllipsoidKokkos()
+{
+  if (bonus_flag) {
+    memoryKK->destroy_kokkos(k_bonus,bonus);
+  }
+}
+
 /* ----------------------------------------------------------------------
    grow atom arrays
    n = 0 grows arrays by a chunk
