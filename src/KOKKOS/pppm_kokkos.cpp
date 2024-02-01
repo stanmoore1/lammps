@@ -39,22 +39,17 @@ using namespace LAMMPS_NS;
 using namespace MathConst;
 using namespace MathSpecialKokkos;
 
-#define MAXORDER 7
-#define OFFSET 16384
-#define LARGE 10000.0
-#define SMALL 0.00001
-#define EPS_HOC 1.0e-7
+static constexpr int MAXORDER = 7;
+static constexpr int OFFSET = 16384;
+static constexpr double LARGE = 10000.0;
+static constexpr double SMALL = 0.00001;
+static constexpr double EPS_HOC = 1.0e-7;
 
 enum{REVERSE_RHO};
 enum{FORWARD_IK,FORWARD_IK_PERATOM};
 
-#ifdef FFT_SINGLE
-#define ZEROF 0.0f
-#define ONEF  1.0f
-#else
-#define ZEROF 0.0
-#define ONEF  1.0
-#endif
+static constexpr FFT_SCALAR ZEROF = 0.0;
+static constexpr FFT_SCALAR ONEF =  1.0;
 
 /* ---------------------------------------------------------------------- */
 
@@ -138,7 +133,7 @@ PPPMKokkos<DeviceType>::~PPPMKokkos()
 template<class DeviceType>
 void PPPMKokkos<DeviceType>::init()
 {
-  if (me == 0) utils::logmesg(lmp,"PPPM initialization ...\n");
+  if (me == 0) utils::logmesg(lmp,"PPPM Kokkos initialization ...\n");
 
   // error check
 
@@ -146,6 +141,10 @@ void PPPMKokkos<DeviceType>::init()
     error->all(FLERR,"Cannot (yet) use PPPM Kokkos with 'kspace_modify diff ad'");
 
   triclinic_check();
+
+  if (triclinic != domain->triclinic)
+    error->all(FLERR,"Must redefine kspace_style after changing to triclinic box");
+
   if (domain->triclinic && slabflag)
     error->all(FLERR,"Cannot (yet) use PPPM with triclinic box and slab correction");
   if (domain->dimension == 2)
@@ -1367,8 +1366,6 @@ void PPPMKokkos<DeviceType>::operator()(TagPPPM_brick2fft, const int &ii) const
 template<class DeviceType>
 void PPPMKokkos<DeviceType>::poisson_ik()
 {
-  int j;
-
   // transform charge density (r -> k)
 
   copymode = 1;
@@ -1379,7 +1376,8 @@ void PPPMKokkos<DeviceType>::poisson_ik()
 
   // global energy and virial contribution
 
-  scaleinv = 1.0/(nx_pppm*ny_pppm*nz_pppm);
+  bigint ngridtotal = (bigint) nx_pppm * ny_pppm * nz_pppm;
+  scaleinv = 1.0/ngridtotal;
   s2 = scaleinv*scaleinv;
 
   if (eflag_global || vflag_global) {
@@ -1388,7 +1386,7 @@ void PPPMKokkos<DeviceType>::poisson_ik()
       copymode = 1;
       Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPPPM_poisson_ik2>(0,nfft),*this,ev);
       copymode = 0;
-      for (j = 0; j < 6; j++) virial[j] += ev.v[j];
+      for (int j = 0; j < 6; j++) virial[j] += ev.v[j];
       energy += ev.ecoul;
     } else {
       copymode = 1;

@@ -214,9 +214,7 @@ compute_evdwl(const F_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
       (cut_ljsq + 2.0*rsq - 3.0*cut_lj_innersq) / denom_lj;
     englj *= switch1;
   }
-
   return englj;
-
 }
 
 /* ----------------------------------------------------------------------
@@ -444,9 +442,9 @@ void PairLJCharmmCoulLongKokkos<DeviceType>::init_style()
 
   neighflag = lmp->kokkos->neighflag;
   auto request = neighbor->find_request(this);
-  request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
-                           !std::is_same<DeviceType,LMPDeviceType>::value);
-  request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
+  request->set_kokkos_host(std::is_same_v<DeviceType,LMPHostType> &&
+                           !std::is_same_v<DeviceType,LMPDeviceType>);
+  request->set_kokkos_device(std::is_same_v<DeviceType,LMPDeviceType>);
   if (neighflag == FULL) request->enable_full();
 }
 
@@ -488,4 +486,3 @@ template class PairLJCharmmCoulLongKokkos<LMPDeviceType>;
 template class PairLJCharmmCoulLongKokkos<LMPHostType>;
 #endif
 }
-

@@ -282,6 +282,8 @@ class lammps(object):
     self.lib.lammps_config_accelerator.argtypes = [c_char_p, c_char_p, c_char_p]
 
     self.lib.lammps_set_variable.argtypes = [c_void_p, c_char_p, c_char_p]
+    self.lib.lammps_set_string_variable.argtypes = [c_void_p, c_char_p, c_char_p]
+    self.lib.lammps_set_internal_variable.argtypes = [c_void_p, c_char_p, c_double]
 
     self.lib.lammps_has_style.argtypes = [c_void_p, c_char_p, c_char_p]
 
@@ -379,8 +381,9 @@ class lammps(object):
           for i in range(narg):
             if type(cmdargs[i]) is str:
               cmdargs[i] = cmdargs[i].encode()
-          cargs = (c_char_p*narg)(*cmdargs)
-          self.lib.lammps_open.argtypes = [c_int, c_char_p*narg, MPI_Comm, c_void_p]
+          cargs = (c_char_p*(narg+1))(*cmdargs)
+          cargs[narg] = None
+          self.lib.lammps_open.argtypes = [c_int, c_char_p*(narg+1), MPI_Comm, c_void_p]
         else:
           self.lib.lammps_open.argtypes = [c_int, c_char_p, MPI_Comm, c_void_p]
 
@@ -399,8 +402,9 @@ class lammps(object):
           for i in range(narg):
             if type(cmdargs[i]) is str:
               cmdargs[i] = cmdargs[i].encode()
-          cargs = (c_char_p*narg)(*cmdargs)
-          self.lib.lammps_open_no_mpi.argtypes = [c_int, c_char_p*narg, c_void_p]
+          cargs = (c_char_p*(narg+1))(*cmdargs)
+          cargs[narg] = None
+          self.lib.lammps_open_no_mpi.argtypes = [c_int, c_char_p*(narg+1), c_void_p]
           self.lmp = c_void_p(self.lib.lammps_open_no_mpi(narg,cargs,None))
         else:
           self.lib.lammps_open_no_mpi.argtypes = [c_int, c_char_p, c_void_p]
@@ -746,6 +750,16 @@ class lammps(object):
       return self.lib.lammps_get_thermo(self.lmp,name)
 
   # -------------------------------------------------------------------------
+  @property
+  def last_thermo_step(self):
+    """ Get the last timestep where thermodynamic data was computed
+
+    :return: the timestep or a negative number if there has not been any thermo output yet
+    :rtype: int
+    """
+    with ExceptionCheck(self):
+      ptr = self.lib.lammps_last_thermo(self.lmp, c_char_p("step".encode()), 0)
+    return cast(ptr, POINTER(self.c_bigint)).contents.value
 
   def last_thermo(self):
     """Get a dictionary of the last thermodynamic output
@@ -755,14 +769,12 @@ class lammps(object):
     data from the last timestep into a dictionary.  The return value
     is None, if there has not been any thermo output yet.
 
-    :return: value of thermo keyword
+    :return: a dictionary containing the last computed thermo output values
     :rtype: dict or None
     """
 
     rv = dict()
-    with ExceptionCheck(self):
-      ptr = self.lib.lammps_last_thermo(self.lmp, c_char_p("step".encode()), 0)
-    mystep = cast(ptr, POINTER(self.c_bigint)).contents.value
+    mystep = self.last_thermo_step
     if mystep < 0:
       return None
 
@@ -1242,6 +1254,8 @@ class lammps(object):
   def set_variable(self,name,value):
     """Set a new value for a LAMMPS string style variable
 
+    .. deprecated:: TBD
+
     This is a wrapper around the :cpp:func:`lammps_set_variable`
     function of the C-library interface.
 
@@ -1258,6 +1272,52 @@ class lammps(object):
     else: return -1
     with ExceptionCheck(self):
       return self.lib.lammps_set_variable(self.lmp,name,value)
+
+  # -------------------------------------------------------------------------
+
+  def set_string_variable(self,name,value):
+    """Set a new value for a LAMMPS string style variable
+
+    .. versionadded:: TBD
+
+    This is a wrapper around the :cpp:func:`lammps_set_string_variable`
+    function of the C-library interface.
+
+    :param name: name of the variable
+    :type name: string
+    :param value: new variable value
+    :type value: any. will be converted to a string
+    :return: either 0 on success or -1 on failure
+    :rtype: int
+    """
+    if name: name = name.encode()
+    else: return -1
+    if value: value = str(value).encode()
+    else: return -1
+    with ExceptionCheck(self):
+      return self.lib.lammps_set_string_variable(self.lmp,name,value)
+
+  # -------------------------------------------------------------------------
+
+  def set_internal_variable(self,name,value):
+    """Set a new value for a LAMMPS internal style variable
+
+    .. versionadded:: TBD
+
+    This is a wrapper around the :cpp:func:`lammps_set_internal_variable`
+    function of the C-library interface.
+
+    :param name: name of the variable
+    :type name: string
+    :param value: new variable value
+    :type value: float or compatible. will be converted to float
+    :return: either 0 on success or -1 on failure
+    :rtype: int
+    """
+    if name: name = name.encode()
+    else: return -1
+    with ExceptionCheck(self):
+      return self.lib.lammps_set_internal_variable(self.lmp,name,value)
 
   # -------------------------------------------------------------------------
 

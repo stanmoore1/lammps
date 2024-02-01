@@ -45,8 +45,8 @@ using namespace MathConst;
 #define THREEQUARTERS 0.75                 // 3/4
 #define TWOPI 6.28318530717959             // 2*PI
 
-#define BIG 1.0e20
-#define EPSILON 1e-10
+static constexpr double BIG = 1.0e20;
+static constexpr double EPSILON = 1e-10;
 
 // XYZ PLANE need to be 0,1,2
 
@@ -68,8 +68,8 @@ FixWallGranOld::FixWallGranOld(LAMMPS *lmp, int narg, char **arg) :
 {
   if (narg < 4) error->all(FLERR,"Illegal fix wall/gran command");
 
-  if (!atom->sphere_flag)
-    error->all(FLERR,"Fix wall/gran requires atom style sphere");
+  if (!atom->omega_flag) error->all(FLERR,"Fix {} requires atom attribute omega", style);
+  if (!atom->radius_flag) error->all(FLERR,"Fix {} requires atom attribute radius", style);
 
   create_attribute = 1;
   limit_damping = 0;
@@ -81,7 +81,7 @@ FixWallGranOld::FixWallGranOld(LAMMPS *lmp, int narg, char **arg) :
   else if (strcmp(arg[3],"hooke/history") == 0) pairstyle = HOOKE_HISTORY;
   else if (strcmp(arg[3],"hertz/history") == 0) pairstyle = HERTZ_HISTORY;
   else if (strcmp(arg[3],"granular") == 0) pairstyle = GRANULAR;
-  else error->all(FLERR,"Invalid fix wall/gran interaction style");
+  else error->all(FLERR,"Invalid fix {} interaction style: {}", style, arg[3]);
 
   use_history = restart_peratom = 1;
   if (pairstyle == HOOKE) use_history = restart_peratom = 0;
@@ -1470,7 +1470,7 @@ void FixWallGranOld::granular(double rsq, double dx, double dy, double dz,
   if (twist_model != TWIST_NONE) {
     magtwist = relrot1*nx + relrot2*ny + relrot3*nz; //Omega_T (eq 29 of Marshall)
     if (twist_model == TWIST_MARSHALL) {
-      k_twist = 0.5*k_tangential*a*a;; // eq 32 of Marshall paper
+      k_twist = 0.5*k_tangential*a*a; // eq 32 of Marshall paper
       damp_twist = 0.5*damp_tangential*a*a;
       mu_twist = TWOTHIRDS*a*tangential_coeffs[2];
     }

@@ -35,7 +35,7 @@ using MathConst::DEG2RAD;
 using MathConst::RAD2DEG;
 
 static constexpr double epsilon = 6.5e-6;
-#define MAXLINE 1024
+static constexpr int MAXLINE = 1024;
 /* ---------------------------------------------------------------------- */
 
 void DihedralWrite::command(int narg, char **arg)
@@ -124,12 +124,8 @@ void DihedralWrite::command(int narg, char **arg)
 
   if (comm->me == 0) {
     // set up new LAMMPS instance with dummy system to evaluate dihedral potential
-    //    const char *args[] = {"DihedralWrite", "-nocite", "-echo",   "none",
-    //                          "-log",          "none",    "-screen", "none"};
-    const char *args[] = {"DihedralWrite", "-nocite", "-echo", "screen", "-log", "none"};
-    char **argv = (char **) args;
-    int argc = sizeof(args) / sizeof(char *);
-    LAMMPS *writer = new LAMMPS(argc, argv, singlecomm);
+    LAMMPS::argv args = {"DihedralWrite", "-nocite", "-echo", "screen", "-log", "none"};
+    LAMMPS *writer = new LAMMPS(args, singlecomm);
 
     // create dummy system replicating dihedral style settings
     writer->input->one(fmt::format("units {}", update->unit_style));
@@ -152,7 +148,7 @@ void DihedralWrite::command(int narg, char **arg)
     writer->input->one("mass * 1.0");
     writer->input->one(fmt::format("dihedral_style {}", force->dihedral_style));
     FILE *coeffs;
-    char line[MAXLINE];
+    char line[MAXLINE] = {'\0'};
     coeffs = fopen(coeffs_file.c_str(), "r");
     for (int i = 0; i < atom->ndihedraltypes; ++i) {
       fgets(line, MAXLINE, coeffs);

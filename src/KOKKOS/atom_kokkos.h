@@ -25,6 +25,8 @@ namespace LAMMPS_NS {
 class AtomKokkos : public Atom {
  public:
   bool sort_classic;
+  int nprop_atom;
+  class FixPropertyAtomKokkos **fix_prop_atom;
 
   DAT::tdual_tagint_1d k_tag;
   DAT::tdual_int_1d k_type, k_mask;
@@ -101,7 +103,8 @@ class AtomKokkos : public Atom {
 
   using MapKeyViewType = decltype(d_tag_sorted);
   using BinOpMap = Kokkos::BinOp1D<MapKeyViewType>;
-  Kokkos::BinSort<MapKeyViewType, BinOpMap> Sorter;
+  BinOpMap mapBinner;
+  Kokkos::BinSort<MapKeyViewType, BinOpMap> mapSorter;
 
   class AtomVecKokkos* avecKK;
 
@@ -144,13 +147,14 @@ class AtomKokkos : public Atom {
   }
 
   void init() override;
+  void update_property_atom();
   void allocate_type_arrays() override;
   void sync(const ExecutionSpace space, unsigned int mask);
   void modified(const ExecutionSpace space, unsigned int mask);
   void sync_overlapping_device(const ExecutionSpace space, unsigned int mask);
   void sort() override;
   virtual void grow(unsigned int mask);
-  int add_custom(const char *, int, int) override;
+  int add_custom(const char *, int, int, int border = 0) override;
   void remove_custom(int, int, int) override;
   virtual void deallocate_topology();
  private:
@@ -164,32 +168,32 @@ struct SortFunctor {
   ViewType source;
   Kokkos::View<typename ViewType::non_const_data_type,typename ViewType::array_type,device_type> dest;
   IndexView index;
-  SortFunctor(ViewType src, typename std::enable_if<ViewType::dynamic_rank==1,IndexView>::type ind):source(src),index(ind) {
+  SortFunctor(ViewType src, std::enable_if_t<ViewType::dynamic_rank==1,IndexView> ind):source(src),index(ind) {
     dest = Kokkos::View<typename ViewType::non_const_data_type,typename ViewType::array_type,device_type>("",src.extent(0));
   }
-  SortFunctor(ViewType src, typename std::enable_if<ViewType::dynamic_rank==2,IndexView>::type ind):source(src),index(ind) {
+  SortFunctor(ViewType src, std::enable_if_t<ViewType::dynamic_rank==2,IndexView> ind):source(src),index(ind) {
     dest = Kokkos::View<typename ViewType::non_const_data_type,typename ViewType::array_type,device_type>("",src.extent(0),src.extent(1));
   }
-  SortFunctor(ViewType src, typename std::enable_if<ViewType::dynamic_rank==3,IndexView>::type ind):source(src),index(ind) {
+  SortFunctor(ViewType src, std::enable_if_t<ViewType::dynamic_rank==3,IndexView> ind):source(src),index(ind) {
     dest = Kokkos::View<typename ViewType::non_const_data_type,typename ViewType::array_type,device_type>("",src.extent(0),src.extent(1),src.extent(2));
   }
-  SortFunctor(ViewType src, typename std::enable_if<ViewType::dynamic_rank==4,IndexView>::type ind):source(src),index(ind) {
+  SortFunctor(ViewType src, std::enable_if_t<ViewType::dynamic_rank==4,IndexView> ind):source(src),index(ind) {
     dest = Kokkos::View<typename ViewType::non_const_data_type,typename ViewType::array_type,device_type>("",src.extent(0),src.extent(1),src.extent(2),src.extent(3));
   }
   KOKKOS_INLINE_FUNCTION
-  void operator()(const typename std::enable_if<ViewType::rank==1, int>::type& i) {
+  void operator()(const std::enable_if_t<ViewType::rank==1, int>& i) {
     dest(i) = source(index(i));
   }
-  void operator()(const typename std::enable_if<ViewType::rank==2, int>::type& i) {
+  void operator()(const std::enable_if_t<ViewType::rank==2, int>& i) {
     for (int j=0; j < (int)source.extent(1); j++)
       dest(i,j) = source(index(i),j);
   }
-  void operator()(const typename std::enable_if<ViewType::rank==3, int>::type& i) {
+  void operator()(const std::enable_if_t<ViewType::rank==3, int>& i) {
     for (int j=0; j < (int)source.extent(1); j++)
       for (int k=0; k < (int)source.extent(2); k++)
         dest(i,j,k) = source(index(i),j,k);
   }
-  void operator()(const typename std::enable_if<ViewType::rank==4, int>::type& i) {
+  void operator()(const std::enable_if_t<ViewType::rank==4, int>& i) {
     for (int j=0; j < (int)source.extent(1); j++)
       for (int k=0; k < (int)source.extent(2); k++)
         for (int l=0; l < (int)source.extent(3); l++)

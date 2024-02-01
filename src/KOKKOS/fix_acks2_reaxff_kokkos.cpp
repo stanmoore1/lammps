@@ -38,7 +38,7 @@
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
-#define SMALL 0.0001
+static constexpr double SMALL = 0.0001;
 #define EV_TO_KCAL_PER_MOL 14.4
 
 /* ---------------------------------------------------------------------- */
@@ -101,9 +101,9 @@ void FixACKS2ReaxFFKokkos<DeviceType>::init()
 
   neighflag = lmp->kokkos->neighflag_qeq;
   auto request = neighbor->find_request(this);
-  request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
-                           !std::is_same<DeviceType,LMPDeviceType>::value);
-  request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
+  request->set_kokkos_host(std::is_same_v<DeviceType,LMPHostType> &&
+                           !std::is_same_v<DeviceType,LMPDeviceType>);
+  request->set_kokkos_device(std::is_same_v<DeviceType,LMPDeviceType>);
   if (neighflag == FULL) request->enable_full();
 
   int ntypes = atom->ntypes;
@@ -192,7 +192,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::setup_pre_force(int vflag)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixACKS2ReaxFFKokkos<DeviceType>::pre_force(int vflag)
+void FixACKS2ReaxFFKokkos<DeviceType>::pre_force(int /*vflag*/)
 {
   if (update->ntimestep % nevery) return;
 
@@ -298,8 +298,8 @@ void FixACKS2ReaxFFKokkos<DeviceType>::pre_force(int vflag)
   } else { // GPU, use teams
     Kokkos::deep_copy(d_mfill_offset,0);
 
-    int vector_length = 32;
     int atoms_per_team = 4;
+    int vector_length = 32;
     int num_teams = nn / atoms_per_team + (nn % atoms_per_team ? 1 : 0);
 
     Kokkos::TeamPolicy<DeviceType> policy(num_teams, atoms_per_team,

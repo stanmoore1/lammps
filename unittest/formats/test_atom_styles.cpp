@@ -156,7 +156,6 @@ struct AtomState {
     int extra_dihedral_per_atom = 0;
     int extra_improper_per_atom = 0;
 
-    int sphere_flag                  = 0;
     int ellipsoid_flag               = 0;
     int line_flag                    = 0;
     int tri_flag                     = 0;
@@ -293,7 +292,6 @@ void ASSERT_ATOM_STATE_EQ(Atom *atom, const AtomState &expected)
     ASSERT_EQ(atom->extra_dihedral_per_atom, expected.extra_dihedral_per_atom);
     ASSERT_EQ(atom->extra_improper_per_atom, expected.extra_improper_per_atom);
 
-    ASSERT_EQ(atom->sphere_flag, expected.sphere_flag);
     ASSERT_EQ(atom->ellipsoid_flag, expected.ellipsoid_flag);
     ASSERT_EQ(atom->line_flag, expected.line_flag);
     ASSERT_EQ(atom->tri_flag, expected.tri_flag);
@@ -533,7 +531,7 @@ TEST_F(AtomStyleTest, atomic)
     ASSERT_NE(lmp->atom->mass_setflag, nullptr);
     ASSERT_NE(lmp->atom->sametag, nullptr);
     ASSERT_EQ(lmp->atom->map_style, Atom::MAP_HASH);
-    ASSERT_EQ(lmp->atom->map_user, 2);
+    ASSERT_EQ(lmp->atom->map_user, Atom::MAP_HASH);
     ASSERT_EQ(lmp->atom->map_tag_max, 4);
     BEGIN_HIDE_OUTPUT();
     command("pair_coeff * *");
@@ -587,7 +585,7 @@ TEST_F(AtomStyleTest, atomic)
     ASSERT_EQ(lmp->atom->mass_setflag[1], 1);
     ASSERT_EQ(lmp->atom->mass_setflag[2], 1);
     ASSERT_EQ(lmp->atom->map_style, Atom::MAP_ARRAY);
-    ASSERT_EQ(lmp->atom->map_user, 1);
+    ASSERT_EQ(lmp->atom->map_user, Atom::MAP_ARRAY);
     ASSERT_EQ(lmp->atom->map_tag_max, 4);
     ASSERT_EQ(lmp->atom->tag_consecutive(), 1);
 
@@ -597,6 +595,7 @@ TEST_F(AtomStyleTest, atomic)
     command("delete_atoms group two compress no");
     command("write_restart test_atom_styles.restart");
     command("clear");
+    command("atom_modify map hash");
     command("read_restart test_atom_styles.restart");
     END_HIDE_OUTPUT();
     ASSERT_THAT(std::string(lmp->atom->atom_style), Eq("atomic"));
@@ -629,8 +628,8 @@ TEST_F(AtomStyleTest, atomic)
     EXPECT_NEAR(lmp->atom->mass[2], 2.4, EPSILON);
     ASSERT_EQ(lmp->atom->mass_setflag[1], 1);
     ASSERT_EQ(lmp->atom->mass_setflag[2], 1);
-    ASSERT_EQ(lmp->atom->map_style, Atom::MAP_ARRAY);
-    ASSERT_EQ(lmp->atom->map_user, 1);
+    ASSERT_EQ(lmp->atom->map_style, Atom::MAP_HASH);
+    ASSERT_EQ(lmp->atom->map_user, Atom::MAP_HASH);
     ASSERT_EQ(lmp->atom->map_tag_max, 3);
     BEGIN_HIDE_OUTPUT();
     command("reset_atom_ids");
@@ -881,7 +880,6 @@ TEST_F(AtomStyleTest, sphere)
     expected.atom_style  = "sphere";
     expected.molecular   = Atom::ATOMIC;
     expected.tag_enable  = 1;
-    expected.sphere_flag = 1;
     expected.rmass_flag  = 1;
     expected.radius_flag = 1;
     expected.omega_flag  = 1;
@@ -1390,7 +1388,6 @@ TEST_F(AtomStyleTest, line)
     expected.atom_style    = "line";
     expected.molecular     = Atom::ATOMIC;
     expected.tag_enable    = 1;
-    expected.sphere_flag   = 1;
     expected.molecule_flag = 1;
     expected.line_flag     = 1;
     expected.rmass_flag    = 1;
@@ -1660,7 +1657,6 @@ TEST_F(AtomStyleTest, tri)
     expected.atom_style    = "tri";
     expected.molecular     = Atom::ATOMIC;
     expected.tag_enable    = 1;
-    expected.sphere_flag   = 1;
     expected.molecule_flag = 1;
     expected.tri_flag      = 1;
     expected.rmass_flag    = 1;
@@ -4561,8 +4557,8 @@ TEST_F(AtomStyleTest, property_atom)
     expected.atom_style         = "atomic";
     expected.molecular          = Atom::ATOMIC;
     expected.tag_enable         = 1;
-    expected.map_style          = 1;
-    expected.map_user           = 1;
+    expected.map_style          = Atom::MAP_ARRAY;
+    expected.map_user           = Atom::MAP_ARRAY;
     expected.has_type           = true;
     expected.has_image          = true;
     expected.has_mask           = true;
@@ -4663,7 +4659,7 @@ TEST_F(AtomStyleTest, property_atom)
     ASSERT_NE(lmp->atom->sametag, nullptr);
     ASSERT_EQ(lmp->atom->tag_consecutive(), 1);
     ASSERT_EQ(lmp->atom->map_style, Atom::MAP_ARRAY);
-    ASSERT_EQ(lmp->atom->map_user, 1);
+    ASSERT_EQ(lmp->atom->map_user, Atom::MAP_ARRAY);
     ASSERT_EQ(lmp->atom->map_tag_max, 4);
 
     auto x = lmp->atom->x;
@@ -4751,6 +4747,7 @@ TEST_F(AtomStyleTest, property_atom)
     expected.has_ianame       = true;
     expected.has_daname       = true;
     expected.nextra_store     = 12;
+    expected.map_user         = Atom::MAP_NONE;
 
     ASSERT_ATOM_STATE_EQ(lmp->atom, expected);
     ASSERT_NE(lmp->atom->avec, nullptr);

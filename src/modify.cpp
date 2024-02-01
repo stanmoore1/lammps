@@ -33,8 +33,8 @@
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
-#define DELTA 4
-#define BIG 1.0e20
+static constexpr int DELTA = 4;
+static constexpr double BIG = 1.0e20;
 
 // template for factory function:
 // there will be one instance for each style keyword in the respective style_xxx.h files
@@ -191,11 +191,7 @@ void Modify::init()
 
   for (i = 0; i < ncompute; i++) {
     compute[i]->init();
-    compute[i]->invoked_scalar = -1;
-    compute[i]->invoked_vector = -1;
-    compute[i]->invoked_array = -1;
-    compute[i]->invoked_peratom = -1;
-    compute[i]->invoked_local = -1;
+    compute[i]->init_flags();
   }
   addstep_compute_all(update->ntimestep);
 

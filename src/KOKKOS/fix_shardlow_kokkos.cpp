@@ -57,7 +57,7 @@ using namespace LAMMPS_NS;
 using namespace FixConst;
 using namespace random_external_state;
 
-#define EPSILON 1.0e-10
+static constexpr double EPSILON = 1.0e-10;
 #define EPSILON_SQUARED ((EPSILON) * (EPSILON))
 
 /* ---------------------------------------------------------------------- */
@@ -128,9 +128,9 @@ void FixShardlowKokkos<DeviceType>::init()
   // adjust neighbor list request for KOKKOS
 
   auto request = neighbor->find_request(this);
-  request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
-                           !std::is_same<DeviceType,LMPDeviceType>::value);
-  request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
+  request->set_kokkos_host(std::is_same_v<DeviceType,LMPHostType> &&
+                           !std::is_same_v<DeviceType,LMPDeviceType>);
+  request->set_kokkos_device(std::is_same_v<DeviceType,LMPDeviceType>);
 
   int ntypes = atom->ntypes;
   k_params = Kokkos::DualView<params_ssa**,Kokkos::LayoutRight,DeviceType>

@@ -20,7 +20,7 @@
 !   University of Missouri, 2012-2020
 !
 ! Contributing authors:
-!  - Axel Kohlmeyer <akohlmey@gmail.com>, Temple University, 2020-2022
+!  - Axel Kohlmeyer <akohlmey@gmail.com>, Temple University, 2020-2023
 !  - Karl D. Hammond <hammondkd@missouri.edu>, University of Missouri, 2022
 !
 ! The Fortran module tries to follow the API of the C library interface
@@ -44,11 +44,12 @@ MODULE LIBLAMMPS
   ! Data type constants for extracting data from global, atom, compute, and fix
   !
   ! Must be kept in sync with the equivalent declarations in
-  ! src/library.h, python/lammps/constants.py, tools/swig/lammps.i,
+  ! src/library.h, src/lmptype.h, python/lammps/constants.py, tools/swig/lammps.i,
   ! and examples/COUPLE/plugin/liblammpsplugin.h
   !
   ! These are NOT part of the API (the part the user sees)
   INTEGER(c_int), PARAMETER :: &
+    LAMMPS_NONE = -1, &       ! no data type assigned (yet)
     LAMMPS_INT = 0, &         ! 32-bit integer (or array)
     LAMMPS_INT_2D = 1, &      ! two-dimensional 32-bit integer array
     LAMMPS_DOUBLE = 2, &      ! 64-bit double (or array)
@@ -117,6 +118,8 @@ MODULE LIBLAMMPS
     PROCEDURE :: extract_fix            => lmp_extract_fix
     PROCEDURE :: extract_variable       => lmp_extract_variable
     PROCEDURE :: set_variable           => lmp_set_variable
+    PROCEDURE :: set_string_variable    => lmp_set_string_variable
+    PROCEDURE :: set_internal_variable  => lmp_set_internal_variable
     PROCEDURE, PRIVATE :: lmp_gather_atoms_int
     PROCEDURE, PRIVATE :: lmp_gather_atoms_double
     GENERIC   :: gather_atoms           => lmp_gather_atoms_int, &
@@ -555,6 +558,21 @@ MODULE LIBLAMMPS
       TYPE(c_ptr), VALUE :: handle, name, str
       INTEGER(c_int) :: lammps_set_variable
     END FUNCTION lammps_set_variable
+
+    FUNCTION lammps_set_string_variable(handle, name, str) BIND(C)
+      IMPORT :: c_int, c_ptr
+      IMPLICIT NONE
+      TYPE(c_ptr), VALUE :: handle, name, str
+      INTEGER(c_int) :: lammps_set_string_variable
+    END FUNCTION lammps_set_string_variable
+
+    FUNCTION lammps_set_internal_variable(handle, name, val) BIND(C)
+      IMPORT :: c_int, c_ptr, c_double
+      IMPLICIT NONE
+      TYPE(c_ptr), VALUE :: handle, name
+      REAL(c_double), VALUE :: val
+      INTEGER(c_int) :: lammps_set_internal_variable
+    END FUNCTION lammps_set_internal_variable
 
     SUBROUTINE lammps_gather_atoms(handle, name, type, count, data) BIND(C)
       IMPORT :: c_int, c_ptr
@@ -1126,11 +1144,13 @@ CONTAINS
   FUNCTION lmp_last_thermo(self,what,index) RESULT(thermo_data)
     CLASS(lammps), INTENT(IN), TARGET :: self
     CHARACTER(LEN=*), INTENT(IN) :: what
-    INTEGER(c_int) :: index
+    INTEGER :: index
+    INTEGER(c_int) :: idx
     TYPE(lammps_data) :: thermo_data, type_data
     INTEGER(c_int) :: datatype
     TYPE(c_ptr) :: Cname, Cptr
 
+    idx = index - 1
     ! set data type for known cases
     SELECT CASE (what)
     CASE ('step')
@@ -1147,7 +1167,7 @@ CONTAINS
         datatype = LAMMPS_STRING
     CASE ('data')
         Cname = f2c_string('type')
-        Cptr = lammps_last_thermo(self%handle,Cname,index-1)
+        Cptr = lammps_last_thermo(self%handle,Cname,idx)
         type_data%lammps_instance => self
         type_data%datatype = DATA_INT
         CALL C_F_POINTER(Cptr, type_data%i32)
@@ -1158,7 +1178,7 @@ CONTAINS
     END SELECT
 
     Cname = f2c_string(what)
-    Cptr = lammps_last_thermo(self%handle,Cname,index-1)
+    Cptr = lammps_last_thermo(self%handle,Cname,idx)
     CALL lammps_free(Cname)
 
     thermo_data%lammps_instance => self
@@ -1627,6 +1647,43 @@ CONTAINS
         // '" [Fortran/set_variable]')
     END IF
   END SUBROUTINE lmp_set_variable
+
+  ! equivalent function to lammps_set_string_variable
+  SUBROUTINE lmp_set_string_variable(self, name, str)
+    CLASS(lammps), INTENT(IN) :: self
+    CHARACTER(LEN=*), INTENT(IN) :: name, str
+    INTEGER :: err
+    TYPE(c_ptr) :: Cstr, Cname
+
+    Cstr = f2c_string(str)
+    Cname = f2c_string(name)
+    err = lammps_set_string_variable(self%handle, Cname, Cstr)
+    CALL lammps_free(Cname)
+    CALL lammps_free(Cstr)
+    IF (err /= 0) THEN
+      CALL lmp_error(self, LMP_ERROR_WARNING + LMP_ERROR_WORLD, &
+        'WARNING: unable to set string variable "' // name &
+        // '" [Fortran/set_variable]')
+    END IF
+  END SUBROUTINE lmp_set_string_variable
+
+  ! equivalent function to lammps_set_internal_variable
+  SUBROUTINE lmp_set_internal_variable(self, name, val)
+    CLASS(lammps), INTENT(IN) :: self
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    REAL(KIND=c_double), INTENT(IN) :: val
+    INTEGER :: err
+    TYPE(c_ptr) :: Cstr, Cname
+
+    Cname = f2c_string(name)
+    err = lammps_set_internal_variable(self%handle, Cname, val)
+    CALL lammps_free(Cname)
+    IF (err /= 0) THEN
+      CALL lmp_error(self, LMP_ERROR_WARNING + LMP_ERROR_WORLD, &
+        'WARNING: unable to set internal variable "' // name &
+        // '" [Fortran/set_variable]')
+    END IF
+  END SUBROUTINE lmp_set_internal_variable
 
   ! equivalent function to lammps_gather_atoms (for integers)
   SUBROUTINE lmp_gather_atoms_int(self, name, count, data)

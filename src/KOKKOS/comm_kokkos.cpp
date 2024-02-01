@@ -36,9 +36,9 @@
 
 using namespace LAMMPS_NS;
 
-#define BUFFACTOR 1.5
-#define BUFMIN 10000
-#define BUFEXTRA 1000
+static constexpr double BUFFACTOR = 1.5;
+static constexpr int BUFMIN = 10000;
+static constexpr int BUFEXTRA = 1000;
 
 /* ----------------------------------------------------------------------
    setup MPI and allocate buffer space
@@ -864,7 +864,7 @@ void CommKokkos::exchange_device()
         if (nrecv) {
 
           if (atom->nextra_grow) {
-            if (k_indices.extent(0) < nrecv/data_size)
+            if ((int) k_indices.extent(0) < nrecv/data_size)
               MemoryKokkos::realloc_kokkos(k_indices,"comm:indices",nrecv/data_size);
           } else if (k_indices.h_view.data())
            k_indices = DAT::tdual_int_1d();
@@ -931,6 +931,7 @@ void CommKokkos::exchange_device()
             if (nextrarecv) {
               kkbase->unpack_exchange_kokkos(
                 k_buf_recv,k_indices,nrecv/data_size,
+                nrecv1/data_size,nextrarecv1,
                 ExecutionSpaceFromDevice<DeviceType>::space);
               DeviceType().fence();
             }
@@ -980,9 +981,12 @@ void CommKokkos::borders()
   } else {
     atomKK->sync(Host,ALL_MASK);
     k_sendlist.sync<LMPHostType>();
-    k_sendlist.modify<LMPHostType>();
-    atomKK->modified(Host,ALL_MASK); // needed here for atom map
+    int prev_auto_sync = lmp->kokkos->auto_sync;
+    lmp->kokkos->auto_sync = 1;
     CommBrick::borders();
+    lmp->kokkos->auto_sync = prev_auto_sync;
+    k_sendlist.modify<LMPHostType>();
+    atomKK->modified(Host,ALL_MASK);
   }
 
   if (comm->nprocs == 1 && !ghost_velocity && !forward_comm_classic)
