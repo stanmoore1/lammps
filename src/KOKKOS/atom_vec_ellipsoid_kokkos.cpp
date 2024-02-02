@@ -1069,7 +1069,7 @@ int AtomVecEllipsoidKokkos::pack_border_kokkos(
       }
     }
   }
-  //printf("bord_bot_rmass[n-1] %f\n", atomKK->k_rmass.h_view(n-1));
+  printf("bord_bot_rmass[n-1] %f\n", atomKK->k_rmass.h_view(n-1));
   return n_return;
 }
 
@@ -1547,7 +1547,7 @@ int AtomVecEllipsoidKokkos::pack_exchange_kokkos(
   DAT::tdual_int_1d k_copylist,
   ExecutionSpace space)
 {
-  printf("ex_top_rmass[n-1] %f\n", atomKK->k_rmass.h_view(nsend-1));
+  //printf("ex_top_rmass[n-1] %f\n", atomKK->k_rmass.h_view(nsend-1));
   if (bonus_flag==0) {
     size_exchange = 15;
   } else {
@@ -1758,6 +1758,8 @@ int AtomVecEllipsoidKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, 
 
   if (bonus_flag==1) atomKK->modified(space,ELLIPSOID_MASK);
 
+  printf("uex_bot_rmass[n-1] %f\n", atomKK->k_rmass.h_view(nrecv-1));
+
   return k_count.h_view(0);
 }
 
@@ -1816,6 +1818,7 @@ int AtomVecEllipsoidKokkos::pack_comm_bonus_kokkos(int n, DAT::tdual_int_2d k_se
             buf,k_sendlist,iswap);
           Kokkos::parallel_for(n,f);  
     }
+    printf("boncomm_bot_rmass[n-1] %f\n", atomKK->k_rmass.h_view(n-1));
     return n*size_forward;
 }
 
@@ -1875,6 +1878,7 @@ void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &n
     Kokkos::parallel_for(n,f);
   }
   atomKK->modified(space,ELLIPSOID_MASK);
+  printf("uboncomm_bot_rmass[n-1] %f\n", atomKK->k_rmass.h_view(n-1));
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1950,8 +1954,8 @@ auto d_ellip_pf = Kokkos::create_mirror_view(k_bonus.d_view);
 //printf("here1\n");
 Kokkos::deep_copy(d_ellip_pf, k_bonus.d_view);
 //printf("here2\n");
-printf("bord_bot_d_ellip_iloc[n-1] = %f\n", d_ellip_pf(n-1).ilocal);
-printf("bord_bot_h_ellip[n-1] %f\n", atomKK->k_ellipsoid.h_view(n-1));
+printf("bonbord_bot_d_ellip_iloc[n-1] = %f\n", d_ellip_pf(n-1).ilocal);
+printf("bonbord_bot_h_ellip[n-1] %f\n", atomKK->k_ellipsoid.h_view(n-1));
 return n*size_border;
 }
 
@@ -2040,8 +2044,8 @@ void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n,
   //printf("here1\n");
   Kokkos::deep_copy(d_ellip_pf, k_bonus.d_view);
   //printf("here2\n");
-  printf("ubord_bot_d_ellip_iloc[n-1] = %f\n", d_ellip_pf(n-1).ilocal);
-  printf("ubord_bot_h_ellip[n-1] %f\n", atomKK->k_ellipsoid.h_view(n-1));
+  printf("ubonbord_bot_d_ellip_iloc[n-1] = %f\n", d_ellip_pf(n-1).ilocal);
+  printf("ubonbord_bot_h_ellip[n-1] %f\n", atomKK->k_ellipsoid.h_view(n-1));
 }
 
 /* ---------------------------------------------------------------------- */
