@@ -91,16 +91,19 @@ class PairSRLRGaussKokkos : public PairSRLRGauss {
   int nlocal,nall,eflag,vflag;
 
   void allocate() override;
-  friend struct PairComputeFunctor<PairSRLRGaussKokkos,FULL,true>;
+  friend struct PairComputeFunctor<PairSRLRGaussKokkos,FULL,true,0>;
+  friend struct PairComputeFunctor<PairSRLRGaussKokkos,FULL,true,1>;
   friend struct PairComputeFunctor<PairSRLRGaussKokkos,HALF,true>;
   friend struct PairComputeFunctor<PairSRLRGaussKokkos,HALFTHREAD,true>;
-  friend struct PairComputeFunctor<PairSRLRGaussKokkos,FULL,false>;
+  friend struct PairComputeFunctor<PairSRLRGaussKokkos,FULL,false,0>;
+  friend struct PairComputeFunctor<PairSRLRGaussKokkos,FULL,false,1>;
   friend struct PairComputeFunctor<PairSRLRGaussKokkos,HALF,false>;
   friend struct PairComputeFunctor<PairSRLRGaussKokkos,HALFTHREAD,false>;
-  friend EV_FLOAT pair_compute_neighlist<PairSRLRGaussKokkos,FULL,void>(PairSRLRGaussKokkos*,NeighListKokkos<DeviceType>*);
-  friend EV_FLOAT pair_compute_neighlist<PairSRLRGaussKokkos,HALF,void>(PairSRLRGaussKokkos*,NeighListKokkos<DeviceType>*);
-  friend EV_FLOAT pair_compute_neighlist<PairSRLRGaussKokkos,HALFTHREAD,void>(PairSRLRGaussKokkos*,NeighListKokkos<DeviceType>*);
-  friend EV_FLOAT pair_compute<PairSRLRGaussKokkos,void>(PairSRLRGaussKokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute_neighlist<PairSRLRGaussKokkos,FULL,0>(PairSRLRGaussKokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute_neighlist<PairSRLRGaussKokkos,FULL,1>(PairSRLRGaussKokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute_neighlist<PairSRLRGaussKokkos,HALF>(PairSRLRGaussKokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute_neighlist<PairSRLRGaussKokkos,HALFTHREAD>(PairSRLRGaussKokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute<PairSRLRGaussKokkos>(PairSRLRGaussKokkos*,NeighListKokkos<DeviceType>*);
   friend void pair_virial_fdotr_compute<PairSRLRGaussKokkos>(PairSRLRGaussKokkos*);
 };
 

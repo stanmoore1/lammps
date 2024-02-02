@@ -93,16 +93,19 @@ class PairGaussWallKokkos : public PairGaussWall {
   int nlocal,nall,eflag,vflag;
 
   void allocate();
-  friend struct PairComputeFunctor<PairGaussWallKokkos,FULL,true>;
+  friend struct PairComputeFunctor<PairGaussWallKokkos,FULL,true,0>;
+  friend struct PairComputeFunctor<PairGaussWallKokkos,FULL,true,1>;
   friend struct PairComputeFunctor<PairGaussWallKokkos,HALF,true>;
   friend struct PairComputeFunctor<PairGaussWallKokkos,HALFTHREAD,true>;
-  friend struct PairComputeFunctor<PairGaussWallKokkos,FULL,false>;
+  friend struct PairComputeFunctor<PairGaussWallKokkos,FULL,false,0>;
+  friend struct PairComputeFunctor<PairGaussWallKokkos,FULL,false,1>;
   friend struct PairComputeFunctor<PairGaussWallKokkos,HALF,false>;
   friend struct PairComputeFunctor<PairGaussWallKokkos,HALFTHREAD,false>;
-  friend EV_FLOAT pair_compute_neighlist<PairGaussWallKokkos,FULL,void>(PairGaussWallKokkos*,NeighListKokkos<DeviceType>*);
-  friend EV_FLOAT pair_compute_neighlist<PairGaussWallKokkos,HALF,void>(PairGaussWallKokkos*,NeighListKokkos<DeviceType>*);
-  friend EV_FLOAT pair_compute_neighlist<PairGaussWallKokkos,HALFTHREAD,void>(PairGaussWallKokkos*,NeighListKokkos<DeviceType>*);
-  friend EV_FLOAT pair_compute<PairGaussWallKokkos,void>(PairGaussWallKokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute_neighlist<PairGaussWallKokkos,FULL,0>(PairGaussWallKokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute_neighlist<PairGaussWallKokkos,FULL,1>(PairGaussWallKokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute_neighlist<PairGaussWallKokkos,HALF>(PairGaussWallKokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute_neighlist<PairGaussWallKokkos,HALFTHREAD>(PairGaussWallKokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute<PairGaussWallKokkos>(PairGaussWallKokkos*,NeighListKokkos<DeviceType>*);
   friend void pair_virial_fdotr_compute<PairGaussWallKokkos>(PairGaussWallKokkos*);
 };
 

@@ -93,16 +93,19 @@ class PairJohn4Kokkos : public PairJohn4 {
   int nlocal,nall,eflag,vflag;
 
   void allocate();
-  friend struct PairComputeFunctor<PairJohn4Kokkos,FULL,true>;
+  friend struct PairComputeFunctor<PairJohn4Kokkos,FULL,true,0>;
+  friend struct PairComputeFunctor<PairJohn4Kokkos,FULL,true,1>;
   friend struct PairComputeFunctor<PairJohn4Kokkos,HALF,true>;
   friend struct PairComputeFunctor<PairJohn4Kokkos,HALFTHREAD,true>;
-  friend struct PairComputeFunctor<PairJohn4Kokkos,FULL,false>;
+  friend struct PairComputeFunctor<PairJohn4Kokkos,FULL,false,0>;
+  friend struct PairComputeFunctor<PairJohn4Kokkos,FULL,false,1>;
   friend struct PairComputeFunctor<PairJohn4Kokkos,HALF,false>;
   friend struct PairComputeFunctor<PairJohn4Kokkos,HALFTHREAD,false>;
-  friend EV_FLOAT pair_compute_neighlist<PairJohn4Kokkos,FULL,void>(PairJohn4Kokkos*,NeighListKokkos<DeviceType>*);
-  friend EV_FLOAT pair_compute_neighlist<PairJohn4Kokkos,HALF,void>(PairJohn4Kokkos*,NeighListKokkos<DeviceType>*);
-  friend EV_FLOAT pair_compute_neighlist<PairJohn4Kokkos,HALFTHREAD,void>(PairJohn4Kokkos*,NeighListKokkos<DeviceType>*);
-  friend EV_FLOAT pair_compute<PairJohn4Kokkos,void>(PairJohn4Kokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute_neighlist<PairJohn4Kokkos,FULL,0>(PairJohn4Kokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute_neighlist<PairJohn4Kokkos,FULL,1>(PairJohn4Kokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute_neighlist<PairJohn4Kokkos,HALF>(PairJohn4Kokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute_neighlist<PairJohn4Kokkos,HALFTHREAD>(PairJohn4Kokkos*,NeighListKokkos<DeviceType>*);
+  friend EV_FLOAT pair_compute<PairJohn4Kokkos>(PairJohn4Kokkos*,NeighListKokkos<DeviceType>*);
   friend void pair_virial_fdotr_compute<PairJohn4Kokkos>(PairJohn4Kokkos*);
 };
 
