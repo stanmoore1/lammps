@@ -108,8 +108,8 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   void unpack_comm_bonus_kokkos(const int &n, const int &nfirst,
                              const DAT::tdual_xfloat_2d &buf,
                              ExecutionSpace space) override;
-  int pack_border_bonus_kokkos(int n, DAT::tdual_int_2d k_sendlist,
-                             DAT::tdual_xfloat_2d buf,int iswap,
+  int pack_border_bonus_kokkos(int &n, DAT::tdual_int_2d &k_sendlist,
+                             DAT::tdual_xfloat_2d &buf,int &iswap,
                              ExecutionSpace space) override;
   void unpack_border_bonus_kokkos(const int &n, const int & nfirst,
                                const DAT::tdual_xfloat_2d & buf,
