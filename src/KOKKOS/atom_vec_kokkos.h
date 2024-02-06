@@ -135,8 +135,8 @@ class AtomVecKokkos : virtual public AtomVec {
                              ExecutionSpace /*space*/) {}
 
   virtual int
-    pack_border_bonus_kokkos(int /*n*/, DAT::tdual_int_2d /*k_sendlist*/,
-                             DAT::tdual_xfloat_2d /*buf*/,int /*iswap*/,
+    pack_border_bonus_kokkos(int &/*n*/, DAT::tdual_int_2d &/*k_sendlist*/,
+                             DAT::tdual_xfloat_2d &/*buf*/,int &/*iswap*/,
                              ExecutionSpace /*space*/) { return 0; }
 
   virtual void
