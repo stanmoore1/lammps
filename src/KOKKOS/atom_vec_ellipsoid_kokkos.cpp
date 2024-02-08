@@ -1502,9 +1502,9 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
     _buf(mysend,14) = _angmom(i,2);
     if (BONUS_FLAG==1) {
       if (_ellipsoid[i] < 0)
-        _buf(mysend,15) = d_ubuf(0).d; // Unsure this is correct - is "ubuf(0).d;" on CPU version
+        _buf(mysend,15) = d_ubuf(0.0).d; 
       else {
-        _buf(mysend,15) = d_ubuf(1).d; // Unsure this is correct - is "ubuf(1).d;" on CPU version
+        _buf(mysend,15) = d_ubuf(1.0).d;
         int k = _ellipsoid[i];
         _buf(mysend,16) = _bonus(k).shape[0];
         _buf(mysend,17) = _bonus(k).shape[1];
@@ -1554,7 +1554,8 @@ int AtomVecEllipsoidKokkos::pack_exchange_kokkos(
   DAT::tdual_int_1d k_copylist,
   ExecutionSpace space)
 {
-  //printf("ex_top_rmass[n-1] %f\n", atomKK->k_rmass.h_view(nsend-1));
+  printf("ex_top_h_rmass[n-1] %f\n", atomKK->k_rmass.h_view(nsend-1));
+  printf("ex_top_d_rmass[n-1] %f\n", atomKK->k_rmass.d_view(nsend-1));
   if (bonus_flag==0) {
     size_exchange = 15;
   } else {
@@ -1586,7 +1587,8 @@ int AtomVecEllipsoidKokkos::pack_exchange_kokkos(
       Kokkos::parallel_for(nsend,f);
     }
   }
-  printf("ex_bot_rmass[n-1] %f\n", atomKK->k_rmass.h_view(nsend-1));
+  printf("ex_bot_h_rmass[n-1] %f\n", atomKK->k_rmass.h_view(nsend-1));
+  printf("ex_bot_d_rmass[n-1] %f\n", atomKK->k_rmass.d_view(nsend-1));
   return nsend*size_exchange;
 }
 
