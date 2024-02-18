@@ -931,6 +931,8 @@ void AtomVecEllipsoidKokkos::unpack_comm_vel_kokkos(
 
 /* ---------------------------------------------------------------------- */
 
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType,int BONUS_FLAG,int PBC_FLAG>
 struct AtomVecEllipsoidKokkos_PackBorder {
   typedef DeviceType device_type;
@@ -966,7 +968,7 @@ struct AtomVecEllipsoidKokkos_PackBorder {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (const int& i) const {
+  void operator() (const int& i, int& offset, const bool& final_pass) const {
     const int j = _list(_iswap,i);
     if (PBC_FLAG == 0) {
       _buf(i,0) = _x(j,0);
@@ -981,8 +983,13 @@ struct AtomVecEllipsoidKokkos_PackBorder {
     _buf(i,4) = d_ubuf(_type(j)).d;
     _buf(i,5) = d_ubuf(_mask(j)).d;
     _buf(i,6) = _rmass(j);
+
+    if (final_pass) {
+      offset += (BONUS_FLAG == 0) ? 7 : 15;
+    }
   }
 };
+
 //ref
 /* ---------------------------------------------------------------------- */
 
@@ -1012,13 +1019,13 @@ int AtomVecEllipsoidKokkos::pack_border_kokkos(
         buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
         iswap,h_x,h_tag,h_type,h_mask,h_rmass,
         dx,dy,dz);
-        Kokkos::parallel_for(n,f);
+        Kokkos::parallel_scan(n,f);
       } else {
         AtomVecEllipsoidKokkos_PackBorder<LMPHostType,1,1> f(
         buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
         iswap,h_x,h_tag,h_type,h_mask,h_rmass,
         dx,dy,dz);
-        Kokkos::parallel_for(n,f);
+        Kokkos::parallel_scan(n,f);
         n_return += pack_border_bonus_kokkos(
                                 n, k_sendlist, buf, iswap, Host);
       }
@@ -1028,13 +1035,13 @@ int AtomVecEllipsoidKokkos::pack_border_kokkos(
         buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
         iswap,d_x,d_tag,d_type,d_mask,d_rmass,
         dx,dy,dz);
-        Kokkos::parallel_for(n,f);
+        Kokkos::parallel_scan(n,f);
       } else {
         AtomVecEllipsoidKokkos_PackBorder<LMPDeviceType,1,1> f(
         buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
         iswap,d_x,d_tag,d_type,d_mask,d_rmass,
         dx,dy,dz);
-        Kokkos::parallel_for(n,f);
+        Kokkos::parallel_scan(n,f);
         n_return += pack_border_bonus_kokkos(
                                 n, k_sendlist, buf, iswap, Device);
       }
@@ -1047,13 +1054,13 @@ int AtomVecEllipsoidKokkos::pack_border_kokkos(
         buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
         iswap,h_x,h_tag,h_type,h_mask,h_rmass,
         dx,dy,dz);
-        Kokkos::parallel_for(n,f);
+        Kokkos::parallel_scan(n,f);
       } else {
         AtomVecEllipsoidKokkos_PackBorder<LMPHostType,1,0> f(
         buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
         iswap,h_x,h_tag,h_type,h_mask,h_rmass,
         dx,dy,dz);
-        Kokkos::parallel_for(n,f);
+        Kokkos::parallel_scan(n,f);
         n_return += pack_border_bonus_kokkos(
                                 n, k_sendlist, buf, iswap, Host);
       }
@@ -1063,13 +1070,13 @@ int AtomVecEllipsoidKokkos::pack_border_kokkos(
         buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
         iswap,d_x,d_tag,d_type,d_mask,d_rmass,
         dx,dy,dz);
-        Kokkos::parallel_for(n,f);
+        Kokkos::parallel_scan(n,f);
       } else {
         AtomVecEllipsoidKokkos_PackBorder<LMPDeviceType,1,0> f(
         buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
         iswap,d_x,d_tag,d_type,d_mask,d_rmass,
         dx,dy,dz);
-        Kokkos::parallel_for(n,f);
+        Kokkos::parallel_scan(n,f);
         n_return += pack_border_bonus_kokkos(
                                 n, k_sendlist, buf, iswap, Device);
       }
