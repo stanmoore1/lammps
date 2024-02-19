@@ -25,10 +25,20 @@ class CommTiledKokkos : public CommTiled {
   CommTiledKokkos(class LAMMPS *);
   CommTiledKokkos(class LAMMPS *, class Comm *);
 
+  bool exchange_comm_classic;
   bool forward_comm_classic;
+  bool forward_pair_comm_classic;
+  bool reverse_pair_comm_classic;
+  bool forward_fix_comm_classic;
+  bool reverse_comm_classic;
+  bool exchange_comm_on_host;
+  bool forward_comm_on_host;
+  bool reverse_comm_on_host;
 
   using CommTiled::forward_comm;
   using CommTiled::reverse_comm;
+
+  void init() override;
   void forward_comm(int dummy = 0) override;    // forward comm of atom coords
   void reverse_comm() override;                 // reverse comm of forces
   void exchange() override;                     // move atoms to new procs
