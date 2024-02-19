@@ -754,7 +754,6 @@ struct AtomVecMolecularKokkos_PackExchangeFunctor {
     const typename AT::tdual_xfloat_2d buf,
     typename AT::tdual_int_1d sendlist,
     typename AT::tdual_int_1d copylist):
-      _size_exchange(atom->avecKK->size_exchange),
       _x(atom->k_x.view<DeviceType>()),
       _v(atom->k_v.view<DeviceType>()),
       _tag(atom->k_tag.view<DeviceType>()),
@@ -814,7 +813,8 @@ struct AtomVecMolecularKokkos_PackExchangeFunctor {
       _improper_atom3w(atom->k_improper_atom3.view<DeviceType>()),
       _improper_atom4w(atom->k_improper_atom4.view<DeviceType>()),
       _sendlist(sendlist.template view<DeviceType>()),
-      _copylist(copylist.template view<DeviceType>()) {
+      _copylist(copylist.template view<DeviceType>()),
+      _size_exchange(atom->avecKK->size_exchange) {
     const int maxsendlist = (buf.template view<DeviceType>().extent(0)*
                              buf.template view<DeviceType>().extent(1))/_size_exchange;
     buffer_view<DeviceType>(_buf,buf,maxsendlist,_size_exchange);
@@ -1002,7 +1002,6 @@ struct AtomVecMolecularKokkos_UnpackExchangeFunctor {
     typename AT::tdual_int_1d nlocal,
     typename AT::tdual_int_1d indices,
     int dim, X_FLOAT lo, X_FLOAT hi):
-      _size_exchange(atom->avecKK->size_exchange),
       _x(atom->k_x.view<DeviceType>()),
       _v(atom->k_v.view<DeviceType>()),
       _tag(atom->k_tag.view<DeviceType>()),
@@ -1032,9 +1031,9 @@ struct AtomVecMolecularKokkos_UnpackExchangeFunctor {
       _improper_atom2(atom->k_improper_atom2.view<DeviceType>()),
       _improper_atom3(atom->k_improper_atom3.view<DeviceType>()),
       _improper_atom4(atom->k_improper_atom4.view<DeviceType>()),
+      _nlocal(nlocal.template view<DeviceType>()),
       _indices(indices.template view<DeviceType>()),
-      _nlocal(nlocal.template view<DeviceType>()),_dim(dim),
-      _lo(lo),_hi(hi) {
+      _dim(dim),_lo(lo),_hi(hi),_size_exchange(atom->avecKK->size_exchange) {
         const int maxsendlist = (buf.template view<DeviceType>().extent(0)*
                                  buf.template view<DeviceType>().extent(1))/_size_exchange;
         buffer_view<DeviceType>(_buf,buf,maxsendlist,_size_exchange);
