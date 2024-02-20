@@ -201,7 +201,7 @@ void CommTiledKokkos::forward_comm_device(int)
       if (recvother[iswap]) {
         for (i = 0; i < nrecv; i++) {
           MPI_Waitany(nrecv,requests,&irecv,MPI_STATUS_IGNORE);
-          auto k_buf_recv_offset = Kokkos::subview(k_buf_recv,size_forward*forward_recv_offset[iswap][irecv],Kokkos::ALL);
+          auto k_buf_recv_offset = Kokkos::subview(k_buf_recv,std::pair<int,int>(forward_recv_offset[iswap][irecv],(int)k_buf_recv.extent(1)),Kokkos::ALL);
           atomKK->avecKK->unpack_comm_vel_kokkos(recvnum[iswap][irecv],firstrecv[iswap][irecv],
                                 k_buf_recv_offset);
         }
@@ -233,9 +233,10 @@ void CommTiledKokkos::forward_comm_device(int)
       }
       if (recvother[iswap]) {
         for (i = 0; i < nrecv; i++) {
+          auto k_buf_recv_offset = Kokkos::subview(k_buf_recv,std::pair<int,int>(forward_recv_offset[iswap][irecv],(int)k_buf_recv.extent(1)),Kokkos::ALL);
           MPI_Waitany(nrecv,requests,&irecv,MPI_STATUS_IGNORE);
           atomKK->avecKK->unpack_comm_kokkos(recvnum[iswap][irecv],firstrecv[iswap][irecv],
-                                   k_buf_recv.view<DeviceType>().data() + size_forward*forward_recv_offset[iswap][irecv]);
+                                   k_buf_recv_offset);
           DeviceType().fence();
         }
       }
@@ -315,6 +316,26 @@ void CommTiledKokkos::forward_comm(Pair *pair)
 void CommTiledKokkos::reverse_comm(Pair *pair)
 {
   CommTiled::reverse_comm(pair);
+}
+
+/* ----------------------------------------------------------------------
+   forward communication invoked by a Bond
+   nsize used only to set recv buffer limit
+------------------------------------------------------------------------- */
+
+void CommTiledKokkos::forward_comm(Bond *bond)
+{
+  CommTiled::forward_comm(bond);
+}
+
+/* ----------------------------------------------------------------------
+   reverse communication invoked by a Bond
+   nsize used only to set recv buffer limit
+------------------------------------------------------------------------- */
+
+void CommTiledKokkos::reverse_comm(Bond *bond)
+{
+  CommTiled::reverse_comm(bond);
 }
 
 /* ----------------------------------------------------------------------
@@ -496,28 +517,15 @@ void CommTiledKokkos::grow_list(int iswap, int iwhich, int n)
 }
 
 /* ----------------------------------------------------------------------
-   realloc the buffers needed for swaps
+   grow info for swap I, to allow for N procs to communicate with
+   ditto for complementary recv for swap I+1 or I-1, as invoked by caller
 ------------------------------------------------------------------------- */
 
-void CommTiledKokkos::grow_swap(int n)
+void CommTiledKokkos::grow_swap_send(int i, int n, int nold)
 {
-  free_swap();
-  allocate_swap(n);
-  if (mode == Comm::MULTI) {
-    free_multi();
-    allocate_multi(n);
-  }
+  CommTiled::grow_swap_send(i,n,nold);
 
-  maxswap = n;
-  int size = MAX(k_sendlist.d_view.extent(1),BUFMIN);
-
-  if (exchange_comm_classic) { // force realloc on Host
-    k_sendlist.sync<LMPHostType>();
-    k_sendlist.modify<LMPHostType>();
-  }
-
-  memoryKK->grow_kokkos(k_sendlist,sendlist,maxswap,size,"comm:sendlist");
-
-  memory->grow(maxsendlist,n,"comm:maxsendlist");
-  for (int i = 0; i < maxswap; i++) maxsendlist[i] = size;
+  memoryKK->destroy_kokkos(k_sendlist,sendlist);
+  memoryKK->create_kokkos(k_sendlist,sendlist,maxswap,maxsend,BUFMIN,"comm:sendlist");
 }
+

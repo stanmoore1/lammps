@@ -495,6 +495,25 @@ void CommKokkos::forward_comm(Compute *compute)
   CommBrick::forward_comm(compute);
 }
 
+/* ----------------------------------------------------------------------
+   forward communication invoked by a Bond
+   nsize used only to set recv buffer limit
+------------------------------------------------------------------------- */
+
+void CommKokkos::forward_comm(Bond *bond)
+{
+  CommBrick::forward_comm(bond);
+}
+
+/* ----------------------------------------------------------------------
+   reverse communication invoked by a Bond
+   nsize used only to set recv buffer limit
+------------------------------------------------------------------------- */
+
+void CommKokkos::reverse_comm(Bond *bond)
+{
+  CommBrick::reverse_comm(bond);
+}
 
 /* ----------------------------------------------------------------------
    reverse communication invoked by a Compute
