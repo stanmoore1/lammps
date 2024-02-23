@@ -49,11 +49,13 @@ class AtomVecKokkos : virtual public AtomVec {
   virtual void modified(ExecutionSpace space, unsigned int mask) = 0;
   virtual void sync_overlapping_device(ExecutionSpace space, unsigned int mask) = 0;
 
+  template<class DeviceType>
   virtual int
     pack_comm_self(const int &n, const DAT::tdual_int_1d &list,
                    const int nfirst,
                    const int &pbc_flag, const int pbc[]);
 
+  template<class DeviceType>
   virtual int
     pack_comm_self_fused(const int &n, const DAT::tdual_int_2d &list,
                          const DAT::tdual_int_1d &sendnum_scan,
@@ -62,66 +64,75 @@ class AtomVecKokkos : virtual public AtomVec {
                          const DAT::tdual_int_2d &pbc,
                          const DAT::tdual_int_1d &g2l);
 
+  template<class DeviceType>
   virtual int
     pack_comm_kokkos(const int &n, const DAT::tdual_int_1d &list,
                      const DAT::tdual_xfloat_2d &buf,
                      const int &pbc_flag, const int pbc[]);
 
+  template<class DeviceType>
   virtual void
     unpack_comm_kokkos(const int &n, const int &nfirst,
                        const DAT::tdual_xfloat_2d &buf);
 
+  template<class DeviceType>
   virtual int
     pack_comm_vel_kokkos(const int &n, const DAT::tdual_int_1d &list,
                          const DAT::tdual_xfloat_2d &buf,
                          const int &pbc_flag, const int pbc[]);
 
+  template<class DeviceType>
   virtual void
     unpack_comm_vel_kokkos(const int &n, const int &nfirst,
                            const DAT::tdual_xfloat_2d &buf);
 
+  template<class DeviceType>
   virtual int
     pack_reverse_self(const int &n, const DAT::tdual_int_1d &list,
                       const int nfirst);
 
+  template<class DeviceType>
   virtual int
     pack_reverse_kokkos(const int &n, const int &nfirst,
                         const DAT::tdual_ffloat_2d &buf);
 
+  template<class DeviceType>
   virtual void
     unpack_reverse_kokkos(const int &n, const DAT::tdual_int_1d &list,
                           const DAT::tdual_ffloat_2d &buf);
 
+  template<class DeviceType>
   virtual int
     pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
                        DAT::tdual_xfloat_2d buf,
-                       int pbc_flag, int *pbc, ExecutionSpace space) = 0;
+                       int pbc_flag, int *pbc) = 0;
 
+  template<class DeviceType>
   virtual void
     unpack_border_kokkos(const int &n, const int &nfirst,
-                         const DAT::tdual_xfloat_2d &buf,
-                         ExecutionSpace space) = 0;
+                         const DAT::tdual_xfloat_2d &buf;
 
+  template<class DeviceType>
   virtual int
     pack_border_vel_kokkos(int /*n*/, DAT::tdual_int_1d /*k_sendlist*/,
                            DAT::tdual_xfloat_2d /*buf*/,
-                           int /*pbc_flag*/, int * /*pbc*/, ExecutionSpace /*space*/) { return 0; }
+                           int /*pbc_flag*/, int * /*pbc*/) { return 0; }
 
+  template<class DeviceType>
   virtual void
     unpack_border_vel_kokkos(const int &/*n*/, const int & /*nfirst*/,
-                             const DAT::tdual_xfloat_2d & /*buf*/,
-                             ExecutionSpace /*space*/) {}
+                             const DAT::tdual_xfloat_2d & /*buf*/) {}
 
+  template<class DeviceType>
   virtual int
     pack_exchange_kokkos(const int &nsend, DAT::tdual_xfloat_2d &buf,
                          DAT::tdual_int_1d k_sendlist,
-                         DAT::tdual_int_1d k_copylist,
-                         ExecutionSpace space) = 0;
+                         DAT::tdual_int_1d k_copylist) = 0;
 
+  template<class DeviceType>
   virtual int
     unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int nrecv,
                            int nlocal, int dim, X_FLOAT lo, X_FLOAT hi,
-                           ExecutionSpace space,
                            DAT::tdual_int_1d &k_indices) = 0;
 
   int no_comm_vel_flag,no_border_vel_flag;

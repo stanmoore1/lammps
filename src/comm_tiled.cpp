@@ -138,6 +138,7 @@ void CommTiled::init_buffers()
 
   // Note this may skip growing multi arrays, will call again in init()
   maxswap = 6;
+  printf("Calling allocate_swap!!!\n");
   allocate_swap(maxswap);
 }
 
@@ -2295,6 +2296,8 @@ void CommTiled::grow_list(int iswap, int iwhich, int n)
   maxsendlist[iswap][iwhich] = static_cast<int> (BUFFACTOR * n);
   memory->grow(sendlist[iswap][iwhich],maxsendlist[iswap][iwhich],
                "comm:sendlist[i][j]");
+
+  printf("BAD!!!!!!!!!!!!!!!!!!!!!\n");
 }
 
 /* ----------------------------------------------------------------------

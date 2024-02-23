@@ -16,11 +16,12 @@
 #define LMP_COMM_TILED_KOKKOS_H
 
 #include "comm_tiled.h"
+#include "comm_kokkos.h"
 #include "kokkos_type.h"
 
 namespace LAMMPS_NS {
 
-class CommTiledKokkos : public CommTiled {
+class CommTiledKokkos : public CommTiled, public CommKokkos {
  public:
   CommTiledKokkos(class LAMMPS *);
   CommTiledKokkos(class LAMMPS *, class Comm *);

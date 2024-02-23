@@ -12,30 +12,19 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#ifndef LMP_COMM_KOKKOS_H
-#define LMP_COMM_KOKKOS_H
+#ifndef LMP_COMM_BRICK_KOKKOS_H
+#define LMP_COMM_BRICK_KOKKOS_H
 
 #include "comm_brick.h"
+#include "comm_kokkos.h"
 #include "kokkos_type.h"
 
 namespace LAMMPS_NS {
 
-class CommKokkos : public CommBrick {
+class CommBrickKokkos : public CommBrick, public CommKokkos {
  public:
-
-
-  bool exchange_comm_classic;
-  bool forward_comm_classic;
-  bool forward_pair_comm_classic;
-  bool reverse_pair_comm_classic;
-  bool forward_fix_comm_classic;
-  bool reverse_comm_classic;
-  bool exchange_comm_on_host;
-  bool forward_comm_on_host;
-  bool reverse_comm_on_host;
-
-  CommKokkos(class LAMMPS *);
-  ~CommKokkos() override;
+  CommBrickKokkos(class LAMMPS *);
+  ~CommBrickKokkos() override;
   void init() override;
 
   using CommBrick::forward_comm;

@@ -87,6 +87,7 @@ template <typename TYPE>
 void destroy_kokkos(TYPE data, typename TYPE::value_type* &array)
 {
   if (array == nullptr) return;
+
   data = TYPE();
   array = nullptr;
 }
@@ -207,6 +208,7 @@ template <typename TYPE>
 void destroy_kokkos(TYPE data, typename TYPE::value_type** &array)
 {
   if (array == nullptr) return;
+
   data = TYPE();
   sfree(array);
   array = nullptr;
@@ -316,6 +318,7 @@ template <typename TYPE>
 void destroy_kokkos(TYPE data, typename TYPE::value_type*** &array)
 {
   if (array == nullptr) return;
+
   int n1 = data.extent(0);
   for (int i = 0; i < n1; ++i)
     sfree(array[i]);

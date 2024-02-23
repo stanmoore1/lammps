@@ -1,5 +1,5 @@
 /* -*- c++ -*- ----------------------------------------------------------
-   LAMMPS - Large-scale AtomicKokkos/Molecular Massively Parallel Simulator
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
    LAMMPS development team: developers@lammps.org
 
@@ -36,49 +36,63 @@ class AtomVecDPDKokkos : public AtomVecKokkos, public AtomVecDPD {
   void grow(int) override;
   void grow_pointers() override;
   void sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter) override;
+
+  template<class DeviceType>
   int pack_comm_kokkos(const int &n, const DAT::tdual_int_1d &k_sendlist,
                        const DAT::tdual_xfloat_2d &buf,
                        const int &pbc_flag, const int pbc[]) override;
+
+  template<class DeviceType>
   void unpack_comm_kokkos(const int &n, const int &nfirst,
                           const DAT::tdual_xfloat_2d &buf) override;
+
+  template<class DeviceType>
   int pack_comm_self(const int &n, const DAT::tdual_int_1d &list,
                      const int nfirst,
                      const int &pbc_flag, const int pbc[]) override;
+
+  template<class DeviceType>
   int pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
                          DAT::tdual_xfloat_2d buf,
-                         int pbc_flag, int *pbc, ExecutionSpace space) override;
+                         int pbc_flag, int *pbc) override;
+
+  template<class DeviceType>
   void unpack_border_kokkos(const int &n, const int &nfirst,
-                            const DAT::tdual_xfloat_2d &buf,
-                            ExecutionSpace space) override;
+                            const DAT::tdual_xfloat_2d &buf) override;
+
+  template<class DeviceType>
+  int pack_border_vel_kokkos(int n, DAT::tdual_int_2d k_sendlist,
+                             DAT::tdual_xfloat_2d buf,int iswap,
+                             int pbc_flag, int *pbc) override;
+
+  template<class DeviceType>
+  void unpack_border_vel_kokkos(const int &n, const int &nfirst,
+                                const DAT::tdual_xfloat_2d &buf) override;
+
+  template<class DeviceType>
   int pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
-                           DAT::tdual_int_1d k_copylist,
-                           ExecutionSpace space) override;
+                           DAT::tdual_int_1d k_copylist) override;
+
+  template<class DeviceType>
   int unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int nrecv,
                              int nlocal, int dim, X_FLOAT lo, X_FLOAT hi,
-                             ExecutionSpace space,
                              DAT::tdual_int_1d &k_indices) override;
 
   void sync(ExecutionSpace space, unsigned int mask) override;
   void modified(ExecutionSpace space, unsigned int mask) override;
   void sync_overlapping_device(ExecutionSpace space, unsigned int mask) override;
 
+ private:
   double *duChem;
 
- protected:
-  DAT::t_efloat_1d d_uCond, d_uMech, d_uChem, d_uCG, d_uCGnew,d_rho,d_dpdTheta,d_duChem;
-  HAT::t_efloat_1d h_uCond, h_uMech, h_uChem, h_uCG, h_uCGnew,h_rho,h_dpdTheta,h_duChem;
-
   DAT::t_tagint_1d d_tag;
-  HAT::t_tagint_1d h_tag;
   DAT::t_imageint_1d d_image;
-  HAT::t_imageint_1d h_image;
   DAT::t_int_1d d_type, d_mask;
-  HAT::t_int_1d h_type, h_mask;
-
   DAT::t_x_array d_x;
   DAT::t_v_array d_v;
   DAT::t_f_array d_f;
+  DAT::t_efloat_1d d_uCond, d_uMech, d_uChem, d_uCG, d_uCGnew,d_rho,d_dpdTheta,d_duChem;
 };
 
 }    // namespace LAMMPS_NS

@@ -1269,7 +1269,6 @@ void buffer_view(BufferView &buf, DualView &view,
                  const size_t n1) {
 
   buf = BufferView(view.template view<DeviceType>().data(),n0,n1);
-
 }
 
 template<class DeviceType>
