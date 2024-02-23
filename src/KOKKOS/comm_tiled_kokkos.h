@@ -16,24 +16,17 @@
 #define LMP_COMM_TILED_KOKKOS_H
 
 #include "comm_tiled.h"
+#include "comm_kokkos.h"
 #include "kokkos_type.h"
 
 namespace LAMMPS_NS {
 
-class CommTiledKokkos : public CommTiled {
+class CommTiledKokkos : public CommTiled, public CommKokkos {
  public:
   CommTiledKokkos(class LAMMPS *);
   CommTiledKokkos(class LAMMPS *, class Comm *);
 
-  bool exchange_comm_classic;
-  bool forward_comm_classic;
-  bool forward_pair_comm_classic;
-  bool reverse_pair_comm_classic;
-  bool forward_fix_comm_classic;
-  bool reverse_comm_classic;
-  bool exchange_comm_on_host;
-  bool forward_comm_on_host;
-  bool reverse_comm_on_host;
+  ~CommTiledKokkos() override;
 
   using CommTiled::forward_comm;
   using CommTiled::reverse_comm;
@@ -72,7 +65,7 @@ class CommTiledKokkos : public CommTiled {
   void grow_send_kokkos(int, int, ExecutionSpace space = Host);
   void grow_recv_kokkos(int, ExecutionSpace space = Host);
   void grow_list(int, int, int) override;
-  void grow_swap_send(int, int, int);     // grow swap arrays for send and recv
+  void grow_swap_send(int, int, int) override;     // grow swap arrays for send and recv
 };
 
 }    // namespace LAMMPS_NS

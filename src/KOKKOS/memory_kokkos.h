@@ -87,6 +87,7 @@ template <typename TYPE>
 void destroy_kokkos(TYPE data, typename TYPE::value_type* &array)
 {
   if (array == nullptr) return;
+
   data = TYPE();
   array = nullptr;
 }
@@ -207,6 +208,7 @@ template <typename TYPE>
 void destroy_kokkos(TYPE data, typename TYPE::value_type** &array)
 {
   if (array == nullptr) return;
+
   data = TYPE();
   sfree(array);
   array = nullptr;
@@ -220,7 +222,7 @@ template <typename TYPE>
 TYPE create_kokkos(TYPE &data, typename TYPE::value_type ***&array,
                    int n1, int n2, int n3, const char *name)
 { 
-  data = TYPE(std::string(name),n1,n2);
+  data = TYPE(std::string(name),n1,n2,n3);
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type **)) * n1;
   array = (typename TYPE::value_type ***) smalloc(nbytes,name);
   
@@ -316,6 +318,7 @@ template <typename TYPE>
 void destroy_kokkos(TYPE data, typename TYPE::value_type*** &array)
 {
   if (array == nullptr) return;
+
   int n1 = data.extent(0);
   for (int i = 0; i < n1; ++i)
     sfree(array[i]);

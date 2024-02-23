@@ -54,7 +54,7 @@ CommTiled::CommTiled(LAMMPS *lmp) : Comm(lmp)
   rcbinfo = nullptr;
   cutghostmulti = nullptr;
   cutghostmultiold = nullptr;
-  init_buffers();
+  init_buffers_flag = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -69,7 +69,7 @@ CommTiled::CommTiled(LAMMPS * /*lmp*/, Comm *oldcomm) : Comm(*oldcomm)
   style = Comm::TILED;
   layout = oldcomm->layout;
   Comm::copy_arrays(oldcomm);
-  init_buffers();
+  init_buffers_flag = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -106,6 +106,7 @@ void CommTiled::init_buffers()
 
   // Note this may skip growing multi arrays, will call again in init()
   maxswap = 6;
+  printf("Calling allocate_swap!!!\n");
   allocate_swap(maxswap);
 }
 
@@ -113,6 +114,11 @@ void CommTiled::init_buffers()
 
 void CommTiled::init()
 {
+  if (init_buffers_flag) {
+    init_buffers();
+    init_buffers_flag = 0;
+  }
+
   Comm::init();
 
   // cannot set nswap in init_buffers() b/c
@@ -2255,6 +2261,8 @@ void CommTiled::grow_list(int iswap, int iwhich, int n)
   maxsendlist[iswap][iwhich] = static_cast<int> (BUFFACTOR * n);
   memory->grow(sendlist[iswap][iwhich],maxsendlist[iswap][iwhich],
                "comm:sendlist[i][j]");
+
+  printf("BAD!!!!!!!!!!!!!!!!!!!!!\n");
 }
 
 /* ----------------------------------------------------------------------
@@ -2428,8 +2436,10 @@ void CommTiled::deallocate_swap(int n)
 
     delete [] maxsendlist[i];
 
-    for (int j = 0; j < nprocmax[i]; j++) memory->destroy(sendlist[i][j]);
-    delete [] sendlist[i];
+    if (sendlist[i]) {
+      for (int j = 0; j < nprocmax[i]; j++) memory->destroy(sendlist[i][j]);
+      delete [] sendlist[i];
+    }
   }
 
   delete [] sendproc;
