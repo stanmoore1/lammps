@@ -142,11 +142,15 @@ void CommKokkos::init()
   if (force->newton == 0) check_reverse = 0;
   if (force->pair) check_reverse += force->pair->comm_reverse_off;
 
-  if (!comm_f_only) // not all Kokkos atom_vec styles have reverse pack/unpack routines yet
+  if (!comm_f_only) {// not all Kokkos atom_vec styles have reverse pack/unpack routines yet
     reverse_comm_classic = true;
+    lmp->kokkos->reverse_comm_classic = 1;
+  }
 
-  if (ghost_velocity && atomKK->avecKK->no_comm_vel_flag) // not all Kokkos atom_vec styles have comm vel pack/unpack routines yet
+  if (ghost_velocity && atomKK->avecKK->no_comm_vel_flag) { // not all Kokkos atom_vec styles have comm vel pack/unpack routines yet
     forward_comm_classic = true;
+    lmp->kokkos->forward_comm_classic = 1;
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -760,6 +764,7 @@ void CommKokkos::exchange()
           }
         }
         exchange_comm_classic = true;
+        lmp->kokkos->exchange_comm_classic = 1;
       }
     }
   }
@@ -1064,6 +1069,7 @@ void CommKokkos::borders()
                       "switching to classic exchange/border communication");
       }
       exchange_comm_classic = true;
+      lmp->kokkos->exchange_comm_classic = 1;
     }
   }
 

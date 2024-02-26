@@ -25,6 +25,8 @@ class CommTiledKokkos : public CommTiled {
   CommTiledKokkos(class LAMMPS *);
   CommTiledKokkos(class LAMMPS *, class Comm *);
 
+  ~CommTiledKokkos() override;
+
   bool exchange_comm_classic;
   bool forward_comm_classic;
   bool forward_pair_comm_classic;
@@ -68,9 +70,9 @@ class CommTiledKokkos : public CommTiled {
   //DAT::tdual_int_scalar k_count;
 
   void grow_send(int, int) override;
-  void grow_recv(int) override;
+  void grow_recv(int, int flag = 0) override;
   void grow_send_kokkos(int, int, ExecutionSpace space = Host);
-  void grow_recv_kokkos(int, ExecutionSpace space = Host);
+  void grow_recv_kokkos(int, int, ExecutionSpace space = Host);
   void grow_list(int, int, int) override;
   void grow_swap_send(int, int, int);     // grow swap arrays for send and recv
 };

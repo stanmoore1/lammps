@@ -36,7 +36,10 @@ static constexpr int DELTA_PROCS = 16;
 
 /* ---------------------------------------------------------------------- */
 
-CommTiledKokkos::CommTiledKokkos(LAMMPS *_lmp) : CommTiled(_lmp) {}
+CommTiledKokkos::CommTiledKokkos(LAMMPS *_lmp) : CommTiled(_lmp)
+{
+  sendlist = nullptr;
+}
 
 /* ---------------------------------------------------------------------- */
 //IMPORTANT: we *MUST* pass "*oldcomm" to the Comm initializer here, as
@@ -45,9 +48,20 @@ CommTiledKokkos::CommTiledKokkos(LAMMPS *_lmp) : CommTiled(_lmp) {}
 //           The call to Comm::copy_arrays() then converts the shallow copy
 //           into a deep copy of the class with the new layout.
 
-CommTiledKokkos::CommTiledKokkos(LAMMPS *_lmp, Comm *oldcomm) : CommTiled(_lmp,oldcomm) {}
+CommTiledKokkos::CommTiledKokkos(LAMMPS *_lmp, Comm *oldcomm) : CommTiled(_lmp,oldcomm)
+{
+  sendlist = nullptr;
+}
 
 /* ---------------------------------------------------------------------- */
+
+CommTiledKokkos::~CommTiledKokkos()
+{
+  memoryKK->destroy_kokkos(k_sendlist,sendlist);
+  sendlist = nullptr;
+  buf_send = nullptr;
+  buf_recv = nullptr;
+}
 
 /* ---------------------------------------------------------------------- */
 
@@ -91,8 +105,10 @@ void CommTiledKokkos::init()
   if (force->newton == 0) check_reverse = 0;
   if (force->pair) check_reverse += force->pair->comm_reverse_off;
 
-  if (!comm_f_only) // not all Kokkos atom_vec styles have reverse pack/unpack routines yet
+  if (!comm_f_only) { // not all Kokkos atom_vec styles have reverse pack/unpack routines yet
     reverse_comm_classic = true;
+    lmp->kokkos->reverse_comm_classic = 1;
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -442,9 +458,9 @@ void CommTiledKokkos::grow_send(int n, int flag)
    free/malloc the size of the recv buffer as needed with BUFFACTOR
 ------------------------------------------------------------------------- */
 
-void CommTiledKokkos::grow_recv(int n)
+void CommTiledKokkos::grow_recv(int n, int flag)
 {
-  grow_recv_kokkos(n,Host);
+  grow_recv_kokkos(n,flag,Host);
 }
 
 /* ----------------------------------------------------------------------
@@ -485,9 +501,11 @@ void CommTiledKokkos::grow_send_kokkos(int n, int flag, ExecutionSpace space)
    free/malloc the size of the recv buffer as needed with BUFFACTOR
 ------------------------------------------------------------------------- */
 
-void CommTiledKokkos::grow_recv_kokkos(int n, ExecutionSpace /*space*/)
+void CommTiledKokkos::grow_recv_kokkos(int n, int flag, ExecutionSpace /*space*/)
 {
-  maxrecv = static_cast<int> (BUFFACTOR * n);
+  if (flag) maxrecv = n;
+  else maxrecv = static_cast<int> (BUFFACTOR * n);
+
   int maxrecv_border = (maxrecv+BUFEXTRA)/atomKK->avecKK->size_border;
 
   MemoryKokkos::realloc_kokkos(k_buf_recv,"comm:k_buf_recv",maxrecv_border,
@@ -508,6 +526,8 @@ void CommTiledKokkos::grow_list(int iswap, int iwhich, int n)
     k_sendlist.modify<LMPHostType>();
   }
 
+  int nsend = k_sendlist.extent(1);
+
   if (size > k_sendlist.extent(2)) {
     memoryKK->grow_kokkos(k_sendlist,sendlist,maxswap,maxsend,size,"comm:sendlist");
 
@@ -523,9 +543,45 @@ void CommTiledKokkos::grow_list(int iswap, int iwhich, int n)
 
 void CommTiledKokkos::grow_swap_send(int i, int n, int nold)
 {
-  CommTiled::grow_swap_send(i,n,nold);
+  delete [] sendproc[i];
+  sendproc[i] = new int[n];
+  delete [] sendnum[i];
+  sendnum[i] = new int[n];
 
-  memoryKK->destroy_kokkos(k_sendlist,sendlist);
-  memoryKK->create_kokkos(k_sendlist,sendlist,maxswap,maxsend,BUFMIN,"comm:sendlist");
+  delete [] size_reverse_recv[i];
+  size_reverse_recv[i] = new int[n];
+  delete [] reverse_recv_offset[i];
+  reverse_recv_offset[i] = new int[n];
+
+  delete [] pbc_flag[i];
+  pbc_flag[i] = new int[n];
+  memory->destroy(pbc[i]);
+  memory->create(pbc[i],n,6,"comm:pbc_flag");
+  memory->destroy(sendbox[i]);
+  memory->create(sendbox[i],n,6,"comm:sendbox");
+  grow_swap_send_multi(i,n);
+  memory->destroy(sendbox_multiold[i]);
+  memory->create(sendbox_multiold[i],n,atom->ntypes+1,6,"comm:sendbox_multiold");
+
+  delete [] maxsendlist[i];
+  maxsendlist[i] = new int[n];
+
+  for (int j = 0; j < n; j++)
+    maxsendlist[i][j] = BUFMIN;
+
+  if (sendlist && !k_sendlist.d_view.data()) {
+    for (int ii = 0; ii < maxswap; ii++) {
+      if (sendlist[ii]) {
+        for (int jj = 0; jj < nprocmax[ii]; jj++)
+          memory->destroy(sendlist[ii][jj]);
+        delete [] sendlist[ii];
+      }
+    }
+    delete [] sendlist;
+  } else {
+    memoryKK->destroy_kokkos(k_sendlist,sendlist);
+  }
+
+  memoryKK->create_kokkos(k_sendlist,sendlist,maxswap,n,BUFMIN,"comm:sendlist");
 }
 

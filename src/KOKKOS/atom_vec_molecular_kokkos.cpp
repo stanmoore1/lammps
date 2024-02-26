@@ -319,7 +319,7 @@ int AtomVecMolecularKokkos::pack_comm_kokkos(const int &n,
   // Check whether to always run forward communication on the host
   // Choose correct forward PackComm kernel
 
-  if (commKK->forward_comm_on_host) {
+  if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(Host,X_MASK);
     if (pbc_flag) {
       if (domain->triclinic) {
@@ -432,7 +432,7 @@ struct AtomVecMolecularKokkos_PackCommSelf {
 int AtomVecMolecularKokkos::pack_comm_self(const int &n, const DAT::tdual_int_1d &list,
                                            const int nfirst, const int &pbc_flag,
                                            const int* const pbc) {
-  if (commKK->forward_comm_on_host) {
+  if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(Host,X_MASK);
     atomKK->modified(Host,X_MASK);
     if (pbc_flag) {
@@ -520,7 +520,7 @@ struct AtomVecMolecularKokkos_UnpackComm {
 
 void AtomVecMolecularKokkos::unpack_comm_kokkos(const int &n, const int &first,
     const DAT::tdual_xfloat_2d &buf) {
-  if (commKK->forward_comm_on_host) {
+  if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(Host,X_MASK);
     atomKK->modified(Host,X_MASK);
     struct AtomVecMolecularKokkos_UnpackComm<LMPHostType> f(atomKK->k_x,buf,first);

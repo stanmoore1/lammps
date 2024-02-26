@@ -117,7 +117,7 @@ class CommTiled : public Comm {
   double *sublo, *subhi;
   int dimension;
 
-  // NOTE: init_buffers is called from a constructor and must not be made virtual
+  int init_buffers_flag;
   void init_buffers();
 
   // box drop and other functions
@@ -146,10 +146,10 @@ class CommTiled : public Comm {
   int closer_subbox_edge(int, double *);
 
   virtual void grow_send(int, int);               // reallocate send buffer
-  virtual void grow_recv(int);                    // free/allocate recv buffer
+  virtual void grow_recv(int, int flag = 0);      // free/allocate recv buffer
   virtual void grow_list(int, int, int);          // reallocate sendlist for one swap/proc
   void allocate_swap(int);                // allocate swap arrays
-  void grow_swap_send(int, int, int);     // grow swap arrays for send and recv
+  virtual void grow_swap_send(int, int, int);     // grow swap arrays for send and recv
   void grow_swap_send_multi(int, int);    // grow multi swap arrays for send and recv
   void grow_swap_recv(int, int);
   void deallocate_swap(int);    // deallocate swap arrays

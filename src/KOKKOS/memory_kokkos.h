@@ -220,7 +220,7 @@ template <typename TYPE>
 TYPE create_kokkos(TYPE &data, typename TYPE::value_type ***&array,
                    int n1, int n2, int n3, const char *name)
 { 
-  data = TYPE(std::string(name),n1,n2);
+  data = TYPE(std::string(name),n1,n2,n3);
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type **)) * n1;
   array = (typename TYPE::value_type ***) smalloc(nbytes,name);
   

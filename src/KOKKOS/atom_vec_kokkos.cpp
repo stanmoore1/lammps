@@ -19,6 +19,7 @@
 #include "comm_kokkos.h"
 #include "error.h"
 #include "domain.h"
+#include "kokkos.h"
 
 using namespace LAMMPS_NS;
 
@@ -109,7 +110,7 @@ int AtomVecKokkos::pack_comm_kokkos(const int &n,
   // Check whether to always run forward communication on the host
   // Choose correct forward PackComm kernel
 
-  if (commKK->forward_comm_on_host) {
+  if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(Host,X_MASK);
     if (pbc_flag) {
       if (domain->triclinic) {
@@ -220,7 +221,7 @@ struct AtomVecKokkos_PackCommSelf {
 
 int AtomVecKokkos::pack_comm_self(const int &n, const DAT::tdual_int_1d &list,
                                         const int nfirst, const int &pbc_flag, const int* const pbc) {
-  if (commKK->forward_comm_on_host) {
+  if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(Host,X_MASK);
     atomKK->modified(Host,X_MASK);
     if (pbc_flag) {
@@ -356,7 +357,7 @@ struct AtomVecKokkos_PackCommSelfFused {
 int AtomVecKokkos::pack_comm_self_fused(const int &n, const DAT::tdual_int_2d &list, const DAT::tdual_int_1d &sendnum_scan,
                                          const DAT::tdual_int_1d &firstrecv, const DAT::tdual_int_1d &pbc_flag, const DAT::tdual_int_2d &pbc,
                                          const DAT::tdual_int_1d &g2l) {
-  if (commKK->forward_comm_on_host) {
+  if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(Host,X_MASK);
     atomKK->modified(Host,X_MASK);
     if (domain->triclinic) {
@@ -416,7 +417,7 @@ struct AtomVecKokkos_UnpackComm {
 
 void AtomVecKokkos::unpack_comm_kokkos(const int &n, const int &first,
     const DAT::tdual_xfloat_2d &buf) {
-  if (commKK->forward_comm_on_host) {
+  if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(Host,X_MASK);
     atomKK->modified(Host,X_MASK);
     struct AtomVecKokkos_UnpackComm<LMPHostType> f(atomKK->k_x,buf,first);
@@ -522,7 +523,7 @@ int AtomVecKokkos::pack_comm_vel_kokkos(
   const int &pbc_flag,
   const int* const pbc)
 {
-  if (commKK->forward_comm_on_host) {
+  if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(Host,X_MASK|V_MASK);
     if (pbc_flag) {
       if (deform_vremap) {
@@ -684,7 +685,7 @@ struct AtomVecKokkos_UnpackCommVel {
 
 void AtomVecKokkos::unpack_comm_vel_kokkos(const int &n, const int &first,
     const DAT::tdual_xfloat_2d &buf) {
-  if (commKK->forward_comm_on_host) {
+  if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(Host,X_MASK|V_MASK);
     atomKK->modified(Host,X_MASK|V_MASK);
     struct AtomVecKokkos_UnpackCommVel<LMPHostType> f(atomKK->k_x,atomKK->k_v,buf,first);
@@ -725,7 +726,7 @@ struct AtomVecKokkos_PackReverse {
 
 int AtomVecKokkos::pack_reverse_kokkos(const int &n, const int &first,
     const DAT::tdual_ffloat_2d &buf) {
-  if (commKK->reverse_comm_on_host) {
+  if (lmp->kokkos->reverse_comm_on_host) {
     atomKK->sync(Host,F_MASK);
     struct AtomVecKokkos_PackReverse<LMPHostType> f(atomKK->k_f,buf,first);
     Kokkos::parallel_for(n,f);
@@ -769,7 +770,7 @@ struct AtomVecKokkos_UnPackReverseSelf {
 
 int AtomVecKokkos::unpack_reverse_self(const int &n, const DAT::tdual_int_1d &list,
                                         const int nfirst) {
-  if (commKK->reverse_comm_on_host) {
+  if (lmp->kokkos->reverse_comm_on_host) {
     atomKK->sync(Host,F_MASK);
     struct AtomVecKokkos_UnPackReverseSelf<LMPHostType> f(atomKK->k_f,nfirst,list);
     Kokkos::parallel_for(n,f);
@@ -821,7 +822,7 @@ void AtomVecKokkos::unpack_reverse_kokkos(const int &n,
   // Check whether to always run reverse communication on the host
   // Choose correct reverse UnPackReverse kernel
 
-  if (commKK->reverse_comm_on_host) {
+  if (lmp->kokkos->reverse_comm_on_host) {
     struct AtomVecKokkos_UnPackReverse<LMPHostType> f(atomKK->k_f,buf,list);
     Kokkos::parallel_for(n,f);
     atomKK->modified(Host,F_MASK);
