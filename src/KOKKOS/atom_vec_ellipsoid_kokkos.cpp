@@ -940,7 +940,7 @@ template<class DeviceType,int BONUS_FLAG,int PBC_FLAG>
 struct AtomVecEllipsoidKokkos_PackBorder {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_xfloat_1d_um _buf;
+  typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   const typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
   const typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
@@ -1272,7 +1272,7 @@ template<class DeviceType,int BONUS_FLAG>
 struct AtomVecEllipsoidKokkos_UnpackBorder {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_xfloat_1d_const_um _buf;
+  typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
   typename ArrayTypes<DeviceType>::t_x_array _x;
   typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   typename ArrayTypes<DeviceType>::t_int_1d _type;
@@ -1317,16 +1317,16 @@ struct AtomVecEllipsoidKokkos_UnpackBorder {
   //if (!final_pass) {
   //  offset += (_ellipsoid[j] < 0) ? 7 : 15;
   //} else {
-    int m = _buf(i);
-    _x(i+_first,0) = _buf(m);
-    _x(i+_first,1) = _buf(m++);
-    _x(i+_first,2) = _buf(m++);
-    _tag(i+_first) = static_cast<tagint> (d_ubuf(_buf(m++)).i);
-    _type(i+_first) = static_cast<int>  (d_ubuf(_buf(m++)).i);
-    _mask(i+_first) = static_cast<int>  (d_ubuf(_buf(m++)).i);
-    _rmass(i+_first) = _buf(m++);
+    //int m = _buf(i);
+    _x(i+_first,0) = _buf(i,0);
+    _x(i+_first,1) = _buf(i,1);
+    _x(i+_first,2) = _buf(i,2);
+    _tag(i+_first) = static_cast<tagint> (d_ubuf(_buf(i,3)).i);
+    _type(i+_first) = static_cast<int>  (d_ubuf(_buf(i,4)).i);
+    _mask(i+_first) = static_cast<int>  (d_ubuf(_buf(i,5)).i);
+    _rmass(i+_first) = _buf(i,6);
 
-    int j = 0;
+    /*int j = 0;
     int ellipID = static_cast<int> (d_ubuf(_buf(m++)).i);
     if (ellipID == 0 ) {
       //_ellipsoid(i+_first) = -1;
@@ -1342,7 +1342,7 @@ struct AtomVecEllipsoidKokkos_UnpackBorder {
       _bonus(j).ilocal = i+_first;
       _ellipsoid(i+_first) = j;
       _nghost_bonus++;
-    }
+    }*/
   //}
 
   }
