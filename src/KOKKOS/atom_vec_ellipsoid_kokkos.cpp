@@ -1551,7 +1551,7 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
     _buf(mysend,12) = _angmom(i,0);
     _buf(mysend,13) = _angmom(i,1);
     _buf(mysend,14) = _angmom(i,2);
-    /*if (BONUS_FLAG==1) {
+    if (BONUS_FLAG==1) {
       if (_ellipsoid[i] < 0)
         _buf(mysend,15) = d_ubuf(0.0).d; 
       else {
@@ -1565,7 +1565,7 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
         _buf(mysend,21) = _bonus(k).quat[2];
         _buf(mysend,22) = _bonus(k).quat[3];
       }
-    }*/
+    }
     const int j = _copylist(mysend);
 
     if (j>-1) {
@@ -1583,7 +1583,8 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       _angmomw(i,0) = _angmom(j,0);
       _angmomw(i,1) = _angmom(j,1);
       _angmomw(i,2) = _angmom(j,2);
-      /*if (BONUS_FLAG==1) {
+      if (BONUS_FLAG==1) {
+        if (_ellipsoid[j] > 0) {
         _bonusw(i).shape[0] = _bonus(j).shape[0];
         _bonusw(i).shape[1] = _bonus(j).shape[1];
         _bonusw(i).shape[2] = _bonus(j).shape[2];
@@ -1591,7 +1592,8 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
         _bonusw(i).quat[1] = _bonus(j).quat[1];
         _bonusw(i).quat[2] = _bonus(j).quat[2];
         _bonusw(i).quat[3] = _bonus(j).quat[3];
-      }*/
+        }
+      }
     }
   }
 };
