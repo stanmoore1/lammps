@@ -697,14 +697,6 @@ typedef tdual_int_3d::t_dev_const_um t_int_3d_const_um;
 typedef tdual_int_3d::t_dev_const_randomread t_int_3d_randomread;
 
 typedef Kokkos::
-  DualView<int***, Kokkos::LayoutRight, LMPDeviceType> tdual_int_3d;
-typedef tdual_int_3d::t_dev t_int_3d;
-typedef tdual_int_3d::t_dev_const t_int_3d_const;
-typedef tdual_int_3d::t_dev_um t_int_3d_um;
-typedef tdual_int_3d::t_dev_const_um t_int_3d_const_um;
-typedef tdual_int_3d::t_dev_const_randomread t_int_3d_randomread;
-
-typedef Kokkos::
   DualView<LAMMPS_NS::tagint*, LMPDeviceType::array_layout, LMPDeviceType>
   tdual_tagint_1d;
 typedef tdual_tagint_1d::t_dev t_tagint_1d;

@@ -73,7 +73,7 @@ void PairTwoGauss::compute(int eflag, int vflag)
   int i,j,ii,jj,inum,jnum,itype,jtype;
   double xtmp,ytmp,ztmp,delx,dely,delz,evdwl,fpair;
   double rsq,r,rexp,ugauss,factor_lj;
-  double ugauss2, rexp2, fpair2, evdwl2; // for second gauss
+  double ugauss2, rexp2, fpair2; // for second gauss
   double taper, taperRR, taperRR10, taperRR30, taperRR60;
   int *ilist,*jlist,*numneigh,**firstneigh;
 

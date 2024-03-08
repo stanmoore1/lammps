@@ -200,8 +200,8 @@ void FixClusterSwitchKokkos<DeviceType>::post_neighbor()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixClusterSwitchKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_2d k_sendlist,
-                                                        int iswap_in, DAT::tdual_xfloat_1d &k_buf,
+int FixClusterSwitchKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_1d k_sendlist,
+                                                        DAT::tdual_xfloat_1d &k_buf,
                                                         int pbc_flag, int* pbc)
 {
   k_sendlist.sync<DeviceType>();
@@ -211,7 +211,6 @@ int FixClusterSwitchKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdu
   atomKK->sync(execution_space,TYPE_MASK);
 
   d_sendlist = k_sendlist.view<DeviceType>();
-  iswap = iswap_in;
   d_buf = k_buf.view<DeviceType>();
 
   if (domain->triclinic == 0) {
@@ -240,7 +239,7 @@ template<class DeviceType>
 template<int PBC_FLAG>
 KOKKOS_INLINE_FUNCTION
 void FixClusterSwitchKokkos<DeviceType>::operator()(TagFixClusterSwitchPackForwardComm<PBC_FLAG>, const int &i) const {
-  const int j = d_sendlist(iswap, i);
+  const int j = d_sendlist(i);
 
   if (PBC_FLAG == 0) {
     d_buf[i] = type(j);
