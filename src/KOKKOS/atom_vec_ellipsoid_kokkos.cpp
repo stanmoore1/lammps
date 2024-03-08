@@ -234,7 +234,7 @@ struct AtomVecEllipsoidKokkos_PackComm {
       }
     }
     _buf(i,3) = _rmass(j);
-    if (_ellipsoid[j] > 0) {
+    if (_ellipsoid[j] >= 0) {
       _buf(i,4) = _bonus(_ellipsoid[j]).quat[0];
       _buf(i,5) = _bonus(_ellipsoid[j]).quat[1];
       _buf(i,6) = _bonus(_ellipsoid[j]).quat[2];
@@ -850,7 +850,7 @@ struct AtomVecEllipsoidKokkos_UnpackComm {
     _x(i+_first,1) = _buf(i,1);
     _x(i+_first,2) = _buf(i,2);
     _rmass(i+_first) = _buf(i,3);
-    if (_ellipsoid[i+_first] > 0) {
+    if (_ellipsoid[i+_first] >= 0) {
       _bonus(_ellipsoid[i+_first]).quat[0] = _buf(i,4);
       _bonus(_ellipsoid[i+_first]).quat[1] = _buf(i,5);
       _bonus(_ellipsoid[i+_first]).quat[2] = _buf(i,6);
@@ -1052,7 +1052,7 @@ int AtomVecEllipsoidKokkos::pack_border_kokkos(
 {
   X_FLOAT dx,dy,dz;
 
-  printf("pack_border_kokkos() call\n");
+  //printf("pack_border_kokkos() call\n");
   // This was in atom_vec_dpd_kokkos but doesn't appear in any other atom_vec
   atomKK->sync(space,ALL_MASK);
   int n_return = n*size_border;
@@ -1136,10 +1136,7 @@ int AtomVecEllipsoidKokkos::pack_border_kokkos(
     }
   }
   //printf("pack_border_kokkos() call end\n");
-  for (int k = 0; k < 10; k++) {
-      // Print k_ellipsoid data values
-      printf("Pborder: k_ellipsoid[%d]: %d\n", k, atomKK->k_ellipsoid.d_view(k));
-    }
+
   return n_return;
 }
 
@@ -1367,7 +1364,8 @@ struct AtomVecEllipsoidKokkos_UnpackBorder {
     if (ellipID == 0 ) {
       _ellipsoid(i+_first) = -1;
     } else {
-      j = _nlocal_bonus + _nghost_bonus;
+      //j = _nlocal_bonus + _nghost_bonus;
+      j = i+_first;
       _bonus(j).shape[0] = _buf(i,8);
       _bonus(j).shape[1] = _buf(i,9); 
       _bonus(j).shape[2] = _buf(i,10);
@@ -1652,7 +1650,6 @@ int AtomVecEllipsoidKokkos::pack_exchange_kokkos(
   DAT::tdual_int_1d k_copylist,
   ExecutionSpace space)
 {
-  printf("pack_exchange_kokkos() call\n");
   if (bonus_flag==0) {
     size_exchange = 15;
   } else {
@@ -1685,10 +1682,6 @@ int AtomVecEllipsoidKokkos::pack_exchange_kokkos(
     }
   }
   //printf("pack_exchange_kokkos() call end\n");
-  for (int k = 0; k < 10; k++) {
-      // Print k_ellipsoid data values
-      printf("Pexchange: k_ellipsoid[%d]: %d\n", k, atomKK->k_ellipsoid.d_view(k));
-    }
   return nsend*size_exchange;
 }
 
