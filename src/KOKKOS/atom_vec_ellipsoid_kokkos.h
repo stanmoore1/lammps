@@ -166,6 +166,8 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   DEllipsoidBonusAT::t_bonus_1d d_bonus; 
   HEllipsoidBonusAT::t_bonus_1d h_bonus;
 
+  DAT::tdual_int_1d k_count_bonus;
+
 };
 
 }    // namespace LAMMPS_NS
