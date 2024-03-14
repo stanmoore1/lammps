@@ -167,6 +167,7 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   HEllipsoidBonusAT::t_bonus_1d h_bonus;
 
   DAT::tdual_int_1d k_count_bonus;
+  DAT::tdual_int_1d k_nghost_bonus;
 
 };
 
