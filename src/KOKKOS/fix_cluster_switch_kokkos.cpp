@@ -97,12 +97,16 @@ void FixClusterSwitchKokkos<DeviceType>::init()
 
   k_mol_restrict.modify_host();
   k_mol_state.modify_host();
+  k_mol_accept.modify_host();
+  k_mol_atoms.modify_host();
   k_atomtypesON.modify_host();
   k_atomtypesOFF.modify_host();
   k_contactMap.modify_host();
 
   k_mol_restrict.sync<DeviceType>();
   k_mol_state.sync<DeviceType>();
+  k_mol_accept.sync<DeviceType>();
+  k_mol_atoms.sync<DeviceType>();
   k_atomtypesON.sync<DeviceType>();
   k_atomtypesOFF.sync<DeviceType>();
   k_contactMap.sync<DeviceType>();
@@ -141,11 +145,15 @@ void FixClusterSwitchKokkos<DeviceType>::allocate(int flag)
 
     // initialize arrays such that every state is -1 to start
 
-    copymode = 1;
-
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagFixClusterSwitchInit>(0,maxmol),*this);
-
-    copymode = 0;
+    for(int i = 0; i <= maxmol; i++){
+      mol_restrict[i] = -1;
+      mol_state[i] = -1;
+      mol_accept[i] = -1;
+      //      for(int j = 0; j < nSwitchTypes; j++){
+      for(int j = 0; j < nSwitchPerMol; j++){
+        mol_atoms[i][j] = -1;
+      }
+    }
 
   } else if (flag == 2) {
     memoryKK->create_kokkos(k_atomtypesON,atomtypesON,nSwitchTypes,"fix:atomtypesON");
@@ -204,31 +212,18 @@ int FixClusterSwitchKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdu
                                                         DAT::tdual_xfloat_1d &k_buf,
                                                         int pbc_flag, int* pbc)
 {
-  k_sendlist.sync<DeviceType>();
-  k_buf.sync<DeviceType>();
-
   type = atomKK->k_type.view<DeviceType>();
   atomKK->sync(execution_space,TYPE_MASK);
 
+  k_sendlist.sync<DeviceType>();
   d_sendlist = k_sendlist.view<DeviceType>();
-  d_buf = k_buf.view<DeviceType>();
 
-  if (domain->triclinic == 0) {
-    dx = pbc[0]*domain->xprd;
-    dy = pbc[1]*domain->yprd;
-    dz = pbc[2]*domain->zprd;
-  } else {
-    dx = pbc[0]*domain->xprd + pbc[5]*domain->xy + pbc[4]*domain->xz;
-    dy = pbc[1]*domain->yprd + pbc[3]*domain->yz;
-    dz = pbc[2]*domain->zprd;
-  }
+  k_buf.sync<DeviceType>();
+  d_buf = k_buf.view<DeviceType>();
 
   copymode = 1;
 
-  if (pbc_flag)
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixClusterSwitchPackForwardComm<1> >(0,n),*this);
-  else
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixClusterSwitchPackForwardComm<0> >(0,n),*this);
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixClusterSwitchPackForwardComm>(0,n),*this);
 
   copymode = 0;
 
@@ -236,16 +231,10 @@ int FixClusterSwitchKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdu
 }
 
 template<class DeviceType>
-template<int PBC_FLAG>
 KOKKOS_INLINE_FUNCTION
-void FixClusterSwitchKokkos<DeviceType>::operator()(TagFixClusterSwitchPackForwardComm<PBC_FLAG>, const int &i) const {
+void FixClusterSwitchKokkos<DeviceType>::operator()(TagFixClusterSwitchPackForwardComm, const int &i) const {
   const int j = d_sendlist(i);
-
-  if (PBC_FLAG == 0) {
-    d_buf[i] = type(j);
-  } else {
-    d_buf[i] = type(j) + dx;
-  }
+  d_buf[i] = type(j);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -253,12 +242,11 @@ void FixClusterSwitchKokkos<DeviceType>::operator()(TagFixClusterSwitchPackForwa
 template<class DeviceType>
 void FixClusterSwitchKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_xfloat_1d &k_buf)
 {
-  k_buf.sync<DeviceType>();
-
   type = atomKK->k_type.view<DeviceType>();
   atomKK->sync(execution_space,TYPE_MASK);
 
   first = first_in;
+  k_buf.sync<DeviceType>();
   d_buf = k_buf.view<DeviceType>();
 
   copymode = 1;
@@ -599,7 +587,6 @@ void FixClusterSwitchKokkos<DeviceType>::attempt_switch()
 
   atomKK->modified(execution_space, TYPE_MASK);
   comm->forward_comm(this);
-  atomKK->sync(execution_space, TYPE_MASK);
 }
 
 /* ---------------------------------------------------------------------- */

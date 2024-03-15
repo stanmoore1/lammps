@@ -29,7 +29,6 @@ struct TagFixClusterSwitchAttemptSwitch3{};
 struct TagFixClusterSwitchAttemptSwitch4{};
 struct TagFixClusterSwitchCheckArrays{};
 
-template<int PBC_FLAG>
 struct TagFixClusterSwitchPackForwardComm{};
 
 struct TagFixClusterSwitchUnpackForwardComm{};
@@ -101,9 +100,8 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixClusterSwitchCheckArrays, const int&) const;
 
-  template<int PBC_FLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagFixClusterSwitchPackForwardComm<PBC_FLAG>, const int&) const;
+  void operator()(TagFixClusterSwitchPackForwardComm, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixClusterSwitchUnpackForwardComm, const int&) const;
@@ -182,8 +180,6 @@ class FixClusterSwitchKokkos : public FixClusterSwitch, public KokkosBase {
   typename AT::t_int_1d d_exchange_sendlist;
   typename AT::t_int_1d d_copylist;
   typename AT::t_int_1d d_indices;
-
-  X_FLOAT dx,dy,dz;
 };
 
 template <class DeviceType>
