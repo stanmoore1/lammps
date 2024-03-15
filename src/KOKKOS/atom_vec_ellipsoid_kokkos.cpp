@@ -1056,13 +1056,13 @@ struct AtomVecEllipsoidKokkos_PackBorder {
       _buf(i,7) = d_ubuf(ellipID).d;
     } else {
       _buf(i,7) = d_ubuf(ellipID).d;
-      _buf(i,8) = _bonus(_ellipsoid[j]).shape[0];
-      _buf(i,9) = _bonus(_ellipsoid[j]).shape[1];
-      _buf(i,10) = _bonus(_ellipsoid[j]).shape[2];
-      _buf(i,11) = _bonus(_ellipsoid[j]).quat[0];
-      _buf(i,12) = _bonus(_ellipsoid[j]).quat[1];
-      _buf(i,13) = _bonus(_ellipsoid[j]).quat[2];
-      _buf(i,14) = _bonus(_ellipsoid[j]).quat[3];
+      _buf(i,8) = _bonus(j).shape[0];
+      _buf(i,9) = _bonus(j).shape[1];
+      _buf(i,10) = _bonus(j).shape[2];
+      _buf(i,11) = _bonus(j).quat[0];
+      _buf(i,12) = _bonus(j).quat[1];
+      _buf(i,13) = _bonus(j).quat[2];
+      _buf(i,14) = _bonus(j).quat[3];
     }
   }
 };
@@ -1159,7 +1159,7 @@ int AtomVecEllipsoidKokkos::pack_border_kokkos(
     }
   }
   printf("pack_border_kokkos() call end\n");
-
+  printf("P Ellipsoid 10: q[0/1/3/4]: %f %f %f %f\n", k_bonus.h_view(9).quat[0], k_bonus.h_view(9).quat[1], k_bonus.h_view(9).quat[2], k_bonus.h_view(9).quat[3]);
   return n_return;
 }
 
@@ -1385,13 +1385,13 @@ struct AtomVecEllipsoidKokkos_UnpackBorder {
 
     int j = -1;
     int ellipID = static_cast<int> (d_ubuf(_buf(i,7)).i);
-    if (ellipID == 0 ) {
-      _ellipsoid(i+_first) = -1;
-    } else {
+    //if (ellipID == 0 ) {
+    //  _ellipsoid(i+_first) = -1;
+    //} else {
       //j = _nlocal_bonus + _nghost_bonus(0);
-      //j = Kokkos::atomic_fetch_add(&_nghost_bonus(0),1);
-      //j = j+_nlocal_bonus;
-      j = i+_first;
+      j = Kokkos::atomic_fetch_add(&_nghost_bonus(0),1);
+      j = j+_nlocal_bonus;
+      //j = i+_first;
       _bonus(j).shape[0] = _buf(i,8);
       _bonus(j).shape[1] = _buf(i,9); 
       _bonus(j).shape[2] = _buf(i,10);
@@ -1402,7 +1402,7 @@ struct AtomVecEllipsoidKokkos_UnpackBorder {
       _bonus(j).ilocal = i+_first;
       _ellipsoid(i+_first) = j;
       //_nghost_bonus(0) = Kokkos::atomic_fetch_add(&_nghost_bonus(0),1);  
-    }
+    //}
   }
 };
 
@@ -1459,6 +1459,7 @@ void AtomVecEllipsoidKokkos::unpack_border_kokkos(const int &n, const int &first
   //printf("ubord_bot_d_rmass[n-1] = %f\n", d_rmass_pf(n-1));
   //printf("ubord_bot_h_rmass[n-1] %f\n", atomKK->k_rmass.h_view(n-1));
   //printf("unpack_border_kokkos() call end\n");
+  printf("UP Ellipsoid 10: q[0/1/3/4]: %f %f %f %f\n", k_bonus.h_view(9).quat[0], k_bonus.h_view(9).quat[1], k_bonus.h_view(9).quat[2], k_bonus.h_view(9).quat[3]);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1660,15 +1661,26 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       _angmomw(i,1) = _angmom(j,1);
       _angmomw(i,2) = _angmom(j,2);
       //if (BONUS_FLAG==1) {
-        if (_ellipsoid(j) >= 0) {
-        _bonusw(i).shape[0] = _bonus(j).shape[0];
+      if (_ellipsoid(j) < 0) {
+        _ellipsoidw(i) = -1;
+      } else {
+        _ellipsoidw(i) = _ellipsoid(j);
+        int k = _ellipsoid(j);
+        _bonusw(i).shape[0] = _bonus(k).shape[0];
+        _bonusw(i).shape[1] = _bonus(k).shape[1];
+        _bonusw(i).shape[2] = _bonus(k).shape[2];
+        _bonusw(i).quat[0] = _bonus(k).quat[0];
+        _bonusw(i).quat[1] = _bonus(k).quat[1];
+        _bonusw(i).quat[2] = _bonus(k).quat[2];
+        _bonusw(i).quat[3] = _bonus(k).quat[3];
+      }
+        /*_bonusw(i).shape[0] = _bonus(j).shape[0];
         _bonusw(i).shape[1] = _bonus(j).shape[1];
         _bonusw(i).shape[2] = _bonus(j).shape[2];
         _bonusw(i).quat[0] = _bonus(j).quat[0];
         _bonusw(i).quat[1] = _bonus(j).quat[1];
         _bonusw(i).quat[2] = _bonus(j).quat[2];
-        _bonusw(i).quat[3] = _bonus(j).quat[3];
-        }
+        _bonusw(i).quat[3] = _bonus(j).quat[3];*/
       //}
     }
   }
@@ -1905,6 +1917,7 @@ int AtomVecEllipsoidKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, 
 
   if (bonus_flag==1) atomKK->modified(space,ELLIPSOID_MASK);
   //printf("unpack_exchange_kokkos() call end\n");
+  printf("Ellipsoid 10: q[0/1/3/4]: %f %f %f %f\n", k_bonus.h_view(9).quat[0], k_bonus.h_view(9).quat[1], k_bonus.h_view(9).quat[2], k_bonus.h_view(9).quat[3]);
 
   return k_count.h_view(0);
 }
