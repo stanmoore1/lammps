@@ -235,11 +235,11 @@ struct AtomVecEllipsoidKokkos_PackComm {
       }
     }
     _buf(i,3) = _rmass(j);
-    if (_ellipsoid[j] >= 0) {
-      _buf(i,4) = _bonus(_ellipsoid[j]).quat[0];
-      _buf(i,5) = _bonus(_ellipsoid[j]).quat[1];
-      _buf(i,6) = _bonus(_ellipsoid[j]).quat[2];
-      _buf(i,7) = _bonus(_ellipsoid[j]).quat[3];
+    if (_ellipsoid(j) >= 0) {
+      _buf(i,4) = _bonus(_ellipsoid(j)).quat[0];
+      _buf(i,5) = _bonus(_ellipsoid(j)).quat[1];
+      _buf(i,6) = _bonus(_ellipsoid(j)).quat[2];
+      _buf(i,7) = _bonus(_ellipsoid(j)).quat[3];
     }
   }
 };
@@ -872,11 +872,11 @@ struct AtomVecEllipsoidKokkos_UnpackComm {
     _x(i+_first,1) = _buf(i,1);
     _x(i+_first,2) = _buf(i,2);
     _rmass(i+_first) = _buf(i,3);
-    if (_ellipsoid[i+_first] >= 0) {
-      _bonus(_ellipsoid[i+_first]).quat[0] = _buf(i,4);
-      _bonus(_ellipsoid[i+_first]).quat[1] = _buf(i,5);
-      _bonus(_ellipsoid[i+_first]).quat[2] = _buf(i,6);
-      _bonus(_ellipsoid[i+_first]).quat[3] = _buf(i,7);
+    if (_ellipsoid(i+_first) >= 0) {
+      _bonus(_ellipsoid(i+_first)).quat[0] = _buf(i,4);
+      _bonus(_ellipsoid(i+_first)).quat[1] = _buf(i,5);
+      _bonus(_ellipsoid(i+_first)).quat[2] = _buf(i,6);
+      _bonus(_ellipsoid(i+_first)).quat[3] = _buf(i,7);
     }
   }
 };
@@ -1052,10 +1052,9 @@ struct AtomVecEllipsoidKokkos_PackBorder {
     _buf(i,5) = d_ubuf(_mask(j)).d;
     _buf(i,6) = _rmass(j);
     if (_ellipsoid(j) < 0) {
-      ellipID = 0;
-      _buf(i,7) = d_ubuf(ellipID).d;
+      _buf(i,7) = d_ubuf(_ellipsoid(j)).d;
     } else {
-      _buf(i,7) = d_ubuf(ellipID).d;
+      _buf(i,7) = d_ubuf(_ellipsoid(j)).d;
       _buf(i,8) = _bonus(j).shape[0];
       _buf(i,9) = _bonus(j).shape[1];
       _buf(i,10) = _bonus(j).shape[2];
@@ -1158,9 +1157,12 @@ int AtomVecEllipsoidKokkos::pack_border_kokkos(
       }
     }
   }
+  for (int i=0; i<3; i++) {
+  printf("Pb Buf %d: q[0/1/3/4]: %f %f %f %f\n", i, buf.h_view(i,11), \
+  buf.h_view(i,12), buf.h_view(i,13), buf.h_view(i,14));
+  }
   printf("pack_border_kokkos() call end\n");
-  printf("P Ellipsoid 10: q[0/1/3/4]: %f %f %f %f\n", k_bonus.h_view(9).quat[0], k_bonus.h_view(9).quat[1], k_bonus.h_view(9).quat[2], k_bonus.h_view(9).quat[3]);
-  return n_return;
+ return n_return;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1384,14 +1386,14 @@ struct AtomVecEllipsoidKokkos_UnpackBorder {
     _rmass(i+_first) = _buf(i,6);
 
     int j = -1;
-    int ellipID = static_cast<int> (d_ubuf(_buf(i,7)).i);
+    //int ellipID = (int) (d_ubuf(_buf(i,7)).i);
     //if (ellipID == 0 ) {
     //  _ellipsoid(i+_first) = -1;
     //} else {
       //j = _nlocal_bonus + _nghost_bonus(0);
-      j = Kokkos::atomic_fetch_add(&_nghost_bonus(0),1);
-      j = j+_nlocal_bonus;
-      //j = i+_first;
+      //j = Kokkos::atomic_fetch_add(&_nghost_bonus(0),1);
+      //j = j+_nlocal_bonus;
+      j = i+_first;
       _bonus(j).shape[0] = _buf(i,8);
       _bonus(j).shape[1] = _buf(i,9); 
       _bonus(j).shape[2] = _buf(i,10);
@@ -1458,8 +1460,13 @@ void AtomVecEllipsoidKokkos::unpack_border_kokkos(const int &n, const int &first
   //printf("here2\n");
   //printf("ubord_bot_d_rmass[n-1] = %f\n", d_rmass_pf(n-1));
   //printf("ubord_bot_h_rmass[n-1] %f\n", atomKK->k_rmass.h_view(n-1));
-  //printf("unpack_border_kokkos() call end\n");
-  printf("UP Ellipsoid 10: q[0/1/3/4]: %f %f %f %f\n", k_bonus.h_view(9).quat[0], k_bonus.h_view(9).quat[1], k_bonus.h_view(9).quat[2], k_bonus.h_view(9).quat[3]);
+  for (int n=0; n<3; n++) {
+  printf("UPb hEllipsoid %d: q[0/1/3/4]: %f %f %f %f\n", n, k_bonus.h_view(n).quat[0], \
+  k_bonus.h_view(n).quat[1], k_bonus.h_view(n).quat[2], k_bonus.h_view(n).quat[3]);
+  printf("UPb dEllipsoid %d: q[0/1/3/4]: %f %f %f %f\n", n, k_bonus.d_view(n).quat[0], \
+  k_bonus.d_view(n).quat[1], k_bonus.d_view(n).quat[2], k_bonus.d_view(n).quat[3]);
+  }
+  printf("unpack_border_kokkos() call end\n");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1629,19 +1636,20 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
     _buf(mysend,13) = _angmom(i,1);
     _buf(mysend,14) = _angmom(i,2);
     //if (BONUS_FLAG==1) {
-      if (_ellipsoid(i) < 0)
-        _buf(mysend,15) = d_ubuf(0.0).d; 
-      else {
-        _buf(mysend,15) = d_ubuf(1.0).d;
-        int k = _ellipsoid(i);
-        _buf(mysend,16) = _bonus(k).shape[0];
-        _buf(mysend,17) = _bonus(k).shape[1];
-        _buf(mysend,18) = _bonus(k).shape[2];
-        _buf(mysend,19) = _bonus(k).quat[0];
-        _buf(mysend,20) = _bonus(k).quat[1];
-        _buf(mysend,21) = _bonus(k).quat[2];
-        _buf(mysend,22) = _bonus(k).quat[3];
-      }
+     // if (_ellipsoid(i) < 0)
+     //   _buf(mysend,15) = d_ubuf(_ellipsoid(i)).d; 
+      //else {
+        _buf(mysend,15) = d_ubuf(_ellipsoid(i)).d;
+        //int k = _ellipsoid(i);
+        //const int k = i;
+        _buf(mysend,16) = _bonus(i).shape[0];
+        _buf(mysend,17) = _bonus(i).shape[1];
+        _buf(mysend,18) = _bonus(i).shape[2];
+        _buf(mysend,19) = _bonus(i).quat[0];
+        _buf(mysend,20) = _bonus(i).quat[1];
+        _buf(mysend,21) = _bonus(i).quat[2];
+        _buf(mysend,22) = _bonus(i).quat[3];
+     // }
     //}
     const int j = _copylist(mysend);
 
@@ -1661,11 +1669,11 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       _angmomw(i,1) = _angmom(j,1);
       _angmomw(i,2) = _angmom(j,2);
       //if (BONUS_FLAG==1) {
-      if (_ellipsoid(j) < 0) {
-        _ellipsoidw(i) = -1;
-      } else {
-        _ellipsoidw(i) = _ellipsoid(j);
-        int k = _ellipsoid(j);
+      //if (_ellipsoid(j) < 0) {
+      //  _ellipsoidw(i) = -1;
+      //} else {
+        //_ellipsoidw(i) = _ellipsoid(j);
+        /*int k = _ellipsoid(j);
         _bonusw(i).shape[0] = _bonus(k).shape[0];
         _bonusw(i).shape[1] = _bonus(k).shape[1];
         _bonusw(i).shape[2] = _bonus(k).shape[2];
@@ -1673,14 +1681,14 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
         _bonusw(i).quat[1] = _bonus(k).quat[1];
         _bonusw(i).quat[2] = _bonus(k).quat[2];
         _bonusw(i).quat[3] = _bonus(k).quat[3];
-      }
-        /*_bonusw(i).shape[0] = _bonus(j).shape[0];
+      //}*/
+        _bonusw(i).shape[0] = _bonus(j).shape[0];
         _bonusw(i).shape[1] = _bonus(j).shape[1];
         _bonusw(i).shape[2] = _bonus(j).shape[2];
         _bonusw(i).quat[0] = _bonus(j).quat[0];
         _bonusw(i).quat[1] = _bonus(j).quat[1];
         _bonusw(i).quat[2] = _bonus(j).quat[2];
-        _bonusw(i).quat[3] = _bonus(j).quat[3];*/
+        _bonusw(i).quat[3] = _bonus(j).quat[3];
       //}
     }
   }
@@ -1706,8 +1714,7 @@ int AtomVecEllipsoidKokkos::pack_exchange_kokkos(
     k_buf.resize(newsize,k_buf.view<LMPHostType>().extent(1));
   }
   atomKK->sync(space,X_MASK | V_MASK | TAG_MASK | TYPE_MASK |
-             MASK_MASK | IMAGE_MASK | RMASS_MASK | ANGMOM_MASK);
-  if (bonus_flag==1) atomKK->sync(space,ELLIPSOID_MASK);
+             MASK_MASK | IMAGE_MASK | RMASS_MASK | ANGMOM_MASK | ELLIPSOID_MASK);
 
   if (space == Host) {
     if (bonus_flag==0) {
@@ -1725,6 +1732,10 @@ int AtomVecEllipsoidKokkos::pack_exchange_kokkos(
       AtomVecEllipsoidKokkos_PackExchangeFunctor<LMPDeviceType,1> f(atomKK,k_bonus,k_buf,k_sendlist,k_copylist);
       Kokkos::parallel_for(nsend,f);
     }
+  }
+  for (int i=0; i<3; i++) {
+  printf("Pex Buf %d: q[0/1/3/4]: %f %f %f %f\n", i, k_buf.h_view(i,19), \
+  k_buf.h_view(i,20), k_buf.h_view(i,21), k_buf.h_view(i,22));
   }
   printf("pack_exchange_kokkos() call end\n");
   return nsend*size_exchange;
@@ -1761,7 +1772,7 @@ struct AtomVecEllipsoidKokkos_UnpackExchangeFunctor {
   AtomVecEllipsoidKokkos_UnpackExchangeFunctor(
     const AtomKokkos* atom,
     AtomVecEllipsoidKokkos* avecEllipsoidKK,
-    typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
+    typename DEllipsoidBonusAT::tdual_bonus_1d bonus,
     const typename AT::tdual_xfloat_2d buf,
     typename AT::tdual_int_1d nlocal,
     typename AT::tdual_int_1d indices,
@@ -1815,24 +1826,25 @@ struct AtomVecEllipsoidKokkos_UnpackExchangeFunctor {
       _angmom(i,1) = _buf(myrecv,13);
       _angmom(i,2) = _buf(myrecv,14);
       //if (BONUS_FLAG==1) {
-        if (d_ubuf(_buf(myrecv,15)).i == 0) // Unsure this is correct - is "ubuf(buf[m++]).i;" on CPU version
-          _ellipsoid(i) = -1; 
-        else {
+        //if ( (int) d_ubuf(_buf(myrecv,15)).i < 0 ) // Unsure this is correct - is "ubuf(buf[m++]).i;" on CPU version
+        //  _ellipsoid(i) = -1; 
+        //else {
           //if (_nlocal_bonus==_nmax_bonus) _avecEllipsoidKK->grow_bonus();
           //k = _nlocal_bonus(0);            // k correct here?
           //k = Kokkos::atomic_fetch_add(&_nlocal_bonus(0),1);
-          k = i;
-          _bonus(k).shape[0] = _buf(myrecv,16);
-          _bonus(k).shape[1] = _buf(myrecv,17);
-          _bonus(k).shape[2] = _buf(myrecv,18);
-          _bonus(k).quat[0] = _buf(myrecv,19);
-          _bonus(k).quat[1] = _buf(myrecv,20);
-          _bonus(k).quat[2] = _buf(myrecv,21);
-          _bonus(k).quat[3] = _buf(myrecv,22);
-          _bonus(k).ilocal = i;             // Is _nlocal (i) the same as ilocal from CPU version?
-          _ellipsoid(i) = k;//Kokkos::atomic_fetch_add(&_nlocal_bonus(0),1);
+          int dummy = (int) d_ubuf(_buf(myrecv,15)).i;
+          //k = i;
+          _bonus(i).shape[0] = _buf(myrecv,16);
+          _bonus(i).shape[1] = _buf(myrecv,17);
+          _bonus(i).shape[2] = _buf(myrecv,18);
+          _bonus(i).quat[0] = _buf(myrecv,19);
+          _bonus(i).quat[1] = _buf(myrecv,20);
+          _bonus(i).quat[2] = _buf(myrecv,21);
+          _bonus(i).quat[3] = _buf(myrecv,22);
+          _bonus(i).ilocal = i;             // Is _nlocal (i) the same as ilocal from CPU version?
+          //_ellipsoid(i) = k;//Kokkos::atomic_fetch_add(&_nlocal_bonus(0),1);
           //k = Kokkos::atomic_fetch_add(&_nlocal_bonus(0),1);  // i or k?
-        }
+        //}
       //}
     }
     if (OUTPUT_INDICES)
@@ -1913,18 +1925,19 @@ int AtomVecEllipsoidKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, 
   }
 
   atomKK->modified(space,X_MASK | V_MASK | TAG_MASK | TYPE_MASK |
-                 MASK_MASK | IMAGE_MASK | RMASS_MASK | ANGMOM_MASK);
+                 MASK_MASK | IMAGE_MASK | RMASS_MASK | ANGMOM_MASK | ELLIPSOID_MASK);
 
-  if (bonus_flag==1) atomKK->modified(space,ELLIPSOID_MASK);
-  //printf("unpack_exchange_kokkos() call end\n");
-  printf("Ellipsoid 10: q[0/1/3/4]: %f %f %f %f\n", k_bonus.h_view(9).quat[0], k_bonus.h_view(9).quat[1], k_bonus.h_view(9).quat[2], k_bonus.h_view(9).quat[3]);
-
+  for (int n=0; n<3; n++) {
+  printf("UPex Ellipsoid %d: q[0/1/3/4]: %f %f %f %f\n", n, k_bonus.h_view(n).quat[0], \
+  k_bonus.h_view(n).quat[1], k_bonus.h_view(n).quat[2], k_bonus.h_view(n).quat[3]);
+  }
+  printf("unpack_exchange_kokkos() call end\n");
   return k_count.h_view(0);
 }
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+/*template<class DeviceType>
 struct AtomVecEllipsoidKokkos_PackCommBonus {
   typedef DeviceType device_type;
 
@@ -1962,7 +1975,7 @@ struct AtomVecEllipsoidKokkos_PackCommBonus {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecEllipsoidKokkos::pack_comm_bonus_kokkos(int n, DAT::tdual_int_2d k_sendlist,
+/*int AtomVecEllipsoidKokkos::pack_comm_bonus_kokkos(int n, DAT::tdual_int_2d k_sendlist,
                              DAT::tdual_xfloat_2d buf,int iswap, 
                              ExecutionSpace space)
 {
@@ -1979,11 +1992,11 @@ int AtomVecEllipsoidKokkos::pack_comm_bonus_kokkos(int n, DAT::tdual_int_2d k_se
     }
     //printf("boncomm_bot_rmass[n-1] %f\n", atomKK->k_rmass.h_view(n-1));
     return n*size_forward;
-}
+}*/
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+/*template<class DeviceType>
 struct AtomVecEllipsoidKokkos_UnpackCommBonus {
   typedef DeviceType device_type;
 
@@ -2022,7 +2035,7 @@ struct AtomVecEllipsoidKokkos_UnpackCommBonus {
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &nfirst,
+/*void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &nfirst,
                              const DAT::tdual_xfloat_2d &buf,
                              ExecutionSpace space)
 {
@@ -2037,11 +2050,11 @@ void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &n
     Kokkos::parallel_for(n,f);
   }
   atomKK->modified(space,ELLIPSOID_MASK);
-}
+} */
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+/*template<class DeviceType>
 struct AtomVecEllipsoidKokkos_PackBorderBonus {
   typedef DeviceType device_type;
 
@@ -2099,16 +2112,16 @@ struct AtomVecEllipsoidKokkos_PackBorderBonus {
       //_bonus[_ellipsoid[j]].ilocal = j; // TESTING ONLY HERE!
     }
   }
-};
+};*/
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecEllipsoidKokkos::pack_border_bonus_kokkos(int &n, 
+/*int AtomVecEllipsoidKokkos::pack_border_bonus_kokkos(int &n, 
                              DAT::tdual_int_2d &k_sendlist,
                              DAT::tdual_xfloat_2d &buf,int &iswap,
                              ExecutionSpace space)                     
 {
-  /*atomKK->sync(space,ELLIPSOID_MASK);
+  atomKK->sync(space,ELLIPSOID_MASK);
   auto d_bonus_top = Kokkos::create_mirror_view(k_bonus.d_view);
   Kokkos::deep_copy(d_bonus_top, k_bonus.d_view);
   //printf("bonbord_top_d_quat1[n-1] = %f\n", d_bonus_top(n-1).quat[1]);
@@ -2143,15 +2156,15 @@ printf("bonbord_bot_d_buf_rmass[n-1] %f\n", d_buf_7eelipID(n-1,6));
 printf("bonbord_bot_d_buf_quat0[n-1] %f\n", d_buf_7eelipID(n-1,11));
 printf("bonbord_bot_h_buf_quat0[n-1] %f\n", buf.h_view(n-1,11));
 printf("bonbord_bot_d_buf_7ellipID[n-1] %f\n", d_buf_7eelipID(n-1,7));
-printf("bonbord_bot_h_buf_7ellipID[n-1] %f\n", buf.h_view(n-1,7)); */
+printf("bonbord_bot_h_buf_7ellipID[n-1] %f\n", buf.h_view(n-1,7));
 
   int bonus_buf_size = 0;
   return bonus_buf_size;
-}
+}*/
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+/*template<class DeviceType>
 struct AtomVecEllipsoidKokkos_UnpackBorderBonus {
   typedef DeviceType device_type;
   typename AtomVecEllipsoidKokkosBonusArray
@@ -2200,11 +2213,11 @@ struct AtomVecEllipsoidKokkos_UnpackBorderBonus {
       _nghost_bonus++;
     }
   }
-};
+};*/
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n, 
+/*void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n, 
                                const int & nfirst,
                                const DAT::tdual_xfloat_2d & buf,
                                ExecutionSpace space)
@@ -2224,7 +2237,7 @@ void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n,
       this->nmax_bonus);
     Kokkos::parallel_for(n,f);
   }
-  atomKK->modified(space,ELLIPSOID_MASK);
+  atomKK->modified(space,ELLIPSOID_MASK);*/
   // Debug Prints
   //auto d_ellip_pf = Kokkos::create_mirror_view(k_bonus.d_view);
   //printf("here1\n");
@@ -2232,7 +2245,7 @@ void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n,
   //printf("here2\n");
   //printf("ubonbord_bot_d_ellip_iloc[n-1] = %d\n", d_ellip_pf(n-1).ilocal);
   //printf("ubonbord_bot_h_ellip[n-1] %d\n", atomKK->k_ellipsoid.h_view(n-1));
-}
+//}
 
 /* ---------------------------------------------------------------------- */
 
@@ -2279,7 +2292,7 @@ void AtomVecEllipsoidKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & TORQUE_MASK) atomKK->k_torque.sync<LMPDeviceType>();
     if (mask & ELLIPSOID_MASK) {
       atomKK->k_ellipsoid.sync<LMPDeviceType>();
-      if (bonus_flag==1) k_bonus.sync<LMPDeviceType>();
+      k_bonus.sync<LMPDeviceType>();
     }
   } else {
     if (mask & X_MASK) atomKK->k_x.sync<LMPHostType>();
@@ -2294,7 +2307,7 @@ void AtomVecEllipsoidKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & TORQUE_MASK) atomKK->k_torque.sync<LMPHostType>();
     if (mask & ELLIPSOID_MASK) {
       atomKK->k_ellipsoid.sync<LMPHostType>();
-      if (bonus_flag==1) k_bonus.sync<LMPHostType>();
+      k_bonus.sync<LMPHostType>();
     }
   }
 }
@@ -2373,7 +2386,7 @@ void AtomVecEllipsoidKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & TORQUE_MASK) atomKK->k_torque.modify<LMPDeviceType>();
     if (mask & ELLIPSOID_MASK) {
       atomKK->k_ellipsoid.modify<LMPDeviceType>();
-      if (bonus_flag==1) k_bonus.modify<LMPDeviceType>();
+      k_bonus.modify<LMPDeviceType>();
     }
   } else {
     if (mask & X_MASK) atomKK->k_x.modify<LMPHostType>();
@@ -2388,7 +2401,7 @@ void AtomVecEllipsoidKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & TORQUE_MASK) atomKK->k_torque.modify<LMPHostType>();
     if (mask & ELLIPSOID_MASK) {
       atomKK->k_ellipsoid.modify<LMPHostType>();
-      if (bonus_flag==1) k_bonus.modify<LMPHostType>();
+      k_bonus.modify<LMPHostType>();
     }
   }
 }
