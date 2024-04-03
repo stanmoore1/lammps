@@ -1582,15 +1582,15 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
   typename AtomVecEllipsoidKokkosBonusArray
           <DeviceType>::t_bonus_1d _bonusw;
   typename AT::t_int_1d _ellipsoidw;
-  typename AT::t_int_1d _nlocal;
+  //typename AT::t_int_1d _nlocal_bonus;
   
   AtomVecEllipsoidKokkos_PackExchangeFunctor(
     const AtomKokkos* atom,
     const typename DEllipsoidBonusAT::tdual_bonus_1d bonus,
     const typename AT::tdual_xfloat_2d buf,
     typename AT::tdual_int_1d sendlist,
-    typename AT::tdual_int_1d copylist,
-    typename AT::tdual_int_1d nlocal):
+    typename AT::tdual_int_1d copylist):
+    //typename AT::tdual_int_1d nlocal_bonus):
     _size_exchange(atom->avecKK->size_exchange),
     _x(atom->k_x.view<DeviceType>()),
     _v(atom->k_v.view<DeviceType>()),
@@ -1614,8 +1614,8 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
     _bonus(bonus.view<DeviceType>()),
     _ellipsoid(atom->k_ellipsoid.view<DeviceType>()),
     _bonusw(bonus.view<DeviceType>()),
-    _ellipsoidw(atom->k_ellipsoid.view<DeviceType>()),
-    _nlocal(nlocal.template view<DeviceType>())
+    _ellipsoidw(atom->k_ellipsoid.view<DeviceType>())
+    //_nlocal_bonus(nlocal_bonus.template view<DeviceType>())
      {
     const int maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/_size_exchange;
 
@@ -1646,15 +1646,15 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
      //   _buf(mysend,15) = d_ubuf(_ellipsoid(i)).d; 
       //else {
         _buf(mysend,15) = d_ubuf(_ellipsoid(i)).d;
-        //int k = _ellipsoid(i);
+        const int k = _ellipsoid(i);
         //const int k = i;
-        _buf(mysend,16) = _bonus(i).shape[0];
-        _buf(mysend,17) = _bonus(i).shape[1];
-        _buf(mysend,18) = _bonus(i).shape[2];
-        _buf(mysend,19) = _bonus(i).quat[0];
-        _buf(mysend,20) = _bonus(i).quat[1];
-        _buf(mysend,21) = _bonus(i).quat[2];
-        _buf(mysend,22) = _bonus(i).quat[3];
+        _buf(mysend,16) = _bonus(k).shape[0];
+        _buf(mysend,17) = _bonus(k).shape[1];
+        _buf(mysend,18) = _bonus(k).shape[2];
+        _buf(mysend,19) = _bonus(k).quat[0];
+        _buf(mysend,20) = _bonus(k).quat[1];
+        _buf(mysend,21) = _bonus(k).quat[2];
+        _buf(mysend,22) = _bonus(k).quat[3];
      // }
     //}
     printf("/------------------------------------------------------------------/\n");
@@ -1683,6 +1683,10 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       _angmomw(i,0) = _angmom(j,0);
       _angmomw(i,1) = _angmom(j,1);
       _angmomw(i,2) = _angmom(j,2);
+      //--------/
+      _ellipsoidw(_bonus[j].ilocal) = _ellipsoid(j);
+      _bonusw(i) = _bonus(j);
+      //--------/
       //if (BONUS_FLAG==1) {
       //if (_ellipsoid(j) < 0) {
       //  _ellipsoidw(i) = -1;
@@ -1699,15 +1703,16 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       //}*/
         //int k = Kokkos::atomic_add_fetch(&_nlocal(0),-1);
         //_ellipsoidw(i) = k;
-        _bonusw(i).shape[0] = _bonus(j).shape[0];
+        /*_bonusw(i).shape[0] = _bonus(j).shape[0];
         _bonusw(i).shape[1] = _bonus(j).shape[1];
         _bonusw(i).shape[2] = _bonus(j).shape[2];
         _bonusw(i).quat[0] = _bonus(j).quat[0];
         _bonusw(i).quat[1] = _bonus(j).quat[1];
         _bonusw(i).quat[2] = _bonus(j).quat[2];
         _bonusw(i).quat[3] = _bonus(j).quat[3];
-        //_bonusw(i).ilocal = _bonus(j).ilocal;
-        //_bonusw(_ellipsoid(j)).ilocal = i;
+        _bonusw(i).ilocal = _bonus(j).ilocal;*/
+
+        //_bonusw(_ellipsoidw(j)).ilocal = i;
         //_ellipsoidw(i) = _ellipsoid(j);
       //}
       printf("/------------------------/\n");
