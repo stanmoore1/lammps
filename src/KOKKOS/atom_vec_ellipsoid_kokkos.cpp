@@ -1582,15 +1582,15 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
   typename AtomVecEllipsoidKokkosBonusArray
           <DeviceType>::t_bonus_1d _bonusw;
   typename AT::t_int_1d _ellipsoidw;
-  //typename AT::t_int_1d _nlocal_bonus;
+  typename AT::t_int_1d _nlocal_bonus;
   
   AtomVecEllipsoidKokkos_PackExchangeFunctor(
     const AtomKokkos* atom,
     const typename DEllipsoidBonusAT::tdual_bonus_1d bonus,
     const typename AT::tdual_xfloat_2d buf,
     typename AT::tdual_int_1d sendlist,
-    typename AT::tdual_int_1d copylist):
-    //typename AT::tdual_int_1d nlocal_bonus):
+    typename AT::tdual_int_1d copylist,
+    typename AT::tdual_int_1d nlocal_bonus):
     _size_exchange(atom->avecKK->size_exchange),
     _x(atom->k_x.view<DeviceType>()),
     _v(atom->k_v.view<DeviceType>()),
@@ -1614,8 +1614,8 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
     _bonus(bonus.view<DeviceType>()),
     _ellipsoid(atom->k_ellipsoid.view<DeviceType>()),
     _bonusw(bonus.view<DeviceType>()),
-    _ellipsoidw(atom->k_ellipsoid.view<DeviceType>())
-    //_nlocal_bonus(nlocal_bonus.template view<DeviceType>())
+    _ellipsoidw(atom->k_ellipsoid.view<DeviceType>()),
+    _nlocal_bonus(nlocal_bonus.template view<DeviceType>())
      {
     const int maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/_size_exchange;
 
@@ -1684,8 +1684,25 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       _angmomw(i,1) = _angmom(j,1);
       _angmomw(i,2) = _angmom(j,2);
       //--------/
-      _ellipsoidw(_bonus[j].ilocal) = _ellipsoid(j);
-      _bonusw(i) = _bonus(j);
+      //int n = Kokkos::atomic_add_fetch(&_nlocal_bonus(0),-1);
+      //printf("n = %d, _bonus(n).ilocal = %d\n", n, _bonus(n).ilocal);
+      //_ellipsoidw(_bonus(n).ilocal) = _ellipsoid(i);
+      //_bonusw(i) = _bonus(n);
+
+            // if I has bonus data, then delete it
+
+      if (_ellipsoid[i] >= 0) {
+        _ellipsoidw[_bonus[j].ilocal] = _ellipsoid[i];
+        _bonusw[_ellipsoid[i]] = _bonus[j];
+        //nlocal_bonus--;
+      }
+
+      // if atom J has bonus data, reset J's bonus.ilocal to loc I
+      // do NOT do this if self-copy (I=J) since J's bonus data is already deleted
+
+      if (_ellipsoid[j] >= 0 && i != j) _bonusw[_ellipsoid[j]].ilocal = i;
+      _ellipsoidw[i] = _ellipsoid[j];
+
       //--------/
       //if (BONUS_FLAG==1) {
       //if (_ellipsoid(j) < 0) {
@@ -1752,25 +1769,26 @@ int AtomVecEllipsoidKokkos::pack_exchange_kokkos(
              MASK_MASK | IMAGE_MASK | RMASS_MASK | ANGMOM_MASK | ELLIPSOID_MASK);
 
   if (space == Host) {
+    k_count_bonus.h_view(0) = atom->nlocal;
     if (bonus_flag==0) {
-      AtomVecEllipsoidKokkos_PackExchangeFunctor<LMPHostType,0> f(atomKK,k_bonus,k_buf,k_sendlist,k_copylist);
+      AtomVecEllipsoidKokkos_PackExchangeFunctor<LMPHostType,0> f(atomKK,k_bonus,k_buf,k_sendlist,k_copylist,k_count_bonus);
       Kokkos::parallel_for(nsend,f);
     } else {
-      AtomVecEllipsoidKokkos_PackExchangeFunctor<LMPHostType,1> f(atomKK,k_bonus,k_buf,k_sendlist,k_copylist);
+      AtomVecEllipsoidKokkos_PackExchangeFunctor<LMPHostType,1> f(atomKK,k_bonus,k_buf,k_sendlist,k_copylist,k_count_bonus);
       Kokkos::parallel_for(nsend,f);
     }
   } else {
     if (bonus_flag==0) {
-      AtomVecEllipsoidKokkos_PackExchangeFunctor<LMPDeviceType,0> f(atomKK,k_bonus,k_buf,k_sendlist,k_copylist);
+      AtomVecEllipsoidKokkos_PackExchangeFunctor<LMPDeviceType,0> f(atomKK,k_bonus,k_buf,k_sendlist,k_copylist,k_count_bonus);
       Kokkos::parallel_for(nsend,f);
     } else {
-      AtomVecEllipsoidKokkos_PackExchangeFunctor<LMPDeviceType,1> f(atomKK,k_bonus,k_buf,k_sendlist,k_copylist);
+      AtomVecEllipsoidKokkos_PackExchangeFunctor<LMPDeviceType,1> f(atomKK,k_bonus,k_buf,k_sendlist,k_copylist,k_count_bonus);
       Kokkos::parallel_for(nsend,f);
     }
   }
   for (int i=0; i<nsend; i++) {
-  printf("Pex Buf %d (Proc %d): d_ubuf, q[0/1/3/4]: %f %f %f %f %f\n", i, comm->me, k_buf.h_view(i,15), k_buf.h_view(i,19), \
-  k_buf.h_view(i,20), k_buf.h_view(i,21), k_buf.h_view(i,22));
+      printf("Pex Buf %d (Proc %d): d_ubuf, q[0/1/3/4]: %f %f %f %f %f\n", i, comm->me, k_buf.h_view(i,15), k_buf.h_view(i,19), \
+      k_buf.h_view(i,20), k_buf.h_view(i,21), k_buf.h_view(i,22));
   }
   printf("pack_exchange_kokkos() call end\n");
   return nsend*size_exchange;
