@@ -68,6 +68,8 @@ action atom_vec_dipole_kokkos.cpp atom_vec_dipole.cpp
 action atom_vec_dipole_kokkos.h atom_vec_dipole.h
 action atom_vec_dpd_kokkos.cpp atom_vec_dpd.cpp
 action atom_vec_dpd_kokkos.h atom_vec_dpd.h
+action atom_vec_ellipsoid_kokkos.cpp atom_vec_ellipsoid.cpp
+action atom_vec_ellipsoid_kokkos.h atom_vec_ellipsoid.h
 action atom_vec_full_kokkos.cpp atom_vec_full.cpp
 action atom_vec_full_kokkos.h atom_vec_full.h
 action atom_vec_hybrid_kokkos.cpp
@@ -86,6 +88,8 @@ action bond_fene_kokkos.cpp bond_fene.cpp
 action bond_fene_kokkos.h bond_fene.h
 action bond_harmonic_kokkos.cpp bond_harmonic.cpp
 action bond_harmonic_kokkos.h bond_harmonic.h
+action bond_oxdna_fene_kokkos.cpp bond_oxdna_fene.cpp
+action bond_oxdna_fene_kokkos.h bond_oxdna_fene.h
 action comm_kokkos.cpp
 action comm_kokkos.h
 action comm_tiled_kokkos.cpp

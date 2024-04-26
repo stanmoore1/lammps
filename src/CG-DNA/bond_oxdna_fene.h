@@ -42,7 +42,7 @@ class BondOxdnaFene : public Bond {
   double *k, *Delta, *r0;                       // FENE
   double **nx_xtrct, **ny_xtrct, **nz_xtrct;    // per-atom arrays for local unit vectors
 
-  void allocate();
+  virtual void allocate();
   void ev_tally_xyz(int, int, int, int, double, double, double, double, double, double, double);
 };
 
