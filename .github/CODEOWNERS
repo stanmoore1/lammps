@@ -37,7 +37,7 @@ src/MESONT/*          @iafoss
 src/ML-HDNNP/*        @singraber
 src/ML-IAP/*          @athomps
 src/ML-PACE/*         @yury-lysogorskiy
-src/ML-POD/*          @exapde @rohskopf
+src/ML-POD/*          @exapde
 src/MOFFF/*           @hheenen
 src/MOLFILE/*         @akohlmey
 src/NETCDF/*          @pastewka
@@ -83,7 +83,7 @@ src/bond.*                @sjplimp
 src/comm*.*               @sjplimp
 src/compute.*             @sjplimp
 src/dihedral.*            @sjplimp
-src/domain.*              @sjplimp
+src/domain.*              @sjplimp @stanmoore1
 src/dump*.*               @sjplimp
 src/error.*               @sjplimp
 src/finish.*              @sjplimp
