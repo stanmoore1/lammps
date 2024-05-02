@@ -27,7 +27,7 @@ BondStyle(oxdna/fene/kk/host,BondOxdnaFENEKokkos<LMPHostType>);
 
 namespace LAMMPS_NS {
 
-template<int NEWTON_BOND, int EVFLAG>
+template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
 struct TagBondOxdnaFENECompute{};
 
 template<class DeviceType>
@@ -45,21 +45,28 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   void coeff(int, char **) override;
   void read_restart(FILE *) override;
 
-  template<int NEWTON_BOND, int EVFLAG>
-  KOKKOS_INLINE_FUNCTION
-  void operator()(TagBondOxdnaFENECompute<NEWTON_BOND,EVFLAG>, const int&, EV_FLOAT&) const;
+  //static const int OXDNA = 1;
+  //static const int OXDNA2 = 2;
+  //static const int OXRNA2 = 4;
 
-  template<int NEWTON_BOND, int EVFLAG>
+  template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagBondOxdnaFENECompute<NEWTON_BOND,EVFLAG>, const int&) const;
+  void operator()(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, const int&, EV_FLOAT&) const;
 
+  template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j, const int &nlocal, const int &newton_bond,\
+  void operator()(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, const int&) const;
+
+   KOKKOS_INLINE_FUNCTION
+   void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j, const int &nlocal, const int &newton_bond,\
       const F_FLOAT &ebond, const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz,\
       const F_FLOAT &delx, const F_FLOAT &dely, const F_FLOAT &delz) const;
 
  protected:
-
+  
+  int oxdnaflag;
+  enum EnabledOXDNAFlag{OXDNA=1,OXDNA2=2,OXRNA2=4};
+  
   class NeighborKokkos *neighborKK;
 
   typename ArrayTypes<DeviceType>::t_x_array_randomread x;

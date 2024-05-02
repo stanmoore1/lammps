@@ -40,6 +40,8 @@ BondOxdnaFENEKokkos<DeviceType>::BondOxdnaFENEKokkos(LAMMPS *lmp) : BondOxdnaFen
   datamask_read = X_MASK | F_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | ENERGY_MASK | VIRIAL_MASK;
 
+  oxdnaflag = EnabledOXDNAFlag::OXDNA;
+
   d_flag = typename AT::t_int_scalar("bond:flag");
   h_flag = HAT::t_int_scalar("bond:flag_mirror");
 }
@@ -122,15 +124,39 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   
   if (evflag) {
     if (newton_bond) {
-      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<1,1> >(0,nbondlist),*this,ev);
+      if (oxdnaflag == OXDNA) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<OXDNA,1,1> >(0,nbondlist),*this,ev);
+      } else if (oxdnaflag == OXDNA2) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<OXDNA2,1,1> >(0,nbondlist),*this,ev);
+      } else if (oxdnaflag == OXRNA2) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<OXRNA2,1,1> >(0,nbondlist),*this,ev);
+      }
     } else {
-      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<0,1> >(0,nbondlist),*this,ev);
+      if (oxdnaflag == OXDNA) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<OXDNA,0,1> >(0,nbondlist),*this,ev);
+      } else if (oxdnaflag == OXDNA2) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<OXDNA2,0,1> >(0,nbondlist),*this,ev);
+      } else if (oxdnaflag == OXRNA2) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<OXRNA2,0,1> >(0,nbondlist),*this,ev);
+      }
     }
   } else {
     if (newton_bond) {
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<1,0> >(0,nbondlist),*this);
+      if (oxdnaflag == OXDNA) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<OXDNA,1,0> >(0,nbondlist),*this,ev);
+      } else if (oxdnaflag == OXDNA2) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<OXDNA2,1,0> >(0,nbondlist),*this,ev);
+      } else if (oxdnaflag == OXRNA2) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<OXRNA2,1,0> >(0,nbondlist),*this,ev);
+      }
     } else {
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<0,0> >(0,nbondlist),*this);
+      if (oxdnaflag == OXDNA) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<OXDNA,0,0> >(0,nbondlist),*this,ev);
+      } else if (oxdnaflag == OXDNA2) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<OXDNA2,0,0> >(0,nbondlist),*this,ev);
+      } else if (oxdnaflag == OXRNA2) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<OXRNA2,0,0> >(0,nbondlist),*this,ev);
+      }
     }
   }
   
@@ -162,9 +188,9 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 }
 
 template<class DeviceType>
-template<int NEWTON_BOND, int EVFLAG>
+template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<NEWTON_BOND,EVFLAG>, \
+void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, \
   const int &in, EV_FLOAT& ev) const {
   
   // The f array is atomic
@@ -221,26 +247,41 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<NEWTON_
   bz[1] = 0.0;
   bz[2] = 0.0;
 
-  // vector COM-backbone site a and b
-  ra_cs[0] = 0.0;
-  ra_cs[1] = 0.0;
-  ra_cs[2] = 0.0;
-  rb_cs[0] = 0.0;
-  rb_cs[1] = 0.0;
-  rb_cs[2] = 0.0;
-  //compute_interaction_sites(ax.data(),ay.data(),ax.data(),ra_cs.data());
-  //compute_interaction_sites(bx.data(),by.data(),bz.data(),rb_cs.data());
+  // vector COM-backbone site a and b - "compute_interaction_sites"
+  if (OXDNAFLAG==OXDNA) {
+    constexpr F_FLOAT d_cs = -0.4;
+    ra_cs[0] = d_cs * ax[0];
+    ra_cs[1] = d_cs * ax[1];
+    ra_cs[2] = d_cs * ax[2];
+    rb_cs[0] = d_cs * bx[0];
+    rb_cs[1] = d_cs * bx[1];
+    rb_cs[2] = d_cs * bx[2];
+  } else if (OXDNAFLAG==OXDNA2) {
+    constexpr F_FLOAT d_cs_x = -0.34;
+    constexpr F_FLOAT d_cs_y = +0.3408;
+    ra_cs[0] = d_cs_x * ax[0] + d_cs_y * ay[0];
+    ra_cs[1] = d_cs_x * ax[1] + d_cs_y * ay[1];
+    ra_cs[2] = d_cs_x * ax[2] + d_cs_y * ay[2];
+    rb_cs[0] = d_cs_x * bx[0] + d_cs_y * by[0];
+    rb_cs[1] = d_cs_x * bx[1] + d_cs_y * by[1];
+    rb_cs[2] = d_cs_x * bx[2] + d_cs_y * by[2];
+  } else if (OXDNAFLAG==OXRNA2) {
+    constexpr F_FLOAT d_cs_x = -0.4;
+    constexpr F_FLOAT d_cs_z = +0.2;
+    ra_cs[0] = d_cs_x * ax[0] + d_cs_z * az[0];
+    ra_cs[1] = d_cs_x * ax[1] + d_cs_z * az[1];
+    ra_cs[2] = d_cs_x * ax[2] + d_cs_z * az[2];
+    rb_cs[0] = d_cs_x * bx[0] + d_cs_z * bz[0];
+    rb_cs[1] = d_cs_x * bx[1] + d_cs_z * bz[1];
+    rb_cs[2] = d_cs_x * bx[2] + d_cs_z * bz[2];
+  }
 
   // vector backbone site b to a
   delr[0] = x(a,0) + ra_cs[0] - x(b,0) - rb_cs[0];
   delr[1] = x(a,1) + ra_cs[1] - x(b,1) - rb_cs[1];
   delr[2] = x(a,2) + ra_cs[2] - x(b,2) - rb_cs[2];
   const F_FLOAT rsq = delr[0]*delr[0] + delr[1]*delr[1] + delr[2]*delr[2];
-  const F_FLOAT r = sqrt(rsq); //sqrt ok for Kokkos??
-
-  //const F_FLOAT r0 = d_r0[type];
-  //const F_FLOAT k = d_k[type];
-  //const F_FLOAT Delta = d_Delta[type];
+  const F_FLOAT r = sqrt(rsq);
 
   const F_FLOAT rr0 = r - d_r0[type];
   const F_FLOAT rr0sq = rr0 * rr0;
@@ -259,15 +300,6 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<NEWTON_
   delf[0] = delr[0] * fbond;
   delf[1] = delr[1] * fbond;
   delf[2] = delr[2] * fbond;
-  /*// force from LJ term
-
-  F_FLOAT sr6 = 0.0;
-  F_FLOAT sigma2 = 1;
-  if (rsq < sigma2) {
-    const F_FLOAT sr2 = sigma2/rsq;
-    sr6 = sr2*sr2*sr2;
-    fbond += 48.0*Delta*sr6*(sr6-0.5)/rsq;
-  }*/
 
   // energy
 
@@ -306,11 +338,11 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<NEWTON_
 }
 
 template<class DeviceType>
-template<int NEWTON_BOND, int EVFLAG>
+template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<NEWTON_BOND,EVFLAG>, const int &in) const {
+void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, const int &in) const {
   EV_FLOAT ev;
-  this->template operator()<NEWTON_BOND,EVFLAG>(TagBondOxdnaFENECompute<NEWTON_BOND,EVFLAG>(), in, ev);
+  this->template operator()<OXDNAFLAG,NEWTON_BOND,EVFLAG>(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>(), in, ev);
 }
 
 /* ---------------------------------------------------------------------- */
