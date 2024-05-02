@@ -165,7 +165,7 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   copymode = 1;
 
-  EV_FLOAT ev = pair_compute<PairOxdnaExcvKokkos<DeviceType>,void >(this,(NeighListKokkos<DeviceType>*)list);
+  /*EV_FLOAT ev = pair_compute<PairOxdnaExcvKokkos<DeviceType>,void >(this,(NeighListKokkos<DeviceType>*)list);
 
   if (eflag_global) eng_vdwl += ev.evdwl;
   if (vflag_global) {
@@ -187,7 +187,7 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     k_vatom.template sync<LMPHostType>();
   }
 
-  if (vflag_fdotr) pair_virial_fdotr_compute(this);
+  if (vflag_fdotr) pair_virial_fdotr_compute(this);*/
 
   copymode = 0;
 }
