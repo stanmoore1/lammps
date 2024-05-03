@@ -38,6 +38,8 @@ PairOxdnaExcvKokkos<DeviceType>::PairOxdnaExcvKokkos(LAMMPS *lmp) : PairOxdnaExc
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read = X_MASK | F_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | ENERGY_MASK | VIRIAL_MASK;
+
+  oxdnaflag = EnabledOXDNAFlag::OXDNA;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -113,7 +115,7 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     d_vatom = k_vatom.view<DeviceType>();
   }
 
-  atomKK->sync(execution_space,datamask_read);
+  atomKK->sync(execution_space,datamask_read); //need or not need? same for fene
 
   k_epsilon_ss.template sync<DeviceType>();
   k_sigma_ss.template sync<DeviceType>();
@@ -146,7 +148,7 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   k_cutsq_bb_c.template sync<DeviceType>();
 
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
-  else atomKK->modified(execution_space,F_MASK);
+  else atomKK->modified(execution_space,F_MASK); //need or not need? same for fene
 
   x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();
@@ -155,17 +157,28 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   nlocal = atom->nlocal;
   newton_pair = force->newton_pair;
-  newton_pair = force->newton_pair;
   special_lj[0] = force->special_lj[0];
   special_lj[1] = force->special_lj[1];
   special_lj[2] = force->special_lj[2];
   special_lj[3] = force->special_lj[3];
 
-    // loop over neighbors of my atoms
+  // get the neighbor list and neighbors used in operator()
+
+  NeighListKokkos<DeviceType>* k_list = static_cast<NeighListKokkos<DeviceType>*>(list);
+  d_neighbors = k_list->d_neighbors;
+  anum = list->inum;
+  d_alist = k_list->d_ilist;
+  d_numneigh = k_list->d_numneigh;
+  firstneigh = list->firstneigh;
 
   copymode = 1;
 
-  /*EV_FLOAT ev = pair_compute<PairOxdnaExcvKokkos<DeviceType>,void >(this,(NeighListKokkos<DeviceType>*)list);
+  // loop over neighbors of my atoms
+
+  EV_FLOAT ev;
+
+  // deal with all the compute operators() and ev_tally_xyz
+  //EV_FLOAT ev = pair_compute<PairOxdnaExcvKokkos<DeviceType>,void >(this,(NeighListKokkos<DeviceType>*)list);
 
   if (eflag_global) eng_vdwl += ev.evdwl;
   if (vflag_global) {
@@ -187,9 +200,28 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     k_vatom.template sync<LMPHostType>();
   }
 
-  if (vflag_fdotr) pair_virial_fdotr_compute(this);*/
+  if (vflag_fdotr) pair_virial_fdotr_compute(this);
 
   copymode = 0;
+}
+
+template<class DeviceType>
+template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, \
+  const int &in, EV_FLOAT &ev) const
+{
+  
+}
+
+template<class DeviceType>
+template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, \
+  const int &in) const
+{
+  EV_FLOAT ev;
+  this->template operator()<OXDNAFLAG,NEWTON_BOND,EVFLAG>(TagPairOxdnaExcvCompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>(),in,ev);
 }
 
 /* ---------------------------------------------------------------------- */

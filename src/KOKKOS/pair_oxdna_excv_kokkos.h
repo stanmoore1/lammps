@@ -29,6 +29,9 @@ PairStyle(oxdna/excv/kk/host,PairOxdnaExcvKokkos<LMPHostType>);
 
 namespace LAMMPS_NS {
 
+template<int OXDNAFLAG, int NEWTON_PAIR, int EVFLAG>
+struct TagPairOxdnaExcvCompute{};
+
 template<class DeviceType>
 class PairOxdnaExcvKokkos : public PairOxdnaExcv {
  public:
@@ -45,7 +48,19 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv {
   void init_style();
   double init_one(int, int) override;
 
+  template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairOxdnaExcvCompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, const int&, EV_FLOAT&) const;
+
+  template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairOxdnaExcvCompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, const int&) const;
+
  protected:
+
+  int oxdnaflag;
+  enum EnabledOXDNAFlag{OXDNA=1,OXDNA2=2,OXRNA2=4};
+
   typename AT::t_x_array_randomread x;
   //typename AT::t_x_array c_x;
   typename AT::t_f_array f;
@@ -64,7 +79,12 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv {
   typename AT::t_ffloat_2d d_cutsq;
 
   int neighflag;
-  int nlocal, eflag, vflag, anum, alist, blist, numneigh, firstneigh;
+  int nlocal, eflag, vflag;
+  int anum,/*alist,*/ blist /*numneigh, firstneigh*/;
+
+  typename AT::t_neighbors_2d d_neighbors;
+  typename AT::t_int_1d_randomread d_alist;
+  typename AT::t_int_1d_randomread d_numneigh;
 
   // s=sugar-phosphate backbone site, b=base site, st=stacking site
   // excluded volume interaction
