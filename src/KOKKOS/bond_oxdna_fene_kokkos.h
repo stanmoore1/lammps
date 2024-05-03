@@ -38,16 +38,11 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   typedef ArrayTypes<DeviceType> AT;
 
   BondOxdnaFENEKokkos(class LAMMPS *);
-  //BondOxdnaFENEKokkos(class LAMMPS *lmp) : Bond(lmp) {}
   ~BondOxdnaFENEKokkos() override;
   virtual void compute_interaction_sites(double *, double *, double *, double *) const;
   void compute(int, int) override;
   void coeff(int, char **) override;
   void read_restart(FILE *) override;
-
-  //static const int OXDNA = 1;
-  //static const int OXDNA2 = 2;
-  //static const int OXRNA2 = 4;
 
   template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
