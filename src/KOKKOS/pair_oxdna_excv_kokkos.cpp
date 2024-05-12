@@ -16,13 +16,13 @@
 #include "atom_kokkos.h"
 //#include "atom_vec_ellipsoid_kokkos.h" ???
 #include "atom_masks.h"
+#include "comm.h"
 #include "error.h"
 #include "force.h"
 #include "kokkos.h"
 #include "memory_kokkos.h"
 #include "neigh_request.h"
 #include "neighbor.h"
-#include "respa.h"
 #include "update.h"
 
 using namespace LAMMPS_NS;
@@ -39,6 +39,7 @@ PairOxdnaExcvKokkos<DeviceType>::PairOxdnaExcvKokkos(LAMMPS *lmp) : PairOxdnaExc
   datamask_read = X_MASK | F_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | ENERGY_MASK | VIRIAL_MASK;
 
+  nmax = 0;
   oxdnaflag = EnabledOXDNAFlag::OXDNA;
 }
 
@@ -147,8 +148,12 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   k_cutsq_bb_ast.template sync<DeviceType>();
   k_cutsq_bb_c.template sync<DeviceType>();
 
+  k_nx.template sync<DeviceType>();
+  k_ny.template sync<DeviceType>();
+  k_nz.template sync<DeviceType>();
+
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
-  else atomKK->modified(execution_space,F_MASK); //need or not need? same for fene
+  else atomKK->modified(execution_space,F_MASK); //need or not need? same for fene, also add TORQUE_MASK later
 
   x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();
@@ -169,16 +174,155 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   anum = list->inum;
   d_alist = k_list->d_ilist;
   d_numneigh = k_list->d_numneigh;
-  firstneigh = list->firstneigh;
+
+  int need_dup = lmp->kokkos->need_dup<DeviceType>();
+  if (need_dup) {
+    dup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    Kokkos::Experimental::ScatterDuplicated>(f);
+    //dup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    //Kokkos::Experimental::ScatterDuplicated>(torque);
+  } else {
+    ndup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    Kokkos::Experimental::ScatterNonDuplicated>(f);
+    //ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    //Kokkos::Experimental::ScatterNonDuplicated>(torque);
+  }
 
   copymode = 1;
 
-  // loop over neighbors of my atoms
+  // loop over all local atoms, calculation of local reference frame from quaternions
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagPairOxdnaExcvQuatToXYZ>(0,nlocal),*this);
+  k_nx.template modify<DeviceType>();
+  k_ny.template modify<DeviceType>();
+  k_nz.template modify<DeviceType>();
+  comm->forward_comm(this);
+  k_nx.template sync<DeviceType>();
+  k_ny.template sync<DeviceType>();
+  k_nz.template sync<DeviceType>();
+
+  // loop over neighbors of my atoms for compute functors
 
   EV_FLOAT ev;
+  //printf("BEFORE: a_f(0,0)= %f\n",f(0,0));
+  if (evflag) {
+    if (neighflag == HALF) {
+      if (newton_pair) {
+        if (oxdnaflag==OXDNA) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA,HALF,1,1> >(0,anum),*this,ev);
+        } else if (oxdnaflag==OXDNA2) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA2,HALF,1,1> >(0,anum),*this,ev);
+        } else if (oxdnaflag==OXRNA2) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXRNA2,HALF,1,1> >(0,anum),*this,ev);
+        }
+      } else {
+        if (oxdnaflag==OXDNA) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA,HALF,0,1> >(0,anum),*this,ev);
+        } else if (oxdnaflag==OXDNA2) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA2,HALF,0,1> >(0,anum),*this,ev);
+        } else if (oxdnaflag==OXRNA2) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXRNA2,HALF,0,1> >(0,anum),*this,ev);
+        }
+      }
+    } else if (neighflag == HALFTHREAD) {
+      if (newton_pair) {
+        if (oxdnaflag==OXDNA) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA,HALFTHREAD,1,1> >(0,anum),*this,ev);
+        } else if (oxdnaflag==OXDNA2) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA2,HALFTHREAD,1,1> >(0,anum),*this,ev);
+        } else if (oxdnaflag==OXRNA2) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXRNA2,HALFTHREAD,1,1> >(0,anum),*this,ev);
+        }
+      } else {
+        if (oxdnaflag==OXDNA) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA,HALFTHREAD,0,1> >(0,anum),*this,ev);
+        } else if (oxdnaflag==OXDNA2) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA2,HALFTHREAD,0,1> >(0,anum),*this,ev);
+        } else if (oxdnaflag==OXRNA2) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXRNA2,HALFTHREAD,0,1> >(0,anum),*this,ev);
+        }
+      }
+    } else if (neighflag == FULL) {
+      if (newton_pair) {
+        if (oxdnaflag==OXDNA) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA,FULL,1,1> >(0,anum),*this,ev);
+        } else if (oxdnaflag==OXDNA2) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA2,FULL,1,1> >(0,anum),*this,ev);
+        } else if (oxdnaflag==OXRNA2) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXRNA2,FULL,1,1> >(0,anum),*this,ev);
+        }
+      } else {
+        if (oxdnaflag==OXDNA) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA,FULL,0,1> >(0,anum),*this,ev);
+        } else if (oxdnaflag==OXDNA2) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA2,FULL,0,1> >(0,anum),*this,ev);
+        } else if (oxdnaflag==OXRNA2) {
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXRNA2,FULL,0,1> >(0,anum),*this,ev);
+        }
+      }
+    }
+  } else {
+    if (neighflag == HALF) {
+      if (newton_pair) {
+        if (oxdnaflag) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA,HALF,1,0> >(0,anum),*this);
+        } else if (oxdnaflag==OXDNA2) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA2,HALF,1,0> >(0,anum),*this);
+        } else if (oxdnaflag==OXRNA2) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXRNA2,HALF,1,0> >(0,anum),*this);
+        }
+      } else {
+        if (oxdnaflag) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA,HALF,0,0> >(0,anum),*this);
+        } else if (oxdnaflag==OXDNA2) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA2,HALF,0,0> >(0,anum),*this);
+        } else if (oxdnaflag==OXRNA2) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXRNA2,HALF,0,0> >(0,anum),*this);
+        }
+      }
+    } else if (neighflag == HALFTHREAD) {
+      if (newton_pair) {
+        if (oxdnaflag) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA,HALFTHREAD,1,0> >(0,anum),*this);
+        } else if (oxdnaflag==OXDNA2) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA2,HALFTHREAD,1,0> >(0,anum),*this);
+        } else if (oxdnaflag==OXRNA2) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXRNA2,HALFTHREAD,1,0> >(0,anum),*this);
+        }
+      } else {
+        if (oxdnaflag) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA,HALFTHREAD,0,0> >(0,anum),*this);
+        } else if (oxdnaflag==OXDNA2) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA2,HALFTHREAD,0,0> >(0,anum),*this);
+        } else if (oxdnaflag==OXRNA2) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXRNA2,HALFTHREAD,0,0> >(0,anum),*this);
+        }
+      }
+    } else if (neighflag == FULL) {
+      if (newton_pair) {
+        if (oxdnaflag) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA,FULL,1,0> >(0,anum),*this);
+        } else if (oxdnaflag==OXDNA2) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA2,FULL,1,0> >(0,anum),*this);
+        } else if (oxdnaflag==OXRNA2) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXRNA2,FULL,1,0> >(0,anum),*this);
+        }
+      } else {
+        if (oxdnaflag) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA,FULL,0,0> >(0,anum),*this);
+        } else if (oxdnaflag==OXDNA2) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXDNA2,FULL,0,0> >(0,anum),*this);
+        } else if (oxdnaflag==OXRNA2) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvCompute<OXRNA2,FULL,0,0> >(0,anum),*this);
+        }
+      }
+    }
+  }
+  //printf("AFTER: a_f(0,0)= %f\n",f(0,0));
 
-  // deal with all the compute operators() and ev_tally_xyz
-  //EV_FLOAT ev = pair_compute<PairOxdnaExcvKokkos<DeviceType>,void >(this,(NeighListKokkos<DeviceType>*)list);
+  if (need_dup) {
+    Kokkos::Experimental::contribute(f, dup_f);
+    //Kokkos::Experimental::contribute(torque, dup_torque);
+  }
 
   if (eflag_global) eng_vdwl += ev.evdwl;
   if (vflag_global) {
@@ -190,38 +334,440 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     virial[5] += ev.v[5];
   }
 
+  if (vflag_fdotr) pair_virial_fdotr_compute(this);
+
   if (eflag_atom) {
+    if (need_dup)
+      Kokkos::Experimental::contribute(d_eatom, dup_eatom);
     k_eatom.template modify<DeviceType>();
     k_eatom.template sync<LMPHostType>();
   }
 
   if (vflag_atom) {
+    if (need_dup)
+      Kokkos::Experimental::contribute(d_vatom, dup_vatom);
     k_vatom.template modify<DeviceType>();
     k_vatom.template sync<LMPHostType>();
   }
 
-  if (vflag_fdotr) pair_virial_fdotr_compute(this);
-
   copymode = 0;
+
+  // free duplicated memory
+  if (need_dup) {
+    dup_f        = decltype(dup_f)();
+    //dup_torque   = decltype(dup_torque)();
+    dup_eatom    = decltype(dup_eatom)();
+    dup_vatom    = decltype(dup_vatom)();
+  }
 }
 
 template<class DeviceType>
-template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, \
-  const int &in, EV_FLOAT &ev) const
+void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvQuatToXYZ, const int &in) const
 {
-  
+  int n = d_alist(in);
+  // TODO: implement quaternion to Cartesian unit vectors in lab frame
+  d_nx(n,0) = 0.0;
+  d_nx(n,1) = 0.0;
+  d_nx(n,2) = 0.0;
+  d_ny(n,0) = 0.0;
+  d_ny(n,1) = 0.0;
+  d_ny(n,2) = 0.0;
+  d_nz(n,0) = 0.0;
+  d_nz(n,1) = 0.0;
+  d_nz(n,2) = 0.0;
 }
 
 template<class DeviceType>
-template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
+template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, \
-  const int &in) const
+void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
+  const int &ia, EV_FLOAT &ev) const
+{
+  // f and torque array are duplicated for OpenMP, atomic for GPU, and neither for Serial
+
+  auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  //auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
+  //  decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
+  //auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  const int a = d_alist(ia);
+  const int atype = type(a);
+  // vectors COM-backbone site in lab frame
+  F_FLOAT ra_cs[3], rb_cs[3];
+  F_FLOAT ra_cb[3], rb_cb[3];
+  F_FLOAT rtmp_s[3], rtmp_b[3];
+
+  F_FLOAT delf[3], delta[3], deltb[3];    // force, torque increment
+  F_FLOAT evdwl, fpair;                   // energy, force
+  F_FLOAT delr_ss[3],rsq_ss,delr_sb[3],rsq_sb;
+  F_FLOAT delr_bs[3],rsq_bs,delr_bb[3],rsq_bb;
+  
+  // vector COM - backbone and base site a
+  if (OXDNAFLAG==OXDNA) {
+    constexpr F_FLOAT d_cs=-0.4;
+    ra_cs[0] = d_cs*d_nx(a,0);
+    ra_cs[1] = d_cs*d_nx(a,1);
+    ra_cs[2] = d_cs*d_nx(a,2);
+    ra_cb[0] = -ra_cs[0];
+    ra_cb[1] = -ra_cs[1];
+    ra_cb[2] = -ra_cs[2];
+  } else if (OXDNAFLAG==OXDNA2) {
+    constexpr F_FLOAT d_cs_x = -0.34;
+    constexpr F_FLOAT d_cs_y = +0.3408;
+    constexpr F_FLOAT d_cb = +0.4;
+    ra_cs[0] = d_cs_x*d_nx(a,0) + d_cs_y*d_ny(a,0);
+    ra_cs[1] = d_cs_x*d_nx(a,1) + d_cs_y*d_ny(a,1);
+    ra_cs[2] = d_cs_x*d_nx(a,2) + d_cs_y*d_ny(a,2);
+    ra_cb[0] = d_cb*d_nx(a,0);
+    ra_cb[1] = d_cb*d_nx(a,1);
+    ra_cb[2] = d_cb*d_nx(a,2);
+  } else if (OXDNAFLAG==OXRNA2) {
+    constexpr F_FLOAT d_cs_x = -0.4;
+    constexpr F_FLOAT d_cs_z = +0.2;
+    constexpr F_FLOAT d_cb = +0.4;
+    ra_cs[0] = d_cs_x*d_nx(a,0) + d_cs_z*d_nz(a,0);
+    ra_cs[1] = d_cs_x*d_nx(a,1) + d_cs_z*d_nz(a,1);
+    ra_cs[2] = d_cs_x*d_nx(a,2) + d_cs_z*d_nz(a,2);
+    ra_cb[0] = d_cb*d_nx(a,0);
+    ra_cb[1] = d_cb*d_nx(a,1);
+    ra_cb[2] = d_cb*d_nx(a,2);
+  }
+
+  rtmp_s[0] = x(a,0)+ra_cs[0];
+  rtmp_s[1] = x(a,1)+ra_cs[1];
+  rtmp_s[2] = x(a,2)+ra_cs[2];
+  rtmp_b[0] = x(a,0)+ra_cb[0];
+  rtmp_b[1] = x(a,1)+ra_cb[1];
+  rtmp_b[2] = x(a,2)+ra_cb[2];
+  
+  const int bnum = d_numneigh(a);
+
+  for (int ib = 0; ib < bnum; ib++) {
+
+    int b = d_neighbors(a,ib);
+    const F_FLOAT factor_lj = special_lj[sbmask(b)];
+    b &= NEIGHMASK;
+    const int btype = type(b);
+
+    // vector COM - backbone and base site b
+    if (OXDNAFLAG==OXDNA) {
+      constexpr F_FLOAT d_cs=-0.4;
+      rb_cs[0] = d_cs*d_nx(b,0);
+      rb_cs[1] = d_cs*d_nx(b,1);
+      rb_cs[2] = d_cs*d_nx(b,2);
+      rb_cb[0] = -rb_cs[0];
+      rb_cb[1] = -rb_cs[1];
+      rb_cb[2] = -rb_cs[2];
+    } else if (OXDNAFLAG==OXDNA2) {
+      constexpr F_FLOAT d_cs_x = -0.34;
+      constexpr F_FLOAT d_cs_y = +0.3408;
+      constexpr F_FLOAT d_cb = +0.4;
+      rb_cs[0] = d_cs_x*d_nx(b,0) + d_cs_y*d_ny(b,0);
+      rb_cs[1] = d_cs_x*d_nx(b,1) + d_cs_y*d_ny(b,1);
+      rb_cs[2] = d_cs_x*d_nx(b,2) + d_cs_y*d_ny(b,2);
+      rb_cb[0] = d_cb*d_nx(b,0);
+      rb_cb[1] = d_cb*d_nx(b,1);
+      rb_cb[2] = d_cb*d_nx(b,2);
+    } else if (OXDNAFLAG==OXRNA2) {
+      constexpr F_FLOAT d_cs_x = -0.4;
+      constexpr F_FLOAT d_cs_z = +0.2;
+      constexpr F_FLOAT d_cb = +0.4;
+      rb_cs[0] = d_cs_x*d_nx(b,0) + d_cs_z*d_nz(b,0);
+      rb_cs[1] = d_cs_x*d_nx(b,1) + d_cs_z*d_nz(b,1);
+      rb_cs[2] = d_cs_x*d_nx(b,2) + d_cs_z*d_nz(b,2);
+      rb_cb[0] = d_cb*d_nx(b,0);
+      rb_cb[1] = d_cb*d_nx(b,1);
+      rb_cb[2] = d_cb*d_nx(b,2);
+    }
+
+    // vector backbone site b to a
+    delr_ss[0] = rtmp_s[0] - (x(b,0)+rb_cs[0]);
+    delr_ss[1] = rtmp_s[1] - (x(b,1)+rb_cs[1]);
+    delr_ss[2] = rtmp_s[2] - (x(b,2)+rb_cs[2]);
+    rsq_ss = delr_ss[0]*delr_ss[0] + delr_ss[1]*delr_ss[1] + delr_ss[2]*delr_ss[2];
+    // vector base site b to backbone site a
+    delr_sb[0] = rtmp_s[0] - (x(b,0)+rb_cb[0]);
+    delr_sb[1] = rtmp_s[1] - (x(b,1)+rb_cb[1]);
+    delr_sb[2] = rtmp_s[2] - (x(b,2)+rb_cb[2]);
+    rsq_sb = delr_sb[0]*delr_sb[0] + delr_sb[1]*delr_sb[1] + delr_sb[2]*delr_sb[2];
+    // vector backbone site b to base site a
+    delr_bs[0] = rtmp_b[0] - (x(b,0)+rb_cs[0]);
+    delr_bs[1] = rtmp_b[1] - (x(b,1)+rb_cs[1]);
+    delr_bs[2] = rtmp_b[2] - (x(b,2)+rb_cs[2]);
+    rsq_bs = delr_bs[0]*delr_bs[0] + delr_bs[1]*delr_bs[1] + delr_bs[2]*delr_bs[2];
+    // vector base site b to a
+    delr_bb[0] = rtmp_b[0] - (x(b,0)+rb_cb[0]);
+    delr_bb[1] = rtmp_b[1] - (x(b,1)+rb_cb[1]);
+    delr_bb[2] = rtmp_b[2] - (x(b,2)+rb_cb[2]);
+    rsq_bb = delr_bb[0]*delr_bb[0] + delr_bb[1]*delr_bb[1] + delr_bb[2]*delr_bb[2];
+
+    // excluded volume interactions:
+
+    // backbone-backbone
+    if (rsq_ss < d_cutsq_ss_c(atype,btype)) {
+      // f3 modulation factor, force and energy calculation
+      if (rsq_ss < d_cutsq_ss_ast(atype,btype)) {
+        const F_FLOAT r2inv = 1.0 / rsq_ss;
+        const F_FLOAT r6inv = r2inv * r2inv * r2inv;
+        fpair = factor_lj * r2inv * r6inv * \
+          (12 * d_lj1_ss(atype,btype) * r6inv - 6 * d_lj2_ss(atype,btype));
+        evdwl = factor_lj * r6inv * (d_lj1_ss(atype,btype) * r6inv - d_lj2_ss(atype,btype));
+      } else {
+        const F_FLOAT r = sqrt(rsq_ss);
+        const F_FLOAT rinv = 1.0 / r;
+        fpair = factor_lj * 2 * d_epsilon_ss(atype,btype) * d_b_ss(atype,btype) * \
+          (d_cut_ss_c(atype,btype)  * rinv - 1);
+        evdwl = d_epsilon_ss(atype,btype) * d_b_ss(atype,btype) * \
+          (d_cut_ss_c(atype,btype) - r) * (d_cut_ss_c(atype,btype) - r);
+      }
+      // force and torque increment calculation
+      delf[0] += fpair * delr_ss[0];
+      delf[1] += fpair * delr_ss[1];
+      delf[2] += fpair * delr_ss[2];
+      delta[0] += ra_cs[1]*delf[2] - ra_cs[2]*delf[1];
+      delta[1] += ra_cs[2]*delf[0] - ra_cs[0]*delf[2];
+      delta[2] += ra_cs[0]*delf[1] - ra_cs[1]*delf[0];
+      if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
+        a_f(b,0) -= fpair * delr_ss[0];
+        a_f(b,1) -= fpair * delr_ss[1];
+        a_f(b,2) -= fpair * delr_ss[2];
+        //a_torque(b,0) -= rb_cb[1]*delf[2] - rb_cb[2]*delf[1];
+        //a_torque(b,1) -= rb_cb[2]*delf[0] - rb_cb[0]*delf[2];
+        //a_torque(b,2) -= rb_cb[0]*delf[1] - rb_cb[1]*delf[0];
+      }
+      // TODO: EVFLAG and ev_tally_xyz and evdwl
+    }
+
+    // backbone-base
+    if (rsq_sb < d_cutsq_sb_c(atype,btype)) {
+      // f3 modulation factor, force and energy calculation
+      if (rsq_sb < d_cutsq_sb_ast(atype,btype)) {
+        const F_FLOAT r2inv = 1.0 / rsq_sb;
+        const F_FLOAT r6inv = r2inv * r2inv * r2inv;
+        fpair = factor_lj * r2inv * r6inv * \
+          (12 * d_lj1_sb(atype,btype) * r6inv - 6 * d_lj2_sb(atype,btype));
+        evdwl = factor_lj * r6inv * (d_lj1_sb(atype,btype) * r6inv - d_lj2_sb(atype,btype));
+      } else {
+        const F_FLOAT r = sqrt(rsq_sb);
+        const F_FLOAT rinv = 1.0 / r;
+        fpair = factor_lj * 2 * d_epsilon_sb(atype,btype) * d_b_sb(atype,btype) * \
+          (d_cut_sb_c(atype,btype)  * rinv - 1);
+        evdwl = d_epsilon_sb(atype,btype) * d_b_sb(atype,btype) * \
+          (d_cut_sb_c(atype,btype) - r) * (d_cut_sb_c(atype,btype) - r);
+      }
+      // force and torque increment calculation
+      delf[0] += fpair * delr_sb[0];
+      delf[1] += fpair * delr_sb[1];
+      delf[2] += fpair * delr_sb[2];
+      delta[0] += ra_cs[1]*delf[2] - ra_cs[2]*delf[1];
+      delta[1] += ra_cs[2]*delf[0] - ra_cs[0]*delf[2];
+      delta[2] += ra_cs[0]*delf[1] - ra_cs[1]*delf[0];
+      if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
+        a_f(b,0) -= fpair * delr_sb[0];
+        a_f(b,1) -= fpair * delr_sb[1];
+        a_f(b,2) -= fpair * delr_sb[2];
+        //a_torque(b,0) -= rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
+        //a_torque(b,1) -= rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
+        //a_torque(b,2) -= rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
+      }
+      // TODO: EVFLAG and ev_tally_xyz and evdwl
+    }
+
+    // base-backbone
+    if (rsq_bs < d_cutsq_sb_c(btype,atype)) {
+      // f3 modulation factor, force and energy calculation
+      if (rsq_bs < d_cutsq_sb_ast(btype,atype)) {
+        const F_FLOAT r2inv = 1.0 / rsq_bs;
+        const F_FLOAT r6inv = r2inv * r2inv * r2inv;
+        fpair = factor_lj * r2inv * r6inv * \
+          (12 * d_lj1_sb(btype,atype) * r6inv - 6 * d_lj2_sb(btype,atype));
+        evdwl = factor_lj * r6inv * (d_lj1_sb(btype,atype) * r6inv - d_lj2_sb(btype,atype));
+      } else {
+        const F_FLOAT r = sqrt(rsq_bs);
+        const F_FLOAT rinv = 1.0 / r;
+        fpair = factor_lj * 2 * d_epsilon_sb(btype,atype) * d_b_sb(btype,atype) * \
+          (d_cut_sb_c(btype,atype)  * rinv - 1);
+        evdwl = d_epsilon_sb(btype,atype) * d_b_sb(btype,atype) * \
+          (d_cut_sb_c(btype,atype) - r) * (d_cut_sb_c(btype,atype) - r);
+      }
+      // force and torque increment calculation
+      delf[0] += fpair * delr_bs[0];
+      delf[1] += fpair * delr_bs[1];
+      delf[2] += fpair * delr_bs[2];
+      delta[0] += ra_cb[1]*delf[2] - ra_cb[2]*delf[1];
+      delta[1] += ra_cb[2]*delf[0] - ra_cb[0]*delf[2];
+      delta[2] += ra_cb[0]*delf[1] - ra_cb[1]*delf[0];
+      if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
+        a_f(b,0) -= fpair * delr_bs[0];
+        a_f(b,1) -= fpair * delr_bs[1];
+        a_f(b,2) -= fpair * delr_bs[2];
+        //a_torque(b,0) -= rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
+        //a_torque(b,1) -= rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
+        //a_torque(b,2) -= rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
+      }
+      // TODO: EVFLAG and ev_tally_xyz and evdwl
+    }
+
+    // base-base
+    if (rsq_bb < d_cutsq_bb_c(atype,btype)) {
+      // f3 modulation factor, force and energy calculation
+      if (rsq_bb < d_cutsq_bb_ast(atype,btype)) {
+        const F_FLOAT r2inv = 1.0 / rsq_bb;
+        const F_FLOAT r6inv = r2inv * r2inv * r2inv;
+        fpair = factor_lj * r2inv * r6inv * \
+          (12 * d_lj1_bb(atype,btype) * r6inv - 6 * d_lj2_bb(atype,btype));
+        evdwl = factor_lj * r6inv * (d_lj1_bb(atype,btype) * r6inv - d_lj2_bb(atype,btype));
+      } else {
+        const F_FLOAT r = sqrt(rsq_bb);
+        const F_FLOAT rinv = 1.0 / r;
+        fpair = factor_lj * 2 * d_epsilon_bb(atype,btype) * d_b_bb(atype,btype) * \
+          (d_cut_bb_c(atype,btype)  * rinv - 1);
+        evdwl = d_epsilon_bb(atype,btype) * d_b_bb(atype,btype) * \
+          (d_cut_bb_c(atype,btype) - r) * (d_cut_bb_c(atype,btype) - r);
+      }
+      // force and torque increment calculation
+      delf[0] += fpair * delr_bb[0];
+      delf[1] += fpair * delr_bb[1];
+      delf[2] += fpair * delr_bb[2];
+      delta[0] += ra_cb[1]*delf[2] - ra_cb[2]*delf[1];
+      delta[1] += ra_cb[2]*delf[0] - ra_cb[0]*delf[2];
+      delta[2] += ra_cb[0]*delf[1] - ra_cb[1]*delf[0];
+      if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
+        a_f(b,0) -= fpair * delr_bb[0];
+        a_f(b,1) -= fpair * delr_bb[1];
+        a_f(b,2) -= fpair * delr_bb[2];
+        //a_torque(b,0) -= rb_cb[1]*delf[2] - rb_cb[2]*delf[1];
+        //a_torque(b,1) -= rb_cb[2]*delf[0] - rb_cb[0]*delf[2];
+        //a_torque(b,2) -= rb_cb[0]*delf[1] - rb_cb[1]*delf[0];
+      }
+      // TODO: EVFLAG and ev_tally_xyz and evdwl
+    }
+  }
+  a_f(a,0) += delf[0];
+  a_f(a,1) += delf[1];
+  a_f(a,2) += delf[2];
+  //a_torque(a,0) += delta[0];
+  //a_torque(a,1) += delta[1];
+  //a_torque(a,2) += delta[2];
+}
+
+template<class DeviceType>
+template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
+  const int &ia) const
 {
   EV_FLOAT ev;
-  this->template operator()<OXDNAFLAG,NEWTON_BOND,EVFLAG>(TagPairOxdnaExcvCompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>(),in,ev);
+  this->template operator()<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>\
+  (TagPairOxdnaExcvCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>(),ia,ev);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+int PairOxdnaExcvKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_1d k_sendlist,
+                                                        DAT::tdual_xfloat_1d &buf,
+                                                        int /*pbc_flag*/, int * /*pbc*/)
+{
+  d_sendlist = k_sendlist.view<DeviceType>();
+  v_buf = buf.view<DeviceType>();
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvPackForwardComm>(0,n),*this);
+  return n*9;
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvPackForwardComm, const int &i) const {
+  int j = d_sendlist(i);
+  v_buf[i*9] = d_nx(j,0);
+  v_buf[i*9+1] = d_nx(j,1);
+  v_buf[i*9+2] = d_nx(j,2);
+  v_buf[i*9+3] = d_ny(j,0);
+  v_buf[i*9+4] = d_ny(j,1);
+  v_buf[i*9+5] = d_ny(j,2);
+  v_buf[i*9+6] = d_nz(j,0);
+  v_buf[i*9+7] = d_nz(j,1);
+  v_buf[i*9+8] = d_nz(j,2);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairOxdnaExcvKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_xfloat_1d &buf)
+{
+  first = first_in;
+  v_buf = buf.view<DeviceType>();
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvUnpackForwardComm>(0,n),*this);
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvUnpackForwardComm, const int &i) const {
+  d_nx(i+first,0) = v_buf[i*9];
+  d_nx(i+first,1) = v_buf[i*9+1];
+  d_nx(i+first,2) = v_buf[i*9+2];
+  d_ny(i+first,0) = v_buf[i*9+3];
+  d_ny(i+first,1) = v_buf[i*9+4];
+  d_ny(i+first,2) = v_buf[i*9+5];
+  d_nz(i+first,0) = v_buf[i*9+6];
+  d_nz(i+first,1) = v_buf[i*9+7];
+  d_nz(i+first,2) = v_buf[i*9+8];
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+int PairOxdnaExcvKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
+                                                 int /*pbc_flag*/, int * /*pbc*/)
+{
+  k_nx.sync_host();
+  k_ny.sync_host();
+  k_nz.sync_host();
+
+  int i,j,m;
+  m = 0;
+  for (i = 0; i < n; i++) {
+    j = list[i];
+    buf[m++] = h_nx(j,0);
+    buf[m++] = h_nx(j,1);
+    buf[m++] = h_nx(j,2);
+    buf[m++] = h_ny(j,0);
+    buf[m++] = h_ny(j,1);
+    buf[m++] = h_ny(j,2);
+    buf[m++] = h_nz(j,0);
+    buf[m++] = h_nz(j,1);
+    buf[m++] = h_nz(j,2);
+  }
+  return m;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairOxdnaExcvKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
+{
+  k_nx.sync_host();
+  k_ny.sync_host();
+  k_nz.sync_host();
+
+  int m = 0;
+  for (int i = 0; i < n; i++) {
+    h_nx(i+first,0) = buf[m++];
+    h_nx(i+first,1) = buf[m++];
+    h_nx(i+first,2) = buf[m++];
+    h_ny(i+first,0) = buf[m++];
+    h_ny(i+first,1) = buf[m++];
+    h_ny(i+first,2) = buf[m++];
+    h_nz(i+first,0) = buf[m++];
+    h_nz(i+first,1) = buf[m++];
+    h_nz(i+first,2) = buf[m++];
+  }
+
+  k_nx.modify_host();
+  k_ny.modify_host();
+  k_nz.modify_host();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -233,8 +779,8 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
 
   int n = atom->ntypes;
 
-  /*memory->destroy(setflag);
-  memory->destroy(cutsq);
+  //memory->destroy(setflag);
+  //memory->destroy(cutsq);
   
   memory->destroy(epsilon_ss);
   memory->destroy(sigma_ss);
@@ -268,7 +814,7 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
 
   memory->destroy(nx);
   memory->destroy(ny);
-  memory->destroy(nz);*/
+  memory->destroy(nz);
 
   memoryKK->create_kokkos(k_cutsq,cutsq,n+1,n+1,"PairOxdnaExcv:cutsq");
 
@@ -341,6 +887,9 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   d_nx = k_nx.template view<DeviceType>();
   d_ny = k_ny.template view<DeviceType>();
   d_nz = k_nz.template view<DeviceType>();
+  h_nx = k_nx.h_view;
+  h_ny = k_ny.h_view;
+  h_nz = k_nz.h_view;
 
 }
 
@@ -358,6 +907,8 @@ void PairOxdnaExcvKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 template<class DeviceType>
 void PairOxdnaExcvKokkos<DeviceType>::init_style() 
 {
+  //PairOxdnaExcv::init_style();
+  neighbor->add_request(this);
   neighflag = lmp->kokkos->neighflag;
   auto request = neighbor->find_request(this);
   request->set_kokkos_host(std::is_same_v<DeviceType,LMPHostType> &&
@@ -407,6 +958,14 @@ double PairOxdnaExcvKokkos<DeviceType>::init_one(int i, int j)
 
   return cutone;
 
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+int PairOxdnaExcvKokkos<DeviceType>::sbmask(const int& j) const {
+  return j >> SBBITS & 3;
 }
 
 
