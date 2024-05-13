@@ -203,7 +203,7 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // loop over neighbors of my atoms for compute functors
 
   EV_FLOAT ev;
-  //printf("BEFORE: a_f(0,0)= %f\n",f(0,0));
+
   if (evflag) {
     if (neighflag == HALF) {
       if (newton_pair) {
@@ -317,7 +317,6 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       }
     }
   }
-  //printf("AFTER: a_f(0,0)= %f\n",f(0,0));
 
   if (need_dup) {
     Kokkos::Experimental::contribute(f, dup_f);
@@ -403,6 +402,8 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
   F_FLOAT evdwl, fpair;                   // energy, force
   F_FLOAT delr_ss[3],rsq_ss,delr_sb[3],rsq_sb;
   F_FLOAT delr_bs[3],rsq_bs,delr_bb[3],rsq_bb;
+
+  F_FLOAT ftmp[3],ttmp[3];  // temporary force, torque to reduce excessive dup/atomic updates
   
   // vector COM - backbone and base site a
   if (OXDNAFLAG==OXDNA) {
@@ -504,6 +505,8 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     rsq_bb = delr_bb[0]*delr_bb[0] + delr_bb[1]*delr_bb[1] + delr_bb[2]*delr_bb[2];
 
     // excluded volume interactions:
+    //printf("rsq_ss: %f\n",rsq_ss);
+    //printf("d_cut_ss_c: %f\n",d_cut_ss_c(atype,btype));
 
     // backbone-backbone
     if (rsq_ss < d_cutsq_ss_c(atype,btype)) {
@@ -513,31 +516,46 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         const F_FLOAT r6inv = r2inv * r2inv * r2inv;
         fpair = factor_lj * r2inv * r6inv * \
           (12 * d_lj1_ss(atype,btype) * r6inv - 6 * d_lj2_ss(atype,btype));
-        evdwl = factor_lj * r6inv * (d_lj1_ss(atype,btype) * r6inv - d_lj2_ss(atype,btype));
+        ev.evdwl = factor_lj * r6inv * (d_lj1_ss(atype,btype) * r6inv - d_lj2_ss(atype,btype));
       } else {
         const F_FLOAT r = sqrt(rsq_ss);
         const F_FLOAT rinv = 1.0 / r;
         fpair = factor_lj * 2 * d_epsilon_ss(atype,btype) * d_b_ss(atype,btype) * \
           (d_cut_ss_c(atype,btype)  * rinv - 1);
-        evdwl = d_epsilon_ss(atype,btype) * d_b_ss(atype,btype) * \
+        ev.evdwl = d_epsilon_ss(atype,btype) * d_b_ss(atype,btype) * \
           (d_cut_ss_c(atype,btype) - r) * (d_cut_ss_c(atype,btype) - r);
       }
       // force and torque increment calculation
-      delf[0] += fpair * delr_ss[0];
-      delf[1] += fpair * delr_ss[1];
-      delf[2] += fpair * delr_ss[2];
-      delta[0] += ra_cs[1]*delf[2] - ra_cs[2]*delf[1];
-      delta[1] += ra_cs[2]*delf[0] - ra_cs[0]*delf[2];
-      delta[2] += ra_cs[0]*delf[1] - ra_cs[1]*delf[0];
+      delf[0] = fpair * delr_ss[0];
+      delf[1] = fpair * delr_ss[1];
+      delf[2] = fpair * delr_ss[2];
+      delta[0] = ra_cs[1]*delf[2] - ra_cs[2]*delf[1];
+      delta[1] = ra_cs[2]*delf[0] - ra_cs[0]*delf[2];
+      delta[2] = ra_cs[0]*delf[1] - ra_cs[1]*delf[0];
+      ftmp[0] += delf[0];
+      ftmp[1] += delf[1];
+      ftmp[2] += delf[2];
+      ttmp[0] += delta[0];
+      ttmp[1] += delta[1];
+      ttmp[2] += delta[2];
       if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
-        a_f(b,0) -= fpair * delr_ss[0];
-        a_f(b,1) -= fpair * delr_ss[1];
-        a_f(b,2) -= fpair * delr_ss[2];
-        //a_torque(b,0) -= rb_cb[1]*delf[2] - rb_cb[2]*delf[1];
-        //a_torque(b,1) -= rb_cb[2]*delf[0] - rb_cb[0]*delf[2];
-        //a_torque(b,2) -= rb_cb[0]*delf[1] - rb_cb[1]*delf[0];
+        a_f(b,0) -= delf[0];
+        a_f(b,1) -= delf[1];
+        a_f(b,2) -= delf[2];
+        //a_torque(b,0) -= delta[0];
+        //a_torque(b,1) -= delta[1];
+        //a_torque(b,2) -= delta[2];
       }
-      // TODO: EVFLAG and ev_tally_xyz and evdwl
+      if (EVFLAG) {
+        if (eflag) {
+          ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*ev.evdwl;
+        }
+
+        if (vflag_either || eflag_atom) {
+          this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,ev.evdwl,\
+          delf[0],delf[1],delf[2],x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
+        }
+      }
     }
 
     // backbone-base
@@ -548,31 +566,46 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         const F_FLOAT r6inv = r2inv * r2inv * r2inv;
         fpair = factor_lj * r2inv * r6inv * \
           (12 * d_lj1_sb(atype,btype) * r6inv - 6 * d_lj2_sb(atype,btype));
-        evdwl = factor_lj * r6inv * (d_lj1_sb(atype,btype) * r6inv - d_lj2_sb(atype,btype));
+        ev.evdwl = factor_lj * r6inv * (d_lj1_sb(atype,btype) * r6inv - d_lj2_sb(atype,btype));
       } else {
         const F_FLOAT r = sqrt(rsq_sb);
         const F_FLOAT rinv = 1.0 / r;
         fpair = factor_lj * 2 * d_epsilon_sb(atype,btype) * d_b_sb(atype,btype) * \
           (d_cut_sb_c(atype,btype)  * rinv - 1);
-        evdwl = d_epsilon_sb(atype,btype) * d_b_sb(atype,btype) * \
+        ev.evdwl = d_epsilon_sb(atype,btype) * d_b_sb(atype,btype) * \
           (d_cut_sb_c(atype,btype) - r) * (d_cut_sb_c(atype,btype) - r);
       }
       // force and torque increment calculation
-      delf[0] += fpair * delr_sb[0];
-      delf[1] += fpair * delr_sb[1];
-      delf[2] += fpair * delr_sb[2];
-      delta[0] += ra_cs[1]*delf[2] - ra_cs[2]*delf[1];
-      delta[1] += ra_cs[2]*delf[0] - ra_cs[0]*delf[2];
-      delta[2] += ra_cs[0]*delf[1] - ra_cs[1]*delf[0];
+      delf[0] = fpair * delr_sb[0];
+      delf[1] = fpair * delr_sb[1];
+      delf[2] = fpair * delr_sb[2];
+      delta[0] = ra_cs[1]*delf[2] - ra_cs[2]*delf[1];
+      delta[1] = ra_cs[2]*delf[0] - ra_cs[0]*delf[2];
+      delta[2] = ra_cs[0]*delf[1] - ra_cs[1]*delf[0];
+      ftmp[0] += delf[0];
+      ftmp[1] += delf[1];
+      ftmp[2] += delf[2];
+      ttmp[0] += delta[0];
+      ttmp[1] += delta[1];
+      ttmp[2] += delta[2];
       if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
-        a_f(b,0) -= fpair * delr_sb[0];
-        a_f(b,1) -= fpair * delr_sb[1];
-        a_f(b,2) -= fpair * delr_sb[2];
-        //a_torque(b,0) -= rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
-        //a_torque(b,1) -= rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
-        //a_torque(b,2) -= rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
+        a_f(b,0) -= delf[0];
+        a_f(b,1) -= delf[1];
+        a_f(b,2) -= delf[2];
+        //a_torque(b,0) -= delta[0];
+        //a_torque(b,1) -= delta[1];
+        //a_torque(b,2) -= delta[2];
       }
-      // TODO: EVFLAG and ev_tally_xyz and evdwl
+      if (EVFLAG) {
+        if (eflag) {
+          ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*ev.evdwl;
+        }
+
+        if (vflag_either || eflag_atom) {
+          this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,ev.evdwl,\
+          delf[0],delf[1],delf[2],x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
+        }
+      }
     }
 
     // base-backbone
@@ -583,31 +616,46 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         const F_FLOAT r6inv = r2inv * r2inv * r2inv;
         fpair = factor_lj * r2inv * r6inv * \
           (12 * d_lj1_sb(btype,atype) * r6inv - 6 * d_lj2_sb(btype,atype));
-        evdwl = factor_lj * r6inv * (d_lj1_sb(btype,atype) * r6inv - d_lj2_sb(btype,atype));
+        ev.evdwl = factor_lj * r6inv * (d_lj1_sb(btype,atype) * r6inv - d_lj2_sb(btype,atype));
       } else {
         const F_FLOAT r = sqrt(rsq_bs);
         const F_FLOAT rinv = 1.0 / r;
         fpair = factor_lj * 2 * d_epsilon_sb(btype,atype) * d_b_sb(btype,atype) * \
           (d_cut_sb_c(btype,atype)  * rinv - 1);
-        evdwl = d_epsilon_sb(btype,atype) * d_b_sb(btype,atype) * \
+        ev.evdwl = d_epsilon_sb(btype,atype) * d_b_sb(btype,atype) * \
           (d_cut_sb_c(btype,atype) - r) * (d_cut_sb_c(btype,atype) - r);
       }
       // force and torque increment calculation
-      delf[0] += fpair * delr_bs[0];
-      delf[1] += fpair * delr_bs[1];
-      delf[2] += fpair * delr_bs[2];
-      delta[0] += ra_cb[1]*delf[2] - ra_cb[2]*delf[1];
-      delta[1] += ra_cb[2]*delf[0] - ra_cb[0]*delf[2];
-      delta[2] += ra_cb[0]*delf[1] - ra_cb[1]*delf[0];
+      delf[0] = fpair * delr_bs[0];
+      delf[1] = fpair * delr_bs[1];
+      delf[2] = fpair * delr_bs[2];
+      delta[0] = ra_cb[1]*delf[2] - ra_cb[2]*delf[1];
+      delta[1] = ra_cb[2]*delf[0] - ra_cb[0]*delf[2];
+      delta[2] = ra_cb[0]*delf[1] - ra_cb[1]*delf[0];
+      ftmp[0] += delf[0];
+      ftmp[1] += delf[1];
+      ftmp[2] += delf[2];
+      ttmp[0] += delta[0];
+      ttmp[1] += delta[1];
+      ttmp[2] += delta[2];
       if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
-        a_f(b,0) -= fpair * delr_bs[0];
-        a_f(b,1) -= fpair * delr_bs[1];
-        a_f(b,2) -= fpair * delr_bs[2];
-        //a_torque(b,0) -= rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
-        //a_torque(b,1) -= rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
-        //a_torque(b,2) -= rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
+        a_f(b,0) -= delf[0];
+        a_f(b,1) -= delf[1];
+        a_f(b,2) -= delf[2];
+        //a_torque(b,0) -= delta[0];
+        //a_torque(b,1) -= delta[1];
+        //a_torque(b,2) -= delta[2];
       }
-      // TODO: EVFLAG and ev_tally_xyz and evdwl
+      if (EVFLAG) {
+        if (eflag) {
+          ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*ev.evdwl;
+        }
+
+        if (vflag_either || eflag_atom) {
+          this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,ev.evdwl,\
+          delf[0],delf[1],delf[2],x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
+        }
+      }
     }
 
     // base-base
@@ -618,39 +666,54 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         const F_FLOAT r6inv = r2inv * r2inv * r2inv;
         fpair = factor_lj * r2inv * r6inv * \
           (12 * d_lj1_bb(atype,btype) * r6inv - 6 * d_lj2_bb(atype,btype));
-        evdwl = factor_lj * r6inv * (d_lj1_bb(atype,btype) * r6inv - d_lj2_bb(atype,btype));
+        ev.evdwl = factor_lj * r6inv * (d_lj1_bb(atype,btype) * r6inv - d_lj2_bb(atype,btype));
       } else {
         const F_FLOAT r = sqrt(rsq_bb);
         const F_FLOAT rinv = 1.0 / r;
         fpair = factor_lj * 2 * d_epsilon_bb(atype,btype) * d_b_bb(atype,btype) * \
           (d_cut_bb_c(atype,btype)  * rinv - 1);
-        evdwl = d_epsilon_bb(atype,btype) * d_b_bb(atype,btype) * \
+        ev.evdwl = d_epsilon_bb(atype,btype) * d_b_bb(atype,btype) * \
           (d_cut_bb_c(atype,btype) - r) * (d_cut_bb_c(atype,btype) - r);
       }
       // force and torque increment calculation
-      delf[0] += fpair * delr_bb[0];
-      delf[1] += fpair * delr_bb[1];
-      delf[2] += fpair * delr_bb[2];
-      delta[0] += ra_cb[1]*delf[2] - ra_cb[2]*delf[1];
-      delta[1] += ra_cb[2]*delf[0] - ra_cb[0]*delf[2];
-      delta[2] += ra_cb[0]*delf[1] - ra_cb[1]*delf[0];
+      delf[0] = fpair * delr_bb[0];
+      delf[1] = fpair * delr_bb[1];
+      delf[2] = fpair * delr_bb[2];
+      delta[0] = ra_cb[1]*delf[2] - ra_cb[2]*delf[1];
+      delta[1] = ra_cb[2]*delf[0] - ra_cb[0]*delf[2];
+      delta[2] = ra_cb[0]*delf[1] - ra_cb[1]*delf[0];
+      ftmp[0] += delf[0];
+      ftmp[1] += delf[1];
+      ftmp[2] += delf[2];
+      ttmp[0] += delta[0];
+      ttmp[1] += delta[1];
+      ttmp[2] += delta[2];
       if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
-        a_f(b,0) -= fpair * delr_bb[0];
-        a_f(b,1) -= fpair * delr_bb[1];
-        a_f(b,2) -= fpair * delr_bb[2];
-        //a_torque(b,0) -= rb_cb[1]*delf[2] - rb_cb[2]*delf[1];
-        //a_torque(b,1) -= rb_cb[2]*delf[0] - rb_cb[0]*delf[2];
-        //a_torque(b,2) -= rb_cb[0]*delf[1] - rb_cb[1]*delf[0];
+        a_f(b,0) -= delf[0];
+        a_f(b,1) -= delf[1];
+        a_f(b,2) -= delf[2];
+        //a_torque(b,0) -= delta[0];
+        //a_torque(b,1) -= delta[1];
+        //a_torque(b,2) -= delta[2];
       }
-      // TODO: EVFLAG and ev_tally_xyz and evdwl
+      if (EVFLAG) {
+        if (eflag) {
+          ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*ev.evdwl;
+        }
+
+        if (vflag_either || eflag_atom) {
+          this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,ev.evdwl,\
+          delf[0],delf[1],delf[2],x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
+        }
+      }
     }
   }
-  a_f(a,0) += delf[0];
-  a_f(a,1) += delf[1];
-  a_f(a,2) += delf[2];
-  //a_torque(a,0) += delta[0];
-  //a_torque(a,1) += delta[1];
-  //a_torque(a,2) += delta[2];
+  a_f(a,0) += ftmp[0];
+  a_f(a,1) += ftmp[1];
+  a_f(a,2) += ftmp[2];
+  //a_torque(a,0) += ttmp[0];
+  //a_torque(a,1) += ttmp[1];
+  //a_torque(a,2) += ttmp[2];
 }
 
 template<class DeviceType>
@@ -958,6 +1021,106 @@ double PairOxdnaExcvKokkos<DeviceType>::init_one(int i, int j)
 
   return cutone;
 
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG, int NEWTON_PAIR>
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaExcvKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
+      const F_FLOAT &epair, const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz, const F_FLOAT &delx,
+                const F_FLOAT &dely, const F_FLOAT &delz) const
+{
+  const int EFLAG = eflag;
+  const int VFLAG = vflag_either;
+
+  // The eatom and vatom arrays are duplicated for OpenMP, atomic for GPU, and neither for Serial
+
+  auto v_eatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
+    decltype(dup_eatom),decltype(ndup_eatom)>::get(dup_eatom,ndup_eatom);
+  auto a_eatom = v_eatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
+    decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
+  auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  if (EFLAG) {
+    if (eflag_atom) {
+      const E_FLOAT epairhalf = 0.5 * epair;
+      if (NEIGHFLAG!=FULL) {
+        if (NEWTON_PAIR || i < nlocal) a_eatom[i] += epairhalf;
+        if (NEWTON_PAIR || j < nlocal) a_eatom[j] += epairhalf;
+      } else {
+        a_eatom[i] += epairhalf;
+      }
+    }
+  }
+
+  if (VFLAG) {
+    const E_FLOAT v0 = delx*fx;
+    const E_FLOAT v1 = dely*fy;
+    const E_FLOAT v2 = delz*fz;
+    const E_FLOAT v3 = delx*fy;
+    const E_FLOAT v4 = delx*fz;
+    const E_FLOAT v5 = dely*fz;
+
+    if (vflag_global) {
+      if (NEIGHFLAG!=FULL) {
+        if (NEWTON_PAIR || i < nlocal) {
+          ev.v[0] += 0.5*v0;
+          ev.v[1] += 0.5*v1;
+          ev.v[2] += 0.5*v2;
+          ev.v[3] += 0.5*v3;
+          ev.v[4] += 0.5*v4;
+          ev.v[5] += 0.5*v5;
+        }
+        if (NEWTON_PAIR || j < nlocal) {
+        ev.v[0] += 0.5*v0;
+        ev.v[1] += 0.5*v1;
+        ev.v[2] += 0.5*v2;
+        ev.v[3] += 0.5*v3;
+        ev.v[4] += 0.5*v4;
+        ev.v[5] += 0.5*v5;
+        }
+      } else {
+        ev.v[0] += 0.5*v0;
+        ev.v[1] += 0.5*v1;
+        ev.v[2] += 0.5*v2;
+        ev.v[3] += 0.5*v3;
+        ev.v[4] += 0.5*v4;
+        ev.v[5] += 0.5*v5;
+      }
+    }
+
+    if (vflag_atom) {
+      if (NEIGHFLAG!=FULL) {
+        if (NEWTON_PAIR || i < nlocal) {
+          a_vatom(i,0) += 0.5*v0;
+          a_vatom(i,1) += 0.5*v1;
+          a_vatom(i,2) += 0.5*v2;
+          a_vatom(i,3) += 0.5*v3;
+          a_vatom(i,4) += 0.5*v4;
+          a_vatom(i,5) += 0.5*v5;
+        }
+        if (NEWTON_PAIR || j < nlocal) {
+        a_vatom(j,0) += 0.5*v0;
+        a_vatom(j,1) += 0.5*v1;
+        a_vatom(j,2) += 0.5*v2;
+        a_vatom(j,3) += 0.5*v3;
+        a_vatom(j,4) += 0.5*v4;
+        a_vatom(j,5) += 0.5*v5;
+        }
+      } else {
+        a_vatom(i,0) += 0.5*v0;
+        a_vatom(i,1) += 0.5*v1;
+        a_vatom(i,2) += 0.5*v2;
+        a_vatom(i,3) += 0.5*v3;
+        a_vatom(i,4) += 0.5*v4;
+        a_vatom(i,5) += 0.5*v5;
+      }
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------- */

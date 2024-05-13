@@ -37,6 +37,9 @@ struct TagPairOxdnaExcvUnpackForwardComm{};
 template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct TagPairOxdnaExcvCompute{};
 
+template<int NEIGHFLAG, int NEWTON_PAIR>
+struct ev_tally_xyz{};
+
 template<class DeviceType>
 class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
  public:
@@ -69,6 +72,12 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdnaExcvCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
+
+  template<int NEIGHFLAG, int NEWTON_PAIR>
+  KOKKOS_INLINE_FUNCTION
+  void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
+      const F_FLOAT &epair, const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz, const F_FLOAT &delx,
+                  const F_FLOAT &dely, const F_FLOAT &delz) const;
 
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
