@@ -362,6 +362,8 @@ action pair_multi_lucy_rx_kokkos.cpp pair_multi_lucy_rx.cpp
 action pair_multi_lucy_rx_kokkos.h pair_multi_lucy_rx.h
 action pair_oxdna_excv_kokkos.cpp pair_oxdna_excv.cpp
 action pair_oxdna_excv_kokkos.h pair_oxdna_excv.h
+action pair_oxdna2_excv_kokkos.h pair_oxdna_excv_kokkos.h
+action pair_oxrna2_excv_kokkos.h pair_oxdna_excv_kokkos.h
 action pair_pace_extrapolation_kokkos.cpp pair_pace_extrapolation.cpp
 action pair_pace_extrapolation_kokkos.h pair_pace_extrapolation.h
 action pair_pace_kokkos.cpp pair_pace.cpp
