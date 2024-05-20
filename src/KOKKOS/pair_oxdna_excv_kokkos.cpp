@@ -1038,6 +1038,7 @@ double PairOxdnaExcvKokkos<DeviceType>::init_one(int i, int j)
   k_cutsq_bb_ast.h_view(i,j) = k_cutsq_bb_ast.h_view(j,i) = cutsq_bb_ast[i][j];
   k_cutsq_bb_c.h_view(i,j) = k_cutsq_bb_c.h_view(j,i) = cutsq_bb_c[i][j];
 
+  // "cutone" is "cut_ss_c[i][j]", sets the master list distance cutoff
   return cutone;
 
 }
