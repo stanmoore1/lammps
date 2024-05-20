@@ -44,7 +44,6 @@ template<class DeviceType>
 class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
  public:
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
-  enum {COUL_FLAG=0};
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   PairOxdnaExcvKokkos(class LAMMPS *);
@@ -89,20 +88,14 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   void unpack_forward_comm(int, int, double *) override;
 
  protected:
-
-  int nmax;    // allocated size of per-atom arrays
-
+ 
   int oxdnaflag;
   enum EnabledOXDNAFlag{OXDNA=1,OXDNA2=2,OXRNA2=4};
 
   typename AT::t_x_array_randomread x;
-  //typename AT::t_x_array c_x;
   typename AT::t_f_array f;
   typename AT::t_f_array torque;
   typename AT::t_int_1d_randomread type;
-  /*typename AT::t_x_array nx;
-  typename AT::t_x_array ny;
-  typename AT::t_x_array nz;*/
 
   DAT::tdual_efloat_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
@@ -117,9 +110,9 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
 
   int neighflag;
   int nlocal, eflag, vflag;
-  int anum,/*alist,*/ blist /*numneigh, firstneigh*/;
+  int anum;
 
-  typename AT::t_neighbors_2d d_neighbors;
+  typename AT::t_neighbors_2d_randomread d_neighbors;
   typename AT::t_int_1d_randomread d_alist;
   typename AT::t_int_1d_randomread d_numneigh;
 
@@ -165,28 +158,8 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   NonDupScatterView<E_FLOAT*, typename DAT::t_efloat_1d::array_layout> ndup_eatom;
   NonDupScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout> ndup_vatom;
 
-  /*typename AT::t_ffloat_2d epsilon_ss, sigma_ss, cut_ss_ast, cutsq_ss_ast;
-  typename AT::t_ffloat_2d lj1_ss, lj2_ss, b_ss, cut_ss_c, cutsq_ss_c;
-  typename AT::t_ffloat_2d epsilon_sb, sigma_sb, cut_sb_ast, cutsq_sb_ast;
-  typename AT::t_ffloat_2d lj1_sb, lj2_sb, b_sb, cut_sb_c, cutsq_sb_c;
-  typename AT::t_ffloat_2d epsilon_bb, sigma_bb, cut_bb_ast, cutsq_bb_ast;
-  typename AT::t_ffloat_2d lj1_bb, lj2_bb, b_bb, cut_bb_c, cutsq_bb_c;
-  typename AT::t_ffloat_2d nx, ny, nz;    // per-atom arrays for local unit vectors*/
-
   void allocate() override;
-  /*friend struct PairComputeFunctor<PairOxdnaExcvKokkos,FULL,true,0>;
-  friend struct PairComputeFunctor<PairOxdnaExcvKokkos,FULL,true,1>;
-  friend struct PairComputeFunctor<PairOxdnaExcvKokkos,HALF,true>;
-  friend struct PairComputeFunctor<PairOxdnaExcvKokkos,HALFTHREAD,true>;
-  friend struct PairComputeFunctor<PairOxdnaExcvKokkos,FULL,false,0>;
-  friend struct PairComputeFunctor<PairOxdnaExcvKokkos,FULL,false,1>;
-  friend struct PairComputeFunctor<PairOxdnaExcvKokkos,HALF,false>;
-  friend struct PairComputeFunctor<PairOxdnaExcvKokkos,HALFTHREAD,false>;
-  friend EV_FLOAT pair_compute_neighlist<PairOxdnaExcvKokkos,FULL,0>(PairOxdnaExcvKokkos*,NeighListKokkos<DeviceType>*);
-  friend EV_FLOAT pair_compute_neighlist<PairOxdnaExcvKokkos,FULL,1>(PairOxdnaExcvKokkos*,NeighListKokkos<DeviceType>*);
-  friend EV_FLOAT pair_compute_neighlist<PairOxdnaExcvKokkos,HALF>(PairOxdnaExcvKokkos*,NeighListKokkos<DeviceType>*);
-  friend EV_FLOAT pair_compute_neighlist<PairOxdnaExcvKokkos,HALFTHREAD>(PairOxdnaExcvKokkos*,NeighListKokkos<DeviceType>*);
-  friend EV_FLOAT pair_compute<PairOxdnaExcvKokkos>(PairOxdnaExcvKokkos*,NeighListKokkos<DeviceType>*);*/
+ 
   friend void pair_virial_fdotr_compute<PairOxdnaExcvKokkos>(PairOxdnaExcvKokkos*);
 };
 

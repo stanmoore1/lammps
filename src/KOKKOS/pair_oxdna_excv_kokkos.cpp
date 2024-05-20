@@ -26,7 +26,6 @@
 #include "update.h"
 
 using namespace LAMMPS_NS;
-//using namespace MFOxdna;
 
 /* ---------------------------------------------------------------------- */
 
@@ -39,7 +38,6 @@ PairOxdnaExcvKokkos<DeviceType>::PairOxdnaExcvKokkos(LAMMPS *lmp) : PairOxdnaExc
   datamask_read = X_MASK | F_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | ENERGY_MASK | VIRIAL_MASK;
 
-  nmax = 0;
   oxdnaflag = EnabledOXDNAFlag::OXDNA;
 }
 
@@ -53,7 +51,6 @@ PairOxdnaExcvKokkos<DeviceType>::~PairOxdnaExcvKokkos()
   if (allocated) {
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->destroy_kokkos(k_vatom,vatom);
-    memoryKK->destroy_kokkos(k_cutsq,cutsq);
 
     memoryKK->destroy_kokkos(k_epsilon_ss,epsilon_ss);
     memoryKK->destroy_kokkos(k_sigma_ss,sigma_ss);
@@ -98,6 +95,8 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 {
   eflag = eflag_in;
   vflag = vflag_in;
+
+  //printf("neighflag, newton_pair, evflag : %d %d %d\n",neighflag,newton_pair,evflag);
 
   if (neighflag == FULL) no_virial_fdotr_compute = 1;
 
@@ -383,6 +382,8 @@ KOKKOS_INLINE_FUNCTION
 void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
   const int &ia, EV_FLOAT &ev) const
 {
+  //TODO: figure out evdwl in context of ev_tally_xyz and ev.evdwl
+
   // f and torque array are duplicated for OpenMP, atomic for GPU, and neither for Serial
 
   auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
@@ -390,6 +391,9 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
   //auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
   //  decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
   //auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  //printf("NEIGHFLAG, NEWTON_PAIR, EVFLAG: %d %d %d\n",NEIGHFLAG,NEWTON_PAIR,EVFLAG);
+  //printf("vflag_either,eflag_atom: %d %d\n",vflag_either,eflag_atom);
 
   const int a = d_alist(ia);
   const int atype = type(a);
@@ -404,7 +408,8 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
   F_FLOAT delr_bs[3],rsq_bs,delr_bb[3],rsq_bb;
 
   F_FLOAT ftmp[3],ttmp[3];  // temporary force, torque to reduce excessive dup/atomic updates
-  
+  // f/t/tmp can probably be removed actually and += del* directly
+
   // vector COM - backbone and base site a
   if (OXDNAFLAG==OXDNA) {
     constexpr F_FLOAT d_cs=-0.4;
@@ -444,6 +449,13 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
   rtmp_b[2] = x(a,2)+ra_cb[2];
   
   const int bnum = d_numneigh(a);
+
+  ftmp[0] = 0.0;
+  ftmp[1] = 0.0;
+  ftmp[2] = 0.0;
+  //ttmp[0] = 0.0;
+  //ttmp[1] = 0.0;
+  //ttmp[2] = 0.0;
 
   for (int ib = 0; ib < bnum; ib++) {
 
@@ -516,13 +528,13 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         const F_FLOAT r6inv = r2inv * r2inv * r2inv;
         fpair = factor_lj * r2inv * r6inv * \
           (12 * d_lj1_ss(atype,btype) * r6inv - 6 * d_lj2_ss(atype,btype));
-        ev.evdwl = factor_lj * r6inv * (d_lj1_ss(atype,btype) * r6inv - d_lj2_ss(atype,btype));
+        evdwl = factor_lj * r6inv * (d_lj1_ss(atype,btype) * r6inv - d_lj2_ss(atype,btype));
       } else {
         const F_FLOAT r = sqrt(rsq_ss);
         const F_FLOAT rinv = 1.0 / r;
         fpair = factor_lj * 2 * d_epsilon_ss(atype,btype) * d_b_ss(atype,btype) * \
           (d_cut_ss_c(atype,btype)  * rinv - 1);
-        ev.evdwl = d_epsilon_ss(atype,btype) * d_b_ss(atype,btype) * \
+        evdwl = d_epsilon_ss(atype,btype) * d_b_ss(atype,btype) * \
           (d_cut_ss_c(atype,btype) - r) * (d_cut_ss_c(atype,btype) - r);
       }
       // force and torque increment calculation
@@ -542,13 +554,16 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         a_f(b,0) -= delf[0];
         a_f(b,1) -= delf[1];
         a_f(b,2) -= delf[2];
+        //deltb[0] = rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
+        //deltb[1] = rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
+        //deltb[2] = rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
         //a_torque(b,0) -= delta[0];
         //a_torque(b,1) -= delta[1];
         //a_torque(b,2) -= delta[2];
       }
       if (EVFLAG) {
         if (eflag) {
-          ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*ev.evdwl;
+          evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
         }
 
         if (vflag_either || eflag_atom) {
@@ -566,13 +581,13 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         const F_FLOAT r6inv = r2inv * r2inv * r2inv;
         fpair = factor_lj * r2inv * r6inv * \
           (12 * d_lj1_sb(atype,btype) * r6inv - 6 * d_lj2_sb(atype,btype));
-        ev.evdwl = factor_lj * r6inv * (d_lj1_sb(atype,btype) * r6inv - d_lj2_sb(atype,btype));
+        evdwl = factor_lj * r6inv * (d_lj1_sb(atype,btype) * r6inv - d_lj2_sb(atype,btype));
       } else {
         const F_FLOAT r = sqrt(rsq_sb);
         const F_FLOAT rinv = 1.0 / r;
         fpair = factor_lj * 2 * d_epsilon_sb(atype,btype) * d_b_sb(atype,btype) * \
           (d_cut_sb_c(atype,btype)  * rinv - 1);
-        ev.evdwl = d_epsilon_sb(atype,btype) * d_b_sb(atype,btype) * \
+        evdwl = d_epsilon_sb(atype,btype) * d_b_sb(atype,btype) * \
           (d_cut_sb_c(atype,btype) - r) * (d_cut_sb_c(atype,btype) - r);
       }
       // force and torque increment calculation
@@ -592,13 +607,16 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         a_f(b,0) -= delf[0];
         a_f(b,1) -= delf[1];
         a_f(b,2) -= delf[2];
+        //deltb[0] = rb_cb[1]*delf[2] - rb_cb[2]*delf[1];
+        //deltb[1] = rb_cb[2]*delf[0] - rb_cb[0]*delf[2];
+        //deltb[2] = rb_cb[0]*delf[1] - rb_cb[1]*delf[0];
         //a_torque(b,0) -= delta[0];
         //a_torque(b,1) -= delta[1];
         //a_torque(b,2) -= delta[2];
       }
       if (EVFLAG) {
         if (eflag) {
-          ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*ev.evdwl;
+          evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
         }
 
         if (vflag_either || eflag_atom) {
@@ -616,13 +634,13 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         const F_FLOAT r6inv = r2inv * r2inv * r2inv;
         fpair = factor_lj * r2inv * r6inv * \
           (12 * d_lj1_sb(btype,atype) * r6inv - 6 * d_lj2_sb(btype,atype));
-        ev.evdwl = factor_lj * r6inv * (d_lj1_sb(btype,atype) * r6inv - d_lj2_sb(btype,atype));
+        evdwl = factor_lj * r6inv * (d_lj1_sb(btype,atype) * r6inv - d_lj2_sb(btype,atype));
       } else {
         const F_FLOAT r = sqrt(rsq_bs);
         const F_FLOAT rinv = 1.0 / r;
         fpair = factor_lj * 2 * d_epsilon_sb(btype,atype) * d_b_sb(btype,atype) * \
           (d_cut_sb_c(btype,atype)  * rinv - 1);
-        ev.evdwl = d_epsilon_sb(btype,atype) * d_b_sb(btype,atype) * \
+        evdwl = d_epsilon_sb(btype,atype) * d_b_sb(btype,atype) * \
           (d_cut_sb_c(btype,atype) - r) * (d_cut_sb_c(btype,atype) - r);
       }
       // force and torque increment calculation
@@ -642,13 +660,16 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         a_f(b,0) -= delf[0];
         a_f(b,1) -= delf[1];
         a_f(b,2) -= delf[2];
-        //a_torque(b,0) -= delta[0];
-        //a_torque(b,1) -= delta[1];
-        //a_torque(b,2) -= delta[2];
+        //deltb[0] = rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
+        //deltb[1] = rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
+        //deltb[2] = rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
+        //a_torque(b,0) -= deltb[0];
+        //a_torque(b,1) -= deltb[1];
+        //a_torque(b,2) -= deltb[2];
       }
       if (EVFLAG) {
         if (eflag) {
-          ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*ev.evdwl;
+          evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
         }
 
         if (vflag_either || eflag_atom) {
@@ -666,13 +687,13 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         const F_FLOAT r6inv = r2inv * r2inv * r2inv;
         fpair = factor_lj * r2inv * r6inv * \
           (12 * d_lj1_bb(atype,btype) * r6inv - 6 * d_lj2_bb(atype,btype));
-        ev.evdwl = factor_lj * r6inv * (d_lj1_bb(atype,btype) * r6inv - d_lj2_bb(atype,btype));
+        evdwl = factor_lj * r6inv * (d_lj1_bb(atype,btype) * r6inv - d_lj2_bb(atype,btype));
       } else {
         const F_FLOAT r = sqrt(rsq_bb);
         const F_FLOAT rinv = 1.0 / r;
         fpair = factor_lj * 2 * d_epsilon_bb(atype,btype) * d_b_bb(atype,btype) * \
           (d_cut_bb_c(atype,btype)  * rinv - 1);
-        ev.evdwl = d_epsilon_bb(atype,btype) * d_b_bb(atype,btype) * \
+        evdwl = d_epsilon_bb(atype,btype) * d_b_bb(atype,btype) * \
           (d_cut_bb_c(atype,btype) - r) * (d_cut_bb_c(atype,btype) - r);
       }
       // force and torque increment calculation
@@ -692,13 +713,16 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         a_f(b,0) -= delf[0];
         a_f(b,1) -= delf[1];
         a_f(b,2) -= delf[2];
+        //deltb[0] = rb_cb[1]*delf[2] - rb_cb[2]*delf[1];
+        //deltb[1] = rb_cb[2]*delf[0] - rb_cb[0]*delf[2];
+        //deltb[2] = rb_cb[0]*delf[1] - rb_cb[1]*delf[0];
         //a_torque(b,0) -= delta[0];
         //a_torque(b,1) -= delta[1];
         //a_torque(b,2) -= delta[2];
       }
       if (EVFLAG) {
         if (eflag) {
-          ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*ev.evdwl;
+          evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
         }
 
         if (vflag_either || eflag_atom) {
@@ -707,6 +731,8 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         }
       }
     }
+    //printf("INDEX ia, a, ib, b: %d %d %d %d\n",ia,a,ib,b);
+    // end excluded volume interaction
   }
   a_f(a,0) += ftmp[0];
   a_f(a,1) += ftmp[1];
@@ -843,7 +869,6 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   int n = atom->ntypes;
 
   //memory->destroy(setflag);
-  //memory->destroy(cutsq);
   
   memory->destroy(epsilon_ss);
   memory->destroy(sigma_ss);
@@ -879,8 +904,6 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   memory->destroy(ny);
   memory->destroy(nz);
 
-  memoryKK->create_kokkos(k_cutsq,cutsq,n+1,n+1,"PairOxdnaExcv:cutsq");
-
   memoryKK->create_kokkos(k_epsilon_ss,epsilon_ss,n+1,n+1,"PairOxdnaExcv:epsilon_ss");
   memoryKK->create_kokkos(k_sigma_ss,sigma_ss,n+1,n+1,"PairOxdnaExcv:sigma_ss");
   memoryKK->create_kokkos(k_cut_ss_ast,cut_ss_ast,n+1,n+1,"PairOxdnaExcv:cut_ss_ast");
@@ -914,8 +937,6 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   memoryKK->create_kokkos(k_nx,nx,atom->nmax,3,"PairOxdnaExcv:nx");
   memoryKK->create_kokkos(k_ny,ny,atom->nmax,3,"PairOxdnaExcv:ny");
   memoryKK->create_kokkos(k_nz,nz,atom->nmax,3,"PairOxdnaExcv:nz");
-
-  d_cutsq = k_cutsq.template view<DeviceType>();
 
   d_epsilon_ss = k_epsilon_ss.template view<DeviceType>();
   d_sigma_ss = k_sigma_ss.template view<DeviceType>();
@@ -970,7 +991,6 @@ void PairOxdnaExcvKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 template<class DeviceType>
 void PairOxdnaExcvKokkos<DeviceType>::init_style() 
 {
-  //PairOxdnaExcv::init_style();
   neighbor->add_request(this);
   neighflag = lmp->kokkos->neighflag;
   auto request = neighbor->find_request(this);
@@ -978,6 +998,7 @@ void PairOxdnaExcvKokkos<DeviceType>::init_style()
                            !std::is_same_v<DeviceType,LMPDeviceType>);
   request->set_kokkos_device(std::is_same_v<DeviceType,LMPDeviceType>);
   if (neighflag == FULL) request->enable_full();
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -986,8 +1007,6 @@ template<class DeviceType>
 double PairOxdnaExcvKokkos<DeviceType>::init_one(int i, int j)
 {
   double cutone = PairOxdnaExcv::init_one(i,j);
-
-  k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutone*cutone;
 
   k_epsilon_ss.h_view(i,j) = k_epsilon_ss.h_view(j,i) = epsilon_ss[i][j];
   k_sigma_ss.h_view(i,j) = k_sigma_ss.h_view(j,i) = sigma_ss[i][j];
