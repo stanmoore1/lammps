@@ -51,12 +51,11 @@ template <class DeviceType> PairUF3Kokkos<DeviceType>::PairUF3Kokkos(LAMMPS *lmp
 {
   respa_enable = 0;
 
-  //kokkosable = 1;
+  kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read = X_MASK | F_MASK | TAG_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | ENERGY_MASK | VIRIAL_MASK;
-
 }
 
 template <class DeviceType> PairUF3Kokkos<DeviceType>::~PairUF3Kokkos()
@@ -94,34 +93,6 @@ void PairUF3Kokkos<DeviceType>::destroy_4d(TYPE data, typename TYPE::value_type*
   array = nullptr;
 }
 
-/* ----------------------------------------------------------------------
- *     global settings
- * ---------------------------------------------------------------------- */
-
-template <class DeviceType> void PairUF3Kokkos<DeviceType>::settings(int narg, char **arg)
-{
-  PairUF3::settings(narg, arg);
-  //1. Determines whether the simulation is 2-body or 2 and 3-body
-  //2. Set nbody_flag, num_of_elements, pot_3b
-}
-
-/* ----------------------------------------------------------------------
- *    set coeffs for one or more type pairs
- * ---------------------------------------------------------------------- */
-template <class DeviceType> void PairUF3Kokkos<DeviceType>::coeff(int narg, char **arg)
-{
-  PairUF3::coeff(narg,arg);
-  //Also calls allocate internally
-  //Grows arrays to the right dimensions --> setflag, cutsq, cut, knot_spacing_type_2b,
-  //knot_spacing_2b, n2b_knots_array_size, n2b_coeff_array_size, setflag_3b,
-  //cut_3b, cut_3b_list, min_cut_3b, knot_spacing_type_3b, knot_spacing_3b,
-  //tot_interaction_count_3b, map_3b, n3b_knots_array_size, n3b_coeff_array_size,
-  //neighshort
-  //
-  //Also reads the pot_files_internally
-
-}
-
 template<class DeviceType>
 void PairUF3Kokkos<DeviceType>::allocate()
 {
@@ -141,7 +112,6 @@ void PairUF3Kokkos<DeviceType>::allocate()
   d_cut_3b = k_cut_3b.template view<DeviceType>();
   d_min_cut_3b = k_min_cut_3b.template view<DeviceType>();
 }
-
 
 /* ----------------------------------------------------------------------
    init specific to this pair style
@@ -1601,56 +1571,6 @@ std::vector<F_FLOAT> PairUF3Kokkos<DeviceType>::get_dnconstants(double *knots, d
       (1 / (knots[1] * knots[2] - knots[1] * knots[3] - knots[2] * knots[3] + square(knots[3])));
 
   return constants;
-}
-
-template <class DeviceType>
-double PairUF3Kokkos<DeviceType>::single(int /*i*/, int /*j*/, int itype, int jtype, double rsq,
-                                         double /*factor_coul*/, double factor_lj, double &fforce)
-{
-  double value = 0.0;
-  double r = sqrt(rsq);
-  int interaction_id = map2b(itype, jtype);
-  int start_index = 3;
-  while (r > d_n2b_knot(interaction_id, start_index + 1)) start_index++;
-
-  if (r < d_cutsq(itype, jtype)) {
-    F_FLOAT r_values[4];
-    r_values[0] = 1;
-    r_values[1] = r;
-    r_values[2] = r_values[1] * r_values[1];
-    r_values[3] = r_values[2] * r_values[1];
-
-    // Calculate energy
-    value = constants_2b(interaction_id, start_index, 0);
-    value += r_values[1] * constants_2b(interaction_id, start_index, 1);
-    value += r_values[2] * constants_2b(interaction_id, start_index, 2);
-    value += r_values[3] * constants_2b(interaction_id, start_index, 3);
-    value += constants_2b(interaction_id, start_index - 1, 4);
-    value += r_values[1] * constants_2b(interaction_id, start_index - 1, 5);
-    value += r_values[2] * constants_2b(interaction_id, start_index - 1, 6);
-    value += r_values[3] * constants_2b(interaction_id, start_index - 1, 7);
-    value += constants_2b(interaction_id, start_index - 2, 8);
-    value += r_values[1] * constants_2b(interaction_id, start_index - 2, 9);
-    value += r_values[2] * constants_2b(interaction_id, start_index - 2, 10);
-    value += r_values[3] * constants_2b(interaction_id, start_index - 2, 11);
-    value += constants_2b(interaction_id, start_index - 3, 12);
-    value += r_values[1] * constants_2b(interaction_id, start_index - 3, 13);
-    value += r_values[2] * constants_2b(interaction_id, start_index - 3, 14);
-    value += r_values[3] * constants_2b(interaction_id, start_index - 3, 15);
-
-    // Calculate force
-    fforce = dnconstants_2b(interaction_id, start_index - 1, 0);
-    fforce += r_values[1] * dnconstants_2b(interaction_id, start_index - 1, 1);
-    fforce += r_values[2] * dnconstants_2b(interaction_id, start_index - 1, 2);
-    fforce += dnconstants_2b(interaction_id, start_index - 2, 3);
-    fforce += r_values[1] * dnconstants_2b(interaction_id, start_index - 2, 4);
-    fforce += r_values[2] * dnconstants_2b(interaction_id, start_index - 2, 5);
-    fforce += dnconstants_2b(interaction_id, start_index - 3, 6);
-    fforce += r_values[1] * dnconstants_2b(interaction_id, start_index - 3, 7);
-    fforce += r_values[2] * dnconstants_2b(interaction_id, start_index - 3, 8);
-  }
-
-  return factor_lj * value;
 }
 
 namespace LAMMPS_NS {

@@ -42,13 +42,10 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   PairUF3Kokkos(class LAMMPS *);
   ~PairUF3Kokkos() override;
   void compute(int, int) override;
-  void settings(int, char **) override;
-  void coeff(int, char **) override;
   void allocate();
   void init_style() override;
   void init_list(int, class NeighList *) override;    // needed for ptr to full neigh list
   double init_one(int, int) override;                 // needed for cutoff radius for neighbour list
-  double single(int, int, int, int, double, double, double, double &) override;
 
   template <typename T, typename V> void copy_2d(V &d, T **h, int m, int n);
   template <typename T, typename V> void copy_3d(V &d, T ***h, int m, int n, int o);
@@ -117,20 +114,24 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   std::vector<F_FLOAT> get_dncoefficients(const double *knots, const double coefficient) const;
 
   template <int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
   void twobody(const int itype, const int jtype, const F_FLOAT r, F_FLOAT &evdwl,
                F_FLOAT &fpair) const;
+
   template <int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
   void threebody(const int itype, const int jtype, const int ktype, const F_FLOAT value_rij,
                  const F_FLOAT value_rik, const F_FLOAT value_rjk, F_FLOAT &evdwl3,
                  F_FLOAT (&fforce)[3]) const;
 
   template <int NEIGHFLAG>
-  KOKKOS_INLINE_FUNCTION void
-  ev_tally(EV_FLOAT &ev, const int &i, const int &j, const F_FLOAT &epair, const F_FLOAT &fpair,
+  KOKKOS_INLINE_FUNCTION
+  void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const F_FLOAT &epair, const F_FLOAT &fpair,
            const F_FLOAT &delx, const F_FLOAT &dely, const F_FLOAT &delz) const;
 
   template <int NEIGHFLAG>
-  KOKKOS_INLINE_FUNCTION void ev_tally3(EV_FLOAT &ev, const int &i, const int &j, int &k,
+  KOKKOS_INLINE_FUNCTION
+  void ev_tally3(EV_FLOAT &ev, const int &i, const int &j, int &k,
                                         const F_FLOAT &evdwl, const F_FLOAT &ecoul, F_FLOAT *fj,
                                         F_FLOAT *fk, F_FLOAT *drji, F_FLOAT *drki) const;
 
