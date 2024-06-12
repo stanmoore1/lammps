@@ -464,6 +464,8 @@ struct AtomVecDipoleKokkos_PackExchangeFunctor {
 int AtomVecDipoleKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &k_buf,
                                               DAT::tdual_int_1d k_sendlist,
                                               DAT::tdual_int_1d k_copylist,
+                                              DAT::tdual_int_1d k_sendlist_exchange,
+                                              DAT::tdual_int_1d k_copylist_exchange,
                                               ExecutionSpace space)
 {
   size_exchange = 16; // # of elements packed
