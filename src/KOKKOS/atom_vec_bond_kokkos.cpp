@@ -442,6 +442,8 @@ struct AtomVecBondKokkos_PackExchangeFunctor {
 int AtomVecBondKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &k_buf,
                                             DAT::tdual_int_1d k_sendlist,
                                             DAT::tdual_int_1d k_copylist,
+                                            DAT::tdual_int_1d k_sendlist_exchange,
+                                            DAT::tdual_int_1d k_copylist_exchange,
                                             ExecutionSpace space)
 {
   // 3 comp of x, 3 comp of v, 1 tag, 1 type, 1 mask, 1 image, 1 molecule, 3 nspecial,
