@@ -90,6 +90,10 @@ action bond_harmonic_kokkos.cpp bond_harmonic.cpp
 action bond_harmonic_kokkos.h bond_harmonic.h
 action bond_oxdna_fene_kokkos.cpp bond_oxdna_fene.cpp
 action bond_oxdna_fene_kokkos.h bond_oxdna_fene.h
+action bond_oxdna2_fene_kokkos.h bond_oxdna_fene_kokkos.h
+action bond_oxrna2_fene_kokkos.h bond_oxdna_fene_kokkos.h
+action bond_hybrid_kokkos.cpp bond_hybrid.cpp
+action bond_hybrid_kokkos.h bond_hybrid.h
 action comm_kokkos.cpp
 action comm_kokkos.h
 action comm_tiled_kokkos.cpp
@@ -358,6 +362,10 @@ action pair_morse_kokkos.cpp
 action pair_morse_kokkos.h
 action pair_multi_lucy_rx_kokkos.cpp pair_multi_lucy_rx.cpp
 action pair_multi_lucy_rx_kokkos.h pair_multi_lucy_rx.h
+action pair_oxdna_excv_kokkos.cpp pair_oxdna_excv.cpp
+action pair_oxdna_excv_kokkos.h pair_oxdna_excv.h
+action pair_oxdna2_excv_kokkos.h pair_oxdna_excv_kokkos.h
+action pair_oxrna2_excv_kokkos.h pair_oxdna_excv_kokkos.h
 action pair_pace_extrapolation_kokkos.cpp pair_pace_extrapolation.cpp
 action pair_pace_extrapolation_kokkos.h pair_pace_extrapolation.h
 action pair_pace_kokkos.cpp pair_pace.cpp
