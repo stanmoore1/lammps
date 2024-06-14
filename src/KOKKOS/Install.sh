@@ -92,6 +92,8 @@ action bond_oxdna_fene_kokkos.cpp bond_oxdna_fene.cpp
 action bond_oxdna_fene_kokkos.h bond_oxdna_fene.h
 action bond_oxdna2_fene_kokkos.h bond_oxdna_fene_kokkos.h
 action bond_oxrna2_fene_kokkos.h bond_oxdna_fene_kokkos.h
+action bond_hybrid_kokkos.cpp bond_hybrid.cpp
+action bond_hybrid_kokkos.h bond_hybrid.h
 action comm_kokkos.cpp
 action comm_kokkos.h
 action comm_tiled_kokkos.cpp
