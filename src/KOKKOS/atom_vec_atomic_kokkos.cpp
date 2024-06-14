@@ -344,7 +344,13 @@ struct AtomVecAtomicKokkos_PackExchangeFunctor {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecAtomicKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &k_buf, DAT::tdual_int_1d k_sendlist,DAT::tdual_int_1d k_copylist,ExecutionSpace space)
+int AtomVecAtomicKokkos::pack_exchange_kokkos(const int &nsend,
+                                              DAT::tdual_xfloat_2d &k_buf,
+                                              DAT::tdual_int_1d k_sendlist,
+                                              DAT::tdual_int_1d k_copylist,
+                                              DAT::tdual_int_1d k_sendlist_bonus,
+                                              DAT::tdual_int_1d k_copylist_bonus,
+                                              ExecutionSpace space)
 {
   size_exchange = 11;
 
