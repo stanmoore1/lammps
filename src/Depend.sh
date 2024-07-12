@@ -189,6 +189,10 @@ if (test $1 = "ML-PACE") then
   depend KOKKOS
 fi
 
+if (test $1 = "ML-POD") then
+  depend KOKKOS
+fi
+
 if (test $1 = "ML-SNAP") then
   depend ML-IAP
   depend KOKKOS
