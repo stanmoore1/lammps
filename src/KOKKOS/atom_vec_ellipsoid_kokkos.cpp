@@ -887,7 +887,7 @@ void AtomVecEllipsoidKokkos::unpack_comm_kokkos(
   const int &n, const int &first,
   const DAT::tdual_xfloat_2d &buf) {
 
-  //printf("unpack_comm_kokkos() call\n");
+  printf("unpack_comm_kokkos() call\n");
   if (lmp->kokkos->forward_comm_on_host) {
     atomKK->modified(Host,X_MASK|RMASS_MASK|ELLIPSOID_MASK);
     if (bonus_flag==0) {
@@ -921,7 +921,7 @@ void AtomVecEllipsoidKokkos::unpack_comm_kokkos(
       //unpack_comm_bonus_kokkos(n, first, buf, Device); 
     }
   }
-  //printf("unpack_comm_kokkos() call end\n");
+  printf("unpack_comm_kokkos() call end\n");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1719,6 +1719,7 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
           printf("Done _ellipsoidw\n");
           _bonusw(_ellipsoid(i_bonus)) = _bonus(j_bonus);
           printf("Done _bonusw\n");
+          Kokkos::atomic_add_fetch(&_nlocal_bonus,-1);
           printf("Pex Inline (copy) nlocal_bonus = %d\n", _nlocal_bonus);
         }
 
@@ -1981,7 +1982,7 @@ int AtomVecEllipsoidKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, 
   if (space == Host) {
     printf("UPex:: proc, nlocal, atom->nlocal, nlocal_bonus = %d: %d, %d, %d\n", comm->me, nlocal, atom->nlocal, nlocal_bonus);
     k_count.h_view(0) = nlocal;
-    k_count_bonus.h_view(0) = nlocal; // Change
+    k_count_bonus.h_view(0) = nlocal_bonus; // Change
     if (k_indices.h_view.data()) {
       if (bonus_flag==0) {
         AtomVecEllipsoidKokkos_UnpackExchangeFunctor<LMPHostType,1,0> f(atomKK,this,k_bonus,
@@ -2044,6 +2045,8 @@ int AtomVecEllipsoidKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, 
 
   atomKK->modified(space,X_MASK | V_MASK | TAG_MASK | TYPE_MASK |
                  MASK_MASK | IMAGE_MASK | RMASS_MASK | ANGMOM_MASK | ELLIPSOID_MASK);
+  
+  nlocal_bonus = k_count_bonus.h_view(0);
 
   for (int n=0; n<k_count_bonus.h_view(0); n++) {
     printf("k_count.h_view(0) = %d\n", k_count.h_view(0));
@@ -2393,6 +2396,18 @@ struct AtomVecEllipsoidKokkos_UnpackBorderBonus {
                                  DAT::tdual_int_1d &k_indices)
 {
 
+}
+
+/* ---------------------------------------------------------------------- */
+
+int AtomVecEllipsoidKokkos::get_status_nlocal_bonus() {
+  return nlocal_bonus;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void AtomVecEllipsoidKokkos::set_status_nlocal_bonus(int nlocal_bonus) {
+  this->nlocal_bonus = nlocal_bonus;
 }
 
 /* ---------------------------------------------------------------------- */

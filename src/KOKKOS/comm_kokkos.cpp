@@ -826,7 +826,7 @@ struct BuildExchangeListFunctor {
 template<class DeviceType>
 void CommKokkos::exchange_device()
 {
-  int nsend,nrecv,nrecv1,nrecv2,nlocal;
+  int nsend,nrecv,nrecv1,nrecv2,nlocal,nlocal_bonus;
   double *sublo,*subhi;
   double lo,hi;
   MPI_Request request;
@@ -873,6 +873,7 @@ void CommKokkos::exchange_device()
       lo = sublo[dim];
       hi = subhi[dim];
       nlocal = atom->nlocal;
+      if (bonus_flag) nlocal_bonus = atomKK->avecKK->get_status_nlocal_bonus();
       nsend = 0;
 
       // fill buffer with atoms leaving my box, using < and >=
@@ -917,9 +918,12 @@ void CommKokkos::exchange_device()
           MemKK::realloc_kokkos(k_exchange_sendlist,"comm:k_exchange_sendlist",count*1.1);
           MemKK::realloc_kokkos(k_exchange_copylist,"comm:k_exchange_copylist",count*1.1);
           k_count.h_view(0) = k_exchange_sendlist.h_view.extent(0);
+          if (bonus_flag) k_count.h_view(1) = k_exchange_sendlist_bonus.h_view.extent(0);
         }
+        printf("COMM: k_count.h_view([0/1]) = %d, %d\n",k_count.h_view(0),k_count.h_view(1));
       }
       int count = k_count.h_view(0);
+      printf("COMM: count = %d\n",count);
 
       // sort exchange_sendlist
 
@@ -953,6 +957,7 @@ void CommKokkos::exchange_device()
       if (bonus_flag) {
 
         int count = k_count.h_view(1);
+        printf("COMM: count_bonus = %d\n",count);
 
         // sort exchange_sendlist_bonus
 
@@ -963,11 +968,11 @@ void CommKokkos::exchange_device()
         // when atom is deleted, fill it in with last atom
 
         int sendpos = count-1;
-        int icopy = nlocal-1;
-        nlocal -= count;
+        int icopy = nlocal_bonus-1;
+        nlocal_bonus -= count;
         for (int recvpos = 0; recvpos < count; recvpos++) {
           int irecv = k_exchange_sendlist_bonus.h_view(recvpos);
-          if (irecv < nlocal) {
+          if (irecv < nlocal_bonus) {
             if (icopy == k_exchange_sendlist_bonus.h_view(sendpos)) icopy--;
             while (sendpos > 0 && icopy <= k_exchange_sendlist_bonus.h_view(sendpos-1)) {
               sendpos--;
@@ -991,6 +996,7 @@ void CommKokkos::exchange_device()
                                    ExecutionSpaceFromDevice<DeviceType>::space);
       DeviceType().fence();
       atom->nlocal = nlocal;
+      if (bonus_flag) atomKK->avecKK->set_status_nlocal_bonus(nlocal_bonus);
 
       // send/recv atoms in both directions
       // send size of message first so receiver can realloc buf_recv if needed

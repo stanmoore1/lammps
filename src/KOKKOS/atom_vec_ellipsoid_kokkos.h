@@ -125,6 +125,9 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
                                  ExecutionSpace space,
                                  DAT::tdual_int_1d &k_indices) override;*/
 
+  int get_status_nlocal_bonus() override;
+  void set_status_nlocal_bonus(int) override;
+
   void sync(ExecutionSpace space, unsigned int mask) override;
   void modified(ExecutionSpace space, unsigned int mask) override;
   void sync_overlapping_device(ExecutionSpace space, unsigned int mask) override;

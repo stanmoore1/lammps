@@ -160,6 +160,9 @@ class AtomVecKokkos : virtual public AtomVec {
           //                       ExecutionSpace /*space*/,
             //                     DAT::tdual_int_1d &/*k_indices*/) {return 0;}
 
+  virtual int get_status_nlocal_bonus() { return 0; }
+  virtual void set_status_nlocal_bonus(int) {}
+
   int no_comm_vel_flag,no_border_vel_flag;
   int unpack_exchange_indices_flag;
   int size_exchange;
