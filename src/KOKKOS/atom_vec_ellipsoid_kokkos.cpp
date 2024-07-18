@@ -1395,7 +1395,7 @@ struct AtomVecEllipsoidKokkos_UnpackBorder {
     //  _ellipsoid(i+_first) = -1;
     //} else {
       //j = _nlocal_bonus + _nghost_bonus(0);
-      j = _first + _nlocal_bonus + Kokkos::atomic_fetch_add(&_nghost_bonus(0),1);
+      j = _nlocal_bonus + Kokkos::atomic_fetch_add(&_nghost_bonus(0),1);
       //j = j+_nlocal_bonus;
       //j = i+_first;
       _bonus(j).shape[0] = _buf(i,8);

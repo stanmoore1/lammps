@@ -812,7 +812,7 @@ struct BuildExchangeListFunctor {
         _sendlist(mysend) = i;
 
       if (BONUS_FLAG) {
-        if (_bonus_flags(i)) {
+        if (_bonus_flags(i)>-1) {
           const int mysend_bonus = Kokkos::atomic_fetch_add(&_nsend(1),1);
           _sendlist_bonus(mysend_bonus) = i;
         }
@@ -876,6 +876,8 @@ void CommKokkos::exchange_device()
       if (bonus_flag) nlocal_bonus = atomKK->avecKK->get_status_nlocal_bonus();
       nsend = 0;
 
+      printf("COMM: proc %d, nlocal = %d, nlocal_bonus = %d\n",comm->me,nlocal,nlocal_bonus);
+
       // fill buffer with atoms leaving my box, using < and >=
 
       k_count.h_view(0) = k_exchange_sendlist.h_view.extent(0);
@@ -886,6 +888,12 @@ void CommKokkos::exchange_device()
         DAT::tdual_int_1d k_bonus_flags;
         if (bonus_flag) {
           if (ellipsoid_flag) k_bonus_flags = atomKK->k_ellipsoid;
+          
+          for (int h=0; h<k_bonus_flags.h_view.extent(0); h++) {
+            if (k_bonus_flags.h_view(h)) printf("COMM: proc %d, k_bonus_flags[%d] = %d\n",comm->me,h,k_bonus_flags.h_view(h));
+          }
+          //printf("k_bonus_flags = %d\n",k_bonus_flags.h_view(0));
+
           if (line_flag || tri_flag || body_flag)
             error->all(FLERR,"Bonus struct not yet supported by Kokkos communication");
 
@@ -920,7 +928,7 @@ void CommKokkos::exchange_device()
           k_count.h_view(0) = k_exchange_sendlist.h_view.extent(0);
           if (bonus_flag) k_count.h_view(1) = k_exchange_sendlist_bonus.h_view.extent(0);
         }
-        printf("COMM: k_count.h_view([0/1]) = %d, %d\n",k_count.h_view(0),k_count.h_view(1));
+        printf("COMM: proc %d, k_count.h_view([0/1]) = %d, %d\n",comm->me,k_count.h_view(0),k_count.h_view(1));
       }
       int count = k_count.h_view(0);
       printf("COMM: count = %d\n",count);
@@ -956,21 +964,21 @@ void CommKokkos::exchange_device()
 
       if (bonus_flag) {
 
-        int count = k_count.h_view(1);
-        printf("COMM: count_bonus = %d\n",count);
+        int count_bonus = k_count.h_view(1);
+        printf("COMM: count_bonus = %d\n",count_bonus);
 
         // sort exchange_sendlist_bonus
 
-        auto d_exchange_sendlist_bonus = Kokkos::subview(k_exchange_sendlist_bonus.view<DeviceType>(),std::make_pair(0,count));
+        auto d_exchange_sendlist_bonus = Kokkos::subview(k_exchange_sendlist_bonus.view<DeviceType>(),std::make_pair(0,count_bonus));
         Kokkos::sort(DeviceType(), d_exchange_sendlist_bonus);
         k_exchange_sendlist_bonus.sync<LMPHostType>();
 
         // when atom is deleted, fill it in with last atom
 
-        int sendpos = count-1;
+        int sendpos = count_bonus-1;
         int icopy = nlocal_bonus-1;
-        nlocal_bonus -= count;
-        for (int recvpos = 0; recvpos < count; recvpos++) {
+        nlocal_bonus -= count_bonus;
+        for (int recvpos = 0; recvpos < count_bonus; recvpos++) {
           int irecv = k_exchange_sendlist_bonus.h_view(recvpos);
           if (irecv < nlocal_bonus) {
             if (icopy == k_exchange_sendlist_bonus.h_view(sendpos)) icopy--;
