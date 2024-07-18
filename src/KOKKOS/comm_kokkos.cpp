@@ -1006,6 +1006,8 @@ void CommKokkos::exchange_device()
       atom->nlocal = nlocal;
       if (bonus_flag) atomKK->avecKK->set_status_nlocal_bonus(nlocal_bonus);
 
+      printf("COMM: AFTER Pex. proc %d, nlocal = %d, nlocal_bonus = %d\n",comm->me,nlocal,nlocal_bonus);
+
       // send/recv atoms in both directions
       // send size of message first so receiver can realloc buf_recv if needed
       // if 1 proc in dimension, no send/recv
@@ -1055,6 +1057,9 @@ void CommKokkos::exchange_device()
           atom->nlocal = atomKK->avecKK->
             unpack_exchange_kokkos(k_buf_recv,nrecv,atom->nlocal,dim,lo,hi,
                                      ExecutionSpaceFromDevice<DeviceType>::space,k_indices);
+          
+          int DEBUGnl_bonus = atomKK->avecKK->get_status_nlocal_bonus();
+          printf("COMM: AFTER Pex. proc %d, nlocal = %d, nlocal_bonus = %d\n",comm->me,atom->nlocal,DEBUGnl_bonus);
 
           DeviceType().fence();
         }

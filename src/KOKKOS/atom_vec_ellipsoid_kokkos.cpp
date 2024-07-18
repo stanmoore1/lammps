@@ -1726,7 +1726,7 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
           _ellipsoidw(_bonus(nb).ilocal) = _ellipsoid(i_bonus);
           _bonusw(_ellipsoid(i_bonus)) = _bonus(nb);
           // ---
-          //_ellipsoidw(_bonus(_nlocal_bonus).ilocal) = _ellipsoid(i_bonus);
+          //_ellipsoidw(_bonus(j_bonus).ilocal) = _ellipsoid(i_bonus);
           //_bonusw(_ellipsoid(i_bonus)) = _bonus(j_bonus);
           // ---
           ///Kokkos::atomic_add_fetch(&_nlocal_bonus,-1);
@@ -1779,6 +1779,7 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       printf("_bonusw(i_bonus): shape[0/1/2] = %f %f %f\n", _bonusw(i_bonus).shape[0], _bonusw(i_bonus).shape[1], _bonusw(i_bonus).shape[2]);
       printf("_bonusw(i_bonus): quat[0/1/2/3] = %f %f %f %f\n", _bonusw(i_bonus).quat[0], _bonusw(i_bonus).quat[1], _bonusw(i_bonus).quat[2], _bonusw(i_bonus).quat[3]);
       printf("_ellipsoidw([i/j]_bonus) = %d , %d\n", _ellipsoidw(i_bonus), _ellipsoidw(j_bonus));
+      //printf("_ellipsoidw([i/j]) = %d , %d\n", _ellipsoidw(i), _ellipsoidw(j));
     }
     printf("/------------------------------------------------------------------/\n");
   }
