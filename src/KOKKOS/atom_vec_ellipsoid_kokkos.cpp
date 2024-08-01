@@ -1417,9 +1417,9 @@ struct AtomVecEllipsoidKokkos_UnpackBorder {
     } else {
       int j;
       if (BUF_RECVFLAG) {
-        j = _nlocal_bonus + Kokkos::atomic_fetch_add(&_nghost_bonus(0),1);
+        j = i + _nlocal_bonus + Kokkos::atomic_fetch_add(&_nghost_bonus(0),1);
       } else {
-        j = _nlocal_bonus;
+        j = i + _nlocal_bonus + _nghost_bonus(0);
       }
       //j = j+_nlocal_bonus;
       //j = i+_first;
@@ -1787,7 +1787,6 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
 
         // if atom J has bonus data, reset J's bonus.ilocal to loc I
         // do NOT do this if self-copy (I=J) since J's bonus data is already deleted
-
         if (_ellipsoid(j_bonus) >= 0 && i_bonus != j_bonus) _bonusw(_ellipsoid(j_bonus)).ilocal = _ellipsoid(i_bonus);
         printf("_bonusw(_ellipsoid(j_bonus)).ilocal = %d\n", _bonusw(_ellipsoid(j_bonus)).ilocal);
         _ellipsoidw(i_bonus) = _ellipsoid(j_bonus);
@@ -1903,7 +1902,7 @@ int AtomVecEllipsoidKokkos::pack_exchange_kokkos(
   }
   //printf("k_count_bonus.h_view(0) = %d\n", k_count_bonus.h_view(0));
   //printf("proc, nlocal, nlocal_bonus = %d: %d, %d\n", comm->me, atom->nlocal, nlocal_bonus);
-  nlocal_bonus = k_count_bonus.h_view(1);
+  nlocal_bonus = k_count_bonus.h_view(0);
   //printf("nsend, size_exchange = %d %d\n", nsend, size_exchange);
   for (int i=0; i<nsend; i++) {
       printf("Pex Buf %d (Proc %d): tag %f, ellip %f, q[0/1/3/4]: %f %f %f %f\n", i, comm->me, k_buf.h_view(i,7), k_buf.h_view(i,15), k_buf.h_view(i,19), \
