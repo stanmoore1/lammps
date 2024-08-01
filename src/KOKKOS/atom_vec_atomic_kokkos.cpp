@@ -22,6 +22,8 @@
 #include "memory_kokkos.h"
 #include "modify.h"
 
+#include "comm.h"
+
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
@@ -170,7 +172,7 @@ int AtomVecAtomicKokkos::pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
                                int pbc_flag, int *pbc, ExecutionSpace space)
 {
   X_FLOAT dx,dy,dz;
-
+  printf("Proc %d: pack_border_kokkos() call start\n", comm->me);
   if (pbc_flag != 0) {
     if (domain->triclinic == 0) {
       dx = pbc[0]*domain->xprd;
@@ -207,6 +209,7 @@ int AtomVecAtomicKokkos::pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
       Kokkos::parallel_for(n,f);
     }
   }
+  printf("Proc %d: pack_border_kokkos() call end\n", comm->me);
   return n*6;
 }
 
@@ -247,8 +250,9 @@ struct AtomVecAtomicKokkos_UnpackBorder {
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecAtomicKokkos::unpack_border_kokkos(const int &n, const int &first,
+void AtomVecAtomicKokkos::unpack_border_kokkos(const int &n, const int &first, const int buf_recvflag,
                      const DAT::tdual_xfloat_2d &buf,ExecutionSpace space) {
+  printf("Proc %d: unpack_border_kokkos() call start\n", comm->me);
   atomKK->modified(space,X_MASK|TAG_MASK|TYPE_MASK|MASK_MASK);
   while (first+n >= nmax) grow(0);
   if (space==Host) {
@@ -260,6 +264,7 @@ void AtomVecAtomicKokkos::unpack_border_kokkos(const int &n, const int &first,
   }
 
   atomKK->modified(space,X_MASK|TAG_MASK|TYPE_MASK|MASK_MASK);
+  printf("Proc %d: unpack_border_kokkos() call end\n", comm->me);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -335,6 +340,7 @@ struct AtomVecAtomicKokkos_PackExchangeFunctor {
     _vw(i,1) = _v(j,1);
     _vw(i,2) = _v(j,2);
     _tagw[i] = _tag(j);
+    printf("_tagw[i] = %d\n",_tagw[i]);
     _typew[i] = _type(j);
     _maskw[i] = _mask(j);
     _imagew[i] = _image(j);
@@ -353,7 +359,7 @@ int AtomVecAtomicKokkos::pack_exchange_kokkos(const int &nsend,
                                               ExecutionSpace space)
 {
   size_exchange = 11;
-
+  printf("Proc %d: pack_exchange_kokkos() call start\n", comm->me);
   if (nsend > (int) (k_buf.view<LMPHostType>().extent(0)*k_buf.view<LMPHostType>().extent(1))/size_exchange) {
     int newsize = nsend*size_exchange/k_buf.view<LMPHostType>().extent(1)+1;
     k_buf.resize(newsize,k_buf.view<LMPHostType>().extent(1));
@@ -367,6 +373,7 @@ int AtomVecAtomicKokkos::pack_exchange_kokkos(const int &nsend,
     Kokkos::parallel_for(nsend,f);
     return nsend*size_exchange;
   }
+  printf("Proc %d: pack_exchange_kokkos() call end\n", comm->me);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -438,7 +445,7 @@ int AtomVecAtomicKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int
                                                 DAT::tdual_int_1d &k_indices)
 {
   while (nlocal + nrecv/size_exchange >= nmax) grow(0);
-
+  printf("Proc %d: unpack_exchange_kokkos() call start\n", comm->me);
   if (space == Host) {
     if (k_indices.h_view.data()) {
       k_count.h_view(0) = nlocal;
@@ -472,7 +479,7 @@ int AtomVecAtomicKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int
       k_count.sync<LMPHostType>();
     }
   }
-
+  printf("Proc %d: unpack_exchange_kokkos() call end\n", comm->me);
   return k_count.h_view(0);
 }
 

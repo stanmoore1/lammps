@@ -107,7 +107,7 @@ int AtomVecKokkos::pack_comm_kokkos(const int &n,
 {
   // Check whether to always run forward communication on the host
   // Choose correct forward PackComm kernel
-
+  printf("Proc %d: pack_comm_kokkos() call start\n", comm->me);
   if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(Host,X_MASK);
     if (pbc_flag) {
@@ -163,7 +163,7 @@ int AtomVecKokkos::pack_comm_kokkos(const int &n,
       }
     }
   }
-
+  printf("Proc %d: pack_comm_kokkos() call end\n", comm->me);
   return n*size_forward;
 }
 
@@ -417,6 +417,7 @@ struct AtomVecKokkos_UnpackComm {
 
 void AtomVecKokkos::unpack_comm_kokkos(const int &n, const int &first,
     const DAT::tdual_xfloat_2d &buf) {
+  printf("Proc %d: unpack_comm_kokkos() call start\n", comm->me);
   if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(Host,X_MASK);
     struct AtomVecKokkos_UnpackComm<LMPHostType> f(atomKK->k_x,buf,first);
@@ -428,6 +429,7 @@ void AtomVecKokkos::unpack_comm_kokkos(const int &n, const int &first,
     Kokkos::parallel_for(n,f);
     atomKK->modified(Device,X_MASK);
   }
+  printf("Proc %d: unpack_comm_kokkos() call end\n", comm->me);
 }
 
 /* ---------------------------------------------------------------------- */

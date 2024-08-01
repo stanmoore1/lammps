@@ -39,7 +39,7 @@ class AtomVecAtomicKokkos : public AtomVecKokkos, public AtomVecAtomic {
   int pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
                          DAT::tdual_xfloat_2d buf,
                          int pbc_flag, int *pbc, ExecutionSpace space) override;
-  void unpack_border_kokkos(const int &n, const int &nfirst,
+  void unpack_border_kokkos(const int &n, const int &nfirst, const int buf_recvflag,
                             const DAT::tdual_xfloat_2d &buf,
                             ExecutionSpace space) override;
   int pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &buf,

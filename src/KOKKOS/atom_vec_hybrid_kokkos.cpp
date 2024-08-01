@@ -86,7 +86,7 @@ int AtomVecHybridKokkos::pack_border_kokkos(int /*n*/, DAT::tdual_int_1d /*k_sen
   return 0;
 }
 
-void AtomVecHybridKokkos::unpack_border_kokkos(const int &/*n*/, const int &/*nfirst*/,
+void AtomVecHybridKokkos::unpack_border_kokkos(const int &/*n*/, const int &/*nfirst*/, const int /*buf_recvflag*/,
                                                const DAT::tdual_xfloat_2d &/*buf*/,
                                                ExecutionSpace /*space*/)
 {

@@ -1242,6 +1242,7 @@ void CommKokkos::borders_device() {
   double **x;
   double *mlo,*mhi;
   MPI_Request request;
+  int buf_recvflag; // used in unpack border for atom vec bonus data indexes 
 
   ExecutionSpace exec_space = ExecutionSpaceFromDevice<DeviceType>::space;
   atomKK->sync(exec_space,ALL_MASK);
@@ -1428,12 +1429,14 @@ void CommKokkos::borders_device() {
         }
       } else {
         if (sendproc[iswap] != me) {
+          buf_recvflag = 1;
           atomKK->avecKK->unpack_border_kokkos(nrecv,atom->nlocal+atom->nghost,
-                                     k_buf_recv,exec_space);
+                                     buf_recvflag,k_buf_recv,exec_space);
           DeviceType().fence();
         } else {
+          buf_recvflag = 0;
           atomKK->avecKK->unpack_border_kokkos(nrecv,atom->nlocal+atom->nghost,
-                                     k_buf_send,exec_space);
+                                     buf_recvflag,k_buf_send,exec_space);
           DeviceType().fence();
         }
       }
@@ -1448,6 +1451,7 @@ void CommKokkos::borders_device() {
       size_reverse_recv[iswap] = nsend*size_reverse;
       firstrecv[iswap] = atom->nlocal + atom->nghost;
       atom->nghost += nrecv;
+      printf("COMM (Proc %d): atom->nghost %d\n", comm->me, atom->nghost);
       iswap++;
     }
   }

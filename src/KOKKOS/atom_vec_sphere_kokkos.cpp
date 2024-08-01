@@ -1298,7 +1298,7 @@ struct AtomVecSphereKokkos_UnpackBorder {
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecSphereKokkos::unpack_border_kokkos(const int &n, const int &first,
+void AtomVecSphereKokkos::unpack_border_kokkos(const int &n, const int &first, const int buf_recvflag,
                                                const DAT::tdual_xfloat_2d &buf,ExecutionSpace space) {
   while (first+n >= nmax) grow(0);
   if (space==Host) {

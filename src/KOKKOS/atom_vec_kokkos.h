@@ -98,7 +98,7 @@ class AtomVecKokkos : virtual public AtomVec {
                        int pbc_flag, int *pbc, ExecutionSpace space) = 0;
 
   virtual void
-    unpack_border_kokkos(const int &n, const int &nfirst,
+    unpack_border_kokkos(const int &n, const int &nfirst, const int buf_recvflag,
                          const DAT::tdual_xfloat_2d &buf,
                          ExecutionSpace space) = 0;
 

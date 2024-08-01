@@ -685,7 +685,7 @@ struct AtomVecDPDKokkos_UnpackBorder {
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecDPDKokkos::unpack_border_kokkos(const int &n, const int &first,
+void AtomVecDPDKokkos::unpack_border_kokkos(const int &n, const int &first, const int buf_recvflag,
                      const DAT::tdual_xfloat_2d &buf,ExecutionSpace space) {
   atomKK->modified(space,X_MASK|TAG_MASK|TYPE_MASK|MASK_MASK|
                  DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK|
