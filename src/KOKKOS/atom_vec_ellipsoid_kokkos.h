@@ -82,6 +82,7 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
                      const int nfirst,
                      const int &pbc_flag, const int pbc[]) override;
   int pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
+                         DAT::tdual_int_1d k_sendlist_bonus,
                          DAT::tdual_xfloat_2d buf,
                          int pbc_flag, int *pbc, ExecutionSpace space) override;
   void unpack_border_kokkos(const int &n, const int &nfirst, const int buf_recvflag,

@@ -324,9 +324,9 @@ struct AtomVecFullKokkos_PackBorder {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecFullKokkos::pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                                               DAT::tdual_xfloat_2d buf,
-                                               int pbc_flag, int *pbc, ExecutionSpace space)
+int AtomVecFullKokkos::pack_border_kokkos(
+  int n, DAT::tdual_int_1d k_sendlist, DAT::tdual_int_1d k_sendlist_bonus, 
+  DAT::tdual_xfloat_2d buf, int pbc_flag, int *pbc, ExecutionSpace space)
 {
   X_FLOAT dx,dy,dz;
 

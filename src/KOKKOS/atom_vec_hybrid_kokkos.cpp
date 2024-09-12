@@ -79,6 +79,7 @@ int AtomVecHybridKokkos::pack_comm_self(const int &/*n*/, const DAT::tdual_int_1
 }
 
 int AtomVecHybridKokkos::pack_border_kokkos(int /*n*/, DAT::tdual_int_1d /*k_sendlist*/,
+                                            DAT::tdual_int_1d /*k_sendlist_bonus*/,
                                             DAT::tdual_xfloat_2d /*buf*/,
                                             int /*pbc_flag*/, int * /*pbc*/, ExecutionSpace /*space*/)
 {
