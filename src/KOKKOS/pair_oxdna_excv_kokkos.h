@@ -28,6 +28,8 @@ PairStyle(oxdna/excv/kk/host,PairOxdnaExcvKokkos<LMPHostType>);
 #include "pair_oxdna_excv.h"
 #include "neigh_list_kokkos.h"
 
+#include "atom_vec_ellipsoid_kokkos.h"
+
 namespace LAMMPS_NS {
 
 struct TagPairOxdnaExcvQuatToXYZ{};
@@ -87,6 +89,8 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   int pack_forward_comm(int, int *, double *, int, int *) override;
   void unpack_forward_comm(int, int, double *) override;
 
+  void *extract(const char *, int &) override;
+
  protected:
  
   int oxdnaflag;
@@ -96,6 +100,9 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   typename AT::t_f_array f;
   typename AT::t_f_array torque;
   typename AT::t_int_1d_randomread type;
+  
+  DEllipsoidBonusAT::t_bonus_1d d_bonus;
+  typename AT::t_int_1d_randomread ellipsoid;
 
   DAT::tdual_efloat_1d k_eatom;
   DAT::tdual_virial_array k_vatom;

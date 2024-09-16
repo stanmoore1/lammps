@@ -57,20 +57,6 @@ BondOxdnaFENEKokkos<DeviceType>::~BondOxdnaFENEKokkos()
   }
 }
 
-/* ----------------------------------------------------------------------
-    compute vector COM-sugar-phosphate backbone interaction site in oxDNA
-------------------------------------------------------------------------- */
-template<class DeviceType>
-void BondOxdnaFENEKokkos<DeviceType>::compute_interaction_sites(double e1[3], double /*e2*/[3], double /*e3*/[3],
-                                              double r[3]) const
-{
-  constexpr double d_cs = -0.4;
-
-  r[0] = d_cs * e1[0];
-  r[1] = d_cs * e1[1];
-  r[2] = d_cs * e1[2];
-}
-
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
@@ -100,7 +86,7 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();
-  //torque = atomKK->k_torque.view<DeviceType>();
+  torque = atomKK->k_torque.view<DeviceType>();
 
   neighborKK->k_bondlist.template sync<DeviceType>();
   bondlist = neighborKK->k_bondlist.view<DeviceType>();
@@ -109,10 +95,11 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   newton_bond = force->newton_bond;
 
   // n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna_excv
-  //int dim;
-  //nx_xtrct = (double **) force->pair->extract("nx", dim);
-  //ny_xtrct = (double **) force->pair->extract("ny", dim);
-  //nz_xtrct = (double **) force->pair->extract("nz", dim);
+  // TODO: Check this is ok to do
+  int dim;
+  d_nx_xtrct = *static_cast<typename AT::t_ffloat_2d*>(static_cast<void*>(force->pair->extract("d_nx", dim)));
+  d_ny_xtrct = *static_cast<typename AT::t_ffloat_2d*>(static_cast<void*>(force->pair->extract("d_ny", dim)));
+  d_nz_xtrct = *static_cast<typename AT::t_ffloat_2d*>(static_cast<void*>(force->pair->extract("d_nz", dim)));
 
   Kokkos::deep_copy(d_flag,0);
 
@@ -193,9 +180,11 @@ KOKKOS_INLINE_FUNCTION
 void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, \
   const int &in, EV_FLOAT& ev) const {
   
-  // The f array is atomic
+  // The f and torque arrays are atomic
   Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,\
     typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,\
+    typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_torque = torque;
 
   const int b = bondlist(in,0);
   const int a = bondlist(in,1);
@@ -209,26 +198,26 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   F_FLOAT ax[3], ay[3], az[3];
   F_FLOAT bx[3], by[3], bz[3];
 
-  /*ax(0) = nx_xtrct[a][0];
-  ax(1) = nx_xtrct[a][1];
-  ax(2) = nx_xtrct[a][2];
-  ay(0) = ny_xtrct[a][0];
-  ay(1) = ny_xtrct[a][1];
-  ay(2) = ny_xtrct[a][2];
-  az(0) = nz_xtrct[a][0];
-  az(1) = nz_xtrct[a][1];
-  az(2) = nz_xtrct[a][2];
-  bx(0) = nx_xtrct[b][0];
-  bx(1) = nx_xtrct[b][1];
-  bx(2) = nx_xtrct[b][2];
-  by(0) = ny_xtrct[b][0];
-  by(1) = ny_xtrct[b][1];
-  by(2) = ny_xtrct[b][2];
-  bz(0) = nz_xtrct[b][0];
-  bz(1) = nz_xtrct[b][1];
-  bz(2) = nz_xtrct[b][2];*/
+  ax[0] = d_nx_xtrct(a,0);
+  ax[1] = d_nx_xtrct(a,1);
+  ax[2] = d_nx_xtrct(a,2);
+  ay[0] = d_ny_xtrct(a,0);
+  ay[1] = d_ny_xtrct(a,1);
+  ay[2] = d_ny_xtrct(a,2);
+  az[0] = d_nz_xtrct(a,0);
+  az[1] = d_nz_xtrct(a,1);
+  az[2] = d_nz_xtrct(a,2);
+  bx[0] = d_nx_xtrct(b,0);
+  bx[1] = d_nx_xtrct(b,1);
+  bx[2] = d_nx_xtrct(b,2);
+  by[0] = d_ny_xtrct(b,0);
+  by[1] = d_ny_xtrct(b,1);
+  by[2] = d_ny_xtrct(b,2);
+  bz[0] = d_nz_xtrct(b,0);
+  bz[1] = d_nz_xtrct(b,1);
+  bz[2] = d_nz_xtrct(b,2);
   
-  ax[0] = 0.0;
+  /*ax[0] = 0.0;
   ax[1] = 0.0;
   ax[2] = 0.0;
   ay[0] = 0.0;
@@ -245,9 +234,9 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   by[2] = 0.0;
   bz[0] = 0.0;
   bz[1] = 0.0;
-  bz[2] = 0.0;
+  bz[2] = 0.0;*/
 
-  // vector COM-backbone site a and b - "compute_interaction_sites"
+  // vector COM-backbone site a and b - "compute_interaction_sites" vector COM-sugar-phosphate backbone in oxDNA
   if (OXDNAFLAG==OXDNA) {
     constexpr F_FLOAT d_cs = -0.4;
     ra_cs[0] = d_cs * ax[0];
@@ -315,9 +304,9 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
     delta[0] = ra_cs[1]*delf[2] - ra_cs[2]*delf[1];
     delta[1] = ra_cs[2]*delf[0] - ra_cs[0]*delf[2];
     delta[2] = ra_cs[0]*delf[1] - ra_cs[1]*delf[0];
-    //torque(a,0) += delta(0);
-    //torque(a,1) += delta(1);
-    //torque(a,2) += delta(2);
+    a_torque(a,0) += delta[0];
+    a_torque(a,1) += delta[1];
+    a_torque(a,2) += delta[2];
   }
 
   if (NEWTON_BOND || b < nlocal) {
@@ -327,9 +316,9 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
     deltb[0] = rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
     deltb[1] = rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
     deltb[2] = rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
-    //torque(b,0) -= deltb(0);
-    //torque(b,1) -= deltb(1);
-    //torque(b,2) -= deltb(2);
+    a_torque(b,0) -= deltb[0];
+    a_torque(b,1) -= deltb[1];
+    a_torque(b,2) -= deltb[2];
   }
   
   if (EVFLAG) { ev_tally_xyz(ev, a, b, nlocal, NEWTON_BOND, ebond, delf[0], delf[1], delf[2], \

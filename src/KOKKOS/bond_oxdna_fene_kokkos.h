@@ -39,7 +39,6 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
 
   BondOxdnaFENEKokkos(class LAMMPS *);
   ~BondOxdnaFENEKokkos() override;
-  virtual void compute_interaction_sites(double *, double *, double *, double *) const;
   void compute(int, int) override;
   void coeff(int, char **) override;
   void read_restart(FILE *) override;
@@ -89,8 +88,8 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   typename AT::t_ffloat_1d d_r0;
 
   //double **nx_xtrct, **ny_xtrct, **nz_xtrct;    // per-atom arrays for local unit vectors
-  //DAT::tdual_ffloat_2d k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
-  //typename AT::t_ffloat_2d d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
+  DAT::tdual_ffloat_2d k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
+  typename AT::t_ffloat_2d d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
 
   void allocate() override;
 };

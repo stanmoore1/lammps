@@ -137,6 +137,10 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
 
   void grow_bonus() override; 
 
+  DEllipsoidBonusAT::tdual_bonus_1d k_bonus; 
+  DEllipsoidBonusAT::t_bonus_1d d_bonus; 
+  HEllipsoidBonusAT::t_bonus_1d h_bonus;
+
   //typedef Kokkos::DualView<Bonus*,LMPDeviceType> tdual_bonus_1d;
   //typedef typename tdual_bonus_1d::t_dev t_bonus_1d;
   //typedef typename tdual_bonus_1d::t_host t_host_bonus_1d;
@@ -167,10 +171,6 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   HAT::t_f_array h_torque;
   DAT::t_int_1d d_ellipsoid;
   HAT::t_int_1d h_ellipsoid;
-    
-  DEllipsoidBonusAT::tdual_bonus_1d k_bonus; 
-  DEllipsoidBonusAT::t_bonus_1d d_bonus; 
-  HEllipsoidBonusAT::t_bonus_1d h_bonus;
 
   DAT::tdual_int_1d k_count_bonus;
   DAT::tdual_int_1d k_nghost_bonus;

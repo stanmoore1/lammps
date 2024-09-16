@@ -14,7 +14,7 @@
 #include "pair_oxdna_excv_kokkos.h"
 
 #include "atom_kokkos.h"
-//#include "atom_vec_ellipsoid_kokkos.h" ???
+//#include "atom_vec_ellipsoid_kokkos.h"
 #include "atom_masks.h"
 #include "comm.h"
 #include "error.h"
@@ -152,12 +152,16 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   k_nz.template sync<DeviceType>();
 
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
-  else atomKK->modified(execution_space,F_MASK); //need or not need? same for fene, also add TORQUE_MASK later
+  else atomKK->modified(execution_space,F_MASK); // TODO: need or not need? same for fene, also add TORQUE_MASK later
 
   x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();
-  //torque = atomKK->k_torque.view<DeviceType>();
+  torque = atomKK->k_torque.view<DeviceType>();
   type = atomKK->k_type.view<DeviceType>();
+
+  auto avec = dynamic_cast<AtomVecEllipsoidKokkos *>(atom->style_match("ellipsoid")); // TODO: check if this is correct, may ask Stan at some point
+  d_bonus = avec->k_bonus.view<DeviceType>();
+  ellipsoid = atomKK->k_ellipsoid.view<DeviceType>();
 
   nlocal = atom->nlocal;
   newton_pair = force->newton_pair;
@@ -178,13 +182,13 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   if (need_dup) {
     dup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterDuplicated>(f);
-    //dup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
-    //Kokkos::Experimental::ScatterDuplicated>(torque);
+    dup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    Kokkos::Experimental::ScatterDuplicated>(torque);
   } else {
     ndup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterNonDuplicated>(f);
-    //ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
-    //Kokkos::Experimental::ScatterNonDuplicated>(torque);
+    ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    Kokkos::Experimental::ScatterNonDuplicated>(torque);
   }
 
   copymode = 1;
@@ -319,7 +323,7 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (need_dup) {
     Kokkos::Experimental::contribute(f, dup_f);
-    //Kokkos::Experimental::contribute(torque, dup_torque);
+    Kokkos::Experimental::contribute(torque, dup_torque);
   }
 
   if (eflag_global) eng_vdwl += ev.evdwl;
@@ -353,7 +357,7 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // free duplicated memory
   if (need_dup) {
     dup_f        = decltype(dup_f)();
-    //dup_torque   = decltype(dup_torque)();
+    dup_torque   = decltype(dup_torque)();
     dup_eatom    = decltype(dup_eatom)();
     dup_vatom    = decltype(dup_vatom)();
   }
@@ -364,8 +368,23 @@ KOKKOS_INLINE_FUNCTION
 void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvQuatToXYZ, const int &in) const
 {
   int n = d_alist(in);
-  // TODO: implement quaternion to Cartesian unit vectors in lab frame
-  d_nx(n,0) = 0.0;
+  // TODO: confirm in testing this implementation of quaternion to Cartesian unit vectors in lab frame actually works
+  F_FLOAT qn[4];
+  for (int i = 0; i < 4; i++) {
+    qn[i] = d_bonus(ellipsoid(n)).quat[i];
+  }
+  
+  d_nx(n,0) = qn[0]*qn[0] + qn[1]*qn[1] - qn[2]*qn[2] - qn[3]*qn[3];
+  d_nx(n,1) = 2.0 * (qn[1]*qn[2] + qn[0]*qn[3]);
+  d_nx(n,2) = 2.0 * (qn[1]*qn[3] - qn[0]*qn[2]);
+  d_ny(n,0) = 2.0 * (qn[1]*qn[2] - qn[0]*qn[3]);
+  d_ny(n,1) = qn[0]*qn[0] - qn[1]*qn[1] + qn[2]*qn[2] - qn[3]*qn[3];
+  d_ny(n,2) = 2.0 * (qn[2]*qn[3] + qn[0]*qn[1]);
+  d_nz(n,0) = 2.0 * (qn[1]*qn[3] + qn[0]*qn[2]);
+  d_nz(n,1) = 2.0 * (qn[2]*qn[3] - qn[0]*qn[1]);
+  d_nz(n,2) = qn[0]*qn[0] - qn[1]*qn[1] - qn[2]*qn[2] + qn[3]*qn[3];
+
+  /*d_nx(n,0) = 0.0;
   d_nx(n,1) = 0.0;
   d_nx(n,2) = 0.0;
   d_ny(n,0) = 0.0;
@@ -373,7 +392,7 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvQuatToXYZ, cons
   d_ny(n,2) = 0.0;
   d_nz(n,0) = 0.0;
   d_nz(n,1) = 0.0;
-  d_nz(n,2) = 0.0;
+  d_nz(n,2) = 0.0;*/
 }
 
 template<class DeviceType>
@@ -388,9 +407,9 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
 
   auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
-  //auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
-  //  decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
-  //auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
+    decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
+  auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   //printf("NEIGHFLAG, NEWTON_PAIR, EVFLAG: %d %d %d\n",NEIGHFLAG,NEWTON_PAIR,EVFLAG);
   //printf("vflag_either,eflag_atom: %d %d\n",vflag_either,eflag_atom);
@@ -408,7 +427,7 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
   F_FLOAT delr_bs[3],rsq_bs,delr_bb[3],rsq_bb;
 
   F_FLOAT ftmp[3],ttmp[3];  // temporary force, torque to reduce excessive dup/atomic updates
-  // f/t/tmp can probably be removed actually and += del* directly
+  // f/t/tmp can probably be removed actually and += del* directly? not sure why I did this, perhaps to avoid potential race conditions?
 
   // vector COM - backbone and base site a
   if (OXDNAFLAG==OXDNA) {
@@ -453,9 +472,9 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
   ftmp[0] = 0.0;
   ftmp[1] = 0.0;
   ftmp[2] = 0.0;
-  //ttmp[0] = 0.0;
-  //ttmp[1] = 0.0;
-  //ttmp[2] = 0.0;
+  ttmp[0] = 0.0;
+  ttmp[1] = 0.0;
+  ttmp[2] = 0.0;
 
   for (int ib = 0; ib < bnum; ib++) {
 
@@ -554,12 +573,12 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         a_f(b,0) -= delf[0];
         a_f(b,1) -= delf[1];
         a_f(b,2) -= delf[2];
-        //deltb[0] = rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
-        //deltb[1] = rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
-        //deltb[2] = rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
-        //a_torque(b,0) -= delta[0];
-        //a_torque(b,1) -= delta[1];
-        //a_torque(b,2) -= delta[2];
+        deltb[0] = rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
+        deltb[1] = rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
+        deltb[2] = rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
+        a_torque(b,0) -= delta[0];
+        a_torque(b,1) -= delta[1];
+        a_torque(b,2) -= delta[2];
       }
       if (EVFLAG) {
         if (eflag) {
@@ -607,12 +626,12 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         a_f(b,0) -= delf[0];
         a_f(b,1) -= delf[1];
         a_f(b,2) -= delf[2];
-        //deltb[0] = rb_cb[1]*delf[2] - rb_cb[2]*delf[1];
-        //deltb[1] = rb_cb[2]*delf[0] - rb_cb[0]*delf[2];
-        //deltb[2] = rb_cb[0]*delf[1] - rb_cb[1]*delf[0];
-        //a_torque(b,0) -= delta[0];
-        //a_torque(b,1) -= delta[1];
-        //a_torque(b,2) -= delta[2];
+        deltb[0] = rb_cb[1]*delf[2] - rb_cb[2]*delf[1];
+        deltb[1] = rb_cb[2]*delf[0] - rb_cb[0]*delf[2];
+        deltb[2] = rb_cb[0]*delf[1] - rb_cb[1]*delf[0];
+        a_torque(b,0) -= delta[0];
+        a_torque(b,1) -= delta[1];
+        a_torque(b,2) -= delta[2];
       }
       if (EVFLAG) {
         if (eflag) {
@@ -660,12 +679,12 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         a_f(b,0) -= delf[0];
         a_f(b,1) -= delf[1];
         a_f(b,2) -= delf[2];
-        //deltb[0] = rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
-        //deltb[1] = rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
-        //deltb[2] = rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
-        //a_torque(b,0) -= deltb[0];
-        //a_torque(b,1) -= deltb[1];
-        //a_torque(b,2) -= deltb[2];
+        deltb[0] = rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
+        deltb[1] = rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
+        deltb[2] = rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
+        a_torque(b,0) -= deltb[0];
+        a_torque(b,1) -= deltb[1];
+        a_torque(b,2) -= deltb[2];
       }
       if (EVFLAG) {
         if (eflag) {
@@ -713,12 +732,12 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         a_f(b,0) -= delf[0];
         a_f(b,1) -= delf[1];
         a_f(b,2) -= delf[2];
-        //deltb[0] = rb_cb[1]*delf[2] - rb_cb[2]*delf[1];
-        //deltb[1] = rb_cb[2]*delf[0] - rb_cb[0]*delf[2];
-        //deltb[2] = rb_cb[0]*delf[1] - rb_cb[1]*delf[0];
-        //a_torque(b,0) -= delta[0];
-        //a_torque(b,1) -= delta[1];
-        //a_torque(b,2) -= delta[2];
+        deltb[0] = rb_cb[1]*delf[2] - rb_cb[2]*delf[1];
+        deltb[1] = rb_cb[2]*delf[0] - rb_cb[0]*delf[2];
+        deltb[2] = rb_cb[0]*delf[1] - rb_cb[1]*delf[0];
+        a_torque(b,0) -= delta[0];
+        a_torque(b,1) -= delta[1];
+        a_torque(b,2) -= delta[2];
       }
       if (EVFLAG) {
         if (eflag) {
@@ -737,9 +756,9 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
   a_f(a,0) += ftmp[0];
   a_f(a,1) += ftmp[1];
   a_f(a,2) += ftmp[2];
-  //a_torque(a,0) += ttmp[0];
-  //a_torque(a,1) += ttmp[1];
-  //a_torque(a,2) += ttmp[2];
+  a_torque(a,0) += ttmp[0];
+  a_torque(a,1) += ttmp[1];
+  a_torque(a,2) += ttmp[2];
 }
 
 template<class DeviceType>
@@ -857,6 +876,21 @@ void PairOxdnaExcvKokkos<DeviceType>::unpack_forward_comm(int n, int first, doub
   k_nx.modify_host();
   k_ny.modify_host();
   k_nz.modify_host();
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void *PairOxdnaExcvKokkos<DeviceType>::extract(const char *str, int &dim)
+{
+  PairOxdnaExcv::extract(str,dim);
+
+  if (strcmp(str,"d_nx") == 0) return (void *) d_nx.data();
+  if (strcmp(str,"d_ny") == 0) return (void *) d_ny.data();
+  if (strcmp(str,"d_nz") == 0) return (void *) d_nz.data();
+
+
+  return nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
