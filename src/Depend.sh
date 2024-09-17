@@ -199,6 +199,10 @@ if (test $1 = "ML-SNAP") then
   depend INTEL
 fi
 
+if (test $1 = "ML-UF3") then
+  depend KOKKOS
+fi
+
 if (test $1 = "CG-SPICA") then
   depend GPU
   depend KOKKOS
