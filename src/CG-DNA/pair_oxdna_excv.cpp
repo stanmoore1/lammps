@@ -51,7 +51,7 @@ PairOxdnaExcv::PairOxdnaExcv(LAMMPS *lmp) : Pair(lmp)
 
 PairOxdnaExcv::~PairOxdnaExcv()
 {
-  if (allocated) {
+  if (allocated && !copymode) {
 
     memory->destroy(nx);
     memory->destroy(ny);
