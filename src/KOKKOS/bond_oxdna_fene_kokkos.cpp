@@ -26,6 +26,7 @@
 #include "neighbor_kokkos.h"
 
 #include "pair.h"
+#include "pair_oxdna_excv_kokkos.h"
 
 using namespace LAMMPS_NS;
 
@@ -94,12 +95,12 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   nlocal = atom->nlocal;
   newton_bond = force->newton_bond;
 
-  // n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna_excv
-  // TODO: Check this is ok to do
-  int dim;
-  d_nx_xtrct = *static_cast<typename AT::t_ffloat_2d*>(static_cast<void*>(force->pair->extract("d_nx", dim)));
-  d_ny_xtrct = *static_cast<typename AT::t_ffloat_2d*>(static_cast<void*>(force->pair->extract("d_ny", dim)));
-  d_nz_xtrct = *static_cast<typename AT::t_ffloat_2d*>(static_cast<void*>(force->pair->extract("d_nz", dim)));
+  // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna_excv/kk
+  // TODO: Check this is ok to do, ask Stan at some point
+  auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna/excv/kk", 1, 1));
+  d_nx_xtrct = oxdna_excvKK->k_nx.template view<DeviceType>();
+  d_ny_xtrct = oxdna_excvKK->k_ny.template view<DeviceType>();
+  d_nz_xtrct = oxdna_excvKK->k_nz.template view<DeviceType>();
 
   Kokkos::deep_copy(d_flag,0);
 
@@ -272,28 +273,50 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   const F_FLOAT rsq = delr[0]*delr[0] + delr[1]*delr[1] + delr[2]*delr[2];
   const F_FLOAT r = sqrt(rsq);
 
-  const F_FLOAT rr0 = r - d_r0[type];
+  F_FLOAT rr0 = r - d_r0[type];
   const F_FLOAT rr0sq = rr0 * rr0;
   const F_FLOAT Deltasq = d_Delta[type]*d_Delta[type];
   F_FLOAT rlogarg = 1.0 - rr0sq/Deltasq;
-
-  // if r -> r0, then rlogarg < 0.0 which is an error
-  // issue a warning and reset rlogarg = Delta
-
-  if (rlogarg < 0.1) {
-    d_flag() = 1;
-    rlogarg = 0.1;
-  }
-
-  F_FLOAT fbond = -d_k[type] * rr0 / rlogarg / Deltasq / r;
-  delf[0] = delr[0] * fbond;
-  delf[1] = delr[1] * fbond;
-  delf[2] = delr[2] * fbond;
 
   // energy
 
   F_FLOAT ebond = 0.0;
   if (eflag) { ebond = -0.5*d_k[type]*log(rlogarg);}
+
+  // switching to capped force for r-r0 -> Delta at
+  // r > r_max = r0 + Delta*sqrt(1-rlogarg) OR
+  // r < r_min = r0 - Delta*sqrt(1-rlogarg)
+  if (rlogarg < 0.2) { // rlogarg_min = 0.2
+    // issue warning, reset rlogarg and rr0 to cap force
+    d_flag() = 1;
+    rlogarg = 0.2;
+    // if overstretched F(r)=F(r_max)=F_max, E(r)=E(r_max)+F_max*(r-r_max)
+    if (r > d_r0(type)) {
+      rr0 = d_Delta[type]*sqrt(1.0 - rlogarg);
+      // energy
+      if (eflag) {
+        ebond = -0.5 * d_k(type) * log(rlogarg) + d_k(type) * 
+                sqrt(1.0-rlogarg) / rlogarg / d_Delta(type) *
+                (r - d_r0(type) - d_Delta(type) * sqrt(1.0-rlogarg));
+      }
+    } 
+    // if overcompressed F(r)=F(r_min)=F_max, E(r)=E(r_min)+F_max*(r_min-r)
+    else if (r < d_r0(type)) {
+      rr0 = -d_Delta(type)*sqrt(1.0 - rlogarg);
+      // energy
+      if (eflag) {
+        ebond = -0.5 * d_k(type) * log(rlogarg) + d_k(type) * 
+                sqrt(1.0-rlogarg) / rlogarg / d_Delta(type) *
+                (r - d_r0(type) + d_Delta(type) * sqrt(1.0-rlogarg));
+      }
+    }
+  }
+
+
+  F_FLOAT fbond = -d_k[type] * rr0 / rlogarg / Deltasq / r;
+  delf[0] = delr[0] * fbond;
+  delf[1] = delr[1] * fbond;
+  delf[2] = delr[2] * fbond;
 
   // apply force to each of 2 atoms
 
