@@ -91,6 +91,11 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
 
   void *extract(const char *, int &) override;
 
+  // per-atom arrays for local unit vectors
+  DAT::tdual_x_array k_nx, k_ny, k_nz;
+  typename AT::t_x_array d_nx, d_ny, d_nz;
+  HAT::t_x_array h_nx, h_ny, h_nz;
+
  protected:
  
   int oxdnaflag;
@@ -137,10 +142,6 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   typename AT::t_ffloat_2d d_lj1_sb, d_lj2_sb, d_b_sb, d_cut_sb_c, d_cutsq_sb_c;
   typename AT::t_ffloat_2d d_epsilon_bb, d_sigma_bb, d_cut_bb_ast, d_cutsq_bb_ast;
   typename AT::t_ffloat_2d d_lj1_bb, d_lj2_bb, d_b_bb, d_cut_bb_c, d_cutsq_bb_c;
-  // per-atom arrays for local unit vectors
-  DAT::tdual_x_array k_nx, k_ny, k_nz;
-  typename AT::t_x_array d_nx, d_ny, d_nz;
-  HAT::t_x_array h_nx, h_ny, h_nz;
 
   int first;
   typename AT::t_int_1d d_sendlist;
