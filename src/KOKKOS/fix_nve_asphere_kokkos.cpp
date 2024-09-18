@@ -307,8 +307,8 @@ void FixNVEAsphereKokkos<DeviceType>::final_integrate_item(const int i) const
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-void FixNVEAsphereKokkos<DeviceType>::fused_integrate(int /*vflag*/)
+/*template<class DeviceType>
+void FixNVEAsphereKokkos<DeviceType>::fused_integrate(int /*vflag*)/*
 {
   atomKK->sync(execution_space, X_MASK | V_MASK | F_MASK | ANGMOM_MASK | TORQUE_MASK | RMASS_MASK | ELLIPSOID_MASK | MASK_MASK);
   
@@ -335,7 +335,7 @@ void FixNVEAsphereKokkos<DeviceType>::fused_integrate(int /*vflag*/)
 
 /* ---------------------------------------------------------------------- */
 
-template <class DeviceType>
+/*template <class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void FixNVEAsphereKokkos<DeviceType>::fused_integrate_item(const int i) const
 {
@@ -344,7 +344,7 @@ void FixNVEAsphereKokkos<DeviceType>::fused_integrate_item(const int i) const
   if (mask(i) & groupbit) {
 
   }
-}
+}*/
 
 namespace LAMMPS_NS {
 template class FixNVEAsphereKokkos<LMPDeviceType>;

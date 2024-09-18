@@ -39,14 +39,14 @@ class FixNVEAsphereKokkos : public FixNVEAsphere {
     void init() override;
     void initial_integrate(int) override;
     void final_integrate() override;
-    void fused_integrate(int) override;
+    //void fused_integrate(int) override;
 
     KOKKOS_INLINE_FUNCTION
     void initial_integrate_item(const int i) const;
     KOKKOS_INLINE_FUNCTION
     void final_integrate_item(const int i) const;
-    KOKKOS_INLINE_FUNCTION
-    void fused_integrate_item(int) const;
+    /*KOKKOS_INLINE_FUNCTION
+    void fused_integrate_item(int) const;*/
 
   private:
     DEllipsoidBonusAT::t_bonus_1d bonus;
@@ -82,7 +82,7 @@ struct FixNVEAsphereKokkosFinalIntegrateFunctor {
   }
 };
 
-template <class DeviceType>
+/*template <class DeviceType>
 struct FixNVEAsphereKokkosFusedIntegrateFunctor {
   typedef DeviceType device_type;
   FixNVEAsphereKokkos<DeviceType> c;
@@ -91,7 +91,7 @@ struct FixNVEAsphereKokkosFusedIntegrateFunctor {
   void operator()(const int i) const {
     c.fused_integrate_item(i);
   }
-};
+};*/
 
 } // namespace LAMMPS_NS
 
