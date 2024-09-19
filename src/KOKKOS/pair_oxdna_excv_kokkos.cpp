@@ -35,8 +35,8 @@ PairOxdnaExcvKokkos<DeviceType>::PairOxdnaExcvKokkos(LAMMPS *lmp) : PairOxdnaExc
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
-  datamask_read = X_MASK | F_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
-  datamask_modify = F_MASK | ENERGY_MASK | VIRIAL_MASK;
+  datamask_read = X_MASK | ELLIPSOID_MASK | F_MASK | TORQUE_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
+  datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
 
   oxdnaflag = EnabledOXDNAFlag::OXDNA;
 }
@@ -152,7 +152,7 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   k_nz.template sync<DeviceType>();
 
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
-  else atomKK->modified(execution_space,F_MASK); // TODO: need or not need? same for fene, also add TORQUE_MASK later
+  else atomKK->modified(execution_space,F_MASK | TORQUE_MASK); // TODO: need or not need? same for fene, also add TORQUE_MASK later
 
   x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();
