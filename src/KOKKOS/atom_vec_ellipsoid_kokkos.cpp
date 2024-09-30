@@ -1701,19 +1701,18 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
     _buf(mysend,14) = _angmom(i,2);
 
     if (BONUS_FLAG) {
-      const int k = i_bonus;
-      if (i_bonus < 0) {
-        _buf(mysend,15) = d_ubuf(k).d;
-      }
+      if (_ellipsoid[i_bonus] < 0)
+        _buf(mysend,15) = d_ubuf(0).d;
       else {
-        _buf(mysend,15) = d_ubuf(k).d;
-        _buf(mysend,16) = _bonus(k).shape[0];
-        _buf(mysend,17) = _bonus(k).shape[1];
-        _buf(mysend,18) = _bonus(k).shape[2];
-        _buf(mysend,19) = _bonus(k).quat[0];
-        _buf(mysend,20) = _bonus(k).quat[1];
-        _buf(mysend,21) = _bonus(k).quat[2];
-        _buf(mysend,22) = _bonus(k).quat[3];
+        _buf(mysend,15) = d_ubuf(1).d;
+        int j = _ellipsoid[i_bonus];
+        _buf(mysend,16) = _bonus(j).shape[0];
+        _buf(mysend,17) = _bonus(j).shape[1];
+        _buf(mysend,18) = _bonus(j).shape[2];
+        _buf(mysend,19) = _bonus(j).quat[0];
+        _buf(mysend,20) = _bonus(j).quat[1];
+        _buf(mysend,21) = _bonus(j).quat[2];
+        _buf(mysend,22) = _bonus(j).quat[3];
       }
     }
     /*printf("/------------------------------------------------------------------/\n");
