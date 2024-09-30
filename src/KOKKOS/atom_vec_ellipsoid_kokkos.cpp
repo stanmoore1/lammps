@@ -1701,11 +1701,11 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
     _buf(mysend,14) = _angmom(i,2);
 
     if (BONUS_FLAG) {
-      if (_ellipsoid[i_bonus] < 0)
+      if (_ellipsoid[i] < 0)
         _buf(mysend,15) = d_ubuf(0).d;
       else {
         _buf(mysend,15) = d_ubuf(1).d;
-        int j = _ellipsoid[i_bonus];
+        int j = _ellipsoid[i];
         _buf(mysend,16) = _bonus(j).shape[0];
         _buf(mysend,17) = _bonus(j).shape[1];
         _buf(mysend,18) = _bonus(j).shape[2];
@@ -1738,9 +1738,8 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
     }
 
     const int j = _copylist(mysend);
-    const int j_bonus = _copylist_bonus(mysend);
 
-    if (j>-1) {
+    if (j > -1) {
       printf("copy in Pex, j = %d\n", j);
       _xw(i,0) = _x(j,0);
       _xw(i,1) = _x(j,1);
@@ -1758,25 +1757,23 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       _angmomw(i,1) = _angmom(j,1);
       _angmomw(i,2) = _angmom(j,2);
 
-      if (j_bonus > -1) {
-        printf("copy in Pex, j_bonus = %d\n", j_bonus);
-        if (i_bonus >= 0) {
-          //int nbB = Kokkos::atomic_add_fetch(&_nlocal_bonus(1), -1);
-          _ellipsoidw(_bonus(j_bonus).ilocal) = i_bonus;
-          _bonusw(i_bonus) = _bonus(j_bonus);
-        }
+      // if I has bonus data, then delete it
 
-        // if atom J has bonus data, reset J's bonus.ilocal to loc I
-        // do NOT do this if self-copy (I=J) since J's bonus data is already deleted
-        /*if (j_bonus >= 0 && i_bonus != j_bonus) _bonusw(j_bonus).ilocal = _ellipsoid(i_bonus);
-        printf("_bonusw(_ellipsoid(j_bonus)).ilocal = %d\n", _bonusw(j_bonus).ilocal);
-        _ellipsoidw(i_bonus) = j_bonus;
-        printf("_ellipsoidw(i_bonus) = %d\n", _ellipsoidw(i_bonus));*/
-        if (_ellipsoid(j) >= 0 && i != j) _bonusw(_ellipsoid(j)).ilocal = _ellipsoid(i);
-        printf("_bonusw(_ellipsoid(j_bonus)).ilocal = %d\n", _bonusw(_ellipsoid(j)).ilocal);
-        _ellipsoidw(i) = _ellipsoid(j);
-        printf("_ellipsoidw(i_bonus) = %d\n", _ellipsoidw(i));
+      if (_ellipsoid[i] >= 0) {
+        const int j_bonus = _copylist_bonus(mysend);
+
+        // copy bonus data from J to I, effectively deleting the I entry
+        // also reset ellipsoid that points to J to now point to I
+
+        _ellipsoidw[_bonus[j_bonus].ilocal] = _ellipsoid[i];
+        _bonusw[_ellipsoid[i]] = _bonus[j_bonus];
       }
+
+      // if atom J has bonus data, reset J’s bonus.ilocal to loc I
+      // do NOT do this if self-copy (I=J) since J’s bonus data is already deleted
+
+      if (_ellipsoid[j] >= 0 && i != j) _bonusw[_ellipsoid[j]].ilocal = i;
+      _ellipsoidw[i] = _ellipsoid[j];
     }
   }
 };
