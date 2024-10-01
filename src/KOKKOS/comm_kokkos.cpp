@@ -814,9 +814,8 @@ struct BuildExchangeListFunctor {
         _sendlist(mysend) = i;
 
       if (BONUS_FLAG) {
-        if (_bonus_flags(i)>-1) {
+        if (_bonus_flags(i) >= 0) {
           const int mysend_bonus = Kokkos::atomic_fetch_add(&_nsend(1),1);
-          //if (mysend_bonus < (int)_sendlist_bonus.extent(0))
           _sendlist_bonus(mysend_bonus) = _bonus_flags(i);
         }
       }
@@ -982,7 +981,12 @@ void CommKokkos::exchange_device()
         sendpos = count_bonus-1;
         icopy = nlocal_bonus-1;
         nlocal_bonus -= count_bonus;
-        for (int recvpos = 0; recvpos < count_bonus; recvpos++) {
+        int recvpos = 0;
+        for (int recvpos_all = 0; recvpos_all < count; recvpos_all++) {
+          if (k_bonus_flags.h_view(recvpos_all) < 0) {
+            k_exchange_copylist_bonus.h_view(recvpos_all) = -1;
+            continue;
+          }
           int irecv = k_exchange_sendlist_bonus.h_view(recvpos);
           if (irecv < nlocal_bonus) {
             if (icopy == k_exchange_sendlist_bonus.h_view(sendpos)) icopy--;
@@ -990,10 +994,12 @@ void CommKokkos::exchange_device()
               sendpos--;
               icopy = k_exchange_sendlist_bonus.h_view(sendpos) - 1;
             }
-            k_exchange_copylist_bonus.h_view(recvpos) = icopy;
+            k_exchange_copylist_bonus.h_view(recvpos_all) = icopy;
             icopy--;
           } else
-            k_exchange_copylist_bonus.h_view(recvpos) = -1;
+            k_exchange_copylist_bonus.h_view(recvpos_all) = -1;
+
+          recvpos++;
         }
       }
 

@@ -1757,16 +1757,19 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       _angmomw(i,1) = _angmom(j,1);
       _angmomw(i,2) = _angmom(j,2);
 
-      // if I has bonus data, then delete it
+      const int j_bonus = _copylist_bonus(mysend);
+      if (j_bonus > -1) {
 
-      if (_ellipsoid[i] >= 0) {
-        const int j_bonus = _copylist_bonus(mysend);
+        // if I has bonus data, then delete it
 
-        // copy bonus data from J to I, effectively deleting the I entry
-        // also reset ellipsoid that points to J to now point to I
+        if (_ellipsoid[i] >= 0) {
 
-        _ellipsoidw[_bonus[j_bonus].ilocal] = _ellipsoid[i];
-        _bonusw[_ellipsoid[i]] = _bonus[j_bonus];
+          // copy bonus data from J to I, effectively deleting the I entry
+          // also reset ellipsoid that points to J to now point to I
+
+          _ellipsoidw[_bonus[j_bonus].ilocal] = _ellipsoid[i];
+          _bonusw[_ellipsoid[i]] = _bonus[j_bonus];
+        }
       }
 
       // if atom J has bonus data, reset J’s bonus.ilocal to loc I
