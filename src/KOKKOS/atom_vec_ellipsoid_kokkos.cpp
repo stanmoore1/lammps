@@ -1777,7 +1777,7 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       // do NOT do this if self-copy (I=J) since J’s bonus data is already deleted
 
       if (_ellipsoid[j] >= 0 && i != j) _bonusw[_ellipsoid[j]].ilocal = i;
-       _ellipsoidw[i] = _ellipsoid[j];
+      _ellipsoidw[i] = _ellipsoid[j];
     }
   }
 };
