@@ -1737,7 +1737,7 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       //_bonusw(i_bonus) = _bonus(nbA);
     }
 
-    const int j = _copylist(mysend);
+    int j = _copylist(mysend);
 
     if (j > -1) {
       printf("copy in Pex, j = %d\n", j);
@@ -1756,27 +1756,28 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       _angmomw(i,0) = _angmom(j,0);
       _angmomw(i,1) = _angmom(j,1);
       _angmomw(i,2) = _angmom(j,2);
+    }
 
-      const int j_bonus = _copylist_bonus(mysend);
-      if (j_bonus > -1) {
+    const int j_bonus = _copylist_bonus(mysend);
+    if (j_bonus > -1) {
+      if (j < 0) j = i; // self-copy
 
-        // if I has bonus data, then delete it
+      // if I has bonus data, then delete it
 
-        if (_ellipsoid[i] >= 0) {
+      if (_ellipsoid[i] >= 0) {
 
-          // copy bonus data from J to I, effectively deleting the I entry
-          // also reset ellipsoid that points to J to now point to I
+        // copy bonus data from J to I, effectively deleting the I entry
+        // also reset ellipsoid that points to J to now point to I
 
-          _ellipsoidw[_bonus[j_bonus].ilocal] = _ellipsoid[i];
-          _bonusw[_ellipsoid[i]] = _bonus[j_bonus];
-        }
+        _ellipsoidw[_bonus[j_bonus].ilocal] = _ellipsoid[i];
+        _bonusw[_ellipsoid[i]] = _bonus[j_bonus];
       }
 
       // if atom J has bonus data, reset J’s bonus.ilocal to loc I
       // do NOT do this if self-copy (I=J) since J’s bonus data is already deleted
 
       if (_ellipsoid[j] >= 0 && i != j) _bonusw[_ellipsoid[j]].ilocal = i;
-      _ellipsoidw[i] = _ellipsoid[j];
+       _ellipsoidw[i] = _ellipsoid[j];
     }
   }
 };
