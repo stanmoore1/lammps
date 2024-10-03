@@ -1701,19 +1701,18 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
     _buf(mysend,14) = _angmom(i,2);
 
     if (BONUS_FLAG) {
-      const int k = i_bonus;
-      if (i_bonus < 0) {
-        _buf(mysend,15) = d_ubuf(k).d;
-      }
+      if (_ellipsoid[i] < 0)
+        _buf(mysend,15) = d_ubuf(0).d;
       else {
-        _buf(mysend,15) = d_ubuf(k).d;
-        _buf(mysend,16) = _bonus(k).shape[0];
-        _buf(mysend,17) = _bonus(k).shape[1];
-        _buf(mysend,18) = _bonus(k).shape[2];
-        _buf(mysend,19) = _bonus(k).quat[0];
-        _buf(mysend,20) = _bonus(k).quat[1];
-        _buf(mysend,21) = _bonus(k).quat[2];
-        _buf(mysend,22) = _bonus(k).quat[3];
+        _buf(mysend,15) = d_ubuf(1).d;
+        int j = _ellipsoid[i];
+        _buf(mysend,16) = _bonus(j).shape[0];
+        _buf(mysend,17) = _bonus(j).shape[1];
+        _buf(mysend,18) = _bonus(j).shape[2];
+        _buf(mysend,19) = _bonus(j).quat[0];
+        _buf(mysend,20) = _bonus(j).quat[1];
+        _buf(mysend,21) = _bonus(j).quat[2];
+        _buf(mysend,22) = _bonus(j).quat[3];
       }
     }
     /*printf("/------------------------------------------------------------------/\n");
@@ -1738,10 +1737,9 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       //_bonusw(i_bonus) = _bonus(nbA);
     }
 
-    const int j = _copylist(mysend);
-    const int j_bonus = _copylist_bonus(mysend);
+    int j = _copylist(mysend);
 
-    if (j>-1) {
+    if (j > -1) {
       printf("copy in Pex, j = %d\n", j);
       _xw(i,0) = _x(j,0);
       _xw(i,1) = _x(j,1);
@@ -1758,26 +1756,28 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
       _angmomw(i,0) = _angmom(j,0);
       _angmomw(i,1) = _angmom(j,1);
       _angmomw(i,2) = _angmom(j,2);
+    }
 
-      if (j_bonus > -1) {
-        printf("copy in Pex, j_bonus = %d\n", j_bonus);
-        if (i_bonus >= 0) {
-          //int nbB = Kokkos::atomic_add_fetch(&_nlocal_bonus(1), -1);
-          _ellipsoidw(_bonus(j_bonus).ilocal) = i_bonus;
-          _bonusw(i_bonus) = _bonus(j_bonus);
-        }
+    const int j_bonus = _copylist_bonus(mysend);
+    if (j_bonus > -1) {
+      if (j < 0) j = i; // self-copy
 
-        // if atom J has bonus data, reset J's bonus.ilocal to loc I
-        // do NOT do this if self-copy (I=J) since J's bonus data is already deleted
-        /*if (j_bonus >= 0 && i_bonus != j_bonus) _bonusw(j_bonus).ilocal = _ellipsoid(i_bonus);
-        printf("_bonusw(_ellipsoid(j_bonus)).ilocal = %d\n", _bonusw(j_bonus).ilocal);
-        _ellipsoidw(i_bonus) = j_bonus;
-        printf("_ellipsoidw(i_bonus) = %d\n", _ellipsoidw(i_bonus));*/
-        if (_ellipsoid(j) >= 0 && i != j) _bonusw(_ellipsoid(j)).ilocal = _ellipsoid(i);
-        printf("_bonusw(_ellipsoid(j_bonus)).ilocal = %d\n", _bonusw(_ellipsoid(j)).ilocal);
-        _ellipsoidw(i) = _ellipsoid(j);
-        printf("_ellipsoidw(i_bonus) = %d\n", _ellipsoidw(i));
+      // if I has bonus data, then delete it
+
+      if (_ellipsoid[i] >= 0) {
+
+        // copy bonus data from J to I, effectively deleting the I entry
+        // also reset ellipsoid that points to J to now point to I
+
+        _ellipsoidw[_bonus[j_bonus].ilocal] = _ellipsoid[i];
+        _bonusw[_ellipsoid[i]] = _bonus[j_bonus];
       }
+
+      // if atom J has bonus data, reset J’s bonus.ilocal to loc I
+      // do NOT do this if self-copy (I=J) since J’s bonus data is already deleted
+
+      if (_ellipsoid[j] >= 0 && i != j) _bonusw[_ellipsoid[j]].ilocal = i;
+      _ellipsoidw[i] = _ellipsoid[j];
     }
   }
 };
@@ -1939,7 +1939,7 @@ struct AtomVecEllipsoidKokkos_UnpackExchangeFunctor {
       _angmom(i,1) = _buf(myrecv,13);
       _angmom(i,2) = _buf(myrecv,14);
       //if (BONUS_FLAG==1) {
-        if ( (int) d_ubuf(_buf(myrecv,15)).i < 0 )
+        if ( (int) d_ubuf(_buf(myrecv,15)).i == 0 )
           _ellipsoid(i) = -1; 
         else {
           //if (_nlocal_bonus==_nmax_bonus) _avecEllipsoidKK->grow_bonus();
@@ -1953,7 +1953,7 @@ struct AtomVecEllipsoidKokkos_UnpackExchangeFunctor {
           _bonus(k).quat[1] = _buf(myrecv,20);
           _bonus(k).quat[2] = _buf(myrecv,21);
           _bonus(k).quat[3] = _buf(myrecv,22);
-          _bonus(k).ilocal = i;             // Is _nlocal (i) the same as ilocal from CPU version?
+          _bonus(k).ilocal = i;             // i is indeed the same as ilocal from CPU version
           //k = Kokkos::atomic_fetch_add(&_nlocal_bonus(0),1);
           _ellipsoid(i) = k;
           //k = Kokkos::atomic_fetch_add(&_nlocal_bonus(0),1);  // i or k?
