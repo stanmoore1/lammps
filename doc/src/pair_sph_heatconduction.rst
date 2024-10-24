@@ -1,7 +1,10 @@
 .. index:: pair_style sph/heatconduction
+.. index:: pair_style sph/heatconduction/gpu
 
 pair_style sph/heatconduction command
 =====================================
+
+Accelerator Variants: *sph/heatconduction/gpu*
 
 Syntax
 """"""
@@ -33,6 +36,10 @@ above.
 
 * D diffusion coefficient (length\^2/time units)
 * h kernel function cutoff (distance units)
+
+----------
+
+.. include:: accel_styles.rst
 
 ----------
 

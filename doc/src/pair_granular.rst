@@ -111,7 +111,7 @@ For the *hertz* model, the normal component of force is given by:
 
    \mathbf{F}_{ne, Hertz} = k_n R_{eff}^{1/2}\delta_{ij}^{3/2} \mathbf{n}
 
-Here, :math:`R_{eff} = \frac{R_i R_j}{R_i + R_j}` is the effective
+Here, :math:`R_{eff} = R = \frac{R_i R_j}{R_i + R_j}` is the effective
 radius, denoted for simplicity as *R* from here on.  For *hertz*, the
 units of the spring constant :math:`k_n` are *force*\ /\ *length*\ \^2, or
 equivalently *pressure*\ .
@@ -120,13 +120,14 @@ For the *hertz/material* model, the force is given by:
 
 .. math::
 
-   \mathbf{F}_{ne, Hertz/material} = \frac{4}{3} E_{eff} R_{eff}^{1/2}\delta_{ij}^{3/2} \mathbf{n}
+   \mathbf{F}_{ne, Hertz/material} = \frac{4}{3} E_{eff} R^{1/2}\delta_{ij}^{3/2} \mathbf{n}
 
-Here, :math:`E_{eff} = E = \left(\frac{1-\nu_i^2}{E_i} + \frac{1-\nu_j^2}{E_j}\right)^{-1}` is the effective Young's
-modulus, with :math:`\nu_i, \nu_j` the Poisson ratios of the particles of
-types *i* and *j*\ . Note that if the elastic modulus and the shear
-modulus of the two particles are the same, the *hertz/material* model
-is equivalent to the *hertz* model with :math:`k_n = 4/3 E_{eff}`
+Here, :math:`E_{eff} = E = \left(\frac{1-\nu_i^2}{E_i} + \frac{1-\nu_j^2}{E_j}\right)^{-1}`
+is the effective Young's modulus, with :math:`\nu_i, \nu_j` the Poisson ratios
+of the particles of types *i* and *j*. :math:`E_{eff}` is denoted as *E* from here on.
+Note that if the elastic modulus and the shear modulus of the two particles are the
+same, the *hertz/material* model is equivalent to the *hertz* model with
+:math:`k_n = 4/3 E`
 
 The *dmt* model corresponds to the
 :ref:`(Derjaguin-Muller-Toporov) <DMT1975>` cohesive model, where the force
@@ -187,6 +188,7 @@ for the damping model currently supported are:
 2. *mass_velocity*
 3. *viscoelastic*
 4. *tsuji*
+5. *coeff_restitution*
 
 If the *damping* keyword is not specified, the *viscoelastic* model is
 used by default.
@@ -248,6 +250,30 @@ The dimensionless coefficient of restitution :math:`e` specified as part
 of the normal contact model parameters should be between 0 and 1, but
 no error check is performed on this.
 
+The *coeff_restitution* model is useful when a specific normal coefficient of
+restitution :math:`e` is required. In these models, the normal coefficient of
+restitution :math:`e` is specified as an input. Following the approach of
+:ref:`(Brilliantov et al) <Brill1996>`, when using the *hooke* normal model,
+*coeff_restitution* calculates the damping coefficient as:
+
+.. math::
+
+   \eta_n = \sqrt{\frac{4m_{eff}k_n}{1+\left( \frac{\pi}{\log(e)}\right)^2}} ,
+
+For any other normal model, e.g. the *hertz* and *hertz/material* models, the damping
+coefficient is:
+
+.. math::
+
+   \eta_n = -2\sqrt{\frac{5}{6}}\frac{\log(e)}{\sqrt{\pi^2+(\log(e))^2}}(R_{eff} \delta_{ij})^{\frac{1}{4}}\sqrt{\frac{3}{2}k_n m_{eff}} ,
+
+where :math:`k_n = \frac{4}{3} E_{eff}` for the *hertz/material* model. Since
+*coeff_restitution* accounts for the effective mass, effective radius, and
+pairwise overlaps (except when used with the *hooke* normal model) when calculating
+the damping coefficient, it accurately reproduces the specified coefficient of
+restitution for both monodisperse and polydisperse particle pairs.  This damping
+model is not compatible with cohesive normal models such as *JKR* or *DMT*.
+
 The total normal force is computed as the sum of the elastic and
 damping components:
 
@@ -302,7 +328,7 @@ keyword also affects the tangential damping.  The parameter
 literature use :math:`x_{\gamma,t} = 1` (:ref:`Marshall <Marshall2009>`,
 :ref:`Tsuji et al <Tsuji1992>`, :ref:`Silbert et al <Silbert2001>`).  The relative
 tangential velocity at the point of contact is given by
-:math:`\mathbf{v}_{t, rel} = \mathbf{v}_{t} - (R_i\mathbf{\Omega}_i + R_j\mathbf{\Omega}_j) \times \mathbf{n}`, where :math:`\mathbf{v}_{t} = \mathbf{v}_r - \mathbf{v}_r\cdot\mathbf{n}\ \mathbf{n}`,
+:math:`\mathbf{v}_{t, rel} = \mathbf{v}_{t} - (R_i\boldsymbol{\Omega}_i + R_j\boldsymbol{\Omega}_j) \times \mathbf{n}`, where :math:`\mathbf{v}_{t} = \mathbf{v}_r - \mathbf{v}_r\cdot\mathbf{n}\ \mathbf{n}`,
 :math:`\mathbf{v}_r = \mathbf{v}_j - \mathbf{v}_i` .
 The direction of the applied force is :math:`\mathbf{t} = \mathbf{v_{t,rel}}/\|\mathbf{v_{t,rel}}\|` .
 
@@ -417,11 +443,11 @@ discussion above. To match the Mindlin solution, one should set
 
    G_{eff} = \left(\frac{2-\nu_i}{G_i} + \frac{2-\nu_j}{G_j}\right)^{-1}
 
-where :math:`G` is the shear modulus, related to Young's modulus :math:`E`
-and Poisson's ratio :math:`\nu` by :math:`G = E/(2(1+\nu))`. This can also be
-achieved by specifying *NULL* for :math:`k_t`, in which case a
-normal contact model that specifies material parameters :math:`E` and
-:math:`\nu` is required (e.g. *hertz/material*, *dmt* or *jkr*\ ). In this
+where :math:`G_i` is the shear modulus of a particle of type :math:`i`, related to Young's
+modulus :math:`E_i` and Poisson's ratio :math:`\nu_i` by :math:`G_i = E_i/(2(1+\nu_i))`.
+This can also be achieved by specifying *NULL* for :math:`k_t`, in which case a
+normal contact model that specifies material parameters :math:`E_i` and
+:math:`\nu_i` is required (e.g. *hertz/material*, *dmt* or *jkr*\ ). In this
 case, mixing of the shear modulus for different particle types *i* and
 *j* is done according to the formula above.
 
@@ -522,7 +548,7 @@ the tangential force:
 
    \mathbf{F}_{roll,0} =  k_{roll} \mathbf{\xi}_{roll}  - \gamma_{roll} \mathbf{v}_{roll}
 
-Here, :math:`\mathbf{v}_{roll} = -R(\mathbf{\Omega}_i - \mathbf{\Omega}_j) \times \mathbf{n}` is the relative rolling
+Here, :math:`\mathbf{v}_{roll} = -R(\boldsymbol{\Omega}_i - \boldsymbol{\Omega}_j) \times \mathbf{n}` is the relative rolling
 velocity, as given in :ref:`Wang et al <Wang2015>` and
 :ref:`Luding <Luding2008>`. This differs from the expressions given by :ref:`Kuhn and Bagi <Kuhn2004>` and used in :ref:`Marshall <Marshall2009>`; see :ref:`Wang et al <Wang2015>` for details. The rolling displacement is given by:
 
@@ -551,7 +577,7 @@ opposite torque on each particle, according to:
 
 .. math::
 
-   \tau_{roll,i} =  R_{eff} \mathbf{n} \times \mathbf{F}_{roll}
+   \tau_{roll,i} =  R \mathbf{n} \times \mathbf{F}_{roll}
 
 .. math::
 
@@ -641,22 +667,36 @@ The optional *heat* keyword enables heat conduction. The options currently
 supported are:
 
 1. *none*
-2. *area* : :math:`k_{s}`
+2. *radius* : :math:`k_{s}`
+3. *area* : :math:`h_{s}`
 
 If the *heat* keyword is not specified, the model defaults to *none*.
+
+For *heat* *radius*, the heat
+:math:`Q` conducted between two particles is given by
+
+.. math::
+
+   Q = 2 k_{s} a \Delta T
+
+where :math:`\Delta T` is the difference in the two particles' temperature,
+:math:`k_{s}` is a non-negative numeric value for the conductivity (in units
+of power/(length*temperature)), and :math:`a` is the radius of the contact and
+depends on the normal force model. This is the model proposed by
+:ref:`Vargas and McCarthy <VargasMcCarthy2001>`.
 
 For *heat* *area*, the heat
 :math:`Q` conducted between two particles is given by
 
 .. math::
 
-   Q = k_{s} A \Delta T
-
+   Q = h_{s} A \Delta T
 
 
 where :math:`\Delta T` is the difference in the two particles' temperature,
-:math:`k_{s}` is a non-negative numeric value for the conductivity, and
-:math:`A` is the area of the contact and depends on the normal force model.
+:math:`h_{s}` is a non-negative numeric value for the heat transfer
+coefficient (in units of power/(area*temperature)), and :math:`A=\pi a^2` is
+the area of the contact and depends on the normal force model.
 
 Note that the option *none* must either be used in all or none of of the
 *pair_coeff* calls. See :doc:`fix heat/flow <fix_heat_flow>` and
@@ -698,10 +738,6 @@ and no global cutoff is appended to the *pair_style granular* command,
 then LAMMPS will use that cutoff for the specified atom type
 combination, and automatically set pairwise cutoffs for the remaining
 atom types.
-
-----------
-
-.. include:: accel_styles.rst
 
 ----------
 
@@ -749,15 +785,17 @@ The single() function of these pair styles returns 0.0 for the energy
 of a pairwise interaction, since energy is not conserved in these
 dissipative potentials.  It also returns only the normal component of
 the pairwise interaction force.  However, the single() function also
-calculates 12 extra pairwise quantities.  The first 3 are the
+calculates 13 extra pairwise quantities.  The first 3 are the
 components of the tangential force between particles I and J, acting
 on particle I.  The fourth is the magnitude of this tangential force.
 The next 3 (5-7) are the components of the rolling torque acting on
 particle I. The next entry (8) is the magnitude of the rolling torque.
 The next entry (9) is the magnitude of the twisting torque acting
 about the vector connecting the two particle centers.
-The last 3 (10-12) are the components of the vector connecting
-the centers of the two particles (x_I - x_J).
+The next 3 (10-12) are the components of the vector connecting
+the centers of the two particles (x_I - x_J). The last quantity (13)
+is the heat flow between the two particles, set to 0 if no heat model
+is active.
 
 These extra quantities can be accessed by the :doc:`compute pair/local <compute_pair_local>` command, as *p1*, *p2*, ...,
 *p12*\ .
@@ -894,3 +932,10 @@ J. Appl. Mech., ASME 20, 327-344.
 **(Agnolin and Roux 2007)** Agnolin, I. & Roux, J-N. (2007).
 Internal states of model isotropic granular packings.
 I. Assembling process, geometry, and contact networks. Phys. Rev. E, 76, 061302.
+
+.. _VargasMcCarthy2001:
+
+**(Vargas and McCarthy 2001)** Vargas, W.L. and McCarthy, J.J. (2001).
+Heat conduction in granular materials.
+AIChE Journal, 47(5), 1052-1059.
+

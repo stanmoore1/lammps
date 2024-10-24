@@ -82,14 +82,26 @@ class PythonPyLammps(unittest.TestCase):
         self.pylmp.variable("fx atom fx")
         self.pylmp.run(10)
 
-        self.assertEqual(len(self.pylmp.runs), 1)
-        self.assertEqual(self.pylmp.last_run, self.pylmp.runs[0])
-        self.assertEqual(len(self.pylmp.last_run.thermo.Step), 2)
-        self.assertEqual(len(self.pylmp.last_run.thermo.Temp), 2)
-        self.assertEqual(len(self.pylmp.last_run.thermo.E_pair), 2)
-        self.assertEqual(len(self.pylmp.last_run.thermo.E_mol), 2)
-        self.assertEqual(len(self.pylmp.last_run.thermo.TotEng), 2)
-        self.assertEqual(len(self.pylmp.last_run.thermo.Press), 2)
+        # thermo data is only captured during a run if PYTHON package is enabled
+        # without it, it will only capture the final thermo at completion
+        if self.pylmp.lmp.has_package("PYTHON"):
+            self.assertEqual(len(self.pylmp.runs), 1)
+            self.assertEqual(self.pylmp.last_run, self.pylmp.runs[0])
+            self.assertEqual(len(self.pylmp.last_run.thermo.Step), 2)
+            self.assertEqual(len(self.pylmp.last_run.thermo.Temp), 2)
+            self.assertEqual(len(self.pylmp.last_run.thermo.E_pair), 2)
+            self.assertEqual(len(self.pylmp.last_run.thermo.E_mol), 2)
+            self.assertEqual(len(self.pylmp.last_run.thermo.TotEng), 2)
+            self.assertEqual(len(self.pylmp.last_run.thermo.Press), 2)
+        else:
+            self.assertEqual(len(self.pylmp.runs), 1)
+            self.assertEqual(self.pylmp.last_run, self.pylmp.runs[0])
+            self.assertEqual(len(self.pylmp.last_run.thermo.Step), 1)
+            self.assertEqual(len(self.pylmp.last_run.thermo.Temp), 1)
+            self.assertEqual(len(self.pylmp.last_run.thermo.E_pair), 1)
+            self.assertEqual(len(self.pylmp.last_run.thermo.E_mol), 1)
+            self.assertEqual(len(self.pylmp.last_run.thermo.TotEng), 1)
+            self.assertEqual(len(self.pylmp.last_run.thermo.Press), 1)
 
     def test_info_queries(self):
         self.pylmp.lattice("fcc", 0.8442),
@@ -107,6 +119,10 @@ class PythonPyLammps(unittest.TestCase):
         self.assertEqual(self.pylmp.communication.comm_style,'brick')
         self.assertEqual(self.pylmp.communication.comm_layout,'uniform')
         self.assertEqual(self.pylmp.communication.nprocs,1)
+        self.assertEqual(self.pylmp.communication.nthreads,1)
+        self.assertEqual(self.pylmp.communication.procgrid,[1,1,1])
+        self.assertEqual(self.pylmp.communication.proc_grid,[1,1,1])
+        self.assertEqual(self.pylmp.communication.ghost_velocity,0)
         self.assertEqual(len(self.pylmp.computes),3)
         self.assertEqual(self.pylmp.computes[0]['name'], 'thermo_temp')
         self.assertEqual(self.pylmp.computes[0]['style'], 'temp')
@@ -125,6 +141,11 @@ class PythonPyLammps(unittest.TestCase):
         self.assertEqual(self.pylmp.fixes[0]['group'], 'all')
         self.pylmp.group('none','empty')
         self.assertEqual(len(self.pylmp.groups),2)
+        self.pylmp.comm_style('tiled')
+        self.pylmp.mass('*',1.0)
+        self.pylmp.run('0','post','no')
+        self.pylmp.balance(0.1,'rcb')
+        self.assertEqual(self.pylmp.communication.procgrid,None)
 
 if __name__ == "__main__":
     unittest.main()

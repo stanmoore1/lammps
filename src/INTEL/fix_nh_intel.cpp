@@ -26,6 +26,7 @@
 #include "memory.h"
 #include "modify.h"
 #include "neighbor.h"
+#include "respa.h"
 #include "update.h"
 
 #include <cmath>
@@ -33,7 +34,7 @@
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
-#define TILTMAX 1.5
+static constexpr double TILTMAX = 1.5;
 
 enum{NOBIAS,BIAS};
 enum{ISO,ANISO,TRICLINIC};
@@ -138,9 +139,7 @@ void FixNHIntel::remap()
     }
   }
 
-  if (nrigid)
-    for (int i = 0; i < nrigid; i++)
-      modify->fix[rfix[i]]->deform(0);
+  for (auto &ifix : rfix) ifix->deform(0);
 
   // reset global and local box to new size/shape
 
@@ -166,28 +165,28 @@ void FixNHIntel::remap()
   if (pstyle == TRICLINIC) {
 
     if (p_flag[4]) {
-      expfac = exp(dto8*omega_dot[0]);
+      expfac = std::exp(dto8*omega_dot[0]);
       h[4] *= expfac;
       h[4] += dto4*(omega_dot[5]*h[3]+omega_dot[4]*h[2]);
       h[4] *= expfac;
     }
 
     if (p_flag[3]) {
-      expfac = exp(dto4*omega_dot[1]);
+      expfac = std::exp(dto4*omega_dot[1]);
       h[3] *= expfac;
       h[3] += dto2*(omega_dot[3]*h[2]);
       h[3] *= expfac;
     }
 
     if (p_flag[5]) {
-      expfac = exp(dto4*omega_dot[0]);
+      expfac = std::exp(dto4*omega_dot[0]);
       h[5] *= expfac;
       h[5] += dto2*(omega_dot[5]*h[1]);
       h[5] *= expfac;
     }
 
     if (p_flag[4]) {
-      expfac = exp(dto8*omega_dot[0]);
+      expfac = std::exp(dto8*omega_dot[0]);
       h[4] *= expfac;
       h[4] += dto4*(omega_dot[5]*h[3]+omega_dot[4]*h[2]);
       h[4] *= expfac;
@@ -200,7 +199,7 @@ void FixNHIntel::remap()
   if (p_flag[0]) {
     oldlo = domain->boxlo[0];
     oldhi = domain->boxhi[0];
-    expfac = exp(dto*omega_dot[0]);
+    expfac = std::exp(dto*omega_dot[0]);
     domain->boxlo[0] = (oldlo-fixedpoint[0])*expfac + fixedpoint[0];
     domain->boxhi[0] = (oldhi-fixedpoint[0])*expfac + fixedpoint[0];
   }
@@ -208,7 +207,7 @@ void FixNHIntel::remap()
   if (p_flag[1]) {
     oldlo = domain->boxlo[1];
     oldhi = domain->boxhi[1];
-    expfac = exp(dto*omega_dot[1]);
+    expfac = std::exp(dto*omega_dot[1]);
     domain->boxlo[1] = (oldlo-fixedpoint[1])*expfac + fixedpoint[1];
     domain->boxhi[1] = (oldhi-fixedpoint[1])*expfac + fixedpoint[1];
     if (scalexy) h[5] *= expfac;
@@ -217,7 +216,7 @@ void FixNHIntel::remap()
   if (p_flag[2]) {
     oldlo = domain->boxlo[2];
     oldhi = domain->boxhi[2];
-    expfac = exp(dto*omega_dot[2]);
+    expfac = std::exp(dto*omega_dot[2]);
     domain->boxlo[2] = (oldlo-fixedpoint[2])*expfac + fixedpoint[2];
     domain->boxhi[2] = (oldhi-fixedpoint[2])*expfac + fixedpoint[2];
     if (scalexz) h[4] *= expfac;
@@ -229,28 +228,28 @@ void FixNHIntel::remap()
   if (pstyle == TRICLINIC) {
 
     if (p_flag[4]) {
-      expfac = exp(dto8*omega_dot[0]);
+      expfac = std::exp(dto8*omega_dot[0]);
       h[4] *= expfac;
       h[4] += dto4*(omega_dot[5]*h[3]+omega_dot[4]*h[2]);
       h[4] *= expfac;
     }
 
     if (p_flag[3]) {
-      expfac = exp(dto4*omega_dot[1]);
+      expfac = std::exp(dto4*omega_dot[1]);
       h[3] *= expfac;
       h[3] += dto2*(omega_dot[3]*h[2]);
       h[3] *= expfac;
     }
 
     if (p_flag[5]) {
-      expfac = exp(dto4*omega_dot[0]);
+      expfac = std::exp(dto4*omega_dot[0]);
       h[5] *= expfac;
       h[5] += dto2*(omega_dot[5]*h[1]);
       h[5] *= expfac;
     }
 
     if (p_flag[4]) {
-      expfac = exp(dto8*omega_dot[0]);
+      expfac = std::exp(dto8*omega_dot[0]);
       h[4] *= expfac;
       h[4] += dto4*(omega_dot[5]*h[3]+omega_dot[4]*h[2]);
       h[4] *= expfac;
@@ -321,9 +320,7 @@ void FixNHIntel::remap()
     }
   }
 
-  if (nrigid)
-    for (int i = 0; i < nrigid; i++)
-      modify->fix[rfix[i]]->deform(1);
+  for (auto &ifix : rfix) ifix->deform(1);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -339,8 +336,13 @@ void FixNHIntel::reset_dt()
 
   // If using respa, then remap is performed in innermost level
 
-  if (utils::strmatch(update->integrate_style,"^respa"))
+  if (utils::strmatch(update->integrate_style,"^respa")) {
+    auto respa_ptr = dynamic_cast<Respa *>(update->integrate);
+    if (!respa_ptr) error->all(FLERR, "Failure to access Respa style {}", update->integrate_style);
+    nlevels_respa = respa_ptr->nlevels;
+    step_respa = respa_ptr->step;
     dto = 0.5*step_respa[0];
+  }
 
   if (pstat_flag)
     pdrag_factor = 1.0 - (update->dt * p_freq_max * drag / nc_pchain);
@@ -427,9 +429,9 @@ void FixNHIntel::nh_v_press()
   int nlocal = atom->nlocal;
   if (igroup == atom->firstgroup) nlocal = atom->nfirst;
 
-  double f0 = exp(-dt4*(omega_dot[0]+mtk_term2));
-  double f1 = exp(-dt4*(omega_dot[1]+mtk_term2));
-  double f2 = exp(-dt4*(omega_dot[2]+mtk_term2));
+  double f0 = std::exp(-dt4*(omega_dot[0]+mtk_term2));
+  double f1 = std::exp(-dt4*(omega_dot[1]+mtk_term2));
+  double f2 = std::exp(-dt4*(omega_dot[2]+mtk_term2));
   f0 *= f0;
   f1 *= f1;
   f2 *= f2;

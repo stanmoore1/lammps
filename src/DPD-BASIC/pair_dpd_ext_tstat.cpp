@@ -13,7 +13,7 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-  Contributing authors: Martin Svoboda (ICPF, UJEP), Martin Lísal (ICPF, UJEP)
+  Contributing authors: Martin Svoboda (ICPF, UJEP), Martin Lisal (ICPF, UJEP)
 ------------------------------------------------------------------------- */
 
 #include "pair_dpd_ext_tstat.h"
@@ -30,7 +30,7 @@
 
 using namespace LAMMPS_NS;
 
-#define EPSILON 1.0e-10
+static constexpr double EPSILON = 1.0e-10;
 
 /* ---------------------------------------------------------------------- */
 

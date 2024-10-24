@@ -1,7 +1,10 @@
 .. index:: pair_style sph/lj
+.. index:: pair_style sph/lj/gpu
 
 pair_style sph/lj command
 =========================
+
+Accelerator Variants: *sph/lj/gpu*
 
 Syntax
 """"""
@@ -37,6 +40,10 @@ above.
 
 * :math:`\nu` artificial viscosity (no units)
 * h kernel function cutoff (distance units)
+
+----------
+
+.. include:: accel_styles.rst
 
 ----------
 

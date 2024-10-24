@@ -198,8 +198,7 @@ PairKIM::~PairKIM()
 void PairKIM::set_contributing()
 {
   int const nall = atom->nlocal + atom->nghost;
-  for (int i = 0; i < nall; ++i)
-    kim_particleContributing[i] = ( (i < atom->nlocal) ? 1 : 0 );
+  for (int i = 0; i < nall; ++i) kim_particleContributing[i] = (i < atom->nlocal) ? 1 : 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -492,14 +491,14 @@ void PairKIM::coeff(int narg, char **arg)
         if (npos != std::string::npos) {
           argtostr[npos] = ' ';
           auto words = utils::split_words(argtostr);
-          nlbound = atoi(words[0].c_str());
-          nubound = atoi(words[1].c_str());
+          nlbound = std::stoi(words[0]);
+          nubound = std::stoi(words[1]);
 
           if ((nubound < 1) || (nubound > extent) || (nlbound < 1) || (nlbound > nubound))
             error->all(FLERR,"Illegal index_range '{}-{}' for '{}' parameter with the extent "
                        "of '{}'", nlbound, nubound, paramname, extent);
         } else {
-          nlbound = atoi(argtostr.c_str());
+          nlbound = std::stoi(argtostr);
 
           if ((nlbound < 1) || (nlbound > extent))
             error->all(FLERR,"Illegal index '{}' for '{}' parameter with the extent of '{}'",
@@ -596,7 +595,7 @@ void PairKIM::init_style()
     if (kim_cutoff_values[i] <= neighbor->skin)
       error->all(FLERR,"Illegal neighbor request (force cutoff {:.3} <= skin {:.3})",
                  kim_cutoff_values[i], neighbor->skin);
-    req->set_cutoff(kim_cutoff_values[i] + neighbor->skin);
+    req->set_cutoff(kim_cutoff_values[i]);
   }
   // increment instance_me in case of need to change the neighbor list
   // request settings

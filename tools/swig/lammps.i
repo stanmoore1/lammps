@@ -28,9 +28,10 @@
  *
  * Must be kept in sync with the equivalent constants in ``src/library.h``,
  * ``python/lammps/constants.py``, ``examples/COUPLE/plugin/liblammpsplugin.h``,
- * and ``fortran/lammps.f90`` */
+ * ``src/lmptype.h``, and ``fortran/lammps.f90`` */
 
 enum _LMP_DATATYPE_CONST {
+  LAMMPS_NONE      =-1,     /*!< no data type assigned (yet) */
   LAMMPS_INT       = 0,     /*!< 32-bit integer (array) */
   LAMMPS_INT_2D    = 1,     /*!< two-dimensional 32-bit integer array */
   LAMMPS_DOUBLE    = 2,     /*!< 64-bit double (array) */
@@ -105,6 +106,7 @@ extern void   lammps_mpi_finalize();
 extern void   lammps_kokkos_finalize();
 extern void   lammps_python_finalize();
 extern void   lammps_error(void *handle, int error_type, const char *error_text);
+extern char  *lammps_expand(void *handle, const char *line);
 
 extern void   lammps_file(void *handle, const char *file);
 extern char  *lammps_command(void *handle, const char *cmd);
@@ -124,15 +126,21 @@ extern int    lammps_get_mpi_comm(void *handle);
 extern int    lammps_extract_setting(void *handle, const char *keyword);
 extern int    lammps_extract_global_datatype(void *handle, const char *name);
 extern void  *lammps_extract_global(void *handle, const char *name);
+extern int    lammps_extract_pair_dimension(void *handle, const char *name);
+extern void  *lammps_extract_pair(void *handle, const char *name);
+extern int    lammps_map_atom(void *handle, const void *id);
 
 extern int    lammps_extract_atom_datatype(void *handle, const char *name);
+extern int    lammps_extract_atom_size(void *handle, const char *name, int type);
 extern void  *lammps_extract_atom(void *handle, const char *name);
 
-extern void  *lammps_extract_compute(void *handle, char *id, int, int);
-extern void  *lammps_extract_fix(void *handle, char *, int, int, int, int);
-extern void  *lammps_extract_variable(void *handle, char *, char *);
+extern void  *lammps_extract_compute(void *handle, const char *id, int, int);
+extern void  *lammps_extract_fix(void *handle, const char *, int, int, int, int);
+extern void  *lammps_extract_variable(void *handle, const char *, const char *);
 extern int    lammps_extract_variable_datatype(void *handle, const char *name);
-extern int    lammps_set_variable(void *, char *, char *);
+extern int    lammps_set_variable(void *, const char *, const char *);
+extern int    lammps_set_string_variable(void *, const char *, const char *);
+extern int    lammps_set_internal_variable(void *, const char *, double);
 
 extern void   lammps_gather_atoms(void *, char *, int, int, void *);
 extern void   lammps_gather_atoms_concat(void *, char *, int, int, void *);
@@ -165,6 +173,7 @@ extern int    lammps_config_has_gzip_support();
 extern int    lammps_config_has_png_support();
 extern int    lammps_config_has_jpeg_support();
 extern int    lammps_config_has_ffmpeg_support();
+extern int    lammps_config_has_curl_support();
 extern int    lammps_config_has_exceptions();
 extern int    lammps_config_has_package(const char *);
 extern int    lammps_config_package_count();
@@ -288,6 +297,7 @@ extern void   lammps_mpi_finalize();
 extern void   lammps_kokkos_finalize();
 extern void   lammps_python_finalize();
 extern void   lammps_error(void *handle, int error_type, const char *error_text);
+extern char  *lammps_expand(void *handle, const char *line);
 
 extern void   lammps_file(void *handle, const char *file);
 extern char  *lammps_command(void *handle, const char *cmd);
@@ -307,15 +317,21 @@ extern int    lammps_get_mpi_comm(void *handle);
 extern int    lammps_extract_setting(void *handle, const char *keyword);
 extern int    lammps_extract_global_datatype(void *handle, const char *name);
 extern void  *lammps_extract_global(void *handle, const char *name);
+extern int    lammps_extract_pair_dimension(void *handle, const char *name);
+extern void  *lammps_extract_pair(void *handle, const char *name);
+extern int    lammps_map_atom(void *handle, const void *id);
 
 extern int    lammps_extract_atom_datatype(void *handle, const char *name);
+extern int    lammps_extract_atom_size(void *handle, const char *name, int type);
 extern void  *lammps_extract_atom(void *handle, const char *name);
 
-extern void  *lammps_extract_compute(void *handle, char *id, int, int);
-extern void  *lammps_extract_fix(void *handle, char *, int, int, int, int);
-extern void  *lammps_extract_variable(void *handle, char *, char *);
+extern void  *lammps_extract_compute(void *handle, const char *id, int, int);
+extern void  *lammps_extract_fix(void *handle, const char *, int, int, int, int);
+extern void  *lammps_extract_variable(void *handle, const char *, const char *);
 extern int    lammps_extract_variable_datatype(void *handle, const char *name);
-extern int    lammps_set_variable(void *, char *, char *);
+extern int    lammps_set_variable(void *, const char *, const char *);
+extern int    lammps_set_string_variable(void *, const char *, const char *);
+extern int    lammps_set_internal_variable(void *, const char *, double);
 
 extern void   lammps_gather_atoms(void *, char *, int, int, void *);
 extern void   lammps_gather_atoms_concat(void *, char *, int, int, void *);
@@ -348,6 +364,7 @@ extern int    lammps_config_has_gzip_support();
 extern int    lammps_config_has_png_support();
 extern int    lammps_config_has_jpeg_support();
 extern int    lammps_config_has_ffmpeg_support();
+extern int    lammps_config_has_curl_support();
 extern int    lammps_config_has_exceptions();
 extern int    lammps_config_has_package(const char *);
 extern int    lammps_config_package_count();
