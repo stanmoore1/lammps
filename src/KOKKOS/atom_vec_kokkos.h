@@ -146,20 +146,6 @@ class AtomVecKokkos : virtual public AtomVec {
                                const DAT::tdual_xfloat_2d & /*buf*/,
                                ExecutionSpace /*space*/) {}
 
-  //virtual int
-    //pack_exchange_bonus_kokkos(const int &/*nsend*/, 
-      //                         DAT::tdual_xfloat_2d &/*buf*/,
-        //                       DAT::tdual_int_1d /*k_sendlist*/,
-          //                     DAT::tdual_int_1d /*k_copylist*/,
-            //                   ExecutionSpace /*space*/) { return 0; }
-
-  //virtual int
-    //unpack_exchange_bonus_kokkos(DAT::tdual_xfloat_2d &/*k_buf*/, 
-      //                           int /*nrecv*/, int /*nlocal*/,
-        //                         int /*dim*/, X_FLOAT /*lo*/, X_FLOAT /*hi*/,
-          //                       ExecutionSpace /*space*/,
-            //                     DAT::tdual_int_1d &/*k_indices*/) {return 0;}
-
   virtual int get_status_nlocal_bonus() { return 0; }
   virtual void set_status_nlocal_bonus(int) {}
 
