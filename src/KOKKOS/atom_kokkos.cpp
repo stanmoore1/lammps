@@ -115,6 +115,9 @@ AtomKokkos::~AtomKokkos()
   memoryKK->destroy_kokkos(k_dpdTheta, dpdTheta);
   memoryKK->destroy_kokkos(k_duChem, duChem);
 
+  // CG-DNA package
+  memoryKK->destroy_kokkos(k_id5p, id5p);
+
   memoryKK->destroy_kokkos(k_dvector, dvector);
   dvector = nullptr;
   delete [] fix_prop_atom;
