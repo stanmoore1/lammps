@@ -82,6 +82,8 @@ action atom_vec_kokkos.cpp
 action atom_vec_kokkos.h
 action atom_vec_molecular_kokkos.cpp atom_vec_molecular.cpp
 action atom_vec_molecular_kokkos.h atom_vec_molecular.h
+action atom_vec_oxdna_kokkos.cpp atom_vec_oxdna.cpp
+action atom_vec_oxdna_kokkos.h atom_vec_oxdna.h
 action atom_vec_sphere_kokkos.cpp atom_vec_sphere.cpp
 action atom_vec_sphere_kokkos.h atom_vec_sphere.h
 action atom_vec_spin_kokkos.cpp atom_vec_spin.cpp
