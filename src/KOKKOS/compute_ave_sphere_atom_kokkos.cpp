@@ -134,6 +134,8 @@ void ComputeAveSphereAtomKokkos<DeviceType>::compute_peratom()
   k_result.sync_host();
 }
 
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void ComputeAveSphereAtomKokkos<DeviceType>::operator()(TagComputeAveSphereAtom, const int &ii) const
@@ -231,10 +233,35 @@ void ComputeAveSphereAtomKokkos<DeviceType>::operator()(TagComputeAveSphereAtom,
     double xcom_mag = sqrt(xnet[0]*xnet[0] + xnet[1]*xnet[1] + xnet[2]*xnet[2]);
     double imbalance = xcom_mag / cutoff;
 
+    int phase = compute_phase(temp,density);
+
     d_result(i,0) = density;
     d_result(i,1) = temp;
     d_result(i,2) = imbalance;
+    d_result(i,3) = (phase == 1); // liquid
+    d_result(i,4) = (phase == 0); // vapor
+    d_result(i,5) = (phase == -1); // supercritical
   }
+}
+
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+int ComputeAveSphereAtomKokkos<DeviceType>::compute_phase(const double& T, const double& rho) const
+{
+  // won't work for LJ units
+
+  const double Tc = 7503.959;
+  const double rhoc = 0.845046;
+  const double B = 3.98511e-5;
+
+  if (T >= Tc) return -1;
+
+  const double rho_half = rhoc - B * (T - Tc);
+  if (rho > rho_half) return 1;
+  else return 0;
 }
 
 namespace LAMMPS_NS {

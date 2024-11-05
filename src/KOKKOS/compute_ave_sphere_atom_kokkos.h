@@ -43,6 +43,9 @@ template <class DeviceType> class ComputeAveSphereAtomKokkos : public ComputeAve
   void compute_peratom() override;
 
   KOKKOS_INLINE_FUNCTION
+  int compute_phase(const double&, const double&) const;
+
+  KOKKOS_INLINE_FUNCTION
   void operator()(TagComputeAveSphereAtom, const int &) const;
 
  private:

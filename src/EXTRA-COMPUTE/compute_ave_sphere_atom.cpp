@@ -58,7 +58,7 @@ ComputeAveSphereAtom::ComputeAveSphereAtom(LAMMPS *lmp, int narg, char **arg) :
   }
 
   peratom_flag = 1;
-  size_peratom_cols = 3;
+  size_peratom_cols = 6;
   comm_forward = 3;
 
   nmax = 0;
@@ -266,11 +266,33 @@ void ComputeAveSphereAtom::compute_peratom()
       double xcom_mag = sqrt(xnet[0]*xnet[0] + xnet[1]*xnet[1] + xnet[2]*xnet[2]);
       double imbalance = xcom_mag / cutoff;
 
+      int phase = compute_phase(temp,density);
+
       result[i][0] = density;
       result[i][1] = temp;
       result[i][2] = imbalance;
+      result[i][3] = (phase == 1); // liquid
+      result[i][4] = (phase == 0); // vapor
+      result[i][5] = (phase == -1); // supercritical
     }
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+int ComputeAveSphereAtom::compute_phase(const double& T, const double& rho)
+{
+  // won't work for LJ units
+
+  const double Tc = 7503.959;
+  const double rhoc = 0.845046;
+  const double B = 3.98511e-5;
+
+  if (T >= Tc) return -1;
+
+  const double rho_half = rhoc - B * (T - Tc);
+  if (rho > rho_half) return 1;
+  else return 0;
 }
 
 /* ---------------------------------------------------------------------- */
