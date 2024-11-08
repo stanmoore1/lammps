@@ -38,8 +38,8 @@
 
 using namespace LAMMPS_NS;
 
-#define DELTA 1
-#define EPSDT 1.0e-6
+static constexpr int DELTA = 1;
+static constexpr double EPSDT = 1.0e-6;
 
 enum {SETUP, WRITE, RESET_DT};
 
@@ -77,7 +77,7 @@ Output::Output(LAMMPS *lmp) : Pointers(lmp)
   ndump = 0;
   max_dump = 0;
   any_time_dumps = 0;
-  next_dump_any = next_time_dump_any = MAXBIGINT;
+  next_thermo = next_restart = next_dump_any = next_time_dump_any = MAXBIGINT;
   mode_dump = nullptr;
   every_dump = nullptr;
   every_time_dump = nullptr;

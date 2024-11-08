@@ -132,7 +132,7 @@ class Compute : protected Pointers {
   virtual int pack_reverse_comm(int, int, double *) { return 0; }
   virtual void unpack_reverse_comm(int, int *, double *) {}
 
-  virtual void reset_grid(){};
+  virtual void reset_grid() {};
 
   virtual int get_grid_by_name(const std::string &, int &) { return -1; };
   virtual void *get_grid_by_index(int) { return nullptr; };
@@ -144,6 +144,7 @@ class Compute : protected Pointers {
   virtual void remove_bias(int, double *) {}
   virtual void remove_bias_thr(int, double *, double *) {}
   virtual void remove_bias_all() {}
+  virtual void remove_bias_all_kk() {}
   virtual void reapply_bias_all() {}
   virtual void restore_bias(int, double *) {}
   virtual void restore_bias_thr(int, double *, double *) {}
@@ -178,7 +179,7 @@ class Compute : protected Pointers {
 
   double natoms_temp;    // # of atoms used for temperature calculation
   double extra_dof;      // extra DOF for temperature computes
-  int fix_dof;           // DOF due to fixes
+  double fix_dof;        // DOF due to fixes
   int dynamic;           // recount atoms for temperature computes
   int dynamic_user;      // user request for temp compute to be dynamic
 

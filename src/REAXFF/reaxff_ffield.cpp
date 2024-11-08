@@ -11,7 +11,7 @@
   Please cite the related publication:
   H. M. Aktulga, J. C. Fogarty, S. A. Pandit, A. Y. Grama,
   "Parallel Reactive Molecular Dynamics: Numerical Methods and
-  Algorithmic Techniques", Parallel Computing, in press.
+  Algorithmic Techniques", Parallel Computing,  38, 245-259 (2012).
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -39,7 +39,10 @@
 
 using LAMMPS_NS::utils::open_potential;
 using LAMMPS_NS::utils::getsyserror;
+using LAMMPS_NS::utils::strmatch;
 using LAMMPS_NS::utils::uppercase;
+using LAMMPS_NS::EOFException;
+using LAMMPS_NS::ValueTokenizer;
 
 namespace ReaxFF {
 
@@ -69,7 +72,7 @@ namespace ReaxFF {
                                           filename, lineno, want, values.count()))
 
     if (control->me == 0) {
-      FILE *fp = LAMMPS_NS::utils::open_potential(filename, lmp, nullptr);
+      FILE *fp = open_potential(filename, lmp, nullptr);
       if (!fp)
         error->one(FLERR,"The ReaxFF parameter file {} cannot be opened: {}",
                    filename, getsyserror());
@@ -79,9 +82,11 @@ namespace ReaxFF {
       try {
         int i,j,k,l,m,n,lineno = 0;
 
-        // skip header comment line
+        // check if header comment line is present
 
-        reader.skip_line();
+        auto line = reader.next_line();
+        if (strmatch(line, "^\\s*[0-9]+\\s+!.*general parameters.*"))
+          THROW_ERROR("First line of ReaxFF potential file must be a comment or empty");
         ++lineno;
 
         // set some defaults
@@ -538,16 +543,19 @@ namespace ReaxFF {
           }
         }
 
-        // next line is number of hydrogen bond parameters
-
-        values = reader.next_values(0);
-        n = values.next_int();
-        ++lineno;
+        // next line is number of hydrogen bond parameters. that block may be missing
 
         for (i = 0; i < ntypes; ++i)
           for (j = 0; j < ntypes; ++j)
             for (k = 0; k < ntypes; ++k)
               hbp[i][j][k].r0_hb = -1.0;
+
+        auto thisline = reader.next_line();
+        if (!thisline) throw EOFException("ReaxFF parameter file has no hydrogen bond parameters");
+
+        values = ValueTokenizer(thisline);
+        n = values.next_int();
+        ++lineno;
 
         for (i = 0; i < n; ++i) {
           values = reader.next_values(0);
@@ -570,6 +578,8 @@ namespace ReaxFF {
         }
 
         memory->destroy(tor_flag);
+      } catch (EOFException &e) {
+        error->warning(FLERR, e.what());
       } catch (std::exception &e) {
         error->one(FLERR,e.what());
       }

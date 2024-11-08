@@ -32,10 +32,8 @@
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
-enum{NOBIAS,BIAS};
-enum{CONSTANT,EQUAL,ATOM};
-#define SINERTIA 0.4          // moment of inertia prefactor for sphere
-#define EINERTIA 0.2          // moment of inertia prefactor for ellipsoid
+enum { NOBIAS, BIAS };
+enum { CONSTANT, EQUAL, ATOM };
 
 /* ---------------------------------------------------------------------- */
 
@@ -88,7 +86,6 @@ FixLangevinKokkos<DeviceType>::FixLangevinKokkos(LAMMPS *lmp, int narg, char **a
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read =  V_MASK | F_MASK | MASK_MASK | RMASS_MASK | TYPE_MASK;
   datamask_modify = F_MASK;
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -229,12 +226,16 @@ void FixLangevinKokkos<DeviceType>::post_force(int /*vflag*/)
 
   // account for bias velocity
   if (tbiasflag == BIAS) {
-    atomKK->sync(temperature->execution_space,temperature->datamask_read);
-    temperature->compute_scalar();
-    temperature->remove_bias_all(); // modifies velocities
-    // if temeprature compute is kokkosized host-device comm won't be needed
-    atomKK->modified(temperature->execution_space,temperature->datamask_modify);
-    atomKK->sync(execution_space,temperature->datamask_modify);
+    if (temperature->kokkosable) {
+      temperature->compute_scalar();
+      temperature->remove_bias_all_kk();
+    } else {
+      atomKK->sync(temperature->execution_space,temperature->datamask_read);
+      temperature->compute_scalar();
+      temperature->remove_bias_all();
+      atomKK->modified(temperature->execution_space,temperature->datamask_modify);
+      atomKK->sync(execution_space,temperature->datamask_modify);
+    }
   }
 
   // compute langevin force in parallel on the device
@@ -528,10 +529,13 @@ void FixLangevinKokkos<DeviceType>::post_force(int /*vflag*/)
 
 
   if (tbiasflag == BIAS) {
-    atomKK->sync(temperature->execution_space,temperature->datamask_read);
-    temperature->restore_bias_all(); // modifies velocities
-    atomKK->modified(temperature->execution_space,temperature->datamask_modify);
-    atomKK->sync(execution_space,temperature->datamask_modify);
+    if (temperature->kokkosable) temperature->restore_bias_all();
+    else {
+      atomKK->sync(temperature->execution_space,temperature->datamask_read);
+      temperature->restore_bias_all();
+      atomKK->modified(temperature->execution_space,temperature->datamask_modify);
+      atomKK->sync(execution_space,temperature->datamask_modify);
+    }
   }
 
   // set modify flags for the views modified in post_force functor

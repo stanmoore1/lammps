@@ -34,6 +34,7 @@
 #include "group.h"
 #include "improper.h"
 #include "input.h"
+#include "lmpfftsettings.h"
 #include "modify.h"
 #include "neighbor.h"
 #include "output.h"
@@ -97,6 +98,7 @@ enum {COMPUTES=1<<0,
       DUMP_STYLES=1<<24,
       COMMAND_STYLES=1<<25,
       ACCELERATOR=1<<26,
+      FFT=1<<27,
       ALL=~0};
 
 static const int STYLES = ATOM_STYLES | INTEGRATE_STYLES | MINIMIZE_STYLES
@@ -107,12 +109,6 @@ static const int STYLES = ATOM_STYLES | INTEGRATE_STYLES | MINIMIZE_STYLES
 }
 
 using namespace LAMMPS_NS;
-
-// must match enumerator in variable.h
-static const char *varstyles[] = {
-  "index", "loop", "world", "universe", "uloop", "string", "getenv",
-  "file", "atomfile", "format", "equal", "atom", "vector", "python",
-  "timer", "internal", "(unknown)"};
 
 static const char *mapstyles[] = { "none", "array", "hash", "yes" };
 
@@ -206,6 +202,9 @@ void Info::command(int narg, char **arg)
     } else if (strncmp(arg[idx],"accelerator",3) == 0) {
       flags |= ACCELERATOR;
       ++idx;
+    } else if (strncmp(arg[idx],"fft",3) == 0) {
+      flags |= FFT;
+      ++idx;
     } else if (strncmp(arg[idx],"styles",3) == 0) {
       if (idx+1 < narg) {
         ++idx;
@@ -262,7 +261,7 @@ void Info::command(int narg, char **arg)
         ++idx;
       }
     } else {
-      error->warning(FLERR,"Ignoring unknown or incorrect info command flag");
+      error->warning(FLERR,"Ignoring unknown or incorrect info command flag: {}",arg[idx]);
       ++idx;
     }
   }
@@ -297,6 +296,7 @@ void Info::command(int narg, char **arg)
     if (has_png_support()) fputs("-DLAMMPS_PNG\n",out);
     if (has_jpeg_support()) fputs("-DLAMMPS_JPEG\n",out);
     if (has_ffmpeg_support()) fputs("-DLAMMPS_FFMPEG\n",out);
+    if (has_curl_support()) fputs("-DLAMMPS_CURL\n",out);
     if (has_fft_single_support()) fputs("-DFFT_SINGLE\n",out);
 
 #if defined(LAMMPS_BIGBIG)
@@ -400,6 +400,11 @@ void Info::command(int narg, char **arg)
                  comm->procgrid[1], comm->procgrid[2]);
   }
 
+  if (flags & FFT) {
+    fputs("\nFFT information:\n",out);
+    fputs(get_fft_info().c_str(),out);
+  }
+
   if (flags & SYSTEM) {
     fputs("\nSystem information:\n",out);
     fmt::print(out,"Units         = {}\n", update->unit_style);
@@ -412,6 +417,12 @@ void Info::command(int narg, char **arg)
     }
     fmt::print(out,"Atoms     = {:12},  types = {:8d},  style = {}\n",
                atom->natoms, atom->ntypes, force->pair_style);
+
+    if (atom->tag_enable) fmt::print(out,"Atoms with atom IDs\n");
+    if (atom->molecule) fmt::print(out,"Atoms with molecule IDs\n");
+    if (atom->mass) fmt::print(out,"Atoms with per-type masses\n");
+    if (atom->rmass) fmt::print(out,"Atoms with per-atom masses\n");
+    if (atom->q) fmt::print(out,"Atoms with per-atom charges\n");
 
     if (force->pair && utils::strmatch(force->pair_style,"^hybrid")) {
       auto hybrid = dynamic_cast<PairHybrid *>(force->pair);
@@ -468,6 +479,8 @@ void Info::command(int narg, char **arg)
     } else {
       fputs("\nBox has not yet been created\n",out);
     }
+    fmt::print(out,"\nCurrent timestep number = {}\n", update->ntimestep);
+    fmt::print(out,"Current timestep size = {}\n", update->dt);
   }
 
   if (domain->box_exist && (flags & COEFFS)) {
@@ -853,6 +866,8 @@ bool Info::is_available(const char *category, const char *name)
       return has_jpeg_support();
     } else if (strcmp(name,"ffmpeg") == 0) {
       return has_ffmpeg_support();
+    } else if (strcmp(name,"curl") == 0) {
+      return has_curl_support();
     } else if (strcmp(name,"fft_single") == 0) {
       return has_fft_single_support();
     } else if (strcmp(name,"exceptions") == 0) {
@@ -1073,6 +1088,14 @@ bool Info::has_ffmpeg_support() {
 #endif
 }
 
+bool Info::has_curl_support() {
+#ifdef LAMMPS_CURL
+  return true;
+#else
+  return false;
+#endif
+}
+
 bool Info::has_fft_single_support() {
 #ifdef FFT_SINGLE
   return true;
@@ -1199,6 +1222,10 @@ bool Info::has_accelerator_feature(const std::string &package,
   return false;
 }
 
+#if defined(LMP_INTEL)
+#include "intel_preprocess.h"
+#endif
+
 std::string Info::get_accelerator_info(const std::string &package)
 {
   std::string mesg;
@@ -1225,6 +1252,10 @@ std::string Info::get_accelerator_info(const std::string &package)
     if (has_accelerator_feature("KOKKOS","precision","single")) mesg += " single";
     if (has_accelerator_feature("KOKKOS","precision","mixed"))  mesg += " mixed";
     if (has_accelerator_feature("KOKKOS","precision","double")) mesg += " double";
+#if LMP_KOKKOS
+    mesg += fmt::format("\nKokkos library version: {}.{}.{}", KOKKOS_VERSION / 10000,
+                       (KOKKOS_VERSION % 10000) / 100, KOKKOS_VERSION % 100);
+#endif
     mesg += "\n";
   }
   if ((package.empty() || (package == "OPENMP")) && has_package("OPENMP")) {
@@ -1235,6 +1266,9 @@ std::string Info::get_accelerator_info(const std::string &package)
     if (has_accelerator_feature("OPENMP","precision","single")) mesg += " single";
     if (has_accelerator_feature("OPENMP","precision","mixed"))  mesg += " mixed";
     if (has_accelerator_feature("OPENMP","precision","double")) mesg += " double";
+#if defined(_OPENMP)
+    mesg += "\nOpenMP standard: " + platform::openmp_standard();
+#endif
     mesg += "\n";
   }
   if ((package.empty() || (package == "INTEL")) && has_package("INTEL")) {
@@ -1245,9 +1279,84 @@ std::string Info::get_accelerator_info(const std::string &package)
     if (has_accelerator_feature("INTEL","precision","single")) mesg += " single";
     if (has_accelerator_feature("INTEL","precision","mixed"))  mesg += " mixed";
     if (has_accelerator_feature("INTEL","precision","double")) mesg += " double";
+#if defined(LMP_SIMD_COMPILER)
+    mesg += "\nINTEL package SIMD: enabled";
+#else
+    mesg += "\nINTEL package SIMD: not enabled";
+#endif
     mesg += "\n";
   }
   return mesg;
+}
+
+/* ---------------------------------------------------------------------- */
+
+std::string Info::get_fft_info()
+{
+  std::string fft_info;
+#if defined(FFT_SINGLE)
+  fft_info = "FFT precision  = single\n";
+#else
+  fft_info = "FFT precision  = double\n";
+#endif
+#if defined(FFT_HEFFTE)
+  fft_info += "FFT engine  = HeFFTe\n";
+#if defined(FFT_HEFFTE_MKL)
+  fft_info += "FFT library = MKL\n";
+#elif defined(FFT_HEFFTE_FFTW)
+  fft_info += "FFT library = FFTW\n";
+#else
+  fft_info += "FFT library = (builtin)\n";
+#endif
+#else
+  fft_info += "FFT engine  = mpiFFT\n";
+#if defined(FFT_MKL)
+#if defined(FFT_MKL_THREADS)
+  fft_info += "FFT library = MKL with threads\n";
+#else
+  fft_info += "FFT library = MKL\n";
+#endif
+#elif defined(FFT_MKL_GPU)
+  fft_info += "FFT library = MKL GPU\n";
+#elif defined(FFT_NVPL)
+  fft_info += "FFT library = NVPL\n";
+#elif defined(FFT_FFTW3)
+#if defined(FFT_FFTW_THREADS)
+  fft_info += "FFT library = FFTW3 with threads\n";
+#else
+  fft_info += "FFT library = FFTW3\n";
+#endif
+#else
+  fft_info += "FFT library = KISS\n";
+#endif
+#endif
+#if defined(LMP_KOKKOS)
+  fft_info += "KOKKOS FFT engine  = mpiFFT\n";
+#if defined(FFT_KOKKOS_CUFFT)
+  fft_info += "KOKKOS FFT library = cuFFT\n";
+#elif defined(FFT_KOKKOS_HIPFFT)
+  fft_info += "KOKKOS FFT library = hipFFT\n";
+#elif defined(FFT_KOKKOS_FFTW3)
+#if defined(FFT_KOKKOS_FFTW_THREADS)
+  fft_info += "KOKKOS FFT library = FFTW3 with threads\n";
+#else
+  fft_info += "KOKKOS FFT library = FFTW3\n";
+#endif
+#elif defined(FFT_KOKKOS_NVPL)
+  fft_info += "KOKKOS FFT library = NVPL\n";
+#elif defined(FFT_KOKKOS_MKL)
+#if defined(FFT_KOKKOS_MKL_THREADS)
+  fft_info += "KOKKOS FFT library = MKL with threads\n";
+#else
+  fft_info += "KOKKOS FFT library = MKL\n";
+#endif
+#elif defined(FFT_KOKKOS_MKL_GPU)
+  fft_info += "KOKKOS FFT library = MKL GPU\n";
+#else
+  fft_info += "KOKKOS FFT library = KISS\n";
+#endif
+#endif
+  return fft_info;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1313,7 +1422,7 @@ std::string Info::get_variable_info(int num) {
   std::string text;
   int ndata = 1;
   text = fmt::format("Variable[{:3d}]: {:16}  style = {:16}  def =", num,
-                     std::string(names[num]) + ',', std::string(varstyles[style[num]]) + ',');
+                     std::string(names[num]) + ',', Variable::varstyles[style[num]] + ',');
   if (style[num] == Variable::INTERNAL) {
     text += fmt::format("{:.8}\n",input->variable->dvalue[num]);
     return text;

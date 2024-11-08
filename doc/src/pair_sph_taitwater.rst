@@ -1,7 +1,10 @@
 .. index:: pair_style sph/taitwater
+.. index:: pair_style sph/taitwater/gpu
 
 pair_style sph/taitwater command
 ================================
+
+Accelerator Variants: *sph/taitwater/gpu*
 
 Syntax
 """"""
@@ -46,6 +49,10 @@ above.
 * :math:`c_0` reference soundspeed (distance/time units)
 * :math:`\nu` artificial viscosity (no units)
 * h kernel function cutoff (distance units)
+
+----------
+
+.. include:: accel_styles.rst
 
 ----------
 

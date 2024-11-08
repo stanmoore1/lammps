@@ -44,9 +44,9 @@ using MathConst::DEG2RAD;
 using MathConst::MY_PI;
 using MathConst::MY_PI4;
 
-#define NCOLORS 140
-#define NELEMENTS 109
-#define EPSILON 1.0e-6
+static constexpr int NCOLORS = 140;
+static constexpr int NELEMENTS = 109;
+static constexpr double EPSILON = 1.0e-6;
 
 enum{NUMERIC,MINVALUE,MAXVALUE};
 enum{CONTINUOUS,DISCRETE,SEQUENTIAL};
@@ -959,6 +959,10 @@ void Image::compute_SSAO()
   int pixelstart = static_cast<int> (1.0*me/nprocs * npixels);
   int pixelstop = static_cast<int> (1.0*(me+1)/nprocs * npixels);
 
+  // file buffer with random numbers to avoid race conditions
+  double *uniform = new double[pixelstop - pixelstart];
+  for (int i = 0; i < pixelstop - pixelstart; ++i) uniform[i] = random->uniform();
+
 #if defined(_OPENMP)
 #pragma omp parallel for
 #endif
@@ -973,7 +977,7 @@ void Image::compute_SSAO()
     double sy = surfaceBuffer[index * 2 + 1];
     double sin_t = -sqrt(sx*sx + sy*sy);
 
-    double mytheta = random->uniform() * SSAOJitter;
+    double mytheta = uniform[index - pixelstart] * SSAOJitter;
     double ao = 0.0;
 
     for (int s = 0; s < SSAOSamples; s ++) {
@@ -1063,6 +1067,7 @@ void Image::compute_SSAO()
     imageBuffer[index * 3 + 1] = (int) c[1];
     imageBuffer[index * 3 + 2] = (int) c[2];
   }
+  delete[] uniform;
 }
 
 /* ---------------------------------------------------------------------- */

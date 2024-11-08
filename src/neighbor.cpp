@@ -57,11 +57,11 @@
 using namespace LAMMPS_NS;
 using namespace NeighConst;
 
-#define RQDELTA 1
-#define EXDELTA 1
-#define DELTA_PERATOM 64
+static constexpr int RQDELTA = 1;
+static constexpr int EXDELTA = 1;
+static constexpr int DELTA_PERATOM = 64;
 
-#define BIG 1.0e20
+static constexpr double BIG = 1.0e20;
 
 enum{NONE,ALL,PARTIAL,TEMPLATE};
 
@@ -163,6 +163,9 @@ pairclass(nullptr), pairnames(nullptr), pairmasks(nullptr)
   npair_perpetual = 0;
   plist = nullptr;
 
+  npair_occasional = 0;
+  olist = nullptr;
+
   nrequest = maxrequest = 0;
   requests = nullptr;
   j_sorted = nullptr;
@@ -253,6 +256,7 @@ Neighbor::~Neighbor()
 
   delete[] slist;
   delete[] plist;
+  delete[] olist;
 
   for (int i = 0; i < nrequest; i++)
     if (requests[i]) delete requests[i];
@@ -427,6 +431,9 @@ void Neighbor::init()
         }
       }
     } else {
+      if (!force->pair)
+        error->all(FLERR, "Cannot use collection/interval command without defining a pairstyle");
+
       if (force->pair->finitecutflag) {
         finite_cut_flag = 1;
         // If cutoffs depend on finite atom sizes, use radii of intervals to find cutoffs
@@ -495,13 +502,13 @@ void Neighbor::init()
     if (cut_respa[0]-skin < 0) cut_middle_inside_sq = 0.0;
   }
 
-  restart_check = 0;
+  must_check = restart_check = 0;
   if (output->restart_flag) must_check = restart_check = 1;
 
   // fixchecklist = other classes that can induce reneighboring in decide()
 
   fixchecklist.clear();
-  for (auto &ifix : modify->get_fix_list()) {
+  for (const auto &ifix : modify->get_fix_list()) {
     if (ifix->force_reneighbor) {
       fixchecklist.push_back(ifix);
       must_check = 1;
@@ -1005,6 +1012,9 @@ int Neighbor::init_pair()
   for (i = 0; i < nrequest; i++) {
     requests[i]->index_pair = -1;
     flag = lists[i]->pair_method;
+
+    // 22 Jul 2024 NOTE, don't think flag = 0 occurs in current code
+
     if (flag == 0) {
       neigh_pair[i] = nullptr;
       continue;
@@ -1051,19 +1061,25 @@ int Neighbor::init_pair()
 
   // plist = indices of perpetual NPair classes
   //         perpetual = non-occasional, re-built at every reneighboring
+  // olist = indices of occasional NPair classes
+  //         occasional = built only when requested
   // slist = indices of perpetual NStencil classes
   //         perpetual = used by any perpetual NPair class
 
-  delete[] slist;
   delete[] plist;
-  nstencil_perpetual = npair_perpetual = 0;
-  slist = new int[nstencil];
+  delete[] olist;
+  delete[] slist;
+  npair_perpetual = npair_occasional = nstencil_perpetual = 0;
   plist = new int[nlist];
+  olist = new int[nlist];
+  slist = new int[nstencil];
 
   for (i = 0; i < nlist; i++) {
     if (lists[i]->occasional == 0 && lists[i]->pair_method)
       plist[npair_perpetual++] = i;
-  }
+    if (lists[i]->occasional && lists[i]->pair_method)
+      olist[npair_occasional++] = i;
+ }
 
   for (i = 0; i < nstencil; i++) {
     flag = 0;
@@ -1170,7 +1186,7 @@ void Neighbor::morph_unique()
     irq = requests[i];
 
     // if cut flag set by requestor and cutoff is different than default,
-    //  set unique flag, otherwise unset cut flag
+    //   set unique flag, otherwise unset cut flag
     // this forces Pair,Stencil,Bin styles to be instantiated separately
     // also add skin to cutoff of perpetual lists
 
@@ -1596,10 +1612,16 @@ void Neighbor::init_topology()
 
   int bond_off = 0;
   int angle_off = 0;
-  for (i = 0; i < modify->nfix; i++)
-    if (utils::strmatch(modify->fix[i]->style,"^shake")
-        || utils::strmatch(modify->fix[i]->style,"^rattle"))
+  int dihedral_off = 0;
+  int improper_off = 0;
+
+  for (const auto &ifix : modify->get_fix_list()) {
+    if (utils::strmatch(ifix->style,"^shake") || utils::strmatch(ifix->style,"^rattle"))
       bond_off = angle_off = 1;
+    if (utils::strmatch(ifix->style,"gcmc"))
+      bond_off = angle_off = dihedral_off = improper_off = 1;
+  }
+
   if (force->bond)
     if (force->bond->partial_flag)
       bond_off = 1;
@@ -1620,7 +1642,6 @@ void Neighbor::init_topology()
     }
   }
 
-  int dihedral_off = 0;
   if (atom->avec->dihedrals_allow && atom->molecular == Atom::MOLECULAR) {
     for (i = 0; i < atom->nlocal; i++) {
       if (dihedral_off) break;
@@ -1629,7 +1650,6 @@ void Neighbor::init_topology()
     }
   }
 
-  int improper_off = 0;
   if (atom->avec->impropers_allow && atom->molecular == Atom::MOLECULAR) {
     for (i = 0; i < atom->nlocal; i++) {
       if (improper_off) break;
@@ -1637,10 +1657,6 @@ void Neighbor::init_topology()
         if (atom->improper_type[i][m] <= 0) improper_off = 1;
     }
   }
-
-  for (i = 0; i < modify->nfix; i++)
-    if ((strcmp(modify->fix[i]->style,"gcmc") == 0))
-      bond_off = angle_off = dihedral_off = improper_off = 1;
 
   // sync on/off settings across all procs
 
@@ -1791,16 +1807,24 @@ void Neighbor::print_pairwise_info()
         out += fmt::format(", trim from ({})",rq->copylist+1);
       else
         out += fmt::format(", copy from ({})",rq->copylist+1);
-    } else if (rq->halffull)
+    } else if (rq->halffull) {
       if (rq->trim)
         out += fmt::format(", half/full trim from ({})",rq->halffulllist+1);
       else
         out += fmt::format(", half/full from ({})",rq->halffulllist+1);
-    else if (rq->skip)
-      if (rq->trim)
-        out += fmt::format(", skip trim from ({})",rq->skiplist+1);
-      else
-        out += fmt::format(", skip from ({})",rq->skiplist+1);
+    } else if (rq->skip) {
+      if (rq->molskip) {
+        if (rq->trim)
+          out += fmt::format(", molskip trim from ({})",rq->skiplist+1);
+        else
+          out += fmt::format(", molskip from ({})",rq->skiplist+1);
+      } else {
+        if (rq->trim)
+          out += fmt::format(", skip trim from ({})",rq->skiplist+1);
+        else
+          out += fmt::format(", skip from ({})",rq->skiplist+1);
+      }
+    }
     out += "\n";
 
     // list of neigh list attributes
@@ -2015,6 +2039,7 @@ int Neighbor::choose_stencil(NeighRequest *rq)
     // require match of these request flags and mask bits
     // (!A != !B) is effectively a logical xor
 
+    if (!rq->intel != !(mask & NS_INTEL)) continue;
     if (!rq->ghost != !(mask & NS_GHOST)) continue;
     if (!rq->ssa != !(mask & NS_SSA)) continue;
 
@@ -2379,7 +2404,7 @@ int Neighbor::check_distance()
     dely = x[i][1] - xhold[i][1];
     delz = x[i][2] - xhold[i][2];
     rsq = delx*delx + dely*dely + delz*delz;
-    if (rsq > deltasq) flag = 1;
+    if (rsq > deltasq) { flag = 1; break; }
   }
 
   int flagall;
@@ -2404,7 +2429,9 @@ void Neighbor::build(int topoflag)
 
   int nlocal = atom->nlocal;
   int nall = nlocal + atom->nghost;
+
   // rebuild collection array from scratch
+
   if (style == Neighbor::MULTI) build_collection(0);
 
   // check that using special bond flags will not overflow neigh lists
@@ -2476,6 +2503,16 @@ void Neighbor::build(int topoflag)
   // skip if GPU package styles will call it explicitly to overlap with GPU computation.
 
   if ((atom->molecular != Atom::ATOMIC) && topoflag && !overlap_topo) build_topology();
+
+  // reset last_build in all occasional lists
+  // this will force them rebuild on next request
+  // all occasional lists are now out-of-date b/c
+  //   comm->exchange() occurred before neighbor->build()
+
+  for (i = 0; i < npair_occasional; i++) {
+    m = olist[i];
+    neigh_pair[m]->last_build = -1;
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -2512,7 +2549,7 @@ void Neighbor::build_topology()
    called by other classes
 ------------------------------------------------------------------------- */
 
-void Neighbor::build_one(class NeighList *mylist, int preflag)
+void Neighbor::build_one(class NeighList *mylist)
 {
   // check if list structure is initialized
 
@@ -2523,18 +2560,12 @@ void Neighbor::build_one(class NeighList *mylist, int preflag)
 
   if (!mylist->occasional) error->all(FLERR,"Neighbor::build_one() invoked on perpetual list");
 
-  // no need to build if already built since last re-neighbor
-  // preflag is set by fix bond/create and fix bond/swap
-  //   b/c they invoke build_one() on same step neigh list is re-built,
-  //   but before re-build, so need to use ">" instead of ">="
+  // no need to build this occasional list if already built
+  //   since last comm->exchange() and re-neighbor which invoked build()
+  // build() method resets last_build for all occasional lists to -1
 
   NPair *np = neigh_pair[mylist->index];
-
-  if (preflag) {
-    if (np->last_build > lastcall) return;
-  } else {
-    if (np->last_build >= lastcall) return;
-  }
+  if (np->last_build >= lastcall) return;
 
   // if this is copy list and parent is occasional list,
   // or this is halffull and parent is occasional list,
@@ -2542,11 +2573,11 @@ void Neighbor::build_one(class NeighList *mylist, int preflag)
   // ensure parent is current
 
   if (mylist->listcopy && mylist->listcopy->occasional)
-    build_one(mylist->listcopy,preflag);
+    build_one(mylist->listcopy);
   if (mylist->listfull && mylist->listfull->occasional)
-    build_one(mylist->listfull,preflag);
+    build_one(mylist->listfull);
   if (mylist->listskip && mylist->listskip->occasional)
-    build_one(mylist->listskip,preflag);
+    build_one(mylist->listskip);
 
   // create stencil if hasn't been created since last setup_bins() call
 
@@ -2674,8 +2705,8 @@ void Neighbor::modify_params(int narg, char **arg)
           memory->grow(ex1_type,maxex_type,"neigh:ex1_type");
           memory->grow(ex2_type,maxex_type,"neigh:ex2_type");
         }
-        ex1_type[nex_type] = utils::inumeric(FLERR,arg[iarg+2],false,lmp);
-        ex2_type[nex_type] = utils::inumeric(FLERR,arg[iarg+3],false,lmp);
+        ex1_type[nex_type] = utils::expand_type_int(FLERR, arg[iarg+2], Atom::ATOM, lmp);
+        ex2_type[nex_type] = utils::expand_type_int(FLERR, arg[iarg+3], Atom::ATOM, lmp);
         nex_type++;
         iarg += 4;
       } else if (strcmp(arg[iarg+1],"group") == 0) {
@@ -2690,7 +2721,9 @@ void Neighbor::modify_params(int narg, char **arg)
         if (ex1_group[nex_group] == -1)
           error->all(FLERR, "Invalid exclude group keyword: group {} not found", arg[iarg+2]);
         if (ex2_group[nex_group] == -1)
-            error->all(FLERR, "Invalid exclude group keyword: group {} not found", arg[iarg+3]);
+          error->all(FLERR, "Invalid exclude group keyword: group {} not found", arg[iarg+3]);
+        if (group->dynamic[ex1_group[nex_group]] || group->dynamic[ex2_group[nex_group]])
+          error->all(FLERR, "Neigh_modify exclude group is not compatible with dynamic groups");
         nex_group++;
         iarg += 4;
       } else if (strcmp(arg[iarg+1],"molecule/inter") == 0 ||
@@ -2969,6 +3002,14 @@ bigint Neighbor::get_nneigh_half()
     } else if (lmp->kokkos) nneighhalf = lmp->kokkos->neigh_count(m);
   }
   return nneighhalf;
+}
+
+/* ----------------------------------------------------------------------
+ return the pointer containing the last positions stored by the NL builder
+------------------------------------------------------------------------- */
+double **Neighbor::get_xhold()
+{
+  return xhold;
 }
 
 /* ----------------------------------------------------------------------

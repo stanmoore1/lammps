@@ -14,7 +14,6 @@
 
 #include "atom.h"               // IWYU pragma: export
 #include "kokkos_type.h"
-#include "fix_property_atom_kokkos.h"
 
 #include <Kokkos_Sort.hpp>
 
@@ -27,7 +26,7 @@ class AtomKokkos : public Atom {
  public:
   bool sort_classic;
   int nprop_atom;
-  FixPropertyAtomKokkos** fix_prop_atom;
+  class FixPropertyAtomKokkos **fix_prop_atom;
 
   DAT::tdual_tagint_1d k_tag;
   DAT::tdual_int_1d k_type, k_mask;
@@ -89,8 +88,25 @@ class AtomKokkos : public Atom {
   DAT::tdual_int_1d k_map_array;
   dual_hash_type k_map_hash;
 
-  DAT::t_tagint_1d d_tag_sorted;
-  DAT::t_int_1d d_i_sorted;
+  struct KeyValue {
+    int i;
+    bigint tag;
+  };
+
+  typedef Kokkos::View<KeyValue*,LMPDeviceType> t_keyvalue_1d;
+  t_keyvalue_1d d_sorted;
+
+  struct MyComp {
+    KOKKOS_FUNCTION
+    bool operator()(const KeyValue& a, const KeyValue& b) const
+    {
+      if (a.tag < b.tag)
+        return true;
+      if (b.tag < a.tag)
+        return false;
+      return a.i < b.i;
+    }
+  };
 
   typedef Kokkos::DualView<tagint[2], LMPDeviceType::array_layout, LMPDeviceType> tdual_tagint_2;
   typedef tdual_tagint_2::t_dev t_tagint_2;
@@ -101,10 +117,6 @@ class AtomKokkos : public Atom {
 
   DAT::t_tagint_scalar d_tag_min,d_tag_max;
   HAT::t_tagint_scalar h_tag_min,h_tag_max;
-
-  using MapKeyViewType = decltype(d_tag_sorted);
-  using BinOpMap = Kokkos::BinOp1D<MapKeyViewType>;
-  Kokkos::BinSort<MapKeyViewType, BinOpMap> Sorter;
 
   class AtomVecKokkos* avecKK;
 
@@ -139,7 +151,7 @@ class AtomKokkos : public Atom {
   static int map_find_hash_kokkos(tagint global, const dual_hash_type &k_map_hash)
   {
     int local = -1;
-    auto& d_map_hash = k_map_hash.const_view<DeviceType>();
+    auto& d_map_hash = k_map_hash.const_view<DeviceType>(); // must be alias
     auto index = d_map_hash.find(global);
     if (d_map_hash.valid_at(index))
       local = d_map_hash.value_at(index);
@@ -153,10 +165,13 @@ class AtomKokkos : public Atom {
   void modified(const ExecutionSpace space, unsigned int mask);
   void sync_overlapping_device(const ExecutionSpace space, unsigned int mask);
   void sort() override;
-  virtual void grow(unsigned int mask);
-  int add_custom(const char *, int, int) override;
+  int add_custom(const char *, int, int, int border = 0) override;
   void remove_custom(int, int, int) override;
-  virtual void deallocate_topology();
+  void deallocate_topology() override;
+
+  void map_set_device();
+  void map_set_host();
+
  private:
   void sort_device();
   class AtomVec *new_avec(const std::string &, int, int &) override;
