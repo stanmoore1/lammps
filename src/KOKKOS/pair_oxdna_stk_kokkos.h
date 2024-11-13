@@ -32,11 +32,8 @@ PairStyle(oxdna/stk/kk/host,PairOxdnaStkKokkos<LMPHostType>);
 
 namespace LAMMPS_NS {
 
-template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
 struct TagPairOxdnaStkCompute{};
-
-template<int NEIGHFLAG, int NEWTON_PAIR>
-struct ev_tally_xyz{};
 
 template<class DeviceType>
 class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
@@ -53,57 +50,49 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
   void init_style();
   double init_one(int, int) override;
 
-  template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+  template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairOxdnaStkCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&, EV_FLOAT&) const;
+  void operator()(TagPairOxdnaStkCompute<NEIGHFLAG,NEWTON_BOND,EVFLAG>, const int&, EV_FLOAT&) const;
 
-  template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+  template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairOxdnaStkCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
+  void operator()(TagPairOxdnaStkCompute<NEIGHFLAG,NEWTON_BOND,EVFLAG>, const int&) const;
 
-  template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
-  void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &epair, const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz, const F_FLOAT &delx,
-                  const F_FLOAT &dely, const F_FLOAT &delz) const;
+  void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j, const int &nlocal, const int &newton_bond,\
+      const F_FLOAT &evdwl, const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz,\
+      const F_FLOAT &delx, const F_FLOAT &dely, const F_FLOAT &delz) const;
 
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
 
-  void *extract(const char *, int &) override;
-
  protected:
- 
-  int oxdnaflag;
-  enum EnabledOXDNAFlag{OXDNA=1,OXDNA2=2,OXRNA2=4};
+
+  class NeighborKokkos *neighborKK;
 
   typename AT::t_x_array_randomread x;
   typename AT::t_f_array f;
   typename AT::t_f_array torque;
   typename AT::t_int_1d_randomread type;
+  typename AT::t_int_2d bondlist;
+  typename AT::t_tagint_1d tag;
+  typename AT::t_tagint_1d id5p;
 
   DAT::tdual_efloat_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
   typename AT::t_efloat_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
-  int newton_pair;
-  double special_lj[4];
-
-  //typename AT::tdual_ffloat_2d k_cutsq;
-  //typename AT::t_ffloat_2d d_cutsq;
-
-  int neighflag;
-  int nlocal, eflag, vflag;
-  int anum;
+  int neighflag, nbondlist;
+  int nlocal, newton_bond, eflag, vflag;
 
   typename AT::t_neighbors_2d_randomread d_neighbors;
   typename AT::t_int_1d_randomread d_alist;
   typename AT::t_int_1d_randomread d_numneigh;
 
   // stacking interaction
-  typename AT::tdual_float_1d_4 k_eta_st;
-  typename AT::t_mu_array d_eta_st;
+  //typename AT::tdual_float_1d_4 k_eta_st;
+  //typename AT::t_mu_array d_eta_st;
   typename AT::tdual_ffloat_2d k_epsilon_st, k_a_st, k_cut_st_0, k_cut_st_c;
   typename AT::tdual_ffloat_2d k_cut_st_lo, k_cut_st_hi;
   typename AT::tdual_ffloat_2d k_cut_st_lc, k_cut_st_hc, k_b_st_lo, k_b_st_hi;
@@ -158,6 +147,8 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
   void allocate() override;
  
   friend void pair_virial_fdotr_compute<PairOxdnaStkKokkos>(PairOxdnaStkKokkos*);
+
+
 };
 
 }
