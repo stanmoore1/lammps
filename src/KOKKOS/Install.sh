@@ -380,6 +380,8 @@ action pair_oxdna_excv_kokkos.cpp pair_oxdna_excv.cpp
 action pair_oxdna_excv_kokkos.h pair_oxdna_excv.h
 action pair_oxdna2_excv_kokkos.h pair_oxdna_excv_kokkos.h
 action pair_oxrna2_excv_kokkos.h pair_oxdna_excv_kokkos.h
+action pair_oxdna_stk_kokkos.cpp pair_oxdna_stk.cpp
+action pair_oxdna_stk_kokkos.h pair_oxdna_stk.h
 action pair_pace_extrapolation_kokkos.cpp pair_pace_extrapolation.cpp
 action pair_pace_extrapolation_kokkos.h pair_pace_extrapolation.h
 action pair_pod_kokkos.cpp pair_pod.cpp
