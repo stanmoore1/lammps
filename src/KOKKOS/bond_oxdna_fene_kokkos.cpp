@@ -35,6 +35,8 @@ using namespace LAMMPS_NS;
 template<class DeviceType>
 BondOxdnaFENEKokkos<DeviceType>::BondOxdnaFENEKokkos(LAMMPS *lmp) : BondOxdnaFene(lmp)
 {
+  kokkosable = 1;
+  
   atomKK = (AtomKokkos *) atom;
   neighborKK = (NeighborKokkos *) neighbor;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
