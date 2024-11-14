@@ -38,6 +38,7 @@ PairOxdnaStkKokkos<DeviceType>::PairOxdnaStkKokkos(LAMMPS *lmp) : PairOxdnaStk(l
 {
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
+  neighborKK = (NeighborKokkos *) neighbor;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read = X_MASK | ELLIPSOID_MASK | BONUS_MASK | F_MASK | 
                   TORQUE_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
@@ -65,6 +66,7 @@ PairOxdnaStkKokkos<DeviceType>::~PairOxdnaStkKokkos()
     memoryKK->destroy_kokkos(k_cut_st_hc,cut_st_hc);
     memoryKK->destroy_kokkos(k_b_st_lo,b_st_lo);
     memoryKK->destroy_kokkos(k_b_st_hi,b_st_hi);
+    memoryKK->destroy_kokkos(k_shift_st,shift_st);
     memoryKK->destroy_kokkos(k_cutsq_st_hc,cutsq_st_hc);
 
     memoryKK->destroy_kokkos(k_a_st4,a_st4);
@@ -340,9 +342,6 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
   F_FLOAT f1,f4t4,f4t5,f4t6,f5c1,f5c2;
   F_FLOAT df1,df4t4,df4t5,df4t6,df5c1,df5c2;
 
-  F_FLOAT ftmp[3],ttmp[3];  // temporary force, torque to reduce excessive dup/atomic updates
-  // f/t/tmp can probably be removed actually and += del* directly? not sure why I did this, perhaps to avoid potential race conditions?
-
   // vector COM [a/b] - stacking site [a/b]
   constexpr F_FLOAT d_cst = +0.34;
   ra_cst[0] = d_cst * d_nx_xtrct(a,0);
@@ -389,13 +388,6 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
   delr_ss_norm[0] = delr_ss[0] * rinv_ss;
   delr_ss_norm[1] = delr_ss[1] * rinv_ss;
   delr_ss_norm[2] = delr_ss[2] * rinv_ss;
-
-  ftmp[0] = 0.0;
-  ftmp[1] = 0.0;
-  ftmp[2] = 0.0;
-  ttmp[0] = 0.0;
-  ttmp[1] = 0.0;
-  ttmp[2] = 0.0;
 
   // beginning of modulation factors
 
