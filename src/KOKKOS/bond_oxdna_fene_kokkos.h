@@ -79,7 +79,6 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  //double *k, *Delta, *r0;                       // FENE
   DAT::tdual_ffloat_1d k_k;
   DAT::tdual_ffloat_1d k_r0;
   DAT::tdual_ffloat_1d k_Delta;
@@ -87,7 +86,7 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   typename AT::t_ffloat_1d d_k;
   typename AT::t_ffloat_1d d_r0;
 
-  //double **nx_xtrct, **ny_xtrct, **nz_xtrct;    // per-atom arrays for local unit vectors
+  // per-atom arrays for local unit vectors
   DAT::tdual_x_array k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
   typename AT::t_x_array d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
 

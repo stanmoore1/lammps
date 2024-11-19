@@ -14,7 +14,6 @@
 #include "pair_oxdna_excv_kokkos.h"
 
 #include "atom_kokkos.h"
-//#include "atom_vec_ellipsoid_kokkos.h"
 #include "atom_masks.h"
 #include "comm.h"
 #include "error.h"
@@ -97,8 +96,6 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   eflag = eflag_in;
   vflag = vflag_in;
 
-  //printf("neighflag, newton_pair, evflag : %d %d %d\n",neighflag,newton_pair,evflag);
-
   if (neighflag == FULL) no_virial_fdotr_compute = 1;
 
   ev_init(eflag,vflag,0);
@@ -116,7 +113,7 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     d_vatom = k_vatom.view<DeviceType>();
   }
 
-  atomKK->sync(execution_space,datamask_read); //need or not need? same for fene
+  atomKK->sync(execution_space,datamask_read);
 
   k_epsilon_ss.template sync<DeviceType>();
   k_sigma_ss.template sync<DeviceType>();
@@ -153,14 +150,14 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   k_nz.template sync<DeviceType>();
 
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
-  else atomKK->modified(execution_space,F_MASK | TORQUE_MASK); // TODO: need or not need? same for fene, also add TORQUE_MASK later
+  else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
 
   x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();
   torque = atomKK->k_torque.view<DeviceType>();
   type = atomKK->k_type.view<DeviceType>();
 
-  auto avecEllipKK = dynamic_cast<AtomVecEllipsoidKokkos *>(atom->style_match("ellipsoid")); // TODO: check if this is correct, may ask Stan at some point
+  auto avecEllipKK = dynamic_cast<AtomVecEllipsoidKokkos *>(atom->style_match("ellipsoid"));
   bonus = avecEllipKK->k_bonus.view<DeviceType>();
   ellipsoid = atomKK->k_ellipsoid.view<DeviceType>();
 
@@ -369,12 +366,10 @@ KOKKOS_INLINE_FUNCTION
 void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvQuatToXYZ, const int &in) const
 {
   int n = d_alist(in);
-  // TODO: confirm in testing this implementation of quaternion to Cartesian unit vectors in lab frame actually works
   F_FLOAT qn[4];
   for (int i = 0; i < 4; i++) {
     qn[i] = bonus(ellipsoid(n)).quat[i];
   }
-  
   d_nx(n,0) = qn[0]*qn[0] + qn[1]*qn[1] - qn[2]*qn[2] - qn[3]*qn[3];
   d_nx(n,1) = 2.0 * (qn[1]*qn[2] + qn[0]*qn[3]);
   d_nx(n,2) = 2.0 * (qn[1]*qn[3] - qn[0]*qn[2]);
@@ -384,16 +379,6 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvQuatToXYZ, cons
   d_nz(n,0) = 2.0 * (qn[1]*qn[3] + qn[0]*qn[2]);
   d_nz(n,1) = 2.0 * (qn[2]*qn[3] - qn[0]*qn[1]);
   d_nz(n,2) = qn[0]*qn[0] - qn[1]*qn[1] - qn[2]*qn[2] + qn[3]*qn[3];
-
-  /*d_nx(n,0) = 0.0;
-  d_nx(n,1) = 0.0;
-  d_nx(n,2) = 0.0;
-  d_ny(n,0) = 0.0;
-  d_ny(n,1) = 0.0;
-  d_ny(n,2) = 0.0;
-  d_nz(n,0) = 0.0;
-  d_nz(n,1) = 0.0;
-  d_nz(n,2) = 0.0;*/
 }
 
 template<class DeviceType>
@@ -402,8 +387,6 @@ KOKKOS_INLINE_FUNCTION
 void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
   const int &ia, EV_FLOAT &ev) const
 {
-  //TODO: figure out evdwl in context of ev_tally_xyz and ev.evdwl
-
   // f and torque array are duplicated for OpenMP, atomic for GPU, and neither for Serial
 
   auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
@@ -411,9 +394,6 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
   auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
     decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
   auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
-
-  //printf("NEIGHFLAG, NEWTON_PAIR, EVFLAG: %d %d %d\n",NEIGHFLAG,NEWTON_PAIR,EVFLAG);
-  //printf("vflag_either,eflag_atom: %d %d\n",vflag_either,eflag_atom);
 
   const int a = d_alist(ia);
   const int atype = type(a);
@@ -427,8 +407,9 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
   F_FLOAT delr_ss[3],rsq_ss,delr_sb[3],rsq_sb;
   F_FLOAT delr_bs[3],rsq_bs,delr_bb[3],rsq_bb;
 
-  F_FLOAT ftmp[3],ttmp[3];  // temporary force, torque to reduce excessive dup/atomic updates
-  // f/t/tmp can probably be removed actually and += del* directly? not sure why I did this, perhaps to avoid potential race conditions?
+  F_FLOAT ftmp[3],ttmp[3];  // temporary force, torque to reduce excessive dup/atomic updates.
+  //                           might remove these and just use delf, delta, deltb directly.
+  //                           still to profile and test.
 
   // vector COM - backbone and base site a
   if (OXDNAFLAG==OXDNA) {
@@ -537,8 +518,6 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     rsq_bb = delr_bb[0]*delr_bb[0] + delr_bb[1]*delr_bb[1] + delr_bb[2]*delr_bb[2];
 
     // excluded volume interactions:
-    //printf("rsq_ss: %f\n",rsq_ss);
-    //printf("d_cut_ss_c: %f\n",d_cut_ss_c(atype,btype));
 
     // backbone-backbone
     if (rsq_ss < d_cutsq_ss_c(atype,btype)) {
@@ -573,6 +552,12 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
       ttmp[0] += delta[0];
       ttmp[1] += delta[1];
       ttmp[2] += delta[2];
+      /*a_f(a,0) += delf[0];
+      a_f(a,1) += delf[1];
+      a_f(a,2) += delf[2];
+      a_torque(a,0) += delta[0];
+      a_torque(a,1) += delta[1];
+      a_torque(a,2) += delta[2];*/
       if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
         a_f(b,0) -= delf[0];
         a_f(b,1) -= delf[1];
@@ -587,7 +572,6 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
       if (EVFLAG) {
         if (eflag) {
           ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
-          //ev.evdwl += evdwl;
         }
 
         if (vflag_either || eflag_atom) {
@@ -627,6 +611,12 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
       ttmp[0] += delta[0];
       ttmp[1] += delta[1];
       ttmp[2] += delta[2];
+      /*a_f(a,0) += delf[0];
+      a_f(a,1) += delf[1];
+      a_f(a,2) += delf[2];
+      a_torque(a,0) += delta[0];
+      a_torque(a,1) += delta[1];
+      a_torque(a,2) += delta[2];*/
       if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
         a_f(b,0) -= delf[0];
         a_f(b,1) -= delf[1];
@@ -641,7 +631,6 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
       if (EVFLAG) {
         if (eflag) {
           ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
-          //ev.evdwl += evdwl;
         }
 
         if (vflag_either || eflag_atom) {
@@ -681,6 +670,12 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
       ttmp[0] += delta[0];
       ttmp[1] += delta[1];
       ttmp[2] += delta[2];
+      /*a_f(a,0) += delf[0];
+      a_f(a,1) += delf[1];
+      a_f(a,2) += delf[2];
+      a_torque(a,0) += delta[0];
+      a_torque(a,1) += delta[1];
+      a_torque(a,2) += delta[2];*/
       if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
         a_f(b,0) -= delf[0];
         a_f(b,1) -= delf[1];
@@ -695,7 +690,6 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
       if (EVFLAG) {
         if (eflag) {
           ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
-          //ev.evdwl += evdwl;
         }
 
         if (vflag_either || eflag_atom) {
@@ -735,6 +729,12 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
       ttmp[0] += delta[0];
       ttmp[1] += delta[1];
       ttmp[2] += delta[2];
+      /*a_f(a,0) += delf[0];
+      a_f(a,1) += delf[1];
+      a_f(a,2) += delf[2];
+      a_torque(a,0) += delta[0];
+      a_torque(a,1) += delta[1];
+      a_torque(a,2) += delta[2];*/
       if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
         a_f(b,0) -= delf[0];
         a_f(b,1) -= delf[1];
@@ -749,7 +749,6 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
       if (EVFLAG) {
         if (eflag) {
           ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
-          //ev.evdwl += evdwl;
         }
 
         if (vflag_either || eflag_atom) {
@@ -758,7 +757,6 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
         }
       }
     }
-    //printf("INDEX ia, a, ib, b: %d %d %d %d\n",ia,a,ib,b);
     // end excluded volume interaction
   }
   a_f(a,0) += ftmp[0];
@@ -909,8 +907,6 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   PairOxdnaExcv::allocate();
 
   int n = atom->ntypes;
-
-  //memory->destroy(setflag);
   
   memory->destroy(epsilon_ss);
   memory->destroy(sigma_ss);
@@ -1079,6 +1075,36 @@ double PairOxdnaExcvKokkos<DeviceType>::init_one(int i, int j)
   k_lj2_bb.h_view(i,j) = k_lj2_bb.h_view(j,i) = lj2_bb[i][j];
   k_cutsq_bb_ast.h_view(i,j) = k_cutsq_bb_ast.h_view(j,i) = cutsq_bb_ast[i][j];
   k_cutsq_bb_c.h_view(i,j) = k_cutsq_bb_c.h_view(j,i) = cutsq_bb_c[i][j];
+
+  k_epsilon_ss.template modify<LMPHostType>();
+  k_sigma_ss.template modify<LMPHostType>();
+  k_cut_ss_ast.template modify<LMPHostType>();
+  k_b_ss.template modify<LMPHostType>();
+  k_cut_ss_c.template modify<LMPHostType>();
+  k_lj1_ss.template modify<LMPHostType>();
+  k_lj2_ss.template modify<LMPHostType>();
+  k_cutsq_ss_ast.template modify<LMPHostType>();
+  k_cutsq_ss_c.template modify<LMPHostType>();
+
+  k_epsilon_sb.template modify<LMPHostType>();
+  k_sigma_sb.template modify<LMPHostType>();
+  k_cut_sb_ast.template modify<LMPHostType>();
+  k_b_sb.template modify<LMPHostType>();
+  k_cut_sb_c.template modify<LMPHostType>();
+  k_lj1_sb.template modify<LMPHostType>();
+  k_lj2_sb.template modify<LMPHostType>();
+  k_cutsq_sb_ast.template modify<LMPHostType>();
+  k_cutsq_sb_c.template modify<LMPHostType>();
+
+  k_epsilon_bb.template modify<LMPHostType>();
+  k_sigma_bb.template modify<LMPHostType>();
+  k_cut_bb_ast.template modify<LMPHostType>();
+  k_b_bb.template modify<LMPHostType>();
+  k_cut_bb_c.template modify<LMPHostType>();
+  k_lj1_bb.template modify<LMPHostType>();
+  k_lj2_bb.template modify<LMPHostType>();
+  k_cutsq_bb_ast.template modify<LMPHostType>();
+  k_cutsq_bb_c.template modify<LMPHostType>();
 
   // "cutone" is "cut_ss_c[i][j]", sets the master list distance cutoff
   return cutone;

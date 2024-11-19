@@ -98,7 +98,6 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   newton_bond = force->newton_bond;
 
   // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna_excv/kk
-  // TODO: Check this is ok to do, ask Stan at some point
   auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna/excv/kk", 1, 1));
   d_nx_xtrct = oxdna_excvKK->k_nx.template view<DeviceType>();
   d_ny_xtrct = oxdna_excvKK->k_ny.template view<DeviceType>();
@@ -219,25 +218,6 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   bz[0] = d_nz_xtrct(b,0);
   bz[1] = d_nz_xtrct(b,1);
   bz[2] = d_nz_xtrct(b,2);
-  
-  /*ax[0] = 0.0;
-  ax[1] = 0.0;
-  ax[2] = 0.0;
-  ay[0] = 0.0;
-  ay[1] = 0.0;
-  ay[2] = 0.0;
-  az[0] = 0.0;
-  az[1] = 0.0;
-  az[2] = 0.0;
-  bx[0] = 0.0;
-  bx[1] = 0.0;
-  bx[2] = 0.0;
-  by[0] = 0.0;
-  by[1] = 0.0;
-  by[2] = 0.0;
-  bz[0] = 0.0;
-  bz[1] = 0.0;
-  bz[2] = 0.0;*/
 
   // vector COM-backbone site a and b - "compute_interaction_sites" vector COM-sugar-phosphate backbone in oxDNA
   if (OXDNAFLAG==OXDNA) {
@@ -313,7 +293,6 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
       }
     }
   }
-
 
   F_FLOAT fbond = -d_k[type] * rr0 / rlogarg / Deltasq / r;
   delf[0] = delr[0] * fbond;

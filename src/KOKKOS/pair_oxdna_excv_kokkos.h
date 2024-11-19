@@ -105,8 +105,7 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   typename AT::t_f_array f;
   typename AT::t_f_array torque;
   typename AT::t_int_1d_randomread type;
-  
-  //class AtomVecEllipsoidKokkos *avecEllipKK;
+
   typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d bonus;
   typename AT::t_int_1d_randomread ellipsoid;
 
@@ -130,7 +129,7 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   typename AT::t_int_1d_randomread d_numneigh;
 
   // s=sugar-phosphate backbone site, b=base site, st=stacking site
-  // excluded volume interaction
+  // excluded volume interaction parameters
   typename AT::tdual_ffloat_2d k_epsilon_ss, k_sigma_ss, k_cut_ss_ast, k_cutsq_ss_ast;
   typename AT::tdual_ffloat_2d k_lj1_ss, k_lj2_ss, k_b_ss, k_cut_ss_c, k_cutsq_ss_c;
   typename AT::tdual_ffloat_2d k_epsilon_sb, k_sigma_sb, k_cut_sb_ast, k_cutsq_sb_ast;

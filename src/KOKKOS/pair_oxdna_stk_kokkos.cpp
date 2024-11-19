@@ -14,7 +14,6 @@
 #include "pair_oxdna_stk_kokkos.h"
 
 #include "atom_kokkos.h"
-//#include "atom_vec_ellipsoid_kokkos.h"
 #include "atom_masks.h"
 #include "comm.h"
 #include "error.h"
@@ -110,8 +109,6 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   eflag = eflag_in;
   vflag = vflag_in;
 
-  //printf("neighflag, NEWTON_BOND, evflag : %d %d %d\n",neighflag,NEWTON_BOND,evflag);
-
   if (neighflag == FULL) no_virial_fdotr_compute = 1;
 
   ev_init(eflag,vflag,0);
@@ -129,7 +126,7 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     d_vatom = k_vatom.view<DeviceType>();
   }
 
-  atomKK->sync(execution_space,datamask_read); //need or not need? same for fene
+  atomKK->sync(execution_space,datamask_read);
 
   k_epsilon_st.template sync<DeviceType>();
   k_a_st.template sync<DeviceType>();
@@ -172,7 +169,7 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   k_cosphi_st2_c.template sync<DeviceType>();
 
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
-  else atomKK->modified(execution_space,F_MASK | TORQUE_MASK); // TODO: need or not need? same for fene, also add TORQUE_MASK later
+  else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
 
   x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();
@@ -203,7 +200,6 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   copymode = 1;
 
   // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna_excv/kk
-  // TODO: Check this is ok to do, ask Stan at some point
   auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna/excv/kk", 1, 1));
   d_nx_xtrct = oxdna_excvKK->k_nx.template view<DeviceType>();
   d_ny_xtrct = oxdna_excvKK->k_ny.template view<DeviceType>();
@@ -303,8 +299,6 @@ KOKKOS_INLINE_FUNCTION
 void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG,NEWTON_BOND,EVFLAG>, \
   const int &in, EV_FLOAT &ev) const
 {
-  //TODO: figure out evdwl in context of ev_tally_xyz and ev.evdwl
-
   // f and torque array are duplicated for OpenMP, atomic for GPU, and neither for Serial
 
   auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
@@ -312,9 +306,6 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
   auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
     decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
   auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
-
-  //printf("NEIGHFLAG, NEWTON_BOND, EVFLAG: %d %d %d\n",NEIGHFLAG,NEWTON_BOND,EVFLAG);
-  //printf("vflag_either,eflag_atom: %d %d\n",vflag_either,eflag_atom);
 
   int b = bondlist(in,0);
   int a = bondlist(in,1);
@@ -796,30 +787,6 @@ void PairOxdnaStkKokkos<DeviceType>::allocate()
   PairOxdnaStk::allocate();
 
   int n = atom->ntypes;
-
-  //memory->destroy(setflag);
-
-  // sequence-specific stacking strength
-  // A:0 C:1 G:2 T:3, 3'- [i][j] -5'
-  /*memoryKK->create_kokkos(k_eta_st,eta_st,4,4,"PairOxdnaStk:eta_st");
-  d_eta_st = k_eta_st.view<DeviceType>();
-  // TODO: should eta_st be here?
-  d_eta_st(0,0) = 1.11960;
-  d_eta_st(1,0) = 1.00852;
-  d_eta_st(2,0) = 0.96950;
-  d_eta_st(3,0) = 0.99632;
-  d_eta_st(0,1) = 1.01889;
-  d_eta_st(1,1) = 0.97804;
-  d_eta_st(2,1) = 1.02681;
-  d_eta_st(3,1) = 0.96950;
-  d_eta_st(0,2) = 0.98169;
-  d_eta_st(1,2) = 1.05913;
-  d_eta_st(2,2) = 0.97804;
-  d_eta_st(3,2) = 1.00852;
-  d_eta_st(0,3) = 0.94694;
-  d_eta_st(1,3) = 0.98169;
-  d_eta_st(2,3) = 1.01889;
-  d_eta_st(3,3) = 0.96383;*/
   
   memory->destroy(epsilon_st);
   memory->destroy(a_st);
@@ -1014,6 +981,46 @@ double PairOxdnaStkKokkos<DeviceType>::init_one(int i, int j)
   k_b_st2.h_view(i,j) = k_b_st2.h_view(j,i) = b_st2[i][j];
   k_cosphi_st2_c.h_view(i,j) = k_cosphi_st2_c.h_view(j,i) = cosphi_st2_c[i][j];
 
+  k_epsilon_st.template modify<LMPHostType>();
+  k_a_st.template modify<LMPHostType>();
+  k_cut_st_0.template modify<LMPHostType>();
+  k_cut_st_c.template modify<LMPHostType>();
+  k_cut_st_lo.template modify<LMPHostType>();
+  k_cut_st_hi.template modify<LMPHostType>();
+  k_cut_st_lc.template modify<LMPHostType>();
+  k_cut_st_hc.template modify<LMPHostType>();
+  k_b_st_lo.template modify<LMPHostType>();
+  k_b_st_hi.template modify<LMPHostType>();
+  k_shift_st.template modify<LMPHostType>();
+  k_cutsq_st_hc.template modify<LMPHostType>();
+
+  k_a_st4.template modify<LMPHostType>();
+  k_theta_st4_0.template modify<LMPHostType>();
+  k_dtheta_st4_ast.template modify<LMPHostType>();
+  k_b_st4.template modify<LMPHostType>();
+  k_dtheta_st4_c.template modify<LMPHostType>();
+
+  k_a_st5.template modify<LMPHostType>();
+  k_theta_st5_0.template modify<LMPHostType>();
+  k_dtheta_st5_ast.template modify<LMPHostType>();
+  k_b_st5.template modify<LMPHostType>();
+  k_dtheta_st5_c.template modify<LMPHostType>();
+
+  k_a_st6.template modify<LMPHostType>();
+  k_theta_st6_0.template modify<LMPHostType>();
+  k_dtheta_st6_ast.template modify<LMPHostType>();
+  k_b_st6.template modify<LMPHostType>();
+  k_dtheta_st6_c.template modify<LMPHostType>();
+
+  k_a_st1.template modify<LMPHostType>();
+  k_cosphi_st1_ast.template modify<LMPHostType>();
+  k_b_st1.template modify<LMPHostType>();
+  k_cosphi_st1_c.template modify<LMPHostType>();
+  k_a_st2.template modify<LMPHostType>();
+  k_cosphi_st2_ast.template modify<LMPHostType>();
+  k_b_st2.template modify<LMPHostType>();
+  k_cosphi_st2_c.template modify<LMPHostType>();
+
   // "cutone" is "cut_st_hc[i][j]", sets the master list distance cutoff
   return cutone;
 
@@ -1125,7 +1132,6 @@ KOKKOS_INLINE_FUNCTION
 int PairOxdnaStkKokkos<DeviceType>::sbmask(const int& j) const {
   return j >> SBBITS & 3;
 }
-
 
 namespace LAMMPS_NS {
 template class PairOxdnaStkKokkos<LMPDeviceType>;

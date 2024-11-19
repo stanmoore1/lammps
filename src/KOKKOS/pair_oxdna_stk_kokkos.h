@@ -90,9 +90,7 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
   typename AT::t_int_1d_randomread d_alist;
   typename AT::t_int_1d_randomread d_numneigh;
 
-  // stacking interaction
-  //typename AT::tdual_float_1d_4 k_eta_st;
-  //typename AT::t_mu_array d_eta_st;
+  // stacking interaction parameters
   typename AT::tdual_ffloat_2d k_epsilon_st, k_a_st, k_cut_st_0, k_cut_st_c;
   typename AT::tdual_ffloat_2d k_cut_st_lo, k_cut_st_hi;
   typename AT::tdual_ffloat_2d k_cut_st_lc, k_cut_st_hc, k_b_st_lo, k_b_st_hi;
