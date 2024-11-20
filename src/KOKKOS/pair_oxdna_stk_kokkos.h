@@ -63,9 +63,6 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
       const F_FLOAT &evdwl, const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz,\
       const F_FLOAT &delx, const F_FLOAT &dely, const F_FLOAT &delz) const;
 
-  KOKKOS_INLINE_FUNCTION
-  int sbmask(const int& j) const;
-
  protected:
 
   class NeighborKokkos *neighborKK;

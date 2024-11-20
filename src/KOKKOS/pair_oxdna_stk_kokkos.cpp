@@ -1127,12 +1127,6 @@ void PairOxdnaStkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, co
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-int PairOxdnaStkKokkos<DeviceType>::sbmask(const int& j) const {
-  return j >> SBBITS & 3;
-}
-
 namespace LAMMPS_NS {
 template class PairOxdnaStkKokkos<LMPDeviceType>;
 #ifdef LMP_KOKKOS_GPU
