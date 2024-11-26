@@ -20,8 +20,6 @@
 
 #include <cmath>
 
-#include <cmath>
-
 using namespace LAMMPS_NS;
 using namespace Granular_NS;
 using namespace MathConst;
@@ -159,6 +157,8 @@ GranSubModDampingCoeffRestitution::GranSubModDampingCoeffRestitution(GranularMod
   allow_cohesion = 0;
 }
 
+/* ---------------------------------------------------------------------- */
+
 void GranSubModDampingCoeffRestitution::init()
 {
   // Calculate prefactor, assume Hertzian as default
@@ -171,6 +171,8 @@ void GranSubModDampingCoeffRestitution::init()
     damp /= sqrt(MY_PI * MY_PI + logcor * logcor);
   }
 }
+
+/* ---------------------------------------------------------------------- */
 
 double GranSubModDampingCoeffRestitution::calculate_forces()
 {
