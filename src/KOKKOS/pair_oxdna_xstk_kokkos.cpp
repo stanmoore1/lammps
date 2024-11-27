@@ -345,10 +345,6 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
   F_FLOAT f2,f4t1,f4t4,f4t2,f4t3,f4t7,f4t8;
   F_FLOAT df2,df4t1,df4t4,df4t2,df4t3,df4t7,df4t8,rsint;
 
-  F_FLOAT ftmp[3],ttmp[3];  // temporary force, torque to reduce excessive dup/atomic updates.
-  //                           might remove these and just use delf, delta, deltb directly.
-  //                           still to profile and test.
-
   // vector COM-hbond site a
   constexpr F_FLOAT d_chb=+0.4;
   ra_chb[0] = d_chb*d_nx_xtrct(a,0);
@@ -356,13 +352,6 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
   ra_chb[2] = d_chb*d_nx_xtrct(a,2);
   
   const int bnum = d_numneigh(a);
-
-  ftmp[0] = 0.0;
-  ftmp[1] = 0.0;
-  ftmp[2] = 0.0;
-  ttmp[0] = 0.0;
-  ttmp[1] = 0.0;
-  ttmp[2] = 0.0;
 
   for (int ib = 0; ib < bnum; ib++) {
 
@@ -742,7 +731,7 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
       a_torque(a,1) += delta[1];
       a_torque(a,2) += delta[2];
 
-      if (NEWTON_PAIR || b < nlocal) {
+      if ( (NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal) ) {
         a_f(b,0) -= delf[0];
         a_f(b,1) -= delf[1];
         a_f(b,2) -= delf[2];
@@ -861,7 +850,7 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
       a_torque(a,1) += delta[1];
       a_torque(a,2) += delta[2];
 
-      if (NEWTON_PAIR || b < nlocal) {
+      if ( (NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal) ) {
         a_torque(b,0) -= deltb[0];
         a_torque(b,1) -= deltb[1];
         a_torque(b,2) -= deltb[2];
