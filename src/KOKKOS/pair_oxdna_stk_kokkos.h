@@ -16,6 +16,9 @@
 PairStyle(oxdna/stk/kk,PairOxdnaStkKokkos<LMPDeviceType>);
 PairStyle(oxdna/stk/kk/device,PairOxdnaStkKokkos<LMPDeviceType>);
 PairStyle(oxdna/stk/kk/host,PairOxdnaStkKokkos<LMPHostType>);
+PairStyle(oxdna2/stk/kk,PairOxdnaStkKokkos<LMPDeviceType>);
+PairStyle(oxdna2/stk/kk/device,PairOxdnaStkKokkos<LMPDeviceType>);
+PairStyle(oxdna2/stk/kk/host,PairOxdnaStkKokkos<LMPHostType>);
 // clang-format on
 #else
 
