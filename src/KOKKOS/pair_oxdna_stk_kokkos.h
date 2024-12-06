@@ -31,6 +31,7 @@ PairStyle(oxdna2/stk/kk/host,PairOxdnaStkKokkos<LMPHostType>);
 #include "pair_oxdna_stk.h"
 #include "neigh_list_kokkos.h"
 
+#include "mf_oxdna_kokkos.h"
 #include "atom_vec_ellipsoid_kokkos.h"
 
 namespace LAMMPS_NS {
@@ -69,6 +70,7 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
  protected:
 
   class NeighborKokkos *neighborKK;
+  class mfOxdnaKokkos<DeviceType> *mfOxdnaKK;
 
   typename AT::t_x_array_randomread x;
   typename AT::t_f_array f;

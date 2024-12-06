@@ -24,11 +24,10 @@
 #include "neighbor.h"
 #include "update.h"
 
-#include "mf_oxdna_kokkos.h"
 #include "pair_oxdna_excv_kokkos.h"
 
 using namespace LAMMPS_NS;
-using namespace MFOxdnaKokkos;
+//using namespace MFOxdnaKokkos;
 
 // TODO: remove NEIGHFLAG from stk_kokkos - not needed due to bondlist
 
@@ -40,6 +39,7 @@ PairOxdnaStkKokkos<DeviceType>::PairOxdnaStkKokkos(LAMMPS *lmp) : PairOxdnaStk(l
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
   neighborKK = (NeighborKokkos *) neighbor;
+  //mfOxdnaKK = (mfOxdnaKokkos *) mfOxdnaKK;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read = X_MASK | ELLIPSOID_MASK | BONUS_MASK | F_MASK | 
                   TORQUE_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
@@ -397,7 +397,7 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
   // } else {
   //   f1 = 0.0;
   // }
-  f1 = F1_KK(r_st, d_epsilon_st(atype, btype), d_a_st(atype, btype), d_cut_st_0(atype, btype),
+  f1 = mfOxdnaKK->oxDNA_F1_KK(r_st, d_epsilon_st(atype, btype), d_a_st(atype, btype), d_cut_st_0(atype, btype),
           d_cut_st_lc(atype, btype), d_cut_st_hc(atype, btype), d_cut_st_lo(atype, btype), d_cut_st_hi(atype, btype),
           d_b_st_lo(atype, btype), d_b_st_hi(atype, btype), d_shift_st(atype, btype));
 
