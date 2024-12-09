@@ -40,7 +40,7 @@ template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
 struct TagPairOxdnaStkCompute{};
 
 template<class DeviceType>
-class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
+class PairOxdnaStkKokkos : public PairOxdnaStk, public mfOxdnaKokkos<DeviceType>/*, public KokkosBase*/ {
  public:
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
   typedef DeviceType device_type;
@@ -70,7 +70,6 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
  protected:
 
   class NeighborKokkos *neighborKK;
-  class mfOxdnaKokkos<DeviceType> *mfOxdnaKK;
 
   typename AT::t_x_array_randomread x;
   typename AT::t_f_array f;
