@@ -252,7 +252,6 @@ action meam_impl_kokkos.h meam_impl.cpp
 action meam_kokkos.h meam.h
 action meam_setup_done_kokkos.h meam_setup_done.cpp
 action memory_kokkos.h
-action mf_oxdna_kokkos.cpp mf_oxdna.h
 action mf_oxdna_kokkos.h mf_oxdna.h
 action min_cg_kokkos.cpp
 action min_cg_kokkos.h
