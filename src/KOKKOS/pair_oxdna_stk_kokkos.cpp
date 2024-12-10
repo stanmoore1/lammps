@@ -25,17 +25,18 @@
 #include "update.h"
 
 #include "pair_oxdna_excv_kokkos.h"
+#include "mf_oxdna_kokkos.h"
 
 using namespace LAMMPS_NS;
+using namespace MFOxdnaKokkos;
 
 // TODO: remove NEIGHFLAG from stk_kokkos - not needed due to bondlist
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-PairOxdnaStkKokkos<DeviceType>::PairOxdnaStkKokkos(LAMMPS *lmp) : PairOxdnaStk(lmp) , mfOxdnaKokkos<DeviceType>(lmp)
+PairOxdnaStkKokkos<DeviceType>::PairOxdnaStkKokkos(LAMMPS *lmp) : PairOxdnaStk(lmp)
 {
-  mfOxdnaKokkos<DeviceType> instance(lmp);
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
   neighborKK = (NeighborKokkos *) neighbor;
@@ -383,22 +384,10 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
 
   // beginning of modulation factors
 
-  // f1 = F1
-  // if (r_st > d_cut_st_hc(atype, btype)) {
-  //   f1 = 0.0;
-  // } else if (r_st > d_cut_st_hi(atype, btype)) {
-  //   f1 = d_epsilon_st(atype, btype) * d_b_st_hi(atype, btype) * (r_st - d_cut_st_hc(atype, btype)) * (r_st - d_cut_st_hc(atype, btype));
-  // } else if (r_st > d_cut_st_lo(atype, btype)) {
-  //   double tmp = 1 - exp(-(r_st - d_cut_st_0(atype, btype)) * d_a_st(atype, btype));
-  //   f1 = d_epsilon_st(atype, btype) * tmp * tmp - d_shift_st(atype, btype);
-  // } else if (r_st > d_cut_st_lc(atype, btype)) {
-  //   f1 = d_epsilon_st(atype, btype) * d_b_st_lo(atype, btype) * (r_st - d_cut_st_lc(atype, btype)) * (r_st - d_cut_st_lc(atype, btype));
-  // } else {
-  //   f1 = 0.0;
-  // }
-  this->oxDNA_F1_KK(r_st, d_epsilon_st(atype, btype), d_a_st(atype, btype), d_cut_st_0(atype, btype),
+  // f1 = f1 modulation factor
+  f1 = F1_KK(r_st, d_epsilon_st(atype, btype), d_a_st(atype, btype), d_cut_st_0(atype, btype),
           d_cut_st_lc(atype, btype), d_cut_st_hc(atype, btype), d_cut_st_lo(atype, btype), d_cut_st_hi(atype, btype),
-          d_b_st_lo(atype, btype), d_b_st_hi(atype, btype), d_shift_st(atype, btype), f1);
+          d_b_st_lo(atype, btype), d_b_st_hi(atype, btype), d_shift_st(atype, btype));
 
   // start early rejection criterium
   if (f1) {
@@ -409,17 +398,9 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
     if (cost4 > 1.0) cost4 = 1.0;
     if (cost4 < -1.0) cost4 = -1.0;
     theta4 = acos(cost4);
-    // f4t4 = F4 
-    double dtheta = theta4 - d_theta_st4_0(atype, btype);
-    if (fabs(dtheta) > d_dtheta_st4_c(atype, btype)) {
-      f4t4 = 0.0;
-    } else if (dtheta > d_dtheta_st4_ast(atype, btype)) {
-      f4t4 = d_b_st4(atype, btype) * (dtheta - d_dtheta_st4_c(atype, btype)) * (dtheta - d_dtheta_st4_c(atype, btype));
-    } else if (dtheta > -d_dtheta_st4_ast(atype, btype)) {
-      f4t4 = 1 - d_a_st4(atype, btype) * dtheta * dtheta;
-    } else {
-      f4t4 = d_b_st4(atype, btype) * (dtheta + d_dtheta_st4_c(atype, btype)) * (dtheta + d_dtheta_st4_c(atype, btype));
-    }
+    // f4t4 = f4 modulation factor
+    f4t4 = F4_KK(theta4, d_a_st4(atype, btype), d_theta_st4_0(atype, btype), 
+                 d_dtheta_st4_ast(atype, btype), d_b_st4(atype, btype), d_dtheta_st4_c(atype, btype));
 
   // early rejection criterium
   if (f4t4) {
@@ -430,17 +411,9 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
     if (cost5p > 1.0) cost5p = 1.0;
     if (cost5p < -1.0) cost5p = -1.0;
     theta5p = acos(cost5p);
-    // f4t5 = F4
-    dtheta = theta5p - d_theta_st5_0(atype, btype);
-    if (fabs(dtheta) > d_dtheta_st5_c(atype, btype)) {
-      f4t5 = 0.0;
-    } else if (dtheta > d_dtheta_st5_ast(atype, btype)) {
-      f4t5 = d_b_st5(atype, btype) * (dtheta - d_dtheta_st5_c(atype, btype)) * (dtheta - d_dtheta_st5_c(atype, btype));
-    } else if (dtheta > -d_dtheta_st5_ast(atype, btype)) {
-      f4t5 = 1 - d_a_st5(atype, btype) * dtheta * dtheta;
-    } else {
-      f4t5 = d_b_st5(atype, btype) * (dtheta + d_dtheta_st5_c(atype, btype)) * (dtheta + d_dtheta_st5_c(atype, btype));
-    }
+    // f4t5 = f4 modulation factor
+    f4t5 = F4_KK(theta5p, d_a_st5(atype, btype), d_theta_st5_0(atype, btype), 
+                 d_dtheta_st5_ast(atype, btype), d_b_st5(atype, btype), d_dtheta_st5_c(atype, btype));
 
   // early rejection criterium
   if (f4t5) {
@@ -462,110 +435,39 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
     if (cosphi1 < -1.0) cosphi1 = -1.0;
     if (cosphi2 > 1.0) cosphi2 = 1.0;
     if (cosphi2 < -1.0) cosphi2 = -1.0;
-    // f4t6 = F4
-    dtheta = theta6p - d_theta_st6_0(atype, btype);
-    if (fabs(dtheta) > d_dtheta_st6_c(atype, btype)) {
-      f4t6 = 0.0;
-    } else if (dtheta > d_dtheta_st6_ast(atype, btype)) {
-      f4t6 = d_b_st6(atype, btype) * (dtheta - d_dtheta_st6_c(atype, btype)) * (dtheta - d_dtheta_st6_c(atype, btype));
-    } else if (dtheta > -d_dtheta_st6_ast(atype, btype)) {
-      f4t6 = 1 - d_a_st6(atype, btype) * dtheta * dtheta;
-    } else {
-      f4t6 = d_b_st6(atype, btype) * (dtheta + d_dtheta_st6_c(atype, btype)) * (dtheta + d_dtheta_st6_c(atype, btype));
-    }
-    // f5c1 = F5
-    if (-cosphi1 >= 0) {
-      f5c1 = 1.0;
-    } else if (-cosphi1 > d_cosphi_st1_ast(atype, btype)) {
-      f5c1 = 1 - d_a_st1(atype, btype) * (-cosphi1) * (-cosphi1);
-    } else if (-cosphi1 > d_cosphi_st1_c(atype, btype)) {
-      f5c1 = d_b_st1(atype, btype) * (-cosphi1 - d_cosphi_st1_c(atype, btype)) * (-cosphi1 - d_cosphi_st1_c(atype, btype));
-    } else {
-      f5c1 = 0.0;
-    }
-    // f5c2 = F5
-    if (-cosphi2 >= 0) {
-      f5c2 = 1.0;
-    } else if (-cosphi2 > d_cosphi_st2_ast(atype, btype)) {
-      f5c2 = 1 - d_a_st2(atype, btype) * (-cosphi2) * (-cosphi2);
-    } else if (-cosphi2 > d_cosphi_st2_c(atype, btype)) {
-      f5c2 = d_b_st2(atype, btype) * (-cosphi2 - d_cosphi_st2_c(atype, btype)) * (-cosphi2 - d_cosphi_st2_c(atype, btype));
-    } else {
-      f5c2 = 0.0;
-    }
+    // f4t6 = f4 modulation factor
+    f4t6 = F4_KK(theta6p, d_a_st6(atype, btype), d_theta_st6_0(atype, btype), 
+                 d_dtheta_st6_ast(atype, btype), d_b_st6(atype, btype), d_dtheta_st6_c(atype, btype));
+    // f5c1 = f5 modulation factor
+    f5c1 = F5_KK(-cosphi1, d_a_st1(atype, btype), -d_cosphi_st1_ast(atype, btype), 
+                 d_b_st1(atype, btype), -d_cosphi_st1_c(atype, btype));
+    // f5c2 = f5 modulation factor
+    f5c2 = F5_KK(-cosphi2, d_a_st2(atype, btype), -d_cosphi_st2_ast(atype, btype), 
+                 d_b_st2(atype, btype), -d_cosphi_st2_c(atype, btype));
+
     evdwl = f1 * f4t4 * f4t5 * f4t6 * f5c1 * f5c2;
   
   // early rejection criterium
   if (evdwl) {
-    // df1 = DF1
-    if (r_st > d_cut_st_hc(atype, btype)) {
-      df1 = 0.0;
-    } else if (r_st > d_cut_st_hi(atype, btype)) {
-      df1 = 2 * d_epsilon_st(atype, btype) * d_b_st_hi(atype, btype) * (1 - d_cut_st_hc(atype, btype) / r_st);
-    } else if (r_st > d_cut_st_lo(atype, btype)) {
-      double tmp = exp(-(r_st - d_cut_st_0(atype, btype)) * d_a_st(atype, btype));
-      df1 = 2 * d_epsilon_st(atype, btype) * (1 - tmp) * tmp * d_a_st(atype, btype) / r_st;
-    } else if (r_st > d_cut_st_lc(atype, btype)) {
-      df1 = 2 * d_epsilon_st(atype, btype) * d_b_st_lo(atype, btype) * (1 - d_cut_st_lc(atype, btype) / r_st);
-    } else {
-      df1 = 0.0;
-    }
-    // df4t4 = DF4
-    double dtheta = theta4 - d_theta_st4_0(atype, btype);
-    if (fabs(dtheta) > d_dtheta_st4_c(atype, btype)) {
-      df4t4 = 0.0;
-    } else if (dtheta > d_dtheta_st4_ast(atype, btype)) {
-      df4t4 = 2 * d_b_st4(atype, btype) * (dtheta - d_dtheta_st4_c(atype, btype));
-    } else if (dtheta > -d_dtheta_st4_ast(atype, btype)) {
-      df4t4 = -2 * d_a_st4(atype, btype) * dtheta;
-    } else {
-      df4t4 = 2 * d_b_st4(atype, btype) * (dtheta + d_dtheta_st4_c(atype, btype));
-    }
-    df4t4 /= sin(theta4); // TODO: check if this is correct (see original code in mf_oxdna.h)
-    // df4t5 = DF4
-    dtheta = theta5p - d_theta_st5_0(atype, btype);
-    if (fabs(dtheta) > d_dtheta_st5_c(atype, btype)) {
-      df4t5 = 0.0;
-    } else if (dtheta > d_dtheta_st5_ast(atype, btype)) {
-      df4t5 = 2 * d_b_st5(atype, btype) * (dtheta - d_dtheta_st5_c(atype, btype));
-    } else if (dtheta > -d_dtheta_st5_ast(atype, btype)) {
-      df4t5 = -2 * d_a_st5(atype, btype) * dtheta;
-    } else {
-      df4t5 = 2 * d_b_st5(atype, btype) * (dtheta + d_dtheta_st5_c(atype, btype));
-    }
-    df4t5 /= sin(theta5p); // TODO: check if this is correct (see original code in mf_oxdna.h)
-    // df4t6 = DF4
-    dtheta = theta6p - d_theta_st6_0(atype, btype);
-    if (fabs(dtheta) > d_dtheta_st6_c(atype, btype)) {
-      df4t6 = 0.0;
-    } else if (dtheta > d_dtheta_st6_ast(atype, btype)) {
-      df4t6 = 2 * d_b_st6(atype, btype) * (dtheta - d_dtheta_st6_c(atype, btype));
-    } else if (dtheta > -d_dtheta_st6_ast(atype, btype)) {
-      df4t6 = -2 * d_a_st6(atype, btype) * dtheta;
-    } else {
-      df4t6 = 2 * d_b_st6(atype, btype) * (dtheta + d_dtheta_st6_c(atype, btype));
-    }
-    df4t6 /= sin(theta6p); // TODO: check if this is correct (see original code in mf_oxdna.h)
-    // df5c1 = DF5
-    if (-cosphi1 >= 0) {
-      df5c1 = 0.0;
-    } else if (-cosphi1 > d_cosphi_st1_ast(atype, btype)) {
-      df5c1 = -2 * d_a_st1(atype, btype) * (-cosphi1);
-    } else if (-cosphi1 > d_cosphi_st1_c(atype, btype)) {
-      df5c1 = 2 * d_b_st1(atype, btype) * (-cosphi1 - d_cosphi_st1_c(atype, btype));
-    } else {
-      df5c1 = 0.0;
-    }
-    // df5c2 = DF5
-    if (-cosphi2 >= 0) {
-      df5c2 = 0.0;
-    } else if (-cosphi2 > d_cosphi_st2_ast(atype, btype)) {
-      df5c2 = -2 * d_a_st2(atype, btype) * (-cosphi2);
-    } else if (-cosphi2 > d_cosphi_st2_c(atype, btype)) {
-      df5c2 = 2 * d_b_st2(atype, btype) * (-cosphi2 - d_cosphi_st2_c(atype, btype));
-    } else {
-      df5c2 = 0.0;
-    }
+    // df1 = derivative of f1 modulation factor
+    df1 = DF1_KK(r_st, d_epsilon_st(atype, btype), d_a_st(atype, btype), d_cut_st_0(atype, btype),
+        d_cut_st_lc(atype, btype), d_cut_st_hc(atype, btype), d_cut_st_lo(atype, btype), d_cut_st_hi(atype, btype),
+        d_b_st_lo(atype, btype), d_b_st_hi(atype, btype));
+    // df4t4 = derivative of f4 modulation factor
+    df4t4 = DF4_KK(theta4, d_a_st4(atype, btype), d_theta_st4_0(atype, btype), d_dtheta_st4_ast(atype, btype),
+        d_b_st4(atype, btype), d_dtheta_st4_c(atype, btype))/sin(theta4);
+    // df4t5 = derivative of f4 modulation factor
+    df4t5 = DF4_KK(theta5p, d_a_st5(atype, btype), d_theta_st5_0(atype, btype), d_dtheta_st5_ast(atype, btype),
+        d_b_st5(atype, btype), d_dtheta_st5_c(atype, btype))/sin(theta5p);
+    // df4t6 = derivative of f4 modulation factor
+    df4t6 = DF4_KK(theta6p, d_a_st6(atype, btype), d_theta_st6_0(atype, btype), d_dtheta_st6_ast(atype, btype),
+        d_b_st6(atype, btype), d_dtheta_st6_c(atype, btype))/sin(theta6p);
+    // df5c1 = derivative of f5 modulation factor
+    df5c1 = DF5_KK(-cosphi1, d_a_st1(atype, btype), -d_cosphi_st1_ast(atype, btype), 
+        d_b_st1(atype, btype), -d_cosphi_st1_c(atype, btype));
+    // df5c2 = derivative of f5 modulation factor
+    df5c2 = DF5_KK(-cosphi2, d_a_st2(atype, btype), -d_cosphi_st2_ast(atype, btype), 
+        d_b_st2(atype, btype), -d_cosphi_st2_c(atype, btype));
 
     // force, torque and virial contribution for forces between stacking sites
     delf[0] = 0.0;

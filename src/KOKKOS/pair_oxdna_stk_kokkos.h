@@ -31,7 +31,6 @@ PairStyle(oxdna2/stk/kk/host,PairOxdnaStkKokkos<LMPHostType>);
 #include "pair_oxdna_stk.h"
 #include "neigh_list_kokkos.h"
 
-#include "mf_oxdna_kokkos.h"
 #include "atom_vec_ellipsoid_kokkos.h"
 
 namespace LAMMPS_NS {
@@ -40,7 +39,7 @@ template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
 struct TagPairOxdnaStkCompute{};
 
 template<class DeviceType>
-class PairOxdnaStkKokkos : public PairOxdnaStk, public mfOxdnaKokkos<DeviceType>/*, public KokkosBase*/ {
+class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
  public:
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
   typedef DeviceType device_type;
