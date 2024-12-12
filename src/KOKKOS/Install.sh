@@ -393,6 +393,8 @@ action pair_multi_lucy_rx_kokkos.cpp pair_multi_lucy_rx.cpp
 action pair_multi_lucy_rx_kokkos.h pair_multi_lucy_rx.h
 action pair_oxdna_excv_kokkos.cpp pair_oxdna_excv.cpp
 action pair_oxdna_excv_kokkos.h pair_oxdna_excv.h
+action pair_oxdna_hbond_kokkos.cpp pair_oxdna_hbond.cpp
+action pair_oxdna_hbond_kokkos.h pair_oxdna_hbond.h
 action pair_oxdna2_excv_kokkos.h pair_oxdna_excv_kokkos.h
 action pair_oxrna2_excv_kokkos.h pair_oxdna_excv_kokkos.h
 action pair_oxdna_stk_kokkos.cpp pair_oxdna_stk.cpp
