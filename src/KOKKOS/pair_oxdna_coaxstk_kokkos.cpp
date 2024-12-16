@@ -1,0 +1,1090 @@
+/* -*- c++ -*- ----------------------------------------------------------
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
+
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
+
+   See the README file in the top-level LAMMPS directory.
+------------------------------------------------------------------------- */
+
+#include "pair_oxdna_coaxstk_kokkos.h"
+
+#include "atom_kokkos.h"
+#include "atom_masks.h"
+#include "comm.h"
+#include "error.h"
+#include "force.h"
+#include "kokkos.h"
+#include "memory_kokkos.h"
+#include "neigh_request.h"
+#include "neighbor.h"
+#include "update.h"
+
+#include "pair_oxdna_excv_kokkos.h"
+#include "mf_oxdna_kokkos.h"
+
+using namespace LAMMPS_NS;
+using namespace MFOxdnaKokkos;
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+PairOxdnaCoaxstkKokkos<DeviceType>::PairOxdnaCoaxstkKokkos(LAMMPS *lmp) : PairOxdnaCoaxstk(lmp)
+{
+  kokkosable = 1;
+  atomKK = (AtomKokkos *) atom;
+  execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
+  datamask_read = X_MASK | ELLIPSOID_MASK | BONUS_MASK | F_MASK | 
+                  TORQUE_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
+  datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+PairOxdnaCoaxstkKokkos<DeviceType>::~PairOxdnaCoaxstkKokkos()
+{
+  if (copymode) return;
+
+  if (allocated) {
+    memoryKK->destroy_kokkos(k_eatom,eatom);
+    memoryKK->destroy_kokkos(k_vatom,vatom);
+
+    memoryKK->destroy_kokkos(k_k_cxst,k_cxst);
+    memoryKK->destroy_kokkos(k_cut_cxst_0,cut_cxst_0);
+    memoryKK->destroy_kokkos(k_cut_cxst_c,cut_cxst_c);
+    memoryKK->destroy_kokkos(k_cut_cxst_lo,cut_cxst_lo);
+    memoryKK->destroy_kokkos(k_cut_cxst_hi,cut_cxst_hi);
+    memoryKK->destroy_kokkos(k_cut_cxst_lc,cut_cxst_lc);
+    memoryKK->destroy_kokkos(k_cut_cxst_hc,cut_cxst_hc);
+    memoryKK->destroy_kokkos(k_b_cxst_lo,b_cxst_lo);
+    memoryKK->destroy_kokkos(k_b_cxst_hi,b_cxst_hi);
+    memoryKK->destroy_kokkos(k_cutsq_cxst_hc,cutsq_cxst_hc);
+
+    memoryKK->destroy_kokkos(k_a_cxst1,a_cxst1);
+    memoryKK->destroy_kokkos(k_theta_cxst1_0,theta_cxst1_0);
+    memoryKK->destroy_kokkos(k_dtheta_cxst1_ast,dtheta_cxst1_ast);
+    memoryKK->destroy_kokkos(k_b_cxst1,b_cxst1);
+    memoryKK->destroy_kokkos(k_dtheta_cxst1_c,dtheta_cxst1_c);
+
+    memoryKK->destroy_kokkos(k_a_cxst4,a_cxst4);
+    memoryKK->destroy_kokkos(k_theta_cxst4_0,theta_cxst4_0);
+    memoryKK->destroy_kokkos(k_dtheta_cxst4_ast,dtheta_cxst4_ast);
+    memoryKK->destroy_kokkos(k_b_cxst4,b_cxst4);
+    memoryKK->destroy_kokkos(k_dtheta_cxst4_c,dtheta_cxst4_c);
+
+    memoryKK->destroy_kokkos(k_a_cxst5,a_cxst5);
+    memoryKK->destroy_kokkos(k_theta_cxst5_0,theta_cxst5_0);
+    memoryKK->destroy_kokkos(k_dtheta_cxst5_ast,dtheta_cxst5_ast);
+    memoryKK->destroy_kokkos(k_b_cxst5,b_cxst5);
+    memoryKK->destroy_kokkos(k_dtheta_cxst5_c,dtheta_cxst5_c);
+
+    memoryKK->destroy_kokkos(k_a_cxst6,a_cxst6);
+    memoryKK->destroy_kokkos(k_theta_cxst6_0,theta_cxst6_0);
+    memoryKK->destroy_kokkos(k_dtheta_cxst6_ast,dtheta_cxst6_ast);
+    memoryKK->destroy_kokkos(k_b_cxst6,b_cxst6);
+    memoryKK->destroy_kokkos(k_dtheta_cxst6_c,dtheta_cxst6_c);
+
+    memoryKK->destroy_kokkos(k_a_cxst3p,a_cxst3p);
+    memoryKK->destroy_kokkos(k_cosphi_cxst3p_ast,cosphi_cxst3p_ast);
+    memoryKK->destroy_kokkos(k_b_cxst3p,b_cxst3p);
+    memoryKK->destroy_kokkos(k_cosphi_cxst3p_c,cosphi_cxst3p_c);
+
+    memoryKK->destroy_kokkos(k_a_cxst4p,a_cxst4p);
+    memoryKK->destroy_kokkos(k_cosphi_cxst4p_ast,cosphi_cxst4p_ast);
+    memoryKK->destroy_kokkos(k_b_cxst4p,b_cxst4p);
+    memoryKK->destroy_kokkos(k_cosphi_cxst4p_c,cosphi_cxst4p_c);
+
+    memoryKK->destroy_kokkos(k_nx_xtrct,nx_xtrct);
+    memoryKK->destroy_kokkos(k_ny_xtrct,ny_xtrct);
+    memoryKK->destroy_kokkos(k_nz_xtrct,nz_xtrct);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairOxdnaCoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
+{
+  eflag = eflag_in;
+  vflag = vflag_in;
+
+  if (neighflag == FULL) no_virial_fdotr_compute = 1;
+
+  ev_init(eflag,vflag,0);
+
+  // reallocate per-atom arrays if necessary
+
+  if (eflag_atom) {
+    memoryKK->destroy_kokkos(k_eatom,eatom);
+    memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"pair:eatom");
+    d_eatom = k_eatom.view<DeviceType>();
+  }
+  if (vflag_atom) {
+    memoryKK->destroy_kokkos(k_vatom,vatom);
+    memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"pair:vatom");
+    d_vatom = k_vatom.view<DeviceType>();
+  }
+
+  atomKK->sync(execution_space,datamask_read);
+
+  k_k_cxst.template sync<DeviceType>();
+  k_cut_cxst_0.template sync<DeviceType>();
+  k_cut_cxst_c.template sync<DeviceType>();
+  k_cut_cxst_lo.template sync<DeviceType>();
+  k_cut_cxst_hi.template sync<DeviceType>();
+  k_cut_cxst_lc.template sync<DeviceType>();
+  k_cut_cxst_hc.template sync<DeviceType>();
+  k_b_cxst_lo.template sync<DeviceType>();
+  k_b_cxst_hi.template sync<DeviceType>();
+  k_cutsq_cxst_hc.template sync<DeviceType>();
+
+  k_a_cxst1.template sync<DeviceType>();
+  k_theta_cxst1_0.template sync<DeviceType>();
+  k_dtheta_cxst1_ast.template sync<DeviceType>();
+  k_b_cxst1.template sync<DeviceType>();
+  k_dtheta_cxst1_c.template sync<DeviceType>();
+
+  k_a_cxst4.template sync<DeviceType>();
+  k_theta_cxst4_0.template sync<DeviceType>();
+  k_dtheta_cxst4_ast.template sync<DeviceType>();
+  k_b_cxst4.template sync<DeviceType>();
+  k_dtheta_cxst4_c.template sync<DeviceType>();
+
+  k_a_cxst5.template sync<DeviceType>();
+  k_theta_cxst5_0.template sync<DeviceType>();
+  k_dtheta_cxst5_ast.template sync<DeviceType>();
+  k_b_cxst5.template sync<DeviceType>();
+  k_dtheta_cxst5_c.template sync<DeviceType>();
+
+  k_a_cxst6.template sync<DeviceType>();
+  k_theta_cxst6_0.template sync<DeviceType>();
+  k_dtheta_cxst6_ast.template sync<DeviceType>();
+  k_b_cxst6.template sync<DeviceType>();
+  k_dtheta_cxst6_c.template sync<DeviceType>();
+
+  k_a_cxst3p.template sync<DeviceType>();
+  k_cosphi_cxst3p_ast.template sync<DeviceType>();
+  k_b_cxst3p.template sync<DeviceType>();
+  k_cosphi_cxst3p_c.template sync<DeviceType>();
+
+  k_a_cxst4p.template sync<DeviceType>();
+  k_cosphi_cxst4p_ast.template sync<DeviceType>();
+  k_b_cxst4p.template sync<DeviceType>();
+  k_cosphi_cxst4p_c.template sync<DeviceType>();
+
+  if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
+  else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
+
+  x = atomKK->k_x.view<DeviceType>();
+  f = atomKK->k_f.view<DeviceType>();
+  torque = atomKK->k_torque.view<DeviceType>();
+  type = atomKK->k_type.view<DeviceType>();
+
+  nlocal = atom->nlocal;
+  newton_pair = force->newton_pair;
+  special_lj[0] = force->special_lj[0];
+  special_lj[1] = force->special_lj[1];
+  special_lj[2] = force->special_lj[2];
+  special_lj[3] = force->special_lj[3];
+
+  // get the neighbor list and neighbors used in operator()
+
+  NeighListKokkos<DeviceType>* k_list = static_cast<NeighListKokkos<DeviceType>*>(list);
+  d_neighbors = k_list->d_neighbors;
+  anum = list->inum;
+  d_alist = k_list->d_ilist;
+  d_numneigh = k_list->d_numneigh;
+
+  int need_dup = lmp->kokkos->need_dup<DeviceType>();
+  if (need_dup) {
+    dup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    Kokkos::Experimental::ScatterDuplicated>(f);
+    dup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    Kokkos::Experimental::ScatterDuplicated>(torque);
+  } else {
+    ndup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    Kokkos::Experimental::ScatterNonDuplicated>(f);
+    ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    Kokkos::Experimental::ScatterNonDuplicated>(torque);
+  }
+
+  copymode = 1;
+
+  // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna_excv/kk
+  auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna/excv/kk", 1, 1));
+  d_nx_xtrct = oxdna_excvKK->k_nx.template view<DeviceType>();
+  d_ny_xtrct = oxdna_excvKK->k_ny.template view<DeviceType>();
+  d_nz_xtrct = oxdna_excvKK->k_nz.template view<DeviceType>();
+
+  // loop over neighbors of my atoms for compute functors
+
+  EV_FLOAT ev;
+
+  if (evflag) {
+    if (neighflag == HALF) {
+      if (newton_pair) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaCoaxstkCompute<HALF,1,1> >(0,anum),*this,ev);
+      } else {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaCoaxstkCompute<HALF,0,1> >(0,anum),*this,ev);
+      }
+    } else if (neighflag == HALFTHREAD) {
+      if (newton_pair) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaCoaxstkCompute<HALFTHREAD,1,1> >(0,anum),*this,ev);
+      } else {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaCoaxstkCompute<HALFTHREAD,0,1> >(0,anum),*this,ev);
+      }
+    } else if (neighflag == FULL) {
+      if (newton_pair) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaCoaxstkCompute<FULL,1,1> >(0,anum),*this,ev);
+      } else {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaCoaxstkCompute<FULL,0,1> >(0,anum),*this,ev);
+      }
+    }
+  } else {
+    if (neighflag == HALF) {
+      if (newton_pair) {
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaCoaxstkCompute<HALF,1,0> >(0,anum),*this);
+      } else {
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaCoaxstkCompute<HALF,0,0> >(0,anum),*this);
+      }
+    } else if (neighflag == HALFTHREAD) {
+      if (newton_pair) {
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaCoaxstkCompute<HALFTHREAD,1,0> >(0,anum),*this);
+      } else {
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaCoaxstkCompute<HALFTHREAD,0,0> >(0,anum),*this);
+      }
+    } else if (neighflag == FULL) {
+      if (newton_pair) {
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaCoaxstkCompute<FULL,1,0> >(0,anum),*this);
+      } else {
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaCoaxstkCompute<FULL,0,0> >(0,anum),*this);
+      }
+    }
+  }
+
+  if (need_dup) {
+    Kokkos::Experimental::contribute(f, dup_f);
+    Kokkos::Experimental::contribute(torque, dup_torque);
+  }
+
+  if (eflag_global) eng_vdwl += ev.evdwl;
+  if (vflag_global) {
+    virial[0] += ev.v[0];
+    virial[1] += ev.v[1];
+    virial[2] += ev.v[2];
+    virial[3] += ev.v[3];
+    virial[4] += ev.v[4];
+    virial[5] += ev.v[5];
+  }
+
+  if (vflag_fdotr) pair_virial_fdotr_compute(this);
+
+  if (eflag_atom) {
+    if (need_dup)
+      Kokkos::Experimental::contribute(d_eatom, dup_eatom);
+    k_eatom.template modify<DeviceType>();
+    k_eatom.template sync<LMPHostType>();
+  }
+
+  if (vflag_atom) {
+    if (need_dup)
+      Kokkos::Experimental::contribute(d_vatom, dup_vatom);
+    k_vatom.template modify<DeviceType>();
+    k_vatom.template sync<LMPHostType>();
+  }
+
+  copymode = 0;
+
+  // free duplicated memory
+  if (need_dup) {
+    dup_f        = decltype(dup_f)();
+    dup_torque   = decltype(dup_torque)();
+    dup_eatom    = decltype(dup_eatom)();
+    dup_vatom    = decltype(dup_vatom)();
+  }
+}
+
+template<class DeviceType>
+template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
+  const int &ia, EV_FLOAT &ev) const
+{
+  // f and torque array are duplicated for OpenMP, atomic for GPU, and neither for Serial
+
+  auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
+    decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
+  auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  const int a = d_alist(ia);
+  const int atype = type(a);
+  // vectors COM-hbond site in lab frame
+  F_FLOAT ra_chb[3], rb_chb[3];
+
+  F_FLOAT delf[3], delta[3], deltb[3];    // force, torque increment
+  F_FLOAT evdwl, finc, tpair;             // energy, force, torque
+  F_FLOAT delr_hb[3],delr_hb_norm[3],rsq_hb,r_hb,rinv_hb;
+  F_FLOAT theta1,t1dir[3],cost1;
+  F_FLOAT theta2,t2dir[3],cost2;
+  F_FLOAT theta3,t3dir[3],cost3;
+  F_FLOAT theta4,t4dir[3],cost4;
+  F_FLOAT theta7,t7dir[3],cost7;
+  F_FLOAT theta8,t8dir[3],cost8;
+
+  F_FLOAT f1,f4t1,f4t4,f4t2,f4t3,f4t7,f4t8;
+  F_FLOAT df1,df4t1,df4t4,df4t2,df4t3,df4t7,df4t8;
+
+  // vector COM-hbond site a
+  constexpr F_FLOAT d_chb=+0.4;
+  ra_chb[0] = d_chb*d_nx_xtrct(a,0);
+  ra_chb[1] = d_chb*d_nx_xtrct(a,1);
+  ra_chb[2] = d_chb*d_nx_xtrct(a,2);
+  
+  const int bnum = d_numneigh(a);
+
+  for (int ib = 0; ib < bnum; ib++) {
+
+    int b = d_neighbors(a,ib);
+    const F_FLOAT factor_lj = special_lj[sbmask(b)];
+    b &= NEIGHMASK;
+    const int btype = type(b);
+
+    // vector COM-hbond site b
+    rb_chb[0] = d_chb*d_nx_xtrct(b,0);
+    rb_chb[1] = d_chb*d_nx_xtrct(b,1);
+    rb_chb[2] = d_chb*d_nx_xtrct(b,2);
+
+    // vector h-bonding site b-a
+    delr_hb[0] = x(a,0) + ra_chb[0] - x(b,0) - rb_chb[0];
+    delr_hb[1] = x(a,1) + ra_chb[1] - x(b,1) - rb_chb[1];
+    delr_hb[2] = x(a,2) + ra_chb[2] - x(b,2) - rb_chb[2];
+
+    rsq_hb = delr_hb[0]*delr_hb[0] + delr_hb[1]*delr_hb[1] + delr_hb[2]*delr_hb[2];
+    r_hb = sqrt(rsq_hb);
+    rinv_hb = 1.0 / r_hb;
+
+    delr_hb_norm[0] = delr_hb[0] * rinv_hb;
+    delr_hb_norm[1] = delr_hb[1] * rinv_hb;
+    delr_hb_norm[2] = delr_hb[2] * rinv_hb;
+
+    // beginning of modulation factors
+
+    // f1 = f1 modulation factor
+    f1 = F1_KK(r_hb, d_epsilon_hb(atype,btype), d_a_hb(atype,btype), d_cut_hb_0(atype,btype), 
+            d_cut_hb_lc(atype,btype), d_cut_hb_hc(atype,btype), d_cut_hb_lo(atype,btype), 
+            d_cut_hb_hi(atype,btype), d_b_hb_lo(atype,btype), 
+            d_b_hb_hi(atype,btype), d_shift_hb(atype,btype));
+
+    // start early rejection criterium
+    if (f1) {
+      // theta1 calculation
+      cost1 = - (d_nx_xtrct(a,0)*d_nx_xtrct(b,0) + d_nx_xtrct(a,1)*d_nx_xtrct(b,1) + d_nx_xtrct(a,2)*d_nx_xtrct(b,2));
+      if (cost1 > 1.0) cost1 = 1.0;
+      if (cost1 < -1.0) cost1 = -1.0;
+      theta1 = acos(cost1);
+      // f4t1 = f4 modulation factor
+      f4t1 = F4_KK(theta1, d_a_hb1(atype,btype), d_theta_hb1_0(atype, btype), d_dtheta_hb1_ast(atype, btype), 
+              d_b_hb1(atype, btype), d_dtheta_hb1_c(atype, btype));
+    // end of f1 
+
+    // f4t1 early rejection criterium
+    if (f4t1) {
+      // theta2 calculation
+      cost2 = - (d_nx_xtrct(a,0)*delr_hb_norm[0] + d_nx_xtrct(a,1)*delr_hb_norm[1] + d_nx_xtrct(a,2)*delr_hb_norm[2]);
+      if (cost2 > 1.0) cost2 = 1.0;
+      if (cost2 < -1.0) cost2 = -1.0;
+      theta2 = acos(cost2);
+      // f4t2 = f4 modulation factor
+      f4t2 = F4_KK(theta2, d_a_hb2(atype,btype), d_theta_hb2_0(atype, btype), d_dtheta_hb2_ast(atype, btype), 
+              d_b_hb2(atype, btype), d_dtheta_hb2_c(atype, btype));
+    // end of f4t1
+
+    // f4t2 early rejection criterium
+    if (f4t2) {
+      // theta3 calculation
+      cost3 = d_nx_xtrct(b,0)*delr_hb_norm[0] + d_nx_xtrct(b,1)*delr_hb_norm[1] + d_nx_xtrct(b,2)*delr_hb_norm[2];
+      if (cost3 > 1.0) cost3 = 1.0;
+      if (cost3 < -1.0) cost3 = -1.0;
+      theta3 = acos(cost3);
+      // f4t3 = f4 modulation factor
+      f4t3 = F4_KK(theta3, d_a_hb3(atype,btype), d_theta_hb3_0(atype, btype), d_dtheta_hb3_ast(atype, btype), 
+              d_b_hb3(atype, btype), d_dtheta_hb3_c(atype, btype));
+    // end of f4t2
+
+    // f4t3 early rejection criterium
+    if (f4t3) {
+      // theta4 calculation
+      cost4 = d_nz_xtrct(a,0)*d_nz_xtrct(b,0) + d_nz_xtrct(a,1)*d_nz_xtrct(b,1) + d_nz_xtrct(a,2)*d_nz_xtrct(b,2);
+      if (cost4 > 1.0) cost4 = 1.0;
+      if (cost4 < -1.0) cost4 = -1.0;
+      theta4 = acos(cost4);
+      // f4t4 = f4 modulation factor
+      f4t4 = F4_KK(theta4, d_a_hb4(atype,btype), d_theta_hb4_0(atype, btype), d_dtheta_hb4_ast(atype, btype), 
+              d_b_hb4(atype, btype), d_dtheta_hb4_c(atype, btype));
+    // end of f4t3
+
+    // f4t4 early rejection criterium
+    if (f4t4) {
+      cost7 = - (d_nz_xtrct(a,0)*delr_hb_norm[0] + d_nz_xtrct(a,1)*delr_hb_norm[1] + d_nz_xtrct(a,2)*delr_hb_norm[2]);
+      if (cost7 > 1.0) cost7 = 1.0;
+      if (cost7 < -1.0) cost7 = -1.0;
+      theta7 = acos(cost7);
+      // f4t7 = f4 modulation factor
+      f4t7 = F4_KK(theta7, d_a_hb7(atype,btype), d_theta_hb7_0(atype, btype), d_dtheta_hb7_ast(atype, btype), 
+              d_b_hb7(atype, btype), d_dtheta_hb7_c(atype, btype));
+    // end of f4t4
+
+    // f4t7 early rejection criterium
+    if (f4t7) {
+      cost8 = d_nz_xtrct(b,0)*delr_hb_norm[0] + d_nz_xtrct(b,1)*delr_hb_norm[1] + d_nz_xtrct(b,2)*delr_hb_norm[2];
+      if (cost8 > 1.0) cost8 = 1.0;
+      if (cost8 < -1.0) cost8 = -1.0;
+      theta8 = acos(cost8);
+      // f4t8 = f4 modulation factor
+      f4t8 = F4_KK(theta8, d_a_hb8(atype,btype), d_theta_hb8_0(atype, btype), d_dtheta_hb8_ast(atype, btype), 
+              d_b_hb8(atype, btype), d_dtheta_hb8_c(atype, btype));
+
+      evdwl = f1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
+    // end of f4t7
+
+    // evdwl early rejection criterium
+    if (evdwl) {
+      // df1 = DF1 modulation factor
+      df1 = DF1_KK(r_hb, d_epsilon_hb(atype,btype), d_a_hb(atype,btype), d_cut_hb_0(atype,btype), 
+            d_cut_hb_lc(atype,btype), d_cut_hb_hc(atype,btype), d_cut_hb_lo(atype,btype), 
+            d_cut_hb_hi(atype,btype), d_b_hb_lo(atype,btype), 
+            d_b_hb_hi(atype,btype));
+      // df4t1 = DF4 modulation factor
+      df4t1 = DF4_KK(theta1, d_a_hb1(atype,btype), d_theta_hb1_0(atype, btype), d_dtheta_hb1_ast(atype, btype), 
+              d_b_hb1(atype, btype), d_dtheta_hb1_c(atype, btype))/sin(theta1);
+      // df4t2 = DF4 modulation factor
+      df4t2 = DF4_KK(theta2, d_a_hb2(atype,btype), d_theta_hb2_0(atype, btype), d_dtheta_hb2_ast(atype, btype), 
+              d_b_hb2(atype, btype), d_dtheta_hb2_c(atype, btype))/sin(theta2);
+      // df4t3 = DF4 modulation factor
+      df4t3 = DF4_KK(theta3, d_a_hb3(atype,btype), d_theta_hb3_0(atype, btype), d_dtheta_hb3_ast(atype, btype), 
+              d_b_hb3(atype, btype), d_dtheta_hb3_c(atype, btype))/sin(theta3);
+      // df4t4 = DF4 modulation factor
+      df4t4 = DF4_KK(theta4, d_a_hb4(atype,btype), d_theta_hb4_0(atype, btype), d_dtheta_hb4_ast(atype, btype), 
+              d_b_hb4(atype, btype), d_dtheta_hb4_c(atype, btype))/sin(theta4);
+      // df4t7 = DF4 modulation factor
+      df4t7 = DF4_KK(theta7, d_a_hb7(atype,btype), d_theta_hb7_0(atype, btype), d_dtheta_hb7_ast(atype, btype), 
+              d_b_hb7(atype, btype), d_dtheta_hb7_c(atype, btype))/sin(theta7);
+      // df4t8 = DF4 modulation factor
+      df4t8 = DF4_KK(theta8, d_a_hb8(atype,btype), d_theta_hb8_0(atype, btype), d_dtheta_hb8_ast(atype, btype), 
+              d_b_hb8(atype, btype), d_dtheta_hb8_c(atype, btype))/sin(theta8);
+
+      // force, torque, and viral contributions for forces between h-bonding sites
+
+      delf[0] = 0.0;
+      delf[1] = 0.0;
+      delf[2] = 0.0;
+
+      delta[0] = 0.0;
+      delta[1] = 0.0;
+      delta[2] = 0.0;
+
+      deltb[0] = 0.0;
+      deltb[1] = 0.0;
+      deltb[2] = 0.0;
+
+      // radial force
+      finc  = -df1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
+
+      delf[0] += delr_hb[0] * finc;
+      delf[1] += delr_hb[1] * finc;
+      delf[2] += delr_hb[2] * finc;
+
+      // theta2 force
+      if (theta2) {
+
+        finc  = -f1 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
+
+        delf[0] += (delr_hb_norm[0]*cost2 + d_nx_xtrct(a,0)) * finc;
+        delf[1] += (delr_hb_norm[1]*cost2 + d_nx_xtrct(a,1)) * finc;
+        delf[2] += (delr_hb_norm[2]*cost2 + d_nx_xtrct(a,2)) * finc;
+      }
+
+      // theta3 force
+      if (theta3) {
+
+        finc  = -f1 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
+
+        delf[0] += (delr_hb_norm[0]*cost3 - d_nx_xtrct(b,0)) * finc;
+        delf[1] += (delr_hb_norm[1]*cost3 - d_nx_xtrct(b,1)) * finc;
+        delf[2] += (delr_hb_norm[2]*cost3 - d_nx_xtrct(b,2)) * finc;
+      }
+
+      // theta7 force
+      if (theta7) {
+        
+        finc  = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * rinv_hb * factor_lj;
+
+        delf[0] += (delr_hb_norm[0]*cost7 + d_nz_xtrct(a,0)) * finc;
+        delf[1] += (delr_hb_norm[1]*cost7 + d_nz_xtrct(a,1)) * finc;
+        delf[2] += (delr_hb_norm[2]*cost7 + d_nz_xtrct(a,2)) * finc;
+
+      }
+
+      // theta8 force
+      if (theta8) {
+
+        finc  = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * rinv_hb * factor_lj;
+
+        delf[0] += (delr_hb_norm[0]*cost8 - d_nz_xtrct(b,0)) * finc;
+        delf[1] += (delr_hb_norm[1]*cost8 - d_nz_xtrct(b,1)) * finc;
+        delf[2] += (delr_hb_norm[2]*cost8 - d_nz_xtrct(b,2)) * finc;
+
+      }
+      
+      // increment forces and torques
+
+      a_f(a,0) += delf[0];
+      a_f(a,1) += delf[1];
+      a_f(a,2) += delf[2];
+      delta[0] = ra_chb[1]*delf[2] - ra_chb[2]*delf[1];
+      delta[1] = ra_chb[2]*delf[0] - ra_chb[0]*delf[2];
+      delta[2] = ra_chb[0]*delf[1] - ra_chb[1]*delf[0];
+      a_torque(a,0) += delta[0];
+      a_torque(a,1) += delta[1];
+      a_torque(a,2) += delta[2];
+
+      if ( (NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal) ) {
+        a_f(b,0) -= delf[0];
+        a_f(b,1) -= delf[1];
+        a_f(b,2) -= delf[2];
+        deltb[0] = rb_chb[1]*delf[2] - rb_chb[2]*delf[1];
+        deltb[1] = rb_chb[2]*delf[0] - rb_chb[0]*delf[2];
+        deltb[2] = rb_chb[0]*delf[1] - rb_chb[1]*delf[0];
+        a_torque(b,0) -= deltb[0];
+        a_torque(b,1) -= deltb[1];
+        a_torque(b,2) -= deltb[2];
+      }
+
+      // increment energy and virial
+      // NOTE: The virial is calculated on the 'molecular' basis.
+      // (see G. Ciccotti and J.P. Ryckaert, Comp. Phys. Rep. 4, 345-392 (1986))
+
+      if (EVFLAG) {
+        ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
+
+        if (vflag_either || eflag_atom) {
+          this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,ev.evdwl,\
+          delf[0],delf[1],delf[2],x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
+        }
+      }
+
+      // pure torques not expressible as r x f
+
+      delta[0] = 0.0;
+      delta[1] = 0.0;
+      delta[2] = 0.0;
+      deltb[0] = 0.0;
+      deltb[1] = 0.0;
+      deltb[2] = 0.0;
+
+      // theta1 torque
+      if (theta1) {
+
+        tpair = -f1 * df4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
+
+        t1dir[0] = d_nx_xtrct(a,1) * d_nx_xtrct(b,2) - d_nx_xtrct(a,2) * d_nx_xtrct(b,1);
+        t1dir[1] = d_nx_xtrct(a,2) * d_nx_xtrct(b,0) - d_nx_xtrct(a,0) * d_nx_xtrct(b,2);
+        t1dir[2] = d_nx_xtrct(a,0) * d_nx_xtrct(b,1) - d_nx_xtrct(a,1) * d_nx_xtrct(b,0);
+        delta[0] += t1dir[0] * tpair;
+        delta[1] += t1dir[1] * tpair;
+        delta[2] += t1dir[2] * tpair;
+        deltb[0] += t1dir[0] * tpair;
+        deltb[1] += t1dir[1] * tpair;
+        deltb[2] += t1dir[2] * tpair;
+      }
+      //theta2 torque
+      if (theta2) {
+
+        tpair = -f1 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
+
+        t2dir[0] = d_nx_xtrct(a,1) * delr_hb_norm[2] - d_nx_xtrct(a,2) * delr_hb_norm[1];
+        t2dir[1] = d_nx_xtrct(a,2) * delr_hb_norm[0] - d_nx_xtrct(a,0) * delr_hb_norm[2];
+        t2dir[2] = d_nx_xtrct(a,0) * delr_hb_norm[1] - d_nx_xtrct(a,1) * delr_hb_norm[0];
+        delta[0] += t2dir[0] * tpair;
+        delta[1] += t2dir[1] * tpair;
+        delta[2] += t2dir[2] * tpair;
+      }
+      //theta3 torque
+      if (theta3) {
+
+        tpair = -f1 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
+
+        t3dir[0] = d_nx_xtrct(b,1) * delr_hb_norm[2] - d_nx_xtrct(b,2) * delr_hb_norm[1];
+        t3dir[1] = d_nx_xtrct(b,2) * delr_hb_norm[0] - d_nx_xtrct(b,0) * delr_hb_norm[2];
+        t3dir[2] = d_nx_xtrct(b,0) * delr_hb_norm[1] - d_nx_xtrct(b,1) * delr_hb_norm[0];
+        deltb[0] += t3dir[0] * tpair;
+        deltb[1] += t3dir[1] * tpair;
+        deltb[2] += t3dir[2] * tpair;
+      }
+      //theta4 torque
+      if (theta4) {
+
+        tpair = -f1 * f4t1 * f4t2 * f4t3 * df4t4 * f4t7 * f4t8 * factor_lj;
+
+        t4dir[0] = d_nz_xtrct(b,1) * d_nz_xtrct(a,2) - d_nz_xtrct(b,2) * d_nz_xtrct(a,1);
+        t4dir[1] = d_nz_xtrct(b,2) * d_nz_xtrct(a,0) - d_nz_xtrct(b,0) * d_nz_xtrct(a,2);
+        t4dir[2] = d_nz_xtrct(b,0) * d_nz_xtrct(a,1) - d_nz_xtrct(b,1) * d_nz_xtrct(a,0);
+        delta[0] += t4dir[0] * tpair;
+        delta[1] += t4dir[1] * tpair;
+        delta[2] += t4dir[2] * tpair;
+        deltb[0] += t4dir[0] * tpair;
+        deltb[1] += t4dir[1] * tpair;
+        deltb[2] += t4dir[2] * tpair;
+      }
+      //theta7 torque
+      if (theta7) {
+
+        tpair = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * factor_lj;
+
+        t7dir[0] = d_nz_xtrct(a,1) * delr_hb_norm[2] - d_nz_xtrct(a,2) * delr_hb_norm[1];
+        t7dir[1] = d_nz_xtrct(a,2) * delr_hb_norm[0] - d_nz_xtrct(a,0) * delr_hb_norm[2];
+        t7dir[2] = d_nz_xtrct(a,0) * delr_hb_norm[1] - d_nz_xtrct(a,1) * delr_hb_norm[0];
+        delta[0] += t7dir[0] * tpair;
+        delta[1] += t7dir[1] * tpair;
+        delta[2] += t7dir[2] * tpair;
+      }
+      //theta8 torque
+      if (theta8) {
+
+        tpair = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * factor_lj;
+
+        t8dir[0] = d_nz_xtrct(b,1) * delr_hb_norm[2] - d_nz_xtrct(b,2) * delr_hb_norm[1];
+        t8dir[1] = d_nz_xtrct(b,2) * delr_hb_norm[0] - d_nz_xtrct(b,0) * delr_hb_norm[2];
+        t8dir[2] = d_nz_xtrct(b,0) * delr_hb_norm[1] - d_nz_xtrct(b,1) * delr_hb_norm[0];
+        deltb[0] += t8dir[0] * tpair;
+        deltb[1] += t8dir[1] * tpair;
+        deltb[2] += t8dir[2] * tpair;
+      }
+      
+      // increment torques
+
+      a_torque(a,0) += delta[0];
+      a_torque(a,1) += delta[1];
+      a_torque(a,2) += delta[2];
+
+      if ( (NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal) ) {
+        a_torque(b,0) -= deltb[0];
+        a_torque(b,1) -= deltb[1];
+        a_torque(b,2) -= deltb[2];
+      }
+    // end of early rejection criterion
+    } // evdwl
+    } // f4t7
+    } // f4t4
+    } // f4t3
+    } // f4t2
+    } // f4t1
+    } // f1
+  }
+}
+
+template<class DeviceType>
+template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
+  const int &ia) const
+{
+  EV_FLOAT ev;
+  this->template operator()<NEIGHFLAG,NEWTON_PAIR,EVFLAG>\
+  (TagPairOxdnaCoaxstkCompute<NEIGHFLAG,NEWTON_PAIR,EVFLAG>(),ia,ev);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairOxdnaCoaxstkKokkos<DeviceType>::allocate()
+{
+  PairOxdnaCoaxstk::allocate();
+
+  int n = atom->ntypes;
+  
+  memory->destroy(k_cxst);
+  memory->destroy(cut_cxst_0);
+  memory->destroy(cut_cxst_c);
+  memory->destroy(cut_cxst_lo);
+  memory->destroy(cut_cxst_hi);
+  memory->destroy(cut_cxst_lc);
+  memory->destroy(cut_cxst_hc);
+  memory->destroy(b_cxst_lo);
+  memory->destroy(b_cxst_hi);
+  memory->destroy(cutsq_cxst_hc);
+
+  memory->destroy(a_cxst1);
+  memory->destroy(theta_cxst1_0);
+  memory->destroy(dtheta_cxst1_ast);
+  memory->destroy(b_cxst1);
+  memory->destroy(dtheta_cxst1_c);
+
+  memory->destroy(a_cxst4);
+  memory->destroy(theta_cxst4_0);
+  memory->destroy(dtheta_cxst4_ast);
+  memory->destroy(b_cxst4);
+  memory->destroy(dtheta_cxst4_c);
+
+  memory->destroy(a_cxst5);
+  memory->destroy(theta_cxst5_0);
+  memory->destroy(dtheta_cxst5_ast);
+  memory->destroy(b_cxst5);
+  memory->destroy(dtheta_cxst5_c);
+
+  memory->destroy(a_cxst6);
+  memory->destroy(theta_cxst6_0);
+  memory->destroy(dtheta_cxst6_ast);
+  memory->destroy(b_cxst6);
+  memory->destroy(dtheta_cxst6_c);
+
+  memory->destroy(a_cxst3p);
+  memory->destroy(cosphi_cxst3p_ast);
+  memory->destroy(b_cxst3p);
+  memory->destroy(cosphi_cxst3p_c);
+
+  memory->destroy(a_cxst4p);
+  memory->destroy(cosphi_cxst4p_ast);
+  memory->destroy(b_cxst4p);
+  memory->destroy(cosphi_cxst4p_c);
+
+  memoryKK->create_kokkos(k_k_cxst,k_cxst,n+1,n+1,"PairOxdnaCoaxstk:k_cxst");
+  memoryKK->create_kokkos(k_cut_cxst_0,k_cut_cxst_0,n+1,n+1,"PairOxdnaCoaxstk:cut_cxst_0");
+  memoryKK->create_kokkos(k_cut_cxst_c,k_cut_cxst_c,n+1,n+1,"PairOxdnaCoaxstk:cut_cxst_c");
+  memoryKK->create_kokkos(k_cut_cxst_lo,k_cut_cxst_lo,n+1,n+1,"PairOxdnaCoaxstk:cut_cxst_lo");
+  memoryKK->create_kokkos(k_cut_cxst_hi,k_cut_cxst_hi,n+1,n+1,"PairOxdnaCoaxstk:cut_cxst_hi");
+  memoryKK->create_kokkos(k_cut_cxst_lc,k_cut_cxst_lc,n+1,n+1,"PairOxdnaCoaxstk:cut_cxst_lc");
+  memoryKK->create_kokkos(k_cut_cxst_hc,k_cut_cxst_hc,n+1,n+1,"PairOxdnaCoaxstk:cut_cxst_hc");
+  memoryKK->create_kokkos(k_b_cxst_lo,k_b_cxst_lo,n+1,n+1,"PairOxdnaCoaxstk:b_cxst_lo");
+  memoryKK->create_kokkos(k_b_cxst_hi,k_b_cxst_hi,n+1,n+1,"PairOxdnaCoaxstk:b_cxst_hi");
+  memoryKK->create_kokkos(k_cutsq_cxst_hc,k_cutsq_cxst_hc,n+1,n+1,"PairOxdnaCoaxstk:cutsq_cxst_hc");
+
+  memoryKK->create_kokkos(k_a_cxst1,k_a_cxst1,n+1,n+1,"PairOxdnaCoaxstk:a_cxst1");
+  memoryKK->create_kokkos(k_theta_cxst1_0,k_theta_cxst1_0,n+1,n+1,"PairOxdnaCoaxstk:theta_cxst1_0");
+  memoryKK->create_kokkos(k_dtheta_cxst1_ast,k_dtheta_cxst1_ast,n+1,n+1,"PairOxdnaCoaxstk:dtheta_cxst1_ast");
+  memoryKK->create_kokkos(k_b_cxst1,k_b_cxst1,n+1,n+1,"PairOxdnaCoaxstk:b_cxst1");
+  memoryKK->create_kokkos(k_dtheta_cxst1_c,k_dtheta_cxst1_c,n+1,n+1,"PairOxdnaCoaxstk:dtheta_cxst1_c");
+
+  memoryKK->create_kokkos(k_a_cxst4,k_a_cxst4,n+1,n+1,"PairOxdnaCoaxstk:a_cxst4");
+  memoryKK->create_kokkos(k_theta_cxst4_0,k_theta_cxst4_0,n+1,n+1,"PairOxdnaCoaxstk:theta_cxst4_0");
+  memoryKK->create_kokkos(k_dtheta_cxst4_ast,k_dtheta_cxst4_ast,n+1,n+1,"PairOxdnaCoaxstk:dtheta_cxst4_ast");
+  memoryKK->create_kokkos(k_b_cxst4,k_b_cxst4,n+1,n+1,"PairOxdnaCoaxstk:b_cxst4");
+  memoryKK->create_kokkos(k_dtheta_cxst4_c,k_dtheta_cxst4_c,n+1,n+1,"PairOxdnaCoaxstk:dtheta_cxst4_c");
+
+  memoryKK->create_kokkos(k_a_cxst5,k_a_cxst5,n+1,n+1,"PairOxdnaCoaxstk:a_cxst5");
+  memoryKK->create_kokkos(k_theta_cxst5_0,k_theta_cxst5_0,n+1,n+1,"PairOxdnaCoaxstk:theta_cxst5_0");
+  memoryKK->create_kokkos(k_dtheta_cxst5_ast,k_dtheta_cxst5_ast,n+1,n+1,"PairOxdnaCoaxstk:dtheta_cxst5_ast");
+  memoryKK->create_kokkos(k_b_cxst5,k_b_cxst5,n+1,n+1,"PairOxdnaCoaxstk:b_cxst5");
+  memoryKK->create_kokkos(k_dtheta_cxst5_c,k_dtheta_cxst5_c,n+1,n+1,"PairOxdnaCoaxstk:dtheta_cxst5_c");
+
+  memoryKK->create_kokkos(k_a_cxst6,k_a_cxst6,n+1,n+1,"PairOxdnaCoaxstk:a_cxst6");
+  memoryKK->create_kokkos(k_theta_cxst6_0,k_theta_cxst6_0,n+1,n+1,"PairOxdnaCoaxstk:theta_cxst6_0");
+  memoryKK->create_kokkos(k_dtheta_cxst6_ast,k_dtheta_cxst6_ast,n+1,n+1,"PairOxdnaCoaxstk:dtheta_cxst6_ast");
+  memoryKK->create_kokkos(k_b_cxst6,k_b_cxst6,n+1,n+1,"PairOxdnaCoaxstk:b_cxst6");
+  memoryKK->create_kokkos(k_dtheta_cxst6_c,k_dtheta_cxst6_c,n+1,n+1,"PairOxdnaCoaxstk:dtheta_cxst6_c");
+
+  memoryKK->create_kokkos(k_a_cxst3p,k_a_cxst3p,n+1,n+1,"PairOxdnaCoaxstk:a_cxst3p");
+  memoryKK->create_kokkos(k_cosphi_cxst3p_ast,k_cosphi_cxst3p_ast,n+1,n+1,"PairOxdnaCoaxstk:cosphi_cxst3p_ast");
+  memoryKK->create_kokkos(k_b_cxst3p,k_b_cxst3p,n+1,n+1,"PairOxdnaCoaxstk:b_cxst3p");
+  memoryKK->create_kokkos(k_cosphi_cxst3p_c,k_cosphi_cxst3p_c,n+1,n+1,"PairOxdnaCoaxstk:cosphi_cxst3p_c");
+
+  memoryKK->create_kokkos(k_a_cxst4p,k_a_cxst4p,n+1,n+1,"PairOxdnaCoaxstk:a_cxst4p");
+  memoryKK->create_kokkos(k_cosphi_cxst4p_ast,k_cosphi_cxst4p_ast,n+1,n+1,"PairOxdnaCoaxstk:cosphi_cxst4p_ast");
+  memoryKK->create_kokkos(k_b_cxst4p,k_b_cxst4p,n+1,n+1,"PairOxdnaCoaxstk:b_cxst4p");
+  memoryKK->create_kokkos(k_cosphi_cxst4p_c,k_cosphi_cxst4p_c,n+1,n+1,"PairOxdnaCoaxstk:cosphi_cxst4p_c");
+
+  d_k_cxst = k_k_cxst.template view<DeviceType>();
+  d_cut_cxst_0 = k_cut_cxst_0.template view<DeviceType>();
+  d_cut_cxst_c = k_cut_cxst_c.template view<DeviceType>();
+  d_cut_cxst_lo = k_cut_cxst_lo.template view<DeviceType>();
+  d_cut_cxst_hi = k_cut_cxst_hi.template view<DeviceType>();
+  d_cut_cxst_lc = k_cut_cxst_lc.template view<DeviceType>();
+  d_cut_cxst_hc = k_cut_cxst_hc.template view<DeviceType>();
+  d_b_cxst_lo = k_b_cxst_lo.template view<DeviceType>();
+  d_b_cxst_hi = k_b_cxst_hi.template view<DeviceType>();
+  d_cutsq_cxst_hc = k_cutsq_cxst_hc.template view<DeviceType>();
+
+  d_a_cxst1 = k_a_cxst1.template view<DeviceType>();
+  d_theta_cxst1_0 = k_theta_cxst1_0.template view<DeviceType>();
+  d_dtheta_cxst1_ast = k_dtheta_cxst1_ast.template view<DeviceType>();
+  d_b_cxst1 = k_b_cxst1.template view<DeviceType>();
+  d_dtheta_cxst1_c = k_dtheta_cxst1_c.template view<DeviceType>();
+
+  d_a_cxst4 = k_a_cxst4.template view<DeviceType>();
+  d_theta_cxst4_0 = k_theta_cxst4_0.template view<DeviceType>();
+  d_dtheta_cxst4_ast = k_dtheta_cxst4_ast.template view<DeviceType>();
+  d_b_cxst4 = k_b_cxst4.template view<DeviceType>();
+  d_dtheta_cxst4_c = k_dtheta_cxst4_c.template view<DeviceType>();
+
+  d_a_cxst5 = k_a_cxst5.template view<DeviceType>();
+  d_theta_cxst5_0 = k_theta_cxst5_0.template view<DeviceType>();
+  d_dtheta_cxst5_ast = k_dtheta_cxst5_ast.template view<DeviceType>();
+  d_b_cxst5 = k_b_cxst5.template view<DeviceType>();
+  d_dtheta_cxst5_c = k_dtheta_cxst5_c.template view<DeviceType>();
+
+  d_a_cxst6 = k_a_cxst6.template view<DeviceType>();
+  d_theta_cxst6_0 = k_theta_cxst6_0.template view<DeviceType>();
+  d_dtheta_cxst6_ast = k_dtheta_cxst6_ast.template view<DeviceType>();
+  d_b_cxst6 = k_b_cxst6.template view<DeviceType>();
+  d_dtheta_cxst6_c = k_dtheta_cxst6_c.template view<DeviceType>();
+
+  d_a_cxst3p = k_a_cxst3p.template view<DeviceType>();
+  d_cosphi_cxst3p_ast = k_cosphi_cxst3p_ast.template view<DeviceType>();
+  d_b_cxst3p = k_b_cxst3p.template view<DeviceType>();
+  d_cosphi_cxst3p_c = k_cosphi_cxst3p_c.template view<DeviceType>();
+
+  d_a_cxst4p = k_a_cxst4p.template view<DeviceType>();
+  d_cosphi_cxst4p_ast = k_cosphi_cxst4p_ast.template view<DeviceType>();
+  d_b_cxst4p = k_b_cxst4p.template view<DeviceType>();
+  d_cosphi_cxst4p_c = k_cosphi_cxst4p_c.template view<DeviceType>();
+
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairOxdnaCoaxstkKokkos<DeviceType>::settings(int narg, char **/*arg*/)
+{
+  if (narg != 0) error->all(FLERR,"Illegal pair_style command");
+
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairOxdnaCoaxstkKokkos<DeviceType>::init_style() 
+{
+  neighbor->add_request(this);
+  neighflag = lmp->kokkos->neighflag;
+  auto request = neighbor->find_request(this);
+  request->set_kokkos_host(std::is_same_v<DeviceType,LMPHostType> &&
+                           !std::is_same_v<DeviceType,LMPDeviceType>);
+  request->set_kokkos_device(std::is_same_v<DeviceType,LMPDeviceType>);
+  if (neighflag == FULL) request->enable_full();
+
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+double PairOxdnaCoaxstkKokkos<DeviceType>::init_one(int i, int j)
+{
+  double cutone = PairOxdnaCoaxstk::init_one(i,j);
+
+  k_k_cxst.h_view(i,j) = k_k_cxst.h_view(j,i) = k_cxst[i][j];
+  k_cut_cxst_0.h_view(i,j) = k_cut_cxst_0.h_view(j,i) = cut_cxst_0[i][j];
+  k_cut_cxst_c.h_view(i,j) = k_cut_cxst_c.h_view(j,i) = cut_cxst_c[i][j];
+  k_cut_cxst_lo.h_view(i,j) = k_cut_cxst_lo.h_view(j,i) = cut_cxst_lo[i][j];
+  k_cut_cxst_hi.h_view(i,j) = k_cut_cxst_hi.h_view(j,i) = cut_cxst_hi[i][j];
+  k_cut_cxst_lc.h_view(i,j) = k_cut_cxst_lc.h_view(j,i) = cut_cxst_lc[i][j];
+  k_cut_cxst_hc.h_view(i,j) = k_cut_cxst_hc.h_view(j,i) = cut_cxst_hc[i][j];
+  k_b_cxst_lo.h_view(i,j) = k_b_cxst_lo.h_view(j,i) = b_cxst_lo[i][j];
+  k_b_cxst_hi.h_view(i,j) = k_b_cxst_hi.h_view(j,i) = b_cxst_hi[i][j];
+  k_cutsq_cxst_hc.h_view(i,j) = k_cutsq_cxst_hc.h_view(j,i) = cutsq_cxst_hc[i][j];
+
+  k_a_cxst1.h_view(i,j) = k_a_cxst1.h_view(j,i) = a_cxst1[i][j];
+  k_theta_cxst1_0.h_view(i,j) = k_theta_cxst1_0.h_view(j,i) = theta_cxst1_0[i][j];
+  k_dtheta_cxst1_ast.h_view(i,j) = k_dtheta_cxst1_ast.h_view(j,i) = dtheta_cxst1_ast[i][j];
+  k_b_cxst1.h_view(i,j) = k_b_cxst1.h_view(j,i) = b_cxst1[i][j];
+  k_dtheta_cxst1_c.h_view(i,j) = k_dtheta_cxst1_c.h_view(j,i) = dtheta_cxst1_c[i][j];
+
+  k_a_cxst4.h_view(i,j) = k_a_cxst4.h_view(j,i) = a_cxst4[i][j];
+  k_theta_cxst4_0.h_view(i,j) = k_theta_cxst4_0.h_view(j,i) = theta_cxst4_0[i][j];
+  k_dtheta_cxst4_ast.h_view(i,j) = k_dtheta_cxst4_ast.h_view(j,i) = dtheta_cxst4_ast[i][j];
+  k_b_cxst4.h_view(i,j) = k_b_cxst4.h_view(j,i) = b_cxst4[i][j];
+  k_dtheta_cxst4_c.h_view(i,j) = k_dtheta_cxst4_c.h_view(j,i) = dtheta_cxst4_c[i][j];
+
+  k_a_cxst5.h_view(i,j) = k_a_cxst5.h_view(j,i) = a_cxst5[i][j];
+  k_theta_cxst5_0.h_view(i,j) = k_theta_cxst5_0.h_view(j,i) = theta_cxst5_0[i][j];
+  k_dtheta_cxst5_ast.h_view(i,j) = k_dtheta_cxst5_ast.h_view(j,i) = dtheta_cxst5_ast[i][j];
+  k_b_cxst5.h_view(i,j) = k_b_cxst5.h_view(j,i) = b_cxst5[i][j];
+  k_dtheta_cxst5_c.h_view(i,j) = k_dtheta_cxst5_c.h_view(j,i) = dtheta_cxst5_c[i][j];
+
+  k_a_cxst6.h_view(i,j) = k_a_cxst6.h_view(j,i) = a_cxst6[i][j];
+  k_theta_cxst6_0.h_view(i,j) = k_theta_cxst6_0.h_view(j,i) = theta_cxst6_0[i][j];
+  k_dtheta_cxst6_ast.h_view(i,j) = k_dtheta_cxst6_ast.h_view(j,i) = dtheta_cxst6_ast[i][j];
+  k_b_cxst6.h_view(i,j) = k_b_cxst6.h_view(j,i) = b_cxst6[i][j];
+  k_dtheta_cxst6_c.h_view(i,j) = k_dtheta_cxst6_c.h_view(j,i) = dtheta_cxst6_c[i][j];
+
+  k_a_cxst3p.h_view(i,j) = k_a_cxst3p.h_view(j,i) = a_cxst3p[i][j];
+  k_cosphi_cxst3p_ast.h_view(i,j) = k_cosphi_cxst3p_ast.h_view(j,i) = cosphi_cxst3p_ast[i][j];
+  k_b_cxst3p.h_view(i,j) = k_b_cxst3p.h_view(j,i) = b_cxst3p[i][j];
+  k_cosphi_cxst3p_c.h_view(i,j) = k_cosphi_cxst3p_c.h_view(j,i) = cosphi_cxst3p_c[i][j];
+
+  k_a_cxst4p.h_view(i,j) = k_a_cxst4p.h_view(j,i) = a_cxst4p[i][j];
+  k_cosphi_cxst4p_ast.h_view(i,j) = k_cosphi_cxst4p_ast.h_view(j,i) = cosphi_cxst4p_ast[i][j];
+  k_b_cxst4p.h_view(i,j) = k_b_cxst4p.h_view(j,i) = b_cxst4p[i][j];
+  k_cosphi_cxst4p_c.h_view(i,j) = k_cosphi_cxst4p_c.h_view(j,i) = cosphi_cxst4p_c[i][j];
+
+  k_k_cxst.template modify<LMPHostType>();
+  k_cut_cxst_0.template modify<LMPHostType>();
+  k_cut_cxst_c.template modify<LMPHostType>();
+  k_cut_cxst_lo.template modify<LMPHostType>();
+  k_cut_cxst_hi.template modify<LMPHostType>();
+  k_cut_cxst_lc.template modify<LMPHostType>();
+  k_cut_cxst_hc.template modify<LMPHostType>();
+  k_b_cxst_lo.template modify<LMPHostType>();
+  k_b_cxst_hi.template modify<LMPHostType>();
+  k_cutsq_cxst_hc.template modify<LMPHostType>();
+
+  k_a_cxst1.template modify<LMPHostType>();
+  k_theta_cxst1_0.template modify<LMPHostType>();
+  k_dtheta_cxst1_ast.template modify<LMPHostType>();
+  k_b_cxst1.template modify<LMPHostType>();
+  k_dtheta_cxst1_c.template modify<LMPHostType>();
+
+  k_a_cxst4.template modify<LMPHostType>();
+  k_theta_cxst4_0.template modify<LMPHostType>();
+  k_dtheta_cxst4_ast.template modify<LMPHostType>();
+  k_b_cxst4.template modify<LMPHostType>();
+  k_dtheta_cxst4_c.template modify<LMPHostType>();
+
+  k_a_cxst5.template modify<LMPHostType>();
+  k_theta_cxst5_0.template modify<LMPHostType>();
+  k_dtheta_cxst5_ast.template modify<LMPHostType>();
+  k_b_cxst5.template modify<LMPHostType>();
+  k_dtheta_cxst5_c.template modify<LMPHostType>();
+
+  k_a_cxst6.template modify<LMPHostType>();
+  k_theta_cxst6_0.template modify<LMPHostType>();
+  k_dtheta_cxst6_ast.template modify<LMPHostType>();
+  k_b_cxst6.template modify<LMPHostType>();
+  k_dtheta_cxst6_c.template modify<LMPHostType>();
+
+  k_a_cxst3p.template modify<LMPHostType>();
+  k_cosphi_cxst3p_ast.template modify<LMPHostType>();
+  k_b_cxst3p.template modify<LMPHostType>();
+  k_cosphi_cxst3p_c.template modify<LMPHostType>();
+
+  k_a_cxst4p.template modify<LMPHostType>();
+  k_cosphi_cxst4p_ast.template modify<LMPHostType>();
+  k_b_cxst4p.template modify<LMPHostType>();
+  k_cosphi_cxst4p_c.template modify<LMPHostType>();
+
+  // "cutone" is "cut_cxst_hc[i][j]", sets the master list distance cutoff
+  return cutone;
+
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG, int NEWTON_PAIR>
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaCoaxstkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
+      const F_FLOAT &epair, const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz, const F_FLOAT &delx,
+                const F_FLOAT &dely, const F_FLOAT &delz) const
+{
+  const int EFLAG = eflag;
+  const int VFLAG = vflag_either;
+
+  // The eatom and vatom arrays are duplicated for OpenMP, atomic for GPU, and neither for Serial
+
+  auto v_eatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
+    decltype(dup_eatom),decltype(ndup_eatom)>::get(dup_eatom,ndup_eatom);
+  auto a_eatom = v_eatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
+    decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
+  auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  if (EFLAG) {
+    if (eflag_atom) {
+      const E_FLOAT epairhalf = 0.5 * epair;
+      if (NEIGHFLAG!=FULL) {
+        if (NEWTON_PAIR || i < nlocal) a_eatom[i] += epairhalf;
+        if (NEWTON_PAIR || j < nlocal) a_eatom[j] += epairhalf;
+      } else {
+        a_eatom[i] += epairhalf;
+      }
+    }
+  }
+
+  if (VFLAG) {
+    const E_FLOAT v0 = delx*fx;
+    const E_FLOAT v1 = dely*fy;
+    const E_FLOAT v2 = delz*fz;
+    const E_FLOAT v3 = delx*fy;
+    const E_FLOAT v4 = delx*fz;
+    const E_FLOAT v5 = dely*fz;
+
+    if (vflag_global) {
+      if (NEIGHFLAG!=FULL) {
+        if (NEWTON_PAIR || i < nlocal) {
+          ev.v[0] += 0.5*v0;
+          ev.v[1] += 0.5*v1;
+          ev.v[2] += 0.5*v2;
+          ev.v[3] += 0.5*v3;
+          ev.v[4] += 0.5*v4;
+          ev.v[5] += 0.5*v5;
+        }
+        if (NEWTON_PAIR || j < nlocal) {
+        ev.v[0] += 0.5*v0;
+        ev.v[1] += 0.5*v1;
+        ev.v[2] += 0.5*v2;
+        ev.v[3] += 0.5*v3;
+        ev.v[4] += 0.5*v4;
+        ev.v[5] += 0.5*v5;
+        }
+      } else {
+        ev.v[0] += 0.5*v0;
+        ev.v[1] += 0.5*v1;
+        ev.v[2] += 0.5*v2;
+        ev.v[3] += 0.5*v3;
+        ev.v[4] += 0.5*v4;
+        ev.v[5] += 0.5*v5;
+      }
+    }
+
+    if (vflag_atom) {
+      if (NEIGHFLAG!=FULL) {
+        if (NEWTON_PAIR || i < nlocal) {
+          a_vatom(i,0) += 0.5*v0;
+          a_vatom(i,1) += 0.5*v1;
+          a_vatom(i,2) += 0.5*v2;
+          a_vatom(i,3) += 0.5*v3;
+          a_vatom(i,4) += 0.5*v4;
+          a_vatom(i,5) += 0.5*v5;
+        }
+        if (NEWTON_PAIR || j < nlocal) {
+        a_vatom(j,0) += 0.5*v0;
+        a_vatom(j,1) += 0.5*v1;
+        a_vatom(j,2) += 0.5*v2;
+        a_vatom(j,3) += 0.5*v3;
+        a_vatom(j,4) += 0.5*v4;
+        a_vatom(j,5) += 0.5*v5;
+        }
+      } else {
+        a_vatom(i,0) += 0.5*v0;
+        a_vatom(i,1) += 0.5*v1;
+        a_vatom(i,2) += 0.5*v2;
+        a_vatom(i,3) += 0.5*v3;
+        a_vatom(i,4) += 0.5*v4;
+        a_vatom(i,5) += 0.5*v5;
+      }
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+int PairOxdnaCoaxstkKokkos<DeviceType>::sbmask(const int& j) const {
+  return j >> SBBITS & 3;
+}
+
+
+namespace LAMMPS_NS {
+template class PairOxdnaCoaxstkKokkos<LMPDeviceType>;
+#ifdef LMP_KOKKOS_GPU
+template class PairOxdnaCoaxstkKokkos<LMPHostType>;
+#endif
+}
