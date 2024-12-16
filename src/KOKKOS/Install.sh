@@ -391,6 +391,8 @@ action pair_morse_kokkos.cpp
 action pair_morse_kokkos.h
 action pair_multi_lucy_rx_kokkos.cpp pair_multi_lucy_rx.cpp
 action pair_multi_lucy_rx_kokkos.h pair_multi_lucy_rx.h
+action pair_oxdna_coaxstk_kokkos.cpp pair_oxdna_coaxstk.cpp
+action pair_oxdna_coaxstk_kokkos.h pair_oxdna_coaxstk.h
 action pair_oxdna_excv_kokkos.cpp pair_oxdna_excv.cpp
 action pair_oxdna_excv_kokkos.h pair_oxdna_excv.h
 action pair_oxdna_hbond_kokkos.cpp pair_oxdna_hbond.cpp
