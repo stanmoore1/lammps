@@ -348,7 +348,7 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
   F_FLOAT dcdrax,dcdray,dcdraz; 
 
   F_FLOAT f2,f4t1,f4t4,f4t5,f4t6,f5c3;
-  F_FLOAT df2,df4t1,df4t4,df4t5,df4t6,df5c3,rsint;
+  F_FLOAT df2,df4t1,df4t4,df4t5,df4t6,df5c3;
 
   // vector COM-backbone site a, COM-stacking site a
   constexpr F_FLOAT d_cs=-0.4;
@@ -483,23 +483,23 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
               d_cut_cxst_hc(atype,btype), d_cut_cxst_lo(atype,btype), d_cut_cxst_hi(atype,btype), 
               d_b_cxst_lo(atype,btype), d_b_cxst_hi(atype,btype));
       // df4t1 = DF4(theta1,..)/sin(theta1) - DF4(theta1p,..)/sin(theta1) modulation factors
-      df4t1 = DF4_KK(theta1, d_a_cxst1(atype,btype), d_theta_cxst1_0(atype,btype), d_dtheta_cxst1_ast(atype,btype), 
-                     d_b_cxst1(atype,btype), d_dtheta_cxst1_c(atype,btype)) / sin(theta1) - \
+      df4t1 = ( DF4_KK(theta1, d_a_cxst1(atype,btype), d_theta_cxst1_0(atype,btype), d_dtheta_cxst1_ast(atype,btype), 
+                     d_b_cxst1(atype,btype), d_dtheta_cxst1_c(atype,btype)) - \
               DF4_KK(theta1p, d_a_cxst1(atype,btype), d_theta_cxst1_0(atype,btype), d_dtheta_cxst1_ast(atype,btype), 
-                     d_b_cxst1(atype,btype), d_dtheta_cxst1_c(atype,btype)) / sin(theta1);
+                     d_b_cxst1(atype,btype), d_dtheta_cxst1_c(atype,btype)) ) / sin(theta1);
       // df4t4 = DF4 modulation factor
       df4t4 = DF4_KK(theta4, d_a_cxst4(atype,btype), d_theta_cxst4_0(atype, btype), d_dtheta_cxst4_ast(atype, btype), 
                      d_b_cxst4(atype, btype), d_dtheta_cxst4_c(atype, btype)) / sin(theta4);
       // df4t5 = DF4(theta5,..)/sin(theta5) - DF4(theta5p,..)/sin(theta5) modulation factors
-      df4t5 = DF4_KK(theta5, d_a_cxst5(atype,btype), d_theta_cxst5_0(atype,btype), d_dtheta_cxst5_ast(atype,btype), 
-                     d_b_cxst5(atype,btype), d_dtheta_cxst5_c(atype,btype)) / sin(theta5) - \
+      df4t5 = ( DF4_KK(theta5, d_a_cxst5(atype,btype), d_theta_cxst5_0(atype,btype), d_dtheta_cxst5_ast(atype,btype), 
+                     d_b_cxst5(atype,btype), d_dtheta_cxst5_c(atype,btype)) - \
               DF4_KK(theta5p, d_a_cxst5(atype,btype), d_theta_cxst5_0(atype,btype), d_dtheta_cxst5_ast(atype,btype), 
-                     d_b_cxst5(atype,btype), d_dtheta_cxst5_c(atype,btype)) / sin(theta5);
+                     d_b_cxst5(atype,btype), d_dtheta_cxst5_c(atype,btype)) ) / sin(theta5);
       // df4t6 = DF4(theta6,..)/sin(theta6) - DF4(theta6p,..)/sin(theta6) modulation factors
-      df4t6 = DF4_KK(theta6, d_a_cxst6(atype,btype), d_theta_cxst6_0(atype,btype), d_dtheta_cxst6_ast(atype,btype), 
-                     d_b_cxst6(atype,btype), d_dtheta_cxst6_c(atype,btype)) / sin(theta6) - \
+      df4t6 = ( DF4_KK(theta6, d_a_cxst6(atype,btype), d_theta_cxst6_0(atype,btype), d_dtheta_cxst6_ast(atype,btype), 
+                     d_b_cxst6(atype,btype), d_dtheta_cxst6_c(atype,btype)) - \
               DF4_KK(theta6p, d_a_cxst6(atype,btype), d_theta_cxst6_0(atype,btype), d_dtheta_cxst6_ast(atype,btype), 
-                     d_b_cxst6(atype,btype), d_dtheta_cxst6_c(atype,btype)) / sin(theta6);
+                     d_b_cxst6(atype,btype), d_dtheta_cxst6_c(atype,btype)) ) / sin(theta6);
       // df5c3 = DF5 modulation factor
       df5c3 = DF5_KK(cosphi3, d_a_cxst3p(atype,btype), d_cosphi_cxst3p_ast(atype,btype), 
                      d_b_cxst3p(atype,btype), d_cosphi_cxst3p_c(atype,btype));
@@ -669,9 +669,9 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
 
         tpair = -f2 * f4t1 * f4t4 * df4t5 * f4t6 * f5c3 * f5c3 * factor_lj;
 
-        t5dir[0] = d_nz_xtrct(a,1) * delr_st_norm[2] - d_nz_xtrct(a,2) * delr_st_norm[1];
-        t5dir[1] = d_nz_xtrct(a,2) * delr_st_norm[0] - d_nz_xtrct(a,0) * delr_st_norm[2];
-        t5dir[2] = d_nz_xtrct(a,0) * delr_st_norm[1] - d_nz_xtrct(a,1) * delr_st_norm[0];
+        t5dir[0] = delr_st_norm[1] * d_nz_xtrct(a,2) - delr_st_norm[2] * d_nz_xtrct(a,1);
+        t5dir[1] = delr_st_norm[2] * d_nz_xtrct(a,0) - delr_st_norm[0] * d_nz_xtrct(a,2);
+        t5dir[2] = delr_st_norm[0] * d_nz_xtrct(a,1) - delr_st_norm[1] * d_nz_xtrct(a,0);
         delta[0] += t5dir[0] * tpair;
         delta[1] += t5dir[1] * tpair;
         delta[2] += t5dir[2] * tpair;
@@ -681,37 +681,19 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
 
         tpair = -f2 * f4t1 * f4t4 * f4t5 * df4t6 * f5c3 * f5c3 * factor_lj;
 
-        t6dir[0] = d_nz_xtrct(b,1) * delr_st_norm[2] - d_nz_xtrct(b,2) * delr_st_norm[1];
-        t6dir[1] = d_nz_xtrct(b,2) * delr_st_norm[0] - d_nz_xtrct(b,0) * delr_st_norm[2];
-        t6dir[2] = d_nz_xtrct(b,0) * delr_st_norm[1] - d_nz_xtrct(b,1) * delr_st_norm[0];
-        deltb[0] += t6dir[0] * tpair;
-        deltb[1] += t6dir[1] * tpair;
-        deltb[2] += t6dir[2] * tpair;
+        t6dir[0] = delr_st_norm[1] * d_nz_xtrct(b,2) - delr_st_norm[2] * d_nz_xtrct(b,1);
+        t6dir[1] = delr_st_norm[2] * d_nz_xtrct(b,0) - delr_st_norm[0] * d_nz_xtrct(b,2);
+        t6dir[2] = delr_st_norm[0] * d_nz_xtrct(b,1) - delr_st_norm[1] * d_nz_xtrct(b,0);
+        deltb[0] -= t6dir[0] * tpair;
+        deltb[1] -= t6dir[1] * tpair;
+        deltb[2] -= t6dir[2] * tpair;
       }
 
       // Full cosphi3 and cosphi4 (=cosphi3) contribution to the torque
       if (cosphi3) {
-
-        gamma = d_cs - d_cst;
-        gammacub = gamma * gamma * gamma;
-        rinv_ss_cub = rinv_ss * rinv_ss * rinv_ss;
-        aybx = d_ny_xtrct(a,0) * d_nx_xtrct(b,0) + d_ny_xtrct(a,1) * d_nx_xtrct(b,1) + d_ny_xtrct(a,2) * d_nx_xtrct(b,2);
-        azbx = d_nz_xtrct(a,0) * d_nx_xtrct(b,0) + d_nz_xtrct(a,1) * d_nx_xtrct(b,1) + d_nz_xtrct(a,2) * d_nx_xtrct(b,2);
-        rax = delr_st_norm[0] * d_nx_xtrct(a,0) + delr_st_norm[1] * d_nx_xtrct(a,1) + delr_st_norm[2] * d_nx_xtrct(a,2);
-        ray = delr_st_norm[0] * d_ny_xtrct(a,0) + delr_st_norm[1] * d_ny_xtrct(a,1) + delr_st_norm[2] * d_ny_xtrct(a,2);
-        raz = delr_st_norm[0] * d_nz_xtrct(a,0) + delr_st_norm[1] * d_nz_xtrct(a,1) + delr_st_norm[2] * d_nz_xtrct(a,2);
-        rbx = delr_st_norm[0] * d_nx_xtrct(b,0) + delr_st_norm[1] * d_nx_xtrct(b,1) + delr_st_norm[2] * d_nx_xtrct(b,2);
-
-        fac = (raz * aybx - ray * azbx);
-
-        dcdr    = -gamma * fac * (gamma * (rax - rbx) + r_st) * rinv_ss_cub;
-        dcdaxbx =  gammacub * fac * rinv_ss_cub;
-        dcdaybx =  gamma * raz * rinv_ss;
-        dcdazbx = -gamma * ray * rinv_ss;
-        dcdrax  = -gamma*gamma * fac * r_st * rinv_ss_cub;
-        dcdray  = -gamma * azbx * rinv_ss;
-        dcdraz  =  gamma * aybx * rinv_ss;
-        dcdrbx  =  gamma*gamma * fac * r_st * rinv_ss_cub;
+        
+        //NOTE: Vanilla code appears to have duplicated recalculation here for gamma, ...., ->, dcdrbx.
+        //      Going straight to tpair calculation.
 
         tpair   = -f2 * f4t1 * f4t4 * f4t5 * f4t6 * 2.0 * f5c3 * df5c3 * factor_lj;
 
@@ -738,30 +720,29 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
         deltb[1] += delt[1];
         deltb[2] += delt[2];
 
-        d_nx_xtrct(a,0) = delr_st_norm[1] * v1tmp[2] - delr_st_norm[2] * v1tmp[1];
-        d_nx_xtrct(a,1) = delr_st_norm[2] * v1tmp[0] - delr_st_norm[0] * v1tmp[2];
-        d_nx_xtrct(a,2) = delr_st_norm[0] * v1tmp[1] - delr_st_norm[1] * v1tmp[0];
+        v1tmp[0] = d_nx_xtrct(a,1) * delr_st_norm[2] - d_nx_xtrct(a,2) * delr_st_norm[1];
+        v1tmp[1] = d_nx_xtrct(a,2) * delr_st_norm[0] - d_nx_xtrct(a,0) * delr_st_norm[2];
+        v1tmp[2] = d_nx_xtrct(a,0) * delr_st_norm[1] - d_nx_xtrct(a,1) * delr_st_norm[0];
 
-        d_nz_xtrct(a,0) = delr_st_norm[1] * v2tmp[2] - delr_st_norm[2] * v2tmp[1];
-        d_nz_xtrct(a,1) = delr_st_norm[2] * v2tmp[0] - delr_st_norm[0] * v2tmp[2];
-        d_ny_xtrct(a,2) = delr_st_norm[0] * v2tmp[1] - delr_st_norm[1] * v2tmp[0];
+        v2tmp[0] = d_ny_xtrct(a,1) * delr_st_norm[2] - d_ny_xtrct(a,2) * delr_st_norm[1];
+        v2tmp[1] = d_ny_xtrct(a,2) * delr_st_norm[0] - d_ny_xtrct(a,0) * delr_st_norm[2];
+        v2tmp[2] = d_ny_xtrct(a,0) * delr_st_norm[1] - d_ny_xtrct(a,1) * delr_st_norm[0];
 
-        d_nz_xtrct(a,0) = delr_st_norm[1] * v3tmp[2] - delr_st_norm[2] * v3tmp[1];
-        d_nz_xtrct(a,1) = delr_st_norm[2] * v3tmp[0] - delr_st_norm[0] * v3tmp[2];
-        d_nz_xtrct(a,2) = delr_st_norm[0] * v3tmp[1] - delr_st_norm[1] * v3tmp[0];
+        v3tmp[0] = d_nz_xtrct(a,1) * delr_st_norm[2] - d_nz_xtrct(a,2) * delr_st_norm[1];
+        v3tmp[1] = d_nz_xtrct(a,2) * delr_st_norm[0] - d_nz_xtrct(a,0) * delr_st_norm[2];
+        v3tmp[2] = d_nz_xtrct(a,0) * delr_st_norm[1] - d_nz_xtrct(a,1) * delr_st_norm[0];
 
         delta[0] += (v1tmp[0] * dcdrax + v2tmp[0] * dcdray + v3tmp[0] * dcdraz) * tpair;
         delta[1] += (v1tmp[1] * dcdrax + v2tmp[1] * dcdray + v3tmp[1] * dcdraz) * tpair;
         delta[2] += (v1tmp[2] * dcdrax + v2tmp[2] * dcdray + v3tmp[2] * dcdraz) * tpair;
 
-        d_nx_xtrct(b,0) = delr_st_norm[1] * v1tmp[2] - delr_st_norm[2] * v1tmp[1];
-        d_nx_xtrct(b,1) = delr_st_norm[2] * v1tmp[0] - delr_st_norm[0] * v1tmp[2];
-        d_nx_xtrct(b,2) = delr_st_norm[0] * v1tmp[1] - delr_st_norm[1] * v1tmp[0];
+        v1tmp[0] = d_nx_xtrct(b,1) * delr_st_norm[2] - d_nx_xtrct(b,2) * delr_st_norm[1];
+        v1tmp[1] = d_nx_xtrct(b,2) * delr_st_norm[0] - d_nx_xtrct(b,0) * delr_st_norm[2];
+        v1tmp[2] = d_nx_xtrct(b,0) * delr_st_norm[1] - d_nx_xtrct(b,1) * delr_st_norm[0];
 
         deltb[0] -= v1tmp[0] * dcdrbx * tpair;
         deltb[1] -= v1tmp[1] * dcdrbx * tpair;
         deltb[2] -= v1tmp[2] * dcdrbx * tpair;
-
       }
       
       // increment torques
