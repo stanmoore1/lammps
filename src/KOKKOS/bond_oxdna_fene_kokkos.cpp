@@ -97,8 +97,11 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   nlocal = atom->nlocal;
   newton_bond = force->newton_bond;
 
-  // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna_excv/kk
+  // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna/excv/kk or oxdna2/excv/kk
   auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna/excv/kk", 1, 1));
+  if (oxdna_excvKK == nullptr) {
+    oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna2/excv/kk", 1, 1));
+  }
   d_nx_xtrct = oxdna_excvKK->k_nx.template view<DeviceType>();
   d_ny_xtrct = oxdna_excvKK->k_ny.template view<DeviceType>();
   d_nz_xtrct = oxdna_excvKK->k_nz.template view<DeviceType>();
@@ -196,56 +199,34 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   F_FLOAT delr[3];                        // vector backbone site b to a
   // vectors COM-backbone site in lab frame
   F_FLOAT ra_cs[3], rb_cs[3];
-  // Cartesian unit vectors in lab frame
-  F_FLOAT ax[3], ay[3], az[3];
-  F_FLOAT bx[3], by[3], bz[3];
-
-  ax[0] = d_nx_xtrct(a,0);
-  ax[1] = d_nx_xtrct(a,1);
-  ax[2] = d_nx_xtrct(a,2);
-  ay[0] = d_ny_xtrct(a,0);
-  ay[1] = d_ny_xtrct(a,1);
-  ay[2] = d_ny_xtrct(a,2);
-  az[0] = d_nz_xtrct(a,0);
-  az[1] = d_nz_xtrct(a,1);
-  az[2] = d_nz_xtrct(a,2);
-  bx[0] = d_nx_xtrct(b,0);
-  bx[1] = d_nx_xtrct(b,1);
-  bx[2] = d_nx_xtrct(b,2);
-  by[0] = d_ny_xtrct(b,0);
-  by[1] = d_ny_xtrct(b,1);
-  by[2] = d_ny_xtrct(b,2);
-  bz[0] = d_nz_xtrct(b,0);
-  bz[1] = d_nz_xtrct(b,1);
-  bz[2] = d_nz_xtrct(b,2);
 
   // vector COM-backbone site a and b - "compute_interaction_sites" vector COM-sugar-phosphate backbone in oxDNA
   if (OXDNAFLAG==OXDNA) {
     constexpr F_FLOAT d_cs = -0.4;
-    ra_cs[0] = d_cs * ax[0];
-    ra_cs[1] = d_cs * ax[1];
-    ra_cs[2] = d_cs * ax[2];
-    rb_cs[0] = d_cs * bx[0];
-    rb_cs[1] = d_cs * bx[1];
-    rb_cs[2] = d_cs * bx[2];
+    ra_cs[0] = d_cs * d_nx_xtrct(a,0);
+    ra_cs[1] = d_cs * d_nx_xtrct(a,1);
+    ra_cs[2] = d_cs * d_nx_xtrct(a,2);
+    rb_cs[0] = d_cs * d_nx_xtrct(b,0);
+    rb_cs[1] = d_cs * d_nx_xtrct(b,1);
+    rb_cs[2] = d_cs * d_nx_xtrct(b,2);
   } else if (OXDNAFLAG==OXDNA2) {
     constexpr F_FLOAT d_cs_x = -0.34;
     constexpr F_FLOAT d_cs_y = +0.3408;
-    ra_cs[0] = d_cs_x * ax[0] + d_cs_y * ay[0];
-    ra_cs[1] = d_cs_x * ax[1] + d_cs_y * ay[1];
-    ra_cs[2] = d_cs_x * ax[2] + d_cs_y * ay[2];
-    rb_cs[0] = d_cs_x * bx[0] + d_cs_y * by[0];
-    rb_cs[1] = d_cs_x * bx[1] + d_cs_y * by[1];
-    rb_cs[2] = d_cs_x * bx[2] + d_cs_y * by[2];
+    ra_cs[0] = d_cs_x * d_nx_xtrct(a,0) + d_cs_y * d_ny_xtrct(a,0);
+    ra_cs[1] = d_cs_x * d_nx_xtrct(a,1) + d_cs_y * d_ny_xtrct(a,1);
+    ra_cs[2] = d_cs_x * d_nx_xtrct(a,2) + d_cs_y * d_ny_xtrct(a,2);
+    rb_cs[0] = d_cs_x * d_nx_xtrct(b,0) + d_cs_y * d_ny_xtrct(b,0);
+    rb_cs[1] = d_cs_x * d_nx_xtrct(b,1) + d_cs_y * d_ny_xtrct(b,1);
+    rb_cs[2] = d_cs_x * d_nx_xtrct(b,2) + d_cs_y * d_ny_xtrct(b,2);
   } else if (OXDNAFLAG==OXRNA2) {
     constexpr F_FLOAT d_cs_x = -0.4;
     constexpr F_FLOAT d_cs_z = +0.2;
-    ra_cs[0] = d_cs_x * ax[0] + d_cs_z * az[0];
-    ra_cs[1] = d_cs_x * ax[1] + d_cs_z * az[1];
-    ra_cs[2] = d_cs_x * ax[2] + d_cs_z * az[2];
-    rb_cs[0] = d_cs_x * bx[0] + d_cs_z * bz[0];
-    rb_cs[1] = d_cs_x * bx[1] + d_cs_z * bz[1];
-    rb_cs[2] = d_cs_x * bx[2] + d_cs_z * bz[2];
+    ra_cs[0] = d_cs_x * d_nx_xtrct(a,0) + d_cs_z * d_nz_xtrct(a,0);
+    ra_cs[1] = d_cs_x * d_nx_xtrct(a,1) + d_cs_z * d_nz_xtrct(a,1);
+    ra_cs[2] = d_cs_x * d_nx_xtrct(a,2) + d_cs_z * d_nz_xtrct(a,2);
+    rb_cs[0] = d_cs_x * d_nx_xtrct(b,0) + d_cs_z * d_nz_xtrct(b,0);
+    rb_cs[1] = d_cs_x * d_nx_xtrct(b,1) + d_cs_z * d_nz_xtrct(b,1);
+    rb_cs[2] = d_cs_x * d_nx_xtrct(b,2) + d_cs_z * d_nz_xtrct(b,2);
   }
 
   // vector backbone site b to a

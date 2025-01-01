@@ -203,7 +203,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   copymode = 1;
 
   // d_n(x/z)_xtrct = extracted local unit vectors in lab frame from oxdna_excv/kk
-  auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna/excv/kk", 1, 1));
+  auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna2/excv/kk", 1, 1));
   d_nx_xtrct = oxdna_excvKK->k_nx.template view<DeviceType>();
   d_nz_xtrct = oxdna_excvKK->k_nz.template view<DeviceType>();
 
@@ -314,9 +314,9 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
   // vectors COM-backbone site, COM-stacking site in lab frame
   F_FLOAT ra_cs[3], rb_cs[3], ra_cst[3], rb_cst[3];
 
-  F_FLOAT delf[3],delt[3],delta[3],deltb[3];    // force, torque increment
-  F_FLOAT evdwl, finc, tpair;                   // energy, force, torque
-  F_FLOAT v1tmp[3],v2tmp[3],v3tmp[3];
+  F_FLOAT delf[3],delta[3],deltb[3];    // force, torque increment
+  F_FLOAT evdwl, finc, tpair;           // energy, force, torque
+  F_FLOAT v1tmp[3];
   F_FLOAT delr_ss[3],delr_ss_norm[3],rsq_ss,r_ss,rinv_ss;
   F_FLOAT delr_st[3],delr_st_norm[3],rsq_st,r_st,rinv_st;
   F_FLOAT theta1,theta1p,t1dir[3],cost1;
@@ -324,12 +324,6 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
   F_FLOAT theta5,theta5p,t5dir[3],cost5;
   F_FLOAT theta6,theta6p,t6dir[3],cost6;
   F_FLOAT cosphi3;
-
-  F_FLOAT gamma,gammacub,rinv_ss_cub,fac;
-  F_FLOAT aybx,azbx,rax,ray,raz,rbx;
-  F_FLOAT dcdr,dcdrbx;
-  F_FLOAT dcdaxbx,dcdaybx,dcdazbx;
-  F_FLOAT dcdrax,dcdray,dcdraz; 
 
   F_FLOAT f2,f4f6t1,f4t4,f4t5,f4t6;
   F_FLOAT df2,df4f6t1,df4t4,df4t5,df4t6;

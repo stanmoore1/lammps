@@ -24,7 +24,10 @@
 #include "neighbor.h"
 #include "update.h"
 
+#include "mf_oxdna_kokkos.h"
+
 using namespace LAMMPS_NS;
+using namespace MFOxdnaKokkos;
 
 /* ---------------------------------------------------------------------- */
 
