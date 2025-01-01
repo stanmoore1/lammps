@@ -525,20 +525,8 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     // backbone-backbone
     if (rsq_ss < d_cutsq_ss_c(atype,btype)) {
       // F3 modulation factor, force and energy calculation
-      if (rsq_ss < d_cutsq_ss_ast(atype,btype)) {
-        const F_FLOAT r2inv = 1.0 / rsq_ss;
-        const F_FLOAT r6inv = r2inv * r2inv * r2inv;
-        fpair = r2inv * r6inv * \
-          (12 * d_lj1_ss(atype,btype) * r6inv - 6 * d_lj2_ss(atype,btype));
-        evdwl = r6inv * (d_lj1_ss(atype,btype) * r6inv - d_lj2_ss(atype,btype));
-      } else {
-        const F_FLOAT r = sqrt(rsq_ss);
-        const F_FLOAT rinv = 1.0 / r;
-        fpair = 2 * d_epsilon_ss(atype,btype) * d_b_ss(atype,btype) * \
-          (d_cut_ss_c(atype,btype)  * rinv - 1);
-        evdwl = d_epsilon_ss(atype,btype) * d_b_ss(atype,btype) * \
-          (d_cut_ss_c(atype,btype) - r) * (d_cut_ss_c(atype,btype) - r);
-      }
+      evdwl = F3_KK(rsq_ss,d_cutsq_ss_ast(atype,btype),d_cut_ss_c(atype,btype),d_lj1_ss(atype,btype),
+                        d_lj2_ss(atype,btype),d_epsilon_ss(atype,btype),d_b_ss(atype,btype),fpair);
       // knock out nearest-neighbor interaction between ss
       fpair *= factor_lj;
       evdwl *= factor_lj;
@@ -587,20 +575,8 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     // backbone-base
     if (rsq_sb < d_cutsq_sb_c(atype,btype)) {
       // F3 modulation factor, force and energy calculation
-      if (rsq_sb < d_cutsq_sb_ast(atype,btype)) {
-        const F_FLOAT r2inv = 1.0 / rsq_sb;
-        const F_FLOAT r6inv = r2inv * r2inv * r2inv;
-        fpair = r2inv * r6inv * \
-          (12 * d_lj1_sb(atype,btype) * r6inv - 6 * d_lj2_sb(atype,btype));
-        evdwl = r6inv * (d_lj1_sb(atype,btype) * r6inv - d_lj2_sb(atype,btype));
-      } else {
-        const F_FLOAT r = sqrt(rsq_sb);
-        const F_FLOAT rinv = 1.0 / r;
-        fpair = 2 * d_epsilon_sb(atype,btype) * d_b_sb(atype,btype) * \
-          (d_cut_sb_c(atype,btype)  * rinv - 1);
-        evdwl = d_epsilon_sb(atype,btype) * d_b_sb(atype,btype) * \
-          (d_cut_sb_c(atype,btype) - r) * (d_cut_sb_c(atype,btype) - r);
-      }
+      evdwl = F3_KK(rsq_sb,d_cutsq_sb_ast(atype,btype),d_cut_sb_c(atype,btype),d_lj1_sb(atype,btype),
+                        d_lj2_sb(atype,btype),d_epsilon_sb(atype,btype),d_b_sb(atype,btype),fpair);
       // force and torque increment calculation
       delf[0] = fpair * delr_sb[0];
       delf[1] = fpair * delr_sb[1];
@@ -646,20 +622,8 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     // base-backbone
     if (rsq_bs < d_cutsq_sb_c(btype,atype)) {
       // F3 modulation factor, force and energy calculation
-      if (rsq_bs < d_cutsq_sb_ast(btype,atype)) {
-        const F_FLOAT r2inv = 1.0 / rsq_bs;
-        const F_FLOAT r6inv = r2inv * r2inv * r2inv;
-        fpair = r2inv * r6inv * \
-          (12 * d_lj1_sb(btype,atype) * r6inv - 6 * d_lj2_sb(btype,atype));
-        evdwl = r6inv * (d_lj1_sb(btype,atype) * r6inv - d_lj2_sb(btype,atype));
-      } else {
-        const F_FLOAT r = sqrt(rsq_bs);
-        const F_FLOAT rinv = 1.0 / r;
-        fpair = 2 * d_epsilon_sb(btype,atype) * d_b_sb(btype,atype) * \
-          (d_cut_sb_c(btype,atype)  * rinv - 1);
-        evdwl = d_epsilon_sb(btype,atype) * d_b_sb(btype,atype) * \
-          (d_cut_sb_c(btype,atype) - r) * (d_cut_sb_c(btype,atype) - r);
-      }
+      evdwl = F3_KK(rsq_bs,d_cutsq_sb_ast(btype,atype),d_cut_sb_c(btype,atype),d_lj1_sb(btype,atype),
+                        d_lj2_sb(btype,atype),d_epsilon_sb(btype,atype),d_b_sb(btype,atype),fpair);
       // force and torque increment calculation
       delf[0] = fpair * delr_bs[0];
       delf[1] = fpair * delr_bs[1];
@@ -705,20 +669,8 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     // base-base
     if (rsq_bb < d_cutsq_bb_c(atype,btype)) {
       // F3 modulation factor, force and energy calculation
-      if (rsq_bb < d_cutsq_bb_ast(atype,btype)) {
-        const F_FLOAT r2inv = 1.0 / rsq_bb;
-        const F_FLOAT r6inv = r2inv * r2inv * r2inv;
-        fpair = r2inv * r6inv * \
-          (12 * d_lj1_bb(atype,btype) * r6inv - 6 * d_lj2_bb(atype,btype));
-        evdwl = r6inv * (d_lj1_bb(atype,btype) * r6inv - d_lj2_bb(atype,btype));
-      } else {
-        const F_FLOAT r = sqrt(rsq_bb);
-        const F_FLOAT rinv = 1.0 / r;
-        fpair = 2 * d_epsilon_bb(atype,btype) * d_b_bb(atype,btype) * \
-          (d_cut_bb_c(atype,btype)  * rinv - 1);
-        evdwl = d_epsilon_bb(atype,btype) * d_b_bb(atype,btype) * \
-          (d_cut_bb_c(atype,btype) - r) * (d_cut_bb_c(atype,btype) - r);
-      }
+      evdwl = F3_KK(rsq_bb,d_cutsq_bb_ast(atype,btype),d_cut_bb_c(atype,btype),d_lj1_bb(atype,btype),
+                        d_lj2_bb(atype,btype),d_epsilon_bb(atype,btype),d_b_bb(atype,btype),fpair);
       // force and torque increment calculation
       delf[0] = fpair * delr_bb[0];
       delf[1] = fpair * delr_bb[1];

@@ -26,8 +26,10 @@
 #include "update.h"
 
 #include "pair_oxdna_excv_kokkos.h"
+#include "mf_oxdna_kokkos.h"
 
 using namespace LAMMPS_NS;
+using namespace MFOxdnaKokkos;
 using MathConst::MY_PI;
 
 /* ---------------------------------------------------------------------- */
@@ -382,15 +384,9 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
     delr_hb_norm[2] = delr_hb[2] * rinv_hb;
 
     // F2 modulation factor
-    if (r_hb < d_cut_xst_lc(atype,btype) || r_hb > d_cut_xst_hc(atype,btype)) {
-      f2 = 0.0;
-    } else if (r_hb < d_cut_xst_lo(atype,btype)) {
-      f2 = d_k_xst(atype,btype) * d_b_xst_lo(atype,btype) * (d_cut_xst_lc(atype,btype) - r_hb) * (d_cut_xst_lc(atype,btype) - r_hb);
-    } else if (r_hb < d_cut_xst_hi(atype,btype)) {
-      f2 = d_k_xst(atype,btype) * 0.5 * ((r_hb - d_cut_xst_0(atype,btype)) * (r_hb - d_cut_xst_0(atype,btype)) - (d_cut_xst_0(atype,btype) - d_cut_xst_c(atype,btype)) * (d_cut_xst_0(atype,btype) - d_cut_xst_c(atype,btype)));
-    } else {
-      f2 = d_k_xst(atype,btype) * d_b_xst_hi(atype,btype) * (d_cut_xst_hc(atype,btype) - r_hb) * (d_cut_xst_hc(atype,btype) - r_hb);
-    }
+    f2 = F2_KK(r_hb, d_k_xst(atype,btype), d_cut_xst_0(atype,btype), 
+               d_cut_xst_lc(atype,btype), d_cut_xst_hc(atype,btype), d_cut_xst_lo(atype,btype), d_cut_xst_hi(atype,btype), 
+               d_b_xst_lo(atype,btype), d_b_xst_hi(atype,btype), d_cut_xst_c(atype,btype));
 
     // start early rejection criterium
     if (f2) {
@@ -400,17 +396,10 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
       if (cost1 < -1.0) cost1 = -1.0;
       theta1 = acos(cost1);
       // F4 modulation factor
-      F_FLOAT dtheta = theta1 - d_theta_xst1_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst1_c(atype, btype)) {
-        f4t1 = 0.0;
-      } else if (dtheta > d_dtheta_xst1_ast(atype, btype)) {
-        f4t1 = d_b_xst1(atype, btype) * (dtheta - d_dtheta_xst1_c(atype, btype)) * (dtheta - d_dtheta_xst1_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst1_ast(atype, btype)) {
-        f4t1 = 1 - d_a_xst1(atype, btype) * dtheta * dtheta;
-      } else {
-        f4t1 = d_b_xst1(atype, btype) * (dtheta + d_dtheta_xst1_c(atype, btype)) * (dtheta + d_dtheta_xst1_c(atype, btype));
-      }
+      f4t1 = F4_KK(theta1, d_a_xst1(atype, btype), d_theta_xst1_0(atype, btype), d_dtheta_xst1_ast(atype, btype),
+             d_b_xst1(atype, btype), d_dtheta_xst1_c(atype, btype));
     // end of f2 
+
     // f4t1 early rejection criterium
     if (f4t1) {
       // theta2 calculation
@@ -419,17 +408,10 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
       if (cost2 < -1.0) cost2 = -1.0;
       theta2 = acos(cost2);
       // F4 modulation factor
-      dtheta = theta2 - d_theta_xst2_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst2_c(atype, btype)) {
-        f4t2 = 0.0;
-      } else if (dtheta > d_dtheta_xst2_ast(atype, btype)) {
-        f4t2 = d_b_xst2(atype, btype) * (dtheta - d_dtheta_xst2_c(atype, btype)) * (dtheta - d_dtheta_xst2_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst2_ast(atype, btype)) {
-        f4t2 = 1 - d_a_xst2(atype, btype) * dtheta * dtheta;
-      } else {
-        f4t2 = d_b_xst2(atype, btype) * (dtheta + d_dtheta_xst2_c(atype, btype)) * (dtheta + d_dtheta_xst2_c(atype, btype));
-      }
+      f4t2 = F4_KK(theta2, d_a_xst2(atype, btype), d_theta_xst2_0(atype, btype), d_dtheta_xst2_ast(atype, btype),
+             d_b_xst2(atype, btype), d_dtheta_xst2_c(atype, btype));
     // end of f4t1
+
     // f4t2 early rejection criterium
     if (f4t2) {
       // theta3 calculation
@@ -438,225 +420,92 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
       if (cost3 < -1.0) cost3 = -1.0;
       theta3 = acos(cost3);
       // F4 modulation factor
-      dtheta = theta3 - d_theta_xst3_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst3_c(atype, btype)) {
-        f4t3 = 0.0;
-      } else if (dtheta > d_dtheta_xst3_ast(atype, btype)) {
-        f4t3 = d_b_xst3(atype, btype) * (dtheta - d_dtheta_xst3_c(atype, btype)) * (dtheta - d_dtheta_xst3_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst3_ast(atype, btype)) {
-        f4t3 = 1 - d_a_xst3(atype, btype) * dtheta * dtheta;
-      } else {
-        f4t3 = d_b_xst3(atype, btype) * (dtheta + d_dtheta_xst3_c(atype, btype)) * (dtheta + d_dtheta_xst3_c(atype, btype));
-      }
+      f4t3 = F4_KK(theta3, d_a_xst3(atype, btype), d_theta_xst3_0(atype, btype), d_dtheta_xst3_ast(atype, btype),
+             d_b_xst3(atype, btype), d_dtheta_xst3_c(atype, btype));
     // end of f4t2
+
     // f4t3 early rejection criterium
     if (f4t3) {
-      // theta4 calculation
+      // theta4 and theta4p calculation
       cost4 = d_nz_xtrct(a,0)*d_nz_xtrct(b,0) + d_nz_xtrct(a,1)*d_nz_xtrct(b,1) + d_nz_xtrct(a,2)*d_nz_xtrct(b,2);
       if (cost4 > 1.0) cost4 = 1.0;
       if (cost4 < -1.0) cost4 = -1.0;
       theta4 = acos(cost4);
       theta4p = MY_PI - theta4;
-      // F4 modulation factor - NOTE: this is an expansion of the f4t4 calculation in the vanilla code, where f4t4 is 
-      // calculated in two parts.
-      dtheta = theta4 - d_theta_xst4_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst4_c(atype, btype)) {
-        f4t4 = 0.0;
-      } else if (dtheta > d_dtheta_xst4_ast(atype, btype)) {
-        f4t4 = d_b_xst4(atype, btype) * (dtheta - d_dtheta_xst4_c(atype, btype)) * (dtheta - d_dtheta_xst4_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst4_ast(atype, btype)) {
-        f4t4 = 1 - d_a_xst4(atype, btype) * dtheta * dtheta;
-      } else {
-        f4t4 = d_b_xst4(atype, btype) * (dtheta + d_dtheta_xst4_c(atype, btype)) * (dtheta + d_dtheta_xst4_c(atype, btype));
-      }
-      dtheta = theta4p - d_theta_xst4_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst4_c(atype, btype)) {
-        f4t4 += 0.0;
-      } else if (dtheta > d_dtheta_xst4_ast(atype, btype)) {
-        f4t4 += d_b_xst4(atype, btype) * (dtheta - d_dtheta_xst4_c(atype, btype)) * (dtheta - d_dtheta_xst4_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst4_ast(atype, btype)) {
-        f4t4 += 1 - d_a_xst4(atype, btype) * dtheta * dtheta;
-      } else {
-        f4t4 += d_b_xst4(atype, btype) * (dtheta + d_dtheta_xst4_c(atype, btype)) * (dtheta + d_dtheta_xst4_c(atype, btype));
-      }
+      // F4 modulation factor
+      f4t4 = F4_KK(theta4, d_a_xst4(atype, btype), d_theta_xst4_0(atype, btype), d_dtheta_xst4_ast(atype, btype),
+             d_b_xst4(atype, btype), d_dtheta_xst4_c(atype, btype)) +
+             F4_KK(theta4p, d_a_xst4(atype, btype), d_theta_xst4_0(atype, btype), d_dtheta_xst4_ast(atype, btype),
+             d_b_xst4(atype, btype), d_dtheta_xst4_c(atype, btype));
     // end of f4t3
+
     // f4t4 early rejection criterium
     if (f4t4) {
+      // theta7 and theta7p calculation
       cost7 = - (d_nz_xtrct(a,0)*delr_hb_norm[0] + d_nz_xtrct(a,1)*delr_hb_norm[1] + d_nz_xtrct(a,2)*delr_hb_norm[2]);
       if (cost7 > 1.0) cost7 = 1.0;
       if (cost7 < -1.0) cost7 = -1.0;
       theta7 = acos(cost7);
       theta7p = MY_PI - theta7;
-      // F4 modulation factor - NOTE: this is an expansion of the f4t7 calculation in the vanilla code, where f4t7 is
-      // calculated in two parts.
-      dtheta = theta7 - d_theta_xst7_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst7_c(atype, btype)) {
-        f4t7 = 0.0;
-      } else if (dtheta > d_dtheta_xst7_ast(atype, btype)) {
-        f4t7 = d_b_xst7(atype, btype) * (dtheta - d_dtheta_xst7_c(atype, btype)) * (dtheta - d_dtheta_xst7_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst7_ast(atype, btype)) {
-        f4t7 = 1 - d_a_xst7(atype, btype) * dtheta * dtheta;
-      } else {
-        f4t7 = d_b_xst7(atype, btype) * (dtheta + d_dtheta_xst7_c(atype, btype)) * (dtheta + d_dtheta_xst7_c(atype, btype));
-      }
-      dtheta = theta7p - d_theta_xst7_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst7_c(atype, btype)) {
-        f4t7 += 0.0;
-      } else if (dtheta > d_dtheta_xst7_ast(atype, btype)) {
-        f4t7 += d_b_xst7(atype, btype) * (dtheta - d_dtheta_xst7_c(atype, btype)) * (dtheta - d_dtheta_xst7_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst7_ast(atype, btype)) {
-        f4t7 += 1 - d_a_xst7(atype, btype) * dtheta * dtheta;
-      } else {
-        f4t7 += d_b_xst7(atype, btype) * (dtheta + d_dtheta_xst7_c(atype, btype)) * (dtheta + d_dtheta_xst7_c(atype, btype));
-      }
+      // F4 modulation factor
+      f4t7 = F4_KK(theta7, d_a_xst7(atype, btype), d_theta_xst7_0(atype, btype), d_dtheta_xst7_ast(atype, btype),
+             d_b_xst7(atype, btype), d_dtheta_xst7_c(atype, btype)) +
+             F4_KK(theta7p, d_a_xst7(atype, btype), d_theta_xst7_0(atype, btype), d_dtheta_xst7_ast(atype, btype),
+             d_b_xst7(atype, btype), d_dtheta_xst7_c(atype, btype));
     // end of f4t4
+
     // f4t7 early rejection criterium
     if (f4t7) {
+      // theta8 and theta8p calculation
       cost8 = d_nz_xtrct(b,0)*delr_hb_norm[0] + d_nz_xtrct(b,1)*delr_hb_norm[1] + d_nz_xtrct(b,2)*delr_hb_norm[2];
       if (cost8 > 1.0) cost8 = 1.0;
       if (cost8 < -1.0) cost8 = -1.0;
       theta8 = acos(cost8);
       theta8p = MY_PI - theta8;
-      // F4 modulation factor - NOTE: this is an expansion of the f4t8 calculation in the vanilla code, where f4t8 is
-      // calculated in two parts.
-      dtheta = theta8 - d_theta_xst8_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst8_c(atype, btype)) {
-        f4t8 = 0.0;
-      } else if (dtheta > d_dtheta_xst8_ast(atype, btype)) {
-        f4t8 = d_b_xst8(atype, btype) * (dtheta - d_dtheta_xst8_c(atype, btype)) * (dtheta - d_dtheta_xst8_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst8_ast(atype, btype)) {
-        f4t8 = 1 - d_a_xst8(atype, btype) * dtheta * dtheta;
-      } else {
-        f4t8 = d_b_xst8(atype, btype) * (dtheta + d_dtheta_xst8_c(atype, btype)) * (dtheta + d_dtheta_xst8_c(atype, btype));
-      }
-      dtheta = theta8p - d_theta_xst8_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst8_c(atype, btype)) {
-        f4t8 += 0.0;
-      } else if (dtheta > d_dtheta_xst8_ast(atype, btype)) {
-        f4t8 += d_b_xst8(atype, btype) * (dtheta - d_dtheta_xst8_c(atype, btype)) * (dtheta - d_dtheta_xst8_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst8_ast(atype, btype)) {
-        f4t8 += 1 - d_a_xst8(atype, btype) * dtheta * dtheta;
-      } else {
-        f4t8 += d_b_xst8(atype, btype) * (dtheta + d_dtheta_xst8_c(atype, btype)) * (dtheta + d_dtheta_xst8_c(atype, btype));
-      }
+      // F4 modulation factor
+      f4t8 = F4_KK(theta8, d_a_xst8(atype, btype), d_theta_xst8_0(atype, btype), d_dtheta_xst8_ast(atype, btype),
+             d_b_xst8(atype, btype), d_dtheta_xst8_c(atype, btype)) +
+             F4_KK(theta8p, d_a_xst8(atype, btype), d_theta_xst8_0(atype, btype), d_dtheta_xst8_ast(atype, btype),
+             d_b_xst8(atype, btype), d_dtheta_xst8_c(atype, btype));
+
       evdwl = f2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
     // end of f4t7
+
     // evdwl early rejection criterium
     if (evdwl) {
       // df2 = DF2 modulation factor
-      if (r_hb < d_cut_xst_lc(atype, btype) || r_hb > d_cut_xst_hc(atype, btype)) {
-        df2 = 0.0;
-      } else if (r_hb < d_cut_xst_lo(atype, btype)) {
-        df2 = 2 * d_k_xst(atype, btype) * d_b_xst_lo(atype, btype) * (r_hb - d_cut_xst_lc(atype, btype));
-      } else if (r_hb < d_cut_xst_hi(atype, btype)) {
-        df2 = d_k_xst(atype, btype) * (r_hb - d_cut_xst_0(atype, btype));
-      } else {
-        df2 = 2 * d_k_xst(atype, btype) * d_b_xst_hi(atype, btype) * (r_hb - d_cut_xst_hc(atype, btype));
-      }
+      df2 = DF2_KK(r_hb, d_k_xst(atype, btype), d_cut_xst_0(atype, btype),
+                   d_cut_xst_lc(atype, btype), d_cut_xst_hc(atype, btype), d_cut_xst_lo(atype, btype), d_cut_xst_hi(atype, btype),
+                   d_b_xst_lo(atype, btype), d_b_xst_hi(atype, btype));
       // df4t1 = DF4 modulation factor
-      dtheta = theta1 - d_theta_xst1_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst1_c(atype, btype)) {
-        df4t1 = 0.0;
-      } else if (dtheta > d_dtheta_xst1_ast(atype, btype)) {
-        df4t1 = 2 * d_b_xst1(atype, btype) * (dtheta - d_dtheta_xst1_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst1_ast(atype, btype)) {
-        df4t1 = -2 * d_a_xst1(atype, btype) * dtheta;
-      } else {
-        df4t1 = 2 * d_b_xst1(atype, btype) * (dtheta + d_dtheta_xst1_c(atype, btype));
-      }
-      df4t1 /= sin(theta1);
+      df4t1 = DF4_KK(theta1, d_a_xst1(atype, btype), d_theta_xst1_0(atype, btype), d_dtheta_xst1_ast(atype, btype),
+              d_b_xst1(atype, btype), d_dtheta_xst1_c(atype, btype))/sin(theta1);
       // df4t2 = DF4 modulation factor
-      dtheta = theta2 - d_theta_xst2_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst2_c(atype, btype)) {
-        df4t2 = 0.0;
-      } else if (dtheta > d_dtheta_xst2_ast(atype, btype)) {
-        df4t2 = 2 * d_b_xst2(atype, btype) * (dtheta - d_dtheta_xst2_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst2_ast(atype, btype)) {
-        df4t2 = -2 * d_a_xst2(atype, btype) * dtheta;
-      } else {
-        df4t2 = 2 * d_b_xst2(atype, btype) * (dtheta + d_dtheta_xst2_c(atype, btype));
-      }
-      df4t2 /= sin(theta2);
+      df4t2 = DF4_KK(theta2, d_a_xst2(atype, btype), d_theta_xst2_0(atype, btype), d_dtheta_xst2_ast(atype, btype),
+              d_b_xst2(atype, btype), d_dtheta_xst2_c(atype, btype))/sin(theta2);
       // df4t3 = DF4 modulation factor
-      dtheta = theta3 - d_theta_xst3_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst3_c(atype, btype)) {
-        df4t3 = 0.0;
-      } else if (dtheta > d_dtheta_xst3_ast(atype, btype)) {
-        df4t3 = 2 * d_b_xst3(atype, btype) * (dtheta - d_dtheta_xst3_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst3_ast(atype, btype)) {
-        df4t3 = -2 * d_a_xst3(atype, btype) * dtheta;
-      } else {
-        df4t3 = 2 * d_b_xst3(atype, btype) * (dtheta + d_dtheta_xst3_c(atype, btype));
-      }
-      df4t3 /= sin(theta3);
+      df4t3 = DF4_KK(theta3, d_a_xst3(atype, btype), d_theta_xst3_0(atype, btype), d_dtheta_xst3_ast(atype, btype),
+              d_b_xst3(atype, btype), d_dtheta_xst3_c(atype, btype))/sin(theta3);
       // df4t4 = DF4 modulation factor
       rsint = 1.0 / sin(theta4);
-      dtheta = theta4 - d_theta_xst4_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst4_c(atype, btype)) {
-        df4t4 = 0.0;
-      } else if (dtheta > d_dtheta_xst4_ast(atype, btype)) {
-        df4t4 = 2 * d_b_xst4(atype, btype) * (dtheta - d_dtheta_xst4_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst4_ast(atype, btype)) {
-        df4t4 = -2 * d_a_xst4(atype, btype) * dtheta;
-      } else {
-        df4t4 = 2 * d_b_xst4(atype, btype) * (dtheta + d_dtheta_xst4_c(atype, btype));
-      }
-      dtheta = theta4p - d_theta_xst4_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst4_c(atype, btype)) {
-        df4t4 += 0.0;
-      } else if (dtheta > d_dtheta_xst4_ast(atype, btype)) {
-        df4t4 -= 2 * d_b_xst4(atype, btype) * (dtheta - d_dtheta_xst4_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst4_ast(atype, btype)) {
-        df4t4 += 2 * d_a_xst4(atype, btype) * dtheta;
-      } else {
-        df4t4 -= 2 * d_b_xst4(atype, btype) * (dtheta + d_dtheta_xst4_c(atype, btype));
-      }
+      df4t4 = DF4_KK(theta4, d_a_xst4(atype, btype), d_theta_xst4_0(atype, btype), d_dtheta_xst4_ast(atype, btype),
+              d_b_xst4(atype, btype), d_dtheta_xst4_c(atype, btype)) -
+              DF4_KK(theta4p, d_a_xst4(atype, btype), d_theta_xst4_0(atype, btype), d_dtheta_xst4_ast(atype, btype),
+              d_b_xst4(atype, btype), d_dtheta_xst4_c(atype, btype));
       df4t4 *= rsint;
       // df4t7 = DF4 modulation factor
       rsint = 1.0 / sin(theta7);
-      dtheta = theta7 - d_theta_xst7_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst7_c(atype, btype)) {
-        df4t7 = 0.0;
-      } else if (dtheta > d_dtheta_xst7_ast(atype, btype)) {
-        df4t7 = 2 * d_b_xst7(atype, btype) * (dtheta - d_dtheta_xst7_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst7_ast(atype, btype)) {
-        df4t7 = -2 * d_a_xst7(atype, btype) * dtheta;
-      } else {
-        df4t7 = 2 * d_b_xst7(atype, btype) * (dtheta + d_dtheta_xst7_c(atype, btype));
-      }
-      dtheta = theta7p - d_theta_xst7_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst7_c(atype, btype)) {
-        df4t7 += 0.0;
-      } else if (dtheta > d_dtheta_xst7_ast(atype, btype)) {
-        df4t7 -= 2 * d_b_xst7(atype, btype) * (dtheta - d_dtheta_xst7_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst7_ast(atype, btype)) {
-        df4t7 += 2 * d_a_xst7(atype, btype) * dtheta;
-      } else {
-        df4t7 -= 2 * d_b_xst7(atype, btype) * (dtheta + d_dtheta_xst7_c(atype, btype));
-      }
+      df4t7 = DF4_KK(theta7, d_a_xst7(atype, btype), d_theta_xst7_0(atype, btype), d_dtheta_xst7_ast(atype, btype),
+              d_b_xst7(atype, btype), d_dtheta_xst7_c(atype, btype)) -
+              DF4_KK(theta7p, d_a_xst7(atype, btype), d_theta_xst7_0(atype, btype), d_dtheta_xst7_ast(atype, btype),
+              d_b_xst7(atype, btype), d_dtheta_xst7_c(atype, btype));
       df4t7 *= rsint;
       // df4t8 = DF4 modulation factor
       rsint = 1.0 / sin(theta8);
-      dtheta = theta8 - d_theta_xst8_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst8_c(atype, btype)) {
-        df4t8 = 0.0;
-      } else if (dtheta > d_dtheta_xst8_ast(atype, btype)) {
-        df4t8 = 2 * d_b_xst8(atype, btype) * (dtheta - d_dtheta_xst8_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst8_ast(atype, btype)) {
-        df4t8 = -2 * d_a_xst8(atype, btype) * dtheta;
-      } else {
-        df4t8 = 2 * d_b_xst8(atype, btype) * (dtheta + d_dtheta_xst8_c(atype, btype));
-      }
-      dtheta = theta8p - d_theta_xst8_0(atype, btype);
-      if (fabs(dtheta) > d_dtheta_xst8_c(atype, btype)) {
-        df4t8 += 0.0;
-      } else if (dtheta > d_dtheta_xst8_ast(atype, btype)) {
-        df4t8 -= 2 * d_b_xst8(atype, btype) * (dtheta - d_dtheta_xst8_c(atype, btype));
-      } else if (dtheta > -d_dtheta_xst8_ast(atype, btype)) {
-        df4t8 += 2 * d_a_xst8(atype, btype) * dtheta;
-      } else {
-        df4t8 -= 2 * d_b_xst8(atype, btype) * (dtheta + d_dtheta_xst8_c(atype, btype));
-      }
+      df4t8 = DF4_KK(theta8, d_a_xst8(atype, btype), d_theta_xst8_0(atype, btype), d_dtheta_xst8_ast(atype, btype),
+              d_b_xst8(atype, btype), d_dtheta_xst8_c(atype, btype)) -
+              DF4_KK(theta8p, d_a_xst8(atype, btype), d_theta_xst8_0(atype, btype), d_dtheta_xst8_ast(atype, btype),
+              d_b_xst8(atype, btype), d_dtheta_xst8_c(atype, btype));
       df4t8 *= rsint;
 
       // force, torque, and viral contributions for forces between h-bonding sites
