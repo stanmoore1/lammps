@@ -1,0 +1,272 @@
+diff --git a/.gitignore b/.gitignore
+index 28ac6ef..a401160 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -6,6 +6,8 @@ doc.toc
+ wham-dist.tar.gz
+ 
+ *.o
++*~
+ 
+ wham/wham
+ wham-2d/wham-2d
++/build
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+new file mode 100644
+index 0000000..b4f0fe6
+--- /dev/null
++++ b/CMakeLists.txt
+@@ -0,0 +1,38 @@
++# Custom minimal -*- CMake -*- file for wham
++
++cmake_minimum_required(VERSION 3.16)
++project(wham VERSION 2.0.11
++  DESCRIPTION "WHAM: a fast, memory efficient implementation of the Weighted Histogram Analysis Method"
++  LANGUAGES C
++  HOMEPAGE_URL http://membrane.urmc.rochester.edu/content/wham/)
++
++include(GNUInstallDirs)
++
++add_executable(wham
++  nr/ran2.c
++  nr/locate.c
++  wham/wham.c
++  wham/file_read.c
++  wham/histogram.c
++  wham/bootstrap.c
++)
++target_include_directories(wham PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/wham)
++target_link_libraries(wham PRIVATE m)
++install(TARGETS wham DESTINATION ${CMAKE_INSTALL_BINDIR})
++
++add_executable(wham-2d
++  nr/ran2.c
++  nr/locate.c
++  wham-2d/wham-2d.c
++  wham-2d/file_read.c
++  wham-2d/histogram.c
++  wham/bootstrap.c
++)
++target_include_directories(wham-2d PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/wham)
++target_link_libraries(wham-2d PRIVATE m)
++install(TARGETS wham-2d DESTINATION ${CMAKE_INSTALL_BINDIR})
++
++install(FILES doc/doc.pdf
++  TYPE DOC
++  PERMISSIONS OWNER_READ GROUP_READ WORLD_READ
++)
+diff --git a/wham-2d/wham-2d.c b/wham-2d/wham-2d.c
+index fb6e059..2c5594f 100644
+--- a/wham-2d/wham-2d.c
++++ b/wham-2d/wham-2d.c
+@@ -25,7 +25,7 @@
+ #include <time.h>
+ #include "wham-2d.h"
+ 
+-#define COMMAND_LINE "Command line:  wham-2d Px[=0|pi|val] hist_min_x hist_max_x num_bins_x Py[=0|pi|val] hist_min_y hist_max_y num_bins_y tol temperature numpad metadatafile freefile use_mask\n"
++#define COMMAND_LINE "Command line:  wham-2d [units <real|metal|lj|...>] Px[=0|pi|val] hist_min_x hist_max_x num_bins_x Py[=0|pi|val] hist_min_y hist_max_y num_bins_y tol temperature numpad metadatafile freefile use_mask\n"
+ double HIST_MAXx,HIST_MINx,BIN_WIDTHx;
+ double HIST_MAXy,HIST_MINy,BIN_WIDTHy;
+ double TOL;
+@@ -35,7 +35,7 @@ int  NUM_BINSx, NUM_BINSy;
+ int PERIODICx, PERIODICy;
+ double PERIODx, PERIODy;
+ double *data1,**num,***bias;
+-
++double k_B = k_B_DEFAULT;
+ 
+ int main(int argc, char *argv[])
+ {
+@@ -76,6 +76,61 @@ for (i=0; i<argc; i++)
+     }
+ printf("\n");
+ 
++// set k_B according to LAMMPS units settings
++if (strcmp(argv[1],"units") == 0)
++    {
++        if (argc < 3)
++        {
++            printf( COMMAND_LINE );
++            exit(-1);
++        }
++
++        if (strcmp(argv[2], "lj") == 0)
++        {
++            k_B = 1.0;
++        }
++        else if (strcmp(argv[2], "real") == 0)
++        {
++            k_B = 0.0019872067;
++        }
++        else if (strcmp(argv[2], "metal") == 0)
++        {
++            k_B = 8.617343e-5;
++        }
++        else if (strcmp(argv[2], "si") == 0)
++        {
++            k_B = 1.3806504e-23;
++        }
++        else if (strcmp(argv[2], "cgs") == 0)
++        {
++            k_B = 1.3806504e-16;
++        }
++        else if (strcmp(argv[2], "electron") == 0)
++        {
++            k_B = 3.16681534e-6;
++        }
++        else if (strcmp(argv[2], "micro") == 0)
++        {
++            k_B = 1.3806504e-8;
++        }
++        else if (strcmp(argv[2], "nano") == 0)
++        {
++            k_B = 0.013806504;
++        }
++        else if (strcmp(argv[2], "default") == 0)
++        {
++            k_B = k_B_DEFAULT;
++        }
++        else
++        {
++            printf("Unknown unit style: %s\n%s", argv[2], COMMAND_LINE);
++            exit(-1);
++        }
++        printf("# Setting value of k_B to = %.15g\n", k_B);
++        argc -= 2;
++        argv += 2;
++    }
++
+ PERIODICx = parse_periodic(argv[1], &PERIODx);
+ if (PERIODICx)
+     {
+diff --git a/wham-2d/wham-2d.h b/wham-2d/wham-2d.h
+index b17e4bd..5fc17ff 100644
+--- a/wham-2d/wham-2d.h
++++ b/wham-2d/wham-2d.h
+@@ -20,15 +20,15 @@ extern int    NUM_BINSy;
+ 
+ extern int    PERIODICx,PERIODICy;  // flags to turn on periodicity
+ extern double PERIODx, PERIODy;     // flags to control periodic interval
++extern double k_B;
+ 
+ // A couple of predefined periodic units
+ #define DEGREES   360.0
+ #define RADIANS   6.28318530717959
+ 
+-#define k_B 0.001982923700 // Boltzmann's constant in kcal/mol K
+-//#define k_B  0.0083144621 // Boltzmann's constant kJ/mol-K
+-//#define k_B 1.0  // Boltzmann's constant in reduced units
+-
++#define k_B_DEFAULT 0.001982923700 // Boltzmann's constant in kcal/mol K
++//#define k_B_DEFAULT 0.0083144621 // Boltzmann's constant kJ/mol-K
++//#define k_B_DEFAULT 1.0  // Boltzmann's constant in reduced units
+ 
+ 
+ // Value inserted for the free energy of masked values
+diff --git a/wham/wham.c b/wham/wham.c
+index 487871b..1496eed 100644
+--- a/wham/wham.c
++++ b/wham/wham.c
+@@ -21,7 +21,7 @@
+ #include "wham.h"
+ 
+ 
+-#define COMMAND_LINE "Command line: wham [P|Ppi|Pval] hist_min hist_max num_bins tol temperature numpad metadatafile freefile [num_MC_trials randSeed]\n"
++#define COMMAND_LINE "Command line: wham [units <real|metal|lj|...>] [P|Ppi|Pval] hist_min hist_max num_bins tol temperature numpad metadatafile freefile [num_MC_trials randSeed]\n"
+ 
+ double HIST_MAX,HIST_MIN,BIN_WIDTH,TOL;
+ double *HISTOGRAM;
+@@ -29,6 +29,7 @@ double kT;
+ int  NUM_BINS;
+ int PERIODIC;
+ double PERIOD;
++double k_B = k_B_DEFAULT;
+ 
+ int main(int argc, char *argv[])
+ {
+@@ -82,6 +83,61 @@ for (i=0; i<argc; i++)
+     }
+ printf("\n");
+ 
++// set k_B according to LAMMPS units settings
++if (strcmp(argv[1],"units") == 0)
++    {
++        if (argc < 3)
++        {
++            printf( COMMAND_LINE );
++            exit(-1);
++        }
++
++        if (strcmp(argv[2], "lj") == 0)
++        {
++            k_B = 1.0;
++        }
++        else if (strcmp(argv[2], "real") == 0)
++        {
++            k_B = 0.0019872067;
++        }
++        else if (strcmp(argv[2], "metal") == 0)
++        {
++            k_B = 8.617343e-5;
++        }
++        else if (strcmp(argv[2], "si") == 0)
++        {
++            k_B = 1.3806504e-23;
++        }
++        else if (strcmp(argv[2], "cgs") == 0)
++        {
++            k_B = 1.3806504e-16;
++        }
++        else if (strcmp(argv[2], "electron") == 0)
++        {
++            k_B = 3.16681534e-6;
++        }
++        else if (strcmp(argv[2], "micro") == 0)
++        {
++            k_B = 1.3806504e-8;
++        }
++        else if (strcmp(argv[2], "nano") == 0)
++        {
++            k_B = 0.013806504;
++        }
++        else if (strcmp(argv[2], "default") == 0)
++        {
++            k_B = k_B_DEFAULT;
++        }
++        else
++        {
++            printf("Unknown unit style: %s\n%s", argv[2], COMMAND_LINE);
++            exit(-1);
++        }
++        printf("# Setting value of k_B to = %.15g\n", k_B);
++        argc -= 2;
++        argv += 2;
++    }
++
+ if (toupper(argv[1][0]) == 'P')
+     {
+     PERIODIC = 1;
+diff --git a/wham/wham.h b/wham/wham.h
+index aacc1e8..7d509f2 100644
+--- a/wham/wham.h
++++ b/wham/wham.h
+@@ -15,14 +15,16 @@ extern double kT;
+ extern int    NUM_BINS;
+ extern int    PERIODIC;
+ extern double PERIOD;
++extern double k_B;
++
+ 
+ // Some predefined periodic units
+ #define DEGREES   360.0
+ #define RADIANS   6.28318530717959
+ 
+-#define k_B 0.001982923700 // Boltzmann's constant in kcal/mol K
+-//#define k_B  0.0083144621 // Boltzmann's constant kJ/mol-K
+-//#define k_B 1.0  // Boltzmann's constant in reduced units
++#define k_B_DEFAULT 0.001982923700 // Boltzmann's constant in kcal/mol K
++//#define k_B_DEFAULT  0.0083144621 // Boltzmann's constant kJ/mol-K
++//#define k_B_DEFAULT 1.0  // Boltzmann's constant in reduced units
+ 
+ 
+ // global (untrimmed) histogram, global to prevent reallocation

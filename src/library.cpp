@@ -129,7 +129,7 @@ The :cpp:func:`lammps_open` function creates a new :cpp:class:`LAMMPS
 as if they were :doc:`command-line arguments <Run_options>` for the
 LAMMPS executable, and an MPI communicator for LAMMPS to run under.
 Since the list of arguments is **exactly** as when called from the
-command line, the first argument would be the name of the executable and
+command-line, the first argument would be the name of the executable and
 thus is otherwise ignored.  However ``argc`` may be set to 0 and then
 ``argv`` may be ``NULL``.  If MPI is not yet initialized, ``MPI_Init()``
 will be called during creation of the LAMMPS class instance.
@@ -163,8 +163,8 @@ fails a null pointer is returned.
 
 \endverbatim
  *
- * \param  argc  number of command line arguments
- * \param  argv  list of command line argument strings
+ * \param  argc  number of command-line arguments
+ * \param  argv  list of command-line argument strings
  * \param  comm  MPI communicator for this LAMMPS instance
  * \param  ptr   pointer to a void pointer variable which serves
  *               as a handle; may be ``NULL``
@@ -230,8 +230,8 @@ fails a null pointer is returned.
 
 \endverbatim
  *
- * \param  argc  number of command line arguments
- * \param  argv  list of command line argument strings
+ * \param  argc  number of command-line arguments
+ * \param  argv  list of command-line argument strings
  * \param  ptr   pointer to a void pointer variable
  *               which serves as a handle; may be ``NULL``
  * \return       pointer to new LAMMPS instance cast to ``void *`` */
@@ -264,8 +264,8 @@ fails a null pointer is returned.
 
 \endverbatim
  *
- * \param  argc   number of command line arguments
- * \param  argv   list of command line argument strings
+ * \param  argc   number of command-line arguments
+ * \param  argv   list of command-line argument strings
  * \param  f_comm Fortran style MPI communicator for this LAMMPS instance
  * \return        pointer to new LAMMPS instance cast to ``void *`` */
 
@@ -519,7 +519,7 @@ must be freed with :cpp:func:`lammps_free` after use to avoid a memory leak.
 \endverbatim
  *
  * \param  handle  pointer to a previously created LAMMPS instance
- * \param  cmd     string with a single LAMMPS input line
+ * \param  line    string with a single LAMMPS input line
  * \return         string with expanded line */
 
 char *lammps_expand(void *handle, const char *line)
@@ -592,7 +592,7 @@ This function tells LAMMPS to execute the single command in the string
 (final) newline character.  Newline characters in the body of the
 string, however, will be treated as part of the command and will **not**
 start a second command.  The function :cpp:func:`lammps_commands_string`
-processes a string with multiple command lines.
+processes a string with multiple command-lines.
 
 The function returns the name of the command on success or ``NULL`` when
 passing a string without a command.

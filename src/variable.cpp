@@ -277,7 +277,8 @@ void Variable::set(int narg, char **arg)
       copy(num[nvar],&arg[2],data[nvar]);
     } else if (strcmp(arg[1],"uloop") == 0) {
       if (narg < 3 || narg > 4)
-        error->all(FLERR,"Illegal variable command: expected 3 or 4 arguments but found {}", narg);
+        error->all(FLERR,"Illegal variable command: expected 3 or 4 arguments but found {}: {}",
+                   narg, utils::errorurl(3));
       if (narg == 4 && strcmp(arg[3],"pad") != 0)
         error->all(FLERR, "Invalid variable uloop argument: {}", arg[3]);
       if (find(arg[0]) >= 0) return;
@@ -314,7 +315,9 @@ void Variable::set(int narg, char **arg)
   // data = 1 value, string to eval
 
   } else if (strcmp(arg[1],"string") == 0) {
-    if (narg != 3) error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}", narg);
+    if (narg != 3)
+      error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}{}",
+                 narg, utils::errorurl(3));
 
     int maxcopy = strlen(arg[2]) + 1;
     int maxwork = maxcopy;
@@ -348,7 +351,9 @@ void Variable::set(int narg, char **arg)
   // data = 1 value, string to eval
 
   } else if (strcmp(arg[1],"getenv") == 0) {
-    if (narg != 3) error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}", narg);
+    if (narg != 3)
+      error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}{}",
+                 narg, utils::errorurl(3));
     if (find(arg[0]) >= 0) {
       if (style[find(arg[0])] != GETENV)
         error->all(FLERR,"Cannot redefine variable as a different style");
@@ -368,7 +373,9 @@ void Variable::set(int narg, char **arg)
   // data = 1 value, string to eval
 
   } else if (strcmp(arg[1],"file") == 0) {
-    if (narg != 3) error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}", narg);
+    if (narg != 3)
+      error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}{}",
+                 narg, utils::errorurl(3));
     if (find(arg[0]) >= 0) return;
     if (nvar == maxvar) grow();
     style[nvar] = SCALARFILE;
@@ -387,7 +394,9 @@ void Variable::set(int narg, char **arg)
   // data = nullptr
 
   } else if (strcmp(arg[1],"atomfile") == 0) {
-    if (narg != 3) error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}", narg);
+    if (narg != 3)
+      error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}{}",
+                 narg, utils::errorurl(3));
     if (find(arg[0]) >= 0) return;
     if (nvar == maxvar) grow();
     style[nvar] = ATOMFILE;
@@ -409,7 +418,9 @@ void Variable::set(int narg, char **arg)
 
   } else if (strcmp(arg[1],"format") == 0) {
     constexpr char validfmt[] = "^% ?-?[0-9]*\\.?[0-9]*[efgEFG]$";
-    if (narg != 4) error->all(FLERR,"Illegal variable command: expected 4 arguments but found {}", narg);
+    if (narg != 4)
+      error->all(FLERR,"Illegal variable command: expected 4 arguments but found {}{}",
+                 narg, utils::errorurl(3));
     int ivar = find(arg[0]);
     int jvar = find(arg[2]);
     if (jvar < 0)
@@ -446,7 +457,9 @@ void Variable::set(int narg, char **arg)
   // data = 2 values, 1st is string to eval, 2nd is filled on retrieval
 
   } else if (strcmp(arg[1],"equal") == 0) {
-    if (narg != 3) error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}", narg);
+    if (narg != 3)
+      error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}{}",
+                 narg, utils::errorurl(3));
     int ivar = find(arg[0]);
     if (ivar >= 0) {
       if (style[ivar] != EQUAL)
@@ -472,7 +485,9 @@ void Variable::set(int narg, char **arg)
   // data = 1 value, string to eval
 
   } else if (strcmp(arg[1],"atom") == 0) {
-    if (narg != 3) error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}", narg);
+    if (narg != 3)
+      error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}{}",
+                 narg, utils::errorurl(3));
     int ivar = find(arg[0]);
     if (ivar >= 0) {
       if (style[ivar] != ATOM)
@@ -498,7 +513,9 @@ void Variable::set(int narg, char **arg)
   //   immediately store it as N-length vector and set dynamic flag to 0
 
   } else if (strcmp(arg[1],"vector") == 0) {
-    if (narg != 3) error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}", narg);
+    if (narg != 3)
+      error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}{}",
+                 narg, utils::errorurl(3));
     int ivar = find(arg[0]);
     if (ivar >= 0) {
       if (style[ivar] != VECTOR)
@@ -540,7 +557,9 @@ void Variable::set(int narg, char **arg)
   // data = 2 values, 1st is Python func to invoke, 2nd is filled by invoke
 
   } else if (strcmp(arg[1],"python") == 0) {
-    if (narg != 3) error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}", narg);
+    if (narg != 3)
+      error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}{}",
+                 narg, utils::errorurl(3));
     if (!python->is_enabled())
       error->all(FLERR,"LAMMPS is not built with Python embedded");
     int ivar = find(arg[0]);
@@ -593,7 +612,9 @@ void Variable::set(int narg, char **arg)
   // dvalue = numeric initialization from 2nd arg, reset by internal_set()
 
   } else if (strcmp(arg[1],"internal") == 0) {
-    if (narg != 3) error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}", narg);
+    if (narg != 3)
+      error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}{}",
+                 narg, utils::errorurl(3));
     int ivar = find(arg[0]);
     if (ivar >= 0) {
       if (style[ivar] != INTERNAL)
@@ -4718,7 +4739,7 @@ int Variable::special_function(const std::string &word, char *contents, Tree **t
 
       double *result;
       memory->create(result,atom->nlocal,"variable:result");
-      memcpy(result,reader[ivar]->fixstore->vstore,atom->nlocal*sizeof(double));
+      memcpy(result,reader[ivar]->fixstore->vstore,(atom->nlocal*sizeof(double))&MEMCPYMASK);
 
       int done = reader[ivar]->read_peratom();
       if (done) remove(ivar);

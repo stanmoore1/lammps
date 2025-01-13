@@ -159,7 +159,7 @@ template<class DeviceType>
 class KKDevice {
  public:
 #if ((defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOS_ENABLE_CUDA_UVM)) || \
-     (defined(KOKKOS_ENABLE_HIP) && defined(KOKKOS_ENABLE_IMPL_HIP_UNIFIED_MEMORY)))
+     (defined(KOKKOS_ENABLE_HIP) && defined(KOKKOS_ARCH_AMD_GFX942_APU)))
   typedef Kokkos::Device<DeviceType,LMPDeviceType::memory_space> value;
 #else
   typedef Kokkos::Device<DeviceType,typename DeviceType::memory_space> value;

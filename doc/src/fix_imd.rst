@@ -97,7 +97,7 @@ adjustments.
 To connect VMD to a listening LAMMPS simulation on the same machine
 with fix imd enabled, one needs to start VMD and load a coordinate or
 topology file that matches the fix group.  When the VMD command
-prompts appears, one types the command line:
+prompts appears, one types the command:
 
 .. parsed-literal::
 
