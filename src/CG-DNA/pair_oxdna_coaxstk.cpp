@@ -534,27 +534,6 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       // Full cosphi3 and cosphi4 (=cosphi3) contribution to the torque
       if (cosphi3) {
 
-        gamma = d_cs - d_cst;
-        gammacub = gamma * gamma * gamma;
-        rinv_ss_cub = rinv_ss * rinv_ss * rinv_ss;
-        aybx = MathExtra::dot3(ay,bx);
-        azbx = MathExtra::dot3(az,bx);
-        rax = MathExtra::dot3(delr_st_norm,ax);
-        ray = MathExtra::dot3(delr_st_norm,ay);
-        raz = MathExtra::dot3(delr_st_norm,az);
-        rbx = MathExtra::dot3(delr_st_norm,bx);
-
-        fac = (raz * aybx - ray * azbx);
-
-        dcdr    = -gamma * fac * (gamma * (rax - rbx) + r_st) * rinv_ss_cub;
-        dcdaxbx =  gammacub * fac * rinv_ss_cub;
-        dcdaybx =  gamma * raz * rinv_ss;
-        dcdazbx = -gamma * ray * rinv_ss;
-        dcdrax  = -gamma*gamma * fac * r_st * rinv_ss_cub;
-        dcdray  = -gamma * azbx * rinv_ss;
-        dcdraz  =  gamma * aybx * rinv_ss;
-        dcdrbx  =  gamma*gamma * fac * r_st * rinv_ss_cub;
-
         tpair   = -f2 * f4t1 * f4t4 * f4t5 * f4t6 * 2.0 * f5c3 * df5c3 * factor_lj;
 
         MathExtra::cross3(ax,bx,v1tmp);
