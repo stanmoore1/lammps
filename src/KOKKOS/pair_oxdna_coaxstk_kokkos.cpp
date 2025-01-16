@@ -218,11 +218,8 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   copymode = 1;
 
-  // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna/excv/kk or oxdna2/excv/kk
-  auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna/excv/kk", 1, 1));
-  if (oxdna_excvKK == NULL) {
-    auto oxdna_excvKK = dynamic_cast<PairOxrna2ExcvKokkos<DeviceType> *>(force->pair_match("oxrna2/excv/kk", 1, 1));
-  }
+  // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna/excv/kk or oxrna2/excv/kk
+  auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("ox.na.*excv/kk", 0, 1));
   d_nx_xtrct = oxdna_excvKK->k_nx.template view<DeviceType>();
   d_ny_xtrct = oxdna_excvKK->k_ny.template view<DeviceType>();
   d_nz_xtrct = oxdna_excvKK->k_nz.template view<DeviceType>();
@@ -695,9 +692,6 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
 
       // Full cosphi3 and cosphi4 (=cosphi3) contribution to the torque
       if (cosphi3) {
-        
-        //NOTE: Vanilla code appears to have duplicated recalculation here for gamma, ...., ->, dcdrbx.
-        //      Going straight to tpair calculation.
 
         tpair   = -f2 * f4t1 * f4t4 * f4t5 * f4t6 * 2.0 * f5c3 * df5c3 * factor_lj;
 
