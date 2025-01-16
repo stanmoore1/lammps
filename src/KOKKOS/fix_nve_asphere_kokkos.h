@@ -26,7 +26,7 @@ FixStyle(nve/asphere/kk/host,FixNVEAsphereKokkos<LMPHostType>);
 #include "fix_nve_asphere.h"
 #include "kokkos_type.h"
 
-#include "atom_vec_ellipsoid_kokkos.h" // remove?
+#include "atom_vec_ellipsoid_kokkos.h"
 
 namespace LAMMPS_NS {
 
@@ -39,17 +39,16 @@ class FixNVEAsphereKokkos : public FixNVEAsphere {
     void init() override;
     void initial_integrate(int) override;
     void final_integrate() override;
-    //void fused_integrate(int) override;
+    void fused_integrate(int) override;
 
     KOKKOS_INLINE_FUNCTION
     void initial_integrate_item(const int i) const;
     KOKKOS_INLINE_FUNCTION
     void final_integrate_item(const int i) const;
-    /*KOKKOS_INLINE_FUNCTION
-    void fused_integrate_item(int) const;*/
+    KOKKOS_INLINE_FUNCTION
+    void fused_integrate_item(int) const;
 
   private:
-    //class AtomVecEllipsoidKokkos *avecEllipKK;
     typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d bonus;
     typename ArrayTypes<DeviceType>::t_int_1d ellipsoid;
     typename ArrayTypes<DeviceType>::t_x_array x;
@@ -83,7 +82,7 @@ struct FixNVEAsphereKokkosFinalIntegrateFunctor {
   }
 };
 
-/*template <class DeviceType>
+template <class DeviceType>
 struct FixNVEAsphereKokkosFusedIntegrateFunctor {
   typedef DeviceType device_type;
   FixNVEAsphereKokkos<DeviceType> c;
@@ -92,7 +91,7 @@ struct FixNVEAsphereKokkosFusedIntegrateFunctor {
   void operator()(const int i) const {
     c.fused_integrate_item(i);
   }
-};*/
+};
 
 } // namespace LAMMPS_NS
 
