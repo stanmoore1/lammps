@@ -36,12 +36,15 @@ static constexpr double SMALL = 0.00001;
 
 /* ---------------------------------------------------------------------- */
 
-ComputeStructureFactor::ComputeStructureFactor(LAMMPS *lmp, int narg, char **arg) :
-    Compute(lmp, narg, arg)
+ComputeStructureFactor::ComputeStructureFactor(LAMMPS *lmp, int narg, char **arg) : Compute(lmp, narg, arg),
+  kxvecs(nullptr), kyvecs(nullptr), kzvecs(nullptr),
+  sfacrl(nullptr), sfacim(nullptr), sfacrl_all(nullptr), sfacim_all(nullptr),
+  cs(nullptr), sn(nullptr)
 {
   kmax_created = 0;
 
-  kxvecs = kyvecs = nullptr;
+  kmax = 0;
+  kxvecs = kyvecs = kzvecs = nullptr;
   sfacrl = sfacim = sfacrl_all = sfacim_all = nullptr;
 
   nmax = 0;
@@ -49,14 +52,18 @@ ComputeStructureFactor::ComputeStructureFactor(LAMMPS *lmp, int narg, char **arg
 
   kcount = 0;
 
-  nbins = 2; //////
-  kmax = 2; //////
+  kmax = 10; //////
 
-  kmax2d = 6*kmax*kmax + 3*kmax;
+  kmax3d = 2*kmax*kmax + 2*kmax;
+  int ksqmax = kmax*kmax;
 
-  vector = nullptr;
-  vector_flag = 1;
-  size_vector = nbins*nbins*kmax2d;
+  array = nullptr;
+  array_flag = 1;
+  extarray = 1;
+
+  setup();
+
+  //size_array = ksqmax;
 }
 
 /* ----------------------------------------------------------------------
@@ -84,20 +91,18 @@ void ComputeStructureFactor::init()
   if (domain->nonperiodic > 0)
     error->all(FLERR,"Cannot use non-periodic boundaries with StructureFactor");
 
-  if (domain->triclinic)
-    error->all(FLERR,"Cannot (yet) use StructureFactor with triclinic box");
-
   // setup StructureFactor coefficients so can print stats
 
   setup();
 
+
   // stats
 
   if (comm->me == 0) {
-    std::string mesg = fmt::format("  KSpace vectors: actual max1d max2d = {} {} {}\n",
-                        kcount,kmax,kmax2d);
-    mesg += fmt::format("                  kxmax kymax  = {} {} {}\n",
-                        kxmax,kymax);
+    std::string mesg = fmt::format("  KSpace arrays: actual max1d max2d = {} {} {}\n",
+                        kcount,kmax,kmax3d);
+    mesg += fmt::format("                  kxmax kymax kzmax  = {} {} {}\n",
+                        kxmax,kymax,kzmax);
     utils::logmesg(lmp,mesg);
   }
 }
@@ -118,15 +123,49 @@ void ComputeStructureFactor::setup()
 
   unitk[0] = 2.0*MY_PI/xprd;
   unitk[1] = 2.0*MY_PI/yprd;
-
-  kxmax = kmax;
-  kymax = kmax;
+  unitk[2] = 2.0*MY_PI/zprd;
 
   int kmax_old = kmax;
 
+  // determine kmax
+  // function of current box size, accuracy, G_ewald (short-range cutoff)
+
+  bigint natoms = atom->natoms;
+  double err;
+  kxmax = 1;
+  kymax = 1;
+  kzmax = 1;
+
+  kmax = MAX(kxmax,kymax);
+  kmax = MAX(kmax,kzmax);
+  kmax3d = 4*kmax*kmax*kmax + 6*kmax*kmax + 3*kmax;
+
   double gsqxmx = unitk[0]*unitk[0]*kxmax*kxmax;
   double gsqymx = unitk[1]*unitk[1]*kymax*kymax;
+  double gsqzmx = unitk[2]*unitk[2]*kzmax*kzmax;
   gsqmx = MAX(gsqxmx,gsqymx);
+  gsqmx = MAX(gsqmx,gsqzmx);
+
+  kxmax_orig = kxmax;
+  kymax_orig = kymax;
+  kzmax_orig = kzmax;
+
+  // scale lattice vectors for triclinic skew
+
+  if (triclinic) {
+    double tmp[3];
+    tmp[0] = kxmax/xprd;
+    tmp[1] = kymax/yprd;
+    tmp[2] = kzmax/zprd;
+    lamda2xT(&tmp[0],&tmp[0]);
+    kxmax = MAX(1,static_cast<int>(tmp[0]));
+    kymax = MAX(1,static_cast<int>(tmp[1]));
+    kzmax = MAX(1,static_cast<int>(tmp[2]));
+
+    kmax = MAX(kxmax,kymax);
+    kmax = MAX(kmax,kzmax);
+    kmax3d = 4*kmax*kmax*kmax + 6*kmax*kmax + 3*kmax;
+  }
 
   gsqmx *= 1.00001;
 
@@ -139,21 +178,24 @@ void ComputeStructureFactor::setup()
     memory->destroy3d_offset(cs,-kmax_created);
     memory->destroy3d_offset(sn,-kmax_created);
     nmax = atom->nmax;
-    memory->create3d_offset(cs,-kmax,kmax,2,nmax,"ewald:cs");
-    memory->create3d_offset(sn,-kmax,kmax,2,nmax,"ewald:sn");
+    memory->create3d_offset(cs,-kmax,kmax,3,nmax,"ewald:cs");
+    memory->create3d_offset(sn,-kmax,kmax,3,nmax,"ewald:sn");
     kmax_created = kmax;
   }
 
   // pre-compute StructureFactor coefficients
 
-  coeffs();
+  if (triclinic == 0)
+    coeffs();
+  else
+    coeffs_triclinic();
 }
 
 /* ----------------------------------------------------------------------
    compute the structure factor
 ------------------------------------------------------------------------- */
 
-void ComputeStructureFactor::compute_vector()
+void ComputeStructureFactor::compute_array()
 {
   // extend size of per-atom arrays if necessary
 
@@ -161,48 +203,53 @@ void ComputeStructureFactor::compute_vector()
     memory->destroy3d_offset(cs,-kmax_created);
     memory->destroy3d_offset(sn,-kmax_created);
     nmax = atom->nmax;
-    memory->create3d_offset(cs,-kmax,kmax,2,nmax,"ewald:cs");
-    memory->create3d_offset(sn,-kmax,kmax,2,nmax,"ewald:sn");
+    memory->create3d_offset(cs,-kmax,kmax,3,nmax,"ewald:cs");
+    memory->create3d_offset(sn,-kmax,kmax,3,nmax,"ewald:sn");
     kmax_created = kmax;
   }
-
-  atom2bin1d();
 
   // partial structure factors on each processor
   // total structure factor by summing over procs
 
-  eik_dot_r();
+  if (triclinic == 0)
+    eik_dot_r();
+  else
+    eik_dot_r_triclinic();
 
-  MPI_Allreduce(sfacrl,sfacrl_all,kmax2d*nbins,MPI_DOUBLE,MPI_SUM,world);
-  MPI_Allreduce(sfacim,sfacim_all,kmax2d*nbins,MPI_DOUBLE,MPI_SUM,world);
+  MPI_Allreduce(sfacrl,sfacrl_all,kcount,MPI_DOUBLE,MPI_SUM,world);
+  MPI_Allreduce(sfacim,sfacim_all,kcount,MPI_DOUBLE,MPI_SUM,world);
+
 
   for (int k = 0; k < kcount; k++) {
-    for (int ibin = 0; ibin < nbins; ibin++) {
-      for (int jbin = 0; jbin < nbins; jbin++) {
-        vector[k*nbins*nbins + ibin*nbins + jbin] = sfacrl_all[k][ibin]*sfacrl_all[k][jbin] +
-                               sfacim_all[k][ibin]*sfacim_all[k][jbin];
-      }
-    }
+    int l = kxvecs[k];
+    int m = kyvecs[k];
+    int sqk_int = l*l + m*m;
+    //printf("%i %i %i: %g\n",sqk_int,ibin,jbin,sfacrl_all[k][ibin]*sfacrl_all[k][jbin] +
+    //                       sfacim_all[k][ibin]*sfacim_all[k][jbin]/norms[sqk_int]);
+    array[sqk_int][sqk_int] = sfacrl_all[k]*sfacrl_all[k] +
+                               sfacim_all[k]*sfacim_all[k]/norms[sqk_int];
   }
 }
 
 /* ---------------------------------------------------------------------- */
-
 void ComputeStructureFactor::eik_dot_r()
 {
   int i,k,l,m,n,ic;
-  double sqk;
+  double cstr1,sstr1,cstr2,sstr2,cstr3,sstr3,cstr4,sstr4;
+  double sqk,clpm,slpm;
 
   double **x = atom->x;
   int nlocal = atom->nlocal;
 
   n = 0;
 
-  // (k,0), (0,l)
+  // (k,0,0), (0,l,0), (0,0,m)
 
-  for (ic = 0; ic < 2; ic++) {
+  for (ic = 0; ic < 3; ic++) {
     sqk = unitk[ic]*unitk[ic];
     if (sqk <= gsqmx) {
+      cstr1 = 0.0;
+      sstr1 = 0.0;
       for (i = 0; i < nlocal; i++) {
         cs[0][ic][i] = 1.0;
         sn[0][ic][i] = 0.0;
@@ -210,18 +257,20 @@ void ComputeStructureFactor::eik_dot_r()
         sn[1][ic][i] = sin(unitk[ic]*x[i][ic]);
         cs[-1][ic][i] = cs[1][ic][i];
         sn[-1][ic][i] = -sn[1][ic][i];
-
-        int ibin = bins[i];
-        sfacrl[n][ibin] += cs[1][ic][i];
-        sfacim[n++][ibin] += sn[1][ic][i];
+        cstr1 += weight[i]*cs[1][ic][i];
+        sstr1 += weight[i]*sn[1][ic][i];
       }
+      sfacrl[n] = cstr1;
+      sfacim[n++] = sstr1;
     }
   }
 
   for (m = 2; m <= kmax; m++) {
-    for (ic = 0; ic < 2; ic++) {
+    for (ic = 0; ic < 3; ic++) {
       sqk = m*unitk[ic] * m*unitk[ic];
       if (sqk <= gsqmx) {
+        cstr1 = 0.0;
+        sstr1 = 0.0;
         for (i = 0; i < nlocal; i++) {
           cs[m][ic][i] = cs[m-1][ic][i]*cs[1][ic][i] -
             sn[m-1][ic][i]*sn[1][ic][i];
@@ -229,35 +278,215 @@ void ComputeStructureFactor::eik_dot_r()
             cs[m-1][ic][i]*sn[1][ic][i];
           cs[-m][ic][i] = cs[m][ic][i];
           sn[-m][ic][i] = -sn[m][ic][i];
-
-          int ibin = bins[i];
-          sfacrl[n][ibin] += cs[m][ic][i];
-          sfacim[n++][ibin] += sn[m][ic][i];
+          cstr1 += weight[i]*cs[m][ic][i];
+          sstr1 += weight[i]*sn[m][ic][i];
         }
+        sfacrl[n] = cstr1;
+        sfacim[n++] = sstr1;
       }
     }
   }
 
-  // 1 = (k,l), 2 = (k,-l)
+  // 1 = (k,l,0), 2 = (k,-l,0)
 
   for (k = 1; k <= kxmax; k++) {
     for (l = 1; l <= kymax; l++) {
       sqk = (k*unitk[0] * k*unitk[0]) + (l*unitk[1] * l*unitk[1]);
       if (sqk <= gsqmx) {
+        cstr1 = 0.0;
+        sstr1 = 0.0;
+        cstr2 = 0.0;
+        sstr2 = 0.0;
         for (i = 0; i < nlocal; i++) {
-          int ibin = bins[i];
-          sfacrl[n][ibin] += cs[k][0][i]*cs[l][1][i] - sn[k][0][i]*sn[l][1][i];
-          sfacim[n++][ibin] += sn[k][0][i]*cs[l][1][i] + cs[k][0][i]*sn[l][1][i];
-          sfacrl[n][ibin] += cs[k][0][i]*cs[l][1][i] + sn[k][0][i]*sn[l][1][i];
-          sfacim[n++][ibin] += sn[k][0][i]*cs[l][1][i] - cs[k][0][i]*sn[l][1][i];
+          cstr1 += weight[i]*(cs[k][0][i]*cs[l][1][i] - sn[k][0][i]*sn[l][1][i]);
+          sstr1 += weight[i]*(sn[k][0][i]*cs[l][1][i] + cs[k][0][i]*sn[l][1][i]);
+          cstr2 += weight[i]*(cs[k][0][i]*cs[l][1][i] + sn[k][0][i]*sn[l][1][i]);
+          sstr2 += weight[i]*(sn[k][0][i]*cs[l][1][i] - cs[k][0][i]*sn[l][1][i]);
+        }
+        sfacrl[n] = cstr1;
+        sfacim[n++] = sstr1;
+        sfacrl[n] = cstr2;
+        sfacim[n++] = sstr2;
+      }
+    }
+  }
+
+  // 1 = (0,l,m), 2 = (0,l,-m)
+
+  for (l = 1; l <= kymax; l++) {
+    for (m = 1; m <= kzmax; m++) {
+      sqk = (l*unitk[1] * l*unitk[1]) + (m*unitk[2] * m*unitk[2]);
+      if (sqk <= gsqmx) {
+        cstr1 = 0.0;
+        sstr1 = 0.0;
+        cstr2 = 0.0;
+        sstr2 = 0.0;
+        for (i = 0; i < nlocal; i++) {
+          cstr1 += weight[i]*(cs[l][1][i]*cs[m][2][i] - sn[l][1][i]*sn[m][2][i]);
+          sstr1 += weight[i]*(sn[l][1][i]*cs[m][2][i] + cs[l][1][i]*sn[m][2][i]);
+          cstr2 += weight[i]*(cs[l][1][i]*cs[m][2][i] + sn[l][1][i]*sn[m][2][i]);
+          sstr2 += weight[i]*(sn[l][1][i]*cs[m][2][i] - cs[l][1][i]*sn[m][2][i]);
+        }
+        sfacrl[n] = cstr1;
+        sfacim[n++] = sstr1;
+        sfacrl[n] = cstr2;
+        sfacim[n++] = sstr2;
+      }
+    }
+  }
+
+  // 1 = (k,0,m), 2 = (k,0,-m)
+
+  for (k = 1; k <= kxmax; k++) {
+    for (m = 1; m <= kzmax; m++) {
+      sqk = (k*unitk[0] * k*unitk[0]) + (m*unitk[2] * m*unitk[2]);
+      if (sqk <= gsqmx) {
+        cstr1 = 0.0;
+        sstr1 = 0.0;
+        cstr2 = 0.0;
+        sstr2 = 0.0;
+        for (i = 0; i < nlocal; i++) {
+          cstr1 += weight[i]*(cs[k][0][i]*cs[m][2][i] - sn[k][0][i]*sn[m][2][i]);
+          sstr1 += weight[i]*(sn[k][0][i]*cs[m][2][i] + cs[k][0][i]*sn[m][2][i]);
+          cstr2 += weight[i]*(cs[k][0][i]*cs[m][2][i] + sn[k][0][i]*sn[m][2][i]);
+          sstr2 += weight[i]*(sn[k][0][i]*cs[m][2][i] - cs[k][0][i]*sn[m][2][i]);
+        }
+        sfacrl[n] = cstr1;
+        sfacim[n++] = sstr1;
+        sfacrl[n] = cstr2;
+        sfacim[n++] = sstr2;
+      }
+    }
+  }
+
+  // 1 = (k,l,m), 2 = (k,-l,m), 3 = (k,l,-m), 4 = (k,-l,-m)
+
+  for (k = 1; k <= kxmax; k++) {
+    for (l = 1; l <= kymax; l++) {
+      for (m = 1; m <= kzmax; m++) {
+        sqk = (k*unitk[0] * k*unitk[0]) + (l*unitk[1] * l*unitk[1]) +
+          (m*unitk[2] * m*unitk[2]);
+        if (sqk <= gsqmx) {
+          cstr1 = 0.0;
+          sstr1 = 0.0;
+          cstr2 = 0.0;
+          sstr2 = 0.0;
+          cstr3 = 0.0;
+          sstr3 = 0.0;
+          cstr4 = 0.0;
+          sstr4 = 0.0;
+          for (i = 0; i < nlocal; i++) {
+            clpm = cs[l][1][i]*cs[m][2][i] - sn[l][1][i]*sn[m][2][i];
+            slpm = sn[l][1][i]*cs[m][2][i] + cs[l][1][i]*sn[m][2][i];
+            cstr1 += weight[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
+            sstr1 += weight[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
+
+            clpm = cs[l][1][i]*cs[m][2][i] + sn[l][1][i]*sn[m][2][i];
+            slpm = -sn[l][1][i]*cs[m][2][i] + cs[l][1][i]*sn[m][2][i];
+            cstr2 += weight[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
+            sstr2 += weight[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
+
+            clpm = cs[l][1][i]*cs[m][2][i] + sn[l][1][i]*sn[m][2][i];
+            slpm = sn[l][1][i]*cs[m][2][i] - cs[l][1][i]*sn[m][2][i];
+            cstr3 += weight[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
+            sstr3 += weight[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
+
+            clpm = cs[l][1][i]*cs[m][2][i] - sn[l][1][i]*sn[m][2][i];
+            slpm = -sn[l][1][i]*cs[m][2][i] - cs[l][1][i]*sn[m][2][i];
+            cstr4 += weight[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
+            sstr4 += weight[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
+          }
+          sfacrl[n] = cstr1;
+          sfacim[n++] = sstr1;
+          sfacrl[n] = cstr2;
+          sfacim[n++] = sstr2;
+          sfacrl[n] = cstr3;
+          sfacim[n++] = sstr3;
+          sfacrl[n] = cstr4;
+          sfacim[n++] = sstr4;
         }
       }
     }
   }
 }
 
+/* ---------------------------------------------------------------------- */
+
+void ComputeStructureFactor::eik_dot_r_triclinic()
+{
+  int i,k,l,m,n,ic;
+  double cstr1,sstr1;
+  double sqk,clpm,slpm;
+
+  double **x = atom->x;
+  int nlocal = atom->nlocal;
+
+  double unitk_lamda[3];
+
+  double max_kvecs[3];
+  max_kvecs[0] = kxmax;
+  max_kvecs[1] = kymax;
+  max_kvecs[2] = kzmax;
+
+  // (k,0,0), (0,l,0), (0,0,m)
+
+  for (ic = 0; ic < 3; ic++) {
+    unitk_lamda[0] = 0.0;
+    unitk_lamda[1] = 0.0;
+    unitk_lamda[2] = 0.0;
+    unitk_lamda[ic] = 2.0*MY_PI;
+    x2lamdaT(&unitk_lamda[0],&unitk_lamda[0]);
+    sqk = unitk_lamda[ic]*unitk_lamda[ic];
+    if (sqk <= gsqmx) {
+      for (i = 0; i < nlocal; i++) {
+        cs[0][ic][i] = 1.0;
+        sn[0][ic][i] = 0.0;
+        cs[1][ic][i] = cos(unitk_lamda[0]*x[i][0] + unitk_lamda[1]*x[i][1] + unitk_lamda[2]*x[i][2]);
+        sn[1][ic][i] = sin(unitk_lamda[0]*x[i][0] + unitk_lamda[1]*x[i][1] + unitk_lamda[2]*x[i][2]);
+        cs[-1][ic][i] = cs[1][ic][i];
+        sn[-1][ic][i] = -sn[1][ic][i];
+      }
+    }
+  }
+
+  for (ic = 0; ic < 3; ic++) {
+    for (m = 2; m <= max_kvecs[ic]; m++) {
+      unitk_lamda[0] = 0.0;
+      unitk_lamda[1] = 0.0;
+      unitk_lamda[2] = 0.0;
+      unitk_lamda[ic] = 2.0*MY_PI*m;
+      x2lamdaT(&unitk_lamda[0],&unitk_lamda[0]);
+      sqk = unitk_lamda[ic]*unitk_lamda[ic];
+      for (i = 0; i < nlocal; i++) {
+        cs[m][ic][i] = cs[m-1][ic][i]*cs[1][ic][i] -
+          sn[m-1][ic][i]*sn[1][ic][i];
+        sn[m][ic][i] = sn[m-1][ic][i]*cs[1][ic][i] +
+          cs[m-1][ic][i]*sn[1][ic][i];
+        cs[-m][ic][i] = cs[m][ic][i];
+        sn[-m][ic][i] = -sn[m][ic][i];
+      }
+    }
+  }
+
+  for (n = 0; n < kcount; n++) {
+    k = kxvecs[n];
+    l = kyvecs[n];
+    m = kzvecs[n];
+    cstr1 = 0.0;
+    sstr1 = 0.0;
+    for (i = 0; i < nlocal; i++) {
+      clpm = cs[l][1][i]*cs[m][2][i] - sn[l][1][i]*sn[m][2][i];
+      slpm = sn[l][1][i]*cs[m][2][i] + cs[l][1][i]*sn[m][2][i];
+      cstr1 += weight[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
+      sstr1 += weight[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
+    }
+    sfacrl[n] = cstr1;
+    sfacim[n] = sstr1;
+  }
+}
+
 /* ----------------------------------------------------------------------
-   pre-compute coefficients for each StructureFactor K-vector
+   pre-compute coefficients for each structure factor K-vector
 ------------------------------------------------------------------------- */
 
 void ComputeStructureFactor::coeffs()
@@ -267,24 +496,33 @@ void ComputeStructureFactor::coeffs()
 
   kcount = 0;
 
-  // (k,0), (0,l)
+  // (k,0,0), (0,l,0), (0,0,m)
 
   for (m = 1; m <= kmax; m++) {
     sqk = (m*unitk[0]) * (m*unitk[0]);
     if (sqk <= gsqmx) {
       kxvecs[kcount] = m;
       kyvecs[kcount] = 0;
+      kzvecs[kcount] = 0;
       kcount++;
     }
     sqk = (m*unitk[1]) * (m*unitk[1]);
     if (sqk <= gsqmx) {
       kxvecs[kcount] = 0;
       kyvecs[kcount] = m;
+      kzvecs[kcount] = 0;
+      kcount++;
+    }
+    sqk = (m*unitk[2]) * (m*unitk[2]);
+    if (sqk <= gsqmx) {
+      kxvecs[kcount] = 0;
+      kyvecs[kcount] = 0;
+      kzvecs[kcount] = m;
       kcount++;
     }
   }
 
-  // 1 = (k,l), 2 = (k,-l)
+  // 1 = (k,l,0), 2 = (k,-l,0)
 
   for (k = 1; k <= kxmax; k++) {
     for (l = 1; l <= kymax; l++) {
@@ -292,88 +530,254 @@ void ComputeStructureFactor::coeffs()
       if (sqk <= gsqmx) {
         kxvecs[kcount] = k;
         kyvecs[kcount] = l;
+        kzvecs[kcount] = 0;
         kcount++;
 
         kxvecs[kcount] = k;
         kyvecs[kcount] = -l;
+        kzvecs[kcount] = 0;
         kcount++;
+      }
+    }
+  }
+
+  // 1 = (0,l,m), 2 = (0,l,-m)
+
+  for (l = 1; l <= kymax; l++) {
+    for (m = 1; m <= kzmax; m++) {
+      sqk = (unitk[1]*l) * (unitk[1]*l) + (unitk[2]*m) * (unitk[2]*m);
+      if (sqk <= gsqmx) {
+        kxvecs[kcount] = 0;
+        kyvecs[kcount] = l;
+        kzvecs[kcount] = m;
+        kcount++;
+
+        kxvecs[kcount] = 0;
+        kyvecs[kcount] = l;
+        kzvecs[kcount] = -m;
+        kcount++;
+      }
+    }
+  }
+
+  // 1 = (k,0,m), 2 = (k,0,-m)
+
+  for (k = 1; k <= kxmax; k++) {
+    for (m = 1; m <= kzmax; m++) {
+      sqk = (unitk[0]*k) * (unitk[0]*k) + (unitk[2]*m) * (unitk[2]*m);
+      if (sqk <= gsqmx) {
+        kxvecs[kcount] = k;
+        kyvecs[kcount] = 0;
+        kzvecs[kcount] = m;
+        kcount++;
+
+        kxvecs[kcount] = k;
+        kyvecs[kcount] = 0;
+        kzvecs[kcount] = -m;
+        kcount++;
+      }
+    }
+  }
+
+  // 1 = (k,l,m), 2 = (k,-l,m), 3 = (k,l,-m), 4 = (k,-l,-m)
+
+  for (k = 1; k <= kxmax; k++) {
+    for (l = 1; l <= kymax; l++) {
+      for (m = 1; m <= kzmax; m++) {
+        sqk = (unitk[0]*k) * (unitk[0]*k) + (unitk[1]*l) * (unitk[1]*l) +
+          (unitk[2]*m) * (unitk[2]*m);
+        if (sqk <= gsqmx) {
+          kxvecs[kcount] = k;
+          kyvecs[kcount] = l;
+          kzvecs[kcount] = m;
+          kcount++;
+
+          kxvecs[kcount] = k;
+          kyvecs[kcount] = -l;
+          kzvecs[kcount] = m;
+          kcount++;
+
+          kxvecs[kcount] = k;
+          kyvecs[kcount] = l;
+          kzvecs[kcount] = -m;
+          kcount++;
+
+          kxvecs[kcount] = k;
+          kyvecs[kcount] = -l;
+          kzvecs[kcount] = -m;
+          kcount++;
+        }
       }
     }
   }
 }
 
 /* ----------------------------------------------------------------------
-   assign each atom to a 1d spatial bin (layer)
+   pre-compute coefficients for each structure factor K-vector for a triclinic
+   system
 ------------------------------------------------------------------------- */
 
-void ComputeStructureFactor::atom2bin1d()
+void ComputeStructureFactor::coeffs_triclinic()
 {
-  int i, ibin;
-  double *boxlo, *boxhi, *prd;
-  double xremap;
+  int k,l,m;
+  double sqk;
 
-  double **x = atom->x;
-  int nlocal = atom->nlocal;
+  double unitk_lamda[3];
 
-  boxlo = domain->boxlo;
-  boxhi = domain->boxhi;
-  prd = domain->prd;
+  kcount = 0;
 
-  double delta = domain->zprd/nbins;
-  double invdelta = 1.0/delta;
-  double offset = 0.0; 
+  // 1 = (k,l,m), 2 = (k,-l,m), 3 = (k,l,-m), 4 = (k,-l,-m)
 
-  // remap each atom's relevant coord back into box via PBC if necessary
+  for (k = 1; k <= kxmax; k++) {
+    for (l = -kymax; l <= kymax; l++) {
+      for (m = -kzmax; m <= kzmax; m++) {
+        unitk_lamda[0] = 2.0*MY_PI*k;
+        unitk_lamda[1] = 2.0*MY_PI*l;
+        unitk_lamda[2] = 2.0*MY_PI*m;
+        x2lamdaT(&unitk_lamda[0],&unitk_lamda[0]);
+        sqk = unitk_lamda[0]*unitk_lamda[0] + unitk_lamda[1]*unitk_lamda[1] +
+          unitk_lamda[2]*unitk_lamda[2];
+        if (sqk <= gsqmx) {
+          kxvecs[kcount] = k;
+          kyvecs[kcount] = l;
+          kzvecs[kcount] = m;
+          kcount++;
+        }
+      }
+    }
+  }
 
-  for (i = 0; i < nlocal; i++) {
-    xremap = x[i][2];
-    if (xremap < boxlo[2]) xremap += prd[2];
-    if (xremap >= boxhi[2]) xremap -= prd[2];
+  // 1 = (0,l,m), 2 = (0,l,-m)
 
-    ibin = static_cast<int>((xremap - offset) * invdelta);
-    if (xremap < offset) ibin--;
+  for (l = 1; l <= kymax; l++) {
+    for (m = -kzmax; m <= kzmax; m++) {
+      unitk_lamda[0] = 0.0;
+      unitk_lamda[1] = 2.0*MY_PI*l;
+      unitk_lamda[2] = 2.0*MY_PI*m;
+      x2lamdaT(&unitk_lamda[0],&unitk_lamda[0]);
+      sqk = unitk_lamda[1]*unitk_lamda[1] + unitk_lamda[2]*unitk_lamda[2];
+      if (sqk <= gsqmx) {
+        kxvecs[kcount] = 0;
+        kyvecs[kcount] = l;
+        kzvecs[kcount] = m;
+        kcount++;
+      }
+    }
+  }
 
-    ibin = MAX(ibin, 0);
-    ibin = MIN(ibin, nbins-1);
+  // (0,0,m)
 
-    bins[i] = ibin + 1;
+  for (m = 1; m <= kmax; m++) {
+    unitk_lamda[0] = 0.0;
+    unitk_lamda[1] = 0.0;
+    unitk_lamda[2] = 2.0*MY_PI*m;
+    x2lamdaT(&unitk_lamda[0],&unitk_lamda[0]);
+    sqk = unitk_lamda[2]*unitk_lamda[2];
+    if (sqk <= gsqmx) {
+      kxvecs[kcount] = 0;
+      kyvecs[kcount] = 0;
+      kzvecs[kcount] = m;
+      kcount++;
+    }
   }
 }
 
 /* ----------------------------------------------------------------------
-   allocate memory that depends on # of K-vectors
+   allocate memory that depends on # of K-arrays
 ------------------------------------------------------------------------- */
 
 void ComputeStructureFactor::allocate()
 {
-  kxvecs = new int[kmax2d];
-  kyvecs = new int[kmax2d];
-  bins = new int[nbins];
+  kxvecs = new int[kmax3d];
+  kyvecs = new int[kmax3d];
+  kzvecs = new int[kmax3d];
 
-  memory->create(sfacrl,kmax2d,nbins,"structure_factor:sfacrl");
-  memory->create(sfacim,kmax2d,nbins,"structure_factor:sfacim");
+  sfacrl = new double[kmax3d];
+  sfacim = new double[kmax3d];
+  sfacrl_all = new double[kmax3d];
+  sfacim_all = new double[kmax3d];
 
-  memory->create(sfacrl_all,kmax2d,nbins,"structure_factor:sfacrl_all");
-  memory->create(sfacim_all,kmax2d,nbins,"structure_factor:sfacim_all");
-
-  memory->create(vector,kmax2d*nbins*nbins,"structure_factor:vector");
+  memory->create(array,kmax3d,kmax3d,"structure_factor:array");
+  memory->create(norms,kmax*kmax,"structure_factor:norms");
 }
 
 /* ----------------------------------------------------------------------
-   deallocate memory that depends on # of K-vectors
+   deallocate memory that depends on # of K-arrays
 ------------------------------------------------------------------------- */
 
 void ComputeStructureFactor::deallocate()
 {
   delete [] kxvecs;
   delete [] kyvecs;
-  delete [] bins;
+  delete [] kzvecs;
 
-  memory->destroy(sfacrl);
-  memory->destroy(sfacim);
+  delete [] sfacrl;
+  delete [] sfacim;
+  delete [] sfacrl_all;
+  delete [] sfacim_all;
 
-  memory->destroy(sfacrl_all);
-  memory->destroy(sfacim_all);
+  memory->destroy(array);
+  memory->destroy(norms);
+}
 
-  memory->destroy(vector);
+
+/* ----------------------------------------------------------------------
+   convert box coords vector to transposed triclinic lamda (0-1) coords
+   vector, lamda = [(H^-1)^T] * v, does not preserve vector magnitude
+   v and lamda can point to same 3-vector
+------------------------------------------------------------------------- */
+
+void ComputeStructureFactor::x2lamdaT(double *v, double *lamda)
+{
+  double *h_inv = domain->h_inv;
+  double lamda_tmp[3];
+
+  lamda_tmp[0] = h_inv[0]*v[0];
+  lamda_tmp[1] = h_inv[5]*v[0] + h_inv[1]*v[1];
+  lamda_tmp[2] = h_inv[4]*v[0] + h_inv[3]*v[1] + h_inv[2]*v[2];
+
+  lamda[0] = lamda_tmp[0];
+  lamda[1] = lamda_tmp[1];
+  lamda[2] = lamda_tmp[2];
+}
+
+/* ----------------------------------------------------------------------
+   convert lamda (0-1) coords vector to transposed box coords vector
+   lamda = (H^T) * v, does not preserve vector magnitude
+   v and lamda can point to same 3-vector
+------------------------------------------------------------------------- */
+
+void ComputeStructureFactor::lamda2xT(double *lamda, double *v)
+{
+  double h[6];
+  h[0] = domain->h[0];
+  h[1] = domain->h[1];
+  h[2] = domain->h[2];
+  h[3] = fabs(domain->h[3]);
+  h[4] = fabs(domain->h[4]);
+  h[5] = fabs(domain->h[5]);
+  double v_tmp[3];
+
+  v_tmp[0] = h[0]*lamda[0];
+  v_tmp[1] = h[5]*lamda[0] + h[1]*lamda[1];
+  v_tmp[2] = h[4]*lamda[0] + h[3]*lamda[1] + h[2]*lamda[2];
+
+  v[0] = v_tmp[0];
+  v[1] = v_tmp[1];
+  v[2] = v_tmp[2];
+}
+
+/* ----------------------------------------------------------------------
+   convert triclinic lamda (0-1) coords vector to box coords vector
+   v = H * lamda, does not preserve vector magnitude
+   lamda and v can point to same 3-vector
+------------------------------------------------------------------------- */
+
+void ComputeStructureFactor::lamda2xvector(double *lamda, double *v)
+{
+  double *h = domain->h;
+
+  v[0] = h[0]*lamda[0] + h[5]*lamda[1] + h[4]*lamda[2];
+  v[1] = h[1]*lamda[1] + h[3]*lamda[2];
+  v[2] = h[2]*lamda[2];
 }

@@ -30,36 +30,27 @@ class ComputeStructureFactor : public Compute {
   ~ComputeStructureFactor() override;
   void init() override;
   void setup() override;
-  void compute_array() override;
+  void compute_vector() override;
 
  protected:
   int kxmax, kymax, kzmax;
-  int kcount, kmax, kmax3d, kmax_created;
+  int kcount, kmax, kmax2d, kmax_created;
   double gsqmx, volume;
-  int nmax;
+  int nmax, nbins;
 
-  double unitk[3];
+  double unitk[2];
   int *kxvecs, *kyvecs, *kzvecs;
   int kxmax_orig, kymax_orig, kzmax_orig;
-  double *sfacrl, *sfacim, *sfacrl_all, *sfacim_all;
+  double **sfacrl, **sfacim, **sfacrl_all, **sfacim_all;
   double ***cs, ***sn;
 
   virtual void eik_dot_r();
   virtual void coeffs();
+  void atom2bin1d();
   virtual void allocate();
   virtual void deallocate();
 
-  // triclinic
-
-  int triclinic;
-  void eik_dot_r_triclinic();
-  void coeffs_triclinic();
-  void x2lamdaT(double *, double *);
-  void lamda2xT(double *, double *);
-  void lamda2xvector(double *, double *);
-
-  int *norms;
-  double *weight;
+  int *bins,*norms;
 };
 
 }    // namespace LAMMPS_NS
