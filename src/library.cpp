@@ -516,6 +516,9 @@ treated as part of the command and will **not** start a second command.
 The function returns the expanded string in a new string buffer that
 must be freed with :cpp:func:`lammps_free` after use to avoid a memory leak.
 
+*See also*
+    :cpp:func:`lammps_eval`
+
 \endverbatim
  *
  * \param  handle  pointer to a previously created LAMMPS instance
@@ -850,7 +853,11 @@ This differs from :cpp:func:`lammps_get_thermo` in that it does **not**
 trigger an evaluation.  Instead it provides direct access to a read-only
 location of the last thermo output data and the corresponding keyword
 strings.  How to handle the return value depends on the value of the *what*
-argument string.
+argument string.  When accessing the data from a concurrent thread while
+LAMMPS is running, the cache needs to be locked first and then unlocked
+after the data is obtained, so that the data is not corrupted while
+reading in case LAMMPS wants to update it at the same time.  Outside
+of a run, the lock/unlock calls have no effect.
 
 .. note::
 
@@ -899,6 +906,14 @@ argument string.
      - actual field data for column
      - pointer to int, int64_t or double
      - yes
+   * - lock
+     - acquires lock to thermo data cache
+     - NULL pointer
+     - no
+   * - unlock
+     - releases lock to thermo data cache
+     - NULL pointer
+     - no
 
 \endverbatim
  *
@@ -954,8 +969,14 @@ void *lammps_last_thermo(void *handle, const char *what, int index)
       } else if (field.type == multitype::LAMMPS_DOUBLE) {
         val = (void *) &field.data.d;
       }
-
+    } else if (strcmp(what, "lock") == 0) {
+      th->lock_cache();
+      val = nullptr;
+    } else if (strcmp(what, "unlock") == 0) {
+      th->unlock_cache();
+      val = nullptr;
     } else val = nullptr;
+
   }
   END_CAPTURE
   return val;
@@ -2902,6 +2923,39 @@ int lammps_variable_info(void *handle, int idx, char *buffer, int buf_size) {
 
   buffer[0] = '\0';
   return 0;
+}
+
+/** Evaluate an immediate variable expression
+ *
+\verbatim embed:rst
+
+.. versionadded:: TBD
+
+This function takes a string with an expression that can be used
+for :doc:`equal style variables <variable>`, evaluates it and returns
+the resulting (scalar) value as a floating point number.
+
+*See also*
+    :cpp:func:`lammps_expand`
+
+\endverbatim
+
+ * \param handle   pointer to a previously created LAMMPS instance cast to ``void *``.
+ * \param expr     string with expression
+ * \return         result from expression */
+
+double lammps_eval(void *handle, const char *expr)
+{
+  auto lmp = (LAMMPS *) handle;
+  double result = 0.0;
+
+  BEGIN_CAPTURE
+  {
+    result = lmp->input->variable->compute_equal(expr);
+  }
+  END_CAPTURE
+
+  return result;
 }
 
 // ----------------------------------------------------------------------

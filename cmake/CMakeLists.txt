@@ -98,24 +98,21 @@ check_for_autogen_files(${LAMMPS_SOURCE_DIR})
 #####################################################################
 include(CheckIncludeFileCXX)
 
-# set required compiler flags and compiler/CPU arch specific optimizations
+# set required compiler flags, apply checks, and compiler/CPU arch specific optimizations
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+  # Intel classic compilers version 19 are broken and fail to compile the embedded fmtlib
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 20.0)
+    message(ERROR "Intel classic compiler version ${CMAKE_CXX_COMPILER_VERSION} is too old")
+  endif()
+
   if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Qrestrict")
     endif()
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 17.3 OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 17.4)
-      set(CMAKE_TUNE_DEFAULT "/QxCOMMON-AVX512")
-    else()
-      set(CMAKE_TUNE_DEFAULT "/QxHost")
-    endif()
+    set(CMAKE_TUNE_DEFAULT "/QxHost")
   else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -restrict")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 17.3 OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 17.4)
-      set(CMAKE_TUNE_DEFAULT "-xCOMMON-AVX512")
-    else()
-      set(CMAKE_TUNE_DEFAULT "-xHost -fp-model fast=2 -no-prec-div -qoverride-limits -diag-disable=10441 -diag-disable=11074 -diag-disable=11076 -diag-disable=2196")
-    endif()
+    set(CMAKE_TUNE_DEFAULT "-xHost -fp-model fast=2 -no-prec-div -qoverride-limits -diag-disable=10441 -diag-disable=11074 -diag-disable=11076 -diag-disable=2196")
   endif()
 endif()
 
@@ -604,6 +601,16 @@ foreach(PKG_WITH_INCL KSPACE PYTHON ML-IAP VORONOI COLVARS ML-HDNNP MDI MOLFILE 
     include(Packages/${PKG_WITH_INCL})
   endif()
 endforeach()
+
+# settings for misc packages and styles
+if(PKG_MISC)
+  option(LAMMPS_ASYNC_IMD "Asynchronous IMD processing" OFF)
+  mark_as_advanced(LAMMPS_ASYNC_IMD)
+  if(LAMMPS_ASYNC_IMD)
+    target_compile_definitions(lammps PRIVATE -DLAMMPS_ASYNC_IMD)
+    message(STATUS "Using IMD in asynchronous mode")
+  endif()
+endif()
 
 # optionally enable building script wrappers using swig
 option(WITH_SWIG "Build scripting language wrappers with SWIG" OFF)

@@ -103,7 +103,7 @@ class command_wrapper(object):
     This method is where the Python 'magic' happens. If a method is not
     defined by the class command_wrapper, it assumes it is a LAMMPS command. It takes
     all the arguments, concatinates them to a single string, and executes it using
-    :py:meth:`lammps.command()`.
+    :py:meth:`lammps.command`.
 
     Starting with Python 3.6 it also supports keyword arguments. key=value is
     transformed into 'key value'. Note, since these have come last in the
@@ -421,6 +421,9 @@ class lammps(object):
     self.lib.lammps_extract_variable.argtypes = [c_void_p, c_char_p, c_char_p]
     self.lib.lammps_extract_variable_datatype.argtypes = [c_void_p, c_char_p]
     self.lib.lammps_extract_variable_datatype.restype = c_int
+
+    self.lib.lammps_eval.argtypes = [c_void_p, c_char_p]
+    self.lib.lammps_eval.restype = c_double
 
     self.lib.lammps_fix_external_get_force.argtypes = [c_void_p, c_char_p]
     self.lib.lammps_fix_external_get_force.restype = POINTER(POINTER(c_double))
@@ -1668,6 +1671,30 @@ class lammps(object):
     else: return -1
     with ExceptionCheck(self):
       return self.lib.lammps_set_internal_variable(self.lmp,newname,value)
+
+  # -------------------------------------------------------------------------
+
+  def eval(self, expr):
+    """ Evaluate a LAMMPS immediate variable expression
+
+    .. versionadded:: TBD
+
+    This function is a wrapper around the function :cpp:func:`lammps_eval`
+    of the C library interface.  It evaluates and expression like in
+    immediate variables and returns the value.
+
+    :param expr: immediate variable expression
+    :type name: string
+    :return: the result of the evaluation
+    :rtype: c_double
+    """
+
+    if expr: newexpr = expr.encode()
+    else: return None
+
+    with ExceptionCheck(self):
+      return self.lib.lammps_eval(self.lmp, newexpr)
+    return None
 
   # -------------------------------------------------------------------------
 

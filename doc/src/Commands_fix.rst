@@ -58,6 +58,7 @@ OPT.
    * :doc:`dt/reset (k) <fix_dt_reset>`
    * :doc:`edpd/source <fix_dpd_source>`
    * :doc:`efield (k) <fix_efield>`
+   * :doc:`efield/lepton <fix_efield_lepton>`
    * :doc:`efield/tip4p <fix_efield>`
    * :doc:`ehex <fix_ehex>`
    * :doc:`electrode/conp (i) <fix_electrode>`

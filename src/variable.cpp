@@ -457,15 +457,21 @@ void Variable::set(int narg, char **arg)
   // data = 2 values, 1st is string to eval, 2nd is filled on retrieval
 
   } else if (strcmp(arg[1],"equal") == 0) {
-    if (narg != 3)
-      error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}{}",
-                 narg, utils::errorurl(3));
+    if (narg < 3) utils::missing_cmd_args(FLERR, "variable equal", error);
+
+    // combine excess arguments into single string with a blank as separator
+    std::string combined = arg[2];
+    for (int iarg = 3; iarg < narg; ++iarg) {
+      combined += ' ';
+      combined += arg[iarg];
+    }
+
     int ivar = find(arg[0]);
     if (ivar >= 0) {
       if (style[ivar] != EQUAL)
         error->all(FLERR,"Cannot redefine variable as a different style");
       delete[] data[ivar][0];
-      data[ivar][0] = utils::strdup(arg[2]);
+      data[ivar][0] = utils::strdup(combined);
       replaceflag = 1;
     } else {
       if (nvar == maxvar) grow();
@@ -474,7 +480,7 @@ void Variable::set(int narg, char **arg)
       which[nvar] = 0;
       pad[nvar] = 0;
       data[nvar] = new char*[num[nvar]];
-      data[nvar][0] = utils::strdup(arg[2]);
+      data[nvar][0] = utils::strdup(combined);
       data[nvar][1] = new char[VALUELENGTH];
       strcpy(data[nvar][1],"(undefined)");
     }
@@ -485,15 +491,21 @@ void Variable::set(int narg, char **arg)
   // data = 1 value, string to eval
 
   } else if (strcmp(arg[1],"atom") == 0) {
-    if (narg != 3)
-      error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}{}",
-                 narg, utils::errorurl(3));
+    if (narg < 3) utils::missing_cmd_args(FLERR, "variable atom", error);
+
+    // combine excess arguments into single string with a blank as separator
+    std::string combined = arg[2];
+    for (int iarg = 3; iarg < narg; ++iarg) {
+      combined += ' ';
+      combined += arg[iarg];
+    }
+
     int ivar = find(arg[0]);
     if (ivar >= 0) {
       if (style[ivar] != ATOM)
         error->all(FLERR,"Cannot redefine variable as a different style");
       delete[] data[ivar][0];
-      data[ivar][0] = utils::strdup(arg[2]);
+      data[ivar][0] = utils::strdup(combined);
       replaceflag = 1;
     } else {
       if (nvar == maxvar) grow();
@@ -502,7 +514,7 @@ void Variable::set(int narg, char **arg)
       which[nvar] = 0;
       pad[nvar] = 0;
       data[nvar] = new char*[num[nvar]];
-      data[nvar][0] = utils::strdup(arg[2]);
+      data[nvar][0] = utils::strdup(combined);
     }
 
   // VECTOR
@@ -513,16 +525,22 @@ void Variable::set(int narg, char **arg)
   //   immediately store it as N-length vector and set dynamic flag to 0
 
   } else if (strcmp(arg[1],"vector") == 0) {
-    if (narg != 3)
-      error->all(FLERR,"Illegal variable command: expected 3 arguments but found {}{}",
-                 narg, utils::errorurl(3));
+    if (narg < 3) utils::missing_cmd_args(FLERR, "variable atom", error);
+
+    // combine excess arguments into single string with a blank as separator
+    std::string combined = arg[2];
+    for (int iarg = 3; iarg < narg; ++iarg) {
+      combined += ' ';
+      combined += arg[iarg];
+    }
+
     int ivar = find(arg[0]);
     if (ivar >= 0) {
       if (style[ivar] != VECTOR)
         error->all(FLERR,"Cannot redefine variable as a different style");
       delete[] data[ivar][0];
       delete[] data[ivar][1];
-      data[ivar][0] = utils::strdup(arg[2]);
+      data[ivar][0] = utils::strdup(combined);
       if (data[ivar][0][0] != '[')
         vecs[ivar].dynamic = 1;
       else {
@@ -539,7 +557,7 @@ void Variable::set(int narg, char **arg)
       which[nvar] = 0;
       pad[nvar] = 0;
       data[nvar] = new char*[num[nvar]];
-      data[nvar][0] = utils::strdup(arg[2]);
+      data[nvar][0] = utils::strdup(combined);
       if (data[nvar][0][0] != '[') {
         vecs[nvar].dynamic = 1;
         data[nvar][1] = nullptr;

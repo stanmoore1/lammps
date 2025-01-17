@@ -17,7 +17,7 @@
 ################################################################################
 
 class wrapper(object):
-  """lammps API IPython Wrapper
+  """ lammps API IPython Wrapper
 
   This is a wrapper class that provides additional methods on top of an
   existing :py:class:`lammps` instance. It provides additional methods

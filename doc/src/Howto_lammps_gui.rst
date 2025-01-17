@@ -64,13 +64,18 @@ simple LAMMPS simulations.  It is very suitable for tutorials on LAMMPS
 since you only need to learn how to use a single program for most tasks
 and thus time can be saved and people can focus on learning LAMMPS.
 The tutorials at https://lammpstutorials.github.io/ are specifically
-updated for use with LAMMPS-GUI.
+updated for use with LAMMPS-GUI and can their tutorial materials can
+be downloaded and loaded directly from the GUI.
 
 Another design goal is to keep the barrier low when replacing part of
 the functionality of LAMMPS-GUI with external tools.  That said, LAMMPS-GUI
 has some unique functionality that is not found elsewhere:
 
 - auto-adapting to features available in the integrated LAMMPS library
+- auto-completion for LAMMPS commands and options
+- context-sensitive online help
+- start and stop of simulations via mouse or keyboard
+- monitoring of simulation progress
 - interactive visualization using the :doc:`dump image <dump_image>`
   command with the option to copy-paste the resulting settings
 - automatic slide show generation from dump image out at runtime

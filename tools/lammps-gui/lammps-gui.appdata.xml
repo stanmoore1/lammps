@@ -61,6 +61,8 @@
         Highlight warnings and error messages in Output window
         Make Tutorial wizards more compact
         Include download and compilation of WHAM software from Alan Grossfield
+        Add dialog to run WHAM directly from LAMMPS-GUI
+        Use mutex to avoid corruption of thermo data
       </description>
     </release>
     <release version="1.6.11" timestamp="1725080055">

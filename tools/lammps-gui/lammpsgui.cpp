@@ -1015,6 +1015,7 @@ void LammpsGui::logupdate()
         void *ptr = lammps.last_thermo("setup", 0);
         if (ptr && *(int *)ptr) return;
 
+        lammps.last_thermo("lock", 0);
         ptr = lammps.last_thermo("num", 0);
         if (ptr) {
             int ncols = *(int *)ptr;
@@ -1066,6 +1067,7 @@ void LammpsGui::logupdate()
                 chartwindow->add_data(step, data, i);
             }
         }
+        lammps.last_thermo("unlock", 0);
     }
 
     // update list of available image file names

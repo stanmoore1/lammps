@@ -95,6 +95,8 @@
 /angle_lepton.h
 /dihedral_lepton.cpp
 /dihedral_lepton.h
+/fix_efield_lepton.cpp
+/fix_efield_lepton.h
 /fix_wall_lepton.cpp
 /fix_wall_lepton.h
 /lepton_utils.cpp
@@ -1219,6 +1221,9 @@
 /pair_dipole_cut.h
 /pair_dipole_sf.cpp
 /pair_dipole_sf.h
+/d3_parameters.h
+/pair_dispersion_d3.h
+/pair_dispersion_d3.cpp
 /pair_dsmc.cpp
 /pair_dsmc.h
 /pair_e3b.cpp

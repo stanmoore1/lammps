@@ -48,6 +48,7 @@ This is the list of packages that may require additional steps.
    * :ref:`LEPTON <lepton>`
    * :ref:`MACHDYN <machdyn>`
    * :ref:`MDI <mdi>`
+   * :ref:`MISC <misc>`
    * :ref:`ML-HDNNP <ml-hdnnp>`
    * :ref:`ML-IAP <mliap>`
    * :ref:`ML-PACE <ml-pace>`
@@ -2031,7 +2032,7 @@ TBB and MKL.
 .. _mdi:
 
 MDI package
------------------------------
+-----------
 
 .. tabs::
 
@@ -2055,6 +2056,37 @@ MDI package
 
       The build should produce two files: ``lib/mdi/includelink/mdi.h``
       and ``lib/mdi/liblink/libmdi.so``\ .
+
+----------
+
+.. _misc:
+
+MISC package
+------------
+
+The :doc:`fix imd <fix_imd>` style in this package can be run either
+synchronously (communication with IMD clients is done in the main
+process) or asynchronously (the fix spawns a separate thread that can
+communicate with IMD clients concurrently to the LAMMPS execution).
+
+.. tabs::
+
+   .. tab:: CMake build
+
+      .. code-block:: bash
+
+         -D LAMMPS_ASYNC_IMD=value  # Run IMD server asynchronously
+                                    # value = no (default) or yes
+
+   .. tab:: Traditional make
+
+      To enable asynchronous mode the ``-DLAMMPS_ASYNC_IMD`` define
+      needs to be added to the ``LMP_INC`` variable in the
+      ``Makefile.machine`` you are using.  For example:
+
+      .. code-block:: make
+
+         LMP_INC = -DLAMMPS_ASYNC_IMD -DLAMMPS_MEMALIGN=64
 
 ----------
 

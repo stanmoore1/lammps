@@ -140,8 +140,8 @@ TEST_F(VariableTest, CreateDelete)
     command("variable ten1   universe  1 2 3 4");
     command("variable ten2   uloop     4");
     command("variable ten3   uloop     4 pad");
-    command("variable ten4   vector    [0,1,2,3,5,7,11]");
-    command("variable ten5   vector    [0.5,1.25]");
+    command("variable ten4   vector    [0,1,  2,3, 5,7,11]");
+    command("variable ten5   vector    [ 0.5, 1.25 ]");
     command("variable dummy  index     0");
     command("variable file   equal     is_file(MYFILE)");
     command("variable iswin  equal     is_os(^Windows)");
@@ -323,13 +323,13 @@ TEST_F(VariableTest, Expressions)
     BEGIN_HIDE_OUTPUT();
     command("variable one    index     1");
     command("variable two    equal     2");
-    command("variable three  equal     v_one+v_two");
+    command("variable three  equal     v_one + v_two");
     command("variable four   equal     PI");
     command("variable five   equal     version");
     command("variable six    equal     XXX");
     command("variable seven  equal     -v_one");
     command("variable eight  equal     v_three-0.5");
-    command("variable nine   equal     v_two*(v_one+v_three)");
+    command("variable nine   equal     v_two * (v_one+v_three)");
     command("variable ten    equal     (1.0/v_two)^2");
     command("variable eleven equal     v_three%2");
     command("variable twelve equal     1==2");
@@ -341,7 +341,7 @@ TEST_F(VariableTest, Expressions)
     command("variable ten8   equal     1|^0");
     command("variable ten9   equal     v_one-v_ten9");
     command("variable ten10  internal  100.0");
-    command("variable ten11  equal     (1!=1)+(2<1)+(2<=1)+(1>2)+(1>=2)+(1&&0)+(0||0)+(1|^1)+10^0");
+    command("variable ten11  equal     (1 != 1)+(2 < 1)+(2<=1)+(1>2)+(1>=2)+(1&&0)+(0||0)+(1|^1)+10^0");
     command("variable ten12  equal     yes+no+on+off+true+false");
     command("variable err1   equal     v_one/v_ten7");
     command("variable err2   equal     v_one%v_ten7");
@@ -350,7 +350,7 @@ TEST_F(VariableTest, Expressions)
     command("variable vec2   vector    v_vec1*0.5");
     command("variable vec3   equal     v_vec2[3]");
     command("variable vec4   vector    '[1, 5, 2.5, -10, -5, 20, 120, 4, 3, 3]'");
-    command("variable sort   vector    sort(v_vec4)");
+    command("variable sort   vector    sort(v_vec4 )");
     command("variable rsrt   vector    rsort(v_vec4)");
     command("variable max2   equal     sort(v_vec4)[2]");
     command("variable rmax   equal     rsort(v_vec4)[1]");

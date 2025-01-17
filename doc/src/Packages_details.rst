@@ -994,6 +994,7 @@ Additional pair styles that are less commonly used.
 
 * ``src/EXTRA-PAIR``: filenames -> commands
 * :doc:`pair_style <pair_style>`
+* ``examples/PACKAGES/dispersion``
 
 ----------
 
