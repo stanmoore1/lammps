@@ -58,8 +58,10 @@ class ComputeStructureFactor : public Compute {
   void lamda2xT(double *, double *);
   void lamda2xvector(double *, double *);
 
+  int kunique;
   int *norms;
-  double *weight;
+  double *weights;
+  int *ksq2unique;
 };
 
 }    // namespace LAMMPS_NS
