@@ -65,10 +65,6 @@ PairOxdna2DhKokkos<DeviceType>::~PairOxdna2DhKokkos()
     memoryKK->destroy_kokkos(k_cutsq_dh_ast,cutsq_dh_ast);
     memoryKK->destroy_kokkos(k_cut_dh_c,cut_dh_c);
     memoryKK->destroy_kokkos(k_cutsq_dh_c,cutsq_dh_c);
-
-    memoryKK->destroy_kokkos(k_nx_xtrct,nx_xtrct);
-    memoryKK->destroy_kokkos(k_ny_xtrct,ny_xtrct);
-    memoryKK->destroy_kokkos(k_nz_xtrct,nz_xtrct);
   }
 }
 
@@ -145,8 +141,11 @@ void PairOxdna2DhKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   copymode = 1;
 
-  // d_n(x/z)_xtrct = extracted local unit vectors in lab frame from oxdna2/excv/kk
-  auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna2/excv/kk", 1, 1));
+  // d_n(x/z)_xtrct = extracted local unit vectors in lab frame from oxdna2/excv/kk or oxrna2/excv/kk
+  auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("ox.*na2/excv.*", 0, 1));
+  if (!oxdna_excvKK) {
+    error->all(FLERR, "Failed to cast to PairOxdnaExcvKokkos");
+  }
   d_nx_xtrct = oxdna_excvKK->k_nx.template view<DeviceType>();
   d_ny_xtrct = oxdna_excvKK->k_ny.template view<DeviceType>();
   d_nz_xtrct = oxdna_excvKK->k_nz.template view<DeviceType>();

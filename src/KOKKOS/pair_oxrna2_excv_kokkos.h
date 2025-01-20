@@ -42,4 +42,3 @@ PairOxrna2ExcvKokkos<DeviceType>::PairOxrna2ExcvKokkos(LAMMPS *lmp) : PairOxdnaE
 
 #endif
 #endif
-

@@ -19,8 +19,8 @@ PairStyle(oxrna2/dh/kk/host,PairOxrna2DhKokkos<LMPHostType>);
 // clang-format on
 #else
 
-#ifndef LMP_PAIR_OXRNA2_EXCV_KOKKOS_H
-#define LMP_PAIR_OXRNA2_EXCV_KOKKOS_H
+#ifndef LMP_PAIR_OXRNA2_DH_KOKKOS_H
+#define LMP_PAIR_OXRNA2_DH_KOKKOS_H
 
 #include "pair_oxdna2_dh_kokkos.h"
 
