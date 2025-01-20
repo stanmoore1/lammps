@@ -27,16 +27,16 @@ PairStyle(oxrna2/dh/kk/host,PairOxrna2DhKokkos<LMPHostType>);
 namespace LAMMPS_NS {
 
 template<class DeviceType>
-class PairOxrna2DhKokkos : public PairOxdnaDhKokkos<DeviceType> {
+class PairOxrna2DhKokkos : public PairOxdna2DhKokkos<DeviceType> {
  public:
   PairOxrna2DhKokkos(class LAMMPS *);
   ~PairOxrna2DhKokkos() {}
 };
 
 template<class DeviceType>
-PairOxrna2DhKokkos<DeviceType>::PairOxrna2DhKokkos(LAMMPS *lmp) : PairOxdnaDhKokkos<DeviceType>(lmp)
+PairOxrna2DhKokkos<DeviceType>::PairOxrna2DhKokkos(LAMMPS *lmp) : PairOxdna2DhKokkos<DeviceType>(lmp)
 {
-   this->oxdnaflag = PairOxdnaDhKokkos<DeviceType>::EnabledOXDNAFlag::OXRNA2;
+   this->oxdnaflag = PairOxdna2DhKokkos<DeviceType>::EnabledOXDNAFlag::OXRNA2;
 }
 }    // namespace LAMMPS_NS
 
