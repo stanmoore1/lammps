@@ -97,10 +97,10 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   nlocal = atom->nlocal;
   newton_bond = force->newton_bond;
 
-  // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna/excv/kk or oxdna2/excv/kk
-  auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna/excv/kk", 1, 1));
-  if (oxdna_excvKK == nullptr) {
-    oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna2/excv/kk", 1, 1));
+  // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from [oxdna,oxdna2,oxrna2]/excv/kk
+  auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("ox.*na.*excv.*", 0, 1));
+  if (!oxdna_excvKK) {
+    error->all(FLERR, "Failed to cast to PairOxdnaExcvKokkos");
   }
   d_nx_xtrct = oxdna_excvKK->k_nx.template view<DeviceType>();
   d_ny_xtrct = oxdna_excvKK->k_ny.template view<DeviceType>();
