@@ -56,9 +56,9 @@ ComputeStructureFactor::ComputeStructureFactor(LAMMPS *lmp, int narg, char **arg
   array_flag = 1;
   extarray = 1;
 
-  kxmax = 10;
-  kymax = 10;
-  kzmax = 10;
+  kxmax = 5;
+  kymax = 5;
+  kzmax = 5;
 
   kunique = 0;
   ksq2unique = nullptr;
@@ -112,7 +112,7 @@ void ComputeStructureFactor::init()
   // stats
 
   if (comm->me == 0) {
-    std::string mesg = fmt::format("  KSpace arrays: actual max1d max3d unique = {} {} {} {}\n",
+    std::string mesg = fmt::format("  KSpace vectors: actual max1d max3d unique = {} {} {} {}\n",
                         kcount,kmax,kmax3d,kunique);
     mesg += fmt::format("                  kxmax kymax kzmax  = {} {} {}\n",
                         kxmax,kymax,kzmax);
@@ -152,6 +152,8 @@ void ComputeStructureFactor::setup()
   gsqmx = MAX(gsqxmx,gsqymx);
   gsqmx = MAX(gsqmx,gsqzmx);
 
+  gsqmx = unitk[0]*unitk[0]*17; ////
+
   gsqmx *= 1.00001;
 
   // if size has grown, reallocate k-dependent and nlocal-dependent arrays
@@ -177,7 +179,7 @@ void ComputeStructureFactor::setup()
   else
     coeffs_triclinic();
 
-  int kall = kxmax*kymax*kzmax;
+  int kall = 3*kmax*kmax;
   int* ksq_all = new int[kall];
 
   delete [] norms;
@@ -252,7 +254,7 @@ void ComputeStructureFactor::compute_array()
     int n = kzvecs[k];
     int sqk_int = l*l + m*m + n*n;
     double sqk = (double) sqk_int;
-    double q = unitk[0]*sqrt(sqk);
+    double q = unitk[0]*sqrt(sqk); ////
     int kunq = ksq2unique[sqk_int];
 //    printf("%i: %g\n",sqk,(sfacrl_all[k]*sfacrl_all[k] +
 //                           sfacim_all[k]*sfacim_all[k])/norms[sqk_int]/atom->natoms);
@@ -263,6 +265,7 @@ void ComputeStructureFactor::compute_array()
 }
 
 /* ---------------------------------------------------------------------- */
+
 void ComputeStructureFactor::eik_dot_r()
 {
   int i,k,l,m,n,ic;

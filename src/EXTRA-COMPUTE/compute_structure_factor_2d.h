@@ -13,34 +13,34 @@
 
 #ifdef COMPUTE_CLASS
 // clang-format off
-ComputeStyle(structure/factor,ComputeStructureFactor);
+ComputeStyle(structure/factor/2d,ComputeStructureFactor2D);
 // clang-format on
 #else
 
-#ifndef LMP_COMPUTE_STRUCTURE_FACTOR_H
-#define LMP_COMPUTE_STRUCTURE_FACTOR_H
+#ifndef LMP_COMPUTE_STRUCTURE_FACTOR_2D_H
+#define LMP_COMPUTE_STRUCTURE_FACTOR_2D_H
 
 #include "compute.h"
 
 namespace LAMMPS_NS {
 
-class ComputeStructureFactor : public Compute {
+class ComputeStructureFactor2D : public Compute {
  public:
-  ComputeStructureFactor(class LAMMPS *, int, char **);
-  ~ComputeStructureFactor() override;
+  ComputeStructureFactor2D(class LAMMPS *, int, char **);
+  ~ComputeStructureFactor2D() override;
   void init() override;
   void setup() override;
-  void compute_vector() override;
+  void compute_array() override;
 
  protected:
-  int kxmax, kymax, kzmax;
+  int kxmax, kymax;
   int kcount, kmax, kmax2d, kmax_created;
   double gsqmx, volume;
   int nmax, nbins;
 
   double unitk[2];
-  int *kxvecs, *kyvecs, *kzvecs;
-  int kxmax_orig, kymax_orig, kzmax_orig;
+  int *kxvecs, *kyvecs;
+  int kxmax_orig, kymax_orig;
   double **sfacrl, **sfacim, **sfacrl_all, **sfacim_all;
   double ***cs, ***sn;
 
@@ -50,7 +50,11 @@ class ComputeStructureFactor : public Compute {
   virtual void allocate();
   virtual void deallocate();
 
-  int *bins,*norms;
+  int kunique;
+  int *norms;
+  double *weights;
+  int *ksq2unique;
+  int *bins;
 };
 
 }    // namespace LAMMPS_NS

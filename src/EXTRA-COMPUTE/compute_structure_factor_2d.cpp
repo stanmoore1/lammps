@@ -16,7 +16,7 @@
    Contributing author: Stan Moore (SNL)
 ------------------------------------------------------------------------- */
 
-#include "compute_structure_factor.h"
+#include "compute_structure_factor_2d.h"
 
 #include "atom.h"
 #include "comm.h"
@@ -36,11 +36,14 @@ static constexpr double SMALL = 0.00001;
 
 /* ---------------------------------------------------------------------- */
 
-ComputeStructureFactor::ComputeStructureFactor(LAMMPS *lmp, int narg, char **arg) :
-    Compute(lmp, narg, arg)
+ComputeStructureFactor2D::ComputeStructureFactor2D(LAMMPS *lmp, int narg, char **arg) : Compute(lmp, narg, arg),
+  kxvecs(nullptr), kyvecs(nullptr),
+  sfacrl(nullptr), sfacim(nullptr), sfacrl_all(nullptr), sfacim_all(nullptr),
+  cs(nullptr), sn(nullptr)
 {
   kmax_created = 0;
 
+  kmax = 0;
   kxvecs = kyvecs = nullptr;
   sfacrl = sfacim = sfacrl_all = sfacim_all = nullptr;
 
@@ -49,39 +52,48 @@ ComputeStructureFactor::ComputeStructureFactor(LAMMPS *lmp, int narg, char **arg
 
   kcount = 0;
 
-  nbins = 1; //////
-  kmax = 10; //////
+  array = nullptr;
+  array_flag = 1;
+  extarray = 1;
 
-  kmax2d = 2*kmax*kmax + 2*kmax;
-  int ksqmax = kmax*kmax;
+  kxmax = 10;
+  kymax = 10;
+  nbins = 1;
 
-  vector = nullptr;
-  vector_flag = 1;
-  extvector = 1;
+  kunique = 0;
+  ksq2unique = nullptr;
+
+  norms = nullptr;
+  weights = nullptr;
+  bins = nullptr;
 
   setup();
 
-  size_vector = ksqmax;
+  size_array_cols = 4;
+  size_array_rows = kunique;
 
-  bins = nullptr;
+  memory->create(array,kunique,4,"structure_factor_2d:array");
 }
 
 /* ----------------------------------------------------------------------
    free all memory
 ------------------------------------------------------------------------- */
 
-ComputeStructureFactor::~ComputeStructureFactor()
+ComputeStructureFactor2D::~ComputeStructureFactor2D()
 {
   deallocate();
   memory->destroy3d_offset(cs,-kmax_created);
   memory->destroy3d_offset(sn,-kmax_created);
-  if (bins) delete [] bins;
-  bins = nullptr;
+  memory->destroy(array);
+  delete [] norms;
+  delete [] weights;
+  delete [] ksq2unique;
+  delete [] bins;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void ComputeStructureFactor::init()
+void ComputeStructureFactor2D::init()
 {
   if (comm->me == 0) utils::logmesg(lmp,"StructureFactor initialization ...\n");
 
@@ -100,12 +112,11 @@ void ComputeStructureFactor::init()
 
   setup();
 
-
   // stats
 
   if (comm->me == 0) {
-    std::string mesg = fmt::format("  KSpace vectors: actual max1d max2d = {} {} {}\n",
-                        kcount,kmax,kmax2d);
+    std::string mesg = fmt::format("  KSpace vectors: actual max1d max2d unique = {} {} {} {}\n",
+                        kcount,kmax,kmax2d,kunique);
     mesg += fmt::format("                  kxmax kymax  = {} {}\n",
                         kxmax,kymax);
     utils::logmesg(lmp,mesg);
@@ -116,7 +127,7 @@ void ComputeStructureFactor::init()
    adjust StructureFactor coeffs, called initially and whenever volume has changed
 ------------------------------------------------------------------------- */
 
-void ComputeStructureFactor::setup()
+void ComputeStructureFactor2D::setup()
 {
   // volume-dependent factors
 
@@ -129,20 +140,24 @@ void ComputeStructureFactor::setup()
   unitk[0] = 2.0*MY_PI/xprd;
   unitk[1] = 2.0*MY_PI/yprd;
 
-  kxmax = kmax;
-  kymax = kmax;
+  int kmax_old = kmax;
 
-  //int kmax_old = kmax;
+  // determine kmax
+
+  kmax = MAX(kxmax,kymax);
+  kmax2d = 6*kmax*kmax + 3*kmax;
 
   double gsqxmx = unitk[0]*unitk[0]*kxmax*kxmax;
   double gsqymx = unitk[1]*unitk[1]*kymax*kymax;
   gsqmx = MAX(gsqxmx,gsqymx);
 
+  //gsqmx = unitk[0]*unitk[0]*17; ////
+
   gsqmx *= 1.00001;
 
   // if size has grown, reallocate k-dependent and nlocal-dependent arrays
 
-  //if (kmax > kmax_old) {
+  if (kmax > kmax_old) {
     deallocate();
     allocate();
 
@@ -154,18 +169,52 @@ void ComputeStructureFactor::setup()
     memory->create3d_offset(sn,-kmax,kmax,2,nmax,"ewald:sn");
     bins = new int[nmax];
     kmax_created = kmax;
-  //}
+  }
 
   // pre-compute StructureFactor coefficients
 
   coeffs();
+
+  int kall = 2*kmax*kmax;
+  int* ksq_all = new int[kall];
+
+  delete [] norms;
+  norms = new int[kall];
+
+  for (int k = 0; k < kall; k++) {
+    ksq_all[k] = 0.0;
+    norms[k] = 0.0;
+  }
+
+  kunique = 0;
+  for (int k = 0; k < kcount; k++) {
+    int l = kxvecs[k];
+    int m = kyvecs[k];
+    int sqk_int = l*l + m*m;
+    if (ksq_all[sqk_int] == 0) kunique++;
+    ksq_all[sqk_int] = 1;
+    norms[sqk_int]++;
+  }
+
+  delete [] ksq2unique;
+  ksq2unique = new int[kall];
+
+  int n = 0;
+  for (int k = 0; k < kall; k++) {
+    if (ksq_all[k] > 0) {
+      ksq2unique[k] = n;
+      n++;
+    }
+  }
+
+  delete [] ksq_all;
 }
 
 /* ----------------------------------------------------------------------
    compute the structure factor
 ------------------------------------------------------------------------- */
 
-void ComputeStructureFactor::compute_vector()
+void ComputeStructureFactor2D::compute_array()
 {
   // extend size of per-atom arrays if necessary
 
@@ -197,16 +246,25 @@ void ComputeStructureFactor::compute_vector()
   MPI_Allreduce(&sfacrl[0][0],&sfacrl_all[0][0],kmax2d*nbins,MPI_DOUBLE,MPI_SUM,world);
   MPI_Allreduce(&sfacim[0][0],&sfacim_all[0][0],kmax2d*nbins,MPI_DOUBLE,MPI_SUM,world);
 
+  for (int k = 0; k < kunique; k++)
+    array[k][3] = 0.0;
+
   for (int k = 0; k < kcount; k++) {
-    int l = kxvecs[k];
-    int m = kyvecs[k];
-    int sqk_int = l*l + m*m;
     for (int ibin = 0; ibin < nbins; ibin++) {
       for (int jbin = 0; jbin < nbins; jbin++) {
-        //printf("%i %i %i: %g\n",sqk_int,ibin,jbin,sfacrl_all[k][ibin]*sfacrl_all[k][jbin] +
-        //                       sfacim_all[k][ibin]*sfacim_all[k][jbin]/norms[sqk_int]);
-        vector[sqk_int*nbins*nbins + ibin*nbins + jbin] = sfacrl_all[k][ibin]*sfacrl_all[k][jbin] +
-                               sfacim_all[k][ibin]*sfacim_all[k][jbin]/norms[sqk_int];
+        int l = kxvecs[k];
+        int m = kyvecs[k];
+        int sqk_int = l*l + m*m;
+        double sqk = (double) sqk_int;
+        double q = unitk[0]*sqrt(sqk); ////
+        int kunq = ksq2unique[sqk_int];
+        //printf("%i: %g\n",sqk,(sfacrl_all[k]*sfacrl_all[k] +
+        //                       sfacim_all[k]*sfacim_all[k])/norms[sqk_int]/atom->natoms);
+        array[kunq][0] = q;
+        array[kunq][1] = ibin;
+        array[kunq][2] = jbin;
+        array[kunq][3] += (sfacrl_all[ibin][k]*sfacrl_all[jbin][k] +
+                                   sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int]/atom->natoms;
       }
     }
   }
@@ -214,7 +272,7 @@ void ComputeStructureFactor::compute_vector()
 
 /* ---------------------------------------------------------------------- */
 
-void ComputeStructureFactor::eik_dot_r()
+void ComputeStructureFactor2D::eik_dot_r()
 {
   int i,k,l,m,n,ic;
   double sqk;
@@ -241,6 +299,7 @@ void ComputeStructureFactor::eik_dot_r()
         sfacrl[n][ibin] += cs[1][ic][i];
         sfacim[n][ibin] += sn[1][ic][i];
       }
+      n++;
     }
   }
 
@@ -285,10 +344,10 @@ void ComputeStructureFactor::eik_dot_r()
 }
 
 /* ----------------------------------------------------------------------
-   pre-compute coefficients for each StructureFactor K-vector
+   pre-compute coefficients for each structure factor K-vector
 ------------------------------------------------------------------------- */
 
-void ComputeStructureFactor::coeffs()
+void ComputeStructureFactor2D::coeffs()
 {
   int k,l,m;
   double sqk;
@@ -328,27 +387,13 @@ void ComputeStructureFactor::coeffs()
       }
     }
   }
-  //printf("HERE %i %i\n",kcount,kmax2d);
-
-  for (int k = 0; k < kmax*kmax; k++)
-    norms[k] = 0;
-
-  for (int k = 0; k < kcount; k++) {
-    int m = kxvecs[k];
-    int l = kyvecs[k];
-    int sqk_int = m*m + l*l;
-    norms[sqk_int]++;
-  }
-
-  for (int k = 0; k < kmax*kmax; k++)
-    printf("%i %i\n",k,norms[k]);
 }
 
 /* ----------------------------------------------------------------------
    assign each atom to a 1d spatial bin (layer)
 ------------------------------------------------------------------------- */
 
-void ComputeStructureFactor::atom2bin1d()
+void ComputeStructureFactor2D::atom2bin1d()
 {
   int i, ibin;
   double *boxlo, *boxhi, *prd;
@@ -386,26 +431,23 @@ void ComputeStructureFactor::atom2bin1d()
    allocate memory that depends on # of K-vectors
 ------------------------------------------------------------------------- */
 
-void ComputeStructureFactor::allocate()
+void ComputeStructureFactor2D::allocate()
 {
   kxvecs = new int[kmax2d];
   kyvecs = new int[kmax2d];
 
-  memory->create(sfacrl,kmax2d,nbins,"structure_factor:sfacrl");
-  memory->create(sfacim,kmax2d,nbins,"structure_factor:sfacim");
+  memory->create(sfacrl,kmax2d,nbins,"structure_factor_2d:sfacrl");
+  memory->create(sfacim,kmax2d,nbins,"structure_factor_2d:sfacim");
 
-  memory->create(sfacrl_all,kmax2d,nbins,"structure_factor:sfacrl_all");
-  memory->create(sfacim_all,kmax2d,nbins,"structure_factor:sfacim_all");
-
-  memory->create(vector,kmax2d*nbins*nbins,"structure_factor:vector");
-  memory->create(norms,kmax*kmax,"structure_factor:norms");
+  memory->create(sfacrl_all,kmax2d,nbins,"structure_factor_2d:sfacrl_all");
+  memory->create(sfacim_all,kmax2d,nbins,"structure_factor_2d:sfacim_all");
 }
 
 /* ----------------------------------------------------------------------
    deallocate memory that depends on # of K-vectors
 ------------------------------------------------------------------------- */
 
-void ComputeStructureFactor::deallocate()
+void ComputeStructureFactor2D::deallocate()
 {
   delete [] kxvecs;
   delete [] kyvecs;
@@ -415,7 +457,4 @@ void ComputeStructureFactor::deallocate()
 
   memory->destroy(sfacrl_all);
   memory->destroy(sfacim_all);
-
-  memory->destroy(vector);
-  memory->destroy(norms);
 }
