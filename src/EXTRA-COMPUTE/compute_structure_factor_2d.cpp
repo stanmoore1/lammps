@@ -58,7 +58,7 @@ ComputeStructureFactor2D::ComputeStructureFactor2D(LAMMPS *lmp, int narg, char *
 
   kxmax = 10;
   kymax = 10;
-  nbins = 1;
+  nbins = 2;
 
   kunique = 0;
   ksq2unique = nullptr;
@@ -66,13 +66,15 @@ ComputeStructureFactor2D::ComputeStructureFactor2D(LAMMPS *lmp, int narg, char *
   norms = nullptr;
   weights = nullptr;
   bins = nullptr;
+  counts = new int[nbins];
+  counts_all = new int[nbins];
 
   setup();
 
-  size_array_cols = 4;
-  size_array_rows = kunique;
+  size_array_cols = 5;
+  size_array_rows = (kunique+1)*nbins*nbins;
 
-  memory->create(array,kunique,4,"structure_factor_2d:array");
+  memory->create(array,size_array_rows,size_array_cols,"structure_factor_2d:array");
 }
 
 /* ----------------------------------------------------------------------
@@ -89,24 +91,26 @@ ComputeStructureFactor2D::~ComputeStructureFactor2D()
   delete [] weights;
   delete [] ksq2unique;
   delete [] bins;
+  delete [] counts;
+  delete [] counts_all;
 }
 
 /* ---------------------------------------------------------------------- */
 
 void ComputeStructureFactor2D::init()
 {
-  if (comm->me == 0) utils::logmesg(lmp,"StructureFactor initialization ...\n");
+  if (comm->me == 0) utils::logmesg(lmp,"StructureFactor2D initialization ...\n");
 
   // error check
 
   if (domain->dimension == 2)
-    error->all(FLERR,"Cannot use StructureFactor with 2d simulation");
+    error->all(FLERR,"Cannot use StructureFactor2D with 2d simulation");
 
   if (domain->nonperiodic > 0)
-    error->all(FLERR,"Cannot use non-periodic boundaries with StructureFactor");
+    error->all(FLERR,"Cannot use non-periodic boundaries with StructureFactor2D");
 
   if (domain->triclinic)
-    error->all(FLERR,"Cannot (yet) use StructureFactor with triclinic box");
+    error->all(FLERR,"Cannot (yet) use StructureFactor2D with triclinic box");
 
   // setup StructureFactor coefficients so can print stats
 
@@ -229,7 +233,12 @@ void ComputeStructureFactor2D::compute_array()
     kmax_created = kmax;
   }
 
+  for (int ibin = 0; ibin < nbins; ibin++)
+    counts[ibin] = 0;
+
   atom2bin1d();
+
+  MPI_Allreduce(counts,counts_all,nbins,MPI_INT,MPI_SUM,world);
 
   // partial structure factors on each processor
   // total structure factor by summing over procs
@@ -246,8 +255,26 @@ void ComputeStructureFactor2D::compute_array()
   MPI_Allreduce(&sfacrl[0][0],&sfacrl_all[0][0],kmax2d*nbins,MPI_DOUBLE,MPI_SUM,world);
   MPI_Allreduce(&sfacim[0][0],&sfacim_all[0][0],kmax2d*nbins,MPI_DOUBLE,MPI_SUM,world);
 
-  for (int k = 0; k < kunique; k++)
+  for (int k = 0; k < kunique+1; k++)
     array[k][3] = 0.0;
+
+  // q = 0
+
+  for (int ibin = 0; ibin < nbins; ibin++) {
+    for (int jbin = 0; jbin < nbins; jbin++) {
+      double q = 0;
+      int kunq = 0;
+      int index = kunq*nbins*nbins + ibin*nbins + jbin;
+      array[index][0] = q;
+      array[index][1] = ibin;
+      array[index][2] = jbin;
+      array[index][3] = counts_all[ibin]*counts_all[jbin];
+      array[index][4] = counts_all[ibin];
+      //printf("%i %i %i %i\n",ibin,jbin,counts_all[ibin],counts_all[jbin]);
+    }
+  }
+
+  // q > 0
 
   for (int k = 0; k < kcount; k++) {
     for (int ibin = 0; ibin < nbins; ibin++) {
@@ -257,14 +284,16 @@ void ComputeStructureFactor2D::compute_array()
         int sqk_int = l*l + m*m;
         double sqk = (double) sqk_int;
         double q = unitk[0]*sqrt(sqk); ////
-        int kunq = ksq2unique[sqk_int];
+        int kunq = ksq2unique[sqk_int]+1;
+        int index = kunq*nbins*nbins + ibin*nbins + jbin;
         //printf("%i: %g\n",sqk,(sfacrl_all[k]*sfacrl_all[k] +
         //                       sfacim_all[k]*sfacim_all[k])/norms[sqk_int]/atom->natoms);
-        array[kunq][0] = q;
-        array[kunq][1] = ibin;
-        array[kunq][2] = jbin;
-        array[kunq][3] += (sfacrl_all[ibin][k]*sfacrl_all[jbin][k] +
-                                   sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int]/atom->natoms;
+        array[index][0] = q;
+        array[index][1] = ibin;
+        array[index][2] = jbin;
+        array[index][3] += (sfacrl_all[ibin][k]*sfacrl_all[jbin][k] +
+                                   sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int]/counts_all[ibin]/counts_all[jbin];
+        array[index][4] = 0.0;
       }
     }
   }
@@ -397,7 +426,7 @@ void ComputeStructureFactor2D::atom2bin1d()
 {
   int i, ibin;
   double *boxlo, *boxhi, *prd;
-  double xremap;
+  double zremap;
 
   double **x = atom->x;
   int nlocal = atom->nlocal;
@@ -408,22 +437,29 @@ void ComputeStructureFactor2D::atom2bin1d()
 
   double delta = domain->zprd/nbins;
   double invdelta = 1.0/delta;
-  double offset = 0.0; 
 
   // remap each atom's relevant coord back into box via PBC if necessary
 
   for (i = 0; i < nlocal; i++) {
-    xremap = x[i][2];
-    if (xremap < boxlo[2]) xremap += prd[2];
-    if (xremap >= boxhi[2]) xremap -= prd[2];
+    //xremap = x[i][0];
+    //yremap = x[i][1];
+    zremap = x[i][2];
 
-    ibin = static_cast<int>((xremap - offset) * invdelta);
-    if (xremap < offset) ibin--;
+    //if (xremap < boxlo[0]) xremap += prd[0];
+    //if (xremap >= boxhi[0]) xremap -= prd[0];
 
+    //if (yremap < boxlo[1]) yremap += prd[1];
+    //if (yremap >= boxhi[1]) yremap -= prd[1];
+
+    if (zremap < boxlo[2]) zremap += prd[2];
+    if (zremap >= boxhi[2]) zremap -= prd[2];
+
+    ibin = static_cast<int>(zremap * invdelta);
     ibin = MAX(ibin, 0);
     ibin = MIN(ibin, nbins-1);
 
-    bins[i] = ibin + 1;
+    bins[i] = ibin;
+    counts[ibin]++;
   }
 }
 

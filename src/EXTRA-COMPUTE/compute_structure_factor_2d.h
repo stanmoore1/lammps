@@ -55,6 +55,7 @@ class ComputeStructureFactor2D : public Compute {
   double *weights;
   int *ksq2unique;
   int *bins;
+  int *counts, *counts_all;
 };
 
 }    // namespace LAMMPS_NS

@@ -255,6 +255,9 @@ void ComputeStructureFactor::compute_array()
     int sqk_int = l*l + m*m + n*n;
     double sqk = (double) sqk_int;
     double q = unitk[0]*sqrt(sqk); ////
+
+    //printf("%g %i %i %i %g\n",q,l,m,n,(sfacrl_all[k]*sfacrl_all[k] +
+    //                       sfacim_all[k]*sfacim_all[k])/atom->natoms);
     int kunq = ksq2unique[sqk_int];
 //    printf("%i: %g\n",sqk,(sfacrl_all[k]*sfacrl_all[k] +
 //                           sfacim_all[k]*sfacim_all[k])/norms[sqk_int]/atom->natoms);
