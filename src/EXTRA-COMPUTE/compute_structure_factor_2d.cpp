@@ -71,7 +71,7 @@ ComputeStructureFactor2D::ComputeStructureFactor2D(LAMMPS *lmp, int narg, char *
 
   setup();
 
-  size_array_cols = 5;
+  size_array_cols = 4;
   size_array_rows = (kunique+1)*nbins*nbins;
 
   memory->create(array,size_array_rows,size_array_cols,"structure_factor_2d:array");
@@ -240,6 +240,14 @@ void ComputeStructureFactor2D::compute_array()
 
   MPI_Allreduce(counts,counts_all,nbins,MPI_INT,MPI_SUM,world);
 
+  double xprd = domain->xprd;
+  double yprd = domain->yprd;
+  double zprd = domain->zprd;
+  volume = xprd * yprd * zprd;
+  double volbin = volume/nbins;
+  double volbininv = 1.0/(volbin);
+  double volbin2inv = 1.0/(volbin*volbin);
+
   // partial structure factors on each processor
   // total structure factor by summing over procs
 
@@ -255,7 +263,7 @@ void ComputeStructureFactor2D::compute_array()
   MPI_Allreduce(&sfacrl[0][0],&sfacrl_all[0][0],kmax2d*nbins,MPI_DOUBLE,MPI_SUM,world);
   MPI_Allreduce(&sfacim[0][0],&sfacim_all[0][0],kmax2d*nbins,MPI_DOUBLE,MPI_SUM,world);
 
-  for (int k = 0; k < kunique+1; k++)
+  for (int k = 0; k < size_array_rows; k++)
     array[k][3] = 0.0;
 
   // q = 0
@@ -268,8 +276,8 @@ void ComputeStructureFactor2D::compute_array()
       array[index][0] = q;
       array[index][1] = ibin;
       array[index][2] = jbin;
-      array[index][3] = counts_all[ibin]*counts_all[jbin];
-      array[index][4] = counts_all[ibin];
+      array[index][3] = counts_all[ibin]*counts_all[jbin]*volbin2inv;
+      //array[index][4] = counts_all[ibin];
       //printf("%i %i %i %i\n",ibin,jbin,counts_all[ibin],counts_all[jbin]);
     }
   }
@@ -292,8 +300,8 @@ void ComputeStructureFactor2D::compute_array()
         array[index][1] = ibin;
         array[index][2] = jbin;
         array[index][3] += (sfacrl_all[ibin][k]*sfacrl_all[jbin][k] +
-                                   sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int]/counts_all[ibin]/counts_all[jbin];
-        array[index][4] = 0.0;
+                                   sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int]*volbin2inv;
+        //array[index][4] = 0.0;
       }
     }
   }
