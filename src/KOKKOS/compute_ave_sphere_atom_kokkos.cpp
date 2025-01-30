@@ -79,7 +79,7 @@ void ComputeAveSphereAtomKokkos<DeviceType>::compute_peratom()
   if (atom->nmax > nmax) {
     memoryKK->destroy_kokkos(k_result,result);
     nmax = atom->nmax;
-    memoryKK->create_kokkos(k_result,result,nmax,2,"ave/sphere/atom:result");
+    memoryKK->create_kokkos(k_result,result,nmax,size_peratom_cols,"ave/sphere/atom:result");
     d_result = k_result.view<DeviceType>();
     array_atom = result;
   }
@@ -127,6 +127,8 @@ void ComputeAveSphereAtomKokkos<DeviceType>::compute_peratom()
   k_result.sync_host();
 }
 
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void ComputeAveSphereAtomKokkos<DeviceType>::operator()(TagComputeAveSphereAtom, const int &ii) const
@@ -147,10 +149,15 @@ void ComputeAveSphereAtomKokkos<DeviceType>::operator()(TagComputeAveSphereAtom,
 
     int count = 1;
     double totalmass = massone_i;
-    double p[3];
-    p[0] = v(i,0)*massone_i;
-    p[1] = v(i,1)*massone_i;
-    p[2] = v(i,2)*massone_i;
+    double vcom[3],xcom[3];
+
+    vcom[0] = v(i,0)*massone_i;
+    vcom[1] = v(i,1)*massone_i;
+    vcom[2] = v(i,2)*massone_i;
+
+    xcom[0] = x(i,0)*massone_i;
+    xcom[1] = x(i,1)*massone_i;
+    xcom[2] = x(i,2)*massone_i;
 
     for (int jj = 0; jj < jnum; jj++) {
       int j = d_neighbors(i,jj);
@@ -165,16 +172,24 @@ void ComputeAveSphereAtomKokkos<DeviceType>::operator()(TagComputeAveSphereAtom,
       if (rsq < cutsq) {
         count++;
         totalmass += massone_j;
-        p[0] += v(j,0)*massone_j;
-        p[1] += v(j,1)*massone_j;
-        p[2] += v(j,2)*massone_j;
+
+        vcom[0] += v(j,0)*massone_j;
+        vcom[1] += v(j,1)*massone_j;
+        vcom[2] += v(j,2)*massone_j;
+
+        xcom[0] += x(j,0)*massone_j;
+        xcom[1] += x(j,1)*massone_j;
+        xcom[2] += x(j,2)*massone_j;
       }
     }
 
-    double vcom[3];
-    vcom[0] = p[0]/totalmass;
-    vcom[1] = p[1]/totalmass;
-    vcom[2] = p[2]/totalmass;
+    vcom[0] /= totalmass;
+    vcom[1] /= totalmass;
+    vcom[2] /= totalmass;
+
+    xcom[0] /= totalmass;
+    xcom[1] /= totalmass;
+    xcom[2] /= totalmass;
 
     // i atom contribution
 
@@ -203,9 +218,37 @@ void ComputeAveSphereAtomKokkos<DeviceType>::operator()(TagComputeAveSphereAtom,
     }
     double density = mv2d*totalmass/volume;
     double temp = mvv2e*ke_sum/(adof*count*boltz);
+
+    double xnet[3];
+    xnet[0] = xcom[0] - x(i,0);
+    xnet[1] = xcom[1] - x(i,1);
+    xnet[2] = xcom[2] - x(i,2);
+    double xcom_mag = sqrt(xnet[0]*xnet[0] + xnet[1]*xnet[1] + xnet[2]*xnet[2]);
+    double imbalance = xcom_mag / cutoff;
+
+    int phase = compute_phase(temp,density);
+
     d_result(i,0) = density;
     d_result(i,1) = temp;
+    d_result(i,2) = imbalance;
+    d_result(i,3) = (phase == 1); // liquid
+    d_result(i,4) = (phase == 0); // vapor
+    d_result(i,5) = (phase == -1); // supercritical
   }
+}
+
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+int ComputeAveSphereAtomKokkos<DeviceType>::compute_phase(const double& T, const double& rho) const
+{
+  if (T >= Tc) return -1;
+
+  const double rho_half = rhoc - B * (T - Tc);
+  if (rho > rho_half) return 1;
+  else return 0;
 }
 
 namespace LAMMPS_NS {

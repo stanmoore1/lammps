@@ -40,7 +40,7 @@ using MathConst::MY_PI;
 ComputeAveSphereAtom::ComputeAveSphereAtom(LAMMPS *lmp, int narg, char **arg) :
     Compute(lmp, narg, arg), result(nullptr)
 {
-  if (narg < 3 || narg > 5) error->all(FLERR, "Illegal compute ave/sphere/atom command");
+  if (narg < 3 || narg > 9) error->all(FLERR, "Illegal compute ave/sphere/atom command");
 
   // process optional args
 
@@ -53,12 +53,18 @@ ComputeAveSphereAtom::ComputeAveSphereAtom(LAMMPS *lmp, int narg, char **arg) :
       cutoff = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
       if (cutoff <= 0.0) error->all(FLERR, "Illegal compute ave/sphere/atom command");
       iarg += 2;
+    } else if (strcmp(arg[iarg], "phase") == 0) {
+      if (iarg + 4 > narg) error->all(FLERR, "Illegal compute ave/sphere/atom command");
+      Tc = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+      rhoc = utils::numeric(FLERR, arg[iarg + 2], false, lmp);
+      B = utils::numeric(FLERR, arg[iarg + 3], false, lmp);
+      iarg += 4;
     } else
       error->all(FLERR, "Illegal compute ave/sphere/atom command");
   }
 
   peratom_flag = 1;
-  size_peratom_cols = 2;
+  size_peratom_cols = 6;
   comm_forward = 3;
 
   nmax = 0;
@@ -132,7 +138,7 @@ void ComputeAveSphereAtom::compute_peratom()
   double xtmp, ytmp, ztmp, delx, dely, delz, rsq;
   int *ilist, *jlist, *numneigh, **firstneigh;
   int count;
-  double p[3], vcom[3], vnet[3];
+  double vcom[3], vnet[3], xcom[3], xnet[3];
 
   invoked_peratom = update->ntimestep;
 
@@ -141,7 +147,7 @@ void ComputeAveSphereAtom::compute_peratom()
   if (atom->nmax > nmax) {
     memory->destroy(result);
     nmax = atom->nmax;
-    memory->create(result, nmax, 2, "ave/sphere/atom:result");
+    memory->create(result, nmax, size_peratom_cols, "ave/sphere/atom:result");
     array_atom = result;
   }
 
@@ -193,9 +199,13 @@ void ComputeAveSphereAtom::compute_peratom()
 
       count = 1;
       totalmass = massone_i;
-      p[0] = v[i][0] * massone_i;
-      p[1] = v[i][1] * massone_i;
-      p[2] = v[i][2] * massone_i;
+      vcom[0] = v[i][0] * massone_i;
+      vcom[1] = v[i][1] * massone_i;
+      vcom[2] = v[i][2] * massone_i;
+
+      xcom[0] = x[i][0] * massone_i;
+      xcom[1] = x[i][1] * massone_i;
+      xcom[2] = x[i][2] * massone_i;
 
       for (jj = 0; jj < jnum; jj++) {
         j = jlist[jj];
@@ -212,15 +222,23 @@ void ComputeAveSphereAtom::compute_peratom()
         if (rsq < cutsq) {
           count++;
           totalmass += massone_j;
-          p[0] += v[j][0] * massone_j;
-          p[1] += v[j][1] * massone_j;
-          p[2] += v[j][2] * massone_j;
+          vcom[0] += v[j][0] * massone_j;
+          vcom[1] += v[j][1] * massone_j;
+          vcom[2] += v[j][2] * massone_j;
+
+          xcom[0] += x[i][0] * massone_j;
+          xcom[1] += x[i][1] * massone_j;
+          xcom[2] += x[i][2] * massone_j;
         }
       }
 
-      vcom[0] = p[0] / totalmass;
-      vcom[1] = p[1] / totalmass;
-      vcom[2] = p[2] / totalmass;
+      vcom[0] /= totalmass;
+      vcom[1] /= totalmass;
+      vcom[2] /= totalmass;
+
+      xcom[0] /= totalmass;
+      xcom[1] /= totalmass;
+      xcom[2] /= totalmass;
 
       // i atom contribution
 
@@ -250,10 +268,34 @@ void ComputeAveSphereAtom::compute_peratom()
       }
       double density = mv2d * totalmass / volume;
       double temp = mvv2e * ke_sum / (adof * count * boltz);
+
+      xnet[0] = xcom[0] - x[i][0];
+      xnet[1] = xcom[1] - x[i][1];
+      xnet[2] = xcom[2] - x[i][2];
+      double xcom_mag = sqrt(xnet[0]*xnet[0] + xnet[1]*xnet[1] + xnet[2]*xnet[2]);
+      double imbalance = xcom_mag / cutoff;
+
+      int phase = compute_phase(temp,density);
+
       result[i][0] = density;
       result[i][1] = temp;
+      result[i][2] = imbalance;
+      result[i][3] = (phase == 1); // liquid
+      result[i][4] = (phase == 0); // vapor
+      result[i][5] = (phase == -1); // supercritical
     }
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+int ComputeAveSphereAtom::compute_phase(const double& T, const double& rho)
+{
+  if (T >= Tc) return -1;
+
+  const double rho_half = rhoc - B * (T - Tc);
+  if (rho > rho_half) return 1;
+  else return 0;
 }
 
 /* ---------------------------------------------------------------------- */

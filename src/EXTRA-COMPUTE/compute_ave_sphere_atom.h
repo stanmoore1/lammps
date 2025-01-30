@@ -31,6 +31,7 @@ class ComputeAveSphereAtom : public Compute {
   void init() override;
   void init_list(int, class NeighList *) override;
   void compute_peratom() override;
+  int compute_phase(const double&, const double&);
   int pack_forward_comm(int, int *, double *, int, int *) override;
   void unpack_forward_comm(int, int, double *) override;
   double memory_usage() override;
@@ -38,6 +39,7 @@ class ComputeAveSphereAtom : public Compute {
  protected:
   int nmax;
   double cutoff, cutsq, volume;
+  double Tc, rhoc, B;
   class NeighList *list;
 
   double **result;
