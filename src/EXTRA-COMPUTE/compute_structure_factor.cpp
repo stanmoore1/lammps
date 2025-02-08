@@ -23,6 +23,7 @@
 #include "domain.h"
 #include "error.h"
 #include "force.h"
+#include "group.h"
 #include "math_const.h"
 #include "memory.h"
 #include "pair.h"
@@ -58,7 +59,7 @@ ComputeStructureFactor::ComputeStructureFactor(LAMMPS *lmp, int narg, char **arg
 
   kxmax = 5;
   kymax = 5;
-  kzmax = 5;
+  kzmax = 0;
 
   kunique = 0;
   ksq2unique = nullptr;
@@ -68,10 +69,10 @@ ComputeStructureFactor::ComputeStructureFactor(LAMMPS *lmp, int narg, char **arg
 
   setup();
 
-  size_array_cols = 2;
+  size_array_cols = 3;
   size_array_rows = kunique;
 
-  memory->create(array,kunique,2,"structure_factor:array");
+  memory->create(array,size_array_rows,size_array_cols,"structure_factor:array");
 }
 
 /* ----------------------------------------------------------------------
@@ -263,7 +264,8 @@ void ComputeStructureFactor::compute_array()
 //                           sfacim_all[k]*sfacim_all[k])/norms[sqk_int]/atom->natoms);
     array[kunq][0] = q;
     array[kunq][1] += (sfacrl_all[k]*sfacrl_all[k] +
-                               sfacim_all[k]*sfacim_all[k])/norms[sqk_int]/atom->natoms;
+                               sfacim_all[k]*sfacim_all[k])/norms[sqk_int]/group->count(igroup);
+    array[kunq][2] = norms[sqk_int];
   }
 }
 
@@ -276,6 +278,7 @@ void ComputeStructureFactor::eik_dot_r()
   double sqk,clpm,slpm;
 
   double **x = atom->x;
+  int *mask = atom->mask;
   int nlocal = atom->nlocal;
 
   for (int i = 0; i < nlocal; i++)
@@ -291,14 +294,16 @@ void ComputeStructureFactor::eik_dot_r()
       cstr1 = 0.0;
       sstr1 = 0.0;
       for (i = 0; i < nlocal; i++) {
-        cs[0][ic][i] = 1.0;
-        sn[0][ic][i] = 0.0;
-        cs[1][ic][i] = cos(unitk[ic]*x[i][ic]);
-        sn[1][ic][i] = sin(unitk[ic]*x[i][ic]);
-        cs[-1][ic][i] = cs[1][ic][i];
-        sn[-1][ic][i] = -sn[1][ic][i];
-        cstr1 += weights[i]*cs[1][ic][i];
-        sstr1 += weights[i]*sn[1][ic][i];
+        if (mask[i] & groupbit) {
+          cs[0][ic][i] = 1.0;
+          sn[0][ic][i] = 0.0;
+          cs[1][ic][i] = cos(unitk[ic]*x[i][ic]);
+          sn[1][ic][i] = sin(unitk[ic]*x[i][ic]);
+          cs[-1][ic][i] = cs[1][ic][i];
+          sn[-1][ic][i] = -sn[1][ic][i];
+          cstr1 += weights[i]*cs[1][ic][i];
+          sstr1 += weights[i]*sn[1][ic][i];
+        }
       }
       sfacrl[n] = cstr1;
       sfacim[n++] = sstr1;
@@ -312,14 +317,16 @@ void ComputeStructureFactor::eik_dot_r()
         cstr1 = 0.0;
         sstr1 = 0.0;
         for (i = 0; i < nlocal; i++) {
-          cs[m][ic][i] = cs[m-1][ic][i]*cs[1][ic][i] -
-            sn[m-1][ic][i]*sn[1][ic][i];
-          sn[m][ic][i] = sn[m-1][ic][i]*cs[1][ic][i] +
-            cs[m-1][ic][i]*sn[1][ic][i];
-          cs[-m][ic][i] = cs[m][ic][i];
-          sn[-m][ic][i] = -sn[m][ic][i];
-          cstr1 += weights[i]*cs[m][ic][i];
-          sstr1 += weights[i]*sn[m][ic][i];
+          if (mask[i] & groupbit) {
+            cs[m][ic][i] = cs[m-1][ic][i]*cs[1][ic][i] -
+              sn[m-1][ic][i]*sn[1][ic][i];
+            sn[m][ic][i] = sn[m-1][ic][i]*cs[1][ic][i] +
+              cs[m-1][ic][i]*sn[1][ic][i];
+            cs[-m][ic][i] = cs[m][ic][i];
+            sn[-m][ic][i] = -sn[m][ic][i];
+            cstr1 += weights[i]*cs[m][ic][i];
+            sstr1 += weights[i]*sn[m][ic][i];
+          }
         }
         sfacrl[n] = cstr1;
         sfacim[n++] = sstr1;
@@ -338,10 +345,12 @@ void ComputeStructureFactor::eik_dot_r()
         cstr2 = 0.0;
         sstr2 = 0.0;
         for (i = 0; i < nlocal; i++) {
-          cstr1 += weights[i]*(cs[k][0][i]*cs[l][1][i] - sn[k][0][i]*sn[l][1][i]);
-          sstr1 += weights[i]*(sn[k][0][i]*cs[l][1][i] + cs[k][0][i]*sn[l][1][i]);
-          cstr2 += weights[i]*(cs[k][0][i]*cs[l][1][i] + sn[k][0][i]*sn[l][1][i]);
-          sstr2 += weights[i]*(sn[k][0][i]*cs[l][1][i] - cs[k][0][i]*sn[l][1][i]);
+          if (mask[i] & groupbit) {
+            cstr1 += weights[i]*(cs[k][0][i]*cs[l][1][i] - sn[k][0][i]*sn[l][1][i]);
+            sstr1 += weights[i]*(sn[k][0][i]*cs[l][1][i] + cs[k][0][i]*sn[l][1][i]);
+            cstr2 += weights[i]*(cs[k][0][i]*cs[l][1][i] + sn[k][0][i]*sn[l][1][i]);
+            sstr2 += weights[i]*(sn[k][0][i]*cs[l][1][i] - cs[k][0][i]*sn[l][1][i]);
+          }
         }
         sfacrl[n] = cstr1;
         sfacim[n++] = sstr1;
@@ -362,10 +371,12 @@ void ComputeStructureFactor::eik_dot_r()
         cstr2 = 0.0;
         sstr2 = 0.0;
         for (i = 0; i < nlocal; i++) {
-          cstr1 += weights[i]*(cs[l][1][i]*cs[m][2][i] - sn[l][1][i]*sn[m][2][i]);
-          sstr1 += weights[i]*(sn[l][1][i]*cs[m][2][i] + cs[l][1][i]*sn[m][2][i]);
-          cstr2 += weights[i]*(cs[l][1][i]*cs[m][2][i] + sn[l][1][i]*sn[m][2][i]);
-          sstr2 += weights[i]*(sn[l][1][i]*cs[m][2][i] - cs[l][1][i]*sn[m][2][i]);
+          if (mask[i] & groupbit) {
+            cstr1 += weights[i]*(cs[l][1][i]*cs[m][2][i] - sn[l][1][i]*sn[m][2][i]);
+            sstr1 += weights[i]*(sn[l][1][i]*cs[m][2][i] + cs[l][1][i]*sn[m][2][i]);
+            cstr2 += weights[i]*(cs[l][1][i]*cs[m][2][i] + sn[l][1][i]*sn[m][2][i]);
+            sstr2 += weights[i]*(sn[l][1][i]*cs[m][2][i] - cs[l][1][i]*sn[m][2][i]);
+          }
         }
         sfacrl[n] = cstr1;
         sfacim[n++] = sstr1;
@@ -386,10 +397,12 @@ void ComputeStructureFactor::eik_dot_r()
         cstr2 = 0.0;
         sstr2 = 0.0;
         for (i = 0; i < nlocal; i++) {
-          cstr1 += weights[i]*(cs[k][0][i]*cs[m][2][i] - sn[k][0][i]*sn[m][2][i]);
-          sstr1 += weights[i]*(sn[k][0][i]*cs[m][2][i] + cs[k][0][i]*sn[m][2][i]);
-          cstr2 += weights[i]*(cs[k][0][i]*cs[m][2][i] + sn[k][0][i]*sn[m][2][i]);
-          sstr2 += weights[i]*(sn[k][0][i]*cs[m][2][i] - cs[k][0][i]*sn[m][2][i]);
+          if (mask[i] & groupbit) {
+            cstr1 += weights[i]*(cs[k][0][i]*cs[m][2][i] - sn[k][0][i]*sn[m][2][i]);
+            sstr1 += weights[i]*(sn[k][0][i]*cs[m][2][i] + cs[k][0][i]*sn[m][2][i]);
+            cstr2 += weights[i]*(cs[k][0][i]*cs[m][2][i] + sn[k][0][i]*sn[m][2][i]);
+            sstr2 += weights[i]*(sn[k][0][i]*cs[m][2][i] - cs[k][0][i]*sn[m][2][i]);
+          }
         }
         sfacrl[n] = cstr1;
         sfacim[n++] = sstr1;
@@ -416,25 +429,27 @@ void ComputeStructureFactor::eik_dot_r()
           cstr4 = 0.0;
           sstr4 = 0.0;
           for (i = 0; i < nlocal; i++) {
-            clpm = cs[l][1][i]*cs[m][2][i] - sn[l][1][i]*sn[m][2][i];
-            slpm = sn[l][1][i]*cs[m][2][i] + cs[l][1][i]*sn[m][2][i];
-            cstr1 += weights[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
-            sstr1 += weights[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
+            if (mask[i] & groupbit) {
+              clpm = cs[l][1][i]*cs[m][2][i] - sn[l][1][i]*sn[m][2][i];
+              slpm = sn[l][1][i]*cs[m][2][i] + cs[l][1][i]*sn[m][2][i];
+              cstr1 += weights[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
+              sstr1 += weights[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
 
-            clpm = cs[l][1][i]*cs[m][2][i] + sn[l][1][i]*sn[m][2][i];
-            slpm = -sn[l][1][i]*cs[m][2][i] + cs[l][1][i]*sn[m][2][i];
-            cstr2 += weights[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
-            sstr2 += weights[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
+              clpm = cs[l][1][i]*cs[m][2][i] + sn[l][1][i]*sn[m][2][i];
+              slpm = -sn[l][1][i]*cs[m][2][i] + cs[l][1][i]*sn[m][2][i];
+              cstr2 += weights[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
+              sstr2 += weights[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
 
-            clpm = cs[l][1][i]*cs[m][2][i] + sn[l][1][i]*sn[m][2][i];
-            slpm = sn[l][1][i]*cs[m][2][i] - cs[l][1][i]*sn[m][2][i];
-            cstr3 += weights[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
-            sstr3 += weights[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
+              clpm = cs[l][1][i]*cs[m][2][i] + sn[l][1][i]*sn[m][2][i];
+              slpm = sn[l][1][i]*cs[m][2][i] - cs[l][1][i]*sn[m][2][i];
+              cstr3 += weights[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
+              sstr3 += weights[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
 
-            clpm = cs[l][1][i]*cs[m][2][i] - sn[l][1][i]*sn[m][2][i];
-            slpm = -sn[l][1][i]*cs[m][2][i] - cs[l][1][i]*sn[m][2][i];
-            cstr4 += weights[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
-            sstr4 += weights[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
+              clpm = cs[l][1][i]*cs[m][2][i] - sn[l][1][i]*sn[m][2][i];
+              slpm = -sn[l][1][i]*cs[m][2][i] - cs[l][1][i]*sn[m][2][i];
+              cstr4 += weights[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
+              sstr4 += weights[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
+            }
           }
           sfacrl[n] = cstr1;
           sfacim[n++] = sstr1;
@@ -459,6 +474,7 @@ void ComputeStructureFactor::eik_dot_r_triclinic()
   double sqk,clpm,slpm;
 
   double **x = atom->x;
+  int *mask = atom->mask;
   int nlocal = atom->nlocal;
 
   double unitk_lamda[3];
@@ -482,12 +498,14 @@ void ComputeStructureFactor::eik_dot_r_triclinic()
     sqk = unitk_lamda[ic]*unitk_lamda[ic];
     if (sqk <= gsqmx) {
       for (i = 0; i < nlocal; i++) {
-        cs[0][ic][i] = 1.0;
-        sn[0][ic][i] = 0.0;
-        cs[1][ic][i] = cos(unitk_lamda[0]*x[i][0] + unitk_lamda[1]*x[i][1] + unitk_lamda[2]*x[i][2]);
-        sn[1][ic][i] = sin(unitk_lamda[0]*x[i][0] + unitk_lamda[1]*x[i][1] + unitk_lamda[2]*x[i][2]);
-        cs[-1][ic][i] = cs[1][ic][i];
-        sn[-1][ic][i] = -sn[1][ic][i];
+        if (mask[i] & groupbit) {
+          cs[0][ic][i] = 1.0;
+          sn[0][ic][i] = 0.0;
+          cs[1][ic][i] = cos(unitk_lamda[0]*x[i][0] + unitk_lamda[1]*x[i][1] + unitk_lamda[2]*x[i][2]);
+          sn[1][ic][i] = sin(unitk_lamda[0]*x[i][0] + unitk_lamda[1]*x[i][1] + unitk_lamda[2]*x[i][2]);
+          cs[-1][ic][i] = cs[1][ic][i];
+          sn[-1][ic][i] = -sn[1][ic][i];
+        }
       }
     }
   }
@@ -501,12 +519,14 @@ void ComputeStructureFactor::eik_dot_r_triclinic()
       x2lamdaT(&unitk_lamda[0],&unitk_lamda[0]);
       sqk = unitk_lamda[ic]*unitk_lamda[ic];
       for (i = 0; i < nlocal; i++) {
-        cs[m][ic][i] = cs[m-1][ic][i]*cs[1][ic][i] -
-          sn[m-1][ic][i]*sn[1][ic][i];
-        sn[m][ic][i] = sn[m-1][ic][i]*cs[1][ic][i] +
-          cs[m-1][ic][i]*sn[1][ic][i];
-        cs[-m][ic][i] = cs[m][ic][i];
-        sn[-m][ic][i] = -sn[m][ic][i];
+        if (mask[i] & groupbit) {
+          cs[m][ic][i] = cs[m-1][ic][i]*cs[1][ic][i] -
+            sn[m-1][ic][i]*sn[1][ic][i];
+          sn[m][ic][i] = sn[m-1][ic][i]*cs[1][ic][i] +
+            cs[m-1][ic][i]*sn[1][ic][i];
+          cs[-m][ic][i] = cs[m][ic][i];
+          sn[-m][ic][i] = -sn[m][ic][i];
+        }
       }
     }
   }
@@ -518,10 +538,12 @@ void ComputeStructureFactor::eik_dot_r_triclinic()
     cstr1 = 0.0;
     sstr1 = 0.0;
     for (i = 0; i < nlocal; i++) {
-      clpm = cs[l][1][i]*cs[m][2][i] - sn[l][1][i]*sn[m][2][i];
-      slpm = sn[l][1][i]*cs[m][2][i] + cs[l][1][i]*sn[m][2][i];
-      cstr1 += weights[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
-      sstr1 += weights[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
+      if (mask[i] & groupbit) {
+        clpm = cs[l][1][i]*cs[m][2][i] - sn[l][1][i]*sn[m][2][i];
+        slpm = sn[l][1][i]*cs[m][2][i] + cs[l][1][i]*sn[m][2][i];
+        cstr1 += weights[i]*(cs[k][0][i]*clpm - sn[k][0][i]*slpm);
+        sstr1 += weights[i]*(sn[k][0][i]*clpm + cs[k][0][i]*slpm);
+      }
     }
     sfacrl[n] = cstr1;
     sfacim[n] = sstr1;

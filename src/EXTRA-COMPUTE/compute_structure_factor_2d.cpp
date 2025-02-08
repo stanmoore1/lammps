@@ -58,7 +58,7 @@ ComputeStructureFactor2D::ComputeStructureFactor2D(LAMMPS *lmp, int narg, char *
 
   kxmax = 10;
   kymax = 10;
-  nbins = 2;
+  nbins = 1;
 
   kunique = 0;
   ksq2unique = nullptr;
@@ -71,7 +71,7 @@ ComputeStructureFactor2D::ComputeStructureFactor2D(LAMMPS *lmp, int narg, char *
 
   setup();
 
-  size_array_cols = 4;
+  size_array_cols = 5;
   size_array_rows = (kunique+1)*nbins*nbins;
 
   memory->create(array,size_array_rows,size_array_cols,"structure_factor_2d:array");
@@ -155,7 +155,7 @@ void ComputeStructureFactor2D::setup()
   double gsqymx = unitk[1]*unitk[1]*kymax*kymax;
   gsqmx = MAX(gsqxmx,gsqymx);
 
-  //gsqmx = unitk[0]*unitk[0]*17; ////
+  gsqmx = unitk[0]*unitk[0]*17; ////
 
   gsqmx *= 1.00001;
 
@@ -277,7 +277,7 @@ void ComputeStructureFactor2D::compute_array()
       array[index][1] = ibin;
       array[index][2] = jbin;
       array[index][3] = counts_all[ibin]*counts_all[jbin]*volbin2inv;
-      //array[index][4] = counts_all[ibin];
+      array[index][4] = counts_all[ibin]*volbininv;
       //printf("%i %i %i %i\n",ibin,jbin,counts_all[ibin],counts_all[jbin]);
     }
   }
@@ -300,8 +300,8 @@ void ComputeStructureFactor2D::compute_array()
         array[index][1] = ibin;
         array[index][2] = jbin;
         array[index][3] += (sfacrl_all[ibin][k]*sfacrl_all[jbin][k] +
-                                   sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int]*volbin2inv;
-        //array[index][4] = 0.0;
+                                   sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int]/sqrt(counts_all[ibin])/sqrt(counts_all[jbin]);
+        array[index][4] = 0.0;
       }
     }
   }
