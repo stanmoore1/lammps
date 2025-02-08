@@ -58,7 +58,7 @@ ComputeStructureFactor2D::ComputeStructureFactor2D(LAMMPS *lmp, int narg, char *
 
   kxmax = 10;
   kymax = 10;
-  nbins = 1;
+  nbins = 10;
 
   kunique = 0;
   ksq2unique = nullptr;
@@ -276,8 +276,8 @@ void ComputeStructureFactor2D::compute_array()
       array[index][0] = q;
       array[index][1] = ibin;
       array[index][2] = jbin;
-      array[index][3] = counts_all[ibin]*counts_all[jbin]*volbin2inv;
-      array[index][4] = counts_all[ibin]*volbininv;
+      array[index][3] = counts_all[ibin]*counts_all[jbin];//*volbin2inv;
+      array[index][4] = counts_all[ibin];//*volbininv;
       //printf("%i %i %i %i\n",ibin,jbin,counts_all[ibin],counts_all[jbin]);
     }
   }
@@ -294,8 +294,8 @@ void ComputeStructureFactor2D::compute_array()
         double q = unitk[0]*sqrt(sqk); ////
         int kunq = ksq2unique[sqk_int]+1;
         int index = kunq*nbins*nbins + ibin*nbins + jbin;
-        //printf("%i: %g\n",sqk,(sfacrl_all[k]*sfacrl_all[k] +
-        //                       sfacim_all[k]*sfacim_all[k])/norms[sqk_int]/atom->natoms);
+        //printf("2D %g: %i %g %g\n",q,norms[sqk_int],sqrt(counts_all[ibin])*sqrt(counts_all[jbin]),(sfacrl_all[ibin][k]*sfacrl_all[jbin][k] +
+        //                       sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int]/sqrt(counts_all[ibin])/sqrt(counts_all[jbin]));
         array[index][0] = q;
         array[index][1] = ibin;
         array[index][2] = jbin;

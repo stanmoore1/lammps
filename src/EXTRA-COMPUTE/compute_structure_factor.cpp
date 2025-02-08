@@ -59,7 +59,7 @@ ComputeStructureFactor::ComputeStructureFactor(LAMMPS *lmp, int narg, char **arg
 
   kxmax = 5;
   kymax = 5;
-  kzmax = 0;
+  kzmax = 5;
 
   kunique = 0;
   ksq2unique = nullptr;
@@ -260,8 +260,8 @@ void ComputeStructureFactor::compute_array()
     //printf("%g %i %i %i %g\n",q,l,m,n,(sfacrl_all[k]*sfacrl_all[k] +
     //                       sfacim_all[k]*sfacim_all[k])/atom->natoms);
     int kunq = ksq2unique[sqk_int];
-//    printf("%i: %g\n",sqk,(sfacrl_all[k]*sfacrl_all[k] +
-//                           sfacim_all[k]*sfacim_all[k])/norms[sqk_int]/atom->natoms);
+    //printf("3D %g: %i %i %g\n",q,norms[sqk_int],(int)group->count(igroup),(sfacrl_all[k]*sfacrl_all[k] +
+    //                       sfacim_all[k]*sfacim_all[k])/norms[sqk_int]/group->count(igroup));
     array[kunq][0] = q;
     array[kunq][1] += (sfacrl_all[k]*sfacrl_all[k] +
                                sfacim_all[k]*sfacim_all[k])/norms[sqk_int]/group->count(igroup);
