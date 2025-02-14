@@ -97,9 +97,9 @@ PairOxdnaStkKokkos<DeviceType>::~PairOxdnaStkKokkos()
     memoryKK->destroy_kokkos(k_b_st2,b_st2);
     memoryKK->destroy_kokkos(k_cosphi_st2_c,cosphi_st2_c);
 
-    memoryKK->destroy_kokkos(k_nx_xtrct,nx_xtrct);
+    /*memoryKK->destroy_kokkos(k_nx_xtrct,nx_xtrct);
     memoryKK->destroy_kokkos(k_ny_xtrct,ny_xtrct);
-    memoryKK->destroy_kokkos(k_nz_xtrct,nz_xtrct);
+    memoryKK->destroy_kokkos(k_nz_xtrct,nz_xtrct);*/
   }
 }
 
