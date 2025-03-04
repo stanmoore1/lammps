@@ -50,7 +50,7 @@ CommKokkos::CommKokkos(LAMMPS *lmp) : CommBrick(lmp)
   memory->sfree(sendlist);
   sendlist = nullptr;
   k_sendlist = DAT::tdual_int_2d();
-  k_sendlist_bonus = DAT::tdual_int_2d();
+  //k_sendlist_bonus = DAT::tdual_int_2d();
   k_total_send = DAT::tdual_int_scalar("comm::k_total_send");
 
   // error check for disallow of OpenMP threads?
@@ -73,7 +73,7 @@ CommKokkos::CommKokkos(LAMMPS *lmp) : CommBrick(lmp)
     maxsendlist[i] = BUFMIN;
   }
   memoryKK->create_kokkos(k_sendlist,sendlist,maxswap,BUFMIN,"comm:sendlist");
-  memoryKK->create_kokkos(k_sendlist_bonus,sendlist,maxswap,BUFMIN,"comm:sendlist_bonus");
+  //memoryKK->create_kokkos(k_sendlist_bonus,sendlist,maxswap,BUFMIN,"comm:sendlist_bonus");
 
   max_buf_pair = 0;
   k_buf_send_pair = DAT::tdual_xfloat_1d("comm:k_buf_send_pair",1);
@@ -941,17 +941,26 @@ void CommKokkos::exchange_device()
           Kokkos::parallel_for(nlocal,f);
         }
         k_exchange_sendlist.modify<DeviceType>();
-        if (bonus_flag)
-          k_exchange_sendlist_bonus.modify<DeviceType>();
         k_count.modify<DeviceType>();
-
         k_count.sync<LMPHostType>();
         int count = k_count.h_view(0);
+        int count_bonus = 0;
+        if (bonus_flag) {
+          k_exchange_sendlist_bonus.modify<DeviceType>();
+        }
+
         if (count >= (int)k_exchange_sendlist.h_view.extent(0)) {
           MemKK::realloc_kokkos(k_exchange_sendlist,"comm:k_exchange_sendlist",count*1.1);
           MemKK::realloc_kokkos(k_exchange_copylist,"comm:k_exchange_copylist",count*1.1);
           k_count.h_view(0) = k_exchange_sendlist.h_view.extent(0);
-          if (bonus_flag) k_count.h_view(1) = k_exchange_sendlist_bonus.h_view.extent(0);
+          //if (bonus_flag) k_count.h_view(1) = k_exchange_sendlist_bonus.h_view.extent(0);
+        }
+        if (count_bonus >= (int)k_exchange_sendlist_bonus.h_view.extent(0)) {
+          MemKK::realloc_kokkos(k_exchange_sendlist_bonus,"comm:k_exchange_sendlist_bonus",\
+                                count_bonus*1.1);
+          MemKK::realloc_kokkos(k_exchange_copylist_bonus,"comm:k_exchange_copylist_bonus",\
+                                count_bonus*1.1);
+          k_count.h_view(1) = k_exchange_sendlist_bonus.h_view.extent(0);
         }
       }
       int count = k_count.h_view(0);
