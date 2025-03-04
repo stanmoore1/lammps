@@ -123,7 +123,7 @@ void FixSpringSelfKokkos<DeviceType>::post_force(int /*vflag*/)
   auto l_yflag = yflag;
   auto l_zflag = zflag;
 
-  Kokkos::parallel_reduce(nlocal, LAMMPS_LAMBDA(const int& i, double& espring_kk) {
+  Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,nlocal), LAMMPS_LAMBDA(const int& i, double& espring_kk) {
     if (l_mask[i] & l_groupbit) {
       Few<double,3> x_i;
       x_i[0] = l_x(i,0);

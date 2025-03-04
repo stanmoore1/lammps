@@ -127,6 +127,14 @@ action compute_composition_atom_kokkos.cpp compute_composition_atom.cpp
 action compute_composition_atom_kokkos.h compute_composition_atom.h
 action compute_orientorder_atom_kokkos.cpp
 action compute_orientorder_atom_kokkos.h
+action compute_sna_grid_kokkos.cpp compute_sna_grid.cpp
+action compute_sna_grid_kokkos.h compute_sna_grid.h
+action compute_sna_grid_kokkos_impl.h compute_sna_grid.cpp
+action compute_sna_grid_local_kokkos.cpp compute_sna_grid_local.cpp
+action compute_sna_grid_local_kokkos.h compute_sna_grid_local.h
+action compute_sna_grid_local_kokkos_impl.h compute_sna_grid_local.cpp
+action compute_gaussian_grid_local_kokkos.cpp compute_gaussian_grid_local.cpp
+action compute_gaussian_grid_local_kokkos.h compute_gaussian_grid_local.h
 action compute_temp_deform_kokkos.cpp
 action compute_temp_deform_kokkos.h
 action compute_temp_kokkos.cpp
@@ -240,7 +248,6 @@ action fix_wall_region_kokkos.cpp
 action fix_wall_region_kokkos.h
 action grid3d_kokkos.cpp fft3d.h
 action grid3d_kokkos.h fft3d.h
-action group_kokkos.cpp
 action group_kokkos.h
 action improper_class2_kokkos.cpp improper_class2.cpp
 action improper_class2_kokkos.h improper_class2.h

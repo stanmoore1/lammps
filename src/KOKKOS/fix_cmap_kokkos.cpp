@@ -690,7 +690,7 @@ int FixCMAPKokkos<DeviceType>::pack_exchange_kokkos(
 
   copymode = 1;
 
-  Kokkos::parallel_scan(nsend, KOKKOS_LAMBDA(const int &mysend, int &offset, const bool &final) {
+  Kokkos::parallel_scan(Kokkos::RangePolicy<DeviceType>(0,nsend), KOKKOS_LAMBDA(const int &mysend, int &offset, const bool &final) {
 
     const int i = d_exchange_sendlist(mysend);
 
@@ -782,7 +782,7 @@ void FixCMAPKokkos<DeviceType>::unpack_exchange_kokkos(
 
   copymode = 1;
 
-  Kokkos::parallel_for(nrecv, KOKKOS_LAMBDA(const int &i) {
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,nrecv), KOKKOS_LAMBDA(const int &i) {
     int index = d_indices(i);
     if (index > -1) {
       int m = d_ubuf(d_buf(i)).i;

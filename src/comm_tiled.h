@@ -153,7 +153,7 @@ class CommTiled : public Comm {
   virtual void grow_swap_send(int, int, int);    // grow swap arrays for send and recv
   void grow_swap_send_multi(int, int);           // grow multi swap arrays for send and recv
   void grow_swap_recv(int, int);
-  void deallocate_swap(int);    // deallocate swap arrays
+  void deallocate_swap(int);                     // deallocate swap arrays
 };
 
 }    // namespace LAMMPS_NS

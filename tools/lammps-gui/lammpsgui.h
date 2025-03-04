@@ -111,6 +111,7 @@ private slots:
     void findandreplace();
     void run_buffer() { do_run(true); }
     void run_file() { do_run(false); }
+    void restart_lammps() { lammps.close(); };
 
     void edit_variables();
     void render_image();
@@ -183,6 +184,7 @@ class TutorialWizard : public QWizard {
 public:
     TutorialWizard(int ntutorial, QWidget *parent = nullptr);
     void accept() override;
+
 private:
     int _ntutorial;
 };

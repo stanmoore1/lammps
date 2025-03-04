@@ -63,10 +63,9 @@ class RegSphereKokkos : public RegSphere, public KokkosBase  {
     double xs, ys, zs;
     double xnear[3], xorig[3];
 
-    if (dynamic) {
-      xorig[0] = x; xorig[1] = y; xorig[2] = z;
+    xorig[0] = x; xorig[1] = y; xorig[2] = z;
+    if (dynamic)
       inverse_transform(x, y, z);
-    }
 
     xnear[0] = x; xnear[1] = y; xnear[2] = z;
 

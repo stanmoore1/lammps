@@ -2507,7 +2507,8 @@ void CommTiled::deallocate_swap(int n)
     memory->destroy(sendbox_multi[i]);
     memory->destroy(sendbox_multiold[i]);
 
-    delete [] maxsendlist[i];
+    if (maxsendlist)
+      delete [] maxsendlist[i];
 
     if (sendlist && sendlist[i]) {
       for (int j = 0; j < nprocmax[i]; j++) memory->destroy(sendlist[i][j]);

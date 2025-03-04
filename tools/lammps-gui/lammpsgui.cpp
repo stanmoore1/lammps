@@ -212,6 +212,7 @@ LammpsGui::LammpsGui(QWidget *parent, const QString &filename) :
     connect(ui->actionRun_Buffer, &QAction::triggered, this, &LammpsGui::run_buffer);
     connect(ui->actionRun_File, &QAction::triggered, this, &LammpsGui::run_file);
     connect(ui->actionStop_LAMMPS, &QAction::triggered, this, &LammpsGui::stop_run);
+    connect(ui->actionRestart_LAMMPS, &QAction::triggered, this, &LammpsGui::restart_lammps);
     connect(ui->actionSet_Variables, &QAction::triggered, this, &LammpsGui::edit_variables);
     connect(ui->actionImage, &QAction::triggered, this, &LammpsGui::render_image);
     connect(ui->actionLAMMPS_Tutorial, &QAction::triggered, this, &LammpsGui::tutorial_web);
@@ -1161,7 +1162,7 @@ void LammpsGui::run_done()
         status->setText("Failed.");
         ui->textEdit->setHighlight(nline, true);
         QMessageBox::critical(this, "LAMMPS-GUI Error",
-                              QString("Error running LAMMPS:\n\n") + errorbuf);
+                              QString("<p>Error running LAMMPS:\n\n<pre>") + errorbuf + "</pre></p>");
     }
     ui->textEdit->setCursor(nline);
     ui->textEdit->setFileList();

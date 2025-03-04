@@ -64,18 +64,17 @@ class CommTiledKokkos : public CommTiled {
   template<class DeviceType> void reverse_comm_device();
 
  protected:
+  int nprocmaxtot;
 
   DAT::tdual_int_3d k_sendlist;
-  //DAT::tdual_int_scalar k_total_send;
   DAT::tdual_xfloat_2d k_buf_send,k_buf_recv;
-  //DAT::tdual_int_scalar k_count;
 
-  void grow_send(int, int) override;
-  void grow_recv(int, int flag = 0) override;
+  void grow_send(int, int) override;             // reallocate send buffer
+  void grow_recv(int, int flag = 0) override;    // free/allocate recv buffer
   void grow_send_kokkos(int, int, ExecutionSpace space = Host);
   void grow_recv_kokkos(int, int, ExecutionSpace space = Host);
-  void grow_list(int, int, int) override;
-  void grow_swap_send(int, int, int) override;     // grow swap arrays for send and recv
+  void grow_list(int, int, int) override;        // reallocate sendlist for one swap/proc
+  void grow_swap_send(int, int, int) override;   // grow swap arrays for send and recv
 };
 
 }    // namespace LAMMPS_NS

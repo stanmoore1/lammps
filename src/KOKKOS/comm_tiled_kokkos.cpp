@@ -37,6 +37,8 @@ static constexpr int BUFEXTRA = 1000;
 CommTiledKokkos::CommTiledKokkos(LAMMPS *_lmp) : CommTiled(_lmp)
 {
   sendlist = nullptr;
+  maxsendlist = nullptr;
+  nprocmaxtot = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -49,6 +51,8 @@ CommTiledKokkos::CommTiledKokkos(LAMMPS *_lmp) : CommTiled(_lmp)
 CommTiledKokkos::CommTiledKokkos(LAMMPS *_lmp, Comm *oldcomm) : CommTiled(_lmp,oldcomm)
 {
   sendlist = nullptr;
+  maxsendlist = nullptr;
+  nprocmaxtot = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -56,7 +60,9 @@ CommTiledKokkos::CommTiledKokkos(LAMMPS *_lmp, Comm *oldcomm) : CommTiled(_lmp,o
 CommTiledKokkos::~CommTiledKokkos()
 {
   memoryKK->destroy_kokkos(k_sendlist,sendlist);
+  memory->destroy(maxsendlist);
   sendlist = nullptr;
+  maxsendlist = nullptr;
   buf_send = nullptr;
   buf_recv = nullptr;
 }
@@ -657,12 +663,11 @@ void CommTiledKokkos::grow_list(int iswap, int iwhich, int n)
   k_sendlist.sync<LMPHostType>();
   k_sendlist.modify<LMPHostType>();
 
-  if (size > (int)k_sendlist.extent(2)) {
-    memoryKK->grow_kokkos(k_sendlist,sendlist,maxswap,maxsend,size,"comm:sendlist");
+  memoryKK->grow_kokkos(k_sendlist,sendlist,maxswap,nprocmaxtot,size,"comm:sendlist");
 
-    for (int i = 0; i < maxswap; i++)
-      maxsendlist[iswap][iwhich] = size;
-  }
+  for (int i = 0; i < maxswap; i++)
+    for (int j = 0; j < nprocmaxtot; j++)
+      maxsendlist[i][j] = size;
 }
 
 /* ----------------------------------------------------------------------
@@ -692,24 +697,23 @@ void CommTiledKokkos::grow_swap_send(int i, int n, int /*nold*/)
   memory->destroy(sendbox_multiold[i]);
   memory->create(sendbox_multiold[i],n,atom->ntypes+1,6,"comm:sendbox_multiold");
 
-  delete [] maxsendlist[i];
-  maxsendlist[i] = new int[n];
-
-  for (int j = 0; j < n; j++)
-    maxsendlist[i][j] = BUFMIN;
-
-  if (sendlist && !k_sendlist.d_view.data()) {
-    for (int ii = 0; ii < maxswap; ii++) {
-      if (sendlist[ii]) {
-        for (int jj = 0; jj < nprocmax[ii]; jj++)
-          memory->destroy(sendlist[ii][jj]);
-        delete [] sendlist[ii];
-      }
-    }
+  if (sendlist && !k_sendlist.h_view.data()) {
     delete [] sendlist;
+    delete [] maxsendlist;
+
+    sendlist = nullptr;
+    maxsendlist = nullptr;
   } else {
     memoryKK->destroy_kokkos(k_sendlist,sendlist);
+    memory->destroy(maxsendlist);
   }
 
-  memoryKK->create_kokkos(k_sendlist,sendlist,maxswap,n,BUFMIN,"comm:sendlist");
+  nprocmaxtot = MAX(nprocmaxtot,n);
+
+  memoryKK->create_kokkos(k_sendlist,sendlist,maxswap,nprocmaxtot,BUFMIN,"comm:sendlist");
+  memory->create(maxsendlist,maxswap,nprocmaxtot,"comm:maxsendlist");
+
+  for (int i = 0; i < maxswap; i++)
+    for (int j = 0; j < nprocmaxtot; j++)
+      maxsendlist[i][j] = BUFMIN;
 }

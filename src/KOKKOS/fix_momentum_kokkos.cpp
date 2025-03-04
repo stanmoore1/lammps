@@ -36,7 +36,7 @@ FixMomentumKokkos<DeviceType>::FixMomentumKokkos(LAMMPS *lmp, int narg, char **a
 {
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
-  groupKK = (GroupKokkos<DeviceType> *)group;
+  groupKK = (GroupKokkos *)group;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read = EMPTY_MASK;
   datamask_modify = EMPTY_MASK;
@@ -94,7 +94,7 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
   double ekin_old,ekin_new;
   ekin_old = ekin_new = 0.0;
 
-  if (dynamic) masstotal = groupKK->mass(igroup);
+  if (dynamic) masstotal = groupKK->mass_kk<DeviceType>(igroup);
 
   // do nothing if group is empty, i.e. mass is zero;
 
@@ -109,7 +109,7 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
   auto groupbit2 = groupbit;
   if (linear) {
     double vcm[3];
-    groupKK->vcm(igroup,masstotal,vcm);
+    groupKK->vcm_kk<DeviceType>(igroup,masstotal,vcm);
 
     // adjust velocities by vcm to zero linear momentum
     // only adjust a component if flag is set
@@ -131,9 +131,9 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
 
   if (angular) {
     double xcm[3],angmom[3],omega[3],inertia[3][3];
-    groupKK->xcm(igroup,masstotal,xcm);
-    groupKK->angmom(igroup,xcm,angmom);
-    groupKK->inertia(igroup,xcm,inertia);
+    groupKK->xcm_kk<DeviceType>(igroup,masstotal,xcm);
+    groupKK->angmom_kk<DeviceType>(igroup,xcm,angmom);
+    groupKK->inertia_kk<DeviceType>(igroup,xcm,inertia);
     group->omega(angmom,inertia,omega);
 
     // adjust velocities to zero omega

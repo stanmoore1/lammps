@@ -74,6 +74,7 @@
     <addaction name="actionRun_Buffer"/>
     <addaction name="actionRun_File"/>
     <addaction name="actionStop_LAMMPS"/>
+    <addaction name="actionRestart_LAMMPS"/>
     <addaction name="separator"/>
     <addaction name="actionSet_Variables"/>
     <addaction name="separator"/>
@@ -270,7 +271,7 @@
     <iconset theme=":/icons/run-file.png"/>
    </property>
    <property name="text">
-    <string>&amp;Run LAMMPS from File</string>
+    <string>Run LAMMPS from &amp;File</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+Return</string>
@@ -285,6 +286,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+/</string>
+   </property>
+  </action>
+  <action name="actionRestart_LAMMPS">
+   <property name="icon">
+    <iconset theme=":/icons/system-restart.png"/>
+   </property>
+   <property name="text">
+    <string>Restart &amp;LAMMPS</string>
    </property>
   </action>
   <action name="actionImage">
