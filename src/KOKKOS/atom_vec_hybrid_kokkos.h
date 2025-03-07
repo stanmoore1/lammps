@@ -32,6 +32,7 @@ namespace LAMMPS_NS {
 class AtomVecHybridKokkos : public AtomVecKokkos, public AtomVecHybrid {
  public:
   AtomVecHybridKokkos(class LAMMPS *);
+  void process_args(int, char **) override;
 
   void grow(int) override;
   void sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter) override;
@@ -66,6 +67,8 @@ class AtomVecHybridKokkos : public AtomVecKokkos, public AtomVecHybrid {
   void sync_overlapping_device(ExecutionSpace space, unsigned int mask) override;
 
  private:
+  AtomVecKokkos **nstyles_cast;
+
   DAT::t_tagint_1d d_tag;
   DAT::t_int_1d d_type, d_mask;
   HAT::t_tagint_1d h_tag;

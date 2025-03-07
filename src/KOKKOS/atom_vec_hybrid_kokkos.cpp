@@ -30,6 +30,18 @@ AtomVecKokkos(lmp), AtomVecHybrid(lmp)
 
 /* ---------------------------------------------------------------------- */
 
+void AtomVecHybridKokkos::process_args(int narg, char **arg)
+{
+  AtomVecHybrid::process_args(narg,arg);
+
+  nstyles_cast = new AtomVecKokkos*[nstyles];
+  for (int k = 0; k < nstyles; k++) {
+    nstyles_cast[k] = dynamic_cast<AtomVecKokkos*>(styles[k]);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
 void AtomVecHybridKokkos::grow(int n)
 {
   for (int k = 0; k < nstyles; k++) styles[k]->grow(n);
@@ -51,7 +63,7 @@ void AtomVecHybridKokkos::grow(int n)
 void AtomVecHybridKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter)
 {
   for (int k = 0; k < nstyles; k++)
-    (dynamic_cast<AtomVecKokkos*>(styles[k]))->sort_kokkos(Sorter);
+    nstyles_cast[k]->sort_kokkos(Sorter);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -113,25 +125,23 @@ int AtomVecHybridKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d & /*k_buf*/
   return 0;
 }
 
-// TODO: move dynamic_cast into init
-
 /* ---------------------------------------------------------------------- */
 
 void AtomVecHybridKokkos::sync(ExecutionSpace space, unsigned int h_mask)
 {
-  for (int k = 0; k < nstyles; k++) (dynamic_cast<AtomVecKokkos*>(styles[k]))->sync(space,h_mask);
+  for (int k = 0; k < nstyles; k++) nstyles_cast[k]->sync(space,h_mask);
 }
 
 /* ---------------------------------------------------------------------- */
 
 void AtomVecHybridKokkos::sync_overlapping_device(ExecutionSpace space, unsigned int h_mask)
 {
-  for (int k = 0; k < nstyles; k++) (dynamic_cast<AtomVecKokkos*>(styles[k]))->sync_overlapping_device(space,h_mask);
+  for (int k = 0; k < nstyles; k++) nstyles_cast[k]->sync_overlapping_device(space,h_mask);
 }
 
 /* ---------------------------------------------------------------------- */
 
 void AtomVecHybridKokkos::modified(ExecutionSpace space, unsigned int h_mask)
 {
-  for (int k = 0; k < nstyles; k++) (dynamic_cast<AtomVecKokkos*>(styles[k]))->modified(space,h_mask);
+  for (int k = 0; k < nstyles; k++) nstyles_cast[k]->modified(space,h_mask);
 }
