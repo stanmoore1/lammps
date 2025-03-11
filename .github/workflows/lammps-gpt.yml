@@ -36,14 +36,15 @@ jobs:
 
           # Add all example files except log files
           for file in examples/*; do
-              [[ $file == *log* ]] && continue
+            if [ -f "$file" ]; then  # Ensures it's a file, not a directory
               echo "## ${file}" >> $OUTPUT_FILE
               echo '```' >> $OUTPUT_FILE
               cat "$file" >> $OUTPUT_FILE
               echo '```' >> $OUTPUT_FILE
               echo -e "\n---\n" >> $OUTPUT_FILE
+            fi
           done
-
+          
           # Add all source files
           for file in src/*; do
               echo "## ${file}" >> $OUTPUT_FILE
