@@ -1,0 +1,62 @@
+name: Generate LammpsGPT Knowledge File
+
+on:
+  workflow_dispatch:  # Only runs manually
+
+jobs:
+  parse-files:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Dependencies
+        run: |
+          pip install pandoc
+
+      - name: Parse and Convert Files to Markdown
+        run: |
+          OUTPUT_FILE="LammpsGPT_knowledge.md"
+          echo "# LAMMPS Documentation and Code Summary" > $OUTPUT_FILE
+          echo "" >> $OUTPUT_FILE
+
+          # Convert all .rst files
+          for file in doc/src/*.rst; do
+              echo "## ${file}" >> $OUTPUT_FILE
+              pandoc "$file" -f rst -t markdown >> $OUTPUT_FILE
+              echo -e "\n---\n" >> $OUTPUT_FILE
+          done
+
+          # Add all example files except log files
+          for file in examples/*; do
+              [[ $file == *log* ]] && continue
+              echo "## ${file}" >> $OUTPUT_FILE
+              echo '```' >> $OUTPUT_FILE
+              cat "$file" >> $OUTPUT_FILE
+              echo '```' >> $OUTPUT_FILE
+              echo -e "\n---\n" >> $OUTPUT_FILE
+          done
+
+          # Add all source files
+          for file in src/*; do
+              echo "## ${file}" >> $OUTPUT_FILE
+              echo '```cpp' >> $OUTPUT_FILE
+              cat "$file" >> $OUTPUT_FILE
+              echo '```' >> $OUTPUT_FILE
+              echo -e "\n---\n" >> $OUTPUT_FILE
+          done
+
+      - name: Compress the Markdown File
+        run: gzip -9 LammpsGPT_knowledge.md
+
+      - name: Upload as GitHub Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LammpsGPT_knowledge
+          path: LammpsGPT_knowledge.md.gz
