@@ -18,8 +18,9 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install pandoc
-
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+          
       - name: Parse and Convert Files to Markdown
         run: |
           OUTPUT_FILE="LammpsGPT_knowledge.md"
