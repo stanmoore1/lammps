@@ -34,7 +34,7 @@ jobs:
               echo -e "\n---\n" >> $OUTPUT_FILE
           done
 
-          # Add all example files except log files
+          # Add all example files except log files (skip directories)
           for file in examples/*; do
             if [ -f "$file" ]; then  # Ensures it's a file, not a directory
               echo "## ${file}" >> $OUTPUT_FILE
@@ -45,13 +45,15 @@ jobs:
             fi
           done
           
-          # Add all source files
+          # Add all source files (skip directories)
           for file in src/*; do
+            if [ -f "$file" ]; then
               echo "## ${file}" >> $OUTPUT_FILE
               echo '```cpp' >> $OUTPUT_FILE
               cat "$file" >> $OUTPUT_FILE
               echo '```' >> $OUTPUT_FILE
               echo -e "\n---\n" >> $OUTPUT_FILE
+            fi
           done
 
       - name: Compress the Markdown File
