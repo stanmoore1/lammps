@@ -56,11 +56,8 @@ jobs:
             fi
           done
 
-      - name: Compress the Markdown File
-        run: gzip -9 LammpsGPT_knowledge.md
-
       - name: Upload as GitHub Artifact
         uses: actions/upload-artifact@v4
         with:
           name: LammpsGPT_knowledge
-          path: LammpsGPT_knowledge.md.gz
+          path: LammpsGPT_knowledge.md
