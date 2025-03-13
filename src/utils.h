@@ -45,7 +45,7 @@ namespace utils {
    *
 \verbatim embed:rst
 
-.. versionadded:: TBD
+.. versionadded:: 4Feb2025
 
 This function compares two strings while skipping over any kind of whitespace
 (blank, tab, newline, carriage return, etc.).
@@ -62,7 +62,7 @@ This function compares two strings while skipping over any kind of whitespace
    *
 \verbatim embed:rst
 
-.. versionadded:: TBD
+.. versionadded:: 4Feb2025
 
 This function compresses whitespace in a string to just a single blank.
 
@@ -96,7 +96,7 @@ This function compresses whitespace in a string to just a single blank.
    *
 \verbatim embed:rst
 
-.. versionadded:: TBD
+.. versionadded:: 4Feb2025
 
 This function is a helper function for error messages.  It creates extra output
 in error messages.  It will produce either two or three lines: the original last
@@ -147,7 +147,7 @@ output are compressed to a single blank by calling :cpp:func:`strcompress()`
    *
 \verbatim embed:rst
 
-.. versionadded:: TBD
+.. versionadded:: 4Feb2025
 
 \endverbatim
    *

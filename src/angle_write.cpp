@@ -26,6 +26,7 @@
 #include "force.h"
 #include "input.h"
 #include "math_const.h"
+#include "safe_pointers.h"
 #include "update.h"
 
 #include <cmath>
@@ -79,13 +80,12 @@ void AngleWrite::command(int narg, char **arg)
   // otherwise make certain that units are consistent
   // print header in format used by angle_style table
 
-  FILE *fp = nullptr;
+  SafeFilePtr fp;
   std::string coeffs_file = table_file + ".tmp.coeffs";
   if (comm->me == 0) {
 
-    fp = fopen(coeffs_file.c_str(), "w");
-    force->angle->write_data(fp);
-    fclose(fp);
+    SafeFilePtr coeffs = fopen(coeffs_file.c_str(), "w");
+    force->angle->write_data(coeffs);
 
     // units sanity check:
     // - if this is the first time we write to this potential file,
@@ -145,16 +145,14 @@ void AngleWrite::command(int narg, char **arg)
     writer->input->one("pair_coeff * *");
     writer->input->one("mass * 1.0");
     writer->input->one(fmt::format("angle_style {}", force->angle_style));
-    FILE *coeffs;
     char line[MAXLINE] = {'\0'};
-    coeffs = fopen(coeffs_file.c_str(), "r");
+    SafeFilePtr coeffs = fopen(coeffs_file.c_str(), "r");
     if (!coeffs)
       error->one(FLERR, "Unable to open temporary file {}: {}", coeffs_file, utils::getsyserror());
     for (int i = 0; i < atom->nangletypes; ++i) {
       utils::sfgets(FLERR, line, MAXLINE, coeffs, coeffs_file.c_str(), error);
       writer->input->one(fmt::format("angle_coeff {}", line));
     }
-    fclose(coeffs);
     platform::unlink(coeffs_file);
 
     // initialize system
@@ -221,7 +219,6 @@ void AngleWrite::command(int narg, char **arg)
 
     // clean up
     delete writer;
-    fclose(fp);
   }
   MPI_Comm_free(&singlecomm);
 }

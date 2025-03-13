@@ -1470,7 +1470,7 @@ Procedures Bound to the :f:type:`lammps` Derived Type
    LAMMPS equal style variable string, evaluates it and returns the resulting
    scalar value as a floating-point number.
 
-   .. versionadded:: TBD
+   .. versionadded:: 4Feb2025
 
    :p character(len=\*) expr: string to be evaluated
    :to: :cpp:func:`lammps_eval`
@@ -1482,7 +1482,7 @@ Procedures Bound to the :f:type:`lammps` Derived Type
 
    Clear whether a compute has been invoked
 
-   .. versionadded:: TBD
+   .. versionadded:: 4Feb2025
 
    :to: :cpp:func:`lammps_clearstep_compute`
 
@@ -1493,7 +1493,7 @@ Procedures Bound to the :f:type:`lammps` Derived Type
    Add timestep to list of future compute invocations
    if the compute has been invoked on the current timestep
 
-   .. versionadded:: TBD
+   .. versionadded:: 4Feb2025
 
    overloaded for 32-bit and 64-bit integer arguments
 
@@ -1506,7 +1506,7 @@ Procedures Bound to the :f:type:`lammps` Derived Type
 
    Add timestep to list of future compute invocations
 
-   .. versionadded:: TBD
+   .. versionadded:: 4Feb2025
 
    overloaded for 32-bit and 64-bit integer arguments
 

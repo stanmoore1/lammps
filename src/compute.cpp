@@ -41,7 +41,7 @@ Compute::Compute(LAMMPS *lmp, int narg, char **arg) :
 {
   instance_me = instance_total++;
 
-  if (narg < 3) error->all(FLERR,"Illegal compute command");
+  if (narg < 3) utils::missing_cmd_args(FLERR,"compute", error);
 
   // compute ID, group, and style
   // ID must be all alphanumeric chars or underscores

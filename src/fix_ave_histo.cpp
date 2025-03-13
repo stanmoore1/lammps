@@ -113,66 +113,48 @@ FixAveHisto::FixAveHisto(LAMMPS *lmp, int narg, char **arg) :
     value_t val;
     val.id = "";
     val.val.c = nullptr;
+    if (expand) val.iarg = amap[i] + ioffset;
+    else val.iarg = i + ioffset;
 
     if (strcmp(arg[i],"x") == 0) {
       val.which = ArgInfo::X;
       val.argindex = 0;
-      if (expand) val.iarg = amap[i] + ioffset;
-      else val.iarg = i + ioffset;
     } else if (strcmp(arg[i],"y") == 0) {
       val.which = ArgInfo::X;
       val.argindex = 1;
-      if (expand) val.iarg = amap[i] + ioffset;
-      else val.iarg = i + ioffset;
     } else if (strcmp(arg[i],"z") == 0) {
       val.which = ArgInfo::X;
       val.argindex = 2;
-      if (expand) val.iarg = amap[i] + ioffset;
-      else val.iarg = i + ioffset;
 
     } else if (strcmp(arg[i],"vx") == 0) {
       val.which = ArgInfo::V;
       val.argindex = 0;
-      if (expand) val.iarg = amap[i] + ioffset;
-      else val.iarg = i + ioffset;
     } else if (strcmp(arg[i],"vy") == 0) {
       val.which = ArgInfo::V;
       val.argindex = 1;
-      if (expand) val.iarg = amap[i] + ioffset;
-      else val.iarg = i + ioffset;
     } else if (strcmp(arg[i],"vz") == 0) {
       val.which = ArgInfo::V;
       val.argindex = 2;
-      if (expand) val.iarg = amap[i] + ioffset;
-      else val.iarg = i + ioffset;
 
     } else if (strcmp(arg[i],"fx") == 0) {
       val.which = ArgInfo::F;
       val.argindex = 0;
-      if (expand) val.iarg = amap[i] + ioffset;
-      else val.iarg = i + ioffset;
     } else if (strcmp(arg[i],"fy") == 0) {
       val.which = ArgInfo::F;
       val.argindex = 1;
-      if (expand) val.iarg = amap[i] + ioffset;
-      else val.iarg = i + ioffset;
     } else if (strcmp(arg[i],"fz") == 0) {
       val.which = ArgInfo::F;
       val.argindex = 2;
-      if (expand) val.iarg = amap[i] + ioffset;
-      else val.iarg = i + ioffset;
 
     } else {
       ArgInfo argi(arg[i]);
 
       if (argi.get_type() == ArgInfo::NONE) break;
       if ((argi.get_type() == ArgInfo::UNKNOWN) || (argi.get_dim() > 1))
-        error->all(FLERR, amap[i] + ioffset, "Invalid {} argument: {}", mycmd, arg[i]);
+        error->all(FLERR, val.iarg, "Invalid {} argument: {}", mycmd, arg[i]);
 
       val.which = argi.get_type();
       val.argindex = argi.get_index1();
-      if (expand) val.iarg = amap[i] + ioffset;
-      else val.iarg = i + ioffset;
       val.id = argi.get_name();
     }
     values.push_back(val);
@@ -190,9 +172,9 @@ FixAveHisto::FixAveHisto(LAMMPS *lmp, int narg, char **arg) :
   if (nfreq <= 0)
     error->all(FLERR, 5, "Illegal {} nfreq value: {}", mycmd, nfreq);
   if (nfreq % nevery || nrepeat*nevery > nfreq)
-    error->all(FLERR, "Inconsistent {} nevery/nrepeat/nfreq values", mycmd);
+    error->all(FLERR, Error::NOPOINTER, "Inconsistent {} nevery/nrepeat/nfreq values", mycmd);
   if (ave != RUNNING && overwrite)
-    error->all(FLERR,"{} overwrite keyword requires ave running setting", mycmd);
+    error->all(FLERR, Error::NOPOINTER, "{} overwrite keyword requires ave running setting", mycmd);
 
   int kindglobal,kindperatom,kindlocal;
   for (auto &val : values) {
@@ -262,9 +244,9 @@ FixAveHisto::FixAveHisto(LAMMPS *lmp, int narg, char **arg) :
   // for fix inputs, check that fix frequency is acceptable
 
   if (kind == PERATOM && mode == SCALAR)
-    error->all(FLERR, "{} cannot process per-atom values in scalar mode", mycmd);
+    error->all(FLERR, Error::NOPOINTER, "{} cannot process per-atom values in scalar mode", mycmd);
   if (kind == LOCAL && mode == SCALAR)
-    error->all(FLERR,"{} cannot process local values in scalar mode", mycmd);
+    error->all(FLERR, Error::NOPOINTER, "{} cannot process local values in scalar mode", mycmd);
 
   for (auto &val : values) {
     if (val.which == ArgInfo::COMPUTE && kind == GLOBAL && mode == SCALAR) {
@@ -377,7 +359,8 @@ FixAveHisto::FixAveHisto(LAMMPS *lmp, int narg, char **arg) :
     if (title3) fprintf(fp,"%s\n",title3);
     else fprintf(fp,"# Bin Coord Count Count/Total\n");
 
-    if (ferror(fp)) error->one(FLERR, "Error writing file header: {}", utils::getsyserror());
+    if (ferror(fp))
+      error->one(FLERR, Error::NOPOINTER, "Error writing file header: {}", utils::getsyserror());
     filepos = platform::ftell(fp);
   }
 

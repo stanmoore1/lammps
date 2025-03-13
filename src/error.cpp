@@ -130,6 +130,7 @@ void Error::all(const std::string &file, int line, int failed, const std::string
   // add text about the input following the error message
 
   if (failed > NOLASTLINE) mesg += utils::point_to_error(input, failed);
+  if (failed == ARGZERO) mesg += utils::point_to_error(input, 0);
   if (me == 0) utils::logmesg(lmp,mesg);
   utils::flush_buffers(lmp);
 
@@ -162,6 +163,7 @@ void Error::one(const std::string &file, int line, int failed, const std::string
 
   std::string mesg = fmt::format("ERROR on proc {}: {} ({}:{})\n", me, str, truncpath(file), line);
   if (failed > NOPOINTER) mesg += utils::point_to_error(input, failed);
+  if (failed == ARGZERO) mesg += utils::point_to_error(input, 0);
   utils::logmesg(lmp,mesg);
 
   if (universe->nworlds > 1)

@@ -33,7 +33,6 @@
 #include <cmath>
 #include <cstring>
 
-static constexpr double SMALL = 0.001;
 static constexpr int CHUNK = 8;
 
 using namespace LAMMPS_NS;

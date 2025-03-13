@@ -43,8 +43,6 @@ using namespace MathConst;
 
 using MathSpecial::powint;
 
-enum { PIMD, NMPIMD, CMD };
-
 /* ---------------------------------------------------------------------- */
 
 FixPIMDNVT::FixPIMDNVT(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
@@ -220,7 +218,7 @@ void FixPIMDNVT::init()
   const double Plank = force->hplanck;
 
   double hbar = Plank / (2.0 * MY_PI) * sp;
-  double beta = 1.0 / (Boltzmann * nhc_temp);
+  beta = 1.0 / (Boltzmann * nhc_temp);
   double _fbond = 1.0 * np / (beta * beta * hbar * hbar);
 
   omega_np = sqrt((double) np) / (hbar * beta) * sqrt(force->mvv2e);
@@ -271,12 +269,20 @@ void FixPIMDNVT::final_integrate()
 
 /* ---------------------------------------------------------------------- */
 
+void FixPIMDNVT::prepare_coordinates()
+{
+  comm_exec(atom->x);
+}
+
+/* ---------------------------------------------------------------------- */
+
 void FixPIMDNVT::post_force(int /*flag*/)
 {
   for (int i = 0; i < atom->nlocal; i++)
     for (int j = 0; j < 3; j++) atom->f[i][j] /= np;
 
-  comm_exec(atom->x);
+  prepare_coordinates();
+  pre_spring_force_estimators();
   spring_force();
 
   if (method == CMD || method == NMPIMD) {
@@ -533,6 +539,24 @@ void FixPIMDNVT::nmpimd_transform(double **src, double **des, double *vector)
 
 /* ---------------------------------------------------------------------- */
 
+void FixPIMDNVT::pre_spring_force_estimators(){
+  vir_estimator();
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixPIMDNVT::vir_estimator() {
+  double **x = atom->x;
+  double **f = atom->f;
+  int nlocal = atom->nlocal;
+
+  virial = 0.0;
+  for (int i = 0; i < nlocal; i++) {
+    virial += -0.5 * (x[i][0] * f[i][0] + x[i][1] * f[i][1] + x[i][2] * f[i][2]);
+  }
+}
+/* ---------------------------------------------------------------------- */
+
 void FixPIMDNVT::spring_force()
 {
   spring_energy = 0.0;
@@ -545,8 +569,6 @@ void FixPIMDNVT::spring_force()
 
   double *xlast = buf_beads[x_last];
   double *xnext = buf_beads[x_next];
-
-  virial = 0.0;
 
   for (int i = 0; i < nlocal; i++) {
     double delx1 = xlast[0] - x[i][0];
@@ -566,8 +588,6 @@ void FixPIMDNVT::spring_force()
     double dx = delx1 + delx2;
     double dy = dely1 + dely2;
     double dz = delz1 + delz2;
-
-    virial += -0.5 * (x[i][0] * f[i][0] + x[i][1] * f[i][1] + x[i][2] * f[i][2]);
 
     f[i][0] -= (dx) *ff;
     f[i][1] -= (dy) *ff;

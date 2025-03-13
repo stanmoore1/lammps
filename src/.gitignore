@@ -374,6 +374,8 @@
 /bond_bpm_rotational.h
 /bond_bpm_spring.cpp
 /bond_bpm_spring.h
+/bond_bpm_spring_plastic.cpp
+/bond_bpm_spring_plastic.h
 /compute_nbond_atom.cpp
 /compute_nbond_atom.h
 /fix_nve_bpm_sphere.cpp
@@ -1549,6 +1551,8 @@
 /reaxff_inline.h
 /reaxff_omp.h
 /reaxff_types.h
+/region2vmd.cpp
+/region2vmd.h
 /remap.cpp
 /remap.h
 /remap_wrap.cpp

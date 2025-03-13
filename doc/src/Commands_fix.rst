@@ -162,6 +162,8 @@ OPT.
    * :doc:`phonon <fix_phonon>`
    * :doc:`pimd/langevin <fix_pimd>`
    * :doc:`pimd/nvt <fix_pimd>`
+   * :doc:`pimd/langevin/bosonic <fix_pimd_bosonic>`
+   * :doc:`pimd/nvt/bosonic <fix_pimd_bosonic>`
    * :doc:`planeforce <fix_planeforce>`
    * :doc:`plumed <fix_plumed>`
    * :doc:`poems <fix_poems>`

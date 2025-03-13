@@ -209,7 +209,7 @@ endif()
 ########################################################################
 # User input options                                                   #
 ########################################################################
-# backward compatibility with CMake before 3.12 and older LAMMPS documentation
+# backward compatibility with older LAMMPS documentation
 if (PYTHON_EXECUTABLE)
   set(Python_EXECUTABLE "${PYTHON_EXECUTABLE}")
 endif()
@@ -223,6 +223,12 @@ if(DEFINED ENV{VIRTUAL_ENV} AND NOT Python_EXECUTABLE)
   endif()
   message(STATUS "Running in virtual environment: $ENV{VIRTUAL_ENV}\n"
     "   Setting Python interpreter to: ${Python_EXECUTABLE}")
+endif()
+
+find_package(Python COMPONENTS Interpreter QUIET)
+# NOTE: RHEL 8.0 and Ubuntu 18.04LTS ship with Python 3.6, Python 3.8 was EOL in 2024
+if(Python_VERSION VERSION_LESS 3.6)
+  message(FATAL_ERROR "LAMMPS requires Python 3.6 or later")
 endif()
 
 set(LAMMPS_MACHINE "" CACHE STRING "Suffix to append to lmp binary (WON'T enable any features automatically")
@@ -930,7 +936,7 @@ endif()
 include(Testing)
 include(CodeCoverage)
 include(CodingStandard)
-find_package(ClangFormat 11.0)
+find_package(ClangFormat 11.0 QUIET)
 
 if(ClangFormat_FOUND)
   add_custom_target(format-src

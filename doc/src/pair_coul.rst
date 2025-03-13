@@ -471,7 +471,7 @@ Phys, 110, 8254 (1999).
 .. _Plummer1:
 
 **(Plummer)** G. Plummer, J. P. Tavenner, M. I. Mendelev, Z. Wu, J. W. Lawson,
-in preparation
+J Chemical Physics, 162, 054709 (2025).
 
 .. _Jorgensen3:
 

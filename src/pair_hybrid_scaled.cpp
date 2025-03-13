@@ -308,6 +308,7 @@ void PairHybridScaled::settings(int narg, char **arg)
     delete[] compute_tally;
     delete[] scaleval;
     delete[] scaleidx;
+    delete[] atomvar;
     scalevars.clear();
   }
 
@@ -544,8 +545,8 @@ void PairHybridScaled::born_matrix(int i, int j, int itype, int jtype, double rs
     delete[] vars;
   }
 
-  double du, du2, scale;
-  dupair = du2pair = scale = 0.0;
+  double du, du2;
+  dupair = du2pair = 0.0;
 
   for (int m = 0; m < nmap[itype][jtype]; m++) {
     auto pstyle = styles[map[itype][jtype][m]];

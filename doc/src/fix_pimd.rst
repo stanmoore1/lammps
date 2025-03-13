@@ -1,11 +1,19 @@
 .. index:: fix pimd/langevin
 .. index:: fix pimd/nvt
+.. index:: fix pimd/langevin/bosonic
+.. index:: fix pimd/nvt/bosonic
 
 fix pimd/langevin command
 =========================
 
 fix pimd/nvt command
 ====================
+
+:doc:`fix pimd/langevin/bosonic <fix_pimd_bosonic>` command
+===========================================================
+
+:doc:`fix pimd/nvt/bosonic <fix_pimd_bosonic>` command
+======================================================
 
 Syntax
 """"""
@@ -20,34 +28,37 @@ Syntax
 * keywords for style *pimd/nvt*
 
   .. parsed-literal::
-       *keywords* = *method* or *fmass* or *sp* or *temp* or *nhc*
-       *method* value = *pimd* or *nmpimd* or *cmd*
-       *fmass* value = scaling factor on mass
-       *sp* value = scaling factor on Planck constant
-       *temp* value = temperature (temperature units)
-       *nhc* value = Nc = number of chains in Nose-Hoover thermostat
+
+     *keywords* = *method* or *fmass* or *sp* or *temp* or *nhc*
+     *method* value = *pimd* or *nmpimd* or *cmd*
+     *fmass* value = scaling factor on mass
+     *sp* value = scaling factor on Planck constant
+     *temp* value = temperature (temperature units)
+     *nhc* value = Nc = number of chains in Nose-Hoover thermostat
 
 * keywords for style *pimd/langevin*
 
   .. parsed-literal::
-       *keywords* = *method* or *integrator* or *ensemble* or *fmmode* or *fmass* or *scale* or *temp* or *thermostat* or *tau* or *iso* or *aniso* or *barostat* or *taup* or *fixcom* or *lj*
-       *method* value = *nmpimd* (default) or *pimd*
-       *integrator* value = *obabo* or *baoab*
-       *fmmode* value = *physical* or *normal*
-       *fmass* value = scaling factor on mass
-       *temp* value = temperature (temperature unit)
+
+     *keywords* = *method* or *integrator* or *ensemble* or *fmmode* or *fmass* or *scale* or *temp* or *thermostat* or *tau* or *iso* or *aniso* or *barostat* or *taup* or *fixcom* or *lj*
+     *method* value = *nmpimd* (default) or *pimd*
+     *integrator* value = *obabo* or *baoab*
+     *ensemble* value = *nvt* or *nve* or *nph* or *npt*
+     *fmmode* value = *physical* or *normal*
+     *fmass* value = scaling factor on mass
+     *temp* value = temperature (temperature unit)
           temperature = target temperature of the thermostat
-       *thermostat* values = style seed
+     *thermostat* values = style seed
           style value = *PILE_L*
           seed = random number generator seed
-       *tau* value = thermostat damping parameter (time unit)
-       *scale* value = scaling factor of the damping times of non-centroid modes of PILE_L thermostat
-       *iso* or *aniso* values = pressure (pressure unit)
+     *tau* value = thermostat damping parameter (time unit)
+     *scale* value = scaling factor of the damping times of non-centroid modes of PILE_L thermostat
+     *iso* or *aniso* values = pressure (pressure unit)
          pressure = scalar external pressure of the barostat
-       *barostat* value = *BZP* or *MTTK*
-       *taup* value = barostat damping parameter (time unit)
-       *fixcom* value = *yes* or *no*
-       *lj* values = epsilon sigma mass planck mvv2e
+     *barostat* value = *BZP* or *MTTK*
+     *taup* value = barostat damping parameter (time unit)
+     *fixcom* value = *yes* or *no*
+     *lj* values = epsilon sigma mass planck mvv2e
           epsilon = energy scale for reduced units (energy units)
           sigma = length scale for reduced units (length units)
           mass = mass scale for reduced units (mass units)
@@ -61,6 +72,8 @@ Examples
 
    fix 1 all pimd/nvt method nmpimd fmass 1.0 sp 2.0 temp 300.0 nhc 4
    fix 1 all pimd/langevin ensemble npt integrator obabo temp 113.15 thermostat PILE_L 1234 tau 1.0 iso 1.0 barostat BZP taup 1.0
+
+Example input files are provided in the examples/PACKAGES/pimd directory.
 
 Description
 """""""""""
@@ -76,7 +89,14 @@ partition function for the original system to a classical partition
 function for a ring-polymer system is exploited, to efficiently sample
 configurations from the canonical ensemble :ref:`(Feynman) <Feynman>`.
 
-The classical partition function and its components are given
+.. versionadded:: 11Mar2025
+
+   Fix *pimd/langevin/bosonic* and *pimd/nvt/bosonic* were added.
+
+Fix *pimd/nvt* and fix *pimd/langevin* simulate *distinguishable* quantum particles.
+Simulations of bosons, including exchange effects, are supported with the :doc:`fix pimd/langevin/bosonic <fix_pimd_bosonic>` and :doc:`fix pimd/nvt/bosonic <fix_pimd_bosonic>` commands.
+
+For distinguishable particles, the isomorphic classical partition function and its components are given
 by the following equations:
 
 .. math::
@@ -222,7 +242,7 @@ be *PILE_L* (path integral Langevin equation local thermostat, as described in :
 The keyword *tau* specifies the thermostat damping time parameter for fix style *pimd/langevin*. It is in time unit. It only works on the centroid mode.
 
 The keyword *scale* specifies a scaling parameter for the damping times of the non-centroid modes for fix style *pimd/langevin*. The default
-damping time of the non-centroid mode :math:`i` is :math:`\frac{P}{\beta\hbar}\sqrt{\lambda_i\times\mathrm{fmass}}` (*fmmode* is *physical*) or  :math:`\frac{P}{\beta\hbar}\sqrt{\mathrm{fmass}}` (*fmmode* is *normal*). The damping times of all non-centroid modes are the default values divided by *scale*.
+damping time of the non-centroid mode :math:`i` is :math:`\frac{P}{\beta\hbar}\sqrt{\lambda_i\times\mathrm{fmass}}` (*fmmode* is *physical*) or  :math:`\frac{P}{\beta\hbar}\sqrt{\mathrm{fmass}}` (*fmmode* is *normal*). The damping times of all non-centroid modes are the default values divided by *scale*. This keyword should be used only with *method*=*nmpimd*.
 
 The barostat parameters for fix style *pimd/langevin* with *npt* or *nph* ensemble is specified using one of *iso* and *aniso*
 keywords. A *pressure* value should be given with pressure unit. The keyword *iso* means couple all 3 diagonal components together when pressure is computed (hydrostatic pressure), and dilate/contract the dimensions together. The keyword *aniso* means x, y, and z dimensions are controlled independently using the Pxx, Pyy, and Pzz components of the stress tensor as the driving forces, and the specified scalar external pressure.
@@ -334,8 +354,8 @@ it outputs multiple log files, and different log files contain information
 about different beads or modes (see detailed explanations below). If *ensemble*
 is *nve* or *nvt*, the vector has 10 values:
 
-   #. kinetic energy of the normal mode
-   #. spring elastic energy of the normal mode
+   #. kinetic energy of the bead (if *method*=*pimd*) or normal mode (if *method*=*nmpimd*)
+   #. spring elastic energy of the bead (if *method*=*pimd*) or normal mode (if *method*=*nmpimd*)
    #. potential energy of the bead
    #. total energy of all beads (conserved if *ensemble* is *nve*)
    #. primitive kinetic energy estimator
@@ -412,11 +432,19 @@ variable, e.g.
 
    velocity all create 300.0 1234${ibead} rot yes dist gaussian
 
+Related commands
+""""""""""""""""
+
+:doc:`pimd/nvt/bosonic <fix_pimd_bosonic>`, :doc:`pimd/langevin/bosonic <fix_pimd_bosonic>`
+
 Default
 """""""
 
 The keyword defaults for fix *pimd/nvt* are method = pimd, fmass = 1.0, sp
 = 1.0, temp = 300.0, and nhc = 2.
+
+The keyword defaults for fix *pimd/langevin* are integrator = obabo, method = nmpimd, ensemble = nvt, fmmode = physical, fmass = 1.0,
+scale = 1, temp = 298.15, thermostat = PILE_L, tau = 1.0, iso = 1.0, taup = 1.0, barostat = BZP, fixcom = yes, and lj = 1 for all its arguments.
 
 ----------
 

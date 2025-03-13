@@ -2931,7 +2931,7 @@ int lammps_variable_info(void *handle, int idx, char *buffer, int buf_size) {
  *
 \verbatim embed:rst
 
-.. versionadded:: TBD
+.. versionadded:: 4Feb2025
 
 This function takes a string with an expression that can be used
 for :doc:`equal style variables <variable>`, evaluates it and returns
@@ -2966,7 +2966,7 @@ double lammps_eval(void *handle, const char *expr)
  *
 \verbatim embed:rst
 
-.. versionadded:: TBD
+.. versionadded:: 4Feb2025
 
    This function clears the invoked flag of all computes.
    Called everywhere that computes are used, before computes are invoked.
@@ -2992,7 +2992,7 @@ void lammps_clearstep_compute(void *handle) {
  *
 \verbatim embed:rst
 
-.. versionadded:: TBD
+.. versionadded:: 4Feb2025
 
    loop over all computes
    schedule next invocation for those that store invocation times
@@ -3019,7 +3019,7 @@ void lammps_addstep_compute_all(void *handle, void *newstep) {
  *
 \verbatim embed:rst
 
-.. versionadded:: TBD
+.. versionadded:: 4Feb2025
 
    loop over computes that store invocation times
    if its invoked flag set on this timestep, schedule next invocation

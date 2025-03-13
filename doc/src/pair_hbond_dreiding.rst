@@ -111,7 +111,7 @@ potential for the Donor-Acceptor interactions. :ref:`(Liu) <Liu>` showed
 that the Morse form gives improved results for Dendrimer simulations,
 when n = 2.
 
-.. versionadded:: TBD
+.. versionadded:: 4Feb2025
 
 The style variants *hbond/dreiding/lj/angleoffset* and
 *hbond/dreiding/lj/angleoffset* take the equilibrium angle of the AHD as

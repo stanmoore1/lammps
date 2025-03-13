@@ -53,17 +53,12 @@ using MathConst::MY_SQRT2;
 using MathConst::THIRD;
 using MathSpecial::powint;
 
-enum { PIMD, NMPIMD };
-enum { PHYSICAL, NORMAL };
-enum { BAOAB, OBABO };
-enum { ISO, ANISO, TRICLINIC };
-enum { PILE_L };
-enum { MTTK, BZP };
-enum { NVE, NVT, NPH, NPT };
-enum { SINGLE_PROC, MULTI_PROC };
-
-static std::map<int, std::string> Barostats{{MTTK, "MTTK"}, {BZP, "BZP"}};
-static std::map<int, std::string> Ensembles{{NVE, "NVE"}, {NVT, "NVT"}, {NPH, "NPH"}, {NPT, "NPT"}};
+static std::map<int, std::string> Barostats{{FixPIMDLangevin::MTTK, "MTTK"},
+                                            {FixPIMDLangevin::BZP, "BZP"}};
+static std::map<int, std::string> Ensembles{{FixPIMDLangevin::NVE, "NVE"},
+                                            {FixPIMDLangevin::NVT, "NVT"},
+                                            {FixPIMDLangevin::NPH, "NPH"},
+                                            {FixPIMDLangevin::NPT, "NPT"}};
 
 /* ---------------------------------------------------------------------- */
 
@@ -248,7 +243,7 @@ FixPIMDLangevin::FixPIMDLangevin(LAMMPS *lmp, int narg, char **arg) :
         removecomflag = 1;
       else if (strcmp(arg[i + 1], "no") == 0)
         removecomflag = 0;
-    } else {
+    } else if (strcmp(arg[i], "") != 0) {
       error->universe_all(FLERR, fmt::format("Unknown keyword {} for fix {}", arg[i], style));
     }
   }
@@ -445,7 +440,7 @@ void FixPIMDLangevin::init()
   }
   planck *= sp;
   hbar = planck / (MY_2PI);
-  double beta = 1.0 / (force->boltz * temp);
+  beta = 1.0 / (force->boltz * temp);
   double _fbond = 1.0 * np * np / (beta * beta * hbar * hbar);
 
   omega_np = np / (hbar * beta) * sqrt(force->mvv2e);
@@ -522,7 +517,7 @@ void FixPIMDLangevin::setup(int vflag)
     else if (cmode == MULTI_PROC)
       nmpimd_transform(bufbeads, x, M_x2xp[universe->iworld]);
   } else if (method == PIMD) {
-    inter_replica_comm(x);
+    prepare_coordinates();
     spring_force();
   } else {
     error->universe_all(
@@ -679,6 +674,13 @@ void FixPIMDLangevin::final_integrate()
 
 /* ---------------------------------------------------------------------- */
 
+void FixPIMDLangevin::prepare_coordinates()
+{
+  inter_replica_comm(atom->x);
+}
+
+/* ---------------------------------------------------------------------- */
+
 void FixPIMDLangevin::post_force(int /*flag*/)
 {
   int nlocal = atom->nlocal;
@@ -712,7 +714,7 @@ void FixPIMDLangevin::post_force(int /*flag*/)
     if (mapflag) {
       for (int i = 0; i < nlocal; i++) { domain->unmap(x[i], image[i]); }
     }
-    inter_replica_comm(x);
+    prepare_coordinates();
     spring_force();
     compute_spring_energy();
     compute_t_prim();
