@@ -68,24 +68,6 @@ class AtomVecHybridKokkos : public AtomVecKokkos, public AtomVecHybrid {
 
  private:
   AtomVecKokkos **nstyles_cast;
-
-  DAT::t_tagint_1d d_tag;
-  DAT::t_int_1d d_type, d_mask;
-  HAT::t_tagint_1d h_tag;
-  HAT::t_int_1d h_type, h_mask;
-
-  DAT::t_imageint_1d d_image;
-  HAT::t_imageint_1d h_image;
-
-  DAT::t_x_array d_x;
-  DAT::t_v_array d_v;
-  DAT::t_f_array d_f;
-  HAT::t_x_array h_x;
-  HAT::t_v_array h_v;
-  HAT::t_f_array h_f;
-
-  DAT::t_v_array d_omega, d_angmom;
-  HAT::t_v_array h_omega, h_angmom;
 };
 
 } // namespace LAMMPS_NS
