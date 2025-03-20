@@ -1,0 +1,108 @@
+name: Extract Knowledge from GitHub Repositories
+
+on:
+  workflow_dispatch:
+
+jobs:
+  extract-knowledge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Clone Required Repositories
+        run: |
+          git clone --depth=1 https://github.com/p12tic/cppreference-doc.git
+          git clone --depth=1 https://github.com/kokkos/kokkos-tutorials.git
+          git clone --depth=1 https://github.com/kokkos/kokkos-kernels.git
+          git clone --depth=1 https://github.com/kokkos/kokkos-core-wiki.git
+          git clone --depth=1 https://github.com/lammps/lammps.git
+          mkdir extracted_docs
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get install -y pandoc
+          pip install markdown beautifulsoup4 json5
+
+      - name: Convert `.rst` to `.md`
+        run: |
+          for repo in kokkos-core-wiki/docs/source kokkos-kernels/docs kokkos-tutorials cppreference-doc lammps/doc; do
+            find "$repo" -name "*.rst" | while read file; do
+              filename=$(basename "$file" .rst)
+              pandoc -f rst -t markdown -o "$repo/$filename.md" "$file"
+            done
+          done
+
+      - name: Convert Documentation to JSON
+        run: |
+          python - <<EOF
+          import os
+          import json
+          import markdown
+          from bs4 import BeautifulSoup
+
+          repos = [
+              "kokkos-core-wiki/docs/source",
+              "kokkos-tutorials",
+              "kokkos-kernels/docs",
+              "cppreference-doc",
+              "lammps/doc"
+          ]
+          output_file = "extracted_docs/lammps-gpt-knowledge.json"
+          knowledge = {}
+
+          def parse_markdown(md_text):
+              html = markdown.markdown(md_text, extensions=["fenced_code"])
+              soup = BeautifulSoup(html, "html.parser")
+              title = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Untitled"
+              sections = []
+              headings = soup.find_all(["h2", "h3", "h4", "h5", "h6"])
+              for heading in headings:
+                  section_data = {}
+                  section_data["heading"] = heading.get_text(strip=True)
+                  section_data["level"] = heading.name
+                  siblings = []
+                  next_node = heading.find_next_sibling()
+                  while next_node and next_node.name not in ["h1", "h2", "h3", "h4", "h5", "h6"]:
+                      siblings.append(next_node)
+                      next_node = next_node.find_next_sibling()
+                  content_text = []
+                  code_blocks = []
+                  for node in siblings:
+                      if node.name == "p":
+                          content_text.append(node.get_text(strip=True))
+                      if node.name == "ul" or node.name == "ol":
+                          content_text.append(node.get_text("\n", strip=True))
+                      if node.name == "pre":
+                          code_blocks.append(node.get_text(strip=True))
+                  section_data["content"] = "\n\n".join(content_text)
+                  if code_blocks:
+                      section_data["code_blocks"] = code_blocks
+                  sections.append(section_data)
+              return {
+                  "title": title,
+                  "sections": sections
+              }
+
+          for repo in repos:
+              for root, _, files in os.walk(repo):
+                  for file in files:
+                      if file.endswith(".md"):
+                          md_path = os.path.join(root, file)
+                          with open(md_path, "r", encoding="utf-8") as f:
+                              md_content = f.read()
+                          data = parse_markdown(md_content)
+                          knowledge[md_path] = data
+
+          with open(output_file, "w", encoding="utf-8") as f:
+              json.dump(knowledge, f, indent=2)
+          print(f"Extracted {len(knowledge)} markdown files into {output_file}")
+          EOF
+
+      - name: Upload JSON Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: lammps-gpt-knowledge
+          path: extracted_docs/lammps-gpt-knowledge.json
+
