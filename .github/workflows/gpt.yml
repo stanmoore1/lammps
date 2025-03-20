@@ -72,7 +72,7 @@ jobs:
                   for node in siblings:
                       if node.name == "p":
                           content_text.append(node.get_text(strip=True))
-                      if node.name == "ul" or node.name == "ol":
+                      if node.name in ["ul", "ol"]:
                           content_text.append(node.get_text("\n", strip=True))
                       if node.name == "pre":
                           code_blocks.append(node.get_text(strip=True))
@@ -101,8 +101,7 @@ jobs:
           EOF
 
       - name: Upload JSON Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.2
         with:
           name: lammps-gpt-knowledge
           path: extracted_docs/lammps-gpt-knowledge.json
-
