@@ -23,23 +23,48 @@ jobs:
           import requests
           from bs4 import BeautifulSoup
 
+          BASE_FORUM_URL = "https://matsci.org"
+          CATEGORY_SLUG = "lammps"
+          CATEGORY_ID = "40"
+
+          def get_headers():
+              headers = {}
+              api_key = os.getenv("DISCOURSE_API_KEY")
+              api_username = os.getenv("DISCOURSE_API_USERNAME")
+              if api_key and api_username:
+                  headers["Api-Key"] = api_key
+                  headers["Api-Username"] = api_username
+              return headers
+
           def scrape_forum():
-              base_url = "https://matsci.org/c/lammps/40"
+              category_url = f"{BASE_FORUM_URL}/c/{CATEGORY_SLUG}/{CATEGORY_ID}.json"
+              headers = get_headers()
               forum_data = {"topics": []}
-              response = requests.get(base_url)
-              soup = BeautifulSoup(response.text, "html.parser")
-              topic_links = [a.get("href") for a in soup.select("a.title")]
-              for topic_url in topic_links:
-                  if not topic_url.startswith("http"):
-                      topic_url = "https://matsci.org" + topic_url
-                  topic_response = requests.get(topic_url)
-                  topic_soup = BeautifulSoup(topic_response.text, "html.parser")
-                  title_tag = topic_soup.select_one("h1.title")
-                  topic_title = title_tag.text.strip() if title_tag else "No title"
-                  posts = [post.get_text(strip=True) for post in topic_soup.select("div.message-body")]
+              response = requests.get(category_url, headers=headers)
+              if response.status_code != 200:
+                  print(f"Failed to get category data: {response.status_code}")
+                  return forum_data
+              data = response.json()
+              topics = data.get("topic_list", {}).get("topics", [])
+              for topic in topics:
+                  topic_id = topic.get("id")
+                  slug = topic.get("slug")
+                  topic_url = f"{BASE_FORUM_URL}/t/{slug}/{topic_id}.json"
+                  topic_response = requests.get(topic_url, headers=headers)
+                  if topic_response.status_code != 200:
+                      print(f"Failed to get topic {topic_id} details: {topic_response.status_code}")
+                      continue
+                  topic_data = topic_response.json()
+                  title = topic_data.get("title", "No title")
+                  post_stream = topic_data.get("post_stream", {}).get("posts", [])
+                  posts = []
+                  for post in post_stream:
+                      raw_html = post.get("cooked", "")
+                      text = BeautifulSoup(raw_html, "html.parser").get_text(separator="\n", strip=True)
+                      posts.append(text)
                   forum_data["topics"].append({
-                      "url": topic_url,
-                      "title": topic_title,
+                      "url": topic_url.replace(".json", ""),
+                      "title": title,
                       "posts": posts
                   })
               with open("forum_data.json", "w") as f:
