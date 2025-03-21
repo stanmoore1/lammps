@@ -1,0 +1,92 @@
+name: Scrape Matsci LAMMPS Forum
+
+on:
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Create scraper script
+        run: |
+          cat > scrape_forum.py << 'EOF'
+          import os
+          import json
+          import requests
+          from bs4 import BeautifulSoup
+
+          def scrape_forum():
+              base_url = "https://matsci.org/c/lammps/40"
+              forum_data = {"topics": []}
+              response = requests.get(base_url)
+              soup = BeautifulSoup(response.text, "html.parser")
+              topic_links = [a.get("href") for a in soup.select("a.title")]
+              for topic_url in topic_links:
+                  if not topic_url.startswith("http"):
+                      topic_url = "https://matsci.org" + topic_url
+                  topic_response = requests.get(topic_url)
+                  topic_soup = BeautifulSoup(topic_response.text, "html.parser")
+                  title_tag = topic_soup.select_one("h1.title")
+                  topic_title = title_tag.text.strip() if title_tag else "No title"
+                  posts = [post.get_text(strip=True) for post in topic_soup.select("div.message-body")]
+                  forum_data["topics"].append({
+                      "url": topic_url,
+                      "title": topic_title,
+                      "posts": posts
+                  })
+              with open("forum_data.json", "w") as f:
+                  json.dump(forum_data, f, indent=2)
+              return forum_data
+
+          def notify_discord(message):
+              bot_token = os.getenv("DISCORD_BOT_TOKEN")
+              channel_id = os.getenv("DISCORD_CHANNEL_ID")
+              if bot_token and channel_id:
+                  url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+                  headers = {"Authorization": f"Bot {bot_token}", "Content-Type": "application/json"}
+                  data = {"content": message}
+                  try:
+                      response = requests.post(url, headers=headers, json=data)
+                      if response.status_code not in (200, 201):
+                          print("Discord API notification failed:", response.text)
+                  except Exception as e:
+                      print("Discord API notification failed:", e)
+              else:
+                  webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+                  if webhook_url:
+                      data = {"content": message}
+                      try:
+                          response = requests.post(webhook_url, json=data)
+                          if response.status_code not in (200, 201):
+                              print("Discord webhook notification failed:", response.text)
+                      except Exception as e:
+                          print("Discord webhook notification failed:", e)
+                  else:
+                      print("No Discord configuration provided. Skipping notification.")
+
+          if __name__ == "__main__":
+              data = scrape_forum()
+              notify_discord("Forum data scraped successfully. Topics scraped: {}".format(len(data.get("topics", []))))
+          EOF
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
+
+      - name: Run scraper script
+        run: python scrape_forum.py
+
+      - name: Upload JSON artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: forum_data
+          path: forum_data.json
