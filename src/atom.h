@@ -129,7 +129,7 @@ class Atom : protected Pointers {
 
   // CG-DNA package
 
-  tagint *id5p;
+  tagint *id3p, *id5p;
 
   // DPD-REACT package
 

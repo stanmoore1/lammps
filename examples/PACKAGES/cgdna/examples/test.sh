@@ -1,6 +1,6 @@
 #! /bin/bash
 
-DATE='22May24'
+DATE='4Feb25'
 TOL=1e-8
 
 LMPDIR=/Users/ohenrich/Work/code/lammps
@@ -15,7 +15,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
   make purge | tee -a $EXDIR/test.log
   make pu | tee -a $EXDIR/test.log
   make ps | tee -a $EXDIR/test.log
-  make -j8 mpi | tee -a $EXDIR/test.log
+  make -j16 mpi | tee -a $EXDIR/test.log
 
   ######################################################
   printf '\n# Running oxDNA duplex1 test\n' | tee -a $EXDIR/test.log

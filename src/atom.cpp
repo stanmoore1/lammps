@@ -177,6 +177,7 @@ Atom::Atom(LAMMPS *_lmp) : Pointers(_lmp), atom_style(nullptr), avec(nullptr), a
 
   // CG-DNA package
 
+  id3p = nullptr;
   id5p = nullptr;
 
   // DPD-REACT package
@@ -515,6 +516,7 @@ void Atom::peratom_create()
 
   // CG-DNA package
 
+  add_peratom("id3p",&id3p,tagintsize,0);
   add_peratom("id5p",&id5p,tagintsize,0);
 
   // DPD-REACT package
@@ -3460,6 +3462,7 @@ int Atom::extract_size(const char *name, int type)
 
     // CG-DNA package
 
+    if (strcmp(name,"id3p") == 0) return nall;
     if (strcmp(name,"id5p") == 0) return nall;
 
     // RHEO package

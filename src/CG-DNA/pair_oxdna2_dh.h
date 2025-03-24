@@ -28,7 +28,7 @@ class PairOxdna2Dh : public Pair {
  public:
   PairOxdna2Dh(class LAMMPS *);
   ~PairOxdna2Dh() override;
-  virtual void compute_interaction_sites(double *, double *, double *, double *);
+  virtual void compute_backbone_site(double *, double *, double *, double *) const;
   void compute(int, int) override;
   void settings(int, char **) override;
   void coeff(int, char **) override;
@@ -38,8 +38,6 @@ class PairOxdna2Dh : public Pair {
   void read_restart(FILE *) override;
   void write_restart_settings(FILE *) override;
   void read_restart_settings(FILE *) override;
-  void write_data(FILE *) override;
-  void write_data_all(FILE *) override;
   void *extract(const char *, int &) override;
 
  protected:

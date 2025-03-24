@@ -48,8 +48,8 @@ BondOxdnaFene::~BondOxdnaFene()
 /* ----------------------------------------------------------------------
     compute vector COM-sugar-phosphate backbone interaction site in oxDNA
 ------------------------------------------------------------------------- */
-void BondOxdnaFene::compute_interaction_sites(double e1[3], double /*e2*/[3], double /*e3*/[3],
-                                              double r[3]) const
+void BondOxdnaFene::compute_backbone_site(double e1[3], double /*e2*/[3],
+  double /*e3*/[3], double r[3]) const
 {
   double d_cs = ConstantsOxdna::get_d_cs();
 
@@ -147,7 +147,8 @@ void BondOxdnaFene::ev_tally_xyz(int i, int j, int nlocal, int newton_bond, doub
 ------------------------------------------------------------------------- */
 void BondOxdnaFene::compute(int eflag, int vflag)
 {
-  int a, b, in, type;
+  int a, b, btemp, in, type;
+  int a3ptype, atype, btype, b5ptype;    // tetramer types
   double delf[3], delta[3], deltb[3];    // force, torque increment
   double delr[3], ebond, fbond;
   double rsq, Deltasq, rlogarg;
@@ -167,6 +168,10 @@ void BondOxdnaFene::compute(int eflag, int vflag)
   int nlocal = atom->nlocal;
   int newton_bond = force->newton_bond;
 
+  tagint *id3p = atom->id3p;
+  tagint *id5p = atom->id5p;
+  int *atomtype = atom->type;
+
   const double rlogarg_min = 0.2;
   ebond = 0.0;
   ev_init(eflag, vflag);
@@ -184,6 +189,17 @@ void BondOxdnaFene::compute(int eflag, int vflag)
     a = bondlist[in][1];
     b = bondlist[in][0];
     type = bondlist[in][2];
+
+    // directionality test: a -> b is 3' -> 5'
+    if (atom->tag[b] != id5p[a]) {
+
+      btemp = b;
+      b = a;
+      a = btemp;
+
+    }
+
+    // a now in 3' direction, b in 5' direction
 
     ax[0] = nx_xtrct[a][0];
     ax[1] = nx_xtrct[a][1];
@@ -204,9 +220,26 @@ void BondOxdnaFene::compute(int eflag, int vflag)
     bz[1] = nz_xtrct[b][1];
     bz[2] = nz_xtrct[b][2];
 
+    // determine tetramer types
+    // 3'neighbor a - a - b - 5'neighbor b
+
+    if (id3p[a] != -1) {
+      a3ptype = atomtype[atom->map(id3p[a])];
+    }
+    else a3ptype = 0;
+
+    atype = atomtype[a];
+    btype = atomtype[b];
+
+    if (id5p[b] != -1) {
+      b5ptype = atomtype[atom->map(id5p[b])];
+      b5ptype = atomtype[atom->map(id5p[b])];
+    }
+    else b5ptype = 0;
+
     // vector COM-backbone site a and b
-    compute_interaction_sites(ax, ay, az, ra_cs);
-    compute_interaction_sites(bx, by, bz, rb_cs);
+    compute_backbone_site(ax, ay, az, ra_cs);
+    compute_backbone_site(bx, by, bz, rb_cs);
 
     // vector backbone site b to a
     delr[0] = x[a][0] + ra_cs[0] - x[b][0] - rb_cs[0];
@@ -215,9 +248,9 @@ void BondOxdnaFene::compute(int eflag, int vflag)
     rsq = delr[0] * delr[0] + delr[1] * delr[1] + delr[2] * delr[2];
     r = sqrt(rsq);
 
-    rr0 = r - r0[type];
+    rr0 = r - r0[type][a3ptype][atype][btype][b5ptype];
     rr0sq = rr0 * rr0;
-    Deltasq = Delta[type] * Delta[type];
+    Deltasq = Delta[type][a3ptype][atype][btype][b5ptype] * Delta[type][a3ptype][atype][btype][b5ptype];
     rlogarg = 1.0 - rr0sq / Deltasq;
 
     // energy
@@ -235,21 +268,21 @@ void BondOxdnaFene::compute(int eflag, int vflag)
       rlogarg = rlogarg_min;
 
       // if overstretched F(r)=F(r_max)=F_max, E(r)=E(r_max)+F_max*(r-r_max)
-      if (r > r0[type]) {
-        rr0 =  Delta[type]*sqrt(1.0-rlogarg);
+      if (r > r0[type][a3ptype][atype][btype][b5ptype]) {
+        rr0 =  Delta[type][a3ptype][atype][btype][b5ptype]*sqrt(1.0-rlogarg);
         // energy
         if (eflag) {
-          ebond = -0.5 * k[type] * log(rlogarg) + k[type] * sqrt(1.0-rlogarg) / rlogarg / Delta[type] *
-                  (r - r0[type] - Delta[type] * sqrt(1.0-rlogarg));
+          ebond = -0.5 * k[type] * log(rlogarg) + k[type] * sqrt(1.0-rlogarg) / rlogarg / Delta[type][a3ptype][atype][btype][b5ptype] *
+                  (r - r0[type][a3ptype][atype][btype][b5ptype] - Delta[type][a3ptype][atype][btype][b5ptype] * sqrt(1.0-rlogarg));
         }
       }
       // if overcompressed F(r)=F(r_min)=F_max, E(r)=E(r_min)+F_max*(r_min-r)
-      else if (r < r0[type]) {
-        rr0 = -Delta[type]*sqrt(1.0-rlogarg);
+      else if (r < r0[type][a3ptype][atype][btype][b5ptype]) {
+        rr0 = -Delta[type][a3ptype][atype][btype][b5ptype]*sqrt(1.0-rlogarg);
         // energy
         if (eflag) {
-          ebond = -0.5 * k[type] * log(rlogarg) + k[type] * sqrt(1.0-rlogarg) / rlogarg / Delta[type] *
-                  (r0[type] - Delta[type] * sqrt(1.0-rlogarg) - r);
+          ebond = -0.5 * k[type] * log(rlogarg) + k[type] * sqrt(1.0-rlogarg) / rlogarg / Delta[type][a3ptype][atype][btype][b5ptype] *
+                  (r0[type][a3ptype][atype][btype][b5ptype] - Delta[type][a3ptype][atype][btype][b5ptype] * sqrt(1.0-rlogarg) - r);
         }
       }
     }
@@ -303,11 +336,12 @@ void BondOxdnaFene::allocate()
 {
   allocated = 1;
   int n = atom->nbondtypes;
+  int m = atom->ntypes;
 
-  memory->create(k, n + 1, "bond:k");
-  memory->create(Delta, n + 1, "bond:Delta");
-  memory->create(r0, n + 1, "bond:r0");
-  memory->create(setflag, n + 1, "bond:setflag");
+  memory->create(k, n+1, "bond:k");
+  memory->create(Delta, n+1, m+1, m+1, m+1, m+1, "bond:Delta");
+  memory->create(r0, n+1, m+1, m+1, m+1, m+1, "bond:r0");
+  memory->create(setflag, n+1, "bond:setflag");
 
   for (int i = 1; i <= n; i++) setflag[i] = 0;
 }
@@ -365,11 +399,20 @@ void BondOxdnaFene::coeff(int narg, char **arg)
   }
 
   int count = 0;
+  int n = atom->ntypes;
 
   for (int i = ilo; i <= ihi; i++) {
     k[i] = k_one;
-    Delta[i] = Delta_one;
-    r0[i] = r0_one;
+    for (int n1 = 0; n1 <= n; n1++) {
+      for (int n2 = 0; n2 <= n; n2++) {
+        for (int n3 = 0; n3 <= n; n3++) {
+          for (int n4 = 0; n4 <= n; n4++) {
+            Delta[i][n1][n2][n3][n4] = Delta_one;
+            r0[i][n1][n2][n3][n4] = r0_one;
+          }
+        }
+      }
+    }
     setflag[i] = 1;
     count++;
   }
@@ -393,7 +436,7 @@ void BondOxdnaFene::init_style()
 
 double BondOxdnaFene::equilibrium_distance(int i)
 {
-  return r0[i];
+  return r0[i][0][0][0][0];
 }
 
 /* ----------------------------------------------------------------------
@@ -403,8 +446,8 @@ double BondOxdnaFene::equilibrium_distance(int i)
 void BondOxdnaFene::write_restart(FILE *fp)
 {
   fwrite(&k[1], sizeof(double), atom->nbondtypes, fp);
-  fwrite(&Delta[1], sizeof(double), atom->nbondtypes, fp);
-  fwrite(&r0[1], sizeof(double), atom->nbondtypes, fp);
+  fwrite(&Delta[1][0][0][0][0], sizeof(double), atom->nbondtypes, fp);
+  fwrite(&r0[1][0][0][0][0], sizeof(double), atom->nbondtypes, fp);
 }
 
 /* ----------------------------------------------------------------------
@@ -418,23 +461,13 @@ void BondOxdnaFene::read_restart(FILE *fp)
   if (comm->me == 0) {
     utils::sfread(FLERR, &k[1], sizeof(double), atom->nbondtypes, fp, nullptr, error);
     utils::sfread(FLERR, &Delta[1], sizeof(double), atom->nbondtypes, fp, nullptr, error);
-    utils::sfread(FLERR, &r0[1], sizeof(double), atom->nbondtypes, fp, nullptr, error);
+    utils::sfread(FLERR, &r0[1][0][0][0][0], sizeof(double), atom->nbondtypes, fp, nullptr, error);
   }
   MPI_Bcast(&k[1], atom->nbondtypes, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&Delta[1], atom->nbondtypes, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&r0[1], atom->nbondtypes, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&Delta[1][0][0][0][0], atom->nbondtypes, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&r0[1][0][0][0][0], atom->nbondtypes, MPI_DOUBLE, 0, world);
 
   for (int i = 1; i <= atom->nbondtypes; i++) setflag[i] = 1;
-}
-
-/* ----------------------------------------------------------------------
-   proc 0 writes to data file
-------------------------------------------------------------------------- */
-
-void BondOxdnaFene::write_data(FILE *fp)
-{
-  for (int i = 1; i <= atom->nbondtypes; i++)
-    fprintf(fp, "%d %g %g %g\n", i, k[i], r0[i], Delta[i]);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -442,9 +475,9 @@ void BondOxdnaFene::write_data(FILE *fp)
 double BondOxdnaFene::single(int type, double rsq, int /*i*/, int /*j*/, double &fforce)
 {
   double r = sqrt(rsq);
-  double rr0 = r - r0[type];
+  double rr0 = r - r0[type][0][0][0][0];
   double rr0sq = rr0 * rr0;
-  double Deltasq = Delta[type] * Delta[type];
+  double Deltasq = Delta[type][0][0][0][0] * Delta[type][0][0][0][0];
   double rlogarg = 1.0 - rr0sq / Deltasq;
 
   // if r -> Delta, then rlogarg < 0.0 which is an error

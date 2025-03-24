@@ -37,7 +37,7 @@ using namespace LAMMPS_NS;
 PairOxdna2Dh::PairOxdna2Dh(LAMMPS *lmp) : Pair(lmp)
 {
   single_enable = 0;
-  writedata = 1;
+  writedata = 0;
   trim_flag = 0;
 }
 
@@ -63,10 +63,10 @@ PairOxdna2Dh::~PairOxdna2Dh()
 }
 
 /* ----------------------------------------------------------------------
-    compute vector COM-sugar-phosphate backbone interaction site in oxDNA2
+   compute vector COM-sugar-phosphate backbone interaction site in oxDNA2
 ------------------------------------------------------------------------- */
-void PairOxdna2Dh::compute_interaction_sites(double e1[3],
-  double e2[3], double /*e3*/[3], double r[3])
+void PairOxdna2Dh::compute_backbone_site(double e1[3],
+  double e2[3], double /*e3*/[3], double r[3]) const
 {
   double d_cs_x = ConstantsOxdna::get_d_cs_x();
   double d_cs_y = ConstantsOxdna::get_d_cs_y();
@@ -138,7 +138,7 @@ void PairOxdna2Dh::compute(int eflag, int vflag)
     az[2] = nz_xtrct[a][2];
 
     // vector COM-backbone site a
-    compute_interaction_sites(ax,ay,az,ra_cs);
+    compute_backbone_site(ax,ay,az,ra_cs);
 
     rtmp_s[0] = x[a][0] + ra_cs[0];
     rtmp_s[1] = x[a][1] + ra_cs[1];
@@ -165,7 +165,7 @@ void PairOxdna2Dh::compute(int eflag, int vflag)
       bz[2] = nz_xtrct[b][2];
 
       // vector COM-backbone site b
-      compute_interaction_sites(bx,by,bz,rb_cs);
+      compute_backbone_site(bx,by,bz,rb_cs);
 
       // vector backbone site b to a
       delr[0] = rtmp_s[0] - x[b][0] - rb_cs[0];
@@ -534,37 +534,6 @@ void PairOxdna2Dh::read_restart_settings(FILE *fp)
   MPI_Bcast(&offset_flag,1,MPI_INT,0,world);
   MPI_Bcast(&mix_flag,1,MPI_INT,0,world);
   MPI_Bcast(&tail_flag,1,MPI_INT,0,world);
-}
-
-/* ----------------------------------------------------------------------
-   proc 0 writes to data file
-------------------------------------------------------------------------- */
-
-void PairOxdna2Dh::write_data(FILE *fp)
-{
-  for (int i = 1; i <= atom->ntypes; i++)
-    fprintf(fp,"%d\
-         %g %g\
-         %g %g %g\
-         \n",i,
-        kappa_dh[i][i],qeff_dh_pf[i][i],
-        b_dh[i][i],cut_dh_ast[i][i],cut_dh_c[i][i]);
-}
-
-/* ----------------------------------------------------------------------
-   proc 0 writes all pairs to data file
-------------------------------------------------------------------------- */
-
-void PairOxdna2Dh::write_data_all(FILE *fp)
-{
-  for (int i = 1; i <= atom->ntypes; i++)
-    for (int j = i; j <= atom->ntypes; j++)
-      fprintf(fp,"%d %d\
-         %g %g\
-         %g %g %g\
-         \n",i,j,
-        kappa_dh[i][j],qeff_dh_pf[i][j],
-        b_dh[i][j],cut_dh_ast[i][j],cut_dh_c[i][j]);
 }
 
 /* ---------------------------------------------------------------------- */

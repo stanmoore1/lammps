@@ -41,7 +41,7 @@ using namespace MFOxdna;
 PairOxrna2Xstk::PairOxrna2Xstk(LAMMPS *lmp) : Pair(lmp)
 {
   single_enable = 0;
-  writedata = 1;
+  writedata = 0;
   trim_flag = 0;
 }
 
@@ -1056,59 +1056,6 @@ void PairOxrna2Xstk::read_restart_settings(FILE *fp)
   MPI_Bcast(&offset_flag,1,MPI_INT,0,world);
   MPI_Bcast(&mix_flag,1,MPI_INT,0,world);
   MPI_Bcast(&tail_flag,1,MPI_INT,0,world);
-}
-
-/* ----------------------------------------------------------------------
-   proc 0 writes to data file
-------------------------------------------------------------------------- */
-
-void PairOxrna2Xstk::write_data(FILE *fp)
-{
-  for (int i = 1; i <= atom->ntypes; i++)
-    fprintf(fp,"%d\
-         %g %g %g %g %g\
-         %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         \n",i,
-        k_xst[i][i],cut_xst_0[i][i],cut_xst_c[i][i],cut_xst_lo[i][i],cut_xst_hi[i][i],
-        cut_xst_lc[i][i],cut_xst_hc[i][i],b_xst_lo[i][i],b_xst_hi[i][i],
-        a_xst1[i][i],theta_xst1_0[i][i],dtheta_xst1_ast[i][i],b_xst1[i][i],dtheta_xst1_c[i][i],
-        a_xst2[i][i],theta_xst2_0[i][i],dtheta_xst2_ast[i][i],b_xst2[i][i],dtheta_xst2_c[i][i],
-        a_xst3[i][i],theta_xst3_0[i][i],dtheta_xst3_ast[i][i],b_xst3[i][i],dtheta_xst3_c[i][i],
-        a_xst7[i][i],theta_xst7_0[i][i],dtheta_xst7_ast[i][i],b_xst7[i][i],dtheta_xst7_c[i][i],
-        a_xst8[i][i],theta_xst8_0[i][i],dtheta_xst8_ast[i][i],b_xst8[i][i],dtheta_xst8_c[i][i]);
-
-}
-
-/* ----------------------------------------------------------------------
-   proc 0 writes all pairs to data file
-------------------------------------------------------------------------- */
-
-void PairOxrna2Xstk::write_data_all(FILE *fp)
-{
-  for (int i = 1; i <= atom->ntypes; i++)
-    for (int j = i; j <= atom->ntypes; j++)
-      fprintf(fp,"%d %d\
-         %g %g %g %g %g\
-         %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         \n",i,j,
-        k_xst[i][j],cut_xst_0[i][j],cut_xst_c[i][j],cut_xst_lo[i][j],cut_xst_hi[i][j],
-        cut_xst_lc[i][j],cut_xst_hc[i][j],b_xst_lo[i][j],b_xst_hi[i][j],
-        a_xst1[i][j],theta_xst1_0[i][j],dtheta_xst1_ast[i][j],b_xst1[i][j],dtheta_xst1_c[i][j],
-        a_xst2[i][j],theta_xst2_0[i][j],dtheta_xst2_ast[i][j],b_xst2[i][j],dtheta_xst2_c[i][j],
-        a_xst3[i][j],theta_xst3_0[i][j],dtheta_xst3_ast[i][j],b_xst3[i][j],dtheta_xst3_c[i][j],
-        a_xst7[i][j],theta_xst7_0[i][j],dtheta_xst7_ast[i][j],b_xst7[i][j],dtheta_xst7_c[i][j],
-        a_xst8[i][j],theta_xst8_0[i][j],dtheta_xst8_ast[i][j],b_xst8[i][j],dtheta_xst8_c[i][j]);
-
 }
 
 /* ---------------------------------------------------------------------- */

@@ -21,10 +21,10 @@
 using namespace LAMMPS_NS;
 
 /* ----------------------------------------------------------------------
-    compute vector COM-sugar-phosphate backbone interaction site in oxRNA2
+   compute vector COM-sugar-phosphate backbone interaction site in oxRNA2
 ------------------------------------------------------------------------- */
-void PairOxrna2Dh::compute_interaction_sites(double e1[3], double /*e2*/[3], double e3[3],
-                                             double r[3])
+void PairOxrna2Dh::compute_backbone_site(double e1[3], double /*e2*/[3], 
+  double e3[3], double r[3]) const
 {
   double d_cs_x = ConstantsOxdna::get_d_cs();
   double d_cs_z = ConstantsOxdna::get_d_cs_z();

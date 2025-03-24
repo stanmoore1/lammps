@@ -20,10 +20,10 @@
 using namespace LAMMPS_NS;
 
 /* ----------------------------------------------------------------------
-    compute vector COM-sugar-phosphate backbone interaction site in oxDNA2
+   compute vector COM-sugar-phosphate backbone interaction site in oxDNA2
 ------------------------------------------------------------------------- */
-void BondOxdna2Fene::compute_interaction_sites(double e1[3], double e2[3], double /*e3*/[3],
-                                               double r[3]) const
+void BondOxdna2Fene::compute_backbone_site(double e1[3], double e2[3],
+  double /*e3*/[3], double r[3]) const
 {
   double d_cs_x = ConstantsOxdna::get_d_cs_x();
   double d_cs_y = ConstantsOxdna::get_d_cs_y();

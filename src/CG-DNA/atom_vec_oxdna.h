@@ -33,7 +33,7 @@ class AtomVecOxdna : virtual public AtomVec {
   void data_bonds_post(int, int, tagint, tagint, tagint) override;
 
  protected:
-  tagint *id5p;
+  tagint *id3p, *id5p;
 };
 
 }    // namespace LAMMPS_NS

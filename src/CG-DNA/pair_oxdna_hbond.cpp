@@ -39,7 +39,7 @@ using namespace MFOxdna;
 PairOxdnaHbond::PairOxdnaHbond(LAMMPS *lmp) : Pair(lmp)
 {
   single_enable = 0;
-  writedata = 1;
+  writedata = 0;
   trim_flag = 0;
 
   // sequence-specific base-pairing strength
@@ -128,6 +128,56 @@ PairOxdnaHbond::~PairOxdnaHbond()
   }
 }
 
+/* --------------------------------------------------------------
+    compute vector COM-hydrogen bonding interaction site in oxDNA
+    identical templates for A=1, C=2, G=3, T=0
+----------------------------------------------------------------- */
+template <>
+void PairOxdnaHbond::compute_base_site<0>(double e1[3], double /*e2*/[3],
+  double /*e3*/[3], double rb[3]) const
+{
+  double d_cb = ConstantsOxdna::get_d_cb();
+
+  rb[0] = d_cb*e1[0];
+  rb[1] = d_cb*e1[1];
+  rb[2] = d_cb*e1[2];
+
+}
+
+template <>
+void PairOxdnaHbond::compute_base_site<1>(double e1[3], double /*e2*/[3],
+  double /*e3*/[3], double rb[3]) const
+{
+  double d_cb = ConstantsOxdna::get_d_cb();
+
+  rb[0] = d_cb*e1[0];
+  rb[1] = d_cb*e1[1];
+  rb[2] = d_cb*e1[2];
+
+}
+template <>
+void PairOxdnaHbond::compute_base_site<2>(double e1[3], double /*e2*/[3],
+  double /*e3*/[3], double rb[3]) const
+{
+  double d_cb = ConstantsOxdna::get_d_cb();
+
+  rb[0] = d_cb*e1[0];
+  rb[1] = d_cb*e1[1];
+  rb[2] = d_cb*e1[2];
+
+}
+template <>
+void PairOxdnaHbond::compute_base_site<3>(double e1[3], double /*e2*/[3],
+  double /*e3*/[3], double rb[3]) const
+{
+  double d_cb = ConstantsOxdna::get_d_cb();
+
+  rb[0] = d_cb*e1[0];
+  rb[1] = d_cb*e1[1];
+  rb[2] = d_cb*e1[2];
+
+}
+
 /* ----------------------------------------------------------------------
    compute function for oxDNA pair interactions
    hb=hydrogen bonding site
@@ -149,10 +199,10 @@ void PairOxdnaHbond::compute(int eflag, int vflag)
   // distance COM-hbonding site
   double d_chb = ConstantsOxdna::get_d_chb();
   // vectors COM-h-bonding site in lab frame
-  double ra_chb[3],rb_chb[3];
+  double ra_cb[3],rb_cb[3];
   // Cartesian unit vectors in lab frame
-  double ax[3],az[3];
-  double bx[3],bz[3];
+  double ax[3],ay[3],az[3];
+  double bx[3],by[3],bz[3];
 
   double **x = atom->x;
   double **f = atom->f;
@@ -194,9 +244,21 @@ void PairOxdnaHbond::compute(int eflag, int vflag)
     ax[1] = nx_xtrct[a][1];
     ax[2] = nx_xtrct[a][2];
 
-    ra_chb[0] = d_chb*ax[0];
-    ra_chb[1] = d_chb*ax[1];
-    ra_chb[2] = d_chb*ax[2];
+    // vector COM - base site a
+    switch (atype%4) {
+      case 0:
+        compute_base_site<0>(ax,ay,az,ra_cb);
+        break;
+      case 1:
+        compute_base_site<1>(ax,ay,az,ra_cb);
+        break;
+      case 2:
+        compute_base_site<2>(ax,ay,az,ra_cb);
+        break;
+      case 3:
+        compute_base_site<3>(ax,ay,az,ra_cb);
+        break;
+    }
 
     blist = firstneigh[a];
     bnum = numneigh[a];
@@ -213,14 +275,26 @@ void PairOxdnaHbond::compute(int eflag, int vflag)
       bx[1] = nx_xtrct[b][1];
       bx[2] = nx_xtrct[b][2];
 
-      rb_chb[0] = d_chb*bx[0];
-      rb_chb[1] = d_chb*bx[1];
-      rb_chb[2] = d_chb*bx[2];
+      // vector COM - base site b
+      switch (btype%4) {
+        case 0:
+          compute_base_site<0>(bx,by,bz,rb_cb);
+          break;
+        case 1:
+          compute_base_site<1>(bx,by,bz,rb_cb);
+          break;
+        case 2:
+          compute_base_site<2>(bx,by,bz,rb_cb);
+          break;
+        case 3:
+          compute_base_site<3>(bx,by,bz,rb_cb);
+          break;
+      }
 
       // vector h-bonding site b to a
-      delr_hb[0] = x[a][0] + ra_chb[0] - x[b][0] - rb_chb[0];
-      delr_hb[1] = x[a][1] + ra_chb[1] - x[b][1] - rb_chb[1];
-      delr_hb[2] = x[a][2] + ra_chb[2] - x[b][2] - rb_chb[2];
+      delr_hb[0] = x[a][0] + ra_cb[0] - x[b][0] - rb_cb[0];
+      delr_hb[1] = x[a][1] + ra_cb[1] - x[b][1] - rb_cb[1];
+      delr_hb[2] = x[a][2] + ra_cb[2] - x[b][2] - rb_cb[2];
 
       rsq_hb = delr_hb[0]*delr_hb[0] + delr_hb[1]*delr_hb[1] + delr_hb[2]*delr_hb[2];
       r_hb = sqrt(rsq_hb);
@@ -405,7 +479,7 @@ void PairOxdnaHbond::compute(int eflag, int vflag)
       f[a][1] += delf[1];
       f[a][2] += delf[2];
 
-      MathExtra::cross3(ra_chb,delf,delta);
+      MathExtra::cross3(ra_cb,delf,delta);
 
       torque[a][0] += delta[0];
       torque[a][1] += delta[1];
@@ -418,7 +492,7 @@ void PairOxdnaHbond::compute(int eflag, int vflag)
         f[b][2] -= delf[2];
 
 
-        MathExtra::cross3(rb_chb,delf,deltb);
+        MathExtra::cross3(rb_cb,delf,deltb);
 
         torque[b][0] -= deltb[0];
         torque[b][1] -= deltb[1];
@@ -1215,63 +1289,6 @@ void PairOxdnaHbond::read_restart_settings(FILE *fp)
   MPI_Bcast(&offset_flag,1,MPI_INT,0,world);
   MPI_Bcast(&mix_flag,1,MPI_INT,0,world);
   MPI_Bcast(&tail_flag,1,MPI_INT,0,world);
-}
-
-/* ----------------------------------------------------------------------
-   proc 0 writes to data file
-------------------------------------------------------------------------- */
-
-void PairOxdnaHbond::write_data(FILE *fp)
-{
-  for (int i = 1; i <= atom->ntypes; i++)
-    fprintf(fp,"%d\
-         %g %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         \n",i,
-        epsilon_hb[i][i],a_hb[i][i],cut_hb_0[i][i],cut_hb_c[i][i],cut_hb_lo[i][i],cut_hb_hi[i][i],
-        cut_hb_lc[i][i],cut_hb_hc[i][i],b_hb_lo[i][i],b_hb_hi[i][i],shift_hb[i][i],
-        a_hb1[i][i],theta_hb1_0[i][i],dtheta_hb1_ast[i][i],b_hb1[i][i],dtheta_hb1_c[i][i],
-        a_hb2[i][i],theta_hb2_0[i][i],dtheta_hb2_ast[i][i],b_hb2[i][i],dtheta_hb2_c[i][i],
-        a_hb3[i][i],theta_hb3_0[i][i],dtheta_hb3_ast[i][i],b_hb3[i][i],dtheta_hb3_c[i][i],
-        a_hb4[i][i],theta_hb4_0[i][i],dtheta_hb4_ast[i][i],b_hb4[i][i],dtheta_hb4_c[i][i],
-        a_hb7[i][i],theta_hb7_0[i][i],dtheta_hb7_ast[i][i],b_hb7[i][i],dtheta_hb7_c[i][i],
-        a_hb8[i][i],theta_hb8_0[i][i],dtheta_hb8_ast[i][i],b_hb8[i][i],dtheta_hb8_c[i][i]);
-
-}
-
-/* ----------------------------------------------------------------------
-   proc 0 writes all pairs to data file
-------------------------------------------------------------------------- */
-
-void PairOxdnaHbond::write_data_all(FILE *fp)
-{
-  for (int i = 1; i <= atom->ntypes; i++)
-    for (int j = i; j <= atom->ntypes; j++)
-      fprintf(fp,"%d %d\
-         %g %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         %g %g %g %g %g\
-         \n",i,j,
-        epsilon_hb[i][j],a_hb[i][j],cut_hb_0[i][j],cut_hb_c[i][j],cut_hb_lo[i][j],cut_hb_hi[i][j],
-        cut_hb_lc[i][j],cut_hb_hc[i][j],b_hb_lo[i][j],b_hb_hi[i][j],shift_hb[i][j],
-        a_hb1[i][j],theta_hb1_0[i][j],dtheta_hb1_ast[i][j],b_hb1[i][j],dtheta_hb1_c[i][j],
-        a_hb2[i][j],theta_hb2_0[i][j],dtheta_hb2_ast[i][j],b_hb2[i][j],dtheta_hb2_c[i][j],
-        a_hb3[i][j],theta_hb3_0[i][j],dtheta_hb3_ast[i][j],b_hb3[i][j],dtheta_hb3_c[i][j],
-        a_hb4[i][j],theta_hb4_0[i][j],dtheta_hb4_ast[i][j],b_hb4[i][j],dtheta_hb4_c[i][j],
-        a_hb7[i][j],theta_hb7_0[i][j],dtheta_hb7_ast[i][j],b_hb7[i][j],dtheta_hb7_c[i][j],
-        a_hb8[i][j],theta_hb8_0[i][j],dtheta_hb8_ast[i][j],b_hb8[i][j],dtheta_hb8_c[i][j]);
-
 }
 
 /* ---------------------------------------------------------------------- */

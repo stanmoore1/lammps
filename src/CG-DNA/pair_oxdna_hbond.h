@@ -29,6 +29,8 @@ class PairOxdnaHbond : public Pair {
  public:
   PairOxdnaHbond(class LAMMPS *);
   ~PairOxdnaHbond() override;
+  template <int N>
+  void compute_base_site(double *, double *, double *, double *) const;
   void compute(int, int) override;
   void settings(int, char **) override;
   void coeff(int, char **) override;
@@ -38,8 +40,6 @@ class PairOxdnaHbond : public Pair {
   void read_restart(FILE *) override;
   void write_restart_settings(FILE *) override;
   void read_restart_settings(FILE *) override;
-  void write_data(FILE *) override;
-  void write_data_all(FILE *) override;
   void *extract(const char *, int &) override;
 
  protected:

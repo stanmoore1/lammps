@@ -37,8 +37,6 @@ class PairOxdna2Coaxstk : public Pair {
   void read_restart(FILE *) override;
   void write_restart_settings(FILE *) override;
   void read_restart_settings(FILE *) override;
-  void write_data(FILE *) override;
-  void write_data_all(FILE *) override;
   void *extract(const char *, int &) override;
 
  protected:
