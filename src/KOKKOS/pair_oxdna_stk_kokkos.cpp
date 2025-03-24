@@ -941,7 +941,7 @@ double PairOxdnaStkKokkos<DeviceType>::init_one(int i, int j)
    NOTE: Although this is a pair style interaction, the algorithm below
    follows the virial incrementation of the bond style. This is because
    the bond topology is used in the main compute loop.
-/* ---------------------------------------------------------------------- */
+------------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION

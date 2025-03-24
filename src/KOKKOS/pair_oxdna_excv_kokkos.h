@@ -54,7 +54,7 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   void compute(int, int) override;
 
   void settings(int, char **) override;
-  void init_style();
+  void init_style() override;
   double init_one(int, int) override;
 
   KOKKOS_INLINE_FUNCTION
