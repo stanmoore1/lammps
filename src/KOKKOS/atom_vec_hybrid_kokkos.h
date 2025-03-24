@@ -32,6 +32,7 @@ namespace LAMMPS_NS {
 class AtomVecHybridKokkos : public AtomVecKokkos, public AtomVecHybrid {
  public:
   AtomVecHybridKokkos(class LAMMPS *);
+  void process_args(int, char **) override;
 
   void grow(int) override;
   void sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter) override;
@@ -53,6 +54,8 @@ class AtomVecHybridKokkos : public AtomVecKokkos, public AtomVecHybrid {
   int pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
+                           DAT::tdual_int_1d k_sendlist_bonus,
+                           DAT::tdual_int_1d k_copylist_bonus,
                            ExecutionSpace space) override;
   int unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int nrecv,
                              int nlocal, int dim, X_FLOAT lo, X_FLOAT hi,
@@ -64,23 +67,7 @@ class AtomVecHybridKokkos : public AtomVecKokkos, public AtomVecHybrid {
   void sync_overlapping_device(ExecutionSpace space, unsigned int mask) override;
 
  private:
-  DAT::t_tagint_1d d_tag;
-  DAT::t_int_1d d_type, d_mask;
-  HAT::t_tagint_1d h_tag;
-  HAT::t_int_1d h_type, h_mask;
-
-  DAT::t_imageint_1d d_image;
-  HAT::t_imageint_1d h_image;
-
-  DAT::t_x_array d_x;
-  DAT::t_v_array d_v;
-  DAT::t_f_array d_f;
-  HAT::t_x_array h_x;
-  HAT::t_v_array h_v;
-  HAT::t_f_array h_f;
-
-  DAT::t_v_array d_omega, d_angmom;
-  HAT::t_v_array h_omega, h_angmom;
+  AtomVecKokkos **nstyles_cast;
 };
 
 } // namespace LAMMPS_NS

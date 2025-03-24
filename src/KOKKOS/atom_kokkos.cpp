@@ -72,6 +72,7 @@ AtomKokkos::~AtomKokkos()
   memoryKK->destroy_kokkos(k_omega, omega);
   memoryKK->destroy_kokkos(k_angmom, angmom);
   memoryKK->destroy_kokkos(k_torque, torque);
+  memoryKK->destroy_kokkos(k_ellipsoid, ellipsoid);
 
   memoryKK->destroy_kokkos(k_nspecial, nspecial);
   memoryKK->destroy_kokkos(k_special, special);
@@ -113,6 +114,9 @@ AtomKokkos::~AtomKokkos()
   memoryKK->destroy_kokkos(k_rho, rho);
   memoryKK->destroy_kokkos(k_dpdTheta, dpdTheta);
   memoryKK->destroy_kokkos(k_duChem, duChem);
+
+  // CG-DNA package
+  memoryKK->destroy_kokkos(k_id5p, id5p);
 
   memoryKK->destroy_kokkos(k_dvector, dvector);
   dvector = nullptr;

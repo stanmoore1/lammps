@@ -45,6 +45,8 @@ class AtomVecChargeKokkos : public AtomVecKokkos, public AtomVecCharge {
   int pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
+                           DAT::tdual_int_1d k_sendlist_bonus,
+                           DAT::tdual_int_1d k_copylist_bonus,
                            ExecutionSpace space) override;
   int unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int nrecv,
                              int nlocal, int dim, X_FLOAT lo, X_FLOAT hi,

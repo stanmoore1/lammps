@@ -37,6 +37,7 @@ class AtomKokkos : public Atom {
 
   DAT::tdual_float_1d k_mass;
 
+  DAT::tdual_int_1d k_ellipsoid;
   DAT::tdual_float_1d k_q;
   DAT::tdual_float_1d k_radius;
   DAT::tdual_float_1d k_rmass;
@@ -63,15 +64,16 @@ class AtomKokkos : public Atom {
   DAT::tdual_float_2d k_dvector;
 
   // SPIN package
-
   DAT::tdual_float_1d_4 k_sp;
   DAT::tdual_f_array k_fm;
   DAT::tdual_f_array k_fm_long;
 
-// DPD-REACT package
+  // DPD-REACT package
   DAT::tdual_efloat_1d k_uCond, k_uMech, k_uChem, k_uCG, k_uCGnew,
                        k_rho,k_dpdTheta,k_duChem;
 
+  // CG-DNA package
+  DAT::tdual_tagint_1d k_id5p;
 
   AtomKokkos(class LAMMPS *);
   ~AtomKokkos() override;

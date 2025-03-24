@@ -35,6 +35,7 @@ class ComputeBond : public Compute {
   int nsub;
   class BondHybrid *bond;
   double *emine;
+  char *bstyle;
 };
 
 }    // namespace LAMMPS_NS

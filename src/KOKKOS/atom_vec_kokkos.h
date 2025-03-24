@@ -105,6 +105,8 @@ class AtomVecKokkos : virtual public AtomVec {
     pack_exchange_kokkos(const int &nsend, DAT::tdual_xfloat_2d &buf,
                          DAT::tdual_int_1d k_sendlist,
                          DAT::tdual_int_1d k_copylist,
+                         DAT::tdual_int_1d k_sendlist_bonus,
+                         DAT::tdual_int_1d k_copylist_bonus,
                          ExecutionSpace space) = 0;
 
   virtual int
@@ -112,6 +114,29 @@ class AtomVecKokkos : virtual public AtomVec {
                            int nlocal, int dim, X_FLOAT lo, X_FLOAT hi,
                            ExecutionSpace space,
                            DAT::tdual_int_1d &k_indices) = 0;
+    
+  virtual int
+    pack_comm_bonus_kokkos(int /*n*/, DAT::tdual_int_2d /*k_sendlist*/,
+                           DAT::tdual_xfloat_2d /*buf*/,int /*iswap*/,
+                           ExecutionSpace /*space*/) { return 0; }
+    
+  virtual void
+    unpack_comm_bonus_kokkos(const int &/*n*/, const int & /*nfirst*/,
+                             const DAT::tdual_xfloat_2d & /*buf*/,
+                             ExecutionSpace /*space*/) {}
+
+  virtual int
+    pack_border_bonus_kokkos(int &/*n*/, DAT::tdual_int_2d &/*k_sendlist*/,
+                             DAT::tdual_xfloat_2d &/*buf*/,int &/*iswap*/,
+                             ExecutionSpace /*space*/) { return 0; }
+
+  virtual void
+    unpack_border_bonus_kokkos(const int &/*n*/, const int & /*nfirst*/,
+                               const DAT::tdual_xfloat_2d & /*buf*/,
+                               ExecutionSpace /*space*/) {}
+
+  virtual int get_status_nlocal_bonus() { return 0; }
+  virtual void set_status_nlocal_bonus(int) {}
 
   int no_comm_vel_flag,no_border_vel_flag;
   int unpack_exchange_indices_flag;

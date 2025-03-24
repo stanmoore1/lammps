@@ -238,9 +238,9 @@ struct AtomVecAngleKokkos_PackBorder {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecAngleKokkos::pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                                          DAT::tdual_xfloat_2d buf,
-                                          int pbc_flag, int *pbc, ExecutionSpace space)
+int AtomVecAngleKokkos::pack_border_kokkos(
+  int n, DAT::tdual_int_1d k_sendlist, 
+  DAT::tdual_xfloat_2d buf, int pbc_flag, int *pbc, ExecutionSpace space)
 {
   X_FLOAT dx,dy,dz;
 
@@ -507,6 +507,8 @@ struct AtomVecAngleKokkos_PackExchangeFunctor {
 int AtomVecAngleKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &k_buf,
                                             DAT::tdual_int_1d k_sendlist,
                                             DAT::tdual_int_1d k_copylist,
+                                            DAT::tdual_int_1d k_sendlist_exchange,
+                                            DAT::tdual_int_1d k_copylist_exchange,
                                             ExecutionSpace space)
 {
 

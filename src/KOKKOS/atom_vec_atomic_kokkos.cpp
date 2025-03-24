@@ -22,6 +22,8 @@
 #include "memory_kokkos.h"
 #include "modify.h"
 
+#include "comm.h"
+
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
@@ -166,8 +168,9 @@ struct AtomVecAtomicKokkos_PackBorder {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecAtomicKokkos::pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist, DAT::tdual_xfloat_2d buf,
-                               int pbc_flag, int *pbc, ExecutionSpace space)
+int AtomVecAtomicKokkos::pack_border_kokkos(
+  int n, DAT::tdual_int_1d k_sendlist, 
+  DAT::tdual_xfloat_2d buf, int pbc_flag, int *pbc, ExecutionSpace space)
 {
   X_FLOAT dx,dy,dz;
 
@@ -249,6 +252,7 @@ struct AtomVecAtomicKokkos_UnpackBorder {
 
 void AtomVecAtomicKokkos::unpack_border_kokkos(const int &n, const int &first,
                      const DAT::tdual_xfloat_2d &buf,ExecutionSpace space) {
+
   atomKK->modified(space,X_MASK|TAG_MASK|TYPE_MASK|MASK_MASK);
   while (first+n >= nmax) grow(0);
   if (space==Host) {
@@ -344,10 +348,15 @@ struct AtomVecAtomicKokkos_PackExchangeFunctor {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecAtomicKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &k_buf, DAT::tdual_int_1d k_sendlist,DAT::tdual_int_1d k_copylist,ExecutionSpace space)
+int AtomVecAtomicKokkos::pack_exchange_kokkos(const int &nsend,
+                                              DAT::tdual_xfloat_2d &k_buf,
+                                              DAT::tdual_int_1d k_sendlist,
+                                              DAT::tdual_int_1d k_copylist,
+                                              DAT::tdual_int_1d k_sendlist_bonus,
+                                              DAT::tdual_int_1d k_copylist_bonus,
+                                              ExecutionSpace space)
 {
   size_exchange = 11;
-
   if (nsend > (int) (k_buf.view<LMPHostType>().extent(0)*k_buf.view<LMPHostType>().extent(1))/size_exchange) {
     int newsize = nsend*size_exchange/k_buf.view<LMPHostType>().extent(1)+1;
     k_buf.resize(newsize,k_buf.view<LMPHostType>().extent(1));
@@ -432,7 +441,6 @@ int AtomVecAtomicKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int
                                                 DAT::tdual_int_1d &k_indices)
 {
   while (nlocal + nrecv/size_exchange >= nmax) grow(0);
-
   if (space == Host) {
     if (k_indices.h_view.data()) {
       k_count.h_view(0) = nlocal;
@@ -466,7 +474,6 @@ int AtomVecAtomicKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int
       k_count.sync<LMPHostType>();
     }
   }
-
   return k_count.h_view(0);
 }
 

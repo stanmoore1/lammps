@@ -44,6 +44,11 @@
 #define VIRIAL_MASK    0x00020000
 #define MU_MASK        0x00040000
 
+// atom_vecs with Bonus data
+
+#define ELLIPSOID_MASK 0x04000000
+#define BONUS_MASK     0x08000000
+
 // SPIN
 
 #define SP_MASK         0x00000001
@@ -78,7 +83,6 @@
 #define X0_MASK        0x00000004
 #define PERI_MASK      0x00000007
 
-#define ELLIPSOID_MASK 0x00000008
 #define LINE_MASK      0x00000010
 #define TRI_MASK       0x00000020
 

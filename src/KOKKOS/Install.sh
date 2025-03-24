@@ -85,6 +85,8 @@ action atom_vec_dipole_kokkos.cpp atom_vec_dipole.cpp
 action atom_vec_dipole_kokkos.h atom_vec_dipole.h
 action atom_vec_dpd_kokkos.cpp atom_vec_dpd.cpp
 action atom_vec_dpd_kokkos.h atom_vec_dpd.h
+action atom_vec_ellipsoid_kokkos.cpp atom_vec_ellipsoid.cpp
+action atom_vec_ellipsoid_kokkos.h atom_vec_ellipsoid.h
 action atom_vec_full_kokkos.cpp atom_vec_full.cpp
 action atom_vec_full_kokkos.h atom_vec_full.h
 action atom_vec_hybrid_kokkos.cpp
@@ -93,6 +95,8 @@ action atom_vec_kokkos.cpp
 action atom_vec_kokkos.h
 action atom_vec_molecular_kokkos.cpp atom_vec_molecular.cpp
 action atom_vec_molecular_kokkos.h atom_vec_molecular.h
+action atom_vec_oxdna_kokkos.cpp atom_vec_oxdna.cpp
+action atom_vec_oxdna_kokkos.h atom_vec_oxdna.h
 action atom_vec_sphere_kokkos.cpp atom_vec_sphere.cpp
 action atom_vec_sphere_kokkos.h atom_vec_sphere.h
 action atom_vec_spin_kokkos.cpp atom_vec_spin.cpp
@@ -105,6 +109,10 @@ action bond_harmonic_kokkos.cpp bond_harmonic.cpp
 action bond_harmonic_kokkos.h bond_harmonic.h
 action bond_hybrid_kokkos.cpp bond_hybrid.cpp
 action bond_hybrid_kokkos.h bond_hybrid.h
+action bond_oxdna_fene_kokkos.cpp bond_oxdna_fene.cpp
+action bond_oxdna_fene_kokkos.h bond_oxdna_fene.h
+action bond_oxdna2_fene_kokkos.h bond_oxdna_fene_kokkos.h
+action bond_oxrna2_fene_kokkos.h bond_oxdna_fene_kokkos.h
 action comm_kokkos.cpp
 action comm_kokkos.h
 action comm_tiled_kokkos.cpp
@@ -192,6 +200,8 @@ action fix_nve_limit_kokkos.cpp
 action fix_nve_limit_kokkos.h
 action fix_nve_sphere_kokkos.cpp
 action fix_nve_sphere_kokkos.h
+action fix_nve_asphere_kokkos.cpp
+action fix_nve_asphere_kokkos.h
 action fix_nvt_kokkos.cpp
 action fix_nvt_kokkos.h
 action fix_nvt_sllod_kokkos.cpp
@@ -252,6 +262,7 @@ action kokkos_few.h
 action kokkos_type.h
 action kokkos.cpp
 action kokkos.h
+action math_extra_kokkos.h
 action math_special_kokkos.cpp
 action math_special_kokkos.h
 action meam_dens_final_kokkos.h meam_dens_final.cpp
@@ -262,6 +273,7 @@ action meam_impl_kokkos.h meam_impl.cpp
 action meam_kokkos.h meam.h
 action meam_setup_done_kokkos.h meam_setup_done.cpp
 action memory_kokkos.h
+action mf_oxdna_kokkos.h mf_oxdna.h
 action min_cg_kokkos.cpp
 action min_cg_kokkos.h
 action min_kokkos.cpp
@@ -400,6 +412,23 @@ action pair_morse_kokkos.cpp
 action pair_morse_kokkos.h
 action pair_multi_lucy_rx_kokkos.cpp pair_multi_lucy_rx.cpp
 action pair_multi_lucy_rx_kokkos.h pair_multi_lucy_rx.h
+action pair_oxdna_coaxstk_kokkos.cpp pair_oxdna_coaxstk.cpp
+action pair_oxdna_coaxstk_kokkos.h pair_oxdna_coaxstk.h
+action pair_oxdna_excv_kokkos.cpp pair_oxdna_excv.cpp
+action pair_oxdna_excv_kokkos.h pair_oxdna_excv.h
+action pair_oxdna_hbond_kokkos.cpp pair_oxdna_hbond.cpp
+action pair_oxdna_hbond_kokkos.h pair_oxdna_hbond.h
+action pair_oxdna_stk_kokkos.cpp pair_oxdna_stk.cpp
+action pair_oxdna_stk_kokkos.h pair_oxdna_stk.h
+action pair_oxdna_xstk_kokkos.cpp pair_oxdna_xstk.cpp
+action pair_oxdna_xstk_kokkos.h pair_oxdna_xstk.h
+action pair_oxdna2_coaxstk_kokkos.cpp pair_oxdna2_coaxstk.cpp
+action pair_oxdna2_coaxstk_kokkos.h pair_oxdna2_coaxstk.h
+action pair_oxdna2_dh_kokkos.cpp pair_oxdna2_dh.cpp
+action pair_oxdna2_dh_kokkos.h pair_oxdna2_dh.h
+action pair_oxdna2_excv_kokkos.h pair_oxdna_excv_kokkos.h
+action pair_oxrna2_excv_kokkos.h pair_oxdna_excv_kokkos.h
+action pair_oxrna2_dh_kokkos.h pair_oxdna_dh_kokkos.h
 action pair_pace_extrapolation_kokkos.cpp pair_pace_extrapolation.cpp
 action pair_pace_extrapolation_kokkos.h pair_pace_extrapolation.h
 action pair_pod_kokkos.cpp pair_pod.cpp
