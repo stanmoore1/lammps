@@ -59,22 +59,22 @@ PairOxdnaStkKokkos<DeviceType>::~PairOxdnaStkKokkos()
 
     memoryKK->destroy_kokkos(k_epsilon_st,epsilon_st);
     memoryKK->destroy_kokkos(k_a_st,a_st);
-    memoryKK->destroy_kokkos(k_cut_st_0,cut_st_0);
-    memoryKK->destroy_kokkos(k_cut_st_c,cut_st_c);
-    memoryKK->destroy_kokkos(k_cut_st_lo,cut_st_lo);
-    memoryKK->destroy_kokkos(k_cut_st_hi,cut_st_hi);
-    memoryKK->destroy_kokkos(k_cut_st_lc,cut_st_lc);
-    memoryKK->destroy_kokkos(k_cut_st_hc,cut_st_hc);
-    memoryKK->destroy_kokkos(k_b_st_lo,b_st_lo);
-    memoryKK->destroy_kokkos(k_b_st_hi,b_st_hi);
-    memoryKK->destroy_kokkos(k_shift_st,shift_st);
-    memoryKK->destroy_kokkos(k_cutsq_st_hc,cutsq_st_hc);
+    //memoryKK->destroy_kokkos(k_cut_st_0,cut_st_0);
+    //memoryKK->destroy_kokkos(k_cut_st_c,cut_st_c);
+    //memoryKK->destroy_kokkos(k_cut_st_lo,cut_st_lo);
+    //memoryKK->destroy_kokkos(k_cut_st_hi,cut_st_hi);
+    //memoryKK->destroy_kokkos(k_cut_st_lc,cut_st_lc);
+    //memoryKK->destroy_kokkos(k_cut_st_hc,cut_st_hc);
+    //memoryKK->destroy_kokkos(k_b_st_lo,b_st_lo);
+    //memoryKK->destroy_kokkos(k_b_st_hi,b_st_hi);
+    //memoryKK->destroy_kokkos(k_shift_st,shift_st);
+    //memoryKK->destroy_kokkos(k_cutsq_st_hc,cutsq_st_hc);
 
-    memoryKK->destroy_kokkos(k_a_st4,a_st4);
+    //memoryKK->destroy_kokkos(k_a_st4,a_st4);
     memoryKK->destroy_kokkos(k_theta_st4_0,theta_st4_0);
-    memoryKK->destroy_kokkos(k_dtheta_st4_ast,dtheta_st4_ast);
-    memoryKK->destroy_kokkos(k_b_st4,b_st4);
-    memoryKK->destroy_kokkos(k_dtheta_st4_c,dtheta_st4_c);
+    //memoryKK->destroy_kokkos(k_dtheta_st4_ast,dtheta_st4_ast);
+    //memoryKK->destroy_kokkos(k_b_st4,b_st4);
+    //memoryKK->destroy_kokkos(k_dtheta_st4_c,dtheta_st4_c);
 
     memoryKK->destroy_kokkos(k_a_st5,a_st5);
     memoryKK->destroy_kokkos(k_theta_st5_0,theta_st5_0);
@@ -739,22 +739,22 @@ void PairOxdnaStkKokkos<DeviceType>::allocate()
 
   memoryKK->create_kokkos(k_epsilon_st,epsilon_st,n+1,n+1,"PairOxdnaStk:epsilon_st");
   memoryKK->create_kokkos(k_a_st,a_st,n+1,n+1,"PairOxdnaStk:a_st");
-  memoryKK->create_kokkos(k_cut_st_0,cut_st_0,n+1,n+1,"PairOxdnaStk:cut_st_0");
-  memoryKK->create_kokkos(k_cut_st_c,cut_st_c,n+1,n+1,"PairOxdnaStk:cut_st_c");
-  memoryKK->create_kokkos(k_cut_st_lo,cut_st_lo,n+1,n+1,"PairOxdnaStk:cut_st_lo");
-  memoryKK->create_kokkos(k_cut_st_hi,cut_st_hi,n+1,n+1,"PairOxdnaStk:cut_st_hi");
-  memoryKK->create_kokkos(k_cut_st_lc,cut_st_lc,n+1,n+1,"PairOxdnaStk:cut_st_lc");
-  memoryKK->create_kokkos(k_cut_st_hc,cut_st_hc,n+1,n+1,"PairOxdnaStk:cut_st_hc");
-  memoryKK->create_kokkos(k_b_st_lo,b_st_lo,n+1,n+1,"PairOxdnaStk:b_st_lo");
-  memoryKK->create_kokkos(k_b_st_hi,b_st_hi,n+1,n+1,"PairOxdnaStk:b_st_hi");
-  memoryKK->create_kokkos(k_shift_st,shift_st,n+1,n+1,"PairOxdnaStk:shift_st");
-  memoryKK->create_kokkos(k_cutsq_st_hc,cutsq_st_hc,n+1,n+1,"PairOxdnaStk:cutsq_st_hc");
+  memoryKK->realloc_kokkos(k_cut_st_0,"PairOxdnaStk:cut_st_0",n+1,n+1);
+  memoryKK->realloc_kokkos(k_cut_st_c,"PairOxdnaStk:cut_st_c",n+1,n+1);
+  memoryKK->realloc_kokkos(k_cut_st_lo,"PairOxdnaStk:cut_st_lo",n+1,n+1);
+  memoryKK->realloc_kokkos(k_cut_st_hi,"PairOxdnaStk:cut_st_hi",n+1,n+1);
+  memoryKK->realloc_kokkos(k_cut_st_lc,"PairOxdnaStk:cut_st_lc",n+1,n+1);
+  memoryKK->realloc_kokkos(k_cut_st_hc,"PairOxdnaStk:cut_st_hc",n+1,n+1);
+  memoryKK->realloc_kokkos(k_b_st_lo,"PairOxdnaStk:b_st_lo",n+1,n+1);
+  memoryKK->realloc_kokkos(k_b_st_hi,"PairOxdnaStk:b_st_hi",n+1,n+1);
+  memoryKK->realloc_kokkos(k_shift_st,"PairOxdnaStk:shift_st",n+1,n+1);
+  memoryKK->realloc_kokkos(k_cutsq_st_hc,"PairOxdnaStk:cutsq_st_hc",n+1,n+1);
 
-  memoryKK->create_kokkos(k_a_st4,a_st4,n+1,n+1,"PairOxdnaStk:a_st4");
+  memoryKK->realloc_kokkos(k_a_st4,"PairOxdnaStk:a_st4",n+1,n+1);
   memoryKK->create_kokkos(k_theta_st4_0,theta_st4_0,n+1,n+1,"PairOxdnaStk:theta_st4_0");
-  memoryKK->create_kokkos(k_dtheta_st4_ast,dtheta_st4_ast,n+1,n+1,"PairOxdnaStk:dtheta_st4_ast");
-  memoryKK->create_kokkos(k_b_st4,b_st4,n+1,n+1,"PairOxdnaStk:b_st4");
-  memoryKK->create_kokkos(k_dtheta_st4_c,dtheta_st4_c,n+1,n+1,"PairOxdnaStk:dtheta_st4_c");
+  memoryKK->realloc_kokkos(k_dtheta_st4_ast,"PairOxdnaStk:dtheta_st4_ast",n+1,n+1);
+  memoryKK->realloc_kokkos(k_b_st4,"PairOxdnaStk:b_st4",n+1,n+1);
+  memoryKK->realloc_kokkos(k_dtheta_st4_c,"PairOxdnaStk:dtheta_st4_c",n+1,n+1);
 
   memoryKK->create_kokkos(k_a_st5,a_st5,n+1,n+1,"PairOxdnaStk:a_st5");
   memoryKK->create_kokkos(k_theta_st5_0,theta_st5_0,n+1,n+1,"PairOxdnaStk:theta_st5_0");
@@ -852,22 +852,22 @@ double PairOxdnaStkKokkos<DeviceType>::init_one(int i, int j)
 
   k_epsilon_st.h_view(i,j) = k_epsilon_st.h_view(j,i) = epsilon_st[i][j];
   k_a_st.h_view(i,j) = k_a_st.h_view(j,i) = a_st[i][j];
-  k_cut_st_0.h_view(i,j) = k_cut_st_0.h_view(j,i) = cut_st_0[i][j];
-  k_cut_st_c.h_view(i,j) = k_cut_st_c.h_view(j,i) = cut_st_c[i][j];
-  k_cut_st_lo.h_view(i,j) = k_cut_st_lo.h_view(j,i) = cut_st_lo[i][j];
-  k_cut_st_hi.h_view(i,j) = k_cut_st_hi.h_view(j,i) = cut_st_hi[i][j];
-  k_cut_st_lc.h_view(i,j) = k_cut_st_lc.h_view(j,i) = cut_st_lc[i][j];
-  k_cut_st_hc.h_view(i,j) = k_cut_st_hc.h_view(j,i) = cut_st_hc[i][j];
-  k_b_st_lo.h_view(i,j) = k_b_st_lo.h_view(j,i) = b_st_lo[i][j];
-  k_b_st_hi.h_view(i,j) = k_b_st_hi.h_view(j,i) = b_st_hi[i][j];
-  k_shift_st.h_view(i,j) = k_shift_st.h_view(j,i) = shift_st[i][j];
-  k_cutsq_st_hc.h_view(i,j) = k_cutsq_st_hc.h_view(j,i) = cutsq_st_hc[i][j];
+  k_cut_st_0.h_view(i,j) = k_cut_st_0.h_view(j,i) = cut_st_0[0][i][j][0];
+  k_cut_st_c.h_view(i,j) = k_cut_st_c.h_view(j,i) = cut_st_c[0][i][j][0];
+  k_cut_st_lo.h_view(i,j) = k_cut_st_lo.h_view(j,i) = cut_st_lo[0][i][j][0];
+  k_cut_st_hi.h_view(i,j) = k_cut_st_hi.h_view(j,i) = cut_st_hi[0][i][j][0];
+  k_cut_st_lc.h_view(i,j) = k_cut_st_lc.h_view(j,i) = cut_st_lc[0][i][j][0];
+  k_cut_st_hc.h_view(i,j) = k_cut_st_hc.h_view(j,i) = cut_st_hc[0][i][j][0];
+  k_b_st_lo.h_view(i,j) = k_b_st_lo.h_view(j,i) = b_st_lo[0][i][j][0];
+  k_b_st_hi.h_view(i,j) = k_b_st_hi.h_view(j,i) = b_st_hi[0][i][j][0];
+  k_shift_st.h_view(i,j) = k_shift_st.h_view(j,i) = shift_st[0][i][j][0];
+  k_cutsq_st_hc.h_view(i,j) = k_cutsq_st_hc.h_view(j,i) = cutsq_st_hc[0][i][j][0];
 
-  k_a_st4.h_view(i,j) = k_a_st4.h_view(j,i) = a_st4[i][j];
+  k_a_st4.h_view(i,j) = k_a_st4.h_view(j,i) = a_st4[0][i][j][0];
   k_theta_st4_0.h_view(i,j) = k_theta_st4_0.h_view(j,i) = theta_st4_0[i][j];
-  k_dtheta_st4_ast.h_view(i,j) = k_dtheta_st4_ast.h_view(j,i) = dtheta_st4_ast[i][j];
-  k_b_st4.h_view(i,j) = k_b_st4.h_view(j,i) = b_st4[i][j];
-  k_dtheta_st4_c.h_view(i,j) = k_dtheta_st4_c.h_view(j,i) = dtheta_st4_c[i][j];
+  k_dtheta_st4_ast.h_view(i,j) = k_dtheta_st4_ast.h_view(j,i) = dtheta_st4_ast[0][i][j][0];
+  k_b_st4.h_view(i,j) = k_b_st4.h_view(j,i) = b_st4[0][i][j][0];
+  k_dtheta_st4_c.h_view(i,j) = k_dtheta_st4_c.h_view(j,i) = dtheta_st4_c[0][i][j][0];
 
   k_a_st5.h_view(i,j) = k_a_st5.h_view(j,i) = a_st5[i][j];
   k_theta_st5_0.h_view(i,j) = k_theta_st5_0.h_view(j,i) = theta_st5_0[i][j];
@@ -932,7 +932,6 @@ double PairOxdnaStkKokkos<DeviceType>::init_one(int i, int j)
 
   // "cutone" is "cut_st_hc[i][j]", sets the master list distance cutoff
   return cutone;
-
 }
 
 /* ----------------------------------------------------------------------

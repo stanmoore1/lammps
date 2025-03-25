@@ -116,6 +116,7 @@ AtomKokkos::~AtomKokkos()
   memoryKK->destroy_kokkos(k_duChem, duChem);
 
   // CG-DNA package
+  memoryKK->destroy_kokkos(k_id3p, id3p);
   memoryKK->destroy_kokkos(k_id5p, id5p);
 
   memoryKK->destroy_kokkos(k_dvector, dvector);

@@ -67,6 +67,8 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   typename ArrayTypes<DeviceType>::t_f_array f;
   typename ArrayTypes<DeviceType>::t_f_array torque;
   typename ArrayTypes<DeviceType>::t_int_2d bondlist;
+  typename ArrayTypes<DeviceType>::t_tagint_1d tag;
+  typename ArrayTypes<DeviceType>::t_tagint_1d id5p;
 
   DAT::tdual_efloat_1d k_eatom;
   DAT::tdual_virial_array k_vatom;

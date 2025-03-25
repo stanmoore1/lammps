@@ -63,6 +63,8 @@ class AtomVecOxdnaKokkos : public AtomVecKokkos, public AtomVecOxdna {
   void sync_overlapping_device(ExecutionSpace space, unsigned int mask) override;
 
  private:
+   DAT::t_tagint_1d d_id3p;
+   HAT::t_tagint_1d h_id3p;
    DAT::t_tagint_1d d_id5p;
    HAT::t_tagint_1d h_id5p;
 

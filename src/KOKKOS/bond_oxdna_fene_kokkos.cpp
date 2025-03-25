@@ -90,6 +90,8 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();
   torque = atomKK->k_torque.view<DeviceType>();
+  tag = atomKK->k_tag.view<DeviceType>();
+  id5p = atomKK->k_id5p.view<DeviceType>();
 
   neighborKK->k_bondlist.template sync<DeviceType>();
   bondlist = neighborKK->k_bondlist.view<DeviceType>();
@@ -191,9 +193,17 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,\
     typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_torque = torque;
 
-  const int b = bondlist(in,0);
-  const int a = bondlist(in,1);
+  int b = bondlist(in,0);
+  int a = bondlist(in,1);
   const int type = bondlist(in,2);
+  int btemp, atype, btype;
+
+  // directionality test: a -> b is 3' -> 5'
+  if ( tag(b) != id5p(a) ) {
+    btemp = b;
+    b = a;
+    a = btemp;  
+  }
 
   F_FLOAT delf[3], delta[3], deltb[3];    // force, torque increment
   F_FLOAT delr[3];                        // vector backbone site b to a
@@ -348,8 +358,8 @@ void BondOxdnaFENEKokkos<DeviceType>::coeff(int narg, char **arg)
   int n = atom->nbondtypes;
   for (int i = 1; i <= n; i++) {
     k_k.h_view[i] = k[i];
-    k_r0.h_view[i] = r0[i];
-    k_Delta.h_view[i] = Delta[i];
+    k_r0.h_view[i] = r0[i][0][0][0][0];
+    k_Delta.h_view[i] = Delta[i][0][0][0][0];
   }
 
   k_k.template modify<LMPHostType>();
@@ -370,8 +380,8 @@ void BondOxdnaFENEKokkos<DeviceType>::read_restart(FILE *fp)
   int n = atom->nbondtypes;
   for (int i = 1; i <= n; i++) {
     k_k.h_view[i] = k[i];
-    k_r0.h_view[i] = r0[i];
-    k_Delta.h_view[i] = Delta[i];
+    k_r0.h_view[i] = r0[i][0][0][0][0];
+    k_Delta.h_view[i] = Delta[i][0][0][0][0];
   }
 
   k_k.template modify<LMPHostType>();

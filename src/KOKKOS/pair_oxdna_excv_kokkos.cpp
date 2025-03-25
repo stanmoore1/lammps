@@ -897,6 +897,25 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   memory->destroy(ny);
   memory->destroy(nz);
 
+  // destory tetramer-dependent coefficients - not used from models <oxdna3
+  memory->destroy(sigma4_sb);
+  memory->destroy(cut4_sb_ast);
+  memory->destroy(cut4sq_sb_ast);
+  memory->destroy(lj14_sb);
+  memory->destroy(lj24_sb);
+  memory->destroy(b4_sb);
+  memory->destroy(cut4_sb_c);
+  memory->destroy(cut4sq_sb_c);
+  memory->destroy(sigma4_bb);
+  memory->destroy(cut4_bb_ast);
+  memory->destroy(cut4sq_bb_ast);
+  memory->destroy(lj14_bb);
+  memory->destroy(lj24_bb);
+  memory->destroy(b4_bb);
+  memory->destroy(cut4_bb_c);
+  memory->destroy(cut4sq_bb_c);
+
+  // only create relevant kokkos views - ie, everything but the tetramer-dependent coefficients
   memoryKK->create_kokkos(k_epsilon_ss,epsilon_ss,n+1,n+1,"PairOxdnaExcv:epsilon_ss");
   memoryKK->create_kokkos(k_sigma_ss,sigma_ss,n+1,n+1,"PairOxdnaExcv:sigma_ss");
   memoryKK->create_kokkos(k_cut_ss_ast,cut_ss_ast,n+1,n+1,"PairOxdnaExcv:cut_ss_ast");

@@ -52,6 +52,7 @@ void AtomVecOxdnaKokkos::grow(int n)
   atomKK->sync(Device,ALL_MASK);
   atomKK->modified(Device,ALL_MASK);
 
+  memoryKK->grow_kokkos(atomKK->k_id3p,atomKK->id3p,nmax,"atom:id3p");
   memoryKK->grow_kokkos(atomKK->k_id5p,atomKK->id5p,nmax,"atom:id5p");
 
   grow_pointers();
@@ -68,6 +69,9 @@ void AtomVecOxdnaKokkos::grow(int n)
 
 void AtomVecOxdnaKokkos::grow_pointers()
 {
+  id3p = atomKK->id3p;
+  d_id3p = atomKK->k_id3p.d_view;
+  h_id3p = atomKK->k_id3p.h_view;
   id5p = atomKK->id5p;
   d_id5p = atomKK->k_id5p.d_view;
   h_id5p = atomKK->k_id5p.h_view;
@@ -82,6 +86,7 @@ void AtomVecOxdnaKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter
 {
   atomKK->sync(Device, ALL_MASK & ~F_MASK);
 
+  Sorter.sort(LMPDeviceType(), d_id3p);
   Sorter.sort(LMPDeviceType(), d_id5p);
 
   atomKK->modified(Device, ALL_MASK & ~F_MASK);
@@ -92,8 +97,10 @@ void AtomVecOxdnaKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter
 void AtomVecOxdnaKokkos::sync(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
+    if (mask & BOND_MASK) atomKK->k_id3p.sync<LMPDeviceType>();
     if (mask & BOND_MASK) atomKK->k_id5p.sync<LMPDeviceType>();
   } else {
+    if (mask & BOND_MASK) atomKK->k_id3p.sync<LMPHostType>();
     if (mask & BOND_MASK) atomKK->k_id5p.sync<LMPHostType>();
   }
 }
@@ -103,9 +110,13 @@ void AtomVecOxdnaKokkos::sync(ExecutionSpace space, unsigned int mask)
 void AtomVecOxdnaKokkos::sync_overlapping_device(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
+    if ((mask & BOND_MASK) && atomKK->k_id3p.need_sync<LMPDeviceType>())
+      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_id3p,space);
     if ((mask & BOND_MASK) && atomKK->k_id5p.need_sync<LMPDeviceType>())
       perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_id5p,space);
   } else {
+    if ((mask & BOND_MASK) && atomKK->k_id3p.need_sync<LMPHostType>())
+      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_id3p,space);
     if ((mask & BOND_MASK) && atomKK->k_id5p.need_sync<LMPHostType>())
       perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_id5p,space);
   }
@@ -116,8 +127,10 @@ void AtomVecOxdnaKokkos::sync_overlapping_device(ExecutionSpace space, unsigned 
 void AtomVecOxdnaKokkos::modified(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
+    if (mask & BOND_MASK) atomKK->k_id3p.modify<LMPDeviceType>();
     if (mask & BOND_MASK) atomKK->k_id5p.modify<LMPDeviceType>();
   } else {
+    if (mask & BOND_MASK) atomKK->k_id3p.modify<LMPHostType>();
     if (mask & BOND_MASK) atomKK->k_id5p.modify<LMPHostType>();
   }
 }
