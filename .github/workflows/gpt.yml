@@ -33,7 +33,7 @@ jobs:
             pandoc -f rst -t markdown -o "$md_file" "{}"
           '
 
-      - name: Extract Documentation into Structured JSON
+      - name: Extract and Write JSONL Knowledge Files
         run: |
           python - <<'EOF'
           import os
@@ -41,32 +41,34 @@ jobs:
           import markdown
           from bs4 import BeautifulSoup
           from datetime import datetime
+          from pathlib import Path
 
-          repos = [
-              "docs_sources/kokkos-core-wiki",
-              "docs_sources/kokkos-tutorials",
-              "docs_sources/kokkos-kernels",
-              "docs_sources/cppreference-doc",
-              "docs_sources/lammps"
-          ]
-          output_dir = "extracted_docs"
-          os.makedirs(output_dir, exist_ok=True)
-          output_file = f"{output_dir}/lammps-gpt-knowledge.json"
+          output_dir = Path("extracted_docs")
+          output_dir.mkdir(exist_ok=True)
 
-          knowledge = {"metadata": {}, "documents": []}
+          groups = {
+              "lammps-gpt-kokkos": [
+                  "docs_sources/kokkos-core-wiki",
+                  "docs_sources/kokkos-tutorials",
+                  "docs_sources/kokkos-kernels"
+              ],
+              "lammps-gpt-cppreference": [
+                  "docs_sources/cppreference-doc"
+              ],
+              "lammps-gpt-lammps": [
+                  "docs_sources/lammps"
+              ]
+          }
 
           def parse_markdown(md_text, file_path):
               html = markdown.markdown(md_text, extensions=["fenced_code", "tables"])
               soup = BeautifulSoup(html, "html.parser")
-              
               title = soup.find("h1").get_text(strip=True) if soup.find("h1") else os.path.basename(file_path)
               sections = []
-              
               for header in soup.find_all(["h2", "h3", "h4", "h5", "h6"]):
                   section = {"heading": header.get_text(strip=True), "level": header.name, "content": "", "code_blocks": []}
                   content_parts = []
                   next_elem = header.find_next_sibling()
-
                   while next_elem and next_elem.name not in ["h1", "h2", "h3", "h4", "h5", "h6"]:
                       if next_elem.name == "p":
                           content_parts.append(next_elem.get_text(strip=True))
@@ -75,37 +77,47 @@ jobs:
                       elif next_elem.name == "pre":
                           section["code_blocks"].append(next_elem.get_text(strip=True))
                       next_elem = next_elem.find_next_sibling()
-
                   section["content"] = "\n\n".join(content_parts)
                   sections.append(section)
+              return {
+                  "title": title,
+                  "path": file_path,
+                  "sections": sections
+              }
 
-              return {"title": title, "sections": sections}
+          for group_name, repos in groups.items():
+              jsonl_path = output_dir / f"{group_name}.jsonl"
+              with open(jsonl_path, "w", encoding="utf-8") as fout:
+                  for repo in repos:
+                      for root, _, files in os.walk(repo):
+                          for file in files:
+                              if file.endswith(".md"):
+                                  file_path = os.path.join(root, file)
+                                  with open(file_path, "r", encoding="utf-8") as f:
+                                      md_text = f.read()
+                                  doc = parse_markdown(md_text, file_path)
+                                  fout.write(json.dumps(doc) + "\n")
 
-          for repo in repos:
-              for root, _, files in os.walk(repo):
-                  for file in files:
-                      if file.endswith(".md"):
-                          file_path = os.path.join(root, file)
-                          with open(file_path, "r", encoding="utf-8") as f:
-                              md_text = f.read()
-                          knowledge["documents"].append(parse_markdown(md_text, file_path))
-
-          knowledge["metadata"]["extraction_date"] = datetime.utcnow().isoformat()
-          knowledge["metadata"]["total_documents"] = len(knowledge["documents"])
-
-          with open(output_file, "w", encoding="utf-8") as f:
-              json.dump(knowledge, f, indent=2)
-
-          print(f"Extracted {len(knowledge['documents'])} markdown files into {output_file}")
+          print("All JSONL files written to extracted_docs/")
           EOF
 
-      - name: Compress Extracted Knowledge
-        run: |
-          zip -r extracted_docs/lammps-gpt-knowledge-$(date +%Y%m%d).zip extracted_docs/*.json
-
-      - name: Upload JSON Artifact
+      - name: Upload Kokkos Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lammps-gpt-knowledge-archive
-          path: extracted_docs/lammps-gpt-knowledge-*.zip
+          name: lammps-gpt-kokkos
+          path: extracted_docs/lammps-gpt-kokkos.jsonl
+          retention-days: 30
+
+      - name: Upload CppReference Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lammps-gpt-cppreference
+          path: extracted_docs/lammps-gpt-cppreference.jsonl
+          retention-days: 30
+
+      - name: Upload LAMMPS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lammps-gpt-lammps
+          path: extracted_docs/lammps-gpt-lammps.jsonl
           retention-days: 30
