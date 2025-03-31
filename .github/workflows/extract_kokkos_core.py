@@ -14,7 +14,7 @@ for root, _, files in os.walk(docs_dir):
                 with open(full_path, "r", encoding="utf-8") as f:
                     soup = BeautifulSoup(f, "html5lib")
                     title = soup.title.string.strip() if soup.title else file
-                    article = soup.find("article", {"role": "main"})
+                    article = soup.find("article")
                     if not article:
                         continue
                     body = article.get_text(" ", strip=True)
