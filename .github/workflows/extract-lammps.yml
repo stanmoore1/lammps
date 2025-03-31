@@ -11,7 +11,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pandoc python3-sphinx
+          sudo apt-get install -y python3-sphinx
           pip install markdown beautifulsoup4
 
       - name: Clone LAMMPS Repository
@@ -21,45 +21,52 @@ jobs:
       - name: Build LAMMPS Docs
         run: |
           cd docs_sources/lammps/doc
-          make html || true  # fallback if make fails
+          make html
           cd -
 
-      - name: Convert RST and Source Files
-        run: |
-          find docs_sources/lammps \( -name "*.rst" -o -name "*.cpp" -o -name "*.h" -o -name "*.txt" \) | xargs -P 4 -I {} sh -c '
-            md_file="{}.md"
-            pandoc -f rst -t markdown -o "$md_file" "{}" 2>/dev/null || cp "{}" "$md_file"
-          '
-
-      - name: Extract Markdown to JSONL
+      - name: Extract to JSONL
         run: |
           python - <<'EOF'
           import os, json
           from pathlib import Path
-          import markdown
           from bs4 import BeautifulSoup
+
+          def extract_html_text(html_path):
+              with open(html_path, encoding="utf-8") as f:
+                  soup = BeautifulSoup(f, "html.parser")
+              title = soup.title.string if soup.title else html_path.name
+              text = soup.get_text("\n", strip=True)
+              return {"title": title, "path": str(html_path), "content": text}
+
+          def extract_plain_text(path):
+              with open(path, encoding="utf-8", errors="ignore") as f:
+                  text = f.read()
+              title = os.path.basename(path)
+              return {"title": title, "path": str(path), "content": text}
 
           output_dir = Path("extracted_docs")
           output_dir.mkdir(exist_ok=True)
-
-          def parse_md(path):
-              with open(path, encoding="utf-8") as f:
-                  html = markdown.markdown(f.read(), extensions=["fenced_code", "tables"])
-              soup = BeautifulSoup(html, "html.parser")
-              title = soup.find("h1").get_text(strip=True) if soup.find("h1") else os.path.basename(path)
-              text = soup.get_text("\n", strip=True)
-              return {"title": title, "path": str(path), "content": text}
-
           out_path = output_dir / "lammps-gpt-lammps.jsonl"
+
           with open(out_path, "w", encoding="utf-8") as fout:
-              for root, _, files in os.walk("docs_sources/lammps"):
-                  for file in files:
-                      if file.endswith(".md"):
+              for base_dir in [
+                  Path("docs_sources/lammps/doc/html"),
+                  Path("docs_sources/lammps/src"),
+                  Path("docs_sources/lammps/examples")
+              ]:
+                  for root, _, files in os.walk(base_dir):
+                      for file in files:
+                          path = Path(root) / file
                           try:
-                              record = parse_md(os.path.join(root, file))
+                              if path.suffix == ".html":
+                                  record = extract_html_text(path)
+                              elif path.suffix in [".cpp", ".h", ".c", ".f", ".txt"]:
+                                  record = extract_plain_text(path)
+                              else:
+                                  continue
                               fout.write(json.dumps(record) + "\n")
                           except Exception as e:
-                              print(f"Failed on {file}: {e}")
+                              print(f"Failed on {path}: {e}")
 
           print(f"Wrote {out_path}")
           EOF
