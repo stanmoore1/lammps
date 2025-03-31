@@ -6,13 +6,15 @@ on:
 jobs:
   extract-kokkos-core:
     runs-on: ubuntu-24.04
-
     steps:
       - name: Checkout kokkos-core-wiki
         uses: actions/checkout@v4
         with:
           repository: kokkos/kokkos-core-wiki
           path: kokkos-core-wiki
+
+      - name: Checkout current repo
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -21,9 +23,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd kokkos-core-wiki
-          pip install --upgrade pip
-          pip install -r build_requirements.txt
           pip install beautifulsoup4 html5lib
 
       - name: Build HTML docs
@@ -31,40 +30,9 @@ jobs:
           cd kokkos-core-wiki/docs
           make html
 
-      - name: Convert HTML to knowledge.jsonl
-        shell: python
+      - name: Run extraction script
         run: |
-          import os, json
-          from bs4 import BeautifulSoup
-
-          docs_dir = "kokkos-core-wiki/docs/generated_docs"
-          output_dir = "kokkos-core-knowledge"
-          os.makedirs(output_dir, exist_ok=True)
-          output_path = os.path.join(output_dir, "knowledge.jsonl")
-          lines = []
-
-          for root, _, files in os.walk(docs_dir):
-              for file in files:
-                  if file.endswith(".html"):
-                      full_path = os.path.join(root, file)
-                      with open(full_path, "r", encoding="utf-8") as f:
-                          soup = BeautifulSoup(f, "html5lib")
-                          article = soup.find("article", {"role": "main"})
-                          if not article:
-                              print(f"*** [{full_path}] *** if not article:continue ***")
-                              continue
-                          title = soup.title.string.strip() if soup.title else file
-                          body = article.get_text(" ", strip=True)
-                          body = body.replace("\u200b", " ").replace("\xa0", " ")
-                          if len(body) > 100:
-                              lines.append(json.dumps({
-                                  "title": title,
-                                  "text": body,
-                                  "source": os.path.relpath(full_path, "kokkos-core-wiki")
-                              }))
-
-          with open(output_path, "w", encoding="utf-8") as out:
-              out.write("\n".join(lines))
+          python .github/workflows/extract_kokkos_core.py
 
       - name: Upload HTML artifact
         uses: actions/upload-artifact@v4
