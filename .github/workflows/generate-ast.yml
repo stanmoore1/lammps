@@ -105,9 +105,9 @@ jobs:
           with open("lammps-gpt-ast.jsonl", "w") as out:
               sys.stdout = out
               extract_class_info("lammps-src")
-              
-    - name: Upload JSONL artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: lammps-gpt-ast
-        path: lammps-gpt-ast.jsonl
+
+      - name: Upload JSONL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lammps-gpt-ast
+          path: lammps-gpt-ast.jsonl
