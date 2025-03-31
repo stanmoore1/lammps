@@ -18,6 +18,7 @@ for root, _, files in os.walk(docs_dir):
                     if not article:
                         continue
                     body = article.get_text(" ", strip=True)
+                    print(f"*** full_path {full_path} body {body} ***")
                     body = body.replace("\u200b", " ").replace("\xa0", " ")
                     if len(body) > 100:
                         lines.append(json.dumps({
