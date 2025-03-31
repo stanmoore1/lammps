@@ -31,12 +31,6 @@ jobs:
           cd kokkos-core-wiki/docs
           make html
 
-      - name: List generated HTML files
-        run: |
-          find kokkos-core-wiki/docs/generated_docs -type f -name "*.html" | wc -l
-          find kokkos-core-wiki/docs/generated_docs -type f -name "*.html" | head -n 10
-
-
       - name: Convert HTML to knowledge.jsonl
         shell: python
         run: |
@@ -44,10 +38,11 @@ jobs:
           from bs4 import BeautifulSoup
 
           docs_dir = "kokkos-core-wiki/docs/generated_docs"
-          output_path = "kokkos-core-knowledge/knowledge.jsonl"
-          os.makedirs("kokkos-core-knowledge", exist_ok=True)
-
+          output_dir = "kokkos-core-knowledge"
+          os.makedirs(output_dir, exist_ok=True)
+          output_path = os.path.join(output_dir, "knowledge.jsonl")
           lines = []
+
           for root, _, files in os.walk(docs_dir):
               for file in files:
                   if file.endswith(".html"):
@@ -55,24 +50,21 @@ jobs:
                       with open(full_path, "r", encoding="utf-8") as f:
                           soup = BeautifulSoup(f, "html5lib")
                           article = soup.find("article", {"role": "main"})
-                          if article:
-                              text = article.get_text(" ", strip=True)
-                              text = text.replace("\u200b", " ").replace("\xa0", " ")
-                              if len(text) > 100:
-                                  title = soup.title.string.strip() if soup.title else file
-                                  lines.append(json.dumps({
-                                      "title": title,
-                                      "text": text,
-                                      "source": os.path.relpath(full_path, "kokkos-core-wiki")
-                                  }))
+                          if not article:
+                              print(f"*** [{full_path}] *** if not article:continue ***")
+                              continue
+                          title = soup.title.string.strip() if soup.title else file
+                          body = article.get_text(" ", strip=True)
+                          body = body.replace("\u200b", " ").replace("\xa0", " ")
+                          if len(body) > 100:
+                              lines.append(json.dumps({
+                                  "title": title,
+                                  "text": body,
+                                  "source": os.path.relpath(full_path, "kokkos-core-wiki")
+                              }))
 
           with open(output_path, "w", encoding="utf-8") as out:
               out.write("\n".join(lines))
-              
-      - name: Show knowledge.jsonl size and preview
-        run: |
-          wc -l kokkos-core-knowledge/knowledge.jsonl
-          head -n 1 kokkos-core-knowledge/knowledge.jsonl
 
       - name: Upload HTML artifact
         uses: actions/upload-artifact@v4
