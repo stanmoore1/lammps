@@ -5,13 +5,13 @@ on:
 
 jobs:
   extract-lammps:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-sphinx
+          sudo apt-get install -y doxygen python3-sphinx
           pip install markdown beautifulsoup4
 
       - name: Clone LAMMPS Repository
@@ -24,46 +24,58 @@ jobs:
           make html
           cd -
 
-      - name: Extract to JSONL
+      - name: Extract Selected Files to JSONL
         run: |
           python - <<'EOF'
           import os, json
           from pathlib import Path
           from bs4 import BeautifulSoup
 
-          def extract_html_text(html_path):
-              with open(html_path, encoding="utf-8") as f:
+          def extract_html(path):
+              with open(path, encoding="utf-8") as f:
                   soup = BeautifulSoup(f, "html.parser")
-              title = soup.title.string if soup.title else html_path.name
+              title = soup.title.string.strip() if soup.title else path.name
               text = soup.get_text("\n", strip=True)
-              return {"title": title, "path": str(html_path), "content": text}
-
-          def extract_plain_text(path):
-              with open(path, encoding="utf-8", errors="ignore") as f:
-                  text = f.read()
-              title = os.path.basename(path)
               return {"title": title, "path": str(path), "content": text}
+
+          def extract_text(path):
+              with open(path, encoding="utf-8", errors="ignore") as f:
+                  return {"title": path.name, "path": str(path), "content": f.read()}
 
           output_dir = Path("extracted_docs")
           output_dir.mkdir(exist_ok=True)
           out_path = output_dir / "lammps-gpt-lammps.jsonl"
 
           with open(out_path, "w", encoding="utf-8") as fout:
-              for base_dir in [
-                  Path("docs_sources/lammps/doc/html"),
-                  Path("docs_sources/lammps/src"),
-                  Path("docs_sources/lammps/examples")
-              ]:
-                  for root, _, files in os.walk(base_dir):
-                      for file in files:
+              # Extract HTML from doc/html
+              for root, _, files in os.walk("docs_sources/lammps/doc/html"):
+                  for file in files:
+                      if file.endswith(".html"):
                           path = Path(root) / file
                           try:
-                              if path.suffix == ".html":
-                                  record = extract_html_text(path)
-                              elif path.suffix in [".cpp", ".h", ".c", ".f", ".txt"]:
-                                  record = extract_plain_text(path)
-                              else:
-                                  continue
+                              record = extract_html(path)
+                              fout.write(json.dumps(record) + "\n")
+                          except Exception as e:
+                              print(f"Failed on {path}: {e}")
+
+              # Extract *.h and *.cpp from src
+              for root, _, files in os.walk("docs_sources/lammps/src"):
+                  for file in files:
+                      if file.endswith(".h") or file.endswith(".cpp"):
+                          path = Path(root) / file
+                          try:
+                              record = extract_text(path)
+                              fout.write(json.dumps(record) + "\n")
+                          except Exception as e:
+                              print(f"Failed on {path}: {e}")
+
+              # Extract README and in.* from examples
+              for root, _, files in os.walk("docs_sources/lammps/examples"):
+                  for file in files:
+                      if file.startswith("README") or file.startswith("in."):
+                          path = Path(root) / file
+                          try:
+                              record = extract_text(path)
                               fout.write(json.dumps(record) + "\n")
                           except Exception as e:
                               print(f"Failed on {path}: {e}")
