@@ -23,6 +23,7 @@
 #include "fix_qtpie_reaxff.h"
 
 #include "atom.h"
+#include "citeme.h"
 #include "comm.h"
 #include "domain.h"
 #include "error.h"
@@ -51,6 +52,19 @@ using namespace FixConst;
 static constexpr double CONV_TO_EV = 14.4;
 static constexpr double QSUMSMALL = 0.00001;
 static constexpr double ANGSTROM_TO_BOHRRADIUS = 1.8897261259;
+
+static const char cite_fix_qtpie_reax[] =
+  "fix qtpie/reaxff command: \n\n"
+  "@Article{Kritikos20,\n"
+  " author = {E. Kritikos and A. Giusti},\n"
+  " title = {Reactive Molecular Dynamics Investigation of Toluene Oxidation under Electrostatic Fields: Effect of the Modeling of Local Charge Distribution},\n"
+  " journal = {The Journal of Physical Chemistry A},\n"
+  " volume = {124},\n"
+  " number = {51},\n"
+  " pages = {10705--10716},\n"
+  " year = {2020},\n"
+  " publisher = {ACS Publications}\n"
+  "}\n\n";
 
 /* ---------------------------------------------------------------------- */
 
@@ -165,6 +179,8 @@ FixQtpieReaxFF::~FixQtpieReaxFF()
 
 void FixQtpieReaxFF::post_constructor()
 {
+  if (lmp->citeme) lmp->citeme->add(cite_fix_qtpie_reax);
+
   grow_arrays(atom->nmax);
   for (int i = 0; i < atom->nmax; i++)
     for (int j = 0; j < nprev; ++j)
@@ -439,7 +455,7 @@ void FixQtpieReaxFF::init()
   MPI_Allreduce(&qsum_local,&qsum,1,MPI_DOUBLE,MPI_SUM,world);
 
   if ((comm->me == 0) && (fabs(qsum) > QSUMSMALL))
-    error->warning(FLERR,"Fix {} group is not charge neutral, net charge = {:.8}", style, qsum);
+    error->warning(FLERR,"Fix {} group is not charge neutral, net charge = {:.8}" + utils::errorurl(29), style, qsum);
 
   // get pointer to fix efield if present. there may be at most one instance of fix efield in use.
   efield = nullptr;

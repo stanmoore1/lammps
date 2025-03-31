@@ -896,7 +896,7 @@ void Output::create_thermo(int narg, char **arg)
   // don't allow this so that dipole style can safely allocate inertia vector
 
   if (domain->box_exist == 0)
-    error->all(FLERR,"Thermo_style command before simulation box is defined");
+    error->all(FLERR,"Thermo_style command before simulation box is defined" + utils::errorurl(33));
 
   // warn if previous thermo had been modified via thermo_modify command
 

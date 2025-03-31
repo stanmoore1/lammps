@@ -214,7 +214,7 @@ void PairMLIAPKokkos<DeviceType>::settings(int narg, char ** arg)
 
 template<class DeviceType>
 void PairMLIAPKokkos<DeviceType>::coeff(int narg, char **arg) {
-  if (narg < 3) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (narg < 3) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) {
     PairMLIAP::allocate();
     allocate();
@@ -227,7 +227,7 @@ void PairMLIAPKokkos<DeviceType>::coeff(int narg, char **arg) {
   // ensure I,J args are * *
 
   if (strcmp(type1,"*") != 0 || strcmp(type2,"*") != 0)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 
   // read args that map atom types to elements
   // map[i] = which element the Ith atom type is, -1 if not mapped
@@ -244,7 +244,7 @@ void PairMLIAPKokkos<DeviceType>::coeff(int narg, char **arg) {
     if (jelem < descriptor->nelements)
       map[i] = jelem;
     else if (strcmp(elemname,"NULL") == 0) map[i] = -1;
-    else error->all(FLERR,"Incorrect args for pair coefficients");
+    else error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   }
   k_map.modify<LMPHostType>();
   k_map.sync<LMPDeviceType>();
@@ -268,7 +268,7 @@ void PairMLIAPKokkos<DeviceType>::coeff(int narg, char **arg) {
   k_setflag.modify<LMPHostType>();
   k_setflag.sync<LMPDeviceType>();
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 
   // set up model, descriptor, and mliap data structures
   model->init();

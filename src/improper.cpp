@@ -18,6 +18,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "suffix.h"
 #include "update.h"
@@ -67,9 +68,14 @@ Improper::~Improper()
 
 void Improper::init()
 {
-  if (!allocated && atom->nimpropertypes) error->all(FLERR, "Improper coeffs are not set");
+  if (!allocated && atom->nimpropertypes)
+    error->all(FLERR, Error::NOLASTLINE,
+               "Improper coeffs are not set. Status:\n" + Info::get_improper_coeff_status(lmp));
   for (int i = 1; i <= atom->nimpropertypes; i++)
-    if (setflag[i] == 0) error->all(FLERR, "All improper coeffs are not set");
+    if (setflag[i] == 0)
+      error->all(FLERR, Error::NOLASTLINE,
+                 "All improper coeffs are not set. Status:\n"
+                 + Info::get_improper_coeff_status(lmp));
 
   init_style();
 }

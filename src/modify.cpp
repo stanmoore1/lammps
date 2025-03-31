@@ -295,7 +295,8 @@ void Modify::init()
   int checkall;
   MPI_Allreduce(&check, &checkall, 1, MPI_INT, MPI_SUM, world);
   if (comm->me == 0 && checkall)
-    error->warning(FLERR, "One or more atoms are time integrated more than once");
+    error->warning(FLERR, "One or more atoms are time integrated more than once"
+                   + utils::errorurl(32));
 }
 
 /* ----------------------------------------------------------------------

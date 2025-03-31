@@ -1661,10 +1661,14 @@
 /fix_pimd.h
 /fix_pimd_langevin.cpp
 /fix_pimd_langevin.h
+/fix_pimd_langevin_bosonic.cpp
+/fix_pimd_langevin_bosonic.h
 /fix_alchemy.cpp
 /fix_alchemy.h
 /fix_pimd_nvt.cpp
 /fix_pimd_nvt.h
+/fix_pimd_nvt_bosonic.cpp
+/fix_pimd_nvt_bosonic.h
 /fix_qbmsst.cpp
 /fix_qbmsst.h
 /fix_qtb.cpp

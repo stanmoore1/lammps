@@ -35,7 +35,7 @@ Description
 
 .. versionadded:: TBD
 
-Write a `VMD <https:://ks.uiuc.edu/Research/vmd/>`_ Tcl script file with
+Write a `VMD <https://ks.uiuc.edu/Research/vmd/>`_ Tcl script file with
 commands that aim to create a visualization of :doc:`regions <region>`.
 There may be multiple region visualizations stored in a single file.
 
