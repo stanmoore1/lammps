@@ -1,4 +1,4 @@
-name: Build Kokkos Core Knowledge
+name: Extract Kokkos Core Wiki Knowledge
 
 on:
   workflow_dispatch:
@@ -58,7 +58,7 @@ for root, _, files in os.walk(docs_dir):
                     lines.append(json.dumps({
                         "title": title,
                         "text": body,
-                        "source": f"kokkos-core-wiki/docs/{file}"
+                        "source": os.path.relpath(full_path, start="kokkos-core-wiki")
                     }))
 
 with open(output_path, "w", encoding="utf-8") as out:
