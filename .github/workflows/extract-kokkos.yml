@@ -37,8 +37,7 @@ jobs:
       - name: Convert HTML to knowledge.jsonl
         run: |
           mkdir -p kokkos-core-knowledge
-          cat <<EOF | python3
-import os, json
+          echo 'import os, json
 from bs4 import BeautifulSoup
 
 docs_dir = "kokkos-core-wiki/docs/generated_docs"
@@ -62,8 +61,8 @@ for root, _, files in os.walk(docs_dir):
                     }))
 
 with open(output_path, "w", encoding="utf-8") as out:
-    out.write("\n".join(lines))
-EOF
+    out.write("\n".join(lines))' > extract.py
+          python3 extract.py
 
       - name: Upload HTML artifact
         uses: actions/upload-artifact@v4
