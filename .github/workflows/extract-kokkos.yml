@@ -1,11 +1,14 @@
-name: Extract Kokkos Core Wiki Knowledge
+name: Build Kokkos Core Knowledge
 
 on:
   workflow_dispatch:
 
 jobs:
-  build-and-extract:
+  extract-kokkos-core:
     runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout kokkos-core-wiki
@@ -13,9 +16,8 @@ jobs:
         with:
           repository: kokkos/kokkos-core-wiki
           path: kokkos-core-wiki
-          fetch-depth: 1
 
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
@@ -23,62 +25,54 @@ jobs:
       - name: Install dependencies
         run: |
           cd kokkos-core-wiki
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install -r build_requirements.txt
-          pip install beautifulsoup4 html5lib tqdm
+          pip install beautifulsoup4 html5lib
 
       - name: Build HTML docs
         run: |
           cd kokkos-core-wiki/docs
-          make html || true
+          make html
 
-      - name: Extract knowledge.jsonl from built docs
+      - name: Convert HTML to knowledge.jsonl
         run: |
-          python3 -u <<EOF
-          import os, json
-          from bs4 import BeautifulSoup
-          from pathlib import Path
-          from tqdm import tqdm
+          mkdir -p kokkos-core-knowledge
+          python3 - <<EOF
+import os
+import json
+from bs4 import BeautifulSoup
 
-          html_dir = Path("kokkos-core-wiki/docs/generated_docs")
-          out_path = Path("kokkos-core-knowledge.jsonl")
+docs_dir = "kokkos-core-wiki/docs/generated_docs"
+output_path = "kokkos-core-knowledge/knowledge.jsonl"
+lines = []
 
-          pages = list(html_dir.glob("**/*.html"))
-          with open(out_path, "w", encoding="utf-8") as out_f:
-              for file in tqdm(pages, desc="Extracting HTML"):
-                  try:
-                      with open(file, "r", encoding="utf-8") as f:
-                          soup = BeautifulSoup(f, "html.parser")
-                          title = soup.title.string.strip() if soup.title else file.name
-                          body = soup.get_text(separator="\n", strip=True)
-                          entry = {
-                              "filename": str(file.relative_to(html_dir)),
-                              "title": title,
-                              "text": body,
-                              "source": f"https://kokkos.org/kokkos-core-wiki/{file.relative_to(html_dir)}"
-                          }
-                          json.dump(entry, out_f, ensure_ascii=False)
-                          out_f.write("\n")
-                  except Exception as e:
-                      print(f"[WARN] Skipping {file}: {e}")
-          EOF
+for root, _, files in os.walk(docs_dir):
+    for file in files:
+        if file.endswith(".html"):
+            full_path = os.path.join(root, file)
+            with open(full_path, "r", encoding="utf-8") as f:
+                soup = BeautifulSoup(f, "html5lib")
+                title = soup.title.string.strip() if soup.title else file
+                body = soup.get_text(separator=" ", strip=True)
+                if len(body) > 100:
+                    lines.append(json.dumps({
+                        "title": title,
+                        "text": body,
+                        "source": f"kokkos-core-wiki/docs/{file}"
+                    }))
 
-      - name: Zip built HTML for debug
-        if: always()
-        run: |
-          cd kokkos-core-wiki
-          zip -r ../kokkos-core-html.zip docs
+with open(output_path, "w", encoding="utf-8") as out:
+    out.write("\n".join(lines))
+EOF
 
-      - name: Upload HTML zip
-        if: always()
+      - name: Upload HTML artifact
         uses: actions/upload-artifact@v4
         with:
           name: kokkos-core-html
-          path: kokkos-core-html.zip
+          path: kokkos-core-wiki/docs/generated_docs
 
-      - name: Upload JSONL knowledge
-        if: always()
+      - name: Upload Knowledge JSONL
         uses: actions/upload-artifact@v4
         with:
           name: kokkos-core-knowledge
-          path: kokkos-core-knowledge.jsonl
+          path: kokkos-core-knowledge/knowledge.jsonl
