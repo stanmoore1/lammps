@@ -44,38 +44,31 @@ jobs:
 
           docs_dir = "kokkos-core-wiki/docs/generated_docs"
           output_path = "kokkos-core-knowledge/knowledge.jsonl"
-          os.makedirs("kokkos-core-knowledge", exist_ok=True)
           lines = []
 
-          file_count = 0
-          kept_count = 0
-
           for root, _, files in os.walk(docs_dir):
-              print(f"[INFO] files {files}")
               for file in files:
-                  print(f"[INFO] file {file}")
-                  if file.endswith(".html"):
-                      file_count += 1
-                      full_path = os.path.join(root, file)
-                      try:
-                          with open(full_path, "r", encoding="utf-8") as f:
-                              soup = BeautifulSoup(f, "html5lib")
-                              title = soup.title.string.strip() if soup.title and soup.title.string else os.path.basename(full_path)
-                              body = soup.get_text(" ", strip=True)
-                              body = body.replace("\u200b", " ").replace("\xa0", " ")
-                              if len(body) > 50:
-                                  kept_count += 1
-                                  lines.append(json.dumps({
-                                      "title": title,
-                                      "text": body,
-                                      "source": os.path.relpath(full_path, "kokkos-core-wiki")
-                                  }))
-                      except Exception as e:
-                          print(f"[ERROR] {full_path}: {e}")
+                  if not file.endswith(".html"):
+                      continue
+                  full_path = os.path.join(root, file)
+                  with open(full_path, "r", encoding="utf-8") as f:
+                      soup = BeautifulSoup(f, "html5lib")
+                      main = soup.find("main", class_="document")
+                      if not main:
+                          continue
+                      text = main.get_text(" ", strip=True)
+                      text = text.replace("\u200b", " ").replace("\xa0", " ")
+                      if len(text) < 100:
+                          continue
+                      title_tag = main.find(["h1", "title"])
+                      title = title_tag.get_text(strip=True) if title_tag else file
+                      lines.append(json.dumps({
+                          "title": title,
+                          "text": text,
+                          "source": os.path.relpath(full_path, "kokkos-core-wiki")
+                      }))
 
-          print(f"[INFO] Processed {file_count} .html files")
-          print(f"[INFO] Added {kept_count} entries to JSONL")
-
+          os.makedirs("kokkos-core-knowledge", exist_ok=True)
           with open(output_path, "w", encoding="utf-8") as out:
               out.write("\n".join(lines))
               
