@@ -37,7 +37,7 @@ jobs:
       - name: Convert HTML to knowledge.jsonl
         run: |
           mkdir -p kokkos-core-knowledge
-          python - <<EOF
+          python <<EOF
 import os, json
 from bs4 import BeautifulSoup
 
