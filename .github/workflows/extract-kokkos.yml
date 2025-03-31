@@ -5,62 +5,74 @@ on:
 
 jobs:
   extract-kokkos:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-      - name: Install Dependencies
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pandoc texlive-latex-base
-          pip install markdown beautifulsoup4 html5lib
+          sudo apt-get install -y pandoc texlive-latex-base poppler-utils parallel
+          pip install markdown beautifulsoup4 html5lib pypandoc PyMuPDF pdfminer.six
 
       - name: Clone Kokkos Documentation Repositories
         run: |
-          git clone --single-branch --depth=1 https://github.com/kokkos/kokkos-core-wiki.git docs_sources/kokkos-core-wiki
-          git clone --single-branch --depth=1 https://github.com/kokkos/kokkos-kernels.git docs_sources/kokkos-kernels
-          git clone --single-branch --depth=1 https://github.com/kokkos/kokkos-tutorials.git docs_sources/kokkos-tutorials
+          git clone --depth=1 https://github.com/kokkos/kokkos-core-wiki.git docs_sources/kokkos-core-wiki
+          git clone --depth=1 https://github.com/kokkos/kokkos-kernels.git docs_sources/kokkos-kernels
+          git clone --depth=1 https://github.com/kokkos/kokkos-tutorials.git docs_sources/kokkos-tutorials
 
       - name: Convert RST and TeX to Markdown
         run: |
-          find docs_sources \( -name "*.rst" -o -name "*.tex" \) | xargs -P 4 -I {} sh -c '
-            md_file="{}.md"
-            pandoc -f rst -t markdown -o "$md_file" "{}" 2>/dev/null || true
+          find docs_sources \( -name "*.rst" -o -name "*.tex" \) | parallel -j4 '
+            out={}.md
+            pandoc -f rst -t markdown "{}" -o "$out" 2>/dev/null || true
           '
 
-      - name: Extract Markdown to JSONL
+      - name: Extract Markdown, PDF, and Slides to JSONL
         run: |
-          python - <<'EOF'
+          python3 - <<'EOF'
           import os, json
           from pathlib import Path
-          import markdown
           from bs4 import BeautifulSoup
+          import markdown
+          import fitz  # PyMuPDF
 
           output_dir = Path("extracted_docs")
           output_dir.mkdir(exist_ok=True)
+          out_file = output_dir / "lammps-gpt-kokkos.jsonl"
 
-          def parse_md(path):
+          def parse_markdown(path):
               with open(path, encoding="utf-8") as f:
                   html = markdown.markdown(f.read(), extensions=["fenced_code", "tables"])
               soup = BeautifulSoup(html, "html.parser")
-              title = soup.find("h1").get_text(strip=True) if soup.find("h1") else os.path.basename(path)
-              text = soup.get_text("\n", strip=True)
-              return {"title": title, "path": str(path), "content": text}
+              title = soup.find("h1").get_text(strip=True) if soup.find("h1") else path.stem
+              content = soup.get_text("\n", strip=True)
+              return {"title": title, "path": str(path), "content": content}
 
-          out_path = output_dir / "lammps-gpt-kokkos.jsonl"
-          with open(out_path, "w", encoding="utf-8") as fout:
+          def parse_pdf(path):
+              doc = fitz.open(path)
+              content = "\n".join(page.get_text() for page in doc)
+              title = path.stem
+              return {"title": title, "path": str(path), "content": content}
+
+          with open(out_file, "w", encoding="utf-8") as fout:
               for root, _, files in os.walk("docs_sources"):
                   for file in files:
-                      if file.endswith(".md"):
-                          try:
-                              record = parse_md(os.path.join(root, file))
-                              fout.write(json.dumps(record) + "\n")
-                          except Exception as e:
-                              print(f"Failed on {file}: {e}")
+                      p = Path(root) / file
+                      try:
+                          if file.endswith(".md"):
+                              record = parse_markdown(p)
+                          elif file.endswith(".pdf"):
+                              record = parse_pdf(p)
+                          else:
+                              continue
+                          fout.write(json.dumps(record) + "\n")
+                      except Exception as e:
+                          print(f"Failed on {p}: {e}")
 
-          print(f"Wrote {out_path}")
+          print(f"Wrote {out_file}")
           EOF
 
-      - name: Upload Artifact
+      - name: Upload Extracted Artifact
         uses: actions/upload-artifact@v4
         with:
           name: lammps-gpt-kokkos
