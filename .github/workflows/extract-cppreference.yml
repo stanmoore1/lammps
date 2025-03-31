@@ -16,6 +16,7 @@ jobs:
 
       - name: Download and Unpack CppReference DevHelp
         run: |
+          mkdir -p docs_sources
           mkdir -p docs_sources/cppreference-doc
           wget -q https://en.cppreference.com/mwiki/images/3/37/Cppreference-doc-devhelp.tar.xz
           tar -xf Cppreference-doc-devhelp.tar.xz -C docs_sources/cppreference-doc --strip-components=1
