@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Install System Dependencies
+      - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y pandoc texlive-latex-base poppler-utils parallel
@@ -27,10 +27,10 @@ jobs:
             pandoc -f rst -t markdown "{}" -o "$out" 2>/dev/null || true
           '
 
-      - name: Extract Markdown, PDF, and Slides to JSONL
+      - name: Extract and Split Markdown/PDF to JSONL
         run: |
           python3 - <<'EOF'
-          import os, json
+          import os, json, re
           from pathlib import Path
           from bs4 import BeautifulSoup
           import markdown
@@ -38,43 +38,81 @@ jobs:
 
           output_dir = Path("extracted_docs")
           output_dir.mkdir(exist_ok=True)
-          out_file = output_dir / "lammps-gpt-kokkos.jsonl"
+          out_path = output_dir / "lammps-gpt-kokkos.jsonl"
+
+          def get_source(path):
+              return str(path).split("/")[1] if "docs_sources/" in str(path) else "unknown"
+
+          def split_markdown_sections(md_text, path):
+              parts = re.split(r'^#{1,3} ', md_text, flags=re.M)
+              headers = re.findall(r'^#{1,3} (.+)', md_text, flags=re.M)
+              for i, content in enumerate(parts[1:], 1):
+                  yield {
+                      "title": headers[i - 1].strip(),
+                      "path": str(path),
+                      "source": get_source(path),
+                      "tags": [],
+                      "content": content.strip()
+                  }
 
           def parse_markdown(path):
               with open(path, encoding="utf-8") as f:
-                  html = markdown.markdown(f.read(), extensions=["fenced_code", "tables"])
+                  raw = f.read()
+              html = markdown.markdown(raw, extensions=["fenced_code", "tables"])
               soup = BeautifulSoup(html, "html.parser")
-              title = soup.find("h1").get_text(strip=True) if soup.find("h1") else path.stem
-              content = soup.get_text("\n", strip=True)
-              return {"title": title, "path": str(path), "content": content}
+              text = soup.get_text("\n", strip=True)
+              return list(split_markdown_sections(raw, path))
 
           def parse_pdf(path):
               doc = fitz.open(path)
               content = "\n".join(page.get_text() for page in doc)
-              title = path.stem
-              return {"title": title, "path": str(path), "content": content}
+              return [{
+                  "title": path.stem,
+                  "path": str(path),
+                  "source": get_source(path),
+                  "tags": [],
+                  "content": content.strip()
+              }]
 
-          with open(out_file, "w", encoding="utf-8") as fout:
+          with open(out_path, "w", encoding="utf-8") as fout:
               for root, _, files in os.walk("docs_sources"):
                   for file in files:
-                      p = Path(root) / file
                       try:
+                          p = Path(root) / file
+                          records = []
                           if file.endswith(".md"):
-                              record = parse_markdown(p)
+                              records = parse_markdown(p)
                           elif file.endswith(".pdf"):
-                              record = parse_pdf(p)
-                          else:
-                              continue
-                          fout.write(json.dumps(record) + "\n")
+                              records = parse_pdf(p)
+                          if records:
+                              for r in records:
+                                  fout.write(json.dumps(r) + "\n")
                       except Exception as e:
-                          print(f"Failed on {p}: {e}")
+                          print(f"Failed on {file}: {e}")
 
-          print(f"Wrote {out_file}")
+          print(f"Wrote {out_path}")
           EOF
 
-      - name: Upload Extracted Artifact
+      - name: Validate JSONL Structure
+        run: |
+          python3 -c '
+          import json
+          with open("extracted_docs/lammps-gpt-kokkos.jsonl") as f:
+              for i, line in enumerate(f, 1):
+                  record = json.loads(line)
+                  assert "title" in record and "content" in record and "path" in record
+          print("JSONL validation passed.")'
+
+      - name: Upload JSONL Artifact
         uses: actions/upload-artifact@v4
         with:
           name: lammps-gpt-kokkos
           path: extracted_docs/lammps-gpt-kokkos.jsonl
+          retention-days: 30
+
+      - name: Upload Raw Sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: kokkos-docs-raw
+          path: docs_sources/
           retention-days: 30
