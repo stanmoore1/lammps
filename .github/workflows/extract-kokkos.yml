@@ -36,7 +36,8 @@ jobs:
 
       - name: Convert HTML to knowledge.jsonl
         run: |
-          python3 - <<'EOF'
+          mkdir -p kokkos-core-knowledge
+          cat <<EOF | python3
 import os, json
 from bs4 import BeautifulSoup
 
@@ -60,7 +61,6 @@ for root, _, files in os.walk(docs_dir):
                         "source": os.path.relpath(full_path, "kokkos-core-wiki")
                     }))
 
-os.makedirs("kokkos-core-knowledge", exist_ok=True)
 with open(output_path, "w", encoding="utf-8") as out:
     out.write("\n".join(lines))
 EOF
