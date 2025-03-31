@@ -1,118 +1,71 @@
-name: Extract Kokkos Knowledge
+name: Build Kokkos Core Knowledge
 
 on:
   workflow_dispatch:
 
 jobs:
-  extract-kokkos:
-    runs-on: ubuntu-24.04
+  extract-kokkos-core:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pandoc texlive-latex-base poppler-utils parallel
-          pip install markdown beautifulsoup4 html5lib pypandoc PyMuPDF pdfminer.six
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Clone Kokkos Documentation Repositories
-        run: |
-          git clone --depth=1 https://github.com/kokkos/kokkos-core-wiki.git docs_sources/kokkos-core-wiki
-          git clone --depth=1 https://github.com/kokkos/kokkos-kernels.git docs_sources/kokkos-kernels
-          git clone --depth=1 https://github.com/kokkos/kokkos-tutorials.git docs_sources/kokkos-tutorials
+      - name: Set Up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
 
-      - name: Convert RST and TeX to Markdown
+      - name: Install Python Dependencies
         run: |
-          find docs_sources \( -name "*.rst" -o -name "*.tex" \) | parallel -j4 '
-            out={}.md
-            pandoc -f rst -t markdown "{}" -o "$out" 2>/dev/null || true
-          '
+          python -m pip install --upgrade pip
+          pip install -r build_requirements.txt
+          pip install beautifulsoup4 html5lib
 
-      - name: Extract and Split Markdown/PDF to JSONL
+      - name: Build Kokkos HTML Docs
         run: |
-          python3 - <<'EOF'
-          import os, json, re
-          from pathlib import Path
+          cd docs
+          make html
+
+      - name: Extract HTML Docs to JSONL
+        run: |
+          python <<'EOF'
+          import os, json
           from bs4 import BeautifulSoup
-          import markdown
-          import fitz  # PyMuPDF
+          from pathlib import Path
 
-          output_dir = Path("extracted_docs")
-          output_dir.mkdir(exist_ok=True)
-          out_path = output_dir / "lammps-gpt-kokkos.jsonl"
+          input_dir = Path("docs/generated_docs")
+          output_path = Path("kokkos-core-knowledge.jsonl")
 
-          def get_source(path):
-              return str(path).split("/")[1] if "docs_sources/" in str(path) else "unknown"
-
-          def split_markdown_sections(md_text, path):
-              parts = re.split(r'^#{1,3} ', md_text, flags=re.M)
-              headers = re.findall(r'^#{1,3} (.+)', md_text, flags=re.M)
-              for i, content in enumerate(parts[1:], 1):
+          def extract_sections(html_file):
+              with open(html_file, encoding="utf-8") as f:
+                  soup = BeautifulSoup(f, "html.parser")
+              for header in soup.select("h1, h2, h3"):
+                  content = []
+                  for sib in header.find_all_next():
+                      if sib.name in ["h1", "h2", "h3"]:
+                          break
+                      content.append(sib.get_text(" ", strip=True))
                   yield {
-                      "title": headers[i - 1].strip(),
-                      "path": str(path),
-                      "source": get_source(path),
-                      "tags": [],
-                      "content": content.strip()
+                      "title": header.get_text(strip=True),
+                      "path": str(html_file),
+                      "content": "\n".join(content).strip(),
+                      "source": "kokkos-core-wiki",
+                      "tags": []
                   }
 
-          def parse_markdown(path):
-              with open(path, encoding="utf-8") as f:
-                  raw = f.read()
-              html = markdown.markdown(raw, extensions=["fenced_code", "tables"])
-              soup = BeautifulSoup(html, "html.parser")
-              text = soup.get_text("\n", strip=True)
-              return list(split_markdown_sections(raw, path))
+          with open(output_path, "w", encoding="utf-8") as fout:
+              for html_file in input_dir.rglob("*.html"):
+                  for section in extract_sections(html_file):
+                      if section["content"]:
+                          fout.write(json.dumps(section) + "\n")
 
-          def parse_pdf(path):
-              doc = fitz.open(path)
-              content = "\n".join(page.get_text() for page in doc)
-              return [{
-                  "title": path.stem,
-                  "path": str(path),
-                  "source": get_source(path),
-                  "tags": [],
-                  "content": content.strip()
-              }]
-
-          with open(out_path, "w", encoding="utf-8") as fout:
-              for root, _, files in os.walk("docs_sources"):
-                  for file in files:
-                      try:
-                          p = Path(root) / file
-                          records = []
-                          if file.endswith(".md"):
-                              records = parse_markdown(p)
-                          elif file.endswith(".pdf"):
-                              records = parse_pdf(p)
-                          if records:
-                              for r in records:
-                                  fout.write(json.dumps(r) + "\n")
-                      except Exception as e:
-                          print(f"Failed on {file}: {e}")
-
-          print(f"Wrote {out_path}")
+          print(f"Wrote {output_path}")
           EOF
 
-      - name: Validate JSONL Structure
-        run: |
-          python3 -c '
-          import json
-          with open("extracted_docs/lammps-gpt-kokkos.jsonl") as f:
-              for i, line in enumerate(f, 1):
-                  record = json.loads(line)
-                  assert "title" in record and "content" in record and "path" in record
-          print("JSONL validation passed.")'
-
-      - name: Upload JSONL Artifact
+      - name: Upload Extracted Knowledge
         uses: actions/upload-artifact@v4
         with:
-          name: lammps-gpt-kokkos
-          path: extracted_docs/lammps-gpt-kokkos.jsonl
-          retention-days: 30
-
-      - name: Upload Raw Sources
-        uses: actions/upload-artifact@v4
-        with:
-          name: kokkos-docs-raw
-          path: docs_sources/
+          name: kokkos-core-knowledge
+          path: kokkos-core-knowledge.jsonl
           retention-days: 30
