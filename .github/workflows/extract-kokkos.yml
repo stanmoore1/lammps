@@ -6,9 +6,6 @@ on:
 jobs:
   extract-kokkos-core:
     runs-on: ubuntu-24.04
-    defaults:
-      run:
-        shell: bash
 
     steps:
       - name: Checkout kokkos-core-wiki
@@ -16,11 +13,6 @@ jobs:
         with:
           repository: kokkos/kokkos-core-wiki
           path: kokkos-core-wiki
-
-      - name: Checkout main repo
-        uses: actions/checkout@v4
-        with:
-          path: main
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -36,12 +28,14 @@ jobs:
 
       - name: Build HTML docs
         run: |
-          cd kokkos-core-wiki/docs
-          make html
+          ls -l kokkos-core-wiki
+          cd kokkos-core-wiki/docs || (echo "[ERROR] Missing docs dir!" && exit 1)
+          make html || (echo "[ERROR] make html failed!" && exit 1)
+          ls -l generated_docs
 
-      - name: Convert HTML to knowledge.jsonl
+      - name: Run extraction script
         run: |
-          python main/.github/workflows/extract_kokkos_core.py
+          python .github/workflows/extract_kokkos_core.py
 
       - name: Upload HTML artifact
         uses: actions/upload-artifact@v4
