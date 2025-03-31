@@ -1,0 +1,72 @@
+name: Extract LAMMPS Knowledge
+
+on:
+  workflow_dispatch:
+
+jobs:
+  extract-lammps:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc python3-sphinx
+          pip install markdown beautifulsoup4
+
+      - name: Clone LAMMPS Repository
+        run: |
+          git clone --single-branch --depth=1 https://github.com/lammps/lammps.git docs_sources/lammps
+
+      - name: Build LAMMPS Docs
+        run: |
+          cd docs_sources/lammps/doc
+          make html || true  # fallback if make fails
+          cd -
+
+      - name: Convert RST and Source Files
+        run: |
+          find docs_sources/lammps \( -name "*.rst" -o -name "*.cpp" -o -name "*.h" -o -name "*.txt" \) | xargs -P 4 -I {} sh -c '
+            md_file="{}.md"
+            pandoc -f rst -t markdown -o "$md_file" "{}" 2>/dev/null || cp "{}" "$md_file"
+          '
+
+      - name: Extract Markdown to JSONL
+        run: |
+          python - <<'EOF'
+          import os, json
+          from pathlib import Path
+          import markdown
+          from bs4 import BeautifulSoup
+
+          output_dir = Path("extracted_docs")
+          output_dir.mkdir(exist_ok=True)
+
+          def parse_md(path):
+              with open(path, encoding="utf-8") as f:
+                  html = markdown.markdown(f.read(), extensions=["fenced_code", "tables"])
+              soup = BeautifulSoup(html, "html.parser")
+              title = soup.find("h1").get_text(strip=True) if soup.find("h1") else os.path.basename(path)
+              text = soup.get_text("\n", strip=True)
+              return {"title": title, "path": str(path), "content": text}
+
+          out_path = output_dir / "lammps-gpt-lammps.jsonl"
+          with open(out_path, "w", encoding="utf-8") as fout:
+              for root, _, files in os.walk("docs_sources/lammps"):
+                  for file in files:
+                      if file.endswith(".md"):
+                          try:
+                              record = parse_md(os.path.join(root, file))
+                              fout.write(json.dumps(record) + "\n")
+                          except Exception as e:
+                              print(f"Failed on {file}: {e}")
+
+          print(f"Wrote {out_path}")
+          EOF
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lammps-gpt-lammps
+          path: extracted_docs/lammps-gpt-lammps.jsonl
+          retention-days: 30
