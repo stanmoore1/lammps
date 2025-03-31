@@ -27,10 +27,13 @@ jobs:
         shell: python
         run: |
           import os, json, sys
-          from tree_sitter_languages import get_parser
+          from tree_sitter import Parser
+          from tree_sitter_languages import get_language
 
-          parser = get_parser("cpp")
-
+          cpp_lang = get_language("cpp")
+          parser = Parser()
+          parser.set_language(cpp_lang)
+          
           def get_text(src, node):
               return src[node.start_byte:node.end_byte]
 
@@ -105,7 +108,6 @@ jobs:
           with open("lammps-gpt-ast.jsonl", "w") as out:
               sys.stdout = out
               extract_class_info("lammps-src")
-
       - name: Upload JSONL artifact
         uses: actions/upload-artifact@v4
         with:
