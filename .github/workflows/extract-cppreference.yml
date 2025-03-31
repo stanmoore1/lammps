@@ -1,0 +1,60 @@
+name: Extract CppReference Knowledge
+
+on:
+  workflow_dispatch:
+
+jobs:
+  extract-cppreference:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget
+          pip install beautifulsoup4 html5lib
+
+      - name: Download and Unpack CppReference DevHelp
+        run: |
+          mkdir -p docs_sources/cppreference-doc
+          wget -q https://en.cppreference.com/mwiki/images/3/37/Cppreference-doc-devhelp.tar.xz
+          tar -xf Cppreference-doc-devhelp.tar.xz -C docs_sources/cppreference-doc --strip-components=1
+
+      - name: Extract HTML to JSONL
+        run: |
+          python - <<'EOF'
+          import os, json
+          from pathlib import Path
+          from bs4 import BeautifulSoup
+
+          output_dir = Path("extracted_docs")
+          output_dir.mkdir(exist_ok=True)
+
+          def parse_html(path):
+              with open(path, encoding="utf-8", errors="ignore") as f:
+                  soup = BeautifulSoup(f, "html5lib")
+              title = soup.title.string if soup.title else os.path.basename(path)
+              body = soup.find("body")
+              text = body.get_text("\n", strip=True) if body else ""
+              return {"title": title, "path": str(path), "content": text}
+
+          out_path = output_dir / "lammps-gpt-cppreference.jsonl"
+          with open(out_path, "w", encoding="utf-8") as fout:
+              for root, _, files in os.walk("docs_sources/cppreference-doc"):
+                  for file in files:
+                      if file.endswith(".html"):
+                          try:
+                              record = parse_html(os.path.join(root, file))
+                              fout.write(json.dumps(record) + "\n")
+                          except Exception as e:
+                              print(f"Failed on {file}: {e}")
+
+          print(f"Wrote {out_path}")
+          EOF
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lammps-gpt-cppreference
+          path: extracted_docs/lammps-gpt-cppreference.jsonl
+          retention-days: 30
