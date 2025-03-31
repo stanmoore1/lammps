@@ -38,7 +38,7 @@ jobs:
 
       - name: Extract knowledge to JSONL
         run: |
-          python main/.github/workflows/extract_kokkos_html.py
+          python .github/workflows/extract_kokkos_html.py
 
       - name: Upload HTML artifact
         uses: actions/upload-artifact@v4
