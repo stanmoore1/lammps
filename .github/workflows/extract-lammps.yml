@@ -17,6 +17,9 @@ jobs:
       - name: Clone LAMMPS Repository
         run: |
           git clone --single-branch --depth=1 https://github.com/lammps/lammps.git docs_sources/lammps
+          cd docs_sources/lammps
+          echo "LAMMPS_GIT_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          cd -
 
       - name: Build LAMMPS Docs
         run: |
@@ -27,27 +30,62 @@ jobs:
       - name: Extract Selected Files to JSONL
         run: |
           python - <<'EOF'
-          import os, json
+          import os, re, json
           from pathlib import Path
           from bs4 import BeautifulSoup
+
+          git_sha = os.environ.get("LAMMPS_GIT_SHA", "unknown")
+          output_dir = Path("extracted_docs")
+          output_dir.mkdir(exist_ok=True)
+          out_path = output_dir / "lammps-gpt-lammps.jsonl"
 
           def extract_html(path):
               with open(path, encoding="utf-8") as f:
                   soup = BeautifulSoup(f, "html.parser")
               title = soup.title.string.strip() if soup.title else path.name
+              title = re.sub(r"\s*[-–—]\s*LAMMPS documentation", "", title).strip()
+              section = " > ".join([a.get_text(strip=True) for a in soup.select(".breadcrumb a")]) or "LAMMPS Manual"
               text = soup.get_text("\n", strip=True)
-              return {"title": title, "path": str(path), "content": text}
+              return {
+                  "title": title,
+                  "section": section,
+                  "path": str(path),
+                  "content": text,
+                  "git_sha": git_sha
+              }
 
-          def extract_text(path):
+          def extract_text(path, section="source"):
               with open(path, encoding="utf-8", errors="ignore") as f:
-                  return {"title": path.name, "path": str(path), "content": f.read()}
+                  return {
+                      "title": path.name,
+                      "section": section,
+                      "path": str(path),
+                      "content": f.read(),
+                      "git_sha": git_sha
+                  }
 
-          output_dir = Path("extracted_docs")
-          output_dir.mkdir(exist_ok=True)
-          out_path = output_dir / "lammps-gpt-lammps.jsonl"
+          def segment_cpp(path):
+              with open(path, encoding="utf-8", errors="ignore") as f:
+                  text = f.read()
+              segments = re.split(r"\n(?=(?:template\s+)?(?:class|struct|void|int|double|float|bool|auto|char)[ \t\n]+[\w:]+\s*\()", text)
+              prefix = path.stem
+              if len(segments) <= 1:
+                  return [extract_text(path)]
+              records = []
+              for i, seg in enumerate(segments):
+                  seg = seg.strip()
+                  if len(seg) < 50:
+                      continue
+                  records.append({
+                      "title": f"{prefix}::{i+1}",
+                      "section": "source",
+                      "path": str(path),
+                      "content": seg,
+                      "git_sha": git_sha
+                  })
+              return records
 
           with open(out_path, "w", encoding="utf-8") as fout:
-              # Extract HTML from doc/html
               for root, _, files in os.walk("docs_sources/lammps/doc/html"):
                   for file in files:
                       if file.endswith(".html"):
@@ -56,29 +94,30 @@ jobs:
                               record = extract_html(path)
                               fout.write(json.dumps(record) + "\n")
                           except Exception as e:
-                              print(f"Failed on {path}: {e}")
+                              print(f"[html] Failed: {path}: {e}")
 
-              # Extract *.h and *.cpp from src
               for root, _, files in os.walk("docs_sources/lammps/src"):
                   for file in files:
-                      if file.endswith(".h") or file.endswith(".cpp"):
-                          path = Path(root) / file
-                          try:
+                      path = Path(root) / file
+                      try:
+                          if file.endswith(".cpp"):
+                              for record in segment_cpp(path):
+                                  fout.write(json.dumps(record) + "\n")
+                          elif file.endswith((".h", ".py")):
                               record = extract_text(path)
                               fout.write(json.dumps(record) + "\n")
-                          except Exception as e:
-                              print(f"Failed on {path}: {e}")
+                      except Exception as e:
+                          print(f"[src] Failed: {path}: {e}")
 
-              # Extract README and in.* from examples
               for root, _, files in os.walk("docs_sources/lammps/examples"):
                   for file in files:
                       if file.startswith("README") or file.startswith("in."):
                           path = Path(root) / file
                           try:
-                              record = extract_text(path)
+                              record = extract_text(path, section="examples")
                               fout.write(json.dumps(record) + "\n")
                           except Exception as e:
-                              print(f"Failed on {path}: {e}")
+                              print(f"[examples] Failed: {path}: {e}")
 
           print(f"Wrote {out_path}")
           EOF
