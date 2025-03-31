@@ -23,7 +23,6 @@ jobs:
         import os, json, sys
         from tree_sitter_languages import get_language, get_parser
 
-        CPP_LANGUAGE = get_language("cpp")
         parser = get_parser("cpp")
 
         def get_text(src, node):
