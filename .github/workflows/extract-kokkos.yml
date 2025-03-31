@@ -6,21 +6,18 @@ on:
 jobs:
   extract-kokkos-core:
     runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
 
     steps:
-
-      - name: Checkout main repo
-        uses: actions/checkout@v4
-        with:
-          path: main
-    
       - name: Checkout kokkos-core-wiki
         uses: actions/checkout@v4
         with:
           repository: kokkos/kokkos-core-wiki
           path: kokkos-core-wiki
 
-      - name: Checkout current repo
+      - name: Checkout main repo
         uses: actions/checkout@v4
         with:
           path: main
@@ -42,9 +39,9 @@ jobs:
           cd kokkos-core-wiki/docs
           make html
 
-      - name: Extract knowledge to JSONL
+      - name: Convert HTML to knowledge.jsonl
         run: |
-          python main/.github/workflows/extract_kokkos_html.py
+          python main/.github/workflows/extract_kokkos_core.py
 
       - name: Upload HTML artifact
         uses: actions/upload-artifact@v4
