@@ -20,36 +20,72 @@ jobs:
           wget -q https://en.cppreference.com/mwiki/images/3/37/Cppreference-doc-devhelp.tar.xz
           tar -xf Cppreference-doc-devhelp.tar.xz -C docs_sources/cppreference-doc --strip-components=1
 
-      - name: Extract HTML to JSONL
+      - name: Extract Semantically Chunked HTML to JSONL
         run: |
           python - <<'EOF'
           import os, json
           from pathlib import Path
           from bs4 import BeautifulSoup
 
+          base_dir = Path("docs_sources/cppreference-doc")
           output_dir = Path("extracted_docs")
           output_dir.mkdir(exist_ok=True)
+          output_path = output_dir / "lammps-gpt-cppreference.jsonl"
 
-          def parse_html(path):
-              with open(path, encoding="utf-8", errors="ignore") as f:
+          def clean_text(elem):
+              return elem.get_text("\n", strip=True)
+
+          def extract_chunks(html_path):
+              with open(html_path, encoding="utf-8", errors="ignore") as f:
                   soup = BeautifulSoup(f, "html5lib")
-              title = soup.title.string if soup.title else os.path.basename(path)
               body = soup.find("body")
-              text = body.get_text("\n", strip=True) if body else ""
-              return {"title": title, "path": str(path), "content": text}
+              if not body:
+                  return []
 
-          out_path = output_dir / "lammps-gpt-cppreference.jsonl"
-          with open(out_path, "w", encoding="utf-8") as fout:
-              for root, _, files in os.walk("docs_sources/cppreference-doc"):
+              title = soup.title.string.strip() if soup.title else html_path.name
+              chunks = []
+              headers = body.find_all(["h1", "h2", "h3", "h4"])
+              for i, header in enumerate(headers):
+                  section = header.get_text(strip=True)
+                  level = header.name
+                  content_parts = []
+                  code_blocks = []
+
+                  next_node = header.find_next_sibling()
+                  while next_node and next_node not in headers:
+                      if next_node.name == "p":
+                          content_parts.append(clean_text(next_node))
+                      elif next_node.name in ["ul", "ol"]:
+                          content_parts.append(clean_text(next_node))
+                      elif next_node.name == "pre":
+                          code_blocks.append(next_node.get_text(strip=True))
+                      next_node = next_node.find_next_sibling()
+
+                  content = "\n\n".join(content_parts).strip()
+                  if content or code_blocks:
+                      chunks.append({
+                          "source": "cppreference",
+                          "title": title,
+                          "path": str(html_path),
+                          "section": section,
+                          "level": level,
+                          "content": content,
+                          "code": code_blocks
+                      })
+              return chunks
+
+          with open(output_path, "w", encoding="utf-8") as fout:
+              for root, _, files in os.walk(base_dir):
                   for file in files:
                       if file.endswith(".html"):
+                          path = Path(root) / file
                           try:
-                              record = parse_html(os.path.join(root, file))
-                              fout.write(json.dumps(record) + "\n")
+                              for chunk in extract_chunks(path):
+                                  fout.write(json.dumps(chunk) + "\n")
                           except Exception as e:
-                              print(f"Failed on {file}: {e}")
+                              print(f"Error in {path}: {e}")
 
-          print(f"Wrote {out_path}")
+          print(f"Wrote {output_path}")
           EOF
 
       - name: Upload Artifact
