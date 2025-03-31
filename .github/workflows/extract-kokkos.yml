@@ -1,0 +1,68 @@
+name: Extract Kokkos Knowledge
+
+on:
+  workflow_dispatch:
+
+jobs:
+  extract-kokkos:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc texlive-latex-base
+          pip install markdown beautifulsoup4 html5lib
+
+      - name: Clone Kokkos Documentation Repositories
+        run: |
+          git clone --single-branch --depth=1 https://github.com/kokkos/kokkos-core-wiki.git docs_sources/kokkos-core-wiki
+          git clone --single-branch --depth=1 https://github.com/kokkos/kokkos-kernels.git docs_sources/kokkos-kernels
+          git clone --single-branch --depth=1 https://github.com/kokkos/kokkos-tutorials.git docs_sources/kokkos-tutorials
+
+      - name: Convert RST and TeX to Markdown
+        run: |
+          find docs_sources \( -name "*.rst" -o -name "*.tex" \) | xargs -P 4 -I {} sh -c '
+            md_file="{}.md"
+            pandoc -f rst -t markdown -o "$md_file" "{}" 2>/dev/null || true
+          '
+
+      - name: Extract Markdown to JSONL
+        run: |
+          python - <<'EOF'
+          import os, json
+          from pathlib import Path
+          import markdown
+          from bs4 import BeautifulSoup
+
+          output_dir = Path("extracted_docs")
+          output_dir.mkdir(exist_ok=True)
+
+          def parse_md(path):
+              with open(path, encoding="utf-8") as f:
+                  html = markdown.markdown(f.read(), extensions=["fenced_code", "tables"])
+              soup = BeautifulSoup(html, "html.parser")
+              title = soup.find("h1").get_text(strip=True) if soup.find("h1") else os.path.basename(path)
+              text = soup.get_text("\n", strip=True)
+              return {"title": title, "path": str(path), "content": text}
+
+          out_path = output_dir / "lammps-gpt-kokkos.jsonl"
+          with open(out_path, "w", encoding="utf-8") as fout:
+              for root, _, files in os.walk("docs_sources"):
+                  for file in files:
+                      if file.endswith(".md"):
+                          try:
+                              record = parse_md(os.path.join(root, file))
+                              fout.write(json.dumps(record) + "\n")
+                          except Exception as e:
+                              print(f"Failed on {file}: {e}")
+
+          print(f"Wrote {out_path}")
+          EOF
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lammps-gpt-kokkos
+          path: extracted_docs/lammps-gpt-kokkos.jsonl
+          retention-days: 30
