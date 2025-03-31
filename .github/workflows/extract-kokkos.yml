@@ -6,6 +6,7 @@ on:
 jobs:
   extract-kokkos-core:
     runs-on: ubuntu-24.04
+
     steps:
       - name: Checkout kokkos-core-wiki
         uses: actions/checkout@v4
@@ -15,6 +16,8 @@ jobs:
 
       - name: Checkout current repo
         uses: actions/checkout@v4
+        with:
+          path: main
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -23,6 +26,9 @@ jobs:
 
       - name: Install dependencies
         run: |
+          cd kokkos-core-wiki
+          pip install --upgrade pip
+          pip install -r build_requirements.txt
           pip install beautifulsoup4 html5lib
 
       - name: Build HTML docs
@@ -30,9 +36,9 @@ jobs:
           cd kokkos-core-wiki/docs
           make html
 
-      - name: Run extraction script
+      - name: Extract knowledge to JSONL
         run: |
-          python .github/workflows/extract_kokkos_core.py
+          python main/.github/workflows/extract_kokkos_html.py
 
       - name: Upload HTML artifact
         uses: actions/upload-artifact@v4
