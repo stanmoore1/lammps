@@ -36,34 +36,34 @@ jobs:
 
       - name: Convert HTML to knowledge.jsonl
         run: |
-          mkdir -p kokkos-core-knowledge
-          echo "import os, json
+          python - <<'EOF'
+import os, json
 from bs4 import BeautifulSoup
 
-docs_dir = 'kokkos-core-wiki/docs/generated_docs'
-output_path = 'kokkos-core-knowledge/knowledge.jsonl'
+docs_dir = "kokkos-core-wiki/docs/generated_docs"
+output_path = "kokkos-core-knowledge/knowledge.jsonl"
 lines = []
 
 for root, _, files in os.walk(docs_dir):
     for file in files:
-        if file.endswith('.html'):
+        if file.endswith(".html"):
             full_path = os.path.join(root, file)
-            with open(full_path, 'r', encoding='utf-8') as f:
-                soup = BeautifulSoup(f, 'html5lib')
+            with open(full_path, "r", encoding="utf-8") as f:
+                soup = BeautifulSoup(f, "html5lib")
                 title = soup.title.string.strip() if soup.title else file
-                body = soup.get_text(' ', strip=True)
-                body = body.replace('\u200b', ' ').replace('\xa0', ' ')
+                body = soup.get_text(" ", strip=True)
+                body = body.replace("\u200b", " ").replace("\xa0", " ")
                 if len(body) > 100:
                     lines.append(json.dumps({
-                        'title': title,
-                        'text': body,
-                        'source': os.path.relpath(full_path, 'kokkos-core-wiki')
+                        "title": title,
+                        "text": body,
+                        "source": os.path.relpath(full_path, "kokkos-core-wiki")
                     }))
 
-with open(output_path, 'w', encoding='utf-8') as out:
-    out.write('\\n'.join(lines))
-" > extract.py
-          python3 extract.py
+os.makedirs("kokkos-core-knowledge", exist_ok=True)
+with open(output_path, "w", encoding="utf-8") as out:
+    out.write("\n".join(lines))
+EOF
 
       - name: Upload HTML artifact
         uses: actions/upload-artifact@v4
