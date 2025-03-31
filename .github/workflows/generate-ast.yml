@@ -8,98 +8,104 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y git gcc python3-pip curl
-        pip install tree_sitter tree_sitter_languages
+      - name: Set up Python 3.11
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3.11 python3.11-distutils python3.11-venv git gcc curl
+          sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+          curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
+          python3 -m pip install --upgrade pip
 
-    - name: Clone LAMMPS source
-      run: git clone --depth=1 https://github.com/lammps/lammps.git lammps-src
+      - name: Install dependencies
+        run: |
+          python3 -m pip install tree_sitter tree_sitter_languages
 
-    - name: Extract AST to JSONL
-      shell: python
-      run: |
-        import os, json, sys
-        from tree_sitter_languages import get_language, get_parser
+      - name: Clone LAMMPS
+        run: git clone --depth=1 https://github.com/lammps/lammps.git lammps-src
 
-        parser = get_parser("cpp")
+      - name: Extract AST to JSONL
+        shell: python
+        run: |
+          import os, json, sys
+          from tree_sitter_languages import get_parser
 
-        def get_text(src, node):
-            return src[node.start_byte:node.end_byte]
+          parser = get_parser("cpp")
 
-        def extract_methods(class_node, source_code):
-            methods = []
-            for child in class_node.children:
-                if child.type == "declaration_list":
-                    for decl in child.children:
-                        if decl.type == "function_definition":
-                            method = {
-                                "constructor": False,
-                                "destructor": False,
-                                "name": None,
-                                "return_type": None,
-                                "params": []
-                            }
-                            for sub in decl.children:
-                                if sub.type == "type_descriptor":
-                                    method["return_type"] = get_text(source_code, sub).strip()
-                                elif sub.type == "declarator":
-                                    idents = [n for n in sub.children if n.type == "identifier"]
-                                    if idents:
-                                        method["name"] = get_text(source_code, idents[0]).strip()
-                                    if '(' in get_text(source_code, sub):
-                                        param_list = [n for n in sub.children if n.type == "parameter_list"]
-                                        if param_list:
-                                            for param in param_list[0].children:
-                                                if param.type == "parameter_declaration":
-                                                    type_node = next((c for c in param.children if c.type != ','), None)
-                                                    if type_node:
-                                                        method["params"].append(get_text(source_code, type_node).strip())
-                            if method["name"]:
-                                if method["name"].startswith("~"):
-                                    method["destructor"] = True
-                                elif method["name"] in class_names:
-                                    method["constructor"] = True
-                                methods.append(method)
-            return methods
+          def get_text(src, node):
+              return src[node.start_byte:node.end_byte]
 
-        def extract_class_info(path):
-            for root, _, files in os.walk(path):
-                for file in files:
-                    if file.endswith((".cpp", ".h")):
-                        full_path = os.path.join(root, file)
-                        try:
-                            with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
-                                code = f.read()
-                            tree = parser.parse(code.encode("utf-8"))
-                            root_node = tree.root_node
-                            for node in root_node.children:
-                                if node.type == "class_specifier":
-                                    class_name = None
-                                    bases = []
-                                    for child in node.children:
-                                        if child.type == "type_identifier":
-                                            class_name = get_text(code, child)
-                                            class_names.add(class_name)
-                                        elif child.type == "base_class_clause":
-                                            bases = [get_text(code, c) for c in child.children if c.type == "type_identifier"]
-                                    if class_name:
-                                        methods = extract_methods(node, code)
-                                        print(json.dumps({
-                                            "file": os.path.relpath(full_path, path),
-                                            "class": class_name,
-                                            "inherits": bases,
-                                            "methods": methods
-                                        }))
-                        except Exception as e:
-                            print(f"# ERROR parsing {full_path}: {e}", file=sys.stderr)
+          def extract_methods(class_node, source_code):
+              methods = []
+              for child in class_node.children:
+                  if child.type == "declaration_list":
+                      for decl in child.children:
+                          if decl.type == "function_definition":
+                              method = {
+                                  "constructor": False,
+                                  "destructor": False,
+                                  "name": None,
+                                  "return_type": None,
+                                  "params": []
+                              }
+                              for sub in decl.children:
+                                  if sub.type == "type_descriptor":
+                                      method["return_type"] = get_text(source_code, sub).strip()
+                                  elif sub.type == "declarator":
+                                      idents = [n for n in sub.children if n.type == "identifier"]
+                                      if idents:
+                                          method["name"] = get_text(source_code, idents[0]).strip()
+                                      if '(' in get_text(source_code, sub):
+                                          param_list = [n for n in sub.children if n.type == "parameter_list"]
+                                          if param_list:
+                                              for param in param_list[0].children:
+                                                  if param.type == "parameter_declaration":
+                                                      type_node = next((c for c in param.children if c.type != ','), None)
+                                                      if type_node:
+                                                          method["params"].append(get_text(source_code, type_node).strip())
+                              if method["name"]:
+                                  if method["name"].startswith("~"):
+                                      method["destructor"] = True
+                                  elif method["name"] in class_names:
+                                      method["constructor"] = True
+                                  methods.append(method)
+              return methods
 
-        class_names = set()
-        with open("lammps-gpt-ast.jsonl", "w") as out:
-            sys.stdout = out
-            extract_class_info("lammps-src")
+          def extract_class_info(path):
+              for root, _, files in os.walk(path):
+                  for file in files:
+                      if file.endswith((".cpp", ".h")):
+                          full_path = os.path.join(root, file)
+                          try:
+                              with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
+                                  code = f.read()
+                              tree = parser.parse(code.encode("utf-8"))
+                              root_node = tree.root_node
+                              for node in root_node.children:
+                                  if node.type == "class_specifier":
+                                      class_name = None
+                                      bases = []
+                                      for child in node.children:
+                                          if child.type == "type_identifier":
+                                              class_name = get_text(code, child)
+                                              class_names.add(class_name)
+                                          elif child.type == "base_class_clause":
+                                              bases = [get_text(code, c) for c in child.children if c.type == "type_identifier"]
+                                      if class_name:
+                                          methods = extract_methods(node, code)
+                                          print(json.dumps({
+                                              "file": os.path.relpath(full_path, path),
+                                              "class": class_name,
+                                              "inherits": bases,
+                                              "methods": methods
+                                          }))
+                          except Exception as e:
+                              print(f"# ERROR parsing {full_path}: {e}", file=sys.stderr)
 
+          class_names = set()
+          with open("lammps-gpt-ast.jsonl", "w") as out:
+              sys.stdout = out
+              extract_class_info("lammps-src")
+              
     - name: Upload JSONL artifact
       uses: actions/upload-artifact@v4
       with:
