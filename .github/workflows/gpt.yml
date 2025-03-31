@@ -11,66 +11,84 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Clone Required Documentation Repositories
-        run: |
-          mkdir docs_sources
-          git clone --single-branch --depth=1 https://github.com/p12tic/cppreference-doc.git docs_sources/cppreference-doc
-          git clone --single-branch --depth=1 https://github.com/kokkos/kokkos-tutorials.git docs_sources/kokkos-tutorials
-          git clone --single-branch --depth=1 https://github.com/kokkos/kokkos-kernels.git docs_sources/kokkos-kernels
-          git clone --single-branch --depth=1 https://github.com/kokkos/kokkos-core-wiki.git docs_sources/kokkos-core-wiki
-          git clone --single-branch --depth=1 https://github.com/lammps/lammps.git docs_sources/lammps
-
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pandoc
-          pip install markdown beautifulsoup4 json5
+          sudo apt-get install -y pandoc wget doxygen cmake ninja-build make graphviz \
+                                  python3-sphinx python3-breathe python3-sphinx-rtd-theme
+          pip install markdown beautifulsoup4 html5lib json5
 
-      - name: Convert `.rst` to `.md` in Parallel
+      - name: Clone Documentation Repositories
         run: |
-          find docs_sources -name "*.rst" | xargs -P 4 -I {} sh -c '
+          mkdir -p docs_sources
+          git clone --single-branch --depth=1 https://github.com/kokkos/kokkos-core-wiki.git docs_sources/kokkos-core-wiki
+          git clone --single-branch --depth=1 https://github.com/kokkos/kokkos-kernels.git docs_sources/kokkos-kernels
+          git clone --single-branch --depth=1 https://github.com/kokkos/kokkos-tutorials.git docs_sources/kokkos-tutorials
+          git clone --single-branch --depth=1 https://github.com/lammps/lammps.git docs_sources/lammps
+
+          wget -q https://en.cppreference.com/mwiki/images/3/37/Cppreference-doc-devhelp.tar.xz
+          mkdir -p docs_sources/cppreference-doc
+          tar -xf Cppreference-doc-devhelp.tar.xz -C docs_sources/cppreference-doc --strip-components=1
+
+      - name: Build LAMMPS HTML Documentation
+        working-directory: docs_sources/lammps/doc
+        run: make html
+
+      - name: Build Kokkos Kernels Documentation
+        working-directory: docs_sources/kokkos-kernels/docs
+        run: |
+          mkdir -p build && cd build
+          cmake .. -G Ninja -DKokkos_ENABLE_TESTS=OFF
+          ninja doxygen
+
+      - name: Convert .rst to .md in Parallel
+        run: |
+          find docs_sources/kokkos-core-wiki -name "*.rst" | xargs -P 4 -I {} sh -c '
             md_file="{}.md"
             pandoc -f rst -t markdown -o "$md_file" "{}"
           '
 
       - name: Extract and Write JSONL Knowledge Files
         run: |
-          python - <<'EOF'
-          import os
-          import json
+          python3 - <<'EOF'
+          import os, json
+          from pathlib import Path
           import markdown
           from bs4 import BeautifulSoup
-          from datetime import datetime
-          from pathlib import Path
 
           output_dir = Path("extracted_docs")
           output_dir.mkdir(exist_ok=True)
 
           groups = {
+              "lammps-gpt-cppreference": ["docs_sources/cppreference-doc"],
+              "lammps-gpt-lammps": [
+                  "docs_sources/lammps/doc/html",
+                  "docs_sources/lammps/src",
+                  "docs_sources/lammps/examples"
+              ],
               "lammps-gpt-kokkos": [
                   "docs_sources/kokkos-core-wiki",
+                  "docs_sources/kokkos-kernels/docs/build/html",
                   "docs_sources/kokkos-tutorials",
-                  "docs_sources/kokkos-kernels"
-              ],
-              "lammps-gpt-cppreference": [
-                  "docs_sources/cppreference-doc"
-              ],
-              "lammps-gpt-lammps": [
-                  "docs_sources/lammps"
+                  "docs_sources/kokkos-tutorials/LectureSeries"
               ]
           }
 
-          def parse_markdown(md_text, file_path):
-              html = markdown.markdown(md_text, extensions=["fenced_code", "tables"])
-              soup = BeautifulSoup(html, "html.parser")
-              title = soup.find("h1").get_text(strip=True) if soup.find("h1") else os.path.basename(file_path)
+          def parse_html(text, file_path):
+              soup = BeautifulSoup(text, "html.parser")
+              title = soup.title.string.strip() if soup.title else os.path.basename(file_path)
               sections = []
-              for header in soup.find_all(["h2", "h3", "h4", "h5", "h6"]):
-                  section = {"heading": header.get_text(strip=True), "level": header.name, "content": "", "code_blocks": []}
+              for header in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
+                  section = {
+                      "heading": header.get_text(strip=True),
+                      "level": header.name,
+                      "content": "",
+                      "code_blocks": []
+                  }
                   content_parts = []
                   next_elem = header.find_next_sibling()
                   while next_elem and next_elem.name not in ["h1", "h2", "h3", "h4", "h5", "h6"]:
-                      if next_elem.name == "p":
+                      if next_elem.name in ["p", "div"]:
                           content_parts.append(next_elem.get_text(strip=True))
                       elif next_elem.name in ["ul", "ol"]:
                           content_parts.append(next_elem.get_text("\n", strip=True))
@@ -79,45 +97,56 @@ jobs:
                       next_elem = next_elem.find_next_sibling()
                   section["content"] = "\n\n".join(content_parts)
                   sections.append(section)
+              return {"title": title, "path": file_path, "sections": sections}
+
+          def parse_markdown(text, file_path):
+              html = markdown.markdown(text, extensions=["fenced_code", "tables"])
+              return parse_html(html, file_path)
+
+          def parse_code(text, file_path):
               return {
-                  "title": title,
+                  "title": os.path.basename(file_path),
                   "path": file_path,
-                  "sections": sections
+                  "sections": [{
+                      "heading": "Source",
+                      "level": "code",
+                      "content": "",
+                      "code_blocks": [text]
+                  }]
               }
 
-          for group_name, repos in groups.items():
+          for group_name, paths in groups.items():
               jsonl_path = output_dir / f"{group_name}.jsonl"
               with open(jsonl_path, "w", encoding="utf-8") as fout:
-                  for repo in repos:
+                  for repo in paths:
                       for root, _, files in os.walk(repo):
                           for file in files:
-                              if file.endswith(".md"):
-                                  file_path = os.path.join(root, file)
-                                  with open(file_path, "r", encoding="utf-8") as f:
-                                      md_text = f.read()
-                                  doc = parse_markdown(md_text, file_path)
+                              file_path = os.path.join(root, file)
+                              try:
+                                  with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                                      text = f.read()
+                                  if file.endswith((".md", ".wiki", ".rst")):
+                                      doc = parse_markdown(text, file_path)
+                                  elif file.endswith(".html"):
+                                      doc = parse_html(text, file_path)
+                                  elif file.endswith((".cpp", ".hpp", ".c", ".h", ".cu", ".f90", ".py", ".in", ".txt", ".sh")):
+                                      doc = parse_code(text, file_path)
+                                  else:
+                                      continue
                                   fout.write(json.dumps(doc) + "\n")
+                              except Exception as e:
+                                  print(f"Failed to parse {file_path}: {e}")
 
-          print("All JSONL files written to extracted_docs/")
           EOF
 
-      - name: Upload Kokkos Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: lammps-gpt-kokkos
-          path: extracted_docs/lammps-gpt-kokkos.jsonl
-          retention-days: 30
+      - name: Zip Extracted JSONL Files
+        run: |
+          cd extracted_docs
+          zip lammps-gpt-knowledge.zip *.jsonl
 
-      - name: Upload CppReference Artifact
+      - name: Upload Combined Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lammps-gpt-cppreference
-          path: extracted_docs/lammps-gpt-cppreference.jsonl
-          retention-days: 30
-
-      - name: Upload LAMMPS Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: lammps-gpt-lammps
-          path: extracted_docs/lammps-gpt-lammps.jsonl
+          name: lammps-gpt-knowledge
+          path: extracted_docs/lammps-gpt-knowledge.zip
           retention-days: 30
