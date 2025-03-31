@@ -6,9 +6,6 @@ on:
 jobs:
   extract-kokkos-core:
     runs-on: ubuntu-24.04
-    defaults:
-      run:
-        shell: bash
 
     steps:
       - name: Checkout kokkos-core-wiki
@@ -34,6 +31,11 @@ jobs:
           cd kokkos-core-wiki/docs
           make html
 
+      - name: List generated HTML files
+        run: |
+          find kokkos-core-wiki/docs/generated_docs -type f -name "*.html" | wc -l
+          find kokkos-core-wiki/docs/generated_docs -type f -name "*.html" | head -n 10
+
       - name: Convert HTML to knowledge.jsonl
         shell: python
         run: |
@@ -42,27 +44,35 @@ jobs:
 
           docs_dir = "kokkos-core-wiki/docs/generated_docs"
           output_path = "kokkos-core-knowledge/knowledge.jsonl"
+          os.makedirs("kokkos-core-knowledge", exist_ok=True)
           lines = []
 
           for root, _, files in os.walk(docs_dir):
               for file in files:
                   if file.endswith(".html"):
                       full_path = os.path.join(root, file)
-                      with open(full_path, "r", encoding="utf-8") as f:
-                          soup = BeautifulSoup(f, "html5lib")
-                          title = soup.title.string.strip() if soup.title else file
-                          body = soup.get_text(" ", strip=True)
-                          body = body.replace("\u200b", " ").replace("\xa0", " ")
-                          if len(body) > 100:
-                              lines.append(json.dumps({
-                                  "title": title,
-                                  "text": body,
-                                  "source": os.path.relpath(full_path, "kokkos-core-wiki")
-                              }))
+                      try:
+                          with open(full_path, "r", encoding="utf-8") as f:
+                              soup = BeautifulSoup(f, "html5lib")
+                              title = soup.title.string.strip() if soup.title and soup.title.string else os.path.basename(full_path)
+                              body = soup.get_text(" ", strip=True)
+                              body = body.replace("\u200b", " ").replace("\xa0", " ")
+                              if len(body) > 50:
+                                  lines.append(json.dumps({
+                                      "title": title,
+                                      "text": body,
+                                      "source": os.path.relpath(full_path, "kokkos-core-wiki")
+                                  }))
+                      except Exception as e:
+                          print(f"Error processing {full_path}: {e}")
 
-          os.makedirs("kokkos-core-knowledge", exist_ok=True)
           with open(output_path, "w", encoding="utf-8") as out:
               out.write("\n".join(lines))
+
+      - name: Show knowledge.jsonl size and preview
+        run: |
+          wc -l kokkos-core-knowledge/knowledge.jsonl
+          head -n 1 kokkos-core-knowledge/knowledge.jsonl
 
       - name: Upload HTML artifact
         uses: actions/upload-artifact@v4
