@@ -1,73 +1,84 @@
-name: Extract Kokkos Core Knowledge
+name: Extract Kokkos Core Wiki Knowledge
 
 on:
   workflow_dispatch:
 
 jobs:
-  extract-kokkos-core:
-    runs-on: ubuntu-latest
+  build-and-extract:
+    runs-on: ubuntu-24.04
 
     steps:
-      - name: Checkout Kokkos Core Wiki
+      - name: Checkout kokkos-core-wiki
         uses: actions/checkout@v4
         with:
           repository: kokkos/kokkos-core-wiki
           path: kokkos-core-wiki
+          fetch-depth: 1
 
-      - name: Set up Python
+      - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
-      - name: Install Build Dependencies
+      - name: Install dependencies
         run: |
           cd kokkos-core-wiki
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r build_requirements.txt
-          pip install beautifulsoup4 html5lib
+          pip install beautifulsoup4 html5lib tqdm
 
-      - name: Build Kokkos HTML Docs
+      - name: Build HTML docs
         run: |
           cd kokkos-core-wiki/docs
-          make html
+          make html || true
 
-      - name: Extract HTML to JSONL
+      - name: Extract knowledge.jsonl from built docs
         run: |
-          python <<'EOF'
+          python3 -u <<EOF
           import os, json
           from bs4 import BeautifulSoup
           from pathlib import Path
+          from tqdm import tqdm
 
           html_dir = Path("kokkos-core-wiki/docs/generated_docs")
-          output_path = Path("kokkos-core-knowledge.jsonl")
+          out_path = Path("kokkos-core-knowledge.jsonl")
 
-          def extract_sections(html_file):
-              with open(html_file, encoding="utf-8") as f:
-                  soup = BeautifulSoup(f, "html.parser")
-              for header in soup.select("h1, h2, h3"):
-                  content = []
-                  for sib in header.find_all_next():
-                      if sib.name in ["h1", "h2", "h3"]:
-                          break
-                      content.append(sib.get_text(" ", strip=True))
-                  yield {
-                      "title": header.get_text(strip=True),
-                      "path": str(html_file),
-                      "content": "\n".join(content).strip(),
-                      "source": "kokkos-core-wiki",
-                      "tags": []
-                  }
-
-          with open(output_path, "w", encoding="utf-8") as fout:
-              for html_file in html_dir.rglob("*.html"):
-                  for section in extract_sections(html_file):
-                      if section["content"]:
-                          fout.write(json.dumps(section) + "\n")
+          pages = list(html_dir.glob("**/*.html"))
+          with open(out_path, "w", encoding="utf-8") as out_f:
+              for file in tqdm(pages, desc="Extracting HTML"):
+                  try:
+                      with open(file, "r", encoding="utf-8") as f:
+                          soup = BeautifulSoup(f, "html.parser")
+                          title = soup.title.string.strip() if soup.title else file.name
+                          body = soup.get_text(separator="\n", strip=True)
+                          entry = {
+                              "filename": str(file.relative_to(html_dir)),
+                              "title": title,
+                              "text": body,
+                              "source": f"https://kokkos.org/kokkos-core-wiki/{file.relative_to(html_dir)}"
+                          }
+                          json.dump(entry, out_f, ensure_ascii=False)
+                          out_f.write("\n")
+                  except Exception as e:
+                      print(f"[WARN] Skipping {file}: {e}")
           EOF
 
-      - name: Upload JSONL Knowledge
+      - name: Zip built HTML for debug
+        if: always()
+        run: |
+          cd kokkos-core-wiki
+          zip -r ../kokkos-core-html.zip docs
+
+      - name: Upload HTML zip
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kokkos-core-html
+          path: kokkos-core-html.zip
+
+      - name: Upload JSONL knowledge
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: kokkos-core-knowledge
           path: kokkos-core-knowledge.jsonl
-          retention-days: 30
