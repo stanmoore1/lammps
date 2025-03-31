@@ -37,8 +37,7 @@ jobs:
       - name: Convert HTML to knowledge.jsonl
         run: |
           python3 - <<EOF
-          import os
-          import json
+          import os, json
           from bs4 import BeautifulSoup
 
           docs_dir = "kokkos-core-wiki/docs/generated_docs"
@@ -52,17 +51,18 @@ jobs:
                       with open(full_path, "r", encoding="utf-8") as f:
                           soup = BeautifulSoup(f, "html5lib")
                           title = soup.title.string.strip() if soup.title else file
-                          body = soup.get_text(separator=" ", strip=True)
+                          body = soup.get_text(" ", strip=True)
+                          body = body.replace("\u200b", " ").replace("\xa0", " ")
                           if len(body) > 100:
                               lines.append(json.dumps({
                                   "title": title,
                                   "text": body,
-                                  "source": os.path.relpath(full_path, start="kokkos-core-wiki")
+                                  "source": os.path.relpath(full_path, "kokkos-core-wiki")
                               }))
 
           os.makedirs("kokkos-core-knowledge", exist_ok=True)
           with open(output_path, "w", encoding="utf-8") as out:
-              out.write("\\n".join(lines))
+              out.write("\n".join(lines))
           EOF
 
       - name: Upload HTML artifact
