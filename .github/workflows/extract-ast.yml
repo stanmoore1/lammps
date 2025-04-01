@@ -27,7 +27,7 @@ jobs:
 
       - name: Run AST parser
         run: |
-          python3 lammps/.github/workflows/extract_ast.py
+          python3 lammps/.github/workflows/extract-ast.py
 
       - name: Upload AST JSONL
         uses: actions/upload-artifact@v4
