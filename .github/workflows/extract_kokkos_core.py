@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 
 docs_dir = "kokkos-core-wiki/docs/generated_docs"
 output_dir = "kokkos-core-knowledge"
-output_path = os.path.join(output_dir, "knowledge.jsonl")
+output_path = os.path.join(output_dir, "lammps-gpt-kokkos.jsonl")
 lines = []
 
 for root, _, files in os.walk(docs_dir):
@@ -18,12 +18,13 @@ for root, _, files in os.walk(docs_dir):
                         continue
                     title = soup.title.string.strip() if soup.title else file
                     body = article.get_text(" ", strip=True)
-                    body = body.replace("\u200b", " ").replace("\xa0", " ")
-                    if len(body) > 100:
+                    body = body.replace("\u200b", " ").replace("\xa0", " ").replace("\u2019", "'")
+                    body = body.replace("\u2014", "-").replace("\u201c", "\"").replace("\u201d", "\"")
+                    if len(body) > 10:
                         lines.append(json.dumps({
                             "title": title,
                             "text": body,
-                            "source": os.path.relpath(full_path, "kokkos-core-wiki")
+                            "source": os.path.relpath(full_path, "kokkos-core-wiki/docs/generated_docs")
                         }))
             except Exception as e:
                 print(f"[ERROR] Failed to parse {full_path}: {e}")
