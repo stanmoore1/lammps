@@ -1,12 +1,12 @@
 import os
-import json
 import sys
+import json
 from tree_sitter import Parser
-from tree_sitter_languages import cpp
+from tree_sitter_language_pack import get_language
 
-# Set up parser
 parser = Parser()
-parser.set_language(cpp.language)
+cpp_lang = get_language("cpp")
+parser.set_language(cpp_lang)
 
 def get_text(src, node):
     return src[node.start_byte:node.end_byte].decode("utf-8")
@@ -81,4 +81,4 @@ def extract_class_info(path):
 class_names = set()
 with open("lammps-gpt-ast.jsonl", "w") as out:
     sys.stdout = out
-    extract_class_info("lammps-src")
+    extract_class_info("lammps")
