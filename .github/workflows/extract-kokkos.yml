@@ -52,4 +52,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kokkos-core-knowledge
-          path: kokkos-core-knowledge/knowledge.jsonl
+          path: kokkos-core-knowledge/lammps-gpt-kokkos.jsonl
