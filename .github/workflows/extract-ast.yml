@@ -1,4 +1,4 @@
-name: Build LAMMPS AST
+name: Extract LAMMPS AST
 
 on:
   workflow_dispatch:
