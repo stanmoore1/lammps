@@ -7,7 +7,7 @@ LAMMPS shared library through the Python `ctypes <ctypes_>`_
 module.  Because of the dynamic loading, it is required that LAMMPS is
 compiled in :ref:`"shared" mode <exe>`.
 
-.. versionchanged:: TBD
+.. versionchanged:: 2Apr2025
 
 LAMMPS currently only supports Python version 3.6 or later.
 

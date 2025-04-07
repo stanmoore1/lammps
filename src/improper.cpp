@@ -31,6 +31,7 @@ Improper::Improper(LAMMPS *_lmp) : Pointers(_lmp)
 {
   energy = 0.0;
   writedata = 0;
+  reinitflag = 1;
   for (int i = 0; i < 4; i++) symmatoms[i] = 0;
 
   allocated = 0;
@@ -426,4 +427,16 @@ double Improper::memory_usage()
   double bytes = (double) comm->nthreads * maxeatom * sizeof(double);
   bytes += (double) comm->nthreads * maxvatom * 6 * sizeof(double);
   return bytes;
+}
+
+/* -----------------------------------------------------------------------
+   reset all type-based improper params via init()
+-------------------------------------------------------------------------- */
+
+void Improper::reinit()
+{
+  if (!reinitflag)
+    error->all(FLERR, "Fix adapt interface to this improper style not supported");
+
+  init();
 }

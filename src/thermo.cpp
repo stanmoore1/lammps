@@ -101,8 +101,8 @@ static char fmtbuf[512];
 /* ---------------------------------------------------------------------- */
 
 Thermo::Thermo(LAMMPS *_lmp, int narg, char **arg) :
-    Pointers(_lmp), style(nullptr), vtype(nullptr), cache_mutex(nullptr), field2index(nullptr),
-    argindex1(nullptr), argindex2(nullptr), temperature(nullptr), pressure(nullptr), pe(nullptr)
+  Pointers(_lmp), style(nullptr), temperature(nullptr), pressure(nullptr), pe(nullptr),
+  vtype(nullptr), cache_mutex(nullptr), field2index(nullptr), argindex1(nullptr), argindex2(nullptr)
 {
   style = utils::strdup(arg[0]);
 

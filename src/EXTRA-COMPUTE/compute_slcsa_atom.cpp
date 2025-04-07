@@ -103,13 +103,7 @@ ComputeSLCSAAtom::ComputeSLCSAAtom(LAMMPS *lmp, int narg, char **arg) :
     utils::logmesg(lmp, mesg);
   }
 
-  int expand = 0;
-  char **earg;
-  int nvalues = utils::expand_args(FLERR, narg - 10, &arg[10], 1, earg, lmp);
-  if (earg != &arg[10]) expand = 1;
-  arg = earg;
-
-  ArgInfo argi(arg[0]);
+  ArgInfo argi(arg[10]);
   value_t val;
   val.id = "";
   val.val.c = nullptr;
@@ -120,13 +114,6 @@ ComputeSLCSAAtom::ComputeSLCSAAtom(LAMMPS *lmp, int narg, char **arg) :
   if ((val.which == ArgInfo::FIX) || (val.which == ArgInfo::VARIABLE) ||
       (val.which == ArgInfo::UNKNOWN) || (val.which == ArgInfo::NONE) || (argi.get_dim() > 1))
     error->all(FLERR, 10, "Invalid compute slcsa/atom argument: {}", arg[0]);
-
-  // if wildcard expansion occurred, free earg memory from expand_args()
-
-  if (expand) {
-    for (int i = 0; i < nvalues; i++) delete[] earg[i];
-    memory->sfree(earg);
-  }
 
   val.val.c = modify->get_compute_by_id(val.id);
   if (!val.val.c) error->all(FLERR, 10, "Compute ID {} for fix slcsa/atom does not exist", val.id);

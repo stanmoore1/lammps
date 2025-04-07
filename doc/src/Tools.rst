@@ -1276,11 +1276,13 @@ Those scripts were written by Steve Plimpton sjplimp at gmail.com
 valgrind tool
 -------------
 
-The ``valgrind`` folder contains additional suppressions fur LAMMPS when using
-valgrind's memcheck tool to search for memory access violation and memory
-leaks. These suppressions are automatically invoked when running tests through
-CMake "ctest -T memcheck". See the provided README file to add these
-suppressions when running LAMMPS.
+The ``valgrind`` folder contains additional suppressions fur LAMMPS when
+using `valgrind's <https://valgrind.org/>`_ ` `memcheck tool
+<https://valgrind.org/info/tools.html#memcheck>`_ to search for memory
+access violation and memory leaks.  These suppressions are automatically
+invoked when running tests through CMake "ctest -T memcheck".  See the
+instruction in the ``README`` file to add these suppressions when using
+valgrind with LAMMPS or other programs.
 
 ----------
 

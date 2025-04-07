@@ -355,6 +355,7 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
   if (expand) {
     for (int i = 0; i < nargnew; i++) delete[] earg[i];
     memory->sfree(earg);
+    memory->sfree(amap);
   }
 
   // this fix produces a global array

@@ -129,7 +129,7 @@
   <div class="wy-grid-for-nav">
     {#- SIDE NAV, TOGGLES ON MOBILE #}
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
-      <div class="wy-side-scroll">
+      <div class="wy-side-scroll" id="lammps-navbar">
         <div class="wy-side-nav-search" {% if theme_style_nav_header_background %} style="background: {{theme_style_nav_header_background}}" {% endif %}>
           {%- block sidebartitle %}
 
@@ -173,15 +173,15 @@
         </div>
         {%- endblock %}
       </div>
-<!--      <div style="padding: 4px;">
-        <center>
-          <a href="#sidebar-top-target"><img src="_static/up.png" alt="(Up)"/> Go to top</a>
-        </center>
+      <div style="position: fixed; bottom: 0px; width: 300px; height: 64px; padding: 4px; background-color: #272525; text-align: center">
+        <button onclick="JumpToTop()" class="fa fa-caret-up" style="color:white; background-color: #272525; border-style: none;" title="Go to top">&nbsp;Go to top</button>
       </div>
--->
-    <div style="position: fixed; bottom: 0px; width: 300px; height: 64px; padding: 4px; background-color: #272525; text-align: center">
-      <a href="#sidebar-top-target" class="fa fa-caret-up" style="color: white"> Go to top</a>
-    </div>
+      <script>
+        let navbar = document.getElementById("lammps-navbar");
+        function JumpToTop() {
+            navbar.scrollTop = 0;
+        }
+      </script>
     </nav>
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">

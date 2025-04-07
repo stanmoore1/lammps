@@ -2129,7 +2129,7 @@ class lammps(object):
   def set_show_error(self, flag):
     """ Enable or disable direct printing of error messages in C++ code
 
-    .. versionadded:: TBD
+    .. versionadded:: 2Apr2025
 
     This function allows to enable or disable printing of error message directly in
     the C++ code.  Disabling the printing avoids printing error messages twice when

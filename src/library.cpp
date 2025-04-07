@@ -3309,9 +3309,9 @@ x[0][2], x[1][0], x[1][1], x[1][2], x[2][0], :math:`\dots`);
 \endverbatim
  *
  * \param handle  pointer to a previously created LAMMPS instance
- * \param name    desired quantity (e.g., *x* or *charge*)
- * \param type    0 for ``int`` values, 1 for ``double`` values
- * \param count   number of per-atom values (e.g., 1 for *type* or *charge*,
+ * \param name    desired quantity (e.g., *x* or *q*)
+ * \param dtype   0 for ``int`` values, 1 for ``double`` values
+ * \param count   number of per-atom values (e.g., 1 for *type* or *q*,
  *                3 for *x* or *f*); use *count* = 3 with *image* if you want
  *                a single image flag unpacked into (*x*,*y*,*z*) components.
  * \param data    per-atom values packed in a 1-dimensional array of length
@@ -3325,7 +3325,7 @@ x[0][2], x[1][0], x[1][1], x[1][2], x[2][0], :math:`\dots`);
      Allreduce to sum vector into data across all procs
 ------------------------------------------------------------------------- */
 
-void lammps_gather_atoms(void *handle, const char *name, int type, int count, void *data)
+void lammps_gather_atoms(void *handle, const char *name, int dtype, int count, void *data)
 {
   auto *lmp = (LAMMPS *) handle;
   if (!lmp || !lmp->error || !lmp->atom || !lmp->memory) {
@@ -3360,7 +3360,7 @@ void lammps_gather_atoms(void *handle, const char *name, int type, int count, vo
     // use atom ID to insert each atom's values into copy
     // MPI_Allreduce with MPI_SUM to merge into data, ordered by atom ID
 
-    if (type == 0) {
+    if (dtype == 0) {
       int *vector = nullptr;
       int **array = nullptr;
       const int imgunpack = (count == 3) && (strcmp(name,"image") == 0);
@@ -3399,7 +3399,7 @@ void lammps_gather_atoms(void *handle, const char *name, int type, int count, vo
       MPI_Allreduce(copy, data, count * natoms, MPI_INT, MPI_SUM, lmp->world);
       lmp->memory->destroy(copy);
 
-    } else if (type == 1) {
+    } else if (dtype == 1) {
       double *vector = nullptr;
       double **array = nullptr;
       if (count == 1) vector = (double *) vptr;
@@ -3427,7 +3427,7 @@ void lammps_gather_atoms(void *handle, const char *name, int type, int count, vo
       MPI_Allreduce(copy, data, count*natoms, MPI_DOUBLE, MPI_SUM, lmp->world);
       lmp->memory->destroy(copy);
     } else {
-      lmp->error->all(FLERR, Error::NOLASTLINE, "{}(): unsupported data type: {}", FNERR, type);
+      lmp->error->all(FLERR, Error::NOLASTLINE, "{}(): unsupported data type: {}", FNERR, dtype);
       return;
     }
 #endif
@@ -3469,13 +3469,13 @@ or :cpp:func:`lammps_extract_setting`.
 
 \endverbatim
  *
- * \param handle: pointer to a previously created LAMMPS instance
- * \param name:   desired quantity (e.g., *x* or *charge*\ )
- * \param type:   0 for ``int`` values, 1 for ``double`` values
- * \param count:  number of per-atom values (e.g., 1 for *type* or *charge*,
+ * \param handle  pointer to a previously created LAMMPS instance
+ * \param name    desired quantity (e.g., *x* or *q*\ )
+ * \param dtype   0 for ``int`` values, 1 for ``double`` values
+ * \param count   number of per-atom values (e.g., 1 for *type* or *q*,
  *                3 for *x* or *f*); use *count* = 3 with "image" if you want
  *                single image flags unpacked into (*x*,*y*,*z*)
- * \param data:   per-atom values packed in a 1-dimensional array of length
+ * \param data    per-atom values packed in a 1-dimensional array of length
  *                *natoms* \* *count*.
  *
  */
@@ -3485,7 +3485,7 @@ or :cpp:func:`lammps_extract_setting`.
      Allgather Nlocal atoms from each proc into data
 ------------------------------------------------------------------------- */
 
-void lammps_gather_atoms_concat(void *handle, const char *name, int type,
+void lammps_gather_atoms_concat(void *handle, const char *name, int dtype,
                                 int count, void *data)
 {
   auto *lmp = (LAMMPS *) handle;
@@ -3523,7 +3523,7 @@ void lammps_gather_atoms_concat(void *handle, const char *name, int type,
     lmp->memory->create(recvcounts,nprocs,"lib/gather:recvcounts");
     lmp->memory->create(displs,nprocs,"lib/gather:displs");
 
-    if (type == 0) {
+    if (dtype == 0) {
       int *vector = nullptr;
       int **array = nullptr;
       const int imgunpack = (count == 3) && (strcmp(name,"image") == 0);
@@ -3631,15 +3631,15 @@ x[100][2], x[57][0], x[57][1], x[57][2], x[210][0], :math:`\dots`);
 
 \endverbatim
  *
- * \param handle: pointer to a previously created LAMMPS instance
- * \param name:   desired quantity (e.g., *x* or *charge*)
- * \param type:   0 for ``int`` values, 1 for ``double`` values
- * \param count:  number of per-atom values (e.g., 1 for *type* or *charge*,
+ * \param handle  pointer to a previously created LAMMPS instance
+ * \param name    desired quantity (e.g., *x* or *q*)
+ * \param dtype   0 for ``int`` values, 1 for ``double`` values
+ * \param count   number of per-atom values (e.g., 1 for *type* or *q*,
  *                3 for *x* or *f*); use *count* = 3 with "image" if you want
  *                single image flags unpacked into (*x*,*y*,*z*)
- * \param ndata:  number of atoms for which to return data (can be all of them)
- * \param ids:    list of *ndata* atom IDs for which to return data
- * \param data:   per-atom values packed in a 1-dimensional array of length
+ * \param ndata   number of atoms for which to return data (can be all of them)
+ * \param ids     list of *ndata* atom IDs for which to return data
+ * \param data    per-atom values packed in a 1-dimensional array of length
  *                *ndata* \* *count*.
  *
  */
@@ -3651,7 +3651,7 @@ x[100][2], x[57][0], x[57][1], x[57][2], x[210][0], :math:`\dots`);
      Allreduce to sum vector into data across all procs
 ------------------------------------------------------------------------- */
 
-void lammps_gather_atoms_subset(void *handle, const char *name, int type,
+void lammps_gather_atoms_subset(void *handle, const char *name, int dtype,
                                 int count, int ndata, int *ids, void *data)
 {
   auto *lmp = (LAMMPS *) handle;
@@ -3686,7 +3686,7 @@ void lammps_gather_atoms_subset(void *handle, const char *name, int type,
     // use atom ID to insert each atom's values into copy
     // MPI_Allreduce with MPI_SUM to merge into data
 
-    if (type == 0) {
+    if (dtype == 0) {
       int *vector = nullptr;
       int **array = nullptr;
       const int imgunpack = (count == 3) && (strcmp(name,"image") == 0);
@@ -3799,9 +3799,9 @@ atom ID (e.g., if *name* is *x* and *count* = 3, then
 \endverbatim
  *
  * \param handle  pointer to a previously created LAMMPS instance
- * \param name    desired quantity (e.g., *x* or *charge*)
- * \param type    0 for ``int`` values, 1 for ``double`` values
- * \param count   number of per-atom values (e.g., 1 for *type* or *charge*,
+ * \param name    desired quantity (e.g., *x* or *q*)
+ * \param dtype   0 for ``int`` values, 1 for ``double`` values
+ * \param count   number of per-atom values (e.g., 1 for *type* or *q*,
  *                3 for *x* or *f*); use *count* = 3 with *image* if you have
  *                a single image flag packed into (*x*,*y*,*z*) components.
  * \param data    per-atom values packed in a one-dimensional array of length
@@ -3814,7 +3814,7 @@ atom ID (e.g., if *name* is *x* and *count* = 3, then
      loop over Natoms, if I own atom ID, set its values from data
 ------------------------------------------------------------------------- */
 
-void lammps_scatter_atoms(void *handle, const char *name, int type, int count, void *data)
+void lammps_scatter_atoms(void *handle, const char *name, int dtype, int count, void *data)
 {
   auto *lmp = (LAMMPS *) handle;
   if (!lmp || !lmp->error || !lmp->atom || !lmp->memory) {
@@ -3847,7 +3847,7 @@ void lammps_scatter_atoms(void *handle, const char *name, int type, int count, v
     void *vptr = lmp->atom->extract(name);
     if (!vptr) lmp->error->all(FLERR, Error::NOLASTLINE, "{}(): unknown property {}", FNERR, name);
 
-    if (type == 0) {
+    if (dtype == 0) {
       int *vector = nullptr;
       int **array = nullptr;
       const int imgpack = (count == 3) && (strcmp(name,"image") == 0);
@@ -3935,14 +3935,14 @@ be {1, 100, 57}.
 
 \endverbatim
  *
- * \param handle: pointer to a previously created LAMMPS instance
- * \param name:   desired quantity (e.g., *x* or *charge*)
- * \param type:   0 for ``int`` values, 1 for ``double`` values
- * \param count:  number of per-atom values (e.g., 1 for *type* or *charge*,
+ * \param handle  pointer to a previously created LAMMPS instance
+ * \param name    desired quantity (e.g., *x* or *q*)
+ * \param dtype   0 for ``int`` values, 1 for ``double`` values
+ * \param count   number of per-atom values (e.g., 1 for *dtype* or *q*,
  *                3 for *x* or *f*); use *count* = 3 with "image" if you have
  *                all the image flags packed into (*xyz*)
- * \param ndata:  number of atoms listed in *ids* and *data* arrays
- * \param ids:    list of *ndata* atom IDs to scatter data to
+ * \param ndata   number of atoms listed in *ids* and *data* arrays
+ * \param ids     list of *ndata* atom IDs to scatter data to
  * \param data    per-atom values packed in a 1-dimensional array of length
  *                *ndata* \* *count*.
  *
@@ -3953,9 +3953,9 @@ be {1, 100, 57}.
    data is ordered by provided atom IDs
      no requirement for consecutive atom IDs (1 to N)
    see scatter_atoms() to scatter data for all atoms, ordered by consecutive IDs
-   name = desired quantity (e.g., x or charge)
-   type = 0 for integer values, 1 for double values
-   count = # of per-atom values (e.g., 1 for type or charge, 3 for x or f)
+   name = desired quantity (e.g., x or q)
+   dtype = 0 for integer values, 1 for double values
+   count = # of per-atom values (e.g., 1 for type or q, 3 for x or f)
      use count = 3 with "image" for xyz to be packed into single image flag
    ndata = # of atoms in ids and data (could be all atoms)
    ids = list of Ndata atom IDs to scatter data to
@@ -3966,7 +3966,7 @@ be {1, 100, 57}.
      loop over Ndata, if I own atom ID, set its values from data
 ------------------------------------------------------------------------- */
 
-void lammps_scatter_atoms_subset(void *handle, const char *name, int type,
+void lammps_scatter_atoms_subset(void *handle, const char *name, int dtype,
                                  int count, int ndata, int *ids, void *data)
 {
   auto *lmp = (LAMMPS *) handle;
@@ -3997,7 +3997,7 @@ void lammps_scatter_atoms_subset(void *handle, const char *name, int type,
     void *vptr = lmp->atom->extract(name);
     if (!vptr) lmp->error->all(FLERR, Error::NOLASTLINE, "{}(): Unknown property {}", FNERR, name);
 
-    if (type == 0) {
+    if (dtype == 0) {
       int *vector = nullptr;
       int **array = nullptr;
       const int imgpack = (count == 3) && (strcmp(name,"image") == 0);
@@ -4572,8 +4572,8 @@ given does not have per-atom data.
  *                data, "c_id" for per-atom compute data, "d_name" or "i_name" for fix
  *                property/atom vectors with *count* = 1, "d2_name" or "i2_name" for fix
  *                property/atom vectors with *count* > 1)
- * \param type    0 for ``int`` values, 1 for ``double`` values
- * \param count   number of per-atom values (e.g., 1 for *type* or *charge*, 3 for *x* or *f*);
+ * \param dtype   0 for ``int`` values, 1 for ``double`` values
+ * \param count   number of per-atom values (e.g., 1 for *type* or *q*, 3 for *x* or *f*);
  *                use *count* = 3 with *image* if you want the image flags unpacked into
  *                (*x*,*y*,*z*) components.
  * \param data    per-atom values packed into a one-dimensional array of length
@@ -4593,8 +4593,8 @@ given does not have per-atom data.
          "d_name" or "i_name" for fix property/atom vectors with count = 1
          "d2_name" or "i2_name" for fix property/atom arrays with count > 1
          will return error if fix/compute isn't atom-based
-  type = 0 for integer values, 1 for double values
-  count = # of per-atom values (e.g., 1 for type or charge, 3 for x or f)
+  dtype = 0 for integer values, 1 for double values
+  count = # of per-atom values (e.g., 1 for type or q, 3 for x or f)
     use count = 3 with "image" if want single image flag unpacked into xyz
   return atom-based values in 1d data, ordered by count, then by atom ID
     (e.g., x[0][0],x[0][1],x[0][2],x[1][0],x[1][1],x[1][2],x[2][0],...)
@@ -4606,7 +4606,7 @@ given does not have per-atom data.
     Allreduce to sum vector into data across all procs
 ------------------------------------------------------------------------- */
 
-void lammps_gather(void *handle, const char *name, int type, int count, void *data)
+void lammps_gather(void *handle, const char *name, int dtype, int count, void *data)
 {
   auto *lmp = (LAMMPS *) handle;
   if (!lmp || !lmp->error || !lmp->atom || !lmp->memory || !lmp->modify) {
@@ -4696,7 +4696,7 @@ void lammps_gather(void *handle, const char *name, int type, int count, void *da
       if (idx < 0)
         lmp->error->all(FLERR, Error::NOLASTLINE,
                         "{}(): Could not find custom per-atom property ID {}", FNERR, propid);
-      if (ltype != type)
+      if (ltype != dtype)
         lmp->error->all(FLERR, Error::NOLASTLINE,
                         "{}(): Custom per-atom property {} type mismatch", FNERR, propid);
       if ((count == 1) && (icol != 0))
@@ -4723,7 +4723,7 @@ void lammps_gather(void *handle, const char *name, int type, int count, void *da
     // use atom ID to insert each atom's values into copy
     // MPI_Allreduce with MPI_SUM to merge into data, ordered by atom ID
 
-    if (type==0) {
+    if (dtype==0) {
       int *vector = nullptr;
       int **array = nullptr;
 
@@ -4826,16 +4826,16 @@ pre-allocated by the caller to length (*count* :math:`\times` *natoms*), as quer
 
 \endverbatim
  *
- * \param handle: pointer to a previously created LAMMPS instance
- * \param name:   desired quantity (e.g., "x" or "f" for atom properties, "f_id" for per-atom fix
+ * \param handle  pointer to a previously created LAMMPS instance
+ * \param name    desired quantity (e.g., "x" or "f" for atom properties, "f_id" for per-atom fix
  *                data, "c_id" for per-atom compute data, "d_name" or "i_name" for fix
  *                property/atom vectors with count = 1, "d2_name" or "i2_name" for fix
  *                property/atom vectors with count > 1)
- * \param type:   0 for ``int`` values, 1 for ``double`` values
- * \param count:  number of per-atom values (e.g., 1 for *type* or *charge*, 3 for *x* or *f*);
+ * \param dtype   0 for ``int`` values, 1 for ``double`` values
+ * \param count   number of per-atom values (e.g., 1 for *type* or *q*, 3 for *x* or *f*);
  *                use *count* = 3 with *image* if you want the image flags unpacked into
  *                (*x*,*y*,*z*) components.
- * \param data:   per-atom values packed into a one-dimensional array of length
+ * \param data    per-atom values packed into a one-dimensional array of length
  *                *natoms* \* *count*.
  *
  */
@@ -4852,8 +4852,8 @@ pre-allocated by the caller to length (*count* :math:`\times` *natoms*), as quer
          "d_name" or "i_name" for fix property/atom vectors with count = 1
          "d2_name" or "i2_name" for fix property/atom arrays with count > 1
          will return error if fix/compute isn't atom-based
-  type = 0 for integer values, 1 for double values
-  count = # of per-atom values (e.g., 1 for type or charge, 3 for x or f)
+  dtype = 0 for integer values, 1 for double values
+  count = # of per-atom values (e.g., 1 for type or q, 3 for x or f)
     use count = 3 with "image" if want single image flag unpacked into xyz
   return atom-based values in 1d data, ordered by count, then by atom ID
     (e.g., x[0][0],x[0][1],x[0][2],x[1][0],x[1][1],x[1][2],x[2][0],...)
@@ -4865,7 +4865,7 @@ pre-allocated by the caller to length (*count* :math:`\times` *natoms*), as quer
     Allreduce to sum vector into data across all procs
 ------------------------------------------------------------------------- */
 
-void lammps_gather_concat(void *handle, const char *name, int type, int count, void *data)
+void lammps_gather_concat(void *handle, const char *name, int dtype, int count, void *data)
 {
   auto *lmp = (LAMMPS *) handle;
   if (!lmp || !lmp->error || !lmp->atom || !lmp->memory || !lmp->modify || !lmp->comm) {
@@ -4953,7 +4953,7 @@ void lammps_gather_concat(void *handle, const char *name, int type, int count, v
       if (idx < 0)
         lmp->error->all(FLERR, Error::NOLASTLINE,
                         "{}(): Could not find custom per-atom property ID {}", FNERR, propid);
-      if (ltype != type)
+      if (ltype != dtype)
         lmp->error->all(FLERR, Error::NOLASTLINE,
                         "{}(): Custom per-atom property {} type mismatch", FNERR, propid);
       if ((count == 1) && (icol != 0))
@@ -4985,7 +4985,7 @@ void lammps_gather_concat(void *handle, const char *name, int type, int count, v
     lmp->memory->create(recvcounts,nprocs,"lib/gather:recvcounts");
     lmp->memory->create(displs,nprocs,"lib/gather:displs");
 
-    if (type == 0) {
+    if (dtype == 0) {
       int *vector = nullptr;
       int **array = nullptr;
 
@@ -5093,20 +5093,19 @@ pre-allocated by the caller to length (*count*\ :math:`{}\times{}`\ *ndata*).
 
 \endverbatim
  *
- * \param handle: pointer to a previously created LAMMPS instance
+ * \param handle  pointer to a previously created LAMMPS instance
  * \param name    desired quantity (e.g., "x" or "f" for atom properties, "f_id" for per-atom fix
  *                data, "c_id" for per-atom compute data, "d_name" or "i_name" for fix
  *                property/atom vectors with *count* = 1, "d2_name" or "i2_name" for fix
  *                property/atom vectors with *count* > 1)
- * \param type    0 for ``int`` values, 1 for ``double`` values
- * \param count   number of per-atom values (e.g., 1 for *type* or *charge*, 3 for *x* or *f*);
+ * \param dtype   0 for ``int`` values, 1 for ``double`` values
+ * \param count   number of per-atom values (e.g., 1 for *type* or *q*, 3 for *x* or *f*);
  *                use *count* = 3 with *image* if you want the image flags unpacked into
  *                (*x*,*y*,*z*) components.
- * \param ndata:  number of atoms for which to return data (can be all of them)
- * \param ids:    list of *ndata* atom IDs for which to return data
+ * \param ndata   number of atoms for which to return data (can be all of them)
+ * \param ids     list of *ndata* atom IDs for which to return data
  * \param data    per-atom values packed into a one-dimensional array of length
  *                *ndata* \* *count*.
- *
  */
 /* ----------------------------------------------------------------------
   Contributing author: Thomas Swinburne (CNRS & CINaM, Marseille, France)
@@ -5121,8 +5120,8 @@ pre-allocated by the caller to length (*count*\ :math:`{}\times{}`\ *ndata*).
          "d_name" or "i_name" for fix property/atom vectors with count = 1
          "d2_name" or "i2_name" for fix property/atom arrays with count > 1
          will return error if fix/compute isn't atom-based
-  type = 0 for integer values, 1 for double values
-  count = # of per-atom values (e.g., 1 for type or charge, 3 for x or f)
+  dtype = 0 for integer values, 1 for double values
+  count = # of per-atom values (e.g., 1 for type or q, 3 for x or f)
     use count = 3 with "image" if want single image flag unpacked into xyz
   return atom-based values in 1d data, ordered by count, then by atom ID
     (e.g., x[0][0],x[0][1],x[0][2],x[1][0],x[1][1],x[1][2],x[2][0],...)
@@ -5134,7 +5133,7 @@ pre-allocated by the caller to length (*count*\ :math:`{}\times{}`\ *ndata*).
     Allreduce to sum vector into data across all procs
 ------------------------------------------------------------------------- */
 
-void lammps_gather_subset(void *handle, const char *name, int type, int count, int ndata, int *ids,
+void lammps_gather_subset(void *handle, const char *name, int dtype, int count, int ndata, int *ids,
                           void *data)
 {
   auto *lmp = (LAMMPS *) handle;
@@ -5225,7 +5224,7 @@ void lammps_gather_subset(void *handle, const char *name, int type, int count, i
       if (idx < 0)
         lmp->error->all(FLERR, Error::NOLASTLINE,
                         "{}(): Could not find custom per-atom property ID {}", FNERR, propid);
-      if (ltype != type)
+      if (ltype != dtype)
         lmp->error->all(FLERR, Error::NOLASTLINE,
                         "{}(): Custom per-atom property {} type mismatch", FNERR, propid);
       if ((count == 1) && (icol != 0))
@@ -5253,7 +5252,7 @@ void lammps_gather_subset(void *handle, const char *name, int type, int count, i
     // use atom ID to insert each atom's values into copy
     // MPI_Allreduce with MPI_SUM to merge into data
 
-    if (type == 0) {
+    if (dtype == 0) {
       int *vector = nullptr;
       int **array = nullptr;
       const int imgunpack = (count == 3) && (strcmp(name,"image") == 0);
@@ -5370,8 +5369,8 @@ x[1][2], x[2][0], :math:`\dots`}); *data* must be of length (*count* :math:`\tim
  *                data, "c_id" for per-atom compute data, "d_name" or "i_name" for fix
  *                property/atom vectors with *count* = 1, "d2_name" or "i2_name" for fix
  *                property/atom vectors with *count* > 1)
- * \param type    0 for ``int`` values, 1 for ``double`` values
- * \param count   number of per-atom values (e.g., 1 for *type* or *charge*,
+ * \param dtype   0 for ``int`` values, 1 for ``double`` values
+ * \param count   number of per-atom values (e.g., 1 for *type* or *q*,
  *                3 for *x* or *f*); use *count* = 3 with *image* if you have
  *                a single image flag packed into (*x*,*y*,*z*) components.
  * \param data    per-atom values packed in a one-dimensional array of length
@@ -5389,8 +5388,8 @@ x[1][2], x[2][0], :math:`\dots`}); *data* must be of length (*count* :math:`\tim
          "d_name" or "i_name" for fix property/atom vectors with count = 1
          "d2_name" or "i2_name" for fix property/atom arrays with count > 1
          will return error if fix/compute isn't atom-based
-  type = 0 for integer values, 1 for double values
-  count = # of per-atom values (e.g., 1 for type or charge, 3 for x or f)
+  dtype = 0 for integer values, 1 for double values
+  count = # of per-atom values (e.g., 1 for type or q, 3 for x or f)
     use count = 3 with "image" if want single image flag unpacked into xyz
   return atom-based values in 1d data, ordered by count, then by atom ID
     (e.g., x[0][0],x[0][1],x[0][2],x[1][0],x[1][1],x[1][2],x[2][0],...)
@@ -5402,7 +5401,7 @@ x[1][2], x[2][0], :math:`\dots`}); *data* must be of length (*count* :math:`\tim
     Allreduce to sum vector into data across all procs
 ------------------------------------------------------------------------- */
 
-void lammps_scatter(void *handle, const char *name, int type, int count, void *data)
+void lammps_scatter(void *handle, const char *name, int dtype, int count, void *data)
 {
   auto *lmp = (LAMMPS *) handle;
   if (!lmp || !lmp->error || !lmp->atom || !lmp->memory || !lmp->modify || !lmp->comm) {
@@ -5495,7 +5494,7 @@ void lammps_scatter(void *handle, const char *name, int type, int count, void *d
       if (idx < 0)
         lmp->error->all(FLERR, Error::NOLASTLINE,
                         "{}(): Could not find custom per-atom property ID {}", FNERR, propid);
-      if (ltype != type)
+      if (ltype != dtype)
         lmp->error->all(FLERR, Error::NOLASTLINE,
                         "{}(): Custom per-atom property {} type mismatch", FNERR, propid);
       if ((count == 1) && (icol != 0))
@@ -5518,7 +5517,7 @@ void lammps_scatter(void *handle, const char *name, int type, int count, void *d
 
     if (!vptr) lmp->error->all(FLERR, Error::NOLASTLINE, "{}(): Unknown property {}", name);
 
-    if (type == 0) {
+    if (dtype == 0) {
       int *vector = nullptr;
       int **array = nullptr;
       const int imgpack = (count == 3) && (strcmp(name,"image") == 0);
@@ -5606,17 +5605,17 @@ be {1, 100, 57}.
 
 \endverbatim
  *
- * \param handle: pointer to a previously created LAMMPS instance
+ * \param handle  pointer to a previously created LAMMPS instance
  * \param name    desired quantity (e.g., "x" or "f" for atom properties, "f_id" for per-atom fix
  *                data, "c_id" for per-atom compute data, "d_name" or "i_name" for fix
  *                property/atom vectors with *count* = 1, "d2_name" or "i2_name" for fix
  *                property/atom vectors with *count* > 1)
- * \param type:   0 for ``int`` values, 1 for ``double`` values
- * \param count:  number of per-atom values (e.g., 1 for *type* or *charge*,
+ * \param dtype   0 for ``int`` values, 1 for ``double`` values
+ * \param count   number of per-atom values (e.g., 1 for *type* or *q*,
  *                3 for *x* or *f*); use *count* = 3 with "image" if you want
  *                single image flags unpacked into (*x*,*y*,*z*)
- * \param ndata:  number of atoms listed in *ids* and *data* arrays
- * \param ids:    list of *ndata* atom IDs to scatter data to
+ * \param ndata   number of atoms listed in *ids* and *data* arrays
+ * \param ids     list of *ndata* atom IDs to scatter data to
  * \param data    per-atom values packed in a 1-dimensional array of length
  *                *ndata* \* *count*.
  *
@@ -5631,8 +5630,8 @@ be {1, 100, 57}.
           "d_name" or "i_name" for fix property/atom quantities
           "f_fix", "c_compute" for fixes / computes
           will return error if fix/compute doesn't isn't atom-based
-   type = 0 for integer values, 1 for double values
-   count = # of per-atom values (e.g., 1 for type or charge, 3 for x or f)
+   dtype = 0 for integer values, 1 for double values
+   count = # of per-atom values (e.g., 1 for type or q, 3 for x or f)
      use count = 3 with "image" for xyz to be packed into single image flag
    ndata = # of atoms in ids and data (could be all atoms)
    ids = list of Ndata atom IDs to scatter data to
@@ -5643,7 +5642,7 @@ be {1, 100, 57}.
      loop over Ndata, if I own atom ID, set its values from data
 ------------------------------------------------------------------------- */
 
-void lammps_scatter_subset(void *handle, const char *name, int type, int count, int ndata,
+void lammps_scatter_subset(void *handle, const char *name, int dtype, int count, int ndata,
                            int *ids, void *data)
 {
   auto *lmp = (LAMMPS *) handle;
@@ -5733,7 +5732,7 @@ void lammps_scatter_subset(void *handle, const char *name, int type, int count, 
       if (idx < 0)
         lmp->error->all(FLERR, Error::NOLASTLINE,
                         "{}(): Could not find custom per-atom property ID {}", FNERR, propid);
-      if (ltype != type)
+      if (ltype != dtype)
         lmp->error->all(FLERR, Error::NOLASTLINE,
                         "{}(): Custom per-atom property {} type mismatch", FNERR, propid);
       if ((count == 1) && (icol != 0))
@@ -5756,7 +5755,7 @@ void lammps_scatter_subset(void *handle, const char *name, int type, int count, 
 
     if (!vptr) lmp->error->all(FLERR, Error::NOLASTLINE, "{}(): Unknown property {}", name);
 
-    if (type == 0) {
+    if (dtype == 0) {
       int *vector = nullptr;
       int **array = nullptr;
       const int imgpack = (count == 3) && (strcmp(name,"image") == 0);
@@ -7472,7 +7471,7 @@ has thrown a :ref:`C++ exception <exceptions>`.
 
 .. note::
 
-   .. versionchanged: 2Aug2023
+   .. versionchanged:: 2Aug2023
 
    The *handle* pointer may be ``NULL`` for this function, as would be
    the case when a call to create a LAMMPS instance has failed.  Then
@@ -7502,7 +7501,7 @@ int lammps_has_error(void *handle)
 
 \verbatim embed:rst
 
-.. versionadded:: TBD
+.. versionadded:: 2Apr2025
 
 This function can be used to stop LAMMPS from printing error messages
 *before* LAMMPS throws a :ref:`C++ exception <exceptions>`.  This is so
@@ -7545,7 +7544,7 @@ the failing MPI ranks to send messages.
 
 .. note::
 
-   .. versionchanged: 2Aug2023
+   .. versionchanged:: 2Aug2023
 
    The *handle* pointer may be ``NULL`` for this function, as would be
    the case when a call to create a LAMMPS instance has failed.  Then
@@ -7553,7 +7552,7 @@ the failing MPI ranks to send messages.
    instance, but instead would check the global error buffer of the
    library interface.
 
-   .. versionchanged: 21Nov2023
+   .. versionchanged:: 21Nov2023
 
    The *buffer* pointer may be ``NULL``.  This will clear any error
    status without copying the error message.

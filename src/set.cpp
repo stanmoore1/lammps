@@ -532,7 +532,6 @@ void Set::command(int narg, char **arg)
                    atom->get_style());
       if (ivalue <= 0 || ivalue > atom->ndihedraltypes)
         error->all(FLERR, iarg + 1, "Invalid value {} in set dihedral command", ivalue);
-        error->all(FLERR,"Invalid value in set command");
       topology(DIHEDRAL);
       iarg += 2;
 

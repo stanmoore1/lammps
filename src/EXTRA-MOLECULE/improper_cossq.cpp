@@ -309,3 +309,15 @@ void ImproperCossq::write_data(FILE *fp)
   for (int i = 1; i <= atom->nimpropertypes; i++)
     fprintf(fp,"%d %g %g\n",i,k[i],chi[i]/MY_PI*180.0);
 }
+
+/* ----------------------------------------------------------------------
+   return ptr to internal members upon request
+------------------------------------------------------------------------ */
+
+void *ImproperCossq::extract(const char *str, int &dim)
+{
+  dim = 1;
+  if (strcmp(str, "k") == 0) return (void *) k;
+  if (strcmp(str, "chi0") == 0) return (void *) chi;
+  return nullptr;
+}

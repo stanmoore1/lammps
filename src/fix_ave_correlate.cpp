@@ -277,6 +277,7 @@ FixAveCorrelate::FixAveCorrelate(LAMMPS *lmp, int narg, char **arg) :
   if (expand) {
     for (int i = 0; i < nargnew; i++) delete[] earg[i];
     memory->sfree(earg);
+    memory->sfree(amap);
   }
 
   // allocate and initialize memory for averaging

@@ -855,7 +855,7 @@ int Variable::next(int narg, char **arg)
 
       if (nextindex < 0)
         error->one(FLERR,"Unexpected error while incrementing uloop style variable. "
-                   "Please contact the LAMMPS developers.");
+                   "Please contact the LAMMPS developers." + utils::errorurl(35));
 
       fp = fopen("tmp.lammps.variable.lock","w");
       fprintf(fp,"%d\n",nextindex+1);

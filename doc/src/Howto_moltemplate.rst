@@ -277,7 +277,7 @@ This ``Butane`` object is a molecule which can be used anywhere other molecules
 can be used.  (You can arrange ``Butane`` molecules on a lattice, as we did previously.
 You can also modify individual butane molecules by adding or deleting atoms or bonds.
 You can add bonds between specific butane molecules or use ``Butane`` as a
-subunit to define even larger molecules.  See the moltemplate manual for details.)
+sub-unit to define even larger molecules.  See the moltemplate manual for details.)
 
 
 

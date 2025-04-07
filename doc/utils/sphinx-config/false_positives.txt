@@ -725,6 +725,7 @@ dashpot
 dat
 datafile
 datatype
+dataset
 datums
 Davidchack
 Daw
@@ -3120,9 +3121,11 @@ qE
 qeff
 qelectron
 qeq
+qeqr
 Qamar
 QeQ
 QEq
+QEqR
 qfactor
 qfile
 qi
