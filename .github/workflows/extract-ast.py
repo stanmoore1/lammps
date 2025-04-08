@@ -2,7 +2,7 @@ import os
 import sys
 import json
 from tree_sitter import Parser
-from tree_sitter_language_pack get_parser
+from tree_sitter_language_pack import get_parser
 
 parser = get_parser('cpp') 
 
