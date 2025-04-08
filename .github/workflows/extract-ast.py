@@ -2,12 +2,9 @@ import os
 import sys
 import json
 from tree_sitter import Parser
-from tree_sitter_language_pack import LanguagePack
+from tree_sitter_language_pack get_parser
 
-languages = LanguagePack()
-cpp_lang = languages.language("cpp")
-parser = Parser()
-parser.set_language(cpp_lang)
+parser = get_parser('cpp') 
 
 def get_text(src, node):
     return src[node.start_byte:node.end_byte].decode("utf-8")
