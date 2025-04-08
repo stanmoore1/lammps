@@ -87,11 +87,13 @@ def extract_methods(class_node, code):
 def extract_class_info(path):
     for root, _, files in os.walk(path):
         for file in files:
+            print(f"*** file {file}")
             if file.endswith((".cpp", ".cc", ".h", ".hpp")):
                 full_path = os.path.join(root, file)
                 try:
                     with open(full_path, "rb") as f:
                         code = f.read()
+                    print(f"*** code {code}")
                     tree = parser.parse(code)
                     root_node = tree.root_node
                     for node in root_node.children:
@@ -133,6 +135,6 @@ def extract_class_info(path):
                     print(f"# ERROR parsing {full_path}: {e}", file=sys.stderr)
 
 class_names = set()
-with open("lammps-gpt-ast.jsonl", "w") as out:
+with open("lammps-gpt-ast.jsonl.txt", "w") as out:
     sys.stdout = out
-    extract_class_info("lammps")
+    extract_class_info("lammps/src")
