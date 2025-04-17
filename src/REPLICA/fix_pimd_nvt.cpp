@@ -89,26 +89,28 @@ FixPIMDNVT::FixPIMDNVT(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
         method = CMD;
       else
         error->universe_all(
-            FLERR, fmt::format("Unknown method parameter {} for fix pimd/nvt", arg[i + 1]));
+            FLERR, fmt::format("Unknown method parameter {} for fix {}", arg[i + 1], style));
     } else if (strcmp(arg[i], "fmass") == 0) {
       fmass = utils::numeric(FLERR, arg[i + 1], false, lmp);
       if ((fmass < 0.0) || (fmass > np))
-        error->universe_all(FLERR, fmt::format("Invalid fmass value {} for fix pimd/nvt", fmass));
+        error->universe_all(FLERR, fmt::format("Invalid fmass value {} for fix {}", fmass, style));
     } else if (strcmp(arg[i], "sp") == 0) {
       sp = utils::numeric(FLERR, arg[i + 1], false, lmp);
-      if (sp < 0.0) error->universe_all(FLERR, "Invalid sp value for fix pimd/nvt");
+      if (sp < 0.0) error->universe_all(FLERR, fmt::format("Invalid sp value for fix {}", style));
     } else if (strcmp(arg[i], "temp") == 0) {
       nhc_temp = utils::numeric(FLERR, arg[i + 1], false, lmp);
-      if (nhc_temp < 0.0) error->universe_all(FLERR, "Invalid temp value for fix pimd/nvt");
+      if (nhc_temp < 0.0)
+        error->universe_all(FLERR, fmt::format("Invalid temp value for fix {}", style));
     } else if (strcmp(arg[i], "nhc") == 0) {
       nhc_nchain = utils::inumeric(FLERR, arg[i + 1], false, lmp);
-      if (nhc_nchain < 2) error->universe_all(FLERR, "Invalid nhc value for fix pimd/nvt");
+      if (nhc_nchain < 2)
+        error->universe_all(FLERR, fmt::format("Invalid nhc value for fix {}", style));
     } else
-      error->universe_all(FLERR, fmt::format("Unknown keyword {} for fix pimd/nvt", arg[i]));
+      error->universe_all(FLERR, fmt::format("Unknown keyword {} for fix {}", arg[i], style));
   }
 
   if (strcmp(update->unit_style, "lj") == 0)
-    error->all(FLERR, "Fix pimd/nvt does not support lj units");
+    error->all(FLERR, fmt::format("Fix {} does not support lj units", style));
 
   /* Initiation */
 
@@ -187,10 +189,10 @@ int FixPIMDNVT::setmask()
 void FixPIMDNVT::init()
 {
   if (atom->map_style == Atom::MAP_NONE)
-    error->universe_all(FLERR, "Fix pimd/nvt requires an atom map, see atom_modify");
+    error->universe_all(FLERR, fmt::format("Fix {} requires an atom map, see atom_modify", style));
 
   if (universe->me == 0 && universe->uscreen)
-    fprintf(universe->uscreen, "Fix pimd/nvt initializing Path-Integral ...\n");
+    utils::print(universe->uscreen, "Fix {} initializing Path-Integral ...\n", style);
 
   // prepare the constants
 
@@ -539,13 +541,15 @@ void FixPIMDNVT::nmpimd_transform(double **src, double **des, double *vector)
 
 /* ---------------------------------------------------------------------- */
 
-void FixPIMDNVT::pre_spring_force_estimators(){
+void FixPIMDNVT::pre_spring_force_estimators()
+{
   vir_estimator();
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixPIMDNVT::vir_estimator() {
+void FixPIMDNVT::vir_estimator()
+{
   double **x = atom->x;
   double **f = atom->f;
   int nlocal = atom->nlocal;

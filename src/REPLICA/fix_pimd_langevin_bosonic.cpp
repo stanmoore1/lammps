@@ -86,10 +86,12 @@ FixPIMDBLangevin::FixPIMDBLangevin(LAMMPS *lmp, int narg, char **arg) :
   }
 
   method = PIMD;
-
   size_vector = 6;
-
   memory->create(f_tag_order, nbosons, 3, "FixPIMDBLangevin:f_tag_order");
+
+  if (cmode != SINGLE_PROC)
+    error->universe_all(FLERR,
+                        fmt::format("Fix {} only supports a single processor per bead", style));
 }
 
 /* ---------------------------------------------------------------------- */
@@ -98,7 +100,7 @@ FixPIMDBLangevin::~FixPIMDBLangevin()
 {
   memory->destroy(f_tag_order);
   for (int i = 0; i < filtered_narg; ++i) delete[] filtered_args[i];
-  memory->destroy(filtered_args);
+  delete[] filtered_args;
   delete bosonic_exchange;
 }
 

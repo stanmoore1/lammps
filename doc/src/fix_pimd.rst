@@ -9,11 +9,11 @@ fix pimd/langevin command
 fix pimd/nvt command
 ====================
 
-:doc:`fix pimd/langevin/bosonic <fix_pimd_bosonic>` command
-===========================================================
+fix pimd/langevin/bosonic command
+=================================
 
-:doc:`fix pimd/nvt/bosonic <fix_pimd_bosonic>` command
-======================================================
+fix pimd/nvt/bosonic command
+============================
 
 Syntax
 """"""
@@ -23,7 +23,7 @@ Syntax
    fix ID group-ID style keyword value ...
 
 * ID, group-ID are documented in :doc:`fix <fix>` command
-* style = *pimd/langevin* or *pimd/nvt* = style name of this fix command
+* style = *pimd/langevin* or *pimd/nvt* or *pimd/langevin/bosonic* or *pimd/nvt/bosonic* = style name of this fix command
 * zero or more keyword/value pairs may be appended
 * keywords for style *pimd/nvt*
 
@@ -89,19 +89,20 @@ partition function for the original system to a classical partition
 function for a ring-polymer system is exploited, to efficiently sample
 configurations from the canonical ensemble :ref:`(Feynman) <Feynman>`.
 
-.. versionadded:: 11Mar2025
+.. versionadded:: 2Apr2025
 
    Fix *pimd/langevin/bosonic* and *pimd/nvt/bosonic* were added.
 
 Fix *pimd/nvt* and fix *pimd/langevin* simulate *distinguishable* quantum particles.
-Simulations of bosons, including exchange effects, are supported with the :doc:`fix pimd/langevin/bosonic <fix_pimd_bosonic>` and :doc:`fix pimd/nvt/bosonic <fix_pimd_bosonic>` commands.
+Simulations of bosons, including exchange effects, are supported with the
+fix *pimd/langevin/bosonic* and the *pimd/nvt/bosonic* commands.
 
 For distinguishable particles, the isomorphic classical partition function and its components are given
 by the following equations:
 
 .. math::
 
-   Z = & \int d{\bf q} d{\bf p} \cdot \textrm{exp} [ -\beta H_{eff} ] \\
+   Z = & \int d\mathbf{q} d\mathbf{p} \cdot \textrm{exp} [ -\beta H_{eff} ] \\
    H_{eff} = & \bigg(\sum_{i=1}^P \frac{p_i^2}{2M_i}\bigg) + V_{eff} \\
    V_{eff} = & \sum_{i=1}^P \bigg[ \frac{mP}{2\beta^2 \hbar^2} (q_i - q_{i+1})^2 + \frac{1}{P} V(q_i)\bigg]
 
@@ -173,15 +174,17 @@ normal-mode PIMD.  A value of *cmd* is for centroid molecular dynamics
 
    Mode *pimd* added to fix pimd/langevin.
 
-Fix pimd/langevin supports the *method* values *nmpimd* and *pimd*. The default value is *nmpimd*.
-If *method* is *nmpimd*, the normal mode representation is used to integrate the equations of motion.
-The exact solution of harmonic oscillator is used to propagate the free ring polymer part of the Hamiltonian.
-If *method* is *pimd*, the Cartesian representation is used to integrate the equations of motion.
-The harmonic force is added to the total force of the system, and the numerical integrator is used to propagate the Hamiltonian.
+Fix pimd/langevin supports the *method* values *nmpimd* and *pimd*. The default
+value is *nmpimd*.  If *method* is *nmpimd*, the normal mode representation is
+used to integrate the equations of motion.  The exact solution of harmonic
+oscillator is used to propagate the free ring polymer part of the Hamiltonian.
+If *method* is *pimd*, the Cartesian representation is used to integrate the
+equations of motion.  The harmonic force is added to the total force of the
+system, and the numerical integrator is used to propagate the Hamiltonian.
 
-The keyword *integrator* specifies the Trotter splitting method used by *fix pimd/langevin*.
-See :ref:`(Liu) <Liu>` for a discussion on the OBABO and BAOAB splitting schemes. Typically
-either of the two should work fine.
+The keyword *integrator* specifies the Trotter splitting method used by *fix
+pimd/langevin*.  See :ref:`(Liu) <Liu>` for a discussion on the OBABO and BAOAB
+splitting schemes. Typically either of the two should work fine.
 
 The keyword *fmass* sets a further scaling factor for the fictitious
 masses of beads, which can be used for the Partial Adiabatic CMD
@@ -231,8 +234,8 @@ a positive floating-point number.
    For pimd simulations, a temperature values should be specified even for nve ensemble. Temperature will make a difference
    for nve pimd, since the spring elastic frequency between the beads will be affected by the temperature.
 
-The keyword *thermostat* reads *style* and *seed* of thermostat for fix style *pimd/langevin*. *style* can only
-be *PILE_L* (path integral Langevin equation local thermostat, as described in :ref:`Ceriotti <Ceriotti2>`), and *seed* should a positive integer number, which serves as the seed of the pseudo random number generator.
+The keyword *thermostat* reads *style* and *seed* of thermostat for fix style *pimd/langevin*.
+*style* can only be *PILE_L* (path integral Langevin equation local thermostat, as described in :ref:`Ceriotti <Ceriotti2>`), and *seed* should a positive integer number, which serves as the seed of the pseudo random number generator.
 
 .. note::
 
@@ -418,7 +421,12 @@ LAMMPS was built with that package.  See the :doc:`Build package
 <Build_package>` page for more info.
 
 Fix *pimd/nvt* cannot be used with :doc:`lj units <units>`.
-Fix *pimd/langevin* can be used with :doc:`lj units <units>`. See the above part for how to use it.
+Fix *pimd/langevin* can be used with :doc:`lj units <units>`.
+See the documentation above for how to use it.
+
+Only some combinations of fix styles and their options support
+partitions with multiple processors.  LAMMPS will stop with an
+error if multi-processor partitions are not supported.
 
 A PIMD simulation can be initialized with a single data file read via
 the :doc:`read_data <read_data>` command.  However, this means all
@@ -435,7 +443,7 @@ variable, e.g.
 Related commands
 """"""""""""""""
 
-:doc:`pimd/nvt/bosonic <fix_pimd_bosonic>`, :doc:`pimd/langevin/bosonic <fix_pimd_bosonic>`
+:doc:`fix ipi <fix_ipi>`
 
 Default
 """""""
