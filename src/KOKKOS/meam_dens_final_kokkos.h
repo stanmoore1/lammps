@@ -22,7 +22,7 @@ using namespace LAMMPS_NS;
 template<class DeviceType>
 void
 MEAMKokkos<DeviceType>::meam_dens_final(int nlocal, int eflag_either, int eflag_global, int eflag_atom,
-                      typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d d_map, typename AT::t_int_2d d_scale, int& errorflag, EV_FLOAT &ev_all)
+                      typename ArrayTypes<DeviceType>::t_float_1d eatom, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d d_map, typename AT::t_int_2d d_scale, int& errorflag, EV_FLOAT &ev_all)
 {
   EV_FLOAT ev;
   this->eflag_either = eflag_either;
@@ -53,8 +53,8 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void MEAMKokkos<DeviceType>::operator()(TagMEAMDensFinal, const int &i, EV_FLOAT& ev) const {
 
-  F_FLOAT rhob, G, dG, Gbar, dGbar, gam, shp[3], Z;
-  F_FLOAT denom, rho_bkgd, Fl;
+  double rhob, G, dG, Gbar, dGbar, gam, shp[3], Z;
+  double denom, rho_bkgd, Fl;
   double scaleii;
 
   int elti = d_map[type[i]];

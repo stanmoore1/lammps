@@ -8,8 +8,8 @@ using namespace MathSpecialKokkos;
 template <class DeviceType>
 void MEAMKokkos<DeviceType>::meam_force(
     int inum_half, int eflag_global, int eflag_atom, int vflag_global, int vflag_atom,
-    typename ArrayTypes<DeviceType>::t_efloat_1d eatom, int ntype, typename AT::t_int_1d type,
-    typename AT::t_int_1d d_map, typename AT::t_x_array x, typename AT::t_int_1d numneigh,
+    typename ArrayTypes<DeviceType>::t_float_1d eatom, int ntype, typename AT::t_int_1d type,
+    typename AT::t_int_1d d_map, typename AT::t_f_array x, typename AT::t_int_1d numneigh,
     typename AT::t_int_1d numneigh_full, typename AT::t_f_array f,
     typename ArrayTypes<DeviceType>::t_virial_array vatom, typename AT::t_int_1d d_ilist_half,
     typename AT::t_int_1d d_offset, typename AT::t_neighbors_2d d_neighbors_half,
@@ -88,7 +88,7 @@ KOKKOS_INLINE_FUNCTION void MEAMKokkos<DeviceType>::operator()(TagMEAMForce<NEIG
 {
   int i, j, jn, k, kn, kk, m, n, p, q;
   int nv2, nv3, elti, eltj, eltk, ind;
-  X_FLOAT xitmp, yitmp, zitmp, delij[3];
+  double xitmp, yitmp, zitmp, delij[3];
   double rij2, rij, rij3;
   double v[6], fi[3], fj[3];
   double third, sixth;

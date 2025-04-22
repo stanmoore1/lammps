@@ -160,12 +160,12 @@ void PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::compute(int eflag_in, int
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
-compute_fpair(const F_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
+double PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
+compute_fpair(const double& rsq, const int& /*i*/, const int& /*j*/,
               const int& itype, const int& jtype) const {
-  const F_FLOAT r2inv = 1.0/rsq;
-  const F_FLOAT r6inv = r2inv*r2inv*r2inv;
-  F_FLOAT forcelj, switch1, switch2, englj;
+  const double r2inv = 1.0/rsq;
+  const double r6inv = r2inv*r2inv*r2inv;
+  double forcelj, switch1, switch2, englj;
 
   forcelj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj1:params(itype,jtype).lj1)*r6inv -
@@ -190,12 +190,12 @@ compute_fpair(const F_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
-compute_evdwl(const F_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
+double PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
+compute_evdwl(const double& rsq, const int& /*i*/, const int& /*j*/,
               const int& itype, const int& jtype) const {
-  const F_FLOAT r2inv = 1.0/rsq;
-  const F_FLOAT r6inv = r2inv*r2inv*r2inv;
-  F_FLOAT englj, switch1;
+  const double r2inv = 1.0/rsq;
+  const double r6inv = r2inv*r2inv*r2inv;
+  double englj, switch1;
 
   englj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj3:params(itype,jtype).lj3)*r6inv -
@@ -217,13 +217,13 @@ compute_evdwl(const F_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
 template<class DeviceType>
 template<bool STACKPARAMS,  class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
-compute_fcoul(const F_FLOAT& rsq, const int& /*i*/, const int&j,
+double PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
+compute_fcoul(const double& rsq, const int& /*i*/, const int&j,
               const int& /*itype*/, const int& /*jtype*/,
-              const F_FLOAT& factor_coul, const F_FLOAT& qtmp) const {
+              const double& factor_coul, const double& qtmp) const {
 
-  const F_FLOAT r2inv = 1.0/rsq;
-  F_FLOAT forcecoul, switch1, switch2;
+  const double r2inv = 1.0/rsq;
+  double forcecoul, switch1, switch2;
 
   forcecoul = 2.0 * qqrd2e * qtmp*q(j) * r2inv;
 
@@ -244,12 +244,12 @@ compute_fcoul(const F_FLOAT& rsq, const int& /*i*/, const int&j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
-compute_ecoul(const F_FLOAT& rsq, const int& /*i*/, const int&j,
-              const int& /*itype*/, const int& /*jtype*/, const F_FLOAT& factor_coul, const F_FLOAT& qtmp) const {
+double PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
+compute_ecoul(const double& rsq, const int& /*i*/, const int&j,
+              const int& /*itype*/, const int& /*jtype*/, const double& factor_coul, const double& qtmp) const {
 
-  const F_FLOAT r2inv = 1.0/rsq;
-  F_FLOAT ecoul, switch1;
+  const double r2inv = 1.0/rsq;
+  double ecoul, switch1;
 
   ecoul = qqrd2e * qtmp * q(j) * r2inv;
   if (rsq > cut_coul_innersq) {
@@ -278,9 +278,9 @@ void PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::allocate()
   memoryKK->create_kokkos(k_cutsq,cutsq,n+1,n+1,"pair:cutsq");
   d_cutsq = k_cutsq.template view<DeviceType>();
 
-  d_cut_ljsq = typename AT::t_ffloat_2d("pair:cut_ljsq",n+1,n+1);
+  d_cut_ljsq = typename AT::t_float_2d("pair:cut_ljsq",n+1,n+1);
 
-  d_cut_coulsq = typename AT::t_ffloat_2d("pair:cut_coulsq",n+1,n+1);
+  d_cut_coulsq = typename AT::t_float_2d("pair:cut_coulsq",n+1,n+1);
 
   k_params = Kokkos::DualView<params_lj_coul**,Kokkos::LayoutRight,DeviceType>("PairLJCharmmCoulCharmmImplicit::params",n+1,n+1);
   params = k_params.template view<DeviceType>();
@@ -291,8 +291,8 @@ void PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::init_tables(double cut_co
 {
   Pair::init_tables(cut_coul,cut_respa);
 
-  typedef typename ArrayTypes<DeviceType>::t_ffloat_1d table_type;
-  typedef typename ArrayTypes<LMPHostType>::t_ffloat_1d host_table_type;
+  typedef typename ArrayTypes<DeviceType>::t_float_1d table_type;
+  typedef typename ArrayTypes<LMPHostType>::t_float_1d host_table_type;
 
   int ntable = 1;
   for (int i = 0; i < ncoultablebits; i++) ntable *= 2;

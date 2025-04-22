@@ -822,9 +822,9 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeNeig
   const int ii = team.league_rank();
   const int i = d_ilist[ii + chunk_offset];
   const int itype = type[i];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
   const int jnum = d_numneigh[i];
   const int mu_i = d_map(type(i));
 
@@ -848,10 +848,10 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeNeig
 
     const int jtype = type(j);
 
-    const F_FLOAT delx = xtmp - x(j,0);
-    const F_FLOAT dely = ytmp - x(j,1);
-    const F_FLOAT delz = ztmp - x(j,2);
-    const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+    const double delx = xtmp - x(j,0);
+    const double dely = ytmp - x(j,1);
+    const double delz = ztmp - x(j,2);
+    const double rsq = delx*delx + dely*dely + delz*delz;
 
     inside[jj] = -1;
     if (rsq < d_cutsq(itype,jtype)) {
@@ -870,12 +870,12 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeNeig
     if (final) {
       int j = d_neighbors(i,jj);
       j &= NEIGHMASK;
-      const F_FLOAT delx = xtmp - x(j,0);
-      const F_FLOAT dely = ytmp - x(j,1);
-      const F_FLOAT delz = ztmp - x(j,2);
-      const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
-      const F_FLOAT r = sqrt(rsq);
-      const F_FLOAT rinv = 1.0/r;
+      const double delx = xtmp - x(j,0);
+      const double dely = ytmp - x(j,1);
+      const double delz = ztmp - x(j,2);
+      const double rsq = delx*delx + dely*dely + delz*delz;
+      const double r = sqrt(rsq);
+      const double rinv = 1.0/r;
       const int mu_j = d_map(type(j));
       d_mu(ii,offset) = mu_j;
       d_rnorms(ii,offset) = r;
@@ -890,11 +890,11 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeNeig
   if (is_zbl) {
     //adapted from https://www.osti.gov/servlets/purl/1429450
     if (ncount > 0) {
-      using minloc_value_type=Kokkos::MinLoc<F_FLOAT,int>::value_type;
+      using minloc_value_type=Kokkos::MinLoc<double,int>::value_type;
       minloc_value_type djjmin;
       djjmin.val=1e20;
       djjmin.loc=-1;
-      Kokkos::MinLoc<F_FLOAT,int> reducer_scalar(djjmin);
+      Kokkos::MinLoc<double,int> reducer_scalar(djjmin);
       // loop over ncount (actual neighbours withing cutoff) rather than jnum (total number of neigh in cutoff+skin)
       Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, ncount),
                [&](const int offset, minloc_value_type &min_d_dist) {
@@ -902,7 +902,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeNeig
                  j &= NEIGHMASK;
                  auto r = d_rnorms(ii,offset);
                  const int mu_j = d_map(type(j));
-                 const F_FLOAT d = r - (d_cut_in(mu_i, mu_j) - d_dcut_in(mu_i, mu_j));
+                 const double d = r - (d_cut_in(mu_i, mu_j) - d_dcut_in(mu_i, mu_j));
                  if (d < min_d_dist.val) {
                    min_d_dist.val = d;
                    min_d_dist.loc = offset;
@@ -1230,8 +1230,8 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeFS, 
   if (is_zbl) {
     if (d_jj_min(ii) != -1) {
       const int mu_jmin = d_mu(ii,d_jj_min(ii));
-      F_FLOAT dcutin = d_dcut_in(mu_i, mu_jmin);
-      F_FLOAT transition_coordinate =  dcutin  - d_d_min(ii); // == cutin - r_min
+      double dcutin = d_dcut_in(mu_i, mu_jmin);
+      double transition_coordinate =  dcutin  - d_d_min(ii); // == cutin - r_min
       cutoff_func_poly(transition_coordinate, dcutin, dcutin, fcut, dfcut);
       dfcut = -dfcut; // invert, because rho_core = cutin - r_min
     } else {
@@ -1662,7 +1662,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeForc
 
   const int ncount = d_ncount(ii);
 
-  F_FLOAT fitmp[3] = {0.0,0.0,0.0};
+  double fitmp[3] = {0.0,0.0,0.0};
   for (int jj = 0; jj < ncount; jj++) {
     int j = d_nearest(ii,jj);
 
@@ -1718,20 +1718,20 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairPACEExtrapolationKokkos<DeviceType>::v_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz,
-      const F_FLOAT &delx, const F_FLOAT &dely, const F_FLOAT &delz) const
+      const double &fx, const double &fy, const double &fz,
+      const double &delx, const double &dely, const double &delz) const
 {
   // The vatom array is duplicated for OpenMP, atomic for GPU, and neither for Serial
 
   auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
   auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-  const E_FLOAT v0 = delx*fx;
-  const E_FLOAT v1 = dely*fy;
-  const E_FLOAT v2 = delz*fz;
-  const E_FLOAT v3 = delx*fy;
-  const E_FLOAT v4 = delx*fz;
-  const E_FLOAT v5 = dely*fz;
+  const double v0 = delx*fx;
+  const double v1 = dely*fy;
+  const double v2 = delz*fz;
+  const double v3 = delx*fy;
+  const double v4 = delx*fz;
+  const double v5 = dely*fz;
 
   if (vflag_global) {
     ev.v[0] += v0;

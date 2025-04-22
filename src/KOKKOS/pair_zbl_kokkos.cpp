@@ -183,14 +183,14 @@ void PairZBLKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairZBLKokkos<DeviceType>::
-compute_fpair(const F_FLOAT& rsq, const int &, const int &, const int &itype, const int &jtype) const {
-  const F_FLOAT r = sqrt(rsq);
-  F_FLOAT fpair = dzbldr(r, itype, jtype);
+double PairZBLKokkos<DeviceType>::
+compute_fpair(const double& rsq, const int &, const int &, const int &itype, const int &jtype) const {
+  const double r = sqrt(rsq);
+  double fpair = dzbldr(r, itype, jtype);
 
   if (rsq > cut_innersq) {
-    const F_FLOAT t = r - cut_inner;
-    const F_FLOAT fswitch = t*t *
+    const double t = r - cut_inner;
+    const double fswitch = t*t *
            (d_sw1(itype,jtype) + d_sw2(itype,jtype)*t);
     fpair += fswitch;
   }
@@ -202,14 +202,14 @@ compute_fpair(const F_FLOAT& rsq, const int &, const int &, const int &itype, co
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairZBLKokkos<DeviceType>::
-compute_evdwl(const F_FLOAT &rsq, const int &, const int &, const int &itype, const int &jtype) const {
-  const F_FLOAT r = sqrt(rsq);
-  F_FLOAT evdwl = e_zbl(r, itype, jtype);
+double PairZBLKokkos<DeviceType>::
+compute_evdwl(const double &rsq, const int &, const int &, const int &itype, const int &jtype) const {
+  const double r = sqrt(rsq);
+  double evdwl = e_zbl(r, itype, jtype);
   evdwl += d_sw5(itype,jtype);
   if (rsq > cut_innersq) {
-    const F_FLOAT t = r - cut_inner;
-    const F_FLOAT eswitch = t*t*t *
+    const double t = r - cut_inner;
+    const double eswitch = t*t*t *
       (d_sw3(itype,jtype) + d_sw4(itype,jtype)*t);
     evdwl += eswitch;
   }
@@ -227,17 +227,17 @@ void PairZBLKokkos<DeviceType>::allocate()
 
   int n = atom->ntypes;
 
-  k_z   = DAT::tdual_ffloat_1d("pair_zbl:z  ",n+1);
-  k_d1a = DAT::tdual_ffloat_2d_dl("pair_zbl:d1a",n+1,n+1);
-  k_d2a = DAT::tdual_ffloat_2d_dl("pair_zbl:d2a",n+1,n+1);
-  k_d3a = DAT::tdual_ffloat_2d_dl("pair_zbl:d3a",n+1,n+1);
-  k_d4a = DAT::tdual_ffloat_2d_dl("pair_zbl:d4a",n+1,n+1);
-  k_zze = DAT::tdual_ffloat_2d_dl("pair_zbl:zze",n+1,n+1);
-  k_sw1 = DAT::tdual_ffloat_2d_dl("pair_zbl:sw1",n+1,n+1);
-  k_sw2 = DAT::tdual_ffloat_2d_dl("pair_zbl:sw2",n+1,n+1);
-  k_sw3 = DAT::tdual_ffloat_2d_dl("pair_zbl:sw3",n+1,n+1);
-  k_sw4 = DAT::tdual_ffloat_2d_dl("pair_zbl:sw4",n+1,n+1);
-  k_sw5 = DAT::tdual_ffloat_2d_dl("pair_zbl:sw5",n+1,n+1);
+  k_z   = DAT::tdual_float_1d("pair_zbl:z  ",n+1);
+  k_d1a = DAT::tdual_float_2d_dl("pair_zbl:d1a",n+1,n+1);
+  k_d2a = DAT::tdual_float_2d_dl("pair_zbl:d2a",n+1,n+1);
+  k_d3a = DAT::tdual_float_2d_dl("pair_zbl:d3a",n+1,n+1);
+  k_d4a = DAT::tdual_float_2d_dl("pair_zbl:d4a",n+1,n+1);
+  k_zze = DAT::tdual_float_2d_dl("pair_zbl:zze",n+1,n+1);
+  k_sw1 = DAT::tdual_float_2d_dl("pair_zbl:sw1",n+1,n+1);
+  k_sw2 = DAT::tdual_float_2d_dl("pair_zbl:sw2",n+1,n+1);
+  k_sw3 = DAT::tdual_float_2d_dl("pair_zbl:sw3",n+1,n+1);
+  k_sw4 = DAT::tdual_float_2d_dl("pair_zbl:sw4",n+1,n+1);
+  k_sw5 = DAT::tdual_float_2d_dl("pair_zbl:sw5",n+1,n+1);
 
   d_z   = k_z.view<DeviceType>();
   d_d1a = k_d1a.view<DeviceType>();
@@ -251,7 +251,7 @@ void PairZBLKokkos<DeviceType>::allocate()
   d_sw4 = k_sw4.view<DeviceType>();
   d_sw5 = k_sw5.view<DeviceType>();
 
-  d_cutsq = typename AT::t_ffloat_2d_dl("pair_zbl:cutsq",n+1,n+1);
+  d_cutsq = typename AT::t_float_2d_dl("pair_zbl:cutsq",n+1,n+1);
 }
 
 /* ----------------------------------------------------------------------
@@ -301,21 +301,21 @@ double PairZBLKokkos<DeviceType>::init_one(int i, int j)
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairZBLKokkos<DeviceType>::e_zbl(F_FLOAT r, int i, int j) const {
+double PairZBLKokkos<DeviceType>::e_zbl(double r, int i, int j) const {
 
-  const F_FLOAT d1aij = d_d1a(i,j);
-  const F_FLOAT d2aij = d_d2a(i,j);
-  const F_FLOAT d3aij = d_d3a(i,j);
-  const F_FLOAT d4aij = d_d4a(i,j);
-  const F_FLOAT zzeij = d_zze(i,j);
-  const F_FLOAT rinv = 1.0/r;
+  const double d1aij = d_d1a(i,j);
+  const double d2aij = d_d2a(i,j);
+  const double d3aij = d_d3a(i,j);
+  const double d4aij = d_d4a(i,j);
+  const double zzeij = d_zze(i,j);
+  const double rinv = 1.0/r;
 
-  F_FLOAT sum = c1*exp(-d1aij*r);
+  double sum = c1*exp(-d1aij*r);
   sum += c2*exp(-d2aij*r);
   sum += c3*exp(-d3aij*r);
   sum += c4*exp(-d4aij*r);
 
-  F_FLOAT result = zzeij*sum*rinv;
+  double result = zzeij*sum*rinv;
 
   return result;
 }
@@ -326,31 +326,31 @@ F_FLOAT PairZBLKokkos<DeviceType>::e_zbl(F_FLOAT r, int i, int j) const {
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairZBLKokkos<DeviceType>::dzbldr(F_FLOAT r, int i, int j) const {
+double PairZBLKokkos<DeviceType>::dzbldr(double r, int i, int j) const {
 
-  const F_FLOAT d1aij = d_d1a(i,j);
-  const F_FLOAT d2aij = d_d2a(i,j);
-  const F_FLOAT d3aij = d_d3a(i,j);
-  const F_FLOAT d4aij = d_d4a(i,j);
-  const F_FLOAT zzeij = d_zze(i,j);
-  const F_FLOAT rinv = 1.0/r;
+  const double d1aij = d_d1a(i,j);
+  const double d2aij = d_d2a(i,j);
+  const double d3aij = d_d3a(i,j);
+  const double d4aij = d_d4a(i,j);
+  const double zzeij = d_zze(i,j);
+  const double rinv = 1.0/r;
 
-  const F_FLOAT e1 = exp(-d1aij*r);
-  const F_FLOAT e2 = exp(-d2aij*r);
-  const F_FLOAT e3 = exp(-d3aij*r);
-  const F_FLOAT e4 = exp(-d4aij*r);
+  const double e1 = exp(-d1aij*r);
+  const double e2 = exp(-d2aij*r);
+  const double e3 = exp(-d3aij*r);
+  const double e4 = exp(-d4aij*r);
 
-  F_FLOAT sum = c1*e1;
+  double sum = c1*e1;
   sum += c2*e2;
   sum += c3*e3;
   sum += c4*e4;
 
-  F_FLOAT sum_p = -c1*d1aij*e1;
+  double sum_p = -c1*d1aij*e1;
   sum_p -= c2*d2aij*e2;
   sum_p -= c3*d3aij*e3;
   sum_p -= c4*d4aij*e4;
 
-  F_FLOAT result = zzeij*(sum_p - sum*rinv)*rinv;
+  double result = zzeij*(sum_p - sum*rinv)*rinv;
 
   return result;
 }
@@ -361,36 +361,36 @@ F_FLOAT PairZBLKokkos<DeviceType>::dzbldr(F_FLOAT r, int i, int j) const {
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairZBLKokkos<DeviceType>::d2zbldr2(F_FLOAT r, int i, int j) const {
+double PairZBLKokkos<DeviceType>::d2zbldr2(double r, int i, int j) const {
 
-  const F_FLOAT d1aij = d_d1a(i,j);
-  const F_FLOAT d2aij = d_d2a(i,j);
-  const F_FLOAT d3aij = d_d3a(i,j);
-  const F_FLOAT d4aij = d_d4a(i,j);
-  const F_FLOAT zzeij = d_zze(i,j);
-  const F_FLOAT rinv = 1.0/r;
+  const double d1aij = d_d1a(i,j);
+  const double d2aij = d_d2a(i,j);
+  const double d3aij = d_d3a(i,j);
+  const double d4aij = d_d4a(i,j);
+  const double zzeij = d_zze(i,j);
+  const double rinv = 1.0/r;
 
-  const F_FLOAT e1 = exp(-d1aij*r);
-  const F_FLOAT e2 = exp(-d2aij*r);
-  const F_FLOAT e3 = exp(-d3aij*r);
-  const F_FLOAT e4 = exp(-d4aij*r);
+  const double e1 = exp(-d1aij*r);
+  const double e2 = exp(-d2aij*r);
+  const double e3 = exp(-d3aij*r);
+  const double e4 = exp(-d4aij*r);
 
-  F_FLOAT sum = c1*e1;
+  double sum = c1*e1;
   sum += c2*e2;
   sum += c3*e3;
   sum += c4*e4;
 
-  F_FLOAT sum_p = c1*e1*d1aij;
+  double sum_p = c1*e1*d1aij;
   sum_p += c2*e2*d2aij;
   sum_p += c3*e3*d3aij;
   sum_p += c4*e4*d4aij;
 
-  F_FLOAT sum_pp = c1*e1*d1aij*d1aij;
+  double sum_pp = c1*e1*d1aij*d1aij;
   sum_pp += c2*e2*d2aij*d2aij;
   sum_pp += c3*e3*d3aij*d3aij;
   sum_pp += c4*e4*d4aij*d4aij;
 
-  F_FLOAT result = zzeij*(sum_pp + 2.0*sum_p*rinv +
+  double result = zzeij*(sum_pp + 2.0*sum_p*rinv +
                          2.0*sum*rinv*rinv)*rinv;
 
   return result;

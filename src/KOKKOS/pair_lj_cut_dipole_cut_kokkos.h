@@ -58,9 +58,9 @@ class PairLJCutDipoleCutKokkos : public PairLJCutDipoleCut {
 
   template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
-  void ev_tally_xyz(EV_FLOAT &ev, int i, int j, const F_FLOAT &epair,
-                    F_FLOAT fx, F_FLOAT fy, F_FLOAT fz,
-                    X_FLOAT delx, X_FLOAT dely, X_FLOAT delz) const;
+  void ev_tally_xyz(EV_FLOAT &ev, int i, int j, const double &epair,
+                    double fx, double fy, double fz,
+                    double delx, double dely, double delz) const;
 
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
@@ -72,11 +72,11 @@ class PairLJCutDipoleCutKokkos : public PairLJCutDipoleCut {
   // hardwired to space for 12 atom types
   params_lj_coul m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
-  F_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  F_FLOAT m_cut_ljsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  F_FLOAT m_cut_coulsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename AT::t_x_array_randomread x;
-  typename AT::t_x_array c_x;
+  double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  double m_cut_ljsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  double m_cut_coulsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  typename AT::t_f_array_randomread x;
+  typename AT::t_f_array c_x;
   typename AT::t_f_array f;
   typename AT::t_f_array torque;
   typename AT::t_int_1d_randomread type;
@@ -84,17 +84,17 @@ class PairLJCutDipoleCutKokkos : public PairLJCutDipoleCut {
   typename AT::t_mu_array_randomread mu;
   typename AT::t_mu_array c_mu;
 
-  DAT::tdual_efloat_1d k_eatom;
+  DAT::tdual_float_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename AT::t_efloat_1d d_eatom;
+  typename AT::t_float_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
-  typename AT::tdual_ffloat_2d k_cutsq;
-  typename AT::t_ffloat_2d d_cutsq;
-  typename AT::tdual_ffloat_2d k_cut_ljsq;
-  typename AT::t_ffloat_2d d_cut_ljsq;
-  typename AT::tdual_ffloat_2d k_cut_coulsq;
-  typename AT::t_ffloat_2d d_cut_coulsq;
+  typename AT::tdual_float_2d k_cutsq;
+  typename AT::t_float_2d d_cutsq;
+  typename AT::tdual_float_2d k_cut_ljsq;
+  typename AT::t_float_2d d_cut_ljsq;
+  typename AT::tdual_float_2d k_cut_coulsq;
+  typename AT::t_float_2d d_cut_coulsq;
 
 
   int neighflag,newton_pair;

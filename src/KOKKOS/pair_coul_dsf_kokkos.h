@@ -57,21 +57,21 @@ class PairCoulDSFKokkos : public PairCoulDSF {
   template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &epair, const F_FLOAT &fpair, const F_FLOAT &delx,
-                  const F_FLOAT &dely, const F_FLOAT &delz) const;
+      const double &epair, const double &fpair, const double &delx,
+                  const double &dely, const double &delz) const;
 
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
 
-  typename AT::t_x_array_randomread x;
+  typename AT::t_f_array_randomread x;
   typename AT::t_f_array f;
   typename AT::t_float_1d_randomread q;
 
  protected:
 
-  DAT::tdual_efloat_1d k_eatom;
+  DAT::tdual_float_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename AT::t_efloat_1d d_eatom;
+  typename AT::t_float_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
 

@@ -163,7 +163,7 @@ KOKKOS_INLINE_FUNCTION
 void DihedralHarmonicKokkos<DeviceType>::operator()(TagDihedralHarmonicCompute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
 
   // The f array is atomic
-  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<double*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
 
   const int i1 = dihedrallist(n,0);
   const int i2 = dihedrallist(n,1);
@@ -173,49 +173,49 @@ void DihedralHarmonicKokkos<DeviceType>::operator()(TagDihedralHarmonicCompute<N
 
   // 1st bond
 
-  const F_FLOAT vb1x = x(i1,0) - x(i2,0);
-  const F_FLOAT vb1y = x(i1,1) - x(i2,1);
-  const F_FLOAT vb1z = x(i1,2) - x(i2,2);
+  const double vb1x = x(i1,0) - x(i2,0);
+  const double vb1y = x(i1,1) - x(i2,1);
+  const double vb1z = x(i1,2) - x(i2,2);
 
   // 2nd bond
 
-  const F_FLOAT vb2x = x(i3,0) - x(i2,0);
-  const F_FLOAT vb2y = x(i3,1) - x(i2,1);
-  const F_FLOAT vb2z = x(i3,2) - x(i2,2);
+  const double vb2x = x(i3,0) - x(i2,0);
+  const double vb2y = x(i3,1) - x(i2,1);
+  const double vb2z = x(i3,2) - x(i2,2);
 
-  const F_FLOAT vb2xm = -vb2x;
-  const F_FLOAT vb2ym = -vb2y;
-  const F_FLOAT vb2zm = -vb2z;
+  const double vb2xm = -vb2x;
+  const double vb2ym = -vb2y;
+  const double vb2zm = -vb2z;
 
   // 3rd bond
 
-  const F_FLOAT vb3x = x(i4,0) - x(i3,0);
-  const F_FLOAT vb3y = x(i4,1) - x(i3,1);
-  const F_FLOAT vb3z = x(i4,2) - x(i3,2);
+  const double vb3x = x(i4,0) - x(i3,0);
+  const double vb3y = x(i4,1) - x(i3,1);
+  const double vb3z = x(i4,2) - x(i3,2);
 
   // c,s calculation
 
-  const F_FLOAT ax = vb1y*vb2zm - vb1z*vb2ym;
-  const F_FLOAT ay = vb1z*vb2xm - vb1x*vb2zm;
-  const F_FLOAT az = vb1x*vb2ym - vb1y*vb2xm;
-  const F_FLOAT bx = vb3y*vb2zm - vb3z*vb2ym;
-  const F_FLOAT by = vb3z*vb2xm - vb3x*vb2zm;
-  const F_FLOAT bz = vb3x*vb2ym - vb3y*vb2xm;
+  const double ax = vb1y*vb2zm - vb1z*vb2ym;
+  const double ay = vb1z*vb2xm - vb1x*vb2zm;
+  const double az = vb1x*vb2ym - vb1y*vb2xm;
+  const double bx = vb3y*vb2zm - vb3z*vb2ym;
+  const double by = vb3z*vb2xm - vb3x*vb2zm;
+  const double bz = vb3x*vb2ym - vb3y*vb2xm;
 
-  const F_FLOAT rasq = ax*ax + ay*ay + az*az;
-  const F_FLOAT rbsq = bx*bx + by*by + bz*bz;
-  const F_FLOAT rgsq = vb2xm*vb2xm + vb2ym*vb2ym + vb2zm*vb2zm;
-  const F_FLOAT rg = sqrt(rgsq);
+  const double rasq = ax*ax + ay*ay + az*az;
+  const double rbsq = bx*bx + by*by + bz*bz;
+  const double rgsq = vb2xm*vb2xm + vb2ym*vb2ym + vb2zm*vb2zm;
+  const double rg = sqrt(rgsq);
 
-  F_FLOAT rginv,ra2inv,rb2inv;
+  double rginv,ra2inv,rb2inv;
   rginv = ra2inv = rb2inv = 0.0;
   if (rg > 0) rginv = 1.0/rg;
   if (rasq > 0) ra2inv = 1.0/rasq;
   if (rbsq > 0) rb2inv = 1.0/rbsq;
-  const F_FLOAT rabinv = sqrt(ra2inv*rb2inv);
+  const double rabinv = sqrt(ra2inv*rb2inv);
 
-  F_FLOAT c = (ax*bx + ay*by + az*bz)*rabinv;
-  const F_FLOAT s = rg*rabinv*(ax*vb3x + ay*vb3y + az*vb3z);
+  double c = (ax*bx + ay*by + az*bz)*rabinv;
+  const double s = rg*rabinv*(ax*vb3x + ay*vb3y + az*vb3z);
 
   // error check
 
@@ -226,8 +226,8 @@ void DihedralHarmonicKokkos<DeviceType>::operator()(TagDihedralHarmonicCompute<N
   if (c < -1.0) c = -1.0;
 
   const int m = d_multiplicity[type];
-  F_FLOAT p = 1.0;
-  F_FLOAT ddf1,df1;
+  double p = 1.0;
+  double ddf1,df1;
   ddf1 = df1 = 0.0;
 
   for (int i = 0; i < m; i++) {
@@ -246,33 +246,33 @@ void DihedralHarmonicKokkos<DeviceType>::operator()(TagDihedralHarmonicCompute<N
     df1 = 0.0;
   }
 
-  E_FLOAT edihedral = 0.0;
+  double edihedral = 0.0;
   if (eflag) edihedral = d_k[type] * p;
 
-  const F_FLOAT fg = vb1x*vb2xm + vb1y*vb2ym + vb1z*vb2zm;
-  const F_FLOAT hg = vb3x*vb2xm + vb3y*vb2ym + vb3z*vb2zm;
-  const F_FLOAT fga = fg*ra2inv*rginv;
-  const F_FLOAT hgb = hg*rb2inv*rginv;
-  const F_FLOAT gaa = -ra2inv*rg;
-  const F_FLOAT gbb = rb2inv*rg;
+  const double fg = vb1x*vb2xm + vb1y*vb2ym + vb1z*vb2zm;
+  const double hg = vb3x*vb2xm + vb3y*vb2ym + vb3z*vb2zm;
+  const double fga = fg*ra2inv*rginv;
+  const double hgb = hg*rb2inv*rginv;
+  const double gaa = -ra2inv*rg;
+  const double gbb = rb2inv*rg;
 
-  const F_FLOAT dtfx = gaa*ax;
-  const F_FLOAT dtfy = gaa*ay;
-  const F_FLOAT dtfz = gaa*az;
-  const F_FLOAT dtgx = fga*ax - hgb*bx;
-  const F_FLOAT dtgy = fga*ay - hgb*by;
-  const F_FLOAT dtgz = fga*az - hgb*bz;
-  const F_FLOAT dthx = gbb*bx;
-  const F_FLOAT dthy = gbb*by;
-  const F_FLOAT dthz = gbb*bz;
+  const double dtfx = gaa*ax;
+  const double dtfy = gaa*ay;
+  const double dtfz = gaa*az;
+  const double dtgx = fga*ax - hgb*bx;
+  const double dtgy = fga*ay - hgb*by;
+  const double dtgz = fga*az - hgb*bz;
+  const double dthx = gbb*bx;
+  const double dthy = gbb*by;
+  const double dthz = gbb*bz;
 
-  const F_FLOAT df = -d_k[type] * df1;
+  const double df = -d_k[type] * df1;
 
-  const F_FLOAT sx2  = df*dtgx;
-  const F_FLOAT sy2  = df*dtgy;
-  const F_FLOAT sz2  = df*dtgz;
+  const double sx2  = df*dtgx;
+  const double sy2  = df*dtgy;
+  const double sz2  = df*dtgz;
 
-  F_FLOAT f1[3],f2[3],f3[3],f4[3];
+  double f1[3],f2[3],f3[3],f4[3];
   f1[0] = df*dtfx;
   f1[1] = df*dtfy;
   f1[2] = df*dtfz;
@@ -336,9 +336,9 @@ void DihedralHarmonicKokkos<DeviceType>::allocate()
   DihedralHarmonic::allocate();
 
   int n = atom->ndihedraltypes;
-  k_k = DAT::tdual_ffloat_1d("DihedralHarmonic::k",n+1);
-  k_cos_shift = DAT::tdual_ffloat_1d("DihedralHarmonic::cos_shift",n+1);
-  k_sin_shift = DAT::tdual_ffloat_1d("DihedralHarmonic::sin_shift",n+1);
+  k_k = DAT::tdual_float_1d("DihedralHarmonic::k",n+1);
+  k_cos_shift = DAT::tdual_float_1d("DihedralHarmonic::cos_shift",n+1);
+  k_sin_shift = DAT::tdual_float_1d("DihedralHarmonic::sin_shift",n+1);
   k_sign = DAT::tdual_int_1d("DihedralHarmonic::sign",n+1);
   k_multiplicity = DAT::tdual_int_1d("DihedralHarmonic::multiplicity",n+1);
 
@@ -410,17 +410,17 @@ template<class DeviceType>
 //template<int NEWTON_BOND>
 KOKKOS_INLINE_FUNCTION
 void DihedralHarmonicKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4,
-                        F_FLOAT &edihedral, F_FLOAT *f1, F_FLOAT *f3, F_FLOAT *f4,
-                        const F_FLOAT &vb1x, const F_FLOAT &vb1y, const F_FLOAT &vb1z,
-                        const F_FLOAT &vb2x, const F_FLOAT &vb2y, const F_FLOAT &vb2z,
-                        const F_FLOAT &vb3x, const F_FLOAT &vb3y, const F_FLOAT &vb3z) const
+                        double &edihedral, double *f1, double *f3, double *f4,
+                        const double &vb1x, const double &vb1y, const double &vb1z,
+                        const double &vb2x, const double &vb2y, const double &vb2z,
+                        const double &vb3x, const double &vb3y, const double &vb3z) const
 {
-  E_FLOAT edihedralquarter;
-  F_FLOAT v[6];
+  double edihedralquarter;
+  double v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<double*, typename DAT::t_float_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<double*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
 
   if (eflag_either) {
     if (eflag_global) {

@@ -162,32 +162,32 @@ void PairCoulLongKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS,  class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairCoulLongKokkos<DeviceType>::
-compute_fcoul(const F_FLOAT& rsq, const int& /*i*/, const int&j,
+double PairCoulLongKokkos<DeviceType>::
+compute_fcoul(const double& rsq, const int& /*i*/, const int&j,
               const int& /*itype*/, const int& /*jtype*/,
-              const F_FLOAT& factor_coul, const F_FLOAT& qtmp) const {
+              const double& factor_coul, const double& qtmp) const {
   if (Specialisation::DoTable && rsq > tabinnersq) {
     union_int_float_t rsq_lookup;
     rsq_lookup.f = rsq;
     const int itable = (rsq_lookup.i & ncoulmask) >> ncoulshiftbits;
-    const F_FLOAT fraction = (rsq_lookup.f - d_rtable[itable]) * d_drtable[itable];
-    const F_FLOAT table = d_ftable[itable] + fraction*d_dftable[itable];
-    F_FLOAT forcecoul = qtmp*q[j] * table;
+    const double fraction = (rsq_lookup.f - d_rtable[itable]) * d_drtable[itable];
+    const double table = d_ftable[itable] + fraction*d_dftable[itable];
+    double forcecoul = qtmp*q[j] * table;
     if (factor_coul < 1.0) {
-      const F_FLOAT table = d_ctable[itable] + fraction*d_dctable[itable];
-      const F_FLOAT prefactor = qtmp*q[j] * table;
+      const double table = d_ctable[itable] + fraction*d_dctable[itable];
+      const double prefactor = qtmp*q[j] * table;
       forcecoul -= (1.0-factor_coul)*prefactor;
     }
     return forcecoul/rsq;
   } else {
-    const F_FLOAT r = sqrt(rsq);
-    const F_FLOAT grij = g_ewald * r;
-    const F_FLOAT expm2 = exp(-grij*grij);
-    const F_FLOAT t = 1.0 / (1.0 + EWALD_P*grij);
-    const F_FLOAT rinv = 1.0/r;
-    const F_FLOAT erfc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * expm2;
-    const F_FLOAT prefactor = qqrd2e * qtmp*q[j]*rinv;
-    F_FLOAT forcecoul = prefactor * (erfc + EWALD_F*grij*expm2);
+    const double r = sqrt(rsq);
+    const double grij = g_ewald * r;
+    const double expm2 = exp(-grij*grij);
+    const double t = 1.0 / (1.0 + EWALD_P*grij);
+    const double rinv = 1.0/r;
+    const double erfc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * expm2;
+    const double prefactor = qqrd2e * qtmp*q[j]*rinv;
+    double forcecoul = prefactor * (erfc + EWALD_F*grij*expm2);
     if (factor_coul < 1.0) forcecoul -= (1.0-factor_coul)*prefactor;
 
     return forcecoul*rinv*rinv;
@@ -201,31 +201,31 @@ compute_fcoul(const F_FLOAT& rsq, const int& /*i*/, const int&j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairCoulLongKokkos<DeviceType>::
-compute_ecoul(const F_FLOAT& rsq, const int& /*i*/, const int&j,
+double PairCoulLongKokkos<DeviceType>::
+compute_ecoul(const double& rsq, const int& /*i*/, const int&j,
               const int& /*itype*/, const int& /*jtype*/,
-              const F_FLOAT& factor_coul, const F_FLOAT& qtmp) const {
+              const double& factor_coul, const double& qtmp) const {
   if (Specialisation::DoTable && rsq > tabinnersq) {
     union_int_float_t rsq_lookup;
     rsq_lookup.f = rsq;
     const int itable = (rsq_lookup.i & ncoulmask) >> ncoulshiftbits;
-    const F_FLOAT fraction = (rsq_lookup.f - d_rtable[itable]) * d_drtable[itable];
-    const F_FLOAT table = d_etable[itable] + fraction*d_detable[itable];
-    F_FLOAT ecoul = qtmp*q[j] * table;
+    const double fraction = (rsq_lookup.f - d_rtable[itable]) * d_drtable[itable];
+    const double table = d_etable[itable] + fraction*d_detable[itable];
+    double ecoul = qtmp*q[j] * table;
     if (factor_coul < 1.0) {
-      const F_FLOAT table = d_ctable[itable] + fraction*d_dctable[itable];
-      const F_FLOAT prefactor = qtmp*q[j] * table;
+      const double table = d_ctable[itable] + fraction*d_dctable[itable];
+      const double prefactor = qtmp*q[j] * table;
       ecoul -= (1.0-factor_coul)*prefactor;
     }
     return ecoul;
   } else {
-    const F_FLOAT r = sqrt(rsq);
-    const F_FLOAT grij = g_ewald * r;
-    const F_FLOAT expm2 = exp(-grij*grij);
-    const F_FLOAT t = 1.0 / (1.0 + EWALD_P*grij);
-    const F_FLOAT erfc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * expm2;
-    const F_FLOAT prefactor = qqrd2e * qtmp*q[j]/r;
-    F_FLOAT ecoul = prefactor * erfc;
+    const double r = sqrt(rsq);
+    const double grij = g_ewald * r;
+    const double expm2 = exp(-grij*grij);
+    const double t = 1.0 / (1.0 + EWALD_P*grij);
+    const double erfc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * expm2;
+    const double prefactor = qqrd2e * qtmp*q[j]/r;
+    double ecoul = prefactor * erfc;
     if (factor_coul < 1.0) ecoul -= (1.0-factor_coul)*prefactor;
     return ecoul;
   }
@@ -246,7 +246,7 @@ void PairCoulLongKokkos<DeviceType>::allocate()
   memoryKK->create_kokkos(k_cutsq,cutsq,n+1,n+1,"pair:cutsq");
   d_cutsq = k_cutsq.template view<DeviceType>();
 
-  d_cut_coulsq = typename AT::t_ffloat_2d("pair:cut_coulsq",n+1,n+1);
+  d_cut_coulsq = typename AT::t_float_2d("pair:cut_coulsq",n+1,n+1);
 
   k_params = Kokkos::DualView<params_coul**,Kokkos::LayoutRight,DeviceType>("PairCoulLong::params",n+1,n+1);
   params = k_params.template view<DeviceType>();
@@ -257,8 +257,8 @@ void PairCoulLongKokkos<DeviceType>::init_tables(double cut_coul, double *cut_re
 {
   Pair::init_tables(cut_coul,cut_respa);
 
-  typedef typename ArrayTypes<DeviceType>::t_ffloat_1d table_type;
-  typedef typename ArrayTypes<LMPHostType>::t_ffloat_1d host_table_type;
+  typedef typename ArrayTypes<DeviceType>::t_float_1d table_type;
+  typedef typename ArrayTypes<LMPHostType>::t_float_1d host_table_type;
 
   int ntable = 1;
   for (int i = 0; i < ncoultablebits; i++) ntable *= 2;

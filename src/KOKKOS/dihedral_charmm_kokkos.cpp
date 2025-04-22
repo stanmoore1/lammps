@@ -90,7 +90,7 @@ void DihedralCharmmKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       memoryKK->destroy_kokkos(k_eatom,eatom);
       memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"dihedral:eatom");
       d_eatom = k_eatom.template view<KKDeviceType>();
-      k_eatom_pair = Kokkos::DualView<E_FLOAT*,Kokkos::LayoutRight,KKDeviceType>("dihedral:eatom_pair",maxeatom);
+      k_eatom_pair = Kokkos::DualView<double*,Kokkos::LayoutRight,KKDeviceType>("dihedral:eatom_pair",maxeatom);
       d_eatom_pair = k_eatom_pair.template view<KKDeviceType>();
     //}
   }
@@ -99,7 +99,7 @@ void DihedralCharmmKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       memoryKK->destroy_kokkos(k_vatom,vatom);
       memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"dihedral:vatom");
       d_vatom = k_vatom.template view<KKDeviceType>();
-      k_vatom_pair = Kokkos::DualView<F_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType>("dihedral:vatom_pair",maxvatom);
+      k_vatom_pair = Kokkos::DualView<double*[6],Kokkos::LayoutRight,KKDeviceType>("dihedral:vatom_pair",maxvatom);
       d_vatom_pair = k_vatom_pair.template view<KKDeviceType>();
     //}
   }
@@ -208,7 +208,7 @@ KOKKOS_INLINE_FUNCTION
 void DihedralCharmmKokkos<DeviceType>::operator()(TagDihedralCharmmCompute<NEWTON_BOND,EVFLAG>, const int &n, EVM_FLOAT& evm) const {
 
   // The f array is atomic
-  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<double*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
 
   const int i1 = dihedrallist(n,0);
   const int i2 = dihedrallist(n,1);
@@ -218,47 +218,47 @@ void DihedralCharmmKokkos<DeviceType>::operator()(TagDihedralCharmmCompute<NEWTO
 
   // 1st bond
 
-  const F_FLOAT vb1x = x(i1,0) - x(i2,0);
-  const F_FLOAT vb1y = x(i1,1) - x(i2,1);
-  const F_FLOAT vb1z = x(i1,2) - x(i2,2);
+  const double vb1x = x(i1,0) - x(i2,0);
+  const double vb1y = x(i1,1) - x(i2,1);
+  const double vb1z = x(i1,2) - x(i2,2);
 
   // 2nd bond
 
-  const F_FLOAT vb2x = x(i3,0) - x(i2,0);
-  const F_FLOAT vb2y = x(i3,1) - x(i2,1);
-  const F_FLOAT vb2z = x(i3,2) - x(i2,2);
+  const double vb2x = x(i3,0) - x(i2,0);
+  const double vb2y = x(i3,1) - x(i2,1);
+  const double vb2z = x(i3,2) - x(i2,2);
 
-  const F_FLOAT vb2xm = -vb2x;
-  const F_FLOAT vb2ym = -vb2y;
-  const F_FLOAT vb2zm = -vb2z;
+  const double vb2xm = -vb2x;
+  const double vb2ym = -vb2y;
+  const double vb2zm = -vb2z;
 
   // 3rd bond
 
-  const F_FLOAT vb3x = x(i4,0) - x(i3,0);
-  const F_FLOAT vb3y = x(i4,1) - x(i3,1);
-  const F_FLOAT vb3z = x(i4,2) - x(i3,2);
+  const double vb3x = x(i4,0) - x(i3,0);
+  const double vb3y = x(i4,1) - x(i3,1);
+  const double vb3z = x(i4,2) - x(i3,2);
 
-  const F_FLOAT ax = vb1y*vb2zm - vb1z*vb2ym;
-  const F_FLOAT ay = vb1z*vb2xm - vb1x*vb2zm;
-  const F_FLOAT az = vb1x*vb2ym - vb1y*vb2xm;
-  const F_FLOAT bx = vb3y*vb2zm - vb3z*vb2ym;
-  const F_FLOAT by = vb3z*vb2xm - vb3x*vb2zm;
-  const F_FLOAT bz = vb3x*vb2ym - vb3y*vb2xm;
+  const double ax = vb1y*vb2zm - vb1z*vb2ym;
+  const double ay = vb1z*vb2xm - vb1x*vb2zm;
+  const double az = vb1x*vb2ym - vb1y*vb2xm;
+  const double bx = vb3y*vb2zm - vb3z*vb2ym;
+  const double by = vb3z*vb2xm - vb3x*vb2zm;
+  const double bz = vb3x*vb2ym - vb3y*vb2xm;
 
-  const F_FLOAT rasq = ax*ax + ay*ay + az*az;
-  const F_FLOAT rbsq = bx*bx + by*by + bz*bz;
-  const F_FLOAT rgsq = vb2xm*vb2xm + vb2ym*vb2ym + vb2zm*vb2zm;
-  const F_FLOAT rg = sqrt(rgsq);
+  const double rasq = ax*ax + ay*ay + az*az;
+  const double rbsq = bx*bx + by*by + bz*bz;
+  const double rgsq = vb2xm*vb2xm + vb2ym*vb2ym + vb2zm*vb2zm;
+  const double rg = sqrt(rgsq);
 
-  F_FLOAT rginv,ra2inv,rb2inv;
+  double rginv,ra2inv,rb2inv;
   rginv = ra2inv = rb2inv = 0.0;
   if (rg > 0) rginv = 1.0/rg;
   if (rasq > 0) ra2inv = 1.0/rasq;
   if (rbsq > 0) rb2inv = 1.0/rbsq;
-  const F_FLOAT rabinv = sqrt(ra2inv*rb2inv);
+  const double rabinv = sqrt(ra2inv*rb2inv);
 
-  F_FLOAT c = (ax*bx + ay*by + az*bz)*rabinv;
-  F_FLOAT s = rg*rabinv*(ax*vb3x + ay*vb3y + az*vb3z);
+  double c = (ax*bx + ay*by + az*bz)*rabinv;
+  double s = rg*rabinv*(ax*vb3x + ay*vb3y + az*vb3z);
 
     // error check
 
@@ -269,8 +269,8 @@ void DihedralCharmmKokkos<DeviceType>::operator()(TagDihedralCharmmCompute<NEWTO
   if (c < -1.0) c = -1.0;
 
   const int m = d_multiplicity[type];
-  F_FLOAT p = 1.0;
-  F_FLOAT ddf1,df1;
+  double p = 1.0;
+  double ddf1,df1;
   ddf1 = df1 = 0.0;
 
   for (int i = 0; i < m; i++) {
@@ -289,33 +289,33 @@ void DihedralCharmmKokkos<DeviceType>::operator()(TagDihedralCharmmCompute<NEWTO
     df1 = 0.0;
   }
 
-  E_FLOAT edihedral = 0.0;
+  double edihedral = 0.0;
   if (eflag) edihedral = d_k[type] * p;
 
-  const F_FLOAT fg = vb1x*vb2xm + vb1y*vb2ym + vb1z*vb2zm;
-  const F_FLOAT hg = vb3x*vb2xm + vb3y*vb2ym + vb3z*vb2zm;
-  const F_FLOAT fga = fg*ra2inv*rginv;
-  const F_FLOAT hgb = hg*rb2inv*rginv;
-  const F_FLOAT gaa = -ra2inv*rg;
-  const F_FLOAT gbb = rb2inv*rg;
+  const double fg = vb1x*vb2xm + vb1y*vb2ym + vb1z*vb2zm;
+  const double hg = vb3x*vb2xm + vb3y*vb2ym + vb3z*vb2zm;
+  const double fga = fg*ra2inv*rginv;
+  const double hgb = hg*rb2inv*rginv;
+  const double gaa = -ra2inv*rg;
+  const double gbb = rb2inv*rg;
 
-  const F_FLOAT dtfx = gaa*ax;
-  const F_FLOAT dtfy = gaa*ay;
-  const F_FLOAT dtfz = gaa*az;
-  const F_FLOAT dtgx = fga*ax - hgb*bx;
-  const F_FLOAT dtgy = fga*ay - hgb*by;
-  const F_FLOAT dtgz = fga*az - hgb*bz;
-  const F_FLOAT dthx = gbb*bx;
-  const F_FLOAT dthy = gbb*by;
-  const F_FLOAT dthz = gbb*bz;
+  const double dtfx = gaa*ax;
+  const double dtfy = gaa*ay;
+  const double dtfz = gaa*az;
+  const double dtgx = fga*ax - hgb*bx;
+  const double dtgy = fga*ay - hgb*by;
+  const double dtgz = fga*az - hgb*bz;
+  const double dthx = gbb*bx;
+  const double dthy = gbb*by;
+  const double dthz = gbb*bz;
 
-  const F_FLOAT df = -d_k[type] * df1;
+  const double df = -d_k[type] * df1;
 
-  const F_FLOAT sx2 = df*dtgx;
-  const F_FLOAT sy2 = df*dtgy;
-  const F_FLOAT sz2 = df*dtgz;
+  const double sx2 = df*dtgx;
+  const double sy2 = df*dtgy;
+  const double sz2 = df*dtgz;
 
-  F_FLOAT f1[3],f2[3],f3[3],f4[3];
+  double f1[3],f2[3],f3[3],f4[3];
   f1[0] = df*dtfx;
   f1[1] = df*dtfy;
   f1[2] = df*dtfz;
@@ -369,21 +369,21 @@ void DihedralCharmmKokkos<DeviceType>::operator()(TagDihedralCharmmCompute<NEWTO
     const int itype = atomtype[i1];
     const int jtype = atomtype[i4];
 
-    const F_FLOAT delx = x(i1,0) - x(i4,0);
-    const F_FLOAT dely = x(i1,1) - x(i4,1);
-    const F_FLOAT delz = x(i1,2) - x(i4,2);
-    const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
-    const F_FLOAT r2inv = 1.0/rsq;
-    const F_FLOAT r6inv = r2inv*r2inv*r2inv;
+    const double delx = x(i1,0) - x(i4,0);
+    const double dely = x(i1,1) - x(i4,1);
+    const double delz = x(i1,2) - x(i4,2);
+    const double rsq = delx*delx + dely*dely + delz*delz;
+    const double r2inv = 1.0/rsq;
+    const double r6inv = r2inv*r2inv*r2inv;
 
-    F_FLOAT forcecoul;
+    double forcecoul;
     if (implicit) forcecoul = qqrd2e * q[i1]*q[i4]*r2inv;
     else forcecoul = qqrd2e * q[i1]*q[i4]*sqrt(r2inv);
-    const F_FLOAT forcelj = r6inv * (d_lj14_1(itype,jtype)*r6inv - d_lj14_2(itype,jtype));
-    const F_FLOAT fpair = d_weight[type] * (forcelj+forcecoul)*r2inv;
+    const double forcelj = r6inv * (d_lj14_1(itype,jtype)*r6inv - d_lj14_2(itype,jtype));
+    const double fpair = d_weight[type] * (forcelj+forcecoul)*r2inv;
 
-    F_FLOAT ecoul = 0.0;
-    F_FLOAT evdwl = 0.0;
+    double ecoul = 0.0;
+    double evdwl = 0.0;
     if (eflag) {
       ecoul = d_weight[type] * forcecoul;
       evdwl = r6inv * (d_lj14_3(itype,jtype)*r6inv - d_lj14_4(itype,jtype));
@@ -431,12 +431,12 @@ void DihedralCharmmKokkos<DeviceType>::coeff(int narg, char **arg)
   DihedralCharmm::coeff(narg, arg);
 
   int nd = atom->ndihedraltypes;
-  typename AT::tdual_ffloat_1d k_k("DihedralCharmm::k",nd+1);
-  typename AT::tdual_ffloat_1d k_multiplicity("DihedralCharmm::multiplicity",nd+1);
-  typename AT::tdual_ffloat_1d k_shift("DihedralCharmm::shift",nd+1);
-  typename AT::tdual_ffloat_1d k_cos_shift("DihedralCharmm::cos_shift",nd+1);
-  typename AT::tdual_ffloat_1d k_sin_shift("DihedralCharmm::sin_shift",nd+1);
-  typename AT::tdual_ffloat_1d k_weight("DihedralCharmm::weight",nd+1);
+  typename AT::tdual_float_1d k_k("DihedralCharmm::k",nd+1);
+  typename AT::tdual_float_1d k_multiplicity("DihedralCharmm::multiplicity",nd+1);
+  typename AT::tdual_float_1d k_shift("DihedralCharmm::shift",nd+1);
+  typename AT::tdual_float_1d k_cos_shift("DihedralCharmm::cos_shift",nd+1);
+  typename AT::tdual_float_1d k_sin_shift("DihedralCharmm::sin_shift",nd+1);
+  typename AT::tdual_float_1d k_weight("DihedralCharmm::weight",nd+1);
 
   d_k = k_k.template view<DeviceType>();
   d_multiplicity = k_multiplicity.template view<DeviceType>();
@@ -480,10 +480,10 @@ void DihedralCharmmKokkos<DeviceType>::init_style()
   DihedralCharmm::init_style();
 
   int n = atom->ntypes;
-  DAT::tdual_ffloat_2d k_lj14_1("DihedralCharmm:lj14_1",n+1,n+1);
-  DAT::tdual_ffloat_2d k_lj14_2("DihedralCharmm:lj14_2",n+1,n+1);
-  DAT::tdual_ffloat_2d k_lj14_3("DihedralCharmm:lj14_3",n+1,n+1);
-  DAT::tdual_ffloat_2d k_lj14_4("DihedralCharmm:lj14_4",n+1,n+1);
+  DAT::tdual_float_2d k_lj14_1("DihedralCharmm:lj14_1",n+1,n+1);
+  DAT::tdual_float_2d k_lj14_2("DihedralCharmm:lj14_2",n+1,n+1);
+  DAT::tdual_float_2d k_lj14_3("DihedralCharmm:lj14_3",n+1,n+1);
+  DAT::tdual_float_2d k_lj14_4("DihedralCharmm:lj14_4",n+1,n+1);
 
   d_lj14_1 = k_lj14_1.template view<DeviceType>();
   d_lj14_2 = k_lj14_2.template view<DeviceType>();
@@ -524,12 +524,12 @@ void DihedralCharmmKokkos<DeviceType>::read_restart(FILE *fp)
   DihedralCharmm::read_restart(fp);
 
   int nd = atom->ndihedraltypes;
-  typename AT::tdual_ffloat_1d k_k("DihedralCharmm::k",nd+1);
-  typename AT::tdual_ffloat_1d k_multiplicity("DihedralCharmm::multiplicity",nd+1);
-  typename AT::tdual_ffloat_1d k_shift("DihedralCharmm::shift",nd+1);
-  typename AT::tdual_ffloat_1d k_cos_shift("DihedralCharmm::cos_shift",nd+1);
-  typename AT::tdual_ffloat_1d k_sin_shift("DihedralCharmm::sin_shift",nd+1);
-  typename AT::tdual_ffloat_1d k_weight("DihedralCharmm::weight",nd+1);
+  typename AT::tdual_float_1d k_k("DihedralCharmm::k",nd+1);
+  typename AT::tdual_float_1d k_multiplicity("DihedralCharmm::multiplicity",nd+1);
+  typename AT::tdual_float_1d k_shift("DihedralCharmm::shift",nd+1);
+  typename AT::tdual_float_1d k_cos_shift("DihedralCharmm::cos_shift",nd+1);
+  typename AT::tdual_float_1d k_sin_shift("DihedralCharmm::sin_shift",nd+1);
+  typename AT::tdual_float_1d k_weight("DihedralCharmm::weight",nd+1);
 
   d_k = k_k.template view<DeviceType>();
   d_multiplicity = k_multiplicity.template view<DeviceType>();
@@ -574,13 +574,13 @@ template<class DeviceType>
 //template<int NEWTON_BOND>
 KOKKOS_INLINE_FUNCTION
 void DihedralCharmmKokkos<DeviceType>::ev_tally(EVM_FLOAT &evm, const int i1, const int i2, const int i3, const int i4,
-                        F_FLOAT &edihedral, F_FLOAT *f1, F_FLOAT *f3, F_FLOAT *f4,
-                        const F_FLOAT &vb1x, const F_FLOAT &vb1y, const F_FLOAT &vb1z,
-                        const F_FLOAT &vb2x, const F_FLOAT &vb2y, const F_FLOAT &vb2z,
-                        const F_FLOAT &vb3x, const F_FLOAT &vb3y, const F_FLOAT &vb3z) const
+                        double &edihedral, double *f1, double *f3, double *f4,
+                        const double &vb1x, const double &vb1y, const double &vb1z,
+                        const double &vb2x, const double &vb2y, const double &vb2z,
+                        const double &vb3x, const double &vb3y, const double &vb3z) const
 {
-  E_FLOAT edihedralquarter;
-  F_FLOAT v[6];
+  double edihedralquarter;
+  double v[6];
 
   if (eflag_either) {
     if (eflag_global) {
@@ -699,11 +699,11 @@ void DihedralCharmmKokkos<DeviceType>::ev_tally(EVM_FLOAT &evm, const int i1, co
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void DihedralCharmmKokkos<DeviceType>::ev_tally(EVM_FLOAT &evm, const int i, const int j,
-      const F_FLOAT &evdwl, const F_FLOAT &ecoul, const F_FLOAT &fpair, const F_FLOAT &delx,
-                const F_FLOAT &dely, const F_FLOAT &delz) const
+      const double &evdwl, const double &ecoul, const double &fpair, const double &delx,
+                const double &dely, const double &delz) const
 {
-  E_FLOAT evdwlhalf,ecoulhalf,epairhalf;
-  F_FLOAT v[6];
+  double evdwlhalf,ecoulhalf,epairhalf;
+  double v[6];
 
 
   if (eflag_either) {

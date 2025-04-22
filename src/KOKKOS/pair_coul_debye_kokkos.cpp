@@ -146,15 +146,15 @@ void PairCoulDebyeKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairCoulDebyeKokkos<DeviceType>::
-compute_fcoul(const F_FLOAT& rsq, const int& /*i*/, const int&j,
-              const int& itype, const int& jtype, const F_FLOAT& factor_coul, const F_FLOAT& qtmp) const {
+double PairCoulDebyeKokkos<DeviceType>::
+compute_fcoul(const double& rsq, const int& /*i*/, const int&j,
+              const int& itype, const int& jtype, const double& factor_coul, const double& qtmp) const {
 
-  const F_FLOAT r2inv = 1.0/rsq;
-  const F_FLOAT rinv = sqrt(r2inv);
-  const F_FLOAT r = 1.0/rinv;
-  const F_FLOAT screening = exp(-kappa*r);
-  F_FLOAT forcecoul;
+  const double r2inv = 1.0/rsq;
+  const double rinv = sqrt(r2inv);
+  const double r = 1.0/rinv;
+  const double screening = exp(-kappa*r);
+  double forcecoul;
 
   forcecoul = qqrd2e * qtmp * q(j) * screening * (kappa + rinv) *
           (STACKPARAMS?m_params[itype][jtype].scale:params(itype,jtype).scale);
@@ -169,14 +169,14 @@ compute_fcoul(const F_FLOAT& rsq, const int& /*i*/, const int&j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairCoulDebyeKokkos<DeviceType>::
-compute_ecoul(const F_FLOAT& rsq, const int& /*i*/, const int&j,
-              const int& itype, const int& jtype, const F_FLOAT& factor_coul, const F_FLOAT& qtmp) const {
+double PairCoulDebyeKokkos<DeviceType>::
+compute_ecoul(const double& rsq, const int& /*i*/, const int&j,
+              const int& itype, const int& jtype, const double& factor_coul, const double& qtmp) const {
 
-  const F_FLOAT r2inv = 1.0/rsq;
-  const F_FLOAT rinv = sqrt(r2inv);
-  const F_FLOAT r = 1.0/rinv;
-  const F_FLOAT screening = exp(-kappa*r);
+  const double r2inv = 1.0/rsq;
+  const double rinv = sqrt(r2inv);
+  const double r = 1.0/rinv;
+  const double screening = exp(-kappa*r);
 
   return factor_coul * qqrd2e * qtmp * q(j) * rinv * screening *
           (STACKPARAMS?m_params[itype][jtype].scale:params(itype,jtype).scale);
@@ -197,9 +197,9 @@ void PairCoulDebyeKokkos<DeviceType>::allocate()
   memoryKK->create_kokkos(k_cutsq,cutsq,n+1,n+1,"pair:cutsq");
   d_cutsq = k_cutsq.template view<DeviceType>();
 
-  k_cut_ljsq = typename ArrayTypes<DeviceType>::tdual_ffloat_2d("pair:cut_ljsq",n+1,n+1);
+  k_cut_ljsq = typename ArrayTypes<DeviceType>::tdual_float_2d("pair:cut_ljsq",n+1,n+1);
   d_cut_ljsq = k_cut_ljsq.template view<DeviceType>();
-  k_cut_coulsq = typename ArrayTypes<DeviceType>::tdual_ffloat_2d("pair:cut_coulsq",n+1,n+1);
+  k_cut_coulsq = typename ArrayTypes<DeviceType>::tdual_float_2d("pair:cut_coulsq",n+1,n+1);
   d_cut_coulsq = k_cut_coulsq.template view<DeviceType>();
 
   k_params = Kokkos::DualView<params_coul**,Kokkos::LayoutRight,DeviceType>("PairCoulDebye::params",n+1,n+1);

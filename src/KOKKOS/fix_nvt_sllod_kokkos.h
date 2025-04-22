@@ -55,9 +55,9 @@ class FixNVTSllodKokkos : public FixNHKokkos<DeviceType> {
   void nh_v_temp() override;
 
  protected:
-  typename AT::t_x_array x;
-  typename AT::t_v_array v;
-  typename AT::t_v_array vdelu;
+  typename AT::t_f_array x;
+  typename AT::t_f_array v;
+  typename AT::t_f_array vdelu;
   typename AT::t_f_array_const f;
   typename AT::t_float_1d rmass;
   typename AT::t_float_1d mass;

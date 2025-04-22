@@ -202,8 +202,8 @@ void PairTableKokkos<DeviceType>::compute_style(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairTableKokkos<DeviceType>::
-compute_fpair(const F_FLOAT &rsq, const int &, const int &, const int &itype, const int &jtype) const {
+double PairTableKokkos<DeviceType>::
+compute_fpair(const double &rsq, const int &, const int &, const int &itype, const int &jtype) const {
   union_int_float_t rsq_lookup;
   double fpair;
   const int tidx = d_table_const.tabindex(itype,jtype);
@@ -234,8 +234,8 @@ compute_fpair(const F_FLOAT &rsq, const int &, const int &, const int &itype, co
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairTableKokkos<DeviceType>::
-compute_evdwl(const F_FLOAT &rsq, const int &, const int &, const int &itype, const int &jtype) const {
+double PairTableKokkos<DeviceType>::
+compute_evdwl(const double &rsq, const int &, const int &, const int &itype, const int &jtype) const {
   double evdwl;
   union_int_float_t rsq_lookup;
   const int tidx = d_table_const.tabindex(itype,jtype);
@@ -468,8 +468,8 @@ void PairTableKokkos<DeviceType>::settings(int narg, char **arg)
     d_table_const.tabindex = d_table->tabindex = typename ArrayTypes<DeviceType>::t_int_2d();
     h_table->tabindex = typename ArrayTypes<LMPHostType>::t_int_2d();
 
-    d_table_const.cutsq = d_table->cutsq = typename ArrayTypes<DeviceType>::t_ffloat_2d();
-    h_table->cutsq = typename ArrayTypes<LMPHostType>::t_ffloat_2d();
+    d_table_const.cutsq = d_table->cutsq = typename ArrayTypes<DeviceType>::t_float_2d();
+    h_table->cutsq = typename ArrayTypes<LMPHostType>::t_float_2d();
   }
   allocated = 0;
 

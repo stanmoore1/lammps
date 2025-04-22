@@ -48,7 +48,7 @@ class FixDtResetKokkos : public FixDtReset {
   void operator()(TagFixDtResetRMass, const int&, double&) const;
 
  private:
-  typename AT::t_v_array v;
+  typename AT::t_f_array v;
   typename AT::t_f_array f;
   typename AT::t_int_1d_randomread mask;
   typename AT::t_int_1d_randomread type;

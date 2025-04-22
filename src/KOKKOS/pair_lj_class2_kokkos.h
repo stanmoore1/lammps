@@ -50,47 +50,47 @@ class PairLJClass2Kokkos : public PairLJClass2 {
     params_lj() {cutsq=0,lj1=0;lj2=0;lj3=0;lj4=0;offset=0;};
     KOKKOS_INLINE_FUNCTION
     params_lj(int /*i*/) {cutsq=0,lj1=0;lj2=0;lj3=0;lj4=0;offset=0;};
-    F_FLOAT cutsq,lj1,lj2,lj3,lj4,offset;
+    double cutsq,lj1,lj2,lj3,lj4,offset;
   };
 
  protected:
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT compute_fpair(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
+  double compute_fpair(const double& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT compute_evdwl(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
+  double compute_evdwl(const double& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT compute_ecoul(const F_FLOAT& /*rsq*/, const int& /*i*/, const int& /*j*/,
+  double compute_ecoul(const double& /*rsq*/, const int& /*i*/, const int& /*j*/,
                         const int& /*itype*/, const int& /*jtype*/) const { return 0; }
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT compute_fcoul(const F_FLOAT& /*rsq*/, const int& /*i*/, const int& /*j*/, const int& /*itype*/,
-                        const int& /*jtype*/, const F_FLOAT& /*factor_coul*/, const F_FLOAT& /*qtmp*/) const { return 0; }
+  double compute_fcoul(const double& /*rsq*/, const int& /*i*/, const int& /*j*/, const int& /*itype*/,
+                        const int& /*jtype*/, const double& /*factor_coul*/, const double& /*qtmp*/) const { return 0; }
 
   Kokkos::DualView<params_lj**,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_lj**,Kokkos::LayoutRight,DeviceType>::t_dev_const_um params;
   params_lj m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];  // hardwired to space for 12 atom types
-  F_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename AT::t_x_array_randomread x;
-  typename AT::t_x_array c_x;
+  double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  typename AT::t_f_array_randomread x;
+  typename AT::t_f_array c_x;
   typename AT::t_f_array f;
   typename AT::t_int_1d_randomread type;
 
-  DAT::tdual_efloat_1d k_eatom;
+  DAT::tdual_float_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename AT::t_efloat_1d d_eatom;
+  typename AT::t_float_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
   int newton_pair;
   double special_lj[4];
 
-  typename AT::tdual_ffloat_2d k_cutsq;
-  typename AT::t_ffloat_2d d_cutsq;
+  typename AT::tdual_float_2d k_cutsq;
+  typename AT::t_float_2d d_cutsq;
 
   int neighflag;
   int nlocal,nall,eflag,vflag;

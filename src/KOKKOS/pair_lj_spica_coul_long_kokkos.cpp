@@ -167,20 +167,20 @@ void PairLJSPICACoulLongKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJSPICACoulLongKokkos<DeviceType>::
-compute_fpair(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const {
+double PairLJSPICACoulLongKokkos<DeviceType>::
+compute_fpair(const double& rsq, const int& i, const int&j, const int& itype, const int& jtype) const {
   (void) i;
   (void) j;
-  const F_FLOAT r2inv = 1.0/rsq;
+  const double r2inv = 1.0/rsq;
   const int ljt = (STACKPARAMS?m_params[itype][jtype].lj_type:params(itype,jtype).lj_type);
 
-  const F_FLOAT lj_1 =  (STACKPARAMS?m_params[itype][jtype].lj1:params(itype,jtype).lj1);
-  const F_FLOAT lj_2 =  (STACKPARAMS?m_params[itype][jtype].lj2:params(itype,jtype).lj2);
+  const double lj_1 =  (STACKPARAMS?m_params[itype][jtype].lj1:params(itype,jtype).lj1);
+  const double lj_2 =  (STACKPARAMS?m_params[itype][jtype].lj2:params(itype,jtype).lj2);
 
-  const F_FLOAT r4inv=r2inv*r2inv;
-  const F_FLOAT r6inv=r2inv*r4inv;
-  const F_FLOAT a = ljt==LJ12_4?r4inv:(ljt==LJ12_5?r4inv*sqrt(r2inv):r6inv);
-  const F_FLOAT b = ljt==LJ12_4?r4inv:(ljt==LJ9_6?1.0/sqrt(r2inv):(ljt==LJ12_5?r2inv*sqrt(r2inv):r2inv));
+  const double r4inv=r2inv*r2inv;
+  const double r6inv=r2inv*r4inv;
+  const double a = ljt==LJ12_4?r4inv:(ljt==LJ12_5?r4inv*sqrt(r2inv):r6inv);
+  const double b = ljt==LJ12_4?r4inv:(ljt==LJ9_6?1.0/sqrt(r2inv):(ljt==LJ12_5?r2inv*sqrt(r2inv):r2inv));
   return a* ( lj_1*r6inv*b - lj_2 * r2inv);
 }
 
@@ -191,30 +191,30 @@ compute_fpair(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, c
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJSPICACoulLongKokkos<DeviceType>::
-compute_evdwl(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const {
+double PairLJSPICACoulLongKokkos<DeviceType>::
+compute_evdwl(const double& rsq, const int& i, const int&j, const int& itype, const int& jtype) const {
   (void) i;
   (void) j;
-  const F_FLOAT r2inv = 1.0/rsq;
+  const double r2inv = 1.0/rsq;
   const int ljt = (STACKPARAMS?m_params[itype][jtype].lj_type:params(itype,jtype).lj_type);
 
-  const F_FLOAT lj_3 =  (STACKPARAMS?m_params[itype][jtype].lj3:params(itype,jtype).lj3);
-  const F_FLOAT lj_4 =  (STACKPARAMS?m_params[itype][jtype].lj4:params(itype,jtype).lj4);
-  const F_FLOAT offset =  (STACKPARAMS?m_params[itype][jtype].offset:params(itype,jtype).offset);
+  const double lj_3 =  (STACKPARAMS?m_params[itype][jtype].lj3:params(itype,jtype).lj3);
+  const double lj_4 =  (STACKPARAMS?m_params[itype][jtype].lj4:params(itype,jtype).lj4);
+  const double offset =  (STACKPARAMS?m_params[itype][jtype].offset:params(itype,jtype).offset);
 
   if (ljt == LJ12_4) {
-    const F_FLOAT r4inv=r2inv*r2inv;
+    const double r4inv=r2inv*r2inv;
     return r4inv*(lj_3*r4inv*r4inv - lj_4) - offset;
   } else if (ljt == LJ9_6) {
-    const F_FLOAT r3inv = r2inv*sqrt(r2inv);
-    const F_FLOAT r6inv = r3inv*r3inv;
+    const double r3inv = r2inv*sqrt(r2inv);
+    const double r6inv = r3inv*r3inv;
     return r6inv*(lj_3*r3inv - lj_4) - offset;
   } else if (ljt == LJ12_6) {
     const double r6inv = r2inv*r2inv*r2inv;
     return r6inv*(lj_3*r6inv - lj_4) - offset;
   } else if (ljt == LJ12_5) {
-    const F_FLOAT r5inv = r2inv*r2inv*sqrt(r2inv);
-    const F_FLOAT r7inv = r5inv*r2inv;
+    const double r5inv = r2inv*r2inv*sqrt(r2inv);
+    const double r7inv = r5inv*r2inv;
     return r5inv*(lj_3*r7inv - lj_4) - offset;
   } else
     return 0.0;
@@ -227,33 +227,33 @@ compute_evdwl(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, c
 template<class DeviceType>
 template<bool STACKPARAMS,  class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJSPICACoulLongKokkos<DeviceType>::
-compute_fcoul(const F_FLOAT& rsq, const int& /*i*/, const int&j,
+double PairLJSPICACoulLongKokkos<DeviceType>::
+compute_fcoul(const double& rsq, const int& /*i*/, const int&j,
               const int& /*itype*/, const int& /*jtype*/,
-              const F_FLOAT& factor_coul, const F_FLOAT& qtmp) const {
+              const double& factor_coul, const double& qtmp) const {
 
   if (Specialisation::DoTable && rsq > tabinnersq) {
     union_int_float_t rsq_lookup;
     rsq_lookup.f = rsq;
     const int itable = (rsq_lookup.i & ncoulmask) >> ncoulshiftbits;
-    const F_FLOAT fraction = (rsq_lookup.f - d_rtable[itable]) * d_drtable[itable];
-    const F_FLOAT table = d_ftable[itable] + fraction*d_dftable[itable];
-    F_FLOAT forcecoul = qtmp*q[j] * table;
+    const double fraction = (rsq_lookup.f - d_rtable[itable]) * d_drtable[itable];
+    const double table = d_ftable[itable] + fraction*d_dftable[itable];
+    double forcecoul = qtmp*q[j] * table;
     if (factor_coul < 1.0) {
-      const F_FLOAT table = d_ctable[itable] + fraction*d_dctable[itable];
-      const F_FLOAT prefactor = qtmp*q[j] * table;
+      const double table = d_ctable[itable] + fraction*d_dctable[itable];
+      const double prefactor = qtmp*q[j] * table;
       forcecoul -= (1.0-factor_coul)*prefactor;
     }
     return forcecoul/rsq;
   } else {
-    const F_FLOAT r = sqrt(rsq);
-    const F_FLOAT grij = g_ewald * r;
-    const F_FLOAT expm2 = exp(-grij*grij);
-    const F_FLOAT t = 1.0 / (1.0 + EWALD_P*grij);
-    const F_FLOAT rinv = 1.0/r;
-    const F_FLOAT erfc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * expm2;
-    const F_FLOAT prefactor = qqrd2e * qtmp*q[j]*rinv;
-    F_FLOAT forcecoul = prefactor * (erfc + EWALD_F*grij*expm2);
+    const double r = sqrt(rsq);
+    const double grij = g_ewald * r;
+    const double expm2 = exp(-grij*grij);
+    const double t = 1.0 / (1.0 + EWALD_P*grij);
+    const double rinv = 1.0/r;
+    const double erfc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * expm2;
+    const double prefactor = qqrd2e * qtmp*q[j]*rinv;
+    double forcecoul = prefactor * (erfc + EWALD_F*grij*expm2);
     if (factor_coul < 1.0) forcecoul -= (1.0-factor_coul)*prefactor;
 
     return forcecoul*rinv*rinv;
@@ -267,30 +267,30 @@ compute_fcoul(const F_FLOAT& rsq, const int& /*i*/, const int&j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJSPICACoulLongKokkos<DeviceType>::
-compute_ecoul(const F_FLOAT& rsq, const int& /*i*/, const int&j,
-              const int& /*itype*/, const int& /*jtype*/, const F_FLOAT& factor_coul, const F_FLOAT& qtmp) const {
+double PairLJSPICACoulLongKokkos<DeviceType>::
+compute_ecoul(const double& rsq, const int& /*i*/, const int&j,
+              const int& /*itype*/, const int& /*jtype*/, const double& factor_coul, const double& qtmp) const {
   if (Specialisation::DoTable && rsq > tabinnersq) {
     union_int_float_t rsq_lookup;
     rsq_lookup.f = rsq;
     const int itable = (rsq_lookup.i & ncoulmask) >> ncoulshiftbits;
-    const F_FLOAT fraction = (rsq_lookup.f - d_rtable[itable]) * d_drtable[itable];
-    const F_FLOAT table = d_etable[itable] + fraction*d_detable[itable];
-    F_FLOAT ecoul = qtmp*q[j] * table;
+    const double fraction = (rsq_lookup.f - d_rtable[itable]) * d_drtable[itable];
+    const double table = d_etable[itable] + fraction*d_detable[itable];
+    double ecoul = qtmp*q[j] * table;
     if (factor_coul < 1.0) {
-      const F_FLOAT table = d_ctable[itable] + fraction*d_dctable[itable];
-      const F_FLOAT prefactor = qtmp*q[j] * table;
+      const double table = d_ctable[itable] + fraction*d_dctable[itable];
+      const double prefactor = qtmp*q[j] * table;
       ecoul -= (1.0-factor_coul)*prefactor;
     }
     return ecoul;
   } else {
-    const F_FLOAT r = sqrt(rsq);
-    const F_FLOAT grij = g_ewald * r;
-    const F_FLOAT expm2 = exp(-grij*grij);
-    const F_FLOAT t = 1.0 / (1.0 + EWALD_P*grij);
-    const F_FLOAT erfc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * expm2;
-    const F_FLOAT prefactor = qqrd2e * qtmp*q[j]/r;
-    F_FLOAT ecoul = prefactor * erfc;
+    const double r = sqrt(rsq);
+    const double grij = g_ewald * r;
+    const double expm2 = exp(-grij*grij);
+    const double t = 1.0 / (1.0 + EWALD_P*grij);
+    const double erfc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * expm2;
+    const double prefactor = qqrd2e * qtmp*q[j]/r;
+    double ecoul = prefactor * erfc;
     if (factor_coul < 1.0) ecoul -= (1.0-factor_coul)*prefactor;
     return ecoul;
   }
@@ -314,7 +314,7 @@ void PairLJSPICACoulLongKokkos<DeviceType>::allocate()
   memoryKK->create_kokkos(k_cut_ljsq,cut_ljsq,n+1,n+1,"pair:cut_ljsq");
   d_cut_ljsq = k_cut_ljsq.template view<DeviceType>();
 
-  d_cut_coulsq = typename AT::t_ffloat_2d("pair:cut_coulsq",n+1,n+1);
+  d_cut_coulsq = typename AT::t_float_2d("pair:cut_coulsq",n+1,n+1);
 
   k_params = Kokkos::DualView<params_lj_spica_coul**,Kokkos::LayoutRight,DeviceType>("PairLJSPICACoulLong::params",n+1,n+1);
   params = k_params.template view<DeviceType>();
@@ -329,8 +329,8 @@ void PairLJSPICACoulLongKokkos<DeviceType>::init_tables(double cut_coul, double 
 {
   Pair::init_tables(cut_coul,cut_respa);
 
-  typedef typename ArrayTypes<DeviceType>::t_ffloat_1d table_type;
-  typedef typename ArrayTypes<LMPHostType>::t_ffloat_1d host_table_type;
+  typedef typename ArrayTypes<DeviceType>::t_float_1d table_type;
+  typedef typename ArrayTypes<LMPHostType>::t_float_1d host_table_type;
 
   int ntable = 1;
   for (int i = 0; i < ncoultablebits; i++) ntable *= 2;

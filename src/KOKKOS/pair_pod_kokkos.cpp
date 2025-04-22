@@ -1694,7 +1694,7 @@ void PairPODKokkos<DeviceType>::tallyenergy(t_pod_1d l_ei, int istart, int Ni)
   // For global energy tally
   if (eflag_global) {
     double local_eng_vdwl = 0.0;
-    Kokkos::parallel_reduce("GlobalEnergyTally", Kokkos::RangePolicy<DeviceType>(0,Ni), KOKKOS_LAMBDA(int k, E_FLOAT& update) {
+    Kokkos::parallel_reduce("GlobalEnergyTally", Kokkos::RangePolicy<DeviceType>(0,Ni), KOKKOS_LAMBDA(int k, double& update) {
       update += l_ei(k);
     }, local_eng_vdwl);
 
@@ -1717,30 +1717,30 @@ void PairPODKokkos<DeviceType>::tallystress(t_pod_1d l_fij, t_pod_1d l_rij, t_po
 
   if (vflag_global) {
     for (int j=0; j<3; j++) {
-      F_FLOAT sum = 0.0;
-      Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, F_FLOAT& update) {
+      double sum = 0.0;
+      Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, double& update) {
         int k3 = 3*k;
         update += l_rij(j + k3) * l_fij(j + k3);
       }, sum);
       virial[j] -= sum;
     }
 
-    F_FLOAT sum = 0.0;
-    Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, F_FLOAT& update) {
+    double sum = 0.0;
+    Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, double& update) {
       int k3 = 3*k;
       update += l_rij(k3) * l_fij(1 + k3);
     }, sum);
     virial[3] -= sum;
 
     sum = 0.0;
-    Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, F_FLOAT& update) {
+    Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, double& update) {
       int k3 = 3*k;
       update += l_rij(k3) * l_fij(2 + k3);
     }, sum);
     virial[4] -= sum;
 
     sum = 0.0;
-    Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, F_FLOAT& update) {
+    Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, double& update) {
       int k3 = 3*k;
       update += l_rij(1+k3) * l_fij(2+k3);
     }, sum);

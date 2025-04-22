@@ -100,8 +100,8 @@ void PairEAMAlloyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (atom->nmax > nmax) {
     nmax = atom->nmax;
-    k_rho = DAT::tdual_ffloat_1d("pair:rho",nmax);
-    k_fp = DAT::tdual_ffloat_1d("pair:fp",nmax);
+    k_rho = DAT::tdual_float_1d("pair:rho",nmax);
+    k_fp = DAT::tdual_float_1d("pair:fp",nmax);
     d_rho = k_rho.template view<DeviceType>();
     d_fp = k_fp.template view<DeviceType>();
     h_rho = k_rho.h_view;
@@ -385,13 +385,13 @@ void PairEAMAlloyKokkos<DeviceType>::array2spline()
   rdr = 1.0/dr;
   rdrho = 1.0/drho;
 
-  tdual_ffloat_2d_n7 k_frho_spline = tdual_ffloat_2d_n7("pair:frho",nfrho,nrho+1);
-  tdual_ffloat_2d_n7 k_rhor_spline = tdual_ffloat_2d_n7("pair:rhor",nrhor,nr+1);
-  tdual_ffloat_2d_n7 k_z2r_spline = tdual_ffloat_2d_n7("pair:z2r",nz2r,nr+1);
+  tdual_float_2d_n7 k_frho_spline = tdual_float_2d_n7("pair:frho",nfrho,nrho+1);
+  tdual_float_2d_n7 k_rhor_spline = tdual_float_2d_n7("pair:rhor",nrhor,nr+1);
+  tdual_float_2d_n7 k_z2r_spline = tdual_float_2d_n7("pair:z2r",nz2r,nr+1);
 
-  t_host_ffloat_2d_n7 h_frho_spline = k_frho_spline.h_view;
-  t_host_ffloat_2d_n7 h_rhor_spline = k_rhor_spline.h_view;
-  t_host_ffloat_2d_n7 h_z2r_spline = k_z2r_spline.h_view;
+  t_host_float_2d_n7 h_frho_spline = k_frho_spline.h_view;
+  t_host_float_2d_n7 h_rhor_spline = k_rhor_spline.h_view;
+  t_host_float_2d_n7 h_z2r_spline = k_z2r_spline.h_view;
 
   for (int i = 0; i < nfrho; i++)
     interpolate(nrho,drho,frho[i],h_frho_spline,i);
@@ -416,7 +416,7 @@ void PairEAMAlloyKokkos<DeviceType>::array2spline()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairEAMAlloyKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_host_ffloat_2d_n7 h_spline, int i)
+void PairEAMAlloyKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_host_float_2d_n7 h_spline, int i)
 {
   for (int m = 1; m <= n; m++) h_spline(i,m,6) = f[m];
 
@@ -450,7 +450,7 @@ void PairEAMAlloyKokkos<DeviceType>::interpolate(int n, double delta, double *f,
 
 template<class DeviceType>
 int PairEAMAlloyKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                                                             DAT::tdual_xfloat_1d &buf,
+                                                             DAT::tdual_float_1d &buf,
                                                              int /*pbc_flag*/, int * /*pbc*/)
 {
   d_sendlist = k_sendlist.view<DeviceType>();
@@ -469,7 +469,7 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyPackForwardComm, 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairEAMAlloyKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_xfloat_1d &buf)
+void PairEAMAlloyKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_float_1d &buf)
 {
   first = first_in;
   v_buf = buf.view<DeviceType>();
@@ -571,26 +571,26 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelA<NEIGHFLAG
   auto a_rho = v_rho.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   const int i = d_ilist[ii];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
   const int itype = type(i);
 
   const int jnum = d_numneigh[i];
 
-  F_FLOAT rhotmp = 0.0;
+  double rhotmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
     j &= NEIGHMASK;
-    const X_FLOAT delx = xtmp - x(j,0);
-    const X_FLOAT dely = ytmp - x(j,1);
-    const X_FLOAT delz = ztmp - x(j,2);
+    const double delx = xtmp - x(j,0);
+    const double dely = ytmp - x(j,1);
+    const double delz = ztmp - x(j,2);
     const int jtype = type(j);
-    const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+    const double rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq < cutforcesq) {
-      F_FLOAT p = sqrt(rsq)*rdr + 1.0;
+      double p = sqrt(rsq)*rdr + 1.0;
       int m = static_cast<int> (p);
       m = MIN(m,nr-1);
       p -= m;
@@ -625,7 +625,7 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelB<EFLAG>, c
   const int i = d_ilist[ii];
   const int itype = type(i);
 
-  F_FLOAT p = d_rho[i]*rdrho + 1.0;
+  double p = d_rho[i]*rdrho + 1.0;
   int m = static_cast<int> (p);
   m = MAX(1,MIN(m,nrho-1));
   p -= m;
@@ -633,7 +633,7 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelB<EFLAG>, c
   const int d_type2frho_i = d_type2frho[itype];
   d_fp[i] = (d_frho_spline(d_type2frho_i,m,0)*p + d_frho_spline(d_type2frho_i,m,1))*p + d_frho_spline(d_type2frho_i,m,2);
   if (EFLAG) {
-    F_FLOAT phi = ((d_frho_spline(d_type2frho_i,m,3)*p + d_frho_spline(d_type2frho_i,m,4))*p +
+    double phi = ((d_frho_spline(d_type2frho_i,m,3)*p + d_frho_spline(d_type2frho_i,m,4))*p +
                     d_frho_spline(d_type2frho_i,m,5))*p + d_frho_spline(d_type2frho_i,m,6);
     if (d_rho[i] > rhomax) phi += d_fp[i] * (d_rho[i]-rhomax);
     if (eflag_global) ev.evdwl += phi;
@@ -661,27 +661,27 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelAB<EFLAG>, 
   // loop over neighbors of my atoms
 
   const int i = d_ilist[ii];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
   const int itype = type(i);
 
   const int jnum = d_numneigh[i];
 
-  F_FLOAT rhotmp = 0.0;
+  double rhotmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
     j &= NEIGHMASK;
 
-    const X_FLOAT delx = xtmp - x(j,0);
-    const X_FLOAT dely = ytmp - x(j,1);
-    const X_FLOAT delz = ztmp - x(j,2);
+    const double delx = xtmp - x(j,0);
+    const double dely = ytmp - x(j,1);
+    const double delz = ztmp - x(j,2);
     const int jtype = type(j);
-    const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+    const double rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq < cutforcesq) {
-      F_FLOAT p = sqrt(rsq)*rdr + 1.0;
+      double p = sqrt(rsq)*rdr + 1.0;
       int m = static_cast<int> (p);
       m = MIN(m,nr-1);
       p -= m;
@@ -699,7 +699,7 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelAB<EFLAG>, 
   // if rho > rhomax (e.g. due to close approach of two atoms),
   //   will exceed table, so add linear term to conserve energy
 
-  F_FLOAT p = d_rho[i]*rdrho + 1.0;
+  double p = d_rho[i]*rdrho + 1.0;
   int m = static_cast<int> (p);
   m = MAX(1,MIN(m,nrho-1));
   p -= m;
@@ -707,7 +707,7 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelAB<EFLAG>, 
   const int d_type2frho_i = d_type2frho[itype];
   d_fp[i] = (d_frho_spline(d_type2frho_i,m,0)*p + d_frho_spline(d_type2frho_i,m,1))*p + d_frho_spline(d_type2frho_i,m,2);
   if (EFLAG) {
-    F_FLOAT phi = ((d_frho_spline(d_type2frho_i,m,3)*p + d_frho_spline(d_type2frho_i,m,4))*p +
+    double phi = ((d_frho_spline(d_type2frho_i,m,3)*p + d_frho_spline(d_type2frho_i,m,4))*p +
                     d_frho_spline(d_type2frho_i,m,5))*p + d_frho_spline(d_type2frho_i,m,6);
     if (d_rho[i] > rhomax) phi += d_fp[i] * (d_rho[i]-rhomax);
     if (eflag_global) ev.evdwl += phi;
@@ -738,29 +738,29 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelC<NEIGHFLAG
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   const int i = d_ilist[ii];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
   const int itype = type(i);
 
   const int jnum = d_numneigh[i];
 
-  F_FLOAT fxtmp = 0.0;
-  F_FLOAT fytmp = 0.0;
-  F_FLOAT fztmp = 0.0;
+  double fxtmp = 0.0;
+  double fytmp = 0.0;
+  double fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
     j &= NEIGHMASK;
-    const X_FLOAT delx = xtmp - x(j,0);
-    const X_FLOAT dely = ytmp - x(j,1);
-    const X_FLOAT delz = ztmp - x(j,2);
+    const double delx = xtmp - x(j,0);
+    const double dely = ytmp - x(j,1);
+    const double delz = ztmp - x(j,2);
     const int jtype = type(j);
-    const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+    const double rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq < cutforcesq) {
-      const F_FLOAT r = sqrt(rsq);
-      F_FLOAT p = r*rdr + 1.0;
+      const double r = sqrt(rsq);
+      double p = r*rdr + 1.0;
       int m = static_cast<int> (p);
       m = MIN(m,nr-1);
       p -= m;
@@ -777,10 +777,10 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelC<NEIGHFLAG
       //   hence embed' = Fi(sum rho_ij) rhojp + Fj(sum rho_ji) rhoip
 
       const int d_type2rhor_ij = d_type2rhor(itype,jtype);
-      const F_FLOAT rhoip = (d_rhor_spline(d_type2rhor_ij,m,0)*p + d_rhor_spline(d_type2rhor_ij,m,1))*p +
+      const double rhoip = (d_rhor_spline(d_type2rhor_ij,m,0)*p + d_rhor_spline(d_type2rhor_ij,m,1))*p +
                              d_rhor_spline(d_type2rhor_ij,m,2);
       const int d_type2rhor_ji = d_type2rhor(jtype,itype);
-      const F_FLOAT rhojp = (d_rhor_spline(d_type2rhor_ji,m,0)*p + d_rhor_spline(d_type2rhor_ji,m,1))*p +
+      const double rhojp = (d_rhor_spline(d_type2rhor_ji,m,0)*p + d_rhor_spline(d_type2rhor_ji,m,1))*p +
                              d_rhor_spline(d_type2rhor_ji,m,2);
       const int d_type2z2r_ij = d_type2z2r(itype,jtype);
 
@@ -789,16 +789,16 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelC<NEIGHFLAG
       const auto z2r_spline_5 = d_z2r_spline(d_type2z2r_ij,m,5);
       const auto z2r_spline_6 = d_z2r_spline(d_type2z2r_ij,m,6);
 
-      const F_FLOAT z2p = (3.0*rdr*z2r_spline_3*p + 2.0*rdr*z2r_spline_4)*p +
+      const double z2p = (3.0*rdr*z2r_spline_3*p + 2.0*rdr*z2r_spline_4)*p +
                            rdr*z2r_spline_5; // the rdr and the factors of 3.0 and 2.0 come out of the interpolate function
-      const F_FLOAT z2 = ((z2r_spline_3*p + z2r_spline_4)*p +
+      const double z2 = ((z2r_spline_3*p + z2r_spline_4)*p +
                            z2r_spline_5)*p + z2r_spline_6;
 
-      const F_FLOAT recip = 1.0/r;
-      const F_FLOAT phi = z2*recip;
-      const F_FLOAT phip = z2p*recip - phi*recip;
-      const F_FLOAT psip = d_fp[i]*rhojp + d_fp[j]*rhoip + phip;
-      const F_FLOAT fpair = -psip*recip;
+      const double recip = 1.0/r;
+      const double phi = z2*recip;
+      const double phip = z2p*recip - phi*recip;
+      const double psip = d_fp[i]*rhojp + d_fp[j]*rhoip + phip;
+      const double fpair = -psip*recip;
 
       fxtmp += delx*fpair;
       fytmp += dely*fpair;
@@ -847,9 +847,9 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelAB<EFLAG>,
   // rho = density at each atom
   // loop over neighbors of my atoms
   const int m_max = d_rhor_spline.extent_int(1);
-  const int j_max = t_ffloat_2d_n7::static_extent(2);
+  const int j_max = t_float_2d_n7::static_extent(2);
   const int d_rhor_spline_cached = (m_max > MAX_CACHE_ROWS) ? 0 : 1;
-  Kokkos::View<double*[t_ffloat_2d_n7::static_extent(2)], typename DeviceType::scratch_memory_space,
+  Kokkos::View<double*[t_float_2d_n7::static_extent(2)], typename DeviceType::scratch_memory_space,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>> A(team_member.team_scratch(0), MAX_CACHE_ROWS);
 
   if (d_rhor_spline_cached) {
@@ -862,27 +862,27 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelAB<EFLAG>,
   }
   if (ii < inum) {
     const int i = d_ilist[ii];
-    const X_FLOAT xtmp = x(i,0);
-    const X_FLOAT ytmp = x(i,1);
-    const X_FLOAT ztmp = x(i,2);
+    const double xtmp = x(i,0);
+    const double ytmp = x(i,1);
+    const double ztmp = x(i,2);
     const int itype = type(i);
 
     const int jnum = d_numneigh[i];
 
-    F_FLOAT rhotmp = 0.0;
+    double rhotmp = 0.0;
 
     for (int jj = 0; jj < jnum; jj++) {
       int j = d_neighbors(i,jj);
       j &= NEIGHMASK;
 
-      const X_FLOAT delx = xtmp - x(j,0);
-      const X_FLOAT dely = ytmp - x(j,1);
-      const X_FLOAT delz = ztmp - x(j,2);
+      const double delx = xtmp - x(j,0);
+      const double dely = ytmp - x(j,1);
+      const double delz = ztmp - x(j,2);
       const int jtype = type(j);
-      const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+      const double rsq = delx*delx + dely*dely + delz*delz;
 
       if (rsq < cutforcesq) {
-        F_FLOAT p = sqrt(rsq)*rdr + 1.0;
+        double p = sqrt(rsq)*rdr + 1.0;
         int m = static_cast<int> (p);
         m = MIN(m,nr-1);
         p -= m;
@@ -904,7 +904,7 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelAB<EFLAG>,
     // if rho > rhomax (e.g. due to close approach of two atoms),
     //   will exceed table, so add linear term to conserve energy
 
-    F_FLOAT p = d_rho[i]*rdrho + 1.0;
+    double p = d_rho[i]*rdrho + 1.0;
     int m = static_cast<int> (p);
     m = MAX(1,MIN(m,nrho-1));
     p -= m;
@@ -912,7 +912,7 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelAB<EFLAG>,
     const int d_type2frho_i = d_type2frho[itype];
     d_fp[i] = (d_frho_spline(d_type2frho_i,m,0)*p + d_frho_spline(d_type2frho_i,m,1))*p + d_frho_spline(d_type2frho_i,m,2);
     if (EFLAG) {
-      F_FLOAT phi = ((d_frho_spline(d_type2frho_i,m,3)*p + d_frho_spline(d_type2frho_i,m,4))*p +
+      double phi = ((d_frho_spline(d_type2frho_i,m,3)*p + d_frho_spline(d_type2frho_i,m,4))*p +
                       d_frho_spline(d_type2frho_i,m,5))*p + d_frho_spline(d_type2frho_i,m,6);
       if (d_rho[i] > rhomax) phi += d_fp[i] * (d_rho[i]-rhomax);
       if (eflag_global) ev.evdwl += phi;
@@ -948,9 +948,9 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelC<NEIGHFLAG
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   const int m_max = d_z2r_spline.extent_int(1);
-  const int j_max = t_ffloat_2d_n7::static_extent(2);
+  const int j_max = t_float_2d_n7::static_extent(2);
   const int d_z2r_spline_cached = (m_max > MAX_CACHE_ROWS) ? 0 : 1;
-  Kokkos::View<double*[t_ffloat_2d_n7::static_extent(2)], typename DeviceType::scratch_memory_space,
+  Kokkos::View<double*[t_float_2d_n7::static_extent(2)], typename DeviceType::scratch_memory_space,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>> A(team_member.team_scratch(0), MAX_CACHE_ROWS);
 
   if (d_z2r_spline_cached) {
@@ -963,29 +963,29 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelC<NEIGHFLAG
   }
   if (ii < inum) {
     const int i = d_ilist[ii];
-    const X_FLOAT xtmp = x(i,0);
-    const X_FLOAT ytmp = x(i,1);
-    const X_FLOAT ztmp = x(i,2);
+    const double xtmp = x(i,0);
+    const double ytmp = x(i,1);
+    const double ztmp = x(i,2);
     const int itype = type(i);
 
     const int jnum = d_numneigh[i];
 
-    F_FLOAT fxtmp = 0.0;
-    F_FLOAT fytmp = 0.0;
-    F_FLOAT fztmp = 0.0;
+    double fxtmp = 0.0;
+    double fytmp = 0.0;
+    double fztmp = 0.0;
 
     for (int jj = 0; jj < jnum; jj++) {
       int j = d_neighbors(i,jj);
       j &= NEIGHMASK;
-      const X_FLOAT delx = xtmp - x(j,0);
-      const X_FLOAT dely = ytmp - x(j,1);
-      const X_FLOAT delz = ztmp - x(j,2);
+      const double delx = xtmp - x(j,0);
+      const double dely = ytmp - x(j,1);
+      const double delz = ztmp - x(j,2);
       const int jtype = type(j);
-      const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+      const double rsq = delx*delx + dely*dely + delz*delz;
 
       if (rsq < cutforcesq) {
-        const F_FLOAT r = sqrt(rsq);
-        F_FLOAT p = r*rdr + 1.0;
+        const double r = sqrt(rsq);
+        double p = r*rdr + 1.0;
         int m = static_cast<int> (p);
         m = MIN(m,nr-1);
         p -= m;
@@ -1002,10 +1002,10 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelC<NEIGHFLAG
         //   hence embed' = Fi(sum rho_ij) rhojp + Fj(sum rho_ji) rhoip
 
         const int d_type2rhor_ij = d_type2rhor(itype,jtype);
-        const F_FLOAT rhoip = (d_rhor_spline(d_type2rhor_ij,m,0)*p + d_rhor_spline(d_type2rhor_ij,m,1))*p +
+        const double rhoip = (d_rhor_spline(d_type2rhor_ij,m,0)*p + d_rhor_spline(d_type2rhor_ij,m,1))*p +
                              d_rhor_spline(d_type2rhor_ij,m,2);
         const int d_type2rhor_ji = d_type2rhor(jtype,itype);
-        const F_FLOAT rhojp = (d_rhor_spline(d_type2rhor_ji,m,0)*p + d_rhor_spline(d_type2rhor_ji,m,1))*p +
+        const double rhojp = (d_rhor_spline(d_type2rhor_ji,m,0)*p + d_rhor_spline(d_type2rhor_ji,m,1))*p +
                                d_rhor_spline(d_type2rhor_ji,m,2);
         const int d_type2z2r_ij = d_type2z2r(itype,jtype);
 
@@ -1015,16 +1015,16 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelC<NEIGHFLAG
         const auto z2r_spline_5 = (have_cache) ? A(m,5) : d_z2r_spline(d_type2z2r_ij,m,5);
         const auto z2r_spline_6 = (have_cache) ? A(m,6) : d_z2r_spline(d_type2z2r_ij,m,6);
 
-        const F_FLOAT z2p = (3.0*rdr*z2r_spline_3*p + 2.0*rdr*z2r_spline_4)*p +
+        const double z2p = (3.0*rdr*z2r_spline_3*p + 2.0*rdr*z2r_spline_4)*p +
                              rdr*z2r_spline_5; // the rdr and the factors of 3.0 and 2.0 come out of the interpolate function
-        const F_FLOAT z2 = ((z2r_spline_3*p + z2r_spline_4)*p +
+        const double z2 = ((z2r_spline_3*p + z2r_spline_4)*p +
                              z2r_spline_5)*p + z2r_spline_6;
 
-        const F_FLOAT recip = 1.0/r;
-        const F_FLOAT phi = z2*recip;
-        const F_FLOAT phip = z2p*recip - phi*recip;
-        const F_FLOAT psip = d_fp[i]*rhojp + d_fp[j]*rhoip + phip;
-        const F_FLOAT fpair = -psip*recip;
+        const double recip = 1.0/r;
+        const double phi = z2*recip;
+        const double phip = z2p*recip - phi*recip;
+        const double psip = d_fp[i]*rhojp + d_fp[j]*rhoip + phip;
+        const double fpair = -psip*recip;
 
         fxtmp += delx*fpair;
         fytmp += dely*fpair;
@@ -1069,8 +1069,8 @@ template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR>
 KOKKOS_INLINE_FUNCTION
 void PairEAMAlloyKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &epair, const F_FLOAT &fpair, const F_FLOAT &delx,
-                const F_FLOAT &dely, const F_FLOAT &delz) const
+      const double &epair, const double &fpair, const double &delx,
+                const double &dely, const double &delz) const
 {
   const int EFLAG = eflag;
   const int VFLAG = vflag_either;
@@ -1085,7 +1085,7 @@ void PairEAMAlloyKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const 
 
   if (EFLAG) {
     if (eflag_atom) {
-      const E_FLOAT epairhalf = 0.5 * epair;
+      const double epairhalf = 0.5 * epair;
       if (NEIGHFLAG!=FULL) {
         if (NEWTON_PAIR || i < nlocal) a_eatom[i] += epairhalf;
         if (NEWTON_PAIR || j < nlocal) a_eatom[j] += epairhalf;
@@ -1096,12 +1096,12 @@ void PairEAMAlloyKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const 
   }
 
   if (VFLAG) {
-    const E_FLOAT v0 = delx*delx*fpair;
-    const E_FLOAT v1 = dely*dely*fpair;
-    const E_FLOAT v2 = delz*delz*fpair;
-    const E_FLOAT v3 = delx*dely*fpair;
-    const E_FLOAT v4 = delx*delz*fpair;
-    const E_FLOAT v5 = dely*delz*fpair;
+    const double v0 = delx*delx*fpair;
+    const double v1 = dely*dely*fpair;
+    const double v2 = delz*delz*fpair;
+    const double v3 = delx*dely*fpair;
+    const double v4 = delx*delz*fpair;
+    const double v5 = dely*delz*fpair;
 
     if (vflag_global) {
       if (NEIGHFLAG!=FULL) {
@@ -1489,7 +1489,7 @@ template<class TAG>
 struct PairEAMAlloyKokkos<Kokkos::Experimental::HIP>::policyInstance {
 
   static auto get(int inum) {
-    static_assert(t_ffloat_2d_n7::static_extent(2) == 7,
+    static_assert(t_float_2d_n7::static_extent(2) == 7,
                   "Breaking assumption of spline dim for KernelAB and KernelC scratch caching");
 
     auto policy = Kokkos::TeamPolicy<Kokkos::Experimental::HIP,TAG>((inum+1023)/1024, 1024)

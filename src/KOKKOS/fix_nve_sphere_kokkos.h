@@ -47,9 +47,9 @@ class FixNVESphereKokkos : public FixNVESphere {
     void fused_integrate_item(int) const;
 
   private:
-    typename ArrayTypes<DeviceType>::t_x_array x;
-    typename ArrayTypes<DeviceType>::t_v_array v;
-    typename ArrayTypes<DeviceType>::t_v_array omega;
+    typename ArrayTypes<DeviceType>::t_f_array x;
+    typename ArrayTypes<DeviceType>::t_f_array v;
+    typename ArrayTypes<DeviceType>::t_f_array omega;
     typename ArrayTypes<DeviceType>::t_mu_array mu;
     typename ArrayTypes<DeviceType>::t_f_array f;
     typename ArrayTypes<DeviceType>::t_f_array torque;

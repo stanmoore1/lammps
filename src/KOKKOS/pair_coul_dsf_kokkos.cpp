@@ -212,17 +212,17 @@ KOKKOS_INLINE_FUNCTION
 void PairCoulDSFKokkos<DeviceType>::operator()(TagPairCoulDSFKernelA<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int &ii, EV_FLOAT& ev) const {
 
   // The f array is atomic for Half/Thread neighbor style
-  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
-  Kokkos::View<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<double*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
+  Kokkos::View<double*, typename DAT::t_float_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = k_eatom.view<DeviceType>();
 
   const int i = d_ilist[ii];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
-  const F_FLOAT qtmp = q[i];
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
+  const double qtmp = q[i];
 
   if (eflag) {
-    const F_FLOAT e_self = -(e_shift/2.0 + alpha/MY_PIS) * qtmp*qtmp*qqrd2e;
+    const double e_self = -(e_shift/2.0 + alpha/MY_PIS) * qtmp*qtmp*qqrd2e;
     if (eflag_global)
       ev.ecoul += e_self;
     if (eflag_atom)
@@ -232,32 +232,32 @@ void PairCoulDSFKokkos<DeviceType>::operator()(TagPairCoulDSFKernelA<NEIGHFLAG,N
   //const AtomNeighborsConst d_neighbors_i = k_list.get_neighbors_const(i);
   const int jnum = d_numneigh[i];
 
-  F_FLOAT fxtmp = 0.0;
-  F_FLOAT fytmp = 0.0;
-  F_FLOAT fztmp = 0.0;
+  double fxtmp = 0.0;
+  double fytmp = 0.0;
+  double fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     //int j = d_neighbors_i(jj);
     int j = d_neighbors(i,jj);
-    const F_FLOAT factor_coul = special_coul[sbmask(j)];
+    const double factor_coul = special_coul[sbmask(j)];
     j &= NEIGHMASK;
-    const X_FLOAT delx = xtmp - x(j,0);
-    const X_FLOAT dely = ytmp - x(j,1);
-    const X_FLOAT delz = ztmp - x(j,2);
-    const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+    const double delx = xtmp - x(j,0);
+    const double dely = ytmp - x(j,1);
+    const double delz = ztmp - x(j,2);
+    const double rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq < cut_coulsq) {
 
 
-      const F_FLOAT r2inv = 1.0/rsq;
-      const F_FLOAT r = sqrt(rsq);
-      const F_FLOAT prefactor = factor_coul * qqrd2e*qtmp*q[j]/r;
-      const F_FLOAT erfcd = exp(-alpha*alpha*rsq);
-      const F_FLOAT t = 1.0 / (1.0 + EWALD_P*alpha*r);
-      const F_FLOAT erfcc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * erfcd;
-      const F_FLOAT forcecoul = prefactor * (erfcc/r + 2.0*alpha/MY_PIS * erfcd +
+      const double r2inv = 1.0/rsq;
+      const double r = sqrt(rsq);
+      const double prefactor = factor_coul * qqrd2e*qtmp*q[j]/r;
+      const double erfcd = exp(-alpha*alpha*rsq);
+      const double t = 1.0 / (1.0 + EWALD_P*alpha*r);
+      const double erfcc = t * (A1+t*(A2+t*(A3+t*(A4+t*A5)))) * erfcd;
+      const double forcecoul = prefactor * (erfcc/r + 2.0*alpha/MY_PIS * erfcd +
                                  r*f_shift) * r;
-      const F_FLOAT fpair = forcecoul * r2inv;
+      const double fpair = forcecoul * r2inv;
 
       fxtmp += delx*fpair;
       fytmp += dely*fpair;
@@ -270,7 +270,7 @@ void PairCoulDSFKokkos<DeviceType>::operator()(TagPairCoulDSFKernelA<NEIGHFLAG,N
       }
 
       if (EVFLAG) {
-        F_FLOAT ecoul = 0.0;
+        double ecoul = 0.0;
         if (eflag) {
           ecoul = prefactor * (erfcc - r*e_shift - rsq*f_shift);
           ev.ecoul += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(j<nlocal)))?1.0:0.5)*ecoul;
@@ -301,19 +301,19 @@ template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR>
 KOKKOS_INLINE_FUNCTION
 void PairCoulDSFKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &epair, const F_FLOAT &fpair, const F_FLOAT &delx,
-                const F_FLOAT &dely, const F_FLOAT &delz) const
+      const double &epair, const double &fpair, const double &delx,
+                const double &dely, const double &delz) const
 {
   const int EFLAG = eflag;
   const int VFLAG = vflag_either;
 
   // The eatom and vatom arrays are atomic for Half/Thread neighbor style
-  Kokkos::View<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<double*, typename DAT::t_float_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<double*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
 
   if (EFLAG) {
     if (eflag_atom) {
-      const E_FLOAT epairhalf = 0.5 * epair;
+      const double epairhalf = 0.5 * epair;
       if (NEIGHFLAG!=FULL) {
         if (NEWTON_PAIR || i < nlocal) v_eatom[i] += epairhalf;
         if (NEWTON_PAIR || j < nlocal) v_eatom[j] += epairhalf;
@@ -324,12 +324,12 @@ void PairCoulDSFKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const i
   }
 
   if (VFLAG) {
-    const E_FLOAT v0 = delx*delx*fpair;
-    const E_FLOAT v1 = dely*dely*fpair;
-    const E_FLOAT v2 = delz*delz*fpair;
-    const E_FLOAT v3 = delx*dely*fpair;
-    const E_FLOAT v4 = delx*delz*fpair;
-    const E_FLOAT v5 = dely*delz*fpair;
+    const double v0 = delx*delx*fpair;
+    const double v1 = dely*dely*fpair;
+    const double v2 = delz*delz*fpair;
+    const double v3 = delx*dely*fpair;
+    const double v4 = delx*delz*fpair;
+    const double v5 = dely*delz*fpair;
 
     if (vflag_global) {
       if (NEIGHFLAG!=FULL) {

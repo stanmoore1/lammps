@@ -238,9 +238,9 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrder
   const int ii = team.league_rank();
   const int i = d_ilist[ii + chunk_offset];
   if (mask[i] & groupbit) {
-    const X_FLOAT xtmp = x(i,0);
-    const X_FLOAT ytmp = x(i,1);
-    const X_FLOAT ztmp = x(i,2);
+    const double xtmp = x(i,0);
+    const double ytmp = x(i,1);
+    const double ztmp = x(i,2);
     const int jnum = d_numneigh[i];
 
     // loop over list of all neighbors within force cutoff
@@ -254,10 +254,10 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrder
       Kokkos::single(Kokkos::PerThread(team), [&] () {
         int j = d_neighbors(i,jj);
         j &= NEIGHMASK;
-        const F_FLOAT delx = x(j,0) - xtmp;
-        const F_FLOAT dely = x(j,1) - ytmp;
-        const F_FLOAT delz = x(j,2) - ztmp;
-        const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+        const double delx = x(j,0) - xtmp;
+        const double dely = x(j,1) - ytmp;
+        const double delz = x(j,2) - ztmp;
+        const double rsq = delx*delx + dely*dely + delz*delz;
         if (rsq < cutsq)
          count++;
       });
@@ -270,10 +270,10 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrder
         [&] (const int jj, int& offset, bool final) {
       int j = d_neighbors(i,jj);
       j &= NEIGHMASK;
-      const F_FLOAT delx = x(j,0) - xtmp;
-      const F_FLOAT dely = x(j,1) - ytmp;
-      const F_FLOAT delz = x(j,2) - ztmp;
-      const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+      const double delx = x(j,0) - xtmp;
+      const double dely = x(j,1) - ytmp;
+      const double delz = x(j,2) - ztmp;
+      const double rsq = delx*delx + dely*dely + delz*delz;
       if (rsq < cutsq) {
         if (final) {
           d_distsq(ii,offset) = rsq;

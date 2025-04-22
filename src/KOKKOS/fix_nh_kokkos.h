@@ -65,12 +65,12 @@ class FixNHKokkos : public FixNH {
   void nh_v_press() override;
   void nh_v_temp() override;
 
-  F_FLOAT factor[3];
+  double factor[3];
 
   class DomainKokkos *domainKK;
 
-  typename ArrayTypes<DeviceType>::t_x_array x;
-  typename ArrayTypes<DeviceType>::t_v_array v;
+  typename ArrayTypes<DeviceType>::t_f_array x;
+  typename ArrayTypes<DeviceType>::t_f_array v;
   typename ArrayTypes<DeviceType>::t_f_array_const f;
   typename ArrayTypes<DeviceType>::t_float_1d rmass;
   typename ArrayTypes<DeviceType>::t_float_1d mass;

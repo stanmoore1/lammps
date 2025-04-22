@@ -61,12 +61,12 @@ class PairBrownianKokkos : public PairBrownian, public KokkosBase {
   template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
   void ev_tally_xyz(EV_FLOAT &ev, int i, int j,
-                    F_FLOAT fx, F_FLOAT fy, F_FLOAT fz,
-                    X_FLOAT delx, X_FLOAT dely, X_FLOAT delz) const;
+                    double fx, double fy, double fz,
+                    double delx, double dely, double delz) const;
 
  protected:
-  typename AT::t_x_array_randomread x;
-  typename AT::t_x_array c_x;
+  typename AT::t_f_array_randomread x;
+  typename AT::t_f_array c_x;
   typename AT::t_f_array f;
   typename AT::t_f_array torque;
   typename AT::t_int_1d_randomread type;
@@ -82,16 +82,16 @@ class PairBrownianKokkos : public PairBrownian, public KokkosBase {
   int newton_pair;
   double special_lj[4];
 
-  typename AT::tdual_ffloat_2d k_cutsq;
-  typename AT::t_ffloat_2d d_cutsq;
-  typename AT::tdual_ffloat_2d k_cut_inner;
-  typename AT::t_ffloat_2d d_cut_inner;
+  typename AT::tdual_float_2d k_cutsq;
+  typename AT::t_float_2d d_cutsq;
+  typename AT::tdual_float_2d k_cut_inner;
+  typename AT::t_float_2d d_cut_inner;
 
   int neighflag;
   int nlocal,nall,eflag,vflag;
-  LMP_FLOAT vxmu2f;
+  double vxmu2f;
 
-  LMP_FLOAT prethermostat;
+  double prethermostat;
 
   void allocate() override;
 

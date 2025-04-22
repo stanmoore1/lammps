@@ -208,9 +208,9 @@ void FixEfieldKokkos<DeviceType>::operator()(TagFixEfieldConstant<QFLAG,MUFLAG>,
     x_i[1] = d_x(i,1);
     x_i[2] = d_x(i,2);
     auto unwrapKK = DomainKokkos::unmap(prd,h,triclinic,x_i,d_image(i));
-    const F_FLOAT fx = d_q(i) * ex;
-    const F_FLOAT fy = d_q(i) * ey;
-    const F_FLOAT fz = d_q(i) * ez;
+    const double fx = d_q(i) * ex;
+    const double fy = d_q(i) * ey;
+    const double fz = d_q(i) * ez;
     d_f(i,0) += fx;
     d_f(i,1) += fy;
     d_f(i,2) += fz;
@@ -248,7 +248,7 @@ void FixEfieldKokkos<DeviceType>::operator()(TagFixEfieldNonConstant<QFLAG,MUFLA
   if ( QFLAG && (d_mask(i) & groupbit)) {
     if (region && !d_match[i]) return;
 
-    F_FLOAT fx, fy, fz;
+    double fx, fy, fz;
 
     if (xstyle == ATOM) fx = qe2f * d_q(i) * d_efield(i,0);
     else fx = d_q(i) * ex;

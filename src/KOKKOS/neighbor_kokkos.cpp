@@ -80,7 +80,7 @@ void NeighborKokkos::init()
   // 1st time allocation of xhold
 
   if (dist_check)
-      xhold = DAT::tdual_x_array("neigh:xhold",maxhold);
+      xhold = DAT::tdual_f_array("neigh:xhold",maxhold);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -212,10 +212,10 @@ int NeighborKokkos::check_distance_kokkos()
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void NeighborKokkos::operator()(TagNeighborCheckDistance<DeviceType>, const int &i, int &flag) const {
-  const X_FLOAT delx = x.view<DeviceType>()(i,0) - xhold.view<DeviceType>()(i,0);
-  const X_FLOAT dely = x.view<DeviceType>()(i,1) - xhold.view<DeviceType>()(i,1);
-  const X_FLOAT delz = x.view<DeviceType>()(i,2) - xhold.view<DeviceType>()(i,2);
-  const X_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+  const double delx = x.view<DeviceType>()(i,0) - xhold.view<DeviceType>()(i,0);
+  const double dely = x.view<DeviceType>()(i,1) - xhold.view<DeviceType>()(i,1);
+  const double delz = x.view<DeviceType>()(i,2) - xhold.view<DeviceType>()(i,2);
+  const double rsq = delx*delx + dely*dely + delz*delz;
   if (rsq > deltasq) flag = 1;
 }
 
@@ -260,7 +260,7 @@ void NeighborKokkos::build_kokkos(int topoflag)
     int maxhold_kokkos = xhold.view<DeviceType>().extent(0);
     if (atom->nmax > maxhold || maxhold_kokkos < maxhold) {
       maxhold = atom->nmax;
-      xhold = DAT::tdual_x_array("neigh:xhold",maxhold);
+      xhold = DAT::tdual_f_array("neigh:xhold",maxhold);
     }
     copymode = 1;
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagNeighborXhold<DeviceType> >(0,nlocal),*this);

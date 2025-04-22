@@ -137,14 +137,14 @@ void PairBuckKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairBuckKokkos<DeviceType>::
-compute_fpair(const F_FLOAT &rsq, const int &, const int &, const int &itype, const int &jtype) const {
-  const F_FLOAT r2inv = 1.0/rsq;
-  const F_FLOAT r6inv = r2inv*r2inv*r2inv;
-  const F_FLOAT r = sqrt(rsq);
-  const F_FLOAT rexp = exp(-r*(STACKPARAMS?m_params[itype][jtype].rhoinv:params(itype,jtype).rhoinv));
+double PairBuckKokkos<DeviceType>::
+compute_fpair(const double &rsq, const int &, const int &, const int &itype, const int &jtype) const {
+  const double r2inv = 1.0/rsq;
+  const double r6inv = r2inv*r2inv*r2inv;
+  const double r = sqrt(rsq);
+  const double rexp = exp(-r*(STACKPARAMS?m_params[itype][jtype].rhoinv:params(itype,jtype).rhoinv));
 
-  const F_FLOAT forcebuck =
+  const double forcebuck =
      (STACKPARAMS?m_params[itype][jtype].buck1:params(itype,jtype).buck1)*r*rexp -
      (STACKPARAMS?m_params[itype][jtype].buck2:params(itype,jtype).buck2)*r6inv;
 
@@ -154,12 +154,12 @@ compute_fpair(const F_FLOAT &rsq, const int &, const int &, const int &itype, co
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairBuckKokkos<DeviceType>::
-compute_evdwl(const F_FLOAT &rsq, const int &, const int &, const int &itype, const int &jtype) const {
-  const F_FLOAT r2inv = 1.0/rsq;
-  const F_FLOAT r6inv = r2inv*r2inv*r2inv;
-  const F_FLOAT r = sqrt(rsq);
-  const F_FLOAT rexp = exp(-r*(STACKPARAMS?m_params[itype][jtype].rhoinv:params(itype,jtype).rhoinv));
+double PairBuckKokkos<DeviceType>::
+compute_evdwl(const double &rsq, const int &, const int &, const int &itype, const int &jtype) const {
+  const double r2inv = 1.0/rsq;
+  const double r6inv = r2inv*r2inv*r2inv;
+  const double r = sqrt(rsq);
+  const double rexp = exp(-r*(STACKPARAMS?m_params[itype][jtype].rhoinv:params(itype,jtype).rhoinv));
 
 
   return (STACKPARAMS?m_params[itype][jtype].a:params(itype,jtype).a)*rexp -

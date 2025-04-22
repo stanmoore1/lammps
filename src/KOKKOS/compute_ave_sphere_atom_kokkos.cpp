@@ -138,9 +138,9 @@ void ComputeAveSphereAtomKokkos<DeviceType>::operator()(TagComputeAveSphereAtom,
     if (rmass.data()) massone_i = rmass[i];
     else massone_i = mass[type[i]];
 
-    const X_FLOAT xtmp = x(i,0);
-    const X_FLOAT ytmp = x(i,1);
-    const X_FLOAT ztmp = x(i,2);
+    const double xtmp = x(i,0);
+    const double ytmp = x(i,1);
+    const double ztmp = x(i,2);
     const int jnum = d_numneigh[i];
 
     // i atom contribution
@@ -158,10 +158,10 @@ void ComputeAveSphereAtomKokkos<DeviceType>::operator()(TagComputeAveSphereAtom,
       if (rmass.data()) massone_j = rmass[j];
       else massone_j = mass[type[j]];
 
-      const F_FLOAT delx = x(j,0) - xtmp;
-      const F_FLOAT dely = x(j,1) - ytmp;
-      const F_FLOAT delz = x(j,2) - ztmp;
-      const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+      const double delx = x(j,0) - xtmp;
+      const double dely = x(j,1) - ytmp;
+      const double delz = x(j,2) - ztmp;
+      const double rsq = delx*delx + dely*dely + delz*delz;
       if (rsq < cutsq) {
         count++;
         totalmass += massone_j;
@@ -190,10 +190,10 @@ void ComputeAveSphereAtomKokkos<DeviceType>::operator()(TagComputeAveSphereAtom,
       if (rmass.data()) massone_j = rmass[j];
       else massone_j = mass[type[j]];
 
-      const F_FLOAT delx = x(j,0) - xtmp;
-      const F_FLOAT dely = x(j,1) - ytmp;
-      const F_FLOAT delz = x(j,2) - ztmp;
-      const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+      const double delx = x(j,0) - xtmp;
+      const double dely = x(j,1) - ytmp;
+      const double delz = x(j,2) - ztmp;
+      const double rsq = delx*delx + dely*dely + delz*delz;
       if (rsq < cutsq) {
         vnet[0] = v(j,0) - vcom[0];
         vnet[1] = v(j,1) - vcom[1];

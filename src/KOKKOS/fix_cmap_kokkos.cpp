@@ -655,7 +655,7 @@ int FixCMAPKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 
 template<class DeviceType>
 int FixCMAPKokkos<DeviceType>::pack_exchange_kokkos(
-   const int &nsend, DAT::tdual_xfloat_2d &k_buf,
+   const int &nsend, DAT::tdual_float_2d &k_buf,
    DAT::tdual_int_1d k_exchange_sendlist, DAT::tdual_int_1d k_copylist,
    ExecutionSpace space)
 {
@@ -671,7 +671,7 @@ int FixCMAPKokkos<DeviceType>::pack_exchange_kokkos(
   k_crossterm_atom4.template sync<DeviceType>();
   k_crossterm_atom5.template sync<DeviceType>();
 
-  auto d_buf = typename ArrayTypes<DeviceType>::t_xfloat_1d_um(
+  auto d_buf = typename ArrayTypes<DeviceType>::t_float_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   auto d_copylist = k_copylist.template view<DeviceType>();
@@ -752,7 +752,7 @@ int FixCMAPKokkos<DeviceType>::pack_exchange_kokkos(
 
 template <class DeviceType>
 void FixCMAPKokkos<DeviceType>::unpack_exchange_kokkos(
-  DAT::tdual_xfloat_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
+  DAT::tdual_float_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
   int nrecv1, int nextrarecv1, ExecutionSpace /*space*/)
 {
   k_buf.template sync<DeviceType>();
@@ -766,7 +766,7 @@ void FixCMAPKokkos<DeviceType>::unpack_exchange_kokkos(
   k_crossterm_atom4.template sync<DeviceType>();
   k_crossterm_atom5.template sync<DeviceType>();
 
-  auto d_buf = typename ArrayTypes<DeviceType>::t_xfloat_1d_um(
+  auto d_buf = typename ArrayTypes<DeviceType>::t_float_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
 
@@ -928,16 +928,16 @@ int FixCMAPKokkos<DeviceType>::closest_image(const int i, int j) const
 {
   if (j < 0) return j;
 
-  const X_FLOAT xi0 = d_x(i,0);
-  const X_FLOAT xi1 = d_x(i,1);
-  const X_FLOAT xi2 = d_x(i,2);
+  const double xi0 = d_x(i,0);
+  const double xi1 = d_x(i,1);
+  const double xi2 = d_x(i,2);
 
   int closest = j;
-  X_FLOAT delx = xi0 - d_x(j,0);
-  X_FLOAT dely = xi1 - d_x(j,1);
-  X_FLOAT delz = xi2 - d_x(j,2);
-  X_FLOAT rsqmin = delx*delx + dely*dely + delz*delz;
-  X_FLOAT rsq;
+  double delx = xi0 - d_x(j,0);
+  double dely = xi1 - d_x(j,1);
+  double delz = xi2 - d_x(j,2);
+  double rsqmin = delx*delx + dely*dely + delz*delz;
+  double rsq;
 
   while (d_sametag[j] >= 0) {
     j = d_sametag[j];

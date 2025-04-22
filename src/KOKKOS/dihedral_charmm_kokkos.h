@@ -29,11 +29,11 @@ DihedralStyle(charmm/kk/host,DihedralCharmmKokkos<LMPHostType>);
 namespace LAMMPS_NS {
 
 struct s_EVM_FLOAT {
-  E_FLOAT evdwl;
-  E_FLOAT ecoul;
-  E_FLOAT emol;
-  F_FLOAT v[6];
-  F_FLOAT vp[6];
+  double evdwl;
+  double ecoul;
+  double emol;
+  double v[6];
+  double vp[6];
   KOKKOS_INLINE_FUNCTION
   s_EVM_FLOAT() {
           evdwl = 0;
@@ -94,37 +94,37 @@ class DihedralCharmmKokkos : public DihedralCharmm {
   //template<int NEWTON_BOND>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EVM_FLOAT &evm, const int i1, const int i2, const int i3, const int i4,
-                          F_FLOAT &edihedral, F_FLOAT *f1, F_FLOAT *f3, F_FLOAT *f4,
-                          const F_FLOAT &vb1x, const F_FLOAT &vb1y, const F_FLOAT &vb1z,
-                          const F_FLOAT &vb2x, const F_FLOAT &vb2y, const F_FLOAT &vb2z,
-                          const F_FLOAT &vb3x, const F_FLOAT &vb3y, const F_FLOAT &vb3z) const;
+                          double &edihedral, double *f1, double *f3, double *f4,
+                          const double &vb1x, const double &vb1y, const double &vb1z,
+                          const double &vb2x, const double &vb2y, const double &vb2z,
+                          const double &vb3x, const double &vb3y, const double &vb3z) const;
 
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EVM_FLOAT &evm, const int i, const int j,
-        const F_FLOAT &evdwl, const F_FLOAT &ecoul, const F_FLOAT &fpair, const F_FLOAT &delx,
-                const F_FLOAT &dely, const F_FLOAT &delz) const;
+        const double &evdwl, const double &ecoul, const double &fpair, const double &delx,
+                const double &dely, const double &delz) const;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
-  Kokkos::DualView<E_FLOAT*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
-  Kokkos::DualView<F_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom;
+  Kokkos::DualView<double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
+  Kokkos::DualView<double*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_x_array_randomread x;
+  typename AT::t_f_array_randomread x;
   typename AT::t_int_1d_randomread atomtype;
-  typename AT::t_ffloat_1d_randomread q;
+  typename AT::t_float_1d_randomread q;
   typename AT::t_f_array f;
   typename AT::t_int_2d dihedrallist;
 
-  Kokkos::View<E_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
-  Kokkos::View<F_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
+  Kokkos::View<double*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
+  Kokkos::View<double*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
 
-  Kokkos::DualView<E_FLOAT*,Kokkos::LayoutRight,KKDeviceType> k_eatom_pair;
-  Kokkos::DualView<F_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom_pair;
-  Kokkos::View<E_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom_pair;
-  Kokkos::View<F_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom_pair;
+  Kokkos::DualView<double*,Kokkos::LayoutRight,KKDeviceType> k_eatom_pair;
+  Kokkos::DualView<double*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom_pair;
+  Kokkos::View<double*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom_pair;
+  Kokkos::View<double*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom_pair;
 
   int nlocal,newton_bond;
   int eflag,vflag;
@@ -134,17 +134,17 @@ class DihedralCharmmKokkos : public DihedralCharmm {
   typename Kokkos::DualView<int,DeviceType>::t_dev d_warning_flag;
   typename Kokkos::DualView<int,DeviceType>::t_host h_warning_flag;
 
-  typename AT::t_ffloat_2d d_lj14_1;
-  typename AT::t_ffloat_2d d_lj14_2;
-  typename AT::t_ffloat_2d d_lj14_3;
-  typename AT::t_ffloat_2d d_lj14_4;
+  typename AT::t_float_2d d_lj14_1;
+  typename AT::t_float_2d d_lj14_2;
+  typename AT::t_float_2d d_lj14_3;
+  typename AT::t_float_2d d_lj14_4;
 
-  typename AT::t_ffloat_1d d_k;
-  typename AT::t_ffloat_1d d_multiplicity;
-  typename AT::t_ffloat_1d d_shift;
-  typename AT::t_ffloat_1d d_sin_shift;
-  typename AT::t_ffloat_1d d_cos_shift;
-  typename AT::t_ffloat_1d d_weight;
+  typename AT::t_float_1d d_k;
+  typename AT::t_float_1d d_multiplicity;
+  typename AT::t_float_1d d_shift;
+  typename AT::t_float_1d d_sin_shift;
+  typename AT::t_float_1d d_cos_shift;
+  typename AT::t_float_1d d_weight;
 
   void allocate() override;
 };

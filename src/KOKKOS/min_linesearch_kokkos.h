@@ -47,9 +47,9 @@ class MinLineSearchKokkos : public MinKokkos {
   // allocated and stored by fix_minimize
   // x,f are stored by parent or Atom class or Pair class
 
-  DAT::t_ffloat_1d x0;   // coords at start of linesearch
-  DAT::t_ffloat_1d g;    // old gradient vector
-  DAT::t_ffloat_1d h;    // search direction vector
+  DAT::t_float_1d x0;   // coords at start of linesearch
+  DAT::t_float_1d g;    // old gradient vector
+  DAT::t_float_1d h;    // search direction vector
 
   double *gextra;             // g,h for extra global dof, x0 is stored by fix
   double *hextra;

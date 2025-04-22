@@ -153,7 +153,7 @@ void PairReaxFFKokkos<DeviceType>::allocate()
     ("PairReaxFF::params_hbp",n+1,n+1,n+1);
   paramshbp = k_params_hbp.template view<DeviceType>();
 
-  k_tap = DAT::tdual_ffloat_1d("pair:tap",8);
+  k_tap = DAT::tdual_float_1d("pair:tap",8);
   d_tap = k_tap.template view<DeviceType>();
   h_tap = k_tap.h_view;
 }
@@ -378,7 +378,7 @@ template<class DeviceType>
 void PairReaxFFKokkos<DeviceType>::init_md()
 {
   // init_taper()
-  F_FLOAT d1, d7, swa, swa2, swa3, swb, swb2, swb3;
+  double d1, d7, swa, swa2, swa3, swb, swb2, swb3;
   LR_lookup_table ** & LR = api->system->LR;
 
   swa = api->control->nonb_low;
@@ -1128,11 +1128,11 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputePolar<NEIGHFLAG>
 
   const int i = d_ilist[ii];
   const int itype = type(i);
-  const F_FLOAT qi = q(i);
-  const F_FLOAT chi = paramssing(itype).chi;
-  const F_FLOAT eta = paramssing(itype).eta;
+  const double qi = q(i);
+  const double chi = paramssing(itype).chi;
+  const double eta = paramssing(itype).eta;
 
-  F_FLOAT epol = KCALpMOL_to_EV*(chi*qi+(eta/2.0)*qi*qi);
+  double epol = KCALpMOL_to_EV*(chi*qi+(eta/2.0)*qi*qi);
 
   /* energy due to coupling with kinetic energy potential */
   if (acks2_flag)
@@ -1163,20 +1163,20 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeLJCoulomb<NEIGHF
   auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-  F_FLOAT powr_vdw, powgi_vdw, fn13, dfn13, exp1, exp2, etmp;
-  F_FLOAT evdwl, fvdwl;
+  double powr_vdw, powgi_vdw, fn13, dfn13, exp1, exp2, etmp;
+  double evdwl, fvdwl;
   evdwl = fvdwl = 0.0;
 
   const int i = d_ilist[ii];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
-  const F_FLOAT qi = q(i);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
+  const double qi = q(i);
   const int itype = type(i);
   const tagint itag = tag(i);
   const int jnum = d_numneigh[i];
 
-  F_FLOAT fxtmp, fytmp, fztmp;
+  double fxtmp, fytmp, fztmp;
   fxtmp = fytmp = fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
@@ -1184,7 +1184,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeLJCoulomb<NEIGHF
     j &= NEIGHMASK;
     const int jtype = type(j);
     const tagint jtag = tag(j);
-    const F_FLOAT qj = q(j);
+    const double qj = q(j);
 
     // skip half of the interactions
     if (j >= nlocal) {
@@ -1199,16 +1199,16 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeLJCoulomb<NEIGHF
       }
     }
 
-    const X_FLOAT delx = x(j,0) - xtmp;
-    const X_FLOAT dely = x(j,1) - ytmp;
-    const X_FLOAT delz = x(j,2) - ztmp;
-    const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+    const double delx = x(j,0) - xtmp;
+    const double dely = x(j,1) - ytmp;
+    const double delz = x(j,2) - ztmp;
+    const double rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq > cut_nbsq) continue;
-    const F_FLOAT rij = sqrt(rsq);
+    const double rij = sqrt(rsq);
 
     // LJ energy/force
-    F_FLOAT Tap = d_tap[7] * rij + d_tap[6];
+    double Tap = d_tap[7] * rij + d_tap[6];
     Tap = Tap * rij + d_tap[5];
     Tap = Tap * rij + d_tap[4];
     Tap = Tap * rij + d_tap[3];
@@ -1216,21 +1216,21 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeLJCoulomb<NEIGHF
     Tap = Tap * rij + d_tap[1];
     Tap = Tap * rij + d_tap[0];
 
-    F_FLOAT dTap = 7*d_tap[7] * rij + 6*d_tap[6];
+    double dTap = 7*d_tap[7] * rij + 6*d_tap[6];
     dTap = dTap * rij + 5*d_tap[5];
     dTap = dTap * rij + 4*d_tap[4];
     dTap = dTap * rij + 3*d_tap[3];
     dTap = dTap * rij + 2*d_tap[2];
     dTap += d_tap[1]/rij;
 
-    const F_FLOAT gamma_w = paramstwbp(itype,jtype).gamma_w;
-    const F_FLOAT alpha = paramstwbp(itype,jtype).alpha;
-    const F_FLOAT r_vdw = paramstwbp(itype,jtype).r_vdw;
-    const F_FLOAT epsilon = paramstwbp(itype,jtype).epsilon;
+    const double gamma_w = paramstwbp(itype,jtype).gamma_w;
+    const double alpha = paramstwbp(itype,jtype).alpha;
+    const double r_vdw = paramstwbp(itype,jtype).r_vdw;
+    const double epsilon = paramstwbp(itype,jtype).epsilon;
 
     // shielding
     if (vdwflag == 1 || vdwflag == 3) {
-      F_FLOAT tmp_var;
+      double tmp_var;
       tmp_var = pow(rij,gp[28]-2.0);
       powr_vdw = tmp_var*rij*rij;
       powgi_vdw = pow(1.0/gamma_w,gp[28]);
@@ -1252,33 +1252,33 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeLJCoulomb<NEIGHF
     }
     // inner wall
     if (vdwflag == 2 || vdwflag == 3) {
-      const F_FLOAT ecore = paramstwbp(itype,jtype).ecore;
-      const F_FLOAT acore = paramstwbp(itype,jtype).acore;
-      const F_FLOAT rcore = paramstwbp(itype,jtype).rcore;
-      const F_FLOAT e_core = ecore*exp(acore*(1.0-(rij/rcore)));
-      const F_FLOAT de_core = -(acore/rcore)*e_core;
+      const double ecore = paramstwbp(itype,jtype).ecore;
+      const double acore = paramstwbp(itype,jtype).acore;
+      const double rcore = paramstwbp(itype,jtype).rcore;
+      const double e_core = ecore*exp(acore*(1.0-(rij/rcore)));
+      const double de_core = -(acore/rcore)*e_core;
       evdwl += Tap*e_core;
       fvdwl += dTap*e_core+Tap*de_core/rij;
 
       if (lgflag) {
-        const F_FLOAT lgre = paramstwbp(itype,jtype).lgre;
-        const F_FLOAT lgcij = paramstwbp(itype,jtype).lgcij;
-        const F_FLOAT rij5 = rsq*rsq*rij;
-        const F_FLOAT rij6 = rij5*rij;
-        const F_FLOAT re6 = lgre*lgre*lgre*lgre*lgre*lgre;
-        const F_FLOAT elg = -lgcij/(rij6+re6);
-        const F_FLOAT delg = -6.0*elg*rij5/(rij6+re6);
+        const double lgre = paramstwbp(itype,jtype).lgre;
+        const double lgcij = paramstwbp(itype,jtype).lgcij;
+        const double rij5 = rsq*rsq*rij;
+        const double rij6 = rij5*rij;
+        const double re6 = lgre*lgre*lgre*lgre*lgre*lgre;
+        const double elg = -lgcij/(rij6+re6);
+        const double delg = -6.0*elg*rij5/(rij6+re6);
         evdwl += Tap*elg;
         fvdwl += dTap*elg+Tap*delg/rij;
       }
     }
 
     // Coulomb energy/force
-    const F_FLOAT shld = paramstwbp(itype,jtype).gamma;
-    const F_FLOAT denom1 = rij * rij * rij + shld;
-    const F_FLOAT denom3 = cbrt(denom1);
-    F_FLOAT ecoul = C_ele * qi*qj*Tap/denom3;
-    F_FLOAT fcoul = C_ele * qi*qj*(dTap-Tap*rij/denom1)/denom3;
+    const double shld = paramstwbp(itype,jtype).gamma;
+    const double denom1 = rij * rij * rij + shld;
+    const double denom3 = cbrt(denom1);
+    double ecoul = C_ele * qi*qj*Tap/denom3;
+    double fcoul = C_ele * qi*qj*(dTap-Tap*rij/denom1)/denom3;
 
     /* contribution to energy and gradients (atoms and cell)
      * due to geometry-dependent terms in the ACKS2
@@ -1290,21 +1290,21 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeLJCoulomb<NEIGHF
                           + paramssing(jtype).bcut_acks2);
 
       if (rij <= xcut) {
-        const F_FLOAT d = rij / xcut;
-        const F_FLOAT bond_softness = gp[34] * pow( d, 3.0 )
+        const double d = rij / xcut;
+        const double bond_softness = gp[34] * pow( d, 3.0 )
                                     * pow( 1.0 - d, 6.0 );
 
         if (bond_softness > 0.0) {
           /* Coulombic energy contribution */
-          const F_FLOAT effpot_diff = d_s[NN + i]
+          const double effpot_diff = d_s[NN + i]
                                     - d_s[NN + j];
-          const F_FLOAT e_ele = -0.5 * KCALpMOL_to_EV * bond_softness
+          const double e_ele = -0.5 * KCALpMOL_to_EV * bond_softness
                                      * SQR( effpot_diff );
 
           ecoul += e_ele;
 
           /* forces contribution */
-          F_FLOAT d_bond_softness;
+          double d_bond_softness;
           d_bond_softness = gp[34]
                           * 3.0 / xcut * pow( d, 2.0 )
                           * pow( 1.0 - d, 5.0 ) * (1.0 - 3.0 * d);
@@ -1318,7 +1318,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeLJCoulomb<NEIGHF
       }
     }
 
-    const F_FLOAT ftotal = fvdwl + fcoul;
+    const double ftotal = fvdwl + fcoul;
     fxtmp += delx*ftotal;
     a_f(j,0) -= delx*ftotal;
     fytmp += dely*ftotal;
@@ -1360,15 +1360,15 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTabulatedLJCoulo
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   const int i = d_ilist[ii];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
-  const F_FLOAT qi = q(i);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
+  const double qi = q(i);
   const int itype = type(i);
   const tagint itag = tag(i);
   const int jnum = d_numneigh[i];
 
-  F_FLOAT fxtmp, fytmp, fztmp;
+  double fxtmp, fytmp, fztmp;
   fxtmp = fytmp = fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
@@ -1376,7 +1376,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTabulatedLJCoulo
     j &= NEIGHMASK;
     const int jtype = type(j);
     const tagint jtag = tag(j);
-    const F_FLOAT qj = q(j);
+    const double qj = q(j);
 
     // skip half of the interactions
     if (j >= nlocal) {
@@ -1391,13 +1391,13 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTabulatedLJCoulo
       }
     }
 
-    const X_FLOAT delx = x(j,0) - xtmp;
-    const X_FLOAT dely = x(j,1) - ytmp;
-    const X_FLOAT delz = x(j,2) - ztmp;
-    const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+    const double delx = x(j,0) - xtmp;
+    const double dely = x(j,1) - ytmp;
+    const double delz = x(j,2) - ztmp;
+    const double rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq > cut_nbsq) continue;
-    const F_FLOAT rij = sqrt(rsq);
+    const double rij = sqrt(rsq);
 
     const int tmin  = MIN(itype, jtype);
     const int tmax  = MAX(itype, jtype);
@@ -1407,24 +1407,24 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTabulatedLJCoulo
     /* Cubic Spline Interpolation */
     int r = (int)(rij * t.inv_dx);
     if (r == 0)  ++r;
-    const F_FLOAT base = (double)(r+1) * t.dx;
-    const F_FLOAT dif = rij - base;
+    const double base = (double)(r+1) * t.dx;
+    const double dif = rij - base;
 
     const cubic_spline_coef vdW = t.d_vdW[r];
     const cubic_spline_coef ele = t.d_ele[r];
     const cubic_spline_coef CEvd = t.d_CEvd[r];
     const cubic_spline_coef CEclmb = t.d_CEclmb[r];
 
-    const F_FLOAT evdwl = ((vdW.d*dif + vdW.c)*dif + vdW.b)*dif +
+    const double evdwl = ((vdW.d*dif + vdW.c)*dif + vdW.b)*dif +
       vdW.a;
 
-    F_FLOAT ecoul = (((ele.d*dif + ele.c)*dif + ele.b)*dif +
+    double ecoul = (((ele.d*dif + ele.c)*dif + ele.b)*dif +
       ele.a)*qi*qj;
 
-    const F_FLOAT fvdwl = ((CEvd.d*dif + CEvd.c)*dif + CEvd.b)*dif +
+    const double fvdwl = ((CEvd.d*dif + CEvd.c)*dif + CEvd.b)*dif +
       CEvd.a;
 
-    F_FLOAT fcoul = (((CEclmb.d*dif+CEclmb.c)*dif+CEclmb.b)*dif +
+    double fcoul = (((CEclmb.d*dif+CEclmb.c)*dif+CEclmb.b)*dif +
       CEclmb.a)*qi*qj;
 
     /* contribution to energy and gradients (atoms and cell)
@@ -1437,21 +1437,21 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTabulatedLJCoulo
                           + paramssing(jtype).bcut_acks2);
 
       if (rij <= xcut) {
-        const F_FLOAT d = rij / xcut;
-        const F_FLOAT bond_softness = gp[34] * pow( d, 3.0 )
+        const double d = rij / xcut;
+        const double bond_softness = gp[34] * pow( d, 3.0 )
                                     * pow( 1.0 - d, 6.0 );
 
         if (bond_softness > 0.0) {
           /* Coulombic energy contribution */
-          const F_FLOAT effpot_diff = d_s[NN + i]
+          const double effpot_diff = d_s[NN + i]
                                     - d_s[NN + j];
-          const F_FLOAT e_ele = -0.5 * KCALpMOL_to_EV * bond_softness
+          const double e_ele = -0.5 * KCALpMOL_to_EV * bond_softness
                                      * SQR( effpot_diff );
 
           ecoul += e_ele;
 
           /* forces contribution */
-          F_FLOAT d_bond_softness;
+          double d_bond_softness;
           d_bond_softness = gp[34]
                           * 3.0 / xcut * pow( d, 2.0 )
                           * pow( 1.0 - d, 5.0 ) * (1.0 - 3.0 * d);
@@ -1465,7 +1465,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTabulatedLJCoulo
       }
     }
 
-    const F_FLOAT ftotal = fvdwl + fcoul;
+    const double ftotal = fvdwl + fcoul;
     fxtmp += delx*ftotal;
     fytmp += dely*ftotal;
     fztmp += delz*ftotal;
@@ -1595,15 +1595,15 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsHalfBlocking<
   const auto a_total_bo = v_total_bo.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   const int i = d_ilist[ii];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
   const int itype = type(i);
   const int jnum = d_numneigh[i];
 
-  F_FLOAT C12, C34, C56, BO_s, BO_pi, BO_pi2, BO, delij[3], dBOp_i[3];
-  F_FLOAT dDeltap_self_i[3] = {0.0,0.0,0.0};
-  F_FLOAT total_bo_i = 0.0;
+  double C12, C34, C56, BO_s, BO_pi, BO_pi2, BO, delij[3], dBOp_i[3];
+  double dDeltap_self_i[3] = {0.0,0.0,0.0};
+  double total_bo_i = 0.0;
 
   int ihb = -1;
 
@@ -1625,7 +1625,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsHalfBlocking<
       delij[0] = x(j,0) - xtmp;
       delij[1] = x(j,1) - ytmp;
       delij[2] = x(j,2) - ztmp;
-      const F_FLOAT rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
+      const double rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
 
       double cutoffsq;
       if (i < nlocal) cutoffsq = MAX(cut_bosq,cut_hbsq);
@@ -1647,7 +1647,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsHalfBlocking<
       delij[0] = x(j,0) - xtmp;
       delij[1] = x(j,1) - ytmp;
       delij[2] = x(j,2) - ztmp;
-      const F_FLOAT rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
+      const double rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
 
       // hbond list
       build_hb_list<NEIGHFLAG>(rsq, i, ihb, j, jtype);
@@ -1655,10 +1655,10 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsHalfBlocking<
       if (rsq > cut_bosq) continue;
 
       // bond_list
-      const F_FLOAT rij = sqrt(rsq);
-      const F_FLOAT p_bo2 = paramstwbp(itype,jtype).p_bo2;
-      const F_FLOAT p_bo4 = paramstwbp(itype,jtype).p_bo4;
-      const F_FLOAT p_bo6 = paramstwbp(itype,jtype).p_bo6;
+      const double rij = sqrt(rsq);
+      const double p_bo2 = paramstwbp(itype,jtype).p_bo2;
+      const double p_bo4 = paramstwbp(itype,jtype).p_bo4;
+      const double p_bo6 = paramstwbp(itype,jtype).p_bo6;
 
       // returns BO_*, C** by reference
       compute_bo(rij, itype, jtype, p_bo2, p_bo4, p_bo6,
@@ -1685,9 +1685,9 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsHalfBlocking<
         d_BO_pi(i,j_index) = BO_pi;
         d_BO_pi2(i,j_index) = BO_pi2;
 
-        F_FLOAT Cln_BOp_s = p_bo2 * C12 / rij / rij;
-        F_FLOAT Cln_BOp_pi = p_bo4 * C34 / rij / rij;
-        F_FLOAT Cln_BOp_pi2 = p_bo6 * C56 / rij / rij;
+        double Cln_BOp_s = p_bo2 * C12 / rij / rij;
+        double Cln_BOp_pi = p_bo4 * C34 / rij / rij;
+        double Cln_BOp_pi2 = p_bo6 * C56 / rij / rij;
 
         if (nlocal == 0)
           Cln_BOp_s = Cln_BOp_pi = Cln_BOp_pi2 = 0.0;
@@ -1729,13 +1729,13 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsHalfBlockingP
   constexpr int blocksize = PairReaxFFKokkos<DeviceType>::build_lists_half_blocksize;
 
   const int i = d_ilist[ii];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
   const int itype = type(i);
   const int jnum = d_numneigh[i];
 
-  F_FLOAT C12, C34, C56, BO_s, BO_pi, BO_pi2, BO, delij[3];
+  double C12, C34, C56, BO_s, BO_pi, BO_pi2, BO, delij[3];
 
   int ihb = -1;
 
@@ -1761,7 +1761,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsHalfBlockingP
       delij[0] = x(j,0) - xtmp;
       delij[1] = x(j,1) - ytmp;
       delij[2] = x(j,2) - ztmp;
-      const F_FLOAT rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
+      const double rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
 
       if (rsq <= cutoffsq) {
         selected_jj[nnz] = jj_current;
@@ -1780,7 +1780,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsHalfBlockingP
       delij[0] = x(j,0) - xtmp;
       delij[1] = x(j,1) - ytmp;
       delij[2] = x(j,2) - ztmp;
-      const F_FLOAT rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
+      const double rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
 
       // hbond list
       build_hb_list<NEIGHFLAG>(rsq, i, ihb, j, jtype);
@@ -1788,10 +1788,10 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsHalfBlockingP
       if (rsq > cut_bosq) continue;
 
       // bond_list
-      const F_FLOAT rij = sqrt(rsq);
-      const F_FLOAT p_bo2 = paramstwbp(itype,jtype).p_bo2;
-      const F_FLOAT p_bo4 = paramstwbp(itype,jtype).p_bo4;
-      const F_FLOAT p_bo6 = paramstwbp(itype,jtype).p_bo6;
+      const double rij = sqrt(rsq);
+      const double p_bo2 = paramstwbp(itype,jtype).p_bo2;
+      const double p_bo4 = paramstwbp(itype,jtype).p_bo4;
+      const double p_bo6 = paramstwbp(itype,jtype).p_bo6;
 
       // returns BO_*, C** by reference
       compute_bo(rij, itype, jtype, p_bo2, p_bo4, p_bo6,
@@ -1815,13 +1815,13 @@ KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsHalfPreview<NEIGHFLAG>, const int &ii) const {
 
   const int i = d_ilist[ii];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
   const int itype = type(i);
   const int jnum = d_numneigh[i];
 
-  F_FLOAT C12, C34, C56, BO_s, BO_pi, BO_pi2, BO, delij[3];
+  double C12, C34, C56, BO_s, BO_pi, BO_pi2, BO, delij[3];
 
   int ihb = -1;
 
@@ -1837,7 +1837,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsHalfPreview<N
     delij[0] = x(j,0) - xtmp;
     delij[1] = x(j,1) - ytmp;
     delij[2] = x(j,2) - ztmp;
-    const F_FLOAT rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
+    const double rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
 
     // hbond list
     build_hb_list<NEIGHFLAG>(rsq, i, ihb, j, jtype);
@@ -1845,10 +1845,10 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsHalfPreview<N
     if (rsq > cut_bosq) continue;
 
     // bond_list
-    const F_FLOAT rij = sqrt(rsq);
-    const F_FLOAT p_bo2 = paramstwbp(itype,jtype).p_bo2;
-    const F_FLOAT p_bo4 = paramstwbp(itype,jtype).p_bo4;
-    const F_FLOAT p_bo6 = paramstwbp(itype,jtype).p_bo6;
+    const double rij = sqrt(rsq);
+    const double p_bo2 = paramstwbp(itype,jtype).p_bo2;
+    const double p_bo4 = paramstwbp(itype,jtype).p_bo4;
+    const double p_bo6 = paramstwbp(itype,jtype).p_bo6;
 
     // returns BO_*, C** by reference
     compute_bo(rij, itype, jtype, p_bo2, p_bo4, p_bo6,
@@ -1869,7 +1869,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsHalfPreview<N
 template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairReaxFFKokkos<DeviceType>::build_hb_list(F_FLOAT rsq, int i, int ihb, int j, int jtype) const {
+void PairReaxFFKokkos<DeviceType>::build_hb_list(double rsq, int i, int ihb, int j, int jtype) const {
 
   int i_index, j_index;
   int jhb = -1;
@@ -1942,14 +1942,14 @@ KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsFull, const int &ii) const {
 
   const int i = d_ilist[ii];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
   const int itype = type(i);
 
-  F_FLOAT C12, C34, C56, BO_s, BO_pi, BO_pi2, BO, delij[3], dBOp_i[3];
-  F_FLOAT dDeltap_self_i[3] = {0.0,0.0,0.0};
-  F_FLOAT total_bo_i = 0.0;
+  double C12, C34, C56, BO_s, BO_pi, BO_pi2, BO, delij[3], dBOp_i[3];
+  double dDeltap_self_i[3] = {0.0,0.0,0.0};
+  double total_bo_i = 0.0;
 
   const int jnum = d_bo_num[i];
   for (int j_index = 0; j_index < jnum; j_index++) {
@@ -1959,14 +1959,14 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsFull, const i
     delij[0] = x(j,0) - xtmp;
     delij[1] = x(j,1) - ytmp;
     delij[2] = x(j,2) - ztmp;
-    const F_FLOAT rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
-    const F_FLOAT rsq_inv = 1.0 / rsq;
+    const double rsq = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
+    const double rsq_inv = 1.0 / rsq;
 
     // bond_list
-    const F_FLOAT rij = sqrt(rsq);
-    const F_FLOAT p_bo2 = paramstwbp(itype,jtype).p_bo2;
-    const F_FLOAT p_bo4 = paramstwbp(itype,jtype).p_bo4;
-    const F_FLOAT p_bo6 = paramstwbp(itype,jtype).p_bo6;
+    const double rij = sqrt(rsq);
+    const double p_bo2 = paramstwbp(itype,jtype).p_bo2;
+    const double p_bo4 = paramstwbp(itype,jtype).p_bo4;
+    const double p_bo6 = paramstwbp(itype,jtype).p_bo6;
 
     // returns BO_*, C** by reference
     compute_bo(rij, itype, jtype, p_bo2, p_bo4, p_bo6,
@@ -1981,9 +1981,9 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsFull, const i
     d_BO_pi(i,j_index) = BO_pi;
     d_BO_pi2(i,j_index) = BO_pi2;
 
-    F_FLOAT Cln_BOp_s = p_bo2 * C12 * rsq_inv;
-    F_FLOAT Cln_BOp_pi = p_bo4 * C34 * rsq_inv;
-    F_FLOAT Cln_BOp_pi2 = p_bo6 * C56 * rsq_inv;
+    double Cln_BOp_s = p_bo2 * C12 * rsq_inv;
+    double Cln_BOp_pi = p_bo4 * C34 * rsq_inv;
+    double Cln_BOp_pi2 = p_bo6 * C56 * rsq_inv;
 
     if (nlocal == 0)
       Cln_BOp_s = Cln_BOp_pi = Cln_BOp_pi2 = 0.0;
@@ -2011,15 +2011,15 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBuildListsFull, const i
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairReaxFFKokkos<DeviceType>::compute_bo(F_FLOAT rij, int itype, int jtype, F_FLOAT p_bo2, F_FLOAT p_bo4, F_FLOAT p_bo6,
-  F_FLOAT& BO_s, F_FLOAT& BO_pi, F_FLOAT& BO_pi2, F_FLOAT& C12, F_FLOAT& C34, F_FLOAT& C56) const {
+void PairReaxFFKokkos<DeviceType>::compute_bo(double rij, int itype, int jtype, double p_bo2, double p_bo4, double p_bo6,
+  double& BO_s, double& BO_pi, double& BO_pi2, double& C12, double& C34, double& C56) const {
 
-  const F_FLOAT p_bo1 = paramstwbp(itype,jtype).p_bo1;
-  const F_FLOAT p_bo3 = paramstwbp(itype,jtype).p_bo3;
-  const F_FLOAT p_bo5 = paramstwbp(itype,jtype).p_bo5;
-  const F_FLOAT r_s = paramstwbp(itype,jtype).r_s;
-  const F_FLOAT r_pi = paramstwbp(itype,jtype).r_pi;
-  const F_FLOAT r_pi2 = paramstwbp(itype,jtype).r_pi2;
+  const double p_bo1 = paramstwbp(itype,jtype).p_bo1;
+  const double p_bo3 = paramstwbp(itype,jtype).p_bo3;
+  const double p_bo5 = paramstwbp(itype,jtype).p_bo5;
+  const double r_s = paramstwbp(itype,jtype).r_s;
+  const double r_pi = paramstwbp(itype,jtype).r_pi;
+  const double r_pi2 = paramstwbp(itype,jtype).r_pi2;
 
   if (paramssing(itype).r_s > 0.0  && paramssing(jtype).r_s > 0.0) {
     C12 = p_bo1 * ((p_bo2 != 0) ? (pow(rij/r_s,p_bo2)) : 1.0);
@@ -2047,7 +2047,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBondOrder1, const int &
   const int i = d_ilist[ii];
   const int itype = type(i);
 
-  const F_FLOAT val_i = paramssing(itype).valency;
+  const double val_i = paramssing(itype).valency;
   d_Deltap[i] = d_total_bo[i] - val_i;
   d_Deltap_boc[i] = d_total_bo[i] - paramssing(itype).valency_val;
 }
@@ -2058,18 +2058,18 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBondOrder2, const int &ii) const {
 
-  F_FLOAT exp_p1i, exp_p2i, exp_p1j, exp_p2j, f1, f2, f3, u1_ij, u1_ji, Cf1A_ij, Cf1B_ij, Cf1_ij, Cf1_ji;
-  F_FLOAT f4, f5, exp_f4, exp_f5, f4f5, Cf45_ij, Cf45_ji;
-  F_FLOAT A0_ij, A1_ij, A2_ij, A3_ij, A2_ji, A3_ji;
+  double exp_p1i, exp_p2i, exp_p1j, exp_p2j, f1, f2, f3, u1_ij, u1_ji, Cf1A_ij, Cf1B_ij, Cf1_ij, Cf1_ji;
+  double f4, f5, exp_f4, exp_f5, f4f5, Cf45_ij, Cf45_ji;
+  double A0_ij, A1_ij, A2_ij, A3_ij, A2_ji, A3_ji;
 
   const int i = d_ilist[ii];
   const int itype = type(i);
   const int jnum = d_bo_num[i];
 
-  const F_FLOAT val_i = paramssing(itype).valency;
+  const double val_i = paramssing(itype).valency;
 
   d_total_bo[i] = 0.0;
-  F_FLOAT total_bo = 0.0;
+  double total_bo = 0.0;
 
   for (int j_index = 0; j_index < jnum; j_index++) {
     int j = d_bo_list(i, j_index);
@@ -2077,12 +2077,12 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBondOrder2, const int &
     const int jtype = type(j);
 
     // calculate corrected BO and total bond order
-    const F_FLOAT val_j = paramssing(jtype).valency;
-    const F_FLOAT ovc = paramstwbp(itype,jtype).ovc;
-    const F_FLOAT v13cor = paramstwbp(itype,jtype).v13cor;
-    const F_FLOAT p_boc3 = paramstwbp(itype,jtype).p_boc3;
-    const F_FLOAT p_boc4 = paramstwbp(itype,jtype).p_boc4;
-    const F_FLOAT p_boc5 = paramstwbp(itype,jtype).p_boc5;
+    const double val_j = paramssing(jtype).valency;
+    const double ovc = paramstwbp(itype,jtype).ovc;
+    const double v13cor = paramstwbp(itype,jtype).v13cor;
+    const double p_boc3 = paramstwbp(itype,jtype).p_boc3;
+    const double p_boc4 = paramstwbp(itype,jtype).p_boc4;
+    const double p_boc5 = paramstwbp(itype,jtype).p_boc5;
 
     if (ovc < 0.001 && v13cor < 0.001) {
       d_C1dbo(i,j_index) = 1.0;
@@ -2186,17 +2186,17 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBondOrder3, const int &
 
   const int i = d_ilist[ii];
   const int itype = type(i);
-  F_FLOAT nlp_temp;
+  double nlp_temp;
 
   d_Delta[i] = d_total_bo[i] - paramssing(itype).valency;
-  const F_FLOAT Delta_e = d_total_bo[i] - paramssing(itype).valency_e;
+  const double Delta_e = d_total_bo[i] - paramssing(itype).valency_e;
   d_Delta_boc[i] = d_total_bo[i] - paramssing(itype).valency_boc;
 
-  const F_FLOAT vlpex = Delta_e - 2.0 * (int)(Delta_e/2.0);
-  const F_FLOAT explp1 = exp(-gp[15] * SQR(2.0 + vlpex));
-  const F_FLOAT nlp = explp1 - (int)(Delta_e / 2.0);
+  const double vlpex = Delta_e - 2.0 * (int)(Delta_e/2.0);
+  const double explp1 = exp(-gp[15] * SQR(2.0 + vlpex));
+  const double nlp = explp1 - (int)(Delta_e / 2.0);
   d_Delta_lp[i] = paramssing(itype).nlp_opt - nlp;
-  const F_FLOAT Clp = 2.0 * gp[15] * explp1 * (2.0 + vlpex);
+  const double Clp = 2.0 * gp[15] * explp1 * (2.0 + vlpex);
   d_dDelta_lp[i] = Clp;
 
   if (paramssing(itype).mass > 21.0) {
@@ -2219,16 +2219,16 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeMulti1, const in
 
   const int i = d_ilist[ii];
   const int itype = type(i);
-  const F_FLOAT imass = paramssing(itype).mass;
-  F_FLOAT dfvl;
+  const double imass = paramssing(itype).mass;
+  double dfvl;
 
   if (imass > 21.0) dfvl = 0.0;
   else dfvl = 1.0;
 
   const int jnum = d_bo_num[i];
 
-  F_FLOAT sum_ovun1 = 0.0;
-  F_FLOAT sum_ovun2 = 0.0;
+  double sum_ovun1 = 0.0;
+  double sum_ovun2 = 0.0;
 
   for (int j_index = 0; j_index < jnum; j_index++) {
     int j = d_bo_list(i, j_index);
@@ -2254,37 +2254,37 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeMulti2<NEIGHFLAG
 
   const int i = d_ilist[ii];
   const int itype = type(i);
-  const F_FLOAT imass = paramssing(itype).mass;
-  const F_FLOAT val_i = paramssing(itype).valency;
+  const double imass = paramssing(itype).mass;
+  const double val_i = paramssing(itype).valency;
 
-  F_FLOAT dfvl;
+  double dfvl;
   if (imass > 21.0) dfvl = 0.0;
   else dfvl = 1.0;
 
-  F_FLOAT e_lp, e_ov, e_un;
-  F_FLOAT CEover1, CEover2, CEover3, CEover4;
-  F_FLOAT CEunder1, CEunder2, CEunder3, CEunder4;
-  const F_FLOAT p_lp3 = gp[5];
-  const F_FLOAT p_ovun2 = paramssing(itype).p_ovun2;
-  const F_FLOAT p_ovun3 = gp[32];
-  const F_FLOAT p_ovun4 = gp[31];
-  const F_FLOAT p_ovun5 = paramssing(itype).p_ovun5;
-  const F_FLOAT p_ovun6 = gp[6];
-  const F_FLOAT p_ovun7 = gp[8];
-  const F_FLOAT p_ovun8 = gp[9];
+  double e_lp, e_ov, e_un;
+  double CEover1, CEover2, CEover3, CEover4;
+  double CEunder1, CEunder2, CEunder3, CEunder4;
+  const double p_lp3 = gp[5];
+  const double p_ovun2 = paramssing(itype).p_ovun2;
+  const double p_ovun3 = gp[32];
+  const double p_ovun4 = gp[31];
+  const double p_ovun5 = paramssing(itype).p_ovun5;
+  const double p_ovun6 = gp[6];
+  const double p_ovun7 = gp[8];
+  const double p_ovun8 = gp[9];
 
   // lone pair
-  const F_FLOAT p_lp2 = paramssing(itype).p_lp2;
-  const F_FLOAT expvd2 = exp(-75 * d_Delta_lp[i]);
-  const F_FLOAT inv_expvd2 = 1.0 / (1.0+expvd2);
+  const double p_lp2 = paramssing(itype).p_lp2;
+  const double expvd2 = exp(-75 * d_Delta_lp[i]);
+  const double inv_expvd2 = 1.0 / (1.0+expvd2);
 
   int numbonds = d_bo_num[i];
 
   e_lp = 0.0;
   if (numbonds > 0 || enobondsflag)
     e_lp = p_lp2 * d_Delta_lp[i] * inv_expvd2;
-  const F_FLOAT dElp = p_lp2 * inv_expvd2 + 75.0 * p_lp2 * d_Delta_lp[i] * expvd2 * inv_expvd2*inv_expvd2;
-  const F_FLOAT CElp = dElp * d_dDelta_lp[i];
+  const double dElp = p_lp2 * inv_expvd2 + 75.0 * p_lp2 * d_Delta_lp[i] * expvd2 * inv_expvd2*inv_expvd2;
+  const double CElp = dElp * d_dDelta_lp[i];
 
   if (numbonds > 0 || enobondsflag)
     a_CdDelta[i] += CElp;
@@ -2294,13 +2294,13 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeMulti2<NEIGHFLAG
   //if (eflag_atom) this->template e_tally<NEIGHFLAG>(ev,i,i,e_lp);
 
   // over coordination
-  const F_FLOAT exp_ovun1 = p_ovun3 * exp(p_ovun4 * d_sum_ovun(i,2));
-  const F_FLOAT inv_exp_ovun1 = 1.0 / (1 + exp_ovun1);
-  const F_FLOAT Delta_lpcorr  = d_Delta[i] - (dfvl * d_Delta_lp_temp[i]) * inv_exp_ovun1;
+  const double exp_ovun1 = p_ovun3 * exp(p_ovun4 * d_sum_ovun(i,2));
+  const double inv_exp_ovun1 = 1.0 / (1 + exp_ovun1);
+  const double Delta_lpcorr  = d_Delta[i] - (dfvl * d_Delta_lp_temp[i]) * inv_exp_ovun1;
 
-  const F_FLOAT exp_ovun2 = exp(p_ovun2 * Delta_lpcorr);
-  const F_FLOAT inv_exp_ovun2 = 1.0 / (1.0 + exp_ovun2);
-  const F_FLOAT DlpVi = 1.0 / (Delta_lpcorr + val_i + 1e-8);
+  const double exp_ovun2 = exp(p_ovun2 * Delta_lpcorr);
+  const double inv_exp_ovun2 = 1.0 / (1.0 + exp_ovun2);
+  const double DlpVi = 1.0 / (Delta_lpcorr + val_i + 1e-8);
 
   CEover1 = Delta_lpcorr * DlpVi * inv_exp_ovun2;
   e_ov = d_sum_ovun(i,1) * CEover1;
@@ -2316,11 +2316,11 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeMulti2<NEIGHFLAG
 
   // under coordination
 
-  const F_FLOAT exp_ovun2n = 1.0 / exp_ovun2;
-  const F_FLOAT exp_ovun6 = exp(p_ovun6 * Delta_lpcorr);
-  const F_FLOAT exp_ovun8 = p_ovun7 * exp(p_ovun8 * d_sum_ovun(i,2));
-  const F_FLOAT inv_exp_ovun2n = 1.0 / (1.0 + exp_ovun2n);
-  const F_FLOAT inv_exp_ovun8 = 1.0 / (1.0 + exp_ovun8);
+  const double exp_ovun2n = 1.0 / exp_ovun2;
+  const double exp_ovun6 = exp(p_ovun6 * Delta_lpcorr);
+  const double exp_ovun8 = p_ovun7 * exp(p_ovun8 * d_sum_ovun(i,2));
+  const double inv_exp_ovun2n = 1.0 / (1.0 + exp_ovun2n);
+  const double inv_exp_ovun8 = 1.0 / (1.0 + exp_ovun8);
 
   e_un = 0;
   if (numbonds > 0 || enobondsflag)
@@ -2337,7 +2337,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeMulti2<NEIGHFLAG
   CEunder4 = CEunder1 * (dfvl * d_Delta_lp_temp[i]) *
       p_ovun4 * exp_ovun1 * inv_exp_ovun1 * inv_exp_ovun1 + CEunder2;
 
-  const F_FLOAT eng_tmp = e_lp + e_ov + e_un;
+  const double eng_tmp = e_lp + e_ov + e_un;
   if (eflag_atom) this->template e_tally_single<NEIGHFLAG>(ev,i,eng_tmp);
 
   // multibody forces
@@ -2348,22 +2348,22 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeMulti2<NEIGHFLAG
 
   const int jnum = d_bo_num[i];
 
-  F_FLOAT CdDelta_i = 0.0;
+  double CdDelta_i = 0.0;
   for (int j_index = 0; j_index < jnum; j_index++) {
     int j = d_bo_list(i, j_index);
     j &= NEIGHMASK;
     const int jtype = type(j);
-    const F_FLOAT jmass = paramssing(jtype).mass;
-    const F_FLOAT De_s = paramstwbp(itype,jtype).De_s;
+    const double jmass = paramssing(jtype).mass;
+    const double De_s = paramstwbp(itype,jtype).De_s;
 
     // multibody lone pair: correction for C2
     if (p_lp3 > 0.001 && imass == 12.0 && jmass == 12.0) {
-      const F_FLOAT Di = d_Delta[i];
-      const F_FLOAT vov3 = d_BO(i,j_index) - Di - 0.040*pow(Di,4.0);
+      const double Di = d_Delta[i];
+      const double vov3 = d_BO(i,j_index) - Di - 0.040*pow(Di,4.0);
       if (vov3 > 3.0) {
-        const F_FLOAT e_lph = p_lp3 * (vov3-3.0)*(vov3-3.0);
-        const F_FLOAT deahu2dbo = 2.0 * p_lp3 * (vov3 - 3.0);
-        const F_FLOAT deahu2dsbo = 2.0 * p_lp3 * (vov3 - 3.0) * (-1.0 - 0.16 * pow(Di,3.0));
+        const double e_lph = p_lp3 * (vov3-3.0)*(vov3-3.0);
+        const double deahu2dbo = 2.0 * p_lp3 * (vov3 - 3.0);
+        const double deahu2dsbo = 2.0 * p_lp3 * (vov3 - 3.0) * (-1.0 - 0.16 * pow(Di,3.0));
         d_Cdbo(i,j_index) += deahu2dbo;
         CdDelta_i += deahu2dsbo;
 
@@ -2375,7 +2375,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeMulti2<NEIGHFLAG
     }
 
     // over/under coordination forces merged together
-    const F_FLOAT p_ovun1 = paramstwbp(itype,jtype).p_ovun1;
+    const double p_ovun1 = paramstwbp(itype,jtype).p_ovun1;
     a_CdDelta[j] += (CEover4 + CEunder4) * (1.0 - dfvl * d_dDelta_lp[j]) * (d_BO_pi(i,j_index) + d_BO_pi2(i,j_index));
     d_Cdbo(i,j_index) += CEover1 * p_ovun1 * De_s;
     d_Cdbopi(i,j_index) += (CEover4 + CEunder4) * (d_Delta[j] - dfvl*d_Delta_lp_temp[j]);
@@ -2425,9 +2425,9 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxCountAngularTorsion<POP
   // Torsion
 
   const tagint itag = tag(i);
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
 
   // Count buffer size for `i`
   int location_torsion = 0; // dummy declaration
@@ -2447,30 +2447,30 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::compute_angular_sbo(int i, int itype, int jnum) const {
 
-  F_FLOAT SBO2, CSBO2, dSBO1, dSBO2;
+  double SBO2, CSBO2, dSBO1, dSBO2;
 
-  const F_FLOAT p_val8 = gp[33];
-  const F_FLOAT p_val9 = gp[16];
+  const double p_val8 = gp[33];
+  const double p_val9 = gp[16];
 
-  F_FLOAT SBOp = 0.0;
-  F_FLOAT prod_SBO = 1.0;
+  double SBOp = 0.0;
+  double prod_SBO = 1.0;
 
   for (int j_index = 0; j_index < jnum; j_index++) {
-    const F_FLOAT bo_ij = d_BO(i,j_index);
+    const double bo_ij = d_BO(i,j_index);
 
     SBOp += (d_BO_pi(i,j_index) + d_BO_pi2(i,j_index));
-    F_FLOAT temp = SQR(bo_ij);
+    double temp = SQR(bo_ij);
     temp *= temp;
     temp *= temp;
     prod_SBO *= exp(-temp);
   }
 
-  F_FLOAT vlpadj;
+  double vlpadj;
 
-  const F_FLOAT Delta_e = d_total_bo[i] - paramssing(itype).valency_e;
-  const F_FLOAT vlpex = Delta_e - 2.0 * (int)(Delta_e/2.0);
-  const F_FLOAT explp1 = exp(-gp[15] * SQR(2.0 + vlpex));
-  const F_FLOAT nlp = explp1 - (int)(Delta_e / 2.0);
+  const double Delta_e = d_total_bo[i] - paramssing(itype).valency_e;
+  const double vlpex = Delta_e - 2.0 * (int)(Delta_e/2.0);
+  const double explp1 = exp(-gp[15] * SQR(2.0 + vlpex));
+  const double nlp = explp1 - (int)(Delta_e / 2.0);
   if (vlpex >= 0.0) {
     vlpadj = 0.0;
     dSBO2 = prod_SBO - 1.0;
@@ -2479,7 +2479,7 @@ void PairReaxFFKokkos<DeviceType>::compute_angular_sbo(int i, int itype, int jnu
     dSBO2 = (prod_SBO - 1.0) * (1.0 - p_val8 * d_dDelta_lp[i]);
   }
 
-  const F_FLOAT SBO = SBOp + (1.0 - prod_SBO) * (-d_Delta_boc[i] - p_val8 * vlpadj);
+  const double SBO = SBOp + (1.0 - prod_SBO) * (-d_Delta_boc[i] - p_val8 * vlpadj);
   dSBO1 = -8.0 * prod_SBO * (d_Delta_boc[i] + p_val8 * vlpadj);
 
   if (SBO <= 0.0) {
@@ -2515,7 +2515,7 @@ int PairReaxFFKokkos<DeviceType>::preprocess_angular(int i, int itype, int jnum,
   for (int j_index = 0; j_index < jnum; j_index++) {
     int j = d_bo_list(i, j_index);
     j &= NEIGHMASK;
-    const F_FLOAT bo_ij = d_BO(i,j_index);
+    const double bo_ij = d_BO(i,j_index);
 
     if (bo_ij <= thb_cut) continue;
     if (i >= nlocal && j >= nlocal) continue;
@@ -2528,13 +2528,13 @@ int PairReaxFFKokkos<DeviceType>::preprocess_angular(int i, int itype, int jnum,
       k &= NEIGHMASK;
       if (k == j) continue;
 
-      const F_FLOAT bo_ik = d_BO(i,k_index);
+      const double bo_ik = d_BO(i,k_index);
 
       if (bo_ij <= thb_cut || bo_ik <= thb_cut || bo_ij * bo_ik <= thb_cutsq) continue;
 
       const int ktype = type(k);
 
-      F_FLOAT p_val1 = paramsthbp(jtype,itype,ktype).p_val1;
+      double p_val1 = paramsthbp(jtype,itype,ktype).p_val1;
 
       if (fabs(p_val1) <= 0.001) continue;
 
@@ -2571,7 +2571,7 @@ template<class DeviceType>
 template<bool POPULATE>
 KOKKOS_INLINE_FUNCTION
 int PairReaxFFKokkos<DeviceType>::preprocess_torsion(int i, int /*itype*/, tagint itag,
-  F_FLOAT xtmp, F_FLOAT ytmp, F_FLOAT ztmp, int jknum, int location_torsion) const {
+  double xtmp, double ytmp, double ztmp, int jknum, int location_torsion) const {
 
   // in reaxff_torsion_angles: j = i, k = j, i = k;
 
@@ -2593,7 +2593,7 @@ int PairReaxFFKokkos<DeviceType>::preprocess_torsion(int i, int /*itype*/, tagin
       if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
     }
 
-    const F_FLOAT bo_ij = d_BO(i,j_index);
+    const double bo_ij = d_BO(i,j_index);
     if (bo_ij < thb_cut) continue;
 
     const int lnum = d_bo_num[j];
@@ -2603,7 +2603,7 @@ int PairReaxFFKokkos<DeviceType>::preprocess_torsion(int i, int /*itype*/, tagin
       k &= NEIGHMASK;
       if (k == j) continue;
 
-      const F_FLOAT bo_ik = d_BO(i,k_index);
+      const double bo_ik = d_BO(i,k_index);
       if (bo_ik < thb_cut) continue;
 
       for (int l_index = 0; l_index < lnum; l_index++) {
@@ -2611,7 +2611,7 @@ int PairReaxFFKokkos<DeviceType>::preprocess_torsion(int i, int /*itype*/, tagin
         l &= NEIGHMASK;
         if (l == i) continue;
 
-        const F_FLOAT bo_jl = d_BO(j,l_index);
+        const double bo_jl = d_BO(j,l_index);
         if (l == k || bo_jl < thb_cut || bo_ij*bo_ik*bo_jl < thb_cut) continue;
 
         if (POPULATE) {
@@ -2649,32 +2649,32 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeAngularPreproces
 
   auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
-  Kokkos::View<F_FLOAT**, typename decltype(d_Cdbo)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbo = d_Cdbo;
-  Kokkos::View<F_FLOAT**, typename decltype(d_Cdbopi)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbopi = d_Cdbopi;
-  Kokkos::View<F_FLOAT**, typename decltype(d_Cdbopi2)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbopi2 = d_Cdbopi2;
+  Kokkos::View<double**, typename decltype(d_Cdbo)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbo = d_Cdbo;
+  Kokkos::View<double**, typename decltype(d_Cdbopi)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbopi = d_Cdbopi;
+  Kokkos::View<double**, typename decltype(d_Cdbopi2)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbopi2 = d_Cdbopi2;
 
   auto v_CdDelta = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_CdDelta),decltype(ndup_CdDelta)>::get(dup_CdDelta,ndup_CdDelta);
   auto a_CdDelta = v_CdDelta.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-  F_FLOAT temp, temp_bo_jt, pBOjt7;
-  F_FLOAT p_val1, p_val2, p_val3, p_val4, p_val5;
-  F_FLOAT p_val6, p_val7, p_val10;
-  F_FLOAT p_pen1, p_pen2, p_pen3, p_pen4;
-  F_FLOAT p_coa1, p_coa2, p_coa3, p_coa4;
-  F_FLOAT trm8, expval6, expval7, expval2theta, expval12theta, exp3ij, exp3jk;
-  F_FLOAT exp_pen2ij, exp_pen2jk, exp_pen3, exp_pen4, trm_pen34, exp_coa2;
-  F_FLOAT dSBO1, dSBO2, SBO2, CSBO2;
-  F_FLOAT CEval1, CEval2, CEval3, CEval4, CEval5, CEval6, CEval7, CEval8;
-  F_FLOAT CEpen1, CEpen2, CEpen3;
-  F_FLOAT e_ang, e_coa, e_pen;
-  F_FLOAT CEcoa1, CEcoa2, CEcoa3, CEcoa4, CEcoa5;
-  F_FLOAT Cf7ij, Cf7jk, Cf8j, Cf9j;
-  F_FLOAT f7_ij, f7_jk, f8_Dj, f9_Dj;
-  F_FLOAT Ctheta_0, theta_0, theta_00, theta, cos_theta, sin_theta;
-  F_FLOAT BOA_ij, BOA_ik, rij, bo_ij, bo_ik;
-  F_FLOAT dcos_theta_di[3], dcos_theta_dj[3], dcos_theta_dk[3];
-  F_FLOAT eng_tmp, fi_tmp[3], fj_tmp[3], fk_tmp[3];
-  F_FLOAT delij[3], delik[3], delji[3], delki[3];
+  double temp, temp_bo_jt, pBOjt7;
+  double p_val1, p_val2, p_val3, p_val4, p_val5;
+  double p_val6, p_val7, p_val10;
+  double p_pen1, p_pen2, p_pen3, p_pen4;
+  double p_coa1, p_coa2, p_coa3, p_coa4;
+  double trm8, expval6, expval7, expval2theta, expval12theta, exp3ij, exp3jk;
+  double exp_pen2ij, exp_pen2jk, exp_pen3, exp_pen4, trm_pen34, exp_coa2;
+  double dSBO1, dSBO2, SBO2, CSBO2;
+  double CEval1, CEval2, CEval3, CEval4, CEval5, CEval6, CEval7, CEval8;
+  double CEpen1, CEpen2, CEpen3;
+  double e_ang, e_coa, e_pen;
+  double CEcoa1, CEcoa2, CEcoa3, CEcoa4, CEcoa5;
+  double Cf7ij, Cf7jk, Cf8j, Cf9j;
+  double f7_ij, f7_jk, f8_Dj, f9_Dj;
+  double Ctheta_0, theta_0, theta_00, theta, cos_theta, sin_theta;
+  double BOA_ij, BOA_ik, rij, bo_ij, bo_ik;
+  double dcos_theta_di[3], dcos_theta_dj[3], dcos_theta_dk[3];
+  double eng_tmp, fi_tmp[3], fj_tmp[3], fk_tmp[3];
+  double delij[3], delik[3], delji[3], delki[3];
 
   p_val6 = gp[14];
   p_val10 = gp[17];
@@ -2700,14 +2700,14 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeAngularPreproces
   // i3 is unused
 
   const int itype = type(i);
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
 
   p_val3 = paramssing(itype).p_val3;
   p_val5 = paramssing(itype).p_val5;
 
-  const F_FLOAT Delta_val = d_total_bo[i] - paramssing(itype).valency_val;
+  const double Delta_val = d_total_bo[i] - paramssing(itype).valency_val;
 
   SBO2 = d_angular_intermediates(i, 0);
   CSBO2 = d_angular_intermediates(i, 1);
@@ -2716,14 +2716,14 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeAngularPreproces
 
   expval6 = exp(p_val6 * d_Delta_boc[i]);
 
-  F_FLOAT CdDelta_i = 0.0;
-  F_FLOAT fitmp[3],fjtmp[3];
+  double CdDelta_i = 0.0;
+  double fitmp[3],fjtmp[3];
   for (int j = 0; j < 3; j++) fitmp[j] = 0.0;
 
   delij[0] = x(j,0) - xtmp;
   delij[1] = x(j,1) - ytmp;
   delij[2] = x(j,2) - ztmp;
-  const F_FLOAT rsqij = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
+  const double rsqij = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
   rij = sqrt(rsqij);
   bo_ij = d_BO(i,j_index);
 
@@ -2731,14 +2731,14 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeAngularPreproces
 
   const int jtype = type(j);
 
-  F_FLOAT CdDelta_j = 0.0;
+  double CdDelta_j = 0.0;
   for (int k = 0; k < 3; k++) fjtmp[k] = 0.0;
 
   delik[0] = x(k,0) - xtmp;
   delik[1] = x(k,1) - ytmp;
   delik[2] = x(k,2) - ztmp;
-  const F_FLOAT rsqik = delik[0]*delik[0] + delik[1]*delik[1] + delik[2]*delik[2];
-  const F_FLOAT rik = sqrt(rsqik);
+  const double rsqik = delik[0]*delik[0] + delik[1]*delik[1] + delik[2]*delik[2];
+  const double rik = sqrt(rsqik);
   bo_ik = d_BO(i,k_index);
   BOA_ik   = bo_ik - thb_cut;
 
@@ -2751,8 +2751,8 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeAngularPreproces
   if (cos_theta < -1.0) cos_theta  = -1.0;
   theta = acos(cos_theta);
 
-  const F_FLOAT inv_dists = 1.0 / (rij * rik);
-  const F_FLOAT Cdot_inv3 = cos_theta * inv_dists * inv_dists;
+  const double inv_dists = 1.0 / (rij * rik);
+  const double Cdot_inv3 = cos_theta * inv_dists * inv_dists;
 
   for (int t = 0; t < 3; t++) {
     dcos_theta_di[t] = -(delik[t] + delij[t]) * inv_dists + Cdot_inv3 * (rsqik * delij[t] + rsqij * delik[t]);
@@ -2907,31 +2907,31 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
 
   auto v_CdDelta = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_CdDelta),decltype(ndup_CdDelta)>::get(dup_CdDelta,ndup_CdDelta);
   auto a_CdDelta = v_CdDelta.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
-  Kokkos::View<F_FLOAT**, typename decltype(d_Cdbo)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbo = d_Cdbo;
-  Kokkos::View<F_FLOAT**, typename decltype(d_Cdbopi)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbopi = d_Cdbopi;
+  Kokkos::View<double**, typename decltype(d_Cdbo)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbo = d_Cdbo;
+  Kokkos::View<double**, typename decltype(d_Cdbopi)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbopi = d_Cdbopi;
   //auto a_Cdbo = dup_Cdbo.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   // in reaxff_torsion_angles: j = i, k = j, i = k;
 
-  F_FLOAT Delta_i, Delta_j, bo_ij, bo_ik, bo_jl, BOA_ij, BOA_ik, BOA_jl;
-  F_FLOAT p_tor1, p_cot1, V1, V2, V3;
-  F_FLOAT exp_tor2_ij, exp_tor2_ik, exp_tor2_jl, exp_tor1, exp_tor3_DiDj, exp_tor4_DiDj, exp_tor34_inv;
-  F_FLOAT exp_cot2_ij, exp_cot2_ik, exp_cot2_jl, fn10, f11_DiDj, dfn11, fn12;
-  F_FLOAT theta_ijk, theta_jil, sin_ijk, sin_jil, cos_ijk, cos_jil, tan_ijk_i, tan_jil_i;
-  F_FLOAT cos_omega, cos2omega, cos3omega;
-  F_FLOAT CV, cmn, CEtors1, CEtors2, CEtors3, CEtors4;
-  F_FLOAT CEtors5, CEtors6, CEtors7, CEtors8, CEtors9;
-  F_FLOAT Cconj, CEconj1, CEconj2, CEconj3, CEconj4, CEconj5, CEconj6;
-  F_FLOAT e_tor, e_con, eng_tmp;
+  double Delta_i, Delta_j, bo_ij, bo_ik, bo_jl, BOA_ij, BOA_ik, BOA_jl;
+  double p_tor1, p_cot1, V1, V2, V3;
+  double exp_tor2_ij, exp_tor2_ik, exp_tor2_jl, exp_tor1, exp_tor3_DiDj, exp_tor4_DiDj, exp_tor34_inv;
+  double exp_cot2_ij, exp_cot2_ik, exp_cot2_jl, fn10, f11_DiDj, dfn11, fn12;
+  double theta_ijk, theta_jil, sin_ijk, sin_jil, cos_ijk, cos_jil, tan_ijk_i, tan_jil_i;
+  double cos_omega, cos2omega, cos3omega;
+  double CV, cmn, CEtors1, CEtors2, CEtors3, CEtors4;
+  double CEtors5, CEtors6, CEtors7, CEtors8, CEtors9;
+  double Cconj, CEconj1, CEconj2, CEconj3, CEconj4, CEconj5, CEconj6;
+  double e_tor, e_con, eng_tmp;
 
-  F_FLOAT delij[3], delik[3], deljl[3], dellk[3], delil[3], delkl[3];
-  F_FLOAT fi_tmp[3], fj_tmp[3], fk_tmp[3];
-  F_FLOAT dcos_ijk_di[3], dcos_ijk_dj[3], dcos_ijk_dk[3], dcos_jil_di[3], dcos_jil_dj[3], dcos_jil_dk[3];
+  double delij[3], delik[3], deljl[3], dellk[3], delil[3], delkl[3];
+  double fi_tmp[3], fj_tmp[3], fk_tmp[3];
+  double dcos_ijk_di[3], dcos_ijk_dj[3], dcos_ijk_dk[3], dcos_jil_di[3], dcos_jil_dj[3], dcos_jil_dk[3];
 
-  F_FLOAT p_tor2 = gp[23];
-  F_FLOAT p_tor3 = gp[24];
-  F_FLOAT p_tor4 = gp[25];
-  F_FLOAT p_cot2 = gp[27];
+  double p_tor2 = gp[23];
+  double p_tor3 = gp[24];
+  double p_tor4 = gp[25];
+  double p_cot2 = gp[27];
 
   reax_int4 pack = d_torsion_pack(tpack,0);
   const int i = pack.i0;
@@ -2946,9 +2946,9 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
   const int l_index = pack.i3;
 
   const int itype = type(i);
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
   Delta_i = d_Delta_boc[i];
 
   const int jtype = type(j);
@@ -2958,8 +2958,8 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
   delij[0] = x(j,0) - xtmp;
   delij[1] = x(j,1) - ytmp;
   delij[2] = x(j,2) - ztmp;
-  const F_FLOAT rsqij = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
-  const F_FLOAT rij = sqrt(rsqij);
+  const double rsqij = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
+  const double rij = sqrt(rsqij);
 
   BOA_ij = bo_ij - thb_cut;
   Delta_j = d_Delta_boc[j];
@@ -2976,8 +2976,8 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
 
   BOA_ik = bo_ik - thb_cut;
   for (int d = 0; d < 3; d ++) delik[d] = x(k,d) - x(i,d);
-  const F_FLOAT rsqik = delik[0]*delik[0] + delik[1]*delik[1] + delik[2]*delik[2];
-  const F_FLOAT rik = sqrt(rsqik);
+  const double rsqik = delik[0]*delik[0] + delik[1]*delik[1] + delik[2]*delik[2];
+  const double rik = sqrt(rsqik);
 
   cos_ijk = (delij[0]*delik[0]+delij[1]*delik[1]+delij[2]*delik[2])/(rij*rik);
   if (cos_ijk > 1.0) cos_ijk  = 1.0;
@@ -2985,8 +2985,8 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
   theta_ijk = acos(cos_ijk);
 
   // dcos_ijk
-  const F_FLOAT inv_dists = 1.0 / (rij * rik);
-  const F_FLOAT cos_ijk_tmp = cos_ijk / ((rij*rik)*(rij*rik));
+  const double inv_dists = 1.0 / (rij * rik);
+  const double cos_ijk_tmp = cos_ijk / ((rij*rik)*(rij*rik));
 
   for (int d = 0; d < 3; d++) {
     dcos_ijk_di[d] = -(delik[d] + delij[d]) * inv_dists + cos_ijk_tmp * (rsqik * delij[d] + rsqij * delik[d]);
@@ -3009,8 +3009,8 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
   bo_jl = d_BO(j,l_index);
 
   for (int d = 0; d < 3; d ++) deljl[d] = x(l,d) - x(j,d);
-  const F_FLOAT rsqjl = deljl[0]*deljl[0] + deljl[1]*deljl[1] + deljl[2]*deljl[2];
-  const F_FLOAT rjl = sqrt(rsqjl);
+  const double rsqjl = deljl[0]*deljl[0] + deljl[1]*deljl[1] + deljl[2]*deljl[2];
+  const double rjl = sqrt(rsqjl);
   BOA_jl = bo_jl - thb_cut;
 
   cos_jil = -(delij[0]*deljl[0]+delij[1]*deljl[1]+delij[2]*deljl[2])/(rij*rjl);
@@ -3019,8 +3019,8 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
   theta_jil = acos(cos_jil);
 
   // dcos_jil
-  const F_FLOAT inv_distjl = 1.0 / (rij * rjl);
-  const F_FLOAT cos_jil_tmp = cos_jil / ((rij*rjl)*(rij*rjl));
+  const double inv_distjl = 1.0 / (rij * rjl);
+  const double cos_jil_tmp = cos_jil / ((rij*rjl)*(rij*rjl));
 
   for (int d = 0; d < 3; d++) {
     dcos_jil_di[d] = deljl[d] * inv_distjl - cos_jil_tmp * rsqjl * -delij[d];
@@ -3036,30 +3036,30 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
   else tan_jil_i = cos_jil / sin_jil;
 
   for (int d = 0; d < 3; d ++) dellk[d] = x(k,d) - x(l,d);
-  const F_FLOAT rsqlk = dellk[0]*dellk[0] + dellk[1]*dellk[1] + dellk[2]*dellk[2];
-  const F_FLOAT rlk = sqrt(rsqlk);
+  const double rsqlk = dellk[0]*dellk[0] + dellk[1]*dellk[1] + dellk[2]*dellk[2];
+  const double rlk = sqrt(rsqlk);
 
   // non-Kokkos ReaxFF has a separate function for computing omega, which
   //  limits the scope of the MIN_SINE statements below
 
-  F_FLOAT sin_ijk_rnd = sin_ijk;
-  F_FLOAT sin_jil_rnd = sin_jil;
+  double sin_ijk_rnd = sin_ijk;
+  double sin_jil_rnd = sin_jil;
 
   if (sin_ijk >= 0 && sin_ijk <= MIN_SINE) sin_ijk_rnd = MIN_SINE;
   else if (sin_ijk <= 0 && sin_ijk >= -MIN_SINE) sin_ijk_rnd = -MIN_SINE;
   if (sin_jil >= 0 && sin_jil <= MIN_SINE) sin_jil_rnd = MIN_SINE;
   else if (sin_jil <= 0 && sin_jil >= -MIN_SINE) sin_jil_rnd = -MIN_SINE;
 
-  F_FLOAT unnorm_cos_omega, unnorm_sin_omega, omega;
-  F_FLOAT htra, htrb, htrc, hthd, hthe, hnra, hnrc, hnhd, hnhe;
-  F_FLOAT arg, poem, tel;
-  F_FLOAT cross_ij_jl[3];
+  double unnorm_cos_omega, unnorm_sin_omega, omega;
+  double htra, htrb, htrc, hthd, hthe, hnra, hnrc, hnhd, hnhe;
+  double arg, poem, tel;
+  double cross_ij_jl[3];
 
   // omega
 
-  F_FLOAT dot_ij_jk = -(delij[0]*delik[0]+delij[1]*delik[1]+delij[2]*delik[2]);
-  F_FLOAT dot_ij_lj = delij[0]*deljl[0]+delij[1]*deljl[1]+delij[2]*deljl[2];
-  F_FLOAT dot_ik_jl = delik[0]*deljl[0]+delik[1]*deljl[1]+delik[2]*deljl[2];
+  double dot_ij_jk = -(delij[0]*delik[0]+delij[1]*delik[1]+delij[2]*delik[2]);
+  double dot_ij_lj = delij[0]*deljl[0]+delij[1]*deljl[1]+delij[2]*deljl[2];
+  double dot_ik_jl = delik[0]*deljl[0]+delik[1]*deljl[1]+delik[2]*deljl[2];
   unnorm_cos_omega = dot_ij_jk * dot_ij_lj + rsqij * dot_ik_jl;
 
   cross_ij_jl[0] = delij[1]*deljl[2] - delij[2]*deljl[1];
@@ -3083,7 +3083,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
         2.0 * (rik * rij * cos_ijk - rik * rjl * cos_ijk * cos_jil + rij * rjl * cos_jil);
 
   poem = 2.0 * rik * rjl * sin_ijk_rnd * sin_jil_rnd;
-  F_FLOAT inv_poem = 1.0 / poem;
+  double inv_poem = 1.0 / poem;
 
   arg = tel * inv_poem;
   if (arg >  1.0) arg =  1.0;
@@ -3160,39 +3160,39 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
   a_Cdbo(i,j_index) += CEtors5 + CEconj2;
   a_Cdbo(j,l_index) += CEtors6 + CEconj3;
 
-  const F_FLOAT coeff74 = CEtors7 + CEconj4;
-  const F_FLOAT coeff85 = CEtors8 + CEconj5;
-  const F_FLOAT coeff96 = CEtors9 + CEconj6;
+  const double coeff74 = CEtors7 + CEconj4;
+  const double coeff85 = CEtors8 + CEconj5;
+  const double coeff96 = CEtors9 + CEconj6;
 
-  const F_FLOAT inv_rij = 1.0 / rij;
-  const F_FLOAT inv_rik = 1.0 / rik;
-  const F_FLOAT inv_rjl = 1.0 / rjl;
-  const F_FLOAT inv_sin_ijk_rnd = 1.0 / sin_ijk_rnd;
-  const F_FLOAT inv_sin_jil_rnd = 1.0 / sin_jil_rnd;
+  const double inv_rij = 1.0 / rij;
+  const double inv_rik = 1.0 / rik;
+  const double inv_rjl = 1.0 / rjl;
+  const double inv_sin_ijk_rnd = 1.0 / sin_ijk_rnd;
+  const double inv_sin_jil_rnd = 1.0 / sin_jil_rnd;
 
 #ifdef LMP_KOKKOS_GPU
   #pragma unroll
 #endif
   for (int d = 0; d < 3; d++) {
     // dcos_omega_di
-    F_FLOAT dcos_omega_dk = ((htra-arg*hnra) * inv_rik) * delik[d] - dellk[d];
+    double dcos_omega_dk = ((htra-arg*hnra) * inv_rik) * delik[d] - dellk[d];
     dcos_omega_dk += (hthd-arg*hnhd) * inv_sin_ijk_rnd * -dcos_ijk_dk[d];
     dcos_omega_dk *= 2.0 * inv_poem;
 
     // dcos_omega_dj
-    F_FLOAT dcos_omega_di = -((htra-arg*hnra) * inv_rik) * delik[d] - htrb * inv_rij * delij[d];
+    double dcos_omega_di = -((htra-arg*hnra) * inv_rik) * delik[d] - htrb * inv_rij * delij[d];
     dcos_omega_di += -(hthd-arg*hnhd) * inv_sin_ijk_rnd * dcos_ijk_di[d];
     dcos_omega_di += -(hthe-arg*hnhe) * inv_sin_jil_rnd * dcos_jil_di[d];
     dcos_omega_di *= 2.0 * inv_poem;
 
     // dcos_omega_dk
-    F_FLOAT dcos_omega_dj = -((htrc-arg*hnrc) * inv_rjl) * deljl[d] + htrb * inv_rij * delij[d];
+    double dcos_omega_dj = -((htrc-arg*hnrc) * inv_rjl) * deljl[d] + htrb * inv_rij * delij[d];
     dcos_omega_dj += -(hthd-arg*hnhd) * inv_sin_ijk_rnd * dcos_ijk_dj[d];
     dcos_omega_dj += -(hthe-arg*hnhe) * inv_sin_jil_rnd * dcos_jil_dj[d];
     dcos_omega_dj *= 2.0 * inv_poem;
 
     // dcos_omega_dl
-    F_FLOAT dcos_omega_dl = ((htrc-arg*hnrc) * inv_rjl) * deljl[d] + dellk[d];
+    double dcos_omega_dl = ((htrc-arg*hnrc) * inv_rjl) * deljl[d] + dellk[d];
     dcos_omega_dl += (hthe-arg*hnhe) * inv_sin_jil_rnd * -dcos_jil_dk[d];
     dcos_omega_dl *= 2.0 * inv_poem;
 
@@ -3204,7 +3204,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
     // dcos_theta_jil
     fi_tmp[d] += (coeff85) * dcos_jil_di[d];
     fj_tmp[d] += (coeff85) * dcos_jil_dj[d];
-    F_FLOAT fl_tmp =  (coeff85) * dcos_jil_dk[d];
+    double fl_tmp =  (coeff85) * dcos_jil_dk[d];
 
     // dcos_omega
     fi_tmp[d] += (coeff96) * dcos_omega_di;
@@ -3253,21 +3253,21 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeHydrogen<NEIGHFL
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   int hblist[MAX_BONDS];
-  F_FLOAT theta, cos_theta, sin_xhz4, cos_xhz1, sin_theta2;
-  F_FLOAT e_hb, exp_hb2, exp_hb3, CEhb1, CEhb2, CEhb3;
-  F_FLOAT dcos_theta_di[3], dcos_theta_dj[3], dcos_theta_dk[3];
+  double theta, cos_theta, sin_xhz4, cos_xhz1, sin_theta2;
+  double e_hb, exp_hb2, exp_hb3, CEhb1, CEhb2, CEhb3;
+  double dcos_theta_di[3], dcos_theta_dj[3], dcos_theta_dk[3];
 
   // tally variables
-  F_FLOAT fi_tmp[3], fj_tmp[3], fk_tmp[3], delij[3], delji[3], delik[3], delki[3];
+  double fi_tmp[3], fj_tmp[3], fk_tmp[3], delij[3], delji[3], delik[3], delki[3];
   for (int d = 0; d < 3; d++) fi_tmp[d] = fj_tmp[d] = fk_tmp[d] = 0.0;
 
   const int i = d_ilist[ii];
   const int itype = type(i);
   if (paramssing(itype).p_hbond != 1) return;
 
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
 
   const int jnum = d_bo_num[i];
   const int knum = d_hb_num[i];
@@ -3277,7 +3277,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeHydrogen<NEIGHFL
     int j = d_bo_list(i, j_index);
     j &= NEIGHMASK;
     const int jtype = type(j);
-    const F_FLOAT bo_ij = d_BO(i,j_index);
+    const double bo_ij = d_BO(i,j_index);
 
     if (paramssing(jtype).p_hbond == 2 && bo_ij >= HB_THRESHOLD) {
       hblist[top] = j_index;
@@ -3285,7 +3285,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeHydrogen<NEIGHFL
     }
   }
 
-  F_FLOAT fitmp[3];
+  double fitmp[3];
   for (int d = 0; d < 3; d++) fitmp[d] = 0.0;
 
   for (int k_index = 0; k_index < knum; k_index++) {
@@ -3297,8 +3297,8 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeHydrogen<NEIGHFL
     delik[0] = x(k,0) - xtmp;
     delik[1] = x(k,1) - ytmp;
     delik[2] = x(k,2) - ztmp;
-    const F_FLOAT rsqik = delik[0]*delik[0] + delik[1]*delik[1] + delik[2]*delik[2];
-    const F_FLOAT rik = sqrt(rsqik);
+    const double rsqik = delik[0]*delik[0] + delik[1]*delik[1] + delik[2]*delik[2];
+    const double rik = sqrt(rsqik);
 
     for (int itr = 0; itr < top; itr++) {
       const int j_index = hblist[itr];
@@ -3308,13 +3308,13 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeHydrogen<NEIGHFL
       if (jtag == ktag) continue;
 
       const int jtype = type(j);
-      const F_FLOAT bo_ij = d_BO(i,j_index);
+      const double bo_ij = d_BO(i,j_index);
 
       delij[0] = x(j,0) - xtmp;
       delij[1] = x(j,1) - ytmp;
       delij[2] = x(j,2) - ztmp;
-      const F_FLOAT rsqij = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
-      const F_FLOAT rij = sqrt(rsqij);
+      const double rsqij = delij[0]*delij[0] + delij[1]*delij[1] + delij[2]*delij[2];
+      const double rij = sqrt(rsqij);
 
       // theta and derivatives
       cos_theta = (delij[0]*delik[0]+delij[1]*delik[1]+delij[2]*delik[2])/(rij*rik);
@@ -3322,8 +3322,8 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeHydrogen<NEIGHFL
       if (cos_theta < -1.0) cos_theta  = -1.0;
       theta = acos(cos_theta);
 
-      const F_FLOAT inv_dists = 1.0 / (rij * rik);
-      const F_FLOAT Cdot_inv3 = cos_theta * inv_dists * inv_dists;
+      const double inv_dists = 1.0 / (rij * rik);
+      const double Cdot_inv3 = cos_theta * inv_dists * inv_dists;
 
       for (int d = 0; d < 3; d++) {
         dcos_theta_di[d] = -(delik[d] + delij[d]) * inv_dists + Cdot_inv3 * (rsqik * delij[d] + rsqij * delik[d]);
@@ -3332,10 +3332,10 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeHydrogen<NEIGHFL
       }
 
       // hydrogen bond energy
-      const F_FLOAT p_hb1 = paramshbp(jtype,itype,ktype).p_hb1;
-      const F_FLOAT p_hb2 = paramshbp(jtype,itype,ktype).p_hb2;
-      const F_FLOAT p_hb3 = paramshbp(jtype,itype,ktype).p_hb3;
-      const F_FLOAT r0_hb = paramshbp(jtype,itype,ktype).r0_hb;
+      const double p_hb1 = paramshbp(jtype,itype,ktype).p_hb1;
+      const double p_hb2 = paramshbp(jtype,itype,ktype).p_hb2;
+      const double p_hb3 = paramshbp(jtype,itype,ktype).p_hb3;
+      const double r0_hb = paramshbp(jtype,itype,ktype).r0_hb;
 
       sin_theta2 = sin(theta/2.0);
       sin_xhz4 = SQR(sin_theta2);
@@ -3395,14 +3395,14 @@ template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxUpdateBond<NEIGHFLAG>, const int &ii) const {
 
-  Kokkos::View<F_FLOAT**, typename decltype(d_Cdbo)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbo = d_Cdbo;
-  Kokkos::View<F_FLOAT**, typename decltype(d_Cdbopi)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbopi = d_Cdbopi;
-  Kokkos::View<F_FLOAT**, typename decltype(d_Cdbopi2)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbopi2 = d_Cdbopi2;
+  Kokkos::View<double**, typename decltype(d_Cdbo)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbo = d_Cdbo;
+  Kokkos::View<double**, typename decltype(d_Cdbopi)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbopi = d_Cdbopi;
+  Kokkos::View<double**, typename decltype(d_Cdbopi2)::array_layout,KKDeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value>> a_Cdbopi2 = d_Cdbopi2;
 
   const int i = d_ilist[ii];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
   const tagint itag = tag(i);
   const int jnum = d_bo_num[i];
 
@@ -3425,9 +3425,9 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxUpdateBond<NEIGHFLAG>, 
 
     if (!flag) continue;
 
-    const F_FLOAT Cdbo_i = d_Cdbo(i,j_index);
-    const F_FLOAT Cdbopi_i = d_Cdbopi(i,j_index);
-    const F_FLOAT Cdbopi2_i = d_Cdbopi2(i,j_index);
+    const double Cdbo_i = d_Cdbo(i,j_index);
+    const double Cdbopi_i = d_Cdbopi(i,j_index);
+    const double Cdbopi2_i = d_Cdbopi2(i,j_index);
 
     const int knum = d_bo_num[j];
 
@@ -3453,18 +3453,18 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond1<NEIGHFLAG,
   auto v_CdDelta = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_CdDelta),decltype(ndup_CdDelta)>::get(dup_CdDelta,ndup_CdDelta);
   auto a_CdDelta = v_CdDelta.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-  F_FLOAT p_be1, p_be2, De_s, De_p, De_pp, pow_BOs_be2, exp_be12, CEbo, ebond;
+  double p_be1, p_be2, De_s, De_p, De_pp, pow_BOs_be2, exp_be12, CEbo, ebond;
 
   const int i = d_ilist[ii];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
   const int itype = type(i);
   const tagint itag = tag(i);
-  const F_FLOAT imass = paramssing(itype).mass;
+  const double imass = paramssing(itype).mass;
   const int jnum = d_bo_num[i];
 
-  F_FLOAT CdDelta_i = 0.0;
+  double CdDelta_i = 0.0;
 
   for (int j_index = 0; j_index < jnum; j_index++) {
     int j = d_bo_list(i, j_index);
@@ -3482,7 +3482,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond1<NEIGHFLAG,
     }
 
     const int jtype = type(j);
-    const F_FLOAT jmass = paramssing(jtype).mass;
+    const double jmass = paramssing(jtype).mass;
 
     // bond energy (nlocal only)
     p_be1 = paramstwbp(itype,jtype).p_be1;
@@ -3491,10 +3491,10 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond1<NEIGHFLAG,
     De_p = paramstwbp(itype,jtype).De_p;
     De_pp = paramstwbp(itype,jtype).De_pp;
 
-    const F_FLOAT BO_i = d_BO(i,j_index);
-    const F_FLOAT BO_s_i = d_BO_s(i,j_index);
-    const F_FLOAT BO_pi_i = d_BO_pi(i,j_index);
-    const F_FLOAT BO_pi2_i = d_BO_pi2(i,j_index);
+    const double BO_i = d_BO(i,j_index);
+    const double BO_s_i = d_BO_s(i,j_index);
+    const double BO_pi_i = d_BO_pi(i,j_index);
+    const double BO_pi2_i = d_BO_pi2(i,j_index);
 
     if (BO_s_i == 0.0) pow_BOs_be2 = 0.0;
     else pow_BOs_be2 = pow(BO_s_i,p_be2);
@@ -3514,27 +3514,27 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond1<NEIGHFLAG,
     d_Cdbopi2(i,j_index) -= (CEbo + De_pp);
 
     // Stabilisation terminal triple bond
-    F_FLOAT estriph = 0.0;
+    double estriph = 0.0;
 
     if (BO_i >= 1.00) {
       if (gp[37] == 2 || (imass == 12.0000 && jmass == 15.9990) ||
                          (jmass == 12.0000 && imass == 15.9990)) {
-        const F_FLOAT exphu = exp(-gp[7] * SQR(BO_i - 2.50));
-        const F_FLOAT exphua1 = exp(-gp[3] * (d_total_bo[i]-BO_i));
-        const F_FLOAT exphub1 = exp(-gp[3] * (d_total_bo[j]-BO_i));
-        const F_FLOAT exphuov = exp(gp[4] * (d_Delta[i] + d_Delta[j]));
-        const F_FLOAT hulpov = 1.0 / (1.0 + 25.0 * exphuov);
+        const double exphu = exp(-gp[7] * SQR(BO_i - 2.50));
+        const double exphua1 = exp(-gp[3] * (d_total_bo[i]-BO_i));
+        const double exphub1 = exp(-gp[3] * (d_total_bo[j]-BO_i));
+        const double exphuov = exp(gp[4] * (d_Delta[i] + d_Delta[j]));
+        const double hulpov = 1.0 / (1.0 + 25.0 * exphuov);
         estriph = gp[10] * exphu * hulpov * (exphua1 + exphub1);
 
         if (EFLAG && eflag_global) ev.evdwl += estriph;
         //if (eflag_atom) this->template ev_tally<NEIGHFLAG>(ev,i,j,estriph,0.0,0.0,0.0,0.0);
         //if (eflag_atom) this->template e_tally<NEIGHFLAG>(ev,i,j,estriph);
 
-        const F_FLOAT decobdbo = gp[10] * exphu * hulpov * (exphua1 + exphub1) *
+        const double decobdbo = gp[10] * exphu * hulpov * (exphua1 + exphub1) *
             (gp[3] - 2.0 * gp[7] * (BO_i-2.50));
-        const F_FLOAT decobdboua = -gp[10] * exphu * hulpov *
+        const double decobdboua = -gp[10] * exphu * hulpov *
             (gp[3]*exphua1 + 25.0*gp[4]*exphuov*hulpov*(exphua1+exphub1));
-        const F_FLOAT decobdboub = -gp[10] * exphu * hulpov *
+        const double decobdboub = -gp[10] * exphu * hulpov *
             (gp[3]*exphub1 + 25.0*gp[4]*exphuov*hulpov*(exphua1+exphub1));
 
         d_Cdbo(i,j_index) += decobdbo;
@@ -3542,7 +3542,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond1<NEIGHFLAG,
         a_CdDelta[j] += decobdboub;
       }
     }
-    const F_FLOAT eng_tmp = ebond + estriph;
+    const double eng_tmp = ebond + estriph;
     if (eflag_atom) this->template e_tally<NEIGHFLAG>(ev,i,j,eng_tmp);
   }
   a_CdDelta[i] += CdDelta_i;
@@ -3566,18 +3566,18 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond2<NEIGHFLAG,
   auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-  F_FLOAT delij[3], delik[3], deljk[3], tmpvec[3];
-  F_FLOAT dBOp_i[3], dBOp_k[3], dln_BOp_pi[3], dln_BOp_pi2[3];
+  double delij[3], delik[3], deljk[3], tmpvec[3];
+  double dBOp_i[3], dBOp_k[3], dln_BOp_pi[3], dln_BOp_pi2[3];
 
   const int i = d_ilist[ii];
-  const X_FLOAT xtmp = x(i,0);
-  const X_FLOAT ytmp = x(i,1);
-  const X_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
   const tagint itag = tag(i);
   const int jknum = d_bo_num[i];
 
-  F_FLOAT CdDelta_i = d_CdDelta[i];
-  F_FLOAT fitmp[3];
+  double CdDelta_i = d_CdDelta[i];
+  double fitmp[3];
   for (int j = 0; j < 3; j++) fitmp[j] = 0.0;
 
   for (int j_index = 0; j_index < jknum; j_index++) {
@@ -3595,7 +3595,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond2<NEIGHFLAG,
       if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
     }
 
-    F_FLOAT CdDelta_j = d_CdDelta[j];
+    double CdDelta_j = d_CdDelta[j];
 
     delij[0] = x(j,0) - xtmp;
     delij[1] = x(j,1) - ytmp;
@@ -3603,8 +3603,8 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond2<NEIGHFLAG,
 
     const int knum = d_bo_num[j];
 
-    F_FLOAT coef_C1dbo, coef_C2dbo, coef_C3dbo, coef_C1dbopi, coef_C2dbopi, coef_C3dbopi, coef_C4dbopi;
-    F_FLOAT coef_C1dbopi2, coef_C2dbopi2, coef_C3dbopi2, coef_C4dbopi2, coef_C1dDelta, coef_C2dDelta, coef_C3dDelta;
+    double coef_C1dbo, coef_C2dbo, coef_C3dbo, coef_C1dbopi, coef_C2dbopi, coef_C3dbopi, coef_C4dbopi;
+    double coef_C1dbopi2, coef_C2dbopi2, coef_C3dbopi2, coef_C4dbopi2, coef_C1dDelta, coef_C2dDelta, coef_C3dDelta;
 
     coef_C1dbo = coef_C2dbo = coef_C3dbo = 0.0;
     coef_C1dbopi = coef_C2dbopi = coef_C3dbopi = coef_C4dbopi = 0.0;
@@ -3612,37 +3612,37 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond2<NEIGHFLAG,
     coef_C1dDelta = coef_C2dDelta = coef_C3dDelta = 0.0;
 
     // total forces on i, j, k (nlocal + nghost, from Add_dBond_to_Forces))
-    const F_FLOAT Cdbo_ij = d_Cdbo(i,j_index);
+    const double Cdbo_ij = d_Cdbo(i,j_index);
     coef_C1dbo = d_C1dbo(i,j_index) * (Cdbo_ij);
     coef_C2dbo = d_C2dbo(i,j_index) * (Cdbo_ij);
     coef_C3dbo = d_C3dbo(i,j_index) * (Cdbo_ij);
 
-    const F_FLOAT Cdbopi_ij = d_Cdbopi(i,j_index);
+    const double Cdbopi_ij = d_Cdbopi(i,j_index);
     coef_C1dbopi = d_C1dbopi(i,j_index) * (Cdbopi_ij);
     coef_C2dbopi = d_C2dbopi(i,j_index) * (Cdbopi_ij);
     coef_C3dbopi = d_C3dbopi(i,j_index) * (Cdbopi_ij);
     coef_C4dbopi = d_C4dbopi(i,j_index) * (Cdbopi_ij);
 
-    const F_FLOAT Cdbopi2_ij = d_Cdbopi2(i,j_index);
+    const double Cdbopi2_ij = d_Cdbopi2(i,j_index);
     coef_C1dbopi2 = d_C1dbopi2(i,j_index) * (Cdbopi2_ij);
     coef_C2dbopi2 = d_C2dbopi2(i,j_index) * (Cdbopi2_ij);
     coef_C3dbopi2 = d_C3dbopi2(i,j_index) * (Cdbopi2_ij);
     coef_C4dbopi2 = d_C4dbopi2(i,j_index) * (Cdbopi2_ij);
 
-    const F_FLOAT coeff_CdDelta_ij = CdDelta_i + CdDelta_j;
+    const double coeff_CdDelta_ij = CdDelta_i + CdDelta_j;
     coef_C1dDelta = d_C1dbo(i,j_index) * (coeff_CdDelta_ij);
     coef_C2dDelta = d_C2dbo(i,j_index) * (coeff_CdDelta_ij);
     coef_C3dDelta = d_C3dbo(i,j_index) * (coeff_CdDelta_ij);
 
-    F_FLOAT temp[3];
+    double temp[3];
 
-    F_FLOAT d_dln_BOp_pi_local = d_dln_BOp_pi(i,j_index);
+    double d_dln_BOp_pi_local = d_dln_BOp_pi(i,j_index);
     for (int d = 0; d < 3; d++) dln_BOp_pi[d] = d_dln_BOp_pi_local * delij[d];
 
-    F_FLOAT d_dln_BOp_pi2_local = d_dln_BOp_pi2(i,j_index);
+    double d_dln_BOp_pi2_local = d_dln_BOp_pi2(i,j_index);
     for (int d = 0; d < 3; d++) dln_BOp_pi2[d] = d_dln_BOp_pi2_local * delij[d];
 
-    F_FLOAT d_dBOp_local = d_dBOp(i,j_index);
+    double d_dBOp_local = d_dBOp(i,j_index);
     for (int d = 0; d < 3; d++) dBOp_i[d] = d_dBOp_local * delij[d];
 
     // forces on i
@@ -3696,7 +3696,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond2<NEIGHFLAG,
       d_dBOp_local = d_dBOp(i,k_index);
       for (int d = 0; d < 3; d++) dBOp_k[d] = d_dBOp_local * delik[d];
 
-      const F_FLOAT coef_all = -coef_C2dbo - coef_C2dDelta - coef_C3dbopi - coef_C3dbopi2;
+      const double coef_all = -coef_C2dbo - coef_C2dDelta - coef_C3dbopi - coef_C3dbopi2;
       for (int d = 0; d < 3; d++) temp[d] = coef_all * dBOp_k[d];
 
       a_f(k,0) -= temp[0];
@@ -3722,7 +3722,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond2<NEIGHFLAG,
 
       d_dBOp_local = d_dBOp(j,k_index);
       for (int d = 0; d < 3; d++) dBOp_k[d] = d_dBOp_local * deljk[d];
-      const F_FLOAT coef_all = -coef_C3dbo - coef_C3dDelta - coef_C4dbopi - coef_C4dbopi2;
+      const double coef_all = -coef_C3dbo - coef_C3dDelta - coef_C4dbopi - coef_C4dbopi2;
       for (int d = 0; d < 3; d++) temp[d] = coef_all * dBOp_k[d];
 
       a_f(k,0) -= temp[0];
@@ -3753,8 +3753,8 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::ev_tally(EV_FLOAT_REAX &ev, const int &i, const int &j,
-      const F_FLOAT &epair, const F_FLOAT &fpair, const F_FLOAT &delx,
-                const F_FLOAT &dely, const F_FLOAT &delz) const
+      const double &epair, const double &fpair, const double &delx,
+                const double &dely, const double &delz) const
 {
   // The eatom and vatom arrays are duplicated for OpenMP, atomic for GPU, and neither for Serial
 
@@ -3765,18 +3765,18 @@ void PairReaxFFKokkos<DeviceType>::ev_tally(EV_FLOAT_REAX &ev, const int &i, con
   auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   if (eflag_atom) {
-    const E_FLOAT epairhalf = 0.5 * epair;
+    const double epairhalf = 0.5 * epair;
     a_eatom[i] += epairhalf;
     a_eatom[j] += epairhalf;
   }
 
   if (vflag_either) {
-    const E_FLOAT v0 = delx*delx*fpair;
-    const E_FLOAT v1 = dely*dely*fpair;
-    const E_FLOAT v2 = delz*delz*fpair;
-    const E_FLOAT v3 = delx*dely*fpair;
-    const E_FLOAT v4 = delx*delz*fpair;
-    const E_FLOAT v5 = dely*delz*fpair;
+    const double v0 = delx*delx*fpair;
+    const double v1 = dely*dely*fpair;
+    const double v2 = delz*delz*fpair;
+    const double v3 = delx*dely*fpair;
+    const double v4 = delx*delz*fpair;
+    const double v5 = dely*delz*fpair;
 
     if (vflag_global) {
       ev.v[0] += v0;
@@ -3810,14 +3810,14 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::e_tally(EV_FLOAT_REAX & /*ev*/, const int &i, const int &j,
-      const F_FLOAT &epair) const
+      const double &epair) const
 {
   // The eatom array is duplicated for OpenMP, atomic for GPU, and neither for Serial
 
   auto v_eatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_eatom),decltype(ndup_eatom)>::get(dup_eatom,ndup_eatom);
   auto a_eatom = v_eatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-  const E_FLOAT epairhalf = 0.5 * epair;
+  const double epairhalf = 0.5 * epair;
   a_eatom[i] += epairhalf;
   a_eatom[j] += epairhalf;
 }
@@ -3828,7 +3828,7 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::e_tally_single(EV_FLOAT_REAX & /*ev*/, const int &i,
-      const F_FLOAT &epair) const
+      const double &epair) const
 {
   // The eatom array is duplicated for OpenMP, atomic for GPU, and neither for Serial
 
@@ -3844,9 +3844,9 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::v_tally(EV_FLOAT_REAX &ev, const int &i,
-  F_FLOAT *fi, F_FLOAT *drij) const
+  double *fi, double *drij) const
 {
-  F_FLOAT v[6];
+  double v[6];
 
   v[0] = 0.5*drij[0]*fi[0];
   v[1] = 0.5*drij[1]*fi[1];
@@ -3879,13 +3879,13 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::v_tally3(EV_FLOAT_REAX &ev, const int &i, const int &j, const int &k,
-  F_FLOAT *fj, F_FLOAT *fk, F_FLOAT *drij, F_FLOAT *drik) const
+  double *fj, double *fk, double *drij, double *drik) const
 {
   // The eatom and vatom arrays are duplicated for OpenMP, atomic for GPU, and neither for Serial
   auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
   auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-  F_FLOAT v[6];
+  double v[6];
 
   v[0] = drij[0]*fj[0] + drik[0]*fk[0];
   v[1] = drij[1]*fj[1] + drik[1]*fk[1];
@@ -3919,11 +3919,11 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::v_tally4(EV_FLOAT_REAX &ev, const int &i, const int &j, const int &k,
-  const int &l, F_FLOAT *fi, F_FLOAT *fj, F_FLOAT *fk, F_FLOAT *dril, F_FLOAT *drjl, F_FLOAT *drkl) const
+  const int &l, double *fi, double *fj, double *fk, double *dril, double *drjl, double *drkl) const
 {
   // The vatom array is duplicated for OpenMP, atomic for GPU, and neither for Serial
 
-  F_FLOAT v[6];
+  double v[6];
 
   v[0] = dril[0]*fi[0] + drjl[0]*fj[0] + drkl[0]*fk[0];
   v[1] = dril[1]*fi[1] + drjl[1]*fj[1] + drkl[1]*fk[1];
@@ -3961,10 +3961,10 @@ void PairReaxFFKokkos<DeviceType>::v_tally4(EV_FLOAT_REAX &ev, const int &i, con
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::v_tally3_atom(EV_FLOAT_REAX &ev, const int &i, const int & /*j*/,
-                                                const int & /*k*/, F_FLOAT *fj, F_FLOAT *fk,
-                                                F_FLOAT *drji, F_FLOAT *drjk) const
+                                                const int & /*k*/, double *fj, double *fk,
+                                                double *drji, double *drjk) const
 {
-  F_FLOAT v[6];
+  double v[6];
 
   v[0] = THIRD * (drji[0]*fj[0] + drjk[0]*fk[0]);
   v[1] = THIRD * (drji[1]*fj[1] + drjk[1]*fk[1]);
@@ -4058,18 +4058,18 @@ double PairReaxFFKokkos<DeviceType>::memory_usage()
   bytes += (double)nmax*2*sizeof(int);
   bytes += (double)maxbo*nmax*sizeof(int);
 
-  bytes += (double)nmax*17*sizeof(F_FLOAT);
-  bytes += (double)maxbo*nmax*34*sizeof(F_FLOAT);
+  bytes += (double)nmax*17*sizeof(double);
+  bytes += (double)maxbo*nmax*34*sizeof(double);
 
   // FixReaxFFSpecies
   if (fixspecies_flag) {
     bytes += (double)MAXSPECBOND*nmax*sizeof(tagint);
-    bytes += (double)MAXSPECBOND*nmax*sizeof(F_FLOAT);
+    bytes += (double)MAXSPECBOND*nmax*sizeof(double);
   }
 
   // FixReaxFFBonds
   bytes += (double)maxbo*nmax*sizeof(tagint);
-  bytes += (double)maxbo*nmax*sizeof(F_FLOAT);
+  bytes += (double)maxbo*nmax*sizeof(double);
   bytes += (double)nmax*sizeof(int);
 
   return bytes;
@@ -4140,7 +4140,7 @@ void PairReaxFFKokkos<DeviceType>::calculate_find_bond_item(int ii, int &numbond
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairReaxFFKokkos<DeviceType>::PackBondBuffer(DAT::tdual_ffloat_1d k_buf, int &nbuf_local)
+void PairReaxFFKokkos<DeviceType>::PackBondBuffer(DAT::tdual_float_1d k_buf, int &nbuf_local)
 {
   d_buf = k_buf.view<DeviceType>();
   k_params_sing.template sync<DeviceType>();
@@ -4169,7 +4169,7 @@ void PairReaxFFKokkos<DeviceType>::PackBondBuffer(DAT::tdual_ffloat_1d k_buf, in
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairReaxFFKokkos<DeviceType>::PackReducedBondBuffer(DAT::tdual_ffloat_1d k_buf, int &nbuf_local, bool store_bonds)
+void PairReaxFFKokkos<DeviceType>::PackReducedBondBuffer(DAT::tdual_float_1d k_buf, int &nbuf_local, bool store_bonds)
 {
   d_buf = k_buf.view<DeviceType>();
   k_params_sing.template sync<DeviceType>();

@@ -136,14 +136,14 @@ void FixWallGranKokkos<DeviceType>::operator()(TagFixWallGranHookeHistory<WallSt
   vwall_[2] = vwall[2];
 
   if (mask[i] & groupbit) {
-    X_FLOAT radius = d_radius(i);
+    double radius = d_radius(i);
 
     double dx = 0.0;
     double dy = 0.0;
     double dz = 0.0;
 
     if (WallStyle == XPLANE) {
-      X_FLOAT del1 = x(i,0) - wlo;
+      double del1 = x(i,0) - wlo;
       double del2 = whi - x(i,0);
       if (del1 < del2) dx = del1;
       else dx = -del2;
@@ -373,7 +373,7 @@ void FixWallGranKokkos<DeviceType>::operator()(TagFixWallGranPackExchange, const
 
 template<class DeviceType>
 int FixWallGranKokkos<DeviceType>::pack_exchange_kokkos(
-   const int &nsend, DAT::tdual_xfloat_2d &k_buf,
+   const int &nsend, DAT::tdual_float_2d &k_buf,
    DAT::tdual_int_1d k_sendlist, DAT::tdual_int_1d k_copylist,
    ExecutionSpace /*space*/)
 {
@@ -386,7 +386,7 @@ int FixWallGranKokkos<DeviceType>::pack_exchange_kokkos(
   d_sendlist = k_sendlist.view<DeviceType>();
   d_copylist = k_copylist.view<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_xfloat_1d_um(
+  d_buf = typename ArrayTypes<DeviceType>::t_float_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
 
@@ -417,11 +417,11 @@ void FixWallGranKokkos<DeviceType>::operator()(TagFixWallGranUnpackExchange, con
 
 template<class DeviceType>
 void FixWallGranKokkos<DeviceType>::unpack_exchange_kokkos(
-  DAT::tdual_xfloat_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
+  DAT::tdual_float_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
   int /*nrecv1*/, int /*nextrarecv1*/,
   ExecutionSpace /*space*/)
 {
-  d_buf = typename ArrayTypes<DeviceType>::t_xfloat_1d_um(
+  d_buf = typename ArrayTypes<DeviceType>::t_float_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_indices = k_indices.view<DeviceType>();

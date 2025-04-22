@@ -253,9 +253,9 @@ void ComputeGaussianGridLocalKokkos<DeviceType>::operator() (TagComputeGaussianG
     xgrid[2] = h2*xgrid[2] + lo2;
   }
 
-  const F_FLOAT xtmp = xgrid[0];
-  const F_FLOAT ytmp = xgrid[1];
-  const F_FLOAT ztmp = xgrid[2];
+  const double xtmp = xgrid[0];
+  const double ytmp = xgrid[1];
+  const double ztmp = xgrid[2];
 
   // Zeroing out the components, which are filled as a sum.
   for (int icol = size_local_cols_base; icol < size_local_cols; icol++){
@@ -272,11 +272,11 @@ void ComputeGaussianGridLocalKokkos<DeviceType>::operator() (TagComputeGaussianG
 
   // Looping over ntotal for now.
   for (int j = 0; j < ntotal; j++){
-    const F_FLOAT dx = x(j,0) - xtmp;
-    const F_FLOAT dy = x(j,1) - ytmp;
-    const F_FLOAT dz = x(j,2) - ztmp;
+    const double dx = x(j,0) - xtmp;
+    const double dy = x(j,1) - ytmp;
+    const double dz = x(j,2) - ztmp;
     int jtype = type(j);
-    const F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+    const double rsq = dx*dx + dy*dy + dz*dz;
 
     if (rsq < rnd_cutsq(jtype, jtype) ) {
       int icol = size_local_cols_base + jtype - 1;

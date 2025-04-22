@@ -169,42 +169,42 @@ void ImproperHarmonicKokkos<DeviceType>::operator()(TagImproperHarmonicCompute<N
 
   // geometry of 4-body
 
-  const F_FLOAT vb1x = x(i1,0) - x(i2,0);
-  const F_FLOAT vb1y = x(i1,1) - x(i2,1);
-  const F_FLOAT vb1z = x(i1,2) - x(i2,2);
+  const double vb1x = x(i1,0) - x(i2,0);
+  const double vb1y = x(i1,1) - x(i2,1);
+  const double vb1z = x(i1,2) - x(i2,2);
 
-  const F_FLOAT vb2x = x(i3,0) - x(i2,0);
-  const F_FLOAT vb2y = x(i3,1) - x(i2,1);
-  const F_FLOAT vb2z = x(i3,2) - x(i2,2);
+  const double vb2x = x(i3,0) - x(i2,0);
+  const double vb2y = x(i3,1) - x(i2,1);
+  const double vb2z = x(i3,2) - x(i2,2);
 
-  const F_FLOAT vb3x = x(i4,0) - x(i3,0);
-  const F_FLOAT vb3y = x(i4,1) - x(i3,1);
-  const F_FLOAT vb3z = x(i4,2) - x(i3,2);
+  const double vb3x = x(i4,0) - x(i3,0);
+  const double vb3y = x(i4,1) - x(i3,1);
+  const double vb3z = x(i4,2) - x(i3,2);
 
-  const F_FLOAT ss1 = 1.0 / (vb1x*vb1x + vb1y*vb1y + vb1z*vb1z);
-  const F_FLOAT ss2 = 1.0 / (vb2x*vb2x + vb2y*vb2y + vb2z*vb2z);
-  const F_FLOAT ss3 = 1.0 / (vb3x*vb3x + vb3y*vb3y + vb3z*vb3z);
+  const double ss1 = 1.0 / (vb1x*vb1x + vb1y*vb1y + vb1z*vb1z);
+  const double ss2 = 1.0 / (vb2x*vb2x + vb2y*vb2y + vb2z*vb2z);
+  const double ss3 = 1.0 / (vb3x*vb3x + vb3y*vb3y + vb3z*vb3z);
 
-  const F_FLOAT r1 = sqrt(ss1);
-  const F_FLOAT r2 = sqrt(ss2);
-  const F_FLOAT r3 = sqrt(ss3);
+  const double r1 = sqrt(ss1);
+  const double r2 = sqrt(ss2);
+  const double r3 = sqrt(ss3);
 
   // sin and cos of improper
 
-  const F_FLOAT c0 = (vb1x * vb3x + vb1y * vb3y + vb1z * vb3z) * r1 * r3;
-  const F_FLOAT c1 = (vb1x * vb2x + vb1y * vb2y + vb1z * vb2z) * r1 * r2;
-  const F_FLOAT c2 = -(vb3x * vb2x + vb3y * vb2y + vb3z * vb2z) * r3 * r2;
+  const double c0 = (vb1x * vb3x + vb1y * vb3y + vb1z * vb3z) * r1 * r3;
+  const double c1 = (vb1x * vb2x + vb1y * vb2y + vb1z * vb2z) * r1 * r2;
+  const double c2 = -(vb3x * vb2x + vb3y * vb2y + vb3z * vb2z) * r3 * r2;
 
-  F_FLOAT s1 = 1.0 - c1*c1;
+  double s1 = 1.0 - c1*c1;
   if (s1 < SMALL) s1 = SMALL;
   s1 = 1.0 / s1;
 
-  F_FLOAT s2 = 1.0 - c2*c2;
+  double s2 = 1.0 - c2*c2;
   if (s2 < SMALL) s2 = SMALL;
   s2 = 1.0 / s2;
 
-  F_FLOAT s12 = sqrt(s1*s2);
-  F_FLOAT c = (c1*c2 + c0) * s12;
+  double s12 = sqrt(s1*s2);
+  double c = (c1*c2 + c0) * s12;
 
   // error check
 
@@ -214,32 +214,32 @@ void ImproperHarmonicKokkos<DeviceType>::operator()(TagImproperHarmonicCompute<N
   if (c > 1.0) c = 1.0;
   if (c < -1.0) c = -1.0;
 
-  F_FLOAT s = sqrt(1.0 - c*c);
+  double s = sqrt(1.0 - c*c);
   if (s < SMALL) s = SMALL;
 
   // force & energy
 
-  const F_FLOAT domega = acos(c) - d_chi[type];
-  F_FLOAT a = d_k[type] * domega;
+  const double domega = acos(c) - d_chi[type];
+  double a = d_k[type] * domega;
 
-  F_FLOAT eimproper = 0.0;
+  double eimproper = 0.0;
   if (eflag) eimproper = a*domega;
 
   a = -a * 2.0/s;
   c = c * a;
   s12 = s12 * a;
-  const F_FLOAT a11 = c*ss1*s1;
-  const F_FLOAT a22 = -ss2 * (2.0*c0*s12 - c*(s1+s2));
-  const F_FLOAT a33 = c*ss3*s2;
-  const F_FLOAT a12 = -r1*r2*(c1*c*s1 + c2*s12);
-  const F_FLOAT a13 = -r1*r3*s12;
-  const F_FLOAT a23 = r2*r3*(c2*c*s2 + c1*s12);
+  const double a11 = c*ss1*s1;
+  const double a22 = -ss2 * (2.0*c0*s12 - c*(s1+s2));
+  const double a33 = c*ss3*s2;
+  const double a12 = -r1*r2*(c1*c*s1 + c2*s12);
+  const double a13 = -r1*r3*s12;
+  const double a23 = r2*r3*(c2*c*s2 + c1*s12);
 
-  const F_FLOAT sx2  = a22*vb2x + a23*vb3x + a12*vb1x;
-  const F_FLOAT sy2  = a22*vb2y + a23*vb3y + a12*vb1y;
-  const F_FLOAT sz2  = a22*vb2z + a23*vb3z + a12*vb1z;
+  const double sx2  = a22*vb2x + a23*vb3x + a12*vb1x;
+  const double sy2  = a22*vb2y + a23*vb3y + a12*vb1y;
+  const double sz2  = a22*vb2z + a23*vb3z + a12*vb1z;
 
-  F_FLOAT f1[3],f2[3],f3[3],f4[3];
+  double f1[3],f2[3],f3[3],f4[3];
   f1[0] = a12*vb2x + a13*vb3x + a11*vb1x;
   f1[1] = a12*vb2y + a13*vb3y + a11*vb1y;
   f1[2] = a12*vb2z + a13*vb3z + a11*vb1z;
@@ -303,8 +303,8 @@ void ImproperHarmonicKokkos<DeviceType>::allocate()
   ImproperHarmonic::allocate();
 
   int n = atom->nimpropertypes;
-  k_k = Kokkos::DualView<F_FLOAT*,DeviceType>("ImproperHarmonic::k",n+1);
-  k_chi = Kokkos::DualView<F_FLOAT*,DeviceType>("ImproperHarmonic::chi",n+1);
+  k_k = Kokkos::DualView<double*,DeviceType>("ImproperHarmonic::k",n+1);
+  k_chi = Kokkos::DualView<double*,DeviceType>("ImproperHarmonic::chi",n+1);
 
   d_k = k_k.template view<DeviceType>();
   d_chi = k_chi.template view<DeviceType>();
@@ -359,13 +359,13 @@ template<class DeviceType>
 //template<int NEWTON_BOND>
 KOKKOS_INLINE_FUNCTION
 void ImproperHarmonicKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4,
-                        F_FLOAT &eimproper, F_FLOAT *f1, F_FLOAT *f3, F_FLOAT *f4,
-                        const F_FLOAT &vb1x, const F_FLOAT &vb1y, const F_FLOAT &vb1z,
-                        const F_FLOAT &vb2x, const F_FLOAT &vb2y, const F_FLOAT &vb2z,
-                        const F_FLOAT &vb3x, const F_FLOAT &vb3y, const F_FLOAT &vb3z) const
+                        double &eimproper, double *f1, double *f3, double *f4,
+                        const double &vb1x, const double &vb1y, const double &vb1z,
+                        const double &vb2x, const double &vb2y, const double &vb2z,
+                        const double &vb3x, const double &vb3y, const double &vb3z) const
 {
-  E_FLOAT eimproperquarter;
-  F_FLOAT v[6];
+  double eimproperquarter;
+  double v[6];
 
 
   if (eflag_either) {

@@ -64,8 +64,8 @@ class FixNVEKokkos : public FixNVE {
  private:
 
 
-  typename ArrayTypes<DeviceType>::t_x_array x;
-  typename ArrayTypes<DeviceType>::t_v_array v;
+  typename ArrayTypes<DeviceType>::t_f_array x;
+  typename ArrayTypes<DeviceType>::t_f_array v;
   typename ArrayTypes<DeviceType>::t_f_array_const f;
   typename ArrayTypes<DeviceType>::t_float_1d rmass;
   typename ArrayTypes<DeviceType>::t_float_1d mass;

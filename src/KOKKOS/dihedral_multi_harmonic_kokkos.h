@@ -55,22 +55,22 @@ class DihedralMultiHarmonicKokkos : public DihedralMultiHarmonic {
   //template<int NEWTON_BOND>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4,
-                          F_FLOAT &edihedral, F_FLOAT *f1, F_FLOAT *f3, F_FLOAT *f4,
-                          const F_FLOAT &vb1x, const F_FLOAT &vb1y, const F_FLOAT &vb1z,
-                          const F_FLOAT &vb2x, const F_FLOAT &vb2y, const F_FLOAT &vb2z,
-                          const F_FLOAT &vb3x, const F_FLOAT &vb3y, const F_FLOAT &vb3z) const;
+                          double &edihedral, double *f1, double *f3, double *f4,
+                          const double &vb1x, const double &vb1y, const double &vb1z,
+                          const double &vb2x, const double &vb2y, const double &vb2z,
+                          const double &vb3x, const double &vb3y, const double &vb3z) const;
 
-  DAT::tdual_efloat_1d k_eatom;
+  DAT::tdual_float_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_x_array_randomread x;
+  typename AT::t_f_array_randomread x;
   typename AT::t_f_array f;
   typename AT::t_int_2d dihedrallist;
-  typename ArrayTypes<DeviceType>::t_efloat_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_float_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
 
   int nlocal,newton_bond;
@@ -80,17 +80,17 @@ class DihedralMultiHarmonicKokkos : public DihedralMultiHarmonic {
   typename AT::t_int_scalar d_warning_flag;
   HAT::t_int_scalar h_warning_flag;
 
-  DAT::tdual_ffloat_1d k_a1;
-  DAT::tdual_ffloat_1d k_a2;
-  DAT::tdual_ffloat_1d k_a3;
-  DAT::tdual_ffloat_1d k_a4;
-  DAT::tdual_ffloat_1d k_a5;
+  DAT::tdual_float_1d k_a1;
+  DAT::tdual_float_1d k_a2;
+  DAT::tdual_float_1d k_a3;
+  DAT::tdual_float_1d k_a4;
+  DAT::tdual_float_1d k_a5;
 
-  typename AT::t_ffloat_1d d_a1;
-  typename AT::t_ffloat_1d d_a2;
-  typename AT::t_ffloat_1d d_a3;
-  typename AT::t_ffloat_1d d_a4;
-  typename AT::t_ffloat_1d d_a5;
+  typename AT::t_float_1d d_a1;
+  typename AT::t_float_1d d_a2;
+  typename AT::t_float_1d d_a3;
+  typename AT::t_float_1d d_a4;
+  typename AT::t_float_1d d_a5;
 
   void allocate() override;
 };

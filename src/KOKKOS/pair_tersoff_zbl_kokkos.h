@@ -90,69 +90,69 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
   void tersoff_zbl_compute(const int&, EV_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  double ters_fc_k(const Param& param, const F_FLOAT &r) const;
+  double ters_fc_k(const Param& param, const double &r) const;
 
   KOKKOS_INLINE_FUNCTION
-  double ters_dfc(const Param& param, const F_FLOAT &r) const;
+  double ters_dfc(const Param& param, const double &r) const;
 
   KOKKOS_INLINE_FUNCTION
-  double ters_fa_k(const Param& param, const F_FLOAT &r) const;
+  double ters_fa_k(const Param& param, const double &r) const;
 
   KOKKOS_INLINE_FUNCTION
-  double ters_dfa(const Param& param, const F_FLOAT &r) const;
+  double ters_dfa(const Param& param, const double &r) const;
 
   KOKKOS_INLINE_FUNCTION
-  double ters_bij_k(const Param& param, const F_FLOAT &bo) const;
+  double ters_bij_k(const Param& param, const double &bo) const;
 
   KOKKOS_INLINE_FUNCTION
-  double ters_dbij(const Param& param, const F_FLOAT &bo) const;
+  double ters_dbij(const Param& param, const double &bo) const;
 
   KOKKOS_INLINE_FUNCTION
   double bondorder(const Param& param,
-              const F_FLOAT &rij, const F_FLOAT &dx1, const F_FLOAT &dy1, const F_FLOAT &dz1,
-              const F_FLOAT &rik, const F_FLOAT &dx2, const F_FLOAT &dy2, const F_FLOAT &dz2) const;
+              const double &rij, const double &dx1, const double &dy1, const double &dz1,
+              const double &rik, const double &dx2, const double &dy2, const double &dz2) const;
 
   KOKKOS_INLINE_FUNCTION
-  double ters_gijk(const Param& param, const F_FLOAT &cos) const;
+  double ters_gijk(const Param& param, const double &cos) const;
 
   KOKKOS_INLINE_FUNCTION
-  double ters_dgijk(const Param& param, const F_FLOAT &cos) const;
+  double ters_dgijk(const Param& param, const double &cos) const;
 
   KOKKOS_INLINE_FUNCTION
-  void ters_dthb(const Param& param, const F_FLOAT &prefactor,
-              const F_FLOAT &rij, const F_FLOAT &dx1, const F_FLOAT &dy1, const F_FLOAT &dz1,
-              const F_FLOAT &rik, const F_FLOAT &dx2, const F_FLOAT &dy2, const F_FLOAT &dz2,
-              F_FLOAT *fi, F_FLOAT *fj, F_FLOAT *fk) const;
+  void ters_dthb(const Param& param, const double &prefactor,
+              const double &rij, const double &dx1, const double &dy1, const double &dz1,
+              const double &rik, const double &dx2, const double &dy2, const double &dz2,
+              double *fi, double *fj, double *fk) const;
 
   KOKKOS_INLINE_FUNCTION
-  void ters_dthbj(const Param& param, const F_FLOAT &prefactor,
-              const F_FLOAT &rij, const F_FLOAT &dx1, const F_FLOAT &dy1, const F_FLOAT &dz1,
-              const F_FLOAT &rik, const F_FLOAT &dx2, const F_FLOAT &dy2, const F_FLOAT &dz2,
-              F_FLOAT *fj, F_FLOAT *fk) const;
+  void ters_dthbj(const Param& param, const double &prefactor,
+              const double &rij, const double &dx1, const double &dy1, const double &dz1,
+              const double &rik, const double &dx2, const double &dy2, const double &dz2,
+              double *fj, double *fk) const;
 
   KOKKOS_INLINE_FUNCTION
-  void ters_dthbk(const Param& param, const F_FLOAT &prefactor,
-              const F_FLOAT &rij, const F_FLOAT &dx1, const F_FLOAT &dy1, const F_FLOAT &dz1,
-              const F_FLOAT &rik, const F_FLOAT &dx2, const F_FLOAT &dy2, const F_FLOAT &dz2,
-              F_FLOAT *fk) const;
+  void ters_dthbk(const Param& param, const double &prefactor,
+              const double &rij, const double &dx1, const double &dy1, const double &dz1,
+              const double &rik, const double &dx2, const double &dy2, const double &dz2,
+              double *fk) const;
 
   KOKKOS_INLINE_FUNCTION
-  double vec3_dot(const F_FLOAT x[3], const double y[3]) const {
+  double vec3_dot(const double x[3], const double y[3]) const {
     return x[0]*y[0] + x[1]*y[1] + x[2]*y[2];
   }
 
   KOKKOS_INLINE_FUNCTION
-  void vec3_add(const F_FLOAT x[3], const double y[3], double * const z) const {
+  void vec3_add(const double x[3], const double y[3], double * const z) const {
     z[0] = x[0]+y[0]; z[1] = x[1]+y[1]; z[2] = x[2]+y[2];
   }
 
   KOKKOS_INLINE_FUNCTION
-  void vec3_scale(const F_FLOAT k, const double x[3], double y[3]) const {
+  void vec3_scale(const double k, const double x[3], double y[3]) const {
     y[0] = k*x[0]; y[1] = k*x[1]; y[2] = k*x[2];
   }
 
   KOKKOS_INLINE_FUNCTION
-  void vec3_scaleadd(const F_FLOAT k, const double x[3], const double y[3], double * const z) const {
+  void vec3_scaleadd(const double k, const double x[3], const double y[3], double * const z) const {
     z[0] = k*x[0]+y[0]; z[1] = k*x[1]+y[1]; z[2] = k*x[2]+y[2];
   }
 
@@ -162,25 +162,25 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &epair, const F_FLOAT &fpair, const F_FLOAT &delx,
-                  const F_FLOAT &dely, const F_FLOAT &delz) const;
+      const double &epair, const double &fpair, const double &delx,
+                  const double &dely, const double &delz) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void v_tally3(EV_FLOAT &ev, const int &i, const int &j, const int &k,
-                F_FLOAT *fj, F_FLOAT *fk, F_FLOAT *drij, F_FLOAT *drik) const;
+                double *fj, double *fk, double *drij, double *drik) const;
 
   KOKKOS_INLINE_FUNCTION
   void v_tally3_atom(EV_FLOAT &ev, const int &i, const int &j, const int &k,
-                F_FLOAT *fj, F_FLOAT *fk, F_FLOAT *drji, F_FLOAT *drjk) const;
+                double *fj, double *fk, double *drji, double *drjk) const;
 
   void setup_params() override;
 
   KOKKOS_INLINE_FUNCTION
-  double fermi_k(const Param& param, const F_FLOAT &r) const;
+  double fermi_k(const Param& param, const double &r) const;
 
   KOKKOS_INLINE_FUNCTION
-  double fermi_d_k(const Param& param, const F_FLOAT &r) const;
+  double fermi_d_k(const Param& param, const double &r) const;
 
  protected:
   typedef Kokkos::DualView<int***,DeviceType> tdual_int_3d;
@@ -197,14 +197,14 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
   t_param_1d d_params;
 
   int inum;
-  typename AT::t_x_array_randomread x;
+  typename AT::t_f_array_randomread x;
   typename AT::t_f_array f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_tagint_1d tag;
 
-  DAT::tdual_efloat_1d k_eatom;
+  DAT::tdual_float_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename AT::t_efloat_1d d_eatom;
+  typename AT::t_float_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
   int need_dup;
@@ -217,17 +217,17 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<F_FLOAT*[3], typename DAT::t_f_array::array_layout> dup_f;
-  DupScatterView<E_FLOAT*, typename DAT::t_efloat_1d::array_layout> dup_eatom;
-  DupScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout> dup_vatom;
+  DupScatterView<double*[3], typename DAT::t_f_array::array_layout> dup_f;
+  DupScatterView<double*, typename DAT::t_float_1d::array_layout> dup_eatom;
+  DupScatterView<double*[6], typename DAT::t_virial_array::array_layout> dup_vatom;
 
-  NonDupScatterView<F_FLOAT*[3], typename DAT::t_f_array::array_layout> ndup_f;
-  NonDupScatterView<E_FLOAT*, typename DAT::t_efloat_1d::array_layout> ndup_eatom;
-  NonDupScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout> ndup_vatom;
+  NonDupScatterView<double*[3], typename DAT::t_f_array::array_layout> ndup_f;
+  NonDupScatterView<double*, typename DAT::t_float_1d::array_layout> ndup_eatom;
+  NonDupScatterView<double*[6], typename DAT::t_virial_array::array_layout> ndup_vatom;
 
-  typedef Kokkos::DualView<F_FLOAT**[7],Kokkos::LayoutRight,DeviceType> tdual_ffloat_2d_n7;
-  typedef typename tdual_ffloat_2d_n7::t_dev_const_randomread t_ffloat_2d_n7_randomread;
-  typedef typename tdual_ffloat_2d_n7::t_host t_host_ffloat_2d_n7;
+  typedef Kokkos::DualView<double**[7],Kokkos::LayoutRight,DeviceType> tdual_float_2d_n7;
+  typedef typename tdual_float_2d_n7::t_dev_const_randomread t_float_2d_n7_randomread;
+  typedef typename tdual_float_2d_n7::t_host t_host_float_2d_n7;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;
@@ -241,9 +241,9 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
   Kokkos::View<int*,DeviceType> d_numneigh_short;
 
   // ZBL
-  F_FLOAT global_a_0;              // Bohr radius for Coulomb repulsion
-  F_FLOAT global_epsilon_0;        // permittivity of vacuum for Coulomb repulsion
-  F_FLOAT global_e;                // proton charge (negative of electron charge)
+  double global_a_0;              // Bohr radius for Coulomb repulsion
+  double global_epsilon_0;        // permittivity of vacuum for Coulomb repulsion
+  double global_e;                // proton charge (negative of electron charge)
 
   friend void pair_virial_fdotr_compute<PairTersoffZBLKokkos>(PairTersoffZBLKokkos*);
 };

@@ -134,14 +134,14 @@ void PairSoftKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairSoftKokkos<DeviceType>::
-compute_fpair(const F_FLOAT& rsq, const int &, const int &, const int& itype, const int& jtype) const {
-  const F_FLOAT r = sqrt(rsq);
-  const F_FLOAT cut_ij = STACKPARAMS?m_params[itype][jtype].cut:params(itype,jtype).cut;
-  const F_FLOAT prefactor_ij = STACKPARAMS?m_params[itype][jtype].prefactor:params(itype,jtype).prefactor;
-  const F_FLOAT arg = MY_PI*r/cut_ij;
+double PairSoftKokkos<DeviceType>::
+compute_fpair(const double& rsq, const int &, const int &, const int& itype, const int& jtype) const {
+  const double r = sqrt(rsq);
+  const double cut_ij = STACKPARAMS?m_params[itype][jtype].cut:params(itype,jtype).cut;
+  const double prefactor_ij = STACKPARAMS?m_params[itype][jtype].prefactor:params(itype,jtype).prefactor;
+  const double arg = MY_PI*r/cut_ij;
 
-  F_FLOAT fpair = 0.0;
+  double fpair = 0.0;
   if (r > 0.0) fpair = prefactor_ij * sin(arg) * MY_PI/cut_ij/r;
 
   return fpair;
@@ -150,12 +150,12 @@ compute_fpair(const F_FLOAT& rsq, const int &, const int &, const int& itype, co
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairSoftKokkos<DeviceType>::
-compute_evdwl(const F_FLOAT& rsq, const int &, const int &, const int& itype, const int& jtype) const {
-  const F_FLOAT r = sqrt(rsq);
-  const F_FLOAT cut_ij = STACKPARAMS?m_params[itype][jtype].cut:params(itype,jtype).cut;
-  const F_FLOAT prefactor_ij = STACKPARAMS?m_params[itype][jtype].prefactor:params(itype,jtype).prefactor;
-  const F_FLOAT arg = MY_PI*r/cut_ij;
+double PairSoftKokkos<DeviceType>::
+compute_evdwl(const double& rsq, const int &, const int &, const int& itype, const int& jtype) const {
+  const double r = sqrt(rsq);
+  const double cut_ij = STACKPARAMS?m_params[itype][jtype].cut:params(itype,jtype).cut;
+  const double prefactor_ij = STACKPARAMS?m_params[itype][jtype].prefactor:params(itype,jtype).prefactor;
+  const double arg = MY_PI*r/cut_ij;
 
   return prefactor_ij*(1.0+cos(arg));
 }

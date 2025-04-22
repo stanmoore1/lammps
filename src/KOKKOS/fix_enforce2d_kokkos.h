@@ -45,11 +45,11 @@ class FixEnforce2DKokkos : public FixEnforce2D {
   // void post_force_respa(int, int, int);  No RRESPA support yet.
 
  private:
-  typename ArrayTypes<DeviceType>::t_v_array v;
+  typename ArrayTypes<DeviceType>::t_f_array v;
   typename ArrayTypes<DeviceType>::t_f_array f;
 
-  typename ArrayTypes<DeviceType>::t_v_array omega;
-  typename ArrayTypes<DeviceType>::t_v_array angmom;
+  typename ArrayTypes<DeviceType>::t_f_array omega;
+  typename ArrayTypes<DeviceType>::t_f_array angmom;
   typename ArrayTypes<DeviceType>::t_f_array torque;
 
   typename ArrayTypes<DeviceType>::t_int_1d mask;

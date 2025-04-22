@@ -1716,7 +1716,7 @@ void FixRxKokkos<DeviceType>::operator()(Tag_FixRxKokkos_firstPairOperator<WT_FL
 {
   // Create an atomic view of sumWeights and dpdThetaLocal. Only needed
   // for Half/thread scenarios.
-  typedef Kokkos::View< E_FLOAT*, typename DAT::t_efloat_1d::array_layout, typename KKDevice<DeviceType>::value, Kokkos::MemoryTraits< AtomicF< NEIGHFLAG >::value> > AtomicViewType;
+  typedef Kokkos::View< double*, typename DAT::t_float_1d::array_layout, typename KKDevice<DeviceType>::value, Kokkos::MemoryTraits< AtomicF< NEIGHFLAG >::value> > AtomicViewType;
 
   AtomicViewType a_dpdThetaLocal = d_dpdThetaLocal;
   AtomicViewType a_sumWeights    = d_sumWeights;
@@ -1818,8 +1818,8 @@ void FixRxKokkos<DeviceType>::computeLocalTemperature()
     const int ntypes = atom->ntypes;
 
     if (ntypes+1 > (int) k_cutsq.extent(0)) {
-      k_cutsq = typename AT::tdual_ffloat_2d();
-      k_cutsq = typename AT::tdual_ffloat_2d("FixRxKokkos::k_cutsq", ntypes+1, ntypes+1);
+      k_cutsq = typename AT::tdual_float_2d();
+      k_cutsq = typename AT::tdual_float_2d("FixRxKokkos::k_cutsq", ntypes+1, ntypes+1);
       d_cutsq = k_cutsq.template view<DeviceType>();
     }
 
@@ -1864,7 +1864,7 @@ void FixRxKokkos<DeviceType>::computeLocalTemperature()
         {
           // Create an atomic view of sumWeights and dpdThetaLocal. Only needed
           // for Half/thread scenarios.
-          typedef Kokkos::View< E_FLOAT*, typename DAT::t_efloat_1d::array_layout, typename KKDevice<DeviceType>::value, Kokkos::MemoryTraits< AtomicF< NEIGHFLAG >::value> > AtomicViewType;
+          typedef Kokkos::View< double*, typename DAT::t_float_1d::array_layout, typename KKDevice<DeviceType>::value, Kokkos::MemoryTraits< AtomicF< NEIGHFLAG >::value> > AtomicViewType;
 
           AtomicViewType a_dpdThetaLocal = d_dpdThetaLocal;
           AtomicViewType a_sumWeights    = d_sumWeights;

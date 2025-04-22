@@ -153,20 +153,20 @@ void PairLJGromacsKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJGromacsKokkos<DeviceType>::
-compute_fpair(const F_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
+double PairLJGromacsKokkos<DeviceType>::
+compute_fpair(const double& rsq, const int& /*i*/, const int& /*j*/,
               const int& itype, const int& jtype) const {
 
-  const F_FLOAT r2inv = 1.0/rsq;
-  const F_FLOAT r6inv = r2inv*r2inv*r2inv;
-  F_FLOAT forcelj = r6inv *
+  const double r2inv = 1.0/rsq;
+  const double r6inv = r2inv*r2inv*r2inv;
+  double forcelj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj1:params(itype,jtype).lj1)*r6inv -
      (STACKPARAMS?m_params[itype][jtype].lj2:params(itype,jtype).lj2));
 
   if (rsq > (STACKPARAMS?m_params[itype][jtype].cut_inner_sq:params(itype,jtype).cut_inner_sq)) {
-    const F_FLOAT r = sqrt(rsq);
-    const F_FLOAT tlj = r - (STACKPARAMS?m_params[itype][jtype].cut_inner:params(itype,jtype).cut_inner);
-    const F_FLOAT fswitch = r*tlj*tlj*
+    const double r = sqrt(rsq);
+    const double tlj = r - (STACKPARAMS?m_params[itype][jtype].cut_inner:params(itype,jtype).cut_inner);
+    const double fswitch = r*tlj*tlj*
             ((STACKPARAMS?m_params[itype][jtype].ljsw1:params(itype,jtype).ljsw1) +
              (STACKPARAMS?m_params[itype][jtype].ljsw2:params(itype,jtype).ljsw2)*tlj);
     forcelj += fswitch;
@@ -180,21 +180,21 @@ compute_fpair(const F_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairLJGromacsKokkos<DeviceType>::
-compute_evdwl(const F_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
+double PairLJGromacsKokkos<DeviceType>::
+compute_evdwl(const double& rsq, const int& /*i*/, const int& /*j*/,
               const int& itype, const int& jtype) const {
 
-  const F_FLOAT r2inv = 1.0/rsq;
-  const F_FLOAT r6inv = r2inv*r2inv*r2inv;
-  F_FLOAT englj = r6inv *
+  const double r2inv = 1.0/rsq;
+  const double r6inv = r2inv*r2inv*r2inv;
+  double englj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj3:params(itype,jtype).lj3)*r6inv -
      (STACKPARAMS?m_params[itype][jtype].lj4:params(itype,jtype).lj4));
   englj += (STACKPARAMS?m_params[itype][jtype].ljsw5:params(itype,jtype).ljsw5);
 
   if (rsq > (STACKPARAMS?m_params[itype][jtype].cut_inner_sq:params(itype,jtype).cut_inner_sq)) {
-    const F_FLOAT r = sqrt(rsq);
-    const F_FLOAT tlj = r - (STACKPARAMS?m_params[itype][jtype].cut_inner:params(itype,jtype).cut_inner);
-    const F_FLOAT eswitch = tlj*tlj*tlj *
+    const double r = sqrt(rsq);
+    const double tlj = r - (STACKPARAMS?m_params[itype][jtype].cut_inner:params(itype,jtype).cut_inner);
+    const double eswitch = tlj*tlj*tlj *
             ((STACKPARAMS?m_params[itype][jtype].ljsw3:params(itype,jtype).ljsw3) +
              (STACKPARAMS?m_params[itype][jtype].ljsw4:params(itype,jtype).ljsw4)*tlj);
     englj += eswitch;

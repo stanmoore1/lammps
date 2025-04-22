@@ -141,7 +141,7 @@ void FixShardlowKokkos<DeviceType>::init()
 
   for (int i = 1; i <= ntypes; i++) {
     for (int j = i; j <= ntypes; j++) {
-      F_FLOAT cutone = k_pairDPDE->cut[i][j];
+      double cutone = k_pairDPDE->cut[i][j];
       if (cutone > EPSILON) k_params.h_view(i,j).cutinv = 1.0/cutone;
       else k_params.h_view(i,j).cutinv = FLT_MAX;
       k_params.h_view(i,j).halfsigma = 0.5*k_pairDPDE->sigma[i][j];
@@ -200,7 +200,7 @@ void FixShardlowKokkos<DeviceType>::pre_neighbor()
   // Allocate memory for h_v_t0 to hold the initial velocities for the ghosts
   if (nghost > ghostmax) {
     ghostmax = nghost;
-    k_v_t0 = DAT::tdual_v_array("FixShardlowKokkos:v_t0", ghostmax);
+    k_v_t0 = DAT::tdual_f_array("FixShardlowKokkos:v_t0", ghostmax);
     // d_v_t0 = k_v_t0.template view<DeviceType>();
     h_v_t0 = k_v_t0.h_view;
   }
@@ -278,10 +278,10 @@ void FixShardlowKokkos<DeviceType>::ssa_update_dpd(
       const int j = d_neighbors(ii,jj) & NEIGHMASK;
       int jtype = type[j];
 
-      const X_FLOAT delx = xtmp - x(j, 0);
-      const X_FLOAT dely = ytmp - x(j, 1);
-      const X_FLOAT delz = ztmp - x(j, 2);
-      const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+      const double delx = xtmp - x(j, 0);
+      const double dely = ytmp - x(j, 1);
+      const double delz = ztmp - x(j, 2);
+      const double rsq = delx*delx + dely*dely + delz*delz;
 #ifdef DEBUG_SSA_PAIR_CT
       if ((i < nlocal) && (j < nlocal)) Kokkos::atomic_inc(&(d_counters(0, 0)));
       else Kokkos::atomic_inc(&(d_counters(0, 1)));
@@ -423,10 +423,10 @@ void FixShardlowKokkos<DeviceType>::ssa_update_dpde(
       const int j = d_neighbors(ii,jj) & NEIGHMASK;
       const int jtype = type(j);
 
-      const X_FLOAT delx = xtmp - x(j, 0);
-      const X_FLOAT dely = ytmp - x(j, 1);
-      const X_FLOAT delz = ztmp - x(j, 2);
-      const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+      const double delx = xtmp - x(j, 0);
+      const double dely = ytmp - x(j, 1);
+      const double delz = ztmp - x(j, 2);
+      const double rsq = delx*delx + dely*dely + delz*delz;
 #ifdef DEBUG_SSA_PAIR_CT
       if ((i < nlocal) && (j < nlocal)) Kokkos::atomic_inc(&(d_counters(0, 0)));
       else Kokkos::atomic_inc(&(d_counters(0, 1)));

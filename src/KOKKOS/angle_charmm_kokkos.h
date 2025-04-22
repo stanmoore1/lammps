@@ -54,32 +54,32 @@ class AngleCharmmKokkos : public AngleCharmm {
   //template<int NEWTON_BOND>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k,
-                     F_FLOAT &eangle, F_FLOAT *f1, F_FLOAT *f3,
-                     const F_FLOAT &delx1, const F_FLOAT &dely1, const F_FLOAT &delz1,
-                     const F_FLOAT &delx2, const F_FLOAT &dely2, const F_FLOAT &delz2) const;
+                     double &eangle, double *f1, double *f3,
+                     const double &delx1, const double &dely1, const double &delz1,
+                     const double &delx2, const double &dely2, const double &delz2) const;
 
   using KKDeviceType = typename KKDevice<DeviceType>::value;
-  Kokkos::DualView<E_FLOAT*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
-  Kokkos::DualView<F_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom;
+  Kokkos::DualView<double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
+  Kokkos::DualView<double*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
   typedef ArrayTypes<DeviceType> AT;
-  typename AT::t_x_array_randomread x;
+  typename AT::t_f_array_randomread x;
   typename Kokkos::View<double*[3],typename AT::t_f_array::array_layout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d anglelist;
-  Kokkos::View<E_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_eatom;
-  Kokkos::View<F_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_vatom;
+  Kokkos::View<double*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_eatom;
+  Kokkos::View<double*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  typename AT::t_ffloat_1d d_k;
-  typename AT::t_ffloat_1d d_theta0;
-  typename AT::t_ffloat_1d d_k_ub;
-  typename AT::t_ffloat_1d d_r_ub;
+  typename AT::t_float_1d d_k;
+  typename AT::t_float_1d d_theta0;
+  typename AT::t_float_1d d_k_ub;
+  typename AT::t_float_1d d_r_ub;
 
   void allocate() override;
 };

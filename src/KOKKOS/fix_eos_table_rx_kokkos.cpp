@@ -413,9 +413,9 @@ template<class DeviceType>
 int FixEOStableRXKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/)
 {
   int ii,jj,m;
-  HAT::t_efloat_1d h_uChem = atomKK->k_uChem.h_view;
-  HAT::t_efloat_1d h_uCG = atomKK->k_uCG.h_view;
-  HAT::t_efloat_1d h_uCGnew = atomKK->k_uCGnew.h_view;
+  HAT::t_float_1d h_uChem = atomKK->k_uChem.h_view;
+  HAT::t_float_1d h_uCG = atomKK->k_uCG.h_view;
+  HAT::t_float_1d h_uCGnew = atomKK->k_uCGnew.h_view;
 
   m = 0;
   for (ii = 0; ii < n; ii++) {
@@ -433,9 +433,9 @@ template<class DeviceType>
 void FixEOStableRXKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
 {
   int ii,m,last;
-  HAT::t_efloat_1d h_uChem = atomKK->k_uChem.h_view;
-  HAT::t_efloat_1d h_uCG = atomKK->k_uCG.h_view;
-  HAT::t_efloat_1d h_uCGnew = atomKK->k_uCGnew.h_view;
+  HAT::t_float_1d h_uChem = atomKK->k_uChem.h_view;
+  HAT::t_float_1d h_uCG = atomKK->k_uCG.h_view;
+  HAT::t_float_1d h_uCGnew = atomKK->k_uCGnew.h_view;
 
   m = 0;
   last = first + n ;
@@ -452,8 +452,8 @@ template<class DeviceType>
 int FixEOStableRXKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)
 {
   int i,m,last;
-  HAT::t_efloat_1d h_uCG = atomKK->k_uCG.h_view;
-  HAT::t_efloat_1d h_uCGnew = atomKK->k_uCGnew.h_view;
+  HAT::t_float_1d h_uCG = atomKK->k_uCG.h_view;
+  HAT::t_float_1d h_uCGnew = atomKK->k_uCGnew.h_view;
 
   m = 0;
   last = first + n;
@@ -470,8 +470,8 @@ template<class DeviceType>
 void FixEOStableRXKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, double *buf)
 {
   int i,j,m;
-  HAT::t_efloat_1d h_uCG = atomKK->k_uCG.h_view;
-  HAT::t_efloat_1d h_uCGnew = atomKK->k_uCGnew.h_view;
+  HAT::t_float_1d h_uCG = atomKK->k_uCG.h_view;
+  HAT::t_float_1d h_uCGnew = atomKK->k_uCGnew.h_view;
 
   m = 0;
   for (i = 0; i < n; i++) {

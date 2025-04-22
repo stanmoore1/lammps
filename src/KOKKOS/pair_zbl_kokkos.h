@@ -41,26 +41,26 @@ class PairZBLKokkos : public PairZBL {
   ~PairZBLKokkos() override;
   void compute(int, int) override;
   void init_style() override;
-  F_FLOAT init_one(int, int) override;
+  double init_one(int, int) override;
 
  private:
-  DAT::tdual_ffloat_1d k_z;
-  DAT::tdual_ffloat_2d_dl k_d1a,k_d2a,k_d3a,k_d4a,k_zze,k_sw1,k_sw2,k_sw3,k_sw4,k_sw5;
+  DAT::tdual_float_1d k_z;
+  DAT::tdual_float_2d_dl k_d1a,k_d2a,k_d3a,k_d4a,k_zze,k_sw1,k_sw2,k_sw3,k_sw4,k_sw5;
 
-  typename AT::t_ffloat_1d d_z;
-  typename AT::t_ffloat_2d_dl d_d1a,d_d2a,d_d3a,d_d4a,d_zze,d_sw1,d_sw2,d_sw3,d_sw4,d_sw5;
+  typename AT::t_float_1d d_z;
+  typename AT::t_float_2d_dl d_d1a,d_d2a,d_d3a,d_d4a,d_zze,d_sw1,d_sw2,d_sw3,d_sw4,d_sw5;
 
-  typename AT::t_x_array_randomread x;
+  typename AT::t_f_array_randomread x;
   typename AT::t_f_array f;
   typename AT::t_int_1d_randomread type;
 
-  DAT::tdual_efloat_1d k_eatom;
+  DAT::tdual_float_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename AT::t_efloat_1d d_eatom;
+  typename AT::t_float_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
-  F_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename AT::t_ffloat_2d_dl d_cutsq;
+  double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  typename AT::t_float_2d_dl d_cutsq;
 
   int newton_pair;
   int neighflag;
@@ -68,23 +68,23 @@ class PairZBLKokkos : public PairZBL {
   double special_lj[4];
 
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT e_zbl(F_FLOAT, int, int) const;
+  double e_zbl(double, int, int) const;
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT dzbldr(F_FLOAT, int, int) const;
+  double dzbldr(double, int, int) const;
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT d2zbldr2(F_FLOAT, int, int) const;
+  double d2zbldr2(double, int, int) const;
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT compute_fpair(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
+  double compute_fpair(const double& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT compute_evdwl(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
+  double compute_evdwl(const double& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT compute_ecoul(const F_FLOAT& /*rsq*/, const int& /*i*/, const int& /*j*/,
+  double compute_ecoul(const double& /*rsq*/, const int& /*i*/, const int& /*j*/,
                         const int& /*itype*/, const int& /*jtype*/) const { return 0; }
 
   void allocate() override;

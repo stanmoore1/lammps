@@ -139,19 +139,19 @@ void PairMorseKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairMorseKokkos<DeviceType>::
-compute_fpair(const F_FLOAT &rsq, const int &, const int &, const int &itype, const int &jtype) const {
-  const F_FLOAT rr = sqrt(rsq);
-  const F_FLOAT r0 = STACKPARAMS ? m_params[itype][jtype].r0 : params(itype,jtype).r0;
-  const F_FLOAT d0 = STACKPARAMS ? m_params[itype][jtype].d0 : params(itype,jtype).d0;
-  const F_FLOAT aa = STACKPARAMS ? m_params[itype][jtype].alpha : params(itype,jtype).alpha;
-  const F_FLOAT dr = rr - r0;
+double PairMorseKokkos<DeviceType>::
+compute_fpair(const double &rsq, const int &, const int &, const int &itype, const int &jtype) const {
+  const double rr = sqrt(rsq);
+  const double r0 = STACKPARAMS ? m_params[itype][jtype].r0 : params(itype,jtype).r0;
+  const double d0 = STACKPARAMS ? m_params[itype][jtype].d0 : params(itype,jtype).d0;
+  const double aa = STACKPARAMS ? m_params[itype][jtype].alpha : params(itype,jtype).alpha;
+  const double dr = rr - r0;
 
   // U  =  d0 * [ exp( -2*a*(x-r0)) - 2*exp(-a*(x-r0)) ]
   // f  = -2*a*d0*[ -exp( -2*a*(x-r0) ) + exp( -a*(x-r0) ) ] * grad(r)
   //    = +2*a*d0*[  exp( -2*a*(x-r0) ) - exp( -a*(x-r0) ) ] * grad(r)
-  const F_FLOAT dexp    = exp( -aa*dr );
-  const F_FLOAT forcelj = 2*aa*d0*dexp*(dexp-1.0);
+  const double dexp    = exp( -aa*dr );
+  const double forcelj = 2*aa*d0*dexp*(dexp-1.0);
 
   return forcelj / rr;
 }
@@ -159,18 +159,18 @@ compute_fpair(const F_FLOAT &rsq, const int &, const int &, const int &itype, co
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-F_FLOAT PairMorseKokkos<DeviceType>::
-compute_evdwl(const F_FLOAT &rsq, const int &, const int &, const int &itype, const int &jtype) const {
-  const F_FLOAT rr = sqrt(rsq);
-  const F_FLOAT r0 = STACKPARAMS ? m_params[itype][jtype].r0 : params(itype,jtype).r0;
-  const F_FLOAT d0 = STACKPARAMS ? m_params[itype][jtype].d0 : params(itype,jtype).d0;
-  const F_FLOAT aa = STACKPARAMS ? m_params[itype][jtype].alpha : params(itype,jtype).alpha;
-  const F_FLOAT dr = rr - r0;
+double PairMorseKokkos<DeviceType>::
+compute_evdwl(const double &rsq, const int &, const int &, const int &itype, const int &jtype) const {
+  const double rr = sqrt(rsq);
+  const double r0 = STACKPARAMS ? m_params[itype][jtype].r0 : params(itype,jtype).r0;
+  const double d0 = STACKPARAMS ? m_params[itype][jtype].d0 : params(itype,jtype).d0;
+  const double aa = STACKPARAMS ? m_params[itype][jtype].alpha : params(itype,jtype).alpha;
+  const double dr = rr - r0;
 
   // U  =  d0 * [ exp( -2*a*(x-r0)) - 2*exp(-a*(x-r0)) ]
   // f  = -2*a*d0*[ -exp( -2*a*(x-r0) ) + exp( -a*(x-r0) ) ] * grad(r)
   //    = +2*a*d0*[  exp( -2*a*(x-r0) ) - exp( -a*(x-r0) ) ] * grad(r)
-  const F_FLOAT dexp    = exp( -aa*dr );
+  const double dexp    = exp( -aa*dr );
 
   return d0 * dexp * ( dexp - 2.0 );
 }

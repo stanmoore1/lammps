@@ -37,25 +37,25 @@ class AtomVecDPDKokkos : public AtomVecKokkos, public AtomVecDPD {
   void grow_pointers() override;
   void sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter) override;
   int pack_comm_kokkos(const int &n, const DAT::tdual_int_1d &k_sendlist,
-                       const DAT::tdual_xfloat_2d &buf,
+                       const DAT::tdual_float_2d &buf,
                        const int &pbc_flag, const int pbc[]) override;
   void unpack_comm_kokkos(const int &n, const int &nfirst,
-                          const DAT::tdual_xfloat_2d &buf) override;
+                          const DAT::tdual_float_2d &buf) override;
   int pack_comm_self(const int &n, const DAT::tdual_int_1d &list,
                      const int nfirst,
                      const int &pbc_flag, const int pbc[]) override;
   int pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                         DAT::tdual_xfloat_2d buf,
+                         DAT::tdual_float_2d buf,
                          int pbc_flag, int *pbc, ExecutionSpace space) override;
   void unpack_border_kokkos(const int &n, const int &nfirst,
-                            const DAT::tdual_xfloat_2d &buf,
+                            const DAT::tdual_float_2d &buf,
                             ExecutionSpace space) override;
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &buf,
+  int pack_exchange_kokkos(const int &nsend,DAT::tdual_float_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            ExecutionSpace space) override;
-  int unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int nrecv,
-                             int nlocal, int dim, X_FLOAT lo, X_FLOAT hi,
+  int unpack_exchange_kokkos(DAT::tdual_float_2d &k_buf, int nrecv,
+                             int nlocal, int dim, double lo, double hi,
                              ExecutionSpace space,
                              DAT::tdual_int_1d &k_indices) override;
 
@@ -66,8 +66,8 @@ class AtomVecDPDKokkos : public AtomVecKokkos, public AtomVecDPD {
   double *duChem;
 
  protected:
-  DAT::t_efloat_1d d_uCond, d_uMech, d_uChem, d_uCG, d_uCGnew,d_rho,d_dpdTheta,d_duChem;
-  HAT::t_efloat_1d h_uCond, h_uMech, h_uChem, h_uCG, h_uCGnew,h_rho,h_dpdTheta,h_duChem;
+  DAT::t_float_1d d_uCond, d_uMech, d_uChem, d_uCG, d_uCGnew,d_rho,d_dpdTheta,d_duChem;
+  HAT::t_float_1d h_uCond, h_uMech, h_uChem, h_uCG, h_uCGnew,h_rho,h_dpdTheta,h_duChem;
 
   DAT::t_tagint_1d d_tag;
   HAT::t_tagint_1d h_tag;
@@ -76,8 +76,8 @@ class AtomVecDPDKokkos : public AtomVecKokkos, public AtomVecDPD {
   DAT::t_int_1d d_type, d_mask;
   HAT::t_int_1d h_type, h_mask;
 
-  DAT::t_x_array d_x;
-  DAT::t_v_array d_v;
+  DAT::t_f_array d_x;
+  DAT::t_f_array d_v;
   DAT::t_f_array d_f;
 };
 

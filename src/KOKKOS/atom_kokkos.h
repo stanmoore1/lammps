@@ -31,8 +31,8 @@ class AtomKokkos : public Atom {
   DAT::tdual_tagint_1d k_tag;
   DAT::tdual_int_1d k_type, k_mask;
   DAT::tdual_imageint_1d k_image;
-  DAT::tdual_x_array k_x;
-  DAT::tdual_v_array k_v;
+  DAT::tdual_f_array k_x;
+  DAT::tdual_f_array k_v;
   DAT::tdual_f_array k_f;
 
   DAT::tdual_float_1d k_mass;
@@ -41,8 +41,8 @@ class AtomKokkos : public Atom {
   DAT::tdual_float_1d k_radius;
   DAT::tdual_float_1d k_rmass;
   DAT::tdual_float_1d_4 k_mu;
-  DAT::tdual_v_array k_omega;
-  DAT::tdual_v_array k_angmom;
+  DAT::tdual_f_array k_omega;
+  DAT::tdual_f_array k_angmom;
   DAT::tdual_f_array k_torque;
   DAT::tdual_tagint_1d k_molecule;
   DAT::tdual_int_2d k_nspecial;
@@ -69,7 +69,7 @@ class AtomKokkos : public Atom {
   DAT::tdual_f_array k_fm_long;
 
 // DPD-REACT package
-  DAT::tdual_efloat_1d k_uCond, k_uMech, k_uChem, k_uCG, k_uCGnew,
+  DAT::tdual_float_1d k_uCond, k_uMech, k_uChem, k_uCG, k_uCGnew,
                        k_rho,k_dpdTheta,k_duChem;
 
 

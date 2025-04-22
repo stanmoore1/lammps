@@ -66,7 +66,7 @@ class FixShardlowKokkos : public FixShardlow {
     params_ssa() {cutinv=FLT_MAX;halfsigma=0;kappa=0;alpha=0;};
     KOKKOS_INLINE_FUNCTION
     params_ssa(int /*i*/) {cutinv=FLT_MAX;halfsigma=0;kappa=0;alpha=0;};
-    F_FLOAT cutinv,halfsigma,kappa,alpha;
+    double cutinv,halfsigma,kappa,alpha;
   };
 
   template<bool STACKPARAMS>
@@ -99,22 +99,22 @@ class FixShardlowKokkos : public FixShardlow {
   // hardwired to space for MAX_TYPES_STACKPARAMS (12) atom types
   params_ssa m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
-  F_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename ArrayTypes<DeviceType>::t_ffloat_2d d_cutsq;
+  double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  typename ArrayTypes<DeviceType>::t_float_2d d_cutsq;
 
-  typename DAT::tdual_v_array k_v_t0;
-  // typename AT::t_v_array d_v_t0; v_t0 only used in comm routines (on host)
-  typename HAT::t_v_array h_v_t0;
+  typename DAT::tdual_f_array k_v_t0;
+  // typename AT::t_f_array d_v_t0; v_t0 only used in comm routines (on host)
+  typename HAT::t_f_array h_v_t0;
 
-  typename AT::t_x_array x;
-  typename AT::t_v_array v;
-  typename HAT::t_v_array h_v;
-  typename AT::t_efloat_1d uCond, uMech;
-  typename HAT::t_efloat_1d h_uCond, h_uMech;
+  typename AT::t_f_array x;
+  typename AT::t_f_array v;
+  typename HAT::t_f_array h_v;
+  typename AT::t_float_1d uCond, uMech;
+  typename HAT::t_float_1d h_uCond, h_uMech;
   typename AT::t_int_1d type;
   bool massPerI;
   typename AT::t_float_1d_randomread masses;
-  typename AT::t_efloat_1d dpdTheta;
+  typename AT::t_float_1d dpdTheta;
 
   // Storage for the es_RNG state variables
   typedef Kokkos::View<random_external_state::es_RNG_t*,DeviceType> es_RNGs_type;

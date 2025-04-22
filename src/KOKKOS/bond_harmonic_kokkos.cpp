@@ -141,21 +141,21 @@ void BondHarmonicKokkos<DeviceType>::operator()(TagBondHarmonicCompute<NEWTON_BO
   const int i2 = bondlist(n,1);
   const int type = bondlist(n,2);
 
-  const F_FLOAT delx = x(i1,0) - x(i2,0);
-  const F_FLOAT dely = x(i1,1) - x(i2,1);
-  const F_FLOAT delz = x(i1,2) - x(i2,2);
+  const double delx = x(i1,0) - x(i2,0);
+  const double dely = x(i1,1) - x(i2,1);
+  const double delz = x(i1,2) - x(i2,2);
 
-  const F_FLOAT rsq = delx*delx + dely*dely + delz*delz;
-  const F_FLOAT r = sqrt(rsq);
-  const F_FLOAT dr = r - d_r0[type];
-  const F_FLOAT rk = d_k[type] * dr;
+  const double rsq = delx*delx + dely*dely + delz*delz;
+  const double r = sqrt(rsq);
+  const double dr = r - d_r0[type];
+  const double rk = d_k[type] * dr;
 
   // force & energy
 
-  F_FLOAT fbond = 0.0;
+  double fbond = 0.0;
   if (r > 0.0) fbond = -2.0*rk/r;
 
-  F_FLOAT ebond = 0.0;
+  double ebond = 0.0;
   if (eflag)
     ebond = rk*dr;
 
@@ -202,8 +202,8 @@ void BondHarmonicKokkos<DeviceType>::coeff(int narg, char **arg)
   BondHarmonic::coeff(narg, arg);
 
   int n = atom->nbondtypes;
-  typename AT::tdual_ffloat_1d k_k("BondHarmonic::k",n+1);
-  typename AT::tdual_ffloat_1d k_r0("BondHarmonic::r0",n+1);
+  typename AT::tdual_float_1d k_k("BondHarmonic::k",n+1);
+  typename AT::tdual_float_1d k_r0("BondHarmonic::r0",n+1);
 
   d_k = k_k.template view<DeviceType>();
   d_r0 = k_r0.template view<DeviceType>();
@@ -229,8 +229,8 @@ void BondHarmonicKokkos<DeviceType>::read_restart(FILE *fp)
   BondHarmonic::read_restart(fp);
 
   int n = atom->nbondtypes;
-  typename AT::tdual_ffloat_1d k_k("BondHarmonic::k",n+1);
-  typename AT::tdual_ffloat_1d k_r0("BondHarmonic::r0",n+1);
+  typename AT::tdual_float_1d k_k("BondHarmonic::k",n+1);
+  typename AT::tdual_float_1d k_r0("BondHarmonic::r0",n+1);
 
   d_k = k_k.template view<DeviceType>();
   d_r0 = k_r0.template view<DeviceType>();
@@ -254,11 +254,11 @@ template<class DeviceType>
 //template<int NEWTON_BOND>
 KOKKOS_INLINE_FUNCTION
 void BondHarmonicKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &ebond, const F_FLOAT &fbond, const F_FLOAT &delx,
-                const F_FLOAT &dely, const F_FLOAT &delz) const
+      const double &ebond, const double &fbond, const double &delx,
+                const double &dely, const double &delz) const
 {
-  E_FLOAT ebondhalf;
-  F_FLOAT v[6];
+  double ebondhalf;
+  double v[6];
 
   if (eflag_either) {
     if (eflag_global) {
