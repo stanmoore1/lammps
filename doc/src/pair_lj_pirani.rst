@@ -50,45 +50,42 @@ Lennard-Jones (LJ) formulation is usually applied.
 :math:`r_c` is the cutoff.
 
 
-An additional parameter, :math:`\alpha`, has been introduced in order
-to be able to recover the traditional Lennard-Jones 12-6 with a specific
-choice of parameters. With :math:`R_m \equiv r_0 = \sigma \cdot 2^{1 / 6}`,
-:math:`\alpha = 0`, :math:`\beta = 12` and :math:`\gamma = 6`
-it is straightforward to prove that LJ 12-6 is obtained. Also, it can be
+An additional parameter, :math:`\alpha`, has been introduced in order to
+be able to recover the traditional Lennard-Jones 12-6 with a specific
+choice of parameters. With :math:`R_m \equiv r_0 = \sigma \cdot 2^{1 /
+6}`, :math:`\alpha = 0`, :math:`\beta = 12` and :math:`\gamma = 6` it is
+straightforward to prove that LJ 12-6 is obtained. Also, it can be
 verified that using :math:`\alpha= 4`, :math:`\beta= 8` and
 :math:`\gamma = 6`, at the equilibrium distance, the first and second
 derivatives of ILJ match those of LJ 12-6. The parameter :math:`R_m`
-corresponds to the equilibrium distance and :math:`\epsilon` to the
-well depth.
+corresponds to the equilibrium distance and :math:`\epsilon` to the well
+depth.
 
 
 This potential provides some advantages with respect to the standard LJ
 potential, as explained in :ref:`(Pirani) <Pirani>`: it provides a more
-realistic description of the long range behaviour and an attenuation of
+realistic description of the long range behavior and an attenuation of
 the hardness of the repulsive wall.
 
-
 This force field can be used for neutral-neutral (:math:`\gamma = 6`),
-ion-neutral (:math:`\gamma = 4`) or ion-ion systems (:math:`\gamma = 1`).
-Notice that this implementation does not include explicit electrostatic
-interactions. If these are desired, this pair style should be used along
-with a Coulomb pair style :doc:`pair_style coul/cut <pair_coul_cut>` and
-optional long-range Coulombics, which can be done using the pair style
-hybrid :doc:`pair_style hybrid <pair_hybrid>` and kspace
-style :doc:`kspace_style <kspace_style>` commands.
+ion-neutral (:math:`\gamma = 4`) or ion-ion systems (:math:`\gamma =
+1`).  Notice that this implementation does not include explicit
+electrostatic interactions.  If these are desired, this pair style
+should be used along with a Coulomb pair style like
+:doc:`pair styles coul/cut or coul/long <pair_coul>` by using
+:doc:`pair style hybrid/overlay <pair_hybrid>` and a suitable
+kspace style :doc:`<kspace_style>`, if needed.
 
-
-As discussed in :ref:`(Pirani) <Pirani>`, analyses of a
-variety of systems showed that :math:`\alpha= 4` generally works very well.
-In some special cases (e.g. those involving very small multiple charged ions)
-this factor may take a slightly different value. The parameter
+As discussed in :ref:`(Pirani) <Pirani>`, analysis of a variety of
+systems showed that :math:`\alpha= 4` generally works very well.  In
+some special cases (e.g. those involving very small multiple charged
+ions) this factor may take a slightly different value. The parameter
 :math:`\beta` codifies the hardness (polarizability) of the interacting
-partners, and for neutral-neutral systems it usually ranges from 6 to 11.
-Moreover, the modulation of :math:`\beta` can model additional interaction
-effects, such as charge transfer in the perturbative limit, and can
-mitigate the effect of some uncertainty in the data used to build up
-the potential function.
-
+partners, and for neutral-neutral systems it usually ranges from 6
+to 11.  Moreover, the modulation of :math:`\beta` can model additional
+interaction effects, such as charge transfer in the perturbative limit,
+and can mitigate the effect of some uncertainty in the data used to
+build up the potential function.
 
 The following coefficients must be defined for each pair of atoms
 types via the :doc:`pair_coeff <pair_coeff>` command as in the examples

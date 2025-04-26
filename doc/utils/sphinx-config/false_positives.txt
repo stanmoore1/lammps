@@ -2965,6 +2965,7 @@ Piola
 pIp
 pipelining
 Pirani
+pirani
 Pisarev
 Pishevar
 Pitera
