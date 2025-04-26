@@ -45,7 +45,7 @@ template <class DeviceType> class MLIAPDescriptorKokkos : virtual protected Poin
   }
 
   MLIAPDescriptor *descriptor;
-  DAT::tdual_float_1d k_wjelem;
+  DAT::tdual_double_1d k_wjelem;
 };
 }    // namespace LAMMPS_NS
 #endif

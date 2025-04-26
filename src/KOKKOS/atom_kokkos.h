@@ -35,12 +35,12 @@ class AtomKokkos : public Atom {
   DAT::tdual_f_array k_v;
   DAT::tdual_f_array k_f;
 
-  DAT::tdual_float_1d k_mass;
+  DAT::tdual_double_1d k_mass;
 
-  DAT::tdual_float_1d k_q;
-  DAT::tdual_float_1d k_radius;
-  DAT::tdual_float_1d k_rmass;
-  DAT::tdual_float_1d_4 k_mu;
+  DAT::tdual_double_1d k_q;
+  DAT::tdual_double_1d k_radius;
+  DAT::tdual_double_1d k_rmass;
+  DAT::tdual_double_1d_4 k_mu;
   DAT::tdual_f_array k_omega;
   DAT::tdual_f_array k_angmom;
   DAT::tdual_f_array k_torque;
@@ -60,16 +60,16 @@ class AtomKokkos : public Atom {
   DAT::tdual_int_2d k_improper_type;
   DAT::tdual_tagint_2d k_improper_atom1, k_improper_atom2, k_improper_atom3, k_improper_atom4;
 
-  DAT::tdual_float_2d k_dvector;
+  DAT::tdual_double_2d k_dvector;
 
   // SPIN package
 
-  DAT::tdual_float_1d_4 k_sp;
+  DAT::tdual_double_1d_4 k_sp;
   DAT::tdual_f_array k_fm;
   DAT::tdual_f_array k_fm_long;
 
 // DPD-REACT package
-  DAT::tdual_float_1d k_uCond, k_uMech, k_uChem, k_uCG, k_uCGnew,
+  DAT::tdual_double_1d k_uCond, k_uMech, k_uChem, k_uCG, k_uCGnew,
                        k_rho,k_dpdTheta,k_duChem;
 
 

@@ -54,8 +54,8 @@ template <class DeviceType> class ComputeCompositionAtomKokkos : public ComputeC
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d d_ilist;
   typename AT::t_int_1d d_numneigh;
-  DAT::tdual_float_2d k_result;
-  typename AT::t_float_2d d_result;
+  DAT::tdual_double_2d k_result;
+  typename AT::t_double_2d d_result;
 };
 
 }    // namespace LAMMPS_NS

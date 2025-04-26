@@ -336,9 +336,9 @@ void DihedralHarmonicKokkos<DeviceType>::allocate()
   DihedralHarmonic::allocate();
 
   int n = atom->ndihedraltypes;
-  k_k = DAT::tdual_float_1d("DihedralHarmonic::k",n+1);
-  k_cos_shift = DAT::tdual_float_1d("DihedralHarmonic::cos_shift",n+1);
-  k_sin_shift = DAT::tdual_float_1d("DihedralHarmonic::sin_shift",n+1);
+  k_k = DAT::tdual_double_1d("DihedralHarmonic::k",n+1);
+  k_cos_shift = DAT::tdual_double_1d("DihedralHarmonic::cos_shift",n+1);
+  k_sin_shift = DAT::tdual_double_1d("DihedralHarmonic::sin_shift",n+1);
   k_sign = DAT::tdual_int_1d("DihedralHarmonic::sign",n+1);
   k_multiplicity = DAT::tdual_int_1d("DihedralHarmonic::multiplicity",n+1);
 
@@ -419,7 +419,7 @@ void DihedralHarmonicKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, co
   double v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<double*, typename DAT::t_float_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
   Kokkos::View<double*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
 
   if (eflag_either) {

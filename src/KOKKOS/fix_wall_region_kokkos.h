@@ -50,7 +50,7 @@ class FixWallRegionKokkos : public FixWallRegion {
 
   typename AT::t_f_array d_x;
   typename AT::t_f_array d_f;
-  typename AT::t_float_1d d_radius;
+  typename AT::t_double_1d d_radius;
   typename AT::t_int_1d d_mask;
 
   DAT::tdual_virial_array k_vatom;

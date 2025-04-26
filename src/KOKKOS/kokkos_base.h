@@ -27,25 +27,25 @@ class KokkosBase {
 
   // Pair
   virtual int pack_forward_comm_kokkos(int, DAT::tdual_int_1d,
-                                       DAT::tdual_float_1d &,
+                                       DAT::tdual_double_1d &,
                                        int, int *) {return 0;};
-  virtual void unpack_forward_comm_kokkos(int, int, DAT::tdual_float_1d &) {}
+  virtual void unpack_forward_comm_kokkos(int, int, DAT::tdual_double_1d &) {}
 
-  virtual int pack_reverse_comm_kokkos(int, int, DAT::tdual_float_1d &) {return 0;};
+  virtual int pack_reverse_comm_kokkos(int, int, DAT::tdual_double_1d &) {return 0;};
   virtual void unpack_reverse_comm_kokkos(int, DAT::tdual_int_1d,
-                                          DAT::tdual_float_1d &) {}
+                                          DAT::tdual_double_1d &) {}
 
   // Fix
   virtual int pack_forward_comm_fix_kokkos(int, DAT::tdual_int_1d,
-                                           DAT::tdual_float_1d &,
+                                           DAT::tdual_double_1d &,
                                            int, int *) {return 0;};
-  virtual void unpack_forward_comm_fix_kokkos(int, int, DAT::tdual_float_1d &) {}
+  virtual void unpack_forward_comm_fix_kokkos(int, int, DAT::tdual_double_1d &) {}
 
-  virtual int pack_exchange_kokkos(const int & /*nsend*/, DAT::tdual_float_2d & /*k_buf*/,
+  virtual int pack_exchange_kokkos(const int & /*nsend*/, DAT::tdual_double_2d & /*k_buf*/,
                                    DAT::tdual_int_1d /*k_sendlist*/,
                                    DAT::tdual_int_1d /*k_copylist*/,
                                    ExecutionSpace /*space*/) { return 0; }
-  virtual void unpack_exchange_kokkos(DAT::tdual_float_2d & /*k_buf*/,
+  virtual void unpack_exchange_kokkos(DAT::tdual_double_2d & /*k_buf*/,
                                       DAT::tdual_int_1d & /*indices*/, int /*nrecv*/,
                                       int /*nrecv1*/, int /*nextrarecv1*/,
                                       ExecutionSpace /*space*/) {}

@@ -76,9 +76,9 @@ class AngleSPICAKokkos : public AngleSPICA {
   typename ArrayTypes<DeviceType>::t_f_array f;
   typename ArrayTypes<DeviceType>::t_int_2d anglelist;
 
-  typename ArrayTypes<DeviceType>::tdual_float_1d k_eatom;
+  typename ArrayTypes<DeviceType>::tdual_double_1d k_eatom;
   typename ArrayTypes<DeviceType>::tdual_virial_array k_vatom;
-  typename ArrayTypes<DeviceType>::t_float_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
 
   int nlocal,newton_bond;
@@ -87,14 +87,14 @@ class AngleSPICAKokkos : public AngleSPICA {
   typename ArrayTypes<DeviceType>::tdual_int_1d k_setflag;
   typename ArrayTypes<DeviceType>::t_int_1d d_setflag, d_type;
 
-  typename ArrayTypes<DeviceType>::tdual_float_1d k_k, k_theta0, k_repscale;
-  typename ArrayTypes<DeviceType>::t_float_1d d_k, d_theta0, d_repscale;
+  typename ArrayTypes<DeviceType>::tdual_double_1d k_k, k_theta0, k_repscale;
+  typename ArrayTypes<DeviceType>::t_double_1d d_k, d_theta0, d_repscale;
 
   typename ArrayTypes<DeviceType>::tdual_int_2d k_lj_type;
   typename ArrayTypes<DeviceType>::t_int_2d d_lj_type;
 
-  typename ArrayTypes<DeviceType>::tdual_float_2d k_lj1, k_lj2, k_lj3, k_lj4, k_rminsq, k_emin;
-  typename ArrayTypes<DeviceType>::t_float_2d d_lj1, d_lj2, d_lj3, d_lj4, d_rminsq, d_emin;
+  typename ArrayTypes<DeviceType>::tdual_double_2d k_lj1, k_lj2, k_lj3, k_lj4, k_rminsq, k_emin;
+  typename ArrayTypes<DeviceType>::t_double_2d d_lj1, d_lj2, d_lj3, d_lj4, d_rminsq, d_emin;
 
   void allocate() override;
 };

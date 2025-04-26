@@ -60,7 +60,7 @@ class AngleCosineKokkos : public AngleCosine {
                      const double &delx1, const double &dely1, const double &delz1,
                      const double &delx2, const double &dely2, const double &delz2) const;
 
-  typename AT::tdual_float_1d k_eatom;
+  typename AT::tdual_double_1d k_eatom;
   typename AT::tdual_virial_array k_vatom;
 
  protected:
@@ -70,14 +70,14 @@ class AngleCosineKokkos : public AngleCosine {
   typename ArrayTypes<DeviceType>::t_f_array_randomread x;
   typename ArrayTypes<DeviceType>::t_f_array f;
   typename ArrayTypes<DeviceType>::t_int_2d anglelist;
-  typename ArrayTypes<DeviceType>::t_float_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  typename ArrayTypes<DeviceType>::tdual_float_1d k_k;
-  typename ArrayTypes<DeviceType>::t_float_1d d_k;
+  typename ArrayTypes<DeviceType>::tdual_double_1d k_k;
+  typename ArrayTypes<DeviceType>::t_double_1d d_k;
 
   void allocate() override;
 };

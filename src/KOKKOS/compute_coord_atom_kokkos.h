@@ -61,12 +61,12 @@ class ComputeCoordAtomKokkos : public ComputeCoordAtom {
   typename AT::t_int_1d d_typelo;
   typename AT::t_int_1d d_typehi;
 
-  DAT::tdual_float_1d k_cvec;
-  typename AT::t_float_1d d_cvec;
-  DAT::tdual_float_2d k_carray;
-  typename AT::t_float_2d d_carray;
+  DAT::tdual_double_1d k_cvec;
+  typename AT::t_double_1d d_cvec;
+  DAT::tdual_double_2d k_carray;
+  typename AT::t_double_2d d_carray;
 
-  typename AT::t_float_2d d_normv;
+  typename AT::t_double_2d d_normv;
 };
 
 }

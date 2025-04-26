@@ -77,8 +77,8 @@ class BondClass2Kokkos : public BondClass2 {
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  typename AT::t_float_1d d_k2, d_k3, d_k4;
-  typename AT::t_float_1d d_r0;
+  typename AT::t_double_1d d_k2, d_k3, d_k4;
+  typename AT::t_double_1d d_r0;
 
   void allocate();
 };

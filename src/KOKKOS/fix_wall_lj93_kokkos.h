@@ -59,8 +59,8 @@ class FixWallLJ93Kokkos : public FixWallLJ93 {
   DAT::tdual_virial_array k_vatom;
   typename AT::t_virial_array d_vatom;
 
-  typename AT::tdual_float_1d k_cutoff,k_coeff1,k_coeff2,k_coeff3,k_coeff4,k_offset;
-  typename AT::t_float_1d d_cutoff,d_coeff1,d_coeff2,d_coeff3,d_coeff4,d_offset;
+  typename AT::tdual_double_1d k_cutoff,k_coeff1,k_coeff2,k_coeff3,k_coeff4,k_offset;
+  typename AT::t_double_1d d_cutoff,d_coeff1,d_coeff2,d_coeff3,d_coeff4,d_offset;
 
   KOKKOS_INLINE_FUNCTION
   void v_tally(value_type, int, int, double) const;

@@ -52,8 +52,8 @@ class FixDtResetKokkos : public FixDtReset {
   typename AT::t_f_array f;
   typename AT::t_int_1d_randomread mask;
   typename AT::t_int_1d_randomread type;
-  typename ArrayTypes<DeviceType>::t_float_1d_randomread rmass;
-  typename ArrayTypes<DeviceType>::t_float_1d_randomread mass;
+  typename ArrayTypes<DeviceType>::t_double_1d_randomread rmass;
+  typename ArrayTypes<DeviceType>::t_double_1d_randomread mass;
 
 
   Kokkos::DualView<double*, Kokkos::LayoutRight, DeviceType> k_emax;

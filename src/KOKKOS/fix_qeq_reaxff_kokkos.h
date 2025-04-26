@@ -136,12 +136,12 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagQEqUnpackExchange, const int&) const;
 
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_float_2d &buf,
+  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            ExecutionSpace space) override;
 
-  void unpack_exchange_kokkos(DAT::tdual_float_2d &k_buf,
+  void unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf,
                               DAT::tdual_int_1d &indices,int nrecv,
                               int nrecv1,int nextrarecv1,
                               ExecutionSpace space) override;
@@ -154,15 +154,15 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
     double chi, eta, gamma;
   };
 
-  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_float_1d&,
+  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_double_1d&,
                        int, int *) override;
-  void unpack_forward_comm_kokkos(int, int, DAT::tdual_float_1d&) override;
+  void unpack_forward_comm_kokkos(int, int, DAT::tdual_double_1d&) override;
   int pack_forward_comm(int, int *, double *, int, int *) override;
   void unpack_forward_comm(int, int, double *) override;
   int pack_reverse_comm(int, int, double *) override;
   void unpack_reverse_comm(int, int *, double *) override;
   double memory_usage() override;
-  void sparse_matvec_kokkos(typename AT::t_float2_1d &);
+  void sparse_matvec_kokkos(typename AT::t_double_1d_2 &);
 
   // There should be a better way to do this for other backends
 #if defined(KOKKOS_ENABLE_CUDA)
@@ -212,38 +212,38 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
   typename AT::t_f_array x;
   typename AT::t_f_array v;
   typename AT::t_f_array_const f;
-  //typename AT::t_float_1d_randomread mass, q;
-  typename AT::t_float_1d_randomread mass;
-  typename AT::t_float_1d q;
+  //typename AT::t_double_1d_randomread mass, q;
+  typename AT::t_double_1d_randomread mass;
+  typename AT::t_double_1d q;
   typename AT::t_int_1d type, mask;
   typename AT::t_tagint_1d tag;
 
-  DAT::tdual_float_1d k_q;
-  typename AT::t_float_1d d_q;
-  HAT::t_float_1d h_q;
+  DAT::tdual_double_1d k_q;
+  typename AT::t_double_1d d_q;
+  HAT::t_double_1d h_q;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist, d_numneigh;
 
-  DAT::tdual_float_1d k_tap;
-  typename AT::t_float_1d d_tap;
+  DAT::tdual_double_1d k_tap;
+  typename AT::t_double_1d d_tap;
 
   typename AT::t_bigint_1d d_firstnbr;
   typename AT::t_int_1d d_numnbrs;
   typename AT::t_int_1d d_jlist;
-  typename AT::t_float_1d d_val;
+  typename AT::t_double_1d d_val;
 
-  DAT::tdual_float_1d k_chi_field;
-  typename AT::t_float_1d d_Hdia_inv, d_chi_field;
+  DAT::tdual_double_1d k_chi_field;
+  typename AT::t_double_1d d_Hdia_inv, d_chi_field;
 
-  DAT::tdual_float2_1d k_o, k_d, k_st;
-  typename AT::t_float2_1d d_p, d_o, d_r, d_d, d_b_st, d_st, d_xx;
-  HAT::t_float2_1d h_o, h_d, h_st;
+  DAT::tdual_double_1d_2 k_o, k_d, k_st;
+  typename AT::t_double_1d_2 d_p, d_o, d_r, d_d, d_b_st, d_st, d_xx;
+  HAT::t_double_1d_2 h_o, h_d, h_st;
 
-  DAT::tdual_float_2d k_shield, k_s_hist, k_t_hist;
-  typename AT::t_float_2d d_shield, d_s_hist, d_t_hist;
-  HAT::t_float_2d h_s_hist, h_t_hist;
-  typename AT::t_float_2d_randomread r_s_hist, r_t_hist;
+  DAT::tdual_double_2d k_shield, k_s_hist, k_t_hist;
+  typename AT::t_double_2d d_shield, d_s_hist, d_t_hist;
+  HAT::t_double_2d h_s_hist, h_t_hist;
+  typename AT::t_double_2d_randomread r_s_hist, r_t_hist;
 
   using KKDeviceType = typename KKDevice<DeviceType>::value;
 
@@ -253,13 +253,13 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double**, typename AT::t_float2_1d::array_layout> dup_o;
-  NonDupScatterView<double**, typename AT::t_float2_1d::array_layout> ndup_o;
+  DupScatterView<double**, typename AT::t_double_1d_2::array_layout> dup_o;
+  NonDupScatterView<double**, typename AT::t_double_1d_2::array_layout> ndup_o;
 
   int nsend;
   int first;
   typename AT::t_int_1d d_sendlist;
-  typename AT::t_float_1d d_buf;
+  typename AT::t_double_1d d_buf;
   typename AT::t_int_1d d_copylist;
   typename AT::t_int_1d d_indices;
   typename AT::t_int_1d d_exchange_sendlist;

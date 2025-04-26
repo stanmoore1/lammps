@@ -153,7 +153,7 @@ void PairReaxFFKokkos<DeviceType>::allocate()
     ("PairReaxFF::params_hbp",n+1,n+1,n+1);
   paramshbp = k_params_hbp.template view<DeviceType>();
 
-  k_tap = DAT::tdual_float_1d("pair:tap",8);
+  k_tap = DAT::tdual_double_1d("pair:tap",8);
   d_tap = k_tap.template view<DeviceType>();
   h_tap = k_tap.h_view;
 }
@@ -4140,7 +4140,7 @@ void PairReaxFFKokkos<DeviceType>::calculate_find_bond_item(int ii, int &numbond
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairReaxFFKokkos<DeviceType>::PackBondBuffer(DAT::tdual_float_1d k_buf, int &nbuf_local)
+void PairReaxFFKokkos<DeviceType>::PackBondBuffer(DAT::tdual_double_1d k_buf, int &nbuf_local)
 {
   d_buf = k_buf.view<DeviceType>();
   k_params_sing.template sync<DeviceType>();
@@ -4169,7 +4169,7 @@ void PairReaxFFKokkos<DeviceType>::PackBondBuffer(DAT::tdual_float_1d k_buf, int
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairReaxFFKokkos<DeviceType>::PackReducedBondBuffer(DAT::tdual_float_1d k_buf, int &nbuf_local, bool store_bonds)
+void PairReaxFFKokkos<DeviceType>::PackReducedBondBuffer(DAT::tdual_double_1d k_buf, int &nbuf_local, bool store_bonds)
 {
   d_buf = k_buf.view<DeviceType>();
   k_params_sing.template sync<DeviceType>();

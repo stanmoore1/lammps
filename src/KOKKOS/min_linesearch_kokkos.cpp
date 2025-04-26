@@ -105,8 +105,8 @@ void MinLineSearchKokkos::reset_vectors()
   auto d_x = atomKK->k_x.d_view;
   auto d_f = atomKK->k_f.d_view;
 
-  if (nvec) xvec = DAT::t_float_1d(d_x.data(),d_x.size());
-  if (nvec) fvec = DAT::t_float_1d(d_f.data(),d_f.size());
+  if (nvec) xvec = DAT::t_double_1d(d_x.data(),d_x.size());
+  if (nvec) fvec = DAT::t_double_1d(d_f.data(),d_f.size());
   x0 = fix_minimize_kk->request_vector_kokkos(0);
   g = fix_minimize_kk->request_vector_kokkos(1);
   h = fix_minimize_kk->request_vector_kokkos(2);

@@ -246,7 +246,7 @@ void PairCoulLongKokkos<DeviceType>::allocate()
   memoryKK->create_kokkos(k_cutsq,cutsq,n+1,n+1,"pair:cutsq");
   d_cutsq = k_cutsq.template view<DeviceType>();
 
-  d_cut_coulsq = typename AT::t_float_2d("pair:cut_coulsq",n+1,n+1);
+  d_cut_coulsq = typename AT::t_double_2d("pair:cut_coulsq",n+1,n+1);
 
   k_params = Kokkos::DualView<params_coul**,Kokkos::LayoutRight,DeviceType>("PairCoulLong::params",n+1,n+1);
   params = k_params.template view<DeviceType>();
@@ -257,8 +257,8 @@ void PairCoulLongKokkos<DeviceType>::init_tables(double cut_coul, double *cut_re
 {
   Pair::init_tables(cut_coul,cut_respa);
 
-  typedef typename ArrayTypes<DeviceType>::t_float_1d table_type;
-  typedef typename ArrayTypes<LMPHostType>::t_float_1d host_table_type;
+  typedef typename ArrayTypes<DeviceType>::t_double_1d table_type;
+  typedef typename ArrayTypes<LMPHostType>::t_double_1d host_table_type;
 
   int ntable = 1;
   for (int i = 0; i < ncoultablebits; i++) ntable *= 2;

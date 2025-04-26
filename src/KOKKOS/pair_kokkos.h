@@ -63,7 +63,7 @@ struct PairComputeFunctor  {
   // The copy of the pair style
   PairStyle c;
   typename AT::t_f_array f;
-  typename AT::t_float_1d d_eatom;
+  typename AT::t_double_1d d_eatom;
   typename AT::t_virial_array d_vatom;
   int inum;
 
@@ -76,9 +76,9 @@ struct PairComputeFunctor  {
   KKScatterView<double*[3], typename DAT::t_f_array::array_layout,KKDeviceType,KKScatterSum,DUP> dup_f;
 
   // The eatom and vatom arrays are atomic for Half/Thread neighbor style
-  //Kokkos::View<double*, typename DAT::t_float_1d::array_layout,
+  //Kokkos::View<double*, typename DAT::t_double_1d::array_layout,
   //             typename KKDevice<device_type>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > eatom;
-  KKScatterView<double*, typename DAT::t_float_1d::array_layout,KKDeviceType,KKScatterSum,DUP> dup_eatom;
+  KKScatterView<double*, typename DAT::t_double_1d::array_layout,KKDeviceType,KKScatterSum,DUP> dup_eatom;
 
   //Kokkos::View<double*[6], typename DAT::t_virial_array::array_layout,
   //             typename KKDevice<device_type>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > vatom;

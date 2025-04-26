@@ -431,12 +431,12 @@ void DihedralCharmmKokkos<DeviceType>::coeff(int narg, char **arg)
   DihedralCharmm::coeff(narg, arg);
 
   int nd = atom->ndihedraltypes;
-  typename AT::tdual_float_1d k_k("DihedralCharmm::k",nd+1);
-  typename AT::tdual_float_1d k_multiplicity("DihedralCharmm::multiplicity",nd+1);
-  typename AT::tdual_float_1d k_shift("DihedralCharmm::shift",nd+1);
-  typename AT::tdual_float_1d k_cos_shift("DihedralCharmm::cos_shift",nd+1);
-  typename AT::tdual_float_1d k_sin_shift("DihedralCharmm::sin_shift",nd+1);
-  typename AT::tdual_float_1d k_weight("DihedralCharmm::weight",nd+1);
+  typename AT::tdual_double_1d k_k("DihedralCharmm::k",nd+1);
+  typename AT::tdual_double_1d k_multiplicity("DihedralCharmm::multiplicity",nd+1);
+  typename AT::tdual_double_1d k_shift("DihedralCharmm::shift",nd+1);
+  typename AT::tdual_double_1d k_cos_shift("DihedralCharmm::cos_shift",nd+1);
+  typename AT::tdual_double_1d k_sin_shift("DihedralCharmm::sin_shift",nd+1);
+  typename AT::tdual_double_1d k_weight("DihedralCharmm::weight",nd+1);
 
   d_k = k_k.template view<DeviceType>();
   d_multiplicity = k_multiplicity.template view<DeviceType>();
@@ -480,10 +480,10 @@ void DihedralCharmmKokkos<DeviceType>::init_style()
   DihedralCharmm::init_style();
 
   int n = atom->ntypes;
-  DAT::tdual_float_2d k_lj14_1("DihedralCharmm:lj14_1",n+1,n+1);
-  DAT::tdual_float_2d k_lj14_2("DihedralCharmm:lj14_2",n+1,n+1);
-  DAT::tdual_float_2d k_lj14_3("DihedralCharmm:lj14_3",n+1,n+1);
-  DAT::tdual_float_2d k_lj14_4("DihedralCharmm:lj14_4",n+1,n+1);
+  DAT::tdual_double_2d k_lj14_1("DihedralCharmm:lj14_1",n+1,n+1);
+  DAT::tdual_double_2d k_lj14_2("DihedralCharmm:lj14_2",n+1,n+1);
+  DAT::tdual_double_2d k_lj14_3("DihedralCharmm:lj14_3",n+1,n+1);
+  DAT::tdual_double_2d k_lj14_4("DihedralCharmm:lj14_4",n+1,n+1);
 
   d_lj14_1 = k_lj14_1.template view<DeviceType>();
   d_lj14_2 = k_lj14_2.template view<DeviceType>();
@@ -524,12 +524,12 @@ void DihedralCharmmKokkos<DeviceType>::read_restart(FILE *fp)
   DihedralCharmm::read_restart(fp);
 
   int nd = atom->ndihedraltypes;
-  typename AT::tdual_float_1d k_k("DihedralCharmm::k",nd+1);
-  typename AT::tdual_float_1d k_multiplicity("DihedralCharmm::multiplicity",nd+1);
-  typename AT::tdual_float_1d k_shift("DihedralCharmm::shift",nd+1);
-  typename AT::tdual_float_1d k_cos_shift("DihedralCharmm::cos_shift",nd+1);
-  typename AT::tdual_float_1d k_sin_shift("DihedralCharmm::sin_shift",nd+1);
-  typename AT::tdual_float_1d k_weight("DihedralCharmm::weight",nd+1);
+  typename AT::tdual_double_1d k_k("DihedralCharmm::k",nd+1);
+  typename AT::tdual_double_1d k_multiplicity("DihedralCharmm::multiplicity",nd+1);
+  typename AT::tdual_double_1d k_shift("DihedralCharmm::shift",nd+1);
+  typename AT::tdual_double_1d k_cos_shift("DihedralCharmm::cos_shift",nd+1);
+  typename AT::tdual_double_1d k_sin_shift("DihedralCharmm::sin_shift",nd+1);
+  typename AT::tdual_double_1d k_weight("DihedralCharmm::weight",nd+1);
 
   d_k = k_k.template view<DeviceType>();
   d_multiplicity = k_multiplicity.template view<DeviceType>();

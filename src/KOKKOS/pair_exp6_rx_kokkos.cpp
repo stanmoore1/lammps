@@ -161,45 +161,45 @@ void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
      const int np_total = nlocal + atom->nghost;
 
      if (np_total > (int)PairExp6ParamData.epsilon1.extent(0)) {
-       PairExp6ParamData.epsilon1      = typename AT::t_float_1d("PairExp6ParamData.epsilon1"     ,np_total);
-       PairExp6ParamData.alpha1        = typename AT::t_float_1d("PairExp6ParamData.alpha1"       ,np_total);
-       PairExp6ParamData.rm1           = typename AT::t_float_1d("PairExp6ParamData.rm1"          ,np_total);
-       PairExp6ParamData.mixWtSite1    = typename AT::t_float_1d("PairExp6ParamData.mixWtSite1"   ,np_total);
-       PairExp6ParamData.epsilon2      = typename AT::t_float_1d("PairExp6ParamData.epsilon2"     ,np_total);
-       PairExp6ParamData.alpha2        = typename AT::t_float_1d("PairExp6ParamData.alpha2"       ,np_total);
-       PairExp6ParamData.rm2           = typename AT::t_float_1d("PairExp6ParamData.rm2"          ,np_total);
-       PairExp6ParamData.mixWtSite2    = typename AT::t_float_1d("PairExp6ParamData.mixWtSite2"   ,np_total);
-       PairExp6ParamData.epsilonOld1   = typename AT::t_float_1d("PairExp6ParamData.epsilonOld1"  ,np_total);
-       PairExp6ParamData.alphaOld1     = typename AT::t_float_1d("PairExp6ParamData.alphaOld1"    ,np_total);
-       PairExp6ParamData.rmOld1        = typename AT::t_float_1d("PairExp6ParamData.rmOld1"       ,np_total);
-       PairExp6ParamData.mixWtSite1old = typename AT::t_float_1d("PairExp6ParamData.mixWtSite1old",np_total);
-       PairExp6ParamData.epsilonOld2   = typename AT::t_float_1d("PairExp6ParamData.epsilonOld2"  ,np_total);
-       PairExp6ParamData.alphaOld2     = typename AT::t_float_1d("PairExp6ParamData.alphaOld2"    ,np_total);
-       PairExp6ParamData.rmOld2        = typename AT::t_float_1d("PairExp6ParamData.rmOld2"       ,np_total);
-       PairExp6ParamData.mixWtSite2old = typename AT::t_float_1d("PairExp6ParamData.mixWtSite2old",np_total);
+       PairExp6ParamData.epsilon1      = typename AT::t_double_1d("PairExp6ParamData.epsilon1"     ,np_total);
+       PairExp6ParamData.alpha1        = typename AT::t_double_1d("PairExp6ParamData.alpha1"       ,np_total);
+       PairExp6ParamData.rm1           = typename AT::t_double_1d("PairExp6ParamData.rm1"          ,np_total);
+       PairExp6ParamData.mixWtSite1    = typename AT::t_double_1d("PairExp6ParamData.mixWtSite1"   ,np_total);
+       PairExp6ParamData.epsilon2      = typename AT::t_double_1d("PairExp6ParamData.epsilon2"     ,np_total);
+       PairExp6ParamData.alpha2        = typename AT::t_double_1d("PairExp6ParamData.alpha2"       ,np_total);
+       PairExp6ParamData.rm2           = typename AT::t_double_1d("PairExp6ParamData.rm2"          ,np_total);
+       PairExp6ParamData.mixWtSite2    = typename AT::t_double_1d("PairExp6ParamData.mixWtSite2"   ,np_total);
+       PairExp6ParamData.epsilonOld1   = typename AT::t_double_1d("PairExp6ParamData.epsilonOld1"  ,np_total);
+       PairExp6ParamData.alphaOld1     = typename AT::t_double_1d("PairExp6ParamData.alphaOld1"    ,np_total);
+       PairExp6ParamData.rmOld1        = typename AT::t_double_1d("PairExp6ParamData.rmOld1"       ,np_total);
+       PairExp6ParamData.mixWtSite1old = typename AT::t_double_1d("PairExp6ParamData.mixWtSite1old",np_total);
+       PairExp6ParamData.epsilonOld2   = typename AT::t_double_1d("PairExp6ParamData.epsilonOld2"  ,np_total);
+       PairExp6ParamData.alphaOld2     = typename AT::t_double_1d("PairExp6ParamData.alphaOld2"    ,np_total);
+       PairExp6ParamData.rmOld2        = typename AT::t_double_1d("PairExp6ParamData.rmOld2"       ,np_total);
+       PairExp6ParamData.mixWtSite2old = typename AT::t_double_1d("PairExp6ParamData.mixWtSite2old",np_total);
 
-       PairExp6ParamDataVect.epsilon          = typename AT::t_float_1d("PairExp6ParamDataVect.epsilon"         ,np_total);
-       PairExp6ParamDataVect.rm3              = typename AT::t_float_1d("PairExp6ParamDataVect.rm3"             ,np_total);
-       PairExp6ParamDataVect.alpha            = typename AT::t_float_1d("PairExp6ParamDataVect.alpha"           ,np_total);
-       PairExp6ParamDataVect.xMolei           = typename AT::t_float_1d("PairExp6ParamDataVect.xMolei"          ,np_total);
-       PairExp6ParamDataVect.epsilon_old      = typename AT::t_float_1d("PairExp6ParamDataVect.epsilon_old"     ,np_total);
-       PairExp6ParamDataVect.rm3_old          = typename AT::t_float_1d("PairExp6ParamDataVect.rm3_old"         ,np_total);
-       PairExp6ParamDataVect.alpha_old        = typename AT::t_float_1d("PairExp6ParamDataVect.alpha_old"       ,np_total);
-       PairExp6ParamDataVect.xMolei_old       = typename AT::t_float_1d("PairExp6ParamDataVect.xMolei_old"      ,np_total);
-       PairExp6ParamDataVect.fractionOFA      = typename AT::t_float_1d("PairExp6ParamDataVect.fractionOFA"     ,np_total);
-       PairExp6ParamDataVect.fraction1        = typename AT::t_float_1d("PairExp6ParamDataVect.fraction1"       ,np_total);
-       PairExp6ParamDataVect.fraction2        = typename AT::t_float_1d("PairExp6ParamDataVect.fraction2"       ,np_total);
-       PairExp6ParamDataVect.nMoleculesOFA    = typename AT::t_float_1d("PairExp6ParamDataVect.nMoleculesOFA"   ,np_total);
-       PairExp6ParamDataVect.nMolecules1      = typename AT::t_float_1d("PairExp6ParamDataVect.nMolecules1"     ,np_total);
-       PairExp6ParamDataVect.nMolecules2      = typename AT::t_float_1d("PairExp6ParamDataVect.nMolecules2"     ,np_total);
-       PairExp6ParamDataVect.nTotal           = typename AT::t_float_1d("PairExp6ParamDataVect.nTotal"          ,np_total);
-       PairExp6ParamDataVect.fractionOFAold   = typename AT::t_float_1d("PairExp6ParamDataVect.fractionOFAold"  ,np_total);
-       PairExp6ParamDataVect.fractionOld1     = typename AT::t_float_1d("PairExp6ParamDataVect.fractionOld1"    ,np_total);
-       PairExp6ParamDataVect.fractionOld2     = typename AT::t_float_1d("PairExp6ParamDataVect.fractionOld2"    ,np_total);
-       PairExp6ParamDataVect.nMoleculesOFAold = typename AT::t_float_1d("PairExp6ParamDataVect.nMoleculesOFAold",np_total);
-       PairExp6ParamDataVect.nMoleculesOld1   = typename AT::t_float_1d("PairExp6ParamDataVect.nMoleculesOld1"  ,np_total);
-       PairExp6ParamDataVect.nMoleculesOld2   = typename AT::t_float_1d("PairExp6ParamDataVect.nMoleculesOld2"  ,np_total);
-       PairExp6ParamDataVect.nTotalold        = typename AT::t_float_1d("PairExp6ParamDataVect.nTotalold"       ,np_total);
+       PairExp6ParamDataVect.epsilon          = typename AT::t_double_1d("PairExp6ParamDataVect.epsilon"         ,np_total);
+       PairExp6ParamDataVect.rm3              = typename AT::t_double_1d("PairExp6ParamDataVect.rm3"             ,np_total);
+       PairExp6ParamDataVect.alpha            = typename AT::t_double_1d("PairExp6ParamDataVect.alpha"           ,np_total);
+       PairExp6ParamDataVect.xMolei           = typename AT::t_double_1d("PairExp6ParamDataVect.xMolei"          ,np_total);
+       PairExp6ParamDataVect.epsilon_old      = typename AT::t_double_1d("PairExp6ParamDataVect.epsilon_old"     ,np_total);
+       PairExp6ParamDataVect.rm3_old          = typename AT::t_double_1d("PairExp6ParamDataVect.rm3_old"         ,np_total);
+       PairExp6ParamDataVect.alpha_old        = typename AT::t_double_1d("PairExp6ParamDataVect.alpha_old"       ,np_total);
+       PairExp6ParamDataVect.xMolei_old       = typename AT::t_double_1d("PairExp6ParamDataVect.xMolei_old"      ,np_total);
+       PairExp6ParamDataVect.fractionOFA      = typename AT::t_double_1d("PairExp6ParamDataVect.fractionOFA"     ,np_total);
+       PairExp6ParamDataVect.fraction1        = typename AT::t_double_1d("PairExp6ParamDataVect.fraction1"       ,np_total);
+       PairExp6ParamDataVect.fraction2        = typename AT::t_double_1d("PairExp6ParamDataVect.fraction2"       ,np_total);
+       PairExp6ParamDataVect.nMoleculesOFA    = typename AT::t_double_1d("PairExp6ParamDataVect.nMoleculesOFA"   ,np_total);
+       PairExp6ParamDataVect.nMolecules1      = typename AT::t_double_1d("PairExp6ParamDataVect.nMolecules1"     ,np_total);
+       PairExp6ParamDataVect.nMolecules2      = typename AT::t_double_1d("PairExp6ParamDataVect.nMolecules2"     ,np_total);
+       PairExp6ParamDataVect.nTotal           = typename AT::t_double_1d("PairExp6ParamDataVect.nTotal"          ,np_total);
+       PairExp6ParamDataVect.fractionOFAold   = typename AT::t_double_1d("PairExp6ParamDataVect.fractionOFAold"  ,np_total);
+       PairExp6ParamDataVect.fractionOld1     = typename AT::t_double_1d("PairExp6ParamDataVect.fractionOld1"    ,np_total);
+       PairExp6ParamDataVect.fractionOld2     = typename AT::t_double_1d("PairExp6ParamDataVect.fractionOld2"    ,np_total);
+       PairExp6ParamDataVect.nMoleculesOFAold = typename AT::t_double_1d("PairExp6ParamDataVect.nMoleculesOFAold",np_total);
+       PairExp6ParamDataVect.nMoleculesOld1   = typename AT::t_double_1d("PairExp6ParamDataVect.nMoleculesOld1"  ,np_total);
+       PairExp6ParamDataVect.nMoleculesOld2   = typename AT::t_double_1d("PairExp6ParamDataVect.nMoleculesOld2"  ,np_total);
+       PairExp6ParamDataVect.nTotalold        = typename AT::t_double_1d("PairExp6ParamDataVect.nTotalold"       ,np_total);
      } else
        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairExp6rxZeroMixingWeights>(0,np_total),*this);
 
@@ -281,8 +281,8 @@ void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   int nmax = f.extent(0);
   if (nmax > (int)t_f.extent(1)) {
     t_f = t_f_array_thread("pair_exp6_rx:t_f",nthreads,nmax);
-    t_uCG = t_float_1d_thread("pair_exp6_rx:t_uCG",nthreads,nmax);
-    t_uCGnew = t_float_1d_thread("pair_exp6_rx:t_UCGnew",nthreads,nmax);
+    t_uCG = t_double_1d_thread("pair_exp6_rx:t_uCG",nthreads,nmax);
+    t_uCGnew = t_double_1d_thread("pair_exp6_rx:t_UCGnew",nthreads,nmax);
   }
 
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairExp6rxZeroDupViews>(0,nmax),*this);
@@ -411,8 +411,8 @@ void PairExp6rxKokkos<DeviceType>::operator()(TagPairExp6rxCompute<NEIGHFLAG,NEW
 
   // These arrays are atomic for Half/Thread neighbor style
   Kokkos::View<double*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
-  Kokkos::View<double*, typename DAT::t_float_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_uCG = uCG;
-  Kokkos::View<double*, typename DAT::t_float_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_uCGnew = uCGnew;
+  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_uCG = uCG;
+  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_uCGnew = uCGnew;
 
   int i,jj,jnum,itype,jtype;
   double xtmp,ytmp,ztmp,delx,dely,delz,evdwl,evdwlOld,fpair;
@@ -1152,8 +1152,8 @@ void PairExp6rxKokkos<DeviceType>::vectorized_operator(const int &ii, EV_FLOAT& 
 {
   // These arrays are atomic for Half/Thread neighbor style
   Kokkos::View<double*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
-  Kokkos::View<double*, typename DAT::t_float_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_uCG = uCG;
-  Kokkos::View<double*, typename DAT::t_float_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_uCGnew = uCGnew;
+  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_uCG = uCG;
+  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_uCGnew = uCGnew;
 
   int tid = 0;
 #ifndef LMP_KOKKOS_GPU
@@ -2557,7 +2557,7 @@ void PairExp6rxKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const in
   const int VFLAG = vflag_either;
 
   // The eatom and vatom arrays are atomic for Half/Thread neighbor style
-  Kokkos::View<double*, typename DAT::t_float_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = k_eatom.view<DeviceType>();
   Kokkos::View<double*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
 
   if (EFLAG) {

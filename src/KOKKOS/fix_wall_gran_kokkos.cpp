@@ -373,7 +373,7 @@ void FixWallGranKokkos<DeviceType>::operator()(TagFixWallGranPackExchange, const
 
 template<class DeviceType>
 int FixWallGranKokkos<DeviceType>::pack_exchange_kokkos(
-   const int &nsend, DAT::tdual_float_2d &k_buf,
+   const int &nsend, DAT::tdual_double_2d &k_buf,
    DAT::tdual_int_1d k_sendlist, DAT::tdual_int_1d k_copylist,
    ExecutionSpace /*space*/)
 {
@@ -386,7 +386,7 @@ int FixWallGranKokkos<DeviceType>::pack_exchange_kokkos(
   d_sendlist = k_sendlist.view<DeviceType>();
   d_copylist = k_copylist.view<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_float_1d_um(
+  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
 
@@ -417,11 +417,11 @@ void FixWallGranKokkos<DeviceType>::operator()(TagFixWallGranUnpackExchange, con
 
 template<class DeviceType>
 void FixWallGranKokkos<DeviceType>::unpack_exchange_kokkos(
-  DAT::tdual_float_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
+  DAT::tdual_double_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
   int /*nrecv1*/, int /*nextrarecv1*/,
   ExecutionSpace /*space*/)
 {
-  d_buf = typename ArrayTypes<DeviceType>::t_float_1d_um(
+  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_indices = k_indices.view<DeviceType>();

@@ -94,8 +94,8 @@ void PairADPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (atom->nmax > nmax) {
     nmax = atom->nmax;
-    k_rho = DAT::tdual_float_1d("pair:rho",nmax);
-    k_fp = DAT::tdual_float_1d("pair:fp",nmax);
+    k_rho = DAT::tdual_double_1d("pair:rho",nmax);
+    k_fp = DAT::tdual_double_1d("pair:fp",nmax);
     k_mu = DAT::tdual_f_array("pair:mu", nmax);
     k_lambda = DAT::tdual_virial_array("pair:lambda", nmax);
     d_rho = k_rho.template view<DeviceType>();
@@ -392,17 +392,17 @@ void PairADPKokkos<DeviceType>::array2spline()
   rdr = 1.0/dr;
   rdrho = 1.0/drho;
 
-  tdual_float_2d_n7 k_frho_spline = tdual_float_2d_n7("pair:frho",nfrho,nrho+1);
-  tdual_float_2d_n7 k_rhor_spline = tdual_float_2d_n7("pair:rhor",nrhor,nr+1);
-  tdual_float_2d_n7 k_z2r_spline = tdual_float_2d_n7("pair:z2r",nz2r,nr+1);
-  tdual_float_2d_n7 k_u2r_spline = tdual_float_2d_n7("pair:z2r",nu2r,nr+1);
-  tdual_float_2d_n7 k_w2r_spline = tdual_float_2d_n7("pair:z2r",nw2r,nr+1);
+  tdual_double_2d_n7 k_frho_spline = tdual_double_2d_n7("pair:frho",nfrho,nrho+1);
+  tdual_double_2d_n7 k_rhor_spline = tdual_double_2d_n7("pair:rhor",nrhor,nr+1);
+  tdual_double_2d_n7 k_z2r_spline = tdual_double_2d_n7("pair:z2r",nz2r,nr+1);
+  tdual_double_2d_n7 k_u2r_spline = tdual_double_2d_n7("pair:z2r",nu2r,nr+1);
+  tdual_double_2d_n7 k_w2r_spline = tdual_double_2d_n7("pair:z2r",nw2r,nr+1);
 
-  t_host_float_2d_n7 h_frho_spline = k_frho_spline.h_view;
-  t_host_float_2d_n7 h_rhor_spline = k_rhor_spline.h_view;
-  t_host_float_2d_n7 h_z2r_spline = k_z2r_spline.h_view;
-  t_host_float_2d_n7 h_u2r_spline = k_u2r_spline.h_view;
-  t_host_float_2d_n7 h_w2r_spline = k_w2r_spline.h_view;
+  t_host_double_2d_n7 h_frho_spline = k_frho_spline.h_view;
+  t_host_double_2d_n7 h_rhor_spline = k_rhor_spline.h_view;
+  t_host_double_2d_n7 h_z2r_spline = k_z2r_spline.h_view;
+  t_host_double_2d_n7 h_u2r_spline = k_u2r_spline.h_view;
+  t_host_double_2d_n7 h_w2r_spline = k_w2r_spline.h_view;
 
   for (int i = 0; i < nfrho; i++)
     interpolate(nrho,drho,frho[i],h_frho_spline,i);
@@ -439,7 +439,7 @@ void PairADPKokkos<DeviceType>::array2spline()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairADPKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_host_float_2d_n7 h_spline, int i)
+void PairADPKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_host_double_2d_n7 h_spline, int i)
 {
   for (int m = 1; m <= n; m++) h_spline(i,m,6) = f[m];
 
@@ -473,7 +473,7 @@ void PairADPKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_ho
 
 template<class DeviceType>
 int PairADPKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                                                        DAT::tdual_float_1d &buf,
+                                                        DAT::tdual_double_1d &buf,
                                                         int /*pbc_flag*/, int * /*pbc*/)
 {
   d_sendlist = k_sendlist.view<DeviceType>();
@@ -501,7 +501,7 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPPackForwardComm, const int 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairADPKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_float_1d &buf)
+void PairADPKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_double_1d &buf)
 {
   first = first_in;
   v_buf = buf.view<DeviceType>();

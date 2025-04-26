@@ -755,7 +755,7 @@ void PPPMKokkos<DeviceType>::allocate()
   memoryKK->create_kokkos(k_density_fft,density_fft,nfft_both,"pppm:d_density_fft");
   d_density_fft = k_density_fft.view<DeviceType>();
 
-  d_greensfn = typename AT::t_float_1d("pppm:greensfn",nfft_both);
+  d_greensfn = typename AT::t_double_1d("pppm:greensfn",nfft_both);
   memoryKK->create_kokkos(k_work1,work1,2*nfft_both,"pppm:work1");
   memoryKK->create_kokkos(k_work2,work2,2*nfft_both,"pppm:work2");
   d_work1 = k_work1.view<DeviceType>();
@@ -763,13 +763,13 @@ void PPPMKokkos<DeviceType>::allocate()
   d_vg = typename AT::t_virial_array("pppm:vg",nfft_both);
 
   if (triclinic == 0) {
-    d_fkx = typename AT::t_float_1d("pppm:d_fkx",nxhi_fft-nxlo_fft+1);
-    d_fky = typename AT::t_float_1d("pppm:d_fky",nyhi_fft-nylo_fft+1);
-    d_fkz = typename AT::t_float_1d("pppm:d_fkz",nzhi_fft-nzlo_fft+1);
+    d_fkx = typename AT::t_double_1d("pppm:d_fkx",nxhi_fft-nxlo_fft+1);
+    d_fky = typename AT::t_double_1d("pppm:d_fky",nyhi_fft-nylo_fft+1);
+    d_fkz = typename AT::t_double_1d("pppm:d_fkz",nzhi_fft-nzlo_fft+1);
   } else {
-    d_fkx = typename AT::t_float_1d("pppm:d_fkx",nfft_both);
-    d_fky = typename AT::t_float_1d("pppm:d_fky",nfft_both);
-    d_fkz = typename AT::t_float_1d("pppm:d_fkz",nfft_both);
+    d_fkx = typename AT::t_double_1d("pppm:d_fkx",nfft_both);
+    d_fky = typename AT::t_double_1d("pppm:d_fky",nfft_both);
+    d_fkz = typename AT::t_double_1d("pppm:d_fkz",nfft_both);
   }
 
   d_vdx_brick = typename FFT_AT::t_FFT_SCALAR_3d("pppm:d_vdx_brick",nzhi_out-nzlo_out+1,nyhi_out-nylo_out+1,nxhi_out-nxlo_out+1);
@@ -779,7 +779,7 @@ void PPPMKokkos<DeviceType>::allocate()
   // summation coeffs
 
   order_allocated = order;
-  k_gf_b = typename DAT::tdual_float_1d("pppm:gf_b",order);
+  k_gf_b = typename DAT::tdual_double_1d("pppm:gf_b",order);
   d_gf_b = k_gf_b.view<DeviceType>();
   d_rho1d = typename FFT_AT::t_FFT_SCALAR_2d_3("pppm:rho1d",nmax,order/2+order/2+1);
   k_rho_coeff = FFT_DAT::tdual_FFT_SCALAR_2d("pppm:rho_coeff",order,order/2-(1-order)/2+1);

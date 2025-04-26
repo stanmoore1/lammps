@@ -59,12 +59,12 @@ class FixEfieldKokkos : public FixEfield {
 
  private:
 
-  DAT::tdual_float_2d k_efield;
-  typename AT::t_float_2d_randomread d_efield;
+  DAT::tdual_double_2d k_efield;
+  typename AT::t_double_2d_randomread d_efield;
   typename AT::t_int_1d d_match;
 
   typename AT::t_f_array_randomread d_x;
-  typename AT::t_float_1d_randomread d_q;
+  typename AT::t_double_1d_randomread d_q;
   typename AT::t_mu_array_randomread d_mu;
   typename AT::t_f_array d_f;
   typename AT::t_f_array d_torque;

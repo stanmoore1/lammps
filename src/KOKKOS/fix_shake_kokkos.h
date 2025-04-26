@@ -66,9 +66,9 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
 
   int pack_exchange(int, double *) override;
   int unpack_exchange(int, double *) override;
-  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_float_1d&,
+  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_double_1d&,
                        int, int *) override;
-  void unpack_forward_comm_kokkos(int, int, DAT::tdual_float_1d&) override;
+  void unpack_forward_comm_kokkos(int, int, DAT::tdual_double_1d&) override;
   int pack_forward_comm(int, int *, double *, int, int *) override;
   void unpack_forward_comm(int, int, double *) override;
 
@@ -103,12 +103,12 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixShakeUnpackExchange, const int&) const;
 
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_float_2d &buf,
+  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            ExecutionSpace space) override;
 
-  void unpack_exchange_kokkos(DAT::tdual_float_2d &k_buf,
+  void unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf,
                               DAT::tdual_int_1d &indices,int nrecv,
                               int nrecv1,int nrecv1extra,
                               ExecutionSpace space) override;
@@ -119,22 +119,22 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   typename AT::t_f_array d_x;
   typename AT::t_f_array d_v;
   typename AT::t_f_array d_f;
-  typename AT::t_float_1d d_rmass;
-  typename AT::t_float_1d d_mass;
+  typename AT::t_double_1d d_rmass;
+  typename AT::t_double_1d d_mass;
   typename AT::t_tagint_1d_randomread d_tag;
   typename AT::t_int_1d d_type;
   typename AT::t_int_1d d_mask;
 
-  DAT::tdual_float_1d k_eatom;
-  typename AT::t_float_1d d_eatom;
+  DAT::tdual_double_1d k_eatom;
+  typename AT::t_double_1d d_eatom;
 
   DAT::tdual_virial_array k_vatom;
   typename AT::t_virial_array d_vatom;
 
-  DAT::tdual_float_1d k_bond_distance; // constraint distances
-  typename AT::t_float_1d d_bond_distance;
-  DAT::tdual_float_1d k_angle_distance;
-  typename AT::t_float_1d d_angle_distance;
+  DAT::tdual_double_1d k_bond_distance; // constraint distances
+  typename AT::t_double_1d d_bond_distance;
+  DAT::tdual_double_1d k_angle_distance;
+  typename AT::t_double_1d d_angle_distance;
 
                                          // atom-based arrays
   DAT::tdual_int_1d k_shake_flag;
@@ -191,11 +191,11 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
   DupScatterView<double*[3], typename DAT::t_f_array::array_layout> dup_f;
-  DupScatterView<double*, typename DAT::t_float_1d::array_layout> dup_eatom;
+  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
   DupScatterView<double*[6], typename DAT::t_virial_array::array_layout> dup_vatom;
 
   NonDupScatterView<double*[3], typename DAT::t_f_array::array_layout> ndup_f;
-  NonDupScatterView<double*, typename DAT::t_float_1d::array_layout> ndup_eatom;
+  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
   NonDupScatterView<double*[6], typename DAT::t_virial_array::array_layout> ndup_vatom;
 
   int neighflag,need_dup;
@@ -214,7 +214,7 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   int first,nsend;
 
   typename AT::t_int_1d d_sendlist;
-  typename AT::t_float_1d_um d_buf;
+  typename AT::t_double_1d_um d_buf;
 
   typename AT::t_int_1d d_exchange_sendlist;
   typename AT::t_int_1d d_copylist;

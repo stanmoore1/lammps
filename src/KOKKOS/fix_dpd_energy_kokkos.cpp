@@ -48,14 +48,14 @@ void FixDPDenergyKokkos<DeviceType>::take_half_step()
   using AT = ArrayTypes<DeviceType>;
 
   atomKK->sync(execution_space, UCOND_MASK);
-  typename AT::t_float_1d uCond = atomKK->k_uCond.view<DeviceType>();
+  typename AT::t_double_1d uCond = atomKK->k_uCond.view<DeviceType>();
   atomKK->sync(execution_space, UMECH_MASK);
-  typename AT::t_float_1d uMech = atomKK->k_uMech.view<DeviceType>();
+  typename AT::t_double_1d uMech = atomKK->k_uMech.view<DeviceType>();
 
   pairDPDEKK->k_duCond.template sync<DeviceType>();
-  typename AT::t_float_1d_const duCond = pairDPDEKK->k_duCond.template view<DeviceType>();
+  typename AT::t_double_1d_const duCond = pairDPDEKK->k_duCond.template view<DeviceType>();
   pairDPDEKK->k_duMech.template sync<DeviceType>();
-  typename AT::t_float_1d_const duMech = pairDPDEKK->k_duMech.template view<DeviceType>();
+  typename AT::t_double_1d_const duMech = pairDPDEKK->k_duMech.template view<DeviceType>();
 
   auto dt = update->dt;
 

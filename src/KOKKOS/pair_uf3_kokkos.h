@@ -72,17 +72,17 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   typedef EV_FLOAT value_type;
 
  protected:
-  typename AT::tdual_float_2d k_cutsq;//Create a DualView, defination of tdual_float_2d in kokkos_type.h
-  typename AT::t_float_2d d_cutsq; //t_float_2d = t_dev ==> Creates a new View d_cutsq
+  typename AT::tdual_double_2d k_cutsq;//Create a DualView, defination of tdual_double_2d in kokkos_type.h
+  typename AT::t_double_2d d_cutsq; //t_double_2d = t_dev ==> Creates a new View d_cutsq
   //the type of d_cutsq is decided by the Device(not host) type for the DualView k_cutsq
   //Meaning the memory location of d_cutsq is the same as the Device(not host) memory location of
   //k_cutsq
-  typedef Kokkos::DualView<double***, Kokkos::LayoutRight, DeviceType> tdual_float_3d;
-  typedef Kokkos::DualView<double****, Kokkos::LayoutRight, DeviceType> tdual_float_4d;
-  tdual_float_3d k_cut_3b;
-  tdual_float_4d k_min_cut_3b;
-  typename tdual_float_3d::t_dev d_cut_3b;
-  typename tdual_float_4d::t_dev d_min_cut_3b;
+  typedef Kokkos::DualView<double***, Kokkos::LayoutRight, DeviceType> tdual_double_3d;
+  typedef Kokkos::DualView<double****, Kokkos::LayoutRight, DeviceType> tdual_double_4d;
+  tdual_double_3d k_cut_3b;
+  tdual_double_4d k_min_cut_3b;
+  typename tdual_double_3d::t_dev d_cut_3b;
+  typename tdual_double_4d::t_dev d_min_cut_3b;
   template <typename TYPE> void destroy_3d(TYPE data, typename TYPE::value_type*** &array);
   template <typename TYPE> void destroy_4d(TYPE data, typename TYPE::value_type**** &array);
   Kokkos::View<double **, LMPDeviceType::array_layout, LMPDeviceType> /*d_cutsq,*/ d_cut_3b_list;
@@ -142,9 +142,9 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   typename AT::t_tagint_1d tag;
   typename AT::t_int_1d_randomread type;
 
-  DAT::tdual_float_1d k_eatom;
+  DAT::tdual_double_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename AT::t_float_1d d_eatom;
+  typename AT::t_double_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
   using ScatterFType = Kokkos::Experimental::ScatterView<double *[3], Kokkos::LayoutRight,

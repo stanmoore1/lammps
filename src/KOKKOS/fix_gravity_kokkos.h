@@ -46,8 +46,8 @@ class FixGravityKokkos : public FixGravity {
   private:
     typename ArrayTypes<DeviceType>::t_f_array x;
     typename ArrayTypes<DeviceType>::t_f_array f;
-    typename ArrayTypes<DeviceType>::t_float_1d_randomread rmass;
-    typename ArrayTypes<DeviceType>::t_float_1d_randomread mass;
+    typename ArrayTypes<DeviceType>::t_double_1d_randomread rmass;
+    typename ArrayTypes<DeviceType>::t_double_1d_randomread mass;
     typename ArrayTypes<DeviceType>::t_int_1d type;
     typename ArrayTypes<DeviceType>::t_int_1d mask;
 };

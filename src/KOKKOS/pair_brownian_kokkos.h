@@ -70,7 +70,7 @@ class PairBrownianKokkos : public PairBrownian, public KokkosBase {
   typename AT::t_f_array f;
   typename AT::t_f_array torque;
   typename AT::t_int_1d_randomread type;
-  typename AT::t_float_1d_randomread radius;
+  typename AT::t_double_1d_randomread radius;
 
   DAT::tdual_virial_array k_vatom;
   typename AT::t_virial_array d_vatom;
@@ -82,10 +82,10 @@ class PairBrownianKokkos : public PairBrownian, public KokkosBase {
   int newton_pair;
   double special_lj[4];
 
-  typename AT::tdual_float_2d k_cutsq;
-  typename AT::t_float_2d d_cutsq;
-  typename AT::tdual_float_2d k_cut_inner;
-  typename AT::t_float_2d d_cut_inner;
+  typename AT::tdual_double_2d k_cutsq;
+  typename AT::t_double_2d d_cutsq;
+  typename AT::tdual_double_2d k_cut_inner;
+  typename AT::t_double_2d d_cut_inner;
 
   int neighflag;
   int nlocal,nall,eflag,vflag;

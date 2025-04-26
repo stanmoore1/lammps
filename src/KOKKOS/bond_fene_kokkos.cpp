@@ -241,10 +241,10 @@ void BondFENEKokkos<DeviceType>::allocate()
   BondFENE::allocate();
 
   int n = atom->nbondtypes;
-  k_k = DAT::tdual_float_1d("BondFene::k",n+1);
-  k_r0 = DAT::tdual_float_1d("BondFene::r0",n+1);
-  k_epsilon = DAT::tdual_float_1d("BondFene::epsilon",n+1);
-  k_sigma = DAT::tdual_float_1d("BondFene::sigma",n+1);
+  k_k = DAT::tdual_double_1d("BondFene::k",n+1);
+  k_r0 = DAT::tdual_double_1d("BondFene::r0",n+1);
+  k_epsilon = DAT::tdual_double_1d("BondFene::epsilon",n+1);
+  k_sigma = DAT::tdual_double_1d("BondFene::sigma",n+1);
 
   d_k = k_k.template view<DeviceType>();
   d_r0 = k_r0.template view<DeviceType>();
@@ -314,7 +314,7 @@ void BondFENEKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int 
   double v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<double*, typename DAT::t_float_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
   Kokkos::View<double*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
 
   if (eflag_either) {

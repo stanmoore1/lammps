@@ -76,16 +76,16 @@ class PairMorseKokkos : public PairMorse {
   typename ArrayTypes<DeviceType>::t_f_array f;
   typename ArrayTypes<DeviceType>::t_int_1d_randomread type;
 
-  DAT::tdual_float_1d k_eatom;
+  DAT::tdual_double_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename ArrayTypes<DeviceType>::t_float_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
 
   int newton_pair;
   double special_lj[4];
 
-  typename ArrayTypes<DeviceType>::tdual_float_2d k_cutsq;
-  typename ArrayTypes<DeviceType>::t_float_2d d_cutsq;
+  typename ArrayTypes<DeviceType>::tdual_double_2d k_cutsq;
+  typename ArrayTypes<DeviceType>::t_double_2d d_cutsq;
 
 
   int neighflag;

@@ -58,12 +58,12 @@ class FixCMAPKokkos : public FixCMAP, public KokkosBase {
     int pack_exchange(int, double *) override;
     int unpack_exchange(int, double *) override;
 
-    int pack_exchange_kokkos(const int &nsend,DAT::tdual_float_2d &buf,
+    int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            ExecutionSpace space) override;
 
-    void unpack_exchange_kokkos(DAT::tdual_float_2d &k_buf,
+    void unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf,
                               DAT::tdual_int_1d &indices,int nrecv,
                               int nrecv1,int nrecv1extra,
                               ExecutionSpace space) override;
@@ -95,11 +95,11 @@ class FixCMAPKokkos : public FixCMAP, public KokkosBase {
     typename AT::t_tagint_2d d_crossterm_atom1, d_crossterm_atom2, d_crossterm_atom3;
     typename AT::t_tagint_2d d_crossterm_atom4, d_crossterm_atom5;
 
-    DAT::tdual_float_1d k_g_axis;
-    typename AT::t_float_1d d_g_axis;
+    DAT::tdual_double_1d k_g_axis;
+    typename AT::t_double_1d d_g_axis;
 
-    DAT::tdual_float_3d k_cmapgrid, k_d1cmapgrid, k_d2cmapgrid, k_d12cmapgrid;
-    typename AT::t_float_3d d_cmapgrid, d_d1cmapgrid, d_d2cmapgrid, d_d12cmapgrid;
+    DAT::tdual_double_3d k_cmapgrid, k_d1cmapgrid, k_d2cmapgrid, k_d12cmapgrid;
+    typename AT::t_double_3d d_cmapgrid, d_d1cmapgrid, d_d2cmapgrid, d_d12cmapgrid;
 
     // calculate dihedral angles
     KOKKOS_INLINE_FUNCTION

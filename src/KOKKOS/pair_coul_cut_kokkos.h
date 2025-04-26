@@ -86,22 +86,22 @@ class PairCoulCutKokkos : public PairCoulCut {
   typename AT::t_f_array_randomread x;
   typename AT::t_f_array c_x;
   typename AT::t_f_array f;
-  typename AT::t_float_1d_randomread q;
+  typename AT::t_double_1d_randomread q;
   typename AT::t_int_1d_randomread type;
 
-  DAT::tdual_float_1d k_eatom;
+  DAT::tdual_double_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename AT::t_float_1d d_eatom;
+  typename AT::t_double_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
   int newton_pair;
 
-  typename AT::tdual_float_2d k_cutsq;
-  typename AT::t_float_2d d_cutsq;
-  typename AT::tdual_float_2d k_cut_ljsq;
-  typename AT::t_float_2d d_cut_ljsq;
-  typename AT::tdual_float_2d k_cut_coulsq;
-  typename AT::t_float_2d d_cut_coulsq;
+  typename AT::tdual_double_2d k_cutsq;
+  typename AT::t_double_2d d_cutsq;
+  typename AT::tdual_double_2d k_cut_ljsq;
+  typename AT::t_double_2d d_cut_ljsq;
+  typename AT::tdual_double_2d k_cut_coulsq;
+  typename AT::t_double_2d d_cut_coulsq;
 
 
   int neighflag;

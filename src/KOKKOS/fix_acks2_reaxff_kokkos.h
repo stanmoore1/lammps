@@ -72,7 +72,7 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
   void pre_force(int) override;
   void cleanup_copy();
 
-  DAT::tdual_float_1d get_s() {return k_s;}
+  DAT::tdual_double_1d get_s() {return k_s;}
 
   KOKKOS_INLINE_FUNCTION
   void num_neigh_item(int, bigint&) const;
@@ -185,41 +185,41 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
   typename AT::t_f_array x;
   typename AT::t_f_array v;
   typename AT::t_f_array_const f;
-  typename AT::t_float_1d_randomread mass;
-  typename AT::t_float_1d q;
+  typename AT::t_double_1d_randomread mass;
+  typename AT::t_double_1d q;
   typename AT::t_int_1d type, mask;
   typename AT::t_tagint_1d tag;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist, d_numneigh;
 
-  DAT::tdual_float_1d k_tap;
-  typename AT::t_float_1d d_tap;
+  DAT::tdual_double_1d k_tap;
+  typename AT::t_double_1d d_tap;
 
-  DAT::tdual_float_2d k_bcut;
-  typename AT::t_float_2d d_bcut;
+  DAT::tdual_double_2d k_bcut;
+  typename AT::t_double_2d d_bcut;
 
   typename AT::t_bigint_1d d_firstnbr;
   typename AT::t_int_1d d_numnbrs;
   typename AT::t_int_1d d_jlist;
-  typename AT::t_float_1d d_val;
+  typename AT::t_double_1d d_val;
 
   typename AT::t_bigint_1d d_firstnbr_X;
   typename AT::t_int_1d d_numnbrs_X;
   typename AT::t_int_1d d_jlist_X;
-  typename AT::t_float_1d d_val_X;
+  typename AT::t_double_1d d_val_X;
 
-  DAT::tdual_float_1d k_s, k_X_diag, k_chi_field;
-  typename AT::t_float_1d d_Hdia_inv,d_Xdia_inv, d_X_diag, d_chi_field, d_b_s,  d_s;
-  typename AT::t_float_1d_randomread r_b_s, r_s;
+  DAT::tdual_double_1d k_s, k_X_diag, k_chi_field;
+  typename AT::t_double_1d d_Hdia_inv,d_Xdia_inv, d_X_diag, d_chi_field, d_b_s,  d_s;
+  typename AT::t_double_1d_randomread r_b_s, r_s;
 
-  DAT::tdual_float_1d k_d, k_q_hat, k_z, k_y;
-  typename AT::t_float_1d d_p, d_q, d_r, d_d, d_g, d_q_hat, d_r_hat, d_y, d_z, d_bb, d_xx;
-  typename AT::t_float_1d_randomread r_p, r_r, r_d;
+  DAT::tdual_double_1d k_d, k_q_hat, k_z, k_y;
+  typename AT::t_double_1d d_p, d_q, d_r, d_d, d_g, d_q_hat, d_r_hat, d_y, d_z, d_bb, d_xx;
+  typename AT::t_double_1d_randomread r_p, r_r, r_d;
 
-  DAT::tdual_float_2d k_shield, k_s_hist, k_s_hist_X, k_s_hist_last;
-  typename AT::t_float_2d d_shield, d_s_hist, d_s_hist_X, d_s_hist_last;
-  typename AT::t_float_2d_randomread r_s_hist, r_s_hist_X, r_s_hist_last;
+  DAT::tdual_double_2d k_shield, k_s_hist, k_s_hist_X, k_s_hist_last;
+  typename AT::t_double_2d d_shield, d_s_hist, d_s_hist_X, d_s_hist_last;
+  typename AT::t_double_2d_randomread r_s_hist, r_s_hist_X, r_s_hist_last;
 
   using KKDeviceType = typename KKDevice<DeviceType>::value;
 
@@ -229,11 +229,11 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double*, typename AT::t_float_1d::array_layout> dup_X_diag;
-  NonDupScatterView<double*, typename AT::t_float_1d::array_layout> ndup_X_diag;
+  DupScatterView<double*, typename AT::t_double_1d::array_layout> dup_X_diag;
+  NonDupScatterView<double*, typename AT::t_double_1d::array_layout> ndup_X_diag;
 
-  DupScatterView<double*, typename AT::t_float_1d::array_layout> dup_bb;
-  NonDupScatterView<double*, typename AT::t_float_1d::array_layout> ndup_bb;
+  DupScatterView<double*, typename AT::t_double_1d::array_layout> dup_bb;
+  NonDupScatterView<double*, typename AT::t_double_1d::array_layout> ndup_bb;
 
   void init_shielding_k();
   void init_hist();
@@ -250,7 +250,7 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
 
   int first;
   typename AT::t_int_1d d_sendlist;
-  typename AT::t_float_1d_um v_buf;
+  typename AT::t_double_1d_um v_buf;
 
   void grow_arrays(int) override;
   void copy_arrays(int, int, int) override;
@@ -260,7 +260,7 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
   void get_chi_field() override;
   double memory_usage() override;
 
-  void sparse_matvec_acks2(typename AT::t_float_1d &, typename AT::t_float_1d &);
+  void sparse_matvec_acks2(typename AT::t_double_1d &, typename AT::t_double_1d &);
 };
 
 template <class DeviceType>

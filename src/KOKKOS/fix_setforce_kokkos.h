@@ -67,8 +67,8 @@ class FixSetForceKokkos : public FixSetForce {
   void operator()(TagFixSetForceNonConstant, const int&, double_3&) const;
 
  private:
-  DAT::tdual_float_2d k_sforce;
-  typename AT::t_float_2d_randomread d_sforce;
+  DAT::tdual_double_2d k_sforce;
+  typename AT::t_double_2d_randomread d_sforce;
   typename AT::t_int_1d d_match;
 
   typename AT::t_f_array_randomread x;

@@ -204,14 +204,14 @@ class FixRxKokkos : public FixRX {
   struct KineticsType
   {
     // Arrhenius rate coefficients.
-    typename ArrayTypes<KokkosDeviceType>::t_float_1d Arr, nArr, Ea;
+    typename ArrayTypes<KokkosDeviceType>::t_double_1d Arr, nArr, Ea;
 
     // Dense versions.
-    typename ArrayTypes<KokkosDeviceType>::t_float_2d stoich, stoichReactants, stoichProducts;
+    typename ArrayTypes<KokkosDeviceType>::t_double_2d stoich, stoichReactants, stoichProducts;
 
     // Sparse versions.
     typename ArrayTypes<KokkosDeviceType>::t_int_2d   nuk, inu;
-    typename ArrayTypes<KokkosDeviceType>::t_float_2d nu;
+    typename ArrayTypes<KokkosDeviceType>::t_double_2d nu;
     typename ArrayTypes<KokkosDeviceType>::t_int_1d   isIntegral;
   };
 
@@ -224,24 +224,24 @@ class FixRxKokkos : public FixRX {
   void create_kinetics_data();
 
   // Need a dual-view and device-view for dpdThetaLocal and sumWeights since they're used in several callbacks.
-  DAT::tdual_float_1d k_dpdThetaLocal, k_sumWeights;
-  //typename ArrayTypes<DeviceType>::t_float_1d d_dpdThetaLocal, d_sumWeights;
-  typename AT::t_float_1d d_dpdThetaLocal, d_sumWeights;
-  HAT::t_float_1d h_dpdThetaLocal, h_sumWeights;
+  DAT::tdual_double_1d k_dpdThetaLocal, k_sumWeights;
+  //typename ArrayTypes<DeviceType>::t_double_1d d_dpdThetaLocal, d_sumWeights;
+  typename AT::t_double_1d d_dpdThetaLocal, d_sumWeights;
+  HAT::t_double_1d h_dpdThetaLocal, h_sumWeights;
 
   typename AT::t_f_array_randomread d_x;
   typename AT::t_int_1d_randomread  d_type;
-  typename AT::t_float_1d          d_dpdTheta;
+  typename AT::t_double_1d          d_dpdTheta;
 
-  typename AT::tdual_float_2d k_cutsq;
-  typename AT::t_float_2d     d_cutsq;
+  typename AT::tdual_double_2d k_cutsq;
+  typename AT::t_double_2d     d_cutsq;
   //double **h_cutsq;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d       d_ilist;
   typename AT::t_int_1d       d_numneigh;
 
-  typename AT::t_float_2d  d_dvector;
+  typename AT::t_double_2d  d_dvector;
   typename AT::t_int_1d    d_mask;
 
   typename AT::t_double_1d d_scratchSpace;

@@ -95,7 +95,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
     double cut,a0,sigma,kappa,alpha;
   };
 
-  DAT::tdual_float_1d k_duCond,k_duMech;
+  DAT::tdual_double_1d k_duCond,k_duMech;
 
 #ifdef DPD_USE_RAN_MARS
   RandPoolWrap rand_pool;
@@ -108,8 +108,8 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   typedef typename Kokkos::Random_XorShift1024_Pool<DeviceType>::generator_type rand_type;
 #endif
 
-  typename ArrayTypes<DeviceType>::tdual_float_2d k_cutsq;
-  typename ArrayTypes<DeviceType>::t_float_2d d_cutsq;
+  typename ArrayTypes<DeviceType>::tdual_double_2d k_cutsq;
+  typename ArrayTypes<DeviceType>::t_double_2d d_cutsq;
 
  protected:
   int eflag,vflag;
@@ -132,15 +132,15 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   typename ArrayTypes<DeviceType>::t_f_array_randomread v;
   typename ArrayTypes<DeviceType>::t_f_array f;
   typename ArrayTypes<DeviceType>::t_int_1d_randomread type;
-  typename ArrayTypes<DeviceType>::t_float_1d_randomread mass;
-  typename ArrayTypes<DeviceType>::t_float_1d rmass;
-  typename AT::t_float_1d dpdTheta;
-  typename AT::t_float_1d d_duCond,d_duMech;
-  HAT::t_float_1d h_duCond,h_duMech;
+  typename ArrayTypes<DeviceType>::t_double_1d_randomread mass;
+  typename ArrayTypes<DeviceType>::t_double_1d rmass;
+  typename AT::t_double_1d dpdTheta;
+  typename AT::t_double_1d d_duCond,d_duMech;
+  HAT::t_double_1d h_duCond,h_duMech;
 
-  DAT::tdual_float_1d k_eatom;
+  DAT::tdual_double_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename AT::t_float_1d d_eatom;
+  typename AT::t_double_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
   typename AT::t_neighbors_2d d_neighbors;

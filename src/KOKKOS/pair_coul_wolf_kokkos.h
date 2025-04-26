@@ -67,11 +67,11 @@ class PairCoulWolfKokkos : public PairCoulWolf {
 
   typename AT::t_f_array_randomread x;
   typename AT::t_f_array f;
-  typename AT::t_float_1d_randomread q;
+  typename AT::t_double_1d_randomread q;
 
-  DAT::tdual_float_1d k_eatom;
+  DAT::tdual_double_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename ArrayTypes<DeviceType>::t_float_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
 
 

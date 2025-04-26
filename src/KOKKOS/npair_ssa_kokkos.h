@@ -66,7 +66,7 @@ class NPairSSAKokkos : public NPair {
  private:
   // data from Neighbor class
 
-  DAT::tdual_float_2d k_cutneighsq;
+  DAT::tdual_double_2d k_cutneighsq;
 
   // exclusion data from Neighbor class
 
@@ -106,7 +106,7 @@ class NPairSSAKokkosExecute
 
   // data from Neighbor class
 
-  const typename AT::t_float_2d_randomread cutneighsq;
+  const typename AT::t_double_2d_randomread cutneighsq;
 
   // exclusion data from Neighbor class
 
@@ -187,7 +187,7 @@ class NPairSSAKokkosExecute
 
   NPairSSAKokkosExecute(
         const NeighListKokkos<DeviceType> &_neigh_list,
-        const typename AT::t_float_2d_randomread &_cutneighsq,
+        const typename AT::t_double_2d_randomread &_cutneighsq,
         const typename AT::t_int_1d &_bincount,
         const typename AT::t_int_2d &_bins,
         const typename AT::t_int_1d &_gbincount,

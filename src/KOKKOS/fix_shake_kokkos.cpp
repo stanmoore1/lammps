@@ -76,8 +76,8 @@ FixShakeKokkos<DeviceType>::FixShakeKokkos(LAMMPS *lmp, int narg, char **arg) :
   k_shake_atom.modify_host();
   k_shake_type.modify_host();
 
-  k_bond_distance = DAT::tdual_float_1d("fix_shake:bond_distance",atom->nbondtypes+1);
-  k_angle_distance = DAT::tdual_float_1d("fix_shake:angle_distance",atom->nangletypes+1);
+  k_bond_distance = DAT::tdual_double_1d("fix_shake:bond_distance",atom->nbondtypes+1);
+  k_angle_distance = DAT::tdual_double_1d("fix_shake:angle_distance",atom->nangletypes+1);
 
   d_bond_distance = k_bond_distance.view<DeviceType>();
   d_angle_distance = k_angle_distance.view<DeviceType>();
@@ -1636,7 +1636,7 @@ void FixShakeKokkos<DeviceType>::pack_exchange_item(const int &mysend, int &offs
 
 template<class DeviceType>
 int FixShakeKokkos<DeviceType>::pack_exchange_kokkos(
-   const int &nsend, DAT::tdual_float_2d &k_buf,
+   const int &nsend, DAT::tdual_double_2d &k_buf,
    DAT::tdual_int_1d k_exchange_sendlist, DAT::tdual_int_1d k_copylist,
    ExecutionSpace space)
 {
@@ -1644,7 +1644,7 @@ int FixShakeKokkos<DeviceType>::pack_exchange_kokkos(
   k_copylist.sync<DeviceType>();
   k_exchange_sendlist.sync<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_float_1d_um(
+  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_copylist = k_copylist.view<DeviceType>();
@@ -1725,14 +1725,14 @@ void FixShakeKokkos<DeviceType>::operator()(TagFixShakeUnpackExchange, const int
 
 template <class DeviceType>
 void FixShakeKokkos<DeviceType>::unpack_exchange_kokkos(
-  DAT::tdual_float_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
+  DAT::tdual_double_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
   int nrecv1, int nextrarecv1,
   ExecutionSpace /*space*/)
 {
   k_buf.sync<DeviceType>();
   k_indices.sync<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_float_1d_um(
+  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_indices = k_indices.view<DeviceType>();
@@ -1799,7 +1799,7 @@ int FixShakeKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 
 template<class DeviceType>
 int FixShakeKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                                                         DAT::tdual_float_1d &k_buf,
+                                                         DAT::tdual_double_1d &k_buf,
                                                          int pbc_flag, int* pbc)
 {
   d_sendlist = k_sendlist.view<DeviceType>();
@@ -1857,7 +1857,7 @@ int FixShakeKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixShakeKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_float_1d &buf)
+void FixShakeKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_double_1d &buf)
 {
   first = first_in;
   d_buf = buf.view<DeviceType>();

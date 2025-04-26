@@ -156,7 +156,7 @@ class NPairKokkos : public NPair {
 
   // data from Neighbor class
 
-  DAT::tdual_float_2d k_cutneighsq;
+  DAT::tdual_double_2d k_cutneighsq;
 
   // exclusion data from Neighbor class
 
@@ -193,7 +193,7 @@ class NeighborKokkosExecute
 
   // data from Neighbor class
 
-  const typename AT::t_float_2d_randomread cutneighsq;
+  const typename AT::t_double_2d_randomread cutneighsq;
 
   // exclusion data from Neighbor class
 
@@ -231,7 +231,7 @@ class NeighborKokkosExecute
   // data from Atom class
 
   const typename AT::t_f_array_randomread x;
-  const typename AT::t_float_1d radius;
+  const typename AT::t_double_1d radius;
   const typename AT::t_int_1d_const type,mask;
   const typename AT::t_tagint_1d_const molecule;
   const typename AT::t_tagint_1d_const tag;
@@ -263,7 +263,7 @@ class NeighborKokkosExecute
 
   NeighborKokkosExecute(
                         const NeighListKokkos<DeviceType> &_neigh_list,
-                        const typename AT::t_float_2d_randomread &_cutneighsq,
+                        const typename AT::t_double_2d_randomread &_cutneighsq,
                         const typename AT::t_int_1d &_bincount,
                         const typename AT::t_int_2d &_bins,
                         const typename AT::t_int_1d &_atom2bin,
@@ -272,7 +272,7 @@ class NeighborKokkosExecute
                         const typename AT::t_int_1d_3 &_d_stencilxyz,
                         const int _nlocal,const int _nall,const int _neigh_transpose,
                         const typename AT::t_f_array_randomread &_x,
-                        const typename AT::t_float_1d &_radius,
+                        const typename AT::t_double_1d &_radius,
                         const typename AT::t_int_1d_const &_type,
                         const typename AT::t_int_1d_const &_mask,
                         const typename AT::t_tagint_1d_const &_molecule,

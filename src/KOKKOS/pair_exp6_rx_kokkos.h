@@ -39,7 +39,7 @@ struct PairExp6ParamDataTypeKokkos
   typedef ArrayTypes<DeviceType> AT;
 
    int n;
-   typename AT::t_float_1d epsilon1, alpha1, rm1, mixWtSite1,
+   typename AT::t_double_1d epsilon1, alpha1, rm1, mixWtSite1,
           epsilon2, alpha2, rm2, mixWtSite2,
           epsilonOld1, alphaOld1, rmOld1, mixWtSite1old,
           epsilonOld2, alphaOld2, rmOld2, mixWtSite2old;
@@ -55,7 +55,7 @@ struct PairExp6ParamDataTypeKokkosVect
 {
   typedef ArrayTypes<DeviceType> AT;
 
-   typename AT::t_float_1d epsilon, rm3, alpha, xMolei, epsilon_old, rm3_old,
+   typename AT::t_double_1d epsilon, rm3, alpha, xMolei, epsilon_old, rm3_old,
                            alpha_old, xMolei_old, fractionOFA, fraction1,
                            fraction2, nMoleculesOFA, nMolecules1, nMolecules2,
                            nTotal, fractionOFAold, fractionOld1, fractionOld2,
@@ -142,18 +142,18 @@ class PairExp6rxKokkos : public PairExp6rx {
   typename AT::t_f_array_randomread x;
   typename AT::t_f_array f;
   typename AT::t_int_1d_randomread type;
-  typename AT::t_float_1d uCG, uCGnew;
-  typename AT::t_float_2d dvector;
+  typename AT::t_double_1d uCG, uCGnew;
+  typename AT::t_double_2d dvector;
 
   typedef Kokkos::View<double**[3],Kokkos::LayoutRight,DeviceType> t_f_array_thread;
-  typedef Kokkos::View<double**,Kokkos::LayoutRight,DeviceType> t_float_1d_thread;
+  typedef Kokkos::View<double**,Kokkos::LayoutRight,DeviceType> t_double_1d_thread;
 
   t_f_array_thread t_f;
-  t_float_1d_thread t_uCG, t_uCGnew;
+  t_double_1d_thread t_uCG, t_uCGnew;
 
-  DAT::tdual_float_1d k_eatom;
+  DAT::tdual_double_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename AT::t_float_1d d_eatom;
+  typename AT::t_double_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
   DAT::tdual_int_scalar k_error_flag;
@@ -175,8 +175,8 @@ class PairExp6rxKokkos : public PairExp6rx {
   tdual_param_1d k_params;                // parameter set for an I-J-K interaction
   t_param_1d_randomread d_params;                // parameter set for an I-J-K interaction
 
-  typename ArrayTypes<DeviceType>::tdual_float_2d k_cutsq;
-  typename ArrayTypes<DeviceType>::t_float_2d d_cutsq;
+  typename ArrayTypes<DeviceType>::tdual_double_2d k_cutsq;
+  typename ArrayTypes<DeviceType>::t_double_2d d_cutsq;
 
   void read_file(char *) override;
   void setup() override;

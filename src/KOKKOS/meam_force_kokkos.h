@@ -8,7 +8,7 @@ using namespace MathSpecialKokkos;
 template <class DeviceType>
 void MEAMKokkos<DeviceType>::meam_force(
     int inum_half, int eflag_global, int eflag_atom, int vflag_global, int vflag_atom,
-    typename ArrayTypes<DeviceType>::t_float_1d eatom, int ntype, typename AT::t_int_1d type,
+    typename ArrayTypes<DeviceType>::t_double_1d eatom, int ntype, typename AT::t_int_1d type,
     typename AT::t_int_1d d_map, typename AT::t_f_array x, typename AT::t_int_1d numneigh,
     typename AT::t_int_1d numneigh_full, typename AT::t_f_array f,
     typename ArrayTypes<DeviceType>::t_virial_array vatom, typename AT::t_int_1d d_ilist_half,

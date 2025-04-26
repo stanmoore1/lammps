@@ -60,7 +60,7 @@ class DihedralOPLSKokkos : public DihedralOPLS {
                           const double &vb2x, const double &vb2y, const double &vb2z,
                           const double &vb3x, const double &vb3y, const double &vb3z) const;
 
-  DAT::tdual_float_1d k_eatom;
+  DAT::tdual_double_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
 
  protected:
@@ -69,7 +69,7 @@ class DihedralOPLSKokkos : public DihedralOPLS {
   typename AT::t_f_array_randomread x;
   typename AT::t_f_array f;
   typename AT::t_int_2d dihedrallist;
-  typename ArrayTypes<DeviceType>::t_float_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
 
   int nlocal,newton_bond;
@@ -79,15 +79,15 @@ class DihedralOPLSKokkos : public DihedralOPLS {
   typename AT::t_int_scalar d_warning_flag;
   HAT::t_int_scalar h_warning_flag;
 
-  DAT::tdual_float_1d k_k1;
-  DAT::tdual_float_1d k_k2;
-  DAT::tdual_float_1d k_k3;
-  DAT::tdual_float_1d k_k4;
+  DAT::tdual_double_1d k_k1;
+  DAT::tdual_double_1d k_k2;
+  DAT::tdual_double_1d k_k3;
+  DAT::tdual_double_1d k_k4;
 
-  typename AT::t_float_1d d_k1;
-  typename AT::t_float_1d d_k2;
-  typename AT::t_float_1d d_k3;
-  typename AT::t_float_1d d_k4;
+  typename AT::t_double_1d d_k1;
+  typename AT::t_double_1d d_k2;
+  typename AT::t_double_1d d_k3;
+  typename AT::t_double_1d d_k4;
 
   void allocate() override;
 };

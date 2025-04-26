@@ -103,8 +103,8 @@ namespace LAMMPS_NS {
       void end_of_step_rmass_item(int) const;
 
   private:
-    typename ArrayTypes<DeviceType>::t_float_1d rmass;
-    typename ArrayTypes<DeviceType>::t_float_1d mass;
+    typename ArrayTypes<DeviceType>::t_double_1d rmass;
+    typename ArrayTypes<DeviceType>::t_double_1d mass;
     typename ArrayTypes<DeviceType>::tdual_double_2d k_franprev;
     typename ArrayTypes<DeviceType>::t_double_2d d_franprev;
     HAT::t_double_2d h_franprev;

@@ -60,7 +60,7 @@ class DihedralHarmonicKokkos : public DihedralHarmonic {
                           const double &vb2x, const double &vb2y, const double &vb2z,
                           const double &vb3x, const double &vb3y, const double &vb3z) const;
 
-  DAT::tdual_float_1d k_eatom;
+  DAT::tdual_double_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
 
  protected:
@@ -70,7 +70,7 @@ class DihedralHarmonicKokkos : public DihedralHarmonic {
   typename AT::t_f_array_randomread x;
   typename AT::t_f_array f;
   typename AT::t_int_2d dihedrallist;
-  typename ArrayTypes<DeviceType>::t_float_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
 
   int nlocal,newton_bond;
@@ -80,15 +80,15 @@ class DihedralHarmonicKokkos : public DihedralHarmonic {
   typename AT::t_int_scalar d_warning_flag;
   HAT::t_int_scalar h_warning_flag;
 
-  DAT::tdual_float_1d k_k;
-  DAT::tdual_float_1d k_cos_shift;
-  DAT::tdual_float_1d k_sin_shift;
+  DAT::tdual_double_1d k_k;
+  DAT::tdual_double_1d k_cos_shift;
+  DAT::tdual_double_1d k_sin_shift;
   DAT::tdual_int_1d k_sign;
   DAT::tdual_int_1d k_multiplicity;
 
-  typename AT::t_float_1d d_k;
-  typename AT::t_float_1d d_cos_shift;
-  typename AT::t_float_1d d_sin_shift;
+  typename AT::t_double_1d d_k;
+  typename AT::t_double_1d d_cos_shift;
+  typename AT::t_double_1d d_sin_shift;
   typename AT::t_int_1d d_sign;
   typename AT::t_int_1d d_multiplicity;
 

@@ -238,7 +238,7 @@ void AngleCosineKokkos<DeviceType>::allocate()
   AngleCosine::allocate();
 
   int n = atom->nangletypes;
-  k_k = typename ArrayTypes<DeviceType>::tdual_float_1d("AngleCosine::k",n+1);
+  k_k = typename ArrayTypes<DeviceType>::tdual_double_1d("AngleCosine::k",n+1);
   d_k = k_k.template view<DeviceType>();
 }
 
@@ -291,7 +291,7 @@ void AngleCosineKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i, const in
   double v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<double*, typename DAT::t_float_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
+  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
   Kokkos::View<double*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.template view<DeviceType>();
 
   if (eflag_either) {

@@ -87,23 +87,23 @@ class PairLJGromacsKokkos : public PairLJGromacs {
   typename AT::t_f_array c_x;
   typename AT::t_f_array f;
   typename AT::t_int_1d_randomread type;
-  typename AT::t_float_1d_randomread q;
+  typename AT::t_double_1d_randomread q;
 
-  DAT::tdual_float_1d k_eatom;
+  DAT::tdual_double_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename AT::t_float_1d d_eatom;
+  typename AT::t_double_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
   int newton_pair;
 
-  typename AT::tdual_float_2d k_cutsq;
-  typename AT::t_float_2d d_cutsq;
-  typename AT::tdual_float_2d k_cut_inner;
-  typename AT::t_float_2d d_cut_inner;
-  typename AT::tdual_float_2d k_cut_inner_sq;
-  typename AT::t_float_2d d_cut_inner_sq;
+  typename AT::tdual_double_2d k_cutsq;
+  typename AT::t_double_2d d_cutsq;
+  typename AT::tdual_double_2d k_cut_inner;
+  typename AT::t_double_2d d_cut_inner;
+  typename AT::tdual_double_2d k_cut_inner_sq;
+  typename AT::t_double_2d d_cut_inner_sq;
 
-  typename AT::t_float_1d_randomread
+  typename AT::t_double_1d_randomread
     d_rtable, d_drtable, d_ftable, d_dftable,
     d_ctable, d_dctable, d_etable, d_detable;
 

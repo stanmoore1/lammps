@@ -76,10 +76,10 @@ class AngleCharmmKokkos : public AngleCharmm {
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  typename AT::t_float_1d d_k;
-  typename AT::t_float_1d d_theta0;
-  typename AT::t_float_1d d_k_ub;
-  typename AT::t_float_1d d_r_ub;
+  typename AT::t_double_1d d_k;
+  typename AT::t_double_1d d_theta0;
+  typename AT::t_double_1d d_k_ub;
+  typename AT::t_double_1d d_r_ub;
 
   void allocate() override;
 };

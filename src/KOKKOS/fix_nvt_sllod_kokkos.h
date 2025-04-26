@@ -59,8 +59,8 @@ class FixNVTSllodKokkos : public FixNHKokkos<DeviceType> {
   typename AT::t_f_array v;
   typename AT::t_f_array vdelu;
   typename AT::t_f_array_const f;
-  typename AT::t_float_1d rmass;
-  typename AT::t_float_1d mass;
+  typename AT::t_double_1d rmass;
+  typename AT::t_double_1d mass;
   typename AT::t_int_1d type;
   typename AT::t_int_1d mask;
 

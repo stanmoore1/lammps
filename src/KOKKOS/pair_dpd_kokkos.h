@@ -95,10 +95,10 @@ class PairDPDKokkos : public PairDPD {
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
   DupScatterView<double*[3], typename DAT::t_f_array::array_layout> dup_f;
-  DupScatterView<double*, typename DAT::t_float_1d::array_layout> dup_eatom;
+  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
   DupScatterView<double*[6], typename DAT::t_virial_array::array_layout> dup_vatom;
   NonDupScatterView<double*[3], typename DAT::t_f_array::array_layout> ndup_f;
-  NonDupScatterView<double*, typename DAT::t_float_1d::array_layout> ndup_eatom;
+  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
   NonDupScatterView<double*[6], typename DAT::t_virial_array::array_layout> ndup_vatom;
 
 #ifdef DPD_USE_RAN_MARS
@@ -120,16 +120,16 @@ class PairDPDKokkos : public PairDPD {
   typename AT::t_int_1d_randomread d_ilist;
   typename AT::t_int_1d_randomread d_numneigh;
 
-  typename AT::tdual_float_2d k_cutsq;
-  typename AT::t_float_2d d_cutsq;
+  typename AT::tdual_double_2d k_cutsq;
+  typename AT::t_double_2d d_cutsq;
 
   Kokkos::DualView<params_dpd**,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_dpd**,
     Kokkos::LayoutRight,DeviceType>::t_dev_const_um params;
 
-  DAT::tdual_float_1d k_eatom;
+  DAT::tdual_double_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  typename AT::t_float_1d d_eatom;
+  typename AT::t_double_1d d_eatom;
   typename AT::t_virial_array d_vatom;
 
   KOKKOS_INLINE_FUNCTION

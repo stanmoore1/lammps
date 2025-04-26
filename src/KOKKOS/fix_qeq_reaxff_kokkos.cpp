@@ -135,7 +135,7 @@ void FixQEqReaxFFKokkos<DeviceType>::init_shielding_k()
   int i,j;
   int ntypes = atom->ntypes;
 
-  k_shield = DAT::tdual_float_2d("qeq/kk:shield",ntypes+1,ntypes+1);
+  k_shield = DAT::tdual_double_2d("qeq/kk:shield",ntypes+1,ntypes+1);
   d_shield = k_shield.template view<DeviceType>();
 
   for (i = 1; i <= ntypes; ++i)
@@ -145,7 +145,7 @@ void FixQEqReaxFFKokkos<DeviceType>::init_shielding_k()
   k_shield.template modify<LMPHostType>();
   k_shield.template sync<DeviceType>();
 
-  k_tap = DAT::tdual_float_1d("qeq/kk:tap",8);
+  k_tap = DAT::tdual_double_1d("qeq/kk:tap",8);
   d_tap = k_tap.template view<DeviceType>();
 
   for (i = 0; i < 8; i ++)
@@ -330,12 +330,12 @@ void FixQEqReaxFFKokkos<DeviceType>::allocate_matrix()
   d_firstnbr = typename AT::t_bigint_1d();
   d_numnbrs = typename AT::t_int_1d();
   d_jlist = typename AT::t_int_1d();
-  d_val = typename AT::t_float_1d();
+  d_val = typename AT::t_double_1d();
 
   d_firstnbr = typename AT::t_bigint_1d("qeq/kk:firstnbr",nlocal);
   d_numnbrs = typename AT::t_int_1d("qeq/kk:numnbrs",nlocal);
   d_jlist = typename AT::t_int_1d("qeq/kk:jlist",m_cap_big);
-  d_val = typename AT::t_float_1d("qeq/kk:val",m_cap_big);
+  d_val = typename AT::t_double_1d("qeq/kk:val",m_cap_big);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -346,21 +346,21 @@ void FixQEqReaxFFKokkos<DeviceType>::allocate_array()
   if (atom->nmax > nmax) {
     nmax = atom->nmax;
 
-    k_o = DAT::tdual_float2_1d("qeq/kk:o",nmax);
+    k_o = DAT::tdual_double_1d_2("qeq/kk:o",nmax);
     d_o = k_o.template view<DeviceType>();
     h_o = k_o.h_view;
 
-    d_p = typename AT::t_float2_1d("qeq/kk:p",nmax);
-    d_r = typename AT::t_float2_1d("qeq/kk:r",nmax);
-    k_d = DAT::tdual_float2_1d("qeq/kk:d",nmax);
+    d_p = typename AT::t_double_1d_2("qeq/kk:p",nmax);
+    d_r = typename AT::t_double_1d_2("qeq/kk:r",nmax);
+    k_d = DAT::tdual_double_1d_2("qeq/kk:d",nmax);
     d_d = k_d.template view<DeviceType>();
     h_d = k_d.h_view;
 
-    d_Hdia_inv = typename AT::t_float_1d("qeq/kk:Hdia_inv",nmax);
+    d_Hdia_inv = typename AT::t_double_1d("qeq/kk:Hdia_inv",nmax);
 
-    d_b_st = typename AT::t_float2_1d("qeq/kk:b_st",nmax);
+    d_b_st = typename AT::t_double_1d_2("qeq/kk:b_st",nmax);
 
-    k_st = DAT::tdual_float2_1d("qeq/kk:st",nmax);
+    k_st = DAT::tdual_double_1d_2("qeq/kk:st",nmax);
     d_st = k_st.template view<DeviceType>();
     h_st = k_st.h_view;
 
@@ -849,7 +849,7 @@ void FixQEqReaxFFKokkos<DeviceType>::calculate_q()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixQEqReaxFFKokkos<DeviceType>::sparse_matvec_kokkos(typename AT::t_float2_1d &d_xx_in)
+void FixQEqReaxFFKokkos<DeviceType>::sparse_matvec_kokkos(typename AT::t_double_1d_2 &d_xx_in)
 {
   d_xx = d_xx_in;
 
@@ -1117,7 +1117,7 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqCalculateQ, const int &ii)
 
 template<class DeviceType>
 int FixQEqReaxFFKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                                                        DAT::tdual_float_1d &k_buf,
+                                                        DAT::tdual_double_1d &k_buf,
                                                         int /*pbc_flag*/, int * /*pbc*/)
 {
   d_sendlist = k_sendlist.view<DeviceType>();
@@ -1149,7 +1149,7 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqPackForwardComm, const int
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixQEqReaxFFKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_float_1d &buf)
+void FixQEqReaxFFKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_double_1d &buf)
 {
   first = first_in;
   d_buf = buf.view<DeviceType>();
@@ -1376,7 +1376,7 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqPackExchange, const int &m
 
 template<class DeviceType>
 int FixQEqReaxFFKokkos<DeviceType>::pack_exchange_kokkos(
-   const int &nsend, DAT::tdual_float_2d &k_buf,
+   const int &nsend, DAT::tdual_double_2d &k_buf,
    DAT::tdual_int_1d k_exchange_sendlist, DAT::tdual_int_1d k_copylist,
    ExecutionSpace /*space*/)
 {
@@ -1384,7 +1384,7 @@ int FixQEqReaxFFKokkos<DeviceType>::pack_exchange_kokkos(
   k_copylist.sync<DeviceType>();
   k_exchange_sendlist.sync<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_float_1d_um(
+  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_copylist = k_copylist.view<DeviceType>();
@@ -1424,14 +1424,14 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqUnpackExchange, const int 
 
 template <class DeviceType>
 void FixQEqReaxFFKokkos<DeviceType>::unpack_exchange_kokkos(
-  DAT::tdual_float_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
+  DAT::tdual_double_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
   int /*nrecv1*/, int /*nextrarecv1*/,
   ExecutionSpace /*space*/)
 {
   k_buf.sync<DeviceType>();
   k_indices.sync<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_float_1d_um(
+  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_indices = k_indices.view<DeviceType>();

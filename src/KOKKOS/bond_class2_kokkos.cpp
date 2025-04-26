@@ -212,10 +212,10 @@ void BondClass2Kokkos<DeviceType>::coeff(int narg, char **arg)
   BondClass2::coeff(narg, arg);
 
   int n = atom->nbondtypes;
-  typename AT::tdual_float_1d k_k2("BondClass2::k2",n+1);
-  typename AT::tdual_float_1d k_k3("BondClass2::k3",n+1);
-  typename AT::tdual_float_1d k_k4("BondClass2::k4",n+1);
-  typename AT::tdual_float_1d k_r0("BondClass2::r0",n+1);
+  typename AT::tdual_double_1d k_k2("BondClass2::k2",n+1);
+  typename AT::tdual_double_1d k_k3("BondClass2::k3",n+1);
+  typename AT::tdual_double_1d k_k4("BondClass2::k4",n+1);
+  typename AT::tdual_double_1d k_r0("BondClass2::r0",n+1);
 
   d_k2 = k_k2.template view<DeviceType>();
   d_k3 = k_k3.template view<DeviceType>();
@@ -249,10 +249,10 @@ void BondClass2Kokkos<DeviceType>::read_restart(FILE *fp)
   BondClass2::read_restart(fp);
 
   int n = atom->nbondtypes;
-  typename AT::tdual_float_1d k_k2("BondClass2::k2",n+1);
-  typename AT::tdual_float_1d k_k3("BondClass2::k3",n+1);
-  typename AT::tdual_float_1d k_k4("BondClass2::k4",n+1);
-  typename AT::tdual_float_1d k_r0("BondClass2::r0",n+1);
+  typename AT::tdual_double_1d k_k2("BondClass2::k2",n+1);
+  typename AT::tdual_double_1d k_k3("BondClass2::k3",n+1);
+  typename AT::tdual_double_1d k_k4("BondClass2::k4",n+1);
+  typename AT::tdual_double_1d k_r0("BondClass2::r0",n+1);
 
   d_k2 = k_k2.template view<DeviceType>();
   d_k3 = k_k3.template view<DeviceType>();

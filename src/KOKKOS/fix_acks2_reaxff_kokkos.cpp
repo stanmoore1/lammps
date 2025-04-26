@@ -138,7 +138,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::init_shielding_k()
   int i,j;
   int ntypes = atom->ntypes;
 
-  k_shield = DAT::tdual_float_2d("acks2/kk:shield",ntypes+1,ntypes+1);
+  k_shield = DAT::tdual_double_2d("acks2/kk:shield",ntypes+1,ntypes+1);
   d_shield = k_shield.template view<DeviceType>();
 
   for( i = 1; i <= ntypes; ++i )
@@ -148,7 +148,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::init_shielding_k()
   k_shield.template modify<LMPHostType>();
   k_shield.template sync<DeviceType>();
 
-  k_bcut = DAT::tdual_float_2d("acks2/kk:bcut",ntypes+1,ntypes+1);
+  k_bcut = DAT::tdual_double_2d("acks2/kk:bcut",ntypes+1,ntypes+1);
   d_bcut = k_bcut.template view<DeviceType>();
 
   for( i = 1; i <= ntypes; ++i )
@@ -158,7 +158,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::init_shielding_k()
   k_bcut.template modify<LMPHostType>();
   k_bcut.template sync<DeviceType>();
 
-  k_tap = DAT::tdual_float_1d("acks2/kk:tap",8);
+  k_tap = DAT::tdual_double_1d("acks2/kk:tap",8);
   d_tap = k_tap.template view<DeviceType>();
 
   for (i = 0; i < 8; i ++)
@@ -454,26 +454,26 @@ void FixACKS2ReaxFFKokkos<DeviceType>::allocate_matrix()
   d_firstnbr = typename AT::t_bigint_1d();
   d_numnbrs = typename AT::t_int_1d();
   d_jlist = typename AT::t_int_1d();
-  d_val = typename AT::t_float_1d();
+  d_val = typename AT::t_double_1d();
 
   d_firstnbr_X = typename AT::t_bigint_1d();
   d_numnbrs_X = typename AT::t_int_1d();
   d_jlist_X = typename AT::t_int_1d();
-  d_val_X = typename AT::t_float_1d();
+  d_val_X = typename AT::t_double_1d();
 
   // H matrix
 
   d_firstnbr = typename AT::t_bigint_1d("acks2/kk:firstnbr",nlocal);
   d_numnbrs = typename AT::t_int_1d("acks2/kk:numnbrs",nlocal);
   d_jlist = typename AT::t_int_1d("acks2/kk:jlist",m_cap_big);
-  d_val = typename AT::t_float_1d("acks2/kk:val",m_cap_big);
+  d_val = typename AT::t_double_1d("acks2/kk:val",m_cap_big);
 
   // X matrix
 
   d_firstnbr_X = typename AT::t_bigint_1d("acks2/kk:firstnbr_X",nlocal);
   d_numnbrs_X = typename AT::t_int_1d("acks2/kk:numnbrs_X",nlocal);
   d_jlist_X = typename AT::t_int_1d("acks2/kk:jlist_X",m_cap_big);
-  d_val_X = typename AT::t_float_1d("acks2/kk:val_X",m_cap_big);
+  d_val_X = typename AT::t_double_1d("acks2/kk:val_X",m_cap_big);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -491,14 +491,14 @@ void FixACKS2ReaxFFKokkos<DeviceType>::allocate_array()
     nmax = atom->nmax;
     int size = nmax*2 + 2;
 
-    d_q = typename AT::t_float_1d("acks2/kk:q",size);
+    d_q = typename AT::t_double_1d("acks2/kk:q",size);
 
     memoryKK->create_kokkos(k_s,s,size,"acks2/kk:s");
     d_s = k_s.template view<DeviceType>();
 
-    d_b_s = typename AT::t_float_1d("acks2/kk:b_s",size);
+    d_b_s = typename AT::t_double_1d("acks2/kk:b_s",size);
 
-    d_Hdia_inv = typename AT::t_float_1d("acks2/kk:Hdia_inv",nmax);
+    d_Hdia_inv = typename AT::t_double_1d("acks2/kk:Hdia_inv",nmax);
 
     memoryKK->create_kokkos(k_chi_field,chi_field,nmax,"acks2/kk:chi_field");
     d_chi_field = k_chi_field.template view<DeviceType>();
@@ -506,20 +506,20 @@ void FixACKS2ReaxFFKokkos<DeviceType>::allocate_array()
     memoryKK->create_kokkos(k_X_diag,X_diag,nmax,"acks2/kk:X_diag");
     d_X_diag = k_X_diag.template view<DeviceType>();
 
-    d_Xdia_inv = typename AT::t_float_1d("acks2/kk:Xdia_inv",nmax);
+    d_Xdia_inv = typename AT::t_double_1d("acks2/kk:Xdia_inv",nmax);
 
-    d_p = typename AT::t_float_1d("acks2/kk:p",size);
-    d_r = typename AT::t_float_1d("acks2/kk:r",size);
+    d_p = typename AT::t_double_1d("acks2/kk:p",size);
+    d_r = typename AT::t_double_1d("acks2/kk:r",size);
 
     memoryKK->create_kokkos(k_d,d,size,"acks2/kk:d");
     d_d = k_d.template view<DeviceType>();
 
-    d_g = typename AT::t_float_1d("acks2/kk:g",size);
+    d_g = typename AT::t_double_1d("acks2/kk:g",size);
 
     memoryKK->create_kokkos(k_q_hat,q_hat,size,"acks2/kk:q_hat");
     d_q_hat = k_q_hat.template view<DeviceType>();
 
-    d_r_hat = typename AT::t_float_1d("acks2/kk:r_hat",size);
+    d_r_hat = typename AT::t_double_1d("acks2/kk:r_hat",size);
 
     memoryKK->create_kokkos(k_y,y,size,"acks2/kk:y");
     d_y = k_y.template view<DeviceType>();
@@ -1397,7 +1397,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::calculate_Q()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixACKS2ReaxFFKokkos<DeviceType>::sparse_matvec_acks2(typename AT::t_float_1d &d_xx_in, typename AT::t_float_1d &d_bb_in)
+void FixACKS2ReaxFFKokkos<DeviceType>::sparse_matvec_acks2(typename AT::t_double_1d &d_xx_in, typename AT::t_double_1d &d_bb_in)
 {
   d_xx = d_xx_in;
   d_bb = d_bb_in;

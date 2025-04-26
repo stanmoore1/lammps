@@ -77,7 +77,7 @@ class DihedralCharmmfswKokkos : public DihedralCharmmfsw {
 
   typename AT::t_f_array_randomread x;
   typename AT::t_int_1d_randomread atomtype;
-  typename AT::t_float_1d_randomread q;
+  typename AT::t_double_1d_randomread q;
   typename AT::t_f_array f;
   typename AT::t_int_2d dihedrallist;
   Kokkos::View<double*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
@@ -96,17 +96,17 @@ class DihedralCharmmfswKokkos : public DihedralCharmmfsw {
   typename Kokkos::DualView<int,DeviceType>::t_dev d_warning_flag;
   typename Kokkos::DualView<int,DeviceType>::t_host h_warning_flag;
 
-  typename AT::t_float_2d d_lj14_1;
-  typename AT::t_float_2d d_lj14_2;
-  typename AT::t_float_2d d_lj14_3;
-  typename AT::t_float_2d d_lj14_4;
+  typename AT::t_double_2d d_lj14_1;
+  typename AT::t_double_2d d_lj14_2;
+  typename AT::t_double_2d d_lj14_3;
+  typename AT::t_double_2d d_lj14_4;
 
-  typename AT::t_float_1d d_k;
-  typename AT::t_float_1d d_multiplicity;
-  typename AT::t_float_1d d_shift;
-  typename AT::t_float_1d d_sin_shift;
-  typename AT::t_float_1d d_cos_shift;
-  typename AT::t_float_1d d_weight;
+  typename AT::t_double_1d d_k;
+  typename AT::t_double_1d d_multiplicity;
+  typename AT::t_double_1d d_shift;
+  typename AT::t_double_1d d_sin_shift;
+  typename AT::t_double_1d d_cos_shift;
+  typename AT::t_double_1d d_weight;
 
   void allocate() override;
 };

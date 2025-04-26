@@ -58,7 +58,7 @@ static double get_kinetic_energy(
   double ke=0.0;
   if (atomKK->rmass) {
     atomKK->sync(execution_space, RMASS_MASK);
-    typename AT::t_float_1d_randomread rmass = atomKK->k_rmass.view<DeviceType>();
+    typename AT::t_double_1d_randomread rmass = atomKK->k_rmass.view<DeviceType>();
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,nlocal),
      LAMMPS_LAMBDA(int i, double& update) {
       if (mask(i) & groupbit)
@@ -69,7 +69,7 @@ static double get_kinetic_energy(
     // D.I. : why is there no MASS_MASK ?
     atomKK->sync(execution_space, TYPE_MASK);
     typename AT::t_int_1d_randomread type = atomKK->k_type.view<DeviceType>();
-    typename AT::t_float_1d_randomread mass = atomKK->k_mass.view<DeviceType>();
+    typename AT::t_double_1d_randomread mass = atomKK->k_mass.view<DeviceType>();
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,nlocal),
      LAMMPS_LAMBDA(int i, double& update) {
       if (mask(i) & groupbit)
