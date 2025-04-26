@@ -76,11 +76,11 @@ class FixWallGranKokkos : public FixWallGranOld, public KokkosBase {
   double whi;
   double vwall[3];
 
-  typename AT::t_f_array x;
-  typename AT::t_f_array v;
-  typename AT::t_f_array d_omega;
-  typename AT::t_f_array f;
-  typename AT::t_f_array torque;
+  typename AT::t_double_1d_3 x;
+  typename AT::t_double_1d_3 v;
+  typename AT::t_double_1d_3 d_omega;
+  typename AT::t_double_1d_3 f;
+  typename AT::t_double_1d_3 torque;
   typename AT::t_int_1d mask;
   typename AT::t_double_1d rmass;
   typename AT::t_double_1d d_radius;

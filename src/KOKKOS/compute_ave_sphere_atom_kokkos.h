@@ -48,8 +48,8 @@ template <class DeviceType> class ComputeAveSphereAtomKokkos : public ComputeAve
  private:
   double adof, mvv2e, mv2d, boltz;
 
-  typename AT::t_f_array x;
-  typename AT::t_f_array v;
+  typename AT::t_double_1d_3 x;
+  typename AT::t_double_1d_3 v;
   typename ArrayTypes<DeviceType>::t_double_1d rmass;
   typename ArrayTypes<DeviceType>::t_double_1d mass;
   typename ArrayTypes<DeviceType>::t_int_1d type;

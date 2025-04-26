@@ -65,15 +65,15 @@ class PairBrownianKokkos : public PairBrownian, public KokkosBase {
                     double delx, double dely, double delz) const;
 
  protected:
-  typename AT::t_f_array_randomread x;
-  typename AT::t_f_array c_x;
-  typename AT::t_f_array f;
-  typename AT::t_f_array torque;
+  typename AT::t_double_1d_3_randomread x;
+  typename AT::t_double_1d_3 c_x;
+  typename AT::t_double_1d_3 f;
+  typename AT::t_double_1d_3 torque;
   typename AT::t_int_1d_randomread type;
   typename AT::t_double_1d_randomread radius;
 
-  DAT::tdual_virial_array k_vatom;
-  typename AT::t_virial_array d_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;

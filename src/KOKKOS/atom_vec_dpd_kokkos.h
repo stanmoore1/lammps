@@ -76,9 +76,9 @@ class AtomVecDPDKokkos : public AtomVecKokkos, public AtomVecDPD {
   DAT::t_int_1d d_type, d_mask;
   HAT::t_int_1d h_type, h_mask;
 
-  DAT::t_f_array d_x;
-  DAT::t_f_array d_v;
-  DAT::t_f_array d_f;
+  DAT::t_double_1d_3 d_x;
+  DAT::t_double_1d_3 d_v;
+  DAT::t_double_1d_3 d_f;
 };
 
 }    // namespace LAMMPS_NS

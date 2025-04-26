@@ -77,8 +77,8 @@ class FixWallFlowKokkos : public FixWallFlow, public KokkosBase {
                               int /*nrecv1*/, int /*nextrarecv1*/,
                               ExecutionSpace space) override;
  protected:
-  typename AT::t_f_array d_x;
-  typename AT::t_f_array d_v;
+  typename AT::t_double_1d_3 d_x;
+  typename AT::t_double_1d_3 d_v;
   typename AT::t_int_1d d_type;
   typename AT::t_int_1d d_mask;
 

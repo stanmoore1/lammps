@@ -233,7 +233,7 @@ void PairVashishtaKokkos<DeviceType>::operator()(TagPairVashishtaComputeHalf<NEI
 
   // The f array is atomic
 
-  Kokkos::View<double*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
+  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
 
   double delr1[3],delr2[3],fj[3],fk[3];
   double evdwl = 0.0;
@@ -764,7 +764,7 @@ void PairVashishtaKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const
   // The eatom and vatom arrays are atomic for half/thread neighbor list
 
   Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<double*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
 
 
   if (eflag_atom) {
@@ -840,7 +840,7 @@ void PairVashishtaKokkos<DeviceType>::ev_tally3(EV_FLOAT &ev, const int &i, cons
 // The eatom and vatom arrays are atomic for half/thread neighbor list
 
   Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<double*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
 
   if (eflag_atom) {
     epairthird = THIRD * (evdwl + ecoul);

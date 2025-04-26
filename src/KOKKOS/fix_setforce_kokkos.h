@@ -71,8 +71,8 @@ class FixSetForceKokkos : public FixSetForce {
   typename AT::t_double_2d_randomread d_sforce;
   typename AT::t_int_1d d_match;
 
-  typename AT::t_f_array_randomread x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3_randomread x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_1d_randomread mask;
 };
 

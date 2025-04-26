@@ -280,7 +280,7 @@ void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   nthreads = lmp->kokkos->nthreads;
   int nmax = f.extent(0);
   if (nmax > (int)t_f.extent(1)) {
-    t_f = t_f_array_thread("pair_exp6_rx:t_f",nthreads,nmax);
+    t_f = t_double_1d_3_thread("pair_exp6_rx:t_f",nthreads,nmax);
     t_uCG = t_double_1d_thread("pair_exp6_rx:t_uCG",nthreads,nmax);
     t_uCGnew = t_double_1d_thread("pair_exp6_rx:t_UCGnew",nthreads,nmax);
   }
@@ -410,7 +410,7 @@ void PairExp6rxKokkos<DeviceType>::operator()(TagPairExp6rxCompute<NEIGHFLAG,NEW
   }
 
   // These arrays are atomic for Half/Thread neighbor style
-  Kokkos::View<double*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
+  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
   Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_uCG = uCG;
   Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_uCGnew = uCGnew;
 
@@ -1151,7 +1151,7 @@ KOKKOS_INLINE_FUNCTION
 void PairExp6rxKokkos<DeviceType>::vectorized_operator(const int &ii, EV_FLOAT& ev) const
 {
   // These arrays are atomic for Half/Thread neighbor style
-  Kokkos::View<double*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
+  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
   Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_uCG = uCG;
   Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_uCGnew = uCGnew;
 
@@ -2558,7 +2558,7 @@ void PairExp6rxKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const in
 
   // The eatom and vatom arrays are atomic for Half/Thread neighbor style
   Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<double*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
 
   if (EFLAG) {
     if (eflag_atom) {

@@ -50,7 +50,7 @@ static double get_kinetic_energy(
     MPI_Comm world,
     int groupbit,
     int nlocal,
-    typename ArrayTypes<DeviceType>::t_f_array_randomread v,
+    typename ArrayTypes<DeviceType>::t_double_1d_3_randomread v,
     typename ArrayTypes<DeviceType>::t_int_1d_randomread mask)
 {
   using AT = ArrayTypes<DeviceType>;
@@ -87,7 +87,7 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
 {
   atomKK->sync(execution_space, V_MASK | MASK_MASK);
 
-  typename AT::t_f_array v = atomKK->k_v.view<DeviceType>();
+  typename AT::t_double_1d_3 v = atomKK->k_v.view<DeviceType>();
   typename AT::t_int_1d_randomread mask = atomKK->k_mask.view<DeviceType>();
 
   const int nlocal = atom->nlocal;
@@ -141,7 +141,7 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
     // must use unwrapped coords to compute r_i correctly
 
     atomKK->sync(execution_space, X_MASK | IMAGE_MASK);
-    typename AT::t_f_array_randomread x = atomKK->k_x.view<DeviceType>();
+    typename AT::t_double_1d_3_randomread x = atomKK->k_x.view<DeviceType>();
     typename AT::t_imageint_1d_randomread image = atomKK->k_image.view<DeviceType>();
     int nlocal = atom->nlocal;
 

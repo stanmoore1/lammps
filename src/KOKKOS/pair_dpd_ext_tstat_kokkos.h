@@ -94,10 +94,10 @@ class PairDPDExtTstatKokkos : public PairDPDExtTstat {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double*[3], typename DAT::t_f_array::array_layout> dup_f;
-  DupScatterView<double*[6], typename DAT::t_virial_array::array_layout> dup_vatom;
-  NonDupScatterView<double*[3], typename DAT::t_f_array::array_layout> ndup_f;
-  NonDupScatterView<double*[6], typename DAT::t_virial_array::array_layout> ndup_vatom;
+  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
+  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
+  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
+  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
 
 #ifdef DPD_USE_RAN_MARS
   RandPoolWrap rand_pool;
@@ -109,9 +109,9 @@ class PairDPDExtTstatKokkos : public PairDPDExtTstat {
   Kokkos::Random_XorShift1024_Pool<DeviceType> rand_pool;
   typedef typename Kokkos::Random_XorShift1024_Pool<DeviceType>::generator_type rand_type;
 #endif
-  typename AT::t_f_array_randomread x;
-  typename AT::t_f_array_randomread v;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3_randomread x;
+  typename AT::t_double_1d_3_randomread v;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_1d_randomread type;
 
   typename AT::t_neighbors_2d d_neighbors;
@@ -125,8 +125,8 @@ class PairDPDExtTstatKokkos : public PairDPDExtTstat {
   typename Kokkos::DualView<params_dpd**,
     Kokkos::LayoutRight,DeviceType>::t_dev_const_um params;
 
-  DAT::tdual_virial_array k_vatom;
-  typename AT::t_virial_array d_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;

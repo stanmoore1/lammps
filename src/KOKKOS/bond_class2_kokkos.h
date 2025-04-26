@@ -67,8 +67,8 @@ class BondClass2Kokkos : public BondClass2 {
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_f_array_randomread x;
-  typename Kokkos::View<double*[3],typename AT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
+  typename AT::t_double_1d_3_randomread x;
+  typename Kokkos::View<double*[3],typename AT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d bondlist;
 
   Kokkos::View<double*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;

@@ -231,7 +231,7 @@ class ComputeSNAGridKokkos : public ComputeSNAGrid {
       Kokkos::MemoryTraits<Kokkos::RandomAccess> > t_fparams_rnd;
   t_fparams_rnd rnd_cutsq;
 
-  typename AT::t_f_array_randomread x;
+  typename AT::t_double_1d_3_randomread x;
   typename AT::t_int_1d_randomread type;
   DAT::tdual_double_2d k_grid;
   DAT::tdual_double_2d k_gridall;

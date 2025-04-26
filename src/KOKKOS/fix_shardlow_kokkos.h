@@ -102,13 +102,13 @@ class FixShardlowKokkos : public FixShardlow {
   double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   typename ArrayTypes<DeviceType>::t_double_2d d_cutsq;
 
-  typename DAT::tdual_f_array k_v_t0;
-  // typename AT::t_f_array d_v_t0; v_t0 only used in comm routines (on host)
-  typename HAT::t_f_array h_v_t0;
+  typename DAT::tdual_double_1d_3 k_v_t0;
+  // typename AT::t_double_1d_3 d_v_t0; v_t0 only used in comm routines (on host)
+  typename HAT::t_double_1d_3 h_v_t0;
 
-  typename AT::t_f_array x;
-  typename AT::t_f_array v;
-  typename HAT::t_f_array h_v;
+  typename AT::t_double_1d_3 x;
+  typename AT::t_double_1d_3 v;
+  typename HAT::t_double_1d_3 h_v;
   typename AT::t_double_1d uCond, uMech;
   typename HAT::t_double_1d h_uCond, h_uMech;
   typename AT::t_int_1d type;

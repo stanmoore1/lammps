@@ -65,17 +65,17 @@ class AtomVecSpinKokkos : public AtomVecKokkos, public AtomVecSpin {
   DAT::t_imageint_1d d_image;
   HAT::t_imageint_1d h_image;
 
-  DAT::t_f_array d_x;
-  DAT::t_f_array d_v;
-  DAT::t_f_array d_f;
+  DAT::t_double_1d_3 d_x;
+  DAT::t_double_1d_3 d_v;
+  DAT::t_double_1d_3 d_f;
 
-  DAT::t_sp_array d_sp;
-  DAT::t_fm_array d_fm;
-  DAT::t_fm_long_array d_fm_long;
+  DAT::t_double_1d_4 d_sp;
+  DAT::t_double_1d_3 d_fm;
+  DAT::t_double_1d_3 d_fm_long;
 
-  HAT::t_sp_array h_sp;
-  HAT::t_fm_array h_fm;
-  HAT::t_fm_long_array h_fm_long;
+  HAT::t_double_1d_4 h_sp;
+  HAT::t_double_1d_3 h_fm;
+  HAT::t_double_1d_3 h_fm_long;
 };
 
 }    // namespace LAMMPS_NS

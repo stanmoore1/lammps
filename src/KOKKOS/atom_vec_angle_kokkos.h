@@ -68,12 +68,12 @@ class AtomVecAngleKokkos : public AtomVecKokkos, public AtomVecAngle {
   DAT::t_imageint_1d d_image;
   HAT::t_imageint_1d h_image;
 
-  DAT::t_f_array d_x;
-  DAT::t_f_array d_v;
-  DAT::t_f_array d_f;
-  HAT::t_f_array h_x;
-  HAT::t_f_array h_v;
-  HAT::t_f_array h_f;
+  DAT::t_double_1d_3 d_x;
+  DAT::t_double_1d_3 d_v;
+  DAT::t_double_1d_3 d_f;
+  HAT::t_double_1d_3 h_x;
+  HAT::t_double_1d_3 h_v;
+  HAT::t_double_1d_3 h_f;
 
   DAT::t_tagint_1d d_molecule;
   DAT::t_int_2d d_nspecial;

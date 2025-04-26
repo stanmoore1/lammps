@@ -121,8 +121,8 @@ namespace LAMMPS_NS {
     typename ArrayTypes<DeviceType>::t_double_1d d_tforce;
     HAT::t_double_1d h_tforce;
 
-    typename ArrayTypes<DeviceType>::t_f_array v;
-    typename ArrayTypes<DeviceType>::t_f_array f;
+    typename ArrayTypes<DeviceType>::t_double_1d_3 v;
+    typename ArrayTypes<DeviceType>::t_double_1d_3 f;
     typename ArrayTypes<DeviceType>::t_int_1d type;
     typename ArrayTypes<DeviceType>::t_int_1d mask;
 

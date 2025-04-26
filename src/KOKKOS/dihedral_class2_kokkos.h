@@ -61,17 +61,17 @@ class DihedralClass2Kokkos : public DihedralClass2 {
                           const double &vb3x, const double &vb3y, const double &vb3z) const;
 
   DAT::tdual_double_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_f_array_randomread x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3_randomread x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_2d dihedrallist;
   typename AT::t_double_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;

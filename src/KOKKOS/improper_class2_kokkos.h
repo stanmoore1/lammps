@@ -72,17 +72,17 @@ class ImproperClass2Kokkos : public ImproperClass2 {
                           const double &vb3x, const double &vb3y, const double &vb3z) const;
 
   DAT::tdual_double_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_f_array_randomread x;
-  typename Kokkos::View<double*[3],typename AT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
+  typename AT::t_double_1d_3_randomread x;
+  typename Kokkos::View<double*[3],typename AT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d improperlist;
   typename AT::t_double_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;

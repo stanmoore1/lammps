@@ -79,7 +79,7 @@ template <class DeviceType> class ComputeGaussianGridLocalKokkos : public Comput
   int chunksize;
   int ntotal;
 
-  typename AT::t_f_array_randomread x;
+  typename AT::t_double_1d_3_randomread x;
   typename AT::t_int_1d_randomread type;
 
   DAT::tdual_double_2d k_alocal;

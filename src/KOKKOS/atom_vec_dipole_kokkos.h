@@ -67,14 +67,14 @@ class AtomVecDipoleKokkos : public AtomVecKokkos, public AtomVecDipole {
   DAT::t_imageint_1d d_image;
   HAT::t_imageint_1d h_image;
 
-  DAT::t_f_array d_x;
-  DAT::t_f_array d_v;
-  DAT::t_f_array d_f;
+  DAT::t_double_1d_3 d_x;
+  DAT::t_double_1d_3 d_v;
+  DAT::t_double_1d_3 d_f;
 
   DAT::t_double_1d d_q;
   HAT::t_double_1d h_q;
-  DAT::t_mu_array d_mu;
-  HAT::t_mu_array h_mu;
+  DAT::t_double_1d_4 d_mu;
+  HAT::t_double_1d_4 h_mu;
 };
 
 }    // namespace LAMMPS_NS

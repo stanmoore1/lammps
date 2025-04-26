@@ -63,7 +63,7 @@ class NBinSSAKokkos : public NBinStandard {
 
   typename AT::t_int_scalar d_resize;
   typename ArrayTypes<LMPHostType>::t_int_scalar h_resize;
-  typename AT::t_f_array_randomread x;
+  typename AT::t_double_1d_3_randomread x;
 
   // Bounds of the local atoms in the bins array
   typename AT::t_int_scalar d_lbinxlo;  // lowest local bin x-dim coordinate

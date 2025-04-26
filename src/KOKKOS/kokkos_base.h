@@ -53,7 +53,7 @@ class KokkosBase {
   // Region
   virtual void match_all_kokkos(int, DAT::tdual_int_1d) {}
 
-  using KeyViewType = DAT::t_f_array;
+  using KeyViewType = DAT::t_double_1d_3;
   using BinOp = BinOp3DLAMMPS<KeyViewType>;
   virtual void
     sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> & /*Sorter*/) {}

@@ -63,11 +63,11 @@ class FixEfieldKokkos : public FixEfield {
   typename AT::t_double_2d_randomread d_efield;
   typename AT::t_int_1d d_match;
 
-  typename AT::t_f_array_randomread d_x;
+  typename AT::t_double_1d_3_randomread d_x;
   typename AT::t_double_1d_randomread d_q;
-  typename AT::t_mu_array_randomread d_mu;
-  typename AT::t_f_array d_f;
-  typename AT::t_f_array d_torque;
+  typename AT::t_double_1d_4_randomread d_mu;
+  typename AT::t_double_1d_3 d_f;
+  typename AT::t_double_1d_3 d_torque;
   typename AT::t_imageint_1d_randomread d_image;
   typename AT::t_int_1d_randomread d_mask;
 
@@ -75,8 +75,8 @@ class FixEfieldKokkos : public FixEfield {
   Few<double,6> h;
   int triclinic;
 
-  DAT::tdual_virial_array k_vatom;
-  typename AT::t_virial_array d_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   KOKKOS_INLINE_FUNCTION
   void v_tally(value_type, int, double*) const;

@@ -84,17 +84,17 @@ class AtomVecSphereKokkos : public AtomVecKokkos, public AtomVecSphere {
   DAT::t_int_1d d_type, d_mask;
   HAT::t_int_1d h_type, h_mask;
 
-  DAT::t_f_array d_x;
-  DAT::t_f_array d_v;
-  DAT::t_f_array d_f;
+  DAT::t_double_1d_3 d_x;
+  DAT::t_double_1d_3 d_v;
+  DAT::t_double_1d_3 d_f;
   DAT::t_double_1d d_radius;
   HAT::t_double_1d h_radius;
   DAT::t_double_1d d_rmass;
   HAT::t_double_1d h_rmass;
-  DAT::t_f_array d_omega;
-  HAT::t_f_array h_omega;
-  DAT::t_f_array d_torque;
-  HAT::t_f_array h_torque;
+  DAT::t_double_1d_3 d_omega;
+  HAT::t_double_1d_3 h_omega;
+  DAT::t_double_1d_3 d_torque;
+  HAT::t_double_1d_3 h_torque;
 };
 
 }    // namespace LAMMPS_NS

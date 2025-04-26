@@ -38,7 +38,7 @@ class ComputeERotateSphereKokkos : public ComputeERotateSphere {
   double compute_scalar() override;
 
  private:
-  typename AT::t_f_array_randomread omega;
+  typename AT::t_double_1d_3_randomread omega;
   typename AT::t_double_1d_randomread radius;
   typename AT::t_double_1d_randomread rmass;
   typename AT::t_int_1d_randomread mask;

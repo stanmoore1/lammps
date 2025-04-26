@@ -71,9 +71,9 @@ class AtomVecFullKokkos : public AtomVecKokkos, public AtomVecFull {
   DAT::t_imageint_1d d_image;
   HAT::t_imageint_1d h_image;
 
-  DAT::t_f_array d_x;
-  DAT::t_f_array d_v;
-  DAT::t_f_array d_f;
+  DAT::t_double_1d_3 d_x;
+  DAT::t_double_1d_3 d_v;
+  DAT::t_double_1d_3 d_f;
 
   DAT::t_double_1d d_q;
   HAT::t_double_1d h_q;

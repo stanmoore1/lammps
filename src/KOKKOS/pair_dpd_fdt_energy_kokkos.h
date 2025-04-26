@@ -127,10 +127,10 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   params_dpd m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
   double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename ArrayTypes<DeviceType>::t_f_array_randomread x;
-  typename ArrayTypes<DeviceType>::t_f_array c_x;
-  typename ArrayTypes<DeviceType>::t_f_array_randomread v;
-  typename ArrayTypes<DeviceType>::t_f_array f;
+  typename ArrayTypes<DeviceType>::t_double_1d_3_randomread x;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 c_x;
+  typename ArrayTypes<DeviceType>::t_double_1d_3_randomread v;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 f;
   typename ArrayTypes<DeviceType>::t_int_1d_randomread type;
   typename ArrayTypes<DeviceType>::t_double_1d_randomread mass;
   typename ArrayTypes<DeviceType>::t_double_1d rmass;
@@ -139,9 +139,9 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   HAT::t_double_1d h_duCond,h_duMech;
 
   DAT::tdual_double_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
   typename AT::t_double_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;

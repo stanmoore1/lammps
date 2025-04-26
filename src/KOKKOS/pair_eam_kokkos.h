@@ -129,14 +129,14 @@ class PairEAMKokkos : public PairEAM, public KokkosBase {
   void unpack_reverse_comm(int, int *, double *) override;
 
  protected:
-  typename AT::t_f_array x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3 x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_1d type;
 
   DAT::tdual_double_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
   typename AT::t_double_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   int need_dup,inum;
 
@@ -149,13 +149,13 @@ class PairEAMKokkos : public PairEAM, public KokkosBase {
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
   DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_rho;
-  DupScatterView<double*[3], typename DAT::t_f_array::array_layout> dup_f;
+  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
   DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
-  DupScatterView<double*[6], typename DAT::t_virial_array::array_layout> dup_vatom;
+  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
   NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_rho;
-  NonDupScatterView<double*[3], typename DAT::t_f_array::array_layout> ndup_f;
+  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
   NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
-  NonDupScatterView<double*[6], typename DAT::t_virial_array::array_layout> ndup_vatom;
+  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
 
   DAT::tdual_double_1d k_rho;
   DAT::tdual_double_1d k_fp;

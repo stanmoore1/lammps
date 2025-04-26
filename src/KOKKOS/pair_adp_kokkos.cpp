@@ -96,8 +96,8 @@ void PairADPKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     nmax = atom->nmax;
     k_rho = DAT::tdual_double_1d("pair:rho",nmax);
     k_fp = DAT::tdual_double_1d("pair:fp",nmax);
-    k_mu = DAT::tdual_f_array("pair:mu", nmax);
-    k_lambda = DAT::tdual_virial_array("pair:lambda", nmax);
+    k_mu = DAT::tdual_double_1d_3("pair:mu", nmax);
+    k_lambda = DAT::tdual_double_1d_6("pair:lambda", nmax);
     d_rho = k_rho.template view<DeviceType>();
     d_fp = k_fp.template view<DeviceType>();
     d_mu = k_mu.template view<DeviceType>();

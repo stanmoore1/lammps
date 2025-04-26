@@ -61,17 +61,17 @@ class AngleClass2Kokkos : public AngleClass2 {
                      const double &delx2, const double &dely2, const double &delz2) const;
 
   typename AT::tdual_double_1d k_eatom;
-  typename AT::tdual_virial_array k_vatom;
+  typename AT::tdual_double_1d_6 k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_f_array_randomread x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3_randomread x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_2d anglelist;
   typename AT::t_double_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;

@@ -84,8 +84,8 @@ class PairTableRXKokkos : public PairTable {
   void allocate() override;
   void compute_table(Table *) override;
 
-  typename ArrayTypes<DeviceType>::t_f_array_randomread x;
-  typename ArrayTypes<DeviceType>::t_f_array f;
+  typename ArrayTypes<DeviceType>::t_double_1d_3_randomread x;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 f;
 
   int neighflag;
 
@@ -107,9 +107,9 @@ class PairTableRXKokkos : public PairTable {
   bool fractionalWeighting;
 
   typename ArrayTypes<DeviceType>::tdual_double_1d k_eatom;
-  typename ArrayTypes<DeviceType>::tdual_virial_array k_vatom;
+  typename ArrayTypes<DeviceType>::tdual_double_1d_6 k_vatom;
   typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
+  typename ArrayTypes<DeviceType>::t_double_1d_6 d_vatom;
 };
 
 }

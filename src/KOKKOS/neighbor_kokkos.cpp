@@ -80,7 +80,7 @@ void NeighborKokkos::init()
   // 1st time allocation of xhold
 
   if (dist_check)
-      xhold = DAT::tdual_f_array("neigh:xhold",maxhold);
+      xhold = DAT::tdual_double_1d_3("neigh:xhold",maxhold);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -260,7 +260,7 @@ void NeighborKokkos::build_kokkos(int topoflag)
     int maxhold_kokkos = xhold.view<DeviceType>().extent(0);
     if (atom->nmax > maxhold || maxhold_kokkos < maxhold) {
       maxhold = atom->nmax;
-      xhold = DAT::tdual_f_array("neigh:xhold",maxhold);
+      xhold = DAT::tdual_double_1d_3("neigh:xhold",maxhold);
     }
     copymode = 1;
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagNeighborXhold<DeviceType> >(0,nlocal),*this);

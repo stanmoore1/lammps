@@ -75,10 +75,10 @@ class DihedralCharmmfswKokkos : public DihedralCharmmfsw {
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_f_array_randomread x;
+  typename AT::t_double_1d_3_randomread x;
   typename AT::t_int_1d_randomread atomtype;
   typename AT::t_double_1d_randomread q;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_2d dihedrallist;
   Kokkos::View<double*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
   Kokkos::View<double*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;

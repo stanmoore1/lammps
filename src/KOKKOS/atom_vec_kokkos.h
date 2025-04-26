@@ -29,7 +29,7 @@ class AtomVecKokkos : virtual public AtomVec {
   AtomVecKokkos(class LAMMPS *);
   ~AtomVecKokkos() override;
 
-  using KeyViewType = DAT::t_f_array;
+  using KeyViewType = DAT::t_double_1d_3;
   using BinOp = BinOp3DLAMMPS<KeyViewType>;
   virtual void
     sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter) = 0;
@@ -118,9 +118,9 @@ class AtomVecKokkos : virtual public AtomVec {
   int size_exchange;
 
  protected:
-  HAT::t_f_array h_x;
-  HAT::t_f_array h_v;
-  HAT::t_f_array h_f;
+  HAT::t_double_1d_3 h_x;
+  HAT::t_double_1d_3 h_v;
+  HAT::t_double_1d_3 h_f;
 
   size_t buffer_size;
   void* buffer;

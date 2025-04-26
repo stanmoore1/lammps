@@ -48,13 +48,13 @@ class FixWallRegionKokkos : public FixWallRegion {
 
  private:
 
-  typename AT::t_f_array d_x;
-  typename AT::t_f_array d_f;
+  typename AT::t_double_1d_3 d_x;
+  typename AT::t_double_1d_3 d_f;
   typename AT::t_double_1d d_radius;
   typename AT::t_int_1d d_mask;
 
-  DAT::tdual_virial_array k_vatom;
-  typename AT::t_virial_array d_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   KOKKOS_INLINE_FUNCTION
   double lj93(double, double&) const;

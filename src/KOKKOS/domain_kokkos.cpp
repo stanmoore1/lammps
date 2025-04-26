@@ -40,13 +40,13 @@ template<class DeviceType>
 struct DomainResetBoxFunctor{
 public:
   typedef DeviceType device_type;
-  typename ArrayTypes<DeviceType>::t_f_array x;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 x;
 
   struct value_type {
     double value[3][2] ;
   };
 
-  DomainResetBoxFunctor(DAT::tdual_f_array _x):
+  DomainResetBoxFunctor(DAT::tdual_double_1d_3 _x):
     x(_x.view<DeviceType>()) {}
 
   KOKKOS_INLINE_FUNCTION
@@ -218,8 +218,8 @@ template<class DeviceType, int PERIODIC, int DEFORM_VREMAP>
 struct DomainPBCFunctor {
   typedef DeviceType device_type;
   double lo[3],hi[3],period[3];
-  typename ArrayTypes<DeviceType>::t_f_array x;
-  typename ArrayTypes<DeviceType>::t_f_array v;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 x;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 v;
   typename ArrayTypes<DeviceType>::t_int_1d mask;
   typename ArrayTypes<DeviceType>::t_imageint_1d image;
   int deform_groupbit;
@@ -227,7 +227,7 @@ struct DomainPBCFunctor {
   int xperiodic,yperiodic,zperiodic;
 
   DomainPBCFunctor(double* _lo, double* _hi, double* _period,
-                   DAT::tdual_f_array _x, DAT::tdual_f_array _v,
+                   DAT::tdual_double_1d_3 _x, DAT::tdual_double_1d_3 _v,
                    DAT::tdual_int_1d _mask, DAT::tdual_imageint_1d _image,
                    int _deform_groupbit, double* _h_rate,
                    int _xperiodic, int _yperiodic, int _zperiodic):

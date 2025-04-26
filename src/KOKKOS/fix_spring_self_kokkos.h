@@ -68,11 +68,11 @@ class FixSpringSelfKokkos : public FixSpringSelf, public KokkosBase {
  protected:
   int nrecv1,nextrarecv1;
 
-  DAT::tdual_f_array k_xoriginal;
-  typename AT::t_f_array d_xoriginal;
+  DAT::tdual_double_1d_3 k_xoriginal;
+  typename AT::t_double_1d_3 d_xoriginal;
 
-  typename AT::t_f_array_randomread x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3_randomread x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_imageint_1d_randomread image;
   typename AT::t_int_1d_randomread mask;
 

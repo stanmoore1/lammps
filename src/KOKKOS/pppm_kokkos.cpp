@@ -760,7 +760,7 @@ void PPPMKokkos<DeviceType>::allocate()
   memoryKK->create_kokkos(k_work2,work2,2*nfft_both,"pppm:work2");
   d_work1 = k_work1.view<DeviceType>();
   d_work2 = k_work2.view<DeviceType>();
-  d_vg = typename AT::t_virial_array("pppm:vg",nfft_both);
+  d_vg = typename AT::t_double_1d_6("pppm:vg",nfft_both);
 
   if (triclinic == 0) {
     d_fkx = typename AT::t_double_1d("pppm:d_fkx",nxhi_fft-nxlo_fft+1);

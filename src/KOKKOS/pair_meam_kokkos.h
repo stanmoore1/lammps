@@ -86,14 +86,14 @@ class PairMEAMKokkos : public PairMEAM, public KokkosBase {
 
  protected:
   class MEAMKokkos<DeviceType> *meam_inst_kk;
-  typename AT::t_f_array x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3 x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_1d type;
 
   DAT::tdual_double_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
   typename AT::t_double_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   typename AT::t_int_1d d_offset;
 

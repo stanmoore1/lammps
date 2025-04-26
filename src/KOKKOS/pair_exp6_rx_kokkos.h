@@ -139,22 +139,22 @@ class PairExp6rxKokkos : public PairExp6rx {
   double special_lj[4];
   int nthreads,ntypes;
 
-  typename AT::t_f_array_randomread x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3_randomread x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_double_1d uCG, uCGnew;
   typename AT::t_double_2d dvector;
 
-  typedef Kokkos::View<double**[3],Kokkos::LayoutRight,DeviceType> t_f_array_thread;
+  typedef Kokkos::View<double**[3],Kokkos::LayoutRight,DeviceType> t_double_1d_3_thread;
   typedef Kokkos::View<double**,Kokkos::LayoutRight,DeviceType> t_double_1d_thread;
 
-  t_f_array_thread t_f;
+  t_double_1d_3_thread t_f;
   t_double_1d_thread t_uCG, t_uCGnew;
 
   DAT::tdual_double_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
   typename AT::t_double_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   DAT::tdual_int_scalar k_error_flag;
 

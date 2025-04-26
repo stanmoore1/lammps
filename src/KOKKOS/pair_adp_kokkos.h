@@ -117,14 +117,14 @@ class PairADPKokkos : public PairADP, public KokkosBase
   void unpack_reverse_comm(int, int *, double *) override;
 
  protected:
-  typename AT::t_f_array x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3 x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_1d type;
 
   DAT::tdual_double_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
   typename AT::t_double_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   int need_dup;
 
@@ -137,30 +137,30 @@ class PairADPKokkos : public PairADP, public KokkosBase
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
   DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_rho;
-  DupScatterView<double*[3], typename DAT::t_f_array::array_layout> dup_mu;
-  DupScatterView<double*[6], typename DAT::t_virial_array::array_layout> dup_lambda;
-  DupScatterView<double*[3], typename DAT::t_f_array::array_layout> dup_f;
+  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_mu;
+  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_lambda;
+  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
   DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
-  DupScatterView<double*[6], typename DAT::t_virial_array::array_layout> dup_vatom;
+  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
   NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_rho;
-  NonDupScatterView<double*[3], typename DAT::t_f_array::array_layout> ndup_mu;
-  NonDupScatterView<double*[6], typename DAT::t_virial_array::array_layout> ndup_lambda;
-  NonDupScatterView<double*[3], typename DAT::t_f_array::array_layout> ndup_f;
+  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_mu;
+  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_lambda;
+  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
   NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
-  NonDupScatterView<double*[6], typename DAT::t_virial_array::array_layout> ndup_vatom;
+  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
 
   DAT::tdual_double_1d k_rho;
   DAT::tdual_double_1d k_fp;
-  DAT::tdual_f_array k_mu;
-  DAT::tdual_virial_array k_lambda;
+  DAT::tdual_double_1d_3 k_mu;
+  DAT::tdual_double_1d_6 k_lambda;
   typename AT::t_double_1d d_rho;
   typename AT::t_double_1d d_fp;
-  typename AT::t_f_array d_mu;
-  typename AT::t_virial_array d_lambda;
+  typename AT::t_double_1d_3 d_mu;
+  typename AT::t_double_1d_6 d_lambda;
   HAT::t_double_1d h_rho;
   HAT::t_double_1d h_fp;
-  HAT::t_f_array h_mu;
-  HAT::t_virial_array h_lambda;
+  HAT::t_double_1d_3 h_mu;
+  HAT::t_double_1d_6 h_lambda;
 
   typename AT::t_int_1d d_type2frho;
   typename AT::t_int_2d_dl d_type2rhor;

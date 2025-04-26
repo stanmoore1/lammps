@@ -59,18 +59,18 @@ class BondFENEKokkos : public BondFENE {
                   const double &dely, const double &delz) const;
 
   DAT::tdual_double_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename ArrayTypes<DeviceType>::t_f_array_randomread x;
-  typename ArrayTypes<DeviceType>::t_f_array f;
+  typename ArrayTypes<DeviceType>::t_double_1d_3_randomread x;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 f;
   typename ArrayTypes<DeviceType>::t_int_2d bondlist;
 
   typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
+  typename ArrayTypes<DeviceType>::t_double_1d_6 d_vatom;
 
   typename AT::t_int_scalar d_flag;
   HAT::t_int_scalar h_flag;

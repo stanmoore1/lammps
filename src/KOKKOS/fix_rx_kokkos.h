@@ -229,7 +229,7 @@ class FixRxKokkos : public FixRX {
   typename AT::t_double_1d d_dpdThetaLocal, d_sumWeights;
   HAT::t_double_1d h_dpdThetaLocal, h_sumWeights;
 
-  typename AT::t_f_array_randomread d_x;
+  typename AT::t_double_1d_3_randomread d_x;
   typename AT::t_int_1d_randomread  d_type;
   typename AT::t_double_1d          d_dpdTheta;
 

@@ -159,8 +159,8 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
 
   typename AT::t_double_1d d_mixWtSite1old,d_mixWtSite2old,d_mixWtSite1,d_mixWtSite2;
 
-  typename AT::t_f_array_randomread x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3_randomread x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_double_1d rho;
   typename HAT::t_double_1d h_rho;
@@ -168,9 +168,9 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
   typename AT::t_double_2d dvector;
 
   DAT::tdual_double_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
   typename AT::t_double_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;

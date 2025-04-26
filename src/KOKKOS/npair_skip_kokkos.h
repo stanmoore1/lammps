@@ -103,7 +103,7 @@ class NPairSkipKokkos : public NPair {
  private:
   int nlocal,num_skip,cutsq_custom;
 
-  typename AT::t_f_array_randomread x;
+  typename AT::t_double_1d_3_randomread x;
   typename AT::t_int_1d_randomread type;
 
   typename AT::t_int_scalar d_inum;

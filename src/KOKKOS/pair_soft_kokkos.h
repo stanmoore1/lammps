@@ -71,15 +71,15 @@ class PairSoftKokkos : public PairSoft {
   typename Kokkos::DualView<params_soft**,Kokkos::LayoutRight,DeviceType>::t_dev_const_um params;
   params_soft m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];  // hardwired to space for 12 atom types
   double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename AT::t_f_array_randomread x;
-  typename AT::t_f_array c_x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3_randomread x;
+  typename AT::t_double_1d_3 c_x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_1d_randomread type;
 
   DAT::tdual_double_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
   typename AT::t_double_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   int newton_pair;
   double special_lj[4];

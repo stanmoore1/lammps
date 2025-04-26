@@ -116,9 +116,9 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
  protected:
   int nrecv1,nextrarecv1;
 
-  typename AT::t_f_array d_x;
-  typename AT::t_f_array d_v;
-  typename AT::t_f_array d_f;
+  typename AT::t_double_1d_3 d_x;
+  typename AT::t_double_1d_3 d_v;
+  typename AT::t_double_1d_3 d_f;
   typename AT::t_double_1d d_rmass;
   typename AT::t_double_1d d_mass;
   typename AT::t_tagint_1d_randomread d_tag;
@@ -128,8 +128,8 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   DAT::tdual_double_1d k_eatom;
   typename AT::t_double_1d d_eatom;
 
-  DAT::tdual_virial_array k_vatom;
-  typename AT::t_virial_array d_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   DAT::tdual_double_1d k_bond_distance; // constraint distances
   typename AT::t_double_1d d_bond_distance;
@@ -149,8 +149,8 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   typename AT::t_int_2d d_shake_type; // bondtype of each bond in cluster
                                          // for angle cluster, 3rd value
                                          //   is angletype
-  DAT::tdual_f_array k_xshake;
-  typename AT::t_f_array d_xshake; // unconstrained atom coords
+  DAT::tdual_double_1d_3 k_xshake;
+  typename AT::t_double_1d_3 d_xshake; // unconstrained atom coords
 
   DAT::tdual_int_1d k_list;
   typename AT::t_int_1d d_list; // list of clusters to SHAKE
@@ -190,13 +190,13 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double*[3], typename DAT::t_f_array::array_layout> dup_f;
+  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
   DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
-  DupScatterView<double*[6], typename DAT::t_virial_array::array_layout> dup_vatom;
+  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
 
-  NonDupScatterView<double*[3], typename DAT::t_f_array::array_layout> ndup_f;
+  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
   NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
-  NonDupScatterView<double*[6], typename DAT::t_virial_array::array_layout> ndup_vatom;
+  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
 
   int neighflag,need_dup;
 

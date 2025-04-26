@@ -77,16 +77,16 @@ class PairLJCharmmCoulCharmmKokkos : public PairLJCharmmCoulCharmm {
   double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   double m_cut_ljsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   double m_cut_coulsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename AT::t_f_array_randomread x;
-  typename AT::t_f_array c_x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3_randomread x;
+  typename AT::t_double_1d_3 c_x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_double_1d_randomread q;
 
   DAT::tdual_double_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
+  DAT::tdual_double_1d_6 k_vatom;
   typename AT::t_double_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   int newton_pair;
 
