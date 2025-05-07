@@ -70,7 +70,7 @@ class NeighborKokkos : public Neighbor {
   DAT::tdual_double_1d_3 x;
   DAT::tdual_double_1d_3 xhold;
 
-  double deltasq;
+  KK_FLOAT deltasq;
 
   void init_cutneighsq_kokkos(int) override;
   void create_kokkos_list(int) override;

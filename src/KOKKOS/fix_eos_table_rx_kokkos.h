@@ -60,19 +60,19 @@ class FixEOStableRXKokkos : public FixEOStableRX {
   void operator()(TagFixEOStableRXTemperatureLookup2, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void energy_lookup(int, double, double &) const;
+  void energy_lookup(int, KK_FLOAT, KK_FLOAT &) const;
 
   KOKKOS_INLINE_FUNCTION
-  void temperature_lookup(int, double, double &) const;
+  void temperature_lookup(int, KK_FLOAT, KK_FLOAT &) const;
 
  protected:
   //struct Table {
   //  int ninput;
-  //  double lo,hi;
-  //  double *rfile,*efile;
-  //  double *e2file;
-  //  double delta,invdelta,deltasq6;
-  //  double *r,*e,*de,*e2;
+  //  KK_FLOAT lo,hi;
+  //  KK_FLOAT *rfile,*efile;
+  //  KK_FLOAT *e2file;
+  //  KK_FLOAT delta,invdelta,deltasq6;
+  //  KK_FLOAT *r,*e,*de,*e2;
   //};
   //Table *tables, *tables2;
 

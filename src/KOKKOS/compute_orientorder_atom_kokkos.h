@@ -123,10 +123,10 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
   void calc_boop2(int, int) const;
 
   KOKKOS_INLINE_FUNCTION
-  double polar_prefactor(int, int, double) const;
+  KK_FLOAT polar_prefactor(int, int, KK_FLOAT) const;
 
   KOKKOS_INLINE_FUNCTION
-  double associated_legendre(int, int, double) const;
+  KK_FLOAT associated_legendre(int, int, KK_FLOAT) const;
 
   void init_wigner3j() override;
   t_sna_1d d_w3jlist;                     // Wigner coeffs

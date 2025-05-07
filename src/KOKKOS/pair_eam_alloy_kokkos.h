@@ -119,16 +119,16 @@ class PairEAMAlloyKokkos : public PairEAM, public KokkosBase {
   template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const double &epair, const double &fpair, const double &delx,
-                  const double &dely, const double &delz) const;
+      const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx,
+                  const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_double_1d&,
                        int, int *) override;
   void unpack_forward_comm_kokkos(int, int, DAT::tdual_double_1d&) override;
-  int pack_forward_comm(int, int *, double *, int, int *) override;
-  void unpack_forward_comm(int, int, double *) override;
-  int pack_reverse_comm(int, int, double *) override;
-  void unpack_reverse_comm(int, int *, double *) override;
+  int pack_forward_comm(int, int *, KK_FLOAT *, int, int *) override;
+  void unpack_forward_comm(int, int, KK_FLOAT *) override;
+  int pack_reverse_comm(int, int, KK_FLOAT *) override;
+  void unpack_reverse_comm(int, int *, KK_FLOAT *) override;
 
  protected:
   typename AT::t_double_1d_3 x;
@@ -150,14 +150,14 @@ class PairEAMAlloyKokkos : public PairEAM, public KokkosBase {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_rho;
-  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
-  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
-  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
-  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_rho;
-  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
-  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
-  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
+  DupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> dup_rho;
+  DupScatterView<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
+  DupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> dup_eatom;
+  DupScatterView<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
+  NonDupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> ndup_rho;
+  NonDupScatterView<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
+  NonDupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> ndup_eatom;
+  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
 
   DAT::tdual_double_1d k_rho;
   DAT::tdual_double_1d k_fp;
@@ -170,14 +170,14 @@ class PairEAMAlloyKokkos : public PairEAM, public KokkosBase {
   typename AT::t_int_2d_dl d_type2rhor;
   typename AT::t_int_2d_dl d_type2z2r;
 
-  typedef Kokkos::DualView<double**[7],DeviceType> tdual_double_2d_n7;
+  typedef Kokkos::DualView<KK_FLOAT**[7],DeviceType> tdual_double_2d_n7;
   typedef typename tdual_double_2d_n7::t_dev_const t_double_2d_n7;
   typedef typename tdual_double_2d_n7::t_host t_host_double_2d_n7;
 
   t_double_2d_n7 d_frho_spline;
   t_double_2d_n7 d_rhor_spline;
   t_double_2d_n7 d_z2r_spline;
-  void interpolate(int, double, double *, t_host_double_2d_n7, int);
+  void interpolate(int, KK_FLOAT, KK_FLOAT *, t_host_double_2d_n7, int);
   void file2array() override;
   void file2array_alloy();
   void array2spline() override;

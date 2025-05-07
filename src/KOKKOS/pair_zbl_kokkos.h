@@ -68,23 +68,23 @@ class PairZBLKokkos : public PairZBL {
   double special_lj[4];
 
   KOKKOS_INLINE_FUNCTION
-  double e_zbl(double, int, int) const;
+  KK_FLOAT e_zbl(KK_FLOAT, int, int) const;
   KOKKOS_INLINE_FUNCTION
-  double dzbldr(double, int, int) const;
+  KK_FLOAT dzbldr(KK_FLOAT, int, int) const;
   KOKKOS_INLINE_FUNCTION
-  double d2zbldr2(double, int, int) const;
+  KK_FLOAT d2zbldr2(KK_FLOAT, int, int) const;
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  double compute_fpair(const double& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
+  KK_FLOAT compute_fpair(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  double compute_evdwl(const double& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
+  KK_FLOAT compute_evdwl(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  double compute_ecoul(const double& /*rsq*/, const int& /*i*/, const int& /*j*/,
+  KK_FLOAT compute_ecoul(const KK_FLOAT& /*rsq*/, const int& /*i*/, const int& /*j*/,
                         const int& /*itype*/, const int& /*jtype*/) const { return 0; }
 
   void allocate() override;

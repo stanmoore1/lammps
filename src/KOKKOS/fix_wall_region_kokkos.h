@@ -57,25 +57,25 @@ class FixWallRegionKokkos : public FixWallRegion {
   typename AT::t_double_1d_6 d_vatom;
 
   KOKKOS_INLINE_FUNCTION
-  double lj93(double, double&) const;
+  KK_FLOAT lj93(KK_FLOAT, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  double lj126(double, double&) const;
+  KK_FLOAT lj126(KK_FLOAT, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  double lj1043(double, double&) const;
+  KK_FLOAT lj1043(KK_FLOAT, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  double morse(double, double&) const;
+  KK_FLOAT morse(KK_FLOAT, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  double colloid(double, double, double&) const;
+  KK_FLOAT colloid(KK_FLOAT, KK_FLOAT, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  double harmonic(double, double&) const;
+  KK_FLOAT harmonic(KK_FLOAT, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void v_tally(value_type, int, double*) const;
+  void v_tally(value_type, int, KK_FLOAT*) const;
 
 };
 

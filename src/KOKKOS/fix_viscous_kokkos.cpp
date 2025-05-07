@@ -86,7 +86,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void FixViscousKokkos<DeviceType>::operator()(TagFixViscous, const int &i) const {
   if (mask[i] & groupbit) {
-    double drag = k_gamma.d_view(type[i]);
+    KK_FLOAT drag = k_gamma.d_view(type[i]);
     f(i,0) -= drag*v(i,0);
     f(i,1) -= drag*v(i,1);
     f(i,2) -= drag*v(i,2);

@@ -75,14 +75,14 @@ class PairMEAMKokkos : public PairMEAM, public KokkosBase {
 
   int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_double_1d&,
                                int, int *) override;
-  int pack_forward_comm(int, int *, double *, int, int *) override;
+  int pack_forward_comm(int, int *, KK_FLOAT *, int, int *) override;
   void unpack_forward_comm_kokkos(int, int, DAT::tdual_double_1d&) override;
-  void unpack_forward_comm(int, int, double *) override;
+  void unpack_forward_comm(int, int, KK_FLOAT *) override;
   int pack_reverse_comm_kokkos(int, int, DAT::tdual_double_1d&) override;
-  int pack_reverse_comm(int, int, double *) override;
+  int pack_reverse_comm(int, int, KK_FLOAT *) override;
   void unpack_reverse_comm_kokkos(int, DAT::tdual_int_1d,
                                   DAT::tdual_double_1d&) override;
-  void unpack_reverse_comm(int, int *, double *) override;
+  void unpack_reverse_comm(int, int *, KK_FLOAT *) override;
 
  protected:
   class MEAMKokkos<DeviceType> *meam_inst_kk;

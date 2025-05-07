@@ -132,12 +132,12 @@ void PairLJCutKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJCutKokkos<DeviceType>::
-compute_fpair(const double &rsq, const int &, const int &, const int &itype, const int &jtype) const {
-  const double r2inv = 1.0/rsq;
-  const double r6inv = r2inv*r2inv*r2inv;
+KK_FLOAT PairLJCutKokkos<DeviceType>::
+compute_fpair(const KK_FLOAT &rsq, const int &, const int &, const int &itype, const int &jtype) const {
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
 
-  const double forcelj = r6inv *
+  const KK_FLOAT forcelj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj1:params(itype,jtype).lj1)*r6inv -
      (STACKPARAMS?m_params[itype][jtype].lj2:params(itype,jtype).lj2));
 
@@ -147,10 +147,10 @@ compute_fpair(const double &rsq, const int &, const int &, const int &itype, con
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJCutKokkos<DeviceType>::
-compute_evdwl(const double &rsq, const int &, const int &, const int &itype, const int &jtype) const {
-  const double r2inv = 1.0/rsq;
-  const double r6inv = r2inv*r2inv*r2inv;
+KK_FLOAT PairLJCutKokkos<DeviceType>::
+compute_evdwl(const KK_FLOAT &rsq, const int &, const int &, const int &itype, const int &jtype) const {
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
 
   return r6inv*((STACKPARAMS?m_params[itype][jtype].lj3:params(itype,jtype).lj3)*r6inv -
                 (STACKPARAMS?m_params[itype][jtype].lj4:params(itype,jtype).lj4)) -

@@ -55,8 +55,8 @@ class BondFENEKokkos : public BondFENE {
   //template<int NEWTON_BOND>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const double &ebond, const double &fbond, const double &delx,
-                  const double &dely, const double &delz) const;
+      const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx,
+                  const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   DAT::tdual_double_1d k_eatom;
   DAT::tdual_double_1d_6 k_vatom;

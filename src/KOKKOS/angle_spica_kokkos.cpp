@@ -165,7 +165,7 @@ KOKKOS_INLINE_FUNCTION
 void AngleSPICAKokkos<DeviceType>::operator()(TagAngleSPICACompute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
 
   // The f array is atomic
-  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
 
   const int i1 = anglelist(n,0);
   const int i2 = anglelist(n,1);
@@ -174,31 +174,31 @@ void AngleSPICAKokkos<DeviceType>::operator()(TagAngleSPICACompute<NEWTON_BOND,E
 
   // 1st bond
 
-  const double delx1 = x(i1,0) - x(i2,0);
-  const double dely1 = x(i1,1) - x(i2,1);
-  const double delz1 = x(i1,2) - x(i2,2);
+  const KK_FLOAT delx1 = x(i1,0) - x(i2,0);
+  const KK_FLOAT dely1 = x(i1,1) - x(i2,1);
+  const KK_FLOAT delz1 = x(i1,2) - x(i2,2);
 
-  const double rsq1 = delx1*delx1 + dely1*dely1 + delz1*delz1;
-  const double r1 = sqrt(rsq1);
+  const KK_FLOAT rsq1 = delx1*delx1 + dely1*dely1 + delz1*delz1;
+  const KK_FLOAT r1 = sqrt(rsq1);
 
   // 2nd bond
 
-  const double delx2 = x(i3,0) - x(i2,0);
-  const double dely2 = x(i3,1) - x(i2,1);
-  const double delz2 = x(i3,2) - x(i2,2);
+  const KK_FLOAT delx2 = x(i3,0) - x(i2,0);
+  const KK_FLOAT dely2 = x(i3,1) - x(i2,1);
+  const KK_FLOAT delz2 = x(i3,2) - x(i2,2);
 
-  const double rsq2 = delx2*delx2 + dely2*dely2 + delz2*delz2;
-  const double r2 = sqrt(rsq2);
+  const KK_FLOAT rsq2 = delx2*delx2 + dely2*dely2 + delz2*delz2;
+  const KK_FLOAT r2 = sqrt(rsq2);
 
   // angle (cos and sin)
 
-  double c = delx1*delx2 + dely1*dely2 + delz1*delz2;
+  KK_FLOAT c = delx1*delx2 + dely1*dely2 + delz1*delz2;
   c /= r1*r2;
 
   if (c > 1.0) c = 1.0;
   if (c < -1.0) c = -1.0;
 
-  double s = sqrt(1.0 - c*c);
+  KK_FLOAT s = sqrt(1.0 - c*c);
   if (s < SMALL) s = SMALL;
   s = 1.0/s;
 
@@ -208,7 +208,7 @@ void AngleSPICAKokkos<DeviceType>::operator()(TagAngleSPICACompute<NEWTON_BOND,E
   // so this has to be done here and not in the
   // general non-bonded code.
 
-  double f13, e13, delx3, dely3, delz3;
+  KK_FLOAT f13, e13, delx3, dely3, delz3;
   f13 = e13 = delx3 = dely3 = delz3 = 0.0;
 
   if (repflag) {
@@ -216,7 +216,7 @@ void AngleSPICAKokkos<DeviceType>::operator()(TagAngleSPICACompute<NEWTON_BOND,E
     delx3 = x(i1,0) - x(i3,0);
     dely3 = x(i1,1) - x(i3,1);
     delz3 = x(i1,2) - x(i3,2);
-    const double rsq3 = delx3*delx3 + dely3*dely3 + delz3*delz3;
+    const KK_FLOAT rsq3 = delx3*delx3 + dely3*dely3 + delz3*delz3;
 
     const int type1 = d_type[i1];
     const int type3 = d_type[i3];
@@ -226,30 +226,30 @@ void AngleSPICAKokkos<DeviceType>::operator()(TagAngleSPICACompute<NEWTON_BOND,E
 
     if (rsq3 < d_rminsq(type1,type3)) {
       const int ljt = d_lj_type(type1,type3);
-      const double r2inv = 1.0/rsq3;
+      const KK_FLOAT r2inv = 1.0/rsq3;
 
       if (ljt == LJ12_4) {
-        const double r4inv=r2inv*r2inv;
+        const KK_FLOAT r4inv=r2inv*r2inv;
 
         f13 = r4inv*(d_lj1(type1,type3)*r4inv*r4inv - d_lj2(type1,type3));
         if (eflag) e13 = r4inv*(d_lj3(type1,type3)*r4inv*r4inv - d_lj4(type1,type3));
 
       } else if (ljt == LJ9_6) {
-        const double r3inv = r2inv*sqrt(r2inv);
-        const double r6inv = r3inv*r3inv;
+        const KK_FLOAT r3inv = r2inv*sqrt(r2inv);
+        const KK_FLOAT r6inv = r3inv*r3inv;
 
         f13 = r6inv*(d_lj1(type1,type3)*r3inv - d_lj2(type1,type3));
         if (eflag) e13 = r6inv*(d_lj3(type1,type3)*r3inv - d_lj4(type1,type3));
 
       } else if (ljt == LJ12_6) {
-        const double r6inv = r2inv*r2inv*r2inv;
+        const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
 
         f13 = r6inv*(d_lj1(type1,type3)*r6inv - d_lj2(type1,type3));
         if (eflag) e13 = r6inv*(d_lj3(type1,type3)*r6inv - d_lj4(type1,type3));
 
       } else if (ljt == LJ12_5) {
-        const double r5inv = r2inv*r2inv*sqrt(r2inv);
-        const double r7inv = r5inv*r2inv;
+        const KK_FLOAT r5inv = r2inv*r2inv*sqrt(r2inv);
+        const KK_FLOAT r7inv = r5inv*r2inv;
 
         f13 = r5inv*(d_lj1(type1,type3)*r7inv - d_lj2(type1,type3));
         if (eflag) e13 = r5inv*(d_lj3(type1,type3)*r7inv - d_lj4(type1,type3));
@@ -264,18 +264,18 @@ void AngleSPICAKokkos<DeviceType>::operator()(TagAngleSPICACompute<NEWTON_BOND,E
 
   // force & energy
 
-  const double dtheta = acos(c) - d_theta0[type];
-  const double tk = d_k[type] * dtheta;
+  const KK_FLOAT dtheta = acos(c) - d_theta0[type];
+  const KK_FLOAT tk = d_k[type] * dtheta;
 
-  double eangle = 0.0;
+  KK_FLOAT eangle = 0.0;
   if (eflag) eangle = tk*dtheta;
 
-  const double a = -2.0 * tk * s;
-  const double a11 = a*c / rsq1;
-  const double a12 = -a / (r1*r2);
-  const double a22 = a*c / rsq2;
+  const KK_FLOAT a = -2.0 * tk * s;
+  const KK_FLOAT a11 = a*c / rsq1;
+  const KK_FLOAT a12 = -a / (r1*r2);
+  const KK_FLOAT a22 = a*c / rsq2;
 
-  double f1[3],f3[3];
+  KK_FLOAT f1[3],f3[3];
   f1[0] = a11*delx1 + a12*delx2;
   f1[1] = a11*dely1 + a12*dely2;
   f1[2] = a11*delz1 + a12*delz2;
@@ -451,16 +451,16 @@ template<class DeviceType>
 //template<int NEWTON_BOND>
 KOKKOS_INLINE_FUNCTION
 void AngleSPICAKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i, const int j, const int k,
-                     double &eangle, double *f1, double *f3,
-                     const double &delx1, const double &dely1, const double &delz1,
-                     const double &delx2, const double &dely2, const double &delz2) const
+                     KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3,
+                     const KK_FLOAT &delx1, const KK_FLOAT &dely1, const KK_FLOAT &delz1,
+                     const KK_FLOAT &delx2, const KK_FLOAT &dely2, const KK_FLOAT &delz2) const
 {
-  double eanglethird;
-  double v[6];
+  KK_FLOAT eanglethird;
+  KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
-  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.template view<DeviceType>();
+  Kokkos::View<KK_FLOAT*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.template view<DeviceType>();
 
   if (eflag_either) {
     if (eflag_global) {
@@ -562,14 +562,14 @@ void AngleSPICAKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i, const int
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void AngleSPICAKokkos<DeviceType>::ev_tally13(EV_FLOAT &ev, const int i, const int j,
-                     const double &evdwl, const double &fpair,
-                     const double &delx, const double &dely, const double &delz) const
+                     const KK_FLOAT &evdwl, const KK_FLOAT &fpair,
+                     const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT &delz) const
 {
-  double v[6];
+  KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
-  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.template view<DeviceType>();
+  Kokkos::View<KK_FLOAT*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.template view<DeviceType>();
 
   if (eflag_either) {
     if (eflag_global) {

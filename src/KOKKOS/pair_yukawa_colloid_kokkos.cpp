@@ -215,23 +215,23 @@ void PairYukawaColloidKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairYukawaColloidKokkos<DeviceType>::
-compute_fpair(const double &rsq, const int &i, const int &j,
+KK_FLOAT PairYukawaColloidKokkos<DeviceType>::
+compute_fpair(const KK_FLOAT &rsq, const int &i, const int &j,
               const int &itype, const int &jtype) const {
-  const double radi   = radius[i];
-  const double radj   = radius[j];
-  const double rr     = sqrt(rsq);
+  const KK_FLOAT radi   = radius[i];
+  const KK_FLOAT radj   = radius[j];
+  const KK_FLOAT rr     = sqrt(rsq);
   // Fetch the params either off the stack or from some mapped memory?
-  const double aa     = STACKPARAMS ? m_params[itype][jtype].a
+  const KK_FLOAT aa     = STACKPARAMS ? m_params[itype][jtype].a
                                      : params(itype,jtype).a;
 
   // U   = a * exp(-kappa*(r-(radi+radj))) / kappa
   // f   = -dU/dr = a * exp(-kappa*r)
   // f/r = a * exp(-kappa*r) / r
-  const double rinv = 1.0 / rr;
-  const double screening = exp(-kappa*(rr-(radi+radj)));
-  const double forceyukawa = aa * screening;
-  const double fpair = forceyukawa * rinv;
+  const KK_FLOAT rinv = 1.0 / rr;
+  const KK_FLOAT screening = exp(-kappa*(rr-(radi+radj)));
+  const KK_FLOAT forceyukawa = aa * screening;
+  const KK_FLOAT fpair = forceyukawa * rinv;
 
   return fpair;
 }
@@ -239,19 +239,19 @@ compute_fpair(const double &rsq, const int &i, const int &j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairYukawaColloidKokkos<DeviceType>::
-compute_evdwl(const double &rsq, const int &i, const int &j,
+KK_FLOAT PairYukawaColloidKokkos<DeviceType>::
+compute_evdwl(const KK_FLOAT &rsq, const int &i, const int &j,
               const int &itype, const int &jtype) const {
-  const double radi   = radius[i];
-  const double radj   = radius[j];
-  const double rr     = sqrt(rsq);
-  const double aa     = STACKPARAMS ? m_params[itype][jtype].a
+  const KK_FLOAT radi   = radius[i];
+  const KK_FLOAT radj   = radius[j];
+  const KK_FLOAT rr     = sqrt(rsq);
+  const KK_FLOAT aa     = STACKPARAMS ? m_params[itype][jtype].a
                                      : params(itype,jtype).a;
-  const double offset = STACKPARAMS ? m_params[itype][jtype].offset
+  const KK_FLOAT offset = STACKPARAMS ? m_params[itype][jtype].offset
                                      : params(itype,jtype).offset;
 
   // U   = a * exp(-kappa*(r-(radi+radj))) / kappa
-  const double screening = exp(-kappa*(rr-(radi+radj)));
+  const KK_FLOAT screening = exp(-kappa*(rr-(radi+radj)));
 
   return aa / kappa * screening - offset;
 }

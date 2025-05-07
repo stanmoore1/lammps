@@ -58,16 +58,16 @@ template <class DeviceType> class ComputeGaussianGridLocalKokkos : public Comput
   void operator() (TagComputeGaussianGridLocalNeigh, const typename Kokkos::TeamPolicy<DeviceType, TagComputeGaussianGridLocalNeigh>::member_type& team) const;
 
  private:
-  Kokkos::View<double*, DeviceType> d_radelem;              // element radii
-  Kokkos::View<double*, DeviceType> d_sigmaelem;
-  Kokkos::View<double*, DeviceType> d_prefacelem;
-  Kokkos::View<double*, DeviceType> d_argfacelem;
+  Kokkos::View<KK_FLOAT*, DeviceType> d_radelem;              // element radii
+  Kokkos::View<KK_FLOAT*, DeviceType> d_sigmaelem;
+  Kokkos::View<KK_FLOAT*, DeviceType> d_prefacelem;
+  Kokkos::View<KK_FLOAT*, DeviceType> d_argfacelem;
   Kokkos::View<int*, DeviceType> d_ninside;                // ninside for all atoms in list
   Kokkos::View<int*, DeviceType> d_map;                    // mapping from atom types to elements
 
-  typedef Kokkos::DualView<double**, DeviceType> tdual_fparams;
+  typedef Kokkos::DualView<KK_FLOAT**, DeviceType> tdual_fparams;
   tdual_fparams k_cutsq;
-  typedef Kokkos::View<const double**, DeviceType,
+  typedef Kokkos::View<const KK_FLOAT**, DeviceType,
       Kokkos::MemoryTraits<Kokkos::RandomAccess> > t_fparams_rnd;
   t_fparams_rnd rnd_cutsq;
 
@@ -86,8 +86,8 @@ template <class DeviceType> class ComputeGaussianGridLocalKokkos : public Comput
   typename AT::t_double_2d d_alocal;
 
   // triclinic vars
-  double h0, h1, h2, h3, h4, h5;
-  double lo0, lo1, lo2;
+  KK_FLOAT h0, h1, h2, h3, h4, h5;
+  KK_FLOAT lo0, lo1, lo2;
 };
 
 }    // namespace LAMMPS_NS

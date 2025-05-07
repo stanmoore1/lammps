@@ -138,9 +138,9 @@ template <class DeviceType>
 template <typename ViewType>
 KOKKOS_INLINE_FUNCTION
 void MLIAPDescriptorSO3Kokkos<DeviceType>::v_tally(int vflag_either, int vflag_global, int vflag_atom, int i, int j, int ij,
-    double *fij, ViewType rij, Kokkos::View<double[6],DeviceType> virial, ViewType vatom)
+    KK_FLOAT *fij, ViewType rij, Kokkos::View<KK_FLOAT[6],DeviceType> virial, ViewType vatom)
 {
-  double v[6];
+  KK_FLOAT v[6];
   if (vflag_either) {
     v[0] = -rij(ij,0)*fij[0];
     v[1] = -rij(ij,1)*fij[1];

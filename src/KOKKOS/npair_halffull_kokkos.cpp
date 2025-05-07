@@ -88,7 +88,7 @@ void NPairHalffullKokkos<DeviceType,NEWTON,TRI,TRIM>::operator()(TagNPairHalfful
   int n = 0;
 
   const int i = d_ilist_full(ii);
-  double xtmp,ytmp,ztmp;
+  KK_FLOAT xtmp,ytmp,ztmp;
   if (NEWTON || TRIM) {
     xtmp = x(i,0);
     ytmp = x(i,1);
@@ -129,10 +129,10 @@ void NPairHalffullKokkos<DeviceType,NEWTON,TRI,TRIM>::operator()(TagNPairHalfful
       }
 
       if (TRIM) {
-        const double delx = xtmp - x(j,0);
-        const double dely = ytmp - x(j,1);
-        const double delz = ztmp - x(j,2);
-        const double rsq = delx*delx + dely*dely + delz*delz;
+        const KK_FLOAT delx = xtmp - x(j,0);
+        const KK_FLOAT dely = ytmp - x(j,1);
+        const KK_FLOAT delz = ztmp - x(j,2);
+        const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
         if (rsq > cutsq_custom) continue;
       }
@@ -141,10 +141,10 @@ void NPairHalffullKokkos<DeviceType,NEWTON,TRI,TRIM>::operator()(TagNPairHalfful
     } else if (j > i) {
 
       if (TRIM) {
-        const double delx = xtmp - x(j,0);
-        const double dely = ytmp - x(j,1);
-        const double delz = ztmp - x(j,2);
-        const double rsq = delx*delx + dely*dely + delz*delz;
+        const KK_FLOAT delx = xtmp - x(j,0);
+        const KK_FLOAT dely = ytmp - x(j,1);
+        const KK_FLOAT delz = ztmp - x(j,2);
+        const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
         if (rsq > cutsq_custom) continue;
       }

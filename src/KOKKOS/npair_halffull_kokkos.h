@@ -362,7 +362,7 @@ class NPairHalffullKokkos : public NPair {
 
  private:
   int nlocal,triclinic;
-  double cutsq_custom,delta;
+  KK_FLOAT cutsq_custom,delta;
 
   typename AT::t_double_1d_3_randomread x;
 

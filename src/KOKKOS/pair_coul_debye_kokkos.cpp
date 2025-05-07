@@ -146,15 +146,15 @@ void PairCoulDebyeKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairCoulDebyeKokkos<DeviceType>::
-compute_fcoul(const double& rsq, const int& /*i*/, const int&j,
-              const int& itype, const int& jtype, const double& factor_coul, const double& qtmp) const {
+KK_FLOAT PairCoulDebyeKokkos<DeviceType>::
+compute_fcoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
+              const int& itype, const int& jtype, const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const {
 
-  const double r2inv = 1.0/rsq;
-  const double rinv = sqrt(r2inv);
-  const double r = 1.0/rinv;
-  const double screening = exp(-kappa*r);
-  double forcecoul;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT rinv = sqrt(r2inv);
+  const KK_FLOAT r = 1.0/rinv;
+  const KK_FLOAT screening = exp(-kappa*r);
+  KK_FLOAT forcecoul;
 
   forcecoul = qqrd2e * qtmp * q(j) * screening * (kappa + rinv) *
           (STACKPARAMS?m_params[itype][jtype].scale:params(itype,jtype).scale);
@@ -169,14 +169,14 @@ compute_fcoul(const double& rsq, const int& /*i*/, const int&j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairCoulDebyeKokkos<DeviceType>::
-compute_ecoul(const double& rsq, const int& /*i*/, const int&j,
-              const int& itype, const int& jtype, const double& factor_coul, const double& qtmp) const {
+KK_FLOAT PairCoulDebyeKokkos<DeviceType>::
+compute_ecoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
+              const int& itype, const int& jtype, const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const {
 
-  const double r2inv = 1.0/rsq;
-  const double rinv = sqrt(r2inv);
-  const double r = 1.0/rinv;
-  const double screening = exp(-kappa*r);
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT rinv = sqrt(r2inv);
+  const KK_FLOAT r = 1.0/rinv;
+  const KK_FLOAT screening = exp(-kappa*r);
 
   return factor_coul * qqrd2e * qtmp * q(j) * rinv * screening *
           (STACKPARAMS?m_params[itype][jtype].scale:params(itype,jtype).scale);

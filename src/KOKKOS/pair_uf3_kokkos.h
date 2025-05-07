@@ -119,23 +119,23 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
 
   template <int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void twobody(const int itype, const int jtype, const double r, double &evdwl,
-               double &fpair) const;
+  void twobody(const int itype, const int jtype, const KK_FLOAT r, KK_FLOAT &evdwl,
+               KK_FLOAT &fpair) const;
   template <int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void threebody(const int itype, const int jtype, const int ktype, const double value_rij,
-                 const double value_rik, const double value_rjk, double &evdwl3,
-                 double (&fforce)[3]) const;
+  void threebody(const int itype, const int jtype, const int ktype, const KK_FLOAT value_rij,
+                 const KK_FLOAT value_rik, const KK_FLOAT value_rjk, KK_FLOAT &evdwl3,
+                 KK_FLOAT (&fforce)[3]) const;
 
   template <int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION void
-  ev_tally(EV_FLOAT &ev, const int &i, const int &j, const double &epair, const double &fpair,
-           const double &delx, const double &dely, const double &delz) const;
+  ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair,
+           const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   template <int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION void ev_tally3(EV_FLOAT &ev, const int &i, const int &j, int &k,
-                                        const double &evdwl, const double &ecoul, double *fj,
-                                        double *fk, double *drji, double *drki) const;
+                                        const KK_FLOAT &evdwl, const KK_FLOAT &ecoul, KK_FLOAT *fj,
+                                        KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const;
 
   typename AT::t_double_1d_3_randomread x;
   typename AT::t_double_1d_3 f;
@@ -147,16 +147,16 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   typename AT::t_double_1d d_eatom;
   typename AT::t_double_1d_6 d_vatom;
 
-  using ScatterFType = Kokkos::Experimental::ScatterView<double *[3], Kokkos::LayoutRight,
+  using ScatterFType = Kokkos::Experimental::ScatterView<KK_FLOAT *[3], Kokkos::LayoutRight,
                                                          typename DeviceType::memory_space>;
   ScatterFType fscatter;
-  using ScatterVType = Kokkos::Experimental::ScatterView<double *[6], Kokkos::LayoutRight,
+  using ScatterVType = Kokkos::Experimental::ScatterView<KK_FLOAT *[6], Kokkos::LayoutRight,
                                                          typename DeviceType::memory_space>;
   ScatterVType vscatter;
-  using ScatterCVType = Kokkos::Experimental::ScatterView<double *[9], Kokkos::LayoutRight,
+  using ScatterCVType = Kokkos::Experimental::ScatterView<KK_FLOAT *[9], Kokkos::LayoutRight,
                                                           typename DeviceType::memory_space>;
   ScatterCVType cvscatter;
-  using ScatterEType = Kokkos::Experimental::ScatterView<double *, LMPDeviceType::array_layout,
+  using ScatterEType = Kokkos::Experimental::ScatterView<KK_FLOAT *, LMPDeviceType::array_layout,
                                                          typename DeviceType::memory_space>;
   ScatterEType escatter;
 

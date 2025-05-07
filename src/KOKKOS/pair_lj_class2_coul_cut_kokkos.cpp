@@ -154,15 +154,15 @@ void PairLJClass2CoulCutKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJClass2CoulCutKokkos<DeviceType>::
-compute_fpair(const double &rsq, const int &, const int &,
+KK_FLOAT PairLJClass2CoulCutKokkos<DeviceType>::
+compute_fpair(const KK_FLOAT &rsq, const int &, const int &,
               const int &itype, const int &jtype) const {
-  const double r2inv = 1.0/rsq;
-  const double rinv = sqrt(r2inv);
-  const double r3inv = r2inv*rinv;
-  const double r6inv = r3inv*r3inv;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT rinv = sqrt(r2inv);
+  const KK_FLOAT r3inv = r2inv*rinv;
+  const KK_FLOAT r6inv = r3inv*r3inv;
 
-  const double forcelj = r6inv *
+  const KK_FLOAT forcelj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj1:params(itype,jtype).lj1)*r3inv -
      (STACKPARAMS?m_params[itype][jtype].lj2:params(itype,jtype).lj2));
 
@@ -175,13 +175,13 @@ compute_fpair(const double &rsq, const int &, const int &,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJClass2CoulCutKokkos<DeviceType>::
-compute_fcoul(const double &rsq, const int &/*i*/, const int &j,
+KK_FLOAT PairLJClass2CoulCutKokkos<DeviceType>::
+compute_fcoul(const KK_FLOAT &rsq, const int &/*i*/, const int &j,
               const int &/*itype*/, const int &/*jtype*/,
-              const double &factor_coul, const double &qtmp) const {
-  const double r2inv = 1.0/rsq;
-  const double rinv = sqrt(r2inv);
-  double forcecoul;
+              const KK_FLOAT &factor_coul, const KK_FLOAT &qtmp) const {
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT rinv = sqrt(r2inv);
+  KK_FLOAT forcecoul;
 
   forcecoul = qqrd2e*qtmp*q(j) *rinv;
 
@@ -194,15 +194,15 @@ compute_fcoul(const double &rsq, const int &/*i*/, const int &j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJClass2CoulCutKokkos<DeviceType>::
-compute_evdwl(const double& rsq, const int& i, const int&j,
+KK_FLOAT PairLJClass2CoulCutKokkos<DeviceType>::
+compute_evdwl(const KK_FLOAT& rsq, const int& i, const int&j,
               const int& itype, const int& jtype) const {
   (void) i;
   (void) j;
-  const double r2inv = 1.0/rsq;
-  const double rinv = sqrt(r2inv);
-  const double r3inv = r2inv*rinv;
-  const double r6inv = r3inv*r3inv;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT rinv = sqrt(r2inv);
+  const KK_FLOAT r3inv = r2inv*rinv;
+  const KK_FLOAT r6inv = r3inv*r3inv;
 
   return r6inv*((STACKPARAMS?m_params[itype][jtype].lj3:params(itype,jtype).lj3)*r3inv -
                 (STACKPARAMS?m_params[itype][jtype].lj4:params(itype,jtype).lj4)) -
@@ -215,12 +215,12 @@ compute_evdwl(const double& rsq, const int& i, const int&j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJClass2CoulCutKokkos<DeviceType>::
-compute_ecoul(const double& rsq, const int& /*i*/, const int&j,
+KK_FLOAT PairLJClass2CoulCutKokkos<DeviceType>::
+compute_ecoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
               const int& /*itype*/, const int& /*jtype*/,
-              const double& factor_coul, const double& qtmp) const {
-  const double r2inv = 1.0/rsq;
-  const double rinv = sqrt(r2inv);
+              const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const {
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT rinv = sqrt(r2inv);
 
   return factor_coul*qqrd2e*qtmp*q(j)*rinv;
 

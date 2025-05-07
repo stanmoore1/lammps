@@ -71,7 +71,7 @@ template <class DeviceType>
 KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::operator()(TagFixWallFlowInit,
                                                                       const int &i) const
 {
-  double pos = d_x(i, flowax);
+  KK_FLOAT pos = d_x(i, flowax);
   d_current_segment(i) = compute_current_segment_kk(pos);
 }
 
@@ -106,7 +106,7 @@ KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::operator()(TagFixWall
                                                                       const int &atom_i) const
 {
   if (d_mask[atom_i] & groupbit) {
-    double pos = d_x(atom_i, flowax);
+    KK_FLOAT pos = d_x(atom_i, flowax);
     int prev_segment = d_current_segment(atom_i);
     d_current_segment(atom_i) = compute_current_segment_kk(pos);
     if (prev_segment != d_current_segment(atom_i)) { generate_velocity_kk<MTag>(atom_i); }
@@ -118,14 +118,14 @@ template <class MTag>
 KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::generate_velocity_kk(int atom_i) const
 {
   const int newton_iteration_count = 10;
-  double mass = get_mass(MTag(), atom_i);
-  const double gamma = 1.0 / std::sqrt(2.0 * kT / mass);
-  double delta = gamma * flowvel;
+  KK_FLOAT mass = get_mass(MTag(), atom_i);
+  const KK_FLOAT gamma = 1.0 / std::sqrt(2.0 * kT / mass);
+  KK_FLOAT delta = gamma * flowvel;
 
-  const double edd = std::exp(-delta * delta) / MathConst::MY_PIS + delta * std::erf(delta);
-  const double probability_threshold = 0.5 * (1. + delta / edd);
+  const KK_FLOAT edd = std::exp(-delta * delta) / MathConst::MY_PIS + delta * std::erf(delta);
+  const KK_FLOAT probability_threshold = 0.5 * (1. + delta / edd);
 
-  double direction = 1.0;
+  KK_FLOAT direction = 1.0;
 
   rand_type_t rand_gen = rand_pool.get_state();
 
@@ -134,18 +134,18 @@ KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::generate_velocity_kk(
     direction = -direction;
   }
 
-  const double xi_0 = rand_gen.drand();    //random->uniform();
-  const double F_inf = edd + delta;
-  const double xi = xi_0 * F_inf;
-  const double x_0 = (std::sqrt(delta * delta + 2) - delta) * 0.5;
-  double x = x_0;
+  const KK_FLOAT xi_0 = rand_gen.drand();    //random->uniform();
+  const KK_FLOAT F_inf = edd + delta;
+  const KK_FLOAT xi = xi_0 * F_inf;
+  const KK_FLOAT x_0 = (std::sqrt(delta * delta + 2) - delta) * 0.5;
+  KK_FLOAT x = x_0;
   for (int i = 0; i < newton_iteration_count; ++i) {
     x -= (std::exp(x * x) * MathConst::MY_PIS * (xi - delta * std::erfc(x)) - 1.0) / (x + delta) *
         0.5;
   }
 
-  const double nu = x + delta;
-  const double v = nu / gamma;
+  const KK_FLOAT nu = x + delta;
+  const KK_FLOAT v = nu / gamma;
 
   d_v(atom_i, flowax) = v * direction;
   d_v(atom_i, (flowax + 1) % 3) =
@@ -158,7 +158,7 @@ KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::generate_velocity_kk(
 
 template <class DeviceType>
 KOKKOS_INLINE_FUNCTION int
-FixWallFlowKokkos<DeviceType>::compute_current_segment_kk(double pos) const
+FixWallFlowKokkos<DeviceType>::compute_current_segment_kk(KK_FLOAT pos) const
 {
   int result = 0;
   for (; result < (int) d_walls.extent(0) - 1; ++result) {
@@ -213,7 +213,7 @@ KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::operator()(TagFixWall
 {
   const int send_i = d_sendlist(mysend);
   const int segment = d_current_segment(send_i);
-  d_buf(mysend) = static_cast<double>(segment);
+  d_buf(mysend) = static_cast<KK_FLOAT>(segment);
 
   const int copy_i = d_copylist(mysend);
   if (copy_i > -1) { d_current_segment(send_i) = d_current_segment(copy_i); }

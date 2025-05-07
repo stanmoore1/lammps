@@ -418,9 +418,9 @@ void NeighborKokkosExecute<DeviceType>::
 
   const AtomNeighbors neighbors_i = neigh_transpose ?
     neigh_list.get_neighbors_transpose(i) : neigh_list.get_neighbors(i);
-  const double xtmp = x(i, 0);
-  const double ytmp = x(i, 1);
-  const double ztmp = x(i, 2);
+  const KK_FLOAT xtmp = x(i, 0);
+  const KK_FLOAT ytmp = x(i, 1);
+  const KK_FLOAT ztmp = x(i, 2);
   const int itype = type(i);
   tagint itag;
   if (HalfNeigh && Newton && Tri) itag = tag(i);
@@ -450,10 +450,10 @@ void NeighborKokkosExecute<DeviceType>::
     const int jtype = type(j);
     if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-    const double delx = xtmp - x(j, 0);
-    const double dely = ytmp - x(j, 1);
-    const double delz = ztmp - x(j, 2);
-    const double rsq = delx*delx + dely*dely + delz*delz;
+    const KK_FLOAT delx = xtmp - x(j, 0);
+    const KK_FLOAT dely = ytmp - x(j, 1);
+    const KK_FLOAT delz = ztmp - x(j, 2);
+    const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq <= cutneighsq(itype,jtype)) {
       if (molecular != Atom::ATOMIC) {
@@ -524,10 +524,10 @@ void NeighborKokkosExecute<DeviceType>::
         const int jtype = type(j);
         if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-        const double delx = xtmp - x(j, 0);
-        const double dely = ytmp - x(j, 1);
-        const double delz = ztmp - x(j, 2);
-        const double rsq = delx*delx + dely*dely + delz*delz;
+        const KK_FLOAT delx = xtmp - x(j, 0);
+        const KK_FLOAT dely = ytmp - x(j, 1);
+        const KK_FLOAT delz = ztmp - x(j, 2);
+        const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
         if (rsq <= cutneighsq(itype,jtype)) {
           if (molecular != Atom::ATOMIC) {
@@ -839,9 +839,9 @@ void NeighborKokkosExecute<DeviceType>::
 
   const AtomNeighbors neighbors_i = neigh_transpose ?
     neigh_list.get_neighbors_transpose(i) : neigh_list.get_neighbors(i);
-  const double xtmp = x(i, 0);
-  const double ytmp = x(i, 1);
-  const double ztmp = x(i, 2);
+  const KK_FLOAT xtmp = x(i, 0);
+  const KK_FLOAT ytmp = x(i, 1);
+  const KK_FLOAT ztmp = x(i, 2);
   const int itype = type(i);
 
   const typename ArrayTypes<DeviceType>::t_int_1d_const_um stencil
@@ -867,10 +867,10 @@ void NeighborKokkosExecute<DeviceType>::
         const int jtype = type[j];
         if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-        const double delx = xtmp - x(j,0);
-        const double dely = ytmp - x(j,1);
-        const double delz = ztmp - x(j,2);
-        const double rsq = delx*delx + dely*dely + delz*delz;
+        const KK_FLOAT delx = xtmp - x(j,0);
+        const KK_FLOAT dely = ytmp - x(j,1);
+        const KK_FLOAT delz = ztmp - x(j,2);
+        const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
         if (rsq <= cutneighsq(itype,jtype)) {
           if (molecular != Atom::ATOMIC) {
@@ -922,10 +922,10 @@ void NeighborKokkosExecute<DeviceType>::
         const int jtype = type[j];
         if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-        const double delx = xtmp - x(j,0);
-        const double dely = ytmp - x(j,1);
-        const double delz = ztmp - x(j,2);
-        const double rsq = delx*delx + dely*dely + delz*delz;
+        const KK_FLOAT delx = xtmp - x(j,0);
+        const KK_FLOAT dely = ytmp - x(j,1);
+        const KK_FLOAT delz = ztmp - x(j,2);
+        const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
         if (rsq <= cutneighsq(itype,jtype)) {
           if (n < neigh_list.maxneighs) neighbors_i(n++) = j;
@@ -1129,10 +1129,10 @@ void NeighborKokkosExecute<DeviceType>::
 
   const AtomNeighbors neighbors_i = neigh_transpose ?
     neigh_list.get_neighbors_transpose(i) : neigh_list.get_neighbors(i);
-  const double xtmp = x(i, 0);
-  const double ytmp = x(i, 1);
-  const double ztmp = x(i, 2);
-  const double radi = radius(i);
+  const KK_FLOAT xtmp = x(i, 0);
+  const KK_FLOAT ytmp = x(i, 1);
+  const KK_FLOAT ztmp = x(i, 2);
+  const KK_FLOAT radi = radius(i);
   const int itype = type(i);
   tagint itag;
   if (HalfNeigh && Newton && Tri) itag = tag(i);
@@ -1165,12 +1165,12 @@ void NeighborKokkosExecute<DeviceType>::
     const int jtype = type(j);
     if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-    const double delx = xtmp - x(j, 0);
-    const double dely = ytmp - x(j, 1);
-    const double delz = ztmp - x(j, 2);
-    const double rsq = delx*delx + dely*dely + delz*delz;
-    const double radsum = radi + radius(j);
-    const double cutsq = (radsum + skin) * (radsum + skin);
+    const KK_FLOAT delx = xtmp - x(j, 0);
+    const KK_FLOAT dely = ytmp - x(j, 1);
+    const KK_FLOAT delz = ztmp - x(j, 2);
+    const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+    const KK_FLOAT radsum = radi + radius(j);
+    const KK_FLOAT cutsq = (radsum + skin) * (radsum + skin);
 
     if (rsq <= cutsq) {
       if (n < neigh_list.maxneighs) {
@@ -1249,12 +1249,12 @@ void NeighborKokkosExecute<DeviceType>::
       const int jtype = type(j);
       if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-      const double delx = xtmp - x(j, 0);
-      const double dely = ytmp - x(j, 1);
-      const double delz = ztmp - x(j, 2);
-      const double rsq = delx*delx + dely*dely + delz*delz;
-      const double radsum = radi + radius(j);
-      const double cutsq = (radsum + skin) * (radsum + skin);
+      const KK_FLOAT delx = xtmp - x(j, 0);
+      const KK_FLOAT dely = ytmp - x(j, 1);
+      const KK_FLOAT delz = ztmp - x(j, 2);
+      const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+      const KK_FLOAT radsum = radi + radius(j);
+      const KK_FLOAT cutsq = (radsum + skin) * (radsum + skin);
 
       if (rsq <= cutsq) {
         if (n < neigh_list.maxneighs) {

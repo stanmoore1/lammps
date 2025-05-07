@@ -589,8 +589,8 @@ void DomainKokkos::lamda2x(int n, int groupbit_in)
 
 KOKKOS_INLINE_FUNCTION
 void DomainKokkos::operator()(TagDomain_lamda2x, const int &i) const {
-  const double xi1 = x(i,1);
-  const double xi2 = x(i,2);
+  const KK_FLOAT xi1 = x(i,1);
+  const KK_FLOAT xi2 = x(i,2);
   x(i,0) = h[0]*x(i,0) + h[5]*xi1 + h[4]*xi2 + boxlo[0];
   x(i,1) = h[1]*xi1 + h[3]*xi2 + boxlo[1];
   x(i,2) = h[2]*xi2 + boxlo[2];
@@ -599,8 +599,8 @@ void DomainKokkos::operator()(TagDomain_lamda2x, const int &i) const {
 KOKKOS_INLINE_FUNCTION
 void DomainKokkos::operator()(TagDomain_lamda2x_group, const int &i) const {
   if (mask[i] & groupbit) {
-    const double xi1 = x(i,1);
-    const double xi2 = x(i,2);
+    const KK_FLOAT xi1 = x(i,1);
+    const KK_FLOAT xi2 = x(i,2);
     x(i,0) = h[0]*x(i,0) + h[5]*xi1 + h[4]*xi2 + boxlo[0];
     x(i,1) = h[1]*xi1 + h[3]*xi2 + boxlo[1];
     x(i,2) = h[2]*xi2 + boxlo[2];
@@ -640,7 +640,7 @@ void DomainKokkos::x2lamda(int n, int groupbit_in)
 
 KOKKOS_INLINE_FUNCTION
 void DomainKokkos::operator()(TagDomain_x2lamda, const int &i) const {
-  double delta[3];
+  KK_FLOAT delta[3];
   delta[0] = x(i,0) - boxlo[0];
   delta[1] = x(i,1) - boxlo[1];
   delta[2] = x(i,2) - boxlo[2];
@@ -653,7 +653,7 @@ void DomainKokkos::operator()(TagDomain_x2lamda, const int &i) const {
 KOKKOS_INLINE_FUNCTION
 void DomainKokkos::operator()(TagDomain_x2lamda_group, const int &i) const {
   if (mask[i] & groupbit) {
-    double delta[3];
+    KK_FLOAT delta[3];
     delta[0] = x(i,0) - boxlo[0];
     delta[1] = x(i,1) - boxlo[1];
     delta[2] = x(i,2) - boxlo[2];

@@ -212,10 +212,10 @@ int NeighborKokkos::check_distance_kokkos()
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void NeighborKokkos::operator()(TagNeighborCheckDistance<DeviceType>, const int &i, int &flag) const {
-  const double delx = x.view<DeviceType>()(i,0) - xhold.view<DeviceType>()(i,0);
-  const double dely = x.view<DeviceType>()(i,1) - xhold.view<DeviceType>()(i,1);
-  const double delz = x.view<DeviceType>()(i,2) - xhold.view<DeviceType>()(i,2);
-  const double rsq = delx*delx + dely*dely + delz*delz;
+  const KK_FLOAT delx = x.view<DeviceType>()(i,0) - xhold.view<DeviceType>()(i,0);
+  const KK_FLOAT dely = x.view<DeviceType>()(i,1) - xhold.view<DeviceType>()(i,1);
+  const KK_FLOAT delz = x.view<DeviceType>()(i,2) - xhold.view<DeviceType>()(i,2);
+  const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
   if (rsq > deltasq) flag = 1;
 }
 

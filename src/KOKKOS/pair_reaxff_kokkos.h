@@ -178,7 +178,7 @@ class PairReaxFFKokkos : public PairReaxFF {
   // TagPairReaxBuildListsHalfBlocking, HalfBlockingPreview, HalfPreview
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void build_hb_list(double, int, int, int, int) const;
+  void build_hb_list(KK_FLOAT, int, int, int, int) const;
 
   // Isolated function that builds the bond order list, reused across
   // TagPairReaxBuildListsHalfBlocking, HalfBlockingPreview, HalfPreview
@@ -193,8 +193,8 @@ class PairReaxFFKokkos : public PairReaxFF {
   // Isolated function that computes bond order parameters
   // Returns BO_s, BO_pi, BO_pi2, C12, C34, C56 by reference
   KOKKOS_INLINE_FUNCTION
-  void compute_bo(double, int, int, double, double, double,
-    double&, double&, double&, double&, double&, double&) const;
+  void compute_bo(KK_FLOAT, int, int, KK_FLOAT, KK_FLOAT, KK_FLOAT,
+    KK_FLOAT&, KK_FLOAT&, KK_FLOAT&, KK_FLOAT&, KK_FLOAT&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairReaxZero, const int&) const;
@@ -255,7 +255,7 @@ class PairReaxFFKokkos : public PairReaxFF {
   // Abstraction for counting and populating torsion intermediated
   template<bool POPULATE>
   KOKKOS_INLINE_FUNCTION
-  int preprocess_torsion(int, int, tagint, double, double, double, int, int) const;
+  int preprocess_torsion(int, int, tagint, KK_FLOAT, KK_FLOAT, KK_FLOAT, int, int) const;
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
@@ -354,34 +354,34 @@ class PairReaxFFKokkos : public PairReaxFF {
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void ev_tally(EV_FLOAT_REAX &ev, const int &i, const int &j, const double &epair, const double &fpair, const double &delx,
-                  const double &dely, const double &delz) const;
+  void ev_tally(EV_FLOAT_REAX &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx,
+                  const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void e_tally(EV_FLOAT_REAX &ev, const int &i, const int &j, const double &epair) const;
+  void e_tally(EV_FLOAT_REAX &ev, const int &i, const int &j, const KK_FLOAT &epair) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void e_tally_single(EV_FLOAT_REAX &ev, const int &i, const double &epair) const;
+  void e_tally_single(EV_FLOAT_REAX &ev, const int &i, const KK_FLOAT &epair) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void v_tally(EV_FLOAT_REAX &ev, const int &i, double *fi, double *drij) const;
+  void v_tally(EV_FLOAT_REAX &ev, const int &i, KK_FLOAT *fi, KK_FLOAT *drij) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void v_tally3(EV_FLOAT_REAX &ev, const int &i, const int &j, const int &k,
-    double *fj, double *fk, double *drij, double *drik) const;
+    KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const;
 
   KOKKOS_INLINE_FUNCTION
   void v_tally3_atom(EV_FLOAT_REAX &ev, const int &i, const int &j, const int &k,
-    double *fj, double *fk, double *drji, double *drjk) const;
+    KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drjk) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void v_tally4(EV_FLOAT_REAX &ev, const int &i, const int &j, const int &k, const int &l,
-    double *fi, double *fj, double *fk, double *dril, double *drjl, double *drkl) const;
+    KK_FLOAT *fi, KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *dril, KK_FLOAT *drjl, KK_FLOAT *drkl) const;
 
  protected:
   void deallocate_views_of_views();
@@ -391,7 +391,7 @@ class PairReaxFFKokkos : public PairReaxFF {
   void init_md();
   int Init_Lookup_Tables();
   void Deallocate_Lookup_Tables();
-  void LR_vdW_Coulomb(int i, int j, double r_ij, ReaxFF::LR_data *lr);
+  void LR_vdW_Coulomb(int i, int j, KK_FLOAT r_ij, ReaxFF::LR_data *lr);
 
   typedef Kokkos::DualView<int*,DeviceType> tdual_int_1d;
   Kokkos::DualView<params_sing*,typename DeviceType::array_layout,DeviceType> k_params_sing;
@@ -449,21 +449,21 @@ class PairReaxFFKokkos : public PairReaxFF {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
-  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
-  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
-  DupScatterView<double**, typename DAT::t_double_2d_dl::array_layout> dup_dDeltap_self;
-  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_total_bo;
-  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_CdDelta;
+  DupScatterView<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
+  DupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> dup_eatom;
+  DupScatterView<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
+  DupScatterView<KK_FLOAT**, typename DAT::t_double_2d_dl::array_layout> dup_dDeltap_self;
+  DupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> dup_total_bo;
+  DupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> dup_CdDelta;
 
-  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
-  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
-  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
-  NonDupScatterView<double**, typename DAT::t_double_2d_dl::array_layout> ndup_dDeltap_self;
-  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_total_bo;
-  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_CdDelta;
+  NonDupScatterView<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
+  NonDupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> ndup_eatom;
+  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
+  NonDupScatterView<KK_FLOAT**, typename DAT::t_double_2d_dl::array_layout> ndup_dDeltap_self;
+  NonDupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> ndup_total_bo;
+  NonDupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> ndup_CdDelta;
 
-  typedef Kokkos::DualView<double**[7],typename DeviceType::array_layout,DeviceType> tdual_double_2d_n7;
+  typedef Kokkos::DualView<KK_FLOAT**[7],typename DeviceType::array_layout,DeviceType> tdual_double_2d_n7;
   typedef typename tdual_double_2d_n7::t_dev_const_randomread t_double_2d_n7_randomread;
   typedef typename tdual_double_2d_n7::t_host t_host_double_2d_n7;
 
@@ -482,11 +482,11 @@ class PairReaxFFKokkos : public PairReaxFF {
 
   int neighflag, newton_pair, maxnumneigh, maxhb, maxbo;
   int nlocal,nn,NN,eflag,vflag,acks2_flag;
-  double cut_nbsq, cut_hbsq, cut_bosq, bo_cut, thb_cut, thb_cutsq;
-  double bo_cut_bond;
+  KK_FLOAT cut_nbsq, cut_hbsq, cut_bosq, bo_cut, thb_cut, thb_cutsq;
+  KK_FLOAT bo_cut_bond;
 
   int vdwflag, lgflag;
-  double gp[39], p_boc1, p_boc2;
+  KK_FLOAT gp[39], p_boc1, p_boc2;
 
   friend void pair_virial_fdotr_compute<PairReaxFFKokkos>(PairReaxFFKokkos*);
 

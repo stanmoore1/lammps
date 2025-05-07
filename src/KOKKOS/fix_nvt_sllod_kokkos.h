@@ -64,7 +64,7 @@ class FixNVTSllodKokkos : public FixNHKokkos<DeviceType> {
   typename AT::t_int_1d type;
   typename AT::t_int_1d mask;
 
-  Few<double, 6> d_h_two;
+  Few<KK_FLOAT, 6> d_h_two;
 
   class DomainKokkos *domainKK;
   class AtomKokkos *atomKK;

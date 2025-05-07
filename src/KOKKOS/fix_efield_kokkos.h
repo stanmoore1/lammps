@@ -71,15 +71,15 @@ class FixEfieldKokkos : public FixEfield {
   typename AT::t_imageint_1d_randomread d_image;
   typename AT::t_int_1d_randomread d_mask;
 
-  Few<double,3> prd;
-  Few<double,6> h;
+  Few<KK_FLOAT,3> prd;
+  Few<KK_FLOAT,6> h;
   int triclinic;
 
   DAT::tdual_double_1d_6 k_vatom;
   typename AT::t_double_1d_6 d_vatom;
 
   KOKKOS_INLINE_FUNCTION
-  void v_tally(value_type, int, double*) const;
+  void v_tally(value_type, int, KK_FLOAT*) const;
 };
 
 }

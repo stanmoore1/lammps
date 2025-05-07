@@ -160,12 +160,12 @@ void PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::compute(int eflag_in, int
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
-compute_fpair(const double& rsq, const int& /*i*/, const int& /*j*/,
+KK_FLOAT PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
+compute_fpair(const KK_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
               const int& itype, const int& jtype) const {
-  const double r2inv = 1.0/rsq;
-  const double r6inv = r2inv*r2inv*r2inv;
-  double forcelj, switch1, switch2, englj;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
+  KK_FLOAT forcelj, switch1, switch2, englj;
 
   forcelj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj1:params(itype,jtype).lj1)*r6inv -
@@ -190,12 +190,12 @@ compute_fpair(const double& rsq, const int& /*i*/, const int& /*j*/,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
-compute_evdwl(const double& rsq, const int& /*i*/, const int& /*j*/,
+KK_FLOAT PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
+compute_evdwl(const KK_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
               const int& itype, const int& jtype) const {
-  const double r2inv = 1.0/rsq;
-  const double r6inv = r2inv*r2inv*r2inv;
-  double englj, switch1;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
+  KK_FLOAT englj, switch1;
 
   englj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj3:params(itype,jtype).lj3)*r6inv -
@@ -217,13 +217,13 @@ compute_evdwl(const double& rsq, const int& /*i*/, const int& /*j*/,
 template<class DeviceType>
 template<bool STACKPARAMS,  class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
-compute_fcoul(const double& rsq, const int& /*i*/, const int&j,
+KK_FLOAT PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
+compute_fcoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
               const int& /*itype*/, const int& /*jtype*/,
-              const double& factor_coul, const double& qtmp) const {
+              const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const {
 
-  const double r2inv = 1.0/rsq;
-  double forcecoul, switch1, switch2;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  KK_FLOAT forcecoul, switch1, switch2;
 
   forcecoul = 2.0 * qqrd2e * qtmp*q(j) * r2inv;
 
@@ -244,12 +244,12 @@ compute_fcoul(const double& rsq, const int& /*i*/, const int&j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
-compute_ecoul(const double& rsq, const int& /*i*/, const int&j,
-              const int& /*itype*/, const int& /*jtype*/, const double& factor_coul, const double& qtmp) const {
+KK_FLOAT PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::
+compute_ecoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
+              const int& /*itype*/, const int& /*jtype*/, const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const {
 
-  const double r2inv = 1.0/rsq;
-  double ecoul, switch1;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  KK_FLOAT ecoul, switch1;
 
   ecoul = qqrd2e * qtmp * q(j) * r2inv;
   if (rsq > cut_coul_innersq) {

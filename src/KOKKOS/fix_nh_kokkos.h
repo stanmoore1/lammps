@@ -65,7 +65,7 @@ class FixNHKokkos : public FixNH {
   void nh_v_press() override;
   void nh_v_temp() override;
 
-  double factor[3];
+  KK_FLOAT factor[3];
 
   class DomainKokkos *domainKK;
 

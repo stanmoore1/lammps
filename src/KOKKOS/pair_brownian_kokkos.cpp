@@ -271,29 +271,29 @@ KOKKOS_INLINE_FUNCTION
 void PairBrownianKokkos<DeviceType>::operator()(TagPairBrownianCompute<NEIGHFLAG,NEWTON_PAIR,VFLAG,FLAGFLD>, const int ii, EV_FLOAT &ev) const {
 
   // The f and torque arrays are atomic for Half/Thread neighbor style
-  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
-  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_torque = torque;
+  Kokkos::View<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
+  Kokkos::View<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_torque = torque;
 
   rand_type rand_gen = rand_pool.get_state();
 
   const int i = d_ilist[ii];
-  const double xtmp = x(i,0);
-  const double ytmp = x(i,1);
-  const double ztmp = x(i,2);
+  const KK_FLOAT xtmp = x(i,0);
+  const KK_FLOAT ytmp = x(i,1);
+  const KK_FLOAT ztmp = x(i,2);
   const int itype = type[i];
-  const double radi = radius[i];
+  const KK_FLOAT radi = radius[i];
   const int jnum = d_numneigh[i];
 
-  double a_sq, a_sh, a_pu;
-  double xl[3], p1[3], p2[3], p3[3];
+  KK_FLOAT a_sq, a_sh, a_pu;
+  KK_FLOAT xl[3], p1[3], p2[3], p3[3];
 
-  double fx_i = 0.0;
-  double fy_i = 0.0;
-  double fz_i = 0.0;
+  KK_FLOAT fx_i = 0.0;
+  KK_FLOAT fy_i = 0.0;
+  KK_FLOAT fz_i = 0.0;
 
-  double torquex_i = 0.0;
-  double torquey_i = 0.0;
-  double torquez_i = 0.0;
+  KK_FLOAT torquex_i = 0.0;
+  KK_FLOAT torquey_i = 0.0;
+  KK_FLOAT torquez_i = 0.0;
 
   if (FLAGFLD) {
     fx_i = prethermostat * sqrt(R0) * (rand_gen.drand() - 0.5);
@@ -312,19 +312,19 @@ void PairBrownianKokkos<DeviceType>::operator()(TagPairBrownianCompute<NEIGHFLAG
       int j = d_neighbors(i,jj);
       j &= NEIGHMASK;
 
-      const double delx = xtmp - x(j,0);
-      const double dely = ytmp - x(j,1);
-      const double delz = ztmp - x(j,2);
-      const double rsq = delx*delx + dely*dely + delz*delz;
+      const KK_FLOAT delx = xtmp - x(j,0);
+      const KK_FLOAT dely = ytmp - x(j,1);
+      const KK_FLOAT delz = ztmp - x(j,2);
+      const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
       const int jtype = type[j];
 
       if(rsq < d_cutsq(itype,jtype)) {
 
-        const double r = sqrt(rsq);
+        const KK_FLOAT r = sqrt(rsq);
 
         // scalar resistances a_sq and a_sh
 
-        double h_sep = r - 2.0 * radi;
+        KK_FLOAT h_sep = r - 2.0 * radi;
 
         // if less than minimum gap, use minimum gap instead
 
@@ -343,17 +343,17 @@ void PairBrownianKokkos<DeviceType>::operator()(TagPairBrownianCompute<NEIGHFLAG
 
         // generate the Pairwise Brownian Force: a_sq
 
-        double Fbmag = prethermostat * sqrt(a_sq);
+        KK_FLOAT Fbmag = prethermostat * sqrt(a_sq);
 
         // generate a random number
 
-        double randr = rand_gen.drand() - 0.5;
+        KK_FLOAT randr = rand_gen.drand() - 0.5;
 
         // contribution due to Brownian motion
 
-        double fx = Fbmag * randr * delx / r;
-        double fy = Fbmag * randr * dely / r;
-        double fz = Fbmag * randr * delz / r;
+        KK_FLOAT fx = Fbmag * randr * delx / r;
+        KK_FLOAT fy = Fbmag * randr * dely / r;
+        KK_FLOAT fz = Fbmag * randr * delz / r;
 
         // add terms due to a_sh
 
@@ -415,9 +415,9 @@ void PairBrownianKokkos<DeviceType>::operator()(TagPairBrownianCompute<NEIGHFLAG
 
           // torque = xl_cross_F
 
-          double tx = xl[1] * fz - xl[2] * fy;
-          double ty = xl[2] * fx - xl[0] * fz;
-          double tz = xl[0] * fy - xl[1] * fx;
+          KK_FLOAT tx = xl[1] * fz - xl[2] * fy;
+          KK_FLOAT ty = xl[2] * fx - xl[0] * fz;
+          KK_FLOAT tz = xl[0] * fy - xl[1] * fx;
 
           // torque is same on both particles
 
@@ -494,17 +494,17 @@ template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR>
 KOKKOS_INLINE_FUNCTION
 void PairBrownianKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT & ev, int i, int j,
-                                                        double fx, double fy, double fz,
-                                                        double delx, double dely, double delz) const
+                                                        KK_FLOAT fx, KK_FLOAT fy, KK_FLOAT fz,
+                                                        KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz) const
 {
-  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
 
-  const double v0 = delx*fx;
-  const double v1 = dely*fy;
-  const double v2 = delz*fz;
-  const double v3 = delx*fy;
-  const double v4 = delx*fz;
-  const double v5 = dely*fz;
+  const KK_FLOAT v0 = delx*fx;
+  const KK_FLOAT v1 = dely*fy;
+  const KK_FLOAT v2 = delz*fz;
+  const KK_FLOAT v3 = delx*fy;
+  const KK_FLOAT v4 = delx*fz;
+  const KK_FLOAT v5 = dely*fz;
 
   if (vflag_global) {
     if (NEIGHFLAG != FULL) {

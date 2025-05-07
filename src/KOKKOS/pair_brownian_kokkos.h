@@ -61,8 +61,8 @@ class PairBrownianKokkos : public PairBrownian, public KokkosBase {
   template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
   void ev_tally_xyz(EV_FLOAT &ev, int i, int j,
-                    double fx, double fy, double fz,
-                    double delx, double dely, double delz) const;
+                    KK_FLOAT fx, KK_FLOAT fy, KK_FLOAT fz,
+                    KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz) const;
 
  protected:
   typename AT::t_double_1d_3_randomread x;
@@ -80,7 +80,7 @@ class PairBrownianKokkos : public PairBrownian, public KokkosBase {
   typename AT::t_int_1d_randomread d_numneigh;
 
   int newton_pair;
-  double special_lj[4];
+  KK_FLOAT special_lj[4];
 
   typename AT::tdual_double_2d k_cutsq;
   typename AT::t_double_2d d_cutsq;
@@ -89,15 +89,15 @@ class PairBrownianKokkos : public PairBrownian, public KokkosBase {
 
   int neighflag;
   int nlocal,nall,eflag,vflag;
-  double vxmu2f;
+  KK_FLOAT vxmu2f;
 
-  double prethermostat;
+  KK_FLOAT prethermostat;
 
   void allocate() override;
 
   KOKKOS_INLINE_FUNCTION
-  void set_3_orthogonal_vectors(const double p1[3], double * const p2, double * const p3) const {
-    double norm;
+  void set_3_orthogonal_vectors(const KK_FLOAT p1[3], KK_FLOAT * const p2, KK_FLOAT * const p3) const {
+    KK_FLOAT norm;
     int ix, iy, iz;
 
     // find the index of maximum magnitude and store it in iz

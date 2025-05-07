@@ -53,9 +53,9 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void MEAMKokkos<DeviceType>::operator()(TagMEAMDensFinal, const int &i, EV_FLOAT& ev) const {
 
-  double rhob, G, dG, Gbar, dGbar, gam, shp[3], Z;
-  double denom, rho_bkgd, Fl;
-  double scaleii;
+  KK_FLOAT rhob, G, dG, Gbar, dGbar, gam, shp[3], Z;
+  KK_FLOAT denom, rho_bkgd, Fl;
+  KK_FLOAT scaleii;
 
   int elti = d_map[type[i]];
   if (elti >= 0) {

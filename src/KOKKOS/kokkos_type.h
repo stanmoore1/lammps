@@ -441,21 +441,21 @@ struct s_FEV_FLOAT {
 };
 typedef struct s_FEV_FLOAT FEV_FLOAT;
 
-struct alignas(2*sizeof(double)) s_FLOAT2 {
+struct alignas(2*sizeof(double)) s_KK_FLOAT2 {
   double v[2];
 
   KOKKOS_INLINE_FUNCTION
-  s_FLOAT2() {
+  s_KK_FLOAT2() {
     v[0] = v[1] = 0.0;
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator+=(const s_FLOAT2 &rhs) {
+  void operator+=(const s_KK_FLOAT2 &rhs) {
     v[0] += rhs.v[0];
     v[1] += rhs.v[1];
   }
 };
-typedef struct s_FLOAT2 KK_FLOAT2;
+typedef struct s_KK_FLOAT2 KK_FLOAT2;
 
 template <class KeyViewType>
 struct BinOp3DLAMMPS {

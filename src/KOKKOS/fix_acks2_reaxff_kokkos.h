@@ -114,28 +114,28 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
   void operator() (TagACKS2SparseMatvec3_Full, const membertype &team) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagACKS2Norm1, const int&, double&) const;
+  void operator()(TagACKS2Norm1, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagACKS2Norm2, const int&, double&) const;
+  void operator()(TagACKS2Norm2, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagACKS2Norm3, const int&, double&) const;
+  void operator()(TagACKS2Norm3, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagACKS2Dot1, const int&, double&) const;
+  void operator()(TagACKS2Dot1, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagACKS2Dot2, const int&, double&) const;
+  void operator()(TagACKS2Dot2, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagACKS2Dot3, const int&, double&) const;
+  void operator()(TagACKS2Dot3, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagACKS2Dot4, const int&, double&) const;
+  void operator()(TagACKS2Dot4, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagACKS2Dot5, const int&, double&) const;
+  void operator()(TagACKS2Dot5, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagACKS2Precon1A, const int&) const;
@@ -156,10 +156,10 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
   void operator()(TagACKS2CalculateQ, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  double calculate_H_k(const double &r, const double &shld) const;
+  KK_FLOAT calculate_H_k(const KK_FLOAT &r, const KK_FLOAT &shld) const;
 
   KOKKOS_INLINE_FUNCTION
-  double calculate_X_k(const double &r, const double &bcut) const;
+  KK_FLOAT calculate_X_k(const KK_FLOAT &r, const KK_FLOAT &bcut) const;
 
   struct params_acks2{
     KOKKOS_INLINE_FUNCTION

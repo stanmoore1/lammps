@@ -214,23 +214,23 @@ void PairYukawaKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairYukawaKokkos<DeviceType>::
-compute_fpair(const double &rsq, const int &, const int &,
+KK_FLOAT PairYukawaKokkos<DeviceType>::
+compute_fpair(const KK_FLOAT &rsq, const int &, const int &,
               const int &itype, const int &jtype) const {
-  const double rr     = sqrt(rsq);
+  const KK_FLOAT rr     = sqrt(rsq);
   // Fetch the params either off the stack or from some mapped memory?
-  const double aa     = STACKPARAMS ? m_params[itype][jtype].a
+  const KK_FLOAT aa     = STACKPARAMS ? m_params[itype][jtype].a
                                      : params(itype,jtype).a;
 
   // U   = a * exp(-kappa*r) / r
   // f   = (kappa * a * exp(-kappa*r) / r + a*exp(-kappa*r)/r^2)*grad(r)
   //     = (kappa + 1/r) * (a * exp(-kappa*r) / r)
   // f/r = (kappa + 1/r) * (a * exp(-kappa*r) / r^2)
-  const double rinv = 1.0 / rr;
-  const double rinv2 = rinv*rinv;
-  const double screening = exp(-kappa*rr);
-  const double forceyukawa = aa * screening * (kappa + rinv);
-  const double fpair = forceyukawa * rinv2;
+  const KK_FLOAT rinv = 1.0 / rr;
+  const KK_FLOAT rinv2 = rinv*rinv;
+  const KK_FLOAT screening = exp(-kappa*rr);
+  const KK_FLOAT forceyukawa = aa * screening * (kappa + rinv);
+  const KK_FLOAT fpair = forceyukawa * rinv2;
 
   return fpair;
 }
@@ -238,21 +238,21 @@ compute_fpair(const double &rsq, const int &, const int &,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairYukawaKokkos<DeviceType>::
-compute_evdwl(const double &rsq, const int &, const int &,
+KK_FLOAT PairYukawaKokkos<DeviceType>::
+compute_evdwl(const KK_FLOAT &rsq, const int &, const int &,
               const int &itype, const int &jtype) const {
-  const double rr     = sqrt(rsq);
-  const double aa     = STACKPARAMS ? m_params[itype][jtype].a
+  const KK_FLOAT rr     = sqrt(rsq);
+  const KK_FLOAT aa     = STACKPARAMS ? m_params[itype][jtype].a
                                      : params(itype,jtype).a;
-  const double offset = STACKPARAMS ? m_params[itype][jtype].offset
+  const KK_FLOAT offset = STACKPARAMS ? m_params[itype][jtype].offset
                                      : params(itype,jtype).offset;
 
   // U   = a * exp(-kappa*r) / r
   // f   = (kappa * a * exp(-kappa*r) / r + a*exp(-kappa*r)/r^2)*grad(r)
   //     = (kappa + 1/r) * (a * exp(-kappa*r) / r)
   // f/r = (kappa + 1/r) * (a * exp(-kappa*r) / r^2)
-  const double rinv = 1.0 / rr;
-  const double screening = exp(-kappa*rr);
+  const KK_FLOAT rinv = 1.0 / rr;
+  const KK_FLOAT screening = exp(-kappa*rr);
 
   return aa * screening * rinv - offset;
 }

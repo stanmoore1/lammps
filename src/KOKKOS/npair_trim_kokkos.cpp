@@ -90,9 +90,9 @@ void NPairTrimKokkos<DeviceType>::operator()(TagNPairTrim, const int &ii) const 
   int n = 0;
 
   const int i = d_ilist_copy(ii);
-  const double xtmp = x(i,0);
-  const double ytmp = x(i,1);
-  const double ztmp = x(i,2);
+  const KK_FLOAT xtmp = x(i,0);
+  const KK_FLOAT ytmp = x(i,1);
+  const KK_FLOAT ztmp = x(i,2);
 
   // loop over copy neighbor list
 
@@ -104,10 +104,10 @@ void NPairTrimKokkos<DeviceType>::operator()(TagNPairTrim, const int &ii) const 
     const int joriginal = d_neighbors_copy(i,jj);
     const int j = joriginal & NEIGHMASK;
 
-    const double delx = xtmp - x(j,0);
-    const double dely = ytmp - x(j,1);
-    const double delz = ztmp - x(j,2);
-    const double rsq = delx*delx + dely*dely + delz*delz;
+    const KK_FLOAT delx = xtmp - x(j,0);
+    const KK_FLOAT dely = ytmp - x(j,1);
+    const KK_FLOAT delz = ztmp - x(j,2);
+    const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq > cutsq_custom) continue;
 

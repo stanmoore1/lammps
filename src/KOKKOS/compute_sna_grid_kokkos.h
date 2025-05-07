@@ -214,7 +214,7 @@ class ComputeSNAGridKokkos : public ComputeSNAGrid {
   int ylen; //= nyhi-nylo+1;
   int xlen; //= nxhi-nxlo+1;
 
-  double cutsq_tmp; // temporary cutsq until we get a view
+  KK_FLOAT cutsq_tmp; // temporary cutsq until we get a view
 
   Kokkos::View<real_type*, DeviceType> d_radelem;              // element radii
   Kokkos::View<real_type*, DeviceType> d_wjelem;               // elements weights
@@ -225,9 +225,9 @@ class ComputeSNAGridKokkos : public ComputeSNAGrid {
   Kokkos::View<T_INT*, DeviceType> d_map;                    // mapping from atom types to elements
   Kokkos::View<real_type*, DeviceType> d_test;              // test view
 
-  typedef Kokkos::DualView<double**, DeviceType> tdual_fparams;
+  typedef Kokkos::DualView<KK_FLOAT**, DeviceType> tdual_fparams;
   tdual_fparams k_cutsq;
-  typedef Kokkos::View<const double**, DeviceType,
+  typedef Kokkos::View<const KK_FLOAT**, DeviceType,
       Kokkos::MemoryTraits<Kokkos::RandomAccess> > t_fparams_rnd;
   t_fparams_rnd rnd_cutsq;
 
@@ -250,8 +250,8 @@ class ComputeSNAGridKokkos : public ComputeSNAGrid {
   class DomainKokkos *domainKK;
 
   // triclinic vars
-  double h0, h1, h2, h3, h4, h5;
-  double lo0, lo1, lo2;
+  KK_FLOAT h0, h1, h2, h3, h4, h5;
+  KK_FLOAT lo0, lo1, lo2;
 
   // Make SNAKokkos a friend
   friend class SNAKokkos<DeviceType, real_type, vector_length>;

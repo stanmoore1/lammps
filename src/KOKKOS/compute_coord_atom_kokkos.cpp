@@ -186,9 +186,9 @@ void ComputeCoordAtomKokkos<DeviceType>::operator()(TagComputeCoordAtom<CSTYLE,N
   else
     for (int m = 0; m < ncol; m++) d_carray(i,m) = 0.0;
   if (mask[i] & groupbit) {
-    const double xtmp = x(i,0);
-    const double ytmp = x(i,1);
-    const double ztmp = x(i,2);
+    const KK_FLOAT xtmp = x(i,0);
+    const KK_FLOAT ytmp = x(i,1);
+    const KK_FLOAT ztmp = x(i,2);
     const int jnum = d_numneigh[i];
 
     int n = 0;
@@ -200,10 +200,10 @@ void ComputeCoordAtomKokkos<DeviceType>::operator()(TagComputeCoordAtom<CSTYLE,N
         if (!(mask[j] & jgroupbit)) continue;
 
       const int jtype = type[j];
-      const double delx = x(j,0) - xtmp;
-      const double dely = x(j,1) - ytmp;
-      const double delz = x(j,2) - ztmp;
-      const double rsq = delx*delx + dely*dely + delz*delz;
+      const KK_FLOAT delx = x(j,0) - xtmp;
+      const KK_FLOAT dely = x(j,1) - ytmp;
+      const KK_FLOAT delz = x(j,2) - ztmp;
+      const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
       if (rsq < cutsq) {
         if (CSTYLE == CUTOFF) {
           if (NCOL == 1) {
@@ -215,7 +215,7 @@ void ComputeCoordAtomKokkos<DeviceType>::operator()(TagComputeCoordAtom<CSTYLE,N
                   d_carray(i,m) += 1.0;
           }
         } else if (CSTYLE == ORIENT) {
-            double dot_product = 0.0;
+            KK_FLOAT dot_product = 0.0;
             for (int m=0; m < 2*(2*l+1); m++) {
               dot_product += d_normv(i,nqlist+m)*d_normv(j,nqlist+m);
             }

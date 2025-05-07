@@ -47,7 +47,7 @@ class NPairTrimKokkos : public NPair {
   void operator()(TagNPairTrim, const int&) const;
 
  private:
-  double cutsq_custom;
+  KK_FLOAT cutsq_custom;
 
   typename AT::t_double_1d_3_randomread x;
 

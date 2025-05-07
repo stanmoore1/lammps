@@ -680,28 +680,28 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelA<NEIGHFLAG,NEWTON_PA
   auto a_lambda = v_lambda.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   const int i = d_ilist[ii];
-  const double xtmp = x(i,0);
-  const double ytmp = x(i,1);
-  const double ztmp = x(i,2);
+  const KK_FLOAT xtmp = x(i,0);
+  const KK_FLOAT ytmp = x(i,1);
+  const KK_FLOAT ztmp = x(i,2);
   const int itype = type(i);
 
   const int jnum = d_numneigh[i];
 
-  double rhotmp = 0.0;
-  double mutmp[3] = {0.0,0.0,0.0};
-  double lambdatmp[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
+  KK_FLOAT rhotmp = 0.0;
+  KK_FLOAT mutmp[3] = {0.0,0.0,0.0};
+  KK_FLOAT lambdatmp[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
   int d_type_ji;
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
     j &= NEIGHMASK;
-    const double delx = xtmp - x(j,0);
-    const double dely = ytmp - x(j,1);
-    const double delz = ztmp - x(j,2);
+    const KK_FLOAT delx = xtmp - x(j,0);
+    const KK_FLOAT dely = ytmp - x(j,1);
+    const KK_FLOAT delz = ztmp - x(j,2);
     const int jtype = type(j);
-    const double rsq = delx*delx + dely*dely + delz*delz;
+    const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq < cutforcesq) {
-      double p = sqrt(rsq)*rdr + 1.0;
+      KK_FLOAT p = sqrt(rsq)*rdr + 1.0;
       int m = static_cast<int> (p);
       m = MIN(m,nr-1);
       p -= m;
@@ -712,14 +712,14 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelA<NEIGHFLAG,NEWTON_PA
                   d_rhor_spline(d_type_ji,m,5))*p + d_rhor_spline(d_type_ji,m,6);
 
       d_type_ji = d_type2u2r(jtype,itype);
-      double u2 = ((d_u2r_spline(d_type_ji,m,3)*p + d_u2r_spline(d_type_ji,m,4))*p +
+      KK_FLOAT u2 = ((d_u2r_spline(d_type_ji,m,3)*p + d_u2r_spline(d_type_ji,m,4))*p +
                   d_u2r_spline(d_type_ji,m,5))*p + d_u2r_spline(d_type_ji,m,6);
       mutmp[0] += u2*delx;
       mutmp[1] += u2*dely;
       mutmp[2] += u2*delz;
 
       d_type_ji = d_type2w2r(jtype,itype);
-      double w2 = ((d_w2r_spline(d_type_ji,m,3)*p + d_w2r_spline(d_type_ji,m,4))*p +
+      KK_FLOAT w2 = ((d_w2r_spline(d_type_ji,m,3)*p + d_w2r_spline(d_type_ji,m,4))*p +
                    d_w2r_spline(d_type_ji,m,5))*p + d_w2r_spline(d_type_ji,m,6);
       lambdatmp[0] += w2*delx*delx;
       lambdatmp[1] += w2*dely*dely;
@@ -779,7 +779,7 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelB<EFLAG>, const int &
   const int i = d_ilist[ii];
   const int itype = type(i);
 
-  double p = d_rho[i]*rdrho + 1.0;
+  KK_FLOAT p = d_rho[i]*rdrho + 1.0;
   int m = static_cast<int> (p);
   m = MAX(1,MIN(m,nrho-1));
   p -= m;
@@ -787,7 +787,7 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelB<EFLAG>, const int &
   const int d_type2frho_i = d_type2frho[itype];
   d_fp[i] = (d_frho_spline(d_type2frho_i,m,0)*p + d_frho_spline(d_type2frho_i,m,1))*p + d_frho_spline(d_type2frho_i,m,2);
   if (EFLAG) {
-    double phi = ((d_frho_spline(d_type2frho_i,m,3)*p + d_frho_spline(d_type2frho_i,m,4))*p +
+    KK_FLOAT phi = ((d_frho_spline(d_type2frho_i,m,3)*p + d_frho_spline(d_type2frho_i,m,4))*p +
                     d_frho_spline(d_type2frho_i,m,5))*p + d_frho_spline(d_type2frho_i,m,6);
     phi += 0.5*(d_mu(i,0)*d_mu(i,0)+d_mu(i,1)*d_mu(i,1)+d_mu(i,2)*d_mu(i,2));
     phi += 0.5*(d_lambda(i,0)*d_lambda(i,0)+d_lambda(i,1)*
@@ -821,30 +821,30 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelAB<EFLAG>, const int 
   // loop over neighbors of my atoms
 
   const int i = d_ilist[ii];
-  const double xtmp = x(i,0);
-  const double ytmp = x(i,1);
-  const double ztmp = x(i,2);
+  const KK_FLOAT xtmp = x(i,0);
+  const KK_FLOAT ytmp = x(i,1);
+  const KK_FLOAT ztmp = x(i,2);
   const int itype = type(i);
 
   const int jnum = d_numneigh[i];
 
-  double rhotmp = 0.0;
-  double mutmp[3] = {0.0,0.0,0.0};
-  double lambdatmp[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
+  KK_FLOAT rhotmp = 0.0;
+  KK_FLOAT mutmp[3] = {0.0,0.0,0.0};
+  KK_FLOAT lambdatmp[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
   int d_type_ji;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
     j &= NEIGHMASK;
 
-    const double delx = xtmp - x(j,0);
-    const double dely = ytmp - x(j,1);
-    const double delz = ztmp - x(j,2);
+    const KK_FLOAT delx = xtmp - x(j,0);
+    const KK_FLOAT dely = ytmp - x(j,1);
+    const KK_FLOAT delz = ztmp - x(j,2);
     const int jtype = type(j);
-    const double rsq = delx*delx + dely*dely + delz*delz;
+    const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq < cutforcesq) {
-      double p = sqrt(rsq)*rdr + 1.0;
+      KK_FLOAT p = sqrt(rsq)*rdr + 1.0;
       int m = static_cast<int> (p);
       m = MIN(m,nr-1);
       p -= m;
@@ -854,14 +854,14 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelAB<EFLAG>, const int 
                   d_rhor_spline(d_type_ji,m,5))*p + d_rhor_spline(d_type_ji,m,6);
 
       d_type_ji = d_type2u2r(jtype,itype);
-      double u2 = ((d_u2r_spline(d_type_ji,m,3)*p + d_u2r_spline(d_type_ji,m,4))*p +
+      KK_FLOAT u2 = ((d_u2r_spline(d_type_ji,m,3)*p + d_u2r_spline(d_type_ji,m,4))*p +
                    d_u2r_spline(d_type_ji,m,5))*p + d_u2r_spline(d_type_ji,m,6);
       mutmp[0] += u2*delx;
       mutmp[1] += u2*dely;
       mutmp[2] += u2*delz;
 
       d_type_ji = d_type2w2r(jtype,itype);
-      double w2 = ((d_w2r_spline(d_type_ji,m,3)*p + d_w2r_spline(d_type_ji,m,4))*p +
+      KK_FLOAT w2 = ((d_w2r_spline(d_type_ji,m,3)*p + d_w2r_spline(d_type_ji,m,4))*p +
                    d_w2r_spline(d_type_ji,m,5))*p + d_w2r_spline(d_type_ji,m,6);
       lambdatmp[0] += w2*delx*delx;
       lambdatmp[1] += w2*dely*dely;
@@ -888,7 +888,7 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelAB<EFLAG>, const int 
   // fp = derivative of embedding energy at each atom
   // phi = embedding energy at each atom
 
-  double p = d_rho[i]*rdrho + 1.0;
+  KK_FLOAT p = d_rho[i]*rdrho + 1.0;
   int m = static_cast<int> (p);
   m = MAX(1,MIN(m,nrho-1));
   p -= m;
@@ -896,7 +896,7 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelAB<EFLAG>, const int 
   const int d_type2frho_i = d_type2frho[itype];
   d_fp[i] = (d_frho_spline(d_type2frho_i,m,0)*p + d_frho_spline(d_type2frho_i,m,1))*p + d_frho_spline(d_type2frho_i,m,2);
   if (EFLAG) {
-    double phi = ((d_frho_spline(d_type2frho_i,m,3)*p + d_frho_spline(d_type2frho_i,m,4))*p +
+    KK_FLOAT phi = ((d_frho_spline(d_type2frho_i,m,3)*p + d_frho_spline(d_type2frho_i,m,4))*p +
                     d_frho_spline(d_type2frho_i,m,5))*p + d_frho_spline(d_type2frho_i,m,6);
 
     phi += 0.5*(d_mu(i,0)*d_mu(i,0)+d_mu(i,1)*d_mu(i,1)+d_mu(i,2)*d_mu(i,2));
@@ -934,29 +934,29 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelC<NEIGHFLAG,NEWTON_PA
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   const int i = d_ilist[ii];
-  const double xtmp = x(i,0);
-  const double ytmp = x(i,1);
-  const double ztmp = x(i,2);
+  const KK_FLOAT xtmp = x(i,0);
+  const KK_FLOAT ytmp = x(i,1);
+  const KK_FLOAT ztmp = x(i,2);
   const int itype = type(i);
 
   const int jnum = d_numneigh[i];
 
-  double fxtmp = 0.0;
-  double fytmp = 0.0;
-  double fztmp = 0.0;
+  KK_FLOAT fxtmp = 0.0;
+  KK_FLOAT fytmp = 0.0;
+  KK_FLOAT fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
     j &= NEIGHMASK;
-    const double delx = xtmp - x(j,0);
-    const double dely = ytmp - x(j,1);
-    const double delz = ztmp - x(j,2);
+    const KK_FLOAT delx = xtmp - x(j,0);
+    const KK_FLOAT dely = ytmp - x(j,1);
+    const KK_FLOAT delz = ztmp - x(j,2);
     const int jtype = type(j);
-    const double rsq = delx*delx + dely*dely + delz*delz;
+    const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq < cutforcesq) {
-      const double r = sqrt(rsq);
-      double p = r*rdr + 1.0;
+      const KK_FLOAT r = sqrt(rsq);
+      KK_FLOAT p = r*rdr + 1.0;
       int m = static_cast<int> (p);
       m = MIN(m,nr-1);
       p -= m;
@@ -977,68 +977,68 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelC<NEIGHFLAG,NEWTON_PA
       //   hence embed' = Fi(sum rho_ij) rhojp + Fj(sum rho_ji) rhoip
 
       const int d_type2rhor_ij = d_type2rhor(itype,jtype);
-      const double rhoip = (d_rhor_spline(d_type2rhor_ij,m,0)*p + d_rhor_spline(d_type2rhor_ij,m,1))*p +
+      const KK_FLOAT rhoip = (d_rhor_spline(d_type2rhor_ij,m,0)*p + d_rhor_spline(d_type2rhor_ij,m,1))*p +
                              d_rhor_spline(d_type2rhor_ij,m,2);
       const int d_type2rhor_ji = d_type2rhor(jtype,itype);
-      const double rhojp = (d_rhor_spline(d_type2rhor_ji,m,0)*p + d_rhor_spline(d_type2rhor_ji,m,1))*p +
+      const KK_FLOAT rhojp = (d_rhor_spline(d_type2rhor_ji,m,0)*p + d_rhor_spline(d_type2rhor_ji,m,1))*p +
                              d_rhor_spline(d_type2rhor_ji,m,2);
       const int d_type2z2r_ij = d_type2z2r(itype,jtype);
-      const double z2p = (d_z2r_spline(d_type2z2r_ij,m,0)*p+d_z2r_spline(d_type2z2r_ij,m,1))*p + d_z2r_spline(d_type2z2r_ij,m,2);
-      const double z2 = ((d_z2r_spline(d_type2z2r_ij,m,3)*p + d_z2r_spline(d_type2z2r_ij,m,4))*p +
+      const KK_FLOAT z2p = (d_z2r_spline(d_type2z2r_ij,m,0)*p+d_z2r_spline(d_type2z2r_ij,m,1))*p + d_z2r_spline(d_type2z2r_ij,m,2);
+      const KK_FLOAT z2 = ((d_z2r_spline(d_type2z2r_ij,m,3)*p + d_z2r_spline(d_type2z2r_ij,m,4))*p +
           d_z2r_spline(d_type2z2r_ij,m,5))*p+d_z2r_spline(d_type2z2r_ij,m,6);
 
       const int d_type2u2r_ij = d_type2u2r(itype,jtype);
-      const double u2p = (d_u2r_spline(d_type2u2r_ij,m,0)*p + d_u2r_spline(d_type2u2r_ij,m,1))*p +
+      const KK_FLOAT u2p = (d_u2r_spline(d_type2u2r_ij,m,0)*p + d_u2r_spline(d_type2u2r_ij,m,1))*p +
                      d_u2r_spline(d_type2u2r_ij,m,2);
 
-      const double u2 = ((d_u2r_spline(d_type2u2r_ij,m,3)*p + d_u2r_spline(d_type2u2r_ij,m,4))*p +
+      const KK_FLOAT u2 = ((d_u2r_spline(d_type2u2r_ij,m,3)*p + d_u2r_spline(d_type2u2r_ij,m,4))*p +
                      d_u2r_spline(d_type2u2r_ij,m,5))*p + d_u2r_spline(d_type2u2r_ij,m,6);
 
 
       const int d_type2w2r_ij = d_type2w2r(itype,jtype);
-      const double w2p = (d_w2r_spline(d_type2w2r_ij,m,0)*p + d_w2r_spline(d_type2w2r_ij,m,1))*p +
+      const KK_FLOAT w2p = (d_w2r_spline(d_type2w2r_ij,m,0)*p + d_w2r_spline(d_type2w2r_ij,m,1))*p +
                      d_w2r_spline(d_type2w2r_ij,m,2);
 
-      const double w2 = ((d_w2r_spline(d_type2w2r_ij,m,3)*p + d_w2r_spline(d_type2w2r_ij,m,4))*p +
+      const KK_FLOAT w2 = ((d_w2r_spline(d_type2w2r_ij,m,3)*p + d_w2r_spline(d_type2w2r_ij,m,4))*p +
                      d_w2r_spline(d_type2w2r_ij,m,5))*p + d_w2r_spline(d_type2w2r_ij,m,6);
 
 
 
-      const double recip = 1.0/r;
-      const double phi = z2*recip;
-      const double phip = z2p*recip - phi*recip;
-      const double psip = d_fp[i]*rhojp + d_fp[j]*rhoip + phip;
-      const double fpair = -psip*recip;
+      const KK_FLOAT recip = 1.0/r;
+      const KK_FLOAT phi = z2*recip;
+      const KK_FLOAT phip = z2p*recip - phi*recip;
+      const KK_FLOAT psip = d_fp[i]*rhojp + d_fp[j]*rhoip + phip;
+      const KK_FLOAT fpair = -psip*recip;
 
-      const double delmux = d_mu(i, 0)-d_mu(j,0);
-      const double delmuy = d_mu(i, 1)-d_mu(j,1);
-      const double delmuz = d_mu(i, 2)-d_mu(j,2);
-      const double trdelmu = delmux*delx+delmuy*dely+delmuz*delz;
-      const double sumlamxx = d_lambda(i,0)+d_lambda(j,0);
-      const double sumlamyy = d_lambda(i,1)+d_lambda(j,1);
-      const double sumlamzz = d_lambda(i,2)+d_lambda(j,2);
-      const double sumlamyz = d_lambda(i,3)+d_lambda(j,3);
-      const double sumlamxz = d_lambda(i,4)+d_lambda(j,4);
-      const double sumlamxy = d_lambda(i,5)+d_lambda(j,5);
+      const KK_FLOAT delmux = d_mu(i, 0)-d_mu(j,0);
+      const KK_FLOAT delmuy = d_mu(i, 1)-d_mu(j,1);
+      const KK_FLOAT delmuz = d_mu(i, 2)-d_mu(j,2);
+      const KK_FLOAT trdelmu = delmux*delx+delmuy*dely+delmuz*delz;
+      const KK_FLOAT sumlamxx = d_lambda(i,0)+d_lambda(j,0);
+      const KK_FLOAT sumlamyy = d_lambda(i,1)+d_lambda(j,1);
+      const KK_FLOAT sumlamzz = d_lambda(i,2)+d_lambda(j,2);
+      const KK_FLOAT sumlamyz = d_lambda(i,3)+d_lambda(j,3);
+      const KK_FLOAT sumlamxz = d_lambda(i,4)+d_lambda(j,4);
+      const KK_FLOAT sumlamxy = d_lambda(i,5)+d_lambda(j,5);
 
-      const double tradellam = sumlamxx*delx*delx+sumlamyy*dely*dely+
+      const KK_FLOAT tradellam = sumlamxx*delx*delx+sumlamyy*dely*dely+
           sumlamzz*delz*delz+2.0*sumlamxy*delx*dely+
           2.0*sumlamxz*delx*delz+2.0*sumlamyz*dely*delz;
-      const double nu = sumlamxx+sumlamyy+sumlamzz;
+      const KK_FLOAT nu = sumlamxx+sumlamyy+sumlamzz;
 
-      const double adpx = -1.0*(delmux*u2 + trdelmu*u2p*delx*recip +
+      const KK_FLOAT adpx = -1.0*(delmux*u2 + trdelmu*u2p*delx*recip +
           2.0*w2*(sumlamxx*delx+sumlamxy*dely+sumlamxz*delz) +
           w2p*delx*recip*tradellam - 1.0/3.0*nu*(w2p*r+2.0*w2)*delx);
-      const double adpy = -1.0*(delmuy*u2 + trdelmu*u2p*dely*recip +
+      const KK_FLOAT adpy = -1.0*(delmuy*u2 + trdelmu*u2p*dely*recip +
           2.0*w2*(sumlamxy*delx+sumlamyy*dely+sumlamyz*delz) +
           w2p*dely*recip*tradellam - 1.0/3.0*nu*(w2p*r+2.0*w2)*dely);
-      const double adpz = -1.0*(delmuz*u2 + trdelmu*u2p*delz*recip +
+      const KK_FLOAT adpz = -1.0*(delmuz*u2 + trdelmu*u2p*delz*recip +
           2.0*w2*(sumlamxz*delx+sumlamyz*dely+sumlamzz*delz) +
           w2p*delz*recip*tradellam - 1.0/3.0*nu*(w2p*r+2.0*w2)*delz);
 
-      double fx = delx*fpair + adpx;
-      double fy = dely*fpair + adpy;
-      double fz = delz*fpair + adpz;
+      KK_FLOAT fx = delx*fpair + adpx;
+      KK_FLOAT fy = dely*fpair + adpy;
+      KK_FLOAT fz = delz*fpair + adpz;
 
       fxtmp += fx;
       fytmp += fy;
@@ -1080,8 +1080,8 @@ template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR>
 KOKKOS_INLINE_FUNCTION
 void PairADPKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
-      const double &epair, const double &fx, const double &fy, const double &fz, const double &delx,
-                const double &dely, const double &delz) const
+      const KK_FLOAT &epair, const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz, const KK_FLOAT &delx,
+                const KK_FLOAT &dely, const KK_FLOAT &delz) const
 {
   const int EFLAG = eflag;
   const int VFLAG = vflag_either;
@@ -1096,7 +1096,7 @@ void PairADPKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const i
 
   if (EFLAG) {
     if (eflag_atom) {
-      const double epairhalf = 0.5 * epair;
+      const KK_FLOAT epairhalf = 0.5 * epair;
       if (NEIGHFLAG!=FULL) {
         if (NEWTON_PAIR || i < nlocal) a_eatom[i] += epairhalf;
         if (NEWTON_PAIR || j < nlocal) a_eatom[j] += epairhalf;
@@ -1107,12 +1107,12 @@ void PairADPKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const i
   }
 
   if (VFLAG) {
-    const double v0 = delx*fx;
-    const double v1 = dely*fy;
-    const double v2 = delz*fz;
-    const double v3 = delx*fy;
-    const double v4 = delx*fz;
-    const double v5 = dely*fz;
+    const KK_FLOAT v0 = delx*fx;
+    const KK_FLOAT v1 = dely*fy;
+    const KK_FLOAT v2 = delz*fz;
+    const KK_FLOAT v3 = delx*fy;
+    const KK_FLOAT v4 = delx*fz;
+    const KK_FLOAT v5 = dely*fz;
 
     if (vflag_global) {
       if (NEIGHFLAG!=FULL) {

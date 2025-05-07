@@ -161,12 +161,12 @@ void PairLJCharmmCoulCharmmKokkos<DeviceType>::compute(int eflag_in, int vflag_i
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJCharmmCoulCharmmKokkos<DeviceType>::
-compute_fpair(const double& rsq, const int& /*i*/, const int& /*j*/,
+KK_FLOAT PairLJCharmmCoulCharmmKokkos<DeviceType>::
+compute_fpair(const KK_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
               const int& itype, const int& jtype) const {
-  const double r2inv = 1.0/rsq;
-  const double r6inv = r2inv*r2inv*r2inv;
-  double forcelj, switch1, switch2, englj;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
+  KK_FLOAT forcelj, switch1, switch2, englj;
 
   forcelj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj1:params(itype,jtype).lj1)*r6inv -
@@ -191,12 +191,12 @@ compute_fpair(const double& rsq, const int& /*i*/, const int& /*j*/,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJCharmmCoulCharmmKokkos<DeviceType>::
-compute_evdwl(const double& rsq, const int& /*i*/, const int& /*j*/,
+KK_FLOAT PairLJCharmmCoulCharmmKokkos<DeviceType>::
+compute_evdwl(const KK_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
               const int& itype, const int& jtype) const {
-  const double r2inv = 1.0/rsq;
-  const double r6inv = r2inv*r2inv*r2inv;
-  double englj, switch1;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
+  KK_FLOAT englj, switch1;
 
   englj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj3:params(itype,jtype).lj3)*r6inv -
@@ -218,13 +218,13 @@ compute_evdwl(const double& rsq, const int& /*i*/, const int& /*j*/,
 template<class DeviceType>
 template<bool STACKPARAMS,  class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJCharmmCoulCharmmKokkos<DeviceType>::
-compute_fcoul(const double& rsq, const int& /*i*/, const int&j,
-              const int& /*itype*/, const int& /*jtype*/, const double& factor_coul, const double& qtmp) const {
+KK_FLOAT PairLJCharmmCoulCharmmKokkos<DeviceType>::
+compute_fcoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
+              const int& /*itype*/, const int& /*jtype*/, const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const {
 
-  const double r2inv = 1.0/rsq;
-  const double rinv = sqrt(r2inv);
-  double forcecoul, switch1;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT rinv = sqrt(r2inv);
+  KK_FLOAT forcecoul, switch1;
 
   forcecoul = qqrd2e*qtmp*q(j) *rinv;
 
@@ -244,13 +244,13 @@ compute_fcoul(const double& rsq, const int& /*i*/, const int&j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJCharmmCoulCharmmKokkos<DeviceType>::
-compute_ecoul(const double& rsq, const int& /*i*/, const int&j,
-              const int& /*itype*/, const int& /*jtype*/, const double& factor_coul, const double& qtmp) const {
+KK_FLOAT PairLJCharmmCoulCharmmKokkos<DeviceType>::
+compute_ecoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
+              const int& /*itype*/, const int& /*jtype*/, const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const {
 
-  const double r2inv = 1.0/rsq;
-  const double rinv = sqrt(r2inv);
-  double ecoul, switch1;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT rinv = sqrt(r2inv);
+  KK_FLOAT ecoul, switch1;
 
   ecoul = qqrd2e * qtmp * q(j) * rinv;
   if (rsq > cut_coul_innersq) {

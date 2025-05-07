@@ -66,10 +66,10 @@ class ImproperClass2Kokkos : public ImproperClass2 {
   //template<int NEWTON_BOND>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4,
-                          double &eimproper, double *f1, double *f3, double *f4,
-                          const double &vb1x, const double &vb1y, const double &vb1z,
-                          const double &vb2x, const double &vb2y, const double &vb2z,
-                          const double &vb3x, const double &vb3y, const double &vb3z) const;
+                          KK_FLOAT &eimproper, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4,
+                          const KK_FLOAT &vb1x, const KK_FLOAT &vb1y, const KK_FLOAT &vb1z,
+                          const KK_FLOAT &vb2x, const KK_FLOAT &vb2y, const KK_FLOAT &vb2z,
+                          const KK_FLOAT &vb3x, const KK_FLOAT &vb3y, const KK_FLOAT &vb3z) const;
 
   DAT::tdual_double_1d k_eatom;
   DAT::tdual_double_1d_6 k_vatom;
@@ -79,7 +79,7 @@ class ImproperClass2Kokkos : public ImproperClass2 {
   class NeighborKokkos *neighborKK;
 
   typename AT::t_double_1d_3_randomread x;
-  typename Kokkos::View<double*[3],typename AT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
+  typename Kokkos::View<KK_FLOAT*[3],typename AT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d improperlist;
   typename AT::t_double_1d d_eatom;
   typename AT::t_double_1d_6 d_vatom;

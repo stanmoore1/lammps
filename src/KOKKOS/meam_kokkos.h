@@ -75,7 +75,7 @@ template <class DeviceType> class MEAMKokkos : public MEAM {
 
  public:
   void meam_dens_setup(int, int, int) override;
-  void meam_setup_done(double *) override;
+  void meam_setup_done(KK_FLOAT *) override;
   void meam_dens_init(int, int, typename AT::t_int_1d, typename AT::t_int_1d,
                       typename AT::t_double_1d_3, typename AT::t_int_1d, typename AT::t_int_1d,
                       typename AT::t_int_1d, typename AT::t_neighbors_2d,
@@ -97,26 +97,26 @@ template <class DeviceType> class MEAMKokkos : public MEAM {
   KOKKOS_INLINE_FUNCTION void calc_rho1(int, int, typename AT::t_int_1d, typename AT::t_int_1d,
                                         typename AT::t_double_1d_3, typename AT::t_int_1d, int) const;
   KOKKOS_INLINE_FUNCTION
-  double fcut(const double xi) const;
+  KK_FLOAT fcut(const KK_FLOAT xi) const;
   KOKKOS_INLINE_FUNCTION
-  double dfcut(const double xi, double &dfc) const;
+  KK_FLOAT dfcut(const KK_FLOAT xi, KK_FLOAT &dfc) const;
   KOKKOS_INLINE_FUNCTION
-  double dCfunc(const double, const double, const double) const;
+  KK_FLOAT dCfunc(const KK_FLOAT, const KK_FLOAT, const KK_FLOAT) const;
   KOKKOS_INLINE_FUNCTION
-  void dCfunc2(const double, const double, const double, double &, double &) const;
+  void dCfunc2(const KK_FLOAT, const KK_FLOAT, const KK_FLOAT, KK_FLOAT &, KK_FLOAT &) const;
   KOKKOS_INLINE_FUNCTION
-  double G_gam(const double, const int, int &) const;
+  KK_FLOAT G_gam(const KK_FLOAT, const int, int &) const;
   KOKKOS_INLINE_FUNCTION
-  double dG_gam(const double, const int, double &) const;
+  KK_FLOAT dG_gam(const KK_FLOAT, const int, KK_FLOAT &) const;
   KOKKOS_INLINE_FUNCTION
-  double zbl(const double, const int, const int) const;
+  KK_FLOAT zbl(const KK_FLOAT, const int, const int) const;
   KOKKOS_INLINE_FUNCTION
-  double embedding(const double, const double, const double, double &) const;
+  KK_FLOAT embedding(const KK_FLOAT, const KK_FLOAT, const KK_FLOAT, KK_FLOAT &) const;
   KOKKOS_INLINE_FUNCTION
-  double erose(const double, const double, const double, const double, const double, const double,
+  KK_FLOAT erose(const KK_FLOAT, const KK_FLOAT, const KK_FLOAT, const KK_FLOAT, const KK_FLOAT, const KK_FLOAT,
                const int) const;
   KOKKOS_INLINE_FUNCTION
-  void get_shpfcn(const lattice_t latt, const double sthe, const double cthe, double (&s)[3]) const;
+  void get_shpfcn(const lattice_t latt, const KK_FLOAT sthe, const KK_FLOAT cthe, KK_FLOAT (&s)[3]) const;
   KOKKOS_INLINE_FUNCTION
   int get_Zij(const lattice_t) const;
 
@@ -230,19 +230,19 @@ template <class DeviceType> class MEAMKokkos : public MEAM {
 };
 
 KOKKOS_INLINE_FUNCTION
-static bool iszero_kk(const double f)
+static bool iszero_kk(const KK_FLOAT f)
 {
   return fabs(f) < 1e-20;
 }
 
 KOKKOS_INLINE_FUNCTION
-static bool isone_kk(const double f)
+static bool isone_kk(const KK_FLOAT f)
 {
   return fabs(f - 1.0) < 1e-20;
 }
 
 KOKKOS_INLINE_FUNCTION
-static double fdiv_zero_kk(const double n, const double d)
+static KK_FLOAT fdiv_zero_kk(const KK_FLOAT n, const KK_FLOAT d)
 {
   if (iszero_kk(d)) return 0.0;
   return n / d;

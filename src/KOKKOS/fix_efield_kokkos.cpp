@@ -203,14 +203,14 @@ void FixEfieldKokkos<DeviceType>::operator()(TagFixEfieldConstant<QFLAG,MUFLAG>,
   if ( QFLAG && (d_mask(i) & groupbit)) {
     if (region && !d_match[i]) return;
 
-    Few<double,3> x_i;
+    Few<KK_FLOAT,3> x_i;
     x_i[0] = d_x(i,0);
     x_i[1] = d_x(i,1);
     x_i[2] = d_x(i,2);
     auto unwrapKK = DomainKokkos::unmap(prd,h,triclinic,x_i,d_image(i));
-    const double fx = d_q(i) * ex;
-    const double fy = d_q(i) * ey;
-    const double fz = d_q(i) * ez;
+    const KK_FLOAT fx = d_q(i) * ex;
+    const KK_FLOAT fy = d_q(i) * ey;
+    const KK_FLOAT fz = d_q(i) * ez;
     d_f(i,0) += fx;
     d_f(i,1) += fy;
     d_f(i,2) += fz;
@@ -220,7 +220,7 @@ void FixEfieldKokkos<DeviceType>::operator()(TagFixEfieldConstant<QFLAG,MUFLAG>,
     result[3] += fz;
 
     if (evflag) {
-      double v[6];
+      KK_FLOAT v[6];
       v[0] = fx * unwrapKK[0];
       v[1] = fy * unwrapKK[1];
       v[2] = fz * unwrapKK[2];
@@ -248,7 +248,7 @@ void FixEfieldKokkos<DeviceType>::operator()(TagFixEfieldNonConstant<QFLAG,MUFLA
   if ( QFLAG && (d_mask(i) & groupbit)) {
     if (region && !d_match[i]) return;
 
-    double fx, fy, fz;
+    KK_FLOAT fx, fy, fz;
 
     if (xstyle == ATOM) fx = qe2f * d_q(i) * d_efield(i,0);
     else fx = d_q(i) * ex;
@@ -290,7 +290,7 @@ void FixEfieldKokkos<DeviceType>::operator()(TagFixEfieldNonConstant<QFLAG,MUFLA
 
 template <class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixEfieldKokkos<DeviceType>::v_tally(value_type result, int i, double *v) const
+void FixEfieldKokkos<DeviceType>::v_tally(value_type result, int i, KK_FLOAT *v) const
 {
   if (vflag_global) {
     result[4] += v[0];

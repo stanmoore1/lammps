@@ -237,10 +237,10 @@ void PairDPDTstatKokkos<DeviceType>::operator() (TagDPDTstatKokkos<NEIGHFLAG,VFL
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   int i,j,jj,jnum,itype,jtype;
-  double xtmp,ytmp,ztmp,delx,dely,delz,fpair;
-  double vxtmp,vytmp,vztmp,delvx,delvy,delvz;
-  double rsq,r,rinv,dot,wd,randnum,factor_dpd,factor_sqrt;
-  double fx = 0,fy = 0,fz = 0;
+  KK_FLOAT xtmp,ytmp,ztmp,delx,dely,delz,fpair;
+  KK_FLOAT vxtmp,vytmp,vztmp,delvx,delvy,delvz;
+  KK_FLOAT rsq,r,rinv,dot,wd,randnum,factor_dpd,factor_sqrt;
+  KK_FLOAT fx = 0,fy = 0,fz = 0;
 
   i = d_ilist[ii];
   xtmp = x(i,0);
@@ -308,8 +308,8 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairDPDTstatKokkos<DeviceType>::v_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const double &fpair, const double &delx,
-                const double &dely, const double &delz) const
+      const KK_FLOAT &fpair, const KK_FLOAT &delx,
+                const KK_FLOAT &dely, const KK_FLOAT &delz) const
 {
 
   // The vatom array is duplicated for OpenMP, atomic for GPU, and neither for Serial
@@ -317,12 +317,12 @@ void PairDPDTstatKokkos<DeviceType>::v_tally(EV_FLOAT &ev, const int &i, const i
   auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
   auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-    const double v0 = delx*delx*fpair;
-    const double v1 = dely*dely*fpair;
-    const double v2 = delz*delz*fpair;
-    const double v3 = delx*dely*fpair;
-    const double v4 = delx*delz*fpair;
-    const double v5 = dely*delz*fpair;
+    const KK_FLOAT v0 = delx*delx*fpair;
+    const KK_FLOAT v1 = dely*dely*fpair;
+    const KK_FLOAT v2 = delz*delz*fpair;
+    const KK_FLOAT v3 = delx*dely*fpair;
+    const KK_FLOAT v4 = delx*delz*fpair;
+    const KK_FLOAT v5 = dely*delz*fpair;
 
   if (vflag_global) {
     ev.v[0] += v0;

@@ -124,7 +124,7 @@ class NeighBondKokkos : protected Pointers  {
   int closest_image(const int, int) const;
 
   KOKKOS_INLINE_FUNCTION
-  void minimum_image(double &dx, double &dy, double &dz) const;
+  void minimum_image(KK_FLOAT &dx, KK_FLOAT &dy, KK_FLOAT &dz) const;
 
   void update_class_variables();
 
@@ -159,9 +159,9 @@ class NeighBondKokkos : protected Pointers  {
 
   int triclinic;
   int xperiodic,yperiodic,zperiodic;
-  double xprd_half,yprd_half,zprd_half;
-  double xprd,yprd,zprd;
-  double xy,xz,yz;
+  KK_FLOAT xprd_half,yprd_half,zprd_half;
+  KK_FLOAT xprd,yprd,zprd;
+  KK_FLOAT xy,xz,yz;
 };
 
 }

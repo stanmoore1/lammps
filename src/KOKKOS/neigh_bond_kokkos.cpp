@@ -398,8 +398,8 @@ KOKKOS_INLINE_FUNCTION
 void NeighBondKokkos<DeviceType>::operator()(TagNeighBondBondCheck, const int &m, int &flag) const {
   const int i = v_bondlist(m,0);
   const int j = v_bondlist(m,1);
-  double dxstart,dystart,dzstart;
-  double dx,dy,dz;
+  KK_FLOAT dxstart,dystart,dzstart;
+  KK_FLOAT dx,dy,dz;
   dxstart = dx = x(i,0) - x(j,0);
   dystart = dy = x(i,1) - x(j,1);
   dzstart = dz = x(i,2) - x(j,2);
@@ -598,8 +598,8 @@ void NeighBondKokkos<DeviceType>::operator()(TagNeighBondAngleCheck, const int &
   const int i = v_anglelist(m,0);
   const int j = v_anglelist(m,1);
   const int k = v_anglelist(m,2);
-  double dxstart,dystart,dzstart;
-  double dx,dy,dz;
+  KK_FLOAT dxstart,dystart,dzstart;
+  KK_FLOAT dx,dy,dz;
   dxstart = dx = x(i,0) - x(j,0);
   dystart = dy = x(i,1) - x(j,1);
   dzstart = dz = x(i,2) - x(j,2);
@@ -821,8 +821,8 @@ void NeighBondKokkos<DeviceType>::operator()(TagNeighBondDihedralCheck, const in
   const int j = list(m,1);
   const int k = list(m,2);
   const int l = list(m,3);
-  double dxstart,dystart,dzstart;
-  double dx,dy,dz;
+  KK_FLOAT dxstart,dystart,dzstart;
+  KK_FLOAT dx,dy,dz;
   dxstart = dx = x(i,0) - x(j,0);
   dystart = dy = x(i,1) - x(j,1);
   dzstart = dz = x(i,2) - x(j,2);
@@ -1038,16 +1038,16 @@ int NeighBondKokkos<DeviceType>::closest_image(const int i, int j) const
 {
   if (j < 0) return j;
 
-  const double xi0 = x(i,0);
-  const double xi1 = x(i,1);
-  const double xi2 = x(i,2);
+  const KK_FLOAT xi0 = x(i,0);
+  const KK_FLOAT xi1 = x(i,1);
+  const KK_FLOAT xi2 = x(i,2);
 
   int closest = j;
-  double delx = xi0 - x(j,0);
-  double dely = xi1 - x(j,1);
-  double delz = xi2 - x(j,2);
-  double rsqmin = delx*delx + dely*dely + delz*delz;
-  double rsq;
+  KK_FLOAT delx = xi0 - x(j,0);
+  KK_FLOAT dely = xi1 - x(j,1);
+  KK_FLOAT delz = xi2 - x(j,2);
+  KK_FLOAT rsqmin = delx*delx + dely*dely + delz*delz;
+  KK_FLOAT rsq;
 
   while (d_sametag[j] >= 0) {
     j = d_sametag[j];
@@ -1071,7 +1071,7 @@ int NeighBondKokkos<DeviceType>::closest_image(const int i, int j) const
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void NeighBondKokkos<DeviceType>::minimum_image(double &dx, double &dy, double &dz) const
+void NeighBondKokkos<DeviceType>::minimum_image(KK_FLOAT &dx, KK_FLOAT &dy, KK_FLOAT &dz) const
 {
   if (triclinic == 0) {
     if (xperiodic) {

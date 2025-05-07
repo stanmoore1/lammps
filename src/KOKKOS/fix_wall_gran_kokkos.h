@@ -72,9 +72,9 @@ class FixWallGranKokkos : public FixWallGranOld, public KokkosBase {
                               ExecutionSpace space) override;
 
  private:
-  double wlo;
-  double whi;
-  double vwall[3];
+  KK_FLOAT wlo;
+  KK_FLOAT whi;
+  KK_FLOAT vwall[3];
 
   typename AT::t_double_1d_3 x;
   typename AT::t_double_1d_3 v;

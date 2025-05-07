@@ -238,11 +238,11 @@ void PairDPDExtTstatKokkos<DeviceType>::operator() (TagDPDExtTstatKokkos<NEIGHFL
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   int i,j,jj,jnum,itype,jtype;
-  double xtmp,ytmp,ztmp,delx,dely,delz,fpairx,fpairy,fpairz,fpair;
-  double vxtmp,vytmp,vztmp,delvx,delvy,delvz;
-  double rsq,r,rinv,dot,wd,wdPar,wdPerp,randnum,randnumx,randnumy,randnumz;
-  double prefactor_g,prefactor_s,factor_dpd,factor_sqrt;
-  double fx = 0,fy = 0,fz = 0;
+  KK_FLOAT xtmp,ytmp,ztmp,delx,dely,delz,fpairx,fpairy,fpairz,fpair;
+  KK_FLOAT vxtmp,vytmp,vztmp,delvx,delvy,delvz;
+  KK_FLOAT rsq,r,rinv,dot,wd,wdPar,wdPerp,randnum,randnumx,randnumy,randnumz;
+  KK_FLOAT prefactor_g,prefactor_s,factor_dpd,factor_sqrt;
+  KK_FLOAT fx = 0,fy = 0,fz = 0;
 
   i = d_ilist[ii];
   xtmp = x(i,0);
@@ -255,7 +255,7 @@ void PairDPDExtTstatKokkos<DeviceType>::operator() (TagDPDExtTstatKokkos<NEIGHFL
   jnum = d_numneigh[i];
   rand_type rand_gen = rand_pool.get_state();
   for (jj = 0; jj < jnum; jj++) {
-    double P[3][3];
+    KK_FLOAT P[3][3];
     j = d_neighbors(i,jj);
     factor_dpd = special_lj[sbmask(j)];
     factor_sqrt = special_rf[sbmask(j)];
@@ -342,8 +342,8 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairDPDExtTstatKokkos<DeviceType>::v_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
-      const double &fx, const double &fy, const double &fz,
-      const double &delx, const double &dely, const double &delz) const
+      const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz,
+      const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT &delz) const
 {
 
   // The vatom array is duplicated for OpenMP, atomic for GPU, and neither for Serial
@@ -351,12 +351,12 @@ void PairDPDExtTstatKokkos<DeviceType>::v_tally_xyz(EV_FLOAT &ev, const int &i, 
   auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
   auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-  const double v0 = delx*fx;
-  const double v1 = dely*fy;
-  const double v2 = delz*fz;
-  const double v3 = delx*fy;
-  const double v4 = delx*fz;
-  const double v5 = dely*fz;
+  const KK_FLOAT v0 = delx*fx;
+  const KK_FLOAT v1 = dely*fy;
+  const KK_FLOAT v2 = delz*fz;
+  const KK_FLOAT v3 = delx*fy;
+  const KK_FLOAT v4 = delx*fz;
+  const KK_FLOAT v5 = dely*fz;
 
   if (vflag_global) {
     ev.v[0] += v0;

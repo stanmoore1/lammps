@@ -57,8 +57,8 @@ class PairGranHookeHistoryKokkos : public PairGranHookeHistory {
   template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
   void ev_tally_xyz(EV_FLOAT &ev, int i, int j,
-                    double fx, double fy, double fz,
-                    double delx, double dely, double delz) const;
+                    KK_FLOAT fx, KK_FLOAT fy, KK_FLOAT fz,
+                    KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz) const;
 
  protected:
   typename AT::t_double_1d_3_randomread x;

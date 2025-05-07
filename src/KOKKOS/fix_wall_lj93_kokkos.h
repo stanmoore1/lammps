@@ -50,7 +50,7 @@ class FixWallLJ93Kokkos : public FixWallLJ93 {
 
  private:
   int dim,side;
-  double coord;
+  KK_FLOAT coord;
 
   typename AT::t_double_1d_3 d_x;
   typename AT::t_double_1d_3 d_f;
@@ -63,7 +63,7 @@ class FixWallLJ93Kokkos : public FixWallLJ93 {
   typename AT::t_double_1d d_cutoff,d_coeff1,d_coeff2,d_coeff3,d_coeff4,d_offset;
 
   KOKKOS_INLINE_FUNCTION
-  void v_tally(value_type, int, int, double) const;
+  void v_tally(value_type, int, int, KK_FLOAT) const;
 };
 
 }

@@ -19,20 +19,20 @@
 
 namespace LAMMPS_NS {
 
-  struct s_double2 {
+  struct s_KK_FLOAT2 {
     double d0, d1;
     KOKKOS_INLINE_FUNCTION
-    s_double2() {
+    s_KK_FLOAT2() {
       d0 = d1 = 0.0;
     }
     KOKKOS_INLINE_FUNCTION
-    s_double2& operator+=(const s_double2 &rhs) {
+    s_KK_FLOAT2& operator+=(const s_KK_FLOAT2 &rhs) {
       d0 += rhs.d0;
       d1 += rhs.d1;
       return *this;
     }
   };
-  //typedef s_double2 double2;
+  //typedef s_KK_FLOAT2 KK_FLOAT2;
 
 class MinLineSearchKokkos : public MinKokkos {
  public:

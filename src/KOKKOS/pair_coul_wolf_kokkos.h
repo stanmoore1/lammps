@@ -57,8 +57,8 @@ class PairCoulWolfKokkos : public PairCoulWolf {
   template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const double &epair, const double &fpair, const double &delx,
-                  const double &dely, const double &delz) const;
+      const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx,
+                  const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
@@ -78,10 +78,10 @@ class PairCoulWolfKokkos : public PairCoulWolf {
   int neighflag,newton_pair;
   int nlocal,nall,eflag,vflag;
 
-  double e_shift,f_shift;
+  KK_FLOAT e_shift,f_shift;
 
-  double special_coul[4];
-  double qqrd2e;
+  KK_FLOAT special_coul[4];
+  KK_FLOAT qqrd2e;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;

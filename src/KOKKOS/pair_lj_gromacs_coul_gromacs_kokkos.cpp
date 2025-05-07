@@ -159,20 +159,20 @@ void PairLJGromacsCoulGromacsKokkos<DeviceType>::compute(int eflag_in, int vflag
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJGromacsCoulGromacsKokkos<DeviceType>::
-compute_fpair(const double& rsq, const int& /*i*/, const int& /*j*/,
+KK_FLOAT PairLJGromacsCoulGromacsKokkos<DeviceType>::
+compute_fpair(const KK_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
               const int& itype, const int& jtype) const {
 
-  const double r2inv = 1.0/rsq;
-  const double r6inv = r2inv*r2inv*r2inv;
-  double forcelj = r6inv *
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
+  KK_FLOAT forcelj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj1:params(itype,jtype).lj1)*r6inv -
      (STACKPARAMS?m_params[itype][jtype].lj2:params(itype,jtype).lj2));
 
   if (rsq > cut_lj_innersq) {
-    const double r = sqrt(rsq);
-    const double tlj = r - cut_lj_inner;
-    const double fswitch = r*tlj*tlj*
+    const KK_FLOAT r = sqrt(rsq);
+    const KK_FLOAT tlj = r - cut_lj_inner;
+    const KK_FLOAT fswitch = r*tlj*tlj*
             ((STACKPARAMS?m_params[itype][jtype].ljsw1:params(itype,jtype).ljsw1) +
              (STACKPARAMS?m_params[itype][jtype].ljsw2:params(itype,jtype).ljsw2)*tlj);
     forcelj += fswitch;
@@ -186,21 +186,21 @@ compute_fpair(const double& rsq, const int& /*i*/, const int& /*j*/,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJGromacsCoulGromacsKokkos<DeviceType>::
-compute_evdwl(const double& rsq, const int& /*i*/, const int& /*j*/,
+KK_FLOAT PairLJGromacsCoulGromacsKokkos<DeviceType>::
+compute_evdwl(const KK_FLOAT& rsq, const int& /*i*/, const int& /*j*/,
               const int& itype, const int& jtype) const {
 
-  const double r2inv = 1.0/rsq;
-  const double r6inv = r2inv*r2inv*r2inv;
-  double englj = r6inv *
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
+  KK_FLOAT englj = r6inv *
     ((STACKPARAMS?m_params[itype][jtype].lj3:params(itype,jtype).lj3)*r6inv -
      (STACKPARAMS?m_params[itype][jtype].lj4:params(itype,jtype).lj4));
   englj += (STACKPARAMS?m_params[itype][jtype].ljsw5:params(itype,jtype).ljsw5);
 
   if (rsq > cut_lj_innersq) {
-    const double r = sqrt(rsq);
-    const double tlj = r - cut_lj_inner;
-    const double eswitch = tlj*tlj*tlj *
+    const KK_FLOAT r = sqrt(rsq);
+    const KK_FLOAT tlj = r - cut_lj_inner;
+    const KK_FLOAT eswitch = tlj*tlj*tlj *
             ((STACKPARAMS?m_params[itype][jtype].ljsw3:params(itype,jtype).ljsw3) +
              (STACKPARAMS?m_params[itype][jtype].ljsw4:params(itype,jtype).ljsw4)*tlj);
     englj += eswitch;
@@ -214,19 +214,19 @@ compute_evdwl(const double& rsq, const int& /*i*/, const int& /*j*/,
 template<class DeviceType>
 template<bool STACKPARAMS,  class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJGromacsCoulGromacsKokkos<DeviceType>::
-compute_fcoul(const double& rsq, const int& /*i*/, const int&j,
+KK_FLOAT PairLJGromacsCoulGromacsKokkos<DeviceType>::
+compute_fcoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
               const int& /*itype*/, const int& /*jtype*/,
-              const double& factor_coul, const double& qtmp) const {
+              const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const {
 
-  const double r2inv = 1.0/rsq;
-  const double rinv = sqrt(r2inv);
-  double forcecoul = qqrd2e*qtmp*q(j) *rinv;
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT rinv = sqrt(r2inv);
+  KK_FLOAT forcecoul = qqrd2e*qtmp*q(j) *rinv;
 
   if (rsq > cut_coul_innersq) {
-    const double r = 1.0/rinv;
-    const double tc = r - cut_coul_inner;
-    const double fcoulswitch = qqrd2e * qtmp*q(j)*r*tc*tc*(coulsw1 + coulsw2*tc);
+    const KK_FLOAT r = 1.0/rinv;
+    const KK_FLOAT tc = r - cut_coul_inner;
+    const KK_FLOAT fcoulswitch = qqrd2e * qtmp*q(j)*r*tc*tc*(coulsw1 + coulsw2*tc);
     forcecoul += fcoulswitch;
   }
   return forcecoul * r2inv * factor_coul;
@@ -238,19 +238,19 @@ compute_fcoul(const double& rsq, const int& /*i*/, const int&j,
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJGromacsCoulGromacsKokkos<DeviceType>::
-compute_ecoul(const double& rsq, const int& /*i*/, const int&j,
+KK_FLOAT PairLJGromacsCoulGromacsKokkos<DeviceType>::
+compute_ecoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
               const int& /*itype*/, const int& /*jtype*/,
-              const double& factor_coul, const double& qtmp) const {
+              const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const {
 
-  const double r2inv = 1.0/rsq;
-  const double rinv = sqrt(r2inv);
-  double ecoul = qqrd2e * qtmp * q(j) * (rinv-coulsw5);
+  const KK_FLOAT r2inv = 1.0/rsq;
+  const KK_FLOAT rinv = sqrt(r2inv);
+  KK_FLOAT ecoul = qqrd2e * qtmp * q(j) * (rinv-coulsw5);
 
   if (rsq > cut_coul_innersq) {
-    const double r = 1.0/rinv;
-    const double tc = r - cut_coul_inner;
-    const double ecoulswitch = tc*tc*tc * (coulsw3 + coulsw4*tc);
+    const KK_FLOAT r = 1.0/rinv;
+    const KK_FLOAT tc = r - cut_coul_inner;
+    const KK_FLOAT ecoulswitch = tc*tc*tc * (coulsw3 + coulsw4*tc);
     ecoul += qqrd2e*qtmp*q(j)*ecoulswitch;
   }
   return ecoul * factor_coul;

@@ -49,14 +49,14 @@ class FixCMAPKokkos : public FixCMAP, public KokkosBase {
     void operator()(TagFixCmapPreNeighbor, const int, int&, const bool) const;
 
     KOKKOS_INLINE_FUNCTION
-    void operator()(TagFixCmapPostForce, const int, double&) const;
+    void operator()(TagFixCmapPostForce, const int, KK_FLOAT&) const;
 
     void grow_arrays(int) override;
     void copy_arrays(int, int, int) override;
     void sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter) override;
     void set_arrays(int) override;
-    int pack_exchange(int, double *) override;
-    int unpack_exchange(int, double *) override;
+    int pack_exchange(int, KK_FLOAT *) override;
+    int unpack_exchange(int, KK_FLOAT *) override;
 
     int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
@@ -103,13 +103,13 @@ class FixCMAPKokkos : public FixCMAP, public KokkosBase {
 
     // calculate dihedral angles
     KOKKOS_INLINE_FUNCTION
-    double dihedral_angle_atan2(double, double, double, double, double, double, double, double,
-      double, double) const;
+    KK_FLOAT dihedral_angle_atan2(KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT,
+      KK_FLOAT, KK_FLOAT) const;
 
     // perform bicubic interpolation at point of interest
     KOKKOS_INLINE_FUNCTION
-    void bc_interpol(double, double, int, int, double *, double *, double *, double *,
-      double &, double &, double &) const;
+    void bc_interpol(KK_FLOAT, KK_FLOAT, int, int, KK_FLOAT *, KK_FLOAT *, KK_FLOAT *, KK_FLOAT *,
+      KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;
 
     // copied from Domain
     KOKKOS_INLINE_FUNCTION

@@ -142,55 +142,55 @@ KOKKOS_INLINE_FUNCTION
 void AngleCosineKokkos<DeviceType>::operator()(TagAngleCosineCompute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
 
   // The f array is atomic
-  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
 
   const int i1 = anglelist(n,0);
   const int i2 = anglelist(n,1);
   const int i3 = anglelist(n,2);
   const int type = anglelist(n,3);
 
-  const double k = d_k[type];
+  const KK_FLOAT k = d_k[type];
 
-  const double x20 = x(i2,0);
-  const double x21 = x(i2,1);
-  const double x22 = x(i2,2);
+  const KK_FLOAT x20 = x(i2,0);
+  const KK_FLOAT x21 = x(i2,1);
+  const KK_FLOAT x22 = x(i2,2);
 
   // 1st bond
 
-  const double delx1 = x(i1,0) - x20;
-  const double dely1 = x(i1,1) - x21;
-  const double delz1 = x(i1,2) - x22;
+  const KK_FLOAT delx1 = x(i1,0) - x20;
+  const KK_FLOAT dely1 = x(i1,1) - x21;
+  const KK_FLOAT delz1 = x(i1,2) - x22;
 
-  const double rsq1 = delx1*delx1 + dely1*dely1 + delz1*delz1;
-  const double r1 = sqrt(rsq1);
+  const KK_FLOAT rsq1 = delx1*delx1 + dely1*dely1 + delz1*delz1;
+  const KK_FLOAT r1 = sqrt(rsq1);
 
   // 2nd bond
 
-  const double delx2 = x(i3,0) - x20;
-  const double dely2 = x(i3,1) - x21;
-  const double delz2 = x(i3,2) - x22;
+  const KK_FLOAT delx2 = x(i3,0) - x20;
+  const KK_FLOAT dely2 = x(i3,1) - x21;
+  const KK_FLOAT delz2 = x(i3,2) - x22;
 
-  const double rsq2 = delx2*delx2 + dely2*dely2 + delz2*delz2;
-  const double r2 = sqrt(rsq2);
+  const KK_FLOAT rsq2 = delx2*delx2 + dely2*dely2 + delz2*delz2;
+  const KK_FLOAT r2 = sqrt(rsq2);
 
   // c = cosine of angle
 
-  double c = delx1*delx2 + dely1*dely2 + delz1*delz2;
+  KK_FLOAT c = delx1*delx2 + dely1*dely2 + delz1*delz2;
   c /= r1*r2;
   if (c > 1.0) c = 1.0;
   if (c < -1.0) c = -1.0;
 
   // force & energy
 
-  double eangle = 0.0;
+  KK_FLOAT eangle = 0.0;
   if (eflag) eangle = k*(1.0+c);
 
-  const double a = k;
-  const double a11 = a*c / rsq1;
-  const double a12 = -a / (r1*r2);
-  const double a22 = a*c / rsq2;
+  const KK_FLOAT a = k;
+  const KK_FLOAT a11 = a*c / rsq1;
+  const KK_FLOAT a12 = -a / (r1*r2);
+  const KK_FLOAT a22 = a*c / rsq2;
 
-  double f1[3],f3[3];
+  KK_FLOAT f1[3],f3[3];
   f1[0] = a11*delx1 + a12*delx2;
   f1[1] = a11*dely1 + a12*dely2;
   f1[2] = a11*delz1 + a12*delz2;
@@ -283,16 +283,16 @@ template<class DeviceType>
 //template<int NEWTON_BOND>
 KOKKOS_INLINE_FUNCTION
 void AngleCosineKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i, const int j, const int k,
-                     double &eangle, double *f1, double *f3,
-                     const double &delx1, const double &dely1, const double &delz1,
-                     const double &delx2, const double &dely2, const double &delz2) const
+                     KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3,
+                     const KK_FLOAT &delx1, const KK_FLOAT &dely1, const KK_FLOAT &delz1,
+                     const KK_FLOAT &delx2, const KK_FLOAT &dely2, const KK_FLOAT &delz2) const
 {
-  double eanglethird;
-  double v[6];
+  KK_FLOAT eanglethird;
+  KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
-  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.template view<DeviceType>();
+  Kokkos::View<KK_FLOAT*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.template view<DeviceType>();
 
   if (eflag_either) {
     if (eflag_global) {

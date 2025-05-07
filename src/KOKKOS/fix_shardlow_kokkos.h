@@ -86,7 +86,7 @@ class FixShardlowKokkos : public FixShardlow {
 
  protected:
   int workPhase;
-  double theta_ij_inv,boltz_inv,ftm2v,dt;
+  KK_FLOAT theta_ij_inv,boltz_inv,ftm2v,dt;
 
 #ifdef ENABLE_KOKKOS_DPD_CONSTANT_TEMPERATURE
 //  class PairDPDfdt *pairDPD; FIXME as per k_pairDPDE below
@@ -99,7 +99,7 @@ class FixShardlowKokkos : public FixShardlow {
   // hardwired to space for MAX_TYPES_STACKPARAMS (12) atom types
   params_ssa m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
-  double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   typename ArrayTypes<DeviceType>::t_double_2d d_cutsq;
 
   typename DAT::tdual_double_1d_3 k_v_t0;
@@ -120,7 +120,7 @@ class FixShardlowKokkos : public FixShardlow {
   typedef Kokkos::View<random_external_state::es_RNG_t*,DeviceType> es_RNGs_type;
   es_RNGs_type d_rand_state;
 
-  double dtsqrt; // = sqrt(update->dt);
+  KK_FLOAT dtsqrt; // = sqrt(update->dt);
   int ghostmax;
   int nlocal, nghost;
 

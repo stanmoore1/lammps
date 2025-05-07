@@ -160,7 +160,7 @@ KOKKOS_INLINE_FUNCTION
 void DihedralOPLSKokkos<DeviceType>::operator()(TagDihedralOPLSCompute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
 
   // The f array is atomic
-  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
 
   const int i1 = dihedrallist(n,0);
   const int i2 = dihedrallist(n,1);
@@ -170,76 +170,76 @@ void DihedralOPLSKokkos<DeviceType>::operator()(TagDihedralOPLSCompute<NEWTON_BO
 
   // 1st bond
 
-  const double vb1x = x(i1,0) - x(i2,0);
-  const double vb1y = x(i1,1) - x(i2,1);
-  const double vb1z = x(i1,2) - x(i2,2);
+  const KK_FLOAT vb1x = x(i1,0) - x(i2,0);
+  const KK_FLOAT vb1y = x(i1,1) - x(i2,1);
+  const KK_FLOAT vb1z = x(i1,2) - x(i2,2);
 
   // 2nd bond
 
-  const double vb2x = x(i3,0) - x(i2,0);
-  const double vb2y = x(i3,1) - x(i2,1);
-  const double vb2z = x(i3,2) - x(i2,2);
+  const KK_FLOAT vb2x = x(i3,0) - x(i2,0);
+  const KK_FLOAT vb2y = x(i3,1) - x(i2,1);
+  const KK_FLOAT vb2z = x(i3,2) - x(i2,2);
 
-  const double vb2xm = -vb2x;
-  const double vb2ym = -vb2y;
-  const double vb2zm = -vb2z;
+  const KK_FLOAT vb2xm = -vb2x;
+  const KK_FLOAT vb2ym = -vb2y;
+  const KK_FLOAT vb2zm = -vb2z;
 
   // 3rd bond
 
-  const double vb3x = x(i4,0) - x(i3,0);
-  const double vb3y = x(i4,1) - x(i3,1);
-  const double vb3z = x(i4,2) - x(i3,2);
+  const KK_FLOAT vb3x = x(i4,0) - x(i3,0);
+  const KK_FLOAT vb3y = x(i4,1) - x(i3,1);
+  const KK_FLOAT vb3z = x(i4,2) - x(i3,2);
 
   // c0 calculation
 
-  const double sb1 = 1.0 / (vb1x*vb1x + vb1y*vb1y + vb1z*vb1z);
-  const double sb2 = 1.0 / (vb2x*vb2x + vb2y*vb2y + vb2z*vb2z);
-  const double sb3 = 1.0 / (vb3x*vb3x + vb3y*vb3y + vb3z*vb3z);
+  const KK_FLOAT sb1 = 1.0 / (vb1x*vb1x + vb1y*vb1y + vb1z*vb1z);
+  const KK_FLOAT sb2 = 1.0 / (vb2x*vb2x + vb2y*vb2y + vb2z*vb2z);
+  const KK_FLOAT sb3 = 1.0 / (vb3x*vb3x + vb3y*vb3y + vb3z*vb3z);
 
-  const double rb1 = sqrt(sb1);
-  const double rb3 = sqrt(sb3);
+  const KK_FLOAT rb1 = sqrt(sb1);
+  const KK_FLOAT rb3 = sqrt(sb3);
 
-  const double c0 = (vb1x*vb3x + vb1y*vb3y + vb1z*vb3z) * rb1*rb3;
+  const KK_FLOAT c0 = (vb1x*vb3x + vb1y*vb3y + vb1z*vb3z) * rb1*rb3;
 
   // 1st and 2nd angle
 
-  const double b1mag2 = vb1x*vb1x + vb1y*vb1y + vb1z*vb1z;
-  const double b1mag = sqrt(b1mag2);
-  const double b2mag2 = vb2x*vb2x + vb2y*vb2y + vb2z*vb2z;
-  const double b2mag = sqrt(b2mag2);
-  const double b3mag2 = vb3x*vb3x + vb3y*vb3y + vb3z*vb3z;
-  const double b3mag = sqrt(b3mag2);
+  const KK_FLOAT b1mag2 = vb1x*vb1x + vb1y*vb1y + vb1z*vb1z;
+  const KK_FLOAT b1mag = sqrt(b1mag2);
+  const KK_FLOAT b2mag2 = vb2x*vb2x + vb2y*vb2y + vb2z*vb2z;
+  const KK_FLOAT b2mag = sqrt(b2mag2);
+  const KK_FLOAT b3mag2 = vb3x*vb3x + vb3y*vb3y + vb3z*vb3z;
+  const KK_FLOAT b3mag = sqrt(b3mag2);
 
-  double ctmp = vb1x*vb2x + vb1y*vb2y + vb1z*vb2z;
-  const double r12c1 = 1.0 / (b1mag*b2mag);
-  const double c1mag = ctmp * r12c1;
+  KK_FLOAT ctmp = vb1x*vb2x + vb1y*vb2y + vb1z*vb2z;
+  const KK_FLOAT r12c1 = 1.0 / (b1mag*b2mag);
+  const KK_FLOAT c1mag = ctmp * r12c1;
 
   ctmp = vb2xm*vb3x + vb2ym*vb3y + vb2zm*vb3z;
-  const double r12c2 = 1.0 / (b2mag*b3mag);
-  const double c2mag = ctmp * r12c2;
+  const KK_FLOAT r12c2 = 1.0 / (b2mag*b3mag);
+  const KK_FLOAT c2mag = ctmp * r12c2;
 
   // cos and sin of 2 angles and final c
 
-  double sin2 = MAX(1.0 - c1mag*c1mag,0.0);
-  double sc1 = sqrt(sin2);
+  KK_FLOAT sin2 = MAX(1.0 - c1mag*c1mag,0.0);
+  KK_FLOAT sc1 = sqrt(sin2);
   if (sc1 < SMALL) sc1 = SMALL;
   sc1 = 1.0/sc1;
 
   sin2 = MAX(1.0 - c2mag*c2mag,0.0);
-  double sc2 = sqrt(sin2);
+  KK_FLOAT sc2 = sqrt(sin2);
   if (sc2 < SMALL) sc2 = SMALL;
   sc2 = 1.0/sc2;
 
-  const double s1 = sc1 * sc1;
-  const double s2 = sc2 * sc2;
-  double s12 = sc1 * sc2;
-  double c = (c0 + c1mag*c2mag) * s12;
+  const KK_FLOAT s1 = sc1 * sc1;
+  const KK_FLOAT s2 = sc2 * sc2;
+  KK_FLOAT s12 = sc1 * sc2;
+  KK_FLOAT c = (c0 + c1mag*c2mag) * s12;
 
-  const double cx = vb1y*vb2z - vb1z*vb2y;
-  const double cy = vb1z*vb2x - vb1x*vb2z;
-  const double cz = vb1x*vb2y - vb1y*vb2x;
-  const double cmag = sqrt(cx*cx + cy*cy + cz*cz);
-  const double dx = (cx*vb3x + cy*vb3y + cz*vb3z)/cmag/b3mag;
+  const KK_FLOAT cx = vb1y*vb2z - vb1z*vb2y;
+  const KK_FLOAT cy = vb1z*vb2x - vb1x*vb2z;
+  const KK_FLOAT cz = vb1x*vb2y - vb1y*vb2x;
+  const KK_FLOAT cmag = sqrt(cx*cx + cy*cy + cz*cz);
+  const KK_FLOAT dx = (cx*vb3x + cy*vb3y + cz*vb3z)/cmag/b3mag;
 
   // error check
 
@@ -253,35 +253,35 @@ void DihedralOPLSKokkos<DeviceType>::operator()(TagDihedralOPLSCompute<NEWTON_BO
   // p = sum (i=1,4) k_i * (1 + (-1)**(i+1)*cos(i*phi) )
   // pd = dp/dc
 
-  double phi = acos(c);
+  KK_FLOAT phi = acos(c);
   if (dx < 0.0) phi *= -1.0;
-  double si = sin(phi);
+  KK_FLOAT si = sin(phi);
   if (fabs(si) < SMALLER) si = SMALLER;
-  const double siinv = 1.0/si;
+  const KK_FLOAT siinv = 1.0/si;
 
-  const double p = d_k1[type]*(1.0 + c) + d_k2[type]*(1.0 - cos(2.0*phi)) +
+  const KK_FLOAT p = d_k1[type]*(1.0 + c) + d_k2[type]*(1.0 - cos(2.0*phi)) +
     d_k3[type]*(1.0 + cos(3.0*phi)) + d_k4[type]*(1.0 - cos(4.0*phi)) ;
-  const double pd = d_k1[type] - 2.0*d_k2[type]*sin(2.0*phi)*siinv +
+  const KK_FLOAT pd = d_k1[type] - 2.0*d_k2[type]*sin(2.0*phi)*siinv +
     3.0*d_k3[type]*sin(3.0*phi)*siinv - 4.0*d_k4[type]*sin(4.0*phi)*siinv;
 
-  double edihedral = 0.0;
+  KK_FLOAT edihedral = 0.0;
   if (eflag) edihedral = p;
 
-  const double a = pd;
+  const KK_FLOAT a = pd;
   c = c * a;
   s12 = s12 * a;
-  const double a11 = c*sb1*s1;
-  const double a22 = -sb2 * (2.0*c0*s12 - c*(s1+s2));
-  const double a33 = c*sb3*s2;
-  const double a12 = -r12c1 * (c1mag*c*s1 + c2mag*s12);
-  const double a13 = -rb1*rb3*s12;
-  const double a23 = r12c2 * (c2mag*c*s2 + c1mag*s12);
+  const KK_FLOAT a11 = c*sb1*s1;
+  const KK_FLOAT a22 = -sb2 * (2.0*c0*s12 - c*(s1+s2));
+  const KK_FLOAT a33 = c*sb3*s2;
+  const KK_FLOAT a12 = -r12c1 * (c1mag*c*s1 + c2mag*s12);
+  const KK_FLOAT a13 = -rb1*rb3*s12;
+  const KK_FLOAT a23 = r12c2 * (c2mag*c*s2 + c1mag*s12);
 
-  const double sx2  = a12*vb1x + a22*vb2x + a23*vb3x;
-  const double sy2  = a12*vb1y + a22*vb2y + a23*vb3y;
-  const double sz2  = a12*vb1z + a22*vb2z + a23*vb3z;
+  const KK_FLOAT sx2  = a12*vb1x + a22*vb2x + a23*vb3x;
+  const KK_FLOAT sy2  = a12*vb1y + a22*vb2y + a23*vb3y;
+  const KK_FLOAT sz2  = a12*vb1z + a22*vb2z + a23*vb3z;
 
-  double f1[3],f2[3],f3[3],f4[3];
+  KK_FLOAT f1[3],f2[3],f3[3],f4[3];
   f1[0] = a11*vb1x + a12*vb2x + a13*vb3x;
   f1[1] = a11*vb1y + a12*vb2y + a13*vb3y;
   f1[2] = a11*vb1z + a12*vb2z + a13*vb3z;
@@ -413,17 +413,17 @@ template<class DeviceType>
 //template<int NEWTON_BOND>
 KOKKOS_INLINE_FUNCTION
 void DihedralOPLSKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4,
-                        double &edihedral, double *f1, double *f3, double *f4,
-                        const double &vb1x, const double &vb1y, const double &vb1z,
-                        const double &vb2x, const double &vb2y, const double &vb2z,
-                        const double &vb3x, const double &vb3y, const double &vb3z) const
+                        KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4,
+                        const KK_FLOAT &vb1x, const KK_FLOAT &vb1y, const KK_FLOAT &vb1z,
+                        const KK_FLOAT &vb2x, const KK_FLOAT &vb2y, const KK_FLOAT &vb2z,
+                        const KK_FLOAT &vb3x, const KK_FLOAT &vb3y, const KK_FLOAT &vb3z) const
 {
-  double edihedralquarter;
-  double v[6];
+  KK_FLOAT edihedralquarter;
+  KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<KK_FLOAT*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
 
   if (eflag_either) {
     if (eflag_global) {

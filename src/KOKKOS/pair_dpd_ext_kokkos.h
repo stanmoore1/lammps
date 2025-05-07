@@ -76,14 +76,14 @@ class PairDPDExtKokkos : public PairDPDExt {
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
-      const double &epair,
-      const double &fx, const double &fy, const double &fz,
-      const double &delx, const double &dely, const double &delz) const;
+      const KK_FLOAT &epair,
+      const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz,
+      const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT &delz) const;
  private:
-  double special_lj[4], special_rf[4];
+  KK_FLOAT special_lj[4], special_rf[4];
   int eflag,vflag;
   int neighflag,nlocal;
-  double dtinvsqrt;
+  KK_FLOAT dtinvsqrt;
 
   int need_dup;
 
@@ -95,12 +95,12 @@ class PairDPDExtKokkos : public PairDPDExt {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
-  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
-  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
-  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
-  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
-  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
+  DupScatterView<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
+  DupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> dup_eatom;
+  DupScatterView<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
+  NonDupScatterView<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
+  NonDupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> ndup_eatom;
+  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
 
 #ifdef DPD_USE_RAN_MARS
   RandPoolWrap rand_pool;

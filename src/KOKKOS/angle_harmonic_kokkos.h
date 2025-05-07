@@ -56,9 +56,9 @@ class AngleHarmonicKokkos : public AngleHarmonic {
   //template<int NEWTON_BOND>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k,
-                     double &eangle, double *f1, double *f3,
-                     const double &delx1, const double &dely1, const double &delz1,
-                     const double &delx2, const double &dely2, const double &delz2) const;
+                     KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3,
+                     const KK_FLOAT &delx1, const KK_FLOAT &dely1, const KK_FLOAT &delz1,
+                     const KK_FLOAT &delx2, const KK_FLOAT &dely2, const KK_FLOAT &delz2) const;
 
   typename AT::tdual_double_1d k_eatom;
   typename AT::tdual_double_1d_6 k_vatom;

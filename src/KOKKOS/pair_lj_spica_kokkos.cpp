@@ -143,18 +143,18 @@ void PairLJSPICAKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJSPICAKokkos<DeviceType>::
-compute_fpair(const double &rsq, const int &, const int &, const int &itype, const int &jtype) const {
-  const double r2inv = 1.0/rsq;
+KK_FLOAT PairLJSPICAKokkos<DeviceType>::
+compute_fpair(const KK_FLOAT &rsq, const int &, const int &, const int &itype, const int &jtype) const {
+  const KK_FLOAT r2inv = 1.0/rsq;
   const int ljt = (STACKPARAMS?m_params[itype][jtype].lj_type:params(itype,jtype).lj_type);
 
-  const double lj_1 =  (STACKPARAMS?m_params[itype][jtype].lj1:params(itype,jtype).lj1);
-  const double lj_2 =  (STACKPARAMS?m_params[itype][jtype].lj2:params(itype,jtype).lj2);
+  const KK_FLOAT lj_1 =  (STACKPARAMS?m_params[itype][jtype].lj1:params(itype,jtype).lj1);
+  const KK_FLOAT lj_2 =  (STACKPARAMS?m_params[itype][jtype].lj2:params(itype,jtype).lj2);
 
-  const double r4inv=r2inv*r2inv;
-  const double r6inv=r2inv*r4inv;
-  const double a = ljt==LJ12_4?r4inv:(ljt==LJ12_5?r4inv*sqrt(r2inv):r6inv);
-  const double b = ljt==LJ12_4?r4inv:(ljt==LJ9_6?1.0/sqrt(r2inv):(ljt==LJ12_5?r2inv*sqrt(r2inv):r2inv));
+  const KK_FLOAT r4inv=r2inv*r2inv;
+  const KK_FLOAT r6inv=r2inv*r4inv;
+  const KK_FLOAT a = ljt==LJ12_4?r4inv:(ljt==LJ12_5?r4inv*sqrt(r2inv):r6inv);
+  const KK_FLOAT b = ljt==LJ12_4?r4inv:(ljt==LJ9_6?1.0/sqrt(r2inv):(ljt==LJ12_5?r2inv*sqrt(r2inv):r2inv));
   return a* ( lj_1*r6inv*b - lj_2 * r2inv);
 }
 
@@ -165,28 +165,28 @@ compute_fpair(const double &rsq, const int &, const int &, const int &itype, con
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
 KOKKOS_INLINE_FUNCTION
-double PairLJSPICAKokkos<DeviceType>::
-compute_evdwl(const double &rsq, const int &, const int &, const int &itype, const int &jtype) const {
-  const double r2inv = 1.0/rsq;
+KK_FLOAT PairLJSPICAKokkos<DeviceType>::
+compute_evdwl(const KK_FLOAT &rsq, const int &, const int &, const int &itype, const int &jtype) const {
+  const KK_FLOAT r2inv = 1.0/rsq;
   const int ljt = (STACKPARAMS?m_params[itype][jtype].lj_type:params(itype,jtype).lj_type);
 
-  const double lj_3 =  (STACKPARAMS?m_params[itype][jtype].lj3:params(itype,jtype).lj3);
-  const double lj_4 =  (STACKPARAMS?m_params[itype][jtype].lj4:params(itype,jtype).lj4);
-  const double offset =  (STACKPARAMS?m_params[itype][jtype].offset:params(itype,jtype).offset);
+  const KK_FLOAT lj_3 =  (STACKPARAMS?m_params[itype][jtype].lj3:params(itype,jtype).lj3);
+  const KK_FLOAT lj_4 =  (STACKPARAMS?m_params[itype][jtype].lj4:params(itype,jtype).lj4);
+  const KK_FLOAT offset =  (STACKPARAMS?m_params[itype][jtype].offset:params(itype,jtype).offset);
 
   if (ljt == LJ12_4) {
-    const double r4inv=r2inv*r2inv;
+    const KK_FLOAT r4inv=r2inv*r2inv;
     return r4inv*(lj_3*r4inv*r4inv - lj_4) - offset;
   } else if (ljt == LJ9_6) {
-    const double r3inv = r2inv*sqrt(r2inv);
-    const double r6inv = r3inv*r3inv;
+    const KK_FLOAT r3inv = r2inv*sqrt(r2inv);
+    const KK_FLOAT r6inv = r3inv*r3inv;
     return r6inv*(lj_3*r3inv - lj_4) - offset;
   } else if (ljt == LJ12_6) {
-    const double r6inv = r2inv*r2inv*r2inv;
+    const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
     return r6inv*(lj_3*r6inv - lj_4) - offset;
   } else if (ljt == LJ12_5) {
-    const double r5inv = r2inv*r2inv*sqrt(r2inv);
-    const double r7inv = r5inv*r2inv;
+    const KK_FLOAT r5inv = r2inv*r2inv*sqrt(r2inv);
+    const KK_FLOAT r7inv = r5inv*r2inv;
     return r5inv*(lj_3*r7inv - lj_4) - offset;
   } else
     return 0.0;

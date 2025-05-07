@@ -122,7 +122,7 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
   void operator()(TagQEqCalculateQ, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  double calculate_H_k(const double &r, const double &shld) const;
+  KK_FLOAT calculate_H_k(const KK_FLOAT &r, const KK_FLOAT &shld) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagQEqPackForwardComm, const int&) const;

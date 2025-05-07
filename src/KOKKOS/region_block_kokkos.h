@@ -52,7 +52,7 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
   void operator()(TagRegBlockMatchAll, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  int match_kokkos(double x, double y, double z) const
+  int match_kokkos(KK_FLOAT x, KK_FLOAT y, KK_FLOAT z) const
   {
     if (dynamic) inverse_transform(x,y,z);
     if (openflag) return 1;
@@ -60,11 +60,11 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
   }
 
   KOKKOS_INLINE_FUNCTION
-  int surface_kokkos(double x, double y, double z, double cutoff)
+  int surface_kokkos(KK_FLOAT x, KK_FLOAT y, KK_FLOAT z, KK_FLOAT cutoff)
   {
     int ncontact;
-    double xs, ys, zs;
-    double xnear[3], xorig[3];
+    KK_FLOAT xs, ys, zs;
+    KK_FLOAT xnear[3], xorig[3];
 
     if (dynamic) {
       xorig[0] = x; xorig[1] = y; xorig[2] = z;
@@ -108,9 +108,9 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
   typename AT::t_int_1d_randomread d_mask;
 
   KOKKOS_INLINE_FUNCTION
-  int surface_interior_kokkos(double *x, double cutoff)
+  int surface_interior_kokkos(KK_FLOAT *x, KK_FLOAT cutoff)
   {
-    double delta;
+    KK_FLOAT delta;
 
     // x is exterior to block
 
@@ -181,10 +181,10 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
   }
 
   KOKKOS_INLINE_FUNCTION
-  int surface_exterior_kokkos(double *x, double cutoff)
+  int surface_exterior_kokkos(KK_FLOAT *x, KK_FLOAT cutoff)
   {
-    double xp, yp, zp;
-    double xc, yc, zc, dist, mindist;
+    KK_FLOAT xp, yp, zp;
+    KK_FLOAT xc, yc, zc, dist, mindist;
 
     // x is far enough from block that there is no contact
     // x is interior to block
@@ -239,11 +239,11 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void add_contact(int n, double *x, double xp, double yp, double zp)
+  void add_contact(int n, KK_FLOAT *x, KK_FLOAT xp, KK_FLOAT yp, KK_FLOAT zp)
   {
-    double delx = x[0] - xp;
-    double dely = x[1] - yp;
-    double delz = x[2] - zp;
+    KK_FLOAT delx = x[0] - xp;
+    KK_FLOAT dely = x[1] - yp;
+    KK_FLOAT delz = x[2] - zp;
     d_contact[n].r = sqrt(delx * delx + dely * dely + delz * delz);
     d_contact[n].radius = 0;
     d_contact[n].delx = delx;
@@ -252,7 +252,7 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
   }
 
   KOKKOS_INLINE_FUNCTION
-  int k_inside(double x, double y, double z) const
+  int k_inside(KK_FLOAT x, KK_FLOAT y, KK_FLOAT z) const
   {
     if (x >= xlo && x <= xhi && y >= ylo && y <= yhi && z >= zlo && z <= zhi)
       return 1;
@@ -260,7 +260,7 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void forward_transform(double &x, double &y, double &z) const
+  void forward_transform(KK_FLOAT &x, KK_FLOAT &y, KK_FLOAT &z) const
   {
     if (rotateflag) rotate(x, y, z, theta);
     if (moveflag) {
@@ -271,7 +271,7 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void inverse_transform(double &x, double &y, double &z) const
+  void inverse_transform(KK_FLOAT &x, KK_FLOAT &y, KK_FLOAT &z) const
   {
     if (moveflag) {
       x -= dx;
@@ -282,16 +282,16 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void rotate(double &x, double &y, double &z, double angle) const
+  void rotate(KK_FLOAT &x, KK_FLOAT &y, KK_FLOAT &z, KK_FLOAT angle) const
   {
-    double a[3],b[3],c[3],d[3],disp[3];
+    KK_FLOAT a[3],b[3],c[3],d[3],disp[3];
 
-    double sine = sin(angle);
-    double cosine = cos(angle);
+    KK_FLOAT sine = sin(angle);
+    KK_FLOAT cosine = cos(angle);
     d[0] = x - point[0];
     d[1] = y - point[1];
     d[2] = z - point[2];
-    double x0dotr = d[0]*runit[0] + d[1]*runit[1] + d[2]*runit[2];
+    KK_FLOAT x0dotr = d[0]*runit[0] + d[1]*runit[1] + d[2]*runit[2];
     c[0] = x0dotr * runit[0];
     c[1] = x0dotr * runit[1];
     c[2] = x0dotr * runit[2];
@@ -310,13 +310,13 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void point_on_line_segment(double *a, double *b, double *c, double *d)
+  void point_on_line_segment(KK_FLOAT *a, KK_FLOAT *b, KK_FLOAT *c, KK_FLOAT *d)
   {
-    double ba[3], ca[3];
+    KK_FLOAT ba[3], ca[3];
 
     sub3(b, a, ba);
     sub3(c, a, ca);
-    double t = dot3(ca, ba) / dot3(ba, ba);
+    KK_FLOAT t = dot3(ca, ba) / dot3(ba, ba);
     if (t <= 0.0) {
       d[0] = a[0];
       d[1] = a[1];
@@ -333,7 +333,7 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
   }
 
   KOKKOS_INLINE_FUNCTION
-  double inside_face(double *xproj, int iface)
+  KK_FLOAT inside_face(KK_FLOAT *xproj, int iface)
   {
     if (iface < 2) {
       if (xproj[1] > 0 && (xproj[1] < yhi - ylo) && xproj[2] > 0 && (xproj[2] < zhi - zlo)) return 1;
@@ -348,10 +348,10 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
   }
 
   KOKKOS_INLINE_FUNCTION
-  double find_closest_point(int i, double *x, double &xc, double &yc, double &zc)
+  KK_FLOAT find_closest_point(int i, KK_FLOAT *x, KK_FLOAT &xc, KK_FLOAT &yc, KK_FLOAT &zc)
   {
-    double dot, d2, d2min;
-    double xr[3], xproj[3], p[3];
+    KK_FLOAT dot, d2, d2min;
+    KK_FLOAT xr[3], xproj[3], p[3];
 
     xr[0] = x[0] - corners[i][0][0];
     xr[1] = x[1] - corners[i][0][1];

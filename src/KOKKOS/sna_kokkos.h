@@ -185,7 +185,7 @@ class SNAKokkos {
   inline
   void init();            //
 
-  double memory_usage();
+  KK_FLOAT memory_usage();
 
   int ncoeff;
 
@@ -271,7 +271,7 @@ class SNAKokkos {
   void compute_s_dsfac(const real_type, const real_type, const real_type, const real_type, real_type&, real_type&) const; // compute_cayley_klein
 
 #ifdef TIMING_INFO
-  double* timers;
+  KK_FLOAT* timers;
   timespec starttime, endtime;
   int print;
   int counter;
@@ -373,7 +373,7 @@ class SNAKokkos {
   void init_rootpqarray();    // init()
 
   inline
-  double deltacg(int, int, int);  // init_clebsch_gordan
+  KK_FLOAT deltacg(int, int, int);  // init_clebsch_gordan
 
   inline
   int compute_ncoeff();           // SNAKokkos()

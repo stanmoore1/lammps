@@ -581,9 +581,9 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_h_item(int ii, bigint &m_fill, co
 
   if (mask[i] & groupbit) {
 
-    const double xtmp = x(i,0);
-    const double ytmp = x(i,1);
-    const double ztmp = x(i,2);
+    const KK_FLOAT xtmp = x(i,0);
+    const KK_FLOAT ytmp = x(i,1);
+    const KK_FLOAT ztmp = x(i,2);
     const int itype = type(i);
     const tagint itag = tag(i);
     const int jnum = d_numneigh[i];
@@ -595,9 +595,9 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_h_item(int ii, bigint &m_fill, co
       j &= NEIGHMASK;
       jtype = type(j);
 
-      const double delx = x(j,0) - xtmp;
-      const double dely = x(j,1) - ytmp;
-      const double delz = x(j,2) - ztmp;
+      const KK_FLOAT delx = x(j,0) - xtmp;
+      const KK_FLOAT dely = x(j,1) - ytmp;
+      const KK_FLOAT delz = x(j,2) - ztmp;
 
       if (NEIGHFLAG != FULL) {
         // skip half of the interactions
@@ -615,13 +615,13 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_h_item(int ii, bigint &m_fill, co
         }
       }
 
-      const double rsq = delx*delx + dely*dely + delz*delz;
+      const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
       if (rsq > cutsq) continue;
 
       if (final) {
-        const double r = sqrt(rsq);
+        const KK_FLOAT r = sqrt(rsq);
         d_jlist(m_fill) = j;
-        const double shldij = d_shield(itype,jtype);
+        const KK_FLOAT shldij = d_shield(itype,jtype);
         d_val(m_fill) = calculate_H_k(r,shldij);
       }
       m_fill++;
@@ -663,7 +663,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_h_team(
   Kokkos::View<int **, Kokkos::ScratchMemorySpace<DeviceType>,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>>
       s_jlist(team.team_shmem(), atoms_per_team, vector_length);
-  Kokkos::View<double **, Kokkos::ScratchMemorySpace<DeviceType>,
+  Kokkos::View<KK_FLOAT **, Kokkos::ScratchMemorySpace<DeviceType>,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>>
       s_r(team.team_shmem(), atoms_per_team, vector_length);
 
@@ -726,9 +726,9 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_h_team(
           const int i = s_ilist[idx];
 
           if (mask[i] & groupbit) {
-            const double xtmp = x(i, 0);
-            const double ytmp = x(i, 1);
-            const double ztmp = x(i, 2);
+            const KK_FLOAT xtmp = x(i, 0);
+            const KK_FLOAT ytmp = x(i, 1);
+            const KK_FLOAT ztmp = x(i, 2);
             const int itype = type(i);
             tagint itag = tag(i);
             int jnum = s_numnbrs[idx];
@@ -769,9 +769,9 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_h_team(
                       j &= NEIGHMASK;
                       const int jtype = type(j);
 
-                      const double delx = x(j, 0) - xtmp;
-                      const double dely = x(j, 1) - ytmp;
-                      const double delz = x(j, 2) - ztmp;
+                      const KK_FLOAT delx = x(j, 0) - xtmp;
+                      const KK_FLOAT dely = x(j, 1) - ytmp;
+                      const KK_FLOAT delz = x(j, 2) - ztmp;
 
                       // valid nbr interaction
                       bool valid = true;
@@ -797,7 +797,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_h_team(
                         }
                       }
 
-                      const double rsq =
+                      const KK_FLOAT rsq =
                           delx * delx + dely * dely + delz * delz;
                       if (rsq > cutsq)
                         valid = false;
@@ -820,8 +820,8 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_h_team(
                     if (final) {
                       if (j != -1) {
                         const int jtype = s_jtype(team.team_rank(), idx);
-                        const double r = s_r(team.team_rank(), idx);
-                        const double shldij = d_shield(itype, jtype);
+                        const KK_FLOAT r = s_r(team.team_rank(), idx);
+                        const KK_FLOAT shldij = d_shield(itype, jtype);
 
                         d_jlist[atomi_nbr_writeIdx + m_fill] = j;
                         d_val[atomi_nbr_writeIdx + m_fill] =
@@ -847,9 +847,9 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_h_team(
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixACKS2ReaxFFKokkos<DeviceType>::calculate_H_k(const double &r, const double &shld) const
+KK_FLOAT FixACKS2ReaxFFKokkos<DeviceType>::calculate_H_k(const KK_FLOAT &r, const KK_FLOAT &shld) const
 {
-  double taper, denom;
+  KK_FLOAT taper, denom;
 
   taper = d_tap[7] * r + d_tap[6];
   taper = taper * r + d_tap[5];
@@ -878,13 +878,13 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_x_item(int ii, bigint &m_fill, co
 
   const int i = d_ilist[ii];
   int j,jj,jtype;
-  double tmp = 0.0;
+  KK_FLOAT tmp = 0.0;
 
   if (mask[i] & groupbit) {
 
-    const double xtmp = x(i,0);
-    const double ytmp = x(i,1);
-    const double ztmp = x(i,2);
+    const KK_FLOAT xtmp = x(i,0);
+    const KK_FLOAT ytmp = x(i,1);
+    const KK_FLOAT ztmp = x(i,2);
     const int itype = type(i);
     const tagint itag = tag(i);
     const int jnum = d_numneigh[i];
@@ -896,9 +896,9 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_x_item(int ii, bigint &m_fill, co
       j &= NEIGHMASK;
       jtype = type(j);
 
-      const double delx = x(j,0) - xtmp;
-      const double dely = x(j,1) - ytmp;
-      const double delz = x(j,2) - ztmp;
+      const KK_FLOAT delx = x(j,0) - xtmp;
+      const KK_FLOAT dely = x(j,1) - ytmp;
+      const KK_FLOAT delz = x(j,2) - ztmp;
 
       if (NEIGHFLAG != FULL) {
         // skip half of the interactions
@@ -916,17 +916,17 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_x_item(int ii, bigint &m_fill, co
         }
       }
 
-      const double rsq = delx*delx + dely*dely + delz*delz;
+      const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
       if (rsq > cutsq) continue;
 
-      const double bcutoff = d_bcut(itype,jtype);
-      const double bcutoff2 = bcutoff*bcutoff;
+      const KK_FLOAT bcutoff = d_bcut(itype,jtype);
+      const KK_FLOAT bcutoff2 = bcutoff*bcutoff;
       if (rsq > bcutoff2) continue;
 
       if (final) {
-        const double r = sqrt(rsq);
+        const KK_FLOAT r = sqrt(rsq);
         d_jlist_X(m_fill) = j;
-        const double X_val = calculate_X_k(r,bcutoff);
+        const KK_FLOAT X_val = calculate_X_k(r,bcutoff);
         d_val_X(m_fill) = X_val;
         tmp -= X_val;
         if (NEIGHFLAG != FULL)
@@ -971,7 +971,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_x_team(
   Kokkos::View<int **, Kokkos::ScratchMemorySpace<DeviceType>,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>>
       s_jlist(team.team_shmem(), atoms_per_team, vector_length);
-  Kokkos::View<double **, Kokkos::ScratchMemorySpace<DeviceType>,
+  Kokkos::View<KK_FLOAT **, Kokkos::ScratchMemorySpace<DeviceType>,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>>
       s_r(team.team_shmem(), atoms_per_team, vector_length);
 
@@ -1034,9 +1034,9 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_x_team(
           const int i = s_ilist[idx];
 
           if (mask[i] & groupbit) {
-            const double xtmp = x(i, 0);
-            const double ytmp = x(i, 1);
-            const double ztmp = x(i, 2);
+            const KK_FLOAT xtmp = x(i, 0);
+            const KK_FLOAT ytmp = x(i, 1);
+            const KK_FLOAT ztmp = x(i, 2);
             const int itype = type(i);
             tagint itag = tag(i);
             int jnum = s_numnbrs[idx];
@@ -1077,9 +1077,9 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_x_team(
                       j &= NEIGHMASK;
                       const int jtype = type(j);
 
-                      const double delx = x(j, 0) - xtmp;
-                      const double dely = x(j, 1) - ytmp;
-                      const double delz = x(j, 2) - ztmp;
+                      const KK_FLOAT delx = x(j, 0) - xtmp;
+                      const KK_FLOAT dely = x(j, 1) - ytmp;
+                      const KK_FLOAT delz = x(j, 2) - ztmp;
 
                       // valid nbr interaction
                       bool valid = true;
@@ -1105,13 +1105,13 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_x_team(
                         }
                       }
 
-                      const double rsq =
+                      const KK_FLOAT rsq =
                           delx * delx + dely * dely + delz * delz;
                       if (rsq > cutsq)
                         valid = false;
 
-                       const double bcutoff = d_bcut(itype,jtype);
-                       const double bcutoff2 = bcutoff*bcutoff;
+                       const KK_FLOAT bcutoff = d_bcut(itype,jtype);
+                       const KK_FLOAT bcutoff2 = bcutoff*bcutoff;
                        if (rsq > bcutoff2)
                          valid = false;
 
@@ -1133,11 +1133,11 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_x_team(
                     if (final) {
                       if (j != -1) {
                         const int jtype = s_jtype(team.team_rank(), idx);
-                        const double r = s_r(team.team_rank(), idx);
-                        const double bcutoff = d_bcut(itype, jtype);
+                        const KK_FLOAT r = s_r(team.team_rank(), idx);
+                        const KK_FLOAT bcutoff = d_bcut(itype, jtype);
 
                         d_jlist_X[atomi_nbr_writeIdx + m_fill] = j;
-                        const double X_val = calculate_X_k(r, bcutoff);
+                        const KK_FLOAT X_val = calculate_X_k(r, bcutoff);
                         d_val_X[atomi_nbr_writeIdx + m_fill] =
                             X_val;
                         a_X_diag[i] -= X_val;
@@ -1164,13 +1164,13 @@ void FixACKS2ReaxFFKokkos<DeviceType>::compute_x_team(
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixACKS2ReaxFFKokkos<DeviceType>::calculate_X_k( const double &r, const double &bcut) const
+KK_FLOAT FixACKS2ReaxFFKokkos<DeviceType>::calculate_X_k( const KK_FLOAT &r, const KK_FLOAT &bcut) const
 {
-  const double d = r/bcut;
-  const double d3 = d*d*d;
-  const double omd = 1.0 - d;
-  const double omd2 = omd*omd;
-  const double omd6 = omd2*omd2*omd2;
+  const KK_FLOAT d = r/bcut;
+  const KK_FLOAT d3 = d*d*d;
+  const KK_FLOAT omd = 1.0 - d;
+  const KK_FLOAT omd2 = omd*omd;
+  const KK_FLOAT omd6 = omd2*omd2*omd2;
 
   return bond_softness*d3*omd6;
 }
@@ -1470,7 +1470,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2SparseMatvec3_Half<NE
 
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
-    double tmp = 0.0;
+    KK_FLOAT tmp = 0.0;
 
     // H Matrix
     for (bigint jj = d_firstnbr[i]; jj < d_firstnbr[i] + d_numnbrs[i]; jj++) {
@@ -1511,16 +1511,16 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2SparseMatvec3_Full, c
 {
   int i = d_ilist[team.league_rank()];
   if (mask[i] & groupbit) {
-    double sum;
-    double sum2;
+    KK_FLOAT sum;
+    KK_FLOAT sum2;
 
-    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, d_firstnbr[i], d_firstnbr[i] + d_numnbrs[i]), [&] (const bigint &jj, double &sum) {
+    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, d_firstnbr[i], d_firstnbr[i] + d_numnbrs[i]), [&] (const bigint &jj, KK_FLOAT &sum) {
       const int j = d_jlist(jj);
       sum += d_val(jj) * d_xx[j];
     }, sum);
     team.team_barrier();
 
-    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, d_firstnbr_X[i], d_firstnbr_X[i] + d_numnbrs_X[i]), [&] (const bigint &jj, double &sum2) {
+    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, d_firstnbr_X[i], d_firstnbr_X[i] + d_numnbrs_X[i]), [&] (const bigint &jj, KK_FLOAT &sum2) {
       const int j = d_jlist_X(jj);
       sum2 += d_val_X(jj) * d_xx[NN + j];
     }, sum2);
@@ -1548,7 +1548,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2SparseMatvec3_Full, c
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm1, const int &ii, double &lsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm1, const int &ii, KK_FLOAT &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1573,7 +1573,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm1, const int &ii,
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm2, const int &ii, double &lsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm2, const int &ii, KK_FLOAT &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1592,7 +1592,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm2, const int &ii,
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot1, const int &ii, double &lsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot1, const int &ii, KK_FLOAT &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1667,7 +1667,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Precon1B, const int &
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot2, const int &ii, double &lsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot2, const int &ii, KK_FLOAT &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1686,7 +1686,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot2, const int &ii, 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot3, const int &ii, double &lsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot3, const int &ii, KK_FLOAT &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1711,7 +1711,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot3, const int &ii, 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot4, const int &ii, double &lsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot4, const int &ii, KK_FLOAT &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1730,7 +1730,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot4, const int &ii, 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot5, const int &ii, double &lsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot5, const int &ii, KK_FLOAT &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1787,7 +1787,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Precon2, const int &i
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm3, const int &ii, double &lsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm3, const int &ii, KK_FLOAT &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {

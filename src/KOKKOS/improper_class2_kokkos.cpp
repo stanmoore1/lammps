@@ -191,29 +191,29 @@ KOKKOS_INLINE_FUNCTION
 void ImproperClass2Kokkos<DeviceType>::operator()(TagImproperClass2Compute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
 
   // The f array is atomic
-  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
 
   int i, j, k;
-  double delr[3][3],rmag[3],rinvmag[3],rmag2[3];
-  double theta[3],costheta[3],sintheta[3];
-  double cossqtheta[3],sinsqtheta[3],invstheta[3];
-  double rABxrCB[3],rDBxrAB[3],rCBxrDB[3];
-  double ddelr[3][4],dr[3][4][3],dinvr[3][4][3];
-  double dthetadr[3][4][3],dinvsth[3][4][3];
-  double dinv3r[4][3],dinvs3r[3][4][3];
-  double drCBxrDB[3],rCBxdrDB[3],drDBxrAB[3],rDBxdrAB[3];
-  double drABxrCB[3],rABxdrCB[3];
-  double dot1,dot2,dd[3];
-  double fdot[3][4][3],ftmp,invs3r[3],inv3r;
-  double drAB[3][4][3],drCB[3][4][3],drDB[3][4][3];
-  double dchi[3][4][3],dtotalchi[4][3];
-  double fabcd[4][3];
+  KK_FLOAT delr[3][3],rmag[3],rinvmag[3],rmag2[3];
+  KK_FLOAT theta[3],costheta[3],sintheta[3];
+  KK_FLOAT cossqtheta[3],sinsqtheta[3],invstheta[3];
+  KK_FLOAT rABxrCB[3],rDBxrAB[3],rCBxrDB[3];
+  KK_FLOAT ddelr[3][4],dr[3][4][3],dinvr[3][4][3];
+  KK_FLOAT dthetadr[3][4][3],dinvsth[3][4][3];
+  KK_FLOAT dinv3r[4][3],dinvs3r[3][4][3];
+  KK_FLOAT drCBxrDB[3],rCBxdrDB[3],drDBxrAB[3],rDBxdrAB[3];
+  KK_FLOAT drABxrCB[3],rABxdrCB[3];
+  KK_FLOAT dot1,dot2,dd[3];
+  KK_FLOAT fdot[3][4][3],ftmp,invs3r[3],inv3r;
+  KK_FLOAT drAB[3][4][3],drCB[3][4][3],drDB[3][4][3];
+  KK_FLOAT dchi[3][4][3],dtotalchi[4][3];
+  KK_FLOAT fabcd[4][3];
 
-  double t,tt1,tt3,sc1;
-  double dotCBDBAB,dotDBABCB,dotABCBDB;
-  double schiABCD,chiABCD,schiCBDA,chiCBDA,schiDBAC,chiDBAC;
-  double chi,deltachi,d2chi,cossin2;
-  double eimproper;
+  KK_FLOAT t,tt1,tt3,sc1;
+  KK_FLOAT dotCBDBAB,dotDBABCB,dotABCBDB;
+  KK_FLOAT schiABCD,chiABCD,schiCBDA,chiCBDA,schiDBAC,chiDBAC;
+  KK_FLOAT chi,deltachi,d2chi,cossin2;
+  KK_FLOAT eimproper;
 
   const int i1 = improperlist(n,0);
   const int i2 = improperlist(n,1);
@@ -265,16 +265,16 @@ void ImproperClass2Kokkos<DeviceType>::operator()(TagImproperClass2Compute<NEWTO
 
     // sin and cos of improper
 
-    double s1 = 1.0 - costheta[1]*costheta[1];
+    KK_FLOAT s1 = 1.0 - costheta[1]*costheta[1];
     if (s1 < SMALL) s1 = SMALL;
     s1 = 1.0 / s1;
 
-    double s2 = 1.0 - costheta[2]*costheta[2];
+    KK_FLOAT s2 = 1.0 - costheta[2]*costheta[2];
     if (s2 < SMALL) s2 = SMALL;
     s2 = 1.0 / s2;
 
-    double s12 = sqrt(s1*s2);
-    double c = (costheta[1]*costheta[2] + costheta[0]) * s12;
+    KK_FLOAT s12 = sqrt(s1*s2);
+    KK_FLOAT c = (costheta[1]*costheta[2] + costheta[0]) * s12;
 
     // error check
 
@@ -288,7 +288,7 @@ void ImproperClass2Kokkos<DeviceType>::operator()(TagImproperClass2Compute<NEWTO
     if (c > 1.0) c = 1.0;
     if (c < -1.0) c = -1.0;
 
-    double s = sqrt(1.0 - c*c);
+    KK_FLOAT s = sqrt(1.0 - c*c);
     if (s < SMALL) s = SMALL;
 
     for (i = 0; i < 3; i++) {
@@ -603,7 +603,7 @@ void ImproperClass2Kokkos<DeviceType>::operator()(TagImproperClass2Compute<NEWTO
 
     // apply force to each of 4 atoms
 
-    double f1[3],f2[3],f3[3],f4[3];
+    KK_FLOAT f1[3],f2[3],f3[3],f4[3];
 
     for (i = 0; i < 3; i++) {
       f1[i] = fabcd[0][i];
@@ -663,17 +663,17 @@ KOKKOS_INLINE_FUNCTION
 void ImproperClass2Kokkos<DeviceType>::operator()(TagImproperClass2AngleAngle<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
 
   // The f array is atomic
-  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
 
   int i,j,k;
-  double eimproper;
-  double delxAB,delyAB,delzAB,rABmag2,rAB;
-  double delxBC,delyBC,delzBC,rBCmag2,rBC;
-  double delxBD,delyBD,delzBD,rBDmag2,rBD;
-  double costhABC,thetaABC,costhABD;
-  double thetaABD,costhCBD,thetaCBD,dthABC,dthCBD,dthABD;
-  double sc1,t1,t3,r12;
-  double dthetadr[3][4][3],fabcd[4][3];
+  KK_FLOAT eimproper;
+  KK_FLOAT delxAB,delyAB,delzAB,rABmag2,rAB;
+  KK_FLOAT delxBC,delyBC,delzBC,rBCmag2,rBC;
+  KK_FLOAT delxBD,delyBD,delzBD,rBDmag2,rBD;
+  KK_FLOAT costhABC,thetaABC,costhABD;
+  KK_FLOAT thetaABD,costhCBD,thetaCBD,dthABC,dthCBD,dthABD;
+  KK_FLOAT sc1,t1,t3,r12;
+  KK_FLOAT dthetadr[3][4][3],fabcd[4][3];
 
   const int i1 = improperlist(n,0);
   const int i2 = improperlist(n,1);
@@ -811,7 +811,7 @@ void ImproperClass2Kokkos<DeviceType>::operator()(TagImproperClass2AngleAngle<NE
 
     // apply force to each of 4 atoms
 
-    double f1[3],f2[3],f3[3],f4[3];
+    KK_FLOAT f1[3],f2[3],f3[3],f4[3];
 
     for (i = 0; i < 3; i++) {
       f1[i] = fabcd[0][i];
@@ -1004,17 +1004,17 @@ template<class DeviceType>
 //template<int NEWTON_BOND>
 KOKKOS_INLINE_FUNCTION
 void ImproperClass2Kokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4,
-                        double &eimproper, double *f1, double *f3, double *f4,
-                        const double &vb1x, const double &vb1y, const double &vb1z,
-                        const double &vb2x, const double &vb2y, const double &vb2z,
-                        const double &vb3x, const double &vb3y, const double &vb3z) const
+                        KK_FLOAT &eimproper, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4,
+                        const KK_FLOAT &vb1x, const KK_FLOAT &vb1y, const KK_FLOAT &vb1z,
+                        const KK_FLOAT &vb2x, const KK_FLOAT &vb2y, const KK_FLOAT &vb2z,
+                        const KK_FLOAT &vb3x, const KK_FLOAT &vb3y, const KK_FLOAT &vb3z) const
 {
-  double eimproperquarter;
-  double v[6];
+  KK_FLOAT eimproperquarter;
+  KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<KK_FLOAT*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
 
   if (eflag_either) {
     if (eflag_global) {

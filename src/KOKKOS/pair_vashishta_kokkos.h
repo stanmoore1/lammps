@@ -84,19 +84,19 @@ class PairVashishtaKokkos : public PairVashishta {
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const double &epair, const double &fpair, const double &delx,
-                  const double &dely, const double &delz) const;
+      const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx,
+                  const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void ev_tally3(EV_FLOAT &ev, const int &i, const int &j, int &k,
-            const double &evdwl, const double &ecoul,
-                       double *fj, double *fk, double *drji, double *drki) const;
+            const KK_FLOAT &evdwl, const KK_FLOAT &ecoul,
+                       KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const;
 
   KOKKOS_INLINE_FUNCTION
   void ev_tally3_atom(EV_FLOAT &ev, const int &i,
-            const double &evdwl, const double &ecoul,
-                       double *fj, double *fk, double *drji, double *drki) const;
+            const KK_FLOAT &evdwl, const KK_FLOAT &ecoul,
+                       KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const;
 
  protected:
   typedef Kokkos::DualView<int***,DeviceType> tdual_int_3d;
@@ -115,15 +115,15 @@ class PairVashishtaKokkos : public PairVashishta {
   void setup_params() override;
 
   KOKKOS_INLINE_FUNCTION
-  void twobody(const Param&, const double&, double&, const int&, double&) const;
+  void twobody(const Param&, const KK_FLOAT&, KK_FLOAT&, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void threebody(const Param&, const Param&, const Param&, const double&, const double&, double *, double *,
-                 double *, double *, const int&, double&) const;
+  void threebody(const Param&, const Param&, const Param&, const KK_FLOAT&, const KK_FLOAT&, KK_FLOAT *, KK_FLOAT *,
+                 KK_FLOAT *, KK_FLOAT *, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void threebodyj(const Param&, const Param&, const Param&, const double&, const double&, double *, double *,
-                 double *) const;
+  void threebodyj(const Param&, const Param&, const Param&, const KK_FLOAT&, const KK_FLOAT&, KK_FLOAT *, KK_FLOAT *,
+                 KK_FLOAT *) const;
 
   typename AT::t_double_1d_3_randomread x;
   typename AT::t_double_1d_3 f;

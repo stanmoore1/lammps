@@ -68,12 +68,12 @@ class DomainKokkos : public Domain {
   void operator()(TagDomain_x2lamda_group, const int&) const;
 
   static KOKKOS_INLINE_FUNCTION
-  Few<double,3> unmap(Few<double,3> prd, Few<double,6> h, int triclinic,
-      Few<double,3> x, imageint image);
+  Few<KK_FLOAT,3> unmap(Few<KK_FLOAT,3> prd, Few<KK_FLOAT,6> h, int triclinic,
+      Few<KK_FLOAT,3> x, imageint image);
 
  private:
   int groupbit;
-  double lo[3],hi[3],period[3];
+  KK_FLOAT lo[3],hi[3],period[3];
   int n_flip, m_flip, p_flip;
   ArrayTypes<LMPDeviceType>::t_double_1d_3 x;
   ArrayTypes<LMPDeviceType>::t_imageint_1d image;
@@ -81,13 +81,13 @@ class DomainKokkos : public Domain {
 };
 
 KOKKOS_INLINE_FUNCTION
-Few<double,3> DomainKokkos::unmap(Few<double,3> prd, Few<double,6> h,
-    int triclinic, Few<double,3> x, imageint image)
+Few<KK_FLOAT,3> DomainKokkos::unmap(Few<KK_FLOAT,3> prd, Few<KK_FLOAT,6> h,
+    int triclinic, Few<KK_FLOAT,3> x, imageint image)
 {
   int xbox = (image & IMGMASK) - IMGMAX;
   int ybox = (image >> IMGBITS & IMGMASK) - IMGMAX;
   int zbox = (image >> IMG2BITS) - IMGMAX;
-  Few<double,3> y;
+  Few<KK_FLOAT,3> y;
   if (triclinic == 0) {
     y[0] = x[0] + xbox*prd[0];
     y[1] = x[1] + ybox*prd[1];

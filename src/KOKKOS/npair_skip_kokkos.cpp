@@ -111,7 +111,7 @@ void NPairSkipKokkos<DeviceType,TRIM>::operator()(TagNPairSkipCompute, const int
   const int i = d_ilist_skip(ii);
   const int itype = type(i);
 
-  double xtmp,ytmp,ztmp;
+  KK_FLOAT xtmp,ytmp,ztmp;
   if (TRIM) {
     xtmp = x(i,0);
     ytmp = x(i,1);
@@ -136,10 +136,10 @@ void NPairSkipKokkos<DeviceType,TRIM>::operator()(TagNPairSkipCompute, const int
         if (d_ijskip(itype,type(j))) continue;
 
         if (TRIM) {
-          const double delx = xtmp - x(j,0);
-          const double dely = ytmp - x(j,1);
-          const double delz = ztmp - x(j,2);
-          const double rsq = delx*delx + dely*dely + delz*delz;
+          const KK_FLOAT delx = xtmp - x(j,0);
+          const KK_FLOAT dely = ytmp - x(j,1);
+          const KK_FLOAT delz = ztmp - x(j,2);
+          const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
           if (rsq > cutsq_custom) continue;
         }
 

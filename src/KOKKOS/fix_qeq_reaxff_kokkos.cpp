@@ -413,9 +413,9 @@ void FixQEqReaxFFKokkos<DeviceType>::compute_h_item(int ii, bigint &m_fill, cons
 
   if (mask[i] & groupbit) {
 
-    const double xtmp = x(i,0);
-    const double ytmp = x(i,1);
-    const double ztmp = x(i,2);
+    const KK_FLOAT xtmp = x(i,0);
+    const KK_FLOAT ytmp = x(i,1);
+    const KK_FLOAT ztmp = x(i,2);
     const int itype = type(i);
     const tagint itag = tag(i);
     const int jnum = d_numneigh[i];
@@ -427,9 +427,9 @@ void FixQEqReaxFFKokkos<DeviceType>::compute_h_item(int ii, bigint &m_fill, cons
       j &= NEIGHMASK;
       jtype = type(j);
 
-      const double delx = x(j,0) - xtmp;
-      const double dely = x(j,1) - ytmp;
-      const double delz = x(j,2) - ztmp;
+      const KK_FLOAT delx = x(j,0) - xtmp;
+      const KK_FLOAT dely = x(j,1) - ytmp;
+      const KK_FLOAT delz = x(j,2) - ztmp;
 
       if (NEIGHFLAG != FULL) {
         // skip half of the interactions
@@ -447,13 +447,13 @@ void FixQEqReaxFFKokkos<DeviceType>::compute_h_item(int ii, bigint &m_fill, cons
         }
       }
 
-      const double rsq = delx*delx + dely*dely + delz*delz;
+      const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
       if (rsq > cutsq) continue;
 
       if (final) {
-        const double r = sqrt(rsq);
+        const KK_FLOAT r = sqrt(rsq);
         d_jlist(m_fill) = j;
-        const double shldij = d_shield(itype,jtype);
+        const KK_FLOAT shldij = d_shield(itype,jtype);
         d_val(m_fill) = calculate_H_k(r,shldij);
       }
       m_fill++;
@@ -495,7 +495,7 @@ void FixQEqReaxFFKokkos<DeviceType>::compute_h_team(
   Kokkos::View<int **, Kokkos::ScratchMemorySpace<DeviceType>,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>>
       s_jlist(team.team_shmem(), atoms_per_team, vector_length);
-  Kokkos::View<double **, Kokkos::ScratchMemorySpace<DeviceType>,
+  Kokkos::View<KK_FLOAT **, Kokkos::ScratchMemorySpace<DeviceType>,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>>
       s_r(team.team_shmem(), atoms_per_team, vector_length);
 
@@ -558,9 +558,9 @@ void FixQEqReaxFFKokkos<DeviceType>::compute_h_team(
           const int i = s_ilist[idx];
 
           if (mask[i] & groupbit) {
-            const double xtmp = x(i, 0);
-            const double ytmp = x(i, 1);
-            const double ztmp = x(i, 2);
+            const KK_FLOAT xtmp = x(i, 0);
+            const KK_FLOAT ytmp = x(i, 1);
+            const KK_FLOAT ztmp = x(i, 2);
             const int itype = type(i);
             tagint itag = tag(i); // removed "const" to work around GCC 7 bug
             int jnum = s_numnbrs[idx]; // removed "const" to work around GCC 7 bug
@@ -601,9 +601,9 @@ void FixQEqReaxFFKokkos<DeviceType>::compute_h_team(
                       j &= NEIGHMASK;
                       const int jtype = type(j);
 
-                      const double delx = x(j, 0) - xtmp;
-                      const double dely = x(j, 1) - ytmp;
-                      const double delz = x(j, 2) - ztmp;
+                      const KK_FLOAT delx = x(j, 0) - xtmp;
+                      const KK_FLOAT dely = x(j, 1) - ytmp;
+                      const KK_FLOAT delz = x(j, 2) - ztmp;
 
                       // valid nbr interaction
                       bool valid = true;
@@ -629,7 +629,7 @@ void FixQEqReaxFFKokkos<DeviceType>::compute_h_team(
                         }
                       }
 
-                      const double rsq =
+                      const KK_FLOAT rsq =
                           delx * delx + dely * dely + delz * delz;
                       if (rsq > cutsq)
                         valid = false;
@@ -652,8 +652,8 @@ void FixQEqReaxFFKokkos<DeviceType>::compute_h_team(
                     if (final) {
                       if (j != -1) {
                         const int jtype = s_jtype(team.team_rank(), idx);
-                        const double r = s_r(team.team_rank(), idx);
-                        const double shldij = d_shield(itype, jtype);
+                        const KK_FLOAT r = s_r(team.team_rank(), idx);
+                        const KK_FLOAT shldij = d_shield(itype, jtype);
 
                         d_jlist[atomi_nbr_writeIdx + m_fill] = j;
                         d_val[atomi_nbr_writeIdx + m_fill] =
@@ -679,9 +679,9 @@ void FixQEqReaxFFKokkos<DeviceType>::compute_h_team(
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixQEqReaxFFKokkos<DeviceType>::calculate_H_k(const double &r, const double &shld) const
+KK_FLOAT FixQEqReaxFFKokkos<DeviceType>::calculate_H_k(const KK_FLOAT &r, const KK_FLOAT &shld) const
 {
-  double taper, denom;
+  KK_FLOAT taper, denom;
 
   taper = d_tap[7] * r + d_tap[6];
   taper = taper * r + d_tap[5];
@@ -933,8 +933,8 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqSparseMatvec2_Half<NEIGHFL
     const int i = d_ilist[k];
     if (mask[i] & groupbit) {
       KK_FLOAT2 doitmp;
-      const double d_xx_i0 = d_xx(i,0);
-      const double d_xx_i1 = d_xx(i,1);
+      const KK_FLOAT d_xx_i0 = d_xx(i,0);
+      const KK_FLOAT d_xx_i1 = d_xx(i,1);
 
       Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, d_firstnbr[i], d_firstnbr[i] + d_numnbrs[i]), [&] (const bigint &jj, KK_FLOAT2& doi) {
         const int j = d_jlist(jj);

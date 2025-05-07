@@ -149,67 +149,67 @@ void AngleCharmmKokkos<DeviceType>::operator()(TagAngleCharmmCompute<NEWTON_BOND
 
   // 1st bond
 
-  const double delx1 = x(i1,0) - x(i2,0);
-  const double dely1 = x(i1,1) - x(i2,1);
-  const double delz1 = x(i1,2) - x(i2,2);
+  const KK_FLOAT delx1 = x(i1,0) - x(i2,0);
+  const KK_FLOAT dely1 = x(i1,1) - x(i2,1);
+  const KK_FLOAT delz1 = x(i1,2) - x(i2,2);
 
-  const double rsq1 = delx1*delx1 + dely1*dely1 + delz1*delz1;
-  const double r1 = sqrt(rsq1);
+  const KK_FLOAT rsq1 = delx1*delx1 + dely1*dely1 + delz1*delz1;
+  const KK_FLOAT r1 = sqrt(rsq1);
 
   // 2nd bond
 
-  const double delx2 = x(i3,0) - x(i2,0);
-  const double dely2 = x(i3,1) - x(i2,1);
-  const double delz2 = x(i3,2) - x(i2,2);
+  const KK_FLOAT delx2 = x(i3,0) - x(i2,0);
+  const KK_FLOAT dely2 = x(i3,1) - x(i2,1);
+  const KK_FLOAT delz2 = x(i3,2) - x(i2,2);
 
-  const double rsq2 = delx2*delx2 + dely2*dely2 + delz2*delz2;
-  const double r2 = sqrt(rsq2);
+  const KK_FLOAT rsq2 = delx2*delx2 + dely2*dely2 + delz2*delz2;
+  const KK_FLOAT r2 = sqrt(rsq2);
 
   // Urey-Bradley bond
 
-  const double delxUB = x(i3,0) - x(i1,0);
-  const double delyUB = x(i3,1) - x(i1,1);
-  const double delzUB = x(i3,2) - x(i1,2);
+  const KK_FLOAT delxUB = x(i3,0) - x(i1,0);
+  const KK_FLOAT delyUB = x(i3,1) - x(i1,1);
+  const KK_FLOAT delzUB = x(i3,2) - x(i1,2);
 
-  const double rsqUB = delxUB*delxUB + delyUB*delyUB + delzUB*delzUB;
-  const double rUB = sqrt(rsqUB);
+  const KK_FLOAT rsqUB = delxUB*delxUB + delyUB*delyUB + delzUB*delzUB;
+  const KK_FLOAT rUB = sqrt(rsqUB);
 
   // Urey-Bradley force & energy
 
-  const double dr = rUB - d_r_ub[type];
-  const double rk = d_k_ub[type] * dr;
+  const KK_FLOAT dr = rUB - d_r_ub[type];
+  const KK_FLOAT rk = d_k_ub[type] * dr;
 
-  double forceUB = 0.0;
+  KK_FLOAT forceUB = 0.0;
   if (rUB > 0.0) forceUB = -2.0*rk/rUB;
 
-  double eangle = 0.0;
+  KK_FLOAT eangle = 0.0;
   if (eflag) eangle = rk*dr;
 
   // angle (cos and sin)
 
-  double c = delx1*delx2 + dely1*dely2 + delz1*delz2;
+  KK_FLOAT c = delx1*delx2 + dely1*dely2 + delz1*delz2;
   c /= r1*r2;
 
   if (c > 1.0) c = 1.0;
   if (c < -1.0) c = -1.0;
 
-  double s = sqrt(1.0 - c*c);
+  KK_FLOAT s = sqrt(1.0 - c*c);
   if (s < SMALL) s = SMALL;
   s = 1.0/s;
 
   // harmonic force & energy
 
-  const double dtheta = acos(c) - d_theta0[type];
-  const double tk = d_k[type] * dtheta;
+  const KK_FLOAT dtheta = acos(c) - d_theta0[type];
+  const KK_FLOAT tk = d_k[type] * dtheta;
 
   if (eflag) eangle += tk*dtheta;
 
-  const double a = -2.0 * tk * s;
-  const double a11 = a*c / rsq1;
-  const double a12 = -a / (r1*r2);
-  const double a22 = a*c / rsq2;
+  const KK_FLOAT a = -2.0 * tk * s;
+  const KK_FLOAT a11 = a*c / rsq1;
+  const KK_FLOAT a12 = -a / (r1*r2);
+  const KK_FLOAT a22 = a*c / rsq2;
 
-  double f1[3],f3[3];
+  KK_FLOAT f1[3],f3[3];
   f1[0] = a11*delx1 + a12*delx2 - delxUB*forceUB;
   f1[1] = a11*dely1 + a12*dely2 - delyUB*forceUB;
   f1[2] = a11*delz1 + a12*delz2 - delzUB*forceUB;
@@ -343,12 +343,12 @@ template<class DeviceType>
 //template<int NEWTON_BOND>
 KOKKOS_INLINE_FUNCTION
 void AngleCharmmKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i, const int j, const int k,
-                     double &eangle, double *f1, double *f3,
-                     const double &delx1, const double &dely1, const double &delz1,
-                     const double &delx2, const double &dely2, const double &delz2) const
+                     KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3,
+                     const KK_FLOAT &delx1, const KK_FLOAT &dely1, const KK_FLOAT &delz1,
+                     const KK_FLOAT &delx2, const KK_FLOAT &dely2, const KK_FLOAT &delz2) const
 {
-  double eanglethird;
-  double v[6];
+  KK_FLOAT eanglethird;
+  KK_FLOAT v[6];
 
   if (eflag_either) {
     if (eflag_global) {

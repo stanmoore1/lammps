@@ -99,7 +99,7 @@ class NBinSSAKokkos : public NBinStandard {
    convert atom coords into the ssa active interaction region number
 ------------------------------------------------------------------------- */
   KOKKOS_INLINE_FUNCTION
-  int coord2ssaAIR(const double & x,const double & y,const double & z) const
+  int coord2ssaAIR(const KK_FLOAT & x,const KK_FLOAT & y,const KK_FLOAT & z) const
   {
     int ix, iy, iz;
     ix = iy = iz = 0;
@@ -128,7 +128,7 @@ class NBinSSAKokkos : public NBinStandard {
   }
 
   KOKKOS_INLINE_FUNCTION
-  int coord2bin(const double & x,const double & y,const double & z, int* i) const
+  int coord2bin(const KK_FLOAT & x,const KK_FLOAT & y,const KK_FLOAT & z, int* i) const
   {
     int ix,iy,iz;
 

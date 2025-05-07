@@ -199,7 +199,7 @@ KOKKOS_INLINE_FUNCTION
 void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
 
   // The f array is atomic
-  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
 
   const int i1 = dihedrallist(n,0);
   const int i2 = dihedrallist(n,1);
@@ -209,51 +209,51 @@ void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTO
 
   // 1st bond
 
-  const double vb1x = x(i1,0) - x(i2,0);
-  const double vb1y = x(i1,1) - x(i2,1);
-  const double vb1z = x(i1,2) - x(i2,2);
+  const KK_FLOAT vb1x = x(i1,0) - x(i2,0);
+  const KK_FLOAT vb1y = x(i1,1) - x(i2,1);
+  const KK_FLOAT vb1z = x(i1,2) - x(i2,2);
 
   // 2nd bond
 
-  const double vb2x = x(i3,0) - x(i2,0);
-  const double vb2y = x(i3,1) - x(i2,1);
-  const double vb2z = x(i3,2) - x(i2,2);
+  const KK_FLOAT vb2x = x(i3,0) - x(i2,0);
+  const KK_FLOAT vb2y = x(i3,1) - x(i2,1);
+  const KK_FLOAT vb2z = x(i3,2) - x(i2,2);
 
-  const double vb2xm = -vb2x;
-  const double vb2ym = -vb2y;
-  const double vb2zm = -vb2z;
+  const KK_FLOAT vb2xm = -vb2x;
+  const KK_FLOAT vb2ym = -vb2y;
+  const KK_FLOAT vb2zm = -vb2z;
 
   // 3rd bond
 
-  const double vb3x = x(i4,0) - x(i3,0);
-  const double vb3y = x(i4,1) - x(i3,1);
-  const double vb3z = x(i4,2) - x(i3,2);
+  const KK_FLOAT vb3x = x(i4,0) - x(i3,0);
+  const KK_FLOAT vb3y = x(i4,1) - x(i3,1);
+  const KK_FLOAT vb3z = x(i4,2) - x(i3,2);
 
   // distance: c0 calculation
 
-  const double r1mag2 = vb1x*vb1x + vb1y*vb1y + vb1z*vb1z;
-  const double r1 = sqrt(r1mag2);
-  const double r2mag2 = vb2x*vb2x + vb2y*vb2y + vb2z*vb2z;
-  const double r2 = sqrt(r2mag2);
-  const double r3mag2 = vb3x*vb3x + vb3y*vb3y + vb3z*vb3z;
-  const double r3 = sqrt(r3mag2);
+  const KK_FLOAT r1mag2 = vb1x*vb1x + vb1y*vb1y + vb1z*vb1z;
+  const KK_FLOAT r1 = sqrt(r1mag2);
+  const KK_FLOAT r2mag2 = vb2x*vb2x + vb2y*vb2y + vb2z*vb2z;
+  const KK_FLOAT r2 = sqrt(r2mag2);
+  const KK_FLOAT r3mag2 = vb3x*vb3x + vb3y*vb3y + vb3z*vb3z;
+  const KK_FLOAT r3 = sqrt(r3mag2);
 
-  const double sb1 = 1.0/r1mag2;
-  const double rb1 = 1.0/r1;
-  const double sb2 = 1.0/r2mag2;
-  const double rb2 = 1.0/r2;
-  const double sb3 = 1.0/r3mag2;
-  const double rb3 = 1.0/r3;
+  const KK_FLOAT sb1 = 1.0/r1mag2;
+  const KK_FLOAT rb1 = 1.0/r1;
+  const KK_FLOAT sb2 = 1.0/r2mag2;
+  const KK_FLOAT rb2 = 1.0/r2;
+  const KK_FLOAT sb3 = 1.0/r3mag2;
+  const KK_FLOAT rb3 = 1.0/r3;
 
-  double c0 = (vb1x*vb3x + vb1y*vb3y + vb1z*vb3z) * rb1*rb3;
+  KK_FLOAT c0 = (vb1x*vb3x + vb1y*vb3y + vb1z*vb3z) * rb1*rb3;
 
   // 1st and 2nd angle
 
-  const double r12c1 = rb1*rb2;
-  const double r12c2 = rb2*rb3;
-  double costh12 = (vb1x*vb2x + vb1y*vb2y + vb1z*vb2z) * r12c1;
-  double costh13 = c0;
-  double costh23 = (vb2xm*vb3x + vb2ym*vb3y + vb2zm*vb3z) * r12c2;
+  const KK_FLOAT r12c1 = rb1*rb2;
+  const KK_FLOAT r12c2 = rb2*rb3;
+  KK_FLOAT costh12 = (vb1x*vb2x + vb1y*vb2y + vb1z*vb2z) * r12c1;
+  KK_FLOAT costh13 = c0;
+  KK_FLOAT costh23 = (vb2xm*vb3x + vb2ym*vb3y + vb2zm*vb3z) * r12c2;
 
   costh12 = MAX(MIN(costh12, 1.0), -1.0);
   costh13 = MAX(MIN(costh13, 1.0), -1.0);
@@ -262,20 +262,20 @@ void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTO
 
   // cos and sin of 2 angles and final c
 
-  double sin2 = MAX(1.0 - costh12*costh12,0.0);
-  double sc1 = sqrt(sin2);
+  KK_FLOAT sin2 = MAX(1.0 - costh12*costh12,0.0);
+  KK_FLOAT sc1 = sqrt(sin2);
   if (sc1 < SMALL) sc1 = SMALL;
   sc1 = 1.0/sc1;
 
   sin2 = MAX(1.0 - costh23*costh23,0.0);
-  double sc2 = sqrt(sin2);
+  KK_FLOAT sc2 = sqrt(sin2);
   if (sc2 < SMALL) sc2 = SMALL;
   sc2 = 1.0/sc2;
 
-  const double s1 = sc1 * sc1;
-  const double s2 = sc2 * sc2;
-  const double s12 = sc1 * sc2;
-  double c = (c0 + costh12*costh23) * s12;
+  const KK_FLOAT s1 = sc1 * sc1;
+  const KK_FLOAT s2 = sc2 * sc2;
+  const KK_FLOAT s12 = sc1 * sc2;
+  KK_FLOAT c = (c0 + costh12*costh23) * s12;
 
   // error check
 
@@ -284,43 +284,43 @@ void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTO
 
   if (c > 1.0) c = 1.0;
   if (c < -1.0) c = -1.0;
-  const double cosphi = c;
-  double phi = acos(c);
+  const KK_FLOAT cosphi = c;
+  KK_FLOAT phi = acos(c);
 
-  double sinphi = sqrt(1.0 - c*c);
+  KK_FLOAT sinphi = sqrt(1.0 - c*c);
   sinphi = MAX(sinphi,SMALL);
 
   // n123 = vb1 x vb2
 
-  const double n123x = vb1y*vb2z - vb1z*vb2y;
-  const double n123y = vb1z*vb2x - vb1x*vb2z;
-  const double n123z = vb1x*vb2y - vb1y*vb2x;
-  const double n123_dot_vb3 = n123x*vb3x + n123y*vb3y + n123z*vb3z;
+  const KK_FLOAT n123x = vb1y*vb2z - vb1z*vb2y;
+  const KK_FLOAT n123y = vb1z*vb2x - vb1x*vb2z;
+  const KK_FLOAT n123z = vb1x*vb2y - vb1y*vb2x;
+  const KK_FLOAT n123_dot_vb3 = n123x*vb3x + n123y*vb3y + n123z*vb3z;
   if (n123_dot_vb3 > 0.0) {
     phi = -phi;
     sinphi = -sinphi;
   }
 
-  const double a11 = -c*sb1*s1;
-  const double a22 = sb2 * (2.0*costh13*s12 - c*(s1+s2));
-  const double a33 = -c*sb3*s2;
-  const double a12 = r12c1 * (costh12*c*s1 + costh23*s12);
-  const double a13 = rb1*rb3*s12;
-  const double a23 = r12c2 * (-costh23*c*s2 - costh12*s12);
+  const KK_FLOAT a11 = -c*sb1*s1;
+  const KK_FLOAT a22 = sb2 * (2.0*costh13*s12 - c*(s1+s2));
+  const KK_FLOAT a33 = -c*sb3*s2;
+  const KK_FLOAT a12 = r12c1 * (costh12*c*s1 + costh23*s12);
+  const KK_FLOAT a13 = rb1*rb3*s12;
+  const KK_FLOAT a23 = r12c2 * (-costh23*c*s2 - costh12*s12);
 
-  const double sx1  = a11*vb1x + a12*vb2x + a13*vb3x;
-  const double sx2  = a12*vb1x + a22*vb2x + a23*vb3x;
-  const double sx12 = a13*vb1x + a23*vb2x + a33*vb3x;
-  const double sy1  = a11*vb1y + a12*vb2y + a13*vb3y;
-  const double sy2  = a12*vb1y + a22*vb2y + a23*vb3y;
-  const double sy12 = a13*vb1y + a23*vb2y + a33*vb3y;
-  const double sz1  = a11*vb1z + a12*vb2z + a13*vb3z;
-  const double sz2  = a12*vb1z + a22*vb2z + a23*vb3z;
-  const double sz12 = a13*vb1z + a23*vb2z + a33*vb3z;
+  const KK_FLOAT sx1  = a11*vb1x + a12*vb2x + a13*vb3x;
+  const KK_FLOAT sx2  = a12*vb1x + a22*vb2x + a23*vb3x;
+  const KK_FLOAT sx12 = a13*vb1x + a23*vb2x + a33*vb3x;
+  const KK_FLOAT sy1  = a11*vb1y + a12*vb2y + a13*vb3y;
+  const KK_FLOAT sy2  = a12*vb1y + a22*vb2y + a23*vb3y;
+  const KK_FLOAT sy12 = a13*vb1y + a23*vb2y + a33*vb3y;
+  const KK_FLOAT sz1  = a11*vb1z + a12*vb2z + a13*vb3z;
+  const KK_FLOAT sz2  = a12*vb1z + a22*vb2z + a23*vb3z;
+  const KK_FLOAT sz12 = a13*vb1z + a23*vb2z + a33*vb3z;
 
   // set up d(cos(phi))/d(r) and dphi/dr arrays
 
-  double dcosphidr[4][3], dphidr[4][3];
+  KK_FLOAT dcosphidr[4][3], dphidr[4][3];
 
   dcosphidr[0][0] = -sx1;
   dcosphidr[0][1] = -sy1;
@@ -341,22 +341,22 @@ void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTO
 
   // energy
 
-  double edihedral = 0.0;
+  KK_FLOAT edihedral = 0.0;
 
-  const double dphi1 = phi - d_phi1[type];
-  const double dphi2 = 2.0*phi - d_phi2[type];
-  const double dphi3 = 3.0*phi - d_phi3[type];
+  const KK_FLOAT dphi1 = phi - d_phi1[type];
+  const KK_FLOAT dphi2 = 2.0*phi - d_phi2[type];
+  const KK_FLOAT dphi3 = 3.0*phi - d_phi3[type];
 
   if (eflag) edihedral = d_k1[type]*(1.0 - cos(dphi1)) +
                      d_k2[type]*(1.0 - cos(dphi2)) +
                      d_k3[type]*(1.0 - cos(dphi3));
 
-  const double de_dihedral = d_k1[type]*sin(dphi1) + 2.0*d_k2[type]*sin(dphi2) +
+  const KK_FLOAT de_dihedral = d_k1[type]*sin(dphi1) + 2.0*d_k2[type]*sin(dphi2) +
       3.0*d_k3[type]*sin(dphi3);
 
   // torsion forces on all 4 atoms
 
-  double dbonddr[3][4][3], fabcd[4][3];
+  KK_FLOAT dbonddr[3][4][3], fabcd[4][3];
 
   for (int i = 0; i < 4; i++)
     for (int j = 0; j < 3; j++)
@@ -400,17 +400,17 @@ void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTO
   // set up d(theta)/d(r) array
   // dthetadr(i,j,k) = angle i, atom j, coordinate k
 
-  double dthetadr[2][4][3];
+  KK_FLOAT dthetadr[2][4][3];
 
   for (int i = 0; i < 2; i++)
     for (int j = 0; j < 4; j++)
       for (int k = 0; k < 3; k++)
         dthetadr[i][j][k] = 0.0;
 
-  const double t1 = costh12 / r1mag2;
-  const double t2 = costh23 / r2mag2;
-  const double t3 = costh12 / r2mag2;
-  const double t4 = costh23 / r3mag2;
+  const KK_FLOAT t1 = costh12 / r1mag2;
+  const KK_FLOAT t2 = costh23 / r2mag2;
+  const KK_FLOAT t3 = costh12 / r2mag2;
+  const KK_FLOAT t4 = costh23 / r3mag2;
 
   // angle12
 
@@ -449,14 +449,14 @@ void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTO
   // mid-bond/torsion coupling
   // energy on bond2 (middle bond)
 
-  double cos2phi = cos(2.0*phi);
-  double cos3phi = cos(3.0*phi);
+  KK_FLOAT cos2phi = cos(2.0*phi);
+  KK_FLOAT cos3phi = cos(3.0*phi);
 
-  double bt1 = d_mbt_f1[type] * cosphi;
-  double bt2 = d_mbt_f2[type] * cos2phi;
-  double bt3 = d_mbt_f3[type] * cos3phi;
-  double sumbte = bt1 + bt2 + bt3;
-  double db = r2 - d_mbt_r0[type];
+  KK_FLOAT bt1 = d_mbt_f1[type] * cosphi;
+  KK_FLOAT bt2 = d_mbt_f2[type] * cos2phi;
+  KK_FLOAT bt3 = d_mbt_f3[type] * cos3phi;
+  KK_FLOAT sumbte = bt1 + bt2 + bt3;
+  KK_FLOAT db = r2 - d_mbt_r0[type];
   if (eflag) edihedral += db * sumbte;
 
   // force on bond2
@@ -464,7 +464,7 @@ void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTO
   bt1 = -d_mbt_f1[type] * sinphi;
   bt2 = -2.0 * d_mbt_f2[type] * sin(2.0*phi);
   bt3 = -3.0 * d_mbt_f3[type] * sin(3.0*phi);
-  double sumbtf = bt1 + bt2 + bt3;
+  KK_FLOAT sumbtf = bt1 + bt2 + bt3;
 
   for (int i = 0; i < 4; i++)
     for (int j = 0; j < 3; j++)
@@ -517,12 +517,12 @@ void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTO
   // angle/torsion coupling
   // energy on angle1
 
-  double at1 = d_at_f1_1[type] * cosphi;
-  double at2 = d_at_f2_1[type] * cos2phi;
-  double at3 = d_at_f3_1[type] * cos3phi;
+  KK_FLOAT at1 = d_at_f1_1[type] * cosphi;
+  KK_FLOAT at2 = d_at_f2_1[type] * cos2phi;
+  KK_FLOAT at3 = d_at_f3_1[type] * cos3phi;
   sumbte = at1 + at2 + at3;
 
-  double da = acos(costh12) - d_at_theta0_1[type];
+  KK_FLOAT da = acos(costh12) - d_at_theta0_1[type];
   if (eflag) edihedral += da * (at1+at2+at3);
 
   // force on angle1
@@ -559,8 +559,8 @@ void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTO
 
   // angle/angle/torsion coupling
 
-  const double da1 = acos(costh12) - d_aat_theta0_1[type];
-  const double da2 = acos(costh23) - d_aat_theta0_2[type];
+  const KK_FLOAT da1 = acos(costh12) - d_aat_theta0_1[type];
+  const KK_FLOAT da2 = acos(costh23) - d_aat_theta0_2[type];
 
   if (eflag) edihedral += d_aat_k[type]*da1*da2*cosphi;
 
@@ -574,12 +574,12 @@ void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTO
 
   if (fabs(d_bb13t_k[type]) > SMALL) {
 
-    const double r1_0 = d_bb13t_r10[type];
-    const double r3_0 = d_bb13t_r30[type];
-    const double dr1 = r1 - r1_0;
-    const double dr2 = r3 - r3_0;
-    const double tk1 = -d_bb13t_k[type] * dr1 / r3;
-    const double tk2 = -d_bb13t_k[type] * dr2 / r1;
+    const KK_FLOAT r1_0 = d_bb13t_r10[type];
+    const KK_FLOAT r3_0 = d_bb13t_r30[type];
+    const KK_FLOAT dr1 = r1 - r1_0;
+    const KK_FLOAT dr2 = r3 - r3_0;
+    const KK_FLOAT tk1 = -d_bb13t_k[type] * dr1 / r3;
+    const KK_FLOAT tk2 = -d_bb13t_k[type] * dr2 / r1;
 
     if (eflag) edihedral += d_bb13t_k[type]*dr1*dr2;
 
@@ -600,7 +600,7 @@ void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTO
     fabcd[3][2] += tk1 * vb3z;
   }
 
-  double f1[3],f2[3],f3[3],f4[3];
+  KK_FLOAT f1[3],f2[3],f3[3],f4[3];
 
   for (int i = 0; i < 3; i++) {
     f1[i] = fabcd[0][i];
@@ -1008,17 +1008,17 @@ template<class DeviceType>
 //template<int NEWTON_BOND>
 KOKKOS_INLINE_FUNCTION
 void DihedralClass2Kokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4,
-                        double &edihedral, double *f1, double *f3, double *f4,
-                        const double &vb1x, const double &vb1y, const double &vb1z,
-                        const double &vb2x, const double &vb2y, const double &vb2z,
-                        const double &vb3x, const double &vb3y, const double &vb3z) const
+                        KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4,
+                        const KK_FLOAT &vb1x, const KK_FLOAT &vb1y, const KK_FLOAT &vb1z,
+                        const KK_FLOAT &vb2x, const KK_FLOAT &vb2y, const KK_FLOAT &vb2z,
+                        const KK_FLOAT &vb3x, const KK_FLOAT &vb3y, const KK_FLOAT &vb3z) const
 {
-  double edihedralquarter;
-  double v[6];
+  KK_FLOAT edihedralquarter;
+  KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<KK_FLOAT*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
 
   if (eflag_either) {
     if (eflag_global) {

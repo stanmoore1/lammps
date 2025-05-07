@@ -141,21 +141,21 @@ void BondHarmonicKokkos<DeviceType>::operator()(TagBondHarmonicCompute<NEWTON_BO
   const int i2 = bondlist(n,1);
   const int type = bondlist(n,2);
 
-  const double delx = x(i1,0) - x(i2,0);
-  const double dely = x(i1,1) - x(i2,1);
-  const double delz = x(i1,2) - x(i2,2);
+  const KK_FLOAT delx = x(i1,0) - x(i2,0);
+  const KK_FLOAT dely = x(i1,1) - x(i2,1);
+  const KK_FLOAT delz = x(i1,2) - x(i2,2);
 
-  const double rsq = delx*delx + dely*dely + delz*delz;
-  const double r = sqrt(rsq);
-  const double dr = r - d_r0[type];
-  const double rk = d_k[type] * dr;
+  const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+  const KK_FLOAT r = sqrt(rsq);
+  const KK_FLOAT dr = r - d_r0[type];
+  const KK_FLOAT rk = d_k[type] * dr;
 
   // force & energy
 
-  double fbond = 0.0;
+  KK_FLOAT fbond = 0.0;
   if (r > 0.0) fbond = -2.0*rk/r;
 
-  double ebond = 0.0;
+  KK_FLOAT ebond = 0.0;
   if (eflag)
     ebond = rk*dr;
 
@@ -254,11 +254,11 @@ template<class DeviceType>
 //template<int NEWTON_BOND>
 KOKKOS_INLINE_FUNCTION
 void BondHarmonicKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const double &ebond, const double &fbond, const double &delx,
-                const double &dely, const double &delz) const
+      const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx,
+                const KK_FLOAT &dely, const KK_FLOAT &delz) const
 {
-  double ebondhalf;
-  double v[6];
+  KK_FLOAT ebondhalf;
+  KK_FLOAT v[6];
 
   if (eflag_either) {
     if (eflag_global) {
