@@ -349,15 +349,20 @@ public:
 
 
 // define precision
-// handle global precision, force, energy, positions, kspace separately
 
-#ifndef LMP_PRECISION
-#define LMP_PRECISION 2
+#ifndef LMP_KOKKOS_PRECISION
+#define LMP_KOKKOS_PRECISION 2
 #endif
-#if LMP_PRECISION==1
+
+#if LMP_KOKKOS_PRECISION == 1 // single
 typedef float KK_FLOAT;
-#else
+typedef float KK_SUM_FLOAT;
+#elif LMP_KOKKOS_PRECISION == 2 // double
 typedef double KK_FLOAT;
+typedef double KK_SUM_FLOAT;
+#elif LMP_KOKKOS_PRECISION == 3 // mixed
+typedef float KK_FLOAT;
+typedef double KK_SUM_FLOAT;
 #endif
 
 struct s_EV_FLOAT {
