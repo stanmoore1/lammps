@@ -59,8 +59,8 @@ class AngleCharmmKokkos : public AngleCharmm {
                      const KK_FLOAT &delx2, const KK_FLOAT &dely2, const KK_FLOAT &delz2) const;
 
   using KKDeviceType = typename KKDevice<DeviceType>::value;
-  Kokkos::DualView<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
-  Kokkos::DualView<KK_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom;
+  Kokkos::DualView<double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
+  Kokkos::DualView<double*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom;
 
  protected:
 
@@ -68,10 +68,10 @@ class AngleCharmmKokkos : public AngleCharmm {
 
   typedef ArrayTypes<DeviceType> AT;
   typename AT::t_double_1d_3_randomread x;
-  typename Kokkos::View<KK_FLOAT*[3],typename AT::t_double_1d_3::array_layout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
+  typename Kokkos::View<double*[3],typename AT::t_double_1d_3::array_layout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d anglelist;
-  Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_eatom;
-  Kokkos::View<KK_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_vatom;
+  Kokkos::View<double*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_eatom;
+  Kokkos::View<double*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;

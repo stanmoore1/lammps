@@ -849,7 +849,7 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelAB<EFLAG>,
   const int m_max = d_rhor_spline.extent_int(1);
   const int j_max = t_double_2d_n7::static_extent(2);
   const int d_rhor_spline_cached = (m_max > MAX_CACHE_ROWS) ? 0 : 1;
-  Kokkos::View<KK_FLOAT*[t_double_2d_n7::static_extent(2)], typename DeviceType::scratch_memory_space,
+  Kokkos::View<double*[t_double_2d_n7::static_extent(2)], typename DeviceType::scratch_memory_space,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>> A(team_member.team_scratch(0), MAX_CACHE_ROWS);
 
   if (d_rhor_spline_cached) {
@@ -950,7 +950,7 @@ void PairEAMAlloyKokkos<DeviceType>::operator()(TagPairEAMAlloyKernelC<NEIGHFLAG
   const int m_max = d_z2r_spline.extent_int(1);
   const int j_max = t_double_2d_n7::static_extent(2);
   const int d_z2r_spline_cached = (m_max > MAX_CACHE_ROWS) ? 0 : 1;
-  Kokkos::View<KK_FLOAT*[t_double_2d_n7::static_extent(2)], typename DeviceType::scratch_memory_space,
+  Kokkos::View<double*[t_double_2d_n7::static_extent(2)], typename DeviceType::scratch_memory_space,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>> A(team_member.team_scratch(0), MAX_CACHE_ROWS);
 
   if (d_z2r_spline_cached) {

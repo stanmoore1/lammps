@@ -449,21 +449,21 @@ class PairReaxFFKokkos : public PairReaxFF {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
-  DupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> dup_eatom;
-  DupScatterView<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
-  DupScatterView<KK_FLOAT**, typename DAT::t_double_2d_dl::array_layout> dup_dDeltap_self;
-  DupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> dup_total_bo;
-  DupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> dup_CdDelta;
+  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
+  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
+  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
+  DupScatterView<double**, typename DAT::t_double_2d_dl::array_layout> dup_dDeltap_self;
+  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_total_bo;
+  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_CdDelta;
 
-  NonDupScatterView<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
-  NonDupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> ndup_eatom;
-  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
-  NonDupScatterView<KK_FLOAT**, typename DAT::t_double_2d_dl::array_layout> ndup_dDeltap_self;
-  NonDupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> ndup_total_bo;
-  NonDupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> ndup_CdDelta;
+  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
+  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
+  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
+  NonDupScatterView<double**, typename DAT::t_double_2d_dl::array_layout> ndup_dDeltap_self;
+  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_total_bo;
+  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_CdDelta;
 
-  typedef Kokkos::DualView<KK_FLOAT**[7],typename DeviceType::array_layout,DeviceType> tdual_double_2d_n7;
+  typedef Kokkos::DualView<double**[7],typename DeviceType::array_layout,DeviceType> tdual_double_2d_n7;
   typedef typename tdual_double_2d_n7::t_dev_const_randomread t_double_2d_n7_randomread;
   typedef typename tdual_double_2d_n7::t_host t_host_double_2d_n7;
 

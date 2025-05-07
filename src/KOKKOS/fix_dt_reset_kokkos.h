@@ -56,7 +56,7 @@ class FixDtResetKokkos : public FixDtReset {
   typename ArrayTypes<DeviceType>::t_double_1d_randomread mass;
 
 
-  Kokkos::DualView<KK_FLOAT*, Kokkos::LayoutRight, DeviceType> k_emax;
+  Kokkos::DualView<double*, Kokkos::LayoutRight, DeviceType> k_emax;
 };
 
 }

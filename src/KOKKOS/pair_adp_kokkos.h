@@ -136,18 +136,18 @@ class PairADPKokkos : public PairADP, public KokkosBase
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> dup_rho;
-  DupScatterView<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout> dup_mu;
-  DupScatterView<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout> dup_lambda;
-  DupScatterView<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
-  DupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> dup_eatom;
-  DupScatterView<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
-  NonDupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> ndup_rho;
-  NonDupScatterView<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout> ndup_mu;
-  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout> ndup_lambda;
-  NonDupScatterView<KK_FLOAT*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
-  NonDupScatterView<KK_FLOAT*, typename DAT::t_double_1d::array_layout> ndup_eatom;
-  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
+  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_rho;
+  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_mu;
+  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_lambda;
+  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
+  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
+  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
+  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_rho;
+  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_mu;
+  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_lambda;
+  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
+  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
+  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
 
   DAT::tdual_double_1d k_rho;
   DAT::tdual_double_1d k_fp;
@@ -168,7 +168,7 @@ class PairADPKokkos : public PairADP, public KokkosBase
   typename AT::t_int_2d_dl d_type2u2r;
   typename AT::t_int_2d_dl d_type2w2r;
 
-  typedef Kokkos::DualView<KK_FLOAT**[7],DeviceType> tdual_double_2d_n7;
+  typedef Kokkos::DualView<double**[7],DeviceType> tdual_double_2d_n7;
   typedef typename tdual_double_2d_n7::t_dev_const t_double_2d_n7;
   typedef typename tdual_double_2d_n7::t_host t_host_double_2d_n7;
 
