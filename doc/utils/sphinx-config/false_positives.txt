@@ -1197,6 +1197,7 @@ filesystem
 filesystems
 Fily
 Fincham
+Finkelstein
 Fint
 fingerprintconstants
 fingerprintsperelement
@@ -1351,6 +1352,7 @@ Gillan
 Gingold
 Gissinger
 github
+GJ
 gjf
 gjwagne
 gl
@@ -3463,6 +3465,7 @@ sectoring
 sed
 Seddon
 segmental
+Seibold
 Seifert
 Seleson
 sellerio
@@ -4082,9 +4085,11 @@ versa
 Verstraelen
 ves
 vf
+vfull
 vflag
 vflow
 vfrac
+vhalf
 vhi
 vibrational
 Vij

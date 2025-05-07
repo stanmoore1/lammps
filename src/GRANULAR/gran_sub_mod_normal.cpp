@@ -47,7 +47,7 @@ static constexpr int MDR_MAX_IT = 100;                           // Newton-Raphs
 static constexpr double MDR_EPSILON1 = 1e-10;                    // Newton-Raphson for MDR
 static constexpr double MDR_EPSILON2 = 1e-16;                    // Newton-Raphson for MDR
 static constexpr double MDR_EPSILON3 = 1e-20;                    // For precision checks
-static constexpr double MDR_OVERLAP_LIMIT = 0.75;                // Maximum contact overlap for MDR
+static constexpr double MDR_OVERLAP_LIMIT = 0.95;                // Maximum contact overlap for MDR
 
 static const char cite_mdr[] =
     "MDR contact model command: (i) https://doi.org/10.1016/j.jmps.2023.105492 || (ii) https://doi.org/10.1016/j.jmps.2023.105493 || (iii) https://doi.org/10.31224/4289\n\n"
@@ -73,8 +73,9 @@ static const char cite_mdr[] =
     " author =  {Zunker, William and Dunatunga, Sachith and Thakur, Subhash and Tang, Pingjun and Kamrin, Ken},\n"
     " title =   {Experimentally validated DEM for large deformation powder compaction:\n"
     "            mechanically-derived contact model and screening of non-physical contacts},\n"
+    " journal = {Powder Technology},\n"
     " year =    {2025},\n"
-    " journal = {engrXiv},\n"
+    " pages =   {120972},\n"
     "}\n\n";
 
 /* ----------------------------------------------------------------------
@@ -442,9 +443,10 @@ GranSubModNormalMDR::GranSubModNormalMDR(GranularModel *gm, LAMMPS *lmp) :
 
   num_coeffs = 6;
   contact_radius_flag = 1;
-  size_history = 26;
+  size_history = 27;
   nsvector = 1;
   fix_mdr_flag = 0;
+  material_properties = 1;
   id_fix = nullptr;
 
   nondefault_history_transfer = 1;
@@ -467,29 +469,30 @@ GranSubModNormalMDR::~GranSubModNormalMDR()
 
 void GranSubModNormalMDR::coeffs_to_local()
 {
-  E = coeffs[0];      // Young's modulus
-  nu = coeffs[1];     // Poisson's ratio
-  Y = coeffs[2];      // yield stress
-  gamma = coeffs[3];  // effective surface energy
-  psi_b = coeffs[4];  // bulk response trigger based on ratio of remaining free area: A_{free}/A_{total}
-  CoR = coeffs[5];    // coefficent of restitution
+  Emod = coeffs[0];      // Young's modulus
+  poiss = coeffs[1];     // Poisson's ratio
+  Y = coeffs[2];         // yield stress
+  gamma = coeffs[3];     // effective surface energy
+  psi_b = coeffs[4];     // bulk response trigger based on ratio of remaining free area: A_{free}/A_{total}
+  damp = coeffs[5];      // coefficent of restitution
 
-  if (E <= 0.0) error->all(FLERR, "Illegal MDR normal model, Young's modulus must be greater than 0");
-  if (nu < 0.0 || nu > 0.5) error->all(FLERR, "Illegal MDR normal model, Poisson's ratio must be between 0 and 0.5");
+  if (Emod <= 0.0) error->all(FLERR, "Illegal MDR normal model, Young's modulus must be greater than 0");
+  if (poiss < 0.0 || poiss > 0.5) error->all(FLERR, "Illegal MDR normal model, Poisson's ratio must be between 0 and 0.5");
   if (Y < 0.0) error->all(FLERR, "Illegal MDR normal model, yield stress must be greater than or equal to 0");
   if (gamma < 0.0) error->all(FLERR, "Illegal MDR normal model, effective surface energy must be greater than or equal to 0");
   if (psi_b < 0.0 || psi_b > 1.0) error->all(FLERR, "Illegal MDR normal model, psi_b must be between 0 and 1.0");
-  if (CoR < 0.0 || CoR > 1.0) error->all(FLERR, "Illegal MDR normal model, coefficent of restitution must be between 0 and 1.0");
+  if (damp < 0.0) error->all(FLERR, "Illegal MDR normal model, damping coefficent must be greater than or equal to 0");
 
-  G = E / (2.0 * (1.0 + nu));            // shear modulus
-  kappa = E / (3.0 * (1.0 - 2.0 * nu));  // bulk modulus
-  Eeff = E / (1.0 - pow(nu, 2.0));       // composite plane strain modulus
+  G = Emod / (2.0 * (1.0 + poiss));            // shear modulus
+  kappa = Emod / (3.0 * (1.0 - 2.0 * poiss));  // bulk modulus
+  Eeff = Emod / (1.0 - pow(poiss, 2.0));       // composite plane strain modulus
 
   // precomputing factors
 
   Eeffinv = 1.0 / Eeff;
   Eeffsq = Eeff * Eeff;
   Eeffsqinv = Eeffinv * Eeffinv;
+  Eeff2particle = 0.5 * Eeff;
 
   gammasq = gamma * gamma;
   gamma3 = gammasq * gamma;
@@ -528,6 +531,7 @@ void GranSubModNormalMDR::init()
   index_sigmaxx = atom->find_custom("sigmaxx", tmp1, tmp2);             // xx-component of the stress tensor, not necessary for force calculation
   index_sigmayy = atom->find_custom("sigmayy", tmp1, tmp2);             // yy-component of the stress tensor, not necessary for force calculation
   index_sigmazz = atom->find_custom("sigmazz", tmp1, tmp2);             // zz-component of the stress tensor, not necessary for force calculation
+  index_dRavg = atom->find_custom("dRavg", tmp1, tmp2);                 // radius update increment
 }
 
 /* ---------------------------------------------------------------------- */
@@ -566,6 +570,7 @@ double GranSubModNormalMDR::calculate_forces()
   double *sigmaxx = atom->dvector[index_sigmaxx];
   double *sigmayy = atom->dvector[index_sigmayy];
   double *sigmazz = atom->dvector[index_sigmazz];
+  double *dRavg = atom->dvector[index_dRavg];
 
   const int itag_true = atom->tag[gm->i]; // true i particle tag
   const int jtag_true = atom->tag[gm->j]; // true j particle tag
@@ -579,6 +584,7 @@ double GranSubModNormalMDR::calculate_forces()
   double F1 = 0.0;                        // force on contact side 1
   double delta = gm->delta;               // apparent overlap
   double Ac_avg = 0.0;                    // average contact area across both sides
+  double a_damp = 0.0;                    // damping contact radius
 
   double *history = & gm->history[history_index]; // load in all history variables
   int history_update = gm->history_update;
@@ -596,7 +602,6 @@ double GranSubModNormalMDR::calculate_forces()
   if (gm->delta >= *deltamax_offset) *deltamax_offset = gm->delta;
   double deltamax = *deltamax_offset;
 
-
   for (int contactSide = 0; contactSide < 2; contactSide++) {
 
     double *delta_offset, *deltao_offset, *delta_MDR_offset, *delta_BULK_offset;
@@ -607,17 +612,17 @@ double GranSubModNormalMDR::calculate_forces()
       // displacement partitioning only necessary for particle-particle contact
 
       // itag and jtag persist after neighbor list builds, use tags to compare to match
-      //   contact history variables consistently across steps for a particle pair.
+      // contact history variables consistently across steps for a particle pair.
       if ((contactSide == 0 && itag_true > jtag_true) || (contactSide != 0 && itag_true < jtag_true)) {
-          gm->i = i_true;
-          gm->j = j_true;
-          gm->radi = radi_true;
-          gm->radj = radj_true;
+        gm->i = i_true;
+        gm->j = j_true;
+        gm->radi = radi_true;
+        gm->radj = radj_true;
       } else {
-          gm->i = j_true;
-          gm->j = i_true;
-          gm->radi = radj_true;
-          gm->radj = radi_true;
+        gm->i = j_true;
+        gm->j = i_true;
+        gm->radi = radj_true;
+        gm->radj = radi_true;
       }
 
       // determine the two maximum experienced geometric overlaps on either side of rigid flat
@@ -753,7 +758,7 @@ double GranSubModNormalMDR::calculate_forces()
       // depth of particle center
       const double zR = R - (deltamax_MDR - deltae1Dmax);
 
-      deltaR = 2 * amaxsq * (-1 + nu) - (-1 + 2 * nu) * zR * (-zR + sqrt(amaxsq + pow(zR, 2)));
+      deltaR = 2 * amaxsq * (-1 + poiss) - (-1 + 2 * poiss) * zR * (-zR + sqrt(amaxsq + pow(zR, 2)));
       deltaR *= Fmax / (MY_2PI * amaxsq * G * sqrt(amaxsq + pow(zR, 2)));
 
       // transformed elastic displacement
@@ -805,7 +810,7 @@ double GranSubModNormalMDR::calculate_forces()
         }
 
         if (std::isnan(F_MDR))
-          error->one(FLERR, "F_MDR is NaN, case 1: no tensile springs");
+          error->one(FLERR, "F_MDR is NaN, case 1: no tensile springs for atoms {} and {}", itag_true, jtag_true);
 
         if (history_update) *aAdh_offset = a_fac * a_na;
       } else {
@@ -861,15 +866,20 @@ double GranSubModNormalMDR::calculate_forces()
             }
             aAdh = aAdh_tmp;
 
-            g_aAdh = A * 0.5 - A * Binv * sqrt(Bsq * 0.25 - pow(aAdh, 2));
-            g_aAdh = round_up_negative_epsilon(g_aAdh);
+            if (aAdh < acrit) {
+              aAdh = 0.0;
+              F_MDR = 0.0;
+            } else {
+              g_aAdh = A * 0.5 - A * Binv * sqrt(Bsq * 0.25 - pow(aAdh, 2));
+              g_aAdh = round_up_negative_epsilon(g_aAdh);
 
-            const double deltaeAdh = g_aAdh;
-            const double F_na = calculate_nonadhesive_mdr_force(deltaeAdh, Ainv, Eeff, A, B);
-            const double F_Adhes = 2.0 * Eeff * (deltae1D - deltaeAdh) * aAdh;
-            F_MDR = F_na + F_Adhes;
-            if (std::isnan(F_MDR))
-              error->one(FLERR, "F_MDR is NaN, case 3: tensile springs exceed critical length");
+              const double deltaeAdh = g_aAdh;
+              const double F_na = calculate_nonadhesive_mdr_force(deltaeAdh, Ainv, Eeff, A, B);
+              const double F_Adhes = 2.0 * Eeff * (deltae1D - deltaeAdh) * aAdh;
+              F_MDR = F_na + F_Adhes;
+              if (std::isnan(F_MDR))
+                error->one(FLERR, "F_MDR is NaN, case 3: tensile springs exceed critical length");
+            }
           }
           if (history_update) *aAdh_offset = aAdh;
         }
@@ -890,6 +900,9 @@ double GranSubModNormalMDR::calculate_forces()
       Acon1[i] += wij * Ac;
     }
     Ac_avg += wij * Ac;
+
+    // contact radius for damping
+    (gamma > 0.0) ? a_damp += aAdh : a_damp += a_na;
 
     // bulk force calculation
     double F_BULK;
@@ -944,34 +957,25 @@ double GranSubModNormalMDR::calculate_forces()
   const double wij = MAX(1.0 - pij, 0.0);
 
   // assign final force
+  double damp_scale;
   if (gm->contact_type != PAIR) {
-    F = wij * F0;
+    a_damp = a_damp/2.0;
+    damp_scale = sqrt(gm->meff * 2.0 * Eeff2particle * a_damp);
+    double *deltao_offset = &history[DELTAO_0];
+    const double wfm = std::exp(10.7 * (*deltao_offset) / Rinitial[gm->i] - 10.0) + 1.0; // wall force magnifier
+    F = wij * F0 * wfm;
   } else {
+    damp_scale = sqrt(gm->meff * 2.0 * Eeff * a_damp);
     F = wij * (F0 + F1) * 0.5;
   }
 
-  // calculate damping force
-  if (F > 0.0) {
-    double Eeff2;
-    double Reff2;
-    if (gm->contact_type == PAIR) {
-      Eeff2 = E / (2.0 * (1.0 - pow(nu, 2)));
-      Reff2 = 1.0 / ((1.0 / gm->radi + 1.0 / gm->radj));
-    } else {
-      Eeff2 = E / (1.0 - pow(nu, 2));
-      Reff2 = gm->radi;
-    }
-    const double kn = Eeff2 * Reff2;
-    const double beta = -log(CoR) / sqrt(pow(log(CoR), 2) + PISQ);
-    const double damp_prefactor = beta * sqrt(gm->meff * kn);
-    const double F_DAMP = -damp_prefactor * gm->vnnr;
-
-    F += wij * F_DAMP;
+  if (history_update) {
+    double *damp_scale_offset = & history[DAMP_SCALE];
+    (a_damp <= 0.0) ? *damp_scale_offset = 0.0 : *damp_scale_offset = damp_scale;
   }
 
   return F;
 }
-
 
 /* ---------------------------------------------------------------------- */
 
