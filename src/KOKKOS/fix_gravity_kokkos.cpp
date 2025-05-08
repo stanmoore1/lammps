@@ -88,7 +88,7 @@ void FixGravityKokkos<DeviceType>::post_force(int /*vflag*/)
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixGravityKokkos<DeviceType>::operator()(TagFixGravityRMass, const int i, KK_FLOAT &eg) const
+void FixGravityKokkos<DeviceType>::operator()(TagFixGravityRMass, const int i, double &eg) const
 {
   if (mask[i] & groupbit) {
     KK_FLOAT massone = rmass[i];
@@ -101,7 +101,7 @@ void FixGravityKokkos<DeviceType>::operator()(TagFixGravityRMass, const int i, K
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixGravityKokkos<DeviceType>::operator()(TagFixGravityMass, const int i, KK_FLOAT &eg) const
+void FixGravityKokkos<DeviceType>::operator()(TagFixGravityMass, const int i, double &eg) const
 {
   if (mask[i] & groupbit) {
     KK_FLOAT massone = mass[type[i]];

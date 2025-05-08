@@ -177,7 +177,7 @@ class PairADPKokkos : public PairADP, public KokkosBase
   t_double_2d_n7 d_z2r_spline;
   t_double_2d_n7 d_u2r_spline, d_w2r_spline;
 
-  void interpolate(int, KK_FLOAT, KK_FLOAT *, t_host_double_2d_n7, int);
+  void interpolate(int, double, double *, t_host_double_2d_n7, int);
   void file2array() override;
   void array2spline() override;
 

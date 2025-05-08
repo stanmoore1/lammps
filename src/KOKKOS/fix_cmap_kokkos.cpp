@@ -244,7 +244,7 @@ void FixCMAPKokkos<DeviceType>::post_force(int vflag)
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixCMAPKokkos<DeviceType>::operator()(TagFixCmapPostForce, const int n, KK_FLOAT &ecmapKK) const
+void FixCMAPKokkos<DeviceType>::operator()(TagFixCmapPostForce, const int n, double &ecmapKK) const
 {
   // Definition of cross-term dihedrals
 

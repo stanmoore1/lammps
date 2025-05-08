@@ -267,14 +267,14 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
 
     // compute new fh, alpha, delfh
 
-    s_double2 sdot;
+    s_KK_FLOAT2 sdot;
     {
       // local variables for lambda capture
 
       auto l_fvec = fvec;
       auto l_h = h;
 
-      Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_double2& sdot) {
+      Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_KK_FLOAT2& sdot) {
         sdot.d0 += l_fvec[i]*l_fvec[i];
         sdot.d1 += l_fvec[i]*l_h[i];
       },sdot);
@@ -409,14 +409,14 @@ double MinLineSearchKokkos::compute_dir_deriv(double &ff)
 
   // compute new fh, alpha, delfh
 
-  s_double2 sdot;
+  s_KK_FLOAT2 sdot;
   {
     // local variables for lambda capture
 
     auto l_fvec = fvec;
     auto l_h = h;
 
-    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_double2& sdot) {
+    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_KK_FLOAT2& sdot) {
       sdot.d0 += l_fvec[i]*l_fvec[i];
       sdot.d1 += l_fvec[i]*l_h[i];
     },sdot);

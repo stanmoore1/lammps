@@ -88,7 +88,7 @@ class FixSpringSelfKokkos : public FixSpringSelf, public KokkosBase {
   typename AT::t_int_scalar d_count;
   HAT::t_int_scalar h_count;
 
-  KK_FLOAT **xoriginal_tmp;    // original coords of atoms
+  double **xoriginal_tmp;    // original coords of atoms
 
 };
 

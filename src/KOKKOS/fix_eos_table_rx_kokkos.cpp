@@ -347,7 +347,7 @@ void FixEOStableRXKokkos<DeviceType>::energy_lookup(int id, KK_FLOAT thetai, KK_
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixEOStableRXKokkos<DeviceType>::temperature_lookup(int id, KK_FLOAT ui, KK_FLOAT &thetai) const
+void FixEOStableRXKokkos<DeviceType>::temperature_lookup(int id, KK_FLOAT ui, double &thetai) const
 {
   //Table *tb = &tables[0];
 

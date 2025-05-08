@@ -59,8 +59,8 @@ void getMixingWeights(
     int isite1, int isite2,
     bool fractionalWeighting,
     int id,
-    KK_FLOAT &mixWtSite1old, KK_FLOAT &mixWtSite2old,
-    KK_FLOAT &mixWtSite1, KK_FLOAT &mixWtSite2) {
+    double &mixWtSite1old, double &mixWtSite2old,
+    double &mixWtSite1, double &mixWtSite2) {
   KK_FLOAT fractionOFAold, fractionOFA;
   KK_FLOAT fractionOld1, fraction1;
   KK_FLOAT fractionOld2, fraction2;

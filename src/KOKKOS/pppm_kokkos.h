@@ -272,10 +272,10 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
   void operator()(TagPPPM_unpack_reverse, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPM_slabcorr1, const int&, KK_FLOAT&) const;
+  void operator()(TagPPPM_slabcorr1, const int&, double&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPM_slabcorr2, const int&, KK_FLOAT&) const;
+  void operator()(TagPPPM_slabcorr2, const int&, double&) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_slabcorr3, const int&) const;
@@ -291,10 +291,10 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
   //void operator()(TagPPPMKernelA<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
 
  protected:
-  KK_FLOAT unitkx,unitky,unitkz;
-  KK_FLOAT scaleinv,s2;
-  KK_FLOAT qscale,efact,ffact,dipole_all,dipole_r2,zprd;
-  KK_FLOAT xprd,yprd,zprd_slab;
+  double unitkx,unitky,unitkz;
+  double scaleinv,s2;
+  double qscale,efact,ffact,dipole_all,dipole_r2,zprd;
+  double xprd,yprd,zprd_slab;
   int nbx,nby,nbz,twoorder;
   int numx_fft,numy_fft,numz_fft;
   int numx_inout,numy_inout,numz_inout;

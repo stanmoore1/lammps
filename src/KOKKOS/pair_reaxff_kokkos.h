@@ -391,7 +391,7 @@ class PairReaxFFKokkos : public PairReaxFF {
   void init_md();
   int Init_Lookup_Tables();
   void Deallocate_Lookup_Tables();
-  void LR_vdW_Coulomb(int i, int j, KK_FLOAT r_ij, ReaxFF::LR_data *lr);
+  void LR_vdW_Coulomb(int i, int j, double r_ij, ReaxFF::LR_data *lr);
 
   typedef Kokkos::DualView<int*,DeviceType> tdual_int_1d;
   Kokkos::DualView<params_sing*,typename DeviceType::array_layout,DeviceType> k_params_sing;

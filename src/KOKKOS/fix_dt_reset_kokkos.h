@@ -43,9 +43,9 @@ class FixDtResetKokkos : public FixDtReset {
   void end_of_step() override;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagFixDtResetMass, const int&, KK_FLOAT&) const;
+  void operator()(TagFixDtResetMass, const int&, double&) const;
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagFixDtResetRMass, const int&, KK_FLOAT&) const;
+  void operator()(TagFixDtResetRMass, const int&, double&) const;
 
  private:
   typename AT::t_double_1d_3 v;

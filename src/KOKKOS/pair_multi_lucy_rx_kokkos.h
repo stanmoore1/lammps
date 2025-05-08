@@ -97,17 +97,17 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
   template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx,
-                  const KK_FLOAT &dely, const KK_FLOAT &delz) const;
+      const double &epair, const double &fpair, const double &delx,
+                  const double &dely, const double &delz) const;
 
  private:
   int nlocal;
   int neighflag;
   int eflag,vflag;
 
-  KK_FLOAT cutsq_type11;
-  KK_FLOAT rcut_type11;
-  KK_FLOAT factor_type11;
+  double cutsq_type11;
+  double rcut_type11;
+  double factor_type11;
 
   enum{LOOKUP,LINEAR,SPLINE,BITMAP};
 
@@ -155,7 +155,7 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
   void create_kokkos_tables();
 
   KOKKOS_INLINE_FUNCTION
-  void getMixingWeights(int, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;
+  void getMixingWeights(int, double &, double &, double &, double &) const;
 
   typename AT::t_double_1d d_mixWtSite1old,d_mixWtSite2old,d_mixWtSite1,d_mixWtSite2;
 

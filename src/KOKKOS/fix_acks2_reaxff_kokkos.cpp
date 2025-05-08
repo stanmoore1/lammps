@@ -1548,7 +1548,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2SparseMatvec3_Full, c
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm1, const int &ii, double KK_FLOAT &lsumlsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm1, const int &ii, double &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1573,7 +1573,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm1, const int &ii,
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm2, const int &ii, double KK_FLOAT &lsumlsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm2, const int &ii, double &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1592,7 +1592,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Norm2, const int &ii,
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot1, const int &ii, double KK_FLOAT &lsumlsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot1, const int &ii, double &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1667,7 +1667,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Precon1B, const int &
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot2, const int &ii, double KK_FLOAT &lsumlsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot2, const int &ii, double &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1686,7 +1686,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot2, const int &ii, 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot3, const int &ii, double KK_FLOAT &lsumlsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot3, const int &ii, double &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1711,7 +1711,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot3, const int &ii, 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot4, const int &ii, double KK_FLOAT &lsumlsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot4, const int &ii, double &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1730,7 +1730,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot4, const int &ii, 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot5, const int &ii, double KK_FLOAT &lsumlsum) const
+void FixACKS2ReaxFFKokkos<DeviceType>::operator() (TagACKS2Dot5, const int &ii, double &lsum) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {

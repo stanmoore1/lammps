@@ -2479,14 +2479,14 @@ void PPPMKokkos<DeviceType>::slabcorr()
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMKokkos<DeviceType>::operator()(TagPPPM_slabcorr1, const int &i, KK_FLOAT &dipole) const
+void PPPMKokkos<DeviceType>::operator()(TagPPPM_slabcorr1, const int &i, double &dipole) const
 {
   dipole += q[i]*x(i,2);
 }
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMKokkos<DeviceType>::operator()(TagPPPM_slabcorr2, const int &i, KK_FLOAT &dipole_r2) const
+void PPPMKokkos<DeviceType>::operator()(TagPPPM_slabcorr2, const int &i, double &dipole_r2) const
 {
   dipole_r2 += q[i]*x(i,2)*x(i,2);
 }
