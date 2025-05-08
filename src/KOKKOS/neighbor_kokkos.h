@@ -46,7 +46,7 @@ class NeighborKokkos : public Neighbor {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagNeighborXhold<DeviceType>, const int&) const;
 
-  DAT::tdual_xfloat_2d k_cutneighsq;
+  DAT::tdual_double_2d k_cutneighsq;
 
   DAT::tdual_int_1d k_ex1_type,k_ex2_type;
   DAT::tdual_int_2d k_ex_type;
@@ -67,10 +67,10 @@ class NeighborKokkos : public Neighbor {
 
  private:
 
-  DAT::tdual_x_array x;
-  DAT::tdual_x_array xhold;
+  DAT::tdual_double_1d_3 x;
+  DAT::tdual_double_1d_3 xhold;
 
-  X_FLOAT deltasq;
+  double deltasq;
 
   void init_cutneighsq_kokkos(int) override;
   void create_kokkos_list(int) override;

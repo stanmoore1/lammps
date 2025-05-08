@@ -40,13 +40,13 @@ template<class DeviceType>
 struct DomainResetBoxFunctor{
 public:
   typedef DeviceType device_type;
-  typename ArrayTypes<DeviceType>::t_x_array x;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 x;
 
   struct value_type {
     double value[3][2] ;
   };
 
-  DomainResetBoxFunctor(DAT::tdual_x_array _x):
+  DomainResetBoxFunctor(DAT::tdual_double_1d_3 _x):
     x(_x.view<DeviceType>()) {}
 
   KOKKOS_INLINE_FUNCTION
@@ -218,8 +218,8 @@ template<class DeviceType, int PERIODIC, int DEFORM_VREMAP>
 struct DomainPBCFunctor {
   typedef DeviceType device_type;
   double lo[3],hi[3],period[3];
-  typename ArrayTypes<DeviceType>::t_x_array x;
-  typename ArrayTypes<DeviceType>::t_v_array v;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 x;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 v;
   typename ArrayTypes<DeviceType>::t_int_1d mask;
   typename ArrayTypes<DeviceType>::t_imageint_1d image;
   int deform_groupbit;
@@ -227,7 +227,7 @@ struct DomainPBCFunctor {
   int xperiodic,yperiodic,zperiodic;
 
   DomainPBCFunctor(double* _lo, double* _hi, double* _period,
-                   DAT::tdual_x_array _x, DAT::tdual_v_array _v,
+                   DAT::tdual_double_1d_3 _x, DAT::tdual_double_1d_3 _v,
                    DAT::tdual_int_1d _mask, DAT::tdual_imageint_1d _image,
                    int _deform_groupbit, double* _h_rate,
                    int _xperiodic, int _yperiodic, int _zperiodic):
@@ -589,8 +589,8 @@ void DomainKokkos::lamda2x(int n, int groupbit_in)
 
 KOKKOS_INLINE_FUNCTION
 void DomainKokkos::operator()(TagDomain_lamda2x, const int &i) const {
-  const double xi1 = x(i,1);
-  const double xi2 = x(i,2);
+  const KK_FLOAT xi1 = x(i,1);
+  const KK_FLOAT xi2 = x(i,2);
   x(i,0) = h[0]*x(i,0) + h[5]*xi1 + h[4]*xi2 + boxlo[0];
   x(i,1) = h[1]*xi1 + h[3]*xi2 + boxlo[1];
   x(i,2) = h[2]*xi2 + boxlo[2];
@@ -599,8 +599,8 @@ void DomainKokkos::operator()(TagDomain_lamda2x, const int &i) const {
 KOKKOS_INLINE_FUNCTION
 void DomainKokkos::operator()(TagDomain_lamda2x_group, const int &i) const {
   if (mask[i] & groupbit) {
-    const double xi1 = x(i,1);
-    const double xi2 = x(i,2);
+    const KK_FLOAT xi1 = x(i,1);
+    const KK_FLOAT xi2 = x(i,2);
     x(i,0) = h[0]*x(i,0) + h[5]*xi1 + h[4]*xi2 + boxlo[0];
     x(i,1) = h[1]*xi1 + h[3]*xi2 + boxlo[1];
     x(i,2) = h[2]*xi2 + boxlo[2];
@@ -640,7 +640,7 @@ void DomainKokkos::x2lamda(int n, int groupbit_in)
 
 KOKKOS_INLINE_FUNCTION
 void DomainKokkos::operator()(TagDomain_x2lamda, const int &i) const {
-  F_FLOAT delta[3];
+  KK_FLOAT delta[3];
   delta[0] = x(i,0) - boxlo[0];
   delta[1] = x(i,1) - boxlo[1];
   delta[2] = x(i,2) - boxlo[2];
@@ -653,7 +653,7 @@ void DomainKokkos::operator()(TagDomain_x2lamda, const int &i) const {
 KOKKOS_INLINE_FUNCTION
 void DomainKokkos::operator()(TagDomain_x2lamda_group, const int &i) const {
   if (mask[i] & groupbit) {
-    F_FLOAT delta[3];
+    KK_FLOAT delta[3];
     delta[0] = x(i,0) - boxlo[0];
     delta[1] = x(i,1) - boxlo[1];
     delta[2] = x(i,2) - boxlo[2];

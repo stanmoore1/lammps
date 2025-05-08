@@ -41,8 +41,8 @@ class MLIAPDescriptorSO3Kokkos :
  protected:
   template <typename ViewType>
   KOKKOS_FUNCTION static void v_tally(int vflag_either, int vflag_global, int vflag_atom, int i,
-                                      int j, int ij, double *fij, ViewType rij,
-                                      Kokkos::View<double[6], DeviceType> virial, ViewType vatom);
+                                      int j, int ij, KK_FLOAT *fij, ViewType rij,
+                                      Kokkos::View<KK_FLOAT[6], DeviceType> virial, ViewType vatom);
   class MLIAP_SO3Kokkos<DeviceType> *so3ptr_kokkos;
 
   // inherited from non-Kokkos class

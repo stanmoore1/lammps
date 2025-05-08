@@ -67,7 +67,7 @@ class CommTiledKokkos : public CommTiled {
   int nprocmaxtot;
 
   DAT::tdual_int_3d k_sendlist;
-  DAT::tdual_xfloat_2d k_buf_send,k_buf_recv;
+  DAT::tdual_double_2d k_buf_send,k_buf_recv;
 
   void grow_send(int, int) override;             // reallocate send buffer
   void grow_recv(int, int flag = 0) override;    // free/allocate recv buffer

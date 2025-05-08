@@ -98,10 +98,10 @@ class FixRxKokkos : public FixRX {
 
  //protected:
   PairDPDfdtEnergyKokkos<DeviceType>* pairDPDEKK;
-  double VDPD;
+  KK_FLOAT VDPD;
 
-  double boltz;
-  double t_stop;
+  KK_FLOAT boltz;
+  KK_FLOAT t_stop;
 
   template <typename T, int stride = 1>
   struct StridedArrayType
@@ -137,53 +137,53 @@ class FixRxKokkos : public FixRX {
 
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  int k_rhs       (double, const VectorType&, VectorType&, UserDataType& ) const;
+  int k_rhs       (KK_FLOAT, const VectorType&, VectorType&, UserDataType& ) const;
 
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  int k_rhs_dense (double, const VectorType&, VectorType&, UserDataType& ) const;
+  int k_rhs_dense (KK_FLOAT, const VectorType&, VectorType&, UserDataType& ) const;
 
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  int k_rhs_sparse(double, const VectorType&, VectorType&, UserDataType& ) const;
+  int k_rhs_sparse(KK_FLOAT, const VectorType&, VectorType&, UserDataType& ) const;
 
   //!< Classic Runge-Kutta 4th-order stepper.
-  void rk4(const double t_stop, double *y, double *rwork, void *v_params) const;
+  void rk4(const KK_FLOAT t_stop, KK_FLOAT *y, KK_FLOAT *rwork, void *v_params) const;
 
   //!< Runge-Kutta-Fehlberg ODE Solver.
-  void rkf45(const int neq, const double t_stop, double *y, double *rwork, void *v_params, CounterType& counter) const;
+  void rkf45(const int neq, const KK_FLOAT t_stop, KK_FLOAT *y, KK_FLOAT *rwork, void *v_params, CounterType& counter) const;
 
   //!< Runge-Kutta-Fehlberg ODE stepper function.
-  void rkf45_step (const int neq, const double h, double y[], double y_out[],
-                   double rwk[], void *) const;
+  void rkf45_step (const int neq, const KK_FLOAT h, KK_FLOAT y[], KK_FLOAT y_out[],
+                   KK_FLOAT rwk[], void *) const;
 
   //!< Initial step size estimation for the Runge-Kutta-Fehlberg ODE solver.
-  int rkf45_h0 (const int neq, const double t, const double t_stop,
-                     const double hmin, const double hmax,
-                     double& h0, double y[], double rwk[], void *v_params) const;
+  int rkf45_h0 (const int neq, const KK_FLOAT t, const KK_FLOAT t_stop,
+                     const KK_FLOAT hmin, const KK_FLOAT hmax,
+                     KK_FLOAT& h0, KK_FLOAT y[], KK_FLOAT rwk[], void *v_params) const;
 
   //!< Classic Runge-Kutta 4th-order stepper.
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  void k_rk4(const double t_stop, VectorType& y, VectorType& rwork, UserDataType& userData) const;
+  void k_rk4(const KK_FLOAT t_stop, VectorType& y, VectorType& rwork, UserDataType& userData) const;
 
   //!< Runge-Kutta-Fehlberg ODE Solver.
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  void k_rkf45(const int neq, const double t_stop, VectorType& y, VectorType& rwork, UserDataType& userData, CounterType& counter) const;
+  void k_rkf45(const int neq, const KK_FLOAT t_stop, VectorType& y, VectorType& rwork, UserDataType& userData, CounterType& counter) const;
 
   //!< Runge-Kutta-Fehlberg ODE stepper function.
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  void k_rkf45_step (const int neq, const double h, VectorType& y, VectorType& y_out,
+  void k_rkf45_step (const int neq, const KK_FLOAT h, VectorType& y, VectorType& y_out,
                      VectorType& rwk, UserDataType& userData) const;
 
   //!< Initial step size estimation for the Runge-Kutta-Fehlberg ODE solver.
   template <typename VectorType, typename UserDataType>
     KOKKOS_INLINE_FUNCTION
-  int k_rkf45_h0 (const int neq, const double t, const double t_stop,
-                  const double hmin, const double hmax,
-                  double& h0, VectorType& y, VectorType& rwk, UserDataType& userData) const;
+  int k_rkf45_h0 (const int neq, const KK_FLOAT t, const KK_FLOAT t_stop,
+                  const KK_FLOAT hmin, const KK_FLOAT hmax,
+                  KK_FLOAT& h0, VectorType& y, VectorType& rwk, UserDataType& userData) const;
 
   //!< ODE Solver diagnostics.
   void odeDiagnostics();
@@ -204,14 +204,14 @@ class FixRxKokkos : public FixRX {
   struct KineticsType
   {
     // Arrhenius rate coefficients.
-    typename ArrayTypes<KokkosDeviceType>::t_float_1d Arr, nArr, Ea;
+    typename ArrayTypes<KokkosDeviceType>::t_double_1d Arr, nArr, Ea;
 
     // Dense versions.
-    typename ArrayTypes<KokkosDeviceType>::t_float_2d stoich, stoichReactants, stoichProducts;
+    typename ArrayTypes<KokkosDeviceType>::t_double_2d stoich, stoichReactants, stoichProducts;
 
     // Sparse versions.
     typename ArrayTypes<KokkosDeviceType>::t_int_2d   nuk, inu;
-    typename ArrayTypes<KokkosDeviceType>::t_float_2d nu;
+    typename ArrayTypes<KokkosDeviceType>::t_double_2d nu;
     typename ArrayTypes<KokkosDeviceType>::t_int_1d   isIntegral;
   };
 
@@ -224,24 +224,24 @@ class FixRxKokkos : public FixRX {
   void create_kinetics_data();
 
   // Need a dual-view and device-view for dpdThetaLocal and sumWeights since they're used in several callbacks.
-  DAT::tdual_efloat_1d k_dpdThetaLocal, k_sumWeights;
-  //typename ArrayTypes<DeviceType>::t_efloat_1d d_dpdThetaLocal, d_sumWeights;
-  typename AT::t_efloat_1d d_dpdThetaLocal, d_sumWeights;
-  HAT::t_efloat_1d h_dpdThetaLocal, h_sumWeights;
+  DAT::tdual_double_1d k_dpdThetaLocal, k_sumWeights;
+  //typename ArrayTypes<DeviceType>::t_double_1d d_dpdThetaLocal, d_sumWeights;
+  typename AT::t_double_1d d_dpdThetaLocal, d_sumWeights;
+  HAT::t_double_1d h_dpdThetaLocal, h_sumWeights;
 
-  typename AT::t_x_array_randomread d_x;
+  typename AT::t_double_1d_3_randomread d_x;
   typename AT::t_int_1d_randomread  d_type;
-  typename AT::t_efloat_1d          d_dpdTheta;
+  typename AT::t_double_1d          d_dpdTheta;
 
-  typename AT::tdual_ffloat_2d k_cutsq;
-  typename AT::t_ffloat_2d     d_cutsq;
+  typename AT::tdual_double_2d k_cutsq;
+  typename AT::t_double_2d     d_cutsq;
   //double **h_cutsq;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d       d_ilist;
   typename AT::t_int_1d       d_numneigh;
 
-  typename AT::t_float_2d  d_dvector;
+  typename AT::t_double_2d  d_dvector;
   typename AT::t_int_1d    d_mask;
 
   typename AT::t_double_1d d_scratchSpace;

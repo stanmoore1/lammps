@@ -303,18 +303,18 @@ class PairSNAPKokkos : public PairSNAP {
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void v_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz,
-      const F_FLOAT &delx, const F_FLOAT &dely, const F_FLOAT &delz) const;
+      const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz,
+      const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
  protected:
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;
   typename AT::t_int_1d_randomread d_numneigh;
 
-  DAT::tdual_efloat_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
-  typename AT::t_efloat_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  DAT::tdual_double_1d k_eatom;
+  DAT::tdual_double_1d_6 k_vatom;
+  typename AT::t_double_1d d_eatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   SNAKokkos<DeviceType, real_type, vector_length> snaKK;
 
@@ -334,14 +334,14 @@ class PairSNAPKokkos : public PairSNAP {
   Kokkos::View<T_INT*, DeviceType> d_ninside;                // ninside for all atoms in list
   typename SNAKokkos<DeviceType, real_type, vector_length>::t_sna_2d d_beta;                // betas for all atoms in list
 
-  typedef Kokkos::DualView<F_FLOAT**, DeviceType> tdual_fparams;
+  typedef Kokkos::DualView<double**, DeviceType> tdual_fparams;
   tdual_fparams k_cutsq;
-  typedef Kokkos::View<const F_FLOAT**, DeviceType,
+  typedef Kokkos::View<const double**, DeviceType,
       Kokkos::MemoryTraits<Kokkos::RandomAccess> > t_fparams_rnd;
   t_fparams_rnd rnd_cutsq;
 
-  typename AT::t_x_array_randomread x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3_randomread x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_1d_randomread type;
 
   int need_dup;
@@ -354,11 +354,11 @@ class PairSNAPKokkos : public PairSNAP {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<F_FLOAT*[3], typename DAT::t_f_array::array_layout> dup_f;
-  DupScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout> dup_vatom;
+  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
+  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
 
-  NonDupScatterView<F_FLOAT*[3], typename DAT::t_f_array::array_layout> ndup_f;
-  NonDupScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout> ndup_vatom;
+  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
+  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
 
   friend void pair_virial_fdotr_compute<PairSNAPKokkos>(PairSNAPKokkos*);
 

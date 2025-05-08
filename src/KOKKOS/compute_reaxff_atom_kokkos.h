@@ -49,7 +49,7 @@ class ComputeReaxFFAtomKokkos : public ComputeReaxFFAtom {
  private:
   int nbuf;
   double *buf;
-  typename AT::tdual_float_1d k_buf;
+  typename AT::tdual_double_1d k_buf;
 
   auto device_pair() {
     return static_cast<PairReaxFFKokkos<LMPDeviceType>*>(reaxff);

@@ -147,21 +147,21 @@ template<class DeviceType,int PBC_FLAG,int TRICLINIC>
 struct AtomVecSphereKokkos_PackComm {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
-  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
-  typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
+  typename ArrayTypes<DeviceType>::t_double_1d_3_randomread _x;
+  typename ArrayTypes<DeviceType>::t_double_1d _radius,_rmass;
+  typename ArrayTypes<DeviceType>::t_double_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
-  X_FLOAT _pbc[6];
+  double _xprd,_yprd,_zprd,_xy,_xz,_yz;
+  double _pbc[6];
 
   AtomVecSphereKokkos_PackComm(
-    const typename DAT::tdual_x_array &x,
-    const typename DAT::tdual_float_1d &radius,
-    const typename DAT::tdual_float_1d &rmass,
-    const typename DAT::tdual_xfloat_2d &buf,
+    const typename DAT::tdual_double_1d_3 &x,
+    const typename DAT::tdual_double_1d &radius,
+    const typename DAT::tdual_double_1d &rmass,
+    const typename DAT::tdual_double_2d &buf,
     const typename DAT::tdual_int_1d &list,
-    const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
-    const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz, const int* const pbc):
+    const double &xprd, const double &yprd, const double &zprd,
+    const double &xy, const double &xz, const double &yz, const int* const pbc):
     _x(x.view<DeviceType>()),
     _radius(radius.view<DeviceType>()),
     _rmass(rmass.view<DeviceType>()),
@@ -170,7 +170,7 @@ struct AtomVecSphereKokkos_PackComm {
     _xy(xy),_xz(xz),_yz(yz) {
     const size_t elements = 5;
     const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_um(buf.view<DeviceType>().data(),maxsend,elements);
+    _buf = typename ArrayTypes<DeviceType>::t_double_2d_um(buf.view<DeviceType>().data(),maxsend,elements);
     _pbc[0] = pbc[0]; _pbc[1] = pbc[1]; _pbc[2] = pbc[2];
     _pbc[3] = pbc[3]; _pbc[4] = pbc[4]; _pbc[5] = pbc[5];
   }
@@ -203,7 +203,7 @@ struct AtomVecSphereKokkos_PackComm {
 int AtomVecSphereKokkos::pack_comm_kokkos(
   const int &n,
   const DAT::tdual_int_1d &list,
-  const DAT::tdual_xfloat_2d &buf,
+  const DAT::tdual_double_2d &buf,
   const int &pbc_flag,
   const int* const pbc)
 {
@@ -300,28 +300,28 @@ template<class DeviceType,int RADVARY,int PBC_FLAG,int TRICLINIC,int DEFORM_VREM
 struct AtomVecSphereKokkos_PackCommVel {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
+  typename ArrayTypes<DeviceType>::t_double_1d_3_randomread _x;
   typename ArrayTypes<DeviceType>::t_int_1d _mask;
-  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
-  typename ArrayTypes<DeviceType>::t_v_array _v, _omega;
-  typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
+  typename ArrayTypes<DeviceType>::t_double_1d _radius,_rmass;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 _v, _omega;
+  typename ArrayTypes<DeviceType>::t_double_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
-  X_FLOAT _pbc[6];
-  X_FLOAT _h_rate[6];
+  double _xprd,_yprd,_zprd,_xy,_xz,_yz;
+  double _pbc[6];
+  double _h_rate[6];
   const int _deform_vremap;
 
   AtomVecSphereKokkos_PackCommVel(
-    const typename DAT::tdual_x_array &x,
+    const typename DAT::tdual_double_1d_3 &x,
     const typename DAT::tdual_int_1d &mask,
-    const typename DAT::tdual_float_1d &radius,
-    const typename DAT::tdual_float_1d &rmass,
-    const typename DAT::tdual_v_array &v,
-    const typename DAT::tdual_v_array &omega,
-    const typename DAT::tdual_xfloat_2d &buf,
+    const typename DAT::tdual_double_1d &radius,
+    const typename DAT::tdual_double_1d &rmass,
+    const typename DAT::tdual_double_1d_3 &v,
+    const typename DAT::tdual_double_1d_3 &omega,
+    const typename DAT::tdual_double_2d &buf,
     const typename DAT::tdual_int_1d &list,
-    const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
-    const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz, const int* const pbc,
+    const double &xprd, const double &yprd, const double &zprd,
+    const double &xy, const double &xz, const double &yz, const int* const pbc,
     const double * const h_rate,
     const int &deform_vremap):
     _x(x.view<DeviceType>()),
@@ -337,7 +337,7 @@ struct AtomVecSphereKokkos_PackCommVel {
   {
     const size_t elements = 9 + 2 * RADVARY;
     const int maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_um(buf.view<DeviceType>().data(),maxsend,elements);
+    _buf = typename ArrayTypes<DeviceType>::t_double_2d_um(buf.view<DeviceType>().data(),maxsend,elements);
     _pbc[0] = pbc[0]; _pbc[1] = pbc[1]; _pbc[2] = pbc[2];
     _pbc[3] = pbc[3]; _pbc[4] = pbc[4]; _pbc[5] = pbc[5];
     _h_rate[0] = h_rate[0]; _h_rate[1] = h_rate[1]; _h_rate[2] = h_rate[2];
@@ -392,7 +392,7 @@ struct AtomVecSphereKokkos_PackCommVel {
 int AtomVecSphereKokkos::pack_comm_vel_kokkos(
   const int &n,
   const DAT::tdual_int_1d &list,
-  const DAT::tdual_xfloat_2d &buf,
+  const DAT::tdual_double_2d &buf,
   const int &pbc_flag,
   const int* const pbc)
 {
@@ -668,22 +668,22 @@ template<class DeviceType,int PBC_FLAG,int TRICLINIC>
 struct AtomVecSphereKokkos_PackCommSelf {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
-  typename ArrayTypes<DeviceType>::t_x_array _xw;
-  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
+  typename ArrayTypes<DeviceType>::t_double_1d_3_randomread _x;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 _xw;
+  typename ArrayTypes<DeviceType>::t_double_1d _radius,_rmass;
   int _nfirst;
   typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
-  X_FLOAT _pbc[6];
+  double _xprd,_yprd,_zprd,_xy,_xz,_yz;
+  double _pbc[6];
 
   AtomVecSphereKokkos_PackCommSelf(
-    const typename DAT::tdual_x_array &x,
-    const typename DAT::tdual_float_1d &radius,
-    const typename DAT::tdual_float_1d &rmass,
+    const typename DAT::tdual_double_1d_3 &x,
+    const typename DAT::tdual_double_1d &radius,
+    const typename DAT::tdual_double_1d &rmass,
     const int &nfirst,
     const typename DAT::tdual_int_1d &list,
-    const X_FLOAT &xprd, const X_FLOAT &yprd, const X_FLOAT &zprd,
-    const X_FLOAT &xy, const X_FLOAT &xz, const X_FLOAT &yz, const int* const pbc):
+    const double &xprd, const double &yprd, const double &zprd,
+    const double &xy, const double &xz, const double &yz, const int* const pbc):
     _x(x.view<DeviceType>()),_xw(x.view<DeviceType>()),
     _radius(radius.view<DeviceType>()),
     _rmass(rmass.view<DeviceType>()),
@@ -815,16 +815,16 @@ template<class DeviceType>
 struct AtomVecSphereKokkos_UnpackComm {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_x_array _x;
-  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
-  typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 _x;
+  typename ArrayTypes<DeviceType>::t_double_1d _radius,_rmass;
+  typename ArrayTypes<DeviceType>::t_double_2d_const_um _buf;
   int _first;
 
   AtomVecSphereKokkos_UnpackComm(
-    const typename DAT::tdual_x_array &x,
-    const typename DAT::tdual_float_1d &radius,
-    const typename DAT::tdual_float_1d &rmass,
-    const typename DAT::tdual_xfloat_2d &buf,
+    const typename DAT::tdual_double_1d_3 &x,
+    const typename DAT::tdual_double_1d &radius,
+    const typename DAT::tdual_double_1d &rmass,
+    const typename DAT::tdual_double_2d &buf,
     const int& first):
     _x(x.view<DeviceType>()),
     _radius(radius.view<DeviceType>()),
@@ -833,7 +833,7 @@ struct AtomVecSphereKokkos_UnpackComm {
   {
     const size_t elements = 5;
     const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um(buf.view<DeviceType>().data(),maxsend,elements);
+    _buf = typename ArrayTypes<DeviceType>::t_double_2d_const_um(buf.view<DeviceType>().data(),maxsend,elements);
   };
 
   KOKKOS_INLINE_FUNCTION
@@ -850,7 +850,7 @@ struct AtomVecSphereKokkos_UnpackComm {
 
 void AtomVecSphereKokkos::unpack_comm_kokkos(
   const int &n, const int &first,
-  const DAT::tdual_xfloat_2d &buf) {
+  const DAT::tdual_double_2d &buf) {
   // Fallback to AtomVecKokkos if radvary == 0
   if (radvary == 0) {
     AtomVecKokkos::unpack_comm_kokkos(n,first,buf);
@@ -879,19 +879,19 @@ template<class DeviceType,int RADVARY>
 struct AtomVecSphereKokkos_UnpackCommVel {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_x_array _x;
-  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
-  typename ArrayTypes<DeviceType>::t_v_array _v, _omega;
-  typename ArrayTypes<DeviceType>::t_xfloat_2d_const _buf;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 _x;
+  typename ArrayTypes<DeviceType>::t_double_1d _radius,_rmass;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 _v, _omega;
+  typename ArrayTypes<DeviceType>::t_double_2d_const _buf;
   int _first;
 
   AtomVecSphereKokkos_UnpackCommVel(
-    const typename DAT::tdual_x_array &x,
-    const typename DAT::tdual_float_1d &radius,
-    const typename DAT::tdual_float_1d &rmass,
-    const typename DAT::tdual_v_array &v,
-    const typename DAT::tdual_v_array &omega,
-    const typename DAT::tdual_xfloat_2d &buf,
+    const typename DAT::tdual_double_1d_3 &x,
+    const typename DAT::tdual_double_1d &radius,
+    const typename DAT::tdual_double_1d &rmass,
+    const typename DAT::tdual_double_1d_3 &v,
+    const typename DAT::tdual_double_1d_3 &omega,
+    const typename DAT::tdual_double_2d &buf,
     const int& first):
     _x(x.view<DeviceType>()),
     _radius(radius.view<DeviceType>()),
@@ -927,7 +927,7 @@ struct AtomVecSphereKokkos_UnpackCommVel {
 
 void AtomVecSphereKokkos::unpack_comm_vel_kokkos(
   const int &n, const int &first,
-  const DAT::tdual_xfloat_2d &buf) {
+  const DAT::tdual_double_2d &buf) {
   if (lmp->kokkos->forward_comm_on_host) {
     atomKK->modified(Host,X_MASK|RADIUS_MASK|RMASS_MASK|V_MASK|OMEGA_MASK);
     if (radvary == 0) {
@@ -971,25 +971,25 @@ template<class DeviceType,int PBC_FLAG>
 struct AtomVecSphereKokkos_PackBorder {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
+  typename ArrayTypes<DeviceType>::t_double_2d_um _buf;
   const typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  const typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
+  const typename ArrayTypes<DeviceType>::t_double_1d_3_randomread _x;
   const typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   const typename ArrayTypes<DeviceType>::t_int_1d _type;
   const typename ArrayTypes<DeviceType>::t_int_1d _mask;
-  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
-  X_FLOAT _dx,_dy,_dz;
+  typename ArrayTypes<DeviceType>::t_double_1d _radius,_rmass;
+  double _dx,_dy,_dz;
 
   AtomVecSphereKokkos_PackBorder(
-    const typename ArrayTypes<DeviceType>::t_xfloat_2d &buf,
+    const typename ArrayTypes<DeviceType>::t_double_2d &buf,
     const typename ArrayTypes<DeviceType>::t_int_1d_const &list,
-    const typename ArrayTypes<DeviceType>::t_x_array &x,
+    const typename ArrayTypes<DeviceType>::t_double_1d_3 &x,
     const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
     const typename ArrayTypes<DeviceType>::t_int_1d &type,
     const typename ArrayTypes<DeviceType>::t_int_1d &mask,
-    const typename ArrayTypes<DeviceType>::t_float_1d &radius,
-    const typename ArrayTypes<DeviceType>::t_float_1d &rmass,
-    const X_FLOAT &dx, const X_FLOAT &dy, const X_FLOAT &dz):
+    const typename ArrayTypes<DeviceType>::t_double_1d &radius,
+    const typename ArrayTypes<DeviceType>::t_double_1d &rmass,
+    const double &dx, const double &dy, const double &dz):
     _buf(buf),_list(list),
     _x(x),_tag(tag),_type(type),_mask(mask),
     _radius(radius),
@@ -998,7 +998,7 @@ struct AtomVecSphereKokkos_PackBorder {
   {
     const size_t elements = 8;
     const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_um(buf.data(),maxsend,elements);
+    _buf = typename ArrayTypes<DeviceType>::t_double_2d_um(buf.data(),maxsend,elements);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -1024,10 +1024,10 @@ struct AtomVecSphereKokkos_PackBorder {
 /* ---------------------------------------------------------------------- */
 
 int AtomVecSphereKokkos::pack_border_kokkos(
-  int n, DAT::tdual_int_1d k_sendlist, DAT::tdual_xfloat_2d buf,
+  int n, DAT::tdual_int_1d k_sendlist, DAT::tdual_double_2d buf,
   int pbc_flag, int *pbc, ExecutionSpace space)
 {
-  X_FLOAT dx,dy,dz;
+  double dx,dy,dz;
 
   // This was in atom_vec_dpd_kokkos but doesn't appear in any other atom_vec
   atomKK->sync(space,ALL_MASK);
@@ -1084,30 +1084,30 @@ template<class DeviceType,int PBC_FLAG,int DEFORM_VREMAP>
 struct AtomVecSphereKokkos_PackBorderVel {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
+  typename ArrayTypes<DeviceType>::t_double_2d_um _buf;
   const typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  const typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
+  const typename ArrayTypes<DeviceType>::t_double_1d_3_randomread _x;
   const typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   const typename ArrayTypes<DeviceType>::t_int_1d _type;
   const typename ArrayTypes<DeviceType>::t_int_1d _mask;
-  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
-  typename ArrayTypes<DeviceType>::t_v_array _v, _omega;
-  X_FLOAT _dx,_dy,_dz, _dvx, _dvy, _dvz;
+  typename ArrayTypes<DeviceType>::t_double_1d _radius,_rmass;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 _v, _omega;
+  double _dx,_dy,_dz, _dvx, _dvy, _dvz;
   const int _deform_groupbit;
 
   AtomVecSphereKokkos_PackBorderVel(
-    const typename ArrayTypes<DeviceType>::t_xfloat_2d &buf,
+    const typename ArrayTypes<DeviceType>::t_double_2d &buf,
     const typename ArrayTypes<DeviceType>::t_int_1d_const &list,
-    const typename ArrayTypes<DeviceType>::t_x_array &x,
+    const typename ArrayTypes<DeviceType>::t_double_1d_3 &x,
     const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
     const typename ArrayTypes<DeviceType>::t_int_1d &type,
     const typename ArrayTypes<DeviceType>::t_int_1d &mask,
-    const typename ArrayTypes<DeviceType>::t_float_1d &radius,
-    const typename ArrayTypes<DeviceType>::t_float_1d &rmass,
-    const typename ArrayTypes<DeviceType>::t_v_array &v,
-    const typename ArrayTypes<DeviceType>::t_v_array &omega,
-    const X_FLOAT &dx, const X_FLOAT &dy, const X_FLOAT &dz,
-    const X_FLOAT &dvx, const X_FLOAT &dvy, const X_FLOAT &dvz,
+    const typename ArrayTypes<DeviceType>::t_double_1d &radius,
+    const typename ArrayTypes<DeviceType>::t_double_1d &rmass,
+    const typename ArrayTypes<DeviceType>::t_double_1d_3 &v,
+    const typename ArrayTypes<DeviceType>::t_double_1d_3 &omega,
+    const double &dx, const double &dy, const double &dz,
+    const double &dvx, const double &dvy, const double &dvz,
     const int &deform_groupbit):
     _buf(buf),_list(list),
     _x(x),_tag(tag),_type(type),_mask(mask),
@@ -1120,7 +1120,7 @@ struct AtomVecSphereKokkos_PackBorderVel {
   {
     const size_t elements = 14;
     const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_um(buf.data(),maxsend,elements);
+    _buf = typename ArrayTypes<DeviceType>::t_double_2d_um(buf.data(),maxsend,elements);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -1161,11 +1161,11 @@ struct AtomVecSphereKokkos_PackBorderVel {
 /* ---------------------------------------------------------------------- */
 
 int AtomVecSphereKokkos::pack_border_vel_kokkos(
-  int n, DAT::tdual_int_1d k_sendlist, DAT::tdual_xfloat_2d buf,
+  int n, DAT::tdual_int_1d k_sendlist, DAT::tdual_double_2d buf,
   int pbc_flag, int *pbc, ExecutionSpace space)
 {
-  X_FLOAT dx=0,dy=0,dz=0;
-  X_FLOAT dvx=0,dvy=0,dvz=0;
+  double dx=0,dy=0,dz=0;
+  double dvx=0,dvy=0,dvz=0;
 
   // This was in atom_vec_dpd_kokkos but doesn't appear in any other atom_vec
   atomKK->sync(space,ALL_MASK);
@@ -1256,22 +1256,22 @@ template<class DeviceType>
 struct AtomVecSphereKokkos_UnpackBorder {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
-  typename ArrayTypes<DeviceType>::t_x_array _x;
+  typename ArrayTypes<DeviceType>::t_double_2d_const_um _buf;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 _x;
   typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   typename ArrayTypes<DeviceType>::t_int_1d _type;
   typename ArrayTypes<DeviceType>::t_int_1d _mask;
-  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
+  typename ArrayTypes<DeviceType>::t_double_1d _radius,_rmass;
   int _first;
 
   AtomVecSphereKokkos_UnpackBorder(
-    const typename ArrayTypes<DeviceType>::t_xfloat_2d &buf,
-    const typename ArrayTypes<DeviceType>::t_x_array &x,
+    const typename ArrayTypes<DeviceType>::t_double_2d &buf,
+    const typename ArrayTypes<DeviceType>::t_double_1d_3 &x,
     const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
     const typename ArrayTypes<DeviceType>::t_int_1d &type,
     const typename ArrayTypes<DeviceType>::t_int_1d &mask,
-    const typename ArrayTypes<DeviceType>::t_float_1d &radius,
-    const typename ArrayTypes<DeviceType>::t_float_1d &rmass,
+    const typename ArrayTypes<DeviceType>::t_double_1d &radius,
+    const typename ArrayTypes<DeviceType>::t_double_1d &rmass,
     const int& first):
     _buf(buf),_x(x),_tag(tag),_type(type),_mask(mask),
     _radius(radius),
@@ -1280,7 +1280,7 @@ struct AtomVecSphereKokkos_UnpackBorder {
   {
     const size_t elements = 8;
     const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um(buf.data(),maxsend,elements);
+    _buf = typename ArrayTypes<DeviceType>::t_double_2d_const_um(buf.data(),maxsend,elements);
   };
 
   KOKKOS_INLINE_FUNCTION
@@ -1299,7 +1299,7 @@ struct AtomVecSphereKokkos_UnpackBorder {
 /* ---------------------------------------------------------------------- */
 
 void AtomVecSphereKokkos::unpack_border_kokkos(const int &n, const int &first,
-                                               const DAT::tdual_xfloat_2d &buf,ExecutionSpace space) {
+                                               const DAT::tdual_double_2d &buf,ExecutionSpace space) {
   while (first+n >= nmax) grow(0);
   if (space==Host) {
     struct AtomVecSphereKokkos_UnpackBorder<LMPHostType> f(buf.view<LMPHostType>(),
@@ -1325,26 +1325,26 @@ template<class DeviceType>
 struct AtomVecSphereKokkos_UnpackBorderVel {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
-  typename ArrayTypes<DeviceType>::t_x_array _x;
+  typename ArrayTypes<DeviceType>::t_double_2d_const_um _buf;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 _x;
   typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   typename ArrayTypes<DeviceType>::t_int_1d _type;
   typename ArrayTypes<DeviceType>::t_int_1d _mask;
-  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
-  typename ArrayTypes<DeviceType>::t_v_array _v;
-  typename ArrayTypes<DeviceType>::t_v_array _omega;
+  typename ArrayTypes<DeviceType>::t_double_1d _radius,_rmass;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 _v;
+  typename ArrayTypes<DeviceType>::t_double_1d_3 _omega;
   int _first;
 
   AtomVecSphereKokkos_UnpackBorderVel(
-    const typename ArrayTypes<DeviceType>::t_xfloat_2d_const &buf,
-    const typename ArrayTypes<DeviceType>::t_x_array &x,
+    const typename ArrayTypes<DeviceType>::t_double_2d_const &buf,
+    const typename ArrayTypes<DeviceType>::t_double_1d_3 &x,
     const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
     const typename ArrayTypes<DeviceType>::t_int_1d &type,
     const typename ArrayTypes<DeviceType>::t_int_1d &mask,
-    const typename ArrayTypes<DeviceType>::t_float_1d &radius,
-    const typename ArrayTypes<DeviceType>::t_float_1d &rmass,
-    const typename ArrayTypes<DeviceType>::t_v_array &v,
-    const typename ArrayTypes<DeviceType>::t_v_array &omega,
+    const typename ArrayTypes<DeviceType>::t_double_1d &radius,
+    const typename ArrayTypes<DeviceType>::t_double_1d &rmass,
+    const typename ArrayTypes<DeviceType>::t_double_1d_3 &v,
+    const typename ArrayTypes<DeviceType>::t_double_1d_3 &omega,
     const int& first):
     _buf(buf),_x(x),_tag(tag),_type(type),_mask(mask),
     _radius(radius),
@@ -1354,7 +1354,7 @@ struct AtomVecSphereKokkos_UnpackBorderVel {
   {
     const size_t elements = 14;
     const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um(buf.data(),maxsend,elements);
+    _buf = typename ArrayTypes<DeviceType>::t_double_2d_const_um(buf.data(),maxsend,elements);
   };
 
   KOKKOS_INLINE_FUNCTION
@@ -1380,7 +1380,7 @@ struct AtomVecSphereKokkos_UnpackBorderVel {
 
 void AtomVecSphereKokkos::unpack_border_vel_kokkos(
   const int &n, const int &first,
-  const DAT::tdual_xfloat_2d &buf,ExecutionSpace space) {
+  const DAT::tdual_double_2d &buf,ExecutionSpace space) {
   while (first+n >= nmax) grow(0);
   if (space==Host) {
     struct AtomVecSphereKokkos_UnpackBorderVel<LMPHostType> f(buf.view<LMPHostType>(),
@@ -1408,30 +1408,30 @@ template<class DeviceType>
 struct AtomVecSphereKokkos_PackExchangeFunctor {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  typename AT::t_x_array_randomread _x;
-  typename AT::t_v_array_randomread _v;
+  typename AT::t_double_1d_3_randomread _x;
+  typename AT::t_double_1d_3_randomread _v;
   typename AT::t_tagint_1d_randomread _tag;
   typename AT::t_int_1d_randomread _type;
   typename AT::t_int_1d_randomread _mask;
   typename AT::t_imageint_1d_randomread _image;
-  typename AT::t_float_1d_randomread _radius,_rmass;
-  typename AT::t_v_array_randomread _omega;
-  typename AT::t_x_array _xw;
-  typename AT::t_v_array _vw;
+  typename AT::t_double_1d_randomread _radius,_rmass;
+  typename AT::t_double_1d_3_randomread _omega;
+  typename AT::t_double_1d_3 _xw;
+  typename AT::t_double_1d_3 _vw;
   typename AT::t_tagint_1d _tagw;
   typename AT::t_int_1d _typew;
   typename AT::t_int_1d _maskw;
   typename AT::t_imageint_1d _imagew;
-  typename AT::t_float_1d _radiusw,_rmassw;
-  typename AT::t_v_array _omegaw;
-  typename AT::t_xfloat_2d_um _buf;
+  typename AT::t_double_1d _radiusw,_rmassw;
+  typename AT::t_double_1d_3 _omegaw;
+  typename AT::t_double_2d_um _buf;
   typename AT::t_int_1d_const _sendlist;
   typename AT::t_int_1d_const _copylist;
   int _size_exchange;
 
   AtomVecSphereKokkos_PackExchangeFunctor(
     const AtomKokkos* atom,
-    const typename AT::tdual_xfloat_2d buf,
+    const typename AT::tdual_double_2d buf,
     typename AT::tdual_int_1d sendlist,
     typename AT::tdual_int_1d copylist):
     _x(atom->k_x.view<DeviceType>()),
@@ -1457,7 +1457,7 @@ struct AtomVecSphereKokkos_PackExchangeFunctor {
     _size_exchange(atom->avecKK->size_exchange) {
     const int maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/_size_exchange;
 
-    _buf = typename AT::t_xfloat_2d_um(buf.template view<DeviceType>().data(),maxsend,_size_exchange);
+    _buf = typename AT::t_double_2d_um(buf.template view<DeviceType>().data(),maxsend,_size_exchange);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -1505,7 +1505,7 @@ struct AtomVecSphereKokkos_PackExchangeFunctor {
 
 int AtomVecSphereKokkos::pack_exchange_kokkos(
   const int &nsend,
-  DAT::tdual_xfloat_2d &k_buf,
+  DAT::tdual_double_2d &k_buf,
   DAT::tdual_int_1d k_sendlist,
   DAT::tdual_int_1d k_copylist,
   ExecutionSpace space)
@@ -1536,28 +1536,28 @@ template<class DeviceType,int OUTPUT_INDICES>
 struct AtomVecSphereKokkos_UnpackExchangeFunctor {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  typename AT::t_x_array _x;
-  typename AT::t_v_array _v;
+  typename AT::t_double_1d_3 _x;
+  typename AT::t_double_1d_3 _v;
   typename AT::t_tagint_1d _tag;
   typename AT::t_int_1d _type;
   typename AT::t_int_1d _mask;
   typename AT::t_imageint_1d _image;
-  typename AT::t_float_1d _radius;
-  typename AT::t_float_1d _rmass;
-  typename AT::t_v_array _omega;
-  typename AT::t_xfloat_2d_um _buf;
+  typename AT::t_double_1d _radius;
+  typename AT::t_double_1d _rmass;
+  typename AT::t_double_1d_3 _omega;
+  typename AT::t_double_2d_um _buf;
   typename AT::t_int_1d _nlocal;
   typename AT::t_int_1d _indices;
   int _dim;
-  X_FLOAT _lo,_hi;
+  double _lo,_hi;
   int _size_exchange;
 
   AtomVecSphereKokkos_UnpackExchangeFunctor(
     const AtomKokkos* atom,
-    const typename AT::tdual_xfloat_2d buf,
+    const typename AT::tdual_double_2d buf,
     typename AT::tdual_int_1d nlocal,
     typename AT::tdual_int_1d indices,
-    int dim, X_FLOAT lo, X_FLOAT hi):
+    int dim, double lo, double hi):
       _x(atom->k_x.view<DeviceType>()),
       _v(atom->k_v.view<DeviceType>()),
       _tag(atom->k_tag.view<DeviceType>()),
@@ -1578,7 +1578,7 @@ struct AtomVecSphereKokkos_UnpackExchangeFunctor {
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int &myrecv) const {
-    X_FLOAT x = _buf(myrecv,_dim+1);
+    double x = _buf(myrecv,_dim+1);
     int i = -1;
     if (x >= _lo && x < _hi) {
       i = Kokkos::atomic_fetch_add(&_nlocal(0),1);
@@ -1605,8 +1605,8 @@ struct AtomVecSphereKokkos_UnpackExchangeFunctor {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecSphereKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int nrecv, int nlocal,
-                                                int dim, X_FLOAT lo, X_FLOAT hi, ExecutionSpace space,
+int AtomVecSphereKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf, int nrecv, int nlocal,
+                                                int dim, double lo, double hi, ExecutionSpace space,
                                                 DAT::tdual_int_1d &k_indices)
 {
   while (nlocal + nrecv/size_exchange >= nmax) grow(0);
@@ -1679,11 +1679,11 @@ void AtomVecSphereKokkos::sync_overlapping_device(ExecutionSpace space, unsigned
 {
   if (space == Device) {
     if ((mask & X_MASK) && atomKK->k_x.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::tdual_x_array>(atomKK->k_x,space);
+      perform_async_copy<DAT::tdual_double_1d_3>(atomKK->k_x,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::tdual_v_array>(atomKK->k_v,space);
+      perform_async_copy<DAT::tdual_double_1d_3>(atomKK->k_v,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::tdual_f_array>(atomKK->k_f,space);
+      perform_async_copy<DAT::tdual_double_1d_3>(atomKK->k_f,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync<LMPDeviceType>())
       perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync<LMPDeviceType>())
@@ -1693,20 +1693,20 @@ void AtomVecSphereKokkos::sync_overlapping_device(ExecutionSpace space, unsigned
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync<LMPDeviceType>())
       perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
     if ((mask & RADIUS_MASK) && atomKK->k_radius.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::tdual_float_1d>(atomKK->k_radius,space);
+      perform_async_copy<DAT::tdual_double_1d>(atomKK->k_radius,space);
     if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::tdual_float_1d>(atomKK->k_rmass,space);
+      perform_async_copy<DAT::tdual_double_1d>(atomKK->k_rmass,space);
     if ((mask & OMEGA_MASK) && atomKK->k_omega.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::tdual_v_array>(atomKK->k_omega,space);
+      perform_async_copy<DAT::tdual_double_1d_3>(atomKK->k_omega,space);
     if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::tdual_f_array>(atomKK->k_torque,space);
+      perform_async_copy<DAT::tdual_double_1d_3>(atomKK->k_torque,space);
   } else {
     if ((mask & X_MASK) && atomKK->k_x.need_sync<LMPHostType>())
-      perform_async_copy<DAT::tdual_x_array>(atomKK->k_x,space);
+      perform_async_copy<DAT::tdual_double_1d_3>(atomKK->k_x,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync<LMPHostType>())
-      perform_async_copy<DAT::tdual_v_array>(atomKK->k_v,space);
+      perform_async_copy<DAT::tdual_double_1d_3>(atomKK->k_v,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync<LMPHostType>())
-      perform_async_copy<DAT::tdual_f_array>(atomKK->k_f,space);
+      perform_async_copy<DAT::tdual_double_1d_3>(atomKK->k_f,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync<LMPHostType>())
       perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync<LMPHostType>())
@@ -1716,13 +1716,13 @@ void AtomVecSphereKokkos::sync_overlapping_device(ExecutionSpace space, unsigned
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync<LMPHostType>())
       perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
     if ((mask & RADIUS_MASK) && atomKK->k_radius.need_sync<LMPHostType>())
-      perform_async_copy<DAT::tdual_float_1d>(atomKK->k_radius,space);
+      perform_async_copy<DAT::tdual_double_1d>(atomKK->k_radius,space);
     if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync<LMPHostType>())
-      perform_async_copy<DAT::tdual_float_1d>(atomKK->k_rmass,space);
+      perform_async_copy<DAT::tdual_double_1d>(atomKK->k_rmass,space);
     if ((mask & OMEGA_MASK) && atomKK->k_omega.need_sync<LMPHostType>())
-      perform_async_copy<DAT::tdual_v_array>(atomKK->k_omega,space);
+      perform_async_copy<DAT::tdual_double_1d_3>(atomKK->k_omega,space);
     if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync<LMPHostType>())
-      perform_async_copy<DAT::tdual_f_array>(atomKK->k_torque,space);
+      perform_async_copy<DAT::tdual_double_1d_3>(atomKK->k_torque,space);
   }
 }
 

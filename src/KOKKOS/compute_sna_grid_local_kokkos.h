@@ -209,7 +209,7 @@ class ComputeSNAGridLocalKokkos : public ComputeSNAGridLocal {
   int ylen; //= nyhi-nylo+1;
   int xlen; //= nxhi-nxlo+1;
 
-  double cutsq_tmp; // temporary cutsq until we get a view
+  KK_FLOAT cutsq_tmp; // temporary cutsq until we get a view
 
   Kokkos::View<real_type*, DeviceType> d_radelem;              // element radii
   Kokkos::View<real_type*, DeviceType> d_wjelem;               // elements weights
@@ -220,17 +220,17 @@ class ComputeSNAGridLocalKokkos : public ComputeSNAGridLocal {
   Kokkos::View<T_INT*, DeviceType> d_map;                    // mapping from atom types to elements
   Kokkos::View<real_type*, DeviceType> d_test;              // test view
 
-  typedef Kokkos::DualView<F_FLOAT**, DeviceType> tdual_fparams;
+  typedef Kokkos::DualView<double**, DeviceType> tdual_fparams;
   tdual_fparams k_cutsq;
-  typedef Kokkos::View<const F_FLOAT**, DeviceType,
+  typedef Kokkos::View<const double**, DeviceType,
       Kokkos::MemoryTraits<Kokkos::RandomAccess> > t_fparams_rnd;
   t_fparams_rnd rnd_cutsq;
 
-  typename AT::t_x_array_randomread x;
+  typename AT::t_double_1d_3_randomread x;
   typename AT::t_int_1d_randomread type;
 
-  DAT::tdual_float_2d k_alocal;
-  typename AT::t_float_2d d_alocal;
+  DAT::tdual_double_2d k_alocal;
+  typename AT::t_double_2d d_alocal;
 
 
   // Utility routine which wraps computing per-team scratch size requirements for
@@ -241,8 +241,8 @@ class ComputeSNAGridLocalKokkos : public ComputeSNAGridLocal {
   class DomainKokkos *domainKK;
 
   // triclinic vars
-  double h0, h1, h2, h3, h4, h5;
-  double lo0, lo1, lo2;
+  KK_FLOAT h0, h1, h2, h3, h4, h5;
+  KK_FLOAT lo0, lo1, lo2;
 
   // Make SNAKokkos a friend
   friend class SNAKokkos<DeviceType, real_type, vector_length>;

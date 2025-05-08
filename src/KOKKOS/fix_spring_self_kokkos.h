@@ -51,12 +51,12 @@ class FixSpringSelfKokkos : public FixSpringSelf, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixSpringSelfUnpackExchange, const int&) const;
 
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &buf,
+  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            ExecutionSpace space) override;
 
-  void unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf,
+  void unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf,
                               DAT::tdual_int_1d &indices,int nrecv,
                               int nrecv1,int nrecv1extra,
                               ExecutionSpace space) override;
@@ -68,18 +68,18 @@ class FixSpringSelfKokkos : public FixSpringSelf, public KokkosBase {
  protected:
   int nrecv1,nextrarecv1;
 
-  DAT::tdual_x_array k_xoriginal;
-  typename AT::t_x_array d_xoriginal;
+  DAT::tdual_double_1d_3 k_xoriginal;
+  typename AT::t_double_1d_3 d_xoriginal;
 
-  typename AT::t_x_array_randomread x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3_randomread x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_imageint_1d_randomread image;
   typename AT::t_int_1d_randomread mask;
 
   int nsend;
 
   typename AT::t_int_2d d_sendlist;
-  typename AT::t_xfloat_1d_um d_buf;
+  typename AT::t_double_1d_um d_buf;
 
   typename AT::t_int_1d d_exchange_sendlist;
   typename AT::t_int_1d d_copylist;
@@ -88,7 +88,7 @@ class FixSpringSelfKokkos : public FixSpringSelf, public KokkosBase {
   typename AT::t_int_scalar d_count;
   HAT::t_int_scalar h_count;
 
-  double **xoriginal_tmp;    // original coords of atoms
+  KK_FLOAT **xoriginal_tmp;    // original coords of atoms
 
 };
 

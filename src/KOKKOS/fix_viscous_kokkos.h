@@ -45,8 +45,8 @@ class FixViscousKokkos : public FixViscous {
   void operator()(TagFixViscous, const int&) const;
 
  private:
-  typename AT::t_v_array v;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3 v;
+  typename AT::t_double_1d_3 f;
   typename AT::t_int_1d_randomread mask;
   typename AT::t_int_1d_randomread type;
 

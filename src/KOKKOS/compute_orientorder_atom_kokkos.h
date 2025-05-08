@@ -88,14 +88,14 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
   KOKKOS_INLINE_FUNCTION
   void operator() (TagComputeOrientOrderAtomBOOP2, const int& ii) const;
 
-  DAT::tdual_float_2d k_qnarray;
-  typename AT::t_float_2d d_qnarray;
+  DAT::tdual_double_2d k_qnarray;
+  typename AT::t_double_2d d_qnarray;
 
  private:
   int inum,chunk_size,chunk_offset;
   int host_flag;
 
-  typename AT::t_x_array_randomread x;
+  typename AT::t_double_1d_3_randomread x;
   typename ArrayTypes<DeviceType>::t_int_1d mask;
 
   typename AT::t_neighbors_2d d_neighbors;
@@ -123,10 +123,10 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
   void calc_boop2(int, int) const;
 
   KOKKOS_INLINE_FUNCTION
-  double polar_prefactor(int, int, double) const;
+  KK_FLOAT polar_prefactor(int, int, KK_FLOAT) const;
 
   KOKKOS_INLINE_FUNCTION
-  double associated_legendre(int, int, double) const;
+  KK_FLOAT associated_legendre(int, int, KK_FLOAT) const;
 
   void init_wigner3j() override;
   t_sna_1d d_w3jlist;                     // Wigner coeffs

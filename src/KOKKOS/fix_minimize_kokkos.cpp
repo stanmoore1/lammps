@@ -70,7 +70,7 @@ void FixMinimizeKokkos::add_vector_kokkos()
    return a pointer to the Mth vector
 ------------------------------------------------------------------------- */
 
-DAT::t_ffloat_1d FixMinimizeKokkos::request_vector_kokkos(int m)
+DAT::t_double_1d FixMinimizeKokkos::request_vector_kokkos(int m)
 {
   k_vectors.sync<LMPDeviceType>();
 

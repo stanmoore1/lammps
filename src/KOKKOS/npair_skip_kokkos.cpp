@@ -111,7 +111,7 @@ void NPairSkipKokkos<DeviceType,TRIM>::operator()(TagNPairSkipCompute, const int
   const int i = d_ilist_skip(ii);
   const int itype = type(i);
 
-  F_FLOAT xtmp,ytmp,ztmp;
+  double xtmp,ytmp,ztmp;
   if (TRIM) {
     xtmp = x(i,0);
     ytmp = x(i,1);

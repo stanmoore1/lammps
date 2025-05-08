@@ -554,9 +554,9 @@ void NPairSSAKokkosExecute<DeviceType>::build_locals_onePhase(const bool firstTr
         int n = 0;
 
         const AtomNeighbors neighbors_i = neigh_list.get_neighbors(inum);
-        const X_FLOAT xtmp = x(i, 0);
-        const X_FLOAT ytmp = x(i, 1);
-        const X_FLOAT ztmp = x(i, 2);
+        const double xtmp = x(i, 0);
+        const double ytmp = x(i, 1);
+        const double ztmp = x(i, 2);
         const int itype = type(i);
 
         // loop over all local atoms in the current stencil "subphase"
@@ -570,10 +570,10 @@ void NPairSSAKokkosExecute<DeviceType>::build_locals_onePhase(const bool firstTr
             const int jtype = type(j);
             if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-            const X_FLOAT delx = xtmp - x(j, 0);
-            const X_FLOAT dely = ytmp - x(j, 1);
-            const X_FLOAT delz = ztmp - x(j, 2);
-            const X_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+            const double delx = xtmp - x(j, 0);
+            const double dely = ytmp - x(j, 1);
+            const double delz = ztmp - x(j, 2);
+            const double rsq = delx*delx + dely*dely + delz*delz;
             if (rsq <= cutneighsq(itype,jtype)) {
               if (molecular != Atom::ATOMIC) {
                 if (!moltemplate)
@@ -674,9 +674,9 @@ void NPairSSAKokkosExecute<DeviceType>::build_ghosts_onePhase(int workPhase) con
         int n = 0;
 
         const AtomNeighbors neighbors_i = neigh_list.get_neighbors(gNdx);
-        const X_FLOAT xtmp = x(i, 0);
-        const X_FLOAT ytmp = x(i, 1);
-        const X_FLOAT ztmp = x(i, 2);
+        const double xtmp = x(i, 0);
+        const double ytmp = x(i, 1);
+        const double ztmp = x(i, 2);
         const int itype = type(i);
 
         int loc[3];
@@ -698,10 +698,10 @@ void NPairSSAKokkosExecute<DeviceType>::build_ghosts_onePhase(int workPhase) con
             const int jtype = type(j);
             if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-            const X_FLOAT delx = xtmp - x(j, 0);
-            const X_FLOAT dely = ytmp - x(j, 1);
-            const X_FLOAT delz = ztmp - x(j, 2);
-            const X_FLOAT rsq = delx*delx + dely*dely + delz*delz;
+            const double delx = xtmp - x(j, 0);
+            const double dely = ytmp - x(j, 1);
+            const double delz = ztmp - x(j, 2);
+            const double rsq = delx*delx + dely*dely + delz*delz;
             if (rsq <= cutneighsq(itype,jtype)) {
               if (molecular != Atom::ATOMIC) {
                 if (!moltemplate)

@@ -92,7 +92,7 @@ class NeighBondKokkos : protected Pointers  {
   typename AT::t_int_2d v_improperlist;
   typename AT::t_int_2d list;
 
-  typename AT::t_x_array_randomread x;
+  typename AT::t_double_1d_3_randomread x;
   typename AT::t_tagint_1d_randomread tag;
 
   typename AT::t_int_1d num_bond;
@@ -124,7 +124,7 @@ class NeighBondKokkos : protected Pointers  {
   int closest_image(const int, int) const;
 
   KOKKOS_INLINE_FUNCTION
-  void minimum_image(X_FLOAT &dx, X_FLOAT &dy, X_FLOAT &dz) const;
+  void minimum_image(double &dx, double &dy, double &dz) const;
 
   void update_class_variables();
 
@@ -159,9 +159,9 @@ class NeighBondKokkos : protected Pointers  {
 
   int triclinic;
   int xperiodic,yperiodic,zperiodic;
-  X_FLOAT xprd_half,yprd_half,zprd_half;
-  X_FLOAT xprd,yprd,zprd;
-  X_FLOAT xy,xz,yz;
+  double xprd_half,yprd_half,zprd_half;
+  double xprd,yprd,zprd;
+  double xy,xz,yz;
 };
 
 }

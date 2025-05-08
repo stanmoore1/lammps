@@ -62,19 +62,19 @@ class PairSWKokkos : public PairSW {
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &epair, const F_FLOAT &fpair, const F_FLOAT &delx,
-                  const F_FLOAT &dely, const F_FLOAT &delz) const;
+      const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx,
+                  const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void ev_tally3(EV_FLOAT &ev, const int &i, const int &j, int &k,
-            const F_FLOAT &evdwl, const F_FLOAT &ecoul,
-                       F_FLOAT *fj, F_FLOAT *fk, F_FLOAT *drji, F_FLOAT *drki) const;
+            const KK_FLOAT &evdwl, const KK_FLOAT &ecoul,
+                       KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const;
 
   KOKKOS_INLINE_FUNCTION
   void ev_tally3_atom(EV_FLOAT &ev, const int &i,
-            const F_FLOAT &evdwl, const F_FLOAT &ecoul,
-                       F_FLOAT *fj, F_FLOAT *fk, F_FLOAT *drji, F_FLOAT *drki) const;
+            const KK_FLOAT &evdwl, const KK_FLOAT &ecoul,
+                       KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const;
 
  protected:
   typedef Kokkos::DualView<int***,DeviceType> tdual_int_3d;
@@ -93,21 +93,21 @@ class PairSWKokkos : public PairSW {
   void setup_params() override;
 
   KOKKOS_INLINE_FUNCTION
-  void twobody(const Param&, const F_FLOAT&, F_FLOAT&, const int&, F_FLOAT&) const;
+  void twobody(const Param&, const KK_FLOAT&, KK_FLOAT&, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void threebody_kk(const Param&, const Param&, const Param&, const F_FLOAT&, const F_FLOAT&, F_FLOAT *, F_FLOAT *,
-                    F_FLOAT *, F_FLOAT *, const int&, F_FLOAT&) const;
+  void threebody_kk(const Param&, const Param&, const Param&, const KK_FLOAT&, const KK_FLOAT&, KK_FLOAT *, KK_FLOAT *,
+                    KK_FLOAT *, KK_FLOAT *, const int&, KK_FLOAT&) const;
 
-  typename AT::t_x_array_randomread x;
-  typename AT::t_f_array f;
+  typename AT::t_double_1d_3_randomread x;
+  typename AT::t_double_1d_3 f;
   typename AT::t_tagint_1d tag;
   typename AT::t_int_1d_randomread type;
 
-  DAT::tdual_efloat_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
-  typename AT::t_efloat_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  DAT::tdual_double_1d k_eatom;
+  DAT::tdual_double_1d_6 k_vatom;
+  typename AT::t_double_1d d_eatom;
+  typename AT::t_double_1d_6 d_vatom;
 
   int need_dup;
 
@@ -119,13 +119,13 @@ class PairSWKokkos : public PairSW {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<F_FLOAT*[3], typename DAT::t_f_array::array_layout> dup_f;
-  DupScatterView<E_FLOAT*, typename DAT::t_efloat_1d::array_layout> dup_eatom;
-  DupScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout> dup_vatom;
+  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
+  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
+  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
 
-  NonDupScatterView<F_FLOAT*[3], typename DAT::t_f_array::array_layout> ndup_f;
-  NonDupScatterView<E_FLOAT*, typename DAT::t_efloat_1d::array_layout> ndup_eatom;
-  NonDupScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout> ndup_vatom;
+  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
+  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
+  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
 
   typename AT::t_int_1d_randomread d_type2frho;
   typename AT::t_int_2d_randomread d_type2rhor;

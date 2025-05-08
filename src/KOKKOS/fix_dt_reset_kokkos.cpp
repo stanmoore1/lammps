@@ -109,11 +109,11 @@ void FixDtResetKokkos<DeviceType>::end_of_step()
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixDtResetKokkos<DeviceType>::operator()(TagFixDtResetMass, const int &i, double &dt_min) const {
+void FixDtResetKokkos<DeviceType>::operator()(TagFixDtResetMass, const int &i, KK_FLOAT &dt_min) const {
 
-  double dt, dtv, dtf, dte, dtsq;
-  double vsq, fsq, massinv;
-  double delx, dely, delz, delr;
+  KK_FLOAT dt, dtv, dtf, dte, dtsq;
+  KK_FLOAT vsq, fsq, massinv;
+  KK_FLOAT delx, dely, delz, delr;
 
   if (mask[i] & groupbit) {
 
@@ -142,11 +142,11 @@ void FixDtResetKokkos<DeviceType>::operator()(TagFixDtResetMass, const int &i, d
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixDtResetKokkos<DeviceType>::operator()(TagFixDtResetRMass, const int &i, double &dt_min) const {
+void FixDtResetKokkos<DeviceType>::operator()(TagFixDtResetRMass, const int &i, KK_FLOAT &dt_min) const {
 
-  double dt, dtv, dtf, dte, dtsq;
-  double vsq, fsq, massinv;
-  double delx, dely, delz, delr;
+  KK_FLOAT dt, dtv, dtf, dte, dtsq;
+  KK_FLOAT vsq, fsq, massinv;
+  KK_FLOAT delx, dely, delz, delr;
 
   if (mask[i] & groupbit) {
 

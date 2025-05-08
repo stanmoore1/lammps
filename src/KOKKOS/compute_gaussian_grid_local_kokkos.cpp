@@ -227,7 +227,7 @@ void ComputeGaussianGridLocalKokkos<DeviceType>::operator() (TagComputeGaussianG
   iy += nylo;
   ix += nxlo;
 
-  double xgrid[3];
+  KK_FLOAT xgrid[3];
 
   // index ii already captures the proper grid point
   //int igrid = iz * (nx * ny) + iy * nx + ix;
@@ -253,9 +253,9 @@ void ComputeGaussianGridLocalKokkos<DeviceType>::operator() (TagComputeGaussianG
     xgrid[2] = h2*xgrid[2] + lo2;
   }
 
-  const F_FLOAT xtmp = xgrid[0];
-  const F_FLOAT ytmp = xgrid[1];
-  const F_FLOAT ztmp = xgrid[2];
+  const KK_FLOAT xtmp = xgrid[0];
+  const KK_FLOAT ytmp = xgrid[1];
+  const KK_FLOAT ztmp = xgrid[2];
 
   // Zeroing out the components, which are filled as a sum.
   for (int icol = size_local_cols_base; icol < size_local_cols; icol++){
@@ -272,11 +272,11 @@ void ComputeGaussianGridLocalKokkos<DeviceType>::operator() (TagComputeGaussianG
 
   // Looping over ntotal for now.
   for (int j = 0; j < ntotal; j++){
-    const F_FLOAT dx = x(j,0) - xtmp;
-    const F_FLOAT dy = x(j,1) - ytmp;
-    const F_FLOAT dz = x(j,2) - ztmp;
+    const KK_FLOAT dx = x(j,0) - xtmp;
+    const KK_FLOAT dy = x(j,1) - ytmp;
+    const KK_FLOAT dz = x(j,2) - ztmp;
     int jtype = type(j);
-    const F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+    const KK_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
     if (rsq < rnd_cutsq(jtype, jtype) ) {
       int icol = size_local_cols_base + jtype - 1;

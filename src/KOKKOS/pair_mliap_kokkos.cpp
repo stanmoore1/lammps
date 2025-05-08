@@ -387,7 +387,7 @@ int PairMLIAPKokkos<DeviceType>::reverse_comm(CommType* copy_from_, CommType* co
 
 template <class DeviceType>
 int PairMLIAPKokkos<DeviceType>::pack_forward_comm_kokkos(
-    int nv, DAT::tdual_int_1d idx_v, DAT::tdual_xfloat_1d &fill, int int2,
+    int nv, DAT::tdual_int_1d idx_v, DAT::tdual_double_1d &fill, int int2,
     int *intp) {
   switch( comm_type ) {
     case COMM_TYPE::FLOAT:
@@ -406,7 +406,7 @@ int PairMLIAPKokkos<DeviceType>::pack_forward_comm_kokkos(
 template <class DeviceType>
 template <typename CommType>
 int PairMLIAPKokkos<DeviceType>::pack_forward_comm_kokkos(
-    int nv, DAT::tdual_int_1d idx_v, DAT::tdual_xfloat_1d &fill, int int2,
+    int nv, DAT::tdual_int_1d idx_v, DAT::tdual_double_1d &fill, int int2,
     int *intp, CommType *copy_to) {
   auto idx=idx_v.view<DeviceType>();
   auto val=fill.view<DeviceType>();
@@ -461,7 +461,7 @@ int PairMLIAPKokkos<DeviceType>::pack_forward_comm(int nv, int* idx_v, double *f
 
 template <class DeviceType>
 void PairMLIAPKokkos<DeviceType>::unpack_forward_comm_kokkos(
-    int nv, int first_up, DAT::tdual_xfloat_1d &fill) {
+    int nv, int first_up, DAT::tdual_double_1d &fill) {
   switch( comm_type ) {
     case COMM_TYPE::FLOAT:
       return unpack_forward_comm_kokkos(nv,first_up,fill,std::get<float*>(copy_to));
@@ -478,7 +478,7 @@ void PairMLIAPKokkos<DeviceType>::unpack_forward_comm_kokkos(
 template <class DeviceType>
 template <typename CommType>
 void PairMLIAPKokkos<DeviceType>::unpack_forward_comm_kokkos(
-    int nv, int first_up, DAT::tdual_xfloat_1d &fill, CommType *copy_to) {
+    int nv, int first_up, DAT::tdual_double_1d &fill, CommType *copy_to) {
   auto val=fill.view<DeviceType>();
   int nf=vec_len;
 
@@ -522,7 +522,7 @@ void PairMLIAPKokkos<DeviceType>::unpack_forward_comm(
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int PairMLIAPKokkos<DeviceType>::pack_reverse_comm_kokkos(int nv, int first_up, DAT::tdual_xfloat_1d &fill)
+int PairMLIAPKokkos<DeviceType>::pack_reverse_comm_kokkos(int nv, int first_up, DAT::tdual_double_1d &fill)
 {
   switch( comm_type ) {
     case COMM_TYPE::FLOAT:
@@ -540,7 +540,7 @@ int PairMLIAPKokkos<DeviceType>::pack_reverse_comm_kokkos(int nv, int first_up, 
 
 template<class DeviceType>
 template<typename CommType>
-int PairMLIAPKokkos<DeviceType>::pack_reverse_comm_kokkos(int nv, int first_up, DAT::tdual_xfloat_1d &fill, CommType *copy_to)
+int PairMLIAPKokkos<DeviceType>::pack_reverse_comm_kokkos(int nv, int first_up, DAT::tdual_double_1d &fill, CommType *copy_to)
 {
   int nf=vec_len;
   auto val=fill.view<DeviceType>();
@@ -588,7 +588,7 @@ int PairMLIAPKokkos<DeviceType>::pack_reverse_comm(int nv, int first_up, double 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairMLIAPKokkos<DeviceType>::unpack_reverse_comm_kokkos(int nv, DAT::tdual_int_1d idx_v, DAT::tdual_xfloat_1d &fill)
+void PairMLIAPKokkos<DeviceType>::unpack_reverse_comm_kokkos(int nv, DAT::tdual_int_1d idx_v, DAT::tdual_double_1d &fill)
 {
   switch( comm_type ) {
     case COMM_TYPE::FLOAT:
@@ -606,7 +606,7 @@ void PairMLIAPKokkos<DeviceType>::unpack_reverse_comm_kokkos(int nv, DAT::tdual_
 
 template<class DeviceType>
 template<typename CommType>
-void PairMLIAPKokkos<DeviceType>::unpack_reverse_comm_kokkos(int nv, DAT::tdual_int_1d idx_v, DAT::tdual_xfloat_1d &fill, CommType *copy_to)
+void PairMLIAPKokkos<DeviceType>::unpack_reverse_comm_kokkos(int nv, DAT::tdual_int_1d idx_v, DAT::tdual_double_1d &fill, CommType *copy_to)
 {
   int nf=vec_len;
   auto val=fill.view<DeviceType>();
