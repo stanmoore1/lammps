@@ -53,7 +53,7 @@ class PairLJSPICACoulLongKokkos : public PairLJSPICACoulLong {
     params_lj_spica_coul() {cut_ljsq=0;cut_coulsq=0;lj1=0;lj2=0;lj3=0;lj4=0;offset=0;lj_type=0;};
     KOKKOS_INLINE_FUNCTION
     params_lj_spica_coul(int /*i*/) {cut_ljsq=0;cut_coulsq=0;lj1=0;lj2=0;lj3=0;lj4=0;offset=0;lj_type=0;};
-    double cut_ljsq,cut_coulsq,lj1,lj2,lj3,lj4,offset;
+    KK_FLOAT cut_ljsq,cut_coulsq,lj1,lj2,lj3,lj4,offset;
     int lj_type;
   };
 

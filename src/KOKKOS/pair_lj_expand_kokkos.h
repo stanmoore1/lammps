@@ -50,7 +50,7 @@ class PairLJExpandKokkos : public PairLJExpand {
     params_lj() {cutsq=0,lj1=0;lj2=0;lj3=0;lj4=0;offset=0;shift=0;};
     KOKKOS_INLINE_FUNCTION
     params_lj(int /*i*/) {cutsq=0,lj1=0;lj2=0;lj3=0;lj4=0;offset=0;shift=0;};
-    double cutsq,lj1,lj2,lj3,lj4,offset,shift;
+    KK_FLOAT cutsq,lj1,lj2,lj3,lj4,offset,shift;
   };
 
  protected:

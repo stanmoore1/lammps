@@ -50,7 +50,7 @@ class PairCoulCutKokkos : public PairCoulCut {
     params_coul() {cutsq=0,scale=0;};
     KOKKOS_INLINE_FUNCTION
     params_coul(int /*i*/) {cutsq=0,scale=0;};
-    double cutsq, scale;
+    KK_FLOAT cutsq, scale;
   };
 
  protected:

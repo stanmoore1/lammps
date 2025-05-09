@@ -49,7 +49,7 @@ class PairMorseKokkos : public PairMorse {
     params_morse() {cutsq=0,d0=0;alpha=0;r0=0;offset=0;}
     KOKKOS_INLINE_FUNCTION
     params_morse(int /*i*/) {cutsq=0,d0=0;alpha=0;r0=0;offset=0;}
-    double cutsq,d0,alpha,r0,offset;
+    KK_FLOAT cutsq,d0,alpha,r0,offset;
   };
 
  protected:

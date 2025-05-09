@@ -51,7 +51,7 @@ class PairCoulLongKokkos : public PairCoulLong {
     params_coul() {cut_coulsq=0;};
     KOKKOS_INLINE_FUNCTION
     params_coul(int /*i*/) {cut_coulsq=0;};
-    double cut_coulsq;
+    KK_FLOAT cut_coulsq;
   };
 
  protected:

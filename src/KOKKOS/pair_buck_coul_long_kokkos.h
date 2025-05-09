@@ -51,7 +51,7 @@ class PairBuckCoulLongKokkos : public PairBuckCoulLong {
     params_buck_coul() {cut_ljsq=0;cut_coulsq=0;a=0;c=0;rhoinv=0;buck1=0;buck2=0;offset=0;};
     KOKKOS_INLINE_FUNCTION
     params_buck_coul(int /*i*/) {cut_ljsq=0;cut_coulsq=0;a=0;c=0;rhoinv=0;buck1=0;buck2=0;offset=0;};
-    double cut_ljsq,cut_coulsq,a,c,rhoinv,buck1,buck2,offset;
+    KK_FLOAT cut_ljsq,cut_coulsq,a,c,rhoinv,buck1,buck2,offset;
   };
 
  protected:

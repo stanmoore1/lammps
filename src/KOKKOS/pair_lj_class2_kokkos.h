@@ -50,7 +50,7 @@ class PairLJClass2Kokkos : public PairLJClass2 {
     params_lj() {cutsq=0,lj1=0;lj2=0;lj3=0;lj4=0;offset=0;};
     KOKKOS_INLINE_FUNCTION
     params_lj(int /*i*/) {cutsq=0,lj1=0;lj2=0;lj3=0;lj4=0;offset=0;};
-    double cutsq,lj1,lj2,lj3,lj4,offset;
+    KK_FLOAT cutsq,lj1,lj2,lj3,lj4,offset;
   };
 
  protected:

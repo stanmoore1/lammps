@@ -50,7 +50,7 @@ class PairSoftKokkos : public PairSoft {
     params_soft() {cutsq=0,cut=0,prefactor=0;};
     KOKKOS_INLINE_FUNCTION
     params_soft(int /*i*/) {cutsq=0,cut=0,prefactor=0;};
-    double cutsq,cut,prefactor;
+    KK_FLOAT cutsq,cut,prefactor;
   };
 
  protected:

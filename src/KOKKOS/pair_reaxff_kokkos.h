@@ -307,7 +307,7 @@ class PairReaxFFKokkos : public PairReaxFF {
     KOKKOS_INLINE_FUNCTION
     params_sing(int /*i*/) {mass=0;chi=0;eta=0;r_s=0;r_pi=0;r_pi2=0;valency=0;valency_val=0;valency_e=0;valency_boc=0;nlp_opt=0;
       p_lp2=0;p_ovun2=0;p_ovun5=0;p_val3=0;p_val5=0;p_hbond=0;bcut_acks2=0;};
-    double mass,chi,eta,r_s,r_pi,r_pi2,valency,valency_val,valency_e,valency_boc,nlp_opt,
+    KK_FLOAT mass,chi,eta,r_s,r_pi,r_pi2,valency,valency_val,valency_e,valency_boc,nlp_opt,
       p_lp2,p_ovun2,p_ovun5, p_val3, p_val5, p_hbond, bcut_acks2;
   };
 
@@ -322,7 +322,7 @@ class PairReaxFFKokkos : public PairReaxFF {
       r_s=0;r_pi=0;r_pi2=0;p_bo1=0;p_bo2=0;p_bo3=0;p_bo4=0;p_bo5=0;p_bo6=0;ovc=0;v13cor=0;
       p_boc3=0;p_boc4=0;p_boc5=0;p_be1=0,p_be2=0,De_s=0,De_p=0;De_pp=0;
           p_ovun1=0;};
-    double gamma,gamma_w,alpha,r_vdw,epsilon,acore,ecore,rcore,lgre,lgcij,
+    KK_FLOAT gamma,gamma_w,alpha,r_vdw,epsilon,acore,ecore,rcore,lgre,lgcij,
       r_s,r_pi,r_pi2,p_bo1,p_bo2,p_bo3,p_bo4,p_bo5,p_bo6,ovc,v13cor,
       p_boc3,p_boc4,p_boc5,p_be1,p_be2,De_s,De_p,De_pp,
       p_ovun1;
@@ -333,7 +333,7 @@ class PairReaxFFKokkos : public PairReaxFF {
     params_thbp() {cnt=0;theta_00=0;p_val1=0;p_val2=0;p_val4=0;p_val7=0;p_pen1=0;p_coa1=0;};
     KOKKOS_INLINE_FUNCTION
     params_thbp(int /*i*/) {cnt=0;theta_00=0;p_val1=0;p_val2=0;p_val4=0;p_val7=0;p_pen1=0;p_coa1=0;};
-    double cnt, theta_00, p_val1, p_val2, p_val4, p_val7, p_pen1, p_coa1;
+    KK_FLOAT cnt, theta_00, p_val1, p_val2, p_val4, p_val7, p_pen1, p_coa1;
   };
 
   struct params_fbp {
@@ -341,7 +341,7 @@ class PairReaxFFKokkos : public PairReaxFF {
     params_fbp() {p_tor1=0;p_cot1=0;V1=0;V2=0;V3=0;};
     KOKKOS_INLINE_FUNCTION
     params_fbp(int /*i*/) {p_tor1=0;p_cot1=0;V1=0;V2=0;V3=0;};
-    double p_tor1, p_cot1, V1, V2, V3;
+    KK_FLOAT p_tor1, p_cot1, V1, V2, V3;
   };
 
   struct params_hbp {
@@ -349,7 +349,7 @@ class PairReaxFFKokkos : public PairReaxFF {
     params_hbp() {p_hb1=0;p_hb2=0;p_hb3=0;r0_hb=0;};
     KOKKOS_INLINE_FUNCTION
     params_hbp(int /*i*/) {p_hb1=0;p_hb2=0;p_hb3=0;r0_hb=0;};
-    double p_hb1, p_hb2, p_hb3, r0_hb;
+    KK_FLOAT p_hb1, p_hb2, p_hb3, r0_hb;
   };
 
   template<int NEIGHFLAG>

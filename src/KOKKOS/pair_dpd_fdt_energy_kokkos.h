@@ -92,7 +92,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
     params_dpd() {cut=0;a0=0;sigma=0;kappa=0;alpha=0;};
     KOKKOS_INLINE_FUNCTION
     params_dpd(int /*i*/) {cut=0;a0=0;sigma=0;kappa=0;alpha=0;};
-    double cut,a0,sigma,kappa,alpha;
+    KK_FLOAT cut,a0,sigma,kappa,alpha;
   };
 
   DAT::tdual_double_1d k_duCond,k_duMech;

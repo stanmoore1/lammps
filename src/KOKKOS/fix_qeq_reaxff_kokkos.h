@@ -151,7 +151,7 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
     params_qeq() {chi=0;eta=0;gamma=0;};
     KOKKOS_INLINE_FUNCTION
     params_qeq(int /*i*/) {chi=0;eta=0;gamma=0;};
-    double chi, eta, gamma;
+    KK_FLOAT chi, eta, gamma;
   };
 
   int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_double_1d&,
