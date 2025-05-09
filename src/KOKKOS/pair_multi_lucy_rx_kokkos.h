@@ -148,7 +148,7 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
   TableDevice* d_table;
   TableHost* h_table;
 
-  double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
   void allocate() override;
   int update_table;

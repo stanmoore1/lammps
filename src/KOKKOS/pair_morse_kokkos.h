@@ -70,7 +70,7 @@ class PairMorseKokkos : public PairMorse {
   Kokkos::DualView<params_morse**,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_morse**,Kokkos::LayoutRight,DeviceType>::t_dev_const_um params;
   params_morse m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   typename ArrayTypes<DeviceType>::t_double_1d_3_randomread x;
   typename ArrayTypes<DeviceType>::t_double_1d_3 c_x;
   typename ArrayTypes<DeviceType>::t_double_1d_3 f;
@@ -82,7 +82,7 @@ class PairMorseKokkos : public PairMorse {
   typename ArrayTypes<DeviceType>::t_double_1d_6 d_vatom;
 
   int newton_pair;
-  double special_lj[4];
+  KK_FLOAT special_lj[4];
 
   typename ArrayTypes<DeviceType>::tdual_double_2d k_cutsq;
   typename ArrayTypes<DeviceType>::t_double_2d d_cutsq;

@@ -116,7 +116,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   int nlocal,neighflag;
   double dtinvsqrt;
   double boltz,ftm2v;
-  double special_lj[4];
+  KK_FLOAT special_lj[4];
 
   void allocate() override;
 
@@ -126,7 +126,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   // hardwired to space for MAX_TYPES_STACKPARAMS (12) atom types
   params_dpd m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
-  double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   typename ArrayTypes<DeviceType>::t_double_1d_3_randomread x;
   typename ArrayTypes<DeviceType>::t_double_1d_3 c_x;
   typename ArrayTypes<DeviceType>::t_double_1d_3_randomread v;

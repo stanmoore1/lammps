@@ -69,7 +69,7 @@ class PairBuckKokkos : public PairBuck {
   Kokkos::DualView<params_buck**,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_buck**,Kokkos::LayoutRight,DeviceType>::t_dev_const_um params;
   params_buck m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];  // hardwired to space for 12 atom types
-  double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   typename AT::t_double_1d_3_randomread x;
   typename AT::t_double_1d_3 c_x;
   typename AT::t_double_1d_3 f;
@@ -81,7 +81,7 @@ class PairBuckKokkos : public PairBuck {
   typename AT::t_double_1d_6 d_vatom;
 
   int newton_pair;
-  double special_lj[4];
+  KK_FLOAT special_lj[4];
 
   typename AT::tdual_double_2d k_cutsq;
   typename AT::t_double_2d d_cutsq;

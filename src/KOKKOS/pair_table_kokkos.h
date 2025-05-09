@@ -96,7 +96,7 @@ class PairTableKokkos : public PairTable {
   TableDevice* d_table;
   TableHost* h_table;
 
-  double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
   typename AT::t_double_2d d_cutsq;
 

@@ -136,7 +136,7 @@ class PairExp6rxKokkos : public PairExp6rx {
  protected:
   int eflag,vflag;
   int nlocal,newton_pair,neighflag;
-  double special_lj[4];
+  KK_FLOAT special_lj[4];
   int nthreads,ntypes;
 
   typename AT::t_double_1d_3_randomread x;

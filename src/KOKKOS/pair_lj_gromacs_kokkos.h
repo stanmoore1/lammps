@@ -80,7 +80,7 @@ class PairLJGromacsKokkos : public PairLJGromacs {
   // hardwired to space for 12 atom types
   params_lj m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
-  double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   double m_cut_inner[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   double m_cut_inner_sq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   typename AT::t_double_1d_3_randomread x;
@@ -110,7 +110,7 @@ class PairLJGromacsKokkos : public PairLJGromacs {
   int neighflag;
   int nlocal,nall,eflag,vflag;
 
-  double special_lj[4];
+  KK_FLOAT special_lj[4];
   double qqrd2e;
 
   void allocate() override;

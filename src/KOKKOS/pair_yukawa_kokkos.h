@@ -49,7 +49,7 @@ class PairYukawaKokkos : public PairYukawa {
     params_yukawa() { cutsq=0, a = 0; offset = 0; }
     KOKKOS_INLINE_FUNCTION
     params_yukawa(int /*i*/) { cutsq=0, a = 0; offset = 0; }
-    double cutsq, a, offset;
+    KK_FLOAT cutsq, a, offset;
   };
 
 
@@ -73,7 +73,7 @@ class PairYukawaKokkos : public PairYukawa {
   Kokkos::DualView<params_yukawa**,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_yukawa**,Kokkos::LayoutRight,DeviceType>::t_dev_const_um params;
   params_yukawa m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   typename AT::t_double_1d_3_randomread x;
   typename AT::t_double_1d_3 c_x;
   typename AT::t_double_1d_3 f;
@@ -85,7 +85,7 @@ class PairYukawaKokkos : public PairYukawa {
   typename AT::t_double_1d_6 d_vatom;
 
   int newton_pair;
-  double special_lj[4];
+  KK_FLOAT special_lj[4];
 
   typename AT::tdual_double_2d k_cutsq;
   typename AT::t_double_2d d_cutsq;

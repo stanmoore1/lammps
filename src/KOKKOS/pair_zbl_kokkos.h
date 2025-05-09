@@ -59,13 +59,13 @@ class PairZBLKokkos : public PairZBL {
   typename AT::t_double_1d d_eatom;
   typename AT::t_double_1d_6 d_vatom;
 
-  double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
+  KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   typename AT::t_double_2d_dl d_cutsq;
 
   int newton_pair;
   int neighflag;
   int nlocal,nall,eflag,vflag;
-  double special_lj[4];
+  KK_FLOAT special_lj[4];
 
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT e_zbl(KK_FLOAT, int, int) const;
