@@ -421,8 +421,8 @@ by specifying different integer values for the :math:`d_{type}` input parameter.
 damping option is only compatible with the normal *mdr* contact model.
 
 Setting :math:`d_{type} = 1` is the suggested damping option. This specifies a damping
-model that takes into account the contact stiffness :math:`k_{mdr}` calulated
-by the normal *mdr* contact model to determine the damping coefficent:
+model that takes into account the contact stiffness :math:`k_{mdr}` calculated
+by the normal *mdr* contact model to determine the damping coefficient:
 
 .. math::
 
@@ -435,8 +435,8 @@ normal *mdr* contact model:
 
    k_{mdr} = 2 E_{eff} a_{mdr}.
 
-In this case, :math:`\eta_{n0}` is simply a dimensionless coefficent that scales the
-the overall damping coefficent.
+In this case, :math:`\eta_{n0}` is simply a dimensionless coefficient that scales the
+the overall damping coefficient.
 
 The other supported option is :math:`d_{type} = 2`, which defines a simple damping model
 similar to the *velocity* option
