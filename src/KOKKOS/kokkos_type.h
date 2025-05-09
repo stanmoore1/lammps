@@ -993,7 +993,6 @@ typedef tdual_neighbors_2d::t_host_const_um t_neighbors_2d_const_um;
 typedef tdual_neighbors_2d::t_host_const_randomread t_neighbors_2d_randomread;
 
 typedef tdual_int_2d tdual_neighbors_2d_lr;
-typedef Kokkos::DualView<int**, Kokkos::LayoutRight, LMPDeviceType> tdual_neighbors_2d_lr;
 typedef tdual_neighbors_2d_lr::t_host t_neighbors_2d_lr;
 typedef tdual_neighbors_2d_lr::t_host_const t_neighbors_2d_const_lr;
 typedef tdual_neighbors_2d_lr::t_host_um t_neighbors_2d_um_lr;
