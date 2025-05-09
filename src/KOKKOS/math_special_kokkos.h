@@ -254,7 +254,15 @@ namespace MathSpecialKokkos {
   ------------------------------------------------------------------------- */
 
   KOKKOS_INLINE_FUNCTION
-  static void sub3(const KK_FLOAT *v1, const KK_FLOAT *v2, KK_FLOAT *ans)
+  static void sub3(const float *v1, const float *v2, float *ans)
+  {
+    ans[0] = v1[0] - v2[0];
+    ans[1] = v1[1] - v2[1];
+    ans[2] = v1[2] - v2[2];
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  static void sub3(const double *v1, const double *v2, double *ans)
   {
     ans[0] = v1[0] - v2[0];
     ans[1] = v1[1] - v2[1];
@@ -266,7 +274,13 @@ namespace MathSpecialKokkos {
   ------------------------------------------------------------------------- */
 
   KOKKOS_INLINE_FUNCTION
-  static KK_FLOAT dot3(const KK_FLOAT *v1, const KK_FLOAT *v2)
+  static KK_FLOAT dot3(const float *v1, const float *v2)
+  {
+    return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  static KK_FLOAT dot3(const double *v1, const double *v2)
   {
     return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
   }

@@ -111,7 +111,7 @@ template <class DeviceType> class MEAMKokkos : public MEAM {
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT zbl(const KK_FLOAT, const int, const int) const;
   KOKKOS_INLINE_FUNCTION
-  KK_FLOAT embedding(const KK_FLOAT, const KK_FLOAT, const KK_FLOAT, KK_FLOAT &) const;
+  KK_FLOAT embedding(const KK_FLOAT, const KK_FLOAT, const KK_FLOAT, double &) const;
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT erose(const KK_FLOAT, const KK_FLOAT, const KK_FLOAT, const KK_FLOAT, const KK_FLOAT, const KK_FLOAT,
                const int) const;

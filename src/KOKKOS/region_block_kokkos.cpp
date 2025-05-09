@@ -65,9 +65,9 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void RegBlockKokkos<DeviceType>::operator()(TagRegBlockMatchAll, const int &i) const {
   if (d_mask[i] & groupbit) {
-    KK_FLOAT x_tmp = d_x(i,0);
-    KK_FLOAT y_tmp = d_x(i,1);
-    KK_FLOAT z_tmp = d_x(i,2);
+    double x_tmp = d_x(i,0);
+    double y_tmp = d_x(i,1);
+    double z_tmp = d_x(i,2);
     d_match[i] = match_kokkos(x_tmp,y_tmp,z_tmp);
   }
 }
