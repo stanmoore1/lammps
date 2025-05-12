@@ -39,10 +39,11 @@ Examples
 
 Description
 """""""""""
+.. versionadded:: TBD
 
 Apply a Langevin thermostat as described in :ref:`(Gronbech-Jensen-2020) <Gronbech-Jensen-2020>`
 to a group of atoms which models an interaction with a background
-implicit solvent. As described in the papers cited below, the GJ methods
+implicit solvent.  As described in the papers cited below, the GJ methods
 provide exact diffusion, drift, and Boltzmann sampling for linear systems for
 any time step within the stability limit. The purpose of this set of methods
 is therefore to significantly improve statistical accuracy at longer time steps

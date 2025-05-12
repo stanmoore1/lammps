@@ -220,7 +220,7 @@ double GranSubModDampingMDR::calculate_forces()
     damp_prefactor = damp * history[DAMP_SCALE];
   } else if (damp_type == 2) {
     if (history[DAMP_SCALE] == 0.0) {
-      damp_prefactor == 0.0;
+      damp_prefactor = 0.0;
     } else {
       damp_prefactor = damp;
     }

@@ -19,16 +19,18 @@
 #include "fix_granular_mdr.h"
 #include "granular_model.h"
 #include "math_const.h"
+#include "math_special.h"
 #include "modify.h"
 #include "update.h"
 
 #include <cmath>
-#include <iomanip>
-#include <sstream>
 
 using namespace LAMMPS_NS;
 using namespace Granular_NS;
 using namespace MathConst;
+using MathSpecial::square;
+using MathSpecial::cube;
+using MathSpecial::powint;
 
 static constexpr double PISQ = 9.8696044010893579923;            // PI^2
 static constexpr double PIINV = 0.318309886183790691216;         // 1/PI
@@ -485,7 +487,7 @@ void GranSubModNormalMDR::coeffs_to_local()
 
   G = Emod / (2.0 * (1.0 + poiss));            // shear modulus
   kappa = Emod / (3.0 * (1.0 - 2.0 * poiss));  // bulk modulus
-  Eeff = Emod / (1.0 - pow(poiss, 2.0));       // composite plane strain modulus
+  Eeff = Emod / (1.0 - square(poiss));       // composite plane strain modulus
 
   // precomputing factors
 
@@ -720,7 +722,7 @@ double GranSubModNormalMDR::calculate_forces()
       if (history_update && phertz > pY) {
         *Yflag_offset = 1.0;
         *deltaY_offset = delta_MDR;
-        *cA_offset = MY_PI * (pow(*deltaY_offset, 2) - *deltaY_offset * R);
+        *cA_offset = MY_PI * (square(*deltaY_offset) - *deltaY_offset * R);
       }
     }
 
@@ -742,7 +744,7 @@ double GranSubModNormalMDR::calculate_forces()
       amax = sqrt(deltamax_MDR * R);
     } else {
       // plastic contact
-      amax = sqrt(2.0 * deltamax_MDR * R - pow(deltamax_MDR, 2) + cA * PIINV);
+      amax = sqrt(2.0 * deltamax_MDR * R - square(deltamax_MDR) + cA * PIINV);
       amaxsq = amax * amax;
       A = 4.0 * pY * Eeffinv * amax;
       Ainv = 1.0 / A;
@@ -753,13 +755,13 @@ double GranSubModNormalMDR::calculate_forces()
 
       // force caused by full submersion of elliptical indenter to depth of A/2
       double Fmax = Eeff * (A * B * 0.25) * acos(1 - 2 * deltae1Dmax * Ainv);
-      Fmax -= (2 - 4 * deltae1Dmax * Ainv) * sqrt(deltae1Dmax * Ainv - pow(deltae1Dmax * Ainv, 2));
+      Fmax -= (2 - 4 * deltae1Dmax * Ainv) * sqrt(deltae1Dmax * Ainv - square(deltae1Dmax * Ainv));
 
       // depth of particle center
       const double zR = R - (deltamax_MDR - deltae1Dmax);
 
-      deltaR = 2 * amaxsq * (-1 + poiss) - (-1 + 2 * poiss) * zR * (-zR + sqrt(amaxsq + pow(zR, 2)));
-      deltaR *= Fmax / (MY_2PI * amaxsq * G * sqrt(amaxsq + pow(zR, 2)));
+      deltaR = 2 * amaxsq * (-1 + poiss) - (-1 + 2 * poiss) * zR * (-zR + sqrt(amaxsq + square(zR)));
+      deltaR *= Fmax / (MY_2PI * amaxsq * G * sqrt(amaxsq + square(zR)));
 
       // transformed elastic displacement
       deltae1D = (delta_MDR - deltamax_MDR + deltae1Dmax + deltaR) / (1 + deltaR / deltae1Dmax);
@@ -816,11 +818,11 @@ double GranSubModNormalMDR::calculate_forces()
       } else {
         // case 2+3, tensile springs
         const double lmax = sqrt(MY_2PI * aAdh * gamma * Eeffinv);
-        g_aAdh = A * 0.5 - A * Binv * sqrt(Bsq * 0.25 - pow(aAdh, 2));
+        g_aAdh = A * 0.5 - A * Binv * sqrt(Bsq * 0.25 - square(aAdh));
         g_aAdh = round_up_negative_epsilon(g_aAdh);
 
         double tmp = 27 * A4 * B4 * gamma * Eeffinv;
-        tmp -= 2 * pow(B, 6) * gamma3 * PISQ * pow(Eeffinv, 3);
+        tmp -= 2 * powint(B, 6) * gamma3 * PISQ * cube(Eeffinv);
         tmp += sqrt(27) * Asq * B4 * sqrt(27 * A4 * Eeffsq * gammasq - 4 * Bsq * gamma4 * PISQ) * Eeffsqinv;
         tmp = cbrt(tmp);
 
@@ -848,12 +850,12 @@ double GranSubModNormalMDR::calculate_forces()
             double aAdh_tmp = aAdh;
             double fa, fa2, fa_tmp, dfda;
             for (int lv1 = 0; lv1 < MDR_MAX_IT; ++lv1) {
-              fa_tmp = deltae1D - A * 0.5 + A * sqrt(Bsq * 0.25 - pow(aAdh_tmp, 2)) * Binv;
+              fa_tmp = deltae1D - A * 0.5 + A * sqrt(Bsq * 0.25 - square(aAdh_tmp)) * Binv;
               fa = fa_tmp + sqrt(MY_2PI * aAdh_tmp * gamma * Eeffinv);
               if (abs(fa) < MDR_EPSILON1) {
                 break;
               }
-              dfda = -aAdh_tmp * A / (B * sqrt(-pow(aAdh_tmp, 2) + Bsq * 0.25));
+              dfda = -aAdh_tmp * A / (B * sqrt(-square(aAdh_tmp) + Bsq * 0.25));
               dfda += gamma * SQRTHALFPI / sqrt(aAdh_tmp * gamma * Eeff);
               aAdh_tmp = aAdh_tmp - fa / dfda;
               fa2 = fa_tmp + sqrt(MY_2PI * aAdh_tmp * gamma * Eeffinv);
@@ -870,7 +872,7 @@ double GranSubModNormalMDR::calculate_forces()
               aAdh = 0.0;
               F_MDR = 0.0;
             } else {
-              g_aAdh = A * 0.5 - A * Binv * sqrt(Bsq * 0.25 - pow(aAdh, 2));
+              g_aAdh = A * 0.5 - A * Binv * sqrt(Bsq * 0.25 - square(aAdh));
               g_aAdh = round_up_negative_epsilon(g_aAdh);
 
               const double deltaeAdh = g_aAdh;
@@ -893,7 +895,7 @@ double GranSubModNormalMDR::calculate_forces()
 
     // area related calculations
     double Ac;
-    (*Yflag_offset == 0.0) ? Ac = MY_PI * delta * R : Ac = MY_PI * (2.0 * delta * R - pow(delta, 2)) + cA;
+    (*Yflag_offset == 0.0) ? Ac = MY_PI * delta * R : Ac = MY_PI * (2.0 * delta * R - square(delta)) + cA;
     if (Ac < 0.0) Ac = 0.0;
     if (history_update) {
       Atot_sum[i] += wij * (Ac - MY_2PI * R * (deltamax_MDR + delta_BULK));
@@ -916,7 +918,7 @@ double GranSubModNormalMDR::calculate_forces()
       *Ac_offset = wij * Ac;
 
       // radius update scheme quantity calculation
-      Vcaps[i] += MY_PI * THIRD * pow(delta, 2) * (3.0 * R - delta);
+      Vcaps[i] += MY_PI * THIRD * square(delta) * (3.0 * R - delta);
     }
 
     const double Fntmp = wij * (F_MDR + F_BULK);
@@ -930,9 +932,9 @@ double GranSubModNormalMDR::calculate_forces()
     if (history_update) eps_bar[i] += eps_bar_contact;
 
     if (history_update && delta_MDR == deltamax_MDR && *Yflag_offset > 0.0 && F_MDR > 0.0) {
-      const double Vo = FOURTHIRDS * MY_PI * pow(Ro, 3);
+      const double Vo = FOURTHIRDS * MY_PI * cube(Ro);
       dRnumerator[i] -= Vo * (eps_bar_contact - *eps_bar_offset);
-      dRnumerator[i] -= wij * MY_PI * ddeltao * (2 * deltao * Ro - pow(deltao, 2) + pow(R, 2) - pow(Ro, 2));
+      dRnumerator[i] -= wij * MY_PI * ddeltao * (2 * deltao * Ro - square(deltao) + square(R) - square(Ro));
       dRdenominator[i] += wij * 2.0 * MY_PI * R * (deltao + R - Ro);
     }
 
@@ -982,7 +984,7 @@ double GranSubModNormalMDR::calculate_forces()
 double GranSubModNormalMDR::calculate_nonadhesive_mdr_force(double delta, double Ainv, double Eeff, double A, double B)
 {
   double F_na = acos(1.0 - 2.0 * delta * Ainv);
-  F_na -= (2 - 4 * delta * Ainv) * sqrt(delta * Ainv - pow(delta * Ainv, 2));
+  F_na -= (2 - 4 * delta * Ainv) * sqrt(delta * Ainv - square(delta * Ainv));
   F_na *= 0.25 * Eeff * A * B;
 
   return F_na;

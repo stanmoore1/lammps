@@ -29,6 +29,7 @@
 #include "granular_model.h"
 #include "input.h"
 #include "math_const.h"
+#include "math_special.h"
 #include "memory.h"
 #include "modify.h"
 #include "neigh_list.h"
@@ -43,6 +44,7 @@ using namespace Granular_NS;
 using namespace Granular_MDR_NS;
 using namespace FixConst;
 using MathConst::MY_PI;
+using MathSpecial::cube;
 
 static constexpr double EPSILON = 1e-16;
 static constexpr double OVERLAP_LIMIT = 0.95;
@@ -244,7 +246,7 @@ void FixGranularMDR::pre_force(int)
 
     const double R = radius[i];
     const double Rsq = R * R;
-    const double Vo = 4.0 / 3.0 * MY_PI * pow(Ro[i], 3.0);
+    const double Vo = 4.0 / 3.0 * MY_PI * cube(Ro[i]);
     const double Vgeoi = 4.0 / 3.0 * MY_PI * Rsq * R - Vcaps[i];
 
     Vgeo[i] = MIN(Vgeoi, Vo);
