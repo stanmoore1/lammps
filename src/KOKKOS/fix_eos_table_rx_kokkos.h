@@ -78,26 +78,26 @@ class FixEOStableRXKokkos : public FixEOStableRX {
 
   /*struct TableDeviceConst {
     typename ArrayTypes<DeviceType>::t_int_1d_randomread lo,hi;
-    typename ArrayTypes<DeviceType>::t_double_1d_randomread invdelta;
-    typename ArrayTypes<DeviceType>::t_double_2d_randomread r,e,de;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_randomread invdelta;
+    typename ArrayTypes<DeviceType>::t_kkfloat_2d_randomread r,e,de;
   };*/
  //Its faster not to use texture fetch if the number of tables is less than 32!
   struct TableDeviceConst {
     typename ArrayTypes<DeviceType>::t_int_1d lo,hi;
-    typename ArrayTypes<DeviceType>::t_double_1d invdelta;
-    typename ArrayTypes<DeviceType>::t_double_2d_randomread r,e,de;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d invdelta;
+    typename ArrayTypes<DeviceType>::t_kkfloat_2d_randomread r,e,de;
   };
 
   struct TableDevice {
     typename ArrayTypes<DeviceType>::t_int_1d lo,hi;
-    typename ArrayTypes<DeviceType>::t_double_1d invdelta;
-    typename ArrayTypes<DeviceType>::t_double_2d r,e,de;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d invdelta;
+    typename ArrayTypes<DeviceType>::t_kkfloat_2d r,e,de;
   };
 
   struct TableHost {
     typename ArrayTypes<LMPHostType>::t_int_1d lo,hi;
-    typename ArrayTypes<LMPHostType>::t_double_1d invdelta;
-    typename ArrayTypes<LMPHostType>::t_double_2d r,e,de;
+    typename ArrayTypes<LMPHostType>::t_kkfloat_1d invdelta;
+    typename ArrayTypes<LMPHostType>::t_kkfloat_2d r,e,de;
   };
 
   TableDeviceConst d_table_const;
@@ -113,12 +113,12 @@ class FixEOStableRXKokkos : public FixEOStableRX {
   int update_table;
   void create_kokkos_tables();
 
-  DAT::tdual_double_1d k_dHf,k_energyCorr,k_tempCorrCoeff,k_moleculeCorrCoeff;
-  typename AT::t_double_1d d_dHf,d_energyCorr,d_tempCorrCoeff,d_moleculeCorrCoeff;
+  DAT::tdual_kkfloat_1d k_dHf,k_energyCorr,k_tempCorrCoeff,k_moleculeCorrCoeff;
+  typename AT::t_kkfloat_1d d_dHf,d_energyCorr,d_tempCorrCoeff,d_moleculeCorrCoeff;
 
   typename AT::t_int_1d mask;
-  typename AT::t_double_1d uCond,uMech,uChem,uCG,uCGnew,rho,dpdTheta,duChem;
-  typename AT::t_double_2d dvector;
+  typename AT::t_kkfloat_1d uCond,uMech,uChem,uCG,uCGnew,rho,dpdTheta,duChem;
+  typename AT::t_kkfloat_2d dvector;
 
   DAT::tdual_int_scalar k_error_flag;
   DAT::tdual_int_scalar k_warning_flag;

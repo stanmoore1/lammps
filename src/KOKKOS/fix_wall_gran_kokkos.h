@@ -61,12 +61,12 @@ class FixWallGranKokkos : public FixWallGranOld, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixWallGranUnpackExchange, const int&) const;
 
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &buf,
+  int pack_exchange_kokkos(const int &nsend,DAT::tdual_kkfloat_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            ExecutionSpace space) override;
 
-  void unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf,
+  void unpack_exchange_kokkos(DAT::tdual_kkfloat_2d &k_buf,
                               DAT::tdual_int_1d &indices,int nrecv,
                               int nrecv1,int nrecv1extra,
                               ExecutionSpace space) override;
@@ -76,19 +76,19 @@ class FixWallGranKokkos : public FixWallGranOld, public KokkosBase {
   KK_FLOAT whi;
   KK_FLOAT vwall[3];
 
-  typename AT::t_double_1d_3 x;
-  typename AT::t_double_1d_3 v;
-  typename AT::t_double_1d_3 d_omega;
-  typename AT::t_double_1d_3 f;
-  typename AT::t_double_1d_3 torque;
+  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3 v;
+  typename AT::t_kkfloat_1d_3 d_omega;
+  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kkfloat_1d_3 torque;
   typename AT::t_int_1d mask;
-  typename AT::t_double_1d rmass;
-  typename AT::t_double_1d d_radius;
-  typename AT::tdual_double_2d k_history_one;
-  typename AT::t_double_2d d_history_one;
+  typename AT::t_kkfloat_1d rmass;
+  typename AT::t_kkfloat_1d d_radius;
+  typename AT::tdual_kkfloat_2d k_history_one;
+  typename AT::t_kkfloat_2d d_history_one;
 
   typename AT::t_int_1d d_sendlist;
-  typename AT::t_double_1d d_buf;
+  typename AT::t_kkfloat_1d d_buf;
   typename AT::t_int_1d d_copylist;
   typename AT::t_int_1d d_indices;
 };

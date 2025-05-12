@@ -95,7 +95,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
     KK_FLOAT cut,a0,sigma,kappa,alpha;
   };
 
-  DAT::tdual_double_1d k_duCond,k_duMech;
+  DAT::tdual_kkfloat_1d k_duCond,k_duMech;
 
 #ifdef DPD_USE_RAN_MARS
   RandPoolWrap rand_pool;
@@ -108,8 +108,8 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   typedef typename Kokkos::Random_XorShift1024_Pool<DeviceType>::generator_type rand_type;
 #endif
 
-  typename ArrayTypes<DeviceType>::tdual_double_2d k_cutsq;
-  typename ArrayTypes<DeviceType>::t_double_2d d_cutsq;
+  typename ArrayTypes<DeviceType>::tdual_kkfloat_2d k_cutsq;
+  typename ArrayTypes<DeviceType>::t_kkfloat_2d d_cutsq;
 
  protected:
   int eflag,vflag;
@@ -127,21 +127,21 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   params_dpd m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
   KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename ArrayTypes<DeviceType>::t_double_1d_3_randomread x;
-  typename ArrayTypes<DeviceType>::t_double_1d_3 c_x;
-  typename ArrayTypes<DeviceType>::t_double_1d_3_randomread v;
-  typename ArrayTypes<DeviceType>::t_double_1d_3 f;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 c_x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread v;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
   typename ArrayTypes<DeviceType>::t_int_1d_randomread type;
-  typename ArrayTypes<DeviceType>::t_double_1d_randomread mass;
-  typename ArrayTypes<DeviceType>::t_double_1d rmass;
-  typename AT::t_double_1d dpdTheta;
-  typename AT::t_double_1d d_duCond,d_duMech;
-  HAT::t_double_1d h_duCond,h_duMech;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_randomread mass;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d rmass;
+  typename AT::t_kkfloat_1d dpdTheta;
+  typename AT::t_kkfloat_1d d_duCond,d_duMech;
+  HAT::t_kkfloat_1d h_duCond,h_duMech;
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
-  typename AT::t_double_1d d_eatom;
-  typename AT::t_double_1d_6 d_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;

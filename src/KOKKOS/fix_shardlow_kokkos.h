@@ -100,21 +100,21 @@ class FixShardlowKokkos : public FixShardlow {
   params_ssa m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
   KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename ArrayTypes<DeviceType>::t_double_2d d_cutsq;
+  typename ArrayTypes<DeviceType>::t_kkfloat_2d d_cutsq;
 
-  typename DAT::tdual_double_1d_3 k_v_t0;
-  // typename AT::t_double_1d_3 d_v_t0; v_t0 only used in comm routines (on host)
-  typename HAT::t_double_1d_3 h_v_t0;
+  typename DAT::tdual_kkfloat_1d_3 k_v_t0;
+  // typename AT::t_kkfloat_1d_3 d_v_t0; v_t0 only used in comm routines (on host)
+  typename HAT::t_kkfloat_1d_3 h_v_t0;
 
-  typename AT::t_double_1d_3 x;
-  typename AT::t_double_1d_3 v;
-  typename HAT::t_double_1d_3 h_v;
-  typename AT::t_double_1d uCond, uMech;
-  typename HAT::t_double_1d h_uCond, h_uMech;
+  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3 v;
+  typename HAT::t_kkfloat_1d_3 h_v;
+  typename AT::t_kkfloat_1d uCond, uMech;
+  typename HAT::t_kkfloat_1d h_uCond, h_uMech;
   typename AT::t_int_1d type;
   bool massPerI;
-  typename AT::t_double_1d_randomread masses;
-  typename AT::t_double_1d dpdTheta;
+  typename AT::t_kkfloat_1d_randomread masses;
+  typename AT::t_kkfloat_1d dpdTheta;
 
   // Storage for the es_RNG state variables
   typedef Kokkos::View<random_external_state::es_RNG_t*,DeviceType> es_RNGs_type;

@@ -58,19 +58,19 @@ class BondFENEKokkos : public BondFENE {
       const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx,
                   const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename ArrayTypes<DeviceType>::t_double_1d_3_randomread x;
-  typename ArrayTypes<DeviceType>::t_double_1d_3 f;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
   typename ArrayTypes<DeviceType>::t_int_2d bondlist;
 
-  typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_double_1d_6 d_vatom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
 
   typename AT::t_int_scalar d_flag;
   HAT::t_int_scalar h_flag;
@@ -78,15 +78,15 @@ class BondFENEKokkos : public BondFENE {
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  DAT::tdual_double_1d k_k;
-  DAT::tdual_double_1d k_r0;
-  DAT::tdual_double_1d k_epsilon;
-  DAT::tdual_double_1d k_sigma;
+  DAT::tdual_kkfloat_1d k_k;
+  DAT::tdual_kkfloat_1d k_r0;
+  DAT::tdual_kkfloat_1d k_epsilon;
+  DAT::tdual_kkfloat_1d k_sigma;
 
-  typename AT::t_double_1d d_k;
-  typename AT::t_double_1d d_r0;
-  typename AT::t_double_1d d_epsilon;
-  typename AT::t_double_1d d_sigma;
+  typename AT::t_kkfloat_1d d_k;
+  typename AT::t_kkfloat_1d d_r0;
+  typename AT::t_kkfloat_1d d_epsilon;
+  typename AT::t_kkfloat_1d d_sigma;
 
   void allocate() override;
 };

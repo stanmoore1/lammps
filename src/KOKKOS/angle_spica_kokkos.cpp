@@ -165,7 +165,7 @@ KOKKOS_INLINE_FUNCTION
 void AngleSPICAKokkos<DeviceType>::operator()(TagAngleSPICACompute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
 
   // The f array is atomic
-  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<double*[3], typename DAT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
 
   const int i1 = anglelist(n,0);
   const int i2 = anglelist(n,1);
@@ -327,9 +327,9 @@ void AngleSPICAKokkos<DeviceType>::allocate()
   AngleSPICA::allocate();
 
   int nangletypes = atom->nangletypes;
-  k_k = typename ArrayTypes<DeviceType>::tdual_double_1d("AngleSPICA::k",nangletypes+1);
-  k_theta0 = typename ArrayTypes<DeviceType>::tdual_double_1d("AngleSPICA::theta0",nangletypes+1);
-  k_repscale = typename ArrayTypes<DeviceType>::tdual_double_1d("AngleSPICA::repscale",nangletypes+1);
+  k_k = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleSPICA::k",nangletypes+1);
+  k_theta0 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleSPICA::theta0",nangletypes+1);
+  k_repscale = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleSPICA::repscale",nangletypes+1);
   k_setflag = typename ArrayTypes<DeviceType>::tdual_int_1d("AngleSPICA::setflag",nangletypes+1);
 
   d_k = k_k.template view<DeviceType>();
@@ -339,12 +339,12 @@ void AngleSPICAKokkos<DeviceType>::allocate()
 
   int ntypes = atom->ntypes;
   k_lj_type = typename ArrayTypes<DeviceType>::tdual_int_2d("AngleSPICA::lj_type",ntypes+1,ntypes+1);
-  k_lj1 = typename ArrayTypes<DeviceType>::tdual_double_2d("AngleSPICA::lj1",ntypes+1,ntypes+1);
-  k_lj2 = typename ArrayTypes<DeviceType>::tdual_double_2d("AngleSPICA::lj2",ntypes+1,ntypes+1);
-  k_lj3 = typename ArrayTypes<DeviceType>::tdual_double_2d("AngleSPICA::lj3",ntypes+1,ntypes+1);
-  k_lj4 = typename ArrayTypes<DeviceType>::tdual_double_2d("AngleSPICA::lj4",ntypes+1,ntypes+1);
-  k_rminsq = typename ArrayTypes<DeviceType>::tdual_double_2d("AngleSPICA::rminsq",ntypes+1,ntypes+1);
-  k_emin = typename ArrayTypes<DeviceType>::tdual_double_2d("AngleSPICA::emin",ntypes+1,ntypes+1);
+  k_lj1 = typename ArrayTypes<DeviceType>::tdual_kkfloat_2d("AngleSPICA::lj1",ntypes+1,ntypes+1);
+  k_lj2 = typename ArrayTypes<DeviceType>::tdual_kkfloat_2d("AngleSPICA::lj2",ntypes+1,ntypes+1);
+  k_lj3 = typename ArrayTypes<DeviceType>::tdual_kkfloat_2d("AngleSPICA::lj3",ntypes+1,ntypes+1);
+  k_lj4 = typename ArrayTypes<DeviceType>::tdual_kkfloat_2d("AngleSPICA::lj4",ntypes+1,ntypes+1);
+  k_rminsq = typename ArrayTypes<DeviceType>::tdual_kkfloat_2d("AngleSPICA::rminsq",ntypes+1,ntypes+1);
+  k_emin = typename ArrayTypes<DeviceType>::tdual_kkfloat_2d("AngleSPICA::emin",ntypes+1,ntypes+1);
 
   d_lj_type = k_lj_type.template view<DeviceType>();
   d_lj1 = k_lj1.template view<DeviceType>();
@@ -459,8 +459,8 @@ void AngleSPICAKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i, const int
   KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
-  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.template view<DeviceType>();
+  Kokkos::View<double*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
+  Kokkos::View<double*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.template view<DeviceType>();
 
   if (eflag_either) {
     if (eflag_global) {
@@ -568,8 +568,8 @@ void AngleSPICAKokkos<DeviceType>::ev_tally13(EV_FLOAT &ev, const int i, const i
   KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
-  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.template view<DeviceType>();
+  Kokkos::View<double*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
+  Kokkos::View<double*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.template view<DeviceType>();
 
   if (eflag_either) {
     if (eflag_global) {

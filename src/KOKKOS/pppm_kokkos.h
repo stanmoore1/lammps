@@ -325,25 +325,25 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
 
   DAT::tdual_int_scalar k_flag;
 
-  typename AT::t_double_1d_3_randomread x;
-  typename AT::t_double_1d_3 f;
-  typename AT::t_double_1d_randomread q;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kkfloat_1d_randomread q;
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
-  typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_double_1d_6 d_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
 
   typename FFT_AT::t_FFT_SCALAR_3d d_density_brick;
   typename FFT_AT::t_FFT_SCALAR_3d d_vdx_brick,d_vdy_brick,d_vdz_brick;
   typename FFT_AT::t_FFT_SCALAR_3d d_u_brick;
   typename FFT_AT::t_FFT_SCALAR_3d d_v0_brick,d_v1_brick,d_v2_brick;
   typename FFT_AT::t_FFT_SCALAR_3d d_v3_brick,d_v4_brick,d_v5_brick;
-  typename AT::t_double_1d d_greensfn;
-  typename AT::t_double_1d_6 d_vg;
-  typename AT::t_double_1d d_fkx;
-  typename AT::t_double_1d d_fky;
-  typename AT::t_double_1d d_fkz;
+  typename AT::t_kkfloat_1d d_greensfn;
+  typename AT::t_kkfloat_1d_6 d_vg;
+  typename AT::t_kkfloat_1d d_fkx;
+  typename AT::t_kkfloat_1d d_fky;
+  typename AT::t_kkfloat_1d d_fkz;
   FFT_DAT::tdual_FFT_SCALAR_1d k_density_fft;
   FFT_DAT::tdual_FFT_SCALAR_1d k_work1;
   FFT_DAT::tdual_FFT_SCALAR_1d k_work2;
@@ -351,8 +351,8 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
   typename FFT_AT::t_FFT_SCALAR_1d d_work1;
   typename FFT_AT::t_FFT_SCALAR_1d d_work2;
 
-  DAT::tdual_double_1d k_gf_b;
-  typename AT::t_double_1d d_gf_b;
+  DAT::tdual_kkfloat_1d k_gf_b;
+  typename AT::t_kkfloat_1d d_gf_b;
 
   //FFT_SCALAR **rho1d,**rho_coeff,**drho1d,**drho_coeff;
   typename FFT_AT::t_FFT_SCALAR_2d_3 d_rho1d;

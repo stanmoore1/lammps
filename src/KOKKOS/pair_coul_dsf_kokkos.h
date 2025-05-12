@@ -63,16 +63,16 @@ class PairCoulDSFKokkos : public PairCoulDSF {
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
 
-  typename AT::t_double_1d_3_randomread x;
-  typename AT::t_double_1d_3 f;
-  typename AT::t_double_1d_randomread q;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kkfloat_1d_randomread q;
 
  protected:
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
-  typename AT::t_double_1d d_eatom;
-  typename AT::t_double_1d_6 d_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
 
   int neighflag,newton_pair;

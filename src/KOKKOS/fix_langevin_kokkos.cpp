@@ -82,7 +82,7 @@ FixLangevinKokkos<DeviceType>::FixLangevinKokkos(LAMMPS *lmp, int narg, char **a
   }
 
   if (zeroflag) {
-    k_fsumall = tdual_double_1d_3n("langevin:fsumall");
+    k_fsumall = tdual_kkfloat_1d_3n("langevin:fsumall");
     h_fsumall = k_fsumall.h_view;
     d_fsumall = k_fsumall.template view<DeviceType>();
   }

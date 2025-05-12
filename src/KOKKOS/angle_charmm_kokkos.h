@@ -67,8 +67,8 @@ class AngleCharmmKokkos : public AngleCharmm {
   class NeighborKokkos *neighborKK;
 
   typedef ArrayTypes<DeviceType> AT;
-  typename AT::t_double_1d_3_randomread x;
-  typename Kokkos::View<double*[3],typename AT::t_double_1d_3::array_layout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename Kokkos::View<double*[3],typename AT::t_kkfloat_1d_3::array_layout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d anglelist;
   Kokkos::View<double*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_eatom;
   Kokkos::View<double*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_vatom;
@@ -76,10 +76,10 @@ class AngleCharmmKokkos : public AngleCharmm {
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  typename AT::t_double_1d d_k;
-  typename AT::t_double_1d d_theta0;
-  typename AT::t_double_1d d_k_ub;
-  typename AT::t_double_1d d_r_ub;
+  typename AT::t_kkfloat_1d d_k;
+  typename AT::t_kkfloat_1d d_theta0;
+  typename AT::t_kkfloat_1d d_k_ub;
+  typename AT::t_kkfloat_1d d_r_ub;
 
   void allocate() override;
 };

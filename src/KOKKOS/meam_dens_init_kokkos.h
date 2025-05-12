@@ -102,93 +102,93 @@ MEAMKokkos<DeviceType>::meam_dens_setup(int atom_nmax, int nall, int n_neigh)
     nmax = atom_nmax;
 
     //memory->create(rho, nmax, "pair:rho");
-    k_rho = DAT::tdual_double_1d("pair:rho",nmax);
+    k_rho = DAT::tdual_kkfloat_1d("pair:rho",nmax);
     d_rho = k_rho.template view<DeviceType>();
     h_rho = k_rho.h_view;
     //memory->create(rho0, nmax, "pair:rho0");
-    k_rho0 = DAT::tdual_double_1d("pair:rho0",nmax);
+    k_rho0 = DAT::tdual_kkfloat_1d("pair:rho0",nmax);
     d_rho0 = k_rho0.template view<DeviceType>();
     h_rho0 = k_rho0.h_view;
     //memory->create(rho1, nmax, "pair:rho1");
-    k_rho1 = DAT::tdual_double_1d("pair:rho1",nmax);
+    k_rho1 = DAT::tdual_kkfloat_1d("pair:rho1",nmax);
     d_rho1 = k_rho1.template view<DeviceType>();
     h_rho1 = k_rho1.h_view;
     //memory->create(rho2, nmax, "pair:rho2");
-    k_rho2 = DAT::tdual_double_1d("pair:rho2",nmax);
+    k_rho2 = DAT::tdual_kkfloat_1d("pair:rho2",nmax);
     d_rho2 = k_rho2.template view<DeviceType>();
     h_rho2 = k_rho2.h_view;
     //memory->create(rho3, nmax, "pair:rho3");
-    k_rho3 = DAT::tdual_double_1d("pair:rho3",nmax);
+    k_rho3 = DAT::tdual_kkfloat_1d("pair:rho3",nmax);
     d_rho3 = k_rho3.template view<DeviceType>();
     h_rho3 = k_rho3.h_view;
     //memory->create(frhop, nmax, "pair:frhop");
-    k_frhop = DAT::tdual_double_1d("pair:frhop",nmax);
+    k_frhop = DAT::tdual_kkfloat_1d("pair:frhop",nmax);
     d_frhop = k_frhop.template view<DeviceType>();
     h_frhop = k_frhop.h_view;
     //memory->create(gamma, nmax, "pair:gamma");
-    k_gamma = DAT::tdual_double_1d("pair:gamma",nmax);
+    k_gamma = DAT::tdual_kkfloat_1d("pair:gamma",nmax);
     d_gamma = k_gamma.template view<DeviceType>();
     h_gamma = k_gamma.h_view;
     //memory->create(dgamma1, nmax, "pair:dgamma1");
-    k_dgamma1 = DAT::tdual_double_1d("pair:dgamma1",nmax);
+    k_dgamma1 = DAT::tdual_kkfloat_1d("pair:dgamma1",nmax);
     d_dgamma1 = k_dgamma1.template view<DeviceType>();
     h_dgamma1 = k_dgamma1.h_view;
     //memory->create(dgamma2, nmax, "pair:dgamma2");
-    k_dgamma2 = DAT::tdual_double_1d("pair:dgamma2",nmax);
+    k_dgamma2 = DAT::tdual_kkfloat_1d("pair:dgamma2",nmax);
     d_dgamma2 = k_dgamma2.template view<DeviceType>();
     h_dgamma2 = k_dgamma2.h_view;
     //memory->create(dgamma3, nmax, "pair:dgamma3");
-    k_dgamma3 = DAT::tdual_double_1d("pair:dgamma3",nmax);
+    k_dgamma3 = DAT::tdual_kkfloat_1d("pair:dgamma3",nmax);
     d_dgamma3 = k_dgamma3.template view<DeviceType>();
     h_dgamma3 = k_dgamma3.h_view;
     //memory->create(arho2b, nmax, "pair:arho2b");
-    k_arho2b = DAT::tdual_double_1d("pair:arho2b",nmax);
+    k_arho2b = DAT::tdual_kkfloat_1d("pair:arho2b",nmax);
     d_arho2b = k_arho2b.template view<DeviceType>();
     h_arho2b = k_arho2b.h_view;
     //memory->create(arho1, nmax, 3, "pair:arho1");
-    k_arho1 = DAT::tdual_double_2d("pair:arho1",nmax, 3);
+    k_arho1 = DAT::tdual_kkfloat_2d("pair:arho1",nmax, 3);
     d_arho1 = k_arho1.template view<DeviceType>();
     h_arho1 = k_arho1.h_view;
     //memory->create(arho2, nmax, 6, "pair:arho2");
-    k_arho2 = DAT::tdual_double_2d("pair:arho2",nmax, 6);
+    k_arho2 = DAT::tdual_kkfloat_2d("pair:arho2",nmax, 6);
     d_arho2 = k_arho2.template view<DeviceType>();
     h_arho2 = k_arho2.h_view;
     //memory->create(arho3, nmax, 10, "pair:arho3");
-    k_arho3 = DAT::tdual_double_2d("pair:arho3",nmax, 10);
+    k_arho3 = DAT::tdual_kkfloat_2d("pair:arho3",nmax, 10);
     d_arho3 = k_arho3.template view<DeviceType>();
     h_arho3 = k_arho3.h_view;
     //memory->create(arho3b, nmax, 3, "pair:arho3b");
-    k_arho3b = DAT::tdual_double_2d("pair:arho3b",nmax, 3);
+    k_arho3b = DAT::tdual_kkfloat_2d("pair:arho3b",nmax, 3);
     d_arho3b = k_arho3b.template view<DeviceType>();
     h_arho3b = k_arho3b.h_view;
     //memory->create(t_ave, nmax, 3, "pair:t_ave");
-    k_t_ave = DAT::tdual_double_2d("pair:t_ave",nmax, 3);
+    k_t_ave = DAT::tdual_kkfloat_2d("pair:t_ave",nmax, 3);
     d_t_ave = k_t_ave.template view<DeviceType>();
     h_t_ave = k_t_ave.h_view;
     //memory->create(tsq_ave, nmax, 3, "pair:tsq_ave");
-    k_tsq_ave = DAT::tdual_double_2d("pair:tsq_ave",nmax, 3);
+    k_tsq_ave = DAT::tdual_kkfloat_2d("pair:tsq_ave",nmax, 3);
     d_tsq_ave = k_tsq_ave.template view<DeviceType>();
     h_tsq_ave = k_tsq_ave.h_view;
 
     // msmeam
     //memory->create(arho2mb, nmax, "pair:arho2mb");
-    k_arho2mb = DAT::tdual_double_1d("pair:arho2mb",nmax);
+    k_arho2mb = DAT::tdual_kkfloat_1d("pair:arho2mb",nmax);
     d_arho2mb = k_arho2mb.template view<DeviceType>();
     h_arho2mb = k_arho2mb.h_view;
     //memory->create(arho1m, nmax, 3, "pair:arho1m");
-    k_arho1m = DAT::tdual_double_2d("pair:arho1m", nmax, 3);
+    k_arho1m = DAT::tdual_kkfloat_2d("pair:arho1m", nmax, 3);
     d_arho1m = k_arho1m.template view<DeviceType>();
     h_arho1m = k_arho1m.h_view;
     //memory->create(arho2m, nmax, 6, "pair:arho2m");
-    k_arho2m = DAT::tdual_double_2d("pair:arho2m", nmax, 6);
+    k_arho2m = DAT::tdual_kkfloat_2d("pair:arho2m", nmax, 6);
     d_arho2m = k_arho2m.template view<DeviceType>();
     h_arho2m = k_arho2m.h_view;
     //memory->create(arho3m, nmax, 10, "pair:arho3m");
-    k_arho3m = DAT::tdual_double_2d("pair:arho3m", nmax, 10);
+    k_arho3m = DAT::tdual_kkfloat_2d("pair:arho3m", nmax, 10);
     d_arho3m = k_arho3m.template view<DeviceType>();
     h_arho3m = k_arho3m.h_view;
     //memory->create(arho3mb, nmax, 3, "pair:arho3mb");
-    k_arho3mb = DAT::tdual_double_2d("pair:arho3mb", nmax, 3);
+    k_arho3mb = DAT::tdual_kkfloat_2d("pair:arho3mb", nmax, 3);
     d_arho3mb = k_arho3mb.template view<DeviceType>();
     h_arho3mb = k_arho3mb.h_view;
   }
@@ -199,15 +199,15 @@ MEAMKokkos<DeviceType>::meam_dens_setup(int atom_nmax, int nall, int n_neigh)
     memoryKK->destroy_kokkos(k_fcpair,fcpair);
     maxneigh = n_neigh;
    // memory->create(scrfcn, maxneigh, "pair:scrfcn");
-    k_scrfcn = DAT::tdual_double_1d("pair:scrfcn", maxneigh);
+    k_scrfcn = DAT::tdual_kkfloat_1d("pair:scrfcn", maxneigh);
     d_scrfcn = k_scrfcn.template view<DeviceType>();
     h_scrfcn = k_scrfcn.h_view;
     //memory->create(dscrfcn, maxneigh, "pair:dscrfcn");
-    k_dscrfcn = DAT::tdual_double_1d("pair:dscrfcn", maxneigh);
+    k_dscrfcn = DAT::tdual_kkfloat_1d("pair:dscrfcn", maxneigh);
     d_dscrfcn = k_dscrfcn.template view<DeviceType>();
     h_dscrfcn = k_dscrfcn.h_view;
     //memory->create(fcpair, maxneigh, "pair:fcpair");
-    k_fcpair = DAT::tdual_double_1d("pair:fcpair", maxneigh);
+    k_fcpair = DAT::tdual_kkfloat_1d("pair:fcpair", maxneigh);
     d_fcpair = k_fcpair.template view<DeviceType>();
     h_fcpair = k_fcpair.h_view;
   }
@@ -223,7 +223,7 @@ MEAMKokkos<DeviceType>::meam_dens_setup(int atom_nmax, int nall, int n_neigh)
 
 template<class DeviceType>
 void
-MEAMKokkos<DeviceType>::meam_dens_init(int inum_half, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d d_map, typename AT::t_double_1d_3 x, typename AT::t_int_1d d_numneigh_half, typename AT::t_int_1d d_numneigh_full,
+MEAMKokkos<DeviceType>::meam_dens_init(int inum_half, int ntype, typename AT::t_int_1d type, typename AT::t_int_1d d_map, typename AT::t_kkfloat_1d_3 x, typename AT::t_int_1d d_numneigh_half, typename AT::t_int_1d d_numneigh_full,
                      typename AT::t_int_1d d_ilist_half, typename AT::t_neighbors_2d d_neighbors_half, typename AT::t_neighbors_2d d_neighbors_full, typename AT::t_int_1d d_offset, int neighflag, int need_dup)
 {
   this->ntype = ntype;
@@ -317,7 +317,7 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void
-MEAMKokkos<DeviceType>::getscreen(int i, int offset, typename AT::t_double_1d_3 x, typename AT::t_int_1d d_numneigh_half,
+MEAMKokkos<DeviceType>::getscreen(int i, int offset, typename AT::t_kkfloat_1d_3 x, typename AT::t_int_1d d_numneigh_half,
                 typename AT::t_int_1d d_numneigh_full, int /*ntype*/, typename AT::t_int_1d type, typename AT::t_int_1d d_map)
 const {
   const KK_FLOAT drinv = 1.0 / delr_meam;
@@ -478,7 +478,7 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void
-MEAMKokkos<DeviceType>::calc_rho1(int i, int /*ntype*/, typename AT::t_int_1d type, typename AT::t_int_1d d_map, typename AT::t_double_1d_3 x, typename AT::t_int_1d d_numneigh,
+MEAMKokkos<DeviceType>::calc_rho1(int i, int /*ntype*/, typename AT::t_int_1d type, typename AT::t_int_1d d_map, typename AT::t_kkfloat_1d_3 x, typename AT::t_int_1d d_numneigh,
                 int offset) const
 {
   // The rho0, etc. arrays are duplicated for OpenMP, atomic for GPU, and neither for Serial

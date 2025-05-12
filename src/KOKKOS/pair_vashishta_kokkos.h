@@ -125,15 +125,15 @@ class PairVashishtaKokkos : public PairVashishta {
   void threebodyj(const Param&, const Param&, const Param&, const KK_FLOAT&, const KK_FLOAT&, KK_FLOAT *, KK_FLOAT *,
                  KK_FLOAT *) const;
 
-  typename AT::t_double_1d_3_randomread x;
-  typename AT::t_double_1d_3 f;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3 f;
   typename AT::t_tagint_1d tag;
   typename AT::t_int_1d_randomread type;
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
-  typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_double_1d_6 d_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
 
   typename AT::t_int_1d_randomread d_type2frho;
   typename AT::t_int_2d_randomread d_type2rhor;

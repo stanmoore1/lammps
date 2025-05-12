@@ -60,18 +60,18 @@ class DihedralMultiHarmonicKokkos : public DihedralMultiHarmonic {
                           const KK_FLOAT &vb2x, const KK_FLOAT &vb2y, const KK_FLOAT &vb2z,
                           const KK_FLOAT &vb3x, const KK_FLOAT &vb3y, const KK_FLOAT &vb3z) const;
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_double_1d_3_randomread x;
-  typename AT::t_double_1d_3 f;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_2d dihedrallist;
-  typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_double_1d_6 d_vatom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;
@@ -80,17 +80,17 @@ class DihedralMultiHarmonicKokkos : public DihedralMultiHarmonic {
   typename AT::t_int_scalar d_warning_flag;
   HAT::t_int_scalar h_warning_flag;
 
-  DAT::tdual_double_1d k_a1;
-  DAT::tdual_double_1d k_a2;
-  DAT::tdual_double_1d k_a3;
-  DAT::tdual_double_1d k_a4;
-  DAT::tdual_double_1d k_a5;
+  DAT::tdual_kkfloat_1d k_a1;
+  DAT::tdual_kkfloat_1d k_a2;
+  DAT::tdual_kkfloat_1d k_a3;
+  DAT::tdual_kkfloat_1d k_a4;
+  DAT::tdual_kkfloat_1d k_a5;
 
-  typename AT::t_double_1d d_a1;
-  typename AT::t_double_1d d_a2;
-  typename AT::t_double_1d d_a3;
-  typename AT::t_double_1d d_a4;
-  typename AT::t_double_1d d_a5;
+  typename AT::t_kkfloat_1d d_a1;
+  typename AT::t_kkfloat_1d d_a2;
+  typename AT::t_kkfloat_1d d_a3;
+  typename AT::t_kkfloat_1d d_a4;
+  typename AT::t_kkfloat_1d d_a5;
 
   void allocate() override;
 };

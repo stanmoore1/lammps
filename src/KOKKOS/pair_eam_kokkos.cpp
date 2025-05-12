@@ -95,8 +95,8 @@ void PairEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (atom->nmax > nmax) {
     nmax = atom->nmax;
-    k_rho = DAT::tdual_double_1d("pair:rho",nmax);
-    k_fp = DAT::tdual_double_1d("pair:fp",nmax);
+    k_rho = DAT::tdual_kkfloat_1d("pair:rho",nmax);
+    k_fp = DAT::tdual_kkfloat_1d("pair:fp",nmax);
     d_rho = k_rho.template view<DeviceType>();
     d_fp = k_fp.template view<DeviceType>();
     h_rho = k_rho.h_view;
@@ -380,13 +380,13 @@ void PairEAMKokkos<DeviceType>::array2spline()
   rdr = 1.0/dr;
   rdrho = 1.0/drho;
 
-  tdual_double_2d_n7 k_frho_spline = tdual_double_2d_n7("pair:frho",nfrho,nrho+1);
-  tdual_double_2d_n7 k_rhor_spline = tdual_double_2d_n7("pair:rhor",nrhor,nr+1);
-  tdual_double_2d_n7 k_z2r_spline = tdual_double_2d_n7("pair:z2r",nz2r,nr+1);
+  tdual_kkfloat_2d_n7 k_frho_spline = tdual_kkfloat_2d_n7("pair:frho",nfrho,nrho+1);
+  tdual_kkfloat_2d_n7 k_rhor_spline = tdual_kkfloat_2d_n7("pair:rhor",nrhor,nr+1);
+  tdual_kkfloat_2d_n7 k_z2r_spline = tdual_kkfloat_2d_n7("pair:z2r",nz2r,nr+1);
 
-  t_host_double_2d_n7 h_frho_spline = k_frho_spline.h_view;
-  t_host_double_2d_n7 h_rhor_spline = k_rhor_spline.h_view;
-  t_host_double_2d_n7 h_z2r_spline = k_z2r_spline.h_view;
+  t_host_kkfloat_2d_n7 h_frho_spline = k_frho_spline.h_view;
+  t_host_kkfloat_2d_n7 h_rhor_spline = k_rhor_spline.h_view;
+  t_host_kkfloat_2d_n7 h_z2r_spline = k_z2r_spline.h_view;
 
   for (int i = 0; i < nfrho; i++)
     interpolate(nrho,drho,frho[i],h_frho_spline,i);
@@ -411,7 +411,7 @@ void PairEAMKokkos<DeviceType>::array2spline()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairEAMKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_host_double_2d_n7 h_spline, int i)
+void PairEAMKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_host_kkfloat_2d_n7 h_spline, int i)
 {
   for (int m = 1; m <= n; m++) h_spline(i,m,6) = f[m];
 
@@ -445,7 +445,7 @@ void PairEAMKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_ho
 
 template<class DeviceType>
 int PairEAMKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                                                        DAT::tdual_double_1d &buf,
+                                                        DAT::tdual_kkfloat_1d &buf,
                                                         int /*pbc_flag*/, int * /*pbc*/)
 {
   d_sendlist = k_sendlist.view<DeviceType>();
@@ -464,7 +464,7 @@ void PairEAMKokkos<DeviceType>::operator()(TagPairEAMPackForwardComm, const int 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairEAMKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_double_1d &buf)
+void PairEAMKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_kkfloat_1d &buf)
 {
   first = first_in;
   v_buf = buf.view<DeviceType>();
@@ -842,9 +842,9 @@ void PairEAMKokkos<DeviceType>::operator()(TagPairEAMKernelAB<EFLAG>,
   // rho = density at each atom
   // loop over neighbors of my atoms
   const int m_max = d_rhor_spline.extent_int(1);
-  const int j_max = t_double_2d_n7::static_extent(2);
+  const int j_max = t_kkfloat_2d_n7::static_extent(2);
   const int d_rhor_spline_cached = (m_max > MAX_CACHE_ROWS) ? 0 : 1;
-  Kokkos::View<double*[t_double_2d_n7::static_extent(2)], typename DeviceType::scratch_memory_space,
+  Kokkos::View<double*[t_kkfloat_2d_n7::static_extent(2)], typename DeviceType::scratch_memory_space,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>> A(team_member.team_scratch(0), MAX_CACHE_ROWS);
 
   if (d_rhor_spline_cached) {
@@ -943,9 +943,9 @@ void PairEAMKokkos<DeviceType>::operator()(TagPairEAMKernelC<NEIGHFLAG,NEWTON_PA
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   const int m_max = d_z2r_spline.extent_int(1);
-  const int j_max = t_double_2d_n7::static_extent(2);
+  const int j_max = t_kkfloat_2d_n7::static_extent(2);
   const int d_z2r_spline_cached = (m_max > MAX_CACHE_ROWS) ? 0 : 1;
-  Kokkos::View<double*[t_double_2d_n7::static_extent(2)], typename DeviceType::scratch_memory_space,
+  Kokkos::View<double*[t_kkfloat_2d_n7::static_extent(2)], typename DeviceType::scratch_memory_space,
                Kokkos::MemoryTraits<Kokkos::Unmanaged>> A(team_member.team_scratch(0), MAX_CACHE_ROWS);
 
   if (d_z2r_spline_cached) {
@@ -1174,7 +1174,7 @@ template<class TAG>
 struct PairEAMKokkos<Kokkos::Experimental::HIP>::policyInstance {
 
   static auto get(int inum) {
-    static_assert(t_double_2d_n7::static_extent(2) == 7,
+    static_assert(t_kkfloat_2d_n7::static_extent(2) == 7,
                   "Breaking assumption of spline dim for KernelAB and KernelC scratch caching");
 
     auto policy = Kokkos::TeamPolicy<Kokkos::Experimental::HIP,TAG>((inum+1023)/1024, 1024)

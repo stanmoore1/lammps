@@ -188,7 +188,7 @@ void AtomKokkos::sync_overlapping_device(const ExecutionSpace space, unsigned in
 void AtomKokkos::allocate_type_arrays()
 {
   if (avec->mass_type == AtomVec::PER_TYPE) {
-    k_mass = DAT::tdual_double_1d("Mass", ntypes + 1);
+    k_mass = DAT::tdual_kkfloat_1d("Mass", ntypes + 1);
     mass = k_mass.h_view.data();
     mass_setflag = new int[ntypes + 1];
     for (int itype = 1; itype <= ntypes; itype++) mass_setflag[itype] = 0;
@@ -256,7 +256,7 @@ void AtomKokkos::sort_device()
   max_bins[1] = nbiny;
   max_bins[2] = nbinz;
 
-  using KeyViewType = DAT::t_double_1d_3;
+  using KeyViewType = DAT::t_kkfloat_1d_3;
   using BinOp = BinOp3DLAMMPS<KeyViewType>;
   BinOp binner(max_bins, bboxlo, bboxhi);
   Kokkos::BinSort<KeyViewType, BinOp> Sorter(d_x, 0, nlocal, binner, false);

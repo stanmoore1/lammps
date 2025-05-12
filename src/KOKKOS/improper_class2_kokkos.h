@@ -71,18 +71,18 @@ class ImproperClass2Kokkos : public ImproperClass2 {
                           const KK_FLOAT &vb2x, const KK_FLOAT &vb2y, const KK_FLOAT &vb2z,
                           const KK_FLOAT &vb3x, const KK_FLOAT &vb3y, const KK_FLOAT &vb3z) const;
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_double_1d_3_randomread x;
-  typename Kokkos::View<double*[3],typename AT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename Kokkos::View<double*[3],typename AT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d improperlist;
-  typename AT::t_double_1d d_eatom;
-  typename AT::t_double_1d_6 d_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;
@@ -91,13 +91,13 @@ class ImproperClass2Kokkos : public ImproperClass2 {
   typename AT::t_int_scalar d_warning_flag;
   HAT::t_int_scalar h_warning_flag;
 
-  typename AT::tdual_double_1d k_k0,k_chi0;
-  typename AT::tdual_double_1d k_aa_k1,k_aa_k2,k_aa_k3,k_aa_theta0_1,k_aa_theta0_2,k_aa_theta0_3;
-  typename AT::tdual_double_1d k_setflag_i,k_setflag_aa,k_setflag;
+  typename AT::tdual_kkfloat_1d k_k0,k_chi0;
+  typename AT::tdual_kkfloat_1d k_aa_k1,k_aa_k2,k_aa_k3,k_aa_theta0_1,k_aa_theta0_2,k_aa_theta0_3;
+  typename AT::tdual_kkfloat_1d k_setflag_i,k_setflag_aa,k_setflag;
 
-  typename AT::t_double_1d d_k0,d_chi0;
-  typename AT::t_double_1d d_aa_k1,d_aa_k2,d_aa_k3,d_aa_theta0_1,d_aa_theta0_2,d_aa_theta0_3;
-  typename AT::t_double_1d d_setflag_i,d_setflag_aa,d_setflag;
+  typename AT::t_kkfloat_1d d_k0,d_chi0;
+  typename AT::t_kkfloat_1d d_aa_k1,d_aa_k2,d_aa_k3,d_aa_theta0_1,d_aa_theta0_2,d_aa_theta0_3;
+  typename AT::t_kkfloat_1d d_setflag_i,d_setflag_aa,d_setflag;
 
   void allocate();
 };

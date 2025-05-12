@@ -31,19 +31,19 @@ class AtomKokkos : public Atom {
   DAT::tdual_tagint_1d k_tag;
   DAT::tdual_int_1d k_type, k_mask;
   DAT::tdual_imageint_1d k_image;
-  DAT::tdual_double_1d_3 k_x;
-  DAT::tdual_double_1d_3 k_v;
-  DAT::tdual_double_1d_3 k_f;
+  DAT::tdual_kkfloat_1d_3 k_x;
+  DAT::tdual_kkfloat_1d_3 k_v;
+  DAT::tdual_kkfloat_1d_3 k_f;
 
-  DAT::tdual_double_1d k_mass;
+  DAT::tdual_kkfloat_1d k_mass;
 
-  DAT::tdual_double_1d k_q;
-  DAT::tdual_double_1d k_radius;
-  DAT::tdual_double_1d k_rmass;
-  DAT::tdual_double_1d_4 k_mu;
-  DAT::tdual_double_1d_3 k_omega;
-  DAT::tdual_double_1d_3 k_angmom;
-  DAT::tdual_double_1d_3 k_torque;
+  DAT::tdual_kkfloat_1d k_q;
+  DAT::tdual_kkfloat_1d k_radius;
+  DAT::tdual_kkfloat_1d k_rmass;
+  DAT::tdual_kkfloat_1d_4 k_mu;
+  DAT::tdual_kkfloat_1d_3 k_omega;
+  DAT::tdual_kkfloat_1d_3 k_angmom;
+  DAT::tdual_kkfloat_1d_3 k_torque;
   DAT::tdual_tagint_1d k_molecule;
   DAT::tdual_int_2d k_nspecial;
   DAT::tdual_tagint_2d k_special;
@@ -60,17 +60,17 @@ class AtomKokkos : public Atom {
   DAT::tdual_int_2d k_improper_type;
   DAT::tdual_tagint_2d k_improper_atom1, k_improper_atom2, k_improper_atom3, k_improper_atom4;
 
-  DAT::tdual_double_2d k_dvector;
+  DAT::tdual_kkfloat_2d k_dvector;
 
   // SPIN package
 
-  DAT::tdual_double_1d_4 k_sp;
-  DAT::tdual_double_1d_3 k_fm;
-  DAT::tdual_double_1d_3 k_fm_long;
+  DAT::tdual_kkfloat_1d_4 k_sp;
+  DAT::tdual_kkfloat_1d_3 k_fm;
+  DAT::tdual_kkfloat_1d_3 k_fm_long;
 
   // DPD-REACT package
 
-  DAT::tdual_double_1d k_uCond, k_uMech, k_uChem, k_uCG, k_uCGnew,
+  DAT::tdual_kkfloat_1d k_uCond, k_uMech, k_uChem, k_uCG, k_uCGnew,
                        k_rho,k_dpdTheta,k_duChem;
 
 

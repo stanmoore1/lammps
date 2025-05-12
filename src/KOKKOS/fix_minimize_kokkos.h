@@ -43,12 +43,12 @@ class FixMinimizeKokkos : public FixMinimize, public KokkosBase {
   int unpack_exchange(int, double *) override;
 
   void add_vector_kokkos();
-  DAT::t_double_1d request_vector_kokkos(int);
+  DAT::t_kkfloat_1d request_vector_kokkos(int);
   void reset_coords();
 
-  DAT::tdual_double_2d k_vectors;
-  DAT::t_double_2d d_vectors;
-  HAT::t_double_2d h_vectors;
+  DAT::tdual_kkfloat_2d k_vectors;
+  DAT::t_kkfloat_2d d_vectors;
+  HAT::t_kkfloat_2d h_vectors;
 };
 
 }

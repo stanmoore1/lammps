@@ -264,7 +264,7 @@ void PairLJCutCoulDSFKokkos<DeviceType>::allocate()
   memoryKK->create_kokkos(k_cut_ljsq,cut_ljsq,n+1,n+1,"pair:cut_ljsq");
   d_cut_ljsq = k_cut_ljsq.template view<DeviceType>();
 
-  d_cut_coulsq = typename AT::t_double_2d("pair:cut_coulsq",n+1,n+1);
+  d_cut_coulsq = typename AT::t_kkfloat_2d("pair:cut_coulsq",n+1,n+1);
 
   k_params = Kokkos::DualView<params_lj_coul**,Kokkos::LayoutRight,DeviceType>("PairLJCutCoulDSF::params",n+1,n+1);
   params = k_params.template view<DeviceType>();

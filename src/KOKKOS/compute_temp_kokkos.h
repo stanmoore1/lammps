@@ -75,9 +75,9 @@ class ComputeTempKokkos : public ComputeTemp {
   void operator()(TagComputeTempVector<RMASS>, const int&, CTEMP&) const;
 
  protected:
-  typename AT::t_double_1d_3_randomread v;
-  typename AT::t_double_1d_randomread rmass;
-  typename AT::t_double_1d_randomread mass;
+  typename AT::t_kkfloat_1d_3_randomread v;
+  typename AT::t_kkfloat_1d_randomread rmass;
+  typename AT::t_kkfloat_1d_randomread mass;
   typename AT::t_int_1d_randomread type;
   typename AT::t_int_1d_randomread mask;
 };

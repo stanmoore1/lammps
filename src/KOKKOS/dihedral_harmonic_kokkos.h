@@ -60,18 +60,18 @@ class DihedralHarmonicKokkos : public DihedralHarmonic {
                           const KK_FLOAT &vb2x, const KK_FLOAT &vb2y, const KK_FLOAT &vb2z,
                           const KK_FLOAT &vb3x, const KK_FLOAT &vb3y, const KK_FLOAT &vb3z) const;
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_double_1d_3_randomread x;
-  typename AT::t_double_1d_3 f;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_2d dihedrallist;
-  typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_double_1d_6 d_vatom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;
@@ -80,15 +80,15 @@ class DihedralHarmonicKokkos : public DihedralHarmonic {
   typename AT::t_int_scalar d_warning_flag;
   HAT::t_int_scalar h_warning_flag;
 
-  DAT::tdual_double_1d k_k;
-  DAT::tdual_double_1d k_cos_shift;
-  DAT::tdual_double_1d k_sin_shift;
+  DAT::tdual_kkfloat_1d k_k;
+  DAT::tdual_kkfloat_1d k_cos_shift;
+  DAT::tdual_kkfloat_1d k_sin_shift;
   DAT::tdual_int_1d k_sign;
   DAT::tdual_int_1d k_multiplicity;
 
-  typename AT::t_double_1d d_k;
-  typename AT::t_double_1d d_cos_shift;
-  typename AT::t_double_1d d_sin_shift;
+  typename AT::t_kkfloat_1d d_k;
+  typename AT::t_kkfloat_1d d_cos_shift;
+  typename AT::t_kkfloat_1d d_sin_shift;
   typename AT::t_int_1d d_sign;
   typename AT::t_int_1d d_multiplicity;
 

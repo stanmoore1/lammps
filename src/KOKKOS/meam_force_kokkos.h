@@ -8,10 +8,10 @@ using namespace MathSpecialKokkos;
 template <class DeviceType>
 void MEAMKokkos<DeviceType>::meam_force(
     int inum_half, int eflag_global, int eflag_atom, int vflag_global, int vflag_atom,
-    typename ArrayTypes<DeviceType>::t_double_1d eatom, int ntype, typename AT::t_int_1d type,
-    typename AT::t_int_1d d_map, typename AT::t_double_1d_3 x, typename AT::t_int_1d numneigh,
-    typename AT::t_int_1d numneigh_full, typename AT::t_double_1d_3 f,
-    typename ArrayTypes<DeviceType>::t_double_1d_6 vatom, typename AT::t_int_1d d_ilist_half,
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d eatom, int ntype, typename AT::t_int_1d type,
+    typename AT::t_int_1d d_map, typename AT::t_kkfloat_1d_3 x, typename AT::t_int_1d numneigh,
+    typename AT::t_int_1d numneigh_full, typename AT::t_kkfloat_1d_3 f,
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 vatom, typename AT::t_int_1d d_ilist_half,
     typename AT::t_int_1d d_offset, typename AT::t_neighbors_2d d_neighbors_half,
     typename AT::t_neighbors_2d d_neighbors_full, int neighflag, int need_dup, EV_FLOAT &ev_all)
 {

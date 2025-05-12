@@ -48,12 +48,12 @@ class FixDtResetKokkos : public FixDtReset {
   void operator()(TagFixDtResetRMass, const int&, double&) const;
 
  private:
-  typename AT::t_double_1d_3 v;
-  typename AT::t_double_1d_3 f;
+  typename AT::t_kkfloat_1d_3 v;
+  typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread mask;
   typename AT::t_int_1d_randomread type;
-  typename ArrayTypes<DeviceType>::t_double_1d_randomread rmass;
-  typename ArrayTypes<DeviceType>::t_double_1d_randomread mass;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_randomread rmass;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_randomread mass;
 
 
   Kokkos::DualView<double*, Kokkos::LayoutRight, DeviceType> k_emax;

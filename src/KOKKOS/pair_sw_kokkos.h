@@ -99,15 +99,15 @@ class PairSWKokkos : public PairSW {
   void threebody_kk(const Param&, const Param&, const Param&, const KK_FLOAT&, const KK_FLOAT&, KK_FLOAT *, KK_FLOAT *,
                     KK_FLOAT *, KK_FLOAT *, const int&, KK_FLOAT&) const;
 
-  typename AT::t_double_1d_3_randomread x;
-  typename AT::t_double_1d_3 f;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3 f;
   typename AT::t_tagint_1d tag;
   typename AT::t_int_1d_randomread type;
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
-  typename AT::t_double_1d d_eatom;
-  typename AT::t_double_1d_6 d_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
   int need_dup;
 
@@ -119,13 +119,13 @@ class PairSWKokkos : public PairSW {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
-  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
-  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
+  DupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> dup_f;
+  DupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> dup_eatom;
+  DupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
 
-  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
-  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
-  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
+  NonDupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> ndup_f;
+  NonDupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> ndup_eatom;
+  NonDupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
 
   typename AT::t_int_1d_randomread d_type2frho;
   typename AT::t_int_2d_randomread d_type2rhor;

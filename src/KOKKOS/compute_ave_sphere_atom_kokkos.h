@@ -48,10 +48,10 @@ template <class DeviceType> class ComputeAveSphereAtomKokkos : public ComputeAve
  private:
   KK_FLOAT adof, mvv2e, mv2d, boltz;
 
-  typename AT::t_double_1d_3 x;
-  typename AT::t_double_1d_3 v;
-  typename ArrayTypes<DeviceType>::t_double_1d rmass;
-  typename ArrayTypes<DeviceType>::t_double_1d mass;
+  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3 v;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d rmass;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d mass;
   typename ArrayTypes<DeviceType>::t_int_1d type;
   typename ArrayTypes<DeviceType>::t_int_1d mask;
 
@@ -59,8 +59,8 @@ template <class DeviceType> class ComputeAveSphereAtomKokkos : public ComputeAve
   typename AT::t_int_1d d_ilist;
   typename AT::t_int_1d d_numneigh;
 
-  DAT::tdual_double_2d k_result;
-  typename AT::t_double_2d d_result;
+  DAT::tdual_kkfloat_2d k_result;
+  typename AT::t_kkfloat_2d d_result;
 };
 
 }    // namespace LAMMPS_NS

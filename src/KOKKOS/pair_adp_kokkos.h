@@ -108,23 +108,23 @@ class PairADPKokkos : public PairADP, public KokkosBase
       const KK_FLOAT &epair, const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz, const KK_FLOAT &delx,
                   const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
-  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_double_1d&,
+  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_kkfloat_1d&,
                        int, int *) override;
-  void unpack_forward_comm_kokkos(int, int, DAT::tdual_double_1d&) override;
+  void unpack_forward_comm_kokkos(int, int, DAT::tdual_kkfloat_1d&) override;
   int pack_forward_comm(int, int *, double *, int, int *) override;
   void unpack_forward_comm(int, int, double *) override;
   int pack_reverse_comm(int, int, double *) override;
   void unpack_reverse_comm(int, int *, double *) override;
 
  protected:
-  typename AT::t_double_1d_3 x;
-  typename AT::t_double_1d_3 f;
+  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d type;
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
-  typename AT::t_double_1d d_eatom;
-  typename AT::t_double_1d_6 d_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
   int need_dup;
 
@@ -136,31 +136,31 @@ class PairADPKokkos : public PairADP, public KokkosBase
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_rho;
-  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_mu;
-  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_lambda;
-  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
-  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
-  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
-  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_rho;
-  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_mu;
-  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_lambda;
-  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
-  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
-  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
+  DupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> dup_rho;
+  DupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> dup_mu;
+  DupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_lambda;
+  DupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> dup_f;
+  DupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> dup_eatom;
+  DupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
+  NonDupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> ndup_rho;
+  NonDupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> ndup_mu;
+  NonDupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_lambda;
+  NonDupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> ndup_f;
+  NonDupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> ndup_eatom;
+  NonDupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
 
-  DAT::tdual_double_1d k_rho;
-  DAT::tdual_double_1d k_fp;
-  DAT::tdual_double_1d_3 k_mu;
-  DAT::tdual_double_1d_6 k_lambda;
-  typename AT::t_double_1d d_rho;
-  typename AT::t_double_1d d_fp;
-  typename AT::t_double_1d_3 d_mu;
-  typename AT::t_double_1d_6 d_lambda;
-  HAT::t_double_1d h_rho;
-  HAT::t_double_1d h_fp;
-  HAT::t_double_1d_3 h_mu;
-  HAT::t_double_1d_6 h_lambda;
+  DAT::tdual_kkfloat_1d k_rho;
+  DAT::tdual_kkfloat_1d k_fp;
+  DAT::tdual_kkfloat_1d_3 k_mu;
+  DAT::tdual_kkfloat_1d_6 k_lambda;
+  typename AT::t_kkfloat_1d d_rho;
+  typename AT::t_kkfloat_1d d_fp;
+  typename AT::t_kkfloat_1d_3 d_mu;
+  typename AT::t_kkfloat_1d_6 d_lambda;
+  HAT::t_kkfloat_1d h_rho;
+  HAT::t_kkfloat_1d h_fp;
+  HAT::t_kkfloat_1d_3 h_mu;
+  HAT::t_kkfloat_1d_6 h_lambda;
 
   typename AT::t_int_1d d_type2frho;
   typename AT::t_int_2d_dl d_type2rhor;
@@ -168,16 +168,16 @@ class PairADPKokkos : public PairADP, public KokkosBase
   typename AT::t_int_2d_dl d_type2u2r;
   typename AT::t_int_2d_dl d_type2w2r;
 
-  typedef Kokkos::DualView<double**[7],DeviceType> tdual_double_2d_n7;
-  typedef typename tdual_double_2d_n7::t_dev_const t_double_2d_n7;
-  typedef typename tdual_double_2d_n7::t_host t_host_double_2d_n7;
+  typedef Kokkos::DualView<double**[7],DeviceType> tdual_kkfloat_2d_n7;
+  typedef typename tdual_kkfloat_2d_n7::t_dev_const t_kkfloat_2d_n7;
+  typedef typename tdual_kkfloat_2d_n7::t_host t_host_kkfloat_2d_n7;
 
-  t_double_2d_n7 d_frho_spline;
-  t_double_2d_n7 d_rhor_spline;
-  t_double_2d_n7 d_z2r_spline;
-  t_double_2d_n7 d_u2r_spline, d_w2r_spline;
+  t_kkfloat_2d_n7 d_frho_spline;
+  t_kkfloat_2d_n7 d_rhor_spline;
+  t_kkfloat_2d_n7 d_z2r_spline;
+  t_kkfloat_2d_n7 d_u2r_spline, d_w2r_spline;
 
-  void interpolate(int, double, double *, t_host_double_2d_n7, int);
+  void interpolate(int, double, double *, t_host_kkfloat_2d_n7, int);
   void file2array() override;
   void array2spline() override;
 
@@ -187,7 +187,7 @@ class PairADPKokkos : public PairADP, public KokkosBase
 
   int first;
   typename AT::t_int_1d d_sendlist;
-  typename AT::t_double_1d_um v_buf;
+  typename AT::t_kkfloat_1d_um v_buf;
 
   int neighflag,newton_pair;
   int nlocal,nall,eflag,vflag;

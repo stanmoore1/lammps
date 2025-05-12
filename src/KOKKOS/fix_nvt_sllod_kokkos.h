@@ -55,12 +55,12 @@ class FixNVTSllodKokkos : public FixNHKokkos<DeviceType> {
   void nh_v_temp() override;
 
  protected:
-  typename AT::t_double_1d_3 x;
-  typename AT::t_double_1d_3 v;
-  typename AT::t_double_1d_3 vdelu;
-  typename AT::t_double_1d_3_const f;
-  typename AT::t_double_1d rmass;
-  typename AT::t_double_1d mass;
+  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3 v;
+  typename AT::t_kkfloat_1d_3 vdelu;
+  typename AT::t_kkfloat_1d_3_const f;
+  typename AT::t_kkfloat_1d rmass;
+  typename AT::t_kkfloat_1d mass;
   typename AT::t_int_1d type;
   typename AT::t_int_1d mask;
 

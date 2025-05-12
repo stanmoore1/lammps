@@ -148,7 +148,7 @@ void ThirdOrderKokkos::update_force()
 
   lmp->kokkos->auto_sync = 0;
 
-  f_merge_copy = DAT::t_double_1d_3("ThirdOrderKokkos::f_merge_copy",atomKK->k_f.extent(0));
+  f_merge_copy = DAT::t_kkfloat_1d_3("ThirdOrderKokkos::f_merge_copy",atomKK->k_f.extent(0));
 
   atomKK->modified(Host,X_MASK);
   atomKK->sync(Device,X_MASK);
@@ -256,12 +256,12 @@ void ThirdOrderKokkos::update_force()
 
   if (execute_on_host && !std::is_same_v<LMPHostType,LMPDeviceType>) {
     if (f_merge_copy.extent(0)<atomKK->k_f.extent(0)) {
-      f_merge_copy = DAT::t_double_1d_3("ThirdOrderKokkos::f_merge_copy",atomKK->k_f.extent(0));
+      f_merge_copy = DAT::t_kkfloat_1d_3("ThirdOrderKokkos::f_merge_copy",atomKK->k_f.extent(0));
     }
     f = atomKK->k_f.d_view;
     Kokkos::deep_copy(LMPHostType(),f_merge_copy,atomKK->k_f.h_view);
     Kokkos::parallel_for(atomKK->k_f.extent(0),
-                         ForceAdder<DAT::t_double_1d_3,DAT::t_double_1d_3>(atomKK->k_f.d_view,f_merge_copy));
+                         ForceAdder<DAT::t_kkfloat_1d_3,DAT::t_kkfloat_1d_3>(atomKK->k_f.d_view,f_merge_copy));
     atomKK->k_f.clear_sync_state(); // special case
     atomKK->k_f.modify<LMPDeviceType>();
   }
@@ -304,7 +304,7 @@ void ThirdOrderKokkos::force_clear()
   int nall = atomKK->nlocal;
   if (force->newton) nall += atomKK->nghost;
 
-  Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_double_1d_3>(atomKK->k_f.view<LMPDeviceType>()));
+  Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_f.view<LMPDeviceType>()));
   atomKK->modified(Device,F_MASK);
 
 }

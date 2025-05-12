@@ -47,14 +47,14 @@ class FixNVESphereKokkos : public FixNVESphere {
     void fused_integrate_item(int) const;
 
   private:
-    typename ArrayTypes<DeviceType>::t_double_1d_3 x;
-    typename ArrayTypes<DeviceType>::t_double_1d_3 v;
-    typename ArrayTypes<DeviceType>::t_double_1d_3 omega;
-    typename ArrayTypes<DeviceType>::t_double_1d_4 mu;
-    typename ArrayTypes<DeviceType>::t_double_1d_3 f;
-    typename ArrayTypes<DeviceType>::t_double_1d_3 torque;
-    typename ArrayTypes<DeviceType>::t_double_1d rmass;
-    typename ArrayTypes<DeviceType>::t_double_1d radius;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 x;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 v;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 omega;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_4 mu;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 torque;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d rmass;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d radius;
     typename ArrayTypes<DeviceType>::t_int_1d mask;
 };
 

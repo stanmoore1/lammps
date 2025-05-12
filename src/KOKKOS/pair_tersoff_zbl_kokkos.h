@@ -197,15 +197,15 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
   t_param_1d d_params;
 
   int inum;
-  typename AT::t_double_1d_3_randomread x;
-  typename AT::t_double_1d_3 f;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_tagint_1d tag;
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
-  typename AT::t_double_1d d_eatom;
-  typename AT::t_double_1d_6 d_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
   int need_dup;
 
@@ -217,17 +217,17 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
-  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
-  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
+  DupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> dup_f;
+  DupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> dup_eatom;
+  DupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
 
-  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
-  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
-  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
+  NonDupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> ndup_f;
+  NonDupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> ndup_eatom;
+  NonDupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
 
-  typedef Kokkos::DualView<double**[7],Kokkos::LayoutRight,DeviceType> tdual_double_2d_n7;
-  typedef typename tdual_double_2d_n7::t_dev_const_randomread t_double_2d_n7_randomread;
-  typedef typename tdual_double_2d_n7::t_host t_host_double_2d_n7;
+  typedef Kokkos::DualView<double**[7],Kokkos::LayoutRight,DeviceType> tdual_kkfloat_2d_n7;
+  typedef typename tdual_kkfloat_2d_n7::t_dev_const_randomread t_kkfloat_2d_n7_randomread;
+  typedef typename tdual_kkfloat_2d_n7::t_host t_host_kkfloat_2d_n7;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;

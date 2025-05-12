@@ -74,21 +74,21 @@ class PairYukawaKokkos : public PairYukawa {
   typename Kokkos::DualView<params_yukawa**,Kokkos::LayoutRight,DeviceType>::t_dev_const_um params;
   params_yukawa m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename AT::t_double_1d_3_randomread x;
-  typename AT::t_double_1d_3 c_x;
-  typename AT::t_double_1d_3 f;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3 c_x;
+  typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread type;
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
-  typename AT::t_double_1d d_eatom;
-  typename AT::t_double_1d_6 d_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
   int newton_pair;
   KK_FLOAT special_lj[4];
 
-  typename AT::tdual_double_2d k_cutsq;
-  typename AT::t_double_2d d_cutsq;
+  typename AT::tdual_kkfloat_2d k_cutsq;
+  typename AT::t_kkfloat_2d d_cutsq;
 
 
   int neighflag;

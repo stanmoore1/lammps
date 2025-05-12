@@ -60,27 +60,27 @@ class AngleHarmonicKokkos : public AngleHarmonic {
                      const KK_FLOAT &delx1, const KK_FLOAT &dely1, const KK_FLOAT &delz1,
                      const KK_FLOAT &delx2, const KK_FLOAT &dely2, const KK_FLOAT &delz2) const;
 
-  typename AT::tdual_double_1d k_eatom;
-  typename AT::tdual_double_1d_6 k_vatom;
+  typename AT::tdual_kkfloat_1d k_eatom;
+  typename AT::tdual_kkfloat_1d_6 k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename ArrayTypes<DeviceType>::t_double_1d_3_randomread x;
-  typename ArrayTypes<DeviceType>::t_double_1d_3 f;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
   typename ArrayTypes<DeviceType>::t_int_2d anglelist;
-  typename ArrayTypes<DeviceType>::t_double_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_double_1d_6 d_vatom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  typename ArrayTypes<DeviceType>::tdual_double_1d k_k;
-  typename ArrayTypes<DeviceType>::tdual_double_1d k_theta0;
+  typename ArrayTypes<DeviceType>::tdual_kkfloat_1d k_k;
+  typename ArrayTypes<DeviceType>::tdual_kkfloat_1d k_theta0;
 
-  typename ArrayTypes<DeviceType>::t_double_1d d_k;
-  typename ArrayTypes<DeviceType>::t_double_1d d_theta0;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_k;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_theta0;
 
   void allocate() override;
 };

@@ -351,7 +351,7 @@ public:
 // define precision
 
 #ifndef LMP_KOKKOS_PRECISION
-#define LMP_KOKKOS_PRECISION 1
+#define LMP_KOKKOS_PRECISION 2
 #endif
 
 #if LMP_KOKKOS_PRECISION == 1 // single

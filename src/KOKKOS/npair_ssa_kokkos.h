@@ -66,7 +66,7 @@ class NPairSSAKokkos : public NPair {
  private:
   // data from Neighbor class
 
-  DAT::tdual_double_2d k_cutneighsq;
+  DAT::tdual_kkfloat_2d k_cutneighsq;
 
   // exclusion data from Neighbor class
 
@@ -106,7 +106,7 @@ class NPairSSAKokkosExecute
 
   // data from Neighbor class
 
-  const typename AT::t_double_2d_randomread cutneighsq;
+  const typename AT::t_kkfloat_2d_randomread cutneighsq;
 
   // exclusion data from Neighbor class
 
@@ -147,7 +147,7 @@ class NPairSSAKokkosExecute
 
   // data from Atom class
 
-  const typename AT::t_double_1d_3_randomread x;
+  const typename AT::t_kkfloat_1d_3_randomread x;
   const typename AT::t_int_1d_const type,mask;
   const typename AT::t_tagint_1d_const molecule;
   const typename AT::t_tagint_1d_const tag;
@@ -187,7 +187,7 @@ class NPairSSAKokkosExecute
 
   NPairSSAKokkosExecute(
         const NeighListKokkos<DeviceType> &_neigh_list,
-        const typename AT::t_double_2d_randomread &_cutneighsq,
+        const typename AT::t_kkfloat_2d_randomread &_cutneighsq,
         const typename AT::t_int_1d &_bincount,
         const typename AT::t_int_2d &_bins,
         const typename AT::t_int_1d &_gbincount,
@@ -209,7 +209,7 @@ class NPairSSAKokkosExecute
         const typename AT::t_int_2d &_d_ssa_gitemLoc,
         const typename AT::t_int_2d &_d_ssa_gitemLen,
         const int _nlocal,
-        const typename AT::t_double_1d_3_randomread &_x,
+        const typename AT::t_kkfloat_1d_3_randomread &_x,
         const typename AT::t_int_1d_const &_type,
         const typename AT::t_int_1d_const &_mask,
         const typename AT::t_tagint_1d_const &_molecule,

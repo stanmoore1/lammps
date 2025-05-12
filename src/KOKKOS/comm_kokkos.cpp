@@ -74,12 +74,12 @@ CommKokkos::CommKokkos(LAMMPS *lmp) : CommBrick(lmp)
   memoryKK->create_kokkos(k_sendlist,sendlist,maxswap,BUFMIN,"comm:sendlist");
 
   max_buf_pair = 0;
-  k_buf_send_pair = DAT::tdual_double_1d("comm:k_buf_send_pair",1);
-  k_buf_recv_pair = DAT::tdual_double_1d("comm:k_recv_send_pair",1);
+  k_buf_send_pair = DAT::tdual_kkfloat_1d("comm:k_buf_send_pair",1);
+  k_buf_recv_pair = DAT::tdual_kkfloat_1d("comm:k_recv_send_pair",1);
 
   max_buf_fix = 0;
-  k_buf_send_fix = DAT::tdual_double_1d("comm:k_buf_send_fix",1);
-  k_buf_recv_fix = DAT::tdual_double_1d("comm:k_recv_send_fix",1);
+  k_buf_send_fix = DAT::tdual_kkfloat_1d("comm:k_buf_send_fix",1);
+  k_buf_recv_fix = DAT::tdual_kkfloat_1d("comm:k_recv_send_fix",1);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -392,7 +392,7 @@ void CommKokkos::forward_comm_device(Fix *fix, int size)
 {
   int iswap,n,nsize;
   MPI_Request request;
-  DAT::tdual_double_1d k_buf_tmp;
+  DAT::tdual_kkfloat_1d k_buf_tmp;
 
   if (size) nsize = size;
   else nsize = fix->comm_forward;
@@ -565,7 +565,7 @@ void CommKokkos::forward_comm_device(Pair *pair, int size)
 {
   int iswap,n,nsize;
   MPI_Request request;
-  DAT::tdual_double_1d k_buf_tmp;
+  DAT::tdual_kkfloat_1d k_buf_tmp;
 
   if (size) nsize = size;
   else nsize = pair->comm_forward;
@@ -663,7 +663,7 @@ void CommKokkos::reverse_comm_device(Pair *pair, int size)
 {
   int iswap,n,nsize;
   MPI_Request request;
-  DAT::tdual_double_1d k_buf_tmp;
+  DAT::tdual_kkfloat_1d k_buf_tmp;
 
   KokkosBase* pairKKBase = dynamic_cast<KokkosBase*>(pair);
 
@@ -807,7 +807,7 @@ struct BuildExchangeListFunctor {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   double _lo,_hi;
-  typename AT::t_double_1d_3 _x;
+  typename AT::t_kkfloat_1d_3 _x;
 
   int _nlocal,_dim;
   typename AT::t_int_scalar _nsend;
@@ -815,7 +815,7 @@ struct BuildExchangeListFunctor {
 
 
   BuildExchangeListFunctor(
-      const typename AT::tdual_double_1d_3 x,
+      const typename AT::tdual_kkfloat_1d_3 x,
       const typename AT::tdual_int_1d sendlist,
       typename AT::tdual_int_scalar nsend,
       int nlocal, int dim,
@@ -1119,13 +1119,13 @@ struct BuildBorderListFunctor {
         typedef DeviceType device_type;
         typedef ArrayTypes<DeviceType> AT;
   double lo,hi;
-  typename AT::t_double_1d_3 x;
+  typename AT::t_kkfloat_1d_3 x;
   int iswap,maxsendlist;
   int nfirst,nlast,dim;
   typename AT::t_int_2d sendlist;
   typename AT::t_int_scalar nsend;
 
-  BuildBorderListFunctor(typename AT::tdual_double_1d_3 _x,
+  BuildBorderListFunctor(typename AT::tdual_kkfloat_1d_3 _x,
                          typename AT::tdual_int_2d _sendlist,
                          typename AT::tdual_int_scalar _nsend,int _nfirst,
                          int _nlast, int _dim,

@@ -160,7 +160,7 @@ KOKKOS_INLINE_FUNCTION
 void DihedralOPLSKokkos<DeviceType>::operator()(TagDihedralOPLSCompute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
 
   // The f array is atomic
-  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<double*[3], typename DAT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
 
   const int i1 = dihedrallist(n,0);
   const int i2 = dihedrallist(n,1);
@@ -345,10 +345,10 @@ void DihedralOPLSKokkos<DeviceType>::allocate()
   DihedralOPLS::allocate();
 
   int n = atom->ndihedraltypes;
-  k_k1 = DAT::tdual_double_1d("DihedralOPLS::k1",n+1);
-  k_k2 = DAT::tdual_double_1d("DihedralOPLS::k2",n+1);
-  k_k3 = DAT::tdual_double_1d("DihedralOPLS::k3",n+1);
-  k_k4 = DAT::tdual_double_1d("DihedralOPLS::k4",n+1);
+  k_k1 = DAT::tdual_kkfloat_1d("DihedralOPLS::k1",n+1);
+  k_k2 = DAT::tdual_kkfloat_1d("DihedralOPLS::k2",n+1);
+  k_k3 = DAT::tdual_kkfloat_1d("DihedralOPLS::k3",n+1);
+  k_k4 = DAT::tdual_kkfloat_1d("DihedralOPLS::k4",n+1);
 
   d_k1 = k_k1.template view<DeviceType>();
   d_k2 = k_k2.template view<DeviceType>();
@@ -422,8 +422,8 @@ void DihedralOPLSKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, const 
   KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<double*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<double*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
 
   if (eflag_either) {
     if (eflag_global) {

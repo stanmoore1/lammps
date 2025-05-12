@@ -65,7 +65,7 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::copy_neighbor_info()
 
   if (cutoff_custom > 0.0) {
     int n = atom->ntypes;
-    auto k_mycutneighsq = DAT::tdual_double_2d("neigh:cutneighsq,",n+1,n+1);
+    auto k_mycutneighsq = DAT::tdual_kkfloat_2d("neigh:cutneighsq,",n+1,n+1);
     for (int i = 1; i <= n; i++)
       for (int j = 1; j <= n; j++)
         k_mycutneighsq.h_view(i,j) = cutoff_custom * cutoff_custom;

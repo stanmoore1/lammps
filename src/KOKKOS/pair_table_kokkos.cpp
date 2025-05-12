@@ -468,8 +468,8 @@ void PairTableKokkos<DeviceType>::settings(int narg, char **arg)
     d_table_const.tabindex = d_table->tabindex = typename ArrayTypes<DeviceType>::t_int_2d();
     h_table->tabindex = typename ArrayTypes<LMPHostType>::t_int_2d();
 
-    d_table_const.cutsq = d_table->cutsq = typename ArrayTypes<DeviceType>::t_double_2d();
-    h_table->cutsq = typename ArrayTypes<LMPHostType>::t_double_2d();
+    d_table_const.cutsq = d_table->cutsq = typename ArrayTypes<DeviceType>::t_kkfloat_2d();
+    h_table->cutsq = typename ArrayTypes<LMPHostType>::t_kkfloat_2d();
   }
   allocated = 0;
 

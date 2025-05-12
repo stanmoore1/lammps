@@ -42,8 +42,8 @@ class FixWallReflectKokkos : public FixWallReflect {
   void operator()(TagFixWallReflectPostIntegrate, const int&) const;
 
  protected:
-  typename AT::t_double_1d_3 x;
-  typename AT::t_double_1d_3 v;
+  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3 v;
   typename AT::t_int_1d_randomread mask;
 
 

@@ -200,7 +200,7 @@ void FixShardlowKokkos<DeviceType>::pre_neighbor()
   // Allocate memory for h_v_t0 to hold the initial velocities for the ghosts
   if (nghost > ghostmax) {
     ghostmax = nghost;
-    k_v_t0 = DAT::tdual_double_1d_3("FixShardlowKokkos:v_t0", ghostmax);
+    k_v_t0 = DAT::tdual_kkfloat_1d_3("FixShardlowKokkos:v_t0", ghostmax);
     // d_v_t0 = k_v_t0.template view<DeviceType>();
     h_v_t0 = k_v_t0.h_view;
   }

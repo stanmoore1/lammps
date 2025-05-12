@@ -227,17 +227,17 @@ void PairZBLKokkos<DeviceType>::allocate()
 
   int n = atom->ntypes;
 
-  k_z   = DAT::tdual_double_1d("pair_zbl:z  ",n+1);
-  k_d1a = DAT::tdual_double_2d_dl("pair_zbl:d1a",n+1,n+1);
-  k_d2a = DAT::tdual_double_2d_dl("pair_zbl:d2a",n+1,n+1);
-  k_d3a = DAT::tdual_double_2d_dl("pair_zbl:d3a",n+1,n+1);
-  k_d4a = DAT::tdual_double_2d_dl("pair_zbl:d4a",n+1,n+1);
-  k_zze = DAT::tdual_double_2d_dl("pair_zbl:zze",n+1,n+1);
-  k_sw1 = DAT::tdual_double_2d_dl("pair_zbl:sw1",n+1,n+1);
-  k_sw2 = DAT::tdual_double_2d_dl("pair_zbl:sw2",n+1,n+1);
-  k_sw3 = DAT::tdual_double_2d_dl("pair_zbl:sw3",n+1,n+1);
-  k_sw4 = DAT::tdual_double_2d_dl("pair_zbl:sw4",n+1,n+1);
-  k_sw5 = DAT::tdual_double_2d_dl("pair_zbl:sw5",n+1,n+1);
+  k_z   = DAT::tdual_kkfloat_1d("pair_zbl:z  ",n+1);
+  k_d1a = DAT::tdual_kkfloat_2d("pair_zbl:d1a",n+1,n+1);
+  k_d2a = DAT::tdual_kkfloat_2d("pair_zbl:d2a",n+1,n+1);
+  k_d3a = DAT::tdual_kkfloat_2d("pair_zbl:d3a",n+1,n+1);
+  k_d4a = DAT::tdual_kkfloat_2d("pair_zbl:d4a",n+1,n+1);
+  k_zze = DAT::tdual_kkfloat_2d("pair_zbl:zze",n+1,n+1);
+  k_sw1 = DAT::tdual_kkfloat_2d("pair_zbl:sw1",n+1,n+1);
+  k_sw2 = DAT::tdual_kkfloat_2d("pair_zbl:sw2",n+1,n+1);
+  k_sw3 = DAT::tdual_kkfloat_2d("pair_zbl:sw3",n+1,n+1);
+  k_sw4 = DAT::tdual_kkfloat_2d("pair_zbl:sw4",n+1,n+1);
+  k_sw5 = DAT::tdual_kkfloat_2d("pair_zbl:sw5",n+1,n+1);
 
   d_z   = k_z.view<DeviceType>();
   d_d1a = k_d1a.view<DeviceType>();
@@ -251,7 +251,7 @@ void PairZBLKokkos<DeviceType>::allocate()
   d_sw4 = k_sw4.view<DeviceType>();
   d_sw5 = k_sw5.view<DeviceType>();
 
-  d_cutsq = typename AT::t_double_2d_dl("pair_zbl:cutsq",n+1,n+1);
+  d_cutsq = typename AT::t_kkfloat_2d("pair_zbl:cutsq",n+1,n+1);
 }
 
 /* ----------------------------------------------------------------------

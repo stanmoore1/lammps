@@ -131,8 +131,8 @@ class PairReaxFFKokkos : public PairReaxFF {
   void init_style();
   double memory_usage();
   void FindBond(int &, int groupbit = 1);
-  void PackBondBuffer(DAT::tdual_double_1d, int &);
-  void PackReducedBondBuffer(DAT::tdual_double_1d, int &, bool);
+  void PackBondBuffer(DAT::tdual_kkfloat_1d, int &);
+  void PackReducedBondBuffer(DAT::tdual_kkfloat_1d, int &, bool);
   void FindBondSpecies();
 
   template<int NEIGHFLAG>
@@ -411,33 +411,33 @@ class PairReaxFFKokkos : public PairReaxFF {
   Kokkos::DualView<params_fbp****,typename DeviceType::array_layout,DeviceType> k_params_fbp;
   typename Kokkos::DualView<params_fbp****,typename DeviceType::array_layout,DeviceType>::t_dev_const paramsfbp;
 
-  typename AT::t_double_1d_3_randomread x;
-  typename AT::t_double_1d_3 f;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_tagint_1d_randomread tag;
   typename AT::t_int_1d_randomread mask;
-  typename AT::t_double_1d_randomread q;
+  typename AT::t_kkfloat_1d_randomread q;
   typename AT::t_tagint_1d_randomread molecule;
 
-  DAT::tdual_double_1d k_eatom;
-  typename AT::t_double_1d d_eatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  typename AT::t_kkfloat_1d d_eatom;
 
-  DAT::tdual_double_1d_6 k_vatom;
-  typename AT::t_double_1d_6 d_vatom;
-  HAT::t_double_1d_6 h_vatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
+  HAT::t_kkfloat_1d_6 h_vatom;
 
-  DAT::tdual_double_1d k_tap;
-  typename AT::t_double_1d d_tap;
-  HAT::t_double_1d h_tap;
+  DAT::tdual_kkfloat_1d k_tap;
+  typename AT::t_kkfloat_1d d_tap;
+  HAT::t_kkfloat_1d h_tap;
 
-  typename AT::t_double_1d d_bo_rij, d_hb_rsq, d_Deltap, d_Deltap_boc, d_total_bo, d_s;
-  typename AT::t_double_1d d_Delta, d_Delta_boc, d_Delta_lp, d_dDelta_lp, d_Delta_lp_temp, d_CdDelta;
-  typename AT::t_double_2d_dl d_BO, d_BO_s, d_BO_pi, d_BO_pi2;
-  typename AT::t_double_2d_dl d_dln_BOp_pi, d_dln_BOp_pi2;
-  typename AT::t_double_2d_dl d_C1dbo, d_C2dbo, d_C3dbo;
-  typename AT::t_double_2d_dl d_C1dbopi, d_C2dbopi, d_C3dbopi, d_C4dbopi;
-  typename AT::t_double_2d_dl d_C1dbopi2, d_C2dbopi2, d_C3dbopi2, d_C4dbopi2;
-  typename AT::t_double_2d_dl d_dDeltap_self, d_Cdbo, d_Cdbopi, d_Cdbopi2;
+  typename AT::t_kkfloat_1d d_bo_rij, d_hb_rsq, d_Deltap, d_Deltap_boc, d_total_bo, d_s;
+  typename AT::t_kkfloat_1d d_Delta, d_Delta_boc, d_Delta_lp, d_dDelta_lp, d_Delta_lp_temp, d_CdDelta;
+  typename AT::t_kkfloat_2d d_BO, d_BO_s, d_BO_pi, d_BO_pi2;
+  typename AT::t_kkfloat_2d d_dln_BOp_pi, d_dln_BOp_pi2;
+  typename AT::t_kkfloat_2d d_C1dbo, d_C2dbo, d_C3dbo;
+  typename AT::t_kkfloat_2d d_C1dbopi, d_C2dbopi, d_C3dbopi, d_C4dbopi;
+  typename AT::t_kkfloat_2d d_C1dbopi2, d_C2dbopi2, d_C3dbopi2, d_C4dbopi2;
+  typename AT::t_kkfloat_2d d_dDeltap_self, d_Cdbo, d_Cdbopi, d_Cdbopi2;
 
   int need_dup;
 
@@ -449,23 +449,23 @@ class PairReaxFFKokkos : public PairReaxFF {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
-  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_eatom;
-  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
-  DupScatterView<double**, typename DAT::t_double_2d_dl::array_layout> dup_dDeltap_self;
-  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_total_bo;
-  DupScatterView<double*, typename DAT::t_double_1d::array_layout> dup_CdDelta;
+  DupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> dup_f;
+  DupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> dup_eatom;
+  DupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
+  DupScatterView<double**, typename DAT::t_kkfloat_2d::array_layout> dup_dDeltap_self;
+  DupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> dup_total_bo;
+  DupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> dup_CdDelta;
 
-  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
-  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_eatom;
-  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
-  NonDupScatterView<double**, typename DAT::t_double_2d_dl::array_layout> ndup_dDeltap_self;
-  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_total_bo;
-  NonDupScatterView<double*, typename DAT::t_double_1d::array_layout> ndup_CdDelta;
+  NonDupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> ndup_f;
+  NonDupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> ndup_eatom;
+  NonDupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
+  NonDupScatterView<double**, typename DAT::t_kkfloat_2d::array_layout> ndup_dDeltap_self;
+  NonDupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> ndup_total_bo;
+  NonDupScatterView<double*, typename DAT::t_kkfloat_1d::array_layout> ndup_CdDelta;
 
-  typedef Kokkos::DualView<double**[7],typename DeviceType::array_layout,DeviceType> tdual_double_2d_n7;
-  typedef typename tdual_double_2d_n7::t_dev_const_randomread t_double_2d_n7_randomread;
-  typedef typename tdual_double_2d_n7::t_host t_host_double_2d_n7;
+  typedef Kokkos::DualView<double**[7],typename DeviceType::array_layout,DeviceType> tdual_kkfloat_2d_n7;
+  typedef typename tdual_kkfloat_2d_n7::t_dev_const_randomread t_kkfloat_2d_n7_randomread;
+  typedef typename tdual_kkfloat_2d_n7::t_host t_host_kkfloat_2d_n7;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;
@@ -477,8 +477,8 @@ class PairReaxFFKokkos : public PairReaxFF {
   DAT::tdual_int_scalar k_resize_bo, k_resize_hb;
   typename AT::t_int_scalar d_resize_bo, d_resize_hb;
 
-  typename AT::t_double_2d_dl d_sum_ovun;
-  typename AT::t_double_2d_dl d_dBOp;
+  typename AT::t_kkfloat_2d d_sum_ovun;
+  typename AT::t_kkfloat_2d d_dBOp;
 
   int neighflag, newton_pair, maxnumneigh, maxhb, maxbo;
   int nlocal,nn,NN,eflag,vflag,acks2_flag;
@@ -500,21 +500,21 @@ class PairReaxFFKokkos : public PairReaxFF {
   tdual_LR_lookup_table_kk_2d k_LR;
 
   DAT::tdual_int_2d k_tmpid;
-  DAT::tdual_double_2d k_tmpbo;
+  DAT::tdual_kkfloat_2d k_tmpbo;
   DAT::tdual_int_scalar k_error_flag;
 
   typename AT::t_int_1d d_numneigh_bonds;
   typename AT::t_tagint_2d d_neighid;
-  typename AT::t_double_2d d_abo;
+  typename AT::t_kkfloat_2d d_abo;
 
-  typename AT::t_double_1d d_buf;
+  typename AT::t_kkfloat_1d d_buf;
   DAT::tdual_int_scalar k_nbuf_local;
 
   typedef Kokkos::View<reax_int4**, LMPDeviceType::array_layout, DeviceType> t_reax_int4_2d;
 
   t_reax_int4_2d d_angular_pack, d_torsion_pack;
 
-  typename AT::t_double_2d d_angular_intermediates;
+  typename AT::t_kkfloat_2d d_angular_intermediates;
 
   typename AT::tdual_int_1d k_count_angular_torsion;
   typename AT::t_int_1d d_count_angular_torsion;

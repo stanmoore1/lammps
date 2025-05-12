@@ -63,8 +63,8 @@ class BondHarmonicKokkos : public BondHarmonic {
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_double_1d_3_randomread x;
-  typename Kokkos::View<double*[3],typename AT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename Kokkos::View<double*[3],typename AT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d bondlist;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
@@ -76,8 +76,8 @@ class BondHarmonicKokkos : public BondHarmonic {
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  typename AT::t_double_1d d_k;
-  typename AT::t_double_1d d_r0;
+  typename AT::t_kkfloat_1d d_k;
+  typename AT::t_kkfloat_1d d_r0;
 
   void allocate() override;
 };

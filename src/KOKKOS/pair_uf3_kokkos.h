@@ -72,17 +72,17 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   typedef EV_FLOAT value_type;
 
  protected:
-  typename AT::tdual_double_2d k_cutsq;//Create a DualView, defination of tdual_double_2d in kokkos_type.h
-  typename AT::t_double_2d d_cutsq; //t_double_2d = t_dev ==> Creates a new View d_cutsq
+  typename AT::tdual_kkfloat_2d k_cutsq;//Create a DualView, defination of tdual_kkfloat_2d in kokkos_type.h
+  typename AT::t_kkfloat_2d d_cutsq; //t_kkfloat_2d = t_dev ==> Creates a new View d_cutsq
   //the type of d_cutsq is decided by the Device(not host) type for the DualView k_cutsq
   //Meaning the memory location of d_cutsq is the same as the Device(not host) memory location of
   //k_cutsq
-  typedef Kokkos::DualView<double***, Kokkos::LayoutRight, DeviceType> tdual_double_3d;
-  typedef Kokkos::DualView<double****, Kokkos::LayoutRight, DeviceType> tdual_double_4d;
-  tdual_double_3d k_cut_3b;
-  tdual_double_4d k_min_cut_3b;
-  typename tdual_double_3d::t_dev d_cut_3b;
-  typename tdual_double_4d::t_dev d_min_cut_3b;
+  typedef Kokkos::DualView<double***, Kokkos::LayoutRight, DeviceType> tdual_kkfloat_3d;
+  typedef Kokkos::DualView<double****, Kokkos::LayoutRight, DeviceType> tdual_kkfloat_4d;
+  tdual_kkfloat_3d k_cut_3b;
+  tdual_kkfloat_4d k_min_cut_3b;
+  typename tdual_kkfloat_3d::t_dev d_cut_3b;
+  typename tdual_kkfloat_4d::t_dev d_min_cut_3b;
   template <typename TYPE> void destroy_3d(TYPE data, typename TYPE::value_type*** &array);
   template <typename TYPE> void destroy_4d(TYPE data, typename TYPE::value_type**** &array);
   Kokkos::View<double **, LMPDeviceType::array_layout, LMPDeviceType> /*d_cutsq,*/ d_cut_3b_list;
@@ -137,15 +137,15 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
                                         const KK_FLOAT &evdwl, const KK_FLOAT &ecoul, KK_FLOAT *fj,
                                         KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const;
 
-  typename AT::t_double_1d_3_randomread x;
-  typename AT::t_double_1d_3 f;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3 f;
   typename AT::t_tagint_1d tag;
   typename AT::t_int_1d_randomread type;
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
-  typename AT::t_double_1d d_eatom;
-  typename AT::t_double_1d_6 d_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
   using ScatterFType = Kokkos::Experimental::ScatterView<double *[3], Kokkos::LayoutRight,
                                                          typename DeviceType::memory_space>;

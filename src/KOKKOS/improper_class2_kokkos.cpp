@@ -191,7 +191,7 @@ KOKKOS_INLINE_FUNCTION
 void ImproperClass2Kokkos<DeviceType>::operator()(TagImproperClass2Compute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
 
   // The f array is atomic
-  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<double*[3], typename DAT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
 
   int i, j, k;
   KK_FLOAT delr[3][3],rmag[3],rinvmag[3],rmag2[3];
@@ -663,7 +663,7 @@ KOKKOS_INLINE_FUNCTION
 void ImproperClass2Kokkos<DeviceType>::operator()(TagImproperClass2AngleAngle<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
 
   // The f array is atomic
-  Kokkos::View<double*[3], typename DAT::t_double_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<double*[3], typename DAT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
 
   int i,j,k;
   KK_FLOAT eimproper;
@@ -881,17 +881,17 @@ void ImproperClass2Kokkos<DeviceType>::coeff(int narg, char **arg)
   ImproperClass2::coeff(narg, arg);
 
   int n = atom->nimpropertypes;
-  k_k0 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::k0",n+1);
-  k_chi0 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::chi0",n+1);
-  k_aa_k1 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::aa_k1",n+1);
-  k_aa_k2 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::aa_k2",n+1);
-  k_aa_k3 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::aa_k3",n+1);
-  k_aa_theta0_1 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::aa_theta0_1",n+1);
-  k_aa_theta0_2 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::aa_theta0_2",n+1);
-  k_aa_theta0_3 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::aa_theta0_3",n+1);
-  k_setflag = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::setflag",n+1);
-  k_setflag_i = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::setflag_i",n+1);
-  k_setflag_aa = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::setflag_aa",n+1);
+  k_k0 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::k0",n+1);
+  k_chi0 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::chi0",n+1);
+  k_aa_k1 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::aa_k1",n+1);
+  k_aa_k2 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::aa_k2",n+1);
+  k_aa_k3 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::aa_k3",n+1);
+  k_aa_theta0_1 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::aa_theta0_1",n+1);
+  k_aa_theta0_2 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::aa_theta0_2",n+1);
+  k_aa_theta0_3 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::aa_theta0_3",n+1);
+  k_setflag = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::setflag",n+1);
+  k_setflag_i = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::setflag_i",n+1);
+  k_setflag_aa = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::setflag_aa",n+1);
 
   d_k0 = k_k0.template view<DeviceType>();
   d_chi0 = k_chi0.template view<DeviceType>();
@@ -942,17 +942,17 @@ void ImproperClass2Kokkos<DeviceType>::read_restart(FILE *fp)
   ImproperClass2::read_restart(fp);
 
   int n = atom->nimpropertypes;
-  k_k0 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::k0",n+1);
-  k_chi0 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::chi0",n+1);
-  k_aa_k1 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::aa_k1",n+1);
-  k_aa_k2 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::aa_k2",n+1);
-  k_aa_k3 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::aa_k3",n+1);
-  k_aa_theta0_1 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::aa_theta0_1",n+1);
-  k_aa_theta0_2 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::aa_theta0_2",n+1);
-  k_aa_theta0_3 = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::aa_theta0_3",n+1);
-  k_setflag = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::setflag",n+1);
-  k_setflag_i = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::setflag_i",n+1);
-  k_setflag_aa = typename ArrayTypes<DeviceType>::tdual_double_1d("ImproperClass2::setflag_aa",n+1);
+  k_k0 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::k0",n+1);
+  k_chi0 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::chi0",n+1);
+  k_aa_k1 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::aa_k1",n+1);
+  k_aa_k2 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::aa_k2",n+1);
+  k_aa_k3 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::aa_k3",n+1);
+  k_aa_theta0_1 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::aa_theta0_1",n+1);
+  k_aa_theta0_2 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::aa_theta0_2",n+1);
+  k_aa_theta0_3 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::aa_theta0_3",n+1);
+  k_setflag = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::setflag",n+1);
+  k_setflag_i = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::setflag_i",n+1);
+  k_setflag_aa = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("ImproperClass2::setflag_aa",n+1);
 
   d_k0 = k_k0.template view<DeviceType>();
   d_chi0 = k_chi0.template view<DeviceType>();
@@ -1013,8 +1013,8 @@ void ImproperClass2Kokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, cons
   KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<double*, typename DAT::t_double_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<double*[6], typename DAT::t_double_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<double*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<double*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
 
   if (eflag_either) {
     if (eflag_global) {

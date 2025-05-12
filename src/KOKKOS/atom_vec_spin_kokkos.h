@@ -37,16 +37,16 @@ class AtomVecSpinKokkos : public AtomVecKokkos, public AtomVecSpin {
   void force_clear(int, size_t) override;
   void sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter) override;
   int pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                         DAT::tdual_double_2d buf,
+                         DAT::tdual_kkfloat_2d buf,
                          int pbc_flag, int *pbc, ExecutionSpace space) override;
   void unpack_border_kokkos(const int &n, const int &nfirst,
-                            const DAT::tdual_double_2d &buf,
+                            const DAT::tdual_kkfloat_2d &buf,
                             ExecutionSpace space) override;
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &buf,
+  int pack_exchange_kokkos(const int &nsend,DAT::tdual_kkfloat_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            ExecutionSpace space) override;
-  int unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf, int nrecv,
+  int unpack_exchange_kokkos(DAT::tdual_kkfloat_2d &k_buf, int nrecv,
                              int nlocal, int dim, double lo, double hi,
                              ExecutionSpace space,
                              DAT::tdual_int_1d &k_indices) override;
@@ -65,17 +65,17 @@ class AtomVecSpinKokkos : public AtomVecKokkos, public AtomVecSpin {
   DAT::t_imageint_1d d_image;
   HAT::t_imageint_1d h_image;
 
-  DAT::t_double_1d_3 d_x;
-  DAT::t_double_1d_3 d_v;
-  DAT::t_double_1d_3 d_f;
+  DAT::t_kkfloat_1d_3 d_x;
+  DAT::t_kkfloat_1d_3 d_v;
+  DAT::t_kkfloat_1d_3 d_f;
 
-  DAT::t_double_1d_4 d_sp;
-  DAT::t_double_1d_3 d_fm;
-  DAT::t_double_1d_3 d_fm_long;
+  DAT::t_kkfloat_1d_4 d_sp;
+  DAT::t_kkfloat_1d_3 d_fm;
+  DAT::t_kkfloat_1d_3 d_fm_long;
 
-  HAT::t_double_1d_4 h_sp;
-  HAT::t_double_1d_3 h_fm;
-  HAT::t_double_1d_3 h_fm_long;
+  HAT::t_kkfloat_1d_4 h_sp;
+  HAT::t_kkfloat_1d_3 h_fm;
+  HAT::t_kkfloat_1d_3 h_fm_long;
 };
 
 }    // namespace LAMMPS_NS

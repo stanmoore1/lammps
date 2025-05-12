@@ -69,11 +69,11 @@ class FixNHKokkos : public FixNH {
 
   class DomainKokkos *domainKK;
 
-  typename ArrayTypes<DeviceType>::t_double_1d_3 x;
-  typename ArrayTypes<DeviceType>::t_double_1d_3 v;
-  typename ArrayTypes<DeviceType>::t_double_1d_3_const f;
-  typename ArrayTypes<DeviceType>::t_double_1d rmass;
-  typename ArrayTypes<DeviceType>::t_double_1d mass;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 v;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_const f;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d rmass;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d mass;
   typename ArrayTypes<DeviceType>::t_int_1d type;
   typename ArrayTypes<DeviceType>::t_int_1d mask;
 };

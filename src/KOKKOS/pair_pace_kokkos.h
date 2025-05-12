@@ -104,13 +104,13 @@ class PairPACEKokkos : public PairPACE {
   typename AT::t_int_1d_randomread d_ilist;
   typename AT::t_int_1d_randomread d_numneigh;
 
-  DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_1d_6 k_vatom;
-  typename AT::t_double_1d d_eatom;
-  typename AT::t_double_1d_6 d_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
-  typename AT::t_double_1d_3_randomread x;
-  typename AT::t_double_1d_3 f;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread type;
 
   typedef Kokkos::DualView<double**, DeviceType> tdual_fparams;
@@ -131,11 +131,11 @@ class PairPACEKokkos : public PairPACE {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> dup_f;
-  DupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> dup_vatom;
+  DupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> dup_f;
+  DupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
 
-  NonDupScatterView<double*[3], typename DAT::t_double_1d_3::array_layout> ndup_f;
-  NonDupScatterView<double*[6], typename DAT::t_double_1d_6::array_layout> ndup_vatom;
+  NonDupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> ndup_f;
+  NonDupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
 
   friend void pair_virial_fdotr_compute<PairPACEKokkos>(PairPACEKokkos*);
 

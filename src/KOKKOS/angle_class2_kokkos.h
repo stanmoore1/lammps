@@ -60,33 +60,33 @@ class AngleClass2Kokkos : public AngleClass2 {
                      const KK_FLOAT &delx1, const KK_FLOAT &dely1, const KK_FLOAT &delz1,
                      const KK_FLOAT &delx2, const KK_FLOAT &dely2, const KK_FLOAT &delz2) const;
 
-  typename AT::tdual_double_1d k_eatom;
-  typename AT::tdual_double_1d_6 k_vatom;
+  typename AT::tdual_kkfloat_1d k_eatom;
+  typename AT::tdual_kkfloat_1d_6 k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_double_1d_3_randomread x;
-  typename AT::t_double_1d_3 f;
+  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_2d anglelist;
-  typename AT::t_double_1d d_eatom;
-  typename AT::t_double_1d_6 d_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  typename AT::tdual_double_1d k_theta0;
-  typename AT::tdual_double_1d k_k2, k_k3, k_k4;
-  typename AT::tdual_double_1d k_bb_k, k_bb_r1, k_bb_r2;
-  typename AT::tdual_double_1d k_ba_k1, k_ba_k2, k_ba_r1, k_ba_r2;
-  typename AT::tdual_double_1d k_setflag, k_setflag_a, k_setflag_bb, k_setflag_ba;
+  typename AT::tdual_kkfloat_1d k_theta0;
+  typename AT::tdual_kkfloat_1d k_k2, k_k3, k_k4;
+  typename AT::tdual_kkfloat_1d k_bb_k, k_bb_r1, k_bb_r2;
+  typename AT::tdual_kkfloat_1d k_ba_k1, k_ba_k2, k_ba_r1, k_ba_r2;
+  typename AT::tdual_kkfloat_1d k_setflag, k_setflag_a, k_setflag_bb, k_setflag_ba;
 
-  typename AT::t_double_1d d_theta0;
-  typename AT::t_double_1d d_k2, d_k3, d_k4;
-  typename AT::t_double_1d d_bb_k, d_bb_r1, d_bb_r2;
-  typename AT::t_double_1d d_ba_k1, d_ba_k2, d_ba_r1, d_ba_r2;
-  typename AT::t_double_1d d_setflag, d_setflag_a, d_setflag_bb, d_setflag_ba;
+  typename AT::t_kkfloat_1d d_theta0;
+  typename AT::t_kkfloat_1d d_k2, d_k3, d_k4;
+  typename AT::t_kkfloat_1d d_bb_k, d_bb_r1, d_bb_r2;
+  typename AT::t_kkfloat_1d d_ba_k1, d_ba_k2, d_ba_r1, d_ba_r2;
+  typename AT::t_kkfloat_1d d_setflag, d_setflag_a, d_setflag_bb, d_setflag_ba;
 
   void allocate();
 };
