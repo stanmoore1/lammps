@@ -33,10 +33,10 @@ template <class DeviceType> class MLIAP_SO3Kokkos : protected Pointers {
   double memory_usage();
 
   using MemoryDeviceType = typename KKDevice<DeviceType>::value;
-  using float_1d = Kokkos::View<double *, Kokkos::LayoutRight, MemoryDeviceType>;
-  using float_2d = Kokkos::View<double **, Kokkos::LayoutRight, MemoryDeviceType>;
-  using float_3d = Kokkos::View<double ***, Kokkos::LayoutRight, MemoryDeviceType>;
-  using float_4d = Kokkos::View<double ****, Kokkos::LayoutRight, MemoryDeviceType>;
+  using float_1d = Kokkos::View<KK_FLOAT *, Kokkos::LayoutRight, MemoryDeviceType>;
+  using float_2d = Kokkos::View<KK_FLOAT **, Kokkos::LayoutRight, MemoryDeviceType>;
+  using float_3d = Kokkos::View<KK_FLOAT ***, Kokkos::LayoutRight, MemoryDeviceType>;
+  using float_4d = Kokkos::View<KK_FLOAT ****, Kokkos::LayoutRight, MemoryDeviceType>;
   using int_1d = Kokkos::View<int *, MemoryDeviceType>;
 
   int ncoeff;

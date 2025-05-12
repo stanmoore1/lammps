@@ -50,7 +50,7 @@ void FixViscousKokkos<DeviceType>::init()
 {
   FixViscous::init();
 
-  k_gamma = Kokkos::DualView<double*, Kokkos::LayoutRight, DeviceType>("FixViscousKokkos:gamma",atom->ntypes+1);
+  k_gamma = Kokkos::DualView<KK_FLOAT*, Kokkos::LayoutRight, DeviceType>("FixViscousKokkos:gamma",atom->ntypes+1);
 
   for (int i = 1; i <= atom->ntypes; i++) k_gamma.h_view(i) = gamma[i];
 

@@ -286,11 +286,11 @@ ev_tally(
     EV_FLOAT& ev,
     KK_FLOAT epair, KK_FLOAT fpair,
     KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz,
-    Kokkos::View<double*[6],
+    Kokkos::View<KK_FLOAT*[6],
                  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& v_vatom,
-    Kokkos::View<double*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_kkfloat_1d::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& v_eatom)
@@ -394,22 +394,22 @@ compute_item(
     typename ArrayTypes<DeviceType>::t_int_1d_const const& d_numneigh,
     typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread const& x,
     typename ArrayTypes<DeviceType>::t_int_1d_randomread const& type,
-    Kokkos::View<double*, DeviceType> const& mixWtSite1old,
-    Kokkos::View<double*, DeviceType> const& mixWtSite2old,
-    Kokkos::View<double*, DeviceType> const& mixWtSite1,
-    Kokkos::View<double*, DeviceType> const& mixWtSite2,
+    Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite1old,
+    Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite2old,
+    Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite1,
+    Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite2,
     Few<int, 4> const& special_lj,
     Few<Few<double, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> const& m_cutsq,
     typename ArrayTypes<DeviceType>::t_kkfloat_2d const& d_cutsq,
-    Kokkos::View<double*[3],
+    Kokkos::View<KK_FLOAT*[3],
       typename ArrayTypes<DeviceType>::t_kkfloat_1d_3::array_layout,
       typename KKDevice<DeviceType>::value,
       Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& f,
-    Kokkos::View<double*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_kkfloat_1d::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& uCG,
-    Kokkos::View<double*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_kkfloat_1d::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& uCGnew,
@@ -420,11 +420,11 @@ compute_item(
     int vflag,
     int vflag_global,
     int vflag_atom,
-    Kokkos::View<double*[6],
+    Kokkos::View<KK_FLOAT*[6],
                  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& v_vatom,
-    Kokkos::View<double*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_kkfloat_1d::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& v_eatom) {
@@ -539,22 +539,22 @@ static void compute_all_items(
     typename ArrayTypes<DeviceType>::t_int_1d_const d_numneigh,
     typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread x,
     typename ArrayTypes<DeviceType>::t_int_1d_randomread type,
-    Kokkos::View<double*, DeviceType> const& mixWtSite1old,
-    Kokkos::View<double*, DeviceType> const& mixWtSite2old,
-    Kokkos::View<double*, DeviceType> const& mixWtSite1,
-    Kokkos::View<double*, DeviceType> const& mixWtSite2,
+    Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite1old,
+    Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite2old,
+    Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite1,
+    Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite2,
     Few<int, 4> special_lj,
     Few<Few<double, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> m_cutsq,
     typename ArrayTypes<DeviceType>::t_kkfloat_2d d_cutsq,
-    Kokkos::View<double*[3],
+    Kokkos::View<KK_FLOAT*[3],
       typename ArrayTypes<DeviceType>::t_kkfloat_1d_3::array_layout,
       typename KKDevice<DeviceType>::value,
       Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > f,
-    Kokkos::View<double*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_kkfloat_1d::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > uCG,
-    Kokkos::View<double*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_kkfloat_1d::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > uCGnew,
@@ -565,11 +565,11 @@ static void compute_all_items(
     int vflag,
     int vflag_global,
     int vflag_atom,
-    Kokkos::View<double*[6],
+    Kokkos::View<KK_FLOAT*[6],
                  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom,
-    Kokkos::View<double*,
+    Kokkos::View<KK_FLOAT*,
                  typename ArrayTypes<DeviceType>::t_kkfloat_1d::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom) {
@@ -604,10 +604,10 @@ static void getAllMixingWeights(
     int nspecies,
     int isite1, int isite2,
     bool fractionalWeighting,
-    Kokkos::View<double*, DeviceType> const& mixWtSite1old,
-    Kokkos::View<double*, DeviceType> const& mixWtSite2old,
-    Kokkos::View<double*, DeviceType> const& mixWtSite1,
-    Kokkos::View<double*, DeviceType> const& mixWtSite2) {
+    Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite1old,
+    Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite2old,
+    Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite1,
+    Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite2) {
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,ntotal),
    LAMMPS_LAMBDA(int i) {
       getMixingWeights<DeviceType>(dvector,nspecies,isite1,isite2,fractionalWeighting,
@@ -660,10 +660,10 @@ void PairTableRXKokkos<DeviceType>::compute_style(int eflag_in, int vflag_in)
 
   const int ntotal = atom->nlocal + atom->nghost;
   if (ntotal > (int)mixWtSite1.extent(0)) {
-    mixWtSite1old = Kokkos::View<double*, DeviceType>("PairTableRXKokkos::mixWtSite1old", ntotal);
-    mixWtSite2old = Kokkos::View<double*, DeviceType>("PairTableRXKokkos::mixWtSite2old", ntotal);
-    mixWtSite1 = Kokkos::View<double*, DeviceType>("PairTableRXKokkos::mixWtSite1", ntotal);
-    mixWtSite2 = Kokkos::View<double*, DeviceType>("PairTableRXKokkos::mixWtSite2", ntotal);
+    mixWtSite1old = Kokkos::View<KK_FLOAT*, DeviceType>("PairTableRXKokkos::mixWtSite1old", ntotal);
+    mixWtSite2old = Kokkos::View<KK_FLOAT*, DeviceType>("PairTableRXKokkos::mixWtSite2old", ntotal);
+    mixWtSite1 = Kokkos::View<KK_FLOAT*, DeviceType>("PairTableRXKokkos::mixWtSite1", ntotal);
+    mixWtSite2 = Kokkos::View<KK_FLOAT*, DeviceType>("PairTableRXKokkos::mixWtSite2", ntotal);
   }
 
   getAllMixingWeights(ntotal, atomKK->k_dvector.template view<DeviceType>(),

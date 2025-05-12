@@ -156,7 +156,7 @@ void MLIAP_SO3Kokkos<DeviceType>::init()
   alloc_init += totali * sizeof(double);
 
   {
-    Kokkos::View<double*, LMPHostType> w("w", m_nmax * m_nmax), g_array("g_array", m_nmax * m_Nmax);
+    Kokkos::View<KK_FLOAT*, LMPHostType> w("w", m_nmax * m_nmax), g_array("g_array", m_nmax * m_Nmax);
     compute_W(m_nmax, w.data());
     init_garray(m_nmax, m_lmax, m_rcut, m_alpha, w.data(), m_nmax, g_array.data(), m_Nmax);
     Kokkos::deep_copy(m_w,w);

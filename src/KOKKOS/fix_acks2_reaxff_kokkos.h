@@ -229,11 +229,11 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double*, typename AT::t_kkfloat_1d::array_layout> dup_X_diag;
-  NonDupScatterView<double*, typename AT::t_kkfloat_1d::array_layout> ndup_X_diag;
+  DupScatterView<KK_FLOAT*, typename AT::t_kkfloat_1d::array_layout> dup_X_diag;
+  NonDupScatterView<KK_FLOAT*, typename AT::t_kkfloat_1d::array_layout> ndup_X_diag;
 
-  DupScatterView<double*, typename AT::t_kkfloat_1d::array_layout> dup_bb;
-  NonDupScatterView<double*, typename AT::t_kkfloat_1d::array_layout> ndup_bb;
+  DupScatterView<KK_FLOAT*, typename AT::t_kkfloat_1d::array_layout> dup_bb;
+  NonDupScatterView<KK_FLOAT*, typename AT::t_kkfloat_1d::array_layout> ndup_bb;
 
   void init_shielding_k();
   void init_hist();
@@ -317,7 +317,7 @@ struct FixACKS2ReaxFFKokkosComputeHFunctor {
             shmem_size(atoms_per_team, vector_length) + // s_jtype
         Kokkos::View<int **, scratch_space, Kokkos::MemoryUnmanaged>::
             shmem_size(atoms_per_team, vector_length) + // s_j
-        Kokkos::View<double **, scratch_space,
+        Kokkos::View<KK_FLOAT **, scratch_space,
                      Kokkos::MemoryUnmanaged>::shmem_size(atoms_per_team,
                                                           vector_length); // s_r
     return shmem_size;
@@ -364,7 +364,7 @@ struct FixACKS2ReaxFFKokkosComputeXFunctor {
             shmem_size(atoms_per_team, vector_length) + // s_jtype
         Kokkos::View<int **, scratch_space, Kokkos::MemoryUnmanaged>::
             shmem_size(atoms_per_team, vector_length) + // s_j
-        Kokkos::View<double **, scratch_space,
+        Kokkos::View<KK_FLOAT **, scratch_space,
                      Kokkos::MemoryUnmanaged>::shmem_size(atoms_per_team,
                                                           vector_length); // s_r
     return shmem_size;

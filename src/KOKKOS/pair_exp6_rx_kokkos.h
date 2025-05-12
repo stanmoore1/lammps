@@ -145,8 +145,8 @@ class PairExp6rxKokkos : public PairExp6rx {
   typename AT::t_kkfloat_1d uCG, uCGnew;
   typename AT::t_kkfloat_2d dvector;
 
-  typedef Kokkos::View<double**[3],Kokkos::LayoutRight,DeviceType> t_kkfloat_1d_3_thread;
-  typedef Kokkos::View<double**,Kokkos::LayoutRight,DeviceType> t_kkfloat_1d_thread;
+  typedef Kokkos::View<KK_FLOAT**[3],Kokkos::LayoutRight,DeviceType> t_kkfloat_1d_3_thread;
+  typedef Kokkos::View<KK_FLOAT**,Kokkos::LayoutRight,DeviceType> t_kkfloat_1d_thread;
 
   t_kkfloat_1d_3_thread t_f;
   t_kkfloat_1d_thread t_uCG, t_uCGnew;

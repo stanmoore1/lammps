@@ -62,9 +62,9 @@ class PairPODKokkos : public PairPOD {
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread type;
 
-  typedef Kokkos::DualView<double**, DeviceType> tdual_fparams;
+  typedef Kokkos::DualView<KK_FLOAT**, DeviceType> tdual_fparams;
   tdual_fparams k_cutsq, k_scale;
-  typedef Kokkos::View<double**, DeviceType> t_fparams;
+  typedef Kokkos::View<KK_FLOAT**, DeviceType> t_fparams;
   t_fparams d_cutsq, d_scale;
   typename AT::t_int_1d d_map;
 
@@ -81,10 +81,10 @@ class PairPODKokkos : public PairPOD {
   double memory_usage() override;
 
   typedef Kokkos::View<int*, DeviceType> t_pod_1i;
-  typedef Kokkos::View<double*, DeviceType> t_pod_1d;
+  typedef Kokkos::View<KK_FLOAT*, DeviceType> t_pod_1d;
 //   typedef Kokkos::View<int**, DeviceType> t_pod_2i;
-//   typedef Kokkos::View<double**, DeviceType> t_pod_2d;
-//   typedef Kokkos::View<double**[3], DeviceType> t_pod_3d3;
+//   typedef Kokkos::View<KK_FLOAT**, DeviceType> t_pod_2d;
+//   typedef Kokkos::View<KK_FLOAT**[3], DeviceType> t_pod_3d3;
 
   int atomBlockSize;        // size of each atom block
   int nAtomBlocks;          // number of atoms blocks

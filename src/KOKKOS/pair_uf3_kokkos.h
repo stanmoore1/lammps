@@ -77,35 +77,35 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   //the type of d_cutsq is decided by the Device(not host) type for the DualView k_cutsq
   //Meaning the memory location of d_cutsq is the same as the Device(not host) memory location of
   //k_cutsq
-  typedef Kokkos::DualView<double***, Kokkos::LayoutRight, DeviceType> tdual_kkfloat_3d;
-  typedef Kokkos::DualView<double****, Kokkos::LayoutRight, DeviceType> tdual_kkfloat_4d;
+  typedef Kokkos::DualView<KK_FLOAT***, Kokkos::LayoutRight, DeviceType> tdual_kkfloat_3d;
+  typedef Kokkos::DualView<KK_FLOAT****, Kokkos::LayoutRight, DeviceType> tdual_kkfloat_4d;
   tdual_kkfloat_3d k_cut_3b;
   tdual_kkfloat_4d k_min_cut_3b;
   typename tdual_kkfloat_3d::t_dev d_cut_3b;
   typename tdual_kkfloat_4d::t_dev d_min_cut_3b;
   template <typename TYPE> void destroy_3d(TYPE data, typename TYPE::value_type*** &array);
   template <typename TYPE> void destroy_4d(TYPE data, typename TYPE::value_type**** &array);
-  Kokkos::View<double **, LMPDeviceType::array_layout, LMPDeviceType> /*d_cutsq,*/ d_cut_3b_list;
-  //Kokkos::View<double ***, LMPDeviceType::array_layout, LMPDeviceType> d_cut_3b;
+  Kokkos::View<KK_FLOAT **, LMPDeviceType::array_layout, LMPDeviceType> /*d_cutsq,*/ d_cut_3b_list;
+  //Kokkos::View<KK_FLOAT ***, LMPDeviceType::array_layout, LMPDeviceType> d_cut_3b;
 
-  Kokkos::View<double **, LMPDeviceType::array_layout, LMPDeviceType> d_coefficients_2b;
-  Kokkos::View<double **, LMPDeviceType::array_layout, LMPDeviceType> d_dncoefficients_2b;
-  Kokkos::View<double **, LMPDeviceType::array_layout, LMPDeviceType> d_n2b_knot;
-  Kokkos::View<double *, LMPDeviceType::array_layout, LMPDeviceType> d_n2b_knot_spacings;
+  Kokkos::View<KK_FLOAT **, LMPDeviceType::array_layout, LMPDeviceType> d_coefficients_2b;
+  Kokkos::View<KK_FLOAT **, LMPDeviceType::array_layout, LMPDeviceType> d_dncoefficients_2b;
+  Kokkos::View<KK_FLOAT **, LMPDeviceType::array_layout, LMPDeviceType> d_n2b_knot;
+  Kokkos::View<KK_FLOAT *, LMPDeviceType::array_layout, LMPDeviceType> d_n2b_knot_spacings;
   Kokkos::View<int **, LMPDeviceType::array_layout, LMPDeviceType> map2b;
-  Kokkos::View<double[4][4], LMPDeviceType::array_layout, LMPDeviceType> constants;
-  Kokkos::View<double[3][3], LMPDeviceType::array_layout, LMPDeviceType> dnconstants;
-  Kokkos::View<double ***, LMPDeviceType::array_layout, LMPDeviceType> d_n3b_knot_matrix;
-  Kokkos::View<double ****, LMPDeviceType::array_layout, LMPDeviceType> d_coefficients_3b;
-  Kokkos::View<double *****, LMPDeviceType::array_layout, LMPDeviceType> d_dncoefficients_3b;
-  Kokkos::View<double **, LMPDeviceType::array_layout, LMPDeviceType> d_n3b_knot_spacings;
-  Kokkos::View<double **, LMPDeviceType::array_layout, LMPDeviceType> d_n3b_knot_matrix_spacings;
+  Kokkos::View<KK_FLOAT[4][4], LMPDeviceType::array_layout, LMPDeviceType> constants;
+  Kokkos::View<KK_FLOAT[3][3], LMPDeviceType::array_layout, LMPDeviceType> dnconstants;
+  Kokkos::View<KK_FLOAT ***, LMPDeviceType::array_layout, LMPDeviceType> d_n3b_knot_matrix;
+  Kokkos::View<KK_FLOAT ****, LMPDeviceType::array_layout, LMPDeviceType> d_coefficients_3b;
+  Kokkos::View<KK_FLOAT *****, LMPDeviceType::array_layout, LMPDeviceType> d_dncoefficients_3b;
+  Kokkos::View<KK_FLOAT **, LMPDeviceType::array_layout, LMPDeviceType> d_n3b_knot_spacings;
+  Kokkos::View<KK_FLOAT **, LMPDeviceType::array_layout, LMPDeviceType> d_n3b_knot_matrix_spacings;
   Kokkos::View<int ***, LMPDeviceType::array_layout, LMPDeviceType> map3b;
 
-  Kokkos::View<double **[16], LMPDeviceType::array_layout, LMPDeviceType> constants_2b;
-  Kokkos::View<double **[9], LMPDeviceType::array_layout, LMPDeviceType> dnconstants_2b;
-  Kokkos::View<double ***[16], LMPDeviceType::array_layout, LMPDeviceType> constants_3b;
-  Kokkos::View<double ***[9], LMPDeviceType::array_layout, LMPDeviceType> dnconstants_3b;
+  Kokkos::View<KK_FLOAT **[16], LMPDeviceType::array_layout, LMPDeviceType> constants_2b;
+  Kokkos::View<KK_FLOAT **[9], LMPDeviceType::array_layout, LMPDeviceType> dnconstants_2b;
+  Kokkos::View<KK_FLOAT ***[16], LMPDeviceType::array_layout, LMPDeviceType> constants_3b;
+  Kokkos::View<KK_FLOAT ***[9], LMPDeviceType::array_layout, LMPDeviceType> dnconstants_3b;
 
   std::vector<double> get_constants(double *knots, double coefficient);
   std::vector<double> get_dnconstants(double *knots, double coefficient);
@@ -147,16 +147,16 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   typename AT::t_kkfloat_1d d_eatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
-  using ScatterFType = Kokkos::Experimental::ScatterView<double *[3], Kokkos::LayoutRight,
+  using ScatterFType = Kokkos::Experimental::ScatterView<KK_FLOAT *[3], Kokkos::LayoutRight,
                                                          typename DeviceType::memory_space>;
   ScatterFType fscatter;
-  using ScatterVType = Kokkos::Experimental::ScatterView<double *[6], Kokkos::LayoutRight,
+  using ScatterVType = Kokkos::Experimental::ScatterView<KK_FLOAT *[6], Kokkos::LayoutRight,
                                                          typename DeviceType::memory_space>;
   ScatterVType vscatter;
-  using ScatterCVType = Kokkos::Experimental::ScatterView<double *[9], Kokkos::LayoutRight,
+  using ScatterCVType = Kokkos::Experimental::ScatterView<KK_FLOAT *[9], Kokkos::LayoutRight,
                                                           typename DeviceType::memory_space>;
   ScatterCVType cvscatter;
-  using ScatterEType = Kokkos::Experimental::ScatterView<double *, LMPDeviceType::array_layout,
+  using ScatterEType = Kokkos::Experimental::ScatterView<KK_FLOAT *, LMPDeviceType::array_layout,
                                                          typename DeviceType::memory_space>;
   ScatterEType escatter;
 

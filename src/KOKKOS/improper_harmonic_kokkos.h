@@ -61,18 +61,18 @@ class ImproperHarmonicKokkos : public ImproperHarmonic {
                           const KK_FLOAT &vb3x, const KK_FLOAT &vb3y, const KK_FLOAT &vb3z) const;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
-  Kokkos::DualView<double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
-  Kokkos::DualView<double*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom;
+  Kokkos::DualView<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
+  Kokkos::DualView<KK_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
   typename AT::t_kkfloat_1d_3_randomread x;
-  typename Kokkos::View<double*[3],typename AT::t_kkfloat_1d_3::array_layout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
+  typename Kokkos::View<KK_FLOAT*[3],typename AT::t_kkfloat_1d_3::array_layout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d improperlist;
-  Kokkos::View<double*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
-  Kokkos::View<double*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
+  Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
+  Kokkos::View<KK_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;
@@ -81,11 +81,11 @@ class ImproperHarmonicKokkos : public ImproperHarmonic {
   typename Kokkos::DualView<int,DeviceType>::t_dev d_warning_flag;
   typename Kokkos::DualView<int,DeviceType>::t_host h_warning_flag;
 
-  Kokkos::DualView<double*,DeviceType> k_k;
-  Kokkos::DualView<double*,DeviceType> k_chi;
+  Kokkos::DualView<KK_FLOAT*,DeviceType> k_k;
+  Kokkos::DualView<KK_FLOAT*,DeviceType> k_chi;
 
-  typename Kokkos::DualView<double*,DeviceType>::t_dev d_k;
-  typename Kokkos::DualView<double*,DeviceType>::t_dev d_chi;
+  typename Kokkos::DualView<KK_FLOAT*,DeviceType>::t_dev d_k;
+  typename Kokkos::DualView<KK_FLOAT*,DeviceType>::t_dev d_chi;
 
   void allocate() override;
 };

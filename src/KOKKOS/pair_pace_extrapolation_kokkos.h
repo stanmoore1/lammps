@@ -117,9 +117,9 @@ class PairPACEExtrapolationKokkos : public PairPACEExtrapolation {
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread type;
 
-  typedef Kokkos::DualView<double**, DeviceType> tdual_fparams;
+  typedef Kokkos::DualView<KK_FLOAT**, DeviceType> tdual_fparams;
   tdual_fparams k_cutsq, k_scale;
-  typedef Kokkos::View<double**, DeviceType> t_fparams;
+  typedef Kokkos::View<KK_FLOAT**, DeviceType> t_fparams;
   t_fparams d_cutsq, d_scale;
   t_fparams d_cut_in, d_dcut_in; // inner cutoff
 
@@ -135,11 +135,11 @@ class PairPACEExtrapolationKokkos : public PairPACEExtrapolation {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> dup_f;
-  DupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
+  DupScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout> dup_f;
+  DupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
 
-  NonDupScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout> ndup_f;
-  NonDupScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
+  NonDupScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout> ndup_f;
+  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
 
   friend void pair_virial_fdotr_compute<PairPACEExtrapolationKokkos>(PairPACEExtrapolationKokkos*);
 
@@ -192,16 +192,16 @@ class PairPACEExtrapolationKokkos : public PairPACEExtrapolation {
   typedef Kokkos::View<int***, DeviceType> t_ace_3i;
   typedef Kokkos::View<int***, Kokkos::LayoutRight, DeviceType> t_ace_3i_lr;
   typedef Kokkos::View<int****, DeviceType> t_ace_4i;
-  typedef Kokkos::View<double*, DeviceType> t_ace_1d;
-  typedef Kokkos::View<double**, DeviceType> t_ace_2d;
-  typedef Kokkos::View<double**, Kokkos::LayoutRight, DeviceType> t_ace_2d_lr;
-  typedef Kokkos::View<double*[3], DeviceType> t_ace_2d3;
-  typedef Kokkos::View<double***, DeviceType> t_ace_3d;
-  typedef Kokkos::View<const double***, DeviceType> tc_ace_3d;
-  typedef Kokkos::View<double**[3], DeviceType> t_ace_3d3;
-  typedef Kokkos::View<double**[4], DeviceType> t_ace_3d4;
-  typedef Kokkos::View<double**[4], Kokkos::LayoutRight, DeviceType> t_ace_3d4_lr;
-  typedef Kokkos::View<double****, DeviceType> t_ace_4d;
+  typedef Kokkos::View<KK_FLOAT*, DeviceType> t_ace_1d;
+  typedef Kokkos::View<KK_FLOAT**, DeviceType> t_ace_2d;
+  typedef Kokkos::View<KK_FLOAT**, Kokkos::LayoutRight, DeviceType> t_ace_2d_lr;
+  typedef Kokkos::View<KK_FLOAT*[3], DeviceType> t_ace_2d3;
+  typedef Kokkos::View<KK_FLOAT***, DeviceType> t_ace_3d;
+  typedef Kokkos::View<const KK_FLOAT***, DeviceType> tc_ace_3d;
+  typedef Kokkos::View<KK_FLOAT**[3], DeviceType> t_ace_3d3;
+  typedef Kokkos::View<KK_FLOAT**[4], DeviceType> t_ace_3d4;
+  typedef Kokkos::View<KK_FLOAT**[4], Kokkos::LayoutRight, DeviceType> t_ace_3d4_lr;
+  typedef Kokkos::View<KK_FLOAT****, DeviceType> t_ace_4d;
   typedef Kokkos::View<complex*, DeviceType> t_ace_1c;
   typedef Kokkos::View<complex**, DeviceType> t_ace_2c;
   typedef Kokkos::View<complex***, DeviceType> t_ace_3c;
@@ -209,7 +209,7 @@ class PairPACEExtrapolationKokkos : public PairPACEExtrapolation {
   typedef Kokkos::View<complex****, DeviceType> t_ace_4c;
   typedef Kokkos::View<complex***[3], DeviceType> t_ace_4c3;
 
-  typedef typename Kokkos::View<double*, DeviceType>::HostMirror th_ace_1d;
+  typedef typename Kokkos::View<KK_FLOAT*, DeviceType>::HostMirror th_ace_1d;
 
   t_ace_3d A_rank1;
   t_ace_4c A;

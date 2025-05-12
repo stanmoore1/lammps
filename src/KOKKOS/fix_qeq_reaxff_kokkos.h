@@ -253,8 +253,8 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<double**, typename AT::t_kkfloat_1d_2::array_layout> dup_o;
-  NonDupScatterView<double**, typename AT::t_kkfloat_1d_2::array_layout> ndup_o;
+  DupScatterView<KK_FLOAT**, typename AT::t_kkfloat_1d_2::array_layout> dup_o;
+  NonDupScatterView<KK_FLOAT**, typename AT::t_kkfloat_1d_2::array_layout> ndup_o;
 
   int nsend;
   int first;
@@ -342,7 +342,7 @@ struct FixQEqReaxFFKokkosComputeHFunctor {
             shmem_size(atoms_per_team, vector_length) + // s_jtype
         Kokkos::View<int **, scratch_space, Kokkos::MemoryUnmanaged>::
             shmem_size(atoms_per_team, vector_length) + // s_j
-        Kokkos::View<double **, scratch_space,
+        Kokkos::View<KK_FLOAT **, scratch_space,
                      Kokkos::MemoryUnmanaged>::shmem_size(atoms_per_team,
                                                           vector_length); // s_r
     return shmem_size;

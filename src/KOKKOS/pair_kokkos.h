@@ -71,18 +71,18 @@ struct PairComputeFunctor  {
   using DUP = NeedDup_v<NEIGHFLAG,device_type>;
 
   // The force array is atomic for Half/Thread neighbor style
-  //Kokkos::View<double*[3], typename DAT::t_kkfloat_1d_3::array_layout,
+  //Kokkos::View<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,
   //             typename KKDevice<device_type>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > f;
-  KKScatterView<double*[3], typename DAT::t_kkfloat_1d_3::array_layout,KKDeviceType,KKScatterSum,DUP> dup_f;
+  KKScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,KKDeviceType,KKScatterSum,DUP> dup_f;
 
   // The eatom and vatom arrays are atomic for Half/Thread neighbor style
-  //Kokkos::View<double*, typename DAT::t_kkfloat_1d::array_layout,
+  //Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,
   //             typename KKDevice<device_type>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > eatom;
-  KKScatterView<double*, typename DAT::t_kkfloat_1d::array_layout,KKDeviceType,KKScatterSum,DUP> dup_eatom;
+  KKScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,KKDeviceType,KKScatterSum,DUP> dup_eatom;
 
-  //Kokkos::View<double*[6], typename DAT::t_kkfloat_1d_6::array_layout,
+  //Kokkos::View<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout,
   //             typename KKDevice<device_type>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > vatom;
-  KKScatterView<double*[6], typename DAT::t_kkfloat_1d_6::array_layout,KKDeviceType,KKScatterSum,DUP> dup_vatom;
+  KKScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout,KKDeviceType,KKScatterSum,DUP> dup_vatom;
 
   NeighListKokkos<device_type> list;
 

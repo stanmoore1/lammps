@@ -37,21 +37,21 @@ template<class DeviceType>
 class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
  public:
   typedef Kokkos::View<int*, DeviceType> t_sna_1i;
-  typedef Kokkos::View<double*, DeviceType> t_sna_1d;
-  typedef Kokkos::View<double*, DeviceType, Kokkos::MemoryTraits<Kokkos::Atomic> > t_sna_1d_atomic;
+  typedef Kokkos::View<KK_FLOAT*, DeviceType> t_sna_1d;
+  typedef Kokkos::View<KK_FLOAT*, DeviceType, Kokkos::MemoryTraits<Kokkos::Atomic> > t_sna_1d_atomic;
   typedef Kokkos::View<int**, Kokkos::LayoutRight, DeviceType> t_sna_2i_lr;
   typedef Kokkos::View<int**, Kokkos::LayoutRight, DeviceType, Kokkos::MemoryTraits<Kokkos::Unmanaged> > t_sna_2i_lr_um;
   typedef Kokkos::View<int**, DeviceType> t_sna_2i;
-  typedef Kokkos::View<double**, DeviceType> t_sna_2d;
-  typedef Kokkos::View<double**, Kokkos::LayoutRight, DeviceType> t_sna_2d_lr;
-  typedef Kokkos::DualView<double**, Kokkos::LayoutRight, DeviceType> tdual_sna_2d_lr;
-  typedef Kokkos::View<double**, Kokkos::LayoutRight, DeviceType, Kokkos::MemoryTraits<Kokkos::Unmanaged> > t_sna_2d_lr_um;
-  typedef Kokkos::View<double***, DeviceType> t_sna_3d;
-  typedef Kokkos::View<double***, Kokkos::LayoutRight, DeviceType> t_sna_3d_lr;
-  typedef Kokkos::View<double***, Kokkos::LayoutRight, DeviceType, Kokkos::MemoryTraits<Kokkos::Unmanaged> > t_sna_3d_lr_um;
-  typedef Kokkos::View<double***[3], DeviceType> t_sna_4d;
-  typedef Kokkos::View<double**[3], DeviceType> t_sna_3d3;
-  typedef Kokkos::View<double*****, DeviceType> t_sna_5d;
+  typedef Kokkos::View<KK_FLOAT**, DeviceType> t_sna_2d;
+  typedef Kokkos::View<KK_FLOAT**, Kokkos::LayoutRight, DeviceType> t_sna_2d_lr;
+  typedef Kokkos::DualView<KK_FLOAT**, Kokkos::LayoutRight, DeviceType> tdual_sna_2d_lr;
+  typedef Kokkos::View<KK_FLOAT**, Kokkos::LayoutRight, DeviceType, Kokkos::MemoryTraits<Kokkos::Unmanaged> > t_sna_2d_lr_um;
+  typedef Kokkos::View<KK_FLOAT***, DeviceType> t_sna_3d;
+  typedef Kokkos::View<KK_FLOAT***, Kokkos::LayoutRight, DeviceType> t_sna_3d_lr;
+  typedef Kokkos::View<KK_FLOAT***, Kokkos::LayoutRight, DeviceType, Kokkos::MemoryTraits<Kokkos::Unmanaged> > t_sna_3d_lr_um;
+  typedef Kokkos::View<KK_FLOAT***[3], DeviceType> t_sna_4d;
+  typedef Kokkos::View<KK_FLOAT**[3], DeviceType> t_sna_3d3;
+  typedef Kokkos::View<KK_FLOAT*****, DeviceType> t_sna_5d;
 
   typedef Kokkos::View<SNAcomplex*, DeviceType> t_sna_1c;
   typedef Kokkos::View<SNAcomplex*, DeviceType, Kokkos::MemoryTraits<Kokkos::Atomic> > t_sna_1c_atomic;
