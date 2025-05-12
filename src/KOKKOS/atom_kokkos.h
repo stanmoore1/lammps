@@ -68,7 +68,8 @@ class AtomKokkos : public Atom {
   DAT::tdual_double_1d_3 k_fm;
   DAT::tdual_double_1d_3 k_fm_long;
 
-// DPD-REACT package
+  // DPD-REACT package
+
   DAT::tdual_double_1d k_uCond, k_uMech, k_uChem, k_uCG, k_uCGnew,
                        k_rho,k_dpdTheta,k_duChem;
 
