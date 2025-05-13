@@ -51,14 +51,14 @@ void AtomVecAtomicKokkos::grow(int n)
   atomKK->sync(Device,ALL_MASK);
   atomKK->modified(Device,ALL_MASK);
 
-  memoryKK->grow_kokkos(atomKK->k_tag,atomKK->tag,nmax,"atom:tag");
-  memoryKK->grow_kokkos(atomKK->k_type,atomKK->type,nmax,"atom:type");
-  memoryKK->grow_kokkos(atomKK->k_mask,atomKK->mask,nmax,"atom:mask");
-  memoryKK->grow_kokkos(atomKK->k_image,atomKK->image,nmax,"atom:image");
+  memoryKK->grow_kokkos(atomKK->k3_tag,atomKK->tag,nmax,"atom:tag");
+  memoryKK->grow_kokkos(atomKK->k3_type,atomKK->type,nmax,"atom:type");
+  memoryKK->grow_kokkos(atomKK->k3_mask,atomKK->mask,nmax,"atom:mask");
+  memoryKK->grow_kokkos(atomKK->k3_image,atomKK->image,nmax,"atom:image");
 
-  memoryKK->grow_kokkos(atomKK->k_x,atomKK->x,nmax,"atom:x");
-  memoryKK->grow_kokkos(atomKK->k_v,atomKK->v,nmax,"atom:v");
-  memoryKK->grow_kokkos(atomKK->k_f,atomKK->f,nmax,"atom:f");
+  memoryKK->grow_kokkos(atomKK->k3_x,atomKK->x,nmax,"atom:x");
+  memoryKK->grow_kokkos(atomKK->k3_v,atomKK->v,nmax,"atom:v");
+  memoryKK->grow_kokkos(atomKK->k3_f,atomKK->f,nmax,"atom:f");
 
   grow_pointers();
   atomKK->sync(Host,ALL_MASK);
@@ -475,21 +475,21 @@ int AtomVecAtomicKokkos::unpack_exchange_kokkos(DAT::tdual_kkfloat_2d &k_buf, in
 void AtomVecAtomicKokkos::sync(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k_x.sync<LMPDeviceType>();
-    if (mask & V_MASK) atomKK->k_v.sync<LMPDeviceType>();
-    if (mask & F_MASK) atomKK->k_f.sync<LMPDeviceType>();
-    if (mask & TAG_MASK) atomKK->k_tag.sync<LMPDeviceType>();
-    if (mask & TYPE_MASK) atomKK->k_type.sync<LMPDeviceType>();
-    if (mask & MASK_MASK) atomKK->k_mask.sync<LMPDeviceType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.sync<LMPDeviceType>();
+    if (mask & X_MASK) atomKK->k3_x.sync<LMPDeviceType>();
+    if (mask & V_MASK) atomKK->k3_v.sync<LMPDeviceType>();
+    if (mask & F_MASK) atomKK->k3_f.sync<LMPDeviceType>();
+    if (mask & TAG_MASK) atomKK->k3_tag.sync<LMPDeviceType>();
+    if (mask & TYPE_MASK) atomKK->k3_type.sync<LMPDeviceType>();
+    if (mask & MASK_MASK) atomKK->k3_mask.sync<LMPDeviceType>();
+    if (mask & IMAGE_MASK) atomKK->k3_image.sync<LMPDeviceType>();
   } else {
-    if (mask & X_MASK) atomKK->k_x.sync<LMPHostType>();
-    if (mask & V_MASK) atomKK->k_v.sync<LMPHostType>();
-    if (mask & F_MASK) atomKK->k_f.sync<LMPHostType>();
-    if (mask & TAG_MASK) atomKK->k_tag.sync<LMPHostType>();
-    if (mask & TYPE_MASK) atomKK->k_type.sync<LMPHostType>();
-    if (mask & MASK_MASK) atomKK->k_mask.sync<LMPHostType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.sync<LMPHostType>();
+    if (mask & X_MASK) atomKK->k3_x.sync<LMPHostType>();
+    if (mask & V_MASK) atomKK->k3_v.sync<LMPHostType>();
+    if (mask & F_MASK) atomKK->k3_f.sync<LMPHostType>();
+    if (mask & TAG_MASK) atomKK->k3_tag.sync<LMPHostType>();
+    if (mask & TYPE_MASK) atomKK->k3_type.sync<LMPHostType>();
+    if (mask & MASK_MASK) atomKK->k3_mask.sync<LMPHostType>();
+    if (mask & IMAGE_MASK) atomKK->k3_image.sync<LMPHostType>();
   }
 }
 
@@ -535,20 +535,20 @@ void AtomVecAtomicKokkos::sync_overlapping_device(ExecutionSpace space, unsigned
 void AtomVecAtomicKokkos::modified(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k_x.modify<LMPDeviceType>();
-    if (mask & V_MASK) atomKK->k_v.modify<LMPDeviceType>();
-    if (mask & F_MASK) atomKK->k_f.modify<LMPDeviceType>();
-    if (mask & TAG_MASK) atomKK->k_tag.modify<LMPDeviceType>();
-    if (mask & TYPE_MASK) atomKK->k_type.modify<LMPDeviceType>();
-    if (mask & MASK_MASK) atomKK->k_mask.modify<LMPDeviceType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.modify<LMPDeviceType>();
+    if (mask & X_MASK) atomKK->k3_x.modify<LMPDeviceType>();
+    if (mask & V_MASK) atomKK->k3_v.modify<LMPDeviceType>();
+    if (mask & F_MASK) atomKK->k3_f.modify<LMPDeviceType>();
+    if (mask & TAG_MASK) atomKK->k3_tag.modify<LMPDeviceType>();
+    if (mask & TYPE_MASK) atomKK->k3_type.modify<LMPDeviceType>();
+    if (mask & MASK_MASK) atomKK->k3_mask.modify<LMPDeviceType>();
+    if (mask & IMAGE_MASK) atomKK->k3_image.modify<LMPDeviceType>();
   } else {
-    if (mask & X_MASK) atomKK->k_x.modify<LMPHostType>();
-    if (mask & V_MASK) atomKK->k_v.modify<LMPHostType>();
-    if (mask & F_MASK) atomKK->k_f.modify<LMPHostType>();
-    if (mask & TAG_MASK) atomKK->k_tag.modify<LMPHostType>();
-    if (mask & TYPE_MASK) atomKK->k_type.modify<LMPHostType>();
-    if (mask & MASK_MASK) atomKK->k_mask.modify<LMPHostType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.modify<LMPHostType>();
+    if (mask & X_MASK) atomKK->k3_x.modify<LMPHostType>();
+    if (mask & V_MASK) atomKK->k3_v.modify<LMPHostType>();
+    if (mask & F_MASK) atomKK->k3_f.modify<LMPHostType>();
+    if (mask & TAG_MASK) atomKK->k3_tag.modify<LMPHostType>();
+    if (mask & TYPE_MASK) atomKK->k3_type.modify<LMPHostType>();
+    if (mask & MASK_MASK) atomKK->k3_mask.modify<LMPHostType>();
+    if (mask & IMAGE_MASK) atomKK->k3_image.modify<LMPHostType>();
   }
 }

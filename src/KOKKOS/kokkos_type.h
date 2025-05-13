@@ -610,6 +610,9 @@ struct TripleView {
 
   dual_type k_view;
   alias_type h_alias;
+  alias_type h_view;
+
+  typedef typename alias_type::value_type value_type;
 
   int modified_host_alias;
   int modified_device_alias;
@@ -621,7 +624,29 @@ struct TripleView {
     h_alias = {};
   }
 
-  void modify_device()
+  template <typename... Indices>
+  TripleView(std::string name, Indices... ns) {
+    modified_host_alias = 0;
+    modified_device_alias = 0;
+    k_view = dual_type(name, ns...);
+    h_alias = alias_type(name, ns...);
+    if constexpr (NEED_TRANSFORM)
+      h_view = h_alias;
+    else
+      h_view = k_view.h_view;
+  }
+
+  template <typename... Indices>
+  void resize(Indices... ns) {
+    k_view.resize(ns...);
+    Kokkos::resize(h_alias,ns...);
+    if constexpr (NEED_TRANSFORM)
+      h_view = h_alias;
+    else
+      h_view = k_view.h_view;
+  }
+
+  void modify_device(int)
   {
     k_view.modify_device();
 
@@ -652,7 +677,7 @@ struct TripleView {
     }
   }
 
-  void sync_device()
+  void sync_device(int)
   {
     if constexpr (NEED_TRANSFORM) {
       k_view.sync_device();
@@ -675,7 +700,7 @@ struct TripleView {
     }
   }
 
-  void sync_host(int kk_flag)
+  void sync_host(int kk_flag = 0)
   {
     if constexpr (NEED_TRANSFORM) {
       if (k_view.modified_flags[1]) {
@@ -713,10 +738,16 @@ struct TripleView {
   }
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_device();}
+  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify(int kk_flag = 0) {modify_device(kk_flag);}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_host();}
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify(int kk_flag = 0) {modify_host(kk_flag);}
+
+  template<class DeviceType>
+  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync(int kk_flag = 0) {sync_device(kk_flag);}
+
+  template<class DeviceType>
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync(int kk_flag = 0) {sync_host(kk_flag);}
 
 };
 
@@ -777,6 +808,8 @@ typedef tdual_int_1d::t_dev_um t_int_1d_um;
 typedef tdual_int_1d::t_dev_const_um t_int_1d_const_um;
 typedef tdual_int_1d::t_dev_const_randomread t_int_1d_randomread;
 
+typedef TripleView<int*, int*, Kokkos::LayoutRight> ttriple_int_1d;
+
 typedef Kokkos::
   DualView<LAMMPS_NS::bigint*, Kokkos::LayoutRight, LMPDeviceType> tdual_bigint_1d;
 typedef tdual_bigint_1d::t_dev t_bigint_1d;
@@ -794,6 +827,8 @@ typedef tdual_tagint_1d::t_dev_um t_tagint_1d_um;
 typedef tdual_tagint_1d::t_dev_const_um t_tagint_1d_const_um;
 typedef tdual_tagint_1d::t_dev_const_randomread t_tagint_1d_randomread;
 
+typedef TripleView<LAMMPS_NS::tagint*, LAMMPS_NS::tagint*, Kokkos::LayoutRight> ttriple_tagint_1d;
+
 typedef Kokkos::
   DualView<LAMMPS_NS::imageint*, Kokkos::LayoutRight, LMPDeviceType>
   tdual_imageint_1d;
@@ -802,6 +837,8 @@ typedef tdual_imageint_1d::t_dev_const t_imageint_1d_const;
 typedef tdual_imageint_1d::t_dev_um t_imageint_1d_um;
 typedef tdual_imageint_1d::t_dev_const_um t_imageint_1d_const_um;
 typedef tdual_imageint_1d::t_dev_const_randomread t_imageint_1d_randomread;
+
+typedef TripleView<LAMMPS_NS::imageint*, LAMMPS_NS::imageint*, Kokkos::LayoutRight> ttriple_imageint_1d;
 
 typedef Kokkos::
   DualView<double*, Kokkos::LayoutRight, LMPDeviceType> tdual_double_1d;
@@ -818,6 +855,8 @@ typedef tdual_kkfloat_1d::t_dev_const t_kkfloat_1d_const;
 typedef tdual_kkfloat_1d::t_dev_um t_kkfloat_1d_um;
 typedef tdual_kkfloat_1d::t_dev_const_um t_kkfloat_1d_const_um;
 typedef tdual_kkfloat_1d::t_dev_const_randomread t_kkfloat_1d_randomread;
+
+typedef TripleView<KK_FLOAT*, double*, Kokkos::LayoutRight> ttriple_kkfloat_1d;
 
 // 2D view types
 
