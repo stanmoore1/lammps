@@ -351,8 +351,8 @@ void PairEAMFSKokkos<DeviceType>::file2array()
   int n = atom->ntypes;
 
   auto k_type2frho = DAT::tdual_int_1d("pair:type2frho",n+1);
-  auto k_type2rhor = DAT::tdual_int_2d_dl("pair:type2rhor",n+1,n+1);
-  auto k_type2z2r = DAT::tdual_int_2d_dl("pair:type2z2r",n+1,n+1);
+  auto k_type2rhor = DAT::tdual_int_2d("pair:type2rhor",n+1,n+1);
+  auto k_type2z2r = DAT::tdual_int_2d("pair:type2z2r",n+1,n+1);
 
   auto h_type2frho =  k_type2frho.h_view;
   auto h_type2rhor = k_type2rhor.h_view;

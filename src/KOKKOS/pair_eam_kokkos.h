@@ -165,8 +165,8 @@ class PairEAMKokkos : public PairEAM, public KokkosBase {
   HAT::t_kkfloat_1d h_fp;
 
   typename AT::t_int_1d d_type2frho;
-  typename AT::t_int_2d_dl d_type2rhor;
-  typename AT::t_int_2d_dl d_type2z2r;
+  typename AT::t_int_2d d_type2rhor;
+  typename AT::t_int_2d d_type2z2r;
 
   typedef Kokkos::DualView<KK_FLOAT**[7],DeviceType> tdual_kkfloat_2d_n7;
   typedef typename tdual_kkfloat_2d_n7::t_dev_const t_kkfloat_2d_n7;

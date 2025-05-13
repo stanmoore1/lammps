@@ -163,10 +163,10 @@ class PairADPKokkos : public PairADP, public KokkosBase
   HAT::t_kkfloat_1d_6 h_lambda;
 
   typename AT::t_int_1d d_type2frho;
-  typename AT::t_int_2d_dl d_type2rhor;
-  typename AT::t_int_2d_dl d_type2z2r;
-  typename AT::t_int_2d_dl d_type2u2r;
-  typename AT::t_int_2d_dl d_type2w2r;
+  typename AT::t_int_2d d_type2rhor;
+  typename AT::t_int_2d d_type2z2r;
+  typename AT::t_int_2d d_type2u2r;
+  typename AT::t_int_2d d_type2w2r;
 
   typedef Kokkos::DualView<KK_FLOAT**[7],DeviceType> tdual_kkfloat_2d_n7;
   typedef typename tdual_kkfloat_2d_n7::t_dev_const t_kkfloat_2d_n7;
