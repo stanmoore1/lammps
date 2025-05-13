@@ -51,16 +51,16 @@ void AtomVecChargeKokkos::grow(int n)
   atomKK->sync(Device,ALL_MASK);
   atomKK->modified(Device,ALL_MASK);
 
-  memoryKK->grow_kokkos(atomKK->k_tag,atomKK->tag,nmax,"atom:tag");
-  memoryKK->grow_kokkos(atomKK->k_type,atomKK->type,nmax,"atom:type");
-  memoryKK->grow_kokkos(atomKK->k_mask,atomKK->mask,nmax,"atom:mask");
-  memoryKK->grow_kokkos(atomKK->k_image,atomKK->image,nmax,"atom:image");
+  memoryKK->grow_kokkos(atomKK->k3_tag,atomKK->tag,nmax,"atom:tag");
+  memoryKK->grow_kokkos(atomKK->k3_type,atomKK->type,nmax,"atom:type");
+  memoryKK->grow_kokkos(atomKK->k3_mask,atomKK->mask,nmax,"atom:mask");
+  memoryKK->grow_kokkos(atomKK->k3_image,atomKK->image,nmax,"atom:image");
 
-  memoryKK->grow_kokkos(atomKK->k_x,atomKK->x,nmax,"atom:x");
-  memoryKK->grow_kokkos(atomKK->k_v,atomKK->v,nmax,"atom:v");
-  memoryKK->grow_kokkos(atomKK->k_f,atomKK->f,nmax,"atom:f");
+  memoryKK->grow_kokkos(atomKK->k3_x,atomKK->x,nmax,"atom:x");
+  memoryKK->grow_kokkos(atomKK->k3_v,atomKK->v,nmax,"atom:v");
+  memoryKK->grow_kokkos(atomKK->k3_f,atomKK->f,nmax,"atom:f");
 
-  memoryKK->grow_kokkos(atomKK->k_q,atomKK->q,nmax,"atom:q");
+  memoryKK->grow_kokkos(atomKK->k3_q,atomKK->q,nmax,"atom:q");
 
   grow_pointers();
   atomKK->sync(Host,ALL_MASK);

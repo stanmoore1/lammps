@@ -56,18 +56,18 @@ void AtomVecSphereKokkos::grow(int n)
   atomKK->sync(Device,ALL_MASK);
   atomKK->modified(Device,ALL_MASK);
 
-  memoryKK->grow_kokkos(atomKK->k_tag,atomKK->tag,nmax,"atom:tag");
-  memoryKK->grow_kokkos(atomKK->k_type,atomKK->type,nmax,"atom:type");
-  memoryKK->grow_kokkos(atomKK->k_mask,atomKK->mask,nmax,"atom:mask");
-  memoryKK->grow_kokkos(atomKK->k_image,atomKK->image,nmax,"atom:image");
+  memoryKK->grow_kokkos(atomKK->k3_tag,atomKK->tag,nmax,"atom:tag");
+  memoryKK->grow_kokkos(atomKK->k3_type,atomKK->type,nmax,"atom:type");
+  memoryKK->grow_kokkos(atomKK->k3_mask,atomKK->mask,nmax,"atom:mask");
+  memoryKK->grow_kokkos(atomKK->k3_image,atomKK->image,nmax,"atom:image");
 
-  memoryKK->grow_kokkos(atomKK->k_x,atomKK->x,nmax,"atom:x");
-  memoryKK->grow_kokkos(atomKK->k_v,atomKK->v,nmax,"atom:v");
-  memoryKK->grow_kokkos(atomKK->k_f,atomKK->f,nmax,"atom:f");
-  memoryKK->grow_kokkos(atomKK->k_radius,atomKK->radius,nmax,"atom:radius");
-  memoryKK->grow_kokkos(atomKK->k_rmass,atomKK->rmass,nmax,"atom:rmass");
-  memoryKK->grow_kokkos(atomKK->k_omega,atomKK->omega,nmax,"atom:omega");
-  memoryKK->grow_kokkos(atomKK->k_torque,atomKK->torque,nmax,"atom:torque");
+  memoryKK->grow_kokkos(atomKK->k3_x,atomKK->x,nmax,"atom:x");
+  memoryKK->grow_kokkos(atomKK->k3_v,atomKK->v,nmax,"atom:v");
+  memoryKK->grow_kokkos(atomKK->k3_f,atomKK->f,nmax,"atom:f");
+  memoryKK->grow_kokkos(atomKK->k3_radius,atomKK->radius,nmax,"atom:radius");
+  memoryKK->grow_kokkos(atomKK->k3_rmass,atomKK->rmass,nmax,"atom:rmass");
+  memoryKK->grow_kokkos(atomKK->k3_omega,atomKK->omega,nmax,"atom:omega");
+  memoryKK->grow_kokkos(atomKK->k3_torque,atomKK->torque,nmax,"atom:torque");
 
   if (atom->nextra_grow)
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++)

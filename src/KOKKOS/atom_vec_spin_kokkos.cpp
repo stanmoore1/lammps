@@ -62,22 +62,22 @@ void AtomVecSpinKokkos::grow(int n)
   atomKK->sync(Device,ALL_MASK);
   atomKK->modified(Device,ALL_MASK);
 
-  memoryKK->grow_kokkos(atomKK->k_tag,atomKK->tag,nmax,"atom:tag");
-  memoryKK->grow_kokkos(atomKK->k_type,atomKK->type,nmax,"atom:type");
-  memoryKK->grow_kokkos(atomKK->k_mask,atomKK->mask,nmax,"atom:mask");
-  memoryKK->grow_kokkos(atomKK->k_image,atomKK->image,nmax,"atom:image");
+  memoryKK->grow_kokkos(atomKK->k3_tag,atomKK->tag,nmax,"atom:tag");
+  memoryKK->grow_kokkos(atomKK->k3_type,atomKK->type,nmax,"atom:type");
+  memoryKK->grow_kokkos(atomKK->k3_mask,atomKK->mask,nmax,"atom:mask");
+  memoryKK->grow_kokkos(atomKK->k3_image,atomKK->image,nmax,"atom:image");
 
   // allocating mech. quantities
 
-  memoryKK->grow_kokkos(atomKK->k_x,atomKK->x,nmax,"atom:x");
-  memoryKK->grow_kokkos(atomKK->k_v,atomKK->v,nmax,"atom:v");
-  memoryKK->grow_kokkos(atomKK->k_f,atomKK->f,nmax,"atom:f");
+  memoryKK->grow_kokkos(atomKK->k3_x,atomKK->x,nmax,"atom:x");
+  memoryKK->grow_kokkos(atomKK->k3_v,atomKK->v,nmax,"atom:v");
+  memoryKK->grow_kokkos(atomKK->k3_f,atomKK->f,nmax,"atom:f");
 
   // allocating mag. quantities
 
-  memoryKK->grow_kokkos(atomKK->k_sp,atomKK->sp,nmax,"atom:sp");
-  memoryKK->grow_kokkos(atomKK->k_fm,atomKK->fm,nmax,"atom:fm");
-  memoryKK->grow_kokkos(atomKK->k_fm_long,atomKK->fm_long,nmax,"atom:fm_long");
+  memoryKK->grow_kokkos(atomKK->k3_sp,atomKK->sp,nmax,"atom:sp");
+  memoryKK->grow_kokkos(atomKK->k3_fm,atomKK->fm,nmax,"atom:fm");
+  memoryKK->grow_kokkos(atomKK->k3_fm_long,atomKK->fm_long,nmax,"atom:fm_long");
 
   grow_pointers();
   atomKK->sync(Host,ALL_MASK);

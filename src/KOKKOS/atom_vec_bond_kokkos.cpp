@@ -51,21 +51,21 @@ void AtomVecBondKokkos::grow(int n)
   atomKK->sync(Device,ALL_MASK);
   atomKK->modified(Device,ALL_MASK);
 
-  memoryKK->grow_kokkos(atomKK->k_tag,atomKK->tag,nmax,"atom:tag");
-  memoryKK->grow_kokkos(atomKK->k_type,atomKK->type,nmax,"atom:type");
-  memoryKK->grow_kokkos(atomKK->k_mask,atomKK->mask,nmax,"atom:mask");
-  memoryKK->grow_kokkos(atomKK->k_image,atomKK->image,nmax,"atom:image");
+  memoryKK->grow_kokkos(atomKK->k3_tag,atomKK->tag,nmax,"atom:tag");
+  memoryKK->grow_kokkos(atomKK->k3_type,atomKK->type,nmax,"atom:type");
+  memoryKK->grow_kokkos(atomKK->k3_mask,atomKK->mask,nmax,"atom:mask");
+  memoryKK->grow_kokkos(atomKK->k3_image,atomKK->image,nmax,"atom:image");
 
-  memoryKK->grow_kokkos(atomKK->k_x,atomKK->x,nmax,"atom:x");
-  memoryKK->grow_kokkos(atomKK->k_v,atomKK->v,nmax,"atom:v");
-  memoryKK->grow_kokkos(atomKK->k_f,atomKK->f,nmax,"atom:f");
+  memoryKK->grow_kokkos(atomKK->k3_x,atomKK->x,nmax,"atom:x");
+  memoryKK->grow_kokkos(atomKK->k3_v,atomKK->v,nmax,"atom:v");
+  memoryKK->grow_kokkos(atomKK->k3_f,atomKK->f,nmax,"atom:f");
 
-  memoryKK->grow_kokkos(atomKK->k_molecule,atomKK->molecule,nmax,"atom:molecule");
-  memoryKK->grow_kokkos(atomKK->k_nspecial,atomKK->nspecial,nmax,3,"atom:nspecial");
-  memoryKK->grow_kokkos(atomKK->k_special,atomKK->special,nmax,atomKK->maxspecial,"atom:special");
-  memoryKK->grow_kokkos(atomKK->k_num_bond,atomKK->num_bond,nmax,"atom:num_bond");
-  memoryKK->grow_kokkos(atomKK->k_bond_type,atomKK->bond_type,nmax,atomKK->bond_per_atom,"atom:bond_type");
-  memoryKK->grow_kokkos(atomKK->k_bond_atom,atomKK->bond_atom,nmax,atomKK->bond_per_atom,"atom:bond_atom");
+  memoryKK->grow_kokkos(atomKK->k3_molecule,atomKK->molecule,nmax,"atom:molecule");
+  memoryKK->grow_kokkos(atomKK->k3_nspecial,atomKK->nspecial,nmax,3,"atom:nspecial");
+  memoryKK->grow_kokkos(atomKK->k3_special,atomKK->special,nmax,atomKK->maxspecial,"atom:special");
+  memoryKK->grow_kokkos(atomKK->k3_num_bond,atomKK->num_bond,nmax,"atom:num_bond");
+  memoryKK->grow_kokkos(atomKK->k3_bond_type,atomKK->bond_type,nmax,atomKK->bond_per_atom,"atom:bond_type");
+  memoryKK->grow_kokkos(atomKK->k3_bond_atom,atomKK->bond_atom,nmax,atomKK->bond_per_atom,"atom:bond_atom");
 
   grow_pointers();
   atomKK->sync(Host,ALL_MASK);
