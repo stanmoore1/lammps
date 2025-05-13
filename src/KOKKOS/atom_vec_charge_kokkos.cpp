@@ -554,23 +554,23 @@ int AtomVecChargeKokkos::unpack_exchange_kokkos(DAT::tdual_kkfloat_2d &k_buf, in
 void AtomVecChargeKokkos::sync(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k_x.sync<LMPDeviceType>();
-    if (mask & V_MASK) atomKK->k_v.sync<LMPDeviceType>();
-    if (mask & F_MASK) atomKK->k_f.sync<LMPDeviceType>();
-    if (mask & TAG_MASK) atomKK->k_tag.sync<LMPDeviceType>();
-    if (mask & TYPE_MASK) atomKK->k_type.sync<LMPDeviceType>();
-    if (mask & MASK_MASK) atomKK->k_mask.sync<LMPDeviceType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.sync<LMPDeviceType>();
-    if (mask & Q_MASK) atomKK->k_q.sync<LMPDeviceType>();
+    if (mask & X_MASK) atomKK->k3_x.sync<LMPDeviceType>();
+    if (mask & V_MASK) atomKK->k3_v.sync<LMPDeviceType>();
+    if (mask & F_MASK) atomKK->k3_f.sync<LMPDeviceType>();
+    if (mask & TAG_MASK) atomKK->k3_tag.sync<LMPDeviceType>();
+    if (mask & TYPE_MASK) atomKK->k3_type.sync<LMPDeviceType>();
+    if (mask & MASK_MASK) atomKK->k3_mask.sync<LMPDeviceType>();
+    if (mask & IMAGE_MASK) atomKK->k3_image.sync<LMPDeviceType>();
+    if (mask & Q_MASK) atomKK->k3_q.sync<LMPDeviceType>();
   } else {
-    if (mask & X_MASK) atomKK->k_x.sync<LMPHostType>();
-    if (mask & V_MASK) atomKK->k_v.sync<LMPHostType>();
-    if (mask & F_MASK) atomKK->k_f.sync<LMPHostType>();
-    if (mask & TAG_MASK) atomKK->k_tag.sync<LMPHostType>();
-    if (mask & TYPE_MASK) atomKK->k_type.sync<LMPHostType>();
-    if (mask & MASK_MASK) atomKK->k_mask.sync<LMPHostType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.sync<LMPHostType>();
-    if (mask & Q_MASK) atomKK->k_q.sync<LMPHostType>();
+    if (mask & X_MASK) atomKK->k3_x.sync<LMPHostType>();
+    if (mask & V_MASK) atomKK->k3_v.sync<LMPHostType>();
+    if (mask & F_MASK) atomKK->k3_f.sync<LMPHostType>();
+    if (mask & TAG_MASK) atomKK->k3_tag.sync<LMPHostType>();
+    if (mask & TYPE_MASK) atomKK->k3_type.sync<LMPHostType>();
+    if (mask & MASK_MASK) atomKK->k3_mask.sync<LMPHostType>();
+    if (mask & IMAGE_MASK) atomKK->k3_image.sync<LMPHostType>();
+    if (mask & Q_MASK) atomKK->k3_q.sync<LMPHostType>();
   }
 }
 
@@ -579,23 +579,23 @@ void AtomVecChargeKokkos::sync(ExecutionSpace space, unsigned int mask)
 void AtomVecChargeKokkos::modified(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k_x.modify<LMPDeviceType>();
-    if (mask & V_MASK) atomKK->k_v.modify<LMPDeviceType>();
-    if (mask & F_MASK) atomKK->k_f.modify<LMPDeviceType>();
-    if (mask & TAG_MASK) atomKK->k_tag.modify<LMPDeviceType>();
-    if (mask & TYPE_MASK) atomKK->k_type.modify<LMPDeviceType>();
-    if (mask & MASK_MASK) atomKK->k_mask.modify<LMPDeviceType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.modify<LMPDeviceType>();
-    if (mask & Q_MASK) atomKK->k_q.modify<LMPDeviceType>();
+    if (mask & X_MASK) atomKK->k3_x.modify<LMPDeviceType>();
+    if (mask & V_MASK) atomKK->k3_v.modify<LMPDeviceType>();
+    if (mask & F_MASK) atomKK->k3_f.modify<LMPDeviceType>();
+    if (mask & TAG_MASK) atomKK->k3_tag.modify<LMPDeviceType>();
+    if (mask & TYPE_MASK) atomKK->k3_type.modify<LMPDeviceType>();
+    if (mask & MASK_MASK) atomKK->k3_mask.modify<LMPDeviceType>();
+    if (mask & IMAGE_MASK) atomKK->k3_image.modify<LMPDeviceType>();
+    if (mask & Q_MASK) atomKK->k3_q.modify<LMPDeviceType>();
   } else {
-    if (mask & X_MASK) atomKK->k_x.modify<LMPHostType>();
-    if (mask & V_MASK) atomKK->k_v.modify<LMPHostType>();
-    if (mask & F_MASK) atomKK->k_f.modify<LMPHostType>();
-    if (mask & TAG_MASK) atomKK->k_tag.modify<LMPHostType>();
-    if (mask & TYPE_MASK) atomKK->k_type.modify<LMPHostType>();
-    if (mask & MASK_MASK) atomKK->k_mask.modify<LMPHostType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.modify<LMPHostType>();
-    if (mask & Q_MASK) atomKK->k_q.modify<LMPHostType>();
+    if (mask & X_MASK) atomKK->k3_x.modify<LMPHostType>();
+    if (mask & V_MASK) atomKK->k3_v.modify<LMPHostType>();
+    if (mask & F_MASK) atomKK->k3_f.modify<LMPHostType>();
+    if (mask & TAG_MASK) atomKK->k3_tag.modify<LMPHostType>();
+    if (mask & TYPE_MASK) atomKK->k3_type.modify<LMPHostType>();
+    if (mask & MASK_MASK) atomKK->k3_mask.modify<LMPHostType>();
+    if (mask & IMAGE_MASK) atomKK->k3_image.modify<LMPHostType>();
+    if (mask & Q_MASK) atomKK->k3_q.modify<LMPHostType>();
   }
 }
 

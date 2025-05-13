@@ -941,37 +941,37 @@ int AtomVecDPDKokkos::unpack_exchange_kokkos(DAT::tdual_kkfloat_2d &k_buf, int n
 void AtomVecDPDKokkos::sync(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k_x.sync<LMPDeviceType>();
-    if (mask & V_MASK) atomKK->k_v.sync<LMPDeviceType>();
-    if (mask & F_MASK) atomKK->k_f.sync<LMPDeviceType>();
-    if (mask & TAG_MASK) atomKK->k_tag.sync<LMPDeviceType>();
-    if (mask & TYPE_MASK) atomKK->k_type.sync<LMPDeviceType>();
-    if (mask & MASK_MASK) atomKK->k_mask.sync<LMPDeviceType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.sync<LMPDeviceType>();
-    if (mask & DPDRHO_MASK) atomKK->k_rho.sync<LMPDeviceType>();
-    if (mask & DPDTHETA_MASK) atomKK->k_dpdTheta.sync<LMPDeviceType>();
-    if (mask & UCOND_MASK) atomKK->k_uCond.sync<LMPDeviceType>();
-    if (mask & UMECH_MASK) atomKK->k_uMech.sync<LMPDeviceType>();
-    if (mask & UCHEM_MASK) atomKK->k_uChem.sync<LMPDeviceType>();
-    if (mask & UCG_MASK) atomKK->k_uCG.sync<LMPDeviceType>();
-    if (mask & UCGNEW_MASK) atomKK->k_uCGnew.sync<LMPDeviceType>();
-    if (mask & DUCHEM_MASK) atomKK->k_duChem.sync<LMPDeviceType>();
+    if (mask & X_MASK) atomKK->k3_x.sync<LMPDeviceType>();
+    if (mask & V_MASK) atomKK->k3_v.sync<LMPDeviceType>();
+    if (mask & F_MASK) atomKK->k3_f.sync<LMPDeviceType>();
+    if (mask & TAG_MASK) atomKK->k3_tag.sync<LMPDeviceType>();
+    if (mask & TYPE_MASK) atomKK->k3_type.sync<LMPDeviceType>();
+    if (mask & MASK_MASK) atomKK->k3_mask.sync<LMPDeviceType>();
+    if (mask & IMAGE_MASK) atomKK->k3_image.sync<LMPDeviceType>();
+    if (mask & DPDRHO_MASK) atomKK->k3_rho.sync<LMPDeviceType>();
+    if (mask & DPDTHETA_MASK) atomKK->k3_dpdTheta.sync<LMPDeviceType>();
+    if (mask & UCOND_MASK) atomKK->k3_uCond.sync<LMPDeviceType>();
+    if (mask & UMECH_MASK) atomKK->k3_uMech.sync<LMPDeviceType>();
+    if (mask & UCHEM_MASK) atomKK->k3_uChem.sync<LMPDeviceType>();
+    if (mask & UCG_MASK) atomKK->k3_uCG.sync<LMPDeviceType>();
+    if (mask & UCGNEW_MASK) atomKK->k3_uCGnew.sync<LMPDeviceType>();
+    if (mask & DUCHEM_MASK) atomKK->k3_duChem.sync<LMPDeviceType>();
   } else {
-    if (mask & X_MASK) atomKK->k_x.sync<LMPHostType>();
-    if (mask & V_MASK) atomKK->k_v.sync<LMPHostType>();
-    if (mask & F_MASK) atomKK->k_f.sync<LMPHostType>();
-    if (mask & TAG_MASK) atomKK->k_tag.sync<LMPHostType>();
-    if (mask & TYPE_MASK) atomKK->k_type.sync<LMPHostType>();
-    if (mask & MASK_MASK) atomKK->k_mask.sync<LMPHostType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.sync<LMPHostType>();
-    if (mask & DPDRHO_MASK) atomKK->k_rho.sync<LMPHostType>();
-    if (mask & DPDTHETA_MASK) atomKK->k_dpdTheta.sync<LMPHostType>();
-    if (mask & UCOND_MASK) atomKK->k_uCond.sync<LMPHostType>();
-    if (mask & UMECH_MASK) atomKK->k_uMech.sync<LMPHostType>();
-    if (mask & UCHEM_MASK) atomKK->k_uChem.sync<LMPHostType>();
-    if (mask & UCG_MASK) atomKK->k_uCG.sync<LMPHostType>();
-    if (mask & UCGNEW_MASK) atomKK->k_uCGnew.sync<LMPHostType>();
-    if (mask & DUCHEM_MASK) atomKK->k_duChem.sync<LMPHostType>();
+    if (mask & X_MASK) atomKK->k3_x.sync<LMPHostType>();
+    if (mask & V_MASK) atomKK->k3_v.sync<LMPHostType>();
+    if (mask & F_MASK) atomKK->k3_f.sync<LMPHostType>();
+    if (mask & TAG_MASK) atomKK->k3_tag.sync<LMPHostType>();
+    if (mask & TYPE_MASK) atomKK->k3_type.sync<LMPHostType>();
+    if (mask & MASK_MASK) atomKK->k3_mask.sync<LMPHostType>();
+    if (mask & IMAGE_MASK) atomKK->k3_image.sync<LMPHostType>();
+    if (mask & DPDRHO_MASK) atomKK->k3_rho.sync<LMPHostType>();
+    if (mask & DPDTHETA_MASK) atomKK->k3_dpdTheta.sync<LMPHostType>();
+    if (mask & UCOND_MASK) atomKK->k3_uCond.sync<LMPHostType>();
+    if (mask & UMECH_MASK) atomKK->k3_uMech.sync<LMPHostType>();
+    if (mask & UCHEM_MASK) atomKK->k3_uChem.sync<LMPHostType>();
+    if (mask & UCG_MASK) atomKK->k3_uCG.sync<LMPHostType>();
+    if (mask & UCGNEW_MASK) atomKK->k3_uCGnew.sync<LMPHostType>();
+    if (mask & DUCHEM_MASK) atomKK->k3_duChem.sync<LMPHostType>();
   }
 }
 
@@ -1049,36 +1049,36 @@ void AtomVecDPDKokkos::sync_overlapping_device(ExecutionSpace space, unsigned in
 void AtomVecDPDKokkos::modified(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k_x.modify<LMPDeviceType>();
-    if (mask & V_MASK) atomKK->k_v.modify<LMPDeviceType>();
-    if (mask & F_MASK) atomKK->k_f.modify<LMPDeviceType>();
-    if (mask & TAG_MASK) atomKK->k_tag.modify<LMPDeviceType>();
-    if (mask & TYPE_MASK) atomKK->k_type.modify<LMPDeviceType>();
-    if (mask & MASK_MASK) atomKK->k_mask.modify<LMPDeviceType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.modify<LMPDeviceType>();
-    if (mask & DPDRHO_MASK) atomKK->k_rho.modify<LMPDeviceType>();
-    if (mask & DPDTHETA_MASK) atomKK->k_dpdTheta.modify<LMPDeviceType>();
-    if (mask & UCOND_MASK) atomKK->k_uCond.modify<LMPDeviceType>();
-    if (mask & UMECH_MASK) atomKK->k_uMech.modify<LMPDeviceType>();
-    if (mask & UCHEM_MASK) atomKK->k_uChem.modify<LMPDeviceType>();
-    if (mask & UCG_MASK) atomKK->k_uCG.modify<LMPDeviceType>();
-    if (mask & UCGNEW_MASK) atomKK->k_uCGnew.modify<LMPDeviceType>();
-    if (mask & DUCHEM_MASK) atomKK->k_duChem.modify<LMPDeviceType>();
+    if (mask & X_MASK) atomKK->k3_x.modify<LMPDeviceType>();
+    if (mask & V_MASK) atomKK->k3_v.modify<LMPDeviceType>();
+    if (mask & F_MASK) atomKK->k3_f.modify<LMPDeviceType>();
+    if (mask & TAG_MASK) atomKK->k3_tag.modify<LMPDeviceType>();
+    if (mask & TYPE_MASK) atomKK->k3_type.modify<LMPDeviceType>();
+    if (mask & MASK_MASK) atomKK->k3_mask.modify<LMPDeviceType>();
+    if (mask & IMAGE_MASK) atomKK->k3_image.modify<LMPDeviceType>();
+    if (mask & DPDRHO_MASK) atomKK->k3_rho.modify<LMPDeviceType>();
+    if (mask & DPDTHETA_MASK) atomKK->k3_dpdTheta.modify<LMPDeviceType>();
+    if (mask & UCOND_MASK) atomKK->k3_uCond.modify<LMPDeviceType>();
+    if (mask & UMECH_MASK) atomKK->k3_uMech.modify<LMPDeviceType>();
+    if (mask & UCHEM_MASK) atomKK->k3_uChem.modify<LMPDeviceType>();
+    if (mask & UCG_MASK) atomKK->k3_uCG.modify<LMPDeviceType>();
+    if (mask & UCGNEW_MASK) atomKK->k3_uCGnew.modify<LMPDeviceType>();
+    if (mask & DUCHEM_MASK) atomKK->k3_duChem.modify<LMPDeviceType>();
   } else {
-    if (mask & X_MASK) atomKK->k_x.modify<LMPHostType>();
-    if (mask & V_MASK) atomKK->k_v.modify<LMPHostType>();
-    if (mask & F_MASK) atomKK->k_f.modify<LMPHostType>();
-    if (mask & TAG_MASK) atomKK->k_tag.modify<LMPHostType>();
-    if (mask & TYPE_MASK) atomKK->k_type.modify<LMPHostType>();
-    if (mask & MASK_MASK) atomKK->k_mask.modify<LMPHostType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.modify<LMPHostType>();
-    if (mask & DPDRHO_MASK) atomKK->k_rho.modify<LMPHostType>();
-    if (mask & DPDTHETA_MASK) atomKK->k_dpdTheta.modify<LMPHostType>();
-    if (mask & UCOND_MASK) atomKK->k_uCond.modify<LMPHostType>();
-    if (mask & UMECH_MASK) atomKK->k_uMech.modify<LMPHostType>();
-    if (mask & UCHEM_MASK) atomKK->k_uChem.modify<LMPHostType>();
-    if (mask & UCG_MASK) atomKK->k_uCG.modify<LMPHostType>();
-    if (mask & UCGNEW_MASK) atomKK->k_uCGnew.modify<LMPHostType>();
-    if (mask & DUCHEM_MASK) atomKK->k_duChem.modify<LMPHostType>();
+    if (mask & X_MASK) atomKK->k3_x.modify<LMPHostType>();
+    if (mask & V_MASK) atomKK->k3_v.modify<LMPHostType>();
+    if (mask & F_MASK) atomKK->k3_f.modify<LMPHostType>();
+    if (mask & TAG_MASK) atomKK->k3_tag.modify<LMPHostType>();
+    if (mask & TYPE_MASK) atomKK->k3_type.modify<LMPHostType>();
+    if (mask & MASK_MASK) atomKK->k3_mask.modify<LMPHostType>();
+    if (mask & IMAGE_MASK) atomKK->k3_image.modify<LMPHostType>();
+    if (mask & DPDRHO_MASK) atomKK->k3_rho.modify<LMPHostType>();
+    if (mask & DPDTHETA_MASK) atomKK->k3_dpdTheta.modify<LMPHostType>();
+    if (mask & UCOND_MASK) atomKK->k3_uCond.modify<LMPHostType>();
+    if (mask & UMECH_MASK) atomKK->k3_uMech.modify<LMPHostType>();
+    if (mask & UCHEM_MASK) atomKK->k3_uChem.modify<LMPHostType>();
+    if (mask & UCG_MASK) atomKK->k3_uCG.modify<LMPHostType>();
+    if (mask & UCGNEW_MASK) atomKK->k3_uCGnew.modify<LMPHostType>();
+    if (mask & DUCHEM_MASK) atomKK->k3_duChem.modify<LMPHostType>();
   }
 }

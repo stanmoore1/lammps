@@ -128,15 +128,15 @@ void FixPropertyAtomKokkos::grow_arrays(int nmax)
 void FixPropertyAtomKokkos::sync(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k_molecule.sync<LMPDeviceType>();
-    if (q_flag && (mask & Q_MASK)) atomKK->k_q.sync<LMPDeviceType>();
+    if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k3_molecule.sync<LMPDeviceType>();
+    if (q_flag && (mask & Q_MASK)) atomKK->k3_q.sync<LMPDeviceType>();
     if (rmass_flag && (mask & RMASS_MASK)) {atomKK->k_rmass.sync<LMPDeviceType>();}
-    if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k_dvector.sync<LMPDeviceType>();
+    if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k3_dvector.sync<LMPDeviceType>();
   } else {
-    if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k_molecule.sync<LMPHostType>();
-    if (q_flag && (mask & Q_MASK)) atomKK->k_q.sync<LMPHostType>();
-    if (rmass_flag && (mask & RMASS_MASK)) atomKK->k_rmass.sync<LMPHostType>();
-    if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k_dvector.sync<LMPHostType>();
+    if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k3_molecule.sync<LMPHostType>();
+    if (q_flag && (mask & Q_MASK)) atomKK->k3_q.sync<LMPHostType>();
+    if (rmass_flag && (mask & RMASS_MASK)) atomKK->k3_rmass.sync<LMPHostType>();
+    if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k3_dvector.sync<LMPHostType>();
   }
 }
 
@@ -170,14 +170,14 @@ void FixPropertyAtomKokkos::sync_overlapping_device(ExecutionSpace space, unsign
 void FixPropertyAtomKokkos::modified(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k_molecule.modify<LMPDeviceType>();
-    if (q_flag && (mask & Q_MASK)) atomKK->k_q.modify<LMPDeviceType>();
-    if (rmass_flag && (mask & RMASS_MASK)) atomKK->k_rmass.modify<LMPDeviceType>();
-    if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k_dvector.modify<LMPDeviceType>();
+    if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k3_molecule.modify<LMPDeviceType>();
+    if (q_flag && (mask & Q_MASK)) atomKK->k3_q.modify<LMPDeviceType>();
+    if (rmass_flag && (mask & RMASS_MASK)) atomKK->k3_rmass.modify<LMPDeviceType>();
+    if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k3_dvector.modify<LMPDeviceType>();
   } else {
-    if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k_molecule.modify<LMPHostType>();
-    if (q_flag && (mask & Q_MASK)) atomKK->k_q.modify<LMPHostType>();
-    if (rmass_flag && (mask & RMASS_MASK)) atomKK->k_rmass.modify<LMPHostType>();
-    if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k_dvector.modify<LMPHostType>();
+    if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k3_molecule.modify<LMPHostType>();
+    if (q_flag && (mask & Q_MASK)) atomKK->k3_q.modify<LMPHostType>();
+    if (rmass_flag && (mask & RMASS_MASK)) atomKK->k3_rmass.modify<LMPHostType>();
+    if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k3_dvector.modify<LMPHostType>();
   }
 }
