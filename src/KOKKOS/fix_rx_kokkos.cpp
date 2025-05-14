@@ -1818,8 +1818,8 @@ void FixRxKokkos<DeviceType>::computeLocalTemperature()
     const int ntypes = atom->ntypes;
 
     if (ntypes+1 > (int) k_cutsq.extent(0)) {
-      k_cutsq = typename AT::tdual_kkfloat_2d();
-      k_cutsq = typename AT::tdual_kkfloat_2d("FixRxKokkos::k_cutsq", ntypes+1, ntypes+1);
+      k_cutsq = DAT::tdual_kkfloat_2d();
+      k_cutsq = DAT::tdual_kkfloat_2d("FixRxKokkos::k_cutsq", ntypes+1, ntypes+1);
       d_cutsq = k_cutsq.template view<DeviceType>();
     }
 

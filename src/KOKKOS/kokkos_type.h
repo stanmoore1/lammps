@@ -596,13 +596,13 @@ struct dual_hash_type {
 };
 
 
-template<class KKType, class LegacyType, class KKLayout>
+template<class KKType, class LegacyType, class KKLayout, class KKSpace = LMPDeviceType>
 struct TripleView {
 
   static constexpr int NEED_TRANSFORM = (!std::is_same<KKType,LegacyType>::value) || (!std::is_same<KKLayout,Kokkos::LayoutRight>::value);
   static constexpr int TRANSFORM_ON_DEVICE = 0;
 
-  typedef Kokkos::DualView<KKType, KKLayout, LMPDeviceType> kk_view;
+  typedef Kokkos::DualView<KKType, KKLayout, KKSpace> kk_view;
   typedef Kokkos::View<LegacyType, Kokkos::LayoutRight, LMPHostType> legacy_view;
 
   kk_view k_view;
@@ -976,6 +976,8 @@ typedef tdual_kkfloat_1d_6::t_dev_const t_kkfloat_1d_6_const;
 typedef tdual_kkfloat_1d_6::t_dev_um t_kkfloat_1d_6_um;
 typedef tdual_kkfloat_1d_6::t_dev_const_um t_kkfloat_1d_6_const_um;
 typedef tdual_kkfloat_1d_6::t_dev_const_randomread t_kkfloat_1d_6_randomread;
+
+typedef TripleView<KK_FLOAT*[6], double*[6], LMPDeviceType::array_layout> ttriple_kkfloat_1d_6;
 
 // 3D view types
 

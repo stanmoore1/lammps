@@ -81,11 +81,11 @@ class ImproperHarmonicKokkos : public ImproperHarmonic {
   typename Kokkos::DualView<int,DeviceType>::t_dev d_warning_flag;
   typename Kokkos::DualView<int,DeviceType>::t_host h_warning_flag;
 
-  Kokkos::DualView<KK_FLOAT*,DeviceType> k_k;
-  Kokkos::DualView<KK_FLOAT*,DeviceType> k_chi;
+  DAT::t_kkfloat_1d k_k;
+  DAT::t_kkfloat_1d k_chi;
 
-  typename Kokkos::DualView<KK_FLOAT*,DeviceType>::t_dev d_k;
-  typename Kokkos::DualView<KK_FLOAT*,DeviceType>::t_dev d_chi;
+  typename AT::t_kkfloat_1d d_k;
+  typename AT::t_kkfloat_1d d_chi;
 
   void allocate() override;
 };

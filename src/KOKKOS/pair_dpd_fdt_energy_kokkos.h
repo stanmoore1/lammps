@@ -138,8 +138,8 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   typename AT::t_kkfloat_1d d_duCond,d_duMech;
   HAT::t_kkfloat_1d h_duCond,h_duMech;
 
-  DAT::tdual_kkfloat_1d k_eatom;
-  DAT::tdual_kkfloat_1d_6 k_vatom;
+  DAT::ttriple_kkfloat_1d k_eatom;
+  DAT::ttriple_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d d_eatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 

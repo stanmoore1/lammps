@@ -111,7 +111,7 @@ public:
   DAT::tdual_kkfloat_2d k_cutsq;
   DAT::tdual_kkfloat_2d k_cutghost;
   DAT::tdual_int_2d k_setflag;
-  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::ttriple_kkfloat_1d k_eatom;
   DAT::tdual_kkfloat_2d k_vatom;
 
 

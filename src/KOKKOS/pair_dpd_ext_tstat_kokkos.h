@@ -118,14 +118,14 @@ class PairDPDExtTstatKokkos : public PairDPDExtTstat {
   typename AT::t_int_1d_randomread d_ilist;
   typename AT::t_int_1d_randomread d_numneigh;
 
-  typename AT::tdual_kkfloat_2d k_cutsq;
+  DAT::tdual_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
 
   Kokkos::DualView<params_dpd**,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_dpd**,
     Kokkos::LayoutRight,DeviceType>::t_dev_const_um params;
 
-  DAT::tdual_kkfloat_1d_6 k_vatom;
+  DAT::ttriple_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
   KOKKOS_INLINE_FUNCTION

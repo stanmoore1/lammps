@@ -815,9 +815,9 @@ struct BuildExchangeListFunctor {
 
 
   BuildExchangeListFunctor(
-      const typename AT::tdual_kkfloat_1d_3 x,
-      const typename AT::tdual_int_1d sendlist,
-      typename AT::tdual_int_scalar nsend,
+      const DAT::tdual_kkfloat_1d_3 x,
+      const DAT::tdual_int_1d sendlist,
+      DAT::tdual_int_scalar nsend,
       int nlocal, int dim,
       double lo, double hi):
                 _lo(lo),_hi(hi),
@@ -1125,9 +1125,9 @@ struct BuildBorderListFunctor {
   typename AT::t_int_2d sendlist;
   typename AT::t_int_scalar nsend;
 
-  BuildBorderListFunctor(typename AT::tdual_kkfloat_1d_3 _x,
-                         typename AT::tdual_int_2d _sendlist,
-                         typename AT::tdual_int_scalar _nsend,int _nfirst,
+  BuildBorderListFunctor(DAT::tdual_kkfloat_1d_3 _x,
+                         DAT::tdual_int_2d _sendlist,
+                         DAT::tdual_int_scalar _nsend,int _nfirst,
                          int _nlast, int _dim,
                          double _lo, double _hi, int _iswap,
                          int _maxsendlist):

@@ -60,8 +60,8 @@ class AngleClass2Kokkos : public AngleClass2 {
                      const KK_FLOAT &delx1, const KK_FLOAT &dely1, const KK_FLOAT &delz1,
                      const KK_FLOAT &delx2, const KK_FLOAT &dely2, const KK_FLOAT &delz2) const;
 
-  typename AT::tdual_kkfloat_1d k_eatom;
-  typename AT::tdual_kkfloat_1d_6 k_vatom;
+  DAT::ttriple_kkfloat_1d k_eatom;
+  DAT::ttriple_kkfloat_1d_6 k_vatom;
 
  protected:
 
@@ -76,11 +76,11 @@ class AngleClass2Kokkos : public AngleClass2 {
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  typename AT::tdual_kkfloat_1d k_theta0;
-  typename AT::tdual_kkfloat_1d k_k2, k_k3, k_k4;
-  typename AT::tdual_kkfloat_1d k_bb_k, k_bb_r1, k_bb_r2;
-  typename AT::tdual_kkfloat_1d k_ba_k1, k_ba_k2, k_ba_r1, k_ba_r2;
-  typename AT::tdual_kkfloat_1d k_setflag, k_setflag_a, k_setflag_bb, k_setflag_ba;
+  DAT::tdual_kkfloat_1d k_theta0;
+  DAT::tdual_kkfloat_1d k_k2, k_k3, k_k4;
+  DAT::tdual_kkfloat_1d k_bb_k, k_bb_r1, k_bb_r2;
+  DAT::tdual_kkfloat_1d k_ba_k1, k_ba_k2, k_ba_r1, k_ba_r2;
+  DAT::tdual_kkfloat_1d k_setflag, k_setflag_a, k_setflag_bb, k_setflag_ba;
 
   typename AT::t_kkfloat_1d d_theta0;
   typename AT::t_kkfloat_1d d_k2, d_k3, d_k4;

@@ -59,8 +59,8 @@ class AngleCharmmKokkos : public AngleCharmm {
                      const KK_FLOAT &delx2, const KK_FLOAT &dely2, const KK_FLOAT &delz2) const;
 
   using KKDeviceType = typename KKDevice<DeviceType>::value;
-  Kokkos::DualView<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
-  Kokkos::DualView<KK_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom;
+  TripleView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
+  TripleView<KK_FLOAT*[6],double*[6],LMPDeviceType::array_layout,KKDeviceType> k_vatom;
 
  protected:
 

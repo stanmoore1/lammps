@@ -71,8 +71,8 @@ class ImproperClass2Kokkos : public ImproperClass2 {
                           const KK_FLOAT &vb2x, const KK_FLOAT &vb2y, const KK_FLOAT &vb2z,
                           const KK_FLOAT &vb3x, const KK_FLOAT &vb3y, const KK_FLOAT &vb3z) const;
 
-  DAT::tdual_kkfloat_1d k_eatom;
-  DAT::tdual_kkfloat_1d_6 k_vatom;
+  DAT::ttriple_kkfloat_1d k_eatom;
+  DAT::ttriple_kkfloat_1d_6 k_vatom;
 
  protected:
 
@@ -91,9 +91,9 @@ class ImproperClass2Kokkos : public ImproperClass2 {
   typename AT::t_int_scalar d_warning_flag;
   HAT::t_int_scalar h_warning_flag;
 
-  typename AT::tdual_kkfloat_1d k_k0,k_chi0;
-  typename AT::tdual_kkfloat_1d k_aa_k1,k_aa_k2,k_aa_k3,k_aa_theta0_1,k_aa_theta0_2,k_aa_theta0_3;
-  typename AT::tdual_kkfloat_1d k_setflag_i,k_setflag_aa,k_setflag;
+  DAT::tdual_kkfloat_1d k_k0,k_chi0;
+  DAT::tdual_kkfloat_1d k_aa_k1,k_aa_k2,k_aa_k3,k_aa_theta0_1,k_aa_theta0_2,k_aa_theta0_3;
+  DAT::tdual_kkfloat_1d k_setflag_i,k_setflag_aa,k_setflag;
 
   typename AT::t_kkfloat_1d d_k0,d_chi0;
   typename AT::t_kkfloat_1d d_aa_k1,d_aa_k2,d_aa_k3,d_aa_theta0_1,d_aa_theta0_2,d_aa_theta0_3;

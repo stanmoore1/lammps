@@ -233,7 +233,7 @@ class FixRxKokkos : public FixRX {
   typename AT::t_int_1d_randomread  d_type;
   typename AT::t_kkfloat_1d          d_dpdTheta;
 
-  typename AT::tdual_kkfloat_2d k_cutsq;
+  DAT::tdual_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d     d_cutsq;
   //double **h_cutsq;
 

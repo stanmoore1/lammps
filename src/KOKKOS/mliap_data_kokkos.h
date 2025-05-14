@@ -73,7 +73,7 @@ template <class DeviceType> class MLIAPDataKokkos : public MLIAPData {
   DAT::tdual_int_1d k_ij;               // Start location for each particle
   DAT::tdual_kkfloat_2d k_betas;          // betas for all atoms in list
   DAT::tdual_kkfloat_2d k_descriptors;    // descriptors for all atoms in list
-  DAT::tdual_kkfloat_1d k_eatoms;         // energies for all atoms in list
+  DAT::ttriple_kkfloat_1d k_eatoms;         // energies for all atoms in list
   DAT::tdual_kkfloat_2d k_rij;            // distance vector of each neighbor
   DAT::tdual_kkfloat_2d k_gradforce;
   DAT::tdual_kkfloat_3d k_graddesc;         // descriptor gradient w.r.t. each neighbor

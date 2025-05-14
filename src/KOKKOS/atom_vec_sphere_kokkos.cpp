@@ -1431,9 +1431,9 @@ struct AtomVecSphereKokkos_PackExchangeFunctor {
 
   AtomVecSphereKokkos_PackExchangeFunctor(
     const AtomKokkos* atom,
-    const typename AT::tdual_kkfloat_2d buf,
-    typename AT::tdual_int_1d sendlist,
-    typename AT::tdual_int_1d copylist):
+    const DAT::tdual_kkfloat_2d buf,
+    DAT::tdual_int_1d sendlist,
+    DAT::tdual_int_1d copylist):
     _x(atom->k_x.view<DeviceType>()),
     _v(atom->k_v.view<DeviceType>()),
     _tag(atom->k_tag.view<DeviceType>()),
@@ -1554,9 +1554,9 @@ struct AtomVecSphereKokkos_UnpackExchangeFunctor {
 
   AtomVecSphereKokkos_UnpackExchangeFunctor(
     const AtomKokkos* atom,
-    const typename AT::tdual_kkfloat_2d buf,
-    typename AT::tdual_int_1d nlocal,
-    typename AT::tdual_int_1d indices,
+    const DAT::tdual_kkfloat_2d buf,
+    DAT::tdual_int_1d nlocal,
+    DAT::tdual_int_1d indices,
     int dim, double lo, double hi):
       _x(atom->k_x.view<DeviceType>()),
       _v(atom->k_v.view<DeviceType>()),

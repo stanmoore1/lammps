@@ -75,7 +75,7 @@ class FixEfieldKokkos : public FixEfield {
   Few<double,6> h;
   int triclinic;
 
-  DAT::tdual_kkfloat_1d_6 k_vatom;
+  DAT::ttriple_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
   KOKKOS_INLINE_FUNCTION

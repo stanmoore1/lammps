@@ -72,7 +72,7 @@ class PairBrownianKokkos : public PairBrownian, public KokkosBase {
   typename AT::t_int_1d_randomread type;
   typename AT::t_kkfloat_1d_randomread radius;
 
-  DAT::tdual_kkfloat_1d_6 k_vatom;
+  DAT::ttriple_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
   typename AT::t_neighbors_2d d_neighbors;
@@ -82,9 +82,9 @@ class PairBrownianKokkos : public PairBrownian, public KokkosBase {
   int newton_pair;
   KK_FLOAT special_lj[4];
 
-  typename AT::tdual_kkfloat_2d k_cutsq;
+  DAT::tdual_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
-  typename AT::tdual_kkfloat_2d k_cut_inner;
+  DAT::tdual_kkfloat_2d k_cut_inner;
   typename AT::t_kkfloat_2d d_cut_inner;
 
   int neighflag;

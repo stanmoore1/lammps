@@ -89,7 +89,7 @@ class FixWallFlowKokkos : public FixWallFlow, public KokkosBase {
   typedef Kokkos::Random_XorShift64_Pool<DeviceType> rand_pool_t;
   typedef typename rand_pool_t::generator_type rand_type_t;
 
-  typename AT::tdual_int_1d k_current_segment;
+  DAT::tdual_int_1d k_current_segment;
   typename AT::t_int_1d d_current_segment;
   typename HAT::t_int_1d h_current_segment;
 

@@ -81,15 +81,15 @@ class PairLJSPICAKokkos : public PairLJSPICA {
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread type;
 
-  DAT::tdual_kkfloat_1d k_eatom;
-  DAT::tdual_kkfloat_1d_6 k_vatom;
+  DAT::ttriple_kkfloat_1d k_eatom;
+  DAT::ttriple_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d d_eatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
   int newton_pair;
   KK_FLOAT special_lj[4];
 
-  typename AT::tdual_kkfloat_2d k_cutsq;
+  DAT::tdual_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
 
 

@@ -125,10 +125,10 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   typename AT::t_int_1d d_type;
   typename AT::t_int_1d d_mask;
 
-  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::ttriple_kkfloat_1d k_eatom;
   typename AT::t_kkfloat_1d d_eatom;
 
-  DAT::tdual_kkfloat_1d_6 k_vatom;
+  DAT::ttriple_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
   DAT::tdual_kkfloat_1d k_bond_distance; // constraint distances

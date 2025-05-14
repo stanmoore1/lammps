@@ -72,7 +72,7 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   typedef EV_FLOAT value_type;
 
  protected:
-  typename AT::tdual_kkfloat_2d k_cutsq;//Create a DualView, defination of tdual_kkfloat_2d in kokkos_type.h
+  DAT::tdual_kkfloat_2d k_cutsq;//Create a DualView, defination of tdual_kkfloat_2d in kokkos_type.h
   typename AT::t_kkfloat_2d d_cutsq; //t_kkfloat_2d = t_dev ==> Creates a new View d_cutsq
   //the type of d_cutsq is decided by the Device(not host) type for the DualView k_cutsq
   //Meaning the memory location of d_cutsq is the same as the Device(not host) memory location of
@@ -142,8 +142,8 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   typename AT::t_tagint_1d tag;
   typename AT::t_int_1d_randomread type;
 
-  DAT::tdual_kkfloat_1d k_eatom;
-  DAT::tdual_kkfloat_1d_6 k_vatom;
+  DAT::ttriple_kkfloat_1d k_eatom;
+  DAT::ttriple_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d d_eatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 

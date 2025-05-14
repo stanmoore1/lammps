@@ -419,10 +419,10 @@ class PairReaxFFKokkos : public PairReaxFF {
   typename AT::t_kkfloat_1d_randomread q;
   typename AT::t_tagint_1d_randomread molecule;
 
-  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::ttriple_kkfloat_1d k_eatom;
   typename AT::t_kkfloat_1d d_eatom;
 
-  DAT::tdual_kkfloat_1d_6 k_vatom;
+  DAT::ttriple_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
   HAT::t_kkfloat_1d_6 h_vatom;
 
@@ -516,7 +516,7 @@ class PairReaxFFKokkos : public PairReaxFF {
 
   typename AT::t_kkfloat_2d d_angular_intermediates;
 
-  typename AT::tdual_int_1d k_count_angular_torsion;
+  DAT::tdual_int_1d k_count_angular_torsion;
   typename AT::t_int_1d d_count_angular_torsion;
 
 };
