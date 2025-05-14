@@ -324,9 +324,9 @@ void PairDPDfdtEnergyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     // this memory transfer can be removed when fix_dpd_fdt_energy_kokkos is added
     k_duCond.template modify<DeviceType>();
-    k_duCond.template sync<LMPHostType>();
+    k_duCond.sync_host();
     k_duMech.template modify<DeviceType>();
-    k_duMech.template sync<LMPHostType>();
+    k_duMech.sync_host();
     comm->reverse_comm(this);
   }
 
@@ -344,12 +344,12 @@ void PairDPDfdtEnergyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (eflag_atom) {
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   copymode = 0;

@@ -488,7 +488,7 @@ template<class DeviceType>
 void FixEOStableRXKokkos<DeviceType>::error_check()
 {
   k_error_flag.template modify<DeviceType>();
-  k_error_flag.template sync<LMPHostType>();
+  k_error_flag.sync_host();
   if (k_error_flag.h_view() == 1)
     error->one(FLERR,"Internal temperature <= zero");
   else if (k_error_flag.h_view() == 2)
@@ -497,7 +497,7 @@ void FixEOStableRXKokkos<DeviceType>::error_check()
     error->one(FLERR,"Maxit exceeded in secant solver.");
 
   k_warning_flag.template modify<DeviceType>();
-  k_warning_flag.template sync<LMPHostType>();
+  k_warning_flag.sync_host();
   if (k_warning_flag.h_view()) {
     error->warning(FLERR,"Secant solver did not converge because table bounds were exceeded.");
     k_warning_flag.h_view() = 0;

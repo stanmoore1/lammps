@@ -174,7 +174,7 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
   double dot,dotall;
   double alphamax;
 
-  fix_minimize_kk->k_vectors.sync<LMPDeviceType>();
+  fix_minimize_kk->k_vectors.sync_device();
   fix_minimize_kk->k_vectors.modify<LMPDeviceType>();
 
   atomKK->sync(Device,X_MASK|F_MASK);

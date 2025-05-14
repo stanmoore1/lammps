@@ -562,12 +562,12 @@ int AtomVecDipoleKokkos::unpack_exchange_kokkos(DAT::tdual_kkfloat_2d &k_buf, in
   } else {
     k_count.h_view(0) = nlocal;
     k_count.modify<LMPHostType>();
-    k_count.sync<LMPDeviceType>();
+    k_count.sync_device();
     AtomVecDipoleKokkos_UnpackExchangeFunctor<LMPDeviceType>
       f(atomKK,k_buf,k_count,dim,lo,hi);
     Kokkos::parallel_for(nrecv/size_exchange,f);
     k_count.modify<LMPDeviceType>();
-    k_count.sync<LMPHostType>();
+    k_count.sync_host();
 
     return k_count.h_view(0);
   }
@@ -578,25 +578,25 @@ int AtomVecDipoleKokkos::unpack_exchange_kokkos(DAT::tdual_kkfloat_2d &k_buf, in
 void AtomVecDipoleKokkos::sync(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k3_x.sync<LMPDeviceType>();
-    if (mask & V_MASK) atomKK->k3_v.sync<LMPDeviceType>();
-    if (mask & F_MASK) atomKK->k3_f.sync<LMPDeviceType>();
-    if (mask & TAG_MASK) atomKK->k3_tag.sync<LMPDeviceType>();
-    if (mask & TYPE_MASK) atomKK->k3_type.sync<LMPDeviceType>();
-    if (mask & MASK_MASK) atomKK->k3_mask.sync<LMPDeviceType>();
-    if (mask & IMAGE_MASK) atomKK->k3_image.sync<LMPDeviceType>();
-    if (mask & Q_MASK) atomKK->k3_q.sync<LMPDeviceType>();
-    if (mask & MU_MASK) atomKK->k3_mu.sync<LMPDeviceType>();
+    if (mask & X_MASK) atomKK->k3_x.sync_device();
+    if (mask & V_MASK) atomKK->k3_v.sync_device();
+    if (mask & F_MASK) atomKK->k3_f.sync_device();
+    if (mask & TAG_MASK) atomKK->k3_tag.sync_device();
+    if (mask & TYPE_MASK) atomKK->k3_type.sync_device();
+    if (mask & MASK_MASK) atomKK->k3_mask.sync_device();
+    if (mask & IMAGE_MASK) atomKK->k3_image.sync_device();
+    if (mask & Q_MASK) atomKK->k3_q.sync_device();
+    if (mask & MU_MASK) atomKK->k3_mu.sync_device();
   } else {
-    if (mask & X_MASK) atomKK->k3_x.sync<LMPHostType>();
-    if (mask & V_MASK) atomKK->k3_v.sync<LMPHostType>();
-    if (mask & F_MASK) atomKK->k3_f.sync<LMPHostType>();
-    if (mask & TAG_MASK) atomKK->k3_tag.sync<LMPHostType>();
-    if (mask & TYPE_MASK) atomKK->k3_type.sync<LMPHostType>();
-    if (mask & MASK_MASK) atomKK->k3_mask.sync<LMPHostType>();
-    if (mask & IMAGE_MASK) atomKK->k3_image.sync<LMPHostType>();
-    if (mask & Q_MASK) atomKK->k3_q.sync<LMPHostType>();
-    if (mask & MU_MASK) atomKK->k3_mu.sync<LMPHostType>();
+    if (mask & X_MASK) atomKK->k3_x.sync_host();
+    if (mask & V_MASK) atomKK->k3_v.sync_host();
+    if (mask & F_MASK) atomKK->k3_f.sync_host();
+    if (mask & TAG_MASK) atomKK->k3_tag.sync_host();
+    if (mask & TYPE_MASK) atomKK->k3_type.sync_host();
+    if (mask & MASK_MASK) atomKK->k3_mask.sync_host();
+    if (mask & IMAGE_MASK) atomKK->k3_image.sync_host();
+    if (mask & Q_MASK) atomKK->k3_q.sync_host();
+    if (mask & MU_MASK) atomKK->k3_mu.sync_host();
   }
 }
 
@@ -632,42 +632,42 @@ void AtomVecDipoleKokkos::modified(ExecutionSpace space, unsigned int mask)
 void AtomVecDipoleKokkos::sync_overlapping_device(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if ((mask & X_MASK) && atomKK->k_x.need_sync<LMPDeviceType>())
+    if ((mask & X_MASK) && atomKK->k_x.need_sync_device())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_x,space);
-    if ((mask & V_MASK) && atomKK->k_v.need_sync<LMPDeviceType>())
+    if ((mask & V_MASK) && atomKK->k_v.need_sync_device())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v,space);
-    if ((mask & F_MASK) && atomKK->k_f.need_sync<LMPDeviceType>())
+    if ((mask & F_MASK) && atomKK->k_f.need_sync_device())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f,space);
-    if ((mask & TAG_MASK) && atomKK->k_tag.need_sync<LMPDeviceType>())
+    if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())
       perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
-    if ((mask & TYPE_MASK) && atomKK->k_type.need_sync<LMPDeviceType>())
+    if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())
       perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
-    if ((mask & MASK_MASK) && atomKK->k_mask.need_sync<LMPDeviceType>())
+    if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())
       perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
-    if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync<LMPDeviceType>())
+    if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())
       perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
-    if ((mask & Q_MASK) && atomKK->k_q.need_sync<LMPDeviceType>())
+    if ((mask & Q_MASK) && atomKK->k_q.need_sync_device())
       perform_async_copy<DAT::tdual_kkfloat_1d>(atomKK->k_q,space);
-    if ((mask & MU_MASK) && atomKK->k_mu.need_sync<LMPDeviceType>())
+    if ((mask & MU_MASK) && atomKK->k_mu.need_sync_device())
       perform_async_copy<DAT::tdual_kkfloat_1d_4>(atomKK->k_mu,space);
   } else {
-    if ((mask & X_MASK) && atomKK->k_x.need_sync<LMPHostType>())
+    if ((mask & X_MASK) && atomKK->k_x.need_sync_host())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_x,space);
-    if ((mask & V_MASK) && atomKK->k_v.need_sync<LMPHostType>())
+    if ((mask & V_MASK) && atomKK->k_v.need_sync_host())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v,space);
-    if ((mask & F_MASK) && atomKK->k_f.need_sync<LMPHostType>())
+    if ((mask & F_MASK) && atomKK->k_f.need_sync_host())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f,space);
-    if ((mask & TAG_MASK) && atomKK->k_tag.need_sync<LMPHostType>())
+    if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())
       perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
-    if ((mask & TYPE_MASK) && atomKK->k_type.need_sync<LMPHostType>())
+    if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())
       perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
-    if ((mask & MASK_MASK) && atomKK->k_mask.need_sync<LMPHostType>())
+    if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())
       perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
-    if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync<LMPHostType>())
+    if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())
       perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
-    if ((mask & Q_MASK) && atomKK->k_q.need_sync<LMPHostType>())
+    if ((mask & Q_MASK) && atomKK->k_q.need_sync_host())
       perform_async_copy<DAT::tdual_kkfloat_1d>(atomKK->k_q,space);
-    if ((mask & MU_MASK) && atomKK->k_mu.need_sync<LMPHostType>())
+    if ((mask & MU_MASK) && atomKK->k_mu.need_sync_host())
       perform_async_copy<DAT::tdual_kkfloat_1d_4>(atomKK->k_mu,space);
   }
 }

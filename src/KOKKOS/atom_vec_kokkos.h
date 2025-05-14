@@ -161,9 +161,9 @@ class AtomVecKokkos : virtual public AtomVec {
   template<class ViewType>
   void perform_async_copy(ViewType& src, unsigned int space) {
     if (space == Device)
-      src.template sync<LMPDeviceType>();
+      src.sync_device();
     else
-      src.template sync<LMPHostType>();
+      src.sync_host();
   }
   #endif
 };

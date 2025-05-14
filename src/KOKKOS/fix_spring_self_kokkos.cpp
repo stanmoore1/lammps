@@ -234,8 +234,8 @@ int FixSpringSelfKokkos<DeviceType>::pack_exchange_kokkos(
 
   k_buf.modify<DeviceType>();
 
-  if (space == Host) k_buf.sync<LMPHostType>();
-  else k_buf.sync<LMPDeviceType>();
+  if (space == Host) k_buf.sync_host();
+  else k_buf.sync_device();
 
   k_xoriginal.template modify<DeviceType>();
 

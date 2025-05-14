@@ -126,7 +126,7 @@ void MLIAPDescriptorSO3Kokkos<DeviceType>::compute_forces(class MLIAPData *data_
     }
     if (vflag_atom) {
       data->k_pairmliap->k_vatom.template modify<DeviceType>();
-      data->k_pairmliap->k_vatom.template sync<LMPHostType>();
+      data->k_pairmliap->k_vatom.sync_host();
     }
   }
 }

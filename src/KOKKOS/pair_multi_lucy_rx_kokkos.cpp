@@ -218,7 +218,7 @@ void PairMultiLucyRXKokkos<DeviceType>::compute_style(int eflag_in, int vflag_in
   else atomKK->modified(execution_space,F_MASK | UCG_MASK | UCGNEW_MASK);
 
   k_error_flag.template modify<DeviceType>();
-  k_error_flag.template sync<LMPHostType>();
+  k_error_flag.sync_host();
   if (k_error_flag.h_view() == 1)
     error->one(FLERR,"Density < table inner cutoff");
   else if (k_error_flag.h_view() == 2)
@@ -240,12 +240,12 @@ void PairMultiLucyRXKokkos<DeviceType>::compute_style(int eflag_in, int vflag_in
 
   if (eflag_atom) {
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 }
 

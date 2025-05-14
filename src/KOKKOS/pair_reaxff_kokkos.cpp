@@ -868,12 +868,12 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
 
     k_resize_bo.modify<DeviceType>();
-    k_resize_bo.sync<LMPHostType>();
+    k_resize_bo.sync_host();
     int resize_bo = k_resize_bo.h_view();
     if (resize_bo) maxbo = MAX(maxbo+MAX(1,maxbo*0.1),resize_bo);
 
     k_resize_hb.modify<DeviceType>();
-    k_resize_hb.sync<LMPHostType>();
+    k_resize_hb.sync_host();
     int resize_hb = k_resize_hb.h_view();
     if (resize_hb) maxhb = MAX(maxhb+MAX(1,maxhb*0.1),resize_hb);
 
@@ -958,7 +958,7 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxCountAngularTorsion<false> >(0,inum),*this);
 
   k_count_angular_torsion.template modify<DeviceType>();
-  k_count_angular_torsion.template sync<LMPHostType>();
+  k_count_angular_torsion.sync_host();
   count_angular = h_count_angular_torsion(0);
   count_torsion = h_count_angular_torsion(1);
 
@@ -1084,14 +1084,14 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     if (need_dup)
       Kokkos::Experimental::contribute(d_eatom, dup_eatom);
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     if (need_dup)
       Kokkos::Experimental::contribute(d_vatom, dup_vatom);
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   if (fixspecies_flag)
@@ -4161,8 +4161,8 @@ void PairReaxFFKokkos<DeviceType>::PackBondBuffer(DAT::tdual_kkfloat_1d k_buf, i
   k_buf.modify<DeviceType>();
   k_nbuf_local.modify<DeviceType>();
 
-  k_buf.sync<LMPHostType>();
-  k_nbuf_local.sync<LMPHostType>();
+  k_buf.sync_host();
+  k_nbuf_local.sync_host();
   nbuf_local = k_nbuf_local.h_view();
 }
 
@@ -4189,8 +4189,8 @@ void PairReaxFFKokkos<DeviceType>::PackReducedBondBuffer(DAT::tdual_kkfloat_1d k
   k_buf.modify<DeviceType>();
   k_nbuf_local.modify<DeviceType>();
 
-  k_buf.sync<LMPHostType>();
-  k_nbuf_local.sync<LMPHostType>();
+  k_buf.sync_host();
+  k_nbuf_local.sync_host();
   nbuf_local = k_nbuf_local.h_view();
 }
 
@@ -4299,9 +4299,9 @@ void PairReaxFFKokkos<DeviceType>::FindBondSpecies()
   k_tmpid.modify<DeviceType>();
   k_error_flag.modify<DeviceType>();
 
-  k_tmpbo.sync<LMPHostType>();
-  k_tmpid.sync<LMPHostType>();
-  k_error_flag.sync<LMPHostType>();
+  k_tmpbo.sync_host();
+  k_tmpid.sync_host();
+  k_error_flag.sync_host();
 
   if (k_error_flag.h_view())
     error->all(FLERR,"Increase MAXSPECBOND in reaxff_defs.h");

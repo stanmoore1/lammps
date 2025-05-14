@@ -260,7 +260,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::pre_force(int /*vflag*/)
       if (comm->me == prev_last_rows_rank) {
 
         // pack buffer
-        k_s_hist_last.template sync<LMPHostType>();
+        k_s_hist_last.sync_host();
         auto h_s_hist_last = k_s_hist_last.h_view;
         int n = 0;
         for (int k = 0; k < nprev; k++) {
@@ -275,7 +275,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::pre_force(int /*vflag*/)
         MPI_Wait(&request,MPI_STATUS_IGNORE);
 
         // unpack buffer
-        k_s_hist_last.template sync<LMPHostType>();
+        k_s_hist_last.sync_host();
         auto h_s_hist_last = k_s_hist_last.h_view;
         int n = 0;
         for (int k = 0; k < nprev; k++) {
@@ -381,7 +381,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::pre_force(int /*vflag*/)
     pack_flag = 4;
     //comm->reverse_comm(this); //Coll_Vector( X_diag );
     k_X_diag.template modify<DeviceType>();
-    k_X_diag.template sync<LMPHostType>();
+    k_X_diag.sync_host();
     comm->reverse_comm(this);
     k_X_diag.template modify<LMPHostType>();
     k_X_diag.template sync<DeviceType>();
@@ -399,7 +399,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::pre_force(int /*vflag*/)
   pack_flag = 2;
   // comm->forward_comm(this); //Dist_vector( s );
   k_s.template modify<DeviceType>();
-  k_s.template sync<LMPHostType>();
+  k_s.sync_host();
   comm->forward_comm(this);
   more_forward_comm(k_s.h_view.data());
   k_s.template modify<LMPHostType>();
@@ -1222,7 +1222,7 @@ int FixACKS2ReaxFFKokkos<DeviceType>::bicgstab_solve()
 
   pack_flag = 1;
   k_d.template modify<DeviceType>();
-  k_d.template sync<LMPHostType>();
+  k_d.sync_host();
   if (neighflag != FULL)
     comm->reverse_comm(this); //Coll_vector( d );
   more_reverse_comm(k_d.h_view.data());
@@ -1275,7 +1275,7 @@ int FixACKS2ReaxFFKokkos<DeviceType>::bicgstab_solve()
     pack_flag = 1;
     // comm->forward_comm(this); //Dist_vector( d );
     k_d.template modify<DeviceType>();
-    k_d.template sync<LMPHostType>();
+    k_d.sync_host();
     comm->forward_comm(this);
     more_forward_comm(k_d.h_view.data());
     k_d.template modify<LMPHostType>();
@@ -1286,7 +1286,7 @@ int FixACKS2ReaxFFKokkos<DeviceType>::bicgstab_solve()
 
     pack_flag = 2;
     k_z.template modify<DeviceType>();
-    k_z.template sync<LMPHostType>();
+    k_z.sync_host();
     if (neighflag != FULL)
       comm->reverse_comm(this); //Coll_vector( z );
     more_reverse_comm(k_z.h_view.data());
@@ -1321,7 +1321,7 @@ int FixACKS2ReaxFFKokkos<DeviceType>::bicgstab_solve()
     pack_flag = 3;
     // comm->forward_comm(this); //Dist_vector( q_hat );
     k_q_hat.template modify<DeviceType>();
-    k_q_hat.template sync<LMPHostType>();
+    k_q_hat.sync_host();
     comm->forward_comm(this);
     more_forward_comm(k_q_hat.h_view.data());
     k_q_hat.template modify<LMPHostType>();
@@ -1331,7 +1331,7 @@ int FixACKS2ReaxFFKokkos<DeviceType>::bicgstab_solve()
 
     pack_flag = 3;
     k_y.template modify<DeviceType>();
-    k_y.template sync<LMPHostType>();
+    k_y.sync_host();
     if (neighflag != FULL)
       comm->reverse_comm(this); //Coll_vector( y );
     more_reverse_comm(k_y.h_view.data());
@@ -1386,7 +1386,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::calculate_Q()
   pack_flag = 2;
   //comm->forward_comm( this ); //Dist_vector( s );
   k_s.modify<DeviceType>();
-  k_s.sync<LMPHostType>();
+  k_s.sync_host();
   comm->forward_comm(this);
   k_s.modify<LMPHostType>();
   k_s.sync<DeviceType>();
@@ -1887,8 +1887,8 @@ double FixACKS2ReaxFFKokkos<DeviceType>::memory_usage()
 template<class DeviceType>
 void FixACKS2ReaxFFKokkos<DeviceType>::grow_arrays(int nmax)
 {
-  k_s_hist.template sync<LMPHostType>();
-  k_s_hist_X.template sync<LMPHostType>();
+  k_s_hist.sync_host();
+  k_s_hist_X.sync_host();
 
   k_s_hist.template modify<LMPHostType>(); // force reallocation on host
   k_s_hist_X.template modify<LMPHostType>();
@@ -1910,8 +1910,8 @@ void FixACKS2ReaxFFKokkos<DeviceType>::grow_arrays(int nmax)
 template<class DeviceType>
 void FixACKS2ReaxFFKokkos<DeviceType>::copy_arrays(int i, int j, int delflag)
 {
-  k_s_hist.template sync<LMPHostType>();
-  k_s_hist_X.template sync<LMPHostType>();
+  k_s_hist.sync_host();
+  k_s_hist_X.sync_host();
 
   FixACKS2ReaxFF::copy_arrays(i,j,delflag);
 
@@ -1945,8 +1945,8 @@ void FixACKS2ReaxFFKokkos<DeviceType>::sort_kokkos(Kokkos::BinSort<KeyViewType, 
 template<class DeviceType>
 int FixACKS2ReaxFFKokkos<DeviceType>::pack_exchange(int i, double *buf)
 {
-  k_s_hist.template sync<LMPHostType>();
-  k_s_hist_X.template sync<LMPHostType>();
+  k_s_hist.sync_host();
+  k_s_hist_X.sync_host();
 
   return FixACKS2ReaxFF::pack_exchange(i,buf);
 }
@@ -1958,8 +1958,8 @@ int FixACKS2ReaxFFKokkos<DeviceType>::pack_exchange(int i, double *buf)
 template<class DeviceType>
 int FixACKS2ReaxFFKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 {
-  k_s_hist.template sync<LMPHostType>();
-  k_s_hist_X.template sync<LMPHostType>();
+  k_s_hist.sync_host();
+  k_s_hist_X.sync_host();
 
   int n = FixACKS2ReaxFF::unpack_exchange(nlocal,buf);
 

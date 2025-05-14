@@ -128,7 +128,7 @@ void CommTiledKokkos::forward_comm(int dummy)
     return;
   }
 
-  k_sendlist.sync<LMPHostType>();
+  k_sendlist.sync_host();
 
   if (comm_x_only) {
     atomKK->sync(Host,X_MASK);
@@ -278,7 +278,7 @@ void CommTiledKokkos::reverse_comm()
     return;
   }
 
-  k_sendlist.sync<LMPHostType>();
+  k_sendlist.sync_host();
 
   if (comm_f_only)
     atomKK->sync(Host,F_MASK);
@@ -660,7 +660,7 @@ void CommTiledKokkos::grow_list(int iswap, int iwhich, int n)
 {
   int size = static_cast<int> (BUFFACTOR * n);
 
-  k_sendlist.sync<LMPHostType>();
+  k_sendlist.sync_host();
   k_sendlist.modify<LMPHostType>();
 
   memoryKK->grow_kokkos(k_sendlist,sendlist,maxswap,nprocmaxtot,size,"comm:sendlist");

@@ -472,13 +472,13 @@ void FixCMAPKokkos<DeviceType>::operator()(TagFixCmapPostForce, const int n, dou
 template<class DeviceType>
 void FixCMAPKokkos<DeviceType>::grow_arrays(int nmax)
 {
-  k_num_crossterm.template sync<LMPHostType>();
-  k_crossterm_type.template sync<LMPHostType>();
-  k_crossterm_atom1.template sync<LMPHostType>();
-  k_crossterm_atom2.template sync<LMPHostType>();
-  k_crossterm_atom3.template sync<LMPHostType>();
-  k_crossterm_atom4.template sync<LMPHostType>();
-  k_crossterm_atom5.template sync<LMPHostType>();
+  k_num_crossterm.sync_host();
+  k_crossterm_type.sync_host();
+  k_crossterm_atom1.sync_host();
+  k_crossterm_atom2.sync_host();
+  k_crossterm_atom3.sync_host();
+  k_crossterm_atom4.sync_host();
+  k_crossterm_atom5.sync_host();
 
   // force reallocation on host
 
@@ -528,13 +528,13 @@ void FixCMAPKokkos<DeviceType>::grow_arrays(int nmax)
 template<class DeviceType>
 void FixCMAPKokkos<DeviceType>::copy_arrays(int i, int j, int delflag)
 {
-  k_num_crossterm.template sync<LMPHostType>();
-  k_crossterm_type.template sync<LMPHostType>();
-  k_crossterm_atom1.template sync<LMPHostType>();
-  k_crossterm_atom2.template sync<LMPHostType>();
-  k_crossterm_atom3.template sync<LMPHostType>();
-  k_crossterm_atom4.template sync<LMPHostType>();
-  k_crossterm_atom5.template sync<LMPHostType>();
+  k_num_crossterm.sync_host();
+  k_crossterm_type.sync_host();
+  k_crossterm_atom1.sync_host();
+  k_crossterm_atom2.sync_host();
+  k_crossterm_atom3.sync_host();
+  k_crossterm_atom4.sync_host();
+  k_crossterm_atom5.sync_host();
 
   FixCMAP::copy_arrays(i,j,delflag);
 
@@ -731,8 +731,8 @@ int FixCMAPKokkos<DeviceType>::pack_exchange_kokkos(
   copymode = 0;
 
   k_buf.template modify<DeviceType>();
-  if (space == Host) k_buf.template sync<LMPHostType>();
-  else k_buf.template sync<LMPDeviceType>();
+  if (space == Host) k_buf.sync_host();
+  else k_buf.sync_device();
 
   k_num_crossterm.template modify<DeviceType>();
   k_crossterm_type.template modify<DeviceType>();

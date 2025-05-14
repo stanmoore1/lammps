@@ -351,7 +351,7 @@ public:
 // define precision
 
 #ifndef LMP_KOKKOS_PRECISION
-#define LMP_KOKKOS_PRECISION 2
+#define LMP_KOKKOS_PRECISION 1
 #endif
 
 #if LMP_KOKKOS_PRECISION == 1 // single
@@ -596,42 +596,43 @@ struct dual_hash_type {
 };
 
 
-template<class KKType, class HostType, class KKLayout>
+template<class KKType, class LegacyType, class KKLayout>
 struct TripleView {
 
-  // Kokkos::DualView::modified_flags[0] -> host
-  // Kokkos::DualView::modified_flags[1] -> device
+  static constexpr int NEED_TRANSFORM = (!std::is_same<KKType,LegacyType>::value) || (!std::is_same<KKLayout,Kokkos::LayoutRight>::value);
+  static constexpr int TRANSFORM_ON_DEVICE = 0;
 
-  static constexpr int NEED_TRANSFORM = (!std::is_same<KKType,HostType>::value) || (!std::is_same<KKLayout,Kokkos::LayoutRight>::value);
-  static constexpr int TRANSFORM_ON_DEVICE = 1;
+  typedef Kokkos::DualView<KKType, KKLayout, LMPDeviceType> kk_view;
+  typedef Kokkos::View<LegacyType, Kokkos::LayoutRight, LMPHostType> legacy_view;
 
-  typedef Kokkos::DualView<KKType, KKLayout, LMPDeviceType> dual_type;
-  typedef Kokkos::View<HostType, Kokkos::LayoutRight, LMPHostType> alias_type;
+  kk_view k_view;
+  typename kk_view::t_dev d_view;
+  legacy_view h_legacy;
+  legacy_view h_view;
 
-  dual_type k_view;
-  alias_type h_alias;
-  alias_type h_view;
+  typedef typename legacy_view::value_type value_type;
 
-  typedef typename alias_type::value_type value_type;
-
-  int modified_host_alias;
-  int modified_device_alias;
+  int modified_legacy_device;
+  int modified_device_legacy;
+  int modified_legacy_host;
+  int modified_host_legacy;
 
   TripleView() {
-    modified_host_alias = 0;
-    modified_device_alias = 0;
+    modified_host_legacy = 0;
+    modified_device_legacy = 0;
     k_view = {};
-    h_alias = {};
+    h_legacy = {};
   }
 
   template <typename... Indices>
   TripleView(std::string name, Indices... ns) {
-    modified_host_alias = 0;
-    modified_device_alias = 0;
-    k_view = dual_type(name, ns...);
-    h_alias = alias_type(name, ns...);
+    modified_host_legacy = 0;
+    modified_device_legacy = 0;
+    k_view = kk_view(name, ns...);
+    h_legacy = legacy_view(name, ns...);
+    d_view = k_view.d_view;
     if constexpr (NEED_TRANSFORM)
-      h_view = h_alias;
+      h_view = h_legacy;
     else
       h_view = k_view.h_view;
   }
@@ -639,21 +640,22 @@ struct TripleView {
   template <typename... Indices>
   void resize(Indices... ns) {
     k_view.resize(ns...);
-    Kokkos::resize(h_alias,ns...);
+    Kokkos::resize(h_legacy,ns...);
+    d_view = k_view.d_view;
     if constexpr (NEED_TRANSFORM)
-      h_view = h_alias;
+      h_view = h_legacy;
     else
       h_view = k_view.h_view;
   }
 
-  void modify_device(int)
+  void modify_device()
   {
     k_view.modify_device();
 
     if constexpr (NEED_TRANSFORM) {
-      modified_device_alias = 1;
+      modified_device_legacy = 1;
 
-      if (modified_host_alias)
+      if (modified_host_legacy)
         Kokkos::abort("Concurrent modification of host and device views");
     }
   }
@@ -664,12 +666,12 @@ struct TripleView {
       if (kk_flag)
         k_view.modify_host();
       else {
-        modified_host_alias = 1;
+        modified_host_legacy = 1;
 
-        if (modified_device_alias)
+        if (modified_device_legacy)
           Kokkos::abort("Concurrent modification of host and device views");
 
-        if (k_view.modified_flags[0])
+        if (k_view.need_sync_host())
           Kokkos::abort("Concurrent modification of host views");
       }
     } else {
@@ -677,20 +679,20 @@ struct TripleView {
     }
   }
 
-  void sync_device(int)
+  void sync_device()
   {
     if constexpr (NEED_TRANSFORM) {
       k_view.sync_device();
 
-      if (modified_host_alias) {
+      if (modified_host_legacy) {
         if constexpr (TRANSFORM_ON_DEVICE) {
-          auto d_alias = Kokkos::create_mirror_view_and_copy(h_alias);
-          Kokkos::deep_copy(d_alias,h_alias);
-          Kokkos::deep_copy(k_view.d_view,d_alias);
-          modified_host_alias = 0;
+          auto d_legacy = Kokkos::create_mirror_view_and_copy(h_legacy);
+          Kokkos::deep_copy(d_legacy,h_legacy);
+          Kokkos::deep_copy(k_view.d_view,d_legacy);
+          modified_host_legacy = 0;
           k_view.modify_device();
         } else {
-          Kokkos::deep_copy(k_view.h_view,h_alias);
+          Kokkos::deep_copy(k_view.h_view,h_legacy);
           k_view.modify_host();
           k_view.sync_device();
         }
@@ -703,48 +705,46 @@ struct TripleView {
   void sync_host(int kk_flag = 0)
   {
     if constexpr (NEED_TRANSFORM) {
-      if (k_view.modified_flags[1]) {
+      if (k_view.need_sync_device()) {
         if (kk_flag) {
           k_view.sync_host();
         }
       }
 
-      if (modified_device_alias) {
+      if (modified_device_legacy) {
         if constexpr (TRANSFORM_ON_DEVICE) {
-          auto d_alias = Kokkos::create_mirror_view_and_copy(h_alias);
-          Kokkos::deep_copy(d_alias,k_view.d_view);
-          Kokkos::deep_copy(h_alias,d_alias);
+          auto d_legacy = Kokkos::create_mirror_view_and_copy(h_legacy);
+          Kokkos::deep_copy(d_legacy,k_view.d_view);
+          Kokkos::deep_copy(h_legacy,d_legacy);
         } else {
           k_view.sync_host();
-          Kokkos::deep_copy(k_view.h_view,h_alias);
+          Kokkos::deep_copy(k_view.h_view,h_legacy);
         }
-        modified_device_alias = 0;
-      } else if (!kk_flag && k_view.modified_flags[0]) {
-        Kokkos::deep_copy(h_alias,k_view.h_view);
-      } else if (kk_flag && modified_host_alias) {
-        Kokkos::deep_copy(k_view.h_view,h_alias);
+        modified_device_legacy = 0;
+      } else if (!kk_flag && k_view.need_sync_host()) {
+        Kokkos::deep_copy(h_legacy,k_view.h_view);
+      } else if (kk_flag && modified_host_legacy) {
+        Kokkos::deep_copy(k_view.h_view,h_legacy);
       }
     } else {
       k_view.sync_host();
     }
   }
 
-  HostType* get_alias()
-  {
-    if constexpr (NEED_TRANSFORM)
-      return h_alias.data();
-    else
-      return k_view.h_view.data();
-  }
+  template<class DeviceType>
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_dev&> view() {return d_view;}
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify(int kk_flag = 0) {modify_device(kk_flag);}
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),legacy_view&> view() {return h_view;}
+
+  template<class DeviceType>
+  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify(int kk_flag = 0) {modify_device();}
 
   template<class DeviceType>
   std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify(int kk_flag = 0) {modify_host(kk_flag);}
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync(int kk_flag = 0) {sync_device(kk_flag);}
+  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync(int kk_flag = 0) {sync_device();}
 
   template<class DeviceType>
   std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync(int kk_flag = 0) {sync_host(kk_flag);}

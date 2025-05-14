@@ -790,12 +790,12 @@ void PairTableRXKokkos<DeviceType>::compute_style(int eflag_in, int vflag_in)
 
   if (eflag_atom) {
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   copymode = 0;
@@ -1194,7 +1194,7 @@ double PairTableRXKokkos<DeviceType>::single(int i, int j, int itype, int jtype,
   a = 0.0;
   b = 0.0;
 
-  atomKK->k_dvector.template sync<LMPHostType>();
+  atomKK->k_dvector.sync_host();
   typename ArrayTypes<LMPHostType>::t_kkfloat_2d_randomread h_dvector =
     atomKK->k_dvector.view<LMPHostType>();
   getMixingWeights<LMPHostType>(h_dvector,

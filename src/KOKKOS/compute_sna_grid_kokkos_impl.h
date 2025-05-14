@@ -315,10 +315,10 @@ void ComputeSNAGridKokkos<DeviceType, real_type, vector_length>::compute_array()
   copymode = 0;
 
   k_gridlocal.template modify<DeviceType>();
-  k_gridlocal.template sync<LMPHostType>();
+  k_gridlocal.sync_host();
 
   k_gridall.template modify<DeviceType>();
-  k_gridall.template sync<LMPHostType>();
+  k_gridall.sync_host();
 }
 
 /* ----------------------------------------------------------------------

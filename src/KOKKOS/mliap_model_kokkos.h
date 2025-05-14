@@ -45,7 +45,7 @@ template <class DeviceType> class MLIAPModelKokkos : protected Pointers {
     memory->destroy(model->coeffelem);
     model->coeffelem = tmp;
     k_coeffelem.modify<LMPHostType>();
-    k_coeffelem.sync<LMPDeviceType>();
+    k_coeffelem.sync_device();
   }
 
   MLIAPModel *model;

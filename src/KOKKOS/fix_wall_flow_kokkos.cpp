@@ -179,7 +179,7 @@ template <class DeviceType> void FixWallFlowKokkos<DeviceType>::grow_arrays(int 
 
 template <class DeviceType> void FixWallFlowKokkos<DeviceType>::copy_arrays(int i, int j, int)
 {
-  k_current_segment.template sync<LMPHostType>();
+  k_current_segment.sync_host();
   h_current_segment(j) = h_current_segment(i);
   k_current_segment.template modify<LMPHostType>();
 }

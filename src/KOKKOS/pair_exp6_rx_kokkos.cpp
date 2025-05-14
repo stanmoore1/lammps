@@ -231,7 +231,7 @@ void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   }
 
   k_error_flag.template modify<DeviceType>();
-  k_error_flag.template sync<LMPHostType>();
+  k_error_flag.sync_host();
   if (k_error_flag.h_view() == 1)
     error->all(FLERR,"The number of molecules in CG particle is less than 10*DBL_EPSILON.");
   else if (k_error_flag.h_view() == 2)
@@ -318,7 +318,7 @@ void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 #endif
 
   k_error_flag.template modify<DeviceType>();
-  k_error_flag.template sync<LMPHostType>();
+  k_error_flag.sync_host();
   if (k_error_flag.h_view())
     error->all(FLERR,"alpha_ij is 6.0 in pair exp6");
 
@@ -336,12 +336,12 @@ void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (eflag_atom) {
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   copymode = 0;

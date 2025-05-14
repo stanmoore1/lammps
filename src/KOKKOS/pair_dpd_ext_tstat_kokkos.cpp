@@ -202,7 +202,7 @@ void PairDPDExtTstatKokkos<DeviceType>::compute(int eflagin, int vflagin)
     if (need_dup)
       Kokkos::Experimental::contribute(d_vatom, dup_vatom);
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   copymode = 0;

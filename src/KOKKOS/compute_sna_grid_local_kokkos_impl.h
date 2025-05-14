@@ -308,7 +308,7 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, vector_length>::compute_lo
   copymode = 0;
 
   k_alocal.template modify<DeviceType>();
-  k_alocal.template sync<LMPHostType>();
+  k_alocal.sync_host();
 }
 
 /* ----------------------------------------------------------------------

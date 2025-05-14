@@ -381,13 +381,13 @@ void NeighborKokkos::build_topology() {
     // Transfer topology neighbor lists to Host for non-Kokkos styles
 
     if (force->bond && force->bond->execution_space == Host)
-      k_bondlist.sync<LMPHostType>();
+      k_bondlist.sync_host();
     if (force->angle && force->angle->execution_space == Host)
-      k_anglelist.sync<LMPHostType>();
+      k_anglelist.sync_host();
     if (force->dihedral && force->dihedral->execution_space == Host)
-      k_dihedrallist.sync<LMPHostType>();
+      k_dihedrallist.sync_host();
     if (force->improper && force->improper->execution_space == Host)
-      k_improperlist.sync<LMPHostType>();
+      k_improperlist.sync_host();
 
    } else {
     neighbond_host.build_topology_kk();

@@ -167,10 +167,10 @@ void ComputeCoordAtomKokkos<DeviceType>::compute_peratom()
 
   if (ncol == 1 || cstyle == ORIENT) {
     k_cvec.modify<DeviceType>();
-    k_cvec.sync<LMPHostType>();
+    k_cvec.sync_host();
   } else {
     k_carray.modify<DeviceType>();
-    k_carray.sync<LMPHostType>();
+    k_carray.sync_host();
   }
 
 }

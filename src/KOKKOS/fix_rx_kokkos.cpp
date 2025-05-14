@@ -1472,7 +1472,7 @@ void FixRxKokkos<DeviceType>::solve_reactions(const int /*vflag*/, const bool is
 
   // Check the error flag for any failures.
   k_error_flag.template modify<DeviceType>();
-  k_error_flag.template sync<LMPHostType>();
+  k_error_flag.sync_host();
   if (k_error_flag.h_view() == 2)
     error->one(FLERR,"Computed concentration in RK solver is < -1.0e-10");
 
@@ -2006,7 +2006,7 @@ template <typename DeviceType>
 int FixRxKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)
 {
   // Sync the host view.
-  k_dpdThetaLocal.template sync<LMPHostType>();
+  k_dpdThetaLocal.sync_host();
   k_sumWeights.   template sync<LMPHostType>();
 
   const int last = first + n;

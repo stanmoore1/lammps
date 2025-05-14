@@ -226,7 +226,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::compute_peratom()
   copymode = 0;
 
   k_qnarray.template modify<DeviceType>();
-  k_qnarray.template sync<LMPHostType>();
+  k_qnarray.sync_host();
 }
 
 /* ---------------------------------------------------------------------- */

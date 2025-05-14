@@ -578,8 +578,8 @@ void FixShardlowKokkos<DeviceType>::initial_integrate(int /*vflag*/)
   np_ssa->k_ssa_gitemLoc.template sync<DeviceType>();
   np_ssa->k_ssa_gitemLen.template sync<DeviceType>();
 
-  np_ssa->k_ssa_phaseLen.template sync<LMPHostType>();
-  np_ssa->k_ssa_gphaseLen.template sync<LMPHostType>();
+  np_ssa->k_ssa_phaseLen.sync_host();
+  np_ssa->k_ssa_gphaseLen.sync_host();
   auto h_ssa_phaseLen = np_ssa->k_ssa_phaseLen.h_view;
   auto h_ssa_gphaseLen = np_ssa->k_ssa_gphaseLen.h_view;
 

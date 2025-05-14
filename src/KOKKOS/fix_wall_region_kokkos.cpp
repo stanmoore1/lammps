@@ -122,7 +122,7 @@ void FixWallRegionKokkos<DeviceType>::post_force(int vflag)
 
   if (vflag_atom) {
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 }
 

@@ -246,7 +246,7 @@ void PairMLIAPKokkos<DeviceType>::coeff(int narg, char **arg) {
     else error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   }
   k_map.modify<LMPHostType>();
-  k_map.sync<LMPDeviceType>();
+  k_map.sync_device();
 
   // clear setflag since coeff() called once with I,J = * *
 
@@ -265,7 +265,7 @@ void PairMLIAPKokkos<DeviceType>::coeff(int narg, char **arg) {
         count++;
       }
   k_setflag.modify<LMPHostType>();
-  k_setflag.sync<LMPDeviceType>();
+  k_setflag.sync_device();
 
   if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 
@@ -307,7 +307,7 @@ void PairMLIAPKokkos<DeviceType>::e_tally(MLIAPData* data)
     });
     k_eatom.modify<DeviceType>();
     // This sync has to be here for the hybrid pair type
-    k_eatom.sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 }
 

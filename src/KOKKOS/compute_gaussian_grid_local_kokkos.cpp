@@ -200,7 +200,7 @@ void ComputeGaussianGridLocalKokkos<DeviceType>::compute_local()
   copymode = 0;
 
   k_alocal.template modify<DeviceType>();
-  k_alocal.template sync<LMPHostType>();
+  k_alocal.sync_host();
 
 }
 

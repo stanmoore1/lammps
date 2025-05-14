@@ -1300,8 +1300,8 @@ double FixQEqReaxFFKokkos<DeviceType>::memory_usage()
 template<class DeviceType>
 void FixQEqReaxFFKokkos<DeviceType>::grow_arrays(int nmax)
 {
-  k_s_hist.template sync<LMPHostType>();
-  k_t_hist.template sync<LMPHostType>();
+  k_s_hist.sync_host();
+  k_t_hist.sync_host();
 
   k_s_hist.template modify<LMPHostType>(); // force reallocation on host
   k_t_hist.template modify<LMPHostType>();
@@ -1323,8 +1323,8 @@ void FixQEqReaxFFKokkos<DeviceType>::grow_arrays(int nmax)
 template<class DeviceType>
 void FixQEqReaxFFKokkos<DeviceType>::copy_arrays(int i, int j, int /*delflag*/)
 {
-  k_s_hist.template sync<LMPHostType>();
-  k_t_hist.template sync<LMPHostType>();
+  k_s_hist.sync_host();
+  k_t_hist.sync_host();
 
   for (int m = 0; m < nprev; m++) {
     s_hist[j][m] = s_hist[i][m];
@@ -1456,8 +1456,8 @@ void FixQEqReaxFFKokkos<DeviceType>::unpack_exchange_kokkos(
 template<class DeviceType>
 int FixQEqReaxFFKokkos<DeviceType>::pack_exchange(int i, double *buf)
 {
-  k_s_hist.template sync<LMPHostType>();
-  k_t_hist.template sync<LMPHostType>();
+  k_s_hist.sync_host();
+  k_t_hist.sync_host();
 
   for (int m = 0; m < nprev; m++) buf[m] = s_hist[i][m];
   for (int m = 0; m < nprev; m++) buf[nprev+m] = t_hist[i][m];
@@ -1475,8 +1475,8 @@ int FixQEqReaxFFKokkos<DeviceType>::pack_exchange(int i, double *buf)
 template<class DeviceType>
 int FixQEqReaxFFKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 {
-  k_s_hist.template sync<LMPHostType>();
-  k_t_hist.template sync<LMPHostType>();
+  k_s_hist.sync_host();
+  k_t_hist.sync_host();
 
   for (int m = 0; m < nprev; m++) s_hist[nlocal][m] = buf[m];
   for (int m = 0; m < nprev; m++) t_hist[nlocal][m] = buf[nprev+m];

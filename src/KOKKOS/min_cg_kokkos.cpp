@@ -47,7 +47,7 @@ int MinCGKokkos::iterate(int maxiter)
   int fail,ntimestep;
   double beta,gg,dot[2],dotall[2],fdotf;
 
-  fix_minimize_kk->k_vectors.sync<LMPDeviceType>();
+  fix_minimize_kk->k_vectors.sync_device();
   fix_minimize_kk->k_vectors.modify<LMPDeviceType>();
 
   atomKK->sync(Device,F_MASK);

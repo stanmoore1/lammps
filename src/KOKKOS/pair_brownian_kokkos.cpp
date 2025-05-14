@@ -257,7 +257,7 @@ void PairBrownianKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (vflag_atom) {
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   if (vflag_fdotr) pair_virial_fdotr_compute(this);

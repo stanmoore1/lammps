@@ -513,11 +513,11 @@ class KissFFTKokkos {
       }
 
       k_factors.template modify<LMPHostType>();
-      k_factors.template sync<LMPDeviceType>();
+      k_factors.sync_device();
       st.d_factors = k_factors.template view<DeviceType>();
 
       k_twiddles.template modify<LMPHostType>();
-      k_twiddles.template sync<LMPDeviceType>();
+      k_twiddles.sync_device();
       st.d_twiddles = k_twiddles.template view<DeviceType>();
 
       return st;

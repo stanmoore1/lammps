@@ -677,12 +677,12 @@ void PPPMKokkos<DeviceType>::compute(int eflag, int vflag)
 
   if (eflag_atom) {
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 }
 
@@ -1145,7 +1145,7 @@ void PPPMKokkos<DeviceType>::particle_map()
   copymode = 0;
 
   k_flag.template modify<DeviceType>();
-  k_flag.template sync<LMPHostType>();
+  k_flag.sync_host();
   if (k_flag.h_view())
     error->one(FLERR, Error::NOLASTLINE, "Out of range atoms - cannot compute PPPM" + utils::errorurl(4));
 }

@@ -453,7 +453,7 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
 
   if (vflag_atom) {
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   // free duplicated memory
@@ -1666,8 +1666,8 @@ int FixShakeKokkos<DeviceType>::pack_exchange_kokkos(
 
   k_buf.modify<DeviceType>();
 
-  if (space == Host) k_buf.sync<LMPHostType>();
-  else k_buf.sync<LMPDeviceType>();
+  if (space == Host) k_buf.sync_host();
+  else k_buf.sync_device();
 
   k_shake_flag.template modify<DeviceType>();
   k_shake_atom.template modify<DeviceType>();
