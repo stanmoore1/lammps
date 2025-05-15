@@ -192,7 +192,7 @@ class PairEAMAlloyKokkos : public PairEAM, public KokkosBase {
 
   int first;
   typename AT::t_int_1d d_sendlist;
-  typename AT::t_kkfloat_1d_um v_buf;
+  typename AT::t_double_1d_um v_buf;
 
   int neighflag,newton_pair;
   int nlocal,nall,eflag,vflag;

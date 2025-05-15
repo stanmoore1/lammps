@@ -82,9 +82,9 @@ class PairBrownianKokkos : public PairBrownian, public KokkosBase {
   int newton_pair;
   KK_FLOAT special_lj[4];
 
-  DAT::tdual_kkfloat_2d k_cutsq;
+  DAT::ttriple_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
-  DAT::tdual_kkfloat_2d k_cut_inner;
+  DAT::ttriple_kkfloat_2d k_cut_inner;
   typename AT::t_kkfloat_2d d_cut_inner;
 
   int neighflag;

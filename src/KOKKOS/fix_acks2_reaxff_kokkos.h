@@ -72,7 +72,7 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
   void pre_force(int) override;
   void cleanup_copy();
 
-  DAT::tdual_kkfloat_1d get_s() {return k_s;}
+  DAT::ttriple_kkfloat_1d get_s() {return k_s;}
 
   KOKKOS_INLINE_FUNCTION
   void num_neigh_item(int, bigint&) const;
@@ -209,15 +209,15 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
   typename AT::t_int_1d d_jlist_X;
   typename AT::t_kkfloat_1d d_val_X;
 
-  DAT::tdual_kkfloat_1d k_s, k_X_diag, k_chi_field;
+  DAT::ttriple_kkfloat_1d k_s, k_X_diag, k_chi_field;
   typename AT::t_kkfloat_1d d_Hdia_inv,d_Xdia_inv, d_X_diag, d_chi_field, d_b_s,  d_s;
   typename AT::t_kkfloat_1d_randomread r_b_s, r_s;
 
-  DAT::tdual_kkfloat_1d k_d, k_q_hat, k_z, k_y;
+  DAT::ttriple_kkfloat_1d k_d, k_q_hat, k_z, k_y;
   typename AT::t_kkfloat_1d d_p, d_q, d_r, d_d, d_g, d_q_hat, d_r_hat, d_y, d_z, d_bb, d_xx;
   typename AT::t_kkfloat_1d_randomread r_p, r_r, r_d;
 
-  DAT::tdual_kkfloat_2d k_shield, k_s_hist, k_s_hist_X, k_s_hist_last;
+  DAT::ttriple_kkfloat_2d k_shield, k_s_hist, k_s_hist_X, k_s_hist_last;
   typename AT::t_kkfloat_2d d_shield, d_s_hist, d_s_hist_X, d_s_hist_last;
   typename AT::t_kkfloat_2d_randomread r_s_hist, r_s_hist_X, r_s_hist_last;
 
@@ -250,7 +250,7 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
 
   int first;
   typename AT::t_int_1d d_sendlist;
-  typename AT::t_kkfloat_1d_um v_buf;
+  typename AT::t_double_1d_um v_buf;
 
   void grow_arrays(int) override;
   void copy_arrays(int, int, int) override;

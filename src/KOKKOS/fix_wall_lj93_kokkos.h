@@ -59,7 +59,7 @@ class FixWallLJ93Kokkos : public FixWallLJ93 {
   DAT::ttriple_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
-  DAT::tdual_kkfloat_1d k_cutoff,k_coeff1,k_coeff2,k_coeff3,k_coeff4,k_offset;
+  DAT::ttriple_kkfloat_1d k_cutoff,k_coeff1,k_coeff2,k_coeff3,k_coeff4,k_offset;
   typename AT::t_kkfloat_1d d_cutoff,d_coeff1,d_coeff2,d_coeff3,d_coeff4,d_offset;
 
   KOKKOS_INLINE_FUNCTION

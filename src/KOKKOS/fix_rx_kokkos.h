@@ -224,7 +224,7 @@ class FixRxKokkos : public FixRX {
   void create_kinetics_data();
 
   // Need a dual-view and device-view for dpdThetaLocal and sumWeights since they're used in several callbacks.
-  DAT::tdual_kkfloat_1d k_dpdThetaLocal, k_sumWeights;
+  DAT::ttriple_kkfloat_1d k_dpdThetaLocal, k_sumWeights;
   //typename ArrayTypes<DeviceType>::t_kkfloat_1d d_dpdThetaLocal, d_sumWeights;
   typename AT::t_kkfloat_1d d_dpdThetaLocal, d_sumWeights;
   HAT::t_kkfloat_1d h_dpdThetaLocal, h_sumWeights;
@@ -233,7 +233,7 @@ class FixRxKokkos : public FixRX {
   typename AT::t_int_1d_randomread  d_type;
   typename AT::t_kkfloat_1d          d_dpdTheta;
 
-  DAT::tdual_kkfloat_2d k_cutsq;
+  DAT::ttriple_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d     d_cutsq;
   //double **h_cutsq;
 

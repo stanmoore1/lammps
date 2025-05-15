@@ -72,15 +72,15 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   typedef EV_FLOAT value_type;
 
  protected:
-  DAT::tdual_kkfloat_2d k_cutsq;//Create a DualView, defination of tdual_kkfloat_2d in kokkos_type.h
+  DAT::ttriple_kkfloat_2d k_cutsq;//Create a DualView, defination of tdual_kkfloat_2d in kokkos_type.h
   typename AT::t_kkfloat_2d d_cutsq; //t_kkfloat_2d = t_dev ==> Creates a new View d_cutsq
   //the type of d_cutsq is decided by the Device(not host) type for the DualView k_cutsq
   //Meaning the memory location of d_cutsq is the same as the Device(not host) memory location of
   //k_cutsq
   typedef Kokkos::DualView<KK_FLOAT***, Kokkos::LayoutRight, DeviceType> tdual_kkfloat_3d;
   typedef Kokkos::DualView<KK_FLOAT****, Kokkos::LayoutRight, DeviceType> tdual_kkfloat_4d;
-  tdual_kkfloat_3d k_cut_3b;
-  tdual_kkfloat_4d k_min_cut_3b;
+  ttriple_kkfloat_3d k_cut_3b;
+  ttriple_kkfloat_4d k_min_cut_3b;
   typename tdual_kkfloat_3d::t_dev d_cut_3b;
   typename tdual_kkfloat_4d::t_dev d_min_cut_3b;
   template <typename TYPE> void destroy_3d(TYPE data, typename TYPE::value_type*** &array);

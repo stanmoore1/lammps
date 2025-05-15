@@ -59,7 +59,7 @@ template <class DeviceType> class ComputeAveSphereAtomKokkos : public ComputeAve
   typename AT::t_int_1d d_ilist;
   typename AT::t_int_1d d_numneigh;
 
-  DAT::tdual_kkfloat_2d k_result;
+  DAT::ttriple_kkfloat_2d k_result;
   typename AT::t_kkfloat_2d d_result;
 };
 

@@ -178,12 +178,12 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
 
   DAT::tdual_int_scalar k_error_flag;
 
-  DAT::tdual_kkfloat_2d k_cutsq;
+  DAT::ttriple_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
 
   int first;
   typename AT::t_int_1d d_sendlist;
-  typename AT::t_kkfloat_1d_um v_buf;
+  typename AT::t_double_1d_um v_buf;
 
   friend void pair_virial_fdotr_compute<PairMultiLucyRXKokkos>(PairMultiLucyRXKokkos*);
 };

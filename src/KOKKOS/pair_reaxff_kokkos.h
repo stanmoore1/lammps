@@ -499,15 +499,15 @@ class PairReaxFFKokkos : public PairReaxFF {
 
   tdual_LR_lookup_table_kk_2d k_LR;
 
-  DAT::tdual_int_2d k_tmpid;
-  DAT::tdual_kkfloat_2d k_tmpbo;
+  DAT::ttriple_int_2d k_tmpid;
+  DAT::ttriple_kkfloat_2d k_tmpbo;
   DAT::tdual_int_scalar k_error_flag;
 
   typename AT::t_int_1d d_numneigh_bonds;
   typename AT::t_tagint_2d d_neighid;
   typename AT::t_kkfloat_2d d_abo;
 
-  typename AT::t_kkfloat_1d d_buf;
+  typename AT::t_double_1d d_buf;
   DAT::tdual_int_scalar k_nbuf_local;
 
   typedef Kokkos::View<reax_int4**, LMPDeviceType::array_layout, DeviceType> t_reax_int4_2d;

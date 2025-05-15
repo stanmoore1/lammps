@@ -4140,7 +4140,7 @@ void PairReaxFFKokkos<DeviceType>::calculate_find_bond_item(int ii, int &numbond
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairReaxFFKokkos<DeviceType>::PackBondBuffer(DAT::tdual_kkfloat_1d k_buf, int &nbuf_local)
+void PairReaxFFKokkos<DeviceType>::PackBondBuffer(DAT::tdual_double_1d k_buf, int &nbuf_local)
 {
   d_buf = k_buf.view<DeviceType>();
   k_params_sing.template sync<DeviceType>();
@@ -4169,7 +4169,7 @@ void PairReaxFFKokkos<DeviceType>::PackBondBuffer(DAT::tdual_kkfloat_1d k_buf, i
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairReaxFFKokkos<DeviceType>::PackReducedBondBuffer(DAT::tdual_kkfloat_1d k_buf, int &nbuf_local, bool store_bonds)
+void PairReaxFFKokkos<DeviceType>::PackReducedBondBuffer(DAT::tdual_double_1d k_buf, int &nbuf_local, bool store_bonds)
 {
   d_buf = k_buf.view<DeviceType>();
   k_params_sing.template sync<DeviceType>();

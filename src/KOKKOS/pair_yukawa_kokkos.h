@@ -87,7 +87,7 @@ class PairYukawaKokkos : public PairYukawa {
   int newton_pair;
   KK_FLOAT special_lj[4];
 
-  DAT::tdual_kkfloat_2d k_cutsq;
+  DAT::ttriple_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
 
 

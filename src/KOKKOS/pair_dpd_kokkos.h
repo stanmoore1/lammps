@@ -120,7 +120,7 @@ class PairDPDKokkos : public PairDPD {
   typename AT::t_int_1d_randomread d_ilist;
   typename AT::t_int_1d_randomread d_numneigh;
 
-  DAT::tdual_kkfloat_2d k_cutsq;
+  DAT::ttriple_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
 
   Kokkos::DualView<params_dpd**,Kokkos::LayoutRight,DeviceType> k_params;

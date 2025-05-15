@@ -103,12 +103,12 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixShakeUnpackExchange, const int&) const;
 
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_kkfloat_2d &buf,
+  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            ExecutionSpace space) override;
 
-  void unpack_exchange_kokkos(DAT::tdual_kkfloat_2d &k_buf,
+  void unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf,
                               DAT::tdual_int_1d &indices,int nrecv,
                               int nrecv1,int nrecv1extra,
                               ExecutionSpace space) override;
@@ -149,13 +149,13 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   typename AT::t_int_2d d_shake_type; // bondtype of each bond in cluster
                                          // for angle cluster, 3rd value
                                          //   is angletype
-  DAT::tdual_kkfloat_1d_3 k_xshake;
+  DAT::ttriple_kkfloat_1d_3 k_xshake;
   typename AT::t_kkfloat_1d_3 d_xshake; // unconstrained atom coords
 
   DAT::tdual_int_1d k_list;
   typename AT::t_int_1d d_list; // list of clusters to SHAKE
 
-  DAT::tdual_int_2d k_closest_list;
+  DAT::ttriple_int_2d k_closest_list;
   typename AT::t_int_2d d_closest_list; // list of closest atom indices in SHAKE clusters
 
   DAT::tdual_int_scalar k_error_flag;
@@ -214,7 +214,7 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   int first,nsend;
 
   typename AT::t_int_1d d_sendlist;
-  typename AT::t_kkfloat_1d_um d_buf;
+  typename AT::t_double_1d_um d_buf;
 
   typename AT::t_int_1d d_exchange_sendlist;
   typename AT::t_int_1d d_copylist;

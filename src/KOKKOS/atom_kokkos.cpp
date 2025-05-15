@@ -189,10 +189,10 @@ void AtomKokkos::allocate_type_arrays()
 {
   if (avec->mass_type == AtomVec::PER_TYPE) {
     k_mass = DAT::tdual_kkfloat_1d("Mass", ntypes + 1);
-    mass = k_mass.h_view.data();
+    mass = k3_mass.h_view.data();
     mass_setflag = new int[ntypes + 1];
     for (int itype = 1; itype <= ntypes; itype++) mass_setflag[itype] = 0;
-    k_mass.modify<LMPHostType>();
+    k3_mass.modify<LMPHostType>();
   }
 }
 
@@ -307,7 +307,7 @@ int AtomKokkos::add_custom(const char *name, int flag, int cols, int ghost)
     dvghost[index] = ghost;
     dvector = (double **) memory->srealloc(dvector, ndvector * sizeof(double *), "atom:dvector");
     this->sync(Device, DVECTOR_MASK);
-    memoryKK->grow_kokkos(k_dvector, dvector, ndvector, nmax, "atom:dvector");
+    memoryKK->grow_kokkos(k3_dvector, dvector, ndvector, nmax, "atom:dvector");
     this->modified(Device, DVECTOR_MASK);
 
   } else if (flag == 0 && cols) {

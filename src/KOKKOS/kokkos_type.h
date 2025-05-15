@@ -1017,6 +1017,8 @@ typedef tdual_kkfloat_3d::t_dev_um t_kkfloat_3d_um;
 typedef tdual_kkfloat_3d::t_dev_const_um t_kkfloat_3d_const_um;
 typedef tdual_kkfloat_3d::t_dev_const_randomread t_kkfloat_3d_randomread;
 
+typedef TripleView<KK_FLOAT***, double***, LMPDeviceType::array_layout> ttriple_kkfloat_3d;
+
 // 4D view types
 
 typedef Kokkos::DualView<double****, LMPDeviceType::array_layout, LMPDeviceType> tdual_double_4d;

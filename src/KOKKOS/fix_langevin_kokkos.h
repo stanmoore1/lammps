@@ -113,11 +113,11 @@ namespace LAMMPS_NS {
     typename ArrayTypes<DeviceType>::t_kkfloat_2d d_lv;
     HAT::t_kkfloat_2d h_lv;
 
-    DAT::tdual_kkfloat_2d k_flangevin;
+    DAT::ttriple_kkfloat_2d k_flangevin;
     typename ArrayTypes<DeviceType>::t_kkfloat_2d d_flangevin;
     HAT::t_kkfloat_2d h_flangevin;
 
-    DAT::tdual_kkfloat_1d k_tforce;
+    DAT::ttriple_kkfloat_1d k_tforce;
     typename ArrayTypes<DeviceType>::t_kkfloat_1d d_tforce;
     HAT::t_kkfloat_1d h_tforce;
 
@@ -126,7 +126,7 @@ namespace LAMMPS_NS {
     typename ArrayTypes<DeviceType>::t_int_1d type;
     typename ArrayTypes<DeviceType>::t_int_1d mask;
 
-    DAT::tdual_kkfloat_1d k_gfactor1, k_gfactor2, k_ratio;
+    DAT::ttriple_kkfloat_1d k_gfactor1, k_gfactor2, k_ratio;
     typename ArrayTypes<DeviceType>::t_kkfloat_1d d_gfactor1, d_gfactor2, d_ratio;
     HAT::t_kkfloat_1d h_gfactor1, h_gfactor2, h_ratio;
 

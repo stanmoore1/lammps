@@ -95,7 +95,7 @@ class PairLJSPICACoulLongKokkos : public PairLJSPICACoulLong {
 
   int newton_pair;
 
-  DAT::tdual_kkfloat_2d k_cutsq, k_cut_ljsq;
+  DAT::ttriple_kkfloat_2d k_cutsq, k_cut_ljsq;
   typename AT::t_kkfloat_2d d_cutsq, d_cut_ljsq, d_cut_coulsq;
 
   typename AT::t_kkfloat_1d_randomread

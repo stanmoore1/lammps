@@ -89,11 +89,11 @@ class PairLJClass2CoulCutKokkos : public PairLJClass2CoulCut {
 
   int newton_pair;
 
-  DAT::tdual_kkfloat_2d k_cutsq;
+  DAT::ttriple_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
-  DAT::tdual_kkfloat_2d k_cut_ljsq;
+  DAT::ttriple_kkfloat_2d k_cut_ljsq;
   typename AT::t_kkfloat_2d d_cut_ljsq;
-  DAT::tdual_kkfloat_2d k_cut_coulsq;
+  DAT::ttriple_kkfloat_2d k_cut_coulsq;
   typename AT::t_kkfloat_2d d_cut_coulsq;
 
   int neighflag;

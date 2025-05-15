@@ -473,7 +473,7 @@ void PairADPKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_ho
 
 template<class DeviceType>
 int PairADPKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                                                        DAT::tdual_kkfloat_1d &buf,
+                                                        DAT::tdual_double_1d &buf,
                                                         int /*pbc_flag*/, int * /*pbc*/)
 {
   d_sendlist = k_sendlist.view<DeviceType>();
@@ -501,7 +501,7 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPPackForwardComm, const int 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairADPKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_kkfloat_1d &buf)
+void PairADPKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_double_1d &buf)
 {
   first = first_in;
   v_buf = buf.view<DeviceType>();

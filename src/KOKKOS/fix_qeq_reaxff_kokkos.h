@@ -136,12 +136,12 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagQEqUnpackExchange, const int&) const;
 
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_kkfloat_2d &buf,
+  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            ExecutionSpace space) override;
 
-  void unpack_exchange_kokkos(DAT::tdual_kkfloat_2d &k_buf,
+  void unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf,
                               DAT::tdual_int_1d &indices,int nrecv,
                               int nrecv1,int nextrarecv1,
                               ExecutionSpace space) override;
@@ -233,7 +233,7 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
   typename AT::t_int_1d d_jlist;
   typename AT::t_kkfloat_1d d_val;
 
-  DAT::tdual_kkfloat_1d k_chi_field;
+  DAT::ttriple_kkfloat_1d k_chi_field;
   typename AT::t_kkfloat_1d d_Hdia_inv, d_chi_field;
 
   DAT::tdual_kkfloat_1d_2 k_o, k_d, k_st;
@@ -259,7 +259,7 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
   int nsend;
   int first;
   typename AT::t_int_1d d_sendlist;
-  typename AT::t_kkfloat_1d d_buf;
+  typename AT::t_double_1d d_buf;
   typename AT::t_int_1d d_copylist;
   typename AT::t_int_1d d_indices;
   typename AT::t_int_1d d_exchange_sendlist;

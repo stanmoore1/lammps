@@ -90,7 +90,7 @@ class PairLJCharmmCoulCharmmImplicitKokkos : public PairLJCharmmCoulCharmmImplic
 
   int newton_pair;
 
-  DAT::tdual_kkfloat_2d k_cutsq;
+  DAT::ttriple_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
   DAT::tdual_kkfloat_2d k_cut_ljsq;
   typename AT::t_kkfloat_2d d_cut_ljsq;

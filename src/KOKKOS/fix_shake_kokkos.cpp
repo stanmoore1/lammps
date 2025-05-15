@@ -1636,7 +1636,7 @@ void FixShakeKokkos<DeviceType>::pack_exchange_item(const int &mysend, int &offs
 
 template<class DeviceType>
 int FixShakeKokkos<DeviceType>::pack_exchange_kokkos(
-   const int &nsend, DAT::tdual_kkfloat_2d &k_buf,
+   const int &nsend, DAT::tdual_double_2d &k_buf,
    DAT::tdual_int_1d k_exchange_sendlist, DAT::tdual_int_1d k_copylist,
    ExecutionSpace space)
 {
@@ -1725,7 +1725,7 @@ void FixShakeKokkos<DeviceType>::operator()(TagFixShakeUnpackExchange, const int
 
 template <class DeviceType>
 void FixShakeKokkos<DeviceType>::unpack_exchange_kokkos(
-  DAT::tdual_kkfloat_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
+  DAT::tdual_double_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
   int nrecv1, int nextrarecv1,
   ExecutionSpace /*space*/)
 {
@@ -1799,7 +1799,7 @@ int FixShakeKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 
 template<class DeviceType>
 int FixShakeKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                                                         DAT::tdual_kkfloat_1d &k_buf,
+                                                         DAT::tdual_double_1d &k_buf,
                                                          int pbc_flag, int* pbc)
 {
   d_sendlist = k_sendlist.view<DeviceType>();
@@ -1857,7 +1857,7 @@ int FixShakeKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixShakeKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_kkfloat_1d &buf)
+void FixShakeKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_double_1d &buf)
 {
   first = first_in;
   d_buf = buf.view<DeviceType>();

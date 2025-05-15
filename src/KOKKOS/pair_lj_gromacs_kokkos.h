@@ -96,11 +96,11 @@ class PairLJGromacsKokkos : public PairLJGromacs {
 
   int newton_pair;
 
-  DAT::tdual_kkfloat_2d k_cutsq;
+  DAT::ttriple_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
-  DAT::tdual_kkfloat_2d k_cut_inner;
+  DAT::ttriple_kkfloat_2d k_cut_inner;
   typename AT::t_kkfloat_2d d_cut_inner;
-  DAT::tdual_kkfloat_2d k_cut_inner_sq;
+  DAT::ttriple_kkfloat_2d k_cut_inner_sq;
   typename AT::t_kkfloat_2d d_cut_inner_sq;
 
   typename AT::t_kkfloat_1d_randomread
