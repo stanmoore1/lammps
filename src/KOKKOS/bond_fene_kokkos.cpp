@@ -314,8 +314,8 @@ void BondFENEKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int 
   KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = d_eatom;
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = d_vatom;
 
   if (eflag_either) {
     if (eflag_global) {

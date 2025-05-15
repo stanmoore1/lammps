@@ -76,7 +76,7 @@ class AngleCosineKokkos : public AngleCosine {
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  typename ArrayTypes<DeviceType>::tdual_kkfloat_1d k_k;
+  DAT::tdual_kkfloat_1d k_k;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d d_k;
 
   void allocate() override;

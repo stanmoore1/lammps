@@ -54,67 +54,67 @@ AtomKokkos::AtomKokkos(LAMMPS *lmp) : Atom(lmp)
 
 AtomKokkos::~AtomKokkos()
 {
-  memoryKK->destroy_kokkos(k_tag, tag);
-  memoryKK->destroy_kokkos(k_mask, mask);
-  memoryKK->destroy_kokkos(k_type, type);
-  memoryKK->destroy_kokkos(k_image, image);
-  memoryKK->destroy_kokkos(k_molecule, molecule);
+  memoryKK->destroy_kokkos(k3_tag, tag);
+  memoryKK->destroy_kokkos(k3_mask, mask);
+  memoryKK->destroy_kokkos(k3_type, type);
+  memoryKK->destroy_kokkos(k3_image, image);
+  memoryKK->destroy_kokkos(k3_molecule, molecule);
 
-  memoryKK->destroy_kokkos(k_x, x);
-  memoryKK->destroy_kokkos(k_v, v);
-  memoryKK->destroy_kokkos(k_f, f);
+  memoryKK->destroy_kokkos(k3_x, x);
+  memoryKK->destroy_kokkos(k3_v, v);
+  memoryKK->destroy_kokkos(k3_f, f);
 
-  memoryKK->destroy_kokkos(k_mass, mass);
-  memoryKK->destroy_kokkos(k_q, q);
+  memoryKK->destroy_kokkos(k3_mass, mass);
+  memoryKK->destroy_kokkos(k3_q, q);
 
-  memoryKK->destroy_kokkos(k_radius, radius);
-  memoryKK->destroy_kokkos(k_rmass, rmass);
-  memoryKK->destroy_kokkos(k_omega, omega);
-  memoryKK->destroy_kokkos(k_angmom, angmom);
-  memoryKK->destroy_kokkos(k_torque, torque);
+  memoryKK->destroy_kokkos(k3_radius, radius);
+  memoryKK->destroy_kokkos(k3_rmass, rmass);
+  memoryKK->destroy_kokkos(k3_omega, omega);
+  memoryKK->destroy_kokkos(k3_angmom, angmom);
+  memoryKK->destroy_kokkos(k3_torque, torque);
 
-  memoryKK->destroy_kokkos(k_nspecial, nspecial);
-  memoryKK->destroy_kokkos(k_special, special);
-  memoryKK->destroy_kokkos(k_num_bond, num_bond);
-  memoryKK->destroy_kokkos(k_bond_type, bond_type);
-  memoryKK->destroy_kokkos(k_bond_atom, bond_atom);
-  memoryKK->destroy_kokkos(k_num_angle, num_angle);
-  memoryKK->destroy_kokkos(k_angle_type, angle_type);
-  memoryKK->destroy_kokkos(k_angle_atom1, angle_atom1);
-  memoryKK->destroy_kokkos(k_angle_atom2, angle_atom2);
-  memoryKK->destroy_kokkos(k_angle_atom3, angle_atom3);
-  memoryKK->destroy_kokkos(k_num_dihedral, num_dihedral);
-  memoryKK->destroy_kokkos(k_dihedral_type, dihedral_type);
-  memoryKK->destroy_kokkos(k_dihedral_atom1, dihedral_atom1);
-  memoryKK->destroy_kokkos(k_dihedral_atom2, dihedral_atom2);
-  memoryKK->destroy_kokkos(k_dihedral_atom3, dihedral_atom3);
-  memoryKK->destroy_kokkos(k_dihedral_atom4, dihedral_atom4);
-  memoryKK->destroy_kokkos(k_num_improper, num_improper);
-  memoryKK->destroy_kokkos(k_improper_type, improper_type);
-  memoryKK->destroy_kokkos(k_improper_atom1, improper_atom1);
-  memoryKK->destroy_kokkos(k_improper_atom2, improper_atom2);
-  memoryKK->destroy_kokkos(k_improper_atom3, improper_atom3);
-  memoryKK->destroy_kokkos(k_improper_atom4, improper_atom4);
+  memoryKK->destroy_kokkos(k3_nspecial, nspecial);
+  memoryKK->destroy_kokkos(k3_special, special);
+  memoryKK->destroy_kokkos(k3_num_bond, num_bond);
+  memoryKK->destroy_kokkos(k3_bond_type, bond_type);
+  memoryKK->destroy_kokkos(k3_bond_atom, bond_atom);
+  memoryKK->destroy_kokkos(k3_num_angle, num_angle);
+  memoryKK->destroy_kokkos(k3_angle_type, angle_type);
+  memoryKK->destroy_kokkos(k3_angle_atom1, angle_atom1);
+  memoryKK->destroy_kokkos(k3_angle_atom2, angle_atom2);
+  memoryKK->destroy_kokkos(k3_angle_atom3, angle_atom3);
+  memoryKK->destroy_kokkos(k3_num_dihedral, num_dihedral);
+  memoryKK->destroy_kokkos(k3_dihedral_type, dihedral_type);
+  memoryKK->destroy_kokkos(k3_dihedral_atom1, dihedral_atom1);
+  memoryKK->destroy_kokkos(k3_dihedral_atom2, dihedral_atom2);
+  memoryKK->destroy_kokkos(k3_dihedral_atom3, dihedral_atom3);
+  memoryKK->destroy_kokkos(k3_dihedral_atom4, dihedral_atom4);
+  memoryKK->destroy_kokkos(k3_num_improper, num_improper);
+  memoryKK->destroy_kokkos(k3_improper_type, improper_type);
+  memoryKK->destroy_kokkos(k3_improper_atom1, improper_atom1);
+  memoryKK->destroy_kokkos(k3_improper_atom2, improper_atom2);
+  memoryKK->destroy_kokkos(k3_improper_atom3, improper_atom3);
+  memoryKK->destroy_kokkos(k3_improper_atom4, improper_atom4);
 
   AtomKokkos::map_delete();
 
   // SPIN package
 
-  memoryKK->destroy_kokkos(k_sp, sp);
-  memoryKK->destroy_kokkos(k_fm, fm);
-  memoryKK->destroy_kokkos(k_fm_long, fm_long);
+  memoryKK->destroy_kokkos(k3_sp, sp);
+  memoryKK->destroy_kokkos(k3_fm, fm);
+  memoryKK->destroy_kokkos(k3_fm_long, fm_long);
 
   // DPD-REACT package
-  memoryKK->destroy_kokkos(k_uCond, uCond);
-  memoryKK->destroy_kokkos(k_uMech, uMech);
-  memoryKK->destroy_kokkos(k_uChem, uChem);
-  memoryKK->destroy_kokkos(k_uCG, uCG);
-  memoryKK->destroy_kokkos(k_uCGnew, uCGnew);
-  memoryKK->destroy_kokkos(k_rho, rho);
-  memoryKK->destroy_kokkos(k_dpdTheta, dpdTheta);
-  memoryKK->destroy_kokkos(k_duChem, duChem);
+  memoryKK->destroy_kokkos(k3_uCond, uCond);
+  memoryKK->destroy_kokkos(k3_uMech, uMech);
+  memoryKK->destroy_kokkos(k3_uChem, uChem);
+  memoryKK->destroy_kokkos(k3_uCG, uCG);
+  memoryKK->destroy_kokkos(k3_uCGnew, uCGnew);
+  memoryKK->destroy_kokkos(k3_rho, rho);
+  memoryKK->destroy_kokkos(k3_dpdTheta, dpdTheta);
+  memoryKK->destroy_kokkos(k3_duChem, duChem);
 
-  memoryKK->destroy_kokkos(k_dvector, dvector);
+  memoryKK->destroy_kokkos(k3_dvector, dvector);
   dvector = nullptr;
   delete [] fix_prop_atom;
 }
@@ -380,25 +380,25 @@ void AtomKokkos::remove_custom(int index, int flag, int cols)
 
 void AtomKokkos::deallocate_topology()
 {
-  memoryKK->destroy_kokkos(k_bond_type, bond_type);
-  memoryKK->destroy_kokkos(k_bond_atom, bond_atom);
+  memoryKK->destroy_kokkos(k3_bond_type, bond_type);
+  memoryKK->destroy_kokkos(k3_bond_atom, bond_atom);
 
-  memoryKK->destroy_kokkos(k_angle_type, angle_type);
-  memoryKK->destroy_kokkos(k_angle_atom1, angle_atom1);
-  memoryKK->destroy_kokkos(k_angle_atom2, angle_atom2);
-  memoryKK->destroy_kokkos(k_angle_atom3, angle_atom3);
+  memoryKK->destroy_kokkos(k3_angle_type, angle_type);
+  memoryKK->destroy_kokkos(k3_angle_atom1, angle_atom1);
+  memoryKK->destroy_kokkos(k3_angle_atom2, angle_atom2);
+  memoryKK->destroy_kokkos(k3_angle_atom3, angle_atom3);
 
-  memoryKK->destroy_kokkos(k_dihedral_type, dihedral_type);
-  memoryKK->destroy_kokkos(k_dihedral_atom1, dihedral_atom1);
-  memoryKK->destroy_kokkos(k_dihedral_atom2, dihedral_atom2);
-  memoryKK->destroy_kokkos(k_dihedral_atom3, dihedral_atom3);
-  memoryKK->destroy_kokkos(k_dihedral_atom4, dihedral_atom4);
+  memoryKK->destroy_kokkos(k3_dihedral_type, dihedral_type);
+  memoryKK->destroy_kokkos(k3_dihedral_atom1, dihedral_atom1);
+  memoryKK->destroy_kokkos(k3_dihedral_atom2, dihedral_atom2);
+  memoryKK->destroy_kokkos(k3_dihedral_atom3, dihedral_atom3);
+  memoryKK->destroy_kokkos(k3_dihedral_atom4, dihedral_atom4);
 
-  memoryKK->destroy_kokkos(k_improper_type, improper_type);
-  memoryKK->destroy_kokkos(k_improper_atom1, improper_atom1);
-  memoryKK->destroy_kokkos(k_improper_atom2, improper_atom2);
-  memoryKK->destroy_kokkos(k_improper_atom3, improper_atom3);
-  memoryKK->destroy_kokkos(k_improper_atom4, improper_atom4);
+  memoryKK->destroy_kokkos(k3_improper_type, improper_type);
+  memoryKK->destroy_kokkos(k3_improper_atom1, improper_atom1);
+  memoryKK->destroy_kokkos(k3_improper_atom2, improper_atom2);
+  memoryKK->destroy_kokkos(k3_improper_atom3, improper_atom3);
+  memoryKK->destroy_kokkos(k3_improper_atom4, improper_atom4);
 }
 
 /* ---------------------------------------------------------------------- */

@@ -76,8 +76,8 @@ class AngleHarmonicKokkos : public AngleHarmonic {
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  typename ArrayTypes<DeviceType>::tdual_kkfloat_1d k_k;
-  typename ArrayTypes<DeviceType>::tdual_kkfloat_1d k_theta0;
+  DAT::tdual_kkfloat_1d k_k;
+  DAT::tdual_kkfloat_1d k_theta0;
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d d_k;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d d_theta0;

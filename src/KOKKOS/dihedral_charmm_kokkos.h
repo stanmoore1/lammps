@@ -105,8 +105,8 @@ class DihedralCharmmKokkos : public DihedralCharmm {
                 const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
-  Kokkos::DualView<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
-  Kokkos::DualView<KK_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom;
+  TripleView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
+  TripleView<KK_FLOAT*[6],double*[6],LMPDeviceType::array_layout,KKDeviceType> k_vatom;
 
  protected:
 
@@ -119,20 +119,20 @@ class DihedralCharmmKokkos : public DihedralCharmm {
   typename AT::t_int_2d dihedrallist;
 
   Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
-  Kokkos::View<KK_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
+  Kokkos::View<KK_FLOAT*[6],LMPDeviceType::array_layout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
 
-  Kokkos::DualView<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType> k_eatom_pair;
-  Kokkos::DualView<KK_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom_pair;
+  TripleView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom_pair;
+  TripleView<KK_FLOAT*[6],double*[6],LMPDeviceType::array_layout,KKDeviceType> k_vatom_pair;
   Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom_pair;
-  Kokkos::View<KK_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom_pair;
+  Kokkos::View<KK_FLOAT*[6],LMPDeviceType::array_layout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom_pair;
 
   int nlocal,newton_bond;
   int eflag,vflag;
   KK_FLOAT qqrd2e;
 
-  Kokkos::DualView<int,DeviceType> k_warning_flag;
-  typename Kokkos::DualView<int,DeviceType>::t_dev d_warning_flag;
-  typename Kokkos::DualView<int,DeviceType>::t_host h_warning_flag;
+  DAT::tdual_int_scalar k_warning_flag;
+  typename AT::t_int_scalar d_warning_flag;
+  HAT::t_int_scalar h_warning_flag;
 
   typename AT::t_kkfloat_2d d_lj14_1;
   typename AT::t_kkfloat_2d d_lj14_2;

@@ -469,7 +469,7 @@ void PairGranHookeHistoryKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, int i, i
                                                           KK_FLOAT fx, KK_FLOAT fy, KK_FLOAT fz,
                                                           KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz) const
 {
-  Kokkos::View<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = d_vatom;
 
   const KK_FLOAT v0 = delx*fx;
   const KK_FLOAT v1 = dely*fy;

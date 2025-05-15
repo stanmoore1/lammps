@@ -731,6 +731,20 @@ struct TripleView {
     }
   }
 
+  template <typename iType>
+  KOKKOS_INLINE_FUNCTION constexpr std::enable_if_t<std::is_integral_v<iType>,
+                                                    size_t>
+  extent(const iType& r) const {
+    return k_view.extent(r);
+  }
+
+  template <typename iType>
+  KOKKOS_INLINE_FUNCTION constexpr std::enable_if_t<std::is_integral_v<iType>,
+                                                    int>
+  extent_int(const iType& r) const {
+    return static_cast<int>(k_view.extent(r));
+  }
+
   template<class DeviceType>
   std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_dev&> view() {return d_view;}
 

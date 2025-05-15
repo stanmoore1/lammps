@@ -54,7 +54,7 @@ DihedralCharmmfswKokkos<DeviceType>::DihedralCharmmfswKokkos(LAMMPS *lmp) : Dihe
   datamask_read = X_MASK | F_MASK | Q_MASK | ENERGY_MASK | VIRIAL_MASK | TYPE_MASK;
   datamask_modify = F_MASK | ENERGY_MASK | VIRIAL_MASK;
 
-  k_warning_flag = Kokkos::DualView<int,DeviceType>("Dihedral:warning_flag");
+  k_warning_flag = DAT::tdual_int_scalar("Dihedral:warning_flag");
   d_warning_flag = k_warning_flag.template view<DeviceType>();
   h_warning_flag = k_warning_flag.h_view;
 
@@ -97,7 +97,7 @@ void DihedralCharmmfswKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       memoryKK->destroy_kokkos(k_eatom,eatom);
       memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"dihedral:eatom");
       d_eatom = k_eatom.template view<KKDeviceType>();
-      k_eatom_pair = Kokkos::DualView<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType>("dihedral:eatom_pair",maxeatom);
+      k_eatom_pair = TripleView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType>("dihedral:eatom_pair",maxeatom);
       d_eatom_pair = k_eatom_pair.template view<KKDeviceType>();
     //}
   }
@@ -106,7 +106,7 @@ void DihedralCharmmfswKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       memoryKK->destroy_kokkos(k_vatom,vatom);
       memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"dihedral:vatom");
       d_vatom = k_vatom.template view<KKDeviceType>();
-      k_vatom_pair = Kokkos::DualView<KK_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType>("dihedral:vatom_pair",maxvatom);
+      k_vatom_pair = TripleView<KK_FLOAT*[6],double*[6],LMPDeviceType::array_layout,KKDeviceType>("dihedral:vatom_pair",maxvatom);
       d_vatom_pair = k_vatom_pair.template view<KKDeviceType>();
     //}
   }

@@ -84,7 +84,7 @@ class PairMorseKokkos : public PairMorse {
   int newton_pair;
   KK_FLOAT special_lj[4];
 
-  typename ArrayTypes<DeviceType>::tdual_kkfloat_2d k_cutsq;
+  DAT::tdual_kkfloat_2d k_cutsq;
   typename ArrayTypes<DeviceType>::t_kkfloat_2d d_cutsq;
 
 

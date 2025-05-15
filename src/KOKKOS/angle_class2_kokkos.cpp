@@ -335,21 +335,21 @@ void AngleClass2Kokkos<DeviceType>::coeff(int narg, char **arg)
   AngleClass2::coeff(narg, arg);
 
   int n = atom->nangletypes;
-  k_k2 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::k2",n+1);
-  k_k3 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::k3",n+1);
-  k_k4 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::k4",n+1);
-  k_bb_k = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::bb_k",n+1);
-  k_bb_r1 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::bb_r1",n+1);
-  k_bb_r2 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::bb_r2",n+1);
-  k_ba_k1 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::ba_k1",n+1);
-  k_ba_k2 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::ba_k2",n+1);
-  k_ba_r1 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::ba_r1",n+1);
-  k_ba_r2 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::ba_r2",n+1);
-  k_setflag = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::setflag",n+1);
-  k_setflag_a = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::setflag_a",n+1);
-  k_setflag_bb = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::setflag_bb",n+1);
-  k_setflag_ba = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::setflag_ba",n+1);
-  k_theta0 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::theta0",n+1);
+  k_k2 = DAT::tdual_kkfloat_1d("AngleClass2::k2",n+1);
+  k_k3 = DAT::tdual_kkfloat_1d("AngleClass2::k3",n+1);
+  k_k4 = DAT::tdual_kkfloat_1d("AngleClass2::k4",n+1);
+  k_bb_k = DAT::tdual_kkfloat_1d("AngleClass2::bb_k",n+1);
+  k_bb_r1 = DAT::tdual_kkfloat_1d("AngleClass2::bb_r1",n+1);
+  k_bb_r2 = DAT::tdual_kkfloat_1d("AngleClass2::bb_r2",n+1);
+  k_ba_k1 = DAT::tdual_kkfloat_1d("AngleClass2::ba_k1",n+1);
+  k_ba_k2 = DAT::tdual_kkfloat_1d("AngleClass2::ba_k2",n+1);
+  k_ba_r1 = DAT::tdual_kkfloat_1d("AngleClass2::ba_r1",n+1);
+  k_ba_r2 = DAT::tdual_kkfloat_1d("AngleClass2::ba_r2",n+1);
+  k_setflag = DAT::tdual_kkfloat_1d("AngleClass2::setflag",n+1);
+  k_setflag_a = DAT::tdual_kkfloat_1d("AngleClass2::setflag_a",n+1);
+  k_setflag_bb = DAT::tdual_kkfloat_1d("AngleClass2::setflag_bb",n+1);
+  k_setflag_ba = DAT::tdual_kkfloat_1d("AngleClass2::setflag_ba",n+1);
+  k_theta0 = DAT::tdual_kkfloat_1d("AngleClass2::theta0",n+1);
 
   d_k2 = k_k2.template view<DeviceType>();
   d_k3 = k_k3.template view<DeviceType>();
@@ -414,21 +414,21 @@ void AngleClass2Kokkos<DeviceType>::read_restart(FILE *fp)
   AngleClass2::read_restart(fp);
 
   int n = atom->nangletypes;
-  k_k2 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::k2",n+1);
-  k_k3 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::k3",n+1);
-  k_k4 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::k4",n+1);
-  k_bb_k = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::bb_k",n+1);
-  k_bb_r1 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::bb_r1",n+1);
-  k_bb_r2 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::bb_r2",n+1);
-  k_ba_k1 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::ba_k1",n+1);
-  k_ba_k2 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::ba_k2",n+1);
-  k_ba_r1 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::ba_r1",n+1);
-  k_ba_r2 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::ba_r2",n+1);
-  k_setflag = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::setflag",n+1);
-  k_setflag_a = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::setflag_a",n+1);
-  k_setflag_bb = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::setflag_bb",n+1);
-  k_setflag_ba = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::setflag_ba",n+1);
-  k_theta0 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleClass2::theta0",n+1);
+  k_k2 = DAT::tdual_kkfloat_1d("AngleClass2::k2",n+1);
+  k_k3 = DAT::tdual_kkfloat_1d("AngleClass2::k3",n+1);
+  k_k4 = DAT::tdual_kkfloat_1d("AngleClass2::k4",n+1);
+  k_bb_k = DAT::tdual_kkfloat_1d("AngleClass2::bb_k",n+1);
+  k_bb_r1 = DAT::tdual_kkfloat_1d("AngleClass2::bb_r1",n+1);
+  k_bb_r2 = DAT::tdual_kkfloat_1d("AngleClass2::bb_r2",n+1);
+  k_ba_k1 = DAT::tdual_kkfloat_1d("AngleClass2::ba_k1",n+1);
+  k_ba_k2 = DAT::tdual_kkfloat_1d("AngleClass2::ba_k2",n+1);
+  k_ba_r1 = DAT::tdual_kkfloat_1d("AngleClass2::ba_r1",n+1);
+  k_ba_r2 = DAT::tdual_kkfloat_1d("AngleClass2::ba_r2",n+1);
+  k_setflag = DAT::tdual_kkfloat_1d("AngleClass2::setflag",n+1);
+  k_setflag_a = DAT::tdual_kkfloat_1d("AngleClass2::setflag_a",n+1);
+  k_setflag_bb = DAT::tdual_kkfloat_1d("AngleClass2::setflag_bb",n+1);
+  k_setflag_ba = DAT::tdual_kkfloat_1d("AngleClass2::setflag_ba",n+1);
+  k_theta0 = DAT::tdual_kkfloat_1d("AngleClass2::theta0",n+1);
 
   d_k2 = k_k2.template view<DeviceType>();
   d_k3 = k_k3.template view<DeviceType>();
@@ -500,8 +500,8 @@ void AngleClass2Kokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i, const in
   KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
-  Kokkos::View<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.template view<DeviceType>();
+  Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = d_eatom;
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = d_vatom;
 
   if (eflag_either) {
     if (eflag_global) {

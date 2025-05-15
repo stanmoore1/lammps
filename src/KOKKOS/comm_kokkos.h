@@ -70,7 +70,7 @@ class CommKokkos : public CommBrick {
  protected:
   DAT::tdual_int_2d k_sendlist;
   DAT::tdual_int_scalar k_total_send;
-  DAT::tdual_kkfloat_2d k_buf_send,k_buf_recv;
+  DAT::tdual_double_2d k_buf_send,k_buf_recv;
   DAT::tdual_int_1d k_exchange_sendlist,k_exchange_copylist,k_indices;
   DAT::tdual_int_scalar k_count;
 
@@ -84,8 +84,8 @@ class CommKokkos : public CommBrick {
   int totalsend;
 
   int max_buf_pair,max_buf_fix;
-  DAT::tdual_kkfloat_1d k_buf_send_pair, k_buf_send_fix;
-  DAT::tdual_kkfloat_1d k_buf_recv_pair, k_buf_recv_fix;
+  DAT::tdual_double_1d k_buf_send_pair, k_buf_send_fix;
+  DAT::tdual_double_1d k_buf_recv_pair, k_buf_recv_fix;
   void grow_buf_pair(int);
   void grow_buf_fix(int);
 

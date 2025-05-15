@@ -247,8 +247,8 @@ void AngleHarmonicKokkos<DeviceType>::allocate()
   AngleHarmonic::allocate();
 
   int n = atom->nangletypes;
-  k_k = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleHarmonic::k",n+1);
-  k_theta0 = typename ArrayTypes<DeviceType>::tdual_kkfloat_1d("AngleHarmonic::theta0",n+1);
+  k_k = DAT::tdual_kkfloat_1d("AngleHarmonic::k",n+1);
+  k_theta0 = DAT::tdual_kkfloat_1d("AngleHarmonic::theta0",n+1);
 
   d_k = k_k.template view<DeviceType>();
   d_theta0 = k_theta0.template view<DeviceType>();
@@ -309,8 +309,8 @@ void AngleHarmonicKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i, const 
   KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = k_eatom.template view<DeviceType>();
-  Kokkos::View<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = k_vatom.template view<DeviceType>();
+  Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_eatom = d_eatom;
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > v_vatom = d_vatom;
 
   if (eflag_either) {
     if (eflag_global) {

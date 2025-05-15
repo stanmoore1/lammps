@@ -68,8 +68,8 @@ class BondHarmonicKokkos : public BondHarmonic {
   typename AT::t_int_2d bondlist;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
-  Kokkos::DualView<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
-  Kokkos::DualView<KK_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom;
+  TripleView<KK_FLOAT*,double*,LMPDeviceType::array_layout,KKDeviceType> k_eatom;
+  TripleView<KK_FLOAT*[6],double*[6],LMPDeviceType::array_layout,KKDeviceType> k_vatom;
   Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
   Kokkos::View<KK_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
 

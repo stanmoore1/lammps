@@ -213,7 +213,7 @@ void PairCoulDSFKokkos<DeviceType>::operator()(TagPairCoulDSFKernelA<NEIGHFLAG,N
 
   // The f array is atomic for Half/Thread neighbor style
   Kokkos::View<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
-  Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = k_eatom.view<DeviceType>();
+  Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = d_eatom;
 
   const int i = d_ilist[ii];
   const KK_FLOAT xtmp = x(i,0);
@@ -308,8 +308,8 @@ void PairCoulDSFKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const i
   const int VFLAG = vflag_either;
 
   // The eatom and vatom arrays are atomic for Half/Thread neighbor style
-  Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom = d_eatom;
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = d_vatom;
 
   if (EFLAG) {
     if (eflag_atom) {

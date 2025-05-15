@@ -61,8 +61,8 @@ class ImproperHarmonicKokkos : public ImproperHarmonic {
                           const KK_FLOAT &vb3x, const KK_FLOAT &vb3y, const KK_FLOAT &vb3z) const;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
-  Kokkos::DualView<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
-  Kokkos::DualView<KK_FLOAT*[6],Kokkos::LayoutRight,KKDeviceType> k_vatom;
+  TripleView<KK_FLOAT*,double*,LMPDeviceType::array_layout,KKDeviceType> k_eatom;
+  TripleView<KK_FLOAT*[6],double*[6],LMPDeviceType::array_layout,KKDeviceType> k_vatom;
 
  protected:
 
@@ -81,8 +81,8 @@ class ImproperHarmonicKokkos : public ImproperHarmonic {
   typename Kokkos::DualView<int,DeviceType>::t_dev d_warning_flag;
   typename Kokkos::DualView<int,DeviceType>::t_host h_warning_flag;
 
-  DAT::t_kkfloat_1d k_k;
-  DAT::t_kkfloat_1d k_chi;
+  DAT::tdual_kkfloat_1d k_k;
+  DAT::tdual_kkfloat_1d k_chi;
 
   typename AT::t_kkfloat_1d d_k;
   typename AT::t_kkfloat_1d d_chi;

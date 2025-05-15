@@ -106,8 +106,8 @@ class PairTableRXKokkos : public PairTable {
   int isite1, isite2;
   bool fractionalWeighting;
 
-  typename ArrayTypes<DeviceType>::tdual_kkfloat_1d k_eatom;
-  typename ArrayTypes<DeviceType>::tdual_kkfloat_1d_6 k_vatom;
+  DAT::tdual_kkfloat_1d k_eatom;
+  DAT::tdual_kkfloat_1d_6 k_vatom;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
 };

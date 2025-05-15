@@ -108,7 +108,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   typedef typename Kokkos::Random_XorShift1024_Pool<DeviceType>::generator_type rand_type;
 #endif
 
-  typename ArrayTypes<DeviceType>::tdual_kkfloat_2d k_cutsq;
+  DAT::tdual_kkfloat_2d k_cutsq;
   typename ArrayTypes<DeviceType>::t_kkfloat_2d d_cutsq;
 
  protected:

@@ -1169,9 +1169,9 @@ void FixRxKokkos<DeviceType>::operator()(SolverType, const int &i) const
 template <typename DeviceType>
 void FixRxKokkos<DeviceType>::create_kinetics_data()
 {
-  memoryKK->create_kokkos( d_kineticsData.Arr, h_kineticsData.Arr, nreactions, "KineticsType::Arr");
-  memoryKK->create_kokkos( d_kineticsData.nArr, h_kineticsData.nArr, nreactions, "KineticsType::nArr");
-  memoryKK->create_kokkos( d_kineticsData.Ea, h_kineticsData.Ea, nreactions, "KineticsType::Ea");
+  memoryKK->create_kokkos(d_kineticsData.Arr, h_kineticsData.Arr, nreactions, "KineticsType::Arr");
+  memoryKK->create_kokkos(d_kineticsData.nArr, h_kineticsData.nArr, nreactions, "KineticsType::nArr");
+  memoryKK->create_kokkos(d_kineticsData.Ea, h_kineticsData.Ea, nreactions, "KineticsType::Ea");
 
   for (int i = 0; i < nreactions; ++i)
   {
@@ -1187,8 +1187,8 @@ void FixRxKokkos<DeviceType>::create_kinetics_data()
   if (useSparseKinetics)
   {
 
-    memoryKK->create_kokkos( d_kineticsData.nu , h_kineticsData.nu , nreactions, sparseKinetics_maxSpecies, "KineticsType::nu");
-    memoryKK->create_kokkos( d_kineticsData.nuk, h_kineticsData.nuk, nreactions, sparseKinetics_maxSpecies, "KineticsType::nuk");
+    memoryKK->create_kokkos(d_kineticsData.nu , h_kineticsData.nu , nreactions, sparseKinetics_maxSpecies, "KineticsType::nu");
+    memoryKK->create_kokkos(d_kineticsData.nuk, h_kineticsData.nuk, nreactions, sparseKinetics_maxSpecies, "KineticsType::nuk");
 
     for (int i = 0; i < nreactions; ++i)
       for (int k = 0; k < sparseKinetics_maxSpecies; ++k)
@@ -1202,8 +1202,8 @@ void FixRxKokkos<DeviceType>::create_kinetics_data()
 
     if (SparseKinetics_enableIntegralReactions)
     {
-      memoryKK->create_kokkos( d_kineticsData.inu, h_kineticsData.inu, nreactions, sparseKinetics_maxSpecies, "KineticsType::inu");
-      memoryKK->create_kokkos( d_kineticsData.isIntegral, h_kineticsData.isIntegral, nreactions, "KineticsType::isIntegral");
+      memoryKK->create_kokkos(d_kineticsData.inu, h_kineticsData.inu, nreactions, sparseKinetics_maxSpecies, "KineticsType::inu");
+      memoryKK->create_kokkos(d_kineticsData.isIntegral, h_kineticsData.isIntegral, nreactions, "KineticsType::isIntegral");
 
       for (int i = 0; i < nreactions; ++i)
       {
@@ -1222,9 +1222,9 @@ void FixRxKokkos<DeviceType>::create_kinetics_data()
   //{
 
     // Dense option
-    memoryKK->create_kokkos( d_kineticsData.stoich, h_kineticsData.stoich, nreactions, nspecies, "KineticsType::stoich");
-    memoryKK->create_kokkos( d_kineticsData.stoichReactants, h_kineticsData.stoichReactants, nreactions, nspecies, "KineticsType::stoichReactants");
-    memoryKK->create_kokkos( d_kineticsData.stoichProducts, h_kineticsData.stoichProducts, nreactions, nspecies, "KineticsType::stoichProducts");
+    memoryKK->create_kokkos(d_kineticsData.stoich, h_kineticsData.stoich, nreactions, nspecies, "KineticsType::stoich");
+    memoryKK->create_kokkos(d_kineticsData.stoichReactants, h_kineticsData.stoichReactants, nreactions, nspecies, "KineticsType::stoichReactants");
+    memoryKK->create_kokkos(d_kineticsData.stoichProducts, h_kineticsData.stoichProducts, nreactions, nspecies, "KineticsType::stoichProducts");
 
     for (int i = 0; i < nreactions; ++i)
       for (int k = 0; k < nspecies; ++k)
@@ -1375,7 +1375,7 @@ void FixRxKokkos<DeviceType>::solve_reactions(const int /*vflag*/, const bool is
 
     if (count > (int) k_dpdThetaLocal.template view<DeviceType>().extent(0)) {
       memoryKK->destroy_kokkos (k_dpdThetaLocal, dpdThetaLocal);
-      memoryKK->create_kokkos (k_dpdThetaLocal, dpdThetaLocal, count, "FixRxKokkos::dpdThetaLocal");
+      memoryKK->create_kokkos(k_dpdThetaLocal, dpdThetaLocal, count, "FixRxKokkos::dpdThetaLocal");
       this->d_dpdThetaLocal = k_dpdThetaLocal.template view<DeviceType>();
       this->h_dpdThetaLocal = k_dpdThetaLocal.h_view;
     }
@@ -1438,8 +1438,8 @@ void FixRxKokkos<DeviceType>::solve_reactions(const int /*vflag*/, const bool is
 
   if (odeIntegrationFlag == ODE_LAMMPS_RKF45 && diagnosticFrequency == 1)
   {
-    memoryKK->create_kokkos (k_diagnosticCounterPerODEnSteps, diagnosticCounterPerODEnSteps, nlocal, "FixRxKokkos::diagnosticCounterPerODEnSteps");
-    memoryKK->create_kokkos (k_diagnosticCounterPerODEnFuncs, diagnosticCounterPerODEnFuncs, nlocal, "FixRxKokkos::diagnosticCounterPerODEnFuncs");
+    memoryKK->create_kokkos(k_diagnosticCounterPerODEnSteps, diagnosticCounterPerODEnSteps, nlocal, "FixRxKokkos::diagnosticCounterPerODEnSteps");
+    memoryKK->create_kokkos(k_diagnosticCounterPerODEnFuncs, diagnosticCounterPerODEnFuncs, nlocal, "FixRxKokkos::diagnosticCounterPerODEnFuncs");
 
     d_diagnosticCounterPerODEnSteps = k_diagnosticCounterPerODEnSteps.template view<DeviceType>();
     d_diagnosticCounterPerODEnFuncs = k_diagnosticCounterPerODEnFuncs.template view<DeviceType>();
