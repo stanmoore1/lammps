@@ -765,6 +765,15 @@ struct TripleView {
 
 };
 
+// --------------------------------------------------------------------------------
+
+#define KOKKOS_DEVICE_DUALVIEW(TYPE, LAYOUT, SUFFIX) \
+typedef Kokkos::DualView<TYPE, LAYOUT, LMPDeviceType> tdual_##SUFFIX; \
+typedef tdual_##SUFFIX::t_dev t_##SUFFIX; \
+typedef tdual_##SUFFIX::t_dev_const t_##SUFFIX##_const; \
+typedef tdual_##SUFFIX::t_dev_um t_##SUFFIX##_um; \
+typedef tdual_##SUFFIX::t_dev_const_um t_##SUFFIX##_const_um; \
+typedef tdual_##SUFFIX::t_dev_const_randomread t_##SUFFIX##_randomread;
 
 template <class DeviceType>
 struct ArrayTypes;
@@ -774,266 +783,61 @@ struct ArrayTypes<LMPDeviceType> {
 
 // scalar types
 
-typedef Kokkos::
-  DualView<int, Kokkos::LayoutRight, LMPDeviceType> tdual_int_scalar;
-typedef tdual_int_scalar::t_dev t_int_scalar;
-typedef tdual_int_scalar::t_dev_const t_int_scalar_const;
-typedef tdual_int_scalar::t_dev_um t_int_scalar_um;
-typedef tdual_int_scalar::t_dev_const_um t_int_scalar_const_um;
-
-typedef Kokkos::
-  DualView<LAMMPS_NS::bigint, Kokkos::LayoutRight, LMPDeviceType> tdual_bigint_scalar;
-typedef tdual_bigint_scalar::t_dev t_bigint_scalar;
-typedef tdual_bigint_scalar::t_dev_const t_bigint_scalar_const;
-typedef tdual_bigint_scalar::t_dev_um t_bigint_scalar_um;
-typedef tdual_bigint_scalar::t_dev_const_um t_bigint_scalar_const_um;
-typedef tdual_bigint_scalar::t_dev_const_randomread t_bigint_scalar_randomread;
-
-typedef Kokkos::
-  DualView<LAMMPS_NS::tagint, Kokkos::LayoutRight, LMPDeviceType> tdual_tagint_scalar;
-typedef tdual_tagint_scalar::t_dev t_tagint_scalar;
-typedef tdual_tagint_scalar::t_dev_const t_tagint_scalar_const;
-typedef tdual_tagint_scalar::t_dev_um t_tagint_scalar_um;
-typedef tdual_tagint_scalar::t_dev_const_um t_tagint_scalar_const_um;
-
-typedef Kokkos::
-  DualView<double, Kokkos::LayoutRight, LMPDeviceType>
-  tdual_double_scalar;
-typedef tdual_double_scalar::t_dev t_double_scalar;
-typedef tdual_double_scalar::t_dev_const t_double_scalar_const;
-typedef tdual_double_scalar::t_dev_um t_double_scalar_um;
-typedef tdual_double_scalar::t_dev_const_um t_double_scalar_const_um;
-
-typedef Kokkos::
-  DualView<KK_FLOAT, Kokkos::LayoutRight, LMPDeviceType>
-  tdual_kkfloat_scalar;
-typedef tdual_kkfloat_scalar::t_dev t_kkfloat_scalar;
-typedef tdual_kkfloat_scalar::t_dev_const t_kkfloat_scalar_const;
-typedef tdual_kkfloat_scalar::t_dev_um t_kkfloat_scalar_um;
-typedef tdual_kkfloat_scalar::t_dev_const_um t_kkfloat_scalar_const_um;
+KOKKOS_DEVICE_DUALVIEW(int,      Kokkos::LayoutRight, int_scalar)
+KOKKOS_DEVICE_DUALVIEW(bigint,   Kokkos::LayoutRight, bigint_scalar)
+KOKKOS_DEVICE_DUALVIEW(tagint,   Kokkos::LayoutRight, tagint_scalar)
+KOKKOS_DEVICE_DUALVIEW(double,   Kokkos::LayoutRight, double_scalar)
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT, Kokkos::LayoutRight, kkfloat_scalar)
 
 // 1D view types
 
-typedef Kokkos::
-  DualView<int*, Kokkos::LayoutRight, LMPDeviceType> tdual_int_1d;
-typedef tdual_int_1d::t_dev t_int_1d;
-typedef tdual_int_1d::t_dev_const t_int_1d_const;
-typedef tdual_int_1d::t_dev_um t_int_1d_um;
-typedef tdual_int_1d::t_dev_const_um t_int_1d_const_um;
-typedef tdual_int_1d::t_dev_const_randomread t_int_1d_randomread;
+KOKKOS_DEVICE_DUALVIEW(int*,      Kokkos::LayoutRight, int_1d)
+KOKKOS_DEVICE_DUALVIEW(bigint*,   Kokkos::LayoutRight, bigint_1d)
+KOKKOS_DEVICE_DUALVIEW(tagint*,   Kokkos::LayoutRight, tagint_1d)
+KOKKOS_DEVICE_DUALVIEW(imageint*, Kokkos::LayoutRight, imageint_1d)
+KOKKOS_DEVICE_DUALVIEW(double*,   Kokkos::LayoutRight, double_1d)
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*, Kokkos::LayoutRight, kkfloat_1d)
 
 typedef TripleView<int*, int*, Kokkos::LayoutRight> ttriple_int_1d;
-
-typedef Kokkos::
-  DualView<LAMMPS_NS::bigint*, Kokkos::LayoutRight, LMPDeviceType> tdual_bigint_1d;
-typedef tdual_bigint_1d::t_dev t_bigint_1d;
-typedef tdual_bigint_1d::t_dev_const t_bigint_1d_const;
-typedef tdual_bigint_1d::t_dev_um t_bigint_1d_um;
-typedef tdual_bigint_1d::t_dev_const_um t_bigint_1d_const_um;
-typedef tdual_bigint_1d::t_dev_const_randomread t_bigint_1d_randomread;
-
-typedef Kokkos::
-  DualView<LAMMPS_NS::tagint*, Kokkos::LayoutRight, LMPDeviceType>
-  tdual_tagint_1d;
-typedef tdual_tagint_1d::t_dev t_tagint_1d;
-typedef tdual_tagint_1d::t_dev_const t_tagint_1d_const;
-typedef tdual_tagint_1d::t_dev_um t_tagint_1d_um;
-typedef tdual_tagint_1d::t_dev_const_um t_tagint_1d_const_um;
-typedef tdual_tagint_1d::t_dev_const_randomread t_tagint_1d_randomread;
-
 typedef TripleView<LAMMPS_NS::tagint*, LAMMPS_NS::tagint*, Kokkos::LayoutRight> ttriple_tagint_1d;
-
-typedef Kokkos::
-  DualView<LAMMPS_NS::imageint*, Kokkos::LayoutRight, LMPDeviceType>
-  tdual_imageint_1d;
-typedef tdual_imageint_1d::t_dev t_imageint_1d;
-typedef tdual_imageint_1d::t_dev_const t_imageint_1d_const;
-typedef tdual_imageint_1d::t_dev_um t_imageint_1d_um;
-typedef tdual_imageint_1d::t_dev_const_um t_imageint_1d_const_um;
-typedef tdual_imageint_1d::t_dev_const_randomread t_imageint_1d_randomread;
-
-typedef TripleView<LAMMPS_NS::imageint*, LAMMPS_NS::imageint*, Kokkos::LayoutRight> ttriple_imageint_1d;
-
-typedef Kokkos::
-  DualView<double*, Kokkos::LayoutRight, LMPDeviceType> tdual_double_1d;
-typedef tdual_double_1d::t_dev t_double_1d;
-typedef tdual_double_1d::t_dev_const t_double_1d_const;
-typedef tdual_double_1d::t_dev_um t_double_1d_um;
-typedef tdual_double_1d::t_dev_const_um t_double_1d_const_um;
-typedef tdual_double_1d::t_dev_const_randomread t_double_1d_randomread;
-
-typedef Kokkos::
-  DualView<KK_FLOAT*, Kokkos::LayoutRight, LMPDeviceType> tdual_kkfloat_1d;
-typedef tdual_kkfloat_1d::t_dev t_kkfloat_1d;
-typedef tdual_kkfloat_1d::t_dev_const t_kkfloat_1d_const;
-typedef tdual_kkfloat_1d::t_dev_um t_kkfloat_1d_um;
-typedef tdual_kkfloat_1d::t_dev_const_um t_kkfloat_1d_const_um;
-typedef tdual_kkfloat_1d::t_dev_const_randomread t_kkfloat_1d_randomread;
-
 typedef TripleView<KK_FLOAT*, double*, Kokkos::LayoutRight> ttriple_kkfloat_1d;
 
 // 2D view types
 
-typedef Kokkos::
-  DualView<int**, LMPDeviceType::array_layout, LMPDeviceType> tdual_int_2d;
-typedef tdual_int_2d::t_dev t_int_2d;
-typedef tdual_int_2d::t_dev_const t_int_2d_const;
-typedef tdual_int_2d::t_dev_um t_int_2d_um;
-typedef tdual_int_2d::t_dev_const_um t_int_2d_const_um;
-typedef tdual_int_2d::t_dev_const_randomread t_int_2d_randomread;
-
-typedef Kokkos::
-  DualView<int**, Kokkos::LayoutRight, LMPDeviceType> tdual_int_2d_lr;
-typedef tdual_int_2d_lr::t_dev t_int_2d_lr;
-typedef tdual_int_2d_lr::t_dev_const t_int_2d_lr_const;
-typedef tdual_int_2d_lr::t_dev_um t_int_2d_lr_um;
-typedef tdual_int_2d_lr::t_dev_const_um t_int_2d_lr_const_um;
-typedef tdual_int_2d_lr::t_dev_const_randomread t_int_2d_lr_randomread;
+KOKKOS_DEVICE_DUALVIEW(int**,        LMPDeviceType::array_layout, int_2d)
+KOKKOS_DEVICE_DUALVIEW(int**,        Kokkos::LayoutRight,         int_2d_lr)
+KOKKOS_DEVICE_DUALVIEW(int*[3],      LMPDeviceType::array_layout, int_1d_3)
+KOKKOS_DEVICE_DUALVIEW(tagint**,     LMPDeviceType::array_layout, tagint_2d)
+KOKKOS_DEVICE_DUALVIEW(double**,     Kokkos::LayoutRight,         double_2d)
+KOKKOS_DEVICE_DUALVIEW(double*[2],   Kokkos::LayoutRight,         double_1d_2)
+KOKKOS_DEVICE_DUALVIEW(double*[3],   Kokkos::LayoutRight,         double_1d_3)
+KOKKOS_DEVICE_DUALVIEW(double*[4],   Kokkos::LayoutRight,         double_1d_4)
+KOKKOS_DEVICE_DUALVIEW(double*[5],   Kokkos::LayoutRight,         double_1d_6)
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT**,   Kokkos::LayoutRight,         kkfloat_2d)
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[2], Kokkos::LayoutRight,         kkfloat_1d_2)
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[3], Kokkos::LayoutRight,         kkfloat_1d_3)
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[4], Kokkos::LayoutRight,         kkfloat_1d_4)
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[6], Kokkos::LayoutRight,         kkfloat_1d_6)
 
 typedef TripleView<int**, int**, LMPDeviceType::array_layout> ttriple_int_2d;
-
-typedef Kokkos::
-  DualView<int*[3], LMPDeviceType::array_layout, LMPDeviceType> tdual_int_1d_3;
-typedef tdual_int_1d_3::t_dev t_int_1d_3;
-typedef tdual_int_1d_3::t_dev_const t_int_1d_3_const;
-typedef tdual_int_1d_3::t_dev_um t_int_1d_3_um;
-typedef tdual_int_1d_3::t_dev_const_um t_int_1d_3_const_um;
-typedef tdual_int_1d_3::t_dev_const_randomread t_int_1d_3_randomread;
-
-typedef Kokkos::
-  DualView<LAMMPS_NS::tagint**, LMPDeviceType::array_layout, LMPDeviceType>
-  tdual_tagint_2d;
-typedef tdual_tagint_2d::t_dev t_tagint_2d;
-typedef tdual_tagint_2d::t_dev_const t_tagint_2d_const;
-typedef tdual_tagint_2d::t_dev_um t_tagint_2d_um;
-typedef tdual_tagint_2d::t_dev_const_um t_tagint_2d_const_um;
-typedef tdual_tagint_2d::t_dev_const_randomread t_tagint_2d_randomread;
-
 typedef TripleView<LAMMPS_NS::tagint**, LAMMPS_NS::tagint**, LMPDeviceType::array_layout> ttriple_tagint_2d;
-
-typedef Kokkos::
-  DualView<double**, Kokkos::LayoutRight, LMPDeviceType> tdual_double_2d;
-typedef tdual_double_2d::t_dev t_double_2d;
-typedef tdual_double_2d::t_dev_const t_double_2d_const;
-typedef tdual_double_2d::t_dev_um t_double_2d_um;
-typedef tdual_double_2d::t_dev_const_um t_double_2d_const_um;
-typedef tdual_double_2d::t_dev_const_randomread t_double_2d_randomread;
-
-typedef Kokkos::DualView<double*[2], Kokkos::LayoutRight, LMPDeviceType> tdual_double_1d_2;
-typedef tdual_double_1d_2::t_dev t_double_1d_2;
-typedef tdual_double_1d_2::t_dev_const t_double_1d_2_const;
-typedef tdual_double_1d_2::t_dev_um t_double_1d_2_um;
-typedef tdual_double_1d_2::t_dev_const_um t_double_1d_2_const_um;
-typedef tdual_double_1d_2::t_dev_const_randomread t_double_1d_2_randomread;
-
-typedef Kokkos::DualView<double*[3], Kokkos::LayoutRight, LMPDeviceType> tdual_double_1d_3;
-typedef tdual_double_1d_3::t_dev t_double_1d_3;
-typedef tdual_double_1d_3::t_dev_const t_double_1d_3_const;
-typedef tdual_double_1d_3::t_dev_um t_double_1d_3_um;
-typedef tdual_double_1d_3::t_dev_const_um t_double_1d_3_const_um;
-typedef tdual_double_1d_3::t_dev_const_randomread t_double_1d_3_randomread;
-
-typedef Kokkos::DualView<double*[4], Kokkos::LayoutRight, LMPDeviceType> tdual_double_1d_4;
-typedef tdual_double_1d_4::t_dev t_double_1d_4;
-typedef tdual_double_1d_4::t_dev_const t_double_1d_4_const;
-typedef tdual_double_1d_4::t_dev_um t_double_1d_4_um;
-typedef tdual_double_1d_4::t_dev_const_um t_double_1d_4_const_um;
-typedef tdual_double_1d_4::t_dev_const_randomread t_double_1d_4_randomread;
-
-typedef Kokkos::DualView<double*[6], Kokkos::LayoutRight, LMPDeviceType> tdual_double_1d_6;
-typedef tdual_double_1d_6::t_dev t_double_1d_6;
-typedef tdual_double_1d_6::t_dev_const t_double_1d_6_const;
-typedef tdual_double_1d_6::t_dev_um t_double_1d_6_um;
-typedef tdual_double_1d_6::t_dev_const_um t_double_1d_6_const_um;
-typedef tdual_double_1d_6::t_dev_const_randomread t_double_1d_6_randomread;
-
-typedef Kokkos::
-  DualView<KK_FLOAT**, LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_2d;
-typedef tdual_kkfloat_2d::t_dev t_kkfloat_2d;
-typedef tdual_kkfloat_2d::t_dev_const t_kkfloat_2d_const;
-typedef tdual_kkfloat_2d::t_dev_um t_kkfloat_2d_um;
-typedef tdual_kkfloat_2d::t_dev_const_um t_kkfloat_2d_const_um;
-typedef tdual_kkfloat_2d::t_dev_const_randomread t_kkfloat_2d_randomread;
-
 typedef TripleView<KK_FLOAT**, double**, LMPDeviceType::array_layout> ttriple_kkfloat_2d;
-
-typedef Kokkos::DualView<KK_FLOAT*[2], LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_1d_2;
-typedef tdual_kkfloat_1d_2::t_dev t_kkfloat_1d_2;
-typedef tdual_kkfloat_1d_2::t_dev_const t_kkfloat_1d_2_const;
-typedef tdual_kkfloat_1d_2::t_dev_um t_kkfloat_1d_2_um;
-typedef tdual_kkfloat_1d_2::t_dev_const_um t_kkfloat_1d_2_const_um;
-typedef tdual_kkfloat_1d_2::t_dev_const_randomread t_kkfloat_1d_2_randomread;
-
 typedef TripleView<KK_FLOAT*[2], double*[2], LMPDeviceType::array_layout> ttriple_kkfloat_1d_2;
-
-typedef Kokkos::DualView<KK_FLOAT*[3], LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_1d_3;
-typedef tdual_kkfloat_1d_3::t_dev t_kkfloat_1d_3;
-typedef tdual_kkfloat_1d_3::t_dev_const t_kkfloat_1d_3_const;
-typedef tdual_kkfloat_1d_3::t_dev_um t_kkfloat_1d_3_um;
-typedef tdual_kkfloat_1d_3::t_dev_const_um t_kkfloat_1d_3_const_um;
-typedef tdual_kkfloat_1d_3::t_dev_const_randomread t_kkfloat_1d_3_randomread;
-
 typedef TripleView<KK_FLOAT*[3], double*[3], LMPDeviceType::array_layout> ttriple_kkfloat_1d_3;
-
-typedef Kokkos::DualView<KK_FLOAT*[4], LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_1d_4;
-typedef tdual_kkfloat_1d_4::t_dev t_kkfloat_1d_4;
-typedef tdual_kkfloat_1d_4::t_dev_const t_kkfloat_1d_4_const;
-typedef tdual_kkfloat_1d_4::t_dev_um t_kkfloat_1d_4_um;
-typedef tdual_kkfloat_1d_4::t_dev_const_um t_kkfloat_1d_4_const_um;
-typedef tdual_kkfloat_1d_4::t_dev_const_randomread t_kkfloat_1d_4_randomread;
-
 typedef TripleView<KK_FLOAT*[4], double*[4], LMPDeviceType::array_layout> ttriple_kkfloat_1d_4;
-
-typedef Kokkos::DualView<KK_FLOAT*[6], LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_1d_6;
-typedef tdual_kkfloat_1d_6::t_dev t_kkfloat_1d_6;
-typedef tdual_kkfloat_1d_6::t_dev_const t_kkfloat_1d_6_const;
-typedef tdual_kkfloat_1d_6::t_dev_um t_kkfloat_1d_6_um;
-typedef tdual_kkfloat_1d_6::t_dev_const_um t_kkfloat_1d_6_const_um;
-typedef tdual_kkfloat_1d_6::t_dev_const_randomread t_kkfloat_1d_6_randomread;
-
 typedef TripleView<KK_FLOAT*[6], double*[6], LMPDeviceType::array_layout> ttriple_kkfloat_1d_6;
 
 // 3D view types
-
-typedef Kokkos::
-  DualView<int***, LMPDeviceType::array_layout, LMPDeviceType> tdual_int_3d;
-typedef tdual_int_3d::t_dev t_int_3d;
-typedef tdual_int_3d::t_dev_const t_int_3d_const;
-typedef tdual_int_3d::t_dev_um t_int_3d_um;
-typedef tdual_int_3d::t_dev_const_um t_int_3d_const_um;
-typedef tdual_int_3d::t_dev_const_randomread t_int_3d_randomread;
-
-typedef Kokkos::DualView<double***, LMPDeviceType::array_layout, LMPDeviceType> tdual_double_3d;
-typedef tdual_double_3d::t_dev t_double_3d;
-typedef tdual_double_3d::t_dev_const t_double_3d_const;
-typedef tdual_double_3d::t_dev_um t_double_3d_um;
-typedef tdual_double_3d::t_dev_const_um t_double_3d_const_um;
-typedef tdual_double_3d::t_dev_const_randomread t_double_3d_randomread;
-
-typedef Kokkos::DualView<KK_FLOAT***, LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_3d;
-typedef tdual_kkfloat_3d::t_dev t_kkfloat_3d;
-typedef tdual_kkfloat_3d::t_dev_const t_kkfloat_3d_const;
-typedef tdual_kkfloat_3d::t_dev_um t_kkfloat_3d_um;
-typedef tdual_kkfloat_3d::t_dev_const_um t_kkfloat_3d_const_um;
-typedef tdual_kkfloat_3d::t_dev_const_randomread t_kkfloat_3d_randomread;
+KOKKOS_DEVICE_DUALVIEW(int***,      LMPDeviceType::array_layout, int_3d)
+KOKKOS_DEVICE_DUALVIEW(double***,   LMPDeviceType::array_layout, double_3d)
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT***, LMPDeviceType::array_layout, kkfloat_3d)
 
 typedef TripleView<KK_FLOAT***, double***, LMPDeviceType::array_layout> ttriple_kkfloat_3d;
 
 // 4D view types
 
-typedef Kokkos::DualView<double****, LMPDeviceType::array_layout, LMPDeviceType> tdual_double_4d;
-typedef tdual_double_4d::t_dev t_double_4d;
-typedef tdual_double_4d::t_dev_const t_double_4d_const;
-typedef tdual_double_4d::t_dev_um t_double_4d_um;
-typedef tdual_double_4d::t_dev_const_um t_double_4d_const_um;
-typedef tdual_double_4d::t_dev_const_randomread t_double_4d_randomread;
-
-typedef Kokkos::DualView<KK_FLOAT****, LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_4d;
-typedef tdual_kkfloat_4d::t_dev t_kkfloat_4d;
-typedef tdual_kkfloat_4d::t_dev_const t_kkfloat_4d_const;
-typedef tdual_kkfloat_4d::t_dev_um t_kkfloat_4d_um;
-typedef tdual_kkfloat_4d::t_dev_const_um t_kkfloat_4d_const_um;
-typedef tdual_kkfloat_4d::t_dev_const_randomread t_kkfloat_4d_randomread;
+KOKKOS_DEVICE_DUALVIEW(double****,   LMPDeviceType::array_layout, double_4d)
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT****, LMPDeviceType::array_layout, kkfloat_4d)
 
 // Neighbor Types
 
@@ -1053,248 +857,62 @@ typedef tdual_neighbors_2d_lr::t_dev_const_randomread t_neighbors_2d_randomread_
 
 };
 
+#define KOKKOS_HOST_DUALVIEW(TYPE, LAYOUT, SUFFIX) \
+typedef Kokkos::DualView<TYPE, LAYOUT, LMPDeviceType> tdual_##SUFFIX; \
+typedef tdual_##SUFFIX::t_host t_##SUFFIX; \
+typedef tdual_##SUFFIX::t_host_const t_##SUFFIX##_const; \
+typedef tdual_##SUFFIX::t_host_um t_##SUFFIX##_um; \
+typedef tdual_##SUFFIX::t_host_const_um t_##SUFFIX##_const_um; \
+typedef tdual_##SUFFIX::t_host_const_randomread t_##SUFFIX##_randomread;
+
 #ifdef LMP_KOKKOS_GPU
 template <>
 struct ArrayTypes<LMPHostType> {
 
 // scalar types
 
-typedef Kokkos::
-  DualView<int, Kokkos::LayoutRight, LMPDeviceType> tdual_int_scalar;
-typedef tdual_int_scalar::t_host t_int_scalar;
-typedef tdual_int_scalar::t_host_const t_int_scalar_const;
-typedef tdual_int_scalar::t_host_um t_int_scalar_um;
-typedef tdual_int_scalar::t_host_const_um t_int_scalar_const_um;
-
-typedef Kokkos::
-  DualView<LAMMPS_NS::bigint, Kokkos::LayoutRight, LMPDeviceType> tdual_bigint_scalar;
-typedef tdual_bigint_scalar::t_host t_bigint_scalar;
-typedef tdual_bigint_scalar::t_host_const t_bigint_scalar_const;
-typedef tdual_bigint_scalar::t_host_um t_bigint_scalar_um;
-typedef tdual_bigint_scalar::t_host_const_um t_bigint_scalar_const_um;
-typedef tdual_bigint_scalar::t_host_const_randomread t_bigint_scalar_randomread;
-
-typedef Kokkos::
-  DualView<LAMMPS_NS::tagint, Kokkos::LayoutRight, LMPDeviceType> tdual_tagint_scalar;
-typedef tdual_tagint_scalar::t_host t_tagint_scalar;
-typedef tdual_tagint_scalar::t_host_const t_tagint_scalar_const;
-typedef tdual_tagint_scalar::t_host_um t_tagint_scalar_um;
-typedef tdual_tagint_scalar::t_host_const_um t_tagint_scalar_const_um;
-
-typedef Kokkos::
-  DualView<double, Kokkos::LayoutRight, LMPDeviceType>
-  tdual_double_scalar;
-typedef tdual_double_scalar::t_host t_double_scalar;
-typedef tdual_double_scalar::t_host_const t_double_scalar_const;
-typedef tdual_double_scalar::t_host_um t_double_scalar_um;
-typedef tdual_double_scalar::t_host_const_um t_double_scalar_const_um;
-
-typedef Kokkos::
-  DualView<KK_FLOAT, Kokkos::LayoutRight, LMPDeviceType>
-  tdual_kkfloat_scalar;
-typedef tdual_kkfloat_scalar::t_host t_kkfloat_scalar;
-typedef tdual_kkfloat_scalar::t_host_const t_kkfloat_scalar_const;
-typedef tdual_kkfloat_scalar::t_host_um t_kkfloat_scalar_um;
-typedef tdual_kkfloat_scalar::t_host_const_um t_kkfloat_scalar_const_um;
+KOKKOS_HOST_DUALVIEW(int,      Kokkos::LayoutRight, int_scalar)
+KOKKOS_HOST_DUALVIEW(bigint,   Kokkos::LayoutRight, bigint_scalar)
+KOKKOS_HOST_DUALVIEW(tagint,   Kokkos::LayoutRight, tagint_scalar)
+KOKKOS_HOST_DUALVIEW(double,   Kokkos::LayoutRight, double_scalar)
+KOKKOS_HOST_DUALVIEW(KK_FLOAT, Kokkos::LayoutRight, kkfloat_scalar)
 
 // 1D view types
 
-typedef Kokkos::
-  DualView<int*, Kokkos::LayoutRight, LMPDeviceType> tdual_int_1d;
-typedef tdual_int_1d::t_host t_int_1d;
-typedef tdual_int_1d::t_host_const t_int_1d_const;
-typedef tdual_int_1d::t_host_um t_int_1d_um;
-typedef tdual_int_1d::t_host_const_um t_int_1d_const_um;
-typedef tdual_int_1d::t_host_const_randomread t_int_1d_randomread;
-
-typedef Kokkos::
-  DualView<LAMMPS_NS::bigint*, Kokkos::LayoutRight, LMPDeviceType> tdual_bigint_1d;
-typedef tdual_bigint_1d::t_host t_bigint_1d;
-typedef tdual_bigint_1d::t_host_const t_bigint_1d_const;
-typedef tdual_bigint_1d::t_host_um t_bigint_1d_um;
-typedef tdual_bigint_1d::t_host_const_um t_bigint_1d_const_um;
-typedef tdual_bigint_1d::t_host_const_randomread t_bigint_1d_randomread;
-
-typedef Kokkos::
-  DualView<LAMMPS_NS::tagint*, Kokkos::LayoutRight, LMPDeviceType>
-  tdual_tagint_1d;
-typedef tdual_tagint_1d::t_host t_tagint_1d;
-typedef tdual_tagint_1d::t_host_const t_tagint_1d_const;
-typedef tdual_tagint_1d::t_host_um t_tagint_1d_um;
-typedef tdual_tagint_1d::t_host_const_um t_tagint_1d_const_um;
-typedef tdual_tagint_1d::t_host_const_randomread t_tagint_1d_randomread;
-
-typedef Kokkos::
-  DualView<LAMMPS_NS::imageint*, Kokkos::LayoutRight, LMPDeviceType>
-  tdual_imageint_1d;
-typedef tdual_imageint_1d::t_host t_imageint_1d;
-typedef tdual_imageint_1d::t_host_const t_imageint_1d_const;
-typedef tdual_imageint_1d::t_host_um t_imageint_1d_um;
-typedef tdual_imageint_1d::t_host_const_um t_imageint_1d_const_um;
-typedef tdual_imageint_1d::t_host_const_randomread t_imageint_1d_randomread;
-
-typedef Kokkos::
-  DualView<double*, Kokkos::LayoutRight, LMPDeviceType> tdual_double_1d;
-typedef tdual_double_1d::t_host t_double_1d;
-typedef tdual_double_1d::t_host_const t_double_1d_const;
-typedef tdual_double_1d::t_host_um t_double_1d_um;
-typedef tdual_double_1d::t_host_const_um t_double_1d_const_um;
-typedef tdual_double_1d::t_host_const_randomread t_double_1d_randomread;
-
-typedef Kokkos::
-  DualView<KK_FLOAT*, Kokkos::LayoutRight, LMPDeviceType> tdual_kkfloat_1d;
-typedef tdual_kkfloat_1d::t_host t_kkfloat_1d;
-typedef tdual_kkfloat_1d::t_host_const t_kkfloat_1d_const;
-typedef tdual_kkfloat_1d::t_host_um t_kkfloat_1d_um;
-typedef tdual_kkfloat_1d::t_host_const_um t_kkfloat_1d_const_um;
-typedef tdual_kkfloat_1d::t_host_const_randomread t_kkfloat_1d_randomread;
+KOKKOS_HOST_DUALVIEW(int*,      Kokkos::LayoutRight, int_1d)
+KOKKOS_HOST_DUALVIEW(bigint*,   Kokkos::LayoutRight, bigint_1d)
+KOKKOS_HOST_DUALVIEW(tagint*,   Kokkos::LayoutRight, tagint_1d)
+KOKKOS_HOST_DUALVIEW(imageint*, Kokkos::LayoutRight, imageint_1d)
+KOKKOS_HOST_DUALVIEW(double*,   Kokkos::LayoutRight, double_1d)
+KOKKOS_HOST_DUALVIEW(KK_FLOAT*, Kokkos::LayoutRight, kkfloat_1d)
 
 // 2D view types
 
-typedef Kokkos::
-  DualView<int**, LMPDeviceType::array_layout, LMPDeviceType> tdual_int_2d;
-typedef tdual_int_2d::t_host t_int_2d;
-typedef tdual_int_2d::t_host_const t_int_2d_const;
-typedef tdual_int_2d::t_host_um t_int_2d_um;
-typedef tdual_int_2d::t_host_const_um t_int_2d_const_um;
-typedef tdual_int_2d::t_host_const_randomread t_int_2d_randomread;
-
-typedef Kokkos::
-  DualView<int**, Kokkos::LayoutRight, LMPDeviceType> tdual_int_2d_lr;
-typedef tdual_int_2d_lr::t_host t_int_2d_lr;
-typedef tdual_int_2d_lr::t_host_const t_int_2d_lr_const;
-typedef tdual_int_2d_lr::t_host_um t_int_2d_lr_um;
-typedef tdual_int_2d_lr::t_host_const_um t_int_2d_lr_const_um;
-typedef tdual_int_2d_lr::t_host_const_randomread t_int_2d_lr_randomread;
-
-typedef Kokkos::
-  DualView<int*[3], LMPDeviceType::array_layout, LMPDeviceType> tdual_int_1d_3;
-typedef tdual_int_1d_3::t_host t_int_1d_3;
-typedef tdual_int_1d_3::t_host_const t_int_1d_3_const;
-typedef tdual_int_1d_3::t_host_um t_int_1d_3_um;
-typedef tdual_int_1d_3::t_host_const_um t_int_1d_3_const_um;
-typedef tdual_int_1d_3::t_host_const_randomread t_int_1d_3_randomread;
-
-typedef Kokkos::
-  DualView<LAMMPS_NS::tagint**, LMPDeviceType::array_layout, LMPDeviceType>
-  tdual_tagint_2d;
-typedef tdual_tagint_2d::t_host t_tagint_2d;
-typedef tdual_tagint_2d::t_host_const t_tagint_2d_const;
-typedef tdual_tagint_2d::t_host_um t_tagint_2d_um;
-typedef tdual_tagint_2d::t_host_const_um t_tagint_2d_const_um;
-typedef tdual_tagint_2d::t_host_const_randomread t_tagint_2d_randomread;
-
-typedef Kokkos::
-  DualView<double**, Kokkos::LayoutRight, LMPDeviceType> tdual_double_2d;
-typedef tdual_double_2d::t_host t_double_2d;
-typedef tdual_double_2d::t_host_const t_double_2d_const;
-typedef tdual_double_2d::t_host_um t_double_2d_um;
-typedef tdual_double_2d::t_host_const_um t_double_2d_const_um;
-typedef tdual_double_2d::t_host_const_randomread t_double_2d_randomread;
-
-typedef Kokkos::DualView<double*[2], Kokkos::LayoutRight, LMPDeviceType> tdual_double_1d_2;
-typedef tdual_double_1d_2::t_host t_double_1d_2;
-typedef tdual_double_1d_2::t_host_const t_double_1d_2_const;
-typedef tdual_double_1d_2::t_host_um t_double_1d_2_um;
-typedef tdual_double_1d_2::t_host_const_um t_double_1d_2_const_um;
-typedef tdual_double_1d_2::t_host_const_randomread t_double_1d_2_randomread;
-
-typedef Kokkos::DualView<double*[3], Kokkos::LayoutRight, LMPDeviceType> tdual_double_1d_3;
-typedef tdual_double_1d_3::t_host t_double_1d_3;
-typedef tdual_double_1d_3::t_host_const t_double_1d_3_const;
-typedef tdual_double_1d_3::t_host_um t_double_1d_3_um;
-typedef tdual_double_1d_3::t_host_const_um t_double_1d_3_const_um;
-typedef tdual_double_1d_3::t_host_const_randomread t_double_1d_3_randomread;
-
-typedef Kokkos::DualView<double*[4], Kokkos::LayoutRight, LMPDeviceType> tdual_double_1d_4;
-typedef tdual_double_1d_4::t_host t_double_1d_4;
-typedef tdual_double_1d_4::t_host_const t_double_1d_4_const;
-typedef tdual_double_1d_4::t_host_um t_double_1d_4_um;
-typedef tdual_double_1d_4::t_host_const_um t_double_1d_4_const_um;
-typedef tdual_double_1d_4::t_host_const_randomread t_double_1d_4_randomread;
-
-typedef Kokkos::DualView<double*[6], Kokkos::LayoutRight, LMPDeviceType> tdual_double_1d_6;
-typedef tdual_double_1d_6::t_host t_double_1d_6;
-typedef tdual_double_1d_6::t_host_const t_double_1d_6_const;
-typedef tdual_double_1d_6::t_host_um t_double_1d_6_um;
-typedef tdual_double_1d_6::t_host_const_um t_double_1d_6_const_um;
-typedef tdual_double_1d_6::t_host_const_randomread t_double_1d_6_randomread;
-
-typedef Kokkos::
-  DualView<KK_FLOAT**, LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_2d;
-typedef tdual_kkfloat_2d::t_host t_kkfloat_2d;
-typedef tdual_kkfloat_2d::t_host_const t_kkfloat_2d_const;
-typedef tdual_kkfloat_2d::t_host_um t_kkfloat_2d_um;
-typedef tdual_kkfloat_2d::t_host_const_um t_kkfloat_2d_const_um;
-typedef tdual_kkfloat_2d::t_host_const_randomread t_kkfloat_2d_randomread;
-
-typedef Kokkos::DualView<KK_FLOAT*[2], LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_1d_2;
-typedef tdual_kkfloat_1d_2::t_host t_kkfloat_1d_2;
-typedef tdual_kkfloat_1d_2::t_host_const t_kkfloat_1d_2_const;
-typedef tdual_kkfloat_1d_2::t_host_um t_kkfloat_1d_2_um;
-typedef tdual_kkfloat_1d_2::t_host_const_um t_kkfloat_1d_2_const_um;
-typedef tdual_kkfloat_1d_2::t_host_const_randomread t_kkfloat_1d_2_randomread;
-
-typedef Kokkos::DualView<KK_FLOAT*[3], LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_1d_3;
-typedef tdual_kkfloat_1d_3::t_host t_kkfloat_1d_3;
-typedef tdual_kkfloat_1d_3::t_host_const t_kkfloat_1d_3_const;
-typedef tdual_kkfloat_1d_3::t_host_um t_kkfloat_1d_3_um;
-typedef tdual_kkfloat_1d_3::t_host_const_um t_kkfloat_1d_3_const_um;
-typedef tdual_kkfloat_1d_3::t_host_const_randomread t_kkfloat_1d_3_randomread;
-
-typedef Kokkos::DualView<KK_FLOAT*[4], LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_1d_4;
-typedef tdual_kkfloat_1d_4::t_host t_kkfloat_1d_4;
-typedef tdual_kkfloat_1d_4::t_host_const t_kkfloat_1d_4_const;
-typedef tdual_kkfloat_1d_4::t_host_um t_kkfloat_1d_4_um;
-typedef tdual_kkfloat_1d_4::t_host_const_um t_kkfloat_1d_4_const_um;
-typedef tdual_kkfloat_1d_4::t_host_const_randomread t_kkfloat_1d_4_randomread;
-
-typedef Kokkos::DualView<KK_FLOAT*[6], LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_1d_6;
-typedef tdual_kkfloat_1d_6::t_host t_kkfloat_1d_6;
-typedef tdual_kkfloat_1d_6::t_host_const t_kkfloat_1d_6_const;
-typedef tdual_kkfloat_1d_6::t_host_um t_kkfloat_1d_6_um;
-typedef tdual_kkfloat_1d_6::t_host_const_um t_kkfloat_1d_6_const_um;
-typedef tdual_kkfloat_1d_6::t_host_const_randomread t_kkfloat_1d_6_randomread;
+KOKKOS_HOST_DUALVIEW(int**,        LMPDeviceType::array_layout, int_2d)
+KOKKOS_HOST_DUALVIEW(int**,        Kokkos::LayoutRight,         int_2d_lr)
+KOKKOS_HOST_DUALVIEW(int*[3],      LMPDeviceType::array_layout, int_1d_3)
+KOKKOS_HOST_DUALVIEW(tagint**,     LMPDeviceType::array_layout, tagint_2d)
+KOKKOS_HOST_DUALVIEW(double**,     Kokkos::LayoutRight,         double_2d)
+KOKKOS_HOST_DUALVIEW(double*[2],   Kokkos::LayoutRight,         double_1d_2)
+KOKKOS_HOST_DUALVIEW(double*[3],   Kokkos::LayoutRight,         double_1d_3)
+KOKKOS_HOST_DUALVIEW(double*[4],   Kokkos::LayoutRight,         double_1d_4)
+KOKKOS_HOST_DUALVIEW(double*[5],   Kokkos::LayoutRight,         double_1d_6)
+KOKKOS_HOST_DUALVIEW(KK_FLOAT**,   Kokkos::LayoutRight,         kkfloat_2d)
+KOKKOS_HOST_DUALVIEW(KK_FLOAT*[2], Kokkos::LayoutRight,         kkfloat_1d_2)
+KOKKOS_HOST_DUALVIEW(KK_FLOAT*[3], Kokkos::LayoutRight,         kkfloat_1d_3)
+KOKKOS_HOST_DUALVIEW(KK_FLOAT*[4], Kokkos::LayoutRight,         kkfloat_1d_4)
+KOKKOS_HOST_DUALVIEW(KK_FLOAT*[6], Kokkos::LayoutRight,         kkfloat_1d_6)
 
 // 3D view types
 
-typedef Kokkos::
-  DualView<int***, LMPDeviceType::array_layout, LMPDeviceType> tdual_int_3d;
-typedef tdual_int_3d::t_host t_int_3d;
-typedef tdual_int_3d::t_host_const t_int_3d_const;
-typedef tdual_int_3d::t_host_um t_int_3d_um;
-typedef tdual_int_3d::t_host_const_um t_int_3d_const_um;
-typedef tdual_int_3d::t_host_const_randomread t_int_3d_randomread;
-
-typedef Kokkos::DualView<double***, LMPDeviceType::array_layout, LMPDeviceType> tdual_double_3d;
-typedef tdual_double_3d::t_host t_double_3d;
-typedef tdual_double_3d::t_host_const t_double_3d_const;
-typedef tdual_double_3d::t_host_um t_double_3d_um;
-typedef tdual_double_3d::t_host_const_um t_double_3d_const_um;
-typedef tdual_double_3d::t_host_const_randomread t_double_3d_randomread;
-
-typedef Kokkos::DualView<KK_FLOAT***, LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_3d;
-typedef tdual_kkfloat_3d::t_host t_kkfloat_3d;
-typedef tdual_kkfloat_3d::t_host_const t_kkfloat_3d_const;
-typedef tdual_kkfloat_3d::t_host_um t_kkfloat_3d_um;
-typedef tdual_kkfloat_3d::t_host_const_um t_kkfloat_3d_const_um;
-typedef tdual_kkfloat_3d::t_host_const_randomread t_kkfloat_3d_randomread;
+KOKKOS_HOST_DUALVIEW(int***,      LMPDeviceType::array_layout, int_3d)
+KOKKOS_HOST_DUALVIEW(double***,   LMPDeviceType::array_layout, double_3d)
+KOKKOS_HOST_DUALVIEW(KK_FLOAT***, LMPDeviceType::array_layout, kkfloat_3d)
 
 // 4D view types
 
-typedef Kokkos::DualView<double****, LMPDeviceType::array_layout, LMPDeviceType> tdual_double_4d;
-typedef tdual_double_4d::t_host t_double_4d;
-typedef tdual_double_4d::t_host_const t_double_4d_const;
-typedef tdual_double_4d::t_host_um t_double_4d_um;
-typedef tdual_double_4d::t_host_const_um t_double_4d_const_um;
-typedef tdual_double_4d::t_host_const_randomread t_double_4d_randomread;
-
-typedef Kokkos::DualView<KK_FLOAT****, LMPDeviceType::array_layout, LMPDeviceType> tdual_kkfloat_4d;
-typedef tdual_kkfloat_4d::t_host t_kkfloat_4d;
-typedef tdual_kkfloat_4d::t_host_const t_kkfloat_4d_const;
-typedef tdual_kkfloat_4d::t_host_um t_kkfloat_4d_um;
-typedef tdual_kkfloat_4d::t_host_const_um t_kkfloat_4d_const_um;
-typedef tdual_kkfloat_4d::t_host_const_randomread t_kkfloat_4d_randomread;
+KOKKOS_HOST_DUALVIEW(double****,   LMPDeviceType::array_layout, double_4d)
+KOKKOS_HOST_DUALVIEW(KK_FLOAT****, LMPDeviceType::array_layout, kkfloat_4d)
 
 // Neighbor Types
 
