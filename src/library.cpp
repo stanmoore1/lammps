@@ -1622,6 +1622,11 @@ int lammps_extract_global_datatype(void * /*handle*/, const char *name)
   if (strcmp(name,"neigh_dihedrallist") == 0) return LAMMPS_INT_2D;
   if (strcmp(name,"neigh_improperlist") == 0) return LAMMPS_INT_2D;
 
+  if (strcmp(name,"eflag_global") == 0) return LAMMPS_BIGINT;
+  if (strcmp(name,"eflag_atom") == 0) return LAMMPS_BIGINT;
+  if (strcmp(name,"vflag_global") == 0) return LAMMPS_BIGINT;
+  if (strcmp(name,"vflag_atom") == 0) return LAMMPS_BIGINT;
+
   if (strcmp(name,"map_style") == 0) return LAMMPS_INT;
 #if defined(LAMMPS_BIGBIG)
   if (strcmp(name,"map_tag_max") == 0) return LAMMPS_BIGINT;
@@ -1707,6 +1712,7 @@ report the "native" data type.  The following tables are provided:
 * :ref:`Simulation box settings <extract_box_settings>`
 * :ref:`System property settings <extract_system_settings>`
 * :ref:`Neighbor topology data <extract_neighbor_lists>`
+* :ref:`Energy and virial tally settings <extract_tally_settings>`
 * :ref:`Git revision and version settings <extract_git_settings>`
 * :ref:`Unit settings <extract_unit_settings>`
 
@@ -1984,6 +1990,35 @@ Get length of lists with :ref:`lammps_extract_setting() <extract_neighbor_settin
      - nimproperlist
      - list of impropers (atom1, atom2, atom3, atom4, type)
 
+.. _extract_tally_settings:
+
+**Energy and virial tally settings**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 12 16 52
+
+   * - Name
+     - Type
+     - Length
+     - Description
+   * - eflag_global
+     - bigint
+     - 1
+     - timestep global energy is tallied on
+   * - eflag_atom
+     - bigint
+     - 1
+     - timestep per-atom energy is tallied on
+   * - vflag_global
+     - bigint
+     - 1
+     - timestep global virial is tallied on
+   * - vflag_atom
+     - bigint
+     - 1
+     - timestep per-atom virial is tallied on
+
 .. _extract_git_settings:
 
 **Git revision and version settings**
@@ -2194,10 +2229,15 @@ void *lammps_extract_global(void *handle, const char *name)
 
   if (strcmp(name,"q_flag") == 0) return (void *) &lmp->atom->q_flag;
 
-  if (strcmp(name,"neigh_bondlist") == 0) return lmp->neighbor->bondlist;
-  if (strcmp(name,"neigh_anglelist") == 0) return lmp->neighbor->anglelist;
-  if (strcmp(name,"neigh_dihedrallist") == 0) return lmp->neighbor->dihedrallist;
-  if (strcmp(name,"neigh_improperlist") == 0) return lmp->neighbor->improperlist;
+  if (strcmp(name,"neigh_bondlist") == 0) return (void *) lmp->neighbor->bondlist;
+  if (strcmp(name,"neigh_anglelist") == 0) return (void *) lmp->neighbor->anglelist;
+  if (strcmp(name,"neigh_dihedrallist") == 0) return (void *) lmp->neighbor->dihedrallist;
+  if (strcmp(name,"neigh_improperlist") == 0) return (void *) lmp->neighbor->improperlist;
+
+  if (strcmp(name,"eflag_global") == 0) return (void *) &lmp->update->eflag_global;
+  if (strcmp(name,"eflag_atom") == 0) return (void *) &lmp->update->eflag_atom;
+  if (strcmp(name,"vflag_global") == 0) return (void *) &lmp->update->vflag_global;
+  if (strcmp(name,"vflag_atom") == 0) return (void *) &lmp->update->vflag_atom;
 
   if (strcmp(name,"map_style") == 0) return (void *) &lmp->atom->map_style;
   if (strcmp(name,"map_tag_max") == 0) return (void *) &lmp->atom->map_tag_max;

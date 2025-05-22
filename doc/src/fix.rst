@@ -291,6 +291,7 @@ accelerated styles exist.
 * :doc:`mvv/tdpd <fix_mvv_dpd>` - constant temperature DPD using the modified velocity-Verlet algorithm
 * :doc:`neb <fix_neb>` - nudged elastic band (NEB) spring forces
 * :doc:`neb/spin <fix_neb_spin>` - nudged elastic band (NEB) spring forces for spins
+* :doc:`neighbor/swap <fix_neighbor_swap>` - kinetic Monte Carlo (kMC) atom swapping
 * :doc:`nonaffine/displacement <fix_nonaffine_displacement>` - calculate nonaffine displacement of atoms
 * :doc:`nph <fix_nh>` - constant NPH time integration via Nose/Hoover
 * :doc:`nph/asphere <fix_nph_asphere>` - NPH for aspherical particles

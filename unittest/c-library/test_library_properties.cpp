@@ -383,9 +383,47 @@ TEST_F(LibraryProperties, global)
     char *c_ptr = (char *)lammps_extract_global(lmp, "units");
     EXPECT_THAT(c_ptr, StrEq("real"));
 
-    EXPECT_EQ(lammps_extract_global_datatype(lmp, "ntimestep"), LAMMPS_INT64);
-    auto *b_ptr = (int64_t *)lammps_extract_global(lmp, "ntimestep");
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "ntimestep"), LAMMPS_BIGINT);
+    auto *b_ptr = (bigint *)lammps_extract_global(lmp, "ntimestep");
     EXPECT_EQ((*b_ptr), 2);
+
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "natoms"), LAMMPS_BIGINT);
+    b_ptr = (bigint *)lammps_extract_global(lmp, "natoms");
+    EXPECT_EQ((*b_ptr), 29);
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "nbonds"), LAMMPS_BIGINT);
+    b_ptr = (bigint *)lammps_extract_global(lmp, "nbonds");
+    EXPECT_EQ((*b_ptr), 24);
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "nangles"), LAMMPS_BIGINT);
+    b_ptr = (bigint *)lammps_extract_global(lmp, "nangles");
+    EXPECT_EQ((*b_ptr), 30);
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "ndihedrals"), LAMMPS_BIGINT);
+    b_ptr = (bigint *)lammps_extract_global(lmp, "ndihedrals");
+    EXPECT_EQ((*b_ptr), 31);
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "nimpropers"), LAMMPS_BIGINT);
+    b_ptr = (bigint *)lammps_extract_global(lmp, "nimpropers");
+    EXPECT_EQ((*b_ptr), 2);
+
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "neigh_bondlist"), LAMMPS_INT_2D);
+    EXPECT_NE(lammps_extract_global(lmp, "neigh_bondlist"), nullptr);
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "neigh_anglelist"), LAMMPS_INT_2D);
+    EXPECT_NE(lammps_extract_global(lmp, "neigh_anglelist"), nullptr);
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "neigh_dihedrallist"), LAMMPS_INT_2D);
+    EXPECT_NE(lammps_extract_global(lmp, "neigh_dihedrallist"), nullptr);
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "neigh_improperlist"), LAMMPS_INT_2D);
+    EXPECT_NE(lammps_extract_global(lmp, "neigh_improperlist"), nullptr);
+
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "eflag_global"), LAMMPS_BIGINT);
+    b_ptr = (bigint *)lammps_extract_global(lmp, "eflag_global");
+    EXPECT_EQ((*b_ptr), 2);
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "eflag_atom"), LAMMPS_BIGINT);
+    b_ptr = (bigint *)lammps_extract_global(lmp, "eflag_atom");
+    EXPECT_EQ((*b_ptr), 0);
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "vflag_global"), LAMMPS_BIGINT);
+    b_ptr = (bigint *)lammps_extract_global(lmp, "vflag_global");
+    EXPECT_EQ((*b_ptr), 2);
+    EXPECT_EQ(lammps_extract_global_datatype(lmp, "vflag_atom"), LAMMPS_BIGINT);
+    b_ptr = (bigint *)lammps_extract_global(lmp, "vflag_atom");
+    EXPECT_EQ((*b_ptr), 0);
 
     EXPECT_EQ(lammps_extract_global_datatype(lmp, "dt"), LAMMPS_DOUBLE);
     auto *d_ptr = (double *)lammps_extract_global(lmp, "dt");

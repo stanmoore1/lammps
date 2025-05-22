@@ -103,6 +103,7 @@ Amit
 amsmath
 amu
 Amzallag
+Anandakrishnan
 analytical
 Anders
 Andric
@@ -397,6 +398,7 @@ Broglie
 brownian
 brownw
 Broyden
+Bruenger
 Bruskin
 Brusselle
 Bryantsev
@@ -1731,6 +1733,7 @@ Iyz
 iz
 izcm
 ized
+Izadi
 Izrailev
 Izumi
 Izvekov
@@ -1859,6 +1862,7 @@ Kloss
 Kloza
 kmax
 Kmax
+kMC
 KMP
 kmu
 Knizhnik
@@ -2807,6 +2811,7 @@ oneMKL
 oneway
 onlysalt
 ons
+Onufriev
 OO
 Oord
 opencl
@@ -4131,6 +4136,7 @@ volpress
 volumetric
 von
 Voro
+voro
 Vorobyov
 voronoi
 Voronoi
