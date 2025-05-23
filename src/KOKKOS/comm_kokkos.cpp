@@ -1502,7 +1502,7 @@ void CommKokkos::grow_send_kokkos(int n, int flag, ExecutionSpace space)
                         atomKK->avecKK->size_border + atomKK->avecKK->size_velocity);
     else
       k_buf_send.resize(maxsend_border,atomKK->avecKK->size_border);
-    buf_send = k_buf_send.view<LMPHostType>().data();
+    buf_send = k_buf_send.h_view.data();
   } else {
     if (ghost_velocity)
       MemoryKokkos::realloc_kokkos(k_buf_send,"comm:k_buf_send",maxsend_border,
@@ -1510,7 +1510,7 @@ void CommKokkos::grow_send_kokkos(int n, int flag, ExecutionSpace space)
     else
       MemoryKokkos::realloc_kokkos(k_buf_send,"comm:k_buf_send",maxsend_border,
                         atomKK->avecKK->size_border);
-    buf_send = k_buf_send.view<LMPHostType>().data();
+    buf_send = k_buf_send.h_view.data();
   }
 }
 
@@ -1525,7 +1525,7 @@ void CommKokkos::grow_recv_kokkos(int n, ExecutionSpace /*space*/)
 
   MemoryKokkos::realloc_kokkos(k_buf_recv,"comm:k_buf_recv",maxrecv_border,
     atomKK->avecKK->size_border);
-  buf_recv = k_buf_recv.view<LMPHostType>().data();
+  buf_recv = k_buf_recv.h_view.data();
 }
 
 /* ----------------------------------------------------------------------
@@ -1544,7 +1544,7 @@ void CommKokkos::grow_list(int /*iswap*/, int n)
   memoryKK->grow_kokkos(k_sendlist,sendlist,maxswap,size,"comm:sendlist");
 
   for (int i=0;i<maxswap;i++) {
-    maxsendlist[i]=size; sendlist[i]=&k_sendlist.view<LMPHostType>()(i,0);
+    maxsendlist[i]=size; sendlist[i]=&k_sendlist.h_view(i,0);
   }
 }
 

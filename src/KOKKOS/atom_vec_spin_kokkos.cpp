@@ -287,12 +287,12 @@ int AtomVecSpinKokkos::pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist, D
     }
     if(space==Host) {
       AtomVecSpinKokkos_PackBorder<LMPHostType,1> f(
-        buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
+        buf.h_view, k_sendlist.h_view,
         h_x,h_tag,h_type,h_mask,h_sp,dx,dy,dz);
       Kokkos::parallel_for(n,f);
     } else {
       AtomVecSpinKokkos_PackBorder<LMPDeviceType,1> f(
-        buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
+        buf.d_view, k_sendlist.d_view,
         d_x,d_tag,d_type,d_mask,d_sp,dx,dy,dz);
       Kokkos::parallel_for(n,f);
     }
@@ -301,12 +301,12 @@ int AtomVecSpinKokkos::pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist, D
     dx = dy = dz = 0;
     if(space==Host) {
       AtomVecSpinKokkos_PackBorder<LMPHostType,0> f(
-        buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
+        buf.h_view, k_sendlist.h_view,
         h_x,h_tag,h_type,h_mask,h_sp,dx,dy,dz);
       Kokkos::parallel_for(n,f);
     } else {
       AtomVecSpinKokkos_PackBorder<LMPDeviceType,0> f(
-        buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
+        buf.d_view, k_sendlist.d_view,
         d_x,d_tag,d_type,d_mask,d_sp,dx,dy,dz);
       Kokkos::parallel_for(n,f);
     }
@@ -364,11 +364,11 @@ void AtomVecSpinKokkos::unpack_border_kokkos(const int &n, const int &first,
   }
   if(space==Host) {
     struct AtomVecSpinKokkos_UnpackBorder<LMPHostType>
-      f(buf.view<LMPHostType>(),h_x,h_tag,h_type,h_mask,h_sp,first);
+      f(buf.h_view,h_x,h_tag,h_type,h_mask,h_sp,first);
     Kokkos::parallel_for(n,f);
   } else {
     struct AtomVecSpinKokkos_UnpackBorder<LMPDeviceType>
-      f(buf.view<LMPDeviceType>(),d_x,d_tag,d_type,d_mask,d_sp,first);
+      f(buf.d_view,d_x,d_tag,d_type,d_mask,d_sp,first);
     Kokkos::parallel_for(n,f);
   }
   atomKK->modified(space,X_MASK|TAG_MASK|TYPE_MASK|MASK_MASK|SP_MASK);
@@ -475,9 +475,9 @@ int AtomVecSpinKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2
 {
   size_exchange = 15;
 
-  if (nsend > (int) (k_buf.view<LMPHostType>().extent(0)*k_buf.view<LMPHostType>().extent(1))/size_exchange) {
-    int newsize = nsend*size_exchange/k_buf.view<LMPHostType>().extent(1)+1;
-    k_buf.resize(newsize,k_buf.view<LMPHostType>().extent(1));
+  if (nsend > (int) (k_buf.h_view.extent(0)*k_buf.h_view.extent(1))/size_exchange) {
+    int newsize = nsend*size_exchange/k_buf.h_view.extent(1)+1;
+    k_buf.resize(newsize,k_buf.h_view.extent(1));
   }
   if (space == Host) {
     AtomVecSpinKokkos_PackExchangeFunctor<LMPHostType>

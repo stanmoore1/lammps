@@ -273,7 +273,7 @@ void PairMLIAPKokkos<DeviceType>::coeff(int narg, char **arg) {
   model->init();
   descriptor->init();
 
-  auto h_cutsq=k_cutsq.template view<LMPHostType>();
+  auto h_cutsq=k_cutsq.h_view;
   for (int itype=1; itype <= atom->ntypes; ++itype)
     for (int jtype=1; jtype <= atom->ntypes; ++jtype)
       // do not set cuts for NULL atoms

@@ -174,7 +174,7 @@ template <class DeviceType> void FixWallFlowKokkos<DeviceType>::grow_arrays(int 
   k_current_segment.template modify<DeviceType>();
 
   d_current_segment = k_current_segment.template view<DeviceType>();
-  h_current_segment = k_current_segment.template view<LMPHostType>();
+  h_current_segment = k_current_segment.h_view;
 }
 
 template <class DeviceType> void FixWallFlowKokkos<DeviceType>::copy_arrays(int i, int j, int)

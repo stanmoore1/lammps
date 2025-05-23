@@ -1044,14 +1044,14 @@ int AtomVecSphereKokkos::pack_border_kokkos(
     }
     if (space==Host) {
       AtomVecSphereKokkos_PackBorder<LMPHostType,1> f(
-        buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
+        buf.h_view, k_sendlist.h_view,
         h_x,h_tag,h_type,h_mask,
         h_radius,h_rmass,
         dx,dy,dz);
       Kokkos::parallel_for(n,f);
     } else {
       AtomVecSphereKokkos_PackBorder<LMPDeviceType,1> f(
-        buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
+        buf.d_view, k_sendlist.d_view,
         d_x,d_tag,d_type,d_mask,
         d_radius,d_rmass,
         dx,dy,dz);
@@ -1061,14 +1061,14 @@ int AtomVecSphereKokkos::pack_border_kokkos(
     dx = dy = dz = 0;
     if (space==Host) {
       AtomVecSphereKokkos_PackBorder<LMPHostType,0> f(
-        buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
+        buf.h_view, k_sendlist.h_view,
         h_x,h_tag,h_type,h_mask,
         h_radius,h_rmass,
         dx,dy,dz);
       Kokkos::parallel_for(n,f);
     } else {
       AtomVecSphereKokkos_PackBorder<LMPDeviceType,0> f(
-        buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
+        buf.d_view, k_sendlist.d_view,
         d_x,d_tag,d_type,d_mask,
         d_radius,d_rmass,
         dx,dy,dz);
@@ -1183,7 +1183,7 @@ int AtomVecSphereKokkos::pack_border_vel_kokkos(
     if (!deform_vremap) {
       if (space==Host) {
         AtomVecSphereKokkos_PackBorderVel<LMPHostType,1,0> f(
-          buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
+          buf.h_view, k_sendlist.h_view,
           h_x,h_tag,h_type,h_mask,
           h_radius,h_rmass,
           h_v, h_omega,
@@ -1192,7 +1192,7 @@ int AtomVecSphereKokkos::pack_border_vel_kokkos(
         Kokkos::parallel_for(n,f);
       } else {
         AtomVecSphereKokkos_PackBorderVel<LMPDeviceType,1,0> f(
-          buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
+          buf.d_view, k_sendlist.d_view,
           d_x,d_tag,d_type,d_mask,
           d_radius,d_rmass,
           d_v, d_omega,
@@ -1207,7 +1207,7 @@ int AtomVecSphereKokkos::pack_border_vel_kokkos(
       dvz = pbc[2]*h_rate[2];
       if (space==Host) {
         AtomVecSphereKokkos_PackBorderVel<LMPHostType,1,1> f(
-          buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
+          buf.h_view, k_sendlist.h_view,
           h_x,h_tag,h_type,h_mask,
           h_radius,h_rmass,
           h_v, h_omega,
@@ -1216,7 +1216,7 @@ int AtomVecSphereKokkos::pack_border_vel_kokkos(
         Kokkos::parallel_for(n,f);
       } else {
         AtomVecSphereKokkos_PackBorderVel<LMPDeviceType,1,1> f(
-          buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
+          buf.d_view, k_sendlist.d_view,
           d_x,d_tag,d_type,d_mask,
           d_radius,d_rmass,
           d_v, d_omega,
@@ -1228,7 +1228,7 @@ int AtomVecSphereKokkos::pack_border_vel_kokkos(
   } else {
     if (space==Host) {
       AtomVecSphereKokkos_PackBorderVel<LMPHostType,0,0> f(
-        buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
+        buf.h_view, k_sendlist.h_view,
         h_x,h_tag,h_type,h_mask,
         h_radius,h_rmass,
         h_v, h_omega,
@@ -1237,7 +1237,7 @@ int AtomVecSphereKokkos::pack_border_vel_kokkos(
       Kokkos::parallel_for(n,f);
     } else {
       AtomVecSphereKokkos_PackBorderVel<LMPDeviceType,0,0> f(
-        buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
+        buf.d_view, k_sendlist.d_view,
         d_x,d_tag,d_type,d_mask,
         d_radius,d_rmass,
         d_v, d_omega,
@@ -1302,13 +1302,13 @@ void AtomVecSphereKokkos::unpack_border_kokkos(const int &n, const int &first,
                                                const DAT::tdual_double_2d &buf,ExecutionSpace space) {
   while (first+n >= nmax) grow(0);
   if (space==Host) {
-    struct AtomVecSphereKokkos_UnpackBorder<LMPHostType> f(buf.view<LMPHostType>(),
+    struct AtomVecSphereKokkos_UnpackBorder<LMPHostType> f(buf.h_view,
       h_x,h_tag,h_type,h_mask,
       h_radius,h_rmass,
       first);
     Kokkos::parallel_for(n,f);
   } else {
-    struct AtomVecSphereKokkos_UnpackBorder<LMPDeviceType> f(buf.view<LMPDeviceType>(),
+    struct AtomVecSphereKokkos_UnpackBorder<LMPDeviceType> f(buf.d_view,
       d_x,d_tag,d_type,d_mask,
       d_radius,d_rmass,
       first);
@@ -1383,14 +1383,14 @@ void AtomVecSphereKokkos::unpack_border_vel_kokkos(
   const DAT::tdual_double_2d &buf,ExecutionSpace space) {
   while (first+n >= nmax) grow(0);
   if (space==Host) {
-    struct AtomVecSphereKokkos_UnpackBorderVel<LMPHostType> f(buf.view<LMPHostType>(),
+    struct AtomVecSphereKokkos_UnpackBorderVel<LMPHostType> f(buf.h_view,
       h_x,h_tag,h_type,h_mask,
       h_radius,h_rmass,
       h_v, h_omega,
       first);
     Kokkos::parallel_for(n,f);
   } else {
-    struct AtomVecSphereKokkos_UnpackBorderVel<LMPDeviceType> f(buf.view<LMPDeviceType>(),
+    struct AtomVecSphereKokkos_UnpackBorderVel<LMPDeviceType> f(buf.d_view,
       d_x,d_tag,d_type,d_mask,
       d_radius,d_rmass,
       d_v, d_omega,
@@ -1512,9 +1512,9 @@ int AtomVecSphereKokkos::pack_exchange_kokkos(
 {
   size_exchange = 16;
 
-  if (nsend > (int) (k_buf.view<LMPHostType>().extent(0)*k_buf.view<LMPHostType>().extent(1))/size_exchange) {
-    int newsize = nsend*17/k_buf.view<LMPHostType>().extent(1)+1;
-    k_buf.resize(newsize,k_buf.view<LMPHostType>().extent(1));
+  if (nsend > (int) (k_buf.h_view.extent(0)*k_buf.h_view.extent(1))/size_exchange) {
+    int newsize = nsend*17/k_buf.h_view.extent(1)+1;
+    k_buf.resize(newsize,k_buf.h_view.extent(1));
   }
   atomKK->sync(space,X_MASK | V_MASK | TAG_MASK | TYPE_MASK |
              MASK_MASK | IMAGE_MASK| RADIUS_MASK | RMASS_MASK |

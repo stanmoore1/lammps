@@ -304,7 +304,7 @@ void DynamicalMatrixKokkos::force_clear()
   int nall = atomKK->nlocal;
   if (force->newton) nall += atomKK->nghost;
 
-  Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_f.view<LMPDeviceType>()));
+  Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_f.d_view));
   atomKK->modified(Device,F_MASK);
 
 }

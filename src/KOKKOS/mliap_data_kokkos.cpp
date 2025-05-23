@@ -223,7 +223,7 @@ void MLIAPDataKokkos<DeviceType>::grow_neigharrays() {
   auto x = atomKK->k_x.view<DeviceType>();
   auto type = atomKK->k_type.view<DeviceType>();
   auto d_cutsq=k_pairmliap->k_cutsq.template view<DeviceType>();
-  auto h_cutsq=k_pairmliap->k_cutsq.template view<LMPHostType>();
+  auto h_cutsq=k_pairmliap->k_cutsq.h_view;
   auto d_numneighs = k_numneighs.template view<DeviceType>();
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,natomneigh), KOKKOS_LAMBDA (int ii, int &contrib) {
     const int i = d_ilist[ii];

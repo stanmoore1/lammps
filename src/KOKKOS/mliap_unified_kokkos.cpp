@@ -301,7 +301,7 @@ void LAMMPS_NS::update_pair_forces(MLIAPDataKokkosDevice *data, double *fij)
     data->pairmliap->k_vatom.modify_host();
     data->pairmliap->k_vatom.sync_device();
   }
-  auto d_vatom = data->pairmliap->k_vatom.template view<LMPDeviceType>();
+  auto d_vatom = data->pairmliap->k_vatom.d_view;
 
   Kokkos::View<KK_FLOAT[6], LMPDeviceType> virial("virial");
 

@@ -545,20 +545,20 @@ void VerletKokkos::force_clear()
     int nall = atomKK->nlocal;
     if (force->newton) nall += atomKK->nghost;
 
-    Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_f.view<LMPDeviceType>()));
+    Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_f.d_view));
     atomKK->modified(Device,F_MASK);
 
     if (torqueflag) {
-      Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_torque.view<LMPDeviceType>()));
+      Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_torque.d_view));
       atomKK->modified(Device,TORQUE_MASK);
     }
 
     // reset SPIN forces
 
     if (extraflag) {
-      Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm.view<LMPDeviceType>()));
+      Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm.d_view));
       atomKK->modified(Device,FM_MASK);
-      Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm_long.view<LMPDeviceType>()));
+      Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm_long.d_view));
       atomKK->modified(Device,FML_MASK);
     }
 
@@ -567,39 +567,39 @@ void VerletKokkos::force_clear()
   // if either newton flag is set, also include ghosts
 
   } else {
-    Kokkos::parallel_for(atomKK->nfirst, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_f.view<LMPDeviceType>()));
+    Kokkos::parallel_for(atomKK->nfirst, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_f.d_view));
     atomKK->modified(Device,F_MASK);
 
     if (torqueflag) {
-      Kokkos::parallel_for(atomKK->nfirst, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_torque.view<LMPDeviceType>()));
+      Kokkos::parallel_for(atomKK->nfirst, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_torque.d_view));
       atomKK->modified(Device,TORQUE_MASK);
     }
 
     // reset SPIN forces
 
     if (extraflag) {
-      Kokkos::parallel_for(atomKK->nfirst, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm.view<LMPDeviceType>()));
+      Kokkos::parallel_for(atomKK->nfirst, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm.d_view));
       atomKK->modified(Device,FM_MASK);
-      Kokkos::parallel_for(atomKK->nfirst, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm_long.view<LMPDeviceType>()));
+      Kokkos::parallel_for(atomKK->nfirst, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm_long.d_view));
       atomKK->modified(Device,FML_MASK);
     }
 
     if (force->newton) {
       auto range = Kokkos::RangePolicy<LMPDeviceType>(atomKK->nlocal, atomKK->nlocal + atomKK->nghost);
-      Kokkos::parallel_for(range, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_f.view<LMPDeviceType>()));
+      Kokkos::parallel_for(range, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_f.d_view));
       atomKK->modified(Device,F_MASK);
 
       if (torqueflag) {
-        Kokkos::parallel_for(range, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_torque.view<LMPDeviceType>()));
+        Kokkos::parallel_for(range, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_torque.d_view));
         atomKK->modified(Device,TORQUE_MASK);
       }
 
       // reset SPIN forces
 
       if (extraflag) {
-        Kokkos::parallel_for(range, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm.view<LMPDeviceType>()));
+        Kokkos::parallel_for(range, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm.d_view));
         atomKK->modified(Device,FM_MASK);
-        Kokkos::parallel_for(range, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm_long.view<LMPDeviceType>()));
+        Kokkos::parallel_for(range, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm_long.d_view));
         atomKK->modified(Device,FML_MASK);
       }
     }
