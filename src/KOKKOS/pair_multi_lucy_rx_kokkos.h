@@ -61,9 +61,9 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
   void compute_style(int, int);
 
   void init_style() override;
-  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_kkfloat_1d&,
+  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_double_1d&,
                                int, int *) override;
-  void unpack_forward_comm_kokkos(int, int, DAT::tdual_kkfloat_1d&) override;
+  void unpack_forward_comm_kokkos(int, int, DAT::tdual_double_1d&) override;
   int pack_forward_comm(int, int *, double *, int, int *) override;
   void unpack_forward_comm(int, int, double *) override;
   int pack_reverse_comm(int, int, double *) override;
@@ -97,8 +97,8 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
   template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const double &epair, const double &fpair, const double &delx,
-                  const double &dely, const double &delz) const;
+      const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx,
+                  const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
  private:
   int nlocal;
@@ -155,7 +155,7 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
   void create_kokkos_tables();
 
   KOKKOS_INLINE_FUNCTION
-  void getMixingWeights(int, double &, double &, double &, double &) const;
+  void getMixingWeights(int, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;
 
   typename AT::t_kkfloat_1d d_mixWtSite1old,d_mixWtSite2old,d_mixWtSite1,d_mixWtSite2;
 

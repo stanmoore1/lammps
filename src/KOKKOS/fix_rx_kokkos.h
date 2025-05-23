@@ -125,8 +125,8 @@ class FixRxKokkos : public FixRX {
   template <int stride = 1>
   struct UserRHSDataKokkos
   {
-    StridedArrayType<double,1> kFor;
-    StridedArrayType<double,1> rxnRateLaw;
+    StridedArrayType<KK_FLOAT,1> kFor;
+    StridedArrayType<KK_FLOAT,1> rxnRateLaw;
   };
 
   void solve_reactions(const int vflag, const bool isPreForce);

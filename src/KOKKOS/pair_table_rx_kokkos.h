@@ -50,27 +50,27 @@ class PairTableRXKokkos : public PairTable {
   void init_style() override;
 
   struct TableDeviceConst {
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d cutsq;
+    typename ArrayTypes<DeviceType>::t_double_2d cutsq;
     typename ArrayTypes<DeviceType>::t_int_2d tabindex;
     typename ArrayTypes<DeviceType>::t_int_1d nshiftbits,nmask;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d innersq,invdelta,deltasq6;
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d_randomread rsq,drsq,e,de,f,df,e2,f2;
+    typename ArrayTypes<DeviceType>::t_double_1d innersq,invdelta,deltasq6;
+    typename ArrayTypes<DeviceType>::t_double_2d_randomread rsq,drsq,e,de,f,df,e2,f2;
   };
 
   struct TableDevice {
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d cutsq;
+    typename ArrayTypes<DeviceType>::t_double_2d cutsq;
     typename ArrayTypes<DeviceType>::t_int_2d tabindex;
     typename ArrayTypes<DeviceType>::t_int_1d nshiftbits,nmask;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d innersq,invdelta,deltasq6;
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d rsq,drsq,e,de,f,df,e2,f2;
+    typename ArrayTypes<DeviceType>::t_double_1d innersq,invdelta,deltasq6;
+    typename ArrayTypes<DeviceType>::t_double_2d rsq,drsq,e,de,f,df,e2,f2;
   };
 
   struct TableHost {
-    typename ArrayTypes<LMPHostType>::t_kkfloat_2d cutsq;
+    typename ArrayTypes<LMPHostType>::t_double_2d cutsq;
     typename ArrayTypes<LMPHostType>::t_int_2d tabindex;
     typename ArrayTypes<LMPHostType>::t_int_1d nshiftbits,nmask;
-    typename ArrayTypes<LMPHostType>::t_kkfloat_1d innersq,invdelta,deltasq6;
-    typename ArrayTypes<LMPHostType>::t_kkfloat_2d rsq,drsq,e,de,f,df,e2,f2;
+    typename ArrayTypes<LMPHostType>::t_double_1d innersq,invdelta,deltasq6;
+    typename ArrayTypes<LMPHostType>::t_double_2d rsq,drsq,e,de,f,df,e2,f2;
   };
 
   TableDeviceConst d_table_const;
@@ -79,7 +79,7 @@ class PairTableRXKokkos : public PairTable {
 
   Few<Few<double, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> m_cutsq;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_2d d_cutsq;
+  typename ArrayTypes<DeviceType>::t_double_2d d_cutsq;
 
   void allocate() override;
   void compute_table(Table *) override;
@@ -106,8 +106,8 @@ class PairTableRXKokkos : public PairTable {
   int isite1, isite2;
   bool fractionalWeighting;
 
-  DAT::tdual_kkfloat_1d k_eatom;
-  DAT::tdual_kkfloat_1d_6 k_vatom;
+  DAT::ttriple_kkfloat_1d k_eatom;
+  DAT::ttriple_kkfloat_1d_6 k_vatom;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
 };

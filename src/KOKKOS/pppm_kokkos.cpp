@@ -823,7 +823,6 @@ void PPPMKokkos<DeviceType>::deallocate()
   memory->destroy(gc_buf2);
 
   memoryKK->destroy_kokkos(d_density_fft,density_fft);
-  memoryKK->destroy_kokkos(d_greensfn,greensfn);
   memoryKK->destroy_kokkos(d_work1,work1);
   memoryKK->destroy_kokkos(d_work2,work2);
 

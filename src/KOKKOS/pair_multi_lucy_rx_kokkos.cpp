@@ -264,15 +264,15 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXCompute<NEI
   Kokkos::View<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
 
   int i,jj,jnum,itype,jtype,itable;
-  double xtmp,ytmp,ztmp,delx,dely,delz,evdwl,evdwlOld,fpair;
-  double rsq;
+  KK_FLOAT xtmp,ytmp,ztmp,delx,dely,delz,evdwl,evdwlOld,fpair;
+  KK_FLOAT rsq;
 
-  double mixWtSite1old_i,mixWtSite1old_j;
-  double mixWtSite2old_i,mixWtSite2old_j;
-  double mixWtSite1_i;
+  KK_FLOAT mixWtSite1old_i,mixWtSite1old_j;
+  KK_FLOAT mixWtSite2old_i,mixWtSite2old_j;
+  KK_FLOAT mixWtSite1_i;
 
-  double A_i, A_j;
-  double fraction_i,fraction_j;
+  KK_FLOAT A_i, A_j;
+  KK_FLOAT fraction_i,fraction_j;
   int jtable;
 
   int tlm1 = tablength - 1;
@@ -284,9 +284,9 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXCompute<NEI
   itype = type[i];
   jnum = d_numneigh[i];
 
-  double fx_i = 0.0;
-  double fy_i = 0.0;
-  double fz_i = 0.0;
+  KK_FLOAT fx_i = 0.0;
+  KK_FLOAT fy_i = 0.0;
+  KK_FLOAT fz_i = 0.0;
 
   mixWtSite1old_i = d_mixWtSite1old[i];
   mixWtSite2old_i = d_mixWtSite2old[i];
@@ -329,7 +329,7 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXCompute<NEI
         //A_j = tb->f[jtable];
         A_j = d_table_const.f(tidx,jtable);
 
-        const double rfactor = 1.0-sqrt(rsq/d_cutsq(itype,jtype));
+        const KK_FLOAT rfactor = 1.0-sqrt(rsq/d_cutsq(itype,jtype));
         fpair = 0.5*(A_i + A_j)*(4.0-3.0*rfactor)*rfactor*rfactor*rfactor;
         fpair /= sqrt(rsq);
 
@@ -361,7 +361,7 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXCompute<NEI
         //A_j = tb->f[jtable] + fraction_j*tb->df[jtable];
         A_j = d_table_const.f(tidx,jtable) + fraction_j*d_table_const.df(tidx,jtable);
 
-        const double rfactor = 1.0-sqrt(rsq/d_cutsq(itype,jtype));
+        const KK_FLOAT rfactor = 1.0-sqrt(rsq/d_cutsq(itype,jtype));
         fpair = 0.5*(A_i + A_j)*(4.0-3.0*rfactor)*rfactor*rfactor*rfactor;
         fpair /= sqrt(rsq);
 
@@ -525,11 +525,11 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXComputeLoca
 
   const int i = d_ilist[ii];
 
-  const double xtmp = x(i,0);
-  const double ytmp = x(i,1);
-  const double ztmp = x(i,2);
+  const KK_FLOAT xtmp = x(i,0);
+  const KK_FLOAT ytmp = x(i,1);
+  const KK_FLOAT ztmp = x(i,2);
 
-  double rho_i_contrib = 0.0;
+  KK_FLOAT rho_i_contrib = 0.0;
 
   const int itype = type[i];
   const int jnum = d_numneigh[i];
@@ -538,27 +538,27 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXComputeLoca
     const int j = (d_neighbors(i,jj) & NEIGHMASK);
     const int jtype = type[j];
 
-    const double delx = xtmp - x(j,0);
-    const double dely = ytmp - x(j,1);
-    const double delz = ztmp - x(j,2);
-    const double rsq = delx*delx + dely*dely + delz*delz;
+    const KK_FLOAT delx = xtmp - x(j,0);
+    const KK_FLOAT dely = ytmp - x(j,1);
+    const KK_FLOAT delz = ztmp - x(j,2);
+    const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
     if (ONE_TYPE) {
       if (rsq < cutsq_type11) {
-        const double rcut = rcut_type11;
-        const double r_over_rcut = sqrt(rsq) / rcut;
-        const double tmpFactor = 1.0 - r_over_rcut;
-        const double tmpFactor4 = tmpFactor*tmpFactor*tmpFactor*tmpFactor;
-        const double factor = factor_type11*(1.0 + 1.5*r_over_rcut)*tmpFactor4;
+        const KK_FLOAT rcut = rcut_type11;
+        const KK_FLOAT r_over_rcut = sqrt(rsq) / rcut;
+        const KK_FLOAT tmpFactor = 1.0 - r_over_rcut;
+        const KK_FLOAT tmpFactor4 = tmpFactor*tmpFactor*tmpFactor*tmpFactor;
+        const KK_FLOAT factor = factor_type11*(1.0 + 1.5*r_over_rcut)*tmpFactor4;
         rho_i_contrib += factor;
         if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || j < nlocal))
           a_rho[j] += factor;
       }
     } else if (rsq < d_cutsq(itype,jtype)) {
-      const double rcut = sqrt(d_cutsq(itype,jtype));
-      const double tmpFactor = 1.0-sqrt(rsq)/rcut;
-      const double tmpFactor4 = tmpFactor*tmpFactor*tmpFactor*tmpFactor;
-      const double factor = (84.0/(5.0*MY_PI*rcut*rcut*rcut))*(1.0+3.0*sqrt(rsq)/(2.0*rcut))*tmpFactor4;
+      const KK_FLOAT rcut = sqrt(d_cutsq(itype,jtype));
+      const KK_FLOAT tmpFactor = 1.0-sqrt(rsq)/rcut;
+      const KK_FLOAT tmpFactor4 = tmpFactor*tmpFactor*tmpFactor*tmpFactor;
+      const KK_FLOAT factor = (84.0/(5.0*MY_PI*rcut*rcut*rcut))*(1.0+3.0*sqrt(rsq)/(2.0*rcut))*tmpFactor4;
       rho_i_contrib += factor;
       if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || j < nlocal))
         a_rho[j] += factor;
@@ -572,15 +572,15 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXComputeLoca
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairMultiLucyRXKokkos<DeviceType>::getMixingWeights(int id, double &mixWtSite1old, double &mixWtSite2old, double &mixWtSite1, double &mixWtSite2) const
+void PairMultiLucyRXKokkos<DeviceType>::getMixingWeights(int id, KK_FLOAT &mixWtSite1old, KK_FLOAT &mixWtSite2old, KK_FLOAT &mixWtSite1, KK_FLOAT &mixWtSite2) const
 {
-  double fractionOFAold, fractionOFA;
-  double fractionOld1, fraction1;
-  double fractionOld2, fraction2;
-  double nMoleculesOFAold, nMoleculesOFA;
-  double nMoleculesOld1, nMolecules1;
-  double nMoleculesOld2, nMolecules2;
-  double nTotal, nTotalOld;
+  KK_FLOAT fractionOFAold, fractionOFA;
+  KK_FLOAT fractionOld1, fraction1;
+  KK_FLOAT fractionOld2, fraction2;
+  KK_FLOAT nMoleculesOFAold, nMoleculesOFA;
+  KK_FLOAT nMoleculesOld1, nMolecules1;
+  KK_FLOAT nMoleculesOld2, nMolecules2;
+  KK_FLOAT nTotal, nTotalOld;
 
 
   nTotal = 0.0;
@@ -754,8 +754,8 @@ template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR>
 KOKKOS_INLINE_FUNCTION
 void PairMultiLucyRXKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int &j,
-      const double &epair, const double &fpair, const double &delx,
-                const double &dely, const double &delz) const
+      const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx,
+                const KK_FLOAT &dely, const KK_FLOAT &delz) const
 {
   const int EFLAG = eflag;
   const int VFLAG = vflag_either;
@@ -766,7 +766,7 @@ void PairMultiLucyRXKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, con
 
   if (EFLAG) {
     if (eflag_atom) {
-      const double epairhalf = 0.5 * epair;
+      const KK_FLOAT epairhalf = 0.5 * epair;
       if (NEIGHFLAG!=FULL) {
         if (NEWTON_PAIR || i < nlocal) v_eatom[i] += epairhalf;
         if (NEWTON_PAIR || j < nlocal) v_eatom[j] += epairhalf;
@@ -777,12 +777,12 @@ void PairMultiLucyRXKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, con
   }
 
   if (VFLAG) {
-    const double v0 = delx*delx*fpair;
-    const double v1 = dely*dely*fpair;
-    const double v2 = delz*delz*fpair;
-    const double v3 = delx*dely*fpair;
-    const double v4 = delx*delz*fpair;
-    const double v5 = dely*delz*fpair;
+    const KK_FLOAT v0 = delx*delx*fpair;
+    const KK_FLOAT v1 = dely*dely*fpair;
+    const KK_FLOAT v2 = delz*delz*fpair;
+    const KK_FLOAT v3 = delx*dely*fpair;
+    const KK_FLOAT v4 = delx*delz*fpair;
+    const KK_FLOAT v5 = dely*delz*fpair;
 
     if (vflag_global) {
       if (NEIGHFLAG!=FULL) {

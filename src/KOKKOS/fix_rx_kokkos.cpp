@@ -1281,8 +1281,8 @@ void FixRxKokkos<DeviceType>::operator()(Tag_FixRxKokkos_solveSystems<ZERO_RATES
 {
   if (d_mask(i) & groupbit)
   {
-    StridedArrayType<double,1> y( d_scratchSpace.data() + scratchSpaceSize * i );
-    StridedArrayType<double,1> rwork( &y[nspecies] );
+    StridedArrayType<KK_FLOAT,1> y( d_scratchSpace.data() + scratchSpaceSize * i );
+    StridedArrayType<KK_FLOAT,1> rwork( &y[nspecies] );
 
     UserRHSDataKokkos<1> userData;
     userData.kFor.m_data = &( rwork[7*nspecies] );
@@ -1818,8 +1818,8 @@ void FixRxKokkos<DeviceType>::computeLocalTemperature()
     const int ntypes = atom->ntypes;
 
     if (ntypes+1 > (int) k_cutsq.extent(0)) {
-      k_cutsq = DAT::tdual_kkfloat_2d();
-      k_cutsq = DAT::tdual_kkfloat_2d("FixRxKokkos::k_cutsq", ntypes+1, ntypes+1);
+      k_cutsq = DAT::ttriple_kkfloat_2d();
+      k_cutsq = DAT::ttriple_kkfloat_2d("FixRxKokkos::k_cutsq", ntypes+1, ntypes+1);
       d_cutsq = k_cutsq.template view<DeviceType>();
     }
 

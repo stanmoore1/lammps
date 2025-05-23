@@ -4284,6 +4284,9 @@ void PairReaxFFKokkos<DeviceType>::FindBondSpecies()
     memoryKK->destroy_kokkos(k_tmpbo,tmpbo);
     memoryKK->create_kokkos(k_tmpid,tmpid,nmax,MAXSPECBOND,"pair:tmpid");
     memoryKK->create_kokkos(k_tmpbo,tmpbo,nmax,MAXSPECBOND,"pair:tmpbo");
+
+    d_tmpid = k_tmpid.view<DeviceType>();
+    d_tmpbo = k_tmpbo.view<DeviceType>();
   }
 
   copymode = 1;
@@ -4311,8 +4314,8 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxFindBondSpeciesZero, const int &i) const {
   for (int j = 0; j < MAXSPECBOND; j++) {
-    k_tmpbo.view<DeviceType>()(i,j) = 0.0;
-    k_tmpid.view<DeviceType>()(i,j) = 0;
+    d_tmpbo(i,j) = 0.0;
+    d_tmpid(i,j) = 0;
   }
 }
 
@@ -4330,8 +4333,8 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxFindBondSpecies, const 
     KK_FLOAT bo_tmp = d_BO(i, j_index);
 
     if (bo_tmp >= 0.10) { // Why is this a hardcoded value?
-      k_tmpid.view<DeviceType>()(i,nj) = j;
-      k_tmpbo.view<DeviceType>()(i,nj) = bo_tmp;
+      d_tmpid(i,nj) = j;
+      d_tmpbo(i,nj) = bo_tmp;
       nj++;
       if (nj > MAXSPECBOND) k_error_flag.view<DeviceType>()() = 1;
     }

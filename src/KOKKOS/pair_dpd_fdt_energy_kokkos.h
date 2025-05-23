@@ -95,7 +95,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
     KK_FLOAT cut,a0,sigma,kappa,alpha;
   };
 
-  DAT::tdual_kkfloat_1d k_duCond,k_duMech;
+  DAT::ttriple_kkfloat_1d k_duCond,k_duMech;
 
 #ifdef DPD_USE_RAN_MARS
   RandPoolWrap rand_pool;
@@ -136,7 +136,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   typename ArrayTypes<DeviceType>::t_kkfloat_1d rmass;
   typename AT::t_kkfloat_1d dpdTheta;
   typename AT::t_kkfloat_1d d_duCond,d_duMech;
-  HAT::t_kkfloat_1d h_duCond,h_duMech;
+  HAT::t_double_1d h_duCond,h_duMech;
 
   DAT::ttriple_kkfloat_1d k_eatom;
   DAT::ttriple_kkfloat_1d_6 k_vatom;

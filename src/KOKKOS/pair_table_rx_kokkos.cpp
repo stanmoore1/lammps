@@ -59,8 +59,8 @@ void getMixingWeights(
     int isite1, int isite2,
     bool fractionalWeighting,
     int id,
-    double &mixWtSite1old, double &mixWtSite2old,
-    double &mixWtSite1, double &mixWtSite2) {
+    KK_FLOAT &mixWtSite1old, KK_FLOAT &mixWtSite2old,
+    KK_FLOAT &mixWtSite1, KK_FLOAT &mixWtSite2) {
   KK_FLOAT fractionOFAold, fractionOFA;
   KK_FLOAT fractionOld1, fraction1;
   KK_FLOAT fractionOld2, fraction2;
@@ -400,7 +400,7 @@ compute_item(
     Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite2,
     Few<int, 4> const& special_lj,
     Few<Few<double, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> const& m_cutsq,
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d const& d_cutsq,
+    typename ArrayTypes<DeviceType>::t_double_2d const& d_cutsq,
     Kokkos::View<KK_FLOAT*[3],
       typename ArrayTypes<DeviceType>::t_kkfloat_1d_3::array_layout,
       typename KKDevice<DeviceType>::value,
@@ -545,7 +545,7 @@ static void compute_all_items(
     Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite2,
     Few<int, 4> special_lj,
     Few<Few<double, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> m_cutsq,
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d d_cutsq,
+    typename ArrayTypes<DeviceType>::t_double_2d d_cutsq,
     Kokkos::View<KK_FLOAT*[3],
       typename ArrayTypes<DeviceType>::t_kkfloat_1d_3::array_layout,
       typename KKDevice<DeviceType>::value,
@@ -1010,8 +1010,8 @@ void PairTableRXKokkos<DeviceType>::settings(int narg, char **arg)
     d_table_const.tabindex = d_table->tabindex = typename ArrayTypes<DeviceType>::t_int_2d();
     h_table->tabindex = typename ArrayTypes<LMPHostType>::t_int_2d();
 
-    d_table_const.cutsq = d_table->cutsq = typename ArrayTypes<DeviceType>::t_kkfloat_2d();
-    h_table->cutsq = typename ArrayTypes<LMPHostType>::t_kkfloat_2d();
+    d_table_const.cutsq = d_table->cutsq = typename ArrayTypes<DeviceType>::t_double_2d();
+    h_table->cutsq = typename ArrayTypes<LMPHostType>::t_double_2d();
     allocated = 0;
   }
 }
@@ -1181,14 +1181,14 @@ double PairTableRXKokkos<DeviceType>::single(int i, int j, int itype, int jtype,
                          double &fforce)
 {
   int itable;
-  double fraction,value,a,b,phi;
+  KK_FLOAT fraction,value,a,b,phi;
   int tlm1 = tablength - 1;
 
   Table *tb = &tables[tabindex[itype][jtype]];
-  double mixWtSite1_i, mixWtSite1_j;
-  double mixWtSite2_i, mixWtSite2_j;
-  double mixWtSite1old_i, mixWtSite1old_j;
-  double mixWtSite2old_i, mixWtSite2old_j;
+  KK_FLOAT mixWtSite1_i, mixWtSite1_j;
+  KK_FLOAT mixWtSite2_i, mixWtSite2_j;
+  KK_FLOAT mixWtSite1old_i, mixWtSite1old_j;
+  KK_FLOAT mixWtSite2old_i, mixWtSite2old_j;
 
   fraction = 0.0;
   a = 0.0;

@@ -84,7 +84,7 @@ class FixWallGranKokkos : public FixWallGranOld, public KokkosBase {
   typename AT::t_int_1d mask;
   typename AT::t_kkfloat_1d rmass;
   typename AT::t_kkfloat_1d d_radius;
-  DAT::tdual_kkfloat_2d k_history_one;
+  DAT::ttriple_kkfloat_2d k_history_one;
   typename AT::t_kkfloat_2d d_history_one;
 
   typename AT::t_int_1d d_sendlist;

@@ -73,15 +73,15 @@ class PairMEAMKokkos : public PairMEAM, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairMEAMOffsets,  const int, int&) const;
 
-  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_kkfloat_1d&,
+  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_double_1d&,
                                int, int *) override;
   int pack_forward_comm(int, int *, double *, int, int *) override;
-  void unpack_forward_comm_kokkos(int, int, DAT::tdual_kkfloat_1d&) override;
+  void unpack_forward_comm_kokkos(int, int, DAT::tdual_double_1d&) override;
   void unpack_forward_comm(int, int, double *) override;
-  int pack_reverse_comm_kokkos(int, int, DAT::tdual_kkfloat_1d&) override;
+  int pack_reverse_comm_kokkos(int, int, DAT::tdual_double_1d&) override;
   int pack_reverse_comm(int, int, double *) override;
   void unpack_reverse_comm_kokkos(int, DAT::tdual_int_1d,
-                                  DAT::tdual_kkfloat_1d&) override;
+                                  DAT::tdual_double_1d&) override;
   void unpack_reverse_comm(int, int *, double *) override;
 
  protected:

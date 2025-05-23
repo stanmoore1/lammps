@@ -500,7 +500,9 @@ class PairReaxFFKokkos : public PairReaxFF {
   tdual_LR_lookup_table_kk_2d k_LR;
 
   DAT::ttriple_int_2d k_tmpid;
+  DAT::t_int_2d d_tmpid;
   DAT::ttriple_kkfloat_2d k_tmpbo;
+  DAT::t_kkfloat_2d d_tmpbo;
   DAT::tdual_int_scalar k_error_flag;
 
   typename AT::t_int_1d d_numneigh_bonds;
