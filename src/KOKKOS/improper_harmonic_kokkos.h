@@ -77,9 +77,9 @@ class ImproperHarmonicKokkos : public ImproperHarmonic {
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  Kokkos::DualView<int,DeviceType> k_warning_flag;
-  typename Kokkos::DualView<int,DeviceType>::t_dev d_warning_flag;
-  typename Kokkos::DualView<int,DeviceType>::t_host h_warning_flag;
+  DAT::tdual_int_scalar k_warning_flag;
+  typename AT::t_int_scalar d_warning_flag;
+  HAT::t_int_scalar h_warning_flag;
 
   DAT::tdual_kkfloat_1d k_k;
   DAT::tdual_kkfloat_1d k_chi;

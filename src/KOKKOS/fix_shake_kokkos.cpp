@@ -376,7 +376,7 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
   if (vflag_atom) {
     memoryKK->destroy_kokkos(k_vatom,vatom);
     memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"improper:vatom");
-    d_vatom = k_vatom.template view<KKDeviceType>();
+    d_vatom = k_vatom.template view<DeviceType>();
   }
 
   neighflag = lmp->kokkos->neighflag;

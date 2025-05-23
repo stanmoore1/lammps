@@ -360,7 +360,7 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
   typename FFT_AT::t_FFT_SCALAR_2d d_rho_coeff;
   FFT_HAT::t_FFT_SCALAR_2d h_rho_coeff;
   //double **acons;
-  typename Kokkos::DualView<KK_FLOAT[8][7],Kokkos::LayoutRight,DeviceType>::t_host acons;
+  typename Kokkos::DualView<KK_FLOAT[8][7],LMPDeviceType::array_layout,DeviceType>::t_host acons;
 
   // FFTs and grid communication
 

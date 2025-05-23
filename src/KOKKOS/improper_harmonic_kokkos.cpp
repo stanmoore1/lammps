@@ -43,7 +43,7 @@ ImproperHarmonicKokkos<DeviceType>::ImproperHarmonicKokkos(LAMMPS *lmp) : Improp
   datamask_read = X_MASK | F_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | ENERGY_MASK | VIRIAL_MASK;
 
-  k_warning_flag = Kokkos::DualView<int,DeviceType>("Dihedral:warning_flag");
+  k_warning_flag = DAT::tdual_int_scalar("Dihedral:warning_flag");
   d_warning_flag = k_warning_flag.template view<DeviceType>();
   h_warning_flag = k_warning_flag.h_view;
 
@@ -77,14 +77,14 @@ void ImproperHarmonicKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     if ((int)k_eatom.extent(0) < maxeatom) {
       memoryKK->destroy_kokkos(k_eatom,eatom);
       memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"improper:eatom");
-      d_eatom = k_eatom.template view<KKDeviceType>();
+      d_eatom = k_eatom.template view<DeviceType>();
     } else Kokkos::deep_copy(d_eatom,0.0);
   }
   if (vflag_atom) {
     if ((int)k_vatom.extent(0) < maxvatom) {
       memoryKK->destroy_kokkos(k_vatom,vatom);
       memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"improper:vatom");
-      d_vatom = k_vatom.template view<KKDeviceType>();
+      d_vatom = k_vatom.template view<DeviceType>();
     } else Kokkos::deep_copy(d_vatom,0.0);
   }
 
@@ -303,8 +303,8 @@ void ImproperHarmonicKokkos<DeviceType>::allocate()
   ImproperHarmonic::allocate();
 
   int n = atom->nimpropertypes;
-  k_k = Kokkos::DualView<KK_FLOAT*,DeviceType>("ImproperHarmonic::k",n+1);
-  k_chi = Kokkos::DualView<KK_FLOAT*,DeviceType>("ImproperHarmonic::chi",n+1);
+  k_k = DAT::tdual_kkfloat_1d("ImproperHarmonic::k",n+1);
+  k_chi = DAT::tdual_kkfloat_1d("ImproperHarmonic::chi",n+1);
 
   d_k = k_k.template view<DeviceType>();
   d_chi = k_chi.template view<DeviceType>();

@@ -178,7 +178,6 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
 
   typename AT::t_bigint_scalar d_mfill_offset;
 
-  typedef Kokkos::DualView<int***,DeviceType> tdual_int_1d;
   Kokkos::DualView<params_acks2*,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_acks2*, Kokkos::LayoutRight,DeviceType>::t_dev_const params;
 

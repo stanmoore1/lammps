@@ -393,21 +393,17 @@ class PairReaxFFKokkos : public PairReaxFF {
   void Deallocate_Lookup_Tables();
   void LR_vdW_Coulomb(int i, int j, double r_ij, ReaxFF::LR_data *lr);
 
-  typedef Kokkos::DualView<int*,DeviceType> tdual_int_1d;
   Kokkos::DualView<params_sing*,typename DeviceType::array_layout,DeviceType> k_params_sing;
   typename Kokkos::DualView<params_sing*,typename DeviceType::array_layout,DeviceType>::t_dev_const paramssing;
 
-  typedef Kokkos::DualView<int**,DeviceType> tdual_int_2d;
   Kokkos::DualView<params_twbp**,typename DeviceType::array_layout,DeviceType> k_params_twbp;
   typename Kokkos::DualView<params_twbp**,typename DeviceType::array_layout,DeviceType>::t_dev_const paramstwbp;
 
-  typedef Kokkos::DualView<int***,DeviceType> tdual_int_3d;
   Kokkos::DualView<params_thbp***,typename DeviceType::array_layout,DeviceType> k_params_thbp;
   typename Kokkos::DualView<params_thbp***,typename DeviceType::array_layout,DeviceType>::t_dev_const paramsthbp;
   Kokkos::DualView<params_hbp***,typename DeviceType::array_layout,DeviceType> k_params_hbp;
   typename Kokkos::DualView<params_hbp***,typename DeviceType::array_layout,DeviceType>::t_dev_const paramshbp;
 
-  typedef Kokkos::DualView<int****,DeviceType> tdual_int_4d;
   Kokkos::DualView<params_fbp****,typename DeviceType::array_layout,DeviceType> k_params_fbp;
   typename Kokkos::DualView<params_fbp****,typename DeviceType::array_layout,DeviceType>::t_dev_const paramsfbp;
 

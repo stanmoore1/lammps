@@ -205,7 +205,6 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
 
   typename AT::t_bigint_scalar d_mfill_offset;
 
-  typedef Kokkos::DualView<int***,DeviceType> tdual_int_1d;
   Kokkos::DualView<params_qeq*,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_qeq*, Kokkos::LayoutRight,DeviceType>::t_dev_const params;
 

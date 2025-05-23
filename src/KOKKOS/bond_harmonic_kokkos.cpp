@@ -70,14 +70,14 @@ void BondHarmonicKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     if ((int)k_eatom.extent(0) < maxeatom) {
       memoryKK->destroy_kokkos(k_eatom,eatom);
       memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"improper:eatom");
-      d_eatom = k_eatom.template view<KKDeviceType>();
+      d_eatom = k_eatom.template view<DeviceType>();
     } else Kokkos::deep_copy(d_eatom,0.0);
   }
   if (vflag_atom) {
     if ((int)k_vatom.extent(0) < maxvatom) {
       memoryKK->destroy_kokkos(k_vatom,vatom);
       memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"improper:vatom");
-      d_vatom = k_vatom.template view<KKDeviceType>();
+      d_vatom = k_vatom.template view<DeviceType>();
     } else Kokkos::deep_copy(d_vatom,0.0);
   }
 
