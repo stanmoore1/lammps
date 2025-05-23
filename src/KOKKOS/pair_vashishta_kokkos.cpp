@@ -120,17 +120,17 @@ void PairVashishtaKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (((int)d_neighbors_short_2body.extent(1) < max_neighs) ||
      ((int)d_neighbors_short_2body.extent(0) < ignum)) {
-    d_neighbors_short_2body = Kokkos::View<int**,DeviceType>("Vashishta::neighbors_short_2body",ignum*1.2,max_neighs);
+    d_neighbors_short_2body = typename AT::t_int_2d("Vashishta::neighbors_short_2body",ignum*1.2,max_neighs);
   }
   if ((int)d_numneigh_short_2body.extent(0) < ignum)
-    d_numneigh_short_2body = Kokkos::View<int*,DeviceType>("Vashishta::numneighs_short_2body",ignum*1.2);
+    d_numneigh_short_2body = typename AT::t_int_1d("Vashishta::numneighs_short_2body",ignum*1.2);
 
   if (((int)d_neighbors_short_3body.extent(1) < max_neighs) ||
      ((int)d_neighbors_short_3body.extent(0) < ignum)) {
-    d_neighbors_short_3body = Kokkos::View<int**,DeviceType>("Vashishta::neighbors_short_3body",ignum*1.2,max_neighs);
+    d_neighbors_short_3body = typename AT::t_int_2d("Vashishta::neighbors_short_3body",ignum*1.2,max_neighs);
   }
   if ((int)d_numneigh_short_3body.extent(0) < ignum)
-    d_numneigh_short_3body = Kokkos::View<int*,DeviceType>("Vashishta::numneighs_short_3body",ignum*1.2);
+    d_numneigh_short_3body = typename AT::t_int_1d("Vashishta::numneighs_short_3body",ignum*1.2);
 
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagPairVashishtaComputeShortNeigh>(0,neighflag==FULL?ignum:inum), *this);
 

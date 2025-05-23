@@ -233,8 +233,8 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
   int neighflag,newton_pair;
   int nlocal,nall,eflag,vflag;
 
-  Kokkos::View<int**,DeviceType> d_neighbors_short;
-  Kokkos::View<int*,DeviceType> d_numneigh_short;
+  typename AT::t_int_2d d_neighbors_short;
+  typename AT::t_int_1d d_numneigh_short;
 
   // ZBL
   KK_FLOAT global_a_0;              // Bohr radius for Coulomb repulsion

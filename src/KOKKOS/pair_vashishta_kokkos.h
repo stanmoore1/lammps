@@ -144,10 +144,10 @@ class PairVashishtaKokkos : public PairVashishta {
   int nlocal,nall,eflag,vflag;
 
   int inum;
-  Kokkos::View<int**,DeviceType> d_neighbors_short_2body;
-  Kokkos::View<int*,DeviceType> d_numneigh_short_2body;
-  Kokkos::View<int**,DeviceType> d_neighbors_short_3body;
-  Kokkos::View<int*,DeviceType> d_numneigh_short_3body;
+  typename AT::t_int_2d d_neighbors_short_2body;
+  typename AT::t_int_1d d_numneigh_short_2body;
+  typename AT::t_int_2d d_neighbors_short_3body;
+  typename AT::t_int_1d d_numneigh_short_3body;
   friend void pair_virial_fdotr_compute<PairVashishtaKokkos>(PairVashishtaKokkos*);
 };
 
