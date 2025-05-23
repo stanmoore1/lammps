@@ -131,8 +131,8 @@ class PairReaxFFKokkos : public PairReaxFF {
   void init_style();
   double memory_usage();
   void FindBond(int &, int groupbit = 1);
-  void PackBondBuffer(DAT::tdual_kkfloat_1d, int &);
-  void PackReducedBondBuffer(DAT::tdual_kkfloat_1d, int &, bool);
+  void PackBondBuffer(DAT::tdual_double_1d, int &);
+  void PackReducedBondBuffer(DAT::tdual_double_1d, int &, bool);
   void FindBondSpecies();
 
   template<int NEIGHFLAG>

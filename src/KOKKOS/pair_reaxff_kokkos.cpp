@@ -350,11 +350,11 @@ void PairReaxFFKokkos<DeviceType>::setup()
       }
     }
   }
-  k_params_sing.template modify<LMPHostType>();
-  k_params_twbp.template modify<LMPHostType>();
-  k_params_thbp.template modify<LMPHostType>();
-  k_params_fbp.template modify<LMPHostType>();
-  k_params_hbp.template modify<LMPHostType>();
+  k_params_sing.modify_host();
+  k_params_twbp.modify_host();
+  k_params_thbp.modify_host();
+  k_params_fbp.modify_host();
+  k_params_hbp.modify_host();
 
   // cutoffs
   cut_nbsq = api->control->nonb_cut * api->control->nonb_cut;
@@ -410,7 +410,7 @@ void PairReaxFFKokkos<DeviceType>::init_md()
   k_tap.h_view(0) = (-35.0*swa3*swb2*swb2 + 21.0*swa2*swb3*swb2 -
                      7.0*swa*swb3*swb3 + swb3*swb3*swb) / d7;
 
-  k_tap.template modify<LMPHostType>();
+  k_tap.modify_host();
   k_tap.template sync<DeviceType>();
 
 
@@ -447,10 +447,10 @@ void PairReaxFFKokkos<DeviceType>::init_md()
           k_CEclmb.h_view(k) = LR[i][j].CEclmb[k];
         }
 
-        k_vdW.template modify<LMPHostType>();
-        k_CEvd.template modify<LMPHostType>();
-        k_ele.template modify<LMPHostType>();
-        k_CEclmb.template modify<LMPHostType>();
+        k_vdW.modify_host();
+        k_CEvd.modify_host();
+        k_ele.modify_host();
+        k_CEclmb.modify_host();
 
         k_vdW.template sync<DeviceType>();
         k_CEvd.template sync<DeviceType>();
@@ -458,7 +458,7 @@ void PairReaxFFKokkos<DeviceType>::init_md()
         k_CEclmb.template sync<DeviceType>();
       }
     }
-    k_LR.template modify<LMPHostType>();
+    k_LR.modify_host();
     k_LR.template sync<DeviceType>();
 
     Deallocate_Lookup_Tables();
@@ -838,11 +838,11 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     resize = 0;
 
     k_resize_bo.h_view() = 0;
-    k_resize_bo.modify<LMPHostType>();
+    k_resize_bo.modify_host();
     k_resize_bo.sync<DeviceType>();
 
     k_resize_hb.h_view() = 0;
-    k_resize_hb.modify<LMPHostType>();
+    k_resize_hb.modify_host();
     k_resize_hb.sync<DeviceType>();
 
     // zero
@@ -952,7 +952,7 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   auto& h_count_angular_torsion = k_count_angular_torsion.h_view;
   h_count_angular_torsion(0) = 0;
   h_count_angular_torsion(1) = 0;
-  k_count_angular_torsion.template modify<LMPHostType>();
+  k_count_angular_torsion.modify_host();
   k_count_angular_torsion.template sync<DeviceType>();
 
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxCountAngularTorsion<false> >(0,inum),*this);
@@ -970,7 +970,7 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // need to zero to re-count
   h_count_angular_torsion(0) = 0;
   h_count_angular_torsion(1) = 0;
-  k_count_angular_torsion.template modify<LMPHostType>();
+  k_count_angular_torsion.modify_host();
   k_count_angular_torsion.template sync<DeviceType>();
 
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxCountAngularTorsion<true>>(0,inum),*this);

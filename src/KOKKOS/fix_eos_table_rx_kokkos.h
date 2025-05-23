@@ -63,7 +63,7 @@ class FixEOStableRXKokkos : public FixEOStableRX {
   void energy_lookup(int, KK_FLOAT, KK_FLOAT &) const;
 
   KOKKOS_INLINE_FUNCTION
-  void temperature_lookup(int, KK_FLOAT, double &) const;
+  void temperature_lookup(int, KK_FLOAT, KK_FLOAT &) const;
 
  protected:
   //struct Table {

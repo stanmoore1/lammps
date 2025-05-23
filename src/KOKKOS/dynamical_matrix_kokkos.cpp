@@ -263,7 +263,7 @@ void DynamicalMatrixKokkos::update_force()
     Kokkos::parallel_for(atomKK->k_f.extent(0),
                          ForceAdder<DAT::t_kkfloat_1d_3,DAT::t_kkfloat_1d_3>(atomKK->k_f.d_view,f_merge_copy));
     atomKK->k_f.clear_sync_state(); // special case
-    atomKK->k_f.modify<LMPDeviceType>();
+    atomKK->k_f.modify_device();
   }
   if (n_pre_reverse) {
     modify->pre_reverse(eflag,vflag);

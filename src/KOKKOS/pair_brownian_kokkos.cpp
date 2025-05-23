@@ -607,10 +607,10 @@ double PairBrownianKokkos<DeviceType>::init_one(int i, int j)
   double cutinnerm = cut_inner[i][j];
 
   k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutone*cutone;
-  k_cutsq.template modify<LMPHostType>();
+  k_cutsq.modify_host();
 
   k_cut_inner.h_view(i,j) = k_cut_inner.h_view(j,i) = cutinnerm;
-  k_cut_inner.template modify<LMPHostType>();
+  k_cut_inner.modify_host();
 
   return cutone;
 }

@@ -276,17 +276,17 @@ double PairZBLKokkos<DeviceType>::init_one(int i, int j)
   k_sw4.h_view(i,j) = k_sw4.h_view(j,i) = sw4[i][j];
   k_sw5.h_view(i,j) = k_sw5.h_view(j,i) = sw5[i][j];
 
-  k_z.modify<LMPHostType>();
-  k_d1a.modify<LMPHostType>();
-  k_d2a.modify<LMPHostType>();
-  k_d3a.modify<LMPHostType>();
-  k_d4a.modify<LMPHostType>();
-  k_zze.modify<LMPHostType>();
-  k_sw1.modify<LMPHostType>();
-  k_sw2.modify<LMPHostType>();
-  k_sw3.modify<LMPHostType>();
-  k_sw4.modify<LMPHostType>();
-  k_sw5.modify<LMPHostType>();
+  k_z.modify_host();
+  k_d1a.modify_host();
+  k_d2a.modify_host();
+  k_d3a.modify_host();
+  k_d4a.modify_host();
+  k_zze.modify_host();
+  k_sw1.modify_host();
+  k_sw2.modify_host();
+  k_sw3.modify_host();
+  k_sw4.modify_host();
+  k_sw5.modify_host();
 
   if (i<MAX_TYPES_STACKPARAMS+1 && j<MAX_TYPES_STACKPARAMS+1) {
     m_cutsq[i][j] = m_cutsq[j][i] = cutone*cutone;

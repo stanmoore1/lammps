@@ -487,9 +487,9 @@ double PairLJSPICACoulLongKokkos<DeviceType>::init_one(int i, int j)
   k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutone*cutone;
   k_cut_ljsq.h_view(i,j) = k_cut_ljsq.h_view(j,i) = cut_ljsq[i][j];
 
-  k_cutsq.template modify<LMPHostType>();
-  k_cut_ljsq.template modify<LMPHostType>();
-  k_params.template modify<LMPHostType>();
+  k_cutsq.modify_host();
+  k_cut_ljsq.modify_host();
+  k_params.modify_host();
 
   return cutone;
 }

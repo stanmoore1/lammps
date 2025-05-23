@@ -154,9 +154,9 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
     KK_FLOAT chi, eta, gamma;
   };
 
-  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_kkfloat_1d&,
+  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_double_1d&,
                        int, int *) override;
-  void unpack_forward_comm_kokkos(int, int, DAT::tdual_kkfloat_1d&) override;
+  void unpack_forward_comm_kokkos(int, int, DAT::tdual_double_1d&) override;
   int pack_forward_comm(int, int *, double *, int, int *) override;
   void unpack_forward_comm(int, int, double *) override;
   int pack_reverse_comm(int, int, double *) override;
@@ -220,7 +220,7 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
 
   DAT::tdual_kkfloat_1d k_q;
   typename AT::t_kkfloat_1d d_q;
-  HAT::t_kkfloat_1d h_q;
+  HAT::t_double_1d h_q;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist, d_numneigh;
@@ -240,10 +240,13 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
   typename AT::t_kkfloat_1d_2 d_p, d_o, d_r, d_d, d_b_st, d_st, d_xx;
   HAT::t_kkfloat_1d_2 h_o, h_d, h_st;
 
-  DAT::tdual_kkfloat_2d k_shield, k_s_hist, k_t_hist;
-  typename AT::t_kkfloat_2d d_shield, d_s_hist, d_t_hist;
-  HAT::t_kkfloat_2d h_s_hist, h_t_hist;
+  DAT::ttriple_kkfloat_2d k_s_hist, k_t_hist;
+  typename AT::t_kkfloat_2d d_s_hist, d_t_hist;
+  HAT::t_double_2d h_s_hist, h_t_hist;
   typename AT::t_kkfloat_2d_randomread r_s_hist, r_t_hist;
+
+  DAT::tdual_kkfloat_2d k_shield;
+  typename AT::t_kkfloat_2d d_shield;
 
   using KKDeviceType = typename KKDevice<DeviceType>::value;
 

@@ -192,7 +192,7 @@ void AtomKokkos::allocate_type_arrays()
     mass = k3_mass.h_view.data();
     mass_setflag = new int[ntypes + 1];
     for (int itype = 1; itype <= ntypes; itype++) mass_setflag[itype] = 0;
-    k3_mass.modify<LMPHostType>();
+    k3_mass.modify_host();
   }
 }
 

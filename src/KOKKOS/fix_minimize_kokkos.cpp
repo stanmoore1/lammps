@@ -61,7 +61,7 @@ void FixMinimizeKokkos::add_vector_kokkos()
   d_vectors = k_vectors.d_view;
   h_vectors = k_vectors.h_view;
 
-  k_vectors.modify<LMPDeviceType>();
+  k_vectors.modify_device();
 
   nvector++;
 }
@@ -181,7 +181,7 @@ void FixMinimizeKokkos::reset_coords()
       if (dz != dz0) l_x0[n+2] = l_x(i,2) - dz;
     });
   }
-  k_vectors.modify<LMPDeviceType>();
+  k_vectors.modify_device();
 
   box_swap();
   domain->set_global_box();
@@ -197,7 +197,7 @@ void FixMinimizeKokkos::grow_arrays(int nmax)
   memoryKK->grow_kokkos(k_vectors,vectors,nvector,3*nmax,"minimize:vector");
   d_vectors = k_vectors.d_view;
   h_vectors = k_vectors.h_view;
-  k_vectors.modify<LMPDeviceType>();
+  k_vectors.modify_device();
 }
 
 /* ----------------------------------------------------------------------
@@ -217,7 +217,7 @@ void FixMinimizeKokkos::copy_arrays(int i, int j, int /*delflag*/)
     for (iper = 0; iper < nper; iper++) h_vectors(m,nj++) = h_vectors(m,ni++);
   }
 
-  k_vectors.modify<LMPHostType>();
+  k_vectors.modify_host();
 }
 
 /* ----------------------------------------------------------------------
@@ -256,7 +256,7 @@ int FixMinimizeKokkos::unpack_exchange(int nlocal, double *buf)
     for (iper = 0; iper < nper; iper++) h_vectors(m,ni++) = buf[n++];
   }
 
-  k_vectors.modify<LMPHostType>();
+  k_vectors.modify_host();
 
   return n;
 }

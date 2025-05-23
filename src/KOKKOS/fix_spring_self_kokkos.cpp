@@ -101,7 +101,7 @@ void FixSpringSelfKokkos<DeviceType>::post_force(int /*vflag*/)
 
   double espring_kk;
 
-  k_xoriginal.modify<LMPHostType>();
+  k_xoriginal.modify_host();
   k_xoriginal.sync<DeviceType>();
 
   copymode = 1;
@@ -213,7 +213,7 @@ int FixSpringSelfKokkos<DeviceType>::pack_exchange_kokkos(
   k_copylist.sync<DeviceType>();
   k_exchange_sendlist.sync<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_kkfloat_1d_um(
+  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_copylist = k_copylist.view<DeviceType>();
@@ -274,7 +274,7 @@ void FixSpringSelfKokkos<DeviceType>::unpack_exchange_kokkos(
   k_buf.sync<DeviceType>();
   k_indices.sync<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_kkfloat_1d_um(
+  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_indices = k_indices.view<DeviceType>();

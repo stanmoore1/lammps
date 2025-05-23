@@ -184,7 +184,7 @@ template <class DeviceType> double PairUF3Kokkos<DeviceType>::init_one(int i, in
 
   k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutone*cutone; //Update the k_cutsq's
   //host memory
-  k_cutsq.template modify<LMPHostType>(); //Record that k_cutsq's host memory has
+  k_cutsq.modify_host(); //Record that k_cutsq's host memory has
   //been modified
 
   return cutone;
@@ -213,8 +213,8 @@ template <class DeviceType> void PairUF3Kokkos<DeviceType>::create_coefficients(
         }
       }
     }
-    k_cut_3b.template modify<LMPHostType>();
-    k_min_cut_3b.template modify<LMPHostType>();
+    k_cut_3b.modify_host();
+    k_min_cut_3b.modify_host();
   }
 
   //No allocation on device for --> setflag, cut, knot_spacing_type_2b,

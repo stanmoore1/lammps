@@ -494,10 +494,10 @@ double PairPACEExtrapolationKokkos<DeviceType>::init_one(int i, int j)
   double cutone = PairPACEExtrapolation::init_one(i,j);
 
   k_scale.h_view(i,j) = k_scale.h_view(j,i) = scale[i][j];
-  k_scale.template modify<LMPHostType>();
+  k_scale.modify_host();
 
   k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutone*cutone;
-  k_cutsq.template modify<LMPHostType>();
+  k_cutsq.modify_host();
 
   return cutone;
 }

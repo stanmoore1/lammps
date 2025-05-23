@@ -72,7 +72,7 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::copy_neighbor_info()
     k_cutneighsq = k_mycutneighsq;
   }
 
-  k_cutneighsq.modify<LMPHostType>();
+  k_cutneighsq.modify_host();
 
   // exclusion info
 
@@ -124,7 +124,7 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::copy_stencil_info()
       k_stencil = DAT::tdual_int_1d("neighlist:stencil",maxstencil);
     for (int k = 0; k < maxstencil; k++)
       k_stencil.h_view(k) = ns->stencil[k];
-    k_stencil.modify<LMPHostType>();
+    k_stencil.modify_host();
     k_stencil.sync<DeviceType>();
     if (GHOST) {
       if (maxstencil > (int)k_stencilxyz.extent(0))
@@ -134,7 +134,7 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::copy_stencil_info()
         k_stencilxyz.h_view(k,1) = ns->stencilxyz[k][1];
         k_stencilxyz.h_view(k,2) = ns->stencilxyz[k][2];
       }
-      k_stencilxyz.modify<LMPHostType>();
+      k_stencilxyz.modify_host();
       k_stencilxyz.sync<DeviceType>();
     }
   }

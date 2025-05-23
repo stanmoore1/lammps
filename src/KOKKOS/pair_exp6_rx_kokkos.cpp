@@ -1646,7 +1646,7 @@ void PairExp6rxKokkos<DeviceType>::allocate()
 
   memoryKK->create_kokkos(k_cutsq,cutsq,ntypes+1,ntypes+1,"pair:cutsq");
   d_cutsq = k_cutsq.template view<DeviceType>();
-  k_cutsq.template modify<LMPHostType>();
+  k_cutsq.modify_host();
 
   memory->create(cut,ntypes+1,ntypes+1,"pair:cut_lj");
 }
@@ -1668,7 +1668,7 @@ void PairExp6rxKokkos<DeviceType>::coeff(int narg, char **arg)
       s_coeffRm[i] = coeffRm[i];
     }
 
-  k_params.template modify<LMPHostType>();
+  k_params.modify_host();
   k_params.template sync<DeviceType>();
   d_params = k_params.template view<DeviceType>();
 }
@@ -1760,7 +1760,7 @@ void PairExp6rxKokkos<DeviceType>::read_file(char *file)
     // load up parameter settings and error check their values
 
     if (nparams == maxparam) {
-      k_params.template modify<LMPHostType>();
+      k_params.modify_host();
       maxparam += DELTA;
       memoryKK->grow_kokkos(k_params,params,maxparam,
                           "pair:params");
@@ -1810,7 +1810,7 @@ void PairExp6rxKokkos<DeviceType>::setup()
     mol2param[i] = n;
   }
 
-  k_mol2param.template modify<LMPHostType>();
+  k_mol2param.modify_host();
   k_mol2param.template sync<DeviceType>();
   d_mol2param = k_mol2param.template view<DeviceType>();
 

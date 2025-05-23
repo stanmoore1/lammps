@@ -245,7 +245,7 @@ void PairMLIAPKokkos<DeviceType>::coeff(int narg, char **arg) {
     else if (strcmp(elemname,"NULL") == 0) map[i] = -1;
     else error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   }
-  k_map.modify<LMPHostType>();
+  k_map.modify_host();
   k_map.sync_device();
 
   // clear setflag since coeff() called once with I,J = * *
@@ -264,7 +264,7 @@ void PairMLIAPKokkos<DeviceType>::coeff(int narg, char **arg) {
         setflag[i][j] = 1;
         count++;
       }
-  k_setflag.modify<LMPHostType>();
+  k_setflag.modify_host();
   k_setflag.sync_device();
 
   if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
@@ -280,7 +280,7 @@ void PairMLIAPKokkos<DeviceType>::coeff(int narg, char **arg) {
       if (map[itype] >= 0 && map[jtype] >= 0) {
         h_cutsq(itype,jtype) = descriptor->cutsq[map[itype]][map[jtype]];
       }
-  k_cutsq.modify<LMPHostType>();
+  k_cutsq.modify_host();
   k_cutsq.sync<DeviceType>();
   constexpr int gradgradflag = -1;
   delete data;

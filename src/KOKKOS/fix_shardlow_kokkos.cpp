@@ -157,7 +157,7 @@ void FixShardlowKokkos<DeviceType>::init()
     }
   }
 
-  k_params.template modify<LMPHostType>();
+  k_params.modify_host();
 }
 
 /* ---------------------------------------------------------------------- */

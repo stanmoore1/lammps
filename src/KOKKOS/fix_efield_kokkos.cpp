@@ -155,7 +155,7 @@ void FixEfieldKokkos<DeviceType>::post_force(int vflag)
     FixEfield::update_efield_variables();
 
     if (varflag == ATOM) {  // this can be removed when variable class is ported to Kokkos
-      k_efield.modify<LMPHostType>();
+      k_efield.modify_host();
       k_efield.sync<DeviceType>();
     }
 

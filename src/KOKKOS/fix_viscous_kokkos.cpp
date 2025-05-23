@@ -54,7 +54,7 @@ void FixViscousKokkos<DeviceType>::init()
 
   for (int i = 1; i <= atom->ntypes; i++) k_gamma.h_view(i) = gamma[i];
 
-  k_gamma.template modify<LMPHostType>();
+  k_gamma.modify_host();
   k_gamma.template sync<DeviceType>();
 
   if (utils::strmatch(update->integrate_style,"^respa"))

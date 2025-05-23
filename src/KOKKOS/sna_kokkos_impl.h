@@ -471,7 +471,7 @@ void SNAKokkos<DeviceType, real_type, vector_length>::compute_ui_small(const typ
 {
   const int iatom = iatom_mod + vector_length * iatom_div;
   // get shared memory offset
-  // scratch size: 32 atoms * (twojmax+1) cached values, no KK_FLOAT buffer
+  // scratch size: 32 atoms * (twojmax+1) cached values, no double buffer
   const int tile_size = vector_length * (twojmax + 1);
 
   const int team_rank = team.team_rank();
@@ -502,7 +502,7 @@ void SNAKokkos<DeviceType, real_type, vector_length>::compute_ui_large(const typ
 {
   const int iatom = iatom_mod + vector_length * iatom_div;
   // get shared memory offset
-  // scratch size: 32 atoms * (twojmax+1) cached values, no KK_FLOAT buffer
+  // scratch size: 32 atoms * (twojmax+1) cached values, no double buffer
   const int tile_size = vector_length * (twojmax + 1);
 
   const int team_rank = team.team_rank();
@@ -803,11 +803,11 @@ void SNAKokkos<DeviceType, real_type, vector_length>::compute_zi(const int& iato
   const real_type *cgblock = cglist.data() + idxcg;
 
   if constexpr (chemsnap) {
-    int iKK_FLOAT = 0;
+    int idouble = 0;
     for (int elem1 = 0; elem1 < nelements; elem1++) {
       for (int elem2 = 0; elem2 < nelements; elem2++) {
-        zlist(iatom, iKK_FLOAT, jjz) = evaluate_zi(j1, j2, j, ma1min, ma2max, mb1min, mb2max, na, nb, iatom, elem1, elem2, cgblock);
-        iKK_FLOAT++;
+        zlist(iatom, idouble, jjz) = evaluate_zi(j1, j2, j, ma1min, ma2max, mb1min, mb2max, na, nb, iatom, elem1, elem2, cgblock);
+        idouble++;
       } // end loop over elem2
     } // end loop over elem1
   } else {
@@ -926,7 +926,7 @@ real_type SNAKokkos<DeviceType, real_type, vector_length>::evaluate_bi(const int
   //              2*Conj(u(j,ma,mb))*z(j1,j2,j,ma,mb)
   // portion
 
-  const int iKK_FLOAT = elem1 * nelements + elem2;
+  const int idouble = elem1 * nelements + elem2;
   real_type sumzu = 0.0;
   real_type sumzu_temp = 0.0;
 
@@ -936,7 +936,7 @@ real_type SNAKokkos<DeviceType, real_type, vector_length>::evaluate_bi(const int
       const int jjz_index = jjz+mb*(j+1)+ma;
       if (2*mb == j) return 0; // I think we can remove this?
       const complex utot = ulisttot(iatom, elem3, jju_index);
-      const complex zloc = zlist(iatom, iKK_FLOAT, jjz_index);
+      const complex zloc = zlist(iatom, idouble, jjz_index);
       sumzu_temp += utot.re * zloc.re + utot.im * zloc.im;
     }
   }
@@ -952,7 +952,7 @@ real_type SNAKokkos<DeviceType, real_type, vector_length>::evaluate_bi(const int
       const int jjz_index = jjz+(mb-1)*(j+1)+(j+1)+ma;
 
       const complex utot = ulisttot(iatom, elem3, jju_index);
-      const complex zloc = zlist(iatom, iKK_FLOAT, jjz_index);
+      const complex zloc = zlist(iatom, idouble, jjz_index);
       sumzu_temp += utot.re * zloc.re + utot.im * zloc.im;
 
     }
@@ -963,7 +963,7 @@ real_type SNAKokkos<DeviceType, real_type, vector_length>::evaluate_bi(const int
     const int jjz_index = jjz+(mb-1)*(j+1)+(j+1)+ma;
 
     const complex utot = ulisttot(iatom, elem3, jju_index);
-    const complex zloc = zlist(iatom, iKK_FLOAT, jjz_index);
+    const complex zloc = zlist(iatom, idouble, jjz_index);
     sumzu += static_cast<real_type>(0.5) * (utot.re * zloc.re + utot.im * zloc.im);
   } // end if jeven
 
@@ -1128,10 +1128,10 @@ void SNAKokkos<DeviceType, real_type, vector_length>::compute_yi_with_zlist(cons
   idxz(jjz).get_yi_with_zlist(j1, j2, j, jju_half);
 
   if constexpr (chemsnap) {
-    int iKK_FLOAT = 0;
+    int idouble = 0;
     for (int elem1 = 0; elem1 < nelements; elem1++) {
       for (int elem2 = 0; elem2 < nelements; elem2++) {
-        const complex ztmp = zlist(iatom, iKK_FLOAT, jjz);
+        const complex ztmp = zlist(iatom, idouble, jjz);
         // apply to z(j1,j2,j,ma,mb) to unique element of y(j)
         // find right y_list[jju] and beta(iatom,jjb) entries
         // multiply and divide by j+1 factors
@@ -1149,7 +1149,7 @@ void SNAKokkos<DeviceType, real_type, vector_length>::compute_yi_with_zlist(cons
             ylist_im(iatom, elem3, jju_half) += betaj * ztmp.im;
           }
         } // end loop over elem3
-        iKK_FLOAT++;
+        idouble++;
       } // end loop over elem2
     } // end loop over elem1
   } else {
@@ -1235,7 +1235,7 @@ void SNAKokkos<DeviceType, real_type, vector_length>::compute_fused_deidrj_small
 {
   const int iatom = iatom_mod + vector_length * iatom_div;
   // get shared memory offset
-  // scratch size: 32 atoms * (twojmax+1) cached values, no KK_FLOAT buffer
+  // scratch size: 32 atoms * (twojmax+1) cached values, no double buffer
   const int tile_size = vector_length * (twojmax + 1);
 
   const int team_rank = team.team_rank();
@@ -1273,7 +1273,7 @@ void SNAKokkos<DeviceType, real_type, vector_length>::compute_fused_deidrj_large
 {
   const int iatom = iatom_mod + vector_length * iatom_div;
   // get shared memory offset
-  // scratch size: 32 atoms * (twojmax+1) cached values, no KK_FLOAT buffer
+  // scratch size: 32 atoms * (twojmax+1) cached values, no double buffer
   const int tile_size = vector_length * (twojmax + 1);
 
   const int team_rank = team.team_rank();

@@ -1452,7 +1452,7 @@ void FixRxKokkos<DeviceType>::solve_reactions(const int /*vflag*/, const bool is
 
   // Initialize and sync the device flag.
   k_error_flag.h_view() = 0;
-  k_error_flag.template modify<LMPHostType>();
+  k_error_flag.modify_host();
   k_error_flag.template sync<DeviceType>();
 
   // Create scratch array space.
@@ -1830,7 +1830,7 @@ void FixRxKokkos<DeviceType>::computeLocalTemperature()
         k_cutsq.h_view(j,i) = k_cutsq.h_view(i,j);
       }
 
-    k_cutsq.template modify<LMPHostType>();
+    k_cutsq.modify_host();
     k_cutsq.template sync<DeviceType>();
   }
 
@@ -2007,7 +2007,7 @@ int FixRxKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)
 {
   // Sync the host view.
   k_dpdThetaLocal.sync_host();
-  k_sumWeights.   template sync<LMPHostType>();
+  k_sumWeights.sync_host();
 
   const int last = first + n;
   int m = 0;
@@ -2033,8 +2033,8 @@ void FixRxKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, double *buf)
   }
 
   // Signal that the host view has been modified.
-  k_dpdThetaLocal.template modify<LMPHostType>();
-  k_sumWeights.   template modify<LMPHostType>();
+  k_dpdThetaLocal.modify_host();
+  k_sumWeights.   modify_host();
 }
 
 namespace LAMMPS_NS {

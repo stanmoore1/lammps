@@ -117,7 +117,7 @@ void FixQEqReaxFFKokkos<DeviceType>::init()
     k_params.h_view(n).eta = eta[n];
     k_params.h_view(n).gamma = gamma[n];
   }
-  k_params.template modify<LMPHostType>();
+  k_params.modify_host();
 
   cutsq = swb * swb;
 
@@ -142,7 +142,7 @@ void FixQEqReaxFFKokkos<DeviceType>::init_shielding_k()
     for (j = 1; j <= ntypes; ++j)
       k_shield.h_view(i,j) = pow(gamma[i] * gamma[j], -1.5);
 
-  k_shield.template modify<LMPHostType>();
+  k_shield.modify_host();
   k_shield.template sync<DeviceType>();
 
   k_tap = DAT::tdual_kkfloat_1d("qeq/kk:tap",8);
@@ -151,7 +151,7 @@ void FixQEqReaxFFKokkos<DeviceType>::init_shielding_k()
   for (i = 0; i < 8; i ++)
     k_tap.h_view(i) = Tap[i];
 
-  k_tap.template modify<LMPHostType>();
+  k_tap.modify_host();
   k_tap.template sync<DeviceType>();
 }
 
@@ -1303,8 +1303,8 @@ void FixQEqReaxFFKokkos<DeviceType>::grow_arrays(int nmax)
   k_s_hist.sync_host();
   k_t_hist.sync_host();
 
-  k_s_hist.template modify<LMPHostType>(); // force reallocation on host
-  k_t_hist.template modify<LMPHostType>();
+  k_s_hist.modify_host(); // force reallocation on host
+  k_t_hist.modify_host();
 
   memoryKK->grow_kokkos(k_s_hist,s_hist,nmax,nprev,"qeq:s_hist");
   memoryKK->grow_kokkos(k_t_hist,t_hist,nmax,nprev,"qeq:t_hist");
@@ -1312,8 +1312,8 @@ void FixQEqReaxFFKokkos<DeviceType>::grow_arrays(int nmax)
   d_s_hist = k_s_hist.template view<DeviceType>();
   d_t_hist = k_t_hist.template view<DeviceType>();
 
-  k_s_hist.template modify<LMPHostType>();
-  k_t_hist.template modify<LMPHostType>();
+  k_s_hist.modify_host();
+  k_t_hist.modify_host();
 }
 
 /* ----------------------------------------------------------------------
@@ -1331,8 +1331,8 @@ void FixQEqReaxFFKokkos<DeviceType>::copy_arrays(int i, int j, int /*delflag*/)
     t_hist[j][m] = t_hist[i][m];
   }
 
-  k_s_hist.template modify<LMPHostType>();
-  k_t_hist.template modify<LMPHostType>();
+  k_s_hist.modify_host();
+  k_t_hist.modify_host();
 }
 
 /* ----------------------------------------------------------------------
@@ -1384,7 +1384,7 @@ int FixQEqReaxFFKokkos<DeviceType>::pack_exchange_kokkos(
   k_copylist.sync<DeviceType>();
   k_exchange_sendlist.sync<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_kkfloat_1d_um(
+  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_copylist = k_copylist.view<DeviceType>();
@@ -1431,7 +1431,7 @@ void FixQEqReaxFFKokkos<DeviceType>::unpack_exchange_kokkos(
   k_buf.sync<DeviceType>();
   k_indices.sync<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_kkfloat_1d_um(
+  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_indices = k_indices.view<DeviceType>();
@@ -1462,8 +1462,8 @@ int FixQEqReaxFFKokkos<DeviceType>::pack_exchange(int i, double *buf)
   for (int m = 0; m < nprev; m++) buf[m] = s_hist[i][m];
   for (int m = 0; m < nprev; m++) buf[nprev+m] = t_hist[i][m];
 
-  k_s_hist.template modify<LMPHostType>();
-  k_t_hist.template modify<LMPHostType>();
+  k_s_hist.modify_host();
+  k_t_hist.modify_host();
 
   return nprev*2;
 }
@@ -1481,8 +1481,8 @@ int FixQEqReaxFFKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
   for (int m = 0; m < nprev; m++) s_hist[nlocal][m] = buf[m];
   for (int m = 0; m < nprev; m++) t_hist[nlocal][m] = buf[nprev+m];
 
-  k_s_hist.template modify<LMPHostType>();
-  k_t_hist.template modify<LMPHostType>();
+  k_s_hist.modify_host();
+  k_t_hist.modify_host();
 
   return nprev*2;
 }

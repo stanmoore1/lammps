@@ -97,7 +97,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::post_constructor()
 template<class DeviceType>
 void FixACKS2ReaxFFKokkos<DeviceType>::init()
 {
-  atomKK->k_q.modify<LMPHostType>();
+  atomKK->k_q.modify_host();
   atomKK->k_q.sync<DeviceType>();
 
   FixACKS2ReaxFF::init();
@@ -122,7 +122,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::init()
     k_params.h_view(n).gamma = gamma[n];
     k_params.h_view(n).bcut_acks2 = bcut_acks2[n];
   }
-  k_params.template modify<LMPHostType>();
+  k_params.modify_host();
 
   cutsq = swb * swb;
 
@@ -145,7 +145,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::init_shielding_k()
     for( j = 1; j <= ntypes; ++j )
       k_shield.h_view(i,j) = pow( gamma[i] * gamma[j], -1.5 );
 
-  k_shield.template modify<LMPHostType>();
+  k_shield.modify_host();
   k_shield.template sync<DeviceType>();
 
   k_bcut = DAT::tdual_kkfloat_2d("acks2/kk:bcut",ntypes+1,ntypes+1);
@@ -155,7 +155,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::init_shielding_k()
     for( j = 1; j <= ntypes; ++j )
       k_bcut.h_view(i,j) = 0.5*(bcut_acks2[i] + bcut_acks2[j]);
 
-  k_bcut.template modify<LMPHostType>();
+  k_bcut.modify_host();
   k_bcut.template sync<DeviceType>();
 
   k_tap = DAT::tdual_kkfloat_1d("acks2/kk:tap",8);
@@ -164,7 +164,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::init_shielding_k()
   for (i = 0; i < 8; i ++)
     k_tap.h_view(i) = Tap[i];
 
-  k_tap.template modify<LMPHostType>();
+  k_tap.modify_host();
   k_tap.template sync<DeviceType>();
 }
 
@@ -282,7 +282,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::pre_force(int /*vflag*/)
           h_s_hist_last(0,k) = buf[n++];
           h_s_hist_last(1,k) = buf[n++];
         }
-        k_s_hist_last.template modify<LMPHostType>();
+        k_s_hist_last.modify_host();
       }
     }
 
@@ -383,7 +383,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::pre_force(int /*vflag*/)
     k_X_diag.template modify<DeviceType>();
     k_X_diag.sync_host();
     comm->reverse_comm(this);
-    k_X_diag.template modify<LMPHostType>();
+    k_X_diag.modify_host();
     k_X_diag.template sync<DeviceType>();
   }
 
@@ -402,7 +402,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::pre_force(int /*vflag*/)
   k_s.sync_host();
   comm->forward_comm(this);
   more_forward_comm(k_s.h_view.data());
-  k_s.template modify<LMPHostType>();
+  k_s.modify_host();
   k_s.template sync<DeviceType>();
 
   // bicgstab solve over b_s, s
@@ -1226,7 +1226,7 @@ int FixACKS2ReaxFFKokkos<DeviceType>::bicgstab_solve()
   if (neighflag != FULL)
     comm->reverse_comm(this); //Coll_vector( d );
   more_reverse_comm(k_d.h_view.data());
-  k_d.template modify<LMPHostType>();
+  k_d.modify_host();
   k_d.template sync<DeviceType>();
 
   // vector_sum( r , 1.,  b, -1., d, nn );
@@ -1278,7 +1278,7 @@ int FixACKS2ReaxFFKokkos<DeviceType>::bicgstab_solve()
     k_d.sync_host();
     comm->forward_comm(this);
     more_forward_comm(k_d.h_view.data());
-    k_d.template modify<LMPHostType>();
+    k_d.modify_host();
     k_d.template sync<DeviceType>();
 
     // sparse_matvec( &H, &X, d, z );
@@ -1290,7 +1290,7 @@ int FixACKS2ReaxFFKokkos<DeviceType>::bicgstab_solve()
     if (neighflag != FULL)
       comm->reverse_comm(this); //Coll_vector( z );
     more_reverse_comm(k_z.h_view.data());
-    k_z.template modify<LMPHostType>();
+    k_z.modify_host();
     k_z.template sync<DeviceType>();
 
     // tmp = parallel_dot( r_hat, z, nn);
@@ -1324,7 +1324,7 @@ int FixACKS2ReaxFFKokkos<DeviceType>::bicgstab_solve()
     k_q_hat.sync_host();
     comm->forward_comm(this);
     more_forward_comm(k_q_hat.h_view.data());
-    k_q_hat.template modify<LMPHostType>();
+    k_q_hat.modify_host();
     k_q_hat.template sync<DeviceType>();
 
     sparse_matvec_acks2(d_q_hat, d_y);
@@ -1335,7 +1335,7 @@ int FixACKS2ReaxFFKokkos<DeviceType>::bicgstab_solve()
     if (neighflag != FULL)
       comm->reverse_comm(this); //Coll_vector( y );
     more_reverse_comm(k_y.h_view.data());
-    k_y.template modify<LMPHostType>();
+    k_y.modify_host();
     k_y.template sync<DeviceType>();
 
     // sigma = parallel_dot( y, q, nn);
@@ -1388,7 +1388,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::calculate_Q()
   k_s.modify<DeviceType>();
   k_s.sync_host();
   comm->forward_comm(this);
-  k_s.modify<LMPHostType>();
+  k_s.modify_host();
   k_s.sync<DeviceType>();
 
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagACKS2CalculateQ>(0,NN),*this);
@@ -1890,8 +1890,8 @@ void FixACKS2ReaxFFKokkos<DeviceType>::grow_arrays(int nmax)
   k_s_hist.sync_host();
   k_s_hist_X.sync_host();
 
-  k_s_hist.template modify<LMPHostType>(); // force reallocation on host
-  k_s_hist_X.template modify<LMPHostType>();
+  k_s_hist.modify_host(); // force reallocation on host
+  k_s_hist_X.modify_host();
 
   memoryKK->grow_kokkos(k_s_hist,s_hist,nmax,nprev,"acks2:s_hist");
   memoryKK->grow_kokkos(k_s_hist_X,s_hist_X,nmax,nprev,"acks2:s_hist_X");
@@ -1899,8 +1899,8 @@ void FixACKS2ReaxFFKokkos<DeviceType>::grow_arrays(int nmax)
   d_s_hist = k_s_hist.template view<DeviceType>();
   d_s_hist_X = k_s_hist_X.template view<DeviceType>();
 
-  k_s_hist.template modify<LMPHostType>();
-  k_s_hist_X.template modify<LMPHostType>();
+  k_s_hist.modify_host();
+  k_s_hist_X.modify_host();
 }
 
 /* ----------------------------------------------------------------------
@@ -1915,8 +1915,8 @@ void FixACKS2ReaxFFKokkos<DeviceType>::copy_arrays(int i, int j, int delflag)
 
   FixACKS2ReaxFF::copy_arrays(i,j,delflag);
 
-  k_s_hist.template modify<LMPHostType>();
-  k_s_hist_X.template modify<LMPHostType>();
+  k_s_hist.modify_host();
+  k_s_hist_X.modify_host();
 }
 
 /* ----------------------------------------------------------------------
@@ -1963,8 +1963,8 @@ int FixACKS2ReaxFFKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 
   int n = FixACKS2ReaxFF::unpack_exchange(nlocal,buf);
 
-  k_s_hist.template modify<LMPHostType>();
-  k_s_hist_X.template modify<LMPHostType>();
+  k_s_hist.modify_host();
+  k_s_hist_X.modify_host();
 
   return n;
 }

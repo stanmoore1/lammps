@@ -871,21 +871,21 @@ int AtomVecFullKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf, int n
   } else {
     if (k_indices.h_view.data()) {
       k_count.h_view(0) = nlocal;
-      k_count.modify<LMPHostType>();
+      k_count.modify_host();
       k_count.sync_device();
       AtomVecFullKokkos_UnpackExchangeFunctor<LMPDeviceType,1>
         f(atomKK,k_buf,k_count,k_indices,dim,lo,hi);
       Kokkos::parallel_for(nrecv/size_exchange,f);
-      k_count.modify<LMPDeviceType>();
+      k_count.modify_device();
       k_count.sync_host();
     } else {
       k_count.h_view(0) = nlocal;
-      k_count.modify<LMPHostType>();
+      k_count.modify_host();
       k_count.sync_device();
       AtomVecFullKokkos_UnpackExchangeFunctor<LMPDeviceType,0>
         f(atomKK,k_buf,k_count,k_indices,dim,lo,hi);
       Kokkos::parallel_for(nrecv/size_exchange,f);
-      k_count.modify<LMPDeviceType>();
+      k_count.modify_device();
       k_count.sync_host();
     }
   }
@@ -1140,88 +1140,88 @@ void AtomVecFullKokkos::sync_overlapping_device(ExecutionSpace space, unsigned i
 void AtomVecFullKokkos::modified(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k3_x.modify<LMPDeviceType>();
-    if (mask & V_MASK) atomKK->k3_v.modify<LMPDeviceType>();
-    if (mask & F_MASK) atomKK->k3_f.modify<LMPDeviceType>();
-    if (mask & TAG_MASK) atomKK->k3_tag.modify<LMPDeviceType>();
-    if (mask & TYPE_MASK) atomKK->k3_type.modify<LMPDeviceType>();
-    if (mask & MASK_MASK) atomKK->k3_mask.modify<LMPDeviceType>();
-    if (mask & IMAGE_MASK) atomKK->k3_image.modify<LMPDeviceType>();
-    if (mask & Q_MASK) atomKK->k3_q.modify<LMPDeviceType>();
-    if (mask & MOLECULE_MASK) atomKK->k3_molecule.modify<LMPDeviceType>();
+    if (mask & X_MASK) atomKK->k3_x.modify_device();
+    if (mask & V_MASK) atomKK->k3_v.modify_device();
+    if (mask & F_MASK) atomKK->k3_f.modify_device();
+    if (mask & TAG_MASK) atomKK->k3_tag.modify_device();
+    if (mask & TYPE_MASK) atomKK->k3_type.modify_device();
+    if (mask & MASK_MASK) atomKK->k3_mask.modify_device();
+    if (mask & IMAGE_MASK) atomKK->k3_image.modify_device();
+    if (mask & Q_MASK) atomKK->k3_q.modify_device();
+    if (mask & MOLECULE_MASK) atomKK->k3_molecule.modify_device();
     if (mask & SPECIAL_MASK) {
-      atomKK->k_nspecial.modify<LMPDeviceType>();
-      atomKK->k_special.modify<LMPDeviceType>();
+      atomKK->k_nspecial.modify_device();
+      atomKK->k_special.modify_device();
     }
     if (mask & BOND_MASK) {
-      atomKK->k_num_bond.modify<LMPDeviceType>();
-      atomKK->k_bond_type.modify<LMPDeviceType>();
-      atomKK->k_bond_atom.modify<LMPDeviceType>();
+      atomKK->k_num_bond.modify_device();
+      atomKK->k_bond_type.modify_device();
+      atomKK->k_bond_atom.modify_device();
     }
     if (mask & ANGLE_MASK) {
-      atomKK->k_num_angle.modify<LMPDeviceType>();
-      atomKK->k_angle_type.modify<LMPDeviceType>();
-      atomKK->k_angle_atom1.modify<LMPDeviceType>();
-      atomKK->k_angle_atom2.modify<LMPDeviceType>();
-      atomKK->k_angle_atom3.modify<LMPDeviceType>();
+      atomKK->k_num_angle.modify_device();
+      atomKK->k_angle_type.modify_device();
+      atomKK->k_angle_atom1.modify_device();
+      atomKK->k_angle_atom2.modify_device();
+      atomKK->k_angle_atom3.modify_device();
     }
     if (mask & DIHEDRAL_MASK) {
-      atomKK->k_num_dihedral.modify<LMPDeviceType>();
-      atomKK->k_dihedral_type.modify<LMPDeviceType>();
-      atomKK->k_dihedral_atom1.modify<LMPDeviceType>();
-      atomKK->k_dihedral_atom2.modify<LMPDeviceType>();
-      atomKK->k_dihedral_atom3.modify<LMPDeviceType>();
-      atomKK->k_dihedral_atom4.modify<LMPDeviceType>();
+      atomKK->k_num_dihedral.modify_device();
+      atomKK->k_dihedral_type.modify_device();
+      atomKK->k_dihedral_atom1.modify_device();
+      atomKK->k_dihedral_atom2.modify_device();
+      atomKK->k_dihedral_atom3.modify_device();
+      atomKK->k_dihedral_atom4.modify_device();
     }
     if (mask & IMPROPER_MASK) {
-      atomKK->k_num_improper.modify<LMPDeviceType>();
-      atomKK->k_improper_type.modify<LMPDeviceType>();
-      atomKK->k_improper_atom1.modify<LMPDeviceType>();
-      atomKK->k_improper_atom2.modify<LMPDeviceType>();
-      atomKK->k_improper_atom3.modify<LMPDeviceType>();
-      atomKK->k_improper_atom4.modify<LMPDeviceType>();
+      atomKK->k_num_improper.modify_device();
+      atomKK->k_improper_type.modify_device();
+      atomKK->k_improper_atom1.modify_device();
+      atomKK->k_improper_atom2.modify_device();
+      atomKK->k_improper_atom3.modify_device();
+      atomKK->k_improper_atom4.modify_device();
     }
   } else {
-    if (mask & X_MASK) atomKK->k3_x.modify<LMPHostType>();
-    if (mask & V_MASK) atomKK->k3_v.modify<LMPHostType>();
-    if (mask & F_MASK) atomKK->k3_f.modify<LMPHostType>();
-    if (mask & TAG_MASK) atomKK->k3_tag.modify<LMPHostType>();
-    if (mask & TYPE_MASK) atomKK->k3_type.modify<LMPHostType>();
-    if (mask & MASK_MASK) atomKK->k3_mask.modify<LMPHostType>();
-    if (mask & IMAGE_MASK) atomKK->k3_image.modify<LMPHostType>();
-    if (mask & Q_MASK) atomKK->k3_q.modify<LMPHostType>();
-    if (mask & MOLECULE_MASK) atomKK->k3_molecule.modify<LMPHostType>();
+    if (mask & X_MASK) atomKK->k3_x.modify_host();
+    if (mask & V_MASK) atomKK->k3_v.modify_host();
+    if (mask & F_MASK) atomKK->k3_f.modify_host();
+    if (mask & TAG_MASK) atomKK->k3_tag.modify_host();
+    if (mask & TYPE_MASK) atomKK->k3_type.modify_host();
+    if (mask & MASK_MASK) atomKK->k3_mask.modify_host();
+    if (mask & IMAGE_MASK) atomKK->k3_image.modify_host();
+    if (mask & Q_MASK) atomKK->k3_q.modify_host();
+    if (mask & MOLECULE_MASK) atomKK->k3_molecule.modify_host();
     if (mask & SPECIAL_MASK) {
-      atomKK->k_nspecial.modify<LMPHostType>();
-      atomKK->k_special.modify<LMPHostType>();
+      atomKK->k_nspecial.modify_host();
+      atomKK->k_special.modify_host();
     }
     if (mask & BOND_MASK) {
-      atomKK->k_num_bond.modify<LMPHostType>();
-      atomKK->k_bond_type.modify<LMPHostType>();
-      atomKK->k_bond_atom.modify<LMPHostType>();
+      atomKK->k_num_bond.modify_host();
+      atomKK->k_bond_type.modify_host();
+      atomKK->k_bond_atom.modify_host();
     }
     if (mask & ANGLE_MASK) {
-      atomKK->k_num_angle.modify<LMPHostType>();
-      atomKK->k_angle_type.modify<LMPHostType>();
-      atomKK->k_angle_atom1.modify<LMPHostType>();
-      atomKK->k_angle_atom2.modify<LMPHostType>();
-      atomKK->k_angle_atom3.modify<LMPHostType>();
+      atomKK->k_num_angle.modify_host();
+      atomKK->k_angle_type.modify_host();
+      atomKK->k_angle_atom1.modify_host();
+      atomKK->k_angle_atom2.modify_host();
+      atomKK->k_angle_atom3.modify_host();
     }
     if (mask & DIHEDRAL_MASK) {
-      atomKK->k_num_dihedral.modify<LMPHostType>();
-      atomKK->k_dihedral_type.modify<LMPHostType>();
-      atomKK->k_dihedral_atom1.modify<LMPHostType>();
-      atomKK->k_dihedral_atom2.modify<LMPHostType>();
-      atomKK->k_dihedral_atom3.modify<LMPHostType>();
-      atomKK->k_dihedral_atom4.modify<LMPHostType>();
+      atomKK->k_num_dihedral.modify_host();
+      atomKK->k_dihedral_type.modify_host();
+      atomKK->k_dihedral_atom1.modify_host();
+      atomKK->k_dihedral_atom2.modify_host();
+      atomKK->k_dihedral_atom3.modify_host();
+      atomKK->k_dihedral_atom4.modify_host();
     }
     if (mask & IMPROPER_MASK) {
-      atomKK->k_num_improper.modify<LMPHostType>();
-      atomKK->k_improper_type.modify<LMPHostType>();
-      atomKK->k_improper_atom1.modify<LMPHostType>();
-      atomKK->k_improper_atom2.modify<LMPHostType>();
-      atomKK->k_improper_atom3.modify<LMPHostType>();
-      atomKK->k_improper_atom4.modify<LMPHostType>();
+      atomKK->k_num_improper.modify_host();
+      atomKK->k_improper_type.modify_host();
+      atomKK->k_improper_atom1.modify_host();
+      atomKK->k_improper_atom2.modify_host();
+      atomKK->k_improper_atom3.modify_host();
+      atomKK->k_improper_atom4.modify_host();
     }
   }
 }

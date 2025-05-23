@@ -85,12 +85,12 @@ void FixWallLJ93Kokkos<DeviceType>::precompute(int m)
     k_offset.h_view(i) = offset[i];
   }
 
-  k_cutoff.template modify<LMPHostType>();
-  k_coeff1.template modify<LMPHostType>();
-  k_coeff2.template modify<LMPHostType>();
-  k_coeff3.template modify<LMPHostType>();
-  k_coeff4.template modify<LMPHostType>();
-  k_offset.template modify<LMPHostType>();
+  k_cutoff.modify_host();
+  k_coeff1.modify_host();
+  k_coeff2.modify_host();
+  k_coeff3.modify_host();
+  k_coeff4.modify_host();
+  k_offset.modify_host();
 
   k_cutoff.template sync<DeviceType>();
   k_coeff1.template sync<DeviceType>();

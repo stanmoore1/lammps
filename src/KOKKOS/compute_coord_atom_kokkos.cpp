@@ -120,13 +120,13 @@ void ComputeCoordAtomKokkos<DeviceType>::compute_peratom()
     if (c_orientorder->execution_space == Host) {
       ComputeOrientOrderAtomKokkos<LMPHostType>* c_orientorder_kk;
       c_orientorder_kk = (ComputeOrientOrderAtomKokkos<LMPHostType>*) c_orientorder;
-      c_orientorder_kk->k_qnarray.modify<LMPHostType>();
+      c_orientorder_kk->k_qnarray.modify_host();
       c_orientorder_kk->k_qnarray.sync<DeviceType>();
       d_normv = c_orientorder_kk->k_qnarray.view<DeviceType>();
     } else {
       ComputeOrientOrderAtomKokkos<LMPDeviceType>* c_orientorder_kk;
       c_orientorder_kk = (ComputeOrientOrderAtomKokkos<LMPDeviceType>*) c_orientorder;
-      c_orientorder_kk->k_qnarray.modify<LMPHostType>();
+      c_orientorder_kk->k_qnarray.modify_host();
       c_orientorder_kk->k_qnarray.sync<DeviceType>();
       d_normv = c_orientorder_kk->k_qnarray.view<DeviceType>();
     }

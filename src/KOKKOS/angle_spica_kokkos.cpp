@@ -387,13 +387,13 @@ void AngleSPICAKokkos<DeviceType>::init_style()
     }
   }
 
-  k_lj_type.template modify<LMPHostType>();
-  k_lj1.template modify<LMPHostType>();
-  k_lj2.template modify<LMPHostType>();
-  k_lj3.template modify<LMPHostType>();
-  k_lj4.template modify<LMPHostType>();
-  k_rminsq.template modify<LMPHostType>();
-  k_emin.template modify<LMPHostType>();
+  k_lj_type.modify_host();
+  k_lj1.modify_host();
+  k_lj2.modify_host();
+  k_lj3.modify_host();
+  k_lj4.modify_host();
+  k_rminsq.modify_host();
+  k_emin.modify_host();
 }
 
 /* ----------------------------------------------------------------------
@@ -413,10 +413,10 @@ void AngleSPICAKokkos<DeviceType>::coeff(int narg, char **arg)
     k_setflag.h_view[i] = setflag[i];
   }
 
-  k_k.template modify<LMPHostType>();
-  k_theta0.template modify<LMPHostType>();
-  k_repscale.template modify<LMPHostType>();
-  k_setflag.template modify<LMPHostType>();
+  k_k.modify_host();
+  k_theta0.modify_host();
+  k_repscale.modify_host();
+  k_setflag.modify_host();
 }
 
 /* ----------------------------------------------------------------------
@@ -436,10 +436,10 @@ void AngleSPICAKokkos<DeviceType>::read_restart(FILE *fp)
     k_setflag.h_view[i] = setflag[i];
   }
 
-  k_k.template modify<LMPHostType>();
-  k_theta0.template modify<LMPHostType>();
-  k_repscale.template modify<LMPHostType>();
-  k_setflag.template modify<LMPHostType>();
+  k_k.modify_host();
+  k_theta0.modify_host();
+  k_repscale.modify_host();
+  k_setflag.modify_host();
 }
 
 /* ----------------------------------------------------------------------

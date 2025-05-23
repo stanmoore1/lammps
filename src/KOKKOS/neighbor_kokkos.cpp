@@ -88,7 +88,7 @@ void NeighborKokkos::init()
 void NeighborKokkos::init_cutneighsq_kokkos(int n)
 {
   memoryKK->create_kokkos(k_cutneighsq,cutneighsq,n+1,n+1,"neigh:cutneighsq");
-  k_cutneighsq.modify<LMPHostType>();
+  k_cutneighsq.modify_host();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -110,7 +110,7 @@ void NeighborKokkos::create_kokkos_list(int i)
 void NeighborKokkos::init_ex_type_kokkos(int n)
 {
   memoryKK->create_kokkos(k_ex_type,ex_type,n+1,n+1,"neigh:ex_type");
-  k_ex_type.modify<LMPHostType>();
+  k_ex_type.modify_host();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -118,9 +118,9 @@ void NeighborKokkos::init_ex_type_kokkos(int n)
 void NeighborKokkos::init_ex_bit_kokkos()
 {
   memoryKK->create_kokkos(k_ex1_bit, ex1_bit, nex_group, "neigh:ex1_bit");
-  k_ex1_bit.modify<LMPHostType>();
+  k_ex1_bit.modify_host();
   memoryKK->create_kokkos(k_ex2_bit, ex2_bit, nex_group, "neigh:ex2_bit");
-  k_ex2_bit.modify<LMPHostType>();
+  k_ex2_bit.modify_host();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -128,7 +128,7 @@ void NeighborKokkos::init_ex_bit_kokkos()
 void NeighborKokkos::init_ex_mol_bit_kokkos()
 {
   memoryKK->create_kokkos(k_ex_mol_bit, ex_mol_bit, nex_mol, "neigh:ex_mol_bit");
-  k_ex_mol_bit.modify<LMPHostType>();
+  k_ex_mol_bit.modify_host();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -136,7 +136,7 @@ void NeighborKokkos::init_ex_mol_bit_kokkos()
 void NeighborKokkos::grow_ex_mol_intra_kokkos()
 {
   memoryKK->grow_kokkos(k_ex_mol_intra, ex_mol_intra, maxex_mol, "neigh:ex_mol_intra");
-  k_ex_mol_intra.modify<LMPHostType>();
+  k_ex_mol_intra.modify_host();
 }
 
 /* ----------------------------------------------------------------------
@@ -329,21 +329,21 @@ void NeighborKokkos::operator()(TagNeighborXhold<DeviceType>, const int &i) cons
 
 void NeighborKokkos::modify_ex_type_grow_kokkos() {
   memoryKK->grow_kokkos(k_ex1_type,ex1_type,maxex_type,"neigh:ex1_type");
-  k_ex1_type.modify<LMPHostType>();
+  k_ex1_type.modify_host();
   memoryKK->grow_kokkos(k_ex2_type,ex2_type,maxex_type,"neigh:ex2_type");
-  k_ex2_type.modify<LMPHostType>();
+  k_ex2_type.modify_host();
 }
 
 /* ---------------------------------------------------------------------- */
 void NeighborKokkos::modify_mol_group_grow_kokkos() {
   memoryKK->grow_kokkos(k_ex_mol_group,ex_mol_group,maxex_mol,"neigh:ex_mol_group");
-  k_ex_mol_group.modify<LMPHostType>();
+  k_ex_mol_group.modify_host();
 }
 
 /* ---------------------------------------------------------------------- */
 void NeighborKokkos::modify_mol_intra_grow_kokkos() {
   memoryKK->grow_kokkos(k_ex_mol_intra,ex_mol_intra,maxex_mol,"neigh:ex_mol_intra");
-  k_ex_mol_intra.modify<LMPHostType>();
+  k_ex_mol_intra.modify_host();
 }
 
 /* ---------------------------------------------------------------------- */

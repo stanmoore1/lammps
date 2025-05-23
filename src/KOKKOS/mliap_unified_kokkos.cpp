@@ -298,7 +298,7 @@ void LAMMPS_NS::update_pair_forces(MLIAPDataKokkosDevice *data, double *fij)
   auto rij = data->rij;
   int vflag_global=data->pairmliap->vflag_global, vflag_atom=data->pairmliap->vflag_atom;
   if (vflag_atom) {
-    data->pairmliap->k_vatom.template modify<LMPHostType>();
+    data->pairmliap->k_vatom.modify_host();
     data->pairmliap->k_vatom.sync_device();
   }
   auto d_vatom = data->pairmliap->k_vatom.template view<LMPDeviceType>();
@@ -359,7 +359,7 @@ void LAMMPS_NS::update_pair_forces(MLIAPDataKokkosDevice *data, double *fij)
         data->pairmliap->virial[i]+=h_virial[i];
     }
     if (vflag_atom) {
-      data->pairmliap->k_vatom.template modify<LMPDeviceType>();
+      data->pairmliap->k_vatom.modify_device();
       data->pairmliap->k_vatom.sync_host();
     }
   }

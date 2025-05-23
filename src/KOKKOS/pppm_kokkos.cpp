@@ -265,7 +265,7 @@ void PPPMKokkos<DeviceType>::init()
   compute_gf_denom();
   compute_rho_coeff();
 
-  k_rho_coeff.template modify<LMPHostType>();
+  k_rho_coeff.modify_host();
   k_rho_coeff.template sync<DeviceType>();
 
   // print stats
@@ -929,7 +929,7 @@ void PPPMKokkos<DeviceType>::compute_gf_denom()
   double gaminv = 1.0/ifact;
   for (l = 0; l < order; l++) k_gf_b.h_view[l] *= gaminv;
 
-  k_gf_b.template modify<LMPHostType>();
+  k_gf_b.modify_host();
   k_gf_b.template sync<DeviceType>();
 }
 
@@ -1134,7 +1134,7 @@ void PPPMKokkos<DeviceType>::particle_map()
   int nlocal = atomKK->nlocal;
 
   k_flag.h_view() = 0;
-  k_flag.template modify<LMPHostType>();
+  k_flag.modify_host();
   k_flag.template sync<DeviceType>();
 
   if (!std::isfinite(boxlo[0]) || !std::isfinite(boxlo[1]) || !std::isfinite(boxlo[2]))

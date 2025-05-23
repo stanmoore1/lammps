@@ -67,7 +67,7 @@ ComputeSNAGridLocalKokkos<DeviceType, real_type, vector_length>::ComputeSNAGridL
   for (int i = 1; i <= atom->ntypes; i++) {
     for (int j = 1; j <= atom->ntypes; j++){
       k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutsq_tmp;
-      k_cutsq.template modify<LMPHostType>();
+      k_cutsq.modify_host();
     }
   }
 
@@ -363,7 +363,7 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, vector_length>::operator()
   iy += nylo;
   ix += nxlo;
 
-  KK_FLOAT xgrid[3];
+  double xgrid[3];
 
   // index ii already captures the proper grid point
   //int igrid = iz * (nx * ny) + iy * nx + ix;
@@ -389,9 +389,9 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, vector_length>::operator()
     xgrid[2] = h2*xgrid[2] + lo2;
   }
 
-  const KK_FLOAT xtmp = xgrid[0];
-  const KK_FLOAT ytmp = xgrid[1];
-  const KK_FLOAT ztmp = xgrid[2];
+  const double xtmp = xgrid[0];
+  const double ytmp = xgrid[1];
+  const double ztmp = xgrid[2];
 
   // Zeroing out the components, which are filled as a sum.
   for (int icol = size_local_cols_base; icol < size_local_cols; icol++){
@@ -412,18 +412,18 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, vector_length>::operator()
   const int itype = 1;
   int ielem = 0;
   if (chemflag) ielem = d_map[itype];
-  //const KK_FLOAT radi = d_radelem[ielem];
+  //const double radi = d_radelem[ielem];
 
   // Compute the number of neighbors, store rsq
   int ninside = 0;
 
   // Looping over ntotal for now.
   for (int j = 0; j < ntotal; j++){
-    const KK_FLOAT dx = x(j,0) - xtmp;
-    const KK_FLOAT dy = x(j,1) - ytmp;
-    const KK_FLOAT dz = x(j,2) - ztmp;
+    const double dx = x(j,0) - xtmp;
+    const double dy = x(j,1) - ytmp;
+    const double dz = x(j,2) - ztmp;
     int jtype = type(j);
-    const KK_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+    const double rsq = dx*dx + dy*dy + dz*dz;
 
     // don't include atoms that share location with grid point
     if (rsq >= rnd_cutsq(itype,jtype) || rsq < 1e-20) {
@@ -441,10 +441,10 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, vector_length>::operator()
   for (int j = 0; j < ntotal; j++){
     //const int jtype = type_cache[j];
     //if (jtype >= 0) {
-    const KK_FLOAT dx = x(j,0) - xtmp;
-    const KK_FLOAT dy = x(j,1) - ytmp;
-    const KK_FLOAT dz = x(j,2) - ztmp;
-    const KK_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+    const double dx = x(j,0) - xtmp;
+    const double dy = x(j,1) - ytmp;
+    const double dz = x(j,2) - ztmp;
+    const double rsq = dx*dx + dy*dy + dz*dz;
     int jtype = type(j);
     if (rsq < rnd_cutsq(itype,jtype) && rsq > 1e-20) {
       int jelem = 0;
@@ -679,7 +679,7 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, vector_length>::operator()
   iy += nylo;
   ix += nxlo;
 
-  KK_FLOAT xgrid[3];
+  double xgrid[3];
 
   // index ii already captures the proper grid point
   // int igrid = iz * (nx * ny) + iy * nx + ix;

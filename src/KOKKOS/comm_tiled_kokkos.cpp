@@ -168,7 +168,7 @@ void CommTiledKokkos::forward_comm_device()
     if (comm_x_only) {
       if (recvother[iswap]) {
         for (i = 0; i < nrecv; i++) {
-          buf = atomKK->k_x.view<DeviceType>().data() +
+          buf = (double*)atomKK->k_x.view<DeviceType>().data() +
             firstrecv[iswap][i]*atomKK->k_x.view<DeviceType>().extent(1);
           MPI_Irecv(buf,size_forward_recv[iswap][i],
                     MPI_DOUBLE,recvproc[iswap][i],0,world,&requests[i]);
@@ -325,7 +325,7 @@ void CommTiledKokkos::reverse_comm_device()
       }
       if (recvother[iswap]) {
         for (i = 0; i < nrecv; i++) {
-          buf = atomKK->k_f.view<DeviceType>().data() +
+          buf = (double*)atomKK->k_f.view<DeviceType>().data() +
             firstrecv[iswap][i]*atomKK->k_f.view<DeviceType>().extent(1);
           MPI_Send(buf,size_reverse_send[iswap][i],
                    MPI_DOUBLE,recvproc[iswap][i],0,world);
@@ -615,9 +615,9 @@ void CommTiledKokkos::grow_send_kokkos(int n, int flag, ExecutionSpace space)
   int maxsend_border = (maxsend+BUFEXTRA)/atomKK->avecKK->size_border;
   if (flag) {
     if (space == Device)
-      k_buf_send.modify<LMPDeviceType>();
+      k_buf_send.modify_device();
     else
-      k_buf_send.modify<LMPHostType>();
+      k_buf_send.modify_host();
 
     if (ghost_velocity)
       k_buf_send.resize(maxsend_border,
@@ -661,7 +661,7 @@ void CommTiledKokkos::grow_list(int iswap, int iwhich, int n)
   int size = static_cast<int> (BUFFACTOR * n);
 
   k_sendlist.sync_host();
-  k_sendlist.modify<LMPHostType>();
+  k_sendlist.modify_host();
 
   memoryKK->grow_kokkos(k_sendlist,sendlist,maxswap,nprocmaxtot,size,"comm:sendlist");
 

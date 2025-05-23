@@ -365,11 +365,11 @@ void PairEAMFSKokkos<DeviceType>::file2array()
       h_type2z2r(i,j) = type2z2r[i][j];
     }
   }
-  k_type2frho.template modify<LMPHostType>();
+  k_type2frho.modify_host();
   k_type2frho.template sync<DeviceType>();
-  k_type2rhor.template modify<LMPHostType>();
+  k_type2rhor.modify_host();
   k_type2rhor.template sync<DeviceType>();
-  k_type2z2r.template modify<LMPHostType>();
+  k_type2z2r.modify_host();
   k_type2z2r.template sync<DeviceType>();
 
   d_type2frho = k_type2frho.template view<DeviceType>();
@@ -395,17 +395,17 @@ void PairEAMFSKokkos<DeviceType>::array2spline()
 
   for (int i = 0; i < nfrho; i++)
     interpolate(nrho,drho,frho[i],h_frho_spline,i);
-  k_frho_spline.template modify<LMPHostType>();
+  k_frho_spline.modify_host();
   k_frho_spline.template sync<DeviceType>();
 
   for (int i = 0; i < nrhor; i++)
     interpolate(nr,dr,rhor[i],h_rhor_spline,i);
-  k_rhor_spline.template modify<LMPHostType>();
+  k_rhor_spline.modify_host();
   k_rhor_spline.template sync<DeviceType>();
 
   for (int i = 0; i < nz2r; i++)
     interpolate(nr,dr,z2r[i],h_z2r_spline,i);
-  k_z2r_spline.template modify<LMPHostType>();
+  k_z2r_spline.modify_host();
   k_z2r_spline.template sync<DeviceType>();
 
   d_frho_spline = k_frho_spline.template view<DeviceType>();

@@ -120,7 +120,7 @@ void PairDPDExtTstatKokkos<DeviceType>::compute(int eflagin, int vflagin)
           sqrt(2.0*boltz*temperature*gamma[i][j]);
       }
   }
-  k_params.template modify<LMPHostType>();
+  k_params.modify_host();
 
   if (eflag_atom) {
     maxeatom = atom->nmax;
@@ -425,11 +425,11 @@ double PairDPDExtTstatKokkos<DeviceType>::init_one(int i, int j)
   k_params.h_view(i,j).sigmaT = sigmaT[i][j];
   k_params.h_view(j,i) = k_params.h_view(i,j);
 
-  k_params.template modify<LMPHostType>();
+  k_params.modify_host();
 
   k_cutsq.h_view(i,j) = cutone*cutone;
   k_cutsq.h_view(j,i) = k_cutsq.h_view(i,j);
-  k_cutsq.template modify<LMPHostType>();
+  k_cutsq.modify_host();
 
   return cutone;
 }

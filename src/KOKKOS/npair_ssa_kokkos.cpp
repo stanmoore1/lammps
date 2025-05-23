@@ -117,7 +117,7 @@ void NPairSSAKokkos<DeviceType>::copy_stencil_info()
   for (int k = 0; k < maxstencil; k++) {
     k_stencil.h_view(k) = ns->stencil[k];
   }
-  k_stencil.modify<LMPHostType>();
+  k_stencil.modify_host();
   k_stencil.sync<DeviceType>();
   k_stencilxyz = DAT::tdual_int_1d_3("NPairSSAKokkos:stencilxyz",maxstencil);
   for (int k = 0; k < maxstencil; k++) {
@@ -125,7 +125,7 @@ void NPairSSAKokkos<DeviceType>::copy_stencil_info()
     k_stencilxyz.h_view(k,1) = ns->stencilxyz[k][1];
     k_stencilxyz.h_view(k,2) = ns->stencilxyz[k][2];
   }
-  k_stencilxyz.modify<LMPHostType>();
+  k_stencilxyz.modify_host();
   k_stencilxyz.sync<DeviceType>();
 
   NStencilSSA *ns_ssa = dynamic_cast<NStencilSSA*>(ns);
@@ -135,7 +135,7 @@ void NPairSSAKokkos<DeviceType>::copy_stencil_info()
   for (int k = 0; k < 5; ++k) {
     k_nstencil_ssa.h_view(k) = ns_ssa->nstencil_ssa[k];
   }
-  k_nstencil_ssa.modify<LMPHostType>();
+  k_nstencil_ssa.modify_host();
   k_nstencil_ssa.sync<DeviceType>();
   sx1 = ns_ssa->sx + 1;
   sy1 = ns_ssa->sy + 1;
@@ -162,7 +162,7 @@ void NPairSSAKokkos<DeviceType>::copy_stencil_info()
       }
     }
   }
-  k_ssa_phaseOff.modify<LMPHostType>();
+  k_ssa_phaseOff.modify_host();
   k_ssa_phaseOff.sync<DeviceType>();
 
 }
@@ -365,11 +365,11 @@ fprintf(stdout, "tota%03d total %3d could use %6d inums, expected %6d inums. inu
   }
   list->grow(nl_size); // Make special larger SSA neighbor list
 
-  k_ssa_itemLoc.modify<LMPHostType>();
-  k_ssa_itemLen.modify<LMPHostType>();
-  k_ssa_gitemLoc.modify<LMPHostType>();
-  k_ssa_gitemLen.modify<LMPHostType>();
-  k_ssa_phaseLen.modify<LMPHostType>();
+  k_ssa_itemLoc.modify_host();
+  k_ssa_itemLen.modify_host();
+  k_ssa_gitemLoc.modify_host();
+  k_ssa_gitemLen.modify_host();
+  k_ssa_phaseLen.modify_host();
   k_ssa_itemLoc.sync<DeviceType>();
   k_ssa_itemLen.sync<DeviceType>();
   k_ssa_gitemLen.sync<DeviceType>();

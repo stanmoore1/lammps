@@ -448,21 +448,21 @@ int AtomVecAtomicKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf, int
   } else {
     if (k_indices.h_view.data()) {
       k_count.h_view(0) = nlocal;
-      k_count.modify<LMPHostType>();
+      k_count.modify_host();
       k_count.sync_device();
       AtomVecAtomicKokkos_UnpackExchangeFunctor<LMPDeviceType,1>
         f(atomKK,k_buf,k_count,k_indices,dim,lo,hi);
       Kokkos::parallel_for(nrecv/size_exchange,f);
-      k_count.modify<LMPDeviceType>();
+      k_count.modify_device();
       k_count.sync_host();
     } else {
       k_count.h_view(0) = nlocal;
-      k_count.modify<LMPHostType>();
+      k_count.modify_host();
       k_count.sync_device();
       AtomVecAtomicKokkos_UnpackExchangeFunctor<LMPDeviceType,0>
         f(atomKK,k_buf,k_count,k_indices,dim,lo,hi);
       Kokkos::parallel_for(nrecv/size_exchange,f);
-      k_count.modify<LMPDeviceType>();
+      k_count.modify_device();
       k_count.sync_host();
     }
   }
@@ -535,20 +535,20 @@ void AtomVecAtomicKokkos::sync_overlapping_device(ExecutionSpace space, unsigned
 void AtomVecAtomicKokkos::modified(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k3_x.modify<LMPDeviceType>();
-    if (mask & V_MASK) atomKK->k3_v.modify<LMPDeviceType>();
-    if (mask & F_MASK) atomKK->k3_f.modify<LMPDeviceType>();
-    if (mask & TAG_MASK) atomKK->k3_tag.modify<LMPDeviceType>();
-    if (mask & TYPE_MASK) atomKK->k3_type.modify<LMPDeviceType>();
-    if (mask & MASK_MASK) atomKK->k3_mask.modify<LMPDeviceType>();
-    if (mask & IMAGE_MASK) atomKK->k3_image.modify<LMPDeviceType>();
+    if (mask & X_MASK) atomKK->k3_x.modify_device();
+    if (mask & V_MASK) atomKK->k3_v.modify_device();
+    if (mask & F_MASK) atomKK->k3_f.modify_device();
+    if (mask & TAG_MASK) atomKK->k3_tag.modify_device();
+    if (mask & TYPE_MASK) atomKK->k3_type.modify_device();
+    if (mask & MASK_MASK) atomKK->k3_mask.modify_device();
+    if (mask & IMAGE_MASK) atomKK->k3_image.modify_device();
   } else {
-    if (mask & X_MASK) atomKK->k3_x.modify<LMPHostType>();
-    if (mask & V_MASK) atomKK->k3_v.modify<LMPHostType>();
-    if (mask & F_MASK) atomKK->k3_f.modify<LMPHostType>();
-    if (mask & TAG_MASK) atomKK->k3_tag.modify<LMPHostType>();
-    if (mask & TYPE_MASK) atomKK->k3_type.modify<LMPHostType>();
-    if (mask & MASK_MASK) atomKK->k3_mask.modify<LMPHostType>();
-    if (mask & IMAGE_MASK) atomKK->k3_image.modify<LMPHostType>();
+    if (mask & X_MASK) atomKK->k3_x.modify_host();
+    if (mask & V_MASK) atomKK->k3_v.modify_host();
+    if (mask & F_MASK) atomKK->k3_f.modify_host();
+    if (mask & TAG_MASK) atomKK->k3_tag.modify_host();
+    if (mask & TYPE_MASK) atomKK->k3_type.modify_host();
+    if (mask & MASK_MASK) atomKK->k3_mask.modify_host();
+    if (mask & IMAGE_MASK) atomKK->k3_image.modify_host();
   }
 }

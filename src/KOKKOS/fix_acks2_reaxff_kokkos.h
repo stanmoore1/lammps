@@ -217,7 +217,8 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
   typename AT::t_kkfloat_1d d_p, d_q, d_r, d_d, d_g, d_q_hat, d_r_hat, d_y, d_z, d_bb, d_xx;
   typename AT::t_kkfloat_1d_randomread r_p, r_r, r_d;
 
-  DAT::ttriple_kkfloat_2d k_shield, k_s_hist, k_s_hist_X, k_s_hist_last;
+  DAT::ttriple_kkfloat_2d k_s_hist, k_s_hist_X, k_s_hist_last;
+  DAT::tdual_kkfloat_2d k_shield;
   typename AT::t_kkfloat_2d d_shield, d_s_hist, d_s_hist_X, d_s_hist_last;
   typename AT::t_kkfloat_2d_randomread r_s_hist, r_s_hist_X, r_s_hist_last;
 

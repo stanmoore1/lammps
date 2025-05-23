@@ -227,7 +227,7 @@ class FixRxKokkos : public FixRX {
   DAT::ttriple_kkfloat_1d k_dpdThetaLocal, k_sumWeights;
   //typename ArrayTypes<DeviceType>::t_kkfloat_1d d_dpdThetaLocal, d_sumWeights;
   typename AT::t_kkfloat_1d d_dpdThetaLocal, d_sumWeights;
-  HAT::t_kkfloat_1d h_dpdThetaLocal, h_sumWeights;
+  HAT::t_double_1d h_dpdThetaLocal, h_sumWeights;
 
   typename AT::t_kkfloat_1d_3_randomread d_x;
   typename AT::t_int_1d_randomread  d_type;

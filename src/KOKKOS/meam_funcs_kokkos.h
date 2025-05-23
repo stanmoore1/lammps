@@ -152,7 +152,7 @@ KK_FLOAT MEAMKokkos<DeviceType>::zbl(const KK_FLOAT r, const int z1, const int z
 //
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-KK_FLOAT MEAMKokkos<DeviceType>::embedding(const KK_FLOAT A, const KK_FLOAT Ec, const KK_FLOAT rhobar, double& dF) const
+KK_FLOAT MEAMKokkos<DeviceType>::embedding(const KK_FLOAT A, const KK_FLOAT Ec, const KK_FLOAT rhobar, KK_FLOAT& dF) const
 {
   const KK_FLOAT AEc = A * Ec;
 

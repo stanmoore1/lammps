@@ -512,11 +512,11 @@ class KissFFTKokkos {
           st.d_scratch = typename FFT_AT::t_FFT_DATA_1d("kissfft:scratch",p_max);
       }
 
-      k_factors.template modify<LMPHostType>();
+      k_factors.modify_host();
       k_factors.sync_device();
       st.d_factors = k_factors.template view<DeviceType>();
 
-      k_twiddles.template modify<LMPHostType>();
+      k_twiddles.modify_host();
       k_twiddles.sync_device();
       st.d_twiddles = k_twiddles.template view<DeviceType>();
 

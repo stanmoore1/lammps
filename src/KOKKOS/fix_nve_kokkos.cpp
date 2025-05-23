@@ -42,7 +42,7 @@ void FixNVEKokkos<DeviceType>::init()
 {
   FixNVE::init();
 
-  atomKK->k_mass.modify<LMPHostType>();
+  atomKK->k_mass.modify_host();
   atomKK->k_mass.sync<DeviceType>();
 }
 

@@ -465,8 +465,8 @@ struct BinOp3DLAMMPS {
 
   BinOp3DLAMMPS() = default;
 
-  BinOp3DLAMMPS(int max_bins__[], typename KeyViewType::const_value_type min[],
-          typename KeyViewType::const_value_type max[]) {
+  BinOp3DLAMMPS(int max_bins__[], double min[],
+          double max[]) {
     max_bins_[0] = max_bins__[0];
     max_bins_[1] = max_bins__[1];
     max_bins_[2] = max_bins__[2];
@@ -762,6 +762,14 @@ struct TripleView {
 
   template<class DeviceType>
   std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync(int kk_flag = 0) {sync_host(kk_flag);}
+
+  void clear_sync_state()
+  {
+    k_view.clear_sync_state();
+
+    modified_host_legacy = 0;
+    modified_device_legacy = 0;    
+  }
 
 };
 

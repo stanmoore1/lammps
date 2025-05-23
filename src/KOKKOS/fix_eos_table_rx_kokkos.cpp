@@ -66,19 +66,19 @@ FixEOStableRXKokkos<DeviceType>::FixEOStableRXKokkos(LAMMPS *lmp, int narg, char
     k_moleculeCorrCoeff.h_view(n) = moleculeCorrCoeff[n];
   }
 
-  k_dHf.modify<LMPHostType>();
+  k_dHf.modify_host();
   k_dHf.sync<DeviceType>();
   d_dHf = k_dHf.view<DeviceType>();
 
-  k_energyCorr.modify<LMPHostType>();
+  k_energyCorr.modify_host();
   k_energyCorr.sync<DeviceType>();
   d_energyCorr = k_energyCorr.view<DeviceType>();
 
-  k_tempCorrCoeff.modify<LMPHostType>();
+  k_tempCorrCoeff.modify_host();
   k_tempCorrCoeff.sync<DeviceType>();
   d_tempCorrCoeff = k_tempCorrCoeff.view<DeviceType>();
 
-  k_moleculeCorrCoeff.modify<LMPHostType>();
+  k_moleculeCorrCoeff.modify_host();
   k_moleculeCorrCoeff.sync<DeviceType>();
   d_moleculeCorrCoeff = k_moleculeCorrCoeff.view<DeviceType>();
 }
@@ -347,7 +347,7 @@ void FixEOStableRXKokkos<DeviceType>::energy_lookup(int id, KK_FLOAT thetai, KK_
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixEOStableRXKokkos<DeviceType>::temperature_lookup(int id, KK_FLOAT ui, double &thetai) const
+void FixEOStableRXKokkos<DeviceType>::temperature_lookup(int id, KK_FLOAT ui, KK_FLOAT &thetai) const
 {
   //Table *tb = &tables[0];
 
@@ -501,7 +501,7 @@ void FixEOStableRXKokkos<DeviceType>::error_check()
   if (k_warning_flag.h_view()) {
     error->warning(FLERR,"Secant solver did not converge because table bounds were exceeded.");
     k_warning_flag.h_view() = 0;
-    k_warning_flag.template modify<LMPHostType>();
+    k_warning_flag.modify_host();
     k_warning_flag.template sync<DeviceType>();
   }
 }

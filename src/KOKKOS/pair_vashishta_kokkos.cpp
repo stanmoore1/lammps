@@ -561,7 +561,7 @@ void PairVashishtaKokkos<DeviceType>::coeff(int narg, char **arg)
   for (int i = 1; i <= n; i++)
     h_map[i] = map[i];
 
-  k_map.template modify<LMPHostType>();
+  k_map.modify_host();
   k_map.template sync<DeviceType>();
 
   d_map = k_map.template view<DeviceType>();
@@ -610,9 +610,9 @@ void PairVashishtaKokkos<DeviceType>::setup_params()
   for (int m = 0; m < nparams; m++)
     h_params[m] = params[m];
 
-  k_elem3param.template modify<LMPHostType>();
+  k_elem3param.modify_host();
   k_elem3param.template sync<DeviceType>();
-  k_params.template modify<LMPHostType>();
+  k_params.modify_host();
   k_params.template sync<DeviceType>();
 
   d_elem3param = k_elem3param.template view<DeviceType>();

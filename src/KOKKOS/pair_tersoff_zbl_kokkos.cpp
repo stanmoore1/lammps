@@ -107,7 +107,7 @@ void PairTersoffZBLKokkos<DeviceType>::coeff(int narg, char **arg)
   for (int i = 1; i <= n; i++)
     h_map[i] = map[i];
 
-  k_map.template modify<LMPHostType>();
+  k_map.modify_host();
   k_map.template sync<DeviceType>();
 
   d_map = k_map.template view<DeviceType>();

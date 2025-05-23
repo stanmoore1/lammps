@@ -920,11 +920,11 @@ int AtomVecDPDKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf, int nr
     Kokkos::parallel_for(nrecv/size_exchange,f);
   } else {
     k_count.h_view(0) = nlocal;
-    k_count.modify<LMPHostType>();
+    k_count.modify_host();
     k_count.sync_device();
     AtomVecDPDKokkos_UnpackExchangeFunctor<LMPDeviceType> f(atomKK,k_buf,k_count,dim,lo,hi);
     Kokkos::parallel_for(nrecv/size_exchange,f);
-    k_count.modify<LMPDeviceType>();
+    k_count.modify_device();
     k_count.sync_host();
   }
 
@@ -1049,36 +1049,36 @@ void AtomVecDPDKokkos::sync_overlapping_device(ExecutionSpace space, unsigned in
 void AtomVecDPDKokkos::modified(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k3_x.modify<LMPDeviceType>();
-    if (mask & V_MASK) atomKK->k3_v.modify<LMPDeviceType>();
-    if (mask & F_MASK) atomKK->k3_f.modify<LMPDeviceType>();
-    if (mask & TAG_MASK) atomKK->k3_tag.modify<LMPDeviceType>();
-    if (mask & TYPE_MASK) atomKK->k3_type.modify<LMPDeviceType>();
-    if (mask & MASK_MASK) atomKK->k3_mask.modify<LMPDeviceType>();
-    if (mask & IMAGE_MASK) atomKK->k3_image.modify<LMPDeviceType>();
-    if (mask & DPDRHO_MASK) atomKK->k3_rho.modify<LMPDeviceType>();
-    if (mask & DPDTHETA_MASK) atomKK->k3_dpdTheta.modify<LMPDeviceType>();
-    if (mask & UCOND_MASK) atomKK->k3_uCond.modify<LMPDeviceType>();
-    if (mask & UMECH_MASK) atomKK->k3_uMech.modify<LMPDeviceType>();
-    if (mask & UCHEM_MASK) atomKK->k3_uChem.modify<LMPDeviceType>();
-    if (mask & UCG_MASK) atomKK->k3_uCG.modify<LMPDeviceType>();
-    if (mask & UCGNEW_MASK) atomKK->k3_uCGnew.modify<LMPDeviceType>();
-    if (mask & DUCHEM_MASK) atomKK->k3_duChem.modify<LMPDeviceType>();
+    if (mask & X_MASK) atomKK->k3_x.modify_device();
+    if (mask & V_MASK) atomKK->k3_v.modify_device();
+    if (mask & F_MASK) atomKK->k3_f.modify_device();
+    if (mask & TAG_MASK) atomKK->k3_tag.modify_device();
+    if (mask & TYPE_MASK) atomKK->k3_type.modify_device();
+    if (mask & MASK_MASK) atomKK->k3_mask.modify_device();
+    if (mask & IMAGE_MASK) atomKK->k3_image.modify_device();
+    if (mask & DPDRHO_MASK) atomKK->k3_rho.modify_device();
+    if (mask & DPDTHETA_MASK) atomKK->k3_dpdTheta.modify_device();
+    if (mask & UCOND_MASK) atomKK->k3_uCond.modify_device();
+    if (mask & UMECH_MASK) atomKK->k3_uMech.modify_device();
+    if (mask & UCHEM_MASK) atomKK->k3_uChem.modify_device();
+    if (mask & UCG_MASK) atomKK->k3_uCG.modify_device();
+    if (mask & UCGNEW_MASK) atomKK->k3_uCGnew.modify_device();
+    if (mask & DUCHEM_MASK) atomKK->k3_duChem.modify_device();
   } else {
-    if (mask & X_MASK) atomKK->k3_x.modify<LMPHostType>();
-    if (mask & V_MASK) atomKK->k3_v.modify<LMPHostType>();
-    if (mask & F_MASK) atomKK->k3_f.modify<LMPHostType>();
-    if (mask & TAG_MASK) atomKK->k3_tag.modify<LMPHostType>();
-    if (mask & TYPE_MASK) atomKK->k3_type.modify<LMPHostType>();
-    if (mask & MASK_MASK) atomKK->k3_mask.modify<LMPHostType>();
-    if (mask & IMAGE_MASK) atomKK->k3_image.modify<LMPHostType>();
-    if (mask & DPDRHO_MASK) atomKK->k3_rho.modify<LMPHostType>();
-    if (mask & DPDTHETA_MASK) atomKK->k3_dpdTheta.modify<LMPHostType>();
-    if (mask & UCOND_MASK) atomKK->k3_uCond.modify<LMPHostType>();
-    if (mask & UMECH_MASK) atomKK->k3_uMech.modify<LMPHostType>();
-    if (mask & UCHEM_MASK) atomKK->k3_uChem.modify<LMPHostType>();
-    if (mask & UCG_MASK) atomKK->k3_uCG.modify<LMPHostType>();
-    if (mask & UCGNEW_MASK) atomKK->k3_uCGnew.modify<LMPHostType>();
-    if (mask & DUCHEM_MASK) atomKK->k3_duChem.modify<LMPHostType>();
+    if (mask & X_MASK) atomKK->k3_x.modify_host();
+    if (mask & V_MASK) atomKK->k3_v.modify_host();
+    if (mask & F_MASK) atomKK->k3_f.modify_host();
+    if (mask & TAG_MASK) atomKK->k3_tag.modify_host();
+    if (mask & TYPE_MASK) atomKK->k3_type.modify_host();
+    if (mask & MASK_MASK) atomKK->k3_mask.modify_host();
+    if (mask & IMAGE_MASK) atomKK->k3_image.modify_host();
+    if (mask & DPDRHO_MASK) atomKK->k3_rho.modify_host();
+    if (mask & DPDTHETA_MASK) atomKK->k3_dpdTheta.modify_host();
+    if (mask & UCOND_MASK) atomKK->k3_uCond.modify_host();
+    if (mask & UMECH_MASK) atomKK->k3_uMech.modify_host();
+    if (mask & UCHEM_MASK) atomKK->k3_uChem.modify_host();
+    if (mask & UCG_MASK) atomKK->k3_uCG.modify_host();
+    if (mask & UCGNEW_MASK) atomKK->k3_uCGnew.modify_host();
+    if (mask & DUCHEM_MASK) atomKK->k3_duChem.modify_host();
   }
 }

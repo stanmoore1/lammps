@@ -918,7 +918,7 @@ void PairMultiLucyRXKokkos<DeviceType>::allocate()
 
   memoryKK->create_kokkos(k_cutsq,cutsq,nt,nt,"pair:cutsq");
   d_cutsq = k_cutsq.template view<DeviceType>();
-  k_cutsq.template modify<LMPHostType>();
+  k_cutsq.modify_host();
 
   memoryKK->create_kokkos(d_table->tabindex,h_table->tabindex,tabindex,nt,nt,"pair:tabindex");
   d_table_const.tabindex = d_table->tabindex;

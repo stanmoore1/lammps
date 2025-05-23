@@ -272,43 +272,43 @@ void MLIAPDataKokkos<DeviceType>::grow_neigharrays() {
 template<class DeviceType>
 void MLIAPDataKokkos<DeviceType>::modified(ExecutionSpace space, unsigned int mask, bool ignore_auto_sync) {
   if (space == Device) {
-    if (mask & IATOMS_MASK      ) k_iatoms         .modify<LMPDeviceType>();
-    if (mask & IELEMS_MASK      ) k_ielems         .modify<LMPDeviceType>();
-    if (mask & JATOMS_MASK      ) k_jatoms         .modify<LMPDeviceType>();
-    if (mask & PAIR_I_MASK      ) k_pair_i         .modify<LMPDeviceType>();
-    if (mask & JELEMS_MASK      ) k_jelems         .modify<LMPDeviceType>();
-    if (mask & ELEMS_MASK       ) k_elems          .modify<LMPDeviceType>();
-    if (mask & IJ_MASK          ) k_ij             .modify<LMPDeviceType>();
-    if (mask & BETAS_MASK       ) k_betas          .modify<LMPDeviceType>();
-    if (mask & DESCRIPTORS_MASK ) k_descriptors    .modify<LMPDeviceType>();
-    if (mask & EATOMS_MASK      ) k_eatoms         .modify<LMPDeviceType>();
-    if (mask & RIJ_MASK         ) k_rij            .modify<LMPDeviceType>();
-    if (mask & GRADFORCE_MASK   ) k_gradforce      .modify<LMPDeviceType>();
-    if (mask & GRADDESC_MASK    ) k_graddesc       .modify<LMPDeviceType>();
-    if (mask & NUMNEIGHS_MASK   ) k_numneighs      .modify<LMPDeviceType>();
-    if (mask & GAMMA_MASK_MASK  ) k_gamma          .modify<LMPDeviceType>();
-    if (mask & GAMMA_ROW_MASK   ) k_gamma_row_index.modify<LMPDeviceType>();
-    if (mask & GAMMA_COL_MASK   ) k_gamma_col_index.modify<LMPDeviceType>();
+    if (mask & IATOMS_MASK      ) k_iatoms         .modify_device();
+    if (mask & IELEMS_MASK      ) k_ielems         .modify_device();
+    if (mask & JATOMS_MASK      ) k_jatoms         .modify_device();
+    if (mask & PAIR_I_MASK      ) k_pair_i         .modify_device();
+    if (mask & JELEMS_MASK      ) k_jelems         .modify_device();
+    if (mask & ELEMS_MASK       ) k_elems          .modify_device();
+    if (mask & IJ_MASK          ) k_ij             .modify_device();
+    if (mask & BETAS_MASK       ) k_betas          .modify_device();
+    if (mask & DESCRIPTORS_MASK ) k_descriptors    .modify_device();
+    if (mask & EATOMS_MASK      ) k_eatoms         .modify_device();
+    if (mask & RIJ_MASK         ) k_rij            .modify_device();
+    if (mask & GRADFORCE_MASK   ) k_gradforce      .modify_device();
+    if (mask & GRADDESC_MASK    ) k_graddesc       .modify_device();
+    if (mask & NUMNEIGHS_MASK   ) k_numneighs      .modify_device();
+    if (mask & GAMMA_MASK_MASK  ) k_gamma          .modify_device();
+    if (mask & GAMMA_ROW_MASK   ) k_gamma_row_index.modify_device();
+    if (mask & GAMMA_COL_MASK   ) k_gamma_col_index.modify_device();
 
     if (lmp->kokkos->auto_sync && !ignore_auto_sync) sync(Host, mask, true);
   } else {
-    if (mask & IATOMS_MASK      ) k_iatoms         .modify<LMPHostType>();
-    if (mask & IELEMS_MASK      ) k_ielems         .modify<LMPHostType>();
-    if (mask & JATOMS_MASK      ) k_jatoms         .modify<LMPHostType>();
-    if (mask & PAIR_I_MASK      ) k_pair_i         .modify<LMPHostType>();
-    if (mask & JELEMS_MASK      ) k_jelems         .modify<LMPHostType>();
-    if (mask & ELEMS_MASK       ) k_elems          .modify<LMPHostType>();
-    if (mask & IJ_MASK          ) k_ij             .modify<LMPHostType>();
-    if (mask & BETAS_MASK       ) k_betas          .modify<LMPHostType>();
-    if (mask & DESCRIPTORS_MASK ) k_descriptors    .modify<LMPHostType>();
-    if (mask & EATOMS_MASK      ) k_eatoms         .modify<LMPHostType>();
-    if (mask & RIJ_MASK         ) k_rij            .modify<LMPHostType>();
-    if (mask & GRADFORCE_MASK   ) k_gradforce      .modify<LMPHostType>();
-    if (mask & GRADDESC_MASK    ) k_graddesc       .modify<LMPHostType>();
-    if (mask & NUMNEIGHS_MASK   ) k_numneighs      .modify<LMPHostType>();
-    if (mask & GAMMA_MASK_MASK  ) k_gamma          .modify<LMPHostType>();
-    if (mask & GAMMA_ROW_MASK   ) k_gamma_row_index.modify<LMPHostType>();
-    if (mask & GAMMA_COL_MASK   ) k_gamma_col_index.modify<LMPHostType>();
+    if (mask & IATOMS_MASK      ) k_iatoms         .modify_host();
+    if (mask & IELEMS_MASK      ) k_ielems         .modify_host();
+    if (mask & JATOMS_MASK      ) k_jatoms         .modify_host();
+    if (mask & PAIR_I_MASK      ) k_pair_i         .modify_host();
+    if (mask & JELEMS_MASK      ) k_jelems         .modify_host();
+    if (mask & ELEMS_MASK       ) k_elems          .modify_host();
+    if (mask & IJ_MASK          ) k_ij             .modify_host();
+    if (mask & BETAS_MASK       ) k_betas          .modify_host();
+    if (mask & DESCRIPTORS_MASK ) k_descriptors    .modify_host();
+    if (mask & EATOMS_MASK      ) k_eatoms         .modify_host();
+    if (mask & RIJ_MASK         ) k_rij            .modify_host();
+    if (mask & GRADFORCE_MASK   ) k_gradforce      .modify_host();
+    if (mask & GRADDESC_MASK    ) k_graddesc       .modify_host();
+    if (mask & NUMNEIGHS_MASK   ) k_numneighs      .modify_host();
+    if (mask & GAMMA_MASK_MASK  ) k_gamma          .modify_host();
+    if (mask & GAMMA_ROW_MASK   ) k_gamma_row_index.modify_host();
+    if (mask & GAMMA_COL_MASK   ) k_gamma_col_index.modify_host();
     if (lmp->kokkos->auto_sync && !ignore_auto_sync) sync(Device, mask, true);
   }
 }
