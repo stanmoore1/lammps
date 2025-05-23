@@ -130,8 +130,8 @@ void PairTersoffMODKokkos<DeviceType>::setup_params()
 
   // sync elem3param and params
 
-  tdual_int_3d k_elem3param = tdual_int_3d("pair:elem3param",nelements,nelements,nelements);
-  t_host_int_3d h_elem3param = k_elem3param.h_view;
+  DAT::tdual_int_3d k_elem3param = DAT::tdual_int_3d("pair:elem3param",nelements,nelements,nelements);
+  HAT::t_int_3d h_elem3param = k_elem3param.h_view;
 
   tdual_param_1d k_params = tdual_param_1d("pair:params",nparams);
   t_host_param_1d h_params = k_params.h_view;

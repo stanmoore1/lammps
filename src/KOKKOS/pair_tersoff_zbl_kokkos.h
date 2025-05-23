@@ -183,7 +183,7 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
   KK_FLOAT fermi_d_k(const Param& param, const KK_FLOAT &r) const;
 
  protected:
-  DAT::t_int_3d_randomread d_elem3param;
+  typename AT::t_int_3d_randomread d_elem3param;
   typename AT::t_int_1d_randomread d_map;
 
   typedef Kokkos::DualView<Param*,DeviceType> tdual_param_1d;

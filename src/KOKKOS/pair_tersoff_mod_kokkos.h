@@ -177,7 +177,7 @@ class PairTersoffMODKokkos : public PairTersoffMOD {
   void setup_params() override;
 
  protected:
-  DAT::t_int_3d_randomread d_elem3param;
+  typename AT::t_int_3d_randomread d_elem3param;
   typename AT::t_int_1d_randomread d_map;
 
   typedef Kokkos::DualView<Param*,DeviceType> tdual_param_1d;
