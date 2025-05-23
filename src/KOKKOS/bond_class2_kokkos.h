@@ -60,7 +60,7 @@ class BondClass2Kokkos : public BondClass2 {
                   const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
-  TripleView<KK_FLOAT*,double*,LMPDeviceType::array_layout,KKDeviceType> k_eatom;
+  TripleView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
   TripleView<KK_FLOAT*[6],double*[6],LMPDeviceType::array_layout,KKDeviceType> k_vatom;
 
  protected:

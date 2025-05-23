@@ -61,7 +61,7 @@ class ImproperHarmonicKokkos : public ImproperHarmonic {
                           const KK_FLOAT &vb3x, const KK_FLOAT &vb3y, const KK_FLOAT &vb3z) const;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
-  TripleView<KK_FLOAT*,double*,LMPDeviceType::array_layout,KKDeviceType> k_eatom;
+  TripleView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
   TripleView<KK_FLOAT*[6],double*[6],LMPDeviceType::array_layout,KKDeviceType> k_vatom;
 
  protected:
