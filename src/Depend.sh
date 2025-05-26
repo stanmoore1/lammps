@@ -96,6 +96,10 @@ if (test $1 = "EXTRA-COMPUTE") then
   depend KOKKOS
 fi
 
+if (test $1 = "EXTRA-FIX") then
+  depend KOKKOS
+fi
+
 if (test $1 = "EXTRA-MOLECULE") then
   depend GPU
   depend OPENMP

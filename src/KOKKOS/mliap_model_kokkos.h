@@ -49,7 +49,7 @@ template <class DeviceType> class MLIAPModelKokkos : protected Pointers {
   }
 
   MLIAPModel *model;
-  DAT::tdual_kkfloat_2d k_coeffelem;
+  DAT::tdual_double_2d k_coeffelem;
 };
 }    // namespace LAMMPS_NS
 #endif

@@ -64,7 +64,7 @@ public:
   //Virtual functions overwriting the kokkos virtual functions in Pair. The
   //virtual functions call the templated versions using the work-around cache
   //variables below
-  int pack_forward_comm_kokkos(int nv, DAT::tdual_int_1d iii, DAT::tdual_double_1d &fill
+  int pack_forward_comm_kokkos(int nv, DAT::tdual_int_1d iii, DAT::tdual_double_1d &fill,
                                int int2, int *intp) override;
   template <typename CommType>
   int pack_forward_comm_kokkos(int nv, DAT::tdual_int_1d iii, DAT::tdual_double_1d &fill,

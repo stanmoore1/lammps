@@ -50,7 +50,7 @@ class PairPACEExtrapolationKokkos : public PairPACEExtrapolation {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   typedef EV_FLOAT value_type;
-  using complex = SNAComplex<double>;
+  using complex = SNAComplex<KK_FLOAT>;
 
   PairPACEExtrapolationKokkos(class LAMMPS *);
   ~PairPACEExtrapolationKokkos() override;

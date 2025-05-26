@@ -303,7 +303,7 @@ void LAMMPS_NS::update_pair_forces(MLIAPDataKokkosDevice *data, double *fij)
   }
   auto d_vatom = data->pairmliap->k_vatom.d_view;
 
-  Kokkos::View<KK_FLOAT[6], LMPDeviceType> virial("virial");
+  Kokkos::View<double[6], LMPDeviceType> virial("virial");
 
   Kokkos::parallel_for(data->npairs,KOKKOS_LAMBDA (int ii) {
 
@@ -353,7 +353,7 @@ void LAMMPS_NS::update_pair_forces(MLIAPDataKokkosDevice *data, double *fij)
 
   if (vflag) {
     if (vflag_global) {
-      Kokkos::View<KK_FLOAT[6], LMPHostType> h_virial("h_virial");
+      Kokkos::View<double[6], LMPHostType> h_virial("h_virial");
       Kokkos::deep_copy(h_virial,virial);
       for (int i=0;i<6;++i)
         data->pairmliap->virial[i]+=h_virial[i];

@@ -49,7 +49,7 @@ class PairPACEKokkos : public PairPACE {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   typedef EV_FLOAT value_type;
-  using complex = SNAComplex<double>;
+  using complex = SNAComplex<KK_FLOAT>;
 
   PairPACEKokkos(class LAMMPS *);
   ~PairPACEKokkos() override;

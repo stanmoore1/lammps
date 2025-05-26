@@ -79,8 +79,8 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   //k_cutsq
   typedef Kokkos::DualView<KK_FLOAT***, Kokkos::LayoutRight, DeviceType> tdual_kkfloat_3d;
   typedef Kokkos::DualView<KK_FLOAT****, Kokkos::LayoutRight, DeviceType> tdual_kkfloat_4d;
-  ttriple_kkfloat_3d k_cut_3b;
-  ttriple_kkfloat_4d k_min_cut_3b;
+  DAT::ttriple_kkfloat_3d k_cut_3b;
+  DAT::ttriple_kkfloat_4d k_min_cut_3b;
   typename tdual_kkfloat_3d::t_dev d_cut_3b;
   typename tdual_kkfloat_4d::t_dev d_min_cut_3b;
   template <typename TYPE> void destroy_3d(TYPE data, typename TYPE::value_type*** &array);

@@ -33,10 +33,10 @@ template <class DeviceType> class MLIAP_SO3Kokkos : protected Pointers {
   double memory_usage();
 
   using MemoryDeviceType = typename KKDevice<DeviceType>::value;
-  using float_1d = Kokkos::View<KK_FLOAT *, Kokkos::LayoutRight, MemoryDeviceType>;
-  using float_2d = Kokkos::View<KK_FLOAT **, Kokkos::LayoutRight, MemoryDeviceType>;
-  using float_3d = Kokkos::View<KK_FLOAT ***, Kokkos::LayoutRight, MemoryDeviceType>;
-  using float_4d = Kokkos::View<KK_FLOAT ****, Kokkos::LayoutRight, MemoryDeviceType>;
+  using float_1d = Kokkos::View<double *, Kokkos::LayoutRight, MemoryDeviceType>;
+  using float_2d = Kokkos::View<double **, Kokkos::LayoutRight, MemoryDeviceType>;
+  using float_3d = Kokkos::View<double ***, Kokkos::LayoutRight, MemoryDeviceType>;
+  using float_4d = Kokkos::View<double ****, Kokkos::LayoutRight, MemoryDeviceType>;
   using int_1d = Kokkos::View<int *, MemoryDeviceType>;
 
   int ncoeff;
@@ -84,27 +84,27 @@ template <class DeviceType> class MLIAP_SO3Kokkos : protected Pointers {
 
  public:
   void spectrum(int nlocal, DAT::tdual_int_1d numneighs, DAT::tdual_int_1d jelems,
-                DAT::tdual_kkfloat_1d wjelem, DAT::tdual_kkfloat_2d rij, DAT::tdual_int_1d k_ij,
+                DAT::tdual_double_1d wjelem, DAT::tdual_double_2d rij, DAT::tdual_int_1d k_ij,
                 int nmax, int lmax, double rcut, double alpha, int totaln, int ncoefs);
   struct MLIAPSO3SpectrumTag {};
   KOKKOS_FUNCTION
   void operator()(const MLIAPSO3SpectrumTag &, int ii) const;
 
   void spectrum_dxdr(int nlocal, DAT::tdual_int_1d numneighs, DAT::tdual_int_1d jelems,
-                     DAT::tdual_kkfloat_1d wjelem, DAT::tdual_kkfloat_2d rij, DAT::tdual_int_1d k_ij,
-                     int nmax, int lmax, KK_FLOAT rcut, KK_FLOAT alpha, bigint npairs, int ncoefs);
+                     DAT::tdual_double_1d wjelem, DAT::tdual_double_2d rij, DAT::tdual_int_1d k_ij,
+                     int nmax, int lmax, double rcut, double alpha, bigint npairs, int ncoefs);
   struct MLIAPSO3SpectrumDXDRTag {};
   KOKKOS_FUNCTION
   void operator()(const MLIAPSO3SpectrumDXDRTag &, int ii) const;
 
   KOKKOS_FUNCTION
-  KK_FLOAT Cosine(KK_FLOAT Rij, KK_FLOAT Rc) const;
+  double Cosine(double Rij, double Rc) const;
   KOKKOS_FUNCTION
-  KK_FLOAT CosinePrime(KK_FLOAT Rij, KK_FLOAT Rc) const;
+  double CosinePrime(double Rij, double Rc) const;
   KOKKOS_FUNCTION
-  KK_FLOAT compute_sfac(KK_FLOAT r, KK_FLOAT rcut) const;
+  double compute_sfac(double r, double rcut) const;
   KOKKOS_FUNCTION
-  KK_FLOAT compute_dsfac(KK_FLOAT r, KK_FLOAT rcut) const;
+  double compute_dsfac(double r, double rcut) const;
 
   struct MLIAPSO3GetSBESArrayTag {};
   KOKKOS_FUNCTION
@@ -115,11 +115,11 @@ template <class DeviceType> class MLIAP_SO3Kokkos : protected Pointers {
   void operator()(const MLIAPSO3GetRipArrayTag &, int ii) const;
 
   void init_arrays(int nlocal, int ncoefs);
-  void init_garray(int nmax, int lmax, KK_FLOAT rcut, KK_FLOAT alpha, KK_FLOAT *w, int lw1,
-                   KK_FLOAT *g_array, int lg2);
+  void init_garray(int nmax, int lmax, double rcut, double alpha, double *w, int lw1,
+                   double *g_array, int lg2);
 
   template <typename UlistView>
-  KOKKOS_FUNCTION void compute_uarray_recursive(KK_FLOAT x, KK_FLOAT y, KK_FLOAT z, KK_FLOAT r, int twol,
+  KOKKOS_FUNCTION void compute_uarray_recursive(double x, double y, double z, double r, int twol,
                                                 UlistView ulist_r, UlistView ulist_i,
                                                 int_1d idxu_block, float_1d rootpqarray) const;
   void compute_ncoeff();
@@ -127,14 +127,14 @@ template <class DeviceType> class MLIAP_SO3Kokkos : protected Pointers {
   KOKKOS_FUNCTION
   static int get_sum(int istart, int iend, int id, int imult);
 
-  KK_FLOAT compute_g(KK_FLOAT r, int n, int nmax, KK_FLOAT rcut, KK_FLOAT *w, int lw1);
-  KK_FLOAT phi(KK_FLOAT r, int alpha, KK_FLOAT rcut);
+  double compute_g(double r, int n, int nmax, double rcut, double *w, int lw1);
+  double phi(double r, int alpha, double rcut);
 
   template <typename ViewType>
   KOKKOS_FUNCTION void compute_pi(int nmax, int lmax, ViewType clisttot_r, ViewType clisttot_i,
                                   int lcl2, float_2d plist_r, int indpl) const;
 
-  void compute_W(int nmax, KK_FLOAT *arr);
+  void compute_W(int nmax, double *arr);
 };
 
 }    // namespace LAMMPS_NS

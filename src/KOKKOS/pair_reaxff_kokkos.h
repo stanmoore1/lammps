@@ -424,7 +424,6 @@ class PairReaxFFKokkos : public PairReaxFF {
 
   DAT::tdual_kkfloat_1d k_tap;
   typename AT::t_kkfloat_1d d_tap;
-  HAT::t_kkfloat_1d h_tap;
 
   typename AT::t_kkfloat_1d d_bo_rij, d_hb_rsq, d_Deltap, d_Deltap_boc, d_total_bo, d_s;
   typename AT::t_kkfloat_1d d_Delta, d_Delta_boc, d_Delta_lp, d_dDelta_lp, d_Delta_lp_temp, d_CdDelta;

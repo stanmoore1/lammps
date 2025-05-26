@@ -122,26 +122,26 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
 
   /*struct TableDeviceConst {
     typename AT::t_int_2d_randomread tabindex;
-    typename AT::t_kkfloat_1d_randomread innersq,invdelta;
-    typename AT::t_kkfloat_2d_randomread rsq,e,de,f,df;
+    typename AT::t_double_1d_randomread innersq,invdelta;
+    typename AT::t_double_2d_randomread rsq,e,de,f,df;
   };*/
  //Its faster not to use texture fetch if the number of tables is less than 32!
   struct TableDeviceConst {
     typename AT::t_int_2d tabindex;
-    typename AT::t_kkfloat_1d innersq,invdelta;
-    typename AT::t_kkfloat_2d_randomread rsq,e,de,f,df;
+    typename AT::t_double_1d innersq,invdelta;
+    typename AT::t_double_2d_randomread rsq,e,de,f,df;
   };
 
   struct TableDevice {
     typename AT::t_int_2d tabindex;
-    typename AT::t_kkfloat_1d innersq,invdelta;
-    typename AT::t_kkfloat_2d rsq,e,de,f,df;
+    typename AT::t_double_1d innersq,invdelta;
+    typename AT::t_double_2d rsq,e,de,f,df;
   };
 
   struct TableHost {
     HAT::t_int_2d tabindex;
-    HAT::t_kkfloat_1d innersq,invdelta;
-    HAT::t_kkfloat_2d rsq,e,de,f,df;
+    HAT::t_double_1d innersq,invdelta;
+    HAT::t_double_2d rsq,e,de,f,df;
   };
 
   TableDeviceConst d_table_const;
@@ -163,7 +163,7 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_kkfloat_1d rho;
-  typename HAT::t_kkfloat_1d h_rho;
+  typename HAT::t_double_1d h_rho;
   typename AT::t_kkfloat_1d uCG, uCGnew;
   typename AT::t_kkfloat_2d dvector;
 

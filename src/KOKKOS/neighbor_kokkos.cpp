@@ -193,7 +193,7 @@ int NeighborKokkos::check_distance_kokkos()
   } else deltasq = triggersq;
 
   atomKK->sync(ExecutionSpaceFromDevice<DeviceType>::space,X_MASK);
-  x = atomKK->k_x;
+  x = atomKK->k_x.k_view;
   xhold.sync<DeviceType>();
   int nlocal = atom->nlocal;
   if (includegroup) nlocal = atom->nfirst;
@@ -255,7 +255,7 @@ void NeighborKokkos::build_kokkos(int topoflag)
 
   if (dist_check) {
     atomKK->sync(ExecutionSpaceFromDevice<DeviceType>::space,X_MASK);
-    x = atomKK->k_x;
+    x = atomKK->k_x.k_view;
     if (includegroup) nlocal = atom->nfirst;
     int maxhold_kokkos = xhold.view<DeviceType>().extent(0);
     if (atom->nmax > maxhold || maxhold_kokkos < maxhold) {

@@ -155,7 +155,6 @@ void PairReaxFFKokkos<DeviceType>::allocate()
 
   k_tap = DAT::tdual_kkfloat_1d("pair:tap",8);
   d_tap = k_tap.template view<DeviceType>();
-  h_tap = k_tap.h_view;
 }
 
 /* ----------------------------------------------------------------------

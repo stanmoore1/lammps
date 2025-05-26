@@ -81,7 +81,7 @@ void MLIAPDescriptorSO3Kokkos<DeviceType>::compute_forces(class MLIAPData *data_
   auto vflag=data->vflag;
   int vflag_either=data->k_pairmliap->vflag_either, vflag_global=data->pairmliap->vflag_global, vflag_atom=data->pairmliap->vflag_atom;
   auto d_vatom = data->k_pairmliap->k_vatom.template view<DeviceType>();
-  Kokkos::View<KK_FLOAT[6], DeviceType> virial("virial");
+  Kokkos::View<double[6], DeviceType> virial("virial");
   data->k_pairmliap->k_vatom.modify_host();
   data->k_pairmliap->k_vatom.template sync<DeviceType>();
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,data->nlistatoms), KOKKOS_LAMBDA(int ii) {
@@ -119,7 +119,7 @@ void MLIAPDescriptorSO3Kokkos<DeviceType>::compute_forces(class MLIAPData *data_
 
   if (vflag) {
     if (vflag_global) {
-      Kokkos::View<KK_FLOAT[6], LMPHostType> h_virial("h_virial");
+      Kokkos::View<double[6], LMPHostType> h_virial("h_virial");
       Kokkos::deep_copy(h_virial,virial);
       for (int i=0;i<6;++i)
         data->k_pairmliap->virial[i]+=h_virial[i];
@@ -138,9 +138,9 @@ template <class DeviceType>
 template <typename ViewType>
 KOKKOS_INLINE_FUNCTION
 void MLIAPDescriptorSO3Kokkos<DeviceType>::v_tally(int vflag_either, int vflag_global, int vflag_atom, int i, int j, int ij,
-    KK_FLOAT *fij, ViewType rij, Kokkos::View<KK_FLOAT[6],DeviceType> virial, ViewType vatom)
+    double *fij, ViewType rij, Kokkos::View<double[6],DeviceType> virial, ViewType vatom)
 {
-  KK_FLOAT v[6];
+  double v[6];
   if (vflag_either) {
     v[0] = -rij(ij,0)*fij[0];
     v[1] = -rij(ij,1)*fij[1];

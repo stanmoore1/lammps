@@ -1059,6 +1059,8 @@ typedef tdual_kkfloat_4d::t_dev_um t_kkfloat_4d_um;
 typedef tdual_kkfloat_4d::t_dev_const_um t_kkfloat_4d_const_um;
 typedef tdual_kkfloat_4d::t_dev_const_randomread t_kkfloat_4d_randomread;
 
+typedef TripleView<KK_FLOAT****, double****, LMPDeviceType::array_layout> ttriple_kkfloat_4d;
+
 // Neighbor Types
 
 typedef tdual_int_2d tdual_neighbors_2d;

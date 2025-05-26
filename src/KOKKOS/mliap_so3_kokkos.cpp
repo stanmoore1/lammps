@@ -156,7 +156,7 @@ void MLIAP_SO3Kokkos<DeviceType>::init()
   alloc_init += totali * sizeof(double);
 
   {
-    Kokkos::View<KK_FLOAT*, LMPHostType> w("w", m_nmax * m_nmax), g_array("g_array", m_nmax * m_Nmax);
+    Kokkos::View<double*, LMPHostType> w("w", m_nmax * m_nmax), g_array("g_array", m_nmax * m_Nmax);
     compute_W(m_nmax, w.data());
     init_garray(m_nmax, m_lmax, m_rcut, m_alpha, w.data(), m_nmax, g_array.data(), m_Nmax);
     Kokkos::deep_copy(m_w,w);
@@ -354,7 +354,7 @@ void MLIAP_SO3Kokkos<DeviceType>::compute_pi(int nmax, int lmax, ViewType clistt
                            float_2d plist_r, int indpl) const
 {
   int n1, n2, j, l, m, i = 0;
-  KK_FLOAT norm;
+  double norm;
   for (n1 = 0; n1 < nmax; n1++)
     for (n2 = 0; n2 < n1 + 1; n2++) {
       j = 0;
@@ -400,7 +400,7 @@ double MLIAP_SO3Kokkos<DeviceType>::compute_g(double r, int n, int nmax, double 
 /* ---------------------------------------------------------------------- */
 template <class DeviceType>
 KOKKOS_INLINE_FUNCTION
-KK_FLOAT MLIAP_SO3Kokkos<DeviceType>::Cosine(KK_FLOAT Rij, KK_FLOAT Rc) const
+double MLIAP_SO3Kokkos<DeviceType>::Cosine(double Rij, double Rc) const
 {
 
   return 0.5 * (cos(MY_PI * Rij / Rc) + 1.0);
@@ -409,7 +409,7 @@ KK_FLOAT MLIAP_SO3Kokkos<DeviceType>::Cosine(KK_FLOAT Rij, KK_FLOAT Rc) const
 /* ---------------------------------------------------------------------- */
 template <class DeviceType>
 KOKKOS_INLINE_FUNCTION
-KK_FLOAT MLIAP_SO3Kokkos<DeviceType>::CosinePrime(KK_FLOAT Rij, KK_FLOAT Rc) const
+double MLIAP_SO3Kokkos<DeviceType>::CosinePrime(double Rij, double Rc) const
 {
 
   return -0.5 * MY_PI / Rc * sin(MY_PI * Rij / Rc);
@@ -418,7 +418,7 @@ KK_FLOAT MLIAP_SO3Kokkos<DeviceType>::CosinePrime(KK_FLOAT Rij, KK_FLOAT Rc) con
 /* ---------------------------------------------------------------------- */
 template <class DeviceType>
 KOKKOS_INLINE_FUNCTION
-KK_FLOAT MLIAP_SO3Kokkos<DeviceType>::compute_sfac(KK_FLOAT r, KK_FLOAT rcut) const
+double MLIAP_SO3Kokkos<DeviceType>::compute_sfac(double r, double rcut) const
 {
   if (r > rcut)
     return 0.0;
@@ -429,7 +429,7 @@ KK_FLOAT MLIAP_SO3Kokkos<DeviceType>::compute_sfac(KK_FLOAT r, KK_FLOAT rcut) co
 /* ---------------------------------------------------------------------- */
 template <class DeviceType>
 KOKKOS_INLINE_FUNCTION
-KK_FLOAT MLIAP_SO3Kokkos<DeviceType>::compute_dsfac(KK_FLOAT r, KK_FLOAT rcut) const
+double MLIAP_SO3Kokkos<DeviceType>::compute_dsfac(double r, double rcut) const
 {
   if (r > rcut)
     return 0.0;
@@ -456,17 +456,17 @@ int MLIAP_SO3Kokkos<DeviceType>::get_sum(int istart, int iend, int id, int imult
 template <class DeviceType>
 template <typename UlistView>
 KOKKOS_INLINE_FUNCTION
-void MLIAP_SO3Kokkos<DeviceType>::compute_uarray_recursive(KK_FLOAT x, KK_FLOAT y, KK_FLOAT z, KK_FLOAT r, int twol,
+void MLIAP_SO3Kokkos<DeviceType>::compute_uarray_recursive(double x, double y, double z, double r, int twol,
                                                UlistView ulist_r, UlistView ulist_i, int_1d idxu_block,
                                                float_1d rootpqarray) const
 {
   int l, llu, llup, mb, ma, mbpar, mapar;
-  KK_FLOAT rootpq;
+  double rootpq;
   int ldim = twol + 1;
 
-  KK_FLOAT theta, phi, atheta, btheta;
+  double theta, phi, atheta, btheta;
 
-  KK_FLOAT aphi_r, aphi_i, a_r, a_i, b_r, b_i;
+  double aphi_r, aphi_i, a_r, a_i, b_r, b_i;
 
   theta = acos(z / r);
   phi = atan2(y, x);
@@ -571,19 +571,19 @@ KOKKOS_INLINE_FUNCTION
 void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAPSO3GetSBESArrayTag&, int ii) const{
    int ipair = t_ij(ii);
    for (int neighbor = 0; neighbor < t_numneighs[ii]; neighbor++) {
-     KK_FLOAT x = t_rij(ipair, 0);
-     KK_FLOAT y = t_rij(ipair, 1);
-     KK_FLOAT z = t_rij(ipair, 2);
+     double x = t_rij(ipair, 0);
+     double y = t_rij(ipair, 1);
+     double z = t_rij(ipair, 2);
      ipair++;
 
-     KK_FLOAT ri = sqrt(x * x + y * y + z * z);
+     double ri = sqrt(x * x + y * y + z * z);
 
      if (ri < SMALL) continue;
 
-     const KK_FLOAT pfac1 = t_alpha * t_rcut;
-     const KK_FLOAT pfac4 = t_rcut / 2.0;
-     const KK_FLOAT pfac3 = MY_PI / 2.0 / m_Nmax;
-     KK_FLOAT pfac2 = pfac1 * ri;
+     const double pfac1 = t_alpha * t_rcut;
+     const double pfac4 = t_rcut / 2.0;
+     const double pfac3 = MY_PI / 2.0 / m_Nmax;
+     double pfac2 = pfac1 * ri;
      const int findex = m_Nmax * (m_lmax + 1);
      const int gindex = (ipair - 1) * findex;
      const int mindex = m_lmax + 1;
@@ -592,11 +592,11 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAPSO3GetSBESArrayTag&, in
        const bigint i1mindex = (bigint) (i - 1) * mindex;
 
        x = cos((2 * i - 1) * pfac3);
-       KK_FLOAT xi = pfac4 * (x + 1);
-       KK_FLOAT rb = pfac2 * (x + 1);
+       double xi = pfac4 * (x + 1);
+       double rb = pfac2 * (x + 1);
 
-       KK_FLOAT sa = sinh(rb) / rb;
-       KK_FLOAT sb = (cosh(rb) - sa) / rb;
+       double sa = sinh(rb) / rb;
+       double sb = (cosh(rb) - sa) / rb;
 
        m_sbes_array[gindex + i1mindex + 0] = sa;
        m_sbes_array[gindex + i1mindex + 1] = sb;
@@ -606,7 +606,7 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAPSO3GetSBESArrayTag&, in
          m_sbes_array[gindex + i1mindex + j] = m_sbes_array[gindex + i1mindex + j - 2] -
              (2 * j - 1) / rb * m_sbes_array[gindex + i1mindex + j - 1];
 
-       KK_FLOAT exts = m_sbes_array[gindex + i1mindex + j - 2] -
+       double exts = m_sbes_array[gindex + i1mindex + j - 2] -
            (2 * j - 1) / rb * m_sbes_array[gindex + i1mindex + j - 1];
 
        m_sbes_darray[gindex + i1mindex + 0] = sb;
@@ -632,18 +632,18 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAPSO3GetRipArrayTag&, int
    int ipair = t_ij(ii);
    for (int neighbor = 0; neighbor < t_numneighs[ii]; neighbor++) {
 
-     KK_FLOAT x = t_rij(ipair, 0);
-     KK_FLOAT y = t_rij(ipair, 1);
-     KK_FLOAT z = t_rij(ipair, 2);
+     double x = t_rij(ipair, 0);
+     double y = t_rij(ipair, 1);
+     double z = t_rij(ipair, 2);
      ipair++;
 
-     KK_FLOAT ri = sqrt(x * x + y * y + z * z);
+     double ri = sqrt(x * x + y * y + z * z);
      if (ri < SMALL) continue;
 
-     KK_FLOAT expfac = 4 * MY_PI * exp(-t_alpha * ri * ri);
+     double expfac = 4 * MY_PI * exp(-t_alpha * ri * ri);
      for (int n = 1; n < t_nmax + 1; n++)
        for (int l = 0; l < t_lmax + 1; l++) {
-         KK_FLOAT integral = 0.0, integrald = 0.0;
+         double integral = 0.0, integrald = 0.0;
          for (int i = 0; i < m_Nmax; i++) {
            integral += m_g_array[(n - 1) * m_Nmax + i] *
                m_sbes_array[(ipair - 1) * m_Nmax * (m_lmax + 1) + (bigint) i * (m_lmax + 1) + l];
@@ -662,8 +662,8 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAPSO3GetRipArrayTag&, int
 /* ---------------------------------------------------------------------- */
 
 template <class DeviceType>
-void MLIAP_SO3Kokkos<DeviceType>::spectrum(int nlocal, DAT::tdual_int_1d numneighs, DAT::tdual_int_1d jelems, DAT::tdual_kkfloat_1d wjelem,
-                               DAT::tdual_kkfloat_2d rij,  DAT::tdual_int_1d k_ij,
+void MLIAP_SO3Kokkos<DeviceType>::spectrum(int nlocal, DAT::tdual_int_1d numneighs, DAT::tdual_int_1d jelems, DAT::tdual_double_1d wjelem,
+                               DAT::tdual_double_2d rij,  DAT::tdual_int_1d k_ij,
                                int nmax, int lmax, double rcut, double alpha, int totaln, int ncoefs)
 {
   init_arrays(nlocal, ncoefs);
@@ -740,12 +740,12 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
     const int jelem = t_jelems[ipair];
     int weight = t_wjelem[jelem];
 
-    KK_FLOAT x = t_rij(ipair, 0);
-    KK_FLOAT y = t_rij(ipair, 1);
-    KK_FLOAT z = t_rij(ipair, 2);
+    double x = t_rij(ipair, 0);
+    double y = t_rij(ipair, 1);
+    double z = t_rij(ipair, 2);
     ipair++;
 
-    KK_FLOAT r = sqrt(x * x + y * y + z * z);
+    double r = sqrt(x * x + y * y + z * z);
 
     if (r < SMALL) continue;
     for (int ti = 0; ti < m_idxu_count; ti++) {
@@ -755,19 +755,19 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
 
     compute_uarray_recursive(x, y, z, r, twolmax, ulist_r, ulist_i, m_idxu_block, m_rootpq);
 
-    KK_FLOAT sfac_weight = compute_sfac(r, t_rcut)*KK_FLOAT(weight);
+    double sfac_weight = compute_sfac(r, t_rcut)*double(weight);
 
     int gindex = (ipair - 1) * findex;
     for (int n = 1; n < t_nmax + 1; n++) {
       int i = 0;
       for (int l = 0; l < t_lmax + 1; l++) {
-        KK_FLOAT r_int = m_rip_array[gindex + (bigint) (n - 1) * (m_lmax + 1) + l];
+        double r_int = m_rip_array[gindex + (bigint) (n - 1) * (m_lmax + 1) + l];
 
         for (int m = -l; m < l + 1; m++) {
 
-          KK_FLOAT Ylm_r = (ulist_r[m_idxylm[i]]) * m_pfac[l * m_pfac_l2 + m];
+          double Ylm_r = (ulist_r[m_idxylm[i]]) * m_pfac[l * m_pfac_l2 + m];
           clisttot_r((n - 1), i) += r_int * Ylm_r * sfac_weight;
-          KK_FLOAT Ylm_i = (ulist_i[m_idxylm[i]]) * m_pfac[l * m_pfac_l2 + m];
+          double Ylm_i = (ulist_i[m_idxylm[i]]) * m_pfac[l * m_pfac_l2 + m];
           clisttot_i((n - 1), i) += r_int * Ylm_i * sfac_weight;
           i += 1;
         }
@@ -780,8 +780,8 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
 /* ---------------------------------------------------------------------- */
 
 template <class DeviceType>
-void MLIAP_SO3Kokkos<DeviceType>::spectrum_dxdr(int nlocal, DAT::tdual_int_1d numneighs, DAT::tdual_int_1d jelems, DAT::tdual_kkfloat_1d wjelem,
-                                    DAT::tdual_kkfloat_2d rij, DAT::tdual_int_1d k_ij,
+void MLIAP_SO3Kokkos<DeviceType>::spectrum_dxdr(int nlocal, DAT::tdual_int_1d numneighs, DAT::tdual_int_1d jelems, DAT::tdual_double_1d wjelem,
+                                    DAT::tdual_double_2d rij, DAT::tdual_int_1d k_ij,
                                     int nmax, int lmax, double rcut, double alpha, bigint totaln,
                                     int ncoefs)
 {
@@ -868,12 +868,12 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
     const int jelem = t_jelems[ipair];
     int weight = t_wjelem[jelem];
 
-    KK_FLOAT x = t_rij(ipair, 0);
-    KK_FLOAT y = t_rij(ipair, 1);
-    KK_FLOAT z = t_rij(ipair, 2);
+    double x = t_rij(ipair, 0);
+    double y = t_rij(ipair, 1);
+    double z = t_rij(ipair, 2);
     ipair++;
 
-    KK_FLOAT r = sqrt(x * x + y * y + z * z);
+    double r = sqrt(x * x + y * y + z * z);
 
     if (r < SMALL) continue;
 
@@ -884,17 +884,17 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
 
     compute_uarray_recursive(x, y, z, r, twolmax, ulist_r, ulist_i, m_idxu_block, m_rootpq);
 
-    KK_FLOAT sfac_weight = compute_sfac(r, t_rcut)*KK_FLOAT(weight);
+    double sfac_weight = compute_sfac(r, t_rcut)*double(weight);
     bigint gindex = (ipair - 1) * findex;
     for (int n = 0; n < t_nmax; n++) {
       int i = 0;
       for (int l = 0; l < t_lmax + 1; l++) {
-        KK_FLOAT r_int = m_rip_array[gindex + n * (m_lmax + 1) + l];
+        double r_int = m_rip_array[gindex + n * (m_lmax + 1) + l];
 
         for (int m = -l; m < l + 1; m++) {
-          KK_FLOAT Ylm_r = (ulist_r[m_idxylm[i]]) * m_pfac[l * m_pfac_l2 + m];
+          double Ylm_r = (ulist_r[m_idxylm[i]]) * m_pfac[l * m_pfac_l2 + m];
           clisttot_r(n, i) += r_int * Ylm_r * sfac_weight;
-          KK_FLOAT Ylm_i = (ulist_i[m_idxylm[i]]) * m_pfac[l * m_pfac_l2 + m];
+          double Ylm_i = (ulist_i[m_idxylm[i]]) * m_pfac[l * m_pfac_l2 + m];
           clisttot_i(n, i) += r_int * Ylm_i * sfac_weight;
           i += 1;
         }
@@ -908,13 +908,13 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
     const int jelem = t_jelems[ipair];
     int weight = t_wjelem[jelem];
 
-    KK_FLOAT x = t_rij(ipair, 0);
-    KK_FLOAT y = t_rij(ipair, 1);
-    KK_FLOAT z = t_rij(ipair, 2);
+    double x = t_rij(ipair, 0);
+    double y = t_rij(ipair, 1);
+    double z = t_rij(ipair, 2);
     ipair++;
     auto dplist_r=Kokkos::subview(k_dplist_r,ipair-1,Kokkos::ALL, Kokkos::ALL);
 
-    KK_FLOAT r = sqrt(x * x + y * y + z * z);
+    double r = sqrt(x * x + y * y + z * z);
     if (r < SMALL) continue;
 
     for (int ti = 0; ti < m_idxu_count; ti++) {
@@ -926,7 +926,7 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
 
     /////////  compute_carray_wD  ////////
     {
-      KK_FLOAT rvec[3];
+      double rvec[3];
       rvec[0] = x;
       rvec[1] = y;
       rvec[2] = z;
@@ -935,22 +935,22 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
         for (int j=0;j<3;++j)
           dYlm_r(i,j) = dYlm_i(i,j) = 0.0;
 
-      KK_FLOAT comj_i = 1.0 / sqrt(2.0);
-      KK_FLOAT oneofr = 1.0 / r;
+      double comj_i = 1.0 / sqrt(2.0);
+      double oneofr = 1.0 / r;
 
-      KK_FLOAT dexpfac[3];
+      double dexpfac[3];
       for (int ii = 0; ii < 3; ii++) dexpfac[ii] = -2.0 * t_alpha * rvec[ii];
 
-      KK_FLOAT sfac = compute_sfac(r, t_rcut);
-      KK_FLOAT dsfac = compute_dsfac(r, t_rcut);
-      KK_FLOAT dsfac_arr[3];
+      double sfac = compute_sfac(r, t_rcut);
+      double dsfac = compute_dsfac(r, t_rcut);
+      double dsfac_arr[3];
       for (int ii = 0; ii < 3; ii++) { dsfac_arr[ii] = dsfac * rvec[ii] / r; }
 
       int i = 1;
       for (int l = 1; l < t_lmax + 1; l++) {
         for (int m = -l; m < l + 1; m++) {
-          KK_FLOAT dfact[6];
-          KK_FLOAT xcov0_r, xcov0_i, xcovpl1_r, xcovpl1_i, xcovm1_r, xcovm1_i;
+          double dfact[6];
+          double xcov0_r, xcov0_i, xcovpl1_r, xcovpl1_i, xcovm1_r, xcovm1_i;
           dfact[0] = m_dfac0[l * m_dfac_l2 + m] * oneofr;
           dfact[1] = m_dfac1[l * m_dfac_l2 + m] * oneofr;
           dfact[2] = m_dfac2[l * m_dfac_l2 + m] * oneofr;
@@ -1000,15 +1000,15 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
       for (int n = 0; n < t_nmax; n++) {
         int i = 0;
         for (int l = 0; l < t_lmax + 1; l++) {
-          KK_FLOAT r_int = m_rip_array[(ipair - 1) * m_nmax * (m_lmax + 1) +
+          double r_int = m_rip_array[(ipair - 1) * m_nmax * (m_lmax + 1) +
                              (bigint) n * (m_lmax + 1) + l];
-          KK_FLOAT r_int_temp = m_rip_darray[(ipair - 1) * m_nmax * (m_lmax + 1) +
+          double r_int_temp = m_rip_darray[(ipair - 1) * m_nmax * (m_lmax + 1) +
                                     (bigint) n * (m_lmax + 1) + l];
-          KK_FLOAT dr_int[3];
+          double dr_int[3];
           for (int ii = 0; ii < 3; ii++) dr_int[ii] = r_int_temp * 2.0 * t_alpha * rvec[ii] / r;
 
           for (int m = -l; m < l + 1; m++) {
-            KK_FLOAT Ylms_r = m_Ylms[i]*(ulist_r[m_idxylm[i]]);
+            double Ylms_r = m_Ylms[i]*(ulist_r[m_idxylm[i]]);
             dclist(n, i,  0) =
                 (r_int * Ylms_r * dexpfac[0] + dr_int[0] * Ylms_r +
                  r_int * dYlm_r(i, 0)) *
@@ -1027,7 +1027,7 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
             dclist(n, i,  2) += (r_int * Ylms_r) * dsfac_arr[2];
 
             for (int k=0;k<3;++k){
-              dclist(n,i,k) *= KK_FLOAT(weight);
+              dclist(n,i,k) *= double(weight);
             }
             i += 1;
           }
@@ -1036,10 +1036,10 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
         for (int n2 = 0; n2 < n + 1; n2++) {
           int j = 0;
           for (int l = 0; l < t_lmax + 1; l++) {
-            KK_FLOAT norm = 2.0 * sqrt(2.0) * MY_PI / sqrt(2.0 * l + 1.0);
+            double norm = 2.0 * sqrt(2.0) * MY_PI / sqrt(2.0 * l + 1.0);
             for (int m = -l; m < l + 1; m++) {
               for (int idim = 0; idim < 3; idim++) {
-                KK_FLOAT temp_r;
+                double temp_r;
                 temp_r = dclist(n,j,idim) * clisttot_r(n2, j);
                 temp_r += clisttot_r(n, j) * dclist(n2,j,idim);
                 temp_r *= norm;
@@ -1058,15 +1058,15 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
       for (int n = 0; n < t_nmax; n++) {
         int i = 0;
         for (int l = 0; l < t_lmax + 1; l++) {
-          KK_FLOAT r_int = m_rip_array[(ipair - 1) * m_nmax * (m_lmax + 1) +
+          double r_int = m_rip_array[(ipair - 1) * m_nmax * (m_lmax + 1) +
                              (bigint) n * (m_lmax + 1) + l];
-          KK_FLOAT r_int_temp = m_rip_darray[(ipair - 1) * m_nmax * (m_lmax + 1) +
+          double r_int_temp = m_rip_darray[(ipair - 1) * m_nmax * (m_lmax + 1) +
                                     (bigint) n * (m_lmax + 1) + l];
-          KK_FLOAT dr_int[3];
+          double dr_int[3];
           for (int ii = 0; ii < 3; ii++) dr_int[ii] = r_int_temp * 2.0 * t_alpha * rvec[ii] / r;
 
           for (int m = -l; m < l + 1; m++) {
-            KK_FLOAT Ylms_i = m_Ylms[i]*(ulist_i[m_idxylm[i]]);
+            double Ylms_i = m_Ylms[i]*(ulist_i[m_idxylm[i]]);
             dclist(n, i,  0) =
                 (r_int * Ylms_i * dexpfac[0] + dr_int[0] * Ylms_i +
                  r_int * dYlm_i(i, 0)) *
@@ -1085,7 +1085,7 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
             dclist(n, i,  2) += (r_int * Ylms_i) * dsfac_arr[2];
 
             for (int k=0;k<3;++k){
-              dclist(n,i,k) *= KK_FLOAT(weight);
+              dclist(n,i,k) *= double(weight);
             }
             i += 1;
           }
@@ -1093,10 +1093,10 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
         for (int n2 = 0; n2 < n + 1; n2++) {
           int j = 0;
           for (int l = 0; l < t_lmax + 1; l++) {
-            KK_FLOAT norm = 2.0 * sqrt(2.0) * MY_PI / sqrt(2.0 * l + 1.0);
+            double norm = 2.0 * sqrt(2.0) * MY_PI / sqrt(2.0 * l + 1.0);
             for (int m = -l; m < l + 1; m++) {
               for (int idim = 0; idim < 3; idim++) {
-                KK_FLOAT temp_r;
+                double temp_r;
                 temp_r = dclist(n,j,idim) * clisttot_i(n2, j);
                 temp_r += clisttot_i(n, j) * dclist(n2,j,idim);
                 temp_r *= norm;
