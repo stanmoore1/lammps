@@ -108,11 +108,11 @@ public:
   typename AT::t_kkfloat_1d_3_randomread v;
   typename AT::t_kkfloat_1d_3 f;
   DAT::tdual_int_1d k_map;
-  DAT::ttriple_kkfloat_2d k_cutsq;
-  DAT::tdual_kkfloat_2d k_cutghost;
-  DAT::ttriple_int_2d k_setflag;
-  DAT::ttriple_kkfloat_1d k_eatom;
-  DAT::tdual_kkfloat_2d k_vatom;
+  DAT::tdual_double_2d k_cutsq;
+  DAT::tdual_double_2d k_cutghost;
+  DAT::tdual_int_2d k_setflag;
+  DAT::tdual_double_1d k_eatom;
+  DAT::tdual_double_2d k_vatom;
 
 
   friend void pair_virial_fdotr_compute<PairMLIAPKokkos>(PairMLIAPKokkos*);
