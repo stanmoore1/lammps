@@ -28,99 +28,50 @@ class AtomKokkos : public Atom {
   int nprop_atom;
   class FixPropertyAtomKokkos **fix_prop_atom;
 
-  // DualViews
+  DAT::ttriple_tagint_1d k_tag;
+  DAT::ttriple_int_1d k_type, k_mask;
+  DAT::ttriple_imageint_1d k_image;
+  DAT::ttriple_kkfloat_1d_3 k_x;
+  DAT::ttriple_kkfloat_1d_3 k_v;
+  DAT::ttriple_kkfloat_1d_3 k_f;
 
-  DAT::tdual_tagint_1d k_tag;
-  DAT::tdual_int_1d k_type, k_mask;
-  DAT::tdual_imageint_1d k_image;
-  DAT::tdual_kkfloat_1d_3 k_x;
-  DAT::tdual_kkfloat_1d_3 k_v;
-  DAT::tdual_kkfloat_1d_3 k_f;
+  DAT::ttriple_kkfloat_1d k_mass;
 
-  DAT::tdual_kkfloat_1d k_mass;
+  DAT::ttriple_kkfloat_1d k_q;
+  DAT::ttriple_kkfloat_1d k_radius;
+  DAT::ttriple_kkfloat_1d k_rmass;
+  DAT::ttriple_kkfloat_1d_4 k_mu;
+  DAT::ttriple_kkfloat_1d_3 k_omega;
+  DAT::ttriple_kkfloat_1d_3 k_angmom;
+  DAT::ttriple_kkfloat_1d_3 k_torque;
+  DAT::ttriple_tagint_1d k_molecule;
+  DAT::ttriple_int_2d k_nspecial;
+  DAT::ttriple_tagint_2d k_special;
+  DAT::ttriple_int_1d k_num_bond;
+  DAT::ttriple_int_2d k_bond_type;
+  DAT::ttriple_tagint_2d k_bond_atom;
+  DAT::ttriple_int_1d k_num_angle;
+  DAT::ttriple_int_2d k_angle_type;
+  DAT::ttriple_tagint_2d k_angle_atom1, k_angle_atom2, k_angle_atom3;
+  DAT::ttriple_int_1d k_num_dihedral;
+  DAT::ttriple_int_2d k_dihedral_type;
+  DAT::ttriple_tagint_2d k_dihedral_atom1, k_dihedral_atom2, k_dihedral_atom3, k_dihedral_atom4;
+  DAT::ttriple_int_1d k_num_improper;
+  DAT::ttriple_int_2d k_improper_type;
+  DAT::ttriple_tagint_2d k_improper_atom1, k_improper_atom2, k_improper_atom3, k_improper_atom4;
 
-  DAT::tdual_kkfloat_1d k_q;
-  DAT::tdual_kkfloat_1d k_radius;
-  DAT::tdual_kkfloat_1d k_rmass;
-  DAT::tdual_kkfloat_1d_4 k_mu;
-  DAT::tdual_kkfloat_1d_3 k_omega;
-  DAT::tdual_kkfloat_1d_3 k_angmom;
-  DAT::tdual_kkfloat_1d_3 k_torque;
-  DAT::tdual_tagint_1d k_molecule;
-  DAT::tdual_int_2d k_nspecial;
-  DAT::tdual_tagint_2d k_special;
-  DAT::tdual_int_1d k_num_bond;
-  DAT::tdual_int_2d k_bond_type;
-  DAT::tdual_tagint_2d k_bond_atom;
-  DAT::tdual_int_1d k_num_angle;
-  DAT::tdual_int_2d k_angle_type;
-  DAT::tdual_tagint_2d k_angle_atom1, k_angle_atom2, k_angle_atom3;
-  DAT::tdual_int_1d k_num_dihedral;
-  DAT::tdual_int_2d k_dihedral_type;
-  DAT::tdual_tagint_2d k_dihedral_atom1, k_dihedral_atom2, k_dihedral_atom3, k_dihedral_atom4;
-  DAT::tdual_int_1d k_num_improper;
-  DAT::tdual_int_2d k_improper_type;
-  DAT::tdual_tagint_2d k_improper_atom1, k_improper_atom2, k_improper_atom3, k_improper_atom4;
-
-  DAT::tdual_kkfloat_2d k_dvector;
+  DAT::ttriple_kkfloat_2d k_dvector;
 
   // SPIN package
 
-  DAT::tdual_kkfloat_1d_4 k_sp;
-  DAT::tdual_kkfloat_1d_3 k_fm;
-  DAT::tdual_kkfloat_1d_3 k_fm_long;
+  DAT::ttriple_kkfloat_1d_4 k_sp;
+  DAT::ttriple_kkfloat_1d_3 k_fm;
+  DAT::ttriple_kkfloat_1d_3 k_fm_long;
 
   // DPD-REACT package
 
-  DAT::tdual_kkfloat_1d k_uCond, k_uMech, k_uChem, k_uCG, k_uCGnew,
+  DAT::ttriple_kkfloat_1d k_uCond, k_uMech, k_uChem, k_uCG, k_uCGnew,
                        k_rho, k_dpdTheta, k_duChem;
-
-  // TripleViews
-
-  DAT::ttriple_tagint_1d k3_tag;
-  DAT::ttriple_int_1d k3_type, k3_mask;
-  DAT::ttriple_imageint_1d k3_image;
-  DAT::ttriple_kkfloat_1d_3 k3_x;
-  DAT::ttriple_kkfloat_1d_3 k3_v;
-  DAT::ttriple_kkfloat_1d_3 k3_f;
-
-  DAT::ttriple_kkfloat_1d k3_mass;
-
-  DAT::ttriple_kkfloat_1d k3_q;
-  DAT::ttriple_kkfloat_1d k3_radius;
-  DAT::ttriple_kkfloat_1d k3_rmass;
-  DAT::ttriple_kkfloat_1d_4 k3_mu;
-  DAT::ttriple_kkfloat_1d_3 k3_omega;
-  DAT::ttriple_kkfloat_1d_3 k3_angmom;
-  DAT::ttriple_kkfloat_1d_3 k3_torque;
-  DAT::ttriple_tagint_1d k3_molecule;
-  DAT::ttriple_int_2d k3_nspecial;
-  DAT::ttriple_tagint_2d k3_special;
-  DAT::ttriple_int_1d k3_num_bond;
-  DAT::ttriple_int_2d k3_bond_type;
-  DAT::ttriple_tagint_2d k3_bond_atom;
-  DAT::ttriple_int_1d k3_num_angle;
-  DAT::ttriple_int_2d k3_angle_type;
-  DAT::ttriple_tagint_2d k3_angle_atom1, k3_angle_atom2, k3_angle_atom3;
-  DAT::ttriple_int_1d k3_num_dihedral;
-  DAT::ttriple_int_2d k3_dihedral_type;
-  DAT::ttriple_tagint_2d k3_dihedral_atom1, k3_dihedral_atom2, k3_dihedral_atom3, k3_dihedral_atom4;
-  DAT::ttriple_int_1d k3_num_improper;
-  DAT::ttriple_int_2d k3_improper_type;
-  DAT::ttriple_tagint_2d k3_improper_atom1, k3_improper_atom2, k3_improper_atom3, k3_improper_atom4;
-
-  DAT::ttriple_kkfloat_2d k3_dvector;
-
-  // SPIN package
-
-  DAT::ttriple_kkfloat_1d_4 k3_sp;
-  DAT::ttriple_kkfloat_1d_3 k3_fm;
-  DAT::ttriple_kkfloat_1d_3 k3_fm_long;
-
-  // DPD-REACT package
-
-  DAT::ttriple_kkfloat_1d k3_uCond, k3_uMech, k3_uChem, k3_uCG, k3_uCGnew,
-                       k3_rho, k3_dpdTheta, k3_duChem;
 
 
 

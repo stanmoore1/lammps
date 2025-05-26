@@ -53,6 +53,7 @@ AtomVecKokkos::~AtomVecKokkos()
 template<class DeviceType,int PBC_FLAG,int TRICLINIC>
 struct AtomVecKokkos_PackComm {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread _x;
   typename ArrayTypes<DeviceType>::t_double_2d_um _buf;
@@ -61,7 +62,7 @@ struct AtomVecKokkos_PackComm {
   double _pbc[6];
 
   AtomVecKokkos_PackComm(
-      const typename DAT::tdual_kkfloat_1d_3 &x,
+      const typename DAT::ttriple_kkfloat_1d_3 &x,
       const typename DAT::tdual_double_2d &buf,
       const typename DAT::tdual_int_1d &list,
       const double &xprd, const double &yprd, const double &zprd,
@@ -172,6 +173,7 @@ int AtomVecKokkos::pack_comm_kokkos(const int &n,
 template<class DeviceType,int PBC_FLAG,int TRICLINIC>
 struct AtomVecKokkos_PackCommSelf {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread _x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _xw;
@@ -181,7 +183,7 @@ struct AtomVecKokkos_PackCommSelf {
   double _pbc[6];
 
   AtomVecKokkos_PackCommSelf(
-      const typename DAT::tdual_kkfloat_1d_3 &x,
+      const typename DAT::ttriple_kkfloat_1d_3 &x,
       const int &nfirst,
       const typename DAT::tdual_int_1d &list,
       const double &xprd, const double &yprd, const double &zprd,
@@ -286,6 +288,7 @@ int AtomVecKokkos::pack_comm_self(const int &n, const DAT::tdual_int_1d &list,
 template<class DeviceType,int TRICLINIC>
 struct AtomVecKokkos_PackCommSelfFused {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread _x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _xw;
@@ -298,7 +301,7 @@ struct AtomVecKokkos_PackCommSelfFused {
   double _xprd,_yprd,_zprd,_xy,_xz,_yz;
 
   AtomVecKokkos_PackCommSelfFused(
-      const typename DAT::tdual_kkfloat_1d_3 &x,
+      const typename DAT::ttriple_kkfloat_1d_3 &x,
       const typename DAT::tdual_int_2d &list,
       const typename DAT::tdual_int_2d &pbc,
       const typename DAT::tdual_int_1d &pbc_flag,
@@ -394,13 +397,14 @@ int AtomVecKokkos::pack_comm_self_fused(const int &n, const DAT::tdual_int_2d &l
 template<class DeviceType>
 struct AtomVecKokkos_UnpackComm {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _x;
   typename ArrayTypes<DeviceType>::t_double_2d_const _buf;
   int _first;
 
   AtomVecKokkos_UnpackComm(
-      const typename DAT::tdual_kkfloat_1d_3 &x,
+      const typename DAT::ttriple_kkfloat_1d_3 &x,
       const typename DAT::tdual_double_2d &buf,
       const int& first):_x(x.view<DeviceType>()),_buf(buf.view<DeviceType>()),
                         _first(first) {};
@@ -435,6 +439,7 @@ void AtomVecKokkos::unpack_comm_kokkos(const int &n, const int &first,
 template<class DeviceType,int PBC_FLAG,int TRICLINIC,int DEFORM_VREMAP>
 struct AtomVecKokkos_PackCommVel {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread _x;
   typename ArrayTypes<DeviceType>::t_int_1d _mask;
@@ -447,9 +452,9 @@ struct AtomVecKokkos_PackCommVel {
   const int _deform_vremap;
 
   AtomVecKokkos_PackCommVel(
-    const typename DAT::tdual_kkfloat_1d_3 &x,
-    const typename DAT::tdual_int_1d &mask,
-    const typename DAT::tdual_kkfloat_1d_3 &v,
+    const typename DAT::ttriple_kkfloat_1d_3 &x,
+    const typename DAT::ttriple_int_1d &mask,
+    const typename DAT::ttriple_kkfloat_1d_3 &v,
     const typename DAT::tdual_double_2d &buf,
     const typename DAT::tdual_int_1d &list,
     const double &xprd, const double &yprd, const double &zprd,
@@ -650,6 +655,7 @@ int AtomVecKokkos::pack_comm_vel_kokkos(
 template<class DeviceType>
 struct AtomVecKokkos_UnpackCommVel {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _v;
@@ -657,8 +663,8 @@ struct AtomVecKokkos_UnpackCommVel {
   int _first;
 
   AtomVecKokkos_UnpackCommVel(
-    const typename DAT::tdual_kkfloat_1d_3 &x,
-    const typename DAT::tdual_kkfloat_1d_3 &v,
+    const typename DAT::ttriple_kkfloat_1d_3 &x,
+    const typename DAT::ttriple_kkfloat_1d_3 &v,
     const typename DAT::tdual_double_2d &buf,
     const int& first):
     _x(x.view<DeviceType>()),
@@ -703,13 +709,14 @@ void AtomVecKokkos::unpack_comm_vel_kokkos(const int &n, const int &first,
 template<class DeviceType>
 struct AtomVecKokkos_PackReverse {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread _f;
   typename ArrayTypes<DeviceType>::t_double_2d _buf;
   int _first;
 
   AtomVecKokkos_PackReverse(
-      const typename DAT::tdual_kkfloat_1d_3 &f,
+      const typename DAT::ttriple_kkfloat_1d_3 &f,
       const typename DAT::tdual_double_2d &buf,
       const int& first):_f(f.view<DeviceType>()),_buf(buf.view<DeviceType>()),
                         _first(first) {};
@@ -744,6 +751,7 @@ int AtomVecKokkos::pack_reverse_kokkos(const int &n, const int &first,
 template<class DeviceType>
 struct AtomVecKokkos_UnPackReverseSelf {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread _f;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _fw;
@@ -751,7 +759,7 @@ struct AtomVecKokkos_UnPackReverseSelf {
   typename ArrayTypes<DeviceType>::t_int_1d_const _list;
 
   AtomVecKokkos_UnPackReverseSelf(
-      const typename DAT::tdual_kkfloat_1d_3 &f,
+      const typename DAT::ttriple_kkfloat_1d_3 &f,
       const int &nfirst,
       const typename DAT::tdual_int_1d &list):
       _f(f.view<DeviceType>()),_fw(f.view<DeviceType>()),_nfirst(nfirst),_list(list.view<DeviceType>()) {
@@ -790,13 +798,14 @@ int AtomVecKokkos::pack_reverse_self(const int &n, const DAT::tdual_int_1d &list
 template<class DeviceType>
 struct AtomVecKokkos_UnPackReverse {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _f;
   typename ArrayTypes<DeviceType>::t_double_2d_const _buf;
   typename ArrayTypes<DeviceType>::t_int_1d_const _list;
 
   AtomVecKokkos_UnPackReverse(
-      const typename DAT::tdual_kkfloat_1d_3 &f,
+      const typename DAT::ttriple_kkfloat_1d_3 &f,
       const typename DAT::tdual_double_2d &buf,
       const typename DAT::tdual_int_1d &list):
       _f(f.view<DeviceType>()),_list(list.view<DeviceType>()) {

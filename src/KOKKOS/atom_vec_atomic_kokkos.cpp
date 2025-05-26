@@ -51,14 +51,14 @@ void AtomVecAtomicKokkos::grow(int n)
   atomKK->sync(Device,ALL_MASK);
   atomKK->modified(Device,ALL_MASK);
 
-  memoryKK->grow_kokkos(atomKK->k3_tag,atomKK->tag,nmax,"atom:tag");
-  memoryKK->grow_kokkos(atomKK->k3_type,atomKK->type,nmax,"atom:type");
-  memoryKK->grow_kokkos(atomKK->k3_mask,atomKK->mask,nmax,"atom:mask");
-  memoryKK->grow_kokkos(atomKK->k3_image,atomKK->image,nmax,"atom:image");
+  memoryKK->grow_kokkos(atomKK->k_tag,atomKK->tag,nmax,"atom:tag");
+  memoryKK->grow_kokkos(atomKK->k_type,atomKK->type,nmax,"atom:type");
+  memoryKK->grow_kokkos(atomKK->k_mask,atomKK->mask,nmax,"atom:mask");
+  memoryKK->grow_kokkos(atomKK->k_image,atomKK->image,nmax,"atom:image");
 
-  memoryKK->grow_kokkos(atomKK->k3_x,atomKK->x,nmax,"atom:x");
-  memoryKK->grow_kokkos(atomKK->k3_v,atomKK->v,nmax,"atom:v");
-  memoryKK->grow_kokkos(atomKK->k3_f,atomKK->f,nmax,"atom:f");
+  memoryKK->grow_kokkos(atomKK->k_x,atomKK->x,nmax,"atom:x");
+  memoryKK->grow_kokkos(atomKK->k_v,atomKK->v,nmax,"atom:v");
+  memoryKK->grow_kokkos(atomKK->k_f,atomKK->f,nmax,"atom:f");
 
   grow_pointers();
   atomKK->sync(Host,ALL_MASK);
@@ -76,27 +76,27 @@ void AtomVecAtomicKokkos::grow_pointers()
 {
   tag = atomKK->tag;
   d_tag = atomKK->k_tag.d_view;
-  h_tag = atomKK->k_tag.h_view;
+  h_tag = atomKK->k_tag.k_view.h_view;
 
   type = atomKK->type;
   d_type = atomKK->k_type.d_view;
-  h_type = atomKK->k_type.h_view;
+  h_type = atomKK->k_type.k_view.h_view;
   mask = atomKK->mask;
   d_mask = atomKK->k_mask.d_view;
-  h_mask = atomKK->k_mask.h_view;
+  h_mask = atomKK->k_mask.k_view.h_view;
   image = atomKK->image;
   d_image = atomKK->k_image.d_view;
-  h_image = atomKK->k_image.h_view;
+  h_image = atomKK->k_image.k_view.h_view;
 
   x = atomKK->x;
   d_x = atomKK->k_x.d_view;
-  h_x = atomKK->k_x.h_view;
+  h_x = atomKK->k_x.k_view.h_view;
   v = atomKK->v;
   d_v = atomKK->k_v.d_view;
-  h_v = atomKK->k_v.h_view;
+  h_v = atomKK->k_v.k_view.h_view;
   f = atomKK->f;
   d_f = atomKK->k_f.d_view;
-  h_f = atomKK->k_f.h_view;
+  h_f = atomKK->k_f.k_view.h_view;
 }
 
 /* ----------------------------------------------------------------------
@@ -122,6 +122,7 @@ void AtomVecAtomicKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorte
 template<class DeviceType,int PBC_FLAG>
 struct AtomVecAtomicKokkos_PackBorder {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   typename ArrayTypes<DeviceType>::t_double_2d _buf;
   const typename ArrayTypes<DeviceType>::t_int_1d_const _list;
@@ -215,6 +216,7 @@ int AtomVecAtomicKokkos::pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
 template<class DeviceType>
 struct AtomVecAtomicKokkos_UnpackBorder {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   const typename ArrayTypes<DeviceType>::t_double_2d_const _buf;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _x;
@@ -475,21 +477,21 @@ int AtomVecAtomicKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf, int
 void AtomVecAtomicKokkos::sync(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k3_x.sync_device();
-    if (mask & V_MASK) atomKK->k3_v.sync_device();
-    if (mask & F_MASK) atomKK->k3_f.sync_device();
-    if (mask & TAG_MASK) atomKK->k3_tag.sync_device();
-    if (mask & TYPE_MASK) atomKK->k3_type.sync_device();
-    if (mask & MASK_MASK) atomKK->k3_mask.sync_device();
-    if (mask & IMAGE_MASK) atomKK->k3_image.sync_device();
+    if (mask & X_MASK) atomKK->k_x.sync_device();
+    if (mask & V_MASK) atomKK->k_v.sync_device();
+    if (mask & F_MASK) atomKK->k_f.sync_device();
+    if (mask & TAG_MASK) atomKK->k_tag.sync_device();
+    if (mask & TYPE_MASK) atomKK->k_type.sync_device();
+    if (mask & MASK_MASK) atomKK->k_mask.sync_device();
+    if (mask & IMAGE_MASK) atomKK->k_image.sync_device();
   } else {
-    if (mask & X_MASK) atomKK->k3_x.sync_host();
-    if (mask & V_MASK) atomKK->k3_v.sync_host();
-    if (mask & F_MASK) atomKK->k3_f.sync_host();
-    if (mask & TAG_MASK) atomKK->k3_tag.sync_host();
-    if (mask & TYPE_MASK) atomKK->k3_type.sync_host();
-    if (mask & MASK_MASK) atomKK->k3_mask.sync_host();
-    if (mask & IMAGE_MASK) atomKK->k3_image.sync_host();
+    if (mask & X_MASK) atomKK->k_x.sync_host();
+    if (mask & V_MASK) atomKK->k_v.sync_host();
+    if (mask & F_MASK) atomKK->k_f.sync_host();
+    if (mask & TAG_MASK) atomKK->k_tag.sync_host();
+    if (mask & TYPE_MASK) atomKK->k_type.sync_host();
+    if (mask & MASK_MASK) atomKK->k_mask.sync_host();
+    if (mask & IMAGE_MASK) atomKK->k_image.sync_host();
   }
 }
 
@@ -499,34 +501,34 @@ void AtomVecAtomicKokkos::sync_overlapping_device(ExecutionSpace space, unsigned
 {
   if (space == Device) {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_device())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_x,space);
+      perform_async_copy<DAT::ttriple_kkfloat_1d_3>(atomKK->k_x,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync_device())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v,space);
+      perform_async_copy<DAT::ttriple_kkfloat_1d_3>(atomKK->k_v,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync_device())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f,space);
+      perform_async_copy<DAT::ttriple_kkfloat_1d_3>(atomKK->k_f,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())
-      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
+      perform_async_copy<DAT::ttriple_tagint_1d>(atomKK->k_tag,space);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
+      perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_type,space);
     if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
+      perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_mask,space);
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())
-      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
+      perform_async_copy<DAT::ttriple_imageint_1d>(atomKK->k_image,space);
   } else {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_host())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_x,space);
+      perform_async_copy<DAT::ttriple_kkfloat_1d_3>(atomKK->k_x,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync_host())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v,space);
+      perform_async_copy<DAT::ttriple_kkfloat_1d_3>(atomKK->k_v,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync_host())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f,space);
+      perform_async_copy<DAT::ttriple_kkfloat_1d_3>(atomKK->k_f,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())
-      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
+      perform_async_copy<DAT::ttriple_tagint_1d>(atomKK->k_tag,space);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
+      perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_type,space);
     if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
+      perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_mask,space);
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())
-      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
+      perform_async_copy<DAT::ttriple_imageint_1d>(atomKK->k_image,space);
   }
 }
 
@@ -535,20 +537,20 @@ void AtomVecAtomicKokkos::sync_overlapping_device(ExecutionSpace space, unsigned
 void AtomVecAtomicKokkos::modified(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k3_x.modify_device();
-    if (mask & V_MASK) atomKK->k3_v.modify_device();
-    if (mask & F_MASK) atomKK->k3_f.modify_device();
-    if (mask & TAG_MASK) atomKK->k3_tag.modify_device();
-    if (mask & TYPE_MASK) atomKK->k3_type.modify_device();
-    if (mask & MASK_MASK) atomKK->k3_mask.modify_device();
-    if (mask & IMAGE_MASK) atomKK->k3_image.modify_device();
+    if (mask & X_MASK) atomKK->k_x.modify_device();
+    if (mask & V_MASK) atomKK->k_v.modify_device();
+    if (mask & F_MASK) atomKK->k_f.modify_device();
+    if (mask & TAG_MASK) atomKK->k_tag.modify_device();
+    if (mask & TYPE_MASK) atomKK->k_type.modify_device();
+    if (mask & MASK_MASK) atomKK->k_mask.modify_device();
+    if (mask & IMAGE_MASK) atomKK->k_image.modify_device();
   } else {
-    if (mask & X_MASK) atomKK->k3_x.modify_host();
-    if (mask & V_MASK) atomKK->k3_v.modify_host();
-    if (mask & F_MASK) atomKK->k3_f.modify_host();
-    if (mask & TAG_MASK) atomKK->k3_tag.modify_host();
-    if (mask & TYPE_MASK) atomKK->k3_type.modify_host();
-    if (mask & MASK_MASK) atomKK->k3_mask.modify_host();
-    if (mask & IMAGE_MASK) atomKK->k3_image.modify_host();
+    if (mask & X_MASK) atomKK->k_x.modify_host();
+    if (mask & V_MASK) atomKK->k_v.modify_host();
+    if (mask & F_MASK) atomKK->k_f.modify_host();
+    if (mask & TAG_MASK) atomKK->k_tag.modify_host();
+    if (mask & TYPE_MASK) atomKK->k_type.modify_host();
+    if (mask & MASK_MASK) atomKK->k_mask.modify_host();
+    if (mask & IMAGE_MASK) atomKK->k_image.modify_host();
   }
 }

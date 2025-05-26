@@ -35,6 +35,7 @@ template<class DeviceType>
 class AngleCharmmKokkos : public AngleCharmm {
  public:
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef EV_FLOAT value_type;
 
   AngleCharmmKokkos(class LAMMPS *);
@@ -66,7 +67,6 @@ class AngleCharmmKokkos : public AngleCharmm {
 
   class NeighborKokkos *neighborKK;
 
-  typedef ArrayTypes<DeviceType> AT;
   typename AT::t_kkfloat_1d_3_randomread x;
   typename Kokkos::View<KK_FLOAT*[3],typename AT::t_kkfloat_1d_3::array_layout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d anglelist;

@@ -38,8 +38,8 @@ template <class DeviceType>
 class FixNeighHistoryKokkos : public FixNeighHistory, public KokkosBase {
  public:
   typedef DeviceType device_type;
-  typedef int value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef int value_type;
 
   FixNeighHistoryKokkos(class LAMMPS *, int, char **);
   ~FixNeighHistoryKokkos() override;

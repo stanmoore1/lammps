@@ -36,8 +36,8 @@ class BondHarmonicKokkos : public BondHarmonic {
 
  public:
   typedef DeviceType device_type;
-  typedef EV_FLOAT value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef EV_FLOAT value_type;
 
   BondHarmonicKokkos(class LAMMPS *);
   ~BondHarmonicKokkos() override;

@@ -36,6 +36,7 @@ struct TagNeighBondImproperPartial{};
 template<class DeviceType>
 class NeighBondKokkos : protected Pointers  {
  public:
+  typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   typedef int value_type;
 

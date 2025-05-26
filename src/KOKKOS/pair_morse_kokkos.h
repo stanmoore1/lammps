@@ -35,6 +35,7 @@ class PairMorseKokkos : public PairMorse {
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
   enum {COUL_FLAG=0};
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   PairMorseKokkos(class LAMMPS *);
   ~PairMorseKokkos() override;
 

@@ -38,8 +38,8 @@ template<class DeviceType>
 class ImproperClass2Kokkos : public ImproperClass2 {
  public:
   typedef DeviceType device_type;
-  typedef EV_FLOAT value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef EV_FLOAT value_type;
 
   ImproperClass2Kokkos(class LAMMPS *);
   ~ImproperClass2Kokkos() override;

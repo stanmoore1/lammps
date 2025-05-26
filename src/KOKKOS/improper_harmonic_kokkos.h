@@ -35,8 +35,8 @@ template<class DeviceType>
 class ImproperHarmonicKokkos : public ImproperHarmonic {
  public:
   typedef DeviceType device_type;
-  typedef EV_FLOAT value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef EV_FLOAT value_type;
 
   ImproperHarmonicKokkos(class LAMMPS *);
   ~ImproperHarmonicKokkos() override;

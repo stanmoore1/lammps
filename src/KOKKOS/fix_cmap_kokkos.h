@@ -35,6 +35,7 @@ struct TagFixCmapPostForce{};
 
 template<class DeviceType>
 class FixCMAPKokkos : public FixCMAP, public KokkosBase {
+  typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
   public:

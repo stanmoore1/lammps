@@ -59,6 +59,7 @@ class FixEnforce2DKokkos : public FixEnforce2D {
 template <class DeviceType, int omega_flag, int angmom_flag, int torque_flag>
 struct FixEnforce2DKokkosPostForceFunctor {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   FixEnforce2DKokkos<DeviceType> c;
 
   FixEnforce2DKokkosPostForceFunctor(FixEnforce2DKokkos<DeviceType>* c_ptr):

@@ -32,6 +32,7 @@ template<class DeviceType>
 class FixFreezeKokkos : public FixFreeze {
  public:
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   struct OriginalForce {
     double values[3];
 

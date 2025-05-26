@@ -36,8 +36,8 @@ class AngleHarmonicKokkos : public AngleHarmonic {
 
  public:
   typedef DeviceType device_type;
-  typedef EV_FLOAT value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef EV_FLOAT value_type;
 
   AngleHarmonicKokkos(class LAMMPS *);
   ~AngleHarmonicKokkos() override;

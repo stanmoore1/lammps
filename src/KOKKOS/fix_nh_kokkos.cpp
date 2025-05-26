@@ -329,7 +329,7 @@ void FixNHKokkos<DeviceType>::remap()
   else {
     for ( int i = 0; i < nlocal; i++)
       if (mask[i] & dilate_group_bit) {
-        auto h_x = atomKK->k3_x.h_view;
+        auto h_x = atomKK->k_x.h_view;
         atomKK->sync(Host,X_MASK);
         domainKK->x2lamda(&h_x(i,0), &h_x(i,0));
         atomKK->modified(Host,X_MASK);
@@ -480,7 +480,7 @@ void FixNHKokkos<DeviceType>::remap()
   else {
     for ( int i = 0; i < nlocal; i++)
       if (mask[i] & dilate_group_bit) {
-        auto h_x = atomKK->k3_x.h_view;
+        auto h_x = atomKK->k_x.h_view;
         atomKK->sync(Host,X_MASK);
         domainKK->lamda2x(&h_x(i,0), &h_x(i,0));
         atomKK->modified(Host,X_MASK);

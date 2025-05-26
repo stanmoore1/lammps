@@ -36,8 +36,8 @@ template<class DeviceType>
 class DihedralCharmmfswKokkos : public DihedralCharmmfsw {
  public:
   typedef DeviceType device_type;
-  typedef EVM_FLOAT value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef EVM_FLOAT value_type;
 
   DihedralCharmmfswKokkos(class LAMMPS *);
   ~DihedralCharmmfswKokkos() override;

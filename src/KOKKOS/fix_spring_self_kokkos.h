@@ -35,8 +35,8 @@ template<class DeviceType>
 class FixSpringSelfKokkos : public FixSpringSelf, public KokkosBase {
  public:
   typedef DeviceType device_type;
-  typedef double value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef double value_type;
 
   FixSpringSelfKokkos(class LAMMPS *, int, char **);
   ~FixSpringSelfKokkos() override;
@@ -95,6 +95,7 @@ class FixSpringSelfKokkos : public FixSpringSelf, public KokkosBase {
 template <class DeviceType>
 struct FixSpringSelfKokkosPackExchangeFunctor {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef int value_type;
   FixSpringSelfKokkos<DeviceType> c;
   FixSpringSelfKokkosPackExchangeFunctor(FixSpringSelfKokkos<DeviceType>* c_ptr):c(*c_ptr) {};

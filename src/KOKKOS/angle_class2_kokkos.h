@@ -36,8 +36,8 @@ class AngleClass2Kokkos : public AngleClass2 {
 
  public:
   typedef DeviceType device_type;
-  typedef EV_FLOAT value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef EV_FLOAT value_type;
 
   AngleClass2Kokkos(class LAMMPS *);
   ~AngleClass2Kokkos() override;

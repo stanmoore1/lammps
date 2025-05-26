@@ -58,8 +58,8 @@ class ComputeTempKokkos : public ComputeTemp {
 
   typedef s_CTEMP CTEMP;
   typedef DeviceType device_type;
-  typedef CTEMP value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef CTEMP value_type;
 
   ComputeTempKokkos(class LAMMPS *, int, char **);
 

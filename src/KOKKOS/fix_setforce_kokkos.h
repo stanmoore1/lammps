@@ -52,8 +52,8 @@ template<class DeviceType>
 class FixSetForceKokkos : public FixSetForce {
  public:
   typedef DeviceType device_type;
-  typedef double_3 value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef double_3 value_type;
 
   FixSetForceKokkos(class LAMMPS *, int, char **);
   ~FixSetForceKokkos() override;

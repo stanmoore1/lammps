@@ -88,8 +88,8 @@ template<class DeviceType, int TRIM>
 class NPairSkipKokkos : public NPair {
  public:
   typedef DeviceType device_type;
-  typedef int value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef int value_type;
 
   NPairSkipKokkos(class LAMMPS *);
   void build(class NeighList *) override;

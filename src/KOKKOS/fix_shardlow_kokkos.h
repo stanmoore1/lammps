@@ -42,6 +42,7 @@ struct TagFixShardlowSSAUpdateDPDEGhost{};
 template<class DeviceType>
 class FixShardlowKokkos : public FixShardlow {
  public:
+  typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   NeighListKokkos<DeviceType> *k_list; // The SSA specific neighbor list
 

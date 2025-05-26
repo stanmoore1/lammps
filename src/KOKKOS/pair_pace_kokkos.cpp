@@ -514,6 +514,7 @@ void PairPACEKokkos<DeviceType>::allocate()
 template<class DeviceType>
 struct FindMaxNumNeighs {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   NeighListKokkos<DeviceType> k_list;
 
   FindMaxNumNeighs(NeighListKokkos<DeviceType>* nl): k_list(*nl) {}

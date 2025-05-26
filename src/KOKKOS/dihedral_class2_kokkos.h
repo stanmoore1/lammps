@@ -35,8 +35,8 @@ template<class DeviceType>
 class DihedralClass2Kokkos : public DihedralClass2 {
  public:
   typedef DeviceType device_type;
-  typedef EV_FLOAT value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef EV_FLOAT value_type;
 
   DihedralClass2Kokkos(class LAMMPS *);
   ~DihedralClass2Kokkos() override;

@@ -59,8 +59,8 @@ template<class DeviceType>
 class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
  public:
   typedef DeviceType device_type;
-  typedef KK_FLOAT2 value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef KK_FLOAT2 value_type;
   FixQEqReaxFFKokkos(class LAMMPS *, int, char **);
   ~FixQEqReaxFFKokkos() override;
 
@@ -293,6 +293,7 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
 template <class DeviceType>
 struct FixQEqReaxFFKokkosNumNeighFunctor {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef bigint value_type;
   FixQEqReaxFFKokkos<DeviceType> c;
   FixQEqReaxFFKokkosNumNeighFunctor(FixQEqReaxFFKokkos<DeviceType>* c_ptr):c(*c_ptr) {

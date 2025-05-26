@@ -522,6 +522,7 @@ class PairReaxFFKokkos : public PairReaxFF {
 template <class DeviceType>
 struct PairReaxKokkosFindBondFunctor  {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef int value_type;
   int groupbit;
   PairReaxFFKokkos<DeviceType> c;
@@ -542,6 +543,7 @@ struct PairReaxKokkosFindBondFunctor  {
 template <class DeviceType>
 struct PairReaxKokkosPackBondBufferFunctor  {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef int value_type;
   PairReaxFFKokkos<DeviceType> c;
   PairReaxKokkosPackBondBufferFunctor(PairReaxFFKokkos<DeviceType>* c_ptr):c(*c_ptr) {};
@@ -555,6 +557,7 @@ struct PairReaxKokkosPackBondBufferFunctor  {
 template <class DeviceType, bool STORE_BONDS>
 struct PairReaxKokkosPackReducedBondBufferFunctor  {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef int value_type;
   PairReaxFFKokkos<DeviceType> c;
   PairReaxKokkosPackReducedBondBufferFunctor(PairReaxFFKokkos<DeviceType>* c_ptr):c(*c_ptr) {};

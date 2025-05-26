@@ -138,6 +138,7 @@ namespace LAMMPS_NS {
 template<class DeviceType>
 struct kiss_fft_state_kokkos {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef FFTArrayTypes<DeviceType> FFT_AT;
   int nfft;
   int inverse;
@@ -150,6 +151,7 @@ template<class DeviceType>
 class KissFFTKokkos {
  public:
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef FFTArrayTypes<DeviceType> FFT_AT;
 
   KOKKOS_INLINE_FUNCTION

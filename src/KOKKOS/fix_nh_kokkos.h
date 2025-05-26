@@ -34,6 +34,7 @@ template<class DeviceType>
 class FixNHKokkos : public FixNH {
  public:
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   FixNHKokkos(class LAMMPS *, int, char **);
 

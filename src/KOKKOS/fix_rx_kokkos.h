@@ -65,6 +65,7 @@ typedef struct s_CounterType CounterType;
 template <class DeviceType>
 class FixRxKokkos : public FixRX {
  public:
+  typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
   FixRxKokkos(class LAMMPS *, int, char **);

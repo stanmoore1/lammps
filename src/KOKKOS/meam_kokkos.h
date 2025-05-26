@@ -33,6 +33,7 @@ template <int NEIGHFLAG> struct TagMEAMForce {
 
 template <class DeviceType> class MEAMKokkos : public MEAM {
  public:
+  typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   typedef EV_FLOAT value_type;
   MEAMKokkos(Memory *mem);

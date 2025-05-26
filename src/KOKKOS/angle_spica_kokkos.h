@@ -39,6 +39,7 @@ class AngleSPICAKokkos : public AngleSPICA {
 
  public:
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef EV_FLOAT value_type;
 
   AngleSPICAKokkos(class LAMMPS *);

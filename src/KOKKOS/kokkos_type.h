@@ -752,6 +752,12 @@ struct TripleView {
   std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_host&> view() {return k_view.h_view;}
 
   template<class DeviceType>
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const typename kk_view::t_dev&> view() const {return k_view.d_view;}
+
+  template<class DeviceType>
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const typename kk_view::t_host&> view() const {return k_view.h_view;}
+
+  template<class DeviceType>
   std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify(int kk_flag = 0) {modify_device();}
 
   template<class DeviceType>
@@ -769,6 +775,16 @@ struct TripleView {
 
     modified_host_legacy = 0;
     modified_device_legacy = 0;    
+  }
+
+  bool need_sync_device()
+  {
+    return false;
+  }
+
+  bool need_sync_host()
+  {
+    return false;
   }
 
 };

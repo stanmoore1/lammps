@@ -33,6 +33,7 @@ class PairTableRXKokkos : public PairTable {
  public:
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
   PairTableRXKokkos(class LAMMPS *);
   ~PairTableRXKokkos() override;

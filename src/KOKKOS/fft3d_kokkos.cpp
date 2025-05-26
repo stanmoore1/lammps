@@ -148,6 +148,7 @@ template<class DeviceType>
 struct norm_functor {
 public:
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef FFTArrayTypes<DeviceType> FFT_AT;
   typename FFT_AT::t_FFT_DATA_1d_um d_out;
   int norm;
@@ -175,6 +176,7 @@ template<class DeviceType>
 struct kiss_fft_functor {
 public:
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef FFTArrayTypes<DeviceType> FFT_AT;
   typename FFT_AT::t_FFT_DATA_1d_um d_data,d_tmp;
   kiss_fft_state_kokkos<DeviceType> st;

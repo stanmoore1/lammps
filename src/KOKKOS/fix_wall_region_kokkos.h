@@ -82,6 +82,7 @@ class FixWallRegionKokkos : public FixWallRegion {
 template <class DeviceType, class T>
 struct FixWallRegionKokkosFunctor {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef double value_type[];
   const int value_count;
   FixWallRegionKokkos<DeviceType> c;

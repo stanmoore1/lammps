@@ -35,8 +35,8 @@ template<class DeviceType>
 class BondFENEKokkos : public BondFENE {
  public:
   typedef DeviceType device_type;
-  typedef EV_FLOAT value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef EV_FLOAT value_type;
 
   BondFENEKokkos(class LAMMPS *);
   ~BondFENEKokkos() override;

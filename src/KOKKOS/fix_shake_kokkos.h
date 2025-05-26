@@ -46,8 +46,8 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
 
  public:
   typedef DeviceType device_type;
-  typedef EV_FLOAT value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef EV_FLOAT value_type;
 
   FixShakeKokkos(class LAMMPS *, int, char **);
   ~FixShakeKokkos() override;
@@ -247,6 +247,7 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
 template <class DeviceType>
 struct FixShakeKokkosPackExchangeFunctor {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef int value_type;
   FixShakeKokkos<DeviceType> c;
   FixShakeKokkosPackExchangeFunctor(FixShakeKokkos<DeviceType>* c_ptr):c(*c_ptr) {};

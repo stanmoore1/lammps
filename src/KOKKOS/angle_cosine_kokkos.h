@@ -36,8 +36,8 @@ class AngleCosineKokkos : public AngleCosine {
 
  public:
   typedef DeviceType device_type;
-  typedef EV_FLOAT value_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef EV_FLOAT value_type;
 
   AngleCosineKokkos(class LAMMPS *);
   ~AngleCosineKokkos() override;
