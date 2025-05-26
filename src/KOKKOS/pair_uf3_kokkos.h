@@ -77,12 +77,10 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   //the type of d_cutsq is decided by the Device(not host) type for the DualView k_cutsq
   //Meaning the memory location of d_cutsq is the same as the Device(not host) memory location of
   //k_cutsq
-  typedef Kokkos::DualView<KK_FLOAT***, Kokkos::LayoutRight, DeviceType> tdual_kkfloat_3d;
-  typedef Kokkos::DualView<KK_FLOAT****, Kokkos::LayoutRight, DeviceType> tdual_kkfloat_4d;
   DAT::ttriple_kkfloat_3d k_cut_3b;
   DAT::ttriple_kkfloat_4d k_min_cut_3b;
-  typename tdual_kkfloat_3d::t_dev d_cut_3b;
-  typename tdual_kkfloat_4d::t_dev d_min_cut_3b;
+  typename AT::t_kkfloat_3d d_cut_3b;
+  typename AT::t_kkfloat_4d d_min_cut_3b;
   template <typename TYPE> void destroy_3d(TYPE data, typename TYPE::value_type*** &array);
   template <typename TYPE> void destroy_4d(TYPE data, typename TYPE::value_type**** &array);
   Kokkos::View<KK_FLOAT **, LMPDeviceType::array_layout, LMPDeviceType> /*d_cutsq,*/ d_cut_3b_list;
@@ -147,16 +145,16 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   typename AT::t_kkfloat_1d d_eatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
-  using ScatterFType = Kokkos::Experimental::ScatterView<KK_FLOAT *[3], Kokkos::LayoutRight,
+  using ScatterFType = Kokkos::Experimental::ScatterView<KK_FLOAT *[3], LMPDeviceType::array_layout,
                                                          typename DeviceType::memory_space>;
   ScatterFType fscatter;
-  using ScatterVType = Kokkos::Experimental::ScatterView<KK_FLOAT *[6], Kokkos::LayoutRight,
+  using ScatterVType = Kokkos::Experimental::ScatterView<KK_FLOAT *[6], LMPDeviceType::array_layout,
                                                          typename DeviceType::memory_space>;
   ScatterVType vscatter;
-  using ScatterCVType = Kokkos::Experimental::ScatterView<KK_FLOAT *[9], Kokkos::LayoutRight,
+  using ScatterCVType = Kokkos::Experimental::ScatterView<KK_FLOAT *[9], LMPDeviceType::array_layout,
                                                           typename DeviceType::memory_space>;
   ScatterCVType cvscatter;
-  using ScatterEType = Kokkos::Experimental::ScatterView<KK_FLOAT *, LMPDeviceType::array_layout,
+  using ScatterEType = Kokkos::Experimental::ScatterView<KK_FLOAT *, Kokkos::LayoutRight,
                                                          typename DeviceType::memory_space>;
   ScatterEType escatter;
 

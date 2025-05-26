@@ -420,7 +420,6 @@ class PairReaxFFKokkos : public PairReaxFF {
 
   DAT::ttriple_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
-  HAT::t_kkfloat_1d_6 h_vatom;
 
   DAT::tdual_kkfloat_1d k_tap;
   typename AT::t_kkfloat_1d d_tap;

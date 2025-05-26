@@ -70,8 +70,6 @@ template<class DeviceType>
 void
 MEAMKokkos<DeviceType>::meam_dens_setup(int atom_nmax, int nall, int n_neigh)
 {
-  MemoryKokkos *memoryKK = (MemoryKokkos *)memory;
-
   // grow local arrays if necessary
 
   if (atom_nmax > nmax) {

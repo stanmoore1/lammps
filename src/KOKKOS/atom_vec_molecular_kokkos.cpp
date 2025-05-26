@@ -960,143 +960,143 @@ void AtomVecMolecularKokkos::sync_overlapping_device(ExecutionSpace space, unsig
 {
   if (space == Device) {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_device())
-      perform_async_copy<DAT::ttriple_kkfloat_1d_3>(atomKK->k_x,space);
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_x.k_view,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync_device())
-      perform_async_copy<DAT::ttriple_kkfloat_1d_3>(atomKK->k_v,space);
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v.k_view,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync_device())
-      perform_async_copy<DAT::ttriple_kkfloat_1d_3>(atomKK->k_f,space);
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f.k_view,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())
-      perform_async_copy<DAT::ttriple_tagint_1d>(atomKK->k_tag,space);
+      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag.k_view,space);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())
-      perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_type,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type.k_view,space);
     if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())
-      perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_mask,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask.k_view,space);
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())
-      perform_async_copy<DAT::ttriple_imageint_1d>(atomKK->k_image,space);
+      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image.k_view,space);
     if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_device())
-      perform_async_copy<DAT::ttriple_tagint_1d>(atomKK->k_molecule,space);
+      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule.k_view,space);
     if (mask & SPECIAL_MASK) {
       if (atomKK->k_nspecial.need_sync_device())
-        perform_async_copy<DAT::ttriple_int_2d>(atomKK->k_nspecial,space);
+        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_nspecial.k_view,space);
       if (atomKK->k_special.need_sync_device())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_special,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_special.k_view,space);
     }
     if (mask & BOND_MASK) {
       if (atomKK->k_num_bond.need_sync_device())
-        perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_num_bond,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_bond.k_view,space);
       if (atomKK->k_bond_type.need_sync_device())
-        perform_async_copy<DAT::ttriple_int_2d>(atomKK->k_bond_type,space);
+        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_bond_type.k_view,space);
       if (atomKK->k_bond_atom.need_sync_device())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_bond_atom,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_bond_atom.k_view,space);
     }
     if (mask & ANGLE_MASK) {
       if (atomKK->k_num_angle.need_sync_device())
-        perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_num_angle,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_angle.k_view,space);
       if (atomKK->k_angle_type.need_sync_device())
-        perform_async_copy<DAT::ttriple_int_2d>(atomKK->k_angle_type,space);
+        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_angle_type.k_view,space);
       if (atomKK->k_angle_atom1.need_sync_device())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_angle_atom1,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_angle_atom1.k_view,space);
       if (atomKK->k_angle_atom2.need_sync_device())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_angle_atom2,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_angle_atom2.k_view,space);
       if (atomKK->k_angle_atom3.need_sync_device())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_angle_atom3,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_angle_atom3.k_view,space);
     }
     if (mask & DIHEDRAL_MASK) {
       if (atomKK->k_num_dihedral.need_sync_device())
-        perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_num_dihedral,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_dihedral.k_view,space);
       if (atomKK->k_dihedral_type.need_sync_device())
-        perform_async_copy<DAT::ttriple_int_2d>(atomKK->k_dihedral_type,space);
+        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_dihedral_type.k_view,space);
       if (atomKK->k_dihedral_atom1.need_sync_device())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_dihedral_atom1,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_dihedral_atom1.k_view,space);
       if (atomKK->k_dihedral_atom2.need_sync_device())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_dihedral_atom2,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_dihedral_atom2.k_view,space);
       if (atomKK->k_dihedral_atom3.need_sync_device())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_dihedral_atom3,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_dihedral_atom3.k_view,space);
     }
     if (mask & IMPROPER_MASK) {
       if (atomKK->k_num_improper.need_sync_device())
-        perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_num_improper,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_improper.k_view,space);
       if (atomKK->k_improper_type.need_sync_device())
-        perform_async_copy<DAT::ttriple_int_2d>(atomKK->k_improper_type,space);
+        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_improper_type.k_view,space);
       if (atomKK->k_improper_atom1.need_sync_device())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_improper_atom1,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_improper_atom1.k_view,space);
       if (atomKK->k_improper_atom2.need_sync_device())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_improper_atom2,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_improper_atom2.k_view,space);
       if (atomKK->k_improper_atom3.need_sync_device())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_improper_atom3,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_improper_atom3.k_view,space);
       if (atomKK->k_improper_atom4.need_sync_device())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_improper_atom4,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_improper_atom4.k_view,space);
     }
   } else {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_host())
-      perform_async_copy<DAT::ttriple_kkfloat_1d_3>(atomKK->k_x,space);
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_x.k_view,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync_host())
-      perform_async_copy<DAT::ttriple_kkfloat_1d_3>(atomKK->k_v,space);
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v.k_view,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync_host())
-      perform_async_copy<DAT::ttriple_kkfloat_1d_3>(atomKK->k_f,space);
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f.k_view,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())
-      perform_async_copy<DAT::ttriple_tagint_1d>(atomKK->k_tag,space);
+      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag.k_view,space);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())
-      perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_type,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type.k_view,space);
     if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())
-      perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_mask,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask.k_view,space);
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())
-      perform_async_copy<DAT::ttriple_imageint_1d>(atomKK->k_image,space);
+      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image.k_view,space);
     if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_host())
-      perform_async_copy<DAT::ttriple_tagint_1d>(atomKK->k_molecule,space);
+      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule.k_view,space);
     if (mask & SPECIAL_MASK) {
       if (atomKK->k_nspecial.need_sync_host())
-        perform_async_copy<DAT::ttriple_int_2d>(atomKK->k_nspecial,space);
+        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_nspecial.k_view,space);
       if (atomKK->k_special.need_sync_host())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_special,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_special.k_view,space);
     }
     if (mask & BOND_MASK) {
       if (atomKK->k_num_bond.need_sync_host())
-        perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_num_bond,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_bond.k_view,space);
       if (atomKK->k_bond_type.need_sync_host())
-        perform_async_copy<DAT::ttriple_int_2d>(atomKK->k_bond_type,space);
+        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_bond_type.k_view,space);
       if (atomKK->k_bond_atom.need_sync_host())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_bond_atom,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_bond_atom.k_view,space);
     }
     if (mask & ANGLE_MASK) {
       if (atomKK->k_num_angle.need_sync_host())
-        perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_num_angle,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_angle.k_view,space);
       if (atomKK->k_angle_type.need_sync_host())
-        perform_async_copy<DAT::ttriple_int_2d>(atomKK->k_angle_type,space);
+        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_angle_type.k_view,space);
       if (atomKK->k_angle_atom1.need_sync_host())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_angle_atom1,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_angle_atom1.k_view,space);
       if (atomKK->k_angle_atom2.need_sync_host())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_angle_atom2,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_angle_atom2.k_view,space);
       if (atomKK->k_angle_atom3.need_sync_host())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_angle_atom3,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_angle_atom3.k_view,space);
     }
     if (mask & DIHEDRAL_MASK) {
       if (atomKK->k_num_dihedral.need_sync_host())
-        perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_num_dihedral,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_dihedral.k_view,space);
       if (atomKK->k_dihedral_type.need_sync_host())
-        perform_async_copy<DAT::ttriple_int_2d>(atomKK->k_dihedral_type,space);
+        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_dihedral_type.k_view,space);
       if (atomKK->k_dihedral_atom1.need_sync_host())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_dihedral_atom1,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_dihedral_atom1.k_view,space);
       if (atomKK->k_dihedral_atom2.need_sync_host())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_dihedral_atom2,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_dihedral_atom2.k_view,space);
       if (atomKK->k_dihedral_atom3.need_sync_host())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_dihedral_atom3,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_dihedral_atom3.k_view,space);
       if (atomKK->k_dihedral_atom4.need_sync_host())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_dihedral_atom4,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_dihedral_atom4.k_view,space);
     }
     if (mask & IMPROPER_MASK) {
       if (atomKK->k_num_improper.need_sync_host())
-        perform_async_copy<DAT::ttriple_int_1d>(atomKK->k_num_improper,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_improper.k_view,space);
       if (atomKK->k_improper_type.need_sync_host())
-        perform_async_copy<DAT::ttriple_int_2d>(atomKK->k_improper_type,space);
+        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_improper_type.k_view,space);
       if (atomKK->k_improper_atom1.need_sync_host())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_improper_atom1,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_improper_atom1.k_view,space);
       if (atomKK->k_improper_atom2.need_sync_host())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_improper_atom2,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_improper_atom2.k_view,space);
       if (atomKK->k_improper_atom3.need_sync_host())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_improper_atom3,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_improper_atom3.k_view,space);
       if (atomKK->k_improper_atom4.need_sync_host())
-        perform_async_copy<DAT::ttriple_tagint_2d>(atomKK->k_improper_atom4,space);
+        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_improper_atom4.k_view,space);
     }
   }
 }
