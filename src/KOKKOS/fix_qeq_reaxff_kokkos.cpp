@@ -224,7 +224,7 @@ void FixQEqReaxFFKokkos<DeviceType>::pre_force(int /*vflag*/)
 
   // compute_H
 
-  if (execution_space == Host) { // CPU
+  if (execution_space == HostKK) { // CPU
     if (neighflag == FULL) {
       FixQEqReaxFFKokkosComputeHFunctor<DeviceType, FULL> computeH_functor(this);
       Kokkos::parallel_scan(nn,computeH_functor);
@@ -858,7 +858,7 @@ void FixQEqReaxFFKokkos<DeviceType>::sparse_matvec_kokkos(typename AT::t_kkfloat
   int teamsize;
   int vectorsize;
   int leaguesize;
-  if (execution_space == Host) {
+  if (execution_space == HostKK) {
     teamsize = 1;
     vectorsize = 1;
     leaguesize = nn;

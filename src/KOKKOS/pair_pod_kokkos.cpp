@@ -62,7 +62,7 @@ PairPODKokkos<DeviceType>::PairPODKokkos(LAMMPS *lmp) : PairPOD(lmp)
   timing = 0;
   for (int i=0; i<100; i++) comptime[i] = 0;
 
-  host_flag = (execution_space == Host);
+  host_flag = (execution_space == HostKK);
 }
 
 /* ----------------------------------------------------------------------

@@ -670,7 +670,7 @@ struct TripleView {
     }
   }
 
-  void modify_kk_host()
+  void modify_host_kk()
   {
     printf("MODIFY KK HOST %s\n",k_view.h_view.label().c_str());
 
@@ -702,7 +702,7 @@ struct TripleView {
       if (modified_host_legacy)
         Kokkos::abort("Concurrent modification of Kokkos host and legacy host views");
     } else {
-     modify_kk_host();
+     modify_host_kk();
     }
   }
 
@@ -732,7 +732,7 @@ struct TripleView {
     }
   }
 
-  void sync_kk_host()
+  void sync_host_kk()
   {
     printf("SYNC KK HOST %s\n",k_view.h_view.label().c_str());
 
@@ -748,7 +748,7 @@ struct TripleView {
         Kokkos::deep_copy(k_view.h_view,h_legacy);
         modified_legacy_host = 0;
         if (modified_legacy_device)
-          k_view.modified_host();
+          k_view.modify_host();
       }
     }
   }
@@ -780,7 +780,7 @@ struct TripleView {
           modified_device_legacy = 1;
       }
     } else {
-      sync_kk_host();
+      sync_host_kk();
     }
   }
 
@@ -814,13 +814,13 @@ struct TripleView {
   std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify() {modify_device();}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify() {modify_kk_host();}
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify() {modify_host_kk();}
 
   template<class DeviceType>
   std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_device();}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_kk_host();}
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_host_kk();}
 
   void clear_sync_state()
   {

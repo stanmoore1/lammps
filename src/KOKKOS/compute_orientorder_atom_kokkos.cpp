@@ -57,7 +57,7 @@ ComputeOrientOrderAtomKokkos<DeviceType>::ComputeOrientOrderAtomKokkos(LAMMPS *l
   datamask_read = EMPTY_MASK;
   datamask_modify = EMPTY_MASK;
 
-  host_flag = (execution_space == Host);
+  host_flag = (execution_space == HostKK);
 
   d_qnormfac = t_sna_1d("orientorder/atom:qnormfac",nqlist);
   d_qnormfac2 = t_sna_1d("orientorder/atom:qnormfac2",nqlist);

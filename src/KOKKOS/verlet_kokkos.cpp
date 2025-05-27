@@ -390,37 +390,43 @@ void VerletKokkos::run(int n)
       datamask_exclude = (F_MASK | ENERGY_MASK | VIRIAL_MASK);
 
       if (pair_compute_flag) {
-        if (force->pair->execution_space == Host) {
+        if (force->pair->execution_space == Host ||
+            force->pair->execution_space == HostKK) {
           execute_on_host = true;
           datamask_read_host |= force->pair->datamask_read;
         }
       }
       if (atomKK->molecular && force->bond)  {
-        if (force->bond->execution_space == Host) {
+        if (force->bond->execution_space == Host ||
+            force->bond->execution_space == HostKK) {
           execute_on_host = true;
           datamask_read_host |= force->bond->datamask_read;
         }
       }
       if (atomKK->molecular && force->angle) {
-        if (force->angle->execution_space == Host) {
+        if (force->angle->execution_space == Host ||
+            force->angle->execution_space == HostKK) {
           execute_on_host = true;
           datamask_read_host |= force->angle->datamask_read;
         }
       }
       if (atomKK->molecular && force->dihedral) {
-        if (force->dihedral->execution_space == Host) {
+        if (force->dihedral->execution_space == Host ||
+            force->dihedral->execution_space == HostKK) {
           execute_on_host = true;
           datamask_read_host |= force->dihedral->datamask_read;
         }
       }
       if (atomKK->molecular && force->improper) {
-        if (force->improper->execution_space == Host) {
+        if (force->improper->execution_space == Host ||
+            force->improper->execution_space == HostKK) {
           execute_on_host = true;
           datamask_read_host |= force->improper->datamask_read;
         }
       }
       if (kspace_compute_flag) {
-        if (force->kspace->execution_space == Host) {
+        if (force->kspace->execution_space == Host ||
+            force->kspace->execution_space == HostKK) {
           execute_on_host = true;
           datamask_read_host |= force->kspace->datamask_read;
         }

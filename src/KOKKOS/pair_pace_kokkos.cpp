@@ -69,7 +69,7 @@ PairPACEKokkos<DeviceType>::PairPACEKokkos(LAMMPS *lmp) : PairPACE(lmp)
   datamask_read = EMPTY_MASK;
   datamask_modify = EMPTY_MASK;
 
-  host_flag = (execution_space == Host);
+  host_flag = (execution_space == HostKK);
 }
 
 /* ----------------------------------------------------------------------

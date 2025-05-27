@@ -45,7 +45,7 @@ FFT3dKokkos<DeviceType>::FFT3dKokkos(LAMMPS *lmp, MPI_Comm comm, int nfast, int 
   ExecutionSpace execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
 
 #if defined(FFT_KOKKOS_MKL_GPU)
-  if (ngpus > 0 && execution_space == Host)
+  if (ngpus > 0 && execution_space == HostKK)
     lmp->error->all(FLERR,"Cannot use the MKL library with Kokkos on the host CPUs in a GPU build");
 #elif defined(FFT_KOKKOS_MKL)
   if (ngpus > 0 && execution_space == Device)
@@ -57,10 +57,10 @@ FFT3dKokkos<DeviceType>::FFT3dKokkos(LAMMPS *lmp, MPI_Comm comm, int nfast, int 
   if (ngpus > 0 && execution_space == Device)
     lmp->error->all(FLERR,"Cannot use the NVPL FFT library with Kokkos on GPUs");
 #elif defined(FFT_KOKKOS_CUFFT)
-  if (ngpus > 0 && execution_space == Host)
+  if (ngpus > 0 && execution_space == HostKK)
     lmp->error->all(FLERR,"Cannot use the cuFFT library with Kokkos on the host CPUs");
 #elif defined(FFT_KOKKOS_HIPFFT)
-  if (ngpus > 0 && execution_space == Host)
+  if (ngpus > 0 && execution_space == HostKK)
     lmp->error->all(FLERR,"Cannot use the hipFFT library with Kokkos on the host CPUs");
 
 #elif defined(FFT_KOKKOS_KISS)

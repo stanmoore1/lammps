@@ -664,7 +664,7 @@ bigint KokkosLMP::neigh_count(int m)
   ArrayTypes<LMPHostType>::t_int_1d h_numneigh;
 
   NeighborKokkos *nk = (NeighborKokkos *) neighbor;
-  if (nk->lists[m]->execution_space == Host) {
+  if (nk->lists[m]->execution_space == HostKK) {
     NeighListKokkos<LMPHostType>* nlistKK = (NeighListKokkos<LMPHostType>*) nk->lists[m];
     inum = nlistKK->inum;
     h_ilist = Kokkos::create_mirror_view(nlistKK->d_ilist);

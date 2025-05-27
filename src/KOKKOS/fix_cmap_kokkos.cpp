@@ -731,7 +731,7 @@ int FixCMAPKokkos<DeviceType>::pack_exchange_kokkos(
   copymode = 0;
 
   k_buf.template modify<DeviceType>();
-  if (space == Host) k_buf.sync_host();
+  if (space == HostKK) k_buf.sync_host();
   else k_buf.sync_device();
 
   k_num_crossterm.template modify<DeviceType>();

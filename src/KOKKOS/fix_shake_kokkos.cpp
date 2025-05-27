@@ -1666,7 +1666,7 @@ int FixShakeKokkos<DeviceType>::pack_exchange_kokkos(
 
   k_buf.modify<DeviceType>();
 
-  if (space == Host) k_buf.sync_host();
+  if (space == HostKK) k_buf.sync_host();
   else k_buf.sync_device();
 
   k_shake_flag.template modify<DeviceType>();

@@ -233,7 +233,7 @@ void PairTersoffMODKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     if (evflag)
       Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairTersoffMODCompute<HALFTHREAD,1> >(0,inum),*this,ev);
     else {
-      if (ExecutionSpaceFromDevice<DeviceType>::space == Host) {
+      if (execution_space == HostKK) {
         Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairTersoffMODCompute<HALFTHREAD,0> >(0,inum),*this);
       } else {
 #ifdef LMP_KOKKOS_TERSOFF_MDRANGEPOLICY_WORKAROUND

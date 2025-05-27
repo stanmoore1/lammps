@@ -85,7 +85,7 @@ PairReaxFFKokkos<DeviceType>::PairReaxFFKokkos(LAMMPS *lmp) : PairReaxFF(lmp)
   k_count_angular_torsion = DAT::tdual_int_1d("PairReaxFF::count_angular_torsion",2);
   d_count_angular_torsion = k_count_angular_torsion.template view<DeviceType>();
 
-  if (execution_space == Host) list_blocking_flag = 1;
+  if (execution_space == HostKK) list_blocking_flag = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -173,7 +173,7 @@ void PairReaxFFKokkos<DeviceType>::init_style()
     auto ifix = modify->get_fix_by_style("^acks2/reax").front();
     if (!ifix->kokkosable)
       error->all(FLERR,"Must use Kokkos version of acks2/reaxff with pair reaxff/kk");
-    if (ifix->execution_space == Host) {
+    if (ifix->execution_space == HostKK) {
       auto k_s = ((FixACKS2ReaxFFKokkos<LMPHostType>*) ifix)->get_s();
       k_s.sync<DeviceType>();
       d_s = k_s.view<DeviceType>();
@@ -738,7 +738,7 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (acks2_flag) {
     auto ifix = modify->get_fix_by_style("^acks2/reax").front();
-    if (ifix->execution_space == Host) {
+    if (ifix->execution_space == HostKK) {
       auto k_s = ((FixACKS2ReaxFFKokkos<LMPHostType>*) ifix)->get_s();
       k_s.sync<DeviceType>();
       d_s = k_s.view<DeviceType>();
@@ -847,7 +847,7 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     // zero
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxZero>(0,nmax),*this);
 
-    if (execution_space == Host) { // CPU
+    if (execution_space == HostKK) { // CPU
       if (neighflag == HALF)
         Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxBuildListsHalfBlocking<HALF>>(0,ignum),*this);
       else if (neighflag == HALFTHREAD)
