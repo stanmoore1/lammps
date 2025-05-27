@@ -183,7 +183,7 @@ struct ExecutionSpaceFromDevice;
 
 template<>
 struct ExecutionSpaceFromDevice<LMPHostType> {
-  static const LAMMPS_NS::ExecutionSpace space = LAMMPS_NS::Host;
+  static const LAMMPS_NS::ExecutionSpace space = LAMMPS_NS::HostKK;
 };
 
 #ifdef KOKKOS_ENABLE_CUDA
@@ -620,6 +620,8 @@ struct TripleView {
   TripleView() {
     modified_host_legacy = 0;
     modified_device_legacy = 0;
+    modified_legacy_host = 0;
+    modified_legacy_device = 0;
     k_view = {};
     h_legacy = {};
   }
@@ -628,106 +630,157 @@ struct TripleView {
   TripleView(std::string name, Indices... ns) {
     modified_host_legacy = 0;
     modified_device_legacy = 0;
+    modified_legacy_host = 0;
+    modified_legacy_device = 0;
     k_view = kk_view(name, ns...);
-    h_legacy = legacy_view(name, ns...);
     d_view = k_view.d_view;
-    if constexpr (NEED_TRANSFORM)
+    if constexpr (NEED_TRANSFORM) {
+      h_legacy = legacy_view(name, ns...);
       h_view = h_legacy;
-    else
+    } else {
       h_view = k_view.h_view;
+    }
   }
 
   template <typename... Indices>
   void resize(Indices... ns) {
     k_view.resize(ns...);
-    Kokkos::resize(h_legacy,ns...);
     d_view = k_view.d_view;
-    if constexpr (NEED_TRANSFORM)
+    if constexpr (NEED_TRANSFORM) {
+      Kokkos::resize(h_legacy,ns...);
       h_view = h_legacy;
-    else
+    } else {
       h_view = k_view.h_view;
+    }
   }
 
   void modify_device()
   {
+    printf("MODIFY DEVICE %s\n",k_view.h_view.label().c_str());
+
     k_view.modify_device();
 
     if constexpr (NEED_TRANSFORM) {
+      if (!k_view.d_view.data()) return;
+
       modified_device_legacy = 1;
 
-      if (modified_host_legacy)
-        Kokkos::abort("Concurrent modification of host and device views");
+      if (modified_legacy_device)
+        Kokkos::abort("Concurrent modification of legacy host and device views");
     }
   }
 
-  void modify_host(int kk_flag = 0)
+  void modify_kk_host()
   {
+    printf("MODIFY KK HOST %s\n",k_view.h_view.label().c_str());
+
+    k_view.modify_host();
+
     if constexpr (NEED_TRANSFORM) {
-      if (kk_flag)
-        k_view.modify_host();
-      else {
-        modified_host_legacy = 1;
+      if (!k_view.h_view.data()) return;
 
-        if (modified_device_legacy)
-          Kokkos::abort("Concurrent modification of host and device views");
+      modified_host_legacy = 1;
 
-        if (k_view.need_sync_host())
-          Kokkos::abort("Concurrent modification of host views");
-      }
+      if (modified_legacy_host)
+        Kokkos::abort("Concurrent modification of legacy host and Kokkos host views");
+    }
+  }
+
+  void modify_host() {
+    if constexpr (NEED_TRANSFORM) {
+
+      if (!h_legacy.data()) return;
+
+      printf("MODIFY LEGACY HOST %s\n",k_view.h_view.label().c_str());
+
+      modified_legacy_host = 1;
+      modified_legacy_device = 1;
+
+      if (modified_device_legacy)
+        Kokkos::abort("Concurrent modification of device and legacy host views");
+
+      if (modified_host_legacy)
+        Kokkos::abort("Concurrent modification of Kokkos host and legacy host views");
     } else {
-      k_view.modify_host();
+     modify_kk_host();
     }
   }
 
   void sync_device()
   {
-    if constexpr (NEED_TRANSFORM) {
-      k_view.sync_device();
+    printf("SYNC DEVICE %s\n",k_view.d_view.label().c_str());
 
-      if (modified_host_legacy) {
+    k_view.sync_device();
+
+    if constexpr (NEED_TRANSFORM) {
+      if (!k_view.d_view.data()) return;
+
+      if (modified_legacy_device) {
         if constexpr (TRANSFORM_ON_DEVICE) {
           auto d_legacy = Kokkos::create_mirror_view_and_copy(h_legacy);
-          Kokkos::deep_copy(d_legacy,h_legacy);
           Kokkos::deep_copy(k_view.d_view,d_legacy);
-          modified_host_legacy = 0;
-          k_view.modify_device();
+          if (modified_legacy_host)
+            k_view.modify_device();
         } else {
           Kokkos::deep_copy(k_view.h_view,h_legacy);
           k_view.modify_host();
           k_view.sync_device();
+          modified_legacy_host = 0;
         }
+        modified_legacy_device = 0;
       }
-    } else {
-      k_view.sync_device();
     }
   }
 
-  void sync_host(int kk_flag = 0)
+  void sync_kk_host()
   {
+    printf("SYNC KK HOST %s\n",k_view.h_view.label().c_str());
+
+    k_view.sync_host();
+
     if constexpr (NEED_TRANSFORM) {
-      if (k_view.need_sync_device()) {
-        if (kk_flag) {
-          k_view.sync_host();
-        }
+      if (!k_view.h_view.data()) return;
+
+      if (modified_device_legacy)
+        modified_host_legacy = 1;
+
+      if (modified_legacy_host) {
+        Kokkos::deep_copy(k_view.h_view,h_legacy);
+        modified_legacy_host = 0;
+        if (modified_legacy_device)
+          k_view.modified_host();
       }
+    }
+  }
+
+  void sync_host() {
+    if constexpr (NEED_TRANSFORM) {
+
+      if (!h_legacy.data()) return;
+
+      printf("SYNC LEGACY HOST %s\n",k_view.d_view.label().c_str());
 
       if (modified_device_legacy) {
         if constexpr (TRANSFORM_ON_DEVICE) {
-          auto d_legacy = Kokkos::create_mirror_view_and_copy(h_legacy);
+          auto d_legacy = Kokkos::create_mirror_view(h_legacy); // add NoInit
           Kokkos::deep_copy(d_legacy,k_view.d_view);
           Kokkos::deep_copy(h_legacy,d_legacy);
+          if (k_view.need_sync_host())
+            modified_legacy_host = 1;
         } else {
           k_view.sync_host();
-          Kokkos::deep_copy(k_view.h_view,h_legacy);
+          Kokkos::deep_copy(h_legacy,k_view.h_view);
+          modified_host_legacy = 0;
         }
         modified_device_legacy = 0;
-      } else if (!kk_flag && k_view.need_sync_host()) {
+      } else if (modified_host_legacy) {
         Kokkos::deep_copy(h_legacy,k_view.h_view);
-      } else if (kk_flag && modified_host_legacy) {
-        Kokkos::deep_copy(k_view.h_view,h_legacy);
+        modified_host_legacy = 0;
+        if (k_view.need_sync_device())
+          modified_device_legacy = 1;
       }
     } else {
-      k_view.sync_host();
+      sync_kk_host();
     }
   }
 
@@ -758,23 +811,25 @@ struct TripleView {
   std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const typename kk_view::t_host&> view() const {return k_view.h_view;}
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify(int kk_flag = 0) {modify_device();}
+  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify() {modify_device();}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify(int kk_flag = 0) {modify_host(kk_flag);}
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify() {modify_kk_host();}
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync(int kk_flag = 0) {sync_device();}
+  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_device();}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync(int kk_flag = 0) {sync_host(kk_flag);}
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_kk_host();}
 
   void clear_sync_state()
   {
     k_view.clear_sync_state();
 
     modified_host_legacy = 0;
-    modified_device_legacy = 0;    
+    modified_device_legacy = 0;
+    modified_legacy_host = 0;
+    modified_legacy_device = 0;
   }
 
   bool need_sync_device()

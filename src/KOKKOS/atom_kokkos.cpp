@@ -125,7 +125,7 @@ void AtomKokkos::init()
 {
   Atom::init();
 
-  sort_classic = lmp->kokkos->sort_classic;
+  sort_legacy = lmp->kokkos->sort_legacy;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -188,8 +188,7 @@ void AtomKokkos::sync_overlapping_device(const ExecutionSpace space, unsigned in
 void AtomKokkos::allocate_type_arrays()
 {
   if (avec->mass_type == AtomVec::PER_TYPE) {
-    k_mass = DAT::ttriple_kkfloat_1d("Mass", ntypes + 1);
-    mass = k_mass.h_view.data();
+    memoryKK->create_kokkos(k_mass,mass,ntypes + 1,"atom::mass");
     mass_setflag = new int[ntypes + 1];
     for (int itype = 1; itype <= ntypes; itype++) mass_setflag[itype] = 0;
     k_mass.modify_host();
@@ -202,7 +201,7 @@ void AtomKokkos::sort()
 {
   // check if all fixes with atom-based arrays support sort on device
 
-  if (!sort_classic) {
+  if (!sort_legacy) {
     int flag = 1;
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++) {
       auto fix_iextra = modify->fix[atom->extra_grow[iextra]];
@@ -216,13 +215,13 @@ void AtomKokkos::sort()
     if (!flag) {
       if (comm->me == 0) {
         error->warning(FLERR,"Fix with atom-based arrays not compatible with Kokkos sorting on device, "
-                           "switching to classic host sorting");
+                           "switching to legacy host sorting");
       }
-      sort_classic = true;
+      sort_legacy = true;
     }
   }
 
-  if (sort_classic) {
+  if (sort_legacy) {
     sync(Host, ALL_MASK);
     Atom::sort();
     modified(Host, ALL_MASK);

@@ -671,7 +671,7 @@ int AtomVecMolecularKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_dou
     int newsize = nsend*size_exchange/k_buf.h_view.extent(1)+1;
     k_buf.resize(newsize,k_buf.h_view.extent(1));
   }
-  if (space == Host) {
+  if (space == HostKK) {
     AtomVecMolecularKokkos_PackExchangeFunctor<LMPHostType>
       f(atomKK,k_buf,k_sendlist,k_copylist);
     Kokkos::parallel_for(nsend,f);
@@ -830,7 +830,7 @@ int AtomVecMolecularKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf, 
 {
   while (nlocal + nrecv/size_exchange >= nmax) grow(0);
 
-  if (space == Host) {
+  if (space == HostKK) {
     if (k_indices.h_view.data()) {
       k_count.h_view(0) = nlocal;
       AtomVecMolecularKokkos_UnpackExchangeFunctor<LMPHostType,1>

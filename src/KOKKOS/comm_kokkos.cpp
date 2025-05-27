@@ -105,51 +105,26 @@ void CommKokkos::init()
   grow_recv_kokkos(maxrecv,Host);
 
   atomKK = (AtomKokkos *) atom;
-  exchange_comm_classic = lmp->kokkos->exchange_comm_classic;
-  forward_comm_classic = lmp->kokkos->forward_comm_classic;
-  forward_pair_comm_classic = lmp->kokkos->forward_pair_comm_classic;
-  reverse_pair_comm_classic = lmp->kokkos->reverse_pair_comm_classic;
-  forward_fix_comm_classic = lmp->kokkos->forward_fix_comm_classic;
-  reverse_comm_classic = lmp->kokkos->reverse_comm_classic;
+  exchange_comm_legacy = lmp->kokkos->exchange_comm_legacy;
+  forward_comm_legacy = lmp->kokkos->forward_comm_legacy;
+  forward_pair_comm_legacy = lmp->kokkos->forward_pair_comm_legacy;
+  reverse_pair_comm_legacy = lmp->kokkos->reverse_pair_comm_legacy;
+  forward_fix_comm_legacy = lmp->kokkos->forward_fix_comm_legacy;
+  reverse_comm_legacy = lmp->kokkos->reverse_comm_legacy;
   exchange_comm_on_host = lmp->kokkos->exchange_comm_on_host;
   forward_comm_on_host = lmp->kokkos->forward_comm_on_host;
   reverse_comm_on_host = lmp->kokkos->reverse_comm_on_host;
 
   CommBrick::init();
 
-  int check_forward = 0;
-  int check_reverse = 0;
-  if (force->pair && (force->pair->execution_space == Host))
-    check_forward += force->pair->comm_forward;
-  if (force->pair && (force->pair->execution_space == Host))
-    check_reverse += force->pair->comm_reverse;
-
-  for (const auto &fix : modify->get_fix_list()) {
-    check_forward += fix->comm_forward;
-    check_reverse += fix->comm_reverse;
-  }
-
-  for (const auto &compute : modify->get_compute_list()) {
-    check_forward += compute->comm_forward;
-    check_reverse += compute->comm_reverse;
-  }
-
-  for (const auto &dump : output->get_dump_list()) {
-    check_forward += dump->comm_forward;
-    check_reverse += dump->comm_reverse;
-  }
-
-  if (force->newton == 0) check_reverse = 0;
-  if (force->pair) check_reverse += force->pair->comm_reverse_off;
-
   if (!comm_f_only) {// not all Kokkos atom_vec styles have reverse pack/unpack routines yet
-    reverse_comm_classic = true;
-    lmp->kokkos->reverse_comm_classic = 1;
+    reverse_comm_legacy = true;
+    lmp->kokkos->reverse_comm_legacy = 1;
   }
 
   if (ghost_velocity && atomKK->avecKK->no_comm_vel_flag) { // not all Kokkos atom_vec styles have comm vel pack/unpack routines yet
-    forward_comm_classic = true;
-    lmp->kokkos->forward_comm_classic = 1;
+    forward_comm_legacy = true;
+    lmp->kokkos->forward_comm_legacy = 1;
   }
 }
 
@@ -160,7 +135,7 @@ void CommKokkos::init()
 
 void CommKokkos::forward_comm(int dummy)
 {
-  if (!forward_comm_classic) {
+  if (!forward_comm_legacy) {
     if (forward_comm_on_host) forward_comm_device<LMPHostType>();
     else forward_comm_device<LMPDeviceType>();
     return;
@@ -287,7 +262,7 @@ void CommKokkos::forward_comm_device()
 
 void CommKokkos::reverse_comm()
 {
-  if (!reverse_comm_classic) {
+  if (!reverse_comm_legacy) {
     if (reverse_comm_on_host) reverse_comm_device<LMPHostType>();
     else reverse_comm_device<LMPDeviceType>();
     return;
@@ -376,7 +351,7 @@ void CommKokkos::reverse_comm_device()
 
 void CommKokkos::forward_comm(Fix *fix, int size)
 {
-  if (fix->execution_space == Host || !fix->forward_comm_device || forward_fix_comm_classic) {
+  if (fix->execution_space == Host || !fix->forward_comm_device || forward_fix_comm_legacy) {
     k_sendlist.sync_host();
     CommBrick::forward_comm(fix, size);
   } else {
@@ -549,7 +524,7 @@ void CommKokkos::reverse_comm(Compute *compute, int size)
 
 void CommKokkos::forward_comm(Pair *pair, int size)
 {
-  if (pair->execution_space == Host || forward_pair_comm_classic) {
+  if (pair->execution_space == Host || forward_pair_comm_legacy) {
     k_sendlist.sync_host();
     CommBrick::forward_comm(pair, size);
   } else {
@@ -647,7 +622,7 @@ void CommKokkos::grow_buf_fix(int n) {
 
 void CommKokkos::reverse_comm(Pair *pair, int size)
 {
-  if (pair->execution_space == Host || !pair->reverse_comm_device || reverse_pair_comm_classic) {
+  if (pair->execution_space == Host || !pair->reverse_comm_device || reverse_pair_comm_legacy) {
     k_sendlist.sync_host();
     CommBrick::reverse_comm(pair, size);
   } else {
@@ -752,7 +727,7 @@ void CommKokkos::reverse_comm(Dump *dump, int size)
 
 void CommKokkos::exchange()
 {
-  if (!exchange_comm_classic) {
+  if (!exchange_comm_legacy) {
     if (atom->nextra_grow) {
 
       // check if all fixes with atom-based arrays support exchange on device
@@ -772,21 +747,21 @@ void CommKokkos::exchange()
         if (!atomKK->avecKK->unpack_exchange_indices_flag) {
           if (comm->me == 0) {
             error->warning(FLERR,"Atom style not compatible with fix sending data in Kokkos communication, "
-                           "switching to classic exchange/border communication");
+                           "switching to legacy exchange/border communication");
           }
         } else if (!flag) {
           if (comm->me == 0) {
             error->warning(FLERR,"Fix with atom-based arrays not compatible with sending data in Kokkos communication, "
-                           "switching to classic exchange/border communication");
+                           "switching to legacy exchange/border communication");
           }
         }
-        exchange_comm_classic = true;
-        lmp->kokkos->exchange_comm_classic = 1;
+        exchange_comm_legacy = true;
+        lmp->kokkos->exchange_comm_legacy = 1;
       }
     }
   }
 
-  if (!exchange_comm_classic) {
+  if (!exchange_comm_legacy) {
     if (exchange_comm_on_host) exchange_device<LMPHostType>();
     else exchange_device<LMPDeviceType>();
     return;
@@ -851,7 +826,7 @@ void CommKokkos::exchange_device()
   //   new ghosts are created in borders()
   // map_set() is done at end of borders()
 
-  if (lmp->kokkos->atom_map_classic)
+  if (lmp->kokkos->atom_map_legacy)
     if (map_style != Atom::MAP_NONE) atom->map_clear();
 
   // clear ghost count and any ghost bonus data internal to AtomVec
@@ -1080,21 +1055,21 @@ void CommKokkos::exchange_device()
 
 void CommKokkos::borders()
 {
-  if (!exchange_comm_classic) {
+  if (!exchange_comm_legacy) {
 
     if (atom->nextra_border || mode != Comm::SINGLE || bordergroup ||
          (ghost_velocity && atomKK->avecKK->no_border_vel_flag)) {
 
       if (comm->me == 0) {
         error->warning(FLERR,"Required border comm not yet implemented in Kokkos communication, "
-                      "switching to classic exchange/border communication");
+                      "switching to legacy exchange/border communication");
       }
-      exchange_comm_classic = true;
-      lmp->kokkos->exchange_comm_classic = 1;
+      exchange_comm_legacy = true;
+      lmp->kokkos->exchange_comm_legacy = 1;
     }
   }
 
-  if (!exchange_comm_classic) {
+  if (!exchange_comm_legacy) {
     if (exchange_comm_on_host) borders_device<LMPHostType>();
     else borders_device<LMPDeviceType>();
   } else {
@@ -1108,7 +1083,7 @@ void CommKokkos::borders()
     atomKK->modified(Host,ALL_MASK);
   }
 
-  if (comm->nprocs == 1 && !ghost_velocity && !forward_comm_classic)
+  if (comm->nprocs == 1 && !ghost_velocity && !forward_comm_legacy)
     copy_swap_info();
 }
 
@@ -1536,7 +1511,7 @@ void CommKokkos::grow_list(int /*iswap*/, int n)
 {
   int size = static_cast<int> (BUFFACTOR * n);
 
-  if (exchange_comm_classic) { // force realloc on Host
+  if (exchange_comm_legacy) { // force realloc on Host
     k_sendlist.sync_host();
     k_sendlist.modify_host();
   }
@@ -1564,7 +1539,7 @@ void CommKokkos::grow_swap(int n)
   maxswap = n;
   int size = MAX(k_sendlist.d_view.extent(1),BUFMIN);
 
-  if (exchange_comm_classic) { // force realloc on Host
+  if (exchange_comm_legacy) { // force realloc on Host
     k_sendlist.sync_host();
     k_sendlist.modify_host();
   }

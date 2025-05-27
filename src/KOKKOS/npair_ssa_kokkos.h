@@ -66,7 +66,7 @@ class NPairSSAKokkos : public NPair {
  private:
   // data from Neighbor class
 
-  DAT::tdual_kkfloat_2d k_cutneighsq;
+  DAT::ttriple_kkfloat_2d k_cutneighsq;
 
   // exclusion data from Neighbor class
 

@@ -58,7 +58,7 @@ void NPairSSAKokkos<DeviceType>::copy_neighbor_info()
 
   // general params
 
-  k_cutneighsq = neighborKK->k_cutneighsq.k_view;
+  k_cutneighsq = neighborKK->k_cutneighsq;
 
   // exclusion info
 

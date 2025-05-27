@@ -46,7 +46,7 @@ void PairHybridKokkos::init_style()
   PairHybrid::init_style();
 
   for (int m = 0; m < nstyles; m++)
-    if (styles[m]->execution_space == Host)
+    if (styles[m]->execution_space == Host || styles[m]->execution_space == HostKK)
       lmp->kokkos->allow_overlap = 0;
 }
 

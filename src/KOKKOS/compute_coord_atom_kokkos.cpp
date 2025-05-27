@@ -117,7 +117,7 @@ void ComputeCoordAtomKokkos<DeviceType>::compute_peratom()
     if (!c_orientorder->kokkosable)
       error->all(FLERR,"Must use compute orientorder/atom/kk with compute coord/atom/kk");
 
-    if (c_orientorder->execution_space == Host) {
+    if (c_orientorder->execution_space == HostKK) {
       ComputeOrientOrderAtomKokkos<LMPHostType>* c_orientorder_kk;
       c_orientorder_kk = (ComputeOrientOrderAtomKokkos<LMPHostType>*) c_orientorder;
       c_orientorder_kk->k_qnarray.modify_host();

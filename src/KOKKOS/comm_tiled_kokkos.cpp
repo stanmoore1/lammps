@@ -72,46 +72,21 @@ CommTiledKokkos::~CommTiledKokkos()
 void CommTiledKokkos::init()
 {
   atomKK = (AtomKokkos *) atom;
-  exchange_comm_classic = lmp->kokkos->exchange_comm_classic;
-  forward_comm_classic = lmp->kokkos->forward_comm_classic;
-  forward_pair_comm_classic = lmp->kokkos->forward_pair_comm_classic;
-  reverse_pair_comm_classic = lmp->kokkos->reverse_pair_comm_classic;
-  forward_fix_comm_classic = lmp->kokkos->forward_fix_comm_classic;
-  reverse_comm_classic = lmp->kokkos->reverse_comm_classic;
+  exchange_comm_legacy = lmp->kokkos->exchange_comm_legacy;
+  forward_comm_legacy = lmp->kokkos->forward_comm_legacy;
+  forward_pair_comm_legacy = lmp->kokkos->forward_pair_comm_legacy;
+  reverse_pair_comm_legacy = lmp->kokkos->reverse_pair_comm_legacy;
+  forward_fix_comm_legacy = lmp->kokkos->forward_fix_comm_legacy;
+  reverse_comm_legacy = lmp->kokkos->reverse_comm_legacy;
   exchange_comm_on_host = lmp->kokkos->exchange_comm_on_host;
   forward_comm_on_host = lmp->kokkos->forward_comm_on_host;
   reverse_comm_on_host = lmp->kokkos->reverse_comm_on_host;
 
   CommTiled::init();
 
-  int check_forward = 0;
-  int check_reverse = 0;
-  if (force->pair && (force->pair->execution_space == Host))
-    check_forward += force->pair->comm_forward;
-  if (force->pair && (force->pair->execution_space == Host))
-    check_reverse += force->pair->comm_reverse;
-
-  for (const auto &fix : modify->get_fix_list()) {
-    check_forward += fix->comm_forward;
-    check_reverse += fix->comm_reverse;
-  }
-
-  for (const auto &compute : modify->get_compute_list()) {
-    check_forward += compute->comm_forward;
-    check_reverse += compute->comm_reverse;
-  }
-
-  for (const auto &dump : output->get_dump_list()) {
-    check_forward += dump->comm_forward;
-    check_reverse += dump->comm_reverse;
-  }
-
-  if (force->newton == 0) check_reverse = 0;
-  if (force->pair) check_reverse += force->pair->comm_reverse_off;
-
   if (!comm_f_only) { // not all Kokkos atom_vec styles have reverse pack/unpack routines yet
-    reverse_comm_classic = true;
-    lmp->kokkos->reverse_comm_classic = 1;
+    reverse_comm_legacy = true;
+    lmp->kokkos->reverse_comm_legacy = 1;
   }
 }
 
@@ -122,7 +97,7 @@ void CommTiledKokkos::init()
 
 void CommTiledKokkos::forward_comm(int dummy)
 {
-  if (!forward_comm_classic) {
+  if (!forward_comm_legacy) {
     if (forward_comm_on_host) forward_comm_device<LMPHostType>();
     else forward_comm_device<LMPDeviceType>();
     return;
@@ -272,7 +247,7 @@ void CommTiledKokkos::forward_comm_device()
 
 void CommTiledKokkos::reverse_comm()
 {
-  if (!reverse_comm_classic) {
+  if (!reverse_comm_legacy) {
     if (reverse_comm_on_host) reverse_comm_device<LMPHostType>();
     else reverse_comm_device<LMPDeviceType>();
     return;

@@ -97,8 +97,8 @@ void FixACKS2ReaxFFKokkos<DeviceType>::post_constructor()
 template<class DeviceType>
 void FixACKS2ReaxFFKokkos<DeviceType>::init()
 {
-  atomKK->k_q.modify_host();
-  atomKK->k_q.sync<DeviceType>();
+  atomKK->modified(Host,Q_MASK);
+  atomKK->sync(execution_space,Q_MASK);
 
   FixACKS2ReaxFF::init();
 

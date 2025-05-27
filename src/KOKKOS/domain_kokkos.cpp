@@ -342,7 +342,7 @@ struct DomainPBCFunctor {
 void DomainKokkos::pbc()
 {
 
-  if (lmp->kokkos->exchange_comm_classic) {
+  if (lmp->kokkos->exchange_comm_legacy) {
 
    // reduce GPU data movement
 

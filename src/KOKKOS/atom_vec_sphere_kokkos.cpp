@@ -1529,7 +1529,7 @@ int AtomVecSphereKokkos::pack_exchange_kokkos(
              MASK_MASK | IMAGE_MASK| RADIUS_MASK | RMASS_MASK |
              OMEGA_MASK);
 
-  if (space == Host) {
+  if (space == HostKK) {
     AtomVecSphereKokkos_PackExchangeFunctor<LMPHostType> f(atomKK,k_buf,k_sendlist,k_copylist);
     Kokkos::parallel_for(nsend,f);
   } else {
@@ -1620,7 +1620,7 @@ int AtomVecSphereKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf, int
 {
   while (nlocal + nrecv/size_exchange >= nmax) grow(0);
 
-  if (space == Host) {
+  if (space == HostKK) {
     k_count.h_view(0) = nlocal;
     if (k_indices.h_view.data()) {
       AtomVecSphereKokkos_UnpackExchangeFunctor<LMPHostType,1> f(atomKK,k_buf,k_count,k_indices,dim,lo,hi);
