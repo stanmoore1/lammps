@@ -69,7 +69,7 @@ class AngleClass2Kokkos : public AngleClass2 {
 
   typename AT::t_kkfloat_1d_3_randomread x;
   typename AT::t_kkfloat_1d_3 f;
-  typename AT::t_int_2d anglelist;
+  typename AT::t_int_2d_lr anglelist;
   typename AT::t_kkfloat_1d d_eatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 

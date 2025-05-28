@@ -69,7 +69,7 @@ class BondClass2Kokkos : public BondClass2 {
 
   typename AT::t_kkfloat_1d_3_randomread x;
   typename Kokkos::View<KK_FLOAT*[3],typename AT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
-  typename AT::t_int_2d bondlist;
+  typename AT::t_int_2d_lr bondlist;
 
   Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
   Kokkos::View<KK_FLOAT*[6],LMPDeviceLayout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;

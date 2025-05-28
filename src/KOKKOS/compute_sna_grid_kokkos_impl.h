@@ -132,7 +132,6 @@ ComputeSNAGridKokkos<DeviceType, real_type, vector_length>::~ComputeSNAGridKokko
 {
   if (copymode) return;
 
-  memoryKK->destroy_kokkos(k_cutsq,cutsq);
   memoryKK->destroy_kokkos(k_gridall, gridall);
 }
 

@@ -65,7 +65,7 @@ class BondHarmonicKokkos : public BondHarmonic {
 
   typename AT::t_kkfloat_1d_3_randomread x;
   typename Kokkos::View<KK_FLOAT*[3],typename AT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
-  typename AT::t_int_2d bondlist;
+  typename AT::t_int_2d_lr bondlist;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
   TripleView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;

@@ -69,7 +69,7 @@ class AngleHarmonicKokkos : public AngleHarmonic {
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
-  typename ArrayTypes<DeviceType>::t_int_2d anglelist;
+  typename ArrayTypes<DeviceType>::t_int_2d_lr anglelist;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
 

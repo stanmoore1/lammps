@@ -67,7 +67,7 @@ class BondFENEKokkos : public BondFENE {
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
-  typename ArrayTypes<DeviceType>::t_int_2d bondlist;
+  typename ArrayTypes<DeviceType>::t_int_2d_lr bondlist;
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;

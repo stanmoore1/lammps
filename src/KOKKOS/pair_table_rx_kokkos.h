@@ -52,7 +52,7 @@ class PairTableRXKokkos : public PairTable {
 
   struct TableDeviceConst {
     typename ArrayTypes<DeviceType>::t_double_2d cutsq;
-    typename ArrayTypes<DeviceType>::t_int_2d tabindex;
+    typename ArrayTypes<DeviceType>::t_int_2d_lr tabindex;
     typename ArrayTypes<DeviceType>::t_int_1d nshiftbits,nmask;
     typename ArrayTypes<DeviceType>::t_double_1d innersq,invdelta,deltasq6;
     typename ArrayTypes<DeviceType>::t_double_2d_randomread rsq,drsq,e,de,f,df,e2,f2;
@@ -60,7 +60,7 @@ class PairTableRXKokkos : public PairTable {
 
   struct TableDevice {
     typename ArrayTypes<DeviceType>::t_double_2d cutsq;
-    typename ArrayTypes<DeviceType>::t_int_2d tabindex;
+    typename ArrayTypes<DeviceType>::t_int_2d_lr tabindex;
     typename ArrayTypes<DeviceType>::t_int_1d nshiftbits,nmask;
     typename ArrayTypes<DeviceType>::t_double_1d innersq,invdelta,deltasq6;
     typename ArrayTypes<DeviceType>::t_double_2d rsq,drsq,e,de,f,df,e2,f2;
@@ -68,7 +68,7 @@ class PairTableRXKokkos : public PairTable {
 
   struct TableHost {
     typename ArrayTypes<LMPHostType>::t_double_2d cutsq;
-    typename ArrayTypes<LMPHostType>::t_int_2d tabindex;
+    typename ArrayTypes<LMPHostType>::t_int_2d_lr tabindex;
     typename ArrayTypes<LMPHostType>::t_int_1d nshiftbits,nmask;
     typename ArrayTypes<LMPHostType>::t_double_1d innersq,invdelta,deltasq6;
     typename ArrayTypes<LMPHostType>::t_double_2d rsq,drsq,e,de,f,df,e2,f2;

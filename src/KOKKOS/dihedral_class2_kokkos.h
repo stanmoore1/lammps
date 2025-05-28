@@ -69,7 +69,7 @@ class DihedralClass2Kokkos : public DihedralClass2 {
 
   typename AT::t_kkfloat_1d_3_randomread x;
   typename AT::t_kkfloat_1d_3 f;
-  typename AT::t_int_2d dihedrallist;
+  typename AT::t_int_2d_lr dihedrallist;
   typename AT::t_kkfloat_1d d_eatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 

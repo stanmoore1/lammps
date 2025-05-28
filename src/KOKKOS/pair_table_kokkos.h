@@ -62,7 +62,7 @@ class PairTableKokkos : public PairTable {
 
   /*struct TableDeviceConst {
     typename AT::t_double_2d_randomread cutsq;
-    typename AT::t_int_2d_randomread tabindex;
+    typename AT::t_int_2d_lr_randomread tabindex;
     typename AT::t_int_1d_randomread nshiftbits,nmask;
     typename AT::t_double_1d_randomread innersq,invdelta,deltasq6;
     typename AT::t_double_2d_randomread rsq,drsq,e,de,f,df,e2,f2;
@@ -70,7 +70,7 @@ class PairTableKokkos : public PairTable {
  //Its faster not to use texture fetch if the number of tables is less than 32!
   struct TableDeviceConst {
     typename AT::t_double_2d cutsq;
-    typename AT::t_int_2d tabindex;
+    typename AT::t_int_2d_lr tabindex;
     typename AT::t_int_1d nshiftbits,nmask;
     typename AT::t_double_1d innersq,invdelta,deltasq6;
     typename AT::t_double_2d_randomread rsq,drsq,e,de,f,df,e2,f2;
@@ -78,7 +78,7 @@ class PairTableKokkos : public PairTable {
 
   struct TableDevice {
     typename AT::t_double_2d cutsq;
-    typename AT::t_int_2d tabindex;
+    typename AT::t_int_2d_lr tabindex;
     typename AT::t_int_1d nshiftbits,nmask;
     typename AT::t_double_1d innersq,invdelta,deltasq6;
     typename AT::t_double_2d rsq,drsq,e,de,f,df,e2,f2;
@@ -86,7 +86,7 @@ class PairTableKokkos : public PairTable {
 
   struct TableHost {
     typename ArrayTypes<LMPHostType>::t_double_2d cutsq;
-    typename ArrayTypes<LMPHostType>::t_int_2d tabindex;
+    typename ArrayTypes<LMPHostType>::t_int_2d_lr tabindex;
     typename ArrayTypes<LMPHostType>::t_int_1d nshiftbits,nmask;
     typename ArrayTypes<LMPHostType>::t_double_1d innersq,invdelta,deltasq6;
     typename ArrayTypes<LMPHostType>::t_double_2d rsq,drsq,e,de,f,df,e2,f2;

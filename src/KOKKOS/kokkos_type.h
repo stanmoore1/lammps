@@ -907,8 +907,10 @@ KOKKOS_DEVICE_DUALVIEW(double*[3], Kokkos::LayoutRight, double_1d_3)
 KOKKOS_DEVICE_DUALVIEW(double*[4], Kokkos::LayoutRight, double_1d_4)
 KOKKOS_DEVICE_DUALVIEW(double*[6], Kokkos::LayoutRight, double_1d_6)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT**, LMPDeviceLayout, kkfloat_2d)
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT**, Kokkos::LayoutRight, kkfloat_2d_lr)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[2], LMPDeviceLayout, kkfloat_1d_2)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[3], LMPDeviceLayout, kkfloat_1d_3)
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[3], Kokkos::LayoutRight, kkfloat_1d_3_lr)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[4], LMPDeviceLayout, kkfloat_1d_4)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[6], LMPDeviceLayout, kkfloat_1d_6)
 
@@ -917,6 +919,8 @@ typedef TripleView<LAMMPS_NS::tagint**, LAMMPS_NS::tagint**, LMPDeviceLayout> tt
 typedef TripleView<KK_FLOAT**, double**, LMPDeviceLayout> ttriple_kkfloat_2d;
 typedef TripleView<KK_FLOAT*[2], double*[2], LMPDeviceLayout> ttriple_kkfloat_1d_2;
 typedef TripleView<KK_FLOAT*[3], double*[3], LMPDeviceLayout> ttriple_kkfloat_1d_3;
+typedef TripleView<KK_FLOAT*[3], double*[3], Kokkos::LayoutRight> ttriple_kkfloat_1d_3_lr;
+typedef TripleView<KK_FLOAT*[3], double*[3], Kokkos::LayoutRight> ttriple_kkfloat_1d_3_lr;
 typedef TripleView<KK_FLOAT*[4], double*[4], LMPDeviceLayout> ttriple_kkfloat_1d_4;
 typedef TripleView<KK_FLOAT*[6], double*[6], LMPDeviceLayout> ttriple_kkfloat_1d_6;
 
@@ -988,8 +992,10 @@ KOKKOS_HOST_DUALVIEW(double*[3], Kokkos::LayoutRight, double_1d_3)
 KOKKOS_HOST_DUALVIEW(double*[4], Kokkos::LayoutRight, double_1d_4)
 KOKKOS_HOST_DUALVIEW(double*[6], Kokkos::LayoutRight, double_1d_6)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT**, LMPDeviceLayout, kkfloat_2d)
+KOKKOS_HOST_DUALVIEW(KK_FLOAT**, Kokkos::LayoutRight, kkfloat_2d_lr)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT*[2], LMPDeviceLayout, kkfloat_1d_2)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT*[3], LMPDeviceLayout, kkfloat_1d_3)
+KOKKOS_HOST_DUALVIEW(KK_FLOAT*[3], Kokkos::LayoutRight, kkfloat_1d_3_lr)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT*[4], LMPDeviceLayout, kkfloat_1d_4)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT*[6], LMPDeviceLayout, kkfloat_1d_6)
 

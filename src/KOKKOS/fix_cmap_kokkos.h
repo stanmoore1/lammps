@@ -88,11 +88,11 @@ class FixCMAPKokkos : public FixCMAP, public KokkosBase {
     DAT::tdual_int_1d k_num_crossterm;
     typename AT::t_int_1d d_num_crossterm;
 
-    DAT::tdual_int_2d k_crossterm_type;
+    DAT::ttriple_int_2d k_crossterm_type;
     typename AT::t_int_2d d_crosstermlist, d_crossterm_type;
 
-    DAT::tdual_tagint_2d k_crossterm_atom1, k_crossterm_atom2, k_crossterm_atom3;
-    DAT::tdual_tagint_2d k_crossterm_atom4, k_crossterm_atom5;
+    DAT::ttriple_tagint_2d k_crossterm_atom1, k_crossterm_atom2, k_crossterm_atom3;
+    DAT::ttriple_tagint_2d k_crossterm_atom4, k_crossterm_atom5;
     typename AT::t_tagint_2d d_crossterm_atom1, d_crossterm_atom2, d_crossterm_atom3;
     typename AT::t_tagint_2d d_crossterm_atom4, d_crossterm_atom5;
 

@@ -141,11 +141,11 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   typename AT::t_int_1d d_shake_flag; // 0 if atom not in SHAKE cluster
                                          // 1 = size 3 angle cluster
                                          // 2,3,4 = size of bond-only cluster
-  DAT::tdual_tagint_2d k_shake_atom;
+  DAT::ttriple_tagint_2d k_shake_atom;
   typename AT::t_tagint_2d d_shake_atom; // global IDs of atoms in cluster
                                          // central atom is 1st
                                          // lowest global ID is 1st for size 2
-  DAT::tdual_int_2d k_shake_type;
+  DAT::ttriple_int_2d k_shake_type;
   typename AT::t_int_2d d_shake_type; // bondtype of each bond in cluster
                                          // for angle cluster, 3rd value
                                          //   is angletype

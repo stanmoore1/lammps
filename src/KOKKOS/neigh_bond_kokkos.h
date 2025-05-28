@@ -68,10 +68,10 @@ class NeighBondKokkos : protected Pointers  {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagNeighBondImproperPartial, const int&, int&) const;
 
-  DAT::tdual_int_2d k_bondlist;
-  DAT::tdual_int_2d k_anglelist;
-  DAT::tdual_int_2d k_dihedrallist;
-  DAT::tdual_int_2d k_improperlist;
+  DAT::tdual_int_2d_lr k_bondlist;
+  DAT::tdual_int_2d_lr k_anglelist;
+  DAT::tdual_int_2d_lr k_dihedrallist;
+  DAT::tdual_int_2d_lr k_improperlist;
 
   // KOKKOS host/device flag and data masks
   ExecutionSpace execution_space;
@@ -87,11 +87,11 @@ class NeighBondKokkos : protected Pointers  {
   DAT::tdual_int_1d k_map_array;
   dual_hash_type k_map_hash;
 
-  typename AT::t_int_2d v_bondlist;
-  typename AT::t_int_2d v_anglelist;
-  typename AT::t_int_2d v_dihedrallist;
-  typename AT::t_int_2d v_improperlist;
-  typename AT::t_int_2d list;
+  typename AT::t_int_2d_lr v_bondlist;
+  typename AT::t_int_2d_lr v_anglelist;
+  typename AT::t_int_2d_lr v_dihedrallist;
+  typename AT::t_int_2d_lr v_improperlist;
+  typename AT::t_int_2d_lr list;
 
   typename AT::t_kkfloat_1d_3_randomread x;
   typename AT::t_tagint_1d_randomread tag;

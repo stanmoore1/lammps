@@ -31,7 +31,7 @@ class AtomKokkos : public Atom {
   DAT::ttriple_tagint_1d k_tag;
   DAT::ttriple_int_1d k_type, k_mask;
   DAT::ttriple_imageint_1d k_image;
-  DAT::ttriple_kkfloat_1d_3 k_x;
+  DAT::ttriple_kkfloat_1d_3_lr k_x;
   DAT::ttriple_kkfloat_1d_3 k_v;
   DAT::ttriple_kkfloat_1d_3 k_f;
 
@@ -72,9 +72,6 @@ class AtomKokkos : public Atom {
 
   DAT::ttriple_kkfloat_1d k_uCond, k_uMech, k_uChem, k_uCG, k_uCGnew,
                        k_rho, k_dpdTheta, k_duChem;
-
-
-
 
   AtomKokkos(class LAMMPS *);
   ~AtomKokkos() override;
