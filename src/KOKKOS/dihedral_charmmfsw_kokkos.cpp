@@ -106,7 +106,7 @@ void DihedralCharmmfswKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       memoryKK->destroy_kokkos(k_vatom,vatom);
       memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"dihedral:vatom");
       d_vatom = k_vatom.template view<DeviceType>();
-      k_vatom_pair = TripleView<KK_FLOAT*[6],double*[6],LMPDeviceType::array_layout,KKDeviceType>("dihedral:vatom_pair",maxvatom);
+      k_vatom_pair = TripleView<KK_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType>("dihedral:vatom_pair",maxvatom);
       d_vatom_pair = k_vatom_pair.template view<DeviceType>();
     //}
   }

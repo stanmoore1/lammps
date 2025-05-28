@@ -133,23 +133,23 @@ void PairReaxFFKokkos<DeviceType>::allocate()
 {
   int n = atom->ntypes;
 
-  k_params_sing = Kokkos::DualView<params_sing*,typename DeviceType::array_layout,DeviceType>
+  k_params_sing = Kokkos::DualView<params_sing*,LMPDeviceLayout,DeviceType>
     ("PairReaxFF::params_sing",n+1);
   paramssing = k_params_sing.template view<DeviceType>();
 
-  k_params_twbp = Kokkos::DualView<params_twbp**,typename DeviceType::array_layout,DeviceType>
+  k_params_twbp = Kokkos::DualView<params_twbp**,LMPDeviceLayout,DeviceType>
     ("PairReaxFF::params_twbp",n+1,n+1);
   paramstwbp = k_params_twbp.template view<DeviceType>();
 
-  k_params_thbp = Kokkos::DualView<params_thbp***,typename DeviceType::array_layout,DeviceType>
+  k_params_thbp = Kokkos::DualView<params_thbp***,LMPDeviceLayout,DeviceType>
     ("PairReaxFF::params_thbp",n+1,n+1,n+1);
   paramsthbp = k_params_thbp.template view<DeviceType>();
 
-  k_params_fbp = Kokkos::DualView<params_fbp****,typename DeviceType::array_layout,DeviceType>
+  k_params_fbp = Kokkos::DualView<params_fbp****,LMPDeviceLayout,DeviceType>
     ("PairReaxFF::params_fbp",n+1,n+1,n+1,n+1);
   paramsfbp = k_params_fbp.template view<DeviceType>();
 
-  k_params_hbp = Kokkos::DualView<params_hbp***,typename DeviceType::array_layout,DeviceType>
+  k_params_hbp = Kokkos::DualView<params_hbp***,LMPDeviceLayout,DeviceType>
     ("PairReaxFF::params_hbp",n+1,n+1,n+1);
   paramshbp = k_params_hbp.template view<DeviceType>();
 

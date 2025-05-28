@@ -111,7 +111,7 @@ class AtomKokkos : public Atom {
     }
   };
 
-  typedef Kokkos::DualView<tagint[2], LMPDeviceType::array_layout, LMPDeviceType> tdual_tagint_2;
+  typedef Kokkos::DualView<tagint[2], LMPDeviceLayout, LMPDeviceType> tdual_tagint_2;
   typedef tdual_tagint_2::t_dev t_tagint_2;
   typedef tdual_tagint_2::t_host t_host_tagint_2;
 

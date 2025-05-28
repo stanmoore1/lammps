@@ -393,19 +393,19 @@ class PairReaxFFKokkos : public PairReaxFF {
   void Deallocate_Lookup_Tables();
   void LR_vdW_Coulomb(int i, int j, double r_ij, ReaxFF::LR_data *lr);
 
-  Kokkos::DualView<params_sing*,typename DeviceType::array_layout,DeviceType> k_params_sing;
-  typename Kokkos::DualView<params_sing*,typename DeviceType::array_layout,DeviceType>::t_dev_const paramssing;
+  Kokkos::DualView<params_sing*,LMPDeviceLayout,DeviceType> k_params_sing;
+  typename Kokkos::DualView<params_sing*,LMPDeviceLayout,DeviceType>::t_dev_const paramssing;
 
-  Kokkos::DualView<params_twbp**,typename DeviceType::array_layout,DeviceType> k_params_twbp;
-  typename Kokkos::DualView<params_twbp**,typename DeviceType::array_layout,DeviceType>::t_dev_const paramstwbp;
+  Kokkos::DualView<params_twbp**,LMPDeviceLayout,DeviceType> k_params_twbp;
+  typename Kokkos::DualView<params_twbp**,LMPDeviceLayout,DeviceType>::t_dev_const paramstwbp;
 
-  Kokkos::DualView<params_thbp***,typename DeviceType::array_layout,DeviceType> k_params_thbp;
-  typename Kokkos::DualView<params_thbp***,typename DeviceType::array_layout,DeviceType>::t_dev_const paramsthbp;
-  Kokkos::DualView<params_hbp***,typename DeviceType::array_layout,DeviceType> k_params_hbp;
-  typename Kokkos::DualView<params_hbp***,typename DeviceType::array_layout,DeviceType>::t_dev_const paramshbp;
+  Kokkos::DualView<params_thbp***,LMPDeviceLayout,DeviceType> k_params_thbp;
+  typename Kokkos::DualView<params_thbp***,LMPDeviceLayout,DeviceType>::t_dev_const paramsthbp;
+  Kokkos::DualView<params_hbp***,LMPDeviceLayout,DeviceType> k_params_hbp;
+  typename Kokkos::DualView<params_hbp***,LMPDeviceLayout,DeviceType>::t_dev_const paramshbp;
 
-  Kokkos::DualView<params_fbp****,typename DeviceType::array_layout,DeviceType> k_params_fbp;
-  typename Kokkos::DualView<params_fbp****,typename DeviceType::array_layout,DeviceType>::t_dev_const paramsfbp;
+  Kokkos::DualView<params_fbp****,LMPDeviceLayout,DeviceType> k_params_fbp;
+  typename Kokkos::DualView<params_fbp****,LMPDeviceLayout,DeviceType>::t_dev_const paramsfbp;
 
   typename AT::t_kkfloat_1d_3_randomread x;
   typename AT::t_kkfloat_1d_3 f;
@@ -457,7 +457,7 @@ class PairReaxFFKokkos : public PairReaxFF {
   NonDupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> ndup_total_bo;
   NonDupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> ndup_CdDelta;
 
-  typedef Kokkos::DualView<KK_FLOAT**[7],typename DeviceType::array_layout,DeviceType> tdual_kkfloat_2d_n7;
+  typedef Kokkos::DualView<KK_FLOAT**[7],LMPDeviceLayout,DeviceType> tdual_kkfloat_2d_n7;
   typedef typename tdual_kkfloat_2d_n7::t_dev_const_randomread t_kkfloat_2d_n7_randomread;
   typedef typename tdual_kkfloat_2d_n7::t_host t_host_kkfloat_2d_n7;
 
@@ -488,7 +488,7 @@ class PairReaxFFKokkos : public PairReaxFF {
 
   typedef LR_lookup_table_kk<DeviceType> LR_lookup_table_kk_DT;
 
-  typedef Kokkos::DualView<LR_lookup_table_kk_DT**,LMPDeviceType::array_layout,DeviceType> tdual_LR_lookup_table_kk_2d;
+  typedef Kokkos::DualView<LR_lookup_table_kk_DT**,LMPDeviceLayout,DeviceType> tdual_LR_lookup_table_kk_2d;
   typedef typename tdual_LR_lookup_table_kk_2d::t_dev t_LR_lookup_table_kk_2d;
 
   tdual_LR_lookup_table_kk_2d k_LR;
@@ -506,7 +506,7 @@ class PairReaxFFKokkos : public PairReaxFF {
   typename AT::t_double_1d d_buf;
   DAT::tdual_int_scalar k_nbuf_local;
 
-  typedef Kokkos::View<reax_int4**, LMPDeviceType::array_layout, DeviceType> t_reax_int4_2d;
+  typedef Kokkos::View<reax_int4**, LMPDeviceLayout, DeviceType> t_reax_int4_2d;
 
   t_reax_int4_2d d_angular_pack, d_torsion_pack;
 
