@@ -49,7 +49,7 @@ CommKokkos::CommKokkos(LAMMPS *lmp) : CommBrick(lmp)
   if (sendlist) for (int i = 0; i < maxswap; i++) memory->destroy(sendlist[i]);
   memory->sfree(sendlist);
   sendlist = nullptr;
-  k_sendlist = DAT::tdual_int_2d();
+  k_sendlist = DAT::tdual_int_2d_lr();
   k_total_send = DAT::tdual_int_scalar("comm::k_total_send");
 
   // error check for disallow of OpenMP threads?
@@ -1097,11 +1097,11 @@ struct BuildBorderListFunctor {
   typename AT::t_kkfloat_1d_3 x;
   int iswap,maxsendlist;
   int nfirst,nlast,dim;
-  typename AT::t_int_2d sendlist;
+  typename AT::t_int_2d_lr sendlist;
   typename AT::t_int_scalar nsend;
 
   BuildBorderListFunctor(DAT::ttriple_kkfloat_1d_3 _x,
-                         DAT::tdual_int_2d _sendlist,
+                         DAT::tdual_int_2d_lr _sendlist,
                          DAT::tdual_int_scalar _nsend,int _nfirst,
                          int _nlast, int _dim,
                          double _lo, double _hi, int _iswap,
@@ -1380,7 +1380,7 @@ void CommKokkos::borders_device() {
 void CommKokkos::copy_swap_info()
 {
   if (nswap > (int)k_swap.extent(1)) {
-    k_swap = DAT::tdual_int_2d("comm:swap",2,nswap);
+    k_swap = DAT::tdual_int_2d_lr("comm:swap",2,nswap);
     k_firstrecv    = Kokkos::subview(k_swap,0,Kokkos::ALL);
     k_sendnum_scan = Kokkos::subview(k_swap,1,Kokkos::ALL);
   }
@@ -1399,7 +1399,7 @@ void CommKokkos::copy_swap_info()
 
   if (totalsend > (int)k_pbc.extent(0)) {
     k_pbc = DAT::tdual_int_2d("comm:pbc",totalsend,6);
-    k_swap2 = DAT::tdual_int_2d("comm:swap2",2,totalsend);
+    k_swap2 = DAT::tdual_int_2d_lr("comm:swap2",2,totalsend);
     k_pbc_flag = Kokkos::subview(k_swap2,0,Kokkos::ALL);
     k_g2l = Kokkos::subview(k_swap2,1,Kokkos::ALL);
   }

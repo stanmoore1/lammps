@@ -68,14 +68,14 @@ class CommKokkos : public CommBrick {
   template<class DeviceType> void borders_device();
 
  protected:
-  DAT::tdual_int_2d k_sendlist;
+  DAT::tdual_int_2d_lr k_sendlist;
   DAT::tdual_int_scalar k_total_send;
   DAT::tdual_double_2d k_buf_send,k_buf_recv;
   DAT::tdual_int_1d k_exchange_sendlist,k_exchange_copylist,k_indices;
   DAT::tdual_int_scalar k_count;
 
-  DAT::tdual_int_2d k_swap;
-  DAT::tdual_int_2d k_swap2;
+  DAT::tdual_int_2d_lr k_swap;
+  DAT::tdual_int_2d_lr k_swap2;
   DAT::tdual_int_2d k_pbc;
   DAT::tdual_int_1d k_pbc_flag;
   DAT::tdual_int_1d k_g2l;

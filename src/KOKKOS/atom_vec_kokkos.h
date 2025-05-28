@@ -44,7 +44,7 @@ class AtomVecKokkos : virtual public AtomVec {
                    const int &pbc_flag, const int pbc[]);
 
   virtual int
-    pack_comm_self_fused(const int &n, const DAT::tdual_int_2d &list,
+    pack_comm_self_fused(const int &n, const DAT::tdual_int_2d_lr &list,
                          const DAT::tdual_int_1d &sendnum_scan,
                          const DAT::tdual_int_1d &firstrecv,
                          const DAT::tdual_int_1d &pbc_flag,

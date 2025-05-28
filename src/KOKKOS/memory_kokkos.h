@@ -108,6 +108,9 @@ TYPE create_kokkos(TYPE &data, typename TYPE::value_type **&array,
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1;
   array = (typename TYPE::value_type **) smalloc(nbytes,name);
 
+  if (!std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>)
+    Kokkos::abort("bad!!!\n");
+
   for (int i = 0; i < n1; i++) {
     if (n2 == 0)
       array[i] = nullptr;
@@ -177,6 +180,9 @@ template <typename TYPE, typename HTYPE>
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1;
   array = (typename TYPE::value_type **) smalloc(nbytes,name);
 
+  if (!std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>)
+    Kokkos::abort("bad!!!\n");
+
   for (int i = 0; i < n1; i++) {
     if (n2 == 0)
       array[i] = nullptr;
@@ -216,6 +222,9 @@ TYPE grow_kokkos(TYPE &data, typename TYPE::value_type **&array,
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1;
   array = (typename TYPE::value_type**) srealloc(array,nbytes,name);
 
+  if (!std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>)
+    Kokkos::abort("bad!!!\n");
+
   for (int i = 0; i < n1; i++)
     if (n2 == 0)
       array[i] = nullptr;
@@ -232,6 +241,10 @@ TYPE grow_kokkos(TYPE &data, typename TYPE::value_type **&array,
   if (array == nullptr) return create_kokkos(data,array,n1,name);
 
   data.resize(n1);
+
+  if (!std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>)
+    Kokkos::abort("bad!!!\n");
+
 
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1;
   array = (typename TYPE::value_type **) srealloc(array,nbytes,name);
@@ -252,6 +265,9 @@ TYPE grow_kokkos(TYPE &data, typename TYPE::value_type **&array,
 template <typename TYPE>
 void destroy_kokkos(TYPE data, typename TYPE::value_type** &array)
 {
+  if (!std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>)
+    Kokkos::abort("bad!!!\n");
+
   if (array == nullptr) return;
   data = TYPE();
   sfree(array);
@@ -266,6 +282,10 @@ template <typename TYPE>
 TYPE create_kokkos(TYPE &data, typename TYPE::value_type ***&array,
                    int n1, int n2, int n3, const char *name)
 {
+  if (!std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>)
+    Kokkos::abort("bad!!!\n");
+
+
   data = TYPE(std::string(name),n1,n2,n3);
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1 * n2;
   typename TYPE::value_type **plane = (typename TYPE::value_type **) smalloc(nbytes,name);
@@ -296,6 +316,9 @@ template <typename TYPE, typename HTYPE>
                      typename TYPE::value_type ***&array, int n1, int n2, int n3,
                      const char *name)
 {
+  if (!std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>)
+    Kokkos::abort("bad!!!\n");
+
   data = TYPE(std::string(name),n1,n2);
   h_data = Kokkos::create_mirror_view(data);
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1 * n2;
@@ -340,6 +363,9 @@ template <typename TYPE>
 TYPE grow_kokkos(TYPE &data, typename TYPE::value_type ***&array,
                    int n1, int n2, int n3, const char *name)
 {
+  if (!std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>)
+    Kokkos::abort("bad!!!\n");
+
   if (array == nullptr) return create_kokkos(data,array,n1,n2,n3,name);
   data.resize(n1,n2,n3);
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1 * n2;
@@ -373,6 +399,9 @@ TYPE grow_kokkos(TYPE &data, typename TYPE::value_type ***&array,
 template <typename TYPE>
 void destroy_kokkos(TYPE data, typename TYPE::value_type*** &array)
 {
+  if (!std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>)
+    Kokkos::abort("bad!!!\n");
+
   if (array == nullptr) return;
   data = TYPE();
 

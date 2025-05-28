@@ -62,11 +62,6 @@ NeighborKokkos::~NeighborKokkos()
     memoryKK->destroy_kokkos(k_ex2_bit,ex2_bit);
     memoryKK->destroy_kokkos(k_ex_mol_bit,ex_mol_bit);
     memoryKK->destroy_kokkos(k_ex_mol_intra,ex_mol_intra);
-
-    memoryKK->destroy_kokkos(k_bondlist,bondlist);
-    memoryKK->destroy_kokkos(k_anglelist,anglelist);
-    memoryKK->destroy_kokkos(k_dihedrallist,dihedrallist);
-    memoryKK->destroy_kokkos(k_improperlist,improperlist);
   }
 }
 

@@ -292,7 +292,7 @@ struct AtomVecKokkos_PackCommSelfFused {
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread _x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _xw;
-  typename ArrayTypes<DeviceType>::t_int_2d_const _list;
+  typename ArrayTypes<DeviceType>::t_int_2d_lr_const _list;
   typename ArrayTypes<DeviceType>::t_int_2d_const _pbc;
   typename ArrayTypes<DeviceType>::t_int_1d_const _pbc_flag;
   typename ArrayTypes<DeviceType>::t_int_1d_const _firstrecv;
@@ -302,7 +302,7 @@ struct AtomVecKokkos_PackCommSelfFused {
 
   AtomVecKokkos_PackCommSelfFused(
       const typename DAT::ttriple_kkfloat_1d_3 &x,
-      const typename DAT::tdual_int_2d &list,
+      const typename DAT::tdual_int_2d_lr &list,
       const typename DAT::tdual_int_2d &pbc,
       const typename DAT::tdual_int_1d &pbc_flag,
       const typename DAT::tdual_int_1d &firstrecv,
@@ -356,7 +356,7 @@ struct AtomVecKokkos_PackCommSelfFused {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecKokkos::pack_comm_self_fused(const int &n, const DAT::tdual_int_2d &list, const DAT::tdual_int_1d &sendnum_scan,
+int AtomVecKokkos::pack_comm_self_fused(const int &n, const DAT::tdual_int_2d_lr &list, const DAT::tdual_int_1d &sendnum_scan,
                                          const DAT::tdual_int_1d &firstrecv, const DAT::tdual_int_1d &pbc_flag, const DAT::tdual_int_2d &pbc,
                                          const DAT::tdual_int_1d &g2l) {
   if (lmp->kokkos->forward_comm_on_host) {

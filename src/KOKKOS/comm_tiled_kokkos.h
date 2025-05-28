@@ -66,7 +66,7 @@ class CommTiledKokkos : public CommTiled {
  protected:
   int nprocmaxtot;
 
-  DAT::tdual_int_3d k_sendlist;
+  DAT::tdual_int_3d_lr k_sendlist;
   DAT::tdual_double_2d k_buf_send,k_buf_recv;
 
   void grow_send(int, int) override;             // reallocate send buffer
