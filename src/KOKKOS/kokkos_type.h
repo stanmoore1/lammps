@@ -656,8 +656,6 @@ struct TripleView {
 
   void modify_device()
   {
-    printf("MODIFY DEVICE %s\n",k_view.h_view.label().c_str());
-
     k_view.modify_device();
 
     if constexpr (NEED_TRANSFORM) {
@@ -672,8 +670,6 @@ struct TripleView {
 
   void modify_host_kk()
   {
-    printf("MODIFY KK HOST %s\n",k_view.h_view.label().c_str());
-
     k_view.modify_host();
 
     if constexpr (NEED_TRANSFORM) {
@@ -691,8 +687,6 @@ struct TripleView {
 
       if (!h_legacy.data()) return;
 
-      printf("MODIFY LEGACY HOST %s\n",k_view.h_view.label().c_str());
-
       modified_legacy_host = 1;
       modified_legacy_device = 1;
 
@@ -708,8 +702,6 @@ struct TripleView {
 
   void sync_device()
   {
-    printf("SYNC DEVICE %s\n",k_view.d_view.label().c_str());
-
     k_view.sync_device();
 
     if constexpr (NEED_TRANSFORM) {
@@ -734,8 +726,6 @@ struct TripleView {
 
   void sync_host_kk()
   {
-    printf("SYNC KK HOST %s\n",k_view.h_view.label().c_str());
-
     k_view.sync_host();
 
     if constexpr (NEED_TRANSFORM) {
@@ -757,8 +747,6 @@ struct TripleView {
     if constexpr (NEED_TRANSFORM) {
 
       if (!h_legacy.data()) return;
-
-      printf("SYNC LEGACY HOST %s\n",k_view.d_view.label().c_str());
 
       if (modified_device_legacy) {
         if constexpr (TRANSFORM_ON_DEVICE) {
