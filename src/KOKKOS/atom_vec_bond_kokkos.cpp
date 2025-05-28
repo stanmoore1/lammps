@@ -622,7 +622,7 @@ void AtomVecBondKokkos::sync(ExecutionSpace space, unsigned int mask)
       atomKK->k_bond_type.sync_device();
       atomKK->k_bond_atom.sync_device();
     }
-  } else {
+  } else if (space == Host) {
     if (mask & X_MASK) atomKK->k_x.sync_host();
     if (mask & V_MASK) atomKK->k_v.sync_host();
     if (mask & F_MASK) atomKK->k_f.sync_host();
@@ -639,6 +639,24 @@ void AtomVecBondKokkos::sync(ExecutionSpace space, unsigned int mask)
       atomKK->k_num_bond.sync_host();
       atomKK->k_bond_type.sync_host();
       atomKK->k_bond_atom.sync_host();
+    }
+  } else if (space == HostKK) {
+    if (mask & X_MASK) atomKK->k_x.sync_host_kk();
+    if (mask & V_MASK) atomKK->k_v.sync_host_kk();
+    if (mask & F_MASK) atomKK->k_f.sync_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.sync_host_kk();
+    if (mask & TYPE_MASK) atomKK->k_type.sync_host_kk();
+    if (mask & MASK_MASK) atomKK->k_mask.sync_host_kk();
+    if (mask & IMAGE_MASK) atomKK->k_image.sync_host_kk();
+    if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_host_kk();
+    if (mask & SPECIAL_MASK) {
+      atomKK->k_nspecial.sync_host_kk();
+      atomKK->k_special.sync_host_kk();
+    }
+    if (mask & BOND_MASK) {
+      atomKK->k_num_bond.sync_host_kk();
+      atomKK->k_bond_type.sync_host_kk();
+      atomKK->k_bond_atom.sync_host_kk();
     }
   }
 }
@@ -734,7 +752,7 @@ void AtomVecBondKokkos::modified(ExecutionSpace space, unsigned int mask)
       atomKK->k_bond_type.modify_device();
       atomKK->k_bond_atom.modify_device();
     }
-  } else {
+  } else if (space == Host) {
     if (mask & X_MASK) atomKK->k_x.modify_host();
     if (mask & V_MASK) atomKK->k_v.modify_host();
     if (mask & F_MASK) atomKK->k_f.modify_host();
@@ -751,6 +769,24 @@ void AtomVecBondKokkos::modified(ExecutionSpace space, unsigned int mask)
       atomKK->k_num_bond.modify_host();
       atomKK->k_bond_type.modify_host();
       atomKK->k_bond_atom.modify_host();
+    }
+  } else if (space == HostKK) {
+    if (mask & X_MASK) atomKK->k_x.modify_host_kk();
+    if (mask & V_MASK) atomKK->k_v.modify_host_kk();
+    if (mask & F_MASK) atomKK->k_f.modify_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.modify_host_kk();
+    if (mask & TYPE_MASK) atomKK->k_type.modify_host_kk();
+    if (mask & MASK_MASK) atomKK->k_mask.modify_host_kk();
+    if (mask & IMAGE_MASK) atomKK->k_image.modify_host_kk();
+    if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_host_kk();
+    if (mask & SPECIAL_MASK) {
+      atomKK->k_nspecial.modify_host_kk();
+      atomKK->k_special.modify_host_kk();
+    }
+    if (mask & BOND_MASK) {
+      atomKK->k_num_bond.modify_host_kk();
+      atomKK->k_bond_type.modify_host_kk();
+      atomKK->k_bond_atom.modify_host_kk();
     }
   }
 }

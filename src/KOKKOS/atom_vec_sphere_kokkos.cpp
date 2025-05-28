@@ -1667,7 +1667,7 @@ void AtomVecSphereKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & RMASS_MASK) atomKK->k_rmass.sync_device();
     if (mask & OMEGA_MASK) atomKK->k_omega.sync_device();
     if (mask & TORQUE_MASK) atomKK->k_torque.sync_device();
-  } else {
+  } else if (space == Host) {
     if (mask & X_MASK) atomKK->k_x.sync_host();
     if (mask & V_MASK) atomKK->k_v.sync_host();
     if (mask & F_MASK) atomKK->k_f.sync_host();
@@ -1679,6 +1679,18 @@ void AtomVecSphereKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & RMASS_MASK) atomKK->k_rmass.sync_host();
     if (mask & OMEGA_MASK) atomKK->k_omega.sync_host();
     if (mask & TORQUE_MASK) atomKK->k_torque.sync_host();
+  } else if (space == HostKK) {
+    if (mask & X_MASK) atomKK->k_x.sync_host_kk();
+    if (mask & V_MASK) atomKK->k_v.sync_host_kk();
+    if (mask & F_MASK) atomKK->k_f.sync_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.sync_host_kk();
+    if (mask & TYPE_MASK) atomKK->k_type.sync_host_kk();
+    if (mask & MASK_MASK) atomKK->k_mask.sync_host_kk();
+    if (mask & IMAGE_MASK) atomKK->k_image.sync_host_kk();
+    if (mask & RADIUS_MASK) atomKK->k_radius.sync_host_kk();
+    if (mask & RMASS_MASK) atomKK->k_rmass.sync_host_kk();
+    if (mask & OMEGA_MASK) atomKK->k_omega.sync_host_kk();
+    if (mask & TORQUE_MASK) atomKK->k_torque.sync_host_kk();
   }
 }
 
@@ -1751,7 +1763,7 @@ void AtomVecSphereKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & RMASS_MASK) atomKK->k_rmass.modify_device();
     if (mask & OMEGA_MASK) atomKK->k_omega.modify_device();
     if (mask & TORQUE_MASK) atomKK->k_torque.modify_device();
-  } else {
+  } else if (space == Host) {
     if (mask & X_MASK) atomKK->k_x.modify_host();
     if (mask & V_MASK) atomKK->k_v.modify_host();
     if (mask & F_MASK) atomKK->k_f.modify_host();
@@ -1763,5 +1775,17 @@ void AtomVecSphereKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & RMASS_MASK) atomKK->k_rmass.modify_host();
     if (mask & OMEGA_MASK) atomKK->k_omega.modify_host();
     if (mask & TORQUE_MASK) atomKK->k_torque.modify_host();
+  } else if (space == HostKK) {
+    if (mask & X_MASK) atomKK->k_x.modify_host_kk();
+    if (mask & V_MASK) atomKK->k_v.modify_host_kk();
+    if (mask & F_MASK) atomKK->k_f.modify_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.modify_host_kk();
+    if (mask & TYPE_MASK) atomKK->k_type.modify_host_kk();
+    if (mask & MASK_MASK) atomKK->k_mask.modify_host_kk();
+    if (mask & IMAGE_MASK) atomKK->k_image.modify_host_kk();
+    if (mask & RADIUS_MASK) atomKK->k_radius.modify_host_kk();
+    if (mask & RMASS_MASK) atomKK->k_rmass.modify_host_kk();
+    if (mask & OMEGA_MASK) atomKK->k_omega.modify_host_kk();
+    if (mask & TORQUE_MASK) atomKK->k_torque.modify_host_kk();
   }
 }

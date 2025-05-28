@@ -961,7 +961,7 @@ void AtomVecDPDKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & UCG_MASK) atomKK->k_uCG.sync_device();
     if (mask & UCGNEW_MASK) atomKK->k_uCGnew.sync_device();
     if (mask & DUCHEM_MASK) atomKK->k_duChem.sync_device();
-  } else {
+  } else if (space == Host) {
     if (mask & X_MASK) atomKK->k_x.sync_host();
     if (mask & V_MASK) atomKK->k_v.sync_host();
     if (mask & F_MASK) atomKK->k_f.sync_host();
@@ -977,6 +977,22 @@ void AtomVecDPDKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & UCG_MASK) atomKK->k_uCG.sync_host();
     if (mask & UCGNEW_MASK) atomKK->k_uCGnew.sync_host();
     if (mask & DUCHEM_MASK) atomKK->k_duChem.sync_host();
+  } else if (space == HostKK) {
+    if (mask & X_MASK) atomKK->k_x.sync_host_kk();
+    if (mask & V_MASK) atomKK->k_v.sync_host_kk();
+    if (mask & F_MASK) atomKK->k_f.sync_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.sync_host_kk();
+    if (mask & TYPE_MASK) atomKK->k_type.sync_host_kk();
+    if (mask & MASK_MASK) atomKK->k_mask.sync_host_kk();
+    if (mask & IMAGE_MASK) atomKK->k_image.sync_host_kk();
+    if (mask & DPDRHO_MASK) atomKK->k_rho.sync_host_kk();
+    if (mask & DPDTHETA_MASK) atomKK->k_dpdTheta.sync_host_kk();
+    if (mask & UCOND_MASK) atomKK->k_uCond.sync_host_kk();
+    if (mask & UMECH_MASK) atomKK->k_uMech.sync_host_kk();
+    if (mask & UCHEM_MASK) atomKK->k_uChem.sync_host_kk();
+    if (mask & UCG_MASK) atomKK->k_uCG.sync_host_kk();
+    if (mask & UCGNEW_MASK) atomKK->k_uCGnew.sync_host_kk();
+    if (mask & DUCHEM_MASK) atomKK->k_duChem.sync_host_kk();
   }
 }
 
@@ -1069,7 +1085,7 @@ void AtomVecDPDKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & UCG_MASK) atomKK->k_uCG.modify_device();
     if (mask & UCGNEW_MASK) atomKK->k_uCGnew.modify_device();
     if (mask & DUCHEM_MASK) atomKK->k_duChem.modify_device();
-  } else {
+  } else if (space == Host) {
     if (mask & X_MASK) atomKK->k_x.modify_host();
     if (mask & V_MASK) atomKK->k_v.modify_host();
     if (mask & F_MASK) atomKK->k_f.modify_host();
@@ -1085,5 +1101,21 @@ void AtomVecDPDKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & UCG_MASK) atomKK->k_uCG.modify_host();
     if (mask & UCGNEW_MASK) atomKK->k_uCGnew.modify_host();
     if (mask & DUCHEM_MASK) atomKK->k_duChem.modify_host();
+  } else if (space == HostKK) {
+    if (mask & X_MASK) atomKK->k_x.modify_host_kk();
+    if (mask & V_MASK) atomKK->k_v.modify_host_kk();
+    if (mask & F_MASK) atomKK->k_f.modify_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.modify_host_kk();
+    if (mask & TYPE_MASK) atomKK->k_type.modify_host_kk();
+    if (mask & MASK_MASK) atomKK->k_mask.modify_host_kk();
+    if (mask & IMAGE_MASK) atomKK->k_image.modify_host_kk();
+    if (mask & DPDRHO_MASK) atomKK->k_rho.modify_host_kk();
+    if (mask & DPDTHETA_MASK) atomKK->k_dpdTheta.modify_host_kk();
+    if (mask & UCOND_MASK) atomKK->k_uCond.modify_host_kk();
+    if (mask & UMECH_MASK) atomKK->k_uMech.modify_host_kk();
+    if (mask & UCHEM_MASK) atomKK->k_uChem.modify_host_kk();
+    if (mask & UCG_MASK) atomKK->k_uCG.modify_host_kk();
+    if (mask & UCGNEW_MASK) atomKK->k_uCGnew.modify_host_kk();
+    if (mask & DUCHEM_MASK) atomKK->k_duChem.modify_host_kk();
   }
 }

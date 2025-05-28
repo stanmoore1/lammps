@@ -562,7 +562,7 @@ void AtomVecChargeKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & MASK_MASK) atomKK->k_mask.sync_device();
     if (mask & IMAGE_MASK) atomKK->k_image.sync_device();
     if (mask & Q_MASK) atomKK->k_q.sync_device();
-  } else {
+  } else if (space == Host) {
     if (mask & X_MASK) atomKK->k_x.sync_host();
     if (mask & V_MASK) atomKK->k_v.sync_host();
     if (mask & F_MASK) atomKK->k_f.sync_host();
@@ -571,6 +571,15 @@ void AtomVecChargeKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & MASK_MASK) atomKK->k_mask.sync_host();
     if (mask & IMAGE_MASK) atomKK->k_image.sync_host();
     if (mask & Q_MASK) atomKK->k_q.sync_host();
+  } else if (space == HostKK) {
+    if (mask & X_MASK) atomKK->k_x.sync_host_kk();
+    if (mask & V_MASK) atomKK->k_v.sync_host_kk();
+    if (mask & F_MASK) atomKK->k_f.sync_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.sync_host_kk();
+    if (mask & TYPE_MASK) atomKK->k_type.sync_host_kk();
+    if (mask & MASK_MASK) atomKK->k_mask.sync_host_kk();
+    if (mask & IMAGE_MASK) atomKK->k_image.sync_host_kk();
+    if (mask & Q_MASK) atomKK->k_q.sync_host_kk();
   }
 }
 
@@ -587,7 +596,7 @@ void AtomVecChargeKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & MASK_MASK) atomKK->k_mask.modify_device();
     if (mask & IMAGE_MASK) atomKK->k_image.modify_device();
     if (mask & Q_MASK) atomKK->k_q.modify_device();
-  } else {
+  } else if (space == Host) {
     if (mask & X_MASK) atomKK->k_x.modify_host();
     if (mask & V_MASK) atomKK->k_v.modify_host();
     if (mask & F_MASK) atomKK->k_f.modify_host();
@@ -596,6 +605,15 @@ void AtomVecChargeKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & MASK_MASK) atomKK->k_mask.modify_host();
     if (mask & IMAGE_MASK) atomKK->k_image.modify_host();
     if (mask & Q_MASK) atomKK->k_q.modify_host();
+  } else if (space == HostKK) {
+    if (mask & X_MASK) atomKK->k_x.modify_host_kk();
+    if (mask & V_MASK) atomKK->k_v.modify_host_kk();
+    if (mask & F_MASK) atomKK->k_f.modify_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.modify_host_kk();
+    if (mask & TYPE_MASK) atomKK->k_type.modify_host_kk();
+    if (mask & MASK_MASK) atomKK->k_mask.modify_host_kk();
+    if (mask & IMAGE_MASK) atomKK->k_image.modify_host_kk();
+    if (mask & Q_MASK) atomKK->k_q.modify_host_kk();
   }
 }
 
