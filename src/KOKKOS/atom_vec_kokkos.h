@@ -117,22 +117,22 @@ class AtomVecKokkos : virtual public AtomVec {
     
   virtual int
     pack_comm_bonus_kokkos(int /*n*/, DAT::tdual_int_2d /*k_sendlist*/,
-                           DAT::tdual_xfloat_2d /*buf*/,int /*iswap*/,
+                           DAT::tdual_double_2d_lr /*buf*/,int /*iswap*/,
                            ExecutionSpace /*space*/) { return 0; }
     
   virtual void
     unpack_comm_bonus_kokkos(const int &/*n*/, const int & /*nfirst*/,
-                             const DAT::tdual_xfloat_2d & /*buf*/,
+                             const DAT::tdual_double_2d_lr & /*buf*/,
                              ExecutionSpace /*space*/) {}
 
   virtual int
     pack_border_bonus_kokkos(int &/*n*/, DAT::tdual_int_2d &/*k_sendlist*/,
-                             DAT::tdual_xfloat_2d &/*buf*/,int &/*iswap*/,
+                             DAT::tdual_double_2d_lr &/*buf*/,int &/*iswap*/,
                              ExecutionSpace /*space*/) { return 0; }
 
   virtual void
     unpack_border_bonus_kokkos(const int &/*n*/, const int & /*nfirst*/,
-                               const DAT::tdual_xfloat_2d & /*buf*/,
+                               const DAT::tdual_double_2d_lr & /*buf*/,
                                ExecutionSpace /*space*/) {}
 
   virtual int get_status_nlocal_bonus() { return 0; }

@@ -39,21 +39,21 @@ class AtomVecOxdnaKokkos : public AtomVecKokkos, public AtomVecOxdna {
   // [un]packs not needed for atom_vec_oxdna[_kokkos], however need to be
   // overridden to avoid pure virtual function compile error
   int pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                         DAT::tdual_xfloat_2d buf,
+                         DAT::tdual_double_2d_lr buf,
                          int pbc_flag, int *pbc, ExecutionSpace space) 
                          override {return 0;};
   void unpack_border_kokkos(const int &n, const int &nfirst,
-                            const DAT::tdual_xfloat_2d &buf,
+                            const DAT::tdual_double_2d_lr &buf,
                             ExecutionSpace space) override {};
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &buf,
+  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d_lr &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            DAT::tdual_int_1d k_sendlist_bonus,
                            DAT::tdual_int_1d k_copylist_bonus,
                            ExecutionSpace space) 
                            override {return 0;};
-  int unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int nrecv,
-                             int nlocal, int dim, X_FLOAT lo, X_FLOAT hi,
+  int unpack_exchange_kokkos(DAT::tdual_double_2d_lr &k_buf, int nrecv,
+                             int nlocal, int dim, double lo, double hi,
                              ExecutionSpace space,
                              DAT::tdual_int_1d &k_indices) 
                              override {return 0;};
