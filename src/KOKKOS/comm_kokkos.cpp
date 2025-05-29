@@ -795,7 +795,7 @@ struct BuildExchangeListFunctor {
   BuildExchangeListFunctor(
       const DAT::ttransform_kkfloat_1d_3_lr x,
       const DAT::tdual_int_1d sendlist,
-      DAT::tdual_int_1d nsend,
+      DAT::tdual_int_1d_scalar nsend,
       const typename AT::tdual_int_1d sendlist_bonus,
       const typename AT::tdual_int_1d bonus_flags,
       int nlocal, int dim,
