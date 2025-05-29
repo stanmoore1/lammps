@@ -130,7 +130,7 @@ void AtomKokkos::init()
 {
   Atom::init();
 
-  sort_classic = lmp->kokkos->sort_classic;
+  sort_legacy = lmp->kokkos->sort_legacy;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -159,7 +159,7 @@ void AtomKokkos::update_property_atom()
 
 void AtomKokkos::sync(const ExecutionSpace space, unsigned int mask)
 {
-  if (space == Device && lmp->kokkos->auto_sync) {
+  if ((space == Device || space == HostKK) && lmp->kokkos->auto_sync) {
     avecKK->modified(Host, mask);
     for (int n = 0; n < nprop_atom; n++) fix_prop_atom[n]->modified(Host, mask);
   }
@@ -175,7 +175,7 @@ void AtomKokkos::modified(const ExecutionSpace space, unsigned int mask)
   avecKK->modified(space, mask);
   for (int n = 0; n < nprop_atom; n++) fix_prop_atom[n]->modified(space, mask);
 
-  if (space == Device && lmp->kokkos->auto_sync) {
+  if ((space == Device || space == HostKK) && lmp->kokkos->auto_sync) {
     avecKK->sync(Host, mask);
     for (int n = 0; n < nprop_atom; n++) fix_prop_atom[n]->sync(Host, mask);
   }
@@ -193,11 +193,10 @@ void AtomKokkos::sync_overlapping_device(const ExecutionSpace space, unsigned in
 void AtomKokkos::allocate_type_arrays()
 {
   if (avec->mass_type == AtomVec::PER_TYPE) {
-    k_mass = DAT::tdual_float_1d("Mass", ntypes + 1);
-    mass = k_mass.h_view.data();
+    memoryKK->create_kokkos(k_mass,mass,ntypes + 1,"atom::mass");
     mass_setflag = new int[ntypes + 1];
     for (int itype = 1; itype <= ntypes; itype++) mass_setflag[itype] = 0;
-    k_mass.modify<LMPHostType>();
+    k_mass.modify_host();
   }
 }
 
@@ -207,7 +206,7 @@ void AtomKokkos::sort()
 {
   // check if all fixes with atom-based arrays support sort on device
 
-  if (!sort_classic) {
+  if (!sort_legacy) {
     int flag = 1;
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++) {
       auto fix_iextra = modify->fix[atom->extra_grow[iextra]];
@@ -221,13 +220,13 @@ void AtomKokkos::sort()
     if (!flag) {
       if (comm->me == 0) {
         error->warning(FLERR,"Fix with atom-based arrays not compatible with Kokkos sorting on device, "
-                           "switching to classic host sorting");
+                           "switching to legacy host sorting");
       }
-      sort_classic = true;
+      sort_legacy = true;
     }
   }
 
-  if (sort_classic) {
+  if (sort_legacy) {
     sync(Host, ALL_MASK);
     Atom::sort();
     modified(Host, ALL_MASK);
@@ -261,7 +260,7 @@ void AtomKokkos::sort_device()
   max_bins[1] = nbiny;
   max_bins[2] = nbinz;
 
-  using KeyViewType = DAT::t_x_array;
+  using KeyViewType = DAT::t_kkfloat_1d_3;
   using BinOp = BinOp3DLAMMPS<KeyViewType>;
   BinOp binner(max_bins, bboxlo, bboxhi);
   Kokkos::BinSort<KeyViewType, BinOp> Sorter(d_x, 0, nlocal, binner, false);

@@ -62,7 +62,7 @@ PairPODKokkos<DeviceType>::PairPODKokkos(LAMMPS *lmp) : PairPOD(lmp)
   timing = 0;
   for (int i=0; i<100; i++) comptime[i] = 0;
 
-  host_flag = (execution_space == Host);
+  host_flag = (execution_space == HostKK);
 }
 
 /* ----------------------------------------------------------------------
@@ -117,7 +117,7 @@ double PairPODKokkos<DeviceType>::init_one(int i, int j)
   double cutone = PairPOD::init_one(i,j);
 
   k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutone*cutone;
-  k_cutsq.template modify<LMPHostType>();
+  k_cutsq.modify_host();
 
   return cutone;
 }
@@ -165,6 +165,7 @@ void PairPODKokkos<DeviceType>::allocate()
 template<class DeviceType>
 struct FindMaxNumNeighs {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   NeighListKokkos<DeviceType> k_list;
 
   FindMaxNumNeighs(NeighListKokkos<DeviceType>* nl): k_list(*nl) {}
@@ -309,12 +310,12 @@ void PairPODKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (eflag_atom) {
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   atomKK->modified(execution_space,F_MASK);
@@ -1694,7 +1695,7 @@ void PairPODKokkos<DeviceType>::tallyenergy(t_pod_1d l_ei, int istart, int Ni)
   // For global energy tally
   if (eflag_global) {
     double local_eng_vdwl = 0.0;
-    Kokkos::parallel_reduce("GlobalEnergyTally", Kokkos::RangePolicy<DeviceType>(0,Ni), KOKKOS_LAMBDA(int k, E_FLOAT& update) {
+    Kokkos::parallel_reduce("GlobalEnergyTally", Kokkos::RangePolicy<DeviceType>(0,Ni), KOKKOS_LAMBDA(int k, double& update) {
       update += l_ei(k);
     }, local_eng_vdwl);
 
@@ -1717,30 +1718,30 @@ void PairPODKokkos<DeviceType>::tallystress(t_pod_1d l_fij, t_pod_1d l_rij, t_po
 
   if (vflag_global) {
     for (int j=0; j<3; j++) {
-      F_FLOAT sum = 0.0;
-      Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, F_FLOAT& update) {
+      double sum = 0.0;
+      Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, double& update) {
         int k3 = 3*k;
         update += l_rij(j + k3) * l_fij(j + k3);
       }, sum);
       virial[j] -= sum;
     }
 
-    F_FLOAT sum = 0.0;
-    Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, F_FLOAT& update) {
+    double sum = 0.0;
+    Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, double& update) {
       int k3 = 3*k;
       update += l_rij(k3) * l_fij(1 + k3);
     }, sum);
     virial[3] -= sum;
 
     sum = 0.0;
-    Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, F_FLOAT& update) {
+    Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, double& update) {
       int k3 = 3*k;
       update += l_rij(k3) * l_fij(2 + k3);
     }, sum);
     virial[4] -= sum;
 
     sum = 0.0;
-    Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, F_FLOAT& update) {
+    Kokkos::parallel_reduce("GlobalStressTally", Kokkos::RangePolicy<DeviceType>(0,Nij), KOKKOS_LAMBDA(int k, double& update) {
       int k3 = 3*k;
       update += l_rij(1+k3) * l_fij(2+k3);
     }, sum);

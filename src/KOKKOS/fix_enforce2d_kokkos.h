@@ -45,12 +45,12 @@ class FixEnforce2DKokkos : public FixEnforce2D {
   // void post_force_respa(int, int, int);  No RRESPA support yet.
 
  private:
-  typename ArrayTypes<DeviceType>::t_v_array v;
-  typename ArrayTypes<DeviceType>::t_f_array f;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 v;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
 
-  typename ArrayTypes<DeviceType>::t_v_array omega;
-  typename ArrayTypes<DeviceType>::t_v_array angmom;
-  typename ArrayTypes<DeviceType>::t_f_array torque;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 omega;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 angmom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 torque;
 
   typename ArrayTypes<DeviceType>::t_int_1d mask;
 };
@@ -59,6 +59,7 @@ class FixEnforce2DKokkos : public FixEnforce2D {
 template <class DeviceType, int omega_flag, int angmom_flag, int torque_flag>
 struct FixEnforce2DKokkosPostForceFunctor {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   FixEnforce2DKokkos<DeviceType> c;
 
   FixEnforce2DKokkosPostForceFunctor(FixEnforce2DKokkos<DeviceType>* c_ptr):

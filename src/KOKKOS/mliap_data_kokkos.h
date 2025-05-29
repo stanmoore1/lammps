@@ -25,6 +25,10 @@
 #include "pair_mliap_kokkos.h"
 #include "pointers.h"
 
+#if LMP_KOKKOS_PRECISION != 2
+#error  Must set LMP_KOKKOS_PRECISION=2 for ML-IAP Package
+#endif
+
 namespace LAMMPS_NS {
 // clang-format off
 enum {
@@ -71,14 +75,14 @@ template <class DeviceType> class MLIAPDataKokkos : public MLIAPData {
   DAT::tdual_int_1d k_pair_i;           // index of each i atom for each ij pair
   DAT::tdual_int_1d k_jelems;           // element of each neighbor
   DAT::tdual_int_1d k_ij;               // Start location for each particle
-  DAT::tdual_float_2d k_betas;          // betas for all atoms in list
-  DAT::tdual_float_2d k_descriptors;    // descriptors for all atoms in list
-  DAT::tdual_float_1d k_eatoms;         // energies for all atoms in list
-  DAT::tdual_float_2d k_rij;            // distance vector of each neighbor
-  DAT::tdual_float_2d k_gradforce;
-  DAT::tdual_float_3d k_graddesc;         // descriptor gradient w.r.t. each neighbor
+  DAT::tdual_double_2d k_betas;          // betas for all atoms in list
+  DAT::tdual_double_2d k_descriptors;    // descriptors for all atoms in list
+  DAT::tdual_double_1d k_eatoms;         // energies for all atoms in list
+  DAT::tdual_double_2d k_rij;            // distance vector of each neighbor
+  DAT::tdual_double_2d k_gradforce;
+  DAT::tdual_double_3d k_graddesc;         // descriptor gradient w.r.t. each neighbor
   DAT::tdual_int_1d k_numneighs;          // neighbors count for each atom
-  DAT::tdual_float_2d k_gamma;            // gamma element
+  DAT::tdual_double_2d k_gamma;            // gamma element
   DAT::tdual_int_2d k_gamma_row_index;    // row (parameter) index
   DAT::tdual_int_2d k_gamma_col_index;    // column (descriptor) index
 
@@ -191,6 +195,19 @@ public:
   class PairMLIAPKokkos<LMPDeviceType> *pairmliap;    // access to pair tally functions
 
   int dev;
+
+  //forward_exchange writes into ghosts
+  template <typename CommType>
+  void forward_exchange(CommType* copy_from, CommType* copy_to, const int vec_len){
+    pairmliap->forward_comm(copy_from, copy_to, vec_len);
+  }
+
+  //reverse_exchange adds from ghosts and zeros out ghosts afterwards
+  template <typename CommType>
+  void reverse_exchange(CommType* copy_from, CommType* copy_to, const int vec_len){
+    pairmliap->reverse_comm(copy_from, copy_to, vec_len);
+  }
+
 
 #ifdef LMP_KOKKOS_GPU
   MLIAPDataKokkosDevice(MLIAPDataKokkos<LMPHostType> &base) : ndescriptors(-1),nparams(-1),nelements(-1),ntotal(-1),nlistatoms(-1),nlocal(-1),natomneigh(-1),

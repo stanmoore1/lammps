@@ -1,4 +1,3 @@
-// clang-format off
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
@@ -11,6 +10,7 @@
 
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
+// clang-format off
 
 #ifndef LMP_MEMORY_KOKKOS_H
 #define LMP_MEMORY_KOKKOS_H
@@ -35,8 +35,7 @@ class MemoryKokkos : public Memory {
 ------------------------------------------------------------------------- */
 
 template <typename TYPE>
-TYPE create_kokkos(TYPE &data, typename TYPE::value_type *&array,
-                   int n1, const char *name)
+TYPE create_kokkos(TYPE &data, typename TYPE::value_type *&array, int n1, const char *name)
 {
   data = TYPE(name,n1);
   array = data.h_view.data();
@@ -44,8 +43,7 @@ TYPE create_kokkos(TYPE &data, typename TYPE::value_type *&array,
 }
 
 template <typename TYPE, typename HTYPE>
-  TYPE create_kokkos(TYPE &data, HTYPE &h_data,
-                     typename TYPE::value_type *&array, int n1,
+  TYPE create_kokkos(TYPE &data, HTYPE &h_data, typename TYPE::value_type *&array, int n1,
                      const char *name)
 {
   data = TYPE(std::string(name),n1);
@@ -56,8 +54,7 @@ template <typename TYPE, typename HTYPE>
 
 
 template <typename TYPE, typename HTYPE>
-  TYPE create_kokkos(TYPE &data, HTYPE &h_data,
-                     int n1, const char *name)
+  TYPE create_kokkos(TYPE &data, HTYPE &h_data, int n1, const char *name)
 {
   data = TYPE(std::string(name),n1);
   h_data = Kokkos::create_mirror_view(data);
@@ -69,8 +66,7 @@ template <typename TYPE, typename HTYPE>
 ------------------------------------------------------------------------- */
 
 template <typename TYPE>
-TYPE grow_kokkos(TYPE &data, typename TYPE::value_type *&array,
-                 int n1, const char *name)
+TYPE grow_kokkos(TYPE &data, typename TYPE::value_type *&array, int n1, const char *name)
 {
   if (array == nullptr) return create_kokkos(data,array,n1,name);
 
@@ -96,12 +92,11 @@ void destroy_kokkos(TYPE data, typename TYPE::value_type* &array)
 ------------------------------------------------------------------------- */
 
 template <typename TYPE, typename HTYPE>
-  TYPE create_kokkos(TYPE &data, HTYPE &h_data, int n1, int n2,
-                     const char *name)
+  TYPE create_kokkos(TYPE &data, HTYPE &h_data, int n1, int n2, const char *name)
 {
   data = TYPE(std::string(name),n1,n2);
   h_data = Kokkos::create_mirror_view(data);
-  //printf(">>> name: %s\n", name);
+
   return data;
 }
 
@@ -112,7 +107,8 @@ TYPE create_kokkos(TYPE &data, typename TYPE::value_type **&array,
   data = TYPE(std::string(name),n1,n2);
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1;
   array = (typename TYPE::value_type **) smalloc(nbytes,name);
-  //printf(">>> name %s nbytes %d\n", name, nbytes);
+
+  static_assert(std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>,"bad!!!");
 
   for (int i = 0; i < n1; i++) {
     if (n2 == 0)
@@ -183,6 +179,8 @@ template <typename TYPE, typename HTYPE>
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1;
   array = (typename TYPE::value_type **) smalloc(nbytes,name);
 
+  static_assert(std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>,"bad!!!");
+
   for (int i = 0; i < n1; i++) {
     if (n2 == 0)
       array[i] = nullptr;
@@ -222,6 +220,8 @@ TYPE grow_kokkos(TYPE &data, typename TYPE::value_type **&array,
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1;
   array = (typename TYPE::value_type**) srealloc(array,nbytes,name);
 
+  static_assert(std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>,"bad!!!");
+
   for (int i = 0; i < n1; i++)
     if (n2 == 0)
       array[i] = nullptr;
@@ -238,6 +238,9 @@ TYPE grow_kokkos(TYPE &data, typename TYPE::value_type **&array,
   if (array == nullptr) return create_kokkos(data,array,n1,name);
 
   data.resize(n1);
+
+  static_assert(std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>,"bad!!!");
+
 
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1;
   array = (typename TYPE::value_type **) srealloc(array,nbytes,name);
@@ -258,6 +261,8 @@ TYPE grow_kokkos(TYPE &data, typename TYPE::value_type **&array,
 template <typename TYPE>
 void destroy_kokkos(TYPE data, typename TYPE::value_type** &array)
 {
+  static_assert(std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>,"bad!!!");
+
   if (array == nullptr) return;
   data = TYPE();
   sfree(array);
@@ -272,6 +277,9 @@ template <typename TYPE>
 TYPE create_kokkos(TYPE &data, typename TYPE::value_type ***&array,
                    int n1, int n2, int n3, const char *name)
 {
+  static_assert(std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>,"bad!!!");
+
+
   data = TYPE(std::string(name),n1,n2,n3);
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1 * n2;
   typename TYPE::value_type **plane = (typename TYPE::value_type **) smalloc(nbytes,name);
@@ -302,6 +310,8 @@ template <typename TYPE, typename HTYPE>
                      typename TYPE::value_type ***&array, int n1, int n2, int n3,
                      const char *name)
 {
+  static_assert(std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>,"bad!!!");
+
   data = TYPE(std::string(name),n1,n2);
   h_data = Kokkos::create_mirror_view(data);
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1 * n2;
@@ -346,6 +356,8 @@ template <typename TYPE>
 TYPE grow_kokkos(TYPE &data, typename TYPE::value_type ***&array,
                    int n1, int n2, int n3, const char *name)
 {
+  static_assert(std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>,"bad!!!");
+
   if (array == nullptr) return create_kokkos(data,array,n1,n2,n3,name);
   data.resize(n1,n2,n3);
   bigint nbytes = ((bigint) sizeof(typename TYPE::value_type *)) * n1 * n2;
@@ -379,6 +391,8 @@ TYPE grow_kokkos(TYPE &data, typename TYPE::value_type ***&array,
 template <typename TYPE>
 void destroy_kokkos(TYPE data, typename TYPE::value_type*** &array)
 {
+  static_assert(std::is_same_v<typename TYPE::array_layout,Kokkos::LayoutRight>,"bad!!!");
+
   if (array == nullptr) return;
   data = TYPE();
 

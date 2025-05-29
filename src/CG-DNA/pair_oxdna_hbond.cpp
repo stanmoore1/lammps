@@ -710,7 +710,7 @@ void PairOxdnaHbond::coeff(int narg, char **arg)
 {
   int count;
 
-  if (narg != 4 && narg != 27) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/hbond");
+  if (narg != 4 && narg != 27) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/hbond" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi,imod4,jmod4;
@@ -975,7 +975,7 @@ void PairOxdnaHbond::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/hbond");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/hbond" + utils::errorurl(21));
 
 }
 

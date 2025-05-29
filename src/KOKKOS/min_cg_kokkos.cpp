@@ -47,8 +47,8 @@ int MinCGKokkos::iterate(int maxiter)
   int fail,ntimestep;
   double beta,gg,dot[2],dotall[2],fdotf;
 
-  fix_minimize_kk->k_vectors.sync<LMPDeviceType>();
-  fix_minimize_kk->k_vectors.modify<LMPDeviceType>();
+  fix_minimize_kk->k_vectors.sync_device();
+  fix_minimize_kk->k_vectors.modify_device();
 
   atomKK->sync(Device,F_MASK);
 
@@ -102,14 +102,14 @@ int MinCGKokkos::iterate(int maxiter)
 
     // force tolerance criterion
 
-    s_double2 sdot;
+    s_KK_FLOAT2 sdot;
     {
       // local variables for lambda capture
 
       auto l_g = g;
       auto l_fvec = fvec;
 
-      Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_double2& sdot) {
+      Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_KK_FLOAT2& sdot) {
         sdot.d0 += l_fvec[i]*l_fvec[i];
         sdot.d1 += l_fvec[i]*l_g[i];
       },sdot);

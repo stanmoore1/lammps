@@ -82,7 +82,7 @@ FixLangevinKokkos<DeviceType>::FixLangevinKokkos(LAMMPS *lmp, int narg, char **a
   }
 
   if (zeroflag) {
-    k_fsumall = tdual_double_1d_3n("langevin:fsumall");
+    k_fsumall = tdual_kkfloat_1d_3n("langevin:fsumall");
     h_fsumall = k_fsumall.h_view;
     d_fsumall = k_fsumall.template view<DeviceType>();
   }
@@ -751,10 +751,10 @@ KOKKOS_INLINE_FUNCTION
 FSUM FixLangevinKokkos<DeviceType>::post_force_item(int i) const
 {
   FSUM fsum;
-  double fdrag[3],fran[3];
-  double gamma1,gamma2;
-  double fswap;
-  double tsqrt_t = tsqrt;
+  KK_FLOAT fdrag[3],fran[3];
+  KK_FLOAT gamma1,gamma2;
+  KK_FLOAT fswap;
+  KK_FLOAT tsqrt_t = tsqrt;
 
   if (mask[i] & groupbit) {
     rand_type rand_gen = rand_pool.get_state();
@@ -964,9 +964,9 @@ double FixLangevinKokkos<DeviceType>::compute_scalar()
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-double FixLangevinKokkos<DeviceType>::compute_energy_item(int i) const
+KK_FLOAT FixLangevinKokkos<DeviceType>::compute_energy_item(int i) const
 {
-  double my_energy = 0.0;
+  KK_FLOAT my_energy = 0.0;
   if (mask[i] & groupbit) {
     if (gjfflag) {
       my_energy = d_flangevin(i,0)*d_lv(i,0) + d_flangevin(i,1)*d_lv(i,1) +
@@ -1030,9 +1030,9 @@ void FixLangevinKokkos<DeviceType>::end_of_step()
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void FixLangevinKokkos<DeviceType>::end_of_step_item(int i) const {
-  double tmp[3];
+  KK_FLOAT tmp[3];
   if (mask[i] & groupbit) {
-    const double dtfm = ftm2v * 0.5 * dt / mass[type[i]];
+    const KK_FLOAT dtfm = ftm2v * 0.5 * dt / mass[type[i]];
     tmp[0] = v(i,0);
     tmp[1] = v(i,1);
     tmp[2] = v(i,2);
@@ -1061,9 +1061,9 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void FixLangevinKokkos<DeviceType>::end_of_step_rmass_item(int i) const
 {
-  double tmp[3];
+  KK_FLOAT tmp[3];
   if (mask[i] & groupbit) {
-    const double dtfm = ftm2v * 0.5 * dt / rmass[i];
+    const KK_FLOAT dtfm = ftm2v * 0.5 * dt / rmass[i];
     tmp[0] = v(i,0);
     tmp[1] = v(i,1);
     tmp[2] = v(i,2);

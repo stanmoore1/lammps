@@ -28,6 +28,7 @@
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
+
 template <class DeviceType>
 MLIAPDescriptorSO3Kokkos<DeviceType>::MLIAPDescriptorSO3Kokkos(LAMMPS *lmp, char *paramfilename)
  // TODO: why take self as param, shouldn't be needed
@@ -35,6 +36,14 @@ MLIAPDescriptorSO3Kokkos<DeviceType>::MLIAPDescriptorSO3Kokkos(LAMMPS *lmp, char
 {
   // TODO: the MLIAP_SO3 object likely needs a kokkos-ified version
   so3ptr_kokkos = new MLIAP_SO3Kokkos<DeviceType>(lmp, rcutfac, lmax, nmax, alpha);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template <class DeviceType>
+MLIAPDescriptorSO3Kokkos<DeviceType>::~MLIAPDescriptorSO3Kokkos()
+{
+  delete so3ptr_kokkos;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -73,7 +82,7 @@ void MLIAPDescriptorSO3Kokkos<DeviceType>::compute_forces(class MLIAPData *data_
   int vflag_either=data->k_pairmliap->vflag_either, vflag_global=data->pairmliap->vflag_global, vflag_atom=data->pairmliap->vflag_atom;
   auto d_vatom = data->k_pairmliap->k_vatom.template view<DeviceType>();
   Kokkos::View<double[6], DeviceType> virial("virial");
-  data->k_pairmliap->k_vatom.template modify<LMPHostType>();
+  data->k_pairmliap->k_vatom.modify_host();
   data->k_pairmliap->k_vatom.template sync<DeviceType>();
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,data->nlistatoms), KOKKOS_LAMBDA(int ii) {
     double fij[3];
@@ -117,7 +126,7 @@ void MLIAPDescriptorSO3Kokkos<DeviceType>::compute_forces(class MLIAPData *data_
     }
     if (vflag_atom) {
       data->k_pairmliap->k_vatom.template modify<DeviceType>();
-      data->k_pairmliap->k_vatom.template sync<LMPHostType>();
+      data->k_pairmliap->k_vatom.sync_host();
     }
   }
 }

@@ -682,7 +682,7 @@ forward_comm_kspace_brick(KSpace *kspace, int which, int nper,
 
       if (!lmp->kokkos->gpu_aware_flag) {
         k_buf1.modify<DeviceType>();
-        k_buf1.sync<LMPHostType>();
+        k_buf1.sync_host();
       }
 
       if (swap[m].nunpack) MPI_Irecv(buf2,nper*swap[m].nunpack,datatype,
@@ -692,7 +692,7 @@ forward_comm_kspace_brick(KSpace *kspace, int which, int nper,
       if (swap[m].nunpack) MPI_Wait(&request,MPI_STATUS_IGNORE);
 
       if (!lmp->kokkos->gpu_aware_flag) {
-        k_buf2.modify<LMPHostType>();
+        k_buf2.modify_host();
         k_buf2.sync<DeviceType>();
       }
     }
@@ -740,7 +740,7 @@ forward_comm_kspace_tiled(KSpace *kspace, int which, int nper,
 
     if (!lmp->kokkos->gpu_aware_flag) {
       k_buf1.modify<DeviceType>();
-      k_buf1.sync<LMPHostType>();
+      k_buf1.sync_host();
     }
 
     MPI_Send(buf1,nper*send[m].npack,datatype,send[m].proc,0,gridcomm);
@@ -759,7 +759,7 @@ forward_comm_kspace_tiled(KSpace *kspace, int which, int nper,
     MPI_Waitany(nrecv,requests,&m,MPI_STATUS_IGNORE);
 
     if (!lmp->kokkos->gpu_aware_flag) {
-      k_buf2.modify<LMPHostType>();
+      k_buf2.modify_host();
       k_buf2.sync<DeviceType>();
     }
 
@@ -822,7 +822,7 @@ reverse_comm_kspace_brick(KSpace *kspace, int which, int nper,
 
       if (!lmp->kokkos->gpu_aware_flag) {
         k_buf1.modify<DeviceType>();
-        k_buf1.sync<LMPHostType>();
+        k_buf1.sync_host();
       }
 
       if (swap[m].npack) MPI_Irecv(buf2,nper*swap[m].npack,datatype,
@@ -833,7 +833,7 @@ reverse_comm_kspace_brick(KSpace *kspace, int which, int nper,
 
 
       if (!lmp->kokkos->gpu_aware_flag) {
-        k_buf2.modify<LMPHostType>();
+        k_buf2.modify_host();
         k_buf2.sync<DeviceType>();
       }
     }
@@ -882,7 +882,7 @@ reverse_comm_kspace_tiled(KSpace *kspace, int which, int nper,
 
     if (!lmp->kokkos->gpu_aware_flag) {
       k_buf1.modify<DeviceType>();
-      k_buf1.sync<LMPHostType>();
+      k_buf1.sync_host();
     }
 
     MPI_Send(buf1,nper*recv[m].nunpack,datatype,recv[m].proc,0,gridcomm);
@@ -900,7 +900,7 @@ reverse_comm_kspace_tiled(KSpace *kspace, int which, int nper,
     MPI_Waitany(nsend,requests,&m,MPI_STATUS_IGNORE);
 
     if (!lmp->kokkos->gpu_aware_flag) {
-      k_buf2.modify<LMPHostType>();
+      k_buf2.modify_host();
       k_buf2.sync<DeviceType>();
     }
 
@@ -953,7 +953,7 @@ int Grid3dKokkos<DeviceType>::indices(DAT::tdual_int_2d &k_list, int index,
   int nx = (fullxhi-fullxlo+1);
   int ny = (fullyhi-fullylo+1);
 
-  k_list.sync<LMPHostType>();
+  k_list.sync_host();
 
   int n = 0;
   int ix,iy,iz;
@@ -962,7 +962,7 @@ int Grid3dKokkos<DeviceType>::indices(DAT::tdual_int_2d &k_list, int index,
       for (ix = xlo; ix <= xhi; ix++)
         k_list.h_view(index,n++) = (iz-fullzlo)*ny*nx + (iy-fullylo)*nx + (ix-fullxlo);
 
-  k_list.modify<LMPHostType>();
+  k_list.modify_host();
   k_list.sync<DeviceType>();
 
   return nmax;

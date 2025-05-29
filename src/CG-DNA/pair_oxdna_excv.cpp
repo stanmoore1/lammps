@@ -777,7 +777,7 @@ void PairOxdnaExcv::coeff(int narg, char **arg)
 {
   int count;
 
-  if (narg != 3 && narg != 11) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/excv");
+  if (narg != 3 && narg != 11) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/excv" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi,nlo,nhi;
@@ -897,7 +897,7 @@ void PairOxdnaExcv::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/excv");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/excv" + utils::errorurl(21));
 
   // backbone-base
   count = 0;
@@ -947,7 +947,7 @@ void PairOxdnaExcv::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/excv");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/excv" + utils::errorurl(21));
 
   // base-base
   count = 0;
@@ -997,7 +997,7 @@ void PairOxdnaExcv::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/excv");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/excv" + utils::errorurl(21));
 
 }
 
