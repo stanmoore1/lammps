@@ -62,7 +62,7 @@ struct AtomVecKokkos_PackComm {
   double _pbc[6];
 
   AtomVecKokkos_PackComm(
-      const typename DAT::ttriple_kkfloat_1d_3_lr &x,
+      const typename DAT::ttransform_kkfloat_1d_3_lr &x,
       const typename DAT::tdual_double_2d_lr &buf,
       const typename DAT::tdual_int_1d &list,
       const double &xprd, const double &yprd, const double &zprd,
@@ -183,7 +183,7 @@ struct AtomVecKokkos_PackCommSelf {
   double _pbc[6];
 
   AtomVecKokkos_PackCommSelf(
-      const typename DAT::ttriple_kkfloat_1d_3_lr &x,
+      const typename DAT::ttransform_kkfloat_1d_3_lr &x,
       const int &nfirst,
       const typename DAT::tdual_int_1d &list,
       const double &xprd, const double &yprd, const double &zprd,
@@ -301,7 +301,7 @@ struct AtomVecKokkos_PackCommSelfFused {
   double _xprd,_yprd,_zprd,_xy,_xz,_yz;
 
   AtomVecKokkos_PackCommSelfFused(
-      const typename DAT::ttriple_kkfloat_1d_3_lr &x,
+      const typename DAT::ttransform_kkfloat_1d_3_lr &x,
       const typename DAT::tdual_int_2d_lr &list,
       const typename DAT::tdual_int_2d &pbc,
       const typename DAT::tdual_int_1d &pbc_flag,
@@ -404,7 +404,7 @@ struct AtomVecKokkos_UnpackComm {
   int _first;
 
   AtomVecKokkos_UnpackComm(
-      const typename DAT::ttriple_kkfloat_1d_3_lr &x,
+      const typename DAT::ttransform_kkfloat_1d_3_lr &x,
       const typename DAT::tdual_double_2d_lr &buf,
       const int& first):_x(x.view<DeviceType>()),_buf(buf.view<DeviceType>()),
                         _first(first) {};
@@ -452,9 +452,9 @@ struct AtomVecKokkos_PackCommVel {
   const int _deform_vremap;
 
   AtomVecKokkos_PackCommVel(
-    const typename DAT::ttriple_kkfloat_1d_3_lr &x,
-    const typename DAT::ttriple_int_1d &mask,
-    const typename DAT::ttriple_kkfloat_1d_3 &v,
+    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+    const typename DAT::ttransform_int_1d &mask,
+    const typename DAT::ttransform_kkfloat_1d_3 &v,
     const typename DAT::tdual_double_2d_lr &buf,
     const typename DAT::tdual_int_1d &list,
     const double &xprd, const double &yprd, const double &zprd,
@@ -663,8 +663,8 @@ struct AtomVecKokkos_UnpackCommVel {
   int _first;
 
   AtomVecKokkos_UnpackCommVel(
-    const typename DAT::ttriple_kkfloat_1d_3_lr &x,
-    const typename DAT::ttriple_kkfloat_1d_3 &v,
+    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+    const typename DAT::ttransform_kkfloat_1d_3 &v,
     const typename DAT::tdual_double_2d_lr &buf,
     const int& first):
     _x(x.view<DeviceType>()),
@@ -716,7 +716,7 @@ struct AtomVecKokkos_PackReverse {
   int _first;
 
   AtomVecKokkos_PackReverse(
-      const typename DAT::ttriple_kkfloat_1d_3 &f,
+      const typename DAT::ttransform_kkfloat_1d_3 &f,
       const typename DAT::tdual_double_2d_lr &buf,
       const int& first):_f(f.view<DeviceType>()),_buf(buf.view<DeviceType>()),
                         _first(first) {};
@@ -759,7 +759,7 @@ struct AtomVecKokkos_UnPackReverseSelf {
   typename ArrayTypes<DeviceType>::t_int_1d_const _list;
 
   AtomVecKokkos_UnPackReverseSelf(
-      const typename DAT::ttriple_kkfloat_1d_3 &f,
+      const typename DAT::ttransform_kkfloat_1d_3 &f,
       const int &nfirst,
       const typename DAT::tdual_int_1d &list):
       _f(f.view<DeviceType>()),_fw(f.view<DeviceType>()),_nfirst(nfirst),_list(list.view<DeviceType>()) {
@@ -805,7 +805,7 @@ struct AtomVecKokkos_UnPackReverse {
   typename ArrayTypes<DeviceType>::t_int_1d_const _list;
 
   AtomVecKokkos_UnPackReverse(
-      const typename DAT::ttriple_kkfloat_1d_3 &f,
+      const typename DAT::ttransform_kkfloat_1d_3 &f,
       const typename DAT::tdual_double_2d_lr &buf,
       const typename DAT::tdual_int_1d &list):
       _f(f.view<DeviceType>()),_list(list.view<DeviceType>()) {

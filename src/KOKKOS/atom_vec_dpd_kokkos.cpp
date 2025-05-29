@@ -175,11 +175,11 @@ struct AtomVecDPDKokkos_PackComm {
   double _pbc[6];
 
   AtomVecDPDKokkos_PackComm(
-      const typename DAT::ttriple_kkfloat_1d_3_lr &x,
-      const typename DAT::ttriple_kkfloat_1d &dpdTheta,
-      const typename DAT::ttriple_kkfloat_1d &uCond,
-      const typename DAT::ttriple_kkfloat_1d &uMech,
-      const typename DAT::ttriple_kkfloat_1d &uChem,
+      const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+      const typename DAT::ttransform_kkfloat_1d &dpdTheta,
+      const typename DAT::ttransform_kkfloat_1d &uCond,
+      const typename DAT::ttransform_kkfloat_1d &uMech,
+      const typename DAT::ttransform_kkfloat_1d &uChem,
       const typename DAT::tdual_double_2d_lr &buf,
       const typename DAT::tdual_int_1d &list,
       const double &xprd, const double &yprd, const double &zprd,
@@ -326,11 +326,11 @@ struct AtomVecDPDKokkos_PackCommSelf {
   double _pbc[6];
 
   AtomVecDPDKokkos_PackCommSelf(
-      const typename DAT::ttriple_kkfloat_1d_3_lr &x,
-      const typename DAT::ttriple_kkfloat_1d &dpdTheta,
-      const typename DAT::ttriple_kkfloat_1d &uCond,
-      const typename DAT::ttriple_kkfloat_1d &uMech,
-      const typename DAT::ttriple_kkfloat_1d &uChem,
+      const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+      const typename DAT::ttransform_kkfloat_1d &dpdTheta,
+      const typename DAT::ttransform_kkfloat_1d &uCond,
+      const typename DAT::ttransform_kkfloat_1d &uMech,
+      const typename DAT::ttransform_kkfloat_1d &uChem,
       const int &nfirst,
       const typename DAT::tdual_int_1d &list,
       const double &xprd, const double &yprd, const double &zprd,
@@ -465,11 +465,11 @@ struct AtomVecDPDKokkos_UnpackComm {
   int _first;
 
   AtomVecDPDKokkos_UnpackComm(
-      const typename DAT::ttriple_kkfloat_1d_3_lr &x,
-      const typename DAT::ttriple_kkfloat_1d &dpdTheta,
-      const typename DAT::ttriple_kkfloat_1d &uCond,
-      const typename DAT::ttriple_kkfloat_1d &uMech,
-      const typename DAT::ttriple_kkfloat_1d &uChem,
+      const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+      const typename DAT::ttransform_kkfloat_1d &dpdTheta,
+      const typename DAT::ttransform_kkfloat_1d &uCond,
+      const typename DAT::ttransform_kkfloat_1d &uMech,
+      const typename DAT::ttransform_kkfloat_1d &uChem,
       const typename DAT::tdual_double_2d_lr &buf,
       const int& first):_x(x.view<DeviceType>()),
                         _dpdTheta(dpdTheta.view<DeviceType>()),

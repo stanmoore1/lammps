@@ -68,7 +68,7 @@ class FixSpringSelfKokkos : public FixSpringSelf, public KokkosBase {
  protected:
   int nrecv1,nextrarecv1;
 
-  DAT::ttriple_kkfloat_1d_3_lr k_xoriginal;
+  DAT::ttransform_kkfloat_1d_3_lr k_xoriginal;
   typename AT::t_kkfloat_1d_3_lr d_xoriginal;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;

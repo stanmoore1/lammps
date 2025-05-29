@@ -105,8 +105,8 @@ class DihedralCharmmKokkos : public DihedralCharmm {
                 const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
-  TripleView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
-  TripleView<KK_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType> k_vatom;
+  TransformView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
+  TransformView<KK_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType> k_vatom;
 
  protected:
 
@@ -121,8 +121,8 @@ class DihedralCharmmKokkos : public DihedralCharmm {
   Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
   Kokkos::View<KK_FLOAT*[6],LMPDeviceLayout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
 
-  TripleView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom_pair;
-  TripleView<KK_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType> k_vatom_pair;
+  TransformView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom_pair;
+  TransformView<KK_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType> k_vatom_pair;
   Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom_pair;
   Kokkos::View<KK_FLOAT*[6],LMPDeviceLayout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom_pair;
 

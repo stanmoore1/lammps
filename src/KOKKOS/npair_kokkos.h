@@ -156,12 +156,12 @@ class NPairKokkos : public NPair {
 
   // data from Neighbor class
 
-  DAT::ttriple_kkfloat_2d k_cutneighsq;
+  DAT::ttransform_kkfloat_2d k_cutneighsq;
 
   // exclusion data from Neighbor class
 
   DAT::tdual_int_1d k_ex1_type,k_ex2_type;
-  DAT::ttriple_int_2d k_ex_type;
+  DAT::ttransform_int_2d k_ex_type;
   DAT::tdual_int_1d k_ex1_bit,k_ex2_bit;
   DAT::tdual_int_1d k_ex_mol_group;
   DAT::tdual_int_1d k_ex_mol_bit;

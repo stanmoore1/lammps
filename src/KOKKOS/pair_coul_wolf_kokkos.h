@@ -69,8 +69,8 @@ class PairCoulWolfKokkos : public PairCoulWolf {
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_kkfloat_1d_randomread q;
 
-  DAT::ttriple_kkfloat_1d k_eatom;
-  DAT::ttriple_kkfloat_1d_6 k_vatom;
+  DAT::ttransform_kkfloat_1d k_eatom;
+  DAT::ttransform_kkfloat_1d_6 k_vatom;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
 

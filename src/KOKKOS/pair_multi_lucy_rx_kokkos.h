@@ -167,8 +167,8 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
   typename AT::t_kkfloat_1d uCG, uCGnew;
   typename AT::t_kkfloat_2d dvector;
 
-  DAT::ttriple_kkfloat_1d k_eatom;
-  DAT::ttriple_kkfloat_1d_6 k_vatom;
+  DAT::ttransform_kkfloat_1d k_eatom;
+  DAT::ttransform_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d d_eatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
@@ -178,7 +178,7 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
 
   DAT::tdual_int_scalar k_error_flag;
 
-  DAT::ttriple_kkfloat_2d k_cutsq;
+  DAT::ttransform_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
 
   int first;

@@ -156,9 +156,9 @@ struct AtomVecSphereKokkos_PackComm {
   double _pbc[6];
 
   AtomVecSphereKokkos_PackComm(
-    const typename DAT::ttriple_kkfloat_1d_3_lr &x,
-    const typename DAT::ttriple_kkfloat_1d &radius,
-    const typename DAT::ttriple_kkfloat_1d &rmass,
+    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+    const typename DAT::ttransform_kkfloat_1d &radius,
+    const typename DAT::ttransform_kkfloat_1d &rmass,
     const typename DAT::tdual_double_2d_lr &buf,
     const typename DAT::tdual_int_1d &list,
     const double &xprd, const double &yprd, const double &zprd,
@@ -314,12 +314,12 @@ struct AtomVecSphereKokkos_PackCommVel {
   const int _deform_vremap;
 
   AtomVecSphereKokkos_PackCommVel(
-    const typename DAT::ttriple_kkfloat_1d_3_lr &x,
-    const typename DAT::ttriple_int_1d &mask,
-    const typename DAT::ttriple_kkfloat_1d &radius,
-    const typename DAT::ttriple_kkfloat_1d &rmass,
-    const typename DAT::ttriple_kkfloat_1d_3 &v,
-    const typename DAT::ttriple_kkfloat_1d_3 &omega,
+    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+    const typename DAT::ttransform_int_1d &mask,
+    const typename DAT::ttransform_kkfloat_1d &radius,
+    const typename DAT::ttransform_kkfloat_1d &rmass,
+    const typename DAT::ttransform_kkfloat_1d_3 &v,
+    const typename DAT::ttransform_kkfloat_1d_3 &omega,
     const typename DAT::tdual_double_2d_lr &buf,
     const typename DAT::tdual_int_1d &list,
     const double &xprd, const double &yprd, const double &zprd,
@@ -680,9 +680,9 @@ struct AtomVecSphereKokkos_PackCommSelf {
   double _pbc[6];
 
   AtomVecSphereKokkos_PackCommSelf(
-    const typename DAT::ttriple_kkfloat_1d_3_lr &x,
-    const typename DAT::ttriple_kkfloat_1d &radius,
-    const typename DAT::ttriple_kkfloat_1d &rmass,
+    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+    const typename DAT::ttransform_kkfloat_1d &radius,
+    const typename DAT::ttransform_kkfloat_1d &rmass,
     const int &nfirst,
     const typename DAT::tdual_int_1d &list,
     const double &xprd, const double &yprd, const double &zprd,
@@ -825,9 +825,9 @@ struct AtomVecSphereKokkos_UnpackComm {
   int _first;
 
   AtomVecSphereKokkos_UnpackComm(
-    const typename DAT::ttriple_kkfloat_1d_3_lr &x,
-    const typename DAT::ttriple_kkfloat_1d &radius,
-    const typename DAT::ttriple_kkfloat_1d &rmass,
+    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+    const typename DAT::ttransform_kkfloat_1d &radius,
+    const typename DAT::ttransform_kkfloat_1d &rmass,
     const typename DAT::tdual_double_2d_lr &buf,
     const int& first):
     _x(x.view<DeviceType>()),
@@ -891,11 +891,11 @@ struct AtomVecSphereKokkos_UnpackCommVel {
   int _first;
 
   AtomVecSphereKokkos_UnpackCommVel(
-    const typename DAT::ttriple_kkfloat_1d_3_lr &x,
-    const typename DAT::ttriple_kkfloat_1d &radius,
-    const typename DAT::ttriple_kkfloat_1d &rmass,
-    const typename DAT::ttriple_kkfloat_1d_3 &v,
-    const typename DAT::ttriple_kkfloat_1d_3 &omega,
+    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+    const typename DAT::ttransform_kkfloat_1d &radius,
+    const typename DAT::ttransform_kkfloat_1d &rmass,
+    const typename DAT::ttransform_kkfloat_1d_3 &v,
+    const typename DAT::ttransform_kkfloat_1d_3 &omega,
     const typename DAT::tdual_double_2d_lr &buf,
     const int& first):
     _x(x.view<DeviceType>()),

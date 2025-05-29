@@ -162,8 +162,8 @@ struct AtomVecSpinKokkos_PackComm {
   double _pbc[6];
 
   AtomVecSpinKokkos_PackComm(
-      const typename DAT::ttriple_kkfloat_1d_3_lr &x,
-      const typename DAT::ttriple_kkfloat_1d_4 &sp,
+      const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+      const typename DAT::ttransform_kkfloat_1d_4 &sp,
       const typename DAT::tdual_double_2d_lr &buf,
       const typename DAT::tdual_int_1d &list,
       const double &xprd, const double &yprd, const double &zprd,

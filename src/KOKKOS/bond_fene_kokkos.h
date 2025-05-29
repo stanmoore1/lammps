@@ -58,8 +58,8 @@ class BondFENEKokkos : public BondFENE {
       const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx,
                   const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
-  DAT::ttriple_kkfloat_1d k_eatom;
-  DAT::ttriple_kkfloat_1d_6 k_vatom;
+  DAT::ttransform_kkfloat_1d k_eatom;
+  DAT::ttransform_kkfloat_1d_6 k_vatom;
 
  protected:
 
