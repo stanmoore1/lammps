@@ -95,7 +95,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
     KK_FLOAT cut,a0,sigma,kappa,alpha;
   };
 
-  DAT::ttriple_kkfloat_1d k_duCond,k_duMech;
+  DAT::ttransform_kkfloat_1d k_duCond,k_duMech;
 
 #ifdef DPD_USE_RAN_MARS
   RandPoolWrap rand_pool;
@@ -108,7 +108,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   typedef typename Kokkos::Random_XorShift1024_Pool<DeviceType>::generator_type rand_type;
 #endif
 
-  DAT::ttriple_kkfloat_2d k_cutsq;
+  DAT::ttransform_kkfloat_2d k_cutsq;
   typename ArrayTypes<DeviceType>::t_kkfloat_2d d_cutsq;
 
  protected:
@@ -127,8 +127,8 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   params_dpd m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
   KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 c_x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr c_x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread v;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
   typename ArrayTypes<DeviceType>::t_int_1d_randomread type;
@@ -138,8 +138,8 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   typename AT::t_kkfloat_1d d_duCond,d_duMech;
   HAT::t_double_1d h_duCond,h_duMech;
 
-  DAT::ttriple_kkfloat_1d k_eatom;
-  DAT::ttriple_kkfloat_1d_6 k_vatom;
+  DAT::ttransform_kkfloat_1d k_eatom;
+  DAT::ttransform_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d d_eatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 

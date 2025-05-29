@@ -60,14 +60,14 @@ class AngleCharmmKokkos : public AngleCharmm {
                      const KK_FLOAT &delx2, const KK_FLOAT &dely2, const KK_FLOAT &delz2) const;
 
   using KKDeviceType = typename KKDevice<DeviceType>::value;
-  TripleView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
-  TripleView<KK_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType> k_vatom;
+  TransformView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
+  TransformView<KK_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType> k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename Kokkos::View<KK_FLOAT*[3],typename AT::t_kkfloat_1d_3::array_layout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d_lr anglelist;
   Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_eatom;

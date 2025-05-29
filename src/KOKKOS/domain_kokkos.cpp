@@ -41,13 +41,13 @@ struct DomainResetBoxFunctor{
 public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr x;
 
   struct value_type {
     double value[3][2] ;
   };
 
-  DomainResetBoxFunctor(DAT::ttriple_kkfloat_1d_3 _x):
+  DomainResetBoxFunctor(DAT::ttransform_kkfloat_1d_3_lr _x):
     x(_x.view<DeviceType>()) {}
 
   KOKKOS_INLINE_FUNCTION
@@ -220,7 +220,7 @@ struct DomainPBCFunctor {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   double lo[3],hi[3],period[3];
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 v;
   typename ArrayTypes<DeviceType>::t_int_1d mask;
   typename ArrayTypes<DeviceType>::t_imageint_1d image;
@@ -229,8 +229,8 @@ struct DomainPBCFunctor {
   int xperiodic,yperiodic,zperiodic;
 
   DomainPBCFunctor(double* _lo, double* _hi, double* _period,
-                   DAT::ttriple_kkfloat_1d_3 _x, DAT::ttriple_kkfloat_1d_3 _v,
-                   DAT::ttriple_int_1d _mask, DAT::ttriple_imageint_1d _image,
+                   DAT::ttransform_kkfloat_1d_3_lr _x, DAT::ttransform_kkfloat_1d_3 _v,
+                   DAT::ttransform_int_1d _mask, DAT::ttransform_imageint_1d _image,
                    int _deform_groupbit, double* _h_rate,
                    int _xperiodic, int _yperiodic, int _zperiodic):
     x(_x.view<DeviceType>()), v(_v.view<DeviceType>()),

@@ -59,7 +59,7 @@ template <class DeviceType> class MEAMKokkos : public MEAM {
   typename AT::t_int_1d d_offset;
   typename AT::t_int_1d d_map;
   typename AT::t_int_2d d_scale;
-  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3_lr x;
   typename AT::t_int_1d d_numneigh_half;
   typename AT::t_int_1d d_numneigh_full;
   typename AT::t_neighbors_2d d_neighbors_half;
@@ -78,25 +78,25 @@ template <class DeviceType> class MEAMKokkos : public MEAM {
   void meam_dens_setup(int, int, int) override;
   void meam_setup_done(double *) override;
   void meam_dens_init(int, int, typename AT::t_int_1d, typename AT::t_int_1d,
-                      typename AT::t_kkfloat_1d_3, typename AT::t_int_1d, typename AT::t_int_1d,
+                      typename AT::t_kkfloat_1d_3_lr, typename AT::t_int_1d, typename AT::t_int_1d,
                       typename AT::t_int_1d, typename AT::t_neighbors_2d,
                       typename AT::t_neighbors_2d, typename AT::t_int_1d, int, int);
   void meam_dens_final(int, int, int, int, typename ArrayTypes<DeviceType>::t_kkfloat_1d, int,
                        typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_int_2d, int &,
                        EV_FLOAT &);
   void meam_force(int, int, int, int, int, typename ArrayTypes<DeviceType>::t_kkfloat_1d, int,
-                  typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_kkfloat_1d_3,
+                  typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_kkfloat_1d_3_lr,
                   typename AT::t_int_1d, typename AT::t_int_1d, typename AT::t_kkfloat_1d_3,
                   typename ArrayTypes<DeviceType>::t_kkfloat_1d_6, typename AT::t_int_1d,
                   typename AT::t_int_1d, typename AT::t_neighbors_2d, typename AT::t_neighbors_2d,
                   int, int, EV_FLOAT &);
   template <int NEIGHFLAG>
-  KOKKOS_INLINE_FUNCTION void getscreen(int, int, typename AT::t_kkfloat_1d_3, typename AT::t_int_1d,
+  KOKKOS_INLINE_FUNCTION void getscreen(int, int, typename AT::t_kkfloat_1d_3_lr, typename AT::t_int_1d,
                                         typename AT::t_int_1d, int, typename AT::t_int_1d,
                                         typename AT::t_int_1d) const;
   template <int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION void calc_rho1(int, int, typename AT::t_int_1d, typename AT::t_int_1d,
-                                        typename AT::t_kkfloat_1d_3, typename AT::t_int_1d, int) const;
+                                        typename AT::t_kkfloat_1d_3_lr, typename AT::t_int_1d, int) const;
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT fcut(const KK_FLOAT xi) const;
   KOKKOS_INLINE_FUNCTION

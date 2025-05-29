@@ -93,7 +93,7 @@ class NeighBondKokkos : protected Pointers  {
   typename AT::t_int_2d_lr v_improperlist;
   typename AT::t_int_2d_lr list;
 
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_tagint_1d_randomread tag;
 
   typename AT::t_int_1d num_bond;
@@ -149,7 +149,7 @@ class NeighBondKokkos : protected Pointers  {
   void dihedral_all();                // dihedral list with all dihedrals
   void dihedral_template();           // dihedral list with templated bonds
   void dihedral_partial();            // exclude certain dihedrals
-  void dihedral_check(int, typename AT::t_int_2d list);
+  void dihedral_check(int, typename AT::t_int_2d_lr list);
 
   BondPtr improper_build_kk;             // ptr to improper list functions
   void improper_all();                // improper list with all impropers

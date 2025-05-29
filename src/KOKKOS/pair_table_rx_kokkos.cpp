@@ -392,7 +392,7 @@ compute_item(
     typename ArrayTypes<DeviceType>::t_int_1d_const const& d_ilist,
     typename ArrayTypes<DeviceType>::t_neighbors_2d_const const& d_neighbors,
     typename ArrayTypes<DeviceType>::t_int_1d_const const& d_numneigh,
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread const& x,
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread const& x,
     typename ArrayTypes<DeviceType>::t_int_1d_randomread const& type,
     Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite1old,
     Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite2old,
@@ -400,7 +400,7 @@ compute_item(
     Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite2,
     Few<int, 4> const& special_lj,
     Few<Few<double, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> const& m_cutsq,
-    typename ArrayTypes<DeviceType>::t_double_2d const& d_cutsq,
+    typename ArrayTypes<DeviceType>::t_double_2d_lr const& d_cutsq,
     Kokkos::View<KK_FLOAT*[3],
       typename ArrayTypes<DeviceType>::t_kkfloat_1d_3::array_layout,
       typename KKDevice<DeviceType>::value,
@@ -537,7 +537,7 @@ static void compute_all_items(
     typename ArrayTypes<DeviceType>::t_int_1d_const d_ilist,
     typename ArrayTypes<DeviceType>::t_neighbors_2d_const d_neighbors,
     typename ArrayTypes<DeviceType>::t_int_1d_const d_numneigh,
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread x,
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread x,
     typename ArrayTypes<DeviceType>::t_int_1d_randomread type,
     Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite1old,
     Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite2old,
@@ -545,7 +545,7 @@ static void compute_all_items(
     Kokkos::View<KK_FLOAT*, DeviceType> const& mixWtSite2,
     Few<int, 4> special_lj,
     Few<Few<double, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> m_cutsq,
-    typename ArrayTypes<DeviceType>::t_double_2d d_cutsq,
+    typename ArrayTypes<DeviceType>::t_double_2d_lr d_cutsq,
     Kokkos::View<KK_FLOAT*[3],
       typename ArrayTypes<DeviceType>::t_kkfloat_1d_3::array_layout,
       typename KKDevice<DeviceType>::value,
@@ -1010,8 +1010,8 @@ void PairTableRXKokkos<DeviceType>::settings(int narg, char **arg)
     d_table_const.tabindex = d_table->tabindex = typename ArrayTypes<DeviceType>::t_int_2d_lr();
     h_table->tabindex = typename ArrayTypes<LMPHostType>::t_int_2d_lr();
 
-    d_table_const.cutsq = d_table->cutsq = typename ArrayTypes<DeviceType>::t_double_2d();
-    h_table->cutsq = typename ArrayTypes<LMPHostType>::t_double_2d();
+    d_table_const.cutsq = d_table->cutsq = typename ArrayTypes<DeviceType>::t_double_2d_lr();
+    h_table->cutsq = typename ArrayTypes<LMPHostType>::t_double_2d_lr();
     allocated = 0;
   }
 }

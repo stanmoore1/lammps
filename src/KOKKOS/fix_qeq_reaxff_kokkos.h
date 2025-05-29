@@ -136,12 +136,12 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagQEqUnpackExchange, const int&) const;
 
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &buf,
+  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d_lr &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            ExecutionSpace space) override;
 
-  void unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf,
+  void unpack_exchange_kokkos(DAT::tdual_double_2d_lr &k_buf,
                               DAT::tdual_int_1d &indices,int nrecv,
                               int nrecv1,int nextrarecv1,
                               ExecutionSpace space) override;
@@ -208,7 +208,7 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
   Kokkos::DualView<params_qeq*,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_qeq*, Kokkos::LayoutRight,DeviceType>::t_dev_const params;
 
-  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3_lr x;
   typename AT::t_kkfloat_1d_3 v;
   typename AT::t_kkfloat_1d_3_const f;
   //typename AT::t_kkfloat_1d_randomread mass, q;
@@ -232,16 +232,16 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
   typename AT::t_int_1d d_jlist;
   typename AT::t_kkfloat_1d d_val;
 
-  DAT::ttriple_kkfloat_1d k_chi_field;
+  DAT::ttransform_kkfloat_1d k_chi_field;
   typename AT::t_kkfloat_1d d_Hdia_inv, d_chi_field;
 
   DAT::tdual_kkfloat_1d_2 k_o, k_d, k_st;
   typename AT::t_kkfloat_1d_2 d_p, d_o, d_r, d_d, d_b_st, d_st, d_xx;
   HAT::t_kkfloat_1d_2 h_o, h_d, h_st;
 
-  DAT::ttriple_kkfloat_2d k_s_hist, k_t_hist;
+  DAT::ttransform_kkfloat_2d k_s_hist, k_t_hist;
   typename AT::t_kkfloat_2d d_s_hist, d_t_hist;
-  HAT::t_double_2d h_s_hist, h_t_hist;
+  HAT::t_double_2d_lr h_s_hist, h_t_hist;
   typename AT::t_kkfloat_2d_randomread r_s_hist, r_t_hist;
 
   DAT::tdual_kkfloat_2d k_shield;

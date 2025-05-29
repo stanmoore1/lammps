@@ -407,7 +407,7 @@ class PairReaxFFKokkos : public PairReaxFF {
   Kokkos::DualView<params_fbp****,LMPDeviceLayout,DeviceType> k_params_fbp;
   typename Kokkos::DualView<params_fbp****,LMPDeviceLayout,DeviceType>::t_dev_const paramsfbp;
 
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_tagint_1d_randomread tag;
@@ -415,10 +415,10 @@ class PairReaxFFKokkos : public PairReaxFF {
   typename AT::t_kkfloat_1d_randomread q;
   typename AT::t_tagint_1d_randomread molecule;
 
-  DAT::ttriple_kkfloat_1d k_eatom;
+  DAT::ttransform_kkfloat_1d k_eatom;
   typename AT::t_kkfloat_1d d_eatom;
 
-  DAT::ttriple_kkfloat_1d_6 k_vatom;
+  DAT::ttransform_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
   DAT::tdual_kkfloat_1d k_tap;
@@ -493,9 +493,9 @@ class PairReaxFFKokkos : public PairReaxFF {
 
   tdual_LR_lookup_table_kk_2d k_LR;
 
-  DAT::ttriple_int_2d k_tmpid;
+  DAT::ttransform_int_2d k_tmpid;
   typename AT::t_int_2d d_tmpid;
-  DAT::ttriple_kkfloat_2d k_tmpbo;
+  DAT::ttransform_kkfloat_2d k_tmpbo;
   typename AT::t_kkfloat_2d d_tmpbo;
   DAT::tdual_int_scalar k_error_flag;
 

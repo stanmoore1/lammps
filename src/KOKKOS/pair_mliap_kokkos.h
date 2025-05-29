@@ -104,15 +104,15 @@ public:
   enum class COMM_TYPE {FLOAT=0, DOUBLE, UNSET} comm_type;
   int vec_len;
 
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkfloat_1d_3_randomread v;
   typename AT::t_kkfloat_1d_3 f;
   DAT::tdual_int_1d k_map;
-  DAT::tdual_double_2d k_cutsq;
-  DAT::tdual_double_2d k_cutghost;
-  DAT::tdual_int_2d k_setflag;
+  DAT::tdual_double_2d_lr k_cutsq;
+  DAT::tdual_double_2d_lr k_cutghost;
+  DAT::tdual_int_2d_lr k_setflag;
   DAT::tdual_double_1d k_eatom;
-  DAT::tdual_double_2d k_vatom;
+  DAT::tdual_double_2d_lr k_vatom;
 
 
   friend void pair_virial_fdotr_compute<PairMLIAPKokkos>(PairMLIAPKokkos*);

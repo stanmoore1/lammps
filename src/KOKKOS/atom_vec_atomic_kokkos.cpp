@@ -126,18 +126,18 @@ struct AtomVecAtomicKokkos_PackBorder {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  typename ArrayTypes<DeviceType>::t_double_2d _buf;
+  typename ArrayTypes<DeviceType>::t_double_2d_lr _buf;
   const typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread _x;
+  const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
   const typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   const typename ArrayTypes<DeviceType>::t_int_1d _type;
   const typename ArrayTypes<DeviceType>::t_int_1d _mask;
   double _dx,_dy,_dz;
 
   AtomVecAtomicKokkos_PackBorder(
-    const typename ArrayTypes<DeviceType>::t_double_2d &buf,
+    const typename ArrayTypes<DeviceType>::t_double_2d_lr &buf,
     const typename ArrayTypes<DeviceType>::t_int_1d_const &list,
-    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 &x,
+    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr &x,
     const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
     const typename ArrayTypes<DeviceType>::t_int_1d &type,
     const typename ArrayTypes<DeviceType>::t_int_1d &mask,
@@ -169,7 +169,7 @@ struct AtomVecAtomicKokkos_PackBorder {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecAtomicKokkos::pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist, DAT::tdual_double_2d buf,
+int AtomVecAtomicKokkos::pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist, DAT::tdual_double_2d_lr buf,
                                int pbc_flag, int *pbc, ExecutionSpace space)
 {
   double dx,dy,dz;
@@ -220,8 +220,8 @@ struct AtomVecAtomicKokkos_UnpackBorder {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  const typename ArrayTypes<DeviceType>::t_double_2d_const _buf;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _x;
+  const typename ArrayTypes<DeviceType>::t_double_2d_lr_const _buf;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr _x;
   typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   typename ArrayTypes<DeviceType>::t_int_1d _type;
   typename ArrayTypes<DeviceType>::t_int_1d _mask;
@@ -229,8 +229,8 @@ struct AtomVecAtomicKokkos_UnpackBorder {
 
 
   AtomVecAtomicKokkos_UnpackBorder(
-      const typename ArrayTypes<DeviceType>::t_double_2d_const &buf,
-      typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 &x,
+      const typename ArrayTypes<DeviceType>::t_double_2d_lr_const &buf,
+      typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr &x,
       typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
       typename ArrayTypes<DeviceType>::t_int_1d &type,
       typename ArrayTypes<DeviceType>::t_int_1d &mask,
@@ -252,7 +252,7 @@ struct AtomVecAtomicKokkos_UnpackBorder {
 /* ---------------------------------------------------------------------- */
 
 void AtomVecAtomicKokkos::unpack_border_kokkos(const int &n, const int &first,
-                     const DAT::tdual_double_2d &buf,ExecutionSpace space) {
+                     const DAT::tdual_double_2d_lr &buf,ExecutionSpace space) {
   atomKK->modified(space,X_MASK|TAG_MASK|TYPE_MASK|MASK_MASK);
   while (first+n >= nmax) grow(0);
   if (space==Host) {
@@ -272,27 +272,27 @@ template<class DeviceType>
 struct AtomVecAtomicKokkos_PackExchangeFunctor {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  typename AT::t_kkfloat_1d_3_randomread _x;
+  typename AT::t_kkfloat_1d_3_lr_randomread _x;
   typename AT::t_kkfloat_1d_3_randomread _v;
   typename AT::t_tagint_1d_randomread _tag;
   typename AT::t_int_1d_randomread _type;
   typename AT::t_int_1d_randomread _mask;
   typename AT::t_imageint_1d_randomread _image;
-  typename AT::t_kkfloat_1d_3 _xw;
+  typename AT::t_kkfloat_1d_3_lr _xw;
   typename AT::t_kkfloat_1d_3 _vw;
   typename AT::t_tagint_1d _tagw;
   typename AT::t_int_1d _typew;
   typename AT::t_int_1d _maskw;
   typename AT::t_imageint_1d _imagew;
 
-  typename AT::t_double_2d_um _buf;
+  typename AT::t_double_2d_lr_um _buf;
   typename AT::t_int_1d_const _sendlist;
   typename AT::t_int_1d_const _copylist;
   int _size_exchange;
 
   AtomVecAtomicKokkos_PackExchangeFunctor(
     const AtomKokkos* atom,
-    const DAT::tdual_double_2d buf,
+    const DAT::tdual_double_2d_lr buf,
     DAT::tdual_int_1d sendlist,
     DAT::tdual_int_1d copylist):
     _x(atom->k_x.view<DeviceType>()),
@@ -348,7 +348,7 @@ struct AtomVecAtomicKokkos_PackExchangeFunctor {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecAtomicKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &k_buf, DAT::tdual_int_1d k_sendlist,DAT::tdual_int_1d k_copylist,ExecutionSpace space)
+int AtomVecAtomicKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d_lr &k_buf, DAT::tdual_int_1d k_sendlist,DAT::tdual_int_1d k_copylist,ExecutionSpace space)
 {
   size_exchange = 11;
 
@@ -373,14 +373,14 @@ template<class DeviceType,int OUTPUT_INDICES>
 struct AtomVecAtomicKokkos_UnpackExchangeFunctor {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  typename AT::t_kkfloat_1d_3 _x;
+  typename AT::t_kkfloat_1d_3_lr _x;
   typename AT::t_kkfloat_1d_3 _v;
   typename AT::t_tagint_1d _tag;
   typename AT::t_int_1d _type;
   typename AT::t_int_1d _mask;
   typename AT::t_imageint_1d _image;
 
-  typename AT::t_double_2d_um _buf;
+  typename AT::t_double_2d_lr_um _buf;
   typename AT::t_int_1d _nlocal;
   typename AT::t_int_1d _indices;
   int _dim;
@@ -389,7 +389,7 @@ struct AtomVecAtomicKokkos_UnpackExchangeFunctor {
 
   AtomVecAtomicKokkos_UnpackExchangeFunctor(
     const AtomKokkos* atom,
-    const DAT::tdual_double_2d buf,
+    const DAT::tdual_double_2d_lr buf,
     DAT::tdual_int_1d nlocal,
     DAT::tdual_int_1d indices,
     int dim, double lo, double hi):
@@ -431,7 +431,7 @@ struct AtomVecAtomicKokkos_UnpackExchangeFunctor {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecAtomicKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf, int nrecv, int nlocal,
+int AtomVecAtomicKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d_lr &k_buf, int nrecv, int nlocal,
                                                 int dim, double lo, double hi, ExecutionSpace space,
                                                 DAT::tdual_int_1d &k_indices)
 {
@@ -510,7 +510,7 @@ void AtomVecAtomicKokkos::sync_overlapping_device(ExecutionSpace space, unsigned
 {
   if (space == Device) {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_device())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_x.k_view,space);
+      perform_async_copy<DAT::tdual_kkfloat_1d_3_lr>(atomKK->k_x.k_view,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync_device())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v.k_view,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync_device())
@@ -525,7 +525,7 @@ void AtomVecAtomicKokkos::sync_overlapping_device(ExecutionSpace space, unsigned
       perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image.k_view,space);
   } else {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_host())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_x.k_view,space);
+      perform_async_copy<DAT::tdual_kkfloat_1d_3_lr>(atomKK->k_x.k_view,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync_host())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v.k_view,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync_host())

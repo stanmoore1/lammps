@@ -67,17 +67,17 @@ class FixWallFlowKokkos : public FixWallFlow, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixWallFlowUnpackExchange, const int&) const;
 
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &buf,
+  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d_lr &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            ExecutionSpace space) override;
 
-  void unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf,
+  void unpack_exchange_kokkos(DAT::tdual_double_2d_lr &k_buf,
                               DAT::tdual_int_1d &indices,int nrecv,
                               int /*nrecv1*/, int /*nextrarecv1*/,
                               ExecutionSpace space) override;
  protected:
-  typename AT::t_kkfloat_1d_3 d_x;
+  typename AT::t_kkfloat_1d_3_lr d_x;
   typename AT::t_kkfloat_1d_3 d_v;
   typename AT::t_int_1d d_type;
   typename AT::t_int_1d d_mask;

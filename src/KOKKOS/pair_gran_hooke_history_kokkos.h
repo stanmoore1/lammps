@@ -61,8 +61,8 @@ class PairGranHookeHistoryKokkos : public PairGranHookeHistory {
                     KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz) const;
 
  protected:
-  typename AT::t_kkfloat_1d_3_randomread x;
-  typename AT::t_kkfloat_1d_3 c_x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
+  typename AT::t_kkfloat_1d_3_lr c_x;
   typename AT::t_kkfloat_1d_3_randomread v;
   typename AT::t_kkfloat_1d_3_randomread omega;
   typename AT::t_kkfloat_1d_3 f;
@@ -72,8 +72,8 @@ class PairGranHookeHistoryKokkos : public PairGranHookeHistory {
   typename AT::t_kkfloat_1d_randomread rmass;
   typename AT::t_kkfloat_1d_randomread radius;
 
-  DAT::ttriple_kkfloat_1d k_eatom;
-  DAT::ttriple_kkfloat_1d_6 k_vatom;
+  DAT::ttransform_kkfloat_1d k_eatom;
+  DAT::ttransform_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d d_eatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 

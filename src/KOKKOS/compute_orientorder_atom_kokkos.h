@@ -88,14 +88,14 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
   KOKKOS_INLINE_FUNCTION
   void operator() (TagComputeOrientOrderAtomBOOP2, const int& ii) const;
 
-  DAT::ttriple_kkfloat_2d k_qnarray;
+  DAT::ttransform_kkfloat_2d k_qnarray;
   typename AT::t_kkfloat_2d d_qnarray;
 
  private:
   int inum,chunk_size,chunk_offset;
   int host_flag;
 
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename ArrayTypes<DeviceType>::t_int_1d mask;
 
   typename AT::t_neighbors_2d d_neighbors;

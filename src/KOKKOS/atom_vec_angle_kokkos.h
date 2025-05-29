@@ -36,18 +36,18 @@ class AtomVecAngleKokkos : public AtomVecKokkos, public AtomVecAngle {
   void grow_pointers() override;
   void sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter) override;
   int pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                         DAT::tdual_double_2d buf,
+                         DAT::tdual_double_2d_lr buf,
                          int pbc_flag, int *pbc, ExecutionSpace space) override;
   void unpack_border_kokkos(const int &n, const int &nfirst,
-                            const DAT::tdual_double_2d &buf,
+                            const DAT::tdual_double_2d_lr &buf,
                             ExecutionSpace space) override;
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &buf,
+  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d_lr &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            DAT::tdual_int_1d k_sendlist_bonus,
                            DAT::tdual_int_1d k_copylist_bonus,
                            ExecutionSpace space) override;
-  int unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf, int nrecv,
+  int unpack_exchange_kokkos(DAT::tdual_double_2d_lr &k_buf, int nrecv,
                              int nlocal, int dim, double lo, double hi,
                              ExecutionSpace space,
                              DAT::tdual_int_1d &k_indices) override;
@@ -70,10 +70,10 @@ class AtomVecAngleKokkos : public AtomVecKokkos, public AtomVecAngle {
   DAT::t_imageint_1d d_image;
   HAT::t_imageint_1d h_image;
 
-  DAT::t_kkfloat_1d_3 d_x;
+  DAT::t_kkfloat_1d_3_lr d_x;
   DAT::t_kkfloat_1d_3 d_v;
   DAT::t_kkfloat_1d_3 d_f;
-  HAT::t_kkfloat_1d_3 h_x;
+  HAT::t_kkfloat_1d_3_lr h_x;
   HAT::t_kkfloat_1d_3 h_v;
   HAT::t_kkfloat_1d_3 h_f;
 

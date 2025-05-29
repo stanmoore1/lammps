@@ -60,14 +60,14 @@ class BondClass2Kokkos : public BondClass2 {
                   const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
-  TripleView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
-  TripleView<KK_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType> k_vatom;
+  TransformView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
+  TransformView<KK_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType> k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename Kokkos::View<KK_FLOAT*[3],typename AT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d_lr bondlist;
 

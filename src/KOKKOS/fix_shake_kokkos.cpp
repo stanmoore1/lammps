@@ -1636,7 +1636,7 @@ void FixShakeKokkos<DeviceType>::pack_exchange_item(const int &mysend, int &offs
 
 template<class DeviceType>
 int FixShakeKokkos<DeviceType>::pack_exchange_kokkos(
-   const int &nsend, DAT::tdual_double_2d &k_buf,
+   const int &nsend, DAT::tdual_double_2d_lr &k_buf,
    DAT::tdual_int_1d k_exchange_sendlist, DAT::tdual_int_1d k_copylist,
    ExecutionSpace space)
 {
@@ -1725,7 +1725,7 @@ void FixShakeKokkos<DeviceType>::operator()(TagFixShakeUnpackExchange, const int
 
 template <class DeviceType>
 void FixShakeKokkos<DeviceType>::unpack_exchange_kokkos(
-  DAT::tdual_double_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
+  DAT::tdual_double_2d_lr &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
   int nrecv1, int nextrarecv1,
   ExecutionSpace /*space*/)
 {

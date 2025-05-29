@@ -795,7 +795,7 @@ void NeighBondKokkos<DeviceType>::operator()(TagNeighBondDihedralPartial, const 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void NeighBondKokkos<DeviceType>::dihedral_check(int nlist, typename AT::t_int_2d list_in)
+void NeighBondKokkos<DeviceType>::dihedral_check(int nlist, typename AT::t_int_2d_lr list_in)
 {
   list = list_in;
   int flag = 0;

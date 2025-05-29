@@ -60,7 +60,7 @@ void AtomVecHybridKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorte
 /* ---------------------------------------------------------------------- */
 
 int AtomVecHybridKokkos::pack_comm_kokkos(const int &/*n*/, const DAT::tdual_int_1d &/*k_sendlist*/,
-                                          const DAT::tdual_double_2d &/*buf*/,
+                                          const DAT::tdual_double_2d_lr &/*buf*/,
                                           const int &/*pbc_flag*/, const int /*pbc*/[])
 {
   // TODO: figure out how to sum parameters of all styles?
@@ -72,7 +72,7 @@ int AtomVecHybridKokkos::pack_comm_kokkos(const int &/*n*/, const DAT::tdual_int
 }
 
 void AtomVecHybridKokkos::unpack_comm_kokkos(const int &/*n*/, const int &/*nfirst*/,
-                                             const DAT::tdual_double_2d &/*buf*/)
+                                             const DAT::tdual_double_2d_lr &/*buf*/)
 {
   for (int k = 0; k < nstyles; k++) {
     nstyles_cast[k]->unpack_comm_kokkos(n,nfirst,buf);
@@ -91,7 +91,7 @@ int AtomVecHybridKokkos::pack_comm_self(const int &n, const DAT::tdual_int_1d &l
 }
 
 int AtomVecHybridKokkos::pack_border_kokkos(int /*n*/, DAT::tdual_int_1d /*k_sendlist*/,
-                                            DAT::tdual_double_2d /*buf*/,
+                                            DAT::tdual_double_2d_lr /*buf*/,
                                             int /*pbc_flag*/, int * /*pbc*/, ExecutionSpace /*space*/)
 {
   int ntot = 0; // sum of "n*size_border" from all styles of pack_border_kokkos
@@ -102,7 +102,7 @@ int AtomVecHybridKokkos::pack_border_kokkos(int /*n*/, DAT::tdual_int_1d /*k_sen
 }
 
 void AtomVecHybridKokkos::unpack_border_kokkos(const int &/*n*/, const int &/*nfirst*/,
-                                               const DAT::tdual_double_2d &/*buf*/,
+                                               const DAT::tdual_double_2d_lr &/*buf*/,
                                                ExecutionSpace /*space*/)
 {
   for (int k = 0; k < nstyles; k++) {
@@ -110,7 +110,7 @@ void AtomVecHybridKokkos::unpack_border_kokkos(const int &/*n*/, const int &/*nf
   }
 }
 
-int AtomVecHybridKokkos::pack_exchange_kokkos(const int &/*nsend*/,DAT::tdual_double_2d &/*buf*/,
+int AtomVecHybridKokkos::pack_exchange_kokkos(const int &/*nsend*/,DAT::tdual_double_2d_lr &/*buf*/,
                                               DAT::tdual_int_1d /*k_sendlist*/,
                                               DAT::tdual_int_1d /*k_copylist*/,
                                               ExecutionSpace /*space*/)
@@ -122,7 +122,7 @@ int AtomVecHybridKokkos::pack_exchange_kokkos(const int &/*nsend*/,DAT::tdual_do
   return ntot;
 }
 
-int AtomVecHybridKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d & /*k_buf*/, int /*nrecv*/,
+int AtomVecHybridKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d_lr & /*k_buf*/, int /*nrecv*/,
                                                 int /*nlocal*/, int /*dim*/, double /*lo*/,
                                                 double /*hi*/, ExecutionSpace /*space*/,
                                                 DAT::tdual_int_1d &/*k_indices*/)

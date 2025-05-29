@@ -226,11 +226,11 @@ class ComputeSNAGridLocalKokkos : public ComputeSNAGridLocal {
       Kokkos::MemoryTraits<Kokkos::RandomAccess> > t_fparams_rnd;
   t_fparams_rnd rnd_cutsq;
 
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_int_1d_randomread type;
 
-  DAT::tdual_double_2d k_alocal;
-  typename AT::t_double_2d d_alocal;
+  DAT::tdual_double_2d_lr k_alocal;
+  typename AT::t_double_2d_lr d_alocal;
 
 
   // Utility routine which wraps computing per-team scratch size requirements for

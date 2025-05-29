@@ -141,7 +141,7 @@ void FixMomentumKokkos<DeviceType>::end_of_step()
     // must use unwrapped coords to compute r_i correctly
 
     atomKK->sync(execution_space, X_MASK | IMAGE_MASK);
-    typename AT::t_kkfloat_1d_3_randomread x = atomKK->k_x.view<DeviceType>();
+    typename AT::t_kkfloat_1d_3_lr_randomread x = atomKK->k_x.view<DeviceType>();
     typename AT::t_imageint_1d_randomread image = atomKK->k_image.view<DeviceType>();
     int nlocal = atom->nlocal;
 

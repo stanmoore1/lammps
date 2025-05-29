@@ -48,7 +48,7 @@ template <class DeviceType> class ComputeAveSphereAtomKokkos : public ComputeAve
  private:
   KK_FLOAT adof, mvv2e, mv2d, boltz;
 
-  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3_lr x;
   typename AT::t_kkfloat_1d_3 v;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d rmass;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d mass;
@@ -59,7 +59,7 @@ template <class DeviceType> class ComputeAveSphereAtomKokkos : public ComputeAve
   typename AT::t_int_1d d_ilist;
   typename AT::t_int_1d d_numneigh;
 
-  DAT::ttriple_kkfloat_2d k_result;
+  DAT::ttransform_kkfloat_2d k_result;
   typename AT::t_kkfloat_2d d_result;
 };
 

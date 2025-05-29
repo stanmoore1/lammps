@@ -103,12 +103,12 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixShakeUnpackExchange, const int&) const;
 
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &buf,
+  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d_lr &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
                            ExecutionSpace space) override;
 
-  void unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf,
+  void unpack_exchange_kokkos(DAT::tdual_double_2d_lr &k_buf,
                               DAT::tdual_int_1d &indices,int nrecv,
                               int nrecv1,int nrecv1extra,
                               ExecutionSpace space) override;
@@ -116,7 +116,7 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
  protected:
   int nrecv1,nextrarecv1;
 
-  typename AT::t_kkfloat_1d_3 d_x;
+  typename AT::t_kkfloat_1d_3_lr d_x;
   typename AT::t_kkfloat_1d_3 d_v;
   typename AT::t_kkfloat_1d_3 d_f;
   typename AT::t_kkfloat_1d d_rmass;
@@ -125,10 +125,10 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   typename AT::t_int_1d d_type;
   typename AT::t_int_1d d_mask;
 
-  DAT::ttriple_kkfloat_1d k_eatom;
+  DAT::ttransform_kkfloat_1d k_eatom;
   typename AT::t_kkfloat_1d d_eatom;
 
-  DAT::ttriple_kkfloat_1d_6 k_vatom;
+  DAT::ttransform_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
   DAT::tdual_kkfloat_1d k_bond_distance; // constraint distances
@@ -141,21 +141,21 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   typename AT::t_int_1d d_shake_flag; // 0 if atom not in SHAKE cluster
                                          // 1 = size 3 angle cluster
                                          // 2,3,4 = size of bond-only cluster
-  DAT::ttriple_tagint_2d k_shake_atom;
+  DAT::ttransform_tagint_2d k_shake_atom;
   typename AT::t_tagint_2d d_shake_atom; // global IDs of atoms in cluster
                                          // central atom is 1st
                                          // lowest global ID is 1st for size 2
-  DAT::ttriple_int_2d k_shake_type;
+  DAT::ttransform_int_2d k_shake_type;
   typename AT::t_int_2d d_shake_type; // bondtype of each bond in cluster
                                          // for angle cluster, 3rd value
                                          //   is angletype
-  DAT::ttriple_kkfloat_1d_3 k_xshake;
-  typename AT::t_kkfloat_1d_3 d_xshake; // unconstrained atom coords
+  DAT::ttransform_kkfloat_1d_3_lr k_xshake;
+  typename AT::t_kkfloat_1d_3_lr d_xshake; // unconstrained atom coords
 
   DAT::tdual_int_1d k_list;
   typename AT::t_int_1d d_list; // list of clusters to SHAKE
 
-  DAT::ttriple_int_2d k_closest_list;
+  DAT::ttransform_int_2d k_closest_list;
   typename AT::t_int_2d d_closest_list; // list of closest atom indices in SHAKE clusters
 
   DAT::tdual_int_scalar k_error_flag;

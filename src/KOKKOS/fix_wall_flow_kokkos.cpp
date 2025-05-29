@@ -221,7 +221,7 @@ KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::operator()(TagFixWall
 
 template <class DeviceType>
 int FixWallFlowKokkos<DeviceType>::pack_exchange_kokkos(const int &nsend,
-                                                        DAT::tdual_double_2d &k_buf,
+                                                        DAT::tdual_double_2d_lr &k_buf,
                                                         DAT::tdual_int_1d k_sendlist,
                                                         DAT::tdual_int_1d k_copylist,
                                                         ExecutionSpace /*space*/)
@@ -268,7 +268,7 @@ KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::operator()(TagFixWall
 }
 
 template <class DeviceType>
-void FixWallFlowKokkos<DeviceType>::unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf,
+void FixWallFlowKokkos<DeviceType>::unpack_exchange_kokkos(DAT::tdual_double_2d_lr &k_buf,
                                                            DAT::tdual_int_1d &k_indices, int nrecv,
                                                            int /*nrecv1*/, int /*nextrarecv1*/,
                                                            ExecutionSpace /*space*/)

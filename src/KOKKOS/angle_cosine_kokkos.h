@@ -60,14 +60,14 @@ class AngleCosineKokkos : public AngleCosine {
                      const KK_FLOAT &delx1, const KK_FLOAT &dely1, const KK_FLOAT &delz1,
                      const KK_FLOAT &delx2, const KK_FLOAT &dely2, const KK_FLOAT &delz2) const;
 
-  DAT::ttriple_kkfloat_1d k_eatom;
-  DAT::ttriple_kkfloat_1d_6 k_vatom;
+  DAT::ttransform_kkfloat_1d k_eatom;
+  DAT::ttransform_kkfloat_1d_6 k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
   typename ArrayTypes<DeviceType>::t_int_2d_lr anglelist;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;

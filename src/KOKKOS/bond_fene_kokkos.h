@@ -58,14 +58,14 @@ class BondFENEKokkos : public BondFENE {
       const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx,
                   const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
-  DAT::ttriple_kkfloat_1d k_eatom;
-  DAT::ttriple_kkfloat_1d_6 k_vatom;
+  DAT::ttransform_kkfloat_1d k_eatom;
+  DAT::ttransform_kkfloat_1d_6 k_vatom;
 
  protected:
 
   class NeighborKokkos *neighborKK;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
   typename ArrayTypes<DeviceType>::t_int_2d_lr bondlist;
 

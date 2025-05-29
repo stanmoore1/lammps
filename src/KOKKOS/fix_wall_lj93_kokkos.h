@@ -52,14 +52,14 @@ class FixWallLJ93Kokkos : public FixWallLJ93 {
   int dim,side;
   KK_FLOAT coord;
 
-  typename AT::t_kkfloat_1d_3 d_x;
+  typename AT::t_kkfloat_1d_3_lr d_x;
   typename AT::t_kkfloat_1d_3 d_f;
   typename AT::t_int_1d d_mask;
 
-  DAT::ttriple_kkfloat_1d_6 k_vatom;
+  DAT::ttransform_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
-  DAT::ttriple_kkfloat_1d k_cutoff,k_coeff1,k_coeff2,k_coeff3,k_coeff4,k_offset;
+  DAT::ttransform_kkfloat_1d k_cutoff,k_coeff1,k_coeff2,k_coeff3,k_coeff4,k_offset;
   typename AT::t_kkfloat_1d d_cutoff,d_coeff1,d_coeff2,d_coeff3,d_coeff4,d_offset;
 
   KOKKOS_INLINE_FUNCTION

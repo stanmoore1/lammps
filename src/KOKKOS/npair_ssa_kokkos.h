@@ -66,7 +66,7 @@ class NPairSSAKokkos : public NPair {
  private:
   // data from Neighbor class
 
-  DAT::ttriple_kkfloat_2d k_cutneighsq;
+  DAT::ttransform_kkfloat_2d k_cutneighsq;
 
   // exclusion data from Neighbor class
 
@@ -147,7 +147,7 @@ class NPairSSAKokkosExecute
 
   // data from Atom class
 
-  const typename AT::t_kkfloat_1d_3_randomread x;
+  const typename AT::t_kkfloat_1d_3_lr_randomread x;
   const typename AT::t_int_1d_const type,mask;
   const typename AT::t_tagint_1d_const molecule;
   const typename AT::t_tagint_1d_const tag;
@@ -209,7 +209,7 @@ class NPairSSAKokkosExecute
         const typename AT::t_int_2d &_d_ssa_gitemLoc,
         const typename AT::t_int_2d &_d_ssa_gitemLen,
         const int _nlocal,
-        const typename AT::t_kkfloat_1d_3_randomread &_x,
+        const typename AT::t_kkfloat_1d_3_lr_randomread &_x,
         const typename AT::t_int_1d_const &_type,
         const typename AT::t_int_1d_const &_mask,
         const typename AT::t_tagint_1d_const &_molecule,

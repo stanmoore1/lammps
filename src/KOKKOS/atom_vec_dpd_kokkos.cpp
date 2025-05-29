@@ -167,20 +167,20 @@ struct AtomVecDPDKokkos_PackComm {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread _x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem;
-  typename ArrayTypes<DeviceType>::t_double_2d_um _buf;
+  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
   typename ArrayTypes<DeviceType>::t_int_1d_const _list;
   double _xprd,_yprd,_zprd,_xy,_xz,_yz;
   double _pbc[6];
 
   AtomVecDPDKokkos_PackComm(
-      const typename DAT::ttriple_kkfloat_1d_3 &x,
-      const typename DAT::ttriple_kkfloat_1d &dpdTheta,
-      const typename DAT::ttriple_kkfloat_1d &uCond,
-      const typename DAT::ttriple_kkfloat_1d &uMech,
-      const typename DAT::ttriple_kkfloat_1d &uChem,
-      const typename DAT::tdual_double_2d &buf,
+      const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+      const typename DAT::ttransform_kkfloat_1d &dpdTheta,
+      const typename DAT::ttransform_kkfloat_1d &uCond,
+      const typename DAT::ttransform_kkfloat_1d &uMech,
+      const typename DAT::ttransform_kkfloat_1d &uChem,
+      const typename DAT::tdual_double_2d_lr &buf,
       const typename DAT::tdual_int_1d &list,
       const double &xprd, const double &yprd, const double &zprd,
       const double &xy, const double &xz, const double &yz, const int* const pbc):
@@ -228,7 +228,7 @@ struct AtomVecDPDKokkos_PackComm {
 
 int AtomVecDPDKokkos::pack_comm_kokkos(const int &n,
                                           const DAT::tdual_int_1d &list,
-                                          const DAT::tdual_double_2d &buf,
+                                          const DAT::tdual_double_2d_lr &buf,
                                           const int &pbc_flag,
                                           const int* const pbc)
 {
@@ -317,8 +317,8 @@ struct AtomVecDPDKokkos_PackCommSelf {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread _x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _xw;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr _xw;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem;
   int _nfirst;
   typename ArrayTypes<DeviceType>::t_int_1d_const _list;
@@ -326,11 +326,11 @@ struct AtomVecDPDKokkos_PackCommSelf {
   double _pbc[6];
 
   AtomVecDPDKokkos_PackCommSelf(
-      const typename DAT::ttriple_kkfloat_1d_3 &x,
-      const typename DAT::ttriple_kkfloat_1d &dpdTheta,
-      const typename DAT::ttriple_kkfloat_1d &uCond,
-      const typename DAT::ttriple_kkfloat_1d &uMech,
-      const typename DAT::ttriple_kkfloat_1d &uChem,
+      const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+      const typename DAT::ttransform_kkfloat_1d &dpdTheta,
+      const typename DAT::ttransform_kkfloat_1d &uCond,
+      const typename DAT::ttransform_kkfloat_1d &uMech,
+      const typename DAT::ttransform_kkfloat_1d &uChem,
       const int &nfirst,
       const typename DAT::tdual_int_1d &list,
       const double &xprd, const double &yprd, const double &zprd,
@@ -459,18 +459,18 @@ struct AtomVecDPDKokkos_UnpackComm {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr _x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem;
-  typename ArrayTypes<DeviceType>::t_double_2d_const _buf;
+  typename ArrayTypes<DeviceType>::t_double_2d_lr_const _buf;
   int _first;
 
   AtomVecDPDKokkos_UnpackComm(
-      const typename DAT::ttriple_kkfloat_1d_3 &x,
-      const typename DAT::ttriple_kkfloat_1d &dpdTheta,
-      const typename DAT::ttriple_kkfloat_1d &uCond,
-      const typename DAT::ttriple_kkfloat_1d &uMech,
-      const typename DAT::ttriple_kkfloat_1d &uChem,
-      const typename DAT::tdual_double_2d &buf,
+      const typename DAT::ttransform_kkfloat_1d_3_lr &x,
+      const typename DAT::ttransform_kkfloat_1d &dpdTheta,
+      const typename DAT::ttransform_kkfloat_1d &uCond,
+      const typename DAT::ttransform_kkfloat_1d &uMech,
+      const typename DAT::ttransform_kkfloat_1d &uChem,
+      const typename DAT::tdual_double_2d_lr &buf,
       const int& first):_x(x.view<DeviceType>()),
                         _dpdTheta(dpdTheta.view<DeviceType>()),
                         _uCond(uCond.view<DeviceType>()),
@@ -494,7 +494,7 @@ struct AtomVecDPDKokkos_UnpackComm {
 /* ---------------------------------------------------------------------- */
 
 void AtomVecDPDKokkos::unpack_comm_kokkos(const int &n, const int &first,
-    const DAT::tdual_double_2d &buf) {
+    const DAT::tdual_double_2d_lr &buf) {
   if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(Host,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
     atomKK->modified(Host,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
@@ -519,9 +519,9 @@ struct AtomVecDPDKokkos_PackBorder {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  typename ArrayTypes<DeviceType>::t_double_2d _buf;
+  typename ArrayTypes<DeviceType>::t_double_2d_lr _buf;
   const typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread _x;
+  const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
   const typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   const typename ArrayTypes<DeviceType>::t_int_1d _type;
   const typename ArrayTypes<DeviceType>::t_int_1d _mask;
@@ -529,9 +529,9 @@ struct AtomVecDPDKokkos_PackBorder {
   double _dx,_dy,_dz;
 
   AtomVecDPDKokkos_PackBorder(
-      const typename ArrayTypes<DeviceType>::t_double_2d &buf,
+      const typename ArrayTypes<DeviceType>::t_double_2d_lr &buf,
       const typename ArrayTypes<DeviceType>::t_int_1d_const &list,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 &x,
+      const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr &x,
       const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
       const typename ArrayTypes<DeviceType>::t_int_1d &type,
       const typename ArrayTypes<DeviceType>::t_int_1d &mask,
@@ -578,7 +578,7 @@ struct AtomVecDPDKokkos_PackBorder {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecDPDKokkos::pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist, DAT::tdual_double_2d buf,
+int AtomVecDPDKokkos::pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist, DAT::tdual_double_2d_lr buf,
                                int pbc_flag, int *pbc, ExecutionSpace space)
 {
   double dx,dy,dz;
@@ -639,8 +639,8 @@ struct AtomVecDPDKokkos_UnpackBorder {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  const typename ArrayTypes<DeviceType>::t_double_2d_const _buf;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _x;
+  const typename ArrayTypes<DeviceType>::t_double_2d_lr_const _buf;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr _x;
   typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   typename ArrayTypes<DeviceType>::t_int_1d _type;
   typename ArrayTypes<DeviceType>::t_int_1d _mask;
@@ -649,8 +649,8 @@ struct AtomVecDPDKokkos_UnpackBorder {
 
 
   AtomVecDPDKokkos_UnpackBorder(
-      const typename ArrayTypes<DeviceType>::t_double_2d_const &buf,
-      typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 &x,
+      const typename ArrayTypes<DeviceType>::t_double_2d_lr_const &buf,
+      typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr &x,
       typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
       typename ArrayTypes<DeviceType>::t_int_1d &type,
       typename ArrayTypes<DeviceType>::t_int_1d &mask,
@@ -691,7 +691,7 @@ struct AtomVecDPDKokkos_UnpackBorder {
 /* ---------------------------------------------------------------------- */
 
 void AtomVecDPDKokkos::unpack_border_kokkos(const int &n, const int &first,
-                     const DAT::tdual_double_2d &buf,ExecutionSpace space) {
+                     const DAT::tdual_double_2d_lr &buf,ExecutionSpace space) {
   atomKK->modified(space,X_MASK|TAG_MASK|TYPE_MASK|MASK_MASK|
                  DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK|
                  UCG_MASK|UCGNEW_MASK);
@@ -720,14 +720,14 @@ template<class DeviceType>
 struct AtomVecDPDKokkos_PackExchangeFunctor {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  typename AT::t_kkfloat_1d_3_randomread _x;
+  typename AT::t_kkfloat_1d_3_lr_randomread _x;
   typename AT::t_kkfloat_1d_3_randomread _v;
   typename AT::t_tagint_1d_randomread _tag;
   typename AT::t_int_1d_randomread _type;
   typename AT::t_int_1d_randomread _mask;
   typename AT::t_imageint_1d_randomread _image;
   typename AT::t_kkfloat_1d_randomread _dpdTheta,_uCond,_uMech,_uChem,_uCG,_uCGnew;
-  typename AT::t_kkfloat_1d_3 _xw;
+  typename AT::t_kkfloat_1d_3_lr _xw;
   typename AT::t_kkfloat_1d_3 _vw;
   typename AT::t_tagint_1d _tagw;
   typename AT::t_int_1d _typew;
@@ -735,14 +735,14 @@ struct AtomVecDPDKokkos_PackExchangeFunctor {
   typename AT::t_imageint_1d _imagew;
   typename AT::t_kkfloat_1d _dpdThetaw,_uCondw,_uMechw,_uChemw,_uCGw,_uCGneww;
 
-  typename AT::t_double_2d_um _buf;
+  typename AT::t_double_2d_lr_um _buf;
   typename AT::t_int_1d_const _sendlist;
   typename AT::t_int_1d_const _copylist;
   int _size_exchange;
 
   AtomVecDPDKokkos_PackExchangeFunctor(
       const AtomKokkos* atom,
-      const DAT::tdual_double_2d buf,
+      const DAT::tdual_double_2d_lr buf,
       DAT::tdual_int_1d sendlist,
       DAT::tdual_int_1d copylist):
                 _x(atom->k_x.view<DeviceType>()),
@@ -822,7 +822,7 @@ struct AtomVecDPDKokkos_PackExchangeFunctor {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecDPDKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d &k_buf, DAT::tdual_int_1d k_sendlist,DAT::tdual_int_1d k_copylist,ExecutionSpace space)
+int AtomVecDPDKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d_lr &k_buf, DAT::tdual_int_1d k_sendlist,DAT::tdual_int_1d k_copylist,ExecutionSpace space)
 {
   size_exchange = 17;
 
@@ -850,7 +850,7 @@ template<class DeviceType>
 struct AtomVecDPDKokkos_UnpackExchangeFunctor {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  typename AT::t_kkfloat_1d_3 _x;
+  typename AT::t_kkfloat_1d_3_lr _x;
   typename AT::t_kkfloat_1d_3 _v;
   typename AT::t_tagint_1d _tag;
   typename AT::t_int_1d _type;
@@ -863,7 +863,7 @@ struct AtomVecDPDKokkos_UnpackExchangeFunctor {
   typename AT::t_kkfloat_1d _uCG;
   typename AT::t_kkfloat_1d _uCGnew;
 
-  typename AT::t_double_2d_um _buf;
+  typename AT::t_double_2d_lr_um _buf;
   typename AT::t_int_1d _nlocal;
   int _dim;
   double _lo,_hi;
@@ -871,7 +871,7 @@ struct AtomVecDPDKokkos_UnpackExchangeFunctor {
 
   AtomVecDPDKokkos_UnpackExchangeFunctor(
       const AtomKokkos* atom,
-      const DAT::tdual_double_2d buf,
+      const DAT::tdual_double_2d_lr buf,
       DAT::tdual_int_1d nlocal,
       int dim, double lo, double hi):
                 _x(atom->k_x.view<DeviceType>()),
@@ -913,7 +913,7 @@ struct AtomVecDPDKokkos_UnpackExchangeFunctor {
 };
 
 /* ---------------------------------------------------------------------- */
-int AtomVecDPDKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf, int nrecv, int nlocal,
+int AtomVecDPDKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d_lr &k_buf, int nrecv, int nlocal,
                                              int dim, double lo, double hi, ExecutionSpace space,
                                              DAT::tdual_int_1d &/*k_indices*/)
 {
@@ -1002,7 +1002,7 @@ void AtomVecDPDKokkos::sync_overlapping_device(ExecutionSpace space, unsigned in
 {
   if (space == Device) {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_device())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_x.k_view,space);
+      perform_async_copy<DAT::tdual_kkfloat_1d_3_lr>(atomKK->k_x.k_view,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync_device())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v.k_view,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync_device())
@@ -1033,7 +1033,7 @@ void AtomVecDPDKokkos::sync_overlapping_device(ExecutionSpace space, unsigned in
       perform_async_copy<DAT::tdual_kkfloat_1d>(atomKK->k_duChem.k_view,space);
   } else {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_host())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_x.k_view,space);
+      perform_async_copy<DAT::tdual_kkfloat_1d_3_lr>(atomKK->k_x.k_view,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync_host())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v.k_view,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync_host())

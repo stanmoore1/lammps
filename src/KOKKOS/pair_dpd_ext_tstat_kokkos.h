@@ -109,7 +109,7 @@ class PairDPDExtTstatKokkos : public PairDPDExtTstat {
   Kokkos::Random_XorShift1024_Pool<DeviceType> rand_pool;
   typedef typename Kokkos::Random_XorShift1024_Pool<DeviceType>::generator_type rand_type;
 #endif
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkfloat_1d_3_randomread v;
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread type;
@@ -118,14 +118,14 @@ class PairDPDExtTstatKokkos : public PairDPDExtTstat {
   typename AT::t_int_1d_randomread d_ilist;
   typename AT::t_int_1d_randomread d_numneigh;
 
-  DAT::ttriple_kkfloat_2d k_cutsq;
+  DAT::ttransform_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
 
   Kokkos::DualView<params_dpd**,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_dpd**,
     Kokkos::LayoutRight,DeviceType>::t_dev_const_um params;
 
-  DAT::ttriple_kkfloat_1d_6 k_vatom;
+  DAT::ttransform_kkfloat_1d_6 k_vatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
   KOKKOS_INLINE_FUNCTION
