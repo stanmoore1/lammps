@@ -87,7 +87,7 @@ class ComputeTempDeformKokkos: public ComputeTempDeform {
   void operator()(TagComputeTempDeformRestoreBias, const int &i) const;
 
  protected:
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 v;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 vbiasall;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_randomread rmass;

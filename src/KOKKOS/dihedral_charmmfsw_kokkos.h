@@ -75,7 +75,7 @@ class DihedralCharmmfswKokkos : public DihedralCharmmfsw {
 
   class NeighborKokkos *neighborKK;
 
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_int_1d_randomread atomtype;
   typename AT::t_kkfloat_1d_randomread q;
   typename AT::t_kkfloat_1d_3 f;

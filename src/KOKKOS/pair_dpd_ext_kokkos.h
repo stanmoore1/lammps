@@ -112,7 +112,7 @@ class PairDPDExtKokkos : public PairDPDExt {
   Kokkos::Random_XorShift1024_Pool<DeviceType> rand_pool;
   typedef typename Kokkos::Random_XorShift1024_Pool<DeviceType>::generator_type rand_type;
 #endif
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkfloat_1d_3_randomread v;
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread type;

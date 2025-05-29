@@ -116,7 +116,7 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
  protected:
   int nrecv1,nextrarecv1;
 
-  typename AT::t_kkfloat_1d_3 d_x;
+  typename AT::t_kkfloat_1d_3_lr d_x;
   typename AT::t_kkfloat_1d_3 d_v;
   typename AT::t_kkfloat_1d_3 d_f;
   typename AT::t_kkfloat_1d d_rmass;
@@ -149,8 +149,8 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   typename AT::t_int_2d d_shake_type; // bondtype of each bond in cluster
                                          // for angle cluster, 3rd value
                                          //   is angletype
-  DAT::ttriple_kkfloat_1d_3 k_xshake;
-  typename AT::t_kkfloat_1d_3 d_xshake; // unconstrained atom coords
+  DAT::ttriple_kkfloat_1d_3_lr k_xshake;
+  typename AT::t_kkfloat_1d_3_lr d_xshake; // unconstrained atom coords
 
   DAT::tdual_int_1d k_list;
   typename AT::t_int_1d d_list; // list of clusters to SHAKE

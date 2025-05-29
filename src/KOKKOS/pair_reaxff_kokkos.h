@@ -407,7 +407,7 @@ class PairReaxFFKokkos : public PairReaxFF {
   Kokkos::DualView<params_fbp****,LMPDeviceLayout,DeviceType> k_params_fbp;
   typename Kokkos::DualView<params_fbp****,LMPDeviceLayout,DeviceType>::t_dev_const paramsfbp;
 
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_tagint_1d_randomread tag;

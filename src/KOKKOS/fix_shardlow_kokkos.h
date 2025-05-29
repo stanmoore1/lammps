@@ -107,7 +107,7 @@ class FixShardlowKokkos : public FixShardlow {
   // typename AT::t_kkfloat_1d_3 d_v_t0; v_t0 only used in comm routines (on host)
   typename HAT::t_kkfloat_1d_3 h_v_t0;
 
-  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3_lr x;
   typename AT::t_kkfloat_1d_3 v;
   typename HAT::t_double_1d_3 h_v;
   typename AT::t_kkfloat_1d uCond, uMech;

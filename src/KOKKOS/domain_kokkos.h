@@ -75,7 +75,7 @@ class DomainKokkos : public Domain {
   int groupbit;
   KK_FLOAT lo[3],hi[3],period[3];
   int n_flip, m_flip, p_flip;
-  ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3 x;
+  ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3_lr x;
   ArrayTypes<LMPDeviceType>::t_imageint_1d image;
   ArrayTypes<LMPDeviceType>::t_int_1d mask;
 };

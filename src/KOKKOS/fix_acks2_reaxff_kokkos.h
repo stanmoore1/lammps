@@ -181,7 +181,7 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
   Kokkos::DualView<params_acks2*,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_acks2*, Kokkos::LayoutRight,DeviceType>::t_dev_const params;
 
-  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3_lr x;
   typename AT::t_kkfloat_1d_3 v;
   typename AT::t_kkfloat_1d_3_const f;
   typename AT::t_kkfloat_1d_randomread mass;

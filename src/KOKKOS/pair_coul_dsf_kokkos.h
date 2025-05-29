@@ -63,7 +63,7 @@ class PairCoulDSFKokkos : public PairCoulDSF {
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
 
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_kkfloat_1d_randomread q;
 

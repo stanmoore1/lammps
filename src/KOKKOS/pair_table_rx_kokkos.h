@@ -85,7 +85,7 @@ class PairTableRXKokkos : public PairTable {
   void allocate() override;
   void compute_table(Table *) override;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
 
   int neighflag;

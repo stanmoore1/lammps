@@ -131,7 +131,7 @@ class PairEAMAlloyKokkos : public PairEAM, public KokkosBase {
   void unpack_reverse_comm(int, int *, double *) override;
 
  protected:
-  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3_lr x;
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d type;
 

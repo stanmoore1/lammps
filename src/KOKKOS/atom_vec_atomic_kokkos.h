@@ -63,7 +63,7 @@ class AtomVecAtomicKokkos : public AtomVecKokkos, public AtomVecAtomic {
   DAT::t_int_1d d_type, d_mask;
   HAT::t_int_1d h_type, h_mask;
 
-  DAT::t_kkfloat_1d_3 d_x;
+  DAT::t_kkfloat_1d_3_lr d_x;
   DAT::t_kkfloat_1d_3 d_v;
   DAT::t_kkfloat_1d_3 d_f;
 };

@@ -127,8 +127,8 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   params_dpd m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
   KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 c_x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr c_x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread v;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
   typename ArrayTypes<DeviceType>::t_int_1d_randomread type;

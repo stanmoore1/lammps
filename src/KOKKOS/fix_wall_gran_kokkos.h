@@ -76,7 +76,7 @@ class FixWallGranKokkos : public FixWallGranOld, public KokkosBase {
   KK_FLOAT whi;
   KK_FLOAT vwall[3];
 
-  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3_lr x;
   typename AT::t_kkfloat_1d_3 v;
   typename AT::t_kkfloat_1d_3 d_omega;
   typename AT::t_kkfloat_1d_3 f;

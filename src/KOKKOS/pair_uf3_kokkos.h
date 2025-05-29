@@ -135,7 +135,7 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
                                         const KK_FLOAT &evdwl, const KK_FLOAT &ecoul, KK_FLOAT *fj,
                                         KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const;
 
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_tagint_1d tag;
   typename AT::t_int_1d_randomread type;

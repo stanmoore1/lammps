@@ -63,7 +63,7 @@ class FixEfieldKokkos : public FixEfield {
   typename AT::t_kkfloat_2d_randomread d_efield;
   typename AT::t_int_1d d_match;
 
-  typename AT::t_kkfloat_1d_3_randomread d_x;
+  typename AT::t_kkfloat_1d_3_lr_randomread d_x;
   typename AT::t_kkfloat_1d_randomread d_q;
   typename AT::t_kkfloat_1d_4_randomread d_mu;
   typename AT::t_kkfloat_1d_3 d_f;

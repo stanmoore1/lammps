@@ -193,7 +193,7 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
   t_param_1d d_params;
 
   int inum;
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_tagint_1d tag;

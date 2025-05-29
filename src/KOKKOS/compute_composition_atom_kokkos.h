@@ -47,7 +47,7 @@ template <class DeviceType> class ComputeCompositionAtomKokkos : public ComputeC
 
  private:
 
-  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3_lr x;
   typename ArrayTypes<DeviceType>::t_int_1d type;
   typename ArrayTypes<DeviceType>::t_int_1d mask;
 

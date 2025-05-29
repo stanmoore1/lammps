@@ -86,7 +86,7 @@ class PairMEAMKokkos : public PairMEAM, public KokkosBase {
 
  protected:
   class MEAMKokkos<DeviceType> *meam_inst_kk;
-  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3_lr x;
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_int_1d type;
 

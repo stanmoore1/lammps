@@ -782,7 +782,7 @@ struct BuildExchangeListFunctor {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   double _lo,_hi;
-  typename AT::t_kkfloat_1d_3 _x;
+  typename AT::t_kkfloat_1d_3_lr _x;
 
   int _nlocal,_dim;
   typename AT::t_int_scalar _nsend;
@@ -790,7 +790,7 @@ struct BuildExchangeListFunctor {
 
 
   BuildExchangeListFunctor(
-      const DAT::ttriple_kkfloat_1d_3 x,
+      const DAT::ttriple_kkfloat_1d_3_lr x,
       const DAT::tdual_int_1d sendlist,
       DAT::tdual_int_scalar nsend,
       int nlocal, int dim,
@@ -1094,13 +1094,13 @@ struct BuildBorderListFunctor {
         typedef DeviceType device_type;
         typedef ArrayTypes<DeviceType> AT;
   double lo,hi;
-  typename AT::t_kkfloat_1d_3 x;
+  typename AT::t_kkfloat_1d_3_lr x;
   int iswap,maxsendlist;
   int nfirst,nlast,dim;
   typename AT::t_int_2d_lr sendlist;
   typename AT::t_int_scalar nsend;
 
-  BuildBorderListFunctor(DAT::ttriple_kkfloat_1d_3 _x,
+  BuildBorderListFunctor(DAT::ttriple_kkfloat_1d_3_lr _x,
                          DAT::tdual_int_2d_lr _sendlist,
                          DAT::tdual_int_scalar _nsend,int _nfirst,
                          int _nlast, int _dim,

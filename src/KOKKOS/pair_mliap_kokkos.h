@@ -104,7 +104,7 @@ public:
   enum class COMM_TYPE {FLOAT=0, DOUBLE, UNSET} comm_type;
   int vec_len;
 
-  typename AT::t_kkfloat_1d_3_randomread x;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkfloat_1d_3_randomread v;
   typename AT::t_kkfloat_1d_3 f;
   DAT::tdual_int_1d k_map;

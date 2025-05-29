@@ -917,9 +917,9 @@ KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[6], LMPDeviceLayout, kkfloat_1d_6)
 typedef TripleView<int**, int**, LMPDeviceLayout> ttriple_int_2d;
 typedef TripleView<LAMMPS_NS::tagint**, LAMMPS_NS::tagint**, LMPDeviceLayout> ttriple_tagint_2d;
 typedef TripleView<KK_FLOAT**, double**, LMPDeviceLayout> ttriple_kkfloat_2d;
+typedef TripleView<KK_FLOAT**, double**, Kokkos::LayoutRight> ttriple_kkfloat_2d_lr;
 typedef TripleView<KK_FLOAT*[2], double*[2], LMPDeviceLayout> ttriple_kkfloat_1d_2;
 typedef TripleView<KK_FLOAT*[3], double*[3], LMPDeviceLayout> ttriple_kkfloat_1d_3;
-typedef TripleView<KK_FLOAT*[3], double*[3], Kokkos::LayoutRight> ttriple_kkfloat_1d_3_lr;
 typedef TripleView<KK_FLOAT*[3], double*[3], Kokkos::LayoutRight> ttriple_kkfloat_1d_3_lr;
 typedef TripleView<KK_FLOAT*[4], double*[4], LMPDeviceLayout> ttriple_kkfloat_1d_4;
 typedef TripleView<KK_FLOAT*[6], double*[6], LMPDeviceLayout> ttriple_kkfloat_1d_6;
