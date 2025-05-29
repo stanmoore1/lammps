@@ -1970,7 +1970,7 @@ void FixRxKokkos<DeviceType>::computeLocalTemperature()
 template <typename DeviceType>
 int FixRxKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/)
 {
-  HAT::t_double_2d h_dvector = atomKK->k_dvector.h_view;
+  HAT::t_double_2d_lr h_dvector = atomKK->k_dvector.h_view;
 
   int m = 0;
   for (int ii = 0; ii < n; ii++) {
@@ -1988,7 +1988,7 @@ int FixRxKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, in
 template <typename DeviceType>
 void FixRxKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
 {
-  HAT::t_double_2d h_dvector = atomKK->k_dvector.h_view;
+  HAT::t_double_2d_lr h_dvector = atomKK->k_dvector.h_view;
 
   const int last = first + n ;
   int m = 0;

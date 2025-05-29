@@ -373,7 +373,7 @@ void FixWallGranKokkos<DeviceType>::operator()(TagFixWallGranPackExchange, const
 
 template<class DeviceType>
 int FixWallGranKokkos<DeviceType>::pack_exchange_kokkos(
-   const int &nsend, DAT::tdual_double_2d &k_buf,
+   const int &nsend, DAT::tdual_double_2d_lr &k_buf,
    DAT::tdual_int_1d k_sendlist, DAT::tdual_int_1d k_copylist,
    ExecutionSpace /*space*/)
 {
@@ -417,7 +417,7 @@ void FixWallGranKokkos<DeviceType>::operator()(TagFixWallGranUnpackExchange, con
 
 template<class DeviceType>
 void FixWallGranKokkos<DeviceType>::unpack_exchange_kokkos(
-  DAT::tdual_double_2d &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
+  DAT::tdual_double_2d_lr &k_buf, DAT::tdual_int_1d &k_indices, int nrecv,
   int /*nrecv1*/, int /*nextrarecv1*/,
   ExecutionSpace /*space*/)
 {

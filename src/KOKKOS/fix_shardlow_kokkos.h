@@ -109,7 +109,7 @@ class FixShardlowKokkos : public FixShardlow {
 
   typename AT::t_kkfloat_1d_3_lr x;
   typename AT::t_kkfloat_1d_3 v;
-  typename HAT::t_double_1d_3 h_v;
+  typename HAT::t_double_1d_3_lr h_v;
   typename AT::t_kkfloat_1d uCond, uMech;
   typename HAT::t_double_1d h_uCond, h_uMech;
   typename AT::t_int_1d type;

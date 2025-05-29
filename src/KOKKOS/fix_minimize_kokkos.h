@@ -48,7 +48,7 @@ class FixMinimizeKokkos : public FixMinimize, public KokkosBase {
 
   DAT::ttriple_kkfloat_2d_lr k_vectors;
   DAT::t_kkfloat_2d_lr d_vectors;
-  HAT::t_double_2d h_vectors;
+  HAT::t_double_2d_lr h_vectors;
 };
 
 }

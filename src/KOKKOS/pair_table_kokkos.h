@@ -61,35 +61,35 @@ class PairTableKokkos : public PairTable {
  protected:
 
   /*struct TableDeviceConst {
-    typename AT::t_double_2d_randomread cutsq;
+    typename AT::t_double_2d_lr_randomread cutsq;
     typename AT::t_int_2d_lr_randomread tabindex;
     typename AT::t_int_1d_randomread nshiftbits,nmask;
     typename AT::t_double_1d_randomread innersq,invdelta,deltasq6;
-    typename AT::t_double_2d_randomread rsq,drsq,e,de,f,df,e2,f2;
+    typename AT::t_double_2d_lr_randomread rsq,drsq,e,de,f,df,e2,f2;
   };*/
  //Its faster not to use texture fetch if the number of tables is less than 32!
   struct TableDeviceConst {
-    typename AT::t_double_2d cutsq;
+    typename AT::t_double_2d_lr cutsq;
     typename AT::t_int_2d_lr tabindex;
     typename AT::t_int_1d nshiftbits,nmask;
     typename AT::t_double_1d innersq,invdelta,deltasq6;
-    typename AT::t_double_2d_randomread rsq,drsq,e,de,f,df,e2,f2;
+    typename AT::t_double_2d_lr_randomread rsq,drsq,e,de,f,df,e2,f2;
   };
 
   struct TableDevice {
-    typename AT::t_double_2d cutsq;
+    typename AT::t_double_2d_lr cutsq;
     typename AT::t_int_2d_lr tabindex;
     typename AT::t_int_1d nshiftbits,nmask;
     typename AT::t_double_1d innersq,invdelta,deltasq6;
-    typename AT::t_double_2d rsq,drsq,e,de,f,df,e2,f2;
+    typename AT::t_double_2d_lr rsq,drsq,e,de,f,df,e2,f2;
   };
 
   struct TableHost {
-    typename ArrayTypes<LMPHostType>::t_double_2d cutsq;
+    typename ArrayTypes<LMPHostType>::t_double_2d_lr cutsq;
     typename ArrayTypes<LMPHostType>::t_int_2d_lr tabindex;
     typename ArrayTypes<LMPHostType>::t_int_1d nshiftbits,nmask;
     typename ArrayTypes<LMPHostType>::t_double_1d innersq,invdelta,deltasq6;
-    typename ArrayTypes<LMPHostType>::t_double_2d rsq,drsq,e,de,f,df,e2,f2;
+    typename ArrayTypes<LMPHostType>::t_double_2d_lr rsq,drsq,e,de,f,df,e2,f2;
   };
 
   TableDeviceConst d_table_const;
@@ -98,7 +98,7 @@ class PairTableKokkos : public PairTable {
 
   double m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
-  typename AT::t_double_2d d_cutsq;
+  typename AT::t_double_2d_lr d_cutsq;
 
   void allocate() override;
   void compute_table(Table *) override;

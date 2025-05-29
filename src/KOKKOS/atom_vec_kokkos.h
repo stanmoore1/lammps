@@ -53,21 +53,21 @@ class AtomVecKokkos : virtual public AtomVec {
 
   virtual int
     pack_comm_kokkos(const int &n, const DAT::tdual_int_1d &list,
-                     const DAT::tdual_double_2d &buf,
+                     const DAT::tdual_double_2d_lr &buf,
                      const int &pbc_flag, const int pbc[]);
 
   virtual void
     unpack_comm_kokkos(const int &n, const int &nfirst,
-                       const DAT::tdual_double_2d &buf);
+                       const DAT::tdual_double_2d_lr &buf);
 
   virtual int
     pack_comm_vel_kokkos(const int &n, const DAT::tdual_int_1d &list,
-                         const DAT::tdual_double_2d &buf,
+                         const DAT::tdual_double_2d_lr &buf,
                          const int &pbc_flag, const int pbc[]);
 
   virtual void
     unpack_comm_vel_kokkos(const int &n, const int &nfirst,
-                           const DAT::tdual_double_2d &buf);
+                           const DAT::tdual_double_2d_lr &buf);
 
   virtual int
     pack_reverse_self(const int &n, const DAT::tdual_int_1d &list,
@@ -75,40 +75,40 @@ class AtomVecKokkos : virtual public AtomVec {
 
   virtual int
     pack_reverse_kokkos(const int &n, const int &nfirst,
-                        const DAT::tdual_double_2d &buf);
+                        const DAT::tdual_double_2d_lr &buf);
 
   virtual void
     unpack_reverse_kokkos(const int &n, const DAT::tdual_int_1d &list,
-                          const DAT::tdual_double_2d &buf);
+                          const DAT::tdual_double_2d_lr &buf);
 
   virtual int
     pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                       DAT::tdual_double_2d buf,
+                       DAT::tdual_double_2d_lr buf,
                        int pbc_flag, int *pbc, ExecutionSpace space) = 0;
 
   virtual void
     unpack_border_kokkos(const int &n, const int &nfirst,
-                         const DAT::tdual_double_2d &buf,
+                         const DAT::tdual_double_2d_lr &buf,
                          ExecutionSpace space) = 0;
 
   virtual int
     pack_border_vel_kokkos(int /*n*/, DAT::tdual_int_1d /*k_sendlist*/,
-                           DAT::tdual_double_2d /*buf*/,
+                           DAT::tdual_double_2d_lr /*buf*/,
                            int /*pbc_flag*/, int * /*pbc*/, ExecutionSpace /*space*/) { return 0; }
 
   virtual void
     unpack_border_vel_kokkos(const int &/*n*/, const int & /*nfirst*/,
-                             const DAT::tdual_double_2d & /*buf*/,
+                             const DAT::tdual_double_2d_lr & /*buf*/,
                              ExecutionSpace /*space*/) {}
 
   virtual int
-    pack_exchange_kokkos(const int &nsend, DAT::tdual_double_2d &buf,
+    pack_exchange_kokkos(const int &nsend, DAT::tdual_double_2d_lr &buf,
                          DAT::tdual_int_1d k_sendlist,
                          DAT::tdual_int_1d k_copylist,
                          ExecutionSpace space) = 0;
 
   virtual int
-    unpack_exchange_kokkos(DAT::tdual_double_2d &k_buf, int nrecv,
+    unpack_exchange_kokkos(DAT::tdual_double_2d_lr &k_buf, int nrecv,
                            int nlocal, int dim, double lo, double hi,
                            ExecutionSpace space,
                            DAT::tdual_int_1d &k_indices) = 0;

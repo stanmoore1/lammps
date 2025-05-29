@@ -153,10 +153,8 @@ typedef Kokkos::DefaultExecutionSpace LMPDeviceType;
 typedef Kokkos::HostSpace::execution_space LMPHostType;
 
 // set default device layout
-#define LMP_KOKKOS_LAYOUT_LEFT
 #if defined(LMP_KOKKOS_LAYOUT_LEFT)
-//typedef LMPDeviceType::array_layout LMPDeviceLayout;
-typedef Kokkos::LayoutLeft LMPDeviceLayout;
+typedef LMPDeviceType::array_layout LMPDeviceLayout;
 #else
 typedef Kokkos::LayoutRight LMPDeviceLayout;
 #endif
@@ -360,7 +358,7 @@ public:
 // define precision
 
 #ifndef LMP_KOKKOS_PRECISION
-#define LMP_KOKKOS_PRECISION 1
+#define LMP_KOKKOS_PRECISION 2
 #endif
 
 #if LMP_KOKKOS_PRECISION == 1 // single
@@ -901,11 +899,11 @@ KOKKOS_DEVICE_DUALVIEW(int**, LMPDeviceLayout, int_2d)
 KOKKOS_DEVICE_DUALVIEW(int**, Kokkos::LayoutRight, int_2d_lr)
 KOKKOS_DEVICE_DUALVIEW(int*[3], LMPDeviceLayout, int_1d_3)
 KOKKOS_DEVICE_DUALVIEW(tagint**, LMPDeviceLayout, tagint_2d)
-KOKKOS_DEVICE_DUALVIEW(double**, Kokkos::LayoutRight, double_2d)
-KOKKOS_DEVICE_DUALVIEW(double*[2], Kokkos::LayoutRight, double_1d_2)
-KOKKOS_DEVICE_DUALVIEW(double*[3], Kokkos::LayoutRight, double_1d_3)
-KOKKOS_DEVICE_DUALVIEW(double*[4], Kokkos::LayoutRight, double_1d_4)
-KOKKOS_DEVICE_DUALVIEW(double*[6], Kokkos::LayoutRight, double_1d_6)
+KOKKOS_DEVICE_DUALVIEW(double**, Kokkos::LayoutRight, double_2d_lr)
+KOKKOS_DEVICE_DUALVIEW(double*[2], Kokkos::LayoutRight, double_1d_2_lr)
+KOKKOS_DEVICE_DUALVIEW(double*[3], Kokkos::LayoutRight, double_1d_3_lr)
+KOKKOS_DEVICE_DUALVIEW(double*[4], Kokkos::LayoutRight, double_1d_4_lr)
+KOKKOS_DEVICE_DUALVIEW(double*[6], Kokkos::LayoutRight, double_1d_6_lr)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT**, LMPDeviceLayout, kkfloat_2d)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT**, Kokkos::LayoutRight, kkfloat_2d_lr)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[2], LMPDeviceLayout, kkfloat_1d_2)
@@ -928,14 +926,14 @@ typedef TripleView<KK_FLOAT*[6], double*[6], LMPDeviceLayout> ttriple_kkfloat_1d
 
 KOKKOS_DEVICE_DUALVIEW(int***, LMPDeviceLayout, int_3d)
 KOKKOS_DEVICE_DUALVIEW(int***, Kokkos::LayoutRight, int_3d_lr)
-KOKKOS_DEVICE_DUALVIEW(double***, Kokkos::LayoutRight, double_3d)
+KOKKOS_DEVICE_DUALVIEW(double***, Kokkos::LayoutRight, double_3d_lr)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT***, LMPDeviceLayout, kkfloat_3d)
 
 typedef TripleView<KK_FLOAT***, double***, LMPDeviceLayout> ttriple_kkfloat_3d;
 
 // 4D view types
 
-KOKKOS_DEVICE_DUALVIEW(double****, Kokkos::LayoutRight, double_4d)
+KOKKOS_DEVICE_DUALVIEW(double****, Kokkos::LayoutRight, double_4d_lr)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT****, LMPDeviceLayout, kkfloat_4d)
 
 typedef TripleView<KK_FLOAT****, double****, LMPDeviceLayout> ttriple_kkfloat_4d;
@@ -986,11 +984,11 @@ KOKKOS_HOST_DUALVIEW(int**, LMPDeviceLayout, int_2d)
 KOKKOS_HOST_DUALVIEW(int**, Kokkos::LayoutRight, int_2d_lr)
 KOKKOS_HOST_DUALVIEW(int*[3], LMPDeviceLayout, int_1d_3)
 KOKKOS_HOST_DUALVIEW(tagint**, LMPDeviceLayout, tagint_2d)
-KOKKOS_HOST_DUALVIEW(double**, Kokkos::LayoutRight, double_2d)
-KOKKOS_HOST_DUALVIEW(double*[2], Kokkos::LayoutRight, double_1d_2)
-KOKKOS_HOST_DUALVIEW(double*[3], Kokkos::LayoutRight, double_1d_3)
-KOKKOS_HOST_DUALVIEW(double*[4], Kokkos::LayoutRight, double_1d_4)
-KOKKOS_HOST_DUALVIEW(double*[6], Kokkos::LayoutRight, double_1d_6)
+KOKKOS_HOST_DUALVIEW(double**, Kokkos::LayoutRight, double_2d_lr)
+KOKKOS_HOST_DUALVIEW(double*[2], Kokkos::LayoutRight, double_1d_2_lr)
+KOKKOS_HOST_DUALVIEW(double*[3], Kokkos::LayoutRight, double_1d_3_lr)
+KOKKOS_HOST_DUALVIEW(double*[4], Kokkos::LayoutRight, double_1d_4_lr)
+KOKKOS_HOST_DUALVIEW(double*[6], Kokkos::LayoutRight, double_1d_6_lr)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT**, LMPDeviceLayout, kkfloat_2d)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT**, Kokkos::LayoutRight, kkfloat_2d_lr)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT*[2], LMPDeviceLayout, kkfloat_1d_2)
@@ -1003,12 +1001,12 @@ KOKKOS_HOST_DUALVIEW(KK_FLOAT*[6], LMPDeviceLayout, kkfloat_1d_6)
 
 KOKKOS_HOST_DUALVIEW(int***, LMPDeviceLayout, int_3d)
 KOKKOS_HOST_DUALVIEW(int***, Kokkos::LayoutRight, int_3d_lr)
-KOKKOS_HOST_DUALVIEW(double***, Kokkos::LayoutRight, double_3d)
+KOKKOS_HOST_DUALVIEW(double***, Kokkos::LayoutRight, double_3d_lr)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT***, LMPDeviceLayout, kkfloat_3d)
 
 // 4D view types
 
-KOKKOS_HOST_DUALVIEW(double****, Kokkos::LayoutRight, double_4d)
+KOKKOS_HOST_DUALVIEW(double****, Kokkos::LayoutRight, double_4d_lr)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT****, LMPDeviceLayout, kkfloat_4d)
 
 // Neighbor Types
