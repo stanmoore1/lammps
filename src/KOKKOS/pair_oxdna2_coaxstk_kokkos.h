@@ -85,8 +85,8 @@ class PairOxdna2CoaxstkKokkos : public PairOxdna2Coaxstk, public KokkosBase {
   int newton_pair;
   double special_lj[4];
 
-  typename AT::tdual_ffloat_2d k_cutsq;
-  typename AT::t_ffloat_2d d_cutsq;
+  typename AT::ttransform_kkfloat_2d k_cutsq;
+  typename AT::t_kkfloat_2d d_cutsq;
 
   int neighflag;
   int nlocal, eflag, vflag;
@@ -97,39 +97,39 @@ class PairOxdna2CoaxstkKokkos : public PairOxdna2Coaxstk, public KokkosBase {
   typename AT::t_int_1d_randomread d_numneigh;
 
   // coaxial stacking interaction parameters
-  typename AT::tdual_ffloat_2d k_k_cxst, k_cut_cxst_0, k_cut_cxst_c;
-  typename AT::tdual_ffloat_2d k_cut_cxst_lo, k_cut_cxst_hi;
-  typename AT::tdual_ffloat_2d k_cut_cxst_lc, k_cut_cxst_hc, k_b_cxst_lo, k_b_cxst_hi;
-  typename AT::tdual_ffloat_2d k_cutsq_cxst_hc;
-  typename AT::tdual_ffloat_2d k_a_cxst1, k_theta_cxst1_0, k_dtheta_cxst1_ast;
-  typename AT::tdual_ffloat_2d k_b_cxst1, k_dtheta_cxst1_c;
-  typename AT::tdual_ffloat_2d k_a_cxst4, k_theta_cxst4_0, k_dtheta_cxst4_ast;
-  typename AT::tdual_ffloat_2d k_b_cxst4, k_dtheta_cxst4_c;
-  typename AT::tdual_ffloat_2d k_a_cxst5, k_theta_cxst5_0, k_dtheta_cxst5_ast;
-  typename AT::tdual_ffloat_2d k_b_cxst5, k_dtheta_cxst5_c;
-  typename AT::tdual_ffloat_2d k_a_cxst6, k_theta_cxst6_0, k_dtheta_cxst6_ast;
-  typename AT::tdual_ffloat_2d k_b_cxst6, k_dtheta_cxst6_c;
-  typename AT::tdual_ffloat_2d k_AA_cxst1, k_BB_cxst1;
-  typename AT::t_ffloat_2d d_k_cxst, d_cut_cxst_0, d_cut_cxst_c;
-  typename AT::t_ffloat_2d d_cut_cxst_lo, d_cut_cxst_hi;
-  typename AT::t_ffloat_2d d_cut_cxst_lc, d_cut_cxst_hc, d_b_cxst_lo, d_b_cxst_hi;
-  typename AT::t_ffloat_2d d_cutsq_cxst_hc;
-  typename AT::t_ffloat_2d d_a_cxst1, d_theta_cxst1_0, d_dtheta_cxst1_ast;
-  typename AT::t_ffloat_2d d_b_cxst1, d_dtheta_cxst1_c;
-  typename AT::t_ffloat_2d d_a_cxst4, d_theta_cxst4_0, d_dtheta_cxst4_ast;
-  typename AT::t_ffloat_2d d_b_cxst4, d_dtheta_cxst4_c;
-  typename AT::t_ffloat_2d d_a_cxst5, d_theta_cxst5_0, d_dtheta_cxst5_ast;
-  typename AT::t_ffloat_2d d_b_cxst5, d_dtheta_cxst5_c;
-  typename AT::t_ffloat_2d d_a_cxst6, d_theta_cxst6_0, d_dtheta_cxst6_ast;
-  typename AT::t_ffloat_2d d_b_cxst6, d_dtheta_cxst6_c;
-  typename AT::t_ffloat_2d d_AA_cxst1, d_BB_cxst1;
+  typename AT::ttransform_kkfloat_2d k_k_cxst, k_cut_cxst_0, k_cut_cxst_c;
+  typename AT::ttransform_kkfloat_2d k_cut_cxst_lo, k_cut_cxst_hi;
+  typename AT::ttransform_kkfloat_2d k_cut_cxst_lc, k_cut_cxst_hc, k_b_cxst_lo, k_b_cxst_hi;
+  typename AT::ttransform_kkfloat_2d k_cutsq_cxst_hc;
+  typename AT::ttransform_kkfloat_2d k_a_cxst1, k_theta_cxst1_0, k_dtheta_cxst1_ast;
+  typename AT::ttransform_kkfloat_2d k_b_cxst1, k_dtheta_cxst1_c;
+  typename AT::ttransform_kkfloat_2d k_a_cxst4, k_theta_cxst4_0, k_dtheta_cxst4_ast;
+  typename AT::ttransform_kkfloat_2d k_b_cxst4, k_dtheta_cxst4_c;
+  typename AT::ttransform_kkfloat_2d k_a_cxst5, k_theta_cxst5_0, k_dtheta_cxst5_ast;
+  typename AT::ttransform_kkfloat_2d k_b_cxst5, k_dtheta_cxst5_c;
+  typename AT::ttransform_kkfloat_2d k_a_cxst6, k_theta_cxst6_0, k_dtheta_cxst6_ast;
+  typename AT::ttransform_kkfloat_2d k_b_cxst6, k_dtheta_cxst6_c;
+  typename AT::ttransform_kkfloat_2d k_AA_cxst1, k_BB_cxst1;
+  typename AT::t_kkfloat_2d d_k_cxst, d_cut_cxst_0, d_cut_cxst_c;
+  typename AT::t_kkfloat_2d d_cut_cxst_lo, d_cut_cxst_hi;
+  typename AT::t_kkfloat_2d d_cut_cxst_lc, d_cut_cxst_hc, d_b_cxst_lo, d_b_cxst_hi;
+  typename AT::t_kkfloat_2d d_cutsq_cxst_hc;
+  typename AT::t_kkfloat_2d d_a_cxst1, d_theta_cxst1_0, d_dtheta_cxst1_ast;
+  typename AT::t_kkfloat_2d d_b_cxst1, d_dtheta_cxst1_c;
+  typename AT::t_kkfloat_2d d_a_cxst4, d_theta_cxst4_0, d_dtheta_cxst4_ast;
+  typename AT::t_kkfloat_2d d_b_cxst4, d_dtheta_cxst4_c;
+  typename AT::t_kkfloat_2d d_a_cxst5, d_theta_cxst5_0, d_dtheta_cxst5_ast;
+  typename AT::t_kkfloat_2d d_b_cxst5, d_dtheta_cxst5_c;
+  typename AT::t_kkfloat_2d d_a_cxst6, d_theta_cxst6_0, d_dtheta_cxst6_ast;
+  typename AT::t_kkfloat_2d d_b_cxst6, d_dtheta_cxst6_c;
+  typename AT::t_kkfloat_2d d_AA_cxst1, d_BB_cxst1;
   // per-atom arrays for local unit vectors - ny not needed here
-  DAT::tdual_x_array k_nx_xtrct, /*k_ny_xtrct,*/ k_nz_xtrct;
+  DAT::tdual_kkfloat_1d_3_lr k_nx_xtrct, /*k_ny_xtrct,*/ k_nz_xtrct;
   typename AT::t_kkfloat_1d_3_lr d_nx_xtrct, /*d_ny_xtrct,*/ d_nz_xtrct;
 
   int first;
   typename AT::t_int_1d d_sendlist;
-  typename AT::t_xfloat_1d_um v_buf;
+  typename AT::t_double_1d_um v_buf;
 
   using KKDeviceType = typename KKDevice<DeviceType>::value;
 

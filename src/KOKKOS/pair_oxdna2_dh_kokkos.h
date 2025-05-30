@@ -88,8 +88,8 @@ class PairOxdna2DhKokkos : public PairOxdna2Dh, public KokkosBase {
   int newton_pair;
   double special_lj[4];
 
-  typename AT::tdual_ffloat_2d k_cutsq;
-  typename AT::t_ffloat_2d d_cutsq;
+  typename AT::ttransform_kkfloat_2d k_cutsq;
+  typename AT::t_kkfloat_2d d_cutsq;
 
   int neighflag;
   int nlocal, eflag, vflag;
@@ -100,19 +100,19 @@ class PairOxdna2DhKokkos : public PairOxdna2Dh, public KokkosBase {
   typename AT::t_int_1d_randomread d_numneigh;
 
   // debye huckel interaction parameters
-  typename AT::tdual_ffloat_2d k_qeff_dh_pf, k_kappa_dh;
-  typename AT::tdual_ffloat_2d k_b_dh, k_cut_dh_ast, k_cutsq_dh_ast;
-  typename AT::tdual_ffloat_2d k_cut_dh_c, k_cutsq_dh_c;
-  typename AT::t_ffloat_2d d_qeff_dh_pf, d_kappa_dh;
-  typename AT::t_ffloat_2d d_b_dh, d_cut_dh_ast, d_cutsq_dh_ast;
-  typename AT::t_ffloat_2d d_cut_dh_c, d_cutsq_dh_c;
+  typename AT::ttransform_kkfloat_2d k_qeff_dh_pf, k_kappa_dh;
+  typename AT::ttransform_kkfloat_2d k_b_dh, k_cut_dh_ast, k_cutsq_dh_ast;
+  typename AT::ttransform_kkfloat_2d k_cut_dh_c, k_cutsq_dh_c;
+  typename AT::t_kkfloat_2d d_qeff_dh_pf, d_kappa_dh;
+  typename AT::t_kkfloat_2d d_b_dh, d_cut_dh_ast, d_cutsq_dh_ast;
+  typename AT::t_kkfloat_2d d_cut_dh_c, d_cutsq_dh_c;
   // per-atom arrays for local unit vectors
-  DAT::tdual_x_array k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
+  DAT::tdual_kkfloat_1d_3_lr k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
   typename AT::t_kkfloat_1d_3_lr d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
 
   int first;
   typename AT::t_int_1d d_sendlist;
-  typename AT::t_xfloat_1d_um v_buf;
+  typename AT::t_double_1d_um v_buf;
 
   using KKDeviceType = typename KKDevice<DeviceType>::value;
 
