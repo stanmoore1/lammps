@@ -91,7 +91,7 @@ void FixNVEAsphereKokkos<DeviceType>::initial_integrate_item(const int i) const
 {
   // set timestep here since dt may have changed or come via rRESPA
 
-  const F_FLOAT dtq = 0.5 * dtv;
+  const KK_FLOAT dtq = 0.5 * dtv;
   double inertia[3], omega[3];
   double *shape, *quat, *angmom_ptr;
 
@@ -210,7 +210,7 @@ template <class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void FixNVEAsphereKokkos<DeviceType>::fused_integrate_item(const int i) const
 {
-  const F_FLOAT dtq = 0.5 * dtv;
+  const KK_FLOAT dtq = 0.5 * dtv;
   double inertia[3], omega[3];
   double *shape, *quat, *angmom_ptr;
 

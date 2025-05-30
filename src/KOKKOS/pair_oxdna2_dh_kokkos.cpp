@@ -303,23 +303,23 @@ void PairOxdna2DhKokkos<DeviceType>::operator()(TagPairOxdna2DhCompute<OXDNAFLAG
   const int a = d_alist(ia);
   const int atype = type(a);
   // vectors COM-backbone site in lab frame
-  F_FLOAT ra_cs[3], rb_cs[3];
+  KK_FLOAT ra_cs[3], rb_cs[3];
 
-  F_FLOAT delf[3],delta[3],deltb[3];    // force, torque increment
-  F_FLOAT evdwl, fpair;
-  F_FLOAT rtmp_s[3],delr[3];
-  F_FLOAT r,rsq,rinv;
+  KK_FLOAT delf[3],delta[3],deltb[3];    // force, torque increment
+  KK_FLOAT evdwl, fpair;
+  KK_FLOAT rtmp_s[3],delr[3];
+  KK_FLOAT r,rsq,rinv;
 
   // vector COM-backbone site a
   if (OXDNAFLAG==OXDNA2) {
-    constexpr F_FLOAT d_cs_x = -0.34;
-    constexpr F_FLOAT d_cs_y = +0.3408;
+    constexpr KK_FLOAT d_cs_x = -0.34;
+    constexpr KK_FLOAT d_cs_y = +0.3408;
     ra_cs[0] = d_cs_x*d_nx_xtrct(a,0) + d_cs_y*d_ny_xtrct(a,0);
     ra_cs[1] = d_cs_x*d_nx_xtrct(a,1) + d_cs_y*d_ny_xtrct(a,1);
     ra_cs[2] = d_cs_x*d_nx_xtrct(a,2) + d_cs_y*d_ny_xtrct(a,2);
   } else {
-    constexpr F_FLOAT d_cs_x = -0.4;
-    constexpr F_FLOAT d_cs_z = +0.2;
+    constexpr KK_FLOAT d_cs_x = -0.4;
+    constexpr KK_FLOAT d_cs_z = +0.2;
     ra_cs[0] = d_cs_x*d_nx_xtrct(a,0) + d_cs_z*d_nz_xtrct(a,0);
     ra_cs[1] = d_cs_x*d_nx_xtrct(a,1) + d_cs_z*d_nz_xtrct(a,1);
     ra_cs[2] = d_cs_x*d_nx_xtrct(a,2) + d_cs_z*d_nz_xtrct(a,2);
@@ -334,20 +334,20 @@ void PairOxdna2DhKokkos<DeviceType>::operator()(TagPairOxdna2DhCompute<OXDNAFLAG
   for (int ib = 0; ib < bnum; ib++) {
 
     int b = d_neighbors(a,ib);
-    const F_FLOAT factor_lj = special_lj[sbmask(b)];
+    const KK_FLOAT factor_lj = special_lj[sbmask(b)];
     b &= NEIGHMASK;
     const int btype = type(b);
 
     // vector COM-backbone site b
     if (OXDNAFLAG==OXDNA2) {
-      constexpr F_FLOAT d_cs_x = -0.34;
-      constexpr F_FLOAT d_cs_y = +0.3408;
+      constexpr KK_FLOAT d_cs_x = -0.34;
+      constexpr KK_FLOAT d_cs_y = +0.3408;
       rb_cs[0] = d_cs_x*d_nx_xtrct(b,0) + d_cs_y*d_ny_xtrct(b,0);
       rb_cs[1] = d_cs_x*d_nx_xtrct(b,1) + d_cs_y*d_ny_xtrct(b,1);
       rb_cs[2] = d_cs_x*d_nx_xtrct(b,2) + d_cs_y*d_ny_xtrct(b,2);
     } else {
-      constexpr F_FLOAT d_cs_x = -0.4;
-      constexpr F_FLOAT d_cs_z = +0.2;
+      constexpr KK_FLOAT d_cs_x = -0.4;
+      constexpr KK_FLOAT d_cs_z = +0.2;
       rb_cs[0] = d_cs_x*d_nx_xtrct(b,0) + d_cs_z*d_nz_xtrct(b,0);
       rb_cs[1] = d_cs_x*d_nx_xtrct(b,1) + d_cs_z*d_nz_xtrct(b,1);
       rb_cs[2] = d_cs_x*d_nx_xtrct(b,2) + d_cs_z*d_nz_xtrct(b,2);
@@ -548,8 +548,8 @@ template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR>
 KOKKOS_INLINE_FUNCTION
 void PairOxdna2DhKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &epair, const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz, const F_FLOAT &delx,
-                const F_FLOAT &dely, const F_FLOAT &delz) const
+      const KK_FLOAT &epair, const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz, const KK_FLOAT &delx,
+                const KK_FLOAT &dely, const KK_FLOAT &delz) const
 {
   const int EFLAG = eflag;
   const int VFLAG = vflag_either;
@@ -566,7 +566,7 @@ void PairOxdna2DhKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, co
 
   if (EFLAG) {
     if (eflag_atom) {
-      const E_FLOAT epairhalf = 0.5 * epair;
+      const KK_FLOAT epairhalf = 0.5 * epair;
       if (NEIGHFLAG!=FULL) {
         if (NEWTON_PAIR || i < nlocal) a_eatom[i] += epairhalf;
         if (NEWTON_PAIR || j < nlocal) a_eatom[j] += epairhalf;
@@ -577,12 +577,12 @@ void PairOxdna2DhKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, co
   }
 
   if (VFLAG) {
-    const E_FLOAT v0 = delx*fx;
-    const E_FLOAT v1 = dely*fy;
-    const E_FLOAT v2 = delz*fz;
-    const E_FLOAT v3 = delx*fy;
-    const E_FLOAT v4 = delx*fz;
-    const E_FLOAT v5 = dely*fz;
+    const KK_FLOAT v0 = delx*fx;
+    const KK_FLOAT v1 = dely*fy;
+    const KK_FLOAT v2 = delz*fz;
+    const KK_FLOAT v3 = delx*fy;
+    const KK_FLOAT v4 = delx*fz;
+    const KK_FLOAT v5 = dely*fz;
 
     if (vflag_global) {
       if (NEIGHFLAG!=FULL) {

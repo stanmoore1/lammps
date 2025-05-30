@@ -183,7 +183,7 @@ template<class DeviceType,int PBC_FLAG,int TRICLINIC>
 struct AtomVecEllipsoidKokkos_PackComm {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread_randomread _x;
   typename ArrayTypes<DeviceType>::t_float_1d _rmass;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_1d_const _list;
@@ -355,10 +355,10 @@ template<class DeviceType,int PBC_FLAG,int TRICLINIC,int DEFORM_VREMAP>
 struct AtomVecEllipsoidKokkos_PackCommVel {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread_randomread _x;
   typename ArrayTypes<DeviceType>::t_int_1d _mask;
   typename ArrayTypes<DeviceType>::t_float_1d _rmass;
-  typename ArrayTypes<DeviceType>::t_v_array _v, _angmom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _v, _angmom;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_1d_const _list;
   X_FLOAT _xprd,_yprd,_zprd,_xy,_xz,_yz;
@@ -585,8 +585,8 @@ template<class DeviceType,int PBC_FLAG,int TRICLINIC>
 struct AtomVecEllipsoidKokkos_PackCommSelf {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
-  typename ArrayTypes<DeviceType>::t_x_array _xw;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread_randomread _x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _xw;
   typename ArrayTypes<DeviceType>::t_float_1d _rmass;
   int _nfirst;
   typename ArrayTypes<DeviceType>::t_int_1d_const _list;
@@ -759,7 +759,7 @@ template<class DeviceType>
 struct AtomVecEllipsoidKokkos_UnpackComm {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_x_array _x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
   typename ArrayTypes<DeviceType>::t_float_1d _rmass;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
   int _first;
@@ -832,9 +832,9 @@ template<class DeviceType>
 struct AtomVecEllipsoidKokkos_UnpackCommVel {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_x_array _x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
   typename ArrayTypes<DeviceType>::t_float_1d _rmass;
-  typename ArrayTypes<DeviceType>::t_v_array _v, _angmom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _v, _angmom;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_const _buf;
   int _first;
 
@@ -904,7 +904,7 @@ struct AtomVecEllipsoidKokkos_PackBorder {
 
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   const typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  const typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
+  const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread_randomread _x;
   const typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   const typename ArrayTypes<DeviceType>::t_int_1d _type;
   const typename ArrayTypes<DeviceType>::t_int_1d _mask;
@@ -917,7 +917,7 @@ struct AtomVecEllipsoidKokkos_PackBorder {
   AtomVecEllipsoidKokkos_PackBorder(
     const typename ArrayTypes<DeviceType>::t_xfloat_2d_um &buf,
     const typename ArrayTypes<DeviceType>::t_int_1d_const &list,
-    const typename ArrayTypes<DeviceType>::t_x_array &x,
+    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread &x,
     const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
     const typename ArrayTypes<DeviceType>::t_int_1d &type,
     const typename ArrayTypes<DeviceType>::t_int_1d &mask,
@@ -1026,25 +1026,25 @@ struct AtomVecEllipsoidKokkos_PackBorderVel {
 
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   const typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  const typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
+  const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread_randomread _x;
   const typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   const typename ArrayTypes<DeviceType>::t_int_1d _type;
   const typename ArrayTypes<DeviceType>::t_int_1d _mask;
   typename ArrayTypes<DeviceType>::t_float_1d _rmass;
-  typename ArrayTypes<DeviceType>::t_v_array _v, _angmom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _v, _angmom;
   X_FLOAT _dx,_dy,_dz, _dvx, _dvy, _dvz;
   const int _deform_groupbit;
 
   AtomVecEllipsoidKokkos_PackBorderVel(
     const typename ArrayTypes<DeviceType>::t_xfloat_2d &buf,
     const typename ArrayTypes<DeviceType>::t_int_1d_const &list,
-    const typename ArrayTypes<DeviceType>::t_x_array &x,
+    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread &x,
     const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
     const typename ArrayTypes<DeviceType>::t_int_1d &type,
     const typename ArrayTypes<DeviceType>::t_int_1d &mask,
     const typename ArrayTypes<DeviceType>::t_float_1d &rmass,
-    const typename ArrayTypes<DeviceType>::t_v_array &v,
-    const typename ArrayTypes<DeviceType>::t_v_array &angmom,
+    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 &v,
+    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 &angmom,
     const X_FLOAT &dx, const X_FLOAT &dy, const X_FLOAT &dz,
     const X_FLOAT &dvx, const X_FLOAT &dvy, const X_FLOAT &dvz,
     const int &deform_groupbit):
@@ -1185,7 +1185,7 @@ struct AtomVecEllipsoidKokkos_UnpackBorder {
   typedef DeviceType device_type;
 
   typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
-  typename ArrayTypes<DeviceType>::t_x_array _x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
   typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   typename ArrayTypes<DeviceType>::t_int_1d _type;
   typename ArrayTypes<DeviceType>::t_int_1d _mask;
@@ -1200,7 +1200,7 @@ struct AtomVecEllipsoidKokkos_UnpackBorder {
 
   AtomVecEllipsoidKokkos_UnpackBorder(
     const typename ArrayTypes<DeviceType>::t_xfloat_2d &buf,
-    const typename ArrayTypes<DeviceType>::t_x_array &x,
+    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread &x,
     const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
     const typename ArrayTypes<DeviceType>::t_int_1d &type,
     const typename ArrayTypes<DeviceType>::t_int_1d &mask,
@@ -1290,24 +1290,24 @@ struct AtomVecEllipsoidKokkos_UnpackBorderVel {
   typedef DeviceType device_type;
 
   typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
-  typename ArrayTypes<DeviceType>::t_x_array _x;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
   typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   typename ArrayTypes<DeviceType>::t_int_1d _type;
   typename ArrayTypes<DeviceType>::t_int_1d _mask;
   typename ArrayTypes<DeviceType>::t_float_1d _rmass;
-  typename ArrayTypes<DeviceType>::t_v_array _v;
-  typename ArrayTypes<DeviceType>::t_v_array _angmom;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _v;
+  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _angmom;
   int _first;
 
   AtomVecEllipsoidKokkos_UnpackBorderVel(
     const typename ArrayTypes<DeviceType>::t_xfloat_2d_const &buf,
-    const typename ArrayTypes<DeviceType>::t_x_array &x,
+    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread &x,
     const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
     const typename ArrayTypes<DeviceType>::t_int_1d &type,
     const typename ArrayTypes<DeviceType>::t_int_1d &mask,
     const typename ArrayTypes<DeviceType>::t_float_1d &rmass,
-    const typename ArrayTypes<DeviceType>::t_v_array &v,
-    const typename ArrayTypes<DeviceType>::t_v_array &angmom,
+    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 &v,
+    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 &angmom,
     const int& first):
     _buf(buf),_x(x),_tag(tag),_type(type),_mask(mask),
     _rmass(rmass),
@@ -1367,22 +1367,22 @@ template<class DeviceType>
 struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  typename AT::t_x_array_randomread _x;
-  typename AT::t_v_array_randomread _v;
+  typename AT::t_kkfloat_1d_3_lr_randomread_randomread _x;
+  typename AT::t_kkfloat_1d_3_randomread _v;
   typename AT::t_tagint_1d_randomread _tag;
   typename AT::t_int_1d_randomread _type;
   typename AT::t_int_1d_randomread _mask;
   typename AT::t_imageint_1d_randomread _image;
   typename AT::t_float_1d_randomread _rmass;
-  typename AT::t_v_array_randomread _angmom;
-  typename AT::t_x_array _xw;
-  typename AT::t_v_array _vw;
+  typename AT::t_kkfloat_1d_3_randomread _angmom;
+  typename AT::t_kkfloat_1d_3_lr_randomread _xw;
+  typename AT::t_kkfloat_1d_3 _vw;
   typename AT::t_tagint_1d _tagw;
   typename AT::t_int_1d _typew;
   typename AT::t_int_1d _maskw;
   typename AT::t_imageint_1d _imagew;
   typename AT::t_float_1d _rmassw;
-  typename AT::t_v_array _angmomw;
+  typename AT::t_kkfloat_1d_3 _angmomw;
   typename AT::t_xfloat_2d_um _buf;
   typename AT::t_int_1d_const _sendlist;
   typename AT::t_int_1d_const _copylist;
@@ -1562,14 +1562,14 @@ struct AtomVecEllipsoidKokkos_UnpackExchangeFunctor {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   AtomVecEllipsoidKokkos* _avecEllipsoidKK;
-  typename AT::t_x_array _x;
-  typename AT::t_v_array _v;
+  typename AT::t_kkfloat_1d_3_lr_randomread _x;
+  typename AT::t_kkfloat_1d_3 _v;
   typename AT::t_tagint_1d _tag;
   typename AT::t_int_1d _type;
   typename AT::t_int_1d _mask;
   typename AT::t_imageint_1d _image;
   typename AT::t_float_1d _rmass;
-  typename AT::t_v_array _angmom;
+  typename AT::t_kkfloat_1d_3 _angmom;
   typename AT::t_xfloat_2d_um _buf;
   typename AT::t_int_1d _nlocal;
   typename AT::t_int_1d _indices;

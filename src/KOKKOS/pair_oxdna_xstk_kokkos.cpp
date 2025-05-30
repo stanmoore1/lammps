@@ -335,23 +335,23 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
   const int a = d_alist(ia);
   const int atype = type(a);
   // vectors COM-hbond site in lab frame
-  F_FLOAT ra_chb[3], rb_chb[3];
+  KK_FLOAT ra_chb[3], rb_chb[3];
 
-  F_FLOAT delf[3], delta[3], deltb[3];    // force, torque increment
-  F_FLOAT evdwl, finc, tpair;             // energy, force, torque
-  F_FLOAT delr_hb[3],delr_hb_norm[3],rsq_hb,r_hb,rinv_hb;
-  F_FLOAT theta1,t1dir[3],cost1;
-  F_FLOAT theta2,t2dir[3],cost2;
-  F_FLOAT theta3,t3dir[3],cost3;
-  F_FLOAT theta4,theta4p,t4dir[3],cost4;
-  F_FLOAT theta7,theta7p,t7dir[3],cost7;
-  F_FLOAT theta8,theta8p,t8dir[3],cost8;
+  KK_FLOAT delf[3], delta[3], deltb[3];    // force, torque increment
+  KK_FLOAT evdwl, finc, tpair;             // energy, force, torque
+  KK_FLOAT delr_hb[3],delr_hb_norm[3],rsq_hb,r_hb,rinv_hb;
+  KK_FLOAT theta1,t1dir[3],cost1;
+  KK_FLOAT theta2,t2dir[3],cost2;
+  KK_FLOAT theta3,t3dir[3],cost3;
+  KK_FLOAT theta4,theta4p,t4dir[3],cost4;
+  KK_FLOAT theta7,theta7p,t7dir[3],cost7;
+  KK_FLOAT theta8,theta8p,t8dir[3],cost8;
 
-  F_FLOAT f2,f4t1,f4t4,f4t2,f4t3,f4t7,f4t8;
-  F_FLOAT df2,df4t1,df4t4,df4t2,df4t3,df4t7,df4t8,rsint;
+  KK_FLOAT f2,f4t1,f4t4,f4t2,f4t3,f4t7,f4t8;
+  KK_FLOAT df2,df4t1,df4t4,df4t2,df4t3,df4t7,df4t8,rsint;
 
   // vector COM-hbond site a
-  constexpr F_FLOAT d_chb=+0.4;
+  constexpr KK_FLOAT d_chb=+0.4;
   ra_chb[0] = d_chb*d_nx_xtrct(a,0);
   ra_chb[1] = d_chb*d_nx_xtrct(a,1);
   ra_chb[2] = d_chb*d_nx_xtrct(a,2);
@@ -361,7 +361,7 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
   for (int ib = 0; ib < bnum; ib++) {
 
     int b = d_neighbors(a,ib);
-    const F_FLOAT factor_lj = special_lj[sbmask(b)];
+    const KK_FLOAT factor_lj = special_lj[sbmask(b)];
     b &= NEIGHMASK;
     const int btype = type(b);
 
@@ -1017,8 +1017,8 @@ template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR>
 KOKKOS_INLINE_FUNCTION
 void PairOxdnaXstkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &epair, const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz, const F_FLOAT &delx,
-                const F_FLOAT &dely, const F_FLOAT &delz) const
+      const KK_FLOAT &epair, const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz, const KK_FLOAT &delx,
+                const KK_FLOAT &dely, const KK_FLOAT &delz) const
 {
   const int EFLAG = eflag;
   const int VFLAG = vflag_either;
@@ -1035,7 +1035,7 @@ void PairOxdnaXstkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, c
 
   if (EFLAG) {
     if (eflag_atom) {
-      const E_FLOAT epairhalf = 0.5 * epair;
+      const KK_FLOAT epairhalf = 0.5 * epair;
       if (NEIGHFLAG!=FULL) {
         if (NEWTON_PAIR || i < nlocal) a_eatom[i] += epairhalf;
         if (NEWTON_PAIR || j < nlocal) a_eatom[j] += epairhalf;
@@ -1046,12 +1046,12 @@ void PairOxdnaXstkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, c
   }
 
   if (VFLAG) {
-    const E_FLOAT v0 = delx*fx;
-    const E_FLOAT v1 = dely*fy;
-    const E_FLOAT v2 = delz*fz;
-    const E_FLOAT v3 = delx*fy;
-    const E_FLOAT v4 = delx*fz;
-    const E_FLOAT v5 = dely*fz;
+    const KK_FLOAT v0 = delx*fx;
+    const KK_FLOAT v1 = dely*fy;
+    const KK_FLOAT v2 = delz*fz;
+    const KK_FLOAT v3 = delx*fy;
+    const KK_FLOAT v4 = delx*fz;
+    const KK_FLOAT v5 = dely*fz;
 
     if (vflag_global) {
       if (NEIGHFLAG!=FULL) {

@@ -61,8 +61,8 @@ class PairOxdna2DhKokkos : public PairOxdna2Dh, public KokkosBase {
   template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
   void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
-      const F_FLOAT &epair, const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz, const F_FLOAT &delx,
-                  const F_FLOAT &dely, const F_FLOAT &delz) const;
+      const KK_FLOAT &epair, const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz, const KK_FLOAT &delx,
+                  const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
@@ -72,18 +72,18 @@ class PairOxdna2DhKokkos : public PairOxdna2Dh, public KokkosBase {
   int oxdnaflag;
   enum EnabledOXDNAFlag{OXDNA2=1,OXRNA2=2};
 
-  typename AT::t_x_array_randomread x;
-  typename AT::t_f_array f;
-  typename AT::t_f_array torque;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
+  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kkfloat_1d_3 torque;
   typename AT::t_int_1d_randomread type;
 
   typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d bonus;
   typename AT::t_int_1d_randomread ellipsoid;
 
-  DAT::tdual_efloat_1d k_eatom;
-  DAT::tdual_virial_array k_vatom;
-  typename AT::t_efloat_1d d_eatom;
-  typename AT::t_virial_array d_vatom;
+  DAT::ttransform_kkfloat_1d k_eatom;
+  DAT::ttransform_kkfloat_1d_6 k_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d d_vatom;
 
   int newton_pair;
   double special_lj[4];
@@ -108,7 +108,7 @@ class PairOxdna2DhKokkos : public PairOxdna2Dh, public KokkosBase {
   typename AT::t_ffloat_2d d_cut_dh_c, d_cutsq_dh_c;
   // per-atom arrays for local unit vectors
   DAT::tdual_x_array k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
-  typename AT::t_x_array d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
+  typename AT::t_kkfloat_1d_3_lr d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
 
   int first;
   typename AT::t_int_1d d_sendlist;
@@ -124,14 +124,14 @@ class PairOxdna2DhKokkos : public PairOxdna2Dh, public KokkosBase {
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, \
   KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<F_FLOAT*[3], typename AT::t_f_array::array_layout> dup_f;
-  DupScatterView<F_FLOAT*[3], typename AT::t_f_array::array_layout> dup_torque;
-  DupScatterView<E_FLOAT*, typename DAT::t_efloat_1d::array_layout> dup_eatom;
-  DupScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout> dup_vatom;
-  NonDupScatterView<F_FLOAT*[3], typename AT::t_f_array::array_layout> ndup_f;
-  NonDupScatterView<F_FLOAT*[3], typename AT::t_f_array::array_layout> ndup_torque;
-  NonDupScatterView<E_FLOAT*, typename DAT::t_efloat_1d::array_layout> ndup_eatom;
-  NonDupScatterView<F_FLOAT*[6], typename DAT::t_virial_array::array_layout> ndup_vatom;
+  DupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> dup_f;
+  DupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> dup_torque;
+  DupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> dup_eatom;
+  DupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d::array_layout> dup_vatom;
+  NonDupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> ndup_f;
+  NonDupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> ndup_torque;
+  NonDupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> ndup_eatom;
+  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d::array_layout> ndup_vatom;
 
   void allocate() override;
  

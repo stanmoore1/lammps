@@ -51,11 +51,11 @@ class FixNVEAsphereKokkos : public FixNVEAsphere {
   private:
     typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d bonus;
     typename ArrayTypes<DeviceType>::t_int_1d ellipsoid;
-    typename ArrayTypes<DeviceType>::t_x_array x;
-    typename ArrayTypes<DeviceType>::t_v_array v;
-    typename ArrayTypes<DeviceType>::t_f_array f;
-    typename ArrayTypes<DeviceType>::t_v_array angmom;
-    typename ArrayTypes<DeviceType>::t_f_array torque;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr x;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 v;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 angmom;
+    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 torque;
     typename ArrayTypes<DeviceType>::t_float_1d rmass;
     typename ArrayTypes<DeviceType>::t_int_1d mask;
 };

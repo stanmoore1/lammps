@@ -323,23 +323,23 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
     a = btemp;  
   }
 
-  F_FLOAT ra_cst[3], rb_cst[3];           // vectors COM-stacking sites in lab frame
-  F_FLOAT ra_cs[3], rb_cs[3];             // vectors COM-backbone sites in lab frame
+  KK_FLOAT ra_cst[3], rb_cst[3];           // vectors COM-stacking sites in lab frame
+  KK_FLOAT ra_cs[3], rb_cs[3];             // vectors COM-backbone sites in lab frame
 
-  F_FLOAT delf[3], delta[3], deltb[3];    // force, torque increment
-  F_FLOAT evdwl,finc,tpair;               
-  F_FLOAT delr_ss[3],delr_ss_norm[3],rsq_ss,r_ss,rinv_ss;
-  F_FLOAT delr_st[3],delr_st_norm[3],rsq_st,r_st,rinv_st;
-  F_FLOAT theta4,t4dir[3],cost4;
-  F_FLOAT theta5p,t5pdir[3],cost5p;
-  F_FLOAT theta6p,t6pdir[3],cost6p;
-  F_FLOAT cosphi1,cosphi2,cosphi1dir[3],cosphi2dir[3];
+  KK_FLOAT delf[3], delta[3], deltb[3];    // force, torque increment
+  KK_FLOAT evdwl,finc,tpair;               
+  KK_FLOAT delr_ss[3],delr_ss_norm[3],rsq_ss,r_ss,rinv_ss;
+  KK_FLOAT delr_st[3],delr_st_norm[3],rsq_st,r_st,rinv_st;
+  KK_FLOAT theta4,t4dir[3],cost4;
+  KK_FLOAT theta5p,t5pdir[3],cost5p;
+  KK_FLOAT theta6p,t6pdir[3],cost6p;
+  KK_FLOAT cosphi1,cosphi2,cosphi1dir[3],cosphi2dir[3];
 
-  F_FLOAT f1,f4t4,f4t5,f4t6,f5c1,f5c2;
-  F_FLOAT df1,df4t4,df4t5,df4t6,df5c1,df5c2;
+  KK_FLOAT f1,f4t4,f4t5,f4t6,f5c1,f5c2;
+  KK_FLOAT df1,df4t4,df4t5,df4t6,df5c1,df5c2;
 
   // vector COM [a/b] - stacking site [a/b]
-  constexpr F_FLOAT d_cst = +0.34;
+  constexpr KK_FLOAT d_cst = +0.34;
   ra_cst[0] = d_cst * d_nx_xtrct(a,0);
   ra_cst[1] = d_cst * d_nx_xtrct(a,1);
   ra_cst[2] = d_cst * d_nx_xtrct(a,2);
@@ -364,7 +364,7 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
   delr_st_norm[2] = delr_st[2] * rinv_st;
 
   // vector COM [a/b] - backbone site [a/b]
-  constexpr F_FLOAT d_cs = -0.4;
+  constexpr KK_FLOAT d_cs = -0.4;
   ra_cs[0] = d_cs * d_nx_xtrct(a,0);
   ra_cs[1] = d_cs * d_nx_xtrct(a,1);
   ra_cs[2] = d_cs * d_nx_xtrct(a,2);
@@ -945,18 +945,18 @@ double PairOxdnaStkKokkos<DeviceType>::init_one(int i, int j)
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairOxdnaStkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,\
-      const int &nlocal, const int &newton_bond, const F_FLOAT &evdwl,\
-      const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz,\
-      const F_FLOAT &delx, const F_FLOAT &dely, const F_FLOAT &delz) const
+      const int &nlocal, const int &newton_bond, const KK_FLOAT &evdwl,\
+      const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz,\
+      const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT &delz) const
 {
-  E_FLOAT evdwlhalf;
-  F_FLOAT v[6];
+  KK_FLOAT evdwlhalf;
+  KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,\
+  Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,\
     typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > \
     v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,\
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_kkfloat_1d::array_layout,\
     typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > \
     v_vatom = k_vatom.view<DeviceType>();
 

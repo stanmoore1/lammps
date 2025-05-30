@@ -188,9 +188,9 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   const int &in, EV_FLOAT& ev) const {
   
   // The f and torque arrays are atomic
-  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,\
+  Kokkos::View<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,\
     typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
-  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,\
+  Kokkos::View<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,\
     typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_torque = torque;
 
   int b = bondlist(in,0);
@@ -205,14 +205,14 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
     a = btemp;  
   }
 
-  F_FLOAT delf[3], delta[3], deltb[3];    // force, torque increment
-  F_FLOAT delr[3];                        // vector backbone site b to a
+  KK_FLOAT delf[3], delta[3], deltb[3];    // force, torque increment
+  KK_FLOAT delr[3];                        // vector backbone site b to a
   // vectors COM-backbone site in lab frame
-  F_FLOAT ra_cs[3], rb_cs[3];
+  KK_FLOAT ra_cs[3], rb_cs[3];
 
   // vector COM-backbone site a and b - "compute_interaction_sites" vector COM-sugar-phosphate backbone in oxDNA
   if (OXDNAFLAG==OXDNA) {
-    constexpr F_FLOAT d_cs = -0.4;
+    constexpr KK_FLOAT d_cs = -0.4;
     ra_cs[0] = d_cs * d_nx_xtrct(a,0);
     ra_cs[1] = d_cs * d_nx_xtrct(a,1);
     ra_cs[2] = d_cs * d_nx_xtrct(a,2);
@@ -220,8 +220,8 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
     rb_cs[1] = d_cs * d_nx_xtrct(b,1);
     rb_cs[2] = d_cs * d_nx_xtrct(b,2);
   } else if (OXDNAFLAG==OXDNA2) {
-    constexpr F_FLOAT d_cs_x = -0.34;
-    constexpr F_FLOAT d_cs_y = +0.3408;
+    constexpr KK_FLOAT d_cs_x = -0.34;
+    constexpr KK_FLOAT d_cs_y = +0.3408;
     ra_cs[0] = d_cs_x * d_nx_xtrct(a,0) + d_cs_y * d_ny_xtrct(a,0);
     ra_cs[1] = d_cs_x * d_nx_xtrct(a,1) + d_cs_y * d_ny_xtrct(a,1);
     ra_cs[2] = d_cs_x * d_nx_xtrct(a,2) + d_cs_y * d_ny_xtrct(a,2);
@@ -229,8 +229,8 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
     rb_cs[1] = d_cs_x * d_nx_xtrct(b,1) + d_cs_y * d_ny_xtrct(b,1);
     rb_cs[2] = d_cs_x * d_nx_xtrct(b,2) + d_cs_y * d_ny_xtrct(b,2);
   } else if (OXDNAFLAG==OXRNA2) {
-    constexpr F_FLOAT d_cs_x = -0.4;
-    constexpr F_FLOAT d_cs_z = +0.2;
+    constexpr KK_FLOAT d_cs_x = -0.4;
+    constexpr KK_FLOAT d_cs_z = +0.2;
     ra_cs[0] = d_cs_x * d_nx_xtrct(a,0) + d_cs_z * d_nz_xtrct(a,0);
     ra_cs[1] = d_cs_x * d_nx_xtrct(a,1) + d_cs_z * d_nz_xtrct(a,1);
     ra_cs[2] = d_cs_x * d_nx_xtrct(a,2) + d_cs_z * d_nz_xtrct(a,2);
@@ -243,17 +243,17 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   delr[0] = x(a,0) + ra_cs[0] - x(b,0) - rb_cs[0];
   delr[1] = x(a,1) + ra_cs[1] - x(b,1) - rb_cs[1];
   delr[2] = x(a,2) + ra_cs[2] - x(b,2) - rb_cs[2];
-  const F_FLOAT rsq = delr[0]*delr[0] + delr[1]*delr[1] + delr[2]*delr[2];
-  const F_FLOAT r = sqrt(rsq);
+  const KK_FLOAT rsq = delr[0]*delr[0] + delr[1]*delr[1] + delr[2]*delr[2];
+  const KK_FLOAT r = sqrt(rsq);
 
-  F_FLOAT rr0 = r - d_r0[type];
-  const F_FLOAT rr0sq = rr0 * rr0;
-  const F_FLOAT Deltasq = d_Delta[type]*d_Delta[type];
-  F_FLOAT rlogarg = 1.0 - rr0sq/Deltasq;
+  KK_FLOAT rr0 = r - d_r0[type];
+  const KK_FLOAT rr0sq = rr0 * rr0;
+  const KK_FLOAT Deltasq = d_Delta[type]*d_Delta[type];
+  KK_FLOAT rlogarg = 1.0 - rr0sq/Deltasq;
 
   // energy
 
-  F_FLOAT ebond = 0.0;
+  KK_FLOAT ebond = 0.0;
   if (eflag) { ebond = -0.5*d_k[type]*log(rlogarg);}
 
   // switching to capped force for r-r0 -> Delta at
@@ -285,7 +285,7 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
     }
   }
 
-  F_FLOAT fbond = -d_k[type] * rr0 / rlogarg / Deltasq / r;
+  KK_FLOAT fbond = -d_k[type] * rr0 / rlogarg / Deltasq / r;
   delf[0] = delr[0] * fbond;
   delf[1] = delr[1] * fbond;
   delf[2] = delr[2] * fbond;
@@ -397,17 +397,17 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void BondOxdnaFENEKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,\
       const int &nlocal, const int &newton_bond,\
-      const F_FLOAT &ebond, const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz,\
-      const F_FLOAT &delx, const F_FLOAT &dely, const F_FLOAT &delz) const
+      const KK_FLOAT &ebond, const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz,\
+      const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT &delz) const
 {
-  E_FLOAT ebondhalf;
-  F_FLOAT v[6];
+  KK_FLOAT ebondhalf;
+  KK_FLOAT v[6];
 
   // The eatom and vatom arrays are atomic
-  Kokkos::View<E_FLOAT*, typename DAT::t_efloat_1d::array_layout,\
+  Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,\
     typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > \
     v_eatom = k_eatom.view<DeviceType>();
-  Kokkos::View<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,\
+  Kokkos::View<KK_FLOAT*[6], typename DAT::t_kkfloat_1d::array_layout,\
     typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > \
     v_vatom = k_vatom.view<DeviceType>();
 
