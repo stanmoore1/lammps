@@ -367,7 +367,7 @@ struct AtomVecEllipsoidKokkos_PackCommVel {
   const int _deform_vremap;
 
   AtomVecEllipsoidKokkos_PackCommVel(
-    const typename DAT::tdual_kkfloat_1d_3_lr &x,
+    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
     const typename DAT::tdual_int_1d &mask,
     const typename DAT::ttransform_kkfloat_1d &rmass,
     const typename DAT::ttransform_kkfloat_1d_3 &v,
@@ -600,7 +600,7 @@ struct AtomVecEllipsoidKokkos_PackCommSelf {
   typename ArrayTypes<DeviceType>::t_int_1d _ellipsoidw;
 
   AtomVecEllipsoidKokkos_PackCommSelf(
-    const typename DAT::tdual_kkfloat_1d_3_lr &x,
+    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
     const typename DAT::ttransform_kkfloat_1d &rmass,
     const int &nfirst,
     const typename DAT::tdual_int_1d &list,
@@ -608,13 +608,13 @@ struct AtomVecEllipsoidKokkos_PackCommSelf {
     const double &xy, const double &xz, const double &yz, const int* const pbc,
     const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
     const typename DAT::tdual_int_1d &ellipsoid):
-    _x(x.template view<DeviceType>()),_xw(x.template view<DeviceType>()),
-    _rmass(rmass.template view<DeviceType>()),
-    _nfirst(nfirst),_list(list.template view<DeviceType>()),
+    _x(x.view<DeviceType>()),_xw(x.view<DeviceType>()),
+    _rmass(rmass.view<DeviceType>()),
+    _nfirst(nfirst),_list(list.view<DeviceType>()),
     _xprd(xprd),_yprd(yprd),_zprd(zprd),
     _xy(xy),_xz(xz),_yz(yz),
-    _bonus(bonus.template view<DeviceType>()),_bonusw(bonus.template view<DeviceType>()), 
-    _ellipsoid(ellipsoid.template view<DeviceType>()),_ellipsoidw(ellipsoid.template view<DeviceType>()) {
+    _bonus(bonus.view<DeviceType>()),_bonusw(bonus.view<DeviceType>()), 
+    _ellipsoid(ellipsoid.view<DeviceType>()),_ellipsoidw(ellipsoid.view<DeviceType>()) {
     _pbc[0] = pbc[0]; _pbc[1] = pbc[1]; _pbc[2] = pbc[2];
     _pbc[3] = pbc[3]; _pbc[4] = pbc[4]; _pbc[5] = pbc[5];
   };
@@ -761,28 +761,28 @@ struct AtomVecEllipsoidKokkos_UnpackComm {
 
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d _rmass;
-  typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
+  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
   int _first;
   typename AtomVecEllipsoidKokkosBonusArray
           <DeviceType>::t_bonus_1d _bonus;
   typename ArrayTypes<DeviceType>::t_int_1d _ellipsoid;
 
   AtomVecEllipsoidKokkos_UnpackComm(
-    const typename DAT::tdual_kkfloat_1d_3_lr &x,
+    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
     const typename DAT::ttransform_kkfloat_1d &rmass,
     const typename DAT::tdual_double_2d_lr &buf,
     const int& first,
     const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
     const typename DAT::tdual_int_1d &ellipsoid):
-    _x(x.template view<DeviceType>()),
-    _rmass(rmass.template view<DeviceType>()),
+    _x(x.view<DeviceType>()),
+    _rmass(rmass.view<DeviceType>()),
     _first(first),
-    _bonus(bonus.template view<DeviceType>()),
-    _ellipsoid(ellipsoid.template view<DeviceType>())
+    _bonus(bonus.view<DeviceType>()),
+    _ellipsoid(ellipsoid.view<DeviceType>())
   {
     const size_t elements = 8;
-    const size_t maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um(buf.template view<DeviceType>().data(),maxsend,elements);
+    const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/elements;
+    _buf = typename ArrayTypes<DeviceType>::t_double_2d_lr_um(buf.view<DeviceType>().data(),maxsend,elements);
   };
 
   KOKKOS_INLINE_FUNCTION
@@ -835,25 +835,25 @@ struct AtomVecEllipsoidKokkos_UnpackCommVel {
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d _rmass;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _v, _angmom;
-  typename ArrayTypes<DeviceType>::t_xfloat_2d_const _buf;
+  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
   int _first;
 
   AtomVecEllipsoidKokkos_UnpackCommVel(
-    const typename DAT::tdual_kkfloat_1d_3_lr &x,
+    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
     const typename DAT::ttransform_kkfloat_1d &rmass,
     const typename DAT::ttransform_kkfloat_1d_3 &v,
     const typename DAT::ttransform_kkfloat_1d_3 &angmom,
     const typename DAT::tdual_double_2d_lr &buf,
     const int& first):
-    _x(x.template view<DeviceType>()),
-    _rmass(rmass.template view<DeviceType>()),
-    _v(v.template view<DeviceType>()),
-    _angmom(angmom.template view<DeviceType>()),
+    _x(x.view<DeviceType>()),
+    _rmass(rmass.view<DeviceType>()),
+    _v(v.view<DeviceType>()),
+    _angmom(angmom.view<DeviceType>()),
     _first(first)
   {
     const size_t elements = 9;
-    const int maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/elements;
-    buffer.template view<DeviceType>(_buf,buf,maxsend,elements);
+    const int maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/elements;
+    buffer_view<DeviceType>(_buf,buf,maxsend,elements);
   };
 
   KOKKOS_INLINE_FUNCTION
@@ -1036,7 +1036,7 @@ struct AtomVecEllipsoidKokkos_PackBorderVel {
   const int _deform_groupbit;
 
   AtomVecEllipsoidKokkos_PackBorderVel(
-    const typename ArrayTypes<DeviceType>::t_xfloat_2d &buf,
+    const typename ArrayTypes<DeviceType>::t_double_2d_lr_um &buf,
     const typename ArrayTypes<DeviceType>::t_int_1d_const &list,
     const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread &x,
     const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
@@ -1184,7 +1184,7 @@ template<class DeviceType>
 struct AtomVecEllipsoidKokkos_UnpackBorder {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
+  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
   typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   typename ArrayTypes<DeviceType>::t_int_1d _type;
@@ -1199,7 +1199,7 @@ struct AtomVecEllipsoidKokkos_UnpackBorder {
   typename ArrayTypes<DeviceType>::t_int_scalar _nghost_bonus;
 
   AtomVecEllipsoidKokkos_UnpackBorder(
-    const typename ArrayTypes<DeviceType>::t_xfloat_2d &buf,
+    const typename ArrayTypes<DeviceType>::t_double_2d_lr_um &buf,
     const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread &x,
     const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
     const typename ArrayTypes<DeviceType>::t_int_1d &type,
@@ -1221,7 +1221,7 @@ struct AtomVecEllipsoidKokkos_UnpackBorder {
   {
     const size_t elements = 15;
     const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um(buf.data(),maxsend,elements);
+    _buf = typename ArrayTypes<DeviceType>::t_double_2d_lr_um(buf.data(),maxsend,elements);
   };
 
   KOKKOS_INLINE_FUNCTION
@@ -1289,7 +1289,7 @@ template<class DeviceType>
 struct AtomVecEllipsoidKokkos_UnpackBorderVel {
   typedef DeviceType device_type;
 
-  typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um _buf;
+  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
   typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
   typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
   typename ArrayTypes<DeviceType>::t_int_1d _type;
@@ -1300,7 +1300,7 @@ struct AtomVecEllipsoidKokkos_UnpackBorderVel {
   int _first;
 
   AtomVecEllipsoidKokkos_UnpackBorderVel(
-    const typename ArrayTypes<DeviceType>::t_xfloat_2d_const &buf,
+    const typename ArrayTypes<DeviceType>::t_double_2d_lr_um &buf,
     const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread &x,
     const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
     const typename ArrayTypes<DeviceType>::t_int_1d &type,
@@ -1316,7 +1316,7 @@ struct AtomVecEllipsoidKokkos_UnpackBorderVel {
   {
     const size_t elements = 13;
     const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um(buf.data(),maxsend,elements);
+    _buf = typename ArrayTypes<DeviceType>::t_double_2d_lr_um(buf.data(),maxsend,elements);
   };
 
   KOKKOS_INLINE_FUNCTION
@@ -1613,7 +1613,7 @@ struct AtomVecEllipsoidKokkos_UnpackExchangeFunctor {
     const size_t size_exchange = 23;
     const int maxsendlist = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/size_exchange;
 
-    buffer.template view<DeviceType>(_buf,buf,maxsendlist,size_exchange);
+    buffer_view<DeviceType>(_buf,buf,maxsendlist,size_exchange);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -1726,31 +1726,44 @@ void AtomVecEllipsoidKokkos::set_status_nlocal_bonus(int nlocal_bonus) {
 void AtomVecEllipsoidKokkos::sync(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k_x.sync<LMPDeviceType>();
-    if (mask & V_MASK) atomKK->k_v.sync<LMPDeviceType>();
-    if (mask & F_MASK) atomKK->k_f.sync<LMPDeviceType>();
-    if (mask & TAG_MASK) atomKK->k_tag.sync<LMPDeviceType>();
-    if (mask & TYPE_MASK) atomKK->k_type.sync<LMPDeviceType>();
-    if (mask & MASK_MASK) atomKK->k_mask.sync<LMPDeviceType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.sync<LMPDeviceType>();
-    if (mask & RMASS_MASK) atomKK->k_rmass.sync<LMPDeviceType>();
-    if (mask & ANGMOM_MASK) atomKK->k_angmom.sync<LMPDeviceType>();
-    if (mask & TORQUE_MASK) atomKK->k_torque.sync<LMPDeviceType>();
-    if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.sync<LMPDeviceType>();
-    if (mask & BONUS_MASK) k_bonus.sync<LMPDeviceType>();
-  } else {
-    if (mask & X_MASK) atomKK->k_x.sync<LMPHostType>();
-    if (mask & V_MASK) atomKK->k_v.sync<LMPHostType>();
-    if (mask & F_MASK) atomKK->k_f.sync<LMPHostType>();
-    if (mask & TAG_MASK) atomKK->k_tag.sync<LMPHostType>();
-    if (mask & TYPE_MASK) atomKK->k_type.sync<LMPHostType>();
-    if (mask & MASK_MASK) atomKK->k_mask.sync<LMPHostType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.sync<LMPHostType>();
-    if (mask & RMASS_MASK) atomKK->k_rmass.sync<LMPHostType>();
-    if (mask & ANGMOM_MASK) atomKK->k_angmom.sync<LMPHostType>();
-    if (mask & TORQUE_MASK) atomKK->k_torque.sync<LMPHostType>();
-    if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.sync<LMPHostType>();
-    if (mask & BONUS_MASK) k_bonus.sync<LMPHostType>();
+    if (mask & X_MASK) atomKK->k_x.sync_device();
+    if (mask & V_MASK) atomKK->k_v.sync_device();
+    if (mask & F_MASK) atomKK->k_f.sync_device();
+    if (mask & TAG_MASK) atomKK->k_tag.sync_device();
+    if (mask & TYPE_MASK) atomKK->k_type.sync_device();
+    if (mask & MASK_MASK) atomKK->k_mask.sync_device();
+    if (mask & IMAGE_MASK) atomKK->k_image.sync_device();
+    if (mask & RMASS_MASK) atomKK->k_rmass.sync_device();
+    if (mask & ANGMOM_MASK) atomKK->k_angmom.sync_device();
+    if (mask & TORQUE_MASK) atomKK->k_torque.sync_device();
+    if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.sync_device();
+    if (mask & BONUS_MASK) k_bonus.sync_device();
+  } else if (space == Host) {
+    if (mask & X_MASK) atomKK->k_x.sync_host();
+    if (mask & V_MASK) atomKK->k_v.sync_host();
+    if (mask & F_MASK) atomKK->k_f.sync_host();
+    if (mask & TAG_MASK) atomKK->k_tag.sync_host();
+    if (mask & TYPE_MASK) atomKK->k_type.sync_host();
+    if (mask & MASK_MASK) atomKK->k_mask.sync_host();
+    if (mask & IMAGE_MASK) atomKK->k_image.sync_host();
+    if (mask & RMASS_MASK) atomKK->k_rmass.sync_host();
+    if (mask & ANGMOM_MASK) atomKK->k_angmom.sync_host();
+    if (mask & TORQUE_MASK) atomKK->k_torque.sync_host();
+    if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.sync_host();
+    if (mask & BONUS_MASK) k_bonus.sync_host();
+  } else if (space == HostKK){
+    if (mask & X_MASK) atomKK->k_x.sync_host_kk();
+    if (mask & V_MASK) atomKK->k_v.sync_host_kk();
+    if (mask & F_MASK) atomKK->k_f.sync_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.sync_host();
+    if (mask & TYPE_MASK) atomKK->k_type.sync_host();
+    if (mask & MASK_MASK) atomKK->k_mask.sync_host();
+    if (mask & IMAGE_MASK) atomKK->k_image.sync_host();
+    if (mask & RMASS_MASK) atomKK->k_rmass.sync_host_kk();
+    if (mask & ANGMOM_MASK) atomKK->k_angmom.sync_host_kk();
+    if (mask & TORQUE_MASK) atomKK->k_torque.sync_host_kk();
+    if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.sync_host();
+    if (mask & BONUS_MASK) k_bonus.sync_host();
   }
 }
 
@@ -1759,54 +1772,54 @@ void AtomVecEllipsoidKokkos::sync(ExecutionSpace space, unsigned int mask)
 void AtomVecEllipsoidKokkos::sync_overlapping_device(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if ((mask & X_MASK) && atomKK->k_x.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3_lr>(atomKK->k_x,space);
-    if ((mask & V_MASK) && atomKK->k_v.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space);
-    if ((mask & F_MASK) && atomKK->k_f.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::tdual_f_array>(atomKK->k_f,space);
-    if ((mask & TAG_MASK) && atomKK->k_tag.need_sync<LMPDeviceType>())
+    if ((mask & X_MASK) && atomKK->k_x.need_sync_device())
+      perform_async_copy<DAT::tdual_kkfloat_1d_3_lr>(atomKK->k_x.k_view,space);
+    if ((mask & V_MASK) && atomKK->k_v.need_sync_device())
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v.k_view,space);
+    if ((mask & F_MASK) && atomKK->k_f.need_sync_device())
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f.k_view,space);
+    if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())
       perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
-    if ((mask & TYPE_MASK) && atomKK->k_type.need_sync<LMPDeviceType>())
+    if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())
       perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
-    if ((mask & MASK_MASK) && atomKK->k_mask.need_sync<LMPDeviceType>())
+    if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())
       perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
-    if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync<LMPDeviceType>())
+    if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())
       perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
-    if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::ttransform_kkfloat_1d>(atomKK->k_rmass,space);
-    if ((mask & ANGMOM_MASK) && atomKK->k_angmom.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::ttransform_kkfloat_1d_3>(atomKK->k_angmom,space);
-    if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::tdual_f_array>(atomKK->k_torque,space);
-    if ((mask & ELLIPSOID_MASK) && atomKK->k_ellipsoid.need_sync<LMPDeviceType>())
+    if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_device())
+      perform_async_copy<DAT::tdual_kkfloat_1d>(atomKK->k_rmass.k_view,space);
+    if ((mask & ANGMOM_MASK) && atomKK->k_angmom.need_sync_device())
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_angmom.k_view,space);
+    if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync_device())
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_torque.k_view,space);
+    if ((mask & ELLIPSOID_MASK) && atomKK->k_ellipsoid.need_sync_device())
       perform_async_copy<DAT::tdual_int_1d>(atomKK->k_ellipsoid,space);
-    if ((mask & BONUS_MASK) && k_bonus.need_sync<LMPDeviceType>())
+    if ((mask & BONUS_MASK) && k_bonus.need_sync_device())
       perform_async_copy<DEllipsoidBonusAT::tdual_bonus_1d>(k_bonus,space);
   } else {
-    if ((mask & X_MASK) && atomKK->k_x.need_sync<LMPHostType>())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3_lr>(atomKK->k_x,space);
-    if ((mask & V_MASK) && atomKK->k_v.need_sync<LMPHostType>())
-      perform_async_copy<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space);
-    if ((mask & F_MASK) && atomKK->k_f.need_sync<LMPHostType>())
-      perform_async_copy<DAT::tdual_f_array>(atomKK->k_f,space);
-    if ((mask & TAG_MASK) && atomKK->k_tag.need_sync<LMPHostType>())
+    if ((mask & X_MASK) && atomKK->k_x.need_sync_host())
+      perform_async_copy<DAT::tdual_kkfloat_1d_3_lr>(atomKK->k_x.k_view,space);
+    if ((mask & V_MASK) && atomKK->k_v.need_sync_host())
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v.k_view,space);
+    if ((mask & F_MASK) && atomKK->k_f.need_sync_host())
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f.k_view,space);
+    if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())
       perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
-    if ((mask & TYPE_MASK) && atomKK->k_type.need_sync<LMPHostType>())
+    if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())
       perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
-    if ((mask & MASK_MASK) && atomKK->k_mask.need_sync<LMPHostType>())
+    if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())
       perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
-    if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync<LMPHostType>())
+    if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())
       perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
-    if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync<LMPHostType>())
-      perform_async_copy<DAT::ttransform_kkfloat_1d>(atomKK->k_rmass,space);
-    if ((mask & ANGMOM_MASK) && atomKK->k_angmom.need_sync<LMPHostType>())
-      perform_async_copy<DAT::ttransform_kkfloat_1d_3>(atomKK->k_angmom,space);
-    if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync<LMPHostType>())
-      perform_async_copy<DAT::tdual_f_array>(atomKK->k_torque,space);
-    if ((mask & ELLIPSOID_MASK) && atomKK->k_ellipsoid.need_sync<LMPHostType>())
+    if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_host())
+      perform_async_copy<DAT::tdual_kkfloat_1d>(atomKK->k_rmass.k_view,space);
+    if ((mask & ANGMOM_MASK) && atomKK->k_angmom.need_sync_host())
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_angmom.k_view,space);
+    if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync_host())
+      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_torque.k_view,space);
+    if ((mask & ELLIPSOID_MASK) && atomKK->k_ellipsoid.need_sync_host())
       perform_async_copy<DAT::tdual_int_1d>(atomKK->k_ellipsoid,space);
-    if ((mask & BONUS_MASK) && k_bonus.need_sync<LMPHostType>())
+    if ((mask & BONUS_MASK) && k_bonus.need_sync_host())
       perform_async_copy<DEllipsoidBonusAT::tdual_bonus_1d>(k_bonus,space);
   }
 }
@@ -1816,31 +1829,43 @@ void AtomVecEllipsoidKokkos::sync_overlapping_device(ExecutionSpace space, unsig
 void AtomVecEllipsoidKokkos::modified(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
-    if (mask & X_MASK) atomKK->k_x.modify<LMPDeviceType>();
-    if (mask & V_MASK) atomKK->k_v.modify<LMPDeviceType>();
-    if (mask & F_MASK) atomKK->k_f.modify<LMPDeviceType>();
-    if (mask & TAG_MASK) atomKK->k_tag.modify<LMPDeviceType>();
-    if (mask & TYPE_MASK) atomKK->k_type.modify<LMPDeviceType>();
-    if (mask & MASK_MASK) atomKK->k_mask.modify<LMPDeviceType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.modify<LMPDeviceType>();
-    if (mask & RMASS_MASK) atomKK->k_rmass.modify<LMPDeviceType>();
-    if (mask & ANGMOM_MASK) atomKK->k_angmom.modify<LMPDeviceType>();
-    if (mask & TORQUE_MASK) atomKK->k_torque.modify<LMPDeviceType>();
-    if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.modify<LMPDeviceType>();
-    if (mask & BONUS_MASK) k_bonus.modify<LMPDeviceType>();
-
-  } else {
-    if (mask & X_MASK) atomKK->k_x.modify<LMPHostType>();
-    if (mask & V_MASK) atomKK->k_v.modify<LMPHostType>();
-    if (mask & F_MASK) atomKK->k_f.modify<LMPHostType>();
-    if (mask & TAG_MASK) atomKK->k_tag.modify<LMPHostType>();
-    if (mask & TYPE_MASK) atomKK->k_type.modify<LMPHostType>();
-    if (mask & MASK_MASK) atomKK->k_mask.modify<LMPHostType>();
-    if (mask & IMAGE_MASK) atomKK->k_image.modify<LMPHostType>();
-    if (mask & RMASS_MASK) atomKK->k_rmass.modify<LMPHostType>();
-    if (mask & ANGMOM_MASK) atomKK->k_angmom.modify<LMPHostType>();
-    if (mask & TORQUE_MASK) atomKK->k_torque.modify<LMPHostType>();
-    if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.modify<LMPHostType>();
-    if (mask & BONUS_MASK) k_bonus.modify<LMPHostType>();
+    if (mask & X_MASK) atomKK->k_x.modify_device();
+    if (mask & V_MASK) atomKK->k_v.modify_device();
+    if (mask & F_MASK) atomKK->k_f.modify_device();
+    if (mask & TAG_MASK) atomKK->k_tag.modify_device();
+    if (mask & TYPE_MASK) atomKK->k_type.modify_device();
+    if (mask & MASK_MASK) atomKK->k_mask.modify_device();
+    if (mask & IMAGE_MASK) atomKK->k_image.modify_device();
+    if (mask & RMASS_MASK) atomKK->k_rmass.modify_device();
+    if (mask & ANGMOM_MASK) atomKK->k_angmom.modify_device();
+    if (mask & TORQUE_MASK) atomKK->k_torque.modify_device();
+    if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.modify_device();
+    if (mask & BONUS_MASK) k_bonus.modify_device();
+  } else if (space == Host) {
+    if (mask & X_MASK) atomKK->k_x.modify_host();
+    if (mask & V_MASK) atomKK->k_v.modify_host();
+    if (mask & F_MASK) atomKK->k_f.modify_host();
+    if (mask & TAG_MASK) atomKK->k_tag.modify_host();
+    if (mask & TYPE_MASK) atomKK->k_type.modify_host();
+    if (mask & MASK_MASK) atomKK->k_mask.modify_host();
+    if (mask & IMAGE_MASK) atomKK->k_image.modify_host();
+    if (mask & RMASS_MASK) atomKK->k_rmass.modify_host();
+    if (mask & ANGMOM_MASK) atomKK->k_angmom.modify_host();
+    if (mask & TORQUE_MASK) atomKK->k_torque.modify_host();
+    if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.modify_host();
+    if (mask & BONUS_MASK) k_bonus.modify_host();
+  } else if (space == HostKK) {
+    if (mask & X_MASK) atomKK->k_x.modify_host_kk();
+    if (mask & V_MASK) atomKK->k_v.modify_host_kk();
+    if (mask & F_MASK) atomKK->k_f.modify_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.modify_host();
+    if (mask & TYPE_MASK) atomKK->k_type.modify_host();
+    if (mask & MASK_MASK) atomKK->k_mask.modify_host();
+    if (mask & IMAGE_MASK) atomKK->k_image.modify_host();
+    if (mask & RMASS_MASK) atomKK->k_rmass.modify_host_kk();
+    if (mask & ANGMOM_MASK) atomKK->k_angmom.modify_host_kk();
+    if (mask & TORQUE_MASK) atomKK->k_torque.modify_host_kk();
+    if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.modify_host();
+    if (mask & BONUS_MASK) k_bonus.modify_host();
   }
 }

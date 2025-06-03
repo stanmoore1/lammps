@@ -205,14 +205,14 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   int need_dup = lmp->kokkos->need_dup<DeviceType>();
   if (need_dup) {
-    dup_f = Kokkos::Experimental::create_scatter.template view<Kokkos::Experimental::ScatterSum, \
+    dup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterDuplicated>(f);
-    dup_torque = Kokkos::Experimental::create_scatter.template view<Kokkos::Experimental::ScatterSum, \
+    dup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterDuplicated>(torque);
   } else {
-    ndup_f = Kokkos::Experimental::create_scatter.template view<Kokkos::Experimental::ScatterSum, \
+    ndup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterNonDuplicated>(f);
-    ndup_torque = Kokkos::Experimental::create_scatter.template view<Kokkos::Experimental::ScatterSum, \
+    ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterNonDuplicated>(torque);
   }
 
