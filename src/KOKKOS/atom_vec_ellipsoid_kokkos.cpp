@@ -370,27 +370,27 @@ struct AtomVecEllipsoidKokkos_PackCommVel {
     const typename DAT::tdual_kkfloat_1d_3_lr &x,
     const typename DAT::tdual_int_1d &mask,
     const typename DAT::ttransform_kkfloat_1d &rmass,
-    const typename DAT::tdual_v_array &v,
-    const typename DAT::tdual_v_array &angmom,
+    const typename DAT::ttransform_kkfloat_1d_3 &v,
+    const typename DAT::ttransform_kkfloat_1d_3 &angmom,
     const typename DAT::tdual_double_2d_lr &buf,
     const typename DAT::tdual_int_1d &list,
     const double &xprd, const double &yprd, const double &zprd,
     const double &xy, const double &xz, const double &yz, const int* const pbc,
     const double * const h_rate,
     const int &deform_vremap):
-    _x(x.template view<DeviceType>()),
-    _mask(mask.template view<DeviceType>()),
-    _rmass(rmass.template view<DeviceType>()),
-    _v(v.template view<DeviceType>()),
-    _angmom(angmom.template view<DeviceType>()),
-    _list(list.template view<DeviceType>()),
+    _x(x.view<DeviceType>()),
+    _mask(mask.view<DeviceType>()),
+    _rmass(rmass.view<DeviceType>()),
+    _v(v.view<DeviceType>()),
+    _angmom(angmom.view<DeviceType>()),
+    _list(list.view<DeviceType>()),
     _xprd(xprd),_yprd(yprd),_zprd(zprd),
     _xy(xy),_xz(xz),_yz(yz),
     _deform_vremap(deform_vremap)
   {
     const size_t elements = 9;
-    const int maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_double_2d_lr_um(buf.template view<DeviceType>().data(),maxsend,elements);
+    const int maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/elements;
+    _buf = typename ArrayTypes<DeviceType>::t_double_2d_lr_um(buf.view<DeviceType>().data(),maxsend,elements);
     _pbc[0] = pbc[0]; _pbc[1] = pbc[1]; _pbc[2] = pbc[2];
     _pbc[3] = pbc[3]; _pbc[4] = pbc[4]; _pbc[5] = pbc[5];
     _h_rate[0] = h_rate[0]; _h_rate[1] = h_rate[1]; _h_rate[2] = h_rate[2];
@@ -841,8 +841,8 @@ struct AtomVecEllipsoidKokkos_UnpackCommVel {
   AtomVecEllipsoidKokkos_UnpackCommVel(
     const typename DAT::tdual_kkfloat_1d_3_lr &x,
     const typename DAT::ttransform_kkfloat_1d &rmass,
-    const typename DAT::tdual_v_array &v,
-    const typename DAT::tdual_v_array &angmom,
+    const typename DAT::ttransform_kkfloat_1d_3 &v,
+    const typename DAT::ttransform_kkfloat_1d_3 &angmom,
     const typename DAT::tdual_double_2d_lr &buf,
     const int& first):
     _x(x.template view<DeviceType>()),
@@ -1762,7 +1762,7 @@ void AtomVecEllipsoidKokkos::sync_overlapping_device(ExecutionSpace space, unsig
     if ((mask & X_MASK) && atomKK->k_x.need_sync<LMPDeviceType>())
       perform_async_copy<DAT::tdual_kkfloat_1d_3_lr>(atomKK->k_x,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::tdual_v_array>(atomKK->k_v,space);
+      perform_async_copy<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync<LMPDeviceType>())
       perform_async_copy<DAT::tdual_f_array>(atomKK->k_f,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync<LMPDeviceType>())
@@ -1776,7 +1776,7 @@ void AtomVecEllipsoidKokkos::sync_overlapping_device(ExecutionSpace space, unsig
     if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync<LMPDeviceType>())
       perform_async_copy<DAT::ttransform_kkfloat_1d>(atomKK->k_rmass,space);
     if ((mask & ANGMOM_MASK) && atomKK->k_angmom.need_sync<LMPDeviceType>())
-      perform_async_copy<DAT::tdual_v_array>(atomKK->k_angmom,space);
+      perform_async_copy<DAT::ttransform_kkfloat_1d_3>(atomKK->k_angmom,space);
     if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync<LMPDeviceType>())
       perform_async_copy<DAT::tdual_f_array>(atomKK->k_torque,space);
     if ((mask & ELLIPSOID_MASK) && atomKK->k_ellipsoid.need_sync<LMPDeviceType>())
@@ -1787,7 +1787,7 @@ void AtomVecEllipsoidKokkos::sync_overlapping_device(ExecutionSpace space, unsig
     if ((mask & X_MASK) && atomKK->k_x.need_sync<LMPHostType>())
       perform_async_copy<DAT::tdual_kkfloat_1d_3_lr>(atomKK->k_x,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync<LMPHostType>())
-      perform_async_copy<DAT::tdual_v_array>(atomKK->k_v,space);
+      perform_async_copy<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync<LMPHostType>())
       perform_async_copy<DAT::tdual_f_array>(atomKK->k_f,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync<LMPHostType>())
@@ -1801,7 +1801,7 @@ void AtomVecEllipsoidKokkos::sync_overlapping_device(ExecutionSpace space, unsig
     if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync<LMPHostType>())
       perform_async_copy<DAT::ttransform_kkfloat_1d>(atomKK->k_rmass,space);
     if ((mask & ANGMOM_MASK) && atomKK->k_angmom.need_sync<LMPHostType>())
-      perform_async_copy<DAT::tdual_v_array>(atomKK->k_angmom,space);
+      perform_async_copy<DAT::ttransform_kkfloat_1d_3>(atomKK->k_angmom,space);
     if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync<LMPHostType>())
       perform_async_copy<DAT::tdual_f_array>(atomKK->k_torque,space);
     if ((mask & ELLIPSOID_MASK) && atomKK->k_ellipsoid.need_sync<LMPHostType>())
