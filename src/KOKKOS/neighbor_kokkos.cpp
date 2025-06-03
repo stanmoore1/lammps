@@ -75,7 +75,7 @@ void NeighborKokkos::init()
   // 1st time allocation of xhold
 
   if (dist_check)
-      xhold = DAT::tdual_kkfloat_1d_3_lr("neigh:xhold",maxhold);
+      xhold = DAT::ttransform_kkfloat_1d_3_lr("neigh:xhold",maxhold);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -188,7 +188,7 @@ int NeighborKokkos::check_distance_kokkos()
   } else deltasq = triggersq;
 
   atomKK->sync(ExecutionSpaceFromDevice<DeviceType>::space,X_MASK);
-  x = atomKK->k_x.k_view;
+  x = atomKK->k_x;
   xhold.sync<DeviceType>();
   int nlocal = atom->nlocal;
   if (includegroup) nlocal = atom->nfirst;
@@ -250,12 +250,12 @@ void NeighborKokkos::build_kokkos(int topoflag)
 
   if (dist_check) {
     atomKK->sync(ExecutionSpaceFromDevice<DeviceType>::space,X_MASK);
-    x = atomKK->k_x.k_view;
+    x = atomKK->k_x;
     if (includegroup) nlocal = atom->nfirst;
     int maxhold_kokkos = xhold.view<DeviceType>().extent(0);
     if (atom->nmax > maxhold || maxhold_kokkos < maxhold) {
       maxhold = atom->nmax;
-      xhold = DAT::tdual_kkfloat_1d_3_lr("neigh:xhold",maxhold);
+      xhold = DAT::ttransform_kkfloat_1d_3_lr("neigh:xhold",maxhold);
     }
     copymode = 1;
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagNeighborXhold<DeviceType> >(0,nlocal),*this);

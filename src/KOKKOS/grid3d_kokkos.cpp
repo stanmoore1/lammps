@@ -477,7 +477,7 @@ void Grid3dKokkos<DeviceType>::setup_comm_tiled(int &nbuf1, int &nbuf2)
 
   send = (Send *) memory->smalloc(nrecv_request*sizeof(Send),"grid3d:send");
 
-  k_send_packlist = DAT::tdual_int_2d("grid3d:send_packlist",nrecv_request,k_send_packlist.extent(1));
+  k_send_packlist = DAT::tdual_int_2d_lr("grid3d:send_packlist",nrecv_request,k_send_packlist.extent(1));
 
   sresponse = (Response *) memory->smalloc(nrecv_request*sizeof(Response),"grid3d:sresponse");
   memory->destroy(proclist);
@@ -521,7 +521,7 @@ void Grid3dKokkos<DeviceType>::setup_comm_tiled(int &nbuf1, int &nbuf2)
 
   recv = (Recv *) memory->smalloc(nrecv_response*sizeof(Recv),"grid3d:recv");
 
-  k_recv_unpacklist = DAT::tdual_int_2d("grid3d:recv_unpacklist",nrecv_response,k_recv_unpacklist.extent(1));
+  k_recv_unpacklist = DAT::tdual_int_2d_lr("grid3d:recv_unpacklist",nrecv_response,k_recv_unpacklist.extent(1));
 
   adjacent = 1;
 
@@ -548,8 +548,8 @@ void Grid3dKokkos<DeviceType>::setup_comm_tiled(int &nbuf1, int &nbuf2)
 
   copy = (Copy *) memory->smalloc(ncopy*sizeof(Copy),"grid3d:copy");
 
-  k_copy_packlist = DAT::tdual_int_2d("grid3d:copy_packlist",ncopy,k_copy_packlist.extent(1));
-  k_copy_unpacklist = DAT::tdual_int_2d("grid3d:copy_unpacklist",ncopy,k_copy_unpacklist.extent(1));
+  k_copy_packlist = DAT::tdual_int_2d_lr("grid3d:copy_packlist",ncopy,k_copy_packlist.extent(1));
+  k_copy_unpacklist = DAT::tdual_int_2d_lr("grid3d:copy_unpacklist",ncopy,k_copy_unpacklist.extent(1));
 
   ncopy = 0;
   for (m = 0; m < noverlap; m++) {
@@ -926,8 +926,8 @@ void Grid3dKokkos<DeviceType>::grow_swap()
   swap = (Swap *) memory->srealloc(swap,maxswap*sizeof(Swap),"grid3d:swap");
 
   if (!k_swap_packlist.d_view.data()) {
-    k_swap_packlist = DAT::tdual_int_2d("grid3d:swap_packlist",maxswap,k_swap_packlist.extent(1));
-    k_swap_unpacklist = DAT::tdual_int_2d("grid3d:swap_unpacklist",maxswap,k_swap_unpacklist.extent(1));
+    k_swap_packlist = DAT::tdual_int_2d_lr("grid3d:swap_packlist",maxswap,k_swap_packlist.extent(1));
+    k_swap_unpacklist = DAT::tdual_int_2d_lr("grid3d:swap_unpacklist",maxswap,k_swap_unpacklist.extent(1));
   } else {
     k_swap_packlist.resize(maxswap,k_swap_packlist.extent(1));
     k_swap_unpacklist.resize(maxswap,k_swap_unpacklist.extent(1));
@@ -941,7 +941,7 @@ void Grid3dKokkos<DeviceType>::grow_swap()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-int Grid3dKokkos<DeviceType>::indices(DAT::tdual_int_2d &k_list, int index,
+int Grid3dKokkos<DeviceType>::indices(DAT::tdual_int_2d_lr &k_list, int index,
                        int xlo, int xhi, int ylo, int yhi, int zlo, int zhi)
 {
   int nmax = (xhi-xlo+1) * (yhi-ylo+1) * (zhi-zlo+1);

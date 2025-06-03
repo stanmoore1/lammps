@@ -323,8 +323,6 @@ void FixNHKokkos<DeviceType>::remap()
 
   // convert pertinent atoms and rigid bodies to lamda coords
 
-  
-
   if (allremap) domainKK->x2lamda(nlocal);
   else {
     for ( int i = 0; i < nlocal; i++)

@@ -1196,7 +1196,7 @@ double PairTableRXKokkos<DeviceType>::single(int i, int j, int itype, int jtype,
 
   atomKK->k_dvector.sync_host();
   typename ArrayTypes<LMPHostType>::t_kkfloat_2d_randomread h_dvector =
-    atomKK->k_dvector.k_view.h_view;
+    atomKK->k_dvector.h_view_kk;
   getMixingWeights<LMPHostType>(h_dvector,
       nspecies, isite1, isite2, fractionalWeighting,
       i,mixWtSite1old_i,mixWtSite2old_i,

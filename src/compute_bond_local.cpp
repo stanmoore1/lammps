@@ -344,7 +344,7 @@ int ComputeBondLocal::compute_bonds(int flag)
       dx = x[atom1][0] - x[atom2][0];
       dy = x[atom1][1] - x[atom2][1];
       dz = x[atom1][2] - x[atom2][2];
-      domain->minimum_image(dx, dy, dz);
+      domain->minimum_image(FLERR, dx, dy, dz);
       rsq = dx * dx + dy * dy + dz * dz;
 
       if (btype == 0) {

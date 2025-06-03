@@ -385,7 +385,7 @@ void VerletKokkos::run(int n)
     unsigned int datamask_exclude = 0;
     int allow_overlap = lmp->kokkos->allow_overlap;
 
-    if (allow_overlap && atomKK->k_f.k_view.h_view.data() != atomKK->k_f.d_view.data()) {
+    if (allow_overlap && atomKK->k_f.h_view_kk.data() != atomKK->k_f.d_view.data()) {
 
       datamask_exclude = (F_MASK | ENERGY_MASK | VIRIAL_MASK);
 

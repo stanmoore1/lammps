@@ -1190,7 +1190,7 @@ void FixBondReact::far_partner()
       delx = xtmp - x[j][0];
       dely = ytmp - x[j][1];
       delz = ztmp - x[j][2];
-      domain->minimum_image(delx,dely,delz); // ghost location fix
+      domain->minimum_image(FLERR, delx,dely,delz); // ghost location fix
       rsq = delx*delx + dely*dely + delz*delz;
 
       if (var_flag[RMIN][rxnID]) {
@@ -1260,7 +1260,7 @@ void FixBondReact::close_partner()
       delx = x[i1][0] - x[i2][0];
       dely = x[i1][1] - x[i2][1];
       delz = x[i1][2] - x[i2][2];
-      domain->minimum_image(delx,dely,delz); // ghost location fix
+      domain->minimum_image(FLERR, delx,dely,delz); // ghost location fix
       rsq = delx*delx + dely*dely + delz*delz;
 
       if (var_flag[RMIN][rxnID]) {
@@ -1972,7 +1972,7 @@ int FixBondReact::check_constraints()
       delx = x1[0] - x2[0];
       dely = x1[1] - x2[1];
       delz = x1[2] - x2[2];
-      domain->minimum_image(delx,dely,delz); // ghost location fix
+      domain->minimum_image(FLERR, delx,dely,delz); // ghost location fix
       rsq = delx*delx + dely*dely + delz*delz;
       if (rsq < constraints[i][rxnID].par[0] || rsq > constraints[i][rxnID].par[1]) satisfied[i] = 0;
     } else if (constraints[i][rxnID].type == ANGLE) {
@@ -1984,7 +1984,7 @@ int FixBondReact::check_constraints()
       delx1 = x1[0] - x2[0];
       dely1 = x1[1] - x2[1];
       delz1 = x1[2] - x2[2];
-      domain->minimum_image(delx1,dely1,delz1); // ghost location fix
+      domain->minimum_image(FLERR, delx1,dely1,delz1); // ghost location fix
       rsq1 = delx1*delx1 + dely1*dely1 + delz1*delz1;
       r1 = sqrt(rsq1);
 
@@ -1992,7 +1992,7 @@ int FixBondReact::check_constraints()
       delx2 = x3[0] - x2[0];
       dely2 = x3[1] - x2[1];
       delz2 = x3[2] - x2[2];
-      domain->minimum_image(delx2,dely2,delz2); // ghost location fix
+      domain->minimum_image(FLERR, delx2,dely2,delz2); // ghost location fix
       rsq2 = delx2*delx2 + dely2*dely2 + delz2*delz2;
       r2 = sqrt(rsq2);
 
@@ -2012,22 +2012,22 @@ int FixBondReact::check_constraints()
       vb1x = x1[0] - x2[0];
       vb1y = x1[1] - x2[1];
       vb1z = x1[2] - x2[2];
-      domain->minimum_image(vb1x,vb1y,vb1z);
+      domain->minimum_image(FLERR, vb1x,vb1y,vb1z);
 
       vb2x = x3[0] - x2[0];
       vb2y = x3[1] - x2[1];
       vb2z = x3[2] - x2[2];
-      domain->minimum_image(vb2x,vb2y,vb2z);
+      domain->minimum_image(FLERR, vb2x,vb2y,vb2z);
 
       vb2xm = -vb2x;
       vb2ym = -vb2y;
       vb2zm = -vb2z;
-      domain->minimum_image(vb2xm,vb2ym,vb2zm);
+      domain->minimum_image(FLERR, vb2xm,vb2ym,vb2zm);
 
       vb3x = x4[0] - x3[0];
       vb3y = x4[1] - x3[1];
       vb3z = x4[2] - x3[2];
-      domain->minimum_image(vb3x,vb3y,vb3z);
+      domain->minimum_image(FLERR, vb3x,vb3y,vb3z);
 
       ax = vb1y*vb2zm - vb1z*vb2ym;
       ay = vb1z*vb2xm - vb1x*vb2zm;
@@ -3908,7 +3908,7 @@ int FixBondReact::insert_atoms_setup(tagint **my_update_mega_glove, int iupdate)
           delx = coords[m][0] - x[i][0];
           dely = coords[m][1] - x[i][1];
           delz = coords[m][2] - x[i][2];
-          domain->minimum_image(delx,dely,delz);
+          domain->minimum_image(FLERR, delx,dely,delz);
           rsq = delx*delx + dely*dely + delz*delz;
           if (rsq < overlapsq[rxnID]) {
             abortflag = 1;
@@ -3926,7 +3926,7 @@ int FixBondReact::insert_atoms_setup(tagint **my_update_mega_glove, int iupdate)
             delx = coords[m][0] - myaddatom.x[0];
             dely = coords[m][1] - myaddatom.x[1];
             delz = coords[m][2] - myaddatom.x[2];
-            domain->minimum_image(delx,dely,delz);
+            domain->minimum_image(FLERR, delx,dely,delz);
             rsq = delx*delx + dely*dely + delz*delz;
             if (rsq < overlapsq[rxnID]) {
               abortflag = 1;

@@ -87,7 +87,7 @@ class FixNeighHistoryKokkos : public FixNeighHistory, public KokkosBase {
   typename AT::t_int_2d d_firstflag;
   typename AT::t_kkfloat_2d d_firstvalue;
 
-  DAT::ttransform_int_1d k_npartner;
+  DAT::tdual_int_1d k_npartner;
   DAT::ttransform_tagint_2d k_partner;
   DAT::ttransform_kkfloat_2d k_valuepartner;
 

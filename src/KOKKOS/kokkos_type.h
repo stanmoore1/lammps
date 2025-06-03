@@ -153,12 +153,12 @@ typedef Kokkos::DefaultExecutionSpace LMPDeviceType;
 typedef Kokkos::HostSpace::execution_space LMPHostType;
 
 // set default device layout
-#if defined(LMP_KOKKOS_LAYOUT_LEFT)
-typedef LMPDeviceType::array_layout LMPDeviceLayout;
-#else
+#if defined(LMP_KOKKOS_LAYOUT_RIGHT)
 typedef Kokkos::LayoutRight LMPDeviceLayout;
+#else
+typedef LMPDeviceType::array_layout LMPDeviceLayout;
+//typedef Kokkos::LayoutLeft LMPDeviceLayout;
 #endif
-
 
 // If unified memory, need to use device memory space for host execution space
 
@@ -610,11 +610,13 @@ struct TransformView {
   static constexpr int TRANSFORM_ON_DEVICE = 0;
 
   typedef Kokkos::DualView<KKType, KKLayout, KKSpace> kk_view;
-  typedef Kokkos::View<LegacyType, Kokkos::LayoutRight, LMPHostType> legacy_view;
+  typedef typename Kokkos::DualView<LegacyType, Kokkos::LayoutRight, KKSpace>::t_host legacy_view;
 
+// private:
   kk_view k_view;
+// public:
   typename kk_view::t_dev d_view;
-  legacy_view h_legacy;
+  typename kk_view::t_host h_view_kk;
   legacy_view h_view;
 
   typedef typename legacy_view::value_type value_type;
@@ -631,7 +633,9 @@ struct TransformView {
     modified_legacy_host = 0;
     modified_legacy_device = 0;
     k_view = {};
-    h_legacy = {};
+    d_view = {};
+    h_view_kk = {};
+    h_view = {};
   }
 
   template <typename... Indices>
@@ -642,24 +646,22 @@ struct TransformView {
     modified_legacy_device = 0;
     k_view = kk_view(name, ns...);
     d_view = k_view.d_view;
-    if constexpr (NEED_TRANSFORM) {
-      h_legacy = legacy_view(name, ns...);
-      h_view = h_legacy;
-    } else {
-      h_view = k_view.h_view;
-    }
+    h_view_kk = k_view.h_view;
+    if constexpr (NEED_TRANSFORM)
+      h_view = legacy_view(name, ns...);
+    else
+      h_view = h_view_kk;
   }
 
   template <typename... Indices>
   void resize(Indices... ns) {
     k_view.resize(ns...);
     d_view = k_view.d_view;
-    if constexpr (NEED_TRANSFORM) {
-      Kokkos::resize(h_legacy,ns...);
-      h_view = h_legacy;
-    } else {
-      h_view = k_view.h_view;
-    }
+    h_view_kk = k_view.h_view;
+    if constexpr (NEED_TRANSFORM)
+      Kokkos::resize(h_view,ns...);
+    else
+      h_view = h_view_kk;
   }
 
   void modify_device()
@@ -667,7 +669,7 @@ struct TransformView {
     k_view.modify_device();
 
     if constexpr (NEED_TRANSFORM) {
-      if (!k_view.d_view.data()) return;
+      if (!d_view.data()) return;
 
       modified_device_legacy = 1;
 
@@ -681,7 +683,7 @@ struct TransformView {
     k_view.modify_host();
 
     if constexpr (NEED_TRANSFORM) {
-      if (!k_view.h_view.data()) return;
+      if (!h_view_kk.data()) return;
 
       modified_host_legacy = 1;
 
@@ -693,7 +695,7 @@ struct TransformView {
   void modify_host() {
     if constexpr (NEED_TRANSFORM) {
 
-      if (!h_legacy.data()) return;
+      if (!h_view.data()) return;
 
       modified_legacy_host = 1;
       modified_legacy_device = 1;
@@ -713,16 +715,16 @@ struct TransformView {
     k_view.sync_device();
 
     if constexpr (NEED_TRANSFORM) {
-      if (!k_view.d_view.data()) return;
+      if (!d_view.data()) return;
 
       if (modified_legacy_device) {
         if constexpr (TRANSFORM_ON_DEVICE) {
-          auto d_legacy = Kokkos::create_mirror_view_and_copy(h_legacy);
-          Kokkos::deep_copy(k_view.d_view,d_legacy);
+          auto d_legacy = Kokkos::create_mirror_view_and_copy(h_view);
+          Kokkos::deep_copy(d_view,d_legacy);
           if (modified_legacy_host)
             k_view.modify_device();
         } else {
-          Kokkos::deep_copy(k_view.h_view,h_legacy);
+          Kokkos::deep_copy(h_view_kk,h_view);
           k_view.modify_host();
           k_view.sync_device();
           modified_legacy_host = 0;
@@ -737,13 +739,13 @@ struct TransformView {
     k_view.sync_host();
 
     if constexpr (NEED_TRANSFORM) {
-      if (!k_view.h_view.data()) return;
+      if (!h_view_kk.data()) return;
 
       if (modified_device_legacy)
         modified_host_legacy = 1;
 
       if (modified_legacy_host) {
-        Kokkos::deep_copy(k_view.h_view,h_legacy);
+        Kokkos::deep_copy(h_view_kk,h_view);
         modified_legacy_host = 0;
         if (modified_legacy_device)
           k_view.modify_host();
@@ -754,23 +756,23 @@ struct TransformView {
   void sync_host() {
     if constexpr (NEED_TRANSFORM) {
 
-      if (!h_legacy.data()) return;
+      if (!h_view.data()) return;
 
       if (modified_device_legacy) {
         if constexpr (TRANSFORM_ON_DEVICE) {
-          auto d_legacy = Kokkos::create_mirror_view(h_legacy); // add NoInit
-          Kokkos::deep_copy(d_legacy,k_view.d_view);
-          Kokkos::deep_copy(h_legacy,d_legacy);
+          auto d_legacy = Kokkos::create_mirror_view(h_view); // add NoInit
+          Kokkos::deep_copy(d_legacy,d_view);
+          Kokkos::deep_copy(h_view,d_legacy);
           if (k_view.need_sync_host())
             modified_legacy_host = 1;
         } else {
           k_view.sync_host();
-          Kokkos::deep_copy(h_legacy,k_view.h_view);
+          Kokkos::deep_copy(h_view,h_view_kk);
           modified_host_legacy = 0;
         }
         modified_device_legacy = 0;
       } else if (modified_host_legacy) {
-        Kokkos::deep_copy(h_legacy,k_view.h_view);
+        Kokkos::deep_copy(h_view,h_view_kk);
         modified_host_legacy = 0;
         if (k_view.need_sync_device())
           modified_device_legacy = 1;
@@ -795,16 +797,16 @@ struct TransformView {
   }
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_dev&> view() {return k_view.d_view;}
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_dev&> view() {return d_view;}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_host&> view() {return k_view.h_view;}
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_host&> view() {return h_view_kk;}
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const typename kk_view::t_dev&> view() const {return k_view.d_view;}
+  KOKKOS_INLINE_FUNCTION std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const typename kk_view::t_dev&> view() const {return d_view;}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const typename kk_view::t_host&> view() const {return k_view.h_view;}
+  KOKKOS_INLINE_FUNCTION std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const typename kk_view::t_host&> view() const {return h_view_kk;}
 
   template<class DeviceType>
   std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify() {modify_device();}
@@ -888,9 +890,6 @@ KOKKOS_DEVICE_DUALVIEW(imageint*, Kokkos::LayoutRight, imageint_1d)
 KOKKOS_DEVICE_DUALVIEW(double*, Kokkos::LayoutRight, double_1d)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*, Kokkos::LayoutRight, kkfloat_1d)
 
-typedef TransformView<int*, int*, Kokkos::LayoutRight> ttransform_int_1d;
-typedef TransformView<LAMMPS_NS::tagint*, LAMMPS_NS::tagint*, Kokkos::LayoutRight> ttransform_tagint_1d;
-typedef TransformView<LAMMPS_NS::imageint*, LAMMPS_NS::imageint*, Kokkos::LayoutRight> ttransform_imageint_1d;
 typedef TransformView<KK_FLOAT*, double*, Kokkos::LayoutRight> ttransform_kkfloat_1d;
 
 // 2D view types

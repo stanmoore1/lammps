@@ -146,7 +146,7 @@ void FixPropertyAtomKokkos::sync_overlapping_device(ExecutionSpace space, unsign
 {
   if (space == Device) {
     if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_device())
-      atomKK->avecKK->perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule.k_view,space);
+      atomKK->avecKK->perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space);
     if ((mask & Q_MASK) && atomKK->k_q.need_sync_device())
       atomKK->avecKK->perform_async_copy<DAT::tdual_kkfloat_1d>(atomKK->k_q.k_view,space);
     if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_device())
@@ -155,7 +155,7 @@ void FixPropertyAtomKokkos::sync_overlapping_device(ExecutionSpace space, unsign
       atomKK->avecKK->perform_async_copy<DAT::tdual_kkfloat_2d>(atomKK->k_dvector.k_view,space);
   } else {
     if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_host())
-      atomKK->avecKK->perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule.k_view,space);
+      atomKK->avecKK->perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space);
     if ((mask & Q_MASK) && atomKK->k_q.need_sync_host())
       atomKK->avecKK->perform_async_copy<DAT::tdual_kkfloat_1d>(atomKK->k_q.k_view,space);
     if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_host())

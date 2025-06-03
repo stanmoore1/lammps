@@ -352,7 +352,7 @@ double BondBPM::equilibrium_distance(int /*i*/)
           delx = x[i][0] - x[j][0];
           dely = x[i][1] - x[j][1];
           delz = x[i][2] - x[j][2];
-          domain->minimum_image(delx, dely, delz);
+          domain->minimum_image(FLERR, delx, dely, delz);
 
           r = sqrt(delx * delx + dely * dely + delz * delz);
           if (r > r0_max_estimate) r0_max_estimate = r;

@@ -230,7 +230,7 @@ struct DomainPBCFunctor {
 
   DomainPBCFunctor(double* _lo, double* _hi, double* _period,
                    DAT::ttransform_kkfloat_1d_3_lr _x, DAT::ttransform_kkfloat_1d_3 _v,
-                   DAT::ttransform_int_1d _mask, DAT::ttransform_imageint_1d _image,
+                   DAT::tdual_int_1d _mask, DAT::tdual_imageint_1d _image,
                    int _deform_groupbit, double* _h_rate,
                    int _xperiodic, int _yperiodic, int _zperiodic):
     x(_x.view<DeviceType>()), v(_v.view<DeviceType>()),

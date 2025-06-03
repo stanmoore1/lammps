@@ -67,8 +67,8 @@ class NeighborKokkos : public Neighbor {
 
  private:
 
-  DAT::tdual_kkfloat_1d_3_lr x;
-  DAT::tdual_kkfloat_1d_3_lr xhold;
+  DAT::ttransform_kkfloat_1d_3_lr x;
+  DAT::ttransform_kkfloat_1d_3_lr xhold;
 
   double deltasq;
 

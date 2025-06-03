@@ -122,106 +122,106 @@ void AtomVecFullKokkos::grow_pointers()
 {
   tag = atomKK->tag;
   d_tag = atomKK->k_tag.d_view;
-  h_tag = atomKK->k_tag.k_view.h_view;
+  h_tag = atomKK->k_tag.h_view;
 
   type = atomKK->type;
   d_type = atomKK->k_type.d_view;
-  h_type = atomKK->k_type.k_view.h_view;
+  h_type = atomKK->k_type.h_view;
   mask = atomKK->mask;
   d_mask = atomKK->k_mask.d_view;
-  h_mask = atomKK->k_mask.k_view.h_view;
+  h_mask = atomKK->k_mask.h_view;
   image = atomKK->image;
   d_image = atomKK->k_image.d_view;
-  h_image = atomKK->k_image.k_view.h_view;
+  h_image = atomKK->k_image.h_view;
 
   x = atomKK->x;
   d_x = atomKK->k_x.d_view;
-  h_x = atomKK->k_x.k_view.h_view;
+  h_x = atomKK->k_x.h_view_kk;
   v = atomKK->v;
   d_v = atomKK->k_v.d_view;
-  h_v = atomKK->k_v.k_view.h_view;
+  h_v = atomKK->k_v.h_view_kk;
   f = atomKK->f;
   d_f = atomKK->k_f.d_view;
-  h_f = atomKK->k_f.k_view.h_view;
+  h_f = atomKK->k_f.h_view_kk;
 
   q = atomKK->q;
   d_q = atomKK->k_q.d_view;
-  h_q = atomKK->k_q.k_view.h_view;
+  h_q = atomKK->k_q.h_view_kk;
 
   molecule = atomKK->molecule;
   d_molecule = atomKK->k_molecule.d_view;
-  h_molecule = atomKK->k_molecule.k_view.h_view;
+  h_molecule = atomKK->k_molecule.h_view;
 
   nspecial = atomKK->nspecial;
   d_nspecial = atomKK->k_nspecial.d_view;
-  h_nspecial = atomKK->k_nspecial.k_view.h_view;
+  h_nspecial = atomKK->k_nspecial.h_view_kk;
   special = atomKK->special;
   d_special = atomKK->k_special.d_view;
-  h_special = atomKK->k_special.k_view.h_view;
+  h_special = atomKK->k_special.h_view_kk;
 
   num_bond = atomKK->num_bond;
   d_num_bond = atomKK->k_num_bond.d_view;
-  h_num_bond = atomKK->k_num_bond.k_view.h_view;
+  h_num_bond = atomKK->k_num_bond.h_view;
   bond_type = atomKK->bond_type;
   d_bond_type = atomKK->k_bond_type.d_view;
-  h_bond_type = atomKK->k_bond_type.k_view.h_view;
+  h_bond_type = atomKK->k_bond_type.h_view_kk;
   bond_atom = atomKK->bond_atom;
   d_bond_atom = atomKK->k_bond_atom.d_view;
-  h_bond_atom = atomKK->k_bond_atom.k_view.h_view;
+  h_bond_atom = atomKK->k_bond_atom.h_view_kk;
 
   num_angle = atomKK->num_angle;
   d_num_angle = atomKK->k_num_angle.d_view;
-  h_num_angle = atomKK->k_num_angle.k_view.h_view;
+  h_num_angle = atomKK->k_num_angle.h_view;
   angle_type = atomKK->angle_type;
   d_angle_type = atomKK->k_angle_type.d_view;
-  h_angle_type = atomKK->k_angle_type.k_view.h_view;
+  h_angle_type = atomKK->k_angle_type.h_view_kk;
   angle_atom1 = atomKK->angle_atom1;
   d_angle_atom1 = atomKK->k_angle_atom1.d_view;
-  h_angle_atom1 = atomKK->k_angle_atom1.k_view.h_view;
+  h_angle_atom1 = atomKK->k_angle_atom1.h_view_kk;
   angle_atom2 = atomKK->angle_atom2;
   d_angle_atom2 = atomKK->k_angle_atom2.d_view;
-  h_angle_atom2 = atomKK->k_angle_atom2.k_view.h_view;
+  h_angle_atom2 = atomKK->k_angle_atom2.h_view_kk;
   angle_atom3 = atomKK->angle_atom3;
   d_angle_atom3 = atomKK->k_angle_atom3.d_view;
-  h_angle_atom3 = atomKK->k_angle_atom3.k_view.h_view;
+  h_angle_atom3 = atomKK->k_angle_atom3.h_view_kk;
 
   num_dihedral = atomKK->num_dihedral;
   d_num_dihedral = atomKK->k_num_dihedral.d_view;
-  h_num_dihedral = atomKK->k_num_dihedral.k_view.h_view;
+  h_num_dihedral = atomKK->k_num_dihedral.h_view;
   dihedral_type = atomKK->dihedral_type;
   d_dihedral_type = atomKK->k_dihedral_type.d_view;
-  h_dihedral_type = atomKK->k_dihedral_type.k_view.h_view;
+  h_dihedral_type = atomKK->k_dihedral_type.h_view_kk;
   dihedral_atom1 = atomKK->dihedral_atom1;
   d_dihedral_atom1 = atomKK->k_dihedral_atom1.d_view;
-  h_dihedral_atom1 = atomKK->k_dihedral_atom1.k_view.h_view;
+  h_dihedral_atom1 = atomKK->k_dihedral_atom1.h_view_kk;
   dihedral_atom2 = atomKK->dihedral_atom2;
   d_dihedral_atom2 = atomKK->k_dihedral_atom2.d_view;
-  h_dihedral_atom2 = atomKK->k_dihedral_atom2.k_view.h_view;
+  h_dihedral_atom2 = atomKK->k_dihedral_atom2.h_view_kk;
   dihedral_atom3 = atomKK->dihedral_atom3;
   d_dihedral_atom3 = atomKK->k_dihedral_atom3.d_view;
-  h_dihedral_atom3 = atomKK->k_dihedral_atom3.k_view.h_view;
+  h_dihedral_atom3 = atomKK->k_dihedral_atom3.h_view_kk;
   dihedral_atom4 = atomKK->dihedral_atom4;
   d_dihedral_atom4 = atomKK->k_dihedral_atom4.d_view;
-  h_dihedral_atom4 = atomKK->k_dihedral_atom4.k_view.h_view;
+  h_dihedral_atom4 = atomKK->k_dihedral_atom4.h_view_kk;
 
   num_improper = atomKK->num_improper;
   d_num_improper = atomKK->k_num_improper.d_view;
-  h_num_improper = atomKK->k_num_improper.k_view.h_view;
+  h_num_improper = atomKK->k_num_improper.h_view;
   improper_type = atomKK->improper_type;
   d_improper_type = atomKK->k_improper_type.d_view;
-  h_improper_type = atomKK->k_improper_type.k_view.h_view;
+  h_improper_type = atomKK->k_improper_type.h_view_kk;
   improper_atom1 = atomKK->improper_atom1;
   d_improper_atom1 = atomKK->k_improper_atom1.d_view;
-  h_improper_atom1 = atomKK->k_improper_atom1.k_view.h_view;
+  h_improper_atom1 = atomKK->k_improper_atom1.h_view_kk;
   improper_atom2 = atomKK->improper_atom2;
   d_improper_atom2 = atomKK->k_improper_atom2.d_view;
-  h_improper_atom2 = atomKK->k_improper_atom2.k_view.h_view;
+  h_improper_atom2 = atomKK->k_improper_atom2.h_view_kk;
   improper_atom3 = atomKK->improper_atom3;
   d_improper_atom3 = atomKK->k_improper_atom3.d_view;
-  h_improper_atom3 = atomKK->k_improper_atom3.k_view.h_view;
+  h_improper_atom3 = atomKK->k_improper_atom3.h_view_kk;
   improper_atom4 = atomKK->improper_atom4;
   d_improper_atom4 = atomKK->k_improper_atom4.d_view;
-  h_improper_atom4 = atomKK->k_improper_atom4.k_view.h_view;
+  h_improper_atom4 = atomKK->k_improper_atom4.h_view_kk;
 }
 
 /* ----------------------------------------------------------------------
@@ -987,30 +987,30 @@ void AtomVecFullKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & X_MASK) atomKK->k_x.sync_host_kk();
     if (mask & V_MASK) atomKK->k_v.sync_host_kk();
     if (mask & F_MASK) atomKK->k_f.sync_host_kk();
-    if (mask & TAG_MASK) atomKK->k_tag.sync_host_kk();
-    if (mask & TYPE_MASK) atomKK->k_type.sync_host_kk();
-    if (mask & MASK_MASK) atomKK->k_mask.sync_host_kk();
-    if (mask & IMAGE_MASK) atomKK->k_image.sync_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.sync_host();
+    if (mask & TYPE_MASK) atomKK->k_type.sync_host();
+    if (mask & MASK_MASK) atomKK->k_mask.sync_host();
+    if (mask & IMAGE_MASK) atomKK->k_image.sync_host();
     if (mask & Q_MASK) atomKK->k_q.sync_host_kk();
-    if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_host_kk();
+    if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_host();
     if (mask & SPECIAL_MASK) {
       atomKK->k_nspecial.sync_host_kk();
       atomKK->k_special.sync_host_kk();
     }
     if (mask & BOND_MASK) {
-      atomKK->k_num_bond.sync_host_kk();
+      atomKK->k_num_bond.sync_host();
       atomKK->k_bond_type.sync_host_kk();
       atomKK->k_bond_atom.sync_host_kk();
     }
     if (mask & ANGLE_MASK) {
-      atomKK->k_num_angle.sync_host_kk();
+      atomKK->k_num_angle.sync_host();
       atomKK->k_angle_type.sync_host_kk();
       atomKK->k_angle_atom1.sync_host_kk();
       atomKK->k_angle_atom2.sync_host_kk();
       atomKK->k_angle_atom3.sync_host_kk();
     }
     if (mask & DIHEDRAL_MASK) {
-      atomKK->k_num_dihedral.sync_host_kk();
+      atomKK->k_num_dihedral.sync_host();
       atomKK->k_dihedral_type.sync_host_kk();
       atomKK->k_dihedral_atom1.sync_host_kk();
       atomKK->k_dihedral_atom2.sync_host_kk();
@@ -1018,7 +1018,7 @@ void AtomVecFullKokkos::sync(ExecutionSpace space, unsigned int mask)
       atomKK->k_dihedral_atom4.sync_host_kk();
     }
     if (mask & IMPROPER_MASK) {
-      atomKK->k_num_improper.sync_host_kk();
+      atomKK->k_num_improper.sync_host();
       atomKK->k_improper_type.sync_host_kk();
       atomKK->k_improper_atom1.sync_host_kk();
       atomKK->k_improper_atom2.sync_host_kk();
@@ -1040,17 +1040,17 @@ void AtomVecFullKokkos::sync_overlapping_device(ExecutionSpace space, unsigned i
     if ((mask & F_MASK) && atomKK->k_f.need_sync_device())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f.k_view,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())
-      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag.k_view,space);
+      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type.k_view,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
     if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask.k_view,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())
-      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image.k_view,space);
+      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
     if ((mask & Q_MASK) && atomKK->k_q.need_sync_device())
       perform_async_copy<DAT::tdual_kkfloat_1d>(atomKK->k_q.k_view,space);
     if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_device())
-      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule.k_view,space);
+      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space);
     if (mask & SPECIAL_MASK) {
       if (atomKK->k_nspecial.need_sync_device())
         perform_async_copy<DAT::tdual_int_2d>(atomKK->k_nspecial.k_view,space);
@@ -1059,7 +1059,7 @@ void AtomVecFullKokkos::sync_overlapping_device(ExecutionSpace space, unsigned i
     }
     if (mask & BOND_MASK) {
       if (atomKK->k_num_bond.need_sync_device())
-        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_bond.k_view,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_bond,space);
       if (atomKK->k_bond_type.need_sync_device())
         perform_async_copy<DAT::tdual_int_2d>(atomKK->k_bond_type.k_view,space);
       if (atomKK->k_bond_atom.need_sync_device())
@@ -1067,7 +1067,7 @@ void AtomVecFullKokkos::sync_overlapping_device(ExecutionSpace space, unsigned i
     }
     if (mask & ANGLE_MASK) {
       if (atomKK->k_num_angle.need_sync_device())
-        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_angle.k_view,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_angle,space);
       if (atomKK->k_angle_type.need_sync_device())
         perform_async_copy<DAT::tdual_int_2d>(atomKK->k_angle_type.k_view,space);
       if (atomKK->k_angle_atom1.need_sync_device())
@@ -1079,7 +1079,7 @@ void AtomVecFullKokkos::sync_overlapping_device(ExecutionSpace space, unsigned i
     }
     if (mask & DIHEDRAL_MASK) {
       if (atomKK->k_num_dihedral.need_sync_device())
-        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_dihedral.k_view,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_dihedral,space);
       if (atomKK->k_dihedral_type.need_sync_device())
         perform_async_copy<DAT::tdual_int_2d>(atomKK->k_dihedral_type.k_view,space);
       if (atomKK->k_dihedral_atom1.need_sync_device())
@@ -1091,7 +1091,7 @@ void AtomVecFullKokkos::sync_overlapping_device(ExecutionSpace space, unsigned i
     }
     if (mask & IMPROPER_MASK) {
       if (atomKK->k_num_improper.need_sync_device())
-        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_improper.k_view,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_improper,space);
       if (atomKK->k_improper_type.need_sync_device())
         perform_async_copy<DAT::tdual_int_2d>(atomKK->k_improper_type.k_view,space);
       if (atomKK->k_improper_atom1.need_sync_device())
@@ -1111,17 +1111,17 @@ void AtomVecFullKokkos::sync_overlapping_device(ExecutionSpace space, unsigned i
     if ((mask & F_MASK) && atomKK->k_f.need_sync_host())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f.k_view,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())
-      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag.k_view,space);
+      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type.k_view,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
     if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask.k_view,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())
-      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image.k_view,space);
+      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
     if ((mask & Q_MASK) && atomKK->k_q.need_sync_host())
       perform_async_copy<DAT::tdual_kkfloat_1d>(atomKK->k_q.k_view,space);
     if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_host())
-      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule.k_view,space);
+      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space);
     if (mask & SPECIAL_MASK) {
       if (atomKK->k_nspecial.need_sync_host())
         perform_async_copy<DAT::tdual_int_2d>(atomKK->k_nspecial.k_view,space);
@@ -1130,7 +1130,7 @@ void AtomVecFullKokkos::sync_overlapping_device(ExecutionSpace space, unsigned i
     }
     if (mask & BOND_MASK) {
       if (atomKK->k_num_bond.need_sync_host())
-        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_bond.k_view,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_bond,space);
       if (atomKK->k_bond_type.need_sync_host())
         perform_async_copy<DAT::tdual_int_2d>(atomKK->k_bond_type.k_view,space);
       if (atomKK->k_bond_atom.need_sync_host())
@@ -1138,7 +1138,7 @@ void AtomVecFullKokkos::sync_overlapping_device(ExecutionSpace space, unsigned i
     }
     if (mask & ANGLE_MASK) {
       if (atomKK->k_num_angle.need_sync_host())
-        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_angle.k_view,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_angle,space);
       if (atomKK->k_angle_type.need_sync_host())
         perform_async_copy<DAT::tdual_int_2d>(atomKK->k_angle_type.k_view,space);
       if (atomKK->k_angle_atom1.need_sync_host())
@@ -1150,7 +1150,7 @@ void AtomVecFullKokkos::sync_overlapping_device(ExecutionSpace space, unsigned i
     }
     if (mask & DIHEDRAL_MASK) {
       if (atomKK->k_num_dihedral.need_sync_host())
-        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_dihedral.k_view,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_dihedral,space);
       if (atomKK->k_dihedral_type.need_sync_host())
         perform_async_copy<DAT::tdual_int_2d>(atomKK->k_dihedral_type.k_view,space);
       if (atomKK->k_dihedral_atom1.need_sync_host())
@@ -1164,7 +1164,7 @@ void AtomVecFullKokkos::sync_overlapping_device(ExecutionSpace space, unsigned i
     }
     if (mask & IMPROPER_MASK) {
       if (atomKK->k_num_improper.need_sync_host())
-        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_improper.k_view,space);
+        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_improper,space);
       if (atomKK->k_improper_type.need_sync_host())
         perform_async_copy<DAT::tdual_int_2d>(atomKK->k_improper_type.k_view,space);
       if (atomKK->k_improper_atom1.need_sync_host())
@@ -1271,30 +1271,30 @@ void AtomVecFullKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & X_MASK) atomKK->k_x.modify_host_kk();
     if (mask & V_MASK) atomKK->k_v.modify_host_kk();
     if (mask & F_MASK) atomKK->k_f.modify_host_kk();
-    if (mask & TAG_MASK) atomKK->k_tag.modify_host_kk();
-    if (mask & TYPE_MASK) atomKK->k_type.modify_host_kk();
-    if (mask & MASK_MASK) atomKK->k_mask.modify_host_kk();
-    if (mask & IMAGE_MASK) atomKK->k_image.modify_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.modify_host();
+    if (mask & TYPE_MASK) atomKK->k_type.modify_host();
+    if (mask & MASK_MASK) atomKK->k_mask.modify_host();
+    if (mask & IMAGE_MASK) atomKK->k_image.modify_host();
     if (mask & Q_MASK) atomKK->k_q.modify_host_kk();
-    if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_host_kk();
+    if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_host();
     if (mask & SPECIAL_MASK) {
       atomKK->k_nspecial.modify_host_kk();
       atomKK->k_special.modify_host_kk();
     }
     if (mask & BOND_MASK) {
-      atomKK->k_num_bond.modify_host_kk();
+      atomKK->k_num_bond.modify_host();
       atomKK->k_bond_type.modify_host_kk();
       atomKK->k_bond_atom.modify_host_kk();
     }
     if (mask & ANGLE_MASK) {
-      atomKK->k_num_angle.modify_host_kk();
+      atomKK->k_num_angle.modify_host();
       atomKK->k_angle_type.modify_host_kk();
       atomKK->k_angle_atom1.modify_host_kk();
       atomKK->k_angle_atom2.modify_host_kk();
       atomKK->k_angle_atom3.modify_host_kk();
     }
     if (mask & DIHEDRAL_MASK) {
-      atomKK->k_num_dihedral.modify_host_kk();
+      atomKK->k_num_dihedral.modify_host();
       atomKK->k_dihedral_type.modify_host_kk();
       atomKK->k_dihedral_atom1.modify_host_kk();
       atomKK->k_dihedral_atom2.modify_host_kk();
@@ -1302,7 +1302,7 @@ void AtomVecFullKokkos::modified(ExecutionSpace space, unsigned int mask)
       atomKK->k_dihedral_atom4.modify_host_kk();
     }
     if (mask & IMPROPER_MASK) {
-      atomKK->k_num_improper.modify_host_kk();
+      atomKK->k_num_improper.modify_host();
       atomKK->k_improper_type.modify_host_kk();
       atomKK->k_improper_atom1.modify_host_kk();
       atomKK->k_improper_atom2.modify_host_kk();

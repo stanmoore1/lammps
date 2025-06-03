@@ -95,37 +95,37 @@ void AtomVecSpinKokkos::grow_pointers()
 {
   tag = atomKK->tag;
   d_tag = atomKK->k_tag.d_view;
-  h_tag = atomKK->k_tag.k_view.h_view;
+  h_tag = atomKK->k_tag.h_view;
 
   type = atomKK->type;
   d_type = atomKK->k_type.d_view;
-  h_type = atomKK->k_type.k_view.h_view;
+  h_type = atomKK->k_type.h_view;
   mask = atomKK->mask;
   d_mask = atomKK->k_mask.d_view;
-  h_mask = atomKK->k_mask.k_view.h_view;
+  h_mask = atomKK->k_mask.h_view;
   image = atomKK->image;
   d_image = atomKK->k_image.d_view;
-  h_image = atomKK->k_image.k_view.h_view;
+  h_image = atomKK->k_image.h_view;
 
   x = atomKK->x;
   d_x = atomKK->k_x.d_view;
-  h_x = atomKK->k_x.k_view.h_view;
+  h_x = atomKK->k_x.h_view_kk;
   v = atomKK->v;
   d_v = atomKK->k_v.d_view;
-  h_v = atomKK->k_v.k_view.h_view;
+  h_v = atomKK->k_v.h_view_kk;
   f = atomKK->f;
   d_f = atomKK->k_f.d_view;
-  h_f = atomKK->k_f.k_view.h_view;
+  h_f = atomKK->k_f.h_view_kk;
 
   sp = atomKK->sp;
   d_sp = atomKK->k_sp.d_view;
-  h_sp = atomKK->k_sp.k_view.h_view;
+  h_sp = atomKK->k_sp.h_view_kk;
   fm = atomKK->fm;
   d_fm = atomKK->k_fm.d_view;
-  h_fm = atomKK->k_fm.k_view.h_view;
+  h_fm = atomKK->k_fm.h_view_kk;
   fm_long = atomKK->fm_long;
   d_fm_long = atomKK->k_fm_long.d_view;
-  h_fm_long = atomKK->k_fm_long.k_view.h_view;
+  h_fm_long = atomKK->k_fm_long.h_view_kk;
 }
 
 /* ----------------------------------------------------------------------
@@ -647,10 +647,10 @@ void AtomVecSpinKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & X_MASK) atomKK->k_x.sync_host_kk();
     if (mask & V_MASK) atomKK->k_v.sync_host_kk();
     if (mask & F_MASK) atomKK->k_f.sync_host_kk();
-    if (mask & TAG_MASK) atomKK->k_tag.sync_host_kk();
-    if (mask & TYPE_MASK) atomKK->k_type.sync_host_kk();
-    if (mask & MASK_MASK) atomKK->k_mask.sync_host_kk();
-    if (mask & IMAGE_MASK) atomKK->k_image.sync_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.sync_host();
+    if (mask & TYPE_MASK) atomKK->k_type.sync_host();
+    if (mask & MASK_MASK) atomKK->k_mask.sync_host();
+    if (mask & IMAGE_MASK) atomKK->k_image.sync_host();
     if (mask & SP_MASK) atomKK->k_sp.sync_host_kk();
     if (mask & FM_MASK) atomKK->k_fm.sync_host_kk();
     if (mask & FML_MASK) atomKK->k_fm_long.sync_host_kk();
@@ -687,10 +687,10 @@ void AtomVecSpinKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & X_MASK) atomKK->k_x.modify_host_kk();
     if (mask & V_MASK) atomKK->k_v.modify_host_kk();
     if (mask & F_MASK) atomKK->k_f.modify_host_kk();
-    if (mask & TAG_MASK) atomKK->k_tag.modify_host_kk();
-    if (mask & TYPE_MASK) atomKK->k_type.modify_host_kk();
-    if (mask & MASK_MASK) atomKK->k_mask.modify_host_kk();
-    if (mask & IMAGE_MASK) atomKK->k_image.modify_host_kk();
+    if (mask & TAG_MASK) atomKK->k_tag.modify_host();
+    if (mask & TYPE_MASK) atomKK->k_type.modify_host();
+    if (mask & MASK_MASK) atomKK->k_mask.modify_host();
+    if (mask & IMAGE_MASK) atomKK->k_image.modify_host();
     if (mask & SP_MASK) atomKK->k_sp.modify_host_kk();
     if (mask & FM_MASK) atomKK->k_fm.modify_host_kk();
     if (mask & FML_MASK) atomKK->k_fm_long.modify_host_kk();
@@ -707,13 +707,13 @@ void AtomVecSpinKokkos::sync_overlapping_device(ExecutionSpace space, unsigned i
     if ((mask & F_MASK) && atomKK->k_f.need_sync_device())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f.k_view,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())
-      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag.k_view,space);
+      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type.k_view,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
     if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask.k_view,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())
-      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image.k_view,space);
+      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
     if ((mask & SP_MASK) && atomKK->k_sp.need_sync_device())
       perform_async_copy<DAT::tdual_kkfloat_1d_4>(atomKK->k_sp.k_view,space);
     if ((mask & FM_MASK) && atomKK->k_sp.need_sync_device())
@@ -728,13 +728,13 @@ void AtomVecSpinKokkos::sync_overlapping_device(ExecutionSpace space, unsigned i
     if ((mask & F_MASK) && atomKK->k_f.need_sync_host())
       perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f.k_view,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())
-      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag.k_view,space);
+      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type.k_view,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
     if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask.k_view,space);
+      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())
-      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image.k_view,space);
+      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
     if ((mask & SP_MASK) && atomKK->k_sp.need_sync_host())
       perform_async_copy<DAT::tdual_kkfloat_1d_4>(atomKK->k_sp.k_view,space);
     if ((mask & FM_MASK) && atomKK->k_fm.need_sync_host())

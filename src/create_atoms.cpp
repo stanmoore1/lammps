@@ -875,7 +875,7 @@ void CreateAtoms::add_random()
             delx = xone[0] - x[i][0];
             dely = xone[1] - x[i][1];
             delz = xone[2] - x[i][2];
-            domain->minimum_image(delx, dely, delz);
+            domain->minimum_image(FLERR, delx, dely, delz);
             distsq = delx * delx + dely * dely + delz * delz;
             if (distsq < odistsq) {
               reject = 1;
@@ -891,7 +891,7 @@ void CreateAtoms::add_random()
               delx = xmol[j][0] - x[i][0];
               dely = xmol[j][1] - x[i][1];
               delz = xmol[j][2] - x[i][2];
-              domain->minimum_image(delx, dely, delz);
+              domain->minimum_image(FLERR, delx, dely, delz);
               distsq = delx * delx + dely * dely + delz * delz;
               if (distsq < odistsq) {
                 reject = 1;

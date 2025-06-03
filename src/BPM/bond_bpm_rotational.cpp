@@ -177,7 +177,7 @@ void BondBPMRotational::store_data()
       }
 
       // Get closest image in case bonded with ghost
-      domain->minimum_image(delx, dely, delz);
+      domain->minimum_image(FLERR, delx, dely, delz);
       r = sqrt(delx * delx + dely * dely + delz * delz);
       rinv = 1.0 / r;
 

@@ -451,7 +451,7 @@ struct AtomVecKokkos_PackCommVel {
 
   AtomVecKokkos_PackCommVel(
     const typename DAT::ttransform_kkfloat_1d_3_lr &x,
-    const typename DAT::ttransform_int_1d &mask,
+    const typename DAT::tdual_int_1d &mask,
     const typename DAT::ttransform_kkfloat_1d_3 &v,
     const typename DAT::tdual_double_2d_lr &buf,
     const typename DAT::tdual_int_1d &list,

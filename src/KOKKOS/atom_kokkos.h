@@ -28,9 +28,9 @@ class AtomKokkos : public Atom {
   int nprop_atom;
   class FixPropertyAtomKokkos **fix_prop_atom;
 
-  DAT::ttransform_tagint_1d k_tag;
-  DAT::ttransform_int_1d k_type, k_mask;
-  DAT::ttransform_imageint_1d k_image;
+  DAT::tdual_tagint_1d k_tag;
+  DAT::tdual_int_1d k_type, k_mask;
+  DAT::tdual_imageint_1d k_image;
   DAT::ttransform_kkfloat_1d_3_lr k_x;
   DAT::ttransform_kkfloat_1d_3 k_v;
   DAT::ttransform_kkfloat_1d_3 k_f;
@@ -45,19 +45,19 @@ class AtomKokkos : public Atom {
   DAT::ttransform_kkfloat_1d_3 k_omega;
   DAT::ttransform_kkfloat_1d_3 k_angmom;
   DAT::ttransform_kkfloat_1d_3 k_torque;
-  DAT::ttransform_tagint_1d k_molecule;
+  DAT::tdual_tagint_1d k_molecule;
   DAT::ttransform_int_2d k_nspecial;
   DAT::ttransform_tagint_2d k_special;
-  DAT::ttransform_int_1d k_num_bond;
+  DAT::tdual_int_1d k_num_bond;
   DAT::ttransform_int_2d k_bond_type;
   DAT::ttransform_tagint_2d k_bond_atom;
-  DAT::ttransform_int_1d k_num_angle;
+  DAT::tdual_int_1d k_num_angle;
   DAT::ttransform_int_2d k_angle_type;
   DAT::ttransform_tagint_2d k_angle_atom1, k_angle_atom2, k_angle_atom3;
-  DAT::ttransform_int_1d k_num_dihedral;
+  DAT::tdual_int_1d k_num_dihedral;
   DAT::ttransform_int_2d k_dihedral_type;
   DAT::ttransform_tagint_2d k_dihedral_atom1, k_dihedral_atom2, k_dihedral_atom3, k_dihedral_atom4;
-  DAT::ttransform_int_1d k_num_improper;
+  DAT::tdual_int_1d k_num_improper;
   DAT::ttransform_int_2d k_improper_type;
   DAT::ttransform_tagint_2d k_improper_atom1, k_improper_atom2, k_improper_atom3, k_improper_atom4;
 
