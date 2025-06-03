@@ -37,7 +37,7 @@ class AtomKokkos : public Atom {
 
   DAT::ttransform_kkfloat_1d k_mass;
 
-  DAT::ttransform_int_1d k_ellipsoid;
+  DAT::tdual_int_1d k_ellipsoid;
   DAT::ttransform_kkfloat_1d k_q;
   DAT::ttransform_kkfloat_1d k_radius;
   DAT::ttransform_kkfloat_1d k_rmass;
@@ -76,7 +76,7 @@ class AtomKokkos : public Atom {
 
   // CG-DNA package
 
-  DAT::ttransform_tagint_1d k_id3p, k_id5p;
+  DAT::tdual_tagint_1d k_id3p, k_id5p;
 
   AtomKokkos(class LAMMPS *);
   ~AtomKokkos() override;

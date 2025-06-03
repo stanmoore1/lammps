@@ -116,12 +116,12 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   if (eflag_atom) {
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"pair:eatom");
-    d_eatom = k_eatom.view<DeviceType>();
+    d_eatom = k_eatom.template view<DeviceType>();
   }
   if (vflag_atom) {
     memoryKK->destroy_kokkos(k_vatom,vatom);
     memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"pair:vatom");
-    d_vatom = k_vatom.view<DeviceType>();
+    d_vatom = k_vatom.template view<DeviceType>();
   }
 
   atomKK->sync(execution_space,datamask_read);
@@ -167,10 +167,10 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
   else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
 
-  x = atomKK->k_x.view<DeviceType>();
-  f = atomKK->k_f.view<DeviceType>();
-  torque = atomKK->k_torque.view<DeviceType>();
-  type = atomKK->k_type.view<DeviceType>();
+  x = atomKK->k_x.template view<DeviceType>();
+  f = atomKK->k_f.template view<DeviceType>();
+  torque = atomKK->k_torque.template view<DeviceType>();
+  type = atomKK->k_type.template view<DeviceType>();
 
   nlocal = atom->nlocal;
   newton_pair = force->newton_pair;
@@ -189,14 +189,14 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   int need_dup = lmp->kokkos->need_dup<DeviceType>();
   if (need_dup) {
-    dup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    dup_f = Kokkos::Experimental::create_scatter.template view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterDuplicated>(f);
-    dup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    dup_torque = Kokkos::Experimental::create_scatter.template view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterDuplicated>(torque);
   } else {
-    ndup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    ndup_f = Kokkos::Experimental::create_scatter.template view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterNonDuplicated>(f);
-    ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    ndup_torque = Kokkos::Experimental::create_scatter.template view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterNonDuplicated>(torque);
   }
 

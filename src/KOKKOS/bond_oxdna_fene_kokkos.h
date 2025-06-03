@@ -69,8 +69,8 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   typename Kokkos::View<KK_FLOAT*[3],typename AT::t_kkfloat_1d_3::array_layout,\
      typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > torque;
   typename ArrayTypes<DeviceType>::t_int_2d_lr bondlist;
-  typename ArrayTypes<DeviceType>::ttransform_tagint_1d tag;
-  typename ArrayTypes<DeviceType>::ttransform_tagint_1d id5p;
+  typename ArrayTypes<DeviceType>::tdual_tagint_1d tag;
+  typename ArrayTypes<DeviceType>::tdual_tagint_1d id5p;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
   TransformView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;

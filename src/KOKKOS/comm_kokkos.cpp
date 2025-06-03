@@ -795,9 +795,9 @@ struct BuildExchangeListFunctor {
   BuildExchangeListFunctor(
       const DAT::ttransform_kkfloat_1d_3_lr x,
       const DAT::tdual_int_1d sendlist,
-      DAT::tdual_int_1d_scalar nsend,
+      DAT::tdual_int_1d nsend,
       const typename AT::tdual_int_1d sendlist_bonus,
-      const typename AT::ttransform_int_1d bonus_flags,
+      const typename AT::tdual_int_1d bonus_flags,
       int nlocal, int dim,
       double lo, double hi):
                 _lo(lo),_hi(hi),
@@ -836,7 +836,7 @@ void CommKokkos::exchange_device()
   double lo,hi;
   MPI_Request request;
 
-  DAT::ttransform_int_1d k_bonus_flags;
+  DAT::tdual_int_1d k_bonus_flags;
 
   // clear global->local map for owned and ghost atoms
   // b/c atoms migrate to new procs in exchange() and

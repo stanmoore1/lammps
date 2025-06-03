@@ -108,12 +108,12 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   if (eflag_atom) {
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"pair:eatom");
-    d_eatom = k_eatom.view<DeviceType>();
+    d_eatom = k_eatom.template view<DeviceType>();
   }
   if (vflag_atom) {
     memoryKK->destroy_kokkos(k_vatom,vatom);
     memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"pair:vatom");
-    d_vatom = k_vatom.view<DeviceType>();
+    d_vatom = k_vatom.template view<DeviceType>();
   }
 
   atomKK->sync(execution_space,datamask_read);
@@ -155,14 +155,14 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
   else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
 
-  x = atomKK->k_x.view<DeviceType>();
-  f = atomKK->k_f.view<DeviceType>();
-  torque = atomKK->k_torque.view<DeviceType>();
-  type = atomKK->k_type.view<DeviceType>();
+  x = atomKK->k_x.template view<DeviceType>();
+  f = atomKK->k_f.template view<DeviceType>();
+  torque = atomKK->k_torque.template view<DeviceType>();
+  type = atomKK->k_type.template view<DeviceType>();
 
   auto avecEllipKK = dynamic_cast<AtomVecEllipsoidKokkos *>(atom->style_match("ellipsoid"));
-  bonus = avecEllipKK->k_bonus.view<DeviceType>();
-  ellipsoid = atomKK->k_ellipsoid.view<DeviceType>();
+  bonus = avecEllipKK->k_bonus.template view<DeviceType>();
+  ellipsoid = atomKK->k_ellipsoid.template view<DeviceType>();
 
   nlocal = atom->nlocal;
   newton_pair = force->newton_pair;
@@ -181,14 +181,14 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   int need_dup = lmp->kokkos->need_dup<DeviceType>();
   if (need_dup) {
-    dup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    dup_f = Kokkos::Experimental::create_scatter.template view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterDuplicated>(f);
-    dup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    dup_torque = Kokkos::Experimental::create_scatter.template view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterDuplicated>(torque);
   } else {
-    ndup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    ndup_f = Kokkos::Experimental::create_scatter.template view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterNonDuplicated>(f);
-    ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
+    ndup_torque = Kokkos::Experimental::create_scatter.template view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterNonDuplicated>(torque);
   }
 
@@ -740,8 +740,8 @@ int PairOxdnaExcvKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_
                                                         DAT::tdual_double_1d &buf,
                                                         int /*pbc_flag*/, int * /*pbc*/)
 {
-  d_sendlist = k_sendlist.view<DeviceType>();
-  v_buf = buf.view<DeviceType>();
+  d_sendlist = k_sendlist.template view<DeviceType>();
+  v_buf = buf.template view<DeviceType>();
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvPackForwardComm>(0,n),*this);
   return n*9;
 }
@@ -767,7 +767,7 @@ template<class DeviceType>
 void PairOxdnaExcvKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_double_1d &buf)
 {
   first = first_in;
-  v_buf = buf.view<DeviceType>();
+  v_buf = buf.template view<DeviceType>();
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvUnpackForwardComm>(0,n),*this);
 }
 
