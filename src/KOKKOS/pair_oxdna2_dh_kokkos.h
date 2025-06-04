@@ -100,12 +100,12 @@ class PairOxdna2DhKokkos : public PairOxdna2Dh, public KokkosBase {
   typename AT::t_int_1d_randomread d_numneigh;
 
   // debye huckel interaction parameters
-  typename AT::tdual_kkfloat_2d k_qeff_dh_pf, k_kappa_dh;
-  typename AT::tdual_kkfloat_2d k_b_dh, k_cut_dh_ast, k_cutsq_dh_ast;
-  typename AT::tdual_kkfloat_2d k_cut_dh_c, k_cutsq_dh_c;
-  typename AT::t_kkfloat_2d d_qeff_dh_pf, d_kappa_dh;
-  typename AT::t_kkfloat_2d d_b_dh, d_cut_dh_ast, d_cutsq_dh_ast;
-  typename AT::t_kkfloat_2d d_cut_dh_c, d_cutsq_dh_c;
+  typename AT::tdual_kkfloat_2d_lr k_qeff_dh_pf, k_kappa_dh;
+  typename AT::tdual_kkfloat_2d_lr k_b_dh, k_cut_dh_ast, k_cutsq_dh_ast;
+  typename AT::tdual_kkfloat_2d_lr k_cut_dh_c, k_cutsq_dh_c;
+  typename AT::t_kkfloat_2d_lr d_qeff_dh_pf, d_kappa_dh;
+  typename AT::t_kkfloat_2d_lr d_b_dh, d_cut_dh_ast, d_cutsq_dh_ast;
+  typename AT::t_kkfloat_2d_lr d_cut_dh_c, d_cutsq_dh_c;
   // per-atom arrays for local unit vectors
   DAT::tdual_kkfloat_1d_3_lr k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
   typename AT::t_kkfloat_1d_3_lr d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
@@ -127,11 +127,11 @@ class PairOxdna2DhKokkos : public PairOxdna2Dh, public KokkosBase {
   DupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> dup_f;
   DupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> dup_torque;
   DupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> dup_eatom;
-  DupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d::array_layout> dup_vatom;
+  DupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
   NonDupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> ndup_f;
   NonDupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> ndup_torque;
   NonDupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> ndup_eatom;
-  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d::array_layout> ndup_vatom;
+  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
 
   void allocate() override;
  

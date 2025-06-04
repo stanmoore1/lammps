@@ -130,18 +130,18 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
 
   // s=sugar-phosphate backbone site, b=base site, st=stacking site
   // excluded volume interaction parameters
-  typename AT::tdual_kkfloat_2d k_epsilon_ss, k_sigma_ss, k_cut_ss_ast, k_cutsq_ss_ast;
-  typename AT::tdual_kkfloat_2d k_lj1_ss, k_lj2_ss, k_b_ss, k_cut_ss_c, k_cutsq_ss_c;
-  typename AT::tdual_kkfloat_2d k_epsilon_sb, k_sigma_sb, k_cut_sb_ast, k_cutsq_sb_ast;
-  typename AT::tdual_kkfloat_2d k_lj1_sb, k_lj2_sb, k_b_sb, k_cut_sb_c, k_cutsq_sb_c;
-  typename AT::tdual_kkfloat_2d k_epsilon_bb, k_sigma_bb, k_cut_bb_ast, k_cutsq_bb_ast;
-  typename AT::tdual_kkfloat_2d k_lj1_bb, k_lj2_bb, k_b_bb, k_cut_bb_c, k_cutsq_bb_c;
-  typename AT::t_kkfloat_2d d_epsilon_ss, d_sigma_ss, d_cut_ss_ast, d_cutsq_ss_ast;
-  typename AT::t_kkfloat_2d d_lj1_ss, d_lj2_ss, d_b_ss, d_cut_ss_c, d_cutsq_ss_c;
-  typename AT::t_kkfloat_2d d_epsilon_sb, d_sigma_sb, d_cut_sb_ast, d_cutsq_sb_ast;
-  typename AT::t_kkfloat_2d d_lj1_sb, d_lj2_sb, d_b_sb, d_cut_sb_c, d_cutsq_sb_c;
-  typename AT::t_kkfloat_2d d_epsilon_bb, d_sigma_bb, d_cut_bb_ast, d_cutsq_bb_ast;
-  typename AT::t_kkfloat_2d d_lj1_bb, d_lj2_bb, d_b_bb, d_cut_bb_c, d_cutsq_bb_c;
+  typename AT::tdual_kkfloat_2d_lr k_epsilon_ss, k_sigma_ss, k_cut_ss_ast, k_cutsq_ss_ast;
+  typename AT::tdual_kkfloat_2d_lr k_lj1_ss, k_lj2_ss, k_b_ss, k_cut_ss_c, k_cutsq_ss_c;
+  typename AT::tdual_kkfloat_2d_lr k_epsilon_sb, k_sigma_sb, k_cut_sb_ast, k_cutsq_sb_ast;
+  typename AT::tdual_kkfloat_2d_lr k_lj1_sb, k_lj2_sb, k_b_sb, k_cut_sb_c, k_cutsq_sb_c;
+  typename AT::tdual_kkfloat_2d_lr k_epsilon_bb, k_sigma_bb, k_cut_bb_ast, k_cutsq_bb_ast;
+  typename AT::tdual_kkfloat_2d_lr k_lj1_bb, k_lj2_bb, k_b_bb, k_cut_bb_c, k_cutsq_bb_c;
+  typename AT::t_kkfloat_2d_lr d_epsilon_ss, d_sigma_ss, d_cut_ss_ast, d_cutsq_ss_ast;
+  typename AT::t_kkfloat_2d_lr d_lj1_ss, d_lj2_ss, d_b_ss, d_cut_ss_c, d_cutsq_ss_c;
+  typename AT::t_kkfloat_2d_lr d_epsilon_sb, d_sigma_sb, d_cut_sb_ast, d_cutsq_sb_ast;
+  typename AT::t_kkfloat_2d_lr d_lj1_sb, d_lj2_sb, d_b_sb, d_cut_sb_c, d_cutsq_sb_c;
+  typename AT::t_kkfloat_2d_lr d_epsilon_bb, d_sigma_bb, d_cut_bb_ast, d_cutsq_bb_ast;
+  typename AT::t_kkfloat_2d_lr d_lj1_bb, d_lj2_bb, d_b_bb, d_cut_bb_c, d_cutsq_bb_c;
 
   int first;
   typename AT::t_int_1d d_sendlist;
@@ -160,11 +160,11 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   DupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> dup_f;
   DupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> dup_torque;
   DupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> dup_eatom;
-  DupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d::array_layout> dup_vatom;
+  DupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
   NonDupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> ndup_f;
   NonDupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> ndup_torque;
   NonDupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> ndup_eatom;
-  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d::array_layout> ndup_vatom;
+  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
 
   void allocate() override;
  

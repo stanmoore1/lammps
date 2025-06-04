@@ -74,7 +74,7 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_kkfloat_1d_3 torque;
   typename AT::t_int_1d_randomread type;
-  typename AT::t_int_2d bondlist;
+  typename AT::t_int_2d_lr bondlist;
   typename AT::t_tagint_1d tag;
   typename AT::t_tagint_1d id5p;
 
@@ -91,30 +91,30 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
   typename AT::t_int_1d_randomread d_numneigh;
 
   // stacking interaction parameters
-  typename AT::tdual_kkfloat_2d k_epsilon_st, k_a_st, k_cut_st_0, k_cut_st_c;
-  typename AT::tdual_kkfloat_2d k_cut_st_lo, k_cut_st_hi;
-  typename AT::tdual_kkfloat_2d k_cut_st_lc, k_cut_st_hc, k_b_st_lo, k_b_st_hi;
-  typename AT::tdual_kkfloat_2d k_shift_st, k_cutsq_st_hc;
-  typename AT::tdual_kkfloat_2d k_a_st4, k_theta_st4_0, k_dtheta_st4_ast;
-  typename AT::tdual_kkfloat_2d k_b_st4, k_dtheta_st4_c;
-  typename AT::tdual_kkfloat_2d k_a_st5, k_theta_st5_0, k_dtheta_st5_ast;
-  typename AT::tdual_kkfloat_2d k_b_st5, k_dtheta_st5_c;
-  typename AT::tdual_kkfloat_2d k_a_st6, k_theta_st6_0, k_dtheta_st6_ast;
-  typename AT::tdual_kkfloat_2d k_b_st6, k_dtheta_st6_c;
-  typename AT::tdual_kkfloat_2d k_a_st1, k_cosphi_st1_ast, k_b_st1, k_cosphi_st1_c;
-  typename AT::tdual_kkfloat_2d k_a_st2, k_cosphi_st2_ast, k_b_st2, k_cosphi_st2_c;
-  typename AT::t_kkfloat_2d d_epsilon_st, d_a_st, d_cut_st_0, d_cut_st_c;
-  typename AT::t_kkfloat_2d d_cut_st_lo, d_cut_st_hi;
-  typename AT::t_kkfloat_2d d_cut_st_lc, d_cut_st_hc, d_b_st_lo, d_b_st_hi;
-  typename AT::t_kkfloat_2d d_shift_st, d_cutsq_st_hc;
-  typename AT::t_kkfloat_2d d_a_st4, d_theta_st4_0, d_dtheta_st4_ast;
-  typename AT::t_kkfloat_2d d_b_st4, d_dtheta_st4_c;
-  typename AT::t_kkfloat_2d d_a_st5, d_theta_st5_0, d_dtheta_st5_ast;
-  typename AT::t_kkfloat_2d d_b_st5, d_dtheta_st5_c;
-  typename AT::t_kkfloat_2d d_a_st6, d_theta_st6_0, d_dtheta_st6_ast;
-  typename AT::t_kkfloat_2d d_b_st6, d_dtheta_st6_c;
-  typename AT::t_kkfloat_2d d_a_st1, d_cosphi_st1_ast, d_b_st1, d_cosphi_st1_c;
-  typename AT::t_kkfloat_2d d_a_st2, d_cosphi_st2_ast, d_b_st2, d_cosphi_st2_c;
+  typename AT::tdual_kkfloat_2d_lr k_epsilon_st, k_a_st, k_cut_st_0, k_cut_st_c;
+  typename AT::tdual_kkfloat_2d_lr k_cut_st_lo, k_cut_st_hi;
+  typename AT::tdual_kkfloat_2d_lr k_cut_st_lc, k_cut_st_hc, k_b_st_lo, k_b_st_hi;
+  typename AT::tdual_kkfloat_2d_lr k_shift_st, k_cutsq_st_hc;
+  typename AT::tdual_kkfloat_2d_lr k_a_st4, k_theta_st4_0, k_dtheta_st4_ast;
+  typename AT::tdual_kkfloat_2d_lr k_b_st4, k_dtheta_st4_c;
+  typename AT::tdual_kkfloat_2d_lr k_a_st5, k_theta_st5_0, k_dtheta_st5_ast;
+  typename AT::tdual_kkfloat_2d_lr k_b_st5, k_dtheta_st5_c;
+  typename AT::tdual_kkfloat_2d_lr k_a_st6, k_theta_st6_0, k_dtheta_st6_ast;
+  typename AT::tdual_kkfloat_2d_lr k_b_st6, k_dtheta_st6_c;
+  typename AT::tdual_kkfloat_2d_lr k_a_st1, k_cosphi_st1_ast, k_b_st1, k_cosphi_st1_c;
+  typename AT::tdual_kkfloat_2d_lr k_a_st2, k_cosphi_st2_ast, k_b_st2, k_cosphi_st2_c;
+  typename AT::t_kkfloat_2d_lr d_epsilon_st, d_a_st, d_cut_st_0, d_cut_st_c;
+  typename AT::t_kkfloat_2d_lr d_cut_st_lo, d_cut_st_hi;
+  typename AT::t_kkfloat_2d_lr d_cut_st_lc, d_cut_st_hc, d_b_st_lo, d_b_st_hi;
+  typename AT::t_kkfloat_2d_lr d_shift_st, d_cutsq_st_hc;
+  typename AT::t_kkfloat_2d_lr d_a_st4, d_theta_st4_0, d_dtheta_st4_ast;
+  typename AT::t_kkfloat_2d_lr d_b_st4, d_dtheta_st4_c;
+  typename AT::t_kkfloat_2d_lr d_a_st5, d_theta_st5_0, d_dtheta_st5_ast;
+  typename AT::t_kkfloat_2d_lr d_b_st5, d_dtheta_st5_c;
+  typename AT::t_kkfloat_2d_lr d_a_st6, d_theta_st6_0, d_dtheta_st6_ast;
+  typename AT::t_kkfloat_2d_lr d_b_st6, d_dtheta_st6_c;
+  typename AT::t_kkfloat_2d_lr d_a_st1, d_cosphi_st1_ast, d_b_st1, d_cosphi_st1_c;
+  typename AT::t_kkfloat_2d_lr d_a_st2, d_cosphi_st2_ast, d_b_st2, d_cosphi_st2_c;
   // per-atom arrays for local unit vectors
   DAT::tdual_kkfloat_1d_3_lr k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
   typename AT::t_kkfloat_1d_3_lr d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
@@ -136,11 +136,11 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
   DupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> dup_f;
   DupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> dup_torque;
   DupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> dup_eatom;
-  DupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d::array_layout> dup_vatom;
+  DupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
   NonDupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> ndup_f;
   NonDupScatterView<KK_FLOAT*[3], typename AT::t_kkfloat_1d_3::array_layout> ndup_torque;
   NonDupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> ndup_eatom;
-  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d::array_layout> ndup_vatom;
+  NonDupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
 
   void allocate() override;
  
