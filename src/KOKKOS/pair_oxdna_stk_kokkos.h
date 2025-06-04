@@ -91,18 +91,18 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
   typename AT::t_int_1d_randomread d_numneigh;
 
   // stacking interaction parameters
-  typename AT::ttransform_kkfloat_2d k_epsilon_st, k_a_st, k_cut_st_0, k_cut_st_c;
-  typename AT::ttransform_kkfloat_2d k_cut_st_lo, k_cut_st_hi;
-  typename AT::ttransform_kkfloat_2d k_cut_st_lc, k_cut_st_hc, k_b_st_lo, k_b_st_hi;
-  typename AT::ttransform_kkfloat_2d k_shift_st, k_cutsq_st_hc;
-  typename AT::ttransform_kkfloat_2d k_a_st4, k_theta_st4_0, k_dtheta_st4_ast;
-  typename AT::ttransform_kkfloat_2d k_b_st4, k_dtheta_st4_c;
-  typename AT::ttransform_kkfloat_2d k_a_st5, k_theta_st5_0, k_dtheta_st5_ast;
-  typename AT::ttransform_kkfloat_2d k_b_st5, k_dtheta_st5_c;
-  typename AT::ttransform_kkfloat_2d k_a_st6, k_theta_st6_0, k_dtheta_st6_ast;
-  typename AT::ttransform_kkfloat_2d k_b_st6, k_dtheta_st6_c;
-  typename AT::ttransform_kkfloat_2d k_a_st1, k_cosphi_st1_ast, k_b_st1, k_cosphi_st1_c;
-  typename AT::ttransform_kkfloat_2d k_a_st2, k_cosphi_st2_ast, k_b_st2, k_cosphi_st2_c;
+  typename AT::tdual_kkfloat_2d k_epsilon_st, k_a_st, k_cut_st_0, k_cut_st_c;
+  typename AT::tdual_kkfloat_2d k_cut_st_lo, k_cut_st_hi;
+  typename AT::tdual_kkfloat_2d k_cut_st_lc, k_cut_st_hc, k_b_st_lo, k_b_st_hi;
+  typename AT::tdual_kkfloat_2d k_shift_st, k_cutsq_st_hc;
+  typename AT::tdual_kkfloat_2d k_a_st4, k_theta_st4_0, k_dtheta_st4_ast;
+  typename AT::tdual_kkfloat_2d k_b_st4, k_dtheta_st4_c;
+  typename AT::tdual_kkfloat_2d k_a_st5, k_theta_st5_0, k_dtheta_st5_ast;
+  typename AT::tdual_kkfloat_2d k_b_st5, k_dtheta_st5_c;
+  typename AT::tdual_kkfloat_2d k_a_st6, k_theta_st6_0, k_dtheta_st6_ast;
+  typename AT::tdual_kkfloat_2d k_b_st6, k_dtheta_st6_c;
+  typename AT::tdual_kkfloat_2d k_a_st1, k_cosphi_st1_ast, k_b_st1, k_cosphi_st1_c;
+  typename AT::tdual_kkfloat_2d k_a_st2, k_cosphi_st2_ast, k_b_st2, k_cosphi_st2_c;
   typename AT::t_kkfloat_2d d_epsilon_st, d_a_st, d_cut_st_0, d_cut_st_c;
   typename AT::t_kkfloat_2d d_cut_st_lo, d_cut_st_hi;
   typename AT::t_kkfloat_2d d_cut_st_lc, d_cut_st_hc, d_b_st_lo, d_b_st_hi;

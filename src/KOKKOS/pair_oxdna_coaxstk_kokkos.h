@@ -88,7 +88,7 @@ class PairOxdnaCoaxstkKokkos : public PairOxdnaCoaxstk, public KokkosBase {
   int newton_pair;
   double special_lj[4];
 
-  typename AT::ttransform_kkfloat_2d k_cutsq;
+  typename AT::tdual_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
 
   int neighflag;
@@ -100,20 +100,20 @@ class PairOxdnaCoaxstkKokkos : public PairOxdnaCoaxstk, public KokkosBase {
   typename AT::t_int_1d_randomread d_numneigh;
 
   // coaxial stacking interaction parameters
-  typename AT::ttransform_kkfloat_2d k_k_cxst, k_cut_cxst_0, k_cut_cxst_c;
-  typename AT::ttransform_kkfloat_2d k_cut_cxst_lo, k_cut_cxst_hi;
-  typename AT::ttransform_kkfloat_2d k_cut_cxst_lc, k_cut_cxst_hc, k_b_cxst_lo, k_b_cxst_hi;
-  typename AT::ttransform_kkfloat_2d k_cutsq_cxst_hc;
-  typename AT::ttransform_kkfloat_2d k_a_cxst1, k_theta_cxst1_0, k_dtheta_cxst1_ast;
-  typename AT::ttransform_kkfloat_2d k_b_cxst1, k_dtheta_cxst1_c;
-  typename AT::ttransform_kkfloat_2d k_a_cxst4, k_theta_cxst4_0, k_dtheta_cxst4_ast;
-  typename AT::ttransform_kkfloat_2d k_b_cxst4, k_dtheta_cxst4_c;
-  typename AT::ttransform_kkfloat_2d k_a_cxst5, k_theta_cxst5_0, k_dtheta_cxst5_ast;
-  typename AT::ttransform_kkfloat_2d k_b_cxst5, k_dtheta_cxst5_c;
-  typename AT::ttransform_kkfloat_2d k_a_cxst6, k_theta_cxst6_0, k_dtheta_cxst6_ast;
-  typename AT::ttransform_kkfloat_2d k_b_cxst6, k_dtheta_cxst6_c;
-  typename AT::ttransform_kkfloat_2d k_a_cxst3p, k_cosphi_cxst3p_ast, k_b_cxst3p, k_cosphi_cxst3p_c;
-  typename AT::ttransform_kkfloat_2d k_a_cxst4p, k_cosphi_cxst4p_ast, k_b_cxst4p, k_cosphi_cxst4p_c;
+  typename AT::tdual_kkfloat_2d k_k_cxst, k_cut_cxst_0, k_cut_cxst_c;
+  typename AT::tdual_kkfloat_2d k_cut_cxst_lo, k_cut_cxst_hi;
+  typename AT::tdual_kkfloat_2d k_cut_cxst_lc, k_cut_cxst_hc, k_b_cxst_lo, k_b_cxst_hi;
+  typename AT::tdual_kkfloat_2d k_cutsq_cxst_hc;
+  typename AT::tdual_kkfloat_2d k_a_cxst1, k_theta_cxst1_0, k_dtheta_cxst1_ast;
+  typename AT::tdual_kkfloat_2d k_b_cxst1, k_dtheta_cxst1_c;
+  typename AT::tdual_kkfloat_2d k_a_cxst4, k_theta_cxst4_0, k_dtheta_cxst4_ast;
+  typename AT::tdual_kkfloat_2d k_b_cxst4, k_dtheta_cxst4_c;
+  typename AT::tdual_kkfloat_2d k_a_cxst5, k_theta_cxst5_0, k_dtheta_cxst5_ast;
+  typename AT::tdual_kkfloat_2d k_b_cxst5, k_dtheta_cxst5_c;
+  typename AT::tdual_kkfloat_2d k_a_cxst6, k_theta_cxst6_0, k_dtheta_cxst6_ast;
+  typename AT::tdual_kkfloat_2d k_b_cxst6, k_dtheta_cxst6_c;
+  typename AT::tdual_kkfloat_2d k_a_cxst3p, k_cosphi_cxst3p_ast, k_b_cxst3p, k_cosphi_cxst3p_c;
+  typename AT::tdual_kkfloat_2d k_a_cxst4p, k_cosphi_cxst4p_ast, k_b_cxst4p, k_cosphi_cxst4p_c;
   typename AT::t_kkfloat_2d d_k_cxst, d_cut_cxst_0, d_cut_cxst_c;
   typename AT::t_kkfloat_2d d_cut_cxst_lo, d_cut_cxst_hi;
   typename AT::t_kkfloat_2d d_cut_cxst_lc, d_cut_cxst_hc, d_b_cxst_lo, d_b_cxst_hi;

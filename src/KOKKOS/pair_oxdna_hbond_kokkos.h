@@ -88,7 +88,7 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
   int newton_pair;
   double special_lj[4];
 
-  typename AT::ttransform_kkfloat_2d k_cutsq;
+  typename AT::tdual_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
 
   int neighflag;
@@ -100,22 +100,22 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
   typename AT::t_int_1d_randomread d_numneigh;
 
   // hydrogen-bonding interaction parameters
-  typename AT::ttransform_kkfloat_2d k_epsilon_hb, k_a_hb, k_cut_hb_0, k_cut_hb_c;
-  typename AT::ttransform_kkfloat_2d k_cut_hb_lo, k_cut_hb_hi;
-  typename AT::ttransform_kkfloat_2d k_cut_hb_lc, k_cut_hb_hc, k_b_hb_lo, k_b_hb_hi;
-  typename AT::ttransform_kkfloat_2d k_shift_hb, k_cutsq_hb_hc;
-  typename AT::ttransform_kkfloat_2d k_a_hb1, k_theta_hb1_0, k_dtheta_hb1_ast;
-  typename AT::ttransform_kkfloat_2d k_b_hb1, k_dtheta_hb1_c;
-  typename AT::ttransform_kkfloat_2d k_a_hb2, k_theta_hb2_0, k_dtheta_hb2_ast;
-  typename AT::ttransform_kkfloat_2d k_b_hb2, k_dtheta_hb2_c;
-  typename AT::ttransform_kkfloat_2d k_a_hb3, k_theta_hb3_0, k_dtheta_hb3_ast;
-  typename AT::ttransform_kkfloat_2d k_b_hb3, k_dtheta_hb3_c;
-  typename AT::ttransform_kkfloat_2d k_a_hb4, k_theta_hb4_0, k_dtheta_hb4_ast;
-  typename AT::ttransform_kkfloat_2d k_b_hb4, k_dtheta_hb4_c;
-  typename AT::ttransform_kkfloat_2d k_a_hb7, k_theta_hb7_0, k_dtheta_hb7_ast;
-  typename AT::ttransform_kkfloat_2d k_b_hb7, k_dtheta_hb7_c;
-  typename AT::ttransform_kkfloat_2d k_a_hb8, k_theta_hb8_0, k_dtheta_hb8_ast;
-  typename AT::ttransform_kkfloat_2d k_b_hb8, k_dtheta_hb8_c;
+  typename AT::tdual_kkfloat_2d k_epsilon_hb, k_a_hb, k_cut_hb_0, k_cut_hb_c;
+  typename AT::tdual_kkfloat_2d k_cut_hb_lo, k_cut_hb_hi;
+  typename AT::tdual_kkfloat_2d k_cut_hb_lc, k_cut_hb_hc, k_b_hb_lo, k_b_hb_hi;
+  typename AT::tdual_kkfloat_2d k_shift_hb, k_cutsq_hb_hc;
+  typename AT::tdual_kkfloat_2d k_a_hb1, k_theta_hb1_0, k_dtheta_hb1_ast;
+  typename AT::tdual_kkfloat_2d k_b_hb1, k_dtheta_hb1_c;
+  typename AT::tdual_kkfloat_2d k_a_hb2, k_theta_hb2_0, k_dtheta_hb2_ast;
+  typename AT::tdual_kkfloat_2d k_b_hb2, k_dtheta_hb2_c;
+  typename AT::tdual_kkfloat_2d k_a_hb3, k_theta_hb3_0, k_dtheta_hb3_ast;
+  typename AT::tdual_kkfloat_2d k_b_hb3, k_dtheta_hb3_c;
+  typename AT::tdual_kkfloat_2d k_a_hb4, k_theta_hb4_0, k_dtheta_hb4_ast;
+  typename AT::tdual_kkfloat_2d k_b_hb4, k_dtheta_hb4_c;
+  typename AT::tdual_kkfloat_2d k_a_hb7, k_theta_hb7_0, k_dtheta_hb7_ast;
+  typename AT::tdual_kkfloat_2d k_b_hb7, k_dtheta_hb7_c;
+  typename AT::tdual_kkfloat_2d k_a_hb8, k_theta_hb8_0, k_dtheta_hb8_ast;
+  typename AT::tdual_kkfloat_2d k_b_hb8, k_dtheta_hb8_c;
   typename AT::t_kkfloat_2d d_epsilon_hb, d_a_hb, d_cut_hb_0, d_cut_hb_c;
   typename AT::t_kkfloat_2d d_cut_hb_lo, d_cut_hb_hi;
   typename AT::t_kkfloat_2d d_cut_hb_lc, d_cut_hb_hc, d_b_hb_lo, d_b_hb_hi;

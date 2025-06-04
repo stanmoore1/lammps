@@ -117,7 +117,7 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   int newton_pair;
   double special_lj[4];
 
-  typename AT::ttransform_kkfloat_2d k_cutsq;
+  typename AT::tdual_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
 
   int neighflag;
@@ -130,12 +130,12 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
 
   // s=sugar-phosphate backbone site, b=base site, st=stacking site
   // excluded volume interaction parameters
-  typename AT::ttransform_kkfloat_2d k_epsilon_ss, k_sigma_ss, k_cut_ss_ast, k_cutsq_ss_ast;
-  typename AT::ttransform_kkfloat_2d k_lj1_ss, k_lj2_ss, k_b_ss, k_cut_ss_c, k_cutsq_ss_c;
-  typename AT::ttransform_kkfloat_2d k_epsilon_sb, k_sigma_sb, k_cut_sb_ast, k_cutsq_sb_ast;
-  typename AT::ttransform_kkfloat_2d k_lj1_sb, k_lj2_sb, k_b_sb, k_cut_sb_c, k_cutsq_sb_c;
-  typename AT::ttransform_kkfloat_2d k_epsilon_bb, k_sigma_bb, k_cut_bb_ast, k_cutsq_bb_ast;
-  typename AT::ttransform_kkfloat_2d k_lj1_bb, k_lj2_bb, k_b_bb, k_cut_bb_c, k_cutsq_bb_c;
+  typename AT::tdual_kkfloat_2d k_epsilon_ss, k_sigma_ss, k_cut_ss_ast, k_cutsq_ss_ast;
+  typename AT::tdual_kkfloat_2d k_lj1_ss, k_lj2_ss, k_b_ss, k_cut_ss_c, k_cutsq_ss_c;
+  typename AT::tdual_kkfloat_2d k_epsilon_sb, k_sigma_sb, k_cut_sb_ast, k_cutsq_sb_ast;
+  typename AT::tdual_kkfloat_2d k_lj1_sb, k_lj2_sb, k_b_sb, k_cut_sb_c, k_cutsq_sb_c;
+  typename AT::tdual_kkfloat_2d k_epsilon_bb, k_sigma_bb, k_cut_bb_ast, k_cutsq_bb_ast;
+  typename AT::tdual_kkfloat_2d k_lj1_bb, k_lj2_bb, k_b_bb, k_cut_bb_c, k_cutsq_bb_c;
   typename AT::t_kkfloat_2d d_epsilon_ss, d_sigma_ss, d_cut_ss_ast, d_cutsq_ss_ast;
   typename AT::t_kkfloat_2d d_lj1_ss, d_lj2_ss, d_b_ss, d_cut_ss_c, d_cutsq_ss_c;
   typename AT::t_kkfloat_2d d_epsilon_sb, d_sigma_sb, d_cut_sb_ast, d_cutsq_sb_ast;

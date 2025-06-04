@@ -84,9 +84,9 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  DAT::tdual_kkfloat_1d k_k;
-  DAT::tdual_kkfloat_1d k_r0;
-  DAT::tdual_kkfloat_1d k_Delta;
+  DAT::ttransform_kkfloat_1d k_k;
+  DAT::ttransform_kkfloat_1d k_r0;
+  DAT::ttransform_kkfloat_1d k_Delta;
   typename AT::t_kkfloat_1d d_Delta;
   typename AT::t_kkfloat_1d d_k;
   typename AT::t_kkfloat_1d d_r0;

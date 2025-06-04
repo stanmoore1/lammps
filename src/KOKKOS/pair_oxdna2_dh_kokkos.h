@@ -88,7 +88,7 @@ class PairOxdna2DhKokkos : public PairOxdna2Dh, public KokkosBase {
   int newton_pair;
   double special_lj[4];
 
-  typename AT::ttransform_kkfloat_2d k_cutsq;
+  typename AT::tdual_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
 
   int neighflag;
@@ -100,9 +100,9 @@ class PairOxdna2DhKokkos : public PairOxdna2Dh, public KokkosBase {
   typename AT::t_int_1d_randomread d_numneigh;
 
   // debye huckel interaction parameters
-  typename AT::ttransform_kkfloat_2d k_qeff_dh_pf, k_kappa_dh;
-  typename AT::ttransform_kkfloat_2d k_b_dh, k_cut_dh_ast, k_cutsq_dh_ast;
-  typename AT::ttransform_kkfloat_2d k_cut_dh_c, k_cutsq_dh_c;
+  typename AT::tdual_kkfloat_2d k_qeff_dh_pf, k_kappa_dh;
+  typename AT::tdual_kkfloat_2d k_b_dh, k_cut_dh_ast, k_cutsq_dh_ast;
+  typename AT::tdual_kkfloat_2d k_cut_dh_c, k_cutsq_dh_c;
   typename AT::t_kkfloat_2d d_qeff_dh_pf, d_kappa_dh;
   typename AT::t_kkfloat_2d d_b_dh, d_cut_dh_ast, d_cutsq_dh_ast;
   typename AT::t_kkfloat_2d d_cut_dh_c, d_cutsq_dh_c;
