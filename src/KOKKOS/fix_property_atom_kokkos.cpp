@@ -142,26 +142,26 @@ void FixPropertyAtomKokkos::sync(ExecutionSpace space, unsigned int mask)
 
 /* ---------------------------------------------------------------------- */
 
-void FixPropertyAtomKokkos::sync_overlapping_device(ExecutionSpace space, unsigned int mask)
+void FixPropertyAtomKokkos::sync_pinned_device(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
     if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_device())
-      atomKK->avecKK->perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space);
+      atomKK->avecKK->perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space);
     if ((mask & Q_MASK) && atomKK->k_q.need_sync_device())
-      atomKK->avecKK->perform_async_copy<DAT::tdual_kkfloat_1d>(atomKK->k_q.k_view,space);
+      atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_q,space);
     if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_device())
-      atomKK->avecKK->perform_async_copy<DAT::tdual_kkfloat_1d>(atomKK->k_rmass.k_view,space);
+      atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_rmass,space);
     if ((mask & DVECTOR_MASK) && atomKK->k_dvector.need_sync_device())
-      atomKK->avecKK->perform_async_copy<DAT::tdual_kkfloat_2d>(atomKK->k_dvector.k_view,space);
+      atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_2d>(atomKK->k_dvector,space);
   } else {
     if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_host())
-      atomKK->avecKK->perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space);
+      atomKK->avecKK->perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space);
     if ((mask & Q_MASK) && atomKK->k_q.need_sync_host())
-      atomKK->avecKK->perform_async_copy<DAT::tdual_kkfloat_1d>(atomKK->k_q.k_view,space);
+      atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_q,space);
     if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_host())
-      atomKK->avecKK->perform_async_copy<DAT::tdual_kkfloat_1d>(atomKK->k_rmass.k_view,space);
+      atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_rmass,space);
     if ((mask & DVECTOR_MASK) && atomKK->k_dvector.need_sync_host())
-      atomKK->avecKK->perform_async_copy<DAT::tdual_kkfloat_2d>(atomKK->k_dvector.k_view,space);
+      atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_2d>(atomKK->k_dvector,space);
   }
 }
 

@@ -398,11 +398,11 @@ void PairADPKokkos<DeviceType>::array2spline()
   tdual_kkfloat_2d_n7 k_u2r_spline = tdual_kkfloat_2d_n7("pair:z2r",nu2r,nr+1);
   tdual_kkfloat_2d_n7 k_w2r_spline = tdual_kkfloat_2d_n7("pair:z2r",nw2r,nr+1);
 
-  t_host_kkfloat_2d_n7 h_frho_spline = k_frho_spline.h_view;
-  t_host_kkfloat_2d_n7 h_rhor_spline = k_rhor_spline.h_view;
-  t_host_kkfloat_2d_n7 h_z2r_spline = k_z2r_spline.h_view;
-  t_host_kkfloat_2d_n7 h_u2r_spline = k_u2r_spline.h_view;
-  t_host_kkfloat_2d_n7 h_w2r_spline = k_w2r_spline.h_view;
+  t_hostkkfloat_2d_n7 h_frho_spline = k_frho_spline.h_view;
+  t_hostkkfloat_2d_n7 h_rhor_spline = k_rhor_spline.h_view;
+  t_hostkkfloat_2d_n7 h_z2r_spline = k_z2r_spline.h_view;
+  t_hostkkfloat_2d_n7 h_u2r_spline = k_u2r_spline.h_view;
+  t_hostkkfloat_2d_n7 h_w2r_spline = k_w2r_spline.h_view;
 
   for (int i = 0; i < nfrho; i++)
     interpolate(nrho,drho,frho[i],h_frho_spline,i);
@@ -439,7 +439,7 @@ void PairADPKokkos<DeviceType>::array2spline()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairADPKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_host_kkfloat_2d_n7 h_spline, int i)
+void PairADPKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_hostkkfloat_2d_n7 h_spline, int i)
 {
   for (int m = 1; m <= n; m++) h_spline(i,m,6) = f[m];
 

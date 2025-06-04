@@ -172,12 +172,12 @@ class PairEAMFSKokkos : public PairEAM, public KokkosBase {
 
   typedef Kokkos::DualView<KK_FLOAT**[7],DeviceType> tdual_kkfloat_2d_n7;
   typedef typename tdual_kkfloat_2d_n7::t_dev_const t_kkfloat_2d_n7;
-  typedef typename tdual_kkfloat_2d_n7::t_host t_host_kkfloat_2d_n7;
+  typedef typename tdual_kkfloat_2d_n7::t_host t_hostkkfloat_2d_n7;
 
   t_kkfloat_2d_n7 d_frho_spline;
   t_kkfloat_2d_n7 d_rhor_spline;
   t_kkfloat_2d_n7 d_z2r_spline;
-  void interpolate(int, double, double *, t_host_kkfloat_2d_n7, int);
+  void interpolate(int, double, double *, t_hostkkfloat_2d_n7, int);
   void file2array() override;
   void file2array_fs();
   void array2spline() override;

@@ -36,7 +36,7 @@ class AtomVecKokkos : virtual public AtomVec {
 
   virtual void sync(ExecutionSpace space, unsigned int mask) = 0;
   virtual void modified(ExecutionSpace space, unsigned int mask) = 0;
-  virtual void sync_overlapping_device(ExecutionSpace space, unsigned int mask) = 0;
+  virtual void sync_pinned_device(ExecutionSpace space, unsigned int mask) = 0;
 
   virtual int
     pack_comm_self(const int &n, const DAT::tdual_int_1d &list,
@@ -156,7 +156,7 @@ class AtomVecKokkos : virtual public AtomVec {
 
   #ifdef LMP_KOKKOS_GPU
   template<class ViewType>
-  void perform_async_copy(ViewType& src, unsigned int space) {
+  void perform_pinned_copy(ViewType& src, unsigned int space) {
     typedef Kokkos::View<typename ViewType::data_type,
                  typename ViewType::array_layout,
                  typename std::conditional<
@@ -173,24 +173,79 @@ class AtomVecKokkos : virtual public AtomVec {
     mirror_type tmp_view((typename ViewType::value_type*)buffer, src.d_view.layout());
 
     if (space == Device) {
-      Kokkos::deep_copy(LMPHostType(),tmp_view,src.h_view),
+      Kokkos::deep_copy(LMPHostType(),tmp_view,src.h_view);
       Kokkos::deep_copy(LMPHostType(),src.d_view,tmp_view);
       src.clear_sync_state();
     } else {
-      Kokkos::deep_copy(LMPHostType(),tmp_view,src.d_view),
+      Kokkos::deep_copy(LMPHostType(),tmp_view,src.d_view);
       Kokkos::deep_copy(LMPHostType(),src.h_view,tmp_view);
       src.clear_sync_state();
     }
   }
   #else
   template<class ViewType>
-  void perform_async_copy(ViewType& src, unsigned int space) {
+  void perform_pinned_copy(ViewType& src, unsigned int space) {
     if (space == Device)
       src.sync_device();
     else
       src.sync_host();
   }
   #endif
+
+//  #ifdef LMP_KOKKOS_GPU
+  #if 0
+  template<class TransformViewType>
+  void perform_pinned_copy_transform(TransformViewType& src, unsigned int space) {
+    typedef typename TransformViewType::kk_view ViewType;
+    typedef Kokkos::View<typename ViewType::data_type,
+                 typename ViewType::array_layout,
+                 typename std::conditional<
+                   std::is_same_v<typename ViewType::execution_space,LMPDeviceType>,
+                   LMPPinnedHostType,typename ViewType::memory_space>::type,
+                 Kokkos::MemoryTraits<Kokkos::Unmanaged> > mirror_type;
+    if (buffer_size == 0) {
+       buffer_size = src.d_view.span()*sizeof(typename ViewType::value_type);
+       buffer = Kokkos::kokkos_malloc<LMPPinnedHostType>(buffer_size);
+    } else if (buffer_size < src.d_view.span()*sizeof(typename ViewType::value_type)) {
+       buffer_size = src.d_view.span()*sizeof(typename ViewType::value_type);
+       buffer = Kokkos::kokkos_realloc<LMPPinnedHostType>(buffer,buffer_size);
+    }
+    mirror_type tmp_view((typename ViewType::value_type*)buffer, src.d_view.layout());
+
+    if (space == Device) {
+      src.sync_hostkk_legacy();
+      Kokkos::deep_copy(LMPHostType(),tmp_view,src.h_viewkk);
+      Kokkos::deep_copy(LMPHostType(),src.d_view,tmp_view);
+      src.clear_sync_state();
+    } else if (space == HostKK) {
+      if (src.need_sync_host_kk()) {
+        Kokkos::deep_copy(LMPHostType(),tmp_view,src.d_view);
+        Kokkos::deep_copy(LMPHostType(),src.h_viewkk,tmp_view);
+        if (src.modified_legacy_device)
+          src.modify_hostkk_legacy();
+      }
+      src.sync_hostkk_legacy();
+      src.clear_sync_state();
+      if (src.modified_legacy_device)
+      src.modify_hostkk_legacy();
+    } else if (space == Host) {
+      Kokkos::deep_copy(LMPHostType(),tmp_view,src.d_view);
+      Kokkos::deep_copy(LMPHostType(),src.h_viewkk,tmp_view);
+      src.sync_legacy_hostkk();
+    }
+  }
+  #else
+  template<class TransformViewType>
+  void perform_pinned_copy_transform(TransformViewType& src, unsigned int space) {
+    if (space == Device)
+      src.sync_device();
+    else if (space == HostKK)
+      src.sync_hostkk();
+    else if (space == Host)
+      src.sync_host();
+  }
+  #endif
+
 };
 
 }

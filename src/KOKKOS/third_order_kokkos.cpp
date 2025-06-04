@@ -217,7 +217,7 @@ void ThirdOrderKokkos::update_force()
   if (execute_on_host) {
     if (pair_compute_flag && force->pair->datamask_modify!=(F_MASK | ENERGY_MASK | VIRIAL_MASK))
       Kokkos::fence();
-    atomKK->sync_overlapping_device(Host,~(~datamask_read_host|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
+    atomKK->sync_pinned_device(Host,~(~datamask_read_host|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
     if (pair_compute_flag && force->pair->execution_space!=Host) {
       Kokkos::deep_copy(LMPHostType(),atomKK->k_f.h_view,0.0);
     }

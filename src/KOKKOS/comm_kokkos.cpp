@@ -352,7 +352,7 @@ void CommKokkos::reverse_comm_device()
 
 void CommKokkos::forward_comm(Fix *fix, int size)
 {
-  if (fix->execution_space == Host || !fix->forward_comm_device || forward_fix_comm_legacy) {
+  if (fix->execution_space == Host || fix->execution_space == HostKK || !fix->forward_comm_device || forward_fix_comm_legacy) {
     k_sendlist.sync_host();
     CommBrick::forward_comm(fix, size);
   } else {
@@ -525,7 +525,7 @@ void CommKokkos::reverse_comm(Compute *compute, int size)
 
 void CommKokkos::forward_comm(Pair *pair, int size)
 {
-  if (pair->execution_space == Host || forward_pair_comm_legacy) {
+  if (pair->execution_space == Host || pair->execution_space == HostKK || forward_pair_comm_legacy) {
     k_sendlist.sync_host();
     CommBrick::forward_comm(pair, size);
   } else {
@@ -623,7 +623,7 @@ void CommKokkos::grow_buf_fix(int n) {
 
 void CommKokkos::reverse_comm(Pair *pair, int size)
 {
-  if (pair->execution_space == Host || !pair->reverse_comm_device || reverse_pair_comm_legacy) {
+  if (pair->execution_space == Host || pair->execution_space == HostKK || !pair->reverse_comm_device || reverse_pair_comm_legacy) {
     k_sendlist.sync_host();
     CommBrick::reverse_comm(pair, size);
   } else {

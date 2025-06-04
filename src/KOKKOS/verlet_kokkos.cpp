@@ -385,48 +385,47 @@ void VerletKokkos::run(int n)
     unsigned int datamask_exclude = 0;
     int allow_overlap = lmp->kokkos->allow_overlap;
 
-    if (allow_overlap && atomKK->k_f.h_view_kk.data() != atomKK->k_f.d_view.data()) {
-
+    if (allow_overlap && atomKK->k_f.h_viewkk.data() != atomKK->k_f.d_view.data()) {
       datamask_exclude = (F_MASK | ENERGY_MASK | VIRIAL_MASK);
 
       if (pair_compute_flag) {
-        if (force->pair->execution_space == Host ||
-            force->pair->execution_space == HostKK) {
+        if (force->pair->execution_space == HostKK ||
+            force->pair->execution_space == Host) {
           execute_on_host = true;
           datamask_read_host |= force->pair->datamask_read;
         }
       }
-      if (atomKK->molecular && force->bond)  {
-        if (force->bond->execution_space == Host ||
-            force->bond->execution_space == HostKK) {
+      if (atomKK->molecular && force->bond) {
+        if (force->bond->execution_space == HostKK ||
+            force->bond->execution_space == Host) {
           execute_on_host = true;
           datamask_read_host |= force->bond->datamask_read;
         }
       }
       if (atomKK->molecular && force->angle) {
-        if (force->angle->execution_space == Host ||
-            force->angle->execution_space == HostKK) {
+        if (force->angle->execution_space == HostKK ||
+            force->angle->execution_space == Host) {
           execute_on_host = true;
           datamask_read_host |= force->angle->datamask_read;
         }
       }
       if (atomKK->molecular && force->dihedral) {
-        if (force->dihedral->execution_space == Host ||
-            force->dihedral->execution_space == HostKK) {
+        if (force->dihedral->execution_space == HostKK ||
+            force->dihedral->execution_space == Host) {
           execute_on_host = true;
           datamask_read_host |= force->dihedral->datamask_read;
         }
       }
       if (atomKK->molecular && force->improper) {
-        if (force->improper->execution_space == Host ||
-            force->improper->execution_space == HostKK) {
+        if (force->improper->execution_space == HostKK ||
+            force->improper->execution_space == Host) {
           execute_on_host = true;
           datamask_read_host |= force->improper->datamask_read;
         }
       }
       if (kspace_compute_flag) {
-        if (force->kspace->execution_space == Host ||
-            force->kspace->execution_space == HostKK) {
+        if (force->kspace->execution_space == HostKK ||
+            force->kspace->execution_space == Host) {
           execute_on_host = true;
           datamask_read_host |= force->kspace->datamask_read;
         }
@@ -445,9 +444,11 @@ void VerletKokkos::run(int n)
     if (execute_on_host) {
       if (pair_compute_flag && force->pair->datamask_modify != datamask_exclude)
         Kokkos::fence();
-      atomKK->sync_overlapping_device(Host,~(~datamask_read_host|datamask_exclude));
-      if (pair_compute_flag && force->pair->execution_space != Host) {
-        Kokkos::deep_copy(LMPHostType(),atomKK->k_f.h_view,0.0);
+      atomKK->sync_pinned_device(HostKK,~(~datamask_read_host|datamask_exclude));
+      if (pair_compute_flag && (force->pair->execution_space != HostKK &&
+          force->pair->execution_space != Host)) {
+        Kokkos::deep_copy(LMPHostType(),atomKK->k_f.h_viewkk,0.0);
+        atomKK->k_f.modify_hostkk_legacy();
       }
     }
 
@@ -486,7 +487,8 @@ void VerletKokkos::run(int n)
       if (f_merge_copy.extent(0) < atomKK->k_f.extent(0))
         f_merge_copy = DAT::t_kkfloat_1d_3("VerletKokkos::f_merge_copy",atomKK->k_f.extent(0));
       f = atomKK->k_f.d_view;
-      Kokkos::deep_copy(LMPHostType(),f_merge_copy,atomKK->k_f.h_view);
+      atomKK->k_f.sync_hostkk_legacy();
+      Kokkos::deep_copy(LMPHostType(),f_merge_copy,atomKK->k_f.h_viewkk);
       Kokkos::parallel_for(atomKK->k_f.extent(0),
         ForceAdder<DAT::t_kkfloat_1d_3,DAT::t_kkfloat_1d_3>(atomKK->k_f.d_view,f_merge_copy));
       atomKK->k_f.clear_sync_state(); // special case

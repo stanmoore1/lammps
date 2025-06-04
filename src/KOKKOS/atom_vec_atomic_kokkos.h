@@ -55,7 +55,7 @@ class AtomVecAtomicKokkos : public AtomVecKokkos, public AtomVecAtomic {
 
   void sync(ExecutionSpace space, unsigned int mask) override;
   void modified(ExecutionSpace space, unsigned int mask) override;
-  void sync_overlapping_device(ExecutionSpace space, unsigned int mask) override;
+  void sync_pinned_device(ExecutionSpace space, unsigned int mask) override;
 
  protected:
   DAT::t_tagint_1d d_tag;

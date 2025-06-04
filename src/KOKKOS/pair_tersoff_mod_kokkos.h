@@ -217,7 +217,7 @@ class PairTersoffMODKokkos : public PairTersoffMOD {
 
   typedef Kokkos::DualView<KK_FLOAT**[7],Kokkos::LayoutRight,DeviceType> tdual_kkfloat_2d_n7;
   typedef typename tdual_kkfloat_2d_n7::t_dev_const_randomread t_kkfloat_2d_n7_randomread;
-  typedef typename tdual_kkfloat_2d_n7::t_host t_host_kkfloat_2d_n7;
+  typedef typename tdual_kkfloat_2d_n7::t_host t_hostkkfloat_2d_n7;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;

@@ -97,32 +97,32 @@ void AtomVecBondKokkos::grow_pointers()
 
   x = atomKK->x;
   d_x = atomKK->k_x.d_view;
-  h_x = atomKK->k_x.h_view_kk;
+  h_x = atomKK->k_x.h_viewkk;
   v = atomKK->v;
   d_v = atomKK->k_v.d_view;
-  h_v = atomKK->k_v.h_view_kk;
+  h_v = atomKK->k_v.h_viewkk;
   f = atomKK->f;
   d_f = atomKK->k_f.d_view;
-  h_f = atomKK->k_f.h_view_kk;
+  h_f = atomKK->k_f.h_viewkk;
 
   molecule = atomKK->molecule;
   d_molecule = atomKK->k_molecule.d_view;
   h_molecule = atomKK->k_molecule.h_view;
   nspecial = atomKK->nspecial;
   d_nspecial = atomKK->k_nspecial.d_view;
-  h_nspecial = atomKK->k_nspecial.h_view_kk;
+  h_nspecial = atomKK->k_nspecial.h_viewkk;
   special = atomKK->special;
   d_special = atomKK->k_special.d_view;
-  h_special = atomKK->k_special.h_view_kk;
+  h_special = atomKK->k_special.h_viewkk;
   num_bond = atomKK->num_bond;
   d_num_bond = atomKK->k_num_bond.d_view;
   h_num_bond = atomKK->k_num_bond.h_view;
   bond_type = atomKK->bond_type;
   d_bond_type = atomKK->k_bond_type.d_view;
-  h_bond_type = atomKK->k_bond_type.h_view_kk;
+  h_bond_type = atomKK->k_bond_type.h_viewkk;
   bond_atom = atomKK->bond_atom;
   d_bond_atom = atomKK->k_bond_atom.d_view;
-  h_bond_atom = atomKK->k_bond_atom.h_view_kk;
+  h_bond_atom = atomKK->k_bond_atom.h_viewkk;
 }
 
 /* ----------------------------------------------------------------------
@@ -643,91 +643,91 @@ void AtomVecBondKokkos::sync(ExecutionSpace space, unsigned int mask)
       atomKK->k_bond_atom.sync_host();
     }
   } else if (space == HostKK) {
-    if (mask & X_MASK) atomKK->k_x.sync_host_kk();
-    if (mask & V_MASK) atomKK->k_v.sync_host_kk();
-    if (mask & F_MASK) atomKK->k_f.sync_host_kk();
+    if (mask & X_MASK) atomKK->k_x.sync_hostkk();
+    if (mask & V_MASK) atomKK->k_v.sync_hostkk();
+    if (mask & F_MASK) atomKK->k_f.sync_hostkk();
     if (mask & TAG_MASK) atomKK->k_tag.sync_host();
     if (mask & TYPE_MASK) atomKK->k_type.sync_host();
     if (mask & MASK_MASK) atomKK->k_mask.sync_host();
     if (mask & IMAGE_MASK) atomKK->k_image.sync_host();
     if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_host();
     if (mask & SPECIAL_MASK) {
-      atomKK->k_nspecial.sync_host_kk();
-      atomKK->k_special.sync_host_kk();
+      atomKK->k_nspecial.sync_hostkk();
+      atomKK->k_special.sync_hostkk();
     }
     if (mask & BOND_MASK) {
       atomKK->k_num_bond.sync_host();
-      atomKK->k_bond_type.sync_host_kk();
-      atomKK->k_bond_atom.sync_host_kk();
+      atomKK->k_bond_type.sync_hostkk();
+      atomKK->k_bond_atom.sync_hostkk();
     }
   }
 }
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecBondKokkos::sync_overlapping_device(ExecutionSpace space, unsigned int mask)
+void AtomVecBondKokkos::sync_pinned_device(ExecutionSpace space, unsigned int mask)
 {
   if (space == Device) {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_device())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3_lr>(atomKK->k_x.k_view,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync_device())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v.k_view,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync_device())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f.k_view,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_f,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())
-      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
+      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
+      perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
     if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
+      perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())
-      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
+      perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
     if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_device())
-      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space);
+      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space);
     if (mask & SPECIAL_MASK) {
       if (atomKK->k_nspecial.need_sync_device())
-        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_nspecial.k_view,space);
+        perform_pinned_copy_transform<DAT::ttransform_int_2d>(atomKK->k_nspecial,space);
       if (atomKK->k_special.need_sync_device())
-        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_special.k_view,space);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_special,space);
     }
     if (mask & BOND_MASK) {
       if (atomKK->k_num_bond.need_sync_device())
-        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_bond,space);
+        perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_bond,space);
       if (atomKK->k_bond_type.need_sync_device())
-        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_bond_type.k_view,space);
+        perform_pinned_copy_transform<DAT::ttransform_int_2d>(atomKK->k_bond_type,space);
       if (atomKK->k_bond_atom.need_sync_device())
-        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_bond_atom.k_view,space);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_bond_atom,space);
     }
   } else {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_host())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3_lr>(atomKK->k_x.k_view,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space);
     if ((mask & V_MASK) && atomKK->k_v.need_sync_host())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_v.k_view,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space);
     if ((mask & F_MASK) && atomKK->k_f.need_sync_host())
-      perform_async_copy<DAT::tdual_kkfloat_1d_3>(atomKK->k_f.k_view,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_f,space);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())
-      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
+      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
+      perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
     if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())
-      perform_async_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
+      perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())
-      perform_async_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
+      perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
     if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_host())
-      perform_async_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space);
+      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space);
     if (mask & SPECIAL_MASK) {
       if (atomKK->k_nspecial.need_sync_host())
-        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_nspecial.k_view,space);
+        perform_pinned_copy_transform<DAT::ttransform_int_2d>(atomKK->k_nspecial,space);
       if (atomKK->k_special.need_sync_host())
-        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_special.k_view,space);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_special,space);
     }
     if (mask & BOND_MASK) {
       if (atomKK->k_num_bond.need_sync_host())
-        perform_async_copy<DAT::tdual_int_1d>(atomKK->k_num_bond,space);
+        perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_bond,space);
       if (atomKK->k_bond_type.need_sync_host())
-        perform_async_copy<DAT::tdual_int_2d>(atomKK->k_bond_type.k_view,space);
+        perform_pinned_copy_transform<DAT::ttransform_int_2d>(atomKK->k_bond_type,space);
       if (atomKK->k_bond_atom.need_sync_host())
-        perform_async_copy<DAT::tdual_tagint_2d>(atomKK->k_bond_atom.k_view,space);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_bond_atom,space);
     }
   }
 }
@@ -773,22 +773,22 @@ void AtomVecBondKokkos::modified(ExecutionSpace space, unsigned int mask)
       atomKK->k_bond_atom.modify_host();
     }
   } else if (space == HostKK) {
-    if (mask & X_MASK) atomKK->k_x.modify_host_kk();
-    if (mask & V_MASK) atomKK->k_v.modify_host_kk();
-    if (mask & F_MASK) atomKK->k_f.modify_host_kk();
+    if (mask & X_MASK) atomKK->k_x.modify_hostkk();
+    if (mask & V_MASK) atomKK->k_v.modify_hostkk();
+    if (mask & F_MASK) atomKK->k_f.modify_hostkk();
     if (mask & TAG_MASK) atomKK->k_tag.modify_host();
     if (mask & TYPE_MASK) atomKK->k_type.modify_host();
     if (mask & MASK_MASK) atomKK->k_mask.modify_host();
     if (mask & IMAGE_MASK) atomKK->k_image.modify_host();
     if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_host();
     if (mask & SPECIAL_MASK) {
-      atomKK->k_nspecial.modify_host_kk();
-      atomKK->k_special.modify_host_kk();
+      atomKK->k_nspecial.modify_hostkk();
+      atomKK->k_special.modify_hostkk();
     }
     if (mask & BOND_MASK) {
       atomKK->k_num_bond.modify_host();
-      atomKK->k_bond_type.modify_host_kk();
-      atomKK->k_bond_atom.modify_host_kk();
+      atomKK->k_bond_type.modify_hostkk();
+      atomKK->k_bond_atom.modify_hostkk();
     }
   }
 }

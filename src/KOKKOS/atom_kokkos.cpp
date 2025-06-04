@@ -183,10 +183,10 @@ void AtomKokkos::modified(const ExecutionSpace space, unsigned int mask)
 
 /* ---------------------------------------------------------------------- */
 
-void AtomKokkos::sync_overlapping_device(const ExecutionSpace space, unsigned int mask)
+void AtomKokkos::sync_pinned_device(const ExecutionSpace space, unsigned int mask)
 {
-  avecKK->sync_overlapping_device(space, mask);
-  for (int n = 0; n < nprop_atom; n++) fix_prop_atom[n]->sync_overlapping_device(space, mask);
+  avecKK->sync_pinned_device(space, mask);
+  for (int n = 0; n < nprop_atom; n++) fix_prop_atom[n]->sync_pinned_device(space, mask);
 }
 /* ---------------------------------------------------------------------- */
 
