@@ -15,10 +15,11 @@
 ------------------------------------------------------------------------- */
 
 #include "bond_oxdna_fene.h"
+#include "constants_oxdna.h"
+#include "nucleotide_oxdna.h"
 
 #include "atom.h"
 #include "comm.h"
-#include "constants_oxdna.h"
 #include "error.h"
 #include "force.h"
 #include "memory.h"
@@ -48,14 +49,11 @@ BondOxdnaFene::~BondOxdnaFene()
 /* ----------------------------------------------------------------------
     compute vector COM-sugar-phosphate backbone interaction site in oxDNA
 ------------------------------------------------------------------------- */
-void BondOxdnaFene::compute_backbone_site(double e1[3], double /*e2*/[3],
-  double /*e3*/[3], double r[3]) const
+inline void BondOxdnaFene::compute_backbone_site(double e1[3], double /*e2*/[3],
+  double /*e3*/[3], double rbk[3]) const
 {
-  double d_cs = ConstantsOxdna::get_d_cs();
-
-  r[0] = d_cs * e1[0];
-  r[1] = d_cs * e1[1];
-  r[2] = d_cs * e1[2];
+  NucleotideOxdna1 oxdna1;
+  oxdna1.backbone_site(e1, NULL, NULL, rbk);
 }
 
 /* ----------------------------------------------------------------------
@@ -150,11 +148,11 @@ void BondOxdnaFene::compute(int eflag, int vflag)
   int a, b, btemp, in, type;
   int a3ptype, atype, btype, b5ptype;    // tetramer types
   double delf[3], delta[3], deltb[3];    // force, torque increment
-  double delr[3], ebond, fbond;
-  double rsq, Deltasq, rlogarg;
-  double r, rr0, rr0sq;
+  double delr_bkbk[3], ebond, fbond;
+  double rsq_bkbk, Deltasq, rlogarg;
+  double r_bkbk, rr0, rr0sq;
   // vectors COM-backbone site in lab frame
-  double ra_cs[3], rb_cs[3];
+  double ra_cbk[3], rb_cbk[3];
   // Cartesian unit vectors in lab frame
   double ax[3], ay[3], az[3];
   double bx[3], by[3], bz[3];
@@ -238,17 +236,17 @@ void BondOxdnaFene::compute(int eflag, int vflag)
     else b5ptype = 0;
 
     // vector COM-backbone site a and b
-    compute_backbone_site(ax, ay, az, ra_cs);
-    compute_backbone_site(bx, by, bz, rb_cs);
+    compute_backbone_site(ax, ay, az, ra_cbk);
+    compute_backbone_site(bx, by, bz, rb_cbk);
 
     // vector backbone site b to a
-    delr[0] = x[a][0] + ra_cs[0] - x[b][0] - rb_cs[0];
-    delr[1] = x[a][1] + ra_cs[1] - x[b][1] - rb_cs[1];
-    delr[2] = x[a][2] + ra_cs[2] - x[b][2] - rb_cs[2];
-    rsq = delr[0] * delr[0] + delr[1] * delr[1] + delr[2] * delr[2];
-    r = sqrt(rsq);
+    delr_bkbk[0] = x[a][0] + ra_cbk[0] - x[b][0] - rb_cbk[0];
+    delr_bkbk[1] = x[a][1] + ra_cbk[1] - x[b][1] - rb_cbk[1];
+    delr_bkbk[2] = x[a][2] + ra_cbk[2] - x[b][2] - rb_cbk[2];
+    rsq_bkbk = delr_bkbk[0] * delr_bkbk[0] + delr_bkbk[1] * delr_bkbk[1] + delr_bkbk[2] * delr_bkbk[2];
+    r_bkbk = sqrt(rsq_bkbk);
 
-    rr0 = r - r0[type][a3ptype][atype][btype][b5ptype];
+    rr0 = r_bkbk - r0[type][a3ptype][atype][btype][b5ptype];
     rr0sq = rr0 * rr0;
     Deltasq = Delta[type][a3ptype][atype][btype][b5ptype] * Delta[type][a3ptype][atype][btype][b5ptype];
     rlogarg = 1.0 - rr0sq / Deltasq;
@@ -264,33 +262,33 @@ void BondOxdnaFene::compute(int eflag, int vflag)
     if (rlogarg < rlogarg_min) {
       // issue warning, reset rlogarg and rr0 to cap force
       error->warning(FLERR, "FENE bond too long: {} {} {} {}", update->ntimestep, atom->tag[a],
-                     atom->tag[b], r);
+                     atom->tag[b], r_bkbk);
       rlogarg = rlogarg_min;
 
       // if overstretched F(r)=F(r_max)=F_max, E(r)=E(r_max)+F_max*(r-r_max)
-      if (r > r0[type][a3ptype][atype][btype][b5ptype]) {
+      if (r_bkbk > r0[type][a3ptype][atype][btype][b5ptype]) {
         rr0 =  Delta[type][a3ptype][atype][btype][b5ptype]*sqrt(1.0-rlogarg);
         // energy
         if (eflag) {
           ebond = -0.5 * k[type] * log(rlogarg) + k[type] * sqrt(1.0-rlogarg) / rlogarg / Delta[type][a3ptype][atype][btype][b5ptype] *
-                  (r - r0[type][a3ptype][atype][btype][b5ptype] - Delta[type][a3ptype][atype][btype][b5ptype] * sqrt(1.0-rlogarg));
+                  (r_bkbk - r0[type][a3ptype][atype][btype][b5ptype] - Delta[type][a3ptype][atype][btype][b5ptype] * sqrt(1.0-rlogarg));
         }
       }
       // if overcompressed F(r)=F(r_min)=F_max, E(r)=E(r_min)+F_max*(r_min-r)
-      else if (r < r0[type][a3ptype][atype][btype][b5ptype]) {
+      else if (r_bkbk < r0[type][a3ptype][atype][btype][b5ptype]) {
         rr0 = -Delta[type][a3ptype][atype][btype][b5ptype]*sqrt(1.0-rlogarg);
         // energy
         if (eflag) {
           ebond = -0.5 * k[type] * log(rlogarg) + k[type] * sqrt(1.0-rlogarg) / rlogarg / Delta[type][a3ptype][atype][btype][b5ptype] *
-                  (r0[type][a3ptype][atype][btype][b5ptype] - Delta[type][a3ptype][atype][btype][b5ptype] * sqrt(1.0-rlogarg) - r);
+                  (r0[type][a3ptype][atype][btype][b5ptype] - Delta[type][a3ptype][atype][btype][b5ptype] * sqrt(1.0-rlogarg) - r_bkbk);
         }
       }
     }
 
-    fbond = -k[type] * rr0 / rlogarg / Deltasq / r;
-    delf[0] = delr[0] * fbond;
-    delf[1] = delr[1] * fbond;
-    delf[2] = delr[2] * fbond;
+    fbond = -k[type] * rr0 / rlogarg / Deltasq / r_bkbk;
+    delf[0] = delr_bkbk[0] * fbond;
+    delf[1] = delr_bkbk[1] * fbond;
+    delf[2] = delr_bkbk[2] * fbond;
 
     // apply force and torque to each of 2 atoms
 
@@ -300,7 +298,7 @@ void BondOxdnaFene::compute(int eflag, int vflag)
       f[a][1] += delf[1];
       f[a][2] += delf[2];
 
-      MathExtra::cross3(ra_cs, delf, delta);
+      MathExtra::cross3(ra_cbk, delf, delta);
 
       torque[a][0] += delta[0];
       torque[a][1] += delta[1];
@@ -313,7 +311,7 @@ void BondOxdnaFene::compute(int eflag, int vflag)
       f[b][1] -= delf[1];
       f[b][2] -= delf[2];
 
-      MathExtra::cross3(rb_cs, delf, deltb);
+      MathExtra::cross3(rb_cbk, delf, deltb);
 
       torque[b][0] -= deltb[0];
       torque[b][1] -= deltb[1];
@@ -352,7 +350,7 @@ void BondOxdnaFene::allocate()
 
 void BondOxdnaFene::coeff(int narg, char **arg)
 {
-  if (narg != 2 && narg != 4) error->all(FLERR, "Incorrect args for bond coefficients in oxdna/fene" + utils::errorurl(21));
+  if (narg != 2 && narg != 4) error->all(FLERR, "Incorrect args for bond coefficients in oxdna/fene, oxdna2/fene or oxrna2/fene" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo, ihi;
@@ -385,7 +383,7 @@ void BondOxdnaFene::coeff(int narg, char **arg)
             break;
           } else continue;
         } catch (std::exception &e) {
-          error->one(FLERR, "Problem parsing oxDNA potential file: {}", e.what());
+          error->one(FLERR, "Problem parsing oxdna, oxdna2 or oxrna2 potential file: {}", e.what());
         }
       }
       if ((iloc != arg[0]) || (potential_name != "fene"))
@@ -417,7 +415,7 @@ void BondOxdnaFene::coeff(int narg, char **arg)
     count++;
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for bond coefficients in oxdna/fene" + utils::errorurl(21));
+  if (count == 0) error->all(FLERR, "Incorrect args for bond coefficients in oxdna/fene, oxdna2/fene or oxrna2/fene" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -429,7 +427,8 @@ void BondOxdnaFene::init_style()
   if (force->special_lj[1] != 0.0 || force->special_lj[2] != 1.0 || force->special_lj[3] != 1.0)
     error->all(
         FLERR,
-        "Must use 'special_bonds lj 0 1 1' with bond style oxdna/fene, oxdna2/fene or oxrna2/fene");
+        "Must use 'special_bonds lj 0 1 1' with bond style oxdna/fene, oxdna2/fene, oxdna3/fene or oxrna2/fene");
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -474,8 +473,8 @@ void BondOxdnaFene::read_restart(FILE *fp)
 
 double BondOxdnaFene::single(int type, double rsq, int /*i*/, int /*j*/, double &fforce)
 {
-  double r = sqrt(rsq);
-  double rr0 = r - r0[type][0][0][0][0];
+  double r_bkbk = sqrt(rsq);
+  double rr0 = r_bkbk - r0[type][0][0][0][0];
   double rr0sq = rr0 * rr0;
   double Deltasq = Delta[type][0][0][0][0] * Delta[type][0][0][0][0];
   double rlogarg = 1.0 - rr0sq / Deltasq;
@@ -490,7 +489,7 @@ double BondOxdnaFene::single(int type, double rsq, int /*i*/, int /*j*/, double 
   }
 
   double eng = -0.5 * k[type] * log(rlogarg);
-  fforce = -k[type] * rr0 / rlogarg / Deltasq / r;
+  fforce = -k[type] * rr0 / rlogarg / Deltasq / r_bkbk;
 
   return eng;
 }

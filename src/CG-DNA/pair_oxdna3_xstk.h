@@ -13,23 +13,22 @@
 
 #ifdef PAIR_CLASS
 // clang-format off
-PairStyle(oxdna/hbond,PairOxdnaHbond);
-PairStyle(oxdna2/hbond,PairOxdnaHbond);
+PairStyle(oxdna3/xstk,PairOxdna3Xstk);
 // clang-format on
 #else
 
-#ifndef LMP_PAIR_OXDNA_HBOND_H
-#define LMP_PAIR_OXDNA_HBOND_H
+#ifndef LMP_PAIR_OXDNA3_XSTK_H
+#define LMP_PAIR_OXDNA3_XSTK_H
 
 #include "pair.h"
 
 namespace LAMMPS_NS {
 
-class PairOxdnaHbond : public Pair {
+class PairOxdna3Xstk : public Pair {
  public:
-  PairOxdnaHbond(class LAMMPS *);
-  ~PairOxdnaHbond() override;
-  virtual void compute_base_site(int, double *, double *, double *, double *) const;
+  PairOxdna3Xstk(class LAMMPS *);
+  ~PairOxdna3Xstk() override;
+  void compute_base_site(int, double *, double *, double *, double *) const;
   void compute(int, int) override;
   void settings(int, char **) override;
   void coeff(int, char **) override;
@@ -42,25 +41,25 @@ class PairOxdnaHbond : public Pair {
   void *extract(const char *, int &) override;
 
  protected:
-  // h-bonding interaction
-  double alpha_hb[4][4];
-  double **epsilon_hb, **a_hb, **cut_hb_0, **cut_hb_c, **cut_hb_lo, **cut_hb_hi;
-  double **cut_hb_lc, **cut_hb_hc, **b_hb_lo, **b_hb_hi, **shift_hb;
-  double **cutsq_hb_hc;
-  double **a_hb1, **theta_hb1_0, **dtheta_hb1_ast;
-  double **b_hb1, **dtheta_hb1_c;
-  double **a_hb2, **theta_hb2_0, **dtheta_hb2_ast;
-  double **b_hb2, **dtheta_hb2_c;
-  double **a_hb3, **theta_hb3_0, **dtheta_hb3_ast;
-  double **b_hb3, **dtheta_hb3_c;
-  double **a_hb4, **theta_hb4_0, **dtheta_hb4_ast;
-  double **b_hb4, **dtheta_hb4_c;
-  double **a_hb7, **theta_hb7_0, **dtheta_hb7_ast;
-  double **b_hb7, **dtheta_hb7_c;
-  double **a_hb8, **theta_hb8_0, **dtheta_hb8_ast;
-  double **b_hb8, **dtheta_hb8_c;
+  // cross-stacking interaction
+  double **k_xst, **cut_xst_0, **cut_xst_c, **cut_xst_lo, **cut_xst_hi;
+  double **cut_xst_lc, **cut_xst_hc, **b_xst_lo, **b_xst_hi;
+  double **cutsq_xst_hc;
+  double **a_xst1, **theta_xst1_0, **dtheta_xst1_ast;
+  double **b_xst1, **dtheta_xst1_c;
+  double **a_xst2, **theta_xst2_0, **dtheta_xst2_ast;
+  double **b_xst2, **dtheta_xst2_c;
+  double **a_xst3, **theta_xst3_0, **dtheta_xst3_ast;
+  double **b_xst3, **dtheta_xst3_c;
+  double ****a_xst4_33, ****theta_xst4_0_33, ****dtheta_xst4_ast_33;
+  double ****b_xst4_33, ****dtheta_xst4_c_33;
+  double ****a_xst4_55, ****theta_xst4_0_55, ****dtheta_xst4_ast_55;
+  double ****b_xst4_55, ****dtheta_xst4_c_55;
+  double **a_xst7, **theta_xst7_0_33, **theta_xst7_0_55, **dtheta_xst7_ast;
+  double **b_xst7, **dtheta_xst7_c;
+  double **a_xst8, **theta_xst8_0_33, **theta_xst8_0_55, **dtheta_xst8_ast;
+  double **b_xst8, **dtheta_xst8_c;
   double **nx_xtrct, **ny_xtrct, **nz_xtrct;    // per-atom arrays for local unit vectors
-  int seqdepflag;
 
   virtual void allocate();
 };

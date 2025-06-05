@@ -11,29 +11,23 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#ifdef ATOM_CLASS
+#ifdef BOND_CLASS
 // clang-format off
-AtomStyle(oxdna,AtomVecOxdna);
+BondStyle(oxdna3/fene,BondOxdna3Fene);
 // clang-format on
 #else
 
-#ifndef LMP_ATOM_VEC_OXDNA_H
-#define LMP_ATOM_VEC_OXDNA_H
+#ifndef LMP_BOND_OXDNA3_FENE_H
+#define LMP_BOND_OXDNA3_FENE_H
 
-#include "atom_vec.h"
+#include "bond_oxdna2_fene.h"
 
 namespace LAMMPS_NS {
 
-class AtomVecOxdna : virtual public AtomVec {
+class BondOxdna3Fene : public BondOxdna2Fene {
  public:
-  AtomVecOxdna(class LAMMPS *);
-
-  void grow_pointers() override;
-  void data_atom_post(int) override;
-  void data_bonds_post(int, int, tagint, tagint, tagint) override;
-
- protected:
-  tagint *id3p, *id5p, *qeff;
+  BondOxdna3Fene(class LAMMPS *lmp) : BondOxdna2Fene(lmp) {}
+  void coeff(int, char **) override;
 };
 
 }    // namespace LAMMPS_NS

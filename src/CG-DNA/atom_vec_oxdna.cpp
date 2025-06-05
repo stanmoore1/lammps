@@ -34,12 +34,12 @@ AtomVecOxdna::AtomVecOxdna(LAMMPS *lmp) : AtomVec(lmp)
   // order of fields in a string does not matter
   // except: fields_data_atom & fields_data_vel must match data file
 
-  fields_grow = {"id3p", "id5p"};
-  fields_copy = {"id3p", "id5p"};
-  fields_border = {"id3p", "id5p"};
-  fields_border_vel = {"id3p", "id5p"};
-  fields_exchange = {"id3p", "id5p"};
-  fields_restart = {"id3p", "id5p"};
+  fields_grow = {"id3p", "id5p", "qeff"};
+  fields_copy = {"id3p", "id5p", "qeff"};
+  fields_border = {"id3p", "id5p", "qeff"};
+  fields_border_vel = {"id3p", "id5p", "qeff"};
+  fields_exchange = {"id3p", "id5p", "qeff"};
+  fields_restart = {"id3p", "id5p", "qeff"};
   fields_data_atom = {"id", "type", "x"};
   fields_data_vel = {"id", "v"};
 
@@ -61,6 +61,7 @@ void AtomVecOxdna::grow_pointers()
 {
   id3p = atom->id3p;
   id5p = atom->id5p;
+  qeff = atom->qeff;
 }
 
 /* ----------------------------------------------------------------------
@@ -71,8 +72,10 @@ void AtomVecOxdna::data_atom_post(int ilocal)
 {
   tagint *id3p = atom->id3p;
   tagint *id5p = atom->id5p;
+  tagint *qeff = atom->qeff;
   id3p[ilocal] = -1;
   id5p[ilocal] = -1;
+  qeff[ilocal] = -1;
 }
 
 /* ----------------------------------------------------------------------

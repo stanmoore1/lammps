@@ -571,7 +571,8 @@ void Neighbor::init()
             || force->pair_match("coul/wolf",0,isub)
             || force->pair_match("coul/dsf",0,isub)
             || force->pair_match("coul/exclude",0)
-            || force->pair_match("thole",0,isub))
+            || force->pair_match("thole",0,isub)
+            || force->pair_match("ox.*/excv",0,isub))
           ++flag;
       }
       if (flag)
@@ -582,7 +583,8 @@ void Neighbor::init()
           || force->pair_match("coul/wolf",0)
           || force->pair_match("coul/dsf",0)
           || force->pair_match("coul/exclude",0)
-          || force->pair_match("thole",0))
+          || force->pair_match("thole",0)
+          || force->pair_match("ox*/excv",0))
         special_flag[1] = special_flag[2] = special_flag[3] = 2;
     }
   }

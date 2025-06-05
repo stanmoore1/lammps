@@ -583,6 +583,8 @@
 /bond_oxdna_fene.h
 /bond_oxdna2_fene.cpp
 /bond_oxdna2_fene.h
+/bond_oxdna3_fene.cpp
+/bond_oxdna3_fene.h
 /bond_oxrna2_fene.cpp
 /bond_oxrna2_fene.h
 /bond_quartic.cpp
@@ -1421,9 +1423,12 @@
 /pair_oxdna_*.h
 /pair_oxdna2_*.cpp
 /pair_oxdna2_*.h
+/pair_oxdna3_*.cpp
+/pair_oxdna3_*.h
 /pair_oxrna2_*.cpp
 /pair_oxrna2_*.h
 /mf_oxdna.h
+/nucleotide_oxdna.h
 /pair_pedone.cpp
 /pair_pedone.h
 /pair_peri.cpp

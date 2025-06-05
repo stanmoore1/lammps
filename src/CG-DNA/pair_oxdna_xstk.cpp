@@ -16,6 +16,7 @@
 ------------------------------------------------------------------------- */
 
 #include "pair_oxdna_xstk.h"
+#include "nucleotide_oxdna.h"
 
 #include "atom.h"
 #include "comm.h"
@@ -104,6 +105,17 @@ PairOxdnaXstk::~PairOxdnaXstk()
   }
 }
 
+/* ---------------------------------------------------------------------
+    compute vector COM-base site in oxDNA/oxDNA2
+    identical templates for A=1, C=2, G=3, T=0
+------------------------------------------------------------------------ */
+inline void PairOxdnaXstk::compute_base_site(int /*type*/, double e1[3],
+  double /*e2*/[3], double /*e3*/[3], double rbs[3]) const
+{
+  NucleotideOxdna1 oxdna1;
+  oxdna1.base_site<0>(e1, NULL, NULL, rbs);
+}
+
 /* ----------------------------------------------------------------------
    compute function for oxDNA pair interactions
    hb=hydrogen bonding site
@@ -115,7 +127,7 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
 {
   double delf[3],delta[3],deltb[3]; // force, torque increment;
   double evdwl,finc,tpair,factor_lj;
-  double delr_hb[3],delr_hb_norm[3],rsq_hb,r_hb,rinv_hb;
+  double delr_bsbs[3],delr_bsbs_norm[3],rsq_bsbs,r_bsbs,rinv_bsbs;
   double theta1,t1dir[3],cost1;
   double theta2,t2dir[3],cost2;
   double theta3,t3dir[3],cost3;
@@ -124,12 +136,12 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
   double theta8,theta8p,t8dir[3],cost8;
 
   // distance COM-h-bonding site
-  double d_chb = ConstantsOxdna::get_d_chb();
+  double dx_cbs_oxdna1 = ConstantsOxdna::get_dx_cbs_oxdna1();
   // vectors COM-h-bonding site in lab frame
-  double ra_chb[3],rb_chb[3];
+  double ra_cbs[3],rb_cbs[3];
   // Cartesian unit vectors in lab frame
-  double ax[3],az[3];
-  double bx[3],bz[3];
+  double ax[3],ay[3],az[3];
+  double bx[3],by[3],bz[3];
 
   double **x = atom->x;
   double **f = atom->f;
@@ -170,11 +182,9 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
     ax[0] = nx_xtrct[a][0];
     ax[1] = nx_xtrct[a][1];
     ax[2] = nx_xtrct[a][2];
-    // a(y/z) not needed here as oxDNA(1) co-linear
 
-    ra_chb[0] = d_chb*ax[0];
-    ra_chb[1] = d_chb*ax[1];
-    ra_chb[2] = d_chb*ax[2];
+    // vector COM - base site a
+    compute_base_site(atype%4,ax,ay,az,ra_cbs);
 
     blist = firstneigh[a];
     bnum = numneigh[a];
@@ -190,26 +200,24 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
       bx[0] = nx_xtrct[b][0];
       bx[1] = nx_xtrct[b][1];
       bx[2] = nx_xtrct[b][2];
-      // b(y/z) not needed here as oxDNA(1) co-linear
 
-      rb_chb[0] = d_chb*bx[0];
-      rb_chb[1] = d_chb*bx[1];
-      rb_chb[2] = d_chb*bx[2];
+      // vector COM - base site b
+      compute_base_site(btype%4,bx,by,bz,rb_cbs);
 
       // vector h-bonding site b to a
-      delr_hb[0] = x[a][0] + ra_chb[0] - x[b][0] - rb_chb[0];
-      delr_hb[1] = x[a][1] + ra_chb[1] - x[b][1] - rb_chb[1];
-      delr_hb[2] = x[a][2] + ra_chb[2] - x[b][2] - rb_chb[2];
+      delr_bsbs[0] = x[a][0] + ra_cbs[0] - x[b][0] - rb_cbs[0];
+      delr_bsbs[1] = x[a][1] + ra_cbs[1] - x[b][1] - rb_cbs[1];
+      delr_bsbs[2] = x[a][2] + ra_cbs[2] - x[b][2] - rb_cbs[2];
 
-      rsq_hb = delr_hb[0]*delr_hb[0] + delr_hb[1]*delr_hb[1] + delr_hb[2]*delr_hb[2];
-      r_hb = sqrt(rsq_hb);
-      rinv_hb = 1.0/r_hb;
+      rsq_bsbs = delr_bsbs[0]*delr_bsbs[0] + delr_bsbs[1]*delr_bsbs[1] + delr_bsbs[2]*delr_bsbs[2];
+      r_bsbs = sqrt(rsq_bsbs);
+      rinv_bsbs = 1.0/r_bsbs;
 
-      delr_hb_norm[0] = delr_hb[0] * rinv_hb;
-      delr_hb_norm[1] = delr_hb[1] * rinv_hb;
-      delr_hb_norm[2] = delr_hb[2] * rinv_hb;
+      delr_bsbs_norm[0] = delr_bsbs[0] * rinv_bsbs;
+      delr_bsbs_norm[1] = delr_bsbs[1] * rinv_bsbs;
+      delr_bsbs_norm[2] = delr_bsbs[2] * rinv_bsbs;
 
-      f2 = F2(r_hb, k_xst[atype][btype], cut_xst_0[atype][btype],
+      f2 = F2(r_bsbs, k_xst[atype][btype], cut_xst_0[atype][btype],
            cut_xst_lc[atype][btype], cut_xst_hc[atype][btype], cut_xst_lo[atype][btype], cut_xst_hi[atype][btype],
            b_xst_lo[atype][btype], b_xst_hi[atype][btype], cut_xst_c[atype][btype]);
 
@@ -227,7 +235,7 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
       // early rejection criterium
       if (f4t1) {
 
-      cost2 = -1.0*MathExtra::dot3(ax,delr_hb_norm);
+      cost2 = -1.0*MathExtra::dot3(ax,delr_bsbs_norm);
       if (cost2 >  1.0) cost2 =  1.0;
       if (cost2 < -1.0) cost2 = -1.0;
       theta2 = acos(cost2);
@@ -238,7 +246,7 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
       // early rejection criterium
       if (f4t2) {
 
-      cost3 = MathExtra::dot3(bx,delr_hb_norm);
+      cost3 = MathExtra::dot3(bx,delr_bsbs_norm);
       if (cost3 >  1.0) cost3 =  1.0;
       if (cost3 < -1.0) cost3 = -1.0;
       theta3 = acos(cost3);
@@ -270,7 +278,7 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
       // early rejection criterium
       if (f4t4) {
 
-      cost7 = -1.0*MathExtra::dot3(az,delr_hb_norm);
+      cost7 = -1.0*MathExtra::dot3(az,delr_bsbs_norm);
       if (cost7 >  1.0) cost7 =  1.0;
       if (cost7 < -1.0) cost7 = -1.0;
       theta7 = acos(cost7);
@@ -284,7 +292,7 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
       // early rejection criterium
       if (f4t7) {
 
-      cost8 = MathExtra::dot3(bz,delr_hb_norm);
+      cost8 = MathExtra::dot3(bz,delr_bsbs_norm);
       if (cost8 >  1.0) cost8 =  1.0;
       if (cost8 < -1.0) cost8 = -1.0;
       theta8 = acos(cost8);
@@ -302,7 +310,7 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
       // early rejection criterium
       if (evdwl) {
 
-      df2 = DF2(r_hb, k_xst[atype][btype], cut_xst_0[atype][btype],
+      df2 = DF2(r_bsbs, k_xst[atype][btype], cut_xst_0[atype][btype],
             cut_xst_lc[atype][btype], cut_xst_hc[atype][btype], cut_xst_lo[atype][btype], cut_xst_hi[atype][btype],
             b_xst_lo[atype][btype], b_xst_hi[atype][btype]);
 
@@ -348,53 +356,53 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
       deltb[2] = 0.0;
 
       // radial force
-      finc  = -df2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * rinv_hb *factor_lj;
+      finc  = -df2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * rinv_bsbs *factor_lj;
 
-      delf[0] += delr_hb[0] * finc;
-      delf[1] += delr_hb[1] * finc;
-      delf[2] += delr_hb[2] * finc;
+      delf[0] += delr_bsbs[0] * finc;
+      delf[1] += delr_bsbs[1] * finc;
+      delf[2] += delr_bsbs[2] * finc;
 
       // theta2 force
       if (theta2) {
 
-        finc  = -f2 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
+        finc  = -f2 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * rinv_bsbs * factor_lj;
 
-        delf[0] += (delr_hb_norm[0]*cost2 + ax[0]) * finc;
-        delf[1] += (delr_hb_norm[1]*cost2 + ax[1]) * finc;
-        delf[2] += (delr_hb_norm[2]*cost2 + ax[2]) * finc;
+        delf[0] += (delr_bsbs_norm[0]*cost2 + ax[0]) * finc;
+        delf[1] += (delr_bsbs_norm[1]*cost2 + ax[1]) * finc;
+        delf[2] += (delr_bsbs_norm[2]*cost2 + ax[2]) * finc;
 
       }
 
       // theta3 force
       if (theta3) {
 
-        finc  = -f2 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
+        finc  = -f2 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * rinv_bsbs * factor_lj;
 
-        delf[0] += (delr_hb_norm[0]*cost3 - bx[0]) * finc;
-        delf[1] += (delr_hb_norm[1]*cost3 - bx[1]) * finc;
-        delf[2] += (delr_hb_norm[2]*cost3 - bx[2]) * finc;
+        delf[0] += (delr_bsbs_norm[0]*cost3 - bx[0]) * finc;
+        delf[1] += (delr_bsbs_norm[1]*cost3 - bx[1]) * finc;
+        delf[2] += (delr_bsbs_norm[2]*cost3 - bx[2]) * finc;
 
       }
 
       // theta7 force
       if (theta7) {
 
-        finc  = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * rinv_hb * factor_lj;
+        finc  = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * rinv_bsbs * factor_lj;
 
-        delf[0] += (delr_hb_norm[0]*cost7 + az[0]) * finc;
-        delf[1] += (delr_hb_norm[1]*cost7 + az[1]) * finc;
-        delf[2] += (delr_hb_norm[2]*cost7 + az[2]) * finc;
+        delf[0] += (delr_bsbs_norm[0]*cost7 + az[0]) * finc;
+        delf[1] += (delr_bsbs_norm[1]*cost7 + az[1]) * finc;
+        delf[2] += (delr_bsbs_norm[2]*cost7 + az[2]) * finc;
 
       }
 
       // theta8 force
       if (theta8) {
 
-        finc  = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * rinv_hb * factor_lj;
+        finc  = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * rinv_bsbs * factor_lj;
 
-        delf[0] += (delr_hb_norm[0]*cost8 - bz[0]) * finc;
-        delf[1] += (delr_hb_norm[1]*cost8 - bz[1]) * finc;
-        delf[2] += (delr_hb_norm[2]*cost8 - bz[2]) * finc;
+        delf[0] += (delr_bsbs_norm[0]*cost8 - bz[0]) * finc;
+        delf[1] += (delr_bsbs_norm[1]*cost8 - bz[1]) * finc;
+        delf[2] += (delr_bsbs_norm[2]*cost8 - bz[2]) * finc;
 
       }
 
@@ -404,7 +412,7 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
       f[a][1] += delf[1];
       f[a][2] += delf[2];
 
-      MathExtra::cross3(ra_chb,delf,delta);
+      MathExtra::cross3(ra_cbs,delf,delta);
 
       torque[a][0] += delta[0];
       torque[a][1] += delta[1];
@@ -417,7 +425,7 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
         f[b][2] -= delf[2];
 
 
-        MathExtra::cross3(rb_chb,delf,deltb);
+        MathExtra::cross3(rb_cbs,delf,deltb);
 
         torque[b][0] -= deltb[0];
         torque[b][1] -= deltb[1];
@@ -461,7 +469,7 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
       if (theta2) {
 
         tpair = -f2 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
-        MathExtra::cross3(ax,delr_hb_norm,t2dir);
+        MathExtra::cross3(ax,delr_bsbs_norm,t2dir);
 
         delta[0] += t2dir[0]*tpair;
         delta[1] += t2dir[1]*tpair;
@@ -473,7 +481,7 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
       if (theta3) {
 
         tpair = -f2 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
-        MathExtra::cross3(bx,delr_hb_norm,t3dir);
+        MathExtra::cross3(bx,delr_bsbs_norm,t3dir);
 
         deltb[0] += t3dir[0]*tpair;
         deltb[1] += t3dir[1]*tpair;
@@ -501,7 +509,7 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
       if (theta7) {
 
         tpair = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * factor_lj;
-        MathExtra::cross3(az,delr_hb_norm,t7dir);
+        MathExtra::cross3(az,delr_bsbs_norm,t7dir);
 
         delta[0] += t7dir[0]*tpair;
         delta[1] += t7dir[1]*tpair;
@@ -513,7 +521,7 @@ void PairOxdnaXstk::compute(int eflag, int vflag)
       if (theta8) {
 
         tpair = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * factor_lj;
-        MathExtra::cross3(bz,delr_hb_norm,t8dir);
+        MathExtra::cross3(bz,delr_bsbs_norm,t8dir);
 
         deltb[0] += t8dir[0]*tpair;
         deltb[1] += t8dir[1]*tpair;

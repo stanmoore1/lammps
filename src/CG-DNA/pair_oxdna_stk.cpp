@@ -16,6 +16,7 @@
 ------------------------------------------------------------------------- */
 
 #include "pair_oxdna_stk.h"
+#include "nucleotide_oxdna.h"
 
 #include "atom.h"
 #include "comm.h"
@@ -210,6 +211,26 @@ void PairOxdnaStk::ev_tally_xyz(int i, int j, int nlocal, int newton_bond,
 }
 
 /* ----------------------------------------------------------------------
+    compute vector COM-backbone interaction site in oxDNA
+------------------------------------------------------------------------- */
+inline void PairOxdnaStk::compute_backbone_site(double e1[3], double /*e2*/[3],
+    double /*e3*/[3], double rbk[3]) const
+{
+  NucleotideOxdna1 oxdna1;
+  oxdna1.backbone_site(e1, NULL, NULL, rbk);
+}
+
+/* ----------------------------------------------------------------------
+    compute vector COM-stacking interaction site in oxDNA
+------------------------------------------------------------------------- */
+inline void PairOxdnaStk::compute_stacking_site(double e1[3], double /*e2*/[3],
+    double /*e3*/[3], double rstk[3]) const
+{
+  NucleotideOxdna1 oxdna1;
+  oxdna1.stacking_site(e1, NULL, NULL, rstk);
+}
+
+/* ----------------------------------------------------------------------
    compute function for oxDNA pair interactions
    s=sugar-phosphate backbone site, b=base site, st=stacking site
 ------------------------------------------------------------------------- */
@@ -218,19 +239,16 @@ void PairOxdnaStk::compute(int eflag, int vflag)
 {
   double delf[3],delta[3],deltb[3]; // force, torque increment;
   double evdwl,finc,tpair;
-  double delr_ss[3],delr_ss_norm[3],rsq_ss,r_ss,rinv_ss;
-  double delr_st[3],delr_st_norm[3],rsq_st,r_st,rinv_st;
+  double delr_bkbk[3],delr_bkbk_norm[3],rsq_bkbk,r_bkbk,rinv_bkbk;
+  double delr_stkstk[3],delr_stkstk_norm[3],rsq_stkstk,r_stkstk,rinv_stkstk;
   double theta4,t4dir[3],cost4;
   double theta5p,t5pdir[3],cost5p;
   double theta6p,t6pdir[3],cost6p;
   double cosphi1,cosphi2,cosphi1dir[3],cosphi2dir[3];
 
-  // distances COM-backbone site, COM-stacking site
-  double d_cs = ConstantsOxdna::get_d_cs();
-  double d_cst = ConstantsOxdna::get_d_cst();
   // vectors COM-backbone site, COM-stacking site in lab frame
-  double ra_cs[3],ra_cst[3];
-  double rb_cs[3],rb_cst[3];
+  double ra_cbk[3],ra_cstk[3];
+  double rb_cbk[3],rb_cstk[3];
   // Cartesian unit vectors in lab frame
   double ax[3],ay[3],az[3];
   double bx[3],by[3],bz[3];
@@ -290,19 +308,15 @@ void PairOxdnaStk::compute(int eflag, int vflag)
     // (a/b)y/z not needed here as oxDNA(1) co-linear
 
     // vector COM a - stacking site a
-    ra_cst[0] = d_cst*ax[0];
-    ra_cst[1] = d_cst*ax[1];
-    ra_cst[2] = d_cst*ax[2];
+    compute_stacking_site(ax,ay,az,ra_cstk);
 
     // vector COM b - stacking site b
-    rb_cst[0] = d_cst*bx[0];
-    rb_cst[1] = d_cst*bx[1];
-    rb_cst[2] = d_cst*bx[2];
+    compute_stacking_site(bx,by,bz,rb_cstk);
 
     // vector stacking site a to b
-    delr_st[0] = x[b][0] + rb_cst[0] - x[a][0] - ra_cst[0];
-    delr_st[1] = x[b][1] + rb_cst[1] - x[a][1] - ra_cst[1];
-    delr_st[2] = x[b][2] + rb_cst[2] - x[a][2] - ra_cst[2];
+    delr_stkstk[0] = x[b][0] + rb_cstk[0] - x[a][0] - ra_cstk[0];
+    delr_stkstk[1] = x[b][1] + rb_cstk[1] - x[a][1] - ra_cstk[1];
+    delr_stkstk[2] = x[b][2] + rb_cstk[2] - x[a][2] - ra_cstk[2];
 
     // determine tetramer types
     // 3'neighbor a - a - b - 5'neighbor b
@@ -320,38 +334,34 @@ void PairOxdnaStk::compute(int eflag, int vflag)
     }
     else b5ptype = 0;
 
-    rsq_st = delr_st[0]*delr_st[0] + delr_st[1]*delr_st[1] + delr_st[2]*delr_st[2];
-    r_st = sqrt(rsq_st);
-    rinv_st = 1.0/r_st;
+    rsq_stkstk = delr_stkstk[0]*delr_stkstk[0] + delr_stkstk[1]*delr_stkstk[1] + delr_stkstk[2]*delr_stkstk[2];
+    r_stkstk = sqrt(rsq_stkstk);
+    rinv_stkstk = 1.0/r_stkstk;
 
-    delr_st_norm[0] = delr_st[0] * rinv_st;
-    delr_st_norm[1] = delr_st[1] * rinv_st;
-    delr_st_norm[2] = delr_st[2] * rinv_st;
+    delr_stkstk_norm[0] = delr_stkstk[0] * rinv_stkstk;
+    delr_stkstk_norm[1] = delr_stkstk[1] * rinv_stkstk;
+    delr_stkstk_norm[2] = delr_stkstk[2] * rinv_stkstk;
 
     // vector COM a - backbone site a
-    ra_cs[0] = d_cs*ax[0];
-    ra_cs[1] = d_cs*ax[1];
-    ra_cs[2] = d_cs*ax[2];
+    compute_backbone_site(ax,ay,az,ra_cbk);
 
     // vector COM b - backbone site b
-    rb_cs[0] = d_cs*bx[0];
-    rb_cs[1] = d_cs*bx[1];
-    rb_cs[2] = d_cs*bx[2];
+    compute_backbone_site(bx,by,bz,rb_cbk);
 
     // vector backbone site b to a
-    delr_ss[0] = (x[b][0] + rb_cs[0] - x[a][0] - ra_cs[0]);
-    delr_ss[1] = (x[b][1] + rb_cs[1] - x[a][1] - ra_cs[1]);
-    delr_ss[2] = (x[b][2] + rb_cs[2] - x[a][2] - ra_cs[2]);
+    delr_bkbk[0] = (x[b][0] + rb_cbk[0] - x[a][0] - ra_cbk[0]);
+    delr_bkbk[1] = (x[b][1] + rb_cbk[1] - x[a][1] - ra_cbk[1]);
+    delr_bkbk[2] = (x[b][2] + rb_cbk[2] - x[a][2] - ra_cbk[2]);
 
-    rsq_ss = delr_ss[0]*delr_ss[0] + delr_ss[1]*delr_ss[1] + delr_ss[2]*delr_ss[2];
-    r_ss = sqrt(rsq_ss);
-    rinv_ss = 1.0/r_ss;
+    rsq_bkbk = delr_bkbk[0]*delr_bkbk[0] + delr_bkbk[1]*delr_bkbk[1] + delr_bkbk[2]*delr_bkbk[2];
+    r_bkbk = sqrt(rsq_bkbk);
+    rinv_bkbk = 1.0/r_bkbk;
 
-    delr_ss_norm[0] = delr_ss[0] * rinv_ss;
-    delr_ss_norm[1] = delr_ss[1] * rinv_ss;
-    delr_ss_norm[2] = delr_ss[2] * rinv_ss;
+    delr_bkbk_norm[0] = delr_bkbk[0] * rinv_bkbk;
+    delr_bkbk_norm[1] = delr_bkbk[1] * rinv_bkbk;
+    delr_bkbk_norm[2] = delr_bkbk[2] * rinv_bkbk;
 
-    f1 = F1(r_st, epsilon_st[atype][btype], a_st[atype][btype], cut_st_0[a3ptype][atype][btype][b5ptype],
+    f1 = F1(r_stkstk, epsilon_st[atype][btype], a_st[atype][btype], cut_st_0[a3ptype][atype][btype][b5ptype],
         cut_st_lc[a3ptype][atype][btype][b5ptype], cut_st_hc[a3ptype][atype][btype][b5ptype],
         cut_st_lo[a3ptype][atype][btype][b5ptype], cut_st_hi[a3ptype][atype][btype][b5ptype],
         b_st_lo[a3ptype][atype][btype][b5ptype], b_st_hi[a3ptype][atype][btype][b5ptype],
@@ -381,7 +391,7 @@ void PairOxdnaStk::compute(int eflag, int vflag)
     if (f4t4) {
 
     // theta5 angle and correction
-    cost5p  = MathExtra::dot3(delr_st_norm,bz);
+    cost5p  = MathExtra::dot3(delr_stkstk_norm,bz);
     if (cost5p >  1.0) cost5p =  1.0;
     if (cost5p < -1.0) cost5p = -1.0;
     theta5p = acos(cost5p);
@@ -399,16 +409,16 @@ void PairOxdnaStk::compute(int eflag, int vflag)
     by[1] = ny_xtrct[b][1];
     by[2] = ny_xtrct[b][2];
 
-    cost6p = MathExtra::dot3(delr_st_norm,az);
+    cost6p = MathExtra::dot3(delr_stkstk_norm,az);
     if (cost6p >  1.0) cost6p =  1.0;
     if (cost6p < -1.0) cost6p = -1.0;
     theta6p = acos(cost6p);
 
-    cosphi1 = MathExtra::dot3(delr_ss_norm,by);
+    cosphi1 = MathExtra::dot3(delr_bkbk_norm,by);
     if (cosphi1 >  1.0) cosphi1 =  1.0;
     if (cosphi1 < -1.0) cosphi1 = -1.0;
 
-    cosphi2 = MathExtra::dot3(delr_ss_norm,ay);
+    cosphi2 = MathExtra::dot3(delr_bkbk_norm,ay);
     if (cosphi2 >  1.0) cosphi2 =  1.0;
     if (cosphi2 < -1.0) cosphi2 = -1.0;
 
@@ -426,7 +436,7 @@ void PairOxdnaStk::compute(int eflag, int vflag)
     // early rejection criterium
     if (evdwl) {
 
-    df1 = DF1(r_st, epsilon_st[atype][btype], a_st[atype][btype], cut_st_0[a3ptype][atype][btype][b5ptype],
+    df1 = DF1(r_stkstk, epsilon_st[atype][btype], a_st[atype][btype], cut_st_0[a3ptype][atype][btype][b5ptype],
         cut_st_lc[a3ptype][atype][btype][b5ptype], cut_st_hc[a3ptype][atype][btype][b5ptype], cut_st_lo[a3ptype][atype][btype][b5ptype], 
         cut_st_hi[a3ptype][atype][btype][b5ptype], b_st_lo[a3ptype][atype][btype][b5ptype], b_st_hi[a3ptype][atype][btype][b5ptype]);
 
@@ -464,29 +474,29 @@ void PairOxdnaStk::compute(int eflag, int vflag)
     // radial force
     finc  = -df1 * f4t4 * f4t5 * f4t6 * f5c1 * f5c2;
 
-    delf[0] += delr_st[0] * finc;
-    delf[1] += delr_st[1] * finc;
-    delf[2] += delr_st[2] * finc;
+    delf[0] += delr_stkstk[0] * finc;
+    delf[1] += delr_stkstk[1] * finc;
+    delf[2] += delr_stkstk[2] * finc;
 
     // theta5p force
     if (theta5p) {
 
-      finc   = -f1 * f4t4 * df4t5 * f4t6 * f5c1 * f5c2 * rinv_st;
+      finc   = -f1 * f4t4 * df4t5 * f4t6 * f5c1 * f5c2 * rinv_stkstk;
 
-      delf[0] += (delr_st_norm[0]*cost5p - bz[0]) * finc;
-      delf[1] += (delr_st_norm[1]*cost5p - bz[1]) * finc;
-      delf[2] += (delr_st_norm[2]*cost5p - bz[2]) * finc;
+      delf[0] += (delr_stkstk_norm[0]*cost5p - bz[0]) * finc;
+      delf[1] += (delr_stkstk_norm[1]*cost5p - bz[1]) * finc;
+      delf[2] += (delr_stkstk_norm[2]*cost5p - bz[2]) * finc;
 
     }
 
     // theta6p force
     if (theta6p) {
 
-      finc   = -f1 * f4t4 * f4t5 * df4t6 * f5c1 * f5c2 * rinv_st;
+      finc   = -f1 * f4t4 * f4t5 * df4t6 * f5c1 * f5c2 * rinv_stkstk;
 
-      delf[0] += (delr_st_norm[0]*cost6p - az[0]) * finc;
-      delf[1] += (delr_st_norm[1]*cost6p - az[1]) * finc;
-      delf[2] += (delr_st_norm[2]*cost6p - az[2]) * finc;
+      delf[0] += (delr_stkstk_norm[0]*cost6p - az[0]) * finc;
+      delf[1] += (delr_stkstk_norm[1]*cost6p - az[1]) * finc;
+      delf[2] += (delr_stkstk_norm[2]*cost6p - az[2]) * finc;
 
     }
 
@@ -497,7 +507,7 @@ void PairOxdnaStk::compute(int eflag, int vflag)
       f[a][1] -= delf[1];
       f[a][2] -= delf[2];
 
-      MathExtra::cross3(ra_cst,delf,delta);
+      MathExtra::cross3(ra_cstk,delf,delta);
 
     }
     if (newton_bond || b < nlocal) {
@@ -506,7 +516,7 @@ void PairOxdnaStk::compute(int eflag, int vflag)
       f[b][1] += delf[1];
       f[b][2] += delf[2];
 
-      MathExtra::cross3(rb_cst,delf,deltb);
+      MathExtra::cross3(rb_cstk,delf,deltb);
 
     }
 
@@ -549,22 +559,22 @@ void PairOxdnaStk::compute(int eflag, int vflag)
     // cosphi1 force
     if (cosphi1) {
 
-      finc   = -f1 * f4t4 * f4t5 * f4t6 * df5c1 * f5c2 * rinv_ss;
+      finc   = -f1 * f4t4 * f4t5 * f4t6 * df5c1 * f5c2 * rinv_bkbk;
 
-      delf[0] += (delr_ss_norm[0]*cosphi1 - by[0]) * finc;
-      delf[1] += (delr_ss_norm[1]*cosphi1 - by[1]) * finc;
-      delf[2] += (delr_ss_norm[2]*cosphi1 - by[2]) * finc;
+      delf[0] += (delr_bkbk_norm[0]*cosphi1 - by[0]) * finc;
+      delf[1] += (delr_bkbk_norm[1]*cosphi1 - by[1]) * finc;
+      delf[2] += (delr_bkbk_norm[2]*cosphi1 - by[2]) * finc;
 
     }
 
     // cosphi2 force
     if (cosphi2) {
 
-      finc   = -f1 * f4t4 * f4t5 * f4t6 * f5c1 * df5c2 * rinv_ss;
+      finc   = -f1 * f4t4 * f4t5 * f4t6 * f5c1 * df5c2 * rinv_bkbk;
 
-      delf[0] += (delr_ss_norm[0]*cosphi2 - ay[0]) * finc;
-      delf[1] += (delr_ss_norm[1]*cosphi2 - ay[1]) * finc;
-      delf[2] += (delr_ss_norm[2]*cosphi2 - ay[2]) * finc;
+      delf[0] += (delr_bkbk_norm[0]*cosphi2 - ay[0]) * finc;
+      delf[1] += (delr_bkbk_norm[1]*cosphi2 - ay[1]) * finc;
+      delf[2] += (delr_bkbk_norm[2]*cosphi2 - ay[2]) * finc;
 
     }
 
@@ -575,7 +585,7 @@ void PairOxdnaStk::compute(int eflag, int vflag)
       f[a][1] -= delf[1];
       f[a][2] -= delf[2];
 
-      MathExtra::cross3(ra_cs,delf,delta);
+      MathExtra::cross3(ra_cbk,delf,delta);
 
     }
     if (newton_bond || b < nlocal) {
@@ -584,7 +594,7 @@ void PairOxdnaStk::compute(int eflag, int vflag)
       f[b][1] += delf[1];
       f[b][2] += delf[2];
 
-      MathExtra::cross3(rb_cs,delf,deltb);
+      MathExtra::cross3(rb_cbk,delf,deltb);
 
     }
 
@@ -636,7 +646,7 @@ void PairOxdnaStk::compute(int eflag, int vflag)
     if (theta5p) {
 
       tpair = -f1 * f4t4 * df4t5 * f4t6 * f5c1 * f5c2;
-      MathExtra::cross3(delr_st_norm,bz,t5pdir);
+      MathExtra::cross3(delr_stkstk_norm,bz,t5pdir);
 
       deltb[0] += t5pdir[0] * tpair;
       deltb[1] += t5pdir[1] * tpair;
@@ -648,7 +658,7 @@ void PairOxdnaStk::compute(int eflag, int vflag)
     if (theta6p) {
 
       tpair = -f1 * f4t4 * f4t5 * df4t6 * f5c1 * f5c2;
-      MathExtra::cross3(delr_st_norm,az,t6pdir);
+      MathExtra::cross3(delr_stkstk_norm,az,t6pdir);
 
       delta[0] -= t6pdir[0] * tpair;
       delta[1] -= t6pdir[1] * tpair;
@@ -660,7 +670,7 @@ void PairOxdnaStk::compute(int eflag, int vflag)
     if (cosphi1) {
 
       tpair   = -f1 * f4t4 * f4t5 * f4t6 * df5c1 * f5c2;
-      MathExtra::cross3(delr_ss_norm,by,cosphi1dir);
+      MathExtra::cross3(delr_bkbk_norm,by,cosphi1dir);
 
       deltb[0] += cosphi1dir[0] * tpair;
       deltb[1] += cosphi1dir[1] * tpair;
@@ -672,7 +682,7 @@ void PairOxdnaStk::compute(int eflag, int vflag)
     if (cosphi2) {
 
       tpair   = -f1 * f4t4 * f4t5 * f4t6 * f5c1 * df5c2;
-      MathExtra::cross3(delr_ss_norm,ay,cosphi2dir);
+      MathExtra::cross3(delr_bkbk_norm,ay,cosphi2dir);
 
       delta[0] -= cosphi2dir[0] * tpair;
       delta[1] -= cosphi2dir[1] * tpair;

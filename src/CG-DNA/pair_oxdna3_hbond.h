@@ -11,29 +11,24 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#ifdef ATOM_CLASS
+#ifdef PAIR_CLASS
 // clang-format off
-AtomStyle(oxdna,AtomVecOxdna);
+PairStyle(oxdna3/hbond,PairOxdna3Hbond);
 // clang-format on
 #else
 
-#ifndef LMP_ATOM_VEC_OXDNA_H
-#define LMP_ATOM_VEC_OXDNA_H
+#ifndef LMP_PAIR_OXDNA3_HBOND_H
+#define LMP_PAIR_OXDNA3_HBOND_H
 
-#include "atom_vec.h"
+#include "pair_oxdna_hbond.h"
 
 namespace LAMMPS_NS {
 
-class AtomVecOxdna : virtual public AtomVec {
+class PairOxdna3Hbond : public PairOxdnaHbond {
  public:
-  AtomVecOxdna(class LAMMPS *);
-
-  void grow_pointers() override;
-  void data_atom_post(int) override;
-  void data_bonds_post(int, int, tagint, tagint, tagint) override;
-
- protected:
-  tagint *id3p, *id5p, *qeff;
+  PairOxdna3Hbond(class LAMMPS *lmp) : PairOxdnaHbond(lmp) {}
+  void compute_base_site(int, double *, double *, double *, double *) const override;
+  void coeff(int, char **) override;
 };
 
 }    // namespace LAMMPS_NS

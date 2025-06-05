@@ -27,6 +27,7 @@
 #include "memory.h"
 #include "mf_oxdna.h"
 #include "neigh_list.h"
+#include "nucleotide_oxdna.h"
 #include "potential_file_reader.h"
 
 #include <cmath>
@@ -102,8 +103,27 @@ PairOxdnaCoaxstk::~PairOxdnaCoaxstk()
 }
 
 /* ----------------------------------------------------------------------
+    compute vector COM-sugar-phosphate backbone interaction site in oxDNA
+------------------------------------------------------------------------- */
+inline void PairOxdnaCoaxstk::compute_backbone_site(double e1[3], double /*e2*/[3],
+  double /*e3*/[3], double rbk[3]) const
+{
+  NucleotideOxdna1 oxdna1;
+  oxdna1.backbone_site(e1, NULL, NULL, rbk);
+}
+
+/* ----------------------------------------------------------------------
+    compute vector COM-stacking interaction site in oxDNA
+------------------------------------------------------------------------- */
+inline void PairOxdnaCoaxstk::compute_stacking_site(double e1[3], double /*e2*/[3],
+    double /*e3*/[3], double rstk[3]) const
+{
+  NucleotideOxdna1 oxdna1;
+  oxdna1.stacking_site(e1, NULL, NULL, rstk);
+}
+
+/* ----------------------------------------------------------------------
    compute function for oxDNA pair interactions
-   st=stacking site
 ------------------------------------------------------------------------- */
 
 void PairOxdnaCoaxstk::compute(int eflag, int vflag)
@@ -111,29 +131,29 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
   double delf[3],delt[3],delta[3],deltb[3]; // force, torque increment;
   double evdwl,finc,tpair,factor_lj;
   double v1tmp[3],v2tmp[3],v3tmp[3];
-  double delr_ss[3],delr_ss_norm[3],rsq_ss,r_ss,rinv_ss;
-  double delr_st[3],delr_st_norm[3],rsq_st,r_st,rinv_st;
+  double delr_bkbk[3],delr_bkbk_norm[3],rsq_bkbk,r_bkbk,rinv_bkbk;
+  double delr_stkstk[3],delr_stkstk_norm[3],rsq_stkstk,r_stkstk,rinv_stkstk;
   double theta1,theta1p,t1dir[3],cost1;
   double theta4,t4dir[3],cost4;
   double theta5,theta5p,t5dir[3],cost5;
   double theta6,theta6p,t6dir[3],cost6;
   double cosphi3;
 
-  double gamma,gammacub,rinv_ss_cub,fac;
+  double gamma,gammacub,rinv_bkbk_cub,fac;
   double aybx,azbx,rax,ray,raz,rbx;
   double dcdr,dcdrbx;
   double dcdaxbx,dcdaybx,dcdazbx;
   double dcdrax,dcdray,dcdraz;
 
   // distances COM-backbone site, COM-stacking site
-  double d_cs = ConstantsOxdna::get_d_cs();
-  double d_cst = ConstantsOxdna::get_d_cst();
+  double dx_cbk_oxdna1 = ConstantsOxdna::get_dx_cbk_oxdna1();
+  double dx_cstk_oxdna1 = ConstantsOxdna::get_dx_cstk_oxdna1();
   // vectors COM-backbone site, COM-stacking site in lab frame
-  double ra_cs[3],ra_cst[3];
-  double rb_cs[3],rb_cst[3];
+  double ra_cbk[3],ra_cstk[3];
+  double rb_cbk[3],rb_cstk[3];
   // Cartesian unit vectors in lab frame
   double ax[3],ay[3],az[3];
-  double bx[3],bz[3];
+  double bx[3],by[3],bz[3];
 
   double **x = atom->x;
   double **f = atom->f;
@@ -174,17 +194,12 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
     ax[0] = nx_xtrct[a][0];
     ax[1] = nx_xtrct[a][1];
     ax[2] = nx_xtrct[a][2];
-    // a(y/z) not needed here as oxDNA(1) co-linear
 
     // vector COM a - stacking site a
-    ra_cst[0] = d_cst*ax[0];
-    ra_cst[1] = d_cst*ax[1];
-    ra_cst[2] = d_cst*ax[2];
+    compute_stacking_site(ax,ay,az,ra_cstk);
 
     // vector COM a - backbone site a
-    ra_cs[0] = d_cs*ax[0];
-    ra_cs[1] = d_cs*ax[1];
-    ra_cs[2] = d_cs*ax[2];
+    compute_backbone_site(ax,ay,az,ra_cbk);
 
     blist = firstneigh[a];
     bnum = numneigh[a];
@@ -200,43 +215,38 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       bx[0] = nx_xtrct[b][0];
       bx[1] = nx_xtrct[b][1];
       bx[2] = nx_xtrct[b][2];
-      // b(y/z) not needed here as oxDNA(1) co-linear
 
       // vector COM b - stacking site b
-      rb_cst[0] = d_cst*bx[0];
-      rb_cst[1] = d_cst*bx[1];
-      rb_cst[2] = d_cst*bx[2];
+      compute_stacking_site(bx,by,bz,rb_cstk);
 
       // vector stacking site b to a
-      delr_st[0] = x[a][0] + ra_cst[0] - x[b][0] - rb_cst[0];
-      delr_st[1] = x[a][1] + ra_cst[1] - x[b][1] - rb_cst[1];
-      delr_st[2] = x[a][2] + ra_cst[2] - x[b][2] - rb_cst[2];
+      delr_stkstk[0] = x[a][0] + ra_cstk[0] - x[b][0] - rb_cstk[0];
+      delr_stkstk[1] = x[a][1] + ra_cstk[1] - x[b][1] - rb_cstk[1];
+      delr_stkstk[2] = x[a][2] + ra_cstk[2] - x[b][2] - rb_cstk[2];
 
-      rsq_st = delr_st[0]*delr_st[0] + delr_st[1]*delr_st[1] + delr_st[2]*delr_st[2];
-      r_st = sqrt(rsq_st);
-      rinv_st = 1.0/r_st;
+      rsq_stkstk = delr_stkstk[0]*delr_stkstk[0] + delr_stkstk[1]*delr_stkstk[1] + delr_stkstk[2]*delr_stkstk[2];
+      r_stkstk = sqrt(rsq_stkstk);
+      rinv_stkstk = 1.0/r_stkstk;
 
-      delr_st_norm[0] = delr_st[0] * rinv_st;
-      delr_st_norm[1] = delr_st[1] * rinv_st;
-      delr_st_norm[2] = delr_st[2] * rinv_st;
+      delr_stkstk_norm[0] = delr_stkstk[0] * rinv_stkstk;
+      delr_stkstk_norm[1] = delr_stkstk[1] * rinv_stkstk;
+      delr_stkstk_norm[2] = delr_stkstk[2] * rinv_stkstk;
 
       // vector COM b - backbone site b
-      rb_cs[0] = d_cs*bx[0];
-      rb_cs[1] = d_cs*bx[1];
-      rb_cs[2] = d_cs*bx[2];
+      compute_backbone_site(bx,by,bz,rb_cbk);
 
       // vector backbone site b to a
-      delr_ss[0] = (x[a][0] + ra_cs[0] - x[b][0] - rb_cs[0]);
-      delr_ss[1] = (x[a][1] + ra_cs[1] - x[b][1] - rb_cs[1]);
-      delr_ss[2] = (x[a][2] + ra_cs[2] - x[b][2] - rb_cs[2]);
+      delr_bkbk[0] = (x[a][0] + ra_cbk[0] - x[b][0] - rb_cbk[0]);
+      delr_bkbk[1] = (x[a][1] + ra_cbk[1] - x[b][1] - rb_cbk[1]);
+      delr_bkbk[2] = (x[a][2] + ra_cbk[2] - x[b][2] - rb_cbk[2]);
 
-      rsq_ss = delr_ss[0]*delr_ss[0] + delr_ss[1]*delr_ss[1] + delr_ss[2]*delr_ss[2];
-      r_ss = sqrt(rsq_ss);
-      rinv_ss = 1.0/r_ss;
+      rsq_bkbk = delr_bkbk[0]*delr_bkbk[0] + delr_bkbk[1]*delr_bkbk[1] + delr_bkbk[2]*delr_bkbk[2];
+      r_bkbk = sqrt(rsq_bkbk);
+      rinv_bkbk = 1.0/r_bkbk;
 
-      delr_ss_norm[0] = delr_ss[0] * rinv_ss;
-      delr_ss_norm[1] = delr_ss[1] * rinv_ss;
-      delr_ss_norm[2] = delr_ss[2] * rinv_ss;
+      delr_bkbk_norm[0] = delr_bkbk[0] * rinv_bkbk;
+      delr_bkbk_norm[1] = delr_bkbk[1] * rinv_bkbk;
+      delr_bkbk_norm[2] = delr_bkbk[2] * rinv_bkbk;
 
       cost1 = -1.0*MathExtra::dot3(ax,bx);
       if (cost1 >  1.0) cost1 =  1.0;
@@ -270,7 +280,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       // early rejection criterium
       if (f4t4) {
 
-      cost5 = MathExtra::dot3(delr_st_norm,az);
+      cost5 = MathExtra::dot3(delr_stkstk_norm,az);
       if (cost5 >  1.0) cost5 =  1.0;
       if (cost5 < -1.0) cost5 = -1.0;
       theta5 = acos(cost5);
@@ -284,7 +294,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       // early rejection criterium
       if (f4t5) {
 
-      cost6 = MathExtra::dot3(delr_st_norm,bz);
+      cost6 = MathExtra::dot3(delr_stkstk_norm,bz);
       if (cost6 >  1.0) cost6 =  1.0;
       if (cost6 < -1.0) cost6 = -1.0;
       theta6 = acos(cost6);
@@ -295,12 +305,12 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
              F4(theta6p, a_cxst6[atype][btype], theta_cxst6_0[atype][btype], dtheta_cxst6_ast[atype][btype],
              b_cxst6[atype][btype], dtheta_cxst6_c[atype][btype]);
 
-      MathExtra::cross3(delr_ss_norm,ax,v1tmp);
-      cosphi3 = MathExtra::dot3(delr_st_norm,v1tmp);
+      MathExtra::cross3(delr_bkbk_norm,ax,v1tmp);
+      cosphi3 = MathExtra::dot3(delr_stkstk_norm,v1tmp);
       if (cosphi3 >  1.0) cosphi3 =  1.0;
       if (cosphi3 < -1.0) cosphi3 = -1.0;
 
-      f2 = F2(r_st, k_cxst[atype][btype], cut_cxst_0[atype][btype],
+      f2 = F2(r_stkstk, k_cxst[atype][btype], cut_cxst_0[atype][btype],
            cut_cxst_lc[atype][btype], cut_cxst_hc[atype][btype], cut_cxst_lo[atype][btype], cut_cxst_hi[atype][btype],
            b_cxst_lo[atype][btype], b_cxst_hi[atype][btype], cut_cxst_c[atype][btype]);
 
@@ -313,7 +323,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       // early rejection criterium
       if (evdwl) {
 
-      df2 = DF2(r_st, k_cxst[atype][btype], cut_cxst_0[atype][btype],
+      df2 = DF2(r_stkstk, k_cxst[atype][btype], cut_cxst_0[atype][btype],
             cut_cxst_lc[atype][btype], cut_cxst_hc[atype][btype], cut_cxst_lo[atype][btype], cut_cxst_hi[atype][btype],
             b_cxst_lo[atype][btype], b_cxst_hi[atype][btype]);
 
@@ -357,31 +367,31 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       deltb[2] = 0.0;
 
       // radial force
-      finc  = -df2 * f4t1 * f4t4 * f4t5 * f4t6 * f5c3 * f5c3 * rinv_st * factor_lj;
+      finc  = -df2 * f4t1 * f4t4 * f4t5 * f4t6 * f5c3 * f5c3 * rinv_stkstk * factor_lj;
 
-      delf[0] += delr_st[0] * finc;
-      delf[1] += delr_st[1] * finc;
-      delf[2] += delr_st[2] * finc;
+      delf[0] += delr_stkstk[0] * finc;
+      delf[1] += delr_stkstk[1] * finc;
+      delf[2] += delr_stkstk[2] * finc;
 
       // theta5 force
       if (theta5 && theta5p) {
 
-        finc   = -f2 * f4t1 * f4t4 * df4t5 * f4t6 * f5c3 * f5c3 * rinv_st * factor_lj;
+        finc   = -f2 * f4t1 * f4t4 * df4t5 * f4t6 * f5c3 * f5c3 * rinv_stkstk * factor_lj;
 
-        delf[0] += (delr_st_norm[0]*cost5 - az[0]) * finc;
-        delf[1] += (delr_st_norm[1]*cost5 - az[1]) * finc;
-        delf[2] += (delr_st_norm[2]*cost5 - az[2]) * finc;
+        delf[0] += (delr_stkstk_norm[0]*cost5 - az[0]) * finc;
+        delf[1] += (delr_stkstk_norm[1]*cost5 - az[1]) * finc;
+        delf[2] += (delr_stkstk_norm[2]*cost5 - az[2]) * finc;
 
       }
 
       // theta6 force
       if (theta6 && theta6p) {
 
-        finc   = -f2 * f4t1* f4t4 * f4t5 * df4t6 * f5c3 * f5c3 * rinv_st * factor_lj;
+        finc   = -f2 * f4t1* f4t4 * f4t5 * df4t6 * f5c3 * f5c3 * rinv_stkstk * factor_lj;
 
-        delf[0] += (delr_st_norm[0]*cost6 - bz[0]) * finc;
-        delf[1] += (delr_st_norm[1]*cost6 - bz[1]) * finc;
-        delf[2] += (delr_st_norm[2]*cost6 - bz[2]) * finc;
+        delf[0] += (delr_stkstk_norm[0]*cost6 - bz[0]) * finc;
+        delf[1] += (delr_stkstk_norm[1]*cost6 - bz[1]) * finc;
+        delf[2] += (delr_stkstk_norm[2]*cost6 - bz[2]) * finc;
 
       }
 
@@ -395,41 +405,41 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
 
         finc   = -f2 * f4t1* f4t4 * f4t5 * f4t6 * 2.0 * f5c3 * df5c3 * factor_lj;
 
-        gamma = d_cs - d_cst;
+        gamma = dx_cbk_oxdna1 - dx_cstk_oxdna1;
         gammacub = gamma * gamma * gamma;
-        rinv_ss_cub = rinv_ss * rinv_ss * rinv_ss;
+        rinv_bkbk_cub = rinv_bkbk * rinv_bkbk * rinv_bkbk;
         aybx = MathExtra::dot3(ay,bx);
         azbx = MathExtra::dot3(az,bx);
-        rax = MathExtra::dot3(delr_st_norm,ax);
-        ray = MathExtra::dot3(delr_st_norm,ay);
-        raz = MathExtra::dot3(delr_st_norm,az);
-        rbx = MathExtra::dot3(delr_st_norm,bx);
+        rax = MathExtra::dot3(delr_stkstk_norm,ax);
+        ray = MathExtra::dot3(delr_stkstk_norm,ay);
+        raz = MathExtra::dot3(delr_stkstk_norm,az);
+        rbx = MathExtra::dot3(delr_stkstk_norm,bx);
 
         fac = (raz * aybx - ray * azbx);
 
-        dcdr    = -gamma * fac * (gamma * (rax - rbx) + r_st) * rinv_ss_cub;
-        dcdaxbx =  gammacub * fac * rinv_ss_cub;
-        dcdaybx =  gamma * raz * rinv_ss;
-        dcdazbx = -gamma * ray * rinv_ss;
-        dcdrax  = -gamma*gamma * fac * r_st * rinv_ss_cub;
-        dcdray  = -gamma * azbx * rinv_ss;
-        dcdraz  =  gamma * aybx * rinv_ss;
-        dcdrbx  =  gamma*gamma * fac * r_st * rinv_ss_cub;
+        dcdr    = -gamma * fac * (gamma * (rax - rbx) + r_stkstk) * rinv_bkbk_cub;
+        dcdaxbx =  gammacub * fac * rinv_bkbk_cub;
+        dcdaybx =  gamma * raz * rinv_bkbk;
+        dcdazbx = -gamma * ray * rinv_bkbk;
+        dcdrax  = -gamma*gamma * fac * r_stkstk * rinv_bkbk_cub;
+        dcdray  = -gamma * azbx * rinv_bkbk;
+        dcdraz  =  gamma * aybx * rinv_bkbk;
+        dcdrbx  =  gamma*gamma * fac * r_stkstk * rinv_bkbk_cub;
 
-        delf[0] += (delr_st_norm[0] * dcdr + ((ax[0] - delr_st_norm[0] * rax) * dcdrax +
-                                              (ay[0] - delr_st_norm[0] * ray) * dcdray +
-                                              (az[0] - delr_st_norm[0] * raz) * dcdraz +
-                                              (bx[0] - delr_st_norm[0] * rbx) * dcdrbx) * rinv_st) * finc * factor_lj;
+        delf[0] += (delr_stkstk_norm[0] * dcdr + ((ax[0] - delr_stkstk_norm[0] * rax) * dcdrax +
+                                              (ay[0] - delr_stkstk_norm[0] * ray) * dcdray +
+                                              (az[0] - delr_stkstk_norm[0] * raz) * dcdraz +
+                                              (bx[0] - delr_stkstk_norm[0] * rbx) * dcdrbx) * rinv_stkstk) * finc * factor_lj;
 
-        delf[1] += (delr_st_norm[1] * dcdr + ((ax[1] - delr_st_norm[1] * rax) * dcdrax +
-                                              (ay[1] - delr_st_norm[1] * ray) * dcdray +
-                                              (az[1] - delr_st_norm[1] * raz) * dcdraz +
-                                              (bx[1] - delr_st_norm[1] * rbx) * dcdrbx) * rinv_st) * finc * factor_lj;
+        delf[1] += (delr_stkstk_norm[1] * dcdr + ((ax[1] - delr_stkstk_norm[1] * rax) * dcdrax +
+                                              (ay[1] - delr_stkstk_norm[1] * ray) * dcdray +
+                                              (az[1] - delr_stkstk_norm[1] * raz) * dcdraz +
+                                              (bx[1] - delr_stkstk_norm[1] * rbx) * dcdrbx) * rinv_stkstk) * finc * factor_lj;
 
-        delf[2] += (delr_st_norm[2] * dcdr + ((ax[2] - delr_st_norm[2] * rax) * dcdrax +
-                                              (ay[2] - delr_st_norm[2] * ray) * dcdray +
-                                              (az[2] - delr_st_norm[2] * raz) * dcdraz +
-                                              (bx[2] - delr_st_norm[2] * rbx) * dcdrbx) * rinv_st) * finc * factor_lj;
+        delf[2] += (delr_stkstk_norm[2] * dcdr + ((ax[2] - delr_stkstk_norm[2] * rax) * dcdrax +
+                                              (ay[2] - delr_stkstk_norm[2] * ray) * dcdray +
+                                              (az[2] - delr_stkstk_norm[2] * raz) * dcdraz +
+                                              (bx[2] - delr_stkstk_norm[2] * rbx) * dcdrbx) * rinv_stkstk) * finc * factor_lj;
 
       }
 
@@ -439,7 +449,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       f[a][1] += delf[1];
       f[a][2] += delf[2];
 
-      MathExtra::cross3(ra_cst,delf,delta);
+      MathExtra::cross3(ra_cstk,delf,delta);
 
       torque[a][0] += delta[0];
       torque[a][1] += delta[1];
@@ -451,7 +461,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
         f[b][1] -= delf[1];
         f[b][2] -= delf[2];
 
-        MathExtra::cross3(rb_cst,delf,deltb);
+        MathExtra::cross3(rb_cstk,delf,deltb);
 
         torque[b][0] -= deltb[0];
         torque[b][1] -= deltb[1];
@@ -511,7 +521,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       if (theta5 && theta5p) {
 
         tpair = -f2 * f4t1 * f4t4 * df4t5 * f4t6 * f5c3 * f5c3 * factor_lj;
-        MathExtra::cross3(delr_st_norm,az,t5dir);
+        MathExtra::cross3(delr_stkstk_norm,az,t5dir);
 
         delta[0] += t5dir[0] * tpair;
         delta[1] += t5dir[1] * tpair;
@@ -523,7 +533,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       if (theta6 && theta6p) {
 
         tpair = -f2 * f4t1 * f4t4 * f4t5 * df4t6 * f5c3 * f5c3 * factor_lj;
-        MathExtra::cross3(delr_st_norm,bz,t6dir);
+        MathExtra::cross3(delr_stkstk_norm,bz,t6dir);
 
         deltb[0] -= t6dir[0] * tpair;
         deltb[1] -= t6dir[1] * tpair;
@@ -551,15 +561,15 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
         deltb[1] += delt[1];
         deltb[2] += delt[2];
 
-        MathExtra::cross3(ax,delr_st_norm,v1tmp);
-        MathExtra::cross3(ay,delr_st_norm,v2tmp);
-        MathExtra::cross3(az,delr_st_norm,v3tmp);
+        MathExtra::cross3(ax,delr_stkstk_norm,v1tmp);
+        MathExtra::cross3(ay,delr_stkstk_norm,v2tmp);
+        MathExtra::cross3(az,delr_stkstk_norm,v3tmp);
 
         delta[0] += (v1tmp[0] * dcdrax + v2tmp[0] * dcdray + v3tmp[0] * dcdraz) * tpair;
         delta[1] += (v1tmp[1] * dcdrax + v2tmp[1] * dcdray + v3tmp[1] * dcdraz) * tpair;
         delta[2] += (v1tmp[2] * dcdrax + v2tmp[2] * dcdray + v3tmp[2] * dcdraz) * tpair;
 
-        MathExtra::cross3(bx,delr_st_norm,v1tmp);
+        MathExtra::cross3(bx,delr_stkstk_norm,v1tmp);
 
         deltb[0] -= v1tmp[0] * dcdrbx * tpair;
         deltb[1] -= v1tmp[1] * dcdrbx * tpair;

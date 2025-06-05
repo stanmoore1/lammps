@@ -15,8 +15,8 @@
 ------------------------------------------------------------------------- */
 
 #include "bond_oxrna2_fene.h"
-
 #include "constants_oxdna.h"
+#include "nucleotide_oxdna.h"
 
 using namespace LAMMPS_NS;
 
@@ -25,12 +25,8 @@ using namespace LAMMPS_NS;
 ------------------------------------------------------------------------- */
 
 void BondOxrna2Fene::compute_backbone_site(double e1[3], double /*e2*/[3],
-  double e3[3], double r[3]) const
+  double e3[3], double rbk[3]) const
 {
-  double d_cs_x = ConstantsOxdna::get_d_cs();
-  double d_cs_z = ConstantsOxdna::get_d_cs_z();
-
-  r[0] = d_cs_x * e1[0] + d_cs_z * e3[0];
-  r[1] = d_cs_x * e1[1] + d_cs_z * e3[1];
-  r[2] = d_cs_x * e1[2] + d_cs_z * e3[2];
+  NucleotideOxrna2 oxrna2;
+  oxrna2.backbone_site(e1, NULL, e3, rbk);
 }

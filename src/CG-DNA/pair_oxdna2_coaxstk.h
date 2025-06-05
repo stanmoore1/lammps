@@ -14,6 +14,7 @@
 #ifdef PAIR_CLASS
 // clang-format off
 PairStyle(oxdna2/coaxstk,PairOxdna2Coaxstk);
+PairStyle(oxdna3/coaxstk,PairOxdna2Coaxstk);
 // clang-format on
 #else
 
@@ -28,6 +29,8 @@ class PairOxdna2Coaxstk : public Pair {
  public:
   PairOxdna2Coaxstk(class LAMMPS *);
   ~PairOxdna2Coaxstk() override;
+  void compute_backbone_site(double *, double *, double *, double *) const;
+  void compute_stacking_site(double *, double *, double *, double *) const;
   void compute(int, int) override;
   void settings(int, char **) override;
   void coeff(int, char **) override;

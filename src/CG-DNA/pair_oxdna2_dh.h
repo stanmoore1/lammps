@@ -14,6 +14,7 @@
 #ifdef PAIR_CLASS
 // clang-format off
 PairStyle(oxdna2/dh,PairOxdna2Dh);
+PairStyle(oxdna3/dh,PairOxdna2Dh);
 // clang-format on
 #else
 
@@ -44,6 +45,7 @@ class PairOxdna2Dh : public Pair {
   double **qeff_dh_pf, **kappa_dh;
   double **b_dh, **cut_dh_ast, **cutsq_dh_ast, **cut_dh_c, **cutsq_dh_c;
   double **nx_xtrct, **ny_xtrct, **nz_xtrct;    // per-atom arrays for local unit vectors
+  int no_3p_charge_flag;
 
   virtual void allocate();
 };

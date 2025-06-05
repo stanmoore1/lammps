@@ -29,6 +29,7 @@ class PairOxdnaXstk : public Pair {
  public:
   PairOxdnaXstk(class LAMMPS *);
   ~PairOxdnaXstk() override;
+  void compute_base_site(int, double *, double *, double *, double *) const;
   void compute(int, int) override;
   void settings(int, char **) override;
   void coeff(int, char **) override;

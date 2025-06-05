@@ -29,6 +29,8 @@ class PairOxdnaStk : public Pair {
  public:
   PairOxdnaStk(class LAMMPS *);
   ~PairOxdnaStk() override;
+  virtual void compute_backbone_site(double *, double *, double *, double *) const;
+  virtual void compute_stacking_site(double *, double *, double *, double *) const;
   void compute(int, int) override;
   void settings(int, char **) override;
   void coeff(int, char **) override;

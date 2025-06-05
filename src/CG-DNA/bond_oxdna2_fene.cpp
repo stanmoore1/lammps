@@ -16,19 +16,16 @@
 
 #include "bond_oxdna2_fene.h"
 #include "constants_oxdna.h"
+#include "nucleotide_oxdna.h"
 
 using namespace LAMMPS_NS;
 
 /* ----------------------------------------------------------------------
    compute vector COM-sugar-phosphate backbone interaction site in oxDNA2
 ------------------------------------------------------------------------- */
-void BondOxdna2Fene::compute_backbone_site(double e1[3], double e2[3],
-  double /*e3*/[3], double r[3]) const
+inline void BondOxdna2Fene::compute_backbone_site(double e1[3], double e2[3],
+  double /*e3*/[3], double rbk[3]) const
 {
-  double d_cs_x = ConstantsOxdna::get_d_cs_x();
-  double d_cs_y = ConstantsOxdna::get_d_cs_y();
-
-  r[0] = d_cs_x * e1[0] + d_cs_y * e2[0];
-  r[1] = d_cs_x * e1[1] + d_cs_y * e2[1];
-  r[2] = d_cs_x * e1[2] + d_cs_y * e2[2];
+  NucleotideOxdna2 oxdna2;
+  oxdna2.backbone_site(e1, e2, NULL, rbk);
 }
