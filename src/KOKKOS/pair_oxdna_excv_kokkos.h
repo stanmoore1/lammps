@@ -130,18 +130,18 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
 
   // s=sugar-phosphate backbone site, b=base site, st=stacking site
   // excluded volume interaction parameters
-  typename AT::tdual_kkfloat_2d_lr k_epsilon_ss, k_sigma_ss, k_cut_ss_ast, k_cutsq_ss_ast;
-  typename AT::tdual_kkfloat_2d_lr k_lj1_ss, k_lj2_ss, k_b_ss, k_cut_ss_c, k_cutsq_ss_c;
-  typename AT::tdual_kkfloat_2d_lr k_epsilon_sb, k_sigma_sb, k_cut_sb_ast, k_cutsq_sb_ast;
-  typename AT::tdual_kkfloat_2d_lr k_lj1_sb, k_lj2_sb, k_b_sb, k_cut_sb_c, k_cutsq_sb_c;
-  typename AT::tdual_kkfloat_2d_lr k_epsilon_bb, k_sigma_bb, k_cut_bb_ast, k_cutsq_bb_ast;
-  typename AT::tdual_kkfloat_2d_lr k_lj1_bb, k_lj2_bb, k_b_bb, k_cut_bb_c, k_cutsq_bb_c;
-  typename AT::t_kkfloat_2d_lr d_epsilon_ss, d_sigma_ss, d_cut_ss_ast, d_cutsq_ss_ast;
-  typename AT::t_kkfloat_2d_lr d_lj1_ss, d_lj2_ss, d_b_ss, d_cut_ss_c, d_cutsq_ss_c;
-  typename AT::t_kkfloat_2d_lr d_epsilon_sb, d_sigma_sb, d_cut_sb_ast, d_cutsq_sb_ast;
-  typename AT::t_kkfloat_2d_lr d_lj1_sb, d_lj2_sb, d_b_sb, d_cut_sb_c, d_cutsq_sb_c;
-  typename AT::t_kkfloat_2d_lr d_epsilon_bb, d_sigma_bb, d_cut_bb_ast, d_cutsq_bb_ast;
-  typename AT::t_kkfloat_2d_lr d_lj1_bb, d_lj2_bb, d_b_bb, d_cut_bb_c, d_cutsq_bb_c;
+  typename AT::tdual_kkfloat_2d_lr k_epsilon_bkbk, k_sigma_bkbk, k_cut_bkbk_ast, k_cutsq_bkbk_ast;
+  typename AT::tdual_kkfloat_2d_lr k_lj1_bkbk, k_lj2_bkbk, k_b_bkbk, k_cut_bkbk_c, k_cutsq_bkbk_c;
+  typename AT::tdual_kkfloat_2d_lr k_epsilon_bkbs, k_sigma_bkbs, k_cut_bkbs_ast, k_cutsq_bkbs_ast;
+  typename AT::tdual_kkfloat_2d_lr k_lj1_bkbs, k_lj2_bkbs, k_b_bkbs, k_cut_bkbs_c, k_cutsq_bkbs_c;
+  typename AT::tdual_kkfloat_2d_lr k_epsilon_bsbs, k_sigma_bsbs, k_cut_bsbs_ast, k_cutsq_bsbs_ast;
+  typename AT::tdual_kkfloat_2d_lr k_lj1_bsbs, k_lj2_bsbs, k_b_bsbs, k_cut_bsbs_c, k_cutsq_bsbs_c;
+  typename AT::t_kkfloat_2d_lr d_epsilon_bkbk, d_sigma_bkbk, d_cut_bkbk_ast, d_cutsq_bkbk_ast;
+  typename AT::t_kkfloat_2d_lr d_lj1_bkbk, d_lj2_bkbk, d_b_bkbk, d_cut_bkbk_c, d_cutsq_bkbk_c;
+  typename AT::t_kkfloat_2d_lr d_epsilon_bkbs, d_sigma_bkbs, d_cut_bkbs_ast, d_cutsq_bkbs_ast;
+  typename AT::t_kkfloat_2d_lr d_lj1_bkbs, d_lj2_bkbs, d_b_bkbs, d_cut_bkbs_c, d_cutsq_bkbs_c;
+  typename AT::t_kkfloat_2d_lr d_epsilon_bsbs, d_sigma_bsbs, d_cut_bsbs_ast, d_cutsq_bsbs_ast;
+  typename AT::t_kkfloat_2d_lr d_lj1_bsbs, d_lj2_bsbs, d_b_bsbs, d_cut_bsbs_c, d_cutsq_bsbs_c;
 
   int first;
   typename AT::t_int_1d d_sendlist;

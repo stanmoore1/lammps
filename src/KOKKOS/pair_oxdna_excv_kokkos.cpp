@@ -55,35 +55,35 @@ PairOxdnaExcvKokkos<DeviceType>::~PairOxdnaExcvKokkos()
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->destroy_kokkos(k_vatom,vatom);
 
-    memoryKK->destroy_kokkos(k_epsilon_ss,epsilon_ss);
-    memoryKK->destroy_kokkos(k_sigma_ss,sigma_ss);
-    memoryKK->destroy_kokkos(k_cut_ss_ast,cut_ss_ast);
-    memoryKK->destroy_kokkos(k_b_ss,b_ss);
-    memoryKK->destroy_kokkos(k_cut_ss_c,cut_ss_c);
-    memoryKK->destroy_kokkos(k_lj1_ss,lj1_ss);
-    memoryKK->destroy_kokkos(k_lj2_ss,lj2_ss);
-    memoryKK->destroy_kokkos(k_cutsq_ss_ast,cutsq_ss_ast);
-    memoryKK->destroy_kokkos(k_cutsq_ss_c,cutsq_ss_c);
+    memoryKK->destroy_kokkos(k_epsilon_bkbk,epsilon_bkbk);
+    memoryKK->destroy_kokkos(k_sigma_bkbk,sigma_bkbk);
+    memoryKK->destroy_kokkos(k_cut_bkbk_ast,cut_bkbk_ast);
+    memoryKK->destroy_kokkos(k_b_bkbk,b_bkbk);
+    memoryKK->destroy_kokkos(k_cut_bkbk_c,cut_bkbk_c);
+    memoryKK->destroy_kokkos(k_lj1_bkbk,lj1_bkbk);
+    memoryKK->destroy_kokkos(k_lj2_bkbk,lj2_bkbk);
+    memoryKK->destroy_kokkos(k_cutsq_bkbk_ast,cutsq_bkbk_ast);
+    memoryKK->destroy_kokkos(k_cutsq_bkbk_c,cutsq_bkbk_c);
 
-    memoryKK->destroy_kokkos(k_epsilon_sb,epsilon_sb);
-    memoryKK->destroy_kokkos(k_sigma_sb,sigma_sb);
-    memoryKK->destroy_kokkos(k_cut_sb_ast,cut_sb_ast);
-    memoryKK->destroy_kokkos(k_b_sb,b_sb);
-    memoryKK->destroy_kokkos(k_cut_sb_c,cut_sb_c);
-    memoryKK->destroy_kokkos(k_lj1_sb,lj1_sb);
-    memoryKK->destroy_kokkos(k_lj2_sb,lj2_sb);
-    memoryKK->destroy_kokkos(k_cutsq_sb_ast,cutsq_sb_ast);
-    memoryKK->destroy_kokkos(k_cutsq_sb_c,cutsq_sb_c);
+    memoryKK->destroy_kokkos(k_epsilon_bkbs,epsilon_bkbs);
+    memoryKK->destroy_kokkos(k_sigma_bkbs,sigma_bkbs);
+    memoryKK->destroy_kokkos(k_cut_bkbs_ast,cut_bkbs_ast);
+    memoryKK->destroy_kokkos(k_b_bkbs,b_bkbs);
+    memoryKK->destroy_kokkos(k_cut_bkbs_c,cut_bkbs_c);
+    memoryKK->destroy_kokkos(k_lj1_bkbs,lj1_bkbs);
+    memoryKK->destroy_kokkos(k_lj2_bkbs,lj2_bkbs);
+    memoryKK->destroy_kokkos(k_cutsq_bkbs_ast,cutsq_bkbs_ast);
+    memoryKK->destroy_kokkos(k_cutsq_bkbs_c,cutsq_bkbs_c);
 
-    memoryKK->destroy_kokkos(k_epsilon_bb,epsilon_bb);
-    memoryKK->destroy_kokkos(k_sigma_bb,sigma_bb);
-    memoryKK->destroy_kokkos(k_cut_bb_ast,cut_bb_ast);
-    memoryKK->destroy_kokkos(k_b_bb,b_bb);
-    memoryKK->destroy_kokkos(k_cut_bb_c,cut_bb_c);
-    memoryKK->destroy_kokkos(k_lj1_bb,lj1_bb);
-    memoryKK->destroy_kokkos(k_lj2_bb,lj2_bb);
-    memoryKK->destroy_kokkos(k_cutsq_bb_ast,cutsq_bb_ast);
-    memoryKK->destroy_kokkos(k_cutsq_bb_c,cutsq_bb_c);
+    memoryKK->destroy_kokkos(k_epsilon_bsbs,epsilon_bsbs);
+    memoryKK->destroy_kokkos(k_sigma_bsbs,sigma_bsbs);
+    memoryKK->destroy_kokkos(k_cut_bsbs_ast,cut_bsbs_ast);
+    memoryKK->destroy_kokkos(k_b_bsbs,b_bsbs);
+    memoryKK->destroy_kokkos(k_cut_bsbs_c,cut_bsbs_c);
+    memoryKK->destroy_kokkos(k_lj1_bsbs,lj1_bsbs);
+    memoryKK->destroy_kokkos(k_lj2_bsbs,lj2_bsbs);
+    memoryKK->destroy_kokkos(k_cutsq_bsbs_ast,cutsq_bsbs_ast);
+    memoryKK->destroy_kokkos(k_cutsq_bsbs_c,cutsq_bsbs_c);
 
     memoryKK->destroy_kokkos(k_nx,nx);
     memoryKK->destroy_kokkos(k_ny,ny);
@@ -118,35 +118,35 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   atomKK->sync(execution_space,datamask_read);
 
-  k_epsilon_ss.template sync<DeviceType>();
-  k_sigma_ss.template sync<DeviceType>();
-  k_cut_ss_ast.template sync<DeviceType>();
-  k_b_ss.template sync<DeviceType>();
-  k_cut_ss_c.template sync<DeviceType>();
-  k_lj1_ss.template sync<DeviceType>();
-  k_lj2_ss.template sync<DeviceType>();
-  k_cutsq_ss_ast.template sync<DeviceType>();
-  k_cutsq_ss_c.template sync<DeviceType>();
+  k_epsilon_bkbk.template sync<DeviceType>();
+  k_sigma_bkbk.template sync<DeviceType>();
+  k_cut_bkbk_ast.template sync<DeviceType>();
+  k_b_bkbk.template sync<DeviceType>();
+  k_cut_bkbk_c.template sync<DeviceType>();
+  k_lj1_bkbk.template sync<DeviceType>();
+  k_lj2_bkbk.template sync<DeviceType>();
+  k_cutsq_bkbk_ast.template sync<DeviceType>();
+  k_cutsq_bkbk_c.template sync<DeviceType>();
 
-  k_epsilon_sb.template sync<DeviceType>();
-  k_sigma_sb.template sync<DeviceType>();
-  k_cut_sb_ast.template sync<DeviceType>();
-  k_b_sb.template sync<DeviceType>();
-  k_cut_sb_c.template sync<DeviceType>();
-  k_lj1_sb.template sync<DeviceType>();
-  k_lj2_sb.template sync<DeviceType>();
-  k_cutsq_sb_ast.template sync<DeviceType>();
-  k_cutsq_sb_c.template sync<DeviceType>();
+  k_epsilon_bkbs.template sync<DeviceType>();
+  k_sigma_bkbs.template sync<DeviceType>();
+  k_cut_bkbs_ast.template sync<DeviceType>();
+  k_b_bkbs.template sync<DeviceType>();
+  k_cut_bkbs_c.template sync<DeviceType>();
+  k_lj1_bkbs.template sync<DeviceType>();
+  k_lj2_bkbs.template sync<DeviceType>();
+  k_cutsq_bkbs_ast.template sync<DeviceType>();
+  k_cutsq_bkbs_c.template sync<DeviceType>();
 
-  k_epsilon_bb.template sync<DeviceType>();
-  k_sigma_bb.template sync<DeviceType>();
-  k_cut_bb_ast.template sync<DeviceType>();
-  k_b_bb.template sync<DeviceType>();
-  k_cut_bb_c.template sync<DeviceType>();
-  k_lj1_bb.template sync<DeviceType>();
-  k_lj2_bb.template sync<DeviceType>();
-  k_cutsq_bb_ast.template sync<DeviceType>();
-  k_cutsq_bb_c.template sync<DeviceType>();
+  k_epsilon_bsbs.template sync<DeviceType>();
+  k_sigma_bsbs.template sync<DeviceType>();
+  k_cut_bsbs_ast.template sync<DeviceType>();
+  k_b_bsbs.template sync<DeviceType>();
+  k_cut_bsbs_c.template sync<DeviceType>();
+  k_lj1_bsbs.template sync<DeviceType>();
+  k_lj2_bsbs.template sync<DeviceType>();
+  k_cutsq_bsbs_ast.template sync<DeviceType>();
+  k_cutsq_bsbs_c.template sync<DeviceType>();
 
   k_nx.template sync<DeviceType>();
   k_ny.template sync<DeviceType>();
@@ -407,8 +407,8 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
 
   KK_FLOAT delf[3], delta[3], deltb[3];    // force, torque increment
   KK_FLOAT evdwl, fpair;                   // energy, force
-  KK_FLOAT delr_ss[3],rsq_ss,delr_sb[3],rsq_sb;
-  KK_FLOAT delr_bs[3],rsq_bs,delr_bb[3],rsq_bb;
+  KK_FLOAT delr_bkbk[3],rsq_bkbk,delr_bkbs[3],rsq_bkbs;
+  KK_FLOAT delr_bs[3],rsq_bs,delr_bsbs[3],rsq_bsbs;
 
   KK_FLOAT ftmp[3],ttmp[3];  // temporary force, torque to reduce excessive dup/atomic updates.
   //                           might remove these and just use delf, delta, deltb directly.
@@ -500,40 +500,40 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     }
 
     // vector backbone site b to a
-    delr_ss[0] = rtmp_s[0] - (x(b,0)+rb_cs[0]);
-    delr_ss[1] = rtmp_s[1] - (x(b,1)+rb_cs[1]);
-    delr_ss[2] = rtmp_s[2] - (x(b,2)+rb_cs[2]);
-    rsq_ss = delr_ss[0]*delr_ss[0] + delr_ss[1]*delr_ss[1] + delr_ss[2]*delr_ss[2];
+    delr_bkbk[0] = rtmp_s[0] - (x(b,0)+rb_cs[0]);
+    delr_bkbk[1] = rtmp_s[1] - (x(b,1)+rb_cs[1]);
+    delr_bkbk[2] = rtmp_s[2] - (x(b,2)+rb_cs[2]);
+    rsq_bkbk = delr_bkbk[0]*delr_bkbk[0] + delr_bkbk[1]*delr_bkbk[1] + delr_bkbk[2]*delr_bkbk[2];
     // vector base site b to backbone site a
-    delr_sb[0] = rtmp_s[0] - (x(b,0)+rb_cb[0]);
-    delr_sb[1] = rtmp_s[1] - (x(b,1)+rb_cb[1]);
-    delr_sb[2] = rtmp_s[2] - (x(b,2)+rb_cb[2]);
-    rsq_sb = delr_sb[0]*delr_sb[0] + delr_sb[1]*delr_sb[1] + delr_sb[2]*delr_sb[2];
+    delr_bkbs[0] = rtmp_s[0] - (x(b,0)+rb_cb[0]);
+    delr_bkbs[1] = rtmp_s[1] - (x(b,1)+rb_cb[1]);
+    delr_bkbs[2] = rtmp_s[2] - (x(b,2)+rb_cb[2]);
+    rsq_bkbs = delr_bkbs[0]*delr_bkbs[0] + delr_bkbs[1]*delr_bkbs[1] + delr_bkbs[2]*delr_bkbs[2];
     // vector backbone site b to base site a
     delr_bs[0] = rtmp_b[0] - (x(b,0)+rb_cs[0]);
     delr_bs[1] = rtmp_b[1] - (x(b,1)+rb_cs[1]);
     delr_bs[2] = rtmp_b[2] - (x(b,2)+rb_cs[2]);
     rsq_bs = delr_bs[0]*delr_bs[0] + delr_bs[1]*delr_bs[1] + delr_bs[2]*delr_bs[2];
     // vector base site b to a
-    delr_bb[0] = rtmp_b[0] - (x(b,0)+rb_cb[0]);
-    delr_bb[1] = rtmp_b[1] - (x(b,1)+rb_cb[1]);
-    delr_bb[2] = rtmp_b[2] - (x(b,2)+rb_cb[2]);
-    rsq_bb = delr_bb[0]*delr_bb[0] + delr_bb[1]*delr_bb[1] + delr_bb[2]*delr_bb[2];
+    delr_bsbs[0] = rtmp_b[0] - (x(b,0)+rb_cb[0]);
+    delr_bsbs[1] = rtmp_b[1] - (x(b,1)+rb_cb[1]);
+    delr_bsbs[2] = rtmp_b[2] - (x(b,2)+rb_cb[2]);
+    rsq_bsbs = delr_bsbs[0]*delr_bsbs[0] + delr_bsbs[1]*delr_bsbs[1] + delr_bsbs[2]*delr_bsbs[2];
 
     // excluded volume interactions:
 
     // backbone-backbone
-    if (rsq_ss < d_cutsq_ss_c(atype,btype)) {
+    if (rsq_bkbk < d_cutsq_bkbk_c(atype,btype)) {
       // F3 modulation factor, force and energy calculation
-      evdwl = F3_KK(rsq_ss,d_cutsq_ss_ast(atype,btype),d_cut_ss_c(atype,btype),d_lj1_ss(atype,btype),
-                        d_lj2_ss(atype,btype),d_epsilon_ss(atype,btype),d_b_ss(atype,btype),fpair);
+      evdwl = F3_KK(rsq_bkbk,d_cutsq_bkbk_ast(atype,btype),d_cut_bkbk_c(atype,btype),d_lj1_bkbk(atype,btype),
+                        d_lj2_bkbk(atype,btype),d_epsilon_bkbk(atype,btype),d_b_bkbk(atype,btype),fpair);
       // knock out nearest-neighbor interaction between ss
       fpair *= factor_lj;
       evdwl *= factor_lj;
       // force and torque increment calculation
-      delf[0] = fpair * delr_ss[0];
-      delf[1] = fpair * delr_ss[1];
-      delf[2] = fpair * delr_ss[2];
+      delf[0] = fpair * delr_bkbk[0];
+      delf[1] = fpair * delr_bkbk[1];
+      delf[2] = fpair * delr_bkbk[2];
       delta[0] = ra_cs[1]*delf[2] - ra_cs[2]*delf[1];
       delta[1] = ra_cs[2]*delf[0] - ra_cs[0]*delf[2];
       delta[2] = ra_cs[0]*delf[1] - ra_cs[1]*delf[0];
@@ -573,14 +573,14 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     }
 
     // backbone-base
-    if (rsq_sb < d_cutsq_sb_c(atype,btype)) {
+    if (rsq_bkbs < d_cutsq_bkbs_c(atype,btype)) {
       // F3 modulation factor, force and energy calculation
-      evdwl = F3_KK(rsq_sb,d_cutsq_sb_ast(atype,btype),d_cut_sb_c(atype,btype),d_lj1_sb(atype,btype),
-                        d_lj2_sb(atype,btype),d_epsilon_sb(atype,btype),d_b_sb(atype,btype),fpair);
+      evdwl = F3_KK(rsq_bkbs,d_cutsq_bkbs_ast(atype,btype),d_cut_bkbs_c(atype,btype),d_lj1_bkbs(atype,btype),
+                        d_lj2_bkbs(atype,btype),d_epsilon_bkbs(atype,btype),d_b_bkbs(atype,btype),fpair);
       // force and torque increment calculation
-      delf[0] = fpair * delr_sb[0];
-      delf[1] = fpair * delr_sb[1];
-      delf[2] = fpair * delr_sb[2];
+      delf[0] = fpair * delr_bkbs[0];
+      delf[1] = fpair * delr_bkbs[1];
+      delf[2] = fpair * delr_bkbs[2];
       delta[0] = ra_cs[1]*delf[2] - ra_cs[2]*delf[1];
       delta[1] = ra_cs[2]*delf[0] - ra_cs[0]*delf[2];
       delta[2] = ra_cs[0]*delf[1] - ra_cs[1]*delf[0];
@@ -620,10 +620,10 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     }
 
     // base-backbone
-    if (rsq_bs < d_cutsq_sb_c(btype,atype)) {
+    if (rsq_bs < d_cutsq_bkbs_c(btype,atype)) {
       // F3 modulation factor, force and energy calculation
-      evdwl = F3_KK(rsq_bs,d_cutsq_sb_ast(btype,atype),d_cut_sb_c(btype,atype),d_lj1_sb(btype,atype),
-                        d_lj2_sb(btype,atype),d_epsilon_sb(btype,atype),d_b_sb(btype,atype),fpair);
+      evdwl = F3_KK(rsq_bs,d_cutsq_bkbs_ast(btype,atype),d_cut_bkbs_c(btype,atype),d_lj1_bkbs(btype,atype),
+                        d_lj2_bkbs(btype,atype),d_epsilon_bkbs(btype,atype),d_b_bkbs(btype,atype),fpair);
       // force and torque increment calculation
       delf[0] = fpair * delr_bs[0];
       delf[1] = fpair * delr_bs[1];
@@ -667,14 +667,14 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     }
 
     // base-base
-    if (rsq_bb < d_cutsq_bb_c(atype,btype)) {
+    if (rsq_bsbs < d_cutsq_bsbs_c(atype,btype)) {
       // F3 modulation factor, force and energy calculation
-      evdwl = F3_KK(rsq_bb,d_cutsq_bb_ast(atype,btype),d_cut_bb_c(atype,btype),d_lj1_bb(atype,btype),
-                        d_lj2_bb(atype,btype),d_epsilon_bb(atype,btype),d_b_bb(atype,btype),fpair);
+      evdwl = F3_KK(rsq_bsbs,d_cutsq_bsbs_ast(atype,btype),d_cut_bsbs_c(atype,btype),d_lj1_bsbs(atype,btype),
+                        d_lj2_bsbs(atype,btype),d_epsilon_bsbs(atype,btype),d_b_bsbs(atype,btype),fpair);
       // force and torque increment calculation
-      delf[0] = fpair * delr_bb[0];
-      delf[1] = fpair * delr_bb[1];
-      delf[2] = fpair * delr_bb[2];
+      delf[0] = fpair * delr_bsbs[0];
+      delf[1] = fpair * delr_bsbs[1];
+      delf[2] = fpair * delr_bsbs[2];
       delta[0] = ra_cb[1]*delf[2] - ra_cb[2]*delf[1];
       delta[1] = ra_cb[2]*delf[0] - ra_cb[0]*delf[2];
       delta[2] = ra_cb[0]*delf[1] - ra_cb[1]*delf[0];
@@ -863,122 +863,114 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
 
   int n = atom->ntypes;
   
-  memory->destroy(epsilon_ss);
-  memory->destroy(sigma_ss);
-  memory->destroy(cut_ss_ast);
-  memory->destroy(b_ss);
-  memory->destroy(cut_ss_c);
-  memory->destroy(lj1_ss);
-  memory->destroy(lj2_ss);
-  memory->destroy(cutsq_ss_ast);
-  memory->destroy(cutsq_ss_c);
+  memory->destroy(epsilon_bkbk);
+  memory->destroy(sigma_bkbk);
+  memory->destroy(cut_bkbk_ast);
+  memory->destroy(b_bkbk);
+  memory->destroy(cut_bkbk_c);
+  memory->destroy(lj1_bkbk);
+  memory->destroy(lj2_bkbk);
+  memory->destroy(cutsq_bkbk_ast);
+  memory->destroy(cutsq_bkbk_c);
 
-  memory->destroy(epsilon_sb);
-  memory->destroy(sigma_sb);
-  memory->destroy(cut_sb_ast);
-  memory->destroy(b_sb);
-  memory->destroy(cut_sb_c);
-  memory->destroy(lj1_sb);
-  memory->destroy(lj2_sb);
-  memory->destroy(cutsq_sb_ast);
-  memory->destroy(cutsq_sb_c);
+  memory->destroy(epsilon_bkbs);
+  memory->destroy(sigma_bkbs);
+  memory->destroy(cut_bkbs_ast);
+  memory->destroy(b_bkbs);
+  memory->destroy(cut_bkbs_c);
+  memory->destroy(lj1_bkbs);
+  memory->destroy(lj2_bkbs);
+  memory->destroy(cutsq_bkbs_ast);
+  memory->destroy(cutsq_bkbs_c);
 
-  memory->destroy(epsilon_bb);
-  memory->destroy(sigma_bb);
-  memory->destroy(cut_bb_ast);
-  memory->destroy(b_bb);
-  memory->destroy(cut_bb_c);
-  memory->destroy(lj1_bb);
-  memory->destroy(lj2_bb);
-  memory->destroy(cutsq_bb_ast);
-  memory->destroy(cutsq_bb_c);
+  memory->destroy(epsilon_bsbs);
+  memory->destroy(sigma_bsbs);
+  memory->destroy(cut_bsbs_ast);
+  memory->destroy(b_bsbs);
+  memory->destroy(cut_bsbs_c);
+  memory->destroy(lj1_bsbs);
+  memory->destroy(lj2_bsbs);
+  memory->destroy(cutsq_bsbs_ast);
+  memory->destroy(cutsq_bsbs_c);
 
   memory->destroy(nx);
   memory->destroy(ny);
   memory->destroy(nz);
 
   // destory tetramer-dependent coefficients - not used from models <oxdna3
-  memory->destroy(sigma4_sb);
-  memory->destroy(cut4_sb_ast);
-  memory->destroy(cut4sq_sb_ast);
-  memory->destroy(lj14_sb);
-  memory->destroy(lj24_sb);
-  memory->destroy(b4_sb);
-  memory->destroy(cut4_sb_c);
-  memory->destroy(cut4sq_sb_c);
-  memory->destroy(sigma4_bb);
-  memory->destroy(cut4_bb_ast);
-  memory->destroy(cut4sq_bb_ast);
-  memory->destroy(lj14_bb);
-  memory->destroy(lj24_bb);
-  memory->destroy(b4_bb);
-  memory->destroy(cut4_bb_c);
-  memory->destroy(cut4sq_bb_c);
+  memory->destroy(sigma4_bsbs);
+  memory->destroy(cut4_bsbs_ast);
+  memory->destroy(cut4sq_bsbs_ast);
+  memory->destroy(lj14_bsbs);
+  memory->destroy(lj24_bsbs);
+  memory->destroy(b4_bsbs);
+  memory->destroy(cut4_bsbs_c);
+  memory->destroy(cut4sq_bsbs_c);
 
   // only create relevant kokkos views - ie, everything but the tetramer-dependent coefficients
-  memoryKK->create_kokkos(k_epsilon_ss,epsilon_ss,n+1,n+1,"PairOxdnaExcv:epsilon_ss");
-  memoryKK->create_kokkos(k_sigma_ss,sigma_ss,n+1,n+1,"PairOxdnaExcv:sigma_ss");
-  memoryKK->create_kokkos(k_cut_ss_ast,cut_ss_ast,n+1,n+1,"PairOxdnaExcv:cut_ss_ast");
-  memoryKK->create_kokkos(k_b_ss,b_ss,n+1,n+1,"PairOxdnaExcv:b_ss");
-  memoryKK->create_kokkos(k_cut_ss_c,cut_ss_c,n+1,n+1,"PairOxdnaExcv:cut_ss_c");
-  memoryKK->create_kokkos(k_lj1_ss,lj1_ss,n+1,n+1,"PairOxdnaExcv:lj1_ss");
-  memoryKK->create_kokkos(k_lj2_ss,lj2_ss,n+1,n+1,"PairOxdnaExcv:lj2_ss");
-  memoryKK->create_kokkos(k_cutsq_ss_ast,cutsq_ss_ast,n+1,n+1,"PairOxdnaExcv:cutsq_ss_ast");
-  memoryKK->create_kokkos(k_cutsq_ss_c,cutsq_ss_c,n+1,n+1,"PairOxdnaExcv:cutsq_ss_c");
+  memoryKK->create_kokkos(k_epsilon_bkbk,epsilon_bkbk,n+1,n+1,"PairOxdnaExcv:epsilon_bkbk");
+  memoryKK->create_kokkos(k_sigma_bkbk,sigma_bkbk,n+1,n+1,"PairOxdnaExcv:sigma_bkbk");
+  memoryKK->create_kokkos(k_cut_bkbk_ast,cut_bkbk_ast,n+1,n+1,"PairOxdnaExcv:cut_bkbk_ast");
+  memoryKK->create_kokkos(k_b_bkbk,b_bkbk,n+1,n+1,"PairOxdnaExcv:b_bkbk");
+  memoryKK->create_kokkos(k_cut_bkbk_c,cut_bkbk_c,n+1,n+1,"PairOxdnaExcv:cut_bkbk_c");
+  memoryKK->create_kokkos(k_lj1_bkbk,lj1_bkbk,n+1,n+1,"PairOxdnaExcv:lj1_bkbk");
+  memoryKK->create_kokkos(k_lj2_bkbk,lj2_bkbk,n+1,n+1,"PairOxdnaExcv:lj2_bkbk");
+  memoryKK->create_kokkos(k_cutsq_bkbk_ast,cutsq_bkbk_ast,n+1,n+1,"PairOxdnaExcv:cutsq_bkbk_ast");
+  memoryKK->create_kokkos(k_cutsq_bkbk_c,cutsq_bkbk_c,n+1,n+1,"PairOxdnaExcv:cutsq_bkbk_c");
 
-  memoryKK->create_kokkos(k_epsilon_sb,epsilon_sb,n+1,n+1,"PairOxdnaExcv:epsilon_sb");
-  memoryKK->create_kokkos(k_sigma_sb,sigma_sb,n+1,n+1,"PairOxdnaExcv:sigma_sb");
-  memoryKK->create_kokkos(k_cut_sb_ast,cut_sb_ast,n+1,n+1,"PairOxdnaExcv:cut_sb_ast");
-  memoryKK->create_kokkos(k_b_sb,b_sb,n+1,n+1,"PairOxdnaExcv:b_sb");
-  memoryKK->create_kokkos(k_cut_sb_c,cut_sb_c,n+1,n+1,"PairOxdnaExcv:cut_sb_c");
-  memoryKK->create_kokkos(k_lj1_sb,lj1_sb,n+1,n+1,"PairOxdnaExcv:lj1_sb");
-  memoryKK->create_kokkos(k_lj2_sb,lj2_sb,n+1,n+1,"PairOxdnaExcv:lj2_sb");
-  memoryKK->create_kokkos(k_cutsq_sb_ast,cutsq_sb_ast,n+1,n+1,"PairOxdnaExcv:cutsq_sb_ast");
-  memoryKK->create_kokkos(k_cutsq_sb_c,cutsq_sb_c,n+1,n+1,"PairOxdnaExcv:cutsq_sb_c");
+  memoryKK->create_kokkos(k_epsilon_bkbs,epsilon_bkbs,n+1,n+1,"PairOxdnaExcv:epsilon_bkbs");
+  memoryKK->create_kokkos(k_sigma_bkbs,sigma_bkbs,n+1,n+1,"PairOxdnaExcv:sigma_bkbs");
+  memoryKK->create_kokkos(k_cut_bkbs_ast,cut_bkbs_ast,n+1,n+1,"PairOxdnaExcv:cut_bkbs_ast");
+  memoryKK->create_kokkos(k_b_bkbs,b_bkbs,n+1,n+1,"PairOxdnaExcv:b_bkbs");
+  memoryKK->create_kokkos(k_cut_bkbs_c,cut_bkbs_c,n+1,n+1,"PairOxdnaExcv:cut_bkbs_c");
+  memoryKK->create_kokkos(k_lj1_bkbs,lj1_bkbs,n+1,n+1,"PairOxdnaExcv:lj1_bkbs");
+  memoryKK->create_kokkos(k_lj2_bkbs,lj2_bkbs,n+1,n+1,"PairOxdnaExcv:lj2_bkbs");
+  memoryKK->create_kokkos(k_cutsq_bkbs_ast,cutsq_bkbs_ast,n+1,n+1,"PairOxdnaExcv:cutsq_bkbs_ast");
+  memoryKK->create_kokkos(k_cutsq_bkbs_c,cutsq_bkbs_c,n+1,n+1,"PairOxdnaExcv:cutsq_bkbs_c");
 
-  memoryKK->create_kokkos(k_epsilon_bb,epsilon_bb,n+1,n+1,"PairOxdnaExcv:epsilon_bb");
-  memoryKK->create_kokkos(k_sigma_bb,sigma_bb,n+1,n+1,"PairOxdnaExcv:sigma_bb");
-  memoryKK->create_kokkos(k_cut_bb_ast,cut_bb_ast,n+1,n+1,"PairOxdnaExcv:cut_bb_ast");
-  memoryKK->create_kokkos(k_b_bb,b_bb,n+1,n+1,"PairOxdnaExcv:b_bb");
-  memoryKK->create_kokkos(k_cut_bb_c,cut_bb_c,n+1,n+1,"PairOxdnaExcv:cut_bb_c");
-  memoryKK->create_kokkos(k_lj1_bb,lj1_bb,n+1,n+1,"PairOxdnaExcv:lj1_bb");
-  memoryKK->create_kokkos(k_lj2_bb,lj2_bb,n+1,n+1,"PairOxdnaExcv:lj2_bb");
-  memoryKK->create_kokkos(k_cutsq_bb_ast,cutsq_bb_ast,n+1,n+1,"PairOxdnaExcv:cutsq_bb_ast");
-  memoryKK->create_kokkos(k_cutsq_bb_c,cutsq_bb_c,n+1,n+1,"PairOxdnaExcv:cutsq_bb_c");
+  memoryKK->create_kokkos(k_epsilon_bsbs,epsilon_bsbs,n+1,n+1,"PairOxdnaExcv:epsilon_bsbs");
+  memoryKK->create_kokkos(k_sigma_bsbs,sigma_bsbs,n+1,n+1,"PairOxdnaExcv:sigma_bsbs");
+  memoryKK->create_kokkos(k_cut_bsbs_ast,cut_bsbs_ast,n+1,n+1,"PairOxdnaExcv:cut_bsbs_ast");
+  memoryKK->create_kokkos(k_b_bsbs,b_bsbs,n+1,n+1,"PairOxdnaExcv:b_bsbs");
+  memoryKK->create_kokkos(k_cut_bsbs_c,cut_bsbs_c,n+1,n+1,"PairOxdnaExcv:cut_bsbs_c");
+  memoryKK->create_kokkos(k_lj1_bsbs,lj1_bsbs,n+1,n+1,"PairOxdnaExcv:lj1_bsbs");
+  memoryKK->create_kokkos(k_lj2_bsbs,lj2_bsbs,n+1,n+1,"PairOxdnaExcv:lj2_bsbs");
+  memoryKK->create_kokkos(k_cutsq_bsbs_ast,cutsq_bsbs_ast,n+1,n+1,"PairOxdnaExcv:cutsq_bsbs_ast");
+  memoryKK->create_kokkos(k_cutsq_bsbs_c,cutsq_bsbs_c,n+1,n+1,"PairOxdnaExcv:cutsq_bsbs_c");
 
   memoryKK->create_kokkos(k_nx,nx,atom->nmax,3,"PairOxdnaExcv:nx");
   memoryKK->create_kokkos(k_ny,ny,atom->nmax,3,"PairOxdnaExcv:ny");
   memoryKK->create_kokkos(k_nz,nz,atom->nmax,3,"PairOxdnaExcv:nz");
 
-  d_epsilon_ss = k_epsilon_ss.template view<DeviceType>();
-  d_sigma_ss = k_sigma_ss.template view<DeviceType>();
-  d_cut_ss_ast = k_cut_ss_ast.template view<DeviceType>();
-  d_b_ss = k_b_ss.template view<DeviceType>();
-  d_cut_ss_c = k_cut_ss_c.template view<DeviceType>();
-  d_lj1_ss = k_lj1_ss.template view<DeviceType>();
-  d_lj2_ss = k_lj2_ss.template view<DeviceType>();
-  d_cutsq_ss_ast = k_cutsq_ss_ast.template view<DeviceType>();
-  d_cutsq_ss_c = k_cutsq_ss_c.template view<DeviceType>();
+  d_epsilon_bkbk = k_epsilon_bkbk.template view<DeviceType>();
+  d_sigma_bkbk = k_sigma_bkbk.template view<DeviceType>();
+  d_cut_bkbk_ast = k_cut_bkbk_ast.template view<DeviceType>();
+  d_b_bkbk = k_b_bkbk.template view<DeviceType>();
+  d_cut_bkbk_c = k_cut_bkbk_c.template view<DeviceType>();
+  d_lj1_bkbk = k_lj1_bkbk.template view<DeviceType>();
+  d_lj2_bkbk = k_lj2_bkbk.template view<DeviceType>();
+  d_cutsq_bkbk_ast = k_cutsq_bkbk_ast.template view<DeviceType>();
+  d_cutsq_bkbk_c = k_cutsq_bkbk_c.template view<DeviceType>();
 
-  d_epsilon_sb = k_epsilon_sb.template view<DeviceType>();
-  d_sigma_sb = k_sigma_sb.template view<DeviceType>();
-  d_cut_sb_ast = k_cut_sb_ast.template view<DeviceType>();
-  d_b_sb = k_b_sb.template view<DeviceType>();
-  d_cut_sb_c = k_cut_sb_c.template view<DeviceType>();
-  d_lj1_sb = k_lj1_sb.template view<DeviceType>();
-  d_lj2_sb = k_lj2_sb.template view<DeviceType>();
-  d_cutsq_sb_ast = k_cutsq_sb_ast.template view<DeviceType>();
-  d_cutsq_sb_c = k_cutsq_sb_c.template view<DeviceType>();
+  d_epsilon_bkbs = k_epsilon_bkbs.template view<DeviceType>();
+  d_sigma_bkbs = k_sigma_bkbs.template view<DeviceType>();
+  d_cut_bkbs_ast = k_cut_bkbs_ast.template view<DeviceType>();
+  d_b_bkbs = k_b_bkbs.template view<DeviceType>();
+  d_cut_bkbs_c = k_cut_bkbs_c.template view<DeviceType>();
+  d_lj1_bkbs = k_lj1_bkbs.template view<DeviceType>();
+  d_lj2_bkbs = k_lj2_bkbs.template view<DeviceType>();
+  d_cutsq_bkbs_ast = k_cutsq_bkbs_ast.template view<DeviceType>();
+  d_cutsq_bkbs_c = k_cutsq_bkbs_c.template view<DeviceType>();
 
-  d_epsilon_bb = k_epsilon_bb.template view<DeviceType>();
-  d_sigma_bb = k_sigma_bb.template view<DeviceType>();
-  d_cut_bb_ast = k_cut_bb_ast.template view<DeviceType>();
-  d_b_bb = k_b_bb.template view<DeviceType>();
-  d_cut_bb_c = k_cut_bb_c.template view<DeviceType>();
-  d_lj1_bb = k_lj1_bb.template view<DeviceType>();
-  d_lj2_bb = k_lj2_bb.template view<DeviceType>();
-  d_cutsq_bb_ast = k_cutsq_bb_ast.template view<DeviceType>();
-  d_cutsq_bb_c = k_cutsq_bb_c.template view<DeviceType>();
+  d_epsilon_bsbs = k_epsilon_bsbs.template view<DeviceType>();
+  d_sigma_bsbs = k_sigma_bsbs.template view<DeviceType>();
+  d_cut_bsbs_ast = k_cut_bsbs_ast.template view<DeviceType>();
+  d_b_bsbs = k_b_bsbs.template view<DeviceType>();
+  d_cut_bsbs_c = k_cut_bsbs_c.template view<DeviceType>();
+  d_lj1_bsbs = k_lj1_bsbs.template view<DeviceType>();
+  d_lj2_bsbs = k_lj2_bsbs.template view<DeviceType>();
+  d_cutsq_bsbs_ast = k_cutsq_bsbs_ast.template view<DeviceType>();
+  d_cutsq_bsbs_c = k_cutsq_bsbs_c.template view<DeviceType>();
 
   d_nx = k_nx.template view<DeviceType>();
   d_ny = k_ny.template view<DeviceType>();
@@ -1020,67 +1012,67 @@ double PairOxdnaExcvKokkos<DeviceType>::init_one(int i, int j)
 {
   double cutone = PairOxdnaExcv::init_one(i,j);
 
-  k_epsilon_ss.h_view(i,j) = k_epsilon_ss.h_view(j,i) = epsilon_ss[i][j];
-  k_sigma_ss.h_view(i,j) = k_sigma_ss.h_view(j,i) = sigma_ss[i][j];
-  k_cut_ss_ast.h_view(i,j) = k_cut_ss_ast.h_view(j,i) = cut_ss_ast[i][j];
-  k_b_ss.h_view(i,j) = k_b_ss.h_view(j,i) = b_ss[i][j];
-  k_cut_ss_c.h_view(i,j) = k_cut_ss_c.h_view(j,i) = cut_ss_c[i][j];
-  k_lj1_ss.h_view(i,j) = k_lj1_ss.h_view(j,i) = lj1_ss[i][j];
-  k_lj2_ss.h_view(i,j) = k_lj2_ss.h_view(j,i) = lj2_ss[i][j];
-  k_cutsq_ss_ast.h_view(i,j) = k_cutsq_ss_ast.h_view(j,i) = cutsq_ss_ast[i][j];
-  k_cutsq_ss_c.h_view(i,j) = k_cutsq_ss_c.h_view(j,i) = cutsq_ss_c[i][j];
+  k_epsilon_bkbk.h_view(i,j) = k_epsilon_bkbk.h_view(j,i) = epsilon_bkbk[i][j];
+  k_sigma_bkbk.h_view(i,j) = k_sigma_bkbk.h_view(j,i) = sigma_bkbk[i][j];
+  k_cut_bkbk_ast.h_view(i,j) = k_cut_bkbk_ast.h_view(j,i) = cut_bkbk_ast[i][j];
+  k_b_bkbk.h_view(i,j) = k_b_bkbk.h_view(j,i) = b_bkbk[i][j];
+  k_cut_bkbk_c.h_view(i,j) = k_cut_bkbk_c.h_view(j,i) = cut_bkbk_c[i][j];
+  k_lj1_bkbk.h_view(i,j) = k_lj1_bkbk.h_view(j,i) = lj1_bkbk[i][j];
+  k_lj2_bkbk.h_view(i,j) = k_lj2_bkbk.h_view(j,i) = lj2_bkbk[i][j];
+  k_cutsq_bkbk_ast.h_view(i,j) = k_cutsq_bkbk_ast.h_view(j,i) = cutsq_bkbk_ast[i][j];
+  k_cutsq_bkbk_c.h_view(i,j) = k_cutsq_bkbk_c.h_view(j,i) = cutsq_bkbk_c[i][j];
 
-  k_epsilon_sb.h_view(i,j) = k_epsilon_sb.h_view(j,i) = epsilon_sb[i][j];
-  k_sigma_sb.h_view(i,j) = k_sigma_sb.h_view(j,i) = sigma_sb[i][j];
-  k_cut_sb_ast.h_view(i,j) = k_cut_sb_ast.h_view(j,i) = cut_sb_ast[i][j];
-  k_b_sb.h_view(i,j) = k_b_sb.h_view(j,i) = b_sb[i][j];
-  k_cut_sb_c.h_view(i,j) = k_cut_sb_c.h_view(j,i) = cut_sb_c[i][j];
-  k_lj1_sb.h_view(i,j) = k_lj1_sb.h_view(j,i) = lj1_sb[i][j];
-  k_lj2_sb.h_view(i,j) = k_lj2_sb.h_view(j,i) = lj2_sb[i][j];
-  k_cutsq_sb_ast.h_view(i,j) = k_cutsq_sb_ast.h_view(j,i) = cutsq_sb_ast[i][j];
-  k_cutsq_sb_c.h_view(i,j) = k_cutsq_sb_c.h_view(j,i) = cutsq_sb_c[i][j];
+  k_epsilon_bkbs.h_view(i,j) = k_epsilon_bkbs.h_view(j,i) = epsilon_bkbs[i][j];
+  k_sigma_bkbs.h_view(i,j) = k_sigma_bkbs.h_view(j,i) = sigma_bkbs[i][j];
+  k_cut_bkbs_ast.h_view(i,j) = k_cut_bkbs_ast.h_view(j,i) = cut_bkbs_ast[i][j];
+  k_b_bkbs.h_view(i,j) = k_b_bkbs.h_view(j,i) = b_bkbs[i][j];
+  k_cut_bkbs_c.h_view(i,j) = k_cut_bkbs_c.h_view(j,i) = cut_bkbs_c[i][j];
+  k_lj1_bkbs.h_view(i,j) = k_lj1_bkbs.h_view(j,i) = lj1_bkbs[i][j];
+  k_lj2_bkbs.h_view(i,j) = k_lj2_bkbs.h_view(j,i) = lj2_bkbs[i][j];
+  k_cutsq_bkbs_ast.h_view(i,j) = k_cutsq_bkbs_ast.h_view(j,i) = cutsq_bkbs_ast[i][j];
+  k_cutsq_bkbs_c.h_view(i,j) = k_cutsq_bkbs_c.h_view(j,i) = cutsq_bkbs_c[i][j];
 
-  k_epsilon_bb.h_view(i,j) = k_epsilon_bb.h_view(j,i) = epsilon_bb[i][j];
-  k_sigma_bb.h_view(i,j) = k_sigma_bb.h_view(j,i) = sigma_bb[i][j];
-  k_cut_bb_ast.h_view(i,j) = k_cut_bb_ast.h_view(j,i) = cut_bb_ast[i][j];
-  k_b_bb.h_view(i,j) = k_b_bb.h_view(j,i) = b_bb[i][j];
-  k_cut_bb_c.h_view(i,j) = k_cut_bb_c.h_view(j,i) = cut_bb_c[i][j];
-  k_lj1_bb.h_view(i,j) = k_lj1_bb.h_view(j,i) = lj1_bb[i][j];
-  k_lj2_bb.h_view(i,j) = k_lj2_bb.h_view(j,i) = lj2_bb[i][j];
-  k_cutsq_bb_ast.h_view(i,j) = k_cutsq_bb_ast.h_view(j,i) = cutsq_bb_ast[i][j];
-  k_cutsq_bb_c.h_view(i,j) = k_cutsq_bb_c.h_view(j,i) = cutsq_bb_c[i][j];
+  k_epsilon_bsbs.h_view(i,j) = k_epsilon_bsbs.h_view(j,i) = epsilon_bsbs[i][j];
+  k_sigma_bsbs.h_view(i,j) = k_sigma_bsbs.h_view(j,i) = sigma_bsbs[i][j];
+  k_cut_bsbs_ast.h_view(i,j) = k_cut_bsbs_ast.h_view(j,i) = cut_bsbs_ast[i][j];
+  k_b_bsbs.h_view(i,j) = k_b_bsbs.h_view(j,i) = b_bsbs[i][j];
+  k_cut_bsbs_c.h_view(i,j) = k_cut_bsbs_c.h_view(j,i) = cut_bsbs_c[i][j];
+  k_lj1_bsbs.h_view(i,j) = k_lj1_bsbs.h_view(j,i) = lj1_bsbs[i][j];
+  k_lj2_bsbs.h_view(i,j) = k_lj2_bsbs.h_view(j,i) = lj2_bsbs[i][j];
+  k_cutsq_bsbs_ast.h_view(i,j) = k_cutsq_bsbs_ast.h_view(j,i) = cutsq_bsbs_ast[i][j];
+  k_cutsq_bsbs_c.h_view(i,j) = k_cutsq_bsbs_c.h_view(j,i) = cutsq_bsbs_c[i][j];
 
-  k_epsilon_ss.template modify<LMPHostType>();
-  k_sigma_ss.template modify<LMPHostType>();
-  k_cut_ss_ast.template modify<LMPHostType>();
-  k_b_ss.template modify<LMPHostType>();
-  k_cut_ss_c.template modify<LMPHostType>();
-  k_lj1_ss.template modify<LMPHostType>();
-  k_lj2_ss.template modify<LMPHostType>();
-  k_cutsq_ss_ast.template modify<LMPHostType>();
-  k_cutsq_ss_c.template modify<LMPHostType>();
+  k_epsilon_bkbk.template modify<LMPHostType>();
+  k_sigma_bkbk.template modify<LMPHostType>();
+  k_cut_bkbk_ast.template modify<LMPHostType>();
+  k_b_bkbk.template modify<LMPHostType>();
+  k_cut_bkbk_c.template modify<LMPHostType>();
+  k_lj1_bkbk.template modify<LMPHostType>();
+  k_lj2_bkbk.template modify<LMPHostType>();
+  k_cutsq_bkbk_ast.template modify<LMPHostType>();
+  k_cutsq_bkbk_c.template modify<LMPHostType>();
 
-  k_epsilon_sb.template modify<LMPHostType>();
-  k_sigma_sb.template modify<LMPHostType>();
-  k_cut_sb_ast.template modify<LMPHostType>();
-  k_b_sb.template modify<LMPHostType>();
-  k_cut_sb_c.template modify<LMPHostType>();
-  k_lj1_sb.template modify<LMPHostType>();
-  k_lj2_sb.template modify<LMPHostType>();
-  k_cutsq_sb_ast.template modify<LMPHostType>();
-  k_cutsq_sb_c.template modify<LMPHostType>();
+  k_epsilon_bkbs.template modify<LMPHostType>();
+  k_sigma_bkbs.template modify<LMPHostType>();
+  k_cut_bkbs_ast.template modify<LMPHostType>();
+  k_b_bkbs.template modify<LMPHostType>();
+  k_cut_bkbs_c.template modify<LMPHostType>();
+  k_lj1_bkbs.template modify<LMPHostType>();
+  k_lj2_bkbs.template modify<LMPHostType>();
+  k_cutsq_bkbs_ast.template modify<LMPHostType>();
+  k_cutsq_bkbs_c.template modify<LMPHostType>();
 
-  k_epsilon_bb.template modify<LMPHostType>();
-  k_sigma_bb.template modify<LMPHostType>();
-  k_cut_bb_ast.template modify<LMPHostType>();
-  k_b_bb.template modify<LMPHostType>();
-  k_cut_bb_c.template modify<LMPHostType>();
-  k_lj1_bb.template modify<LMPHostType>();
-  k_lj2_bb.template modify<LMPHostType>();
-  k_cutsq_bb_ast.template modify<LMPHostType>();
-  k_cutsq_bb_c.template modify<LMPHostType>();
+  k_epsilon_bsbs.template modify<LMPHostType>();
+  k_sigma_bsbs.template modify<LMPHostType>();
+  k_cut_bsbs_ast.template modify<LMPHostType>();
+  k_b_bsbs.template modify<LMPHostType>();
+  k_cut_bsbs_c.template modify<LMPHostType>();
+  k_lj1_bsbs.template modify<LMPHostType>();
+  k_lj2_bsbs.template modify<LMPHostType>();
+  k_cutsq_bsbs_ast.template modify<LMPHostType>();
+  k_cutsq_bsbs_c.template modify<LMPHostType>();
 
-  // "cutone" is "cut_ss_c[i][j]", sets the master list distance cutoff
+  // "cutone" is "cut_bkbk_c[i][j]", sets the master list distance cutoff
   return cutone;
 
 }
