@@ -21,13 +21,34 @@ PairStyle(oxdna3/hbond,PairOxdna3Hbond);
 #define LMP_PAIR_OXDNA3_HBOND_H
 
 #include "pair_oxdna_hbond.h"
+#include "nucleotide_oxdna.h"
 
 namespace LAMMPS_NS {
 
 class PairOxdna3Hbond : public PairOxdnaHbond {
  public:
-  PairOxdna3Hbond(class LAMMPS *lmp) : PairOxdnaHbond(lmp) {}
-  void compute_base_site(int, double *, double *, double *, double *) const override;
+  PairOxdna3Hbond(class LAMMPS *lmp);
+  // inline below has to be here in the header file, otherwise KOKKOS 
+  // compilation fails due to undefined vtable symbols.
+  inline void compute_base_site(int type, double e1[3],
+   double /*e2*/[3], double /*e3*/[3], double rbs[3]) const override
+  {
+   NucleotideOxdna3 oxdna3;
+   switch (type) {
+     case 0:
+       oxdna3.base_site<0>(e1, NULL, NULL, rbs);
+       break;
+     case 1:
+       oxdna3.base_site<1>(e1, NULL, NULL, rbs);
+       break;
+     case 2:
+       oxdna3.base_site<2>(e1, NULL, NULL, rbs);
+       break;
+     case 3:
+       oxdna3.base_site<3>(e1, NULL, NULL, rbs);
+       break;
+   }
+  };
   void coeff(int, char **) override;
 };
 

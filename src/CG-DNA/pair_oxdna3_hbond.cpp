@@ -16,7 +16,6 @@
 ------------------------------------------------------------------------- */
 
 #include "pair_oxdna3_hbond.h"
-#include "nucleotide_oxdna.h"
 
 #include "atom.h"
 #include "comm.h"
@@ -35,29 +34,33 @@
 using namespace LAMMPS_NS;
 using namespace MFOxdna;
 
-/* --------------------------------------------------------------
-   compute vector COM-hydrogen bonding interaction site in oxDNA3
-   A=1, C=2, G=3, T=0
------------------------------------------------------------------ */
-inline void PairOxdna3Hbond::compute_base_site(int type, double e1[3],
-  double /*e2*/[3], double /*e3*/[3], double rbs[3]) const
-{
+/* ---------------------------------------------------------------------- */
 
-  NucleotideOxdna3 oxdna3;
-  switch (type) {
-    case 0:
-      oxdna3.base_site<0>(e1, NULL, NULL, rbs);
-      break;
-    case 1:
-      oxdna3.base_site<1>(e1, NULL, NULL, rbs);
-      break;
-    case 2:
-      oxdna3.base_site<2>(e1, NULL, NULL, rbs);
-      break;
-    case 3:
-      oxdna3.base_site<3>(e1, NULL, NULL, rbs);
-      break;
-  }
+PairOxdna3Hbond::PairOxdna3Hbond(LAMMPS *lmp) : PairOxdnaHbond(lmp)
+{
+  // sequence-specific base-pairing strength
+  // A:0 C:1 G:2 T:3, 5'- [i][j] -3'
+
+  alpha_hb[0][0] = 1.00000;
+  alpha_hb[0][1] = 1.00000;
+  alpha_hb[0][2] = 1.00000;
+  alpha_hb[0][3] = 0.7802615690353366;
+
+  alpha_hb[1][0] = 1.00000;
+  alpha_hb[1][1] = 1.00000;
+  alpha_hb[1][2] = 1.1239661354569166;
+  alpha_hb[1][3] = 1.00000;
+
+  alpha_hb[2][0] = 1.00000;
+  alpha_hb[2][1] = 1.1239661354569166;
+  alpha_hb[2][2] = 1.00000;
+  alpha_hb[2][3] = 1.00000;
+
+  alpha_hb[3][0] = 0.7802615690353366;
+  alpha_hb[3][1] = 1.00000;
+  alpha_hb[3][2] = 1.00000;
+  alpha_hb[3][3] = 1.00000;
+
 }
 
 /* ----------------------------------------------------------------------

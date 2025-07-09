@@ -21,13 +21,22 @@ BondStyle(oxrna2/fene,BondOxrna2Fene);
 #define LMP_BOND_OXRNA2_FENE_H
 
 #include "bond_oxdna_fene.h"
+#include "constants_oxdna.h"
+#include "nucleotide_oxdna.h"
 
 namespace LAMMPS_NS {
 
 class BondOxrna2Fene : public BondOxdnaFene {
  public:
   BondOxrna2Fene(class LAMMPS *lmp) : BondOxdnaFene(lmp) {}
-  void compute_backbone_site(double *, double *, double *, double *) const override;
+  // inline below has to be here in the header file, otherwise KOKKOS 
+  // compilation fails due to undefined vtable symbols.
+  inline void compute_backbone_site(double e1[3], double /*e2*/[3],
+   double e3[3], double rbk[3]) const
+  {
+   NucleotideOxrna2 oxrna2;
+   oxrna2.backbone_site(e1, NULL, e3, rbk);
+  }
 };
 
 }    // namespace LAMMPS_NS

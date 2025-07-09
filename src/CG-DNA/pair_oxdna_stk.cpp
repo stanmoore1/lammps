@@ -364,8 +364,7 @@ void PairOxdnaStk::compute(int eflag, int vflag)
     f1 = F1(r_stkstk, epsilon_st[atype][btype], a_st[atype][btype], cut_st_0[a3ptype][atype][btype][b5ptype],
         cut_st_lc[a3ptype][atype][btype][b5ptype], cut_st_hc[a3ptype][atype][btype][b5ptype],
         cut_st_lo[a3ptype][atype][btype][b5ptype], cut_st_hi[a3ptype][atype][btype][b5ptype],
-        b_st_lo[a3ptype][atype][btype][b5ptype], b_st_hi[a3ptype][atype][btype][b5ptype],
-        shift_st[a3ptype][atype][btype][b5ptype]);
+        b_st_lo[atype][btype], b_st_hi[atype][btype], shift_st[a3ptype][atype][btype][b5ptype]);
 
     // early rejection criterium
     if (f1 != 0.0) {
@@ -438,7 +437,7 @@ void PairOxdnaStk::compute(int eflag, int vflag)
 
     df1 = DF1(r_stkstk, epsilon_st[atype][btype], a_st[atype][btype], cut_st_0[a3ptype][atype][btype][b5ptype],
         cut_st_lc[a3ptype][atype][btype][b5ptype], cut_st_hc[a3ptype][atype][btype][b5ptype], cut_st_lo[a3ptype][atype][btype][b5ptype], 
-        cut_st_hi[a3ptype][atype][btype][b5ptype], b_st_lo[a3ptype][atype][btype][b5ptype], b_st_hi[a3ptype][atype][btype][b5ptype]);
+        cut_st_hi[a3ptype][atype][btype][b5ptype], b_st_lo[atype][btype], b_st_hi[atype][btype]);
 
     df4t4 = DF4(theta4, a_st4[a3ptype][atype][btype][b5ptype], theta_st4_0[atype][btype],
         dtheta_st4_ast[a3ptype][atype][btype][b5ptype], b_st4[a3ptype][atype][btype][b5ptype],
@@ -742,8 +741,8 @@ void PairOxdnaStk::allocate()
   memory->create(cut_st_hi,n+1,n+1,n+1,n+1,"pair:cut_st_hi");
   memory->create(cut_st_lc,n+1,n+1,n+1,n+1,"pair:cut_st_lc");
   memory->create(cut_st_hc,n+1,n+1,n+1,n+1,"pair:cut_st_hc");
-  memory->create(b_st_lo,n+1,n+1,n+1,n+1,"pair:b_st_lo");
-  memory->create(b_st_hi,n+1,n+1,n+1,n+1,"pair:b_st_hi");
+  memory->create(b_st_lo,n+1,n+1,"pair:b_st_lo");
+  memory->create(b_st_hi,n+1,n+1,"pair:b_st_hi");
   memory->create(shift_st,n+1,n+1,n+1,n+1,"pair:shift_st");
   memory->create(cutsq_st_hc,n+1,n+1,n+1,n+1,"pair:cutsq_st_hc");
 
@@ -810,7 +809,7 @@ void PairOxdnaStk::coeff(int narg, char **arg)
   if (narg != 7 && narg != 24) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/stk" + utils::errorurl(21));
   if (!allocated) allocate();
 
-  int ilo,ihi,jlo,jhi,nlo,nhi,jmod4,kmod4;
+  int ilo,ihi,jlo,jhi,nlo,nhi,imod4,jmod4,kmod4;
   utils::bounds(FLERR,arg[0],1,atom->ntypes,ilo,ihi,error);
   utils::bounds(FLERR,arg[1],1,atom->ntypes,jlo,jhi,error);
 
@@ -976,41 +975,21 @@ void PairOxdnaStk::coeff(int narg, char **arg)
   b_st2_one = a_st2_one*a_st2_one*cosphi_st2_ast_one*cosphi_st2_ast_one/(1-a_st2_one*cosphi_st2_ast_one*cosphi_st2_ast_one);
   cosphi_st2_c_one = 1/(a_st2_one*cosphi_st2_ast_one);
 
-  for (int i = 0; i <= nhi; i++) { // type 0 for terminal j
+  // parameters, uniform or depending on base step
+  for (int i = nlo; i <= nhi; i++) {
+    imod4 = i%4;
+    if (imod4 == 0) imod4 = 4;
+
     for (int j = nlo; j <= nhi; j++) {
       jmod4 = j%4;
       if (jmod4 == 0) jmod4 = 4;
 
-      for (int k = nlo; k <= nhi; k++) {
-        kmod4 = k%4;
-        if (kmod4 == 0) kmod4 = 4;
+      epsilon_st[i][j] = epsilon_st_one;
+      if (seqdepflag) epsilon_st[i][j] *= eta_st[imod4-1][jmod4-1];
 
-        epsilon_st[j][k] = epsilon_st_one;
-        if (seqdepflag) epsilon_st[j][k] *= eta_st[jmod4-1][kmod4-1];
-        a_st[j][k] = a_st_one;
-
-      // parameters depending on tetramer
-        for (int l = 0; l <= nhi; l++) { // type 0 for terminal k
-          cut_st_0[i][j][k][l] = cut_st_0_one;
-          cut_st_c[i][j][k][l] = cut_st_c_one;
-          cut_st_lo[i][j][k][l] = cut_st_lo_one;
-          cut_st_hi[i][j][k][l] = cut_st_hi_one;
-          cut_st_lc[i][j][k][l] = cut_st_lc_one;
-          cut_st_hc[i][j][k][l] = cut_st_hc_one;
-          cutsq_st_hc[i][j][k][l] = cut_st_hc[i][j][k][l]*cut_st_hc[i][j][k][l];
-          b_st_lo[i][j][k][l] = b_st_lo_one;
-          b_st_hi[i][j][k][l] = b_st_hi_one;
-          shift_st[i][j][k][l] = shift_st_one;
-          if (seqdepflag) {
-            shift_st[i][j][k][l] *= eta_st[jmod4-1][kmod4-1];
-          }
-
-          a_st4[i][j][k][l] = a_st4_one;
-          dtheta_st4_ast[i][j][k][l] = dtheta_st4_ast_one;
-          b_st4[i][j][k][l] = b_st4_one;
-          dtheta_st4_c[i][j][k][l] = dtheta_st4_c_one;
-        }
-      }
+      a_st[i][j] = a_st_one;
+      b_st_lo[i][j] = b_st_lo_one;
+      b_st_hi[i][j] = b_st_hi_one;
 
       theta_st4_0[i][j] = theta_st4_0_one;
 
@@ -1035,6 +1014,38 @@ void PairOxdnaStk::coeff(int narg, char **arg)
       cosphi_st2_ast[i][j] = cosphi_st2_ast_one;
       b_st2[i][j] = b_st2_one;
       cosphi_st2_c[i][j] = cosphi_st2_c_one;
+
+    }
+  }
+
+  // parameters depending on dummy tetramer
+  for (int i = 0; i <= nhi; i++) { // type 0 for terminal j
+    for (int j = nlo; j <= nhi; j++) {
+      jmod4 = j%4;
+      if (jmod4 == 0) jmod4 = 4;
+
+      for (int k = nlo; k <= nhi; k++) {
+        kmod4 = k%4;
+        if (kmod4 == 0) kmod4 = 4;
+
+        for (int l = 0; l <= nhi; l++) { // type 0 for terminal k
+          cut_st_0[i][j][k][l] = cut_st_0_one;
+          cut_st_c[i][j][k][l] = cut_st_c_one;
+          cut_st_lo[i][j][k][l] = cut_st_lo_one;
+          cut_st_hi[i][j][k][l] = cut_st_hi_one;
+          cut_st_lc[i][j][k][l] = cut_st_lc_one;
+          cut_st_hc[i][j][k][l] = cut_st_hc_one;
+          cutsq_st_hc[i][j][k][l] = cut_st_hc[i][j][k][l]*cut_st_hc[i][j][k][l];
+          shift_st[i][j][k][l] = shift_st_one;
+          if (seqdepflag) {
+            shift_st[i][j][k][l] *= eta_st[jmod4-1][kmod4-1];
+          }
+          a_st4[i][j][k][l] = a_st4_one;
+          dtheta_st4_ast[i][j][k][l] = dtheta_st4_ast_one;
+          b_st4[i][j][k][l] = b_st4_one;
+          dtheta_st4_c[i][j][k][l] = dtheta_st4_c_one;
+        }
+      }
 
       setflag[i][j] = 1;
       count++;
@@ -1083,7 +1094,15 @@ double PairOxdnaStk::init_one(int i, int j)
   }
 
   // set the master list distance cutoff
-  return cut_st_hc[0][i][j][0];
+  double cut_max=0.0;
+
+  for (int a=0; a<atom->ntypes; a++) {
+    for (int b=0; b<atom->ntypes; b++) {
+      cut_max = MAX(cut_st_hc[a][i][j][b],cut_max);
+    }
+  }
+
+  return cut_max;
 
 }
 

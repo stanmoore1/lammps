@@ -49,9 +49,7 @@ action  nucleotide_oxdna.h
 action  atom_vec_oxdna.cpp
 action  atom_vec_oxdna.h
 action  bond_oxdna_fene.cpp bond_fene.h
-action  bond_oxdna2_fene.cpp bond_fene.h
 action  bond_oxdna3_fene.cpp bond_fene.h
-action  bond_oxrna2_fene.cpp bond_fene.h
 action  bond_oxdna_fene.h bond_fene.h
 action  bond_oxdna2_fene.h bond_fene.h
 action  bond_oxdna3_fene.h bond_fene.h
@@ -62,9 +60,7 @@ action  fix_nve_dot.cpp atom_vec_ellipsoid.h
 action  fix_nve_dot.h atom_vec_ellipsoid.h
 action  mf_oxdna.h atom_vec_ellipsoid.h
 action  pair_oxdna_excv.cpp atom_vec_ellipsoid.h
-action  pair_oxdna2_excv.cpp atom_vec_ellipsoid.h
 action  pair_oxdna3_excv.cpp atom_vec_ellipsoid.h
-action  pair_oxrna2_excv.cpp atom_vec_ellipsoid.h
 action  pair_oxdna_excv.h atom_vec_ellipsoid.h
 action  pair_oxdna2_excv.h atom_vec_ellipsoid.h
 action  pair_oxdna3_excv.h atom_vec_ellipsoid.h

@@ -16,7 +16,6 @@
 ------------------------------------------------------------------------- */
 
 #include "pair_oxdna3_excv.h"
-#include "nucleotide_oxdna.h"
 
 #include "atom.h"
 #include "comm.h"
@@ -28,31 +27,6 @@
 #include <cassert>
 
 using namespace LAMMPS_NS;
-
-/* --------------------------------------------------------------
-   compute vector COM-hydrogen bonding interaction site in oxDNA3
-   A=1, C=2, G=3, T=0
------------------------------------------------------------------ */
-inline void PairOxdna3Excv::compute_base_site(int type, double e1[3],
-  double /*e2*/[3], double /*e3*/[3], double rbs[3]) const
-{
-
-  NucleotideOxdna3 oxdna3;
-  switch (type) {
-    case 0:
-      oxdna3.base_site<0>(e1, NULL, NULL, rbs);
-      break;
-    case 1:
-      oxdna3.base_site<1>(e1, NULL, NULL, rbs);
-      break;
-    case 2:
-      oxdna3.base_site<2>(e1, NULL, NULL, rbs);
-      break;
-    case 3:
-      oxdna3.base_site<3>(e1, NULL, NULL, rbs);
-      break;
-  }
-}
 
 /* ----------------------------------------------------------------------
    set coeffs 
