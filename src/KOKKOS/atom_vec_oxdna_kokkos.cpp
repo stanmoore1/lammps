@@ -107,18 +107,18 @@ void AtomVecOxdnaKokkos::sync(ExecutionSpace space, unsigned int mask)
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecOxdnaKokkos::sync_pinned_device(ExecutionSpace space, unsigned int mask)
+void AtomVecOxdnaKokkos::sync_pinned(ExecutionSpace space, unsigned int mask, int async_flag)
 {
   if (space == Device) {
     if ((mask & BOND_MASK) && atomKK->k_id3p.need_sync<LMPDeviceType>())
-      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id3p,space);
+      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id3p,space,async_flag);
     if ((mask & BOND_MASK) && atomKK->k_id5p.need_sync<LMPDeviceType>())
-      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id5p,space);
+      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id5p,space,async_flag);
   } else {
     if ((mask & BOND_MASK) && atomKK->k_id3p.need_sync<LMPHostType>())
-      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id3p,space);
+      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id3p,space,async_flag);
     if ((mask & BOND_MASK) && atomKK->k_id5p.need_sync<LMPHostType>())
-      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id5p,space);
+      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id5p,space,async_flag);
   }
 }
 

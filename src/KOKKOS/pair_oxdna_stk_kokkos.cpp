@@ -858,8 +858,8 @@ double PairOxdnaStkKokkos<DeviceType>::init_one(int i, int j)
   k_cut_st_hi.h_view(i,j) = k_cut_st_hi.h_view(j,i) = cut_st_hi[0][i][j][0];
   k_cut_st_lc.h_view(i,j) = k_cut_st_lc.h_view(j,i) = cut_st_lc[0][i][j][0];
   k_cut_st_hc.h_view(i,j) = k_cut_st_hc.h_view(j,i) = cut_st_hc[0][i][j][0];
-  k_b_st_lo.h_view(i,j) = k_b_st_lo.h_view(j,i) = b_st_lo[0][i][j][0];
-  k_b_st_hi.h_view(i,j) = k_b_st_hi.h_view(j,i) = b_st_hi[0][i][j][0];
+  k_b_st_lo.h_view(i,j) = k_b_st_lo.h_view(j,i) = b_st_lo[i][j];
+  k_b_st_hi.h_view(i,j) = k_b_st_hi.h_view(j,i) = b_st_hi[i][j];
   k_shift_st.h_view(i,j) = k_shift_st.h_view(j,i) = shift_st[0][i][j][0];
   k_cutsq_st_hc.h_view(i,j) = k_cutsq_st_hc.h_view(j,i) = cutsq_st_hc[0][i][j][0];
 

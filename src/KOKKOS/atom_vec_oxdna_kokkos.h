@@ -60,7 +60,7 @@ class AtomVecOxdnaKokkos : public AtomVecKokkos, public AtomVecOxdna {
 
   void sync(ExecutionSpace space, unsigned int mask) override;
   void modified(ExecutionSpace space, unsigned int mask) override;
-  void sync_pinned_device(ExecutionSpace space, unsigned int mask) override;
+  void sync_pinned(ExecutionSpace space, unsigned int mask, int async_flag = 0) override;
 
  private:
    DAT::t_tagint_1d d_id3p;
