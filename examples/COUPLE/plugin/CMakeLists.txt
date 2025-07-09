@@ -28,9 +28,6 @@ if(MSVC)
 endif()
 
 find_package(MPI REQUIRED COMPONENTS C)
-# do not include the (obsolete) MPI C++ bindings which makes
-# for leaner object files and avoids namespace conflicts
-set(MPI_CXX_SKIP_MPICXX TRUE)
 
 ##########################
 

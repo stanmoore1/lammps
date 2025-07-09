@@ -28,6 +28,7 @@ gives those details.
 
    * :ref:`ADIOS <PKG-ADIOS>`
    * :ref:`AMOEBA <PKG-AMOEBA>`
+   * :ref:`APIP <PKG-APIP>`
    * :ref:`ASPHERE <PKG-ASPHERE>`
    * :ref:`ATC <PKG-ATC>`
    * :ref:`AWPMD <PKG-AWPMD>`
@@ -183,6 +184,60 @@ provided by the Ponder group in their
 * :doc:`fix amoeba/pitorsion <fix_amoeba_pitorsion>`
 * tools/tinker/tinker2lmp.py
 * ``examples/amoeba``
+
+----------
+
+.. _PKG-APIP:
+
+APIP package
+------------
+
+**Contents:**
+
+This package provides adaptive-precision interatomic potentials (APIP) as
+described in:
+
+D. Immel, R. Drautz and G. Sutmann, "Adaptive-precision potentials for
+large-scale atomistic simulations", J. Chem. Phys. 162, 114119 (2025)
+`link <immel2025_doi_>`_
+
+Adaptive-precision means, that a fast interatomic potential, such as EAM,
+is coupled to a precise interatomic potential, such as ACE.
+This package provides the required pair_styles and fixes to run an efficient,
+energy-conserving adaptive-precision simulation.
+
+In the context of this package, precision refers to the accuracy of an interatomic
+potential.
+
+.. _immel2025_doi: https://doi.org/10.1063/5.0245877
+
+**Authors:**
+
+This package was written by David Immel^1,
+Ralf Drautz^2 and Godehard Sutmann^1^2.
+
+ ^1: Forschungszentrum Juelich, Juelich, Germany
+
+ ^2: Ruhr-University Bochum, Bochum, Germany
+
+**Install:**
+
+The APIP package requires also the installation of ML-PACE, which has
+:ref:`specific installation instructions <ml-pace>` on the
+:doc:`Build extras <Build_extras>` page.
+
+**Supporting info:**
+
+* ``src/APIP``: filenames -> commands
+* :doc:`Howto APIP <Howto_apip>`
+* ``examples/PACKAGES/apip``
+* :doc:`fix atom_weight/apip <fix_atom_weight_apip>`
+* :doc:`fix lambda/apip <fix_lambda_apip>`
+* :doc:`fix lambda_thermostat/apip <fix_lambda_thermostat_apip>`
+* :doc:`pair_style eam/apip <pair_eam_apip>`
+* :doc:`pair_style lambda/zone/apip <pair_lambda_zone_apip>`
+* :doc:`pair_style lambda/input/apip <pair_lambda_input_apip>`
+* :doc:`pair_style pace/apip <pair_pace_apip>`
 
 ----------
 

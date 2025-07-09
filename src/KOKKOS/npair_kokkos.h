@@ -252,8 +252,8 @@ class NeighborKokkosExecute
 
   typename AT::t_int_scalar resize;
   typename AT::t_int_scalar new_maxneighs;
-  typename ArrayTypes<LMPHostType>::t_int_scalar h_resize;
-  typename ArrayTypes<LMPHostType>::t_int_scalar h_new_maxneighs;
+  HAT::t_int_scalar h_resize;
+  HAT::t_int_scalar h_new_maxneighs;
 
   const int xperiodic, yperiodic, zperiodic;
   const int xprd_half, yprd_half, zprd_half;
@@ -300,9 +300,9 @@ class NeighborKokkosExecute
                         const int & _xprd_half, const int & _yprd_half, const int & _zprd_half,
                         const double _skin,
                         const typename AT::t_int_scalar _resize,
-                        const typename ArrayTypes<LMPHostType>::t_int_scalar _h_resize,
+                        const HAT::t_int_scalar _h_resize,
                         const typename AT::t_int_scalar _new_maxneighs,
-                        const typename ArrayTypes<LMPHostType>::t_int_scalar _h_new_maxneighs):
+                        const HAT::t_int_scalar _h_new_maxneighs):
     neigh_list(_neigh_list),delta(_delta),cutneighsq(_cutneighsq),exclude(_exclude),
     nex_type(_nex_type),ex1_type(_ex1_type),ex2_type(_ex2_type),
     ex_type(_ex_type),nex_group(_nex_group),

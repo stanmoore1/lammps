@@ -104,10 +104,10 @@ static constexpr uint32_t MEMCPYMASK = (static_cast<uint32_t>(1) << 31) - 1U;
 
 #ifdef LAMMPS_SMALLBIG
 
-typedef int smallint;
-typedef int imageint;
-typedef int tagint;
-typedef int64_t bigint;
+using smallint = int;
+using imageint = int;
+using tagint = int;
+using bigint = int64_t;
 
 #define MAXSMALLINT INT_MAX
 #define MAXTAGINT INT_MAX
@@ -139,10 +139,10 @@ typedef int64_t bigint;
 
 #ifdef LAMMPS_BIGBIG
 
-typedef int smallint;
-typedef int64_t imageint;
-typedef int64_t tagint;
-typedef int64_t bigint;
+using smallint = int;
+using imageint = int64_t;
+using tagint = int64_t;
+using bigint = int64_t;
 
 #define MAXSMALLINT INT_MAX
 #define MAXTAGINT INT64_MAX

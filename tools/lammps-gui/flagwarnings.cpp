@@ -34,6 +34,7 @@ FlagWarnings::FlagWarnings(QLabel *label, QTextDocument *parent) :
     document(parent)
 {
     nwarnings = nlines = 0;
+    oldwarnings = oldlines = -1;
 
     formatWarning.setForeground(QColorConstants::Red);
     formatWarning.setFontWeight(QFont::Bold);
@@ -59,11 +60,15 @@ void FlagWarnings::highlightBlock(const QString &text)
         setFormat(match.capturedStart(1), match.capturedLength(1), formatURL);
     }
 
-    // update error summary label
+    // update error summary label when its content has changed
     if (document && summary) {
-        summary->setText(
-            QString("%1 Warnings / Errors - %2 Lines").arg(nwarnings).arg(document->lineCount()));
-        summary->repaint();
+        nlines = document->lineCount();
+        if ((nwarnings > oldwarnings) || (nlines > oldlines)) {
+            oldwarnings = nwarnings;
+            oldlines    = nlines;
+            summary->setText(QString("%1 Warnings / Errors - %2 Lines").arg(nwarnings).arg(nlines));
+            summary->repaint();
+        }
     }
 }
 

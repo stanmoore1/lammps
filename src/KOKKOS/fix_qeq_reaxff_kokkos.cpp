@@ -723,9 +723,9 @@ int FixQEqReaxFFKokkos<DeviceType>::cg_solve()
 {
   converged = 0;
 
-  KK_FLOAT2 tmp;
-  KK_FLOAT2 sig_old;
-  KK_FLOAT2 b_norm;
+  KK_double2 tmp;
+  KK_double2 sig_old;
+  KK_double2 b_norm;
 
   // sparse_matvec(&H, x, q);
   sparse_matvec_kokkos(d_st);
@@ -739,19 +739,19 @@ int FixQEqReaxFFKokkos<DeviceType>::cg_solve()
   // vector_sum(r , 1.,  b, -1., q, nn);
   // preconditioning: d[j] = r[j] * Hdia_inv[j];
   // b_norm = parallel_norm(b, nn);
-  KK_FLOAT2 my_norm;
+  KK_double2 my_norm;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType,TagQEqNorm1>(0,nn),*this,my_norm);
-  KK_FLOAT2 norm_sqr;
+  KK_double2 norm_sqr;
   MPI_Allreduce(&my_norm.v, &norm_sqr.v, 2, MPI_DOUBLE, MPI_SUM, world);
   b_norm.v[0] = sqrt(norm_sqr.v[0]);
   b_norm.v[1] = sqrt(norm_sqr.v[1]);
 
   // sig_new = parallel_dot(r, d, nn);
-  KK_FLOAT2 my_dot;
+  KK_double2 my_dot;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType,TagQEqDot1>(0,nn),*this,my_dot);
-  KK_FLOAT2 dot_sqr;
+  KK_double2 dot_sqr;
   MPI_Allreduce(&my_dot.v, &dot_sqr.v, 2, MPI_DOUBLE, MPI_SUM, world);
-  KK_FLOAT2 sig_new;
+  KK_double2 sig_new;
   sig_new = dot_sqr;
 
   double residual[2] = {0.0, 0.0};
@@ -826,7 +826,7 @@ int FixQEqReaxFFKokkos<DeviceType>::cg_solve()
 template<class DeviceType>
 void FixQEqReaxFFKokkos<DeviceType>::calculate_q()
 {
-  KK_FLOAT2 sum, sum_all;
+  KK_double2 sum, sum_all;
 
   // st_sum = parallel_vector_acc(st, nn);
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType,TagQEqSum2>(0,nn),*this,sum);
@@ -932,11 +932,11 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqSparseMatvec2_Half<NEIGHFL
 
     const int i = d_ilist[k];
     if (mask[i] & groupbit) {
-      KK_FLOAT2 doitmp;
+      KK_double2 doitmp;
       const KK_FLOAT d_xx_i0 = d_xx(i,0);
       const KK_FLOAT d_xx_i1 = d_xx(i,1);
 
-      Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, d_firstnbr[i], d_firstnbr[i] + d_numnbrs[i]), [&] (const bigint &jj, KK_FLOAT2& doi) {
+      Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, d_firstnbr[i], d_firstnbr[i] + d_numnbrs[i]), [&] (const bigint &jj, KK_double2& doi) {
         const int j = d_jlist(jj);
         const auto d_val_jj = d_val(jj);
         if (!(converged & 1)) {
@@ -968,8 +968,8 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqSparseMatvec2_Full, const 
   if (k < nn) {
     const int i = d_ilist[k];
     if (mask[i] & groupbit) {
-      KK_FLOAT2 doitmp;
-      Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, d_firstnbr[i], d_firstnbr[i] + d_numnbrs[i]), [&] (const bigint &jj, KK_FLOAT2& doi) {
+      KK_double2 doitmp;
+      Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, d_firstnbr[i], d_firstnbr[i] + d_numnbrs[i]), [&] (const bigint &jj, KK_double2& doi) {
         const int j = d_jlist(jj);
         const auto d_val_jj = d_val(jj);
         if (!(converged & 1))
@@ -991,7 +991,7 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqSparseMatvec2_Full, const 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqNorm1, const int &ii, KK_FLOAT2& out) const
+void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqNorm1, const int &ii, KK_double2& out) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1014,7 +1014,7 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqNorm1, const int &ii, KK_F
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqDot1, const int &ii, KK_FLOAT2& out) const
+void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqDot1, const int &ii, KK_double2& out) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1029,7 +1029,7 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqDot1, const int &ii, KK_FL
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqDot2, const int &ii, KK_FLOAT2& out) const
+void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqDot2, const int &ii, KK_double2& out) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1044,7 +1044,7 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqDot2, const int &ii, KK_FL
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqDot3, const int &ii, KK_FLOAT2& out) const
+void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqDot3, const int &ii, KK_double2& out) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1085,7 +1085,7 @@ void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqSum1, const int &ii) const
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqSum2, const int &ii, KK_FLOAT2& out) const
+void FixQEqReaxFFKokkos<DeviceType>::operator()(TagQEqSum2, const int &ii, KK_double2& out) const
 {
   const int i = d_ilist[ii];
   if (mask[i] & groupbit) {
@@ -1384,7 +1384,7 @@ int FixQEqReaxFFKokkos<DeviceType>::pack_exchange_kokkos(
   k_copylist.sync<DeviceType>();
   k_exchange_sendlist.sync<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
+  d_buf = typename AT::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_copylist = k_copylist.view<DeviceType>();
@@ -1431,7 +1431,7 @@ void FixQEqReaxFFKokkos<DeviceType>::unpack_exchange_kokkos(
   k_buf.sync<DeviceType>();
   k_indices.sync<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
+  d_buf = typename AT::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_indices = k_indices.view<DeviceType>();

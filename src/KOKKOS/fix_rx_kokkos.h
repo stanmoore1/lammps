@@ -194,8 +194,8 @@ class FixRxKokkos : public FixRX {
   int *diagnosticCounterPerODEnFuncs;
   DAT::tdual_int_1d k_diagnosticCounterPerODEnSteps;
   DAT::tdual_int_1d k_diagnosticCounterPerODEnFuncs;
-  //typename ArrayTypes<DeviceType>::t_int_1d d_diagnosticCounterPerODEnSteps;
-  //typename ArrayTypes<DeviceType>::t_int_1d d_diagnosticCounterPerODEnFuncs;
+  //typename AT::t_int_1d d_diagnosticCounterPerODEnSteps;
+  //typename AT::t_int_1d d_diagnosticCounterPerODEnFuncs;
   typename AT::t_int_1d d_diagnosticCounterPerODEnSteps;
   typename AT::t_int_1d d_diagnosticCounterPerODEnFuncs;
   HAT::t_int_1d h_diagnosticCounterPerODEnSteps;
@@ -226,7 +226,7 @@ class FixRxKokkos : public FixRX {
 
   // Need a dual-view and device-view for dpdThetaLocal and sumWeights since they're used in several callbacks.
   DAT::ttransform_kkfloat_1d k_dpdThetaLocal, k_sumWeights;
-  //typename ArrayTypes<DeviceType>::t_kkfloat_1d d_dpdThetaLocal, d_sumWeights;
+  //typename AT::t_kkfloat_1d d_dpdThetaLocal, d_sumWeights;
   typename AT::t_kkfloat_1d d_dpdThetaLocal, d_sumWeights;
   HAT::t_double_1d h_dpdThetaLocal, h_sumWeights;
 

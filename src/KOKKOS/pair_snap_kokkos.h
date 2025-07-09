@@ -78,8 +78,7 @@ class PairSNAPKokkos : public PairSNAP {
   typedef ArrayTypes<DeviceType> AT;
   typedef EV_FLOAT value_type;
 
-  static constexpr LAMMPS_NS::ExecutionSpace execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
-  static constexpr int host_flag = (execution_space == LAMMPS_NS::HostKK);
+  static constexpr int host_flag = (ExecutionSpaceFromDevice<DeviceType>::space == LAMMPS_NS::HostKK);
   static constexpr int vector_length = vector_length_;
   using real_type = real_type_;
   using complex = SNAComplex<real_type>;
@@ -341,7 +340,7 @@ class PairSNAPKokkos : public PairSNAP {
   t_fparams_rnd rnd_cutsq;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_int_1d_randomread type;
 
   int need_dup;
@@ -354,10 +353,10 @@ class PairSNAPKokkos : public PairSNAP {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout> dup_f;
+  DupScatterView<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout> dup_f;
   DupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
 
-  NonDupScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout> ndup_f;
+  NonDupScatterView<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout> ndup_f;
   NonDupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
 
   friend void pair_virial_fdotr_compute<PairSNAPKokkos>(PairSNAPKokkos*);

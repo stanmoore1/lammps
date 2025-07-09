@@ -189,7 +189,7 @@ FixRHEOThermal::FixRHEOThermal(LAMMPS *lmp, int narg, char **arg) :
     } else if (strcmp(arg[iarg], "react") == 0) {
       if (iarg + 2 >= narg) utils::missing_cmd_args(FLERR, "fix rheo/thermal react", error);
       cut_bond = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
-      btype = utils::numeric(FLERR, arg[iarg + 2], false, lmp);
+      btype = utils::inumeric(FLERR, arg[iarg + 2], false, lmp);
       comm_forward = 4;
       if (cut_bond <= 0.0) error->all(FLERR, "Illegal max bond length must be greater than zero");
       if ((btype < 1) || (btype > atom->nbondtypes))

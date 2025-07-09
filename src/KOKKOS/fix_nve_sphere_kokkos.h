@@ -31,6 +31,8 @@ namespace LAMMPS_NS {
 template<class DeviceType>
 class FixNVESphereKokkos : public FixNVESphere {
   public:
+    typedef ArrayTypes<DeviceType> AT;
+
     FixNVESphereKokkos(class LAMMPS *, int, char **);
 
     void cleanup_copy();
@@ -47,15 +49,15 @@ class FixNVESphereKokkos : public FixNVESphere {
     void fused_integrate_item(int) const;
 
   private:
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr x;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 v;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 omega;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d_4 mu;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 torque;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d rmass;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d radius;
-    typename ArrayTypes<DeviceType>::t_int_1d mask;
+    typename AT::t_kkfloat_1d_3_lr x;
+    typename AT::t_kkfloat_1d_3 v;
+    typename AT::t_kkfloat_1d_3 omega;
+    typename AT::t_kkfloat_1d_4 mu;
+    typename AT::t_kksum_1d_3 f;
+    typename AT::t_kkfloat_1d_3 torque;
+    typename AT::t_kkfloat_1d rmass;
+    typename AT::t_kkfloat_1d radius;
+    typename AT::t_int_1d mask;
 };
 
 template <class DeviceType>

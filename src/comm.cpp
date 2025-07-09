@@ -96,8 +96,7 @@ Comm::Comm(LAMMPS *lmp) : Pointers(lmp)
   } else if (getenv("OMP_NUM_THREADS") == nullptr) {
     nthreads = 1;
     if (me == 0)
-      error->message(FLERR,"OMP_NUM_THREADS environment is not set. "
-                           "Defaulting to 1 thread.");
+      utils::logmesg(lmp,"OMP_NUM_THREADS environment is not set. Defaulting to 1 thread.\n");
   } else {
     nthreads = omp_get_max_threads();
   }

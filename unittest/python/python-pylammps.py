@@ -53,7 +53,7 @@ class PythonPyLammps(unittest.TestCase):
 
         types = [1, 1]
 
-        self.assertEqual(self.pylmp.lmp.create_atoms(2, id=None, type=types, x=x), 2)
+        self.assertEqual(self.pylmp.lmp.create_atoms(2, atomid=None, atype=types, x=x), 2)
         self.assertEqual(self.pylmp.system.natoms, 2)
         self.assertEqual(len(self.pylmp.atoms), 2)
         numpy.testing.assert_array_equal(self.pylmp.atoms[0].position, tuple(x[0:3]))

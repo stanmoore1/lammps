@@ -86,7 +86,7 @@ FixPOEMS::FixPOEMS(LAMMPS *lmp, int narg, char **arg) :
   natom2body = nullptr;
   atom2body = nullptr;
   displace = nullptr;
-  grow_arrays(atom->nmax);
+  FixPOEMS::grow_arrays(atom->nmax);
   atom->add_callback(Atom::GROW);
 
   // initialize each atom to belong to no rigid bodies

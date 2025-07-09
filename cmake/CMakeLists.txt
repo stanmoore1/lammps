@@ -7,6 +7,10 @@ if(CMAKE_VERSION VERSION_LESS 3.20)
   message(WARNING "LAMMPS is planning to require at least CMake version 3.20 by Summer 2025. Please upgrade!")
 endif()
 ########################################
+# initialize version variables with project command
+if(POLICY CMP0048)
+  cmake_policy(SET CMP0048 NEW)
+endif()
 # set policy to silence warnings about ignoring <PackageName>_ROOT but use it
 if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
@@ -27,7 +31,10 @@ endif()
 
 ########################################
 
-project(lammps CXX)
+project(lammps
+        DESCRIPTION "The LAMMPS Molecular Dynamics Simulator"
+        HOMEPAGE_URL "https://www.lammps.org"
+        LANGUAGES CXX C)
 set(SOVERSION 0)
 get_property(BUILD_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
@@ -196,6 +203,10 @@ if((CMAKE_SYSTEM_NAME STREQUAL "Windows") AND BUILD_SHARED_LIBS)
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
 
+# do not include the (obsolete) MPI C++ bindings which makes for leaner object files
+# and avoids namespace conflicts. Put this early to increase its visbility.
+set(MPI_CXX_SKIP_MPICXX TRUE CACHE BOOL "Skip MPI C++ Bindings" FORCE)
+
 ########################################################################
 # User input options                                                   #
 ########################################################################
@@ -233,15 +244,6 @@ option(CMAKE_POSITION_INDEPENDENT_CODE "Create object compatible with shared lib
 option(BUILD_TOOLS "Build and install LAMMPS tools (msi2lmp, binary2txt, chain)" OFF)
 option(BUILD_LAMMPS_GUI "Build and install the LAMMPS GUI" OFF)
 
-# Support using clang-tidy for C++ files with selected options
-set(ENABLE_CLANG_TIDY OFF CACHE BOOL "Include clang-tidy processing when compiling")
-if(ENABLE_CLANG_TIDY)
-  set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=-*,performance-trivially-destructible,performance-unnecessary-copy-initialization,performance-unnecessary-value-param,readability-redundant-control-flow,readability-redundant-declaration,readability-redundant-function-ptr-dereference,readability-redundant-member-init,readability-redundant-string-cstr,readability-redundant-string-init,readability-simplify-boolean-expr,readability-static-accessed-through-instance,readability-static-definition-in-anonymous-namespace,readability-qualified-auto,misc-unused-parameters,modernize-deprecated-ios-base-aliases,modernize-loop-convert,modernize-shrink-to-fit,modernize-use-auto,modernize-use-using,modernize-use-override,modernize-use-bool-literals,modernize-use-emplace,modernize-return-braced-init-list,modernize-use-equals-default,modernize-use-equals-delete,modernize-replace-random-shuffle,modernize-deprecated-headers,modernize-use-nullptr,modernize-use-noexcept,modernize-redundant-void-arg;-fix;-header-filter=.*,header-filter=library.h,header-filter=fmt/*.h" CACHE STRING "clang-tidy settings")
-else()
-  unset(CMAKE_CXX_CLANG_TIDY CACHE)
-endif()
-
-
 file(GLOB ALL_SOURCES CONFIGURE_DEPENDS ${LAMMPS_SOURCE_DIR}/[^.]*.cpp)
 file(GLOB MAIN_SOURCES CONFIGURE_DEPENDS ${LAMMPS_SOURCE_DIR}/main.cpp)
 list(REMOVE_ITEM ALL_SOURCES ${MAIN_SOURCES})
@@ -266,6 +268,7 @@ option(CMAKE_VERBOSE_MAKEFILE "Generate verbose Makefiles" OFF)
 set(STANDARD_PACKAGES
   ADIOS
   AMOEBA
+  APIP
   ASPHERE
   ATC
   AWPMD
@@ -379,7 +382,6 @@ if(PKG_ADIOS)
   # The search for ADIOS2 must come before MPI because
   # it includes its own MPI search with the latest FindMPI.cmake
   # script that defines the MPI::MPI_C target
-  enable_language(C)
   find_package(ADIOS2 REQUIRED)
   if(BUILD_MPI)
     if(NOT ADIOS2_HAVE_MPI)
@@ -394,21 +396,18 @@ if(PKG_ADIOS)
 endif()
 
 if(NOT CMAKE_CROSSCOMPILING)
-  find_package(MPI QUIET)
+  find_package(MPI QUIET COMPONENTS CXX)
   option(BUILD_MPI "Build MPI version" ${MPI_FOUND})
 else()
   option(BUILD_MPI "Build MPI version" OFF)
 endif()
 
 if(BUILD_MPI)
-  # do not include the (obsolete) MPI C++ bindings which makes
-  # for leaner object files and avoids namespace conflicts
-  set(MPI_CXX_SKIP_MPICXX TRUE)
   # We use a non-standard procedure to cross-compile with MPI on Windows
   if((CMAKE_SYSTEM_NAME STREQUAL "Windows") AND CMAKE_CROSSCOMPILING)
     include(MPI4WIN)
   else()
-    find_package(MPI REQUIRED)
+    find_package(MPI REQUIRED COMPONENTS CXX)
     option(LAMMPS_LONGLONG_TO_LONG "Workaround if your system or MPI version does not recognize 'long long' data types" OFF)
     if(LAMMPS_LONGLONG_TO_LONG)
       target_compile_definitions(lammps PRIVATE -DLAMMPS_LONGLONG_TO_LONG)
@@ -469,6 +468,7 @@ pkg_depends(ELECTRODE KSPACE)
 pkg_depends(EXTRA-MOLECULE MOLECULE)
 pkg_depends(MESONT MOLECULE)
 pkg_depends(RHEO BPM)
+pkg_depends(APIP ML-PACE)
 
 # detect if we may enable OpenMP support by default
 set(BUILD_OMP_DEFAULT OFF)
@@ -535,7 +535,6 @@ if((CMAKE_CXX_COMPILER_ID STREQUAL "Intel") AND (CMAKE_CXX_STANDARD GREATER_EQUA
 endif()
 
 if(PKG_ATC OR PKG_AWPMD OR PKG_ML-QUIP OR PKG_ML-POD OR PKG_ELECTRODE OR PKG_RHEO OR BUILD_TOOLS)
-  enable_language(C)
   if (NOT USE_INTERNAL_LINALG)
     find_package(LAPACK)
     find_package(BLAS)

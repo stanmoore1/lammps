@@ -129,6 +129,7 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
     for (int i = 0; i < nmol; i++) {
       if (onemols[i]->xflag == 0) error->all(FLERR, "Fix pour molecule must have coordinates");
       if (onemols[i]->typeflag == 0) error->all(FLERR, "Fix pour molecule must have atom types");
+      if (onemols[i]->natoms <= 0) error->all(FLERR, "Fix pour molecule must have atoms");
       if (ntype + onemols[i]->ntypes <= 0 || ntype + onemols[i]->ntypes > atom->ntypes)
         error->all(FLERR, "Invalid atom type in fix pour mol command");
 
@@ -249,7 +250,7 @@ void FixPour::init()
       delta = yhi - ylo;
     }
     double t = (-v_relative - sqrt(v_relative * v_relative - 2.0 * grav * delta)) /   grav;
-    nfreq = static_cast<int>(t / update->dt + 0.5);
+    nfreq = std::lround(t / update->dt);
 
     // 1st insertion on next timestep
 
@@ -500,6 +501,8 @@ void FixPour::pre_exchange()
         imol = 0;
         while (rng > molfrac[imol]) imol++;
         natom = onemols[imol]->natoms;
+        if (natom <= 0)
+          error->all(FLERR, "Invalid number of atoms ({}) in molecule {}", natom, onemols[imol]->id);
         if (dimension == 3) {
           r[0] = random->uniform() - 0.5;
           r[1] = random->uniform() - 0.5;
@@ -701,6 +704,8 @@ void FixPour::pre_exchange()
       atom->nangles += (bigint) onemols[imol]->nangles * ninserted_mols;
       atom->ndihedrals += (bigint) onemols[imol]->ndihedrals * ninserted_mols;
       atom->nimpropers += (bigint) onemols[imol]->nimpropers * ninserted_mols;
+      // body particle molecule template must contain only one atom
+      atom->nbodies += (bigint) onemols[imol]->bodyflag * ninserted_mols;
     }
     if (maxtag_all >= MAXTAGINT) error->all(FLERR, "New atom IDs exceed maximum allowed ID");
   }

@@ -130,11 +130,11 @@ class AtomList(object):
     :rtype: Atom or Atom2D
     """
     if index not in self._loaded:
-        if self.dimensions == 2:
-            atom = Atom2D(self._pylmp, index)
-        else:
-            atom = Atom(self._pylmp, index)
-        self._loaded[index] = atom
+      if self.dimensions == 2:
+        atom = Atom2D(self._pylmp, index)
+      else:
+        atom = Atom(self._pylmp, index)
+      self._loaded[index] = atom
     return self._loaded[index]
 
   def __len__(self):
@@ -1015,3 +1015,8 @@ class IPyLammps(PyLammps):
     """
     from IPython.display import HTML
     return HTML("<video controls><source src=\"" + filename + "\"></video>")
+
+# Local Variables:
+# fill-column: 100
+# python-indent-offset: 2
+# End:

@@ -161,7 +161,7 @@ void PairLJCharmmCoulLongOpt::eval()
               rsq_lookup.f = rsq;
               itable = rsq_lookup.i & ncoulmask;
               itable >>= ncoulshiftbits;
-              fraction = (rsq_lookup.f - rtable[itable]) * drtable[itable];
+              fraction = ((double) rsq_lookup.f - rtable[itable]) * drtable[itable];
               table = ftable[itable] + fraction*dftable[itable];
               forcecoul = tmp_coef3 * table;
             }
@@ -251,7 +251,7 @@ void PairLJCharmmCoulLongOpt::eval()
               rsq_lookup.f = rsq;
               itable = rsq_lookup.i & ncoulmask;
               itable >>= ncoulshiftbits;
-              fraction = (rsq_lookup.f - rtable[itable]) * drtable[itable];
+              fraction = ((double) rsq_lookup.f - rtable[itable]) * drtable[itable];
               table = ftable[itable] + fraction*dftable[itable];
               forcecoul = tmp_coef3 * table;
               if (factor_coul < 1.0) {

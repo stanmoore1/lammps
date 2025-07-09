@@ -96,7 +96,7 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
   int host_flag;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
-  typename ArrayTypes<DeviceType>::t_int_1d mask;
+  typename AT::t_int_1d mask;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;

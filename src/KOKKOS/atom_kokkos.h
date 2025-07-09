@@ -33,7 +33,7 @@ class AtomKokkos : public Atom {
   DAT::tdual_imageint_1d k_image;
   DAT::ttransform_kkfloat_1d_3_lr k_x;
   DAT::ttransform_kkfloat_1d_3 k_v;
-  DAT::ttransform_kkfloat_1d_3 k_f;
+  DAT::ttransform_kksum_1d_3 k_f;
 
   DAT::ttransform_kkfloat_1d k_mass;
 
@@ -66,8 +66,8 @@ class AtomKokkos : public Atom {
   // SPIN package
 
   DAT::ttransform_kkfloat_1d_4 k_sp;
-  DAT::ttransform_kkfloat_1d_3 k_fm;
-  DAT::ttransform_kkfloat_1d_3 k_fm_long;
+  DAT::ttransform_kksum_1d_3 k_fm;
+  DAT::ttransform_kksum_1d_3 k_fm_long;
 
   // DPD-REACT package
 
@@ -168,7 +168,7 @@ class AtomKokkos : public Atom {
   void allocate_type_arrays() override;
   void sync(const ExecutionSpace space, unsigned int mask);
   void modified(const ExecutionSpace space, unsigned int mask);
-  void sync_pinned_device(const ExecutionSpace space, unsigned int mask);
+  void sync_pinned(const ExecutionSpace space, unsigned int mask, int async_flag = 0);
   void sort() override;
   int add_custom(const char *, int, int, int border = 0) override;
   void remove_custom(int, int, int) override;

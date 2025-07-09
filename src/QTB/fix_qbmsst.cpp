@@ -245,7 +245,7 @@ FixQBMSST::FixQBMSST(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
   gfactor = new double[atom->ntypes+1];
 
   // allocate random-arrays and fran
-  grow_arrays(atom->nmax);
+  FixQBMSST::grow_arrays(atom->nmax);
   atom->add_callback(Atom::GROW);
 
   // allocate omega_H and time_H

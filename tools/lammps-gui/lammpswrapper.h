@@ -20,6 +20,12 @@
 class LammpsWrapper {
 public:
     LammpsWrapper();
+    ~LammpsWrapper() = default;
+
+    LammpsWrapper(const LammpsWrapper &)            = delete;
+    LammpsWrapper(LammpsWrapper &&)                 = delete;
+    LammpsWrapper &operator=(const LammpsWrapper &) = delete;
+    LammpsWrapper &operator=(LammpsWrapper &&)      = delete;
 
 public:
     void open(int nargs, char **args);

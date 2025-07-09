@@ -146,8 +146,8 @@ void ComputeAveSphereAtomKokkos<DeviceType>::operator()(TagComputeAveSphereAtom,
     // i atom contribution
 
     int count = 1;
-    KK_FLOAT totalmass = massone_i;
-    KK_FLOAT p[3];
+    KK_SUM_FLOAT totalmass = massone_i;
+    KK_SUM_FLOAT p[3];
     p[0] = v(i,0)*massone_i;
     p[1] = v(i,1)*massone_i;
     p[2] = v(i,2)*massone_i;
@@ -182,7 +182,7 @@ void ComputeAveSphereAtomKokkos<DeviceType>::operator()(TagComputeAveSphereAtom,
     vnet[0] = v(i,0) - vcom[0];
     vnet[1] = v(i,1) - vcom[1];
     vnet[2] = v(i,2) - vcom[2];
-    KK_FLOAT ke_sum = massone_i * (vnet[0]*vnet[0] + vnet[1]*vnet[1] + vnet[2]*vnet[2]);
+    KK_SUM_FLOAT ke_sum = massone_i * (vnet[0]*vnet[0] + vnet[1]*vnet[1] + vnet[2]*vnet[2]);
 
     for (int jj = 0; jj < jnum; jj++) {
       int j = d_neighbors(i,jj);

@@ -243,7 +243,7 @@ void FixSRP::setup_pre_force(int /*zz*/)
   MPI_Allreduce(&ndel,&ndel_all,1,MPI_INT,MPI_SUM,world);
   MPI_Allreduce(&nadd,&nadd_all,1,MPI_INT,MPI_SUM,world);
   if (comm->me == 0)
-    error->message(FLERR,"Removed/inserted {}/{} bond particles.", ndel_all,nadd_all);
+    utils::logmesg(lmp, "Removed/inserted {}/{} bond particles.\n", ndel_all, nadd_all);
 
   // check ghost comm distances
   // warn and change if shorter from estimate

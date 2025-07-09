@@ -55,7 +55,7 @@ class AtomVecSpinKokkos : public AtomVecKokkos, public AtomVecSpin {
 
   void sync(ExecutionSpace space, unsigned int mask) override;
   void modified(ExecutionSpace space, unsigned int mask) override;
-  void sync_pinned_device(ExecutionSpace space, unsigned int mask) override;
+  void sync_pinned(ExecutionSpace space, unsigned int mask, int async_flag = 0) override;
 
  protected:
   DAT::t_tagint_1d d_tag;
@@ -69,15 +69,15 @@ class AtomVecSpinKokkos : public AtomVecKokkos, public AtomVecSpin {
 
   DAT::t_kkfloat_1d_3_lr d_x;
   DAT::t_kkfloat_1d_3 d_v;
-  DAT::t_kkfloat_1d_3 d_f;
+  DAT::t_kksum_1d_3 d_f;
 
   DAT::t_kkfloat_1d_4 d_sp;
-  DAT::t_kkfloat_1d_3 d_fm;
-  DAT::t_kkfloat_1d_3 d_fm_long;
+  DAT::t_kksum_1d_3 d_fm;
+  DAT::t_kksum_1d_3 d_fm_long;
 
   HAT::t_kkfloat_1d_4 h_sp;
-  HAT::t_kkfloat_1d_3 h_fm;
-  HAT::t_kkfloat_1d_3 h_fm_long;
+  HAT::t_kksum_1d_3 h_fm;
+  HAT::t_kksum_1d_3 h_fm_long;
 };
 
 }    // namespace LAMMPS_NS

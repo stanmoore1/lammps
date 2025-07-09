@@ -13,6 +13,7 @@
 
 #include "imageviewer.h"
 
+#include "helpers.h"
 #include "lammpsgui.h"
 #include "lammpswrapper.h"
 
@@ -46,11 +47,13 @@
 #include <QVBoxLayout>
 #include <QVariant>
 
+#include <algorithm>
 #include <cmath>
 
 // clang-format off
 /* periodic table of elements for translation of ordinal to atom type */
-static const char *pte_label[] = {
+namespace {
+    const char * const pte_label[] = {
     "X",  "H",  "He", "Li", "Be", "B",  "C",  "N",  "O",  "F",  "Ne",
     "Na", "Mg", "Al", "Si", "P" , "S",  "Cl", "Ar", "K",  "Ca", "Sc",
     "Ti", "V",  "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ga", "Ge",
@@ -63,10 +66,10 @@ static const char *pte_label[] = {
     "Es", "Fm", "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt",
     "Ds", "Rg"
 };
-static constexpr int nr_pte_entries = sizeof(pte_label) / sizeof(char *);
+constexpr int nr_pte_entries = sizeof(pte_label) / sizeof(char *);
 
 /* corresponding table of masses. */
-static constexpr double pte_mass[] = {
+constexpr double pte_mass[] = {
     /* X  */ 0.00000, 1.00794, 4.00260, 6.941, 9.012182, 10.811,
     /* C  */ 12.0107, 14.0067, 15.9994, 18.9984032, 20.1797,
     /* Na */ 22.989770, 24.3050, 26.981538, 28.0855, 30.973761,
@@ -98,7 +101,7 @@ static constexpr double pte_mass[] = {
  * The radii for Ions (Na, K, Cl, Ca, Mg, and Cs are based on the CHARMM27
  * Rmin/2 parameters for (SOD, POT, CLA, CAL, MG, CES) by default.
  */
-static constexpr double pte_vdw_radius[] = {
+constexpr double pte_vdw_radius[] = {
     /* X  */ 1.5, 1.2, 1.4, 1.82, 2.0, 2.0,
     /* C  */ 1.7, 1.55, 1.52, 1.47, 1.54,
     /* Na */ 1.36, 1.18, 2.0, 2.1, 1.8,
@@ -122,7 +125,7 @@ static constexpr double pte_vdw_radius[] = {
 
 // clang-format on
 
-static int get_pte_from_mass(double mass)
+int get_pte_from_mass(double mass)
 {
     int idx = 0;
     for (int i = 0; i < nr_pte_entries; ++i)
@@ -133,7 +136,8 @@ static int get_pte_from_mass(double mass)
     return idx;
 }
 
-static const QString blank(" ");
+const QString blank(" ");
+} // namespace
 
 ImageViewer::ImageViewer(const QString &fileName, LammpsWrapper *_lammps, QWidget *parent) :
     QDialog(parent), menuBar(new QMenuBar), imageLabel(new QLabel), scrollArea(new QScrollArea),
@@ -461,14 +465,14 @@ void ImageViewer::toggle_axes()
 void ImageViewer::do_zoom_in()
 {
     zoom = zoom * 1.1;
-    if (zoom > 5.0) zoom = 5.0;
+    zoom = std::min(zoom, 5.0);
     createImage();
 }
 
 void ImageViewer::do_zoom_out()
 {
     zoom = zoom / 1.1;
-    if (zoom < 0.5) zoom = 0.5;
+    zoom = std::max(zoom, 0.5);
     createImage();
 }
 
@@ -507,7 +511,8 @@ void ImageViewer::do_recenter()
                                "variable LAMMPSGUI_CZ delete\n"
                                "variable LAMMPSGUI_CX equal (xcm(%1,x)-xlo)/lx\n"
                                "variable LAMMPSGUI_CY equal (xcm(%1,y)-ylo)/ly\n"
-                               "variable LAMMPSGUI_CZ equal (xcm(%1,z)-zlo)/lz\n").arg(group);
+                               "variable LAMMPSGUI_CZ equal (xcm(%1,z)-zlo)/lz\n")
+                           .arg(group);
     lammps->commands_string(commands);
     xcenter = lammps->extract_variable("LAMMPSGUI_CX");
     ycenter = lammps->extract_variable("LAMMPSGUI_CZ");
@@ -636,7 +641,7 @@ void ImageViewer::createImage()
     usesigma               = false;
     const char *pair_style = (const char *)lammps->extract_global("pair_style");
     if (!useelements && !usediameter && pair_style && (strncmp(pair_style, "lj/", 3) == 0)) {
-        double **sigma = (double **)lammps->extract_pair("sigma");
+        auto **sigma = (double **)lammps->extract_pair("sigma");
         if (sigma) {
             usesigma = true;
             for (int i = 1; i <= ntypes; ++i) {
@@ -676,7 +681,7 @@ void ImageViewer::createImage()
                 edit->setEnabled(true);
                 edit->show();
                 // initialize with lattice spacing
-                auto *xlattice = (const double *)lammps->extract_global("xlattice");
+                const auto *xlattice = (const double *)lammps->extract_global("xlattice");
                 if (xlattice) atomSize = *xlattice;
                 edit->setText(QString::number(atomSize));
             }
@@ -769,9 +774,7 @@ void ImageViewer::copy() {}
 
 void ImageViewer::quit()
 {
-    LammpsGui *main = nullptr;
-    for (QWidget *widget : QApplication::topLevelWidgets())
-        if (widget->objectName() == "LammpsGui") main = dynamic_cast<LammpsGui *>(widget);
+    auto *main = dynamic_cast<LammpsGui *>(get_main_widget());
     if (main) main->quit();
 }
 
@@ -826,7 +829,7 @@ void ImageViewer::scaleImage(double factor)
 void ImageViewer::adjustScrollBar(QScrollBar *scrollBar, double factor)
 {
     scrollBar->setValue(
-        int(factor * scrollBar->value() + ((factor - 1) * scrollBar->pageStep() / 2)));
+        int((factor * scrollBar->value()) + ((factor - 1) * scrollBar->pageStep() / 2)));
 }
 
 // Local Variables:

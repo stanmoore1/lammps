@@ -64,7 +64,7 @@ All these properties are computed for the pair of atoms in a bond,
 whether the two atoms represent a simple diatomic molecule, or are part
 of some larger molecule.
 
-.. versionchanged:: TBD
+.. versionchanged:: 12Jun2025
 
    The sign of *dx*, *dy*, *dz* is no longer determined by the atom IDs
    of the bonded atoms but by their order in the bond list to be
@@ -130,13 +130,15 @@ moving apart.
 
 The value *v_name* can be used together with the *set* keyword to
 compute a user-specified function of the bond distance.  The *name*
-specified for the *v_name* value is the name of an :doc:`equal-style variable <variable>` which should evaluate a formula based on a
-variable which will store the bond distance.  This other variable must
-be an :doc:`internal-style variable <variable>` defined in the input
-script; its initial numeric value can be anything.  It must be an
-internal-style variable, because this command resets its value
-directly.  The *set* keyword is used to identify the name of this
-other variable associated with theta.
+specified for the *v_name* value is the name of an :doc:`equal-style
+variable <variable>` which should evaluate a formula based on a
+variable which stores the bond distance.  This other variable must be
+the :doc:`internal-style variable <variable>` specified by the *set*
+keyword.  It is an internal-style variable, because this command
+resets its value directly.  The internal-style variable does not need
+to be defined in the input script (though it can be); if it is not
+defined, then the *set* option creates an :doc:`internal-style
+variable <variable>` with the specified name.
 
 As an example, these commands can be added to the bench/in.rhodo
 script to compute the length\ :math:`^2` of every bond in the system and
@@ -144,7 +146,6 @@ output the statistics in various ways:
 
 .. code-block:: LAMMPS
 
-   variable d internal 0.0
    variable dsq equal v_d*v_d
 
    compute 1 all property/local batom1 batom2 btype

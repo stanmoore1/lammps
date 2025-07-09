@@ -206,7 +206,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
            b_xst_lo[atype][btype], b_xst_hi[atype][btype], cut_xst_c[atype][btype]);
 
       // early rejection criterium
-      if (f2) {
+      if (f2 != 0.0) {
 
       cost1 = -1.0*MathExtra::dot3(ax,bx);
       if (cost1 >  1.0) cost1 =  1.0;
@@ -217,7 +217,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
              b_xst1[atype][btype], dtheta_xst1_c[atype][btype]);
 
       // early rejection criterium
-      if (f4t1) {
+      if (f4t1 != 0.0) {
 
       cost2 = -1.0*MathExtra::dot3(ax,delr_bsbs_norm);
       if (cost2 >  1.0) cost2 =  1.0;
@@ -228,7 +228,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
              b_xst2[atype][btype], dtheta_xst2_c[atype][btype]);
 
       // early rejection criterium
-      if (f4t2) {
+      if (f4t2 != 0.0) {
 
       cost3 = MathExtra::dot3(bx,delr_bsbs_norm);
       if (cost3 >  1.0) cost3 =  1.0;
@@ -239,7 +239,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
              b_xst3[atype][btype], dtheta_xst3_c[atype][btype]);
 
       // early rejection criterium
-      if (f4t3) {
+      if (f4t3 != 0.0) {
 
       az[0] = nz_xtrct[a][0];
       az[1] = nz_xtrct[a][1];
@@ -257,7 +257,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
              b_xst7[atype][btype], dtheta_xst7_c[atype][btype]);
 
       // early rejection criterium
-      if (f4t7) {
+      if (f4t7 != 0.0) {
 
       bz[0] = nz_xtrct[b][0];
       bz[1] = nz_xtrct[b][1];
@@ -279,7 +279,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
 
 
       // early rejection criterium
-      if (evdwl) {
+      if (evdwl != 0.0) {
 
       df2 = DF2(r_bsbs, k_xst[atype][btype], cut_xst_0[atype][btype],
             cut_xst_lc[atype][btype], cut_xst_hc[atype][btype], cut_xst_lo[atype][btype], cut_xst_hi[atype][btype],
@@ -328,7 +328,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
       delf[2] += delr_bsbs[2] * finc;
 
       // theta2 force
-      if (theta2) {
+      if (theta2 != 0.0) {
 
         finc  = -f2 * f4t1 * df4t2 * f4t3 * f4t7 * f4t8 * rinv_bsbs * factor_lj;
 
@@ -339,7 +339,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
       }
 
       // theta3 force
-      if (theta3) {
+      if (theta3 != 0.0) {
 
         finc  = -f2 * f4t1 * f4t2 * df4t3 * f4t7 * f4t8 * rinv_bsbs * factor_lj;
 
@@ -350,7 +350,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
       }
 
       // theta7 force
-      if (theta7) {
+      if (theta7 != 0.0) {
 
         finc  = -f2 * f4t1 * f4t2 * f4t3 * df4t7 * f4t8 * rinv_bsbs * factor_lj;
 
@@ -361,7 +361,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
       }
 
       // theta8 force
-      if (theta8) {
+      if (theta8 != 0.0) {
 
         finc  = -f2 * f4t1 * f4t2 * f4t3 * f4t7 * df4t8 * rinv_bsbs * factor_lj;
 
@@ -415,7 +415,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
       deltb[2] = 0.0;
 
       // theta1 torque
-      if (theta1) {
+      if (theta1 != 0.0) {
 
         tpair = -f2 * df4t1 * f4t2 * f4t3 * f4t7 * f4t8 * factor_lj;
         MathExtra::cross3(ax,bx,t1dir);
@@ -431,7 +431,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
       }
 
       // theta2 torque
-      if (theta2) {
+      if (theta2 != 0.0) {
 
         tpair = -f2 * f4t1 * df4t2 * f4t3 * f4t7 * f4t8 * factor_lj;
         MathExtra::cross3(ax,delr_bsbs_norm,t2dir);
@@ -443,7 +443,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
       }
 
       // theta3 torque
-      if (theta3) {
+      if (theta3 != 0.0) {
 
         tpair = -f2 * f4t1 * f4t2 * df4t3 * f4t7 * f4t8 * factor_lj;
         MathExtra::cross3(bx,delr_bsbs_norm,t3dir);
@@ -455,7 +455,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
       }
 
       // theta7 torque
-      if (theta7) {
+      if (theta7 != 0.0) {
 
         tpair = -f2 * f4t1 * f4t2 * f4t3 * df4t7 * f4t8 * factor_lj;
         MathExtra::cross3(az,delr_bsbs_norm,t7dir);
@@ -467,7 +467,7 @@ void PairOxrna2Xstk::compute(int eflag, int vflag)
       }
 
       // theta8 torque
-      if (theta8) {
+      if (theta8 != 0.0) {
 
         tpair = -f2 * f4t1 * f4t2 * f4t3 * f4t7 * df4t8 * factor_lj;
         MathExtra::cross3(bz,delr_bsbs_norm,t8dir);

@@ -2,6 +2,7 @@ Sphinx >= 5.3.0, <8.3.0
 sphinxcontrib-spelling
 sphinxcontrib-jquery
 sphinx-design
+sphinx-toolbox
 git+https://github.com/akohlmey/sphinx-fortran@parallel-read
 sphinx-tabs>=3.4.1
 breathe
@@ -10,3 +11,4 @@ six
 pyyaml
 linkchecker
 ipython
+numpy

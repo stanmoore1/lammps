@@ -89,7 +89,7 @@ ComputeRigidLocal::ComputeRigidLocal(LAMMPS *lmp, int narg, char **arg) :
   if (nvalues == 1) size_local_cols = 0;
   else size_local_cols = nvalues;
 
-ncount = nmax = 0;
+  ncount = nmax = 0;
   vlocal = nullptr;
   alocal = nullptr;
 }

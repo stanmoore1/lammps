@@ -91,12 +91,12 @@ class PairVashishtaKokkos : public PairVashishta {
   KOKKOS_INLINE_FUNCTION
   void ev_tally3(EV_FLOAT &ev, const int &i, const int &j, int &k,
             const KK_FLOAT &evdwl, const KK_FLOAT &ecoul,
-                       KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const;
+                       KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const;
 
   KOKKOS_INLINE_FUNCTION
   void ev_tally3_atom(EV_FLOAT &ev, const int &i,
             const KK_FLOAT &evdwl, const KK_FLOAT &ecoul,
-                       KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const;
+                       KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const;
 
  protected:
   typename AT::t_int_3d_randomread d_elem3param;
@@ -115,21 +115,21 @@ class PairVashishtaKokkos : public PairVashishta {
 
   KOKKOS_INLINE_FUNCTION
   void threebody(const Param&, const Param&, const Param&, const KK_FLOAT&, const KK_FLOAT&, KK_FLOAT *, KK_FLOAT *,
-                 KK_FLOAT *, KK_FLOAT *, const int&, KK_FLOAT&) const;
+                 KK_SUM_FLOAT *, KK_SUM_FLOAT *, const int&, KK_FLOAT&) const;
 
   KOKKOS_INLINE_FUNCTION
   void threebodyj(const Param&, const Param&, const Param&, const KK_FLOAT&, const KK_FLOAT&, KK_FLOAT *, KK_FLOAT *,
-                 KK_FLOAT *) const;
+                 KK_SUM_FLOAT *) const;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_tagint_1d tag;
   typename AT::t_int_1d_randomread type;
 
   DAT::ttransform_kkfloat_1d k_eatom;
   DAT::ttransform_kkfloat_1d_6 k_vatom;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
   typename AT::t_int_1d_randomread d_type2frho;
   typename AT::t_int_2d_randomread d_type2rhor;

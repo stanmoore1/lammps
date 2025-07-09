@@ -72,7 +72,7 @@ class FixSetForceKokkos : public FixSetForce {
   typename AT::t_int_1d d_match;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_int_1d_randomread mask;
 };
 

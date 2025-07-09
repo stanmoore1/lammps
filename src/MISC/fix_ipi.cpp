@@ -388,7 +388,7 @@ void FixIPI::initial_integrate(int /*vflag*/)
   // snapshot at neighbor list creation, minimizing the
   // number of neighbor list updates
   auto xhold = neighbor->get_xhold();
-  if (xhold != NULL && !firsttime) {
+  if (xhold != nullptr && !firsttime) {
     // don't wrap if xhold is not used in the NL, or the
     // first call (because the NL is initialized from the
     // data file that might have nothing to do with the

@@ -160,7 +160,7 @@ void ComputeGaussianGridLocal::compute_local()
 double ComputeGaussianGridLocal::memory_usage()
 {
   int n = atom->ntypes + 1;
-  int nbytes = (double) n * sizeof(int);    // map
+  double nbytes = (double) n * sizeof(int);    // map
 
   return nbytes;
 }

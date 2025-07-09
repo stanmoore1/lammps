@@ -49,7 +49,7 @@ class FixWallRegionKokkos : public FixWallRegion {
  private:
 
   typename AT::t_kkfloat_1d_3_lr d_x;
-  typename AT::t_kkfloat_1d_3 d_f;
+  typename AT::t_kksum_1d_3 d_f;
   typename AT::t_kkfloat_1d d_radius;
   typename AT::t_int_1d d_mask;
 

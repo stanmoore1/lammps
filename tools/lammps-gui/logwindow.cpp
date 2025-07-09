@@ -14,6 +14,7 @@
 #include "logwindow.h"
 
 #include "flagwarnings.h"
+#include "helpers.h"
 #include "lammpsgui.h"
 
 #include <QAction>
@@ -107,17 +108,13 @@ void LogWindow::closeEvent(QCloseEvent *event)
 
 void LogWindow::quit()
 {
-    LammpsGui *main = nullptr;
-    for (QWidget *widget : QApplication::topLevelWidgets())
-        if (widget->objectName() == "LammpsGui") main = dynamic_cast<LammpsGui *>(widget);
+    auto *main = dynamic_cast<LammpsGui *>(get_main_widget());
     if (main) main->quit();
 }
 
 void LogWindow::stop_run()
 {
-    LammpsGui *main = nullptr;
-    for (QWidget *widget : QApplication::topLevelWidgets())
-        if (widget->objectName() == "LammpsGui") main = dynamic_cast<LammpsGui *>(widget);
+    auto *main = dynamic_cast<LammpsGui *>(get_main_widget());
     if (main) main->stop_run();
 }
 
@@ -289,7 +286,7 @@ bool LogWindow::eventFilter(QObject *watched, QEvent *event)
 {
     if (event->type() == QEvent::ShortcutOverride) {
         auto *keyEvent = dynamic_cast<QKeyEvent *>(event);
-        if (!keyEvent) return QWidget::eventFilter(watched, event);
+        if (!keyEvent) return QAbstractScrollArea::eventFilter(watched, event);
         if (keyEvent->modifiers().testFlag(Qt::ControlModifier) && keyEvent->key() == '/') {
             stop_run();
             event->accept();

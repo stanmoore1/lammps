@@ -93,6 +93,7 @@ Packages howto
    Howto_manifold
    Howto_rheo
    Howto_spins
+   Howto_apip
 
 Tutorials howto
 ===============

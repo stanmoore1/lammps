@@ -51,19 +51,19 @@ class PairTableRXKokkos : public PairTable {
   void init_style() override;
 
   struct TableDeviceConst {
-    typename ArrayTypes<DeviceType>::t_double_2d_lr cutsq;
-    typename ArrayTypes<DeviceType>::t_int_2d_lr tabindex;
-    typename ArrayTypes<DeviceType>::t_int_1d nshiftbits,nmask;
-    typename ArrayTypes<DeviceType>::t_double_1d innersq,invdelta,deltasq6;
-    typename ArrayTypes<DeviceType>::t_double_2d_lr_randomread rsq,drsq,e,de,f,df,e2,f2;
+    typename AT::t_double_2d_lr cutsq;
+    typename AT::t_int_2d_lr tabindex;
+    typename AT::t_int_1d nshiftbits,nmask;
+    typename AT::t_double_1d innersq,invdelta,deltasq6;
+    typename AT::t_double_2d_lr_randomread rsq,drsq,e,de,f,df,e2,f2;
   };
 
   struct TableDevice {
-    typename ArrayTypes<DeviceType>::t_double_2d_lr cutsq;
-    typename ArrayTypes<DeviceType>::t_int_2d_lr tabindex;
-    typename ArrayTypes<DeviceType>::t_int_1d nshiftbits,nmask;
-    typename ArrayTypes<DeviceType>::t_double_1d innersq,invdelta,deltasq6;
-    typename ArrayTypes<DeviceType>::t_double_2d_lr rsq,drsq,e,de,f,df,e2,f2;
+    typename AT::t_double_2d_lr cutsq;
+    typename AT::t_int_2d_lr tabindex;
+    typename AT::t_int_1d nshiftbits,nmask;
+    typename AT::t_double_1d innersq,invdelta,deltasq6;
+    typename AT::t_double_2d_lr rsq,drsq,e,de,f,df,e2,f2;
   };
 
   struct TableHost {
@@ -80,13 +80,13 @@ class PairTableRXKokkos : public PairTable {
 
   Few<Few<double, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> m_cutsq;
 
-  typename ArrayTypes<DeviceType>::t_double_2d_lr d_cutsq;
+  typename AT::t_double_2d_lr d_cutsq;
 
   void allocate() override;
   void compute_table(Table *) override;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
+  typename AT::t_kksum_1d_3 f;
 
   int neighflag;
 
@@ -109,8 +109,8 @@ class PairTableRXKokkos : public PairTable {
 
   DAT::ttransform_kkfloat_1d k_eatom;
   DAT::ttransform_kkfloat_1d_6 k_vatom;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 };
 
 }

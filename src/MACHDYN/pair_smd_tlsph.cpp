@@ -268,7 +268,7 @@ void PairTlsph::PreCompute() {
       } else {
         status = PolDec(Fincr[i], R[i], U, false); // polar decomposition of the deformation gradient, F = R * U
         if (!status) {
-          error->message(FLERR, "Polar decomposition of deformation gradient failed.\n");
+          utils::logmesg(lmp, "Polar decomposition of deformation gradient failed.\n");
           mol[i] = -1;
         } else {
           Fincr[i] = R[i] * U;

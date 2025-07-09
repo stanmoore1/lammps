@@ -70,6 +70,12 @@ public:
     LammpsGui(QWidget *parent = nullptr, const QString &filename = QString());
     ~LammpsGui() override;
 
+    LammpsGui()                             = delete;
+    LammpsGui(const LammpsGui &)            = delete;
+    LammpsGui(LammpsGui &&)                 = delete;
+    LammpsGui &operator=(const LammpsGui &) = delete;
+    LammpsGui &operator=(LammpsGui &&)      = delete;
+
 protected:
     void open_file(const QString &filename);
     void view_file(const QString &filename);
@@ -85,7 +91,7 @@ protected:
     void setFont(const QFont &newfont);
     QWizardPage *tutorial_intro(const int ntutorial, const QString &infotext);
     QWizardPage *tutorial_directory(const int ntutorial);
-    void setup_tutorial(int ntutorial, const QString &dir, bool purgedir, bool getsolution,
+    void setup_tutorial(int tutno, const QString &dir, bool purgedir, bool getsolution,
                         bool openwebpage);
     void purge_inspect_list();
     bool eventFilter(QObject *watched, QEvent *event) override;

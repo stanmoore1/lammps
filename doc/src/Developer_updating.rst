@@ -30,6 +30,7 @@ Available topics in mostly chronological order are:
 - `Use Output::get_dump_by_id() instead of Output::find_dump()`_
 - `Refactored grid communication using Grid3d/Grid2d classes instead of GridComm`_
 - `FLERR as first argument to minimum image functions in Domain class`_
+- `Use utils::logmesg() instead of error->warning()`_
 
 ----
 
@@ -615,7 +616,7 @@ This change is **required** or else the code will not compile.
 FLERR as first argument to minimum image functions in Domain class
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. versionchanged:: TBD
+.. versionchanged:: 12Jun2025
 
 The ``Domain::minimum_image()`` and ``Domain::minimum_image_big()``
 functions were changed to take the ``FLERR`` macros as first argument.
@@ -653,5 +654,29 @@ New:
    double delz2 = x[i3][2] - x[i2][2];
    domain->minimum_image_big(FLERR, delx2, dely2, delz2);
    double r2 = sqrt(delx2 * delx2 + dely2 * dely2 + delz2 * delz2);
+
+This change is **required** or else the code will not compile.
+
+Use utils::logmesg() instead of error->warning()
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. versionchanged:: TBD
+
+The ``Error::message()`` method has been removed since its functionality
+has been superseded by the :cpp:func:`utils::logmesg` function.
+
+Old:
+
+.. code-block:: c++
+
+   if (comm->me == 0) {
+     error->message(FLERR, "INFO: About to read data file: {}", filename);
+  }
+
+New:
+
+.. code-block:: c++
+
+   if (comm->me == 0) utils::logmesg(lmp, "INFO: About to read data file: {}\n", filename);
 
 This change is **required** or else the code will not compile.

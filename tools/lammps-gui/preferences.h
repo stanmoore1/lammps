@@ -29,17 +29,24 @@ public:
     explicit Preferences(LammpsWrapper *lammps, QWidget *parent = nullptr);
     ~Preferences() override;
 
+    Preferences()                               = delete;
+    Preferences(const Preferences &)            = delete;
+    Preferences(Preferences &&)                 = delete;
+    Preferences &operator=(const Preferences &) = delete;
+    Preferences &operator=(Preferences &&)      = delete;
+
 private slots:
     void accept() override;
 
 public:
-    bool need_relaunch;
+    void set_relaunch(bool val) { need_relaunch = val; }
 
 private:
     QTabWidget *tabWidget;
     QDialogButtonBox *buttonBox;
     QSettings *settings;
     LammpsWrapper *lammps;
+    bool need_relaunch;
 };
 
 // individual tabs

@@ -67,11 +67,11 @@ class AngleHarmonicKokkos : public AngleHarmonic {
 
   class NeighborKokkos *neighborKK;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
-  typename ArrayTypes<DeviceType>::t_int_2d_lr anglelist;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
+  typename AT::t_kksum_1d_3 f;
+  typename AT::t_int_2d_lr anglelist;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
   int nlocal,newton_bond;
   int eflag,vflag;
@@ -79,8 +79,8 @@ class AngleHarmonicKokkos : public AngleHarmonic {
   DAT::tdual_kkfloat_1d k_k;
   DAT::tdual_kkfloat_1d k_theta0;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_k;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_theta0;
+  typename AT::t_kkfloat_1d d_k;
+  typename AT::t_kkfloat_1d d_theta0;
 
   void allocate() override;
 };

@@ -95,7 +95,13 @@ class ChartViewer : public QChartView {
 
 public:
     explicit ChartViewer(const QString &title, int index, QWidget *parent = nullptr);
-    ~ChartViewer();
+    ~ChartViewer() override;
+
+    ChartViewer()                               = delete;
+    ChartViewer(const ChartViewer &)            = delete;
+    ChartViewer(ChartViewer &&)                 = delete;
+    ChartViewer &operator=(const ChartViewer &) = delete;
+    ChartViewer &operator=(ChartViewer &&)      = delete;
 
     void add_data(int step, double data);
     void reset_zoom();

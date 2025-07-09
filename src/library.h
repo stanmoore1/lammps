@@ -140,6 +140,7 @@ void lammps_close(void *handle);
 void lammps_mpi_init();
 void lammps_mpi_finalize();
 void lammps_kokkos_finalize();
+void lammps_plugin_finalize();
 void lammps_python_finalize();
 
 void lammps_error(void *handle, int error_type, const char *error_text);
@@ -238,6 +239,8 @@ int lammps_create_atoms(void *handle, int n, const int *id, const int *type, con
 int lammps_create_atoms(void *handle, int n, const int64_t *id, const int *type, const double *x,
                         const double *v, const int64_t *image, int bexpand);
 #endif
+
+void lammps_create_molecule(void *handle, const char *id, const char *json);
 
 /* ----------------------------------------------------------------------
  * Library functions for accessing neighbor lists

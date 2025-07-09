@@ -210,12 +210,12 @@ class Modify : protected Pointers {
   void list_init_compute();
 
  public:
-  typedef Compute *(*ComputeCreator)(LAMMPS *, int, char **);
-  typedef std::map<std::string, ComputeCreator> ComputeCreatorMap;
+  using ComputeCreator = Compute *(*) (LAMMPS *, int, char **);
+  using ComputeCreatorMap = std::map<std::string, ComputeCreator>;
   ComputeCreatorMap *compute_map;
 
-  typedef Fix *(*FixCreator)(LAMMPS *, int, char **);
-  typedef std::map<std::string, FixCreator> FixCreatorMap;
+  using FixCreator = Fix *(*) (LAMMPS *, int, char **);
+  using FixCreatorMap = std::map<std::string, FixCreator>;
   FixCreatorMap *fix_map;
 
  protected:

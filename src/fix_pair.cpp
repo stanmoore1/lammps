@@ -111,7 +111,7 @@ FixPair::FixPair(LAMMPS *lmp, int narg, char **arg) :
 
   vector = nullptr;
   array = nullptr;
-  grow_arrays(atom->nmax);
+  FixPair::grow_arrays(atom->nmax);
   atom->add_callback(Atom::GROW);
 
   // zero the vector/array since dump may access it on timestep 0

@@ -62,7 +62,7 @@ struct PairComputeFunctor  {
 
   // The copy of the pair style
   PairStyle c;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_kkfloat_1d d_eatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
   int inum;
@@ -71,9 +71,9 @@ struct PairComputeFunctor  {
   using DUP = NeedDup_v<NEIGHFLAG,device_type>;
 
   // The force array is atomic for Half/Thread neighbor style
-  //Kokkos::View<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,
+  //Kokkos::View<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout,
   //             typename KKDevice<device_type>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > f;
-  KKScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,KKDeviceType,KKScatterSum,DUP> dup_f;
+  KKScatterView<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout,KKDeviceType,KKScatterSum,DUP> dup_f;
 
   // The eatom and vatom arrays are atomic for Half/Thread neighbor style
   //Kokkos::View<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout,
@@ -140,9 +140,9 @@ struct PairComputeFunctor  {
     const AtomNeighborsConst neighbors_i = list.get_neighbors_const(i);
     const int jnum = list.d_numneigh[i];
 
-    KK_FLOAT fxtmp = 0.0;
-    KK_FLOAT fytmp = 0.0;
-    KK_FLOAT fztmp = 0.0;
+    KK_SUM_FLOAT fxtmp = 0.0;
+    KK_SUM_FLOAT fytmp = 0.0;
+    KK_SUM_FLOAT fztmp = 0.0;
 
     if (NEIGHFLAG == FULL && ZEROFLAG) {
       f(i,0) = 0.0;
@@ -215,9 +215,9 @@ struct PairComputeFunctor  {
     const AtomNeighborsConst neighbors_i = list.get_neighbors_const(i);
     const int jnum = list.d_numneigh[i];
 
-    KK_FLOAT fxtmp = 0.0;
-    KK_FLOAT fytmp = 0.0;
-    KK_FLOAT fztmp = 0.0;
+    KK_SUM_FLOAT fxtmp = 0.0;
+    KK_SUM_FLOAT fytmp = 0.0;
+    KK_SUM_FLOAT fztmp = 0.0;
 
     if (NEIGHFLAG == FULL && ZEROFLAG) {
       f(i,0) = 0.0;
@@ -1045,11 +1045,11 @@ struct PairVirialFDotRCompute {
   typedef ArrayTypes<DeviceType> AT;
   typedef EV_FLOAT value_type;
   typename AT::t_kkfloat_1d_3_lr_const_um x;
-  typename AT::t_kkfloat_1d_3_const_um f;
+  typename AT::t_kksum_1d_3_const_um f;
   const int offset;
 
   PairVirialFDotRCompute(  typename AT::t_kkfloat_1d_3_lr_const_um x_,
-  typename AT::t_kkfloat_1d_3_const_um f_,
+  typename AT::t_kksum_1d_3_const_um f_,
   const int offset_):x(x_),f(f_),offset(offset_) {}
 
   KOKKOS_INLINE_FUNCTION

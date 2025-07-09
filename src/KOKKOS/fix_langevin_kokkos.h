@@ -64,6 +64,8 @@ namespace LAMMPS_NS {
   template<class DeviceType>
   class FixLangevinKokkos : public FixLangevin, public KokkosBase {
    public:
+    typedef ArrayTypes<DeviceType> AT;
+
     FixLangevinKokkos(class LAMMPS *, int, char **);
     ~FixLangevinKokkos() override;
 
@@ -103,31 +105,31 @@ namespace LAMMPS_NS {
       void end_of_step_rmass_item(int) const;
 
   private:
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d rmass;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d mass;
+    typename AT::t_kkfloat_1d rmass;
+    typename AT::t_kkfloat_1d mass;
     DAT::ttransform_kkfloat_2d k_franprev;
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d d_franprev;
+    typename AT::t_kkfloat_2d d_franprev;
     HAT::t_double_2d_lr h_franprev;
 
     DAT::ttransform_kkfloat_2d k_lv;
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d d_lv;
+    typename AT::t_kkfloat_2d d_lv;
     HAT::t_double_2d_lr h_lv;
 
     DAT::ttransform_kkfloat_2d k_flangevin;
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d d_flangevin;
+    typename AT::t_kkfloat_2d d_flangevin;
     HAT::t_double_2d_lr h_flangevin;
 
     DAT::ttransform_kkfloat_1d k_tforce;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d d_tforce;
+    typename AT::t_kkfloat_1d d_tforce;
     HAT::t_double_1d h_tforce;
 
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 v;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
-    typename ArrayTypes<DeviceType>::t_int_1d type;
-    typename ArrayTypes<DeviceType>::t_int_1d mask;
+    typename AT::t_kkfloat_1d_3 v;
+    typename AT::t_kksum_1d_3 f;
+    typename AT::t_int_1d type;
+    typename AT::t_int_1d mask;
 
     DAT::ttransform_kkfloat_1d k_gfactor1, k_gfactor2, k_ratio;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d d_gfactor1, d_gfactor2, d_ratio;
+    typename AT::t_kkfloat_1d d_gfactor1, d_gfactor2, d_ratio;
     HAT::t_double_1d h_gfactor1, h_gfactor2, h_ratio;
 
     typedef Kokkos::DualView<KK_FLOAT[3], DeviceType>

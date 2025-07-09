@@ -62,7 +62,7 @@ class NBinSSAKokkos : public NBinStandard {
   typename AT::t_int_2d_const c_gbins;
 
   typename AT::t_int_scalar d_resize;
-  typename ArrayTypes<LMPHostType>::t_int_scalar h_resize;
+  HAT::t_int_scalar h_resize;
   typename AT::t_kkfloat_1d_3_lr_randomread x;
 
   // Bounds of the local atoms in the bins array
@@ -72,12 +72,12 @@ class NBinSSAKokkos : public NBinStandard {
   typename AT::t_int_scalar d_lbinxhi;  // highest local bin x-dim coordinate
   typename AT::t_int_scalar d_lbinyhi;  // highest local bin y-dim coordinate
   typename AT::t_int_scalar d_lbinzhi;  // highest local bin z-dim coordinate
-  typename ArrayTypes<LMPHostType>::t_int_scalar h_lbinxlo;
-  typename ArrayTypes<LMPHostType>::t_int_scalar h_lbinylo;
-  typename ArrayTypes<LMPHostType>::t_int_scalar h_lbinzlo;
-  typename ArrayTypes<LMPHostType>::t_int_scalar h_lbinxhi;
-  typename ArrayTypes<LMPHostType>::t_int_scalar h_lbinyhi;
-  typename ArrayTypes<LMPHostType>::t_int_scalar h_lbinzhi;
+  HAT::t_int_scalar h_lbinxlo;
+  HAT::t_int_scalar h_lbinylo;
+  HAT::t_int_scalar h_lbinzlo;
+  HAT::t_int_scalar h_lbinxhi;
+  HAT::t_int_scalar h_lbinyhi;
+  HAT::t_int_scalar h_lbinzhi;
 
 
   KOKKOS_INLINE_FUNCTION

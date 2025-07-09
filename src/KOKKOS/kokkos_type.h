@@ -153,6 +153,11 @@ typedef Kokkos::DefaultExecutionSpace LMPDeviceType;
 typedef Kokkos::HostSpace::execution_space LMPHostType;
 
 // set default device layout
+
+#if !defined (LMP_KOKKOS_LAYOUT_RIGHT) && !defined (LMP_KOKKOS_LAYOUT_DEFAULT)
+#define LMP_KOKKOS_LAYOUT_RIGHT
+#endif
+
 #if defined(LMP_KOKKOS_LAYOUT_RIGHT)
 typedef Kokkos::LayoutRight LMPDeviceLayout;
 #else
@@ -357,25 +362,30 @@ public:
 
 // define precision
 
-#ifndef LMP_KOKKOS_PRECISION
-#define LMP_KOKKOS_PRECISION 2
+// LMP_KOKKOS_SINGLE_SINGLE: Single precision for all calculations
+// LMP_KOKKOS_DOUBLE_DOUBLE: Double precision for all calculations
+// LMP_KOKKOS_SINGLE_DOUBLE: Accumulation of forces, etc. in double
+
+#if !(defined LMP_KOKKOS_SINGLE_SINGLE) && !(defined LMP_KOKKOS_DOUBLE_DOUBLE) \
+  && !(defined LMP_KOKKOS_SINGLE_DOUBLE)
+#define LMP_KOKKOS_DOUBLE_DOUBLE
 #endif
 
-#if LMP_KOKKOS_PRECISION == 1 // single
+#if defined (LMP_KOKKOS_SINGLE_SINGLE) // single
 typedef float KK_FLOAT;
 typedef float KK_SUM_FLOAT;
-#elif LMP_KOKKOS_PRECISION == 2 // double
+#elif defined (LMP_KOKKOS_DOUBLE_DOUBLE)  // double
 typedef double KK_FLOAT;
 typedef double KK_SUM_FLOAT;
-#elif LMP_KOKKOS_PRECISION == 3 // mixed
+#elif defined (LMP_KOKKOS_SINGLE_DOUBLE) // mixed
 typedef float KK_FLOAT;
 typedef double KK_SUM_FLOAT;
 #endif
 
 struct s_EV_FLOAT {
-  double evdwl;
-  double ecoul;
-  double v[6];
+  KK_SUM_FLOAT evdwl;
+  KK_SUM_FLOAT ecoul;
+  KK_SUM_FLOAT v[6];
   KOKKOS_INLINE_FUNCTION
   s_EV_FLOAT() {
     evdwl = 0;
@@ -395,10 +405,10 @@ struct s_EV_FLOAT {
 typedef struct s_EV_FLOAT EV_FLOAT;
 
 struct s_EV_FLOAT_REAX {
-  double evdwl;
-  double ecoul;
-  double v[6];
-  double ereax[9];
+  KK_SUM_FLOAT evdwl;
+  KK_SUM_FLOAT ecoul;
+  KK_SUM_FLOAT v[6];
+  KK_SUM_FLOAT ereax[9];
   KOKKOS_INLINE_FUNCTION
   s_EV_FLOAT_REAX() {
     evdwl = 0;
@@ -422,10 +432,10 @@ struct s_EV_FLOAT_REAX {
 typedef struct s_EV_FLOAT_REAX EV_FLOAT_REAX;
 
 struct s_FEV_FLOAT {
-  double f[3];
-  double evdwl;
-  double ecoul;
-  double v[6];
+  KK_SUM_FLOAT f[3];
+  KK_SUM_FLOAT evdwl;
+  KK_SUM_FLOAT ecoul;
+  KK_SUM_FLOAT v[6];
   KOKKOS_INLINE_FUNCTION
   s_FEV_FLOAT() {
     evdwl = 0;
@@ -448,21 +458,21 @@ struct s_FEV_FLOAT {
 };
 typedef struct s_FEV_FLOAT FEV_FLOAT;
 
-struct alignas(2*sizeof(KK_FLOAT)) s_KK_FLOAT2 {
-  KK_FLOAT v[2];
+struct alignas(2*sizeof(double)) s_KK_double2 {
+  double v[2];
 
   KOKKOS_INLINE_FUNCTION
-  s_KK_FLOAT2() {
+  s_KK_double2() {
     v[0] = v[1] = 0.0;
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator+=(const s_KK_FLOAT2 &rhs) {
+  void operator+=(const s_KK_double2 &rhs) {
     v[0] += rhs.v[0];
     v[1] += rhs.v[1];
   }
 };
-typedef struct s_KK_FLOAT2 KK_FLOAT2;
+typedef struct s_KK_double2 KK_double2;
 
 template <class KeyViewType>
 struct BinOp3DLAMMPS {
@@ -606,8 +616,7 @@ struct dual_hash_type {
 template<class KKType, class LegacyType, class KKLayout, class KKSpace = LMPDeviceType>
 struct TransformView {
 
-  static constexpr int NEED_TRANSFORM = (!std::is_same<KKType,LegacyType>::value) || (!std::is_same<KKLayout,Kokkos::LayoutRight>::value);
-  static constexpr int TRANSFORM_ON_DEVICE = 0;
+  static constexpr int NEED_TRANSFORM = !(std::is_same<KKType,LegacyType>::value && std::is_same<KKLayout,Kokkos::LayoutRight>::value);
 
   typedef Kokkos::DualView<KKType, KKLayout, KKSpace> kk_view;
   typedef typename Kokkos::DualView<LegacyType, Kokkos::LayoutRight, KKSpace>::t_host legacy_view;
@@ -621,6 +630,13 @@ struct TransformView {
 
   typedef typename legacy_view::value_type value_type;
   typedef typename legacy_view::array_layout array_layout;
+
+  typedef Kokkos::View<typename kk_view::data_type,
+               typename kk_view::array_layout,
+               typename std::conditional<
+                 std::is_same_v<typename kk_view::execution_space,LMPDeviceType>,
+                 LMPPinnedHostType,typename kk_view::memory_space>::type,
+               Kokkos::MemoryTraits<Kokkos::Unmanaged> > pinned_mirror_type;
 
   int modified_legacy_device;
   int modified_device_legacy;
@@ -658,9 +674,11 @@ struct TransformView {
     k_view.resize(ns...);
     d_view = k_view.d_view;
     h_viewkk = k_view.h_view;
-    if constexpr (NEED_TRANSFORM)
+    if constexpr (NEED_TRANSFORM) {
       Kokkos::resize(h_view,ns...);
-    else
+      if (k_view.need_sync_host()) modify_device_legacy();
+      else if (k_view.need_sync_device()) modify_hostkk_legacy();
+    } else
       h_view = h_viewkk;
   }
 
@@ -671,8 +689,14 @@ struct TransformView {
 
       modified_device_legacy = 1;
 
-      if (modified_legacy_device)
-        Kokkos::abort("Concurrent modification of legacy host and device views");
+      if (modified_legacy_device) {
+        std::string msg = "TransformView::modify ERROR: ";
+        msg += "Concurrent modification of legacy host and device views ";
+        msg += "in TransformView \"";
+        msg += d_view.label();
+        msg += "\"\n";
+        Kokkos::abort(msg.c_str());
+      }
     }
   }
 
@@ -688,8 +712,14 @@ struct TransformView {
 
       modified_hostkk_legacy = 1;
 
-      if (modified_legacy_hostkk)
-        Kokkos::abort("Concurrent modification of legacy host and Kokkos host views");
+      if (modified_legacy_hostkk) {
+        std::string msg = "TransformView::modify ERROR: ";
+        msg += "Concurrent modification of legacy host and Kokkos host views ";
+        msg += "in TransformView \"";
+        msg += d_view.label();
+        msg += "\"\n";
+        Kokkos::abort(msg.c_str());
+      }
     }
   }
 
@@ -699,97 +729,139 @@ struct TransformView {
     modify_hostkk_legacy();
   }
 
-  void modify_host() {
+  void modify_legacy_device()
+  {
     if constexpr (NEED_TRANSFORM) {
+      if (!h_view.data()) return;
 
+      modified_legacy_device = 1;
+
+      if (modified_device_legacy) {
+        std::string msg = "TransformView::modify ERROR: ";
+        msg += "Concurrent modification of device and legacy host views ";
+        msg += "in TransformView \"";
+        msg += d_view.label();
+        msg += "\"\n";
+        Kokkos::abort(msg.c_str());
+      }
+    }
+  }
+
+  void modify_legacy_hostkk()
+  {
+    if constexpr (NEED_TRANSFORM) {
       if (!h_view.data()) return;
 
       modified_legacy_hostkk = 1;
-      modified_legacy_device = 1;
 
-      if (modified_device_legacy)
-        Kokkos::abort("Concurrent modification of device and legacy host views");
+      if (modified_hostkk_legacy) {
+        std::string msg = "TransformView::modify ERROR: ";
+        msg += "Concurrent modification of Kokkos host and legacy host views ";
+        msg += "in TransformView \"";
+        msg += d_view.label();
+        msg += "\"\n";
+        Kokkos::abort(msg.c_str());
+      }
+    }
+  }
 
-      if (modified_hostkk_legacy)
-        Kokkos::abort("Concurrent modification of Kokkos host and legacy host views");
+  void modify_host() {
+    if constexpr (NEED_TRANSFORM) {
+      modify_legacy_device();
+      modify_legacy_hostkk();
     } else {
      modify_hostkk();
     }
   }
 
-  void sync_device_legacy() {
+  void sync_legacy_to_device(void* buffer = nullptr, int async_flag = 0) {
     if constexpr (NEED_TRANSFORM) {
       if (!d_view.data()) return;
 
       if (modified_legacy_device) {
-        if constexpr (TRANSFORM_ON_DEVICE) {
-          auto d_legacy = Kokkos::create_mirror_view_and_copy(h_view);
-          Kokkos::deep_copy(d_view,d_legacy);
-          if (modified_legacy_hostkk)
-            k_view.modify_device();
+        if (buffer) {
+          pinned_mirror_type tmp_view((typename kk_view::value_type*)buffer, d_view.layout());
+          Kokkos::deep_copy(LMPHostType(),tmp_view,h_view);
+          Kokkos::deep_copy(LMPHostType(),d_view,tmp_view);
+          if (!async_flag) Kokkos::fence();
         } else {
           Kokkos::deep_copy(h_viewkk,h_view);
           k_view.modify_host();
           k_view.sync_device();
           modified_legacy_hostkk = 0;
+          modified_hostkk_legacy = 0;
         }
         modified_legacy_device = 0;
       }
     }
   }
 
-  void sync_device()
+  void sync_device(void* buffer = nullptr, int async_flag = 0)
   {
-    k_view.sync_device();
-    sync_device_legacy();
+    if (d_view.data() && buffer && k_view.need_sync_device()) {
+      pinned_mirror_type tmp_view((typename kk_view::value_type*)buffer, d_view.layout());
+      Kokkos::deep_copy(LMPHostType(),tmp_view,h_viewkk);
+      Kokkos::deep_copy(LMPHostType(),d_view,tmp_view);
+      k_view.clear_sync_state();
+      if (!async_flag) Kokkos::fence();
+    } else {
+      k_view.sync_device();
+    }
+
+    sync_legacy_to_device(buffer,async_flag);
   }
 
-  void sync_hostkk_legacy() {
+  void sync_legacy_to_hostkk() {
     if constexpr (NEED_TRANSFORM) {
       if (!h_viewkk.data()) return;
 
-      if (modified_device_legacy)
-        modified_hostkk_legacy = 1;
-
       if (modified_legacy_hostkk) {
         Kokkos::deep_copy(h_viewkk,h_view);
-        modified_legacy_hostkk = 0;
         if (modified_legacy_device)
           k_view.modify_host();
+        modified_legacy_hostkk = 0;
       }
     }
   }
 
-  void sync_hostkk()
+  void sync_hostkk(void* buffer = nullptr, int async_flag = 0)
   {
-    k_view.sync_host();
-    sync_hostkk_legacy();
+    if (h_viewkk.data() && buffer && k_view.need_sync_host()) {
+      pinned_mirror_type tmp_view((typename kk_view::value_type*)buffer, d_view.layout());
+      Kokkos::deep_copy(LMPHostType(),tmp_view,d_view);
+      Kokkos::deep_copy(LMPHostType(),h_viewkk,tmp_view);
+      k_view.clear_sync_state();
+      if (!async_flag) Kokkos::fence();
+    } else {
+      k_view.sync_host();
+    }
+    sync_legacy_to_hostkk();
   }
 
-  void sync_legacy_device()
+  void sync_device_to_legacy(void* buffer = nullptr, int async_flag = 0)
   {
     if constexpr (NEED_TRANSFORM) {
-
       if (!h_view.data()) return;
 
       if (modified_device_legacy) {
-        if constexpr (TRANSFORM_ON_DEVICE) {
-          auto d_legacy = Kokkos::create_mirror_view(h_view); // add NoInit
-          Kokkos::deep_copy(d_legacy,d_view);
-          Kokkos::deep_copy(h_view,d_legacy);
-          if (k_view.need_sync_host())
-            modified_legacy_hostkk = 1;
+        if (buffer) {
+          pinned_mirror_type tmp_view((typename kk_view::value_type*)buffer, d_view.layout());
+          Kokkos::deep_copy(LMPHostType(),tmp_view,d_view);
+          Kokkos::deep_copy(LMPHostType(),h_view,tmp_view);
+          if (!async_flag) Kokkos::fence();
         } else {
+          k_view.modify_device();
           k_view.sync_host();
           Kokkos::deep_copy(h_view,h_viewkk);
           modified_hostkk_legacy = 0;
+          modified_legacy_hostkk = 0;
         }
         modified_device_legacy = 0;
       }
     }
   }
 
-  void sync_legacy_hostkk()
+  void sync_hostkk_to_legacy()
   {
     if constexpr (NEED_TRANSFORM) {
 
@@ -799,17 +871,17 @@ struct TransformView {
         Kokkos::deep_copy(h_view,h_viewkk);
         modified_hostkk_legacy = 0;
         if (k_view.need_sync_device())
-          modified_device_legacy = 1;
+          modify_legacy_device();
       }
     }
   }
 
-  void sync_host() {
+  void sync_host(void* buffer = nullptr, int async_flag = 0) {
     if constexpr (NEED_TRANSFORM) {
-      sync_legacy_device();
-      sync_legacy_hostkk();
+      sync_device_to_legacy(buffer,async_flag);
+      sync_hostkk_to_legacy();
     } else {
-      sync_hostkk();
+      sync_hostkk(buffer,async_flag);
     }
   }
 
@@ -863,12 +935,12 @@ struct TransformView {
 
   bool need_sync_device()
   {
-    return (k_view.need_sync_device() || modified_device_legacy);
+    return (k_view.need_sync_device() || modified_legacy_device);
   }
 
   bool need_sync_host()
   {
-    return (k_view.need_sync_host() || modified_legacy_device || modified_legacy_hostkk || modified_hostkk_legacy);
+    return (k_view.need_sync_host() || modified_device_legacy || modified_legacy_hostkk || modified_hostkk_legacy);
   }
 
   bool need_sync_device_kk()
@@ -930,6 +1002,7 @@ KOKKOS_DEVICE_DUALVIEW(tagint*, Kokkos::LayoutRight, tagint_1d)
 KOKKOS_DEVICE_DUALVIEW(imageint*, Kokkos::LayoutRight, imageint_1d)
 KOKKOS_DEVICE_DUALVIEW(double*, Kokkos::LayoutRight, double_1d)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*, Kokkos::LayoutRight, kkfloat_1d)
+KOKKOS_DEVICE_DUALVIEW(KK_SUM_FLOAT*, Kokkos::LayoutRight, kksum_1d)
 
 typedef TransformView<KK_FLOAT*, double*, Kokkos::LayoutRight> ttransform_kkfloat_1d;
 
@@ -949,6 +1022,7 @@ KOKKOS_DEVICE_DUALVIEW(KK_FLOAT**, Kokkos::LayoutRight, kkfloat_2d_lr)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[2], LMPDeviceLayout, kkfloat_1d_2)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[3], LMPDeviceLayout, kkfloat_1d_3)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[3], Kokkos::LayoutRight, kkfloat_1d_3_lr)
+KOKKOS_DEVICE_DUALVIEW(KK_SUM_FLOAT*[3], LMPDeviceLayout, kksum_1d_3)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[4], LMPDeviceLayout, kkfloat_1d_4)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[6], LMPDeviceLayout, kkfloat_1d_6)
 
@@ -959,6 +1033,7 @@ typedef TransformView<KK_FLOAT**, double**, Kokkos::LayoutRight> ttransform_kkfl
 typedef TransformView<KK_FLOAT*[2], double*[2], LMPDeviceLayout> ttransform_kkfloat_1d_2;
 typedef TransformView<KK_FLOAT*[3], double*[3], LMPDeviceLayout> ttransform_kkfloat_1d_3;
 typedef TransformView<KK_FLOAT*[3], double*[3], Kokkos::LayoutRight> ttransform_kkfloat_1d_3_lr;
+typedef TransformView<KK_SUM_FLOAT*[3], double*[3], LMPDeviceLayout> ttransform_kksum_1d_3;
 typedef TransformView<KK_FLOAT*[4], double*[4], LMPDeviceLayout> ttransform_kkfloat_1d_4;
 typedef TransformView<KK_FLOAT*[6], double*[6], LMPDeviceLayout> ttransform_kkfloat_1d_6;
 
@@ -1017,6 +1092,7 @@ KOKKOS_HOST_DUALVIEW(tagint*, Kokkos::LayoutRight, tagint_1d)
 KOKKOS_HOST_DUALVIEW(imageint*, Kokkos::LayoutRight, imageint_1d)
 KOKKOS_HOST_DUALVIEW(double*, Kokkos::LayoutRight, double_1d)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT*, Kokkos::LayoutRight, kkfloat_1d)
+KOKKOS_HOST_DUALVIEW(KK_SUM_FLOAT*, Kokkos::LayoutRight, kksum_1d)
 
 // 2D view types
 
@@ -1034,6 +1110,7 @@ KOKKOS_HOST_DUALVIEW(KK_FLOAT**, Kokkos::LayoutRight, kkfloat_2d_lr)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT*[2], LMPDeviceLayout, kkfloat_1d_2)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT*[3], LMPDeviceLayout, kkfloat_1d_3)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT*[3], Kokkos::LayoutRight, kkfloat_1d_3_lr)
+KOKKOS_HOST_DUALVIEW(KK_SUM_FLOAT*[3], LMPDeviceLayout, kksum_1d_3)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT*[4], LMPDeviceLayout, kkfloat_1d_4)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT*[6], LMPDeviceLayout, kkfloat_1d_6)
 

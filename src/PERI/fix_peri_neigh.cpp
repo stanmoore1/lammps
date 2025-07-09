@@ -69,7 +69,7 @@ FixPeriNeigh::FixPeriNeigh(LAMMPS *lmp,int narg, char **arg) :
   vinter = nullptr;
   wvolume = nullptr;
 
-  grow_arrays(atom->nmax);
+  FixPeriNeigh::grow_arrays(atom->nmax);
   memset(wvolume,0,atom->nmax*sizeof(double));
   atom->add_callback(Atom::GROW);
   atom->add_callback(Atom::RESTART);
@@ -397,7 +397,7 @@ void FixPeriNeigh::setup(int /*vflag*/)
 double FixPeriNeigh::memory_usage()
 {
   int nmax = atom->nmax;
-  int bytes = nmax * sizeof(int);
+  double bytes = nmax * sizeof(int);
   bytes += (double)nmax*maxpartner * sizeof(tagint);
   bytes += (double)nmax*maxpartner * sizeof(double);
   if (isVES) {

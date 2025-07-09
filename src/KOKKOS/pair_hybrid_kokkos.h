@@ -44,7 +44,7 @@ class PairHybridKokkos : public PairHybrid {
 
  private:
   DAT::t_kkfloat_1d_3_lr_randomread x;
-  DAT::t_kkfloat_1d_3 f;
+  DAT::t_kksum_1d_3 f;
   friend void pair_virial_fdotr_compute<PairHybridKokkos>(PairHybridKokkos*);
 };
 

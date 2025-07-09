@@ -38,6 +38,11 @@ whether an extra library is needed to build and use the package:
      - :doc:`AMOEBA and HIPPO howto <Howto_amoeba>`
      - amoeba
      - no
+   * - :ref:`APIP <PKG-APIP>`
+     - adaptive-precision interatomic potentials
+     - :doc:`Howto APIP <Howto_apip>`
+     - ``PACKAGES/apip``
+     - ext
    * - :ref:`ASPHERE <PKG-ASPHERE>`
      - aspherical particle models
      - :doc:`Howto spherical <Howto_spherical>`

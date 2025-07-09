@@ -51,8 +51,8 @@ class ComputeCoordAtomKokkos : public ComputeCoordAtom {
   int inum;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
-  typename ArrayTypes<DeviceType>::t_int_1d_randomread type;
-  typename ArrayTypes<DeviceType>::t_int_1d mask;
+  typename AT::t_int_1d_randomread type;
+  typename AT::t_int_1d mask;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;

@@ -36,6 +36,13 @@ class ImageViewer : public QDialog {
 public:
     explicit ImageViewer(const QString &fileName, LammpsWrapper *_lammps,
                          QWidget *parent = nullptr);
+    ~ImageViewer() override = default;
+
+    ImageViewer()                               = delete;
+    ImageViewer(const ImageViewer &)            = delete;
+    ImageViewer(ImageViewer &&)                 = delete;
+    ImageViewer &operator=(const ImageViewer &) = delete;
+    ImageViewer &operator=(ImageViewer &&)      = delete;
 
 private slots:
     void saveAs();

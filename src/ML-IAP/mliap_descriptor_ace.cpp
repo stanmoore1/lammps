@@ -175,7 +175,6 @@ void MLIAPDescriptorACE::compute_forces(class MLIAPData *data)
 {
   double fij[3];
   double **f = atom->f;
-  int ij = 0;
 
   int max_jnum = -1;
   int nei = 0;
@@ -206,14 +205,7 @@ void MLIAPDescriptorACE::compute_forces(class MLIAPData *data)
     acemlimpl->ace->resize_neighbours_cache(jnum);
     acemlimpl->ace->compute_atom(i, atom->x, atom->type, data->numneighs[ii],
                                  data->lmp_firstneigh[ii]);
-    int ij0 = ij;
-    int ninside = 0;
-    for (int jj = 0; jj < jnum; jj++) {
-      ninside++;
-      ij++;
-    }
 
-    ij = ij0;
     const int *const jlist = data->lmp_firstneigh[ii];
     double **x = atom->x;
     const double xtmp = x[i][0];
@@ -221,7 +213,7 @@ void MLIAPDescriptorACE::compute_forces(class MLIAPData *data)
     const double ztmp = x[i][2];
 
     for (int jj = 0; jj < jnum; jj++) {
-      const int j = jlist[jj];
+      const int j = jlist[jj] & NEIGHMASK;
       for (int idim = 0; idim < 3; idim++) { fij[idim] = 0.0; }
       for (int iicoeff = 0; iicoeff < ndescriptors; iicoeff++) {
         DOUBLE_TYPE fx_dB =
@@ -246,7 +238,6 @@ void MLIAPDescriptorACE::compute_forces(class MLIAPData *data)
       const double delz = x[j][2] - ztmp;
       double rij_tmp[3] = {delx, dely, delz};
       if (data->vflag) data->pairmliap->v_tally(i, j, fij, rij_tmp);
-      ij++;
     }
   }
 }
@@ -257,8 +248,6 @@ void MLIAPDescriptorACE::compute_forces(class MLIAPData *data)
 
 void MLIAPDescriptorACE::compute_force_gradients(class MLIAPData *data)
 {
-  int ij = 0;
-
   int max_jnum = -1;
   int nei = 0;
   int jtmp = 0;
@@ -290,7 +279,7 @@ void MLIAPDescriptorACE::compute_force_gradients(class MLIAPData *data)
     acemlimpl->ace->compute_atom(i, atom->x, atom->type, data->numneighs[ii],
                                  data->lmp_firstneigh[ii]);
     for (int jj = 0; jj < jnum; jj++) {
-      const int j = jlist[jj];
+      const int j = jlist[jj] & NEIGHMASK;
       for (int inz = 0; inz < data->gamma_nnz; inz++) {
         const int l = data->gamma_row_index[ii][inz];
         const int k = data->gamma_col_index[ii][inz];
@@ -304,7 +293,6 @@ void MLIAPDescriptorACE::compute_force_gradients(class MLIAPData *data)
         data->gradforce[j][l + data->yoffset] -= data->gamma[ii][inz] * fy_dB;
         data->gradforce[j][l + data->zoffset] -= data->gamma[ii][inz] * fz_dB;
       }
-      ij++;
     }
   }
 }
@@ -315,7 +303,6 @@ void MLIAPDescriptorACE::compute_force_gradients(class MLIAPData *data)
 
 void MLIAPDescriptorACE::compute_descriptor_gradients(class MLIAPData *data)
 {
-  int ij = 0;
   int max_jnum = -1;
   int nei = 0;
   int jtmp = 0;
@@ -344,25 +331,18 @@ void MLIAPDescriptorACE::compute_descriptor_gradients(class MLIAPData *data)
     acemlimpl->ace->resize_neighbours_cache(jnum);
     acemlimpl->ace->compute_atom(i, atom->x, atom->type, data->numneighs[ii],
                                  data->lmp_firstneigh[ii]);
-    int ij0 = ij;
-    int ninside = 0;
-    for (int jj = 0; jj < jnum; jj++) {
-      ninside++;
-      ij++;
-    }
 
-    ij = ij0;
+    // TODO: should this loop really store with index jj and not j = jlist[jj] & NEIGHMASK;
     for (int jj = 0; jj < data->numneighs[ii]; jj++) {
       for (int iicoeff = 0; iicoeff < ndescriptors; iicoeff++) {
         DOUBLE_TYPE fx_dB = acemlimpl->ace->neighbours_dB(iicoeff, jj, 0);
         DOUBLE_TYPE fy_dB = acemlimpl->ace->neighbours_dB(iicoeff, jj, 1);
         DOUBLE_TYPE fz_dB = acemlimpl->ace->neighbours_dB(iicoeff, jj, 2);
         // Accumulate dB_k^i/dRi, dB_k^i/dRj
-        data->graddesc[ij][iicoeff][0] = fx_dB;
-        data->graddesc[ij][iicoeff][1] = fy_dB;
-        data->graddesc[ij][iicoeff][2] = fz_dB;
+        data->graddesc[jj][iicoeff][0] = fx_dB;
+        data->graddesc[jj][iicoeff][1] = fy_dB;
+        data->graddesc[jj][iicoeff][2] = fz_dB;
       }
-      ij++;
     }
   }
 }

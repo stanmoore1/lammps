@@ -535,13 +535,13 @@ void LammpsGui::update_recents(const QString &filename)
 
     if (!filename.isEmpty() && !recent.contains(filename)) recent.prepend(filename);
     if (recent.size() > 5) recent.removeLast();
-    if (recent.size() > 0)
+    if (!recent.empty())
         settings.setValue("recent", QVariant::fromValue(recent));
     else
         settings.remove("recent");
 
     ui->action_1->setVisible(false);
-    if ((recent.size() > 0) && !recent[0].isEmpty()) {
+    if ((!recent.empty()) && !recent[0].isEmpty()) {
         QFileInfo fi(recent[0]);
         ui->action_1->setText(QString("&1. ") + fi.fileName());
         ui->action_1->setData(recent[0]);
@@ -730,7 +730,7 @@ void LammpsGui::view_file(const QString &fileName)
 
 void LammpsGui::purge_inspect_list()
 {
-    for (auto item : inspectList) {
+    for (auto *item : inspectList) {
         if (item->info) {
             if (!item->info->isVisible()) {
                 delete item->info;
@@ -760,7 +760,7 @@ void LammpsGui::inspect_file(const QString &fileName)
     auto shortName = QFileInfo(fileName).fileName();
 
     purge_inspect_list();
-    auto ilist   = new InspectData;
+    auto *ilist  = new InspectData;
     ilist->info  = nullptr;
     ilist->data  = nullptr;
     ilist->image = nullptr;
@@ -1004,7 +1004,7 @@ void LammpsGui::logupdate()
     progress->setValue(completed);
     if (logwindow) {
         const auto text = capturer->GetChunk();
-        if (text.size() > 0) {
+        if (!text.empty()) {
             logwindow->moveCursor(QTextCursor::End);
             logwindow->insertPlainText(text.c_str());
             logwindow->moveCursor(QTextCursor::End);
@@ -1478,7 +1478,7 @@ void LammpsGui::about()
     QString to_clipboard(version.c_str());
     to_clipboard += "\n\n";
 
-    std::string info = "LAMMPS is currently running. LAMMPS config info not available.";
+    std::string info = "LAMMPS is currently running. LAMMPS config info not available.\n";
 
     // LAMMPS is not re-entrant, so we can only query LAMMPS when it is not running
     if (!lammps.is_running()) {
@@ -1510,8 +1510,8 @@ void LammpsGui::about()
     msg.setFont(myfont);
 
     auto *minwidth = new QSpacerItem(700, 0, QSizePolicy::Minimum, QSizePolicy::Expanding);
-    auto *layout   = (QGridLayout *)msg.layout();
-    layout->addItem(minwidth, layout->rowCount(), 0, 1, layout->columnCount());
+    auto *layout   = dynamic_cast<QGridLayout *>(msg.layout());
+    if (layout) layout->addItem(minwidth, layout->rowCount(), 0, 1, layout->columnCount());
 
     msg.exec();
 }
@@ -1703,7 +1703,7 @@ QWizardPage *LammpsGui::tutorial_directory(const int ntutorial)
 
 void LammpsGui::start_tutorial1()
 {
-    if (wizard) delete wizard;
+    delete wizard;
     wizard = new TutorialWizard(1);
     const auto infotext =
         QString("<p>In tutorial 1 you will learn about LAMMPS input files, their syntax and "
@@ -1721,7 +1721,7 @@ void LammpsGui::start_tutorial1()
 
 void LammpsGui::start_tutorial2()
 {
-    if (wizard) delete wizard;
+    delete wizard;
     wizard = new TutorialWizard(2);
     const auto infotext =
         QString("<p>In tutorial 2 you will learn about setting up a simulation for a molecular "
@@ -1741,7 +1741,7 @@ void LammpsGui::start_tutorial2()
 
 void LammpsGui::start_tutorial3()
 {
-    if (wizard) delete wizard;
+    delete wizard;
     wizard              = new TutorialWizard(3);
     const auto infotext = QString(
         "<p>In tutorial 3 you will learn setting up a multi-component, a polymer molecule embedded "
@@ -1759,7 +1759,7 @@ void LammpsGui::start_tutorial3()
 
 void LammpsGui::start_tutorial4()
 {
-    if (wizard) delete wizard;
+    delete wizard;
     wizard = new TutorialWizard(4);
     const auto infotext =
         QString("<p>In tutorial 4 an electrolyte is simulated while confined between two walls and "
@@ -1778,7 +1778,7 @@ void LammpsGui::start_tutorial4()
 
 void LammpsGui::start_tutorial5()
 {
-    if (wizard) delete wizard;
+    delete wizard;
     wizard = new TutorialWizard(5);
     const auto infotext =
         QString("<p>Tutorial 5 demonstrates the use of the ReaxFF reactive force field which "
@@ -1796,7 +1796,7 @@ void LammpsGui::start_tutorial5()
 
 void LammpsGui::start_tutorial6()
 {
-    if (wizard) delete wizard;
+    delete wizard;
     wizard              = new TutorialWizard(6);
     const auto infotext = QString(
         "<p>In tutorial 6 an MD simulation is combined with Monte Carlo (MC) steps to implement "
@@ -1813,7 +1813,7 @@ void LammpsGui::start_tutorial6()
 
 void LammpsGui::start_tutorial7()
 {
-    if (wizard) delete wizard;
+    delete wizard;
     wizard = new TutorialWizard(7);
     const auto infotext =
         QString("<p>In tutorial 7 you will determine the height of a free energy barrier through "
@@ -1832,7 +1832,7 @@ void LammpsGui::start_tutorial7()
 
 void LammpsGui::start_tutorial8()
 {
-    if (wizard) delete wizard;
+    delete wizard;
     wizard = new TutorialWizard(8);
     const auto infotext =
         QString("<p>In tutorial 8 a CNT embedded in a Nylon-6,6 polymer melt is simulated.  The "
@@ -2045,29 +2045,32 @@ void LammpsGui::setup_tutorial(int tutno, const QString &dir, bool purgedir, boo
     if (openwebpage) {
         QString weburl = "https://lammpstutorials.github.io/sphinx/build/html/tutorial%1/%2.html";
         switch (tutno) {
-        case 1:
-            weburl = weburl.arg(tutno).arg("lennard-jones-fluid");
-            break;
-        case 2:
-            weburl = weburl.arg(tutno).arg("breaking-a-carbon-nanotube");
-            break;
-        case 3:
-            weburl = weburl.arg(tutno).arg("polymer-in-water");
-            break;
-        case 4:
-            weburl = weburl.arg(tutno).arg("nanosheard-electrolyte");
-            break;
-        case 5:
-            weburl = weburl.arg(tutno).arg("reactive-silicon-dioxide");
-            break;
-        case 6:
-            weburl = weburl.arg(tutno).arg("water-adsorption-in-silica");
-            break;
-        case 7:
-            weburl = weburl.arg(tutno).arg("free-energy-calculation");
-            break;
-        default:
-            weburl = "https://lammpstutorials.github.io/";
+            case 1:
+                weburl = weburl.arg(tutno).arg("lennard-jones-fluid");
+                break;
+            case 2:
+                weburl = weburl.arg(tutno).arg("breaking-a-carbon-nanotube");
+                break;
+            case 3:
+                weburl = weburl.arg(tutno).arg("polymer-in-water");
+                break;
+            case 4:
+                weburl = weburl.arg(tutno).arg("nanosheard-electrolyte");
+                break;
+            case 5:
+                weburl = weburl.arg(tutno).arg("reactive-silicon-dioxide");
+                break;
+            case 6:
+                weburl = weburl.arg(tutno).arg("water-adsorption-in-silica");
+                break;
+            case 7:
+                weburl = weburl.arg(tutno).arg("free-energy-calculation");
+                break;
+            case 8:
+                weburl = weburl.arg(tutno).arg("reactive-molecular-dynamics");
+                break;
+            default:
+                weburl = "https://lammpstutorials.github.io/";
         }
         QDesktopServices::openUrl(QUrl(weburl));
     }
@@ -2215,9 +2218,7 @@ void TutorialWizard::accept()
 
     // get hold of LAMMPS-GUI main widget
     if (dirname) {
-        LammpsGui *main = nullptr;
-        for (QWidget *widget : QApplication::topLevelWidgets())
-            if (widget->objectName() == "LammpsGui") main = dynamic_cast<LammpsGui *>(widget);
+        auto *main = dynamic_cast<LammpsGui *>(get_main_widget());
         if (main) main->setup_tutorial(_ntutorial, curdir, purgedir, getsolution, openwebpage);
     }
 }

@@ -367,21 +367,21 @@ class PairReaxFFKokkos : public PairReaxFF {
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
-  void v_tally(EV_FLOAT_REAX &ev, const int &i, KK_FLOAT *fi, KK_FLOAT *drij) const;
+  void v_tally(EV_FLOAT_REAX &ev, const int &i, KK_SUM_FLOAT *fi, KK_FLOAT *drij) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void v_tally3(EV_FLOAT_REAX &ev, const int &i, const int &j, const int &k,
-    KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const;
+    KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const;
 
   KOKKOS_INLINE_FUNCTION
   void v_tally3_atom(EV_FLOAT_REAX &ev, const int &i, const int &j, const int &k,
-    KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drjk) const;
+    KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drjk) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void v_tally4(EV_FLOAT_REAX &ev, const int &i, const int &j, const int &k, const int &l,
-    KK_FLOAT *fi, KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *dril, KK_FLOAT *drjl, KK_FLOAT *drkl) const;
+    KK_SUM_FLOAT *fi, KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *dril, KK_FLOAT *drjl, KK_FLOAT *drkl) const;
 
  protected:
   void deallocate_views_of_views();
@@ -408,7 +408,7 @@ class PairReaxFFKokkos : public PairReaxFF {
   typename Kokkos::DualView<params_fbp****,LMPDeviceLayout,DeviceType>::t_dev_const paramsfbp;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_tagint_1d_randomread tag;
   typename AT::t_int_1d_randomread mask;
@@ -443,14 +443,14 @@ class PairReaxFFKokkos : public PairReaxFF {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout> dup_f;
+  DupScatterView<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout> dup_f;
   DupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> dup_eatom;
   DupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
   DupScatterView<KK_FLOAT**, typename DAT::t_kkfloat_2d::array_layout> dup_dDeltap_self;
   DupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> dup_total_bo;
   DupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> dup_CdDelta;
 
-  NonDupScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout> ndup_f;
+  NonDupScatterView<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout> ndup_f;
   NonDupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> ndup_eatom;
   NonDupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
   NonDupScatterView<KK_FLOAT**, typename DAT::t_kkfloat_2d::array_layout> ndup_dDeltap_self;

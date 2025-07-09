@@ -85,11 +85,11 @@ class PairTableKokkos : public PairTable {
   };
 
   struct TableHost {
-    typename ArrayTypes<LMPHostType>::t_double_2d_lr cutsq;
-    typename ArrayTypes<LMPHostType>::t_int_2d_lr tabindex;
-    typename ArrayTypes<LMPHostType>::t_int_1d nshiftbits,nmask;
-    typename ArrayTypes<LMPHostType>::t_double_1d innersq,invdelta,deltasq6;
-    typename ArrayTypes<LMPHostType>::t_double_2d_lr rsq,drsq,e,de,f,df,e2,f2;
+    HAT::t_double_2d_lr cutsq;
+    HAT::t_int_2d_lr tabindex;
+    HAT::t_int_1d nshiftbits,nmask;
+    HAT::t_double_1d innersq,invdelta,deltasq6;
+    HAT::t_double_2d_lr rsq,drsq,e,de,f,df,e2,f2;
   };
 
   TableDeviceConst d_table_const;
@@ -105,7 +105,7 @@ class PairTableKokkos : public PairTable {
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkfloat_1d_3_lr_const c_x;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_int_1d_randomread type;
 
   DAT::ttransform_kkfloat_1d k_eatom;

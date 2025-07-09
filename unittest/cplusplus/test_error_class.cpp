@@ -32,14 +32,6 @@ protected:
     }
 };
 
-TEST_F(Error_class, message)
-{
-    auto output = CAPTURE_OUTPUT([&] {
-        error->message(FLERR, "one message");
-    });
-    ASSERT_THAT(output, ContainsRegex("one message .*test_error_class.cpp:.*"));
-};
-
 TEST_F(Error_class, warning)
 {
     // standard warning

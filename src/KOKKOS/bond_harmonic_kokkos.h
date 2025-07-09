@@ -64,7 +64,7 @@ class BondHarmonicKokkos : public BondHarmonic {
   class NeighborKokkos *neighborKK;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
-  typename Kokkos::View<KK_FLOAT*[3],typename AT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
+  typename Kokkos::View<KK_SUM_FLOAT*[3],DAT::t_kksum_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d_lr bondlist;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;

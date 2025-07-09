@@ -75,7 +75,7 @@
 #include <thread>
 
 /* ------------------------------------------------------------------ */
-
+namespace {
 /// Struct for listing on-the-fly compression/decompression commands
 struct compress_info {
   /// identifier for the different compression algorithms
@@ -88,7 +88,7 @@ struct compress_info {
 };
 
 // clang-format off
-static const std::vector<compress_info> compress_styles = {
+const std::vector<compress_info> compress_styles = {
     {"",     "",      "",       "",        compress_info::NONE},
     {"gz",   "gzip",  " > ",    " -cdf ",  compress_info::GZIP},
     {"bz2",  "bzip2", " > ",    " -cdf ",  compress_info::BZIP2},
@@ -101,7 +101,7 @@ static const std::vector<compress_info> compress_styles = {
 
 /* ------------------------------------------------------------------ */
 
-static const compress_info &find_compress_type(const std::string &file)
+const compress_info &find_compress_type(const std::string &file)
 {
   std::size_t dot = file.find_last_of('.');
   if (dot != std::string::npos) {
@@ -117,8 +117,8 @@ static const compress_info &find_compress_type(const std::string &file)
 
 // set reference time stamp during executable/library init.
 // should provide better resolution than using epoch, if the system clock supports it.
-static auto initial_time = std::chrono::steady_clock::now();
-
+auto initial_time = std::chrono::steady_clock::now();
+}
 using namespace LAMMPS_NS;
 
 // get CPU time
@@ -248,8 +248,12 @@ std::string platform::os_info()
     buf = "Windows 11 22H2";
   } else if (build == "22631") {
     buf = "Windows 11 23H2";
+  } else if (build == "25398") {
+    buf = "Windows Server 23H2";
   } else if (build == "26100") {
     buf = "Windows 11 24H2";
+  } else if (build == "26200") {
+    buf = "Windows 11 25H2";
   } else {
     buf = "Windows Build " + build;
   }
@@ -755,12 +759,11 @@ std::string platform::current_directory()
 #if defined(_WIN32)
   char *buf = new char[MAX_PATH];
   if (_getcwd(buf, MAX_PATH)) { cwd = buf; }
-  delete[] buf;
 #else
   auto buf = new char[PATH_MAX];
   if (::getcwd(buf, PATH_MAX)) { cwd = buf; }
-  delete[] buf;
 #endif
+  delete[] buf;
   return cwd;
 }
 

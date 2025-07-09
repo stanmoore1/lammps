@@ -78,7 +78,7 @@ class DihedralCharmmfswKokkos : public DihedralCharmmfsw {
   typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_int_1d_randomread atomtype;
   typename AT::t_kkfloat_1d_randomread q;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_int_2d_lr dihedrallist;
 
   Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;

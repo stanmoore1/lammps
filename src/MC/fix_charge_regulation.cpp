@@ -1087,11 +1087,11 @@ int FixChargeRegulation::get_random_particle(int ptype, double charge, double rd
     double dx, dy, dz, distance_check;
     for (int i = 0; i < nlocal; i++) {
       dx = fabs(atom->x[i][0] - target[0]);
-      dx -= static_cast<int>(1.0 * dx / (xhi - xlo) + 0.5) * (xhi - xlo);
+      dx -= std::lround(1.0 * dx / (xhi - xlo)) * (xhi - xlo);
       dy = fabs(atom->x[i][1] - target[1]);
-      dy -= static_cast<int>(1.0 * dy / (yhi - ylo) + 0.5) * (yhi - ylo);
+      dy -= std::lround(1.0 * dy / (yhi - ylo)) * (yhi - ylo);
       dz = fabs(atom->x[i][2] - target[2]);
-      dz -= static_cast<int>(1.0 * dz / (zhi - zlo) + 0.5) * (zhi - zlo);
+      dz -= std::lround(1.0 * dz / (zhi - zlo)) * (zhi - zlo);
       distance_check = dx * dx + dy * dy + dz * dz;
       if ((distance_check < rd * rd) && atom->type[i] == ptype &&
           fabs(atom->q[i] - charge) < SMALL && atom->mask[i] != exclusion_group_bit) {
@@ -1193,11 +1193,11 @@ int FixChargeRegulation::particle_number_xrd(int ptype, double charge, double rd
     double dx, dy, dz, distance_check;
     for (int i = 0; i < atom->nlocal; i++) {
       dx = fabs(atom->x[i][0] - target[0]);
-      dx -= static_cast<int>(1.0 * dx / (xhi - xlo) + 0.5) * (xhi - xlo);
+      dx -= std::lround(1.0 * dx / (xhi - xlo)) * (xhi - xlo);
       dy = fabs(atom->x[i][1] - target[1]);
-      dy -= static_cast<int>(1.0 * dy / (yhi - ylo) + 0.5) * (yhi - ylo);
+      dy -= std::lround(1.0 * dy / (yhi - ylo)) * (yhi - ylo);
       dz = fabs(atom->x[i][2] - target[2]);
-      dz -= static_cast<int>(1.0 * dz / (zhi - zlo) + 0.5) * (zhi - zlo);
+      dz -= std::lround(1.0 * dz / (zhi - zlo)) * (zhi - zlo);
       distance_check = dx * dx + dy * dy + dz * dz;
       if ((distance_check < rd * rd) && atom->type[i] == ptype &&
           fabs(atom->q[i] - charge) < SMALL && atom->mask[i] != exclusion_group_bit) {
@@ -1283,10 +1283,10 @@ void FixChargeRegulation::restart(char *buf)
   int n = 0;
   auto list = (double *) buf;
 
-  seed = static_cast<int> (list[n++]);
+  seed = static_cast<int>(list[n++]);
   random_equal->reset(seed);
 
-  seed = static_cast<int> (list[n++]);
+  seed = static_cast<int>(list[n++]);
   random_unequal->reset(seed);
 
   nacid_attempts  = list[n++];

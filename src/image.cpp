@@ -272,7 +272,7 @@ void Image::view_params(double boxxlo, double boxxhi, double boxylo,
   if (ssao) {
     if (!random) random = new RanMars(lmp,seed+me);
     SSAORadius = maxdel * 0.05 * ssaoint;
-    SSAOSamples = static_cast<int> (8.0 + 32.0*ssaoint);
+    SSAOSamples = static_cast<int>(8.0 + 32.0*ssaoint);
     SSAOJitter = MY_PI / 12;
     ambientColor[0] = 0.5;
     ambientColor[1] = 0.5;
@@ -364,8 +364,8 @@ void Image::merge()
     MPI_Bcast(depthBuffer,npixels,MPI_DOUBLE,0,world);
     compute_SSAO();
 
-    int pixelstart = 3 * static_cast<int> (1.0*me/nprocs * npixels);
-    int pixelstop = 3 * static_cast<int> (1.0*(me+1)/nprocs * npixels);
+    int pixelstart = 3 * static_cast<int>(1.0*me/nprocs * npixels);
+    int pixelstop = 3 * static_cast<int>(1.0*(me+1)/nprocs * npixels);
     int mypixels = pixelstop - pixelstart;
 
     if (npixels % nprocs == 0) {
@@ -469,12 +469,12 @@ void Image::draw_sphere(double *x, double *surfaceColor, double diameter)
   double pixelWidth = (tanPerPixel > 0) ? tanPerPixel * dist :
     -tanPerPixel / zoom;
   double pixelRadiusFull = radius / pixelWidth;
-  int pixelRadius = static_cast<int> (pixelRadiusFull + 0.5) + 1;
+  int pixelRadius = std::lround(pixelRadiusFull) + 1;
 
   double xf = xmap / pixelWidth;
   double yf = ymap / pixelWidth;
-  int xc = static_cast<int> (xf);
-  int yc = static_cast<int> (yf);
+  int xc = static_cast<int>(xf);
+  int yc = static_cast<int>(yf);
   double width_error = xf - xc;
   double height_error = yf - yc;
 
@@ -531,12 +531,12 @@ void Image::draw_cube(double *x, double *surfaceColor, double diameter)
 
   double halfWidth = diameter;
   double pixelHalfWidthFull = halfWidth / pixelWidth;
-  int pixelHalfWidth = static_cast<int> (pixelHalfWidthFull + 0.5);
+  int pixelHalfWidth = std::lround(pixelHalfWidthFull);
 
   double xf = xmap / pixelWidth;
   double yf = ymap / pixelWidth;
-  int xc = static_cast<int> (xf);
-  int yc = static_cast<int> (yf);
+  int xc = static_cast<int>(xf);
+  int yc = static_cast<int>(yf);
   double width_error = xf - xc;
   double height_error = yf - yc;
 
@@ -658,8 +658,8 @@ void Image::draw_cylinder(double *x, double *y,
 
   double xf = xmap / pixelWidth;
   double yf = ymap / pixelWidth;
-  int xc = static_cast<int> (xf);
-  int yc = static_cast<int> (yf);
+  int xc = static_cast<int>(xf);
+  int yc = static_cast<int>(yf);
   double width_error = xf - xc;
   double height_error = yf - yc;
 
@@ -670,8 +670,8 @@ void Image::draw_cylinder(double *x, double *y,
 
   double pixelHalfWidthFull = (rasterWidth * 0.5) / pixelWidth;
   double pixelHalfHeightFull = (rasterHeight * 0.5) / pixelWidth;
-  int pixelHalfWidth = static_cast<int> (pixelHalfWidthFull + 0.5);
-  int pixelHalfHeight = static_cast<int> (pixelHalfHeightFull + 0.5);
+  int pixelHalfWidth = std::lround(pixelHalfWidthFull);
+  int pixelHalfHeight = std::lround(pixelHalfHeightFull);
 
   if (zaxis[0] == camDir[0] && zaxis[1] == camDir[1] && zaxis[2] == camDir[2])
     return;
@@ -804,8 +804,8 @@ void Image::draw_triangle(double *x, double *y, double *z, double *surfaceColor)
 
   double xf = xmap / pixelWidth;
   double yf = ymap / pixelWidth;
-  int xc = static_cast<int> (xf);
-  int yc = static_cast<int> (yf);
+  int xc = static_cast<int>(xf);
+  int yc = static_cast<int>(yf);
   double width_error = xf - xc;
   double height_error = yf - yc;
 
@@ -818,10 +818,10 @@ void Image::draw_triangle(double *x, double *y, double *z, double *surfaceColor)
   double pixelRightFull = rasterRight / pixelWidth;
   double pixelDownFull = rasterDown / pixelWidth;
   double pixelUpFull = rasterUp / pixelWidth;
-  int pixelLeft = static_cast<int> (pixelLeftFull + 0.5);
-  int pixelRight = static_cast<int> (pixelRightFull + 0.5);
-  int pixelDown = static_cast<int> (pixelDownFull + 0.5);
-  int pixelUp = static_cast<int> (pixelUpFull + 0.5);
+  int pixelLeft = std::lround(pixelLeftFull);
+  int pixelRight = std::lround(pixelRightFull);
+  int pixelDown = std::lround(pixelDownFull);
+  int pixelUp = std::lround(pixelUpFull);
 
   for (int iy = yc - pixelDown; iy <= yc + pixelUp; iy ++) {
     for (int ix = xc - pixelLeft; ix <= xc + pixelRight; ix ++) {
@@ -956,8 +956,8 @@ void Image::compute_SSAO()
   // x = column # from 0 to width-1
   // y = row # from 0 to height-1
 
-  int pixelstart = static_cast<int> (1.0*me/nprocs * npixels);
-  int pixelstop = static_cast<int> (1.0*(me+1)/nprocs * npixels);
+  int pixelstart = static_cast<int>(1.0*me/nprocs * npixels);
+  int pixelstop = static_cast<int>(1.0*(me+1)/nprocs * npixels);
 
   // file buffer with random numbers to avoid race conditions
   double *uniform = new double[pixelstop - pixelstart];
@@ -992,8 +992,8 @@ void Image::compute_SSAO()
 
       // Bresenham's line algorithm to march over depthBuffer
 
-      int dx = static_cast<int> (hx * pixelRadius);
-      int dy = static_cast<int> (hy * pixelRadius);
+      int dx = static_cast<int>(hx * pixelRadius);
+      int dy = static_cast<int>(hy * pixelRadius);
       int ex = x + dx;
       if (ex < 0) { ex = 0; } if (ex >= width) { ex = width - 1; }
       int ey = y + dy;
@@ -1997,7 +1997,7 @@ double *ColorMap::value2color(double value)
       if (value >= mentry[i].lvalue && value <= mentry[i].hvalue)
         return mentry[i].color;
   } else {
-    int ibin = static_cast<int> ((value-lo) * mbinsizeinv);
+    int ibin = static_cast<int>((value-lo) * mbinsizeinv);
     return mentry[ibin%nentry].color;
   }
 

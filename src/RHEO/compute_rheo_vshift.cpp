@@ -271,6 +271,8 @@ void ComputeRHEOVShift::correct_surfaces()
   int dim = domain->dimension;
 
   double nx, ny, nz, vx, vy, vz, dot;
+  nz = 0.0;
+  vz = 0.0;
   for (int i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) {
 

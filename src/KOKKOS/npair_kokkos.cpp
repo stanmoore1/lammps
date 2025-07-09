@@ -427,7 +427,7 @@ void NeighborKokkosExecute<DeviceType>::
 
   const int ibin = c_atom2bin(i);
 
-  const typename ArrayTypes<DeviceType>::t_int_1d_const_um stencil
+  const typename AT::t_int_1d_const_um stencil
     = d_stencil;
 
   // loop over rest of atoms in i's bin, ghosts are at end of linked list
@@ -711,7 +711,7 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGPU(typename Kokkos::TeamPolic
     }
     dev.team_barrier();
 
-    const typename ArrayTypes<DeviceType>::t_int_1d_const_um stencil
+    const typename AT::t_int_1d_const_um stencil
       = d_stencil;
     for (int k = 0; k < nstencil; k++) {
       const int jbin = ibin + stencil[k];
@@ -844,9 +844,9 @@ void NeighborKokkosExecute<DeviceType>::
   const double ztmp = x(i, 2);
   const int itype = type(i);
 
-  const typename ArrayTypes<DeviceType>::t_int_1d_const_um stencil
+  const typename AT::t_int_1d_const_um stencil
     = d_stencil;
-  const typename ArrayTypes<DeviceType>::t_int_1d_3_const_um stencilxyz
+  const typename AT::t_int_1d_3_const_um stencilxyz
     = d_stencilxyz;
 
   // loop over all atoms in surrounding bins in stencil including self
@@ -1012,9 +1012,9 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGhostGPU(typename Kokkos::Team
     if (molecular == Atom::TEMPLATE) moltemplate = 1;
     else moltemplate = 0;
 
-    const typename ArrayTypes<DeviceType>::t_int_1d_const_um stencil
+    const typename AT::t_int_1d_const_um stencil
       = d_stencil;
-    const typename ArrayTypes<DeviceType>::t_int_1d_3_const_um stencilxyz
+    const typename AT::t_int_1d_3_const_um stencilxyz
       = d_stencilxyz;
 
     // loop over all atoms in surrounding bins in stencil including self
@@ -1139,7 +1139,7 @@ void NeighborKokkosExecute<DeviceType>::
 
   const int ibin = c_atom2bin(i);
 
-  const typename ArrayTypes<DeviceType>::t_int_1d_const_um stencil
+  const typename AT::t_int_1d_const_um stencil
     = d_stencil;
 
   const int mask_history = 1 << HISTBITS;
@@ -1437,7 +1437,7 @@ void NeighborKokkosExecute<DeviceType>::build_ItemSizeGPU(typename Kokkos::TeamP
     }
     dev.team_barrier();
 
-    const typename ArrayTypes<DeviceType>::t_int_1d_const_um stencil
+    const typename AT::t_int_1d_const_um stencil
       = d_stencil;
     for (int k = 0; k < nstencil; k++) {
       const int jbin = ibin + stencil[k];

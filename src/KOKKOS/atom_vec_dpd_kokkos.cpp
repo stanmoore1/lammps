@@ -167,10 +167,10 @@ struct AtomVecDPDKokkos_PackComm {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem;
-  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
-  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
+  typename AT::t_kkfloat_1d_3_lr_randomread _x;
+  typename AT::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem;
+  typename AT::t_double_2d_lr_um _buf;
+  typename AT::t_int_1d_const _list;
   double _xprd,_yprd,_zprd,_xy,_xz,_yz;
   double _pbc[6];
 
@@ -236,7 +236,7 @@ int AtomVecDPDKokkos::pack_comm_kokkos(const int &n,
   // Choose correct forward PackComm kernel
 
   if (lmp->kokkos->forward_comm_on_host) {
-    atomKK->sync(Host,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
+    atomKK->sync(HostKK,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
     if (pbc_flag) {
       if (domain->triclinic) {
         struct AtomVecDPDKokkos_PackComm<LMPHostType,1,1> f(atomKK->k_x,
@@ -317,11 +317,11 @@ struct AtomVecDPDKokkos_PackCommSelf {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr _xw;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem;
+  typename AT::t_kkfloat_1d_3_lr_randomread _x;
+  typename AT::t_kkfloat_1d_3_lr _xw;
+  typename AT::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem;
   int _nfirst;
-  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
+  typename AT::t_int_1d_const _list;
   double _xprd,_yprd,_zprd,_xy,_xz,_yz;
   double _pbc[6];
 
@@ -377,8 +377,8 @@ struct AtomVecDPDKokkos_PackCommSelf {
 int AtomVecDPDKokkos::pack_comm_self(const int &n, const DAT::tdual_int_1d &list,
                                                                                 const int nfirst, const int &pbc_flag, const int* const pbc) {
   if (lmp->kokkos->forward_comm_on_host) {
-    atomKK->sync(Host,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
-    atomKK->modified(Host,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
+    atomKK->sync(HostKK,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
+    atomKK->modified(HostKK,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
     if (pbc_flag) {
       if (domain->triclinic) {
       struct AtomVecDPDKokkos_PackCommSelf<LMPHostType,1,1> f(atomKK->k_x,
@@ -459,9 +459,9 @@ struct AtomVecDPDKokkos_UnpackComm {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr _x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem;
-  typename ArrayTypes<DeviceType>::t_double_2d_lr_const _buf;
+  typename AT::t_kkfloat_1d_3_lr _x;
+  typename AT::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem;
+  typename AT::t_double_2d_lr_const _buf;
   int _first;
 
   AtomVecDPDKokkos_UnpackComm(
@@ -496,8 +496,8 @@ struct AtomVecDPDKokkos_UnpackComm {
 void AtomVecDPDKokkos::unpack_comm_kokkos(const int &n, const int &first,
     const DAT::tdual_double_2d_lr &buf) {
   if (lmp->kokkos->forward_comm_on_host) {
-    atomKK->sync(Host,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
-    atomKK->modified(Host,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
+    atomKK->sync(HostKK,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
+    atomKK->modified(HostKK,X_MASK|DPDTHETA_MASK|UCOND_MASK|UMECH_MASK|UCHEM_MASK);
     struct AtomVecDPDKokkos_UnpackComm<LMPHostType> f(atomKK->k_x,
     atomKK->k_dpdTheta,atomKK->k_uCond,atomKK->k_uMech,atomKK->k_uChem,
     buf,first);
@@ -519,28 +519,28 @@ struct AtomVecDPDKokkos_PackBorder {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  typename ArrayTypes<DeviceType>::t_double_2d_lr _buf;
-  const typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
-  const typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
-  const typename ArrayTypes<DeviceType>::t_int_1d _type;
-  const typename ArrayTypes<DeviceType>::t_int_1d _mask;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem,_uCG,_uCGnew;
+  typename AT::t_double_2d_lr _buf;
+  const typename AT::t_int_1d_const _list;
+  const typename AT::t_kkfloat_1d_3_lr_randomread _x;
+  const typename AT::t_tagint_1d _tag;
+  const typename AT::t_int_1d _type;
+  const typename AT::t_int_1d _mask;
+  typename AT::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem,_uCG,_uCGnew;
   double _dx,_dy,_dz;
 
   AtomVecDPDKokkos_PackBorder(
-      const typename ArrayTypes<DeviceType>::t_double_2d_lr &buf,
-      const typename ArrayTypes<DeviceType>::t_int_1d_const &list,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr &x,
-      const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
-      const typename ArrayTypes<DeviceType>::t_int_1d &type,
-      const typename ArrayTypes<DeviceType>::t_int_1d &mask,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d &dpdTheta,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d &uCond,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d &uMech,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d &uChem,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d &uCG,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d &uCGnew,
+      const typename AT::t_double_2d_lr &buf,
+      const typename AT::t_int_1d_const &list,
+      const typename AT::t_kkfloat_1d_3_lr &x,
+      const typename AT::t_tagint_1d &tag,
+      const typename AT::t_int_1d &type,
+      const typename AT::t_int_1d &mask,
+      const typename AT::t_kkfloat_1d &dpdTheta,
+      const typename AT::t_kkfloat_1d &uCond,
+      const typename AT::t_kkfloat_1d &uMech,
+      const typename AT::t_kkfloat_1d &uChem,
+      const typename AT::t_kkfloat_1d &uCG,
+      const typename AT::t_kkfloat_1d &uCGnew,
       const double &dx, const double &dy, const double &dz):
       _buf(buf),_list(list),
       _x(x),_tag(tag),_type(type),_mask(mask),
@@ -639,27 +639,27 @@ struct AtomVecDPDKokkos_UnpackBorder {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  const typename ArrayTypes<DeviceType>::t_double_2d_lr_const _buf;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr _x;
-  typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
-  typename ArrayTypes<DeviceType>::t_int_1d _type;
-  typename ArrayTypes<DeviceType>::t_int_1d _mask;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem,_uCG,_uCGnew;
+  const typename AT::t_double_2d_lr_const _buf;
+  typename AT::t_kkfloat_1d_3_lr _x;
+  typename AT::t_tagint_1d _tag;
+  typename AT::t_int_1d _type;
+  typename AT::t_int_1d _mask;
+  typename AT::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem,_uCG,_uCGnew;
   int _first;
 
 
   AtomVecDPDKokkos_UnpackBorder(
-      const typename ArrayTypes<DeviceType>::t_double_2d_lr_const &buf,
-      typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr &x,
-      typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
-      typename ArrayTypes<DeviceType>::t_int_1d &type,
-      typename ArrayTypes<DeviceType>::t_int_1d &mask,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d &dpdTheta,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d &uCond,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d &uMech,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d &uChem,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d &uCG,
-      const typename ArrayTypes<DeviceType>::t_kkfloat_1d &uCGnew,
+      const typename AT::t_double_2d_lr_const &buf,
+      typename AT::t_kkfloat_1d_3_lr &x,
+      typename AT::t_tagint_1d &tag,
+      typename AT::t_int_1d &type,
+      typename AT::t_int_1d &mask,
+      const typename AT::t_kkfloat_1d &dpdTheta,
+      const typename AT::t_kkfloat_1d &uCond,
+      const typename AT::t_kkfloat_1d &uMech,
+      const typename AT::t_kkfloat_1d &uChem,
+      const typename AT::t_kkfloat_1d &uCG,
+      const typename AT::t_kkfloat_1d &uCGnew,
       const int& first):
       _buf(buf),_x(x),_tag(tag),_type(type),_mask(mask),
       _dpdTheta(dpdTheta),
@@ -998,70 +998,70 @@ void AtomVecDPDKokkos::sync(ExecutionSpace space, unsigned int mask)
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecDPDKokkos::sync_pinned_device(ExecutionSpace space, unsigned int mask)
+void AtomVecDPDKokkos::sync_pinned(ExecutionSpace space, unsigned int mask, int async_flag)
 {
   if (space == Device) {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_device())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space,async_flag);
     if ((mask & V_MASK) && atomKK->k_v.need_sync_device())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space,async_flag);
     if ((mask & F_MASK) && atomKK->k_f.need_sync_device())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_f,space);
+      perform_pinned_copy_transform<DAT::ttransform_kksum_1d_3>(atomKK->k_f,space,async_flag);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())
-      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
+      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space,async_flag);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())
-      perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
+      perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space,async_flag);
     if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())
-      perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
+      perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space,async_flag);
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())
-      perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
+      perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space,async_flag);
     if ((mask & DPDRHO_MASK) && atomKK->k_rho.need_sync_device())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_rho,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_rho,space,async_flag);
     if ((mask & DPDTHETA_MASK) && atomKK->k_dpdTheta.need_sync_device())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_dpdTheta,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_dpdTheta,space,async_flag);
     if ((mask & UCOND_MASK) && atomKK->k_uCond.need_sync_device())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCond,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCond,space,async_flag);
     if ((mask & UMECH_MASK) && atomKK->k_uMech.need_sync_device())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uMech,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uMech,space,async_flag);
     if ((mask & UCHEM_MASK) && atomKK->k_uChem.need_sync_device())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uChem,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uChem,space,async_flag);
     if ((mask & UCG_MASK) && atomKK->k_uCG.need_sync_device())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCG,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCG,space,async_flag);
     if ((mask & UCGNEW_MASK) && atomKK->k_uCGnew.need_sync_device())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCGnew,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCGnew,space,async_flag);
     if ((mask & DUCHEM_MASK) && atomKK->k_duChem.need_sync_device())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_duChem,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_duChem,space,async_flag);
   } else {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_host())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space,async_flag);
     if ((mask & V_MASK) && atomKK->k_v.need_sync_host())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space,async_flag);
     if ((mask & F_MASK) && atomKK->k_f.need_sync_host())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_f,space);
+      perform_pinned_copy_transform<DAT::ttransform_kksum_1d_3>(atomKK->k_f,space,async_flag);
     if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())
-      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space);
+      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space,async_flag);
     if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())
-      perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space);
+      perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space,async_flag);
     if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())
-      perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space);
+      perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space,async_flag);
     if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())
-      perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space);
+      perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space,async_flag);
     if ((mask & DPDRHO_MASK) && atomKK->k_rho.need_sync_host())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_rho,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_rho,space,async_flag);
     if ((mask & DPDTHETA_MASK) && atomKK->k_dpdTheta.need_sync_host())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_dpdTheta,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_dpdTheta,space,async_flag);
     if ((mask & UCOND_MASK) && atomKK->k_uCond.need_sync_host())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCond,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCond,space,async_flag);
     if ((mask & UMECH_MASK) && atomKK->k_uMech.need_sync_host())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uMech,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uMech,space,async_flag);
     if ((mask & UCHEM_MASK) && atomKK->k_uChem.need_sync_host())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uChem,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uChem,space,async_flag);
     if ((mask & UCG_MASK) && atomKK->k_uCG.need_sync_host())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCG,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCG,space,async_flag);
     if ((mask & UCGNEW_MASK) && atomKK->k_uCGnew.need_sync_host())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCGnew,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCGnew,space,async_flag);
     if ((mask & DUCHEM_MASK) && atomKK->k_duChem.need_sync_host())
-      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_duChem,space);
+      perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_duChem,space,async_flag);
   }
 }
 

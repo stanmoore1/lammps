@@ -231,12 +231,13 @@ void FixHalt::end_of_step()
       // soft/continue halt -> trigger timer to break from run loop
       // print message with ID of fix halt in case multiple instances
 
-      auto message = fmt::format("Received universe halt request from partition {} for fix-id {} on step {}",
-                                 partition, id, update->ntimestep);
+      auto message =
+          fmt::format("Received universe halt request from partition {} for fix-id {} on step {}\n",
+                      partition, id, update->ntimestep);
       if (eflag == HARD) {
         error->all(FLERR, message);
       } else if ((eflag == SOFT) || (eflag == CONTINUE)) {
-        if ((comm->me == 0) && (msgflag == YESMSG)) error->message(FLERR, message);
+        if ((comm->me == 0) && (msgflag == YESMSG)) utils::logmesg(lmp, message);
         timer->force_timeout();
       }
     }
@@ -302,12 +303,13 @@ void FixHalt::end_of_step()
   // soft/continue halt -> trigger timer to break from run loop
   // print message with ID of fix halt in case multiple instances
 
-  std::string message = fmt::format("Fix halt condition for fix-id {} met on step {} with value {}",
-                                    id, update->ntimestep, attvalue);
+  std::string message =
+      fmt::format("Fix halt condition for fix-id {} met on step {} with value {}\n", id,
+                  update->ntimestep, attvalue);
   if (eflag == HARD) {
     error->all(FLERR, message);
   } else if ((eflag == SOFT) || (eflag == CONTINUE)) {
-    if ((comm->me == 0) && (msgflag == YESMSG)) error->message(FLERR, message);
+    if ((comm->me == 0) && (msgflag == YESMSG)) utils::logmesg(lmp, message);
     timer->force_timeout();
   }
 }

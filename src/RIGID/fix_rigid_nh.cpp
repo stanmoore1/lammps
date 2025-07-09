@@ -1176,7 +1176,7 @@ void FixRigidNH::restart(char *buf)
         eta_b[i] = list[n++];
         eta_dot_b[i] = list[n++];
       }
-    } else n += 2*m;
+    }
   }
 }
 

@@ -45,7 +45,7 @@ class VerletKokkos : public Verlet {
   }
 
  protected:
-  DAT::t_kkfloat_1d_3 f_merge_copy,f;
+  DAT::t_kksum_1d_3 f_merge_copy,f;
   int fuse_force_clear,fuse_integrate;
 
   void fuse_check(int, int);

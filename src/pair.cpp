@@ -416,14 +416,14 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
   for (int i = 0; i < ntable; i++) {
     rsq_lookup.i = i << ncoulshiftbits;
     rsq_lookup.i |= masklo;
-    if (rsq_lookup.f < tabinnersq) {
+    if ((double)rsq_lookup.f < tabinnersq) {
       rsq_lookup.i = i << ncoulshiftbits;
       rsq_lookup.i |= maskhi;
     }
-    r = sqrtf(rsq_lookup.f);
+    r = sqrt((double)rsq_lookup.f);
     if (msmflag) {
       egamma = 1.0 - (r/cut_coul)*force->kspace->gamma(r/cut_coul);
-      fgamma = 1.0 + (rsq_lookup.f/cut_coulsq)*
+      fgamma = 1.0 + ((double)rsq_lookup.f/cut_coulsq)*
         force->kspace->dgamma(r/cut_coul);
     } else {
       grij = g_ewald * r;
@@ -431,7 +431,7 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
       derfc = erfc(grij);
     }
     if (cut_respa == nullptr) {
-      rtable[i] = rsq_lookup.f;
+      rtable[i] = (double)rsq_lookup.f;
       ctable[i] = qqrd2e/r;
       if (msmflag) {
         ftable[i] = qqrd2e/r * fgamma;
@@ -441,7 +441,7 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
         etable[i] = qqrd2e/r * derfc;
       }
     } else {
-      rtable[i] = rsq_lookup.f;
+      rtable[i] = (double)rsq_lookup.f;
       ctable[i] = 0.0;
       ptable[i] = qqrd2e/r;
       if (msmflag) {
@@ -453,8 +453,8 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
         etable[i] = qqrd2e/r * derfc;
         vtable[i] = qqrd2e/r * (derfc + MY_ISPI4*grij*expm2);
       }
-      if (rsq_lookup.f > cut_respa[2]*cut_respa[2]) {
-        if (rsq_lookup.f < cut_respa[3]*cut_respa[3]) {
+      if ((double)rsq_lookup.f > cut_respa[2]*cut_respa[2]) {
+        if ((double)rsq_lookup.f < cut_respa[3]*cut_respa[3]) {
           rsw = (r - cut_respa[2])/(cut_respa[3] - cut_respa[2]);
           ftable[i] += qqrd2e/r * rsw*rsw*(3.0 - 2.0*rsw);
           ctable[i] = qqrd2e/r * rsw*rsw*(3.0 - 2.0*rsw);
@@ -468,7 +468,7 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
     minrsq_lookup.f = MIN(minrsq_lookup.f,rsq_lookup.f);
   }
 
-  tabinnersq = minrsq_lookup.f;
+  tabinnersq = (double)minrsq_lookup.f;
 
   int ntablem1 = ntable - 1;
 
@@ -515,12 +515,12 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
   rsq_lookup.i = itablemax << ncoulshiftbits;
   rsq_lookup.i |= maskhi;
 
-  if (rsq_lookup.f < cut_coulsq) {
+  if ((double)rsq_lookup.f < cut_coulsq) {
     rsq_lookup.f = cut_coulsq;
-    r = sqrtf(rsq_lookup.f);
+    r = sqrt((double)rsq_lookup.f);
     if (msmflag) {
       egamma = 1.0 - (r/cut_coul)*force->kspace->gamma(r/cut_coul);
-      fgamma = 1.0 + (rsq_lookup.f/cut_coulsq)*
+      fgamma = 1.0 + ((double)rsq_lookup.f/cut_coulsq)*
         force->kspace->dgamma(r/cut_coul);
     } else {
       grij = g_ewald * r;
@@ -548,8 +548,8 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
         e_tmp = qqrd2e/r * derfc;
         v_tmp = qqrd2e/r * (derfc + MY_ISPI4*grij*expm2);
       }
-      if (rsq_lookup.f > cut_respa[2]*cut_respa[2]) {
-        if (rsq_lookup.f < cut_respa[3]*cut_respa[3]) {
+      if ((double)rsq_lookup.f > cut_respa[2]*cut_respa[2]) {
+        if ((double)rsq_lookup.f < cut_respa[3]*cut_respa[3]) {
           rsw = (r - cut_respa[2])/(cut_respa[3] - cut_respa[2]);
           f_tmp += qqrd2e/r * rsw*rsw*(3.0 - 2.0*rsw);
           c_tmp = qqrd2e/r * rsw*rsw*(3.0 - 2.0*rsw);
@@ -561,7 +561,7 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
       }
     }
 
-    drtable[itablemax] = 1.0/(rsq_lookup.f - rtable[itablemax]);
+    drtable[itablemax] = 1.0/((double)rsq_lookup.f - rtable[itablemax]);
     dftable[itablemax] = f_tmp - ftable[itablemax];
     dctable[itablemax] = c_tmp - ctable[itablemax];
     detable[itablemax] = e_tmp - etable[itablemax];
@@ -612,22 +612,22 @@ void Pair::init_tables_disp(double cut_lj_global)
   for (int i = 0; i < ntable; i++) {
     rsq_lookup.i = i << ndispshiftbits;
     rsq_lookup.i |= masklo;
-    if (rsq_lookup.f < tabinnerdispsq) {
+    if ((double)rsq_lookup.f < tabinnerdispsq) {
       rsq_lookup.i = i << ndispshiftbits;
       rsq_lookup.i |= maskhi;
     }
-    rsq = rsq_lookup.f;
+    rsq = (double)rsq_lookup.f;
     double x2 = g2*rsq, a2 = 1.0/x2;
     x2 = a2*exp(-x2);
 
-    rdisptable[i] = rsq_lookup.f;
+    rdisptable[i] = (double)rsq_lookup.f;
     fdisptable[i] = g8*(((6.0*a2+6.0)*a2+3.0)*a2+1.0)*x2*rsq;
     edisptable[i] = g6*((a2+1.0)*a2+0.5)*x2;
 
     minrsq_lookup.f = MIN(minrsq_lookup.f,rsq_lookup.f);
   }
 
-  tabinnerdispsq = minrsq_lookup.f;
+  tabinnerdispsq = (double)minrsq_lookup.f;
 
   int ntablem1 = ntable - 1;
 
@@ -660,7 +660,7 @@ void Pair::init_tables_disp(double cut_lj_global)
   rsq_lookup.i = itablemax << ndispshiftbits;
   rsq_lookup.i |= maskhi;
 
-  if (rsq_lookup.f < (cut_lj_globalsq = cut_lj_global * cut_lj_global)) {
+  if ((double)rsq_lookup.f < (cut_lj_globalsq = cut_lj_global * cut_lj_global)) {
     rsq_lookup.f = cut_lj_globalsq;
 
     double x2 = g2*rsq, a2 = 1.0/x2;
@@ -668,7 +668,7 @@ void Pair::init_tables_disp(double cut_lj_global)
     f_tmp = g8*(((6.0*a2+6.0)*a2+3.0)*a2+1.0)*x2*rsq;
     e_tmp = g6*((a2+1.0)*a2+0.5)*x2;
 
-    drdisptable[itablemax] = 1.0/(rsq_lookup.f - rdisptable[itablemax]);
+    drdisptable[itablemax] = 1.0/((double)rsq_lookup.f - rdisptable[itablemax]);
     dfdisptable[itablemax] = f_tmp - fdisptable[itablemax];
     dedisptable[itablemax] = e_tmp - edisptable[itablemax];
   }
@@ -980,7 +980,6 @@ void Pair::ev_setup(int eflag, int vflag, int alloc)
       cvatom[i][6] = 0.0;
       cvatom[i][7] = 0.0;
       cvatom[i][8] = 0.0;
-      cvatom[i][9] = 0.0;
     }
   }
 
@@ -1840,9 +1839,8 @@ void Pair::write_file(int narg, char **arg)
     if (platform::file_is_readable(table_file)) {
       std::string units = utils::get_potential_units(table_file, "table");
       if (!units.empty() && (units != update->unit_style)) {
-        error->one(FLERR,"Trying to append to a table file "
-                                     "with UNITS: {} while units are {}",
-                                     units, update->unit_style);
+        error->one(FLERR,"Trying to append to a table file with UNITS: {} while units are {}",
+                   units, update->unit_style);
       }
       std::string date = utils::get_potential_date(table_file, "table");
       utils::logmesg(lmp,"Appending to table file {} with DATE: {}\n", table_file, date);
@@ -1854,14 +1852,16 @@ void Pair::write_file(int narg, char **arg)
       if (fp) utils::print(fp,"# DATE: {} UNITS: {} Created by pair_write\n",
                          utils::current_date(), update->unit_style);
     }
-    if (fp == nullptr)
+    if (fp) {
+      fprintf(fp, "# Pair potential %s for atom types %d %d: i,r,energy,force\n",
+              force->pair_style, itype, jtype);
+      if (style == RLINEAR)
+        fprintf(fp, "\n%s\nN %d R %.15g %.15g\n\n", arg[7], n, inner, outer);
+      if (style == RSQ)
+        fprintf(fp, "\n%s\nN %d RSQ %.15g %.15g\n\n", arg[7], n, inner, outer);
+    } else {
       error->one(FLERR,"Cannot open pair_write file {}: {}",table_file, utils::getsyserror());
-    fprintf(fp, "# Pair potential %s for atom types %d %d: i,r,energy,force\n",
-            force->pair_style, itype, jtype);
-    if (style == RLINEAR)
-      fprintf(fp, "\n%s\nN %d R %.15g %.15g\n\n", arg[7], n, inner, outer);
-    if (style == RSQ)
-      fprintf(fp, "\n%s\nN %d RSQ %.15g %.15g\n\n", arg[7], n, inner, outer);
+    }
   }
 
   // initialize potentials before evaluating pair potential
@@ -1922,11 +1922,11 @@ void Pair::write_file(int narg, char **arg)
     } else if (style == BMP) {
       rsq_lookup.i = i << nshiftbits;
       rsq_lookup.i |= masklo;
-      if (rsq_lookup.f < inner*inner) {
+      if ((double)rsq_lookup.f < inner*inner) {
         rsq_lookup.i = i << nshiftbits;
         rsq_lookup.i |= maskhi;
       }
-      rsq = rsq_lookup.f;
+      rsq = (double)rsq_lookup.f;
       r = sqrt(rsq);
     }
 

@@ -560,8 +560,9 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator) :
       if (inflag <= 0) infile = stdin;
       else if (strcmp(arg[inflag], "none") == 0) infile = stdin;
       else infile = fopen(arg[inflag],"r");
+
       if (infile == nullptr)
-        error->all(FLERR,"Cannot open input script {}: {}", arg[inflag], utils::getsyserror());
+        error->one(FLERR,"Cannot open input script {}: {}", arg[inflag], utils::getsyserror());
       if (!helpflag)
         utils::logmesg(this,"LAMMPS ({}{})\n", version, update_string);
 
@@ -788,10 +789,10 @@ LAMMPS::~LAMMPS() noexcept(false)
 
   double totalclock = platform::walltime() - initclock;
   if ((me == 0) && (screen || logfile)) {
-    int seconds = fmod(totalclock,60.0);
+    auto seconds = (int) fmod(totalclock,60.0);
     totalclock  = (totalclock - seconds) / 60.0;
-    int minutes = fmod(totalclock,60.0);
-    int hours = (totalclock - minutes) / 60.0;
+    auto minutes = (int) fmod(totalclock,60.0);
+    auto hours = (int) ((totalclock - minutes) / 60.0);
     utils::logmesg(this, "Total wall time: {}:{:02d}:{:02d}\n", hours, minutes, seconds);
   }
 
@@ -883,8 +884,9 @@ void LAMMPS::create()
 
   python = new Python(this);
 
-  // auto-load plugins
+  // restore and auto-load plugins
 #if defined(LMP_PLUGIN)
+  plugin_restore(this, true);
   plugin_auto_load(this);
 #endif
 }
@@ -991,11 +993,6 @@ void LAMMPS::init()
 
 void LAMMPS::destroy()
 {
-  // must wipe out all plugins first, if configured
-#if defined(LMP_PLUGIN)
-  plugin_clear(this);
-#endif
-
   delete update;
   update = nullptr;
 

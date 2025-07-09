@@ -46,7 +46,7 @@ class FixViscousKokkos : public FixViscous {
 
  private:
   typename AT::t_kkfloat_1d_3 v;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_int_1d_randomread mask;
   typename AT::t_int_1d_randomread type;
 

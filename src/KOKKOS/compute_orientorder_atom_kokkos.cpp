@@ -524,7 +524,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop2(int ncount, int ii) co
   int jj = 0;
   for (int il = 0; il < nqlist; il++) {
     int l = d_qlist[il];
-    KK_FLOAT qm_sum = d_qnm(ii,il,0).re*d_qnm(ii,il,0).re;
+    KK_SUM_FLOAT qm_sum = d_qnm(ii,il,0).re*d_qnm(ii,il,0).re;
     for (int m = 1; m < l+1; m++)
       qm_sum += 2.0*(d_qnm(ii,il,m).re*d_qnm(ii,il,m).re + d_qnm(ii,il,m).im*d_qnm(ii,il,m).im);
     d_qnarray(i,jj++) = d_qnormfac(il) * sqrt(qm_sum);
@@ -537,7 +537,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop2(int ncount, int ii) co
   if (wlflag || wlhatflag) {
     for (int il = 0; il < nqlist; il++) {
       int l = d_qlist[il];
-      KK_FLOAT wlsum = 0.0;
+      KK_SUM_FLOAT wlsum = 0.0;
       for (int m1 = -l; m1 <= 0; m1++) {
         const int sgn = 1 - 2*(m1&1); // sgn = (-1)^m1
         for (int m2 = 0; m2 <= ((-m1)>>1); m2++) {

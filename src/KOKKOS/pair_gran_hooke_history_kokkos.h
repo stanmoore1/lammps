@@ -65,7 +65,7 @@ class PairGranHookeHistoryKokkos : public PairGranHookeHistory {
   typename AT::t_kkfloat_1d_3_lr c_x;
   typename AT::t_kkfloat_1d_3_randomread v;
   typename AT::t_kkfloat_1d_3_randomread omega;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_kkfloat_1d_3 torque;
   typename AT::t_int_1d_randomread type;
   typename AT::t_int_1d_randomread mask;

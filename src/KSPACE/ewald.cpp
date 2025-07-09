@@ -84,7 +84,7 @@ void Ewald::settings(int narg, char **arg)
 
 Ewald::~Ewald()
 {
-  deallocate();
+  Ewald::deallocate();
   if (group_allocate_flag) deallocate_groups();
   memory->destroy(ek);
   memory->destroy3d_offset(cs,-kmax_created);

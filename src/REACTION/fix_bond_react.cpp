@@ -375,15 +375,15 @@ FixBondReact::FixBondReact(LAMMPS *lmp, int narg, char **arg) :
                                       "'rate_limit' has too few arguments");
         rate_limit[0][rxn] = 1; // serves as flag for rate_limit keyword
         if (strncmp(arg[iarg+1],"v_",2) == 0) read_variable_keyword(&arg[iarg+1][2],NRATE,rxn);
-        else rate_limit[1][rxn] = utils::numeric(FLERR,arg[iarg+1],false,lmp);
-        rate_limit[2][rxn] = utils::numeric(FLERR,arg[iarg+2],false,lmp);
+        else rate_limit[1][rxn] = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
+        rate_limit[2][rxn] = utils::inumeric(FLERR,arg[iarg+2],false,lmp);
         iarg += 3;
       } else if (strcmp(arg[iarg],"stabilize_steps") == 0) {
         if (stabilization_flag == 0) error->all(FLERR,"Stabilize_steps keyword "
                                                 "used without stabilization keyword");
         if (iarg+2 > narg) error->all(FLERR,"Illegal fix bond/react command: "
                                       "'stabilize_steps' has too few arguments");
-        limit_duration[rxn] = utils::numeric(FLERR,arg[iarg+1],false,lmp);
+        limit_duration[rxn] = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
         stabilize_steps_flag[rxn] = 1;
         iarg += 2;
       } else if (strcmp(arg[iarg],"custom_charges") == 0) {
@@ -3109,7 +3109,7 @@ void FixBondReact::update_everything()
         update_num_mega++;
       }
       MPI_Allreduce(MPI_IN_PLACE, &noccur[0], nreacts, MPI_INT, MPI_SUM, world);
-      reaction_count_total[rxnID] += noccur[rxnID];
+      for (rxnID = 0; rxnID < nreacts; rxnID++) reaction_count_total[rxnID] += noccur[rxnID];
     } else if (pass == 1) {
       for (int i = 0; i < global_megasize; i++) {
         rxnID = (int) global_mega_glove[0][i];
@@ -4238,6 +4238,8 @@ void FixBondReact::CreateAtoms(char *line, int myrxn)
   }
   if (twomol->xflag == 0)
     error->one(FLERR,"Fix bond/react: 'Coords' section required in post-reaction template when creating new atoms");
+  if (atom->rmass_flag && !twomol->rmassflag)
+    error->one(FLERR, "Fix bond/react: 'Masses' section required in post-reaction template when creating new atoms if per-atom masses are defined.");
 }
 
 void FixBondReact::CustomCharges(int ifragment, int myrxn)

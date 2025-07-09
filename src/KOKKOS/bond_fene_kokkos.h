@@ -65,12 +65,12 @@ class BondFENEKokkos : public BondFENE {
 
   class NeighborKokkos *neighborKK;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
-  typename ArrayTypes<DeviceType>::t_int_2d_lr bondlist;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
+  typename AT::t_kksum_1d_3 f;
+  typename AT::t_int_2d_lr bondlist;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
   typename AT::t_int_scalar d_flag;
   HAT::t_int_scalar h_flag;

@@ -115,7 +115,7 @@ void AtomVecDielectric::init()
     if (utils::strmatch(force->pair_style, "dipole")) mismatch = true;
 
     if (utils::strmatch(force->pair_style, "^hybrid")) {
-      auto hybrid = dynamic_cast<PairHybrid *>(force->pair);
+      auto *hybrid = dynamic_cast<PairHybrid *>(force->pair);
       if (hybrid) {
         for (int i = 0; i < hybrid->nstyles; i++) {
           if (utils::strmatch(hybrid->keywords[i], "^reaxff")) mismatch = true;

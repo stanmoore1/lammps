@@ -20,6 +20,6 @@
 #include "nlohmann/json.hpp"
 
 namespace LAMMPS_NS {
-using json = ::nlohmann_lmp::json;
+using json = ::nlohmann_lmp::basic_json<>;
 }
 #endif

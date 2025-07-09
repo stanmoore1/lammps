@@ -260,7 +260,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
              b_cxst1[atype][btype], dtheta_cxst1_c[atype][btype]);
 
       // early rejection criterium
-      if (f4t1) {
+      if (f4t1 != 0.0) {
 
       az[0] = nz_xtrct[a][0];
       az[1] = nz_xtrct[a][1];
@@ -278,7 +278,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
              b_cxst4[atype][btype], dtheta_cxst4_c[atype][btype]);
 
       // early rejection criterium
-      if (f4t4) {
+      if (f4t4 != 0.0) {
 
       cost5 = MathExtra::dot3(delr_stkstk_norm,az);
       if (cost5 >  1.0) cost5 =  1.0;
@@ -292,7 +292,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
              b_cxst5[atype][btype], dtheta_cxst5_c[atype][btype]);
 
       // early rejection criterium
-      if (f4t5) {
+      if (f4t5 != 0.0) {
 
       cost6 = MathExtra::dot3(delr_stkstk_norm,bz);
       if (cost6 >  1.0) cost6 =  1.0;
@@ -321,7 +321,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       evdwl = f2 * f4t1 * f4t4 * f4t5 * f4t6 * f5c3 * f5c3 * factor_lj;
 
       // early rejection criterium
-      if (evdwl) {
+      if (evdwl != 0.0) {
 
       df2 = DF2(r_stkstk, k_cxst[atype][btype], cut_cxst_0[atype][btype],
             cut_cxst_lc[atype][btype], cut_cxst_hc[atype][btype], cut_cxst_lo[atype][btype], cut_cxst_hi[atype][btype],
@@ -374,7 +374,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       delf[2] += delr_stkstk[2] * finc;
 
       // theta5 force
-      if (theta5 && theta5p) {
+      if ((theta5 != 0.0) && (theta5p != 0.0)) {
 
         finc   = -f2 * f4t1 * f4t4 * df4t5 * f4t6 * f5c3 * f5c3 * rinv_stkstk * factor_lj;
 
@@ -385,7 +385,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       }
 
       // theta6 force
-      if (theta6 && theta6p) {
+      if ((theta6 != 0.0) && (theta6p != 0.0)) {
 
         finc   = -f2 * f4t1* f4t4 * f4t5 * df4t6 * f5c3 * f5c3 * rinv_stkstk * factor_lj;
 
@@ -397,7 +397,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
 
 
       // cosphi3 and cosphi4 (=cosphi3) force and virial
-      if (cosphi3) {
+      if (cosphi3 != 0.0) {
 
         ay[0] = ny_xtrct[a][0];
         ay[1] = ny_xtrct[a][1];
@@ -486,7 +486,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       deltb[2] = 0.0;
 
       // theta1 torque
-      if (theta1 && theta1p) {
+      if ((theta1 != 0.0) && (theta1p != 0.0)) {
 
         tpair = -f2 * df4t1 * f4t4 * f4t5 * f4t6 * f5c3 * f5c3 * factor_lj;
         MathExtra::cross3(ax,bx,t1dir);
@@ -502,7 +502,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       }
 
       // theta4 torque
-      if (theta4) {
+      if (theta4 != 0.0) {
 
         tpair = -f2 * f4t1 * df4t4 * f4t5 * f4t6 * f5c3 * f5c3 * factor_lj;
         MathExtra::cross3(bz,az,t4dir);
@@ -518,7 +518,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       }
 
       // theta5 torque
-      if (theta5 && theta5p) {
+      if ((theta5 != 0.0) && (theta5p != 0.0)) {
 
         tpair = -f2 * f4t1 * f4t4 * df4t5 * f4t6 * f5c3 * f5c3 * factor_lj;
         MathExtra::cross3(delr_stkstk_norm,az,t5dir);
@@ -530,7 +530,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       }
 
       // theta6 torque
-      if (theta6 && theta6p) {
+      if ((theta6 != 0.0) && (theta6p != 0.0)) {
 
         tpair = -f2 * f4t1 * f4t4 * f4t5 * df4t6 * f5c3 * f5c3 * factor_lj;
         MathExtra::cross3(delr_stkstk_norm,bz,t6dir);
@@ -542,7 +542,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
       }
 
       // Full cosphi3 and cosphi4 (=cosphi3) contribution to the torque
-      if (cosphi3) {
+      if (cosphi3 != 0.0) {
 
         tpair   = -f2 * f4t1 * f4t4 * f4t5 * f4t6 * 2.0 * f5c3 * df5c3 * factor_lj;
 

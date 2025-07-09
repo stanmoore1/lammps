@@ -687,7 +687,7 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelA<NEIGHFLAG,NEWTON_PA
 
   const int jnum = d_numneigh[i];
 
-  KK_FLOAT rhotmp = 0.0;
+  KK_SUM_FLOAT rhotmp = 0.0;
   KK_FLOAT mutmp[3] = {0.0,0.0,0.0};
   KK_FLOAT lambdatmp[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
   int d_type_ji;
@@ -828,9 +828,9 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelAB<EFLAG>, const int 
 
   const int jnum = d_numneigh[i];
 
-  KK_FLOAT rhotmp = 0.0;
-  KK_FLOAT mutmp[3] = {0.0,0.0,0.0};
-  KK_FLOAT lambdatmp[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
+  KK_SUM_FLOAT rhotmp = 0.0;
+  KK_SUM_FLOAT mutmp[3] = {0.0,0.0,0.0};
+  KK_SUM_FLOAT lambdatmp[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
   int d_type_ji;
 
   for (int jj = 0; jj < jnum; jj++) {
@@ -941,9 +941,9 @@ void PairADPKokkos<DeviceType>::operator()(TagPairADPKernelC<NEIGHFLAG,NEWTON_PA
 
   const int jnum = d_numneigh[i];
 
-  KK_FLOAT fxtmp = 0.0;
-  KK_FLOAT fytmp = 0.0;
-  KK_FLOAT fztmp = 0.0;
+  KK_SUM_FLOAT fxtmp = 0.0;
+  KK_SUM_FLOAT fytmp = 0.0;
+  KK_SUM_FLOAT fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);

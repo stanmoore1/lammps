@@ -50,7 +50,7 @@ class BondBPM : public Bond {
   class FixUpdateSpecialBonds *fix_update_special_bonds;
 
   void process_broken(int, int);
-  typedef void (BondBPM::*FnPtrPack)(int, int, int);
+  using FnPtrPack = void (BondBPM::*)(int, int, int);
   FnPtrPack *pack_choice;    // ptrs to pack functions
   double *output_data;
 

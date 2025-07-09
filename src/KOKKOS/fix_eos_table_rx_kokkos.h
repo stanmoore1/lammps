@@ -77,27 +77,27 @@ class FixEOStableRXKokkos : public FixEOStableRX {
   //Table *tables, *tables2;
 
   /*struct TableDeviceConst {
-    typename ArrayTypes<DeviceType>::t_int_1d_randomread lo,hi;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d_randomread invdelta;
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d_randomread r,e,de;
+    typename AT::t_int_1d_randomread lo,hi;
+    typename AT::t_kkfloat_1d_randomread invdelta;
+    typename AT::t_kkfloat_2d_randomread r,e,de;
   };*/
  //Its faster not to use texture fetch if the number of tables is less than 32!
   struct TableDeviceConst {
-    typename ArrayTypes<DeviceType>::t_int_1d lo,hi;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d invdelta;
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d_randomread r,e,de;
+    typename AT::t_int_1d lo,hi;
+    typename AT::t_kkfloat_1d invdelta;
+    typename AT::t_kkfloat_2d_randomread r,e,de;
   };
 
   struct TableDevice {
-    typename ArrayTypes<DeviceType>::t_int_1d lo,hi;
-    typename ArrayTypes<DeviceType>::t_kkfloat_1d invdelta;
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d r,e,de;
+    typename AT::t_int_1d lo,hi;
+    typename AT::t_kkfloat_1d invdelta;
+    typename AT::t_kkfloat_2d r,e,de;
   };
 
   struct TableHost {
-    typename ArrayTypes<LMPHostType>::t_int_1d lo,hi;
-    typename ArrayTypes<LMPHostType>::t_kkfloat_1d invdelta;
-    typename ArrayTypes<LMPHostType>::t_kkfloat_2d r,e,de;
+    HAT::t_int_1d lo,hi;
+    HAT::t_kkfloat_1d invdelta;
+    HAT::t_kkfloat_2d r,e,de;
   };
 
   TableDeviceConst d_table_const;

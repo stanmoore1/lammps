@@ -79,7 +79,7 @@ class FixWallGranKokkos : public FixWallGranOld, public KokkosBase {
   typename AT::t_kkfloat_1d_3_lr x;
   typename AT::t_kkfloat_1d_3 v;
   typename AT::t_kkfloat_1d_3 d_omega;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_kkfloat_1d_3 torque;
   typename AT::t_int_1d mask;
   typename AT::t_kkfloat_1d rmass;

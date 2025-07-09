@@ -928,10 +928,10 @@ void DumpImage::create_image()
       j = clist[i];
 
       if (acolor == TYPE) {
-        itype = static_cast<int> (buf[m]);
+        itype = static_cast<int>(buf[m]);
         color = colortype[itype];
       } else if (acolor == ELEMENT) {
-        itype = static_cast<int> (buf[m]);
+        itype = static_cast<int>(buf[m]);
         color = colorelement[itype];
       } else if (acolor == ATTRIBUTE) {
         color = image->map_value2color(0,buf[m]);
@@ -940,10 +940,10 @@ void DumpImage::create_image()
       if (adiam == NUMERIC) {
         diameter = adiamvalue;
       } else if (adiam == TYPE) {
-        itype = static_cast<int> (buf[m+1]);
+        itype = static_cast<int>(buf[m+1]);
         diameter = diamtype[itype];
       } else if (adiam == ELEMENT) {
-        itype = static_cast<int> (buf[m+1]);
+        itype = static_cast<int>(buf[m+1]);
         diameter = diamelement[itype];
       } else if (adiam == ATTRIBUTE) {
         diameter = buf[m+1];
@@ -1108,7 +1108,7 @@ void DumpImage::create_image()
       if (body[j] < 0) continue;
 
       if (bodycolor == TYPE) {
-        itype = static_cast<int> (buf[m]);
+        itype = static_cast<int>(buf[m]);
         color = colortype[itype];
       }
 
@@ -1282,14 +1282,14 @@ void DumpImage::create_image()
         // no fix draws spheres yet
       } else if (fixvec[i] == LINE) {
         if (fixcolor == TYPE) {
-          itype = static_cast<int> (fixarray[i][0]);
+          itype = static_cast<int>(fixarray[i][0]);
           color = colortype[itype];
         }
         image->draw_cylinder(&fixarray[i][1],&fixarray[i][4],
                              color,fixflag1,3);
       } else if (fixvec[i] == TRI) {
         if (fixcolor == TYPE) {
-          itype = static_cast<int> (fixarray[i][0]);
+          itype = static_cast<int>(fixarray[i][0]);
           color = colortype[itype];
         }
         p1 = &fixarray[i][1];
@@ -1532,10 +1532,10 @@ void DumpImage::unpack_forward_comm(int n, int first, double *buf)
   last = first + n;
 
   if (comm_forward == 1)
-    for (i = first; i < last; i++) chooseghost[i] = static_cast<int> (buf[m++]);
+    for (i = first; i < last; i++) chooseghost[i] = static_cast<int>(buf[m++]);
   else {
     for (i = first; i < last; i++) {
-      chooseghost[i] = static_cast<int> (buf[m++]);
+      chooseghost[i] = static_cast<int>(buf[m++]);
       bufcopy[i][0] = buf[m++];
       bufcopy[i][1] = buf[m++];
     }
@@ -1638,9 +1638,9 @@ int DumpImage::modify_param(int narg, char **arg)
     if (narg < 2) error->all(FLERR,"Illegal dump_modify command");
     double *color = image->color2rgb(arg[1]);
     if (color == nullptr) error->all(FLERR,"Invalid color in dump_modify command");
-    image->background[0] = static_cast<int> (color[0]*255.0);
-    image->background[1] = static_cast<int> (color[1]*255.0);
-    image->background[2] = static_cast<int> (color[2]*255.0);
+    image->background[0] = static_cast<int>(color[0]*255.0);
+    image->background[1] = static_cast<int>(color[1]*255.0);
+    image->background[2] = static_cast<int>(color[2]*255.0);
     return 2;
   }
 

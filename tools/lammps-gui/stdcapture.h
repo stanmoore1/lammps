@@ -19,6 +19,10 @@
 class StdCapture {
 public:
     StdCapture();
+    StdCapture(const StdCapture &)            = delete;
+    StdCapture(StdCapture &&)                 = delete;
+    StdCapture &operator=(const StdCapture &) = delete;
+    StdCapture &operator=(StdCapture &&)      = delete;
     virtual ~StdCapture();
 
     void BeginCapture();

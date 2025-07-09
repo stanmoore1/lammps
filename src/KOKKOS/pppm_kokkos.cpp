@@ -994,7 +994,7 @@ void PPPMKokkos<DeviceType>::operator()(TagPPPM_compute_gf_ik, const int &n) con
   if (sqk != 0.0) {
     const KK_FLOAT numerator = 12.5663706/sqk;
     const KK_FLOAT denominator = gf_denom(snx,sny,snz);
-    KK_FLOAT sum1 = 0.0;
+    KK_SUM_FLOAT sum1 = 0.0;
 
     for (int nx = -nbx; nx <= nbx; nx++) {
       const KK_FLOAT qx = unitkx*(kper+nx_pppm*nx);
@@ -1080,7 +1080,7 @@ void PPPMKokkos<DeviceType>::operator()(TagPPPM_compute_gf_ik_triclinic, const i
       if (sqk != 0.0) {
         const KK_FLOAT numerator = 12.5663706/sqk;
         const KK_FLOAT denominator = gf_denom(snx,sny,snz);
-        KK_FLOAT sum1 = 0.0;
+        KK_SUM_FLOAT sum1 = 0.0;
 
         for (int nx = -nbx; nx <= nbx; nx++) {
           const KK_FLOAT argx = MY_PI*kper/nx_pppm + MY_PI*nx;

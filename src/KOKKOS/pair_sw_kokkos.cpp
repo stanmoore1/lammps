@@ -237,7 +237,8 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, co
   auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-  KK_FLOAT delr1[3],delr2[3],fj[3],fk[3];
+  KK_FLOAT delr1[3],delr2[3];
+  KK_SUM_FLOAT fj[3],fk[3];
   KK_FLOAT evdwl = 0.0;
   KK_FLOAT fpair = 0.0;
 
@@ -252,9 +253,9 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, co
 
   const int jnum = d_numneigh_short[ii];
 
-  KK_FLOAT fxtmpi = 0.0;
-  KK_FLOAT fytmpi = 0.0;
-  KK_FLOAT fztmpi = 0.0;
+  KK_SUM_FLOAT fxtmpi = 0.0;
+  KK_SUM_FLOAT fytmpi = 0.0;
+  KK_SUM_FLOAT fztmpi = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors_short(ii,jj);
@@ -305,9 +306,9 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWCompute<NEIGHFLAG,EVFLAG>, co
     delr1[2] = x(j,2) - ztmp;
     const KK_FLOAT rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
 
-    KK_FLOAT fxtmpj = 0.0;
-    KK_FLOAT fytmpj = 0.0;
-    KK_FLOAT fztmpj = 0.0;
+    KK_SUM_FLOAT fxtmpj = 0.0;
+    KK_SUM_FLOAT fytmpj = 0.0;
+    KK_SUM_FLOAT fztmpj = 0.0;
 
     for (int kk = jj+1; kk < jnum; kk++) {
       int k = d_neighbors_short(ii,kk);
@@ -467,7 +468,7 @@ KOKKOS_INLINE_FUNCTION
 void PairSWKokkos<DeviceType>::threebody_kk(const Param& paramij, const Param& paramik, const Param& paramijk,
                        const KK_FLOAT& rsq1, const KK_FLOAT& rsq2,
                        KK_FLOAT *delr1, KK_FLOAT *delr2,
-                       KK_FLOAT *fj, KK_FLOAT *fk, const int& eflag, KK_FLOAT& eng) const
+                       KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, const int& eflag, KK_FLOAT& eng) const
 {
   KK_FLOAT r1,rinvsq1,rainv1,gsrainv1,gsrainvsq1,expgsrainv1;
   KK_FLOAT r2,rinvsq2,rainv2,gsrainv2,gsrainvsq2,expgsrainv2;
@@ -589,7 +590,7 @@ template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairSWKokkos<DeviceType>::ev_tally3(EV_FLOAT &ev, const int &i, const int &j, int &k,
           const KK_FLOAT &evdwl, const KK_FLOAT &ecoul,
-                     KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const
+                     KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const
 {
   KK_FLOAT epairthird,v[6];
 
@@ -651,7 +652,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairSWKokkos<DeviceType>::ev_tally3_atom(EV_FLOAT & /*ev*/, const int &i,
           const KK_FLOAT &evdwl, const KK_FLOAT &ecoul,
-                     KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const
+                     KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const
 {
   KK_FLOAT epairthird,v[6];
 

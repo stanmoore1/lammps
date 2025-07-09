@@ -101,7 +101,7 @@ class FixShardlowKokkos : public FixShardlow {
   params_ssa m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
   KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename ArrayTypes<DeviceType>::t_kkfloat_2d d_cutsq;
+  typename AT::t_kkfloat_2d d_cutsq;
 
   typename DAT::tdual_kkfloat_1d_3 k_v_t0;
   // typename AT::t_kkfloat_1d_3 d_v_t0; v_t0 only used in comm routines (on host)

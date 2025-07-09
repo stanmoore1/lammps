@@ -465,11 +465,11 @@ void PairTableKokkos<DeviceType>::settings(int narg, char **arg)
   if (allocated) {
     memory->destroy(setflag);
 
-    d_table_const.tabindex = d_table->tabindex = typename ArrayTypes<DeviceType>::t_int_2d_lr();
-    h_table->tabindex = typename ArrayTypes<LMPHostType>::t_int_2d_lr();
+    d_table_const.tabindex = d_table->tabindex = typename AT::t_int_2d_lr();
+    h_table->tabindex = HAT::t_int_2d_lr();
 
-    d_table_const.cutsq = d_table->cutsq = typename ArrayTypes<DeviceType>::t_double_2d_lr();
-    h_table->cutsq = typename ArrayTypes<LMPHostType>::t_double_2d_lr();
+    d_table_const.cutsq = d_table->cutsq = typename AT::t_double_2d_lr();
+    h_table->cutsq = HAT::t_double_2d_lr();
   }
   allocated = 0;
 

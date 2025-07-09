@@ -38,14 +38,9 @@
 
 #include <cstring>
 
+// prototype repeated from base class implementation
 namespace LAMMPS_NS {
 struct ACEImpl {
-  ACEImpl() : basis_set(nullptr), ace(nullptr) {}
-  ~ACEImpl()
-  {
-    delete basis_set;
-    delete ace;
-  }
   ACECTildeBasisSet *basis_set;
   ACERecursiveEvaluator *ace;
 };
@@ -1288,7 +1283,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivative, const
   const KK_FLOAT r = d_rnorms(ii, jj);
   const KK_FLOAT rinv = 1.0/r;
 
-  KK_FLOAT f_ji[3];
+  KK_SUM_FLOAT f_ji[3];
   f_ji[0] = f_ji[1] = f_ji[2] = 0;
 
   // for rank = 1
@@ -1572,7 +1567,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeForce<NEIGHFLAG,E
 
   const int ncount = d_ncount(ii);
 
-  KK_FLOAT fitmp[3] = {0.0,0.0,0.0};
+  KK_SUM_FLOAT fitmp[3] = {0.0,0.0,0.0};
   for (int jj = 0; jj < ncount; jj++) {
     int j = d_nearest(ii,jj);
 

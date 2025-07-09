@@ -45,7 +45,7 @@ class ThirdOrderKokkos : public ThirdOrder {
  protected:
   void update_force() override;
   void force_clear() override;
-  DAT::t_kkfloat_1d_3 f_merge_copy, f;
+  DAT::t_kksum_1d_3 f_merge_copy, f;
 };
 }    // namespace LAMMPS_NS
 

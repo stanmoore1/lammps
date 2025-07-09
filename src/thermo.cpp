@@ -101,8 +101,9 @@ static char fmtbuf[512];
 /* ---------------------------------------------------------------------- */
 
 Thermo::Thermo(LAMMPS *_lmp, int narg, char **arg) :
-  Pointers(_lmp), style(nullptr), temperature(nullptr), pressure(nullptr), pe(nullptr),
-  vtype(nullptr), cache_mutex(nullptr), field2index(nullptr), argindex1(nullptr), argindex2(nullptr)
+    Pointers(_lmp), style(nullptr), temperature(nullptr), pressure(nullptr), pe(nullptr),
+    vtype(nullptr), cache_mutex(nullptr), field2index(nullptr), argindex1(nullptr),
+    argindex2(nullptr)
 {
   style = utils::strdup(arg[0]);
 
@@ -498,10 +499,9 @@ bigint Thermo::lost_check()
   if ((maxwarn > 0) && (warnbefore == 0) && (ntotal[1] > maxwarn)) {
     warnbefore = 1;
     if (comm->me == 0)
-      error->message(FLERR,
-                     "WARNING: Too many warnings: {} vs {}. "
-                     "All future warnings will be suppressed",
-                     ntotal[1], maxwarn);
+      utils::logmesg(
+          lmp, "WARNING: Too many warnings: {} vs {}. All future warnings willbe suppressed\n",
+          ntotal[1], maxwarn);
   }
   error->set_allwarn(MIN(MAXSMALLINT, ntotal[1]));
 
@@ -515,12 +515,14 @@ bigint Thermo::lost_check()
   // error message
 
   if (lostflag == Thermo::ERROR)
-    error->all(FLERR, Error::NOLASTLINE, "Lost atoms: original {} current {}" + utils::errorurl(8), atom->natoms, ntotal[0]);
+    error->all(FLERR, Error::NOLASTLINE, "Lost atoms: original {} current {}" + utils::errorurl(8),
+               atom->natoms, ntotal[0]);
 
   // warning message
 
   if (comm->me == 0)
-    error->warning(FLERR, "Lost atoms: original {} current {}" + utils::errorurl(8), atom->natoms, ntotal[0]);
+    error->warning(FLERR, "Lost atoms: original {} current {}" + utils::errorurl(8), atom->natoms,
+                   ntotal[0]);
 
   // reset total atom count
 
@@ -1091,24 +1093,24 @@ void Thermo::parse_fields(const std::string &str)
         if (!icompute)
           error->all(FLERR, nfield + 1, "Could not find thermo custom compute ID: {}",
                      icompute->id);
-        if (argi.get_dim() == 0) { // scalar
+        if (argi.get_dim() == 0) {    // scalar
           if (icompute->scalar_flag == 0)
-            error->all(FLERR,  nfield + 1, "Thermo custom compute {} does not compute a scalar",
+            error->all(FLERR, nfield + 1, "Thermo custom compute {} does not compute a scalar",
                        icompute->id);
           field2index[nfield] = add_compute(icompute->id, SCALAR);
 
-        } else if (argi.get_dim() == 1) { // vector
+        } else if (argi.get_dim() == 1) {    // vector
           if (icompute->vector_flag == 0)
             error->all(FLERR, nfield + 1, "Thermo custom compute {} does not compute a vector",
                        icompute->id);
           if ((argindex1[nfield] < 1) ||
               ((icompute->size_vector_variable == 0) && argindex1[nfield] > icompute->size_vector))
             error->all(FLERR, nfield + 1,
-                       "Thermo custom compute {} vector is accessed out-of-range{}",
-                       icompute->id,utils::errorurl(20));
+                       "Thermo custom compute {} vector is accessed out-of-range{}", icompute->id,
+                       utils::errorurl(20));
           field2index[nfield] = add_compute(icompute->id, VECTOR);
 
-        } else if (argi.get_dim() == 2) { // array
+        } else if (argi.get_dim() == 2) {    // array
           if (icompute->array_flag == 0)
             error->all(FLERR, nfield + 1, "Thermo custom compute {} does not compute an array",
                        icompute->id);
@@ -1117,8 +1119,8 @@ void Thermo::parse_fields(const std::string &str)
                (argindex1[nfield] > icompute->size_array_rows)) ||
               (argindex2[nfield] > icompute->size_array_cols))
             error->all(FLERR, nfield + 1,
-                       "Thermo custom compute {} array is accessed out-of-range{}",
-                       icompute->id, utils::errorurl(20));
+                       "Thermo custom compute {} array is accessed out-of-range{}", icompute->id,
+                       utils::errorurl(20));
           field2index[nfield] = add_compute(icompute->id, ARRAY);
 
         } else {
@@ -1129,14 +1131,14 @@ void Thermo::parse_fields(const std::string &str)
 
       } else if (argi.get_type() == ArgInfo::FIX) {
         auto ifix = modify->get_fix_by_id(argi.get_name());
-        if (!ifix) error->all(FLERR, nfield + 1, "Could not find thermo custom fix ID: {}",
-                              ifix->id);
-        if (argi.get_dim() == 0) { // scalar
+        if (!ifix)
+          error->all(FLERR, nfield + 1, "Could not find thermo custom fix ID: {}", ifix->id);
+        if (argi.get_dim() == 0) {    // scalar
           if (ifix->scalar_flag == 0)
             error->all(FLERR, nfield + 1, "Thermo custom fix {} does not compute a scalar",
                        ifix->id);
 
-        } else if (argi.get_dim() == 1) { // vector
+        } else if (argi.get_dim() == 1) {    // vector
           if (ifix->vector_flag == 0)
             error->all(FLERR, nfield + 1, "Thermo custom fix {} does not compute a vector",
                        ifix->id);
@@ -1145,14 +1147,14 @@ void Thermo::parse_fields(const std::string &str)
             error->all(FLERR, nfield + 1, "Thermo custom fix {} vector is accessed out-of-range{}",
                        ifix->id, utils::errorurl(20));
 
-        } else if (argi.get_dim() == 2) { // array
+        } else if (argi.get_dim() == 2) {    // array
           if (ifix->array_flag == 0)
-            error->all(FLERR,  nfield + 1, "Thermo custom fix {} does not compute an array",
+            error->all(FLERR, nfield + 1, "Thermo custom fix {} does not compute an array",
                        ifix->id);
-          if ((argindex1[nfield] < 1) || (argindex2[nfield] < 1)
-              || ((ifix->size_array_rows_variable == 0) &&
-                  (argindex1[nfield] > ifix->size_array_rows))
-              || (argindex2[nfield] > ifix->size_array_cols))
+          if ((argindex1[nfield] < 1) || (argindex2[nfield] < 1) ||
+              ((ifix->size_array_rows_variable == 0) &&
+               (argindex1[nfield] > ifix->size_array_rows)) ||
+              (argindex2[nfield] > ifix->size_array_cols))
             error->all(FLERR, nfield + 1, "Thermo custom fix {} array is accessed out-of-range{}",
                        ifix->id, utils::errorurl(20));
         } else {
@@ -1176,11 +1178,11 @@ void Thermo::parse_fields(const std::string &str)
             error->all(FLERR, nfield + 1,
                        "Thermo custom variable {} is not a vector-style variable", argi.get_name());
         } else if (argi.get_dim() == 2) {
-          error->all(FLERR,  nfield + 1, "Thermo custom variable {} cannot have two indices",
+          error->all(FLERR, nfield + 1, "Thermo custom variable {} cannot have two indices",
                      argi.get_name());
         } else {
-          error->all(FLERR, nfield + 1,
-                     "Thermo custom variable {} has unsupported format", argi.get_name());
+          error->all(FLERR, nfield + 1, "Thermo custom variable {} has unsupported format",
+                     argi.get_name());
         }
         field2index[nfield] = add_variable(argi.get_name());
         addfield(word.c_str(), &Thermo::compute_variable, FLOAT);
@@ -1269,7 +1271,8 @@ void Thermo::check_temp(const std::string &keyword)
 void Thermo::check_pe(const std::string &keyword)
 {
   if (update->eflag_global != update->ntimestep)
-    error->all(FLERR, Error::NOLASTLINE, "Energy was not tallied on needed timestep{}", utils::errorurl(22));
+    error->all(FLERR, Error::NOLASTLINE, "Energy was not tallied on needed timestep{}",
+               utils::errorurl(22));
   if (!pe)
     error->all(FLERR, "Thermo keyword {} in variable requires thermo to use/init potential energy",
                keyword);
@@ -1468,8 +1471,9 @@ int Thermo::evaluate_keyword(const std::string &word, double *answer)
 
   } else if (word == "etail") {
     if (update->eflag_global != update->ntimestep)
-      error->all(FLERR, Error::NOLASTLINE, "Energy was not tallied on needed timestep for thermo "
-                                           "keyword etail{}", utils::errorurl(22));
+      error->all(FLERR, Error::NOLASTLINE,
+                 "Energy was not tallied on needed timestep for thermo keyword etail{}",
+                 utils::errorurl(22));
     compute_etail();
 
   } else if (word == "enthalpy") {

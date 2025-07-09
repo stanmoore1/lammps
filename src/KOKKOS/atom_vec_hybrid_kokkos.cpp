@@ -147,9 +147,9 @@ void AtomVecHybridKokkos::sync(ExecutionSpace space, unsigned int h_mask)
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecHybridKokkos::sync_pinned_device(ExecutionSpace space, unsigned int h_mask)
+void AtomVecHybridKokkos::sync_pinned(ExecutionSpace space, unsigned int h_mask, int async_flag)
 {
-  for (int k = 0; k < nstyles; k++) nstyles_cast[k]->sync_pinned_device(space,h_mask);
+  for (int k = 0; k < nstyles; k++) (dynamic_cast<AtomVecKokkos*>(styles[k]))->sync_pinned(space,h_mask,async_flag);
 }
 
 /* ---------------------------------------------------------------------- */

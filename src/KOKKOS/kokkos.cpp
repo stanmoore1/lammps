@@ -69,8 +69,37 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   int me = 0;
   MPI_Comm_rank(world,&me);
   if (me == 0)
-    error->message(FLERR,"KOKKOS mode with Kokkos version {}.{}.{} is enabled",
+    utils::logmesg(lmp,"KOKKOS mode with Kokkos version {}.{}.{} is enabled\n",
                    KOKKOS_VERSION / 10000, (KOKKOS_VERSION % 10000) / 100, KOKKOS_VERSION % 100);
+
+  // precision
+
+  if (me == 0)
+#if defined (LMP_KOKKOS_SINGLE_SINGLE)
+    utils::logmesg(lmp,"  using single precision\n");
+#elif defined (LMP_KOKKOS_DOUBLE_DOUBLE)
+    utils::logmesg(lmp,"  using double precision\n");
+#elif defined (LMP_KOKKOS_SINGLE_DOUBLE)
+    utils::logmesg(lmp,"  using mixed precision\n");
+#endif
+
+  // layout
+
+  if (me == 0)
+#ifdef LMP_KOKKOS_LAYOUT_RIGHT
+    utils::logmesg(lmp,"  using view layout = right\n");
+#else
+    utils::logmesg(lmp,"  using view layout = default\n");
+#endif
+
+  // unified memory
+
+#if ((defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOS_ENABLE_CUDA_UVM)) || \
+     (defined(KOKKOS_ENABLE_HIP) && defined(KOKKOS_ARCH_AMD_GFX942_APU)))
+  if (me == 0)
+    utils::logmesg(lmp,"  using unified memory\n");
+#endif
+
 
   // process any command-line args that invoke Kokkos settings
 

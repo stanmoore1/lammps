@@ -29,6 +29,7 @@
 #include "variable.h"
 
 #include <algorithm>
+#include <utility>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -113,7 +114,7 @@ FixAveMoments::FixAveMoments(LAMMPS *lmp, int narg, char **arg) :
     if ((val.which == ArgInfo::NONE) || (val.which == ArgInfo::UNKNOWN) || (argi.get_dim() > 1))
       error->all(FLERR, val.iarg, "Invalid fix ave/moments argument: {}", arg[i]);
 
-    values.push_back(val);
+    values.push_back(std::move(val));
   }
   if (nvalues != (int)values.size())
     error->all(FLERR, Error::NOPOINTER,

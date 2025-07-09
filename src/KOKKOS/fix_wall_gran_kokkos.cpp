@@ -386,7 +386,7 @@ int FixWallGranKokkos<DeviceType>::pack_exchange_kokkos(
   d_sendlist = k_sendlist.view<DeviceType>();
   d_copylist = k_copylist.view<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
+  d_buf = typename AT::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
 
@@ -421,7 +421,7 @@ void FixWallGranKokkos<DeviceType>::unpack_exchange_kokkos(
   int /*nrecv1*/, int /*nextrarecv1*/,
   ExecutionSpace /*space*/)
 {
-  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
+  d_buf = typename AT::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_indices = k_indices.view<DeviceType>();

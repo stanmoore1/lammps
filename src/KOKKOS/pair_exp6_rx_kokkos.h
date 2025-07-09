@@ -140,7 +140,7 @@ class PairExp6rxKokkos : public PairExp6rx {
   int nthreads,ntypes;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_kkfloat_1d uCG, uCGnew;
   typename AT::t_kkfloat_2d dvector;
@@ -176,7 +176,7 @@ class PairExp6rxKokkos : public PairExp6rx {
   t_param_1d_randomread d_params;                // parameter set for an I-J-K interaction
 
   DAT::ttransform_kkfloat_2d k_cutsq;
-  typename ArrayTypes<DeviceType>::t_kkfloat_2d d_cutsq;
+  typename AT::t_kkfloat_2d d_cutsq;
 
   void read_file(char *) override;
   void setup() override;

@@ -45,10 +45,6 @@ ComputeRHEORhoSum::ComputeRHEORhoSum(LAMMPS *lmp, int narg, char **arg) :
 
 /* ---------------------------------------------------------------------- */
 
-ComputeRHEORhoSum::~ComputeRHEORhoSum() {}
-
-/* ---------------------------------------------------------------------- */
-
 void ComputeRHEORhoSum::init()
 {
   compute_kernel = fix_rheo->compute_kernel;

@@ -326,13 +326,13 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
   DAT::tdual_int_scalar k_flag;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_kkfloat_1d_randomread q;
 
   DAT::ttransform_kkfloat_1d k_eatom;
   DAT::ttransform_kkfloat_1d_6 k_vatom;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
   typename FFT_AT::t_FFT_SCALAR_3d d_density_brick;
   typename FFT_AT::t_FFT_SCALAR_3d d_vdx_brick,d_vdy_brick,d_vdz_brick;

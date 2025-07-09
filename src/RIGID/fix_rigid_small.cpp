@@ -33,6 +33,7 @@
 #include "molecule.h"
 #include "neighbor.h"
 #include "random_mars.h"
+#include "random_park.h"
 #include "respa.h"
 #include "rigid_const.h"
 #include "tokenizer.h"
@@ -62,6 +63,8 @@ FixRigidSmall::FixRigidSmall(LAMMPS *lmp, int narg, char **arg) :
   id_dilate(nullptr), id_gravity(nullptr), onemols(nullptr)
 {
   int i;
+
+  if (comm->me == 0) utils::logmesg(lmp,"Fix {} setup ...\n", style);
 
   scalar_flag = 1;
   extscalar = 0;
@@ -2730,6 +2733,77 @@ void FixRigidSmall::write_restart_file(const char *file)
 
   memory->destroy(buf);
   if (comm->me == 0) fclose(fp);
+}
+
+
+/* ----------------------------------------------------------------------
+   randomize rigid body VCMs with respect to a given temperature KT
+     and adjust velocities of individual particles accordingly
+   mom_flag enforces zeroing of linear momentum for overall system
+   called by fix hmc command
+------------------------------------------------------------------------- */
+
+void FixRigidSmall::resample_momenta(int groupbit, int mom_flag, class RanPark *random, double KT)
+{
+  int nlocal = nlocal_body;
+  int ntotal = nghost_body;
+  int *mask = atom->mask;
+
+  double stdev, bmass, wbody[3], mbody[3];
+  double total_mass = 0;
+  Body *b;
+  double vcm[] = {0.0, 0.0, 0.0};
+
+  for (int ibody = 0; ibody < nlocal; ibody++) {
+    b = &body[ibody];
+    if (mask[b->ilocal] & groupbit) {
+      bmass = b->mass;
+      stdev = sqrt(KT / bmass);
+      total_mass += bmass;
+      for (int j = 0; j < 3; j++) {
+        b->vcm[j] = stdev * random->gaussian();
+        vcm[j] += b->vcm[j] * bmass;
+        if (b->inertia[j] > 0.0)
+          wbody[j] = sqrt(KT / b->inertia[j]) * random->gaussian();
+        else
+          wbody[j] = 0.0;
+      }
+    }
+    MathExtra::matvec(b->ex_space, b->ey_space, b->ez_space, wbody, b->omega);
+  }
+
+  if (mom_flag) {
+    for (int j = 0; j < 3; j++) vcm[j] /= total_mass;
+    for (int ibody = 0; ibody < nlocal; ibody++) {
+      if (mask[b->ilocal] & groupbit) {
+        b = &body[ibody];
+        for (int j = 0; j < 3; j++) b->vcm[j] -= vcm[j];
+      }
+    }
+  }
+
+  // forward communicate vcm and omega to ghost bodies
+
+  commflag = FINAL;
+  comm->forward_comm(this, 10);
+
+  // compute angular momenta of rigid bodies
+
+  for (int ibody = 0; ibody < ntotal; ibody++) {
+    b = &body[ibody];
+    MathExtra::omega_to_angmom(b->omega, b->ex_space, b->ey_space, b->ez_space, b->inertia,
+                               b->angmom);
+    MathExtra::transpose_matvec(b->ex_space, b->ey_space, b->ez_space, b->angmom, mbody);
+    MathExtra::quatvec(b->quat, mbody, b->conjqm);
+    b->conjqm[0] *= 2.0;
+    b->conjqm[1] *= 2.0;
+    b->conjqm[2] *= 2.0;
+    b->conjqm[3] *= 2.0;
+  }
+
+  // reset velocities of individual atoms
+
+  set_v();
 }
 
 /* ----------------------------------------------------------------------

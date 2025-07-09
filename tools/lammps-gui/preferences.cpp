@@ -337,10 +337,7 @@ GeneralTab::GeneralTab(QSettings *_settings, LammpsWrapper *_lammps, QWidget *pa
 
 void GeneralTab::updatefonts(const QFont &all, const QFont &text)
 {
-    LammpsGui *main = nullptr;
-    for (QWidget *widget : QApplication::topLevelWidgets())
-        if (widget->objectName() == "LammpsGui") main = dynamic_cast<LammpsGui *>(widget);
-
+    auto *main = dynamic_cast<LammpsGui *>(get_main_widget());
     if (main) {
         main->setFont(all);
         main->ui->textEdit->document()->setDefaultFont(text);
@@ -392,7 +389,7 @@ void GeneralTab::pluginpath()
         field->setText(pluginfile);
         settings->setValue("plugin_path", canonical);
         // ugly hack
-        qobject_cast<Preferences *>(parent()->parent()->parent())->need_relaunch = true;
+        qobject_cast<Preferences *>(parent()->parent()->parent())->set_relaunch(true);
     }
 }
 
@@ -671,7 +668,7 @@ ChartsTab::ChartsTab(QSettings *_settings, QWidget *parent) : QWidget(parent), s
     smoothval->addItem("Smooth");
     smoothval->addItem("Both");
     smoothval->setObjectName("smoothchoice");
-    smoothval->setCurrentIndex(settings->value("smoothchoice", 2).toInt());
+    smoothval->setCurrentIndex(settings->value("smoothchoice", 0).toInt());
 
     auto *rawbrlbl = new QLabel("Raw plot color:");
     auto *rawbrush = new QComboBox;

@@ -114,7 +114,7 @@ class PairPACEExtrapolationKokkos : public PairPACEExtrapolation {
   typename AT::t_kkfloat_1d_6 d_vatom;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_int_1d_randomread type;
 
   typedef Kokkos::DualView<KK_FLOAT**, DeviceType> tdual_fparams;
@@ -135,10 +135,10 @@ class PairPACEExtrapolationKokkos : public PairPACEExtrapolation {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout> dup_f;
+  DupScatterView<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout> dup_f;
   DupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
 
-  NonDupScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout> ndup_f;
+  NonDupScatterView<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout> ndup_f;
   NonDupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
 
   friend void pair_virial_fdotr_compute<PairPACEExtrapolationKokkos>(PairPACEExtrapolationKokkos*);

@@ -129,7 +129,7 @@ FixQEq::FixQEq(LAMMPS *lmp, int narg, char **arg) :
   // register with Atom class
 
   s_hist = t_hist = nullptr;
-  grow_arrays(atom->nmax);
+  FixQEq::grow_arrays(atom->nmax);
   atom->add_callback(Atom::GROW);
 
   for (int i = 0; i < atom->nmax; i++)

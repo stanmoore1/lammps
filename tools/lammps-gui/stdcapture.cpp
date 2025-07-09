@@ -129,9 +129,8 @@ std::string StdCapture::GetCapture()
     std::string::size_type idx = m_captured.find_last_not_of("\r\n");
     if (idx == std::string::npos) {
         return m_captured;
-    } else {
-        return m_captured.substr(0, idx + 1);
     }
+    return m_captured.substr(0, idx + 1);
 }
 
 // Local Variables:

@@ -72,7 +72,7 @@ void EwaldDipole::init()
   dipoleflag = atom->mu?1:0;
   qsum_qsq(0); // q[i] might not be declared ?
 
-  if (dipoleflag && q2)
+  if (dipoleflag && (q2 != 0.0))
     error->all(FLERR,"Cannot (yet) use charges with Kspace style EwaldDipole");
 
   // no triclinic ewald dipole (yet)

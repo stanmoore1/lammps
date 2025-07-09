@@ -671,7 +671,7 @@ int FixCMAPKokkos<DeviceType>::pack_exchange_kokkos(
   k_crossterm_atom4.template sync<DeviceType>();
   k_crossterm_atom5.template sync<DeviceType>();
 
-  auto d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
+  auto d_buf = typename AT::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   auto d_copylist = k_copylist.template view<DeviceType>();
@@ -766,7 +766,7 @@ void FixCMAPKokkos<DeviceType>::unpack_exchange_kokkos(
   k_crossterm_atom4.template sync<DeviceType>();
   k_crossterm_atom5.template sync<DeviceType>();
 
-  auto d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
+  auto d_buf = typename AT::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
 

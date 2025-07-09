@@ -1437,6 +1437,10 @@ void FixShakeKokkos<DeviceType>::stats()
 template<class DeviceType>
 void FixShakeKokkos<DeviceType>::grow_arrays(int nmax)
 {
+  k_shake_flag.sync_device();
+  k_shake_atom.sync_device();
+  k_shake_type.sync_device();
+
   memoryKK->grow_kokkos(k_shake_flag,shake_flag,nmax,"shake:shake_flag");
   memoryKK->grow_kokkos(k_shake_atom,shake_atom,nmax,4,"shake:shake_atom");
   memoryKK->grow_kokkos(k_shake_type,shake_type,nmax,3,"shake:shake_type");
@@ -1644,7 +1648,7 @@ int FixShakeKokkos<DeviceType>::pack_exchange_kokkos(
   k_copylist.sync<DeviceType>();
   k_exchange_sendlist.sync<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
+  d_buf = typename AT::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_copylist = k_copylist.view<DeviceType>();
@@ -1732,7 +1736,7 @@ void FixShakeKokkos<DeviceType>::unpack_exchange_kokkos(
   k_buf.sync<DeviceType>();
   k_indices.sync<DeviceType>();
 
-  d_buf = typename ArrayTypes<DeviceType>::t_double_1d_um(
+  d_buf = typename AT::t_double_1d_um(
     k_buf.template view<DeviceType>().data(),
     k_buf.extent(0)*k_buf.extent(1));
   d_indices = k_indices.view<DeviceType>();

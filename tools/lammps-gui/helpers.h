@@ -22,6 +22,9 @@ extern char *mystrdup(const std::string &text);
 extern char *mystrdup(const char *text);
 extern char *mystrdup(const QString &text);
 
+// get pointer to LAMMPS-GUI main widget
+extern class QWidget *get_main_widget();
+
 // find if executable is in path
 extern bool has_exe(const QString &exe);
 

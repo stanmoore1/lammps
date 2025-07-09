@@ -352,16 +352,16 @@ void PairTersoffZBLKokkos<DeviceType>::tersoff_zbl_compute(const int &ii, EV_FLO
   const int itype = d_map(type(i));
   const tagint itag = tag(i);
 
-  KK_FLOAT fi[3], fj[3], fk[3];
+  KK_SUM_FLOAT fi[3], fj[3], fk[3];
 
   //const AtomNeighborsConst d_neighbors_i = k_list.get_neighbors_const(i);
   const int jnum = d_numneigh_short[ii];
 
   // repulsive
 
-  KK_FLOAT f_x = 0.0;
-  KK_FLOAT f_y = 0.0;
-  KK_FLOAT f_z = 0.0;
+  KK_SUM_FLOAT f_x = 0.0;
+  KK_SUM_FLOAT f_y = 0.0;
+  KK_SUM_FLOAT f_z = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors_short(ii,jj);
@@ -483,9 +483,9 @@ void PairTersoffZBLKokkos<DeviceType>::tersoff_zbl_compute(const int &ii, EV_FLO
     f_x += delx1*fatt;
     f_y += dely1*fatt;
     f_z += delz1*fatt;
-    KK_FLOAT fj_x = -delx1*fatt;
-    KK_FLOAT fj_y = -dely1*fatt;
-    KK_FLOAT fj_z = -delz1*fatt;
+    KK_SUM_FLOAT fj_x = -delx1*fatt;
+    KK_SUM_FLOAT fj_y = -dely1*fatt;
+    KK_SUM_FLOAT fj_z = -delz1*fatt;
 
     if (EVFLAG) {
       const KK_FLOAT eng = 0.5*bij * fa;
@@ -746,7 +746,7 @@ void PairTersoffZBLKokkos<DeviceType>::ters_dthb(
         const Param& param, const KK_FLOAT &prefactor,
         const KK_FLOAT &rij, const KK_FLOAT &dx1, const KK_FLOAT &dy1, const KK_FLOAT &dz1,
         const KK_FLOAT &rik, const KK_FLOAT &dx2, const KK_FLOAT &dy2, const KK_FLOAT &dz2,
-        KK_FLOAT *fi, KK_FLOAT *fj, KK_FLOAT *fk) const
+        KK_SUM_FLOAT *fi, KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk) const
 {
   // from PairTersoffZBL::attractive
   KK_FLOAT rij_hat[3],rik_hat[3];
@@ -820,7 +820,7 @@ void PairTersoffZBLKokkos<DeviceType>::ters_dthbj(
         const Param& param, const KK_FLOAT &prefactor,
         const KK_FLOAT &rij, const KK_FLOAT &dx1, const KK_FLOAT &dy1, const KK_FLOAT &dz1,
         const KK_FLOAT &rik, const KK_FLOAT &dx2, const KK_FLOAT &dy2, const KK_FLOAT &dz2,
-        KK_FLOAT *fj, KK_FLOAT *fk) const
+        KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk) const
 {
   KK_FLOAT rij_hat[3],rik_hat[3];
   KK_FLOAT rijinv,rikinv;
@@ -882,7 +882,7 @@ void PairTersoffZBLKokkos<DeviceType>::ters_dthbk(
         const Param& param, const KK_FLOAT &prefactor,
         const KK_FLOAT &rij, const KK_FLOAT &dx1, const KK_FLOAT &dy1, const KK_FLOAT &dz1,
         const KK_FLOAT &rik, const KK_FLOAT &dx2, const KK_FLOAT &dy2, const KK_FLOAT &dz2,
-        KK_FLOAT *fk) const
+        KK_SUM_FLOAT *fk) const
 {
   KK_FLOAT rij_hat[3],rik_hat[3];
   KK_FLOAT rijinv,rikinv;
@@ -1019,7 +1019,7 @@ template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairTersoffZBLKokkos<DeviceType>::v_tally3(EV_FLOAT &ev,
         const int &i, const int &j, const int &k,
-        KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const
+        KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const
 {
   // The vatom array is duplicated for OpenMP, atomic for GPU, and neither for Serial
 
@@ -1068,7 +1068,7 @@ void PairTersoffZBLKokkos<DeviceType>::v_tally3(EV_FLOAT &ev,
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairTersoffZBLKokkos<DeviceType>::v_tally3_atom(EV_FLOAT &ev, const int &i, const int & /*j*/,
-                                                     const int & /*k*/, KK_FLOAT *fj, KK_FLOAT *fk,
+                                                     const int & /*k*/, KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk,
                                                      KK_FLOAT *drji, KK_FLOAT *drjk) const
 {
   KK_FLOAT v[6];

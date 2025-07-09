@@ -134,19 +134,19 @@ class PairTersoffKokkos : public PairTersoff {
   void ters_dthb(const Param& param, const KK_FLOAT &prefactor,
               const KK_FLOAT &rij, const KK_FLOAT &dx1, const KK_FLOAT &dy1, const KK_FLOAT &dz1,
               const KK_FLOAT &rik, const KK_FLOAT &dx2, const KK_FLOAT &dy2, const KK_FLOAT &dz2,
-              KK_FLOAT *fi, KK_FLOAT *fj, KK_FLOAT *fk) const;
+              KK_SUM_FLOAT *fi, KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk) const;
 
   KOKKOS_INLINE_FUNCTION
   void ters_dthbj(const Param& param, const KK_FLOAT &prefactor,
               const KK_FLOAT &rij, const KK_FLOAT &dx1, const KK_FLOAT &dy1, const KK_FLOAT &dz1,
               const KK_FLOAT &rik, const KK_FLOAT &dx2, const KK_FLOAT &dy2, const KK_FLOAT &dz2,
-              KK_FLOAT *fj, KK_FLOAT *fk) const;
+              KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk) const;
 
   KOKKOS_INLINE_FUNCTION
   void ters_dthbk(const Param& param, const KK_FLOAT &prefactor,
               const KK_FLOAT &rij, const KK_FLOAT &dx1, const KK_FLOAT &dy1, const KK_FLOAT &dz1,
               const KK_FLOAT &rik, const KK_FLOAT &dx2, const KK_FLOAT &dy2, const KK_FLOAT &dz2,
-              KK_FLOAT *fk) const;
+              KK_SUM_FLOAT *fk) const;
 
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT vec3_dot(const KK_FLOAT x[3], const KK_FLOAT y[3]) const {
@@ -168,6 +168,23 @@ class PairTersoffKokkos : public PairTersoff {
     z[0] = k*x[0]+y[0]; z[1] = k*x[1]+y[1]; z[2] = k*x[2]+y[2];
   }
 
+#ifdef LMP_KOKKOS_SINGLE_DOUBLE
+  KOKKOS_INLINE_FUNCTION
+  void vec3_scale(const KK_FLOAT k, const KK_FLOAT x[3], KK_SUM_FLOAT y[3]) const {
+    y[0] = (KK_SUM_FLOAT)k*x[0]; y[1] = (KK_SUM_FLOAT)k*x[1]; y[2] = (KK_SUM_FLOAT)k*x[2];
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void vec3_scale(const KK_FLOAT k, const KK_SUM_FLOAT x[3], KK_SUM_FLOAT y[3]) const {
+    y[0] = (KK_SUM_FLOAT)k*x[0]; y[1] = (KK_SUM_FLOAT)k*x[1]; y[2] = (KK_SUM_FLOAT)k*x[2];
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void vec3_scaleadd(const KK_FLOAT k, const KK_FLOAT x[3], const KK_SUM_FLOAT y[3], KK_SUM_FLOAT * const z) const {
+    z[0] = (KK_SUM_FLOAT)k*x[0]+y[0]; z[1] = (KK_SUM_FLOAT)k*x[1]+y[1]; z[2] = (KK_SUM_FLOAT)k*x[2]+y[2];
+  }
+#endif
+
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
 
@@ -180,11 +197,11 @@ class PairTersoffKokkos : public PairTersoff {
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void v_tally3(EV_FLOAT &ev, const int &i, const int &j, const int &k,
-                KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const;
+                KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const;
 
   KOKKOS_INLINE_FUNCTION
   void v_tally3_atom(EV_FLOAT &ev, const int &i, const int &j, const int &k,
-                KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drjk) const;
+                KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drjk) const;
 
   void setup_params() override;
 
@@ -200,7 +217,7 @@ class PairTersoffKokkos : public PairTersoff {
 
   int inum;
   typename AT::t_kkfloat_1d_3_lr_randomread x;
-  typename AT::t_kkfloat_1d_3 f;
+  typename AT::t_kksum_1d_3 f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_tagint_1d tag;
 
@@ -219,11 +236,11 @@ class PairTersoffKokkos : public PairTersoff {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout> dup_f;
+  DupScatterView<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout> dup_f;
   DupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> dup_eatom;
   DupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
 
-  NonDupScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout> ndup_f;
+  NonDupScatterView<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout> ndup_f;
   NonDupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> ndup_eatom;
   NonDupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
 

@@ -489,7 +489,7 @@ fprintf(stdout, "tota%03d total %3d could use %6d inums, expected %6d inums. inu
     if (data.h_resize()) {
       Kokkos::deep_copy(data.h_new_maxneighs, data.new_maxneighs);
       list->maxneighs = data.h_new_maxneighs() * 1.2;
-      list->d_neighbors = typename ArrayTypes<DeviceType>::t_neighbors_2d("neighbors", list->d_neighbors.extent(0), list->maxneighs);
+      list->d_neighbors = typename AT::t_neighbors_2d("neighbors", list->d_neighbors.extent(0), list->maxneighs);
       data.neigh_list.d_neighbors = list->d_neighbors;
       data.neigh_list.maxneighs = list->maxneighs;
     }
@@ -523,7 +523,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void NPairSSAKokkosExecute<DeviceType>::build_locals_onePhase(const bool firstTry, int workPhase) const
 {
-  const typename ArrayTypes<DeviceType>::t_int_1d_const_um stencil = d_stencil;
+  const typename AT::t_int_1d_const_um stencil = d_stencil;
   int which = 0;
 
   int zoff = d_ssa_phaseOff(workPhase, 2);
@@ -660,7 +660,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void NPairSSAKokkosExecute<DeviceType>::build_ghosts_onePhase(int workPhase) const
 {
-  const typename ArrayTypes<DeviceType>::t_int_1d_const_um stencil = d_stencil;
+  const typename AT::t_int_1d_const_um stencil = d_stencil;
   int which = 0;
 
   // since these are ghosts, must check if stencil bin is out of bounds

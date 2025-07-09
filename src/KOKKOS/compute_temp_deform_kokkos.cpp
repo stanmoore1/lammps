@@ -211,7 +211,7 @@ void ComputeTempDeformKokkos<DeviceType>::remove_bias_all_kk()
 
   if (atom->nmax > maxbias) {
     maxbias = atom->nmax;
-    vbiasall = typename ArrayTypes<DeviceType>::t_kkfloat_1d_3("temp/deform/kk:vbiasall", maxbias);
+    vbiasall = typename AT::t_kkfloat_1d_3("temp/deform/kk:vbiasall", maxbias);
   }
 
   domainKK->x2lamda(nlocal);

@@ -282,7 +282,7 @@ void VerletKokkos::run(int n)
   if (atomKK->sortfreq > 0) sortflag = 1;
   else sortflag = 0;
 
-  f_merge_copy = DAT::t_kkfloat_1d_3("VerletKokkos::f_merge_copy",atomKK->k_f.extent(0));
+  f_merge_copy = DAT::t_kksum_1d_3("VerletKokkos::f_merge_copy",atomKK->k_f.extent(0));
 
   atomKK->sync(Device,ALL_MASK);
 
@@ -444,7 +444,7 @@ void VerletKokkos::run(int n)
     if (execute_on_host) {
       if (pair_compute_flag && force->pair->datamask_modify != datamask_exclude)
         Kokkos::fence();
-      atomKK->sync_pinned_device(HostKK,~(~datamask_read_host|datamask_exclude));
+      atomKK->sync_pinned(HostKK,~(~datamask_read_host|datamask_exclude),1);
       if (pair_compute_flag && (force->pair->execution_space != HostKK &&
           force->pair->execution_space != Host)) {
         Kokkos::deep_copy(LMPHostType(),atomKK->k_f.h_viewkk,0.0);
@@ -485,12 +485,12 @@ void VerletKokkos::run(int n)
 
     if (execute_on_host) {
       if (f_merge_copy.extent(0) < atomKK->k_f.extent(0))
-        f_merge_copy = DAT::t_kkfloat_1d_3("VerletKokkos::f_merge_copy",atomKK->k_f.extent(0));
+        f_merge_copy = DAT::t_kksum_1d_3("VerletKokkos::f_merge_copy",atomKK->k_f.extent(0));
       f = atomKK->k_f.d_view;
-      atomKK->k_f.sync_hostkk_legacy();
+      atomKK->k_f.sync_legacy_to_hostkk();
       Kokkos::deep_copy(LMPHostType(),f_merge_copy,atomKK->k_f.h_viewkk);
       Kokkos::parallel_for(atomKK->k_f.extent(0),
-        ForceAdder<DAT::t_kkfloat_1d_3,DAT::t_kkfloat_1d_3>(atomKK->k_f.d_view,f_merge_copy));
+        ForceAdder<DAT::t_kksum_1d_3,DAT::t_kksum_1d_3>(atomKK->k_f.d_view,f_merge_copy));
       atomKK->k_f.clear_sync_state(); // special case
       atomKK->k_f.modify_device();
     }
@@ -553,20 +553,20 @@ void VerletKokkos::force_clear()
     int nall = atomKK->nlocal;
     if (force->newton) nall += atomKK->nghost;
 
-    Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_f.d_view));
+    Kokkos::parallel_for(nall, Zero<DAT::t_kksum_1d_3>(atomKK->k_f.d_view));
     atomKK->modified(Device,F_MASK);
 
     if (torqueflag) {
-      Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_torque.d_view));
+      Kokkos::parallel_for(nall, Zero<DAT::t_kkfloat_1d_3>(atomKK->k_torque.d_view));
       atomKK->modified(Device,TORQUE_MASK);
     }
 
     // reset SPIN forces
 
     if (extraflag) {
-      Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm.d_view));
+      Kokkos::parallel_for(nall, Zero<DAT::t_kksum_1d_3>(atomKK->k_fm.d_view));
       atomKK->modified(Device,FM_MASK);
-      Kokkos::parallel_for(nall, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm_long.d_view));
+      Kokkos::parallel_for(nall, Zero<DAT::t_kksum_1d_3>(atomKK->k_fm_long.d_view));
       atomKK->modified(Device,FML_MASK);
     }
 
@@ -575,39 +575,39 @@ void VerletKokkos::force_clear()
   // if either newton flag is set, also include ghosts
 
   } else {
-    Kokkos::parallel_for(atomKK->nfirst, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_f.d_view));
+    Kokkos::parallel_for(atomKK->nfirst, Zero<DAT::t_kksum_1d_3>(atomKK->k_f.d_view));
     atomKK->modified(Device,F_MASK);
 
     if (torqueflag) {
-      Kokkos::parallel_for(atomKK->nfirst, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_torque.d_view));
+      Kokkos::parallel_for(atomKK->nfirst, Zero<DAT::t_kkfloat_1d_3>(atomKK->k_torque.d_view));
       atomKK->modified(Device,TORQUE_MASK);
     }
 
     // reset SPIN forces
 
     if (extraflag) {
-      Kokkos::parallel_for(atomKK->nfirst, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm.d_view));
+      Kokkos::parallel_for(atomKK->nfirst, Zero<DAT::t_kksum_1d_3>(atomKK->k_fm.d_view));
       atomKK->modified(Device,FM_MASK);
-      Kokkos::parallel_for(atomKK->nfirst, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm_long.d_view));
+      Kokkos::parallel_for(atomKK->nfirst, Zero<DAT::t_kksum_1d_3>(atomKK->k_fm_long.d_view));
       atomKK->modified(Device,FML_MASK);
     }
 
     if (force->newton) {
       auto range = Kokkos::RangePolicy<LMPDeviceType>(atomKK->nlocal, atomKK->nlocal + atomKK->nghost);
-      Kokkos::parallel_for(range, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_f.d_view));
+      Kokkos::parallel_for(range, Zero<DAT::t_kksum_1d_3>(atomKK->k_f.d_view));
       atomKK->modified(Device,F_MASK);
 
       if (torqueflag) {
-        Kokkos::parallel_for(range, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_torque.d_view));
+        Kokkos::parallel_for(range, Zero<DAT::t_kkfloat_1d_3>(atomKK->k_torque.d_view));
         atomKK->modified(Device,TORQUE_MASK);
       }
 
       // reset SPIN forces
 
       if (extraflag) {
-        Kokkos::parallel_for(range, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm.d_view));
+        Kokkos::parallel_for(range, Zero<DAT::t_kksum_1d_3>(atomKK->k_fm.d_view));
         atomKK->modified(Device,FM_MASK);
-        Kokkos::parallel_for(range, Zero<typename ArrayTypes<LMPDeviceType>::t_kkfloat_1d_3>(atomKK->k_fm_long.d_view));
+        Kokkos::parallel_for(range, Zero<DAT::t_kksum_1d_3>(atomKK->k_fm_long.d_view));
         atomKK->modified(Device,FML_MASK);
       }
     }

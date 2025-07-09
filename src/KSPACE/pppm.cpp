@@ -1382,20 +1382,12 @@ void PPPM::set_grid_local()
   // npey_fft,npez_fft = # of procs in y,z dims
   // if nprocs is small enough, proc can own 1 or more entire xy planes,
   //   else proc owns 2d sub-blocks of yz plane
-  //   NOTE: commented out lines support this
-  //     need to ensure fft3d.cpp and remap.cpp support 2D planes
   // me_y,me_z = which proc (0-npe_fft-1) I am in y,z dimensions
   // nlo_fft,nhi_fft = lower/upper limit of the section
   //   of the global FFT mesh that I own in x-pencil decomposition
 
-  int npey_fft,npez_fft;
-
-  //if (nz_pppm >= nprocs) {
-  //  npey_fft = 1;
-  //  npez_fft = nprocs;
-  //} else procs2grid2d(nprocs,ny_pppm,nz_pppm,&npey_fft,&npez_fft);
-
-  procs2grid2d(nprocs,ny_pppm,nz_pppm,&npey_fft,&npez_fft);
+  int npey_fft = 1, npez_fft = nprocs;
+  procs2grid2d(nprocs, ny_pppm, nz_pppm, npey_fft, npez_fft);
 
   int me_y = me % npey_fft;
   int me_z = me / npey_fft;
@@ -2704,7 +2696,7 @@ void PPPM::unpack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
    map nprocs to NX by NY grid as PX by PY procs - return optimal px,py
 ------------------------------------------------------------------------- */
 
-void PPPM::procs2grid2d(int nprocs, int nx, int ny, int *px, int *py)
+void PPPM::procs2grid2d(int nprocs, int nx, int ny, int &px, int &py)
 {
   // loop thru all possible factorizations of nprocs
   // surf = surface area of largest proc sub-domain
@@ -2725,13 +2717,12 @@ void PPPM::procs2grid2d(int nprocs, int nx, int ny, int *px, int *py)
       boxy = ny/ipy;
       if (ny % ipy) boxy++;
       surf = boxx + boxy;
-      if (surf < bestsurf ||
-          (surf == bestsurf && boxx*boxy > bestboxx*bestboxy)) {
+      if ((surf < bestsurf) || ((surf == bestsurf) && (boxx*boxy > bestboxx*bestboxy))) {
         bestsurf = surf;
         bestboxx = boxx;
         bestboxy = boxy;
-        *px = ipx;
-        *py = ipy;
+        px = ipx;
+        py = ipy;
       }
     }
     ipx++;

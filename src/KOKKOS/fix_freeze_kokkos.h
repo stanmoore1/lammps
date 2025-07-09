@@ -59,9 +59,9 @@ class FixFreezeKokkos : public FixFreeze {
   void operator()(const int i, OriginalForce &original) const;
 
  private:
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 torque;
-  typename ArrayTypes<DeviceType>::t_int_1d mask;
+  typename AT::t_kksum_1d_3 f;
+  typename AT::t_kkfloat_1d_3 torque;
+  typename AT::t_int_1d mask;
 };
 
 } // namespace LAMMPS_NS

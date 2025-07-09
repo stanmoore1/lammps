@@ -578,7 +578,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelA<NEIGHFLAG,NEWTO
 
   const int jnum = d_numneigh[i];
 
-  KK_FLOAT rhotmp = 0.0;
+  KK_SUM_FLOAT rhotmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
@@ -668,7 +668,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelAB<EFLAG>, const 
 
   const int jnum = d_numneigh[i];
 
-  KK_FLOAT rhotmp = 0.0;
+  KK_SUM_FLOAT rhotmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
@@ -745,9 +745,9 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelC<NEIGHFLAG,NEWTO
 
   const int jnum = d_numneigh[i];
 
-  KK_FLOAT fxtmp = 0.0;
-  KK_FLOAT fytmp = 0.0;
-  KK_FLOAT fztmp = 0.0;
+  KK_SUM_FLOAT fxtmp = 0.0;
+  KK_SUM_FLOAT fytmp = 0.0;
+  KK_SUM_FLOAT fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
@@ -869,7 +869,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelAB<EFLAG>,
 
     const int jnum = d_numneigh[i];
 
-    KK_FLOAT rhotmp = 0.0;
+    KK_SUM_FLOAT rhotmp = 0.0;
 
     for (int jj = 0; jj < jnum; jj++) {
       int j = d_neighbors(i,jj);
@@ -970,9 +970,9 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelC<NEIGHFLAG,NEWTO
 
     const int jnum = d_numneigh[i];
 
-    KK_FLOAT fxtmp = 0.0;
-    KK_FLOAT fytmp = 0.0;
-    KK_FLOAT fztmp = 0.0;
+    KK_SUM_FLOAT fxtmp = 0.0;
+    KK_SUM_FLOAT fytmp = 0.0;
+    KK_SUM_FLOAT fztmp = 0.0;
 
     for (int jj = 0; jj < jnum; jj++) {
       int j = d_neighbors(i,jj);

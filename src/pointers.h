@@ -92,9 +92,9 @@ class Pointers {
     atomKK(ptr->atomKK),
     memoryKK(ptr->memoryKK),
     python(ptr->python) {}
-  virtual ~Pointers() noexcept(false) {}
+  virtual ~Pointers() noexcept(false) {};  // cannot use = default here due to broken GCC on RHEL 8
 
-  // remove other default members
+  // remove other default members where possible
 
   Pointers() = delete;
   Pointers(const Pointers &) = default;

@@ -55,7 +55,7 @@ class AtomVecDipoleKokkos : public AtomVecKokkos, public AtomVecDipole {
 
   void sync(ExecutionSpace space, unsigned int mask) override;
   void modified(ExecutionSpace space, unsigned int mask) override;
-  void sync_pinned_device(ExecutionSpace space, unsigned int mask) override;
+  void sync_pinned(ExecutionSpace space, unsigned int mask, int async_flag = 0) override;
 
  protected:
   double *q;
@@ -71,7 +71,7 @@ class AtomVecDipoleKokkos : public AtomVecKokkos, public AtomVecDipole {
 
   DAT::t_kkfloat_1d_3_lr d_x;
   DAT::t_kkfloat_1d_3 d_v;
-  DAT::t_kkfloat_1d_3 d_f;
+  DAT::t_kksum_1d_3 d_f;
 
   DAT::t_kkfloat_1d d_q;
   HAT::t_kkfloat_1d h_q;

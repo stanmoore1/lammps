@@ -54,7 +54,7 @@ class AtomVecBondKokkos : public AtomVecKokkos, public AtomVecBond {
 
   void sync(ExecutionSpace space, unsigned int mask) override;
   void modified(ExecutionSpace space, unsigned int mask) override;
-  void sync_pinned_device(ExecutionSpace space, unsigned int mask) override;
+  void sync_pinned(ExecutionSpace space, unsigned int mask, int async_flag = 0) override;
 
  private:
   tagint *molecule;
@@ -71,7 +71,7 @@ class AtomVecBondKokkos : public AtomVecKokkos, public AtomVecBond {
 
   DAT::t_kkfloat_1d_3_lr d_x;
   DAT::t_kkfloat_1d_3 d_v;
-  DAT::t_kkfloat_1d_3 d_f;
+  DAT::t_kksum_1d_3 d_f;
 
   DAT::t_tagint_1d d_molecule;
   DAT::t_int_2d d_nspecial;

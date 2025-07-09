@@ -37,15 +37,9 @@
 
 #include <cstring>
 
+// prototype repeated from base class implementation
 namespace LAMMPS_NS {
   struct ACEALImpl {
-    ACEALImpl() : basis_set(nullptr), ace(nullptr) {}
-
-    ~ACEALImpl() {
-      delete basis_set;
-      delete ace;
-    }
-
     ACEBBasisSet *basis_set;
     ACEBEvaluator *ace;
   };
@@ -1379,7 +1373,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeDeri
   const KK_FLOAT r = d_rnorms(ii, jj);
   const KK_FLOAT rinv = 1.0/r;
 
-  KK_FLOAT f_ji[3];
+  KK_SUM_FLOAT f_ji[3];
   f_ji[0] = f_ji[1] = f_ji[2] = 0;
 
   // for rank = 1
@@ -1663,7 +1657,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeForc
 
   const int ncount = d_ncount(ii);
 
-  KK_FLOAT fitmp[3] = {0.0,0.0,0.0};
+  KK_SUM_FLOAT fitmp[3] = {0.0,0.0,0.0};
   for (int jj = 0; jj < ncount; jj++) {
     int j = d_nearest(ii,jj);
 

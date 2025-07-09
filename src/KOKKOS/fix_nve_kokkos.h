@@ -40,6 +40,8 @@ struct FixNVEKokkosFinalIntegrateFunctor;
 template<class DeviceType>
 class FixNVEKokkos : public FixNVE {
  public:
+  typedef ArrayTypes<DeviceType> AT;
+
   FixNVEKokkos(class LAMMPS *, int, char **);
 
   void cleanup_copy();
@@ -63,14 +65,13 @@ class FixNVEKokkos : public FixNVE {
 
  private:
 
-
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 v;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_const f;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d rmass;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d mass;
-  typename ArrayTypes<DeviceType>::t_int_1d type;
-  typename ArrayTypes<DeviceType>::t_int_1d mask;
+  typename AT::t_kkfloat_1d_3_lr x;
+  typename AT::t_kkfloat_1d_3 v;
+  typename AT::t_kksum_1d_3_const f;
+  typename AT::t_kkfloat_1d rmass;
+  typename AT::t_kkfloat_1d mass;
+  typename AT::t_int_1d type;
+  typename AT::t_int_1d mask;
 };
 
 template <class DeviceType, int RMass>

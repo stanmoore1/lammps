@@ -254,8 +254,8 @@ void Hyper::command(int narg, char **arg)
 
   if (hyperenable) {
     t_hyper = fix_hyper->query(1);
-    nevent_running = fix_hyper->query(2);
-    nevent_atoms_running = fix_hyper->query(3);
+    nevent_running = (int) fix_hyper->query(2);
+    nevent_atoms_running = (int) fix_hyper->query(3);
     avebonds = fix_hyper->query(4);
     maxdrift = fix_hyper->query(5);
     maxbondlen = fix_hyper->query(6);

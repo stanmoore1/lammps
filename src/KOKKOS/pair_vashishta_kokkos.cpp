@@ -233,9 +233,10 @@ void PairVashishtaKokkos<DeviceType>::operator()(TagPairVashishtaComputeHalf<NEI
 
   // The f array is atomic
 
-  Kokkos::View<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
+  Kokkos::View<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
 
-  KK_FLOAT delr1[3],delr2[3],fj[3],fk[3];
+  KK_FLOAT delr1[3],delr2[3];
+  KK_SUM_FLOAT fj[3],fk[3];
   KK_FLOAT evdwl = 0.0;
   KK_FLOAT fpair = 0.0;
 
@@ -250,9 +251,9 @@ void PairVashishtaKokkos<DeviceType>::operator()(TagPairVashishtaComputeHalf<NEI
 
   const int jnum = d_numneigh_short_2body[ii];
 
-  KK_FLOAT fxtmpi = 0.0;
-  KK_FLOAT fytmpi = 0.0;
-  KK_FLOAT fztmpi = 0.0;
+  KK_SUM_FLOAT fxtmpi = 0.0;
+  KK_SUM_FLOAT fytmpi = 0.0;
+  KK_SUM_FLOAT fztmpi = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors_short_2body(ii,jj);
@@ -305,9 +306,9 @@ void PairVashishtaKokkos<DeviceType>::operator()(TagPairVashishtaComputeHalf<NEI
     delr1[2] = x(j,2) - ztmp;
     const KK_FLOAT rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
 
-    KK_FLOAT fxtmpj = 0.0;
-    KK_FLOAT fytmpj = 0.0;
-    KK_FLOAT fztmpj = 0.0;
+    KK_SUM_FLOAT fxtmpj = 0.0;
+    KK_SUM_FLOAT fytmpj = 0.0;
+    KK_SUM_FLOAT fztmpj = 0.0;
 
     for (int kk = jj+1; kk < jnumm1; kk++) {
       int k = d_neighbors_short_3body(ii,kk);
@@ -365,7 +366,8 @@ template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairVashishtaKokkos<DeviceType>::operator()(TagPairVashishtaComputeFullA<NEIGHFLAG,EVFLAG>, const int &ii, EV_FLOAT& ev) const {
 
-  KK_FLOAT delr1[3],delr2[3],fj[3],fk[3];
+  KK_FLOAT delr1[3],delr2[3];
+  KK_SUM_FLOAT fj[3],fk[3];
   KK_FLOAT evdwl = 0.0;
   KK_FLOAT fpair = 0.0;
 
@@ -380,9 +382,9 @@ void PairVashishtaKokkos<DeviceType>::operator()(TagPairVashishtaComputeFullA<NE
 
   const int jnum = d_numneigh_short_2body[ii];
 
-  KK_FLOAT fxtmpi = 0.0;
-  KK_FLOAT fytmpi = 0.0;
-  KK_FLOAT fztmpi = 0.0;
+  KK_SUM_FLOAT fxtmpi = 0.0;
+  KK_SUM_FLOAT fytmpi = 0.0;
+  KK_SUM_FLOAT fztmpi = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors_short_2body(ii,jj);
@@ -467,7 +469,8 @@ template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairVashishtaKokkos<DeviceType>::operator()(TagPairVashishtaComputeFullB<NEIGHFLAG,EVFLAG>, const int &ii, EV_FLOAT& ev) const {
 
-  KK_FLOAT delr1[3],delr2[3],fj[3],fk[3];
+  KK_FLOAT delr1[3],delr2[3];
+  KK_SUM_FLOAT fj[3],fk[3];
   KK_FLOAT evdwl = 0.0;
 
   const int i = d_ilist[ii];
@@ -479,9 +482,9 @@ void PairVashishtaKokkos<DeviceType>::operator()(TagPairVashishtaComputeFullB<NE
 
   const int jnum = d_numneigh_short_3body[ii];
 
-  KK_FLOAT fxtmpi = 0.0;
-  KK_FLOAT fytmpi = 0.0;
-  KK_FLOAT fztmpi = 0.0;
+  KK_SUM_FLOAT fxtmpi = 0.0;
+  KK_SUM_FLOAT fytmpi = 0.0;
+  KK_SUM_FLOAT fztmpi = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors_short_3body(ii,jj);
@@ -652,7 +655,7 @@ KOKKOS_INLINE_FUNCTION
 void PairVashishtaKokkos<DeviceType>::threebody(const Param& paramij, const Param& paramik, const Param& paramijk,
                        const KK_FLOAT& rsq1, const KK_FLOAT& rsq2,
                        KK_FLOAT *delr1, KK_FLOAT *delr2,
-                       KK_FLOAT *fj, KK_FLOAT *fk, const int& eflag, KK_FLOAT& eng) const
+                       KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, const int& eflag, KK_FLOAT& eng) const
 {
   KK_FLOAT r1,rinvsq1,rainv1,gsrainv1,gsrainvsq1,expgsrainv1;
   KK_FLOAT r2,rinvsq2,rainv2,gsrainv2,gsrainvsq2,expgsrainv2;
@@ -709,7 +712,7 @@ void PairVashishtaKokkos<DeviceType>::threebody(const Param& paramij, const Para
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairVashishtaKokkos<DeviceType>::threebodyj(const Param& paramij, const Param& paramik, const Param& paramijk,
-                       const KK_FLOAT& rsq1, const KK_FLOAT& rsq2, KK_FLOAT *delr1, KK_FLOAT *delr2, KK_FLOAT *fj) const
+                       const KK_FLOAT& rsq1, const KK_FLOAT& rsq2, KK_FLOAT *delr1, KK_FLOAT *delr2, KK_SUM_FLOAT *fj) const
 {
   KK_FLOAT r1,rinvsq1,rainv1,gsrainv1,gsrainvsq1,expgsrainv1;
   KK_FLOAT r2,rainv2,gsrainv2,expgsrainv2;
@@ -831,7 +834,7 @@ template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairVashishtaKokkos<DeviceType>::ev_tally3(EV_FLOAT &ev, const int &i, const int &j, int &k,
           const KK_FLOAT &evdwl, const KK_FLOAT &ecoul,
-                     KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const
+                     KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const
 {
   KK_FLOAT epairthird,v[6];
 
@@ -896,7 +899,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairVashishtaKokkos<DeviceType>::ev_tally3_atom(EV_FLOAT & /*ev*/, const int &i,
           const KK_FLOAT &evdwl, const KK_FLOAT &ecoul,
-                     KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const
+                     KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const
 {
   KK_FLOAT epairthird,v[6];
 

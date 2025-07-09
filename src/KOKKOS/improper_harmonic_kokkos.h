@@ -69,7 +69,7 @@ class ImproperHarmonicKokkos : public ImproperHarmonic {
   class NeighborKokkos *neighborKK;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
-  typename Kokkos::View<KK_FLOAT*[3],typename AT::t_kkfloat_1d_3::array_layout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
+  typename Kokkos::View<KK_SUM_FLOAT*[3],DAT::t_kksum_1d_3::array_layout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
   typename AT::t_int_2d_lr improperlist;
   Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
   Kokkos::View<KK_FLOAT*[6],LMPDeviceLayout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;

@@ -41,7 +41,7 @@ struct DomainResetBoxFunctor{
 public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr x;
+  typename AT::t_kkfloat_1d_3_lr x;
 
   struct value_type {
     double value[3][2] ;
@@ -220,10 +220,10 @@ struct DomainPBCFunctor {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   double lo[3],hi[3],period[3];
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 v;
-  typename ArrayTypes<DeviceType>::t_int_1d mask;
-  typename ArrayTypes<DeviceType>::t_imageint_1d image;
+  typename AT::t_kkfloat_1d_3_lr x;
+  typename AT::t_kkfloat_1d_3 v;
+  typename AT::t_int_1d mask;
+  typename AT::t_imageint_1d image;
   int deform_groupbit;
   double h_rate[6];
   int xperiodic,yperiodic,zperiodic;

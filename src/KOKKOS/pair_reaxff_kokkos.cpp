@@ -1175,7 +1175,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeLJCoulomb<NEIGHF
   const tagint itag = tag(i);
   const int jnum = d_numneigh[i];
 
-  KK_FLOAT fxtmp, fytmp, fztmp;
+  KK_SUM_FLOAT fxtmp, fytmp, fztmp;
   fxtmp = fytmp = fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
@@ -1367,7 +1367,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTabulatedLJCoulo
   const tagint itag = tag(i);
   const int jnum = d_numneigh[i];
 
-  KK_FLOAT fxtmp, fytmp, fztmp;
+  KK_SUM_FLOAT fxtmp, fytmp, fztmp;
   fxtmp = fytmp = fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
@@ -2057,7 +2057,10 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxBondOrder2, const int &ii) const {
 
-  KK_FLOAT exp_p1i, exp_p2i, exp_p1j, exp_p2j, f1, f2, f3, u1_ij, u1_ji, Cf1A_ij, Cf1B_ij, Cf1_ij, Cf1_ji;
+  // these variables need to be FP64 to prevent overflow
+
+  double exp_p1i, exp_p2i, exp_p1j, exp_p2j, f1, f2, f3, u1_ij, u1_ji, Cf1A_ij, Cf1B_ij, Cf1_ij, Cf1_ji;
+
   KK_FLOAT f4, f5, exp_f4, exp_f5, f4f5, Cf45_ij, Cf45_ji;
   KK_FLOAT A0_ij, A1_ij, A2_ij, A3_ij, A2_ji, A3_ji;
 
@@ -2347,7 +2350,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeMulti2<NEIGHFLAG
 
   const int jnum = d_bo_num[i];
 
-  KK_FLOAT CdDelta_i = 0.0;
+  KK_SUM_FLOAT CdDelta_i = 0.0;
   for (int j_index = 0; j_index < jnum; j_index++) {
     int j = d_bo_list(i, j_index);
     j &= NEIGHMASK;
@@ -2672,7 +2675,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeAngularPreproces
   KK_FLOAT Ctheta_0, theta_0, theta_00, theta, cos_theta, sin_theta;
   KK_FLOAT BOA_ij, BOA_ik, rij, bo_ij, bo_ik;
   KK_FLOAT dcos_theta_di[3], dcos_theta_dj[3], dcos_theta_dk[3];
-  KK_FLOAT eng_tmp, fi_tmp[3], fj_tmp[3], fk_tmp[3];
+  KK_SUM_FLOAT eng_tmp, fi_tmp[3], fj_tmp[3], fk_tmp[3];
   KK_FLOAT delij[3], delik[3], delji[3], delki[3];
 
   p_val6 = gp[14];
@@ -2715,8 +2718,8 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeAngularPreproces
 
   expval6 = exp(p_val6 * d_Delta_boc[i]);
 
-  KK_FLOAT CdDelta_i = 0.0;
-  KK_FLOAT fitmp[3],fjtmp[3];
+  KK_SUM_FLOAT CdDelta_i = 0.0;
+  KK_SUM_FLOAT fitmp[3],fjtmp[3];
   for (int j = 0; j < 3; j++) fitmp[j] = 0.0;
 
   delij[0] = x(j,0) - xtmp;
@@ -2730,7 +2733,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeAngularPreproces
 
   const int jtype = type(j);
 
-  KK_FLOAT CdDelta_j = 0.0;
+  KK_SUM_FLOAT CdDelta_j = 0.0;
   for (int k = 0; k < 3; k++) fjtmp[k] = 0.0;
 
   delik[0] = x(k,0) - xtmp;
@@ -2924,7 +2927,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
   KK_FLOAT e_tor, e_con, eng_tmp;
 
   KK_FLOAT delij[3], delik[3], deljl[3], dellk[3], delil[3], delkl[3];
-  KK_FLOAT fi_tmp[3], fj_tmp[3], fk_tmp[3];
+  KK_SUM_FLOAT fi_tmp[3], fj_tmp[3], fk_tmp[3];
   KK_FLOAT dcos_ijk_di[3], dcos_ijk_dj[3], dcos_ijk_dk[3], dcos_jil_di[3], dcos_jil_dj[3], dcos_jil_dk[3];
 
   KK_FLOAT p_tor2 = gp[23];
@@ -3257,7 +3260,8 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeHydrogen<NEIGHFL
   KK_FLOAT dcos_theta_di[3], dcos_theta_dj[3], dcos_theta_dk[3];
 
   // tally variables
-  KK_FLOAT fi_tmp[3], fj_tmp[3], fk_tmp[3], delij[3], delji[3], delik[3], delki[3];
+  KK_SUM_FLOAT fi_tmp[3], fj_tmp[3], fk_tmp[3];
+  KK_FLOAT delij[3], delji[3], delik[3], delki[3];
   for (int d = 0; d < 3; d++) fi_tmp[d] = fj_tmp[d] = fk_tmp[d] = 0.0;
 
   const int i = d_ilist[ii];
@@ -3284,7 +3288,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeHydrogen<NEIGHFL
     }
   }
 
-  KK_FLOAT fitmp[3];
+  KK_SUM_FLOAT fitmp[3];
   for (int d = 0; d < 3; d++) fitmp[d] = 0.0;
 
   for (int k_index = 0; k_index < knum; k_index++) {
@@ -3463,7 +3467,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond1<NEIGHFLAG,
   const KK_FLOAT imass = paramssing(itype).mass;
   const int jnum = d_bo_num[i];
 
-  KK_FLOAT CdDelta_i = 0.0;
+  KK_SUM_FLOAT CdDelta_i = 0.0;
 
   for (int j_index = 0; j_index < jnum; j_index++) {
     int j = d_bo_list(i, j_index);
@@ -3575,8 +3579,8 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond2<NEIGHFLAG,
   const tagint itag = tag(i);
   const int jknum = d_bo_num[i];
 
-  KK_FLOAT CdDelta_i = d_CdDelta[i];
-  KK_FLOAT fitmp[3];
+  KK_SUM_FLOAT CdDelta_i = d_CdDelta[i];
+  KK_SUM_FLOAT fitmp[3];
   for (int j = 0; j < 3; j++) fitmp[j] = 0.0;
 
   for (int j_index = 0; j_index < jknum; j_index++) {
@@ -3594,7 +3598,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond2<NEIGHFLAG,
       if (x(j,2) == ztmp && x(j,1) == ytmp && x(j,0) < xtmp) continue;
     }
 
-    KK_FLOAT CdDelta_j = d_CdDelta[j];
+    KK_SUM_FLOAT CdDelta_j = d_CdDelta[j];
 
     delij[0] = x(j,0) - xtmp;
     delij[1] = x(j,1) - ytmp;
@@ -3633,7 +3637,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeBond2<NEIGHFLAG,
     coef_C2dDelta = d_C2dbo(i,j_index) * (coeff_CdDelta_ij);
     coef_C3dDelta = d_C3dbo(i,j_index) * (coeff_CdDelta_ij);
 
-    KK_FLOAT temp[3];
+    KK_SUM_FLOAT temp[3];
 
     KK_FLOAT d_dln_BOp_pi_local = d_dln_BOp_pi(i,j_index);
     for (int d = 0; d < 3; d++) dln_BOp_pi[d] = d_dln_BOp_pi_local * delij[d];
@@ -3843,7 +3847,7 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::v_tally(EV_FLOAT_REAX &ev, const int &i,
-  KK_FLOAT *fi, KK_FLOAT *drij) const
+  KK_SUM_FLOAT *fi, KK_FLOAT *drij) const
 {
   KK_FLOAT v[6];
 
@@ -3878,7 +3882,7 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::v_tally3(EV_FLOAT_REAX &ev, const int &i, const int &j, const int &k,
-  KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const
+  KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const
 {
   // The eatom and vatom arrays are duplicated for OpenMP, atomic for GPU, and neither for Serial
   auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
@@ -3918,7 +3922,7 @@ template<class DeviceType>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::v_tally4(EV_FLOAT_REAX &ev, const int &i, const int &j, const int &k,
-  const int &l, KK_FLOAT *fi, KK_FLOAT *fj, KK_FLOAT *fk, KK_FLOAT *dril, KK_FLOAT *drjl, KK_FLOAT *drkl) const
+  const int &l, KK_SUM_FLOAT *fi, KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk, KK_FLOAT *dril, KK_FLOAT *drjl, KK_FLOAT *drkl) const
 {
   // The vatom array is duplicated for OpenMP, atomic for GPU, and neither for Serial
 
@@ -3960,7 +3964,7 @@ void PairReaxFFKokkos<DeviceType>::v_tally4(EV_FLOAT_REAX &ev, const int &i, con
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairReaxFFKokkos<DeviceType>::v_tally3_atom(EV_FLOAT_REAX &ev, const int &i, const int & /*j*/,
-                                                const int & /*k*/, KK_FLOAT *fj, KK_FLOAT *fk,
+                                                const int & /*k*/, KK_SUM_FLOAT *fj, KK_SUM_FLOAT *fk,
                                                 KK_FLOAT *drji, KK_FLOAT *drjk) const
 {
   KK_FLOAT v[6];

@@ -144,11 +144,11 @@ CodeEditor::CodeEditor(QWidget *parent) :
     units_comp(new QCompleter(this)), group_comp(new QCompleter(this)),
     varname_comp(new QCompleter(this)), fixid_comp(new QCompleter(this)),
     compid_comp(new QCompleter(this)), file_comp(new QCompleter(this)),
-    extra_comp(new QCompleter(this)), highlight(NO_HIGHLIGHT)
+    extra_comp(new QCompleter(this)), highlight(NO_HIGHLIGHT), reformat_on_return(false),
+    automatic_completion(true), docver("")
 {
     help_action = new QShortcut(QKeySequence::fromString("Ctrl+?"), parent);
     connect(help_action, &QShortcut::activated, this, &CodeEditor::get_help);
-    docver = "";
 
     // set up completer class (without a model currently)
 #define COMPLETER_SETUP(completer)                                                            \
@@ -212,7 +212,7 @@ CodeEditor::CodeEditor(QWidget *parent) :
             } else if (words.size() == 2) {
                 cmd_map[words.at(1)] = words.at(0);
             } else {
-                fprintf(stderr, "unhandled: %s", line.toStdString().c_str());
+                fprintf(stderr, "unhandled help item: %s", line.toStdString().c_str());
             }
         }
         help_index.close();
@@ -265,7 +265,7 @@ int CodeEditor::lineNumberAreaWidth()
         ++digits;
     }
 
-    int space = 3 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * (digits + 2);
+    int space = 3 + (fontMetrics().horizontalAdvance(QLatin1Char('9')) * (digits + 2));
     return space;
 }
 
@@ -320,7 +320,7 @@ QString CodeEditor::reformatLine(const QString &line)
     bool rebuildComputeIDComp = false;
     bool rebuildFixIDComp     = false;
 
-    if (words.size()) {
+    if (!words.empty()) {
         // commented line. do nothing
         if (words[0][0] == '#') return line;
 
@@ -578,6 +578,8 @@ void CodeEditor::keyPressEvent(QKeyEvent *event)
     }
 
     // automatically reformat when hitting the return or enter key
+    QSettings settings;
+    reformat_on_return = settings.value("return", false).toBool();
     if (reformat_on_return && ((key == Qt::Key_Return) || (key == Qt::Key_Enter))) {
         reformatCurrentLine();
     }
@@ -586,6 +588,7 @@ void CodeEditor::keyPressEvent(QKeyEvent *event)
     QPlainTextEdit::keyPressEvent(event);
 
     // if enabled, try pop up completion automatically after 2 characters
+    automatic_completion = settings.value("automatic", true).toBool();
     if (automatic_completion) {
         auto cursor = textCursor();
         auto line   = cursor.block().text();
@@ -843,7 +846,7 @@ void CodeEditor::comment_selection()
     auto text   = cursor.selection().toPlainText();
     auto lines  = text.split('\n');
     QString newtext;
-    for (auto line : lines) {
+    for (const auto &line : lines) {
         newtext.append('#');
         newtext.append(line);
         newtext.append('\n');
@@ -859,7 +862,7 @@ void CodeEditor::uncomment_selection()
     auto text   = cursor.selection().toPlainText();
     auto lines  = text.split('\n');
     QString newtext;
-    for (auto line : lines) {
+    for (const auto &line : lines) {
         QString newline;
         bool start = true;
         for (auto letter : line) {
@@ -949,7 +952,7 @@ void CodeEditor::runCompletion()
         current_comp->complete(cr);
 
         // if on first word, try to complete command
-    } else if ((words.size() > 0) && (words[0] == selected.toStdString())) {
+    } else if ((!words.empty()) && (words[0] == selected.toStdString())) {
         // no completion on comment lines
         if (words[0][0] == '#') return;
 
@@ -1008,13 +1011,9 @@ void CodeEditor::runCompletion()
                 current_comp = file_comp;
         } else if (selected.startsWith("v_"))
             current_comp = varname_comp;
-        else if (selected.startsWith("c_"))
+        else if (selected.startsWith("c_") || selected.startsWith("C_"))
             current_comp = compid_comp;
-        else if (selected.startsWith("C_"))
-            current_comp = compid_comp;
-        else if (selected.startsWith("f_"))
-            current_comp = fixid_comp;
-        else if (selected.startsWith("F_"))
+        else if (selected.startsWith("f_") || selected.startsWith("F_"))
             current_comp = fixid_comp;
 
         if (current_comp) {
@@ -1042,21 +1041,13 @@ void CodeEditor::runCompletion()
             current_comp = region_comp;
         else if (words[0] == "variable")
             current_comp = variable_comp;
-        else if (words[0] == "fix")
-            current_comp = group_comp;
-        else if (words[0] == "compute")
-            current_comp = group_comp;
-        else if (words[0] == "dump")
+        else if ((words[0] == "fix") || (words[0] == "compute") || (words[0] == "dump"))
             current_comp = group_comp;
         else if (selected.startsWith("v_"))
             current_comp = varname_comp;
-        else if (selected.startsWith("c_"))
+        else if (selected.startsWith("c_") || selected.startsWith("C_"))
             current_comp = compid_comp;
-        else if (selected.startsWith("C_"))
-            current_comp = compid_comp;
-        else if (selected.startsWith("f_"))
-            current_comp = fixid_comp;
-        else if (selected.startsWith("F_"))
+        else if (selected.startsWith("f_") || selected.startsWith("F_"))
             current_comp = fixid_comp;
         else if ((words[0] == "read_data") && selected.startsWith("ex"))
             current_comp = extra_comp;
@@ -1100,13 +1091,9 @@ void CodeEditor::runCompletion()
                 current_comp = file_comp;
         } else if (selected.startsWith("v_"))
             current_comp = varname_comp;
-        else if (selected.startsWith("c_"))
+        else if (selected.startsWith("c_") || selected.startsWith("C_"))
             current_comp = compid_comp;
-        else if (selected.startsWith("C_"))
-            current_comp = compid_comp;
-        else if (selected.startsWith("f_"))
-            current_comp = fixid_comp;
-        else if (selected.startsWith("F_"))
+        else if (selected.startsWith("f_") || selected.startsWith("F_"))
             current_comp = fixid_comp;
         else if ((words[0] == "read_data") && selected.startsWith("ex"))
             current_comp = extra_comp;
@@ -1131,13 +1118,9 @@ void CodeEditor::runCompletion()
         current_comp = nullptr;
         if (selected.startsWith("v_"))
             current_comp = varname_comp;
-        else if (selected.startsWith("c_"))
+        else if (selected.startsWith("c_") || selected.startsWith("C_"))
             current_comp = compid_comp;
-        else if (selected.startsWith("C_"))
-            current_comp = compid_comp;
-        else if (selected.startsWith("f_"))
-            current_comp = fixid_comp;
-        else if (selected.startsWith("F_"))
+        else if (selected.startsWith("f_") || selected.startsWith("F_"))
             current_comp = fixid_comp;
         else if ((words[0] == "read_data") && selected.startsWith("ex"))
             current_comp = extra_comp;

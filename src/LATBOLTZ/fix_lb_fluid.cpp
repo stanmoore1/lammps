@@ -360,7 +360,7 @@ FixLbFluid::FixLbFluid(LAMMPS *lmp, int narg, char **arg) :
   // perform initial allocation of atom-based array register
   // with Atom class
   //--------------------------------------------------------------------------
-  grow_arrays(atom->nmax);
+  FixLbFluid::grow_arrays(atom->nmax);
   atom->add_callback(Atom::GROW);
 
   for (int i = 0; i < atom->nmax; i++) {
@@ -438,9 +438,9 @@ FixLbFluid::FixLbFluid(LAMMPS *lmp, int narg, char **arg) :
   //--------------------------------------------------------------------------
   // Set the total number of grid points in each direction.
   //--------------------------------------------------------------------------
-  Nbx = (int) (domain->xprd / dx_lb + 0.5);
-  Nby = (int) (domain->yprd / dx_lb + 0.5);
-  Nbz = (int) (domain->zprd / dx_lb + 0.5);
+  Nbx = std::lround(domain->xprd / dx_lb);
+  Nby = std::lround(domain->yprd / dx_lb);
+  Nbz = std::lround(domain->zprd / dx_lb);
 
   //--------------------------------------------------------------------------
   // Set the number of grid points in each dimension for the local subgrids.
@@ -739,9 +739,9 @@ void FixLbFluid::init()
   // between runs.
   //--------------------------------------------------------------------------
   int Nbx_now, Nby_now, Nbz_now;
-  Nbx_now = (int) (domain->xprd / dx_lb + 0.5);
-  Nby_now = (int) (domain->yprd / dx_lb + 0.5);
-  Nbz_now = (int) (domain->zprd / dx_lb + 0.5);
+  Nbx_now = std::lround(domain->xprd / dx_lb);
+  Nby_now = std::lround(domain->yprd / dx_lb);
+  Nbz_now = std::lround(domain->zprd / dx_lb);
   // If there are walls in the z-direction add an extra grid point.
   if (domain->periodicity[2] == 0) { Nbz_now += 1; }
 
@@ -2425,9 +2425,9 @@ void FixLbFluid::dump(const bigint step)
             velocity_2_fort[2 + 3 * (i + (subNbx + 3) * (j + (subNby + 3) * k))] = u_lb[i][j][k][2];
           }
 
-      MPI_File_write_all(dump_file_handle_raw, &density_2_fort[0], 1, fluid_density_2_mpitype,
+      MPI_File_write_all(dump_file_handle_raw, density_2_fort.data(), 1, fluid_density_2_mpitype,
                          MPI_STATUS_IGNORE);
-      MPI_File_write_all(dump_file_handle_raw, &velocity_2_fort[0], 1, fluid_velocity_2_mpitype,
+      MPI_File_write_all(dump_file_handle_raw, velocity_2_fort.data(), 1, fluid_velocity_2_mpitype,
                          MPI_STATUS_IGNORE);
 
       // For C output use the following but switch to MPI_ORDER_C in mpiTypeXXXWrite

@@ -373,7 +373,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
         b_st_lo[atype][btype], b_st_hi[atype][btype], shift_st[atype][btype]);
 
     // early rejection criterium
-    if (f1) {
+    if (f1 != 0.0) {
 
     // theta5 angle and correction
     cost5p  = MathExtra::dot3(delr_stkstk_norm,bz);
@@ -385,7 +385,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
         b_st5[atype][btype], dtheta_st5_c[atype][btype]);
 
     // early rejection criterium
-    if (f4t5) {
+    if (f4t5 != 0.0) {
 
     cost6p = MathExtra::dot3(delr_stkstk_norm,az);
     if (cost6p >  1.0) cost6p =  1.0;
@@ -437,7 +437,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
     evdwl = f1 * f4t5 * f4t6 * f4t9 * f4t10 * f5c1 * f5c2;
 
     // early rejection criterium
-    if (evdwl) {
+    if (evdwl != 0.0) {
 
     df1 = DF1(r_stkstk, epsilon_st[atype][btype], a_st[atype][btype], cut_st_0[atype][btype],
         cut_st_lc[atype][btype], cut_st_hc[atype][btype], cut_st_lo[atype][btype], cut_st_hi[atype][btype],
@@ -484,7 +484,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
     delf[2] += delr_stkstk[2] * finc;
 
     // theta5p force
-    if (theta5p) {
+    if (theta5p != 0.0) {
 
       finc   = -f1 * df4t5 * f4t6 * f4t9 * f4t10 * f5c1 * f5c2 * rinv_stkstk;
 
@@ -495,7 +495,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
     }
 
     // theta6p force
-    if (theta6p) {
+    if (theta6p != 0.0) {
 
       finc   = -f1 * f4t5 * df4t6 * f4t9 * f4t10 * f5c1 * f5c2 * rinv_stkstk;
 
@@ -562,7 +562,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
     deltb[2] = 0.0;
 
     // theta9 force
-    if (theta9) {
+    if (theta9 != 0.0) {
 
       finc   = -f1 * f4t5 * f4t6 * df4t9 * f4t10 * f5c1 * f5c2 * rinv_bkbk;
 
@@ -573,7 +573,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
     }
 
     // theta10 force
-    if (theta10) {
+    if (theta10 != 0.0) {
 
       finc   = -f1 * f4t5 * f4t6 * f4t9 * df4t10 * f5c1 * f5c2 * rinv_bkbk;
 
@@ -584,7 +584,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
     }
 
     // cosphi1 force
-    if (cosphi1) {
+    if (cosphi1 != 0.0) {
 
       finc   = -f1 * f4t5 * f4t6 * f4t9 * f4t10 * df5c1 * f5c2 * rinv_bkbk;
 
@@ -595,7 +595,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
     }
 
     // cosphi2 force
-    if (cosphi2) {
+    if (cosphi2 != 0.0) {
 
       finc   = -f1 * f4t5 * f4t6 * f4t9 * f4t10 * f5c1 * df5c2 * rinv_bkbk;
 
@@ -654,7 +654,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
     deltb[2] = 0.0;
 
     // theta5p torque
-    if (theta5p) {
+    if (theta5p != 0.0) {
 
       tpair = -f1 * df4t5 * f4t6 * f4t9 * f4t10 * f5c1 * f5c2;
       MathExtra::cross3(delr_stkstk_norm,bz,t5pdir);
@@ -666,7 +666,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
     }
 
     // theta6p torque
-    if (theta6p) {
+    if (theta6p != 0.0) {
 
       tpair = -f1 * f4t5 * df4t6 * f4t9 * f4t10 * f5c1 * f5c2;
       MathExtra::cross3(delr_stkstk_norm,az,t6pdir);
@@ -678,7 +678,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
     }
 
     // theta9 torque
-    if (theta9) {
+    if (theta9 != 0.0) {
 
       tpair = -f1 * f4t5 * f4t6 * df4t9 * f4t10 * f5c1 * f5c2;
       MathExtra::cross3(delr_bkbk_norm,aux3p,t9dir);
@@ -690,7 +690,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
     }
 
     // theta10 torque
-    if (theta10) {
+    if (theta10 != 0.0) {
 
       tpair = -f1 * f4t5 * f4t6 * f4t9 * df4t10 * f5c1 * f5c2;
       MathExtra::cross3(delr_bkbk_norm,aux5p,t10dir);
@@ -702,7 +702,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
     }
 
     // cosphi1 torque
-    if (cosphi1) {
+    if (cosphi1 != 0.0) {
 
       tpair   = -f1 * f4t5 * f4t6 * f4t9 * f4t10 * df5c1 * f5c2;
       MathExtra::cross3(delr_bkbk_norm,by,cosphi1dir);
@@ -714,7 +714,7 @@ void PairOxrna2Stk::compute(int eflag, int vflag)
     }
 
     // cosphi2 torque
-    if (cosphi2) {
+    if (cosphi2 != 0.0) {
 
       tpair   = -f1 * f4t5 * f4t6 * f4t9 * f4t10 * f5c1 * df5c2;
       MathExtra::cross3(delr_bkbk_norm,ay,cosphi2dir);

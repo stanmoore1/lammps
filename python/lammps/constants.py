@@ -11,8 +11,10 @@
 #   See the README file in the top-level LAMMPS directory.
 # -------------------------------------------------------------------------
 
-# various symbolic constants to be used
-# in certain calls to select data formats
+"""
+various symbolic constants to be used
+in certain calls to select data formats
+"""
 
 # these must be kept in sync with the enums in src/library.h, src/lmptype.h,
 # tools/swig/lammps.i, examples/COUPLE/plugin/liblammpsplugin.h,
@@ -55,9 +57,16 @@ LMP_BUFSIZE        = 1024
 # -------------------------------------------------------------------------
 
 def get_ctypes_int(size):
+  """return ctypes type matching the configured C/C++ integer size in LAMMPS"""
+  # pylint: disable=C0415
   from ctypes import c_int, c_int32, c_int64
   if size == 4:
     return c_int32
-  elif size == 8:
+  if size == 8:
     return c_int64
   return c_int
+
+# Local Variables:
+# fill-column: 100
+# python-indent-offset: 2
+# End:

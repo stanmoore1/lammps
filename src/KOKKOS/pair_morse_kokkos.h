@@ -72,21 +72,21 @@ class PairMorseKokkos : public PairMorse {
   typename Kokkos::DualView<params_morse**,Kokkos::LayoutRight,DeviceType>::t_dev_const_um params;
   params_morse m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
   KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr c_x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
-  typename ArrayTypes<DeviceType>::t_int_1d_randomread type;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
+  typename AT::t_kkfloat_1d_3_lr c_x;
+  typename AT::t_kksum_1d_3 f;
+  typename AT::t_int_1d_randomread type;
 
   DAT::ttransform_kkfloat_1d k_eatom;
   DAT::ttransform_kkfloat_1d_6 k_vatom;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d d_eatom;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_6 d_vatom;
+  typename AT::t_kkfloat_1d d_eatom;
+  typename AT::t_kkfloat_1d_6 d_vatom;
 
   int newton_pair;
   KK_FLOAT special_lj[4];
 
   DAT::ttransform_kkfloat_2d k_cutsq;
-  typename ArrayTypes<DeviceType>::t_kkfloat_2d d_cutsq;
+  typename AT::t_kkfloat_2d d_cutsq;
 
 
   int neighflag;

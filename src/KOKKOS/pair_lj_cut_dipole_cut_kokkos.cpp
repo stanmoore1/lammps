@@ -224,7 +224,7 @@ KOKKOS_INLINE_FUNCTION
 void PairLJCutDipoleCutKokkos<DeviceType>::operator()(TagPairLJCutDipoleCutKernel<NEIGHFLAG,NEWTON_PAIR,EVFLAG,STACKPARAMS>, const int ii, EV_FLOAT &ev) const {
 
   // The f and torque arrays are atomic for Half/Thread neighbor style
-  Kokkos::View<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
+  Kokkos::View<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
   Kokkos::View<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_torque = torque;
 
   const int i = d_ilist[ii];
@@ -237,12 +237,12 @@ void PairLJCutDipoleCutKokkos<DeviceType>::operator()(TagPairLJCutDipoleCutKerne
 
   const int jnum = d_numneigh[i];
 
-  KK_FLOAT fx_i = 0.0;
-  KK_FLOAT fy_i = 0.0;
-  KK_FLOAT fz_i = 0.0;
-  KK_FLOAT torquex_i = 0.0;
-  KK_FLOAT torquey_i = 0.0;
-  KK_FLOAT torquez_i = 0.0;
+  KK_SUM_FLOAT fx_i = 0.0;
+  KK_SUM_FLOAT fy_i = 0.0;
+  KK_SUM_FLOAT fz_i = 0.0;
+  KK_SUM_FLOAT torquex_i = 0.0;
+  KK_SUM_FLOAT torquey_i = 0.0;
+  KK_SUM_FLOAT torquez_i = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);

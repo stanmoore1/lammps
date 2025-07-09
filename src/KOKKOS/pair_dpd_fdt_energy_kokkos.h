@@ -109,7 +109,7 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
 #endif
 
   DAT::ttransform_kkfloat_2d k_cutsq;
-  typename ArrayTypes<DeviceType>::t_kkfloat_2d d_cutsq;
+  typename AT::t_kkfloat_2d d_cutsq;
 
  protected:
   int eflag,vflag;
@@ -127,13 +127,13 @@ class PairDPDfdtEnergyKokkos : public PairDPDfdtEnergy {
   params_dpd m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
   KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr c_x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_randomread v;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 f;
-  typename ArrayTypes<DeviceType>::t_int_1d_randomread type;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_randomread mass;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d rmass;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
+  typename AT::t_kkfloat_1d_3_lr c_x;
+  typename AT::t_kkfloat_1d_3_randomread v;
+  typename AT::t_kksum_1d_3 f;
+  typename AT::t_int_1d_randomread type;
+  typename AT::t_kkfloat_1d_randomread mass;
+  typename AT::t_kkfloat_1d rmass;
   typename AT::t_kkfloat_1d dpdTheta;
   typename AT::t_kkfloat_1d d_duCond,d_duMech;
   HAT::t_double_1d h_duCond,h_duMech;

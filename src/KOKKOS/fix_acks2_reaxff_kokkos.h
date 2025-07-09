@@ -183,7 +183,7 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
 
   typename AT::t_kkfloat_1d_3_lr x;
   typename AT::t_kkfloat_1d_3 v;
-  typename AT::t_kkfloat_1d_3_const f;
+  typename AT::t_kksum_1d_3_const f;
   typename AT::t_kkfloat_1d_randomread mass;
   typename AT::t_kkfloat_1d q;
   typename AT::t_int_1d type, mask;
@@ -229,11 +229,11 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<KK_FLOAT*, typename AT::t_kkfloat_1d::array_layout> dup_X_diag;
-  NonDupScatterView<KK_FLOAT*, typename AT::t_kkfloat_1d::array_layout> ndup_X_diag;
+  DupScatterView<KK_FLOAT*, DAT::t_kkfloat_1d::array_layout> dup_X_diag;
+  NonDupScatterView<KK_FLOAT*, DAT::t_kkfloat_1d::array_layout> ndup_X_diag;
 
-  DupScatterView<KK_FLOAT*, typename AT::t_kkfloat_1d::array_layout> dup_bb;
-  NonDupScatterView<KK_FLOAT*, typename AT::t_kkfloat_1d::array_layout> ndup_bb;
+  DupScatterView<KK_FLOAT*, DAT::t_kkfloat_1d::array_layout> dup_bb;
+  NonDupScatterView<KK_FLOAT*, DAT::t_kkfloat_1d::array_layout> ndup_bb;
 
   void init_shielding_k();
   void init_hist();

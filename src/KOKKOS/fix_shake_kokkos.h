@@ -118,7 +118,7 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
 
   typename AT::t_kkfloat_1d_3_lr d_x;
   typename AT::t_kkfloat_1d_3 d_v;
-  typename AT::t_kkfloat_1d_3 d_f;
+  typename AT::t_kksum_1d_3 d_f;
   typename AT::t_kkfloat_1d d_rmass;
   typename AT::t_kkfloat_1d d_mass;
   typename AT::t_tagint_1d_randomread d_tag;
@@ -190,11 +190,11 @@ class FixShakeKokkos : public FixShake, public KokkosBase {
   template<typename DataType, typename Layout>
   using NonDupScatterView = KKScatterView<DataType, Layout, KKDeviceType, KKScatterSum, KKScatterNonDuplicated>;
 
-  DupScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout> dup_f;
+  DupScatterView<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout> dup_f;
   DupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> dup_eatom;
   DupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> dup_vatom;
 
-  NonDupScatterView<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout> ndup_f;
+  NonDupScatterView<KK_SUM_FLOAT*[3], typename DAT::t_kksum_1d_3::array_layout> ndup_f;
   NonDupScatterView<KK_FLOAT*, typename DAT::t_kkfloat_1d::array_layout> ndup_eatom;
   NonDupScatterView<KK_FLOAT*[6], typename DAT::t_kkfloat_1d_6::array_layout> ndup_vatom;
 

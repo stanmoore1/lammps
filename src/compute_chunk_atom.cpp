@@ -1268,7 +1268,7 @@ int ComputeChunkAtom::setup_xyz_bins()
     if (lo > hi) error->all(FLERR, Error::NOLASTLINE, "Invalid bin bounds in compute chunk/atom");
 
     offset[m] = lo;
-    nlayers[m] = static_cast<int>((hi - lo) * invdelta[m] + 0.5);
+    nlayers[m] = std::lround((hi - lo) * invdelta[m]);
     nbins *= nlayers[m];
   }
 

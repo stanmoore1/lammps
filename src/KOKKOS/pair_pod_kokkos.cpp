@@ -216,9 +216,9 @@ void PairPODKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   maxneigh = 0;
   if (host_flag) {
     inum = list->inum;
-    d_numneigh = typename ArrayTypes<DeviceType>::t_int_1d("pair_pod:numneigh",inum);
+    d_numneigh = typename AT::t_int_1d("pair_pod:numneigh",inum);
     for (int i=0; i<inum; i++) d_numneigh(i) = list->numneigh[i];
-    d_ilist = typename ArrayTypes<DeviceType>::t_int_1d("pair_pod:ilist",inum);
+    d_ilist = typename AT::t_int_1d("pair_pod:ilist",inum);
     for (int i=0; i<inum; i++) d_ilist(i) = list->ilist[i];
 
     int maxn = 0;
