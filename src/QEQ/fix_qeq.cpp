@@ -272,7 +272,7 @@ void FixQEq::allocate_matrix()
     i = ilist[ii];
     m += numneigh[i];
   }
-  bigint m_cap_big = (bigint)MAX(m * safezone, mincap * MIN_NBRS);
+  auto m_cap_big = (bigint)MAX(m * safezone, mincap * MIN_NBRS);
   if (m_cap_big > MAXSMALLINT)
     error->one(FLERR,"Too many neighbors in fix {}",style);
   m_cap = m_cap_big;

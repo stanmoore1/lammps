@@ -68,7 +68,7 @@ class Set : public Command {
   int naction, maxaction;
   Action *actions;
 
-  typedef void (Set::*FnPtrPack)(Action *);
+  using FnPtrPack = void (Set::*)(Action *);
   FnPtrPack *invoke_choice;    // list of ptrs to invoke functions
 
   double *vec1, *vec2, *vec3, *vec4;             // storage for evaluated peratom variables

@@ -62,7 +62,7 @@ ComputeTempDrude::~ComputeTempDrude()
 void ComputeTempDrude::init()
 {
   // Fix drude already checks that there is only one fix drude instance
-  auto &fixes = modify->get_fix_by_style("^drude$");
+  const auto &fixes = modify->get_fix_by_style("^drude$");
   if (fixes.size() == 0)
     error->all(FLERR, Error::NOLASTLINE, "compute temp/drude requires fix drude");
   fix_drude = dynamic_cast<FixDrude *>(fixes[0]);

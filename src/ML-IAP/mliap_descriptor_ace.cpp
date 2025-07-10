@@ -146,8 +146,8 @@ void MLIAPDescriptorACE::compute_descriptors(class MLIAPData *data)
 
     delete acemlimpl->ace;
     acemlimpl->ace = new ACECTildeEvaluator(*acemlimpl->basis_set);
-    acemlimpl->ace->compute_projections = 1;
-    acemlimpl->ace->compute_b_grad = 1;
+    acemlimpl->ace->compute_projections = true;
+    acemlimpl->ace->compute_b_grad = true;
 
     acemlimpl->ace->element_type_mapping.init(nelements + 1);
     for (int ik = 1; ik <= nelements; ik++) {
@@ -190,8 +190,8 @@ void MLIAPDescriptorACE::compute_forces(class MLIAPData *data)
     const int i = data->iatoms[ii];
     delete acemlimpl->ace;
     acemlimpl->ace = new ACECTildeEvaluator(*acemlimpl->basis_set);
-    acemlimpl->ace->compute_projections = 1;
-    acemlimpl->ace->compute_b_grad = 1;
+    acemlimpl->ace->compute_projections = true;
+    acemlimpl->ace->compute_b_grad = true;
     acemlimpl->ace->element_type_mapping.init(nelements + 1);
     for (int ik = 1; ik <= nelements; ik++) {
       for (int mu = 0; mu < acemlimpl->basis_set->nelements; mu++) {
@@ -261,8 +261,8 @@ void MLIAPDescriptorACE::compute_force_gradients(class MLIAPData *data)
     const int i = data->iatoms[ii];
     delete acemlimpl->ace;
     acemlimpl->ace = new ACECTildeEvaluator(*acemlimpl->basis_set);
-    acemlimpl->ace->compute_projections = 1;
-    acemlimpl->ace->compute_b_grad = 1;
+    acemlimpl->ace->compute_projections = true;
+    acemlimpl->ace->compute_b_grad = true;
 
     acemlimpl->ace->element_type_mapping.init(nelements + 1);
     for (int ik = 1; ik <= nelements; ik++) {
@@ -315,8 +315,8 @@ void MLIAPDescriptorACE::compute_descriptor_gradients(class MLIAPData *data)
     const int i = data->iatoms[ii];
     delete acemlimpl->ace;
     acemlimpl->ace = new ACECTildeEvaluator(*acemlimpl->basis_set);
-    acemlimpl->ace->compute_projections = 1;
-    acemlimpl->ace->compute_b_grad = 1;
+    acemlimpl->ace->compute_projections = true;
+    acemlimpl->ace->compute_b_grad = true;
 
     acemlimpl->ace->element_type_mapping.init(nelements + 1);
     for (int ik = 1; ik <= nelements; ik++) {

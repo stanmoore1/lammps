@@ -32,7 +32,6 @@
 
 using namespace LAMMPS_NS;
 using MathConst::MY_PI;
-using MathSpecial::cube;
 using MathSpecial::powint;
 
 static constexpr int MAXLINE=1024;
@@ -2373,7 +2372,6 @@ void EAPOD::snapshots(double *rbf, double *xij, int N)
     for (int i=0; i<inversedegree; i++) {
       int p = besseldegree*nbesselpars + i;
       int nij = n + N*p;
-      //double a = pow(dij, (double) (i+1.0));
       double a = powint(dij, i+1);
 
       // Compute the RBF

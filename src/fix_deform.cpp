@@ -623,7 +623,7 @@ void FixDeform::init()
 
   rfix.clear();
 
-  for (auto &ifix : modify->get_fix_list())
+  for (const auto &ifix : modify->get_fix_list())
     if (ifix->rigid_flag) rfix.push_back(ifix);
 }
 

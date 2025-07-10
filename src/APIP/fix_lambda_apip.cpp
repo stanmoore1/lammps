@@ -714,8 +714,8 @@ void FixLambdaAPIP::unpack_forward_comm(int n, int first, double *buf)
 
 void FixLambdaAPIP::write_restart(FILE *fp)
 {
-  int timesteps_since_invoked_history_update = update->ntimestep - invoked_history_update;
-  int timesteps_since_invoked_history2_update = update->ntimestep - invoked_history2_update;
+  bigint timesteps_since_invoked_history_update = update->ntimestep - invoked_history_update;
+  bigint timesteps_since_invoked_history2_update = update->ntimestep - invoked_history2_update;
 
   int n = 0;
   double list[8];

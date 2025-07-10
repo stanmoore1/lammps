@@ -388,7 +388,7 @@ void FixShake::init()
 
   // error if a fix changing the box comes before shake fix
   bool boxflag = false;
-  for (auto &ifix : modify->get_fix_list()) {
+  for (const auto &ifix : modify->get_fix_list()) {
    if (boxflag && utils::strmatch(ifix->style,pattern))
      error->all(FLERR,"Fix {} must come before any box changing fix", style);
     if (ifix->box_change) boxflag = true;
@@ -407,7 +407,7 @@ void FixShake::init()
       if (fixes.size() > 0) fix_respa = dynamic_cast<FixRespa *>(fixes.front());
       else error->all(FLERR,"Run style respa did not create fix RESPA");
     }
-    auto respa_ptr = dynamic_cast<Respa *>(update->integrate);
+    auto *respa_ptr = dynamic_cast<Respa *>(update->integrate);
     if (!respa_ptr) error->all(FLERR, "Failure to access Respa style {}", update->integrate_style);
     respa = 1;
     nlevels_respa = respa_ptr->nlevels;
@@ -508,7 +508,7 @@ void FixShake::setup(int vflag)
     dtfsq   = 0.5 * update->dt * update->dt * force->ftm2v;
     if (!rattle) dtfsq = update->dt * update->dt * force->ftm2v;
   } else {
-    auto respa_ptr = dynamic_cast<Respa *>(update->integrate);
+    auto *respa_ptr = dynamic_cast<Respa *>(update->integrate);
     if (!respa_ptr) error->all(FLERR, "Failure to access Respa style {}", update->integrate_style);
     if (update->whichflag > 0) {
       auto fixes = modify->get_fix_by_style("^RESPA");
@@ -1171,7 +1171,7 @@ void FixShake::atom_owners()
 
   int *proclist;
   memory->create(proclist,nlocal,"shake:proclist");
-  auto idbuf = (IDRvous *) memory->smalloc((bigint) nlocal*sizeof(IDRvous),"shake:idbuf");
+  auto *idbuf = (IDRvous *) memory->smalloc((bigint) nlocal*sizeof(IDRvous),"shake:idbuf");
 
   // setup input buf to rendezvous comm
   // input datums = pairs of bonded atoms
@@ -1220,7 +1220,7 @@ void FixShake::partner_info(int *npartner, tagint **partner_tag,
 
   int *proclist;
   memory->create(proclist,nsend,"special:proclist");
-  auto inbuf = (PartnerInfo *) memory->smalloc((bigint) nsend*sizeof(PartnerInfo),"special:inbuf");
+  auto *inbuf = (PartnerInfo *) memory->smalloc((bigint) nsend*sizeof(PartnerInfo),"special:inbuf");
 
   // set values in 4 partner arrays for all partner atoms I own
   // also setup input buf to rendezvous comm
@@ -1298,7 +1298,7 @@ void FixShake::partner_info(int *npartner, tagint **partner_tag,
                                  rendezvous_partners_info,
                                  0,buf,sizeof(PartnerInfo),
                                  (void *) this);
-  auto outbuf = (PartnerInfo *) buf;
+  auto *outbuf = (PartnerInfo *) buf;
 
   memory->destroy(proclist);
   memory->sfree(inbuf);
@@ -1348,7 +1348,7 @@ void FixShake::nshake_info(int *npartner, tagint **partner_tag,
 
   int *proclist;
   memory->create(proclist,nsend,"special:proclist");
-  auto inbuf = (NShakeInfo *) memory->smalloc((bigint) nsend*sizeof(NShakeInfo),"special:inbuf");
+  auto *inbuf = (NShakeInfo *) memory->smalloc((bigint) nsend*sizeof(NShakeInfo),"special:inbuf");
 
   // set partner_nshake for all partner atoms I own
   // also setup input buf to rendezvous comm
@@ -1385,7 +1385,7 @@ void FixShake::nshake_info(int *npartner, tagint **partner_tag,
                                  0,proclist,
                                  rendezvous_nshake,0,buf,sizeof(NShakeInfo),
                                  (void *) this);
-  auto outbuf = (NShakeInfo *) buf;
+  auto *outbuf = (NShakeInfo *) buf;
 
   memory->destroy(proclist);
   memory->sfree(inbuf);
@@ -1426,7 +1426,7 @@ void FixShake::shake_info(int *npartner, tagint **partner_tag,
 
   int *proclist;
   memory->create(proclist,nsend,"special:proclist");
-  auto inbuf = (ShakeInfo *) memory->smalloc((bigint) nsend*sizeof(ShakeInfo),"special:inbuf");
+  auto *inbuf = (ShakeInfo *) memory->smalloc((bigint) nsend*sizeof(ShakeInfo),"special:inbuf");
 
   // set 3 shake arrays for all partner atoms I own
   // also setup input buf to rendezvous comm
@@ -1477,7 +1477,7 @@ void FixShake::shake_info(int *npartner, tagint **partner_tag,
                                  0,proclist,
                                  rendezvous_shake,0,buf,sizeof(ShakeInfo),
                                  (void *) this);
-  auto outbuf = (ShakeInfo *) buf;
+  auto *outbuf = (ShakeInfo *) buf;
 
   memory->destroy(proclist);
   memory->sfree(inbuf);
@@ -1509,7 +1509,7 @@ int FixShake::rendezvous_ids(int n, char *inbuf,
                              int &flag, int *& /*proclist*/, char *& /*outbuf*/,
                              void *ptr)
 {
-  auto fsptr = (FixShake *) ptr;
+  auto *fsptr = (FixShake *) ptr;
   Memory *memory = fsptr->memory;
 
   tagint *atomIDs;
@@ -1518,7 +1518,7 @@ int FixShake::rendezvous_ids(int n, char *inbuf,
   memory->create(atomIDs,n,"special:atomIDs");
   memory->create(procowner,n,"special:procowner");
 
-  auto in = (IDRvous *) inbuf;
+  auto *in = (IDRvous *) inbuf;
 
   for (int i = 0; i < n; i++) {
     atomIDs[i] = in[i].atomID;
@@ -1549,7 +1549,7 @@ int FixShake::rendezvous_partners_info(int n, char *inbuf,
 {
   int i,m;
 
-  auto fsptr = (FixShake *) ptr;
+  auto *fsptr = (FixShake *) ptr;
   Atom *atom = fsptr->atom;
   Memory *memory = fsptr->memory;
 
@@ -1569,7 +1569,7 @@ int FixShake::rendezvous_partners_info(int n, char *inbuf,
   // proclist = owner of atomID in caller decomposition
   // outbuf = info about owned atomID = 4 values
 
-  auto in = (PartnerInfo *) inbuf;
+  auto *in = (PartnerInfo *) inbuf;
   int *procowner = fsptr->procowner;
   memory->create(proclist,n,"shake:proclist");
 
@@ -1604,7 +1604,7 @@ int FixShake::rendezvous_nshake(int n, char *inbuf,
 {
   int i,m;
 
-  auto fsptr = (FixShake *) ptr;
+  auto *fsptr = (FixShake *) ptr;
   Atom *atom = fsptr->atom;
   Memory *memory = fsptr->memory;
 
@@ -1624,7 +1624,7 @@ int FixShake::rendezvous_nshake(int n, char *inbuf,
   // proclist = owner of atomID in caller decomposition
   // outbuf = info about owned atomID
 
-  auto in = (NShakeInfo *) inbuf;
+  auto *in = (NShakeInfo *) inbuf;
   int *procowner = fsptr->procowner;
   memory->create(proclist,n,"shake:proclist");
 
@@ -1658,7 +1658,7 @@ int FixShake::rendezvous_shake(int n, char *inbuf,
 {
   int i,m;
 
-  auto fsptr = (FixShake *) ptr;
+  auto *fsptr = (FixShake *) ptr;
   Atom *atom = fsptr->atom;
   Memory *memory = fsptr->memory;
 
@@ -1678,7 +1678,7 @@ int FixShake::rendezvous_shake(int n, char *inbuf,
   // proclist = owner of atomID in caller decomposition
   // outbuf = info about owned atomID
 
-  auto in = (ShakeInfo *) inbuf;
+  auto *in = (ShakeInfo *) inbuf;
   int *procowner = fsptr->procowner;
   memory->create(proclist,n,"shake:proclist");
 
@@ -3159,7 +3159,7 @@ void FixShake::reset_dt()
     else dtfsq = update->dt * update->dt * force->ftm2v;
     respa = 0;
   } else {
-    auto respa_ptr = dynamic_cast<Respa *>(update->integrate);
+    auto *respa_ptr = dynamic_cast<Respa *>(update->integrate);
     if (!respa_ptr) error->all(FLERR, "Failure to access Respa style {}", update->integrate_style);
     respa = 1;
     nlevels_respa = respa_ptr->nlevels;

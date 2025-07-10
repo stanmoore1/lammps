@@ -272,7 +272,7 @@ void FixPair::post_force(int /*vflag*/)
       error->one(FLERR, "Fix pair cannot extract property {} from pair style", fieldname[ifield]);
 
     if (columns == 0) {
-      double *pvector = (double *) pvoid;
+      auto *pvector = (double *) pvoid;
       if (ncols == 1) {
         for (int i = 0; i < nlocal; i++)
           vector[i] = pvector[i];
@@ -283,7 +283,7 @@ void FixPair::post_force(int /*vflag*/)
       icol++;
 
     } else {
-      double **parray = (double **) pvoid;
+      auto **parray = (double **) pvoid;
       int icoltmp = icol;
       for (int i = 0; i < nlocal; i++) {
         icol = icoltmp;

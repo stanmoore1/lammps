@@ -256,6 +256,23 @@ TEST(Utils, split_words_quoted)
     ASSERT_THAT(list[2], StrEq("three"));
 }
 
+TEST(Utils, split_words_partially_quoted)
+{
+    auto list = utils::split_words("one 'two \"three\"");
+    ASSERT_EQ(list.size(), 2);
+    ASSERT_THAT(list[0], StrEq("one"));
+    ASSERT_THAT(list[1], StrEq("two \"three\""));
+}
+
+TEST(Utils, split_words_partially_escaped)
+{
+    auto list = utils::split_words("one \\'two \"three\"");
+    ASSERT_EQ(list.size(), 3);
+    ASSERT_THAT(list[0], StrEq("one"));
+    ASSERT_THAT(list[1], StrEq("\\'two"));
+    ASSERT_THAT(list[2], StrEq("three"));
+}
+
 TEST(Utils, split_words_escaped)
 {
     auto list = utils::split_words("1\\' '\"two\"' 3\\\"");

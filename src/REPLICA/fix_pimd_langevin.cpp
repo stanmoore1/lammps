@@ -1699,7 +1699,7 @@ int FixPIMDLangevin::pack_restart_data(double *list)
 void FixPIMDLangevin::restart(char *buf)
 {
   int n = 0;
-  auto list = (double *) buf;
+  auto *list = (double *) buf;
   for (int i = 0; i < 6; i++) vw[i] = list[n++];
 }
 

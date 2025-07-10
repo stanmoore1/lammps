@@ -362,7 +362,7 @@ void FixQEqReaxFF::allocate_matrix()
     i = ilist[ii];
     m += numneigh[i];
   }
-  bigint m_cap_big = (bigint)MAX(m * safezone, mincap * REAX_MIN_NBRS);
+  auto m_cap_big = (bigint)MAX(m * safezone, mincap * REAX_MIN_NBRS);
   if (m_cap_big > MAXSMALLINT)
     error->one(FLERR, Error::NOLASTLINE, "Too many neighbors in fix {}",style);
   m_cap = m_cap_big;
@@ -1117,7 +1117,7 @@ void FixQEqReaxFF::get_chi_field()
   memset(&chi_field[0],0,atom->nmax*sizeof(double));
   if (!efield) return;
 
-  const auto x = (const double * const *)atom->x;
+  const auto *const x = (const double * const *)atom->x;
   const int *mask = atom->mask;
   const imageint *image = atom->image;
   const int nlocal = atom->nlocal;

@@ -33,7 +33,6 @@
 #include "eapod.h"
 
 using namespace LAMMPS_NS;
-using MathSpecial::powint;
 
 static constexpr int MAXLINE = 1024;
 static constexpr double SMALL = 1.0e-10;
@@ -797,9 +796,9 @@ std::vector<int> FitPOD::linspace(int start_in, int end_in, int num_in)
 
   std::vector<int> linspaced;
 
-  double start = static_cast<double>(start_in);
-  double end = static_cast<double>(end_in);
-  double num = static_cast<double>(num_in);
+  auto start = static_cast<double>(start_in);
+  auto end = static_cast<double>(end_in);
+  auto num = static_cast<double>(num_in);
 
   int elm;
 
@@ -1692,7 +1691,7 @@ void FitPOD::least_squares_fit(const datastruct &data)
   fastpodptr->mknewcoeff(desc.c, nCoeffAll);
 }
 
-double latticevolume(double *lattice)
+static double latticevolume(double *lattice)
 {
   double *v1 = &lattice[0];
   double *v2 = &lattice[3];

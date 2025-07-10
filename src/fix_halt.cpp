@@ -285,7 +285,7 @@ void FixHalt::end_of_step()
   // send message to all other root processes to trigger exit across universe, if requested
 
   if (uflag && (comm->me == 0)) {
-    MPI_Request *req = new MPI_Request[universe->nworlds];
+    auto *req = new MPI_Request[universe->nworlds];
     for (int i = 0; i < universe->nworlds; ++i) {
       if (universe->me == universe->root_proc[i]) continue;
       MPI_Isend(&eflag, 1, MPI_INT, universe->root_proc[i], UTAG, universe->uworld, req + i);

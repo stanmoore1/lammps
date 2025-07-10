@@ -358,7 +358,7 @@ void BondRHEOShell::init_style()
   auto fixes = modify->get_fix_by_style("^rheo$");
   if (fixes.size() == 0)
     error->all(FLERR, Error::NOLASTLINE, "Need to define fix rheo to use bond rheo/shell");
-  class FixRHEO *fix_rheo = dynamic_cast<FixRHEO *>(fixes[0]);
+  auto *fix_rheo = dynamic_cast<FixRHEO *>(fixes[0]);
 
   if (!fix_rheo->surface_flag)
     error->all(FLERR, Error::NOLASTLINE, "Bond rheo/shell requires surface calculation in fix rheo");
@@ -367,7 +367,7 @@ void BondRHEOShell::init_style()
   fixes = modify->get_fix_by_style("^rheo/oxidation$");
   if (fixes.size() == 0)
     error->all(FLERR, Error::NOLASTLINE, "Need to define fix rheo/oxidation to use bond rheo/shell");
-  class FixRHEOOxidation *fix_rheo_oxidation = dynamic_cast<FixRHEOOxidation *>(fixes[0]);
+  auto *fix_rheo_oxidation = dynamic_cast<FixRHEOOxidation *>(fixes[0]);
 
   rsurf = fix_rheo_oxidation->rsurf;
   rmax = fix_rheo_oxidation->cut;
@@ -554,7 +554,7 @@ void BondRHEOShell::process_ineligibility(int i, int j)
         bond_type[i][m] = bond_type[i][n - 1];
         bond_atom[i][m] = bond_atom[i][n - 1];
         for (auto &ihistory : histories) {
-          auto fix_bond_history2 = dynamic_cast<FixBondHistory *>(ihistory);
+          auto *fix_bond_history2 = dynamic_cast<FixBondHistory *>(ihistory);
           fix_bond_history2->shift_history(i, m, n - 1);
           fix_bond_history2->delete_history(i, n - 1);
         }
@@ -572,7 +572,7 @@ void BondRHEOShell::process_ineligibility(int i, int j)
         bond_type[j][m] = bond_type[j][n - 1];
         bond_atom[j][m] = bond_atom[j][n - 1];
         for (auto &ihistory : histories) {
-          auto fix_bond_history2 = dynamic_cast<FixBondHistory *>(ihistory);
+          auto *fix_bond_history2 = dynamic_cast<FixBondHistory *>(ihistory);
           fix_bond_history2->shift_history(j, m, n - 1);
           fix_bond_history2->delete_history(j, n - 1);
         }

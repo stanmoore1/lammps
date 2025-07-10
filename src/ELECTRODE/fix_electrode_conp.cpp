@@ -421,7 +421,7 @@ void FixElectrodeConp::init()
   int *mask = atom->mask;
   if (matrix_algo) {
     std::vector<Fix *> integrate_fixes;
-    for (auto fix : modify->get_fix_list()) {
+    for (auto *fix : modify->get_fix_list()) {
       if (fix->time_integrate == 0) continue;
       int electrode_mover = 0;
       int fix_groupbit = fix->groupbit;
@@ -431,7 +431,7 @@ void FixElectrodeConp::init()
       if (electrode_mover && comm->me == 0) integrate_fixes.push_back(fix);
     }
     if (comm->me == 0)
-      for (const auto fix : integrate_fixes)
+      for (auto *const fix : integrate_fixes)
         error->warning(FLERR,
                        "Electrode atoms are integrated by fix {} {}, but fix electrode is using a "
                        "matrix method. For mobile electrodes use the conjugate gradient algorithm "
@@ -443,7 +443,7 @@ void FixElectrodeConp::init()
   if (etypes_neighlists)
     request_etypes_neighlists();
   else {
-    auto Req = neighbor->add_request(this);
+    auto *Req = neighbor->add_request(this);
     if (intelflag) Req->enable_intel();
   }
 }
@@ -578,7 +578,7 @@ void FixElectrodeConp::setup_post_neighbor()
       array_compute->compute_array(elastance, timer_flag);
     }    // write_mat before proceeding
     if (comm->me == 0 && write_mat) {
-      auto f_mat = fopen(output_file_mat.c_str(), "w");
+      auto *f_mat = fopen(output_file_mat.c_str(), "w");
       if (f_mat == nullptr)
         error->one(FLERR, "Cannot open elastance matrix file {}: {}", output_file_mat,
                    utils::getsyserror());
@@ -618,7 +618,7 @@ void FixElectrodeConp::setup_post_neighbor()
     if (force->newton_pair) comm->reverse_comm(this);
     buffer_and_gather(potential_i, potential_iele);
     if (comm->me == 0) {
-      auto f_vec = fopen(output_file_vec.c_str(), "w");
+      auto *f_vec = fopen(output_file_vec.c_str(), "w");
       if (f_vec == nullptr)
         error->one(FLERR, "Cannot open vector file {}: {}", output_file_vec, utils::getsyserror());
       std::vector<std::vector<double>> vec(ngroup, std::vector<double>(1));
@@ -630,7 +630,7 @@ void FixElectrodeConp::setup_post_neighbor()
 
   if (write_inv) {
     if (comm->me == 0) {
-      auto f_inv = fopen(output_file_inv.c_str(), "w");
+      auto *f_inv = fopen(output_file_inv.c_str(), "w");
       if (f_inv == nullptr)
         error->one(FLERR, "Cannot open capacitance matrix file {}: {}", output_file_inv,
                    utils::getsyserror());
@@ -1468,12 +1468,12 @@ void FixElectrodeConp::request_etypes_neighlists()
   }
 
   if (need_array_compute) {
-    auto matReq = neighbor->add_request(this, NeighConst::REQ_OCCASIONAL);
+    auto *matReq = neighbor->add_request(this, NeighConst::REQ_OCCASIONAL);
     matReq->set_skip(iskip_mat, ijskip_mat);
     matReq->set_id(1);
     if (intelflag) matReq->enable_intel();
   } else if (need_elec_vector) {
-    auto matReq = neighbor->add_request(this);
+    auto *matReq = neighbor->add_request(this);
     matReq->set_skip(iskip_mat, ijskip_mat);
     matReq->set_id(1);
     if (intelflag) matReq->enable_intel();
@@ -1482,7 +1482,7 @@ void FixElectrodeConp::request_etypes_neighlists()
     memory->destroy(ijskip_mat);
   }
 
-  auto vecReq = neighbor->add_request(this);
+  auto *vecReq = neighbor->add_request(this);
   vecReq->set_skip(iskip_vec, ijskip_vec);
   vecReq->set_id(2);
   if (intelflag) vecReq->enable_intel();

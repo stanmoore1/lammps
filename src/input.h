@@ -62,8 +62,8 @@ class Input : protected Pointers {
   int *inlines;      // list of saved line numbers of open input files
 
  public:
-  typedef Command *(*CommandCreator)(LAMMPS *);
-  typedef std::map<std::string, CommandCreator> CommandCreatorMap;
+  using CommandCreator = Command *(*) (LAMMPS *);
+  using CommandCreatorMap = std::map<std::string, CommandCreator>;
   CommandCreatorMap *command_map;
 
  private:

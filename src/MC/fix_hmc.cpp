@@ -58,10 +58,10 @@ static constexpr auto SIX = sizeof(double) * 6;
 /* ---------------------------------------------------------------------- */
 
 FixHMC::FixHMC(LAMMPS *lmp, int narg, char **arg) :
-    Fix(lmp, narg, arg), id_rigid(nullptr), fix_rigid(nullptr), random(nullptr),
+    Fix(lmp, narg, arg), id_rigid(nullptr), buf_store(nullptr), fix_rigid(nullptr), random(nullptr),
     random_equal(nullptr), eglobal(nullptr), eglobalptr(nullptr), vglobal(nullptr),
     vglobalptr(nullptr), pe(nullptr), ke(nullptr), peatom(nullptr), press(nullptr),
-    pressatom(nullptr), buf_store(nullptr)
+    pressatom(nullptr)
 {
   // defaults
 
@@ -546,8 +546,6 @@ void FixHMC::save_current_state()
   int m;
 
   int nlocal = atom->nlocal;
-  int ntotal = nlocal + atom->nghost;
-  int nmax = atom->nmax;
   AtomVec *avec = atom->avec;
   nstore = 0;
 

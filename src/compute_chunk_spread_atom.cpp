@@ -70,7 +70,7 @@ ComputeChunkSpreadAtom(LAMMPS *lmp, int narg, char **arg) :
     if ((val.which == ArgInfo::UNKNOWN) || (val.which == ArgInfo::NONE) || (argi.get_dim() > 1))
       error->all(FLERR, val.iarg, "Illegal compute chunk/spread/atom argument: {}", arg[iarg]);
 
-    values.push_back(val);
+    values.push_back(std::move(val));
   }
 
   // if wildcard expansion occurred, free earg memory from expand_args()
@@ -87,7 +87,7 @@ ComputeChunkSpreadAtom(LAMMPS *lmp, int narg, char **arg) :
 
   for (auto &val : values) {
     if (val.which == ArgInfo::COMPUTE) {
-      auto icompute = modify->get_compute_by_id(val.id);
+      auto *icompute = modify->get_compute_by_id(val.id);
       if (!icompute)
         error->all(FLERR, val.iarg, "Compute ID {} for compute chunk/spread/atom does not exist",
                    val.id);
@@ -115,7 +115,7 @@ ComputeChunkSpreadAtom(LAMMPS *lmp, int narg, char **arg) :
       val.val.c = icompute;
 
     } else if (val.which == ArgInfo::FIX) {
-      auto ifix = modify->get_fix_by_id(val.id);
+      auto *ifix = modify->get_fix_by_id(val.id);
       if (!ifix)
         error->all(FLERR, val.iarg,
                    "Fix ID {} for compute chunk/spread/atom does not exist", val.id);

@@ -49,7 +49,7 @@ PairHbondDreidingMorseAngleoffsetOMP::PairHbondDreidingMorseAngleoffsetOMP(LAMMP
 
 void PairHbondDreidingMorseAngleoffsetOMP::coeff(int narg, char **arg)
 {
-  auto mylmp = PairHbondDreidingMorse::lmp;
+  auto *mylmp = PairHbondDreidingMorse::lmp;
   if (narg < 7 || narg > 12)
     error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();

@@ -49,7 +49,7 @@ PairHbondDreidingLJAngleoffsetOMP::PairHbondDreidingLJAngleoffsetOMP(LAMMPS *lmp
 
 void PairHbondDreidingLJAngleoffsetOMP::coeff(int narg, char **arg)
 {
-  auto mylmp = PairHbondDreidingLJ::lmp;
+  auto *mylmp = PairHbondDreidingLJ::lmp;
   if (narg < 6 || narg > 11)
     error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();

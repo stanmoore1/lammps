@@ -327,8 +327,8 @@ void Variable::set(int narg, char **arg)
 
     int maxcopy = strlen(arg[2]) + 1;
     int maxwork = maxcopy;
-    auto scopy = (char *) memory->smalloc(maxcopy, "var:string/copy");
-    auto work = (char *) memory->smalloc(maxwork, "var:string/work");
+    auto *scopy = (char *) memory->smalloc(maxcopy, "var:string/copy");
+    auto *work = (char *) memory->smalloc(maxwork, "var:string/work");
     strcpy(scopy, arg[2]);
     input->substitute(scopy, work, maxcopy, maxwork, 1);
     memory->sfree(work);
@@ -1513,7 +1513,7 @@ double Variable::evaluate(char *str, Tree **tree, int ivar)
       int istop = i - 1;
 
       int n = istop - istart + 1;
-      auto number = new char[n+1];
+      auto *number = new char[n+1];
       strncpy(number,&str[istart],n);
       number[n] = '\0';
 
@@ -1546,7 +1546,7 @@ double Variable::evaluate(char *str, Tree **tree, int ivar)
       int istop = i-1;
 
       int n = istop - istart + 1;
-      auto word = new char[n+1];
+      auto *word = new char[n+1];
       strncpy(word,&str[istart],n);
       word[n] = '\0';
 
@@ -2972,12 +2972,12 @@ double Variable::collapse_tree(Tree *tree)
 
   if (tree->type == TERNARY) {
     arg1 = collapse_tree(tree->first);
-    arg2 = collapse_tree(tree->second);
-    arg3 = collapse_tree(tree->extra[0]);
     if (tree->first->type != VALUE) return 0.0;
     tree->type = VALUE;
-    if (arg1 != 0.0) tree->value = arg2;
-    else tree->value = arg3;
+    if (arg1 != 0.0)
+      tree->value = collapse_tree(tree->second);
+    else
+      tree->value = collapse_tree(tree->extra[0]);
     return tree->value;
   }
 
@@ -3397,11 +3397,10 @@ double Variable::eval_tree(Tree *tree, int i)
     return MYROUND(eval_tree(tree->first,i));
 
   if (tree->type == TERNARY) {
-    double first = eval_tree(tree->first,i);
-    double second = eval_tree(tree->second,i);
-    double third = eval_tree(tree->extra[0],i);
-    if (first != 0.0) return second;
-    else return third;
+    if (eval_tree(tree->first,i) != 0.0)
+      return eval_tree(tree->second,i);
+    else
+      return eval_tree(tree->extra[0],i);
   }
 
   if (tree->type == RAMP) {
@@ -3792,11 +3791,22 @@ int Variable::math_function(char *word, char *contents, Tree **tree, Tree **tree
 
   } else {
     value1 = evaluate(args[0],nullptr,ivar);
-    if (narg > 1) {
-      value2 = evaluate(args[1],nullptr,ivar);
-      if (narg > 2) {
-        for (int i = 2; i < narg; i++)
-          values[i-2] = evaluate(args[i],nullptr,ivar);
+
+    // special case for ternary() so that only the first and
+    // one more of the arguments are evaluated
+    if ((strcmp(word,"ternary") == 0) && (narg == 3)) {
+      if (value1 != 0.0) {
+        value2 = evaluate(args[1],nullptr,ivar);
+      } else {
+        values[0] = evaluate(args[2],nullptr,ivar);
+      }
+    } else {
+      if (narg > 1) {
+        value2 = evaluate(args[1],nullptr,ivar);
+        if (narg > 2) {
+          for (int i = 2; i < narg; i++)
+            values[i-2] = evaluate(args[i],nullptr,ivar);
+        }
       }
     }
   }

@@ -960,7 +960,7 @@ void Image::compute_SSAO()
   int pixelstop = static_cast<int>(1.0*(me+1)/nprocs * npixels);
 
   // file buffer with random numbers to avoid race conditions
-  double *uniform = new double[pixelstop - pixelstart];
+  auto *uniform = new double[pixelstop - pixelstart];
   for (int i = 0; i < pixelstop - pixelstart; ++i) uniform[i] = random->uniform();
 
 #if defined(_OPENMP)
@@ -1151,7 +1151,7 @@ void Image::write_PNG(FILE *fp)
   png_set_text(png_ptr,info_ptr,text_ptr,1);
   png_write_info(png_ptr,info_ptr);
 
-  auto row_pointers = new png_bytep[height/aafactor];
+  auto *row_pointers = new png_bytep[height/aafactor];
   for (int i=0; i < height/aafactor; ++i)
     row_pointers[i] = (png_bytep) &writeBuffer[((height/aafactor)-i-1)*3*(width/aafactor)];
 

@@ -53,10 +53,10 @@ namespace GLE {
 #define midx(n,i,j) ((i)*(n)+(j))
 
 //"stabilized" cholesky decomposition. does a LDL^t decomposition, then sets to zero the negative diagonal elements and gets MM^t
-void StabCholesky(int n, const double* MMt, double* M)
+static void StabCholesky(int n, const double* MMt, double* M)
 {
-  auto L = new double[n*n];
-  auto D = new double[n];
+  auto *L = new double[n*n];
+  auto *D = new double[n];
 
   int i,j,k;
   for (i=0; i<n; ++i) D[i]=0.0;
@@ -104,9 +104,9 @@ void MyMult(int n, int m, int r, const double* A, const double* B, double* C, do
 #define MIN(A,B) ((A) < (B) ? (A) : (B))
   // BLAS-like version of MyMult(). AK 2014-08-06
 
-inline void AkMult(const int n, const int m, const int r,
-            const double * const A, const double * const B,
-            double * const C, const double cf=0.0)
+static inline void AkMult(const int n, const int m, const int r,
+                          const double * const A, const double * const B,
+                          double * const C, const double cf=0.0)
 {
   // block buffer
   const int blk=64;
@@ -144,22 +144,22 @@ inline void AkMult(const int n, const int m, const int r,
   }
 }
 
-void MyTrans(int n, const double* A, double* AT)
+static void MyTrans(int n, const double* A, double* AT)
 {
    for (int i=0; i<n; ++i) for (int j=0; j<n; ++j) AT[j*n+i]=A[i*n+j];
 }
 
-void MyPrint(int n, const double* A)
+static void MyPrint(int n, const double* A)
 {
    for (int k=0; k<n*n; ++k) { printf("%10.5e ", A[k]); if ((k+1)%n==0) printf("\n");}
 }
 
 //matrix exponential by scaling and squaring.
-void MatrixExp(int n, const double* M, double* EM, int j=8, int k=8)
+static void MatrixExp(int n, const double* M, double* EM, int j=8, int k=8)
 {
-  auto tc = new double[j+1];
-  auto SM = new double[n*n];
-  auto TMP = new double[n*n];
+  auto *tc = new double[j+1];
+  auto *SM = new double[n*n];
+  auto *TMP = new double[n*n];
   double onetotwok=pow(0.5,1.0*k);
 
 
@@ -367,8 +367,8 @@ void FixGLE::init_gle()
 {
   // compute Langevin terms
 
-  auto tmp1 = new double[ns1sq];
-  auto tmp2 = new double[ns1sq];
+  auto *tmp1 = new double[ns1sq];
+  auto *tmp2 = new double[ns1sq];
 
   for (int i=0; i<ns1sq; ++i) {
     tmp1[i]=-A[i]*update->dt*0.5*gle_every;
@@ -404,10 +404,10 @@ void FixGLE::init_gles()
 
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
-  auto rootC  = new double[ns1sq];
-  auto rootCT = new double[ns1sq];
-  auto newg   = new double[3*(ns+1)*nlocal];
-  auto news   = new double[3*(ns+1)*nlocal];
+  auto *rootC  = new double[ns1sq];
+  auto *rootCT = new double[ns1sq];
+  auto *newg   = new double[3*(ns+1)*nlocal];
+  auto *news   = new double[3*(ns+1)*nlocal];
 
   GLE::StabCholesky(ns+1, C, rootC);
   GLE::MyTrans(ns+1,rootC,rootCT);

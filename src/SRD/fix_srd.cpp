@@ -395,7 +395,7 @@ void FixSRD::init()
     if (fixes[i]->box_change & BOX_CHANGE_SHAPE) change_shape = 1;
     if (strcmp(fixes[i]->style, "deform") == 0) {
       deformflag = 1;
-      auto deform = dynamic_cast<FixDeform *>(modify->fix[i]);
+      auto *deform = dynamic_cast<FixDeform *>(modify->fix[i]);
       if ((deform->box_change & BOX_CHANGE_SHAPE) && deform->remapflag != Domain::V_REMAP)
         error->all(FLERR, "Using fix srd with inconsistent fix deform remap option");
     }

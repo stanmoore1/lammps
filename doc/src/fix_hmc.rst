@@ -245,5 +245,6 @@ The option defaults are resample = no and mom = yes.
 Hybrid Monte Carlo method for condensed-matter systems. Physical Review B, 45(2), 679.
 
 .. _Mehlig2:
+
 **(Mehlig2)** Mehlig, B., Heermann, D. W., & Forrest, B. M. (1992).
 Exact langevin algorithms. Molecular Physics, 76(6), 1347-1357.

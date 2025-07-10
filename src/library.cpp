@@ -1285,7 +1285,7 @@ int lammps_get_mpi_comm(void *handle)
   STORE_ERROR_MESSAGE(lmp, mesg);
   return -1;
 #else
-  LAMMPS *lmp = (LAMMPS *) handle;
+  auto *lmp = (LAMMPS *) handle;
   if (!lmp || !lmp->error) {
     const auto &mesg = fmt::format("ERROR: {}(): Invalid LAMMPS handle\n", FNERR);
     STORE_ERROR_MESSAGE(lmp, mesg);
@@ -2234,7 +2234,7 @@ void *lammps_extract_global(void *handle, const char *name)
   if (strcmp(name,"atimestep") == 0) return (void *) &lmp->update->atimestep;
 
   if (utils::strmatch(lmp->update->integrate_style,"^respa")) {
-    auto respa = dynamic_cast<Respa *>(lmp->update->integrate);
+    auto *respa = dynamic_cast<Respa *>(lmp->update->integrate);
     if (strcmp(name,"respa_levels") == 0) return (void *) &respa->nlevels;
     if (strcmp(name,"respa_dt") == 0) return (void *) respa->step;
   }
@@ -2428,7 +2428,7 @@ int lammps_map_atom(void *handle, const void *id)
   }
   if (!id) return -1;
 
-  auto tag = (const tagint *) id;
+  const auto *tag = (const tagint *) id;
   if (lmp->atom->map_style > Atom::MAP_NONE)
     return lmp->atom->map(*tag);
   else
@@ -3109,7 +3109,7 @@ void *lammps_extract_variable(void *handle, const char *name, const char *group)
       lmp->error->all(FLERR, Error::NOLASTLINE, "{}(): Variable {} does not exist", FNERR, name);
 
     if (lmp->input->variable->equalstyle(ivar)) {
-      auto dptr = (double *) malloc(sizeof(double));
+      auto *dptr = (double *) malloc(sizeof(double));
       *dptr = lmp->input->variable->compute_equal(ivar);
       return (void *) dptr;
     } else if (lmp->input->variable->atomstyle(ivar)) {
@@ -3118,7 +3118,7 @@ void *lammps_extract_variable(void *handle, const char *name, const char *group)
       if (igroup < 0)
         lmp->error->all(FLERR, Error::NOLASTLINE, "{}(): Group {} does not exist", FNERR, group);
       int nlocal = lmp->atom->nlocal;
-      auto vector = (double *) malloc(nlocal*sizeof(double));
+      auto *vector = (double *) malloc(nlocal*sizeof(double));
       lmp->input->variable->compute_atom(ivar,igroup,vector,1,0);
       return (void *) vector;
     } else if (lmp->input->variable->vectorstyle(ivar)) {
@@ -3461,7 +3461,7 @@ void lammps_addstep_compute_all(void *handle, void *newstep) {
     STORE_ERROR_MESSAGE(lmp, mesg);
     return;
   }
-  auto ns = (bigint *) newstep;
+  auto *ns = (bigint *) newstep;
   if (lmp && lmp->modify && ns) lmp->modify->addstep_compute_all(*ns);
 }
 /* ---------------------------------------------------------------------- */
@@ -3492,7 +3492,7 @@ void lammps_addstep_compute(void *handle, void *newstep) {
     STORE_ERROR_MESSAGE(lmp, mesg);
     return;
   }
-  auto ns = (bigint *) newstep;
+  auto *ns = (bigint *) newstep;
   if (lmp && lmp->modify && ns) lmp->modify->addstep_compute(*ns);
 }
 
@@ -4111,7 +4111,7 @@ void lammps_scatter_atoms(void *handle, const char *name, int dtype, int count, 
       double **array = nullptr;
       if (count == 1) vector = (double *) vptr;
       else array = (double **) vptr;
-      auto dptr = (double *) data;
+      auto *dptr = (double *) data;
 
       if (count == 1) {
         for (i = 0; i < natoms; i++)
@@ -4268,7 +4268,7 @@ void lammps_scatter_atoms_subset(void *handle, const char *name, int dtype,
       double **array = nullptr;
       if (count == 1) vector = (double *) vptr;
       else array = (double **) vptr;
-      auto dptr = (double *) data;
+      auto *dptr = (double *) data;
 
       if (count == 1) {
         for (i = 0; i < ndata; i++) {
@@ -5790,7 +5790,7 @@ void lammps_scatter(void *handle, const char *name, int dtype, int count, void *
       double **array = nullptr;
       if (count == 1) vector = (double *) vptr;
       else array = (double **) vptr;
-      auto dptr = (double *) data;
+      auto *dptr = (double *) data;
 
       if (count == 1) {
         for (i = 0; i < natoms; i++)
@@ -6035,7 +6035,7 @@ void lammps_scatter_subset(void *handle, const char *name, int dtype, int count,
       double **array = nullptr;
       if (count == 1) vector = (double *) vptr;
       else array = (double **) vptr;
-      auto dptr = (double *) data;
+      auto *dptr = (double *) data;
 
       if (count == 1) {
         for (i = 0; i < ndata; i++) {
@@ -6432,7 +6432,7 @@ void NeighProxy::command(int narg, char **arg)
 
   // build neighbor list this command needs based on earlier request
 
-  auto list = neighbor->find_list(this);
+  auto *list = neighbor->find_list(this);
   neighbor->build_one(list);
 
   // find neigh list
@@ -6458,7 +6458,7 @@ void NeighProxy::command(int narg, char **arg)
  * \return         return neighbor list index if valid, otherwise -1 */
 
 int lammps_request_single_neighlist(void *handle, const char *id, int flags, double cutoff) {
-  auto lmp = (LAMMPS *)handle;
+  auto *lmp = (LAMMPS *)handle;
   int idx = -1;
   if (!lmp || !lmp->error || !lmp->neighbor) {
     const auto &mesg = fmt::format("ERROR: {}(): Invalid LAMMPS handle\n", FNERR);
@@ -6490,7 +6490,7 @@ int lammps_request_single_neighlist(void *handle, const char *id, int flags, dou
  *                 not a valid index
  */
 int lammps_neighlist_num_elements(void *handle, int idx) {
-  auto   lmp = (LAMMPS *) handle;
+  auto *   lmp = (LAMMPS *) handle;
   if (!lmp || !lmp->error || !lmp->neighbor) {
     const auto &mesg = fmt::format("ERROR: {}(): Invalid LAMMPS handle\n", FNERR);
     STORE_ERROR_MESSAGE(lmp, mesg);
@@ -7131,19 +7131,19 @@ int lammps_id_name(void *handle, const char *category, int idx, char *buffer, in
   if (!buffer || !category || (idx < 0)) return 0;
 
   if (strcmp(category,"compute") == 0) {
-    auto icompute = lmp->modify->get_compute_by_index(idx);
+    auto *icompute = lmp->modify->get_compute_by_index(idx);
     if (icompute) {
       strncpy(buffer, icompute->id, buf_size);
       return 1;
     }
   } else if (strcmp(category,"dump") == 0) {
-    auto idump = lmp->output->get_dump_by_index(idx);
+    auto *idump = lmp->output->get_dump_by_index(idx);
     if (idump) {
       strncpy(buffer, idump->id, buf_size);
       return 1;
     }
   } else if (strcmp(category,"fix") == 0) {
-    auto ifix = lmp->modify->get_fix_by_index(idx);
+    auto *ifix = lmp->modify->get_fix_by_index(idx);
     if (ifix) {
       strncpy(buffer, ifix->id, buf_size);
       return 1;
@@ -7826,7 +7826,7 @@ void lammps_free(void *ptr)
 
 int lammps_is_running(void *handle)
 {
-  auto   lmp = (LAMMPS *) handle;
+  auto *   lmp = (LAMMPS *) handle;
   if (!lmp || !lmp->error || !lmp->update) {
     const auto &mesg = fmt::format("ERROR: {}(): Invalid LAMMPS handle\n", FNERR);
     STORE_ERROR_MESSAGE(lmp, mesg);
@@ -7881,7 +7881,7 @@ has thrown a :ref:`C++ exception <exceptions>`.
 int lammps_has_error(void *handle)
 {
   if (handle) {
-    LAMMPS *lmp = (LAMMPS *) handle;
+    auto *lmp = (LAMMPS *) handle;
     Error *error = lmp->error;
     return (error->get_last_error().empty()) ? 0 : 1;
   } else {
@@ -7914,7 +7914,7 @@ temporarily and restore it afterwards.
  */
 int lammps_set_show_error(void *handle, const int flag)
 {
-  LAMMPS *lmp = (LAMMPS *) handle;
+  auto *lmp = (LAMMPS *) handle;
   if (lmp && lmp->error) return lmp->error->set_show_error(flag);
   return 1; // default value
 }
@@ -7961,7 +7961,7 @@ the failing MPI ranks to send messages.
 int lammps_get_last_error_message(void *handle, char *buffer, int buf_size)
 {
   if (handle) {
-    LAMMPS *lmp = (LAMMPS *) handle;
+    auto *lmp = (LAMMPS *) handle;
     Error *error = lmp->error;
     if (buffer) buffer[0] = buffer[buf_size-1] = '\0';
 

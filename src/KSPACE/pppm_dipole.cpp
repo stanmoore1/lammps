@@ -141,7 +141,7 @@ void PPPMDipole::init()
   pair_check();
 
   int itmp = 0;
-  auto p_cutoff = (double *) force->pair->extract("cut_coul",itmp);
+  auto *p_cutoff = (double *) force->pair->extract("cut_coul",itmp);
   if (p_cutoff == nullptr)
     error->all(FLERR,"KSpace style is incompatible with Pair style");
   cutoff = *p_cutoff;
@@ -2230,7 +2230,7 @@ void PPPMDipole::fieldforce_peratom_dipole()
 
 void PPPMDipole::pack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  auto buf = (FFT_SCALAR *) vbuf;
+  auto *buf = (FFT_SCALAR *) vbuf;
 
   int n = 0;
 
@@ -2303,7 +2303,7 @@ void PPPMDipole::pack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 
 void PPPMDipole::unpack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  auto buf = (FFT_SCALAR *) vbuf;
+  auto *buf = (FFT_SCALAR *) vbuf;
 
   int n = 0;
 
@@ -2376,7 +2376,7 @@ void PPPMDipole::unpack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 
 void PPPMDipole::pack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  auto buf = (FFT_SCALAR *) vbuf;
+  auto *buf = (FFT_SCALAR *) vbuf;
 
   int n = 0;
   if (flag == REVERSE_MU) {
@@ -2397,7 +2397,7 @@ void PPPMDipole::pack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 
 void PPPMDipole::unpack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  auto buf = (FFT_SCALAR *) vbuf;
+  auto *buf = (FFT_SCALAR *) vbuf;
 
   int n = 0;
   if (flag == REVERSE_MU) {

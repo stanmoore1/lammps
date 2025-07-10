@@ -293,7 +293,7 @@ void FixRHEOThermal::init()
     if (force->newton_pair) error->all(FLERR, "Need Newton off for reactive bond generation");
 
     // need a half neighbor list, built only when particles freeze
-    auto req = neighbor->add_request(this, NeighConst::REQ_OCCASIONAL);
+    auto *req = neighbor->add_request(this, NeighConst::REQ_OCCASIONAL);
     req->set_cutoff(cut_kernel);
 
     // find instances of bond history to delete/shift data
@@ -547,7 +547,7 @@ void FixRHEOThermal::break_bonds()
         bond_atom[i][m] = bond_atom[i][nmax];
         if (n_histories > 0) {
           for (auto &ihistory : histories) {
-            auto fix_bond_history = dynamic_cast<FixBondHistory *>(ihistory);
+            auto *fix_bond_history = dynamic_cast<FixBondHistory *>(ihistory);
             fix_bond_history->shift_history(i, m, nmax);
             fix_bond_history->delete_history(i, nmax);
           }
@@ -592,7 +592,7 @@ void FixRHEOThermal::break_bonds()
           bond_atom[i][m] = bond_atom[i][nmax];
           if (n_histories > 0)
             for (auto &ihistory : histories) {
-              auto fix_bond_history = dynamic_cast<FixBondHistory *>(ihistory);
+              auto *fix_bond_history = dynamic_cast<FixBondHistory *>(ihistory);
               fix_bond_history->shift_history(i, m, nmax);
               fix_bond_history->delete_history(i, nmax);
             }
@@ -611,7 +611,7 @@ void FixRHEOThermal::break_bonds()
           bond_atom[j][m] = bond_atom[j][nmax];
           if (n_histories > 0)
             for (auto &ihistory : histories) {
-              auto fix_bond_history = dynamic_cast<FixBondHistory *>(ihistory);
+              auto *fix_bond_history = dynamic_cast<FixBondHistory *>(ihistory);
               fix_bond_history->shift_history(j, m, nmax);
               fix_bond_history->delete_history(j, nmax);
             }

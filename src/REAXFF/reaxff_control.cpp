@@ -35,11 +35,6 @@
 #include <string>
 #include <unordered_set>
 
-using LAMMPS_NS::utils::getsyserror;
-using LAMMPS_NS::utils::sfgets;
-using LAMMPS_NS::utils::logmesg;
-using LAMMPS_NS::ValueTokenizer;
-
 namespace ReaxFF {
   static std::unordered_set<std::string> inactive_keywords = {
     "ensemble_type", "nsteps", "dt", "proc_by_dim", "random_vel",
@@ -67,7 +62,7 @@ namespace ReaxFF {
 
   void Read_Control_File(const char *control_file, control_params *control)
   {
-    auto error = control->error_ptr;
+    auto *error = control->error_ptr;
 
     /* assign default values */
     control->nthreads = 1;

@@ -206,7 +206,7 @@ void ComputeReaxFFAtom::compute_local()
   }
 
   size_local_rows = nbonds;
-  auto tag = atom->tag;
+  auto *tag = atom->tag;
 
   int b = 0;
 
@@ -216,7 +216,7 @@ void ComputeReaxFFAtom::compute_local()
     const int numbonds = bondcount[i];
 
     for (int k = 0; k < numbonds; k++) {
-      auto bond = array_local[b++];
+      auto *bond = array_local[b++];
       bond[0] = tag[i];
       bond[1] = neighid[i][k];
       bond[2] = abo[i][k];
@@ -237,7 +237,7 @@ void ComputeReaxFFAtom::compute_peratom()
   const int nlocal = atom->nlocal;
 
   for (int i = 0; i < nlocal; ++i) {
-    auto ptr = array_atom[i];
+    auto *ptr = array_atom[i];
     ptr[0] = reaxff->api->workspace->total_bond_order[i];
     ptr[1] = reaxff->api->workspace->nlp[i];
     ptr[2] = bondcount[i];

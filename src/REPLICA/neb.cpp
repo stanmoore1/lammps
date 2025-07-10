@@ -473,7 +473,7 @@ void NEB::readfile(char *file, int flag)
     if (nlines < 0) error->universe_all(FLERR, "Incorrectly formatted NEB file");
   }
 
-  auto buffer = new char[CHUNK * MAXLINE];
+  auto *buffer = new char[CHUNK * MAXLINE];
   double fraction = ireplica / (nreplica - 1.0);
   double **x = atom->x;
   int nlocal = atom->nlocal;

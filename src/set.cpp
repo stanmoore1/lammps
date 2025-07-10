@@ -624,10 +624,10 @@ void Set::setrandom(int keyword, Action *action)
 {
   int i;
 
-  auto avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
-  auto avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
-  auto avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
-  auto avec_body = dynamic_cast<AtomVecBody *>(atom->style_match("body"));
+  auto *avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
+  auto *avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
+  auto *avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
+  auto *avec_body = dynamic_cast<AtomVecBody *>(atom->style_match("body"));
 
   double **x = atom->x;
 
@@ -635,8 +635,8 @@ void Set::setrandom(int keyword, Action *action)
 
   int seed = action->ivalue1;
 
-  auto ranpark = new RanPark(lmp,1);
-  auto ranmars = new RanMars(lmp,seed + comm->me);
+  auto *ranpark = new RanPark(lmp,1);
+  auto *ranmars = new RanMars(lmp,seed + comm->me);
 
   // set approx fraction of atom types to newtype
 
@@ -1256,9 +1256,9 @@ void Set::invoke_density(Action *action)
   int line_flag = atom->line_flag;
   int tri_flag = atom->tri_flag;
 
-  auto avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
-  auto avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
-  auto avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
+  auto *avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
+  auto *avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
+  auto *avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
 
   int varflag = action->varflag;
   double density = 0.0;
@@ -1753,7 +1753,7 @@ void Set::process_length(int &iarg, int narg, char **arg, Action *action)
 void Set::invoke_length(Action *action)
 {
   int nlocal = atom->nlocal;
-  auto avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
+  auto *avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
 
   int varflag = action->varflag;
   double length = 0.0;
@@ -1936,9 +1936,9 @@ void Set::invoke_quat(Action *action)
   double **quat = atom->quat;
   int quat_flag = atom->quat_flag;
 
-  auto avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
-  auto avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
-  auto avec_body = dynamic_cast<AtomVecBody *>(atom->style_match("body"));
+  auto *avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
+  auto *avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
+  auto *avec_body = dynamic_cast<AtomVecBody *>(atom->style_match("body"));
 
   int dimension = domain->dimension;
   double *quat_one = nullptr;
@@ -2112,7 +2112,7 @@ void Set::process_shape(int &iarg, int narg, char **arg, Action *action)
 void Set::invoke_shape(Action *action)
 {
   int nlocal = atom->nlocal;
-  auto avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
+  auto *avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
 
   int varflag = action->varflag;
   double xvalue = 0.0, yvalue = 0.0, zvalue = 0.0;
@@ -2498,7 +2498,7 @@ void Set::invoke_theta(Action *action)
   int nlocal = atom->nlocal;
   int *line = atom->line;
 
-  auto avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
+  auto *avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
 
   int varflag = action->varflag;
   double theta = 0.0;
@@ -2551,7 +2551,7 @@ void Set::process_tri(int &iarg, int narg, char **arg, Action *action)
 void Set::invoke_tri(Action *action)
 {
   int nlocal = atom->nlocal;
-  auto avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
+  auto *avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
 
   int varflag = action->varflag;
   double trisize = 0.0;

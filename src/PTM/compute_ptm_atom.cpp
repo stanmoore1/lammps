@@ -125,7 +125,7 @@ ComputePTMAtom::ComputePTMAtom(LAMMPS *lmp, int narg, char **arg)
   if (rmsd_threshold == 0)
     rmsd_threshold = INFINITY;
 
-  auto  group_name = (char *)"all";
+  auto *  group_name = (char *)"all";
   if (narg > 5) {
     group_name = arg[5];
   }
@@ -191,7 +191,7 @@ static bool sorthelper_compare(ptmnbr_t const &a, ptmnbr_t const &b) {
 
 static int get_neighbours(void* vdata, size_t central_index, size_t atom_index, int num, size_t* nbr_indices, int32_t* numbers, double (*nbr_pos)[3])
 {
-  auto  data = (ptmnbrdata_t*)vdata;
+  auto *  data = (ptmnbrdata_t*)vdata;
   int *mask = data->mask;
   int group2bit = data->group2bit;
 

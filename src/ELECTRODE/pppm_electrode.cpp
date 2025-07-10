@@ -136,7 +136,7 @@ void PPPMElectrode::init()
   pair_check();
 
   int itmp = 0;
-  double *p_cutoff = (double *) force->pair->extract("cut_coul", itmp);
+  auto *p_cutoff = (double *) force->pair->extract("cut_coul", itmp);
   if (p_cutoff == nullptr) error->all(FLERR, "KSpace style is incompatible with Pair style");
   cutoff = *p_cutoff;
 
@@ -148,7 +148,7 @@ void PPPMElectrode::init()
   if (tip4pflag) {
     if (me == 0) utils::logmesg(lmp, "  extracting TIP4P info from pair style\n");
 
-    double *p_qdist = (double *) force->pair->extract("qdist", itmp);
+    auto *p_qdist = (double *) force->pair->extract("qdist", itmp);
     int *p_typeO = (int *) force->pair->extract("typeO", itmp);
     int *p_typeH = (int *) force->pair->extract("typeH", itmp);
     int *p_typeA = (int *) force->pair->extract("typeA", itmp);

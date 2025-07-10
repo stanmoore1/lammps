@@ -678,7 +678,7 @@ void FixGranularMDR::update_fix_gran_wall()
   double *ddelta_bar = atom->dvector[index_ddelta_bar];
 
   for (auto &ifix : fix_wall_list) {
-    FixWallGranRegion *fix = dynamic_cast<FixWallGranRegion *>(ifix);
+    auto *fix = dynamic_cast<FixWallGranRegion *>(ifix);
     if (fix) {
       GranularModel *model = fix->model;
       const int size_history = model->size_history;

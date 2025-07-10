@@ -84,8 +84,6 @@ class FixHMC : public Fix {
   int comm_flag;
   int nvalues;
   int ncommrev;
-
-  double (*itensor)[6];
 };
 
 }    // namespace LAMMPS_NS

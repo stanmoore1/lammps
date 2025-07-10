@@ -70,7 +70,7 @@ void KSpaceZero::init()
   two_charge();
 
   int itmp;
-  auto p_cutoff = (double *) force->pair->extract("cut_coul", itmp);
+  auto *p_cutoff = (double *) force->pair->extract("cut_coul", itmp);
   if (p_cutoff == nullptr) error->all(FLERR, "KSpace style is incompatible with Pair style");
   double cutoff = *p_cutoff;
 

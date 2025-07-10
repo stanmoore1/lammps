@@ -47,7 +47,7 @@ void FixQEqRelReaxFF::calc_chi_eff()
 {
   memset(&chi_eff[0], 0, atom->nmax * sizeof(double));
 
-  const auto x = (const double *const *) atom->x;
+  const auto *const x = (const double *const *) atom->x;
   const int *type = atom->type;
 
   double dx, dy, dz, dist_sq, overlap, sum_n, sum_d, chia, phia, phib;

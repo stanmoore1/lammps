@@ -140,7 +140,7 @@ void Ndx2Group::command(int narg, char **arg)
           char *buf = new char[len];
           MPI_Bcast(buf, len, MPI_CHAR, 0, world);
           MPI_Bcast(&num, 1, MPI_LMP_BIGINT, 0, world);
-          tagint *tbuf = new tagint[num];
+          auto *tbuf = new tagint[num];
           MPI_Bcast(tbuf, num, MPI_LMP_TAGINT, 0, world);
           create(buf, std::vector<tagint>(tbuf, tbuf + num));
           delete[] buf;
@@ -186,7 +186,7 @@ void Ndx2Group::command(int narg, char **arg)
           char *buf = new char[len];
           MPI_Bcast(buf, len, MPI_CHAR, 0, world);
           MPI_Bcast(&num, 1, MPI_LMP_BIGINT, 0, world);
-          tagint *tbuf = new tagint[num];
+          auto *tbuf = new tagint[num];
           MPI_Bcast(tbuf, num, MPI_LMP_TAGINT, 0, world);
           create(buf, std::vector<tagint>(tbuf, tbuf + num));
           delete[] buf;

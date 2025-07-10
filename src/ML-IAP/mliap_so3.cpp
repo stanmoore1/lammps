@@ -367,16 +367,16 @@ void MLIAP_SO3::compute_W(int nmax, double *arr)
   }
 
   int i, j, k, n = nmax;
-  auto outeig = new double[n];
-  auto outeigvec = new double[n * n];
-  auto arrinv = new double[n * n];
+  auto *outeig = new double[n];
+  auto *outeigvec = new double[n * n];
+  auto *arrinv = new double[n * n];
 
-  auto sqrtD = new double[n * n];
-  auto tempM = new double[n * n];
+  auto *sqrtD = new double[n * n];
+  auto *tempM = new double[n * n];
 
-  auto temparr = new double *[n];
-  auto tempvl = new double *[n];
-  auto tempout = new double[n];
+  auto *temparr = new double *[n];
+  auto *tempvl = new double *[n];
+  auto *tempout = new double[n];
 
   int info;
 

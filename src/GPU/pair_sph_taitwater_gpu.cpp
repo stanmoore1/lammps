@@ -150,7 +150,7 @@ void PairSPHTaitwaterGPU::compute(int eflag, int vflag)
 
   int nlocal = atom->nlocal;
   if (acc_float) {
-    auto drhoE_ptr = (float *)drhoE_pinned;
+    auto *drhoE_ptr = (float *)drhoE_pinned;
     for (int i = 0; i < nlocal; i++)
       drho[i] += drhoE_ptr[i];
 
@@ -159,7 +159,7 @@ void PairSPHTaitwaterGPU::compute(int eflag, int vflag)
       desph[i] += drhoE_ptr[i];
 
   } else {
-    auto drhoE_ptr = (double *)drhoE_pinned;
+    auto *drhoE_ptr = (double *)drhoE_pinned;
     for (int i = 0; i < nlocal; i++)
       drho[i] += drhoE_ptr[i];
 

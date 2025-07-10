@@ -439,7 +439,7 @@ FixAveTime::~FixAveTime()
   if (any_variable_length && ((nrepeat > 1) || (ave == RUNNING) || (ave == WINDOW))) {
     for (auto &val : values) {
       if (val.varlen) {
-        auto icompute = modify->get_compute_by_id(val.id);
+        auto *icompute = modify->get_compute_by_id(val.id);
         if (icompute) {
           if ((ave == RUNNING) || (ave == WINDOW))
             icompute->unlock(this);

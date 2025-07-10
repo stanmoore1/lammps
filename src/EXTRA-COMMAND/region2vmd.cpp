@@ -284,7 +284,7 @@ void Region2VMD::write_region(FILE *fp, Region *region)
 
   const std::string regstyle = region->style;
   if (regstyle == "block") {
-    const auto block = dynamic_cast<RegBlock *>(region);
+    auto *const block = dynamic_cast<RegBlock *>(region);
     if (!block) {
       error->one(FLERR, Error::NOLASTLINE, "Region {} is not of style 'block'", region->id);
     } else {
@@ -311,7 +311,7 @@ void Region2VMD::write_region(FILE *fp, Region *region)
     }
 
   } else if (regstyle == "cone") {
-    const auto cone = dynamic_cast<RegCone *>(region);
+    auto *const cone = dynamic_cast<RegCone *>(region);
     if (!cone) {
       error->one(FLERR, Error::NOLASTLINE, "Region {} is not of style 'cone'", region->id);
     } else {
@@ -676,7 +676,7 @@ void Region2VMD::write_region(FILE *fp, Region *region)
     }
 
   } else if (regstyle == "cylinder") {
-    const auto cyl = dynamic_cast<RegCylinder *>(region);
+    auto *const cyl = dynamic_cast<RegCylinder *>(region);
     if (!cyl) {
       error->one(FLERR, Error::NOLASTLINE, "Region {} is not of style 'cylinder'", region->id);
     } else {
@@ -755,7 +755,7 @@ void Region2VMD::write_region(FILE *fp, Region *region)
     }
 
   } else if (regstyle == "ellipsoid") {
-    const auto ellipsoid = dynamic_cast<RegEllipsoid *>(region);
+    auto *const ellipsoid = dynamic_cast<RegEllipsoid *>(region);
     if (!ellipsoid) {
       error->one(FLERR, Error::NOLASTLINE, "Region {} is not of style 'ellipsoid'", region->id);
     } else {
@@ -766,7 +766,7 @@ void Region2VMD::write_region(FILE *fp, Region *region)
     }
 
   } else if (regstyle == "prism") {
-    const auto prism = dynamic_cast<RegPrism *>(region);
+    auto *const prism = dynamic_cast<RegPrism *>(region);
     if (!prism) {
       error->one(FLERR, Error::NOLASTLINE, "Region {} is not of style 'prism'", region->id);
     } else {
@@ -796,7 +796,7 @@ void Region2VMD::write_region(FILE *fp, Region *region)
     }
 
   } else if (regstyle == "sphere") {
-    const auto sphere = dynamic_cast<RegSphere *>(region);
+    auto *const sphere = dynamic_cast<RegSphere *>(region);
     if (!sphere) {
       error->one(FLERR, Error::NOLASTLINE, "Region {} is not of style 'sphere'", region->id);
     } else {

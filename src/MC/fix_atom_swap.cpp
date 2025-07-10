@@ -831,7 +831,7 @@ void FixAtomSwap::write_restart(FILE *fp)
 void FixAtomSwap::restart(char *buf)
 {
   int n = 0;
-  auto list = (double *) buf;
+  auto *list = (double *) buf;
 
   seed = static_cast<int>(list[n++]);
   random_equal->reset(seed);

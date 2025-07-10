@@ -116,8 +116,8 @@ enum _LMP_VAR_CONST {
  * ``examples/COUPLE/plugin/liblammpsplugin.h`` */
 
 enum _LMP_NEIGH_CONST {
-  LMP_NEIGH_HALF = 0,  /*!< request (default) half neighbor list */
-  LMP_NEIGH_FULL = 1,  /*!< request full neighbor list */
+  LMP_NEIGH_HALF = 0, /*!< request (default) half neighbor list */
+  LMP_NEIGH_FULL = 1, /*!< request full neighbor list */
 };
 
 /* Ifdefs to allow this file to be included in C and C++ programs */
@@ -204,8 +204,8 @@ int lammps_variable_info(void *handle, int idx, char *buf, int bufsize);
 double lammps_eval(void *handle, const char *expr);
 
 void lammps_clearstep_compute(void *handle);
-void lammps_addstep_compute_all(void *handle, void * nextstep);
-void lammps_addstep_compute(void *handle, void * nextstep);
+void lammps_addstep_compute_all(void *handle, void *nextstep);
+void lammps_addstep_compute(void *handle, void *nextstep);
 
 /* ----------------------------------------------------------------------
  * Library functions for scatter/gather operations of data
@@ -300,11 +300,13 @@ int64_t lammps_encode_image_flags(int ix, int iy, int iz);
 void lammps_decode_image_flags(int64_t image, int *flags);
 #endif
 
+// BEGIN_NOLINT
 #if defined(LAMMPS_BIGBIG)
 typedef void (*FixExternalFnPtr)(void *, int64_t, int, int64_t *, double **, double **);
 #else
 typedef void (*FixExternalFnPtr)(void *, int64_t, int, int *, double **, double **);
 #endif
+// END_NOLINT
 
 void lammps_set_fix_external_callback(void *handle, const char *id, FixExternalFnPtr funcptr,
                                       void *ptr);

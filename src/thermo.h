@@ -137,7 +137,7 @@ class Thermo : protected Pointers {
   void check_press_scalar(const std::string &);
   void check_press_vector(const std::string &);
 
-  typedef void (Thermo::*FnPtr)();
+  using FnPtr = void (Thermo::*)();
   void addfield(const char *, FnPtr, int);
   FnPtr *vfunc;    // list of ptrs to functions
 

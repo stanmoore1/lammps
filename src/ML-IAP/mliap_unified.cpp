@@ -211,8 +211,8 @@ MLIAPBuildUnified_t LAMMPS_NS::build_unified(char *unified_fname, MLIAPData *dat
   }
 
   // Connect dummy model, dummy descriptor, data to Python unified
-  MLIAPDummyModel *model = new MLIAPDummyModel(lmp, coefffilename);
-  MLIAPDummyDescriptor *descriptor = new MLIAPDummyDescriptor(lmp);
+  auto *model = new MLIAPDummyModel(lmp, coefffilename);
+  auto *descriptor = new MLIAPDummyDescriptor(lmp);
 
   PyObject *unified_interface = mliap_unified_connect(unified_fname, model, descriptor);
   if (PyErr_Occurred()) {

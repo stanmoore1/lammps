@@ -540,7 +540,7 @@ int FixBoxRelax::min_reset_ref()
   // only needed for deviatoric external stress
 
   if (deviatoric_flag && nreset_h0 > 0) {
-    int delta = update->ntimestep - update->beginstep;
+    bigint delta = update->ntimestep - update->beginstep;
     if (delta % nreset_h0 == 0) {
       compute_sigma();
       itmp = 1;

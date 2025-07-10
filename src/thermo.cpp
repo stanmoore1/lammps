@@ -1089,7 +1089,7 @@ void Thermo::parse_fields(const std::string &str)
       argindex2[nfield] = (argi.get_dim() > 1) ? argi.get_index2() : 0;
 
       if (argi.get_type() == ArgInfo::COMPUTE) {
-        auto icompute = modify->get_compute_by_id(argi.get_name());
+        auto *icompute = modify->get_compute_by_id(argi.get_name());
         if (!icompute)
           error->all(FLERR, nfield + 1, "Could not find thermo custom compute ID: {}",
                      icompute->id);
@@ -1130,7 +1130,7 @@ void Thermo::parse_fields(const std::string &str)
         addfield(word.c_str(), &Thermo::compute_compute, FLOAT);
 
       } else if (argi.get_type() == ArgInfo::FIX) {
-        auto ifix = modify->get_fix_by_id(argi.get_name());
+        auto *ifix = modify->get_fix_by_id(argi.get_name());
         if (!ifix)
           error->all(FLERR, nfield + 1, "Could not find thermo custom fix ID: {}", ifix->id);
         if (argi.get_dim() == 0) {    // scalar

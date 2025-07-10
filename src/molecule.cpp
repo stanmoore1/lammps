@@ -577,7 +577,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
 
   // coords
   if (xflag) {
-    for (int i = 0; i < 4; ++i) secfmt.push_back(moldata["coords"]["format"][i]);
+    for (int i = 0; i < 4; ++i) secfmt.emplace_back(moldata["coords"]["format"][i]);
     if ((secfmt[0] == "atom-id") && (secfmt[1] == "x") && (secfmt[2] == "y") &&
         (secfmt[3] == "z")) {
 
@@ -637,7 +637,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
   // types (is a required section and we tested for it above)
 
   secfmt.clear();
-  for (int i = 0; i < 2; ++i) secfmt.push_back(moldata["types"]["format"][i]);
+  for (int i = 0; i < 2; ++i) secfmt.emplace_back(moldata["types"]["format"][i]);
   if ((secfmt[0] == "atom-id") && (secfmt[1] == "type")) {
 
     memset(count, 0, natoms * sizeof(int));
@@ -700,7 +700,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
   if (moleculeflag) {
 
     secfmt.clear();
-    for (int i = 0; i < 2; ++i) secfmt.push_back(moldata["molecules"]["format"][i]);
+    for (int i = 0; i < 2; ++i) secfmt.emplace_back(moldata["molecules"]["format"][i]);
     if ((secfmt[0] == "atom-id") && (secfmt[1] == "molecule-id")) {
 
       memset(count, 0, natoms * sizeof(int));
@@ -755,7 +755,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
 
   if (fragmentflag) {
     secfmt.clear();
-    for (int i = 0; i < 2; ++i) secfmt.push_back(moldata["fragments"]["format"][i]);
+    for (int i = 0; i < 2; ++i) secfmt.emplace_back(moldata["fragments"]["format"][i]);
     if ((secfmt[0] == "fragment-id") && (secfmt[1] == "atom-id-list")) {
 
       for (int i = 0; i < nfragments; ++i) {
@@ -788,7 +788,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
   if (qflag) {
 
     secfmt.clear();
-    for (int i = 0; i < 2; ++i) secfmt.push_back(moldata["charges"]["format"][i]);
+    for (int i = 0; i < 2; ++i) secfmt.emplace_back(moldata["charges"]["format"][i]);
     if ((secfmt[0] == "atom-id") && (secfmt[1] == "charge")) {
 
       memset(count, 0, natoms * sizeof(int));
@@ -837,7 +837,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
   if (radiusflag && !bodyflag) {
     maxradius = 0.0;
     secfmt.clear();
-    for (int i = 0; i < 2; ++i) secfmt.push_back(moldata["diameters"]["format"][i]);
+    for (int i = 0; i < 2; ++i) secfmt.emplace_back(moldata["diameters"]["format"][i]);
     if ((secfmt[0] == "atom-id") && (secfmt[1] == "diameter")) {
 
       memset(count, 0, natoms * sizeof(int));
@@ -899,7 +899,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
   if (muflag) {
 
     secfmt.clear();
-    for (int i = 0; i < 4; ++i) secfmt.push_back(moldata["dipoles"]["format"][i]);
+    for (int i = 0; i < 4; ++i) secfmt.emplace_back(moldata["dipoles"]["format"][i]);
     if ((secfmt[0] == "atom-id") && (secfmt[1] == "mux") && (secfmt[2] == "muy") &&
         (secfmt[3] == "muz")) {
 
@@ -961,7 +961,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
 
   if (rmassflag) {
     secfmt.clear();
-    for (int i = 0; i < 2; ++i) secfmt.push_back(moldata["masses"]["format"][i]);
+    for (int i = 0; i < 2; ++i) secfmt.emplace_back(moldata["masses"]["format"][i]);
     if ((secfmt[0] == "atom-id") && (secfmt[1] == "mass")) {
 
       memset(count, 0, natoms * sizeof(int));
@@ -1021,7 +1021,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
 
     for (int flag = 0; flag < 2; ++flag) {
       secfmt.clear();
-      for (int i = 0; i < 3; ++i) secfmt.push_back(moldata["bonds"]["format"][i]);
+      for (int i = 0; i < 3; ++i) secfmt.emplace_back(moldata["bonds"]["format"][i]);
       if ((secfmt[0] == "bond-type") && (secfmt[1] == "atom1") && (secfmt[2] == "atom2")) {
 
         if (flag == 0) {
@@ -1108,7 +1108,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
 
     for (int flag = 0; flag < 2; ++flag) {
       secfmt.clear();
-      for (int i = 0; i < 4; ++i) secfmt.push_back(moldata["angles"]["format"][i]);
+      for (int i = 0; i < 4; ++i) secfmt.emplace_back(moldata["angles"]["format"][i]);
       if ((secfmt[0] == "angle-type") && (secfmt[1] == "atom1") && (secfmt[2] == "atom2") &&
           (secfmt[3] == "atom3")) {
 
@@ -1216,7 +1216,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
 
     for (int flag = 0; flag < 2; ++flag) {
       secfmt.clear();
-      for (int i = 0; i < 5; ++i) secfmt.push_back(moldata["dihedrals"]["format"][i]);
+      for (int i = 0; i < 5; ++i) secfmt.emplace_back(moldata["dihedrals"]["format"][i]);
       if ((secfmt[0] == "dihedral-type") && (secfmt[1] == "atom1") && (secfmt[2] == "atom2") &&
           (secfmt[3] == "atom3") && (secfmt[4] == "atom4")) {
 
@@ -1341,7 +1341,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
 
     for (int flag = 0; flag < 2; ++flag) {
       secfmt.clear();
-      for (int i = 0; i < 5; ++i) secfmt.push_back(moldata["impropers"]["format"][i]);
+      for (int i = 0; i < 5; ++i) secfmt.emplace_back(moldata["impropers"]["format"][i]);
       if ((secfmt[0] == "improper-type") && (secfmt[1] == "atom1") && (secfmt[2] == "atom2") &&
           (secfmt[3] == "atom3") && (secfmt[4] == "atom4")) {
 
@@ -1461,7 +1461,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
 
     const auto &specialcounts = moldata["special"]["counts"];
     secfmt.clear();
-    for (int i = 0; i < 4; ++i) secfmt.push_back(specialcounts["format"][i]);
+    for (int i = 0; i < 4; ++i) secfmt.emplace_back(specialcounts["format"][i]);
     if ((secfmt[0] == "atom-id") && (secfmt[1] == "n12") && (secfmt[2] == "n13") &&
         (secfmt[3] == "n14")) {
 
@@ -1505,7 +1505,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
 
     const auto &specialbonds = moldata["special"]["bonds"];
     secfmt.clear();
-    for (int i = 0; i < 2; ++i) secfmt.push_back(specialbonds["format"][i]);
+    for (int i = 0; i < 2; ++i) secfmt.emplace_back(specialbonds["format"][i]);
     if ((secfmt[0] == "atom-id") && (secfmt[1] == "atom-id-list")) {
       memset(count, 0, natoms * sizeof(int));
       for (int i = 0; i < natoms; ++i) {
@@ -1530,7 +1530,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
                 "JSON data: {}",
                 id, to_string(specialbonds["data"][i][1]));
 
-          tagint ival = tagint(item);
+          auto ival = tagint(item);
           if ((ival <= 0) || (ival > natoms) || (ival == iatom + 1))
             error->all(FLERR, Error::NOLASTLINE,
                        "Molecule template {}: invalid atom index {} in \"special:bonds\" section "
@@ -1561,7 +1561,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
   if (shakeflagflag) {
     const auto &shakedata = moldata["shake"]["flags"];
     secfmt.clear();
-    for (int i = 0; i < 2; ++i) secfmt.push_back(shakedata["format"][i]);
+    for (int i = 0; i < 2; ++i) secfmt.emplace_back(shakedata["format"][i]);
     if ((secfmt[0] == "atom-id") && (secfmt[1] == "flag")) {
 
       for (int i = 0; i < natoms; i++) shake_flag[i] = -1;
@@ -1633,7 +1633,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
   if (shakeatomflag) {
     const auto &shakedata = moldata["shake"]["atoms"];
     secfmt.clear();
-    for (int i = 0; i < 2; ++i) secfmt.push_back(shakedata["format"][i]);
+    for (int i = 0; i < 2; ++i) secfmt.emplace_back(shakedata["format"][i]);
     if ((secfmt[0] == "atom-id") && (secfmt[1] == "atom-id-list")) {
 
       memset(count, 0, natoms * sizeof(int));
@@ -1717,7 +1717,7 @@ void Molecule::from_json(const std::string &molid, const json &moldata)
   if (shaketypeflag) {
     const auto &shakedata = moldata["shake"]["types"];
     secfmt.clear();
-    for (int i = 0; i < 2; ++i) secfmt.push_back(shakedata["format"][i]);
+    for (int i = 0; i < 2; ++i) secfmt.emplace_back(shakedata["format"][i]);
     if ((secfmt[0] == "atom-id") && (secfmt[1] == "type-list")) {
 
       memset(count, 0, natoms * sizeof(int));
