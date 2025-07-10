@@ -125,7 +125,7 @@ ComputeSNAGridKokkos<DeviceType, real_type, vector_length>::ComputeSNAGridKokkos
   snaKK.init();
 
   if (quadraticflag)
-    error->all(FLERR, "Cannot (yet) use quadratic SNAP with compute sna/grid/kk"); 
+    error->all(FLERR, "Cannot (yet) use quadratic SNAP with compute sna/grid/kk");
 }
 
 // Destructor
