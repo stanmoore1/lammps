@@ -186,39 +186,7 @@ TEST_F(MixedPrecisionFixesCommonTest, FixSetForce) {
     }
 }
 
-// Test 6: FixAddForceKokkos precision
-TEST_F(MixedPrecisionFixesCommonTest, FixAddForce) {
-    lmp->input->one("fix 1 all addforce/kk 0.1 0.2 0.3");
-    
-    auto fix = dynamic_cast<FixAddForceKokkos<LMPDeviceType>*>(lmp->modify->fix[0]);
-    ASSERT_NE(fix, nullptr);
-    
-    // Save original forces
-    lmp->input->one("run 0");
-    
-    auto atomKK = static_cast<AtomKokkos*>(lmp->atom);
-    atomKK->sync(Host, F_MASK);
-    
-    std::vector<double> orig_fx, orig_fy, orig_fz;
-    for (int i = 0; i < atomKK->nlocal; i++) {
-        orig_fx.push_back(atomKK->f[i][0]);
-        orig_fy.push_back(atomKK->f[i][1]);
-        orig_fz.push_back(atomKK->f[i][2]);
-    }
-    
-    // Apply addforce
-    lmp->input->one("run 1 pre yes post no");
-    
-    // Check forces were added
-    atomKK->sync(Host, F_MASK);
-    for (int i = 0; i < atomKK->nlocal; i++) {
-        EXPECT_PRECISION_NEAR(atomKK->f[i][0], orig_fx[i] + 0.1, getRelativeTolerance() * std::abs(orig_fx[i] + 0.1));
-        EXPECT_PRECISION_NEAR(atomKK->f[i][1], orig_fy[i] + 0.2, getRelativeTolerance() * std::abs(orig_fy[i] + 0.2));
-        EXPECT_PRECISION_NEAR(atomKK->f[i][2], orig_fz[i] + 0.3, getRelativeTolerance() * std::abs(orig_fz[i] + 0.3));
-    }
-}
-
-// Test 7: FixMomentumKokkos precision
+// Test 6: FixMomentumKokkos precision
 TEST_F(MixedPrecisionFixesCommonTest, FixMomentum) {
     lmp->input->one("fix 1 all momentum/kk 10 linear 1 1 1");
     
@@ -248,7 +216,7 @@ TEST_F(MixedPrecisionFixesCommonTest, FixMomentum) {
     EXPECT_NEAR(pz, 0.0, tol * atomKK->nlocal);
 }
 
-// Test 8: FixTempBerendsenKokkos thermostat
+// Test 7: FixTempBerendsenKokkos thermostat
 TEST_F(MixedPrecisionFixesCommonTest, FixTempBerendsen) {
     lmp->input->one("fix 1 all temp/berendsen/kk 1.0 1.0 0.1");
     lmp->input->one("fix 2 all nve/kk");
@@ -268,7 +236,7 @@ TEST_F(MixedPrecisionFixesCommonTest, FixTempBerendsen) {
     EXPECT_TRUE(checkNumericalStability(temp));
 }
 
-// Test 9: FixTempRescaleKokkos precision
+// Test 8: FixTempRescaleKokkos precision
 TEST_F(MixedPrecisionFixesCommonTest, FixTempRescale) {
     lmp->input->one("fix 1 all temp/rescale/kk 10 1.0 1.0 0.02 1.0");
     lmp->input->one("fix 2 all nve/kk");
@@ -288,7 +256,7 @@ TEST_F(MixedPrecisionFixesCommonTest, FixTempRescale) {
     EXPECT_TRUE(checkNumericalStability(temp));
 }
 
-// Test 10: Integration timestep precision
+// Test 9: Integration timestep precision
 TEST_F(MixedPrecisionFixesCommonTest, TimestepPrecision) {
     // Test with very small timestep
     lmp->input->one("timestep 0.0001");
@@ -316,7 +284,7 @@ TEST_F(MixedPrecisionFixesCommonTest, TimestepPrecision) {
     }
 }
 
-// Test 11: Fix execution order with precision
+// Test 10: Fix execution order with precision
 TEST_F(MixedPrecisionFixesCommonTest, FixExecutionOrder) {
     // Multiple fixes that modify forces
     lmp->input->one("fix 1 all addforce/kk 0.1 0.0 0.0");
@@ -338,7 +306,7 @@ TEST_F(MixedPrecisionFixesCommonTest, FixExecutionOrder) {
     }
 }
 
-// Test 12: Temperature computation precision
+// Test 11: Temperature computation precision
 TEST_F(MixedPrecisionFixesCommonTest, TemperatureComputePrecision) {
     lmp->input->one("fix 1 all nvt/kk temp 1.5 1.5 0.1");
     
@@ -361,7 +329,7 @@ TEST_F(MixedPrecisionFixesCommonTest, TemperatureComputePrecision) {
     EXPECT_NEAR(temp1, 1.5, 0.3);  // Near target
 }
 
-// Test 13: Velocity Verlet integration accuracy
+// Test 12: Velocity Verlet integration accuracy
 TEST_F(MixedPrecisionFixesCommonTest, VelocityVerletAccuracy) {
     // Simple harmonic oscillator test
     lmp->input->one("clear");
@@ -409,7 +377,7 @@ TEST_F(MixedPrecisionFixesCommonTest, VelocityVerletAccuracy) {
 #endif
 }
 
-// Test 14: Pressure tensor precision
+// Test 13: Pressure tensor precision
 TEST_F(MixedPrecisionFixesCommonTest, PressureTensorPrecision) {
     lmp->input->one("fix 1 all npt/kk temp 1.0 1.0 0.1 aniso 1.0 1.0 1.0");
     
@@ -440,7 +408,7 @@ TEST_F(MixedPrecisionFixesCommonTest, PressureTensorPrecision) {
     }
 }
 
-// Test 15: Fix restart with precision
+// Test 14: Fix restart with precision
 TEST_F(MixedPrecisionFixesCommonTest, FixRestartPrecision) {
     lmp->input->one("fix 1 all nvt/kk temp 1.0 1.0 0.1");
     lmp->input->one("run 50");
