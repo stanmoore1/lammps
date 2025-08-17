@@ -1,0 +1,19 @@
+# -*- CMake -*- file for KOKKOS testing
+
+
+# Mixed precision tests for PR 4608 (KOKKOS FP32 support)
+if(PKG_KOKKOS)
+  # Core type system tests
+  add_executable(test_mixed_precision_types test_mixed_precision_types.cpp)
+  target_link_libraries(test_mixed_precision_types PRIVATE lammps GTest::GTestMain)
+  target_compile_definitions(test_mixed_precision_types PRIVATE -DLMP_KOKKOS)
+  add_test(NAME MixedPrecisionTypes COMMAND test_mixed_precision_types)
+  set_tests_properties(MixedPrecisionTypes PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=7;OMP_PROC_BIND=false")
+  
+  # Angle styles tests
+  add_executable(test_mixed_precision_angles test_mixed_precision_angles.cpp)
+  target_link_libraries(test_mixed_precision_angles PRIVATE lammps GTest::GTestMain)
+  target_compile_definitions(test_mixed_precision_angles PRIVATE -DLMP_KOKKOS)
+  add_test(NAME MixedPrecisionAngles COMMAND test_mixed_precision_angles)
+  set_tests_properties(MixedPrecisionAngles PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=7;OMP_PROC_BIND=false")
+endif()

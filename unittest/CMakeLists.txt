@@ -101,6 +101,7 @@ add_subdirectory(cplusplus)
 add_subdirectory(fortran)
 add_subdirectory(python)
 add_subdirectory(force-styles)
+add_subdirectory(kokkos)
 
 # clang-format support for test sources
 
