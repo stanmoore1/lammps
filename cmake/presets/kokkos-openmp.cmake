@@ -28,7 +28,14 @@ endif()
 # make sure all packages needed for pr 4608 mixed precision unit testing
 
 if(ENABLE_TESTING)
-  set(PKG_MOLECULE ON CACHE BOOL "" FORCE)
+  # Core packages needed for unit tests
+  set(PKG_MOLECULE ON CACHE BOOL "" FORCE)  # Provides angle_harmonic.h, bond_harmonic.h, etc.
+  set(PKG_CLASS2 ON CACHE BOOL "" FORCE)    # Provides angle_class2.h, bond_class2.h, etc.
+  set(PKG_RIGID ON CACHE BOOL "" FORCE)      # Provides fix_rigid.h and related
+  set(PKG_MISC ON CACHE BOOL "" FORCE)       # Provides various fixes and computes
+  set(PKG_EXTRA-PAIR ON CACHE BOOL "" FORCE) # Provides additional pair styles
+  set(PKG_EXTRA-FIX ON CACHE BOOL "" FORCE)  # Provides additional fix styles
+  message(STATUS "   📦 Unit Test Packages: MOLECULE, CLASS2, RIGID, MISC, EXTRA-PAIR, EXTRA-FIX")
 endif()
 
 # ==================== Robust OpenMP Configuration for macOS ====================
