@@ -36,7 +36,7 @@ template<class DeviceType>
 class PairMorseKokkos : public PairMorse {
 
   // needed for kokkos mixed precision unit test
-  friend class ::MixedPrecisionPairsSimpleTest_PairMorse_Test;
+  friend class MixedPrecisionPairsSimpleTest_PairMorse_Test;
 
  public:
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
