@@ -908,6 +908,11 @@ endif()
 include(Testing)
 include(CodeCoverage)
 include(CodingStandard)
+
+# Include Instruments support if the file exists (created by kokkos-openmp preset)
+if(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/add_instruments_support.cmake")
+  include("${CMAKE_CURRENT_BINARY_DIR}/add_instruments_support.cmake")
+endif()
 find_package(ClangFormat 11.0 QUIET)
 
 if(ClangFormat_FOUND)
