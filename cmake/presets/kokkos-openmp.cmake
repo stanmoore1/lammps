@@ -24,6 +24,13 @@ if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "🔍 Kokkos Debug mode enabled with bounds checking and profiling")
 endif()
 
+# ==================== PACKAGES NEEDED FOR KOKKOS UNIT TESTING  ====================
+# make sure all packages needed for pr 4608 mixed precision unit testing
+
+if(ENABLE_TESTING)
+  set(PKG_MOLECULE ON CACHE BOOL "" FORCE)
+endif()
+
 # ==================== Robust OpenMP Configuration for macOS ====================
 if(APPLE)
     message(STATUS "🍎 Configuring OpenMP for macOS...")
