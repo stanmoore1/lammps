@@ -25,7 +25,6 @@
 #include "fix_npt_kokkos.h"
 #include "fix_langevin_kokkos.h"
 #include "fix_setforce_kokkos.h"
-#include "fix_addforce_kokkos.h"
 #include "fix_momentum_kokkos.h"
 #include "fix_temp_berendsen_kokkos.h"
 #include "fix_temp_rescale_kokkos.h"
