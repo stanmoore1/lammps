@@ -36,7 +36,7 @@ template<class DeviceType>
 class PairLJCutKokkos : public PairLJCut {
 
   // needed for kokkos mixed precision unit test
-  friend class ::MixedPrecisionPairsSimpleTest_PairLJCutTypes_Test;
+  friend class MixedPrecisionPairsSimpleTest_PairLJCutTypes_Test;
  
  public:
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
