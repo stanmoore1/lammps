@@ -27,10 +27,17 @@ PairStyle(morse/kk/host,PairMorseKokkos<LMPHostType>);
 #include "pair_morse.h"
 #include "neigh_list_kokkos.h"
 
+// Forward declare the gtest-generated class in the global namespace
+class MixedPrecisionPairsSimpleTest_PairMorse_Test;
+
 namespace LAMMPS_NS {
 
 template<class DeviceType>
 class PairMorseKokkos : public PairMorse {
+
+  // needed for kokkos mixed precision unit test
+  friend class ::MixedPrecisionPairsSimpleTest_PairMorse_Test;
+
  public:
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
   enum {COUL_FLAG=0};
