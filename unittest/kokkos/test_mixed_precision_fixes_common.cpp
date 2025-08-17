@@ -20,6 +20,8 @@
 #include "test_mixed_precision_utils.h"
 #include "lammps.h"
 #include "atom_kokkos.h"
+#include "pair.h"     // for Pair and its members (e.g., eng_vdwl)
+#include "compute.h"  // for Compute and its members (e.g., scalar)
 #include "fix_nve_kokkos.h"
 #include "fix_nvt_kokkos.h"
 #include "fix_npt_kokkos.h"
@@ -63,17 +65,17 @@ protected:
 TEST_F(MixedPrecisionFixesCommonTest, FixNVETypes) {
     lmp->input->one("fix 1 all nve/kk");
     
-    auto fix = dynamic_cast<FixNVEKokkos*>(lmp->modify->fix[0]);
+    auto fix = dynamic_cast<FixNVEKokkos<LMPDeviceType>*>(lmp->modify->fix[0]);
     ASSERT_NE(fix, nullptr);
     
     // NVE works directly with atom arrays
     auto atomKK = static_cast<AtomKokkos*>(lmp->atom);
     
     // Check that velocity and force arrays have correct precision
-    EXPECT_TRUE((std::is_same<decltype(atomKK->k_v.h_view)::value_type, double>::value));
-    EXPECT_TRUE((std::is_same<decltype(atomKK->k_v.d_view)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(atomKK->k_f.h_view)::value_type, double>::value));
-    EXPECT_TRUE((std::is_same<decltype(atomKK->k_f.d_view)::value_type, KK_SUM_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(atomKK->k_v.h_view)::value_type, double>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(atomKK->k_v.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(atomKK->k_f.h_view)::value_type, double>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(atomKK->k_f.d_view)::value_type, KK_SUM_FLOAT>::value));
     
     // Run a few steps
     lmp->input->one("run 10");
@@ -102,7 +104,7 @@ TEST_F(MixedPrecisionFixesCommonTest, FixNVETypes) {
 TEST_F(MixedPrecisionFixesCommonTest, FixNVTThermostat) {
     lmp->input->one("fix 1 all nvt/kk temp 1.0 1.0 0.1");
     
-    auto fix = dynamic_cast<FixNVTKokkos*>(lmp->modify->fix[0]);
+    auto fix = dynamic_cast<FixNVTKokkos<LMPDeviceType>*>(lmp->modify->fix[0]);
     ASSERT_NE(fix, nullptr);
     
     // Check internal precision of thermostat variables
@@ -126,7 +128,7 @@ TEST_F(MixedPrecisionFixesCommonTest, FixNVTThermostat) {
 TEST_F(MixedPrecisionFixesCommonTest, FixNPTBarostat) {
     lmp->input->one("fix 1 all npt/kk temp 1.0 1.0 0.1 iso 1.0 1.0 1.0");
     
-    auto fix = dynamic_cast<FixNPTKokkos*>(lmp->modify->fix[0]);
+    auto fix = dynamic_cast<FixNPTKokkos<LMPDeviceType>*>(lmp->modify->fix[0]);
     ASSERT_NE(fix, nullptr);
     
     // Run equilibration
@@ -189,7 +191,7 @@ TEST_F(MixedPrecisionFixesCommonTest, FixSetForce) {
 TEST_F(MixedPrecisionFixesCommonTest, FixMomentum) {
     lmp->input->one("fix 1 all momentum/kk 10 linear 1 1 1");
     
-    auto fix = dynamic_cast<FixMomentumKokkos*>(lmp->modify->fix[0]);
+    auto fix = dynamic_cast<FixMomentumKokkos<LMPDeviceType>*>(lmp->modify->fix[0]);
     ASSERT_NE(fix, nullptr);
     
     // Run with momentum removal
@@ -220,7 +222,7 @@ TEST_F(MixedPrecisionFixesCommonTest, FixTempBerendsen) {
     lmp->input->one("fix 1 all temp/berendsen/kk 1.0 1.0 0.1");
     lmp->input->one("fix 2 all nve/kk");
     
-    auto fix = dynamic_cast<FixTempBerendsenKokkos*>(lmp->modify->fix[0]);
+    auto fix = dynamic_cast<FixTempBerendsenKokkos<LMPDeviceType>*>(lmp->modify->fix[0]);
     ASSERT_NE(fix, nullptr);
     
     // Run equilibration
@@ -240,7 +242,7 @@ TEST_F(MixedPrecisionFixesCommonTest, FixTempRescale) {
     lmp->input->one("fix 1 all temp/rescale/kk 10 1.0 1.0 0.02 1.0");
     lmp->input->one("fix 2 all nve/kk");
     
-    auto fix = dynamic_cast<FixTempRescaleKokkos*>(lmp->modify->fix[0]);
+    auto fix = dynamic_cast<FixTempRescaleKokkos<LMPDeviceType>*>(lmp->modify->fix[0]);
     ASSERT_NE(fix, nullptr);
     
     // Run with temperature rescaling
