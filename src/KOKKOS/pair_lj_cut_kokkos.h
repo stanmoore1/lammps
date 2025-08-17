@@ -27,10 +27,17 @@ PairStyle(lj/cut/kk/host,PairLJCutKokkos<LMPHostType>);
 #include "pair_lj_cut.h"
 #include "neigh_list_kokkos.h"
 
+// Forward declare the gtest-generated class in the global namespace
+class MixedPrecisionPairsSimpleTest_PairLJCutTypes_Test;
+
 namespace LAMMPS_NS {
 
 template<class DeviceType>
 class PairLJCutKokkos : public PairLJCut {
+
+  // needed for kokkos mixed precision unit test
+  friend class ::MixedPrecisionPairsSimpleTest_PairLJCutTypes_Test;
+ 
  public:
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
   enum {COUL_FLAG=0};
