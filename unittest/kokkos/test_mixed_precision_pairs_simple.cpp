@@ -20,6 +20,9 @@
 #include "test_mixed_precision_utils.h"
 #include "lammps.h"
 #include "atom_kokkos.h"
+#include "atom_masks.h"
+#include "pair.h"     // for Pair and its members (e.g., eng_vdwl)
+#include "compute.h"  // for Compute and its members (e.g., scalar)
 #include "pair_lj_cut_kokkos.h"
 #include "pair_lj_cut_coul_cut_kokkos.h"
 #include "pair_morse_kokkos.h"
@@ -60,17 +63,17 @@ TEST_F(MixedPrecisionPairsSimpleTest, PairLJCutTypes) {
     ASSERT_NE(pair, nullptr);
     
     // Check coefficient arrays use correct precision
-    EXPECT_TRUE((std::is_same<decltype(pair->d_lj1)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(pair->d_lj2)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(pair->d_lj3)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(pair->d_lj4)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(pair->d_cutsq)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->d_lj1)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->d_lj2)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->d_lj3)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->d_lj4)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->d_cutsq)::value_type, KK_FLOAT>::value));
     
     // Check per-atom arrays
-    EXPECT_TRUE((std::is_same<decltype(pair->k_eatom.h_view)::value_type, double>::value));
-    EXPECT_TRUE((std::is_same<decltype(pair->k_eatom.d_view)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(pair->k_vatom.h_view)::value_type, double>::value));
-    EXPECT_TRUE((std::is_same<decltype(pair->k_vatom.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->k_eatom.h_view)::value_type, double>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->k_eatom.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->k_vatom.h_view)::value_type, double>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->k_vatom.d_view)::value_type, KK_FLOAT>::value));
 }
 
 // Test 2: PairLJCutKokkos energy calculation
@@ -144,9 +147,9 @@ TEST_F(MixedPrecisionPairsSimpleTest, PairMorse) {
     ASSERT_NE(pair, nullptr);
     
     // Check Morse-specific arrays
-    EXPECT_TRUE((std::is_same<decltype(pair->d_d0)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(pair->d_alpha)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(pair->d_r0)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->d_d0)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->d_alpha)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->d_r0)::value_type, KK_FLOAT>::value));
     
     lmp->input->one("run 0");
     
@@ -164,9 +167,9 @@ TEST_F(MixedPrecisionPairsSimpleTest, PairBuck) {
     ASSERT_NE(pair, nullptr);
     
     // Check Buck-specific arrays
-    EXPECT_TRUE((std::is_same<decltype(pair->d_a)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(pair->d_rho)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(pair->d_c)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->d_a)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->d_rho)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->d_c)::value_type, KK_FLOAT>::value));
     
     lmp->input->one("run 0");
     
@@ -183,7 +186,7 @@ TEST_F(MixedPrecisionPairsSimpleTest, PairYukawa) {
     ASSERT_NE(pair, nullptr);
     
     // Check Yukawa-specific arrays
-    EXPECT_TRUE((std::is_same<decltype(pair->d_a)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(pair->d_a)::value_type, KK_FLOAT>::value));
     EXPECT_EQ(pair->kappa, 2.0);  // kappa is stored as a scalar
     
     lmp->input->one("run 0");
