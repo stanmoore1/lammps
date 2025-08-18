@@ -1,6 +1,6 @@
 # Unit Test Progress for PR 4608: KOKKOS Mixed Precision Support
 
-## Completed Test Files (7 groups)
+## Completed Test Files (8 groups)
 
 ### Core Infrastructure ✅
 1. **test_mixed_precision_types.cpp** - Core type system and infrastructure
@@ -29,7 +29,17 @@
    - PairBuckKokkos
    - PairYukawaKokkos
 
-5. **test_mixed_precision_dihedrals.cpp** - Dihedral and improper styles
+5. **test_mixed_precision_pairs_complex.cpp** - Complex many-body potentials ✅
+   - PairEAMKokkos (embedded atom method)
+   - PairEAMAlloyKokkos
+   - PairEAMFSKokkos
+   - PairSWKokkos (Stillinger-Weber)
+   - PairTersoffKokkos
+   - PairTersoffZBLKokkos
+   - PairREBOKokkos (reactive bond order)
+   - PairAIREBOKokkos
+
+6. **test_mixed_precision_dihedrals.cpp** - Dihedral and improper styles
    - DihedralHarmonicKokkos
    - DihedralOPLSKokkos
    - DihedralCharmmKokkos
@@ -39,7 +49,7 @@
    - ImproperCVFFKokkos
 
 ### Data Structures ✅
-6. **test_mixed_precision_atomvec.cpp** - AtomVec classes
+7. **test_mixed_precision_atomvec.cpp** - AtomVec classes
    - AtomVecAtomicKokkos
    - AtomVecChargeKokkos
    - AtomVecFullKokkos
@@ -47,7 +57,7 @@
    - Pack/unpack operations
 
 ### Time Integration ✅
-7. **test_mixed_precision_fixes_common.cpp** - Common fixes
+8. **test_mixed_precision_fixes_common.cpp** - Common fixes
    - FixNVEKokkos
    - FixNVTKokkos
    - FixNPTKokkos
@@ -58,13 +68,7 @@
    - FixTempBerendsenKokkos
    - FixTempRescaleKokkos
 
-## Test Groups Still Needed (7 groups)
-
-### 8. Complex Pair Styles
-- PairEAMKokkos (many-body metal potentials)
-- PairSWKokkos (Stillinger-Weber)
-- PairTersoffKokkos (covalent materials)
-- PairREBOKokkos (reactive bond order)
+## Test Groups Still Needed (6 groups)
 
 ### 9. Specialized Fixes
 - FixShakeKokkos (constraint algorithms)
@@ -142,10 +146,10 @@ ctest -V -R MixedPrecision
 
 Current coverage estimate:
 - Core infrastructure: ~90% covered
-- Force field styles: ~40% covered (simple styles done, complex remaining)
+- Force field styles: ~70% covered (simple and complex pair styles, bonds, angles, dihedrals done)
 - Data structures: ~80% covered
 - Time integration: ~60% covered
-- Overall: ~35% of PR 4608 changes covered
+- Overall: ~45% of PR 4608 changes covered
 
 ## Next Steps
 
@@ -160,5 +164,6 @@ Current coverage estimate:
 
 - Each test file is ~400-500 lines
 - Total estimated test code: ~7000 lines when complete
+- Current test code: ~4000 lines
 - Tests use adaptive tolerances based on precision mode
 - All tests include numerical stability checks

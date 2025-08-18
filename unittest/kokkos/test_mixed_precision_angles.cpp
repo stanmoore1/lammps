@@ -63,9 +63,9 @@ TEST_F(MixedPrecisionAnglesTest, AngleHarmonicTypes) {
     auto angle = dynamic_cast<AngleHarmonicKokkos<LMPDeviceType>*>(lmp->force->angle);
     ASSERT_NE(angle, nullptr);
     
-    // Check that internal arrays use correct precision types
-    EXPECT_TRUE((std::is_same<decltype(angle->d_k)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(angle->d_theta0)::value_type, KK_FLOAT>::value));
+    // Check that internal arrays use correct precision types (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(angle->k_k.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(angle->k_theta0.d_view)::value_type, KK_FLOAT>::value));
     
     // Check dual view types
     EXPECT_TRUE((std::is_same<decltype(angle->k_eatom.h_view)::value_type, double>::value));
@@ -107,9 +107,9 @@ TEST_F(MixedPrecisionAnglesTest, AngleCharmmUB) {
     auto angle = dynamic_cast<AngleCharmmKokkos<LMPDeviceType>*>(lmp->force->angle);
     ASSERT_NE(angle, nullptr);
     
-    // Check UB-specific arrays
-    EXPECT_TRUE((std::is_same<decltype(angle->d_k_ub)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(angle->d_r_ub)::value_type, KK_FLOAT>::value));
+    // Check UB-specific arrays (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(angle->k_k_ub.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(angle->k_r_ub.d_view)::value_type, KK_FLOAT>::value));
     
     // Run computation
     lmp->input->one("run 0");
@@ -133,8 +133,8 @@ TEST_F(MixedPrecisionAnglesTest, AngleCosine) {
     auto angle = dynamic_cast<AngleCosineKokkos<LMPDeviceType>*>(lmp->force->angle);
     ASSERT_NE(angle, nullptr);
     
-    // Check k array precision
-    EXPECT_TRUE((std::is_same<decltype(angle->d_k)::value_type, KK_FLOAT>::value));
+    // Check k array precision (dual view)
+    EXPECT_TRUE((std::is_same<typename decltype(angle->k_k.d_view)::value_type, KK_FLOAT>::value));
     
     lmp->input->one("run 0");
     
@@ -156,12 +156,12 @@ TEST_F(MixedPrecisionAnglesTest, AngleClass2CrossTerms) {
     auto angle = dynamic_cast<AngleClass2Kokkos<LMPDeviceType>*>(lmp->force->angle);
     ASSERT_NE(angle, nullptr);
     
-    // Check all coefficient arrays
-    EXPECT_TRUE((std::is_same<decltype(angle->d_k2)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(angle->d_k3)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(angle->d_k4)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(angle->d_bb_k)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(angle->d_ba_k1)::value_type, KK_FLOAT>::value));
+    // Check all coefficient arrays (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(angle->k_k2.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(angle->k_k3.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(angle->k_k4.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(angle->k_bb_k.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(angle->k_ba_k1.d_view)::value_type, KK_FLOAT>::value));
     
     lmp->input->one("run 0");
     

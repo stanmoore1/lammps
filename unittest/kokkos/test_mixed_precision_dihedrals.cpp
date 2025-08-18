@@ -68,12 +68,12 @@ TEST_F(MixedPrecisionDihedralsTest, DihedralHarmonicTypes) {
     auto dihedral = dynamic_cast<DihedralHarmonicKokkos<LMPDeviceType>*>(lmp->force->dihedral);
     ASSERT_NE(dihedral, nullptr);
     
-    // Check coefficient arrays use correct precision
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_k)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_multiplicity)::value_type, int>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_sign)::value_type, int>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_cos_shift)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_sin_shift)::value_type, KK_FLOAT>::value));
+    // Check coefficient arrays use correct precision (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_k.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_multiplicity.d_view)::value_type, int>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_sign.d_view)::value_type, int>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_cos_shift.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_sin_shift.d_view)::value_type, KK_FLOAT>::value));
     
     // Check per-atom arrays
     EXPECT_TRUE((std::is_same<decltype(dihedral->k_eatom.h_view)::value_type, double>::value));
@@ -101,11 +101,11 @@ TEST_F(MixedPrecisionDihedralsTest, DihedralOPLS) {
     auto dihedral = dynamic_cast<DihedralOPLSKokkos<LMPDeviceType>*>(lmp->force->dihedral);
     ASSERT_NE(dihedral, nullptr);
     
-    // Check OPLS coefficient arrays
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_k1)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_k2)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_k3)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_k4)::value_type, KK_FLOAT>::value));
+    // Check OPLS coefficient arrays (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_k1.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_k2.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_k3.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_k4.d_view)::value_type, KK_FLOAT>::value));
     
     lmp->input->one("run 0");
     
@@ -122,11 +122,11 @@ TEST_F(MixedPrecisionDihedralsTest, DihedralCharmm) {
     auto dihedral = dynamic_cast<DihedralCharmmKokkos<LMPDeviceType>*>(lmp->force->dihedral);
     ASSERT_NE(dihedral, nullptr);
     
-    // Check Charmm-specific arrays
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_k)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_weight)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_cos_shift)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_sin_shift)::value_type, KK_FLOAT>::value));
+    // Check Charmm-specific arrays (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_k.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_weight.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_cos_shift.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_sin_shift.d_view)::value_type, KK_FLOAT>::value));
     
     lmp->input->one("run 0");
     
@@ -153,20 +153,20 @@ TEST_F(MixedPrecisionDihedralsTest, DihedralClass2) {
     auto dihedral = dynamic_cast<DihedralClass2Kokkos<LMPDeviceType>*>(lmp->force->dihedral);
     ASSERT_NE(dihedral, nullptr);
     
-    // Check all Class2 coefficient arrays
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_k1)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_k2)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_k3)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_phi1)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_phi2)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_phi3)::value_type, KK_FLOAT>::value));
+    // Check all Class2 coefficient arrays (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_k1.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_k2.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_k3.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_phi1.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_phi2.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_phi3.d_view)::value_type, KK_FLOAT>::value));
     
-    // Check cross-term arrays
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_mbt_f1)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_ebt_f1_1)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_at_f1_1)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_aat_k)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(dihedral->d_bb13t_k)::value_type, KK_FLOAT>::value));
+    // Check cross-term arrays (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_mbt_f1.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_ebt_f1_1.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_at_f1_1.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_aat_k.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_bb13t_k.d_view)::value_type, KK_FLOAT>::value));
     
     lmp->input->one("run 0");
     
@@ -182,9 +182,9 @@ TEST_F(MixedPrecisionDihedralsTest, ImproperHarmonic) {
     auto improper = dynamic_cast<ImproperHarmonicKokkos<LMPDeviceType>*>(lmp->force->improper);
     ASSERT_NE(improper, nullptr);
     
-    // Check improper coefficient arrays
-    EXPECT_TRUE((std::is_same<decltype(improper->d_k)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(improper->d_chi)::value_type, KK_FLOAT>::value));
+    // Check improper coefficient arrays (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(improper->k_k.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(improper->k_chi.d_view)::value_type, KK_FLOAT>::value));
     
     lmp->input->one("run 0");
     
@@ -201,12 +201,12 @@ TEST_F(MixedPrecisionDihedralsTest, ImproperClass2) {
     auto improper = dynamic_cast<ImproperClass2Kokkos<LMPDeviceType>*>(lmp->force->improper);
     ASSERT_NE(improper, nullptr);
     
-    // Check Class2 improper arrays
-    EXPECT_TRUE((std::is_same<decltype(improper->d_k0)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(improper->d_chi0)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(improper->d_aa_k1)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(improper->d_aa_k2)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(improper->d_aa_k3)::value_type, KK_FLOAT>::value));
+    // Check Class2 improper arrays (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(improper->k_k0.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(improper->k_chi0.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(improper->k_aa_k1.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(improper->k_aa_k2.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(improper->k_aa_k3.d_view)::value_type, KK_FLOAT>::value));
     
     lmp->input->one("run 0");
     
@@ -222,10 +222,10 @@ TEST_F(MixedPrecisionDihedralsTest, ImproperCVFF) {
     auto improper = dynamic_cast<ImproperCVFFKokkos<LMPDeviceType>*>(lmp->force->improper);
     ASSERT_NE(improper, nullptr);
     
-    // Check CVFF improper arrays
-    EXPECT_TRUE((std::is_same<decltype(improper->d_k)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(improper->d_sign)::value_type, int>::value));
-    EXPECT_TRUE((std::is_same<decltype(improper->d_multiplicity)::value_type, int>::value));
+    // Check CVFF improper arrays (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(improper->k_k.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(improper->k_sign.d_view)::value_type, int>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(improper->k_multiplicity.d_view)::value_type, int>::value));
     
     lmp->input->one("run 0");
     

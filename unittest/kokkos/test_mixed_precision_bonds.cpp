@@ -62,9 +62,9 @@ TEST_F(MixedPrecisionBondsTest, BondHarmonicTypes) {
     auto bond = dynamic_cast<BondHarmonicKokkos<LMPDeviceType>*>(lmp->force->bond);
     ASSERT_NE(bond, nullptr);
     
-    // Check coefficient arrays use correct precision
-    EXPECT_TRUE((std::is_same<decltype(bond->d_k)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(bond->d_r0)::value_type, KK_FLOAT>::value));
+    // Check coefficient arrays use correct precision (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(bond->k_k.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(bond->k_r0.d_view)::value_type, KK_FLOAT>::value));
     
     // Check energy/force arrays
     EXPECT_TRUE((std::is_same<decltype(bond->k_eatom.h_view)::value_type, double>::value));
@@ -93,11 +93,11 @@ TEST_F(MixedPrecisionBondsTest, BondFENE) {
     auto bond = dynamic_cast<BondFENEKokkos<LMPDeviceType>*>(lmp->force->bond);
     ASSERT_NE(bond, nullptr);
     
-    // Check all FENE-specific arrays
-    EXPECT_TRUE((std::is_same<decltype(bond->d_k)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(bond->d_r0)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(bond->d_epsilon)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(bond->d_sigma)::value_type, KK_FLOAT>::value));
+    // Check all FENE-specific arrays (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(bond->k_k.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(bond->k_r0.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(bond->k_epsilon.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(bond->k_sigma.d_view)::value_type, KK_FLOAT>::value));
     
     lmp->input->one("run 0");
     
@@ -121,10 +121,10 @@ TEST_F(MixedPrecisionBondsTest, BondMorse) {
     auto bond = dynamic_cast<BondMorseKokkos<LMPDeviceType>*>(lmp->force->bond);
     ASSERT_NE(bond, nullptr);
     
-    // Check Morse-specific arrays
-    EXPECT_TRUE((std::is_same<decltype(bond->d_d0)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(bond->d_alpha)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(bond->d_r0)::value_type, KK_FLOAT>::value));
+    // Check Morse-specific arrays (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(bond->k_d0.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(bond->k_alpha.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(bond->k_r0.d_view)::value_type, KK_FLOAT>::value));
     
     lmp->input->one("run 0");
     
@@ -142,11 +142,11 @@ TEST_F(MixedPrecisionBondsTest, BondClass2) {
     auto bond = dynamic_cast<BondClass2Kokkos<LMPDeviceType>*>(lmp->force->bond);
     ASSERT_NE(bond, nullptr);
     
-    // Check Class2-specific arrays
-    EXPECT_TRUE((std::is_same<decltype(bond->d_r0)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(bond->d_k2)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(bond->d_k3)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(bond->d_k4)::value_type, KK_FLOAT>::value));
+    // Check Class2-specific arrays (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(bond->k_r0.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(bond->k_k2.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(bond->k_k3.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(bond->k_k4.d_view)::value_type, KK_FLOAT>::value));
     
     lmp->input->one("run 0");
     
