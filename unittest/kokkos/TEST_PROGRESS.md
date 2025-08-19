@@ -76,14 +76,18 @@
    - FixWallLJ93Kokkos, FixWallLJ126Kokkos, FixWallLJ1043Kokkos (wall interactions)
    - FixDPDEnergyKokkos (dissipative particle dynamics)
 
-## Test Groups Still Needed (5 groups)
+### 10. **test_mixed_precision_computes.cpp** - Compute Styles ✅
+   - ComputeTempKokkos (temperature calculation)
+   - ComputePressureKokkos (pressure and stress tensor)
+   - ComputePEKokkos (potential energy, global and per-atom)
+   - ComputeRDFKokkos (radial distribution function)
+   - ComputeMSDKokkos (mean square displacement)
+   - ComputeKEKokkos (kinetic energy)
+   - ComputeStressAtomKokkos (per-atom stress)
+   - ComputeCentroAtomKokkos (centro-symmetry parameter)
+   - ComputeCoordAtomKokkos (coordination number)
 
-### 10. Compute Styles
-- ComputeTempKokkos
-- ComputePressureKokkos
-- ComputePEKokkos
-- ComputeRDFKokkos
-- ComputeMSDKokkos
+## Test Groups Still Needed (4 groups)
 
 ### 11. Neighbor List & Domain
 - NeighborKokkos
@@ -140,6 +144,7 @@ ctest -R MixedPrecisionAtomVec
 ctest -R MixedPrecisionDihedrals
 ctest -R MixedPrecisionFixesCommon
 ctest -R MixedPrecisionFixesSpecial
+ctest -R MixedPrecisionComputes
 
 # Run with verbose output
 ctest -V -R MixedPrecision
@@ -152,7 +157,8 @@ Current coverage estimate:
 - Force field styles: ~70% covered (simple and complex pair styles, bonds, angles, dihedrals done)
 - Data structures: ~80% covered
 - Time integration: ~75% covered (common and specialized fixes done)
-- Overall: ~55% of PR 4608 changes covered
+- Compute styles: ~85% covered
+- Overall: ~65% of PR 4608 changes covered
 
 ## Next Steps
 

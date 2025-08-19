@@ -87,5 +87,11 @@ if(PKG_KOKKOS)
   
   endif()
   
+  # Compute styles tests
+  add_executable(test_mixed_precision_computes test_mixed_precision_computes.cpp)
+  target_link_libraries(test_mixed_precision_computes PRIVATE lammps kokkos GTest::GTestMain)
+  target_compile_definitions(test_mixed_precision_computes PRIVATE -DLMP_KOKKOS)
+  add_test(NAME MixedPrecisionComputes COMMAND test_mixed_precision_computes)
+  set_tests_properties(MixedPrecisionComputes PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=7;OMP_PROC_BIND=false")
 
 endif()
