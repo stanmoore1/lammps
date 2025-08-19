@@ -123,7 +123,7 @@ inline void verifyTypeSize(const std::string& type_name) {
 // Helper to create precision-aware LAMMPS instance
 inline LAMMPS* createLAMMPSInstance(bool use_kokkos = true, 
                                     bool use_gpu = false,
-                                    int nthreads = 1) {
+                                    int nthreads = 4) {
     std::vector<std::string> args = {"test", "-log", "none", "-echo", "none", "-nocite"};
     
     if (use_kokkos) {
@@ -134,12 +134,13 @@ inline LAMMPS* createLAMMPSInstance(bool use_kokkos = true,
             args.push_back("g");
             args.push_back("1");
         } else {
-            args.push_back("d");
-            args.push_back("1");
+            args.push_back("t");
+            args.push_back(std::to_string(nthreads));
         }
         
-        args.push_back("t");
-        args.push_back(std::to_string(nthreads));
+        args.push_back("-sf");
+        args.push_back("kk");
+
     }
     
     std::vector<char*> argv;

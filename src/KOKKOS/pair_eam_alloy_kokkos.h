@@ -50,6 +50,10 @@ struct TagPairEAMAlloyKernelC{};
 
 template<class DeviceType>
 class PairEAMAlloyKokkos : public PairEAM, public KokkosBase {
+
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionPairsComplexTest_PairEAMAlloy_Test;
+
  public:
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
   enum {COUL_FLAG=0};

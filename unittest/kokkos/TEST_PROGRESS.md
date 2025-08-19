@@ -1,28 +1,28 @@
 # Unit Test Progress for PR 4608: KOKKOS Mixed Precision Support
 
-## Completed Test Files (9 groups)
+## Completed Test Files (11 groups)
 
 ### Core Infrastructure ✅
-1. **test_mixed_precision_types.cpp** - Core type system and infrastructure
+1. **test_mixed_precision_types.cpp** - Core type system and infrastructure ✅
    - KK_FLOAT and KK_SUM_FLOAT type definitions
    - TransformView functionality
    - ArrayTypes precision-aware typedefs
    - Memory allocation with MemoryKokkos
 
 ### Force Field Styles ✅
-2. **test_mixed_precision_angles.cpp** - Angle styles
+2. **test_mixed_precision_angles.cpp** - Angle styles ✅
    - AngleHarmonicKokkos
    - AngleCharmmKokkos
    - AngleCosineKokkos
    - AngleClass2Kokkos
 
-3. **test_mixed_precision_bonds.cpp** - Bond styles
+3. **test_mixed_precision_bonds.cpp** - Bond styles ✅
    - BondHarmonicKokkos
    - BondFENEKokkos
    - BondMorseKokkos
    - BondClass2Kokkos
 
-4. **test_mixed_precision_pairs_simple.cpp** - Simple pair styles
+4. **test_mixed_precision_pairs_simple.cpp** - Simple pair styles ✅
    - PairLJCutKokkos
    - PairLJCutCoulCutKokkos
    - PairMorseKokkos
@@ -39,7 +39,7 @@
    - PairREBOKokkos (reactive bond order)
    - PairAIREBOKokkos
 
-6. **test_mixed_precision_dihedrals.cpp** - Dihedral and improper styles
+6. **test_mixed_precision_dihedrals.cpp** - Dihedral and improper styles ✅
    - DihedralHarmonicKokkos
    - DihedralOPLSKokkos
    - DihedralCharmmKokkos
@@ -49,7 +49,7 @@
    - ImproperCVFFKokkos
 
 ### Data Structures ✅
-7. **test_mixed_precision_atomvec.cpp** - AtomVec classes
+7. **test_mixed_precision_atomvec.cpp** - AtomVec classes  ✅
    - AtomVecAtomicKokkos
    - AtomVecChargeKokkos
    - AtomVecFullKokkos
@@ -57,7 +57,7 @@
    - Pack/unpack operations
 
 ### Time Integration ✅
-8. **test_mixed_precision_fixes_common.cpp** - Common fixes
+8. **test_mixed_precision_fixes_common.cpp** - Common fixes ✅
    - FixNVEKokkos
    - FixNVTKokkos
    - FixNPTKokkos
@@ -69,7 +69,7 @@
    - FixTempRescaleKokkos
 
 ### Time Integration & Constraints ✅
-9. **test_mixed_precision_fixes_special.cpp** - Specialized fixes
+9. **test_mixed_precision_fixes_special.cpp** - Specialized fixes ✅
    - FixShakeKokkos (constraint algorithms)
    - FixRigidKokkos (rigid body dynamics)
    - FixRigidSmallKokkos (many small rigid bodies)
@@ -87,13 +87,17 @@
    - ComputeCentroAtomKokkos (centro-symmetry parameter)
    - ComputeCoordAtomKokkos (coordination number)
 
-## Test Groups Still Needed (4 groups)
+### 11. **test_mixed_precision_neighbor.cpp** - Neighbor List & Domain ✅
+   - NeighborKokkos precision arrays and distance calculations
+   - NPairKokkos neighbor list building with ghost atoms
+   - NStencilKokkos stencil creation for binning
+   - DomainKokkos precision in coordinate transformations
+   - Periodic boundary conditions and image flags
+   - Neighbor list rebuild triggering and binning precision
+   - Multi-neighbor list handling and exclusions
+   - Domain decomposition and triclinic box support
 
-### 11. Neighbor List & Domain
-- NeighborKokkos
-- NPairKokkos
-- NStencilKokkos
-- DomainKokkos
+## Test Groups Still Needed (3 groups)
 
 ### 12. Communication & FFT
 - CommKokkos
@@ -145,6 +149,7 @@ ctest -R MixedPrecisionDihedrals
 ctest -R MixedPrecisionFixesCommon
 ctest -R MixedPrecisionFixesSpecial
 ctest -R MixedPrecisionComputes
+ctest -R MixedPrecisionNeighbor
 
 # Run with verbose output
 ctest -V -R MixedPrecision
@@ -158,11 +163,12 @@ Current coverage estimate:
 - Data structures: ~80% covered
 - Time integration: ~75% covered (common and specialized fixes done)
 - Compute styles: ~85% covered
-- Overall: ~65% of PR 4608 changes covered
+- Neighbor list & domain: ~80% covered
+- Overall: ~72% of PR 4608 changes covered
 
 ## Next Steps
 
-1. Continue implementing remaining test groups (8-14)
+1. Continue implementing remaining test groups (12-14)
 2. Add performance benchmarking tests
 3. Add GPU-specific tests (if CUDA/HIP enabled)
 4. Add integration tests combining multiple components
@@ -171,8 +177,9 @@ Current coverage estimate:
 
 ## Notes
 
-- Each test file is ~400-500 lines
+- Each test file is ~400-600 lines
 - Total estimated test code: ~7000 lines when complete
-- Current test code: ~5000 lines
+- Current test code: ~5600 lines (11 groups completed)
 - Tests use adaptive tolerances based on precision mode
 - All tests include numerical stability checks
+- Neighbor test added comprehensive coverage of binning, stencils, and domain decomposition

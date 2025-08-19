@@ -34,6 +34,9 @@ struct TagAngleClass2Compute{};
 template<class DeviceType>
 class AngleClass2Kokkos : public AngleClass2 {
 
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionAnglesTest_AngleClass2_Test;
+
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;

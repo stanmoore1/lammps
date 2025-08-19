@@ -34,6 +34,9 @@ struct TagAngleHarmonicCompute{};
 template<class DeviceType>
 class AngleHarmonicKokkos : public AngleHarmonic {
 
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionAnglesTest_AngleHarmonicTypes_Test;
+
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;

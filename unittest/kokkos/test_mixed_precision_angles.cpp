@@ -30,7 +30,8 @@
 #include "input.h"
 #include <cmath>
 
-using namespace LAMMPS_NS;
+namespace LAMMPS_NS {
+
 using namespace TestUtils;
 
 class MixedPrecisionAnglesTest : public MixedPrecisionTestFixture {
@@ -145,7 +146,7 @@ TEST_F(MixedPrecisionAnglesTest, AngleCosine) {
 }
 
 // Test 5: AngleClass2Kokkos with cross terms
-TEST_F(MixedPrecisionAnglesTest, AngleClass2CrossTerms) {
+TEST_F(MixedPrecisionAnglesTest, AngleClass2) {
     lmp->input->one("angle_style class2/kk");
     // angle_coeff with multiple terms: theta0 k2 k3 k4
     lmp->input->one("angle_coeff 1 109.47 50.0 -10.0 2.0");
@@ -372,6 +373,9 @@ TEST_F(MixedPrecisionAnglesTest, ExtremeAngles) {
         }
     }
 }
+
+} // namespace LAMMPS_NS
+
 
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);

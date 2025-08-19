@@ -35,6 +35,10 @@ namespace LAMMPS_NS {
 
 template<class DeviceType>
 class PairSWKokkos : public PairSW {
+
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionPairsComplexTest_PairSWTypes_Test;
+
  public:
   enum {EnabledNeighFlags=HALF|HALFTHREAD};
   enum {COUL_FLAG=0};
