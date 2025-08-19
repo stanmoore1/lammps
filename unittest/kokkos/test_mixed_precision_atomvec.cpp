@@ -32,7 +32,8 @@
 #include "input.h"
 #include <cmath>
 
-using namespace LAMMPS_NS;
+namespace LAMMPS_NS {
+
 using namespace TestUtils;
 
 class MixedPrecisionAtomVecTest : public MixedPrecisionTestFixture {
@@ -445,6 +446,8 @@ TEST_F(MixedPrecisionAtomVecTest, CommBufferPrecision) {
     DAT::tdual_double_2d_lr comm_buf("comm_buf", 100, size_border);
     EXPECT_TRUE((std::is_same<decltype(comm_buf.h_view)::value_type, double>::value));
 }
+
+} // namespace LAMMPS_NS
 
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);

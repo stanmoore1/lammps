@@ -29,7 +29,8 @@
 #include "input.h"
 #include <cmath>
 
-using namespace LAMMPS_NS;
+namespace LAMMPS_NS {
+
 using namespace TestUtils;
 
 class MixedPrecisionBondsTest : public MixedPrecisionTestFixture {
@@ -377,6 +378,8 @@ TEST_F(MixedPrecisionBondsTest, MixedBondTypes) {
     EXPECT_GT(energy_harmonic, 0.0);
     EXPECT_TRUE(checkNumericalStability(energy_harmonic));
 }
+
+} // namespace LAMMPS_NS
 
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);

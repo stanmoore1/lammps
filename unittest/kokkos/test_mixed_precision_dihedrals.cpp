@@ -20,6 +20,7 @@
 #include "test_mixed_precision_utils.h"
 #include "lammps.h"
 #include "atom_kokkos.h"
+#include "atom_masks.h"
 #include "dihedral_charmm_kokkos.h"
 #include "dihedral_class2_kokkos.h"
 #include "dihedral_harmonic_kokkos.h"
@@ -31,7 +32,8 @@
 #include "input.h"
 #include <cmath>
 
-using namespace LAMMPS_NS;
+namespace LAMMPS_NS {
+
 using namespace TestUtils;
 
 class MixedPrecisionDihedralsTest : public MixedPrecisionTestFixture {
@@ -420,6 +422,8 @@ TEST_F(MixedPrecisionDihedralsTest, DihedralForceSummation) {
     EXPECT_NEAR(fy_sum, 0.0, tol);
     EXPECT_NEAR(fz_sum, 0.0, tol);
 }
+
+} // namespace LAMMPS_NS
 
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);

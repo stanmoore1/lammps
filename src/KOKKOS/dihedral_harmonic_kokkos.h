@@ -33,6 +33,10 @@ struct TagDihedralHarmonicCompute{};
 
 template<class DeviceType>
 class DihedralHarmonicKokkos : public DihedralHarmonic {
+
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionDihedralsTest_DihedralHarmonicTypes_Test;
+
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;

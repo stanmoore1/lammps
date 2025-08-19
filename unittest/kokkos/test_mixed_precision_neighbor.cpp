@@ -34,7 +34,8 @@
 #include <cmath>
 #include <vector>
 
-using namespace LAMMPS_NS;
+namespace LAMMPS_NS {
+
 using namespace TestUtils;
 
 class MixedPrecisionNeighborTest : public MixedPrecisionTestFixture {
@@ -504,6 +505,8 @@ TEST_F(MixedPrecisionNeighborTest, ExtremeCutoffs) {
     auto list = neighborKK->lists[0];
     EXPECT_GT(list->inum, 0);
 }
+
+} // namespace LAMMPS_NS
 
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);

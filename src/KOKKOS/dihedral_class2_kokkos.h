@@ -33,6 +33,10 @@ struct TagDihedralClass2Compute{};
 
 template<class DeviceType>
 class DihedralClass2Kokkos : public DihedralClass2 {
+
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionDihedralsTest_DihedralClass2_Test;
+
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;

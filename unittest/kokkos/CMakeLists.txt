@@ -2,6 +2,7 @@
 
 # Mixed precision tests for PR 4608 (KOKKOS FP32 support)
 if(PKG_KOKKOS)
+
   # Core type system tests
   add_executable(test_mixed_precision_types test_mixed_precision_types.cpp)
   target_link_libraries(test_mixed_precision_types PRIVATE lammps kokkos GTest::GTestMain)
@@ -41,10 +42,10 @@ if(PKG_KOKKOS)
   
   # Specialized fixes tests (SHAKE, Rigid, Wall, DPD)
   # Note: Some tests require specific packages (RIGID, DPD, etc.)
-  if(PKG_RIGID OR PKG_DPD)
+  if(PKG_RIGID OR PKG_DPD-REACT)
     add_executable(test_mixed_precision_fixes_special test_mixed_precision_fixes_special.cpp)
     target_include_directories(test_mixed_precision_fixes_special PRIVATE
-      ${LAMMPS_SOURCE_DIR}/DPD
+      ${LAMMPS_SOURCE_DIR}/DPD-REACT
       ${LAMMPS_SOURCE_DIR}/RIGID
     )
     target_link_libraries(test_mixed_precision_fixes_special PRIVATE lammps kokkos GTest::GTestMain)

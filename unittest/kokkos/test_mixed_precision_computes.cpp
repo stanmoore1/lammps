@@ -37,7 +37,8 @@
 #include <cmath>
 #include <vector>
 
-using namespace LAMMPS_NS;
+namespace LAMMPS_NS {
+
 using namespace TestUtils;
 
 class MixedPrecisionComputesTest : public MixedPrecisionTestFixture {
@@ -550,6 +551,8 @@ TEST_F(MixedPrecisionComputesTest, ExtremeValueHandling) {
     EXPECT_GT(ke, 0.0);
     EXPECT_LT(ke, 1.0);
 }
+
+} // namespace LAMMPS_NS
 
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);

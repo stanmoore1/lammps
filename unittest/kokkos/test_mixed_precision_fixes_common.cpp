@@ -37,7 +37,8 @@
 #include "input.h"
 #include <cmath>
 
-using namespace LAMMPS_NS;
+namespace LAMMPS_NS {
+
 using namespace TestUtils;
 
 class MixedPrecisionFixesCommonTest : public MixedPrecisionTestFixture {
@@ -430,6 +431,8 @@ TEST_F(MixedPrecisionFixesCommonTest, FixRestartPrecision) {
     EXPECT_NEAR(temp_after, 1.0, 0.3);
     EXPECT_TRUE(checkNumericalStability(temp_after));
 }
+
+} // namespace LAMMPS_NS
 
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);
