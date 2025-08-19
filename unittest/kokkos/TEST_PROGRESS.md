@@ -1,6 +1,6 @@
 # Unit Test Progress for PR 4608: KOKKOS Mixed Precision Support
 
-## Completed Test Files (8 groups)
+## Completed Test Files (9 groups)
 
 ### Core Infrastructure ✅
 1. **test_mixed_precision_types.cpp** - Core type system and infrastructure
@@ -68,13 +68,15 @@
    - FixTempBerendsenKokkos
    - FixTempRescaleKokkos
 
-## Test Groups Still Needed (6 groups)
+### Time Integration & Constraints ✅
+9. **test_mixed_precision_fixes_special.cpp** - Specialized fixes
+   - FixShakeKokkos (constraint algorithms)
+   - FixRigidKokkos (rigid body dynamics)
+   - FixRigidSmallKokkos (many small rigid bodies)
+   - FixWallLJ93Kokkos, FixWallLJ126Kokkos, FixWallLJ1043Kokkos (wall interactions)
+   - FixDPDEnergyKokkos (dissipative particle dynamics)
 
-### 9. Specialized Fixes
-- FixShakeKokkos (constraint algorithms)
-- FixRigidKokkos (rigid body dynamics)
-- FixWallKokkos (wall interactions)
-- FixDPDKokkos (dissipative particle dynamics)
+## Test Groups Still Needed (5 groups)
 
 ### 10. Compute Styles
 - ComputeTempKokkos
@@ -137,6 +139,7 @@ ctest -R MixedPrecisionPairsSimple
 ctest -R MixedPrecisionAtomVec
 ctest -R MixedPrecisionDihedrals
 ctest -R MixedPrecisionFixesCommon
+ctest -R MixedPrecisionFixesSpecial
 
 # Run with verbose output
 ctest -V -R MixedPrecision
@@ -148,8 +151,8 @@ Current coverage estimate:
 - Core infrastructure: ~90% covered
 - Force field styles: ~70% covered (simple and complex pair styles, bonds, angles, dihedrals done)
 - Data structures: ~80% covered
-- Time integration: ~60% covered
-- Overall: ~45% of PR 4608 changes covered
+- Time integration: ~75% covered (common and specialized fixes done)
+- Overall: ~55% of PR 4608 changes covered
 
 ## Next Steps
 
@@ -164,6 +167,6 @@ Current coverage estimate:
 
 - Each test file is ~400-500 lines
 - Total estimated test code: ~7000 lines when complete
-- Current test code: ~4000 lines
+- Current test code: ~5000 lines
 - Tests use adaptive tolerances based on precision mode
 - All tests include numerical stability checks

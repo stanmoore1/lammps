@@ -20,6 +20,7 @@
 #include "test_mixed_precision_utils.h"
 #include "lammps.h"
 #include "atom_kokkos.h"
+#include "atom_masks.h"
 #include "angle_harmonic_kokkos.h"
 #include "angle_charmm_kokkos.h"
 #include "angle_cosine_kokkos.h"

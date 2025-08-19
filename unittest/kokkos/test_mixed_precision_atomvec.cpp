@@ -20,6 +20,7 @@
 #include "test_mixed_precision_utils.h"
 #include "lammps.h"
 #include "atom_kokkos.h"
+#include "atom_masks.h"
 #include "atom_vec_atomic_kokkos.h"
 #include "atom_vec_charge_kokkos.h"
 #include "atom_vec_full_kokkos.h"

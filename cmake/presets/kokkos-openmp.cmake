@@ -35,7 +35,8 @@ if(ENABLE_TESTING)
   set(PKG_MISC ON CACHE BOOL "" FORCE)       # Provides various fixes and computes
   set(PKG_EXTRA-PAIR ON CACHE BOOL "" FORCE) # Provides additional pair styles
   set(PKG_EXTRA-FIX ON CACHE BOOL "" FORCE)  # Provides additional fix styles
-  message(STATUS "   📦 Unit Test Packages: MOLECULE, CLASS2, RIGID, MISC, EXTRA-PAIR, EXTRA-FIX")
+  set(PKG_DPD-BASIC ON CACHE BOOL "" FORCE)  # Provides DPD fixes for testing
+  message(STATUS "   📦 Unit Test Packages: MOLECULE, CLASS2, RIGID, MISC, EXTRA-PAIR, EXTRA-FIX, DPD-BASIC")
 endif()
 
 # ==================== Robust OpenMP Configuration for macOS ====================
