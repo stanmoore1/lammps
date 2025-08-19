@@ -1,6 +1,6 @@
 # Unit Test Progress for PR 4608: KOKKOS Mixed Precision Support
 
-## Completed Test Files (11 groups)
+## Completed Test Files (12 groups)
 
 ### Core Infrastructure ✅
 1. **test_mixed_precision_types.cpp** - Core type system and infrastructure ✅
@@ -97,13 +97,19 @@
    - Multi-neighbor list handling and exclusions
    - Domain decomposition and triclinic box support
 
-## Test Groups Still Needed (3 groups)
+### 12. **test_mixed_precision_comm.cpp** - Communication & FFT ✅
+   - CommKokkos buffer precision and MPI compatibility
+   - Forward/reverse communication with precision conversion
+   - Exchange communication during atom migration
+   - Border communication for ghost atoms
+   - CommTiledKokkos optimized communication
+   - FFT3dKokkos precision handling (single/double FFT support)
+   - Grid3dKokkos distributed FFT grid communication
+   - RemapKokkos FFT data redistribution
+   - GPU-aware MPI settings and synchronization
+   - Communication buffer growth and multi-pass scenarios
 
-### 12. Communication & FFT
-- CommKokkos
-- CommTiledKokkos
-- FFTKokkos
-- GridCommKokkos
+## Test Groups Still Needed (2 groups)
 
 ### 13. KSPACE Integration
 - PPPMKokkos
@@ -150,6 +156,7 @@ ctest -R MixedPrecisionFixesCommon
 ctest -R MixedPrecisionFixesSpecial
 ctest -R MixedPrecisionComputes
 ctest -R MixedPrecisionNeighbor
+ctest -R MixedPrecisionComm
 
 # Run with verbose output
 ctest -V -R MixedPrecision
@@ -164,7 +171,8 @@ Current coverage estimate:
 - Time integration: ~75% covered (common and specialized fixes done)
 - Compute styles: ~85% covered
 - Neighbor list & domain: ~80% covered
-- Overall: ~72% of PR 4608 changes covered
+- Communication & FFT: ~75% covered
+- Overall: ~78% of PR 4608 changes covered
 
 ## Next Steps
 
@@ -179,7 +187,7 @@ Current coverage estimate:
 
 - Each test file is ~400-600 lines
 - Total estimated test code: ~7000 lines when complete
-- Current test code: ~5600 lines (11 groups completed)
+- Current test code: ~6200 lines (12 groups completed)
 - Tests use adaptive tolerances based on precision mode
 - All tests include numerical stability checks
 - Neighbor test added comprehensive coverage of binning, stencils, and domain decomposition

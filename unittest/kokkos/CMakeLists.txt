@@ -101,5 +101,16 @@ if(PKG_KOKKOS)
   target_compile_definitions(test_mixed_precision_neighbor PRIVATE -DLMP_KOKKOS)
   add_test(NAME MixedPrecisionNeighbor COMMAND test_mixed_precision_neighbor)
   set_tests_properties(MixedPrecisionNeighbor PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=7;OMP_PROC_BIND=false")
+  
+  # Communication and FFT tests
+  add_executable(test_mixed_precision_comm test_mixed_precision_comm.cpp)
+  target_link_libraries(test_mixed_precision_comm PRIVATE lammps kokkos GTest::GTestMain)
+  target_compile_definitions(test_mixed_precision_comm PRIVATE -DLMP_KOKKOS)
+  if(PKG_KSPACE)
+    target_compile_definitions(test_mixed_precision_comm PRIVATE -DFFT_KOKKOS)
+    target_include_directories(test_mixed_precision_comm PRIVATE ${LAMMPS_SOURCE_DIR}/KSPACE)
+  endif()
+  add_test(NAME MixedPrecisionComm COMMAND test_mixed_precision_comm)
+  set_tests_properties(MixedPrecisionComm PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=7;OMP_PROC_BIND=false")
 
 endif()
