@@ -19,7 +19,10 @@ if(PKG_KOKKOS)
   
   # Complex many-body pair styles tests (EAM, SW, Tersoff, REBO)
   add_executable(test_mixed_precision_pairs_complex test_mixed_precision_pairs_complex.cpp)
-  target_include_directories(test_mixed_precision_pairs_complex PRIVATE ${LAMMPS_SOURCE_DIR}/MANYBODY)
+  if(PKG_MANYBODY)
+    target_include_directories(test_mixed_precision_pairs_complex PRIVATE ${LAMMPS_SOURCE_DIR}/MANYBODY)
+    target_compile_definitions(test_mixed_precision_pairs_complex PRIVATE -DLMP_MANYBODY)
+  endif()
   target_link_libraries(test_mixed_precision_pairs_complex PRIVATE lammps kokkos GTest::GTestMain)
   target_compile_definitions(test_mixed_precision_pairs_complex PRIVATE -DLMP_KOKKOS)
   add_test(NAME MixedPrecisionPairsComplex COMMAND test_mixed_precision_pairs_complex)
@@ -41,18 +44,20 @@ if(PKG_KOKKOS)
   set_tests_properties(MixedPrecisionFixesCommon PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=7;OMP_PROC_BIND=false")
   
   # Specialized fixes tests (SHAKE, Rigid, Wall, DPD)
-  # Note: Some tests require specific packages (RIGID, DPD, etc.)
-  if(PKG_RIGID OR PKG_DPD-REACT)
-    add_executable(test_mixed_precision_fixes_special test_mixed_precision_fixes_special.cpp)
-    target_include_directories(test_mixed_precision_fixes_special PRIVATE
-      ${LAMMPS_SOURCE_DIR}/DPD-REACT
-      ${LAMMPS_SOURCE_DIR}/RIGID
-    )
-    target_link_libraries(test_mixed_precision_fixes_special PRIVATE lammps kokkos GTest::GTestMain)
-    target_compile_definitions(test_mixed_precision_fixes_special PRIVATE -DLMP_KOKKOS)
-    add_test(NAME MixedPrecisionFixesSpecial COMMAND test_mixed_precision_fixes_special)
-    set_tests_properties(MixedPrecisionFixesSpecial PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=7;OMP_PROC_BIND=false")
+  # This test always builds with KOKKOS - individual tests are conditionally compiled
+  add_executable(test_mixed_precision_fixes_special test_mixed_precision_fixes_special.cpp)
+  if(PKG_DPD-REACT)
+    target_include_directories(test_mixed_precision_fixes_special PRIVATE ${LAMMPS_SOURCE_DIR}/DPD-REACT)
+    target_compile_definitions(test_mixed_precision_fixes_special PRIVATE -DLMP_DPD_REACT)
   endif()
+  if(PKG_RIGID)
+    target_include_directories(test_mixed_precision_fixes_special PRIVATE ${LAMMPS_SOURCE_DIR}/RIGID)
+    target_compile_definitions(test_mixed_precision_fixes_special PRIVATE -DLMP_RIGID)
+  endif()
+  target_link_libraries(test_mixed_precision_fixes_special PRIVATE lammps kokkos GTest::GTestMain)
+  target_compile_definitions(test_mixed_precision_fixes_special PRIVATE -DLMP_KOKKOS)
+  add_test(NAME MixedPrecisionFixesSpecial COMMAND test_mixed_precision_fixes_special)
+  set_tests_properties(MixedPrecisionFixesSpecial PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=7;OMP_PROC_BIND=false")
 
   if(PKG_MOLECULE)
 

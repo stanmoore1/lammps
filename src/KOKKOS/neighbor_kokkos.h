@@ -29,6 +29,11 @@ template<class DeviceType>
 struct TagNeighborXhold{};
 
 class NeighborKokkos : public Neighbor {
+
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionNeighborTest_NStencilKokkos_Test;
+  friend class MixedPrecisionNeighborTest_BinningPrecision_Test;
+
  public:
   typedef int value_type;
 

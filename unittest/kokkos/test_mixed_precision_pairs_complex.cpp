@@ -21,11 +21,13 @@
 #include "lammps.h"
 #include "atom_kokkos.h"
 #include "atom_masks.h"
+#ifdef LMP_MANYBODY
 #include "pair_eam_kokkos.h"
 #include "pair_eam_alloy_kokkos.h"
 #include "pair_sw_kokkos.h"
 #include "pair_tersoff_kokkos.h"
 #include "pair_tersoff_zbl_kokkos.h"
+#endif
 #include "force.h"
 #include "neighbor.h"
 #include "neigh_list_kokkos.h"
@@ -93,6 +95,7 @@ protected:
     }
 };
 
+#ifdef LMP_MANYBODY
 // Test 1: PairEAMKokkos basic precision types
 TEST_F(MixedPrecisionPairsComplexTest, PairEAMTypes) {
     createEAMFile("Cu.eam");
@@ -271,6 +274,12 @@ TEST_F(MixedPrecisionPairsComplexTest, EnergyConservation) {
     EXPECT_LT(drift, 0.0001); // 0.01% for double precision
 #endif
 }
+#else
+// Stub test when MANYBODY package is not available
+TEST_F(MixedPrecisionPairsComplexTest, ManyBodyNotAvailable) {
+    GTEST_SKIP() << "MANYBODY package not available";
+}
+#endif // LMP_MANYBODY
 
 } // namespace LAMMPS_NS
 

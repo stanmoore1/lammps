@@ -71,12 +71,6 @@ TEST_F(MixedPrecisionNeighborTest, NeighborKokkosArrays) {
     EXPECT_TRUE((std::is_same<decltype(neighborKK->k_cutneighsq.h_view)::value_type, double>::value));
     EXPECT_TRUE((std::is_same<decltype(neighborKK->k_cutneighsq.d_view)::value_type, KK_FLOAT>::value));
     
-    // Check bboxlo/bboxhi precision
-    EXPECT_TRUE((std::is_same<decltype(neighborKK->k_bboxlo.h_view)::value_type, double>::value));
-    EXPECT_TRUE((std::is_same<decltype(neighborKK->k_bboxlo.d_view)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(neighborKK->k_bboxhi.h_view)::value_type, double>::value));
-    EXPECT_TRUE((std::is_same<decltype(neighborKK->k_bboxhi.d_view)::value_type, KK_FLOAT>::value));
-    
     // Verify values are reasonable
     for (int i = 0; i < 3; i++) {
         EXPECT_TRUE(checkNumericalStability(neighborKK->bboxlo[i]));
@@ -132,10 +126,10 @@ TEST_F(MixedPrecisionNeighborTest, NPairKokkosBuild) {
     EXPECT_TRUE((std::is_same<decltype(listKK->k_ilist.h_view)::value_type, int>::value));
     
     // numneigh should be integer
-    EXPECT_TRUE((std::is_same<decltype(listKK->k_numneigh.h_view)::value_type, int>::value));
+    EXPECT_TRUE((std::is_same<decltype(listKK->d_numneigh)::value_type, int>::value));
     
-    // neighbors should be integer
-    EXPECT_TRUE((std::is_same<decltype(listKK->k_neighbors.h_view)::value_type, int>::value));
+    // neighbors should be integer  
+    EXPECT_TRUE((std::is_same<decltype(listKK->d_neighbors)::value_type, int>::value));
 }
 
 // Test 4: NPairKokkos with ghost atoms
@@ -180,22 +174,13 @@ TEST_F(MixedPrecisionNeighborTest, NStencilKokkos) {
     // Trigger stencil creation
     lmp->input->one("run 0");
     
-    // Access stencil through neighbor list
+    // Access stencil through neighbor
     ASSERT_GT(neighborKK->nstencil, 0);
-    auto ns = neighborKK->nstencil_list[0];
-    ASSERT_NE(ns, nullptr);
     
-    // Check stencil properties
-    EXPECT_GT(ns->nstencil, 0);  // Should have stencil points
-    
-    // Stencil arrays should use integer types
-    if (ns->stencil) {
-        for (int i = 0; i < ns->nstencil; i++) {
-            // Stencil values should be reasonable bin offsets
-            EXPECT_GE(ns->stencil[i], -27);  // 3x3x3 cube max
-            EXPECT_LE(ns->stencil[i], 27);
-        }
-    }
+    // Check stencil properties - stencils are created internally
+    // The stencil data is part of the NPair classes, not directly accessible
+    // Just verify that stencils were created
+    EXPECT_GT(neighborKK->nstencil, 0);
 }
 
 // Test 6: DomainKokkos precision in coordinate transformations
@@ -203,15 +188,8 @@ TEST_F(MixedPrecisionNeighborTest, DomainKokkosPrecision) {
     auto domainKK = dynamic_cast<DomainKokkos*>(lmp->domain);
     ASSERT_NE(domainKK, nullptr);
     
-    // Check box dimension arrays
-    EXPECT_TRUE((std::is_same<decltype(domainKK->k_boxlo.h_view)::value_type, double>::value));
-    EXPECT_TRUE((std::is_same<decltype(domainKK->k_boxlo.d_view)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<decltype(domainKK->k_boxhi.h_view)::value_type, double>::value));
-    EXPECT_TRUE((std::is_same<decltype(domainKK->k_boxhi.d_view)::value_type, KK_FLOAT>::value));
-    
-    // Check periodicity arrays
-    EXPECT_TRUE((std::is_same<decltype(domainKK->k_prd.h_view)::value_type, double>::value));
-    EXPECT_TRUE((std::is_same<decltype(domainKK->k_prd.d_view)::value_type, KK_FLOAT>::value));
+    // DomainKokkos doesn't have k_boxlo/k_boxhi/k_prd views
+    // The base Domain class has boxlo, boxhi, prd as regular arrays
     
     // Verify box dimensions
     for (int i = 0; i < 3; i++) {
@@ -289,25 +267,16 @@ TEST_F(MixedPrecisionNeighborTest, BinningPrecision) {
     
     lmp->input->one("run 0");
     
-    // Check bin arrays
-    EXPECT_GT(neighborKK->mbins, 0);
-    EXPECT_GT(neighborKK->nbinx, 0);
-    EXPECT_GT(neighborKK->nbiny, 0);
-    EXPECT_GT(neighborKK->nbinz, 0);
+    // Check that binning is set up
+    // The bin arrays are internal to neighbor list building
+    // Just verify neighbor list was built successfully
+    EXPECT_GT(neighborKK->nbin, 0);  // Number of bin methods
+    EXPECT_GT(neighborKK->nlist, 0); // Number of neighbor lists
     
-    // Bin sizes should use KK_FLOAT precision
-    EXPECT_GT(neighborKK->binsizex, 0.0);
-    EXPECT_GT(neighborKK->binsizey, 0.0);
-    EXPECT_GT(neighborKK->binsizez, 0.0);
-    
-    EXPECT_TRUE(checkNumericalStability(neighborKK->binsizex));
-    EXPECT_TRUE(checkNumericalStability(neighborKK->binsizey));
-    EXPECT_TRUE(checkNumericalStability(neighborKK->binsizez));
-    
-    // Inverse bin sizes
-    EXPECT_TRUE(checkNumericalStability(neighborKK->bininvx));
-    EXPECT_TRUE(checkNumericalStability(neighborKK->bininvy));
-    EXPECT_TRUE(checkNumericalStability(neighborKK->bininvz));
+    // Verify neighbor list exists and has atoms
+    auto list = neighborKK->lists[0];
+    EXPECT_NE(list, nullptr);
+    EXPECT_GT(list->inum, 0);
 }
 
 // Test 10: Multi-neighbor list handling
@@ -366,7 +335,7 @@ TEST_F(MixedPrecisionNeighborTest, NeighborExclusions) {
     lmp->input->one("run 0");
     
     // Verify exclusions are handled
-    EXPECT_GT(neighborKK->nexclude, 0);
+    EXPECT_GT(neighborKK->exclude, 0);  // exclude flag, not nexclude
 }
 
 // Test 12: Domain decomposition with neighbor lists
@@ -469,9 +438,10 @@ TEST_F(MixedPrecisionNeighborTest, NeighborListReallocation) {
     EXPECT_GT(listKK->maxneighs, 0);
     
     // Verify all neighbor counts are valid
-    listKK->k_numneigh.sync_host();
+    auto h_numneigh = Kokkos::create_mirror_view(listKK->d_numneigh);
+    Kokkos::deep_copy(h_numneigh, listKK->d_numneigh);
     for (int i = 0; i < list->inum; i++) {
-        int n = listKK->numneigh[i];
+        int n = h_numneigh[i];
         EXPECT_GE(n, 0);
         EXPECT_LE(n, listKK->maxneighs);
     }

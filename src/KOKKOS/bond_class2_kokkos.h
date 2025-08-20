@@ -34,6 +34,9 @@ struct TagBondClass2Compute{};
 template<class DeviceType>
 class BondClass2Kokkos : public BondClass2 {
 
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionBondsTest_BondClass2_Test;
+
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
