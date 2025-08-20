@@ -22,6 +22,7 @@
 #include "atom_kokkos.h"
 #include "atom_masks.h"
 #include "dihedral_charmm_kokkos.h"
+#include "dihedral_charmmfsw_kokkos.h"
 #include "dihedral_class2_kokkos.h"
 #include "dihedral_harmonic_kokkos.h"
 #include "dihedral_opls_kokkos.h"
@@ -115,7 +116,7 @@ TEST_F(MixedPrecisionDihedralsTest, DihedralOPLS) {
     EXPECT_TRUE(checkNumericalStability(pe));
 }
 
-// Test 4: DihedralCharmmKokkos with weight factor
+// Test 4A: DihedralCharmmKokkos with weight factor
 TEST_F(MixedPrecisionDihedralsTest, DihedralCharmm) {
     lmp->input->one("dihedral_style charmm/kk");
     lmp->input->one("dihedral_coeff 1 10.0 1 180 0.5");  // k n d weight
@@ -124,10 +125,34 @@ TEST_F(MixedPrecisionDihedralsTest, DihedralCharmm) {
     ASSERT_NE(dihedral, nullptr);
     
     // Check Charmm-specific arrays (dual views)
-    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_k.d_view)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_weight.d_view)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_cos_shift.d_view)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<typename decltype(dihedral->k_sin_shift.d_view)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->d_k)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->d_multiplicity)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->d_shift)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->d_cos_shift)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->d_sin_shift)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->d_weight)::value_type, KK_FLOAT>::value));
+    
+    lmp->input->one("run 0");
+    
+    double pe = lmp->force->dihedral->energy;
+    EXPECT_TRUE(checkNumericalStability(pe));
+}
+
+// Test 4B: DihedralCharmmKokkos with weight factor
+TEST_F(MixedPrecisionDihedralsTest, DihedralCharmmfsw) {
+    lmp->input->one("dihedral_style charmmfsw/kk");
+    lmp->input->one("dihedral_coeff 1 10.0 1 180 0.5");  // k n d weight
+    
+    auto dihedral = dynamic_cast<DihedralCharmmfswKokkos<LMPDeviceType>*>(lmp->force->dihedral);
+    ASSERT_NE(dihedral, nullptr);
+    
+    // Check Charmmfsw-specific arrays (dual views)
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->d_k)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->d_multiplicity)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->d_shift)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->d_cos_shift)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->d_sin_shift)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(dihedral->d_weight)::value_type, KK_FLOAT>::value));
     
     lmp->input->one("run 0");
     

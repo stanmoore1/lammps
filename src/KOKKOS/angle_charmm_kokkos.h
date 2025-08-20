@@ -33,6 +33,10 @@ struct TagAngleCharmmCompute{};
 
 template<class DeviceType>
 class AngleCharmmKokkos : public AngleCharmm {
+
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionAnglesTest_AngleCharmm_Test;
+
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;

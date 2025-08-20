@@ -34,6 +34,10 @@ struct TagDihedralCharmmfswCompute{};
 
 template<class DeviceType>
 class DihedralCharmmfswKokkos : public DihedralCharmmfsw {
+
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionDihedralsTest_DihedralCharmmfsw_Test;
+
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;

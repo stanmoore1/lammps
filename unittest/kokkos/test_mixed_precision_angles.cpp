@@ -102,16 +102,18 @@ TEST_F(MixedPrecisionAnglesTest, AngleHarmonicComputation) {
 }
 
 // Test 3: AngleCharmmKokkos with Urey-Bradley term
-TEST_F(MixedPrecisionAnglesTest, AngleCharmmUB) {
+TEST_F(MixedPrecisionAnglesTest, AngleCharmm) {
     lmp->input->one("angle_style charmm/kk");
     lmp->input->one("angle_coeff 1 50.0 109.47 30.0 2.0");  // With UB term
     
     auto angle = dynamic_cast<AngleCharmmKokkos<LMPDeviceType>*>(lmp->force->angle);
     ASSERT_NE(angle, nullptr);
     
-    // Check UB-specific arrays (dual views)
-    EXPECT_TRUE((std::is_same<typename decltype(angle->k_k_ub.d_view)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<typename decltype(angle->k_r_ub.d_view)::value_type, KK_FLOAT>::value));
+    // Check UB-specific arrays
+    EXPECT_TRUE((std::is_same<typename decltype(angle->d_k)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(angle->d_theta0)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(angle->d_k_ub)::value_type, KK_FLOAT>::value));
+    EXPECT_TRUE((std::is_same<typename decltype(angle->d_r_ub)::value_type, KK_FLOAT>::value));
     
     // Run computation
     lmp->input->one("run 0");

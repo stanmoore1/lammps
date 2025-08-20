@@ -169,7 +169,7 @@ TEST_F(MixedPrecisionPairsComplexTest, PairEAMEnergy) {
     auto atomKK = static_cast<AtomKokkos*>(lmp->atom);
     auto pair = dynamic_cast<PairEAMKokkos<LMPDeviceType>*>(lmp->force->pair);
     
-    pair->d_rho.sync_host();
+    // d_rho is not directly accessible - it's a protected member
     for (int i = 0; i < atomKK->nlocal; i++) {
         EXPECT_TRUE(checkNumericalStability(pair->h_rho[i]));
         EXPECT_GT(pair->h_rho[i], 0.0); // Should have positive density

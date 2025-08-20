@@ -183,7 +183,7 @@ TEST_F(MixedPrecisionAtomVecTest, PackUnpackExchange) {
     
     // Test unpack_exchange
     DAT::tdual_int_1d k_indices("indices", 1);
-    int nrecv = avec->unpack_exchange_kokkos(k_buf, n, 0, 0, 10.0, 0.0, k_indices);
+    int nrecv = avec->unpack_exchange_kokkos(k_buf, n, 0, 0, 10.0, 0.0, Device, k_indices);
     EXPECT_EQ(nrecv, 1);
 }
 

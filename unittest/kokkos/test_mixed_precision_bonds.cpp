@@ -22,7 +22,7 @@
 #include "atom_kokkos.h"
 #include "bond_harmonic_kokkos.h"
 #include "bond_fene_kokkos.h"
-#include "bond_morse_kokkos.h"
+// bond_morse_kokkos doesn't exist - morse not available in KOKKOS
 #include "bond_class2_kokkos.h"
 #include "force.h"
 #include "neighbor.h"
@@ -114,26 +114,7 @@ TEST_F(MixedPrecisionBondsTest, BondFENE) {
     }
 }
 
-// Test 4: BondMorseKokkos exponential potential
-TEST_F(MixedPrecisionBondsTest, BondMorse) {
-    lmp->input->one("bond_style morse/kk");
-    lmp->input->one("bond_coeff 1 5.0 1.5 1.0");  // D alpha r0
-    
-    auto bond = dynamic_cast<BondMorseKokkos<LMPDeviceType>*>(lmp->force->bond);
-    ASSERT_NE(bond, nullptr);
-    
-    // Check Morse-specific arrays (dual views)
-    EXPECT_TRUE((std::is_same<typename decltype(bond->k_d0.d_view)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<typename decltype(bond->k_alpha.d_view)::value_type, KK_FLOAT>::value));
-    EXPECT_TRUE((std::is_same<typename decltype(bond->k_r0.d_view)::value_type, KK_FLOAT>::value));
-    
-    lmp->input->one("run 0");
-    
-    // Morse potential should be stable
-    double pe = lmp->force->bond->energy;
-    EXPECT_GT(pe, 0.0);  // Should have positive energy at r=1.0, r0=1.0
-    EXPECT_TRUE(checkNumericalStability(pe));
-}
+// Test 4: Skipped - BondMorse not available in KOKKOS
 
 // Test 5: BondClass2Kokkos with higher-order terms
 TEST_F(MixedPrecisionBondsTest, BondClass2) {
@@ -288,7 +269,7 @@ TEST_F(MixedPrecisionBondsTest, PerAtomEnergyVirial) {
 TEST_F(MixedPrecisionBondsTest, BondStyleSwitching) {
     std::vector<std::pair<std::string, std::string>> styles = {
         {"harmonic/kk", "bond_coeff 1 100.0 1.0"},
-        {"morse/kk", "bond_coeff 1 5.0 1.5 1.0"},
+        // morse/kk not available
         {"fene/kk", "bond_coeff 1 30.0 1.5 1.0 1.0"}
     };
     

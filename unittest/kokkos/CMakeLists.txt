@@ -69,7 +69,10 @@ if(PKG_KOKKOS)
   
     # Bond styles tests
     add_executable(test_mixed_precision_bonds test_mixed_precision_bonds.cpp)
-    target_include_directories(test_mixed_precision_bonds PRIVATE ${LAMMPS_SOURCE_DIR}/MOLECULE)
+    target_include_directories(test_mixed_precision_bonds PRIVATE
+      ${LAMMPS_SOURCE_DIR}/CLASS2
+      ${LAMMPS_SOURCE_DIR}/MOLECULE
+    )
     target_link_libraries(test_mixed_precision_bonds PRIVATE lammps kokkos GTest::GTestMain)
     target_compile_definitions(test_mixed_precision_bonds PRIVATE -DLMP_KOKKOS)
     add_test(NAME MixedPrecisionBonds COMMAND test_mixed_precision_bonds)

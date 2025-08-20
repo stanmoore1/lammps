@@ -23,7 +23,7 @@
 #include "atom_masks.h"
 #include "neighbor_kokkos.h"
 #include "npair_kokkos.h"
-#include "nstencil_kokkos.h"
+// nstencil_kokkos.h doesn't exist
 #include "domain_kokkos.h"
 #include "neigh_list_kokkos.h"
 #include "force.h"
