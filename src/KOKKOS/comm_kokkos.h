@@ -21,8 +21,11 @@
 namespace LAMMPS_NS {
 
 class CommKokkos : public CommBrick {
- public:
 
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionCommTest_CommBufferPrecision_Test;
+
+ public:
 
   bool exchange_comm_legacy;
   bool forward_comm_legacy;

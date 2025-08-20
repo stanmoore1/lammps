@@ -28,6 +28,7 @@ endif()
 # make sure all packages needed for pr 4608 mixed precision unit testing
 
 if(ENABLE_TESTING)
+
   # Core packages needed for unit tests
   set(PKG_MOLECULE ON CACHE BOOL "" FORCE)  # Provides angle_harmonic.h, bond_harmonic.h, etc.
   set(PKG_CLASS2 ON CACHE BOOL "" FORCE)    # Provides angle_class2.h, bond_class2.h, etc.
@@ -42,6 +43,9 @@ endif()
 # ==================== Robust OpenMP Configuration for macOS ====================
 if(APPLE)
     message(STATUS "🍎 Configuring OpenMP for macOS...")
+    
+    # Enable shared libs by default on macos to reduce disk space
+    set(BUILD_SHARED_LIBS ON CACHE BOOL "Enable shared libs on macos" FORCE)
     
     # Use Apple Clang with Homebrew libomp
     find_program(CMAKE_C_COMPILER NAMES clang PATHS /opt/homebrew/bin /usr/bin)

@@ -33,6 +33,10 @@ struct TagImproperHarmonicCompute{};
 
 template<class DeviceType>
 class ImproperHarmonicKokkos : public ImproperHarmonic {
+
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionDihedralsTest_ImproperHarmonic_Test;
+
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;

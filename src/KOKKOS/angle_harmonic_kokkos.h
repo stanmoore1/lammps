@@ -36,6 +36,7 @@ class AngleHarmonicKokkos : public AngleHarmonic {
 
   // needed for kokkos mixed precision unit tests
   friend class MixedPrecisionAnglesTest_AngleHarmonicTypes_Test;
+  friend class MixedPrecisionAnglesTest_AngleListLayouts_Test;
 
  public:
   typedef DeviceType device_type;

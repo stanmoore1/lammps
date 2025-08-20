@@ -52,6 +52,7 @@ class PairEAMKokkos : public PairEAM, public KokkosBase {
   // needed for kokkos mixed precision unit tests
   friend class MixedPrecisionPairsComplexTest_PairEAMTypes_Test;
   friend class MixedPrecisionPairsComplexTest_PairEAMEnergy_Test;
+  friend class MixedPrecisionPairsComplexTest_EAMDensityAccumulation_Test;
 
  public:
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};

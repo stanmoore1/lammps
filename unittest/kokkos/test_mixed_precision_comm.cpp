@@ -21,6 +21,7 @@
 #include "test_mixed_precision_utils.h"
 #include "lammps.h"
 #include "atom_kokkos.h"
+#include "atom_masks.h"
 #include "comm_kokkos.h"
 #include "comm_tiled_kokkos.h"
 #include "domain.h"
@@ -42,7 +43,8 @@
 #include "kokkos_base.h"
 #endif
 
-using namespace LAMMPS_NS;
+namespace LAMMPS_NS {
+
 using namespace TestUtils;
 
 class MixedPrecisionCommTest : public MixedPrecisionTestFixture {
@@ -456,9 +458,9 @@ TEST_F(MixedPrecisionCommTest, CustomPropertyComm) {
     // Initialize custom property
     atomKK->sync(Host, ALL_MASK);
     for (int i = 0; i < atomKK->nlocal; i++) {
-        atomKK->dvector[index][i][0] = i * 1.1;
-        atomKK->dvector[index][i][1] = i * 2.2;
-        atomKK->dvector[index][i][2] = i * 3.3;
+        atomKK->k_dvector[index][i][0] = i * 1.1;
+        atomKK->k_dvector[index][i][1] = i * 2.2;
+        atomKK->k_dvector[index][i][2] = i * 3.3;
     }
     atomKK->modified(Host, ALL_MASK);
     
@@ -566,6 +568,8 @@ TEST_F(MixedPrecisionCommTest, ExtremeCommScenarios) {
         }
     }
 }
+
+} // namespace LAMMPS_NS
 
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);

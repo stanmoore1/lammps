@@ -36,6 +36,7 @@ class DihedralHarmonicKokkos : public DihedralHarmonic {
 
   // needed for kokkos mixed precision unit tests
   friend class MixedPrecisionDihedralsTest_DihedralHarmonicTypes_Test;
+  friend class MixedPrecisionDihedralsTest_DihedralListLayout_Test;
 
  public:
   typedef DeviceType device_type;

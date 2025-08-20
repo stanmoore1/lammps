@@ -39,6 +39,7 @@ class PairTersoffKokkos : public PairTersoff {
 
   // needed for kokkos mixed precision unit tests
   friend class MixedPrecisionPairsComplexTest_PairTersoffTypes_Test;
+  friend class MixedPrecisionPairsComplexTest_ManyBodyCutoffs_Test;
 
  public:
   enum {EnabledNeighFlags=HALF|HALFTHREAD};

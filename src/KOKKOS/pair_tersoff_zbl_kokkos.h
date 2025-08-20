@@ -36,6 +36,10 @@ struct TagPairTersoffZBLComputeShortNeigh{};
 
 template<class DeviceType>
 class PairTersoffZBLKokkos : public PairTersoffZBL {
+
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionPairsComplexTest_PairTersoffZBL_Test;
+
  public:
   enum {EnabledNeighFlags=HALF|HALFTHREAD};
   enum {COUL_FLAG=0};

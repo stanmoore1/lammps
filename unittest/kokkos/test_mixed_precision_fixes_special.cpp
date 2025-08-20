@@ -20,6 +20,7 @@
 #include "test_mixed_precision_utils.h"
 #include "lammps.h"
 #include "atom_kokkos.h"
+#include "atom_masks.h"
 #include "fix_shake_kokkos.h"
 //#include "fix_rigid_kokkos.h"
 //#include "fix_rigid_small_kokkos.h"
@@ -27,7 +28,7 @@
 //#include "fix_wall_lj126_kokkos.h"
 //#include "fix_wall_lj1043_kokkos.h"
 #include "fix_dpd_energy_kokkos.h"
-#include "fix_addforce_kokkos.h"
+#include "fix_addforce.h"
 #include "fix.h"
 #include "modify.h"
 #include "force.h"
@@ -631,7 +632,7 @@ TEST_F(MixedPrecisionFixesSpecialTest, RigidWithExternalForces) {
     
     // Apply both rigid fix and external force
     lmp->input->one("fix 1 all rigid/nve/kk molecule");
-    lmp->input->one("fix 2 all addforce/kk 0.1 0.0 0.0");  // Constant force in x
+    lmp->input->one("fix 2 all addforce 0.1 0.0 0.0");  // Constant force in x
     
     auto rigid_fix = dynamic_cast<FixRigidKokkos<LMPDeviceType>*>(lmp->modify->fix[0]);
     ASSERT_NE(rigid_fix, nullptr);

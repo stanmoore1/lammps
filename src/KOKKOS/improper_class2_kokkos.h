@@ -36,6 +36,10 @@ struct TagImproperClass2AngleAngle{};
 
 template<class DeviceType>
 class ImproperClass2Kokkos : public ImproperClass2 {
+
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionDihedralsTest_ImproperClass2_Test;
+
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
