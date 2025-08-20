@@ -33,6 +33,10 @@ struct TagBondFENECompute{};
 
 template<class DeviceType>
 class BondFENEKokkos : public BondFENE {
+
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionBondsTest_BondFENE_Test;
+
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;

@@ -20,6 +20,7 @@
 #include "test_mixed_precision_utils.h"
 #include "lammps.h"
 #include "atom_kokkos.h"
+#include "atom_masks.h"
 #include "bond_harmonic_kokkos.h"
 #include "bond_fene_kokkos.h"
 // bond_morse_kokkos doesn't exist - morse not available in KOKKOS

@@ -34,6 +34,11 @@ struct TagBondHarmonicCompute{};
 template<class DeviceType>
 class BondHarmonicKokkos : public BondHarmonic {
 
+  // needed for kokkos mixed precision unit tests
+  friend class MixedPrecisionBondsTest_BondHarmonicTypes_Test;
+  friend class MixedPrecisionBondsTest_BondListLayout_Test;
+  friend class MixedPrecisionBondsTest_PerAtomEnergyVirial_Test;
+
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;

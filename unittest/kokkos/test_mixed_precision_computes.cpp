@@ -13,7 +13,7 @@
 
 /* ----------------------------------------------------------------------
    Unit tests for PR 4608: KOKKOS Mixed Precision Support
-   Testing compute styles with mixed precision - simplified version
+   Testing compute styles with mixed precision
 ------------------------------------------------------------------------- */
 
 #include "gtest/gtest.h"
@@ -62,7 +62,7 @@ TEST_F(MixedPrecisionComputesTest, ComputeTempTypes) {
     int icompute = lmp->modify->find_compute("mytemp");
     ASSERT_GE(icompute, 0);
     
-    auto compute = dynamic_cast<ComputeTempKokkos*>(lmp->modify->compute[icompute]);
+    auto compute = dynamic_cast<ComputeTempKokkos<LMPDeviceType>*>(lmp->modify->compute[icompute]);
     ASSERT_NE(compute, nullptr);
     
     // Run compute to allocate arrays
@@ -83,7 +83,7 @@ TEST_F(MixedPrecisionComputesTest, ComputeTempVelocity) {
     lmp->input->one("run 0");
     
     int icompute = lmp->modify->find_compute("mytemp");
-    auto compute = dynamic_cast<ComputeTempKokkos*>(lmp->modify->compute[icompute]);
+    auto compute = dynamic_cast<ComputeTempKokkos<LMPDeviceType>*>(lmp->modify->compute[icompute]);
     ASSERT_NE(compute, nullptr);
     
     // Temperature should match theoretical value for given velocity
@@ -106,7 +106,7 @@ TEST_F(MixedPrecisionComputesTest, ComputeCoordAtom) {
     int icompute = lmp->modify->find_compute("mycoord");
     ASSERT_GE(icompute, 0);
     
-    auto compute = dynamic_cast<ComputeCoordAtomKokkos*>(lmp->modify->compute[icompute]);
+    auto compute = dynamic_cast<ComputeCoordAtomKokkos<LMPDeviceType>*>(lmp->modify->compute[icompute]);
     ASSERT_NE(compute, nullptr);
     
     // Check coordination numbers
@@ -190,7 +190,7 @@ TEST_F(MixedPrecisionComputesTest, ComputeWithFixModification) {
     int icompute = lmp->modify->find_compute("mytemp");
     ASSERT_GE(icompute, 0);
     
-    auto compute = dynamic_cast<ComputeTempKokkos*>(lmp->modify->compute[icompute]);
+    auto compute = dynamic_cast<ComputeTempKokkos<LMPDeviceType>*>(lmp->modify->compute[icompute]);
     ASSERT_NE(compute, nullptr);
     
     double temp = compute->scalar;
