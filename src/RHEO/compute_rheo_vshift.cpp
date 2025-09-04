@@ -30,10 +30,10 @@
 #include "math_extra.h"
 #include "memory.h"
 #include "neigh_list.h"
-#include "neigh_request.h"
 #include "neighbor.h"
 
-#include "update.h"
+#include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 using namespace RHEO_NS;
@@ -42,8 +42,8 @@ using namespace MathExtra;
 /* ---------------------------------------------------------------------- */
 
 ComputeRHEOVShift::ComputeRHEOVShift(LAMMPS *lmp, int narg, char **arg) :
-    Compute(lmp, narg, arg), vshift(nullptr), ct(nullptr), wsame(nullptr), cgradt(nullptr),
-    fix_rheo(nullptr), rho0(nullptr), list(nullptr), compute_interface(nullptr),
+    Compute(lmp, narg, arg), vshift(nullptr), fix_rheo(nullptr), rho0(nullptr), wsame(nullptr),
+    ct(nullptr), cgradt(nullptr), shift_type(nullptr), list(nullptr), compute_interface(nullptr),
     compute_kernel(nullptr), compute_surface(nullptr)
 {
   if (narg != 3) error->all(FLERR, "Illegal compute RHEO/VShift command");
@@ -271,6 +271,8 @@ void ComputeRHEOVShift::correct_surfaces()
   int dim = domain->dimension;
 
   double nx, ny, nz, vx, vy, vz, dot;
+  nz = 0.0;
+  vz = 0.0;
   for (int i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) {
 
@@ -316,8 +318,7 @@ void ComputeRHEOVShift::correct_type_interface()
 {
   int i, j, a, ii, jj, jnum, itype, jtype;
   int fluidi, fluidj;
-  double xtmp, ytmp, ztmp, rsq, r, rinv;
-  double w, wp, dr, w0, prefactor;
+  double xtmp, ytmp, ztmp, rsq, r, w;
   double imass, jmass, voli, volj, rhoi, rhoj;
   double dx[3];
   int dim = domain->dimension;
@@ -327,14 +328,12 @@ void ComputeRHEOVShift::correct_type_interface()
 
   int *type = atom->type;
   int *status = atom->rheo_status;
-  int *mask = atom->mask;
   double **x = atom->x;
   double *rho = atom->rho;
   double *mass = atom->mass;
   double *rmass = atom->rmass;
 
   int nlocal = atom->nlocal;
-  int nall = nlocal + atom->nghost;
   int newton_pair = force->newton_pair;
 
   inum = list->inum;

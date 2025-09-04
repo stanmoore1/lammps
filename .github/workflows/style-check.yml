@@ -23,7 +23,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 1
 
@@ -35,3 +35,4 @@ jobs:
          make check-permissions
          make check-homepage
          make check-errordocs
+         make check-fmtlib

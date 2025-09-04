@@ -133,7 +133,7 @@ void FixAlchemy::check_consistency_atoms()
   // check that owned atom ordering is same for each pair of replica procs
   // re-use communication buffer for positions and forces
 
-  tagint *tagbuf = (tagint *) commbuf;
+  auto *tagbuf = (tagint *) commbuf;
   tagint *tag = atom->tag;
   if (universe->iworld == 0) {
     for (int i = 0; i < nlocal; ++i) tagbuf[i] = tag[i];
@@ -242,8 +242,8 @@ void FixAlchemy::setup(int vflag)
   if (universe->me == 0) {
     progress = 0;
     auto msg = fmt::format("Starting alchemical run\n");
-    if (universe->uscreen) fmt::print(universe->uscreen, msg);
-    if (universe->ulogfile) fmt::print(universe->ulogfile, msg);
+    if (universe->uscreen) utils::print(universe->uscreen, msg);
+    if (universe->ulogfile) utils::print(universe->ulogfile, msg);
   }
 
   // recheck domain decomposition, atom ordering, and synchronize positions
@@ -325,8 +325,8 @@ void FixAlchemy::post_force(int /*vflag*/)
     if ((status / 10) > (progress / 10)) {
       progress = status;
       auto msg = fmt::format("  Alchemical run progress: {:>3d}%\n", progress);
-      if (universe->uscreen) fmt::print(universe->uscreen, msg);
-      if (universe->ulogfile) fmt::print(universe->ulogfile, msg);
+      if (universe->uscreen) utils::print(universe->uscreen, msg);
+      if (universe->ulogfile) utils::print(universe->ulogfile, msg);
     }
   }
 }

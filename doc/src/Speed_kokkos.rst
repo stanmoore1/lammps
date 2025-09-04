@@ -51,7 +51,7 @@ version 23 November 2023 and Kokkos version 4.2.
    For example, the GNU compiler uses the ``-std=c++17`` flag. For a list of
    compilers that have been tested with the Kokkos library, see the
    `requirements document of the Kokkos Wiki
-   <https://kokkos.github.io/kokkos-core-wiki/requirements.html>`_.
+   <https://kokkos.org/kokkos-core-wiki/get-started/requirements.html>`_.
 
 .. admonition:: NVIDIA CUDA support
    :class: note
@@ -67,6 +67,14 @@ version 23 November 2023 and Kokkos version 4.2.
    To build with Kokkos support for AMD GPUs, the AMD ROCm toolkit
    software version 5.2.0 or later must be installed on your system.
 
+.. admonition:: Intel Data Center GPU support
+   :class: note
+
+   Support for Kokkos with Intel Data Center GPU accelerators (formerly
+   known under the code name "Ponte Vecchio") in LAMMPS is still a work
+   in progress.  Only a subset of the functionality works correctly.
+   Please contact the LAMMPS developers if you run into problems.
+
 .. admonition:: CUDA and MPI library compatibility
    :class: note
 
@@ -80,13 +88,15 @@ version 23 November 2023 and Kokkos version 4.2.
    LAMMPS command-line or by using the command :doc:`package kokkos
    gpu/aware off <package>` in the input file.
 
-.. admonition:: Intel Data Center GPU support
+.. admonition:: Using multiple MPI ranks per GPU
    :class: note
 
-   Support for Kokkos with Intel Data Center GPU accelerators (formerly
-   known under the code name "Ponte Vecchio") in LAMMPS is still a work
-   in progress.  Only a subset of the functionality works correctly.
-   Please contact the LAMMPS developers if you run into problems.
+   Unlike with the GPU package, there are limited benefits from using
+   multiple MPI processes per GPU with KOKKOS.  But when doing this it
+   is **required** to enable CUDA MPS (`Multi-Process Service :: GPU
+   Deployment and Management Documentation
+   <https://docs.nvidia.com/deploy/mps/index.html>`_ ) to get acceptable
+   performance.
 
 Building LAMMPS with the KOKKOS package
 """""""""""""""""""""""""""""""""""""""
@@ -365,19 +375,69 @@ one or more nodes, each with two GPUs:
 
 .. note::
 
-   When using a GPU, you will achieve the best performance if your
-   input script does not use fix or compute styles which are not yet
+   When using a GPU, you will achieve the best performance if your input
+   script does not use fix or compute styles which are not yet
    Kokkos-enabled. This allows data to stay on the GPU for multiple
    timesteps, without being copied back to the host CPU. Invoking a
-   non-Kokkos fix or compute, or performing I/O for
-   :doc:`thermo <thermo_style>` or :doc:`dump <dump>` output will cause data
-   to be copied back to the CPU incurring a performance penalty.
+   non-Kokkos fix or compute, or performing I/O for :doc:`thermo
+   <thermo_style>` or :doc:`dump <dump>` output will cause data to be
+   copied back to the CPU incurring a performance penalty.
 
 .. note::
 
    To get an accurate timing breakdown between time spend in pair,
    kspace, etc., you must set the environment variable ``CUDA_LAUNCH_BLOCKING=1``.
    However, this will reduce performance and is not recommended for production runs.
+
+Troubleshooting segmentation faults on GPUs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+As noted above, KOKKOS by default assumes that the MPI library is
+GPU-aware.  This is not always the case and can lead to segmentation
+faults when using more than one MPI process.  Normally, LAMMPS will
+print a warning like "*Turning off GPU-aware MPI since it is not
+detected*", or an error message like "*Kokkos with GPU-enabled backend
+assumes GPU-aware MPI is available*", OR a **segmentation fault**.  To
+confirm that a segmentation fault is caused by this, you can turn off
+the GPU-aware assumption via the :doc:`package kokkos command <package>`
+or the corresponding command-line flag.
+
+If you still get a segmentation fault, despite running with only one MPI
+process or using the command-line flag to turn off expecting a GPU-aware
+MPI library, then using the CMake compile setting
+``-DKokkos_ENABLE_DEBUG=on`` or adding ``KOKKOS_DEBUG=yes`` to your
+machine makefile for building with traditional make will generate useful
+output that can be passed to the LAMMPS developers for further
+debugging.
+
+Troubleshooting memory allocation on GPUs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+`Kokkos Tools <https://github.com/kokkos/kokkos-tools/>`_ provides a set
+of lightweight profiling and debugging utilities, which interface with
+instrumentation hooks (eg. `space-time-stack
+<https://github.com/kokkos/kokkos-tools/tree/develop/profiling/space-time-stack>`_)
+built directly into the Kokkos runtime.  After compiling a dynamic LAMMPS
+library, you then have to set the environment variable ``KOKKOS_TOOLS_LIBS``
+before executing your LAMMPS Kokkos run. Example:
+
+.. code-block:: bash
+
+    export KOKKOS_TOOLS_LIBS=${HOME}/kokkos-tools/src/tools/memory-events/kp_memory_event.so
+    mpirun -np 4 lmp_kokkos_cuda_openmpi -in in.lj -k on g 4 -sf kk
+
+Starting with the NVIDIA Pascal GPU architecture, CUDA supports
+`"Unified Virtual Memory" (UVM)
+<https://developer.nvidia.com/blog/unified-memory-cuda-beginners/>`_
+which enables allocating more memory than a GPU possesses by also using
+memory on the host CPU and then CUDA will transparently move data
+between CPU and GPU as needed.  The resulting LAMMPS performance depends
+on `memory access pattern, data residency, and GPU memory
+oversubscription
+<https://developer.nvidia.com/blog/improving-gpu-memory-oversubscription-performance/>`_
+. The CMake option ``-DKokkos_ENABLE_CUDA_UVM=on`` or the makefile
+setting ``KOKKOS_CUDA_OPTIONS=enable_lambda,force_uvm`` enables using
+:ref:`UVM with Kokkos <kokkos>` when compiling LAMMPS.
 
 Run with the KOKKOS package by editing an input script
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

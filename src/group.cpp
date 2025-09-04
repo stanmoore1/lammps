@@ -92,7 +92,7 @@ void Group::assign(int narg, char **arg)
 {
   int i;
 
-  if (domain->box_exist == 0) error->all(FLERR, "Group command before simulation box is defined");
+  if (domain->box_exist == 0) error->all(FLERR, "Group command before simulation box is defined" + utils::errorurl(33));
   if (narg < 2) utils::missing_cmd_args(FLERR, "group", error);
 
   // delete the group if not being used elsewhere
@@ -172,7 +172,7 @@ void Group::assign(int narg, char **arg)
 
       if (narg != 3) error->all(FLERR, "Illegal group region command");
 
-      auto region = domain->get_region_by_id(arg[2]);
+      auto *region = domain->get_region_by_id(arg[2]);
       if (!region) error->all(FLERR, "Region {} for group region does not exist", arg[2]);
       region->init();
       region->prematch();
@@ -650,6 +650,19 @@ int Group::find_unused()
 }
 
 /* ----------------------------------------------------------------------
+   return group bitmask for given group id. Error out if group is not found.
+------------------------------------------------------------------------- */
+
+int Group::get_bitmask_by_id(const std::string &file, int line, const std::string &name,
+                             const std::string &caller)
+{
+  int igroup = find(name);
+  if (igroup < 0)
+    error->all(file, line, "Group ID {} requested by {} does not exist", name, caller);
+  return bitmask[igroup];
+}
+
+/* ----------------------------------------------------------------------
    add atoms to group that are in same molecules as atoms already in group
    do not include molID = 0
 ------------------------------------------------------------------------- */
@@ -697,8 +710,8 @@ void Group::add_molecules(int /*igroup*/, int bit)
 
 void Group::molring(int n, char *cbuf, void *ptr)
 {
-  auto gptr = (Group *) ptr;
-  auto list = (tagint *) cbuf;
+  auto *gptr = (Group *) ptr;
+  auto *list = (tagint *) cbuf;
   std::map<tagint, int> *hash = gptr->hash;
   int nlocal = gptr->atom->nlocal;
   tagint *molecule = gptr->atom->molecule;

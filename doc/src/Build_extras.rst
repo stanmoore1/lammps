@@ -35,6 +35,7 @@ This is the list of packages that may require additional steps.
    :columns: 6
 
    * :ref:`ADIOS <adios>`
+   * :ref:`APIP <apip>`
    * :ref:`ATC <atc>`
    * :ref:`AWPMD <awpmd>`
    * :ref:`COLVARS <colvar>`
@@ -48,6 +49,7 @@ This is the list of packages that may require additional steps.
    * :ref:`LEPTON <lepton>`
    * :ref:`MACHDYN <machdyn>`
    * :ref:`MDI <mdi>`
+   * :ref:`MISC <misc>`
    * :ref:`ML-HDNNP <ml-hdnnp>`
    * :ref:`ML-IAP <mliap>`
    * :ref:`ML-PACE <ml-pace>`
@@ -128,7 +130,7 @@ CMake build
    -D GPU_PREC=value            # precision setting
                                 # value = double or mixed (default) or single
    -D GPU_ARCH=value            # primary GPU hardware choice for GPU_API=cuda
-                                # value = sm_XX (see below, default is sm_50)
+                                # value = sm_XX (see below, default is sm_75)
    -D GPU_DEBUG=value           # enable debug code in the GPU package library,
                                 # mostly useful for developers
                                 # value = yes or no (default)
@@ -136,7 +138,7 @@ CMake build
                                 # GPU_API=HIP
    -D HIP_ARCH=value            # primary GPU hardware choice for GPU_API=hip
                                 # value depends on selected HIP_PLATFORM
-                                # default is 'gfx906' for HIP_PLATFORM=amd and 'sm_50' for
+                                # default is 'gfx906' for HIP_PLATFORM=amd and 'sm_75' for
                                 # HIP_PLATFORM=nvcc
    -D HIP_USE_DEVICE_SORT=value # enables GPU sorting
                                 # value = yes (default) or no
@@ -162,9 +164,12 @@ CMake build
 * ``sm_60`` or ``sm_61`` for Pascal (supported since CUDA 8)
 * ``sm_70`` for Volta (supported since CUDA 9)
 * ``sm_75`` for Turing (supported since CUDA 10)
-* ``sm_80`` or sm_86 for Ampere (supported since CUDA 11, sm_86 since CUDA 11.1)
+* ``sm_80`` or ``sm_86`` for Ampere (supported since CUDA 11, ``sm_86`` since CUDA 11.1)
 * ``sm_89`` for Lovelace (supported since CUDA 11.8)
-* ``sm_90`` for Hopper (supported since CUDA 12.0)
+* ``sm_90`` or ``sm_90a`` for Hopper (supported since CUDA 12.0)
+* ``sm_100`` or ``sm_103`` for Blackwell B100/B200/B300 (supported since CUDA 12.8)
+* ``sm_120`` for Blackwell B20x/B40 (supported since CUDA 12.8)
+* ``sm_121`` for Blackwell (supported since CUDA 12.9)
 
 A more detailed list can be found, for example,
 at `Wikipedia's CUDA article <https://en.wikipedia.org/wiki/CUDA#GPUs_supported>`_
@@ -254,11 +259,10 @@ Traditional make
 
 Before building LAMMPS, you must build the GPU library in ``lib/gpu``\ .
 You can do this manually if you prefer; follow the instructions in
-``lib/gpu/README``.  Note that the GPU library uses MPI calls, so you must
-use the same MPI library (or the STUBS library) settings as the main
-LAMMPS code.  This also applies to the ``-DLAMMPS_BIGBIG``\ ,
-``-DLAMMPS_SMALLBIG``\ , or ``-DLAMMPS_SMALLSMALL`` settings in whichever
-Makefile you use.
+``lib/gpu/README``.  Note that the GPU library uses MPI calls, so you
+must use the same MPI library (or the STUBS library) settings as the
+main LAMMPS code.  This also applies to the ``-DLAMMPS_BIGBIG`` or
+``-DLAMMPS_SMALLBIG`` settings in whichever Makefile you use.
 
 You can also build the library in one step from the ``lammps/src`` dir,
 using a command like these, which simply invokes the ``lib/gpu/Install.py``
@@ -521,7 +525,7 @@ to have an executable that will run on this and newer architectures.
    the new hardware.  This is, however, only supported for GPUs of the
    **same** major hardware version and different minor hardware versions,
    e.g. 5.0 and 5.2 but not 5.2 and 6.0.  LAMMPS will abort with an
-   error message indicating a mismatch, if that happens.
+   error message indicating a mismatch, if the major version differs.
 
 The settings discussed below have been tested with LAMMPS and are
 confirmed to work.  Kokkos is an active project with ongoing improvements
@@ -611,6 +615,12 @@ They must be specified in uppercase.
    *  - ZEN3
       - HOST
       - AMD Zen3 architecture
+   *  - ZEN4
+      - HOST
+      - AMD Zen4 architecture
+   *  - ZEN5
+      - HOST
+      - AMD Zen5 architecture
    *  - RISCV_SG2042
       - HOST
       - SG2042 (RISC-V) CPUs
@@ -665,6 +675,12 @@ They must be specified in uppercase.
    *  - HOPPER90
       - GPU
       - NVIDIA Hopper generation CC 9.0
+   *  - BLACKWELL100
+      - GPU
+      - NVIDIA Blackwell generation CC 10.0
+   *  - BLACKWELL120
+      - GPU
+      - NVIDIA Blackwell generation CC 12.0
    *  - AMD_GFX906
       - GPU
       - AMD GPU MI50/60
@@ -713,8 +729,11 @@ They must be specified in uppercase.
    *  - INTEL_PVC
       - GPU
       - Intel GPU Ponte Vecchio
+   *  - INTEL_DG2
+      - GPU
+      - Intel GPU DG2
 
-This list was last updated for version 4.5.1 of the Kokkos library.
+This list was last updated for version 4.6.2 of the Kokkos library.
 
 .. tabs::
 
@@ -778,23 +797,29 @@ This list was last updated for version 4.5.1 of the Kokkos library.
 
       This will enable FFTs on the GPU using the oneMKL library.
 
-      To simplify compilation, six preset files are included in the
+      To simplify compilation, seven preset files are included in the
       ``cmake/presets`` folder, ``kokkos-serial.cmake``,
       ``kokkos-openmp.cmake``, ``kokkos-cuda.cmake``,
-      ``kokkos-hip.cmake``, ``kokkos-sycl-nvidia.cmake``, and
-      ``kokkos-sycl-intel.cmake``.  They will enable the KOKKOS
-      package and enable some hardware choices.  For GPU support those
-      preset files must be customized to match the hardware used. So
-      to compile with CUDA device parallelization with some common
-      packages enabled, you can do the following:
+      ``kokkos-cuda-nowrapper.cmake``, ``kokkos-hip.cmake``,
+      ``kokkos-sycl-nvidia.cmake``, and ``kokkos-sycl-intel.cmake``.
+      They will enable the KOKKOS package and enable some hardware
+      choices.  For GPU support those preset files may need to be
+      customized to match the hardware used.  For some platforms,
+      e.g. CUDA, the Kokkos library will try to auto-detect a suitable
+      configuration.  So to compile with CUDA device parallelization
+      with some common packages enabled, you can do the following:
 
       .. code-block:: bash
 
          mkdir build-kokkos-cuda
          cd build-kokkos-cuda
          cmake -C ../cmake/presets/basic.cmake \
-               -C ../cmake/presets/kokkos-cuda.cmake ../cmake
+               -C ../cmake/presets/kokkos-cuda-nowrapper.cmake ../cmake
          cmake --build .
+
+      The ``kokkos-openmp.cmake`` preset can be combined with any of the
+      others, but it is not possible to combine multiple GPU
+      acceleration settings (CUDA, HIP, SYCL) into a single executable.
 
    .. tab:: Basic traditional make settings:
 
@@ -908,9 +933,27 @@ transparently use RAM on the host to supplement the memory used on the
 GPU (with some performance penalty) and thus enables running larger
 problems that would otherwise not fit into the RAM on the GPU.
 
-Please note, that the LAMMPS KOKKOS package must **always** be compiled
-with the *enable_lambda* option when using GPUs.  The CMake configuration
-will thus always enable it.
+The CMake option ``-D KOKKOS_PREC=value`` sets the floating point
+precision of the calculations, where ``value`` can be one of:
+``double`` (FP64, default) or ``mixed`` (FP64 for accumulation of
+forces, energy, and virial, FP32 otherwise) or ``single`` (FP32).
+Similarly the makefile settings ``-DLMP_KOKKOS_DOUBLE_DOUBLE``
+(default), ``-DLMP_KOKKOS_SINGLE_DOUBLE``, and
+``-DLMP_KOKKOS_SINGLE_SINGLE`` set double, mixed, single precision
+respectively. When using reduced precision (single or mixed), the
+simulation should be carefully checked to ensure it is stable and that
+energy is acceptably conserved.
+
+The CMake option ``-D KOKKOS_LAYOUT=value`` sets the array layout of
+Kokkos views (e.g. forces, velocities, etc.) on GPUs, where ``value``
+can be one of: ``legacy`` (mostly LayoutRight, default) or ``default``
+(mostly LayoutLeft). Similarly the makefile settings
+``-DLMP_KOKKOS_LAYOUT_LEGACY`` (default) and
+``-DLMP_KOKKOS_LAYOUT_DEFAULT`` set legacy or default layouts
+respectively. Using the default layout (LayoutLeft) can give speedup
+on GPUs for some models, but a slowdown for others. LayoutRight is
+always used for positions on GPUs since it has been found to be
+faster, and when compiling exclusively for CPUs.
 
 ----------
 
@@ -1138,11 +1181,10 @@ POEMS package
 PYTHON package
 ---------------------------
 
-Building with the PYTHON package requires you have a the Python development
-headers and library available on your system, which needs to be a Python 2.7
-version or a Python 3.x version.  Since support for Python 2.x has ended,
-using Python 3.x is strongly recommended. See ``lib/python/README`` for
-additional details.
+Building with the PYTHON package requires you have a the Python
+development headers and library available on your system, which
+needs to be Python version 3.6 or later.  See ``lib/python/README``
+for additional details.
 
 .. tabs::
 
@@ -1158,7 +1200,7 @@ additional details.
       set the Python_EXECUTABLE variable to specify which Python
       interpreter should be used.  Note note that you will also need to
       have the development headers installed for this version,
-      e.g. python2-devel.
+      e.g. python3-devel.
 
    .. tab:: Traditional make
 
@@ -1267,6 +1309,34 @@ systems.
       .. code-block:: bash
 
          ADIOS2_DIR=path make yes-adios   # path is where ADIOS 2.x is installed
+
+----------
+
+.. _apip:
+
+APIP package
+-----------------------------
+
+The APIP package depends on the library of the
+:ref:`ML-PACE <ml-pace>` package.
+The code for the library can be found
+at: `https://github.com/ICAMS/lammps-user-pace/ <https://github.com/ICAMS/lammps-user-pace/>`_
+
+.. tabs::
+
+   .. tab:: CMake build
+
+      No additional settings are needed besides ``-D PKG_APIP=yes``
+      and ``-D PKG_ML-PACE=yes``.
+      One can use a local version of the ML-PACE library instead of
+      automatically downloading the library as described :ref:`here <ml-pace>`.
+
+
+   .. tab:: Traditional make
+
+      You need to install the ML-PACE package *first* and follow
+      the instructions :ref:`here <ml-pace>` before installing
+      the APIP package.
 
 ----------
 
@@ -1709,7 +1779,7 @@ within CMake will download the non-commercial use version.
 PLUMED package
 -------------------------------------
 
-.. _plumedinstall: https://plumed.github.io/doc-master/user-doc/html/_installation.html
+.. _plumedinstall: https://www.plumed.org/doc-v2.9/user-doc/html/_installation.html
 
 Before building LAMMPS with this package, you must first build PLUMED.
 PLUMED can be built as part of the LAMMPS build or installed separately
@@ -2031,7 +2101,7 @@ TBB and MKL.
 .. _mdi:
 
 MDI package
------------------------------
+-----------
 
 .. tabs::
 
@@ -2055,6 +2125,37 @@ MDI package
 
       The build should produce two files: ``lib/mdi/includelink/mdi.h``
       and ``lib/mdi/liblink/libmdi.so``\ .
+
+----------
+
+.. _misc:
+
+MISC package
+------------
+
+The :doc:`fix imd <fix_imd>` style in this package can be run either
+synchronously (communication with IMD clients is done in the main
+process) or asynchronously (the fix spawns a separate thread that can
+communicate with IMD clients concurrently to the LAMMPS execution).
+
+.. tabs::
+
+   .. tab:: CMake build
+
+      .. code-block:: bash
+
+         -D LAMMPS_ASYNC_IMD=value  # Run IMD server asynchronously
+                                    # value = no (default) or yes
+
+   .. tab:: Traditional make
+
+      To enable asynchronous mode the ``-DLAMMPS_ASYNC_IMD`` define
+      needs to be added to the ``LMP_INC`` variable in the
+      ``Makefile.machine`` you are using.  For example:
+
+      .. code-block:: make
+
+         LMP_INC = -DLAMMPS_ASYNC_IMD -DLAMMPS_MEMALIGN=64
 
 ----------
 
@@ -2305,7 +2406,7 @@ SCAFACOS package
 -----------------------------------------
 
 To build with this package, you must download and build the
-`ScaFaCoS Coulomb solver library <http://www.scafacos.de>`_
+`ScaFaCoS Coulomb solver library <http://www.scafacos.de/>`_
 
 .. tabs::
 

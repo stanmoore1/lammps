@@ -27,12 +27,12 @@ class CommTiledKokkos : public CommTiled {
 
   ~CommTiledKokkos() override;
 
-  bool exchange_comm_classic;
-  bool forward_comm_classic;
-  bool forward_pair_comm_classic;
-  bool reverse_pair_comm_classic;
-  bool forward_fix_comm_classic;
-  bool reverse_comm_classic;
+  bool exchange_comm_legacy;
+  bool forward_comm_legacy;
+  bool forward_pair_comm_legacy;
+  bool reverse_pair_comm_legacy;
+  bool forward_fix_comm_legacy;
+  bool reverse_comm_legacy;
   bool exchange_comm_on_host;
   bool forward_comm_on_host;
   bool reverse_comm_on_host;
@@ -64,18 +64,17 @@ class CommTiledKokkos : public CommTiled {
   template<class DeviceType> void reverse_comm_device();
 
  protected:
+  int nprocmaxtot;
 
-  DAT::tdual_int_3d k_sendlist;
-  //DAT::tdual_int_scalar k_total_send;
-  DAT::tdual_xfloat_2d k_buf_send,k_buf_recv;
-  //DAT::tdual_int_scalar k_count;
+  DAT::tdual_int_3d_lr k_sendlist;
+  DAT::tdual_double_2d_lr k_buf_send,k_buf_recv;
 
-  void grow_send(int, int) override;
-  void grow_recv(int, int flag = 0) override;
+  void grow_send(int, int) override;             // reallocate send buffer
+  void grow_recv(int, int flag = 0) override;    // free/allocate recv buffer
   void grow_send_kokkos(int, int, ExecutionSpace space = Host);
   void grow_recv_kokkos(int, int, ExecutionSpace space = Host);
-  void grow_list(int, int, int) override;
-  void grow_swap_send(int, int, int) override;     // grow swap arrays for send and recv
+  void grow_list(int, int, int) override;        // reallocate sendlist for one swap/proc
+  void grow_swap_send(int, int, int) override;   // grow swap arrays for send and recv
 };
 
 }    // namespace LAMMPS_NS

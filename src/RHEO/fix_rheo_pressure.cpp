@@ -20,14 +20,13 @@
 
 #include "atom.h"
 #include "comm.h"
-#include "domain.h"
 #include "error.h"
 #include "fix_rheo.h"
 #include "memory.h"
 #include "modify.h"
-#include "update.h"
 
 #include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -191,14 +190,13 @@ void FixRHEOPressure::setup_pre_force(int /*vflag*/)
 void FixRHEOPressure::pre_force(int /*vflag*/)
 {
   int *mask = atom->mask;
-  int *type = atom->type;
   double *rho = atom->rho;
   double *pressure = atom->pressure;
 
   int nlocal = atom->nlocal;
 
   for (int i = 0; i < nlocal; i++)
-    if (mask[i] & groupbit) pressure[i] = calc_pressure(rho[i], type[i]);
+    if (mask[i] & groupbit) pressure[i] = calc_pressure(rho[i], i);
 
   if (comm_forward) comm->forward_comm(this);
 }
@@ -273,11 +271,13 @@ double FixRHEOPressure::calc_rho(double p, int i)
     error->one(FLERR,
                "Rho calculation from pressure not yet supported for cubic pressure equation");
   } else if (pressure_style[type] == TAITWATER) {
-    rho = pow(7.0 * p + csq[type] * rho0[type], SEVENTH);
+    double tmp = 7.0 * p + csq[type] * rho0[type];
+    rho = pow(MAX(0.0, tmp), SEVENTH);
     rho *= pow(rho0[type], 6.0 * SEVENTH);
     rho *= pow(csq[type], -SEVENTH);
   } else if (pressure_style[type] == TAITGENERAL) {
-    rho = pow(tpower[type] * p + csq[type] * rho0[type], 1.0 / tpower[type]);
+    double tmp = tpower[type] * p + csq[type] * rho0[type];
+    rho = pow(MAX(0.0, tmp), 1.0 / tpower[type]);
     rho *= pow(rho0[type], 1.0 - 1.0 / tpower[type]);
     rho *= pow(csq[type], -1.0 / tpower[type]);
   } else if (pressure_style[type] == IDEAL) {
@@ -288,7 +288,7 @@ double FixRHEOPressure::calc_rho(double p, int i)
 
 /* ---------------------------------------------------------------------- */
 
-double FixRHEOPressure::calc_csq(double p, int i)
+double FixRHEOPressure::calc_csq(double /*p*/, int i)
 {
   int type = atom->type[i];
   double csq2 = csq[type];
