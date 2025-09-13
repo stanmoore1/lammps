@@ -28,7 +28,7 @@ if(POLICY CMP0135)
 endif()
 
 ########################################
-
+# General project settings
 project(lammps
         DESCRIPTION "The LAMMPS Molecular Dynamics Simulator"
         HOMEPAGE_URL "https://www.lammps.org"
@@ -56,8 +56,6 @@ set(LAMMPS_DOWNLOADS_URL "https://download.lammps.org" CACHE STRING "Base URL fo
 set(LAMMPS_POTENTIALS_URL "${LAMMPS_DOWNLOADS_URL}/potentials")
 set(LAMMPS_THIRDPARTY_URL "${LAMMPS_DOWNLOADS_URL}/thirdparty")
 mark_as_advanced(LAMMPS_DOWNLOADS_URL)
-
-find_package(Git)
 
 # by default, install into $HOME/.local (not /usr/local), so that no root access (and sudo!!) is needed
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
@@ -784,11 +782,12 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different "${LAMMPS_STYLE_HE
 ######################################
 # Generate lmpgitversion.h
 ######################################
+find_package(Git)
 add_custom_target(gitversion COMMAND ${CMAKE_COMMAND}
-  -DLAMMPS_DIR="${LAMMPS_DIR}"
-  -DGIT_EXECUTABLE="${GIT_EXECUTABLE}"
-  -DGIT_FOUND="${GIT_FOUND}"
-  -DLAMMPS_STYLE_HEADERS_DIR="${LAMMPS_STYLE_HEADERS_DIR}"
+  -D LAMMPS_DIR="${LAMMPS_DIR}"
+  -D GIT_EXECUTABLE="${GIT_EXECUTABLE}"
+  -D GIT_FOUND="${GIT_FOUND}"
+  -D LAMMPS_STYLE_HEADERS_DIR="${LAMMPS_STYLE_HEADERS_DIR}"
   -P ${CMAKE_CURRENT_SOURCE_DIR}/Modules/generate_lmpgitversion.cmake)
 set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES ${LAMMPS_STYLE_HEADERS_DIR}/gitversion.h)
 add_dependencies(lammps gitversion)
