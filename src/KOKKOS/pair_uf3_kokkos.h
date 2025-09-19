@@ -43,7 +43,6 @@ template <class DeviceType> class PairUF3Kokkos : public PairUF3 {
   PairUF3Kokkos(class LAMMPS *);
   ~PairUF3Kokkos() override;
   void compute(int, int) override;
-  void settings(int, char **) override;
   void coeff(int, char **) override;
   void allocate() override;
   void init_style() override;

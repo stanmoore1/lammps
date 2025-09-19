@@ -585,18 +585,6 @@ void PairBrownianKokkos<DeviceType>::allocate()
 }
 
 /* ----------------------------------------------------------------------
-   global settings
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairBrownianKokkos<DeviceType>::settings(int narg, char **arg)
-{
-  if (narg != 7 && narg != 9) error->all(FLERR, "Illegal pair_style command");
-
-  PairBrownian::settings(narg,arg);
-}
-
-/* ----------------------------------------------------------------------
    init for one type pair i,j and corresponding j,i
 ------------------------------------------------------------------------- */
 

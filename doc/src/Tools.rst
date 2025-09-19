@@ -533,7 +533,7 @@ The file was provided by Alessandro Luigi Sellerio
 LAMMPS-GUI
 ----------
 
-.. versionchanged:: TBD
+.. versionchanged:: 10Sep2025
 
 LAMMPS-GUI is a graphical text editor customized for editing LAMMPS
 input files that is linked to the :ref:`LAMMPS C-library

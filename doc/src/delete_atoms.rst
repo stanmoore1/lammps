@@ -141,7 +141,7 @@ IDs are assigned so that the atoms owned by individual processors have
 consecutive IDs, as the :doc:`create_atoms <create_atoms>` command
 explains.  This is efficient, but incompatible with molecular systems.
 
-.. versionchanged:: TBD
+.. versionchanged:: 10Sep2025
 
 For molecular systems (see the :doc:`atom_style <atom_style>` command),
 the atom ID re-assignment now calls the :doc:`reset_atoms id
@@ -150,7 +150,7 @@ default setting is *no* in this case.  This process does *not* preserve
 the order of atoms with respect to their atom IDs.  See the *condense*
 keyword below.
 
-.. versionadded:: TBD
+.. versionadded:: 10Sep2025
 
 If the *condense* keyword set to *yes*, then after atoms are deleted,
 the atom IDs are re-assigned in such a way that the order of atom-IDs is

@@ -95,17 +95,6 @@ void PairUF3Kokkos<DeviceType>::destroy_4d(TYPE data, typename TYPE::value_type*
 }
 
 /* ----------------------------------------------------------------------
- *     global settings
- * ---------------------------------------------------------------------- */
-
-template <class DeviceType> void PairUF3Kokkos<DeviceType>::settings(int narg, char **arg)
-{
-  PairUF3::settings(narg, arg);
-  //1. Determines whether the simulation is 2-body or 2 and 3-body
-  //2. Set nbody_flag, num_of_elements, pot_3b
-}
-
-/* ----------------------------------------------------------------------
  *    set coeffs for one or more type pairs
  * ---------------------------------------------------------------------- */
 template <class DeviceType> void PairUF3Kokkos<DeviceType>::coeff(int narg, char **arg)

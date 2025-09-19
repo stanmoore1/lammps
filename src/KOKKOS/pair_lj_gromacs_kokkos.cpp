@@ -230,18 +230,6 @@ void PairLJGromacsKokkos<DeviceType>::allocate()
 }
 
 /* ----------------------------------------------------------------------
-   global settings
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairLJGromacsKokkos<DeviceType>::settings(int narg, char **arg)
-{
-  if (narg != 2) error->all(FLERR,"Illegal pair_style command");
-
-  PairLJGromacs::settings(narg,arg);
-}
-
-/* ----------------------------------------------------------------------
    init specific to this pair style
 ------------------------------------------------------------------------- */
 

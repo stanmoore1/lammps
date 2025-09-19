@@ -391,7 +391,7 @@ void Info::command(int narg, char **arg)
           }
 
           if (comm->cutusermulti) cut = MAX(cut,comm->cutusermulti[i]);
-          utils::print(out,"Communication cutoff for collection {} = {:.8}\n", i, cut);
+          utils::print(out,"Communication cutoff for collection {} = {:.8}\n", i + 1, cut);
         }
       }
     }

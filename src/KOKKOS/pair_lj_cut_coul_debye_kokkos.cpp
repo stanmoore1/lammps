@@ -257,33 +257,6 @@ void PairLJCutCoulDebyeKokkos<DeviceType>::allocate()
 }
 
 /* ----------------------------------------------------------------------
-   global settings
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairLJCutCoulDebyeKokkos<DeviceType>::settings(int narg, char **arg)
-{
-  if (narg < 2 || narg > 3) error->all(FLERR,"Illegal pair_style command");
-
-  kappa = utils::numeric(FLERR,arg[0],false,lmp);
-  cut_lj_global = utils::numeric(FLERR,arg[1],false,lmp);
-  if (narg == 2) cut_coul_global = cut_lj_global;
-  else cut_coul_global = utils::numeric(FLERR,arg[2],false,lmp);
-
-  // reset cutoffs that were previously set from data file
-
-  if (allocated) {
-    int i,j;
-    for (i = 1; i <= atom->ntypes; i++)
-      for (j = i+1; j <= atom->ntypes; j++)
-        if (setflag[i][j] == 1) {
-          cut_lj[i][j] = cut_lj_global;
-          cut_coul[i][j] = cut_coul_global;
-        }
-  }
-}
-
-/* ----------------------------------------------------------------------
    init specific to this pair style
 ------------------------------------------------------------------------- */
 

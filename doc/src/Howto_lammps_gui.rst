@@ -5,7 +5,7 @@ Using LAMMPS-GUI
    :align: center
    :scale: 75%
 
-.. versionchanged:: TBD
+.. versionchanged:: 10Sep2025
 
 This page used to contain the documentation for LAMMPS-GUI.  LAMMPS-GUI,
 however, is no longer bundled with LAMMPS and its documentation has

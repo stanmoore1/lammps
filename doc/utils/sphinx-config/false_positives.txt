@@ -2901,6 +2901,7 @@ parallelepiped
 parallelepipeds
 Parallelizable
 parallelization
+parallelize
 parallelized
 parallelizing
 param
@@ -3682,6 +3683,7 @@ stdout
 steelblue
 Stegailov
 Steinbach
+steinhardt
 Steinhardt
 Steinhauser
 Stepaniants

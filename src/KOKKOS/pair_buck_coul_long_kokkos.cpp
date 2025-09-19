@@ -391,19 +391,6 @@ void PairBuckCoulLongKokkos<DeviceType>::init_tables(double cut_coul, double *cu
   }
 }
 
-
-/* ----------------------------------------------------------------------
-   global settings
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairBuckCoulLongKokkos<DeviceType>::settings(int narg, char **arg)
-{
-  if (narg > 2) error->all(FLERR,"Illegal pair_style command");
-
-  PairBuckCoulLong::settings(narg,arg);
-}
-
 /* ----------------------------------------------------------------------
    init specific to this pair style
 ------------------------------------------------------------------------- */

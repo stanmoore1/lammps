@@ -194,18 +194,6 @@ void PairLJExpandKokkos<DeviceType>::allocate()
 }
 
 /* ----------------------------------------------------------------------
-   global settings
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairLJExpandKokkos<DeviceType>::settings(int narg, char **arg)
-{
-  if (narg != 1) error->all(FLERR,"Illegal pair_style command");
-
-  PairLJExpand::settings(1,arg);
-}
-
-/* ----------------------------------------------------------------------
    init specific to this pair style
 ------------------------------------------------------------------------- */
 

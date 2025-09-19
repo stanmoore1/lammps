@@ -46,7 +46,7 @@ if(BUILD_LAMMPS_GUI)
   # When building LAMMPS-GUI with LAMMPS we don't support plugin mode and don't include docs.
   ExternalProject_Add(lammps-gui_build
     GIT_REPOSITORY https://github.com/akohlmey/lammps-gui.git
-    GIT_TAG develop
+    GIT_TAG main
     GIT_SHALLOW TRUE
     GIT_PROGRESS TRUE
     CMAKE_ARGS -D BUILD_DOC=OFF

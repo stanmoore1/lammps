@@ -18,6 +18,7 @@
 #include "atom_masks.h"
 #include "comm_kokkos.h"
 #include "domain.h"
+#include "error.h"
 #include "kokkos.h"
 
 using namespace LAMMPS_NS;
@@ -26,6 +27,9 @@ using namespace LAMMPS_NS;
 
 AtomVecKokkos::AtomVecKokkos(LAMMPS *lmp) : AtomVec(lmp)
 {
+  if (!lmp->kokkos || !lmp->kokkos->kokkos_exists)
+    error->all(FLERR, Error::NOLASTLINE, "Cannot use KOKKOS styles without enabling KOKKOS");
+
   kokkosable = 1;
   buffer = nullptr;
   buffer_size = 0;

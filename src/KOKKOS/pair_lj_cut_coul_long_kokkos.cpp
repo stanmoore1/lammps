@@ -391,19 +391,6 @@ void PairLJCutCoulLongKokkos<DeviceType>::init_tables(double cut_coul, double *c
   }
 }
 
-
-/* ----------------------------------------------------------------------
-   global settings
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairLJCutCoulLongKokkos<DeviceType>::settings(int narg, char **arg)
-{
-  if (narg > 2) error->all(FLERR,"Illegal pair_style command");
-
-  PairLJCutCoulLong::settings(narg,arg);
-}
-
 /* ----------------------------------------------------------------------
    init specific to this pair style
 ------------------------------------------------------------------------- */

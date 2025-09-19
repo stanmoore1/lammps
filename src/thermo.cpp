@@ -139,7 +139,8 @@ Thermo::Thermo(LAMMPS *_lmp, int narg, char **arg) :
     lineflag = YAMLLINE;
 
   } else if (strcmp(style, "custom") == 0) {
-    if (narg == 1) error->all(FLERR, Error::ARGZERO, "Illegal thermo style custom command");
+    if (narg == 1)
+      error->all(FLERR, Error::ARGZERO, "Cannot use thermo style custom without custom keywords");
 
     // expand args if any have wildcard character "*"
 
@@ -162,7 +163,7 @@ Thermo::Thermo(LAMMPS *_lmp, int narg, char **arg) :
     }
 
   } else
-    error->all(FLERR, Error::ARGZERO, "Illegal thermo style {}", style);
+    error->all(FLERR, Error::ARGZERO, "Unknown thermo style {}", style);
 
   index_temp = index_press_scalar = index_press_vector = index_pe = -1;
 

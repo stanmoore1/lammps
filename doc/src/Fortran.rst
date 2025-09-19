@@ -376,6 +376,8 @@ of the contents of the :f:mod:`LIBLAMMPS` Fortran interface to LAMMPS.
    :ftype get_os_info: subroutine
    :f config_has_mpi_support: :f:func:`config_has_mpi_support`
    :ftype config_has_mpi_support: function
+   :f config_has_omp_support: :f:func:`config_has_omp_support`
+   :ftype config_has_omp_support: function
    :f config_has_gzip_support: :f:func:`config_has_gzip_support`
    :ftype config_has_gzip_support: function
    :f config_has_png_support: :f:func:`config_has_png_support`
@@ -2314,6 +2316,18 @@ Procedures Bound to the :f:type:`lammps` Derived Type
    :r has_mpi: ``.FALSE.`` when compiled with STUBS, ``.TRUE.`` if
     complied with MPI.
    :rtype has_mpi: logical
+
+--------
+
+.. f:function:: config_has_omp_support()
+
+   This function is used to query whether LAMMPS was compiled with OpenMP enabled.
+
+   .. versionadded:: 10Sep2025
+
+   :to: :cpp:func:`lammps_config_has_omp_support`
+   :r has_omp: ``.TRUE.`` when compiled with OpenMP enabled, ``.FALSE.`` if not.
+   :rtype has_omp: logical
 
 --------
 

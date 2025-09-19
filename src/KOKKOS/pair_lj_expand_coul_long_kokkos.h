@@ -42,7 +42,6 @@ class PairLJExpandCoulLongKokkos : public PairLJExpandCoulLong {
 
   void compute(int, int) override;
 
-  void settings(int, char **) override;
   void init_tables(double cut_coul, double *cut_respa) override;
   void init_style() override;
   double init_one(int, int) override;

@@ -393,7 +393,6 @@ FSUM FixLangevinKokkos<DeviceType>::post_force_item(int i) const
   FSUM fsum;
   KK_FLOAT fdrag[3],fran[3];
   KK_FLOAT gamma1,gamma2;
-  KK_FLOAT fswap;
   KK_FLOAT tsqrt_t = tsqrt;
 
   if (mask[i] & groupbit) {

@@ -389,19 +389,6 @@ void PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::init_tables(double cut_co
   }
 }
 
-
-/* ----------------------------------------------------------------------
-   global settings
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairLJCharmmCoulCharmmImplicitKokkos<DeviceType>::settings(int narg, char **arg)
-{
-  if (narg > 2) error->all(FLERR,"Illegal pair_style command");
-
-  PairLJCharmmCoulCharmmImplicit::settings(narg,arg);
-}
-
 /* ----------------------------------------------------------------------
    init specific to this pair style
 ------------------------------------------------------------------------- */

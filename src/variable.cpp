@@ -613,7 +613,8 @@ void Variable::set(int narg, char **arg)
 
   } else if (strcmp(arg[1], "timer") == 0) {
     if (narg != 2)
-      error->all(FLERR, "Illegal variable command: expected 2 arguments but found {}", narg);
+      error->all(FLERR, "Illegal variable command: expected 2 arguments but found {}{}", narg,
+                 utils::errorurl(3));
     int ivar = find(arg[0]);
     if (ivar >= 0) {
       if (style[ivar] != TIMER)

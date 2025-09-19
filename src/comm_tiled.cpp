@@ -194,7 +194,6 @@ void CommTiled::setup()
 
   dimension = domain->dimension;
   int *periodicity = domain->periodicity;
-  int ntypes = atom->ntypes;
 
   if (triclinic == 0) {
     prd = domain->prd;

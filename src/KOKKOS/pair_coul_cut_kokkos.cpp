@@ -186,19 +186,6 @@ void PairCoulCutKokkos<DeviceType>::allocate()
 }
 
 /* ----------------------------------------------------------------------
-   global settings
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairCoulCutKokkos<DeviceType>::settings(int narg, char **arg)
-{
-  // \todo check what should be the limit on narg
-  if (narg > 2) error->all(FLERR,"Illegal pair_style command");
-
-  PairCoulCut::settings(1,arg);
-}
-
-/* ----------------------------------------------------------------------
    init specific to this pair style
 ------------------------------------------------------------------------- */
 
