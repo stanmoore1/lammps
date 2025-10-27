@@ -214,6 +214,8 @@ formulas for the meaning of these parameters:
 +------------------------------------------------------------------------------+--------------------------------------------------+-------------+
 | :doc:`lj/mdf <pair_mdf>`                                                     | epsilon,sigma                                    | type pairs  |
 +------------------------------------------------------------------------------+--------------------------------------------------+-------------+
+| :doc:`lj/pirani <pair_lj_pirani>`                                            | alpha, beta, gamma, rm, epsilon                  | type pairs  |
++------------------------------------------------------------------------------+--------------------------------------------------+-------------+
 | :doc:`lj/sf/dipole/sf <pair_dipole>`                                         | epsilon,sigma,scale                              | type pairs  |
 +------------------------------------------------------------------------------+--------------------------------------------------+-------------+
 | :doc:`lubricate <pair_lubricate>`                                            | mu                                               | global      |
@@ -438,7 +440,7 @@ this fix uses to reset theta0 needs to generate values in radians.
 
 ----------
 
-.. versionadded:: TBD
+.. versionadded:: 12Jun2025
 
 The *dihedral* keyword uses the specified variable to change the value of
 a dihedral coefficient over time, very similar to how the *angle* keyword

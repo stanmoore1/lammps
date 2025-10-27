@@ -34,9 +34,7 @@
 #include "memory.h"
 #include "modify.h"
 #include "update.h"
-#include "utils.h"
 
-#include <cmath>
 #include <cstring>
 
 using namespace LAMMPS_NS;
@@ -502,7 +500,7 @@ void ComputeRHEOPropertyAtom::pack_total_stress(int n)
 
 void ComputeRHEOPropertyAtom::pack_nbond_shell(int n)
 {
-  int *nbond = fix_oxidation->nbond;
+  int *nbond = atom->ivector[fix_oxidation->index_nb];
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
 
