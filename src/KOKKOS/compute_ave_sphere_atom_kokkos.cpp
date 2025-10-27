@@ -148,8 +148,8 @@ void ComputeAveSphereAtomKokkos<DeviceType>::operator()(TagComputeAveSphereAtom,
     // i atom contribution
 
     int count = 1;
-    KK_FLOAT totalmass = massone_i;
-    KK_FLOAT vcom[3],xcom[3];
+    KK_ACC_FLOAT totalmass = massone_i;
+    KK_ACC_FLOAT vcom[3],xcom[3];
 
     vcom[0] = v(i,0)*massone_i;
     vcom[1] = v(i,1)*massone_i;
