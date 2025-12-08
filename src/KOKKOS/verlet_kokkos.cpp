@@ -381,8 +381,8 @@ void VerletKokkos::run(int n)
     }
 
     bool execute_on_host = false;
-    unsigned int datamask_read_host = 0;
-    unsigned int datamask_exclude = 0;
+    uint64_t datamask_read_host = 0;
+    uint64_t datamask_exclude = 0;
     int allow_overlap = lmp->kokkos->allow_overlap;
 
     if (allow_overlap && atomKK->k_f.view_hostkk().data() != atomKK->k_f.view_device().data()) {
@@ -557,7 +557,7 @@ void VerletKokkos::force_clear()
     atomKK->modified(Device,F_MASK);
 
     if (torqueflag) {
-      Kokkos::parallel_for(nall, Zero<DAT::t_kkfloat_1d_3>(atomKK->k_torque.view_device()));
+      Kokkos::parallel_for(nall, Zero<DAT::t_kkacc_1d_3>(atomKK->k_torque.view_device()));
       atomKK->modified(Device,TORQUE_MASK);
     }
 
@@ -579,7 +579,7 @@ void VerletKokkos::force_clear()
     atomKK->modified(Device,F_MASK);
 
     if (torqueflag) {
-      Kokkos::parallel_for(atomKK->nfirst, Zero<DAT::t_kkfloat_1d_3>(atomKK->k_torque.view_device()));
+      Kokkos::parallel_for(atomKK->nfirst, Zero<DAT::t_kkacc_1d_3>(atomKK->k_torque.view_device()));
       atomKK->modified(Device,TORQUE_MASK);
     }
 
@@ -598,7 +598,7 @@ void VerletKokkos::force_clear()
       atomKK->modified(Device,F_MASK);
 
       if (torqueflag) {
-        Kokkos::parallel_for(range, Zero<DAT::t_kkfloat_1d_3>(atomKK->k_torque.view_device()));
+        Kokkos::parallel_for(range, Zero<DAT::t_kkacc_1d_3>(atomKK->k_torque.view_device()));
         atomKK->modified(Device,TORQUE_MASK);
       }
 

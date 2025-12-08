@@ -41,6 +41,8 @@ Syntax
          Nlimit = maximum total number of reactions allowed to occur
        *shuffle_seed* value = seed
          seed = random # seed (positive integer) for choosing between eligible reactions
+       *file* value = filename
+         filename = name of the JSON file that records reaction occurrences
 
 * react = mandatory argument indicating new reaction specification
 * react-ID = user-assigned name for the reaction
@@ -243,6 +245,52 @@ listed reactions. By default, a hardware-based random number source is used
 if available; reactions are chosen deterministically if a positive integer
 is specified for the 'shuffle_seed' keyword. Multiple *max_rxn* keywords
 can be specified.
+
+The *file* keyword can be used to dump information about each reaction that
+occurs during the simulation. The atom IDs, types, and coordinates of all
+atoms in the reaction site are printed out on the timestep that the
+reaction is initiated. The output file follows the :ref:`JSON dump
+molecules format <json-dump-files>`, with one extra key added to each
+molecule object to identify the reaction. The added key is "reaction" and
+its value is the reaction name (react-ID). Here is an example output for a
+hypothetical reaction involving one water molecule:
+
+.. code-block:: json
+
+   {
+       "application": "LAMMPS",
+       "units": "real",
+       "format": "dump",
+       "style": "molecules",
+       "revision": 1,
+       "title": "fix bond/react",
+       "timesteps": [
+           {
+               "timestep": 1,
+               "molecules": [
+                   {
+                       "reaction": "water_dissociation",
+                       "types": {
+                           "format": ["atom-id", "type"],
+                           "data": [
+                               [1368, "H"],
+                               [1366, "O"],
+                               [1367, "H"]
+                           ]
+                       },
+                       "coords": {
+                           "format": ["atom-id", "x", "y", "z"],
+                           "data": [
+                               [1368, 26.787767440427466, 29.785528640296768, 25.85197353660144],
+                               [1366, 26.641801222582824, 29.868106247702887, 24.91285138212243],
+                               [1367, 25.69611192416744, 30.093425787807448, 24.914380215672846]
+                           ]
+                       }
+                   }
+               ]
+           }
+       ]
+   }
 
 The following comments pertain to each *react* argument (in other
 words, they can be customized for each reaction, or reaction step):

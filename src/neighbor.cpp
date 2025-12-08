@@ -13,8 +13,9 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author (triclinic and multi-neigh) : Pieter in 't Veld (SNL)
-   Contributing author (improved multi-neigh) : Joel Clemmer (SNL)
+   Contributing author (triclinic and original multi-neigh) : Pieter in 't Veld (SNL)
+   Contributing author (improved multi-neigh) : Joel Clemmer (SNL), Kevin Hanley (Edinburgh),
+                                                Kevin Stratford (Edinburgh), Tom Shire (Edinburgh)
 ------------------------------------------------------------------------- */
 
 #include "neighbor.h"
@@ -66,7 +67,7 @@ static constexpr double BIG = 1.0e20;
 enum{NONE,ALL,PARTIAL,TEMPLATE};
 
 static const char cite_neigh_multi[] =
-  "neighbor multi command: doi:10.1016/j.cpc.2008.03.005, doi:10.1007/s40571-020-00361-2\n\n"
+  "neighbor multi command: https://doi.org/10.1016/j.cpc.2008.03.005, https://doi.org/10.1007/s40571-020-00361-2\n\n"
   "@Article{Intveld08,\n"
   " author =  {in 't Veld, P. J. and S. J.~Plimpton and G. S. Grest},\n"
   " title =   {Accurate and Efficient Methods for Modeling Colloidal\n"

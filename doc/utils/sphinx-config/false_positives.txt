@@ -764,6 +764,8 @@ Decius
 decompositions
 decorrelation
 decrementing
+deduplicates
+deduplication
 deeppink
 deepskyblue
 defgrad
@@ -827,6 +829,7 @@ diagonalizers
 diagonalizing
 Diallo
 diblock
+dichalcogenide
 dichalcogenides
 Dickel
 diel
@@ -1139,6 +1142,7 @@ ew
 ewald
 Ewald
 ewaldflag
+exascale
 excitations
 excv
 exe
@@ -1514,6 +1518,7 @@ Hershchel
 Hertizian
 hertzian
 Hertzsch
+heterointerfaces
 heterostructures
 hexahedrons
 hexatic
@@ -1791,6 +1796,7 @@ jN
 Joanes
 Joannopoulos
 Jochim
+Johansson
 Jonsson
 Jorgensen
 jp
@@ -2132,6 +2138,7 @@ lunit
 Lunkad
 Lussetti
 Lustig
+Lutsko
 lval
 lwsock
 lx
@@ -3200,6 +3207,7 @@ quadrupolar
 quadrupole
 quadrupoles
 Quant
+quantumness
 quartic
 quat
 quaternion
@@ -4330,6 +4338,7 @@ Yamada
 yaml
 Yan
 Yanxon
+Yao
 Yaser
 Yazdani
 Ybar

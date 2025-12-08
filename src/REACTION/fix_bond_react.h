@@ -29,9 +29,12 @@ FixStyle(bond/react,FixBondReact);
 #include <array>
 #include <deque>
 #include <map>
+#include <memory>
 #include <set>
 
 namespace LAMMPS_NS {
+
+struct json_metadata;                                      // forward declaration. full declaration in json_metadata.h
 
 class FixBondReact : public Fix {
  public:
@@ -67,6 +70,10 @@ class FixBondReact : public Fix {
   int newton_bond;
   FILE *fp;
   tagint lastcheck;
+  FILE *fpout;
+  bool outflag;
+  int json_init;
+  std::unique_ptr<json_metadata> rxn_metadata;
   int stabilization_flag;
   Reset_Mol_IDs molid_mode;
   int custom_exclude_flag;
@@ -78,7 +85,7 @@ class FixBondReact : public Fix {
   Status status;
 
   struct Reaction {
-    int ID;
+    int ID;                                                // indexed from 0
     class Molecule *reactant;                              // pre-reacted molecule template
     class Molecule *product;                               // post-reacted molecule template
     std::string name, constraintstr;
