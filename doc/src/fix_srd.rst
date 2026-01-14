@@ -295,6 +295,8 @@ big particles or walls have a thermostatting effect on the colliding particles,
 so it may not be necessary to thermostat the SRD particles on a bin by bin
 basis in that case.
 
+.. versionadded:: 10Dec2025
+
 The *unbiased* keyword controls how the thermostat operates if there is a streaming
 velocity associated with the system, e.g. due to use of the
 :doc:`fix deform <fix_deform>` command to perform a simulation undergoing
