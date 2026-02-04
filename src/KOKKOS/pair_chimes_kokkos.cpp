@@ -142,7 +142,6 @@ void PairCHIMESKokkos<DeviceType>::init_style()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
 void PairCHIMESKokkos<DeviceType>::coeff(int narg, char **arg)
 {
   PairCHIMES::coeff(narg,arg);
@@ -307,7 +306,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh, const 
 
       // Now decide if we should continue on to 4-body neighbor list construction
 
-      if (chimes_calculatorKK.poly_orders[2] == 0)
+      if (chimes_calculatorKK.d_poly_orders[2] == 0)
         continue;
 
       const int lnum = d_numneigh[i];

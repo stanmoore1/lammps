@@ -319,11 +319,11 @@ void chimesFFKokkos<DeviceType>::get_penalty(const KK_FLOAT dx, const int& pair_
 
     //if (rank == 0) // Commenting out - we need all ranks to report if the penalty function has been sampled
     //{
-        cout << "chimesFFKokkos: " << "Adding penalty in 2B Cheby calc, r < rmin+penalty_dist " << fixed
+        /*cout << "chimesFFKokkos: " << "Adding penalty in 2B Cheby calc, r < rmin+penalty_dist " << fixed
              << dx << " "
              << chimes_2b_cutoff[pair_idx][0] + penalty_params[0]
              << " pair type: " << pair_idx << endl;
-        cout << "chimesFFKokkos: " << "\t...Penalty potential = "<< E_penalty << endl;
+        cout << "chimesFFKokkos: " << "\t...Penalty potential = "<< E_penalty << endl;*/
     //}
   }
 }
@@ -404,8 +404,8 @@ void chimesFFKokkos<DeviceType>::set_cheby_polys(typename AT::t_kkfloat_1d &Tn, 
 
     Tnd[0] = 0.0;
   } else { // out_of_range == true
-    cout << "Warning: An intermolecular distance less than the inner cutoff = " << inner_cutoff << " was found\n ";
-    cout << "         Distance = " << dx_orig << endl;
+    //////cout << "Warning: An intermolecular distance less than the inner cutoff = " << inner_cutoff << " was found\n ";
+    //////cout << "         Distance = " << dx_orig << endl;
 
     set_polys_out_of_range(Tn, Tnd, dx_orig, x, order, inner_cutoff, exprlen, dx_dr);
   }

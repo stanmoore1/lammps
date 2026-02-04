@@ -1218,7 +1218,6 @@ void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
 void chimesFFKokkos<DeviceType>::build_pair_int_quad_map()
 // Build the pair maps for all possible quads.  Moved build_atom_and_pair_mappers out of the compute_XX routines
 // to support GPU environment without string operations.
@@ -1250,7 +1249,6 @@ void chimesFFKokkos<DeviceType>::build_pair_int_quad_map()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
 void chimesFFKokkos<DeviceType>::build_pair_int_trip_map()
 // Build the pair maps for all possible triplets.  Moved build_atom_and_pair_mappers out of the compute_XX routines
 // to support GPU environment without string operations.
