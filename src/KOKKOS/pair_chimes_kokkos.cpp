@@ -1,0 +1,925 @@
+// clang-format off
+/* -*- c++ -*- ----------------------------------------------------------
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
+
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
+
+   See the README file in the top-level LAMMPS directory.
+------------------------------------------------------------------------- */
+
+/* ----------------------------------------------------------------------
+   Contributing author: Stan Moore (SNL)
+------------------------------------------------------------------------- */
+
+#include "math.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+#include "mpi.h"
+#include "atom_kokkos.h"
+#include "atom_masks.h"
+#include "force.h"
+#include "kokkos.h"
+#include "comm.h"
+#include "neighbor.h"
+#include "neigh_list.h"
+#include "neigh_request.h"
+#include "my_page.h"
+#include "math_const.h"
+#include "math_special.h"
+#include "memory_kokkos.h"
+#include "error.h"
+#include "pair_chimes_kokkos.h"
+#include "group.h"
+#include "update.h" // Needed for mb neighlist updates and info printing for fitting
+#include "output.h" // Needed for infor printing for fitting -- dump 1 must be the "main" dump file used for fitting
+#include "utils.h"  // Needed for infor printing for fitting
+//#include <iostream>
+//#include <sstream>
+#include <cstring>
+
+using namespace LAMMPS_NS;
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+PairCHIMESKokkos<DeviceType>::PairCHIMESKokkos(LAMMPS *lmp) : PairCHIMES(lmp)
+{
+  respa_enable = 0;
+
+  kokkosable = 1;
+  atomKK = (AtomKokkos *) atom;
+  execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
+  datamask_read = EMPTY_MASK;
+  datamask_modify = EMPTY_MASK;
+
+#ifdef TABULATION
+ error->all(FLERR,"Cannot (yet) use tabulation with pair_style chimes/kk");
+#endif
+
+#ifdef FINGERPRINT
+ error->all(FLERR,"Cannot (yet) use fingerprint with pair_style chimes/kk");
+#endif
+
+  chimes_calculatorKK.init(comm->me);   // chimesFF instance
+
+  chimes_calculator = (chimesFF*) (&chimes_calculatorKK);
+
+  d_size_3mers = DAT::t_int_scalar("pair:size_3mers");
+  d_size_4mers = DAT::t_int_scalar("pair:size_4mers");
+
+  max_3mers = 1;
+  max_4mers = 1;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+PairCHIMESKokkos<DeviceType>::~PairCHIMESKokkos()
+{
+  if (copymode) return;
+
+  /*if (allocated)
+  {
+    memory->destroy(setflag);
+    memory->destroy(cutsq);
+  }*/
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairCHIMESKokkos<DeviceType>::allocate()
+{
+  PairCHIMES::allocate();
+
+  int n = atom->ntypes + 1;
+  MemKK::realloc_kokkos(d_map, "chimes:map", n);
+
+  MemKK::realloc_kokkos(k_cutsq, "chimes:cutsq", n, n);
+  d_cutsq = k_cutsq.template view<DeviceType>();
+
+  MemKK::realloc_kokkos(k_scale, "chimes:scale", n, n);
+  d_scale = k_scale.template view<DeviceType>();
+
+  allocated = 1;
+
+  memory->create(setflag,atom->ntypes+1,atom->ntypes+1,"pair:setflag");
+
+  for (int i = 1; i <= atom->ntypes; i++)
+    for (int j = i; j <= atom->ntypes; j++)
+      setflag[i][j] = 0;
+
+  memory->create(cutsq,atom->ntypes+1,atom->ntypes+1,"pair:cutsq");
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairCHIMESKokkos<DeviceType>::init_style()
+{
+  PairCHIMES::init_style();
+
+  // adjust neighbor list request for KOKKOS
+
+  auto request = neighbor->find_request(this);
+
+  request->set_kokkos_host(std::is_same_v<DeviceType,LMPHostType> &&
+                           !std::is_same_v<DeviceType,LMPDeviceType>);
+  request->set_kokkos_device(std::is_same_v<DeviceType,LMPDeviceType>);
+
+  neighflag = lmp->kokkos->neighflag;
+
+  if (neighflag == FULL)
+    error->all(FLERR,"Must use half neighbor list style with pair chimes/kk");
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType>::coeff(int narg, char **arg)
+{
+  PairCHIMES::coeff(narg,arg);
+
+
+  // chimes_type
+
+  int size = chimes_type.size();
+  LAMMPS_NS::MemKK::realloc_kokkos(d_chimes_type,"chimes:chimes_type",size);
+
+  auto h_chimes_type = Kokkos::create_mirror_view(d_chimes_type);
+
+  for (int i = 0; i < size; i++)
+    h_chimes_type[i] = chimes_type[i];
+
+  Kokkos::deep_copy(d_chimes_type,h_chimes_type);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+KK_FLOAT PairCHIMESKokkos<DeviceType>::get_dist(int i, int j, KK_FLOAT *dr) const
+{
+  dr[0] = x(j,0) - x(i,0);
+  dr[1] = x(j,1) - x(i,1);
+  dr[2] = x(j,2) - x(i,2);
+
+  return sqrt(dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2]);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+KK_FLOAT PairCHIMESKokkos<DeviceType>::get_dist(int i, int j) const
+{
+  KK_FLOAT dummy_dr[3];
+
+  return get_dist(i,j, dummy_dr);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
+{
+  if ((chimes_calculatorKK.poly_orders[1] == 0) &&  (chimes_calculatorKK.poly_orders[2] == 0))
+    return;
+
+  // List gets built based on atoms owned by calling proc
+
+  maxcut_3b_padded = maxcut_3b + neighbor->skin;
+  maxcut_4b_padded = maxcut_4b + neighbor->skin;
+
+  if (d_neighborlist_3mers.extent(0) < max_3mers)
+    Kokkos::resize(d_neighborlist_3mers,max_3mers);
+
+  if (d_neighborlist_4mers.extent(0) < max_4mers)
+    Kokkos::resize(d_neighborlist_4mers,max_4mers);
+
+  int nmax = atom->nmax;
+  int nlocal = atom->nlocal;
+
+  // try, resize if necessary
+
+  int resize = 1;
+  while (resize) {
+    resize = 0;
+
+    Kokkos::deep_copy(d_size_3mers,0.0); 
+    Kokkos::deep_copy(d_size_4mers,0.0); // could fuse
+
+    typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESComputeNeigh> policy_neigh(0,inum);
+    Kokkos::parallel_for("ComputeNeigh",policy_neigh,*this);
+
+    auto h_size_3mers = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_size_3mers);
+    auto h_size_4mers = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_size_4mers);
+
+    size_3mers = h_size_3mers();
+    int resize_3mers = h_size_3mers() > max_3mers;
+    if (resize_3mers) {
+      max_3mers = MAX(max_3mers+MAX(1,max_3mers*0.1),size_3mers);
+      Kokkos::resize(d_neighborlist_3mers,max_3mers);
+    }
+
+    size_4mers = h_size_4mers();
+    int resize_4mers = size_4mers > max_4mers;
+    if (resize_4mers) {
+      max_4mers = MAX(max_4mers+MAX(1,max_4mers*0.1),size_4mers);
+      Kokkos::resize(d_neighborlist_4mers,max_4mers);
+    }
+
+    resize = resize_3mers || resize_4mers;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh, const int& ii) const
+{
+  const int i = d_ilist[ii];
+  const tagint itag = tag[i];
+  const int jnum = d_numneigh[i];
+
+  for (int jj = 0; jj < jnum; jj++) {
+    int j = d_neighbors(i,jj);
+    j &= NEIGHMASK;
+    const tagint jtag = tag[j];
+
+    if (j == i) continue;
+
+    if (jtag < itag) continue;
+
+    // Check ij distance
+
+    const KK_FLOAT dist_ij = get_dist(i,j);
+
+    if ((dist_ij >= maxcut_3b_padded) && (dist_ij >= maxcut_4b_padded))
+      continue;
+
+    // ChIMES assumes all atoms must be within cutoff of each other for a valid interaction
+    const int knum = d_numneigh[i];
+
+    for (int kk = 0; kk < knum; kk++) {
+      int k = d_neighbors(i,kk);
+      k &= NEIGHMASK;
+      const tagint ktag = tag[k];
+
+      if ((k == i) || (k == j)) continue;
+
+      if ((ktag < itag) || (ktag < jtag)) continue;
+
+      // Check ik distance
+
+      const KK_FLOAT dist_ik = get_dist(i,k);
+
+      if ((dist_ik >= maxcut_3b_padded) && (dist_ik >= maxcut_4b_padded))
+        continue;
+
+      // Check jk distance
+
+      const KK_FLOAT dist_jk = get_dist(j,k);
+
+      if ((dist_ij < maxcut_3b_padded) && (dist_ik < maxcut_3b_padded) && (dist_jk < maxcut_3b_padded))
+      {
+        // If we're here and valid_3mer == true, then add the triplet to the chimes neigh list
+
+        const int ii3 = Kokkos::atomic_fetch_add(&d_size_3mers(),1);
+
+        if (ii3 < max_3mers) {
+          d_neighborlist_3mers(ii3,0) = i;
+          d_neighborlist_3mers(ii3,1) = j;
+          d_neighborlist_3mers(ii3,2) = k;
+        }
+      }
+
+      if ((dist_ij >= maxcut_4b_padded) || (dist_ik >= maxcut_4b_padded) || (dist_jk >= maxcut_4b_padded))
+        continue;
+
+      // Now decide if we should continue on to 4-body neighbor list construction
+
+      if (chimes_calculatorKK.poly_orders[2] == 0)
+        continue;
+
+      const int lnum = d_numneigh[i];
+
+      for (int ll = 0; ll < lnum; ll++)
+      {
+        int l = d_neighbors(i,ll);
+        const tagint ltag = tag[l];
+        l &= NEIGHMASK;
+
+        if ((l == i) || (l == j) || (l == k)) continue;
+
+        if ((ltag < itag) || (ltag < jtag) || (ltag < ktag))
+          continue;
+
+        // Check il distance
+
+        const KK_FLOAT dist_il = get_dist(i,l);
+
+        if (dist_il >= maxcut_4b_padded)
+          continue;
+
+        // Check jl distance
+
+        const KK_FLOAT dist_jl = get_dist(j,l);
+
+        if (dist_jl >= maxcut_4b_padded)
+          continue;
+
+        // Check kl distance
+
+        const KK_FLOAT dist_kl = get_dist(k,l);
+
+        if (dist_kl >= maxcut_4b_padded)
+          continue;
+
+        // If we're here and valid_4mer == true, then add the quadruplet to the chimes neigh list
+
+        const int ii4 = Kokkos::atomic_fetch_add(&d_size_4mers(),1);
+
+        if (ii4 < max_4mers) {
+          d_neighborlist_4mers(ii4,0) = i;
+          d_neighborlist_4mers(ii4,1) = j;
+          d_neighborlist_4mers(ii4,2) = k;
+          d_neighborlist_4mers(ii4,3) = l;
+        }
+      }
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+struct FindMaxNumNeighs {
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
+  NeighListKokkos<DeviceType> k_list;
+
+  FindMaxNumNeighs(NeighListKokkos<DeviceType>* nl): k_list(*nl) {}
+  ~FindMaxNumNeighs() {k_list.copymode = 1;}
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const int& ii, int& maxneigh) const {
+    const int i = k_list.d_ilist[ii];
+    const int num_neighs = k_list.d_numneigh[i];
+    if (maxneigh < num_neighs) maxneigh = num_neighs;
+  }
+};
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairCHIMESKokkos<DeviceType>::compute(int eflag, int vflag)
+{
+  copymode = 1;
+
+  // Vars for access to chimesFF compute_XB functions
+
+  x = atomKK->k_x.view<DeviceType>();
+  f = atomKK->k_f.view<DeviceType>();
+  type = atomKK->k_type.view<DeviceType>();
+  tag = atomKK->k_tag.view<DeviceType>();
+  int nlocal = atom->nlocal; ////
+  int newton_pair = force->newton_pair; ////
+
+  // Set up vars controlling if energy/pressure (virial) contributions are computed
+
+  if (eflag || vflag) {
+    ev_setup(eflag,vflag);
+  } else {
+    evflag = 0;
+    vflag_fdotr = 0;
+    vflag_atom = 0;
+  }
+
+  ////////////////////////////////////////
+  // Access to (2-body) neighbor list vars
+  ////////////////////////////////////////
+
+  NeighListKokkos<DeviceType>* k_list = static_cast<NeighListKokkos<DeviceType>*>(list);
+  d_numneigh = k_list->d_numneigh;
+  d_neighbors = k_list->d_neighbors;
+  d_ilist = k_list->d_ilist;
+  inum = list->inum;
+
+  need_dup = lmp->kokkos->need_dup<DeviceType>();
+  if (need_dup) {
+    dup_f     = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(f);
+    dup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_eatom);
+    dup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_vatom);
+  } else {
+    ndup_f     = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(f);
+    ndup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_eatom);
+    ndup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
+  }
+
+  chimes_2btmpKK = typename chimesFFKokkos<DeviceType>::chimes2BTmpKokkos(chimes_calculatorKK.poly_orders[0]);
+  chimes_3btmpKK = typename chimesFFKokkos<DeviceType>::chimes3BTmpKokkos(chimes_calculatorKK.poly_orders[1]);
+  chimes_4btmpKK = typename chimesFFKokkos<DeviceType>::chimes4BTmpKokkos(chimes_calculatorKK.poly_orders[2]);
+
+  // Build the ChIMES many-body neighbor lists.. only do so when LAMMPS neighborlist has been updated
+
+  if (neighbor->ago == 0) {
+    if (chimes_calculatorKK.rank == 0)
+      std::cout << "Updating chimesFF neighbor lists..." << std::endl;
+
+    build_mb_neighlists();
+
+    if (chimes_calculatorKK.rank == 0) {
+      std::cout << "      Rank " << comm->me << " 3-body list size: " << size_3mers << std::endl;
+      std::cout << "      Rank " << comm->me << " 4-body list size: " << size_4mers << std::endl;
+      std::cout << "      ...update complete" << std::endl;
+    }
+  }
+
+  // Prepare the badness variable
+
+  chimes_calculatorKK.reset_badness();
+
+  maxneigh = 0;
+  Kokkos::parallel_reduce("chimes::find_maxneigh", inum, FindMaxNumNeighs<DeviceType>(k_list), Kokkos::Max<int>(maxneigh));
+
+  int vector_length_default = 1;
+  int team_size_default = 1;
+  if (!host_flag)
+    team_size_default = 32;
+
+  int chunksize = 4096; //////
+
+  //chunk_size = MIN(chunksize,inum); // "chunksize" variable is set by user
+  //chunk_offset = 0;
+
+  //grow(chunk_size, maxneigh); //////
+
+  EV_FLOAT ev, ev_tmp;
+
+  //while (chunk_offset < inum) { // chunk up loop to prevent running out of memory
+
+    //Compute2Body
+    {
+      if (evflag) {
+        if (neighflag == HALF) {
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute2Body<HALF,1> > policy_2body(0,inum);
+          Kokkos::parallel_reduce("Compute2Body", policy_2body, *this, ev_tmp);
+        } else if (neighflag == HALFTHREAD) {
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute2Body<HALFTHREAD,1> > policy_2body(0,inum);
+          Kokkos::parallel_reduce("Compute2Body", policy_2body, *this, ev_tmp);
+        }
+      } else {
+        if (neighflag == HALF) {
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute2Body<HALF,0> > policy_2body(0,inum);
+          Kokkos::parallel_for("Compute2Body", policy_2body, *this);
+        } else if (neighflag == HALFTHREAD) {
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute2Body<HALFTHREAD,0> > policy_2body(0,inum);
+          Kokkos::parallel_for("Compute2Body", policy_2body, *this);
+        }
+      }
+    }
+    ev += ev_tmp;
+
+    // Document badness for configuration: current timestep, current rank, worst badness seen by rank
+
+//    if (for_fitting)
+//    if (update->ntimestep % output->every_dump[0] == 0)
+//      badness_stream << update->ntimestep << " " <<  chimes_calculatorKK.get_badness() << endl;
+
+    //Compute3Body
+    // if (chimes_calculatorKK.poly_orders[1] > 0 || tmp_FP)
+    if (chimes_calculatorKK.poly_orders[1] > 0)
+    {
+      ////for (int ii = 0; ii < neighborlist_3mers.size(); ii++)
+      if (evflag) {
+        if (neighflag == HALF) {
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,1> > policy_3body(0,size_3mers);
+          Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
+        } else if (neighflag == HALFTHREAD) {
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,1> > policy_3body(0,size_3mers);
+          Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
+        }
+      } else {
+        if (neighflag == HALF) {
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,0> > policy_3body(0,size_3mers);
+          Kokkos::parallel_for("Compute3Body", policy_3body, *this);
+        } else if (neighflag == HALFTHREAD) {
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,0> > policy_3body(0,size_3mers);
+          Kokkos::parallel_for("Compute3Body", policy_3body, *this);
+        }
+      }
+    }
+    ev += ev_tmp;
+
+    //Compute4Body
+    // if (chimes_calculatorKK.poly_orders[2] > 0 || tmp_FP)
+    if (chimes_calculatorKK.poly_orders[2] > 0)
+    {
+      ////for (ii = 0; ii < neighborlist_4mers.size(); ii++)
+      if (evflag) {
+        if (neighflag == HALF) {
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALF,1> > policy_4body(0,size_4mers);
+          Kokkos::parallel_reduce("Compute4Body", policy_4body, *this, ev_tmp);
+        } else if (neighflag == HALFTHREAD) {
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALFTHREAD,1> > policy_4body(0,size_4mers);
+          Kokkos::parallel_reduce("Compute4Body",policy_4body, *this, ev_tmp);
+        }
+      } else {
+        if (neighflag == HALF) {
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALF,0> > policy_4body(0,size_4mers);
+          Kokkos::parallel_for("Compute4Body", policy_4body, *this);
+        } else if (neighflag == HALFTHREAD) {
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALFTHREAD,0> > policy_4body(0,size_4mers);
+          Kokkos::parallel_for("Compute4Body", policy_4body, *this);
+        }
+      }
+    }
+    ev += ev_tmp;
+
+//    chunk_offset += chunk_size;
+//  } // end while
+
+  if (need_dup)
+    Kokkos::Experimental::contribute(f, dup_f);
+
+  if (eflag_global) eng_vdwl += ev.evdwl;
+  if (vflag_global) {
+    virial[0] += ev.v[0];
+    virial[1] += ev.v[1];
+    virial[2] += ev.v[2];
+    virial[3] += ev.v[3];
+    virial[4] += ev.v[4];
+    virial[5] += ev.v[5];
+  }
+
+  if (vflag_fdotr) pair_virial_fdotr_compute(this);
+
+  if (eflag_atom) {
+    k_eatom.template modify<DeviceType>();
+    k_eatom.sync_host();
+  }
+
+  if (vflag_atom) {
+    if (need_dup)
+      Kokkos::Experimental::contribute(d_vatom, dup_vatom);
+    k_vatom.template modify<DeviceType>();
+    k_vatom.sync_host();
+  }
+
+  atomKK->modified(execution_space,F_MASK);
+
+  copymode = 0;
+
+  // free duplicated memory
+  if (need_dup) {
+    dup_f     = {};
+    dup_vatom = {};
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFLAG,EVFLAG>, const int& ii, EV_FLOAT& ev) const
+{
+  ////////////////////////////////////////
+  // Compute 1- and 2-body interactions
+  ////////////////////////////////////////
+
+  // The f array is duplicated for OpenMP, atomic for GPU, and neither for Serial
+  const auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  const auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  const int i = d_ilist[ii + chunk_offset];
+  const int itype = type(i);
+  const tagint itag = tag(i);
+  const KK_FLOAT scale = d_scale(itype,itype);
+
+  // First, get the single-atom energy contribution
+
+  KK_FLOAT energy = 0.0;
+  KK_FLOAT stensor[6];
+  for (int n = 0; n < 6; n++) stensor[n] = 0;
+
+  chimes_calculatorKK.compute_1B(type[i]-1, energy);
+
+  int atmidxlst[6][2];
+  atmidxlst[0][0] = i;
+
+  if (evflag)
+    ev_tally_mb<NEIGHFLAG>(1, 0, atmidxlst, energy, stensor, ev);
+
+  // Now move on to two-body force, stress, and energy
+
+  const int ncount = d_numneigh[i];
+
+  KK_ACC_FLOAT fitmp[3] = {0.0,0.0,0.0};
+  for (int jj = 0; jj < ncount; jj++) {
+    int j = d_neighbors(i,jj);
+    j &= NEIGHMASK;
+
+    const tagint jtag = tag[j]; // Get j's global atom index (sort of like its "parent")
+
+    if (jtag <= itag) // only allow calculation for j<i, since we've requested a full neighbor list
+      continue;
+
+    // Get distance using ghost atoms... don't need MIC since we're using ghost atoms
+
+    KK_FLOAT dr[3];
+    const KK_FLOAT dist = get_dist(i,j,&dr[0]);
+
+    int typ_idxs_2b[2];
+    typ_idxs_2b[0] = d_chimes_type[type[i]-1]; // Type (index) of the current atom... subtract 1 to account for chimesFF vs LAMMPS numbering convention
+    typ_idxs_2b[1] = d_chimes_type[type[j]-1];
+
+    // Using std::fill for maximum efficiency.
+    //std::fill(force_2b.begin(), force_2b.end(), 0.0);
+
+    // Do the same for stress tensors
+    //std::fill(stensor.begin(), stensor.end(), 0.0);
+
+    KK_FLOAT energy = 0.0;
+    KK_FLOAT force_2b[2*CHDIM];
+    KK_FLOAT stensor[6];
+    for (int n = 0; n < 6; n++) stensor[n] = 0;
+
+    chimes_calculatorKK.compute_2B(dist, dr, typ_idxs_2b, force_2b, stensor, energy, chimes_2btmpKK);      // Auto-updates badness
+    
+    for (int idx = 0; idx < 3; idx++) {
+      a_f(i,idx) += force_2b[0*CHDIM+idx];
+      a_f(j,idx) += force_2b[1*CHDIM+idx];
+    }
+
+    // "Save"/tally up the energy and stresses to the global virial/energy data objects (see pair.cpp ~ line 1000)
+    // Compute pressure, (in contrast to chimes_md) AFTER penalty has been added
+
+    if (vflag_atom)
+    {
+      atmidxlst[0][0] = i;
+      atmidxlst[0][1] = j;
+    }
+    //tmp_dist[0] = dist;
+
+    if (evflag)
+      ev_tally_mb<NEIGHFLAG>(2, 1, atmidxlst, energy, stensor, ev);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFLAG,EVFLAG>,const int& ii) const {
+  EV_FLOAT ev;
+  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESCompute2Body<NEIGHFLAG,EVFLAG>(), ii, ev);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>, const int& ii, EV_FLOAT& ev) const
+{
+  ////////////////////////////////////////
+  // Compute 3-body interactions
+  ////////////////////////////////////////
+
+  // The f array is duplicated for OpenMP, atomic for GPU, and neither for Serial
+  const auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  const auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  const int i = d_neighborlist_3mers(ii,0);
+  const int j = d_neighborlist_3mers(ii,1);
+  const int k = d_neighborlist_3mers(ii,2);
+
+  KK_FLOAT dist_3b[3], dr_3b[3*CHDIM];
+  dist_3b[0] = get_dist(i,j,&dr_3b[0*CHDIM]);
+  dist_3b[1] = get_dist(i,k,&dr_3b[1*CHDIM]);
+  dist_3b[2] = get_dist(j,k,&dr_3b[2*CHDIM]);
+
+  int typ_idxs_3b[3];
+  typ_idxs_3b[0] = d_chimes_type[type[i]-1];
+  typ_idxs_3b[1] = d_chimes_type[type[j]-1];
+  typ_idxs_3b[2] = d_chimes_type[type[k]-1];
+
+  //std::fill(force_3b.begin(), force_3b.end(), 0.0);
+  //std::fill(stensor.begin(), stensor.end(), 0.0);
+
+  KK_FLOAT energy = 0.0;
+  KK_FLOAT force_3b[3*CHDIM];
+  KK_FLOAT stensor[6];
+  for (int n = 0; n < 6; n++) stensor[n] = 0;
+
+  chimes_calculatorKK.compute_3B(dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy, chimes_3btmpKK);
+
+  for (int idx = 0; idx < 3; idx++)
+  {
+    a_f(i,idx) += force_3b[0*CHDIM+idx];
+    a_f(j,idx) += force_3b[1*CHDIM+idx];
+    a_f(k,idx) += force_3b[2*CHDIM+idx];
+  }
+
+  int atmidxlst[6][2];
+
+  if (vflag_atom)
+  {
+    atmidxlst[0][0] = i;
+    atmidxlst[0][1] = j;
+    atmidxlst[1][0] = i;
+    atmidxlst[1][1] = k;
+    atmidxlst[2][0] = j;
+    atmidxlst[2][1] = k;
+  }
+
+  if (evflag)
+    ev_tally_mb<NEIGHFLAG>(3, 3, atmidxlst, energy, stensor, ev);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>,const int& ii) const {
+  EV_FLOAT ev;
+  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>(), ii, ev);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute4Body<NEIGHFLAG,EVFLAG>, const int& ii, EV_FLOAT& ev) const
+{
+  ////////////////////////////////////////
+  // Compute 4-body interactions
+  ////////////////////////////////////////
+
+  // The f array is duplicated for OpenMP, atomic for GPU, and neither for Serial
+  const auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  const auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  const int i = d_neighborlist_4mers(ii,0);
+  const int j = d_neighborlist_4mers(ii,1);
+  const int k = d_neighborlist_4mers(ii,2);
+  const int l = d_neighborlist_4mers(ii,3);
+
+  KK_FLOAT dist_4b[6], dr_4b[6*CHDIM];
+  dist_4b[0] = get_dist(i,j,&dr_4b[0*CHDIM]);
+  dist_4b[1] = get_dist(i,k,&dr_4b[1*CHDIM]);
+  dist_4b[2] = get_dist(i,l,&dr_4b[2*CHDIM]);
+  dist_4b[3] = get_dist(j,k,&dr_4b[3*CHDIM]);
+  dist_4b[4] = get_dist(j,l,&dr_4b[4*CHDIM]);
+  dist_4b[5] = get_dist(k,l,&dr_4b[5*CHDIM]);
+
+  int typ_idxs_4b[4];
+  typ_idxs_4b[0] = d_chimes_type[type[i]-1];
+  typ_idxs_4b[1] = d_chimes_type[type[j]-1];
+  typ_idxs_4b[2] = d_chimes_type[type[k]-1];
+  typ_idxs_4b[3] = d_chimes_type[type[l]-1];
+
+  //std::fill(force_4b.begin(), force_4b.end(), 0.0);
+  //std::fill(stensor.begin(), stensor.end(), 0.0);
+
+  KK_FLOAT energy = 0.0;
+  KK_FLOAT force_4b[4*CHDIM];
+  KK_FLOAT stensor[6];
+  for (int n = 0; n < 6; n++) stensor[n] = 0;
+
+  chimes_calculatorKK.compute_4B(dist_4b, dr_4b, typ_idxs_4b, force_4b, stensor, energy, chimes_4btmpKK);
+
+  for (int idx = 0; idx < 3; idx++) {
+    a_f(i,idx) += force_4b[0*CHDIM+idx];
+    a_f(j,idx) += force_4b[1*CHDIM+idx];
+    a_f(k,idx) += force_4b[2*CHDIM+idx];
+    a_f(l,idx) += force_4b[3*CHDIM+idx];
+  }
+
+  int atmidxlst[6][2];
+
+  if (vflag_atom) {
+    atmidxlst[0][0] = i;
+    atmidxlst[0][1] = j;
+    atmidxlst[1][0] = i;
+    atmidxlst[1][1] = k;
+    atmidxlst[2][0] = i;
+    atmidxlst[2][1] = l;
+    atmidxlst[3][0] = j;
+    atmidxlst[3][1] = k;
+    atmidxlst[4][0] = j;
+    atmidxlst[4][1] = l;
+    atmidxlst[5][0] = k;
+    atmidxlst[5][1] = l;
+  }
+
+  if (evflag)
+    ev_tally_mb<NEIGHFLAG>(4, 6, atmidxlst, energy, stensor, ev);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute4Body<NEIGHFLAG,EVFLAG>,const int& ii) const {
+  EV_FLOAT ev;
+  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESCompute4Body<NEIGHFLAG,EVFLAG>(), ii, ev);
+}
+
+/* ----------------------------------------------------------------------
+   general ev tally function for many-body models where per-atom assignments
+   do not make sense. Expects newton_pair = 1.
+ ------------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType>::ev_tally_mb(int ninteractionatoms, int npairs,
+                                               int atmpairidxlst[6][2],
+                                               KK_FLOAT evdwl, KK_FLOAT stress[6],
+                                               EV_FLOAT &ev) const
+{
+  // Assumes newton pair is always true 
+  // Assumes a full neighbor list is always true (hard coded in pair_chimes.cpp)
+  // Modeled after ev_tally_full and ev_tally3 (to get MB handling)
+  // force and distance vector are flattened 2d vectors, e.g., atom_idx*3 + [0,1,2 == x,y,z dims]
+
+  // The vatom array is duplicated for OpenMP, atomic for GPU, and neither for Serial
+
+  auto v_eatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_eatom),decltype(ndup_eatom)>::get(dup_eatom,ndup_eatom);
+  auto a_eatom = v_eatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
+  auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  int atmlist[4];
+
+  atmlist[0] = atmpairidxlst[0][0];       // i
+
+  if (ninteractionatoms>1) // 2, 3, and/or 4b
+    atmlist[1] = atmpairidxlst[0][1];   // j
+      
+  if (ninteractionatoms>2) // 3 and/or 4b
+    atmlist[2] = atmpairidxlst[1][1];   // k
+      
+  if (ninteractionatoms>3) // 4b only
+    atmlist[3] = atmpairidxlst[2][1];   // l
+  
+  if (eflag_global)
+    ev.evdwl += evdwl;
+
+  if (eflag_atom)
+    for (int atm = 0; atm < ninteractionatoms; atm++)
+      a_eatom[atmlist[atm]] += evdwl/ninteractionatoms;
+
+  if (ninteractionatoms < 2)
+    return;
+
+  if (!vflag_either)
+    return;
+      
+  // FYI, stress calculations follow strategy described here: https://docs.lammps.org/compute_stress_atom.html
+
+  if (vflag_global) {
+    ev.v[0] += stress[0];
+    ev.v[1] += stress[3];
+    ev.v[2] += stress[5];
+    ev.v[3] += stress[1];
+    ev.v[4] += stress[2];
+    ev.v[5] += stress[4];
+  }
+
+  if (vflag_atom) {
+    for (int a = 0; a < ninteractionatoms; a++) {
+      a_vatom(atmlist[a],0) += stress[0]/ninteractionatoms;
+      a_vatom(atmlist[a],1) += stress[3]/ninteractionatoms;
+      a_vatom(atmlist[a],2) += stress[5]/ninteractionatoms;
+      a_vatom(atmlist[a],3) += stress[1]/ninteractionatoms;
+      a_vatom(atmlist[a],4) += stress[2]/ninteractionatoms;
+      a_vatom(atmlist[a],5) += stress[4]/ninteractionatoms;          
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+namespace LAMMPS_NS {
+template class PairCHIMESKokkos<LMPDeviceType>;
+#ifdef LMP_KOKKOS_GPU
+template class PairCHIMESKokkos<LMPHostType>;
+#endif
+}
