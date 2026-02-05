@@ -68,6 +68,7 @@ PairCHIMESKokkos<DeviceType>::PairCHIMESKokkos(LAMMPS *lmp) : PairCHIMES(lmp)
 
   chimes_calculatorKK.init(comm->me);   // chimesFF instance
 
+  delete chimes_calculator;
   chimes_calculator = (chimesFF*) (&chimes_calculatorKK);
 
   d_size_3mers = DAT::t_int_scalar("pair:size_3mers");
@@ -83,6 +84,8 @@ template<class DeviceType>
 PairCHIMESKokkos<DeviceType>::~PairCHIMESKokkos()
 {
   if (copymode) return;
+
+  chimes_calculator = nullptr;
 
   /*if (allocated)
   {
