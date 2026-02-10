@@ -1055,6 +1055,7 @@ Elj
 Ellad
 ellipsoidflag
 elong
+elongational
 Elsevier
 Elsner
 Elstner
@@ -1236,6 +1237,7 @@ Fickian
 fieldname
 figshare
 Fij
+Fikar
 filelink
 filename
 Filename
@@ -1464,6 +1466,7 @@ Grigera
 Grimme
 grmask
 Grmask
+Groger
 gromacs
 Gromacs
 gromos
@@ -2697,6 +2700,7 @@ nktv
 nl
 nlayers
 nlen
+Nlength
 Nlimit
 nlines
 Nlines
@@ -3013,6 +3017,7 @@ Peng
 peptide
 peratom
 Perf
+performant
 Pergamon
 pergrid
 peri
@@ -3788,10 +3793,8 @@ Straub
 strcmp
 streitz
 Streitz
-Streiz
 strerror
 strided
-strietz
 stringstreams
 strmatch
 strncmp

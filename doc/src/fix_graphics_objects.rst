@@ -36,7 +36,7 @@ Syntax
          any of x1, y1, z1, x2, y2, z2, and R can be a variable (see below)
        *cone* args = type x1 y1 z1 x2 y2 z2 R1 R2 sides
          type = an atom type value to select the color of the cone
-         x1, y1, z1, x2, y2, z2 = positions of the centers at the bottom (x1,y1,z1) and the top (x2,y2,z2) of the arrow (distance units)
+         x1, y1, z1, x2, y2, z2 = positions of the centers at the bottom (x1,y1,z1) and the top (x2,y2,z2) of the cone (distance units)
          R1 = bottom radius (distance units)
          R2 = top radius (distance units)
          sides = bitmap value between 0 and 7 deciding whether bottom cap (1), top cap (2) or side (4) is drawn (unitless)
@@ -237,6 +237,7 @@ Related commands
 
 :doc:`fix graphics/arrows <fix_graphics_arrows>`,
 :doc:`fix graphics/labels <fix_graphics_labels>`,
+:doc:`fix graphics/lines <fix_graphics_lines>`,
 :doc:`fix graphics/isosurface <fix_graphics_isosurface>`,
 :doc:`fix graphics/periodic <fix_graphics_periodic>`
 

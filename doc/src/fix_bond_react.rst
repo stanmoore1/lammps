@@ -18,7 +18,7 @@ Syntax
 * bond/react = style name of this fix command
 * the common keyword/values may be appended directly after 'bond/react'
 * common keywords apply to all reaction specifications
-* common_keyword = *stabilization* or *reset_mol_ids* or *rate_limit* or *max_rxn*
+* common_keyword = *stabilization* or *reset_mol_ids* or *rate_limit* or *max_rxn* or *shuffle_seed* or *file*
 
   .. parsed-literal::
 
@@ -245,6 +245,8 @@ listed reactions. By default, a hardware-based random number source is used
 if available; reactions are chosen deterministically if a positive integer
 is specified for the 'shuffle_seed' keyword. Multiple *max_rxn* keywords
 can be specified.
+
+.. versionadded:: 10Dec2025
 
 The *file* keyword can be used to dump information about each reaction that
 occurs during the simulation. The atom IDs, types, and coordinates of all

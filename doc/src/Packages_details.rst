@@ -1593,6 +1593,9 @@ conjunction with molecular dynamics (MD).
 * :doc:`fix bond/swap <fix_bond_swap>`
 * :doc:`fix charge/regulation <fix_charge_regulation>`
 * :doc:`fix gcmc <fix_gcmc>`
+* :doc:`fix hmc <fix_hmc>`
+* :doc:`fix mol/swap <fix_mol_swap>`
+* :doc:`fix neighbo/swap <fix_neighbor_swap>`
 * :doc:`fix sgcmc <fix_sgcmc>`
 * :doc:`fix tfmc <fix_tfmc>`
 * :doc:`fix widom <fix_widom>`

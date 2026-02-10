@@ -90,6 +90,8 @@
 /fix_graphics_isosurface.h
 /fix_graphics_labels.cpp
 /fix_graphics_labels.h
+/fix_graphics_lines.cpp
+/fix_graphics_lines.h
 /fix_graphics_objects.cpp
 /fix_graphics_objects.h
 /fix_graphics_periodic.cpp

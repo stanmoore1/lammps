@@ -18,6 +18,7 @@ min_style fire command
 ======================
 
 .. versionadded:: TBD
+
 Accelerator Variant: *fire/kk*
 
 :doc:`min_style spin <min_spin>` command

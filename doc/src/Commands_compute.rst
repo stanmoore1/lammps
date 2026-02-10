@@ -49,7 +49,7 @@ KOKKOS, o = OPENMP, t = OPT.
    * :doc:`efield/atom <compute_efield_atom>`
    * :doc:`efield/wolf/atom <compute_efield_wolf_atom>`
    * :doc:`entropy/atom <compute_entropy_atom>`
-   * :doc:`erotate/asphere <compute_erotate_asphere>`
+   * :doc:`erotate/asphere (k) <compute_erotate_asphere>`
    * :doc:`erotate/rigid <compute_erotate_rigid>`
    * :doc:`erotate/sphere (k) <compute_erotate_sphere>`
    * :doc:`erotate/sphere/atom <compute_erotate_sphere_atom>`

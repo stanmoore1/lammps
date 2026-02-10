@@ -265,6 +265,7 @@ accelerated styles exist.
 * :doc:`graphics/arrows <fix_graphics_arrows>` - add arrow graphics objects to :doc:`dump image <dump_image>` output
 * :doc:`graphics/isosurface <fix_graphics_isosurface>` - add an isosurface for a group of atoms to :doc:`dump image <dump_image>` output
 * :doc:`graphics/labels <fix_graphics_labels>` - add images or text as graphics objects to :doc:`dump image <dump_image>` output
+* :doc:`graphics/lines <fix_graphics_lines>` - add a trace of atom positions to :doc:`dump image <dump_image>` output
 * :doc:`graphics/objects <fix_graphics_objects>` - add graphics objects to :doc:`dump image <dump_image>` output
 * :doc:`graphics/periodic <fix_graphics_periodic>` - add selected periodic images of atoms and bonds to :doc:`dump image <dump_image>` output
 * :doc:`gravity <fix_gravity>` - add gravity to atoms in a granular simulation

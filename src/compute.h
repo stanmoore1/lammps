@@ -153,6 +153,7 @@ class Compute : protected Pointers {
   virtual void restore_bias(int, double *) {}
   virtual void restore_bias_thr(int, double *, double *) {}
   virtual void restore_bias_all() {}
+  virtual void restore_bias_all_kk() {}
 
   virtual void reset_extra_compute_fix(const char *);
 

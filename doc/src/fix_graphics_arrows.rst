@@ -156,7 +156,7 @@ The transparency is by default fully opaque and can be changed with
 The *fflag1* and *fflag2* settings of *dump image fix* are currently ignored.
 
 Restart, fix_modify, output, run start/stop, minimize info
-==========================================================
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 No information about this fix is written to :doc:`binary restart files
 <restart>`.
