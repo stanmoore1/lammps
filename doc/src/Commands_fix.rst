@@ -86,6 +86,7 @@ OPT.
    * :doc:`graphics/arrows <fix_graphics_arrows>`
    * :doc:`graphics/isosurface <fix_graphics_isosurface>`
    * :doc:`graphics/labels <fix_graphics_labels>`
+   * :doc:`graphics/lines <fix_graphics_lines>`
    * :doc:`graphics/objects <fix_graphics_objects>`
    * :doc:`graphics/periodic <fix_graphics_periodic>`
    * :doc:`gravity (ko) <fix_gravity>`
@@ -141,7 +142,7 @@ OPT.
    * :doc:`numdiff <fix_numdiff>`
    * :doc:`numdiff/virial <fix_numdiff_virial>`
    * :doc:`nve (giko) <fix_nve>`
-   * :doc:`nve/asphere (gi) <fix_nve_asphere>`
+   * :doc:`nve/asphere (gik) <fix_nve_asphere>`
    * :doc:`nve/asphere/noforce <fix_nve_asphere_noforce>`
    * :doc:`nve/body <fix_nve_body>`
    * :doc:`nve/dot <fix_nve_dot>`

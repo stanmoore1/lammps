@@ -73,6 +73,8 @@ enum { NUMERIC, ATOM, TYPE, ELEMENT, ATTRIBUTE, CONSTANT, INDEX };
 enum { STATIC, DYNAMIC };
 enum { NO = 0, YES = 1, AUTO = 2 };
 enum { FILLED, FRAME, POINTS, TRANSPARENT };
+enum { OFF = 0, CENTER, LOWERLEFT, LOWERRIGHT, UPPERLEFT, UPPERRIGHT };
+
 }    // namespace
 // clang-format off
 
@@ -175,7 +177,7 @@ DumpImage::DumpImage(LAMMPS *lmp, int narg, char **arg) :
 
   boxflag = YES;
   boxdiam = 0.02;
-  axesflag = NO;
+  axesflag = OFF;
   subboxflag = NO;
   boxopacity = 1.0;
   axesopacity = 1.0;
@@ -452,13 +454,32 @@ DumpImage::DumpImage(LAMMPS *lmp, int narg, char **arg) :
 
     } else if (strcmp(arg[iarg],"axes") == 0) {
       if (iarg+3 > narg) utils::missing_cmd_args(FLERR,"dump image axes", error);
-      axesflag = utils::logical(FLERR,arg[iarg+1],false,lmp);
-      axeslen = utils::numeric(FLERR,arg[iarg+2],false,lmp);
-      axesdiam = utils::numeric(FLERR,arg[iarg+3],false,lmp);
-      if (axeslen < 0.0)
-        error->all(FLERR, iarg+2, "Invalid dump image axes length {}", axeslen);
-      if (axesdiam < 0.0)
-        error->all(FLERR,"Invalid dump image axes diameter {}", axesdiam);
+      if (strcmp(arg[iarg+1],"no") == 0) {
+        axesflag = OFF;
+      } else if (strcmp(arg[iarg+1],"center") == 0) {
+        axesflag = CENTER;
+      } else if (strcmp(arg[iarg+1],"lowerleft") == 0) {
+        axesflag = LOWERLEFT;
+      } else if (strcmp(arg[iarg+1],"yes") == 0) {
+        axesflag = LOWERLEFT;
+      } else if (strcmp(arg[iarg+1],"lowerright") == 0) {
+        axesflag = LOWERRIGHT;
+      } else if (strcmp(arg[iarg+1],"upperleft") == 0) {
+        axesflag = UPPERLEFT;
+      } else if (strcmp(arg[iarg+1],"upperright") == 0) {
+        axesflag = UPPERRIGHT;
+      } else {
+        error->all(FLERR, iarg+1, "Unknown axes location {}", arg[iarg+1]);
+      }
+
+      if (axesflag) {
+        axeslen = utils::numeric(FLERR,arg[iarg+2],false,lmp);
+        axesdiam = utils::numeric(FLERR,arg[iarg+3],false,lmp);
+        if (axeslen <= 0.0)
+          error->all(FLERR, iarg+2, "Invalid dump image axes length {}", axeslen);
+        if (axesdiam <= 0.0)
+          error->all(FLERR,"Invalid dump image axes diameter {}", axesdiam);
+      }
       iarg += 4;
 
     } else if (strcmp(arg[iarg],"subbox") == 0) {
@@ -562,8 +583,8 @@ DumpImage::DumpImage(LAMMPS *lmp, int narg, char **arg) :
     else if (i % 6 == 2) colortype[i] = image->color2rgb("green");
     else if (i % 6 == 3) colortype[i] = image->color2rgb("blue");
     else if (i % 6 == 4) colortype[i] = image->color2rgb("yellow");
-    else if (i % 6 == 5) colortype[i] = image->color2rgb("aqua");
-    else if (i % 6 == 0) colortype[i] = image->color2rgb("cyan");
+    else if (i % 6 == 5) colortype[i] = image->color2rgb("cyan");
+    else if (i % 6 == 0) colortype[i] = image->color2rgb("magenta");
   }
 
   if (bondflag == YES) {
@@ -577,8 +598,8 @@ DumpImage::DumpImage(LAMMPS *lmp, int narg, char **arg) :
       else if (i % 6 == 2) bcolortype[i] = image->color2rgb("green");
       else if (i % 6 == 3) bcolortype[i] = image->color2rgb("blue");
       else if (i % 6 == 4) bcolortype[i] = image->color2rgb("yellow");
-      else if (i % 6 == 5) bcolortype[i] = image->color2rgb("aqua");
-      else if (i % 6 == 0) bcolortype[i] = image->color2rgb("cyan");
+      else if (i % 6 == 5) bcolortype[i] = image->color2rgb("cyan");
+      else if (i % 6 == 0) bcolortype[i] = image->color2rgb("magenta");
     }
   }
 
@@ -2082,11 +2103,52 @@ void DumpImage::create_image()
 
     double offset = MAX(boxxhi-boxxlo,boxyhi-boxylo);
     if (domain->dimension == 3) offset = MAX(offset,boxzhi-boxzlo);
-    offset *= 0.1;
-    axes[0][0] -= offset; axes[0][1] -= offset; axes[0][2] -= offset;
-    axes[1][0] -= offset; axes[1][1] -= offset; axes[1][2] -= offset;
-    axes[2][0] -= offset; axes[2][1] -= offset; axes[2][2] -= offset;
-    axes[3][0] -= offset; axes[3][1] -= offset; axes[3][2] -= offset;
+
+    if (axesflag == CENTER)
+      offset *= 0.5;
+    else
+      offset *= 0.1;
+    if (axesflag == CENTER) {
+      axes[0][0] += offset; axes[0][1] += offset; axes[0][2] += offset;
+      axes[1][0] += offset; axes[1][1] += offset; axes[1][2] += offset;
+      axes[2][0] += offset; axes[2][1] += offset; axes[2][2] += offset;
+      axes[3][0] += offset; axes[3][1] += offset; axes[3][2] += offset;
+    } else if (axesflag == LOWERLEFT) {
+      axes[0][0] -= offset; axes[0][1] -= offset; axes[0][2] -= offset;
+      axes[1][0] -= offset; axes[1][1] -= offset; axes[1][2] -= offset;
+      axes[2][0] -= offset; axes[2][1] -= offset; axes[2][2] -= offset;
+      axes[3][0] -= offset; axes[3][1] -= offset; axes[3][2] -= offset;
+    } else if ((domain->dimension == 3) && (axesflag == LOWERRIGHT)) {
+      axes[0][0] -= offset; axes[0][1] += 8.0*offset; axes[0][2] -= offset;
+      axes[1][0] -= offset; axes[1][1] += 8.0*offset; axes[1][2] -= offset;
+      axes[2][0] -= offset; axes[2][1] += 8.0*offset; axes[2][2] -= offset;
+      axes[3][0] -= offset; axes[3][1] += 8.0*offset; axes[3][2] -= offset;
+    } else if  ((domain->dimension == 3) && (axesflag == UPPERLEFT)) {
+      axes[0][0] -= offset; axes[0][1] -= offset; axes[0][2] += 8.0*offset;
+      axes[1][0] -= offset; axes[1][1] -= offset; axes[1][2] += 8.0*offset;
+      axes[2][0] -= offset; axes[2][1] -= offset; axes[2][2] += 8.0*offset;
+      axes[3][0] -= offset; axes[3][1] -= offset; axes[3][2] += 8.0*offset;
+    } else if  ((domain->dimension == 3) && (axesflag == UPPERRIGHT)) {
+      axes[0][0] -= offset; axes[0][1] += 8.0*offset; axes[0][2] += 8.0*offset;
+      axes[1][0] -= offset; axes[1][1] += 8.0*offset; axes[1][2] += 8.0*offset;
+      axes[2][0] -= offset; axes[2][1] += 8.0*offset; axes[2][2] += 8.0*offset;
+      axes[3][0] -= offset; axes[3][1] += 8.0*offset; axes[3][2] += 8.0*offset;
+    } else if ((domain->dimension == 2) && (axesflag == LOWERRIGHT)) {
+      axes[0][0] += 8.0*offset; axes[0][1] -= offset; axes[0][2] -= offset;
+      axes[1][0] += 8.0*offset; axes[1][1] -= offset; axes[1][2] -= offset;
+      axes[2][0] += 8.0*offset; axes[2][1] -= offset; axes[2][2] -= offset;
+      axes[3][0] += 8.0*offset; axes[3][1] -= offset; axes[3][2] -= offset;
+    } else if  ((domain->dimension == 2) && (axesflag == UPPERLEFT)) {
+      axes[0][0] -= offset; axes[0][1] += 8.0*offset; axes[0][2] -= offset;
+      axes[1][0] -= offset; axes[1][1] += 8.0*offset; axes[1][2] -= offset;
+      axes[2][0] -= offset; axes[2][1] += 8.0*offset; axes[2][2] -= offset;
+      axes[3][0] -= offset; axes[3][1] += 8.0*offset; axes[3][2] -= offset;
+    } else if  ((domain->dimension == 2) && (axesflag == UPPERRIGHT)) {
+      axes[0][0] += 8.0*offset; axes[0][1] += 8.0*offset; axes[0][2] -= offset;
+      axes[1][0] += 8.0*offset; axes[1][1] += 8.0*offset; axes[1][2] -= offset;
+      axes[2][0] += 8.0*offset; axes[2][1] += 8.0*offset; axes[2][2] -= offset;
+      axes[3][0] += 8.0*offset; axes[3][1] += 8.0*offset; axes[3][2] -= offset;
+    }
 
     axes[1][0] = axes[0][0] + axeslen*(axes[1][0]-axes[0][0]);
     axes[1][1] = axes[0][1] + axeslen*(axes[1][1]-axes[0][1]);

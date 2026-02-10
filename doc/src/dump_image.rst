@@ -83,7 +83,7 @@ Syntax
          yes/no = do or do not draw simulation box lines
          diam = diameter of box lines as fraction of shortest box length
        *axes* values = axes length diam = draw xyz axes
-         axes = *yes* or *no* = do or do not draw xyz axes lines next to simulation box
+         axes = *yes* or *no* or *center* or *lowerleft* or *lowerright* or *upperleft* or *upperright* = do or do not draw xyz axes arrows and select location
          length = length of axes lines as fraction of respective box lengths
          diam = diameter of axes lines as fraction of shortest box length
        *region* values = region-ID color drawstyle [opacity (optional) npoints (optional) diameter (optional)]
@@ -332,6 +332,10 @@ prefixed by "c\_", "f\_", or "v\_", respectively.  Note that the
 *diameter* setting can be overridden with a numeric value applied to all
 atoms by the optional *adiam* keyword.
 
+.. versionchanged:: TBD
+
+   Replaced colors "aqua" and "cyan" with "cyan" and "magenta"
+
 If *type* is specified for the *color* setting, then the color of each
 atom is determined by its atom type.  By default the mapping of types
 to colors is as follows:
@@ -340,8 +344,8 @@ to colors is as follows:
 * type 2 = green
 * type 3 = blue
 * type 4 = yellow
-* type 5 = aqua
-* type 6 = cyan
+* type 5 = cyan
+* type 6 = magenta
 
 and repeats itself for types :math:`> 6`.  This mapping can be changed by the
 "dump_modify acolor" command, as described below.
@@ -443,12 +447,16 @@ If *type* is specified for the *color* value, then the color of each
 bond is determined by its bond type.  By default the mapping of bond
 types to colors is as follows:
 
+.. versionchanged:: TBD
+
+   Replaced colors "aqua" and "cyan" with "cyan" and "magenta"
+
 * type 1 = red
 * type 2 = green
 * type 3 = blue
 * type 4 = yellow
-* type 5 = aqua
-* type 6 = cyan
+* type 5 = cyan
+* type 6 = magenta
 
 and repeats itself for bond types > 6.  This mapping can be changed by
 the "dump_modify bcolor" command, as described below.
@@ -483,8 +491,8 @@ mapping of types to colors is as follows:
 * type 2 = green
 * type 3 = blue
 * type 4 = yellow
-* type 5 = aqua
-* type 6 = cyan
+* type 5 = cyan
+* type 6 = magenta
 
 and repeats itself for types > 6.  There is not yet an option to
 change this via the dump_modify command.
@@ -510,8 +518,8 @@ default the mapping of types to colors is as follows:
 * type 2 = green
 * type 3 = blue
 * type 4 = yellow
-* type 5 = aqua
-* type 6 = cyan
+* type 5 = cyan
+* type 6 = magenta
 
 and repeats itself for types > 6.
 
@@ -533,8 +541,8 @@ particle.  By default the mapping of types to colors is as follows:
 * type 2 = green
 * type 3 = blue
 * type 4 = yellow
-* type 5 = aqua
-* type 6 = cyan
+* type 5 = cyan
+* type 6 = magenta
 
 and repeats itself for types > 6.
 
@@ -591,8 +599,8 @@ list of colors is by default as follows:
 * type 2 = green
 * type 3 = blue
 * type 4 = yellow
-* type 5 = aqua
-* type 6 = cyan
+* type 5 = cyan
+* type 6 = magenta
 
 and repeats itself for types > 6.  This list can by changed with the
 :doc:`dump_modify acolor <dump_image>` command.  If more different
@@ -740,16 +748,23 @@ is a fraction of the shortest box length in x,y,z (for 3d) or x,y (for
 2d).  The color of the box boundaries can be set with the "dump_modify
 boxcolor" command.
 
+.. versionchanged:: TBD
+
 The *axes* keyword determines if and how the coordinate axes are
-rendered as thin cylinders in the image.  If *no* is set, then the
-axes are not drawn and the *length* and *diam* settings are ignored.
-If *yes* is set, 3 thin cylinders are drawn to represent the x,y,z
-axes in colors red,green,blue.  The origin of these cylinders will be
-offset from the lower left corner of the box by 10%.  The *length*
-setting determines how long the cylinders will be as a fraction of the
-respective box lengths.  The *diam* setting determines their thickness
-as a fraction of the shortest box length in x,y,z (for 3d) or x,y (for
-2d).
+rendered in the image as arrows with the letters 'X', 'Y', and 'Z' to
+indicate the direction.  If *no* is set, then the axes are not drawn and
+the *length* and *diam* settings are ignored.  If *yes* or *lowerleft*
+is set, 3 arrows are drawn to represent the x,y,z axes in colors red,
+green, and blue, respectively.  The origin of these arrows will be
+offset from the lower left corner of the box by 10%.  If *center* is set
+the origin of the arrows will be in the center of the box. If
+*lowerright* is set, the origin of the arrows will be offset by 20% of
+the lower right corner of the box. If *upperleft* or *upperight* are set
+the origin of the arrows will be placed similar to the lower corner
+arrows, but offset by 20% from the top.  The *length* setting determines
+how long the cylinders will be as a fraction of the respective box
+lengths.  The *diam* setting determines their thickness as a fraction of
+the shortest box length in x,y,z (for 3d) or x,y (for 2d).
 
 The *subbox* keyword determines if and how processor subdomain
 boundaries are rendered as thin cylinders in the image.  If *no* is
@@ -1252,13 +1267,13 @@ The defaults for the dump image and dump movie keywords are as follows:
 
 The defaults for the dump_modify keywords specific to dump image and dump movie are as follows:
 
-* acolor = \* red/green/blue/yellow/aqua/cyan
+* acolor = \* red/green/blue/yellow/cyan/magenta
 * adiam = \* 1.0
 * amap = min max cf 0.0 2 min blue max red
 * atrans = 1.0
 * backcolor = black
 * backcolor2 = none
-* bcolor = \* red/green/blue/yellow/aqua/cyan
+* bcolor = \* red/green/blue/yellow/cyan/magenta
 * bdiam = \* 0.5
 * btrans = 1.0
 * boxcolor = yellow

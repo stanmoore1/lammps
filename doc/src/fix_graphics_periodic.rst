@@ -45,7 +45,7 @@ The *group-ID* sets the group ID of the atoms selected to be displayed
 as periodic images.  For bonds to be displayed, *both* atoms of the bond
 have to be inside the group.
 
-The *Nevery* keyword determines how often the arrows graphics data is
+The *Nevery* keyword determines how often the periodic graphics data is
 updated.  This should be the same value as the corresponding *N*
 parameter of the :doc:`dump <dump>` image command.  LAMMPS will stop
 with an error message if the settings for this fix and the dump command
@@ -116,6 +116,7 @@ Related commands
 
 :doc:`fix graphics/arrows <fix_graphics_arrows>`,
 :doc:`fix graphics/labels <fix_graphics_labels>`,
+:doc:`fix graphics/lines <fix_graphics_lines>`,
 :doc:`fix graphics/isosurface <fix_graphics_isosurface>`,
 :doc:`fix graphics/objects <fix_graphics_objects>`
 

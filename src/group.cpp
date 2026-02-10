@@ -1463,14 +1463,14 @@ void Group::angmom(int igroup, double *cm, double *lmom)
   int nlocal = atom->nlocal;
 
   double dx, dy, dz, massone;
-  double unwrap[3];
+  double unwrap[3], vunwrap[3];
 
   double p[3];
   p[0] = p[1] = p[2] = 0.0;
 
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
-      domain->unmap(x[i], image[i], unwrap);
+      domain->unmap(x[i], v[i], image[i], mask[i], unwrap, vunwrap);
       dx = unwrap[0] - cm[0];
       dy = unwrap[1] - cm[1];
       dz = unwrap[2] - cm[2];
@@ -1478,9 +1478,9 @@ void Group::angmom(int igroup, double *cm, double *lmom)
         massone = rmass[i];
       else
         massone = mass[type[i]];
-      p[0] += massone * (dy * v[i][2] - dz * v[i][1]);
-      p[1] += massone * (dz * v[i][0] - dx * v[i][2]);
-      p[2] += massone * (dx * v[i][1] - dy * v[i][0]);
+      p[0] += massone * (dy * vunwrap[2] - dz * vunwrap[1]);
+      p[1] += massone * (dz * vunwrap[0] - dx * vunwrap[2]);
+      p[2] += massone * (dx * vunwrap[1] - dy * vunwrap[0]);
     }
 
   MPI_Allreduce(p, lmom, 3, MPI_DOUBLE, MPI_SUM, world);
@@ -1507,14 +1507,14 @@ void Group::angmom(int igroup, double *cm, double *lmom, Region *region)
   int nlocal = atom->nlocal;
 
   double dx, dy, dz, massone;
-  double unwrap[3];
+  double unwrap[3], vunwrap[3];
 
   double p[3];
   p[0] = p[1] = p[2] = 0.0;
 
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit && region->match(x[i][0], x[i][1], x[i][2])) {
-      domain->unmap(x[i], image[i], unwrap);
+      domain->unmap(x[i], v[i], image[i], mask[i], unwrap, vunwrap);
       dx = unwrap[0] - cm[0];
       dy = unwrap[1] - cm[1];
       dz = unwrap[2] - cm[2];
@@ -1522,9 +1522,9 @@ void Group::angmom(int igroup, double *cm, double *lmom, Region *region)
         massone = rmass[i];
       else
         massone = mass[type[i]];
-      p[0] += massone * (dy * v[i][2] - dz * v[i][1]);
-      p[1] += massone * (dz * v[i][0] - dx * v[i][2]);
-      p[2] += massone * (dx * v[i][1] - dy * v[i][0]);
+      p[0] += massone * (dy * vunwrap[2] - dz * vunwrap[1]);
+      p[1] += massone * (dz * vunwrap[0] - dx * vunwrap[2]);
+      p[2] += massone * (dx * vunwrap[1] - dy * vunwrap[0]);
     }
 
   MPI_Allreduce(p, lmom, 3, MPI_DOUBLE, MPI_SUM, world);

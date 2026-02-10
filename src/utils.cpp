@@ -238,8 +238,8 @@ std::string utils::point_to_error(Input *input, int failed)
       // construct and append error indicator line
       cmdline += '\n';
       cmdline += std::string(indicator, ' ');
-      cmdline += std::string(strlen((failed < 0) ? input->command : input->arg[failed])
-                             + quoted, '^');
+      int len = strlen(((failed < 0) || !input->arg[failed]) ? input->command : input->arg[failed]);
+      cmdline += std::string(len + quoted, '^');
       cmdline += '\n';
     } else {
       cmdline += lastline;
@@ -1704,9 +1704,8 @@ bool utils::is_double(const std::string &str)
 {
   if (str.empty()) return false;
 
-  return strmatch(str, R"(^[+-]?\d+\.?\d*$)") ||
-      strmatch(str, R"(^[+-]?\d+\.?\d*[eE][+-]?\d+$)") || strmatch(str, R"(^[+-]?\d*\.?\d+$)") ||
-      strmatch(str, R"(^[+-]?\d*\.?\d+[eE][+-]?\d+$)");
+  return strmatch(str, R"(^[+-]?\d+\.?\d*$)") || strmatch(str, R"(^[+-]?\d+\.?\d*[eE][+-]?\d+$)") ||
+      strmatch(str, R"(^[+-]?\d*\.?\d+$)") || strmatch(str, R"(^[+-]?\d*\.?\d+[eE][+-]?\d+$)");
 }
 
 /* ----------------------------------------------------------------------
