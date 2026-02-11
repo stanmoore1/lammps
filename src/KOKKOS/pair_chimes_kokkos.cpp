@@ -214,9 +214,6 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
   if (d_neighborlist_4mers.extent(0) < max_4mers)
     Kokkos::resize(d_neighborlist_4mers,max_4mers);
 
-  int nmax = atom->nmax;
-  int nlocal = atom->nlocal;
-
   // try, resize if necessary
 
   int resize = 1;
@@ -394,12 +391,12 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   // Vars for access to chimesFF compute_XB functions
 
+  atomKK->sync(execution_space,X_MASK|F_MASK|TYPE_MASK|TAG_MASK);
+
   x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();
   type = atomKK->k_type.view<DeviceType>();
   tag = atomKK->k_tag.view<DeviceType>();
-  int nlocal = atom->nlocal; ////
-  int newton_pair = force->newton_pair; ////
 
   // Set up vars controlling if energy/pressure (virial) contributions are computed
 
@@ -542,10 +539,8 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 //      badness_stream << update->ntimestep << " " <<  chimes_calculatorKK.get_badness() << endl;
 
     //Compute3Body
-    // if (chimes_calculatorKK.poly_orders[1] > 0 || tmp_FP)
     if (chimes_calculatorKK.poly_orders[1] > 0)
     {
-      ////for (int ii = 0; ii < neighborlist_3mers.size(); ii++)
       if (evflag) {
         if (neighflag == HALF) {
           typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,1> > policy_3body(0,size_3mers);
@@ -567,10 +562,8 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     ev += ev_tmp;
 
     //Compute4Body
-    // if (chimes_calculatorKK.poly_orders[2] > 0 || tmp_FP)
     if (chimes_calculatorKK.poly_orders[2] > 0)
     {
-      ////for (ii = 0; ii < neighborlist_4mers.size(); ii++)
       if (evflag) {
         if (neighflag == HALF) {
           typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALF,1> > policy_4body(0,size_4mers);
