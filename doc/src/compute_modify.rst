@@ -59,7 +59,7 @@ are adding atoms or molecules to the system (see the :doc:`fix pour
 <fix_evaporate>`), then this option should be used to ensure the
 temperature is correctly normalized.
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 The *temp* keyword is used with :doc:`compute temp/deform <compute_temp_deform>`
 to change the internal temperature compute.

@@ -663,6 +663,19 @@ int Group::get_bitmask_by_id(const std::string &file, int line, const std::strin
 }
 
 /* ----------------------------------------------------------------------
+   return group bitmask for given group id. Error out if group is not found.
+------------------------------------------------------------------------- */
+
+int Group::get_inversemask_by_id(const std::string &file, int line, const std::string &name,
+                             const std::string &caller)
+{
+  int igroup = find(name);
+  if (igroup < 0)
+    error->all(file, line, "Group ID {} requested by {} does not exist", name, caller);
+  return inversemask[igroup];
+}
+
+/* ----------------------------------------------------------------------
    add atoms to group that are in same molecules as atoms already in group
    do not include molID = 0
 ------------------------------------------------------------------------- */

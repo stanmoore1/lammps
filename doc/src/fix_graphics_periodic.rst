@@ -35,7 +35,7 @@ Examples
 Description
 """""""""""
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 This fix allows to add graphics of periodic images of atoms and bonds to
 :doc:`dump image <dump_image>` images using the *fix* keyword.  This can
@@ -65,7 +65,7 @@ The *radius* keyword determines the radius of the atoms. If a value of
 Dump image info
 """""""""""""""
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 Fix graphics/periodic is designed to be used with the *fix* keyword of
 :doc:`dump image <dump_image>`.  The fix adds graphics objects of

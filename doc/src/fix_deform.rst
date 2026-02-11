@@ -391,7 +391,7 @@ original y box length.  R = 1 or 2 means the tilt factor will increase
 by 1 or 2 every picosecond.  R = -0.01 means a decrease in shear
 strain by 0.01 every picosecond.
 
-.. versionchanged:: TBD
+.. versionchanged:: 11Feb2026
 
 The *erate/rescale* style operates similarly to the *erate* style with
 a specified strain rate in units of 1/time. The difference is that

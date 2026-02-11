@@ -1555,7 +1555,7 @@ For more information on MBX, see the `MBX library <https://mbxsimulations.com>`_
 by the Paesani group at the University of California, San Diego. Major contributors
 include: Marc Riera, Christopher Knight, Ethan Bull-Vulpe, and Henry Agnew.
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 **Install:**
 

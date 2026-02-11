@@ -183,7 +183,7 @@ be useful so that post-processing programs can easily read the files in
 ascending timestep order.  Please see the documentation of the individual
 fix styles if this keyword is supported.
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 The *vizsteps* keyword only applies when a fix produces event based
 graphics objects, e.g. atoms that were involved in a reaction or a Monte

@@ -27,7 +27,7 @@ Examples
 Description
 """""""""""
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 This fix allows to add a trace of averaged atom positions in the fix
 group to images rendered with :doc:`dump image <dump_image>` using the

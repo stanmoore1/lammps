@@ -255,7 +255,7 @@ larger sizes, and *qeq/fire* is faster than *qeq/dynamic*\ .
    arbitrary choices of these parameters.  We do not develop these QEq
    parameters.  See the examples/qeq directory for some examples.
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 In previous versions of LAMMPS, the real-space summations of Coulomb
 interactions were done by replacing *1/r* using a damped potential

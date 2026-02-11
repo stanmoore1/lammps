@@ -24,7 +24,7 @@ Syntax
 * color = atom attribute that determines color of each atom
 * diameter = atom attribute that determines size of each atom
 * zero or more keyword/value pairs may be appended
-* keyword = *atom* or *adiam* or *autobond* or *bond* or *grid* or *line* or *tri* or *ellipsoid* or *body* or *fix* or *size* or *view* or *center* or *up* or *zoom* or *box* or *axes* or *region* or *subbox* or *shiny* or *fsaa* or *ssao*
+* keyword = *atom* or *adiam* or *autobond* or *bond* or *grid* or *line* or *tri* or *ellipsoid* or *body* or *compute* or *fix* or *size* or *view* or *center* or *up* or *zoom* or *box* or *axes* or *region* or *subbox* or *shiny* or *fsaa* or *ssao*
 
   .. parsed-literal::
 
@@ -58,9 +58,13 @@ Syntax
        *body* = color bflag1 bflag2
          color = *type* or *index*
          bflag1,bflag2 = 2 numeric flags to affect how bodies are drawn
+       *compute* = computeID color cflag1 cflag2
+         computeID = ID of computes that generates objects to draw
+         color = *type* or *element* or *const*
+         cflag1,cflag2 = 2 numeric flags to affect how compute objects are drawn
        *fix* = fixID color fflag1 fflag2
          fixID = ID of fix that generates objects to draw
-         color = *type*
+         color = *type* or *element* or *const*
          fflag1,fflag2 = 2 numeric flags to affect how fix objects are drawn
        *size* values = width height = size of images
          width = width of image in # of pixels
@@ -180,12 +184,18 @@ Syntax
        *color* args = name R G B
          name = name of color
          R,G,B = red/green/blue numeric values from 0.0 to 1.0
-       *fcolor* args = fix-ID color
-         fix-ID = ID of the fix
-         color = name of color for image objects provided by this fix
-       *ftrans* args = fix-ID transparency
-         fix-ID = ID of the fix
-         transparency = transparency for image objects provided by this fix when using "const" color style
+       *ccolor* args = computeID color
+         computeID = ID of the compute
+         color = name of color for image objects provided by this compute when using "const" color style
+       *ctrans* args = computeID transparency
+         computeID = ID of the compute
+         transparency = transparency for image objects provided by this compute
+       *fcolor* args = fixID color
+         fixID = ID of the fix
+         color = name of color for image objects provided by this fix when using "const" color style
+       *ftrans* args = fixID transparency
+         fixID = ID of the fix
+         transparency = transparency for image objects provided by this fix
        *bitrate* arg = rate
          rate = target bitrate for movie in kbps
        *framerate* arg = fps
@@ -251,7 +261,7 @@ Here are five sample images, rendered as JPEG or PNG files.
 A detailed discussion of advanced graphics settings and workflows
 with examples is provided in the :doc:`Howto_viz` howto.
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
    support for writing compressed TGA files
 
@@ -332,7 +342,7 @@ prefixed by "c\_", "f\_", or "v\_", respectively.  Note that the
 *diameter* setting can be overridden with a numeric value applied to all
 atoms by the optional *adiam* keyword.
 
-.. versionchanged:: TBD
+.. versionchanged:: 11Feb2026
 
    Replaced colors "aqua" and "cyan" with "cyan" and "magenta"
 
@@ -447,7 +457,7 @@ If *type* is specified for the *color* value, then the color of each
 bond is determined by its bond type.  By default the mapping of bond
 types to colors is as follows:
 
-.. versionchanged:: TBD
+.. versionchanged:: 11Feb2026
 
    Replaced colors "aqua" and "cyan" with "cyan" and "magenta"
 
@@ -525,7 +535,7 @@ and repeats itself for types > 6.
 
 ----------
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 The *ellipsoid* keyword can be used when :doc:`atom_style ellipsoid
 <atom_style>` is used to define particles as ellipsoids, and will draw
@@ -586,7 +596,7 @@ passed to the body style to affect how the drawing of a body particle
 is done.  See the :doc:`Howto body <Howto_body>` page for a
 description of what these parameters mean for each body style.
 
-.. versionchanged:: TDB
+.. versionchanged:: 11Feb2026
 
 The there are currently two supported settings for the *color* value:
 *type*, or *index*.  With the *type* setting the body particles will be
@@ -610,38 +620,44 @@ increased when using either the :doc:`create_box <create_box>` or the
 
 ----------
 
-.. versionchanged:: TBD
+.. versionchanged:: 11Feb2026
 
-   Support for several fix styles added and more flexible color selection
+   Support for computes and several fix styles added and more flexible color selection
 
-The *fix* keyword can be used with a :doc:`fix <fix>` that produces
-objects to be drawn.  The fix keyword may be used multiple times to include visualizations of
-graphics objects from multiple fixes.  The fix keyword is followed by
-the :doc:`fix ID <fix>` of the fix, the color style setting and two
-numerical values *fflag1* and *fflag2*.
+The *compute* keyword can be used with a :doc:`compute style <compute>`
+that produces information about objects to be drawn. Similarly, the
+*fix* keyword can be used with a :doc:`fix style <fix>` that produces
+information about objects to be drawn.  The compute or fix keywords may
+be used multiple times to include visualizations of graphics objects
+from multiple computes and fixes.  The *compute* keyword is followed by
+the :doc:`compute ID <compute>` of the compute, the color style setting
+and two numerical values *cflag1* and *cflag2*.  The *fix* keyword is
+followed by the :doc:`fix ID <fix>` of the fix, the color style setting
+and two numerical values *fflag1* and *fflag2*.
 
 The color style may be either *type*, *element*, or *const*.  The first
 two will use the same color as assigned to the corresponding atom type
-and thus it depends on the fix which atom type it associates with any
-object.  Often this will be atom type 1.  For the *const* type a
-constant color will be used that can be changed with a *dump_modify
-fcolor* command (see below).  By default the constant color will be
-"red" (same as the default color for atom type 1).
+and thus it depends on the implementation of the compute or fix which
+atom type it associates with any object.  Often this will be atom
+type 1.  For the *const* type a constant color will be used that can be
+changed with a *dump_modify ccolor* or *dump_modify fcolor* command (see
+below).  By default the constant color will be "white".
 
-The *fflag1* and *fflag2* settings are numerical values which are used
-by *dump image* to adjust how the drawing of the objects communicated by
-the fix is done.  See the documentation of the individual fixes for a
-description of what these parameters mean for the graphics objects
-provided by those fixes.
+The *cflag1* and *cflag2* or *fflag1* and *fflag2* settings are
+numerical values which are used by *dump image* to adjust how the
+drawing of the objects communicated by the fix is done.  See the
+documentation of the individual computes and fixes for a description of
+what these parameters mean for the graphics objects provided by those
+fixes.
 
-More details and some examples for including graphics objects from fix
-commands are in the :doc:`Howto_viz` howto.
+More details and some examples for including graphics objects from compute
+and fix commands are in the :doc:`Howto_viz` howto.
 
 ----------
 
 .. versionadded:: 10Sep2025
 
-.. versionchanged:: TBD
+.. versionchanged:: 11Feb2026
 
    draw style *transparent* was added
 
@@ -748,7 +764,7 @@ is a fraction of the shortest box length in x,y,z (for 3d) or x,y (for
 2d).  The color of the box boundaries can be set with the "dump_modify
 boxcolor" command.
 
-.. versionchanged:: TBD
+.. versionchanged:: 11Feb2026
 
 The *axes* keyword determines if and how the coordinate axes are
 rendered in the image as arrows with the letters 'X', 'Y', and 'Z' to
@@ -1034,7 +1050,7 @@ The *backcolor* sets the background color of the images.  The color
 name can be any of the 140 pre-defined colors (see below) or a color
 name defined by the dump_modify color option.
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 The *backcolor2* sets a second background color of the images to create
 a vertical background gradient.  The regular background color is the
@@ -1125,7 +1141,7 @@ pre-defined color names with new RBG values.
 
 **Transparency settings for atoms bonds and standard visualization objects**
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 Various graphical objects in *dump image* output can be rendered in a
 transparent fashion using the so-called screen-door transparency method.
@@ -1142,7 +1158,7 @@ combination with *fsaa on*.
 
 ----------
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 The *fcolor* keyword sets the color of any image objects created by a
 fix when using the color style "const".  The first argument is the fix ID
