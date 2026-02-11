@@ -455,7 +455,7 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // Build the ChIMES many-body neighbor lists.. only do so when LAMMPS neighborlist has been updated
 
   if (neighbor->ago == 0) {
-    if (chimes_calculatorKK.rank == 0)
+    if (0 && chimes_calculatorKK.rank == 0)
       std::cout << "Updating chimesFF neighbor lists..." << std::endl;
 
     build_mb_neighlists();
@@ -463,7 +463,7 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     chimes_calculatorKK.resize_3B(size_3mers);
     chimes_calculatorKK.resize_4B(size_4mers);
 
-    if (chimes_calculatorKK.rank == 0) {
+    if (0 && chimes_calculatorKK.rank == 0) {
       std::cout << "      Rank " << comm->me << " 3-body list size: " << size_3mers << std::endl;
       std::cout << "      Rank " << comm->me << " 4-body list size: " << size_4mers << std::endl;
       std::cout << "      ...update complete" << std::endl;

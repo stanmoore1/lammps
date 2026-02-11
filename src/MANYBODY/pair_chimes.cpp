@@ -558,11 +558,11 @@ void PairCHIMES::compute(int eflag, int vflag)
 	
 	if ( neighbor->ago == 0)
 	{
-		if (chimes_calculator->rank == 0)
+		if (0 && chimes_calculator->rank == 0)
 			std::cout << "Updating chimesFF neighbor lists..." << std::endl;
 			
 		build_mb_neighlists();		
-		if (chimes_calculator->rank == 0)
+		if (0 && chimes_calculator->rank == 0)
 		{
 			std::cout << "	Rank " << me << " 3-body list size: " << neighborlist_3mers.size() << std::endl;
 			std::cout << "	Rank " << me << " 4-body list size: " << neighborlist_4mers.size() << std::endl;
