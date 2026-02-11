@@ -41,6 +41,9 @@ class PairCHIMESKokkos : public PairCHIMES
   struct TagPairCHIMESComputeNeigh{};
 
   template<int NEIGHFLAG, int EVFLAG>
+  struct TagPairCHIMESCompute1Body{};
+
+  template<int NEIGHFLAG, int EVFLAG>
   struct TagPairCHIMESCompute2Body{};
 
   template<int NEIGHFLAG, int EVFLAG>
@@ -66,6 +69,15 @@ class PairCHIMESKokkos : public PairCHIMES
 
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairCHIMESComputeNeigh,const int& ii) const;
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairCHIMESCompute1Body<NEIGHFLAG,EVFLAG>,const int& ii) const;
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairCHIMESCompute1Body<NEIGHFLAG,EVFLAG>,const int& ii, EV_FLOAT&) const;
+
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
@@ -100,8 +112,8 @@ class PairCHIMESKokkos : public PairCHIMES
  private:
   int neighflag;
   int inum, maxneigh, chunk_size, chunk_offset;
-  int host_flag, max_3mers, max_4mers;
-  int size_3mers, size_4mers;
+  int host_flag, max_2mers, max_3mers, max_4mers;
+  int size_2mers, size_3mers, size_4mers;
 
   KK_FLOAT maxcut_3b_padded, maxcut_4b_padded;
 
@@ -128,18 +140,15 @@ class PairCHIMESKokkos : public PairCHIMES
 
   typename AT::t_int_1d d_chimes_type,d_map;
 
+  typename AT::t_int_1d_2 d_neighborlist_2mers;
   typename AT::t_int_1d_3 d_neighborlist_3mers;
   typename AT::t_int_1d_4 d_neighborlist_4mers;
 
-  typename AT::t_int_scalar d_size_3mers, d_size_4mers;
+  typename AT::t_int_scalar d_size_2mers, d_size_3mers, d_size_4mers;
 
   //typename AT::t_int_1d d_force_2b, d_force_3b, d_force_4b;
 
   chimesFFKokkos<DeviceType> chimes_calculatorKK; // chimesFF instance
-
-  typename chimesFFKokkos<DeviceType>::chimes2BTmpKokkos chimes_2btmpKK;
-  typename chimesFFKokkos<DeviceType>::chimes3BTmpKokkos chimes_3btmpKK;
-  typename chimesFFKokkos<DeviceType>::chimes4BTmpKokkos chimes_4btmpKK;
 
   int need_dup;
 

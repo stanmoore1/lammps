@@ -396,7 +396,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::set_polys_out_of_range(typename AT::t_kkfloat_1d &Tn, typename AT::t_kkfloat_1d &Tnd, KK_FLOAT dx, KK_FLOAT x, int poly_order, KK_FLOAT inner_cutoff, KK_FLOAT exprlen, KK_FLOAT dx_dr) const
+void chimesFFKokkos<DeviceType>::set_polys_out_of_range(const int ii, typename AT::t_kkfloat_2d &Tn, typename AT::t_kkfloat_2d &Tnd, KK_FLOAT dx, KK_FLOAT x, int poly_order, KK_FLOAT inner_cutoff, KK_FLOAT exprlen, KK_FLOAT dx_dr) const
 {
   //  Sets the value of the Chebyshev polynomials (Tn) and their derivatives (Tnd) when dx is < inner_cutoff.
   //  Tnd is the derivative with respect to the interatomic distance, not the transformed distance (x).
@@ -406,34 +406,34 @@ void chimesFFKokkos<DeviceType>::set_polys_out_of_range(typename AT::t_kkfloat_1
   //  x, exprlen, and dx_dr are evaluated at the inner cutoff.
   //	
   //  dx is the pair distance, which is assumed to be less than inner_cutoff.
-  Tn[0] = 1.0;
-  Tn[1] = x;
+  Tn(ii,0) = 1.0;
+  Tn(ii,1) = x;
 
   // Start the derivative setup. Set the first two 1st-kind Cheby's equal to the first two of the 2nd-kind
 
-  Tnd[0] = 1.0;
-  Tnd[1] = 2.0 * x;
+  Tnd(ii,0) = 1.0;
+  Tnd(ii,1) = 2.0 * x;
 
   // Use recursion to set up the higher n-value Tn and Tnd's
   for (int i = 2; i <= poly_order; i++) {
-    Tn[i] = 2.0 * x * Tn[i-1] - Tn[i-2];
-    Tnd[i] = 2.0 * x * Tnd[i-1] - Tnd[i-2];
+    Tn(ii,i) = 2.0 * x * Tn(ii,i-1) - Tn(ii,i-2);
+    Tnd(ii,i) = 2.0 * x * Tnd(ii,i-1) - Tnd(ii,i-2);
   }
 
   // Now multiply by n to convert Tnd's to actual derivatives of Tn
 
   for (int i = poly_order; i >= 1; i--)
-    Tnd[i] = i * dx_dr * Tnd[i-1];
+    Tnd(ii,i) = i * dx_dr * Tnd(ii,i-1);
 
-  Tnd[0] = 0.0;
+  Tnd(ii,0) = 0.0;
 
   // Exponential damping of the derivative.
   KK_FLOAT damp_fac = exp((dx-inner_cutoff) / inner_smooth_distance);
 
   // Correct Tn outside of the range using the damping factor.
   for (int i = 0 ; i <= poly_order ; i++) {
-    Tn[i] += inner_smooth_distance * (damp_fac-1.0)  * Tnd[i];
-    Tnd[i] *= damp_fac;
+    Tn(ii,i) += inner_smooth_distance * (damp_fac-1.0)  * Tnd(ii,i);
+    Tnd(ii,i) *= damp_fac;
   }
 }
 
@@ -489,17 +489,17 @@ void chimesFFKokkos<DeviceType>::compute_1B(const int typ_idx, KK_FLOAT & energy
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_2B(const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, const chimes2BTmpKokkos &tmp) const
+void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
 {
   KK_FLOAT dummy_force_scalar;
-  compute_2B(dx, dr, typ_idxs, force, stress, energy, tmp, dummy_force_scalar);
+  compute_2B(ii, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_2B(const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, const chimes2BTmpKokkos &tmp, KK_FLOAT& force_scalar_in) const
+void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT& force_scalar_in) const
 {
   // Compute 2b (input: 2 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -521,19 +521,17 @@ void chimesFFKokkos<DeviceType>::compute_2B(const KK_FLOAT dx, const KK_FLOAT* d
   KK_FLOAT fcut;
   KK_FLOAT fcutderiv;
 
-  // tmp.resize(d_poly_orders[0]+1);
-
   // Use references for readability
 
-  typename AT::t_kkfloat_1d Tn = tmp.d_Tn;
-  typename AT::t_kkfloat_1d Tnd = tmp.d_Tnd;
+  typename AT::t_kkfloat_2d Tn = chimes2BKK.d_Tn;
+  typename AT::t_kkfloat_2d Tnd = chimes2BKK.d_Tnd;
 
   pair_idx = d_atom_int_pair_map[typ_idxs[0]*natmtyps + typ_idxs[1]];
 
   if (dx >= d_chimes_2b_cutoff(pair_idx,1))
     return;
 
-  set_cheby_polys(Tn, Tnd, dx, d_morse_var[pair_idx], d_chimes_2b_cutoff(pair_idx,0), d_chimes_2b_cutoff(pair_idx,1), d_poly_orders[0]);
+  set_cheby_polys(ii, Tn, Tnd, dx, d_morse_var[pair_idx], d_chimes_2b_cutoff(pair_idx,0), d_chimes_2b_cutoff(pair_idx,1), d_poly_orders[0]);
 
   get_fcut(dx, d_chimes_2b_cutoff(pair_idx,1), fcut, fcutderiv);
 
@@ -542,9 +540,9 @@ void chimesFFKokkos<DeviceType>::compute_2B(const KK_FLOAT dx, const KK_FLOAT* d
   for (int coeffs = 0; coeffs < d_ncoeffs_2b[pair_idx]; coeffs++) {
     KK_FLOAT coeff_val = d_chimes_2b_params(pair_idx,coeffs);
 
-    energy += coeff_val * fcut * Tn[d_chimes_2b_pows(pair_idx,coeffs)+1];
+    energy += coeff_val * fcut * Tn(ii, d_chimes_2b_pows(pair_idx,coeffs)+1);
 
-    KK_FLOAT deriv = fcut * Tnd[d_chimes_2b_pows(pair_idx,coeffs)+1]  + fcutderiv * Tn[d_chimes_2b_pows(pair_idx,coeffs)+1];
+    KK_FLOAT deriv = fcut * Tnd(ii, d_chimes_2b_pows(pair_idx,coeffs)+1) + fcutderiv * Tn(ii,d_chimes_2b_pows(pair_idx,coeffs)+1);
 
     KK_FLOAT force_scalar = coeff_val * deriv * dx_inv;
 
@@ -610,17 +608,17 @@ void chimesFFKokkos<DeviceType>::compute_2B(const KK_FLOAT dx, const KK_FLOAT* d
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, const chimes3BTmpKokkos &tmp) const
+void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
 {
   KK_FLOAT dummy_force_scalar[3];
-  compute_3B(dx, dr, typ_idxs, force, stress, energy, tmp, dummy_force_scalar);
+  compute_3B(ii, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, const chimes3BTmpKokkos &tmp, KK_FLOAT* force_scalar_in) const
+void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar_in) const
 {
   // Compute 3b (input: 3 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -641,14 +639,12 @@ void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* 
   const int natoms = 3;                   // Number of atoms in an interaction set
   const int npairs = natoms*(natoms-1)/2; // Number of pairs in an interaction set
 
-  // tmp.resize(d_poly_orders[1]);
-
-  typename AT::t_kkfloat_1d Tn_ij = tmp.d_Tn_ij;
-  typename AT::t_kkfloat_1d Tn_ik = tmp.d_Tn_ik;
-  typename AT::t_kkfloat_1d Tn_jk = tmp.d_Tn_jk;   // The Chebyshev polymonials
-  typename AT::t_kkfloat_1d Tnd_ij = tmp.d_Tnd_ij;
-  typename AT::t_kkfloat_1d Tnd_ik = tmp.d_Tnd_ik;
-  typename AT::t_kkfloat_1d Tnd_jk = tmp.d_Tnd_jk;  // The Chebyshev polymonial derivatives
+  typename AT::t_kkfloat_2d Tn_ij = chimes3BKK.d_Tn_ij;
+  typename AT::t_kkfloat_2d Tn_ik = chimes3BKK.d_Tn_ik;
+  typename AT::t_kkfloat_2d Tn_jk = chimes3BKK.d_Tn_jk;   // The Chebyshev polymonials
+  typename AT::t_kkfloat_2d Tnd_ij = chimes3BKK.d_Tnd_ij;
+  typename AT::t_kkfloat_2d Tnd_ik = chimes3BKK.d_Tnd_ik;
+  typename AT::t_kkfloat_2d Tnd_jk = chimes3BKK.d_Tnd_jk;  // The Chebyshev polymonial derivatives
 
   // Avoid allocating vector quantities.  Heap memory allocation is slow on the GPU.
   // fixed-length C arrays are allocated on the stack
@@ -656,14 +652,6 @@ void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* 
   KK_FLOAT fcut[npairs];
   KK_FLOAT fcutderiv[npairs];
   KK_FLOAT deriv[npairs];
-
-#if DEBUG == 1
-  if (dr.size() != 9 )
-  {
-    cout << "Error: dr should have length = 9.  Current length = " << dr.size() << endl;
-    exit(0);
-  }
-#endif
 
   int type_idx = typ_idxs[0]*natmtyps*natmtyps + typ_idxs[1]*natmtyps + typ_idxs[2];
   int tripidx = d_atom_int_trip_map[type_idx];
@@ -708,9 +696,9 @@ void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* 
 
   // Set up the polynomials
 
-  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], d_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
-  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], d_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
-  set_cheby_polys(Tn_jk, Tnd_jk, dx[2], d_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
+  set_cheby_polys(ii, Tn_ij, Tnd_ij, dx[0], d_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
+  set_cheby_polys(ii, Tn_ik, Tnd_ik, dx[1], d_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
+  set_cheby_polys(ii, Tn_jk, Tnd_jk, dx[2], d_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
 
   // Set up the smoothing functions
 
@@ -743,15 +731,15 @@ void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* 
     powers[1] = d_chimes_3b_powers(tripidx,coeffs,d_pair_int_trip_map(type_idx,1));
     powers[2] = d_chimes_3b_powers(tripidx,coeffs,d_pair_int_trip_map(type_idx,2));
 
-    energy += coeff * fcut_all * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
+    energy += coeff * fcut_all * Tn_ij(ii, powers[0]) * Tn_ik(ii, powers[1]) * Tn_jk(ii, powers[2]);
 
-    deriv[0] = fcut[0] * Tnd_ij[powers[0]] + fcutderiv[0] * Tn_ij[powers[0]];
-    deriv[1] = fcut[1] * Tnd_ik[powers[1]] + fcutderiv[1] * Tn_ik[powers[1]];
-    deriv[2] = fcut[2] * Tnd_jk[powers[2]] + fcutderiv[2] * Tn_jk[powers[2]];
+    deriv[0] = fcut[0] * Tnd_ij(ii, powers[0]) + fcutderiv[0] * Tn_ij(ii, powers[0]);
+    deriv[1] = fcut[1] * Tnd_ik(ii, powers[1]) + fcutderiv[1] * Tn_ik(ii, powers[1]);
+    deriv[2] = fcut[2] * Tnd_jk(ii, powers[2]) + fcutderiv[2] * Tn_jk(ii, powers[2]);
 
-    force_scalar[0] = coeff * deriv[0] * fcut_2[0] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
-    force_scalar[1] = coeff * deriv[1] * fcut_2[1] * Tn_ij[powers[0]] * Tn_jk[powers[2]];
-    force_scalar[2] = coeff * deriv[2] * fcut_2[2] * Tn_ij[powers[0]] * Tn_ik[powers[1]];
+    force_scalar[0] = coeff * deriv[0] * fcut_2[0] * Tn_ik(ii, powers[1]) * Tn_jk(ii, powers[2]);
+    force_scalar[1] = coeff * deriv[1] * fcut_2[1] * Tn_ij(ii, powers[0]) * Tn_jk(ii, powers[2]);
+    force_scalar[2] = coeff * deriv[2] * fcut_2[2] * Tn_ij(ii, powers[0]) * Tn_ik(ii, powers[1]);
 
     fscalar_0 = force_scalar[0];
     fscalar_1 = force_scalar[1];
@@ -851,17 +839,17 @@ void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, const chimes4BTmpKokkos &tmp) const
+void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
 {
   KK_FLOAT dummy_force_scalar[6];
-  compute_4B(dx, dr, typ_idxs, force, stress, energy, tmp, dummy_force_scalar);
+  compute_4B(ii, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, const chimes4BTmpKokkos &tmp, KK_FLOAT* force_scalar_in) const
+void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar_in) const
 {
   // Compute 3b (input: 3 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -885,26 +873,19 @@ void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* 
   KK_FLOAT fcutderiv[npairs];
   KK_FLOAT deriv[npairs];
 
-#if DEBUG == 1
-  if (force.size() != CHDIM * natoms ) {
-    cout << "Error: force vector had incorrect dimension of " << force.size() << endl;
-    exit(1);
-  }
-#endif
+  typename AT::t_kkfloat_2d Tn_ij = chimes4BKK.d_Tn_ij;
+  typename AT::t_kkfloat_2d Tn_ik = chimes4BKK.d_Tn_ik;
+  typename AT::t_kkfloat_2d Tn_il = chimes4BKK.d_Tn_il;
+  typename AT::t_kkfloat_2d Tn_jk = chimes4BKK.d_Tn_jk;
+  typename AT::t_kkfloat_2d Tn_jl = chimes4BKK.d_Tn_jl;
+  typename AT::t_kkfloat_2d Tn_kl = chimes4BKK.d_Tn_kl;
 
-  typename AT::t_kkfloat_1d Tn_ij = tmp.d_Tn_ij;
-  typename AT::t_kkfloat_1d Tn_ik = tmp.d_Tn_ik;
-  typename AT::t_kkfloat_1d Tn_il = tmp.d_Tn_il;
-  typename AT::t_kkfloat_1d Tn_jk = tmp.d_Tn_jk;
-  typename AT::t_kkfloat_1d Tn_jl = tmp.d_Tn_jl;
-  typename AT::t_kkfloat_1d Tn_kl = tmp.d_Tn_kl;
-
-  typename AT::t_kkfloat_1d Tnd_ij = tmp.d_Tnd_ij;
-  typename AT::t_kkfloat_1d Tnd_ik = tmp.d_Tnd_ik;
-  typename AT::t_kkfloat_1d Tnd_il = tmp.d_Tnd_il;
-  typename AT::t_kkfloat_1d Tnd_jk = tmp.d_Tnd_jk;
-  typename AT::t_kkfloat_1d Tnd_jl = tmp.d_Tnd_jl;
-  typename AT::t_kkfloat_1d Tnd_kl = tmp.d_Tnd_kl;
+  typename AT::t_kkfloat_2d Tnd_ij = chimes4BKK.d_Tnd_ij;
+  typename AT::t_kkfloat_2d Tnd_ik = chimes4BKK.d_Tnd_ik;
+  typename AT::t_kkfloat_2d Tnd_il = chimes4BKK.d_Tnd_il;
+  typename AT::t_kkfloat_2d Tnd_jk = chimes4BKK.d_Tnd_jk;
+  typename AT::t_kkfloat_2d Tnd_jl = chimes4BKK.d_Tnd_jl;
+  typename AT::t_kkfloat_2d Tnd_kl = chimes4BKK.d_Tnd_kl;
 
   int idx = typ_idxs[0]*natmtyps*natmtyps*natmtyps
       + typ_idxs[1]*natmtyps*natmtyps + typ_idxs[2]*natmtyps + typ_idxs[3];
@@ -972,12 +953,12 @@ void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* 
 
   // Set up the polynomials
 
-  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], d_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
-  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], d_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
-  set_cheby_polys(Tn_il, Tnd_il, dx[2], d_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
-  set_cheby_polys(Tn_jk, Tnd_jk, dx[3], d_morse_var[pair_type_4], cutoff_03, cutoff_3, order);
-  set_cheby_polys(Tn_jl, Tnd_jl, dx[4], d_morse_var[pair_type_5], cutoff_04, cutoff_4, order);
-  set_cheby_polys(Tn_kl, Tnd_kl, dx[5], d_morse_var[pair_type_6], cutoff_05, cutoff_5, order);
+  set_cheby_polys(ii, Tn_ij, Tnd_ij, dx[0], d_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
+  set_cheby_polys(ii, Tn_ik, Tnd_ik, dx[1], d_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
+  set_cheby_polys(ii, Tn_il, Tnd_il, dx[2], d_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
+  set_cheby_polys(ii, Tn_jk, Tnd_jk, dx[3], d_morse_var[pair_type_4], cutoff_03, cutoff_3, order);
+  set_cheby_polys(ii, Tn_jl, Tnd_jl, dx[4], d_morse_var[pair_type_5], cutoff_04, cutoff_4, order);
+  set_cheby_polys(ii, Tn_kl, Tnd_kl, dx[5], d_morse_var[pair_type_6], cutoff_05, cutoff_5, order);
 
 #ifdef USE_DISTANCE_TENSOR
   // Tensor product of displacement vectors
@@ -1033,24 +1014,24 @@ void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* 
     for (int i = 0; i < npairs; i++)
       powers[i] = d_chimes_4b_powers(quadidx,coeffs,d_pair_int_quad_map(idx,i));
 
-    KK_FLOAT Tn_ij_ik_il = Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]];
-    KK_FLOAT Tn_jk_jl = Tn_jk[powers[3]] * Tn_jl[powers[4]];
-    KK_FLOAT Tn_kl_5 = Tn_kl[powers[5]];
+    KK_FLOAT Tn_ij_ik_il = Tn_ij(ii, powers[0]) * Tn_ik(ii, powers[1]) * Tn_il(ii, powers[2]);
+    KK_FLOAT Tn_jk_jl = Tn_jk(ii, powers[3]) * Tn_jl(ii, powers[4]);
+    KK_FLOAT Tn_kl_5 = Tn_kl(ii, powers[5]);
 
     energy += coeff * fcut_all * Tn_ij_ik_il * Tn_jk_jl * Tn_kl_5;
 
-    deriv[0] = fcut[0] * Tnd_ij[powers[0]] + fcutderiv[0] * Tn_ij[powers[0]];
-    deriv[1] = fcut[1] * Tnd_ik[powers[1]] + fcutderiv[1] * Tn_ik[powers[1]];
-    deriv[2] = fcut[2] * Tnd_il[powers[2]] + fcutderiv[2] * Tn_il[powers[2]];
-    deriv[3] = fcut[3] * Tnd_jk[powers[3]] + fcutderiv[3] * Tn_jk[powers[3]];
-    deriv[4] = fcut[4] * Tnd_jl[powers[4]] + fcutderiv[4] * Tn_jl[powers[4]];
-    deriv[5] = fcut[5] * Tnd_kl[powers[5]] + fcutderiv[5] * Tn_kl[powers[5]];
+    deriv[0] = fcut[0] * Tnd_ij(ii, powers[0]) + fcutderiv[0] * Tn_ij(ii, powers[0]);
+    deriv[1] = fcut[1] * Tnd_ik(ii, powers[1]) + fcutderiv[1] * Tn_ik(ii, powers[1]);
+    deriv[2] = fcut[2] * Tnd_il(ii, powers[2]) + fcutderiv[2] * Tn_il(ii, powers[2]);
+    deriv[3] = fcut[3] * Tnd_jk(ii, powers[3]) + fcutderiv[3] * Tn_jk(ii, powers[3]);
+    deriv[4] = fcut[4] * Tnd_jl(ii, powers[4]) + fcutderiv[4] * Tn_jl(ii, powers[4]);
+    deriv[5] = fcut[5] * Tnd_kl(ii, powers[5]) + fcutderiv[5] * Tn_kl(ii, powers[5]);
 
-    force_scalar[0] = coeff * deriv[0] * fcut_5[0] * Tn_ik[powers[1]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
-    force_scalar[1] = coeff * deriv[1] * fcut_5[1] * Tn_ij[powers[0]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
-    force_scalar[2] = coeff * deriv[2] * fcut_5[2] * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk_jl * Tn_kl_5;
-    force_scalar[3] = coeff * deriv[3] * fcut_5[3] * Tn_ij_ik_il * Tn_jl[powers[4]] * Tn_kl_5;
-    force_scalar[4] = coeff * deriv[4] * fcut_5[4] * Tn_ij_ik_il * Tn_jk[powers[3]] * Tn_kl_5;
+    force_scalar[0] = coeff * deriv[0] * fcut_5[0] * Tn_ik(ii, powers[1]) * Tn_il(ii, powers[2]) * Tn_jk_jl * Tn_kl_5;
+    force_scalar[1] = coeff * deriv[1] * fcut_5[1] * Tn_ij(ii, powers[0]) * Tn_il(ii, powers[2]) * Tn_jk_jl * Tn_kl_5;
+    force_scalar[2] = coeff * deriv[2] * fcut_5[2] * Tn_ij(ii, powers[0]) * Tn_ik(ii, powers[1]) * Tn_jk_jl * Tn_kl_5;
+    force_scalar[3] = coeff * deriv[3] * fcut_5[3] * Tn_ij_ik_il * Tn_jl(ii, powers[4]) * Tn_kl_5;
+    force_scalar[4] = coeff * deriv[4] * fcut_5[4] * Tn_ij_ik_il * Tn_jk(ii, powers[3]) * Tn_kl_5;
     force_scalar[5] = coeff * deriv[5] * fcut_5[5] * Tn_ij_ik_il * Tn_jk_jl;
 
     fscalar_0 = force_scalar[0];
