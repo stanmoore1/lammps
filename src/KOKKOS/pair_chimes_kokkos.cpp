@@ -92,6 +92,9 @@ PairCHIMESKokkos<DeviceType>::~PairCHIMESKokkos()
     memory->destroy(setflag);
     memory->destroy(cutsq);
   }*/
+
+  memoryKK->destroy_kokkos(k_eatom,eatom);
+  memoryKK->destroy_kokkos(k_vatom,vatom);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -215,7 +218,7 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
   while (resize) {
     resize = 0;
 
-    Kokkos::deep_copy(d_size_3mers,0.0); 
+    Kokkos::deep_copy(d_size_3mers,0.0);
     Kokkos::deep_copy(d_size_4mers,0.0); // could fuse
 
     typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESComputeNeigh> policy_neigh(0,inum);
@@ -383,7 +386,7 @@ struct FindMaxNumNeighs {
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairCHIMESKokkos<DeviceType>::compute(int eflag, int vflag)
+void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 {
   copymode = 1;
 
@@ -397,6 +400,26 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag, int vflag)
   int newton_pair = force->newton_pair; ////
 
   // Set up vars controlling if energy/pressure (virial) contributions are computed
+
+  eflag = eflag_in;
+  vflag = vflag_in;
+
+  if (neighflag == FULL) no_virial_fdotr_compute = 1;
+
+  ev_init(eflag,vflag,0);
+
+  // reallocate per-atom arrays if necessary
+
+  if (eflag_atom) {
+    memoryKK->destroy_kokkos(k_eatom,eatom);
+    memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"pair:eatom");
+    d_eatom = k_eatom.view<DeviceType>();
+  }
+  if (vflag_atom) {
+    memoryKK->destroy_kokkos(k_vatom,vatom);
+    memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"pair:vatom");
+    d_vatom = k_vatom.view<DeviceType>();
+  }
 
   if (eflag || vflag) {
     ev_setup(eflag,vflag);
@@ -455,8 +478,8 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag, int vflag)
 
   int vector_length_default = 1;
   int team_size_default = 1;
-  if (!host_flag)
-    team_size_default = 32;
+  //if (!host_flag)
+  //  team_size_default = 32;
 
   int chunksize = 4096; //////
 
@@ -603,7 +626,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFL
   const auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
   const auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-  const int i = d_ilist[ii + chunk_offset];
+  const int i = d_ilist[ii /*+ chunk_offset*/];
   const int itype = type(i);
   const tagint itag = tag(i);
   const KK_FLOAT scale = d_scale(itype,itype);
@@ -612,7 +635,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFL
 
   KK_FLOAT energy = 0.0;
   KK_FLOAT stensor[6];
-  for (int n = 0; n < 6; n++) stensor[n] = 0;
+  for (int n = 0; n < 6; n++) stensor[n] = 0.0;
 
   chimes_calculatorKK.compute_1B(type[i]-1, energy);
 
@@ -652,12 +675,18 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFL
     //std::fill(stensor.begin(), stensor.end(), 0.0);
 
     KK_FLOAT energy = 0.0;
+
     KK_FLOAT force_2b[2*CHDIM];
+    for (int idx = 0; idx < 3; idx++) {
+      force_2b[0*CHDIM+idx] = 0.0;
+      force_2b[1*CHDIM+idx] = 0.0;
+    }
+
     KK_FLOAT stensor[6];
-    for (int n = 0; n < 6; n++) stensor[n] = 0;
+    for (int n = 0; n < 6; n++) stensor[n] = 0.0;
 
     chimes_calculatorKK.compute_2B(dist, dr, typ_idxs_2b, force_2b, stensor, energy, chimes_2btmpKK);      // Auto-updates badness
-    
+
     for (int idx = 0; idx < 3; idx++) {
       a_f(i,idx) += force_2b[0*CHDIM+idx];
       a_f(j,idx) += force_2b[1*CHDIM+idx];
@@ -721,9 +750,17 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFL
   //std::fill(stensor.begin(), stensor.end(), 0.0);
 
   KK_FLOAT energy = 0.0;
+
   KK_FLOAT force_3b[3*CHDIM];
+  for (int idx = 0; idx < 3; idx++)
+  {
+    force_3b[0*CHDIM+idx] = 0.0;
+    force_3b[1*CHDIM+idx] = 0.0;
+    force_3b[2*CHDIM+idx] = 0.0;
+  }
+
   KK_FLOAT stensor[6];
-  for (int n = 0; n < 6; n++) stensor[n] = 0;
+  for (int n = 0; n < 6; n++) stensor[n] = 0.0;
 
   chimes_calculatorKK.compute_3B(dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy, chimes_3btmpKK);
 
@@ -794,13 +831,18 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute4Body<NEIGHFL
   typ_idxs_4b[2] = d_chimes_type[type[k]-1];
   typ_idxs_4b[3] = d_chimes_type[type[l]-1];
 
-  //std::fill(force_4b.begin(), force_4b.end(), 0.0);
-  //std::fill(stensor.begin(), stensor.end(), 0.0);
-
   KK_FLOAT energy = 0.0;
+
   KK_FLOAT force_4b[4*CHDIM];
+  for (int idx = 0; idx < 3; idx++) {
+    force_4b[0*CHDIM+idx] = 0.0;
+    force_4b[1*CHDIM+idx] = 0.0;
+    force_4b[2*CHDIM+idx] = 0.0;
+    force_4b[3*CHDIM+idx] = 0.0;
+  }
+
   KK_FLOAT stensor[6];
-  for (int n = 0; n < 6; n++) stensor[n] = 0;
+  for (int n = 0; n < 6; n++) stensor[n] = 0.0;
 
   chimes_calculatorKK.compute_4B(dist_4b, dr_4b, typ_idxs_4b, force_4b, stensor, energy, chimes_4btmpKK);
 
@@ -855,7 +897,7 @@ void PairCHIMESKokkos<DeviceType>::ev_tally_mb(int ninteractionatoms, int npairs
                                                KK_FLOAT evdwl, KK_FLOAT stress[6],
                                                EV_FLOAT &ev) const
 {
-  // Assumes newton pair is always true 
+  // Assumes newton pair is always true
   // Assumes a full neighbor list is always true (hard coded in pair_chimes.cpp)
   // Modeled after ev_tally_full and ev_tally3 (to get MB handling)
   // force and distance vector are flattened 2d vectors, e.g., atom_idx*3 + [0,1,2 == x,y,z dims]
@@ -874,13 +916,13 @@ void PairCHIMESKokkos<DeviceType>::ev_tally_mb(int ninteractionatoms, int npairs
 
   if (ninteractionatoms>1) // 2, 3, and/or 4b
     atmlist[1] = atmpairidxlst[0][1];   // j
-      
+
   if (ninteractionatoms>2) // 3 and/or 4b
     atmlist[2] = atmpairidxlst[1][1];   // k
-      
+
   if (ninteractionatoms>3) // 4b only
     atmlist[3] = atmpairidxlst[2][1];   // l
-  
+
   if (eflag_global)
     ev.evdwl += evdwl;
 
@@ -893,7 +935,7 @@ void PairCHIMESKokkos<DeviceType>::ev_tally_mb(int ninteractionatoms, int npairs
 
   if (!vflag_either)
     return;
-      
+
   // FYI, stress calculations follow strategy described here: https://docs.lammps.org/compute_stress_atom.html
 
   if (vflag_global) {
@@ -912,7 +954,7 @@ void PairCHIMESKokkos<DeviceType>::ev_tally_mb(int ninteractionatoms, int npairs
       a_vatom(atmlist[a],2) += stress[5]/ninteractionatoms;
       a_vatom(atmlist[a],3) += stress[1]/ninteractionatoms;
       a_vatom(atmlist[a],4) += stress[2]/ninteractionatoms;
-      a_vatom(atmlist[a],5) += stress[4]/ninteractionatoms;          
+      a_vatom(atmlist[a],5) += stress[4]/ninteractionatoms;
     }
   }
 }

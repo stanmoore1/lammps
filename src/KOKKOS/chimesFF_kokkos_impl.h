@@ -407,28 +407,28 @@ void chimesFFKokkos<DeviceType>::set_polys_out_of_range(typename AT::t_kkfloat_1
 
   Tnd[0] = 1.0;
   Tnd[1] = 2.0 * x;
-  
+
   // Use recursion to set up the higher n-value Tn and Tnd's
   for (int i = 2; i <= poly_order; i++) {
     Tn[i] = 2.0 * x * Tn[i-1] - Tn[i-2];
     Tnd[i] = 2.0 * x * Tnd[i-1] - Tnd[i-2];
   }
-  
+
   // Now multiply by n to convert Tnd's to actual derivatives of Tn
 
-  for (int i = poly_order; i >= 1; i--) 
+  for (int i = poly_order; i >= 1; i--)
     Tnd[i] = i * dx_dr * Tnd[i-1];
 
   Tnd[0] = 0.0;
 
   // Exponential damping of the derivative.
   KK_FLOAT damp_fac = exp((dx-inner_cutoff) / inner_smooth_distance);
-    
+
   // Correct Tn outside of the range using the damping factor.
   for (int i = 0 ; i <= poly_order ; i++) {
     Tn[i] += inner_smooth_distance * (damp_fac-1.0)  * Tnd[i];
     Tnd[i] *= damp_fac;
-  }     
+  }
 }
 
 /* ---------------------------------------------------------------------- */
