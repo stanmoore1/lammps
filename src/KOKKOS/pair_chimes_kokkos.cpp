@@ -71,8 +71,8 @@ PairCHIMESKokkos<DeviceType>::PairCHIMESKokkos(LAMMPS *lmp) : PairCHIMES(lmp)
   delete chimes_calculator;
   chimes_calculator = (chimesFF*) (&chimes_calculatorKK);
 
-  d_size_3mers = DAT::t_int_scalar("pair:size_3mers");
-  d_size_4mers = DAT::t_int_scalar("pair:size_4mers");
+  d_size_3mers = typename AT::t_int_scalar("pair:size_3mers");
+  d_size_4mers = typename AT::t_int_scalar("pair:size_4mers");
 
   max_3mers = 1;
   max_4mers = 1;
