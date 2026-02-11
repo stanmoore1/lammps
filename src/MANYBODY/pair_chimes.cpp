@@ -72,7 +72,7 @@ PairCHIMES::PairCHIMES(LAMMPS *lmp) : Pair(lmp)
 
         chimes_calculator = new chimesFF();
 	
-	chimes_calculator->init(me);  
+	chimes_calculator->init(me);
     for_fitting = false;
 #ifdef FINGERPRINT
     fingerprint = false;
@@ -81,11 +81,11 @@ PairCHIMES::PairCHIMES(LAMMPS *lmp) : Pair(lmp)
 	// 2, 3, and 4-body vars for chimesFF access
 
 	dr     .resize(CHDIM);
-	dr_3b  .resize(3*CHDIM); 
+	dr_3b  .resize(3*CHDIM);
 	dr_4b  .resize(6*CHDIM);
 	
-	dist_3b.resize(3);			       
-	dist_4b.resize(6);			       
+	dist_3b.resize(3);			
+	dist_4b.resize(6);			
 
 	// CHDIM is the number of spatial dimensions (usually 3).
 	force_2b.resize(2*CHDIM);
@@ -99,10 +99,10 @@ PairCHIMES::PairCHIMES(LAMMPS *lmp) : Pair(lmp)
 	// Vars for neighlist construction
 	
 	tmp_3mer.resize(3);
-	tmp_4mer.resize(4);   
+	tmp_4mer.resize(4);
 	
 	if (chimes_calculator->rank == 0)
-	{ 
+	{
 		std::cout << std::endl;
 		std::cout << "************************* WARNING (pair_style chimesFF) ************************" << std::endl;
 		std::cout << "Assuming n-body interactions have longer cutoffs than all (n+1)-body interactions" << std::endl;
@@ -116,12 +116,12 @@ PairCHIMES::~PairCHIMES()
 {
   if (copymode) return;
 
-	if (allocated) 
-	{   	    
+	if (allocated)
+	{   	
 	    memory->destroy(setflag);
 	    memory->destroy(cutsq);
 	}
-    
+
     //if (badness_stream.is_open())
     //    badness_stream.close();
 
@@ -130,50 +130,50 @@ PairCHIMES::~PairCHIMES()
 
 void PairCHIMES::settings(int narg, char **arg)
 {
-	if (narg > 3) 
+	if (narg > 3)
 		error -> all(FLERR,"Illegal pair_style command. Expects no more than three arguments (string: fitting or fingerprint and iofreq)");
-        
-    if (narg == 1) 
-    {  
+
+    if (narg == 1)
+    {
         if (utils::strmatch(arg[0],"fitting"))
         {
             for_fitting   = true;
             stringstream ss;
             ss << chimes_calculator->rank;
-            //badness_stream.open("rank-" + ss.str() + ".badness.log");    
+            //badness_stream.open("rank-" + ss.str() + ".badness.log");
         }
     }
 	#ifdef FINGERPRINT
-    if (narg == 2) 
-    {  
+    if (narg == 2)
+    {
         if (utils::strmatch(arg[0],"fingerprint"))
         {
 			
             fingerprint   = true;
-			IO_freq = std::stoi(arg[1]);;  
+			IO_freq = std::stoi(arg[1]);;
         }
     }
 	
-    if (narg == 3) 
-    {  
+    if (narg == 3)
+    {
         if (utils::strmatch(arg[0],"fingerprint"))
         {
 			
             fingerprint   = true;
-			IO_freq = std::stoi(arg[1]);;  
+			IO_freq = std::stoi(arg[1]);;
         }
         if (utils::strmatch(arg[1],"fingerprint"))
         {
 			
             fingerprint   = true;
-			IO_freq = std::stoi(arg[2]);;  
+			IO_freq = std::stoi(arg[2]);;
         }
         if (utils::strmatch(arg[0],"fitting") || utils::strmatch(arg[1],"fitting") || utils::strmatch(arg[2],"fitting"))
         {
             for_fitting   = true;
             stringstream ss;
             ss << chimes_calculator->rank;
-            //badness_stream.open("rank-" + ss.str() + ".badness.log");  
+            //badness_stream.open("rank-" + ss.str() + ".badness.log");
         }
     }
 	#endif
@@ -185,17 +185,17 @@ void PairCHIMES::coeff(int narg, char **arg)
 {
 	// Expect: pair_coeff * * <parameter file name>
 
-	if (narg != 3) 
+	if (narg != 3)
 		error -> all(FLERR,"Illegal pair_style command. Expects \"pair_coeff * * <parameter file name>\" ");
 	
-	chimesFF_paramfile = arg[2]; 
+	chimesFF_paramfile = arg[2];
 	
 	chimes_calculator->read_parameters(chimesFF_paramfile);
 
 	set_chimes_type();
-    
+
     //chimes_calculator->set_atomtypes(chimes_type);
-    chimes_calculator->build_pair_int_trip_map() ; 
+    chimes_calculator->build_pair_int_trip_map() ;
     chimes_calculator->build_pair_int_quad_map() ;
 
 	// Set special LAMMPS flags/cutoffs
@@ -239,16 +239,16 @@ void PairCHIMES::coeff(int narg, char **arg)
 	maxcut_4b = chimes_calculator->max_cutoff_4B();
 	// if (maxcut_4b==0.0 && fingerprint){maxcut_4b=maxcut_3b;}
 }
-void writeClusterDataComp(const string& filename, const vector<vector<double>>& data) 
+void writeClusterDataComp(const string& filename, const vector<vector<double>>& data)
 {
     ofstream ofs(filename);
     if (!ofs) {
         cerr << "Error: Could not open file " << filename << endl;
         return;
     }
-    
+
     ostringstream buffer;
-    
+
     for (const auto& row : data) {
         for (size_t j = 0; j < row.size(); j++) {
             buffer << row[j];
@@ -300,7 +300,7 @@ double PairCHIMES::init_one(int i, int j)
 	// WARNING: This means linking won't work properly if 2-b interactions do not have larger cutoffs than all other
 	// higher bodied interactions!!
 	
-	if (setflag[i][j] == 0) 
+	if (setflag[i][j] == 0)
 		error->all(FLERR,"All pair coeffs are not set");
 	
 	return sqrt(cutsq[i][j]);
@@ -310,7 +310,7 @@ inline double PairCHIMES::get_dist(int i, int j, double *dr)
 {
 	double 	**x    = atom -> x;	// Access to system coordinates
 
-	dr[0] = x[j][0] - x[i][0];  
+	dr[0] = x[j][0] - x[i][0];
 	dr[1] = x[j][1] - x[i][1];
 	dr[2] = x[j][2] - x[i][2];
 
@@ -328,14 +328,14 @@ void PairCHIMES::build_mb_neighlists()
 {
 
 
-	if ( (chimes_calculator->poly_orders[1] == 0) &&  (chimes_calculator->poly_orders[2] == 0) 
+	if ( (chimes_calculator->poly_orders[1] == 0) &&  (chimes_calculator->poly_orders[2] == 0)
 		#ifdef FINGERPRINT
 			&& (!fingerprint)
 		#endif
 		)
 		return;
 
-	// List gets built based on atoms owned by calling proc. 
+	// List gets built based on atoms owned by calling proc.
 	
 	neighborlist_3mers.clear();
 	neighborlist_4mers.clear();
@@ -375,7 +375,7 @@ void PairCHIMES::build_mb_neighlists()
 
 			if (j == i)
 				continue;
-			if (jtag < itag) 
+			if (jtag < itag)
 				continue;				
 				
 			// Check ij distance
@@ -412,7 +412,7 @@ void PairCHIMES::build_mb_neighlists()
 				
 				if( (dist_ij < maxcut_3b_padded) &&  (dist_ik < maxcut_3b_padded) && (dist_jk < maxcut_3b_padded) )
 				{
-					// If we're here and valid_3mer == true, then add the triplet to the chimes neigh list        
+					// If we're here and valid_3mer == true, then add the triplet to the chimes neigh list
 
 					tmp_3mer[0] = i;
 					tmp_3mer[1] = j;
@@ -426,7 +426,7 @@ void PairCHIMES::build_mb_neighlists()
 				
 				// Now decide if we should continue on to 4-body neighbor list construction
 
-				if (chimes_calculator->poly_orders[2] == 0 
+				if (chimes_calculator->poly_orders[2] == 0
 					#ifdef FINGERPRINT
 						&& !fingerprint
 					#endif
@@ -444,12 +444,12 @@ void PairCHIMES::build_mb_neighlists()
 					
 					if ( (l==i) || (l==j) || (l==k))
 						continue;
-					if ((ltag < itag) ||(ltag < jtag)||(ltag < ktag)) 
+					if ((ltag < itag) ||(ltag < jtag)||(ltag < ktag))
 						continue;
 											
 					// Check il distance			
 
-					dist_il = get_dist(i,l); 
+					dist_il = get_dist(i,l);
 
 					if (dist_il >= maxcut_4b_padded)
 						continue;	
@@ -488,7 +488,7 @@ void PairCHIMES::compute(int eflag, int vflag)
 	// Vars for access to chimesFF compute_XB functions
 	
 	std::vector  <double>  stensor(6);	// pointers to system stress tensor
-    
+
 	// Temp vars to hold chimes output for passing to ev_tally function
 	
     std::vector<double>  fscalar(6);
@@ -510,18 +510,18 @@ void PairCHIMES::compute(int eflag, int vflag)
 	int     itag, jtag, ktag, ltag;		// holds tags
 	int 	nlocal = atom -> nlocal;	// Number of real atoms owned by current process .. used used to assure force assignments aren't duplicated
 	int 	newton_pair = force -> newton_pair;	// Should f_j be automatically set to -f_i (true) or manually calculated (false)
-	double  energy;				        // pair energy 
+	double  energy;				        // pair energy
 
 	int me = comm->me;
 	MPI_Comm_rank(world,&me);	
 	
 	// Set up vars controlling if energy/pressure (virial) contributions are computed
 
-	if (eflag || vflag) 
+	if (eflag || vflag)
 	{
   		ev_setup(eflag,vflag);
 	}
-	else 
+	else
 	{
 		evflag      = 0;
 		vflag_fdotr = 0;
@@ -552,7 +552,7 @@ void PairCHIMES::compute(int eflag, int vflag)
 
     chimes2BTmp chimes_2btmp(chimes_calculator->poly_orders[0]) ;
     chimes3BTmp chimes_3btmp(chimes_calculator->poly_orders[1]) ;
-    chimes4BTmp chimes_4btmp(chimes_calculator->poly_orders[2]) ;      
+    chimes4BTmp chimes_4btmp(chimes_calculator->poly_orders[2]) ;
 	
 	// Build the ChIMES many-body neighbor lists.. only do so when LAMMPS neighborlist has been updated
 	
@@ -569,9 +569,9 @@ void PairCHIMES::compute(int eflag, int vflag)
 			std::cout << "	...update complete" << std::endl;
 		}
 	}
-    
+
     // Prepare the badness variable
-    
+
     chimes_calculator->reset_badness();
 
 	////////////////////////////////////////
@@ -591,7 +591,7 @@ void PairCHIMES::compute(int eflag, int vflag)
 		energy = 0.0;
 		
 		chimes_calculator->compute_1B(type[i]-1, energy);
-        
+
         atmidxlst[0][0] = i;
 		
 		if(evflag)
@@ -656,7 +656,7 @@ void PairCHIMES::compute(int eflag, int vflag)
 			tmp_dist    [0] = dist;
 			
 			if (evflag)
-				ev_tally_mb(2, 1, atmidxlst, energy, stensor);         
+				ev_tally_mb(2, 1, atmidxlst, energy, stensor);
 		}
 	}
 	#ifdef FINGERPRINT
@@ -670,7 +670,7 @@ void PairCHIMES::compute(int eflag, int vflag)
 	#endif
 
     // Document badness for configuration: current timestep, current rank, worst badness seen by rank
-    if (for_fitting)
+    //if (for_fitting)
         //if(update->ntimestep % output->every_dump[0] == 0)
         //    badness_stream << update->ntimestep << " " <<  chimes_calculator->get_badness() << endl;
 
@@ -699,7 +699,7 @@ void PairCHIMES::compute(int eflag, int vflag)
 			std::fill(stensor.begin(), stensor.end(), 0.0) ;
 				
 			energy = 0.0 ;
-      
+
 #ifdef TABULATION
 			if (chimes_calculator->tabulate_3B){
                 chimes_calculator->compute_3B_tab( dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy, chimes_3btmp);}
@@ -736,7 +736,7 @@ void PairCHIMES::compute(int eflag, int vflag)
             }
 			
 			if (evflag)
-				ev_tally_mb(3, 3, atmidxlst, energy, stensor);		            
+				ev_tally_mb(3, 3, atmidxlst, energy, stensor);		
 		}		
 	}
 	#ifdef FINGERPRINT
@@ -763,7 +763,7 @@ void PairCHIMES::compute(int eflag, int vflag)
 			k     = neighborlist_4mers[ii][2];
 			l     = neighborlist_4mers[ii][3];			
 			
-			dist_4b[0] = get_dist(i,j,&dr_4b[0*CHDIM]);				      
+			dist_4b[0] = get_dist(i,j,&dr_4b[0*CHDIM]);				
 			dist_4b[1] = get_dist(i,k,&dr_4b[1*CHDIM]);
 			dist_4b[2] = get_dist(i,l,&dr_4b[2*CHDIM]);
 			dist_4b[3] = get_dist(j,k,&dr_4b[3*CHDIM]);
@@ -800,7 +800,7 @@ void PairCHIMES::compute(int eflag, int vflag)
 				f[l][idx] += force_4b[3*CHDIM+idx] ;
 			}
 			
-            if (vflag_atom) 
+            if (vflag_atom)
             {
 			    atmidxlst[0][0] = i;
 			    atmidxlst[0][1] = j;
@@ -818,7 +818,7 @@ void PairCHIMES::compute(int eflag, int vflag)
 			
 			if (evflag)
 				ev_tally_mb(4, 6, atmidxlst, energy, stensor);	
-            
+
 		}
 	}
 	#ifdef FINGERPRINT
@@ -830,7 +830,7 @@ void PairCHIMES::compute(int eflag, int vflag)
 	}
 	#endif
 
-if (vflag_fdotr) 
+if (vflag_fdotr)
         virial_fdotr_compute();
 
 	return;
@@ -871,12 +871,12 @@ void PairCHIMES::set_chimes_type()
 	}
 	else if (nmatches < atom->ntypes && comm->me == 0)
 	{
-		// Commented out to allow for hybrid/overlay pair style. For example, combining ChIMES description for carbon 
+		// Commented out to allow for hybrid/overlay pair style. For example, combining ChIMES description for carbon
 		// with LJ description of Ar for simulations of carbon nanoparticles in an argon bath
-		//std::cout << "ERROR: LAMMPS coordinate file has " << atom->ntypes << " atom type masses" << std::endl; 
+		//std::cout << "ERROR: LAMMPS coordinate file has " << atom->ntypes << " atom type masses" << std::endl;
 		//std::cout << "       but only found " << nmatches << " matches with the ChIMES parameter file." << std::endl;
 		//exit(0);
- 
+
 		std::cout << "WARNING: LAMMPS coordinate file has " << atom->ntypes << " atom type masses" << std::endl;
 		std::cout << "       but only found " << nmatches << " matches with the ChIMES parameter file." << std::endl;
 		std::cout << "       Will not use ChIMES to evaluate interactions related to unmatched atom types!" << std::endl;
@@ -890,7 +890,7 @@ void PairCHIMES::set_chimes_type()
 
 void PairCHIMES::ev_tally_mb(int ninteractionatoms, int npairs, int atmpairidxlst[6][2], double evdwl, std::vector<double> stress)
 {
-    // Assumes newton pair is always true 
+    // Assumes newton pair is always true
     // Assumes a full neighbor list is always true (hard coded in pair_chimes.cpp)
     // Modeled after ev_tally_full and ev_tally3 (to get MB handling)
     // force and distance vector are flattened 2d vectors, e.g., atom_idx*3 + [0,1,2 == x,y,z dims]

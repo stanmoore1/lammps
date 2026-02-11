@@ -82,9 +82,9 @@ class chimesFFKokkos : public chimesFF
       LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_ik,"chimes:Tnd_ik",poly_order+1);
       LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_jk,"chimes:Tnd_jk",poly_order+1);
     }
-    
+
     void resize(int poly_order)
-    { 
+    {
       if (d_Tn_ij.extent(0) < poly_order + 1) {
         LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_ij,"chimes:Tn_ij",poly_order+1);
         LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_ik,"chimes:Tn_ik",poly_order+1);
@@ -411,5 +411,5 @@ void chimesFFKokkos<DeviceType>::set_cheby_polys(typename AT::t_kkfloat_1d &Tn, 
   }
 }
 
-#include "chimesFF_kokkos_impl.h" 
+#include "chimesFF_kokkos_impl.h"
 #endif

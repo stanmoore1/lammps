@@ -50,7 +50,7 @@ single				    force and energy fo a single pairwise interaction between two atom
 	
 namespace LAMMPS_NS
 {
-	class PairCHIMES : public Pair 
+	class PairCHIMES : public Pair
 	{
 	 	public:
 			
@@ -70,9 +70,9 @@ namespace LAMMPS_NS
 			
 			std::vector<std::vector<int> > neighborlist_3mers;	// custom neighbor list; neighborlist_Xmers[cluster idx][atom in cluster idx]
 			std::vector<std::vector<int> > neighborlist_4mers;
-            
-            // Prepare files necessary for ChIMES fitting 
-            
+
+            // Prepare files necessary for ChIMES fitting
+
             bool     for_fitting;
             bool     fingerprint;
 			int IO_freq;
@@ -122,7 +122,7 @@ namespace LAMMPS_NS
                         void ev_tally_mb(int ninteractionatoms, int npairs, int atmpairidxlst[6][2], double evdwl, std::vector<double> stress);
 
 
-			// Functions I haven't worked on 
+			// Functions I haven't worked on
 						
 			void write_restart();		
 			void read_restart();				
