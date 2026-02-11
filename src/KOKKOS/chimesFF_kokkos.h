@@ -184,6 +184,7 @@ class chimesFFKokkos : public chimesFF
 private:
 
   typename AT::t_kkfloat_1d d_morse_var;      // [npairs]; morse_lambda
+  double d_penalty_params[2]; // [2];  Second dimension: [0] = A_pen, [1] = d_pen
   typename AT::t_kkfloat_1d d_energy_offsets; // [natmtyps]; Single atom ChIMES energies
 
   ////////////////////////
@@ -303,25 +304,25 @@ void chimesFFKokkos<DeviceType>::get_penalty(const KK_FLOAT dx, const int& pair_
   E_penalty    = 0.0;
   force_scalar = 1.0;
 
-  if (dx - penalty_params[0] < chimes_2b_cutoff[pair_idx][0]) { // Then we're within the penalty-enforced region of distance space
-    r_penalty = chimes_2b_cutoff[pair_idx][0] + penalty_params[0] - dx;
+  if (dx - d_penalty_params[0] < d_chimes_2b_cutoff(pair_idx,0)) { // Then we're within the penalty-enforced region of distance space
+    r_penalty = d_chimes_2b_cutoff(pair_idx,0) + d_penalty_params[0] - dx;
 
-    /*if (dx < chimes_2b_cutoff[pair_idx][0])
+    /*if (dx < d_chimes_2b_cutoff(pair_idx,0))
       badness = 2;
     else if (1 > this->badness) // Only update badness if candiate badness is worse than its current value
       badness = 1;*/
   }
 
   if (r_penalty > 0.0) {
-    E_penalty    = r_penalty * r_penalty * r_penalty * penalty_params[1];
+    E_penalty    = r_penalty * r_penalty * r_penalty * d_penalty_params[1];
 
-    force_scalar = -3.0 * r_penalty * r_penalty * penalty_params[1];
+    force_scalar = -3.0 * r_penalty * r_penalty * d_penalty_params[1];
 
     //if (rank == 0) // Commenting out - we need all ranks to report if the penalty function has been sampled
     //{
         /*cout << "chimesFFKokkos: " << "Adding penalty in 2B Cheby calc, r < rmin+penalty_dist " << fixed
              << dx << " "
-             << chimes_2b_cutoff[pair_idx][0] + penalty_params[0]
+             << d_chimes_2b_cutoff(pair_idx,0) + d_penalty_params[0]
              << " pair type: " << pair_idx << endl;
         cout << "chimesFFKokkos: " << "\t...Penalty potential = "<< E_penalty << endl;*/
     //}

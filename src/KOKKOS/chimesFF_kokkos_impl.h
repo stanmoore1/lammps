@@ -72,6 +72,12 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   Kokkos::deep_copy(d_morse_var,h_morse_var);
 
 
+  // penalty_params
+
+  d_penalty_params[0] = penalty_params[0];
+  d_penalty_params[1] = penalty_params[1];
+
+
   // ncoeffs_2b
 
   size = ncoeffs_2b.size();
@@ -567,7 +573,7 @@ void chimesFFKokkos<DeviceType>::compute_2B(const KK_FLOAT dx, const KK_FLOAT* d
 
   KK_FLOAT E_penalty = 0.0;
   KK_FLOAT force_scalar;
-  get_penalty(dx, pair_idx, E_penalty , force_scalar);
+  get_penalty(dx, pair_idx, E_penalty, force_scalar);
 
   if (E_penalty > 0.0 )
   {
