@@ -197,9 +197,6 @@ KK_FLOAT PairCHIMESKokkos<DeviceType>::get_dist(int i, int j) const
 template<class DeviceType>
 void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
 {
-  if ((chimes_calculatorKK.poly_orders[1] == 0) &&  (chimes_calculatorKK.poly_orders[2] == 0))
-    return;
-
   // List gets built based on atoms owned by calling proc
 
   maxcut_3b_padded = maxcut_3b + neighbor->skin;
@@ -237,43 +234,47 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
 
   // try building 3-body list, resize if necessary
 
-  resize = 1;
-  while (resize) {
-    resize = 0;
+  if (chimes_calculatorKK.poly_orders[1] > 0) {
+    resize = 1;
+    while (resize) {
+      resize = 0;
 
-    Kokkos::deep_copy(d_size_3mers,0.0);
+      Kokkos::deep_copy(d_size_3mers,0.0);
 
-    typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESComputeNeigh3Body> policy_neigh(0,size_2mers);
-    Kokkos::parallel_for("ComputeNeigh3Body",policy_neigh,*this);
+      typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESComputeNeigh3Body> policy_neigh(0,size_2mers);
+      Kokkos::parallel_for("ComputeNeigh3Body",policy_neigh,*this);
 
-    auto h_size_3mers = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_size_3mers);
+      auto h_size_3mers = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_size_3mers);
 
-    size_3mers = h_size_3mers();
-    resize = h_size_3mers() > max_3mers;
-    if (resize) {
-      max_3mers = MAX(max_3mers+MAX(1,max_3mers*0.1),size_3mers);
-      Kokkos::resize(d_neighborlist_3mers,max_3mers);
+      size_3mers = h_size_3mers();
+      resize = h_size_3mers() > max_3mers;
+      if (resize) {
+        max_3mers = MAX(max_3mers+MAX(1,max_3mers*0.1),size_3mers);
+        Kokkos::resize(d_neighborlist_3mers,max_3mers);
+      }
     }
   }
 
   // try building 4-body list, resize if necessary
 
-  resize = 1;
-  while (resize) {
-    resize = 0;
+  if (chimes_calculatorKK.poly_orders[2] > 0) {
+    resize = 1;
+    while (resize) {
+      resize = 0;
 
-    Kokkos::deep_copy(d_size_4mers,0.0);
+      Kokkos::deep_copy(d_size_4mers,0.0);
 
-    typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESComputeNeigh4Body> policy_neigh(0,size_3mers);
-    Kokkos::parallel_for("ComputeNeigh4Body",policy_neigh,*this);
+      typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESComputeNeigh4Body> policy_neigh(0,size_3mers);
+      Kokkos::parallel_for("ComputeNeigh4Body",policy_neigh,*this);
 
-    auto h_size_4mers = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_size_4mers);
+      auto h_size_4mers = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_size_4mers);
 
-    size_4mers = h_size_4mers();
-    resize = h_size_4mers() > max_4mers;
-    if (resize) {
-      max_4mers = MAX(max_4mers+MAX(1,max_4mers*0.1),size_4mers);
-      Kokkos::resize(d_neighborlist_4mers,max_4mers);
+      size_4mers = h_size_4mers();
+      resize = h_size_4mers() > max_4mers;
+      if (resize) {
+        max_4mers = MAX(max_4mers+MAX(1,max_4mers*0.1),size_4mers);
+        Kokkos::resize(d_neighborlist_4mers,max_4mers);
+      }
     }
   }
 }
