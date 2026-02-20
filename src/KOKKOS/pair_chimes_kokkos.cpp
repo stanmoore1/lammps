@@ -105,25 +105,6 @@ template<class DeviceType>
 void PairCHIMESKokkos<DeviceType>::allocate()
 {
   PairCHIMES::allocate();
-
-  int n = atom->ntypes + 1;
-  MemKK::realloc_kokkos(d_map, "chimes:map", n);
-
-  MemKK::realloc_kokkos(k_cutsq, "chimes:cutsq", n, n);
-  d_cutsq = k_cutsq.template view<DeviceType>();
-
-  MemKK::realloc_kokkos(k_scale, "chimes:scale", n, n);
-  d_scale = k_scale.template view<DeviceType>();
-
-  allocated = 1;
-
-  memory->create(setflag,atom->ntypes+1,atom->ntypes+1,"pair:setflag");
-
-  for (int i = 1; i <= atom->ntypes; i++)
-    for (int j = i; j <= atom->ntypes; j++)
-      setflag[i][j] = 0;
-
-  memory->create(cutsq,atom->ntypes+1,atom->ntypes+1,"pair:cutsq");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -153,7 +134,6 @@ template<class DeviceType>
 void PairCHIMESKokkos<DeviceType>::coeff(int narg, char **arg)
 {
   PairCHIMES::coeff(narg,arg);
-
 
   // chimes_type
 
@@ -387,9 +367,6 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh4Body, c
 
   // Now decide if we should continue on to 4-body neighbor list construction
 
-  //if (chimes_calculatorKK.d_poly_orders[2] == 0)
-  //  continue;
-
   const int lnum = d_numneigh[i];
 
   for (int ll = 0; ll < lnum; ll++)
@@ -528,8 +505,6 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   int vector_length_default = 1;
   int team_size_default = 1;
-  //if (!host_flag)
-  //  team_size_default = 32;
 
   int chunksize = 4096; //////
 
@@ -757,12 +732,6 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFL
   typ_idxs_2b[0] = d_chimes_type[type[i]-1]; // Type (index) of the current atom... subtract 1 to account for chimesFF vs LAMMPS numbering convention
   typ_idxs_2b[1] = d_chimes_type[type[j]-1];
 
-  // Using std::fill for maximum efficiency.
-  //std::fill(force_2b.begin(), force_2b.end(), 0.0);
-
-  // Do the same for stress tensors
-  //std::fill(stensor.begin(), stensor.end(), 0.0);
-
   KK_FLOAT energy = 0.0;
 
   KK_FLOAT force_2b[2*CHDIM];
@@ -790,7 +759,6 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFL
     atmidxlst[0][0] = i;
     atmidxlst[0][1] = j;
   }
-  //tmp_dist[0] = dist;
 
   if (EVFLAG)
     ev_tally_mb<NEIGHFLAG>(2, 1, atmidxlst, energy, stensor, ev);
@@ -834,9 +802,6 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFL
   typ_idxs_3b[0] = d_chimes_type[type[i]-1];
   typ_idxs_3b[1] = d_chimes_type[type[j]-1];
   typ_idxs_3b[2] = d_chimes_type[type[k]-1];
-
-  //std::fill(force_3b.begin(), force_3b.end(), 0.0);
-  //std::fill(stensor.begin(), stensor.end(), 0.0);
 
   KK_FLOAT energy = 0.0;
 
