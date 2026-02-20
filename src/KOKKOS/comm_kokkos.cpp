@@ -12,6 +12,11 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
+/* ----------------------------------------------------------------------
+   Contributing authors: Christian Trott (SNL), Stan Moore (SNL),
+     Lewis Russell (U. Strathclyde), Balint Joo (NVIDIA)
+------------------------------------------------------------------------- */
+
 #include "comm_kokkos.h"
 
 #include "atom.h"
@@ -113,6 +118,7 @@ void CommKokkos::init()
   reverse_pair_comm_legacy = lmp->kokkos->reverse_pair_comm_legacy;
   forward_fix_comm_legacy = lmp->kokkos->forward_fix_comm_legacy;
   reverse_comm_legacy = lmp->kokkos->reverse_comm_legacy;
+  reverse_fix_comm_legacy = lmp->kokkos->reverse_fix_comm_legacy;
   exchange_comm_on_host = lmp->kokkos->exchange_comm_on_host;
   forward_comm_on_host = lmp->kokkos->forward_comm_on_host;
   reverse_comm_on_host = lmp->kokkos->reverse_comm_on_host;
@@ -352,7 +358,8 @@ void CommKokkos::reverse_comm_device()
 
 void CommKokkos::forward_comm(Fix *fix, int size)
 {
-  if (fix->execution_space == Host || fix->execution_space == HostKK || !fix->forward_comm_device || forward_fix_comm_legacy) {
+  if (fix->execution_space == Host || fix->execution_space == HostKK ||
+      !fix->forward_comm_device || forward_fix_comm_legacy) {
     k_sendlist.sync_host();
     CommBrick::forward_comm(fix, size);
   } else {
@@ -444,10 +451,86 @@ void CommKokkos::forward_comm_device(Fix *fix, int size)
 
 void CommKokkos::reverse_comm(Fix *fix, int size)
 {
-  k_sendlist.sync_host();
-  CommBrick::reverse_comm(fix, size);
+  if (fix->execution_space == Host || fix->execution_space == HostKK ||
+      !fix->reverse_comm_device || reverse_fix_comm_legacy) {
+    k_sendlist.sync_host();
+    CommBrick::reverse_comm(fix, size);
+  } else {
+    k_sendlist.sync_device();
+    reverse_comm_device<LMPDeviceType>(fix,size);
+  }
 }
 
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void CommKokkos::reverse_comm_device(Fix *fix, int size)
+{
+  int iswap, n, nsize;
+  MPI_Request request;
+  DAT::tdual_double_1d k_buf_tmp;
+
+  if (size) nsize = size;
+  else nsize = fix->comm_reverse;
+  KokkosBase* fixKKBase = dynamic_cast<KokkosBase*>(fix);
+
+  for (iswap = 0; iswap < nswap; iswap++) {
+    int n = MAX(max_buf_fix,nsize*sendnum[iswap]);
+    n = MAX(n,nsize*recvnum[iswap]);
+    if (n > max_buf_fix)
+      grow_buf_fix(n);
+  }
+
+  // exchange data with another proc
+  // if other proc is self, just copy
+
+  for (iswap = nswap-1; iswap >= 0; iswap--) {
+
+    n = fixKKBase->pack_reverse_comm_kokkos(recvnum[iswap],firstrecv[iswap],k_buf_send_fix);
+
+    // exchange with another proc
+    // if self, set recv buffer to send buffer
+
+    if (sendproc[iswap] != me) {
+      double* buf_send_fix;
+      double* buf_recv_fix;
+      if (lmp->kokkos->gpu_aware_flag) {
+        buf_send_fix = k_buf_send_fix.view<DeviceType>().data();
+        buf_recv_fix = k_buf_recv_fix.view<DeviceType>().data();
+      } else {
+        k_buf_send_fix.modify<DeviceType>();
+        k_buf_send_fix.sync<LMPHostType>();
+        buf_send_fix = k_buf_send_fix.view_host().data();
+        buf_recv_fix = k_buf_recv_fix.view_host().data();
+      }
+
+      if (sendnum[iswap]) {
+        DeviceType().fence();
+        MPI_Irecv(buf_recv_fix,nsize*sendnum[iswap],MPI_DOUBLE,
+                  sendproc[iswap],0,world,&request);
+      }
+      if (recvnum[iswap]) {
+        DeviceType().fence();
+        MPI_Send(buf_send_fix,n,MPI_DOUBLE,recvproc[iswap],0,world);
+      }
+      if (sendnum[iswap]) {
+        MPI_Wait(&request,MPI_STATUS_IGNORE);
+        DeviceType().fence();
+      }
+
+      if (!lmp->kokkos->gpu_aware_flag) {
+        k_buf_recv_fix.modify<LMPHostType>();
+        k_buf_recv_fix.sync<DeviceType>();
+      }
+      k_buf_tmp = k_buf_recv_fix;
+    } else k_buf_tmp = k_buf_send_fix;
+
+    // unpack buffer
+    auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+    fixKKBase->unpack_reverse_comm_kokkos(sendnum[iswap], k_sendlist_iswap,k_buf_tmp);
+  }
+
+}
 
 /* ----------------------------------------------------------------------
    reverse communication invoked by a Fix with variable size data
