@@ -250,7 +250,7 @@ You can dump out snapshots of the current bond topology via the :doc:`dump local
 Dump image info
 """""""""""""""
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 Fixes *bond/create* and *bond/create/angle* support the *fix* keyword of
 :doc:`dump image <dump_image>`.  The fixes will pass geometry

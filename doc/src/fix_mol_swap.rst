@@ -127,7 +127,7 @@ should be done.
 Dump image info
 """""""""""""""
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 Fix *mol/swap* supports the *fix* keyword of :doc:`dump image
 <dump_image>`.  The fix will pass geometry information about atoms

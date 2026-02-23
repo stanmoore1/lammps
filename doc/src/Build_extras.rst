@@ -117,7 +117,7 @@ versions use an incompatible API and thus LAMMPS will fail to compile.
 GRAPHICS package
 ----------------
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
    *dump image*\ , *dump_movie* and supporting classes were moved to form
    the new GRAPHICS package together with several *fix graphics/...* styles.
@@ -839,7 +839,7 @@ This list was last updated for version 4.7.1 of the Kokkos library.
 
    .. tab:: Basic traditional make settings:
 
-      .. versionchanged:: TBD
+      .. versionchanged:: 11Feb2026
 
       The KOKKOS package no longer supports the the traditional make build.
       You need to build LAMMPS with CMake.
@@ -1243,7 +1243,7 @@ This package depends on the KSPACE package.
 MBX package
 -----------
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 This package requires the MBX library that can be downloaded and built
 either before LAMMPS is built or as part of the LAMMPS compilation.  The

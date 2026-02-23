@@ -52,7 +52,7 @@ large *x* velocity.  This position-dependent streaming velocity is
 subtracted from each atom's actual velocity to yield a thermal
 velocity, which is then used to compute the temperature.
 
-.. versionchanged:: TBD
+.. versionchanged:: 11Feb2026
 
 The method for calculating temperature once the streaming velocity
 has been removed depends on the internal temperature compute.

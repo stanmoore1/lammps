@@ -32,8 +32,8 @@ using namespace FixConst;
 /* ---------------------------------------------------------------------- */
 
 FixGraphicsLines::FixGraphicsLines(LAMMPS *lmp, int narg, char **arg) :
-    Fix(lmp, narg, arg), id_cprop(nullptr), cprop(nullptr), id_fave(nullptr), fave(nullptr),
-    id_fstore(nullptr), fstore(nullptr), imgobjs(nullptr), imgparms(nullptr)
+    Fix(lmp, narg, arg), imgobjs(nullptr), imgparms(nullptr), id_cprop(nullptr), cprop(nullptr),
+    id_fave(nullptr), fave(nullptr), id_fstore(nullptr), fstore(nullptr)
 {
   if (narg < 7) utils::missing_cmd_args(FLERR, "fix graphics/lines", error);
 
@@ -146,8 +146,8 @@ void FixGraphicsLines::restart(char *buf)
   if ((list[0] != nevery) || (list[1] != nrepeat) || (list[2] != nfreq) || (list[3] != nlength))
     error->all(FLERR, Error::NOLASTLINE, "Cannot restart fix graphics/lines: settings don't match");
 
-  nvalues = list[4];
-  ivalue = list[5];
+  nvalues = (int) list[4];
+  ivalue = (int) list[5];
 }
 
 /* ---------------------------------------------------------------------- */

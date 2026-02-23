@@ -66,6 +66,7 @@ KOKKOS, o = OPENMP, t = OPT.
    * :doc:`gyration/chunk <compute_gyration_chunk>`
    * :doc:`gyration/shape <compute_gyration_shape>`
    * :doc:`gyration/shape/chunk <compute_gyration_shape_chunk>`
+   * :doc:`hbond/local <compute_hbond_local>`
    * :doc:`heat/flux <compute_heat_flux>`
    * :doc:`heat/flux/tally <compute_tally>`
    * :doc:`heat/flux/virial/tally <compute_tally>`

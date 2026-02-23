@@ -112,7 +112,7 @@ Examples
 Description
 """""""""""
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 This fix allows to add either images or text as "labels" to :doc:`dump
 image <dump_image>` created images by using the *fix* keyword.  This can

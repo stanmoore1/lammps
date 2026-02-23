@@ -46,7 +46,7 @@ Examples
 Description
 """""""""""
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 This fix allows to add an isosurface graphics object representing the
 triangulated isosurface at a given isovalue on a grid to images rendered
@@ -131,7 +131,7 @@ for that purpose.
 Dump image info
 """""""""""""""
 
-.. versionadded:: TBD
+.. versionadded:: 11Feb2026
 
 Fix graphics/isosurface is designed to be used with the *fix* keyword of
 :doc:`dump image <dump_image>`.  The fix will construct an isosurface

@@ -406,6 +406,8 @@ void FixPIMDLangevin::init()
 {
   if (atom->map_style == Atom::MAP_NONE)
     error->all(FLERR, fmt::format("Fix {} requires an atom map, see atom_modify", style));
+  if (atom->tag_consecutive() == 0)
+    error->all(FLERR, "Atom IDs must be consecutive for fix {}", style);
 
   if (universe->me == 0 && universe->uscreen)
     utils::print(universe->uscreen, "Fix {}: initializing Path-Integral ...\n", style);
@@ -1325,8 +1327,7 @@ void FixPIMDLangevin::reallocate()
     memory->destroy(bufsortedall);
     memory->create(bufsorted, ntotal, 3, "FixPIMDLangevin:bufsorted");
     memory->create(bufsortedall, nreplica * ntotal, 3, "FixPIMDLangevin:bufsortedall");
-  }
-  else if (cmode == MULTI_PROC) {
+  } else if (cmode == MULTI_PROC) {
     memory->destroy(bufsend);
     memory->destroy(bufrecv);
     memory->destroy(tagsend);
@@ -1353,7 +1354,7 @@ void FixPIMDLangevin::inter_replica_comm(double **ptr)
   if (cmode == SINGLE_PROC) {
     m = 0;
     for (i = 0; i < nlocal; i++) {
-      tagint tagtmp = atom->tag[i];
+      tagint tagtmp = tag[i];
       bufsorted[tagtmp - 1][0] = ptr[i][0];
       bufsorted[tagtmp - 1][1] = ptr[i][1];
       bufsorted[tagtmp - 1][2] = ptr[i][2];

@@ -101,7 +101,7 @@ command.
    thermostatting generally, for both simple and complex fluids,
    e.g. molecular systems.  The latter can be tricky to do correctly.
 
-.. versionchanged:: TBD
+.. versionchanged:: 11Feb2026
 
 With *integrator* = *reversible* (the default), the numerical integration
 scheme closely follows the one described by :ref:`(Sanderson and Searles) <Sanderson>`,

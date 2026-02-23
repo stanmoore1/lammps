@@ -52,7 +52,7 @@ the translational degrees of freedom for each nuclei or electron are
 affected by the streaming velocity adjustment.  The radial velocity
 component of the electrons is not affected.
 
-.. versionchanged:: TBD
+.. versionchanged:: 11Feb2026
 
 By default, the internal temperature compute has the style
 :doc:`compute temp/eff <compute_temp_eff>`.  If an internal

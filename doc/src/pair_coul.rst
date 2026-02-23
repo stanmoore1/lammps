@@ -319,7 +319,7 @@ any other pair style such as EAM, MEAM, Tersoff, or LJ in
 hybrid/overlay mode.  To do this, you would need to provide a
 Streitz-Mintmire parameterization for the material being modeled.
 
-.. versionchanged:: TBD
+.. versionchanged:: 11Feb2026
 
 In previous versions of LAMMPS, the real-space summations of Coulomb
 interactions were done by replacing *1/r* using a damped potential

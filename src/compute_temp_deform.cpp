@@ -30,6 +30,8 @@
 #include "modify.h"
 #include "update.h"
 
+#include <cstring>
+
 using namespace LAMMPS_NS;
 
 enum{NOBIAS,BIAS};

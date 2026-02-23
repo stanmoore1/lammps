@@ -138,6 +138,8 @@
 /atom_vec_apip.h
 /fix_lambda_apip.cpp
 /fix_lambda_apip.h
+/fix_lambda_la_csp_apip.cpp
+/fix_lambda_la_csp_apip.h
 /fix_lambda_thermostat_apip.cpp
 /fix_lambda_thermostat_apip.h
 /pair_lambda_input_apip.cpp
