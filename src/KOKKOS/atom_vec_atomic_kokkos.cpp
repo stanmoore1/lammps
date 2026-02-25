@@ -22,8 +22,6 @@
 #include "memory_kokkos.h"
 #include "modify.h"
 
-#include "comm.h"
-
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */

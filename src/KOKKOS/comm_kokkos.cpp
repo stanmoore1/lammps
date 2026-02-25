@@ -79,7 +79,6 @@ CommKokkos::CommKokkos(LAMMPS *lmp) : CommBrick(lmp)
     maxsendlist[i] = BUFMIN;
   }
   memoryKK->create_kokkos(k_sendlist,sendlist,maxswap,BUFMIN,"comm:sendlist");
-  //memoryKK->create_kokkos(k_sendlist_bonus,sendlist,maxswap,BUFMIN,"comm:sendlist_bonus");
 
   max_buf_pair = 0;
   k_buf_send_pair = DAT::tdual_double_1d("comm:k_buf_send_pair",1);
@@ -1319,20 +1318,17 @@ struct BuildBorderListFunctor {
   int nfirst,nlast,dim;
   typename AT::t_int_2d_lr sendlist;
   typename AT::t_int_scalar nsend;
-  typename AT::t_int_1d _bonus_flags;
 
   BuildBorderListFunctor(DAT::ttransform_kkfloat_1d_3_lr _x,
                          DAT::tdual_int_2d_lr _sendlist,
                          DAT::tdual_int_scalar _nsend,int _nfirst,
                          int _nlast, int _dim,
                          double _lo, double _hi, int _iswap,
-                         int _maxsendlist,
-                         typename AT::tdual_int_1d bonus_flags):
+                         int _maxsendlist):
     lo(_lo),hi(_hi),x(_x.template view<DeviceType>()),iswap(_iswap),
     maxsendlist(_maxsendlist),nfirst(_nfirst),nlast(_nlast),dim(_dim),
     sendlist(_sendlist.template view<DeviceType>()),
-    nsend(_nsend.template view<DeviceType>()),
-    _bonus_flags(bonus_flags.template view<DeviceType>()) {}
+    nsend(_nsend.template view<DeviceType>()) {}
 
 
 // NOLINTNEXTLINE
@@ -1352,8 +1348,7 @@ struct BuildBorderListFunctor {
     mysend = my_store_pos;
       for (int i=teamstart + dev.team_rank(); i<teamend; i+=dev.team_size()) {
         if (x(i,dim) >= lo && x(i,dim) <= hi) {
-          sendlist(iswap,mysend) = i;
-          mysend++;
+          sendlist(iswap,mysend++) = i;
         }
       }
     }
@@ -1371,23 +1366,6 @@ void CommKokkos::borders_device() {
   double lo,hi;
   double *mlo,*mhi;
   MPI_Request request;
-
-  DAT::tdual_int_1d k_bonus_flags;
-
-  const int ellipsoid_flag = atom->ellipsoid_flag;
-  const int line_flag = atom->line_flag;
-  const int tri_flag = atom->tri_flag;
-  const int body_flag = atom->body_flag;
-
-  int bonus_flag = 0;
-  if (ellipsoid_flag || line_flag || tri_flag || body_flag)
-    bonus_flag = 1;
-
-  if (bonus_flag) {
-    if (ellipsoid_flag) k_bonus_flags = atomKK->k_ellipsoid;
-    if (line_flag || tri_flag || body_flag)
-      error->all(FLERR,"Bonus struct not yet supported by Kokkos communication");
-  }
 
   ExecutionSpace exec_space = ExecutionSpaceFromDevice<DeviceType>::space;
   atomKK->sync(exec_space,X_MASK);
@@ -1448,7 +1426,7 @@ void CommKokkos::borders_device() {
             k_total_send.sync_device();
 
             BuildBorderListFunctor<DeviceType> f(atomKK->k_x,k_sendlist,
-              k_total_send,nfirst,nlast,dim,lo,hi,iswap,maxsendlist[iswap],k_bonus_flags);
+                k_total_send,nfirst,nlast,dim,lo,hi,iswap,maxsendlist[iswap]);
             Kokkos::TeamPolicy<DeviceType> config((nlast-nfirst+team_size-1)/team_size,team_size);
             Kokkos::parallel_for(config,f);
 
@@ -1465,7 +1443,7 @@ void CommKokkos::borders_device() {
               k_total_send.sync_device();
 
               BuildBorderListFunctor<DeviceType> f(atomKK->k_x,k_sendlist,
-                k_total_send,nfirst,nlast,dim,lo,hi,iswap,maxsendlist[iswap],k_bonus_flags);
+                  k_total_send,nfirst,nlast,dim,lo,hi,iswap,maxsendlist[iswap]);
               Kokkos::TeamPolicy<DeviceType> config((nlast-nfirst+team_size-1)/team_size,team_size);
               Kokkos::parallel_for(config,f);
 

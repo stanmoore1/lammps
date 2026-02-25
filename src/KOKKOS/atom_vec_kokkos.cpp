@@ -156,6 +156,7 @@ int AtomVecKokkos::pack_comm_kokkos(const int &n,
 {
   // Check whether to always run forward communication on the host
   // Choose correct forward PackComm kernel
+
   if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(HostKK,datamask_comm);
     if (pbc_flag) {

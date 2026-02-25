@@ -81,7 +81,6 @@ class AtomVecEllipsoid : virtual public AtomVec {
 
   virtual void grow_bonus();
   void copy_bonus_all(int, int);
-    
 };
 
 }    // namespace LAMMPS_NS
