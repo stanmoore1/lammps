@@ -13,8 +13,9 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author (triclinic and multi-neigh) : Pieter in 't Veld (SNL)
-   Contributing author (improved multi-neigh) : Joel Clemmer (SNL)
+   Contributing author (triclinic and original multi-neigh) : Pieter in 't Veld (SNL)
+   Contributing author (improved multi-neigh) : Joel Clemmer (SNL), Kevin Hanley (Edinburgh),
+                                                Kevin Stratford (Edinburgh), Tom Shire (Edinburgh)
 ------------------------------------------------------------------------- */
 
 #include "neighbor.h"
@@ -65,21 +66,8 @@ static constexpr double BIG = 1.0e20;
 
 enum{NONE,ALL,PARTIAL,TEMPLATE};
 
-static const char cite_neigh_multi_old[] =
-  "neighbor multi/old command: doi:10.1016/j.cpc.2008.03.005\n\n"
-  "@Article{Intveld08,\n"
-  " author =  {in 't Veld, P. J. and S. J. Plimpton and G. S. Grest},\n"
-  " title =   {Accurate and Efficient Methods for Modeling Colloidal\n"
-  "            Mixtures in an Explicit Solvent using Molecular Dynamics},\n"
-  " journal = {Comput.\\ Phys.\\ Commun.},\n"
-  " year =    2008,\n"
-  " volume =  179,\n"
-  " number =  5,\n"
-  " pages =   {320--329}\n"
-  "}\n\n";
-
 static const char cite_neigh_multi[] =
-  "neighbor multi command: doi:10.1016/j.cpc.2008.03.005, doi:10.1007/s40571-020-00361-2\n\n"
+  "neighbor multi command: https://doi.org/10.1016/j.cpc.2008.03.005, https://doi.org/10.1007/s40571-020-00361-2\n\n"
   "@Article{Intveld08,\n"
   " author =  {in 't Veld, P. J. and S. J.~Plimpton and G. S. Grest},\n"
   " title =   {Accurate and Efficient Methods for Modeling Colloidal\n"
@@ -454,7 +442,7 @@ void Neighbor::init()
           ri = collection2cut[i]*0.5;
           for (j = 0; j < ncollections; j++){
             rj = collection2cut[j]*0.5;
-            tmp = force->pair->radii2cut(ri, rj) + skin;
+            tmp = ri + rj + skin;
             cutcollectionsq[i][j] = tmp*tmp;
           }
         }
@@ -930,13 +918,13 @@ int Neighbor::init_pair()
     }
 
     if (requests[i]->pair && i < nrequest_original) {
-      auto pair = (Pair *) requests[i]->requestor;
+      auto *pair = (Pair *) requests[i]->requestor;
       pair->init_list(requests[i]->id,lists[i]);
     } else if (requests[i]->fix && i < nrequest_original) {
       Fix *fix = (Fix *) requests[i]->requestor;
       fix->init_list(requests[i]->id,lists[i]);
     } else if (requests[i]->compute && i < nrequest_original) {
-      auto compute = (Compute *) requests[i]->requestor;
+      auto *compute = (Compute *) requests[i]->requestor;
       compute->init_list(requests[i]->id,lists[i]);
     }
   }
@@ -2042,6 +2030,13 @@ int Neighbor::choose_stencil(NeighRequest *rq)
   if (rq->full) fullflag = 1;
   if (!newtflag) fullflag = 1;
 
+  int kk_fp32 = 0;
+  if (lmp->kokkos)
+    kk_fp32 = lmp->kokkos->kk_fp32;
+  if ((kk_fp32 && newtflag) && atom->tag_enable == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "Cannot build Kokkos FP32 neighbor lists with newton on unless atoms have IDs");
+
   //printf("STENCIL RQ FLAGS: hff %d %d n %d g %d s %d newtflag %d fullflag %d\n",
   //       rq->half,rq->full,rq->newton,rq->ghost,rq->ssa,
   //       newtflag, fullflag);
@@ -2072,12 +2067,10 @@ int Neighbor::choose_stencil(NeighRequest *rq)
     if (!rq->ghost != !(mask & NS_GHOST)) continue;
     if (!rq->ssa != !(mask & NS_SSA)) continue;
 
-    // neighbor style is one of BIN, MULTI_OLD, or MULTI and must match
+    // neighbor style is one of BIN, or MULTI and must match
 
     if (style == Neighbor::BIN) {
       if (!(mask & NS_BIN)) continue;
-    } else if (style == Neighbor::MULTI_OLD) {
-      if (!(mask & NS_MULTI_OLD)) continue;
     } else if (style == Neighbor::MULTI) {
       if (!(mask & NS_MULTI)) continue;
     }
@@ -2091,8 +2084,10 @@ int Neighbor::choose_stencil(NeighRequest *rq)
     }
 
     // domain triclinic flag is on or off and must match
+    // if Kokkos FP32 and newton on, also use triclinic due to
+    //  roundoff issue
 
-    if (triclinic) {
+    if (triclinic || (kk_fp32 && newtflag)) {
       if (!(mask & NS_TRI)) continue;
     } else if (!triclinic) {
       if (!(mask & NS_ORTHO)) continue;
@@ -2131,6 +2126,13 @@ int Neighbor::choose_pair(NeighRequest *rq)
   else if (rq->newton == 1) newtflag = true;
   else if (rq->newton == 2) newtflag = false;
   else error->all(FLERR, Error::NOLASTLINE, "Illegal 'newton' flag in neighbor list request");
+
+  int kk_fp32 = 0;
+  if (lmp->kokkos)
+    kk_fp32 = lmp->kokkos->kk_fp32;
+  if ((kk_fp32 && newtflag) && atom->tag_enable == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "Cannot build Kokkos FP32 neighbor lists with newton on unless atoms have IDs");
 
   int molecular = atom->molecular;
 
@@ -2219,21 +2221,21 @@ int Neighbor::choose_pair(NeighRequest *rq)
     if (!rq->halffull != !(mask & NP_HALF_FULL)) continue;
     if (!rq->off2on != !(mask & NP_OFF2ON)) continue;
 
-    // neighbor style is one of NSQ, BIN, MULTI_OLD, or MULTI and must match
+    // neighbor style is one of NSQ, BIN, or MULTI and must match
 
     if (style == Neighbor::NSQ) {
       if (!(mask & NP_NSQ)) continue;
     } else if (style == Neighbor::BIN) {
       if (!(mask & NP_BIN)) continue;
-    } else if (style == Neighbor::MULTI_OLD) {
-      if (!(mask & NP_MULTI_OLD)) continue;
     } else if (style == Neighbor::MULTI) {
       if (!(mask & NP_MULTI)) continue;
     }
 
     // domain triclinic flag is on or off and must match
+    // if Kokkos FP32 and newton on, also use triclinic due to
+    //  roundoff issue
 
-    if (triclinic) {
+    if (triclinic || (kk_fp32 && newtflag)) {
       if (!(mask & NP_TRI)) continue;
     } else if (!triclinic) {
       if (!(mask & NP_ORTHO)) continue;
@@ -2646,14 +2648,10 @@ void Neighbor::set(int narg, char **arg)
     style = Neighbor::MULTI;
     ncollections = atom->ntypes;
   } else if (strcmp(arg[1],"multi/old") == 0) {
-    style = Neighbor::MULTI_OLD;
-    if (me == 0)
-      error->warning(FLERR, "Neighbor list style 'multi/old' is deprecated and will be removed "
-                     "soon.\nPlease contact the LAMMPS developers if you cannot use style 'multi'."
-                     + utils::errorurl(35));
+    error->all(FLERR, 1, "Neighbor style multi/old has been removed. "
+               "Please use style 'multi' and see the documentation more information about it.");
   } else error->all(FLERR, 1, "Unknown neighbor {} argument: {}", arg[0], arg[1]);
 
-  if (style == Neighbor::MULTI_OLD && lmp->citeme) lmp->citeme->add(cite_neigh_multi_old);
   if (style == Neighbor::MULTI && lmp->citeme) lmp->citeme->add(cite_neigh_multi);
 }
 
@@ -2869,7 +2867,7 @@ void Neighbor::modify_params(int narg, char **arg)
           utils::bounds(FLERR,word,1,ntypes,nlo,nhi,error);
           for (k = nlo; k <= nhi; k++) {
             if (type2collection[k] != -1)
-              error->all(FLERR,"Type specified more than once in collection/type commnd");
+              error->all(FLERR,"Type specified more than once in collection/type command");
             type2collection[k] = i;
           }
         }
@@ -2879,7 +2877,7 @@ void Neighbor::modify_params(int narg, char **arg)
 
       for (i = 1; i <= ntypes; i++){
         if (type2collection[i] == -1) {
-          error->all(FLERR,"Type missing in collection/type commnd");
+          error->all(FLERR,"Type missing in collection/type command");
         }
       }
 
@@ -2895,7 +2893,7 @@ void Neighbor::modify_params(int narg, char **arg)
 void Neighbor::modify_params(const std::string &modcmd)
 {
   auto args = utils::split_words(modcmd);
-  auto newarg = new char*[args.size()];
+  auto *newarg = new char*[args.size()];
   int i=0;
   for (const auto &arg : args) {
     newarg[i++] = (char *)arg.c_str();
@@ -2976,9 +2974,10 @@ void Neighbor::build_collection(int istart)
 
   if (finite_cut_flag) {
     double cut;
+    double *radius = atom->radius;
     int icollection;
     for (int i = istart; i < nmax; i++){
-      cut = force->pair->atom2cut(i);
+      cut = 2 * radius[i];
       collection[i] = -1;
 
       for (icollection = 0; icollection < ncollections; icollection++){
@@ -2997,6 +2996,30 @@ void Neighbor::build_collection(int istart)
       collection[i] = type2collection[type[i]];
     }
   }
+}
+
+/* ----------------------------------------------------------------------
+   look up existing non-skip half or full neighbor list (used for dump image autobond)
+------------------------------------------------------------------------- */
+
+NeighList *Neighbor::get_best_pair_list()
+{
+  // find a non-skip neighbor list containing either half or full pairwise interactions
+
+  int i;
+  for (i = 0; i < old_nrequest; ++i)
+    if (old_requests[i]->half && !old_requests[i]->skip) break;
+
+  // no half list found, try for full list
+  if (i >= old_nrequest) {
+    for (i = 0; i < old_nrequest; ++i)
+      if (old_requests[i]->full && !old_requests[i]->skip) break;
+  }
+
+  // no suitable list found
+  if ((i >= old_nrequest) || lists[i]->kokkos) return nullptr;
+
+  return lists[i];
 }
 
 /* ----------------------------------------------------------------------

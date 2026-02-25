@@ -32,9 +32,9 @@ endif()
 
 # Note: must also adjust check for supported API versions in
 # fix_plumed.cpp when version changes from v2.n.x to v2.n+1.y
-set(PLUMED_URL "https://github.com/plumed/plumed2/releases/download/v2.9.3/plumed-src-2.9.3.tgz"
+set(PLUMED_URL "https://github.com/plumed/plumed2/releases/download/v2.9.4/plumed-src-2.9.4.tgz"
   CACHE STRING "URL for PLUMED tarball")
-set(PLUMED_MD5 "ee1249805fe94bccee17d10610d3f6f1" CACHE STRING "MD5 checksum of PLUMED tarball")
+set(PLUMED_MD5 "e540bf5132e3270e843398a6080d00c7" CACHE STRING "MD5 checksum of PLUMED tarball")
 
 mark_as_advanced(PLUMED_URL)
 mark_as_advanced(PLUMED_MD5)
@@ -61,7 +61,7 @@ if((CMAKE_SYSTEM_NAME STREQUAL "Windows") AND (CMAKE_CROSSCOMPILING))
     URL     ${PLUMED_URL} ${PLUMED_FALLBACK}
     URL_MD5 ${PLUMED_MD5}
     BUILD_IN_SOURCE 1
-    CONFIGURE_COMMAND ${CROSS_CONFIGURE} --disable-shared --disable-bsymbolic
+    CONFIGURE_COMMAND ${CROSS_CONFIGURE} --disable-shared --disable-bsymbolic --disable-dlopen
                                          --disable-python --enable-cxx=${PLUMED_CXX_STANDARD}
                                          --enable-modules=-adjmat:+crystallization:-dimred:+drr:+eds:-fisst:+funnel:+logmfd:+manyrestraints:+maze:+opes:+multicolvar:-pamm:-piv:+s2cm:-sasa:-ves
                                          ${PLUMED_CONFIG_OMP}

@@ -45,9 +45,11 @@ class FixSpringSelfKokkos : public FixSpringSelf, public KokkosBase {
   void copy_arrays(int, int, int) override;
   void post_force(int) override;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void pack_exchange_item(const int&, int &, const bool &) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixSpringSelfUnpackExchange, const int&) const;
 
@@ -72,7 +74,7 @@ class FixSpringSelfKokkos : public FixSpringSelf, public KokkosBase {
   typename AT::t_kkfloat_1d_3_lr d_xoriginal;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
-  typename AT::t_kksum_1d_3 f;
+  typename AT::t_kkacc_1d_3 f;
   typename AT::t_imageint_1d_randomread image;
   typename AT::t_int_1d_randomread mask;
 
@@ -99,6 +101,7 @@ struct FixSpringSelfKokkosPackExchangeFunctor {
   typedef int value_type;
   FixSpringSelfKokkos<DeviceType> c;
   FixSpringSelfKokkosPackExchangeFunctor(FixSpringSelfKokkos<DeviceType>* c_ptr):c(*c_ptr) {};
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(const int &i, int &offset, const bool &final) const {
     c.pack_exchange_item(i, offset, final);

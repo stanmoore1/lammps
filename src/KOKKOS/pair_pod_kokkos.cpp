@@ -116,7 +116,7 @@ double PairPODKokkos<DeviceType>::init_one(int i, int j)
 {
   double cutone = PairPOD::init_one(i,j);
 
-  k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutone*cutone;
+  k_cutsq.view_host()(i,j) = k_cutsq.view_host()(j,i) = cutone*cutone;
   k_cutsq.modify_host();
 
   return cutone;
@@ -171,6 +171,7 @@ struct FindMaxNumNeighs {
   FindMaxNumNeighs(NeighListKokkos<DeviceType>* nl): k_list(*nl) {}
   ~FindMaxNumNeighs() {k_list.copymode = 1;}
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& ii, int& max_neighs) const {
     const int i = k_list.d_ilist[ii];
@@ -1823,7 +1824,7 @@ void PairPODKokkos<DeviceType>::savedatafordebugging()
   savematrix2binfile("podkkabfy.bin", abfy, kmax, nij);
   savematrix2binfile("podkkabfz.bin", abfz, kmax, nij);
   savematrix2binfile("podkkbd.bin", bd, ni, Mdesc);
-  savematrix2binfile("podkksumU.bin", sumU, nelements * K3 * nrbfmax, ni);
+  savematrix2binfile("podkkaccU.bin", sumU, nelements * K3 * nrbfmax, ni);
   savematrix2binfile("podkkrij.bin", rij, 3, nij);
   savematrix2binfile("podkkfij.bin", fij, 3, nij);
   savematrix2binfile("podkkei.bin", ei, ni, 1);

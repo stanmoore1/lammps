@@ -274,4 +274,4 @@ static inline bool DoLineSegmentsIntersect(double x1, double y1, double x2, doub
 
 }    // namespace SMD_Math
 
-#endif /* SMD_MATH_H_ */
+#endif /* SMD_MATH_H */

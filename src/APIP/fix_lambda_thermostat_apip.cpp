@@ -24,10 +24,11 @@
 #include "my_page.h"
 #include "neigh_list.h"
 #include "neighbor.h"
-#include "random_park.h"
 #include "update.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;

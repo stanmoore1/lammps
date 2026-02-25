@@ -16,12 +16,12 @@
 
 #include "pointers.h"
 
-#include <map>
-
 namespace LAMMPS_NS {
 class Region;
 
 class Group : protected Pointers {
+  friend class FixGroup;
+
  public:
   int ngroup;          // # of defined groups
   char **names;        // name of each group
@@ -38,6 +38,7 @@ class Group : protected Pointers {
   int find(const std::string &);              // lookup name in list of groups
   int find_or_create(const char *);           // lookup name or create new group
   int get_bitmask_by_id(const std::string &, int, const std::string &, const std::string &);
+  int get_inversemask_by_id(const std::string &, int, const std::string &, const std::string &);
   void write_restart(FILE *);
   void read_restart(FILE *);
 
@@ -68,9 +69,8 @@ class Group : protected Pointers {
   void inertia(int, double *, double[3][3], Region *);
   void omega(double *, double[3][3], double *);    // angular velocity
 
- private:
+ protected:
   int me;
-  std::map<tagint, int> *hash;
 
   int find_unused();
   void add_molecules(int, int);

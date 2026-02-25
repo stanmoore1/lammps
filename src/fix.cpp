@@ -58,6 +58,7 @@ Fix::Fix(LAMMPS *lmp, int /*narg*/, char **arg) :
   box_change = NO_BOX_CHANGE;
   thermo_energy = 0;
   thermo_virial = 0;
+  thermo_modify_colname = 0;
   energy_global_flag = energy_peratom_flag = 0;
   virial_global_flag = virial_peratom_flag = 0;
   ecouple_flag = 0;
@@ -83,7 +84,7 @@ Fix::Fix(LAMMPS *lmp, int /*narg*/, char **arg) :
   scalar_flag = vector_flag = array_flag = 0;
   extscalar = extvector = extarray = -1;
   peratom_flag = local_flag = pergrid_flag = 0;
-  global_freq = local_freq = peratom_freq = pergrid_freq = -1;
+  local_freq = peratom_freq = pergrid_freq = -1;
   size_vector_variable = size_array_rows_variable = 0;
 
   comm_forward = comm_reverse = comm_border = 0;
@@ -110,7 +111,7 @@ Fix::Fix(LAMMPS *lmp, int /*narg*/, char **arg) :
   datamask_modify = ALL_MASK;
 
   kokkosable = copymode = 0;
-  forward_comm_device = exchange_comm_device = sort_device = 0;
+  forward_comm_device = reverse_comm_device = exchange_comm_device = sort_device = 0;
   fuse_integrate_flag = 0;
 }
 
@@ -291,6 +292,7 @@ void Fix::v_setup(int vflag)
   int i,n;
 
   evflag = 1;
+  vflag_either = vflag;
   vflag_global = vflag & (VIRIAL_PAIR | VIRIAL_FDOTR);
   if (centroidstressflag != CENTROID_AVAIL) {
     vflag_atom = vflag & (VIRIAL_ATOM | VIRIAL_CENTROID);

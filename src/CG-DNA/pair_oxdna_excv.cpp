@@ -32,7 +32,7 @@
 
 #include <cmath>
 #include <cstring>
-#include <cassert>
+#include <exception>
 
 using namespace LAMMPS_NS;
 using namespace MFOxdna;

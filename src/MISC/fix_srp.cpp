@@ -116,7 +116,7 @@ void FixSRP::init()
   // because this fix's pre_exchange() creates per-atom data structure
   // that data must be current for atom migration to carry it along
 
-  for (auto &ifix : modify->get_fix_list()) {
+  for (const auto &ifix : modify->get_fix_list()) {
     if (ifix == this) break;
     if (ifix->pre_exchange_migrate)
       error->all(FLERR,"Fix {} comes after a fix which migrates atoms in pre_exchange", style);
@@ -604,7 +604,7 @@ void FixSRP::write_restart(FILE *fp)
 void FixSRP::restart(char *buf)
 {
   int n = 0;
-  auto list = (double *) buf;
+  auto *list = (double *) buf;
 
   comm->cutghostuser = static_cast<double> (list[n++]);
   btype = static_cast<int> (list[n++]);

@@ -32,10 +32,11 @@
 #include "random_mars.h"
 #include "update.h"
 
+#include <algorithm>
 #include <cfloat>
 #include <cmath>
 #include <cstring>
-#include <vector>
+#include <utility>
 
 #include "latboltz_const.h"
 
@@ -43,7 +44,7 @@ using namespace LAMMPS_NS;
 using namespace FixConst;
 
 static const char cite_fix_lbfluid[] =
-    "fix lb/fluid command: doi:10.1016/j.cpc.2022.108318\n\n"
+    "fix lb/fluid command: https://doi.org/10.1016/j.cpc.2022.108318\n\n"
     "@Article{Denniston et al.,\n"
     "  author = {C. Denniston and N. Afrasiabian and M. G. Cole-Andre,"
     "    F. E. Mackay and S. T. T. Ollila and T. Whitehead},\n"
@@ -379,9 +380,8 @@ FixLbFluid::FixLbFluid(LAMMPS *lmp, int narg, char **arg) :
   //--------------------------------------------------------------------------
   if (setdx == 1) {
     double dx_lb1 = sqrt(3.0 * viscosity * dt_lb / densityinit_real);
-    double mindomain =
-        std::min(std::min(domain->xprd / comm->procgrid[0], domain->yprd / comm->procgrid[1]),
-                 domain->zprd / comm->procgrid[2]);
+    double mindomain = MIN(MIN(domain->xprd / comm->procgrid[0], domain->yprd / comm->procgrid[1]),
+                           domain->zprd / comm->procgrid[2]);
     dx_lb = mindomain / floor(mindomain / dx_lb1);
 
     if (comm->me == 0) utils::logmesg(lmp, "Setting lattice-Boltzmann dx to {:10.6f}", dx_lb);
@@ -1026,12 +1026,13 @@ void FixLbFluid::initializeLB()
 {
   for (int i = 0; i < subNbx + 3; i++) {
 
+    // NOLINTBEGIN
     int ix;
     if (i == subNbx + 2)
       ix = round(((domain->sublo[0] - domain->boxlo[0]) / dx_lb)) - 2;
     else
       ix = round(((domain->sublo[0] - domain->boxlo[0]) / dx_lb)) + (i - 1);
-
+    // NOLINTEND
     for (int j = 0; j < subNby + 3; j++)
       for (int k = 0; k < subNbz + 3; k++) {
 
@@ -1041,12 +1042,13 @@ void FixLbFluid::initializeLB()
         else
           density_lb[i][j][k] = densityinit;
 
+        // NOLINTBEGIN
         int iz;
         if (k == subNbz + 2)
           iz = round(((domain->sublo[2] - domain->boxlo[2]) / dx_lb)) - 2;
         else
           iz = round(((domain->sublo[2] - domain->boxlo[2]) / dx_lb)) + (k - 1);
-
+        // NOLINTEND
         u_lb[i][j][k][0] = 0.0;
         if (lin_init)
           u_lb[i][j][k][1] = vwbt +
@@ -4433,7 +4435,7 @@ void FixLbFluid::calc_MPT(double &totalmass, double totalmomentum[3], double &Ta
 bigint FixLbFluid::adjust_dof_fix() /* Based on same private method in compute class */
 {                                   /* altered to return fix_dof */
   bigint fix_dof = 0;
-  for (auto &ifix : modify->get_fix_list())
+  for (const auto &ifix : modify->get_fix_list())
     if (ifix->dof_flag) fix_dof += ifix->dof(igroup);
   return fix_dof;
 }

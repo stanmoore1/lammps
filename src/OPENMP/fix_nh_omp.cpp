@@ -34,7 +34,7 @@ enum{ISO,ANISO,TRICLINIC};
 
 static constexpr double TILTMAX = 1.5;
 
-typedef struct { double x,y,z; } dbl3_t;
+using dbl3_t = struct { double x,y,z; };
 
 /* ----------------------------------------------------------------------
    change box size
@@ -197,8 +197,8 @@ void FixNHOMP::remap()
       domain->xz > TILTMAX*domain->xprd ||
       domain->xy < -TILTMAX*domain->xprd ||
       domain->xy > TILTMAX*domain->xprd)
-    error->all(FLERR,"Fix npt/nph has tilted box too far in one step - "
-               "periodic cell is too far from equilibrium state");
+    error->all(FLERR, Error::NOLASTLINE, "Fix {} has tilted box too far in one step - "
+               "periodic cell is too far from equilibrium state", style);
 
   domain->set_global_box();
   domain->set_local_box();

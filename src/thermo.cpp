@@ -56,7 +56,7 @@ using namespace MathExtra;
 
 // CUSTOMIZATION: add a new keyword by adding it to this list:
 
-// step, elapsed, elaplong, dt, time, cpu, tpcpu, spcpu, cpuremain, part, timeremain
+// step, elapsed, elaplong, dt, time, cpu, tpcpu, spcpu, cpuuse, cpuremain, part, timeremain
 // atoms, temp, press, pe, ke, etotal
 // evdwl, ecoul, epair, ebond, eangle, edihed, eimp, emol, elong, etail
 // enthalpy, ecouple, econserve
@@ -112,6 +112,8 @@ Thermo::Thermo(LAMMPS *_lmp, int narg, char **arg) :
   lineflag = ONELINE;
   modified = 0;
   normuserflag = 0;
+  normflag = 0;
+  normvalue = 0;
   lostflag = lostbond = Thermo::ERROR;
   lostbefore = warnbefore = 0;
   flushflag = 0;
@@ -137,7 +139,8 @@ Thermo::Thermo(LAMMPS *_lmp, int narg, char **arg) :
     lineflag = YAMLLINE;
 
   } else if (strcmp(style, "custom") == 0) {
-    if (narg == 1) error->all(FLERR, Error::ARGZERO, "Illegal thermo style custom command");
+    if (narg == 1)
+      error->all(FLERR, Error::ARGZERO, "Cannot use thermo style custom without custom keywords");
 
     // expand args if any have wildcard character "*"
 
@@ -160,7 +163,7 @@ Thermo::Thermo(LAMMPS *_lmp, int narg, char **arg) :
     }
 
   } else
-    error->all(FLERR, Error::ARGZERO, "Illegal thermo style {}", style);
+    error->all(FLERR, Error::ARGZERO, "Unknown thermo style {}", style);
 
   index_temp = index_press_scalar = index_press_vector = index_pe = -1;
 
@@ -194,6 +197,7 @@ void Thermo::init()
     normvalue = 1;
   else
     normvalue = 0;
+  normflag = normvalue;
 
   // add Volume field if volume changes and not style = custom
   // this check must come after domain init, so box_change is set
@@ -212,22 +216,27 @@ void Thermo::init()
   if (format_line_user.size()) format_line = new ValueTokenizer(format_line_user);
 
   lock_cache();
-  field_data.clear();
-  field_data.resize(nfield);
+  // only reset cached thermo data if it is the first run or the thermo style has changed
+  if (ntimestep < 0) {
+    field_data.clear();
+    field_data.resize(nfield);
+    for (int i = 0; i < nfield; i++) {
+      if (vtype[i] == FLOAT) {
+        field_data[i] = (double) 0.0;
+      } else if (vtype[i] == INT) {
+        field_data[i] = (int) 0;
+      } else if (vtype[i] == BIGINT) {
+        field_data[i] = (bigint) 0;
+      }
+    }
+  }
+  unlock_cache();
+
   std::string format_this, format_line_user_def;
   for (int i = 0; i < nfield; i++) {
-
     format[i].clear();
     format_this.clear();
     format_line_user_def.clear();
-
-    if (vtype[i] == FLOAT) {
-      field_data[i] = (double) 0.0;
-    } else if (vtype[i] == INT) {
-      field_data[i] = (int) 0;
-    } else if (vtype[i] == BIGINT) {
-      field_data[i] = (bigint) 0;
-    }
 
     if ((lineflag == MULTILINE) && ((i % 3) == 0)) format[i] += "\n";
     if ((lineflag == YAMLLINE) && (i == 0)) format[i] += "  - [";
@@ -281,7 +290,6 @@ void Thermo::init()
         format[i] += fmt::format("{:<8} = {} ", keyword[i], format_this);
     }
   }
-  unlock_cache();
 
   // chop off trailing blank or add closing bracket if needed and then add newline
   if (lineflag == ONELINE)
@@ -397,8 +405,8 @@ void Thermo::footer()
 
 void Thermo::compute(int flag)
 {
-  int i;
-
+  // don't overwrite field data if continuing run and no change to thermo style
+  bool update_field_data = ntimestep != update->ntimestep;
   firststep = flag;
   ntimestep = update->ntimestep;
 
@@ -413,7 +421,7 @@ void Thermo::compute(int flag)
 
   // invoke Compute methods needed for thermo keywords
 
-  for (i = 0; i < ncompute; i++)
+  for (int i = 0; i < ncompute; i++)
     if (compute_which[i] == SCALAR) {
       if (!(computes[i]->invoked_flag & Compute::INVOKED_SCALAR)) {
         computes[i]->compute_scalar();
@@ -444,27 +452,28 @@ void Thermo::compute(int flag)
   }
 
   // add each thermo value to line with its specific format
-  lock_cache();
-  field_data.clear();
-  field_data.resize(nfield);
+  if (update_field_data) {
+    lock_cache();
+    if ((int) field_data.size() != nfield) field_data.resize(nfield);
+  }
 
   for (ifield = 0; ifield < nfield; ifield++) {
     (this->*vfunc[ifield])();
     if (vtype[ifield] == FLOAT) {
       snprintf(fmtbuf, sizeof(fmtbuf), format[ifield].c_str(), dvalue);
       line += fmtbuf;
-      field_data[ifield] = dvalue;
+      if (update_field_data) field_data[ifield] = dvalue;
     } else if (vtype[ifield] == INT) {
       snprintf(fmtbuf, sizeof(fmtbuf), format[ifield].c_str(), ivalue);
       line += fmtbuf;
-      field_data[ifield] = ivalue;
+      if (update_field_data) field_data[ifield] = ivalue;
     } else if (vtype[ifield] == BIGINT) {
       snprintf(fmtbuf, sizeof(fmtbuf), format[ifield].c_str(), bivalue);
       line += fmtbuf;
-      field_data[ifield] = bivalue;
+      if (update_field_data) field_data[ifield] = bivalue;
     }
   }
-  unlock_cache();
+  if (update_field_data) unlock_cache();
 
   // print line to screen and logfile
 
@@ -500,7 +509,7 @@ bigint Thermo::lost_check()
     warnbefore = 1;
     if (comm->me == 0)
       utils::logmesg(
-          lmp, "WARNING: Too many warnings: {} vs {}. All future warnings willbe suppressed\n",
+          lmp, "WARNING: Too many warnings: {} vs {}. All future warnings will be suppressed\n",
           ntotal[1], maxwarn);
   }
   error->set_allwarn(MIN(MAXSMALLINT, ntotal[1]));
@@ -685,6 +694,9 @@ void Thermo::modify_params(int narg, char **arg)
       if (strcmp(arg[iarg + 1], "default") == 0) {
         for (auto &item : keyword_user) item.clear();
         iarg += 2;
+      } else if (strcmp(arg[iarg + 1], "auto") == 0) {
+        colname_auto();
+        iarg += 2;
       } else {
         if (iarg + 3 > narg) utils::missing_cmd_args(FLERR, "thermo_modify colname", error);
         int icol = -1;
@@ -733,7 +745,7 @@ void Thermo::modify_params(int narg, char **arg)
             format_int_user.replace(found, 1, std::string(BIGINT_FORMAT).substr(1));
       } else if (strcmp(arg[iarg + 1], "float") == 0) {
         format_float_user = arg[iarg + 2];
-      } else if (utils::strmatch(arg[iarg + 1], "^\\d*\\*\\d*$")) {
+      } else if (utils::strmatch(arg[iarg + 1], R"(^\d*\*\d*$)")) {
         // handles cases such as 2*6; currently doesn't allow negatives
         int nlo, nhi;
         utils::bounds(FLERR, arg[iarg + 1], 1, nfield_initial, nlo, nhi, error);
@@ -877,6 +889,8 @@ void Thermo::parse_fields(const std::string &str)
       addfield("T/CPU", &Thermo::compute_tpcpu, FLOAT);
     } else if (word == "spcpu") {
       addfield("S/CPU", &Thermo::compute_spcpu, FLOAT);
+    } else if (word == "cpuuse") {
+      addfield("%CPU", &Thermo::compute_cpuuse, FLOAT);
     } else if (word == "cpuremain") {
       addfield("CPULeft", &Thermo::compute_cpuremain, FLOAT);
     } else if (word == "part") {
@@ -1089,10 +1103,10 @@ void Thermo::parse_fields(const std::string &str)
       argindex2[nfield] = (argi.get_dim() > 1) ? argi.get_index2() : 0;
 
       if (argi.get_type() == ArgInfo::COMPUTE) {
-        auto icompute = modify->get_compute_by_id(argi.get_name());
+        auto *icompute = modify->get_compute_by_id(argi.get_name());
         if (!icompute)
           error->all(FLERR, nfield + 1, "Could not find thermo custom compute ID: {}",
-                     icompute->id);
+                     argi.get_name());
         if (argi.get_dim() == 0) {    // scalar
           if (icompute->scalar_flag == 0)
             error->all(FLERR, nfield + 1, "Thermo custom compute {} does not compute a scalar",
@@ -1130,9 +1144,9 @@ void Thermo::parse_fields(const std::string &str)
         addfield(word.c_str(), &Thermo::compute_compute, FLOAT);
 
       } else if (argi.get_type() == ArgInfo::FIX) {
-        auto ifix = modify->get_fix_by_id(argi.get_name());
+        auto *ifix = modify->get_fix_by_id(argi.get_name());
         if (!ifix)
-          error->all(FLERR, nfield + 1, "Could not find thermo custom fix ID: {}", ifix->id);
+          error->all(FLERR, nfield + 1, "Could not find thermo custom fix ID: {}", argi.get_name());
         if (argi.get_dim() == 0) {    // scalar
           if (ifix->scalar_flag == 0)
             error->all(FLERR, nfield + 1, "Thermo custom fix {} does not compute a scalar",
@@ -1191,6 +1205,28 @@ void Thermo::parse_fields(const std::string &str)
   }
   field_data.clear();
   field_data.resize(nfield);
+}
+
+/* ----------------------------------------------------------------------
+   update auto-generated column names for computes, fixes
+------------------------------------------------------------------------- */
+
+void Thermo::colname_auto()
+{
+  for (ifield = 0; ifield < nfield; ifield++) {
+    std::string word = keyword[ifield];
+    ArgInfo argi(word);
+    if (argi.get_type() == ArgInfo::COMPUTE) {
+      auto *icompute = modify->get_compute_by_id(argi.get_name());
+      if (icompute->thermo_modify_colname)
+        keyword_user[ifield] = icompute->get_thermo_colname(argindex1[ifield]-1);
+    }
+    if (argi.get_type() == ArgInfo::FIX) {
+      auto *ifix = modify->get_fix_by_id(argi.get_name());
+      if (ifix->thermo_modify_colname)
+        keyword_user[ifield] = ifix->get_thermo_colname(argindex1[ifield]-1);
+    }
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -1364,15 +1400,21 @@ int Thermo::evaluate_keyword(const std::string &word, double *answer)
     dvalue = bivalue;
 
   } else if (word == "elapsed") {
-    if (update->whichflag == 0)
-      error->all(FLERR, "The variable thermo keyword elapsed cannot be used between runs");
-    compute_elapsed();
+    // if this is before the first run return 0, otherwise the result from last step of last run
+    if ((update->whichflag == 0) && (update->first_update == 0)) {
+      bivalue = 0;
+    } else {
+      compute_elapsed();
+    }
     dvalue = bivalue;
 
   } else if (word == "elaplong") {
-    if (update->whichflag == 0)
-      error->all(FLERR, "The variable thermo keyword elaplong cannot be used between runs");
-    compute_elapsed_long();
+    // if this is before the first run return 0, otherwise the result from last step of last run
+    if ((update->whichflag == 0) && (update->first_update == 0)) {
+      bivalue = 0;
+    } else {
+      compute_elapsed_long();
+    }
     dvalue = bivalue;
 
   } else if (word == "dt") {
@@ -1395,6 +1437,11 @@ int Thermo::evaluate_keyword(const std::string &word, double *answer)
     if (update->whichflag == 0)
       error->all(FLERR, "The variable thermo keyword spcpu cannot be used between runs");
     compute_spcpu();
+
+  } else if (word == "cpuuse") {
+    if (update->whichflag == 0)
+      error->all(FLERR, "The variable thermo keyword cpuuse cannot be used between runs");
+    compute_cpuuse();
 
   } else if (word == "cpuremain") {
     if (update->whichflag == 0)
@@ -1823,9 +1870,13 @@ void Thermo::compute_tpcpu()
   if (firststep == 0) {
     new_cpu = 0.0;
     dvalue = 0.0;
+    // if evaluated on the same step already used cached value
+  } else if (last_time == new_time) {
+    dvalue = last_tpcpu;
+    return;
   } else {
     new_cpu = timer->elapsed(Timer::TOTAL);
-    double cpu_diff = new_cpu - last_tpcpu;
+    double cpu_diff = new_cpu - last_cpu1;
     double time_diff = new_time - last_time;
     if (time_diff > 0.0 && cpu_diff > 0.0)
       dvalue = time_diff / cpu_diff;
@@ -1834,7 +1885,8 @@ void Thermo::compute_tpcpu()
   }
 
   last_time = new_time;
-  last_tpcpu = new_cpu;
+  last_cpu1 = new_cpu;
+  last_tpcpu = dvalue;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1842,23 +1894,38 @@ void Thermo::compute_tpcpu()
 void Thermo::compute_spcpu()
 {
   double new_cpu;
-  int new_step = update->ntimestep;
+  bigint new_step = update->ntimestep;
 
   if (firststep == 0) {
     new_cpu = 0.0;
     dvalue = 0.0;
+    // if evaluated on the same step already used cached value
+  } else if (last_step == new_step) {
+    dvalue = last_spcpu;
+    return;
   } else {
     new_cpu = timer->elapsed(Timer::TOTAL);
-    double cpu_diff = new_cpu - last_spcpu;
-    int step_diff = new_step - last_step;
+    double cpu_diff = new_cpu - last_cpu2;
+    auto step_diff = double(new_step - last_step);
     if (cpu_diff > 0.0)
       dvalue = step_diff / cpu_diff;
     else
       dvalue = 0.0;
   }
 
+  last_cpu2 = new_cpu;
   last_step = new_step;
-  last_spcpu = new_cpu;
+  last_spcpu = dvalue;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_cpuuse()
+{
+  if (firststep == 0)
+    dvalue = 0.0;
+  else
+    dvalue = 100.0 * timer->cpu(Timer::TOTAL) / (timer->elapsed(Timer::TOTAL) + 1.0e-100);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -2086,6 +2153,7 @@ void Thermo::compute_enthalpy()
 void Thermo::compute_ecouple()
 {
   dvalue = modify->energy_couple();
+  if (normflag) dvalue /= natoms;
 }
 
 /* ---------------------------------------------------------------------- */

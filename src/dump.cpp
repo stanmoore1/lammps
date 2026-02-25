@@ -110,6 +110,7 @@ Dump::Dump(LAMMPS *lmp, int /*narg*/, char **arg) :
   compressed = 0;
   binary = 0;
   multifile = 0;
+  multifile_override = 0;
   size_one = 0;
 
   multiproc = 0;
@@ -476,7 +477,8 @@ void Dump::write()
   // ping each proc in my cluster, receive its data, write data to file
   // else wait for ping from fileproc, send my data to fileproc
 
-  int tmp,nlines,nchars;
+  int tmp = 0;
+  int nlines,nchars;
   MPI_Status status;
   MPI_Request request;
 
@@ -869,7 +871,7 @@ int Dump::idcompare(const int i, const int j, void *ptr)
 
 int Dump::bufcompare(const int i, const int j, void *ptr)
 {
-  auto dptr = (Dump *) ptr;
+  auto *dptr = (Dump *) ptr;
   double *bufsort     = dptr->bufsort;
   const int size_one  = dptr->size_one;
   const int sortcolm1 = dptr->sortcolm1;
@@ -890,7 +892,7 @@ int Dump::bufcompare(const int i, const int j, void *ptr)
 
 int Dump::bufcompare_reverse(const int i, const int j, void *ptr)
 {
-  auto dptr = (Dump *) ptr;
+  auto *dptr = (Dump *) ptr;
   double *bufsort     = dptr->bufsort;
   const int size_one  = dptr->size_one;
   const int sortcolm1 = dptr->sortcolm1;
@@ -966,7 +968,7 @@ void Dump::balance()
   // post recvs first
 
   int nswap = 0;
-  auto request = new MPI_Request[nprocs];
+  auto *request = new MPI_Request[nprocs];
 
   // find which proc starting atom belongs to
 
@@ -1308,7 +1310,7 @@ void Dump::modify_params(int narg, char **arg)
         sort_flag = 1;
         sortcol = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
         sortorder = ASCEND;
-        if (sortcol == 0) error->all(FLERR, "Invalid dump_modify sort argument: {}", sortcol);
+        if (sortcol == 0) error->all(FLERR, iarg+2,"Invalid dump_modify sort argument: {}", sortcol);
         if (sortcol < 0) {
           sortorder = DESCEND;
           sortcol = -sortcol;
@@ -1329,7 +1331,7 @@ void Dump::modify_params(int narg, char **arg)
 
     } else {
       int n = modify_param(narg-iarg,&arg[iarg]);
-      if (n == 0) error->all(FLERR,"Unknown dump_modify keyword: {}", arg[iarg]);
+      if (n == 0) error->all(FLERR,iarg+1,"Unknown dump_modify keyword: {}", arg[iarg]);
       iarg += n;
     }
   }

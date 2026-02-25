@@ -24,6 +24,7 @@
 #include "kspace.h"
 #include "math_const.h"
 #include "memory.h"
+#include "pair.h"
 #include "neigh_list.h"
 #include "neighbor.h"
 

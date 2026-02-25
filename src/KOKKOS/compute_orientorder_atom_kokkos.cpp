@@ -116,6 +116,7 @@ struct FindMaxNumNeighs {
   FindMaxNumNeighs(NeighListKokkos<DeviceType>* nl): k_list(*nl) {}
   ~FindMaxNumNeighs() {k_list.copymode = 1;}
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& ii, int& maxneigh) const {
     const int i = k_list.d_ilist[ii];
@@ -233,6 +234,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::compute_peratom()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrderAtomNeigh,const typename Kokkos::TeamPolicy<DeviceType, TagComputeOrientOrderAtomNeigh>::member_type& team) const
 {
@@ -290,6 +292,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrder
 }
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrderAtomSelect3,const int& ii) const {
 
@@ -313,6 +316,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrder
 }
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrderAtomBOOP1,const typename Kokkos::TeamPolicy<DeviceType, TagComputeOrientOrderAtomBOOP1>::member_type& team) const {
 
@@ -335,6 +339,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrder
 }
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrderAtomBOOP2,const int& ii) const {
   const int ncount = d_ncount(ii);
@@ -372,6 +377,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::operator() (TagComputeOrientOrder
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void ComputeOrientOrderAtomKokkos<DeviceType>::select3(int k, int n, int ii) const
 {
@@ -448,6 +454,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::select3(int k, int n, int ii) con
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop1(int /*ncount*/, int ii, int ineigh) const
 {
@@ -502,6 +509,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop1(int /*ncount*/, int ii
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop2(int ncount, int ii) const
 {
@@ -524,7 +532,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop2(int ncount, int ii) co
   int jj = 0;
   for (int il = 0; il < nqlist; il++) {
     int l = d_qlist[il];
-    KK_SUM_FLOAT qm_sum = d_qnm(ii,il,0).re*d_qnm(ii,il,0).re;
+    KK_ACC_FLOAT qm_sum = d_qnm(ii,il,0).re*d_qnm(ii,il,0).re;
     for (int m = 1; m < l+1; m++)
       qm_sum += 2.0*(d_qnm(ii,il,m).re*d_qnm(ii,il,m).re + d_qnm(ii,il,m).im*d_qnm(ii,il,m).im);
     d_qnarray(i,jj++) = d_qnormfac(il) * sqrt(qm_sum);
@@ -537,7 +545,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop2(int ncount, int ii) co
   if (wlflag || wlhatflag) {
     for (int il = 0; il < nqlist; il++) {
       int l = d_qlist[il];
-      KK_SUM_FLOAT wlsum = 0.0;
+      KK_ACC_FLOAT wlsum = 0.0;
       for (int m1 = -l; m1 <= 0; m1++) {
         const int sgn = 1 - 2*(m1&1); // sgn = (-1)^m1
         for (int m2 = 0; m2 <= ((-m1)>>1); m2++) {
@@ -613,6 +621,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::calc_boop2(int ncount, int ii) co
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 KK_FLOAT ComputeOrientOrderAtomKokkos<DeviceType>::polar_prefactor(int l, int m, KK_FLOAT costheta) const
 {
@@ -636,6 +645,7 @@ KK_FLOAT ComputeOrientOrderAtomKokkos<DeviceType>::polar_prefactor(int l, int m,
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 KK_FLOAT ComputeOrientOrderAtomKokkos<DeviceType>::associated_legendre(int l, int m, KK_FLOAT x) const
 {

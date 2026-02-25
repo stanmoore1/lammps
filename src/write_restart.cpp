@@ -343,7 +343,8 @@ void WriteRestart::write(const std::string &file)
   // ping each proc in my cluster, receive its data, write data to file
   // else wait for ping from fileproc, send my data to fileproc
 
-  int tmp,recv_size;
+  int tmp = 0;
+  int recv_size;
 
   if (filewriter) {
     MPI_Status status;
@@ -380,7 +381,7 @@ void WriteRestart::write(const std::string &file)
 
   // invoke any fixes that write their own restart file
 
-  for (auto &fix : modify->get_fix_list())
+  for (const auto &fix : modify->get_fix_list())
     if (fix->restart_file)
       fix->write_restart_file(file.c_str());
 }
@@ -472,6 +473,11 @@ void WriteRestart::header()
   write_int(EXTRA_DIHEDRAL_PER_ATOM,atom->extra_dihedral_per_atom);
   write_int(EXTRA_IMPROPER_PER_ATOM,atom->extra_improper_per_atom);
   write_int(ATOM_MAXSPECIAL,atom->maxspecial);
+
+  // write out AtomVec::maxexchange (extra storage for communicating
+  // per-atom bond, angle, dihedral, and improper data). added 25 Oct 2025
+
+  write_int(ATOM_MAXEXCHANGE,atom->avec->maxexchange);
 
   write_bigint(NELLIPSOIDS,atom->nellipsoids);
   write_bigint(NLINES,atom->nlines);

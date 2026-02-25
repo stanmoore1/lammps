@@ -169,7 +169,7 @@ void Pair::modify_params(int narg, char **arg)
       if (strcmp(arg[iarg+1],"geometric") == 0) mix_flag = GEOMETRIC;
       else if (strcmp(arg[iarg+1],"arithmetic") == 0) mix_flag = ARITHMETIC;
       else if (strcmp(arg[iarg+1],"sixthpower") == 0) mix_flag = SIXTHPOWER;
-      else error->all(FLERR,"Unknown pair_modify mix argument: {}", arg[iarg+1]);
+      else error->all(FLERR, iarg + 1, "Unknown pair_modify mix argument: {}", arg[iarg+1]);
       iarg += 2;
     } else if (strcmp(arg[iarg],"shift") == 0) {
       if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "pair_modify shift", error);
@@ -179,13 +179,17 @@ void Pair::modify_params(int narg, char **arg)
       if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "pair_modify table", error);
       ncoultablebits = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
       if (ncoultablebits > (int)sizeof(float)*CHAR_BIT)
-        error->all(FLERR,"Too many total bits for bitmapped lookup table");
+        error->all(FLERR, iarg + 1, "Too many total bits for bitmapped Coulomb lookup table");
+      if (ncoultablebits && (ncoultablebits < 8))
+        error->all(FLERR, iarg + 1, "Too few total bits for bitmapped Coulomb lookup table");
       iarg += 2;
     } else if (strcmp(arg[iarg],"table/disp") == 0) {
       if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "pair_modify table/disp", error);
       ndisptablebits = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
       if (ndisptablebits > (int)sizeof(float)*CHAR_BIT)
-        error->all(FLERR,"Too many total bits for bitmapped lookup table");
+        error->all(FLERR, iarg + 1, "Too many total bits for bitmapped Dispersion lookup table");
+      if (ndisptablebits && (ndisptablebits < 8))
+        error->all(FLERR, iarg + 1, "Too few total bits for bitmapped Dispersion lookup table");
       iarg += 2;
     } else if (strcmp(arg[iarg],"tabinner") == 0) {
       if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "pair_modify tabinner", error);
@@ -210,7 +214,7 @@ void Pair::modify_params(int narg, char **arg)
       if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "pair_modify neigh/trim", error);
       trim_flag = utils::logical(FLERR,arg[iarg+1],false,lmp);
       iarg += 2;
-    } else error->all(FLERR,"Unknown pair_modify keyword: {}", arg[iarg]);
+    } else error->all(FLERR, iarg, "Unknown pair_modify keyword: {}", arg[iarg]);
   }
 }
 
@@ -221,9 +225,9 @@ void Pair::init()
   int i,j;
 
   if (offset_flag && tail_flag)
-    error->all(FLERR,"Cannot have both pair_modify shift and tail set to yes");
+    error->all(FLERR, Error::NOLASTLINE, "Cannot have both pair_modify shift and tail set to yes");
   if (tail_flag && domain->dimension == 2)
-    error->all(FLERR,"Cannot use pair tail corrections with 2d simulations");
+    error->all(FLERR, Error::NOLASTLINE, "Cannot use pair tail corrections with 2d simulations");
   if (tail_flag && domain->nonperiodic && comm->me == 0)
     error->warning(FLERR,"Using pair tail corrections with non-periodic system");
   if (!compute_flag && tail_flag && comm->me == 0)
@@ -319,7 +323,8 @@ void Pair::reinit()
   // generalize this error message if reinit() is used by more than fix adapt
 
   if (!reinitflag)
-    error->all(FLERR,"Fix adapt interface to this pair style not supported");
+    error->all(FLERR, Error::NOLASTLINE,
+               "Fix adapt interface to pair style {} is not supported", force->pair_style);
 
   etail = ptail = 0.0;
 
@@ -371,7 +376,8 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
   double qqrd2e = force->qqrd2e;
 
   if (force->kspace == nullptr)
-    error->all(FLERR,"Pair style requires a KSpace style");
+    error->all(FLERR, Error::NOLASTLINE,
+               "Pair style {} requires a KSpace style", force->pair_style);
   double g_ewald = force->kspace->g_ewald;
 
   double cut_coulsq = cut_coul * cut_coul;
@@ -773,7 +779,7 @@ void Pair::write_restart(FILE *)
 void Pair::add_tally_callback(Compute *ptr)
 {
   if (lmp->kokkos)
-    error->all(FLERR,"Cannot yet use compute tally with Kokkos");
+    error->all(FLERR, Error::NOLASTLINE, "Cannot yet use compute tally with Kokkos");
 
   int i,found=-1;
 
@@ -831,7 +837,8 @@ void Pair::map_element2type(int narg, char **arg, bool update_setflag)
   // elements = list of element names
 
   if (narg != ntypes)
-    error->all(FLERR, "Number of element to type mappings does not match number of atom types");
+    error->all(FLERR, Error::NOLASTLINE,
+               "Number of element to type mappings does not match number of atom types");
 
   if (elements) {
     for (i = 0; i < nelements; i++) delete[] elements[i];
@@ -873,7 +880,8 @@ void Pair::map_element2type(int narg, char **arg, bool update_setflag)
       }
     }
 
-    if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
+    if (count == 0)
+      error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   }
 }
 
@@ -1797,16 +1805,18 @@ void Pair::virial_fdotr_compute()
 
 void Pair::write_file(int narg, char **arg)
 {
-  if (narg != 8 && narg != 10) error->all(FLERR,"Illegal pair_write command");
+  if (narg != 8 && narg != 10)
+    error->all(FLERR,"Illegal pair_write command");
   if (single_enable == 0)
-    error->all(FLERR,"Pair style does not support pair_write");
+    error->all(FLERR, Error::NOLASTLINE,
+               "Pair style {} does not support pair_write", force->pair_style);
 
   // parse arguments
 
   int itype = utils::expand_type_int(FLERR, arg[0], Atom::ATOM, lmp);
   int jtype = utils::expand_type_int(FLERR, arg[1], Atom::ATOM, lmp);
   if (itype < 1 || itype > atom->ntypes || jtype < 1 || jtype > atom->ntypes)
-    error->all(FLERR,"Invalid atom types in pair_write command");
+    error->all(FLERR, "Invalid atom types in pair_write command");
 
   int n = utils::inumeric(FLERR,arg[2],false,lmp);
 
@@ -1814,14 +1824,14 @@ void Pair::write_file(int narg, char **arg)
   if (strcmp(arg[3],"r") == 0) style = RLINEAR;
   else if (strcmp(arg[3],"rsq") == 0) style = RSQ;
   else if (strcmp(arg[3],"bitmap") == 0) style = BMP;
-  else error->all(FLERR,"Invalid style in pair_write command");
+  else error->all(FLERR, 3, "Invalid style {} in pair_write command", arg[3]);
 
   if (n < 2) error->all(FLERR, "Must have at least 2 table values");
 
   double inner = utils::numeric(FLERR, arg[4], false, lmp);
   double outer = utils::numeric(FLERR, arg[5], false, lmp);
   if (inner <= 0.0 || inner >= outer)
-    error->all(FLERR,"Invalid cutoffs in pair_write command");
+    error->all(FLERR,"Invalid cutoffs ({} - {}) in pair_write command", inner, outer);
 
   // open file in append mode if exists
   // add line with DATE: and UNITS: tag when creating new file
@@ -1860,7 +1870,7 @@ void Pair::write_file(int narg, char **arg)
       if (style == RSQ)
         fprintf(fp, "\n%s\nN %d RSQ %.15g %.15g\n\n", arg[7], n, inner, outer);
     } else {
-      error->one(FLERR,"Cannot open pair_write file {}: {}",table_file, utils::getsyserror());
+      error->one(FLERR, 6, "Cannot open pair_write file {}: {}",table_file, utils::getsyserror());
     }
   }
 

@@ -41,7 +41,7 @@ using namespace MathConst;
 static constexpr int BIG = 1000000000;
 
 static const char cite_fix_orient_bcc[] =
-  "fix orient/bcc command: doi:10.1016/j.commatsci.2016.02.016\n\n"
+  "fix orient/bcc command: https://doi.org/10.1016/j.commatsci.2016.02.016\n\n"
   "@Article{Wicaksono16,\n"
   "  author = {A. T. Wicaksono and C. W. Sinclair and M. Militzer},\n"
   "  title = {An Atomistic Study of the Correlation Between the Migration\n"
@@ -567,8 +567,8 @@ void FixOrientBCC::find_best_ref(double *displs, int which_crystal,
 
 int FixOrientBCC::compare(const void *pi, const void *pj)
 {
-  auto ineigh = (FixOrientBCC::Sort *) pi;
-  auto jneigh = (FixOrientBCC::Sort *) pj;
+  auto *ineigh = (FixOrientBCC::Sort *) pi;
+  auto *jneigh = (FixOrientBCC::Sort *) pj;
 
   if (ineigh->rsq < jneigh->rsq) return -1;
   else if (ineigh->rsq > jneigh->rsq) return 1;

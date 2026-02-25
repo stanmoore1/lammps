@@ -46,9 +46,11 @@ class FixCMAPKokkos : public FixCMAP, public KokkosBase {
     void pre_neighbor() override;
     void post_force(int) override;
 
+// NOLINTNEXTLINE
     KOKKOS_INLINE_FUNCTION
     void operator()(TagFixCmapPreNeighbor, const int, int&, const bool) const;
 
+// NOLINTNEXTLINE
     KOKKOS_INLINE_FUNCTION
     void operator()(TagFixCmapPostForce, const int, double&) const;
 
@@ -74,7 +76,7 @@ class FixCMAPKokkos : public FixCMAP, public KokkosBase {
     int nlocal;
 
     typename AT::t_kkfloat_1d_3_lr d_x;
-    typename AT::t_kksum_1d_3 d_f;
+    typename AT::t_kkacc_1d_3 d_f;
 
     DAT::tdual_int_1d k_sametag;
     typename AT::t_int_1d d_sametag;
@@ -103,16 +105,19 @@ class FixCMAPKokkos : public FixCMAP, public KokkosBase {
     typename AT::t_kkfloat_3d d_cmapgrid, d_d1cmapgrid, d_d2cmapgrid, d_d12cmapgrid;
 
     // calculate dihedral angles
+// NOLINTNEXTLINE
     KOKKOS_INLINE_FUNCTION
     KK_FLOAT dihedral_angle_atan2(KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT,
       KK_FLOAT, KK_FLOAT) const;
 
     // perform bicubic interpolation at point of interest
+// NOLINTNEXTLINE
     KOKKOS_INLINE_FUNCTION
     void bc_interpol(KK_FLOAT, KK_FLOAT, int, int, KK_FLOAT *, KK_FLOAT *, KK_FLOAT *, KK_FLOAT *,
       KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;
 
     // copied from Domain
+// NOLINTNEXTLINE
     KOKKOS_INLINE_FUNCTION
     int closest_image(const int, int) const;
 

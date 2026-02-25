@@ -8,10 +8,10 @@ using namespace MathSpecialKokkos;
 template <class DeviceType>
 void MEAMKokkos<DeviceType>::meam_force(
     int inum_half, int eflag_global, int eflag_atom, int vflag_global, int vflag_atom,
-    typename AT::t_kkfloat_1d eatom, int ntype, typename AT::t_int_1d type,
+    typename AT::t_kkacc_1d eatom, int ntype, typename AT::t_int_1d type,
     typename AT::t_int_1d d_map, typename AT::t_kkfloat_1d_3_lr x, typename AT::t_int_1d numneigh,
-    typename AT::t_int_1d numneigh_full, typename AT::t_kksum_1d_3 f,
-    typename AT::t_kkfloat_1d_6 vatom, typename AT::t_int_1d d_ilist_half,
+    typename AT::t_int_1d numneigh_full, typename AT::t_kkacc_1d_3 f,
+    typename AT::t_kkacc_1d_6 vatom, typename AT::t_int_1d d_ilist_half,
     typename AT::t_int_1d d_offset, typename AT::t_neighbors_2d d_neighbors_half,
     typename AT::t_neighbors_2d d_neighbors_full, int neighflag, int need_dup, EV_FLOAT &ev_all)
 {
@@ -82,6 +82,7 @@ void MEAMKokkos<DeviceType>::meam_force(
 
 template <class DeviceType>
 template <int NEIGHFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION void MEAMKokkos<DeviceType>::operator()(TagMEAMForce<NEIGHFLAG>,
                                                                const int &ii, EV_FLOAT &ev) const
 {
@@ -143,8 +144,8 @@ KOKKOS_INLINE_FUNCTION void MEAMKokkos<DeviceType>::operator()(TagMEAMForce<NEIG
                                    decltype(ndup_vatom)>::get(dup_vatom, ndup_vatom);
   auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG, DeviceType>>();
 
+  fnoffset = d_offset[ii];
   i = d_ilist_half[ii];
-  fnoffset = d_offset[i];
   third = 1.0 / 3.0;
   sixth = 1.0 / 6.0;
 

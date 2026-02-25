@@ -45,16 +45,20 @@ class FixNHKokkos : public FixNH {
   void pre_exchange() override;
 
   template<int TRICLINIC_FLAG>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixNH_nh_v_press<TRICLINIC_FLAG>, const int&) const;
 
   template<int RMASS>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixNH_nve_v<RMASS>, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixNH_nve_x, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixNH_nh_v_temp, const int&) const;
 
@@ -72,7 +76,7 @@ class FixNHKokkos : public FixNH {
 
   typename AT::t_kkfloat_1d_3_lr x;
   typename AT::t_kkfloat_1d_3 v;
-  typename AT::t_kksum_1d_3_const f;
+  typename AT::t_kkacc_1d_3_const f;
   typename AT::t_kkfloat_1d rmass;
   typename AT::t_kkfloat_1d mass;
   typename AT::t_int_1d type;

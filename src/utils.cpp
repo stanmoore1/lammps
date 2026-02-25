@@ -20,9 +20,7 @@
 #include "domain.h"
 #include "error.h"
 #include "fix.h"
-#ifndef FMT_STATIC_THOUSANDS_SEPARATOR
-#include "fmt/chrono.h"
-#endif
+#include "info.h"
 #include "input.h"
 #include "label_map.h"
 #include "memory.h"
@@ -35,7 +33,6 @@
 #include <cctype>
 #include <cerrno>
 #include <cmath>
-#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <stdexcept>
@@ -238,8 +235,8 @@ std::string utils::point_to_error(Input *input, int failed)
       // construct and append error indicator line
       cmdline += '\n';
       cmdline += std::string(indicator, ' ');
-      cmdline += std::string(strlen((failed < 0) ? input->command : input->arg[failed])
-                             + quoted, '^');
+      int len = strlen(((failed < 0) || !input->arg[failed]) ? input->command : input->arg[failed]);
+      cmdline += std::string(len + quoted, '^');
       cmdline += '\n';
     } else {
       cmdline += lastline;
@@ -449,7 +446,7 @@ std::string utils::check_packages_for_style(const std::string &style, const std:
 
   if (pkg) {
     errmsg += fmt::format(" is part of the {} package", pkg);
-    if (LAMMPS::is_installed_pkg(pkg))
+    if (Info::has_package(pkg))
       errmsg += ", but seems to be missing because of a dependency";
     else
       errmsg += " which is not enabled in this LAMMPS binary." + utils::errorurl(10);
@@ -915,7 +912,7 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
 
     // match grids
 
-    if (strmatch(word, "^[cf]_\\w+:\\w+:\\w+\\[\\d*\\*\\d*\\]")) {
+    if (strmatch(word, R"(^[cf]_\w+:\w+:\w+\[\d*\*\d*\])")) {
       auto gridid = utils::parse_grid_id(file, line, word, lmp->error);
 
       size_t first = gridid[2].find('[');
@@ -986,8 +983,8 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
       // match compute, fix, or custom property array reference with a '*' wildcard
       // number range in the first pair of square brackets
 
-    } else if (strmatch(word, "^[cfv]_\\w+\\[\\d*\\*\\d*\\]") ||
-               strmatch(word, "^[id]2_\\w+\\[\\d*\\*\\d*\\]")) {
+    } else if (strmatch(word, R"(^[cfv]_\w+\[\d*\*\d*\])") ||
+               strmatch(word, R"(^[id]2_\w+\[\d*\*\d*\])")) {
 
       // split off the compute/fix/property ID, the wildcard and trailing text
 
@@ -1150,7 +1147,7 @@ char *utils::expand_type(const char *file, int line, const std::string &str, int
       lmp->error->all(file, line, "{} type string {} cannot be used without a labelmap",
                       labeltypes[mode], typestr);
 
-    int type = lmp->atom->lmap->find(typestr, mode);
+    int type = lmp->atom->lmap->find_type(typestr, mode);
     if (type == -1)
       lmp->error->all(file, line, "{} type string {} not found in labelmap", labeltypes[mode],
                       typestr);
@@ -1220,7 +1217,7 @@ int utils::check_grid_reference(char *errstr, char *ref, int nevery, char *&id, 
 {
   ArgInfo argi(ref, ArgInfo::COMPUTE | ArgInfo::FIX);
   index = argi.get_index1();
-  auto name = argi.get_name();
+  const auto *name = argi.get_name();
 
   switch (argi.get_type()) {
 
@@ -1239,7 +1236,7 @@ int utils::check_grid_reference(char *errstr, char *ref, int nevery, char *&id, 
       const auto &gname = words[1];
       const auto &dname = words[2];
 
-      auto icompute = lmp->modify->get_compute_by_id(idcompute);
+      auto *icompute = lmp->modify->get_compute_by_id(idcompute);
       if (!icompute) lmp->error->all(FLERR, "{} compute ID {} not found", errstr, idcompute);
       if (icompute->pergrid_flag == 0)
         lmp->error->all(FLERR, "{} compute {} does not compute per-grid info", errstr, idcompute);
@@ -1281,7 +1278,7 @@ int utils::check_grid_reference(char *errstr, char *ref, int nevery, char *&id, 
       const auto &gname = words[1];
       const auto &dname = words[2];
 
-      auto ifix = lmp->modify->get_fix_by_id(idfix);
+      auto *ifix = lmp->modify->get_fix_by_id(idfix);
       if (!ifix) lmp->error->all(FLERR, "{} fix ID {} not found", errstr, idfix);
       if (ifix->pergrid_flag == 0)
         lmp->error->all(FLERR, "{} fix {} does not compute per-grid info", errstr, idfix);
@@ -1374,8 +1371,8 @@ std::string utils::uppercase(const std::string &text)
 
 std::string utils::trim(const std::string &line)
 {
-  int beg = re_match(line.c_str(), "\\S+");
-  int end = re_match(line.c_str(), "\\s+$");
+  int beg = re_match(line.c_str(), R"(\S+)");
+  int end = re_match(line.c_str(), R"(\s+$)");
   if (beg < 0) beg = 0;
   if (end < 0) end = line.size();
 
@@ -1576,6 +1573,71 @@ size_t utils::trim_and_count_words(const std::string &text, const std::string &s
 }
 
 /* ----------------------------------------------------------------------
+   combine values in vector to single string with separator added between values
+------------------------------------------------------------------------- */
+namespace {
+template <typename T> std::string join_impl(const std::vector<T> &values, const std::string &sep)
+{
+  std::string result;
+
+  if (values.size() > 0) result = fmt::format("{}", values[0]);
+  for (std::size_t i = 1; i < values.size(); ++i) result += sep + fmt::format("{}", values[i]);
+
+  return result;
+}
+}    // namespace
+
+// specializations
+template <> std::string utils::join<int>(const std::vector<int> &values, const std::string &sep)
+{
+  return join_impl<int>(values, sep);
+}
+
+template <>
+std::string utils::join<long int>(const std::vector<long int> &values, const std::string &sep)
+{
+  return join_impl<long int>(values, sep);
+}
+
+template <>
+std::string utils::join<long long int>(const std::vector<long long int> &values,
+                                       const std::string &sep)
+{
+  return join_impl<long long int>(values, sep);
+}
+
+template <> std::string utils::join<float>(const std::vector<float> &values, const std::string &sep)
+{
+  return join_impl<float>(values, sep);
+}
+
+template <>
+std::string utils::join<double>(const std::vector<double> &values, const std::string &sep)
+{
+  return join_impl<double>(values, sep);
+}
+
+template <>
+std::string utils::join<std::string>(const std::vector<std::string> &values, const std::string &sep)
+{
+  return join_impl<std::string>(values, sep);
+}
+
+template <>
+std::string utils::join<char *>(const std::vector<char *> &values, const std::string &sep)
+{
+  return join_impl<char *>(values, sep);
+}
+
+template <>
+std::string utils::join<const char *>(const std::vector<const char *> &values, const std::string &sep)
+{
+  return join_impl<const char *>(values, sep);
+}
+
+// clang-format on
+
+/* ----------------------------------------------------------------------
    combine words in vector to single string with separator added between words
 ------------------------------------------------------------------------- */
 std::string utils::join_words(const std::vector<std::string> &words, const std::string &sep)
@@ -1664,7 +1726,8 @@ std::vector<std::string> utils::split_words(const std::string &text)
         ++len;
       }
       if ((c == ' ') || (c == '\t') || (c == '\r') || (c == '\n') || (c == '\f') || (c == '\0')) {
-        list.push_back(text.substr(beg, len));
+        // avoid out-of-range access
+        if (beg < text.size()) list.push_back(text.substr(beg, len));
         beg += len + add;
         break;
       }
@@ -1692,7 +1755,7 @@ bool utils::is_integer(const std::string &str)
 {
   if (str.empty()) return false;
 
-  return strmatch(str, "^[+-]?\\d+$");
+  return strmatch(str, R"(^[+-]?\d+$)");
 }
 
 /* ----------------------------------------------------------------------
@@ -1703,9 +1766,8 @@ bool utils::is_double(const std::string &str)
 {
   if (str.empty()) return false;
 
-  return strmatch(str, "^[+-]?\\d+\\.?\\d*$") ||
-      strmatch(str, "^[+-]?\\d+\\.?\\d*[eE][+-]?\\d+$") || strmatch(str, "^[+-]?\\d*\\.?\\d+$") ||
-      strmatch(str, "^[+-]?\\d*\\.?\\d+[eE][+-]?\\d+$");
+  return strmatch(str, R"(^[+-]?\d+\.?\d*$)") || strmatch(str, R"(^[+-]?\d+\.?\d*[eE][+-]?\d+$)") ||
+      strmatch(str, R"(^[+-]?\d*\.?\d+$)") || strmatch(str, R"(^[+-]?\d*\.?\d+[eE][+-]?\d+$)");
 }
 
 /* ----------------------------------------------------------------------
@@ -1853,7 +1915,7 @@ double utils::get_conversion_factor(const int property, const int conversion)
 
 FILE *utils::open_potential(const std::string &name, LAMMPS *lmp, int *auto_convert)
 {
-  auto error = lmp->error;
+  auto *error = lmp->error;
   auto me = lmp->comm->me;
 
   std::string filepath = get_potential_file_path(name);
@@ -1966,21 +2028,16 @@ int utils::date2num(const std::string &date)
 }
 
 /* ----------------------------------------------------------------------
-   get formatted string of current date from fmtlib
+   get formatted string of current date
 ------------------------------------------------------------------------- */
 
 std::string utils::current_date()
 {
   time_t tv = time(nullptr);
-#if defined(FMT_STATIC_THOUSANDS_SEPARATOR)
-  char outstr[200];
   struct tm *today = localtime(&tv);
-  strftime(outstr, 200, "%Y-%m-%d", today);
-  return std::string(outstr);
-#else
-  std::tm today = fmt::localtime(tv);
-  return fmt::format("{:%Y-%m-%d}", today);
-#endif
+  char outstr[16];
+  strftime(outstr, sizeof(outstr), "%Y-%m-%d", today);
+  return {outstr};
 }
 
 /* ----------------------------------------------------------------------
@@ -2123,8 +2180,8 @@ static void do_merge(int *idx, int *buf, int llo, int lhi, int rlo, int rhi, voi
 extern "C" {
 
 /* Typedef'd pointer to get abstract datatype. */
-typedef struct regex_t *re_t;
-typedef struct regex_context_t *re_ctx_t;
+typedef struct regex_t *re_t;                // NOLINT
+typedef struct regex_context_t *re_ctx_t;    // NOLINT
 
 /* Compile regex string pattern to a regex_t-array. */
 static re_t re_compile(re_ctx_t context, const char *pattern);
@@ -2160,6 +2217,7 @@ enum {
   RX_NOT_WHITESPACE /*, BRANCH */
 };
 
+// NOLINTBEGIN
 typedef struct regex_t {
   unsigned char type; /* CHAR, STAR, etc.                      */
   union {
@@ -2174,6 +2232,7 @@ typedef struct regex_context_t {
   regex_t re_compiled[MAX_REGEXP_OBJECTS];
   unsigned char ccl_buf[MAX_CHAR_CLASS_LEN];
 } regex_context_t;
+// NOLINTEND
 
 int re_match(const char *text, const char *pattern)
 {
@@ -2506,7 +2565,7 @@ static int matchone(regex_t p, char c)
     case RX_NOT_WHITESPACE:
       return !matchwhitespace(c);
     default:
-      return (p.u.ch == (unsigned char)c);
+      return (p.u.ch == (unsigned char) c);
   }
 }
 

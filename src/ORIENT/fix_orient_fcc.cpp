@@ -38,7 +38,7 @@ using namespace MathConst;
 static constexpr int BIG = 1000000000;
 
 static const char cite_fix_orient_fcc[] =
-  "fix orient/fcc command: doi:10.1038/nmat1559\n\n"
+  "fix orient/fcc command: https://doi.org/10.1038/nmat1559\n\n"
   "@Article{Janssens06,\n"
   " author = {K. G. F. Janssens, D. Olmsted, E.A. Holm, S. M. Foiles, S. J. Plimpton, and P. M. Derlet},\n"
   " title = {Computing the Mobility of Grain Boundaries},\n"
@@ -564,8 +564,8 @@ void FixOrientFCC::find_best_ref(double *displs, int which_crystal,
 
 int FixOrientFCC::compare(const void *pi, const void *pj)
 {
-  auto ineigh = (FixOrientFCC::Sort *) pi;
-  auto jneigh = (FixOrientFCC::Sort *) pj;
+  auto *ineigh = (FixOrientFCC::Sort *) pi;
+  auto *jneigh = (FixOrientFCC::Sort *) pj;
 
   if (ineigh->rsq < jneigh->rsq) return -1;
   else if (ineigh->rsq > jneigh->rsq) return 1;

@@ -52,7 +52,7 @@ enum{ANGLE,ANGMOM,APIP_LAMBDA,BOND,CC,CHARGE,DENSITY,DIAMETER,DIHEDRAL,DIPOLE,
   TRI,TYPE,TYPE_FRACTION,TYPE_RATIO,TYPE_SUBSET,VOLUME,VX,VY,VZ,X,Y,Z,
   IVEC,DVEC,IARRAY,DARRAY};
 
-#define DELTA 4
+static constexpr int DELTA = 4;
 
 /* ---------------------------------------------------------------------- */
 
@@ -624,10 +624,10 @@ void Set::setrandom(int keyword, Action *action)
 {
   int i;
 
-  auto avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
-  auto avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
-  auto avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
-  auto avec_body = dynamic_cast<AtomVecBody *>(atom->style_match("body"));
+  auto *avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
+  auto *avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
+  auto *avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
+  auto *avec_body = dynamic_cast<AtomVecBody *>(atom->style_match("body"));
 
   double **x = atom->x;
 
@@ -635,8 +635,8 @@ void Set::setrandom(int keyword, Action *action)
 
   int seed = action->ivalue1;
 
-  auto ranpark = new RanPark(lmp,1);
-  auto ranmars = new RanMars(lmp,seed + comm->me);
+  auto *ranpark = new RanPark(lmp,1);
+  auto *ranmars = new RanMars(lmp,seed + comm->me);
 
   // set approx fraction of atom types to newtype
 
@@ -1256,9 +1256,9 @@ void Set::invoke_density(Action *action)
   int line_flag = atom->line_flag;
   int tri_flag = atom->tri_flag;
 
-  auto avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
-  auto avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
-  auto avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
+  auto *avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
+  auto *avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
+  auto *avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
 
   int varflag = action->varflag;
   double density = 0.0;
@@ -1656,7 +1656,7 @@ void Set::process_image(int &iarg, int narg, char **arg, Action *action)
     }
   }
 
-  if (strcmp(arg[iarg+1],"NULL") == 0) action->ivalue6 = 0;
+  if (strcmp(arg[iarg+3],"NULL") == 0) action->ivalue6 = 0;
   else {
     action->ivalue6 = 1;
     if (utils::strmatch(arg[iarg+3],"^v_")) {
@@ -1753,7 +1753,7 @@ void Set::process_length(int &iarg, int narg, char **arg, Action *action)
 void Set::invoke_length(Action *action)
 {
   int nlocal = atom->nlocal;
-  auto avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
+  auto *avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
 
   int varflag = action->varflag;
   double length = 0.0;
@@ -1936,9 +1936,9 @@ void Set::invoke_quat(Action *action)
   double **quat = atom->quat;
   int quat_flag = atom->quat_flag;
 
-  auto avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
-  auto avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
-  auto avec_body = dynamic_cast<AtomVecBody *>(atom->style_match("body"));
+  auto *avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
+  auto *avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
+  auto *avec_body = dynamic_cast<AtomVecBody *>(atom->style_match("body"));
 
   int dimension = domain->dimension;
   double *quat_one = nullptr;
@@ -2112,7 +2112,7 @@ void Set::process_shape(int &iarg, int narg, char **arg, Action *action)
 void Set::invoke_shape(Action *action)
 {
   int nlocal = atom->nlocal;
-  auto avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
+  auto *avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
 
   int varflag = action->varflag;
   double xvalue = 0.0, yvalue = 0.0, zvalue = 0.0;
@@ -2415,7 +2415,7 @@ void Set::process_spin_electron(int &iarg, int narg, char **arg, Action *action)
   else {
     action->ivalue1 = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
     if (action->ivalue1 < -1 || action->ivalue1 > 3)
-      error->one(FLERR,"Invalid electron spin {} in set command", action->ivalue1);
+      error->all(FLERR,"Invalid electron spin {} in set command", action->ivalue1);
   }
 
   iarg += 2;
@@ -2447,12 +2447,13 @@ void Set::process_temperature(int &iarg, int narg, char **arg, Action *action)
 {
   if (!atom->temperature_flag)
     error->all(FLERR,"Cannot set this attribute for this atom style");
-  if (iarg+2 > narg) error->all(FLERR,"Illegal set command");
+  if (iarg+2 > narg) utils::missing_cmd_args(FLERR,"set temperature", error);
 
   if (utils::strmatch(arg[iarg+1],"^v_")) varparse(arg[iarg+1],1,action);
   else {
     action->dvalue1 = utils::numeric(FLERR,arg[iarg+1],false,lmp);
-    if (action->dvalue1 < 0.0) error->one(FLERR,"Invalid temperature in set command");
+    if (action->dvalue1 < 0.0)
+      error->all(FLERR,"Invalid temperature {} in set command", action->dvalue1);
   }
 
   iarg += 2;
@@ -2498,7 +2499,7 @@ void Set::invoke_theta(Action *action)
   int nlocal = atom->nlocal;
   int *line = atom->line;
 
-  auto avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
+  auto *avec_line = dynamic_cast<AtomVecLine *>(atom->style_match("line"));
 
   int varflag = action->varflag;
   double theta = 0.0;
@@ -2551,7 +2552,7 @@ void Set::process_tri(int &iarg, int narg, char **arg, Action *action)
 void Set::invoke_tri(Action *action)
 {
   int nlocal = atom->nlocal;
-  auto avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
+  auto *avec_tri = dynamic_cast<AtomVecTri *>(atom->style_match("tri"));
 
   int varflag = action->varflag;
   double trisize = 0.0;
@@ -2943,7 +2944,7 @@ void Set::process_custom(int &iarg, int narg, char **arg, Action *action)
                    "out-of-range",pname);
       action->ivalue3 = icol_custom;
       action->keyword = IARRAY;
-    } else error->all(FLERR,"Illegal set command");
+    } else error->all(FLERR,"Illegal set command for custom integer property");
     break;
 
   case ArgInfo::DNAME:
@@ -2964,11 +2965,11 @@ void Set::process_custom(int &iarg, int narg, char **arg, Action *action)
                    "accessed out-of-range",pname);
       action->ivalue3 = icol_custom;
       action->keyword = DARRAY;
-    } else error->all(FLERR,"Illegal set command");
+    } else error->all(FLERR,"Illegal set command for custom double property");
     break;
 
   default:
-    error->all(FLERR,"Illegal set command");
+    error->all(FLERR,"Illegal set command for custom property");
     break;
   }
 

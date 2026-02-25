@@ -23,7 +23,6 @@ PairStyle(lambda/input/apip,PairLambdaInputAPIP);
 #ifndef LMP_PAIR_LAMBDA_INPUT_APIP_H
 #define LMP_PAIR_LAMBDA_INPUT_APIP_H
 
-#include "fix_lambda_apip.h"
 #include "pair.h"
 
 namespace LAMMPS_NS {

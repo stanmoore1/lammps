@@ -34,8 +34,9 @@
 #include <cmath>
 using namespace LAMMPS_NS;
 
-#define MAX_CACHE_ROWS 500
-
+#ifdef KOKKOS_ENABLE_HIP
+static constexpr int MAX_CACHE_ROWS = 500;
+#endif
 // Cannot use virtual inheritance on the GPU, so must duplicate code
 
 /* ---------------------------------------------------------------------- */
@@ -104,8 +105,8 @@ void PairEAMFSKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     k_fp = DAT::tdual_kkfloat_1d("pair:fp",nmax);
     d_rho = k_rho.template view<DeviceType>();
     d_fp = k_fp.template view<DeviceType>();
-    h_rho = k_rho.h_view;
-    h_fp = k_fp.h_view;
+    h_rho = k_rho.view_host();
+    h_fp = k_fp.view_host();
   }
 
   x = atomKK->k_x.view<DeviceType>();
@@ -351,12 +352,12 @@ void PairEAMFSKokkos<DeviceType>::file2array()
   int n = atom->ntypes;
 
   auto k_type2frho = DAT::tdual_int_1d("pair:type2frho",n+1);
-  auto k_type2rhor = DAT::tdual_int_2d("pair:type2rhor",n+1,n+1);
-  auto k_type2z2r = DAT::tdual_int_2d("pair:type2z2r",n+1,n+1);
+  auto k_type2rhor = DAT::tdual_int_2d_dl("pair:type2rhor",n+1,n+1);
+  auto k_type2z2r = DAT::tdual_int_2d_dl("pair:type2z2r",n+1,n+1);
 
-  auto h_type2frho =  k_type2frho.h_view;
-  auto h_type2rhor = k_type2rhor.h_view;
-  auto h_type2z2r = k_type2z2r.h_view;
+  auto h_type2frho =  k_type2frho.view_host();
+  auto h_type2rhor = k_type2rhor.view_host();
+  auto h_type2z2r = k_type2z2r.view_host();
 
   for (i = 1; i <= n; i++) {
     h_type2frho[i] = type2frho[i];
@@ -389,9 +390,9 @@ void PairEAMFSKokkos<DeviceType>::array2spline()
   tdual_kkfloat_2d_n7 k_rhor_spline = tdual_kkfloat_2d_n7("pair:rhor",nrhor,nr+1);
   tdual_kkfloat_2d_n7 k_z2r_spline = tdual_kkfloat_2d_n7("pair:z2r",nz2r,nr+1);
 
-  t_hostkkfloat_2d_n7 h_frho_spline = k_frho_spline.h_view;
-  t_hostkkfloat_2d_n7 h_rhor_spline = k_rhor_spline.h_view;
-  t_hostkkfloat_2d_n7 h_z2r_spline = k_z2r_spline.h_view;
+  t_hostkkfloat_2d_n7 h_frho_spline = k_frho_spline.view_host();
+  t_hostkkfloat_2d_n7 h_rhor_spline = k_rhor_spline.view_host();
+  t_hostkkfloat_2d_n7 h_z2r_spline = k_z2r_spline.view_host();
 
   for (int i = 0; i < nfrho; i++)
     interpolate(nrho,drho,frho[i],h_frho_spline,i);
@@ -460,6 +461,7 @@ int PairEAMFSKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_
 }
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSPackForwardComm, const int &i) const {
   int j = d_sendlist(i);
@@ -477,6 +479,7 @@ void PairEAMFSKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in
 }
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSUnpackForwardComm, const int &i) const {
   d_fp[i + first] = v_buf[i];
@@ -549,6 +552,7 @@ void PairEAMFSKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, double *
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSInitialize, const int &i) const {
   d_rho[i] = 0.0;
@@ -559,6 +563,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSInitialize, const int &
 ////Specialisation for Neighborlist types Half, HalfThread, Full
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelA<NEIGHFLAG,NEWTON_PAIR>, const int &ii) const {
 
@@ -578,7 +583,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelA<NEIGHFLAG,NEWTO
 
   const int jnum = d_numneigh[i];
 
-  KK_SUM_FLOAT rhotmp = 0.0;
+  KK_ACC_FLOAT rhotmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
@@ -614,6 +619,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelA<NEIGHFLAG,NEWTO
 ////Specialisation for Neighborlist types Half, HalfThread, Full
 template<class DeviceType>
 template<int EFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelB<EFLAG>, const int &ii, EV_FLOAT& ev) const {
 
@@ -643,6 +649,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelB<EFLAG>, const i
 
 template<class DeviceType>
 template<int EFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelB<EFLAG>, const int &ii) const {
   EV_FLOAT ev;
@@ -654,6 +661,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelB<EFLAG>, const i
 ////Specialisation for Neighborlist types Half, HalfThread, Full
 template<class DeviceType>
 template<int EFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelAB<EFLAG>, const int &ii, EV_FLOAT& ev) const {
 
@@ -668,7 +676,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelAB<EFLAG>, const 
 
   const int jnum = d_numneigh[i];
 
-  KK_SUM_FLOAT rhotmp = 0.0;
+  KK_ACC_FLOAT rhotmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
@@ -718,6 +726,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelAB<EFLAG>, const 
 
 template<class DeviceType>
 template<int EFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelAB<EFLAG>, const int &ii) const {
   EV_FLOAT ev;  this->template operator()<EFLAG>(TagPairEAMFSKernelAB<EFLAG>(), ii, ev);
@@ -729,6 +738,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelAB<EFLAG>, const 
 ////Specialisation for Neighborlist types Half, HalfThread, Full
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelC<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int &ii, EV_FLOAT& ev) const {
 
@@ -745,9 +755,9 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelC<NEIGHFLAG,NEWTO
 
   const int jnum = d_numneigh[i];
 
-  KK_SUM_FLOAT fxtmp = 0.0;
-  KK_SUM_FLOAT fytmp = 0.0;
-  KK_SUM_FLOAT fztmp = 0.0;
+  KK_ACC_FLOAT fxtmp = 0.0;
+  KK_ACC_FLOAT fytmp = 0.0;
+  KK_ACC_FLOAT fztmp = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
@@ -828,6 +838,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelC<NEIGHFLAG,NEWTO
 
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelC<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int &ii) const {
   EV_FLOAT ev;
@@ -835,10 +846,11 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelC<NEIGHFLAG,NEWTO
 }
 
 /* ---------------------------------------------------------------------- */
-
+#ifdef KOKKOS_ENABLE_HIP
 ////Specialisation for Neighborlist types Half, HalfThread, Full
 template<class DeviceType>
 template<int EFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelAB<EFLAG>,
                                      const typename Kokkos::TeamPolicy<DeviceType>::member_type& team_member,
@@ -869,7 +881,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelAB<EFLAG>,
 
     const int jnum = d_numneigh[i];
 
-    KK_SUM_FLOAT rhotmp = 0.0;
+    KK_ACC_FLOAT rhotmp = 0.0;
 
     for (int jj = 0; jj < jnum; jj++) {
       int j = d_neighbors(i,jj);
@@ -920,9 +932,10 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelAB<EFLAG>,
     }
   }
 }
-
+#endif
 template<class DeviceType>
 template<int EFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelAB<EFLAG>,
                                            const typename Kokkos::TeamPolicy<DeviceType>::member_type& team_member) const {
@@ -933,8 +946,10 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelAB<EFLAG>,
 /* ---------------------------------------------------------------------- */
 
 ////Specialisation for Neighborlist types Half, HalfThread, Full
+#ifdef KOKKOS_ENABLE_HIP
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelC<NEIGHFLAG,NEWTON_PAIR,EVFLAG>,
                                            const typename Kokkos::TeamPolicy<DeviceType>::member_type& team_member,
@@ -970,9 +985,9 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelC<NEIGHFLAG,NEWTO
 
     const int jnum = d_numneigh[i];
 
-    KK_SUM_FLOAT fxtmp = 0.0;
-    KK_SUM_FLOAT fytmp = 0.0;
-    KK_SUM_FLOAT fztmp = 0.0;
+    KK_ACC_FLOAT fxtmp = 0.0;
+    KK_ACC_FLOAT fytmp = 0.0;
+    KK_ACC_FLOAT fztmp = 0.0;
 
     for (int jj = 0; jj < jnum; jj++) {
       int j = d_neighbors(i,jj);
@@ -1052,9 +1067,10 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelC<NEIGHFLAG,NEWTO
     a_f(i,2) += fztmp;
   }
 }
-
+#endif
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelC<NEIGHFLAG,NEWTON_PAIR,EVFLAG>,
                 /*const int &ii*/
@@ -1067,6 +1083,7 @@ void PairEAMFSKokkos<DeviceType>::operator()(TagPairEAMFSKernelC<NEIGHFLAG,NEWTO
 
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairEAMFSKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int &j,
       const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx,

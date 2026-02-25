@@ -33,8 +33,8 @@
 #include "neighbor.h"
 #include "text_file_reader.h"
 
+#include <algorithm>
 #include <cmath>
-#include <unordered_map>
 
 using namespace LAMMPS_NS;
 using MathConst::THIRD;

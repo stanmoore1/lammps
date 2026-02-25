@@ -49,6 +49,7 @@ class FixNVEAsphereKokkos : public FixNVEAsphere {
     void fused_integrate_item(int) const;
 
   private:
+    class AtomVecEllipsoidKokkos *avecEllipKK;
     typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d bonus;
     typename ArrayTypes<DeviceType>::t_int_1d ellipsoid;
     typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr x;

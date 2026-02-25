@@ -136,7 +136,7 @@ void PPPMElectrode::init()
   pair_check();
 
   int itmp = 0;
-  double *p_cutoff = (double *) force->pair->extract("cut_coul", itmp);
+  auto *p_cutoff = (double *) force->pair->extract("cut_coul", itmp);
   if (p_cutoff == nullptr) error->all(FLERR, "KSpace style is incompatible with Pair style");
   cutoff = *p_cutoff;
 
@@ -148,7 +148,7 @@ void PPPMElectrode::init()
   if (tip4pflag) {
     if (me == 0) utils::logmesg(lmp, "  extracting TIP4P info from pair style\n");
 
-    double *p_qdist = (double *) force->pair->extract("qdist", itmp);
+    auto *p_qdist = (double *) force->pair->extract("qdist", itmp);
     int *p_typeO = (int *) force->pair->extract("typeO", itmp);
     int *p_typeH = (int *) force->pair->extract("typeH", itmp);
     int *p_typeA = (int *) force->pair->extract("typeA", itmp);
@@ -1069,15 +1069,15 @@ void PPPMElectrode::allocate()
 
   fft1 = new FFT3d(lmp, world, nx_pppm, ny_pppm, nz_pppm, nxlo_fft, nxhi_fft, nylo_fft, nyhi_fft,
                    nzlo_fft, nzhi_fft, nxlo_fft, nxhi_fft, nylo_fft, nyhi_fft, nzlo_fft, nzhi_fft,
-                   0, 0, &tmp, collective_flag);
+                   0, 0, &tmp, collective_flag, 0);
 
   fft2 = new FFT3d(lmp, world, nx_pppm, ny_pppm, nz_pppm, nxlo_fft, nxhi_fft, nylo_fft, nyhi_fft,
                    nzlo_fft, nzhi_fft, nxlo_in, nxhi_in, nylo_in, nyhi_in, nzlo_in, nzhi_in, 0, 0,
-                   &tmp, collective_flag);
+                   &tmp, collective_flag, 0);
 
   remap = new Remap(lmp, world, nxlo_in, nxhi_in, nylo_in, nyhi_in, nzlo_in, nzhi_in, nxlo_fft,
                     nxhi_fft, nylo_fft, nyhi_fft, nzlo_fft, nzhi_fft, 1, 0, 0, FFT_PRECISION,
-                    collective_flag);
+                    collective_flag, 0);
 
   // ELECTRODE specific allocations
 

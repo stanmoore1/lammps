@@ -1,8 +1,8 @@
 # -*- CMake -*- configuration for building the PHONON package analysis tool: phana
 
-# Support Linux from Ubuntu 20.04LTS onward, CentOS 7.x (with EPEL),
+# Support Linux from Ubuntu 22.04LTS onward, RHEL 9.x (with EPEL),
 # macOS, MSVC 2019 (=Version 16)
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.20)
 
 # set timestamp of downloaded files to that of archive
 if(POLICY CMP0135)
@@ -93,6 +93,7 @@ if(USE_SPGLIB)
     URL ${SPGLIB_URL} ${SPGLIB_FALLBACK}
     URL_MD5 ${SPGLIB_MD5}
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}/spglib_build_ext
+    EXCLUDE_FROM_ALL TRUE
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/spglib_build_ext
     -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -116,7 +117,7 @@ if(USE_SPGLIB)
     IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/spglib_build_ext/lib/${CMAKE_STATIC_LIBRARY_PREFIX}symspg${CMAKE_STATIC_LIBRARY_SUFFIX}"
     INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/spglib_build_ext/include
   )
-    
+
   target_compile_definitions(phana PRIVATE UseSPG)
   target_link_libraries(phana PRIVATE SPGLIB::SYMSPG)
 endif()

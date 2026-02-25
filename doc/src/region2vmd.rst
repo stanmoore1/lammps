@@ -35,7 +35,7 @@ Description
 
 .. versionadded:: 2Apr2025
 
-Write a `VMD <https://ks.uiuc.edu/Research/vmd/>`_ Tcl script file with
+Write a `VMD <https://www.ks.uiuc.edu/Research/vmd/>`_ Tcl script file with
 commands that aim to create a visualization of :doc:`regions <region>`.
 There may be multiple region visualizations stored in a single file.
 
@@ -43,6 +43,13 @@ The visualization is implemented by creating a new (and empty) "VMD
 molecule" and then assigning a sequence of VMD graphics primitives to
 represent the region in VMD.  Each region will be stored in a separate
 "VMD molecule" with the name "LAMMPS region <region ID>".
+
+.. admonition:: Visualization of regions with *dump image*
+   :class: Hint
+
+   Regions can also be directly visualized within LAMMPS using the
+   :doc:`dump image <dump_image>` command.  For more information,
+   see :doc:`Howto_viz`.
 
 The *region2vmd* command is following by the filename for the resulting
 VMD script and an arbitrary number of keyword argument pairs to either
@@ -158,8 +165,10 @@ file>', or from the File menu via "Load VMD visualization state".
 Restrictions
 """"""""""""
 
-This command is part of the EXTRA-COMMAND package.  It is only enabled
-if LAMMPS was built with that package.  See the :doc:`Build package
+.. versionchanged:: 11Feb2026
+
+This command is part of the GRAPHICS package.  It is only enabled if
+LAMMPS was built with that package.  See the :doc:`Build package
 <Build_package>` page for more info.
 
 Only the following region styles are currently supported: *block*,
@@ -171,7 +180,7 @@ Rotating regions are currently not supported.
 Related commands
 """"""""""""""""
 
-:doc:`region <region>`
+:doc:`region <region>`, :doc:`dump image <dump_image>`
 
 Defaults
 """"""""

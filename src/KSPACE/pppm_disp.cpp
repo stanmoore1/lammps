@@ -354,7 +354,7 @@ void PPPMDisp::init()
 
   if (tip4pflag) {
     int itmp;
-    auto p_qdist = (double *) force->pair->extract("qdist",itmp);
+    auto *p_qdist = (double *) force->pair->extract("qdist",itmp);
     int *p_typeO = (int *) force->pair->extract("typeO",itmp);
     int *p_typeH = (int *) force->pair->extract("typeH",itmp);
     int *p_typeA = (int *) force->pair->extract("typeA",itmp);
@@ -1278,7 +1278,7 @@ void PPPMDisp::init_coeffs()
     double **Q=nullptr;
     if (n > 1) {
       // get dispersion coefficients
-      auto b = (double **) force->pair->extract("B",tmp);
+      auto *b = (double **) force->pair->extract("B",tmp);
       memory->create(A,n,n,"pppm/disp:A");
       memory->create(Q,n,n,"pppm/disp:Q");
       // fill coefficients to matrix a
@@ -1393,15 +1393,15 @@ void PPPMDisp::init_coeffs()
   }
 
   if (function[1]) {                                    // geometric 1/r^6
-    auto b = (double **) force->pair->extract("B",tmp);
+    auto *b = (double **) force->pair->extract("B",tmp);
     B = new double[n+1];
     B[0] = 0.0;
     for (int i=1; i<=n; ++i) B[i] = sqrt(fabs(b[i][i]));
   }
 
   if (function[2]) {                                    // arithmetic 1/r^6
-    auto epsilon = (double **) force->pair->extract("epsilon",tmp);
-    auto sigma = (double **) force->pair->extract("sigma",tmp);
+    auto *epsilon = (double **) force->pair->extract("epsilon",tmp);
+    auto *sigma = (double **) force->pair->extract("sigma",tmp);
     if (!(epsilon&&sigma))
       error->all(FLERR,"Epsilon or sigma reference not set by pair style for PPPMDisp");
     double eps_i,sigma_i,sigma_n;
@@ -1771,17 +1771,17 @@ void _noopt PPPMDisp::allocate()
     fft1 = new FFT3d(lmp,world,nx_pppm,ny_pppm,nz_pppm,
                      nxlo_fft,nxhi_fft,nylo_fft,nyhi_fft,nzlo_fft,nzhi_fft,
                      nxlo_fft,nxhi_fft,nylo_fft,nyhi_fft,nzlo_fft,nzhi_fft,
-                     0,0,&tmp,collective_flag);
+                     0,0,&tmp,collective_flag,nonblocking_flag);
 
     fft2 = new FFT3d(lmp,world,nx_pppm,ny_pppm,nz_pppm,
                      nxlo_fft,nxhi_fft,nylo_fft,nyhi_fft,nzlo_fft,nzhi_fft,
                      nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
-                     0,0,&tmp,collective_flag);
+                     0,0,&tmp,collective_flag,nonblocking_flag);
 
     remap = new Remap(lmp,world,
                       nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
                       nxlo_fft,nxhi_fft,nylo_fft,nyhi_fft,nzlo_fft,nzhi_fft,
-                      1,0,0,FFT_PRECISION,collective_flag);
+                      1,0,0,FFT_PRECISION,collective_flag,nonblocking_flag);
   }
 
   // --------------------------------------
@@ -1848,19 +1848,19 @@ void _noopt PPPMDisp::allocate()
       new FFT3d(lmp,world,nx_pppm_6,ny_pppm_6,nz_pppm_6,
                 nxlo_fft_6,nxhi_fft_6,nylo_fft_6,nyhi_fft_6,nzlo_fft_6,nzhi_fft_6,
                 nxlo_fft_6,nxhi_fft_6,nylo_fft_6,nyhi_fft_6,nzlo_fft_6,nzhi_fft_6,
-                0,0,&tmp,collective_flag);
+                0,0,&tmp,collective_flag,nonblocking_flag);
 
     fft2_6 =
       new FFT3d(lmp,world,nx_pppm_6,ny_pppm_6,nz_pppm_6,
                 nxlo_fft_6,nxhi_fft_6,nylo_fft_6,nyhi_fft_6,nzlo_fft_6,nzhi_fft_6,
                 nxlo_in_6,nxhi_in_6,nylo_in_6,nyhi_in_6,nzlo_in_6,nzhi_in_6,
-                0,0,&tmp,collective_flag);
+                0,0,&tmp,collective_flag,nonblocking_flag);
 
     remap_6 =
       new Remap(lmp,world,
                 nxlo_in_6,nxhi_in_6,nylo_in_6,nyhi_in_6,nzlo_in_6,nzhi_in_6,
                 nxlo_fft_6,nxhi_fft_6,nylo_fft_6,nyhi_fft_6,nzlo_fft_6,nzhi_fft_6,
-                1,0,0,FFT_PRECISION,collective_flag);
+                1,0,0,FFT_PRECISION,collective_flag,nonblocking_flag);
   }
 
   // --------------------------------------
@@ -6761,7 +6761,7 @@ void PPPMDisp::fieldforce_none_peratom()
 
 void PPPMDisp::pack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  auto buf = (FFT_SCALAR *) vbuf;
+  auto *buf = (FFT_SCALAR *) vbuf;
 
   int n = 0;
 
@@ -7274,7 +7274,7 @@ void PPPMDisp::pack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 
 void PPPMDisp::unpack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  auto buf = (FFT_SCALAR *) vbuf;
+  auto *buf = (FFT_SCALAR *) vbuf;
 
   int n = 0;
 
@@ -7787,7 +7787,7 @@ void PPPMDisp::unpack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 
 void PPPMDisp::pack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  auto buf = (FFT_SCALAR *) vbuf;
+  auto *buf = (FFT_SCALAR *) vbuf;
 
   int n = 0;
 
@@ -7842,7 +7842,7 @@ void PPPMDisp::pack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 
 void PPPMDisp::unpack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  auto buf = (FFT_SCALAR *) vbuf;
+  auto *buf = (FFT_SCALAR *) vbuf;
 
   int n = 0;
 

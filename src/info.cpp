@@ -35,7 +35,6 @@
 #include "improper.h"
 #include "input.h"
 #include "json.h"
-#include "lmpfftsettings.h"
 #include "modify.h"
 #include "neighbor.h"
 #include "output.h"
@@ -44,15 +43,15 @@
 #include "region.h"
 #include "update.h"
 #include "variable.h"
-#ifndef FMT_STATIC_THOUSANDS_SEPARATOR
-#include "fmt/chrono.h"
-#endif
 
 #include <cctype>
 #include <cmath>
 #include <cstring>
 #include <ctime>
 #include <map>
+#if __has_include(<version>)
+#include <version>
+#endif
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -273,16 +272,9 @@ void Info::command(int narg, char **arg)
   if (out == nullptr) return;
 
   fputs("\nInfo-Info-Info-Info-Info-Info-Info-Info-Info-Info-Info\n",out);
-#if defined(FMT_STATIC_THOUSANDS_SEPARATOR)
-  {
-    time_t tv = time(nullptr);
-    struct tm *now = localtime(&tv);
-    utils::print(out, "Printed on {}", asctime(now));
-  }
-#else
-  std::tm now = fmt::localtime(std::time(nullptr));
-  utils::print(out,"Printed on {}", std::asctime(&now));
-#endif
+  time_t tv = time(nullptr);
+  struct tm *now = localtime(&tv);
+  utils::print(out, "Printed on {}", asctime(now));
 
   if (flags & CONFIG) {
     utils::print(out,"\nLAMMPS version: {} / {}\n", lmp->version, lmp->num_ver);
@@ -392,17 +384,7 @@ void Info::command(int narg, char **arg)
           }
 
           if (comm->cutusermulti) cut = MAX(cut,comm->cutusermulti[i]);
-          utils::print(out,"Communication cutoff for collection {} = {:.8}\n", i, cut);
-        }
-      }
-
-      if (comm->mode == 2) {
-        fputs("Communication mode = multi/old\n",out);
-        double cut;
-        for (int i=1; i <= atom->ntypes && neighbor->cuttype; ++i) {
-          cut = neighbor->cuttype[i];
-          if (comm->cutusermultiold) cut = MAX(cut,comm->cutusermultiold[i]);
-          utils::print(out,"Communication cutoff for type {} = {:.8}\n", i, cut);
+          utils::print(out,"Communication cutoff for collection {} = {:.8}\n", i + 1, cut);
         }
       }
     }
@@ -493,6 +475,7 @@ void Info::command(int narg, char **arg)
     }
     utils::print(out,"\nCurrent timestep number = {}\n", update->ntimestep);
     utils::print(out,"Current timestep size = {}\n", update->dt);
+    utils::print(out,"Current simulation time = {}\n", update->atime);
   }
 
   if (domain->box_exist && (flags & COEFFS)) {
@@ -1070,6 +1053,12 @@ bool Info::has_exceptions() {
   return true;
 }
 
+
+/** Return true if a LAMMPS package is enabled in this binary
+ *
+ * \param pkg name of package
+ * \return true if yes, else false
+ */
 bool Info::has_package(const std::string &package_name) {
   for (int i = 0; LAMMPS::installed_packages[i] != nullptr; ++i) {
     if (package_name == LAMMPS::installed_packages[i]) {
@@ -1126,8 +1115,8 @@ bool Info::has_accelerator_feature(const std::string &package,
 #endif
     }
     if (category == "layout") {
-#if defined(LMP_KOKKOS_LAYOUT_RIGHT)
-      return setting == "right";
+#if defined(LMP_KOKKOS_LAYOUT_LEGACY)
+      return setting == "legacy";
 #else
       return setting == "default";
 #endif
@@ -1228,7 +1217,7 @@ std::string Info::get_accelerator_info(const std::string &package)
     if (has_accelerator_feature("KOKKOS","precision","mixed"))  mesg += " mixed";
     if (has_accelerator_feature("KOKKOS","precision","double")) mesg += " double";
     mesg +=  "\nKOKKOS package view layout:";
-    if (has_accelerator_feature("KOKKOS","layout","right")) mesg += " right";
+    if (has_accelerator_feature("KOKKOS","layout","legacy")) mesg += " legacy";
     if (has_accelerator_feature("KOKKOS","layout","default"))  mesg += " default";
 #if LMP_KOKKOS
     mesg += fmt::format("\nKokkos library version: {}.{}.{}", KOKKOS_VERSION / 10000,
@@ -1338,6 +1327,7 @@ std::string Info::get_fft_info()
 }
 
 /* ---------------------------------------------------------------------- */
+#if !defined(__cpp_lib_format) || (__cpp_lib_format < 201907L)
 
 static constexpr int fmt_ver_major = FMT_VERSION / 10000;
 static constexpr int fmt_ver_minor = (FMT_VERSION % 10000) / 100;
@@ -1348,15 +1338,21 @@ std::string Info::get_fmt_info()
   return fmt::format("Embedded fmt library version: {}.{}.{}\n",
                      fmt_ver_major, fmt_ver_minor, fmt_ver_patch);
 }
+#else
+std::string Info::get_fmt_info()
+{
+  return "Using fmt library emulation with std::format\n";
+}
+#endif
 
 /* ---------------------------------------------------------------------- */
 
 std::string Info::get_json_info()
 {
   return fmt::format("Embedded JSON class version: {}.{}.{}\n",
-                     NLOHMANN_JSON_VERSION_MAJOR,
-                     NLOHMANN_JSON_VERSION_MINOR,
-                     NLOHMANN_JSON_VERSION_PATCH);
+                     LMP_NLOHMANN_JSON_VERSION_MAJOR,
+                     LMP_NLOHMANN_JSON_VERSION_MINOR,
+                     LMP_NLOHMANN_JSON_VERSION_PATCH);
 }
 
 /* ---------------------------------------------------------------------- */

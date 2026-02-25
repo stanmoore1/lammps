@@ -29,11 +29,12 @@ DihedralStyle(charmm/kk/host,DihedralCharmmKokkos<LMPHostType>);
 namespace LAMMPS_NS {
 
 struct s_EVM_FLOAT {
-  double evdwl;
-  double ecoul;
-  double emol;
-  double v[6];
-  double vp[6];
+  KK_ACC_FLOAT evdwl;
+  KK_ACC_FLOAT ecoul;
+  KK_ACC_FLOAT emol;
+  KK_ACC_FLOAT v[6];
+  KK_ACC_FLOAT vp[6];
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   s_EVM_FLOAT() {
           evdwl = 0;
@@ -45,6 +46,7 @@ struct s_EVM_FLOAT {
           vp[3] = 0; vp[4] = 0; vp[5] = 0;
   }
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator+=(const s_EVM_FLOAT &rhs) {
     evdwl += rhs.evdwl;
@@ -84,14 +86,17 @@ class DihedralCharmmKokkos : public DihedralCharmm {
   void read_restart(FILE *) override;
 
   template<int NEWTON_BOND, int EVFLAG>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagDihedralCharmmCompute<NEWTON_BOND,EVFLAG>, const int&, EVM_FLOAT&) const;
 
   template<int NEWTON_BOND, int EVFLAG>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagDihedralCharmmCompute<NEWTON_BOND,EVFLAG>, const int&) const;
 
   //template<int NEWTON_BOND>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EVM_FLOAT &evm, const int i1, const int i2, const int i3, const int i4,
                           KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4,
@@ -99,14 +104,15 @@ class DihedralCharmmKokkos : public DihedralCharmm {
                           const KK_FLOAT &vb2x, const KK_FLOAT &vb2y, const KK_FLOAT &vb2z,
                           const KK_FLOAT &vb3x, const KK_FLOAT &vb3y, const KK_FLOAT &vb3z) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EVM_FLOAT &evm, const int i, const int j,
         const KK_FLOAT &evdwl, const KK_FLOAT &ecoul, const KK_FLOAT &fpair, const KK_FLOAT &delx,
                 const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
-  TransformView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
-  TransformView<KK_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType> k_vatom;
+  TransformView<KK_ACC_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
+  TransformView<KK_ACC_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType> k_vatom;
 
  protected:
 
@@ -115,16 +121,16 @@ class DihedralCharmmKokkos : public DihedralCharmm {
   typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_int_1d_randomread atomtype;
   typename AT::t_kkfloat_1d_randomread q;
-  typename AT::t_kksum_1d_3 f;
+  typename AT::t_kkacc_1d_3 f;
   typename AT::t_int_2d_lr dihedrallist;
 
-  Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
-  Kokkos::View<KK_FLOAT*[6],LMPDeviceLayout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
+  Kokkos::View<KK_ACC_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_eatom;
+  Kokkos::View<KK_ACC_FLOAT*[6],LMPDeviceLayout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_vatom;
 
-  TransformView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom_pair;
-  TransformView<KK_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType> k_vatom_pair;
-  Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom_pair;
-  Kokkos::View<KK_FLOAT*[6],LMPDeviceLayout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom_pair;
+  TransformView<KK_ACC_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom_pair;
+  TransformView<KK_ACC_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType> k_vatom_pair;
+  Kokkos::View<KK_ACC_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_eatom_pair;
+  Kokkos::View<KK_ACC_FLOAT*[6],LMPDeviceLayout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_vatom_pair;
 
   int nlocal,newton_bond;
   int eflag,vflag;
@@ -139,9 +145,16 @@ class DihedralCharmmKokkos : public DihedralCharmm {
   typename AT::t_kkfloat_2d d_lj14_3;
   typename AT::t_kkfloat_2d d_lj14_4;
 
+  DAT::tdual_kkfloat_1d k_k;
+  DAT::tdual_int_1d k_multiplicity;
+  DAT::tdual_int_1d k_shift;
+  DAT::tdual_kkfloat_1d k_sin_shift;
+  DAT::tdual_kkfloat_1d k_cos_shift;
+  DAT::tdual_kkfloat_1d k_weight;
+
   typename AT::t_kkfloat_1d d_k;
-  typename AT::t_kkfloat_1d d_multiplicity;
-  typename AT::t_kkfloat_1d d_shift;
+  typename AT::t_int_1d d_multiplicity;
+  typename AT::t_int_1d d_shift;
   typename AT::t_kkfloat_1d d_sin_shift;
   typename AT::t_kkfloat_1d d_cos_shift;
   typename AT::t_kkfloat_1d d_weight;

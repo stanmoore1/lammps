@@ -20,7 +20,10 @@ namespace LAMMPS_NS {
 
 class PythonInterface {
  public:
-  virtual ~PythonInterface() noexcept(false) {}
+  // clang-format off
+  // Cannot use =default because of GCC 8 or RHEL 8
+  virtual ~PythonInterface() noexcept(false) {} // NOLINT
+  // clang-format on
   virtual void command(int, char **) = 0;
   virtual void invoke_function(int, char *, double *) = 0;
   virtual int find(const char *) = 0;
@@ -47,7 +50,7 @@ class Python : protected Pointers {
   int execute_file(char *);
   bool has_minimum_version(int major, int minor);
 
-  bool is_enabled() const;
+  [[nodiscard]] bool is_enabled() const;
   void init();
   static void finalize();
 

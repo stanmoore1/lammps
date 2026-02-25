@@ -66,7 +66,7 @@ void Plugin::command(int narg, char **arg)
   } else if (cmd == "list") {
     if (comm->me == 0) {
       int num = plugin_get_num_plugins();
-      utils::logmesg(lmp, "Currently loaded plugins\n");
+      utils::logmesg(lmp, "Currently loaded plugins: {}\n", num);
       for (int i = 0; i < num; ++i) {
         const auto *entry = plugin_get_info(i);
         utils::logmesg(lmp, "{:4}: {} style plugin {}\n", i + 1, entry->style, entry->name);

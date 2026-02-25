@@ -25,10 +25,13 @@
 #include "group.h"
 #include "memory.h"
 #include "modify.h"
-#include "pair.h"
 #include "pair_lambda_input_apip.h"
 #include "pair_lambda_zone_apip.h"
 #include "update.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -153,15 +156,13 @@ FixLambdaAPIP::FixLambdaAPIP(LAMMPS *lmp, int narg, char **arg) :
                    "group_ignore_lambda_input should be used to prevent the calculation of "
                    "lambda_input for atoms that are in the groups group_fast and group_precise.");
 
-  if (!atom->apip_lambda_const_flag) {
+  if (!atom->apip_lambda_const_flag)
     error->all(FLERR, "fix lambda requires atomic style with lambda_const.");
-  }
-  if (!atom->apip_lambda_flag) {
-    error->all(FLERR, "fix lambda requires atomic style with lambda.");
-  }
-  if (!atom->apip_lambda_input_flag) {
+  if (!atom->apip_lambda_flag) error->all(FLERR, "fix lambda requires atomic style with lambda.");
+  if (!atom->apip_lambda_input_flag)
     error->all(FLERR, "fix lambda requires atomic style with lambda_input.");
-  }
+  if (!atom->apip_lambda_input_ta_flag)
+    error->all(FLERR, "fix lambda requires atomic style with lambda_input_ta.");
 
   comm_forward = 2;    // up to two doubles per atom
   comm_forward_flag = FORWARD_TA;
@@ -714,8 +715,8 @@ void FixLambdaAPIP::unpack_forward_comm(int n, int first, double *buf)
 
 void FixLambdaAPIP::write_restart(FILE *fp)
 {
-  int timesteps_since_invoked_history_update = update->ntimestep - invoked_history_update;
-  int timesteps_since_invoked_history2_update = update->ntimestep - invoked_history2_update;
+  bigint timesteps_since_invoked_history_update = update->ntimestep - invoked_history_update;
+  bigint timesteps_since_invoked_history2_update = update->ntimestep - invoked_history2_update;
 
   int n = 0;
   double list[8];

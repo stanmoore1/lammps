@@ -68,6 +68,7 @@ template <class DeviceType> void FixWallFlowKokkos<DeviceType>::init()
 }
 
 template <class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::operator()(TagFixWallFlowInit,
                                                                       const int &i) const
 {
@@ -102,6 +103,7 @@ template <class DeviceType> void FixWallFlowKokkos<DeviceType>::end_of_step()
 
 template <class DeviceType>
 template <class MTag>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::operator()(TagFixWallFlowEndOfStep<MTag>,
                                                                       const int &atom_i) const
 {
@@ -115,6 +117,7 @@ KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::operator()(TagFixWall
 
 template <class DeviceType>
 template <class MTag>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::generate_velocity_kk(int atom_i) const
 {
   const int newton_iteration_count = 10;
@@ -157,6 +160,7 @@ KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::generate_velocity_kk(
 }
 
 template <class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION int
 FixWallFlowKokkos<DeviceType>::compute_current_segment_kk(KK_FLOAT pos) const
 {
@@ -174,7 +178,7 @@ template <class DeviceType> void FixWallFlowKokkos<DeviceType>::grow_arrays(int 
   k_current_segment.template modify<DeviceType>();
 
   d_current_segment = k_current_segment.template view<DeviceType>();
-  h_current_segment = k_current_segment.h_view;
+  h_current_segment = k_current_segment.view_host();
 }
 
 template <class DeviceType> void FixWallFlowKokkos<DeviceType>::copy_arrays(int i, int j, int)
@@ -195,7 +199,7 @@ void FixWallFlowKokkos<DeviceType>::sort_kokkos(Kokkos::BinSort<KeyViewType, Bin
 
   k_current_segment.sync_device();
 
-  Sorter.sort(LMPDeviceType(), k_current_segment.d_view);
+  Sorter.sort(LMPDeviceType(), k_current_segment.view_device());
 
   k_current_segment.modify_device();
 }
@@ -208,6 +212,7 @@ template <class DeviceType> int FixWallFlowKokkos<DeviceType>::pack_exchange(int
 }
 
 template <class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::operator()(TagFixWallFlowPackExchange,
                                                                       const int &mysend) const
 {
@@ -260,6 +265,7 @@ template <class DeviceType> int FixWallFlowKokkos<DeviceType>::unpack_exchange(i
 }
 
 template <class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::operator()(TagFixWallFlowUnpackExchange,
                                                                       const int &i) const
 {

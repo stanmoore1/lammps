@@ -13,12 +13,12 @@
 
 #ifdef NPAIR_CLASS
 // clang-format off
-typedef NPairSSAKokkos<LMPHostType> NPairSSAKokkosHost;
+using NPairSSAKokkosHost = NPairSSAKokkos<LMPHostType>;
 NPairStyle(half/bin/newton/ssa/kk/host,
            NPairSSAKokkosHost,
            NP_HALF | NP_BIN | NP_NEWTON | NP_ORTHO | NP_SSA | NP_GHOST | NP_KOKKOS_HOST);
 
-typedef NPairSSAKokkos<LMPDeviceType> NPairSSAKokkosDevice;
+using NPairSSAKokkosDevice = NPairSSAKokkos<LMPDeviceType>;
 NPairStyle(half/bin/newton/ssa/kk/device,
            NPairSSAKokkosDevice,
            NP_HALF | NP_BIN | NP_NEWTON | NP_ORTHO | NP_SSA | NP_GHOST | NP_KOKKOS_DEVICE);
@@ -292,6 +292,7 @@ class NPairSSAKokkosExecute
   KOKKOS_FUNCTION
   void build_ghosts_onePhase(int workPhase) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   int coord2bin(const double & x,const double & y,const double & z, int* i) const
   {
@@ -328,12 +329,15 @@ class NPairSSAKokkosExecute
     return (iz-mbinzlo)*mbiny*mbinx + (iy-mbinylo)*mbinx + (ix-mbinxlo);
   }
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   int exclusion(const int &i,const int &j, const int &itype,const int &jtype) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   int find_special(const int &i, const int &j) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   int minimum_image_check(double dx, double dy, double dz) const {
     if (xperiodic && fabs(dx) > xprd_half) return 1;

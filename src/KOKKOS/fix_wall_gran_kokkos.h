@@ -52,12 +52,15 @@ class FixWallGranKokkos : public FixWallGranOld, public KokkosBase {
   int unpack_exchange(int, double *) override;
 
   template <int WallStyle>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixWallGranHookeHistory<WallStyle>, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixWallGranPackExchange, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixWallGranUnpackExchange, const int&) const;
 
@@ -79,8 +82,8 @@ class FixWallGranKokkos : public FixWallGranOld, public KokkosBase {
   typename AT::t_kkfloat_1d_3_lr x;
   typename AT::t_kkfloat_1d_3 v;
   typename AT::t_kkfloat_1d_3 d_omega;
-  typename AT::t_kksum_1d_3 f;
-  typename AT::t_kkfloat_1d_3 torque;
+  typename AT::t_kkacc_1d_3 f;
+  typename AT::t_kkacc_1d_3 torque;
   typename AT::t_int_1d mask;
   typename AT::t_kkfloat_1d rmass;
   typename AT::t_kkfloat_1d d_radius;

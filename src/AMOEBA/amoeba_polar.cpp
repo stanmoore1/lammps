@@ -1373,13 +1373,12 @@ void PairAmoeba::polar_kspace()
           h3 = recip[2][0]*r1 + recip[2][1]*r2 + recip[2][2]*r3;
           hsq = h1*h1 + h2*h2 + h3*h3;
           term = -pterm * hsq;
-          expterm = 0.0;
-          if (term > -50.0 && hsq != 0.0) {
+          if ((term > -50.0) && (hsq != 0.0)) {
             denom = volterm*hsq*bsmod1[i]*bsmod2[j]*bsmod3[k];
-            if (denom != 0.0) expterm = exp(term) / denom;
+            expterm = (denom == 0.0) ? 0.0 : exp(term) / denom;
             struc2 = gridfft[n]*gridfft[n] + gridfft[n+1]*gridfft[n+1];
             eterm = 0.5 * felec * expterm * struc2;
-            vterm = (hsq != 0) ? (2.0/hsq) * (1.0-term) * eterm : 0.0;
+            vterm = (2.0/hsq) * (1.0-term) * eterm;
             vxx -= h1*h1*vterm - eterm;
             vyy -= h2*h2*vterm - eterm;
             vzz -= h3*h3*vterm - eterm;
@@ -1927,9 +1926,9 @@ void PairAmoeba::polar_kspace()
         h3 = recip[2][0]*r1 + recip[2][1]*r2 + recip[2][2]*r3;
         hsq = h1*h1 + h2*h2 + h3*h3;
         term = -pterm * hsq;
-        if (term > -50.0 && hsq != 0.0) {
+        if ((term > -50.0) && (hsq != 0.0)) {
           denom = volterm*hsq*bsmod1[i]*bsmod2[j]*bsmod3[k];
-          expterm = exp(term) / denom;
+          expterm = (denom == 0.0) ? 0.0 : exp(term) / denom;
           struc2 = gridfft1[n]*gridfft2[n] + gridfft1[n+1]*gridfft2[n+1];
           eterm = 0.5 * felec * expterm * struc2;
           vterm = (2.0/hsq) * (1.0-term) * eterm;
@@ -2021,9 +2020,9 @@ void PairAmoeba::polar_kspace()
           h3 = recip[2][0]*r1 + recip[2][1]*r2 + recip[2][2]*r3;
           hsq = h1*h1 + h2*h2 + h3*h3;
           term = -pterm * hsq;
-          if (term > -50.0 && hsq != 0.0) {
+          if ((term > -50.0) && (hsq != 0.0)) {
             denom = volterm*hsq*bsmod1[i]*bsmod2[j]*bsmod3[k];
-            expterm = exp(term) / denom;
+            expterm = (denom == 0.0) ? 0.0 : exp(term) / denom;
             struc2 = gridfft1[n]*gridfft2[n] + gridfft1[n+1]*gridfft2[n+1];
             eterm = 0.5 * felec * expterm * struc2;
             vterm = (2.0/hsq) * (1.0-term) * eterm;

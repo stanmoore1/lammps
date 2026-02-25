@@ -47,7 +47,7 @@ class MinKokkos : public Min {
   class FixMinimizeKokkos *fix_minimize_kk;  // fix that stores auxiliary data
 
   DAT::t_kkfloat_1d xvec;            // variables for atomic dof, as 1d vector
-  DAT::t_kksum_1d fvec;            // force vector for atomic dof, as 1d vector
+  DAT::t_kkacc_1d fvec;            // force vector for atomic dof, as 1d vector
 
   double energy_force(int) override;
   void force_clear() override;

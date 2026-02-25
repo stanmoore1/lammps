@@ -27,12 +27,11 @@
 #include "memory.h"
 #include "mf_oxdna.h"
 #include "neighbor.h"
-#include "neigh_list.h"
 #include "potential_file_reader.h"
 
 #include <cmath>
 #include <cstring>
-#include <cassert>
+#include <exception>
 
 using namespace LAMMPS_NS;
 using namespace MFOxdna;

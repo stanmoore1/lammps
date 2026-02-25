@@ -44,9 +44,9 @@ static constexpr double DELTAFLIP = 0.1;
 static constexpr double TILTMAX = 1.5;
 static constexpr double EPSILON = 1.0e-6;
 
-enum{NOBIAS,BIAS};
 enum{NONE,XYZ,XY,YZ,XZ};
 enum{ISO,ANISO,TRICLINIC};
+enum{NOBIAS,BIAS};
 
 /* ----------------------------------------------------------------------
    NVT,NPH,NPT integrators for improved Nose-Hoover equations of motion
@@ -61,6 +61,7 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
 
   restart_global = 1;
   dynamic_group_allow = 1;
+  thermo_modify_colname = 1;
   time_integrate = 1;
   scalar_flag = 1;
   vector_flag = 1;
@@ -356,9 +357,15 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
     } else if (strcmp(arg[iarg],"ext") == 0) {
       iarg += 2;
 
-    // keyword psllod is parsed in fix/nvt/sllod
+    // keywords psllod, peculiar, kick and integrator are parsed in fix/nvt/sllod
 
     } else if (strcmp(arg[iarg],"psllod") == 0) {
+      iarg += 2;
+    } else if (strcmp(arg[iarg], "peculiar") == 0) {
+      iarg += 2;
+    } else if (strcmp(arg[iarg], "kick") == 0) {
+      iarg += 2;
+    } else if (strcmp(arg[iarg], "integrator") == 0) {
       iarg += 2;
 
     } else error->all(FLERR,"Unknown fix {} keyword: {}", style, arg[iarg]);
@@ -635,8 +642,8 @@ void FixNH::init()
   // ensure no conflict with fix deform
 
   if (pstat_flag)
-    for (auto &ifix : modify->get_fix_by_style("^deform")) {
-      auto deform = dynamic_cast<FixDeform *>(ifix);
+    for (const auto &ifix : modify->get_fix_by_style("^deform")) {
+      auto *deform = dynamic_cast<FixDeform *>(ifix);
       if (deform) {
         int *dimflag = deform->dimflag;
         if ((p_flag[0] && dimflag[0]) || (p_flag[1] && dimflag[1]) ||
@@ -715,7 +722,7 @@ void FixNH::init()
   else kspace_flag = 0;
 
   if (utils::strmatch(update->integrate_style,"^respa")) {
-    auto respa_ptr = dynamic_cast<Respa *>(update->integrate);
+    auto *respa_ptr = dynamic_cast<Respa *>(update->integrate);
     if (!respa_ptr) error->all(FLERR, "Failure to access Respa style {}", update->integrate_style);
     nlevels_respa = respa_ptr->nlevels;
     step_respa = respa_ptr->step;
@@ -725,7 +732,7 @@ void FixNH::init()
   // detect if any rigid fixes exist so rigid bodies move when box is remapped
 
   rfix.clear();
-  for (auto &ifix : modify->get_fix_list())
+  for (const auto &ifix : modify->get_fix_list())
     if (ifix->rigid_flag) rfix.push_back(ifix);
 }
 
@@ -1333,7 +1340,7 @@ int FixNH::pack_restart_data(double *list)
 void FixNH::restart(char *buf)
 {
   int n = 0;
-  auto list = (double *) buf;
+  auto *list = (double *) buf;
   int flag = static_cast<int> (list[n++]);
   if (flag) {
     int m = static_cast<int> (list[n++]);
@@ -1404,7 +1411,7 @@ int FixNH::modify_param(int narg, char **arg)
     // reset id_temp of pressure to new temperature ID
 
     if (pstat_flag) {
-      auto icompute = modify->get_compute_by_id(id_press);
+      auto *icompute = modify->get_compute_by_id(id_press);
       if (!icompute)
         error->all(FLERR,"Pressure ID {} for fix modify does not exist", id_press);
       icompute->reset_extra_compute_fix(id_temp);
@@ -1679,6 +1686,151 @@ double FixNH::compute_vector(int n)
 
 /* ---------------------------------------------------------------------- */
 
+std::string FixNH::get_thermo_colname(int n)
+{
+
+  // scalar value if n == -1
+  if (n == -1) return fmt::format("f_{}:ecouple",id);
+
+  int ilen;
+
+  if (tstat_flag) {
+    ilen = mtchain;
+    if (n < ilen) return fmt::format("f_{}:eta[{}]",id,n+1);
+    n -= ilen;
+    ilen = mtchain;
+    if (n < ilen) return fmt::format("f_{}:eta_dot[{}]",id,n+1);
+    n -= ilen;
+  }
+
+  if (pstat_flag) {
+    if (pstyle == ISO) {
+      ilen = 1;
+      if (n < ilen) return fmt::format("f_{}:omega[{}]",id,n+1);
+      n -= ilen;
+    } else if (pstyle == ANISO) {
+      ilen = 3;
+      if (n < ilen) return fmt::format("f_{}:omega[{}]",id,n+1);
+      n -= ilen;
+    } else {
+      ilen = 6;
+      if (n < ilen) return fmt::format("f_{}:omega[{}]",id,n+1);
+      n -= ilen;
+    }
+
+    if (pstyle == ISO) {
+      ilen = 1;
+      if (n < ilen) return fmt::format("f_{}:omega_dot[{}]",id,n+1);
+      n -= ilen;
+    } else if (pstyle == ANISO) {
+      ilen = 3;
+      if (n < ilen) return fmt::format("f_{}:omega_dot[{}]",id,n+1);
+      n -= ilen;
+    } else {
+      ilen = 6;
+      if (n < ilen) return fmt::format("f_{}:omega_dot[{}]",id,n+1);
+      n -= ilen;
+    }
+
+    if (mpchain) {
+      ilen = mpchain;
+      if (n < ilen) return fmt::format("f_{}:etap[{}]",id,n+1);
+      n -= ilen;
+      ilen = mpchain;
+      if (n < ilen) return fmt::format("f_{}:etap_dot[{}]",id,n+1);
+      n -= ilen;
+    }
+  }
+
+  if (tstat_flag) {
+    ilen = mtchain;
+    if (n < ilen) {
+      return fmt::format("f_{}:PE_eta[{}]",id,n+1);
+    }
+    n -= ilen;
+    ilen = mtchain;
+    if (n < ilen) {
+      return fmt::format("f_{}:KE_eta_dot[{}]",id,n+1);
+    }
+    n -= ilen;
+  }
+
+  if (pstat_flag) {
+    if (pstyle == ISO) {
+      ilen = 1;
+      if (n < ilen)
+        return fmt::format("f_{}:PE_omega[{}]",id,n+1);
+      n -= ilen;
+    } else if (pstyle == ANISO) {
+      ilen = 3;
+      if (n < ilen) {
+        if (p_flag[n])
+          return fmt::format("f_{}:PE_omega[{}]",id,n+1);
+        else
+          return fmt::format("f_{}:PE_omega[none]",id);
+      }
+      n -= ilen;
+    } else {
+      ilen = 6;
+      if (n < ilen) {
+        if (n > 2) return fmt::format("f_{}:PE_omega[none]",id);
+        else if (p_flag[n])
+          return fmt::format("f_{}:PE_omega[{}]",id,n+1);
+        else
+          return fmt::format("f_{}:PE_omega[none]",id);
+      }
+      n -= ilen;
+    }
+
+    if (pstyle == ISO) {
+      ilen = 1;
+      if (n < ilen)
+        return fmt::format("f_{}:KE_omega_dot[{}]",id,n+1);
+      n -= ilen;
+    } else if (pstyle == ANISO) {
+      ilen = 3;
+      if (n < ilen) {
+        if (p_flag[n])
+          return fmt::format("f_{}:KE_omega_dot[{}]",id,n+1);
+        else return fmt::format("f_{}:KE_omega_dot[none]",id);
+      }
+      n -= ilen;
+    } else {
+      ilen = 6;
+      if (n < ilen) {
+        if (p_flag[n])
+          return fmt::format("f_{}:KE_omega_dot[{}]",id,n+1);
+        else return fmt::format("f_{}:KE_omega_dot[none]",id);
+      }
+      n -= ilen;
+    }
+
+    if (mpchain) {
+      ilen = mpchain;
+      if (n < ilen) {
+        return fmt::format("f_{}:PE_etap[{}]",id,n+1);
+      }
+      n -= ilen;
+      ilen = mpchain;
+      if (n < ilen) {
+        return fmt::format("f_{}:KE_etap_dot[{}]",id,n+1);
+      }
+      n -= ilen;
+    }
+
+    if (deviatoric_flag) {
+      ilen = 1;
+      if (n < ilen)
+        return fmt::format("f_{}:PE_strain[{}]",id,n+1);
+      n -= ilen;
+    }
+  }
+
+  return "none";
+}
+
+/* ---------------------------------------------------------------------- */
+
 void FixNH::reset_target(double t_new)
 {
   t_target = t_start = t_stop = t_new;
@@ -1698,7 +1850,7 @@ void FixNH::reset_dt()
   // If using respa, then remap is performed in innermost level
 
   if (utils::strmatch(update->integrate_style,"^respa")) {
-    auto respa_ptr = dynamic_cast<Respa *>(update->integrate);
+    auto *respa_ptr = dynamic_cast<Respa *>(update->integrate);
     if (!respa_ptr) error->all(FLERR, "Failure to access Respa style {}", update->integrate_style);
     nlevels_respa = respa_ptr->nlevels;
     step_respa = respa_ptr->step;
@@ -2085,7 +2237,7 @@ void FixNH::compute_sigma()
   // every nreset_h0 timesteps
 
   if (nreset_h0 > 0) {
-    int delta = update->ntimestep - update->beginstep;
+    bigint delta = update->ntimestep - update->beginstep;
     if (delta % nreset_h0 == 0) {
       if (dimension == 3) vol0 = domain->xprd * domain->yprd * domain->zprd;
       else vol0 = domain->xprd * domain->yprd;

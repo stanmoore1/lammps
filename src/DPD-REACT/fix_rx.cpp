@@ -55,7 +55,7 @@ static constexpr double MY_EPSILON = 10.0*2.220446049250313e-16;
 namespace /* anonymous */
 {
 
-typedef double TimerType;
+using TimerType = double;
 TimerType getTimeStamp() { return platform::walltime(); }
 double getElapsedTime( const TimerType &t0, const TimerType &t1) { return t1-t0; }
 
@@ -232,7 +232,7 @@ void FixRX::post_constructor()
   int nUniqueSpecies = 0;
   bool match;
 
-  auto tmpspecies = new char*[maxspecies];
+  auto *tmpspecies = new char*[maxspecies];
   for (int jj=0; jj < maxspecies; jj++)
     tmpspecies[jj] = nullptr;
 
@@ -626,7 +626,7 @@ void FixRX::setup_pre_force(int /*vflag*/)
     userData.kFor = new double[nreactions];
     userData.rxnRateLaw = new double[nreactions];
 
-    auto rwork = new double[8*nspecies];
+    auto *rwork = new double[8*nspecies];
 
     if (localTempFlag) {
       int count = nlocal + (newton_pair ? nghost : 0);
@@ -696,7 +696,7 @@ void FixRX::pre_force(int /*vflag*/)
   }
 
   {
-    auto rwork = new double[8*nspecies];
+    auto *rwork = new double[8*nspecies];
 
     UserRHSData userData;
     userData.kFor = new double[nreactions];
@@ -1228,7 +1228,7 @@ void FixRX::odeDiagnostics()
   const int numCounters = numDiagnosticCounters-1;
 
   // # of time-steps for averaging.
-  const int nTimes = this->diagnosticCounter[numDiagnosticCounters-1];
+  const int nTimes = this->diagnosticCounter[numDiagnosticCounters-1];  // NOLINT
 
   // # of ODE's per time-step (on average).
   //const int nODEs  = this->diagnosticCounter[AtomSum] / nTimes;
@@ -1571,7 +1571,7 @@ int FixRX::rhs(double t, const double *y, double *dydt, void *params)
 
 int FixRX::rhs_dense(double /*t*/, const double *y, double *dydt, void *params)
 {
-  auto userData = (UserRHSData *) params;
+  auto *userData = (UserRHSData *) params;
 
   double *rxnRateLaw = userData->rxnRateLaw;
   double *kFor       = userData->kFor;
@@ -1605,7 +1605,7 @@ int FixRX::rhs_dense(double /*t*/, const double *y, double *dydt, void *params)
 
 int FixRX::rhs_sparse(double /*t*/, const double *y, double *dydt, void *v_params) const
 {
-   auto userData = (UserRHSData *) v_params;
+   auto *userData = (UserRHSData *) v_params;
 
    const double VDPD = domain->xprd * domain->yprd * domain->zprd / atom->natoms;
 

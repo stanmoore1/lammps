@@ -22,8 +22,6 @@ FixStyle(rheo/thermal,FixRHEOThermal)
 
 #include "fix.h"
 
-#include <vector>
-
 namespace LAMMPS_NS {
 
 class FixRHEOThermal : public Fix {

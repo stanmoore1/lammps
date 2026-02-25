@@ -56,6 +56,10 @@ class Molecule : protected Pointers {
 
   int centerflag, massflag, comflag, inertiaflag;
 
+  // 1 if attribute defined in input, 0 if computed
+
+  int massflag_user, comflag_user, inertiaflag_user, specialflag_user;
+
   // 1 if molecule fields require atom IDs
 
   int tag_require;
@@ -129,6 +133,7 @@ class Molecule : protected Pointers {
 
   void command(int, char **, int &);
   void from_json(const std::string &id, const json &);
+  [[nodiscard]] json to_json() const;
 
   void compute_center();
   void compute_mass();
@@ -137,11 +142,14 @@ class Molecule : protected Pointers {
   int findfragment(const char *);
   void check_attributes();
 
+  void print(FILE *fp=stdout);
+
  private:
   FILE *fp;
   int *count;
   int toffset, boffset, aoffset, doffset, ioffset;
   int json_format;
+  int check_which_labels[4];
   double sizescale;
 
   void read(int);
@@ -173,8 +181,8 @@ class Molecule : protected Pointers {
   std::string parse_keyword(int, char *);
   void skip_lines(int, char *, const std::string &);
 
+  void check_labels();
   void stats();
-  // void print();
 };
 
 }    // namespace LAMMPS_NS

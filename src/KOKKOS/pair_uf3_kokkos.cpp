@@ -95,17 +95,6 @@ void PairUF3Kokkos<DeviceType>::destroy_4d(TYPE data, typename TYPE::value_type*
 }
 
 /* ----------------------------------------------------------------------
- *     global settings
- * ---------------------------------------------------------------------- */
-
-template <class DeviceType> void PairUF3Kokkos<DeviceType>::settings(int narg, char **arg)
-{
-  PairUF3::settings(narg, arg);
-  //1. Determines whether the simulation is 2-body or 2 and 3-body
-  //2. Set nbody_flag, num_of_elements, pot_3b
-}
-
-/* ----------------------------------------------------------------------
  *    set coeffs for one or more type pairs
  * ---------------------------------------------------------------------- */
 template <class DeviceType> void PairUF3Kokkos<DeviceType>::coeff(int narg, char **arg)
@@ -182,7 +171,7 @@ template <class DeviceType> double PairUF3Kokkos<DeviceType>::init_one(int i, in
 
   if (!coefficients_created) create_coefficients();
 
-  k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutone*cutone; //Update the k_cutsq's
+  k_cutsq.view_host()(i,j) = k_cutsq.view_host()(j,i) = cutone*cutone; //Update the k_cutsq's
   //host memory
   k_cutsq.modify_host(); //Record that k_cutsq's host memory has
   //been modified
@@ -199,7 +188,7 @@ template <class DeviceType> void PairUF3Kokkos<DeviceType>::create_coefficients(
     for (int i = 1; i < num_of_elements + 1; i++) {
       for (int j = 1; j < num_of_elements + 1; j++) {
         for (int k = 1; k < num_of_elements + 1; k++) {
-          k_cut_3b.h_view(i,j,k) = cut_3b[i][j][k];
+          k_cut_3b.view_host()(i,j,k) = cut_3b[i][j][k];
 
           // Notice the order of min_cut_3b[i][j][k]
           //In min_cut_3b[i][j][k],
@@ -207,9 +196,9 @@ template <class DeviceType> void PairUF3Kokkos<DeviceType>::create_coefficients(
           //min_cut_3b[i][j][k][1] is the knot_vector along ik,
           //min_cut_3b[i][j][k][2] is the knot_vector along ij,
           //see pair_uf3.cpp for more details
-          k_min_cut_3b.h_view(i,j,k,0) = min_cut_3b[i][j][k][0];
-          k_min_cut_3b.h_view(i,j,k,1) = min_cut_3b[i][j][k][1];
-          k_min_cut_3b.h_view(i,j,k,2) = min_cut_3b[i][j][k][2];
+          k_min_cut_3b.view_host()(i,j,k,0) = min_cut_3b[i][j][k][0];
+          k_min_cut_3b.view_host()(i,j,k,1) = min_cut_3b[i][j][k][1];
+          k_min_cut_3b.view_host()(i,j,k,2) = min_cut_3b[i][j][k][2];
         }
       }
     }
@@ -557,6 +546,7 @@ template <class DeviceType> void PairUF3Kokkos<DeviceType>::create_3b_coefficien
 
 template <class DeviceType>
 template <int EVFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION void PairUF3Kokkos<DeviceType>::twobody(const int itype, const int jtype,
                                                                const KK_FLOAT r, KK_FLOAT &evdwl,
                                                                KK_FLOAT &fpair) const
@@ -608,6 +598,7 @@ KOKKOS_INLINE_FUNCTION void PairUF3Kokkos<DeviceType>::twobody(const int itype, 
 
 template <class DeviceType>
 template <int EVFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION void PairUF3Kokkos<DeviceType>::threebody(
     const int itype, const int jtype, const int ktype, const KK_FLOAT value_rij,
     const KK_FLOAT value_rik, const KK_FLOAT value_rjk, KK_FLOAT &evdwl, KK_FLOAT (&fforce)[3]) const
@@ -742,6 +733,12 @@ template <class DeviceType> void PairUF3Kokkos<DeviceType>::compute(int eflag_in
     d_vatom = k_vatom.view<DeviceType>();
   }
 
+  if (cvflag_atom) {
+    memoryKK->destroy_kokkos(k_cvatom, cvatom);
+    memoryKK->create_kokkos(k_cvatom, cvatom, maxvatom, "pair:vatom");
+    d_cvatom = k_cvatom.view<DeviceType>();
+  }
+
   atomKK->sync(execution_space, datamask_read);
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
   else atomKK->modified(execution_space,F_MASK);
@@ -770,7 +767,7 @@ template <class DeviceType> void PairUF3Kokkos<DeviceType>::compute(int eflag_in
   escatter = ScatterEType(d_eatom);
   fscatter = ScatterFType(f);
   vscatter = ScatterVType(d_vatom);
-  //cvscatter = ScatterCVType(d_cvatom);
+  cvscatter = ScatterCVType(d_cvatom);
 
   EV_FLOAT ev;
   EV_FLOAT ev_all;
@@ -802,7 +799,7 @@ template <class DeviceType> void PairUF3Kokkos<DeviceType>::compute(int eflag_in
 
   Kokkos::Experimental::contribute(d_eatom, escatter);
   Kokkos::Experimental::contribute(d_vatom, vscatter);
-  //Kokkos::Experimental::contribute(d_cvatom, cvscatter);
+  Kokkos::Experimental::contribute(d_cvatom, cvscatter);
   Kokkos::Experimental::contribute(f, fscatter);
 
   if (eflag_global) eng_vdwl += ev_all.evdwl;
@@ -826,8 +823,8 @@ template <class DeviceType> void PairUF3Kokkos<DeviceType>::compute(int eflag_in
   }
 
   if (cvflag_atom) {
-    //k_cvatom.template modify<DeviceType>();
-    //k_cvatom.sync_host();
+    k_cvatom.template modify<DeviceType>();
+    k_cvatom.sync_host();
   }
 
   if (vflag_fdotr) pair_virial_fdotr_compute(this);
@@ -838,6 +835,7 @@ template <class DeviceType> void PairUF3Kokkos<DeviceType>::compute(int eflag_in
 /* ---------------------------------------------------------------------- */
 
 template <class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION void PairUF3Kokkos<DeviceType>::operator()(TagPairUF3ComputeShortNeigh,
                                                                   const int &ii) const
 {
@@ -872,6 +870,7 @@ KOKKOS_INLINE_FUNCTION void PairUF3Kokkos<DeviceType>::operator()(TagPairUF3Comp
 
 template <class DeviceType>
 template <int NEIGHFLAG, int EVFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION void
 PairUF3Kokkos<DeviceType>::operator()(TagPairUF3ComputeFullA<NEIGHFLAG, EVFLAG>, const int &ii,
                                       EV_FLOAT &ev) const
@@ -885,7 +884,7 @@ PairUF3Kokkos<DeviceType>::operator()(TagPairUF3ComputeFullA<NEIGHFLAG, EVFLAG>,
   KK_FLOAT del_rji[3], del_rki[3], del_rkj[3], triangle_eval[3];
   KK_FLOAT fij[3], fik[3], fjk[3];
   KK_FLOAT fji[3], fki[3], fkj[3];
-  KK_SUM_FLOAT Fj[3], Fk[3];
+  KK_ACC_FLOAT Fj[3], Fk[3];
   KK_FLOAT evdwl = 0, evdwl3 = 0;
   KK_FLOAT fpair = 0;
 
@@ -899,9 +898,9 @@ PairUF3Kokkos<DeviceType>::operator()(TagPairUF3ComputeFullA<NEIGHFLAG, EVFLAG>,
 
   const int jnum = d_numneigh_short[i];
 
-  KK_SUM_FLOAT fxtmpi = 0.0;
-  KK_SUM_FLOAT fytmpi = 0.0;
-  KK_SUM_FLOAT fztmpi = 0.0;
+  KK_ACC_FLOAT fxtmpi = 0.0;
+  KK_ACC_FLOAT fytmpi = 0.0;
+  KK_ACC_FLOAT fztmpi = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors_short(i, jj);
@@ -946,9 +945,9 @@ PairUF3Kokkos<DeviceType>::operator()(TagPairUF3ComputeFullA<NEIGHFLAG, EVFLAG>,
     del_rji[2] = x(j, 2) - ztmp;
     KK_FLOAT rij = sqrt(del_rji[0] * del_rji[0] + del_rji[1] * del_rji[1] + del_rji[2] * del_rji[2]);
 
-    KK_SUM_FLOAT fxtmpj = 0.0;
-    KK_SUM_FLOAT fytmpj = 0.0;
-    KK_SUM_FLOAT fztmpj = 0.0;
+    KK_ACC_FLOAT fxtmpj = 0.0;
+    KK_ACC_FLOAT fytmpj = 0.0;
+    KK_ACC_FLOAT fztmpj = 0.0;
 
     for (int kk = jj + 1; kk < jnum; kk++) {
       int k = d_neighbors_short(i, kk);
@@ -1085,6 +1084,7 @@ PairUF3Kokkos<DeviceType>::operator()(TagPairUF3ComputeFullA<NEIGHFLAG, EVFLAG>,
 
 template <class DeviceType>
 template <int NEIGHFLAG, int EVFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION void
 PairUF3Kokkos<DeviceType>::operator()(TagPairUF3ComputeFullA<NEIGHFLAG, EVFLAG>,
                                       const int &ii) const
@@ -1097,6 +1097,7 @@ PairUF3Kokkos<DeviceType>::operator()(TagPairUF3ComputeFullA<NEIGHFLAG, EVFLAG>,
 
 template <class DeviceType>
 template <int NEIGHFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION void
 PairUF3Kokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair,
                                     const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely,
@@ -1180,10 +1181,11 @@ PairUF3Kokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int &j, co
 
 template <class DeviceType>
 template <int NEIGHFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION void
 PairUF3Kokkos<DeviceType>::ev_tally3(EV_FLOAT &ev, const int &i, const int &j, int &k,
-                                     const KK_FLOAT &evdwl, const KK_FLOAT &ecoul, KK_SUM_FLOAT *fj,
-                                     KK_SUM_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const
+                                     const KK_FLOAT &evdwl, const KK_FLOAT &ecoul, KK_ACC_FLOAT *fj,
+                                     KK_ACC_FLOAT *fk, KK_FLOAT *drji, KK_FLOAT *drki) const
 {
   KK_FLOAT epairthird, v[6];
 

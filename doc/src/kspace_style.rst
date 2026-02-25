@@ -122,7 +122,8 @@ Syntax
        *scafacos* values = method accuracy
          method = fmm or p2nfft or p3m or ewald or direct
          accuracy = desired relative error in forces
-       *zero* value = none
+       *zero* value = accuracy
+         accuracy = desired relative error in forces
 
 Examples
 """"""""
@@ -134,7 +135,7 @@ Examples
    kspace_style msm 1.0e-4
    kspace_style scafacos fmm 1.0e-4
    kspace_style none
-   kspace_style zero
+   kspace_style zero 1.0e-6
 
 Used in input scripts:
 
@@ -318,7 +319,7 @@ pressure simulation with MSM will cause the code to run slower.
 ----------
 
 The *scafacos* style is a wrapper on the `ScaFaCoS Coulomb solver
-library <http://www.scafacos.de>`_ which provides a variety of solver
+library <http://www.scafacos.de/>`_ which provides a variety of solver
 methods which can be used with LAMMPS.  The paper by :ref:`(Sutman)
 <Sutmann2014>` gives an overview of ScaFaCoS.
 
@@ -328,9 +329,9 @@ in 2009-2012. Participants of the consortium were the Universities of
 Bonn, Chemnitz, Stuttgart, and Wuppertal as well as the
 Forschungszentrum Juelich.
 
-The library is available for download at "http://scafacos.de" or can
+The library is available for download at "http://www.scafacos.de/" or can
 be cloned from the git-repository
-"https://github.com/scafacos/scafacos.git".
+"https://github.com/scafacos/scafacos".
 
 In order to use this KSpace style, you must download and build the
 ScaFaCoS library, then build LAMMPS with the SCAFACOS package
@@ -382,6 +383,9 @@ other ScaFaCoS options currently exposed to LAMMPS.
 
 The *zero* style does not do any calculations, but is compatible
 with all pair styles that require some version of a kspace style.
+The accuracy argument is required for some internal calculations
+but has no impact of forces or energy, since those will always
+be zero.
 
 ----------
 

@@ -62,8 +62,9 @@ Description
 """""""""""
 
 Read in a data file containing information LAMMPS needs to run a
-simulation.  The file can be ASCII text or a gzipped text file
-(detected by a .gz suffix).
+simulation.  The file can be ASCII text or a compressed text file
+(detected by its suffix) if LAMMPS has been compiled with support
+for :ref:`compression commands <gzip>`.
 
 This is one of 3 ways to specify the simulation box: see the
 :doc:`create_box <create_box>` and :doc:`read_restart <read_restart>`
@@ -877,8 +878,6 @@ of analysis.
      - atom-ID atom-type molecule-ID template-index template-atom x y z
    * - tri
      - atom-ID molecule-ID atom-type triangleflag density x y z
-   * - wavepacket
-     - atom-ID atom-type charge espin eradius etag cs_re cs_im x y z
    * - hybrid
      - atom-ID atom-type x y z sub-style1 sub-style2 ...
 
@@ -889,7 +888,6 @@ The per-atom values have these meanings and units, listed alphabetically:
 * bodyflag = 1 for body particles, 0 for point particles
 * ccN = chemical concentration for tDPD particles for each species (mole/volume units)
 * cradius = contact radius for SMD particles (distance units)
-* cs_re,cs_im = real/imaginary parts of wave packet coefficients
 * cv = heat capacity (need units) for SPH particles
 * density = density of particle (mass/distance\^3 or mass/distance\^2 or mass/distance units, depending on dimensionality of particle)
 * diameter = diameter of spherical atom (distance units)
@@ -899,7 +897,6 @@ The per-atom values have these meanings and units, listed alphabetically:
 * eradius = electron radius (or fixed-core radius)
 * esph = energy (need units) for SPH particles
 * espin = electron spin (+1/-1), 0 = nuclei, 2 = fixed-core, 3 = pseudo-cores (i.e. ECP)
-* etag = integer ID of electron that each wave packet belongs to
 * kradius = kernel radius for SMD particles (distance units)
 * lineflag = 1 for line segment particles, 0 for point or spherical particles
 * mass = mass of particle (mass units)
@@ -1721,8 +1718,8 @@ Translational velocities can also be (re)set by the :doc:`velocity
 Restrictions
 """"""""""""
 
-To read gzipped data files, you must compile LAMMPS with the
--DLAMMPS_GZIP option.  See the :doc:`Build settings <Build_settings>`
+To read compressed data files, you must compile LAMMPS with the
+``-DLAMMPS_GZIP`` option.  See the :doc:`Build settings <Build_settings>`
 doc page for details.
 
 Label maps are currently not supported when using the KOKKOS package.

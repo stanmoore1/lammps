@@ -52,6 +52,7 @@ enum{NONE,RLINEAR,RSQ,BMP};
 #define isOneFluid(_site_) ( (_site_) == OneFluidValue )
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void getMixingWeights(
     typename ArrayTypes<DeviceType>::t_kkfloat_2d_randomread dvector,
@@ -198,12 +199,14 @@ void PairTableRXKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     compute_style<BITMAP>(eflag_in,vflag_in);
 }
 
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION static int sbmask(const int& j)
 {
   return j >> SBBITS & 3;
 }
 
 template <class DeviceType, int TABSTYLE>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 static KK_FLOAT
 compute_fpair(KK_FLOAT rsq,
@@ -238,6 +241,7 @@ compute_fpair(KK_FLOAT rsq,
 }
 
 template<class DeviceType, int TABSTYLE>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 static KK_FLOAT
 compute_evdwl(
@@ -273,6 +277,7 @@ compute_evdwl(
 }
 
 template<class DeviceType, int NEIGHFLAG, int TABSTYLE, int NEWTON_PAIR>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void
 ev_tally(
@@ -286,12 +291,12 @@ ev_tally(
     EV_FLOAT& ev,
     KK_FLOAT epair, KK_FLOAT fpair,
     KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz,
-    Kokkos::View<KK_FLOAT*[6],
-                 typename ArrayTypes<DeviceType>::t_kkfloat_1d_6::array_layout,
+    Kokkos::View<KK_ACC_FLOAT*[6],
+                 typename ArrayTypes<DeviceType>::t_kkacc_1d_6::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& v_vatom,
-    Kokkos::View<KK_FLOAT*,
-                 typename ArrayTypes<DeviceType>::t_kkfloat_1d::array_layout,
+    Kokkos::View<KK_ACC_FLOAT*,
+                 typename ArrayTypes<DeviceType>::t_kkacc_1d::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& v_eatom)
 {
@@ -384,6 +389,7 @@ ev_tally(
 
 template <class DeviceType, int NEIGHFLAG, bool STACKPARAMS, int TABSTYLE,
           int EVFLAG, int NEWTON_PAIR>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 static EV_FLOAT
 compute_item(
@@ -401,8 +407,8 @@ compute_item(
     Few<int, 4> const& special_lj,
     Few<Few<double, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> const& m_cutsq,
     typename ArrayTypes<DeviceType>::t_double_2d_lr const& d_cutsq,
-    Kokkos::View<KK_SUM_FLOAT*[3],
-      typename ArrayTypes<DeviceType>::t_kksum_1d_3::array_layout,
+    Kokkos::View<KK_ACC_FLOAT*[3],
+      typename ArrayTypes<DeviceType>::t_kkacc_1d_3::array_layout,
       typename KKDevice<DeviceType>::value,
       Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& f,
     Kokkos::View<KK_FLOAT*,
@@ -420,12 +426,12 @@ compute_item(
     int vflag,
     int vflag_global,
     int vflag_atom,
-    Kokkos::View<KK_FLOAT*[6],
-                 typename ArrayTypes<DeviceType>::t_kkfloat_1d_6::array_layout,
+    Kokkos::View<KK_ACC_FLOAT*[6],
+                 typename ArrayTypes<DeviceType>::t_kkacc_1d_6::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& v_vatom,
-    Kokkos::View<KK_FLOAT*,
-                 typename ArrayTypes<DeviceType>::t_kkfloat_1d::array_layout,
+    Kokkos::View<KK_ACC_FLOAT*,
+                 typename ArrayTypes<DeviceType>::t_kkacc_1d::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > const& v_eatom) {
   EV_FLOAT ev;
@@ -546,8 +552,8 @@ static void compute_all_items(
     Few<int, 4> special_lj,
     Few<Few<double, MAX_TYPES_STACKPARAMS+1>, MAX_TYPES_STACKPARAMS+1> m_cutsq,
     typename ArrayTypes<DeviceType>::t_double_2d_lr d_cutsq,
-    Kokkos::View<KK_SUM_FLOAT*[3],
-      typename ArrayTypes<DeviceType>::t_kksum_1d_3::array_layout,
+    Kokkos::View<KK_ACC_FLOAT*[3],
+      typename ArrayTypes<DeviceType>::t_kkacc_1d_3::array_layout,
       typename KKDevice<DeviceType>::value,
       Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > f,
     Kokkos::View<KK_FLOAT*,
@@ -565,12 +571,12 @@ static void compute_all_items(
     int vflag,
     int vflag_global,
     int vflag_atom,
-    Kokkos::View<KK_FLOAT*[6],
-                 typename ArrayTypes<DeviceType>::t_kkfloat_1d_6::array_layout,
+    Kokkos::View<KK_ACC_FLOAT*[6],
+                 typename ArrayTypes<DeviceType>::t_kkacc_1d_6::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom,
-    Kokkos::View<KK_FLOAT*,
-                 typename ArrayTypes<DeviceType>::t_kkfloat_1d::array_layout,
+    Kokkos::View<KK_ACC_FLOAT*,
+                 typename ArrayTypes<DeviceType>::t_kkacc_1d::array_layout,
                  typename KKDevice<DeviceType>::value,
                  Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_eatom) {
   if (eflag || vflag) {
@@ -1196,7 +1202,7 @@ double PairTableRXKokkos<DeviceType>::single(int i, int j, int itype, int jtype,
 
   atomKK->k_dvector.sync_host();
   typename ArrayTypes<LMPHostType>::t_kkfloat_2d_randomread h_dvector =
-    atomKK->k_dvector.h_viewkk;
+    atomKK->k_dvector.view_hostkk();
   getMixingWeights<LMPHostType>(h_dvector,
       nspecies, isite1, isite2, fractionalWeighting,
       i,mixWtSite1old_i,mixWtSite2old_i,

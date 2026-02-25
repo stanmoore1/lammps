@@ -40,18 +40,22 @@ class FixGravityKokkos : public FixGravity {
 
     void post_force(int) override;
 
+// NOLINTNEXTLINE
     KOKKOS_INLINE_FUNCTION
     void operator()(TagFixGravityRMass, const int, double &) const;
+// NOLINTNEXTLINE
     KOKKOS_INLINE_FUNCTION
     void operator()(TagFixGravityMass, const int, double &) const;
 
   private:
     typename AT::t_kkfloat_1d_3_lr x;
-    typename AT::t_kksum_1d_3 f;
+    typename AT::t_kkacc_1d_3 f;
     typename AT::t_kkfloat_1d_randomread rmass;
     typename AT::t_kkfloat_1d_randomread mass;
     typename AT::t_int_1d type;
     typename AT::t_int_1d mask;
+
+    KK_FLOAT xacc_kk, yacc_kk, zacc_kk;
 };
 
 } // namespace LAMMPS_NS

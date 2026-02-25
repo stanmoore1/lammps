@@ -153,6 +153,7 @@ void FixNeighHistoryKokkos<DeviceType>::pre_exchange_no_newton()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void FixNeighHistoryKokkos<DeviceType>::operator()(TagFixNeighHistoryPreExchange, const int &ii) const
 {
@@ -241,6 +242,7 @@ void FixNeighHistoryKokkos<DeviceType>::post_neighbor()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void FixNeighHistoryKokkos<DeviceType>::operator()(TagFixNeighHistoryPostNeighbor, const int &ii) const
 {
@@ -337,9 +339,9 @@ void FixNeighHistoryKokkos<DeviceType>::sort_kokkos(Kokkos::BinSort<KeyViewType,
   k_partner.sync_device();
   k_valuepartner.sync_device();
 
-  Sorter.sort(LMPDeviceType(), k_npartner.d_view);
-  Sorter.sort(LMPDeviceType(), k_partner.d_view);
-  Sorter.sort(LMPDeviceType(), k_valuepartner.d_view);
+  Sorter.sort(LMPDeviceType(), k_npartner.view_device());
+  Sorter.sort(LMPDeviceType(), k_partner.view_device());
+  Sorter.sort(LMPDeviceType(), k_valuepartner.view_device());
 
   k_npartner.modify_device();
   k_partner.modify_device();
@@ -368,6 +370,7 @@ int FixNeighHistoryKokkos<DeviceType>::pack_exchange(int i, double *buf)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void FixNeighHistoryKokkos<DeviceType>::operator()(TagFixNeighHistoryPackExchange, const int &mysend, int &offset, const bool &final) const {
 
@@ -448,6 +451,7 @@ int FixNeighHistoryKokkos<DeviceType>::pack_exchange_kokkos(
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void FixNeighHistoryKokkos<DeviceType>::operator()(TagFixNeighHistoryUnpackExchange, const int &i) const
 {

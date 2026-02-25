@@ -50,7 +50,7 @@ static constexpr int MAXLINE = 512;
 enum{ FORWARD=-1, BACKWARD=1 };
 
 static const char cite_fix_phonon[] =
-  "fix phonon command: doi:10.1016/j.cpc.2011.04.019\n\n"
+  "fix phonon command: https://doi.org/10.1016/j.cpc.2011.04.019\n\n"
   "@Article{Kong11,\n"
   " author = {L. T. Kong},\n"
   " title = {Phonon Dispersion Measured Directly from Molecular Dynamics Simulations},\n"
@@ -159,7 +159,7 @@ FixPhonon::FixPhonon(LAMMPS *lmp,  int narg, char **arg) : Fix(lmp, narg, arg)
   for (int i = 1; i < nprocs; ++i) fft_disp[i] = fft_disp[i-1] + fft_cnts[i-1];
   delete []nx_loc;
 
-  fft = new FFT3d(lmp,world,nz,ny,nx,0,nz-1,0,ny-1,nxlo,nxhi,0,nz-1,0,ny-1,nxlo,nxhi,0,0,&mysize,0);
+  fft = new FFT3d(lmp,world,nz,ny,nx,0,nz-1,0,ny-1,nxlo,nxhi,0,nz-1,0,ny-1,nxlo,nxhi,0,0,&mysize,0,0);
   memory->create(fft_data, MAX(1,mynq)*2, "fix_phonon:fft_data");
 
   // allocate variables; MAX(1,... is used because a null buffer will result in error for MPI
@@ -672,7 +672,7 @@ void FixPhonon::postprocess( )
 
   // to get Phi = KT.G^-1; normalization of FFTW data is done here
   double boltz = force->boltz, TempAve = 0.;
-  auto kbtsqrt = new double[sysdim];
+  auto *kbtsqrt = new double[sysdim];
   double TempFac = inv_neval * inv_nTemp;
   double NormFac = TempFac * double(ntotal);
 
@@ -696,7 +696,7 @@ void FixPhonon::postprocess( )
   MPI_Gatherv(Phi_q[0],mynq*fft_dim2*2,MPI_DOUBLE,Phi_all[0],recvcnts,displs,MPI_DOUBLE,0,world);
 
   // to collect all basis info and averaged it on root
-  auto basis_root = new double[fft_dim];
+  auto *basis_root = new double[fft_dim];
   if (fft_dim > sysdim) MPI_Reduce(&basis[1][0], &basis_root[sysdim], fft_dim-sysdim, MPI_DOUBLE, MPI_SUM, 0, world);
 
   if (me == 0) { // output dynamic matrix by root

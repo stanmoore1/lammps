@@ -56,7 +56,7 @@ ComputeGaussianGridLocalKokkos<DeviceType>::ComputeGaussianGridLocalKokkos(LAMMP
 
   for (int i = 1; i <= atom->ntypes; i++) {
     for (int j = 1; j <= atom->ntypes; j++){
-      k_cutsq.h_view(i,j) = k_cutsq.h_view(j,i) = cutsq[i][j]; //cutsq_tmp;
+      k_cutsq.view_host()(i,j) = k_cutsq.view_host()(j,i) = cutsq[i][j]; //cutsq_tmp;
       k_cutsq.modify_host();
     }
   }
@@ -206,6 +206,7 @@ void ComputeGaussianGridLocalKokkos<DeviceType>::compute_local()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void ComputeGaussianGridLocalKokkos<DeviceType>::operator() (TagComputeGaussianGridLocalNeigh,const typename Kokkos::TeamPolicy<DeviceType, TagComputeGaussianGridLocalNeigh>::member_type& team) const
 {

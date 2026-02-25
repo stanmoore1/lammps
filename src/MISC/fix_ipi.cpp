@@ -259,7 +259,7 @@ void FixIPI::init()
   socketflag = 1;
 
   // asks for evaluation of PE at first step
-  auto c_pe = modify->get_compute_by_id("thermo_pe");
+  auto *c_pe = modify->get_compute_by_id("thermo_pe");
   if (c_pe) {
     c_pe->invoked_scalar = -1;
     modify->addstep_compute_all(update->ntimestep + 1);
@@ -387,7 +387,7 @@ void FixIPI::initial_integrate(int /*vflag*/)
   // ensures continuity of trajectories relative to the
   // snapshot at neighbor list creation, minimizing the
   // number of neighbor list updates
-  auto xhold = neighbor->get_xhold();
+  auto *xhold = neighbor->get_xhold();
   if (xhold != nullptr && !firsttime) {
     // don't wrap if xhold is not used in the NL, or the
     // first call (because the NL is initialized from the
@@ -461,7 +461,7 @@ void FixIPI::final_integrate()
 
   int nat=bsize/3;
   double **f= atom->f;
-  auto lbuf = new double[bsize];
+  auto *lbuf = new double[bsize];
 
   // reassembles the force vector from the local arrays
   int nlocal = atom->nlocal;

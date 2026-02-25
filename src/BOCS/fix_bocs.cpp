@@ -40,7 +40,7 @@ using namespace LAMMPS_NS;
 using namespace FixConst;
 
 static const char cite_user_bocs_package[] =
-    "BOCS package: doi:10.1021/acs.jpcb.7b09993\n\n"
+    "BOCS package: https://doi.org/10.1021/acs.jpcb.7b09993\n\n"
     "@Article{Dunn2018,\n"
     " author = {N. J. H. Dunn and K. M. Lebold and M. R. {DeLyser} and\n"
     "    J. F. Rudzinski and W. G. Noid},\n"
@@ -2114,7 +2114,7 @@ void FixBocs::compute_sigma()
   // every nreset_h0 timesteps
 
   if (nreset_h0 > 0) {
-    int delta = update->ntimestep - update->beginstep;
+    bigint delta = update->ntimestep - update->beginstep;
     if (delta % nreset_h0 == 0) {
       if (dimension == 3) vol0 = domain->xprd * domain->yprd * domain->zprd;
       else vol0 = domain->xprd * domain->yprd;

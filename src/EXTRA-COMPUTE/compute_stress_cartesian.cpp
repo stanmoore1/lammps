@@ -39,7 +39,7 @@ static constexpr double SMALL = 1.0e-10;
 ------------------------------------------------------------------------------------*/
 
 static const char cite_compute_stress_cartesian[] =
-    "compute stress/cartesian: doi:10.3390/nano11010165\n\n"
+    "compute stress/cartesian: https://doi.org/10.3390/nano11010165\n\n"
     "@article{galteland2021nanothermodynamic,\n"
     "title={Nanothermodynamic Description and Molecular Simulation of a\n"
     "   Single-Phase Fluid in a Slit Pore},\n"
@@ -136,7 +136,7 @@ ComputeStressCartesian::ComputeStressCartesian(LAMMPS *lmp, int narg, char **arg
 
   // check for variable box dimension
   int box_incompatible = 0;
-  for (auto &ifix : modify->get_fix_list()) {
+  for (const auto &ifix : modify->get_fix_list()) {
     if (((dir1 == 0) && (ifix->box_change & Fix::BOX_CHANGE_X)) ||
         ((dir1 == 1) && (ifix->box_change & Fix::BOX_CHANGE_Y)) ||
         ((dir1 == 2) && (ifix->box_change & Fix::BOX_CHANGE_Z)))

@@ -33,15 +33,18 @@ using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
-AtomVecEllipsoidKokkos::AtomVecEllipsoidKokkos(LAMMPS *lmp) : AtomVec(lmp),
-AtomVecKokkos(lmp), AtomVecEllipsoid(lmp)
+AtomVecEllipsoidKokkos::AtomVecEllipsoidKokkos(LAMMPS *lmp) :
+    AtomVec(lmp), AtomVecKokkos(lmp), AtomVecEllipsoid(lmp), torque(nullptr)
 {
-  no_border_vel_flag = 0;
-  unpack_exchange_indices_flag = 1;
-  size_border = 23;
-  size_forward = 8;
+  size_exchange_bonus = 8;
+  datamask_bonus = ELLIPSOID_MASK|BONUS_MASK;
+
   k_nghost_bonus = DAT::tdual_int_scalar("atomEllipKK:k_nghost_bonus");
-  k_count_bonus = DAT::tdual_int_scalar("atomEllipKK:k_count_bonus");
+  k_nlocal_bonus = DAT::tdual_int_scalar("atomEllipKK:k_nlocal_bonus");
+
+  if (((sizeof(KK_FLOAT) != sizeof(double))) && (comm->me == 0))
+    error->warning(FLERR,"AtomVecEllipsoidKokkos does not (yet) fully support "
+       "KK_FLOAT within bonus struct data (shape, quat). Using double for these fields.");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -51,6 +54,15 @@ AtomVecEllipsoidKokkos::~AtomVecEllipsoidKokkos()
   if (bonus_flag) {
     memoryKK->destroy_kokkos(k_bonus,bonus);
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void AtomVecEllipsoidKokkos::init()
+{
+  AtomVecEllipsoid::init();
+
+  set_atom_masks();
 }
 
 /* ----------------------------------------------------------------------
@@ -80,6 +92,7 @@ void AtomVecEllipsoidKokkos::grow(int n)
   memoryKK->grow_kokkos(atomKK->k_x,atomKK->x,nmax,"atom:x");
   memoryKK->grow_kokkos(atomKK->k_v,atomKK->v,nmax,"atom:v");
   memoryKK->grow_kokkos(atomKK->k_f,atomKK->f,nmax,"atom:f");
+
   memoryKK->grow_kokkos(atomKK->k_rmass,atomKK->rmass,nmax,"atom:rmass");
   memoryKK->grow_kokkos(atomKK->k_angmom,atomKK->angmom,nmax,"atom:angmom");
   memoryKK->grow_kokkos(atomKK->k_torque,atomKK->torque,nmax,"atom:torque");
@@ -100,41 +113,41 @@ void AtomVecEllipsoidKokkos::grow(int n)
 void AtomVecEllipsoidKokkos::grow_pointers()
 {
   tag = atomKK->tag;
-  d_tag = atomKK->k_tag.d_view;
-  h_tag = atomKK->k_tag.h_view;
+  d_tag = atomKK->k_tag.view_device();
+  h_tag = atomKK->k_tag.view_host();
 
   type = atomKK->type;
-  d_type = atomKK->k_type.d_view;
-  h_type = atomKK->k_type.h_view;
+  d_type = atomKK->k_type.view_device();
+  h_type = atomKK->k_type.view_host();
   mask = atomKK->mask;
-  d_mask = atomKK->k_mask.d_view;
-  h_mask = atomKK->k_mask.h_view;
+  d_mask = atomKK->k_mask.view_device();
+  h_mask = atomKK->k_mask.view_host();
   image = atomKK->image;
-  d_image = atomKK->k_image.d_view;
-  h_image = atomKK->k_image.h_view;
+  d_image = atomKK->k_image.view_device();
+  h_image = atomKK->k_image.view_host();
 
   x = atomKK->x;
-  d_x = atomKK->k_x.d_view;
-  h_x = atomKK->k_x.h_viewkk;
+  d_x = atomKK->k_x.view_device();
+  h_x = atomKK->k_x.view_hostkk();
   v = atomKK->v;
-  d_v = atomKK->k_v.d_view;
-  h_v = atomKK->k_v.h_viewkk;
+  d_v = atomKK->k_v.view_device();
+  h_v = atomKK->k_v.view_hostkk();
   f = atomKK->f;
-  d_f = atomKK->k_f.d_view;
-  h_f = atomKK->k_f.h_viewkk;
+  d_f = atomKK->k_f.view_device();
+  h_f = atomKK->k_f.view_hostkk();
 
   rmass = atomKK->rmass;
-  d_rmass = atomKK->k_rmass.d_view;
-  h_rmass = atomKK->k_rmass.h_viewkk;
+  d_rmass = atomKK->k_rmass.view_device();
+  h_rmass = atomKK->k_rmass.view_hostkk();
   angmom = atomKK->angmom;
-  d_angmom = atomKK->k_angmom.d_view;
-  h_angmom = atomKK->k_angmom.h_viewkk;
+  d_angmom = atomKK->k_angmom.view_device();
+  h_angmom = atomKK->k_angmom.view_hostkk();
   torque = atomKK->torque;
-  d_torque = atomKK->k_torque.d_view;
-  h_torque = atomKK->k_torque.h_viewkk;
+  d_torque = atomKK->k_torque.view_device();
+  h_torque = atomKK->k_torque.view_hostkk();
   ellipsoid = atomKK->ellipsoid;
-  d_ellipsoid= atomKK->k_ellipsoid.d_view;
-  h_ellipsoid = atomKK->k_ellipsoid.h_view;
+  d_ellipsoid= atomKK->k_ellipsoid.view_device();
+  h_ellipsoid = atomKK->k_ellipsoid.view_host();
 }
 
 /* ----------------------------------------------------------------------
@@ -150,8 +163,6 @@ void AtomVecEllipsoidKokkos::grow_bonus()
   atomKK->modified(Device,BONUS_MASK);
 
   memoryKK->grow_kokkos(k_bonus,bonus,nmax_bonus,"atom:bonus");
-  //d_bonus = k_bonus.d_view;
-  //h_bonus = k_bonus.h_view;
 
   atomKK->sync(Host,BONUS_MASK);
 }
@@ -178,1342 +189,544 @@ void AtomVecEllipsoidKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &So
   atomKK->modified(Device, ALL_MASK & ~F_MASK & ~TORQUE_MASK);
 }
 
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType,int PBC_FLAG,int TRICLINIC>
-struct AtomVecEllipsoidKokkos_PackComm {
-  typedef DeviceType device_type;
-
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _rmass;
-  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
-  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  double _xprd,_yprd,_zprd,_xy,_xz,_yz;
-  double _pbc[6];
-  typename AtomVecEllipsoidKokkosBonusArray
-          <DeviceType>::t_bonus_1d _bonus;
-  typename ArrayTypes<DeviceType>::t_int_1d _ellipsoid;
-
-  AtomVecEllipsoidKokkos_PackComm(
-    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
-    const typename DAT::ttransform_kkfloat_1d &rmass,
-    const typename DAT::tdual_double_2d_lr &buf,
-    const typename DAT::tdual_int_1d &list,
-    const double &xprd, const double &yprd, const double &zprd,
-    const double &xy, const double &xz, const double &yz, const int* const pbc,
-    const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
-    const typename DAT::tdual_int_1d &ellipsoid):
-    _x(x.view<DeviceType>()),
-    _rmass(rmass.view<DeviceType>()),
-    _list(list.view<DeviceType>()),
-    _xprd(xprd),_yprd(yprd),_zprd(zprd),
-    _xy(xy),_xz(xz),_yz(yz),
-     _bonus(bonus.view<DeviceType>()),
-    _ellipsoid(ellipsoid.view<DeviceType>()) {
-    const size_t elements = 8;
-    const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_double_2d_lr_um(buf.view<DeviceType>().data(),maxsend,elements);
-    _pbc[0] = pbc[0]; _pbc[1] = pbc[1]; _pbc[2] = pbc[2];
-    _pbc[3] = pbc[3]; _pbc[4] = pbc[4]; _pbc[5] = pbc[5];
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void operator() (const int& i) const {
-    const int j = _list(i);
-    if (PBC_FLAG == 0) {
-      _buf(i,0) = _x(j,0);
-      _buf(i,1) = _x(j,1);
-      _buf(i,2) = _x(j,2);
-    } else {
-      if (TRICLINIC == 0) {
-        _buf(i,0) = _x(j,0) + _pbc[0]*_xprd;
-        _buf(i,1) = _x(j,1) + _pbc[1]*_yprd;
-        _buf(i,2) = _x(j,2) + _pbc[2]*_zprd;
-      } else {
-        _buf(i,0) = _x(j,0) + _pbc[0]*_xprd + _pbc[5]*_xy + _pbc[4]*_xz;
-        _buf(i,1) = _x(j,1) + _pbc[1]*_yprd + _pbc[3]*_yz;
-        _buf(i,2) = _x(j,2) + _pbc[2]*_zprd;
-      }
-    }
-    _buf(i,3) = _rmass(j);
-    if (_ellipsoid(j) >= 0) {
-      /*_buf(i,4) = _bonus(_ellipsoid(j)).shape[0];
-      _buf(i,5) = _bonus(_ellipsoid(j)).shape[1];
-      _buf(i,6) = _bonus(_ellipsoid(j)).shape[2];*/
-      _buf(i,4) = _bonus(_ellipsoid(j)).quat[0];
-      _buf(i,5) = _bonus(_ellipsoid(j)).quat[1];
-      _buf(i,6) = _bonus(_ellipsoid(j)).quat[2];
-      _buf(i,7) = _bonus(_ellipsoid(j)).quat[3];
-    }
-  }
-};
-
-/* ---------------------------------------------------------------------- */
-
-int AtomVecEllipsoidKokkos::pack_comm_kokkos(
-  const int &n,
-  const DAT::tdual_int_1d &list,
-  const DAT::tdual_double_2d_lr &buf,
-  const int &pbc_flag,
-  const int* const pbc)
-{
-  // Check whether to always run forward communication on the host
-  // Choose correct forward PackComm kernel
-  if (lmp->kokkos->forward_comm_on_host) {
-    atomKK->sync(Host,X_MASK|RMASS_MASK|ELLIPSOID_MASK|BONUS_MASK);
-    if (domain->triclinic) {
-      if (pbc_flag) {
-        struct AtomVecEllipsoidKokkos_PackComm<LMPHostType,1,1> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          buf,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      } else {
-        struct AtomVecEllipsoidKokkos_PackComm<LMPHostType,0,1> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          buf,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      } 
-    } else {
-      if (pbc_flag) {
-        struct AtomVecEllipsoidKokkos_PackComm<LMPHostType,1,0> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          buf,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      } else {
-        struct AtomVecEllipsoidKokkos_PackComm<LMPHostType,0,0> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          buf,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      }
-    }
-  } else {
-    atomKK->sync(Device,X_MASK|RMASS_MASK|ELLIPSOID_MASK|BONUS_MASK);
-    if (domain->triclinic) {
-      if (pbc_flag) {
-        struct AtomVecEllipsoidKokkos_PackComm<LMPDeviceType,1,1> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          buf,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      } else {
-        struct AtomVecEllipsoidKokkos_PackComm<LMPDeviceType,0,1> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          buf,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      } 
-    } else {
-      if (pbc_flag) {
-        struct AtomVecEllipsoidKokkos_PackComm<LMPDeviceType,1,0> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          buf,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      } else {
-        struct AtomVecEllipsoidKokkos_PackComm<LMPDeviceType,0,0> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          buf,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      }
-    } 
-  }  
-
-  return n*size_forward;
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType,int PBC_FLAG,int TRICLINIC,int DEFORM_VREMAP>
-struct AtomVecEllipsoidKokkos_PackCommVel {
-  typedef DeviceType device_type;
-
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
-  typename ArrayTypes<DeviceType>::t_int_1d _mask;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _rmass;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _v, _angmom;
-  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
-  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  double _xprd,_yprd,_zprd,_xy,_xz,_yz;
-  double _pbc[6];
-  double _h_rate[6];
-  const int _deform_vremap;
-
-  AtomVecEllipsoidKokkos_PackCommVel(
-    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
-    const typename DAT::tdual_int_1d &mask,
-    const typename DAT::ttransform_kkfloat_1d &rmass,
-    const typename DAT::ttransform_kkfloat_1d_3 &v,
-    const typename DAT::ttransform_kkfloat_1d_3 &angmom,
-    const typename DAT::tdual_double_2d_lr &buf,
-    const typename DAT::tdual_int_1d &list,
-    const double &xprd, const double &yprd, const double &zprd,
-    const double &xy, const double &xz, const double &yz, const int* const pbc,
-    const double * const h_rate,
-    const int &deform_vremap):
-    _x(x.view<DeviceType>()),
-    _mask(mask.view<DeviceType>()),
-    _rmass(rmass.view<DeviceType>()),
-    _v(v.view<DeviceType>()),
-    _angmom(angmom.view<DeviceType>()),
-    _list(list.view<DeviceType>()),
-    _xprd(xprd),_yprd(yprd),_zprd(zprd),
-    _xy(xy),_xz(xz),_yz(yz),
-    _deform_vremap(deform_vremap)
-  {
-    const size_t elements = 9;
-    const int maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_double_2d_lr_um(buf.view<DeviceType>().data(),maxsend,elements);
-    _pbc[0] = pbc[0]; _pbc[1] = pbc[1]; _pbc[2] = pbc[2];
-    _pbc[3] = pbc[3]; _pbc[4] = pbc[4]; _pbc[5] = pbc[5];
-    _h_rate[0] = h_rate[0]; _h_rate[1] = h_rate[1]; _h_rate[2] = h_rate[2];
-    _h_rate[3] = h_rate[3]; _h_rate[4] = h_rate[4]; _h_rate[5] = h_rate[5];
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void operator() (const int& i) const {
-    const int j = _list(i);
-    if (PBC_FLAG == 0) {
-      _buf(i,0) = _x(j,0);
-      _buf(i,1) = _x(j,1);
-      _buf(i,2) = _x(j,2);
-    } else {
-      if (TRICLINIC == 0) {
-        _buf(i,0) = _x(j,0) + _pbc[0]*_xprd;
-        _buf(i,1) = _x(j,1) + _pbc[1]*_yprd;
-        _buf(i,2) = _x(j,2) + _pbc[2]*_zprd;
-      } else {
-        _buf(i,0) = _x(j,0) + _pbc[0]*_xprd + _pbc[5]*_xy + _pbc[4]*_xz;
-        _buf(i,1) = _x(j,1) + _pbc[1]*_yprd + _pbc[3]*_yz;
-        _buf(i,2) = _x(j,2) + _pbc[2]*_zprd;
-      }
-    }
-    if (DEFORM_VREMAP == 0) {
-      _buf(i,3) = _v(j,0);
-      _buf(i,4) = _v(j,1);
-      _buf(i,5) = _v(j,2);
-    } else {
-      if (_mask(i) & _deform_vremap) {
-        _buf(i,3) = _v(j,0) + _pbc[0]*_h_rate[0] + _pbc[5]*_h_rate[5] + _pbc[4]*_h_rate[4];
-        _buf(i,4) = _v(j,1) + _pbc[1]*_h_rate[1] + _pbc[3]*_h_rate[3];
-        _buf(i,5) = _v(j,2) + _pbc[2]*_h_rate[2];
-      } else {
-        _buf(i,3) = _v(j,0);
-        _buf(i,4) = _v(j,1);
-        _buf(i,5) = _v(j,2);
-      }
-    }
-    _buf(i,6) = _angmom(j,0);
-    _buf(i,7) = _angmom(j,1);
-    _buf(i,8) = _angmom(j,2);
-  }
-};
-
-/* ---------------------------------------------------------------------- */
-
-int AtomVecEllipsoidKokkos::pack_comm_vel_kokkos(
-  const int &n,
-  const DAT::tdual_int_1d &list,
-  const DAT::tdual_double_2d_lr &buf,
-  const int &pbc_flag,
-  const int* const pbc)
-{
-  if (lmp->kokkos->forward_comm_on_host) {
-    atomKK->sync(Host,X_MASK|RMASS_MASK|V_MASK|ANGMOM_MASK);
-    if (pbc_flag) {
-      if (deform_vremap) {
-        if (domain->triclinic) {
-            struct AtomVecEllipsoidKokkos_PackCommVel<LMPHostType,1,1,1> f(
-              atomKK->k_x,atomKK->k_mask,
-              atomKK->k_rmass,
-              atomKK->k_v,atomKK->k_angmom,
-              buf,list,
-              domain->xprd,domain->yprd,domain->zprd,
-              domain->xy,domain->xz,domain->yz,pbc,h_rate,deform_vremap);
-            Kokkos::parallel_for(n,f);
-        } else {
-            struct AtomVecEllipsoidKokkos_PackCommVel<LMPHostType,1,0,1> f(
-              atomKK->k_x,atomKK->k_mask,
-              atomKK->k_rmass,
-              atomKK->k_v,atomKK->k_angmom,
-              buf,list,
-              domain->xprd,domain->yprd,domain->zprd,
-              domain->xy,domain->xz,domain->yz,pbc,h_rate,deform_vremap);
-            Kokkos::parallel_for(n,f);
-        }
-      } else {
-        if (domain->triclinic) {
-            struct AtomVecEllipsoidKokkos_PackCommVel<LMPHostType,1,1,0> f(
-              atomKK->k_x,atomKK->k_mask,
-              atomKK->k_rmass,
-              atomKK->k_v,atomKK->k_angmom,
-              buf,list,
-              domain->xprd,domain->yprd,domain->zprd,
-              domain->xy,domain->xz,domain->yz,pbc,h_rate,deform_vremap);
-            Kokkos::parallel_for(n,f);
-        } else {
-            struct AtomVecEllipsoidKokkos_PackCommVel<LMPHostType,1,0,0> f(
-              atomKK->k_x,atomKK->k_mask,
-              atomKK->k_rmass,
-              atomKK->k_v,atomKK->k_angmom,
-              buf,list,
-              domain->xprd,domain->yprd,domain->zprd,
-              domain->xy,domain->xz,domain->yz,pbc,h_rate,deform_vremap);
-            Kokkos::parallel_for(n,f);
-        }
-      }
-    } else {
-      if (domain->triclinic) {
-          struct AtomVecEllipsoidKokkos_PackCommVel<LMPHostType,0,1,0> f(
-            atomKK->k_x,atomKK->k_mask,
-            atomKK->k_rmass,
-            atomKK->k_v,atomKK->k_angmom,
-            buf,list,
-            domain->xprd,domain->yprd,domain->zprd,
-            domain->xy,domain->xz,domain->yz,pbc,h_rate,deform_vremap);
-          Kokkos::parallel_for(n,f);
-      } else {
-          struct AtomVecEllipsoidKokkos_PackCommVel<LMPHostType,0,0,0> f(
-            atomKK->k_x,atomKK->k_mask,
-            atomKK->k_rmass,
-            atomKK->k_v,atomKK->k_angmom,
-            buf,list,
-            domain->xprd,domain->yprd,domain->zprd,
-            domain->xy,domain->xz,domain->yz,pbc,h_rate,deform_vremap);
-          Kokkos::parallel_for(n,f);
-      }
-    }
-  } else {
-    atomKK->sync(Device,X_MASK|RMASS_MASK|V_MASK|ANGMOM_MASK);
-    if (pbc_flag) {
-      if (deform_vremap) {
-        if (domain->triclinic) {
-            struct AtomVecEllipsoidKokkos_PackCommVel<LMPDeviceType,1,1,1> f(
-              atomKK->k_x,atomKK->k_mask,
-              atomKK->k_rmass,
-              atomKK->k_v,atomKK->k_angmom,
-              buf,list,
-              domain->xprd,domain->yprd,domain->zprd,
-              domain->xy,domain->xz,domain->yz,pbc,h_rate,deform_vremap);
-            Kokkos::parallel_for(n,f);
-        } else {
-            struct AtomVecEllipsoidKokkos_PackCommVel<LMPDeviceType,1,0,1> f(
-              atomKK->k_x,atomKK->k_mask,
-              atomKK->k_rmass,
-              atomKK->k_v,atomKK->k_angmom,
-              buf,list,
-              domain->xprd,domain->yprd,domain->zprd,
-              domain->xy,domain->xz,domain->yz,pbc,h_rate,deform_vremap);
-            Kokkos::parallel_for(n,f);
-        }
-      } else {
-        if (domain->triclinic) {
-            struct AtomVecEllipsoidKokkos_PackCommVel<LMPDeviceType,1,1,0> f(
-              atomKK->k_x,atomKK->k_mask,
-              atomKK->k_rmass,
-              atomKK->k_v,atomKK->k_angmom,
-              buf,list,
-              domain->xprd,domain->yprd,domain->zprd,
-              domain->xy,domain->xz,domain->yz,pbc,h_rate,deform_vremap);
-            Kokkos::parallel_for(n,f);
-        } else {
-            struct AtomVecEllipsoidKokkos_PackCommVel<LMPDeviceType,1,0,0> f(
-              atomKK->k_x,atomKK->k_mask,
-              atomKK->k_rmass,
-              atomKK->k_v,atomKK->k_angmom,
-              buf,list,
-              domain->xprd,domain->yprd,domain->zprd,
-              domain->xy,domain->xz,domain->yz,pbc,h_rate,deform_vremap);
-            Kokkos::parallel_for(n,f);
-        }
-      }
-    } else {
-      if (domain->triclinic) {
-          struct AtomVecEllipsoidKokkos_PackCommVel<LMPDeviceType,0,1,0> f(
-            atomKK->k_x,atomKK->k_mask,
-            atomKK->k_rmass,
-            atomKK->k_v,atomKK->k_angmom,
-            buf,list,
-            domain->xprd,domain->yprd,domain->zprd,
-            domain->xy,domain->xz,domain->yz,pbc,h_rate,deform_vremap);
-          Kokkos::parallel_for(n,f);
-      } else {
-          struct AtomVecEllipsoidKokkos_PackCommVel<LMPDeviceType,0,0,0> f(
-            atomKK->k_x,atomKK->k_mask,
-            atomKK->k_rmass,
-            atomKK->k_v,atomKK->k_angmom,
-            buf,list,
-            domain->xprd,domain->yprd,domain->zprd,
-            domain->xy,domain->xz,domain->yz,pbc,h_rate,deform_vremap);
-          Kokkos::parallel_for(n,f);
-      }
-    }
-  }
-  return n*(size_forward+size_velocity);
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType,int PBC_FLAG,int TRICLINIC>
-struct AtomVecEllipsoidKokkos_PackCommSelf {
-  typedef DeviceType device_type;
-
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr _xw;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _rmass;
-  int _nfirst;
-  typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  double _xprd,_yprd,_zprd,_xy,_xz,_yz;
-  double _pbc[6];
-  typename AtomVecEllipsoidKokkosBonusArray
-          <DeviceType>::t_bonus_1d_randomread _bonus;
-  typename AtomVecEllipsoidKokkosBonusArray
-          <DeviceType>::t_bonus_1d _bonusw;
-  typename ArrayTypes<DeviceType>::t_int_1d_randomread _ellipsoid;
-  typename ArrayTypes<DeviceType>::t_int_1d _ellipsoidw;
-
-  AtomVecEllipsoidKokkos_PackCommSelf(
-    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
-    const typename DAT::ttransform_kkfloat_1d &rmass,
-    const int &nfirst,
-    const typename DAT::tdual_int_1d &list,
-    const double &xprd, const double &yprd, const double &zprd,
-    const double &xy, const double &xz, const double &yz, const int* const pbc,
-    const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
-    const typename DAT::tdual_int_1d &ellipsoid):
-    _x(x.view<DeviceType>()),_xw(x.view<DeviceType>()),
-    _rmass(rmass.view<DeviceType>()),
-    _nfirst(nfirst),_list(list.view<DeviceType>()),
-    _xprd(xprd),_yprd(yprd),_zprd(zprd),
-    _xy(xy),_xz(xz),_yz(yz),
-    _bonus(bonus.view<DeviceType>()),_bonusw(bonus.view<DeviceType>()), 
-    _ellipsoid(ellipsoid.view<DeviceType>()),_ellipsoidw(ellipsoid.view<DeviceType>()) {
-    _pbc[0] = pbc[0]; _pbc[1] = pbc[1]; _pbc[2] = pbc[2];
-    _pbc[3] = pbc[3]; _pbc[4] = pbc[4]; _pbc[5] = pbc[5];
-  };
-
-  KOKKOS_INLINE_FUNCTION
-  void operator() (const int& i) const {
-    const int j = _list(i);
-    if (PBC_FLAG == 0) {
-      _xw(i+_nfirst,0) = _x(j,0);
-      _xw(i+_nfirst,1) = _x(j,1);
-      _xw(i+_nfirst,2) = _x(j,2);
-    } else {
-      if (TRICLINIC == 0) {
-        _xw(i+_nfirst,0) = _x(j,0) + _pbc[0]*_xprd;
-        _xw(i+_nfirst,1) = _x(j,1) + _pbc[1]*_yprd;
-        _xw(i+_nfirst,2) = _x(j,2) + _pbc[2]*_zprd;
-      } else {
-        _xw(i+_nfirst,0) = _x(j,0) + _pbc[0]*_xprd + _pbc[5]*_xy + _pbc[4]*_xz;
-        _xw(i+_nfirst,1) = _x(j,1) + _pbc[1]*_yprd + _pbc[3]*_yz;
-        _xw(i+_nfirst,2) = _x(j,2) + _pbc[2]*_zprd;
-      }
-    }
-    _rmass(i+_nfirst) = _rmass(j);
-    if (_ellipsoid(j) >= 0) {
-      /*_bonusw(_ellipsoidw(i+_nfirst)).shape[0] = _bonus(_ellipsoid(j)).shape[0];
-      _bonusw(_ellipsoidw(i+_nfirst)).shape[1] = _bonus(_ellipsoid(j)).shape[1];
-      _bonusw(_ellipsoidw(i+_nfirst)).shape[2] = _bonus(_ellipsoid(j)).shape[2];
-      _bonusw(_ellipsoid(i+_nfirst)).quat[0] = _bonus(_ellipsoid(j)).quat[0];
-      _bonusw(_ellipsoid(i+_nfirst)).quat[1] = _bonus(_ellipsoid(j)).quat[1];
-      _bonusw(_ellipsoid(i+_nfirst)).quat[2] = _bonus(_ellipsoid(j)).quat[2];
-      _bonusw(_ellipsoid(i+_nfirst)).quat[3] = _bonus(_ellipsoid(j)).quat[3];*/
-      //_bonusw(_ellipsoid(i+_nfirst)) = _bonus(_ellipsoid(j));
-      //_ellipsoidw(i+_nfirst) = _ellipsoid(j);
-      //_ellipsoidw(_bonus(j).ilocal) = _ellipsoid(i+_nfirst);
-      //_bonusw(_ellipsoid(i+_nfirst)) = _bonus(j);
-      //if (_ellipsoid(j) >= 0 && ((i+_nfirst) != j)) _bonusw(_ellipsoid(j)).ilocal = _ellipsoid(i+_nfirst);
-      //_ellipsoidw(i+_nfirst) = _ellipsoid(j);
-    }
-  }
-};
-
-/* ---------------------------------------------------------------------- */
-
-int AtomVecEllipsoidKokkos::pack_comm_self(
-  const int &n, const DAT::tdual_int_1d &list,
-  const int nfirst, const int &pbc_flag, const int* const pbc) {
-  if (lmp->kokkos->forward_comm_on_host) {
-    atomKK->sync(Host,X_MASK|RMASS_MASK|ELLIPSOID_MASK|BONUS_MASK);
-    atomKK->modified(Host,X_MASK|RMASS_MASK|ELLIPSOID_MASK|BONUS_MASK);
-    if (pbc_flag) {
-      if (domain->triclinic) {
-        struct AtomVecEllipsoidKokkos_PackCommSelf<LMPHostType,1,1> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          nfirst,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      } else {
-        struct AtomVecEllipsoidKokkos_PackCommSelf<LMPHostType,1,0> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          nfirst,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      }
-    } else {
-      if (domain->triclinic) {
-        struct AtomVecEllipsoidKokkos_PackCommSelf<LMPHostType,0,1> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          nfirst,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      } else {
-        struct AtomVecEllipsoidKokkos_PackCommSelf<LMPHostType,0,0> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          nfirst,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      }
-    }
-  } else {
-    atomKK->sync(Device,X_MASK|RMASS_MASK|ELLIPSOID_MASK|BONUS_MASK);
-    atomKK->modified(Device,X_MASK|RMASS_MASK|ELLIPSOID_MASK|BONUS_MASK);
-    if (pbc_flag) {
-      if (domain->triclinic) {
-        struct AtomVecEllipsoidKokkos_PackCommSelf<LMPDeviceType,1,1> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          nfirst,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      } else {
-        struct AtomVecEllipsoidKokkos_PackCommSelf<LMPDeviceType,1,0> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          nfirst,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      }
-    } else {
-      if (domain->triclinic) {
-        struct AtomVecEllipsoidKokkos_PackCommSelf<LMPDeviceType,0,1> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          nfirst,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      } else {
-        struct AtomVecEllipsoidKokkos_PackCommSelf<LMPDeviceType,0,0> f(
-          atomKK->k_x,
-          atomKK->k_rmass,
-          nfirst,list,
-          domain->xprd,domain->yprd,domain->zprd,
-          domain->xy,domain->xz,domain->yz,pbc,
-          k_bonus, atomKK->k_ellipsoid);
-        Kokkos::parallel_for(n,f);
-      }
-    }
-  }
-  return n*size_forward;
-}
-
-/* ---------------------------------------------------------------------- */
+/* ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-struct AtomVecEllipsoidKokkos_UnpackComm {
+struct AtomVecEllipsoidKokkos_PackCommBonus {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr _x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _rmass;
-  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
-  int _first;
-  typename AtomVecEllipsoidKokkosBonusArray
-          <DeviceType>::t_bonus_1d _bonus;
-  typename ArrayTypes<DeviceType>::t_int_1d _ellipsoid;
+  typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d _bonus;
+  typename AT::t_int_1d _ellipsoid;
+  typename AT::t_double_2d_lr_um _buf;
+  typename AT::t_int_1d_const _list;
+  const int _offset;
 
-  AtomVecEllipsoidKokkos_UnpackComm(
-    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
-    const typename DAT::ttransform_kkfloat_1d &rmass,
+  AtomVecEllipsoidKokkos_PackCommBonus(
+    const AtomKokkos* atomKK,
     const typename DAT::tdual_double_2d_lr &buf,
-    const int& first,
     const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
-    const typename DAT::tdual_int_1d &ellipsoid):
-    _x(x.view<DeviceType>()),
-    _rmass(rmass.view<DeviceType>()),
-    _first(first),
-    _bonus(bonus.view<DeviceType>()),
-    _ellipsoid(ellipsoid.view<DeviceType>())
-  {
-    const size_t elements = 8;
-    const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_double_2d_lr_um(buf.view<DeviceType>().data(),maxsend,elements);
-  };
+    const typename DAT::tdual_int_1d &list,
+    const int &offset):
+      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
+      _bonus(bonus.view<DeviceType>()),
+      _list(list.view<DeviceType>()),
+      _offset(offset) {
+    const int size_forward = atomKK->avecKK->size_forward;
+    const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/size_forward;
+    const size_t elements = size_forward;
+    buffer_view<DeviceType>(_buf,buf,maxsend,elements);
+  }
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& i) const {
-    _x(i+_first,0) = _buf(i,0);
-    _x(i+_first,1) = _buf(i,1);
-    _x(i+_first,2) = _buf(i,2);
-    _rmass(i+_first) = _buf(i,3);
-    if (_ellipsoid(i+_first) >= 0) {
-      /*_bonus(_ellipsoid(i+_first)).shape[0] = _buf(i,4);
-      _bonus(_ellipsoid(i+_first)).shape[1] = _buf(i,5);
-      _bonus(_ellipsoid(i+_first)).shape[2] = _buf(i,6);*/
-      _bonus(_ellipsoid(i+_first)).quat[0] = _buf(i,4);
-      _bonus(_ellipsoid(i+_first)).quat[1] = _buf(i,5);
-      _bonus(_ellipsoid(i+_first)).quat[2] = _buf(i,6);
-      _bonus(_ellipsoid(i+_first)).quat[3] = _buf(i,7);
+    const int j = _list(i);
+    int m = _offset;
+    if (_ellipsoid(j) >= 0) {
+      _buf(i,m++) = _bonus(_ellipsoid(j)).quat[0];
+      _buf(i,m++) = _bonus(_ellipsoid(j)).quat[1];
+      _buf(i,m++) = _bonus(_ellipsoid(j)).quat[2];
+      _buf(i,m++) = _bonus(_ellipsoid(j)).quat[3];
     }
   }
 };
 
-/* ---------------------------------------------------------------------- */
+/* ------------------------------------------------------------------------- */
 
-void AtomVecEllipsoidKokkos::unpack_comm_kokkos(
-  const int &n, const int &first,
-  const DAT::tdual_double_2d_lr &buf) {
+void AtomVecEllipsoidKokkos::pack_comm_bonus_kokkos(const int &n, const DAT::tdual_int_1d &list,
+                                                    const DAT::tdual_double_2d_lr &buf, int vel_flag)
+{
+  int offset = size_forward - size_forward_bonus;
+  if (vel_flag) offset += size_velocity;
 
   if (lmp->kokkos->forward_comm_on_host) {
-    atomKK->modified(Host,X_MASK|RMASS_MASK|ELLIPSOID_MASK|BONUS_MASK);
-    struct AtomVecEllipsoidKokkos_UnpackComm<LMPHostType> f(
-      atomKK->k_x,
-      atomKK->k_rmass,
-      buf,first,k_bonus,atomKK->k_ellipsoid);
+    atomKK->sync(HostKK,datamask_bonus);
+    struct AtomVecEllipsoidKokkos_PackCommBonus<LMPHostType> f(atomKK,buf,k_bonus,list,offset);
     Kokkos::parallel_for(n,f);
   } else {
-    atomKK->modified(Device,X_MASK|RMASS_MASK|ELLIPSOID_MASK|BONUS_MASK);
-    struct AtomVecEllipsoidKokkos_UnpackComm<LMPDeviceType> f(
-      atomKK->k_x,
-      atomKK->k_rmass,
-      buf,first,k_bonus,atomKK->k_ellipsoid);
-    Kokkos::parallel_for(n,f); 
+    atomKK->sync(Device,datamask_bonus);
+    struct AtomVecEllipsoidKokkos_PackCommBonus<LMPDeviceType> f(atomKK,buf,k_bonus,list,offset);
+    Kokkos::parallel_for(n,f);
   }
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-struct AtomVecEllipsoidKokkos_UnpackCommVel {
+struct AtomVecEllipsoidKokkos_UnpackCommBonus {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr _x;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _rmass;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _v, _angmom;
-  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
-  int _first;
+  typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d _bonus;
+  typename AT::t_int_1d _ellipsoid;
+  typename AT::t_double_2d_lr_const _buf;
+  const int _first;
+  const int _offset;
 
-  AtomVecEllipsoidKokkos_UnpackCommVel(
-    const typename DAT::ttransform_kkfloat_1d_3_lr &x,
-    const typename DAT::ttransform_kkfloat_1d &rmass,
-    const typename DAT::ttransform_kkfloat_1d_3 &v,
-    const typename DAT::ttransform_kkfloat_1d_3 &angmom,
+  AtomVecEllipsoidKokkos_UnpackCommBonus(
+    const AtomKokkos* atomKK,
     const typename DAT::tdual_double_2d_lr &buf,
-    const int& first):
-    _x(x.view<DeviceType>()),
-    _rmass(rmass.view<DeviceType>()),
-    _v(v.view<DeviceType>()),
-    _angmom(angmom.view<DeviceType>()),
-    _first(first)
-  {
-    const size_t elements = 9;
-    const int maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/elements;
+    const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
+    const int& first,
+    const int& offset):
+      _bonus(bonus.view<DeviceType>()),
+      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
+      _first(first),
+      _offset(offset) {
+    const int size_forward = atomKK->avecKK->size_forward;
+    const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/size_forward;
+    const size_t elements = size_forward;
     buffer_view<DeviceType>(_buf,buf,maxsend,elements);
-  };
+  }
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& i) const {
-    _x(i+_first,0) = _buf(i,0);
-    _x(i+_first,1) = _buf(i,1);
-    _x(i+_first,2) = _buf(i,2);
-    _v(i+_first,0) = _buf(i,3);
-    _v(i+_first,1) = _buf(i,4);
-    _v(i+_first,2) = _buf(i,5);
-    _angmom(i+_first,0) = _buf(i,6);
-    _angmom(i+_first,1) = _buf(i,7);
-    _angmom(i+_first,2) = _buf(i,8);
+    if (_ellipsoid(i+_first) >= 0) {
+      int m = _offset;
+      _bonus(_ellipsoid(i+_first)).quat[0] = _buf(i,m++);
+      _bonus(_ellipsoid(i+_first)).quat[1] = _buf(i,m++);
+      _bonus(_ellipsoid(i+_first)).quat[2] = _buf(i,m++);
+      _bonus(_ellipsoid(i+_first)).quat[3] = _buf(i,m++);
+    }
   }
 };
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecEllipsoidKokkos::unpack_comm_vel_kokkos(
-  const int &n, const int &first,
-  const DAT::tdual_double_2d_lr &buf) {
+void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &first,
+                                                      const DAT::tdual_double_2d_lr &buf, int vel_flag)
+{
+  int offset = size_forward - size_forward_bonus;
+  if (vel_flag) offset += size_velocity;
+
   if (lmp->kokkos->forward_comm_on_host) {
-    atomKK->modified(Host,X_MASK|RMASS_MASK|V_MASK|ANGMOM_MASK);
-      struct AtomVecEllipsoidKokkos_UnpackCommVel<LMPHostType> f(
-        atomKK->k_x,
-        atomKK->k_rmass,
-        atomKK->k_v,atomKK->k_angmom,
-        buf,first);
-      Kokkos::parallel_for(n,f);
+    atomKK->sync(HostKK,datamask_bonus);
+    struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPHostType> f(
+      atomKK,buf,k_bonus,first,offset);
+    Kokkos::parallel_for(n,f);
+    atomKK->modified(HostKK,datamask_bonus);
   } else {
-    atomKK->modified(Device,X_MASK|RMASS_MASK|V_MASK|ANGMOM_MASK);
-      struct AtomVecEllipsoidKokkos_UnpackCommVel<LMPDeviceType> f(
-        atomKK->k_x,
-        atomKK->k_rmass,
-        atomKK->k_v,atomKK->k_angmom,
-        buf,first);
-      Kokkos::parallel_for(n,f);
+    atomKK->sync(Device,datamask_bonus);
+    struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPDeviceType> f(
+      atomKK,buf,k_bonus,first,offset);
+    Kokkos::parallel_for(n,f);
+    atomKK->modified(Device,datamask_bonus);
   }
 }
 
 /* ---------------------------------------------------------------------- */
 
+template<class DeviceType>
+struct AtomVecEllipsoidKokkos_PackCommSelfBonus {
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
+
+  typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d _bonus;
+  typename AT::t_int_1d _ellipsoid;
+
+  int _nfirst;
+  typename AT::t_int_1d_const _list;
+
+  AtomVecEllipsoidKokkos_PackCommSelfBonus(
+    const AtomKokkos* atomKK,
+    const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
+    const int &nfirst,
+    const typename DAT::tdual_int_1d &list):
+      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
+      _bonus(bonus.view<DeviceType>()),
+    _nfirst(nfirst),_list(list.view<DeviceType>()) {}
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const int& i) const {
+    const int j = _list(i);
+    if (_ellipsoid(i+_nfirst) >= 0 && _ellipsoid(j) >= 0) {
+      _bonus(_ellipsoid(i+_nfirst)).quat[0] = _bonus(_ellipsoid(j)).quat[0];
+      _bonus(_ellipsoid(i+_nfirst)).quat[1] = _bonus(_ellipsoid(j)).quat[1];
+      _bonus(_ellipsoid(i+_nfirst)).quat[2] = _bonus(_ellipsoid(j)).quat[2];
+      _bonus(_ellipsoid(i+_nfirst)).quat[3] = _bonus(_ellipsoid(j)).quat[3];
+    }
+  }
+};
+
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType,int PBC_FLAG>
-struct AtomVecEllipsoidKokkos_PackBorder {
-  typedef DeviceType device_type;
+void AtomVecEllipsoidKokkos::pack_comm_self_bonus_kokkos(const int &n,
+                                                         const DAT::tdual_int_1d &list,
+                                                         const int nfirst) {
+  // Check whether to always run forward communication on the host
+  // Choose correct forward PackComm kernel
 
-  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
-  const typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
-  const typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
-  const typename ArrayTypes<DeviceType>::t_int_1d _type;
-  const typename ArrayTypes<DeviceType>::t_int_1d _mask;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _rmass;
-  double _dx,_dy,_dz;
-  const typename AtomVecEllipsoidKokkosBonusArray
-           <DeviceType>::t_bonus_1d _bonus;
-  const typename ArrayTypes<DeviceType>::t_int_1d _ellipsoid;
-
-  AtomVecEllipsoidKokkos_PackBorder(
-    const typename ArrayTypes<DeviceType>::t_double_2d_lr_um &buf,
-    const typename ArrayTypes<DeviceType>::t_int_1d_const &list,
-    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr &x,
-    const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
-    const typename ArrayTypes<DeviceType>::t_int_1d &type,
-    const typename ArrayTypes<DeviceType>::t_int_1d &mask,
-    const typename ArrayTypes<DeviceType>::t_kkfloat_1d &rmass,
-    const double &dx, const double &dy, const double &dz,
-    const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
-    const typename DAT::tdual_int_1d &ellipsoid):
-    _list(list),
-    _x(x),_tag(tag),_type(type),_mask(mask),
-    _rmass(rmass),
-    _dx(dx),_dy(dy),_dz(dz),
-    _bonus(bonus.template view<DeviceType>()),_ellipsoid(ellipsoid.template view<DeviceType>())
-  {
-    const size_t elements = 15;
-    const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_double_2d_lr_um(buf.data(),maxsend,elements);
+  if (lmp->kokkos->forward_comm_on_host) {
+    atomKK->sync(HostKK,datamask_bonus);
+    struct AtomVecEllipsoidKokkos_PackCommSelfBonus<LMPHostType> f(
+      atomKK,k_bonus,nfirst,list);
+    Kokkos::parallel_for(n,f);
+    atomKK->modified(HostKK,datamask_bonus);
+  } else {
+    atomKK->sync(Device,datamask_bonus);
+    struct AtomVecEllipsoidKokkos_PackCommSelfBonus<LMPDeviceType> f(
+      atomKK,k_bonus,nfirst,list);
+    Kokkos::parallel_for(n,f);
+    atomKK->modified(Device,datamask_bonus);
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+struct AtomVecEllipsoidKokkos_PackCommSelfFusedBonus {
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
+
+  typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d _bonus;
+  typename AT::t_int_1d _ellipsoid;
+
+  typename AT::t_int_2d_lr_const _list;
+  typename AT::t_int_1d_const _firstrecv;
+  typename AT::t_int_1d_const _sendnum_scan;
+  typename AT::t_int_1d_const _g2l;
+
+  AtomVecEllipsoidKokkos_PackCommSelfFusedBonus(
+    const AtomKokkos* atomKK,
+    const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
+    const typename DAT::tdual_int_2d_lr &list,
+    const typename DAT::tdual_int_1d &firstrecv,
+    const typename DAT::tdual_int_1d &sendnum_scan,
+    const typename DAT::tdual_int_1d &g2l):
+      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
+      _bonus(bonus.view<DeviceType>()),
+      _list(list.view<DeviceType>()),
+      _firstrecv(firstrecv.view<DeviceType>()),
+      _sendnum_scan(sendnum_scan.view<DeviceType>()),
+      _g2l(g2l.view<DeviceType>()) {};
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const int& ii) const {
+
+    int iswap = 0;
+    while (ii >= _sendnum_scan[iswap]) iswap++;
+    int i = ii;
+    if (iswap > 0)
+      i = ii - _sendnum_scan[iswap-1];
+
+    const int _nfirst = _firstrecv[iswap];
+    const int nlocal = _firstrecv[0];
+
+    int j = _list(iswap,i);
+    if (j >= nlocal)
+      j = _g2l(j-nlocal);
+
+    if (_ellipsoid(i+_nfirst) >= 0 && _ellipsoid(j) >= 0) {
+      _bonus(_ellipsoid(i+_nfirst)).quat[0] = _bonus(_ellipsoid(j)).quat[0];
+      _bonus(_ellipsoid(i+_nfirst)).quat[1] = _bonus(_ellipsoid(j)).quat[1];
+      _bonus(_ellipsoid(i+_nfirst)).quat[2] = _bonus(_ellipsoid(j)).quat[2];
+      _bonus(_ellipsoid(i+_nfirst)).quat[3] = _bonus(_ellipsoid(j)).quat[3];
+    }
+  }
+};
+
+/* ---------------------------------------------------------------------- */
+
+void AtomVecEllipsoidKokkos::pack_comm_self_fused_bonus_kokkos(const int &n,
+                               const DAT::tdual_int_2d_lr &list,
+                               const DAT::tdual_int_1d &sendnum_scan,
+                               const DAT::tdual_int_1d &firstrecv,
+                               const DAT::tdual_int_1d &g2l) {
+  if (lmp->kokkos->forward_comm_on_host) {
+    atomKK->sync(HostKK,datamask_bonus);
+    struct AtomVecEllipsoidKokkos_PackCommSelfFusedBonus<LMPHostType> f(
+      atomKK,k_bonus,list,firstrecv,sendnum_scan,g2l);
+    Kokkos::parallel_for(n,f);
+    atomKK->modified(HostKK,datamask_bonus);
+  } else {
+    atomKK->sync(Device,datamask_bonus);
+    struct AtomVecEllipsoidKokkos_PackCommSelfFusedBonus<LMPDeviceType> f(
+      atomKK,k_bonus,list,firstrecv,sendnum_scan,g2l);
+    Kokkos::parallel_for(n,f);
+    atomKK->modified(Device,datamask_bonus);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+struct AtomVecEllipsoidKokkos_PackBorderBonus {
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
+
+  typename AT::t_double_2d_lr _buf;
+  const typename AT::t_int_1d_const _list;
+  const typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d_randomread _bonus;
+  const typename AT::t_int_1d_randomread _ellipsoid;
+  const int _offset;
+
+  AtomVecEllipsoidKokkos_PackBorderBonus(
+    const AtomKokkos* atomKK,
+    const typename AT::t_double_2d_lr &buf,
+    const typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d &bonus,
+    const typename AT::t_int_1d_const &list,
+    const int &offset):
+    _buf(buf),_list(list),_offset(offset),
+    _bonus(bonus),
+    _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()) {};
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& i) const {
     const int j = _list(i);
     const int j_bonus = _ellipsoid(j);
-    if (PBC_FLAG == 0) {
-      _buf(i,0) = _x(j,0);
-      _buf(i,1) = _x(j,1);
-      _buf(i,2) = _x(j,2);
-    } else {
-      _buf(i,0) = _x(j,0) + _dx;
-      _buf(i,1) = _x(j,1) + _dy;
-      _buf(i,2) = _x(j,2) + _dz;
-    }
-    _buf(i,3) = d_ubuf(_tag(j)).d;
-    _buf(i,4) = d_ubuf(_type(j)).d;
-    _buf(i,5) = d_ubuf(_mask(j)).d;
-    _buf(i,6) = _rmass(j);
+    int m = _offset;
     if (j_bonus < 0) {
-      _buf(i,7) = d_ubuf(j_bonus).d;
+      _buf(i,m) = d_ubuf(0).d;
     } else {
-      _buf(i,7) = d_ubuf(j_bonus).d;
-      _buf(i,8) = _bonus(j_bonus).shape[0];
-      _buf(i,9) = _bonus(j_bonus).shape[1];
-      _buf(i,10) = _bonus(j_bonus).shape[2];
-      _buf(i,11) = _bonus(j_bonus).quat[0];
-      _buf(i,12) = _bonus(j_bonus).quat[1];
-      _buf(i,13) = _bonus(j_bonus).quat[2];
-      _buf(i,14) = _bonus(j_bonus).quat[3];
+      _buf(i,m++) = d_ubuf(1).d;
+      _buf(i,m++) = _bonus(j_bonus).shape[0];
+      _buf(i,m++) = _bonus(j_bonus).shape[1];
+      _buf(i,m++) = _bonus(j_bonus).shape[2];
+      _buf(i,m++) = _bonus(j_bonus).quat[0];
+      _buf(i,m++) = _bonus(j_bonus).quat[1];
+      _buf(i,m++) = _bonus(j_bonus).quat[2];
+      _buf(i,m++) = _bonus(j_bonus).quat[3];
     }
   }
 };
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecEllipsoidKokkos::pack_border_kokkos(
-  int n, DAT::tdual_int_1d k_sendlist, 
-  DAT::tdual_double_2d_lr buf, int pbc_flag, int *pbc, ExecutionSpace space)
+void AtomVecEllipsoidKokkos::pack_border_bonus_kokkos(int n, DAT::tdual_int_1d k_sendlist,
+                                                      DAT::tdual_double_2d_lr &buf,
+                                                      ExecutionSpace space, int vel_flag)
 {
-  double dx,dy,dz;
-  
-  if (pbc_flag != 0) {
-    if (domain->triclinic == 0) {
-      dx = pbc[0]*domain->xprd;
-      dy = pbc[1]*domain->yprd;
-      dz = pbc[2]*domain->zprd;
-    } else {
-      dx = pbc[0];
-      dy = pbc[1];
-      dz = pbc[2];
-    }
-    if (space==Host) {
-      AtomVecEllipsoidKokkos_PackBorder<LMPHostType,1> f(
-        buf.template view<LMPHostType>(), k_sendlist.template view<LMPHostType>(),
-        h_x,h_tag,h_type,h_mask,h_rmass,
-        dx,dy,dz,k_bonus,atomKK->k_ellipsoid);
-      Kokkos::parallel_for(n,f);
-    } else {
-      AtomVecEllipsoidKokkos_PackBorder<LMPDeviceType,1> f(
-        buf.template view<LMPDeviceType>(), k_sendlist.template view<LMPDeviceType>(),
-        d_x,d_tag,d_type,d_mask,d_rmass,
-        dx,dy,dz,k_bonus,atomKK->k_ellipsoid);
-      Kokkos::parallel_for(n,f);
-    }
+  int offset = size_border - size_border_bonus;
+  if (vel_flag) offset += size_velocity;
+
+  atomKK->sync(space,datamask_bonus);
+
+  if (space == HostKK) {
+    AtomVecEllipsoidKokkos_PackBorderBonus<LMPHostType> f(
+      atomKK,buf.view_host(),k_bonus.view_host(),k_sendlist.view_host(),offset);
+    Kokkos::parallel_for(n,f);
   } else {
-    dx = dy = dz = 0;
-    if (space==Host) {
-      AtomVecEllipsoidKokkos_PackBorder<LMPHostType,0> f(
-        buf.template view<LMPHostType>(), k_sendlist.template view<LMPHostType>(),
-        h_x,h_tag,h_type,h_mask,h_rmass,
-        dx,dy,dz,k_bonus,atomKK->k_ellipsoid);
-      Kokkos::parallel_for(n,f);
-    } else {
-      AtomVecEllipsoidKokkos_PackBorder<LMPDeviceType,0> f(
-        buf.template view<LMPDeviceType>(), k_sendlist.template view<LMPDeviceType>(),
-        d_x,d_tag,d_type,d_mask,d_rmass,
-        dx,dy,dz,k_bonus,atomKK->k_ellipsoid);
-      Kokkos::parallel_for(n,f);
-    }
+    AtomVecEllipsoidKokkos_PackBorderBonus<LMPDeviceType> f(
+      atomKK,buf.view_device(),k_bonus.view_device(),k_sendlist.view_device(),offset);
+    Kokkos::parallel_for(n,f);
   }
- return n*size_border;
 }
 
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType,int PBC_FLAG,int DEFORM_VREMAP>
-struct AtomVecEllipsoidKokkos_PackBorderVel {
-  typedef DeviceType device_type;
-
-  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
-  const typename ArrayTypes<DeviceType>::t_int_1d_const _list;
-  const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr_randomread _x;
-  const typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
-  const typename ArrayTypes<DeviceType>::t_int_1d _type;
-  const typename ArrayTypes<DeviceType>::t_int_1d _mask;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _rmass;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _v, _angmom;
-  double _dx,_dy,_dz, _dvx, _dvy, _dvz;
-  const int _deform_groupbit;
-
-  AtomVecEllipsoidKokkos_PackBorderVel(
-    const typename ArrayTypes<DeviceType>::t_double_2d_lr_um &buf,
-    const typename ArrayTypes<DeviceType>::t_int_1d_const &list,
-    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr &x,
-    const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
-    const typename ArrayTypes<DeviceType>::t_int_1d &type,
-    const typename ArrayTypes<DeviceType>::t_int_1d &mask,
-    const typename ArrayTypes<DeviceType>::t_kkfloat_1d &rmass,
-    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 &v,
-    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 &angmom,
-    const double &dx, const double &dy, const double &dz,
-    const double &dvx, const double &dvy, const double &dvz,
-    const int &deform_groupbit):
-    _buf(buf),_list(list),
-    _x(x),_tag(tag),_type(type),_mask(mask),
-    _rmass(rmass),
-    _v(v), _angmom(angmom),
-    _dx(dx),_dy(dy),_dz(dz),
-    _dvx(dvx),_dvy(dvy),_dvz(dvz),
-    _deform_groupbit(deform_groupbit)
-  {
-    const size_t elements = 13;
-    const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_double_2d_lr_um(buf.data(),maxsend,elements);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void operator() (const int& i) const {
-    const int j = _list(i);
-    if (PBC_FLAG == 0) {
-      _buf(i,0) = _x(j,0);
-      _buf(i,1) = _x(j,1);
-      _buf(i,2) = _x(j,2);
-    } else {
-      _buf(i,0) = _x(j,0) + _dx;
-      _buf(i,1) = _x(j,1) + _dy;
-      _buf(i,2) = _x(j,2) + _dz;
-    }
-    _buf(i,3) = d_ubuf(_tag(j)).d;
-    _buf(i,4) = d_ubuf(_type(j)).d;
-    _buf(i,5) = d_ubuf(_mask(j)).d;
-    _buf(i,6) = _rmass(j);
-    if (DEFORM_VREMAP) {
-      if (_mask(i) & _deform_groupbit) {
-        _buf(i,7) = _v(j,0) + _dvx;
-        _buf(i,8) = _v(j,1) + _dvy;
-        _buf(i,9) = _v(j,2) + _dvz;
-      }
-    }
-    else {
-      _buf(i,7) = _v(j,0);
-      _buf(i,8) = _v(j,1);
-      _buf(i,9) = _v(j,2);
-    }
-    _buf(i,10) = _angmom(j,0);
-    _buf(i,11) = _angmom(j,1);
-    _buf(i,12) = _angmom(j,2);
-  }
-};
-
-/* ---------------------------------------------------------------------- */
-
-int AtomVecEllipsoidKokkos::pack_border_vel_kokkos(
-  int n, DAT::tdual_int_1d k_sendlist, DAT::tdual_double_2d_lr buf,
-  int pbc_flag, int *pbc, ExecutionSpace space)
-{
-  double dx=0,dy=0,dz=0;
-  double dvx=0,dvy=0,dvz=0;
-
-  if (pbc_flag != 0) {
-    if (domain->triclinic == 0) {
-      dx = pbc[0]*domain->xprd;
-      dy = pbc[1]*domain->yprd;
-      dz = pbc[2]*domain->zprd;
-    } else {
-      dx = pbc[0];
-      dy = pbc[1];
-      dz = pbc[2];
-    }
-    if (!deform_vremap) {
-      if (space==Host) {
-        AtomVecEllipsoidKokkos_PackBorderVel<LMPHostType,1,0> f(
-          buf.template view<LMPHostType>(), k_sendlist.template view<LMPHostType>(),
-          h_x,h_tag,h_type,h_mask,h_rmass,
-          h_v, h_angmom,
-          dx,dy,dz,dvx,dvy,dvz,
-          deform_groupbit);
-        Kokkos::parallel_for(n,f);
-      } else {
-        AtomVecEllipsoidKokkos_PackBorderVel<LMPDeviceType,1,0> f(
-          buf.template view<LMPDeviceType>(), k_sendlist.template view<LMPDeviceType>(),
-          d_x,d_tag,d_type,d_mask,d_rmass,
-          d_v, d_angmom,
-          dx,dy,dz,dvx,dvy,dvz,
-          deform_groupbit);
-        Kokkos::parallel_for(n,f);
-      }
-    }
-    else {
-      dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
-      dvy = pbc[1]*h_rate[1] + pbc[3]*h_rate[3];
-      dvz = pbc[2]*h_rate[2];
-      if (space==Host) {
-        AtomVecEllipsoidKokkos_PackBorderVel<LMPHostType,1,1> f(
-          buf.template view<LMPHostType>(), k_sendlist.template view<LMPHostType>(),
-          h_x,h_tag,h_type,h_mask,h_rmass,
-          h_v, h_angmom,
-          dx,dy,dz,dvx,dvy,dvz,
-          deform_groupbit);
-        Kokkos::parallel_for(n,f);
-      } else {
-        AtomVecEllipsoidKokkos_PackBorderVel<LMPDeviceType,1,1> f(
-          buf.template view<LMPDeviceType>(), k_sendlist.template view<LMPDeviceType>(),
-          d_x,d_tag,d_type,d_mask,d_rmass,
-          d_v, d_angmom,
-          dx,dy,dz,dvx,dvy,dvz,
-          deform_groupbit);
-        Kokkos::parallel_for(n,f);
-      }
-    }
-  } else {
-    if (space==Host) {
-      AtomVecEllipsoidKokkos_PackBorderVel<LMPHostType,0,0> f(
-        buf.template view<LMPHostType>(), k_sendlist.template view<LMPHostType>(),
-        h_x,h_tag,h_type,h_mask,h_rmass,
-        h_v, h_angmom,
-        dx,dy,dz,dvx,dvy,dvz,
-        deform_groupbit);
-      Kokkos::parallel_for(n,f);
-    } else {
-      AtomVecEllipsoidKokkos_PackBorderVel<LMPDeviceType,0,0> f(
-        buf.template view<LMPDeviceType>(), k_sendlist.template view<LMPDeviceType>(),
-        d_x,d_tag,d_type,d_mask,d_rmass,
-        d_v, d_angmom,
-        dx,dy,dz,dvx,dvy,dvz,
-        deform_groupbit);
-      Kokkos::parallel_for(n,f);
-    }
-  }
-
-  return n*(size_border + size_velocity);
-}
-
-/* ---------------------------------------------------------------------- */
+/* ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-struct AtomVecEllipsoidKokkos_UnpackBorder {
+struct AtomVecEllipsoidKokkos_UnpackBorderBonus {
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
-  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr _x;
-  typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
-  typename ArrayTypes<DeviceType>::t_int_1d _type;
-  typename ArrayTypes<DeviceType>::t_int_1d _mask;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _rmass;
-  int _first;
-  // Bonus Variables
-  typename AtomVecEllipsoidKokkosBonusArray
-           <DeviceType>::t_bonus_1d _bonus;
-  typename ArrayTypes<DeviceType>::t_int_1d _ellipsoid;
+  typename AT::t_double_2d_lr_const _buf;
+  typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d _bonus;
+  typename AT::t_int_1d _ellipsoid;
+  const int _first;
+  const int _offset;
   const int _nlocal_bonus;
-  typename ArrayTypes<DeviceType>::t_int_scalar _nghost_bonus;
+  typename AT::t_int_scalar _nghost_bonus;
 
-  AtomVecEllipsoidKokkos_UnpackBorder(
-    const typename ArrayTypes<DeviceType>::t_double_2d_lr_um &buf,
-    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr &x,
-    const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
-    const typename ArrayTypes<DeviceType>::t_int_1d &type,
-    const typename ArrayTypes<DeviceType>::t_int_1d &mask,
-    const typename ArrayTypes<DeviceType>::t_kkfloat_1d &rmass,
+  AtomVecEllipsoidKokkos_UnpackBorderBonus(
+    const AtomKokkos* atomKK,
+    const typename AT::t_double_2d_lr_const &buf,
+    const typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d &bonus,
     const int& first,
-    // Bonus Variables
-    const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
-    const typename DAT::tdual_int_1d &ellipsoid,
-    const int &nlocal_bonus, 
-    typename ArrayTypes<DeviceType>::tdual_int_scalar &nghost_bonus):
-    _x(x),_tag(tag),_type(type),_mask(mask),
-    _rmass(rmass),
-    _first(first),
-    // Bonus Variables
-    _bonus(bonus.template view<DeviceType>()),
-    _ellipsoid(ellipsoid.template view<DeviceType>()),
-    _nlocal_bonus(nlocal_bonus), _nghost_bonus(nghost_bonus.template view<DeviceType>())
-  {
-    const size_t elements = 15;
-    const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_double_2d_lr_um(buf.data(),maxsend,elements);
-  };
+    const int& offset,
+    const int &nlocal_bonus,
+    const typename AT::t_int_scalar &nghost_bonus):
+      _buf(buf),
+      _first(first),
+      _offset(offset),
+      _bonus(bonus),
+      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
+      _nlocal_bonus(nlocal_bonus),
+      _nghost_bonus(nghost_bonus) {};
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& i) const {
 
-    _x(i+_first,0) = _buf(i,0);
-    _x(i+_first,1) = _buf(i,1);
-    _x(i+_first,2) = _buf(i,2);
-    _tag(i+_first) = static_cast<tagint> (d_ubuf(_buf(i,3)).i);
-    _type(i+_first) = static_cast<int>  (d_ubuf(_buf(i,4)).i);
-    _mask(i+_first) = static_cast<int>  (d_ubuf(_buf(i,5)).i);
-    _rmass(i+_first) = _buf(i,6);
-
-    int ellipID = static_cast<int> (d_ubuf(_buf(i,7)).i);
+    int ellipID = static_cast<int> (d_ubuf(_buf(i,_offset)).i);
 
     if (ellipID == 0 ) {
       _ellipsoid(i+_first) = -1;
     } else {
       int j = _nlocal_bonus + Kokkos::atomic_fetch_add(&_nghost_bonus(),1);
-      _bonus(j).shape[0] = _buf(i,8);
-      _bonus(j).shape[1] = _buf(i,9); 
-      _bonus(j).shape[2] = _buf(i,10);
-      _bonus(j).quat[0] = _buf(i,11);
-      _bonus(j).quat[1] = _buf(i,12);
-      _bonus(j).quat[2] = _buf(i,13);
-      _bonus(j).quat[3] = _buf(i,14);
+      int m = _offset + 1;
+      _bonus(j).shape[0] = _buf(i,m++);
+      _bonus(j).shape[1] = _buf(i,m++);
+      _bonus(j).shape[2] = _buf(i,m++);
+      _bonus(j).quat[0] = _buf(i,m++);
+      _bonus(j).quat[1] = _buf(i,m++);
+      _bonus(j).quat[2] = _buf(i,m++);
+      _bonus(j).quat[3] = _buf(i,m++);
       _bonus(j).ilocal = i+_first;
-      _ellipsoid(i+_first) = j; 
+      _ellipsoid(i+_first) = j;
     }
   }
 };
 
-/* ---------------------------------------------------------------------- */
+/* ------------------------------------------------------------------------- */
 
-void AtomVecEllipsoidKokkos::unpack_border_kokkos(const int &n, const int &first,
-                            const DAT::tdual_double_2d_lr &buf,ExecutionSpace space) {
+void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n, const int &first,
+                                                        const DAT::tdual_double_2d_lr &buf,
+                                                        ExecutionSpace space, int vel_flag) {
   while (first+n >= nmax) grow(0);
   while (n+nlocal_bonus+nghost_bonus >= nmax_bonus) grow_bonus();
 
-  if (space==Host) {
-    k_nghost_bonus.h_view() = nghost_bonus;
-    struct AtomVecEllipsoidKokkos_UnpackBorder<LMPHostType> f(buf.template view<LMPHostType>(),
-      h_x,h_tag,h_type,h_mask,h_rmass,first,
-      k_bonus,atomKK->k_ellipsoid,
-      this->nlocal_bonus, k_nghost_bonus);
+  atomKK->sync(space,datamask_bonus);
+
+  int offset = size_border - size_border_bonus;
+  if (vel_flag) offset += size_velocity;
+
+  if (space == HostKK) {
+    k_nghost_bonus.view_host()() = nghost_bonus;
+    struct AtomVecEllipsoidKokkos_UnpackBorderBonus<LMPHostType> f(
+      atomKK,buf.view_host(),k_bonus.view_host(),first,offset,
+      this->nlocal_bonus,k_nghost_bonus.view_host());
     Kokkos::parallel_for(n,f);
   } else {
-    k_nghost_bonus.h_view() = nghost_bonus;
-    k_nghost_bonus.modify<LMPHostType>();
-    k_nghost_bonus.sync<LMPDeviceType>();
-    struct AtomVecEllipsoidKokkos_UnpackBorder<LMPDeviceType> f(buf.template view<LMPDeviceType>(),
-      d_x,d_tag,d_type,d_mask,d_rmass,first,
-      k_bonus,atomKK->k_ellipsoid,
-      this->nlocal_bonus, k_nghost_bonus);
+    k_nghost_bonus.view_host()() = nghost_bonus;
+    k_nghost_bonus.modify_host();
+    k_nghost_bonus.sync_device();
+    struct AtomVecEllipsoidKokkos_UnpackBorderBonus<LMPDeviceType> f(
+      atomKK,buf.view_device(),k_bonus.view_device(),first,offset,
+      this->nlocal_bonus, k_nghost_bonus.view_device());
     Kokkos::parallel_for(n,f);
-    k_nghost_bonus.modify<LMPDeviceType>();
-    k_nghost_bonus.sync<LMPHostType>();
+    k_nghost_bonus.modify_device();
+    k_nghost_bonus.sync_host();
   }
-  atomKK->modified(space,X_MASK|TAG_MASK|TYPE_MASK|MASK_MASK|RMASS_MASK|ELLIPSOID_MASK|BONUS_MASK);
+
+  atomKK->modified(space,datamask_bonus);
+
+  nghost_bonus = k_nghost_bonus.view_host()();
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-struct AtomVecEllipsoidKokkos_UnpackBorderVel {
-  typedef DeviceType device_type;
-
-  typename ArrayTypes<DeviceType>::t_double_2d_lr_um _buf;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr _x;
-  typename ArrayTypes<DeviceType>::t_tagint_1d _tag;
-  typename ArrayTypes<DeviceType>::t_int_1d _type;
-  typename ArrayTypes<DeviceType>::t_int_1d _mask;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d _rmass;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _v;
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 _angmom;
-  int _first;
-
-  AtomVecEllipsoidKokkos_UnpackBorderVel(
-    const typename ArrayTypes<DeviceType>::t_double_2d_lr_um &buf,
-    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr &x,
-    const typename ArrayTypes<DeviceType>::t_tagint_1d &tag,
-    const typename ArrayTypes<DeviceType>::t_int_1d &type,
-    const typename ArrayTypes<DeviceType>::t_int_1d &mask,
-    const typename ArrayTypes<DeviceType>::t_kkfloat_1d &rmass,
-    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 &v,
-    const typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 &angmom,
-    const int& first):
-    _buf(buf),_x(x),_tag(tag),_type(type),_mask(mask),
-    _rmass(rmass),
-    _v(v), _angmom(angmom),
-    _first(first)
-  {
-    const size_t elements = 13;
-    const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
-    _buf = typename ArrayTypes<DeviceType>::t_double_2d_lr_um(buf.data(),maxsend,elements);
-  };
-
-  KOKKOS_INLINE_FUNCTION
-  void operator() (const int& i) const {
-    _x(i+_first,0) = _buf(i,0);
-    _x(i+_first,1) = _buf(i,1);
-    _x(i+_first,2) = _buf(i,2);
-    _tag(i+_first) = static_cast<tagint> (d_ubuf(_buf(i,3)).i);
-    _type(i+_first) = static_cast<int>  (d_ubuf(_buf(i,4)).i);
-    _mask(i+_first) = static_cast<int>  (d_ubuf(_buf(i,5)).i);
-    _rmass(i+_first) = _buf(i,6);
-    _v(i+_first,0) = _buf(i,7);
-    _v(i+_first,1) = _buf(i,8);
-    _v(i+_first,2) = _buf(i,9);
-    _angmom(i+_first,0) = _buf(i,10);
-    _angmom(i+_first,1) = _buf(i,11);
-    _angmom(i+_first,2) = _buf(i,12);
-  }
-};
-
-/* ---------------------------------------------------------------------- */
-
-void AtomVecEllipsoidKokkos::unpack_border_vel_kokkos(
-  const int &n, const int &first,
-  const DAT::tdual_double_2d_lr &buf,ExecutionSpace space) {
-  while (first+n >= nmax) grow(0);
-  if (space==Host) {
-    struct AtomVecEllipsoidKokkos_UnpackBorderVel<LMPHostType> f(buf.template view<LMPHostType>(),
-      h_x,h_tag,h_type,h_mask,h_rmass,
-      h_v, h_angmom,
-      first);
-    Kokkos::parallel_for(n,f);
-  } else {
-    struct AtomVecEllipsoidKokkos_UnpackBorderVel<LMPDeviceType> f(buf.template view<LMPDeviceType>(),
-      d_x,d_tag,d_type,d_mask,d_rmass,
-      d_v, d_angmom,
-      first);
-    Kokkos::parallel_for(n,f);
-  }
-
-  atomKK->modified(space,X_MASK|TAG_MASK|TYPE_MASK|MASK_MASK|
-                 RMASS_MASK|V_MASK|ANGMOM_MASK);
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
+struct AtomVecEllipsoidKokkos_PackExchangeBonus {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  typename AT::t_kkfloat_1d_3_lr_randomread _x;
-  typename AT::t_kkfloat_1d_3_randomread _v;
-  typename AT::t_tagint_1d_randomread _tag;
-  typename AT::t_int_1d_randomread _type;
-  typename AT::t_int_1d_randomread _mask;
-  typename AT::t_imageint_1d_randomread _image;
-  typename AT::t_kkfloat_1d_randomread _rmass;
-  typename AT::t_kkfloat_1d_3_randomread _angmom;
-  typename AT::t_kkfloat_1d_3_lr _xw;
-  typename AT::t_kkfloat_1d_3 _vw;
-  typename AT::t_tagint_1d _tagw;
-  typename AT::t_int_1d _typew;
-  typename AT::t_int_1d _maskw;
-  typename AT::t_imageint_1d _imagew;
-  typename AT::t_kkfloat_1d _rmassw;
-  typename AT::t_kkfloat_1d_3 _angmomw;
+
+  typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d_randomread _bonus;
+  typename AT::t_int_1d_randomread _ellipsoid;
+  typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d _bonusw;
+  typename AT::t_int_1d _ellipsoidw;
+
   typename AT::t_double_2d_lr_um _buf;
   typename AT::t_int_1d_const _sendlist;
-  typename AT::t_int_1d_const _copylist;
-  typename AT::t_int_1d_const _sendlist_bonus;
   typename AT::t_int_1d_const _copylist_bonus;
-  int _size_exchange;
-  // Bonus Variables
-  typename AtomVecEllipsoidKokkosBonusArray
-          <DeviceType>::t_bonus_1d_randomread _bonus;
-  typename AT::t_int_1d_randomread _ellipsoid;
-  typename AtomVecEllipsoidKokkosBonusArray
-          <DeviceType>::t_bonus_1d _bonusw;
-  typename AT::t_int_1d _ellipsoidw;
-  
-  AtomVecEllipsoidKokkos_PackExchangeFunctor(
-    const AtomKokkos* atom,
-    const typename DEllipsoidBonusAT::tdual_bonus_1d bonus,
-    const typename AT::tdual_double_2d_lr buf,
-    typename AT::tdual_int_1d sendlist,
-    typename AT::tdual_int_1d copylist,
-    typename AT::tdual_int_1d sendlist_bonus,
-    typename AT::tdual_int_1d copylist_bonus):
-    _size_exchange(atom->avecKK->size_exchange),
-    _x(atom->k_x.template view<DeviceType>()),
-    _v(atom->k_v.template view<DeviceType>()),
-    _tag(atom->k_tag.template view<DeviceType>()),
-    _type(atom->k_type.template view<DeviceType>()),
-    _mask(atom->k_mask.template view<DeviceType>()),
-    _image(atom->k_image.template view<DeviceType>()),
-    _rmass(atom->k_rmass.template view<DeviceType>()),
-    _angmom(atom->k_angmom.template view<DeviceType>()),
-    _xw(atom->k_x.template view<DeviceType>()),
-    _vw(atom->k_v.template view<DeviceType>()),
-    _tagw(atom->k_tag.template view<DeviceType>()),
-    _typew(atom->k_type.template view<DeviceType>()),
-    _maskw(atom->k_mask.template view<DeviceType>()),
-    _imagew(atom->k_image.template view<DeviceType>()),
-    _rmassw(atom->k_rmass.template view<DeviceType>()),
-    _angmomw(atom->k_angmom.template view<DeviceType>()),
-    _sendlist(sendlist.template view<DeviceType>()),
-    _copylist(copylist.template view<DeviceType>()),
-    _sendlist_bonus(sendlist_bonus.template view<DeviceType>()),
-    _copylist_bonus(copylist_bonus.template view<DeviceType>()),
-    // Bonus Variables
-    _bonus(bonus.template view<DeviceType>()),
-    _ellipsoid(atom->k_ellipsoid.template view<DeviceType>()),
-    _bonusw(bonus.template view<DeviceType>()),
-    _ellipsoidw(atom->k_ellipsoid.template view<DeviceType>())
-     {
+  const int _size_exchange;
+  const int _offset;
 
-    const int maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/_size_exchange;
+  AtomVecEllipsoidKokkos_PackExchangeBonus(
+    const AtomKokkos* atomKK,
+    const DAT::tdual_double_2d_lr &buf,
+    const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
+    DAT::tdual_int_1d &sendlist,
+    DAT::tdual_int_1d &copylist_bonus,
+    const int &offset):
+      _bonus(bonus.template view<DeviceType>()),
+      _ellipsoid(atomKK->k_ellipsoid.template view<DeviceType>()),
+      _bonusw(bonus.template view<DeviceType>()),
+      _ellipsoidw(atomKK->k_ellipsoid.template view<DeviceType>()),
 
-    _buf = typename AT::t_double_2d_lr_um(buf.template view<DeviceType>().data(),maxsend,_size_exchange);
-
+      _size_exchange(atomKK->avecKK->size_exchange),
+      _sendlist(sendlist.template view<DeviceType>()),
+      _copylist_bonus(copylist_bonus.template view<DeviceType>()),
+      _offset(offset) {
+    const int maxsendlist = (buf.template view<DeviceType>().extent(0)*
+                             buf.template view<DeviceType>().extent(1))/_size_exchange;
+    buffer_view<DeviceType>(_buf,buf,maxsendlist,_size_exchange);
   }
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int &mysend) const {
     const int i = _sendlist(mysend);
-    _buf(mysend,0) = _size_exchange;
-    _buf(mysend,1) = _x(i,0);
-    _buf(mysend,2) = _x(i,1);
-    _buf(mysend,3) = _x(i,2);
-    _buf(mysend,4) = _v(i,0);
-    _buf(mysend,5) = _v(i,1);
-    _buf(mysend,6) = _v(i,2);
-    _buf(mysend,7) = d_ubuf(_tag[i]).d;
-    _buf(mysend,8) = d_ubuf(_type[i]).d;
-    _buf(mysend,9) = d_ubuf(_mask[i]).d;
-    _buf(mysend,10) = d_ubuf(_image[i]).d;
-    _buf(mysend,11) = _rmass(i);
-    _buf(mysend,12) = _angmom(i,0);
-    _buf(mysend,13) = _angmom(i,1);
-    _buf(mysend,14) = _angmom(i,2);
 
+    int m = _offset;
     if (_ellipsoid[i] < 0)
-      _buf(mysend,15) = d_ubuf(0).d;
+      _buf(mysend,m++) = d_ubuf(0).d;
     else {
-      _buf(mysend,15) = d_ubuf(1).d;
+      _buf(mysend,m++) = d_ubuf(1).d;
       int j = _ellipsoid[i];
-      _buf(mysend,16) = _bonus(j).shape[0];
-      _buf(mysend,17) = _bonus(j).shape[1];
-      _buf(mysend,18) = _bonus(j).shape[2];
-      _buf(mysend,19) = _bonus(j).quat[0];
-      _buf(mysend,20) = _bonus(j).quat[1];
-      _buf(mysend,21) = _bonus(j).quat[2];
-      _buf(mysend,22) = _bonus(j).quat[3];
+      _buf(mysend,m++) = _bonus(j).shape[0];
+      _buf(mysend,m++) = _bonus(j).shape[1];
+      _buf(mysend,m++) = _bonus(j).shape[2];
+      _buf(mysend,m++) = _bonus(j).quat[0];
+      _buf(mysend,m++) = _bonus(j).quat[1];
+      _buf(mysend,m++) = _bonus(j).quat[2];
+      _buf(mysend,m++) = _bonus(j).quat[3];
     }
 
-    int j = _copylist(mysend);
+    int i_bonus = _ellipsoid[i];
+    int j_bonus = _copylist_bonus(mysend); // may be different than ellipsoid[j]
 
-    if (j > -1) {
-      _xw(i,0) = _x(j,0);
-      _xw(i,1) = _x(j,1);
-      _xw(i,2) = _x(j,2);
-      _vw(i,0) = _v(j,0);
-      _vw(i,1) = _v(j,1);
-      _vw(i,2) = _v(j,2);
-      _tagw[i] = _tag(j);
-      _typew[i] = _type(j);
-      _maskw[i] = _mask(j);
-      _imagew[i] = _image(j);
-      _rmassw(i) = _rmass(j);
-      _angmomw(i,0) = _angmom(j,0);
-      _angmomw(i,1) = _angmom(j,1);
-      _angmomw(i,2) = _angmom(j,2);
-    }
-
-    int j_bonus = _copylist_bonus(mysend);
-    
-    if (j > -1 && j_bonus < 0)
-      j_bonus = _ellipsoid[i]; // self-copy
     if (j_bonus > -1) {
-      if (j < 0) j = i; // self-copy
 
-      // if I has bonus data, then delete it
+      // delete bonus data from i_bonus
 
-      if (_ellipsoid[i] >= 0) {
+      if (i_bonus > -1) {
 
         // copy bonus data from J to I, effectively deleting the I entry
         // also reset ellipsoid that points to J to now point to I
 
-        _ellipsoidw[_bonus[j_bonus].ilocal] = _ellipsoid[i];
-        _bonusw[_ellipsoid[i]] = _bonus[j_bonus];
+        _ellipsoidw[_bonus[j_bonus].ilocal] = i_bonus;
+        _bonusw[i_bonus] = _bonus[j_bonus];
       }
+    }
+  }
+};
 
-      // if atom J has bonus data, reset J’s bonus.ilocal to loc I
-      // do NOT do this if self-copy (I=J) since J’s bonus data is already deleted
+/* ---------------------------------------------------------------------- */
 
-      if (_ellipsoid[j] >= 0 && i != j) _bonusw[_ellipsoid[j]].ilocal = i;
+template<class DeviceType>
+struct AtomVecEllipsoidKokkos_BackfillEllipsoid {
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
+
+  typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d_randomread _bonus;
+  typename AT::t_int_1d_randomread _ellipsoid;
+  typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d _bonusw;
+  typename AT::t_int_1d _ellipsoidw;
+
+  typename AT::t_double_2d_lr_um _buf;
+  typename AT::t_int_1d_const _sendlist;
+  typename AT::t_int_1d_const _copylist;
+  const int _size_exchange;
+  const int _offset;
+
+  AtomVecEllipsoidKokkos_BackfillEllipsoid(
+    const AtomKokkos* atomKK,
+    const DAT::tdual_double_2d_lr &buf,
+    const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
+    DAT::tdual_int_1d &sendlist,
+    DAT::tdual_int_1d &copylist,
+    const int &offset):
+      _bonus(bonus.template view<DeviceType>()),
+      _ellipsoid(atomKK->k_ellipsoid.template view<DeviceType>()),
+      _bonusw(bonus.template view<DeviceType>()),
+      _ellipsoidw(atomKK->k_ellipsoid.template view<DeviceType>()),
+
+      _size_exchange(atomKK->avecKK->size_exchange),
+      _sendlist(sendlist.template view<DeviceType>()),
+      _copylist(copylist.template view<DeviceType>()),
+      _offset(offset) {
+    const int maxsendlist = (buf.template view<DeviceType>().extent(0)*
+                             buf.template view<DeviceType>().extent(1))/_size_exchange;
+    buffer_view<DeviceType>(_buf,buf,maxsendlist,_size_exchange);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const int &mysend) const {
+    const int i = _sendlist(mysend);
+
+    // if atom J has bonus data, reset J’s bonus.ilocal to loc I
+
+    int j = _copylist(mysend);
+    if (j > -1) {
+      if (_ellipsoid[j] >= 0) _bonusw[_ellipsoid[j]].ilocal = i;
       _ellipsoidw[i] = _ellipsoid[j];
     }
   }
@@ -1521,193 +734,146 @@ struct AtomVecEllipsoidKokkos_PackExchangeFunctor {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecEllipsoidKokkos::pack_exchange_kokkos(
-  const int &nsend,
-  DAT::tdual_double_2d_lr &k_buf,
-  DAT::tdual_int_1d k_sendlist,
-  DAT::tdual_int_1d k_copylist,
-  DAT::tdual_int_1d k_sendlist_bonus,
-  DAT::tdual_int_1d k_copylist_bonus,
-  ExecutionSpace space)
+void AtomVecEllipsoidKokkos::pack_exchange_bonus_kokkos(const int &nsend,
+                                                        DAT::tdual_double_2d_lr &k_buf,
+                                                        DAT::tdual_int_1d k_sendlist,
+                                                        DAT::tdual_int_1d k_copylist,
+                                                        DAT::tdual_int_1d k_copylist_bonus,
+                                                        ExecutionSpace space)
 {
-  size_exchange = 23;
+  int offset = size_exchange - size_exchange_bonus;
 
-  if (nsend > (int) (k_buf.template view<LMPHostType>().extent(0)*k_buf.template view<LMPHostType>().extent(1))/size_exchange) {
-    int newsize = nsend*(size_exchange)/k_buf.template view<LMPHostType>().extent(1)+1;
-    k_buf.resize(newsize,k_buf.template view<LMPHostType>().extent(1));
-  }
+  atomKK->sync(space,datamask_bonus);
 
-  atomKK->sync(space,X_MASK | V_MASK | TAG_MASK | TYPE_MASK |
-             MASK_MASK | IMAGE_MASK | RMASS_MASK | ANGMOM_MASK | 
-             ELLIPSOID_MASK | BONUS_MASK);
-
-  if (space == Host) {
-    AtomVecEllipsoidKokkos_PackExchangeFunctor<LMPHostType> f(atomKK,k_bonus,k_buf,
-      k_sendlist,k_copylist,
-      k_sendlist_bonus,k_copylist_bonus);
+  if (space == HostKK) {
+    AtomVecEllipsoidKokkos_PackExchangeBonus<LMPHostType> f(atomKK,
+      k_buf,k_bonus,
+      k_sendlist,k_copylist_bonus,
+      offset);
     Kokkos::parallel_for(nsend,f);
+
+    // must backfill ellipsoid after pack exchange bonus in a separate
+    //  functor to prevent race conditions
+
+    AtomVecEllipsoidKokkos_BackfillEllipsoid<LMPHostType> f2(atomKK,
+      k_buf,k_bonus,
+      k_sendlist,k_copylist,
+      offset);
+    Kokkos::parallel_for(nsend,f2);
   } else {
-    AtomVecEllipsoidKokkos_PackExchangeFunctor<LMPDeviceType> f(atomKK,k_bonus,k_buf,
-      k_sendlist,k_copylist,
-      k_sendlist_bonus,k_copylist_bonus);
+    AtomVecEllipsoidKokkos_PackExchangeBonus<LMPDeviceType> f(atomKK,
+      k_buf,k_bonus,
+      k_sendlist,k_copylist_bonus,
+      offset);
     Kokkos::parallel_for(nsend,f);
+
+    // must backfill ellipsoid after pack exchange bonus in a separate
+    //  functor to prevent race conditions
+
+    AtomVecEllipsoidKokkos_BackfillEllipsoid<LMPDeviceType> f2(atomKK,
+      k_buf,k_bonus,
+      k_sendlist,k_copylist,
+      offset);
+    Kokkos::parallel_for(nsend,f2);
   }
 
-  return nsend*size_exchange;
+  atomKK->modified(space,datamask_bonus);
 }
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType,int OUTPUT_INDICES>
-struct AtomVecEllipsoidKokkos_UnpackExchangeFunctor {
+template<class DeviceType>
+struct AtomVecEllipsoidKokkos_UnpackExchangeBonus {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  AtomVecEllipsoidKokkos* _avecEllipsoidKK;
-  typename AT::t_kkfloat_1d_3_lr _x;
-  typename AT::t_kkfloat_1d_3 _v;
-  typename AT::t_tagint_1d _tag;
-  typename AT::t_int_1d _type;
-  typename AT::t_int_1d _mask;
-  typename AT::t_imageint_1d _image;
-  typename AT::t_kkfloat_1d _rmass;
-  typename AT::t_kkfloat_1d_3 _angmom;
-  typename AT::t_double_2d_lr_um _buf;
-  typename AT::t_int_1d _nlocal;
-  typename AT::t_int_1d _indices;
-  int _dim;
-  double _lo,_hi;
-  int _size_exchange;
-  // Bonus Variables
-  typename AtomVecEllipsoidKokkosBonusArray
-          <DeviceType>::t_bonus_1d _bonus;
+
+  typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d _bonus;
   typename AT::t_int_1d _ellipsoid;
+
+  typename AT::t_double_2d_lr _buf;
+  typename AT::t_int_1d _indices;
   typename AT::t_int_scalar _nlocal_bonus;
+  int _size_exchange;
+  const int _offset;
 
-  AtomVecEllipsoidKokkos_UnpackExchangeFunctor(
-    const AtomKokkos* atom,
-    AtomVecEllipsoidKokkos* avecEllipsoidKK,
-    typename DEllipsoidBonusAT::tdual_bonus_1d bonus,
-    const typename AT::tdual_double_2d_lr buf,
-    typename AT::tdual_int_1d nlocal,
-    typename AT::tdual_int_1d indices,
-    int dim, double lo, double hi,
-    typename AT::tdual_int_scalar nlocal_bonus):
-      _size_exchange(atom->avecKK->size_exchange),
-      _x(atom->k_x.template view<DeviceType>()),
-      _v(atom->k_v.template view<DeviceType>()),
-      _tag(atom->k_tag.template view<DeviceType>()),
-      _type(atom->k_type.template view<DeviceType>()),
-      _mask(atom->k_mask.template view<DeviceType>()),
-      _image(atom->k_image.template view<DeviceType>()),
-      _rmass(atom->k_rmass.template view<DeviceType>()),
-      _angmom(atom->k_angmom.template view<DeviceType>()),
-      _nlocal(nlocal.template view<DeviceType>()),
+  AtomVecEllipsoidKokkos_UnpackExchangeBonus(
+    const AtomKokkos* atomKK,
+    const typename DAT::tdual_double_2d_lr &buf,
+    const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
+    typename AT::tdual_int_scalar &nlocal_bonus,
+    typename AT::tdual_int_1d &indices,
+    const int &offset):
+      _bonus(bonus.view<DeviceType>()),
+      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
+
+      _size_exchange(atomKK->avecKK->size_exchange),
+      _nlocal_bonus(nlocal_bonus.template view<DeviceType>()),
       _indices(indices.template view<DeviceType>()),
-      _dim(dim),
-      _lo(lo),_hi(hi),
-      // Bonus Variables
-      _bonus(bonus.template view<DeviceType>()),
-      _ellipsoid(atom->k_ellipsoid.template view<DeviceType>()),
-      _avecEllipsoidKK(avecEllipsoidKK),
-      _nlocal_bonus(nlocal_bonus.template view<DeviceType>())
-  {
-    const size_t size_exchange = 23;
-    const int maxsendlist = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/size_exchange;
-
-    buffer_view<DeviceType>(_buf,buf,maxsendlist,size_exchange);
+      _offset(offset) {
+    const int maxsendlist = (buf.template view<DeviceType>().extent(0)*
+                             buf.template view<DeviceType>().extent(1))/_size_exchange;
+    buffer_view<DeviceType>(_buf,buf,maxsendlist,_size_exchange);
   }
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int &myrecv) const {
-    double x = _buf(myrecv,_dim+1);
-    int i = -1;
-    int k = -1;
-    if (x >= _lo && x < _hi) {
-      i = Kokkos::atomic_fetch_add(&_nlocal(0),1);
-      _x(i,0) = _buf(myrecv,1);
-      _x(i,1) = _buf(myrecv,2);
-      _x(i,2) = _buf(myrecv,3);
-      _v(i,0) = _buf(myrecv,4);
-      _v(i,1) = _buf(myrecv,5);
-      _v(i,2) = _buf(myrecv,6);
-      _tag[i] = (tagint) d_ubuf(_buf(myrecv,7)).i;
-      _type[i] = (int) d_ubuf(_buf(myrecv,8)).i;
-      _mask[i] = (int) d_ubuf(_buf(myrecv,9)).i;
-      _image[i] = (imageint) d_ubuf(_buf(myrecv,10)).i;
-      _rmass(i) = _buf(myrecv,11);
-      _angmom(i,0) = _buf(myrecv,12);
-      _angmom(i,1) = _buf(myrecv,13);
-      _angmom(i,2) = _buf(myrecv,14);
-      if ( (int) d_ubuf(_buf(myrecv,15)).i == 0 )
-        _ellipsoid(i) = -1; 
+    int i = _indices(myrecv);
+    if (i > -1) {
+      if ((int) d_ubuf(_buf(myrecv,_offset)).i == 0)
+        _ellipsoid(i) = -1;
       else {
-        k = Kokkos::atomic_fetch_add(&_nlocal_bonus(),1);
-        _bonus(k).shape[0] = _buf(myrecv,16);
-        _bonus(k).shape[1] = _buf(myrecv,17);
-        _bonus(k).shape[2] = _buf(myrecv,18);
-        _bonus(k).quat[0] = _buf(myrecv,19);
-        _bonus(k).quat[1] = _buf(myrecv,20);
-        _bonus(k).quat[2] = _buf(myrecv,21);
-        _bonus(k).quat[3] = _buf(myrecv,22);
+        int m = _offset + 1;
+        int k = Kokkos::atomic_fetch_add(&_nlocal_bonus(),1);
+        _bonus(k).shape[0] = _buf(myrecv,m++);
+        _bonus(k).shape[1] = _buf(myrecv,m++);
+        _bonus(k).shape[2] = _buf(myrecv,m++);
+        _bonus(k).quat[0] = _buf(myrecv,m++);
+        _bonus(k).quat[1] = _buf(myrecv,m++);
+        _bonus(k).quat[2] = _buf(myrecv,m++);
+        _bonus(k).quat[3] = _buf(myrecv,m++);
         _bonus(k).ilocal = i;
         _ellipsoid(i) = k;
       }
     }
-    if (OUTPUT_INDICES)
-      _indices(myrecv) = i;
   }
 };
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecEllipsoidKokkos::unpack_exchange_kokkos(DAT::tdual_double_2d_lr &k_buf, int nrecv, int nlocal,
-                                                int dim, double lo, double hi, ExecutionSpace space,
-                                                DAT::tdual_int_1d &k_indices)
+void AtomVecEllipsoidKokkos::unpack_exchange_bonus_kokkos(DAT::tdual_double_2d_lr &k_buf, int nrecv,
+                                              ExecutionSpace space,
+                                              DAT::tdual_int_1d &k_indices)
 {
-  while (nlocal + nrecv/size_exchange >= nmax) grow(0);
   while (nlocal_bonus + nrecv/size_exchange >= nmax_bonus) grow_bonus();
 
-  if (space == Host) {
-    k_count.h_view(0) = nlocal;
-    k_count_bonus.h_view() = nlocal_bonus;
-    if (k_indices.h_view.data()) {
-      AtomVecEllipsoidKokkos_UnpackExchangeFunctor<LMPHostType,1> f(atomKK,this,k_bonus,
-        k_buf,k_count,k_indices,dim,lo,hi,k_count_bonus);
-      Kokkos::parallel_for(nrecv/size_exchange,f);
-    } else {
-      AtomVecEllipsoidKokkos_UnpackExchangeFunctor<LMPHostType,0> f(atomKK,this,k_bonus,
-        k_buf,k_count,k_indices,dim,lo,hi,k_count_bonus);
-      Kokkos::parallel_for(nrecv/size_exchange,f);
-    }
+  int offset = size_exchange - size_exchange_bonus;
+
+  atomKK->sync(space,datamask_bonus);
+
+  if (space == HostKK) {
+    k_nlocal_bonus.view_host()() = nlocal_bonus;
+
+    AtomVecEllipsoidKokkos_UnpackExchangeBonus<LMPHostType> f(
+      atomKK,k_buf,k_bonus,
+      k_nlocal_bonus,k_indices,offset);
+    Kokkos::parallel_for(nrecv/size_exchange,f);
   } else {
-    k_count.h_view(0) = nlocal;
-    k_count.modify<LMPHostType>();
-    k_count.sync<LMPDeviceType>();
-    k_count_bonus.h_view() = nlocal_bonus;
-    k_count_bonus.modify<LMPHostType>();
-    k_count_bonus.sync<LMPDeviceType>();
-    if (k_indices.h_view.data()) {
-      AtomVecEllipsoidKokkos_UnpackExchangeFunctor<LMPDeviceType,1> f(atomKK,this,k_bonus,
-        k_buf,k_count,k_indices,dim,lo,hi,k_count_bonus);
-      Kokkos::parallel_for(nrecv/size_exchange,f);
-    } else {
-      AtomVecEllipsoidKokkos_UnpackExchangeFunctor<LMPDeviceType,0> f(atomKK,this,k_bonus,
-        k_buf,k_count,k_indices,dim,lo,hi,k_count_bonus);
-      Kokkos::parallel_for(nrecv/size_exchange,f);
-    }
-    k_count.modify<LMPDeviceType>();
-    k_count.sync<LMPHostType>();
-    k_count_bonus.modify<LMPDeviceType>();
-    k_count_bonus.sync<LMPHostType>();
+    k_nlocal_bonus.view_host()() = nlocal_bonus;
+    k_nlocal_bonus.modify_host();
+    k_nlocal_bonus.sync_device();
+
+    struct AtomVecEllipsoidKokkos_UnpackExchangeBonus<LMPDeviceType> f(
+      atomKK,k_buf,k_bonus,
+      k_nlocal_bonus,k_indices,offset);
+    Kokkos::parallel_for(nrecv/size_exchange,f);
+
+    k_nlocal_bonus.modify_device();
+    k_nlocal_bonus.sync_host();
   }
 
-  atomKK->modified(space,X_MASK | V_MASK | TAG_MASK | TYPE_MASK |
-                 MASK_MASK | IMAGE_MASK | RMASS_MASK | ANGMOM_MASK | 
-                 ELLIPSOID_MASK | BONUS_MASK);
-  
-  nlocal_bonus = k_count_bonus.h_view();
+  atomKK->modified(space,datamask_bonus);
 
-  return k_count.h_view(0);
+  nlocal_bonus = k_nlocal_bonus.view_host()();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1724,7 +890,7 @@ void AtomVecEllipsoidKokkos::set_status_nlocal_bonus(int nlocal_bonus) {
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecEllipsoidKokkos::sync(ExecutionSpace space, unsigned int mask)
+void AtomVecEllipsoidKokkos::sync(ExecutionSpace space, uint64_t mask)
 {
   if (space == Device) {
     if (mask & X_MASK) atomKK->k_x.sync_device();
@@ -1770,7 +936,7 @@ void AtomVecEllipsoidKokkos::sync(ExecutionSpace space, unsigned int mask)
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecEllipsoidKokkos::sync_pinned(ExecutionSpace space, unsigned int mask, int async_flag)
+void AtomVecEllipsoidKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)
 {
   if (space == Device) {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_device())
@@ -1827,7 +993,7 @@ void AtomVecEllipsoidKokkos::sync_pinned(ExecutionSpace space, unsigned int mask
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecEllipsoidKokkos::modified(ExecutionSpace space, unsigned int mask)
+void AtomVecEllipsoidKokkos::modified(ExecutionSpace space, uint64_t mask)
 {
   if (space == Device) {
     if (mask & X_MASK) atomKK->k_x.modify_device();
@@ -1869,4 +1035,12 @@ void AtomVecEllipsoidKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.modify_host();
     if (mask & BONUS_MASK) k_bonus.modify_host();
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void AtomVecEllipsoidKokkos::set_size_exchange()
+{
+  AtomVecKokkos::set_size_exchange();
+  size_exchange += size_exchange_bonus;
 }

@@ -7,6 +7,7 @@
 .. index:: pair_style hybrid/overlay/omp
 .. index:: pair_style hybrid/overlay/kk
 .. index:: pair_style hybrid/scaled
+.. index:: pair_style hybrid/scaled/kk
 .. index:: pair_style hybrid/scaled/omp
 
 pair_style hybrid command
@@ -27,7 +28,7 @@ Accelerator Variants: *hybrid/overlay/kk*, *hybrid/overlay/omp*
 pair_style hybrid/scaled command
 ==================================
 
-Accelerator Variant: *hybrid/scaled/omp*
+Accelerator Variant: *hybrid/overlay/kk*, *hybrid/scaled/omp*
 
 Syntax
 """"""
@@ -387,7 +388,7 @@ This input achieves the same effect:
 
 .. code-block:: LAMMPS
 
-   special_bonds 0.0 0.0 0.1
+   special_bonds lj/coul 0.0 0.0 0.1
    pair_style hybrid lj/charmm/coul/long 8.0 10.0 lj/cut/coul/long 10.0
    pair_modify pair lj/cut/coul/long special lj 0.0 0.0 0.5
    pair_modify pair lj/cut/coul/long special coul 0.0 0.0 0.83333333
@@ -564,9 +565,6 @@ one or more sub-styles will be of the "long" variety,
 e.g. *lj/cut/coul/long* or *buck/coul/long*\ .  You must ensure that the
 short-range Coulombic cutoff used by each of these long pair styles is
 the same or else LAMMPS will generate an error.
-
-Pair style *hybrid/scaled* currently only works for non-accelerated
-pair styles and pair styles from the OPT package.
 
 Pair style *hybrid/molecular* is not compatible with manybody potentials.
 

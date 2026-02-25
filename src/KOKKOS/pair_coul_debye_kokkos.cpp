@@ -145,6 +145,7 @@ void PairCoulDebyeKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
    ---------------------------------------------------------------------- */
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 KK_FLOAT PairCoulDebyeKokkos<DeviceType>::
 compute_fcoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
@@ -168,6 +169,7 @@ compute_fcoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
    ---------------------------------------------------------------------- */
 template<class DeviceType>
 template<bool STACKPARAMS, class Specialisation>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 KK_FLOAT PairCoulDebyeKokkos<DeviceType>::
 compute_ecoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
@@ -207,29 +209,6 @@ void PairCoulDebyeKokkos<DeviceType>::allocate()
 }
 
 /* ----------------------------------------------------------------------
-   global settings
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairCoulDebyeKokkos<DeviceType>::settings(int narg, char **arg)
-{
-  if (narg > 2) error->all(FLERR,"Illegal pair_style command");
-
-  kappa = utils::numeric(FLERR,arg[0],false,lmp);
-  cut_global = utils::numeric(FLERR,arg[1],false,lmp);
-
-  // reset cutoffs that have been explicitly set
-
-  if (allocated) {
-    int i,j;
-    for (i = 1; i <= atom->ntypes; i++)
-      for (j = i; j <= atom->ntypes; j++)
-        if (setflag[i][j]) cut[i][j] = cut_global;
-  }
-
-}
-
-/* ----------------------------------------------------------------------
    init specific to this pair style
 ------------------------------------------------------------------------- */
 
@@ -257,21 +236,21 @@ double PairCoulDebyeKokkos<DeviceType>::init_one(int i, int j)
 {
   double cutone = PairCoulDebye::init_one(i,j);
 
-  k_params.h_view(i,j).scale = scale[i][j];
-  k_params.h_view(i,j).cutsq = cutone*cutone;
-  k_params.h_view(j,i) = k_params.h_view(i,j);
+  k_params.view_host()(i,j).scale = scale[i][j];
+  k_params.view_host()(i,j).cutsq = cutone*cutone;
+  k_params.view_host()(j,i) = k_params.view_host()(i,j);
 
   if (i<MAX_TYPES_STACKPARAMS+1 && j<MAX_TYPES_STACKPARAMS+1) {
-    m_params[i][j] = m_params[j][i] = k_params.h_view(i,j);
+    m_params[i][j] = m_params[j][i] = k_params.view_host()(i,j);
     m_cutsq[j][i] = m_cutsq[i][j] = cutone*cutone;
     m_cut_ljsq[j][i] = m_cut_ljsq[i][j] = cutone*cutone;
     m_cut_coulsq[j][i] = m_cut_coulsq[i][j] = cutone*cutone;
   }
-  k_cutsq.h_view(i,j) = cutone*cutone;
+  k_cutsq.view_host()(i,j) = cutone*cutone;
   k_cutsq.modify_host();
-  k_cut_ljsq.h_view(i,j) = cutone*cutone;
+  k_cut_ljsq.view_host()(i,j) = cutone*cutone;
   k_cut_ljsq.modify_host();
-  k_cut_coulsq.h_view(i,j) = cutone*cutone;
+  k_cut_coulsq.view_host()(i,j) = cutone*cutone;
   k_cut_coulsq.modify_host();
   k_params.modify_host();
 

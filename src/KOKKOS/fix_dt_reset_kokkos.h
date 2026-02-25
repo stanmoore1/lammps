@@ -42,14 +42,16 @@ class FixDtResetKokkos : public FixDtReset {
   void init() override;
   void end_of_step() override;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixDtResetMass, const int&, double&) const;
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixDtResetRMass, const int&, double&) const;
 
  private:
   typename AT::t_kkfloat_1d_3 v;
-  typename AT::t_kksum_1d_3 f;
+  typename AT::t_kkacc_1d_3 f;
   typename AT::t_int_1d_randomread mask;
   typename AT::t_int_1d_randomread type;
   typename AT::t_kkfloat_1d_randomread rmass;

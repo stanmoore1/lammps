@@ -63,75 +63,77 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
  public:
   AtomVecEllipsoidKokkos(class LAMMPS *);
   ~AtomVecEllipsoidKokkos() override;
+  void init() override;
 
   void grow(int) override;
   void grow_pointers() override;
   void sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter) override;
+  void sync(ExecutionSpace space, uint64_t mask) override;
+  void modified(ExecutionSpace space, uint64_t mask) override;
+  void sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag = 0) override;
 
-  int pack_comm_kokkos(const int &n, const DAT::tdual_int_1d &k_sendlist,
-                       const DAT::tdual_double_2d_lr &buf,
-                       const int &pbc_flag, const int pbc[]) override;
-  void unpack_comm_kokkos(const int &n, const int &nfirst,
-                          const DAT::tdual_double_2d_lr &buf) override;
-  int pack_comm_vel_kokkos(const int &n, const DAT::tdual_int_1d &k_sendlist,
-                           const DAT::tdual_double_2d_lr &buf,
-                           const int &pbc_flag, const int pbc[]) override;
-  void unpack_comm_vel_kokkos(const int &n, const int &nfirst,
-                              const DAT::tdual_double_2d_lr &buf) override;
-  int pack_comm_self(const int &n, const DAT::tdual_int_1d &list,
-                     const int nfirst,
-                     const int &pbc_flag, const int pbc[]) override;
-  int pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                         DAT::tdual_double_2d_lr buf,
-                         int pbc_flag, int *pbc, ExecutionSpace space) override;
-  void unpack_border_kokkos(const int &n, const int &nfirst,
-                            const DAT::tdual_double_2d_lr &buf,
-                            ExecutionSpace space) override;
-  int pack_border_vel_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                             DAT::tdual_double_2d_lr buf,
-                             int pbc_flag, int *pbc, ExecutionSpace space) override;
-  void unpack_border_vel_kokkos(const int &n, const int &nfirst,
-                                const DAT::tdual_double_2d_lr &buf,
-                                ExecutionSpace space) override;
-  int pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d_lr &buf,
-                           DAT::tdual_int_1d k_sendlist,
-                           DAT::tdual_int_1d k_copylist,
-                           DAT::tdual_int_1d k_sendlist_bonus,
-                           DAT::tdual_int_1d k_copylist_bonus,
-                           ExecutionSpace space) override;
-  int unpack_exchange_kokkos(DAT::tdual_double_2d_lr &k_buf, int nrecv,
-                             int nlocal, int dim, double lo, double hi,
-                             ExecutionSpace space, DAT::tdual_int_1d &k_indices) override;    
+  /* Bonus functions */
+
+  void pack_comm_bonus_kokkos(const int &n, const DAT::tdual_int_1d &list,
+                              const DAT::tdual_double_2d_lr &buf, int vel_flag = 0) override;
+
+  void unpack_comm_bonus_kokkos(const int &n, const int &nfirst,
+                                const DAT::tdual_double_2d_lr &buf, int vel_flag = 0) override;
+
+  void pack_comm_self_bonus_kokkos(const int &n, const DAT::tdual_int_1d &list,
+                                   const int nfirst) override;
+
+  void pack_comm_self_fused_bonus_kokkos(const int &n,
+                                         const DAT::tdual_int_2d_lr &list,
+                                         const DAT::tdual_int_1d &sendnum_scan,
+                                         const DAT::tdual_int_1d &firstrecv,
+                                         const DAT::tdual_int_1d &g2l) override;
+
+  void pack_border_bonus_kokkos(int n, DAT::tdual_int_1d k_sendlist,
+                                DAT::tdual_double_2d_lr &buf,
+                                ExecutionSpace space, int vel_flag = 0) override;
+  void unpack_border_bonus_kokkos(const int &n, const int &nfirst,
+                                  const DAT::tdual_double_2d_lr &buf,
+                                  ExecutionSpace space, int vel_flag = 0) override;
+
+  void pack_exchange_bonus_kokkos(const int &nsend, DAT::tdual_double_2d_lr &buf,
+                                  DAT::tdual_int_1d k_sendlist,
+                                  DAT::tdual_int_1d k_copylist,
+                                  DAT::tdual_int_1d k_copylist_bonus,
+                                  ExecutionSpace space) override;
+
+  void unpack_exchange_bonus_kokkos(DAT::tdual_double_2d_lr &k_buf,
+                                    int nrecv,
+                                    ExecutionSpace space,
+                                    DAT::tdual_int_1d &k_indices) override;
 
   int get_status_nlocal_bonus() override;     // Using these for use in
   void set_status_nlocal_bonus(int) override; // CommKokkos::exchange_device()
 
-  void sync(ExecutionSpace space, unsigned int mask) override;
-  void modified(ExecutionSpace space, unsigned int mask) override;
-  void sync_pinned(ExecutionSpace space, unsigned int mask, int async_flag = 0) override;
-
   // Bonus struct
 
-  void grow_bonus() override; 
+  void grow_bonus() override;
 
-  DEllipsoidBonusAT::tdual_bonus_1d k_bonus; 
-  DEllipsoidBonusAT::t_bonus_1d d_bonus; 
+  DEllipsoidBonusAT::tdual_bonus_1d k_bonus;
+  DEllipsoidBonusAT::t_bonus_1d d_bonus;
   HEllipsoidBonusAT::t_bonus_1d h_bonus;
-    
+
+  void set_size_exchange() override;
+
  private:
-  double **torque;  
-    
+  double **torque;
+
   DAT::t_tagint_1d d_tag;
   HAT::t_tagint_1d h_tag;
   DAT::t_imageint_1d d_image;
   HAT::t_imageint_1d h_image;
   DAT::t_int_1d d_type, d_mask;
   HAT::t_int_1d h_type, h_mask;
-    
+
   DAT::t_kkfloat_1d_3_lr d_x;
   DAT::t_kkfloat_1d_3 d_v;
   DAT::t_kkfloat_1d_3 d_f;
-    
+
   DAT::t_kkfloat_1d d_rmass;
   HAT::t_kkfloat_1d h_rmass;
   DAT::t_kkfloat_1d_3 d_angmom;
@@ -142,8 +144,7 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   HAT::t_int_1d h_ellipsoid;
 
   DAT::tdual_int_scalar k_nghost_bonus;
-  DAT::tdual_int_scalar k_count_bonus; // as in, k_nlocal_bonus
-
+  DAT::tdual_int_scalar k_nlocal_bonus;
 };
 
 }    // namespace LAMMPS_NS

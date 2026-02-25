@@ -22,8 +22,6 @@ FixStyle(rheo/oxidation,FixRHEOOxidation)
 
 #include "fix.h"
 
-#include <vector>
-
 namespace LAMMPS_NS {
 
 class FixRHEOOxidation : public Fix {

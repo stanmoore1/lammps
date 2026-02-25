@@ -20,7 +20,6 @@
 #include "utils.h"
 
 #include <cmath>
-#include <cstdlib>
 #include <utility>
 
 using namespace LAMMPS_NS;

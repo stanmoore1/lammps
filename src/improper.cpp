@@ -405,7 +405,7 @@ void Improper::ev_tally(int i1, int i2, int i3, int i4, int nlocal, int newton_b
 
 void Improper::problem(const char *filename, int lineno, int i1, int i2, int i3, int i4)
 {
-  const auto x = atom->x;
+  auto *const x = atom->x;
   auto warn = fmt::format("Improper problem: {} {} {} {} {} {}\n", comm->me, update->ntimestep,
                           atom->tag[i1], atom->tag[i2], atom->tag[i3], atom->tag[i4]);
   warn += fmt::format("WARNING:   1st atom: {} {:.8} {:.8} {:.8}\n", comm->me, x[i1][0], x[i1][1],

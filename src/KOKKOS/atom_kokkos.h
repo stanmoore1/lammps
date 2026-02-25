@@ -25,7 +25,7 @@ namespace LAMMPS_NS {
 class AtomKokkos : public Atom {
  public:
   bool sort_legacy;
-  int nprop_atom;
+  int nprop_atom, hybrid_flag;
   class FixPropertyAtomKokkos **fix_prop_atom;
 
   DAT::tdual_tagint_1d k_tag;
@@ -33,7 +33,7 @@ class AtomKokkos : public Atom {
   DAT::tdual_imageint_1d k_image;
   DAT::ttransform_kkfloat_1d_3_lr k_x;
   DAT::ttransform_kkfloat_1d_3 k_v;
-  DAT::ttransform_kksum_1d_3 k_f;
+  DAT::ttransform_kkacc_1d_3 k_f;
 
   DAT::ttransform_kkfloat_1d k_mass;
 
@@ -44,7 +44,8 @@ class AtomKokkos : public Atom {
   DAT::ttransform_kkfloat_1d_4 k_mu;
   DAT::ttransform_kkfloat_1d_3 k_omega;
   DAT::ttransform_kkfloat_1d_3 k_angmom;
-  DAT::ttransform_kkfloat_1d_3 k_torque;
+  DAT::ttransform_kkacc_1d_3 k_torque;
+  DAT::tdual_int_1d k_ellipsoid;
   DAT::tdual_tagint_1d k_molecule;
   DAT::ttransform_int_2d k_nspecial;
   DAT::ttransform_tagint_2d k_special;
@@ -66,8 +67,8 @@ class AtomKokkos : public Atom {
   // SPIN package
 
   DAT::ttransform_kkfloat_1d_4 k_sp;
-  DAT::ttransform_kksum_1d_3 k_fm;
-  DAT::ttransform_kksum_1d_3 k_fm_long;
+  DAT::ttransform_kkacc_1d_3 k_fm;
+  DAT::ttransform_kkacc_1d_3 k_fm_long;
 
   // DPD-REACT package
 
@@ -140,6 +141,7 @@ class AtomKokkos : public Atom {
   };
 
   template<class DeviceType>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   static int map_kokkos(tagint global, int map_style, const DAT::tdual_int_1d &k_map_array, const dual_hash_type &k_map_hash)
   {
@@ -152,6 +154,7 @@ class AtomKokkos : public Atom {
   }
 
   template<class DeviceType>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   static int map_find_hash_kokkos(tagint global, const dual_hash_type &k_map_hash)
   {
@@ -166,9 +169,9 @@ class AtomKokkos : public Atom {
   void init() override;
   void update_property_atom();
   void allocate_type_arrays() override;
-  void sync(const ExecutionSpace space, unsigned int mask);
-  void modified(const ExecutionSpace space, unsigned int mask);
-  void sync_pinned(const ExecutionSpace space, unsigned int mask, int async_flag = 0);
+  void sync(const ExecutionSpace space, uint64_t mask);
+  void modified(const ExecutionSpace space, uint64_t mask);
+  void sync_pinned(const ExecutionSpace space, uint64_t mask, int async_flag = 0);
   void sort() override;
   int add_custom(const char *, int, int, int border = 0) override;
   void remove_custom(int, int, int) override;
@@ -200,6 +203,7 @@ struct SortFunctor {
   SortFunctor(ViewType src, std::enable_if_t<ViewType::dynamic_rank==4,IndexView> ind):source(src),index(ind) {
     dest = Kokkos::View<typename ViewType::non_const_data_type,typename ViewType::array_type,device_type>("",src.extent(0),src.extent(1),src.extent(2),src.extent(3));
   }
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(const std::enable_if_t<ViewType::rank==1, int>& i) {
     dest(i) = source(index(i));
