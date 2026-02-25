@@ -1689,7 +1689,7 @@ void DumpImage::create_image()
                vec3{objarray[i][4], objarray[i][5], objarray[i][6]}, color, opacity);
       } else if (objvec[i] == Graphics::PIXMAP) {
         // get pointer to pixmap buffer and get background transparency color
-        const auto *pixmap = (const unsigned char *) ubuf(objarray[i][6]).i;
+        const auto *pixmap = (const unsigned char *) ubuf(objarray[i][6]).i; // NOLINT
         double transcolor[3] = {objarray[i][7], objarray[i][8], objarray[i][9]};
         if (iobj.flag1 == 0.0)    // coordinates are in box coordinates
           image->draw_pixmap(&objarray[i][1], (int) objarray[i][4], (int) objarray[i][5], pixmap,

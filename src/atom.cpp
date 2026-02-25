@@ -822,9 +822,11 @@ AtomVec *Atom::style_match(const std::string &style)
   if (utils::strmatch(atom_style, pattern)) return avec;
   else if (utils::strmatch(atom_style,"^hybrid")) {
     auto *avec_hybrid = dynamic_cast<AtomVecHybrid *>(avec);
-    for (int i = 0; i < avec_hybrid->nstyles; i++) {
-      if (utils::strmatch(avec_hybrid->keywords[i], pattern))
-        return avec_hybrid->styles[i];
+    if (avec_hybrid) {
+      for (int i = 0; i < avec_hybrid->nstyles; i++) {
+        if (utils::strmatch(avec_hybrid->keywords[i], pattern))
+          return avec_hybrid->styles[i];
+      }
     }
   }
   return nullptr;

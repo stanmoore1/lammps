@@ -33,8 +33,8 @@ using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
-AtomVecEllipsoidKokkos::AtomVecEllipsoidKokkos(LAMMPS *lmp) : AtomVec(lmp),
-AtomVecKokkos(lmp), AtomVecEllipsoid(lmp)
+AtomVecEllipsoidKokkos::AtomVecEllipsoidKokkos(LAMMPS *lmp) :
+    AtomVec(lmp), AtomVecKokkos(lmp), AtomVecEllipsoid(lmp), torque(nullptr)
 {
   size_exchange_bonus = 8;
   datamask_bonus = ELLIPSOID_MASK|BONUS_MASK;
@@ -42,7 +42,7 @@ AtomVecKokkos(lmp), AtomVecEllipsoid(lmp)
   k_nghost_bonus = DAT::tdual_int_scalar("atomEllipKK:k_nghost_bonus");
   k_nlocal_bonus = DAT::tdual_int_scalar("atomEllipKK:k_nlocal_bonus");
 
-  if (sizeof(KK_FLOAT) != sizeof(double))
+  if (((sizeof(KK_FLOAT) != sizeof(double))) && (comm->me == 0))
     error->warning(FLERR,"AtomVecEllipsoidKokkos does not (yet) fully support "
        "KK_FLOAT within bonus struct data (shape, quat). Using double for these fields.");
 }

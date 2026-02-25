@@ -859,7 +859,7 @@ with those in the provided log file with the same number of processors
 in the same subdirectory. If the differences between the actual and
 reference values are within specified tolerances, the test is considered
 passed.  For each test batch, that is, a set of example input scripts,
-the mpirun command, the LAMMPS command-line arguments, and the
+the ``mpirun`` command, the LAMMPS command-line arguments, and the
 tolerances for individual thermo quantities can be specified in a
 configuration file in YAML format.
 

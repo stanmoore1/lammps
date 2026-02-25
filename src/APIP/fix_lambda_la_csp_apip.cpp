@@ -41,9 +41,9 @@ using namespace MathConst;
 /* ---------------------------------------------------------------------- */
 
 FixLambdaLACSPAPIP::FixLambdaLACSPAPIP(LAMMPS *lmp, int narg, char **arg) :
-    Fix(lmp, narg, arg), ngh_pairs(nullptr), list(nullptr), distsq(nullptr), nearest(nullptr),
-    fixstore_la_avg(nullptr), fixstore_la_inp(nullptr), fixstore_la_norm(nullptr),
-    fixstore_pairs(nullptr), f_lambda(nullptr), prefactor1(nullptr), prefactor2(nullptr)
+    Fix(lmp, narg, arg), ngh_pairs(nullptr), f_lambda(nullptr), distsq(nullptr), nearest(nullptr),
+    list(nullptr), fixstore_pairs(nullptr), fixstore_la_avg(nullptr), fixstore_la_inp(nullptr),
+    fixstore_la_norm(nullptr), prefactor1(nullptr), prefactor2(nullptr)
 {
   comm_reverse = 2;
   comm_forward = 2;
@@ -316,7 +316,7 @@ void FixLambdaLACSPAPIP::post_neighbor()
   *  Compute lambda, csp, csp_avg, csp_norm for all local atoms.
   */
 
-void FixLambdaLACSPAPIP::setup_pre_force(int vflag)
+void FixLambdaLACSPAPIP::setup_pre_force(int /*vflag*/)
 {
   if (!const_ngh_flag || !tags_stored)
     pre_force_dyn_pairs();
@@ -743,7 +743,7 @@ void FixLambdaLACSPAPIP::calculate_forces(int vflag)
   int i, j, ii, jj, inum, jnum, i_pair, i1, i2, i3;
   int *ilist, *jlist, *numneigh, **firstneigh, *mask;
   double **x, **f, *lambda, *csp, *csp_avg, *csp_norm, *e_fast, *e_precise;
-  double xtmp, ytmp, ztmp, lambdatmp, fpair, delx, dely, delz, r, rsq, cspavgtmp, prefactortmp,
+  double xtmp, ytmp, ztmp, fpair, delx, dely, delz, r, rsq, cspavgtmp, prefactortmp,
       delx1, dely1, delz1, delx2, dely2, delz2, tmp, ftmp[3];
 
   int nlocal = atom->nlocal;
@@ -808,8 +808,6 @@ void FixLambdaLACSPAPIP::calculate_forces(int vflag)
   // compute derivative of the radial weight function first
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
-
-    lambdatmp = lambda[i];
 
     prefactortmp = prefactor1[i];
     xtmp = x[i][0];
