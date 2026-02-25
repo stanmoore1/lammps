@@ -182,6 +182,8 @@ class AtomVecKokkos : virtual public AtomVec {
   HAT::t_tagint_1d h_id3p;
   DAT::t_tagint_1d d_id5p;
   HAT::t_tagint_1d h_id5p;
+  DAT::t_tagint_1d d_qeff;
+  HAT::t_tagint_1d h_qeff;
 
   // FULL
 

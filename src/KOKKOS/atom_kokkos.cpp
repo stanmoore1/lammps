@@ -101,7 +101,6 @@ AtomKokkos::~AtomKokkos()
   AtomKokkos::map_delete();
 
   // SPIN package
-
   memoryKK->destroy_kokkos(k_sp, sp);
   memoryKK->destroy_kokkos(k_fm, fm);
   memoryKK->destroy_kokkos(k_fm_long, fm_long);
@@ -119,6 +118,7 @@ AtomKokkos::~AtomKokkos()
   // CG-DNA package
   memoryKK->destroy_kokkos(k_id3p, id3p);
   memoryKK->destroy_kokkos(k_id5p, id5p);
+  memoryKK->destroy_kokkos(k_qeff, qeff);
 
   memoryKK->destroy_kokkos(k_dvector, dvector);
   dvector = nullptr;

@@ -1462,6 +1462,7 @@ struct AtomVecKokkos_PackBorder {
   const typename AT::t_kkfloat_1d_4_randomread _sp;
   typename AT::t_kkfloat_1d_randomread _radius,_rmass;
   typename AT::t_kkfloat_1d_randomread _dpdTheta,_uCond,_uMech,_uChem,_uCG,_uCGnew;
+  typename AT::t_tagint_1d_randomread _id3p,_id5p,_qeff;
   double _dx,_dy,_dz;
   uint64_t _datamask;
 
@@ -1488,6 +1489,9 @@ struct AtomVecKokkos_PackBorder {
       _uChem(atomKK->k_uChem.view<DeviceType>()),
       _uCG(atomKK->k_uCG.view<DeviceType>()),
       _uCGnew(atomKK->k_uCGnew.view<DeviceType>()),
+      _id3p(atomKK->k_id3p.view<DeviceType>()),
+      _id5p(atomKK->k_id5p.view<DeviceType>()),
+      _qeff(atomKK->k_qeff.view<DeviceType>()),
       _dx(dx),_dy(dy),_dz(dz),_datamask(datamask) {}
 
 // NOLINTNEXTLINE
@@ -1546,6 +1550,14 @@ struct AtomVecKokkos_PackBorder {
         _buf(i,m++) = _uChem(j);
         _buf(i,m++) = _uCG(j);
         _buf(i,m++) = _uCGnew(j);
+      }
+
+      // CG-DNA package
+
+      if (_datamask & CG_DNA_MASK) {
+        _buf(i,m++) = _id3p(j);
+        _buf(i,m++) = _id5p(j);
+        _buf(i,m++) = _qeff(j);
       }
     }
   }
@@ -1648,6 +1660,7 @@ struct AtomVecKokkos_UnpackBorder {
   typename AT::t_kkfloat_1d_4 _sp;
   typename AT::t_kkfloat_1d _radius,_rmass;
   typename AT::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem,_uCG,_uCGnew;
+  typename AT::t_tagint_1d _id3p,_id5p,_qeff;
   int _first;
   uint64_t _datamask;
 
@@ -1672,6 +1685,9 @@ struct AtomVecKokkos_UnpackBorder {
     _uChem(atomKK->k_uChem.view<DeviceType>()),
     _uCG(atomKK->k_uCG.view<DeviceType>()),
     _uCGnew(atomKK->k_uCGnew.view<DeviceType>()),
+    _id3p(atomKK->k_id3p.view<DeviceType>()),
+    _id5p(atomKK->k_id5p.view<DeviceType>()),
+    _qeff(atomKK->k_qeff.view<DeviceType>()),
     _first(first),_datamask(datamask) {
   };
 
@@ -1723,6 +1739,13 @@ struct AtomVecKokkos_UnpackBorder {
         _uChem(i+_first) = _buf(i,m++);
         _uCG(i+_first) = _buf(i,m++);
         _uCGnew(i+_first) = _buf(i,m++);
+      }
+
+      // CG-DNA package
+      if (_datamask & CG_DNA_MASK) {
+        _id3p(i+_first) = (tagint) d_ubuf(_buf(i,m++)).i;
+        _id5p(i+_first) = (tagint) d_ubuf(_buf(i,m++)).i;
+        _qeff(i+_first) = (tagint) d_ubuf(_buf(i,m++)).i;
       }
     }
   }
@@ -1786,6 +1809,7 @@ struct AtomVecKokkos_PackBorderVel {
   typename AT::t_kkfloat_1d_randomread _radius,_rmass;
   typename AT::t_kkfloat_1d_3_randomread _omega;
   typename AT::t_kkfloat_1d_randomread _dpdTheta,_uCond,_uMech,_uChem,_uCG,_uCGnew;
+  typename AT::t_tagint_1d_randomread _id3p,_id5p,_qeff;
   double _dx,_dy,_dz, _dvx, _dvy, _dvz;
   const int _deform_groupbit;
   const uint64_t _datamask;
@@ -1818,6 +1842,9 @@ struct AtomVecKokkos_PackBorderVel {
       _uChem(atomKK->k_uChem.view<DeviceType>()),
       _uCG(atomKK->k_uCG.view<DeviceType>()),
       _uCGnew(atomKK->k_uCGnew.view<DeviceType>()),
+      _id3p(atomKK->k_id3p.view<DeviceType>()),
+      _id5p(atomKK->k_id5p.view<DeviceType>()),
+      _qeff(atomKK->k_qeff.view<DeviceType>()),
       _dx(dx),_dy(dy),_dz(dz),
       _dvx(dvx),_dvy(dvy),_dvz(dvz),
       _deform_groupbit(deform_groupbit) {
@@ -1905,6 +1932,14 @@ struct AtomVecKokkos_PackBorderVel {
       _buf(i,m++) = _uChem(j);
       _buf(i,m++) = _uCG(j);
       _buf(i,m++) = _uCGnew(j);
+    }
+
+    // CG-DNA package
+
+    if (_datamask & CG_DNA_MASK) {
+      _buf(i,m++) = _id3p(j);
+      _buf(i,m++) = _id5p(j);
+      _buf(i,m++) = _qeff(j);
     }
   }
 };
@@ -2011,6 +2046,7 @@ struct AtomVecKokkos_UnpackBorderVel {
   typename AT::t_kkfloat_1d _radius,_rmass;
   typename AT::t_kkfloat_1d_3 _omega;
   typename AT::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem,_uCG,_uCGnew;
+  typename AT::t_tagint_1d _id3p,_id5p,_qeff;
   int _first;
   uint64_t _datamask;
 
@@ -2039,6 +2075,9 @@ struct AtomVecKokkos_UnpackBorderVel {
     _uChem(atomKK->k_uChem.view<DeviceType>()),
     _uCG(atomKK->k_uCG.view<DeviceType>()),
     _uCGnew(atomKK->k_uCGnew.view<DeviceType>()),
+    _id3p(atomKK->k_id3p.view<DeviceType>()),
+    _id5p(atomKK->k_id5p.view<DeviceType>()),
+    _qeff(atomKK->k_qeff.view<DeviceType>()),
     _first(first),_datamask(datamask)
   {
     const size_t elements = atomKK->avecKK->size_border + atomKK->avecKK->size_velocity;
@@ -2111,6 +2150,14 @@ struct AtomVecKokkos_UnpackBorderVel {
         _uChem(i+_first) = _buf(i,m++);
         _uCG(i+_first) = _buf(i,m++);
         _uCGnew(i+_first) = _buf(i,m++);
+      }
+
+      // CG-DNA package
+
+      if (_datamask & CG_DNA_MASK) {
+        _id3p(i+_first) = (tagint) d_ubuf(_buf(i,m++)).i;
+        _id5p(i+_first) = (tagint) d_ubuf(_buf(i,m++)).i;
+        _qeff(i+_first) = (tagint) d_ubuf(_buf(i,m++)).i;
       }
     }
   }
@@ -2198,6 +2245,7 @@ struct AtomVecKokkos_PackExchangeFunctor {
   typename AT::t_kkfloat_1d_3 _omega;
   typename AT::t_kkfloat_1d_3 _angmom;
   typename AT::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem,_uCG,_uCGnew;
+  typename AT::t_tagint_1d _id3p,_id5p,_qeff;
 
   typename AT::t_double_2d_lr_um _buf;
   typename AT::t_int_1d_const _sendlist;
@@ -2253,6 +2301,9 @@ struct AtomVecKokkos_PackExchangeFunctor {
       _uChem(atomKK->k_uChem.view<DeviceType>()),
       _uCG(atomKK->k_uCG.view<DeviceType>()),
       _uCGnew(atomKK->k_uCGnew.view<DeviceType>()),
+      _id3p(atomKK->k_id3p.view<DeviceType>()),
+      _id5p(atomKK->k_id5p.view<DeviceType>()),
+      _qeff(atomKK->k_qeff.view<DeviceType>()),
 
       _sendlist(sendlist.template view<DeviceType>()),
       _copylist(copylist.template view<DeviceType>()),
@@ -2381,6 +2432,14 @@ struct AtomVecKokkos_PackExchangeFunctor {
         _buf(mysend,m++) = _uCG(i);
         _buf(mysend,m++) = _uCGnew(i);
       }
+
+      // CG-DNA package
+
+      if (_datamask & CG_DNA_MASK) {
+        _buf(mysend,m++) = _id3p(i);
+        _buf(mysend,m++) = _id5p(i);
+        _buf(mysend,m++) = _qeff(i);
+      }
     }
 
     const int j = _copylist(mysend);
@@ -2495,6 +2554,14 @@ struct AtomVecKokkos_PackExchangeFunctor {
           _uCG(i) = _uCG(j);
           _uCGnew(i) = _uCGnew(j);
         }
+
+        // CG-DNA package
+
+        if (_datamask & CG_DNA_MASK) {
+          _id3p(i) = _id3p(j);
+          _id5p(i) = _id5p(j);
+          _qeff(i) = _qeff(j);
+        }
       }
     }
   }
@@ -2589,6 +2656,7 @@ struct AtomVecKokkos_UnpackExchangeFunctor {
   typename AT::t_kkfloat_1d_3 _omega;
   typename AT::t_kkfloat_1d_3 _angmom;
   typename AT::t_kkfloat_1d _dpdTheta,_uCond,_uMech,_uChem,_uCG,_uCGnew;
+  typename AT::t_tagint_1d _id3p,_id5p,_qeff;
 
   typename AT::t_double_2d_lr_um _buf;
   typename AT::t_int_1d _nlocal;
@@ -2647,6 +2715,9 @@ struct AtomVecKokkos_UnpackExchangeFunctor {
       _uChem(atomKK->k_uChem.view<DeviceType>()),
       _uCG(atomKK->k_uCG.view<DeviceType>()),
       _uCGnew(atomKK->k_uCGnew.view<DeviceType>()),
+      _id3p(atomKK->k_id3p.view<DeviceType>()),
+      _id5p(atomKK->k_id5p.view<DeviceType>()),
+      _qeff(atomKK->k_qeff.view<DeviceType>()),
 
       _nlocal(nlocal.template view<DeviceType>()),
       _indices(indices.template view<DeviceType>()),
@@ -2773,6 +2844,14 @@ struct AtomVecKokkos_UnpackExchangeFunctor {
           _uChem(i) = _buf(myrecv,m++);
           _uCG(i) = _buf(myrecv,m++);
           _uCGnew(i) = _buf(myrecv,m++);
+        }
+
+        // CG-DNA package
+
+        if (_datamask & CG_DNA_MASK) {
+          _id3p(i) = (tagint) d_ubuf(_buf(myrecv,m++)).i;
+          _id5p(i) = (tagint) d_ubuf(_buf(myrecv,m++)).i;
+          _qeff(i) = (tagint) d_ubuf(_buf(myrecv,m++)).i;
         }
       }
     }
@@ -2923,6 +3002,9 @@ uint64_t AtomVecKokkos::field2mask(std::string field)
     return UCGNEW_MASK;
   else if (field == "duChem")
     return DUCHEM_MASK;
+  // CG-DNA package
+  else if (field == "id3p")
+    return CG_DNA_MASK; // all CG-DNA fields use same mask
   else
     return EMPTY_MASK;
 }
@@ -2964,6 +3046,10 @@ int AtomVecKokkos::field2size(std::string field)
   else if (field == "uCG") return 1;
   else if (field == "uCGnew") return 1;
   else if (field == "duChem") return 1;
+  // CG-DNA package
+  else if (field == "id3p") return 1;
+  else if (field == "id5p") return 1;
+  else if (field == "qeff") return 1;
   else return 0;
 }
 

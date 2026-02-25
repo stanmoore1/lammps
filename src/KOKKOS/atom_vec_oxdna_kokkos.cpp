@@ -64,6 +64,7 @@ void AtomVecOxdnaKokkos::grow(int n)
 
   memoryKK->grow_kokkos(atomKK->k_id3p,atomKK->id3p,nmax,"atom:id3p");
   memoryKK->grow_kokkos(atomKK->k_id5p,atomKK->id5p,nmax,"atom:id5p");
+  memoryKK->grow_kokkos(atomKK->k_qeff,atomKK->qeff,nmax,"atom:qeff");
 
   grow_pointers();
   atomKK->sync(Host,ALL_MASK);
@@ -76,11 +77,14 @@ void AtomVecOxdnaKokkos::grow(int n)
 void AtomVecOxdnaKokkos::grow_pointers()
 {
   id3p = atomKK->id3p;
-  d_id3p = atomKK->k_id3p.d_view;
-  h_id3p = atomKK->k_id3p.h_view;
+  d_id3p = atomKK->k_id3p.view_device();
+  h_id3p = atomKK->k_id3p.view_host();
   id5p = atomKK->id5p;
-  d_id5p = atomKK->k_id5p.d_view;
-  h_id5p = atomKK->k_id5p.h_view;
+  d_id5p = atomKK->k_id5p.view_device();
+  h_id5p = atomKK->k_id5p.view_host();
+  qeff = atomKK->qeff;
+  d_qeff = atomKK->k_qeff.view_device();
+  h_qeff = atomKK->k_qeff.view_host();
 }
 
 /* ----------------------------------------------------------------------
@@ -93,6 +97,7 @@ void AtomVecOxdnaKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter
 
   Sorter.sort(LMPDeviceType(), d_id3p);
   Sorter.sort(LMPDeviceType(), d_id5p);
+  Sorter.sort(LMPDeviceType(), d_qeff);
 
   atomKK->modified(Device, ALL_MASK & ~F_MASK);
 }
@@ -102,11 +107,13 @@ void AtomVecOxdnaKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter
 void AtomVecOxdnaKokkos::sync(ExecutionSpace space, uint64_t mask)
 {
   if (space == Device) {
-    if (mask & BOND_MASK) atomKK->k_id3p.k_x.sync_device();
-    if (mask & BOND_MASK) atomKK->k_id5p.k_x.sync_device();
+    if (mask & CG_DNA_MASK) atomKK->k_id3p.sync_device();
+    if (mask & CG_DNA_MASK) atomKK->k_id5p.sync_device();
+    if (mask & CG_DNA_MASK) atomKK->k_qeff.sync_device();
   } else {
-    if (mask & BOND_MASK) atomKK->k_id3p.k_x.sync_host();
-    if (mask & BOND_MASK) atomKK->k_id5p.k_x.sync_host();
+    if (mask & CG_DNA_MASK) atomKK->k_id3p.sync_host();
+    if (mask & CG_DNA_MASK) atomKK->k_id5p.sync_host();
+    if (mask & CG_DNA_MASK) atomKK->k_qeff.sync_host();
   }
 }
 
@@ -115,15 +122,19 @@ void AtomVecOxdnaKokkos::sync(ExecutionSpace space, uint64_t mask)
 void AtomVecOxdnaKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)
 {
   if (space == Device) {
-    if ((mask & BOND_MASK) && atomKK->k_id3p.need_sync_device())
+    if ((mask & CG_DNA_MASK) && atomKK->k_id3p.need_sync_device())
       perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id3p,space,async_flag);
-    if ((mask & BOND_MASK) && atomKK->k_id5p.need_sync_device())
+    if ((mask & CG_DNA_MASK) && atomKK->k_id5p.need_sync_device())
       perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id5p,space,async_flag);
+    if ((mask & CG_DNA_MASK) && atomKK->k_qeff.need_sync_device())
+      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_qeff,space,async_flag);
   } else {
-    if ((mask & BOND_MASK) && atomKK->k_id3p.need_sync_host())
+    if ((mask & CG_DNA_MASK) && atomKK->k_id3p.need_sync_host())
       perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id3p,space,async_flag);
-    if ((mask & BOND_MASK) && atomKK->k_id5p.need_sync_host())
+    if ((mask & CG_DNA_MASK) && atomKK->k_id5p.need_sync_host())
       perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id5p,space,async_flag);
+    if ((mask & CG_DNA_MASK) && atomKK->k_qeff.need_sync_host())
+      perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_qeff,space,async_flag);
   }
 }
 
@@ -132,10 +143,12 @@ void AtomVecOxdnaKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int as
 void AtomVecOxdnaKokkos::modified(ExecutionSpace space, uint64_t mask)
 {
   if (space == Device) {
-    if (mask & BOND_MASK) atomKK->k_id3p.modify_device();
-    if (mask & BOND_MASK) atomKK->k_id5p.modify_device();
+    if (mask & CG_DNA_MASK) atomKK->k_id3p.modify_device();
+    if (mask & CG_DNA_MASK) atomKK->k_id5p.modify_device();
+    if (mask & CG_DNA_MASK) atomKK->k_qeff.modify_device();
   } else {
-    if (mask & BOND_MASK) atomKK->k_id3p.modify_host();
-    if (mask & BOND_MASK) atomKK->k_id5p.modify_host();
+    if (mask & CG_DNA_MASK) atomKK->k_id3p.modify_host();
+    if (mask & CG_DNA_MASK) atomKK->k_id5p.modify_host();
+    if (mask & CG_DNA_MASK) atomKK->k_qeff.modify_host();
   }
 }
