@@ -69,8 +69,10 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   typename Kokkos::View<KK_FLOAT*[3],typename AT::t_kkfloat_1d_3::array_layout,\
      typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > torque;
   typename ArrayTypes<DeviceType>::t_int_2d_lr bondlist;
+  typename AT::t_int_1d_randomread atomtype;
   typename ArrayTypes<DeviceType>::t_tagint_1d tag;
   typename ArrayTypes<DeviceType>::t_tagint_1d id5p;
+  typename ArrayTypes<DeviceType>::t_tagint_1d id3p;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
   TransformView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
@@ -85,12 +87,11 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   int eflag,vflag;
 
   DAT::ttransform_kkfloat_1d k_k;
-  DAT::ttransform_kkfloat_1d k_r0;
-  DAT::ttransform_kkfloat_1d k_Delta;
-  typename AT::t_kkfloat_1d d_Delta;
+  DAT::ttransform_kkfloat_1d_4x4 k_r0;
+  DAT::ttransform_kkfloat_1d_4x4 k_Delta;
   typename AT::t_kkfloat_1d d_k;
-  typename AT::t_kkfloat_1d d_r0;
-
+  typename AT::t_kkfloat_1d_4x4 d_r0;
+  typename AT::t_kkfloat_1d_4x4 d_Delta;
   // per-atom arrays for local unit vectors
   DAT::tdual_kkfloat_1d_3 k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
   typename AT::t_kkfloat_1d_3_lr d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;

@@ -91,7 +91,9 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   f = atomKK->k_f.template view<DeviceType>();
   torque = atomKK->k_torque.template view<DeviceType>();
   tag = atomKK->k_tag.template view<DeviceType>();
+  atomtype = atomKK->k_type.template view<DeviceType>();
   id5p = atomKK->k_id5p.template view<DeviceType>();
+  id3p = atomKK->k_id3p.template view<DeviceType>();
 
   neighborKK->k_bondlist.template sync<DeviceType>();
   bondlist = neighborKK->k_bondlist.template view<DeviceType>();
@@ -197,6 +199,7 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   int a = bondlist(in,1);
   const int type = bondlist(in,2);
   int btemp;//, atype, btype;
+  int a3ptype, atype, btype, b5ptype;    // tetramer types
 
   // directionality test: a -> b is 3' -> 5'
   if ( tag(b) != id5p(a) ) {
@@ -205,50 +208,67 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
     a = btemp;  
   }
 
+  // determine tetramer types
+  // 3'neighbor a - a - b - 5'neighbor b
+
+  if (id3p[a] != -1) {
+    a3ptype = atomtype[atom->map(id3p[a])];
+  }
+  else a3ptype = 0;
+
+  atype = atomtype[a];
+  btype = atomtype[b];
+
+  if (id5p[b] != -1) {
+    b5ptype = atomtype[atom->map(id5p[b])];
+    b5ptype = atomtype[atom->map(id5p[b])];
+  }
+  else b5ptype = 0;
+
   KK_FLOAT delf[3], delta[3], deltb[3];    // force, torque increment
-  KK_FLOAT delr[3];                        // vector backbone site b to a
+  KK_FLOAT delr_bkbk[3];                   // vector backbone site b to a
   // vectors COM-backbone site in lab frame
-  KK_FLOAT ra_cs[3], rb_cs[3];
+  KK_FLOAT ra_cbk[3], rb_cbk[3];
 
   // vector COM-backbone site a and b - "compute_interaction_sites" vector COM-sugar-phosphate backbone in oxDNA
   if (OXDNAFLAG==OXDNA) {
     constexpr KK_FLOAT d_cs = -0.4;
-    ra_cs[0] = d_cs * d_nx_xtrct(a,0);
-    ra_cs[1] = d_cs * d_nx_xtrct(a,1);
-    ra_cs[2] = d_cs * d_nx_xtrct(a,2);
-    rb_cs[0] = d_cs * d_nx_xtrct(b,0);
-    rb_cs[1] = d_cs * d_nx_xtrct(b,1);
-    rb_cs[2] = d_cs * d_nx_xtrct(b,2);
+    ra_cbk[0] = d_cs * d_nx_xtrct(a,0);
+    ra_cbk[1] = d_cs * d_nx_xtrct(a,1);
+    ra_cbk[2] = d_cs * d_nx_xtrct(a,2);
+    rb_cbk[0] = d_cs * d_nx_xtrct(b,0);
+    rb_cbk[1] = d_cs * d_nx_xtrct(b,1);
+    rb_cbk[2] = d_cs * d_nx_xtrct(b,2);
   } else if (OXDNAFLAG==OXDNA2) {
     constexpr KK_FLOAT d_cs_x = -0.34;
     constexpr KK_FLOAT d_cs_y = +0.3408;
-    ra_cs[0] = d_cs_x * d_nx_xtrct(a,0) + d_cs_y * d_ny_xtrct(a,0);
-    ra_cs[1] = d_cs_x * d_nx_xtrct(a,1) + d_cs_y * d_ny_xtrct(a,1);
-    ra_cs[2] = d_cs_x * d_nx_xtrct(a,2) + d_cs_y * d_ny_xtrct(a,2);
-    rb_cs[0] = d_cs_x * d_nx_xtrct(b,0) + d_cs_y * d_ny_xtrct(b,0);
-    rb_cs[1] = d_cs_x * d_nx_xtrct(b,1) + d_cs_y * d_ny_xtrct(b,1);
-    rb_cs[2] = d_cs_x * d_nx_xtrct(b,2) + d_cs_y * d_ny_xtrct(b,2);
+    ra_cbk[0] = d_cs_x * d_nx_xtrct(a,0) + d_cs_y * d_ny_xtrct(a,0);
+    ra_cbk[1] = d_cs_x * d_nx_xtrct(a,1) + d_cs_y * d_ny_xtrct(a,1);
+    ra_cbk[2] = d_cs_x * d_nx_xtrct(a,2) + d_cs_y * d_ny_xtrct(a,2);
+    rb_cbk[0] = d_cs_x * d_nx_xtrct(b,0) + d_cs_y * d_ny_xtrct(b,0);
+    rb_cbk[1] = d_cs_x * d_nx_xtrct(b,1) + d_cs_y * d_ny_xtrct(b,1);
+    rb_cbk[2] = d_cs_x * d_nx_xtrct(b,2) + d_cs_y * d_ny_xtrct(b,2);
   } else if (OXDNAFLAG==OXRNA2) {
     constexpr KK_FLOAT d_cs_x = -0.4;
     constexpr KK_FLOAT d_cs_z = +0.2;
-    ra_cs[0] = d_cs_x * d_nx_xtrct(a,0) + d_cs_z * d_nz_xtrct(a,0);
-    ra_cs[1] = d_cs_x * d_nx_xtrct(a,1) + d_cs_z * d_nz_xtrct(a,1);
-    ra_cs[2] = d_cs_x * d_nx_xtrct(a,2) + d_cs_z * d_nz_xtrct(a,2);
-    rb_cs[0] = d_cs_x * d_nx_xtrct(b,0) + d_cs_z * d_nz_xtrct(b,0);
-    rb_cs[1] = d_cs_x * d_nx_xtrct(b,1) + d_cs_z * d_nz_xtrct(b,1);
-    rb_cs[2] = d_cs_x * d_nx_xtrct(b,2) + d_cs_z * d_nz_xtrct(b,2);
+    ra_cbk[0] = d_cs_x * d_nx_xtrct(a,0) + d_cs_z * d_nz_xtrct(a,0);
+    ra_cbk[1] = d_cs_x * d_nx_xtrct(a,1) + d_cs_z * d_nz_xtrct(a,1);
+    ra_cbk[2] = d_cs_x * d_nx_xtrct(a,2) + d_cs_z * d_nz_xtrct(a,2);
+    rb_cbk[0] = d_cs_x * d_nx_xtrct(b,0) + d_cs_z * d_nz_xtrct(b,0);
+    rb_cbk[1] = d_cs_x * d_nx_xtrct(b,1) + d_cs_z * d_nz_xtrct(b,1);
+    rb_cbk[2] = d_cs_x * d_nx_xtrct(b,2) + d_cs_z * d_nz_xtrct(b,2);
   }
 
   // vector backbone site b to a
-  delr[0] = x(a,0) + ra_cs[0] - x(b,0) - rb_cs[0];
-  delr[1] = x(a,1) + ra_cs[1] - x(b,1) - rb_cs[1];
-  delr[2] = x(a,2) + ra_cs[2] - x(b,2) - rb_cs[2];
-  const KK_FLOAT rsq = delr[0]*delr[0] + delr[1]*delr[1] + delr[2]*delr[2];
-  const KK_FLOAT r = sqrt(rsq);
+  delr_bkbk[0] = x(a,0) + ra_cbk[0] - x(b,0) - rb_cbk[0];
+  delr_bkbk[1] = x(a,1) + ra_cbk[1] - x(b,1) - rb_cbk[1];
+  delr_bkbk[2] = x(a,2) + ra_cbk[2] - x(b,2) - rb_cbk[2];
+  const KK_FLOAT rsq = delr_bkbk[0]*delr_bkbk[0] + delr_bkbk[1]*delr_bkbk[1] + delr_bkbk[2]*delr_bkbk[2];
+  const KK_FLOAT r_bkbk = sqrt(rsq);
 
-  KK_FLOAT rr0 = r - d_r0[type];
+  KK_FLOAT rr0 = r_bkbk - d_r0(type, a3ptype, atype, btype, b5ptype);
   const KK_FLOAT rr0sq = rr0 * rr0;
-  const KK_FLOAT Deltasq = d_Delta[type]*d_Delta[type];
+  const KK_FLOAT Deltasq = d_Delta(type, a3ptype, atype, btype, b5ptype)*d_Delta(type, a3ptype, atype, btype, b5ptype);
   KK_FLOAT rlogarg = 1.0 - rr0sq/Deltasq;
 
   // energy
@@ -264,31 +284,33 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
     d_flag() = 1;
     rlogarg = 0.2;
     // if overstretched F(r)=F(r_max)=F_max, E(r)=E(r_max)+F_max*(r-r_max)
-    if (r > d_r0(type)) {
-      rr0 = d_Delta[type]*sqrt(1.0 - rlogarg);
+    if (r_bkbk > d_r0(type, a3ptype, atype, btype, b5ptype)) {
+      rr0 = d_Delta(type, a3ptype, atype, btype, b5ptype)*sqrt(1.0 - rlogarg);
       // energy
       if (eflag) {
         ebond = -0.5 * d_k(type) * log(rlogarg) + d_k(type) * 
-                sqrt(1.0-rlogarg) / rlogarg / d_Delta(type) *
-                (r - d_r0(type) - d_Delta(type) * sqrt(1.0-rlogarg));
+                sqrt(1.0-rlogarg) / rlogarg / d_Delta(type, a3ptype, atype, btype, b5ptype) *
+                (r_bkbk - d_r0(type, a3ptype, atype, btype, b5ptype) -
+                d_Delta(type, a3ptype, atype, btype, b5ptype) * sqrt(1.0-rlogarg));
       }
     } 
     // if overcompressed F(r)=F(r_min)=F_max, E(r)=E(r_min)+F_max*(r_min-r)
-    else if (r < d_r0(type)) {
-      rr0 = -d_Delta(type)*sqrt(1.0 - rlogarg);
+    else if (r_bkbk < d_r0(type, a3ptype, atype, btype, b5ptype)) {
+      rr0 = -d_Delta(type, a3ptype, atype, btype, b5ptype)*sqrt(1.0 - rlogarg);
       // energy
       if (eflag) {
         ebond = -0.5 * d_k(type) * log(rlogarg) + d_k(type) * 
-                sqrt(1.0-rlogarg) / rlogarg / d_Delta(type) *
-                (r - d_r0(type) + d_Delta(type) * sqrt(1.0-rlogarg));
+                sqrt(1.0-rlogarg) / rlogarg / d_Delta(type, a3ptype, atype, btype, b5ptype) *
+                (r_bkbk - d_r0(type, a3ptype, atype, btype, b5ptype) +
+                d_Delta(type, a3ptype, atype, btype, b5ptype) * sqrt(1.0-rlogarg));
       }
     }
   }
 
-  KK_FLOAT fbond = -d_k[type] * rr0 / rlogarg / Deltasq / r;
-  delf[0] = delr[0] * fbond;
-  delf[1] = delr[1] * fbond;
-  delf[2] = delr[2] * fbond;
+  KK_FLOAT fbond = -d_k[type] * rr0 / rlogarg / Deltasq / r_bkbk;
+  delf[0] = delr_bkbk[0] * fbond;
+  delf[1] = delr_bkbk[1] * fbond;
+  delf[2] = delr_bkbk[2] * fbond;
 
   // apply force to each of 2 atoms
 
@@ -296,9 +318,9 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
     a_f(a,0) += delf[0];
     a_f(a,1) += delf[1];
     a_f(a,2) += delf[2];
-    delta[0] = ra_cs[1]*delf[2] - ra_cs[2]*delf[1];
-    delta[1] = ra_cs[2]*delf[0] - ra_cs[0]*delf[2];
-    delta[2] = ra_cs[0]*delf[1] - ra_cs[1]*delf[0];
+    delta[0] = ra_cbk[1]*delf[2] - ra_cbk[2]*delf[1];
+    delta[1] = ra_cbk[2]*delf[0] - ra_cbk[0]*delf[2];
+    delta[2] = ra_cbk[0]*delf[1] - ra_cbk[1]*delf[0];
     a_torque(a,0) += delta[0];
     a_torque(a,1) += delta[1];
     a_torque(a,2) += delta[2];
@@ -308,9 +330,9 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
     a_f(b,0) -= delf[0];
     a_f(b,1) -= delf[1];
     a_f(b,2) -= delf[2];
-    deltb[0] = rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
-    deltb[1] = rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
-    deltb[2] = rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
+    deltb[0] = rb_cbk[1]*delf[2] - rb_cbk[2]*delf[1];
+    deltb[1] = rb_cbk[2]*delf[0] - rb_cbk[0]*delf[2];
+    deltb[2] = rb_cbk[0]*delf[1] - rb_cbk[1]*delf[0];
     a_torque(b,0) -= deltb[0];
     a_torque(b,1) -= deltb[1];
     a_torque(b,2) -= deltb[2];
@@ -338,8 +360,8 @@ void BondOxdnaFENEKokkos<DeviceType>::allocate()
 
   int n = atom->nbondtypes;
   k_k = DAT::ttransform_kkfloat_1d("BondOxdnaFENE::k",n+1);
-  k_r0 = DAT::ttransform_kkfloat_1d("BondOxdnaFENE::r0",n+1);
-  k_Delta = DAT::ttransform_kkfloat_1d("BondOxdnaFENE::Delta",n+1);
+  k_r0 = DAT::ttransform_kkfloat_1d_4x4("BondOxdnaFENE::r0",n+1,4,4,4,4);
+  k_Delta = DAT::ttransform_kkfloat_1d_4x4("BondOxdnaFENE::Delta",n+1,4,4,4,4);
 
   d_k = k_k.template view<DeviceType>();
   d_r0 = k_r0.template view<DeviceType>();
@@ -358,8 +380,16 @@ void BondOxdnaFENEKokkos<DeviceType>::coeff(int narg, char **arg)
   int n = atom->nbondtypes;
   for (int i = 1; i <= n; i++) {
     k_k.view_host()[i] = k[i];
-    k_r0.view_host()[i] = r0[i][0][0][0][0];
-    k_Delta.view_host()[i] = Delta[i][0][0][0][0];
+    for (int n1 = 0; n1 < 4; n1++) {
+      for (int n2 = 0; n2 < 4; n2++) {
+        for (int n3 = 0; n3 < 4; n3++) {
+          for (int n4 = 0; n4 < 4; n4++) {
+            k_r0.view_host()(i,n1,n2,n3,n4) = r0[i][n1][n2][n3][n4];
+            k_Delta.view_host()(i,n1,n2,n3,n4) = Delta[i][n1][n2][n3][n4];
+          }
+        }
+      }
+    }
   }
 
   k_k.template modify<LMPHostType>();
@@ -380,8 +410,16 @@ void BondOxdnaFENEKokkos<DeviceType>::read_restart(FILE *fp)
   int n = atom->nbondtypes;
   for (int i = 1; i <= n; i++) {
     k_k.view_host()[i] = k[i];
-    k_r0.view_host()[i] = r0[i][0][0][0][0];
-    k_Delta.view_host()[i] = Delta[i][0][0][0][0];
+    for (int n1 = 0; n1 < 4; n1++) {
+      for (int n2 = 0; n2 < 4; n2++) {
+        for (int n3 = 0; n3 < 4; n3++) {
+          for (int n4 = 0; n4 < 4; n4++) {
+            k_r0.view_host()(i,n1,n2,n3,n4) = r0[i][n1][n2][n3][n4];
+            k_Delta.view_host()(i,n1,n2,n3,n4) = Delta[i][n1][n2][n3][n4];
+          }
+        }
+      }
+    }
   }
 
   k_k.template modify<LMPHostType>();
