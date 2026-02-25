@@ -31,6 +31,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <cassert>
 #include <exception>
 
 using namespace LAMMPS_NS;
@@ -40,10 +41,6 @@ using namespace MFOxdna;
 
 PairOxdnaStk::PairOxdnaStk(LAMMPS *lmp) : Pair(lmp)
 {
-  single_enable = 0;
-  writedata = 0;
-  trim_flag = 0;
-
   // sequence-specific stacking strength
   // A:0 C:1 G:2 T:3, 3'- [i][j] -5'
 
@@ -67,6 +64,9 @@ PairOxdnaStk::PairOxdnaStk(LAMMPS *lmp) : Pair(lmp)
   eta_st[2][3] = 1.01889;
   eta_st[3][3] = 0.96383;
 
+  single_enable = 0;
+  writedata = 0;
+  trim_flag = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -805,7 +805,7 @@ void PairOxdnaStk::coeff(int narg, char **arg)
 {
   int count;
 
-  if (narg != 7 && narg != 24) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/stk" + utils::errorurl(21));
+  if (narg != 5 && narg != 24) error->all(FLERR,"Incorrect args for pair coefficients in oxdna/stk" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi,nlo,nhi,imod4,jmod4,kmod4;
@@ -842,11 +842,13 @@ void PairOxdnaStk::coeff(int narg, char **arg)
   if (strcmp(arg[2],"seqdep") == 0) seqdepflag = 1;
 
   T = utils::numeric(FLERR,arg[3],false,lmp);
-  xi_st_one = utils::numeric(FLERR,arg[4],false,lmp);
-  kappa_st_one = utils::numeric(FLERR,arg[5],false,lmp);
-  epsilon_st_one = stacking_strength(xi_st_one, kappa_st_one, T);
 
   if (narg == 24) { // values are listed in input
+    xi_st_one = utils::numeric(FLERR,arg[4],false,lmp);
+    kappa_st_one = utils::numeric(FLERR,arg[5],false,lmp);
+
+    epsilon_st_one = stacking_strength(xi_st_one, kappa_st_one, T);
+
     a_st_one = utils::numeric(FLERR,arg[6],false,lmp);
     cut_st_0_one = utils::numeric(FLERR,arg[7],false,lmp);
     cut_st_c_one = utils::numeric(FLERR,arg[8],false,lmp);
@@ -868,7 +870,7 @@ void PairOxdnaStk::coeff(int narg, char **arg)
     cosphi_st2_ast_one = utils::numeric(FLERR,arg[23],false,lmp);
   } else { // read values from potential file
     if (comm->me == 0) {
-      PotentialFileReader reader(lmp, arg[6], "oxdna potential", " (stk)");
+      PotentialFileReader reader(lmp, arg[4], "oxdna potential", " (stk)");
       char * line;
       std::string iloc, jloc, potential_name;
 
@@ -879,6 +881,11 @@ void PairOxdnaStk::coeff(int narg, char **arg)
           jloc = values.next_string();
           potential_name = values.next_string();
           if (iloc == arg[0] && jloc == arg[1] && potential_name == "stk") {
+
+            xi_st_one = values.next_double();
+            kappa_st_one = values.next_double();
+
+            epsilon_st_one = stacking_strength(xi_st_one, kappa_st_one, T);
 
             a_st_one = values.next_double();
             cut_st_0_one = values.next_double();
@@ -910,6 +917,8 @@ void PairOxdnaStk::coeff(int narg, char **arg)
         error->one(FLERR, "No corresponding stk potential found in file {} for pair type {} {}",
                    arg[4], arg[0], arg[1]);
     }
+
+    MPI_Bcast(&epsilon_st_one, 1, MPI_DOUBLE, 0, world);
 
     MPI_Bcast(&a_st_one, 1, MPI_DOUBLE, 0, world);
     MPI_Bcast(&cut_st_0_one, 1, MPI_DOUBLE, 0, world);
@@ -984,7 +993,9 @@ void PairOxdnaStk::coeff(int narg, char **arg)
       if (jmod4 == 0) jmod4 = 4;
 
       epsilon_st[i][j] = epsilon_st_one;
-      if (seqdepflag) epsilon_st[i][j] *= eta_st[imod4-1][jmod4-1];
+      if (seqdepflag) {
+        epsilon_st[i][j] *= eta_st[imod4-1][jmod4-1];
+      }
 
       a_st[i][j] = a_st_one;
       b_st_lo[i][j] = b_st_lo_one;
@@ -1019,6 +1030,7 @@ void PairOxdnaStk::coeff(int narg, char **arg)
 
   // parameters depending on dummy tetramer
   for (int i = 0; i <= nhi; i++) { // type 0 for terminal j
+
     for (int j = nlo; j <= nhi; j++) {
       jmod4 = j%4;
       if (jmod4 == 0) jmod4 = 4;

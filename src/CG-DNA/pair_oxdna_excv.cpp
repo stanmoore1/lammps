@@ -32,6 +32,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <cassert>
 #include <exception>
 
 using namespace LAMMPS_NS;
@@ -694,7 +695,6 @@ void PairOxdnaExcv::coeff(int narg, char **arg)
       lj2_bkbk[i][j] = 4.0 * epsilon_bkbk[i][j] * pow(sigma_bkbk[i][j],6.0);
       cutsq_bkbk_ast[i][j] = cut_bkbk_ast[i][j]*cut_bkbk_ast[i][j];
       cutsq_bkbk_c[i][j]  = cut_bkbk_c[i][j]*cut_bkbk_c[i][j];
-      setflag[i][j] = 1;
       count++;
     }
   }
@@ -726,7 +726,6 @@ void PairOxdnaExcv::coeff(int narg, char **arg)
       lj2_bkbs[i][j] = 4.0 * epsilon_bkbs[i][j] * pow(sigma_bkbs[i][j],6.0);
       cutsq_bkbs_ast[i][j] = cut_bkbs_ast[i][j]*cut_bkbs_ast[i][j];
       cutsq_bkbs_c[i][j]  = cut_bkbs_c[i][j]*cut_bkbs_c[i][j];
-      setflag[i][j] = 1;
       count++;
     }
   }

@@ -29,8 +29,8 @@ class PairOxdna2Coaxstk : public Pair {
  public:
   PairOxdna2Coaxstk(class LAMMPS *);
   ~PairOxdna2Coaxstk() override;
-  void compute_backbone_site(double *, double *, double *, double *) const;
-  void compute_stacking_site(double *, double *, double *, double *) const;
+  virtual void compute_backbone_site(double *, double *, double *, double *) const;
+  virtual void compute_stacking_site(double *, double *, double *, double *) const;
   void compute(int, int) override;
   void settings(int, char **) override;
   void coeff(int, char **) override;
@@ -44,6 +44,7 @@ class PairOxdna2Coaxstk : public Pair {
 
  protected:
   // coaxial stacking interaction
+  double eta_cxst[4][4];
   double **k_cxst, **cut_cxst_0, **cut_cxst_c, **cut_cxst_lo, **cut_cxst_hi;
   double **cut_cxst_lc, **cut_cxst_hc, **b_cxst_lo, **b_cxst_hi;
   double **cutsq_cxst_hc;

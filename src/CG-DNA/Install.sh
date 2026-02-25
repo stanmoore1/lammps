@@ -85,8 +85,10 @@ action  pair_oxdna3_xstk.h atom_vec_ellipsoid.h
 action  pair_oxrna2_xstk.h atom_vec_ellipsoid.h
 action  pair_oxdna_coaxstk.cpp atom_vec_ellipsoid.h
 action  pair_oxdna2_coaxstk.cpp atom_vec_ellipsoid.h
+action  pair_oxdna3_coaxstk.cpp atom_vec_ellipsoid.h
 action  pair_oxdna_coaxstk.h atom_vec_ellipsoid.h
 action  pair_oxdna2_coaxstk.h atom_vec_ellipsoid.h
+action  pair_oxdna3_coaxstk.h atom_vec_ellipsoid.h
 action  pair_oxdna2_dh.cpp atom_vec_ellipsoid.h
 action  pair_oxrna2_dh.cpp atom_vec_ellipsoid.h
 action  pair_oxdna2_dh.h atom_vec_ellipsoid.h

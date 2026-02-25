@@ -37,6 +37,7 @@ class PairOxdna3Stk : public PairOxdnaStk {
    oxdna3.stacking_site(e1, NULL, NULL, rstk);
   };
   void coeff(int, char **) override;
+
 };
 
 }    // namespace LAMMPS_NS

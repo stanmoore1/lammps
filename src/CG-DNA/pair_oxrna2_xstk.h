@@ -28,6 +28,7 @@ class PairOxrna2Xstk : public Pair {
  public:
   PairOxrna2Xstk(class LAMMPS *);
   ~PairOxrna2Xstk() override;
+  void compute_base_site(int, double *, double *, double *, double *) const;
   void compute(int, int) override;
   void settings(int, char **) override;
   void coeff(int, char **) override;

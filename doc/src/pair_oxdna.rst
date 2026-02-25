@@ -61,7 +61,7 @@ Examples
 
    pair_style hybrid/overlay oxdna/excv oxdna/stk oxdna/hbond oxdna/xstk oxdna/coaxstk
    pair_coeff * * oxdna/excv    oxdna_lj.cgdna
-   pair_coeff * * oxdna/stk     seqav 0.1 1.3448 2.6568 oxdna_lj.cgdna
+   pair_coeff * * oxdna/stk     seqav 0.1 oxdna_lj.cgdna
    pair_coeff * * oxdna/hbond   seqav oxdna_lj.cgdna
    pair_coeff 1 4 oxdna/hbond   seqav oxdna_lj.cgdna
    pair_coeff 2 3 oxdna/hbond   seqav oxdna_lj.cgdna
@@ -80,7 +80,7 @@ Examples
 
    pair_style hybrid/overlay oxdna/excv oxdna/stk oxdna/hbond oxdna/xstk oxdna/coaxstk
    pair_coeff * * oxdna/excv    oxdna_real.cgdna
-   pair_coeff * * oxdna/stk     seqav 300.0 8.01727944817084 0.005279604 oxdna_real.cgdna
+   pair_coeff * * oxdna/stk     seqav 300.0 oxdna_real.cgdna
    pair_coeff * * oxdna/hbond   seqav oxdna_real.cgdna
    pair_coeff 1 4 oxdna/hbond   seqav oxdna_real.cgdna
    pair_coeff 2 3 oxdna/hbond   seqav oxdna_real.cgdna
@@ -129,8 +129,8 @@ description of the oxDNA force field.
    backbone (see also documentation of :doc:`bond_style oxdna/fene
    <bond_oxdna>`). Most of the coefficients in the above example have to
    be kept fixed and cannot be changed without reparameterizing the
-   entire model.  Exceptions are the first four coefficients after
-   *oxdna/stk* (seq=seqdep, T=0.1, xi=1.3448 and kappa=2.6568 and
+   entire model.  Exceptions are the first two coefficients after
+   *oxdna/stk* (seq=seqdep and T=0.1 and
    corresponding *real unit* equivalents in the above examples) and the
    first coefficient after *oxdna/hbond* (seq=seqdep in the above
    example).  When using a Langevin thermostat, e.g. through :doc:`fix
@@ -147,8 +147,16 @@ description of the oxDNA force field.
    the data file. The first (second) atom in a bond definition is
    understood to point towards the 3'-end (5'-end) of the strand.
 
+.. warning::
+
+   If data files are produced with :doc:`write_data <write_data>`, then
+   the :doc:`newton <newton>` command should be set to *newton on*.
+   Otherwise the data files will not have the same 3'-to-5' polarity 
+   as the initial data file. This limitation does not apply to
+   binary restart files produced with :doc:`write_restart <write_restart>`.
+
 Example input and data files for DNA duplexes can be found in
-``examples/PACKAGES/cgdna/examples/oxDNA/`` and ``.../oxDNA2/``.  A
+``examples/PACKAGES/cgdna/examples/oxDNA/``.  A
 simple python setup tool which creates single straight or helical DNA
 strands, DNA duplexes or arrays of DNA duplexes can be found in
 ``examples/PACKAGES/cgdna/util/``.

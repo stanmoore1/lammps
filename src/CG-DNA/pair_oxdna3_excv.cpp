@@ -47,6 +47,8 @@ void PairOxdna3Excv::coeff(int narg, char **arg)
   nlo = ilo;
   nhi = ihi;
 
+  if (nhi > 4) error->all(FLERR, "pair oxdna3/excv does not support more than 4 atom types for A, C, G and T");
+
   double epsilon_bkbk_one, sigma_bkbk_one;
   double cut_bkbk_ast_one, cut_bkbk_c_one, b_bkbk_one;
 
@@ -56,8 +58,16 @@ void PairOxdna3Excv::coeff(int narg, char **arg)
   double epsilon_bsbs_one, sigma_bsbs_one;
   double cut_bsbs_ast_one, cut_bsbs_c_one, b_bsbs_one;
 
-  sigma4_bsbs[0][0][0][0] = 0.0;
-  cut4_bsbs_ast[0][0][0][0] = 0.0;
+  for (int i = 0; i <= nhi; i++) {
+    for (int j = 0; j <= nhi; j++) {
+      for (int k = 0; k <= nhi; k++) {
+        for (int l = 0; l <= nhi; l++) {
+          sigma4_bsbs[i][j][k][l] = 0.0;
+          cut4_bsbs_ast[i][j][k][l] = 0.0;
+        }
+      }
+    }
+  }
 
   if (comm->me == 0) {
     PotentialFileReader reader(lmp, arg[2], "oxdna3 potential", " (excv)");
@@ -93,7 +103,9 @@ void PairOxdna3Excv::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                 sigma4_bsbs[i][j][k][l] = values.next_double();
-                sigma4_bsbs[0][0][0][0] += sigma4_bsbs[i][j][k][l];
+                sigma4_bsbs[i][j][k][0] += sigma4_bsbs[i][j][k][l];
+                sigma4_bsbs[0][j][k][l] += sigma4_bsbs[i][j][k][l];
+                sigma4_bsbs[0][j][k][0] += sigma4_bsbs[i][j][k][l];
                 }
               }
             }
@@ -104,7 +116,9 @@ void PairOxdna3Excv::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                 cut4_bsbs_ast[i][j][k][l] = values.next_double();
-                cut4_bsbs_ast[0][0][0][0] += cut4_bsbs_ast[i][j][k][l];
+                cut4_bsbs_ast[i][j][k][0] += cut4_bsbs_ast[i][j][k][l];
+                cut4_bsbs_ast[0][j][k][l] += cut4_bsbs_ast[i][j][k][l];
+                cut4_bsbs_ast[0][j][k][0] += cut4_bsbs_ast[i][j][k][l];
                 }
               }
             }
@@ -121,26 +135,28 @@ void PairOxdna3Excv::coeff(int narg, char **arg)
                  arg[2], arg[0], arg[1]);
 
 
-    // calculate sequence-averaged parameters 
-    sigma4_bsbs[0][0][0][0] /= pow(nhi,4);
-    cut4_bsbs_ast[0][0][0][0] /= pow(nhi,4);
-
-    // assign sequence-averaged parameters to terminal bases j
-    for (int j = 1; j <= nhi; j++) {
-      for (int k = 1; k <= nhi; k++) {
-        for (int l = 0; l <= nhi; l++) {
-          sigma4_bsbs[0][j][k][l] = sigma4_bsbs[0][0][0][0];
-          cut4_bsbs_ast[0][j][k][l] = cut4_bsbs_ast[0][0][0][0];
+    // calculate sequence-averaged parameters for terminal base step j-k
+    for (int i = nlo; i <= nhi; i++) {
+      for (int j = nlo; j <= nhi; j++) {
+        for (int k = nlo; k <= nhi; k++) {
+          sigma4_bsbs[i][j][k][0] /= nhi;
+          cut4_bsbs_ast[i][j][k][0] /= nhi;
         }
       }
     }
-    // assign sequence-averaged parameters to terminal bases k
-    for (int i = 0; i <= nhi; i++) {
-      for (int j = 1; j <= nhi; j++) {
-        for (int k = 1; k <= nhi; k++) {
-          sigma4_bsbs[i][j][k][0] = sigma4_bsbs[0][0][0][0];
-          cut4_bsbs_ast[i][j][k][0] = cut4_bsbs_ast[0][0][0][0];
+    for (int j = nlo; j <= nhi; j++) {
+      for (int k = nlo; k <= nhi; k++) {
+        for (int l = nlo; l <= nhi; l++) {
+          sigma4_bsbs[0][j][k][l] /= nhi;
+          cut4_bsbs_ast[0][j][k][l] /= nhi;
+ 
         }
+      }
+    }
+    for (int j = nlo; j <= nhi; j++) {
+      for (int k = nlo; k <= nhi; k++) {
+        sigma4_bsbs[0][j][k][0] /= pow(nhi,2);
+        cut4_bsbs_ast[0][j][k][0] /= pow(nhi,2);
       }
     }
 
@@ -186,7 +202,6 @@ void PairOxdna3Excv::coeff(int narg, char **arg)
       lj2_bkbk[i][j] = 4.0 * epsilon_bkbk[i][j] * pow(sigma_bkbk[i][j],6.0);
       cutsq_bkbk_ast[i][j] = cut_bkbk_ast[i][j]*cut_bkbk_ast[i][j];
       cutsq_bkbk_c[i][j]  = cut_bkbk_c[i][j]*cut_bkbk_c[i][j];
-      setflag[i][j] = 1;
       count++;
     }
   }
@@ -218,7 +233,6 @@ void PairOxdna3Excv::coeff(int narg, char **arg)
       lj2_bkbs[i][j] = 4.0 * epsilon_bkbs[i][j] * pow(sigma_bkbs[i][j],6.0);
       cutsq_bkbs_ast[i][j] = cut_bkbs_ast[i][j]*cut_bkbs_ast[i][j];
       cutsq_bkbs_c[i][j]  = cut_bkbs_c[i][j]*cut_bkbs_c[i][j];
-      setflag[i][j] = 1;
       count++;
     }
   }

@@ -405,9 +405,11 @@ and :ref:`ASPHERE <PKG-ASPHERE>` packages are installed.
 * ``src/CG-DNA/README``
 * :doc:`pair_style oxdna/\* <pair_oxdna>`
 * :doc:`pair_style oxdna2/\* <pair_oxdna2>`
+* :doc:`pair_style oxdna3/\* <pair_oxdna3>`
 * :doc:`pair_style oxrna2/\* <pair_oxrna2>`
 * :doc:`bond_style oxdna/\* <bond_oxdna>`
 * :doc:`bond_style oxdna2/\* <bond_oxdna>`
+* :doc:`bond_style oxdna3/\* <bond_oxdna>`
 * :doc:`bond_style oxrna2/\* <bond_oxdna>`
 * :doc:`fix nve/dotc/langevin <fix_nve_dotc_langevin>`
 * ``examples/PACKAGES/cgdna``

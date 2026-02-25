@@ -742,6 +742,8 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
   nlo = ilo;
   nhi = ihi;
 
+  if (nhi > 4) error->all(FLERR, "pair oxdna3/xstk does not support more than 4 atom types for A, C, G and T");
+
   // cross-stacking interaction
   count = 0;
 
@@ -763,22 +765,31 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
   double a_xst8_one, theta_xst8_0_33_one, theta_xst8_0_55_one, dtheta_xst8_ast_one;
   double b_xst8_one, dtheta_xst8_c_one;
 
-  cut_xst_0_33[0][0][0][0] = 0.0;
-  cut_xst_0_55[0][0][0][0] = 0.0;
-  cut_xst_c_33[0][0][0][0] = 0.0;
-  cut_xst_c_55[0][0][0][0] = 0.0;
-  cut_xst_lo_33[0][0][0][0] = 0.0;
-  cut_xst_lo_55[0][0][0][0] = 0.0;
-  cut_xst_hi_33[0][0][0][0] = 0.0;
-  cut_xst_hi_55[0][0][0][0] = 0.0;
 
-  a_xst4_33[0][0][0][0] = 0.0;
-  theta_xst4_0_33[0][0][0][0] = 0.0;
-  dtheta_xst4_ast_33[0][0][0][0] = 0.0;
+  for (int i = 0; i <= nhi; i++) {
+    for (int j = 0; j <= nhi; j++) {
+      for (int k = 0; k <= nhi; k++) {
+        for (int l = 0; l <= nhi; l++) {
+          cut_xst_0_33[i][j][k][l] = 0.0;
+          cut_xst_0_55[i][j][k][l] = 0.0;
+          cut_xst_c_33[i][j][k][l] = 0.0;
+          cut_xst_c_55[i][j][k][l] = 0.0;
+          cut_xst_lo_33[i][j][k][l] = 0.0;
+          cut_xst_lo_55[i][j][k][l] = 0.0;
+          cut_xst_hi_33[i][j][k][l] = 0.0;
+          cut_xst_hi_55[i][j][k][l] = 0.0;
 
-  a_xst4_55[0][0][0][0] = 0.0;
-  theta_xst4_0_55[0][0][0][0] = 0.0;
-  dtheta_xst4_ast_55[0][0][0][0] = 0.0;
+          a_xst4_33[i][j][k][l] = 0.0;
+          theta_xst4_0_33[i][j][k][l] = 0.0;
+          dtheta_xst4_ast_33[i][j][k][l] = 0.0;
+
+          a_xst4_55[i][j][k][l] = 0.0;
+          theta_xst4_0_55[i][j][k][l] = 0.0;
+          dtheta_xst4_ast_55[i][j][k][l] = 0.0;
+        }
+      }
+    }
+  }
 
   if (comm->me == 0) {
     PotentialFileReader reader(lmp, arg[2], "oxdna3 potential", " (xstk)");
@@ -800,7 +811,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   cut_xst_0_33[i][j][k][l] = values.next_double();
-                  cut_xst_0_33[0][0][0][0] += cut_xst_0_33[i][j][k][l];
+                  cut_xst_0_33[i][j][k][0] += cut_xst_0_33[i][j][k][l];
+                  cut_xst_0_33[0][j][k][l] += cut_xst_0_33[i][j][k][l];
+                  cut_xst_0_33[0][j][k][0] += cut_xst_0_33[i][j][k][l];
                 }
               }
             }
@@ -811,7 +824,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   cut_xst_c_33[i][j][k][l] = values.next_double();
-                  cut_xst_c_33[0][0][0][0] += cut_xst_c_33[i][j][k][l];
+                  cut_xst_c_33[i][j][k][0] += cut_xst_c_33[i][j][k][l];
+                  cut_xst_c_33[0][j][k][l] += cut_xst_c_33[i][j][k][l];
+                  cut_xst_c_33[0][j][k][0] += cut_xst_c_33[i][j][k][l];
                 }
               }
             }
@@ -821,7 +836,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   cut_xst_lo_33[i][j][k][l] = values.next_double();
-                  cut_xst_lo_33[0][0][0][0] += cut_xst_lo_33[i][j][k][l];
+                  cut_xst_lo_33[i][j][k][0] += cut_xst_lo_33[i][j][k][l];
+                  cut_xst_lo_33[0][j][k][l] += cut_xst_lo_33[i][j][k][l];
+                  cut_xst_lo_33[0][j][k][0] += cut_xst_lo_33[i][j][k][l];
                 }
               }
             }
@@ -831,7 +848,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   cut_xst_hi_33[i][j][k][l] = values.next_double();
-                  cut_xst_hi_33[0][0][0][0] += cut_xst_hi_33[i][j][k][l];
+                  cut_xst_hi_33[i][j][k][0] += cut_xst_hi_33[i][j][k][l];
+                  cut_xst_hi_33[0][j][k][l] += cut_xst_hi_33[i][j][k][l];
+                  cut_xst_hi_33[0][j][k][0] += cut_xst_hi_33[i][j][k][l];
                 }
               }
             }
@@ -842,7 +861,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   cut_xst_0_55[i][j][k][l] = values.next_double();
-                  cut_xst_0_55[0][0][0][0] += cut_xst_0_55[i][j][k][l];
+                  cut_xst_0_55[i][j][k][0] += cut_xst_0_55[i][j][k][l];
+                  cut_xst_0_55[0][j][k][l] += cut_xst_0_55[i][j][k][l];
+                  cut_xst_0_55[0][j][k][0] += cut_xst_0_55[i][j][k][l];
                 }
               }
             }
@@ -852,7 +873,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   cut_xst_c_55[i][j][k][l] = values.next_double();
-                  cut_xst_c_55[0][0][0][0] += cut_xst_c_55[i][j][k][l];
+                  cut_xst_c_55[i][j][k][0] += cut_xst_c_55[i][j][k][l];
+                  cut_xst_c_55[0][j][k][l] += cut_xst_c_55[i][j][k][l];
+                  cut_xst_c_55[0][j][k][0] += cut_xst_c_55[i][j][k][l];
                 }
               }
             }
@@ -862,7 +885,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   cut_xst_lo_55[i][j][k][l] = values.next_double();
-                  cut_xst_lo_55[0][0][0][0] += cut_xst_lo_55[i][j][k][l];
+                  cut_xst_lo_55[i][j][k][0] += cut_xst_lo_55[i][j][k][l];
+                  cut_xst_lo_55[0][j][k][l] += cut_xst_lo_55[i][j][k][l];
+                  cut_xst_lo_55[0][j][k][0] += cut_xst_lo_55[i][j][k][l];
                 }
               }
             }
@@ -872,7 +897,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   cut_xst_hi_55[i][j][k][l] = values.next_double();
-                  cut_xst_hi_55[0][0][0][0] += cut_xst_hi_55[i][j][k][l];
+                  cut_xst_hi_55[i][j][k][0] += cut_xst_hi_55[i][j][k][l];
+                  cut_xst_hi_55[0][j][k][l] += cut_xst_hi_55[i][j][k][l];
+                  cut_xst_hi_55[0][j][k][0] += cut_xst_hi_55[i][j][k][l];
                 }
               }
             }
@@ -895,7 +922,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   a_xst4_33[i][j][k][l] = values.next_double();
-                  a_xst4_33[0][0][0][0] += a_xst4_33[i][j][k][l];
+                  a_xst4_33[i][j][k][0] += a_xst4_33[i][j][k][l];
+                  a_xst4_33[0][j][k][l] += a_xst4_33[i][j][k][l];
+                  a_xst4_33[0][j][k][0] += a_xst4_33[i][j][k][l];
                 }
               }
             }
@@ -905,7 +934,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   theta_xst4_0_33[i][j][k][l] = values.next_double();
-                  theta_xst4_0_33[0][0][0][0] += theta_xst4_0_33[i][j][k][l];
+                  theta_xst4_0_33[i][j][k][0] += theta_xst4_0_33[i][j][k][l];
+                  theta_xst4_0_33[0][j][k][l] += theta_xst4_0_33[i][j][k][l];
+                  theta_xst4_0_33[0][j][k][0] += theta_xst4_0_33[i][j][k][l];
                 }
               }
             }
@@ -915,7 +946,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   dtheta_xst4_ast_33[i][j][k][l] = values.next_double();
-                  dtheta_xst4_ast_33[0][0][0][0] += dtheta_xst4_ast_33[i][j][k][l];
+                  dtheta_xst4_ast_33[i][j][k][0] += dtheta_xst4_ast_33[i][j][k][l];
+                  dtheta_xst4_ast_33[0][j][k][l] += dtheta_xst4_ast_33[i][j][k][l];
+                  dtheta_xst4_ast_33[0][j][k][0] += dtheta_xst4_ast_33[i][j][k][l];
                 }
               }
             }
@@ -925,7 +958,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   a_xst4_55[i][j][k][l] = values.next_double();
-                  a_xst4_55[0][0][0][0] += a_xst4_55[i][j][k][l];
+                  a_xst4_55[i][j][k][0] += a_xst4_55[i][j][k][l];
+                  a_xst4_55[0][j][k][l] += a_xst4_55[i][j][k][l];
+                  a_xst4_55[0][j][k][0] += a_xst4_55[i][j][k][l];
                 }
               }
             }
@@ -935,7 +970,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   theta_xst4_0_55[i][j][k][l] = values.next_double();
-                  theta_xst4_0_55[0][0][0][0] += theta_xst4_0_55[i][j][k][l];
+                  theta_xst4_0_55[i][j][k][0] += theta_xst4_0_55[i][j][k][l];
+                  theta_xst4_0_55[0][j][k][l] += theta_xst4_0_55[i][j][k][l];
+                  theta_xst4_0_55[0][j][k][0] += theta_xst4_0_55[i][j][k][l];
                 }
               }
             }
@@ -945,7 +982,9 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
               for (int k = nlo; k <= nhi; k++) {
                 for (int l = nlo; l <= nhi; l++) {
                   dtheta_xst4_ast_55[i][j][k][l] = values.next_double();
-                  dtheta_xst4_ast_55[0][0][0][0] += dtheta_xst4_ast_55[i][j][k][l];
+                  dtheta_xst4_ast_55[i][j][k][0] += dtheta_xst4_ast_55[i][j][k][l];
+                  dtheta_xst4_ast_55[0][j][k][l] += dtheta_xst4_ast_55[i][j][k][l];
+                  dtheta_xst4_ast_55[0][j][k][0] += dtheta_xst4_ast_55[i][j][k][l];
                 }
               }
             }
@@ -972,73 +1011,72 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
                  arg[2], arg[0], arg[1]);
   }
 
-  // calculate sequence-averaged parameters 
-  cut_xst_0_33[0][0][0][0] /= pow(nhi,4);
-  cut_xst_c_33[0][0][0][0] /= pow(nhi,4);
-  cut_xst_lo_33[0][0][0][0] /= pow(nhi,4);
-  cut_xst_hi_33[0][0][0][0] /= pow(nhi,4);
+  // calculate sequence-averaged parameters for terminal base step j-k 
+  for (int i = nlo; i <= nhi; i++) {
+    for (int j = nlo; j <= nhi; j++) {
+      for (int k = nlo; k <= nhi; k++) {
+        cut_xst_0_33[i][j][k][0] /= nhi;
+        cut_xst_c_33[i][j][k][0] /= nhi;
+        cut_xst_lo_33[i][j][k][0] /= nhi;
+        cut_xst_hi_33[i][j][k][0] /= nhi;
 
-  cut_xst_0_55[0][0][0][0] /= pow(nhi,4);
-  cut_xst_c_55[0][0][0][0] /= pow(nhi,4);
-  cut_xst_lo_55[0][0][0][0] /= pow(nhi,4);
-  cut_xst_hi_55[0][0][0][0] /= pow(nhi,4);
+        cut_xst_0_55[i][j][k][0] /= nhi;
+        cut_xst_c_55[i][j][k][0] /= nhi;
+        cut_xst_lo_55[i][j][k][0] /= nhi;
+        cut_xst_hi_55[i][j][k][0] /= nhi;
 
-  a_xst4_33[0][0][0][0] /= pow(nhi,4);
-  theta_xst4_0_33[0][0][0][0] /= pow(nhi,4);
-  dtheta_xst4_ast_33[0][0][0][0] /= pow(nhi,4);
+        a_xst4_33[i][j][k][0] /= nhi;
+        theta_xst4_0_33[i][j][k][0] /= nhi;
+        dtheta_xst4_ast_33[i][j][k][0] /= nhi;
 
-  a_xst4_55[0][0][0][0] /= pow(nhi,4);
-  theta_xst4_0_55[0][0][0][0] /= pow(nhi,4);
-  dtheta_xst4_ast_55[0][0][0][0] /= pow(nhi,4);
-
-  // assign sequence-averaged parameters to terminal bases j
-  for (int j = 1; j <= nhi; j++) {
-    for (int k = 1; k <= nhi; k++) {
-      for (int l = 0; l <= nhi; l++) {
-
-        cut_xst_0_33[0][j][k][l] = cut_xst_0_33[0][0][0][0];
-        cut_xst_c_33[0][j][k][l] = cut_xst_c_33[0][0][0][0];
-        cut_xst_lo_33[0][j][k][l] = cut_xst_lo_33[0][0][0][0];
-        cut_xst_hi_33[0][j][k][l] = cut_xst_hi_33[0][0][0][0];
-
-        cut_xst_0_55[0][j][k][l] = cut_xst_0_55[0][0][0][0];
-        cut_xst_c_55[0][j][k][l] = cut_xst_c_55[0][0][0][0];
-        cut_xst_lo_55[0][j][k][l] = cut_xst_lo_55[0][0][0][0];
-        cut_xst_hi_55[0][j][k][l] = cut_xst_hi_55[0][0][0][0];
-
-        a_xst4_33[0][j][k][l] = a_xst4_33[0][0][0][0];
-        theta_xst4_0_33[0][j][k][l] = theta_xst4_0_33[0][0][0][0];
-        dtheta_xst4_ast_33[0][j][k][l] = dtheta_xst4_ast_33[0][0][0][0]; 
-
-        a_xst4_55[0][j][k][l] = a_xst4_55[0][0][0][0];
-        theta_xst4_0_55[0][j][k][l] = theta_xst4_0_55[0][0][0][0];
-        dtheta_xst4_ast_55[0][j][k][l] = dtheta_xst4_ast_55[0][0][0][0];
+        a_xst4_55[i][j][k][0] /= nhi;
+        theta_xst4_0_55[i][j][k][0] /= nhi;
+        dtheta_xst4_ast_55[i][j][k][0] /= nhi;
       }
     }
   }
+  for (int j = nlo; j <= nhi; j++) {
+    for (int k = nlo; k <= nhi; k++) {
+      for (int l = nlo; l <= nhi; l++) {
+        cut_xst_0_33[0][j][k][l] /= nhi;
+        cut_xst_c_33[0][j][k][l] /= nhi;
+        cut_xst_lo_33[0][j][k][l] /= nhi;
+        cut_xst_hi_33[0][j][k][l] /= nhi;
 
-  // assign sequence-averaged parameters to terminal bases k
-  for (int i = 0; i <= nhi; i++) {
-    for (int j = 1; j <= nhi; j++) {
-      for (int k = 1; k <= nhi; k++) {
-        cut_xst_0_33[i][j][k][0] = cut_xst_0_33[0][0][0][0];
-        cut_xst_c_33[i][j][k][0] = cut_xst_c_33[0][0][0][0];
-        cut_xst_lo_33[i][j][k][0] = cut_xst_lo_33[0][0][0][0];
-        cut_xst_hi_33[i][j][k][0] = cut_xst_hi_33[0][0][0][0];
+        cut_xst_0_55[0][j][k][l] /= nhi;
+        cut_xst_c_55[0][j][k][l] /= nhi;
+        cut_xst_lo_55[0][j][k][l] /= nhi;
+        cut_xst_hi_55[0][j][k][l] /= nhi;
 
-        cut_xst_0_55[i][j][k][0] = cut_xst_0_55[0][0][0][0];
-        cut_xst_c_55[i][j][k][0] = cut_xst_c_55[0][0][0][0];
-        cut_xst_lo_55[i][j][k][0] = cut_xst_lo_55[0][0][0][0];
-        cut_xst_hi_55[i][j][k][0] = cut_xst_hi_55[0][0][0][0];
+        a_xst4_33[0][j][k][l] /= nhi;
+        theta_xst4_0_33[0][j][k][l] /= nhi;
+        dtheta_xst4_ast_33[0][j][k][l] /= nhi;
 
-        a_xst4_33[i][j][k][0] = a_xst4_33[0][0][0][0];
-        theta_xst4_0_33[i][j][k][0] = theta_xst4_0_33[0][0][0][0];
-        dtheta_xst4_ast_33[i][j][k][0] = dtheta_xst4_ast_33[0][0][0][0]; 
-
-        a_xst4_55[i][j][k][0] = a_xst4_55[0][0][0][0];
-        theta_xst4_0_55[i][j][k][0] = theta_xst4_0_55[0][0][0][0];
-        dtheta_xst4_ast_55[i][j][k][0] = dtheta_xst4_ast_55[0][0][0][0];
+        a_xst4_55[0][j][k][l] /= nhi;
+        theta_xst4_0_55[0][j][k][l] /= nhi;
+        dtheta_xst4_ast_55[0][j][k][l] /= nhi;
       }
+    }
+  }
+  for (int j = nlo; j <= nhi; j++) {
+    for (int k = nlo; k <= nhi; k++) {
+      cut_xst_0_33[0][j][k][0] /= pow(nhi,2);
+      cut_xst_c_33[0][j][k][0] /= pow(nhi,2);
+      cut_xst_lo_33[0][j][k][0] /= pow(nhi,2);
+      cut_xst_hi_33[0][j][k][0] /= pow(nhi,2);
+
+      cut_xst_0_55[0][j][k][0] /= pow(nhi,2);
+      cut_xst_c_55[0][j][k][0] /= pow(nhi,2);
+      cut_xst_lo_55[0][j][k][0] /= pow(nhi,2);
+      cut_xst_hi_55[0][j][k][0] /= pow(nhi,2);
+
+      a_xst4_33[0][j][k][0] /= pow(nhi,2);
+      theta_xst4_0_33[0][j][k][0] /= pow(nhi,2);
+      dtheta_xst4_ast_33[0][j][k][0] /= pow(nhi,2);
+
+      a_xst4_55[0][j][k][0] /= pow(nhi,2);
+      theta_xst4_0_55[0][j][k][0] /= pow(nhi,2);
+      dtheta_xst4_ast_55[0][j][k][0] /= pow(nhi,2);
     }
   }
 
@@ -1086,15 +1124,15 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
 
   // smoothing - determined through continuity and differentiability
 
-  // smoothing strength identical for all pairs ij, hence use average tetramer value below
-  b_xst_lo_one = 0.25 * (cut_xst_lo_33[0][0][0][0] - cut_xst_0_33[0][0][0][0]) * (cut_xst_lo_33[0][0][0][0] - cut_xst_0_33[0][0][0][0])/
-        (0.5 * (cut_xst_lo_33[0][0][0][0] - cut_xst_0_33[0][0][0][0]) * (cut_xst_lo_33[0][0][0][0] - cut_xst_0_33[0][0][0][0]) -
-        k_xst_one * 0.5 * (cut_xst_0_33[0][0][0][0] -cut_xst_c_33[0][0][0][0]) * (cut_xst_0_33[0][0][0][0] - cut_xst_c_33[0][0][0][0])/k_xst_one);
+  // smoothing strength coincidentially identical for all pairs, hence use AAAA tetramer value below
+  b_xst_lo_one = 0.25 * (cut_xst_lo_33[1][1][1][1] - cut_xst_0_33[1][1][1][1]) * (cut_xst_lo_33[1][1][1][1] - cut_xst_0_33[1][1][1][1])/
+        (0.5 * (cut_xst_lo_33[1][1][1][1] - cut_xst_0_33[1][1][1][1]) * (cut_xst_lo_33[1][1][1][1] - cut_xst_0_33[1][1][1][1]) -
+        k_xst_one * 0.5 * (cut_xst_0_33[1][1][1][1] -cut_xst_c_33[1][1][1][1]) * (cut_xst_0_33[1][1][1][1] - cut_xst_c_33[1][1][1][1])/k_xst_one);
 
-  // smoothing strength identical for all pairs ij, hence use average tetramer value below
-  b_xst_hi_one = 0.25 * (cut_xst_hi_33[0][0][0][0] - cut_xst_0_33[0][0][0][0]) * (cut_xst_hi_33[0][0][0][0] - cut_xst_0_33[0][0][0][0])/
-        (0.5 * (cut_xst_hi_33[0][0][0][0] - cut_xst_0_33[0][0][0][0]) * (cut_xst_hi_33[0][0][0][0] - cut_xst_0_33[0][0][0][0]) -
-        k_xst_one * 0.5 * (cut_xst_0_33[0][0][0][0] -cut_xst_c_33[0][0][0][0]) * (cut_xst_0_33[0][0][0][0] - cut_xst_c_33[0][0][0][0])/k_xst_one);
+  // smoothing strength coincidentially identical for all pairs, hence use AAAA tetramer value below
+  b_xst_hi_one = 0.25 * (cut_xst_hi_33[1][1][1][1] - cut_xst_0_33[1][1][1][1]) * (cut_xst_hi_33[1][1][1][1] - cut_xst_0_33[1][1][1][1])/
+        (0.5 * (cut_xst_hi_33[1][1][1][1] - cut_xst_0_33[1][1][1][1]) * (cut_xst_hi_33[1][1][1][1] - cut_xst_0_33[1][1][1][1]) -
+        k_xst_one * 0.5 * (cut_xst_0_33[1][1][1][1] -cut_xst_c_33[1][1][1][1]) * (cut_xst_0_33[1][1][1][1] - cut_xst_c_33[1][1][1][1])/k_xst_one);
 
   b_xst1_one = a_xst1_one*a_xst1_one*dtheta_xst1_ast_one*dtheta_xst1_ast_one/(1-a_xst1_one*dtheta_xst1_ast_one*dtheta_xst1_ast_one);
   dtheta_xst1_c_one = 1/(a_xst1_one*dtheta_xst1_ast_one);

@@ -1,0 +1,126 @@
+LAMMPS (10 Dec 2025 - Development - patch_10Dec2025-800-g5e6b2ce506-modified)
+WARNING: Atom style hybrid defines both, per-type and per-atom masses; both must be set, but only per-atom masses will be used (../atom_vec_hybrid.cpp:132)
+Reading data file ...
+  orthogonal box = (-20 -20 -20) to (20 20 20)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  16 atoms
+  reading velocities ...
+  16 velocities
+  scanning bonds ...
+  1 = max bonds/atom
+  16 ellipsoids
+  orthogonal box = (-20 -20 -20) to (20 20 20)
+  1 by 1 by 1 MPI processor grid
+  reading bonds ...
+  13 bonds
+Finding 1-2 1-3 1-4 neighbors ...
+  special bond factors lj:    0        0        0       
+  special bond factors coul:  0        0        0       
+     2 = max # of 1-2 neighbors
+     2 = max # of 1-3 neighbors
+     4 = max # of 1-4 neighbors
+     6 = max # of special neighbors
+  special bonds CPU = 0.000 seconds
+  read_data CPU = 0.001 seconds
+Setting atom values ...
+  16 settings made for mass
+16 atoms in group all
+Reading oxdna3 potential (fene) file oxdna3_lj.cgdna with DATE: 2026-02-09
+Finding 1-2 1-3 1-4 neighbors ...
+  special bond factors lj:    0        1        1       
+  special bond factors coul:  0        0        0       
+     2 = max # of 1-2 neighbors
+     2 = max # of 1-3 neighbors
+     4 = max # of 1-4 neighbors
+     6 = max # of special neighbors
+  special bonds CPU = 0.000 seconds
+Reading oxdna3 potential (excv) file oxdna3_lj.cgdna with DATE: 2026-02-09
+Reading oxdna3 potential (stk) file oxdna3_lj.cgdna with DATE: 2026-02-09
+Reading oxdna3 potential (hbond) file oxdna3_lj.cgdna with DATE: 2026-02-09
+Reading oxdna3 potential (hbond) file oxdna3_lj.cgdna with DATE: 2026-02-09
+Reading oxdna3 potential (hbond) file oxdna3_lj.cgdna with DATE: 2026-02-09
+Reading oxdna3 potential (xstk) file oxdna3_lj.cgdna with DATE: 2026-02-09
+Reading oxdna potential (coaxstk) file oxdna3_lj.cgdna with DATE: 2026-02-09
+Reading oxdna potential (dh) file oxdna3_lj.cgdna with DATE: 2026-02-09
+Generated 0 of 6 mixed pair_coeff terms from geometric mixing rule
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 5.6389877
+  ghost atom cutoff = 5.8
+  binsize = 2.8194939, bins = 15 15 15
+  5 neighbor lists, perpetual/occasional/extra = 5 0 0
+  (1) pair oxdna3/excv, perpetual
+      attributes: half, newton on
+      pair build: half/bin/newton
+      stencil: half/bin/3d
+      bin: standard
+  (2) pair oxdna3/hbond, perpetual, copy from (1)
+      attributes: half, newton on
+      pair build: copy
+      stencil: none
+      bin: none
+  (3) pair oxdna3/xstk, perpetual, copy from (1)
+      attributes: half, newton on
+      pair build: copy
+      stencil: none
+      bin: none
+  (4) pair oxdna3/coaxstk, perpetual, copy from (1)
+      attributes: half, newton on
+      pair build: copy
+      stencil: none
+      bin: none
+  (5) pair oxdna3/dh, perpetual, copy from (1)
+      attributes: half, newton on
+      pair build: copy
+      stencil: none
+      bin: none
+Setting up Verlet run ...
+  Unit style    : lj
+  Current step  : 0
+  Time step     : 1e-05
+0  ekin = 2.70475393009871 |  erot = 2.80172072918779 | edyn = 5.5064746592865 | ebond = 2.23098437840828 | eexcv = 0 | estk = -14.8372527644269 | ehbond = -3.88946632096047 | exstk = -2.25579045793715 | ecoaxstk = -0.166008081660101 | edh = 0.374380973410842 | epot = -18.5431522731654 | etot = -13.0366776138789
+Per MPI rank memory allocation (min/avg/max) = 7.717 | 7.717 | 7.717 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press          Volume    
+         0   0.12021129    -1.2983835      0.13943652    -0.9898999     -0.0001477104   64000        
+1000  ekin = 2.7341170399272 |  erot = 2.81607641280359 | edyn = 5.55019345273079 | ebond = 2.09815359734031 | eexcv = 0 | estk = -14.7284909256113 | ehbond = -3.86812351558416 | exstk = -2.29492925939379 | ecoaxstk = -0.167414366960674 | edh = 0.373933403144124 | epot = -18.5868710670655 | etot = -13.0366776143347
+2000  ekin = 2.79023975939425 |  erot = 2.86236500838628 | edyn = 5.65260476778053 | ebond = 1.92296294751466 | eexcv = 0 | estk = -14.6258509435161 | ehbond = -3.8402183035651 | exstk = -2.35139849084889 | ecoaxstk = -0.168244799319308 | edh = 0.373467205625201 | epot = -18.6892823841096 | etot = -13.036677616329
+3000  ekin = 2.86186263873328 |  erot = 2.93514952387825 | edyn = 5.79701216261153 | ebond = 1.7213142739931 | eexcv = 0 | estk = -14.5261081135188 | ehbond = -3.81383636951903 | exstk = -2.41947443880697 | ecoaxstk = -0.16857304293033 | edh = 0.372987911288007 | epot = -18.833689779494 | etot = -13.0366776168825
+4000  ekin = 2.94163066893649 |  erot = 3.03017317180044 | edyn = 5.97180384073693 | ebond = 1.50807974930608 | eexcv = 0 | estk = -14.4255710504954 | ehbond = -3.79646871383661 | exstk = -2.49855327233098 | ecoaxstk = -0.168468049906351 | edh = 0.37249987888165 | epot = -19.0084814583816 | etot = -13.0366776176447
+5000  ekin = 3.02191751779528 |  erot = 3.14110192993458 | edyn = 6.16301944772985 | ebond = 1.29706502731569 | eexcv = 0 | estk = -14.321092877325 | ehbond = -3.79282857749697 | exstk = -2.58685211574529 | ecoaxstk = -0.167995111488219 | edh = 0.372006588493423 | epot = -19.1996970662464 | etot = -13.0366776185166
+6000  ekin = 3.09563780986217 |  erot = 3.2600436475024 | edyn = 6.35568145736457 | ebond = 1.1008780003325 | eexcv = 0 | estk = -14.2112983692953 | ehbond = -3.8051642021878 | exstk = -2.68106943042005 | ecoaxstk = -0.167215984460913 | edh = 0.37151090929983 | epot = -19.3923590767318 | etot = -13.0366776193672
+7000  ekin = 3.15741032477259 |  erot = 3.37835971285249 | edyn = 6.53577003762509 | ebond = 0.930602639989664 | eexcv = 0 | estk = -14.0976462369116 | ehbond = -3.83376053712211 | exstk = -2.77647099378555 | ecoaxstk = -0.166188098137383 | edh = 0.371015568248868 | epot = -19.5724476577181 | etot = -13.036677620093
+8000  ekin = 3.06264207744757 |  erot = 3.56128397821551 | edyn = 6.62392605566308 | ebond = 0.79557484065898 | eexcv = 0.0860001324471208 | estk = -14.0050023192439 | ehbond = -3.87787696569938 | exstk = -2.86485692797739 | ecoaxstk = -0.16496317166035 | edh = 0.370520736187071 | epot = -19.6606036752878 | etot = -13.0366776196248
+9000  ekin = 3.08809729634461 |  erot = 3.83414145147079 | edyn = 6.9222387478154 | ebond = 0.702969973955519 | eexcv = 0 | estk = -13.9959494507448 | ehbond = -3.9377973800017 | exstk = -2.93457884827328 | ecoaxstk = -0.163585615953354 | edh = 0.370024877386779 | epot = -19.9589164436308 | etot = -13.0366776958154
+10000  ekin = 3.15662367062584 |  erot = 3.94391054193506 | edyn = 7.10053421256091 | ebond = 0.656872539393883 | eexcv = 0 | estk = -14.0071881212472 | ehbond = -4.00749625348923 | exstk = -2.98685306633126 | ecoaxstk = -0.16209096123769 | edh = 0.369543953247445 | epot = -20.137211909664 | etot = -13.0366776971031
+     10000   0.14029439    -1.2996303      0.041054534   -1.0612868     -8.3098406e-05  64000        
+Loop time of 0.118348 on 1 procs for 10000 steps with 16 atoms
+
+Performance: 73005.036 tau/day, 84496.569 timesteps/s, 1.352 Matom-step/s
+99.7% CPU use with 1 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.10638    | 0.10638    | 0.10638    |   0.0 | 89.89
+Bond    | 0.003291   | 0.003291   | 0.003291   |   0.0 |  2.78
+Neigh   | 4.7e-05    | 4.7e-05    | 4.7e-05    |   0.0 |  0.04
+Comm    | 0.000785   | 0.000785   | 0.000785   |   0.0 |  0.66
+Output  | 4e-06      | 4e-06      | 4e-06      |   0.0 |  0.00
+Modify  | 0.00703    | 0.00703    | 0.00703    |   0.0 |  5.94
+Other   |            | 0.000809   |            |       |  0.68
+
+Nlocal:             16 ave          16 max          16 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:            120 ave         120 max         120 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 120
+Ave neighs/atom = 7.5
+Ave special neighs/atom = 3.75
+Neighbor list builds = 10
+Dangerous builds = 0
+Total wall time: 0:00:00

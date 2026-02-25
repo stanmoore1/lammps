@@ -234,6 +234,12 @@ OPT.
    * :doc:`oxdna2/hbond <pair_oxdna2>`
    * :doc:`oxdna2/stk <pair_oxdna2>`
    * :doc:`oxdna2/xstk <pair_oxdna2>`
+   * :doc:`oxdna3/coaxstk <pair_oxdna3>`
+   * :doc:`oxdna3/dh <pair_oxdna3>`
+   * :doc:`oxdna3/excv <pair_oxdna3>`
+   * :doc:`oxdna3/hbond <pair_oxdna3>`
+   * :doc:`oxdna3/stk <pair_oxdna3>`
+   * :doc:`oxdna3/xstk <pair_oxdna3>`
    * :doc:`oxrna2/excv <pair_oxrna2>`
    * :doc:`oxrna2/hbond <pair_oxrna2>`
    * :doc:`oxrna2/dh <pair_oxrna2>`

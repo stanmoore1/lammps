@@ -30,6 +30,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <cassert>
 
 using namespace LAMMPS_NS;
 using namespace MFOxdna;
@@ -38,25 +39,29 @@ using namespace MFOxdna;
 
 PairOxdna3Hbond::PairOxdna3Hbond(LAMMPS *lmp) : PairOxdnaHbond(lmp)
 {
+  single_enable = 0;
+  writedata = 0;
+  trim_flag = 0;
+
   // sequence-specific base-pairing strength
   // A:0 C:1 G:2 T:3, 5'- [i][j] -3'
 
   alpha_hb[0][0] = 1.00000;
   alpha_hb[0][1] = 1.00000;
   alpha_hb[0][2] = 1.00000;
-  alpha_hb[0][3] = 0.7802615690353366;
+  alpha_hb[0][3] = 0.6493620379646540;
 
   alpha_hb[1][0] = 1.00000;
   alpha_hb[1][1] = 1.00000;
-  alpha_hb[1][2] = 1.1239661354569166;
+  alpha_hb[1][2] = 1.1999420813642658;
   alpha_hb[1][3] = 1.00000;
 
   alpha_hb[2][0] = 1.00000;
-  alpha_hb[2][1] = 1.1239661354569166;
+  alpha_hb[2][1] = 1.1999420813642658;
   alpha_hb[2][2] = 1.00000;
   alpha_hb[2][3] = 1.00000;
 
-  alpha_hb[3][0] = 0.7802615690353366;
+  alpha_hb[3][0] = 0.6493620379646540;
   alpha_hb[3][1] = 1.00000;
   alpha_hb[3][2] = 1.00000;
   alpha_hb[3][3] = 1.00000;
@@ -76,6 +81,8 @@ void PairOxdna3Hbond::coeff(int narg, char **arg)
   int ilo,ihi,jlo,jhi,imod4,jmod4;
   utils::bounds(FLERR,arg[0],1,atom->ntypes,ilo,ihi,error);
   utils::bounds(FLERR,arg[1],1,atom->ntypes,jlo,jhi,error);
+
+  if (ihi>4 || jhi>4) error->all(FLERR, "pair oxdna3/hbond does not support more than 4 atom types for A, C, G and T");
 
   // h-bonding interaction
   count = 0;
@@ -102,8 +109,6 @@ void PairOxdna3Hbond::coeff(int narg, char **arg)
 
   double a_hb8_one, theta_hb8_0_one, dtheta_hb8_ast_one;
   double b_hb8_one, dtheta_hb8_c_one;
-
-  seqdepflag = 1;
 
   // read values from potential file
   if (comm->me == 0) {
@@ -258,7 +263,7 @@ void PairOxdna3Hbond::coeff(int narg, char **arg)
       if (jmod4 == 0) jmod4 = 4;
 
       epsilon_hb[i][j] = epsilon_hb_one;
-      if (seqdepflag) epsilon_hb[i][j] *= alpha_hb[imod4-1][jmod4-1];
+      epsilon_hb[i][j] *= alpha_hb[imod4-1][jmod4-1];
       a_hb[i][j] = a_hb_one;
       cut_hb_0[i][j] = cut_hb_0_one;
       cut_hb_c[i][j] = cut_hb_c_one;
@@ -269,7 +274,7 @@ void PairOxdna3Hbond::coeff(int narg, char **arg)
       b_hb_lo[i][j] = b_hb_lo_one;
       b_hb_hi[i][j] = b_hb_hi_one;
       shift_hb[i][j] = shift_hb_one;
-      if (seqdepflag) shift_hb[i][j] *= alpha_hb[imod4-1][jmod4-1];
+      shift_hb[i][j] *= alpha_hb[imod4-1][jmod4-1];
 
       a_hb1[i][j] = a_hb1_one;
       theta_hb1_0[i][j] = theta_hb1_0_one;
