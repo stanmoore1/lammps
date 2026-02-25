@@ -912,52 +912,52 @@ double PairOxdnaXstkKokkos<DeviceType>::init_one(int i, int j)
 {
   double cutone = PairOxdnaXstk::init_one(i,j);
 
-  k_k_xst.h_view(i,j) = k_k_xst.h_view(j,i) = k_xst[i][j];
-  k_cut_xst_0.h_view(i,j) = k_cut_xst_0.h_view(j,i) = cut_xst_0[i][j];
-  k_cut_xst_c.h_view(i,j) = k_cut_xst_c.h_view(j,i) = cut_xst_c[i][j];
-  k_cut_xst_lo.h_view(i,j) = k_cut_xst_lo.h_view(j,i) = cut_xst_lo[i][j];
-  k_cut_xst_hi.h_view(i,j) = k_cut_xst_hi.h_view(j,i) = cut_xst_hi[i][j];
-  k_cut_xst_lc.h_view(i,j) = k_cut_xst_lc.h_view(j,i) = cut_xst_lc[i][j];
-  k_cut_xst_hc.h_view(i,j) = k_cut_xst_hc.h_view(j,i) = cut_xst_hc[i][j];
-  k_b_xst_lo.h_view(i,j) = k_b_xst_lo.h_view(j,i) = b_xst_lo[i][j];
-  k_b_xst_hi.h_view(i,j) = k_b_xst_hi.h_view(j,i) = b_xst_hi[i][j];
-  k_cutsq_xst_hc.h_view(i,j) = k_cutsq_xst_hc.h_view(j,i) = cutsq_xst_hc[i][j];
+  k_k_xst.view_host()(i,j) = k_k_xst.view_host()(j,i) = k_xst[i][j];
+  k_cut_xst_0.view_host()(i,j) = k_cut_xst_0.view_host()(j,i) = cut_xst_0[i][j];
+  k_cut_xst_c.view_host()(i,j) = k_cut_xst_c.view_host()(j,i) = cut_xst_c[i][j];
+  k_cut_xst_lo.view_host()(i,j) = k_cut_xst_lo.view_host()(j,i) = cut_xst_lo[i][j];
+  k_cut_xst_hi.view_host()(i,j) = k_cut_xst_hi.view_host()(j,i) = cut_xst_hi[i][j];
+  k_cut_xst_lc.view_host()(i,j) = k_cut_xst_lc.view_host()(j,i) = cut_xst_lc[i][j];
+  k_cut_xst_hc.view_host()(i,j) = k_cut_xst_hc.view_host()(j,i) = cut_xst_hc[i][j];
+  k_b_xst_lo.view_host()(i,j) = k_b_xst_lo.view_host()(j,i) = b_xst_lo[i][j];
+  k_b_xst_hi.view_host()(i,j) = k_b_xst_hi.view_host()(j,i) = b_xst_hi[i][j];
+  k_cutsq_xst_hc.view_host()(i,j) = k_cutsq_xst_hc.view_host()(j,i) = cutsq_xst_hc[i][j];
 
-  k_a_xst1.h_view(i,j) = k_a_xst1.h_view(j,i) = a_xst1[i][j];
-  k_theta_xst1_0.h_view(i,j) = k_theta_xst1_0.h_view(j,i) = theta_xst1_0[i][j];
-  k_dtheta_xst1_ast.h_view(i,j) = k_dtheta_xst1_ast.h_view(j,i) = dtheta_xst1_ast[i][j];
-  k_b_xst1.h_view(i,j) = k_b_xst1.h_view(j,i) = b_xst1[i][j];
-  k_dtheta_xst1_c.h_view(i,j) = k_dtheta_xst1_c.h_view(j,i) = dtheta_xst1_c[i][j];
+  k_a_xst1.view_host()(i,j) = k_a_xst1.view_host()(j,i) = a_xst1[i][j];
+  k_theta_xst1_0.view_host()(i,j) = k_theta_xst1_0.view_host()(j,i) = theta_xst1_0[i][j];
+  k_dtheta_xst1_ast.view_host()(i,j) = k_dtheta_xst1_ast.view_host()(j,i) = dtheta_xst1_ast[i][j];
+  k_b_xst1.view_host()(i,j) = k_b_xst1.view_host()(j,i) = b_xst1[i][j];
+  k_dtheta_xst1_c.view_host()(i,j) = k_dtheta_xst1_c.view_host()(j,i) = dtheta_xst1_c[i][j];
 
-  k_a_xst2.h_view(i,j) = k_a_xst2.h_view(j,i) = a_xst2[i][j];
-  k_theta_xst2_0.h_view(i,j) = k_theta_xst2_0.h_view(j,i) = theta_xst2_0[i][j];
-  k_dtheta_xst2_ast.h_view(i,j) = k_dtheta_xst2_ast.h_view(j,i) = dtheta_xst2_ast[i][j];
-  k_b_xst2.h_view(i,j) = k_b_xst2.h_view(j,i) = b_xst2[i][j];
-  k_dtheta_xst2_c.h_view(i,j) = k_dtheta_xst2_c.h_view(j,i) = dtheta_xst2_c[i][j];
+  k_a_xst2.view_host()(i,j) = k_a_xst2.view_host()(j,i) = a_xst2[i][j];
+  k_theta_xst2_0.view_host()(i,j) = k_theta_xst2_0.view_host()(j,i) = theta_xst2_0[i][j];
+  k_dtheta_xst2_ast.view_host()(i,j) = k_dtheta_xst2_ast.view_host()(j,i) = dtheta_xst2_ast[i][j];
+  k_b_xst2.view_host()(i,j) = k_b_xst2.view_host()(j,i) = b_xst2[i][j];
+  k_dtheta_xst2_c.view_host()(i,j) = k_dtheta_xst2_c.view_host()(j,i) = dtheta_xst2_c[i][j];
 
-  k_a_xst3.h_view(i,j) = k_a_xst3.h_view(j,i) = a_xst3[i][j];
-  k_theta_xst3_0.h_view(i,j) = k_theta_xst3_0.h_view(j,i) = theta_xst3_0[i][j];
-  k_dtheta_xst3_ast.h_view(i,j) = k_dtheta_xst3_ast.h_view(j,i) = dtheta_xst3_ast[i][j];
-  k_b_xst3.h_view(i,j) = k_b_xst3.h_view(j,i) = b_xst3[i][j];
-  k_dtheta_xst3_c.h_view(i,j) = k_dtheta_xst3_c.h_view(j,i) = dtheta_xst3_c[i][j];
+  k_a_xst3.view_host()(i,j) = k_a_xst3.view_host()(j,i) = a_xst3[i][j];
+  k_theta_xst3_0.view_host()(i,j) = k_theta_xst3_0.view_host()(j,i) = theta_xst3_0[i][j];
+  k_dtheta_xst3_ast.view_host()(i,j) = k_dtheta_xst3_ast.view_host()(j,i) = dtheta_xst3_ast[i][j];
+  k_b_xst3.view_host()(i,j) = k_b_xst3.view_host()(j,i) = b_xst3[i][j];
+  k_dtheta_xst3_c.view_host()(i,j) = k_dtheta_xst3_c.view_host()(j,i) = dtheta_xst3_c[i][j];
 
-  k_a_xst4.h_view(i,j) = k_a_xst4.h_view(j,i) = a_xst4[i][j];
-  k_theta_xst4_0.h_view(i,j) = k_theta_xst4_0.h_view(j,i) = theta_xst4_0[i][j];
-  k_dtheta_xst4_ast.h_view(i,j) = k_dtheta_xst4_ast.h_view(j,i) = dtheta_xst4_ast[i][j];
-  k_b_xst4.h_view(i,j) = k_b_xst4.h_view(j,i) = b_xst4[i][j];
-  k_dtheta_xst4_c.h_view(i,j) = k_dtheta_xst4_c.h_view(j,i) = dtheta_xst4_c[i][j];
+  k_a_xst4.view_host()(i,j) = k_a_xst4.view_host()(j,i) = a_xst4[i][j];
+  k_theta_xst4_0.view_host()(i,j) = k_theta_xst4_0.view_host()(j,i) = theta_xst4_0[i][j];
+  k_dtheta_xst4_ast.view_host()(i,j) = k_dtheta_xst4_ast.view_host()(j,i) = dtheta_xst4_ast[i][j];
+  k_b_xst4.view_host()(i,j) = k_b_xst4.view_host()(j,i) = b_xst4[i][j];
+  k_dtheta_xst4_c.view_host()(i,j) = k_dtheta_xst4_c.view_host()(j,i) = dtheta_xst4_c[i][j];
 
-  k_a_xst7.h_view(i,j) = k_a_xst7.h_view(j,i) = a_xst7[i][j];
-  k_theta_xst7_0.h_view(i,j) = k_theta_xst7_0.h_view(j,i) = theta_xst7_0[i][j];
-  k_dtheta_xst7_ast.h_view(i,j) = k_dtheta_xst7_ast.h_view(j,i) = dtheta_xst7_ast[i][j];
-  k_b_xst7.h_view(i,j) = k_b_xst7.h_view(j,i) = b_xst7[i][j];
-  k_dtheta_xst7_c.h_view(i,j) = k_dtheta_xst7_c.h_view(j,i) = dtheta_xst7_c[i][j];
+  k_a_xst7.view_host()(i,j) = k_a_xst7.view_host()(j,i) = a_xst7[i][j];
+  k_theta_xst7_0.view_host()(i,j) = k_theta_xst7_0.view_host()(j,i) = theta_xst7_0[i][j];
+  k_dtheta_xst7_ast.view_host()(i,j) = k_dtheta_xst7_ast.view_host()(j,i) = dtheta_xst7_ast[i][j];
+  k_b_xst7.view_host()(i,j) = k_b_xst7.view_host()(j,i) = b_xst7[i][j];
+  k_dtheta_xst7_c.view_host()(i,j) = k_dtheta_xst7_c.view_host()(j,i) = dtheta_xst7_c[i][j];
 
-  k_a_xst8.h_view(i,j) = k_a_xst8.h_view(j,i) = a_xst8[i][j];
-  k_theta_xst8_0.h_view(i,j) = k_theta_xst8_0.h_view(j,i) = theta_xst8_0[i][j];
-  k_dtheta_xst8_ast.h_view(i,j) = k_dtheta_xst8_ast.h_view(j,i) = dtheta_xst8_ast[i][j];
-  k_b_xst8.h_view(i,j) = k_b_xst8.h_view(j,i) = b_xst8[i][j];
-  k_dtheta_xst8_c.h_view(i,j) = k_dtheta_xst8_c.h_view(j,i) = dtheta_xst8_c[i][j];
+  k_a_xst8.view_host()(i,j) = k_a_xst8.view_host()(j,i) = a_xst8[i][j];
+  k_theta_xst8_0.view_host()(i,j) = k_theta_xst8_0.view_host()(j,i) = theta_xst8_0[i][j];
+  k_dtheta_xst8_ast.view_host()(i,j) = k_dtheta_xst8_ast.view_host()(j,i) = dtheta_xst8_ast[i][j];
+  k_b_xst8.view_host()(i,j) = k_b_xst8.view_host()(j,i) = b_xst8[i][j];
+  k_dtheta_xst8_c.view_host()(i,j) = k_dtheta_xst8_c.view_host()(j,i) = dtheta_xst8_c[i][j];
 
   k_k_xst.template modify<LMPHostType>();
   k_cut_xst_0.template modify<LMPHostType>();

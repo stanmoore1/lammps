@@ -521,13 +521,13 @@ double PairOxdna2DhKokkos<DeviceType>::init_one(int i, int j)
 {
   double cutone = PairOxdna2Dh::init_one(i,j);
 
-  k_qeff_dh_pf.h_view(i,j) = k_qeff_dh_pf.h_view(j,i) = qeff_dh_pf[i][j];
-  k_kappa_dh.h_view(i,j) = k_kappa_dh.h_view(j,i) = kappa_dh[i][j];
-  k_b_dh.h_view(i,j) = k_b_dh.h_view(j,i) = b_dh[i][j];
-  k_cut_dh_ast.h_view(i,j) = k_cut_dh_ast.h_view(j,i) = cut_dh_ast[i][j];
-  k_cutsq_dh_ast.h_view(i,j) = k_cutsq_dh_ast.h_view(j,i) = cutsq_dh_ast[i][j];
-  k_cut_dh_c.h_view(i,j) = k_cut_dh_c.h_view(j,i) = cut_dh_c[i][j];
-  k_cutsq_dh_c.h_view(i,j) = k_cutsq_dh_c.h_view(j,i) = cutsq_dh_c[i][j];
+  k_qeff_dh_pf.view_host()(i,j) = k_qeff_dh_pf.view_host()(j,i) = qeff_dh_pf[i][j];
+  k_kappa_dh.view_host()(i,j) = k_kappa_dh.view_host()(j,i) = kappa_dh[i][j];
+  k_b_dh.view_host()(i,j) = k_b_dh.view_host()(j,i) = b_dh[i][j];
+  k_cut_dh_ast.view_host()(i,j) = k_cut_dh_ast.view_host()(j,i) = cut_dh_ast[i][j];
+  k_cutsq_dh_ast.view_host()(i,j) = k_cutsq_dh_ast.view_host()(j,i) = cutsq_dh_ast[i][j];
+  k_cut_dh_c.view_host()(i,j) = k_cut_dh_c.view_host()(j,i) = cut_dh_c[i][j];
+  k_cutsq_dh_c.view_host()(i,j) = k_cutsq_dh_c.view_host()(j,i) = cutsq_dh_c[i][j];
 
   k_qeff_dh_pf.template modify<LMPHostType>();
   k_kappa_dh.template modify<LMPHostType>();

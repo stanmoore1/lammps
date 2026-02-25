@@ -357,9 +357,9 @@ void BondOxdnaFENEKokkos<DeviceType>::coeff(int narg, char **arg)
 
   int n = atom->nbondtypes;
   for (int i = 1; i <= n; i++) {
-    k_k.h_view[i] = k[i];
-    k_r0.h_view[i] = r0[i][0][0][0][0];
-    k_Delta.h_view[i] = Delta[i][0][0][0][0];
+    k_k.view_host()[i] = k[i];
+    k_r0.view_host()[i] = r0[i][0][0][0][0];
+    k_Delta.view_host()[i] = Delta[i][0][0][0][0];
   }
 
   k_k.template modify<LMPHostType>();
@@ -379,9 +379,9 @@ void BondOxdnaFENEKokkos<DeviceType>::read_restart(FILE *fp)
 
   int n = atom->nbondtypes;
   for (int i = 1; i <= n; i++) {
-    k_k.h_view[i] = k[i];
-    k_r0.h_view[i] = r0[i][0][0][0][0];
-    k_Delta.h_view[i] = Delta[i][0][0][0][0];
+    k_k.view_host()[i] = k[i];
+    k_r0.view_host()[i] = r0[i][0][0][0][0];
+    k_Delta.view_host()[i] = Delta[i][0][0][0][0];
   }
 
   k_k.template modify<LMPHostType>();
