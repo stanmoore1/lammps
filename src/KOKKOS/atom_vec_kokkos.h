@@ -176,6 +176,13 @@ class AtomVecKokkos : virtual public AtomVec {
   DAT::t_int_1d d_ellipsoid;
   HAT::t_int_1d h_ellipsoid;
 
+  // CG-DNA
+
+  DAT::t_tagint_1d d_id3p;
+  HAT::t_tagint_1d h_id3p;
+  DAT::t_tagint_1d d_id5p;
+  HAT::t_tagint_1d h_id5p;
+
   // FULL
 
   DAT::t_kkfloat_1d d_q;

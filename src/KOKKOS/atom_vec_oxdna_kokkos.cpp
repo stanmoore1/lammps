@@ -30,7 +30,17 @@ using namespace LAMMPS_NS;
 AtomVecOxdnaKokkos::AtomVecOxdnaKokkos(LAMMPS *lmp) : AtomVec(lmp),
 AtomVecKokkos(lmp), AtomVecOxdna(lmp)
 {
+}
 
+/* ----------------------------------------------------------------------
+   process field strings to initialize data structs for all other methods
+------------------------------------------------------------------------- */
+
+void AtomVecOxdnaKokkos::init()
+{
+  AtomVecOxdna::init();
+
+  set_atom_masks();
 }
 
 /* ----------------------------------------------------------------------
@@ -57,10 +67,6 @@ void AtomVecOxdnaKokkos::grow(int n)
 
   grow_pointers();
   atomKK->sync(Host,ALL_MASK);
-
-  if (atom->nextra_grow)
-    for (int iextra = 0; iextra < atom->nextra_grow; iextra++)
-      modify->fix[atom->extra_grow[iextra]]->grow_arrays(nmax);
 }
 
 /* ----------------------------------------------------------------------
@@ -75,7 +81,6 @@ void AtomVecOxdnaKokkos::grow_pointers()
   id5p = atomKK->id5p;
   d_id5p = atomKK->k_id5p.d_view;
   h_id5p = atomKK->k_id5p.h_view;
-
 }
 
 /* ----------------------------------------------------------------------
@@ -94,43 +99,43 @@ void AtomVecOxdnaKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecOxdnaKokkos::sync(ExecutionSpace space, unsigned int mask)
+void AtomVecOxdnaKokkos::sync(ExecutionSpace space, uint64_t mask)
 {
   if (space == Device) {
-    if (mask & BOND_MASK) atomKK->k_id3p.sync<LMPDeviceType>();
-    if (mask & BOND_MASK) atomKK->k_id5p.sync<LMPDeviceType>();
+    if (mask & BOND_MASK) atomKK->k_id3p.k_x.sync_device();
+    if (mask & BOND_MASK) atomKK->k_id5p.k_x.sync_device();
   } else {
-    if (mask & BOND_MASK) atomKK->k_id3p.sync<LMPHostType>();
-    if (mask & BOND_MASK) atomKK->k_id5p.sync<LMPHostType>();
+    if (mask & BOND_MASK) atomKK->k_id3p.k_x.sync_host();
+    if (mask & BOND_MASK) atomKK->k_id5p.k_x.sync_host();
   }
 }
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecOxdnaKokkos::sync_pinned(ExecutionSpace space, unsigned int mask, int async_flag)
+void AtomVecOxdnaKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)
 {
   if (space == Device) {
-    if ((mask & BOND_MASK) && atomKK->k_id3p.need_sync<LMPDeviceType>())
+    if ((mask & BOND_MASK) && atomKK->k_id3p.need_sync_device())
       perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id3p,space,async_flag);
-    if ((mask & BOND_MASK) && atomKK->k_id5p.need_sync<LMPDeviceType>())
+    if ((mask & BOND_MASK) && atomKK->k_id5p.need_sync_device())
       perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id5p,space,async_flag);
   } else {
-    if ((mask & BOND_MASK) && atomKK->k_id3p.need_sync<LMPHostType>())
+    if ((mask & BOND_MASK) && atomKK->k_id3p.need_sync_host())
       perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id3p,space,async_flag);
-    if ((mask & BOND_MASK) && atomKK->k_id5p.need_sync<LMPHostType>())
+    if ((mask & BOND_MASK) && atomKK->k_id5p.need_sync_host())
       perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_id5p,space,async_flag);
   }
 }
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecOxdnaKokkos::modified(ExecutionSpace space, unsigned int mask)
+void AtomVecOxdnaKokkos::modified(ExecutionSpace space, uint64_t mask)
 {
   if (space == Device) {
-    if (mask & BOND_MASK) atomKK->k_id3p.modify<LMPDeviceType>();
-    if (mask & BOND_MASK) atomKK->k_id5p.modify<LMPDeviceType>();
+    if (mask & BOND_MASK) atomKK->k_id3p.modify_device();
+    if (mask & BOND_MASK) atomKK->k_id5p.modify_device();
   } else {
-    if (mask & BOND_MASK) atomKK->k_id3p.modify<LMPHostType>();
-    if (mask & BOND_MASK) atomKK->k_id5p.modify<LMPHostType>();
+    if (mask & BOND_MASK) atomKK->k_id3p.modify_host();
+    if (mask & BOND_MASK) atomKK->k_id5p.modify_host();
   }
 }
