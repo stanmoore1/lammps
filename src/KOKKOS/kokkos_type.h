@@ -1269,6 +1269,19 @@ KOKKOS_DEVICE_DUALVIEW(KK_FLOAT****, LMPDeviceLayout, kkfloat_4d)
 
 typedef TransformView<KK_FLOAT****, double****, LMPDeviceLayout> ttransform_kkfloat_4d;
 
+// 5D view types
+
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*****, LMPDeviceLayout, kkfloat_5d)
+
+typedef TransformView<KK_FLOAT*****, double*****, LMPDeviceLayout> ttransform_kkfloat_5d;
+
+
+// 1 runtime + 4 compile-time dims each with size 4
+
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT*[4][4][4][4], LMPDeviceLayout, kkfloat_1d_4x4)
+
+typedef TransformView<KK_FLOAT*[4][4][4][4], double*[4][4][4][4], LMPDeviceLayout> ttransform_kkfloat_1d_4x4;
+
 // Neighbor Types
 
 typedef tdual_int_2d_dl tdual_neighbors_2d;
@@ -1346,6 +1359,15 @@ KOKKOS_HOST_DUALVIEW(KK_FLOAT***, LMPDeviceLayout, kkfloat_3d)
 
 KOKKOS_HOST_DUALVIEW(double****, Kokkos::LayoutRight, double_4d_lr)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT****, LMPDeviceLayout, kkfloat_4d)
+
+// 5D view types
+
+KOKKOS_HOST_DUALVIEW(KK_FLOAT*****, LMPDeviceLayout, kkfloat_5d)
+
+
+// 1 runtime + 4 compile-time dims each with size 4
+
+KOKKOS_HOST_DUALVIEW(KK_FLOAT*[4][4][4][4], LMPDeviceLayout, kkfloat_1d_4x4)
 
 // Neighbor Types
 
