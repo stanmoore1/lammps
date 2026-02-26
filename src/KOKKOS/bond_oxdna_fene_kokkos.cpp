@@ -95,6 +95,15 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   id5p = atomKK->k_id5p.template view<DeviceType>();
   id3p = atomKK->k_id3p.template view<DeviceType>();
 
+  map_style = atom->map_style;
+  if (map_style == Atom::MAP_ARRAY) {
+    k_map_array = atomKK->k_map_array;
+    k_map_array.template sync<DeviceType>();
+  } else if (map_style == Atom::MAP_HASH) {
+    k_map_hash = atomKK->k_map_hash;
+    k_map_hash.template sync<DeviceType>();
+  }
+
   neighborKK->k_bondlist.template sync<DeviceType>();
   bondlist = neighborKK->k_bondlist.template view<DeviceType>();
   int nbondlist = neighborKK->nbondlist;
@@ -212,7 +221,7 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   // 3'neighbor a - a - b - 5'neighbor b
 
   if (id3p[a] != -1) {
-    a3ptype = atomtype[atom->map(id3p[a])];
+    a3ptype = atomtype[AtomKokkos::map_kokkos<DeviceType>(id3p[a], map_style, k_map_array, k_map_hash)];
   }
   else a3ptype = 0;
 
@@ -220,8 +229,8 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   btype = atomtype[b];
 
   if (id5p[b] != -1) {
-    b5ptype = atomtype[atom->map(id5p[b])];
-    b5ptype = atomtype[atom->map(id5p[b])];
+    b5ptype = atomtype[AtomKokkos::map_kokkos<DeviceType>(id5p[b], map_style, k_map_array, k_map_hash)];
+    b5ptype = atomtype[AtomKokkos::map_kokkos<DeviceType>(id5p[b], map_style, k_map_array, k_map_hash)];
   }
   else b5ptype = 0;
 
