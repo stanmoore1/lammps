@@ -32,7 +32,7 @@ region water ellipsoid v_comx v_comy v_comz 7.0 8.0 16.0
 group           viz dynamic all region water include molecule
 
 # define groups of donor and acceptor atoms for peptide and water
-group           pdonor    type 5
+group           pdonor    type 5 9
 group           wdonor    type 13
 group           pacceptor type 3 5 9 12
 group           wacceptor type 13

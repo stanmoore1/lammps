@@ -256,12 +256,12 @@ std::string find_exe_path(const std::string &cmd);
 
 int chdir(const std::string &path);
 
-/*! Create a directory
+/*! Create a directory or directory path
  *
- * Unlike the the ``mkdir()`` or ``_mkdir()`` functions of the
- * C library, this function will also try to create non-existing sub-directories
- * in case they don't exist, and thus behaves like the ``mkdir -p`` command rather
- * than plain ``mkdir`` or ``md`.
+ * Unlike the the ``mkdir()`` or ``_mkdir()`` functions of the C library, this
+ * function will also try to create non-existing sub-directories in case they
+ * don't exist, and thus it behaves like the ``mkdir -p`` command rather than
+ * plain ``mkdir`` or ``md`` in a Unix or Windows shell, respectively.
  *
  * \param  path  directory path
  * \return -1 if unsuccessful, otherwise >= 0  */

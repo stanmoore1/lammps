@@ -32,12 +32,13 @@ Description
 Run a parallel tempering or replica exchange simulation using multiple
 replicas (ensembles) of a system.  Two or more replicas must be used.
 
-Each replica runs on a partition of one or more processors.  Processor
-partitions are defined at run-time using the :doc:`-partition command-line switch <Run_options>`.  Note that if you have MPI installed, you
-can run a multi-replica simulation with more replicas (partitions)
-than you have physical processors, e.g you can run a 10-replica
-simulation on one or two processors.  You will simply not get the
-performance speed-up you would see with one or more physical
+Each replica runs on a partition of one or more MPI processes.  Processor
+partitions are defined at run-time using the :doc:`-partition
+command-line switch <Run_options>`.  Note that if you have MPI
+installed, you can run a multi-replica simulation with more replicas
+(partitions) than you have physical processors, e.g you can run a
+10-replica simulation on one or two processors.  You will simply not get
+the performance speed-up you would see with one or more physical
 processors per replica.  See the :doc:`Howto replica <Howto_replica>`
 doc page for further discussion.
 
@@ -68,14 +69,16 @@ time.  Each attempted swap of temperatures is either accepted or
 rejected based on a Boltzmann-weighted Metropolis criterion which uses
 *seed2* in the random number generator.
 
-As a tempering run proceeds, multiple log files and screen output
-files are created, one per replica.  By default these files are named
-log.lammps.M and screen.M where M is the replica number from 0 to N-1,
-with N = # of replicas.  See the :doc:`-log and -screen command-line swiches <Run_options>` for info on how to change these names.
+As a tempering run proceeds, multiple log files and screen output files
+are created, one per replica.  By default these files are named
+``log.lammps.M`` and ``screen.M`` where *M* is the replica number from 0
+to *N*-1, with *N* = # of replicas.  See the :doc:`-log and -screen
+command-line swiches <Run_options>` for info on how to change these
+names.
 
-The main screen and log file (log.lammps) will list information about
-which temperature is assigned to each replica at each thermodynamic
-output timestep.  E.g. for a simulation with 16 replicas:
+The main screen and log file (``log.lammps``) will list information
+about which temperature is assigned to each replica at each
+thermodynamic output timestep.  E.g. for a simulation with 16 replicas:
 
 .. parsed-literal::
 
@@ -89,15 +92,15 @@ output timestep.  E.g. for a simulation with 16 replicas:
    2500 2 1 3 0 6 4 5 7 11 8 9 10 12 14 13 15
    ...
 
-The column headings T0 to TN-1 mean which temperature is currently
-assigned to the replica 0 to N-1.  Thus the columns represent replicas
+The column headings *T0* to *TN-1* mean which temperature is currently
+assigned to the replica 0 to *N*-1.  Thus the columns represent replicas
 and the value in each column is its temperature (also numbered 0 to
-N-1).  For example, a 0 in the fourth column (column T3, step 2500) means
-that the fourth replica is assigned temperature 0, i.e. the lowest
+N-1).  For example, a 0 in the fourth column (column *T3*, step 2500)
+means that the fourth replica is assigned temperature 0, i.e. the lowest
 temperature.  You can verify this time sequence of temperature
-assignments for the Nth replica by comparing the Nth column of screen
-output to the thermodynamic data in the corresponding log.lammps.N or
-screen.N files as time proceeds.
+assignments for the *N*\ th replica by comparing the *N*\ th column of
+screen output to the thermodynamic data in the corresponding
+``log.lammps.N`` or ``screen.N`` files as time proceeds.
 
 You can have each replica create its own dump file in the following
 manner:

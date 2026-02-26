@@ -2037,7 +2037,7 @@ std::string utils::current_date()
   struct tm *today = localtime(&tv);
   char outstr[16];
   strftime(outstr, sizeof(outstr), "%Y-%m-%d", today);
-  return std::string(outstr);
+  return {outstr};
 }
 
 /* ----------------------------------------------------------------------

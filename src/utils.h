@@ -426,13 +426,14 @@ tagint tnumeric(const char *file, int line, const char *str, bool do_abort, LAMM
  * - a single asterisk followed by a number, \*i: nlo = nmin; nhi = i;
  * - two numbers with an asterisk in between. i\*j: nlo = i; nhi = j;
  *
+ * \tparam TYPE    the type of the index that is subject to the wildcard expansion
  * \param file     name of source file for error message
  * \param line     line number in source file for error message
  * \param str      string to be processed
  * \param nmin     smallest possible lower bound
  * \param nmax     largest allowed upper bound
- * \param nlo      lower bound
- * \param nhi      upper bound
+ * \param[out] nlo lower bound
+ * \param[out] nhi upper bound
  * \param error    pointer to Error class for out-of-bounds messages
  * \param failed   argument index with failed expansion (optional) */
 
@@ -452,13 +453,14 @@ This functions adds the following case to :cpp:func:`utils::bounds() <LAMMPS_NS:
 
 \endverbatim
 
+ * \tparam TYPE    the type of the index that is subject to the boundary expansion
  * \param file     name of source file for error message
  * \param line     line number in source file for error message
  * \param str      string to be processed
  * \param nmin     smallest possible lower bound
  * \param nmax     largest allowed upper bound
- * \param nlo      lower bound
- * \param nhi      upper bound
+ * \param[out] nlo lower bound
+ * \param[out] nhi upper bound
  * \param lmp      pointer to top-level LAMMPS class instance
  * \param mode     select labelmap using constants from Atom class */
 
@@ -720,8 +722,7 @@ size_t trim_and_count_words(const std::string &text, const std::string &separato
  * \param sep     separator string (may be empty)
  * \return  string with the concatenated values and separators */
 
-template <typename T>
-std::string join(const std::vector<T> &values, const std::string &sep);
+template <typename T> std::string join(const std::vector<T> &values, const std::string &sep);
 
 /*! Take list of words and join them with a given separator text.
  *

@@ -18,7 +18,7 @@ package was developed primarily by Christian Trott (Sandia) and Stan
 Moore (Sandia) with contributions of various styles by others,
 including Sikandar Mashayak (UIUC), Ray Shan (Sandia), and Dan Ibanez
 (Sandia). For more information on developing using Kokkos abstractions
-see the `Kokkos Wiki <https://github.com/kokkos/kokkos/wiki>`_.
+see the `Kokkos Wiki <https://kokkos.org/kokkos-core-wiki/>`_.
 
 .. note::
 

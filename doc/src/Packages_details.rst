@@ -518,6 +518,7 @@ the :doc:`Build extras <Build_extras>` page.
 **Supporting info:**
 
 * ``src/COLVARS``: filenames -> commands
+* https://colvars.github.io/master/colvars-refman-lammps.html
 * `doc/PDF/colvars-refman-lammps.pdf <PDF/colvars-refman-lammps.pdf>`_
 * ``src/COLVARS/README``
 * ``lib/colvars/README``
@@ -1092,9 +1093,15 @@ of regions scripted graphics in VMD.
 * :doc:`fix graphics/arrows <fix_graphics_arrows>`
 * :doc:`fix graphics/isosurface <fix_graphics_isosurface>`
 * :doc:`fix graphics/labels <fix_graphics_labels>`,
+* :doc:`fix graphics/lines <fix_graphics_lines>`,
 * :doc:`fix graphics/objects <fix_graphics_objects>`,
 * :doc:`fix graphics/periodic <fix_graphics_periodic>`,
 * :doc:`region2vmd <region2vmd>`
+* https://www.youtube.com/watch?v=9HEsGaOsdik
+* https://www.youtube.com/watch?v=f4hfPs7aCmI
+* https://www.youtube.com/shorts/1QEjIITapwQ
+* https://www.youtube.com/shorts/OYn_VVodnIg
+* https://www.youtube.com/shorts/4Cm5p0SfgNU
 
 ----------
 
