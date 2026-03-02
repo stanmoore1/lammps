@@ -85,6 +85,15 @@ PairOxdnaExcvKokkos<DeviceType>::~PairOxdnaExcvKokkos()
     memoryKK->destroy_kokkos(k_cutsq_bsbs_ast,cutsq_bsbs_ast);
     memoryKK->destroy_kokkos(k_cutsq_bsbs_c,cutsq_bsbs_c);
 
+    memoryKK->destroy_kokkos(k_sigma4_bsbs);
+    memoryKK->destroy_kokkos(k_cut4_bsbs_ast);
+    memoryKK->destroy_kokkos(k_cut4sq_bsbs_ast);
+    memoryKK->destroy_kokkos(k_lj14_bsbs);
+    memoryKK->destroy_kokkos(k_lj24_bsbs);
+    memoryKK->destroy_kokkos(k_b4_bsbs);
+    memoryKK->destroy_kokkos(k_cut4_bsbs_c);
+    memoryKK->destroy_kokkos(k_cut4sq_bsbs_c);
+
     memoryKK->destroy_kokkos(k_nx,nx);
     memoryKK->destroy_kokkos(k_ny,ny);
     memoryKK->destroy_kokkos(k_nz,nz);
@@ -148,6 +157,15 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   k_cutsq_bsbs_ast.template sync<DeviceType>();
   k_cutsq_bsbs_c.template sync<DeviceType>();
 
+  k_sigma4_bsbs.template sync<DeviceType>();
+  k_cut4_bsbs_ast.template sync<DeviceType>();
+  k_cut4sq_bsbs_ast.template sync<DeviceType>();
+  k_lj14_bsbs.template sync<DeviceType>();
+  k_lj24_bsbs.template sync<DeviceType>();
+  k_b4_bsbs.template sync<DeviceType>();
+  k_cut4_bsbs_c.template sync<DeviceType>();
+  k_cut4sq_bsbs_c.template sync<DeviceType>();
+
   k_nx.template sync<DeviceType>();
   k_ny.template sync<DeviceType>();
   k_nz.template sync<DeviceType>();
@@ -170,6 +188,19 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   special_lj[1] = force->special_lj[1];
   special_lj[2] = force->special_lj[2];
   special_lj[3] = force->special_lj[3];
+
+  atomtype = atomKK->k_type.template view<DeviceType>();
+  id5p = atomKK->k_id5p.template view<DeviceType>();
+  id3p = atomKK->k_id3p.template view<DeviceType>();
+
+  map_style = atom->map_style;
+  if (map_style == Atom::MAP_ARRAY) {
+    k_map_array = atomKK->k_map_array;
+    k_map_array.template sync<DeviceType>();
+  } else if (map_style == Atom::MAP_HASH) {
+    k_map_hash = atomKK->k_map_hash;
+    k_map_hash.template sync<DeviceType>();
+  }
 
   // get the neighbor list and neighbors used in operator()
 
@@ -893,11 +924,6 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   memory->destroy(cutsq_bsbs_ast);
   memory->destroy(cutsq_bsbs_c);
 
-  memory->destroy(nx);
-  memory->destroy(ny);
-  memory->destroy(nz);
-
-  // destory tetramer-dependent coefficients - not used from models <oxdna3
   memory->destroy(sigma4_bsbs);
   memory->destroy(cut4_bsbs_ast);
   memory->destroy(cut4sq_bsbs_ast);
@@ -907,7 +933,10 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   memory->destroy(cut4_bsbs_c);
   memory->destroy(cut4sq_bsbs_c);
 
-  // only create relevant kokkos views - ie, everything but the tetramer-dependent coefficients
+  memory->destroy(nx);
+  memory->destroy(ny);
+  memory->destroy(nz);
+
   memoryKK->create_kokkos(k_epsilon_bkbk,epsilon_bkbk,n+1,n+1,"PairOxdnaExcv:epsilon_bkbk");
   memoryKK->create_kokkos(k_sigma_bkbk,sigma_bkbk,n+1,n+1,"PairOxdnaExcv:sigma_bkbk");
   memoryKK->create_kokkos(k_cut_bkbk_ast,cut_bkbk_ast,n+1,n+1,"PairOxdnaExcv:cut_bkbk_ast");
@@ -937,6 +966,15 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   memoryKK->create_kokkos(k_lj2_bsbs,lj2_bsbs,n+1,n+1,"PairOxdnaExcv:lj2_bsbs");
   memoryKK->create_kokkos(k_cutsq_bsbs_ast,cutsq_bsbs_ast,n+1,n+1,"PairOxdnaExcv:cutsq_bsbs_ast");
   memoryKK->create_kokkos(k_cutsq_bsbs_c,cutsq_bsbs_c,n+1,n+1,"PairOxdnaExcv:cutsq_bsbs_c");
+
+  memoryKK->create_kokkos(k_sigma4_bsbs,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_sigma4_bsbs");
+  memoryKK->create_kokkos(k_cut4_bsbs_ast,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_cut4_bsbs_ast");
+  memoryKK->create_kokkos(k_cut4sq_bsbs_ast,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_cut4sq_bsbs_ast");
+  memoryKK->create_kokkos(k_lj14_bsbs,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_lj14_bsbs");
+  memoryKK->create_kokkos(k_lj24_bsbs,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_lj24_bsbs");
+  memoryKK->create_kokkos(k_b4_bsbs,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_b4_bsbs");
+  memoryKK->create_kokkos(k_cut4_bsbs_c,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_cut4_bsbs_c");
+  memoryKK->create_kokkos(k_cut4sq_bsbs_c,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_cut4sq_bsbs_c");
 
   memoryKK->create_kokkos(k_nx,nx,atom->nmax,3,"PairOxdnaExcv:nx");
   memoryKK->create_kokkos(k_ny,ny,atom->nmax,3,"PairOxdnaExcv:ny");
@@ -971,6 +1009,15 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   d_lj2_bsbs = k_lj2_bsbs.template view<DeviceType>();
   d_cutsq_bsbs_ast = k_cutsq_bsbs_ast.template view<DeviceType>();
   d_cutsq_bsbs_c = k_cutsq_bsbs_c.template view<DeviceType>();
+
+  d_sigma4_bsbs = k_sigma4_bsbs.template view<DeviceType>();
+  d_cut4_bsbs_ast = k_cut4_bsbs_ast.template view<DeviceType>();
+  d_cut4sq_bsbs_ast = k_cut4sq_bsbs_ast.template view<DeviceType>();
+  d_lj14_bsbs = k_lj14_bsbs.template view<DeviceType>();
+  d_lj24_bsbs = k_lj24_bsbs.template view<DeviceType>();
+  d_b4_bsbs = k_b4_bsbs.template view<DeviceType>();
+  d_cut4_bsbs_c = k_cut4_bsbs_c.template view<DeviceType>();
+  d_cut4sq_bsbs_c = k_cut4sq_bsbs_c.template view<DeviceType>();
 
   d_nx = k_nx.template view<DeviceType>();
   d_ny = k_ny.template view<DeviceType>();
@@ -1011,6 +1058,9 @@ template<class DeviceType>
 double PairOxdnaExcvKokkos<DeviceType>::init_one(int i, int j)
 {
   double cutone = PairOxdnaExcv::init_one(i,j);
+  
+  // All non-tetramer Kokkos views are set here within ::init_one, and
+  // the tetramer Kokkos views are set within ::coeff
 
   k_epsilon_bkbk.view_host()(i,j) = k_epsilon_bkbk.view_host()(j,i) = epsilon_bkbk[i][j];
   k_sigma_bkbk.view_host()(i,j) = k_sigma_bkbk.view_host()(j,i) = sigma_bkbk[i][j];
@@ -1072,9 +1122,63 @@ double PairOxdnaExcvKokkos<DeviceType>::init_one(int i, int j)
   k_cutsq_bsbs_ast.template modify<LMPHostType>();
   k_cutsq_bsbs_c.template modify<LMPHostType>();
 
+  k_sigma4_bsbs.template modify<LMPHostType>();
+  k_cut4_bsbs_ast.template modify<LMPHostType>();
+  k_cut4sq_bsbs_ast.template modify<LMPHostType>();
+  k_lj14_bsbs.template modify<LMPHostType>();
+  k_lj24_bsbs.template modify<LMPHostType>();
+  k_b4_bsbs.template modify<LMPHostType>();
+  k_cut4_bsbs_c.template modify<LMPHostType>();
+  k_cut4sq_bsbs_c.template modify<LMPHostType>();
+
   // "cutone" is "cut_bkbk_c[i][j]", sets the master list distance cutoff
   return cutone;
 
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairOxdnaExcvKokkos<DeviceType>::coeff(int narg, char **arg)
+{
+  PairOxdnaExcv::coeff(narg,arg);
+
+  // The tetramer Kokkos views are set here within ::coeff, and the
+  // non-tetramer Kokkos views are set within ::init_one
+
+  int ilo,ihi,jlo,jhi,nlo,nhi;
+  utils::bounds(FLERR,arg[0],1,atom->ntypes,ilo,ihi,error);
+  utils::bounds(FLERR,arg[1],1,atom->ntypes,jlo,jhi,error);
+
+  assert((ilo == jlo) & (ihi == jhi));
+  nlo = ilo;
+  nhi = ihi;
+
+  for (int i = 0; i <= nhi; i++) { // type 0 for terminal j
+    for (int j = nlo; j <= nhi; j++) {
+      for (int k = nlo; k <= nhi; k++) {
+        for (int l = 0; l <= nhi; l++) { // type 0 for terminal k
+          k_sigma4_bsbs.view_host()(i,j,k,l) = sigma4_bsbs[i][j][k][l];
+          k_cut4_bsbs_ast.view_host()(i,j,k,l) = cut4_bsbs_ast[i][j][k][l];
+          k_cut4sq_bsbs_ast.view_host()(i,j,k,l) = cut4sq_bsbs_ast[i][j][k][l];
+          k_lj14_bsbs.view_host()(i,j,k,l) = lj14_bsbs[i][j][k][l];
+          k_lj24_bsbs.view_host()(i,j,k,l) = lj24_bsbs[i][j][k][l];
+          k_b4_bsbs.view_host()(i,j,k,l) = b4_bsbs[i][j][k][l];
+          k_cut4_bsbs_c.view_host()(i,j,k,l) = cut4_bsbs_c[i][j][k][l];
+          k_cut4sq_bsbs_c.view_host()(i,j,k,l) = cut4sq_bsbs_c[i][j][k][l];
+        }
+      }
+    }
+  }
+
+  k_sigma4_bsbs.template modify<LMPHostType>();
+  k_cut4_bsbs_ast.template modify<LMPHostType>();
+  k_cut4sq_bsbs_ast.template modify<LMPHostType>();
+  k_lj14_bsbs.template modify<LMPHostType>();
+  k_lj24_bsbs.template modify<LMPHostType>();
+  k_b4_bsbs.template modify<LMPHostType>();
+  k_cut4_bsbs_c.template modify<LMPHostType>();
+  k_cut4sq_bsbs_c.template modify<LMPHostType>();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1184,7 +1288,6 @@ KOKKOS_INLINE_FUNCTION
 int PairOxdnaExcvKokkos<DeviceType>::sbmask(const int& j) const {
   return j >> SBBITS & 3;
 }
-
 
 namespace LAMMPS_NS {
 template class PairOxdnaExcvKokkos<LMPDeviceType>;

@@ -56,6 +56,7 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   void settings(int, char **) override;
   void init_style() override;
   double init_one(int, int) override;
+  void coeff(int, char **) override;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdnaExcvQuatToXYZ, const int&) const;
@@ -142,10 +143,24 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   typename AT::t_kkfloat_2d_lr d_lj1_bkbs, d_lj2_bkbs, d_b_bkbs, d_cut_bkbs_c, d_cutsq_bkbs_c;
   typename AT::t_kkfloat_2d_lr d_epsilon_bsbs, d_sigma_bsbs, d_cut_bsbs_ast, d_cutsq_bsbs_ast;
   typename AT::t_kkfloat_2d_lr d_lj1_bsbs, d_lj2_bsbs, d_b_bsbs, d_cut_bsbs_c, d_cutsq_bsbs_c;
+  // tetramer-dependent coefficients
+  typename AT::ttransform_kkfloat_4d k_sigma4_bsbs, k_cut4_bsbs_ast, k_cut4sq_bsbs_ast;
+  typename AT::ttransform_kkfloat_4d k_lj14_bsbs, k_lj24_bsbs, k_b4_bsbs, k_cut4_bsbs_c, k_cut4sq_bsbs_c;
+  typename AT::t_kkfloat_4d d_sigma4_bsbs, d_cut4_bsbs_ast, d_cut4sq_bsbs_ast;
+  typename AT::t_kkfloat_4d d_lj14_bsbs, d_lj24_bsbs, d_b4_bsbs, d_cut4_bsbs_c, d_cut4sq_bsbs_c;
 
   int first;
   typename AT::t_int_1d d_sendlist;
   typename AT::t_double_1d_um v_buf;
+
+  typename AT::t_int_1d_randomread atomtype;
+  typename ArrayTypes<DeviceType>::t_tagint_1d tag;
+  typename ArrayTypes<DeviceType>::t_tagint_1d id5p;
+  typename ArrayTypes<DeviceType>::t_tagint_1d id3p;
+
+  int map_style;
+  DAT::tdual_int_1d k_map_array;
+  dual_hash_type k_map_hash;
 
   using KKDeviceType = typename KKDevice<DeviceType>::value;
 
