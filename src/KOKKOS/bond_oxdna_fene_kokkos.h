@@ -74,9 +74,9 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   typename ArrayTypes<DeviceType>::t_tagint_1d id5p;
   typename ArrayTypes<DeviceType>::t_tagint_1d id3p;
 
-   int map_style;
-   DAT::tdual_int_1d k_map_array;
-   dual_hash_type k_map_hash;
+  int map_style;
+  DAT::tdual_int_1d k_map_array;
+  dual_hash_type k_map_hash;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
   TransformView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
