@@ -23,6 +23,8 @@
 #include "error.h"
 #include "potential_file_reader.h"
 
+#include <cmath>
+
 using namespace LAMMPS_NS;
 
 /* ----------------------------------------------------------------------
