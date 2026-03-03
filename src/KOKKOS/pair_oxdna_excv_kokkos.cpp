@@ -924,14 +924,8 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   memory->destroy(cutsq_bsbs_ast);
   memory->destroy(cutsq_bsbs_c);
 
-  memory->destroy(sigma4_bsbs);
-  memory->destroy(cut4_bsbs_ast);
-  memory->destroy(cut4sq_bsbs_ast);
-  memory->destroy(lj14_bsbs);
-  memory->destroy(lj24_bsbs);
-  memory->destroy(b4_bsbs);
-  memory->destroy(cut4_bsbs_c);
-  memory->destroy(cut4sq_bsbs_c);
+  // DON'T destory tetramer data here since these don't alias vanilla structures in create_kokkos - we
+  // still need them to later assign coefficients to kokkos views within ::coeff
 
   memory->destroy(nx);
   memory->destroy(ny);
@@ -967,14 +961,14 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   memoryKK->create_kokkos(k_cutsq_bsbs_ast,cutsq_bsbs_ast,n+1,n+1,"PairOxdnaExcv:cutsq_bsbs_ast");
   memoryKK->create_kokkos(k_cutsq_bsbs_c,cutsq_bsbs_c,n+1,n+1,"PairOxdnaExcv:cutsq_bsbs_c");
 
-  memoryKK->create_kokkos(k_sigma4_bsbs,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_sigma4_bsbs");
-  memoryKK->create_kokkos(k_cut4_bsbs_ast,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_cut4_bsbs_ast");
-  memoryKK->create_kokkos(k_cut4sq_bsbs_ast,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_cut4sq_bsbs_ast");
-  memoryKK->create_kokkos(k_lj14_bsbs,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_lj14_bsbs");
-  memoryKK->create_kokkos(k_lj24_bsbs,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_lj24_bsbs");
-  memoryKK->create_kokkos(k_b4_bsbs,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_b4_bsbs");
-  memoryKK->create_kokkos(k_cut4_bsbs_c,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_cut4_bsbs_c");
-  memoryKK->create_kokkos(k_cut4sq_bsbs_c,n+1,n+1,n+1,n+1,"PairOxdnaExcvKokkos:k_cut4sq_bsbs_c");
+  memoryKK->create_kokkos(k_sigma4_bsbs,n+1,n+1,n+1,n+1,"PairOxdnaExcv:sigma4_bsbs");
+  memoryKK->create_kokkos(k_cut4_bsbs_ast,n+1,n+1,n+1,n+1,"PairOxdnaExcv:cut4_bsbs_ast");
+  memoryKK->create_kokkos(k_cut4sq_bsbs_ast,n+1,n+1,n+1,n+1,"PairOxdnaExcv:cut4sq_bsbs_ast");
+  memoryKK->create_kokkos(k_lj14_bsbs,n+1,n+1,n+1,n+1,"PairOxdnaExcv:lj14_bsbs");
+  memoryKK->create_kokkos(k_lj24_bsbs,n+1,n+1,n+1,n+1,"PairOxdnaExcv:lj24_bsbs");
+  memoryKK->create_kokkos(k_b4_bsbs,n+1,n+1,n+1,n+1,"PairOxdnaExcv:b4_bsbs");
+  memoryKK->create_kokkos(k_cut4_bsbs_c,n+1,n+1,n+1,n+1,"PairOxdnaExcv:cut4_bsbs_c");
+  memoryKK->create_kokkos(k_cut4sq_bsbs_c,n+1,n+1,n+1,n+1,"PairOxdnaExcv:cut4sq_bsbs_c");
 
   memoryKK->create_kokkos(k_nx,nx,atom->nmax,3,"PairOxdnaExcv:nx");
   memoryKK->create_kokkos(k_ny,ny,atom->nmax,3,"PairOxdnaExcv:ny");

@@ -368,9 +368,10 @@ void BondOxdnaFENEKokkos<DeviceType>::allocate()
   BondOxdnaFene::allocate();
 
   int n = atom->nbondtypes;
+  int m = atom->ntypes;
   k_k = DAT::ttransform_kkfloat_1d("BondOxdnaFENE::k",n+1);
-  k_r0 = DAT::ttransform_kkfloat_1d_4x4("BondOxdnaFENE::r0",n+1,4,4,4,4);
-  k_Delta = DAT::ttransform_kkfloat_1d_4x4("BondOxdnaFENE::Delta",n+1,4,4,4,4);
+  k_r0 = DAT::ttransform_kkfloat_5d("BondOxdnaFENE::r0",n+1,m+1,m+1,m+1,m+1);
+  k_Delta = DAT::ttransform_kkfloat_5d("BondOxdnaFENE::Delta",n+1,m+1,m+1,m+1,m+1);
 
   d_k = k_k.template view<DeviceType>();
   d_r0 = k_r0.template view<DeviceType>();
@@ -386,13 +387,17 @@ void BondOxdnaFENEKokkos<DeviceType>::coeff(int narg, char **arg)
 {
   BondOxdnaFene::coeff(narg, arg);
 
-  int n = atom->nbondtypes;
-  for (int i = 1; i <= n; i++) {
+  // unlike vanilla, we don't use the bounds and assert - args have already
+  // been parsed.
+
+  int m = atom->nbondtypes;
+  int n = atom->ntypes;
+  for (int i = 1; i <= m; i++) {
     k_k.view_host()[i] = k[i];
-    for (int n1 = 0; n1 < 4; n1++) {
-      for (int n2 = 0; n2 < 4; n2++) {
-        for (int n3 = 0; n3 < 4; n3++) {
-          for (int n4 = 0; n4 < 4; n4++) {
+    for (int n1 = 0; n1 <= n; n1++) {
+      for (int n2 = 0; n2 <= n; n2++) {
+        for (int n3 = 0; n3 <= n; n3++) {
+          for (int n4 = 0; n4 <= n; n4++) {
             k_r0.view_host()(i,n1,n2,n3,n4) = r0[i][n1][n2][n3][n4];
             k_Delta.view_host()(i,n1,n2,n3,n4) = Delta[i][n1][n2][n3][n4];
           }
@@ -417,12 +422,13 @@ void BondOxdnaFENEKokkos<DeviceType>::read_restart(FILE *fp)
   BondOxdnaFene::read_restart(fp);
 
   int n = atom->nbondtypes;
+  int m = atom->ntypes;
   for (int i = 1; i <= n; i++) {
     k_k.view_host()[i] = k[i];
-    for (int n1 = 0; n1 < 4; n1++) {
-      for (int n2 = 0; n2 < 4; n2++) {
-        for (int n3 = 0; n3 < 4; n3++) {
-          for (int n4 = 0; n4 < 4; n4++) {
+    for (int n1 = 0; n1 <= m; n1++) {
+      for (int n2 = 0; n2 <= m; n2++) {
+        for (int n3 = 0; n3 <= m; n3++) {
+          for (int n4 = 0; n4 <= m; n4++) {
             k_r0.view_host()(i,n1,n2,n3,n4) = r0[i][n1][n2][n3][n4];
             k_Delta.view_host()(i,n1,n2,n3,n4) = Delta[i][n1][n2][n3][n4];
           }
