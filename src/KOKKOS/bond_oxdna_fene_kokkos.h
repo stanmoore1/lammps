@@ -27,6 +27,8 @@ BondStyle(oxdna/fene/kk/host,BondOxdnaFENEKokkos<LMPHostType>);
 
 namespace LAMMPS_NS {
 
+struct TagBondOxdnaFENEPrecomputeClosestBond{};
+
 template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
 struct TagBondOxdnaFENECompute{};
 
@@ -43,14 +45,21 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   void coeff(int, char **) override;
   void read_restart(FILE *) override;
 
+  // NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagBondOxdnaFENEPrecomputeClosestBond, const int&) const;
+
   template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, const int&, EV_FLOAT&) const;
 
   template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, const int&) const;
 
+// NOLINTNEXTLINE
    KOKKOS_INLINE_FUNCTION
    void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j, const int &nlocal, const int &newton_bond,\
       const KK_FLOAT &ebond, const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz,\
@@ -73,10 +82,6 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   typename ArrayTypes<DeviceType>::t_tagint_1d tag;
   typename ArrayTypes<DeviceType>::t_tagint_1d id5p;
   typename ArrayTypes<DeviceType>::t_tagint_1d id3p;
-
-  int map_style;
-  DAT::tdual_int_1d k_map_array;
-  dual_hash_type k_map_hash;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
   TransformView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
@@ -101,6 +106,21 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   typename AT::t_kkfloat_1d_3_lr d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
 
   void allocate() override;
+
+  // Atom Mapping
+  int map_style;
+  DAT::tdual_int_1d k_map_array;
+  dual_hash_type k_map_hash;
+  DAT::tdual_int_1d k_sametag;
+  typename AT::t_int_1d d_sametag;
+  // Precomputed closest images for bondlist atoms
+  // 0-3 : closest images of atom a, atom b, id3p[a], id5p[b] for each bond
+  DAT::tdual_int_2d k_closest_bond;
+  typename AT::t_int_2d d_closest_bond;
+
+  // NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  int closest_image(const int, int) const;
 };
 
 }    // namespace LAMMPS_NS
