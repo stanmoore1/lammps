@@ -1555,9 +1555,9 @@ struct AtomVecKokkos_PackBorder {
       // CG-DNA package
 
       if (_datamask & CG_DNA_MASK) {
-        _buf(i,m++) = _id3p(j);
-        _buf(i,m++) = _id5p(j);
-        _buf(i,m++) = _qeff(j);
+        _buf(i,m++) = d_ubuf(_id3p(j)).d;
+        _buf(i,m++) = d_ubuf(_id5p(j)).d;
+        _buf(i,m++) = d_ubuf(_qeff(j)).d;
       }
     }
   }
@@ -1937,9 +1937,9 @@ struct AtomVecKokkos_PackBorderVel {
     // CG-DNA package
 
     if (_datamask & CG_DNA_MASK) {
-      _buf(i,m++) = _id3p(j);
-      _buf(i,m++) = _id5p(j);
-      _buf(i,m++) = _qeff(j);
+      _buf(i,m++) = d_ubuf(_id3p(j)).d;
+      _buf(i,m++) = d_ubuf(_id5p(j)).d;
+      _buf(i,m++) = d_ubuf(_qeff(j)).d;
     }
   }
 };
@@ -2436,9 +2436,9 @@ struct AtomVecKokkos_PackExchangeFunctor {
       // CG-DNA package
 
       if (_datamask & CG_DNA_MASK) {
-        _buf(mysend,m++) = _id3p(i);
-        _buf(mysend,m++) = _id5p(i);
-        _buf(mysend,m++) = _qeff(i);
+        _buf(mysend,m++) = d_ubuf(_id3p(i)).d;
+        _buf(mysend,m++) = d_ubuf(_id5p(i)).d;
+        _buf(mysend,m++) = d_ubuf(_qeff(i)).d;
       }
     }
 
