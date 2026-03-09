@@ -87,16 +87,16 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   k_r0.template sync<DeviceType>();
   k_Delta.template sync<DeviceType>();
 
-  x = atomKK->k_x.template view<DeviceType>();
-  f = atomKK->k_f.template view<DeviceType>();
+  x = atomKK->k_x.view<DeviceType>();
+  f = atomKK->k_f.view<DeviceType>();
   torque = atomKK->k_torque.template view<DeviceType>();
-  tag = atomKK->k_tag.template view<DeviceType>();
+  tag = atomKK->k_tag.view<DeviceType>();
   atomtype = atomKK->k_type.template view<DeviceType>();
-  id5p = atomKK->k_id5p.template view<DeviceType>();
-  id3p = atomKK->k_id3p.template view<DeviceType>();
+  id5p = atomKK->k_id5p.view<DeviceType>();
+  id3p = atomKK->k_id3p.view<DeviceType>();
 
   neighborKK->k_bondlist.template sync<DeviceType>();
-  bondlist = neighborKK->k_bondlist.template view<DeviceType>();
+  bondlist = neighborKK->k_bondlist.view<DeviceType>();
   int nbondlist = neighborKK->nbondlist;
   nlocal = atom->nlocal;
   newton_bond = force->newton_bond;
@@ -112,7 +112,7 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   }
   atomKK->k_sametag.sync<DeviceType>();
   d_sametag = atomKK->k_sametag.view<DeviceType>();
-  // reallocate if necessary - store 4 indices per bond: a, b, id3p[a], id5p[b]
+  // Reallocate if necessary - store 4 indices per bond: a, b, id3p[a], id5p[b]
   if (nbondlist > k_closest_bond.extent(0)) {
     memoryKK->destroy_kokkos(k_closest_bond);
     memoryKK->create_kokkos(k_closest_bond,nbondlist,4,"bond:closest_bond");
@@ -218,23 +218,15 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   Kokkos::View<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,\
     typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_torque = torque;
 
-  // Use precomputed closest atom images from pre_neighbor()
+  // Use precomputed closest atom images
+  // NOTE: already in correct order from precompute, so directionality test: a -> b is 3' -> 5' is already satisfied
   int a = d_closest_bond(in,0);
   int b = d_closest_bond(in,1);
   const int type = bondlist(in,2);
-  int btemp;
   int a3ptype, atype, btype, b5ptype;    // tetramer types
 
-  // directionality test: a -> b is 3' -> 5'
-  if ( tag(b) != id5p(a) ) {
-    btemp = b;
-    b = a;
-    a = btemp;  
-  }
-
-  // determine tetramer types using precomputed closest images
+  // determine tetramer types
   // 3'neighbor a - a - b - 5'neighbor b
-
   int id3p_local = d_closest_bond(in,2);
   a3ptype = (id3p_local != -1) ? atomtype[id3p_local] : 0;
 
@@ -356,7 +348,7 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
     a_torque(b,1) -= deltb[1];
     a_torque(b,2) -= deltb[2];
   }
-  
+
   if (EVFLAG) { ev_tally_xyz(ev, a, b, nlocal, NEWTON_BOND, ebond, delf[0], delf[1], delf[2], \
     x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2)); }
   
@@ -379,9 +371,9 @@ void BondOxdnaFENEKokkos<DeviceType>::allocate()
 
   int n = atom->nbondtypes;
   int m = atom->ntypes;
-  k_k = DAT::ttransform_kkfloat_1d("BondOxdnaFENE::k",n+1);
-  k_r0 = DAT::ttransform_kkfloat_5d("BondOxdnaFENE::r0",n+1,m+1,m+1,m+1,m+1);
-  k_Delta = DAT::ttransform_kkfloat_5d("BondOxdnaFENE::Delta",n+1,m+1,m+1,m+1,m+1);
+  k_k = DAT::tdual_kkfloat_1d("BondOxdnaFENE::k",n+1);
+  k_r0 = DAT::tdual_kkfloat_5d("BondOxdnaFENE::r0",n+1,m+1,m+1,m+1,m+1);
+  k_Delta = DAT::tdual_kkfloat_5d("BondOxdnaFENE::Delta",n+1,m+1,m+1,m+1,m+1);
 
   d_k = k_k.template view<DeviceType>();
   d_r0 = k_r0.template view<DeviceType>();
@@ -397,7 +389,7 @@ void BondOxdnaFENEKokkos<DeviceType>::coeff(int narg, char **arg)
 {
   BondOxdnaFene::coeff(narg, arg);
 
-  // unlike vanilla, we don't use the bounds and assert - args have already
+  // Unlike vanilla, we don't use the bounds and assert - args have already
   // been parsed.
 
   int m = atom->nbondtypes;
@@ -556,34 +548,38 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENEPrecomputeClosestBond, const int &in) const
 {
+  // Bondlist contains local atom indices (can be >= nlocal for ghosts)
   int b = bondlist(in,0);
   int a = bondlist(in,1);
   
-  int atom_a = AtomKokkos::map_kokkos<DeviceType>(tag(a),map_style,k_map_array,k_map_hash);
-  int atom_b = AtomKokkos::map_kokkos<DeviceType>(tag(b),map_style,k_map_array,k_map_hash);
-  
-  // Find closest images of both atoms to avoid minimum_image issues with random ghost ordering
-  atom_a = closest_image(a, atom_a);
-  atom_b = closest_image(b, atom_b);
+  // Directionality test: a -> b must be 3' -> 5'
+  // Check using the bondlist atoms directly
+  int atom_a = a;
+  int atom_b = b;
+  if (tag(b) != id5p(a)) {
+    atom_a = b;
+    atom_b = a;
+  }
   
   d_closest_bond(in,0) = atom_a;
   d_closest_bond(in,1) = atom_b;
   
-  // Precompute closest images of id3p[a] and id5p[b] neighbors
+  // Look up neighbors of correctly-ordered atoms
+  // 3'neighbor a - a - b - 5'neighbor b
   int id3p_closest = -1;
   if (id3p[atom_a] >= 0) {
-    int id3p_local = AtomKokkos::map_kokkos<DeviceType>(id3p[atom_a],map_style,k_map_array,k_map_hash);
-    if (id3p_local >= 0) {
-      id3p_closest = closest_image(atom_a, id3p_local);
+    int id3p_mapped = AtomKokkos::map_kokkos<DeviceType>(id3p[atom_a],map_style,k_map_array,k_map_hash);
+    if (id3p_mapped >= 0) {
+      id3p_closest = closest_image(atom_a, id3p_mapped);
     }
   }
   d_closest_bond(in,2) = id3p_closest;
   
   int id5p_closest = -1;
   if (id5p[atom_b] >= 0) {
-    int id5p_local = AtomKokkos::map_kokkos<DeviceType>(id5p[atom_b],map_style,k_map_array,k_map_hash);
-    if (id5p_local >= 0) {
-      id5p_closest = closest_image(atom_b, id5p_local);
+    int id5p_mapped = AtomKokkos::map_kokkos<DeviceType>(id5p[atom_b],map_style,k_map_array,k_map_hash);
+    if (id5p_mapped >= 0) {
+      id5p_closest = closest_image(atom_b, id5p_mapped);
     }
   }
   d_closest_bond(in,3) = id5p_closest;

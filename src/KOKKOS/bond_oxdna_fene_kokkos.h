@@ -65,6 +65,9 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
       const KK_FLOAT &ebond, const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz,\
       const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
+  DAT::ttransform_kkacc_1d k_eatom;
+  DAT::ttransform_kkacc_1d_6 k_vatom;
+
  protected:
   
   int oxdnaflag;
@@ -72,22 +75,17 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   
   class NeighborKokkos *neighborKK;
 
-  typename ArrayTypes<DeviceType>::t_kkfloat_1d_3_lr x;
-  typename Kokkos::View<KK_FLOAT*[3],typename AT::t_kkfloat_1d_3::array_layout,\
-     typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
-  typename Kokkos::View<KK_FLOAT*[3],typename AT::t_kkfloat_1d_3::array_layout,\
-     typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > torque;
-  typename ArrayTypes<DeviceType>::t_int_2d_lr bondlist;
+  typename AT::t_kkfloat_1d_3_lr_randomread x;
+  typename AT::t_kkacc_1d_3 f;
+  typename AT::t_kkacc_1d_3 torque;
+  typename AT::t_int_2d_lr bondlist;
   typename AT::t_int_1d_randomread atomtype;
-  typename ArrayTypes<DeviceType>::t_tagint_1d tag;
-  typename ArrayTypes<DeviceType>::t_tagint_1d id5p;
-  typename ArrayTypes<DeviceType>::t_tagint_1d id3p;
+  typename AT::t_tagint_1d tag;
+  typename AT::t_tagint_1d id5p;
+  typename AT::t_tagint_1d id3p;
 
-  typedef typename KKDevice<DeviceType>::value KKDeviceType;
-  TransformView<KK_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;
-  TransformView<KK_FLOAT*[6],double*[6],LMPDeviceLayout,KKDeviceType> k_vatom;
-  Kokkos::View<KK_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_eatom;
-  Kokkos::View<KK_FLOAT*[6],LMPDeviceLayout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic> > d_vatom;
+  typename AT::t_kkacc_1d d_eatom;
+  typename AT::t_kkacc_1d_6 d_vatom;
 
   typename AT::t_int_scalar d_flag;
   HAT::t_int_scalar h_flag;
@@ -95,14 +93,14 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   int nlocal,newton_bond;
   int eflag,vflag;
 
-  DAT::ttransform_kkfloat_1d k_k;
-  DAT::ttransform_kkfloat_5d k_r0;
-  DAT::ttransform_kkfloat_5d k_Delta;
+  DAT::tdual_kkfloat_1d k_k;
+  DAT::tdual_kkfloat_5d k_r0;
+  DAT::tdual_kkfloat_5d k_Delta;
   typename AT::t_kkfloat_1d d_k;
   typename AT::t_kkfloat_5d d_r0;
   typename AT::t_kkfloat_5d d_Delta;
   // per-atom arrays for local unit vectors
-  DAT::tdual_kkfloat_1d_3 k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
+  DAT::tdual_kkfloat_1d_3_lr k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
   typename AT::t_kkfloat_1d_3_lr d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
 
   void allocate() override;
