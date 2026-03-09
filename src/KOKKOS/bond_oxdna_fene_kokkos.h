@@ -45,7 +45,7 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   void coeff(int, char **) override;
   void read_restart(FILE *) override;
 
-  // NOLINTNEXTLINE
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagBondOxdnaFENEPrecomputeClosestBond, const int&) const;
 
