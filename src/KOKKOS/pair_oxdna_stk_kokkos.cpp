@@ -41,8 +41,9 @@ PairOxdnaStkKokkos<DeviceType>::PairOxdnaStkKokkos(LAMMPS *lmp) : PairOxdnaStk(l
   atomKK = (AtomKokkos *) atom;
   neighborKK = (NeighborKokkos *) neighbor;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
-  datamask_read = X_MASK | ELLIPSOID_MASK | BONUS_MASK | F_MASK | 
-                  TORQUE_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
+  datamask_read = X_MASK | ELLIPSOID_MASK | BONUS_MASK | F_MASK |
+                  TORQUE_MASK | TYPE_MASK | CG_DNA_MASK |
+                  ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
 }
 
@@ -57,49 +58,49 @@ PairOxdnaStkKokkos<DeviceType>::~PairOxdnaStkKokkos()
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->destroy_kokkos(k_vatom,vatom);
 
-    memoryKK->destroy_kokkos(k_epsilon_st,epsilon_st);
-    memoryKK->destroy_kokkos(k_a_st,a_st);
-    //memoryKK->destroy_kokkos(k_cut_st_0,cut_st_0);
-    //memoryKK->destroy_kokkos(k_cut_st_c,cut_st_c);
-    //memoryKK->destroy_kokkos(k_cut_st_lo,cut_st_lo);
-    //memoryKK->destroy_kokkos(k_cut_st_hi,cut_st_hi);
-    //memoryKK->destroy_kokkos(k_cut_st_lc,cut_st_lc);
-    //memoryKK->destroy_kokkos(k_cut_st_hc,cut_st_hc);
-    //memoryKK->destroy_kokkos(k_b_st_lo,b_st_lo);
-    //memoryKK->destroy_kokkos(k_b_st_hi,b_st_hi);
-    //memoryKK->destroy_kokkos(k_shift_st,shift_st);
-    //memoryKK->destroy_kokkos(k_cutsq_st_hc,cutsq_st_hc);
+    // memoryKK->destroy_kokkos(k_epsilon_st,epsilon_st);
+    // memoryKK->destroy_kokkos(k_a_st,a_st);
+    // //memoryKK->destroy_kokkos(k_cut_st_0,cut_st_0);
+    // //memoryKK->destroy_kokkos(k_cut_st_c,cut_st_c);
+    // //memoryKK->destroy_kokkos(k_cut_st_lo,cut_st_lo);
+    // //memoryKK->destroy_kokkos(k_cut_st_hi,cut_st_hi);
+    // //memoryKK->destroy_kokkos(k_cut_st_lc,cut_st_lc);
+    // //memoryKK->destroy_kokkos(k_cut_st_hc,cut_st_hc);
+    // //memoryKK->destroy_kokkos(k_b_st_lo,b_st_lo);
+    // //memoryKK->destroy_kokkos(k_b_st_hi,b_st_hi);
+    // //memoryKK->destroy_kokkos(k_shift_st,shift_st);
+    // //memoryKK->destroy_kokkos(k_cutsq_st_hc,cutsq_st_hc);
 
-    //memoryKK->destroy_kokkos(k_a_st4,a_st4);
-    memoryKK->destroy_kokkos(k_theta_st4_0,theta_st4_0);
-    //memoryKK->destroy_kokkos(k_dtheta_st4_ast,dtheta_st4_ast);
-    //memoryKK->destroy_kokkos(k_b_st4,b_st4);
-    //memoryKK->destroy_kokkos(k_dtheta_st4_c,dtheta_st4_c);
+    // //memoryKK->destroy_kokkos(k_a_st4,a_st4);
+    // memoryKK->destroy_kokkos(k_theta_st4_0,theta_st4_0);
+    // //memoryKK->destroy_kokkos(k_dtheta_st4_ast,dtheta_st4_ast);
+    // //memoryKK->destroy_kokkos(k_b_st4,b_st4);
+    // //memoryKK->destroy_kokkos(k_dtheta_st4_c,dtheta_st4_c);
 
-    memoryKK->destroy_kokkos(k_a_st5,a_st5);
-    memoryKK->destroy_kokkos(k_theta_st5_0,theta_st5_0);
-    memoryKK->destroy_kokkos(k_dtheta_st5_ast,dtheta_st5_ast);
-    memoryKK->destroy_kokkos(k_b_st5,b_st5);
-    memoryKK->destroy_kokkos(k_dtheta_st5_c,dtheta_st5_c);
+    // memoryKK->destroy_kokkos(k_a_st5,a_st5);
+    // memoryKK->destroy_kokkos(k_theta_st5_0,theta_st5_0);
+    // memoryKK->destroy_kokkos(k_dtheta_st5_ast,dtheta_st5_ast);
+    // memoryKK->destroy_kokkos(k_b_st5,b_st5);
+    // memoryKK->destroy_kokkos(k_dtheta_st5_c,dtheta_st5_c);
 
-    memoryKK->destroy_kokkos(k_a_st6,a_st6);
-    memoryKK->destroy_kokkos(k_theta_st6_0,theta_st6_0);
-    memoryKK->destroy_kokkos(k_dtheta_st6_ast,dtheta_st6_ast);
-    memoryKK->destroy_kokkos(k_b_st6,b_st6);
-    memoryKK->destroy_kokkos(k_dtheta_st6_c,dtheta_st6_c);
+    // memoryKK->destroy_kokkos(k_a_st6,a_st6);
+    // memoryKK->destroy_kokkos(k_theta_st6_0,theta_st6_0);
+    // memoryKK->destroy_kokkos(k_dtheta_st6_ast,dtheta_st6_ast);
+    // memoryKK->destroy_kokkos(k_b_st6,b_st6);
+    // memoryKK->destroy_kokkos(k_dtheta_st6_c,dtheta_st6_c);
 
-    memoryKK->destroy_kokkos(k_a_st1,a_st1);
-    memoryKK->destroy_kokkos(k_cosphi_st1_ast,cosphi_st1_ast);
-    memoryKK->destroy_kokkos(k_b_st1,b_st1);
-    memoryKK->destroy_kokkos(k_cosphi_st1_c,cosphi_st1_c);
-    memoryKK->destroy_kokkos(k_a_st2,a_st2);
-    memoryKK->destroy_kokkos(k_cosphi_st2_ast,cosphi_st2_ast);
-    memoryKK->destroy_kokkos(k_b_st2,b_st2);
-    memoryKK->destroy_kokkos(k_cosphi_st2_c,cosphi_st2_c);
+    // memoryKK->destroy_kokkos(k_a_st1,a_st1);
+    // memoryKK->destroy_kokkos(k_cosphi_st1_ast,cosphi_st1_ast);
+    // memoryKK->destroy_kokkos(k_b_st1,b_st1);
+    // memoryKK->destroy_kokkos(k_cosphi_st1_c,cosphi_st1_c);
+    // memoryKK->destroy_kokkos(k_a_st2,a_st2);
+    // memoryKK->destroy_kokkos(k_cosphi_st2_ast,cosphi_st2_ast);
+    // memoryKK->destroy_kokkos(k_b_st2,b_st2);
+    // memoryKK->destroy_kokkos(k_cosphi_st2_c,cosphi_st2_c);
 
-    /*memoryKK->destroy_kokkos(k_nx_xtrct,nx_xtrct);
-    memoryKK->destroy_kokkos(k_ny_xtrct,ny_xtrct);
-    memoryKK->destroy_kokkos(k_nz_xtrct,nz_xtrct);*/
+    // /*memoryKK->destroy_kokkos(k_nx_xtrct,nx_xtrct);
+    // memoryKK->destroy_kokkos(k_ny_xtrct,ny_xtrct);
+    // memoryKK->destroy_kokkos(k_nz_xtrct,nz_xtrct);*/
   }
 }
 
@@ -173,13 +174,14 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
   else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
 
-  x = atomKK->k_x.template view<DeviceType>();
-  f = atomKK->k_f.template view<DeviceType>();
-  torque = atomKK->k_torque.template view<DeviceType>();
-  type = atomKK->k_type.template view<DeviceType>();
-  tag = atomKK->k_tag.template view<DeviceType>();
-  bondlist = neighborKK->k_bondlist.template view<DeviceType>();
-  id5p = atomKK->k_id5p.template view<DeviceType>();
+  x = atomKK->k_x.view<DeviceType>();
+  f = atomKK->k_f.view<DeviceType>();
+  torque = atomKK->k_torque.view<DeviceType>();
+  type = atomKK->k_type.view<DeviceType>();
+  tag = atomKK->k_tag.view<DeviceType>();
+  bondlist = neighborKK->k_bondlist.view<DeviceType>();
+  id5p = atomKK->k_id5p.view<DeviceType>();
+  id3p = atomKK->k_id3p.view<DeviceType>();
 
   nlocal = atom->nlocal;
   newton_bond = force->newton_bond;
@@ -200,6 +202,27 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   }
 
   copymode = 1;
+
+  // Precompute closest images for all bonded atoms
+  map_style = atom->map_style;
+  if (map_style == Atom::MAP_ARRAY) {
+    k_map_array = atomKK->k_map_array;
+    k_map_array.template sync<DeviceType>();
+  } else if (map_style == Atom::MAP_HASH) {
+    k_map_hash = atomKK->k_map_hash;
+    k_map_hash.template sync<DeviceType>();
+  }
+  atomKK->k_sametag.sync<DeviceType>();
+  d_sametag = atomKK->k_sametag.view<DeviceType>();
+  // Reallocate if necessary - store 4 indices per bond: a, b, id3p[a], id5p[b]
+  if (nbondlist > k_closest_bond.extent(0)) {
+    memoryKK->destroy_kokkos(k_closest_bond);
+    memoryKK->create_kokkos(k_closest_bond,nbondlist,4,"stk:closest_bond");
+    d_closest_bond = k_closest_bond.template view<DeviceType>();
+  }
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkPrecomputeClosestBond>(0,nbondlist),*this);
+  k_closest_bond.template modify<DeviceType>();
+  k_closest_bond.template sync<DeviceType>();
 
   // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna/excv/kk or oxdna2/excv/kk
   auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna.*excv.*", 0, 1));
@@ -312,24 +335,19 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
     decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
   auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-  int b = bondlist(in,0);
-  int a = bondlist(in,1);
-  int btemp, atype, btype;
+  // Use precomputed closest atom images
+  // NOTE: already in correct order from precompute, so directionality test: a -> b is 3' -> 5' is already satisfied
+  int a = d_closest_bond(in,0);
+  int b = d_closest_bond(in,1);
+  int a3ptype,atype,btype,b5ptype;
 
-  // directionality test: a -> b is 3' -> 5'
-  if ( tag(b) != id5p(a) ) {
-    btemp = b;
-    b = a;
-    a = btemp;  
-  }
-
-  KK_FLOAT ra_cst[3], rb_cst[3];           // vectors COM-stacking sites in lab frame
-  KK_FLOAT ra_cs[3], rb_cs[3];             // vectors COM-backbone sites in lab frame
+  KK_FLOAT ra_cstk[3], rb_cstk[3];           // vectors COM-stacking sites in lab frame
+  KK_FLOAT ra_cbk[3], rb_cbk[3];             // vectors COM-backbone sites in lab frame
 
   KK_FLOAT delf[3], delta[3], deltb[3];    // force, torque increment
   KK_FLOAT evdwl,finc,tpair;               
-  KK_FLOAT delr_ss[3],delr_ss_norm[3],rsq_ss,r_ss,rinv_ss;
-  KK_FLOAT delr_st[3],delr_st_norm[3],rsq_st,r_st,rinv_st;
+  KK_FLOAT delr_bkbk[3],delr_bkbk_norm[3],rsq_bkbk,r_bkbk,rinv_bkbk;
+  KK_FLOAT delr_stkstk[3],delr_stkstk_norm[3],rsq_stkstk,r_stkstk,rinv_stkstk;
   KK_FLOAT theta4,t4dir[3],cost4;
   KK_FLOAT theta5p,t5pdir[3],cost5p;
   KK_FLOAT theta6p,t6pdir[3],cost6p;
@@ -340,57 +358,66 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
 
   // vector COM [a/b] - stacking site [a/b]
   constexpr KK_FLOAT d_cst = +0.34;
-  ra_cst[0] = d_cst * d_nx_xtrct(a,0);
-  ra_cst[1] = d_cst * d_nx_xtrct(a,1);
-  ra_cst[2] = d_cst * d_nx_xtrct(a,2);
-  rb_cst[0] = d_cst * d_nx_xtrct(b,0);
-  rb_cst[1] = d_cst * d_nx_xtrct(b,1);
-  rb_cst[2] = d_cst * d_nx_xtrct(b,2);
+  ra_cstk[0] = d_cst * d_nx_xtrct(a,0);
+  ra_cstk[1] = d_cst * d_nx_xtrct(a,1);
+  ra_cstk[2] = d_cst * d_nx_xtrct(a,2);
+  rb_cstk[0] = d_cst * d_nx_xtrct(b,0);
+  rb_cstk[1] = d_cst * d_nx_xtrct(b,1);
+  rb_cstk[2] = d_cst * d_nx_xtrct(b,2);
 
   // vector stacking site a to b
-  delr_st[0] = x(b,0) + rb_cst[0] - x(a,0) - ra_cst[0];
-  delr_st[1] = x(b,1) + rb_cst[1] - x(a,1) - ra_cst[1];
-  delr_st[2] = x(b,2) + rb_cst[2] - x(a,2) - ra_cst[2];
+  delr_stkstk[0] = x(b,0) + rb_cstk[0] - x(a,0) - ra_cstk[0];
+  delr_stkstk[1] = x(b,1) + rb_cstk[1] - x(a,1) - ra_cstk[1];
+  delr_stkstk[2] = x(b,2) + rb_cstk[2] - x(a,2) - ra_cstk[2];
+
+  // determine tetramer types
+  // 3'neighbor a - a - b - 5'neighbor b
+  int id3p_local = d_closest_bond(in,2);
+  a3ptype = (id3p_local != -1) ? type(id3p_local) : 0;
 
   atype = type(a);
   btype = type(b);
 
-  rsq_st = delr_st[0]*delr_st[0] + delr_st[1]*delr_st[1] + delr_st[2]*delr_st[2];
-  r_st = sqrt(rsq_st);
-  rinv_st = 1.0/r_st;
+  int id5p_local = d_closest_bond(in,3);
+  b5ptype = (id5p_local != -1) ? type(id5p_local) : 0;
 
-  delr_st_norm[0] = delr_st[0] * rinv_st;
-  delr_st_norm[1] = delr_st[1] * rinv_st;
-  delr_st_norm[2] = delr_st[2] * rinv_st;
+  rsq_stkstk = delr_stkstk[0]*delr_stkstk[0] + delr_stkstk[1]*delr_stkstk[1] + delr_stkstk[2]*delr_stkstk[2];
+  r_stkstk = sqrt(rsq_stkstk);
+  rinv_stkstk = 1.0/r_stkstk;
+
+  delr_stkstk_norm[0] = delr_stkstk[0] * rinv_stkstk;
+  delr_stkstk_norm[1] = delr_stkstk[1] * rinv_stkstk;
+  delr_stkstk_norm[2] = delr_stkstk[2] * rinv_stkstk;
 
   // vector COM [a/b] - backbone site [a/b]
   constexpr KK_FLOAT d_cs = -0.4;
-  ra_cs[0] = d_cs * d_nx_xtrct(a,0);
-  ra_cs[1] = d_cs * d_nx_xtrct(a,1);
-  ra_cs[2] = d_cs * d_nx_xtrct(a,2);
-  rb_cs[0] = d_cs * d_nx_xtrct(b,0);
-  rb_cs[1] = d_cs * d_nx_xtrct(b,1);
-  rb_cs[2] = d_cs * d_nx_xtrct(b,2);
+  ra_cbk[0] = d_cs * d_nx_xtrct(a,0);
+  ra_cbk[1] = d_cs * d_nx_xtrct(a,1);
+  ra_cbk[2] = d_cs * d_nx_xtrct(a,2);
+  rb_cbk[0] = d_cs * d_nx_xtrct(b,0);
+  rb_cbk[1] = d_cs * d_nx_xtrct(b,1);
+  rb_cbk[2] = d_cs * d_nx_xtrct(b,2);
 
   // vector backbone site a to b
-  delr_ss[0] = x(b,0) + rb_cs[0] - x(a,0) - ra_cs[0];
-  delr_ss[1] = x(b,1) + rb_cs[1] - x(a,1) - ra_cs[1];
-  delr_ss[2] = x(b,2) + rb_cs[2] - x(a,2) - ra_cs[2];
+  delr_bkbk[0] = x(b,0) + rb_cbk[0] - x(a,0) - ra_cbk[0];
+  delr_bkbk[1] = x(b,1) + rb_cbk[1] - x(a,1) - ra_cbk[1];
+  delr_bkbk[2] = x(b,2) + rb_cbk[2] - x(a,2) - ra_cbk[2];
 
-  rsq_ss = delr_ss[0]*delr_ss[0] + delr_ss[1]*delr_ss[1] + delr_ss[2]*delr_ss[2];
-  r_ss = sqrt(rsq_ss);
-  rinv_ss = 1.0/r_ss;
+  rsq_bkbk = delr_bkbk[0]*delr_bkbk[0] + delr_bkbk[1]*delr_bkbk[1] + delr_bkbk[2]*delr_bkbk[2];
+  r_bkbk = sqrt(rsq_bkbk);
+  rinv_bkbk = 1.0/r_bkbk;
 
-  delr_ss_norm[0] = delr_ss[0] * rinv_ss;
-  delr_ss_norm[1] = delr_ss[1] * rinv_ss;
-  delr_ss_norm[2] = delr_ss[2] * rinv_ss;
+  delr_bkbk_norm[0] = delr_bkbk[0] * rinv_bkbk;
+  delr_bkbk_norm[1] = delr_bkbk[1] * rinv_bkbk;
+  delr_bkbk_norm[2] = delr_bkbk[2] * rinv_bkbk;
 
   // beginning of modulation factors
 
   // f1 = f1 modulation factor
-  f1 = F1_KK(r_st, d_epsilon_st(atype, btype), d_a_st(atype, btype), d_cut_st_0(atype, btype),
-          d_cut_st_lc(atype, btype), d_cut_st_hc(atype, btype), d_cut_st_lo(atype, btype), d_cut_st_hi(atype, btype),
-          d_b_st_lo(atype, btype), d_b_st_hi(atype, btype), d_shift_st(atype, btype));
+  f1 = F1_KK(r_stkstk, d_epsilon_st(atype, btype), d_a_st(atype, btype), d_cut_st_0(a3ptype,atype,btype,b5ptype),
+          d_cut_st_lc(a3ptype,atype,btype,b5ptype), d_cut_st_hc(a3ptype,atype,btype,b5ptype),
+          d_cut_st_lo(a3ptype,atype,btype,b5ptype), d_cut_st_hi(a3ptype,atype,btype,b5ptype),
+          d_b_st_lo(atype, btype), d_b_st_hi(atype, btype), d_shift_st(a3ptype,atype,btype,b5ptype));
 
   // start early rejection criterium
   if (f1) {
@@ -402,15 +429,16 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
     if (cost4 < -1.0) cost4 = -1.0;
     theta4 = acos(cost4);
     // f4t4 = f4 modulation factor
-    f4t4 = F4_KK(theta4, d_a_st4(atype, btype), d_theta_st4_0(atype, btype), 
-                 d_dtheta_st4_ast(atype, btype), d_b_st4(atype, btype), d_dtheta_st4_c(atype, btype));
+    f4t4 = F4_KK(theta4, d_a_st4(a3ptype,atype,btype,b5ptype), d_theta_st4_0(atype, btype), 
+                 d_dtheta_st4_ast(a3ptype,atype,btype,b5ptype), d_b_st4(a3ptype,atype,btype,b5ptype),
+                 d_dtheta_st4_c(a3ptype,atype,btype,b5ptype));
 
   // early rejection criterium
   if (f4t4) {
     // theta5 angle and correction
-    cost5p = d_nz_xtrct(b,0) * delr_st_norm[0] + 
-             d_nz_xtrct(b,1) * delr_st_norm[1] + 
-             d_nz_xtrct(b,2) * delr_st_norm[2];
+    cost5p = d_nz_xtrct(b,0) * delr_stkstk_norm[0] + 
+             d_nz_xtrct(b,1) * delr_stkstk_norm[1] + 
+             d_nz_xtrct(b,2) * delr_stkstk_norm[2];
     if (cost5p > 1.0) cost5p = 1.0;
     if (cost5p < -1.0) cost5p = -1.0;
     theta5p = acos(cost5p);
@@ -421,19 +449,19 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
   // early rejection criterium
   if (f4t5) {
     // theta6 angle and correction
-    cost6p = delr_st_norm[0] * d_nz_xtrct(a,0) + 
-             delr_st_norm[1] * d_nz_xtrct(a,1) + 
-             delr_st_norm[2] * d_nz_xtrct(a,2);
+    cost6p = delr_stkstk_norm[0] * d_nz_xtrct(a,0) + 
+             delr_stkstk_norm[1] * d_nz_xtrct(a,1) + 
+             delr_stkstk_norm[2] * d_nz_xtrct(a,2);
     if (cost6p > 1.0) cost6p = 1.0;
     if (cost6p < -1.0) cost6p = -1.0;
     theta6p = acos(cost6p);
     // cosphi1 and cosphi2 angles
-    cosphi1 = delr_ss_norm[0] * d_ny_xtrct(b,0) + 
-              delr_ss_norm[1] * d_ny_xtrct(b,1) + 
-              delr_ss_norm[2] * d_ny_xtrct(b,2);
-    cosphi2 = delr_ss_norm[0] * d_ny_xtrct(a,0) +
-              delr_ss_norm[1] * d_ny_xtrct(a,1) +
-              delr_ss_norm[2] * d_ny_xtrct(a,2);
+    cosphi1 = delr_bkbk_norm[0] * d_ny_xtrct(b,0) + 
+              delr_bkbk_norm[1] * d_ny_xtrct(b,1) + 
+              delr_bkbk_norm[2] * d_ny_xtrct(b,2);
+    cosphi2 = delr_bkbk_norm[0] * d_ny_xtrct(a,0) +
+              delr_bkbk_norm[1] * d_ny_xtrct(a,1) +
+              delr_bkbk_norm[2] * d_ny_xtrct(a,2);
     if (cosphi1 > 1.0) cosphi1 = 1.0;
     if (cosphi1 < -1.0) cosphi1 = -1.0;
     if (cosphi2 > 1.0) cosphi2 = 1.0;
@@ -453,12 +481,15 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
   // early rejection criterium
   if (evdwl) {
     // df1 = derivative of f1 modulation factor
-    df1 = DF1_KK(r_st, d_epsilon_st(atype, btype), d_a_st(atype, btype), d_cut_st_0(atype, btype),
-        d_cut_st_lc(atype, btype), d_cut_st_hc(atype, btype), d_cut_st_lo(atype, btype), d_cut_st_hi(atype, btype),
+    df1 = DF1_KK(r_stkstk, d_epsilon_st(atype, btype), d_a_st(atype, btype),
+        d_cut_st_0(a3ptype,atype,btype,b5ptype),
+        d_cut_st_lc(a3ptype,atype,btype,b5ptype), d_cut_st_hc(a3ptype,atype,btype,b5ptype),
+        d_cut_st_lo(a3ptype,atype,btype,b5ptype), d_cut_st_hi(a3ptype,atype,btype,b5ptype),
         d_b_st_lo(atype, btype), d_b_st_hi(atype, btype));
     // df4t4 = derivative of f4 modulation factor
-    df4t4 = DF4_KK(theta4, d_a_st4(atype, btype), d_theta_st4_0(atype, btype), d_dtheta_st4_ast(atype, btype),
-        d_b_st4(atype, btype), d_dtheta_st4_c(atype, btype))/sin(theta4);
+    df4t4 = DF4_KK(theta4, d_a_st4(a3ptype,atype,btype,b5ptype), d_theta_st4_0(atype, btype),
+        d_dtheta_st4_ast(a3ptype,atype,btype,b5ptype), d_b_st4(a3ptype,atype,btype,b5ptype),
+        d_dtheta_st4_c(a3ptype,atype,btype,b5ptype))/sin(theta4);
     // df4t5 = derivative of f4 modulation factor
     df4t5 = DF4_KK(theta5p, d_a_st5(atype, btype), d_theta_st5_0(atype, btype), d_dtheta_st5_ast(atype, btype),
         d_b_st5(atype, btype), d_dtheta_st5_c(atype, btype))/sin(theta5p);
@@ -486,26 +517,26 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
     // radial force
     finc = -df1 * f4t4 * f4t5 * f4t6 * f5c1 * f5c2;
 
-    delf[0] += delr_st[0] * finc;
-    delf[1] += delr_st[1] * finc;
-    delf[2] += delr_st[2] * finc;
+    delf[0] += delr_stkstk[0] * finc;
+    delf[1] += delr_stkstk[1] * finc;
+    delf[2] += delr_stkstk[2] * finc;
 
     // theta5p force
     if (theta5p) {
-      finc = -f1 * f4t4 * df4t5 * f4t6 * f5c1 * f5c2 * rinv_st;
+      finc = -f1 * f4t4 * df4t5 * f4t6 * f5c1 * f5c2 * rinv_stkstk;
 
-      delf[0] += (delr_st_norm[0]*cost5p - d_nz_xtrct(b,0)) * finc;
-      delf[1] += (delr_st_norm[1]*cost5p - d_nz_xtrct(b,1)) * finc;
-      delf[2] += (delr_st_norm[2]*cost5p - d_nz_xtrct(b,2)) * finc;
+      delf[0] += (delr_stkstk_norm[0]*cost5p - d_nz_xtrct(b,0)) * finc;
+      delf[1] += (delr_stkstk_norm[1]*cost5p - d_nz_xtrct(b,1)) * finc;
+      delf[2] += (delr_stkstk_norm[2]*cost5p - d_nz_xtrct(b,2)) * finc;
     }
 
     // theta6p force
     if (theta6p) {
-      finc = -f1 * f4t4 * f4t5 * df4t6 * f5c1 * f5c2 * rinv_st;
+      finc = -f1 * f4t4 * f4t5 * df4t6 * f5c1 * f5c2 * rinv_stkstk;
 
-      delf[0] += (delr_st_norm[0]*cost6p - d_nz_xtrct(a,0)) * finc;
-      delf[1] += (delr_st_norm[1]*cost6p - d_nz_xtrct(a,1)) * finc;
-      delf[2] += (delr_st_norm[2]*cost6p - d_nz_xtrct(a,2)) * finc;
+      delf[0] += (delr_stkstk_norm[0]*cost6p - d_nz_xtrct(a,0)) * finc;
+      delf[1] += (delr_stkstk_norm[1]*cost6p - d_nz_xtrct(a,1)) * finc;
+      delf[2] += (delr_stkstk_norm[2]*cost6p - d_nz_xtrct(a,2)) * finc;
     }
 
     // increment forces and torques
@@ -513,9 +544,9 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
       a_f(a,0) -= delf[0];
       a_f(a,1) -= delf[1];
       a_f(a,2) -= delf[2];
-      delta[0] = ra_cst[1]*delf[2] - ra_cst[2]*delf[1];
-      delta[1] = ra_cst[2]*delf[0] - ra_cst[0]*delf[2];
-      delta[2] = ra_cst[0]*delf[1] - ra_cst[1]*delf[0];
+      delta[0] = ra_cstk[1]*delf[2] - ra_cstk[2]*delf[1];
+      delta[1] = ra_cstk[2]*delf[0] - ra_cstk[0]*delf[2];
+      delta[2] = ra_cstk[0]*delf[1] - ra_cstk[1]*delf[0];
       a_torque(a,0) -= delta[0];
       a_torque(a,1) -= delta[1];
       a_torque(a,2) -= delta[2];
@@ -524,9 +555,9 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
       a_f(b,0) += delf[0];
       a_f(b,1) += delf[1];
       a_f(b,2) += delf[2];
-      deltb[0] = rb_cst[1]*delf[2] - rb_cst[2]*delf[1];
-      deltb[1] = rb_cst[2]*delf[0] - rb_cst[0]*delf[2];
-      deltb[2] = rb_cst[0]*delf[1] - rb_cst[1]*delf[0];
+      deltb[0] = rb_cstk[1]*delf[2] - rb_cstk[2]*delf[1];
+      deltb[1] = rb_cstk[2]*delf[0] - rb_cstk[0]*delf[2];
+      deltb[2] = rb_cstk[0]*delf[1] - rb_cstk[1]*delf[0];
       a_torque(b,0) += deltb[0];
       a_torque(b,1) += deltb[1];
       a_torque(b,2) += deltb[2];
@@ -548,20 +579,20 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
 
     // cosphi1 force
     if (cosphi1) {
-      finc = -f1 * f4t4 * f4t5 * f4t6 * df5c1 * f5c2 * rinv_ss;
+      finc = -f1 * f4t4 * f4t5 * f4t6 * df5c1 * f5c2 * rinv_bkbk;
 
-      delf[0] += (delr_ss_norm[0]*cosphi1 - d_ny_xtrct(b,0)) * finc;
-      delf[1] += (delr_ss_norm[1]*cosphi1 - d_ny_xtrct(b,1)) * finc;
-      delf[2] += (delr_ss_norm[2]*cosphi1 - d_ny_xtrct(b,2)) * finc;
+      delf[0] += (delr_bkbk_norm[0]*cosphi1 - d_ny_xtrct(b,0)) * finc;
+      delf[1] += (delr_bkbk_norm[1]*cosphi1 - d_ny_xtrct(b,1)) * finc;
+      delf[2] += (delr_bkbk_norm[2]*cosphi1 - d_ny_xtrct(b,2)) * finc;
     }
 
     // cosphi2 force
     if (cosphi2) {
-      finc = -f1 * f4t4 * f4t5 * f4t6 * f5c1 * df5c2 * rinv_ss;
+      finc = -f1 * f4t4 * f4t5 * f4t6 * f5c1 * df5c2 * rinv_bkbk;
 
-      delf[0] += (delr_ss_norm[0]*cosphi2 - d_ny_xtrct(a,0)) * finc;
-      delf[1] += (delr_ss_norm[1]*cosphi2 - d_ny_xtrct(a,1)) * finc;
-      delf[2] += (delr_ss_norm[2]*cosphi2 - d_ny_xtrct(a,2)) * finc;
+      delf[0] += (delr_bkbk_norm[0]*cosphi2 - d_ny_xtrct(a,0)) * finc;
+      delf[1] += (delr_bkbk_norm[1]*cosphi2 - d_ny_xtrct(a,1)) * finc;
+      delf[2] += (delr_bkbk_norm[2]*cosphi2 - d_ny_xtrct(a,2)) * finc;
     }
 
     // increment forces and torques
@@ -569,9 +600,9 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
       a_f(a,0) -= delf[0];
       a_f(a,1) -= delf[1];
       a_f(a,2) -= delf[2];
-      delta[0] = ra_cs[1]*delf[2] - ra_cs[2]*delf[1];
-      delta[1] = ra_cs[2]*delf[0] - ra_cs[0]*delf[2];
-      delta[2] = ra_cs[0]*delf[1] - ra_cs[1]*delf[0];
+      delta[0] = ra_cbk[1]*delf[2] - ra_cbk[2]*delf[1];
+      delta[1] = ra_cbk[2]*delf[0] - ra_cbk[0]*delf[2];
+      delta[2] = ra_cbk[0]*delf[1] - ra_cbk[1]*delf[0];
       a_torque(a,0) -= delta[0];
       a_torque(a,1) -= delta[1];
       a_torque(a,2) -= delta[2];
@@ -580,9 +611,9 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
       a_f(b,0) += delf[0];
       a_f(b,1) += delf[1];
       a_f(b,2) += delf[2];
-      deltb[0] = rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
-      deltb[1] = rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
-      deltb[2] = rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
+      deltb[0] = rb_cbk[1]*delf[2] - rb_cbk[2]*delf[1];
+      deltb[1] = rb_cbk[2]*delf[0] - rb_cbk[0]*delf[2];
+      deltb[2] = rb_cbk[0]*delf[1] - rb_cbk[1]*delf[0];
       a_torque(b,0) += deltb[0];
       a_torque(b,1) += deltb[1];
       a_torque(b,2) += deltb[2];
@@ -618,9 +649,9 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
     // theta5p torque
     if (theta5p) {
       tpair = -f1 * f4t4 * df4t5 * f4t6 * f5c1 * f5c2;
-      t5pdir[0] = delr_st_norm[1] * d_nz_xtrct(b,2) - delr_st_norm[2] * d_nz_xtrct(b,1);
-      t5pdir[1] = delr_st_norm[2] * d_nz_xtrct(b,0) - delr_st_norm[0] * d_nz_xtrct(b,2);
-      t5pdir[2] = delr_st_norm[0] * d_nz_xtrct(b,1) - delr_st_norm[1] * d_nz_xtrct(b,0);
+      t5pdir[0] = delr_stkstk_norm[1] * d_nz_xtrct(b,2) - delr_stkstk_norm[2] * d_nz_xtrct(b,1);
+      t5pdir[1] = delr_stkstk_norm[2] * d_nz_xtrct(b,0) - delr_stkstk_norm[0] * d_nz_xtrct(b,2);
+      t5pdir[2] = delr_stkstk_norm[0] * d_nz_xtrct(b,1) - delr_stkstk_norm[1] * d_nz_xtrct(b,0);
       deltb[0] += t5pdir[0] * tpair;
       deltb[1] += t5pdir[1] * tpair;
       deltb[2] += t5pdir[2] * tpair;
@@ -629,9 +660,9 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
     // theta6p torque
     if (theta6p) {
       tpair = -f1 * f4t4 * f4t5 * df4t6 * f5c1 * f5c2;
-      t6pdir[0] = delr_st_norm[1] * d_nz_xtrct(a,2) - delr_st_norm[2] * d_nz_xtrct(a,1);
-      t6pdir[1] = delr_st_norm[2] * d_nz_xtrct(a,0) - delr_st_norm[0] * d_nz_xtrct(a,2);
-      t6pdir[2] = delr_st_norm[0] * d_nz_xtrct(a,1) - delr_st_norm[1] * d_nz_xtrct(a,0);
+      t6pdir[0] = delr_stkstk_norm[1] * d_nz_xtrct(a,2) - delr_stkstk_norm[2] * d_nz_xtrct(a,1);
+      t6pdir[1] = delr_stkstk_norm[2] * d_nz_xtrct(a,0) - delr_stkstk_norm[0] * d_nz_xtrct(a,2);
+      t6pdir[2] = delr_stkstk_norm[0] * d_nz_xtrct(a,1) - delr_stkstk_norm[1] * d_nz_xtrct(a,0);
       delta[0] -= t6pdir[0] * tpair;
       delta[1] -= t6pdir[1] * tpair;
       delta[2] -= t6pdir[2] * tpair;
@@ -640,9 +671,9 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
     // cosphi1 torque
     if (cosphi1) {
       tpair = -f1 * f4t4 * f4t5 * f4t6 * df5c1 * f5c2;
-      cosphi1dir[0] = delr_ss_norm[1] * d_ny_xtrct(b,2) - delr_ss_norm[2] * d_ny_xtrct(b,1);
-      cosphi1dir[1] = delr_ss_norm[2] * d_ny_xtrct(b,0) - delr_ss_norm[0] * d_ny_xtrct(b,2);
-      cosphi1dir[2] = delr_ss_norm[0] * d_ny_xtrct(b,1) - delr_ss_norm[1] * d_ny_xtrct(b,0);
+      cosphi1dir[0] = delr_bkbk_norm[1] * d_ny_xtrct(b,2) - delr_bkbk_norm[2] * d_ny_xtrct(b,1);
+      cosphi1dir[1] = delr_bkbk_norm[2] * d_ny_xtrct(b,0) - delr_bkbk_norm[0] * d_ny_xtrct(b,2);
+      cosphi1dir[2] = delr_bkbk_norm[0] * d_ny_xtrct(b,1) - delr_bkbk_norm[1] * d_ny_xtrct(b,0);
       deltb[0] += cosphi1dir[0] * tpair;
       deltb[1] += cosphi1dir[1] * tpair;
       deltb[2] += cosphi1dir[2] * tpair;
@@ -651,9 +682,9 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
     // cosphi2 torque
     if (cosphi2) {
       tpair = -f1 * f4t4 * f4t5 * f4t6 * f5c1 * df5c2;
-      cosphi2dir[0] = delr_ss_norm[1] * d_ny_xtrct(a,2) - delr_ss_norm[2] * d_ny_xtrct(a,1);
-      cosphi2dir[1] = delr_ss_norm[2] * d_ny_xtrct(a,0) - delr_ss_norm[0] * d_ny_xtrct(a,2);
-      cosphi2dir[2] = delr_ss_norm[0] * d_ny_xtrct(a,1) - delr_ss_norm[1] * d_ny_xtrct(a,0);
+      cosphi2dir[0] = delr_bkbk_norm[1] * d_ny_xtrct(a,2) - delr_bkbk_norm[2] * d_ny_xtrct(a,1);
+      cosphi2dir[1] = delr_bkbk_norm[2] * d_ny_xtrct(a,0) - delr_bkbk_norm[0] * d_ny_xtrct(a,2);
+      cosphi2dir[2] = delr_bkbk_norm[0] * d_ny_xtrct(a,1) - delr_bkbk_norm[1] * d_ny_xtrct(a,0);
       delta[0] -= cosphi2dir[0] * tpair;
       delta[1] -= cosphi2dir[1] * tpair;
       delta[2] -= cosphi2dir[2] * tpair;
@@ -697,85 +728,85 @@ void PairOxdnaStkKokkos<DeviceType>::allocate()
 
   int n = atom->ntypes;
   
-  memory->destroy(epsilon_st);
-  memory->destroy(a_st);
-  memory->destroy(cut_st_0);
-  memory->destroy(cut_st_c);
-  memory->destroy(cut_st_lo);
-  memory->destroy(cut_st_hi);
-  memory->destroy(cut_st_lc);
-  memory->destroy(cut_st_hc);
-  memory->destroy(b_st_lo);
-  memory->destroy(b_st_hi);
-  memory->destroy(shift_st);
-  memory->destroy(cutsq_st_hc);
+  // memory->destroy(epsilon_st);
+  // memory->destroy(a_st);
+  // memory->destroy(cut_st_0);
+  // memory->destroy(cut_st_c);
+  // memory->destroy(cut_st_lo);
+  // memory->destroy(cut_st_hi);
+  // memory->destroy(cut_st_lc);
+  // memory->destroy(cut_st_hc);
+  // memory->destroy(b_st_lo);
+  // memory->destroy(b_st_hi);
+  // memory->destroy(shift_st);
+  // memory->destroy(cutsq_st_hc);
 
-  memory->destroy(a_st4);
-  memory->destroy(theta_st4_0);
-  memory->destroy(dtheta_st4_ast);
-  memory->destroy(b_st4);
-  memory->destroy(dtheta_st4_c);
+  // memory->destroy(a_st4);
+  // memory->destroy(theta_st4_0);
+  // memory->destroy(dtheta_st4_ast);
+  // memory->destroy(b_st4);
+  // memory->destroy(dtheta_st4_c);
 
-  memory->destroy(a_st5);
-  memory->destroy(theta_st5_0);
-  memory->destroy(dtheta_st5_ast);
-  memory->destroy(b_st5);
-  memory->destroy(dtheta_st5_c);
+  // memory->destroy(a_st5);
+  // memory->destroy(theta_st5_0);
+  // memory->destroy(dtheta_st5_ast);
+  // memory->destroy(b_st5);
+  // memory->destroy(dtheta_st5_c);
 
-  memory->destroy(a_st6);
-  memory->destroy(theta_st6_0);
-  memory->destroy(dtheta_st6_ast);
-  memory->destroy(b_st6);
-  memory->destroy(dtheta_st6_c);
+  // memory->destroy(a_st6);
+  // memory->destroy(theta_st6_0);
+  // memory->destroy(dtheta_st6_ast);
+  // memory->destroy(b_st6);
+  // memory->destroy(dtheta_st6_c);
 
-  memory->destroy(a_st1);
-  memory->destroy(cosphi_st1_ast);
-  memory->destroy(b_st1);
-  memory->destroy(cosphi_st1_c);
-  memory->destroy(a_st2);
-  memory->destroy(cosphi_st2_ast);
-  memory->destroy(b_st2);
-  memory->destroy(cosphi_st2_c);
+  // memory->destroy(a_st1);
+  // memory->destroy(cosphi_st1_ast);
+  // memory->destroy(b_st1);
+  // memory->destroy(cosphi_st1_c);
+  // memory->destroy(a_st2);
+  // memory->destroy(cosphi_st2_ast);
+  // memory->destroy(b_st2);
+  // memory->destroy(cosphi_st2_c);
 
-  memoryKK->create_kokkos(k_epsilon_st,epsilon_st,n+1,n+1,"PairOxdnaStk:epsilon_st");
-  memoryKK->create_kokkos(k_a_st,a_st,n+1,n+1,"PairOxdnaStk:a_st");
-  memoryKK->realloc_kokkos(k_cut_st_0,"PairOxdnaStk:cut_st_0",n+1,n+1);
-  memoryKK->realloc_kokkos(k_cut_st_c,"PairOxdnaStk:cut_st_c",n+1,n+1);
-  memoryKK->realloc_kokkos(k_cut_st_lo,"PairOxdnaStk:cut_st_lo",n+1,n+1);
-  memoryKK->realloc_kokkos(k_cut_st_hi,"PairOxdnaStk:cut_st_hi",n+1,n+1);
-  memoryKK->realloc_kokkos(k_cut_st_lc,"PairOxdnaStk:cut_st_lc",n+1,n+1);
-  memoryKK->realloc_kokkos(k_cut_st_hc,"PairOxdnaStk:cut_st_hc",n+1,n+1);
-  memoryKK->realloc_kokkos(k_b_st_lo,"PairOxdnaStk:b_st_lo",n+1,n+1);
-  memoryKK->realloc_kokkos(k_b_st_hi,"PairOxdnaStk:b_st_hi",n+1,n+1);
-  memoryKK->realloc_kokkos(k_shift_st,"PairOxdnaStk:shift_st",n+1,n+1);
-  memoryKK->realloc_kokkos(k_cutsq_st_hc,"PairOxdnaStk:cutsq_st_hc",n+1,n+1);
+  memoryKK->create_kokkos(k_epsilon_st,n+1,n+1,"PairOxdnaStk:epsilon_st");
+  memoryKK->create_kokkos(k_a_st,n+1,n+1,"PairOxdnaStk:a_st");
+  memoryKK->create_kokkos(k_cut_st_0,n+1,n+1,n+1,n+1,"PairOxdnaStk:cut_st_0");
+  memoryKK->create_kokkos(k_cut_st_c,n+1,n+1,n+1,n+1,"PairOxdnaStk:cut_st_c");
+  memoryKK->create_kokkos(k_cut_st_lo,n+1,n+1,n+1,n+1,"PairOxdnaStk:cut_st_lo");
+  memoryKK->create_kokkos(k_cut_st_hi,n+1,n+1,n+1,n+1,"PairOxdnaStk:cut_st_hi");
+  memoryKK->create_kokkos(k_cut_st_lc,n+1,n+1,n+1,n+1,"PairOxdnaStk:cut_st_lc");
+  memoryKK->create_kokkos(k_cut_st_hc,n+1,n+1,n+1,n+1,"PairOxdnaStk:cut_st_hc");
+  memoryKK->create_kokkos(k_b_st_lo,n+1,n+1,"PairOxdnaStk:b_st_lo");
+  memoryKK->create_kokkos(k_b_st_hi,n+1,n+1,"PairOxdnaStk:b_st_hi");
+  memoryKK->create_kokkos(k_shift_st,n+1,n+1,n+1,n+1,"PairOxdnaStk:shift_st");
+  memoryKK->create_kokkos(k_cutsq_st_hc,n+1,n+1,n+1,n+1,"PairOxdnaStk:cutsq_st_hc");
 
-  memoryKK->realloc_kokkos(k_a_st4,"PairOxdnaStk:a_st4",n+1,n+1);
-  memoryKK->create_kokkos(k_theta_st4_0,theta_st4_0,n+1,n+1,"PairOxdnaStk:theta_st4_0");
-  memoryKK->realloc_kokkos(k_dtheta_st4_ast,"PairOxdnaStk:dtheta_st4_ast",n+1,n+1);
-  memoryKK->realloc_kokkos(k_b_st4,"PairOxdnaStk:b_st4",n+1,n+1);
-  memoryKK->realloc_kokkos(k_dtheta_st4_c,"PairOxdnaStk:dtheta_st4_c",n+1,n+1);
+  memoryKK->create_kokkos(k_a_st4,n+1,n+1,n+1,n+1,"PairOxdnaStk:a_st4");
+  memoryKK->create_kokkos(k_theta_st4_0,n+1,n+1,"PairOxdnaStk:theta_st4_0");
+  memoryKK->create_kokkos(k_dtheta_st4_ast,n+1,n+1,n+1,n+1,"PairOxdnaStk:dtheta_st4_ast");
+  memoryKK->create_kokkos(k_b_st4,n+1,n+1,n+1,n+1,"PairOxdnaStk:b_st4");
+  memoryKK->create_kokkos(k_dtheta_st4_c,n+1,n+1,n+1,n+1,"PairOxdnaStk:dtheta_st4_c");
 
-  memoryKK->create_kokkos(k_a_st5,a_st5,n+1,n+1,"PairOxdnaStk:a_st5");
-  memoryKK->create_kokkos(k_theta_st5_0,theta_st5_0,n+1,n+1,"PairOxdnaStk:theta_st5_0");
-  memoryKK->create_kokkos(k_dtheta_st5_ast,dtheta_st5_ast,n+1,n+1,"PairOxdnaStk:dtheta_st5_ast");
-  memoryKK->create_kokkos(k_b_st5,b_st5,n+1,n+1,"PairOxdnaStk:b_st5");
-  memoryKK->create_kokkos(k_dtheta_st5_c,dtheta_st5_c,n+1,n+1,"PairOxdnaStk:dtheta_st5_c");
+  memoryKK->create_kokkos(k_a_st5,n+1,n+1,"PairOxdnaStk:a_st5");
+  memoryKK->create_kokkos(k_theta_st5_0,n+1,n+1,"PairOxdnaStk:theta_st5_0");
+  memoryKK->create_kokkos(k_dtheta_st5_ast,n+1,n+1,"PairOxdnaStk:dtheta_st5_ast");
+  memoryKK->create_kokkos(k_b_st5,n+1,n+1,"PairOxdnaStk:b_st5");
+  memoryKK->create_kokkos(k_dtheta_st5_c,n+1,n+1,"PairOxdnaStk:dtheta_st5_c");
 
-  memoryKK->create_kokkos(k_a_st6,a_st6,n+1,n+1,"PairOxdnaStk:a_st6");
-  memoryKK->create_kokkos(k_theta_st6_0,theta_st6_0,n+1,n+1,"PairOxdnaStk:theta_st6_0");
-  memoryKK->create_kokkos(k_dtheta_st6_ast,dtheta_st6_ast,n+1,n+1,"PairOxdnaStk:dtheta_st6_ast");
-  memoryKK->create_kokkos(k_b_st6,b_st6,n+1,n+1,"PairOxdnaStk:b_st6");
-  memoryKK->create_kokkos(k_dtheta_st6_c,dtheta_st6_c,n+1,n+1,"PairOxdnaStk:dtheta_st6_c");
+  memoryKK->create_kokkos(k_a_st6,n+1,n+1,"PairOxdnaStk:a_st6");
+  memoryKK->create_kokkos(k_theta_st6_0,n+1,n+1,"PairOxdnaStk:theta_st6_0");
+  memoryKK->create_kokkos(k_dtheta_st6_ast,n+1,n+1,"PairOxdnaStk:dtheta_st6_ast");
+  memoryKK->create_kokkos(k_b_st6,n+1,n+1,"PairOxdnaStk:b_st6");
+  memoryKK->create_kokkos(k_dtheta_st6_c,n+1,n+1,"PairOxdnaStk:dtheta_st6_c");
 
-  memoryKK->create_kokkos(k_a_st1,a_st1,n+1,n+1,"PairOxdnaStk:a_st1");
-  memoryKK->create_kokkos(k_cosphi_st1_ast,cosphi_st1_ast,n+1,n+1,"PairOxdnaStk:cosphi_st1_ast");
-  memoryKK->create_kokkos(k_b_st1,b_st1,n+1,n+1,"PairOxdnaStk:b_st1");
-  memoryKK->create_kokkos(k_cosphi_st1_c,cosphi_st1_c,n+1,n+1,"PairOxdnaStk:cosphi_st1_c");
-  memoryKK->create_kokkos(k_a_st2,a_st2,n+1,n+1,"PairOxdnaStk:a_st2");
-  memoryKK->create_kokkos(k_cosphi_st2_ast,cosphi_st2_ast,n+1,n+1,"PairOxdnaStk:cosphi_st2_ast");
-  memoryKK->create_kokkos(k_b_st2,b_st2,n+1,n+1,"PairOxdnaStk:b_st2");
-  memoryKK->create_kokkos(k_cosphi_st2_c,cosphi_st2_c,n+1,n+1,"PairOxdnaStk:cosphi_st2_c");
+  memoryKK->create_kokkos(k_a_st1,n+1,n+1,"PairOxdnaStk:a_st1");
+  memoryKK->create_kokkos(k_cosphi_st1_ast,n+1,n+1,"PairOxdnaStk:cosphi_st1_ast");
+  memoryKK->create_kokkos(k_b_st1,n+1,n+1,"PairOxdnaStk:b_st1");
+  memoryKK->create_kokkos(k_cosphi_st1_c,n+1,n+1,"PairOxdnaStk:cosphi_st1_c");
+  memoryKK->create_kokkos(k_a_st2,n+1,n+1,"PairOxdnaStk:a_st2");
+  memoryKK->create_kokkos(k_cosphi_st2_ast,n+1,n+1,"PairOxdnaStk:cosphi_st2_ast");
+  memoryKK->create_kokkos(k_b_st2,n+1,n+1,"PairOxdnaStk:b_st2");
+  memoryKK->create_kokkos(k_cosphi_st2_c,n+1,n+1,"PairOxdnaStk:cosphi_st2_c");
 
   d_epsilon_st = k_epsilon_st.template view<DeviceType>();
   d_a_st = k_a_st.template view<DeviceType>();
@@ -816,7 +847,6 @@ void PairOxdnaStkKokkos<DeviceType>::allocate()
   d_cosphi_st2_ast = k_cosphi_st2_ast.template view<DeviceType>();
   d_b_st2 = k_b_st2.template view<DeviceType>();
   d_cosphi_st2_c = k_cosphi_st2_c.template view<DeviceType>();
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -850,24 +880,27 @@ double PairOxdnaStkKokkos<DeviceType>::init_one(int i, int j)
 {
   double cutone = PairOxdnaStk::init_one(i,j);
 
+  // All non-tetramer Kokkos views are set here within ::init_one, and
+  // the tetramer Kokkos views are set within ::coeff
+
   k_epsilon_st.view_host()(i,j) = k_epsilon_st.view_host()(j,i) = epsilon_st[i][j];
   k_a_st.view_host()(i,j) = k_a_st.view_host()(j,i) = a_st[i][j];
-  k_cut_st_0.view_host()(i,j) = k_cut_st_0.view_host()(j,i) = cut_st_0[0][i][j][0];
-  k_cut_st_c.view_host()(i,j) = k_cut_st_c.view_host()(j,i) = cut_st_c[0][i][j][0];
-  k_cut_st_lo.view_host()(i,j) = k_cut_st_lo.view_host()(j,i) = cut_st_lo[0][i][j][0];
-  k_cut_st_hi.view_host()(i,j) = k_cut_st_hi.view_host()(j,i) = cut_st_hi[0][i][j][0];
-  k_cut_st_lc.view_host()(i,j) = k_cut_st_lc.view_host()(j,i) = cut_st_lc[0][i][j][0];
-  k_cut_st_hc.view_host()(i,j) = k_cut_st_hc.view_host()(j,i) = cut_st_hc[0][i][j][0];
+  //k_cut_st_0.view_host()(i,j) = k_cut_st_0.view_host()(j,i) = cut_st_0[0][i][j][0];
+  //k_cut_st_c.view_host()(i,j) = k_cut_st_c.view_host()(j,i) = cut_st_c[0][i][j][0];
+  //k_cut_st_lo.view_host()(i,j) = k_cut_st_lo.view_host()(j,i) = cut_st_lo[0][i][j][0];
+  //k_cut_st_hi.view_host()(i,j) = k_cut_st_hi.view_host()(j,i) = cut_st_hi[0][i][j][0];
+  //k_cut_st_lc.view_host()(i,j) = k_cut_st_lc.view_host()(j,i) = cut_st_lc[0][i][j][0];
+  //k_cut_st_hc.view_host()(i,j) = k_cut_st_hc.view_host()(j,i) = cut_st_hc[0][i][j][0];
   k_b_st_lo.view_host()(i,j) = k_b_st_lo.view_host()(j,i) = b_st_lo[i][j];
   k_b_st_hi.view_host()(i,j) = k_b_st_hi.view_host()(j,i) = b_st_hi[i][j];
-  k_shift_st.view_host()(i,j) = k_shift_st.view_host()(j,i) = shift_st[0][i][j][0];
-  k_cutsq_st_hc.view_host()(i,j) = k_cutsq_st_hc.view_host()(j,i) = cutsq_st_hc[0][i][j][0];
+  //k_shift_st.view_host()(i,j) = k_shift_st.view_host()(j,i) = shift_st[0][i][j][0];
+  //k_cutsq_st_hc.view_host()(i,j) = k_cutsq_st_hc.view_host()(j,i) = cutsq_st_hc[0][i][j][0];
 
-  k_a_st4.view_host()(i,j) = k_a_st4.view_host()(j,i) = a_st4[0][i][j][0];
+  //k_a_st4.view_host()(i,j) = k_a_st4.view_host()(j,i) = a_st4[0][i][j][0];
   k_theta_st4_0.view_host()(i,j) = k_theta_st4_0.view_host()(j,i) = theta_st4_0[i][j];
-  k_dtheta_st4_ast.view_host()(i,j) = k_dtheta_st4_ast.view_host()(j,i) = dtheta_st4_ast[0][i][j][0];
-  k_b_st4.view_host()(i,j) = k_b_st4.view_host()(j,i) = b_st4[0][i][j][0];
-  k_dtheta_st4_c.view_host()(i,j) = k_dtheta_st4_c.view_host()(j,i) = dtheta_st4_c[0][i][j][0];
+  //k_dtheta_st4_ast.view_host()(i,j) = k_dtheta_st4_ast.view_host()(j,i) = dtheta_st4_ast[0][i][j][0];
+  //k_b_st4.view_host()(i,j) = k_b_st4.view_host()(j,i) = b_st4[0][i][j][0];
+  //k_dtheta_st4_c.view_host()(i,j) = k_dtheta_st4_c.view_host()(j,i) = dtheta_st4_c[0][i][j][0];
 
   k_a_st5.view_host()(i,j) = k_a_st5.view_host()(j,i) = a_st5[i][j];
   k_theta_st5_0.view_host()(i,j) = k_theta_st5_0.view_host()(j,i) = theta_st5_0[i][j];
@@ -892,22 +925,22 @@ double PairOxdnaStkKokkos<DeviceType>::init_one(int i, int j)
 
   k_epsilon_st.template modify<LMPHostType>();
   k_a_st.template modify<LMPHostType>();
-  k_cut_st_0.template modify<LMPHostType>();
-  k_cut_st_c.template modify<LMPHostType>();
-  k_cut_st_lo.template modify<LMPHostType>();
-  k_cut_st_hi.template modify<LMPHostType>();
-  k_cut_st_lc.template modify<LMPHostType>();
-  k_cut_st_hc.template modify<LMPHostType>();
+  // k_cut_st_0.template modify<LMPHostType>();
+  // k_cut_st_c.template modify<LMPHostType>();
+  // k_cut_st_lo.template modify<LMPHostType>();
+  // k_cut_st_hi.template modify<LMPHostType>();
+  // k_cut_st_lc.template modify<LMPHostType>();
+  // k_cut_st_hc.template modify<LMPHostType>();
   k_b_st_lo.template modify<LMPHostType>();
   k_b_st_hi.template modify<LMPHostType>();
-  k_shift_st.template modify<LMPHostType>();
-  k_cutsq_st_hc.template modify<LMPHostType>();
+  // k_shift_st.template modify<LMPHostType>();
+  // k_cutsq_st_hc.template modify<LMPHostType>();
 
-  k_a_st4.template modify<LMPHostType>();
+  //k_a_st4.template modify<LMPHostType>();
   k_theta_st4_0.template modify<LMPHostType>();
-  k_dtheta_st4_ast.template modify<LMPHostType>();
-  k_b_st4.template modify<LMPHostType>();
-  k_dtheta_st4_c.template modify<LMPHostType>();
+  //k_dtheta_st4_ast.template modify<LMPHostType>();
+  //k_b_st4.template modify<LMPHostType>();
+  //k_dtheta_st4_c.template modify<LMPHostType>();
 
   k_a_st5.template modify<LMPHostType>();
   k_theta_st5_0.template modify<LMPHostType>();
@@ -930,8 +963,61 @@ double PairOxdnaStkKokkos<DeviceType>::init_one(int i, int j)
   k_b_st2.template modify<LMPHostType>();
   k_cosphi_st2_c.template modify<LMPHostType>();
 
-  // "cutone" is "cut_st_hc[i][j]", sets the master list distance cutoff
+  // "cutone" is max of "cut_st_hc[a][i][j][b]", sets the master list distance cutoff
   return cutone;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairOxdnaStkKokkos<DeviceType>::coeff(int narg, char **arg)
+{
+  PairOxdnaStk::coeff(narg,arg);
+
+  // The tetramer Kokkos views are set here within ::coeff, and the
+  // non-tetramer Kokkos views are set within ::init_one
+
+  int ilo,ihi,jlo,jhi,nlo,nhi;
+  utils::bounds(FLERR,arg[0],1,atom->ntypes,ilo,ihi,error);
+  utils::bounds(FLERR,arg[1],1,atom->ntypes,jlo,jhi,error);
+
+  assert((ilo == jlo) & (ihi == jhi));
+  nlo = ilo;
+  nhi = ihi;
+
+  for (int i = 0; i <= nhi; i++) { // type 0 for terminal j
+    for (int j = nlo; j <= nhi; j++) {
+      for (int k = nlo; k <= nhi; k++) {
+        for (int l = 0; l <= nhi; l++) { // type 0 for terminal k
+          k_cut_st_0.view_host()(i,j,k,l) = cut_st_0[i][j][k][l];
+          k_cut_st_c.view_host()(i,j,k,l) = cut_st_c[i][j][k][l];
+          k_cut_st_lo.view_host()(i,j,k,l) = cut_st_lo[i][j][k][l];
+          k_cut_st_hi.view_host()(i,j,k,l) = cut_st_hi[i][j][k][l];
+          k_cut_st_lc.view_host()(i,j,k,l) = cut_st_lc[i][j][k][l];
+          k_cut_st_hc.view_host()(i,j,k,l) = cut_st_hc[i][j][k][l];
+          k_shift_st.view_host()(i,j,k,l) = shift_st[i][j][k][l];
+          k_cutsq_st_hc.view_host()(i,j,k,l) = cutsq_st_hc[i][j][k][l];
+          k_a_st4.view_host()(i,j,k,l) = a_st4[i][j][k][l];
+          k_dtheta_st4_ast.view_host()(i,j,k,l) = dtheta_st4_ast[i][j][k][l];
+          k_b_st4.view_host()(i,j,k,l) = b_st4[i][j][k][l];
+          k_dtheta_st4_c.view_host()(i,j,k,l) = dtheta_st4_c[i][j][k][l];
+        }
+      }
+    }
+  }
+
+  k_cut_st_0.template modify<LMPHostType>();
+  k_cut_st_c.template modify<LMPHostType>();
+  k_cut_st_lo.template modify<LMPHostType>();
+  k_cut_st_hi.template modify<LMPHostType>();
+  k_cut_st_lc.template modify<LMPHostType>();
+  k_cut_st_hc.template modify<LMPHostType>();
+  k_shift_st.template modify<LMPHostType>();
+  k_cutsq_st_hc.template modify<LMPHostType>();
+  k_a_st4.template modify<LMPHostType>();
+  k_dtheta_st4_ast.template modify<LMPHostType>();
+  k_b_st4.template modify<LMPHostType>();
+  k_dtheta_st4_c.template modify<LMPHostType>();
 }
 
 /* ----------------------------------------------------------------------
@@ -1029,6 +1115,93 @@ void PairOxdnaStkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, co
       }
     }
   }
+}
+
+/* ----------------------------------------------------------------------
+   Loop through the bondlist and precompute the closest images of each
+   bonded atom and its id3p/id5p neighbors to avoid map_kokkos issues
+   in the main compute loop.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkPrecomputeClosestBond, const int &in) const
+{
+  // Bondlist contains local atom indices (can be >= nlocal for ghosts)
+  int b = bondlist(in,0);
+  int a = bondlist(in,1);
+  
+  // Directionality test: a -> b must be 3' -> 5'
+  // Check using the bondlist atoms directly
+  int atom_a = a;
+  int atom_b = b;
+  if (tag(b) != id5p(a)) {
+    atom_a = b;
+    atom_b = a;
+  }
+  
+  d_closest_bond(in,0) = atom_a;
+  d_closest_bond(in,1) = atom_b;
+  
+  // Look up neighbors of correctly-ordered atoms
+  // 3'neighbor a - a - b - 5'neighbor b
+  int id3p_closest = -1;
+  if (id3p[atom_a] >= 0) {
+    int id3p_mapped = AtomKokkos::map_kokkos<DeviceType>(id3p[atom_a],map_style,k_map_array,k_map_hash);
+    if (id3p_mapped >= 0) {
+      id3p_closest = closest_image(atom_a, id3p_mapped);
+    }
+  }
+  d_closest_bond(in,2) = id3p_closest;
+  
+  int id5p_closest = -1;
+  if (id5p[atom_b] >= 0) {
+    int id5p_mapped = AtomKokkos::map_kokkos<DeviceType>(id5p[atom_b],map_style,k_map_array,k_map_hash);
+    if (id5p_mapped >= 0) {
+      id5p_closest = closest_image(atom_b, id5p_mapped);
+    }
+  }
+  d_closest_bond(in,3) = id5p_closest;
+}
+
+/* ----------------------------------------------------------------------
+   return local index of atom J or any of its images that is closest to atom I
+   if J is not a valid index like -1, just return it
+   copied from domain.cpp
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+int PairOxdnaStkKokkos<DeviceType>::closest_image(const int i, int j) const
+{
+  if (j < 0) return j;
+
+  const KK_FLOAT xi0 = x(i,0);
+  const KK_FLOAT xi1 = x(i,1);
+  const KK_FLOAT xi2 = x(i,2);
+
+  int closest = j;
+  KK_FLOAT delx = xi0 - x(j,0);
+  KK_FLOAT dely = xi1 - x(j,1);
+  KK_FLOAT delz = xi2 - x(j,2);
+  KK_FLOAT rsqmin = delx*delx + dely*dely + delz*delz;
+  KK_FLOAT rsq;
+
+  while (d_sametag[j] >= 0) {
+    j = d_sametag[j];
+    delx = xi0 - x(j,0);
+    dely = xi1 - x(j,1);
+    delz = xi2 - x(j,2);
+    rsq = delx*delx + dely*dely + delz*delz;
+    if (rsq < rsqmin) {
+      rsqmin = rsq;
+      closest = j;
+    }
+  }
+
+  return closest;
 }
 
 /* ---------------------------------------------------------------------- */
