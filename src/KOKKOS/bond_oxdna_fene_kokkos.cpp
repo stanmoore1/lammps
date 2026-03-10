@@ -413,7 +413,6 @@ void BondOxdnaFENEKokkos<DeviceType>::coeff(int narg, char **arg)
   k_Delta.template modify<LMPHostType>();
 }
 
-
 /* ----------------------------------------------------------------------
    proc 0 reads coeffs from restart file, bcasts them
 ------------------------------------------------------------------------- */
