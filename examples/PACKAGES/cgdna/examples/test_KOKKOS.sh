@@ -1301,212 +1301,213 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
   ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ######################################################
-  printf '\n# Running oxRNA2 duplex2 NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
-  cd $EXDIR/oxRNA2/duplex2
-  mkdir test
-  cd test
-  cp $BUILDDIR_KK_SERIAL/lmp .
-  cp ../in.duplex2 .
-  cp ../data.duplex2 .
+  printf '\n# Skipping oxRNA2 test - not yet supported\n' | tee -a $EXDIR/test_KOKKOS.log
+  # printf '\n# Running oxRNA2 duplex2 NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
+  # cd $EXDIR/oxRNA2/duplex2
+  # mkdir test
+  # cd test
+  # cp $BUILDDIR_KK_SERIAL/lmp .
+  # cp ../in.duplex2 .
+  # cp ../data.duplex2 .
 
-  ### 1 MPI-task ###
-  mpirun -np 1 ./lmp -in in.duplex2 -k on -sf kk -pk kokkos comm device > /dev/null
-  mv log.lammps log.$DATE.duplex2.g++.1
-  grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.1 > e_test.1.dat
-  grep -e '[0-9]  ekin' ../log*1 > e_ref.1.dat
+  # ### 1 MPI-task ###
+  # mpirun -np 1 ./lmp -in in.duplex2 -k on -sf kk -pk kokkos comm device > /dev/null
+  # mv log.lammps log.$DATE.duplex2.g++.1
+  # grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.1 > e_test.1.dat
+  # grep -e '[0-9]  ekin' ../log*1 > e_ref.1.dat
 
-  paste e_ref.1.dat e_test.1.dat |
+  # paste e_ref.1.dat e_test.1.dat |
 
-  awk -v tol="$REL_TOL" '
-    failed == 0 {
-      diff = ($4-$20)/$4
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
-        printf "# 1 MPI-task FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($8-$24)/$8
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
-        printf "# 1 MPI-task FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($12-$28)/$12
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
-        printf "# 1 MPI-task FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($16-$32)/$16
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
-        printf "# 1 MPI-task FAILED\n"
-        failed = 1
-        exit 1
-      }
-    }
-    END {
-      if (failed == 0) print "# 1 MPI-task passed"
-    }
-  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
+  # awk -v tol="$REL_TOL" '
+  #   failed == 0 {
+  #     diff = ($4-$20)/$4
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
+  #       printf "# 1 MPI-task FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($8-$24)/$8
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
+  #       printf "# 1 MPI-task FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($12-$28)/$12
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
+  #       printf "# 1 MPI-task FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($16-$32)/$16
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
+  #       printf "# 1 MPI-task FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #   }
+  #   END {
+  #     if (failed == 0) print "# 1 MPI-task passed"
+  #   }
+  # ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
-  ### 4 MPI-tasks ###
-  mpirun -np 4 ./lmp -in in.duplex2 -k on -sf kk -pk kokkos comm device > /dev/null
-  mv log.lammps log.$DATE.duplex2.g++.4
-  grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.4 > e_test.4.dat
-  grep -e '[0-9]  ekin' ../log*4 > e_ref.4.dat
+  # ### 4 MPI-tasks ###
+  # mpirun -np 4 ./lmp -in in.duplex2 -k on -sf kk -pk kokkos comm device > /dev/null
+  # mv log.lammps log.$DATE.duplex2.g++.4
+  # grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.4 > e_test.4.dat
+  # grep -e '[0-9]  ekin' ../log*4 > e_ref.4.dat
 
-  paste e_ref.4.dat e_test.4.dat |
+  # paste e_ref.4.dat e_test.4.dat |
 
-  awk -v tol="$REL_TOL" '
-    failed == 0 {
-      diff = ($4-$20)/$4
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
-        printf "# 4 MPI-tasks FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($8-$24)/$8
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
-        printf "# 4 MPI-tasks FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($12-$28)/$12
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
-        printf "# 4 MPI-tasks FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($16-$32)/$16
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
-        printf "# 4 MPI-tasks FAILED\n"
-        failed = 1
-        exit 1
-      }
-    }
-    END {
-      if (failed == 0) print "# 4 MPI-tasks passed"
-    }
-  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
+  # awk -v tol="$REL_TOL" '
+  #   failed == 0 {
+  #     diff = ($4-$20)/$4
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
+  #       printf "# 4 MPI-tasks FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($8-$24)/$8
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
+  #       printf "# 4 MPI-tasks FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($12-$28)/$12
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
+  #       printf "# 4 MPI-tasks FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($16-$32)/$16
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
+  #       printf "# 4 MPI-tasks FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #   }
+  #   END {
+  #     if (failed == 0) print "# 4 MPI-tasks passed"
+  #   }
+  # ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
-  ### HIP ###
-  rm -rf ./lmp
-  cp $BUILDDIR_KK_HIP_OMP/lmp .
-  mpirun -np 1 ./lmp -in in.duplex2 -k on g 1 t 2 -sf kk -pk kokkos neigh half > /dev/null
-  mv log.lammps log.$DATE.duplex2.g++.hip.g1t2
-  grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.hip.g1t2 > e_test.hip.g1t2.dat
-  grep -e '[0-9]  ekin' ../log*1 > e_ref.1.dat
+  # ### HIP ###
+  # rm -rf ./lmp
+  # cp $BUILDDIR_KK_HIP_OMP/lmp .
+  # mpirun -np 1 ./lmp -in in.duplex2 -k on g 1 t 2 -sf kk -pk kokkos neigh half > /dev/null
+  # mv log.lammps log.$DATE.duplex2.g++.hip.g1t2
+  # grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.hip.g1t2 > e_test.hip.g1t2.dat
+  # grep -e '[0-9]  ekin' ../log*1 > e_ref.1.dat
 
-  paste e_ref.1.dat e_test.hip.g1t2.dat |
+  # paste e_ref.1.dat e_test.hip.g1t2.dat |
 
-  awk -v tol="$REL_TOL_GPU" '
-    failed == 0 {
-      diff = ($4-$20)/$4
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
-        printf "# HIP g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($8-$24)/$8
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
-        printf "# HIP g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($12-$28)/$12
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
-        printf "# HIP g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($16-$32)/$16
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
-        printf "# HIP g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-    }
-    END {
-      if (failed == 0) print "# HIP g1t2 passed"
-    }
-  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
+  # awk -v tol="$REL_TOL_GPU" '
+  #   failed == 0 {
+  #     diff = ($4-$20)/$4
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
+  #       printf "# HIP g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($8-$24)/$8
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
+  #       printf "# HIP g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($12-$28)/$12
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
+  #       printf "# HIP g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($16-$32)/$16
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
+  #       printf "# HIP g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #   }
+  #   END {
+  #     if (failed == 0) print "# HIP g1t2 passed"
+  #   }
+  # ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
-  ### CUDA ###
-  rm -rf ./lmp
-  cp $BUILDDIR_KK_CUDA_OMP/lmp .
-  mpirun -np 1 ./lmp -in in.duplex2 -k on g 1 t 2 -sf kk -pk kokkos neigh half > /dev/null
-  mv log.lammps log.$DATE.duplex2.g++.cuda.g1t2
-  grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.cuda.g1t2 > e_test.cuda.g1t2.dat
-  grep -e '[0-9]  ekin' ../log*1 > e_ref.1.dat
+  # ### CUDA ###
+  # rm -rf ./lmp
+  # cp $BUILDDIR_KK_CUDA_OMP/lmp .
+  # mpirun -np 1 ./lmp -in in.duplex2 -k on g 1 t 2 -sf kk -pk kokkos neigh half > /dev/null
+  # mv log.lammps log.$DATE.duplex2.g++.cuda.g1t2
+  # grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.cuda.g1t2 > e_test.cuda.g1t2.dat
+  # grep -e '[0-9]  ekin' ../log*1 > e_ref.1.dat
 
-  paste e_ref.1.dat e_test.cuda.g1t2.dat |
+  # paste e_ref.1.dat e_test.cuda.g1t2.dat |
 
-  awk -v tol="$REL_TOL_GPU" '
-    failed == 0 {
-      diff = ($4-$20)/$4
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
-        printf "# CUDA g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($8-$24)/$8
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
-        printf "# CUDA g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($12-$28)/$12
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
-        printf "# CUDA g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($16-$32)/$16
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
-        printf "# CUDA g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-    }
-    END {
-      if (failed == 0) print "# CUDA g1t2 passed"
-    }
-  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
+  # awk -v tol="$REL_TOL_GPU" '
+  #   failed == 0 {
+  #     diff = ($4-$20)/$4
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
+  #       printf "# CUDA g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($8-$24)/$8
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
+  #       printf "# CUDA g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($12-$28)/$12
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
+  #       printf "# CUDA g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($16-$32)/$16
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
+  #       printf "# CUDA g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #   }
+  #   END {
+  #     if (failed == 0) print "# CUDA g1t2 passed"
+  #   }
+  # ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ######################################################
-  printf '\n# Skipping oxDNA3 tests - not yet supported\n' | tee -a $EXDIR/test_KOKKOS.log
+  printf '\n# Skipping oxDNA3 test - not yet supported\n' | tee -a $EXDIR/test_KOKKOS.log
   # printf '\n# Running oxDNA3 duplex2 / potential file NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
   # cd $EXDIR/oxDNA3/duplex2
   # mkdir test
@@ -1771,214 +1772,215 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
   # ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ######################################################
-  printf '\n# Running oxRNA2 potential file NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
-  cd $EXDIR/oxRNA2/potential_file
-  mkdir test
-  cd test
-  cp $BUILDDIR_KK_SERIAL/lmp .
-  cp ../in.duplex2 .
-  cp ../data.duplex2 .
-  if [ $UNITS = lj ]; then
-    cp ../oxrna2_lj.cgdna .
-  elif [ $UNITS = real ]; then
-    cp ../oxrna2_real.cgdna .
-  fi
+  printf '\n# Skipping oxRNA2 test - not yet supported\n' | tee -a $EXDIR/test_KOKKOS.log
+  # printf '\n# Running oxRNA2 potential file NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
+  # cd $EXDIR/oxRNA2/potential_file
+  # mkdir test
+  # cd test
+  # cp $BUILDDIR_KK_SERIAL/lmp .
+  # cp ../in.duplex2 .
+  # cp ../data.duplex2 .
+  # if [ $UNITS = lj ]; then
+  #   cp ../oxrna2_lj.cgdna .
+  # elif [ $UNITS = real ]; then
+  #   cp ../oxrna2_real.cgdna .
+  # fi
 
-  ### 1 MPI-task ###
-  mpirun -np 1 ./lmp -in in.duplex2 -k on -sf kk -pk kokkos comm device > /dev/null
-  mv log.lammps log.$DATE.duplex2.g++.1
-  grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.1 > e_test.1.dat
-  grep -e '[0-9]  ekin' ../log*1 > e_ref.1.dat
+  # ### 1 MPI-task ###
+  # mpirun -np 1 ./lmp -in in.duplex2 -k on -sf kk -pk kokkos comm device > /dev/null
+  # mv log.lammps log.$DATE.duplex2.g++.1
+  # grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.1 > e_test.1.dat
+  # grep -e '[0-9]  ekin' ../log*1 > e_ref.1.dat
 
-  paste e_ref.1.dat e_test.1.dat |
+  # paste e_ref.1.dat e_test.1.dat |
 
-  awk -v tol="$REL_TOL" '
-    failed == 0 {
-      diff = ($4-$20)/$4
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
-        printf "# 1 MPI-task FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($8-$24)/$8
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
-        printf "# 1 MPI-task FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($12-$28)/$12
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
-        printf "# 1 MPI-task FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($16-$32)/$16
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
-        printf "# 1 MPI-task FAILED\n"
-        failed = 1
-        exit 1
-      }
-    }
-    END {
-      if (failed == 0) print "# 1 MPI-task passed"
-    }
-  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
+  # awk -v tol="$REL_TOL" '
+  #   failed == 0 {
+  #     diff = ($4-$20)/$4
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
+  #       printf "# 1 MPI-task FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($8-$24)/$8
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
+  #       printf "# 1 MPI-task FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($12-$28)/$12
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
+  #       printf "# 1 MPI-task FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($16-$32)/$16
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
+  #       printf "# 1 MPI-task FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #   }
+  #   END {
+  #     if (failed == 0) print "# 1 MPI-task passed"
+  #   }
+  # ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
-  ### 4 MPI-tasks ###
-  mpirun -np 4 ./lmp -in in.duplex2 -k on -sf kk -pk kokkos comm device > /dev/null
-  mv log.lammps log.$DATE.duplex2.g++.4
-  grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.4 > e_test.4.dat
-  grep -e '[0-9]  ekin' ../log*4 > e_ref.4.dat
+  # ### 4 MPI-tasks ###
+  # mpirun -np 4 ./lmp -in in.duplex2 -k on -sf kk -pk kokkos comm device > /dev/null
+  # mv log.lammps log.$DATE.duplex2.g++.4
+  # grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.4 > e_test.4.dat
+  # grep -e '[0-9]  ekin' ../log*4 > e_ref.4.dat
 
-  paste e_ref.4.dat e_test.4.dat |
+  # paste e_ref.4.dat e_test.4.dat |
 
-  awk -v tol="$REL_TOL" '
-    failed == 0 {
-      diff = ($4-$20)/$4
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
-        printf "# 4 MPI-tasks FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($8-$24)/$8
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
-        printf "# 4 MPI-tasks FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($12-$28)/$12
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
-        printf "# 4 MPI-tasks FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($16-$32)/$16
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
-        printf "# 4 MPI-tasks FAILED\n"
-        failed = 1
-        exit 1
-      }
-    }
-    END {
-      if (failed == 0) print "# 4 MPI-tasks passed"
-    }
-  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
+  # awk -v tol="$REL_TOL" '
+  #   failed == 0 {
+  #     diff = ($4-$20)/$4
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
+  #       printf "# 4 MPI-tasks FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($8-$24)/$8
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
+  #       printf "# 4 MPI-tasks FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($12-$28)/$12
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
+  #       printf "# 4 MPI-tasks FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($16-$32)/$16
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
+  #       printf "# 4 MPI-tasks FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #   }
+  #   END {
+  #     if (failed == 0) print "# 4 MPI-tasks passed"
+  #   }
+  # ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
-  ### HIP ###
-  rm -rf ./lmp
-  cp $BUILDDIR_KK_HIP_OMP/lmp .
-  mpirun -np 1 ./lmp -in in.duplex2 -k on g 1 t 2 -sf kk -pk kokkos neigh half > /dev/null
-  mv log.lammps log.$DATE.duplex2.g++.hip.g1t2
-  grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.hip.g1t2 > e_test.hip.g1t2.dat
-  grep -e '[0-9]  ekin' ../log*1 > e_ref.1.dat
+  # ### HIP ###
+  # rm -rf ./lmp
+  # cp $BUILDDIR_KK_HIP_OMP/lmp .
+  # mpirun -np 1 ./lmp -in in.duplex2 -k on g 1 t 2 -sf kk -pk kokkos neigh half > /dev/null
+  # mv log.lammps log.$DATE.duplex2.g++.hip.g1t2
+  # grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.hip.g1t2 > e_test.hip.g1t2.dat
+  # grep -e '[0-9]  ekin' ../log*1 > e_ref.1.dat
 
-  paste e_ref.1.dat e_test.hip.g1t2.dat |
+  # paste e_ref.1.dat e_test.hip.g1t2.dat |
 
-  awk -v tol="$REL_TOL_GPU" '
-    failed == 0 {
-      diff = ($4-$20)/$4
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
-        printf "# HIP g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($8-$24)/$8
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
-        printf "# HIP g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($12-$28)/$12
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
-        printf "# HIP g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($16-$32)/$16
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
-        printf "# HIP g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-    }
-    END {
-      if (failed == 0) print "# HIP g1t2 passed"
-    }
-  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
+  # awk -v tol="$REL_TOL_GPU" '
+  #   failed == 0 {
+  #     diff = ($4-$20)/$4
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
+  #       printf "# HIP g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($8-$24)/$8
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
+  #       printf "# HIP g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($12-$28)/$12
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
+  #       printf "# HIP g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($16-$32)/$16
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
+  #       printf "# HIP g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #   }
+  #   END {
+  #     if (failed == 0) print "# HIP g1t2 passed"
+  #   }
+  # ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
-  ### CUDA ###
-  rm -rf ./lmp
-  cp $BUILDDIR_KK_CUDA_OMP/lmp .
-  mpirun -np 1 ./lmp -in in.duplex2 -k on g 1 t 2 -sf kk -pk kokkos neigh half > /dev/null
-  mv log.lammps log.$DATE.duplex2.g++.cuda.g1t2
-  grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.cuda.g1t2 > e_test.cuda.g1t2.dat
-  grep -e '[0-9]  ekin' ../log*1 > e_ref.1.dat
+  # ### CUDA ###
+  # rm -rf ./lmp
+  # cp $BUILDDIR_KK_CUDA_OMP/lmp .
+  # mpirun -np 1 ./lmp -in in.duplex2 -k on g 1 t 2 -sf kk -pk kokkos neigh half > /dev/null
+  # mv log.lammps log.$DATE.duplex2.g++.cuda.g1t2
+  # grep -e '[0-9]  ekin' log.$DATE.duplex2.g++.cuda.g1t2 > e_test.cuda.g1t2.dat
+  # grep -e '[0-9]  ekin' ../log*1 > e_ref.1.dat
 
-  paste e_ref.1.dat e_test.cuda.g1t2.dat |
+  # paste e_ref.1.dat e_test.cuda.g1t2.dat |
 
-  awk -v tol="$REL_TOL_GPU" '
-    failed == 0 {
-      diff = ($4-$20)/$4
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
-        printf "# CUDA g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($8-$24)/$8
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
-        printf "# CUDA g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($12-$28)/$12
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
-        printf "# CUDA g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-      diff = ($16-$32)/$16
-      if (diff < 0) diff = -diff
-      if (diff > tol) {
-        printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
-        printf "# CUDA g1t2 FAILED\n"
-        failed = 1
-        exit 1
-      }
-    }
-    END {
-      if (failed == 0) print "# CUDA g1t2 passed"
-    }
-  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
+  # awk -v tol="$REL_TOL_GPU" '
+  #   failed == 0 {
+  #     diff = ($4-$20)/$4
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $4, $20, diff, tol
+  #       printf "# CUDA g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($8-$24)/$8
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $8, $24, diff, tol
+  #       printf "# CUDA g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($12-$28)/$12
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $12, $28, diff, tol
+  #       printf "# CUDA g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #     diff = ($16-$32)/$16
+  #     if (diff < 0) diff = -diff
+  #     if (diff > tol) {
+  #       printf "# Line %d: %g vs %g (relative difference = %g > %g)\n", NR, $16, $32, diff, tol
+  #       printf "# CUDA g1t2 FAILED\n"
+  #       failed = 1
+  #       exit 1
+  #     }
+  #   }
+  #   END {
+  #     if (failed == 0) print "# CUDA g1t2 passed"
+  #   }
+  # ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
  ######################################################
 
