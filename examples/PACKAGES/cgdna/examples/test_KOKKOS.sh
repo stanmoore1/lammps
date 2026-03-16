@@ -17,7 +17,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
 
   if [ $UNITS = lj ]; then 
     EXDIR=$LMPDIR/examples/PACKAGES/cgdna/examples/lj_units
-    echo '# Running tests with lj units' | tee -a $EXDIR/test.log
+    echo '# Running tests with lj units' | tee -a $EXDIR/test_KOKKOS.log
 
   elif [ $UNITS = real ]; then 
     echo '# oxDNA KOKKOS does not support real units'
@@ -31,37 +31,37 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
 
   fi
   
-  echo '######################################################' | tee -a $EXDIR/test.log
-  echo '# KOKKOS - Serial Only Build' | tee -a $EXDIR/test.log
-  echo '######################################################' | tee -a $EXDIR/test.log
-  echo '# Compiling executable in' $BUILDDIR_KK_SERIAL | tee -a $EXDIR/test.log
+  echo '######################################################' | tee -a $EXDIR/test_KOKKOS.log
+  echo '# KOKKOS - Serial Only Build' | tee -a $EXDIR/test_KOKKOS.log
+  echo '######################################################' | tee -a $EXDIR/test_KOKKOS.log
+  echo '# Compiling executable in' $BUILDDIR_KK_SERIAL | tee -a $EXDIR/test_KOKKOS.log
   cd $BUILDDIR_KK_SERIAL
   # rm -rf $BUILDDIR_KK_SERIAL # TOGGLE FOR CLEAN BUILD
-  cmake ../../cmake -C $CMAKEDIR_KK_SERIAL | tee -a $EXDIR/test.log
-  cmake --build . -j 8 | tee -a $EXDIR/test.log
+  cmake ../../cmake -C $CMAKEDIR_KK_SERIAL | tee -a $EXDIR/test_KOKKOS.log
+  cmake --build . -j 8 | tee -a $EXDIR/test_KOKKOS.log
 
-  echo '######################################################' | tee -a $EXDIR/test.log
-  echo '# KOKKOS - HIP+OpenMP Build' | tee -a $EXDIR/test.log
-  echo '######################################################' | tee -a $EXDIR/test.log
-  echo '# Compiling executable in' $BUILDDIR_KK_HIP_OMP | tee -a $EXDIR/test.log
+  echo '######################################################' | tee -a $EXDIR/test_KOKKOS.log
+  echo '# KOKKOS - HIP+OpenMP Build' | tee -a $EXDIR/test_KOKKOS.log
+  echo '######################################################' | tee -a $EXDIR/test_KOKKOS.log
+  echo '# Compiling executable in' $BUILDDIR_KK_HIP_OMP | tee -a $EXDIR/test_KOKKOS.log
   cd $BUILDDIR_KK_HIP_OMP
   # rm -rf $BUILDDIR_KK_HIP_OMP # TOGGLE FOR CLEAN BUILD
-  cmake ../../cmake -C $CMAKEDIR_KK_HIP_OMP | tee -a $EXDIR/test.log
-  cmake --build . -j 8 | tee -a $EXDIR/test.log
+  cmake ../../cmake -C $CMAKEDIR_KK_HIP_OMP | tee -a $EXDIR/test_KOKKOS.log
+  cmake --build . -j 8 | tee -a $EXDIR/test_KOKKOS.log
 
-  echo '######################################################' | tee -a $EXDIR/test.log
-  echo '# KOKKOS - CUDA+OpenMP Build' | tee -a $EXDIR/test.log
-  echo '######################################################' | tee -a $EXDIR/test.log
-  echo '# Compiling executable in' $BUILDDIR_KK_CUDA_OMP | tee -a $EXDIR/test.log
+  echo '######################################################' | tee -a $EXDIR/test_KOKKOS.log
+  echo '# KOKKOS - CUDA+OpenMP Build' | tee -a $EXDIR/test_KOKKOS.log
+  echo '######################################################' | tee -a $EXDIR/test_KOKKOS.log
+  echo '# Compiling executable in' $BUILDDIR_KK_CUDA_OMP | tee -a $EXDIR/test_KOKKOS.log
   cd $BUILDDIR_KK_CUDA_OMP
   # rm -rf $BUILDDIR_KK_CUDA_OMP # TOGGLE FOR CLEAN BUILD
-  cmake ../../cmake -C $CMAKEDIR_KK_CUDA_OMP | tee -a $EXDIR/test.log
-  cmake --build . -j 8 | tee -a $EXDIR/test.log
+  cmake ../../cmake -C $CMAKEDIR_KK_CUDA_OMP | tee -a $EXDIR/test_KOKKOS.log
+  cmake --build . -j 8 | tee -a $EXDIR/test_KOKKOS.log
 
   #exit 1 # DEBUG
 
   ######################################################
-  printf '\n# Running oxDNA duplex1 NVE test\n' | tee -a $EXDIR/test.log
+  printf '\n# Running oxDNA duplex1 NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
   cd $EXDIR/oxDNA/duplex1
   mkdir test
   cd test
@@ -115,7 +115,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 1 MPI-task passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### 4 MPI-tasks ###
   mpirun -np 4 ./lmp -in in.duplex1 -k on -sf kk -pk kokkos comm device > /dev/null
@@ -163,7 +163,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 4 MPI-tasks passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### HIP ###
   rm -rf ./lmp
@@ -213,7 +213,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# HIP g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### CUDA ###
   rm -rf ./lmp
@@ -263,10 +263,10 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# CUDA g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ######################################################
-  printf '\n# Running oxDNA potential file NVE test\n' | tee -a $EXDIR/test.log
+  printf '\n# Running oxDNA potential file NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
   cd $EXDIR/oxDNA/potential_file
   mkdir test
   cd test
@@ -325,7 +325,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 1 MPI-task passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### 4 MPI-tasks ###
   mpirun -np 4 ./lmp -in in.duplex1 -k on -sf kk -pk kokkos comm device > /dev/null
@@ -373,7 +373,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 4 MPI-tasks passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### HIP ###
   rm -rf ./lmp
@@ -423,7 +423,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# HIP g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### CUDA ###
   rm -rf ./lmp
@@ -473,10 +473,10 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# CUDA g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ######################################################
-  printf '\n# Running oxDNA2 duplex1 NVE test\n' | tee -a $EXDIR/test.log
+  printf '\n# Running oxDNA2 duplex1 NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
   cd $EXDIR/oxDNA2/duplex1
   mkdir test
   cd test
@@ -530,7 +530,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 1 MPI-task passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### 4 MPI-tasks ###
   mpirun -np 4 ./lmp -in in.duplex1 -k on -sf kk -pk kokkos comm device > /dev/null
@@ -578,7 +578,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 4 MPI-tasks passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### HIP ###
   rm -rf ./lmp
@@ -628,7 +628,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# HIP g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### CUDA ###
   rm -rf ./lmp
@@ -678,10 +678,10 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# CUDA g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ######################################################
-  printf '\n# Running oxDNA2 duplex3 NVE test\n' | tee -a $EXDIR/test.log
+  printf '\n# Running oxDNA2 duplex3 NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
   cd $EXDIR/oxDNA2/duplex3
   mkdir test
   cd test
@@ -735,7 +735,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 1 MPI-task passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### 4 MPI-tasks ###
   mpirun -np 4 ./lmp -in in.duplex3 -k on -sf kk -pk kokkos comm device > /dev/null
@@ -783,7 +783,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 4 MPI-tasks passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### HIP ###
   rm -rf ./lmp
@@ -833,7 +833,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# HIP g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### CUDA ###
   rm -rf ./lmp
@@ -883,10 +883,10 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# CUDA g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ######################################################
-  printf '\n# Running oxDNA2 dsring NVE test\n' | tee -a $EXDIR/test.log
+  printf '\n# Running oxDNA2 dsring NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
   cd $EXDIR/oxDNA2/dsring
   mkdir test
   cd test
@@ -940,7 +940,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 1 MPI-task passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### 4 MPI-tasks ###
   mpirun -np 4 ./lmp -in in.dsring -k on -sf kk -pk kokkos comm device > /dev/null
@@ -988,7 +988,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 4 MPI-tasks passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### HIP ###
   rm -rf ./lmp
@@ -1038,7 +1038,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# HIP g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### CUDA ###
   rm -rf ./lmp
@@ -1088,10 +1088,10 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# CUDA g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ######################################################
-  printf '\n# Running oxDNA2 potential file NVE test\n' | tee -a $EXDIR/test.log
+  printf '\n# Running oxDNA2 potential file NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
   cd $EXDIR/oxDNA2/potential_file
   mkdir test
   cd test
@@ -1150,7 +1150,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 1 MPI-task passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### 4 MPI-tasks ###
   mpirun -np 4 ./lmp -in in.duplex1 -k on -sf kk -pk kokkos comm device > /dev/null
@@ -1198,7 +1198,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 4 MPI-tasks passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### HIP ###
   rm -rf ./lmp
@@ -1248,7 +1248,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# HIP g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### CUDA ###
   rm -rf ./lmp
@@ -1298,10 +1298,10 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# CUDA g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ######################################################
-  printf '\n# Running oxRNA2 duplex2 NVE test\n' | tee -a $EXDIR/test.log
+  printf '\n# Running oxRNA2 duplex2 NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
   cd $EXDIR/oxRNA2/duplex2
   mkdir test
   cd test
@@ -1355,7 +1355,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 1 MPI-task passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### 4 MPI-tasks ###
   mpirun -np 4 ./lmp -in in.duplex2 -k on -sf kk -pk kokkos comm device > /dev/null
@@ -1403,7 +1403,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 4 MPI-tasks passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### HIP ###
   rm -rf ./lmp
@@ -1453,7 +1453,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# HIP g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### CUDA ###
   rm -rf ./lmp
@@ -1503,11 +1503,11 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# CUDA g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ######################################################
-  printf '\n# Skipping oxDNA3 tests - not yet supported\n' | tee -a $EXDIR/test.log
-  # printf '\n# Running oxDNA3 duplex2 / potential file NVE test\n' | tee -a $EXDIR/test.log
+  printf '\n# Skipping oxDNA3 tests - not yet supported\n' | tee -a $EXDIR/test_KOKKOS.log
+  # printf '\n# Running oxDNA3 duplex2 / potential file NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
   # cd $EXDIR/oxDNA3/duplex2
   # mkdir test
   # cd test
@@ -1643,7 +1643,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
   #   END {
   #     if (failed == 0) print "# 1 MPI-task passed"
   #   }
-  # ' 2>&1 | tee -a $EXDIR/test.log
+  # ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   # ### 4 MPI-tasks ###
   # mpirun -np 4 ./lmp_mpi -in in.duplex2 > /dev/null
@@ -1768,10 +1768,10 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
   #   END {
   #     if (failed == 0) print "# 4 MPI-tasks passed"
   #   }
-  # ' 2>&1 | tee -a $EXDIR/test.log
+  # ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ######################################################
-  printf '\n# Running oxRNA2 potential file NVE test\n' | tee -a $EXDIR/test.log
+  printf '\n# Running oxRNA2 potential file NVE test\n' | tee -a $EXDIR/test_KOKKOS.log
   cd $EXDIR/oxRNA2/potential_file
   mkdir test
   cd test
@@ -1830,7 +1830,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 1 MPI-task passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### 4 MPI-tasks ###
   mpirun -np 4 ./lmp -in in.duplex2 -k on -sf kk -pk kokkos comm device > /dev/null
@@ -1878,7 +1878,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# 4 MPI-tasks passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### HIP ###
   rm -rf ./lmp
@@ -1928,7 +1928,7 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# HIP g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
   ### CUDA ###
   rm -rf ./lmp
@@ -1978,12 +1978,12 @@ if [ $# -eq 1 ] && [ $1 = run ]; then
     END {
       if (failed == 0) print "# CUDA g1t2 passed"
     }
-  ' 2>&1 | tee -a $EXDIR/test.log
+  ' 2>&1 | tee -a $EXDIR/test_KOKKOS.log
 
  ######################################################
 
-  echo | tee -a $EXDIR/test.log
-  echo '# Done' | tee -a $EXDIR/test.log
+  echo | tee -a $EXDIR/test_KOKKOS.log
+  echo '# Done' | tee -a $EXDIR/test_KOKKOS.log
 
 elif [ $# -eq 1 ] && [ $1 = clean ]; then
 
@@ -2015,7 +2015,7 @@ elif [ $# -eq 1 ] && [ $1 = clean ]; then
   rm -rf $EXDIR/oxDNA3/duplex2/test
   rm -rf $EXDIR/oxRNA2/duplex2/test
   rm -rf $EXDIR/oxRNA2/potential_file/test
-  rm -rf $EXDIR/test.log
+  rm -rf $EXDIR/test_KOKKOS.log
   echo '# Done'
   
 else 
