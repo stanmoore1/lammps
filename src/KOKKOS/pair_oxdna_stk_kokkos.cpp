@@ -883,29 +883,18 @@ double PairOxdnaStkKokkos<DeviceType>::init_one(int i, int j)
   // All non-tetramer Kokkos views are set here within ::init_one, and
   // the tetramer Kokkos views are set within ::coeff
 
+  // Assign directionally: [i][j] gets [i][j], [j][i] gets [j][i]
   k_epsilon_st.view_host()(i,j) = epsilon_st[i][j];
   k_epsilon_st.view_host()(j,i) = epsilon_st[j][i];
   k_a_st.view_host()(i,j) = a_st[i][j];
   k_a_st.view_host()(j,i) = a_st[j][i];
-  //k_cut_st_0.view_host()(i,j) = k_cut_st_0.view_host()(j,i) = cut_st_0[0][i][j][0];
-  //k_cut_st_c.view_host()(i,j) = k_cut_st_c.view_host()(j,i) = cut_st_c[0][i][j][0];
-  //k_cut_st_lo.view_host()(i,j) = k_cut_st_lo.view_host()(j,i) = cut_st_lo[0][i][j][0];
-  //k_cut_st_hi.view_host()(i,j) = k_cut_st_hi.view_host()(j,i) = cut_st_hi[0][i][j][0];
-  //k_cut_st_lc.view_host()(i,j) = k_cut_st_lc.view_host()(j,i) = cut_st_lc[0][i][j][0];
-  //k_cut_st_hc.view_host()(i,j) = k_cut_st_hc.view_host()(j,i) = cut_st_hc[0][i][j][0];
   k_b_st_lo.view_host()(i,j) = b_st_lo[i][j];
   k_b_st_lo.view_host()(j,i) = b_st_lo[j][i];
   k_b_st_hi.view_host()(i,j) = b_st_hi[i][j];
   k_b_st_hi.view_host()(j,i) = b_st_hi[j][i];
-  //k_shift_st.view_host()(i,j) = k_shift_st.view_host()(j,i) = shift_st[0][i][j][0];
-  //k_cutsq_st_hc.view_host()(i,j) = k_cutsq_st_hc.view_host()(j,i) = cutsq_st_hc[0][i][j][0];
 
-  //k_a_st4.view_host()(i,j) = k_a_st4.view_host()(j,i) = a_st4[0][i][j][0];
   k_theta_st4_0.view_host()(i,j) = theta_st4_0[i][j];
   k_theta_st4_0.view_host()(j,i) = theta_st4_0[j][i];
-  //k_dtheta_st4_ast.view_host()(i,j) = k_dtheta_st4_ast.view_host()(j,i) = dtheta_st4_ast[0][i][j][0];
-  //k_b_st4.view_host()(i,j) = k_b_st4.view_host()(j,i) = b_st4[0][i][j][0];
-  //k_dtheta_st4_c.view_host()(i,j) = k_dtheta_st4_c.view_host()(j,i) = dtheta_st4_c[0][i][j][0];
 
   k_a_st5.view_host()(i,j) = a_st5[i][j];
   k_a_st5.view_host()(j,i) = a_st5[j][i];
@@ -948,22 +937,10 @@ double PairOxdnaStkKokkos<DeviceType>::init_one(int i, int j)
 
   k_epsilon_st.template modify<LMPHostType>();
   k_a_st.template modify<LMPHostType>();
-  // k_cut_st_0.template modify<LMPHostType>();
-  // k_cut_st_c.template modify<LMPHostType>();
-  // k_cut_st_lo.template modify<LMPHostType>();
-  // k_cut_st_hi.template modify<LMPHostType>();
-  // k_cut_st_lc.template modify<LMPHostType>();
-  // k_cut_st_hc.template modify<LMPHostType>();
   k_b_st_lo.template modify<LMPHostType>();
   k_b_st_hi.template modify<LMPHostType>();
-  // k_shift_st.template modify<LMPHostType>();
-  // k_cutsq_st_hc.template modify<LMPHostType>();
 
-  //k_a_st4.template modify<LMPHostType>();
   k_theta_st4_0.template modify<LMPHostType>();
-  //k_dtheta_st4_ast.template modify<LMPHostType>();
-  //k_b_st4.template modify<LMPHostType>();
-  //k_dtheta_st4_c.template modify<LMPHostType>();
 
   k_a_st5.template modify<LMPHostType>();
   k_theta_st5_0.template modify<LMPHostType>();
