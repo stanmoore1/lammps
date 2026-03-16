@@ -548,8 +548,8 @@ KOKKOS_INLINE_FUNCTION
 void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENEPrecomputeClosestBond, const int &in) const
 {
   // Bondlist contains local atom indices (can be >= nlocal for ghosts)
-  int b = bondlist(in,0);
-  int a = bondlist(in,1);
+  int a = bondlist(in,0);
+  int b = bondlist(in,1);
   
   // Directionality test: a -> b must be 3' -> 5'
   // Check using the bondlist atoms directly

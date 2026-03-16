@@ -42,7 +42,7 @@ PairOxdnaStkKokkos<DeviceType>::PairOxdnaStkKokkos(LAMMPS *lmp) : PairOxdnaStk(l
   neighborKK = (NeighborKokkos *) neighbor;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read = X_MASK | ELLIPSOID_MASK | BONUS_MASK | F_MASK |
-                  TORQUE_MASK | TYPE_MASK | CG_DNA_MASK |
+                  TORQUE_MASK | TYPE_MASK | TAG_MASK | CG_DNA_MASK |
                   ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
 }
@@ -883,45 +883,68 @@ double PairOxdnaStkKokkos<DeviceType>::init_one(int i, int j)
   // All non-tetramer Kokkos views are set here within ::init_one, and
   // the tetramer Kokkos views are set within ::coeff
 
-  k_epsilon_st.view_host()(i,j) = k_epsilon_st.view_host()(j,i) = epsilon_st[i][j];
-  k_a_st.view_host()(i,j) = k_a_st.view_host()(j,i) = a_st[i][j];
+  k_epsilon_st.view_host()(i,j) = epsilon_st[i][j];
+  k_epsilon_st.view_host()(j,i) = epsilon_st[j][i];
+  k_a_st.view_host()(i,j) = a_st[i][j];
+  k_a_st.view_host()(j,i) = a_st[j][i];
   //k_cut_st_0.view_host()(i,j) = k_cut_st_0.view_host()(j,i) = cut_st_0[0][i][j][0];
   //k_cut_st_c.view_host()(i,j) = k_cut_st_c.view_host()(j,i) = cut_st_c[0][i][j][0];
   //k_cut_st_lo.view_host()(i,j) = k_cut_st_lo.view_host()(j,i) = cut_st_lo[0][i][j][0];
   //k_cut_st_hi.view_host()(i,j) = k_cut_st_hi.view_host()(j,i) = cut_st_hi[0][i][j][0];
   //k_cut_st_lc.view_host()(i,j) = k_cut_st_lc.view_host()(j,i) = cut_st_lc[0][i][j][0];
   //k_cut_st_hc.view_host()(i,j) = k_cut_st_hc.view_host()(j,i) = cut_st_hc[0][i][j][0];
-  k_b_st_lo.view_host()(i,j) = k_b_st_lo.view_host()(j,i) = b_st_lo[i][j];
-  k_b_st_hi.view_host()(i,j) = k_b_st_hi.view_host()(j,i) = b_st_hi[i][j];
+  k_b_st_lo.view_host()(i,j) = b_st_lo[i][j];
+  k_b_st_lo.view_host()(j,i) = b_st_lo[j][i];
+  k_b_st_hi.view_host()(i,j) = b_st_hi[i][j];
+  k_b_st_hi.view_host()(j,i) = b_st_hi[j][i];
   //k_shift_st.view_host()(i,j) = k_shift_st.view_host()(j,i) = shift_st[0][i][j][0];
   //k_cutsq_st_hc.view_host()(i,j) = k_cutsq_st_hc.view_host()(j,i) = cutsq_st_hc[0][i][j][0];
 
   //k_a_st4.view_host()(i,j) = k_a_st4.view_host()(j,i) = a_st4[0][i][j][0];
-  k_theta_st4_0.view_host()(i,j) = k_theta_st4_0.view_host()(j,i) = theta_st4_0[i][j];
+  k_theta_st4_0.view_host()(i,j) = theta_st4_0[i][j];
+  k_theta_st4_0.view_host()(j,i) = theta_st4_0[j][i];
   //k_dtheta_st4_ast.view_host()(i,j) = k_dtheta_st4_ast.view_host()(j,i) = dtheta_st4_ast[0][i][j][0];
   //k_b_st4.view_host()(i,j) = k_b_st4.view_host()(j,i) = b_st4[0][i][j][0];
   //k_dtheta_st4_c.view_host()(i,j) = k_dtheta_st4_c.view_host()(j,i) = dtheta_st4_c[0][i][j][0];
 
-  k_a_st5.view_host()(i,j) = k_a_st5.view_host()(j,i) = a_st5[i][j];
-  k_theta_st5_0.view_host()(i,j) = k_theta_st5_0.view_host()(j,i) = theta_st5_0[i][j];
-  k_dtheta_st5_ast.view_host()(i,j) = k_dtheta_st5_ast.view_host()(j,i) = dtheta_st5_ast[i][j];
-  k_b_st5.view_host()(i,j) = k_b_st5.view_host()(j,i) = b_st5[i][j];
-  k_dtheta_st5_c.view_host()(i,j) = k_dtheta_st5_c.view_host()(j,i) = dtheta_st5_c[i][j];
+  k_a_st5.view_host()(i,j) = a_st5[i][j];
+  k_a_st5.view_host()(j,i) = a_st5[j][i];
+  k_theta_st5_0.view_host()(i,j) = theta_st5_0[i][j];
+  k_theta_st5_0.view_host()(j,i) = theta_st5_0[j][i];
+  k_dtheta_st5_ast.view_host()(i,j) = dtheta_st5_ast[i][j];
+  k_dtheta_st5_ast.view_host()(j,i) = dtheta_st5_ast[j][i];
+  k_b_st5.view_host()(i,j) = b_st5[i][j];
+  k_b_st5.view_host()(j,i) = b_st5[j][i];
+  k_dtheta_st5_c.view_host()(i,j) = dtheta_st5_c[i][j];
+  k_dtheta_st5_c.view_host()(j,i) = dtheta_st5_c[j][i];
 
-  k_a_st6.view_host()(i,j) = k_a_st6.view_host()(j,i) = a_st6[i][j];
-  k_theta_st6_0.view_host()(i,j) = k_theta_st6_0.view_host()(j,i) = theta_st6_0[i][j];
-  k_dtheta_st6_ast.view_host()(i,j) = k_dtheta_st6_ast.view_host()(j,i) = dtheta_st6_ast[i][j];
-  k_b_st6.view_host()(i,j) = k_b_st6.view_host()(j,i) = b_st6[i][j];
-  k_dtheta_st6_c.view_host()(i,j) = k_dtheta_st6_c.view_host()(j,i) = dtheta_st6_c[i][j];
+  k_a_st6.view_host()(i,j) = a_st6[i][j];
+  k_a_st6.view_host()(j,i) = a_st6[j][i];
+  k_theta_st6_0.view_host()(i,j) = theta_st6_0[i][j];
+  k_theta_st6_0.view_host()(j,i) = theta_st6_0[j][i];
+  k_dtheta_st6_ast.view_host()(i,j) = dtheta_st6_ast[i][j];
+  k_dtheta_st6_ast.view_host()(j,i) = dtheta_st6_ast[j][i];
+  k_b_st6.view_host()(i,j) = b_st6[i][j];
+  k_b_st6.view_host()(j,i) = b_st6[j][i];
+  k_dtheta_st6_c.view_host()(i,j) = dtheta_st6_c[i][j];
+  k_dtheta_st6_c.view_host()(j,i) = dtheta_st6_c[j][i];
 
-  k_a_st1.view_host()(i,j) = k_a_st1.view_host()(j,i) = a_st1[i][j];
-  k_cosphi_st1_ast.view_host()(i,j) = k_cosphi_st1_ast.view_host()(j,i) = cosphi_st1_ast[i][j];
-  k_b_st1.view_host()(i,j) = k_b_st1.view_host()(j,i) = b_st1[i][j];
-  k_cosphi_st1_c.view_host()(i,j) = k_cosphi_st1_c.view_host()(j,i) = cosphi_st1_c[i][j];
-  k_a_st2.view_host()(i,j) = k_a_st2.view_host()(j,i) = a_st2[i][j];
-  k_cosphi_st2_ast.view_host()(i,j) = k_cosphi_st2_ast.view_host()(j,i) = cosphi_st2_ast[i][j];
-  k_b_st2.view_host()(i,j) = k_b_st2.view_host()(j,i) = b_st2[i][j];
-  k_cosphi_st2_c.view_host()(i,j) = k_cosphi_st2_c.view_host()(j,i) = cosphi_st2_c[i][j];
+  k_a_st1.view_host()(i,j) = a_st1[i][j];
+  k_a_st1.view_host()(j,i) = a_st1[j][i];
+  k_cosphi_st1_ast.view_host()(i,j) = cosphi_st1_ast[i][j];
+  k_cosphi_st1_ast.view_host()(j,i) = cosphi_st1_ast[j][i];
+  k_b_st1.view_host()(i,j) = b_st1[i][j];
+  k_b_st1.view_host()(j,i) = b_st1[j][i];
+  k_cosphi_st1_c.view_host()(i,j) = cosphi_st1_c[i][j];
+  k_cosphi_st1_c.view_host()(j,i) = cosphi_st1_c[j][i];
+  k_a_st2.view_host()(i,j) = a_st2[i][j];
+  k_a_st2.view_host()(j,i) = a_st2[j][i];
+  k_cosphi_st2_ast.view_host()(i,j) = cosphi_st2_ast[i][j];
+  k_cosphi_st2_ast.view_host()(j,i) = cosphi_st2_ast[j][i];
+  k_b_st2.view_host()(i,j) = b_st2[i][j];
+  k_b_st2.view_host()(j,i) = b_st2[j][i];
+  k_cosphi_st2_c.view_host()(i,j) = cosphi_st2_c[i][j];
+  k_cosphi_st2_c.view_host()(j,i) = cosphi_st2_c[j][i];
 
   k_epsilon_st.template modify<LMPHostType>();
   k_a_st.template modify<LMPHostType>();
@@ -1129,8 +1152,8 @@ KOKKOS_INLINE_FUNCTION
 void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkPrecomputeClosestBond, const int &in) const
 {
   // Bondlist contains local atom indices (can be >= nlocal for ghosts)
-  int b = bondlist(in,0);
-  int a = bondlist(in,1);
+  int a = bondlist(in,0);
+  int b = bondlist(in,1);
   
   // Directionality test: a -> b must be 3' -> 5'
   // Check using the bondlist atoms directly
