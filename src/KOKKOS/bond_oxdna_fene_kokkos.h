@@ -27,7 +27,7 @@ BondStyle(oxdna/fene/kk/host,BondOxdnaFENEKokkos<LMPHostType>);
 
 namespace LAMMPS_NS {
 
-struct TagBondOxdnaFENEPrecomputeClosestBond{};
+struct TagBondOxdnaFENEPrecomputeBondPrimeNeighs{};
 
 template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
 struct TagBondOxdnaFENECompute{};
@@ -47,7 +47,7 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagBondOxdnaFENEPrecomputeClosestBond, const int&) const;
+  void operator()(TagBondOxdnaFENEPrecomputeBondPrimeNeighs, const int&) const;
 
   template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
 // NOLINTNEXTLINE
@@ -111,14 +111,10 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   dual_hash_type k_map_hash;
   DAT::tdual_int_1d k_sametag;
   typename AT::t_int_1d d_sametag;
-  // Precomputed closest images for bondlist atoms
-  // 0-3 : closest images of atom a, atom b, id3p[a], id5p[b] for each bond
-  DAT::tdual_int_2d k_closest_bond;
-  typename AT::t_int_2d d_closest_bond;
-
-  // NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION
-  int closest_image(const int, int) const;
+  // Precomputed atom a/b 3'/5' directionality and atom mapping of their 3' and 5' neighbors.
+  // 0-3 : atom a, atom b, id3p[a], id5p[b] for each bond
+  DAT::tdual_int_2d k_bond_prime_neighs;
+  typename AT::t_int_2d d_bond_prime_neighs;
 };
 
 }    // namespace LAMMPS_NS
