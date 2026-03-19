@@ -89,6 +89,7 @@ action bond_oxdna_fene_kokkos.cpp bond_oxdna_fene.cpp
 action bond_oxdna_fene_kokkos.h bond_oxdna_fene.h
 action bond_oxdna2_fene_kokkos.h bond_oxdna_fene_kokkos.h
 action bond_oxrna2_fene_kokkos.h bond_oxdna_fene_kokkos.h
+action bond_oxdna3_fene_kokkos.h bond_oxdna_fene_kokkos.h
 action comm_kokkos.cpp
 action comm_kokkos.h
 action comm_tiled_kokkos.cpp
@@ -422,6 +423,7 @@ action pair_oxdna2_dh_kokkos.cpp pair_oxdna2_dh.cpp
 action pair_oxdna2_dh_kokkos.h pair_oxdna2_dh.h
 action pair_oxdna2_excv_kokkos.h pair_oxdna_excv_kokkos.h
 action pair_oxrna2_excv_kokkos.h pair_oxdna_excv_kokkos.h
+action pair_oxdna3_excv_kokkos.h pair_oxdna_excv_kokkos.h
 action pair_oxrna2_dh_kokkos.h pair_oxdna_dh_kokkos.h
 action pair_pace_extrapolation_kokkos.cpp pair_pace_extrapolation.cpp
 action pair_pace_extrapolation_kokkos.h pair_pace_extrapolation.h

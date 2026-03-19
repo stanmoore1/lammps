@@ -42,6 +42,7 @@ class BondOxdnaFene : public Bond {
   double **nx_xtrct, **ny_xtrct, **nz_xtrct;    // per-atom arrays for local unit vectors
 
   virtual void allocate();
+  void coeff_oxdna3_common(int, char **); // New function to handle KOKKOS compatibility.
   void ev_tally_xyz(int, int, int, int, double, double, double, double, double, double, double);
 };
 

@@ -28,9 +28,13 @@
 using namespace LAMMPS_NS;
 
 /* ----------------------------------------------------------------------
-   set coeffs
+   set coeffs - introduces new function to handle KOKKOS compatibility.
+   Vanilla oxdna3 "coeff" literally just calls this "coeff_oxdna3_common"
+   function. The structure here avoids messy inheritance issues in KOKKOS
+   by avoiding calling "BondOxdna3FENE::coeff" directly. We can also avoid
+   code duplication of coeff within KOKKOS using this approach.
 ------------------------------------------------------------------------- */
-void BondOxdna3Fene::coeff(int narg, char **arg)
+void BondOxdnaFene::coeff_oxdna3_common(int narg, char **arg)
 {
   if (narg != 2) error->all(FLERR, "Incorrect args for bond coefficients in oxdna3/fene, use potential file" + utils::errorurl(21));
   if (!allocated) allocate();
@@ -150,3 +154,5 @@ void BondOxdna3Fene::coeff(int narg, char **arg)
 
   if (count == 0) error->all(FLERR, "Incorrect args for bond coefficients in oxdna3/fene" + utils::errorurl(21));
 }
+
+void BondOxdna3Fene::coeff(int narg, char **arg) { coeff_oxdna3_common(narg, arg); }
