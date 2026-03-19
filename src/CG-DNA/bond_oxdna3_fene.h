@@ -27,6 +27,7 @@ namespace LAMMPS_NS {
 class BondOxdna3Fene : public BondOxdna2Fene {
  public:
   BondOxdna3Fene(class LAMMPS *lmp) : BondOxdna2Fene(lmp) {}
+  static void coeff_oxdna3_common(BondOxdnaFene *, int, char **);
   void coeff(int, char **) override;
 };
 

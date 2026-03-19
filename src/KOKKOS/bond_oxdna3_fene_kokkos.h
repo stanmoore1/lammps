@@ -44,7 +44,7 @@ BondOxdna3FENEKokkos<DeviceType>::BondOxdna3FENEKokkos(LAMMPS *lmp) : BondOxdnaF
 template<class DeviceType>
 void BondOxdna3FENEKokkos<DeviceType>::coeff(int narg, char **arg)
 {
-  this->coeff_oxdna3_common(narg, arg);
+  BondOxdna3Fene::coeff_oxdna3_common(this, narg, arg);
 
   // Unlike vanilla, we don't use the bounds and assert - args have already
   // been parsed.
