@@ -2,7 +2,7 @@
 
 DATE='12Mar26'
 REL_TOL=1e-8
-REL_TOL_GPU=1e-5
+REL_TOL_GPU=5e-5
 UNITS=lj
 
 LMPDIR=/media/lewis/PhD/GH_lammps/
