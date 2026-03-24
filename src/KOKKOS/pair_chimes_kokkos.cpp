@@ -244,8 +244,8 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
 
       Kokkos::deep_copy(d_size_4mers,0.0);
 
-      typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESComputeNeigh4Body> policy_neigh(0,size_3mers);
-      Kokkos::parallel_for("ComputeNeigh4Body",policy_neigh,*this);
+      PairCHIMESComputeNeigh4BodyFunctor<DeviceType> neigh_4B_functor(this);
+      Kokkos::parallel_scan("ComputeNeigh4Body", size_3mers, neigh_4B_functor);
 
       auto h_size_4mers = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_size_4mers);
 
@@ -275,12 +275,20 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh2Body, c
     const tagint jtag = tag[j];
 
     if (j == i) continue;
-
-    if (jtag < itag) continue;
+    if (jtag <= itag) continue; // only allow calculation for j<i, since we've requested a f
 
     // Check ij distance
 
-    const KK_FLOAT dist_ij = get_dist(i,j);
+    const KK_FLOAT dx = get_dist(i,j);
+
+    int typ_idxs[2];
+    typ_idxs[0] = d_chimes_type[type[i]-1]; // Type (index) of the current atom
+    typ_idxs[1] = d_chimes_type[type[j]-1];
+
+    const int natmtyps = chimes_calculatorKK.natmtyps;
+    const int pair_idx = chimes_calculatorKK.d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
+
+    if (dx >= chimes_calculatorKK.d_chimes_2b_cutoff(pair_idx,1)) continue;
 
     const int ii2 = Kokkos::atomic_fetch_add(&d_size_2mers(),1);
 
@@ -331,6 +339,40 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh3Body, c
 
     if ((dist_ij < maxcut_3b_padded) && (dist_ik < maxcut_3b_padded) && (dist_jk < maxcut_3b_padded))
     {
+      int typ_idxs[3];
+      typ_idxs[0] = d_chimes_type[type[i]-1];
+      typ_idxs[1] = d_chimes_type[type[j]-1];
+      typ_idxs[2] = d_chimes_type[type[k]-1];
+
+      const int natmtyps = chimes_calculatorKK.natmtyps;
+      auto d_atom_int_trip_map = chimes_calculatorKK.d_atom_int_trip_map;
+      auto d_pair_int_trip_map = chimes_calculatorKK.d_pair_int_trip_map;
+      auto d_chimes_3b_cutoff = chimes_calculatorKK.d_chimes_3b_cutoff;
+
+      int type_idx = typ_idxs[0]*natmtyps*natmtyps + typ_idxs[1]*natmtyps + typ_idxs[2];
+      int tripidx = d_atom_int_trip_map[type_idx];
+
+      if (tripidx < 0) // Skipping an excluded interaction
+        continue;
+
+      // Check whether cutoffs are within allowed ranges
+      //auto d_mapped_pair_idx = d_pair_int_trip_map[type_idx];
+
+      KK_FLOAT cutoff_0 = d_chimes_3b_cutoff(tripidx,1,d_pair_int_trip_map(type_idx,0));
+
+      if (dist_ij >= cutoff_0) // ij
+        continue;
+
+      KK_FLOAT cutoff_1 = d_chimes_3b_cutoff(tripidx,1,d_pair_int_trip_map(type_idx,1));
+
+      if (dist_ik >= cutoff_1) // ik
+        continue;
+
+      KK_FLOAT cutoff_2 = d_chimes_3b_cutoff(tripidx,1,d_pair_int_trip_map(type_idx,2));
+
+      if (dist_jk >= cutoff_2) // jk
+        continue;
+
       // If we're here and valid_3mer == true, then add the triplet to the chimes neigh list
 
       const int ii3 = Kokkos::atomic_fetch_add(&d_size_3mers(),1);
@@ -348,7 +390,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh3Body, c
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh4Body, const int& ii) const
+void PairCHIMESKokkos<DeviceType>::neigh_4B_item(const int& ii, int &offset, const bool &final) const
 {
   const int i = d_neighborlist_3mers(ii,0);
   const int j = d_neighborlist_3mers(ii,1);
@@ -401,16 +443,70 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh4Body, c
     if (dist_kl >= maxcut_4b_padded)
       continue;
 
+
+    int typ_idxs[4];
+    typ_idxs[0] = d_chimes_type[type[i]-1];
+    typ_idxs[1] = d_chimes_type[type[j]-1];
+    typ_idxs[2] = d_chimes_type[type[k]-1];
+    typ_idxs[3] = d_chimes_type[type[l]-1];
+
+    const int natmtyps = chimes_calculatorKK.natmtyps;
+    auto d_atom_int_quad_map = chimes_calculatorKK.d_atom_int_quad_map;
+    auto d_pair_int_quad_map = chimes_calculatorKK.d_pair_int_quad_map;
+    auto d_chimes_4b_cutoff = chimes_calculatorKK.d_chimes_4b_cutoff;
+
+    int idx = typ_idxs[0]*natmtyps*natmtyps*natmtyps
+        + typ_idxs[1]*natmtyps*natmtyps + typ_idxs[2]*natmtyps + typ_idxs[3];
+
+    int quadidx = d_atom_int_quad_map[idx];
+
+    if (quadidx < 0) continue; // Skipping an excluded interaction
+
+    KK_FLOAT cutoff_0 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,0));
+    KK_FLOAT cutoff_00 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,0));
+
+    if (dist_ij >= cutoff_0) continue; // ij
+
+    KK_FLOAT cutoff_1 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,1));
+    KK_FLOAT cutoff_01 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,1));
+
+    if (dist_ik >= cutoff_1) continue; // ik
+
+    KK_FLOAT cutoff_2 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,2));
+    KK_FLOAT cutoff_02 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,2));
+
+    if (dist_il >= cutoff_2) continue; // il
+
+    KK_FLOAT cutoff_3 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,3));
+    KK_FLOAT cutoff_03 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,3));
+
+    if (dist_jk >= cutoff_3) continue; // jk
+
+    KK_FLOAT cutoff_4 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,4));
+    KK_FLOAT cutoff_04 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,4));
+
+    if (dist_jl >= cutoff_4) continue; // jl
+
+    KK_FLOAT cutoff_5 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,5));
+    KK_FLOAT cutoff_05 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,5));
+
+    if (dist_kl >= cutoff_5) continue; // kl
+
     // If we're here and valid_4mer == true, then add the quadruplet to the chimes neigh list
 
-    const int ii4 = Kokkos::atomic_fetch_add(&d_size_4mers(),1);
+    if (final) {
+      if (offset < max_4mers) {
+        d_neighborlist_4mers(offset,0) = i;
+        d_neighborlist_4mers(offset,1) = j;
+        d_neighborlist_4mers(offset,2) = k;
+        d_neighborlist_4mers(offset,3) = l;
+      }
 
-    if (ii4 < max_4mers) {
-      d_neighborlist_4mers(ii4,0) = i;
-      d_neighborlist_4mers(ii4,1) = j;
-      d_neighborlist_4mers(ii4,2) = k;
-      d_neighborlist_4mers(ii4,3) = l;
+      //Kokkos::atomic_max(&d_size_4mers(),offset+1);
+      d_size_4mers() = MAX(d_size_4mers(),offset+1);
     }
+
+    offset++;
   }
 }
 
@@ -483,7 +579,7 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   // Build the ChIMES many-body neighbor lists.. only do so when LAMMPS neighborlist has been updated
 
-  if (neighbor->ago == 0) {
+  //if (neighbor->ago == 0) {
     if (0 && chimes_calculatorKK.rank == 0)
       std::cout << "Updating chimesFF neighbor lists..." << std::endl;
 
@@ -497,7 +593,7 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       std::cout << "      Rank " << comm->me << " 4-body list size: " << size_4mers << std::endl;
       std::cout << "      ...update complete" << std::endl;
     }
-  }
+  //}
 
   // Prepare the badness variable
 
@@ -720,8 +816,8 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFL
 
   const tagint jtag = tag[j]; // Get j's global atom index (sort of like its "parent")
 
-  if (jtag <= itag) // only allow calculation for j<i, since we've requested a full neighbor list
-    return;
+  //if (jtag <= itag) // only allow calculation for j<i, since we've requested a full neighbor list
+  //  return;
 
   // Get distance using ghost atoms... don't need MIC since we're using ghost atoms
 

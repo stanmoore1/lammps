@@ -40,7 +40,6 @@ class PairCHIMESKokkos : public PairCHIMES
 
   struct TagPairCHIMESComputeNeigh2Body{};
   struct TagPairCHIMESComputeNeigh3Body{};
-  struct TagPairCHIMESComputeNeigh4Body{};
 
   template<int NEIGHFLAG, int EVFLAG>
   struct TagPairCHIMESCompute1Body{};
@@ -76,7 +75,7 @@ class PairCHIMESKokkos : public PairCHIMES
   void operator() (TagPairCHIMESComputeNeigh3Body,const int& ii) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairCHIMESComputeNeigh4Body,const int& ii) const;
+  void neigh_4B_item(const int& ii, int& offset, const bool& final) const;
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
@@ -186,6 +185,21 @@ class PairCHIMESKokkos : public PairCHIMES
                    EV_FLOAT &ev) const;
 
 };
+
+template <class DeviceType>
+struct PairCHIMESComputeNeigh4BodyFunctor  {
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
+  typedef int value_type;
+  PairCHIMESKokkos<DeviceType> c;
+  PairCHIMESComputeNeigh4BodyFunctor(PairCHIMESKokkos<DeviceType>* c_ptr):c(*c_ptr) {};
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const int &ii, int &offset, const bool &final) const {
+    c.neigh_4B_item(ii,offset,final);
+  }
+};
+
 }    // namespace LAMMPS_NS
 
 #endif

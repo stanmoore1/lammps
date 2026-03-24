@@ -519,7 +519,6 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
 
   // Factored the Chebyshev polynomial and its derivatives from the cutoff function. (LEF 3/11/26)
 
-  int pair_idx;
   KK_FLOAT fcut;
   KK_FLOAT fcutderiv;
 
@@ -528,10 +527,9 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
   typename AT::t_kkfloat_2d Tn = chimes2BKK.d_Tn;
   typename AT::t_kkfloat_2d Tnd = chimes2BKK.d_Tnd;
 
-  pair_idx = d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
+  const int pair_idx = d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
 
-  if (dx >= d_chimes_2b_cutoff(pair_idx,1))
-    return;
+  //if (dx >= d_chimes_2b_cutoff(pair_idx,1)) return;
 
   set_cheby_polys(ii, Tn, Tnd, dx, d_morse_var[pair_idx], d_chimes_2b_cutoff(pair_idx,0), d_chimes_2b_cutoff(pair_idx,1), d_poly_orders[0]);
 
@@ -656,8 +654,8 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   int type_idx = typ_idxs[0]*natmtyps*natmtyps + typ_idxs[1]*natmtyps + typ_idxs[2];
   int tripidx = d_atom_int_trip_map[type_idx];
 
-  if (tripidx < 0) // Skipping an excluded interaction
-    return;
+  //if (tripidx < 0) // Skipping an excluded interaction
+  //  return;
 
   // Check whether cutoffs are within allowed ranges
   //auto d_mapped_pair_idx = d_pair_int_trip_map[type_idx];
@@ -665,20 +663,20 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   KK_FLOAT cutoff_0 = d_chimes_3b_cutoff(tripidx,1,d_pair_int_trip_map(type_idx,0));
   KK_FLOAT cutoff_00 = d_chimes_3b_cutoff(tripidx,0,d_pair_int_trip_map(type_idx,0));
 
-  if (dx[0] >= cutoff_0) // ij
-    return;
+  //if (dx[0] >= cutoff_0) // ij
+  //  return;
 
   KK_FLOAT cutoff_1 = d_chimes_3b_cutoff(tripidx,1,d_pair_int_trip_map(type_idx,1));
   KK_FLOAT cutoff_01 = d_chimes_3b_cutoff(tripidx,0,d_pair_int_trip_map(type_idx,1));
 
-  if (dx[1] >= cutoff_1) // ik
-    return;
+  //if (dx[1] >= cutoff_1) // ik
+  //  return;
 
   KK_FLOAT cutoff_2 = d_chimes_3b_cutoff(tripidx,1,d_pair_int_trip_map(type_idx,2));
   KK_FLOAT cutoff_02 = d_chimes_3b_cutoff(tripidx,0,d_pair_int_trip_map(type_idx,2));
 
-  if (dx[2] >= cutoff_2) // jk
-    return;
+  //if (dx[2] >= cutoff_2) // jk
+  //  return;
 
  int pair_type_1 = d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
  int pair_type_2 = d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[2]);
@@ -820,8 +818,6 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   force_scalar_in[0] = force_scalar[0];
   force_scalar_in[1] = force_scalar[1];
   force_scalar_in[2] = force_scalar[2];
-
-  return;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -882,8 +878,8 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
 
   int quadidx = d_atom_int_quad_map[idx];
 
-  if (quadidx < 0) // Skipping an excluded interaction
-    return;
+  //if (quadidx < 0) // Skipping an excluded interaction
+  //  return;
 
   //auto d_mapped_pair_idx = d_pair_int_quad_map[idx];
 
@@ -898,38 +894,38 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   KK_FLOAT cutoff_0 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,0));
   KK_FLOAT cutoff_00 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,0));
 
-  if (dx[0] >= cutoff_0) // ij
-    return;
+  //if (dx[0] >= cutoff_0) // ij
+  //  return;
 
   KK_FLOAT cutoff_1 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,1));
   KK_FLOAT cutoff_01 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,1));
 
-  if (dx[1] >= cutoff_1) // ik
-    return;
+  //if (dx[1] >= cutoff_1) // ik
+  //  return;
 
   KK_FLOAT cutoff_2 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,2));
   KK_FLOAT cutoff_02 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,2));
 
-  if (dx[2] >= cutoff_2) // il
-    return;
+  //if (dx[2] >= cutoff_2) // il
+  //  return;
 
   KK_FLOAT cutoff_3 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,3));
   KK_FLOAT cutoff_03 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,3));
 
-  if (dx[3] >= cutoff_3) // jk
-      return;
+  //if (dx[3] >= cutoff_3) // jk
+  //  return;
 
   KK_FLOAT cutoff_4 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,4));
   KK_FLOAT cutoff_04 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,4));
 
-  if (dx[4] >= cutoff_4) // jl
-    return;
+  //if (dx[4] >= cutoff_4) // jl
+  //  return;
 
   KK_FLOAT cutoff_5 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,5));
   KK_FLOAT cutoff_05 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,5));
 
-  if (dx[5] >= cutoff_5) // kl
-    return;
+  //if (dx[5] >= cutoff_5) // kl
+  //  return;
 
   // At this point, all distances are within allowed ranges. We can now proceed to the force/stress/energy calculation
 

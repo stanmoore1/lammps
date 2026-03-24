@@ -184,7 +184,7 @@ class chimesFFKokkos : public chimesFF
   void build_pair_int_trip_map() override;
   void build_pair_int_quad_map() override;
 
-private:
+ private:
 
   Chimes2BKokkos chimes2BKK;
   Chimes3BKokkos chimes3BKK;
@@ -193,6 +193,8 @@ private:
   typename AT::t_kkfloat_1d d_morse_var;      // [npairs]; morse_lambda
   double d_penalty_params[2]; // [2];  Second dimension: [0] = A_pen, [1] = d_pen
   typename AT::t_kkfloat_1d d_energy_offsets; // [natmtyps]; Single atom ChIMES energies
+
+ public:
 
   ////////////////////////
   // Definitions for pair, triplet, and quadruplet types
@@ -234,6 +236,8 @@ private:
   typename AT::t_int_3d d_chimes_4b_powers;    // [nquads][nparams][constit. pair]
   typename AT::t_kkfloat_2d d_chimes_4b_params;    // [nquads][nparams]
   typename AT::t_kkfloat_3d d_chimes_4b_cutoff;    // [nquads][2][constit. pair] inner and outer cutoff for pair 1
+
+ private:
 
   // Tools for compute functions
 
