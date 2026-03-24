@@ -501,7 +501,7 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   // Prepare the badness variable
 
-  chimes_calculatorKK.reset_badness();
+  //chimes_calculatorKK.reset_badness();
 
   int vector_length_default = 1;
   int team_size_default = 1;

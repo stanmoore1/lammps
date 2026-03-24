@@ -242,6 +242,23 @@ private:
                        const KK_FLOAT inner_cutoff, const KK_FLOAT outer_cutoff, const int order) const;
 
   KOKKOS_INLINE_FUNCTION
+  void poly_2B(const int ii, KK_FLOAT &e, KK_FLOAT &f0, int ncoeffs_2b, int pair_idx,
+               typename AT::t_kkfloat_2d &Tn, typename AT::t_kkfloat_2d &Tnd) const;
+
+
+  KOKKOS_INLINE_FUNCTION
+  void poly_3B(const int ii, KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3b, int tripidx, int idx,
+               typename AT::t_kkfloat_2d &Tn_ij, typename AT::t_kkfloat_2d &Tn_ik, typename AT::t_kkfloat_2d &Tn_jk,
+               typename AT::t_kkfloat_2d &Tnd_ij, typename AT::t_kkfloat_2d &Tnd_ik, typename AT::t_kkfloat_2d &Tnd_jk) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void poly_4B(const int ii, KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4b, int quadidx, int idx,
+               typename AT::t_kkfloat_2d &Tn_ij, typename AT::t_kkfloat_2d &Tn_ik, typename AT::t_kkfloat_2d &Tn_il,
+               typename AT::t_kkfloat_2d &Tn_jk, typename AT::t_kkfloat_2d &Tn_jl, typename AT::t_kkfloat_2d &Tn_kl,
+               typename AT::t_kkfloat_2d &Tnd_ij, typename AT::t_kkfloat_2d &Tnd_ik, typename AT::t_kkfloat_2d &Tnd_il,
+               typename AT::t_kkfloat_2d &Tnd_jk, typename AT::t_kkfloat_2d &Tnd_jl, typename AT::t_kkfloat_2d &Tnd_kl) const;
+
+  KOKKOS_INLINE_FUNCTION
   void set_polys_out_of_range(const int ii, typename AT::t_kkfloat_2d &d_Tn, typename AT::t_kkfloat_2d &d_Tnd, KK_FLOAT dx, KK_FLOAT x,
                               int poly_order, KK_FLOAT inner_cutoff, KK_FLOAT exprlen, KK_FLOAT dx_dr) const;
 
