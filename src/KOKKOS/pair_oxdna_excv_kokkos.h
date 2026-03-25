@@ -100,7 +100,7 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
  protected:
  
   int oxdnaflag;
-  enum EnabledOXDNAFlag{OXDNA=1,OXDNA2=2,OXRNA2=4};
+  enum EnabledOXDNAFlag{OXDNA=1,OXDNA2=2,OXRNA2=4,OXDNA3=8};
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkfloat_1d_3 f;
