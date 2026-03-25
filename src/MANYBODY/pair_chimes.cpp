@@ -164,6 +164,7 @@ void PairCHIMES::coeff(int narg, char **arg)
     }
   }
 
+  maxcut_2b = chimes_calculator->max_cutoff_2B();
   maxcut_3b = chimes_calculator->max_cutoff_3B();
   maxcut_4b = chimes_calculator->max_cutoff_4B();
 }

@@ -177,19 +177,22 @@ KK_FLOAT PairCHIMESKokkos<DeviceType>::get_dist(int i, int j) const
 template<class DeviceType>
 void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
 {
+  if (maxcut_3b > maxcut_2b)
+    error->all(FLERR,"KOKKOS ChIMES assumes 2-body cutoffs >= 3-body cutoffs");
+
+  if (maxcut_4b > maxcut_3b)
+    error->all(FLERR,"KOKKOS ChIMES assumes 3-body cutoffs >= 4-body cutoffs");
+
   // List gets built based on atoms owned by calling proc
 
-  maxcut_3b_padded = maxcut_3b + neighbor->skin;
-  maxcut_4b_padded = maxcut_4b + neighbor->skin;
-
   if (d_neighborlist_2mers.extent(0) < max_2mers)
-    Kokkos::resize(d_neighborlist_2mers,max_2mers);
+    LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_2mers,"chimes:neighborlist_2mers",max_2mers);
 
   if (d_neighborlist_3mers.extent(0) < max_3mers)
-    Kokkos::resize(d_neighborlist_3mers,max_3mers);
+    LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_3mers,"chimes:neighborlist_3mers",max_3mers);
 
   if (d_neighborlist_4mers.extent(0) < max_4mers)
-    Kokkos::resize(d_neighborlist_4mers,max_4mers);
+    LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_4mers,"chimes:neighborlist_4mers",max_4mers);
 
   // try building 2-body list, resize if necessary
 
@@ -199,8 +202,8 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
 
     Kokkos::deep_copy(d_size_2mers,0.0);
 
-    typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESComputeNeigh2Body> policy_neigh(0,inum);
-    Kokkos::parallel_for("ComputeNeigh2Body",policy_neigh,*this);
+    PairCHIMESComputeNeigh2BodyFunctor<DeviceType> neigh_2B_functor(this);
+    Kokkos::parallel_scan("ComputeNeigh2Body", inum, neigh_2B_functor);
 
     auto h_size_2mers = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_size_2mers);
 
@@ -208,21 +211,21 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
     resize = h_size_2mers() > max_2mers;
     if (resize) {
       max_2mers = MAX(max_2mers+MAX(1,max_2mers*0.1),size_2mers);
-      Kokkos::resize(d_neighborlist_2mers,max_2mers);
+      LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_2mers,"chimes:neighborlist_2mers",max_2mers);
     }
   }
 
   // try building 3-body list, resize if necessary
 
-  if (chimes_calculatorKK.poly_orders[1] > 0) {
+  if (chimes_calculatorKK.poly_orders[1] > 0 || chimes_calculatorKK.poly_orders[2] > 0) {
     resize = 1;
     while (resize) {
       resize = 0;
 
       Kokkos::deep_copy(d_size_3mers,0.0);
 
-      typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESComputeNeigh3Body> policy_neigh(0,size_2mers);
-      Kokkos::parallel_for("ComputeNeigh3Body",policy_neigh,*this);
+      PairCHIMESComputeNeigh3BodyFunctor<DeviceType> neigh_3B_functor(this);
+      Kokkos::parallel_scan("ComputeNeigh3Body", size_2mers, neigh_3B_functor);
 
       auto h_size_3mers = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_size_3mers);
 
@@ -230,7 +233,7 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
       resize = h_size_3mers() > max_3mers;
       if (resize) {
         max_3mers = MAX(max_3mers+MAX(1,max_3mers*0.1),size_3mers);
-        Kokkos::resize(d_neighborlist_3mers,max_3mers);
+        LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_3mers,"chimes:neighborlist_3mers",max_3mers);
       }
     }
   }
@@ -253,7 +256,7 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
       resize = h_size_4mers() > max_4mers;
       if (resize) {
         max_4mers = MAX(max_4mers+MAX(1,max_4mers*0.1),size_4mers);
-        Kokkos::resize(d_neighborlist_4mers,max_4mers);
+        LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_4mers,"chimes:neighborlist_4mers",max_4mers);
       }
     }
   }
@@ -263,7 +266,7 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh2Body, const int& ii) const
+void PairCHIMESKokkos<DeviceType>::neigh_2B_item(const int& ii, int &offset, const bool &final) const
 {
   const int i = d_ilist[ii];
   const tagint itag = tag[i];
@@ -279,7 +282,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh2Body, c
 
     // Check ij distance
 
-    const KK_FLOAT dx = get_dist(i,j);
+    const KK_FLOAT dist_ij = get_dist(i,j);
 
     int typ_idxs[2];
     typ_idxs[0] = d_chimes_type[type[i]-1]; // Type (index) of the current atom
@@ -288,14 +291,18 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh2Body, c
     const int natmtyps = chimes_calculatorKK.natmtyps;
     const int pair_idx = chimes_calculatorKK.d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
 
-    if (dx >= chimes_calculatorKK.d_chimes_2b_cutoff(pair_idx,1)) continue;
+    if (dist_ij >= chimes_calculatorKK.d_chimes_2b_cutoff(pair_idx,1)) continue;
 
-    const int ii2 = Kokkos::atomic_fetch_add(&d_size_2mers(),1);
+    if (final) {
+      if (offset < max_2mers) {
+        d_neighborlist_2mers(offset,0) = i;
+        d_neighborlist_2mers(offset,1) = j;
+      }
 
-    if (ii2 < max_2mers) {
-      d_neighborlist_2mers(ii2,0) = i;
-      d_neighborlist_2mers(ii2,1) = j;
+      Kokkos::atomic_max(&d_size_2mers(),offset+1);
     }
+
+    offset++;
   }
 }
 
@@ -303,7 +310,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh2Body, c
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh3Body, const int& ii) const
+void PairCHIMESKokkos<DeviceType>::neigh_3B_item(const int& ii, int &offset, const bool &final) const
 {
   const int i = d_neighborlist_2mers(ii,0);
   const int j = d_neighborlist_2mers(ii,1);
@@ -313,7 +320,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh3Body, c
 
   const KK_FLOAT dist_ij = get_dist(i,j);
 
-  if (dist_ij >= maxcut_3b_padded) return;
+  if (dist_ij >= maxcut_3b) return;
 
   // ChIMES assumes all atoms must be within cutoff of each other for a valid interaction
   const int knum = d_numneigh[i];
@@ -331,13 +338,13 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh3Body, c
 
     const KK_FLOAT dist_ik = get_dist(i,k);
 
-    if (dist_ik >= maxcut_3b_padded) continue;
+    if (dist_ik >= maxcut_3b) continue;
 
     // Check jk distance
 
     const KK_FLOAT dist_jk = get_dist(j,k);
 
-    if ((dist_ij < maxcut_3b_padded) && (dist_ik < maxcut_3b_padded) && (dist_jk < maxcut_3b_padded))
+    if ((dist_ij < maxcut_3b) && (dist_ik < maxcut_3b) && (dist_jk < maxcut_3b))
     {
       int typ_idxs[3];
       typ_idxs[0] = d_chimes_type[type[i]-1];
@@ -375,13 +382,17 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh3Body, c
 
       // If we're here and valid_3mer == true, then add the triplet to the chimes neigh list
 
-      const int ii3 = Kokkos::atomic_fetch_add(&d_size_3mers(),1);
+      if (final) {
+        if (offset < max_3mers) {
+          d_neighborlist_3mers(offset,0) = i;
+          d_neighborlist_3mers(offset,1) = j;
+          d_neighborlist_3mers(offset,2) = k;
+        }
 
-      if (ii3 < max_3mers) {
-        d_neighborlist_3mers(ii3,0) = i;
-        d_neighborlist_3mers(ii3,1) = j;
-        d_neighborlist_3mers(ii3,2) = k;
+        Kokkos::atomic_max(&d_size_3mers(),offset+1);
       }
+
+      offset++;
     }
   }
 }
@@ -404,7 +415,7 @@ void PairCHIMESKokkos<DeviceType>::neigh_4B_item(const int& ii, int &offset, con
   const KK_FLOAT dist_ik = get_dist(i,k);
   const KK_FLOAT dist_jk = get_dist(j,k);
 
-  if ((dist_ij >= maxcut_4b_padded) || (dist_ik >= maxcut_4b_padded) || (dist_jk >= maxcut_4b_padded))
+  if ((dist_ij >= maxcut_4b) || (dist_ik >= maxcut_4b) || (dist_jk >= maxcut_4b))
     return;
 
   // Now decide if we should continue on to 4-body neighbor list construction
@@ -426,21 +437,21 @@ void PairCHIMESKokkos<DeviceType>::neigh_4B_item(const int& ii, int &offset, con
 
     const KK_FLOAT dist_il = get_dist(i,l);
 
-    if (dist_il >= maxcut_4b_padded)
+    if (dist_il >= maxcut_4b)
       continue;
 
     // Check jl distance
 
     const KK_FLOAT dist_jl = get_dist(j,l);
 
-    if (dist_jl >= maxcut_4b_padded)
+    if (dist_jl >= maxcut_4b)
       continue;
 
     // Check kl distance
 
     const KK_FLOAT dist_kl = get_dist(k,l);
 
-    if (dist_kl >= maxcut_4b_padded)
+    if (dist_kl >= maxcut_4b)
       continue;
 
 
@@ -502,8 +513,7 @@ void PairCHIMESKokkos<DeviceType>::neigh_4B_item(const int& ii, int &offset, con
         d_neighborlist_4mers(offset,3) = l;
       }
 
-      //Kokkos::atomic_max(&d_size_4mers(),offset+1);
-      d_size_4mers() = MAX(d_size_4mers(),offset+1);
+      Kokkos::atomic_max(&d_size_4mers(),offset+1);
     }
 
     offset++;
@@ -589,6 +599,7 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     chimes_calculatorKK.resize_4B(size_4mers);
 
     if (0 && chimes_calculatorKK.rank == 0) {
+      std::cout << "      Rank " << comm->me << " 2-body list size: " << size_2mers << std::endl;
       std::cout << "      Rank " << comm->me << " 3-body list size: " << size_3mers << std::endl;
       std::cout << "      Rank " << comm->me << " 4-body list size: " << size_4mers << std::endl;
       std::cout << "      ...update complete" << std::endl;

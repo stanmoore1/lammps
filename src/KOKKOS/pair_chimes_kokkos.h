@@ -38,9 +38,6 @@ class PairCHIMESKokkos : public PairCHIMES
  public:
   struct TagPairCHIMESZero{};
 
-  struct TagPairCHIMESComputeNeigh2Body{};
-  struct TagPairCHIMESComputeNeigh3Body{};
-
   template<int NEIGHFLAG, int EVFLAG>
   struct TagPairCHIMESCompute1Body{};
 
@@ -69,10 +66,10 @@ class PairCHIMESKokkos : public PairCHIMES
   void operator()(TagPairCHIMESZero, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairCHIMESComputeNeigh2Body,const int& ii) const;
+  void neigh_2B_item(const int& ii, int& offset, const bool& final) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairCHIMESComputeNeigh3Body,const int& ii) const;
+  void neigh_3B_item(const int& ii, int& offset, const bool& final) const;
 
   KOKKOS_INLINE_FUNCTION
   void neigh_4B_item(const int& ii, int& offset, const bool& final) const;
@@ -184,6 +181,34 @@ class PairCHIMESKokkos : public PairCHIMES
                    KK_FLOAT, KK_FLOAT[6],
                    EV_FLOAT &ev) const;
 
+};
+
+template <class DeviceType>
+struct PairCHIMESComputeNeigh2BodyFunctor  {
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
+  typedef int value_type;
+  PairCHIMESKokkos<DeviceType> c;
+  PairCHIMESComputeNeigh2BodyFunctor(PairCHIMESKokkos<DeviceType>* c_ptr):c(*c_ptr) {};
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const int &ii, int &offset, const bool &final) const {
+    c.neigh_2B_item(ii,offset,final);
+  }
+};
+
+template <class DeviceType>
+struct PairCHIMESComputeNeigh3BodyFunctor  {
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
+  typedef int value_type;
+  PairCHIMESKokkos<DeviceType> c;
+  PairCHIMESComputeNeigh3BodyFunctor(PairCHIMESKokkos<DeviceType>* c_ptr):c(*c_ptr) {};
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const int &ii, int &offset, const bool &final) const {
+    c.neigh_3B_item(ii,offset,final);
+  }
 };
 
 template <class DeviceType>

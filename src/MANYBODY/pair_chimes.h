@@ -57,6 +57,7 @@ class PairCHIMES : public Pair {
   std::vector<int>
       chimes_type;    // For i = LMP atom type indx, chimes_type[i-1] gives the ChIMES parameter file type idx
 
+  double maxcut_2b;
   double maxcut_3b;
   double maxcut_4b;
 
