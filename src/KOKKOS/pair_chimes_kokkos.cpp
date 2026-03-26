@@ -247,8 +247,10 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
 
       Kokkos::deep_copy(d_size_4mers,0.0);
 
-      PairCHIMESComputeNeigh4BodyFunctor<DeviceType> neigh_4B_functor(this);
-      Kokkos::parallel_scan("ComputeNeigh4Body", size_3mers, neigh_4B_functor);
+      typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESComputeNeigh4Body> policy_neigh(0,size_3mers);
+      Kokkos::parallel_for("ComputeNeigh4Body",policy_neigh,*this);
+      //PairCHIMESComputeNeigh4BodyFunctor<DeviceType> neigh_4B_functor(this);
+      //Kokkos::parallel_scan("ComputeNeigh4Body", size_3mers, neigh_4B_functor);
 
       auto h_size_4mers = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_size_4mers);
 
@@ -401,7 +403,8 @@ void PairCHIMESKokkos<DeviceType>::neigh_3B_item(const int& ii, int &offset, con
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::neigh_4B_item(const int& ii, int &offset, const bool &final) const
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh4Body, const int& ii) const
+//void PairCHIMESKokkos<DeviceType>::neigh_4B_item(const int& ii, int &offset, const bool &final) const
 {
   const int i = d_neighborlist_3mers(ii,0);
   const int j = d_neighborlist_3mers(ii,1);
@@ -505,7 +508,9 @@ void PairCHIMESKokkos<DeviceType>::neigh_4B_item(const int& ii, int &offset, con
 
     // If we're here and valid_4mer == true, then add the quadruplet to the chimes neigh list
 
-    if (final) {
+    const int offset = Kokkos::atomic_fetch_add(&d_size_4mers(),1);
+
+    //if (final) {
       if (offset < max_4mers) {
         d_neighborlist_4mers(offset,0) = i;
         d_neighborlist_4mers(offset,1) = j;
@@ -513,10 +518,10 @@ void PairCHIMESKokkos<DeviceType>::neigh_4B_item(const int& ii, int &offset, con
         d_neighborlist_4mers(offset,3) = l;
       }
 
-      Kokkos::atomic_max(&d_size_4mers(),offset+1);
-    }
+      //Kokkos::atomic_max(&d_size_4mers(),offset+1);
+    //}
 
-    offset++;
+    //offset++;
   }
 }
 

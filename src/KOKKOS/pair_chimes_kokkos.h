@@ -38,6 +38,8 @@ class PairCHIMESKokkos : public PairCHIMES
  public:
   struct TagPairCHIMESZero{};
 
+  struct TagPairCHIMESComputeNeigh4Body{};
+
   template<int NEIGHFLAG, int EVFLAG>
   struct TagPairCHIMESCompute1Body{};
 
@@ -72,7 +74,8 @@ class PairCHIMESKokkos : public PairCHIMES
   void neigh_3B_item(const int& ii, int& offset, const bool& final) const;
 
   KOKKOS_INLINE_FUNCTION
-  void neigh_4B_item(const int& ii, int& offset, const bool& final) const;
+  void operator() (TagPairCHIMESComputeNeigh4Body,const int& ii) const;
+  //void neigh_4B_item(const int& ii, int& offset, const bool& final) const;
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
