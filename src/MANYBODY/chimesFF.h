@@ -29,7 +29,6 @@ using namespace std;
 // 3. A cubic style cutoff is assumed, and Tersoff is the only other style considered (see get_fcut)
 
 #define CHDIM 3                  // The number of spatial dimensions.
-#define USE_DISTANCE_TENSOR 1    // Use tensor of distances in computing stresses.
 
 // Temporary storage for ChIMES interaction.
 class chimes2BTmp {

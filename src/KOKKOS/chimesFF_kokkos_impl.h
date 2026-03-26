@@ -503,7 +503,7 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT& force_scalar_in) const
+void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT& force_scalar) const
 {
   // Compute 2b (input: 2 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -546,15 +546,15 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
   //const KK_FLOAT dx_inv = (dx > 0.0 ) ? 1.0 / dx : 1e20;
 
   energy += poly * fcut;
-  KK_FLOAT force_scalar = (fcut * dpoly_dx + fcutderiv * poly) / dx;
+  force_scalar = (fcut * dpoly_dx + fcutderiv * poly) / dx;
 
-  force[0*CHDIM+0] += force_scalar * dr[0];
-  force[0*CHDIM+1] += force_scalar * dr[1];
-  force[0*CHDIM+2] += force_scalar * dr[2];
+  force[0] += force_scalar * dr[0];
+  force[1] += force_scalar * dr[1];
+  force[2] += force_scalar * dr[2];
 
-  force[1*CHDIM+0] -= force_scalar * dr[0];
-  force[1*CHDIM+1] -= force_scalar * dr[1];
-  force[1*CHDIM+2] -= force_scalar * dr[2];
+  force[CHDIM+0] -= force_scalar * dr[0];
+  force[CHDIM+1] -= force_scalar * dr[1];
+  force[CHDIM+2] -= force_scalar * dr[2];
 
   // xx xy xz yy yz zz
   // 0  1  2  3  4  5
@@ -581,13 +581,13 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
 
     // Note: force_scalar is negative (LEF) 7/30/21
 
-    force[0*CHDIM+0] += force_scalar * dr[0];
-    force[0*CHDIM+1] += force_scalar * dr[1];
-    force[0*CHDIM+2] += force_scalar * dr[2];
+    force[0] += force_scalar * dr[0];
+    force[1] += force_scalar * dr[1];
+    force[2] += force_scalar * dr[2];
 
-    force[1*CHDIM+0] -= force_scalar * dr[0];
-    force[1*CHDIM+1] -= force_scalar * dr[1];
-    force[1*CHDIM+2] -= force_scalar * dr[2];
+    force[CHDIM+0] -= force_scalar * dr[0];
+    force[CHDIM+1] -= force_scalar * dr[1];
+    force[CHDIM+2] -= force_scalar * dr[2];
 
     // Update stress according to penalty force. (LEF) 07/30/21
 
@@ -598,8 +598,6 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
     stress[4] -= force_scalar * dr[1] * dr[2]; // yz tensor component
     stress[5] -= force_scalar * dr[2] * dr[2]; // zz tensor component
   }
-
-  force_scalar_in = force_scalar;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -618,7 +616,7 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar_in) const
+void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
 {
   // Compute 3b (input: 3 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -718,7 +716,6 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
 
   energy += poly * fcut_all;
 
-  KK_FLOAT force_scalar[npairs];
   force_scalar[0] = (fcut_all * dpoly_dx[0] + fcutderiv[0] * fcut[1] * fcut[2] * poly) / dx[0];
   force_scalar[1] = (fcut_all * dpoly_dx[1] + fcutderiv[1] * fcut[0] * fcut[2] * poly) / dx[1];
   force_scalar[2] = (fcut_all * dpoly_dx[2] + fcutderiv[2] * fcut[0] * fcut[1] * poly) / dx[2];
@@ -729,13 +726,13 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
 
   // Accumulate forces/stresses on/from the ij pair
 
-  force[0*CHDIM+0] += fscalar_0 * dr[0*CHDIM+0];
-  force[0*CHDIM+1] += fscalar_0 * dr[0*CHDIM+1];
-  force[0*CHDIM+2] += fscalar_0 * dr[0*CHDIM+2];
+  force[0] += fscalar_0 * dr[0];
+  force[1] += fscalar_0 * dr[1];
+  force[2] += fscalar_0 * dr[2];
 
-  force[1*CHDIM+0] -= fscalar_0 * dr[0*CHDIM+0];
-  force[1*CHDIM+1] -= fscalar_0 * dr[0*CHDIM+1];
-  force[1*CHDIM+2] -= fscalar_0 * dr[0*CHDIM+2];
+  force[CHDIM+0] -= fscalar_0 * dr[0];
+  force[CHDIM+1] -= fscalar_0 * dr[1];
+  force[CHDIM+2] -= fscalar_0 * dr[2];
 
   // dr2_3B looks like a function call, but the optimizer should remove it entirely
 #ifdef USE_DISTANCE_TENSOR
@@ -749,23 +746,23 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   stress[5] -= fscalar_0 * dr2_3B(dr2,0,2,0,2); // zz tensor component
 
 #else
-  stress[0] -= fscalar_0 * dr[0*CHDIM+0] * dr[0*CHDIM+0]; // xx tensor component
-  stress[1] -= fscalar_0 * dr[0*CHDIM+0] * dr[0*CHDIM+1]; // xy tensor component
-  stress[2] -= fscalar_0 * dr[0*CHDIM+0] * dr[0*CHDIM+2]; // xz tensor component
-  stress[3] -= fscalar_0 * dr[0*CHDIM+1] * dr[0*CHDIM+1]; // yy tensor component
-  stress[4] -= fscalar_0 * dr[0*CHDIM+1] * dr[0*CHDIM+2]; // yz tensor component
-  stress[5] -= fscalar_0 * dr[0*CHDIM+2] * dr[0*CHDIM+2]; // zz tensor component
+  stress[0] -= fscalar_0 * dr[0] * dr[0]; // xx tensor component
+  stress[1] -= fscalar_0 * dr[0] * dr[1]; // xy tensor component
+  stress[2] -= fscalar_0 * dr[0] * dr[2]; // xz tensor component
+  stress[3] -= fscalar_0 * dr[1] * dr[1]; // yy tensor component
+  stress[4] -= fscalar_0 * dr[1] * dr[2]; // yz tensor component
+  stress[5] -= fscalar_0 * dr[2] * dr[2]; // zz tensor component
 #endif
 
   // Accumulate forces/stresses on/from the ik pair
 
-  force[0*CHDIM+0] += fscalar_1 * dr[1*CHDIM+0];
-  force[0*CHDIM+1] += fscalar_1 * dr[1*CHDIM+1];
-  force[0*CHDIM+2] += fscalar_1 * dr[1*CHDIM+2];
+  force[0] += fscalar_1 * dr[CHDIM+0];
+  force[1] += fscalar_1 * dr[CHDIM+1];
+  force[2] += fscalar_1 * dr[CHDIM+2];
 
-  force[2*CHDIM+0] -= fscalar_1 * dr[1*CHDIM+0];
-  force[2*CHDIM+1] -= fscalar_1 * dr[1*CHDIM+1];
-  force[2*CHDIM+2] -= fscalar_1 * dr[1*CHDIM+2];
+  force[2*CHDIM+0] -= fscalar_1 * dr[CHDIM+0];
+  force[2*CHDIM+1] -= fscalar_1 * dr[CHDIM+1];
+  force[2*CHDIM+2] -= fscalar_1 * dr[CHDIM+2];
 
 #ifdef USE_DISTANCE_TENSOR
   stress[0] -= fscalar_1 * dr2_3B(dr2,1,0,1,0); // xx tensor component
@@ -775,19 +772,19 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   stress[4] -= fscalar_1 * dr2_3B(dr2,1,1,1,2); // yz tensor component
   stress[5] -= fscalar_1 * dr2_3B(dr2,1,2,1,2); // zz tensor component
 #else
-  stress[0] -= fscalar_1 * dr[1*CHDIM+0] * dr[1*CHDIM+0]; // xx tensor component
-  stress[1] -= fscalar_1 * dr[1*CHDIM+0] * dr[1*CHDIM+1]; // xy tensor component
-  stress[2] -= fscalar_1 * dr[1*CHDIM+0] * dr[1*CHDIM+2]; // xz tensor component
-  stress[3] -= fscalar_1 * dr[1*CHDIM+1] * dr[1*CHDIM+1]; // yy tensor component
-  stress[4] -= fscalar_1 * dr[1*CHDIM+1] * dr[1*CHDIM+2]; // yz tensor component
-  stress[5] -= fscalar_1 * dr[1*CHDIM+2] * dr[1*CHDIM+2]; // zz tensor component
+  stress[0] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+0]; // xx tensor component
+  stress[1] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+1]; // xy tensor component
+  stress[2] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+2]; // xz tensor component
+  stress[3] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+1]; // yy tensor component
+  stress[4] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+2]; // yz tensor component
+  stress[5] -= fscalar_1 * dr[CHDIM+2] * dr[CHDIM+2]; // zz tensor component
 #endif
 
   // Accumulate forces/stresses on/from the jk pair
 
-  force[1*CHDIM+0] += fscalar_2 * dr[2*CHDIM+0];
-  force[1*CHDIM+1] += fscalar_2 * dr[2*CHDIM+1];
-  force[1*CHDIM+2] += fscalar_2 * dr[2*CHDIM+2];
+  force[CHDIM+0] += fscalar_2 * dr[2*CHDIM+0];
+  force[CHDIM+1] += fscalar_2 * dr[2*CHDIM+1];
+  force[CHDIM+2] += fscalar_2 * dr[2*CHDIM+2];
 
   force[2*CHDIM+0] -= fscalar_2 * dr[2*CHDIM+0];
   force[2*CHDIM+1] -= fscalar_2 * dr[2*CHDIM+1];
@@ -808,10 +805,6 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   stress[4] -= fscalar_2 * dr[2*CHDIM+1] * dr[2*CHDIM+2]; // yz tensor component
   stress[5] -= fscalar_2 * dr[2*CHDIM+2] * dr[2*CHDIM+2]; // zz tensor component
 #endif
-
-  force_scalar_in[0] = force_scalar[0];
-  force_scalar_in[1] = force_scalar[1];
-  force_scalar_in[2] = force_scalar[2];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -828,7 +821,7 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar_in) const
+void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
 {
   // Compute 3b (input: 3 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -985,7 +978,6 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
 
   energy += poly * fcut_all;
 
-  KK_FLOAT force_scalar[npairs];
   for (int j = 0; j < npairs; j++)
     force_scalar[j] = (fcut_all * dpoly_dx[j] + fcutderiv[j] * fcut_5[j] * poly) / dx[j];
 
@@ -998,13 +990,13 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
 
   // Accumulate forces/stresses on/from the ij pair
 
-  force[0*CHDIM+0] += fscalar_0 * dr[0*CHDIM+0];
-  force[0*CHDIM+1] += fscalar_0 * dr[0*CHDIM+1];
-  force[0*CHDIM+2] += fscalar_0 * dr[0*CHDIM+2];
+  force[0] += fscalar_0 * dr[0];
+  force[1] += fscalar_0 * dr[1];
+  force[2] += fscalar_0 * dr[2];
 
-  force[1*CHDIM+0] -= fscalar_0 * dr[0*CHDIM+0];
-  force[1*CHDIM+1] -= fscalar_0 * dr[0*CHDIM+1];
-  force[1*CHDIM+2] -= fscalar_0 * dr[0*CHDIM+2];
+  force[CHDIM+0] -= fscalar_0 * dr[0];
+  force[CHDIM+1] -= fscalar_0 * dr[1];
+  force[CHDIM+2] -= fscalar_0 * dr[2];
 
 #ifdef USE_DISTANCE_TENSOR
   stress[0] -= fscalar_0 * dr2_4B(dr2,0,0,0,0); // xx tensor component
@@ -1014,24 +1006,24 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   stress[4] -= fscalar_0 * dr2_4B(dr2,0,1,0,2); // yz tensor component
   stress[5] -= fscalar_0 * dr2_4B(dr2,0,2,0,2); // zz tensor component
 #else
-  stress[0] -= fscalar_0 * dr[0*CHDIM+0] * dr[0*CHDIM+0]; // xx tensor component
-  stress[1] -= fscalar_0 * dr[0*CHDIM+0] * dr[0*CHDIM+1]; // xy tensor component
-  stress[2] -= fscalar_0 * dr[0*CHDIM+0] * dr[0*CHDIM+2]; // xz tensor component
-  stress[3] -= fscalar_0 * dr[0*CHDIM+1] * dr[0*CHDIM+1]; // yy tensor component
-  stress[4] -= fscalar_0 * dr[0*CHDIM+1] * dr[0*CHDIM+2]; // yz tensor component
-  stress[5] -= fscalar_0 * dr[0*CHDIM+2] * dr[0*CHDIM+2]; // zz tensor component
+  stress[0] -= fscalar_0 * dr[0] * dr[0]; // xx tensor component
+  stress[1] -= fscalar_0 * dr[0] * dr[1]; // xy tensor component
+  stress[2] -= fscalar_0 * dr[0] * dr[2]; // xz tensor component
+  stress[3] -= fscalar_0 * dr[1] * dr[1]; // yy tensor component
+  stress[4] -= fscalar_0 * dr[1] * dr[2]; // yz tensor component
+  stress[5] -= fscalar_0 * dr[2] * dr[2]; // zz tensor component
 #endif
 
   // Accumulate forces/stresses on/from the ik pair
 
-  force[0*CHDIM+0] += fscalar_1 * dr[1*CHDIM+0];
-  force[0*CHDIM+1] += fscalar_1 * dr[1*CHDIM+1];
-  force[0*CHDIM+2] += fscalar_1 * dr[1*CHDIM+2];
-  force[2*CHDIM+0] -= fscalar_1 * dr[1*CHDIM+0];
-  force[2*CHDIM+1] -= fscalar_1 * dr[1*CHDIM+1];
-  force[2*CHDIM+2] -= fscalar_1 * dr[1*CHDIM+2];
+  force[0] += fscalar_1 * dr[CHDIM+0];
+  force[1] += fscalar_1 * dr[CHDIM+1];
+  force[2] += fscalar_1 * dr[CHDIM+2];
+  force[2*CHDIM+0] -= fscalar_1 * dr[CHDIM+0];
+  force[2*CHDIM+1] -= fscalar_1 * dr[CHDIM+1];
+  force[2*CHDIM+2] -= fscalar_1 * dr[CHDIM+2];
 
-#if USE_DISTANCE_TENSOR
+#ifdef USE_DISTANCE_TENSOR
   stress[0] -= fscalar_1 * dr2_4B(dr2,1,0,1,0); // xx tensor component
   stress[1] -= fscalar_1 * dr2_4B(dr2,1,0,1,1); // xy tensor component
   stress[2] -= fscalar_1 * dr2_4B(dr2,1,0,1,2); // xz tensor component
@@ -1039,19 +1031,19 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   stress[4] -= fscalar_1 * dr2_4B(dr2,1,1,1,2); // yz tensor component
   stress[5] -= fscalar_1 * dr2_4B(dr2,1,2,1,2); // zz tensor component
 #else
-  stress[0] -= fscalar_1 * dr[1*CHDIM+0] * dr[1*CHDIM+0]; // xx tensor component
-  stress[1] -= fscalar_1 * dr[1*CHDIM+0] * dr[1*CHDIM+1]; // xy tensor component
-  stress[2] -= fscalar_1 * dr[1*CHDIM+0] * dr[1*CHDIM+2]; // xz tensor component
-  stress[3] -= fscalar_1 * dr[1*CHDIM+1] * dr[1*CHDIM+1]; // yy tensor component
-  stress[4] -= fscalar_1 * dr[1*CHDIM+1] * dr[1*CHDIM+2]; // yz tensor component
-  stress[5] -= fscalar_1 * dr[1*CHDIM+2] * dr[1*CHDIM+2]; // zz tensor component
+  stress[0] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+0]; // xx tensor component
+  stress[1] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+1]; // xy tensor component
+  stress[2] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+2]; // xz tensor component
+  stress[3] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+1]; // yy tensor component
+  stress[4] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+2]; // yz tensor component
+  stress[5] -= fscalar_1 * dr[CHDIM+2] * dr[CHDIM+2]; // zz tensor component
 #endif
 
   // Accumulate forces/stresses on/from the il pair
 
-  force[0*CHDIM+0] += fscalar_2 * dr[2*CHDIM+0];
-  force[0*CHDIM+1] += fscalar_2 * dr[2*CHDIM+1];
-  force[0*CHDIM+2] += fscalar_2 * dr[2*CHDIM+2];
+  force[0] += fscalar_2 * dr[2*CHDIM+0];
+  force[1] += fscalar_2 * dr[2*CHDIM+1];
+  force[2] += fscalar_2 * dr[2*CHDIM+2];
   force[3*CHDIM+0] -= fscalar_2 * dr[2*CHDIM+0];
   force[3*CHDIM+1] -= fscalar_2 * dr[2*CHDIM+1];
   force[3*CHDIM+2] -= fscalar_2 * dr[2*CHDIM+2];
@@ -1074,9 +1066,9 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
 
   // Accumulate forces/stresses on/from the jk pair
 
-  force[1*CHDIM+0] += fscalar_3 * dr[3*CHDIM+0];
-  force[1*CHDIM+1] += fscalar_3 * dr[3*CHDIM+1];
-  force[1*CHDIM+2] += fscalar_3 * dr[3*CHDIM+2];
+  force[CHDIM+0] += fscalar_3 * dr[3*CHDIM+0];
+  force[CHDIM+1] += fscalar_3 * dr[3*CHDIM+1];
+  force[CHDIM+2] += fscalar_3 * dr[3*CHDIM+2];
 
   force[2*CHDIM+0] -= fscalar_3 * dr[3*CHDIM+0];
   force[2*CHDIM+1] -= fscalar_3 * dr[3*CHDIM+1];
@@ -1100,9 +1092,9 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
 
   // Accumulate forces/stresses on/from the jl pair
 
-  force[1*CHDIM+0] += fscalar_4 * dr[4*CHDIM+0];
-  force[1*CHDIM+1] += fscalar_4 * dr[4*CHDIM+1];
-  force[1*CHDIM+2] += fscalar_4 * dr[4*CHDIM+2];
+  force[CHDIM+0] += fscalar_4 * dr[4*CHDIM+0];
+  force[CHDIM+1] += fscalar_4 * dr[4*CHDIM+1];
+  force[CHDIM+2] += fscalar_4 * dr[4*CHDIM+2];
 
   force[3*CHDIM+0] -= fscalar_4 * dr[4*CHDIM+0];
   force[3*CHDIM+1] -= fscalar_4 * dr[4*CHDIM+1];
@@ -1147,13 +1139,6 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   stress[4] -= fscalar_5 * dr[5*CHDIM+1] * dr[5*CHDIM+2]; // yz tensor component
   stress[5] -= fscalar_5 * dr[5*CHDIM+2] * dr[5*CHDIM+2]; // zz tensor component
 #endif
-
-  force_scalar_in[0] = force_scalar[0];
-  force_scalar_in[1] = force_scalar[1];
-  force_scalar_in[2] = force_scalar[2];
-  force_scalar_in[3] = force_scalar[3];
-  force_scalar_in[4] = force_scalar[4];
-  force_scalar_in[5] = force_scalar[5];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1249,7 +1234,6 @@ void chimesFFKokkos<DeviceType>::poly_3B(const int ii, KK_FLOAT &e, KK_FLOAT *f,
 // (LEF) 3/11/26
 {
   int powers[3];
-  KK_FLOAT deriv[3];
 
   e = 0.0;
   f[0] = 0.0;
@@ -1265,13 +1249,9 @@ void chimesFFKokkos<DeviceType>::poly_3B(const int ii, KK_FLOAT &e, KK_FLOAT *f,
 
     e += coeff * Tn_ij(ii,powers[0]) * Tn_ik(ii,powers[1]) * Tn_jk(ii,powers[2]);
 
-    deriv[0] = Tnd_ij(ii,powers[0]);
-    deriv[1] = Tnd_ik(ii,powers[1]);
-    deriv[2] = Tnd_jk(ii,powers[2]);
-
-    f[0] += coeff * deriv[0] * Tn_ik(ii,powers[1]) * Tn_jk(ii,powers[2]);
-    f[1] += coeff * deriv[1] * Tn_ij(ii,powers[0]) * Tn_jk(ii,powers[2]);
-    f[2] += coeff * deriv[2] * Tn_ij(ii,powers[0]) * Tn_ik(ii,powers[1]);
+    f[0] += coeff * Tnd_ij(ii,powers[0]) * Tn_ik(ii,powers[1]) * Tn_jk(ii,powers[2]);
+    f[1] += coeff * Tnd_ik(ii,powers[1]) * Tn_ij(ii,powers[0]) * Tn_jk(ii,powers[2]);
+    f[2] += coeff * Tnd_jk(ii,powers[2]) * Tn_ij(ii,powers[0]) * Tn_ik(ii,powers[1]);
   }
 }
 
