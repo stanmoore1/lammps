@@ -274,6 +274,11 @@ void PairCHIMESKokkos<DeviceType>::neigh_2B_item(const int& ii, int &offset, con
   const tagint itag = tag[i];
   const int jnum = d_numneigh[i];
 
+  int typ_idxs[2];
+  typ_idxs[0] = d_chimes_type[type[i]-1]; // Type (index) of the current atom
+
+  const int natmtyps = chimes_calculatorKK.natmtyps;
+
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
     j &= NEIGHMASK;
@@ -286,11 +291,8 @@ void PairCHIMESKokkos<DeviceType>::neigh_2B_item(const int& ii, int &offset, con
 
     const KK_FLOAT dist_ij = get_dist(i,j);
 
-    int typ_idxs[2];
-    typ_idxs[0] = d_chimes_type[type[i]-1]; // Type (index) of the current atom
     typ_idxs[1] = d_chimes_type[type[j]-1];
 
-    const int natmtyps = chimes_calculatorKK.natmtyps;
     const int pair_idx = chimes_calculatorKK.d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
 
     if (dist_ij >= chimes_calculatorKK.d_chimes_2b_cutoff(pair_idx,1)) continue;
@@ -317,12 +319,20 @@ void PairCHIMESKokkos<DeviceType>::neigh_3B_item(const int& ii, int &offset, con
   const int i = d_neighborlist_2mers(ii,0);
   const int j = d_neighborlist_2mers(ii,1);
 
+  const KK_FLOAT dist_ij = get_dist(i,j);
+  if (dist_ij >= maxcut_3b) return;
+
   const tagint itag = tag[i];
   const tagint jtag = tag[j];
 
-  const KK_FLOAT dist_ij = get_dist(i,j);
+  const int natmtyps = chimes_calculatorKK.natmtyps;
+  const auto &d_atom_int_trip_map = chimes_calculatorKK.d_atom_int_trip_map;
+  const auto &d_pair_int_trip_map = chimes_calculatorKK.d_pair_int_trip_map;
+  const auto &d_chimes_3b_cutoff = chimes_calculatorKK.d_chimes_3b_cutoff;
 
-  if (dist_ij >= maxcut_3b) return;
+  int typ_idxs[3];
+  typ_idxs[0] = d_chimes_type[type[i]-1];
+  typ_idxs[1] = d_chimes_type[type[j]-1];
 
   // ChIMES assumes all atoms must be within cutoff of each other for a valid interaction
   const int knum = d_numneigh[i];
@@ -348,15 +358,7 @@ void PairCHIMESKokkos<DeviceType>::neigh_3B_item(const int& ii, int &offset, con
 
     if ((dist_ij < maxcut_3b) && (dist_ik < maxcut_3b) && (dist_jk < maxcut_3b))
     {
-      int typ_idxs[3];
-      typ_idxs[0] = d_chimes_type[type[i]-1];
-      typ_idxs[1] = d_chimes_type[type[j]-1];
       typ_idxs[2] = d_chimes_type[type[k]-1];
-
-      const int natmtyps = chimes_calculatorKK.natmtyps;
-      const auto &d_atom_int_trip_map = chimes_calculatorKK.d_atom_int_trip_map;
-      const auto &d_pair_int_trip_map = chimes_calculatorKK.d_pair_int_trip_map;
-      const auto &d_chimes_3b_cutoff = chimes_calculatorKK.d_chimes_3b_cutoff;
 
       const int type_idx = typ_idxs[0]*natmtyps*natmtyps + typ_idxs[1]*natmtyps + typ_idxs[2];
       const int tripidx = d_atom_int_trip_map[type_idx];
@@ -407,16 +409,26 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh4Body, c
   const int j = d_neighborlist_3mers(ii,1);
   const int k = d_neighborlist_3mers(ii,2);
 
-  const tagint itag = tag[i];
-  const tagint jtag = tag[j];
-  const tagint ktag = tag[k];
-
   const KK_FLOAT dist_ij = get_dist(i,j);
   const KK_FLOAT dist_ik = get_dist(i,k);
   const KK_FLOAT dist_jk = get_dist(j,k);
 
   if ((dist_ij >= maxcut_4b) || (dist_ik >= maxcut_4b) || (dist_jk >= maxcut_4b))
     return;
+
+  const tagint itag = tag[i];
+  const tagint jtag = tag[j];
+  const tagint ktag = tag[k];
+
+  const int natmtyps = chimes_calculatorKK.natmtyps;
+  const auto &d_atom_int_quad_map = chimes_calculatorKK.d_atom_int_quad_map;
+  const auto &d_pair_int_quad_map = chimes_calculatorKK.d_pair_int_quad_map;
+  const auto &d_chimes_4b_cutoff = chimes_calculatorKK.d_chimes_4b_cutoff;
+
+  int typ_idxs[4];
+  typ_idxs[0] = d_chimes_type[type[i]-1];
+  typ_idxs[1] = d_chimes_type[type[j]-1];
+  typ_idxs[2] = d_chimes_type[type[k]-1];
 
   // Now decide if we should continue on to 4-body neighbor list construction
 
@@ -436,35 +448,19 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh4Body, c
     // Check il distance
 
     const KK_FLOAT dist_il = get_dist(i,l);
-
-    if (dist_il >= maxcut_4b)
-      continue;
+    if (dist_il >= maxcut_4b) continue;
 
     // Check jl distance
 
     const KK_FLOAT dist_jl = get_dist(j,l);
-
-    if (dist_jl >= maxcut_4b)
-      continue;
+    if (dist_jl >= maxcut_4b) continue;
 
     // Check kl distance
 
     const KK_FLOAT dist_kl = get_dist(k,l);
+    if (dist_kl >= maxcut_4b) continue;
 
-    if (dist_kl >= maxcut_4b)
-      continue;
-
-
-    int typ_idxs[4];
-    typ_idxs[0] = d_chimes_type[type[i]-1];
-    typ_idxs[1] = d_chimes_type[type[j]-1];
-    typ_idxs[2] = d_chimes_type[type[k]-1];
     typ_idxs[3] = d_chimes_type[type[l]-1];
-
-    const int natmtyps = chimes_calculatorKK.natmtyps;
-    const auto &d_atom_int_quad_map = chimes_calculatorKK.d_atom_int_quad_map;
-    const auto &d_pair_int_quad_map = chimes_calculatorKK.d_pair_int_quad_map;
-    const auto &d_chimes_4b_cutoff = chimes_calculatorKK.d_chimes_4b_cutoff;
 
     const int idx = typ_idxs[0]*natmtyps*natmtyps*natmtyps
         + typ_idxs[1]*natmtyps*natmtyps + typ_idxs[2]*natmtyps + typ_idxs[3];
@@ -1065,13 +1061,13 @@ void PairCHIMESKokkos<DeviceType>::ev_tally_mb(int ninteractionatoms, int npairs
 
   atmlist[0] = atmpairidxlst[0][0];       // i
 
-  if (ninteractionatoms>1) // 2, 3, and/or 4b
+  if (ninteractionatoms > 1) // 2, 3, and/or 4b
     atmlist[1] = atmpairidxlst[0][1];   // j
 
-  if (ninteractionatoms>2) // 3 and/or 4b
+  if (ninteractionatoms > 2) // 3 and/or 4b
     atmlist[2] = atmpairidxlst[1][1];   // k
 
-  if (ninteractionatoms>3) // 4b only
+  if (ninteractionatoms > 3) // 4b only
     atmlist[3] = atmpairidxlst[2][1];   // l
 
   if (eflag_global)
