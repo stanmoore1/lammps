@@ -230,12 +230,12 @@ class chimesFFKokkos : public chimesFF
   typename AT::t_int_1d d_ncoeffs_3b;              // [ntrips]
   typename AT::t_kkfloat_3d d_chimes_3b_powers;    // [ntrips][nparams][constit. pair]
   typename AT::t_kkfloat_2d d_chimes_3b_params;    // [ntrips][nparams]
-  typename AT::t_kkfloat_3d d_chimes_3b_cutoff;    // [ntrips][2][constit. pair] inner and outer cutoff for pair 1
+  typename AT::t_kkfloat_3d d_chimes_3b_cutoff;    // [ntrips][constit. pair][2] inner and outer cutoff for pair 1
 
   typename AT::t_int_1d d_ncoeffs_4b;          // [nquads]
   typename AT::t_int_3d d_chimes_4b_powers;    // [nquads][nparams][constit. pair]
   typename AT::t_kkfloat_2d d_chimes_4b_params;    // [nquads][nparams]
-  typename AT::t_kkfloat_3d d_chimes_4b_cutoff;    // [nquads][2][constit. pair] inner and outer cutoff for pair 1
+  typename AT::t_kkfloat_3d d_chimes_4b_cutoff;    // [nquads][constit. pair][2] inner and outer cutoff for pair 1
 
  private:
 
@@ -369,16 +369,16 @@ void chimesFFKokkos<DeviceType>::set_cheby_polys(const int ii, const typename AT
 
   // Do the Morse transformation
 
-  KK_FLOAT x_min = exp(-1*inner_cutoff/morse);
-  KK_FLOAT x_max = exp(-1*outer_cutoff/morse);
+  const KK_FLOAT x_min = exp(-1*inner_cutoff/morse);
+  const KK_FLOAT x_max = exp(-1*outer_cutoff/morse);
 
-  KK_FLOAT x_avg   = 0.5 * (x_max + x_min);
+  const KK_FLOAT x_avg   = 0.5 * (x_max + x_min);
   KK_FLOAT x_diff  = 0.5 * (x_max - x_min);
 
   x_diff *= -1.0; // Special for Morse style
 
   bool out_of_range;
-  KK_FLOAT dx_orig = dx;
+  const KK_FLOAT dx_orig = dx;
 
   // The case dx > outer_cutoff is not treated, because it is assumed that the outer smoothing
   //  function will be zero for dx > outer_cutoff
@@ -389,9 +389,9 @@ void chimesFFKokkos<DeviceType>::set_cheby_polys(const int ii, const typename AT
   } else
     out_of_range = false;
 
-  KK_FLOAT exprlen = exp(-1*dx/morse);
-  KK_FLOAT x = (exprlen - x_avg)/x_diff;
-  KK_FLOAT dx_dr = (-exprlen/morse)/x_diff;
+  const KK_FLOAT exprlen = exp(-1*dx/morse);
+  const  KK_FLOAT x = (exprlen - x_avg)/x_diff;
+  const KK_FLOAT dx_dr = (-exprlen/morse)/x_diff;
 
   if (!out_of_range) {
 

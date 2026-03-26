@@ -227,7 +227,9 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     }
   }
 
-  LAMMPS_NS::MemKK::realloc_kokkos(d_chimes_3b_cutoff,"chimesFF:chimes_3b_cutoff",size,max_j,max_k);
+  // last 2 indices are switched from the CPU code
+
+  LAMMPS_NS::MemKK::realloc_kokkos(d_chimes_3b_cutoff,"chimesFF:chimes_3b_cutoff",size,max_k,max_j);
 
   auto h_chimes_3b_cutoff = Kokkos::create_mirror_view(d_chimes_3b_cutoff);
 
@@ -236,7 +238,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     for (int j = 0; j < size_j; j++) {
       int size_k = chimes_3b_cutoff[i][j].size();
       for (int k = 0; k < size_k; k++) {
-        h_chimes_3b_cutoff(i,j,k) = chimes_3b_cutoff[i][j][k];
+        h_chimes_3b_cutoff(i,k,j) = chimes_3b_cutoff[i][j][k];
       }
     }
   }
@@ -323,7 +325,9 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     }
   }
 
-  LAMMPS_NS::MemKK::realloc_kokkos(d_chimes_4b_cutoff,"chimesFF:chimes_4b_cutoff",size,max_j,max_k);
+  // last 2 indices are switched from the CPU code
+
+  LAMMPS_NS::MemKK::realloc_kokkos(d_chimes_4b_cutoff,"chimesFF:chimes_4b_cutoff",size,max_k,max_j);
 
   auto h_chimes_4b_cutoff = Kokkos::create_mirror_view(d_chimes_4b_cutoff);
 
@@ -332,7 +336,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     for (int j = 0; j < size_j; j++) {
       int size_k = chimes_4b_cutoff[i][j].size();
       for (int k = 0; k < size_k; k++) {
-        h_chimes_4b_cutoff(i,j,k) = chimes_4b_cutoff[i][j][k];
+        h_chimes_4b_cutoff(i,k,j) = chimes_4b_cutoff[i][j][k];
       }
     }
   }
@@ -428,7 +432,7 @@ void chimesFFKokkos<DeviceType>::set_polys_out_of_range(const int ii, const type
   Tnd(ii,0) = 0.0;
 
   // Exponential damping of the derivative.
-  KK_FLOAT damp_fac = exp((dx-inner_cutoff) / inner_smooth_distance);
+  const KK_FLOAT damp_fac = exp((dx-inner_cutoff) / inner_smooth_distance);
 
   // Correct Tn outside of the range using the damping factor.
   for (int i = 0 ; i <= poly_order ; i++) {
@@ -660,20 +664,20 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   // Check whether cutoffs are within allowed ranges
   //auto d_mapped_pair_idx = d_pair_int_trip_map[type_idx];
 
-  const KK_FLOAT cutoff_0 = d_chimes_3b_cutoff(tripidx,1,d_pair_int_trip_map(type_idx,0));
-  const KK_FLOAT cutoff_00 = d_chimes_3b_cutoff(tripidx,0,d_pair_int_trip_map(type_idx,0));
+  const KK_FLOAT cutoff_00 = d_chimes_3b_cutoff(tripidx,d_pair_int_trip_map(type_idx,0),0);
+  const KK_FLOAT cutoff_0 = d_chimes_3b_cutoff(tripidx,d_pair_int_trip_map(type_idx,0),1);
 
   //if (dx[0] >= cutoff_0) // ij
   //  return;
 
-  const KK_FLOAT cutoff_1 = d_chimes_3b_cutoff(tripidx,1,d_pair_int_trip_map(type_idx,1));
-  const KK_FLOAT cutoff_01 = d_chimes_3b_cutoff(tripidx,0,d_pair_int_trip_map(type_idx,1));
+  const KK_FLOAT cutoff_01 = d_chimes_3b_cutoff(tripidx,d_pair_int_trip_map(type_idx,1),0);
+  const KK_FLOAT cutoff_1 = d_chimes_3b_cutoff(tripidx,d_pair_int_trip_map(type_idx,1),1);
 
   //if (dx[1] >= cutoff_1) // ik
   //  return;
 
-  const KK_FLOAT cutoff_2 = d_chimes_3b_cutoff(tripidx,1,d_pair_int_trip_map(type_idx,2));
-  const KK_FLOAT cutoff_02 = d_chimes_3b_cutoff(tripidx,0,d_pair_int_trip_map(type_idx,2));
+  const KK_FLOAT cutoff_02 = d_chimes_3b_cutoff(tripidx,d_pair_int_trip_map(type_idx,2),0);
+  const KK_FLOAT cutoff_2 = d_chimes_3b_cutoff(tripidx,d_pair_int_trip_map(type_idx,2),1);
 
   //if (dx[2] >= cutoff_2) // jk
   //  return;
@@ -881,38 +885,38 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
 */
   // These speed up fcut calculations by a LOT
 
-  const KK_FLOAT cutoff_0 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,0));
-  const KK_FLOAT cutoff_00 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,0));
+  const KK_FLOAT cutoff_00 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,0),0);
+  const KK_FLOAT cutoff_0 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,0),1);
 
   //if (dx[0] >= cutoff_0) // ij
   //  return;
 
-  const KK_FLOAT cutoff_1 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,1));
-  const KK_FLOAT cutoff_01 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,1));
+  const KK_FLOAT cutoff_01 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,1),0);
+  const KK_FLOAT cutoff_1 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,1),1);
 
   //if (dx[1] >= cutoff_1) // ik
   //  return;
 
-  const KK_FLOAT cutoff_2 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,2));
-  const KK_FLOAT cutoff_02 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,2));
+  const KK_FLOAT cutoff_02 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,2),0);
+  const KK_FLOAT cutoff_2 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,2),1);
 
   //if (dx[2] >= cutoff_2) // il
   //  return;
 
-  const KK_FLOAT cutoff_3 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,3));
-  const KK_FLOAT cutoff_03 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,3));
+  const KK_FLOAT cutoff_03 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,3),0);
+  const KK_FLOAT cutoff_3 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,3),1);
 
   //if (dx[3] >= cutoff_3) // jk
   //  return;
 
-  const KK_FLOAT cutoff_4 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,4));
-  const KK_FLOAT cutoff_04 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,4));
+  const KK_FLOAT cutoff_04 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,4),0);
+  const KK_FLOAT cutoff_4 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,4),1);
 
   //if (dx[4] >= cutoff_4) // jl
   //  return;
 
-  const KK_FLOAT cutoff_5 = d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,5));
-  const KK_FLOAT cutoff_05 = d_chimes_4b_cutoff(quadidx,0,d_pair_int_quad_map(idx,5));
+  const KK_FLOAT cutoff_05 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,5),0);
+  const KK_FLOAT cutoff_5 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,5),1);
 
   //if (dx[5] >= cutoff_5) // kl
   //  return;
@@ -1309,15 +1313,10 @@ void chimesFFKokkos<DeviceType>::poly_4B(const int ii, KK_FLOAT &e, KK_FLOAT *f,
     deriv[5] = Tnd_kl(ii,powers[5]);
 
     f[0] += coeff * deriv[0] * Tn_ik(ii,powers[1]) * Tn_il(ii,powers[2]) * Tn_jk_jl * Tn_kl_5;
-
     f[1] += coeff * deriv[1] * Tn_ij(ii,powers[0]) * Tn_il(ii,powers[2]) * Tn_jk_jl * Tn_kl_5;
-
     f[2] += coeff * deriv[2] * Tn_ij(ii,powers[0]) * Tn_ik(ii,powers[1]) * Tn_jk_jl * Tn_kl_5;
-
     f[3] += coeff * deriv[3] * Tn_ij_ik_il * Tn_jl(ii,powers[4]) * Tn_kl_5;
-
     f[4] += coeff * deriv[4] * Tn_ij_ik_il * Tn_jk(ii,powers[3]) * Tn_kl_5;
-
     f[5] += coeff * deriv[5] * Tn_ij_ik_il * Tn_jk_jl;
   }
 }

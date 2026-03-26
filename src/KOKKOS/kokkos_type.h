@@ -1261,6 +1261,7 @@ KOKKOS_DEVICE_DUALVIEW(int***, LMPDeviceLayout, int_3d)
 KOKKOS_DEVICE_DUALVIEW(int***, Kokkos::LayoutRight, int_3d_lr)
 KOKKOS_DEVICE_DUALVIEW(double***, Kokkos::LayoutRight, double_3d_lr)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT***, LMPDeviceLayout, kkfloat_3d)
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT***, Kokkos::LayoutRight, kkfloat_3d_lr)
 
 typedef TransformView<KK_FLOAT***, double***, LMPDeviceLayout> ttransform_kkfloat_3d;
 
@@ -1345,6 +1346,7 @@ KOKKOS_HOST_DUALVIEW(int***, LMPDeviceLayout, int_3d)
 KOKKOS_HOST_DUALVIEW(int***, Kokkos::LayoutRight, int_3d_lr)
 KOKKOS_HOST_DUALVIEW(double***, Kokkos::LayoutRight, double_3d_lr)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT***, LMPDeviceLayout, kkfloat_3d)
+KOKKOS_HOST_DUALVIEW(KK_FLOAT***, Kokkos::LayoutRight, kkfloat_3d_lr)
 
 // 4D view types
 
