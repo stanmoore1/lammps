@@ -1156,18 +1156,19 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkPrecomputeBondPri
   // We break the oxDNA: 3'neighbor(a) - a - b - 5'neighbor(b) convention here.
   // Instead, we have: a, b, 3'neighbor(a), 5'neighbor(b) - this is the order that
   // they are actually accessed in the main compute loop.
-  int id3p_local = -1; // default to -1 for cases where there is no 3' or 5' neighbor. (ends of strands, nicks, etc.)
-  const tagint id3_tag = id3p(atom_a); // tag of 3' neighbor of a
-  if (id3_tag != -1) {
-    int mapped = -1;
+  //
+  int id3p_local = -1; // default to -1 for cases where there is no 3' neighbor. (ends of strands, nicks, etc.)
+  const tagint id3p_tag = id3p(atom_a); // global index of 3' neighbor w.r.t. local atom a
+  int mapped = -1;
+  if (id3p_tag != -1) {
     if (map_style == Atom::MAP_ARRAY) {
       const auto map_array = k_map_array.view<DeviceType>();
       // if 3' tag is >= 0 and < max tag in map, then look up local index, else leave as -1
-      if (id3_tag >= 0 && id3_tag < static_cast<tagint>(map_array.extent(0)))
-        mapped = map_array(id3_tag);
+      if (id3p_tag >= 0 && id3p_tag < static_cast<tagint>(map_array.extent(0)))
+        mapped = map_array(id3p_tag);
     } else if (map_style == Atom::MAP_HASH) {
       // if 3' tag is not in map, mapped will be left as -1
-      mapped = AtomKokkos::map_find_hash_kokkos<DeviceType>(id3_tag,k_map_hash);
+      mapped = AtomKokkos::map_find_hash_kokkos<DeviceType>(id3p_tag,k_map_hash);
     }
     if (mapped >= 0) id3p_local = mapped;
   }
@@ -1175,15 +1176,15 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkPrecomputeBondPri
 
   // Same as above but for 5' neighbor of b
   int id5p_local = -1;
-  const tagint id5_tag = id5p(atom_b);
-  if (id5_tag != -1) {
-    int mapped = -1;
+  const tagint id5p_tag = id5p(atom_b);
+  if (id5p_tag != -1) {
+    mapped = -1;
     if (map_style == Atom::MAP_ARRAY) {
       const auto map_array = k_map_array.view<DeviceType>();
-      if (id5_tag >= 0 && id5_tag < static_cast<tagint>(map_array.extent(0)))
-        mapped = map_array(id5_tag);
+      if (id5p_tag >= 0 && id5p_tag < static_cast<tagint>(map_array.extent(0)))
+        mapped = map_array(id5p_tag);
     } else if (map_style == Atom::MAP_HASH) {
-      mapped = AtomKokkos::map_find_hash_kokkos<DeviceType>(id5_tag,k_map_hash);
+      mapped = AtomKokkos::map_find_hash_kokkos<DeviceType>(id5p_tag,k_map_hash);
     }
     if (mapped >= 0) id5p_local = mapped;
   }
