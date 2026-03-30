@@ -33,7 +33,7 @@ using namespace std;
 
 
 #define CHDIM 3 // The number of spatial dimensions.
-#define USE_DISTANCE_TENSOR 0 // Use tensor of distances in computing stresses.
+#define USE_DISTANCE_TENSOR 1 // Use tensor of distances in computing stresses.
 
 template<class DeviceType>
 class chimesFFKokkos : public chimesFF
