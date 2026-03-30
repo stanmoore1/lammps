@@ -33,7 +33,7 @@ using namespace std;
 
 
 #define CHDIM 3 // The number of spatial dimensions.
-#define USE_DISTANCE_TENSOR 1 // Use tensor of distances in computing stresses.
+#define USE_DISTANCE_TENSOR 0 // Use tensor of distances in computing stresses.
 
 template<class DeviceType>
 class chimesFFKokkos : public chimesFF
@@ -159,25 +159,25 @@ class chimesFFKokkos : public chimesFF
   KOKKOS_INLINE_FUNCTION
   void compute_1B(const int typ_idx, KK_FLOAT & energy) const;
 
-  // 2+B compute functions overloaded with force_scalar_in var for compatibility with LAMMPS
+  // 2+B compute functions overloaded with force_scalar var for compatibility with LAMMPS
 
   KOKKOS_INLINE_FUNCTION
   void compute_2B(const int ii, const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_2B(const int ii, const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT& force_scalar_in) const;
+  void compute_2B(const int ii, const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT& force_scalar) const;
 
   KOKKOS_INLINE_FUNCTION
   void compute_3B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_3B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force,KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar_in) const;
+  void compute_3B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force,KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
 
   KOKKOS_INLINE_FUNCTION
   void compute_4B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_4B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar_in) const;
+  void compute_4B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
 
   // Functions to aid using ChIMES Calculator for fitting
 
