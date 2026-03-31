@@ -617,10 +617,10 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     {
       if (eflag_either) {
         if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute1Body<HALF,1> > policy_2body(0,inum);
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute1Body<HALF> > policy_2body(0,inum);
           Kokkos::parallel_reduce("Compute1Body", policy_2body, *this, ev_tmp);
         } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute1Body<HALFTHREAD,1> > policy_2body(0,inum);
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute1Body<HALFTHREAD> > policy_2body(0,inum);
           Kokkos::parallel_reduce("Compute1Body", policy_2body, *this, ev_tmp);
         }
       }
@@ -746,9 +746,9 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-template<int NEIGHFLAG, int EVFLAG>
+template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute1Body<NEIGHFLAG,EVFLAG>, const int& ii, EV_FLOAT& ev) const
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute1Body<NEIGHFLAG>, const int& ii, EV_FLOAT& ev) const
 {
   ////////////////////////////////////////
   // Compute 1-body interactions
@@ -767,18 +767,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute1Body<NEIGHFL
   int atmidxlst[6][2];
   atmidxlst[0][0] = i;
 
-  if (EVFLAG)
-    ev_tally_mb<NEIGHFLAG>(1, 0, atmidxlst, energy, stensor, ev);
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-template<int NEIGHFLAG, int EVFLAG>
-KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute1Body<NEIGHFLAG,EVFLAG>,const int& ii) const {
-  EV_FLOAT ev;
-  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESCompute1Body<NEIGHFLAG,EVFLAG>(), ii, ev);
+  ev_tally_mb<NEIGHFLAG>(1, 0, atmidxlst, energy, stensor, ev);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -824,8 +813,8 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFL
 
   KK_FLOAT force_2b[2*CHDIM];
   for (int idx = 0; idx < 3; idx++) {
-    force_2b[0*CHDIM+idx] = 0.0;
-    force_2b[1*CHDIM+idx] = 0.0;
+    force_2b[idx] = 0.0;
+    force_2b[CHDIM+idx] = 0.0;
   }
 
   KK_FLOAT stensor[6];
@@ -834,15 +823,15 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFL
   chimes_calculatorKK.compute_2B(ii, dist, dr, typ_idxs_2b, force_2b, stensor, energy);      // Auto-updates badness
 
   for (int idx = 0; idx < 3; idx++) {
-    a_f(i,idx) += force_2b[0*CHDIM+idx];
-    a_f(j,idx) += force_2b[1*CHDIM+idx];
+    a_f(i,idx) += force_2b[idx];
+    a_f(j,idx) += force_2b[CHDIM+idx];
   }
 
   // "Save"/tally up the energy and stresses to the global virial/energy data objects (see pair.cpp ~ line 1000)
   // Compute pressure, (in contrast to chimes_md) AFTER penalty has been added
 
   int atmidxlst[6][2];
-  if (vflag_atom)
+  if (EVFLAG && vflag_atom)
   {
     atmidxlst[0][0] = i;
     atmidxlst[0][1] = j;
@@ -883,7 +872,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFL
 
   KK_FLOAT dist_3b[3], dr_3b[3*CHDIM];
   dist_3b[0] = get_dist(i,j,&dr_3b[0*CHDIM]);
-  dist_3b[1] = get_dist(i,k,&dr_3b[1*CHDIM]);
+  dist_3b[1] = get_dist(i,k,&dr_3b[CHDIM]);
   dist_3b[2] = get_dist(j,k,&dr_3b[2*CHDIM]);
 
   int typ_idxs_3b[3];
@@ -896,8 +885,8 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFL
   KK_FLOAT force_3b[3*CHDIM];
   for (int idx = 0; idx < 3; idx++)
   {
-    force_3b[0*CHDIM+idx] = 0.0;
-    force_3b[1*CHDIM+idx] = 0.0;
+    force_3b[idx] = 0.0;
+    force_3b[CHDIM+idx] = 0.0;
     force_3b[2*CHDIM+idx] = 0.0;
   }
 
@@ -908,14 +897,14 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFL
 
   for (int idx = 0; idx < 3; idx++)
   {
-    a_f(i,idx) += force_3b[0*CHDIM+idx];
-    a_f(j,idx) += force_3b[1*CHDIM+idx];
+    a_f(i,idx) += force_3b[idx];
+    a_f(j,idx) += force_3b[CHDIM+idx];
     a_f(k,idx) += force_3b[2*CHDIM+idx];
   }
 
   int atmidxlst[6][2];
 
-  if (vflag_atom)
+  if (EVFLAG && vflag_atom)
   {
     atmidxlst[0][0] = i;
     atmidxlst[0][1] = j;
@@ -925,7 +914,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFL
     atmidxlst[2][1] = k;
   }
 
-  if (evflag)
+  if (EVFLAG)
     ev_tally_mb<NEIGHFLAG>(3, 3, atmidxlst, energy, stensor, ev);
 }
 
@@ -961,7 +950,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute4Body<NEIGHFL
 
   KK_FLOAT dist_4b[6], dr_4b[6*CHDIM];
   dist_4b[0] = get_dist(i,j,&dr_4b[0*CHDIM]);
-  dist_4b[1] = get_dist(i,k,&dr_4b[1*CHDIM]);
+  dist_4b[1] = get_dist(i,k,&dr_4b[CHDIM]);
   dist_4b[2] = get_dist(i,l,&dr_4b[2*CHDIM]);
   dist_4b[3] = get_dist(j,k,&dr_4b[3*CHDIM]);
   dist_4b[4] = get_dist(j,l,&dr_4b[4*CHDIM]);
@@ -977,8 +966,8 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute4Body<NEIGHFL
 
   KK_FLOAT force_4b[4*CHDIM];
   for (int idx = 0; idx < 3; idx++) {
-    force_4b[0*CHDIM+idx] = 0.0;
-    force_4b[1*CHDIM+idx] = 0.0;
+    force_4b[idx] = 0.0;
+    force_4b[CHDIM+idx] = 0.0;
     force_4b[2*CHDIM+idx] = 0.0;
     force_4b[3*CHDIM+idx] = 0.0;
   }
@@ -989,15 +978,15 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute4Body<NEIGHFL
   chimes_calculatorKK.compute_4B(ii, dist_4b, dr_4b, typ_idxs_4b, force_4b, stensor, energy);
 
   for (int idx = 0; idx < 3; idx++) {
-    a_f(i,idx) += force_4b[0*CHDIM+idx];
-    a_f(j,idx) += force_4b[1*CHDIM+idx];
+    a_f(i,idx) += force_4b[idx];
+    a_f(j,idx) += force_4b[CHDIM+idx];
     a_f(k,idx) += force_4b[2*CHDIM+idx];
     a_f(l,idx) += force_4b[3*CHDIM+idx];
   }
 
   int atmidxlst[6][2];
 
-  if (vflag_atom) {
+  if (EVFLAG && vflag_atom) {
     atmidxlst[0][0] = i;
     atmidxlst[0][1] = j;
     atmidxlst[1][0] = i;
@@ -1012,7 +1001,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute4Body<NEIGHFL
     atmidxlst[5][1] = l;
   }
 
-  if (evflag)
+  if (EVFLAG)
     ev_tally_mb<NEIGHFLAG>(4, 6, atmidxlst, energy, stensor, ev);
 }
 
