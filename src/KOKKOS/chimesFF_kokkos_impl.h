@@ -20,6 +20,10 @@ using namespace std;
 #include "chimesFF_kokkos.h"
 #include "memory_kokkos.h"
 
+constexpr int max_2b_poly = 13;
+constexpr int max_3b_poly = 9;
+constexpr int max_4b_poly = 4;
+
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
@@ -400,7 +404,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::set_polys_out_of_range(const int ii, const typename AT::t_kkfloat_2d &Tn, const typename AT::t_kkfloat_2d &Tnd, KK_FLOAT dx, KK_FLOAT x, int poly_order, KK_FLOAT inner_cutoff, KK_FLOAT exprlen, KK_FLOAT dx_dr) const
+void chimesFFKokkos<DeviceType>::set_polys_out_of_range(const int ii, KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, KK_FLOAT x, int poly_order, KK_FLOAT inner_cutoff, KK_FLOAT exprlen, KK_FLOAT dx_dr) const
 {
   //  Sets the value of the Chebyshev polynomials (Tn) and their derivatives (Tnd) when dx is < inner_cutoff.
   //  Tnd is the derivative with respect to the interatomic distance, not the transformed distance (x).
@@ -410,34 +414,34 @@ void chimesFFKokkos<DeviceType>::set_polys_out_of_range(const int ii, const type
   //  x, exprlen, and dx_dr are evaluated at the inner cutoff.
   //	
   //  dx is the pair distance, which is assumed to be less than inner_cutoff.
-  Tn(ii,0) = 1.0;
-  Tn(ii,1) = x;
+  Tn[0] = 1.0;
+  Tn[1] = x;
 
   // Start the derivative setup. Set the first two 1st-kind Cheby's equal to the first two of the 2nd-kind
 
-  Tnd(ii,0) = 1.0;
-  Tnd(ii,1) = 2.0 * x;
+  Tnd[0] = 1.0;
+  Tnd[1] = 2.0 * x;
 
   // Use recursion to set up the higher n-value Tn and Tnd's
   for (int i = 2; i <= poly_order; i++) {
-    Tn(ii,i) = 2.0 * x * Tn(ii,i-1) - Tn(ii,i-2);
-    Tnd(ii,i) = 2.0 * x * Tnd(ii,i-1) - Tnd(ii,i-2);
+    Tn[i] = 2.0 * x * Tn[i-1] - Tn[i-2];
+    Tnd[i] = 2.0 * x * Tnd[i-1] - Tnd[i-2];
   }
 
   // Now multiply by n to convert Tnd's to actual derivatives of Tn
 
   for (int i = poly_order; i >= 1; i--)
-    Tnd(ii,i) = i * dx_dr * Tnd(ii,i-1);
+    Tnd[i] = i * dx_dr * Tnd[i-1];
 
-  Tnd(ii,0) = 0.0;
+  Tnd[0] = 0.0;
 
   // Exponential damping of the derivative.
   const KK_FLOAT damp_fac = exp((dx-inner_cutoff) / inner_smooth_distance);
 
   // Correct Tn outside of the range using the damping factor.
   for (int i = 0 ; i <= poly_order ; i++) {
-    Tn(ii,i) += inner_smooth_distance * (damp_fac-1.0)  * Tnd(ii,i);
-    Tnd(ii,i) *= damp_fac;
+    Tn[i] += inner_smooth_distance * (damp_fac-1.0)  * Tnd[i];
+    Tnd[i] *= damp_fac;
   }
 }
 
@@ -528,8 +532,10 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
 
   // Use references for readability
 
-  const typename AT::t_kkfloat_2d &Tn = chimes2BKK.d_Tn;
-  const typename AT::t_kkfloat_2d &Tnd = chimes2BKK.d_Tnd;
+  KK_FLOAT Tn[max_2b_poly];
+  KK_FLOAT Tnd[max_2b_poly];
+  //const typename AT::t_kkfloat_2d &Tn = chimes2BKK.d_Tn;
+  //const typename AT::t_kkfloat_2d &Tnd = chimes2BKK.d_Tnd;
 
   const int pair_idx = d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
 
@@ -646,12 +652,21 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   constexpr int natoms = 3;                   // Number of atoms in an interaction set
   constexpr int npairs = natoms*(natoms-1)/2; // Number of pairs in an interaction set
 
-  const typename AT::t_kkfloat_2d &Tn_ij = chimes3BKK.d_Tn_ij;
-  const typename AT::t_kkfloat_2d &Tn_ik = chimes3BKK.d_Tn_ik;
-  const typename AT::t_kkfloat_2d &Tn_jk = chimes3BKK.d_Tn_jk;   // The Chebyshev polymonials
-  const typename AT::t_kkfloat_2d &Tnd_ij = chimes3BKK.d_Tnd_ij;
-  const typename AT::t_kkfloat_2d &Tnd_ik = chimes3BKK.d_Tnd_ik;
-  const typename AT::t_kkfloat_2d &Tnd_jk = chimes3BKK.d_Tnd_jk;  // The Chebyshev polymonial derivatives
+  KK_FLOAT Tn_ij[max_3b_poly];
+  KK_FLOAT Tn_ik[max_3b_poly];
+  KK_FLOAT Tn_jk[max_3b_poly];
+
+  KK_FLOAT Tnd_ij[max_3b_poly];
+  KK_FLOAT Tnd_ik[max_3b_poly];
+  KK_FLOAT Tnd_jk[max_3b_poly];
+
+  //const typename AT::t_kkfloat_2d &Tn_ij = chimes3BKK.d_Tn_ij;
+  //const typename AT::t_kkfloat_2d &Tn_ik = chimes3BKK.d_Tn_ik;
+  //const typename AT::t_kkfloat_2d &Tn_jk = chimes3BKK.d_Tn_jk;   // The Chebyshev polymonials
+
+  //const typename AT::t_kkfloat_2d &Tnd_ij = chimes3BKK.d_Tnd_ij;
+  //const typename AT::t_kkfloat_2d &Tnd_ik = chimes3BKK.d_Tnd_ik;
+  //const typename AT::t_kkfloat_2d &Tnd_jk = chimes3BKK.d_Tnd_jk;  // The Chebyshev polymonial derivatives
 
   // Avoid allocating vector quantities.  Heap memory allocation is slow on the GPU.
   // fixed-length C arrays are allocated on the stack
@@ -861,19 +876,33 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   KK_FLOAT fcutderiv[npairs];
   KK_FLOAT deriv[npairs];
 
-  const typename AT::t_kkfloat_2d &Tn_ij = chimes4BKK.d_Tn_ij;
-  const typename AT::t_kkfloat_2d &Tn_ik = chimes4BKK.d_Tn_ik;
-  const typename AT::t_kkfloat_2d &Tn_il = chimes4BKK.d_Tn_il;
-  const typename AT::t_kkfloat_2d &Tn_jk = chimes4BKK.d_Tn_jk;
-  const typename AT::t_kkfloat_2d &Tn_jl = chimes4BKK.d_Tn_jl;
-  const typename AT::t_kkfloat_2d &Tn_kl = chimes4BKK.d_Tn_kl;
+  KK_FLOAT Tn_ij[max_4b_poly];
+  KK_FLOAT Tn_ik[max_4b_poly];
+  KK_FLOAT Tn_il[max_4b_poly];
+  KK_FLOAT Tn_jk[max_4b_poly];
+  KK_FLOAT Tn_jl[max_4b_poly];
+  KK_FLOAT Tn_kl[max_4b_poly];
 
-  const typename AT::t_kkfloat_2d &Tnd_ij = chimes4BKK.d_Tnd_ij;
-  const typename AT::t_kkfloat_2d &Tnd_ik = chimes4BKK.d_Tnd_ik;
-  const typename AT::t_kkfloat_2d &Tnd_il = chimes4BKK.d_Tnd_il;
-  const typename AT::t_kkfloat_2d &Tnd_jk = chimes4BKK.d_Tnd_jk;
-  const typename AT::t_kkfloat_2d &Tnd_jl = chimes4BKK.d_Tnd_jl;
-  const typename AT::t_kkfloat_2d &Tnd_kl = chimes4BKK.d_Tnd_kl;
+  KK_FLOAT Tnd_ij[max_4b_poly];
+  KK_FLOAT Tnd_ik[max_4b_poly];
+  KK_FLOAT Tnd_il[max_4b_poly];
+  KK_FLOAT Tnd_jk[max_4b_poly];
+  KK_FLOAT Tnd_jl[max_4b_poly];
+  KK_FLOAT Tnd_kl[max_4b_poly];
+
+  //const typename AT::t_kkfloat_2d &Tn_ij = chimes4BKK.d_Tn_ij;
+  //const typename AT::t_kkfloat_2d &Tn_ik = chimes4BKK.d_Tn_ik;
+  //const typename AT::t_kkfloat_2d &Tn_il = chimes4BKK.d_Tn_il;
+  //const typename AT::t_kkfloat_2d &Tn_jk = chimes4BKK.d_Tn_jk;
+  //const typename AT::t_kkfloat_2d &Tn_jl = chimes4BKK.d_Tn_jl;
+  //const typename AT::t_kkfloat_2d &Tn_kl = chimes4BKK.d_Tn_kl;
+
+  //const typename AT::t_kkfloat_2d &Tnd_ij = chimes4BKK.d_Tnd_ij;
+  //const typename AT::t_kkfloat_2d &Tnd_ik = chimes4BKK.d_Tnd_ik;
+  //const typename AT::t_kkfloat_2d &Tnd_il = chimes4BKK.d_Tnd_il;
+  //const typename AT::t_kkfloat_2d &Tnd_jk = chimes4BKK.d_Tnd_jk;
+  //const typename AT::t_kkfloat_2d &Tnd_jl = chimes4BKK.d_Tnd_jl;
+  //const typename AT::t_kkfloat_2d &Tnd_kl = chimes4BKK.d_Tnd_kl;
 
   const int idx = typ_idxs[0]*natmtyps*natmtyps*natmtyps
       + typ_idxs[1]*natmtyps*natmtyps + typ_idxs[2]*natmtyps + typ_idxs[3];
@@ -1236,7 +1265,7 @@ void chimesFFKokkos<DeviceType>::build_pair_int_trip_map()
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void chimesFFKokkos<DeviceType>::poly_2B(const int ii, KK_FLOAT &e, KK_FLOAT &f0, const int ncoeffs_2b, const int pair_idx,
-                                         const typename AT::t_kkfloat_2d &Tn, const typename AT::t_kkfloat_2d &Tnd) const
+                                         KK_FLOAT* Tn, KK_FLOAT* Tnd) const
 // Compute the 2 body polynomial (e) and derivatives with respect to the pair distance (f0)
 // (LEF) 3/11/26
 {
@@ -1246,8 +1275,8 @@ void chimesFFKokkos<DeviceType>::poly_2B(const int ii, KK_FLOAT &e, KK_FLOAT &f0
   for (int coeffs = 0; coeffs < ncoeffs_2b; coeffs++) {
     KK_FLOAT coeff_val = d_chimes_2b_params(pair_idx,coeffs);
 
-    e += coeff_val * Tn(ii,d_chimes_2b_pows(pair_idx,coeffs) + 1);
-    f0 += coeff_val * Tnd(ii,d_chimes_2b_pows(pair_idx,coeffs) + 1);
+    e += coeff_val * Tn[d_chimes_2b_pows(pair_idx,coeffs) + 1];
+    f0 += coeff_val * Tnd[d_chimes_2b_pows(pair_idx,coeffs) + 1];
   }
 }
 
@@ -1256,8 +1285,8 @@ void chimesFFKokkos<DeviceType>::poly_2B(const int ii, KK_FLOAT &e, KK_FLOAT &f0
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void chimesFFKokkos<DeviceType>::poly_3B(const int ii, KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3b, int tripidx, int idx,
-                                         const typename AT::t_kkfloat_2d &Tn_ij, const typename AT::t_kkfloat_2d &Tn_ik, const typename AT::t_kkfloat_2d &Tn_jk,
-                                         const typename AT::t_kkfloat_2d &Tnd_ij, const typename AT::t_kkfloat_2d &Tnd_ik, const typename AT::t_kkfloat_2d &Tnd_jk) const
+                                         KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_jk,
+                                         KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_jk) const
 // Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f)
 // (LEF) 3/11/26
 {
@@ -1275,11 +1304,11 @@ void chimesFFKokkos<DeviceType>::poly_3B(const int ii, KK_FLOAT &e, KK_FLOAT *f,
     powers[1] = d_chimes_3b_powers(tripidx,coeffs,d_pair_int_trip_map(idx,1));
     powers[2] = d_chimes_3b_powers(tripidx,coeffs,d_pair_int_trip_map(idx,2));
 
-    e += coeff * Tn_ij(ii,powers[0]) * Tn_ik(ii,powers[1]) * Tn_jk(ii,powers[2]);
+    e += coeff * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
 
-    f[0] += coeff * Tnd_ij(ii,powers[0]) * Tn_ik(ii,powers[1]) * Tn_jk(ii,powers[2]);
-    f[1] += coeff * Tnd_ik(ii,powers[1]) * Tn_ij(ii,powers[0]) * Tn_jk(ii,powers[2]);
-    f[2] += coeff * Tnd_jk(ii,powers[2]) * Tn_ij(ii,powers[0]) * Tn_ik(ii,powers[1]);
+    f[0] += coeff * Tnd_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
+    f[1] += coeff * Tnd_ik[powers[1]] * Tn_ij[powers[0]] * Tn_jk[powers[2]];
+    f[2] += coeff * Tnd_jk[powers[2]] * Tn_ij[powers[0]] * Tn_ik[powers[1]];
   }
 }
 
@@ -1288,10 +1317,10 @@ void chimesFFKokkos<DeviceType>::poly_3B(const int ii, KK_FLOAT &e, KK_FLOAT *f,
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void chimesFFKokkos<DeviceType>::poly_4B(const int ii, KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4b, int quadidx, int idx,
-                                         const typename AT::t_kkfloat_2d &Tn_ij, const typename AT::t_kkfloat_2d &Tn_ik, const typename AT::t_kkfloat_2d &Tn_il,
-                                         const typename AT::t_kkfloat_2d &Tn_jk, const typename AT::t_kkfloat_2d &Tn_jl, const typename AT::t_kkfloat_2d &Tn_kl,
-                                         const typename AT::t_kkfloat_2d &Tnd_ij, const typename AT::t_kkfloat_2d &Tnd_ik, const typename AT::t_kkfloat_2d &Tnd_il,
-                                         const typename AT::t_kkfloat_2d &Tnd_jk, const typename AT::t_kkfloat_2d &Tnd_jl, const typename AT::t_kkfloat_2d &Tnd_kl) const
+                                         KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_il,
+                                         KK_FLOAT* Tn_jk, KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl,
+                                         KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il,
+                                         KK_FLOAT* Tnd_jk, KK_FLOAT* Tnd_jl, KK_FLOAT* Tnd_kl) const
 // Compute the 4 body polynomial (e) and derivatives with respect to each pair distance (f)
 // (LEF) 3/11/26
 {
@@ -1307,24 +1336,24 @@ void chimesFFKokkos<DeviceType>::poly_4B(const int ii, KK_FLOAT &e, KK_FLOAT *f,
 
     for (int i = 0; i < npairs; i++) powers[i] = d_chimes_4b_powers(quadidx,coeffs,d_pair_int_quad_map(idx,i));
 
-    const KK_FLOAT Tn_ij_ik_il = Tn_ij(ii,powers[0]) * Tn_ik(ii,powers[1]) * Tn_il(ii,powers[2]);
-    const KK_FLOAT Tn_jk_jl = Tn_jk(ii,powers[3]) * Tn_jl(ii,powers[4]);
-    const KK_FLOAT Tn_kl_5 = Tn_kl(ii,powers[5]);
+    const KK_FLOAT Tn_ij_ik_il = Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]];
+    const KK_FLOAT Tn_jk_jl = Tn_jk[powers[3]] * Tn_jl[powers[4]];
+    const KK_FLOAT Tn_kl_5 = Tn_kl[powers[5]];
 
     e += coeff * Tn_ij_ik_il * Tn_jk_jl * Tn_kl_5;
 
-    deriv[0] = Tnd_ij(ii,powers[0]);
-    deriv[1] = Tnd_ik(ii,powers[1]);
-    deriv[2] = Tnd_il(ii,powers[2]);
-    deriv[3] = Tnd_jk(ii,powers[3]);
-    deriv[4] = Tnd_jl(ii,powers[4]);
-    deriv[5] = Tnd_kl(ii,powers[5]);
+    deriv[0] = Tnd_ij[powers[0]];
+    deriv[1] = Tnd_ik[powers[1]];
+    deriv[2] = Tnd_il[powers[2]];
+    deriv[3] = Tnd_jk[powers[3]];
+    deriv[4] = Tnd_jl[powers[4]];
+    deriv[5] = Tnd_kl[powers[5]];
 
-    f[0] += coeff * deriv[0] * Tn_ik(ii,powers[1]) * Tn_il(ii,powers[2]) * Tn_jk_jl * Tn_kl_5;
-    f[1] += coeff * deriv[1] * Tn_ij(ii,powers[0]) * Tn_il(ii,powers[2]) * Tn_jk_jl * Tn_kl_5;
-    f[2] += coeff * deriv[2] * Tn_ij(ii,powers[0]) * Tn_ik(ii,powers[1]) * Tn_jk_jl * Tn_kl_5;
-    f[3] += coeff * deriv[3] * Tn_ij_ik_il * Tn_jl(ii,powers[4]) * Tn_kl_5;
-    f[4] += coeff * deriv[4] * Tn_ij_ik_il * Tn_jk(ii,powers[3]) * Tn_kl_5;
+    f[0] += coeff * deriv[0] * Tn_ik[powers[1]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
+    f[1] += coeff * deriv[1] * Tn_ij[powers[0]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
+    f[2] += coeff * deriv[2] * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk_jl * Tn_kl_5;
+    f[3] += coeff * deriv[3] * Tn_ij_ik_il * Tn_jl[powers[4]] * Tn_kl_5;
+    f[4] += coeff * deriv[4] * Tn_ij_ik_il * Tn_jk[powers[3]] * Tn_kl_5;
     f[5] += coeff * deriv[5] * Tn_ij_ik_il * Tn_jk_jl;
   }
 }

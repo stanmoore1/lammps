@@ -244,28 +244,28 @@ class chimesFFKokkos : public chimesFF
   // Tools for compute functions
 
   KOKKOS_INLINE_FUNCTION
-  void set_cheby_polys(const int ii, const typename AT::t_kkfloat_2d &Tn, const typename AT::t_kkfloat_2d &Tnd, KK_FLOAT dx, const KK_FLOAT morse,
+  void set_cheby_polys(const int ii, KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, const KK_FLOAT morse,
                        const KK_FLOAT inner_cutoff, const KK_FLOAT outer_cutoff, const int order) const;
 
   KOKKOS_INLINE_FUNCTION
   void poly_2B(const int ii, KK_FLOAT &e, KK_FLOAT &f0, int ncoeffs_2b, int pair_idx,
-               const typename AT::t_kkfloat_2d &Tn, const typename AT::t_kkfloat_2d &Tnd) const;
+               KK_FLOAT* Tn, KK_FLOAT* Tnd) const;
 
 
   KOKKOS_INLINE_FUNCTION
   void poly_3B(const int ii, KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3b, int tripidx, int idx,
-               const typename AT::t_kkfloat_2d &Tn_ij, const typename AT::t_kkfloat_2d &Tn_ik, const typename AT::t_kkfloat_2d &Tn_jk,
-               const typename AT::t_kkfloat_2d &Tnd_ij, const typename AT::t_kkfloat_2d &Tnd_ik, const typename AT::t_kkfloat_2d &Tnd_jk) const;
+               KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_jk,
+               KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_jk) const;
 
   KOKKOS_INLINE_FUNCTION
   void poly_4B(const int ii, KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4b, int quadidx, int idx,
-               const typename AT::t_kkfloat_2d &Tn_ij, const typename AT::t_kkfloat_2d &Tn_ik, const typename AT::t_kkfloat_2d &Tn_il,
-               const typename AT::t_kkfloat_2d &Tn_jk, const typename AT::t_kkfloat_2d &Tn_jl, const typename AT::t_kkfloat_2d &Tn_kl,
-               const typename AT::t_kkfloat_2d &Tnd_ij, const typename AT::t_kkfloat_2d &Tnd_ik, const typename AT::t_kkfloat_2d &Tnd_il,
-               const typename AT::t_kkfloat_2d &Tnd_jk, const typename AT::t_kkfloat_2d &Tnd_jl, const typename AT::t_kkfloat_2d &Tnd_kl) const;
+               KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_il,
+               KK_FLOAT* Tn_jk, KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl,
+               KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il,
+               KK_FLOAT* Tnd_jk, KK_FLOAT* Tnd_jl, KK_FLOAT* Tnd_kl) const;
 
   KOKKOS_INLINE_FUNCTION
-  void set_polys_out_of_range(const int ii, const typename AT::t_kkfloat_2d &d_Tn, const typename AT::t_kkfloat_2d &d_Tnd, KK_FLOAT dx, KK_FLOAT x,
+  void set_polys_out_of_range(const int ii, KK_FLOAT* d_Tn, KK_FLOAT* d_Tnd, KK_FLOAT dx, KK_FLOAT x,
                               int poly_order, KK_FLOAT inner_cutoff, KK_FLOAT exprlen, KK_FLOAT dx_dr) const;
 
   KOKKOS_INLINE_FUNCTION
@@ -361,7 +361,7 @@ void chimesFFKokkos<DeviceType>::get_penalty(const KK_FLOAT dx, const int& pair_
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::set_cheby_polys(const int ii, const typename AT::t_kkfloat_2d &Tn, const typename AT::t_kkfloat_2d &Tnd, KK_FLOAT dx, const KK_FLOAT morse,
+void chimesFFKokkos<DeviceType>::set_cheby_polys(const int ii, KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, const KK_FLOAT morse,
                                      const KK_FLOAT inner_cutoff, const KK_FLOAT outer_cutoff, const int order) const
 {
   // Currently assumes a Morse-style transformation has been requested
@@ -410,19 +410,19 @@ void chimesFFKokkos<DeviceType>::set_cheby_polys(const int ii, const typename AT
 
     // First two 1st-kind Chebys:
 
-    Tn(ii,0) = 1.0;
-    Tn(ii,1) = x;
+    Tn[0] = 1.0;
+    Tn[1] = x;
 
     // Start the derivative setup. Set the first two 1st-kind Cheby's equal to the first two of the 2nd-kind
 
-    Tnd(ii,0) = 1.0;
-    Tnd(ii,1) = 2.0 * x;
+    Tnd[0] = 1.0;
+    Tnd[1] = 2.0 * x;
 
     // Use recursion to set up the higher n-value Tn and Tnd's
 
     for (int i = 2; i <= order; i++) {
-      Tn(ii, i)  = 2.0 * x *  Tn(ii, i-1) -  Tn(ii, i-2);
-      Tnd(ii, i) = 2.0 * x * Tnd(ii, i-1) - Tnd(ii, i-2);
+      Tn[i]  = 2.0 * x *  Tn[i-1] -  Tn[i-2];
+      Tnd[i] = 2.0 * x * Tnd[i-1] - Tnd[i-2];
     }
 
     // Now multiply by n to convert Tnd's to actual derivatives of Tn
@@ -431,9 +431,9 @@ void chimesFFKokkos<DeviceType>::set_cheby_polys(const int ii, const typename AT
     // DERIV_CONST is no longer used. (old way: dx_dr = DERIV_CONST*cheby_var_deriv(x_diff, rlen, ff_2body.LAMBDA, ff_2body.CHEBY_TYPE, exprlen);)
 
     for (int i = order; i >= 1; i--)
-      Tnd(ii, i) = i * dx_dr * Tnd(ii, i-1);
+      Tnd[i] = i * dx_dr * Tnd[i-1];
 
-    Tnd(ii,0) = 0.0;
+    Tnd[0] = 0.0;
   } else { // out_of_range == true
     //////cout << "Warning: An intermolecular distance less than the inner cutoff = " << inner_cutoff << " was found\n ";
     //////cout << "         Distance = " << dx_orig << endl;
