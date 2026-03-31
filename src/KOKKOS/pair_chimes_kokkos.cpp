@@ -552,6 +552,9 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     vflag_atom = 0;
   }
 
+  chimes_calculatorKK.eflag = eflag_either;
+  chimes_calculatorKK.vflag = vflag_either;
+
   ////////////////////////////////////////
   // Access to (2-body) neighbor list vars
   ////////////////////////////////////////
@@ -612,21 +615,13 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     //Compute1Body
     {
-      if (evflag) {
+      if (eflag_either) {
         if (neighflag == HALF) {
           typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute1Body<HALF,1> > policy_2body(0,inum);
           Kokkos::parallel_reduce("Compute1Body", policy_2body, *this, ev_tmp);
         } else if (neighflag == HALFTHREAD) {
           typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute1Body<HALFTHREAD,1> > policy_2body(0,inum);
           Kokkos::parallel_reduce("Compute1Body", policy_2body, *this, ev_tmp);
-        }
-      } else {
-        if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute1Body<HALF,0> > policy_2body(0,inum);
-          Kokkos::parallel_for("Compute1Body", policy_2body, *this);
-        } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute1Body<HALFTHREAD,0> > policy_2body(0,inum);
-          Kokkos::parallel_for("Compute1Body", policy_2body, *this);
         }
       }
     }

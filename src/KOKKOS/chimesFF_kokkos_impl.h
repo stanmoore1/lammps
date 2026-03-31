@@ -25,7 +25,7 @@ using namespace std;
 template<class DeviceType>
 chimesFFKokkos<DeviceType>::chimesFFKokkos() : chimesFF()
 {
-
+ eflag = vflag = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -545,7 +545,9 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
 
   //const KK_FLOAT dx_inv = (dx > 0.0 ) ? 1.0 / dx : 1e20;
 
-  energy += poly * fcut;
+  if (eflag)
+    energy += poly * fcut;
+
   force_scalar = (fcut * dpoly_dx + fcutderiv * poly) / dx;
 
   force[0] += force_scalar * dr[0];
@@ -563,19 +565,22 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
   // 0  1  2  3  4  5  6  7  8
   // *           *           *
 
-  stress[0] -= force_scalar * dr[0] * dr[0]; // xx tensor component
-  stress[1] -= force_scalar * dr[0] * dr[1]; // xy tensor component
-  stress[2] -= force_scalar * dr[0] * dr[2]; // xz tensor component
-  stress[3] -= force_scalar * dr[1] * dr[1]; // yy tensor component
-  stress[4] -= force_scalar * dr[1] * dr[2]; // yz tensor component
-  stress[5] -= force_scalar * dr[2] * dr[2]; // zz tensor component
+  if (vflag) {
+    stress[0] -= force_scalar * dr[0] * dr[0]; // xx tensor component
+    stress[1] -= force_scalar * dr[0] * dr[1]; // xy tensor component
+    stress[2] -= force_scalar * dr[0] * dr[2]; // xz tensor component
+    stress[3] -= force_scalar * dr[1] * dr[1]; // yy tensor component
+    stress[4] -= force_scalar * dr[1] * dr[2]; // yz tensor component
+    stress[5] -= force_scalar * dr[2] * dr[2]; // zz tensor component
+  }
 
   KK_FLOAT E_penalty = 0.0;
   get_penalty(dx, pair_idx, E_penalty, force_scalar);
 
   if (E_penalty > 0.0 )
   {
-    energy += E_penalty;
+    if (eflag)
+      energy += E_penalty;
 
     force_scalar /= dx;
 
@@ -591,12 +596,14 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
 
     // Update stress according to penalty force. (LEF) 07/30/21
 
-    stress[0] -= force_scalar * dr[0] * dr[0]; // xx tensor component
-    stress[1] -= force_scalar * dr[0] * dr[1]; // xy tensor component
-    stress[2] -= force_scalar * dr[0] * dr[2]; // xz tensor component
-    stress[3] -= force_scalar * dr[1] * dr[1]; // yy tensor component
-    stress[4] -= force_scalar * dr[1] * dr[2]; // yz tensor component
-    stress[5] -= force_scalar * dr[2] * dr[2]; // zz tensor component
+    if (vflag) {
+      stress[0] -= force_scalar * dr[0] * dr[0]; // xx tensor component
+      stress[1] -= force_scalar * dr[0] * dr[1]; // xy tensor component
+      stress[2] -= force_scalar * dr[0] * dr[2]; // xz tensor component
+      stress[3] -= force_scalar * dr[1] * dr[1]; // yy tensor component
+      stress[4] -= force_scalar * dr[1] * dr[2]; // yz tensor component
+      stress[5] -= force_scalar * dr[2] * dr[2]; // zz tensor component
+    }
   }
 }
 
@@ -691,7 +698,8 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   // Tensor product of displacement vectors
 
   KK_FLOAT dr2[CHDIM*CHDIM*npairs*npairs];
-  init_distance_tensor(dr2, dr, npairs);
+  if (eflag)
+    init_distance_tensor(dr2, dr, npairs);
 #endif
 
   // Set up the polynomials
@@ -714,7 +722,8 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   poly_3B(ii, poly, dpoly_dx, d_ncoeffs_3b[tripidx], tripidx, type_idx,
           Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
 
-  energy += poly * fcut_all;
+  if (eflag)
+    energy += poly * fcut_all;
 
   force_scalar[0] = (fcut_all * dpoly_dx[0] + fcutderiv[0] * fcut[1] * fcut[2] * poly) / dx[0];
   force_scalar[1] = (fcut_all * dpoly_dx[1] + fcutderiv[1] * fcut[0] * fcut[2] * poly) / dx[1];
@@ -735,24 +744,26 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   force[CHDIM+2] -= fscalar_0 * dr[2];
 
   // dr2_3B looks like a function call, but the optimizer should remove it entirely
+  if (vflag) {
 #ifdef USE_DISTANCE_TENSOR
-  // New stress code
+    // New stress code
 
-  stress[0] -= fscalar_0 * dr2_3B(dr2,0,0,0,0); // xx tensor component
-  stress[1] -= fscalar_0 * dr2_3B(dr2,0,0,0,1); // xy tensor component
-  stress[2] -= fscalar_0 * dr2_3B(dr2,0,0,0,2); // xz tensor component
-  stress[3] -= fscalar_0 * dr2_3B(dr2,0,1,0,1); // yy tensor component
-  stress[4] -= fscalar_0 * dr2_3B(dr2,0,1,0,2); // yz tensor component
-  stress[5] -= fscalar_0 * dr2_3B(dr2,0,2,0,2); // zz tensor component
+    stress[0] -= fscalar_0 * dr2_3B(dr2,0,0,0,0); // xx tensor component
+    stress[1] -= fscalar_0 * dr2_3B(dr2,0,0,0,1); // xy tensor component
+    stress[2] -= fscalar_0 * dr2_3B(dr2,0,0,0,2); // xz tensor component
+    stress[3] -= fscalar_0 * dr2_3B(dr2,0,1,0,1); // yy tensor component
+    stress[4] -= fscalar_0 * dr2_3B(dr2,0,1,0,2); // yz tensor component
+    stress[5] -= fscalar_0 * dr2_3B(dr2,0,2,0,2); // zz tensor component
 
 #else
-  stress[0] -= fscalar_0 * dr[0] * dr[0]; // xx tensor component
-  stress[1] -= fscalar_0 * dr[0] * dr[1]; // xy tensor component
-  stress[2] -= fscalar_0 * dr[0] * dr[2]; // xz tensor component
-  stress[3] -= fscalar_0 * dr[1] * dr[1]; // yy tensor component
-  stress[4] -= fscalar_0 * dr[1] * dr[2]; // yz tensor component
-  stress[5] -= fscalar_0 * dr[2] * dr[2]; // zz tensor component
+    stress[0] -= fscalar_0 * dr[0] * dr[0]; // xx tensor component
+    stress[1] -= fscalar_0 * dr[0] * dr[1]; // xy tensor component
+    stress[2] -= fscalar_0 * dr[0] * dr[2]; // xz tensor component
+    stress[3] -= fscalar_0 * dr[1] * dr[1]; // yy tensor component
+    stress[4] -= fscalar_0 * dr[1] * dr[2]; // yz tensor component
+    stress[5] -= fscalar_0 * dr[2] * dr[2]; // zz tensor component
 #endif
+  }
 
   // Accumulate forces/stresses on/from the ik pair
 
@@ -764,21 +775,23 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   force[2*CHDIM+1] -= fscalar_1 * dr[CHDIM+1];
   force[2*CHDIM+2] -= fscalar_1 * dr[CHDIM+2];
 
+  if (vflag) {
 #ifdef USE_DISTANCE_TENSOR
-  stress[0] -= fscalar_1 * dr2_3B(dr2,1,0,1,0); // xx tensor component
-  stress[1] -= fscalar_1 * dr2_3B(dr2,1,0,1,1); // xy tensor component
-  stress[2] -= fscalar_1 * dr2_3B(dr2,1,0,1,2); // xz tensor component
-  stress[3] -= fscalar_1 * dr2_3B(dr2,1,1,1,1); // yy tensor component
-  stress[4] -= fscalar_1 * dr2_3B(dr2,1,1,1,2); // yz tensor component
-  stress[5] -= fscalar_1 * dr2_3B(dr2,1,2,1,2); // zz tensor component
+    stress[0] -= fscalar_1 * dr2_3B(dr2,1,0,1,0); // xx tensor component
+    stress[1] -= fscalar_1 * dr2_3B(dr2,1,0,1,1); // xy tensor component
+    stress[2] -= fscalar_1 * dr2_3B(dr2,1,0,1,2); // xz tensor component
+    stress[3] -= fscalar_1 * dr2_3B(dr2,1,1,1,1); // yy tensor component
+    stress[4] -= fscalar_1 * dr2_3B(dr2,1,1,1,2); // yz tensor component
+    stress[5] -= fscalar_1 * dr2_3B(dr2,1,2,1,2); // zz tensor component
 #else
-  stress[0] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+0]; // xx tensor component
-  stress[1] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+1]; // xy tensor component
-  stress[2] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+2]; // xz tensor component
-  stress[3] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+1]; // yy tensor component
-  stress[4] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+2]; // yz tensor component
-  stress[5] -= fscalar_1 * dr[CHDIM+2] * dr[CHDIM+2]; // zz tensor component
+    stress[0] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+0]; // xx tensor component
+    stress[1] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+1]; // xy tensor component
+    stress[2] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+2]; // xz tensor component
+    stress[3] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+1]; // yy tensor component
+    stress[4] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+2]; // yz tensor component
+    stress[5] -= fscalar_1 * dr[CHDIM+2] * dr[CHDIM+2]; // zz tensor component
 #endif
+  }
 
   // Accumulate forces/stresses on/from the jk pair
 
@@ -790,21 +803,23 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   force[2*CHDIM+1] -= fscalar_2 * dr[2*CHDIM+1];
   force[2*CHDIM+2] -= fscalar_2 * dr[2*CHDIM+2];
 
+  if (vflag) {
 #ifdef USE_DISTANCE_TENSOR
-  stress[0] -= fscalar_2 * dr2_3B(dr2,2,0,2,0); // xx tensor component
-  stress[1] -= fscalar_2 * dr2_3B(dr2,2,0,2,1); // xy tensor component
-  stress[2] -= fscalar_2 * dr2_3B(dr2,2,0,2,2); // xz tensor component
-  stress[3] -= fscalar_2 * dr2_3B(dr2,2,1,2,1); // yy tensor component
-  stress[4] -= fscalar_2 * dr2_3B(dr2,2,1,2,2); // yz tensor component
-  stress[5] -= fscalar_2 * dr2_3B(dr2,2,2,2,2); // zz tensor component
+    stress[0] -= fscalar_2 * dr2_3B(dr2,2,0,2,0); // xx tensor component
+    stress[1] -= fscalar_2 * dr2_3B(dr2,2,0,2,1); // xy tensor component
+    stress[2] -= fscalar_2 * dr2_3B(dr2,2,0,2,2); // xz tensor component
+    stress[3] -= fscalar_2 * dr2_3B(dr2,2,1,2,1); // yy tensor component
+    stress[4] -= fscalar_2 * dr2_3B(dr2,2,1,2,2); // yz tensor component
+    stress[5] -= fscalar_2 * dr2_3B(dr2,2,2,2,2); // zz tensor component
 #else
-  stress[0] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+0]; // xx tensor component
-  stress[1] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+1]; // xy tensor component
-  stress[2] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+2]; // xz tensor component
-  stress[3] -= fscalar_2 * dr[2*CHDIM+1] * dr[2*CHDIM+1]; // yy tensor component
-  stress[4] -= fscalar_2 * dr[2*CHDIM+1] * dr[2*CHDIM+2]; // yz tensor component
-  stress[5] -= fscalar_2 * dr[2*CHDIM+2] * dr[2*CHDIM+2]; // zz tensor component
+    stress[0] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+0]; // xx tensor component
+    stress[1] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+1]; // xy tensor component
+    stress[2] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+2]; // xz tensor component
+    stress[3] -= fscalar_2 * dr[2*CHDIM+1] * dr[2*CHDIM+1]; // yy tensor component
+    stress[4] -= fscalar_2 * dr[2*CHDIM+1] * dr[2*CHDIM+2]; // yz tensor component
+    stress[5] -= fscalar_2 * dr[2*CHDIM+2] * dr[2*CHDIM+2]; // zz tensor component
 #endif
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -976,7 +991,8 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
           Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik,
           Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
 
-  energy += poly * fcut_all;
+  if (eflag)
+    energy += poly * fcut_all;
 
   for (int j = 0; j < npairs; j++)
     force_scalar[j] = (fcut_all * dpoly_dx[j] + fcutderiv[j] * fcut_5[j] * poly) / dx[j];
@@ -998,21 +1014,23 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   force[CHDIM+1] -= fscalar_0 * dr[1];
   force[CHDIM+2] -= fscalar_0 * dr[2];
 
+  if (vflag) {
 #ifdef USE_DISTANCE_TENSOR
-  stress[0] -= fscalar_0 * dr2_4B(dr2,0,0,0,0); // xx tensor component
-  stress[1] -= fscalar_0 * dr2_4B(dr2,0,0,0,1); // xy tensor component
-  stress[2] -= fscalar_0 * dr2_4B(dr2,0,0,0,2); // xz tensor component
-  stress[3] -= fscalar_0 * dr2_4B(dr2,0,1,0,1); // yy tensor component
-  stress[4] -= fscalar_0 * dr2_4B(dr2,0,1,0,2); // yz tensor component
-  stress[5] -= fscalar_0 * dr2_4B(dr2,0,2,0,2); // zz tensor component
+    stress[0] -= fscalar_0 * dr2_4B(dr2,0,0,0,0); // xx tensor component
+    stress[1] -= fscalar_0 * dr2_4B(dr2,0,0,0,1); // xy tensor component
+    stress[2] -= fscalar_0 * dr2_4B(dr2,0,0,0,2); // xz tensor component
+    stress[3] -= fscalar_0 * dr2_4B(dr2,0,1,0,1); // yy tensor component
+    stress[4] -= fscalar_0 * dr2_4B(dr2,0,1,0,2); // yz tensor component
+    stress[5] -= fscalar_0 * dr2_4B(dr2,0,2,0,2); // zz tensor component
 #else
-  stress[0] -= fscalar_0 * dr[0] * dr[0]; // xx tensor component
-  stress[1] -= fscalar_0 * dr[0] * dr[1]; // xy tensor component
-  stress[2] -= fscalar_0 * dr[0] * dr[2]; // xz tensor component
-  stress[3] -= fscalar_0 * dr[1] * dr[1]; // yy tensor component
-  stress[4] -= fscalar_0 * dr[1] * dr[2]; // yz tensor component
-  stress[5] -= fscalar_0 * dr[2] * dr[2]; // zz tensor component
+    stress[0] -= fscalar_0 * dr[0] * dr[0]; // xx tensor component
+    stress[1] -= fscalar_0 * dr[0] * dr[1]; // xy tensor component
+    stress[2] -= fscalar_0 * dr[0] * dr[2]; // xz tensor component
+    stress[3] -= fscalar_0 * dr[1] * dr[1]; // yy tensor component
+    stress[4] -= fscalar_0 * dr[1] * dr[2]; // yz tensor component
+    stress[5] -= fscalar_0 * dr[2] * dr[2]; // zz tensor component
 #endif
+  }
 
   // Accumulate forces/stresses on/from the ik pair
 
@@ -1023,21 +1041,23 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   force[2*CHDIM+1] -= fscalar_1 * dr[CHDIM+1];
   force[2*CHDIM+2] -= fscalar_1 * dr[CHDIM+2];
 
+  if (vflag) {
 #ifdef USE_DISTANCE_TENSOR
-  stress[0] -= fscalar_1 * dr2_4B(dr2,1,0,1,0); // xx tensor component
-  stress[1] -= fscalar_1 * dr2_4B(dr2,1,0,1,1); // xy tensor component
-  stress[2] -= fscalar_1 * dr2_4B(dr2,1,0,1,2); // xz tensor component
-  stress[3] -= fscalar_1 * dr2_4B(dr2,1,1,1,1); // yy tensor component
-  stress[4] -= fscalar_1 * dr2_4B(dr2,1,1,1,2); // yz tensor component
-  stress[5] -= fscalar_1 * dr2_4B(dr2,1,2,1,2); // zz tensor component
+    stress[0] -= fscalar_1 * dr2_4B(dr2,1,0,1,0); // xx tensor component
+    stress[1] -= fscalar_1 * dr2_4B(dr2,1,0,1,1); // xy tensor component
+    stress[2] -= fscalar_1 * dr2_4B(dr2,1,0,1,2); // xz tensor component
+    stress[3] -= fscalar_1 * dr2_4B(dr2,1,1,1,1); // yy tensor component
+    stress[4] -= fscalar_1 * dr2_4B(dr2,1,1,1,2); // yz tensor component
+    stress[5] -= fscalar_1 * dr2_4B(dr2,1,2,1,2); // zz tensor component
 #else
-  stress[0] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+0]; // xx tensor component
-  stress[1] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+1]; // xy tensor component
-  stress[2] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+2]; // xz tensor component
-  stress[3] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+1]; // yy tensor component
-  stress[4] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+2]; // yz tensor component
-  stress[5] -= fscalar_1 * dr[CHDIM+2] * dr[CHDIM+2]; // zz tensor component
+    stress[0] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+0]; // xx tensor component
+    stress[1] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+1]; // xy tensor component
+    stress[2] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+2]; // xz tensor component
+    stress[3] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+1]; // yy tensor component
+    stress[4] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+2]; // yz tensor component
+    stress[5] -= fscalar_1 * dr[CHDIM+2] * dr[CHDIM+2]; // zz tensor component
 #endif
+  }
 
   // Accumulate forces/stresses on/from the il pair
 
@@ -1048,21 +1068,23 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   force[3*CHDIM+1] -= fscalar_2 * dr[2*CHDIM+1];
   force[3*CHDIM+2] -= fscalar_2 * dr[2*CHDIM+2];
 
+  if (vflag) {
 #ifdef USE_DISTANCE_TENSOR
-  stress[0] -= fscalar_2 * dr2_4B(dr2,2,0,2,0); // xx tensor component
-  stress[1] -= fscalar_2 * dr2_4B(dr2,2,0,2,1); // xy tensor component
-  stress[2] -= fscalar_2 * dr2_4B(dr2,2,0,2,2); // xz tensor component
-  stress[3] -= fscalar_2 * dr2_4B(dr2,2,1,2,1); // yy tensor component
-  stress[4] -= fscalar_2 * dr2_4B(dr2,2,1,2,2); // yz tensor component
-  stress[5] -= fscalar_2 * dr2_4B(dr2,2,2,2,2); // zz tensor component
+    stress[0] -= fscalar_2 * dr2_4B(dr2,2,0,2,0); // xx tensor component
+    stress[1] -= fscalar_2 * dr2_4B(dr2,2,0,2,1); // xy tensor component
+    stress[2] -= fscalar_2 * dr2_4B(dr2,2,0,2,2); // xz tensor component
+    stress[3] -= fscalar_2 * dr2_4B(dr2,2,1,2,1); // yy tensor component
+    stress[4] -= fscalar_2 * dr2_4B(dr2,2,1,2,2); // yz tensor component
+    stress[5] -= fscalar_2 * dr2_4B(dr2,2,2,2,2); // zz tensor component
 #else
-  stress[0] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+0]; // xx tensor component
-  stress[1] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+1]; // xy tensor component
-  stress[2] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+2]; // xz tensor component
-  stress[3] -= fscalar_2 * dr[2*CHDIM+1] * dr[2*CHDIM+1]; // yy tensor component
-  stress[4] -= fscalar_2 * dr[2*CHDIM+1] * dr[2*CHDIM+2]; // yz tensor component
-  stress[5] -= fscalar_2 * dr[2*CHDIM+2] * dr[2*CHDIM+2]; // zz tensor component
+    stress[0] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+0]; // xx tensor component
+    stress[1] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+1]; // xy tensor component
+    stress[2] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+2]; // xz tensor component
+    stress[3] -= fscalar_2 * dr[2*CHDIM+1] * dr[2*CHDIM+1]; // yy tensor component
+    stress[4] -= fscalar_2 * dr[2*CHDIM+1] * dr[2*CHDIM+2]; // yz tensor component
+    stress[5] -= fscalar_2 * dr[2*CHDIM+2] * dr[2*CHDIM+2]; // zz tensor component
 #endif
+  }
 
   // Accumulate forces/stresses on/from the jk pair
 
@@ -1074,21 +1096,23 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   force[2*CHDIM+1] -= fscalar_3 * dr[3*CHDIM+1];
   force[2*CHDIM+2] -= fscalar_3 * dr[3*CHDIM+2];
 
+  if (vflag) {
 #ifdef USE_DISTANCE_TENSOR
-  stress[0] -= fscalar_3 * dr2_4B(dr2,3,0,3,0); // xx tensor component
-  stress[1] -= fscalar_3 * dr2_4B(dr2,3,0,3,1); // xy tensor component
-  stress[2] -= fscalar_3 * dr2_4B(dr2,3,0,3,2); // xz tensor component
-  stress[3] -= fscalar_3 * dr2_4B(dr2,3,1,3,1); // yy tensor component
-  stress[4] -= fscalar_3 * dr2_4B(dr2,3,1,3,2); // yz tensor component
-  stress[5] -= fscalar_3 * dr2_4B(dr2,3,2,3,2); // zz tensor component
+    stress[0] -= fscalar_3 * dr2_4B(dr2,3,0,3,0); // xx tensor component
+    stress[1] -= fscalar_3 * dr2_4B(dr2,3,0,3,1); // xy tensor component
+    stress[2] -= fscalar_3 * dr2_4B(dr2,3,0,3,2); // xz tensor component
+    stress[3] -= fscalar_3 * dr2_4B(dr2,3,1,3,1); // yy tensor component
+    stress[4] -= fscalar_3 * dr2_4B(dr2,3,1,3,2); // yz tensor component
+    stress[5] -= fscalar_3 * dr2_4B(dr2,3,2,3,2); // zz tensor component
 #else
-  stress[0] -= fscalar_3 * dr[3*CHDIM+0] * dr[3*CHDIM+0]; // xx tensor component
-  stress[1] -= fscalar_3 * dr[3*CHDIM+0] * dr[3*CHDIM+1]; // xy tensor component
-  stress[2] -= fscalar_3 * dr[3*CHDIM+0] * dr[3*CHDIM+2]; // xz tensor component
-  stress[3] -= fscalar_3 * dr[3*CHDIM+1] * dr[3*CHDIM+1]; // yy tensor component
-  stress[4] -= fscalar_3 * dr[3*CHDIM+1] * dr[3*CHDIM+2]; // yz tensor component
-  stress[5] -= fscalar_3 * dr[3*CHDIM+2] * dr[3*CHDIM+2]; // zz tensor component
+    stress[0] -= fscalar_3 * dr[3*CHDIM+0] * dr[3*CHDIM+0]; // xx tensor component
+    stress[1] -= fscalar_3 * dr[3*CHDIM+0] * dr[3*CHDIM+1]; // xy tensor component
+    stress[2] -= fscalar_3 * dr[3*CHDIM+0] * dr[3*CHDIM+2]; // xz tensor component
+    stress[3] -= fscalar_3 * dr[3*CHDIM+1] * dr[3*CHDIM+1]; // yy tensor component
+    stress[4] -= fscalar_3 * dr[3*CHDIM+1] * dr[3*CHDIM+2]; // yz tensor component
+    stress[5] -= fscalar_3 * dr[3*CHDIM+2] * dr[3*CHDIM+2]; // zz tensor component
 #endif
+  }
 
   // Accumulate forces/stresses on/from the jl pair
 
@@ -1100,21 +1124,23 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   force[3*CHDIM+1] -= fscalar_4 * dr[4*CHDIM+1];
   force[3*CHDIM+2] -= fscalar_4 * dr[4*CHDIM+2];
 
+  if (vflag) {
 #ifdef USE_DISTANCE_TENSOR
-  stress[0] -= fscalar_4 * dr2_4B(dr2,4,0,4,0); // xx tensor component
-  stress[1] -= fscalar_4 * dr2_4B(dr2,4,0,4,1); // xy tensor component
-  stress[2] -= fscalar_4 * dr2_4B(dr2,4,0,4,2); // xz tensor component
-  stress[3] -= fscalar_4 * dr2_4B(dr2,4,1,4,1); // yy tensor component
-  stress[4] -= fscalar_4 * dr2_4B(dr2,4,1,4,2); // yz tensor component
-  stress[5] -= fscalar_4 * dr2_4B(dr2,4,2,4,2); // zz tensor component
+    stress[0] -= fscalar_4 * dr2_4B(dr2,4,0,4,0); // xx tensor component
+    stress[1] -= fscalar_4 * dr2_4B(dr2,4,0,4,1); // xy tensor component
+    stress[2] -= fscalar_4 * dr2_4B(dr2,4,0,4,2); // xz tensor component
+    stress[3] -= fscalar_4 * dr2_4B(dr2,4,1,4,1); // yy tensor component
+    stress[4] -= fscalar_4 * dr2_4B(dr2,4,1,4,2); // yz tensor component
+    stress[5] -= fscalar_4 * dr2_4B(dr2,4,2,4,2); // zz tensor component
 #else
-  stress[0] -= fscalar_4 * dr[4*CHDIM+0] * dr[4*CHDIM+0]; // xx tensor component
-  stress[1] -= fscalar_4 * dr[4*CHDIM+0] * dr[4*CHDIM+1]; // xy tensor component
-  stress[2] -= fscalar_4 * dr[4*CHDIM+0] * dr[4*CHDIM+2]; // xz tensor component
-  stress[3] -= fscalar_4 * dr[4*CHDIM+1] * dr[4*CHDIM+1]; // yy tensor component
-  stress[4] -= fscalar_4 * dr[4*CHDIM+1] * dr[4*CHDIM+2]; // yz tensor component
-  stress[5] -= fscalar_4 * dr[4*CHDIM+2] * dr[4*CHDIM+2]; // zz tensor component
+    stress[0] -= fscalar_4 * dr[4*CHDIM+0] * dr[4*CHDIM+0]; // xx tensor component
+    stress[1] -= fscalar_4 * dr[4*CHDIM+0] * dr[4*CHDIM+1]; // xy tensor component
+    stress[2] -= fscalar_4 * dr[4*CHDIM+0] * dr[4*CHDIM+2]; // xz tensor component
+    stress[3] -= fscalar_4 * dr[4*CHDIM+1] * dr[4*CHDIM+1]; // yy tensor component
+    stress[4] -= fscalar_4 * dr[4*CHDIM+1] * dr[4*CHDIM+2]; // yz tensor component
+    stress[5] -= fscalar_4 * dr[4*CHDIM+2] * dr[4*CHDIM+2]; // zz tensor component
 #endif
+  }
   // Accumulate forces/stresses on/from the kl pair
 
   force[2*CHDIM+0] += fscalar_5 * dr[5*CHDIM+0];
@@ -1124,21 +1150,23 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   force[3*CHDIM+1] -= fscalar_5 * dr[5*CHDIM+1];
   force[3*CHDIM+2] -= fscalar_5 * dr[5*CHDIM+2];
 
+  if (vflag) {
 #ifdef USE_DISTANCE_TENSOR
-  stress[0] -= fscalar_5 * dr2_4B(dr2,5,0,5,0); // xx tensor component
-  stress[1] -= fscalar_5 * dr2_4B(dr2,5,0,5,1); // xy tensor component
-  stress[2] -= fscalar_5 * dr2_4B(dr2,5,0,5,2); // xz tensor component
-  stress[3] -= fscalar_5 * dr2_4B(dr2,5,1,5,1); // yy tensor component
-  stress[4] -= fscalar_5 * dr2_4B(dr2,5,1,5,2); // yz tensor component
-  stress[5] -= fscalar_5 * dr2_4B(dr2,5,2,5,2); // zz tensor component
+    stress[0] -= fscalar_5 * dr2_4B(dr2,5,0,5,0); // xx tensor component
+    stress[1] -= fscalar_5 * dr2_4B(dr2,5,0,5,1); // xy tensor component
+    stress[2] -= fscalar_5 * dr2_4B(dr2,5,0,5,2); // xz tensor component
+    stress[3] -= fscalar_5 * dr2_4B(dr2,5,1,5,1); // yy tensor component
+    stress[4] -= fscalar_5 * dr2_4B(dr2,5,1,5,2); // yz tensor component
+    stress[5] -= fscalar_5 * dr2_4B(dr2,5,2,5,2); // zz tensor component
 #else
-  stress[0] -= fscalar_5 * dr[5*CHDIM+0] * dr[5*CHDIM+0]; // xx tensor component
-  stress[1] -= fscalar_5 * dr[5*CHDIM+0] * dr[5*CHDIM+1]; // xy tensor component
-  stress[2] -= fscalar_5 * dr[5*CHDIM+0] * dr[5*CHDIM+2]; // xz tensor component
-  stress[3] -= fscalar_5 * dr[5*CHDIM+1] * dr[5*CHDIM+1]; // yy tensor component
-  stress[4] -= fscalar_5 * dr[5*CHDIM+1] * dr[5*CHDIM+2]; // yz tensor component
-  stress[5] -= fscalar_5 * dr[5*CHDIM+2] * dr[5*CHDIM+2]; // zz tensor component
+    stress[0] -= fscalar_5 * dr[5*CHDIM+0] * dr[5*CHDIM+0]; // xx tensor component
+    stress[1] -= fscalar_5 * dr[5*CHDIM+0] * dr[5*CHDIM+1]; // xy tensor component
+    stress[2] -= fscalar_5 * dr[5*CHDIM+0] * dr[5*CHDIM+2]; // xz tensor component
+    stress[3] -= fscalar_5 * dr[5*CHDIM+1] * dr[5*CHDIM+1]; // yy tensor component
+    stress[4] -= fscalar_5 * dr[5*CHDIM+1] * dr[5*CHDIM+2]; // yz tensor component
+    stress[5] -= fscalar_5 * dr[5*CHDIM+2] * dr[5*CHDIM+2]; // zz tensor component
 #endif
+  }
 }
 
 /* ---------------------------------------------------------------------- */
