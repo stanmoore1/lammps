@@ -146,9 +146,7 @@ class PairCHIMESKokkos : public PairCHIMES
   typename AT::t_int_1d_3 d_neighborlist_3mers;
   typename AT::t_int_1d_4 d_neighborlist_4mers;
 
-  typename AT::t_int_scalar d_size_2mers, d_size_3mers, d_size_4mers;
-
-  //typename AT::t_int_1d d_force_2b, d_force_3b, d_force_4b;
+  typename AT::t_int_scalar d_size_4mers;
 
   chimesFFKokkos<DeviceType> chimes_calculatorKK; // chimesFF instance
 
