@@ -23,6 +23,10 @@
 
 #define pi 3.14159265359
 
+constexpr int MAX_2B_POLY = 13;
+constexpr int MAX_3B_POLY = 9;
+constexpr int MAX_4B_POLY = 4;
+
 using namespace std;
 
 // Notes:
@@ -42,102 +46,6 @@ class chimesFFKokkos : public chimesFF
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  // Temporary storage for ChIMES interaction
-
-  // Two-body
-
-  struct Chimes2BKokkos {
-    typename AT::t_kkfloat_2d d_Tn, d_Tnd;
-
-    Chimes2BKokkos() {}
-
-    Chimes2BKokkos(int size, int poly_order) {
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tn,"chimes:Tn",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd,"chimes:Tnd",size,poly_order+1);
-    }
-
-    void resize(int size, int poly_order)
-    {
-      if (d_Tn.extent(0) < size || d_Tn.extent(1) < poly_order+1) {
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tn,"chimes:Tn",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd,"chimes:Tn",size,poly_order+1);
-      }
-    }
-  };
-
-  // Three-body
-
-  struct Chimes3BKokkos
-  {
-    typename AT::t_kkfloat_2d d_Tn_ij, d_Tn_ik, d_Tn_jk;   // The Chebyshev polymonials
-    typename AT::t_kkfloat_2d d_Tnd_ij, d_Tnd_ik, d_Tnd_jk;  // The Chebyshev polymonial derivatives
-
-    Chimes3BKokkos() {}
-
-    Chimes3BKokkos(int size, int poly_order) {
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_ij,"chimes:Tn_ij",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_ik,"chimes:Tn_ik",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_jk,"chimes:Tn_jk",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_ij,"chimes:Tnd_ij",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_ik,"chimes:Tnd_ik",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_jk,"chimes:Tnd_jk",size,poly_order+1);
-    }
-
-    void resize(int size, int poly_order)
-    {
-      if (d_Tn_ij.extent(0) < size || d_Tn_ij.extent(1) < poly_order+1) {
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_ij,"chimes:Tn_ij",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_ik,"chimes:Tn_ik",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_jk,"chimes:Tn_jk",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_ij,"chimes:Tnd_ij",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_ik,"chimes:Tnd_ik",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_jk,"chimes:Tnd_jk",size,poly_order+1);
-      }
-    }
-  };
-
-  // Four-body
-
-  struct Chimes4BKokkos {
-    typename AT::t_kkfloat_2d d_Tn_ij, d_Tn_ik, d_Tn_il, d_Tn_jk, d_Tn_jl, d_Tn_kl;   // The Chebyshev polymonials
-    typename AT::t_kkfloat_2d d_Tnd_ij, d_Tnd_ik, d_Tnd_il, d_Tnd_jk, d_Tnd_jl, d_Tnd_kl;  // The Chebyshev polymonial derivatives
-
-    Chimes4BKokkos() {}
-
-    Chimes4BKokkos(int size, int poly_order) {
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_ij,"chimes:Tn_ij",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_ik,"chimes:Tn_ik",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_il,"chimes:Tn_il",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_jk,"chimes:Tn_jk",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_jl,"chimes:Tn_jl",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_kl,"chimes:Tn_kl",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_ij,"chimes:Tnd_ij",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_ik,"chimes:Tnd_ik",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_il,"chimes:Tnd_il",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_jk,"chimes:Tnd_jk",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_jl,"chimes:Tnd_jl",size,poly_order+1);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_kl,"chimes:Tnd_kl",size,poly_order+1);
-    }
-
-    void resize(int size, int poly_order)
-    {
-      if (d_Tn_ij.extent(0) < size || d_Tn_ij.extent(1) < poly_order+1) {
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_ij,"chimes:Tn_ij",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_ik,"chimes:Tn_ik",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_il,"chimes:Tn_il",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_jk,"chimes:Tn_jk",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_jl,"chimes:Tn_jl",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_kl,"chimes:Tn_kl",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_ij,"chimes:Tnd_ij",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_ik,"chimes:Tnd_ik",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_il,"chimes:Tnd_il",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_jk,"chimes:Tnd_jk",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_jl,"chimes:Tnd_jl",size,poly_order+1);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_kl,"chimes:Tnd_kl",size,poly_order+1);
-      }
-    }
-  };
-
   ////////////////////////
   // General parameters
   ////////////////////////
@@ -150,9 +58,6 @@ class chimesFFKokkos : public chimesFF
 
   chimesFFKokkos();
   ~chimesFFKokkos();
-  void resize_2B(int size) { chimes2BKK.resize(size,poly_orders[0]); }
-  void resize_3B(int size) { chimes3BKK.resize(size,poly_orders[1]); }
-  void resize_4B(int size) { chimes4BKK.resize(size,poly_orders[2]); }
 
   void read_parameters(string paramfile) override;
 
@@ -187,10 +92,6 @@ class chimesFFKokkos : public chimesFF
   int eflag,vflag;
 
  private:
-
-  Chimes2BKokkos chimes2BKK;
-  Chimes3BKokkos chimes3BKK;
-  Chimes4BKokkos chimes4BKK;
 
   typename AT::t_kkfloat_1d d_morse_var;      // [npairs]; morse_lambda
   double d_penalty_params[2]; // [2];  Second dimension: [0] = A_pen, [1] = d_pen

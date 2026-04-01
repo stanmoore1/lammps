@@ -135,6 +135,21 @@ void PairCHIMESKokkos<DeviceType>::coeff(int narg, char **arg)
 {
   PairCHIMES::coeff(narg,arg);
 
+  if (chimes_calculatorKK.poly_orders[0]+1 > MAX_2B_POLY)
+    lmp->error->all(FLERR,"Exceeded maximum poly order for 2-body interactions, "
+                    "increase value of MAX_2B_POLY in src/KOKKOS/chimes_kokkos.h "
+                    "and recompile");
+
+  if (chimes_calculatorKK.poly_orders[1]+1 > MAX_3B_POLY)
+    lmp->error->all(FLERR,"Exceeded maximum poly order for 3-body interactions, "
+                    "increase value of MAX_3B_POLY in src/KOKKOS/chimes_kokkos.h "
+                    "and recompile");
+
+  if (chimes_calculatorKK.poly_orders[2]+1 > MAX_4B_POLY)
+    lmp->error->all(FLERR,"Exceeded maximum poly order for 4-body interactions, "
+                    "increase value of MAX_4B_POLY in src/KOKKOS/chimes_kokkos.h "
+                    "and recompile");
+
   // chimes_type
 
   int size = chimes_type.size();
@@ -578,132 +593,101 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   // Build the ChIMES many-body neighbor lists.. only do so when LAMMPS neighborlist has been updated
 
-  //if (neighbor->ago == 0) {
-    if (0 && chimes_calculatorKK.rank == 0)
-      std::cout << "Updating chimesFF neighbor lists..." << std::endl;
+  if (0 && chimes_calculatorKK.rank == 0)
+    std::cout << "Updating chimesFF neighbor lists..." << std::endl;
 
-    build_mb_neighlists();
-    //chimes_calculatorKK.resize_2B(size_2mers);
-    //chimes_calculatorKK.resize_3B(size_3mers);
-    //chimes_calculatorKK.resize_4B(size_4mers);
+  build_mb_neighlists();
 
-    if (0 && chimes_calculatorKK.rank == 0) {
-      std::cout << "      Rank " << comm->me << " 2-body list size: " << size_2mers << std::endl;
-      std::cout << "      Rank " << comm->me << " 3-body list size: " << size_3mers << std::endl;
-      std::cout << "      Rank " << comm->me << " 4-body list size: " << size_4mers << std::endl;
-      std::cout << "      ...update complete" << std::endl;
-    }
-  //}
-
-  // Prepare the badness variable
-
-  //chimes_calculatorKK.reset_badness();
-
-  int vector_length_default = 1;
-  int team_size_default = 1;
-
-  int chunksize = 4096; //////
-
-  //chunk_size = MIN(chunksize,inum); // "chunksize" variable is set by user
-  //chunk_offset = 0;
-
-  //grow(chunk_size, maxneigh); //////
+  if (0 && chimes_calculatorKK.rank == 0) {
+    std::cout << "      Rank " << comm->me << " 2-body list size: " << size_2mers << std::endl;
+    std::cout << "      Rank " << comm->me << " 3-body list size: " << size_3mers << std::endl;
+    std::cout << "      Rank " << comm->me << " 4-body list size: " << size_4mers << std::endl;
+    std::cout << "      ...update complete" << std::endl;
+  }
 
   EV_FLOAT ev, ev_tmp;
 
-  //while (chunk_offset < inum) { // chunk up loop to prevent running out of memory
-
-    //Compute1Body
-    {
-      if (eflag_either) {
-        if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute1Body<HALF> > policy_2body(0,inum);
-          Kokkos::parallel_reduce("Compute1Body", policy_2body, *this, ev_tmp);
-        } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute1Body<HALFTHREAD> > policy_2body(0,inum);
-          Kokkos::parallel_reduce("Compute1Body", policy_2body, *this, ev_tmp);
-        }
+  //Compute1Body
+  {
+    if (eflag_either) {
+      if (neighflag == HALF) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute1Body<HALF> > policy_2body(0,inum);
+        Kokkos::parallel_reduce("Compute1Body", policy_2body, *this, ev_tmp);
+      } else if (neighflag == HALFTHREAD) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute1Body<HALFTHREAD> > policy_2body(0,inum);
+        Kokkos::parallel_reduce("Compute1Body", policy_2body, *this, ev_tmp);
       }
     }
-    ev += ev_tmp;
+  }
+  ev += ev_tmp;
 
-
-    //Compute2Body
-    {
-      if (evflag) {
-        if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute2Body<HALF,1> > policy_2body(0,size_2mers);
-          Kokkos::parallel_reduce("Compute2Body", policy_2body, *this, ev_tmp);
-        } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute2Body<HALFTHREAD,1> > policy_2body(0,size_2mers);
-          Kokkos::parallel_reduce("Compute2Body", policy_2body, *this, ev_tmp);
-        }
-      } else {
-        if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute2Body<HALF,0> > policy_2body(0,size_2mers);
-          Kokkos::parallel_for("Compute2Body", policy_2body, *this);
-        } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute2Body<HALFTHREAD,0> > policy_2body(0,size_2mers);
-          Kokkos::parallel_for("Compute2Body", policy_2body, *this);
-        }
+  //Compute2Body
+  {
+    if (evflag) {
+      if (neighflag == HALF) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute2Body<HALF,1> > policy_2body(0,size_2mers);
+        Kokkos::parallel_reduce("Compute2Body", policy_2body, *this, ev_tmp);
+      } else if (neighflag == HALFTHREAD) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute2Body<HALFTHREAD,1> > policy_2body(0,size_2mers);
+        Kokkos::parallel_reduce("Compute2Body", policy_2body, *this, ev_tmp);
+      }
+    } else {
+      if (neighflag == HALF) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute2Body<HALF,0> > policy_2body(0,size_2mers);
+        Kokkos::parallel_for("Compute2Body", policy_2body, *this);
+      } else if (neighflag == HALFTHREAD) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute2Body<HALFTHREAD,0> > policy_2body(0,size_2mers);
+        Kokkos::parallel_for("Compute2Body", policy_2body, *this);
       }
     }
-    ev += ev_tmp;
+  }
+  ev += ev_tmp;
 
-    // Document badness for configuration: current timestep, current rank, worst badness seen by rank
-
-//    if (for_fitting)
-//    if (update->ntimestep % output->every_dump[0] == 0)
-//      badness_stream << update->ntimestep << " " <<  chimes_calculatorKK.get_badness() << endl;
-
-    //Compute3Body
-    if (chimes_calculatorKK.poly_orders[1] > 0)
-    {
-      if (evflag) {
-        if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,1> > policy_3body(0,size_3mers);
-          Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
-        } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,1> > policy_3body(0,size_3mers);
-          Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
-        }
-      } else {
-        if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,0> > policy_3body(0,size_3mers);
-          Kokkos::parallel_for("Compute3Body", policy_3body, *this);
-        } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,0> > policy_3body(0,size_3mers);
-          Kokkos::parallel_for("Compute3Body", policy_3body, *this);
-        }
+  //Compute3Body
+  if (chimes_calculatorKK.poly_orders[1] > 0)
+  {
+    if (evflag) {
+      if (neighflag == HALF) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,1> > policy_3body(0,size_3mers);
+        Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
+      } else if (neighflag == HALFTHREAD) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,1> > policy_3body(0,size_3mers);
+        Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
+      }
+    } else {
+      if (neighflag == HALF) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,0> > policy_3body(0,size_3mers);
+        Kokkos::parallel_for("Compute3Body", policy_3body, *this);
+      } else if (neighflag == HALFTHREAD) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,0> > policy_3body(0,size_3mers);
+        Kokkos::parallel_for("Compute3Body", policy_3body, *this);
       }
     }
-    ev += ev_tmp;
+  }
+  ev += ev_tmp;
 
-    //Compute4Body
-    if (chimes_calculatorKK.poly_orders[2] > 0)
-    {
-      if (evflag) {
-        if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALF,1> > policy_4body(0,size_4mers);
-          Kokkos::parallel_reduce("Compute4Body", policy_4body, *this, ev_tmp);
-        } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALFTHREAD,1> > policy_4body(0,size_4mers);
-          Kokkos::parallel_reduce("Compute4Body",policy_4body, *this, ev_tmp);
-        }
-      } else {
-        if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALF,0> > policy_4body(0,size_4mers);
-          Kokkos::parallel_for("Compute4Body", policy_4body, *this);
-        } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALFTHREAD,0> > policy_4body(0,size_4mers);
-          Kokkos::parallel_for("Compute4Body", policy_4body, *this);
-        }
+  //Compute4Body
+  if (chimes_calculatorKK.poly_orders[2] > 0)
+  {
+    if (evflag) {
+      if (neighflag == HALF) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALF,1> > policy_4body(0,size_4mers);
+        Kokkos::parallel_reduce("Compute4Body", policy_4body, *this, ev_tmp);
+      } else if (neighflag == HALFTHREAD) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALFTHREAD,1> > policy_4body(0,size_4mers);
+        Kokkos::parallel_reduce("Compute4Body",policy_4body, *this, ev_tmp);
+      }
+    } else {
+      if (neighflag == HALF) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALF,0> > policy_4body(0,size_4mers);
+        Kokkos::parallel_for("Compute4Body", policy_4body, *this);
+      } else if (neighflag == HALFTHREAD) {
+        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALFTHREAD,0> > policy_4body(0,size_4mers);
+        Kokkos::parallel_for("Compute4Body", policy_4body, *this);
       }
     }
-    ev += ev_tmp;
-
-//    chunk_offset += chunk_size;
-//  } // end while
+  }
+  ev += ev_tmp;
 
   if (need_dup)
     Kokkos::Experimental::contribute(f, dup_f);
@@ -737,6 +721,7 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   copymode = 0;
 
   // free duplicated memory
+
   if (need_dup) {
     dup_f     = {};
     dup_vatom = {};

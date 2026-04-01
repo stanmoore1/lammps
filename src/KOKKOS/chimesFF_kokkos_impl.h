@@ -17,12 +17,7 @@
 
 using namespace std;
 
-#include "chimesFF_kokkos.h"
 #include "memory_kokkos.h"
-
-constexpr int max_2b_poly = 13;
-constexpr int max_3b_poly = 9;
-constexpr int max_4b_poly = 4;
 
 /* ---------------------------------------------------------------------- */
 
@@ -48,7 +43,6 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   int size, max_j, max_k;
 
   chimesFF::read_parameters(paramfile);
-
 
   // poly_orders
 
@@ -532,10 +526,8 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
 
   // Use references for readability
 
-  KK_FLOAT Tn[max_2b_poly];
-  KK_FLOAT Tnd[max_2b_poly];
-  //const typename AT::t_kkfloat_2d &Tn = chimes2BKK.d_Tn;
-  //const typename AT::t_kkfloat_2d &Tnd = chimes2BKK.d_Tnd;
+  KK_FLOAT Tn[MAX_2B_POLY];
+  KK_FLOAT Tnd[MAX_2B_POLY];
 
   const int pair_idx = d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
 
@@ -652,21 +644,13 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   constexpr int natoms = 3;                   // Number of atoms in an interaction set
   constexpr int npairs = natoms*(natoms-1)/2; // Number of pairs in an interaction set
 
-  KK_FLOAT Tn_ij[max_3b_poly];
-  KK_FLOAT Tn_ik[max_3b_poly];
-  KK_FLOAT Tn_jk[max_3b_poly];
+  KK_FLOAT Tn_ij[MAX_3B_POLY];
+  KK_FLOAT Tn_ik[MAX_3B_POLY];
+  KK_FLOAT Tn_jk[MAX_3B_POLY];
 
-  KK_FLOAT Tnd_ij[max_3b_poly];
-  KK_FLOAT Tnd_ik[max_3b_poly];
-  KK_FLOAT Tnd_jk[max_3b_poly];
-
-  //const typename AT::t_kkfloat_2d &Tn_ij = chimes3BKK.d_Tn_ij;
-  //const typename AT::t_kkfloat_2d &Tn_ik = chimes3BKK.d_Tn_ik;
-  //const typename AT::t_kkfloat_2d &Tn_jk = chimes3BKK.d_Tn_jk;   // The Chebyshev polymonials
-
-  //const typename AT::t_kkfloat_2d &Tnd_ij = chimes3BKK.d_Tnd_ij;
-  //const typename AT::t_kkfloat_2d &Tnd_ik = chimes3BKK.d_Tnd_ik;
-  //const typename AT::t_kkfloat_2d &Tnd_jk = chimes3BKK.d_Tnd_jk;  // The Chebyshev polymonial derivatives
+  KK_FLOAT Tnd_ij[MAX_3B_POLY];
+  KK_FLOAT Tnd_ik[MAX_3B_POLY];
+  KK_FLOAT Tnd_jk[MAX_3B_POLY];
 
   // Avoid allocating vector quantities.  Heap memory allocation is slow on the GPU.
   // fixed-length C arrays are allocated on the stack
@@ -876,33 +860,19 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   KK_FLOAT fcutderiv[npairs];
   KK_FLOAT deriv[npairs];
 
-  KK_FLOAT Tn_ij[max_4b_poly];
-  KK_FLOAT Tn_ik[max_4b_poly];
-  KK_FLOAT Tn_il[max_4b_poly];
-  KK_FLOAT Tn_jk[max_4b_poly];
-  KK_FLOAT Tn_jl[max_4b_poly];
-  KK_FLOAT Tn_kl[max_4b_poly];
+  KK_FLOAT Tn_ij[MAX_4B_POLY];
+  KK_FLOAT Tn_ik[MAX_4B_POLY];
+  KK_FLOAT Tn_il[MAX_4B_POLY];
+  KK_FLOAT Tn_jk[MAX_4B_POLY];
+  KK_FLOAT Tn_jl[MAX_4B_POLY];
+  KK_FLOAT Tn_kl[MAX_4B_POLY];
 
-  KK_FLOAT Tnd_ij[max_4b_poly];
-  KK_FLOAT Tnd_ik[max_4b_poly];
-  KK_FLOAT Tnd_il[max_4b_poly];
-  KK_FLOAT Tnd_jk[max_4b_poly];
-  KK_FLOAT Tnd_jl[max_4b_poly];
-  KK_FLOAT Tnd_kl[max_4b_poly];
-
-  //const typename AT::t_kkfloat_2d &Tn_ij = chimes4BKK.d_Tn_ij;
-  //const typename AT::t_kkfloat_2d &Tn_ik = chimes4BKK.d_Tn_ik;
-  //const typename AT::t_kkfloat_2d &Tn_il = chimes4BKK.d_Tn_il;
-  //const typename AT::t_kkfloat_2d &Tn_jk = chimes4BKK.d_Tn_jk;
-  //const typename AT::t_kkfloat_2d &Tn_jl = chimes4BKK.d_Tn_jl;
-  //const typename AT::t_kkfloat_2d &Tn_kl = chimes4BKK.d_Tn_kl;
-
-  //const typename AT::t_kkfloat_2d &Tnd_ij = chimes4BKK.d_Tnd_ij;
-  //const typename AT::t_kkfloat_2d &Tnd_ik = chimes4BKK.d_Tnd_ik;
-  //const typename AT::t_kkfloat_2d &Tnd_il = chimes4BKK.d_Tnd_il;
-  //const typename AT::t_kkfloat_2d &Tnd_jk = chimes4BKK.d_Tnd_jk;
-  //const typename AT::t_kkfloat_2d &Tnd_jl = chimes4BKK.d_Tnd_jl;
-  //const typename AT::t_kkfloat_2d &Tnd_kl = chimes4BKK.d_Tnd_kl;
+  KK_FLOAT Tnd_ij[MAX_4B_POLY];
+  KK_FLOAT Tnd_ik[MAX_4B_POLY];
+  KK_FLOAT Tnd_il[MAX_4B_POLY];
+  KK_FLOAT Tnd_jk[MAX_4B_POLY];
+  KK_FLOAT Tnd_jl[MAX_4B_POLY];
+  KK_FLOAT Tnd_kl[MAX_4B_POLY];
 
   const int idx = typ_idxs[0]*natmtyps*natmtyps*natmtyps
       + typ_idxs[1]*natmtyps*natmtyps + typ_idxs[2]*natmtyps + typ_idxs[3];
