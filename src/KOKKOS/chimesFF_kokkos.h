@@ -50,7 +50,7 @@ class chimesFFKokkos : public chimesFF
   // General parameters
   ////////////////////////
 
-  typename AT::t_int_1d d_poly_orders;    // [bodiedness-1]; i.e. 12 = 2-body only, 12th order; 12 5 = 2+3-body, 0 5 = 3-body only, 5th order
+  int d_poly_orders[3];    // [bodiedness-1]; i.e. 12 = 2-body only, 12th order; 12 5 = 2+3-body, 0 5 = 3-body only, 5th order
 
   ////////////////////////
   // Functions
@@ -94,8 +94,11 @@ class chimesFFKokkos : public chimesFF
  private:
 
   typename AT::t_kkfloat_1d d_morse_var;      // [npairs]; morse_lambda
+  typename AT::t_kkfloat_1d_const_um c_morse_var;
+
   double d_penalty_params[2]; // [2];  Second dimension: [0] = A_pen, [1] = d_pen
   typename AT::t_kkfloat_1d d_energy_offsets; // [natmtyps]; Single atom ChIMES energies
+  typename AT::t_kkfloat_1d_const_um c_energy_offsets;
 
  public:
 
@@ -106,16 +109,23 @@ class chimesFFKokkos : public chimesFF
   // 2-body maps
 
   typename AT::t_int_1d d_atom_int_pair_map; // [nmaps] "fast" maps, based on atom type index
+  typename AT::t_int_1d_const_um c_atom_int_pair_map;
 
   // 3-body maps
 
   typename AT::t_int_1d d_atom_int_trip_map;    // [nmaps] "fast" maps, based on atom type index         // gives the correspoding parameter index (i.e. 3) for a unique integer built from type index of three atoms of arbitrary order
+  typename AT::t_int_1d_const_um c_atom_int_trip_map;
+
   typename AT::t_int_2d d_pair_int_trip_map;  // Gives the atom pair indices for an arbitrary triplet of atom types.
+  typename AT::t_int_2d_const_um c_pair_int_trip_map;
 
   // 4-body maps
 
   typename AT::t_int_1d d_atom_int_quad_map; // [nmaps] "fast" maps, based on atom type index         // gives the correspoding parameter index (i.e. 3) for a unique integer built from type index of four atoms of arbitrary order
+  typename AT::t_int_1d_const_um c_atom_int_quad_map;
+
   typename AT::t_int_2d d_pair_int_quad_map;  // Gives the atom pair indices for an arbitrary quad of atom types.
+  typename AT::t_int_2d_const_um c_pair_int_quad_map;
 
   ////////////////////////
   // Polynomial parameters
@@ -124,21 +134,40 @@ class chimesFFKokkos : public chimesFF
   // number of coefficients for the pair/triplet/quadruplet type
 
   typename AT::t_int_1d d_ncoeffs_2b;        // [npairs]
+  typename AT::t_int_1d_const_um c_ncoeffs_2b;
 
   typename AT::t_int_2d d_chimes_2b_pows;    // [npairs][npowers] power for the coresponding parameter
+  typename AT::t_int_2d_const_um c_chimes_2b_pows;
 
   typename AT::t_kkfloat_2d d_chimes_2b_params;    // [npairs][npowers] 2-body polynomial coefficients
+  typename AT::t_kkfloat_2d_const_um c_chimes_2b_params;
+
   typename AT::t_kkfloat_1d_2 d_chimes_2b_cutoff;  // [npairs][2] inner and outer cutoff for pair
+  typename AT::t_kkfloat_1d_2_const_um c_chimes_2b_cutoff;
 
   typename AT::t_int_1d d_ncoeffs_3b;              // [ntrips]
-  typename AT::t_kkfloat_3d d_chimes_3b_powers;    // [ntrips][nparams][constit. pair]
+  typename AT::t_int_1d_const_um c_ncoeffs_3b;
+
+  typename AT::t_int_3d d_chimes_3b_powers;    // [ntrips][nparams][constit. pair]
+  typename AT::t_int_3d_const_um c_chimes_3b_powers;
+
   typename AT::t_kkfloat_2d d_chimes_3b_params;    // [ntrips][nparams]
+  typename AT::t_kkfloat_2d_const_um c_chimes_3b_params;
+
   typename AT::t_kkfloat_3d d_chimes_3b_cutoff;    // [ntrips][constit. pair][2] inner and outer cutoff for pair 1
+  typename AT::t_kkfloat_3d_const_um c_chimes_3b_cutoff;
 
   typename AT::t_int_1d d_ncoeffs_4b;          // [nquads]
+  typename AT::t_int_1d_const_um c_ncoeffs_4b;
+
   typename AT::t_int_3d d_chimes_4b_powers;    // [nquads][nparams][constit. pair]
+  typename AT::t_int_3d_const_um c_chimes_4b_powers;
+
   typename AT::t_kkfloat_2d d_chimes_4b_params;    // [nquads][nparams]
+  typename AT::t_kkfloat_2d_const_um c_chimes_4b_params;
+
   typename AT::t_kkfloat_3d d_chimes_4b_cutoff;    // [nquads][constit. pair][2] inner and outer cutoff for pair 1
+  typename AT::t_kkfloat_3d_const_um c_chimes_4b_cutoff;
 
  private:
 
@@ -235,10 +264,10 @@ void chimesFFKokkos<DeviceType>::get_penalty(const KK_FLOAT dx, const int& pair_
   E_penalty    = 0.0;
   force_scalar = 1.0;
 
-  if (dx - d_penalty_params[0] < d_chimes_2b_cutoff(pair_idx,0)) { // Then we're within the penalty-enforced region of distance space
-    r_penalty = d_chimes_2b_cutoff(pair_idx,0) + d_penalty_params[0] - dx;
+  if (dx - d_penalty_params[0] < c_chimes_2b_cutoff(pair_idx,0)) { // Then we're within the penalty-enforced region of distance space
+    r_penalty = c_chimes_2b_cutoff(pair_idx,0) + d_penalty_params[0] - dx;
 
-    /*if (dx < d_chimes_2b_cutoff(pair_idx,0))
+    /*if (dx < c_chimes_2b_cutoff(pair_idx,0))
       badness = 2;
     else if (1 > this->badness) // Only update badness if candiate badness is worse than its current value
       badness = 1;*/

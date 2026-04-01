@@ -47,14 +47,9 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   // poly_orders
 
   size = poly_orders.size();
-  LAMMPS_NS::MemKK::realloc_kokkos(d_poly_orders,"chimesFF:poly_orders",size);
-
-  auto h_poly_orders = Kokkos::create_mirror_view(d_poly_orders);
 
   for (int i = 0; i < size; i++)
-    h_poly_orders[i] = poly_orders[i];
-
-  Kokkos::deep_copy(d_poly_orders,h_poly_orders);
+    d_poly_orders[i] = poly_orders[i];
 
 
   // morse_var
@@ -68,6 +63,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     h_morse_var[i] = morse_var[i];
 
   Kokkos::deep_copy(d_morse_var,h_morse_var);
+  c_morse_var = d_morse_var;
 
 
   // penalty_params
@@ -87,6 +83,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     h_ncoeffs_2b[i] = ncoeffs_2b[i];
 
   Kokkos::deep_copy(d_ncoeffs_2b,h_ncoeffs_2b);
+  c_ncoeffs_2b = d_ncoeffs_2b;
 
 
   // chimes_2b_pows
@@ -108,7 +105,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   }
 
   Kokkos::deep_copy(d_chimes_2b_pows,h_chimes_2b_pows);
-
+  c_chimes_2b_pows = d_chimes_2b_pows;
 
   // chimes_2b_params
 
@@ -129,7 +126,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   }
 
   Kokkos::deep_copy(d_chimes_2b_params,h_chimes_2b_params);
-
+  c_chimes_2b_params = d_chimes_2b_params;
 
   // chimes_2b_cutoff
 
@@ -144,7 +141,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   }
 
   Kokkos::deep_copy(d_chimes_2b_cutoff,h_chimes_2b_cutoff);
-
+  c_chimes_2b_cutoff = d_chimes_2b_cutoff;
 
   // ncoeffs_3b
 
@@ -157,6 +154,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     h_ncoeffs_3b[i] = ncoeffs_3b[i];
 
   Kokkos::deep_copy(d_ncoeffs_3b,h_ncoeffs_3b);
+  c_ncoeffs_3b = d_ncoeffs_3b;
 
 
   // chimes_3b_powers
@@ -188,6 +186,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   }
 
   Kokkos::deep_copy(d_chimes_3b_powers,h_chimes_3b_powers);
+  c_chimes_3b_powers = d_chimes_3b_powers;
 
 
   // chimes_3b_params
@@ -209,6 +208,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   }
 
   Kokkos::deep_copy(d_chimes_3b_params,h_chimes_3b_params);
+  c_chimes_3b_params = d_chimes_3b_params;
 
 
   // chimes_3b_cutoff
@@ -242,6 +242,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   }
 
   Kokkos::deep_copy(d_chimes_3b_cutoff,h_chimes_3b_cutoff);
+  c_chimes_3b_cutoff = d_chimes_3b_cutoff;
 
 
   // ncoeffs_4b
@@ -255,6 +256,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     h_ncoeffs_4b[i] = ncoeffs_4b[i];
 
   Kokkos::deep_copy(d_ncoeffs_4b,h_ncoeffs_4b);
+  c_ncoeffs_4b = d_ncoeffs_4b;
 
 
   // chimes_4b_powers
@@ -286,6 +288,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   }
 
   Kokkos::deep_copy(d_chimes_4b_powers,h_chimes_4b_powers);
+  c_chimes_4b_powers = d_chimes_4b_powers;
 
 
   // chimes_4b_params
@@ -307,6 +310,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   }
 
   Kokkos::deep_copy(d_chimes_4b_params,h_chimes_4b_params);
+  c_chimes_4b_params = d_chimes_4b_params;
 
 
   // chimes_4b_cutoff
@@ -340,6 +344,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   }
 
   Kokkos::deep_copy(d_chimes_4b_cutoff,h_chimes_4b_cutoff);
+  c_chimes_4b_cutoff = d_chimes_4b_cutoff;
 
 
   // energy_offsets
@@ -353,6 +358,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     h_energy_offsets[i] = energy_offsets[i];
 
   Kokkos::deep_copy(d_energy_offsets,h_energy_offsets);
+  c_energy_offsets = d_energy_offsets;
 
 
   // atom_int_pair_map
@@ -366,6 +372,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     h_atom_int_pair_map[i] = atom_int_pair_map[i];
 
   Kokkos::deep_copy(d_atom_int_pair_map,h_atom_int_pair_map);
+  c_atom_int_pair_map = d_atom_int_pair_map;
 
 
   // atom_int_trip_map
@@ -379,6 +386,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     h_atom_int_trip_map[i] = atom_int_trip_map[i];
 
   Kokkos::deep_copy(d_atom_int_trip_map,h_atom_int_trip_map);
+  c_atom_int_trip_map = d_atom_int_trip_map;
 
 
   // atom_int_quad_map
@@ -392,6 +400,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     h_atom_int_quad_map[i] = atom_int_quad_map[i];
 
   Kokkos::deep_copy(d_atom_int_quad_map,h_atom_int_quad_map);
+  c_atom_int_quad_map = d_atom_int_quad_map;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -482,7 +491,7 @@ void chimesFFKokkos<DeviceType>::compute_1B(const int typ_idx, KK_FLOAT & energy
 {
   // Compute 1b (input: a single atom type index... outputs (updates) energy
 
-  energy += d_energy_offsets[typ_idx];
+  energy += c_energy_offsets[typ_idx];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -529,17 +538,17 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
   KK_FLOAT Tn[MAX_2B_POLY];
   KK_FLOAT Tnd[MAX_2B_POLY];
 
-  const int pair_idx = d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
+  const int pair_idx = c_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
 
-  //if (dx >= d_chimes_2b_cutoff(pair_idx,1)) return;
+  //if (dx >= c_chimes_2b_cutoff(pair_idx,1)) return;
 
-  set_cheby_polys(ii, Tn, Tnd, dx, d_morse_var[pair_idx], d_chimes_2b_cutoff(pair_idx,0), d_chimes_2b_cutoff(pair_idx,1), d_poly_orders[0]);
+  set_cheby_polys(ii, Tn, Tnd, dx, c_morse_var[pair_idx], c_chimes_2b_cutoff(pair_idx,0), c_chimes_2b_cutoff(pair_idx,1), d_poly_orders[0]);
 
-  get_fcut(dx, d_chimes_2b_cutoff(pair_idx,1), fcut, fcutderiv);
+  get_fcut(dx, c_chimes_2b_cutoff(pair_idx,1), fcut, fcutderiv);
 
   KK_FLOAT poly, dpoly_dx;
 
-  poly_2B(ii, poly, dpoly_dx, d_ncoeffs_2b[pair_idx], pair_idx, Tn, Tnd);
+  poly_2B(ii, poly, dpoly_dx, c_ncoeffs_2b[pair_idx], pair_idx, Tn, Tnd);
 
   //const KK_FLOAT dx_inv = (dx > 0.0 ) ? 1.0 / dx : 1e20;
 
@@ -660,35 +669,35 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   KK_FLOAT deriv[npairs];
 
   const int type_idx = typ_idxs[0]*natmtyps*natmtyps + typ_idxs[1]*natmtyps + typ_idxs[2];
-  const int tripidx = d_atom_int_trip_map[type_idx];
+  const int tripidx = c_atom_int_trip_map[type_idx];
 
   //if (tripidx < 0) // Skipping an excluded interaction
   //  return;
 
   // Check whether cutoffs are within allowed ranges
-  //auto d_mapped_pair_idx = d_pair_int_trip_map[type_idx];
+  //auto c_mapped_pair_idx = c_pair_int_trip_map[type_idx];
 
-  const KK_FLOAT cutoff_00 = d_chimes_3b_cutoff(tripidx,d_pair_int_trip_map(type_idx,0),0);
-  const KK_FLOAT cutoff_0 = d_chimes_3b_cutoff(tripidx,d_pair_int_trip_map(type_idx,0),1);
+  const KK_FLOAT cutoff_00 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,0),0);
+  const KK_FLOAT cutoff_0 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,0),1);
 
   //if (dx[0] >= cutoff_0) // ij
   //  return;
 
-  const KK_FLOAT cutoff_01 = d_chimes_3b_cutoff(tripidx,d_pair_int_trip_map(type_idx,1),0);
-  const KK_FLOAT cutoff_1 = d_chimes_3b_cutoff(tripidx,d_pair_int_trip_map(type_idx,1),1);
+  const KK_FLOAT cutoff_01 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,1),0);
+  const KK_FLOAT cutoff_1 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,1),1);
 
   //if (dx[1] >= cutoff_1) // ik
   //  return;
 
-  const KK_FLOAT cutoff_02 = d_chimes_3b_cutoff(tripidx,d_pair_int_trip_map(type_idx,2),0);
-  const KK_FLOAT cutoff_2 = d_chimes_3b_cutoff(tripidx,d_pair_int_trip_map(type_idx,2),1);
+  const KK_FLOAT cutoff_02 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,2),0);
+  const KK_FLOAT cutoff_2 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,2),1);
 
   //if (dx[2] >= cutoff_2) // jk
   //  return;
 
- const int pair_type_1 = d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
- const int pair_type_2 = d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[2]);
- const int pair_type_3 = d_atom_int_pair_map(typ_idxs[1]*natmtyps + typ_idxs[2]);
+ const int pair_type_1 = c_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
+ const int pair_type_2 = c_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[2]);
+ const int pair_type_3 = c_atom_int_pair_map(typ_idxs[1]*natmtyps + typ_idxs[2]);
  const int order = d_poly_orders[1];
 
   // At this point, all distances are within allowed ranges. We can now proceed to the force/stress/energy calculation
@@ -703,9 +712,9 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
 
   // Set up the polynomials
 
-  set_cheby_polys(ii, Tn_ij, Tnd_ij, dx[0], d_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
-  set_cheby_polys(ii, Tn_ik, Tnd_ik, dx[1], d_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
-  set_cheby_polys(ii, Tn_jk, Tnd_jk, dx[2], d_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
+  set_cheby_polys(ii, Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
+  set_cheby_polys(ii, Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
+  set_cheby_polys(ii, Tn_jk, Tnd_jk, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
 
   // Set up the smoothing functions
 
@@ -718,7 +727,7 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
 
   // Start the force/stress/energy calculation
 
-  poly_3B(ii, poly, dpoly_dx, d_ncoeffs_3b[tripidx], tripidx, type_idx,
+  poly_3B(ii, poly, dpoly_dx, c_ncoeffs_3b[tripidx], tripidx, type_idx,
           Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
 
   if (eflag)
@@ -877,75 +886,75 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   const int idx = typ_idxs[0]*natmtyps*natmtyps*natmtyps
       + typ_idxs[1]*natmtyps*natmtyps + typ_idxs[2]*natmtyps + typ_idxs[3];
 
-  const int quadidx = d_atom_int_quad_map[idx];
+  const int quadidx = c_atom_int_quad_map[idx];
 
   //if (quadidx < 0) // Skipping an excluded interaction
   //  return;
 
-  //auto d_mapped_pair_idx = d_pair_int_quad_map[idx];
+  //auto c_mapped_pair_idx = c_pair_int_quad_map[idx];
 
   // Check whether cutoffs are within allowed ranges
 /*
   for (int i=0; i<npairs; i++)
-      if (dx[i] >= d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,i)))
+      if (dx[i] >= c_chimes_4b_cutoff(quadidx,1,c_pair_int_quad_map(idx,i)))
           return;
 */
   // These speed up fcut calculations by a LOT
 
-  const KK_FLOAT cutoff_00 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,0),0);
-  const KK_FLOAT cutoff_0 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,0),1);
+  const KK_FLOAT cutoff_00 = c_chimes_4b_cutoff(quadidx,c_pair_int_quad_map(idx,0),0);
+  const KK_FLOAT cutoff_0 = c_chimes_4b_cutoff(quadidx,c_pair_int_quad_map(idx,0),1);
 
   //if (dx[0] >= cutoff_0) // ij
   //  return;
 
-  const KK_FLOAT cutoff_01 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,1),0);
-  const KK_FLOAT cutoff_1 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,1),1);
+  const KK_FLOAT cutoff_01 = c_chimes_4b_cutoff(quadidx,c_pair_int_quad_map(idx,1),0);
+  const KK_FLOAT cutoff_1 = c_chimes_4b_cutoff(quadidx,c_pair_int_quad_map(idx,1),1);
 
   //if (dx[1] >= cutoff_1) // ik
   //  return;
 
-  const KK_FLOAT cutoff_02 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,2),0);
-  const KK_FLOAT cutoff_2 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,2),1);
+  const KK_FLOAT cutoff_02 = c_chimes_4b_cutoff(quadidx,c_pair_int_quad_map(idx,2),0);
+  const KK_FLOAT cutoff_2 = c_chimes_4b_cutoff(quadidx,c_pair_int_quad_map(idx,2),1);
 
   //if (dx[2] >= cutoff_2) // il
   //  return;
 
-  const KK_FLOAT cutoff_03 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,3),0);
-  const KK_FLOAT cutoff_3 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,3),1);
+  const KK_FLOAT cutoff_03 = c_chimes_4b_cutoff(quadidx,c_pair_int_quad_map(idx,3),0);
+  const KK_FLOAT cutoff_3 = c_chimes_4b_cutoff(quadidx,c_pair_int_quad_map(idx,3),1);
 
   //if (dx[3] >= cutoff_3) // jk
   //  return;
 
-  const KK_FLOAT cutoff_04 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,4),0);
-  const KK_FLOAT cutoff_4 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,4),1);
+  const KK_FLOAT cutoff_04 = c_chimes_4b_cutoff(quadidx,c_pair_int_quad_map(idx,4),0);
+  const KK_FLOAT cutoff_4 = c_chimes_4b_cutoff(quadidx,c_pair_int_quad_map(idx,4),1);
 
   //if (dx[4] >= cutoff_4) // jl
   //  return;
 
-  const KK_FLOAT cutoff_05 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,5),0);
-  const KK_FLOAT cutoff_5 = d_chimes_4b_cutoff(quadidx,d_pair_int_quad_map(idx,5),1);
+  const KK_FLOAT cutoff_05 = c_chimes_4b_cutoff(quadidx,c_pair_int_quad_map(idx,5),0);
+  const KK_FLOAT cutoff_5 = c_chimes_4b_cutoff(quadidx,c_pair_int_quad_map(idx,5),1);
 
   //if (dx[5] >= cutoff_5) // kl
   //  return;
 
   // At this point, all distances are within allowed ranges. We can now proceed to the force/stress/energy calculation
 
-  const int pair_type_1 = d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
-  const int pair_type_2 = d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[2]);
-  const int pair_type_3 = d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[3]);
-  const int pair_type_4 = d_atom_int_pair_map(typ_idxs[1]*natmtyps + typ_idxs[2]);
-  const int pair_type_5 = d_atom_int_pair_map(typ_idxs[1]*natmtyps + typ_idxs[3]);
-  const int pair_type_6 = d_atom_int_pair_map(typ_idxs[2]*natmtyps + typ_idxs[3]);
+  const int pair_type_1 = c_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
+  const int pair_type_2 = c_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[2]);
+  const int pair_type_3 = c_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[3]);
+  const int pair_type_4 = c_atom_int_pair_map(typ_idxs[1]*natmtyps + typ_idxs[2]);
+  const int pair_type_5 = c_atom_int_pair_map(typ_idxs[1]*natmtyps + typ_idxs[3]);
+  const int pair_type_6 = c_atom_int_pair_map(typ_idxs[2]*natmtyps + typ_idxs[3]);
   const int order = d_poly_orders[2];
 
   // Set up the polynomials
 
-  set_cheby_polys(ii, Tn_ij, Tnd_ij, dx[0], d_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
-  set_cheby_polys(ii, Tn_ik, Tnd_ik, dx[1], d_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
-  set_cheby_polys(ii, Tn_il, Tnd_il, dx[2], d_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
-  set_cheby_polys(ii, Tn_jk, Tnd_jk, dx[3], d_morse_var[pair_type_4], cutoff_03, cutoff_3, order);
-  set_cheby_polys(ii, Tn_jl, Tnd_jl, dx[4], d_morse_var[pair_type_5], cutoff_04, cutoff_4, order);
-  set_cheby_polys(ii, Tn_kl, Tnd_kl, dx[5], d_morse_var[pair_type_6], cutoff_05, cutoff_5, order);
+  set_cheby_polys(ii, Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
+  set_cheby_polys(ii, Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
+  set_cheby_polys(ii, Tn_il, Tnd_il, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
+  set_cheby_polys(ii, Tn_jk, Tnd_jk, dx[3], c_morse_var[pair_type_4], cutoff_03, cutoff_3, order);
+  set_cheby_polys(ii, Tn_jl, Tnd_jl, dx[4], c_morse_var[pair_type_5], cutoff_04, cutoff_4, order);
+  set_cheby_polys(ii, Tn_kl, Tnd_kl, dx[5], c_morse_var[pair_type_6], cutoff_05, cutoff_5, order);
 
 #ifdef USE_DISTANCE_TENSOR
   // Tensor product of displacement vectors
@@ -958,7 +967,7 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   // Set up the smoothing functions
 /*
   for (int i=0; i<npairs; i++)
-      get_fcut(dx[i], d_chimes_4b_cutoff(quadidx,1,d_pair_int_quad_map(idx,i)], fcut[i], fcutderiv[i));
+      get_fcut(dx[i], c_chimes_4b_cutoff(quadidx,1,c_pair_int_quad_map(idx,i)], fcut[i], fcutderiv[i));
 */
 
   get_fcut(dx[0], cutoff_0, fcut[0], fcutderiv[0]);
@@ -986,7 +995,7 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
 
   KK_FLOAT poly, dpoly_dx[npairs];
 
-  poly_4B(ii, poly, dpoly_dx, d_ncoeffs_4b[quadidx], quadidx, idx,
+  poly_4B(ii, poly, dpoly_dx, c_ncoeffs_4b[quadidx], quadidx, idx,
           Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik,
           Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
 
@@ -1197,6 +1206,7 @@ void chimesFFKokkos<DeviceType>::build_pair_int_quad_map()
   }
 
   Kokkos::deep_copy(d_pair_int_quad_map,h_pair_int_quad_map);
+  c_pair_int_quad_map = d_pair_int_quad_map;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1228,6 +1238,7 @@ void chimesFFKokkos<DeviceType>::build_pair_int_trip_map()
   }
 
   Kokkos::deep_copy(d_pair_int_trip_map,h_pair_int_trip_map);
+  c_pair_int_trip_map = d_pair_int_trip_map;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1242,12 +1253,13 @@ void chimesFFKokkos<DeviceType>::poly_2B(const int ii, KK_FLOAT &e, KK_FLOAT &f0
   e = 0.0;
   f0 = 0.0;
 
-  auto d_chimes_2b_params_pairidx = Kokkos::subview(d_chimes_2b_params,pair_idx,Kokkos::ALL);
-  auto d_chimes_2b_pows_pairidx = Kokkos::subview(d_chimes_2b_pows,pair_idx,Kokkos::ALL);
+  auto c_chimes_2b_params_pairidx = Kokkos::subview(c_chimes_2b_params,pair_idx,Kokkos::ALL);
+  auto c_chimes_2b_pows_pairidx = Kokkos::subview(c_chimes_2b_pows,pair_idx,Kokkos::ALL);
 
+  #pragma unroll
   for (int coeffs = 0; coeffs < ncoeffs_2b; coeffs++) {
-    const KK_FLOAT coeff_val = d_chimes_2b_params_pairidx(coeffs);
-    const int powerp1 = d_chimes_2b_pows_pairidx(coeffs) + 1;
+    const KK_FLOAT coeff_val = c_chimes_2b_params_pairidx(coeffs);
+    const int powerp1 = c_chimes_2b_pows_pairidx(coeffs) + 1;
 
     e += coeff_val * Tn[powerp1];
 
@@ -1265,26 +1277,27 @@ void chimesFFKokkos<DeviceType>::poly_3B(const int ii, KK_FLOAT &e, KK_FLOAT *f,
 // Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f)
 // (LEF) 3/11/26
 {
-  int powers[3],trip_map_idx[3];
 
   e = 0.0;
   f[0] = 0.0;
   f[1] = 0.0;
   f[2] = 0.0;
 
-  trip_map_idx[0] = d_pair_int_trip_map(idx,0);
-  trip_map_idx[1] = d_pair_int_trip_map(idx,1);
-  trip_map_idx[2] = d_pair_int_trip_map(idx,2);
+  int trip_map_idx[3];
+  trip_map_idx[0] = c_pair_int_trip_map(idx,0);
+  trip_map_idx[1] = c_pair_int_trip_map(idx,1);
+  trip_map_idx[2] = c_pair_int_trip_map(idx,2);
 
-  auto d_chimes_3b_params_tripidx = Kokkos::subview(d_chimes_3b_params,tripidx,Kokkos::ALL);
-  auto d_chimes_3b_powers_tripidx = Kokkos::subview(d_chimes_3b_powers,tripidx,Kokkos::ALL,Kokkos::ALL);
+  auto c_chimes_3b_params_tripidx = Kokkos::subview(c_chimes_3b_params,tripidx,Kokkos::ALL);
+  auto c_chimes_3b_powers_tripidx = Kokkos::subview(c_chimes_3b_powers,tripidx,Kokkos::ALL,Kokkos::ALL);
 
+  #pragma unroll
   for (int coeffs = 0; coeffs < ncoeffs_3b; coeffs++) {
-    const KK_FLOAT coeff = d_chimes_3b_params_tripidx(coeffs);
+    const KK_FLOAT coeff = c_chimes_3b_params_tripidx(coeffs);
 
-    powers[0] = d_chimes_3b_powers_tripidx(coeffs,trip_map_idx[0]);
-    powers[1] = d_chimes_3b_powers_tripidx(coeffs,trip_map_idx[1]);
-    powers[2] = d_chimes_3b_powers_tripidx(coeffs,trip_map_idx[2]);
+    const int powers[3] = { c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[0]), 
+                      c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[1]), 
+                      c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[2]) };
 
     e += coeff * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
 
@@ -1312,15 +1325,16 @@ void chimesFFKokkos<DeviceType>::poly_4B(const int ii, KK_FLOAT &e, KK_FLOAT *f,
   e = 0;
   for (int i = 0; i < npairs; i++) f[i] = 0.0;
 
-  for (int i = 0; i < npairs; i++) quad_map_idx[i] = d_pair_int_quad_map(idx,i);
+  for (int i = 0; i < npairs; i++) quad_map_idx[i] = c_pair_int_quad_map(idx,i);
 
-  auto d_chimes_4b_params_quadidx = Kokkos::subview(d_chimes_4b_params,quadidx,Kokkos::ALL);
-  auto d_chimes_4b_powers_quadidx = Kokkos::subview(d_chimes_4b_powers,quadidx,Kokkos::ALL,Kokkos::ALL);
+  auto c_chimes_4b_params_quadidx = Kokkos::subview(c_chimes_4b_params,quadidx,Kokkos::ALL);
+  auto c_chimes_4b_powers_quadidx = Kokkos::subview(c_chimes_4b_powers,quadidx,Kokkos::ALL,Kokkos::ALL);
 
+  #pragma unroll
   for (int coeffs = 0; coeffs < ncoeffs_4b; coeffs++) {
-    const KK_FLOAT coeff = d_chimes_4b_params_quadidx(coeffs);
+    const KK_FLOAT coeff = c_chimes_4b_params_quadidx(coeffs);
 
-    for (int i = 0; i < npairs; i++) powers[i] = d_chimes_4b_powers_quadidx(coeffs,quad_map_idx[i]);
+    for (int i = 0; i < npairs; i++) powers[i] = c_chimes_4b_powers_quadidx(coeffs,quad_map_idx[i]);
 
     const KK_FLOAT Tn_ij_ik_il = Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]];
     const KK_FLOAT Tn_jk_jl = Tn_jk[powers[3]] * Tn_jl[powers[4]];

@@ -296,9 +296,9 @@ void PairCHIMESKokkos<DeviceType>::neigh_2B_item(const int& ii, int &offset, con
 
     typ_idxs[1] = d_chimes_type[type[j]-1];
 
-    const int pair_idx = chimes_calculatorKK.d_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
+    const int pair_idx = chimes_calculatorKK.c_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
 
-    if (dist_ij >= chimes_calculatorKK.d_chimes_2b_cutoff(pair_idx,1)) continue;
+    if (dist_ij >= chimes_calculatorKK.c_chimes_2b_cutoff(pair_idx,1)) continue;
 
     if (final) {
       if (offset < max_2mers) {
@@ -327,9 +327,9 @@ void PairCHIMESKokkos<DeviceType>::neigh_3B_item(const int& ii, int &offset, con
   const tagint jtag = tag[j];
 
   const int natmtyps = chimes_calculatorKK.natmtyps;
-  const auto &d_atom_int_trip_map = chimes_calculatorKK.d_atom_int_trip_map;
-  const auto &d_pair_int_trip_map = chimes_calculatorKK.d_pair_int_trip_map;
-  const auto &d_chimes_3b_cutoff = chimes_calculatorKK.d_chimes_3b_cutoff;
+  const auto &d_atom_int_trip_map = chimes_calculatorKK.c_atom_int_trip_map;
+  const auto &d_pair_int_trip_map = chimes_calculatorKK.c_pair_int_trip_map;
+  const auto &d_chimes_3b_cutoff = chimes_calculatorKK.c_chimes_3b_cutoff;
 
   int typ_idxs[3];
   typ_idxs[0] = d_chimes_type[type[i]-1];
@@ -420,9 +420,9 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh4Body, c
   const tagint ktag = tag[k];
 
   const int natmtyps = chimes_calculatorKK.natmtyps;
-  const auto &d_atom_int_quad_map = chimes_calculatorKK.d_atom_int_quad_map;
-  const auto &d_pair_int_quad_map = chimes_calculatorKK.d_pair_int_quad_map;
-  const auto &d_chimes_4b_cutoff = chimes_calculatorKK.d_chimes_4b_cutoff;
+  const auto &d_atom_int_quad_map = chimes_calculatorKK.c_atom_int_quad_map;
+  const auto &d_pair_int_quad_map = chimes_calculatorKK.c_pair_int_quad_map;
+  const auto &d_chimes_4b_cutoff = chimes_calculatorKK.c_chimes_4b_cutoff;
 
   int typ_idxs[4];
   typ_idxs[0] = d_chimes_type[type[i]-1];
