@@ -706,7 +706,7 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
   // Tensor product of displacement vectors
 
   KK_FLOAT dr2[CHDIM*CHDIM*npairs*npairs];
-  if (eflag)
+  if (vflag)
     init_distance_tensor(dr2, dr, npairs);
 #endif
 
@@ -960,7 +960,8 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
   // Tensor product of displacement vectors
 
   KK_FLOAT dr2[CHDIM*CHDIM*npairs*npairs];
-  init_distance_tensor(dr2, dr, npairs);
+  if (vflag)
+    init_distance_tensor(dr2, dr, npairs);
 #endif
 
 
