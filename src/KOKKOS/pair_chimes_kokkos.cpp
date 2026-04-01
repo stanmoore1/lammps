@@ -583,9 +583,9 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       std::cout << "Updating chimesFF neighbor lists..." << std::endl;
 
     build_mb_neighlists();
-    chimes_calculatorKK.resize_2B(size_2mers);
-    chimes_calculatorKK.resize_3B(size_3mers);
-    chimes_calculatorKK.resize_4B(size_4mers);
+    //chimes_calculatorKK.resize_2B(size_2mers);
+    //chimes_calculatorKK.resize_3B(size_3mers);
+    //chimes_calculatorKK.resize_4B(size_4mers);
 
     if (0 && chimes_calculatorKK.rank == 0) {
       std::cout << "      Rank " << comm->me << " 2-body list size: " << size_2mers << std::endl;
