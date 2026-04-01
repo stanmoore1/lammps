@@ -53,59 +53,6 @@ PairOxdnaHbondKokkos<DeviceType>::~PairOxdnaHbondKokkos()
   if (allocated) {
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->destroy_kokkos(k_vatom,vatom);
-
-    // memoryKK->destroy_kokkos(k_epsilon_hb,epsilon_hb);
-    // memoryKK->destroy_kokkos(k_a_hb,a_hb);
-    // memoryKK->destroy_kokkos(k_cut_hb_0,cut_hb_0);
-    // memoryKK->destroy_kokkos(k_cut_hb_c,cut_hb_c);
-    // memoryKK->destroy_kokkos(k_cut_hb_lo,cut_hb_lo);
-    // memoryKK->destroy_kokkos(k_cut_hb_hi,cut_hb_hi);
-    // memoryKK->destroy_kokkos(k_cut_hb_lc,cut_hb_lc);
-    // memoryKK->destroy_kokkos(k_cut_hb_hc,cut_hb_hc);
-    // memoryKK->destroy_kokkos(k_b_hb_lo,b_hb_lo);
-    // memoryKK->destroy_kokkos(k_b_hb_hi,b_hb_hi);
-    // memoryKK->destroy_kokkos(k_shift_hb,shift_hb);
-    // memoryKK->destroy_kokkos(k_cutsq_hb_hc,cutsq_hb_hc);
-
-    // memoryKK->destroy_kokkos(k_a_hb1,a_hb1);
-    // memoryKK->destroy_kokkos(k_theta_hb1_0,theta_hb1_0);
-    // memoryKK->destroy_kokkos(k_dtheta_hb1_ast,dtheta_hb1_ast);
-    // memoryKK->destroy_kokkos(k_b_hb1,b_hb1);
-    // memoryKK->destroy_kokkos(k_dtheta_hb1_c,dtheta_hb1_c);
-
-    // memoryKK->destroy_kokkos(k_a_hb2,a_hb2);
-    // memoryKK->destroy_kokkos(k_theta_hb2_0,theta_hb2_0);
-    // memoryKK->destroy_kokkos(k_dtheta_hb2_ast,dtheta_hb2_ast);
-    // memoryKK->destroy_kokkos(k_b_hb2,b_hb2);
-    // memoryKK->destroy_kokkos(k_dtheta_hb2_c,dtheta_hb2_c);
-
-    // memoryKK->destroy_kokkos(k_a_hb3,a_hb3);
-    // memoryKK->destroy_kokkos(k_theta_hb3_0,theta_hb3_0);
-    // memoryKK->destroy_kokkos(k_dtheta_hb3_ast,dtheta_hb3_ast);
-    // memoryKK->destroy_kokkos(k_b_hb3,b_hb3);
-    // memoryKK->destroy_kokkos(k_dtheta_hb3_c,dtheta_hb3_c);
-
-    // memoryKK->destroy_kokkos(k_a_hb4,a_hb4);
-    // memoryKK->destroy_kokkos(k_theta_hb4_0,theta_hb4_0);
-    // memoryKK->destroy_kokkos(k_dtheta_hb4_ast,dtheta_hb4_ast);
-    // memoryKK->destroy_kokkos(k_b_hb4,b_hb4);
-    // memoryKK->destroy_kokkos(k_dtheta_hb4_c,dtheta_hb4_c);
-
-    // memoryKK->destroy_kokkos(k_a_hb7,a_hb7);
-    // memoryKK->destroy_kokkos(k_theta_hb7_0,theta_hb7_0);
-    // memoryKK->destroy_kokkos(k_dtheta_hb7_ast,dtheta_hb7_ast);
-    // memoryKK->destroy_kokkos(k_b_hb7,b_hb7);
-    // memoryKK->destroy_kokkos(k_dtheta_hb7_c,dtheta_hb7_c);
-
-    // memoryKK->destroy_kokkos(k_a_hb8,a_hb8);
-    // memoryKK->destroy_kokkos(k_theta_hb8_0,theta_hb8_0);
-    // memoryKK->destroy_kokkos(k_dtheta_hb8_ast,dtheta_hb8_ast);
-    // memoryKK->destroy_kokkos(k_b_hb8,b_hb8);
-    // memoryKK->destroy_kokkos(k_dtheta_hb8_c,dtheta_hb8_c);
-
-    /*memoryKK->destroy_kokkos(k_nx_xtrct,nx_xtrct);
-    memoryKK->destroy_kokkos(k_ny_xtrct,ny_xtrct);
-    memoryKK->destroy_kokkos(k_nz_xtrct,nz_xtrct);*/
   }
 }
 
@@ -720,55 +667,6 @@ void PairOxdnaHbondKokkos<DeviceType>::allocate()
   PairOxdnaHbond::allocate();
 
   int n = atom->ntypes;
-  
-  // memory->destroy(epsilon_hb);
-  // memory->destroy(a_hb);
-  // memory->destroy(cut_hb_0);
-  // memory->destroy(cut_hb_c);
-  // memory->destroy(cut_hb_lo);
-  // memory->destroy(cut_hb_hi);
-  // memory->destroy(cut_hb_lc);
-  // memory->destroy(cut_hb_hc);
-  // memory->destroy(b_hb_lo);
-  // memory->destroy(b_hb_hi);
-  // memory->destroy(shift_hb);
-  // memory->destroy(cutsq_hb_hc);
-
-  // memory->destroy(a_hb1);
-  // memory->destroy(theta_hb1_0);
-  // memory->destroy(dtheta_hb1_ast);
-  // memory->destroy(b_hb1);
-  // memory->destroy(dtheta_hb1_c);
-
-  // memory->destroy(a_hb2);
-  // memory->destroy(theta_hb2_0);
-  // memory->destroy(dtheta_hb2_ast);
-  // memory->destroy(b_hb2);
-  // memory->destroy(dtheta_hb2_c);
-
-  // memory->destroy(a_hb3);
-  // memory->destroy(theta_hb3_0);
-  // memory->destroy(dtheta_hb3_ast);
-  // memory->destroy(b_hb3);
-  // memory->destroy(dtheta_hb3_c);
-
-  // memory->destroy(a_hb4);
-  // memory->destroy(theta_hb4_0);
-  // memory->destroy(dtheta_hb4_ast);
-  // memory->destroy(b_hb4);
-  // memory->destroy(dtheta_hb4_c);
-
-  // memory->destroy(a_hb7);
-  // memory->destroy(theta_hb7_0);
-  // memory->destroy(dtheta_hb7_ast);
-  // memory->destroy(b_hb7);
-  // memory->destroy(dtheta_hb7_c);
-
-  // memory->destroy(a_hb8);
-  // memory->destroy(theta_hb8_0);
-  // memory->destroy(dtheta_hb8_ast);
-  // memory->destroy(b_hb8);
-  // memory->destroy(dtheta_hb8_c);
 
   memoryKK->create_kokkos(k_epsilon_hb,n+1,n+1,"PairOxdnaHbond:epsilon_hb");
   memoryKK->create_kokkos(k_a_hb,n+1,n+1,"PairOxdnaHbond:a_hb");

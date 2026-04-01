@@ -54,49 +54,6 @@ PairOxdnaExcvKokkos<DeviceType>::~PairOxdnaExcvKokkos()
   if (allocated) {
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->destroy_kokkos(k_vatom,vatom);
-
-    // memoryKK->destroy_kokkos(k_epsilon_bkbk,epsilon_bkbk);
-    // memoryKK->destroy_kokkos(k_sigma_bkbk,sigma_bkbk);
-    // memoryKK->destroy_kokkos(k_cut_bkbk_ast,cut_bkbk_ast);
-    // memoryKK->destroy_kokkos(k_b_bkbk,b_bkbk);
-    // memoryKK->destroy_kokkos(k_cut_bkbk_c,cut_bkbk_c);
-    // memoryKK->destroy_kokkos(k_lj1_bkbk,lj1_bkbk);
-    // memoryKK->destroy_kokkos(k_lj2_bkbk,lj2_bkbk);
-    // memoryKK->destroy_kokkos(k_cutsq_bkbk_ast,cutsq_bkbk_ast);
-    // memoryKK->destroy_kokkos(k_cutsq_bkbk_c,cutsq_bkbk_c);
-
-    // memoryKK->destroy_kokkos(k_epsilon_bkbs,epsilon_bkbs);
-    // memoryKK->destroy_kokkos(k_sigma_bkbs,sigma_bkbs);
-    // memoryKK->destroy_kokkos(k_cut_bkbs_ast,cut_bkbs_ast);
-    // memoryKK->destroy_kokkos(k_b_bkbs,b_bkbs);
-    // memoryKK->destroy_kokkos(k_cut_bkbs_c,cut_bkbs_c);
-    // memoryKK->destroy_kokkos(k_lj1_bkbs,lj1_bkbs);
-    // memoryKK->destroy_kokkos(k_lj2_bkbs,lj2_bkbs);
-    // memoryKK->destroy_kokkos(k_cutsq_bkbs_ast,cutsq_bkbs_ast);
-    // memoryKK->destroy_kokkos(k_cutsq_bkbs_c,cutsq_bkbs_c);
-
-    // memoryKK->destroy_kokkos(k_epsilon_bsbs,epsilon_bsbs);
-    // memoryKK->destroy_kokkos(k_sigma_bsbs,sigma_bsbs);
-    // memoryKK->destroy_kokkos(k_cut_bsbs_ast,cut_bsbs_ast);
-    // memoryKK->destroy_kokkos(k_b_bsbs,b_bsbs);
-    // memoryKK->destroy_kokkos(k_cut_bsbs_c,cut_bsbs_c);
-    // memoryKK->destroy_kokkos(k_lj1_bsbs,lj1_bsbs);
-    // memoryKK->destroy_kokkos(k_lj2_bsbs,lj2_bsbs);
-    // memoryKK->destroy_kokkos(k_cutsq_bsbs_ast,cutsq_bsbs_ast);
-    // memoryKK->destroy_kokkos(k_cutsq_bsbs_c,cutsq_bsbs_c);
-
-    // memoryKK->destroy_kokkos(k_sigma4_bsbs);
-    // memoryKK->destroy_kokkos(k_cut4_bsbs_ast);
-    // memoryKK->destroy_kokkos(k_cut4sq_bsbs_ast);
-    // memoryKK->destroy_kokkos(k_lj14_bsbs);
-    // memoryKK->destroy_kokkos(k_lj24_bsbs);
-    // memoryKK->destroy_kokkos(k_b4_bsbs);
-    // memoryKK->destroy_kokkos(k_cut4_bsbs_c);
-    // memoryKK->destroy_kokkos(k_cut4sq_bsbs_c);
-
-    // memoryKK->destroy_kokkos(k_nx,nx);
-    // memoryKK->destroy_kokkos(k_ny,ny);
-    // memoryKK->destroy_kokkos(k_nz,nz);
   }
 }
 
@@ -909,43 +866,6 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   PairOxdnaExcv::allocate();
 
   int n = atom->ntypes;
-  
-  // memory->destroy(epsilon_bkbk);
-  // memory->destroy(sigma_bkbk);
-  // memory->destroy(cut_bkbk_ast);
-  // memory->destroy(b_bkbk);
-  // memory->destroy(cut_bkbk_c);
-  // memory->destroy(lj1_bkbk);
-  // memory->destroy(lj2_bkbk);
-  // memory->destroy(cutsq_bkbk_ast);
-  // memory->destroy(cutsq_bkbk_c);
-
-  // memory->destroy(epsilon_bkbs);
-  // memory->destroy(sigma_bkbs);
-  // memory->destroy(cut_bkbs_ast);
-  // memory->destroy(b_bkbs);
-  // memory->destroy(cut_bkbs_c);
-  // memory->destroy(lj1_bkbs);
-  // memory->destroy(lj2_bkbs);
-  // memory->destroy(cutsq_bkbs_ast);
-  // memory->destroy(cutsq_bkbs_c);
-
-  // memory->destroy(epsilon_bsbs);
-  // memory->destroy(sigma_bsbs);
-  // memory->destroy(cut_bsbs_ast);
-  // memory->destroy(b_bsbs);
-  // memory->destroy(cut_bsbs_c);
-  // memory->destroy(lj1_bsbs);
-  // memory->destroy(lj2_bsbs);
-  // memory->destroy(cutsq_bsbs_ast);
-  // memory->destroy(cutsq_bsbs_c);
-
-  // DON'T destory tetramer data here since these don't alias vanilla structures in create_kokkos - we
-  // still need them to later assign coefficients to kokkos views within ::coeff
-
-  // memory->destroy(nx);
-  // memory->destroy(ny);
-  // memory->destroy(nz);
 
   memoryKK->create_kokkos(k_epsilon_bkbk,n+1,n+1,"PairOxdnaExcv:epsilon_bkbk");
   memoryKK->create_kokkos(k_sigma_bkbk,n+1,n+1,"PairOxdnaExcv:sigma_bkbk");

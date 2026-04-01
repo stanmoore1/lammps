@@ -55,47 +55,6 @@ PairOxdna2CoaxstkKokkos<DeviceType>::~PairOxdna2CoaxstkKokkos()
   if (allocated) {
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->destroy_kokkos(k_vatom,vatom);
-
-    // memoryKK->destroy_kokkos(k_k_cxst,k_cxst);
-    // memoryKK->destroy_kokkos(k_cut_cxst_0,cut_cxst_0);
-    // memoryKK->destroy_kokkos(k_cut_cxst_c,cut_cxst_c);
-    // memoryKK->destroy_kokkos(k_cut_cxst_lo,cut_cxst_lo);
-    // memoryKK->destroy_kokkos(k_cut_cxst_hi,cut_cxst_hi);
-    // memoryKK->destroy_kokkos(k_cut_cxst_lc,cut_cxst_lc);
-    // memoryKK->destroy_kokkos(k_cut_cxst_hc,cut_cxst_hc);
-    // memoryKK->destroy_kokkos(k_b_cxst_lo,b_cxst_lo);
-    // memoryKK->destroy_kokkos(k_b_cxst_hi,b_cxst_hi);
-    // memoryKK->destroy_kokkos(k_cutsq_cxst_hc,cutsq_cxst_hc);
-
-    // memoryKK->destroy_kokkos(k_a_cxst1,a_cxst1);
-    // memoryKK->destroy_kokkos(k_theta_cxst1_0,theta_cxst1_0);
-    // memoryKK->destroy_kokkos(k_dtheta_cxst1_ast,dtheta_cxst1_ast);
-    // memoryKK->destroy_kokkos(k_b_cxst1,b_cxst1);
-    // memoryKK->destroy_kokkos(k_dtheta_cxst1_c,dtheta_cxst1_c);
-
-    // memoryKK->destroy_kokkos(k_a_cxst4,a_cxst4);
-    // memoryKK->destroy_kokkos(k_theta_cxst4_0,theta_cxst4_0);
-    // memoryKK->destroy_kokkos(k_dtheta_cxst4_ast,dtheta_cxst4_ast);
-    // memoryKK->destroy_kokkos(k_b_cxst4,b_cxst4);
-    // memoryKK->destroy_kokkos(k_dtheta_cxst4_c,dtheta_cxst4_c);
-
-    // memoryKK->destroy_kokkos(k_a_cxst5,a_cxst5);
-    // memoryKK->destroy_kokkos(k_theta_cxst5_0,theta_cxst5_0);
-    // memoryKK->destroy_kokkos(k_dtheta_cxst5_ast,dtheta_cxst5_ast);
-    // memoryKK->destroy_kokkos(k_b_cxst5,b_cxst5);
-    // memoryKK->destroy_kokkos(k_dtheta_cxst5_c,dtheta_cxst5_c);
-
-    // memoryKK->destroy_kokkos(k_a_cxst6,a_cxst6);
-    // memoryKK->destroy_kokkos(k_theta_cxst6_0,theta_cxst6_0);
-    // memoryKK->destroy_kokkos(k_dtheta_cxst6_ast,dtheta_cxst6_ast);
-    // memoryKK->destroy_kokkos(k_b_cxst6,b_cxst6);
-    // memoryKK->destroy_kokkos(k_dtheta_cxst6_c,dtheta_cxst6_c);
-
-    // memoryKK->destroy_kokkos(k_AA_cxst1,AA_cxst1);
-    // memoryKK->destroy_kokkos(k_BB_cxst1,BB_cxst1);
-
-    /*memoryKK->destroy_kokkos(k_nx_xtrct,nx_xtrct);
-    memoryKK->destroy_kokkos(k_nz_xtrct,nz_xtrct);*/
   }
 }
 
@@ -657,44 +616,6 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::allocate()
   PairOxdna2Coaxstk::allocate();
 
   int n = atom->ntypes;
-  
-  // memory->destroy(k_cxst);
-  // memory->destroy(cut_cxst_0);
-  // memory->destroy(cut_cxst_c);
-  // memory->destroy(cut_cxst_lo);
-  // memory->destroy(cut_cxst_hi);
-  // memory->destroy(cut_cxst_lc);
-  // memory->destroy(cut_cxst_hc);
-  // memory->destroy(b_cxst_lo);
-  // memory->destroy(b_cxst_hi);
-  // memory->destroy(cutsq_cxst_hc);
-
-  // memory->destroy(a_cxst1);
-  // memory->destroy(theta_cxst1_0);
-  // memory->destroy(dtheta_cxst1_ast);
-  // memory->destroy(b_cxst1);
-  // memory->destroy(dtheta_cxst1_c);
-
-  // memory->destroy(a_cxst4);
-  // memory->destroy(theta_cxst4_0);
-  // memory->destroy(dtheta_cxst4_ast);
-  // memory->destroy(b_cxst4);
-  // memory->destroy(dtheta_cxst4_c);
-
-  // memory->destroy(a_cxst5);
-  // memory->destroy(theta_cxst5_0);
-  // memory->destroy(dtheta_cxst5_ast);
-  // memory->destroy(b_cxst5);
-  // memory->destroy(dtheta_cxst5_c);
-
-  // memory->destroy(a_cxst6);
-  // memory->destroy(theta_cxst6_0);
-  // memory->destroy(dtheta_cxst6_ast);
-  // memory->destroy(b_cxst6);
-  // memory->destroy(dtheta_cxst6_c);
-
-  // memory->destroy(AA_cxst1);
-  // memory->destroy(BB_cxst1);
 
   memoryKK->create_kokkos(k_k_cxst,n+1,n+1,"PairOxdna2Coaxstk:k_cxst");
   memoryKK->create_kokkos(k_cut_cxst_0,n+1,n+1,"PairOxdna2Coaxstk:cut_cxst_0");

@@ -57,14 +57,6 @@ PairOxdna2DhKokkos<DeviceType>::~PairOxdna2DhKokkos()
   if (allocated) {
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->destroy_kokkos(k_vatom,vatom);
-
-    // memoryKK->destroy_kokkos(k_qeff_dh_pf,qeff_dh_pf);
-    // memoryKK->destroy_kokkos(k_kappa_dh,kappa_dh);
-    // memoryKK->destroy_kokkos(k_b_dh,b_dh);
-    // memoryKK->destroy_kokkos(k_cut_dh_ast,cut_dh_ast);
-    // memoryKK->destroy_kokkos(k_cutsq_dh_ast,cutsq_dh_ast);
-    // memoryKK->destroy_kokkos(k_cut_dh_c,cut_dh_c);
-    // memoryKK->destroy_kokkos(k_cutsq_dh_c,cutsq_dh_c);
   }
 }
 
@@ -463,14 +455,6 @@ void PairOxdna2DhKokkos<DeviceType>::allocate()
   PairOxdna2Dh::allocate();
 
   int n = atom->ntypes;
-  
-  // memory->destroy(qeff_dh_pf);
-  // memory->destroy(kappa_dh);
-  // memory->destroy(b_dh);
-  // memory->destroy(cut_dh_ast);
-  // memory->destroy(cutsq_dh_ast);
-  // memory->destroy(cut_dh_c);
-  // memory->destroy(cutsq_dh_c);
 
   memoryKK->create_kokkos(k_qeff_dh_pf,n+1,n+1,"PairOxdna2Dh:qeff_dh_pf");
   memoryKK->create_kokkos(k_kappa_dh,n+1,n+1,"PairOxdna2Dh:kappa_dh");

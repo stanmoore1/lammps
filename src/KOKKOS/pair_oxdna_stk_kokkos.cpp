@@ -57,50 +57,6 @@ PairOxdnaStkKokkos<DeviceType>::~PairOxdnaStkKokkos()
   if (allocated) {
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->destroy_kokkos(k_vatom,vatom);
-
-    // memoryKK->destroy_kokkos(k_epsilon_st,epsilon_st);
-    // memoryKK->destroy_kokkos(k_a_st,a_st);
-    // //memoryKK->destroy_kokkos(k_cut_st_0,cut_st_0);
-    // //memoryKK->destroy_kokkos(k_cut_st_c,cut_st_c);
-    // //memoryKK->destroy_kokkos(k_cut_st_lo,cut_st_lo);
-    // //memoryKK->destroy_kokkos(k_cut_st_hi,cut_st_hi);
-    // //memoryKK->destroy_kokkos(k_cut_st_lc,cut_st_lc);
-    // //memoryKK->destroy_kokkos(k_cut_st_hc,cut_st_hc);
-    // //memoryKK->destroy_kokkos(k_b_st_lo,b_st_lo);
-    // //memoryKK->destroy_kokkos(k_b_st_hi,b_st_hi);
-    // //memoryKK->destroy_kokkos(k_shift_st,shift_st);
-    // //memoryKK->destroy_kokkos(k_cutsq_st_hc,cutsq_st_hc);
-
-    // //memoryKK->destroy_kokkos(k_a_st4,a_st4);
-    // memoryKK->destroy_kokkos(k_theta_st4_0,theta_st4_0);
-    // //memoryKK->destroy_kokkos(k_dtheta_st4_ast,dtheta_st4_ast);
-    // //memoryKK->destroy_kokkos(k_b_st4,b_st4);
-    // //memoryKK->destroy_kokkos(k_dtheta_st4_c,dtheta_st4_c);
-
-    // memoryKK->destroy_kokkos(k_a_st5,a_st5);
-    // memoryKK->destroy_kokkos(k_theta_st5_0,theta_st5_0);
-    // memoryKK->destroy_kokkos(k_dtheta_st5_ast,dtheta_st5_ast);
-    // memoryKK->destroy_kokkos(k_b_st5,b_st5);
-    // memoryKK->destroy_kokkos(k_dtheta_st5_c,dtheta_st5_c);
-
-    // memoryKK->destroy_kokkos(k_a_st6,a_st6);
-    // memoryKK->destroy_kokkos(k_theta_st6_0,theta_st6_0);
-    // memoryKK->destroy_kokkos(k_dtheta_st6_ast,dtheta_st6_ast);
-    // memoryKK->destroy_kokkos(k_b_st6,b_st6);
-    // memoryKK->destroy_kokkos(k_dtheta_st6_c,dtheta_st6_c);
-
-    // memoryKK->destroy_kokkos(k_a_st1,a_st1);
-    // memoryKK->destroy_kokkos(k_cosphi_st1_ast,cosphi_st1_ast);
-    // memoryKK->destroy_kokkos(k_b_st1,b_st1);
-    // memoryKK->destroy_kokkos(k_cosphi_st1_c,cosphi_st1_c);
-    // memoryKK->destroy_kokkos(k_a_st2,a_st2);
-    // memoryKK->destroy_kokkos(k_cosphi_st2_ast,cosphi_st2_ast);
-    // memoryKK->destroy_kokkos(k_b_st2,b_st2);
-    // memoryKK->destroy_kokkos(k_cosphi_st2_c,cosphi_st2_c);
-
-    // /*memoryKK->destroy_kokkos(k_nx_xtrct,nx_xtrct);
-    // memoryKK->destroy_kokkos(k_ny_xtrct,ny_xtrct);
-    // memoryKK->destroy_kokkos(k_nz_xtrct,nz_xtrct);*/
   }
 }
 
@@ -731,46 +687,6 @@ void PairOxdnaStkKokkos<DeviceType>::allocate()
   PairOxdnaStk::allocate();
 
   int n = atom->ntypes;
-  
-  // memory->destroy(epsilon_st);
-  // memory->destroy(a_st);
-  // memory->destroy(cut_st_0);
-  // memory->destroy(cut_st_c);
-  // memory->destroy(cut_st_lo);
-  // memory->destroy(cut_st_hi);
-  // memory->destroy(cut_st_lc);
-  // memory->destroy(cut_st_hc);
-  // memory->destroy(b_st_lo);
-  // memory->destroy(b_st_hi);
-  // memory->destroy(shift_st);
-  // memory->destroy(cutsq_st_hc);
-
-  // memory->destroy(a_st4);
-  // memory->destroy(theta_st4_0);
-  // memory->destroy(dtheta_st4_ast);
-  // memory->destroy(b_st4);
-  // memory->destroy(dtheta_st4_c);
-
-  // memory->destroy(a_st5);
-  // memory->destroy(theta_st5_0);
-  // memory->destroy(dtheta_st5_ast);
-  // memory->destroy(b_st5);
-  // memory->destroy(dtheta_st5_c);
-
-  // memory->destroy(a_st6);
-  // memory->destroy(theta_st6_0);
-  // memory->destroy(dtheta_st6_ast);
-  // memory->destroy(b_st6);
-  // memory->destroy(dtheta_st6_c);
-
-  // memory->destroy(a_st1);
-  // memory->destroy(cosphi_st1_ast);
-  // memory->destroy(b_st1);
-  // memory->destroy(cosphi_st1_c);
-  // memory->destroy(a_st2);
-  // memory->destroy(cosphi_st2_ast);
-  // memory->destroy(b_st2);
-  // memory->destroy(cosphi_st2_c);
 
   memoryKK->create_kokkos(k_epsilon_st,n+1,n+1,"PairOxdnaStk:epsilon_st");
   memoryKK->create_kokkos(k_a_st,n+1,n+1,"PairOxdnaStk:a_st");
