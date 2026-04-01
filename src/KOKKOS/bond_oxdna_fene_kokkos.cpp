@@ -212,8 +212,8 @@ template<class DeviceType>
 template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
 void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, \
-  const int &in, EV_FLOAT& ev) const {
-  
+  const int &in, EV_FLOAT& ev) const
+{
   // The f and torque arrays are atomic
   Kokkos::View<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,\
     typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
