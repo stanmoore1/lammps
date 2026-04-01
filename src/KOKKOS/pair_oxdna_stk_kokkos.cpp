@@ -30,8 +30,6 @@
 using namespace LAMMPS_NS;
 using namespace MFOxdnaKokkos;
 
-// TODO: remove NEIGHFLAG from stk_kokkos - not needed due to bondlist
-
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
@@ -67,8 +65,6 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 {
   eflag = eflag_in;
   vflag = vflag_in;
-
-  if (neighflag == FULL) no_virial_fdotr_compute = 1;
 
   ev_init(eflag,vflag,0);
 
@@ -145,17 +141,6 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   nbondlist = neighborKK->nbondlist;
 
   int need_dup = lmp->kokkos->need_dup<DeviceType>();
-  if (need_dup) {
-    dup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
-    Kokkos::Experimental::ScatterDuplicated>(f);
-    dup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
-    Kokkos::Experimental::ScatterDuplicated>(torque);
-  } else {
-    ndup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
-    Kokkos::Experimental::ScatterNonDuplicated>(f);
-    ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
-    Kokkos::Experimental::ScatterNonDuplicated>(torque);
-  }
 
   copymode = 1;
 
@@ -195,50 +180,17 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   EV_FLOAT ev;
 
   if (evflag) {
-    if (neighflag == HALF) {
-      if (newton_bond) {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<HALF,1,1> >(0,nbondlist),*this,ev);
-      } else {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<HALF,0,1> >(0,nbondlist),*this,ev);
-      }
-    } else if (neighflag == HALFTHREAD) {
-      if (newton_bond) {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<HALFTHREAD,1,1> >(0,nbondlist),*this,ev);
-      } else {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<HALFTHREAD,0,1> >(0,nbondlist),*this,ev);
-      }
-    } else if (neighflag == FULL) {
-      if (newton_bond) {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<FULL,1,1> >(0,nbondlist),*this,ev);
-      } else {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<FULL,0,1> >(0,nbondlist),*this,ev);
-      }
+    if (newton_bond) {
+      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<1,1> >(0,nbondlist),*this,ev);
+    } else {
+      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<0,1> >(0,nbondlist),*this,ev);
     }
   } else {
-    if (neighflag == HALF) {
-      if (newton_bond) {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<HALF,1,0> >(0,nbondlist),*this);
-      } else {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<HALF,0,0> >(0,nbondlist),*this);
-      }
-    } else if (neighflag == HALFTHREAD) {
-      if (newton_bond) {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<HALFTHREAD,1,0> >(0,nbondlist),*this);
-      } else {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<HALFTHREAD,0,0> >(0,nbondlist),*this);
-      }
-    } else if (neighflag == FULL) {
-      if (newton_bond) {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<FULL,1,0> >(0,nbondlist),*this);
-      } else {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<FULL,0,0> >(0,nbondlist),*this);
-      }
+    if (newton_bond) {
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<1,0> >(0,nbondlist),*this);
+    } else {
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkCompute<0,0> >(0,nbondlist),*this);
     }
-  }
-
-  if (need_dup) {
-    Kokkos::Experimental::contribute(f, dup_f);
-    Kokkos::Experimental::contribute(torque, dup_torque);
   }
 
   if (eflag_global) eng_vdwl += ev.evdwl;
@@ -271,26 +223,22 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   // free duplicated memory
   if (need_dup) {
-    dup_f        = decltype(dup_f)();
-    dup_torque   = decltype(dup_torque)();
     dup_eatom    = decltype(dup_eatom)();
     dup_vatom    = decltype(dup_vatom)();
   }
 }
 
 template<class DeviceType>
-template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
+template<int NEWTON_BOND, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG,NEWTON_BOND,EVFLAG>, \
+void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEWTON_BOND,EVFLAG>, \
   const int &in, EV_FLOAT &ev) const
 {
-  // f and torque array are duplicated for OpenMP, atomic for GPU, and neither for Serial
-
-  auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
-  auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
-  auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
-    decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
-  auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  // The f and torque arrays are atomic
+  Kokkos::View<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,\
+    typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_f = f;
+  Kokkos::View<KK_FLOAT*[3], typename DAT::t_kkfloat_1d_3::array_layout,\
+    typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > a_torque = torque;
 
   // Use precomputed bond and prime neighbors.
   // NOTE: already in correct order from precompute, so directionality test: a -> b is 3' -> 5' is already satisfied
@@ -669,14 +617,14 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG
 }
 
 template<class DeviceType>
-template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
+template<int NEWTON_BOND, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEIGHFLAG,NEWTON_BOND,EVFLAG>, \
+void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEWTON_BOND,EVFLAG>, \
   const int &in) const
 {
   EV_FLOAT ev;
-  this->template operator()<NEIGHFLAG,NEWTON_BOND,EVFLAG>\
-  (TagPairOxdnaStkCompute<NEIGHFLAG,NEWTON_BOND,EVFLAG>(),in,ev);
+  this->template operator()<NEWTON_BOND,EVFLAG>\
+  (TagPairOxdnaStkCompute<NEWTON_BOND,EVFLAG>(),in,ev);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -775,7 +723,6 @@ template<class DeviceType>
 void PairOxdnaStkKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 {
   if (narg != 0) error->all(FLERR,"Illegal pair_style command");
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -784,13 +731,10 @@ template<class DeviceType>
 void PairOxdnaStkKokkos<DeviceType>::init_style() 
 {
   neighbor->add_request(this);
-  neighflag = lmp->kokkos->neighflag;
   auto request = neighbor->find_request(this);
   request->set_kokkos_host(std::is_same_v<DeviceType,LMPHostType> &&
                            !std::is_same_v<DeviceType,LMPDeviceType>);
   request->set_kokkos_device(std::is_same_v<DeviceType,LMPDeviceType>);
-  if (neighflag == FULL) request->enable_full();
-
 }
 
 /* ---------------------------------------------------------------------- */

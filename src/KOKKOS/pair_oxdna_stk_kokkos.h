@@ -37,13 +37,12 @@ namespace LAMMPS_NS {
 
 struct TagPairOxdnaStkPrecomputeBondPrimeNeighs{};
 
-template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
+template<int NEWTON_BOND, int EVFLAG>
 struct TagPairOxdnaStkCompute{};
 
 template<class DeviceType>
 class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
  public:
-  enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   PairOxdnaStkKokkos(class LAMMPS *);
@@ -59,15 +58,15 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdnaStkPrecomputeBondPrimeNeighs, const int&) const;
 
-  template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
+  template<int NEWTON_BOND, int EVFLAG>
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairOxdnaStkCompute<NEIGHFLAG,NEWTON_BOND,EVFLAG>, const int&, EV_FLOAT&) const;
+  void operator()(TagPairOxdnaStkCompute<NEWTON_BOND,EVFLAG>, const int&, EV_FLOAT&) const;
 
-  template<int NEIGHFLAG, int NEWTON_BOND, int EVFLAG>
+  template<int NEWTON_BOND, int EVFLAG>
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairOxdnaStkCompute<NEIGHFLAG,NEWTON_BOND,EVFLAG>, const int&) const;
+  void operator()(TagPairOxdnaStkCompute<NEWTON_BOND,EVFLAG>, const int&) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -93,12 +92,8 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
   typename AT::t_kkfloat_1d d_eatom;
   typename AT::t_kkfloat_1d_6 d_vatom;
 
-  int neighflag, nbondlist;
+  int nbondlist;
   int nlocal, newton_bond, eflag, vflag;
-
-  typename AT::t_neighbors_2d_randomread d_neighbors;
-  typename AT::t_int_1d_randomread d_alist;
-  typename AT::t_int_1d_randomread d_numneigh;
 
   // stacking interaction parameters
   typename AT::tdual_kkfloat_2d k_epsilon_st, k_a_st;
