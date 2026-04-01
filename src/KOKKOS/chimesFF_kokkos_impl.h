@@ -1242,11 +1242,16 @@ void chimesFFKokkos<DeviceType>::poly_2B(const int ii, KK_FLOAT &e, KK_FLOAT &f0
   e = 0.0;
   f0 = 0.0;
 
-  for (int coeffs = 0; coeffs < ncoeffs_2b; coeffs++) {
-    KK_FLOAT coeff_val = d_chimes_2b_params(pair_idx,coeffs);
+  auto d_chimes_2b_params_pairidx = Kokkos::subview(d_chimes_2b_params,pair_idx,Kokkos::ALL);
+  auto d_chimes_2b_pows_pairidx = Kokkos::subview(d_chimes_2b_pows,pair_idx,Kokkos::ALL);
 
-    e += coeff_val * Tn[d_chimes_2b_pows(pair_idx,coeffs) + 1];
-    f0 += coeff_val * Tnd[d_chimes_2b_pows(pair_idx,coeffs) + 1];
+  for (int coeffs = 0; coeffs < ncoeffs_2b; coeffs++) {
+    const KK_FLOAT coeff_val = d_chimes_2b_params_pairidx(coeffs);
+    const int powerp1 = d_chimes_2b_pows_pairidx(coeffs) + 1;
+
+    e += coeff_val * Tn[powerp1];
+
+    f0 += coeff_val * Tnd[powerp1];
   }
 }
 
@@ -1260,19 +1265,26 @@ void chimesFFKokkos<DeviceType>::poly_3B(const int ii, KK_FLOAT &e, KK_FLOAT *f,
 // Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f)
 // (LEF) 3/11/26
 {
-  int powers[3];
+  int powers[3],trip_map_idx[3];
 
   e = 0.0;
   f[0] = 0.0;
   f[1] = 0.0;
   f[2] = 0.0;
 
-  for (int coeffs = 0; coeffs < ncoeffs_3b; coeffs++) {
-    const KK_FLOAT coeff = d_chimes_3b_params(tripidx,coeffs);
+  trip_map_idx[0] = d_pair_int_trip_map(idx,0);
+  trip_map_idx[1] = d_pair_int_trip_map(idx,1);
+  trip_map_idx[2] = d_pair_int_trip_map(idx,2);
 
-    powers[0] = d_chimes_3b_powers(tripidx,coeffs,d_pair_int_trip_map(idx,0));
-    powers[1] = d_chimes_3b_powers(tripidx,coeffs,d_pair_int_trip_map(idx,1));
-    powers[2] = d_chimes_3b_powers(tripidx,coeffs,d_pair_int_trip_map(idx,2));
+  auto d_chimes_3b_params_tripidx = Kokkos::subview(d_chimes_3b_params,tripidx,Kokkos::ALL);
+  auto d_chimes_3b_powers_tripidx = Kokkos::subview(d_chimes_3b_powers,tripidx,Kokkos::ALL,Kokkos::ALL);
+
+  for (int coeffs = 0; coeffs < ncoeffs_3b; coeffs++) {
+    const KK_FLOAT coeff = d_chimes_3b_params_tripidx(coeffs);
+
+    powers[0] = d_chimes_3b_powers_tripidx(coeffs,trip_map_idx[0]);
+    powers[1] = d_chimes_3b_powers_tripidx(coeffs,trip_map_idx[1]);
+    powers[2] = d_chimes_3b_powers_tripidx(coeffs,trip_map_idx[2]);
 
     e += coeff * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
 
@@ -1295,16 +1307,20 @@ void chimesFFKokkos<DeviceType>::poly_4B(const int ii, KK_FLOAT &e, KK_FLOAT *f,
 // (LEF) 3/11/26
 {
   constexpr int npairs = 6;
-  int powers[npairs];
-  KK_FLOAT deriv[npairs];
+  int powers[npairs],quad_map_idx[npairs];
 
   e = 0;
   for (int i = 0; i < npairs; i++) f[i] = 0.0;
 
-  for (int coeffs = 0; coeffs < ncoeffs_4b; coeffs++) {
-    const KK_FLOAT coeff = d_chimes_4b_params(quadidx,coeffs);
+  for (int i = 0; i < npairs; i++) quad_map_idx[i] = d_pair_int_quad_map(idx,i);
 
-    for (int i = 0; i < npairs; i++) powers[i] = d_chimes_4b_powers(quadidx,coeffs,d_pair_int_quad_map(idx,i));
+  auto d_chimes_4b_params_quadidx = Kokkos::subview(d_chimes_4b_params,quadidx,Kokkos::ALL);
+  auto d_chimes_4b_powers_quadidx = Kokkos::subview(d_chimes_4b_powers,quadidx,Kokkos::ALL,Kokkos::ALL);
+
+  for (int coeffs = 0; coeffs < ncoeffs_4b; coeffs++) {
+    const KK_FLOAT coeff = d_chimes_4b_params_quadidx(coeffs);
+
+    for (int i = 0; i < npairs; i++) powers[i] = d_chimes_4b_powers_quadidx(coeffs,quad_map_idx[i]);
 
     const KK_FLOAT Tn_ij_ik_il = Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]];
     const KK_FLOAT Tn_jk_jl = Tn_jk[powers[3]] * Tn_jl[powers[4]];
@@ -1312,18 +1328,11 @@ void chimesFFKokkos<DeviceType>::poly_4B(const int ii, KK_FLOAT &e, KK_FLOAT *f,
 
     e += coeff * Tn_ij_ik_il * Tn_jk_jl * Tn_kl_5;
 
-    deriv[0] = Tnd_ij[powers[0]];
-    deriv[1] = Tnd_ik[powers[1]];
-    deriv[2] = Tnd_il[powers[2]];
-    deriv[3] = Tnd_jk[powers[3]];
-    deriv[4] = Tnd_jl[powers[4]];
-    deriv[5] = Tnd_kl[powers[5]];
-
-    f[0] += coeff * deriv[0] * Tn_ik[powers[1]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
-    f[1] += coeff * deriv[1] * Tn_ij[powers[0]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
-    f[2] += coeff * deriv[2] * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk_jl * Tn_kl_5;
-    f[3] += coeff * deriv[3] * Tn_ij_ik_il * Tn_jl[powers[4]] * Tn_kl_5;
-    f[4] += coeff * deriv[4] * Tn_ij_ik_il * Tn_jk[powers[3]] * Tn_kl_5;
-    f[5] += coeff * deriv[5] * Tn_ij_ik_il * Tn_jk_jl;
+    f[0] += coeff * Tnd_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
+    f[1] += coeff * Tnd_ik[powers[1]] * Tn_ij[powers[0]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
+    f[2] += coeff * Tnd_il[powers[2]] * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk_jl * Tn_kl_5;
+    f[3] += coeff * Tnd_jk[powers[3]] * Tn_ij_ik_il * Tn_jl[powers[4]] * Tn_kl_5;
+    f[4] += coeff * Tnd_jl[powers[4]] * Tn_ij_ik_il * Tn_jk[powers[3]] * Tn_kl_5;
+    f[5] += coeff * Tnd_kl[powers[5]] * Tn_ij_ik_il * Tn_jk_jl;
   }
 }
