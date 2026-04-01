@@ -125,6 +125,22 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     d_vatom = k_vatom.template view<DeviceType>();
   }
 
+  // reallocate per-atom orientation arrays if atom storage has grown
+  if (atom->nmax > static_cast<int>(k_nx.extent(0))) {
+    memoryKK->destroy_kokkos(k_nx);
+    memoryKK->destroy_kokkos(k_ny);
+    memoryKK->destroy_kokkos(k_nz);
+    memoryKK->create_kokkos(k_nx,atom->nmax,3,"PairOxdnaExcv:nx");
+    memoryKK->create_kokkos(k_ny,atom->nmax,3,"PairOxdnaExcv:ny");
+    memoryKK->create_kokkos(k_nz,atom->nmax,3,"PairOxdnaExcv:nz");
+    d_nx = k_nx.template view<DeviceType>();
+    d_ny = k_ny.template view<DeviceType>();
+    d_nz = k_nz.template view<DeviceType>();
+    h_nx = k_nx.view_host();
+    h_ny = k_ny.view_host();
+    h_nz = k_nz.view_host();
+  }
+
   atomKK->sync(execution_space,datamask_read);
 
   k_epsilon_bkbk.template sync<DeviceType>();
@@ -231,9 +247,9 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   k_ny.template modify<DeviceType>();
   k_nz.template modify<DeviceType>();
   comm->forward_comm(this);
-  k_nx.template sync<DeviceType>();
-  k_ny.template sync<DeviceType>();
-  k_nz.template sync<DeviceType>();
+  k_nx.template sync<LMPHostType>();
+  k_ny.template sync<LMPHostType>();
+  k_nz.template sync<LMPHostType>();
 
   // loop over neighbors of my atoms for compute functors
 
