@@ -67,22 +67,22 @@ class chimesFFKokkos : public chimesFF
   // 2+B compute functions overloaded with force_scalar var for compatibility with LAMMPS
 
   KOKKOS_INLINE_FUNCTION
-  void compute_2B(const int ii, const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
+  void compute_2B(const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_2B(const int ii, const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT& force_scalar) const;
+  void compute_2B(const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT& force_scalar) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_3B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
+  void compute_3B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_3B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force,KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
+  void compute_3B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force,KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_4B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
+  void compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_4B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
+  void compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
 
   // Functions to aid using ChIMES Calculator for fitting
 
@@ -174,28 +174,28 @@ class chimesFFKokkos : public chimesFF
   // Tools for compute functions
 
   KOKKOS_INLINE_FUNCTION
-  void set_cheby_polys(const int ii, KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, const KK_FLOAT morse,
+  void set_cheby_polys(KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, const KK_FLOAT morse,
                        const KK_FLOAT inner_cutoff, const KK_FLOAT outer_cutoff, const int order) const;
 
   KOKKOS_INLINE_FUNCTION
-  void poly_2B(const int ii, KK_FLOAT &e, KK_FLOAT &f0, int ncoeffs_2b, int pair_idx,
+  void poly_2B(KK_FLOAT &e, KK_FLOAT &f0, int ncoeffs_2b, int pair_idx,
                KK_FLOAT* Tn, KK_FLOAT* Tnd) const;
 
 
   KOKKOS_INLINE_FUNCTION
-  void poly_3B(const int ii, KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3b, int tripidx, int idx,
+  void poly_3B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3b, int tripidx, int idx,
                KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_jk,
                KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_jk) const;
 
   KOKKOS_INLINE_FUNCTION
-  void poly_4B(const int ii, KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4b, int quadidx, int idx,
+  void poly_4B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4b, int quadidx, int idx,
                KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_il,
                KK_FLOAT* Tn_jk, KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl,
                KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il,
                KK_FLOAT* Tnd_jk, KK_FLOAT* Tnd_jl, KK_FLOAT* Tnd_kl) const;
 
   KOKKOS_INLINE_FUNCTION
-  void set_polys_out_of_range(const int ii, KK_FLOAT* d_Tn, KK_FLOAT* d_Tnd, KK_FLOAT dx, KK_FLOAT x,
+  void set_polys_out_of_range(KK_FLOAT* d_Tn, KK_FLOAT* d_Tnd, KK_FLOAT dx, KK_FLOAT x,
                               int poly_order, KK_FLOAT inner_cutoff, KK_FLOAT exprlen, KK_FLOAT dx_dr) const;
 
   KOKKOS_INLINE_FUNCTION
@@ -291,7 +291,7 @@ void chimesFFKokkos<DeviceType>::get_penalty(const KK_FLOAT dx, const int& pair_
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::set_cheby_polys(const int ii, KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, const KK_FLOAT morse,
+void chimesFFKokkos<DeviceType>::set_cheby_polys(KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, const KK_FLOAT morse,
                                      const KK_FLOAT inner_cutoff, const KK_FLOAT outer_cutoff, const int order) const
 {
   // Currently assumes a Morse-style transformation has been requested
@@ -368,7 +368,7 @@ void chimesFFKokkos<DeviceType>::set_cheby_polys(const int ii, KK_FLOAT* Tn, KK_
     //////cout << "Warning: An intermolecular distance less than the inner cutoff = " << inner_cutoff << " was found\n ";
     //////cout << "         Distance = " << dx_orig << endl;
 
-    set_polys_out_of_range(ii, Tn, Tnd, dx_orig, x, order, inner_cutoff, exprlen, dx_dr);
+    set_polys_out_of_range(Tn, Tnd, dx_orig, x, order, inner_cutoff, exprlen, dx_dr);
   }
 }
 

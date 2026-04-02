@@ -407,7 +407,7 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::set_polys_out_of_range(const int ii, KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, KK_FLOAT x, int poly_order, KK_FLOAT inner_cutoff, KK_FLOAT exprlen, KK_FLOAT dx_dr) const
+void chimesFFKokkos<DeviceType>::set_polys_out_of_range(KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, KK_FLOAT x, int poly_order, KK_FLOAT inner_cutoff, KK_FLOAT exprlen, KK_FLOAT dx_dr) const
 {
   //  Sets the value of the Chebyshev polynomials (Tn) and their derivatives (Tnd) when dx is < inner_cutoff.
   //  Tnd is the derivative with respect to the interatomic distance, not the transformed distance (x).
@@ -500,17 +500,17 @@ void chimesFFKokkos<DeviceType>::compute_1B(const int typ_idx, KK_FLOAT & energy
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
+void chimesFFKokkos<DeviceType>::compute_2B(const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
 {
   KK_FLOAT dummy_force_scalar;
-  compute_2B(ii, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
+  compute_2B(dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT& force_scalar) const
+void chimesFFKokkos<DeviceType>::compute_2B(const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT& force_scalar) const
 {
   // Compute 2b (input: 2 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -542,13 +542,13 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
 
   //if (dx >= c_chimes_2b_cutoff(pair_idx,1)) return;
 
-  set_cheby_polys(ii, Tn, Tnd, dx, c_morse_var[pair_idx], c_chimes_2b_cutoff(pair_idx,0), c_chimes_2b_cutoff(pair_idx,1), d_poly_orders[0]);
+  set_cheby_polys(Tn, Tnd, dx, c_morse_var[pair_idx], c_chimes_2b_cutoff(pair_idx,0), c_chimes_2b_cutoff(pair_idx,1), d_poly_orders[0]);
 
   get_fcut(dx, c_chimes_2b_cutoff(pair_idx,1), fcut, fcutderiv);
 
   KK_FLOAT poly, dpoly_dx;
 
-  poly_2B(ii, poly, dpoly_dx, c_ncoeffs_2b[pair_idx], pair_idx, Tn, Tnd);
+  poly_2B(poly, dpoly_dx, c_ncoeffs_2b[pair_idx], pair_idx, Tn, Tnd);
 
   //const KK_FLOAT dx_inv = (dx > 0.0 ) ? 1.0 / dx : 1e20;
 
@@ -620,17 +620,17 @@ void chimesFFKokkos<DeviceType>::compute_2B(const int ii, const KK_FLOAT dx, con
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
+void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
 {
   KK_FLOAT dummy_force_scalar[3];
-  compute_3B(ii, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
+  compute_3B(dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
+void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
 {
   // Compute 3b (input: 3 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -712,9 +712,9 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
 
   // Set up the polynomials
 
-  set_cheby_polys(ii, Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
-  set_cheby_polys(ii, Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
-  set_cheby_polys(ii, Tn_jk, Tnd_jk, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
+  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
+  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
+  set_cheby_polys(Tn_jk, Tnd_jk, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
 
   // Set up the smoothing functions
 
@@ -727,7 +727,7 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
 
   // Start the force/stress/energy calculation
 
-  poly_3B(ii, poly, dpoly_dx, c_ncoeffs_3b[tripidx], tripidx, type_idx,
+  poly_3B(poly, dpoly_dx, c_ncoeffs_3b[tripidx], tripidx, type_idx,
           Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
 
   if (eflag)
@@ -834,17 +834,17 @@ void chimesFFKokkos<DeviceType>::compute_3B(const int ii, const KK_FLOAT* dx, co
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
+void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
 {
   KK_FLOAT dummy_force_scalar[6];
-  compute_4B(ii, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
+  compute_4B(dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
+void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
 {
   // Compute 3b (input: 3 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -949,12 +949,12 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
 
   // Set up the polynomials
 
-  set_cheby_polys(ii, Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
-  set_cheby_polys(ii, Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
-  set_cheby_polys(ii, Tn_il, Tnd_il, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
-  set_cheby_polys(ii, Tn_jk, Tnd_jk, dx[3], c_morse_var[pair_type_4], cutoff_03, cutoff_3, order);
-  set_cheby_polys(ii, Tn_jl, Tnd_jl, dx[4], c_morse_var[pair_type_5], cutoff_04, cutoff_4, order);
-  set_cheby_polys(ii, Tn_kl, Tnd_kl, dx[5], c_morse_var[pair_type_6], cutoff_05, cutoff_5, order);
+  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
+  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
+  set_cheby_polys(Tn_il, Tnd_il, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
+  set_cheby_polys(Tn_jk, Tnd_jk, dx[3], c_morse_var[pair_type_4], cutoff_03, cutoff_3, order);
+  set_cheby_polys(Tn_jl, Tnd_jl, dx[4], c_morse_var[pair_type_5], cutoff_04, cutoff_4, order);
+  set_cheby_polys(Tn_kl, Tnd_kl, dx[5], c_morse_var[pair_type_6], cutoff_05, cutoff_5, order);
 
 #ifdef USE_DISTANCE_TENSOR
   // Tensor product of displacement vectors
@@ -996,7 +996,7 @@ void chimesFFKokkos<DeviceType>::compute_4B(const int ii, const KK_FLOAT* dx, co
 
   KK_FLOAT poly, dpoly_dx[npairs];
 
-  poly_4B(ii, poly, dpoly_dx, c_ncoeffs_4b[quadidx], quadidx, idx,
+  poly_4B(poly, dpoly_dx, c_ncoeffs_4b[quadidx], quadidx, idx,
           Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik,
           Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
 
@@ -1246,7 +1246,7 @@ void chimesFFKokkos<DeviceType>::build_pair_int_trip_map()
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::poly_2B(const int ii, KK_FLOAT &e, KK_FLOAT &f0, const int ncoeffs_2b, const int pair_idx,
+void chimesFFKokkos<DeviceType>::poly_2B(KK_FLOAT &e, KK_FLOAT &f0, const int ncoeffs_2b, const int pair_idx,
                                          KK_FLOAT* Tn, KK_FLOAT* Tnd) const
 // Compute the 2 body polynomial (e) and derivatives with respect to the pair distance (f0)
 // (LEF) 3/11/26
@@ -1272,7 +1272,7 @@ void chimesFFKokkos<DeviceType>::poly_2B(const int ii, KK_FLOAT &e, KK_FLOAT &f0
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::poly_3B(const int ii, KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3b, int tripidx, int idx,
+void chimesFFKokkos<DeviceType>::poly_3B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3b, int tripidx, int idx,
                                          KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_jk,
                                          KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_jk) const
 // Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f)
@@ -1312,7 +1312,7 @@ void chimesFFKokkos<DeviceType>::poly_3B(const int ii, KK_FLOAT &e, KK_FLOAT *f,
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::poly_4B(const int ii, KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4b, int quadidx, int idx,
+void chimesFFKokkos<DeviceType>::poly_4B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4b, int quadidx, int idx,
                                          KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_il,
                                          KK_FLOAT* Tn_jk, KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl,
                                          KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il,

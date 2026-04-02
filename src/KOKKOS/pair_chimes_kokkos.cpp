@@ -787,7 +787,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFL
   KK_FLOAT stensor[6];
   for (int n = 0; n < 6; n++) stensor[n] = 0.0;
 
-  chimes_calculatorKK.compute_2B(ii, dist, dr, typ_idxs_2b, force_2b, stensor, energy);      // Auto-updates badness
+  chimes_calculatorKK.compute_2B(dist, dr, typ_idxs_2b, force_2b, stensor, energy);      // Auto-updates badness
 
   for (int idx = 0; idx < 3; idx++) {
     a_f(i,idx) += force_2b[idx];
@@ -860,7 +860,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFL
   KK_FLOAT stensor[6];
   for (int n = 0; n < 6; n++) stensor[n] = 0.0;
 
-  chimes_calculatorKK.compute_3B(ii, dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy);
+  chimes_calculatorKK.compute_3B(dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy);
 
   for (int idx = 0; idx < 3; idx++)
   {
@@ -942,7 +942,7 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute4Body<NEIGHFL
   KK_FLOAT stensor[6];
   for (int n = 0; n < 6; n++) stensor[n] = 0.0;
 
-  chimes_calculatorKK.compute_4B(ii, dist_4b, dr_4b, typ_idxs_4b, force_4b, stensor, energy);
+  chimes_calculatorKK.compute_4B(dist_4b, dr_4b, typ_idxs_4b, force_4b, stensor, energy);
 
   for (int idx = 0; idx < 3; idx++) {
     a_f(i,idx) += force_4b[idx];
