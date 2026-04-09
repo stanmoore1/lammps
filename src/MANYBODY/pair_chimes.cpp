@@ -529,7 +529,7 @@ void PairCHIMES::compute(int eflag, int vflag)
       energy = 0.0;
 
       chimes_calculator->compute_3B(dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy,
-                                   chimes_3btmp);
+                                    chimes_3btmp);
 
       for (idx = 0; idx < 3; idx++) {
         f[i][idx] += force_3b[0 * CHDIM + idx];

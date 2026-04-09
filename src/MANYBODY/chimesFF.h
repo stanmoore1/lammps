@@ -156,6 +156,8 @@ class chimesFF {
   virtual void build_pair_int_quad_map();
 
  protected:
+  bool dense_coeffs;
+
   string xform_style;               //  Morse, direct, inverse, etc...
   fcutType fcut_type;               // cutoff function style (tersoff/cubic)
   double fcut_var;                  // tersoff distance (if fcut_type)
@@ -232,7 +234,6 @@ class chimesFF {
   vector<int> ncoeffs_2b;    // [npairs]
 
   vector<vector<int>> chimes_2b_pows;    // [npairs][npowers] power for the coresponding parameter
-
   vector<vector<double>> chimes_2b_params;    // [npairs][npowers] 2-body polynomial coefficients
   vector<vector<double>> chimes_2b_cutoff;    // [npairs][2] inner and outer cutoff for pair
 
@@ -262,12 +263,75 @@ class chimesFF {
                vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_jk,
                vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_jk);
 
+  // Evaluates the 3-Body chebyshev polynomial in dense format.
+  void poly_3B_dense(double &e, double &f0, double &f1, double &f2, int ncoeffs_3b,
+                     vector<double> &params_3b, vector<double> &Tn_ij, vector<double> &Tn_ik,
+                     vector<double> &Tn_jk, vector<double> &Tnd_ij, vector<double> &Tnd_ik,
+                     vector<double> &Tnd_jk);
+
+  // Loop evaluators for poly_3B_dense.
+  void poly_3B_dense_loop1(int max_poly, double &e, double &f0, double &f1, double &f2,
+                           int ncoeffs_3b, vector<double> &chimes_3b_params, vector<double> &Tn_ij,
+                           vector<double> &Tn_ik, vector<double> &Tn_jk, vector<double> &Tnd_ij,
+                           vector<double> &Tnd_ik, vector<double> &Tnd_jk);
+
+  void poly_3B_dense_loop2(int max_poly, double &e, double &f0, double &f1, double &f2,
+                           int ncoeffs_3b, vector<double> &chimes_3b_params, vector<double> &Tn_ij,
+                           vector<double> &Tn_ik, vector<double> &Tn_jk, vector<double> &Tnd_ij,
+                           vector<double> &Tnd_ik, vector<double> &Tnd_jk);
+
+  void poly_3B_dense_loop3(int max_poly, double &e, double &f0, double &f1, double &f2,
+                           int ncoeffs_3b, vector<double> &chimes_3b_params, vector<double> &Tn_ij,
+                           vector<double> &Tn_ik, vector<double> &Tn_jk, vector<double> &Tnd_ij,
+                           vector<double> &Tnd_ik, vector<double> &Tnd_jk);
+
+  // Transforms 3-body input ChIMES model into a "dense" format where all
+  // possible coefficients are allocated.
+  void densify_3B(int &ncoeffs3, vector<vector<int>> &powers_3b, vector<double> &params_3b);
+
+  // Transforms 4-body input ChIMES model into a "dense" format where all
+  // possible coefficients are allocated.
+  void densify_4B(int &ncoeffs4, vector<vector<int>> &powers_4b, vector<double> &params_4b);
+
   void poly_4B(double *e, double *f, int ncoeffs_4b, vector<double> &chimes_4b_params,
                vector<int> &mapped_pair_idx, vector<vector<int>> &chimes_4b_powers,
                vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_il,
                vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
                vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_il,
                vector<double> &Tnd_jk, vector<double> &Tnd_jl, vector<double> &Tnd_kl);
+
+  // Loop1 uses a flat loop to evaluate a dense 4-body polynomial.
+  void poly_4B_dense_loop1(int max_poly, double &e, double &f0, double &f1, double &f2, double &f3,
+                           double &f4, double &f5, int ncoeffs_4b, vector<double> &params_4b,
+                           vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_il,
+                           vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
+                           vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_il,
+                           vector<double> &Tnd_jk, vector<double> &Tnd_jl, vector<double> &Tnd_kl);
+
+  // Innver evaluation loop for dense 4 body poly.  2nd. variant.
+  // loop2 is a templated loop.
+  void poly_4B_dense_loop2(int max_poly, double &e, double &f0, double &f1, double &f2, double &f3,
+                           double &f4, double &f5, int ncoeffs_4b, vector<double> &params_4b,
+                           vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_il,
+                           vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
+                           vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_il,
+                           vector<double> &Tnd_jk, vector<double> &Tnd_jl, vector<double> &Tnd_kl);
+
+  // Loop3 is a templated nested loop
+  void poly_4B_dense_loop3(int max_poly, double &e, double &f0, double &f1, double &f2, double &f3,
+                           double &f4, double &f5, int ncoeffs_4b, vector<double> &params_4b,
+                           vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_il,
+                           vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
+                           vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_il,
+                           vector<double> &Tnd_jk, vector<double> &Tnd_jl, vector<double> &Tnd_kl);
+
+  // Evaluates the 4-body Chebyshev polynomial in dense format.
+  void poly_4B_dense(double &e, double &f0, double &f1, double &f2, double &f3, double &f4,
+                     double &f5, int ncoeffs_4b, vector<double> &params_4b, vector<double> &Tn_ij,
+                     vector<double> &Tn_ik, vector<double> &Tn_il, vector<double> &Tn_jk,
+                     vector<double> &Tn_jl, vector<double> &Tn_kl, vector<double> &Tnd_ij,
+                     vector<double> &Tnd_ik, vector<double> &Tnd_il, vector<double> &Tnd_jk,
+                     vector<double> &Tnd_jl, vector<double> &Tnd_kl);
 
   void set_polys_out_of_range(vector<double> &Tn, vector<double> &Tnd, double dx, double x,
                               int poly_order, double inner_cutoff, double exprlen, double dx_dr);
@@ -304,6 +368,99 @@ class chimesFF {
   inline double dr2_3B(const double *dr2, int i, int j, int k, int l);
   inline double dr2_4B(const double *dr2, int i, int j, int k, int l);
   inline void init_distance_tensor(double *dr2, const vector<double> &dr, int natoms);
+
+  template <int max_poly>
+  void poly_3B_dense_template(double &e, double &f0, double &f1, double &f2, int ncoeffs_3b,
+                              vector<double> &chimes_3b_params, vector<double> &Tn_ij,
+                              vector<double> &Tn_ik, vector<double> &Tn_jk, vector<double> &Tnd_ij,
+                              vector<double> &Tnd_ik, vector<double> &Tnd_jk)
+  // Templated loop to evaluate the ChIMES polynomial.
+  {
+    int count = 0;
+    for (int i = 0; i < max_poly; i++) {
+      const double tn_ij = Tn_ij[i];
+      const double tnd_ij = Tnd_ij[i];
+
+      for (int j = 0; j < max_poly; j++) {
+        const double tn_ik = Tn_ik[j];
+        const double tnd_ik = Tnd_ik[j];
+        const double tn_ij_ik = tn_ij * tn_ik;
+
+        for (int k = 0; k < max_poly; k++) {
+          if (chimes_3b_params[count] != 0.0) {
+            const double tn_jk = Tn_jk[k];
+            const double tnd_jk = Tnd_jk[k];
+            const double coeff = chimes_3b_params[count];
+
+            e += coeff * tn_ij_ik * tn_jk;
+            f0 += coeff * tnd_ij * tn_ik * tn_jk;
+            f1 += coeff * tnd_ik * tn_ij * tn_jk;
+            f2 += coeff * tnd_jk * tn_ij_ik;
+          }
+          count++;
+        }
+      }
+    }
+  }
+
+  template <int max_poly>
+  void poly_4B_dense_template(double &e, double &f0, double &f1, double &f2, double &f3, double &f4,
+                              double &f5, int ncoeffs_4b, vector<double> &params_4b,
+                              vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_il,
+                              vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
+                              vector<double> &Tnd_ij, vector<double> &Tnd_ik,
+                              vector<double> &Tnd_il, vector<double> &Tnd_jk,
+                              vector<double> &Tnd_jl, vector<double> &Tnd_kl)
+  {
+    double coeff;
+
+    int count = 0;
+    for (int i = 0; i < max_poly; i++) {
+      const double tn_ij = Tn_ij[i];
+      const double tnd_ij = Tnd_ij[i];
+      for (int j = 0; j < max_poly; j++) {
+        const double tn_ik = Tn_ik[j];
+        const double tnd_ik = Tnd_ik[j];
+        for (int l = 0; l < max_poly; l++) {
+          const double tn_il = Tn_il[l];
+          const double tnd_il = Tnd_il[l];
+          const double Tn_ij_ik_il = tn_ij * tn_ik * tn_il;
+          for (int m = 0; m < max_poly; m++) {
+            const double tn_jk = Tn_jk[m];
+            const double tnd_jk = Tnd_jk[m];
+            for (int n = 0; n < max_poly; n++) {
+              const double tn_jl = Tn_jl[n];
+              const double tnd_jl = Tnd_jl[n];
+              const double Tn_jk_jl = tn_jk * tn_jl;
+              for (int o = 0; o < max_poly; o++) {
+                const double tn_kl = Tn_kl[o];
+                const double tnd_kl = Tnd_kl[o];
+
+                if (params_4b[count] != 0.0) {
+                  const double coeff = params_4b[count];
+
+                  e += coeff * Tn_ij_ik_il * Tn_jk_jl * tn_kl;
+
+                  f0 += coeff * tnd_ij * tn_ik * tn_il * Tn_jk_jl * tn_kl;
+
+                  f1 += coeff * tnd_ik * tn_ij * tn_il * Tn_jk_jl * tn_kl;
+
+                  f2 += coeff * tnd_il * tn_ij * tn_ik * Tn_jk_jl * tn_kl;
+
+                  f3 += coeff * tnd_jk * Tn_ij_ik_il * tn_jl * tn_kl;
+
+                  f4 += coeff * tnd_jl * Tn_ij_ik_il * tn_jk * tn_kl;
+
+                  f5 += coeff * tnd_kl * Tn_ij_ik_il * Tn_jk_jl;
+                }
+                count++;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 };
 
 inline void chimesFF::get_fcut(const double dx, const double outer_cutoff, double &fcut,

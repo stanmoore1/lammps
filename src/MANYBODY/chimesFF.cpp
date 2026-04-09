@@ -1,7 +1,7 @@
 /*
-  ChIMES Calculator
-  Copyright (C) 2020 Rebecca K. Lindsey, Nir Goldman, and Laurence E. Fried
-  Contributing Author:  Rebecca K. Lindsey (2020)
+	ChIMES Calculator
+	Copyright (C) 2020 Rebecca K. Lindsey, Nir Goldman, and Laurence E. Fried
+	Contributing Author:  Rebecca K. Lindsey (2020)
 */
 
 #include <algorithm>
@@ -14,6 +14,10 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+#ifndef CHIMES_LOOP_STYLE
+#define CHIMES_LOOP_STYLE 3
+#endif
 
 using namespace std;
 
@@ -79,6 +83,14 @@ chimesFF::chimesFF()
   natmtyps = 0;
   penalty_params.resize(2);
 
+  // Dense coefficients treats all chimes parameters as potentially non-zero,
+  // improving loop efficiency in some cases.
+#ifdef CHIMES_DENSE_COEFFS
+  dense_coeffs = true;
+#else
+  dense_coeffs = false;
+#endif
+
   // Set defaults
 
   fcut_type = fcutType::CUBIC;
@@ -86,8 +98,8 @@ chimesFF::chimesFF()
   penalty_params[0] = 0.01;
   penalty_params[1] = 1.0E4;
 
-  //inner_smooth_distance = 0.05;
-  inner_smooth_distance = 0.01 ;
+  inner_smooth_distance = 0.05;
+  //inner_smooth_distance = 0.01 ;
 }
 chimesFF::~chimesFF() {}
 
@@ -103,38 +115,38 @@ void chimesFF::print_pretty_stuff()
     cout << "chimesFF: " << endl;
     cout << "chimesFF: "
          << "01000011011010001001001010011010100010101010011 "
-            "0100010101101110110011101101001011011101100101   "
+            "0100010101101110110011101101001011011101100101	 "
          << endl;
     cout << "chimesFF: " << endl;
-    cout << "chimesFF: "
-         << "     _____  _     _____  __  __  ______   _____   ______       _        " << endl;
-    cout << "chimesFF: "
-         << "    / ____|| |  |_   _||  \\/  ||  ____| / ____| |  ____|       (_)        " << endl;
-    cout << "chimesFF: "
-         << "   | |   | |__    | |  | \\   / || |__  | (___   | |__    _ __    __ _  _  _ __     "
-            "___    "
+    cout << "chimesFF: " << "	   _____  _		 _____	__	__	______	 _____	 ______		   _			  "
          << endl;
     cout << "chimesFF: "
-         << "   | |   | '_ \\   | |  | |\\/| ||  __|    \\___ \\  |  __|  | '_ \\   / _` || || '_ "
-            "\\  / _ \\ "
+         << "	  / ____|| |	|_	 _||  \\/  ||  ____| / ____| |	____|		   (_)			  " << endl;
+    cout << "chimesFF: "
+         << "	 | |	 | |__	  | |  | \\	 / || |__	| (___	 | |__	  _ __	  __ _	_  _ __	   ___	 "
+            " "
          << endl;
     cout << "chimesFF: "
-         << "   | |____ | | | | _| |_ | |  | || |____  ____) | | |____ | | | || (_| || || | | ||  "
-            "__/    "
+         << "	 | |	 | '_ \\   | |	| |\\/| ||	__|	  \\___ \\	|  __|	| '_ \\	 / _` || || '_ \\  "
+            "/ _ \\ "
          << endl;
     cout << "chimesFF: "
-         << "    \\_____||_| |_||_____||_|   |_||______||_____/   |______||_| |_| \\__, ||_||_| "
-            "|_| \\___|    "
+         << "	 | |____ | | | | _| |_ | |	| || |____	____) | | |____ | | | || (_| || || | | ||  "
+            "__/	  "
          << endl;
-    cout << "chimesFF: " << "                   __/ |        " << endl;
-    cout << "chimesFF: " << "                  |___/        " << endl;
+    cout << "chimesFF: "
+         << "	  \\_____||_| |_||_____||_|	 |_||______||_____/	 |______||_| |_| \\__, ||_||_| |_| "
+            "\\___|	  "
+         << endl;
+    cout << "chimesFF: " << "									 __/ |			  " << endl;
+    cout << "chimesFF: " << "									|___/			  " << endl;
     cout << "chimesFF: " << endl;
-    cout << "chimesFF: "
-         << "        Copyright (C) 2020 R.K. Lindsey, L.E. Fried, N. Goldman        " << endl;
+    cout << "chimesFF: " << "			  Copyright (C) 2020 R.K. Lindsey, L.E. Fried, N. Goldman			  "
+         << endl;
     cout << "chimesFF: " << endl;
     cout << "chimesFF: "
          << "01000011011010001001001010011010100010101010011 "
-            "0100010101101110110011101101001011011101100101    "
+            "0100010101101110110011101101001011011101100101	  "
          << endl;
     cout << "chimesFF: " << endl;
   }
@@ -221,7 +233,7 @@ void chimesFF::read_parameters(string paramfile)
       if (rank == 0) {
         cout << "chimesFF: " << "ERROR: Could not find line containing: \" PAIRTYP: CHEBYSHEV\" "
              << endl;
-        cout << "chimesFF: " << "  ...Is this a ChIMES force field parameter file?" << endl;
+        cout << "chimesFF: " << "	...Is this a ChIMES force field parameter file?" << endl;
       }
       exit(0);
     }
@@ -642,6 +654,9 @@ void chimesFF::read_parameters(string paramfile)
                  << chimes_3b_powers[tmp_int][i][1] << " " << chimes_3b_powers[tmp_int][i][2] << " "
                  << chimes_3b_params[tmp_int][i] << endl;
         }
+        if (dense_coeffs) {
+          densify_3B(ncoeffs_3b[tmp_int], chimes_3b_powers[tmp_int], chimes_3b_params[tmp_int]);
+        }
       }
 
       if (line.find("TRIPMAPS:") != string::npos) {
@@ -947,6 +962,9 @@ void chimesFF::read_parameters(string paramfile)
                  << chimes_4b_powers[tmp_int][i][3] << " " << chimes_4b_powers[tmp_int][i][4] << " "
                  << chimes_4b_powers[tmp_int][i][5] << " " << chimes_4b_params[tmp_int][i] << endl;
         }
+        if (dense_coeffs) {
+          densify_4B(ncoeffs_4b[tmp_int], chimes_4b_powers[tmp_int], chimes_4b_params[tmp_int]);
+        }
       }
 
       if (line.find("QUADMAPS:") != string::npos) {
@@ -1238,14 +1256,14 @@ void chimesFF::read_parameters(string paramfile)
 void chimesFF::set_polys_out_of_range(vector<double> &Tn, vector<double> &Tnd, double dx, double x,
                                       int poly_order, double inner_cutoff, double exprlen,
                                       double dx_dr)
-//  Sets the value of the Chebyshev polynomials (Tn) and their derivatives (Tnd) when dx is < inner_cutoff.
-//  Tnd is the derivative with respect to the interatomic distance, not the transformed distance (x).
+//	Sets the value of the Chebyshev polynomials (Tn) and their derivatives (Tnd) when dx is < inner_cutoff.
+//	Tnd is the derivative with respect to the interatomic distance, not the transformed distance (x).
 //
-//  The derivative Tnd is continuously set to zero inside the cutoff.
-//  The exponential smoothing distance is set to ChimesFF::inner_smooth_distance.
-//  x, exprlen, and dx_dr are evaluated at the inner cutoff.
+//	The derivative Tnd is continuously set to zero inside the cutoff.
+//	The exponential smoothing distance is set to chimesFF::inner_smooth_distance.
+//	x, exprlen, and dx_dr are evaluated at the inner cutoff.
 //
-//  dx is the pair distance, which is assumed to be less than inner_cutoff.
+//	dx is the pair distance, which is assumed to be less than inner_cutoff.
 {
   Tn[0] = 1.0;
   Tn[1] = x;
@@ -1344,11 +1362,11 @@ void chimesFF::compute_2B(const double dx, const vector<double> &dr, const vecto
   force[1 * CHDIM + 2] -= force_scalar * dr[2];
 
   // xx xy xz yy yz zz
-  // 0  1   2  3  4  5
+  // 0  1	 2	3  4  5
 
   // xx xy xz yx yy yz zx zy zz
-  // 0  1   2  3  4  5   6  7  8
-  // *       *     *
+  // 0  1	 2	3  4  5	 6	7  8
+  // *		   *	   *
 
   stress[0] -= force_scalar * dr[0] * dr[0];    // xx tensor component
   stress[1] -= force_scalar * dr[0] * dr[1];    // xy tensor component
@@ -1507,8 +1525,42 @@ void chimesFF::compute_3B(const vector<double> &dx, const vector<double> &dr,
   int powers[npairs];
   double force_scalar[npairs];
 
-  poly_3B(&poly, dpoly_dx, ncoeffs_3b[tripidx], chimes_3b_params[tripidx], mapped_pair_idx,
-          chimes_3b_powers[tripidx], Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+  if (!dense_coeffs) {
+    poly_3B(&poly, dpoly_dx, ncoeffs_3b[tripidx], chimes_3b_params[tripidx], mapped_pair_idx,
+            chimes_3b_powers[tripidx], Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+  } else {
+
+    // JIT evaluation of the chebyshev polynomial and its derivatives
+    int inv_mapped_pair[npairs];
+
+    for (int j = 0; j < npairs; j++) { inv_mapped_pair[mapped_pair_idx[j]] = j; }
+
+    vector<vector<double> *> Tn{npairs}, Tnd{npairs};
+
+    for (int j = 0; j < npairs; j++) {
+      switch (inv_mapped_pair[j]) {
+        case 0:
+          Tn[j] = &Tn_ij;
+          Tnd[j] = &Tnd_ij;
+          break;
+        case 1:
+          Tn[j] = &Tn_ik;
+          Tnd[j] = &Tnd_ik;
+          break;
+        case 2:
+          Tn[j] = &Tn_jk;
+          Tnd[j] = &Tnd_jk;
+          break;
+        default:
+          cout << "Bad inverse pair mapping found\n";
+          exit(1);
+      }
+    }
+
+    poly_3B_dense(poly, dpoly_dx[inv_mapped_pair[0]], dpoly_dx[inv_mapped_pair[1]],
+                  dpoly_dx[inv_mapped_pair[2]], ncoeffs_3b[tripidx], chimes_3b_params[tripidx],
+                  *Tn[0], *Tn[1], *Tn[2], *Tnd[0], *Tnd[1], *Tnd[2]);
+  }
 
   energy += poly * fcut_all;
 
@@ -1679,9 +1731,56 @@ void chimesFF::compute_4B(const vector<double> &dx, const vector<double> &dr,
 
   double poly, dpoly_dx[npairs];
 
-  poly_4B(&poly, dpoly_dx, ncoeffs_4b[quadidx], chimes_4b_params[quadidx], mapped_pair_idx,
-          chimes_4b_powers[quadidx], Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik,
-          Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+  if (!dense_coeffs) {
+    poly_4B(&poly, dpoly_dx, ncoeffs_4b[quadidx], chimes_4b_params[quadidx], mapped_pair_idx,
+            chimes_4b_powers[quadidx], Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik,
+            Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+  } else {
+    // Dense evaluation of the chebyshev polynomial and its derivatives
+    int inv_mapped_pair[npairs];
+
+    for (int j = 0; j < npairs; j++) { inv_mapped_pair[mapped_pair_idx[j]] = j; }
+
+    vector<vector<double> *> Tn{npairs}, Tnd{npairs};
+
+    for (int j = 0; j < npairs; j++) {
+      switch (inv_mapped_pair[j]) {
+        case 0:
+          Tn[j] = &Tn_ij;
+          Tnd[j] = &Tnd_ij;
+          break;
+        case 1:
+          Tn[j] = &Tn_ik;
+          Tnd[j] = &Tnd_ik;
+          break;
+        case 2:
+          Tn[j] = &Tn_il;
+          Tnd[j] = &Tnd_il;
+          break;
+        case 3:
+          Tn[j] = &Tn_jk;
+          Tnd[j] = &Tnd_jk;
+          break;
+        case 4:
+          Tn[j] = &Tn_jl;
+          Tnd[j] = &Tnd_jl;
+          break;
+        case 5:
+          Tn[j] = &Tn_kl;
+          Tnd[j] = &Tnd_kl;
+          break;
+        default:
+          cout << "Bad inverse pair mapping found\n";
+          exit(1);
+      }
+    }
+
+    poly_4B_dense(poly, dpoly_dx[inv_mapped_pair[0]], dpoly_dx[inv_mapped_pair[1]],
+                  dpoly_dx[inv_mapped_pair[2]], dpoly_dx[inv_mapped_pair[3]],
+                  dpoly_dx[inv_mapped_pair[4]], dpoly_dx[inv_mapped_pair[5]], ncoeffs_4b[quadidx],
+                  chimes_4b_params[quadidx], *Tn[0], *Tn[1], *Tn[2], *Tn[3], *Tn[4], *Tn[5],
+                  *Tnd[0], *Tnd[1], *Tnd[2], *Tnd[3], *Tnd[4], *Tnd[5]);
+  }
 
   energy += poly * fcut_all;
 
@@ -1872,7 +1971,7 @@ int chimesFF::get_atom_pair_index(int pair_id)
 }
 
 void chimesFF::build_pair_int_quad_map()
-// Build the pair maps for all possible quads.  Moved build_atom_and_pair_mappers out of the compute_XX routines
+// Build the pair maps for all possible quads.	Moved build_atom_and_pair_mappers out of the compute_XX routines
 // to support GPU environment without string operations.
 // This must be called prior to force evaluation.
 {
@@ -2014,8 +2113,407 @@ void chimesFF::poly_3B(double *e, double *f, int ncoeffs_3b, vector<double> &chi
   }
 }
 
+void chimesFF::poly_3B_dense(double &e, double &f0, double &f1, double &f2, int ncoeffs_3b,
+                             vector<double> &chimes_3b_params, vector<double> &Tn_ij,
+                             vector<double> &Tn_ik, vector<double> &Tn_jk, vector<double> &Tnd_ij,
+                             vector<double> &Tnd_ik, vector<double> &Tnd_jk)
+// Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f0, f1, f2)
+// (LEF) 4/02/26
+{
+  double coeff;
+  int powers[3];
+  double deriv[3];
+  const int loop_style = CHIMES_LOOP_STYLE;
+
+  e = 0.0;
+  f0 = 0.0;
+  f1 = 0.0;
+  f2 = 0.0;
+
+  if (ncoeffs_3b == 0) return;
+
+  int max_poly = 0;
+  const int loop_max = 1000;
+  int i = 0;
+  for (; i < loop_max; i++) {
+    if (i * i * i == ncoeffs_3b) {
+      max_poly = i;
+      break;
+    }
+  }
+  if (i == loop_max) {
+    cout << "Bad number of 3 body coefficients for dense evaluation\n";
+    exit(1);
+  }
+
+  if (loop_style == 1) {
+    poly_3B_dense_loop1(max_poly, e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik, Tn_jk,
+                        Tnd_ij, Tnd_ik, Tnd_jk);
+  } else if (loop_style == 2) {
+    poly_3B_dense_loop2(max_poly, e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik, Tn_jk,
+                        Tnd_ij, Tnd_ik, Tnd_jk);
+  } else if (loop_style == 3) {
+    poly_3B_dense_loop3(max_poly, e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik, Tn_jk,
+                        Tnd_ij, Tnd_ik, Tnd_jk);
+  } else {
+    cout << "Error: bad 3 body dense loop style\n";
+    exit(1);
+  }
+}
+
+void chimesFF::poly_3B_dense_loop1(int max_poly, double &e, double &f0, double &f1, double &f2,
+                                   int ncoeffs_3b, vector<double> &chimes_3b_params,
+                                   vector<double> &Tn_ij, vector<double> &Tn_ik,
+                                   vector<double> &Tn_jk, vector<double> &Tnd_ij,
+                                   vector<double> &Tnd_ik, vector<double> &Tnd_jk)
+{
+  for (int count = 0; count < ncoeffs_3b; count++) {
+    int l = count / (max_poly * max_poly);
+    if (l >= max_poly) { cout << "Internal error: l > max_poly: " << l << "\n"; }
+    int m = (count / max_poly) % max_poly;
+    int n = count % max_poly;
+
+    if (chimes_3b_params[count] != 0.0) {
+      const double tn_ij = Tn_ij[l];
+      const double tnd_ij = Tnd_ij[l];
+      const double tn_ik = Tn_ik[m];
+      const double tnd_ik = Tnd_ik[m];
+      const double tn_jk = Tn_jk[n];
+      const double tnd_jk = Tnd_jk[n];
+      const double coeff = chimes_3b_params[count];
+
+      e += coeff * tn_ij * tn_ik * tn_jk;
+      f0 += coeff * tnd_ij * tn_ik * tn_jk;
+      f1 += coeff * tnd_ik * tn_ij * tn_jk;
+      f2 += coeff * tnd_jk * tn_ij * tn_ik;
+    }
+  }
+}
+
+void chimesFF::poly_3B_dense_loop2(int max_poly, double &e, double &f0, double &f1, double &f2,
+                                   int ncoeffs_3b, vector<double> &chimes_3b_params,
+                                   vector<double> &Tn_ij, vector<double> &Tn_ik,
+                                   vector<double> &Tn_jk, vector<double> &Tnd_ij,
+                                   vector<double> &Tnd_ik, vector<double> &Tnd_jk)
+{
+  int count = 0;
+  for (int i = 0; i < max_poly; i++) {
+    const double tn_ij = Tn_ij[i];
+    const double tnd_ij = Tnd_ij[i];
+
+    for (int j = 0; j < max_poly; j++) {
+      const double tn_ik = Tn_ik[j];
+      const double tnd_ik = Tnd_ik[j];
+      const double tn_ij_ik = tn_ij * tn_ik;
+
+      for (int k = 0; k < max_poly; k++) {
+        if (chimes_3b_params[count] != 0.0) {
+          const double tn_jk = Tn_jk[k];
+          const double tnd_jk = Tnd_jk[k];
+          const double coeff = chimes_3b_params[count];
+
+          e += coeff * tn_ij_ik * tn_jk;
+          f0 += coeff * tnd_ij * tn_ik * tn_jk;
+          f1 += coeff * tnd_ik * tn_ij * tn_jk;
+          f2 += coeff * tnd_jk * tn_ij_ik;
+        }
+        count++;
+      }
+    }
+  }
+}
+
+void chimesFF::poly_3B_dense_loop3(int max_poly, double &e, double &f0, double &f1, double &f2,
+                                   int ncoeffs_3b, vector<double> &chimes_3b_params,
+                                   vector<double> &Tn_ij, vector<double> &Tn_ik,
+                                   vector<double> &Tn_jk, vector<double> &Tnd_ij,
+                                   vector<double> &Tnd_ik, vector<double> &Tnd_jk)
+{
+  switch (max_poly) {
+    case 0:
+      return;
+    case 1:
+      poly_3B_dense_template<1>(e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik, Tn_jk,
+                                Tnd_ij, Tnd_ik, Tnd_jk);
+      return;
+    case 2:
+      poly_3B_dense_template<2>(e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik, Tn_jk,
+                                Tnd_ij, Tnd_ik, Tnd_jk);
+      return;
+    case 3:
+      poly_3B_dense_template<3>(e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik, Tn_jk,
+                                Tnd_ij, Tnd_ik, Tnd_jk);
+      return;
+    case 4:
+      poly_3B_dense_template<4>(e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik, Tn_jk,
+                                Tnd_ij, Tnd_ik, Tnd_jk);
+      return;
+    case 5:
+      poly_3B_dense_template<5>(e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik, Tn_jk,
+                                Tnd_ij, Tnd_ik, Tnd_jk);
+      return;
+    case 6:
+      poly_3B_dense_template<6>(e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik, Tn_jk,
+                                Tnd_ij, Tnd_ik, Tnd_jk);
+      return;
+    case 7:
+      poly_3B_dense_template<7>(e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik, Tn_jk,
+                                Tnd_ij, Tnd_ik, Tnd_jk);
+      return;
+    case 8:
+      poly_3B_dense_template<8>(e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik, Tn_jk,
+                                Tnd_ij, Tnd_ik, Tnd_jk);
+      return;
+    case 9:
+      poly_3B_dense_template<9>(e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik, Tn_jk,
+                                Tnd_ij, Tnd_ik, Tnd_jk);
+      return;
+    case 10:
+      poly_3B_dense_template<10>(e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik, Tn_jk,
+                                 Tnd_ij, Tnd_ik, Tnd_jk);
+      return;
+    default:
+      poly_3B_dense_loop2(max_poly, e, f0, f1, f2, ncoeffs_3b, chimes_3b_params, Tn_ij, Tn_ik,
+                          Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+      return;
+  }
+}
+
+void chimesFF::poly_4B_dense_loop1(
+    int max_poly, double &e, double &f0, double &f1, double &f2, double &f3, double &f4, double &f5,
+    int ncoeffs_4b, vector<double> &params_4b, vector<double> &Tn_ij, vector<double> &Tn_ik,
+    vector<double> &Tn_il, vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
+    vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_il, vector<double> &Tnd_jk,
+    vector<double> &Tnd_jl, vector<double> &Tnd_kl)
+{
+  int max_poly_pow[6];
+  double coeff;
+
+  max_poly_pow[5] = 1;
+  for (int l = 4; l >= 0; l--) { max_poly_pow[l] = max_poly_pow[l + 1] * max_poly; }
+  for (int count = 0; count < ncoeffs_4b; count++) {
+    if (params_4b[count] != 0.0) {
+      int index[6];
+      for (int i = 0; i < 6; i++) { index[i] = (count / max_poly_pow[i]) % max_poly; }
+      const double tn_ij = Tn_ij[index[0]];
+      const double tnd_ij = Tnd_ij[index[0]];
+      const double tn_ik = Tn_ik[index[1]];
+      const double tnd_ik = Tnd_ik[index[1]];
+      const double tn_il = Tn_il[index[2]];
+      const double tnd_il = Tnd_il[index[2]];
+      const double tn_jk = Tn_jk[index[3]];
+      const double tnd_jk = Tnd_jk[index[3]];
+      const double tn_jl = Tn_jl[index[4]];
+      const double tnd_jl = Tnd_jl[index[4]];
+      const double tn_kl = Tn_kl[index[5]];
+      const double tnd_kl = Tnd_kl[index[5]];
+      const double coeff = params_4b[count];
+
+      const double Tn_jk_jl = tn_jk * tn_jl;
+      const double Tn_ij_ik_il = tn_ij * tn_ik * tn_il;
+
+      e += coeff * Tn_ij_ik_il * Tn_jk_jl * tn_kl;
+
+      // deriv[0] = tnd_ij ;
+      // deriv[1] = tnd_ik ;
+      // deriv[2] = tnd_il ;
+      // deriv[3] = tnd_jk ;
+      // deriv[4] = tnd_jl ;
+      // deriv[5] = tnd_kl ;
+
+      f0 += coeff * tnd_ij * tn_ik * tn_il * Tn_jk_jl * tn_kl;
+
+      f1 += coeff * tnd_ik * tn_ij * tn_il * Tn_jk_jl * tn_kl;
+
+      f2 += coeff * tnd_il * tn_ij * tn_ik * Tn_jk_jl * tn_kl;
+
+      f3 += coeff * tnd_jk * Tn_ij_ik_il * tn_jl * tn_kl;
+
+      f4 += coeff * tnd_jl * Tn_ij_ik_il * tn_jk * tn_kl;
+
+      f5 += coeff * tnd_kl * Tn_ij_ik_il * Tn_jk_jl;
+    }
+  }
+}
+
+void chimesFF::poly_4B_dense_loop2(
+    int max_poly, double &e, double &f0, double &f1, double &f2, double &f3, double &f4, double &f5,
+    int ncoeffs_4b, vector<double> &params_4b, vector<double> &Tn_ij, vector<double> &Tn_ik,
+    vector<double> &Tn_il, vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
+    vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_il, vector<double> &Tnd_jk,
+    vector<double> &Tnd_jl, vector<double> &Tnd_kl)
+{
+  double coeff;
+
+  int count = 0;
+  for (int i = 0; i < max_poly; i++) {
+    const double tn_ij = Tn_ij[i];
+    const double tnd_ij = Tnd_ij[i];
+    for (int j = 0; j < max_poly; j++) {
+      const double tn_ik = Tn_ik[j];
+      const double tnd_ik = Tnd_ik[j];
+      for (int l = 0; l < max_poly; l++) {
+        const double tn_il = Tn_il[l];
+        const double tnd_il = Tnd_il[l];
+        const double Tn_ij_ik_il = tn_ij * tn_ik * tn_il;
+        for (int m = 0; m < max_poly; m++) {
+          const double tn_jk = Tn_jk[m];
+          const double tnd_jk = Tnd_jk[m];
+          for (int n = 0; n < max_poly; n++) {
+            const double tn_jl = Tn_jl[n];
+            const double tnd_jl = Tnd_jl[n];
+            const double Tn_jk_jl = tn_jk * tn_jl;
+            for (int o = 0; o < max_poly; o++) {
+              const double tn_kl = Tn_kl[o];
+              const double tnd_kl = Tnd_kl[o];
+
+              if (params_4b[count] != 0.0) {
+                const double coeff = params_4b[count];
+
+                e += coeff * Tn_ij_ik_il * Tn_jk_jl * tn_kl;
+
+                f0 += coeff * tnd_ij * tn_ik * tn_il * Tn_jk_jl * tn_kl;
+
+                f1 += coeff * tnd_ik * tn_ij * tn_il * Tn_jk_jl * tn_kl;
+
+                f2 += coeff * tnd_il * tn_ij * tn_ik * Tn_jk_jl * tn_kl;
+
+                f3 += coeff * tnd_jk * Tn_ij_ik_il * tn_jl * tn_kl;
+
+                f4 += coeff * tnd_jl * Tn_ij_ik_il * tn_jk * tn_kl;
+
+                f5 += coeff * tnd_kl * Tn_ij_ik_il * Tn_jk_jl;
+              }
+              count++;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+void chimesFF::poly_4B_dense_loop3(
+    int max_poly, double &e, double &f0, double &f1, double &f2, double &f3, double &f4, double &f5,
+    int ncoeffs_4b, vector<double> &params_4b, vector<double> &Tn_ij, vector<double> &Tn_ik,
+    vector<double> &Tn_il, vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
+    vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_il, vector<double> &Tnd_jk,
+    vector<double> &Tnd_jl, vector<double> &Tnd_kl)
+{
+  switch (max_poly) {
+    case 0:
+      return;
+    case 1:
+      poly_4B_dense_template<1>(e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                                Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl,
+                                Tnd_kl);
+      return;
+    case 2:
+      poly_4B_dense_template<2>(e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                                Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl,
+                                Tnd_kl);
+      return;
+    case 3:
+      poly_4B_dense_template<3>(e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                                Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl,
+                                Tnd_kl);
+      return;
+    case 4:
+      poly_4B_dense_template<4>(e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                                Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl,
+                                Tnd_kl);
+      return;
+    case 5:
+      poly_4B_dense_template<5>(e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                                Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl,
+                                Tnd_kl);
+      return;
+    case 6:
+      poly_4B_dense_template<6>(e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                                Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl,
+                                Tnd_kl);
+      return;
+    case 7:
+      poly_4B_dense_template<7>(e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                                Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl,
+                                Tnd_kl);
+      return;
+    case 8:
+      poly_4B_dense_template<8>(e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                                Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl,
+                                Tnd_kl);
+      return;
+    case 9:
+      poly_4B_dense_template<9>(e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                                Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl,
+                                Tnd_kl);
+      return;
+    case 10:
+      poly_4B_dense_template<10>(e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                                 Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl,
+                                 Tnd_kl);
+      return;
+    default:
+      poly_4B_dense_loop2(max_poly, e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                          Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl,
+                          Tnd_kl);
+      return;
+  }
+}
+
+void chimesFF::poly_4B_dense(double &e, double &f0, double &f1, double &f2, double &f3, double &f4,
+                             double &f5, int ncoeffs_4b, vector<double> &params_4b,
+                             vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_il,
+                             vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
+                             vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_il,
+                             vector<double> &Tnd_jk, vector<double> &Tnd_jl, vector<double> &Tnd_kl)
+// Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f0, f1, f2)
+// (LEF) 4/02/26
+{
+  double coeff;
+  int powers[6];
+  double deriv[6];
+  const int loop_style = CHIMES_LOOP_STYLE;
+
+  e = 0.0;
+  f0 = 0.0;
+  f1 = 0.0;
+  f2 = 0.0;
+  f3 = 0.0;
+  f4 = 0.0;
+  f5 = 0.0;
+
+  if (ncoeffs_4b == 0) return;
+
+  int max_poly = 0;
+  const int loop_max = 100;
+  int i = 0;
+  for (; i < loop_max; i++) {
+    if (i * i * i * i * i * i == ncoeffs_4b) {
+      max_poly = i;
+      break;
+    }
+  }
+  if (i == loop_max) {
+    cout << "Bad number of 4 body coefficients for dense evaluation\n";
+    exit(1);
+  }
+
+  if (loop_style == 1) {
+    poly_4B_dense_loop1(max_poly, e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                        Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+  } else if (loop_style == 2) {
+    poly_4B_dense_loop2(max_poly, e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                        Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+  } else if (loop_style == 3) {
+    poly_4B_dense_loop3(max_poly, e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
+                        Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+  }
+}
+
 void chimesFF::poly_4B(double *e, double *f, int ncoeffs_4b, vector<double> &chimes_4b_params,
-                       vector<int> &mapped_pair_idx, vector<vector<int>> &chimes_4b_powers,                       vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_il,
+                       vector<int> &mapped_pair_idx, vector<vector<int>> &chimes_4b_powers,
+                       vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_il,
                        vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
                        vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_il,
                        vector<double> &Tnd_jk, vector<double> &Tnd_jl, vector<double> &Tnd_kl)
@@ -2028,7 +2526,7 @@ void chimesFF::poly_4B(double *e, double *f, int ncoeffs_4b, vector<double> &chi
   double deriv[npairs];
 
   *e = 0;
-  for (int i = 0; i < npairs; i++) f[i] = 0.0;
+  for (int i = 0; i < 6; i++) f[i] = 0.0;
 
   for (int coeffs = 0; coeffs < ncoeffs_4b; coeffs++) {
     coeff = chimes_4b_params[coeffs];
@@ -2060,4 +2558,115 @@ void chimesFF::poly_4B(double *e, double *f, int ncoeffs_4b, vector<double> &chi
 
     f[5] += coeff * deriv[5] * Tn_ij_ik_il * Tn_jk_jl;
   }
+}
+
+void chimesFF::densify_3B(int &ncoeffs3, vector<vector<int>> &powers_3b, vector<double> &params_3b)
+// This converts the 3 body coefficients to "dense form" where all possible powers are used.  This form
+// may be more efficient on GPUs or vectorized CPU architectures. (LEF 4/2/26)
+{
+  int max_pow3b = 0;
+
+  for (int j = 0; j < powers_3b.size(); j++) {
+    for (int k = 0; k < powers_3b[j].size(); k++) {
+      if (powers_3b[j][k] > max_pow3b) { max_pow3b = powers_3b[j][k]; }
+    }
+  }
+
+  cout << "Maximum 3-B power found = " << max_pow3b;
+
+  int dim1 = max_pow3b + 1;
+  int dim = dim1 * dim1 * dim1;
+
+  vector<double> dense_coeffs(dim, 0.0);
+
+  for (int j = 0; j < ncoeffs3; j++) {
+    int index = powers_3b[j][0] * dim1 * dim1 + powers_3b[j][1] * dim1 + powers_3b[j][2];
+    dense_coeffs[index] = params_3b[j];
+  }
+
+  params_3b.resize(dim);
+  for (int j = 0; j < dim; j++) { params_3b[j] = dense_coeffs[j]; }
+
+  powers_3b.resize(dim);
+  int count = 0;
+  for (int j = 0; j < dim; j++) { powers_3b[j].resize(3); }
+
+  for (int j = 0; j < dim1; j++) {
+    for (int k = 0; k < dim1; k++) {
+      for (int l = 0; l < dim1; l++) {
+        powers_3b[count][0] = j;
+        powers_3b[count][1] = k;
+        powers_3b[count][2] = l;
+        count++;
+      }
+    }
+  }
+
+  ncoeffs3 = dim;
+}
+
+void chimesFF::densify_4B(int &ncoeffs4, vector<vector<int>> &powers_4b, vector<double> &params_4b)
+// This converts the 4 body coefficients to "dense form" where all possible powers are used.  This form
+// may be more efficient on GPUs or vectorized CPU architectures. (LEF 4/2/26)
+{
+  int max_pow4b = 0;
+
+  for (int j = 0; j < powers_4b.size(); j++) {
+    for (int k = 0; k < powers_4b[j].size(); k++) {
+      if (powers_4b[j][k] > max_pow4b) { max_pow4b = powers_4b[j][k]; }
+    }
+  }
+
+  cout << "Maximum 4-B power found = " << max_pow4b;
+
+  int dim1 = max_pow4b + 1;
+  int dim = dim1 * dim1 * dim1 * dim1 * dim1 * dim1;
+
+  vector<double> dense_coeffs(dim, 0.0);
+
+  for (int j = 0; j < ncoeffs4; j++) {
+    int offset = 1;
+    int index = 0;
+    for (int l = 5; l >= 0; l--) {
+      index += powers_4b[j][l] * offset;
+      offset *= dim1;
+    }
+    if (index >= dim) {
+      cout << "Error in calculating parameter index\n";
+      exit(1);
+    }
+    dense_coeffs[index] = params_4b[j];
+  }
+  params_4b.resize(dim);
+  for (int j = 0; j < dim; j++) { params_4b[j] = dense_coeffs[j]; }
+
+  powers_4b.resize(dim);
+  for (int j = 0; j < dim; j++) { powers_4b[j].resize(6); }
+
+  int count = 0;
+  for (int j = 0; j < dim1; j++) {
+    for (int k = 0; k < dim1; k++) {
+      for (int l = 0; l < dim1; l++) {
+        for (int m = 0; m < dim1; m++) {
+          for (int n = 0; n < dim1; n++) {
+            for (int o = 0; o < dim1; o++) {
+
+              if (count >= dim) {
+                cout << "Count index overflow error\n";
+                exit(1);
+              }
+              powers_4b[count][0] = j;
+              powers_4b[count][1] = k;
+              powers_4b[count][2] = l;
+              powers_4b[count][3] = m;
+              powers_4b[count][4] = n;
+              powers_4b[count][5] = o;
+              count++;
+            }
+          }
+        }
+      }
+    }
+  }
+  ncoeffs4 = dim;
 }
