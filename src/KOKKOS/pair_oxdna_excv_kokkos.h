@@ -91,12 +91,6 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
 
-  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_double_1d&,
-                       int, int *) override;
-  void unpack_forward_comm_kokkos(int, int, DAT::tdual_double_1d&) override;
-  int pack_forward_comm(int, int *, double *, int, int *) override;
-  void unpack_forward_comm(int, int, double *) override;
-
   void *extract(const char *, int &) override;
 
   // per-atom arrays for local unit vectors

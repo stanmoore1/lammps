@@ -198,15 +198,12 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   copymode = 1;
 
-  // loop over all local atoms, calculation of local reference frame from quaternions
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagPairOxdnaExcvQuatToXYZ>(0,nlocal),*this);
+  // loop over all local+ghost atoms, calculation of local reference frame from quaternions
+  const int nall = nlocal + atom->nghost;
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagPairOxdnaExcvQuatToXYZ>(0,nall),*this);
   k_nx.template modify<DeviceType>();
   k_ny.template modify<DeviceType>();
   k_nz.template modify<DeviceType>();
-  comm->forward_comm(this);
-  k_nx.template sync<LMPHostType>();
-  k_ny.template sync<LMPHostType>();
-  k_nz.template sync<LMPHostType>();
 
   // loop over neighbors of my atoms for compute functors
 
@@ -372,20 +369,19 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvQuatToXYZ, const int &in) const
 {
-  int n = d_alist(in);
-  KK_FLOAT qn[4];
+  double qn[4];
   for (int i = 0; i < 4; i++) {
-    qn[i] = bonus(ellipsoid(n)).quat[i];
+    qn[i] = bonus(ellipsoid(in)).quat[i];
   }
-  d_nx(n,0) = qn[0]*qn[0] + qn[1]*qn[1] - qn[2]*qn[2] - qn[3]*qn[3];
-  d_nx(n,1) = 2.0 * (qn[1]*qn[2] + qn[0]*qn[3]);
-  d_nx(n,2) = 2.0 * (qn[1]*qn[3] - qn[0]*qn[2]);
-  d_ny(n,0) = 2.0 * (qn[1]*qn[2] - qn[0]*qn[3]);
-  d_ny(n,1) = qn[0]*qn[0] - qn[1]*qn[1] + qn[2]*qn[2] - qn[3]*qn[3];
-  d_ny(n,2) = 2.0 * (qn[2]*qn[3] + qn[0]*qn[1]);
-  d_nz(n,0) = 2.0 * (qn[1]*qn[3] + qn[0]*qn[2]);
-  d_nz(n,1) = 2.0 * (qn[2]*qn[3] - qn[0]*qn[1]);
-  d_nz(n,2) = qn[0]*qn[0] - qn[1]*qn[1] - qn[2]*qn[2] + qn[3]*qn[3];
+  d_nx(in,0) = qn[0]*qn[0] + qn[1]*qn[1] - qn[2]*qn[2] - qn[3]*qn[3];
+  d_nx(in,1) = 2.0 * (qn[1]*qn[2] + qn[0]*qn[3]);
+  d_nx(in,2) = 2.0 * (qn[1]*qn[3] - qn[0]*qn[2]);
+  d_ny(in,0) = 2.0 * (qn[1]*qn[2] - qn[0]*qn[3]);
+  d_ny(in,1) = qn[0]*qn[0] - qn[1]*qn[1] + qn[2]*qn[2] - qn[3]*qn[3];
+  d_ny(in,2) = 2.0 * (qn[2]*qn[3] + qn[0]*qn[1]);
+  d_nz(in,0) = 2.0 * (qn[1]*qn[3] + qn[0]*qn[2]);
+  d_nz(in,1) = 2.0 * (qn[2]*qn[3] - qn[0]*qn[1]);
+  d_nz(in,2) = qn[0]*qn[0] - qn[1]*qn[1] - qn[2]*qn[2] + qn[3]*qn[3];
 }
 
 template<class DeviceType>
@@ -735,112 +731,6 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
   EV_FLOAT ev;
   this->template operator()<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>\
   (TagPairOxdnaExcvCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>(),ia,ev);
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-int PairOxdnaExcvKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                                                        DAT::tdual_double_1d &buf,
-                                                        int /*pbc_flag*/, int * /*pbc*/)
-{
-  d_sendlist = k_sendlist.template view<DeviceType>();
-  v_buf = buf.template view<DeviceType>();
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvPackForwardComm>(0,n),*this);
-  return n*9;
-}
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvPackForwardComm, const int &i) const {
-  int j = d_sendlist(i);
-  v_buf[i*9] = d_nx(j,0);
-  v_buf[i*9+1] = d_nx(j,1);
-  v_buf[i*9+2] = d_nx(j,2);
-  v_buf[i*9+3] = d_ny(j,0);
-  v_buf[i*9+4] = d_ny(j,1);
-  v_buf[i*9+5] = d_ny(j,2);
-  v_buf[i*9+6] = d_nz(j,0);
-  v_buf[i*9+7] = d_nz(j,1);
-  v_buf[i*9+8] = d_nz(j,2);
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairOxdnaExcvKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_double_1d &buf)
-{
-  first = first_in;
-  v_buf = buf.template view<DeviceType>();
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaExcvUnpackForwardComm>(0,n),*this);
-}
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvUnpackForwardComm, const int &i) const {
-  d_nx(i+first,0) = v_buf[i*9];
-  d_nx(i+first,1) = v_buf[i*9+1];
-  d_nx(i+first,2) = v_buf[i*9+2];
-  d_ny(i+first,0) = v_buf[i*9+3];
-  d_ny(i+first,1) = v_buf[i*9+4];
-  d_ny(i+first,2) = v_buf[i*9+5];
-  d_nz(i+first,0) = v_buf[i*9+6];
-  d_nz(i+first,1) = v_buf[i*9+7];
-  d_nz(i+first,2) = v_buf[i*9+8];
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-int PairOxdnaExcvKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
-                                                 int /*pbc_flag*/, int * /*pbc*/)
-{
-  k_nx.sync_host();
-  k_ny.sync_host();
-  k_nz.sync_host();
-
-  int i,j,m;
-  m = 0;
-  for (i = 0; i < n; i++) {
-    j = list[i];
-    buf[m++] = h_nx(j,0);
-    buf[m++] = h_nx(j,1);
-    buf[m++] = h_nx(j,2);
-    buf[m++] = h_ny(j,0);
-    buf[m++] = h_ny(j,1);
-    buf[m++] = h_ny(j,2);
-    buf[m++] = h_nz(j,0);
-    buf[m++] = h_nz(j,1);
-    buf[m++] = h_nz(j,2);
-  }
-  return m;
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairOxdnaExcvKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
-{
-  k_nx.sync_host();
-  k_ny.sync_host();
-  k_nz.sync_host();
-
-  int m = 0;
-  for (int i = 0; i < n; i++) {
-    h_nx(i+first,0) = buf[m++];
-    h_nx(i+first,1) = buf[m++];
-    h_nx(i+first,2) = buf[m++];
-    h_ny(i+first,0) = buf[m++];
-    h_ny(i+first,1) = buf[m++];
-    h_ny(i+first,2) = buf[m++];
-    h_nz(i+first,0) = buf[m++];
-    h_nz(i+first,1) = buf[m++];
-    h_nz(i+first,2) = buf[m++];
-  }
-
-  k_nx.modify_host();
-  k_ny.modify_host();
-  k_nz.modify_host();
 }
 
 /* ---------------------------------------------------------------------- */
