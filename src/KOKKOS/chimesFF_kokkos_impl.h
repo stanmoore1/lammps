@@ -727,8 +727,43 @@ void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* 
 
   // Start the force/stress/energy calculation
 
-  poly_3B(poly, dpoly_dx, c_ncoeffs_3b[tripidx], tripidx, type_idx,
-          Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+  if (!dense_coeffs) {
+    poly_3B(poly, dpoly_dx, c_ncoeffs_3b[tripidx], tripidx, type_idx,
+            Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+  } else {
+
+    // JIT evaluation of the chebyshev polynomial and its derivatives
+    int inv_mapped_pair[npairs];
+
+    for (int j = 0; j < npairs; j++)
+      inv_mapped_pair[c_pair_int_trip_map(type_idx,j)] = j;
+
+    KK_FLOAT* Tn[npairs];
+    KK_FLOAT* Tnd[npairs];
+
+    for (int j = 0; j < npairs; j++) {
+      switch (inv_mapped_pair[j]) {
+        case 0:
+          Tn[j] = &Tn_ij[0];
+          Tnd[j] = &Tnd_ij[0];
+          break;
+        case 1:
+          Tn[j] = &Tn_ik[0];
+          Tnd[j] = &Tnd_ik[0];
+          break;
+        case 2:
+          Tn[j] = &Tn_jk[0];
+          Tnd[j] = &Tnd_jk[0];
+          break;
+        default:
+          Kokkos::abort("Bad inverse pair mapping found");
+      }
+    }
+
+    poly_3B_dense(poly, dpoly_dx[inv_mapped_pair[0]], dpoly_dx[inv_mapped_pair[1]],
+                  dpoly_dx[inv_mapped_pair[2]], ncoeffs_3b[tripidx], tripidx,
+                  Tn[0], Tn[1], Tn[2], Tnd[0], Tnd[1], Tnd[2]);
+  }
 
   if (eflag)
     energy += poly * fcut_all;
@@ -1305,6 +1340,129 @@ void chimesFFKokkos<DeviceType>::poly_3B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3
     f[0] += coeff * Tnd_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
     f[1] += coeff * Tnd_ik[powers[1]] * Tn_ij[powers[0]] * Tn_jk[powers[2]];
     f[2] += coeff * Tnd_jk[powers[2]] * Tn_ij[powers[0]] * Tn_ik[powers[1]];
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::poly_3B_dense(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, int ncoeffs_3b, int tripidx,
+                                               KK_FLOAT *Tn_ij, KK_FLOAT *Tn_ik, KK_FLOAT *Tn_jk,
+                                               KK_FLOAT *Tnd_ij, KK_FLOAT *Tnd_ik, KK_FLOAT *Tnd_jk) const
+// Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f0, f1, f2)
+// (LEF) 4/02/26
+{
+  KK_FLOAT coeff;
+  int powers[3];
+  KK_FLOAT deriv[3];
+  const int loop_style = 2;
+
+  e = 0.0;
+  f0 = 0.0;
+  f1 = 0.0;
+  f2 = 0.0;
+
+  if (ncoeffs_3b == 0) return;
+
+  int max_poly = 0;
+  const int loop_max = 1000;
+  int i = 0;
+  for (; i < loop_max; i++) {
+    if (i * i * i == ncoeffs_3b) {
+      max_poly = i;
+      break;
+    }
+  }
+  if (i == loop_max) {
+    Kokkos::abort("Bad number of 3 body coefficients for dense evaluation");
+  }
+
+  if (loop_style == 1) {
+    poly_3B_dense_loop1(max_poly, e, f0, f1, f2, ncoeffs_3b, tripidx, Tn_ij, Tn_ik, Tn_jk,
+                        Tnd_ij, Tnd_ik, Tnd_jk);
+  } else if (loop_style == 2) {
+    poly_3B_dense_loop2(max_poly, e, f0, f1, f2, ncoeffs_3b, tripidx, Tn_ij, Tn_ik, Tn_jk,
+                        Tnd_ij, Tnd_ik, Tnd_jk);
+  //} else if (loop_style == 3) {
+  //  poly_3B_dense_loop3(max_poly, e, f0, f1, f2, ncoeffs_3b, tripidx, Tn_ij, Tn_ik, Tn_jk,
+  //                      Tnd_ij, Tnd_ik, Tnd_jk);
+  } else {
+    Kokkos::abort("Error: bad 3 body dense loop style");
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::poly_3B_dense_loop1(int max_poly, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                                   int ncoeffs_3b, int tripidx,
+                                   KK_FLOAT *Tn_ij, KK_FLOAT *Tn_ik,
+                                   KK_FLOAT *Tn_jk, KK_FLOAT *Tnd_ij,
+                                   KK_FLOAT *Tnd_ik, KK_FLOAT *Tnd_jk) const
+{
+  auto c_chimes_3b_params_tripidx = Kokkos::subview(c_chimes_3b_params,tripidx,Kokkos::ALL);
+
+  for (int count = 0; count < ncoeffs_3b; count++) {
+    int l = count / (max_poly * max_poly);
+    //if (l >= max_poly) { cout << "Internal error: l > max_poly: " << l << "\n"; }
+    int m = (count / max_poly) % max_poly;
+    int n = count % max_poly;
+
+    if (c_chimes_3b_params_tripidx[count] != 0.0) {
+      const KK_FLOAT tn_ij = Tn_ij[l];
+      const KK_FLOAT tnd_ij = Tnd_ij[l];
+      const KK_FLOAT tn_ik = Tn_ik[m];
+      const KK_FLOAT tnd_ik = Tnd_ik[m];
+      const KK_FLOAT tn_jk = Tn_jk[n];
+      const KK_FLOAT tnd_jk = Tnd_jk[n];
+      const KK_FLOAT coeff = c_chimes_3b_params_tripidx[count];
+
+      e += coeff * tn_ij * tn_ik * tn_jk;
+      f0 += coeff * tnd_ij * tn_ik * tn_jk;
+      f1 += coeff * tnd_ik * tn_ij * tn_jk;
+      f2 += coeff * tnd_jk * tn_ij * tn_ik;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::poly_3B_dense_loop2(int max_poly, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                                   int ncoeffs_3b, int tripidx,
+                                   KK_FLOAT *Tn_ij, KK_FLOAT *Tn_ik,
+                                   KK_FLOAT *Tn_jk, KK_FLOAT *Tnd_ij,
+                                   KK_FLOAT *Tnd_ik, KK_FLOAT *Tnd_jk) const
+{
+  auto c_chimes_3b_params_tripidx = Kokkos::subview(c_chimes_3b_params,tripidx,Kokkos::ALL);
+
+  int count = 0;
+  for (int i = 0; i < max_poly; i++) {
+    const KK_FLOAT tn_ij = Tn_ij[i];
+    const KK_FLOAT tnd_ij = Tnd_ij[i];
+
+    for (int j = 0; j < max_poly; j++) {
+      const KK_FLOAT tn_ik = Tn_ik[j];
+      const KK_FLOAT tnd_ik = Tnd_ik[j];
+      const KK_FLOAT tn_ij_ik = tn_ij * tn_ik;
+
+      for (int k = 0; k < max_poly; k++) {
+        if (c_chimes_3b_params_tripidx[count] != 0.0) {
+          const KK_FLOAT tn_jk = Tn_jk[k];
+          const KK_FLOAT tnd_jk = Tnd_jk[k];
+          const KK_FLOAT coeff = c_chimes_3b_params_tripidx[count];
+
+          e += coeff * tn_ij_ik * tn_jk;
+          f0 += coeff * tnd_ij * tn_ik * tn_jk;
+          f1 += coeff * tnd_ik * tn_ij * tn_jk;
+          f2 += coeff * tnd_jk * tn_ij_ik;
+        }
+        count++;
+      }
+    }
   }
 }
 

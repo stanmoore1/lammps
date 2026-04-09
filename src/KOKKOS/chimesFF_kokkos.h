@@ -181,11 +181,32 @@ class chimesFFKokkos : public chimesFF
   void poly_2B(KK_FLOAT &e, KK_FLOAT &f0, int ncoeffs_2b, int pair_idx,
                KK_FLOAT* Tn, KK_FLOAT* Tnd) const;
 
-
   KOKKOS_INLINE_FUNCTION
   void poly_3B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3b, int tripidx, int idx,
                KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_jk,
                KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_jk) const;
+
+  // Evaluates the 3-Body chebyshev polynomial in dense format
+
+  KOKKOS_INLINE_FUNCTION
+  void poly_3B_dense(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, int ncoeffs_3b,
+                     int tripidx, KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik,
+                     KK_FLOAT* Tn_jk, KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik,
+                     KK_FLOAT* Tnd_jk) const;
+
+  // Loop evaluators for poly_3B_dense
+
+  KOKKOS_INLINE_FUNCTION
+  void poly_3B_dense_loop1(int max_poly, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                           int ncoeffs_3b, int tripidx, KK_FLOAT* Tn_ij,
+                           KK_FLOAT* Tn_ik, KK_FLOAT* Tn_jk, KK_FLOAT* Tnd_ij,
+                           KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_jk) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void poly_3B_dense_loop2(int max_poly, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                           int ncoeffs_3b, int tripidx, KK_FLOAT* Tn_ij,
+                           KK_FLOAT* Tn_ik, KK_FLOAT* Tn_jk, KK_FLOAT* Tnd_ij,
+                           KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_jk) const;
 
   KOKKOS_INLINE_FUNCTION
   void poly_4B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4b, int quadidx, int idx,
