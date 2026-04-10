@@ -962,9 +962,9 @@ void chimesFF::read_parameters(string paramfile)
                  << chimes_4b_powers[tmp_int][i][3] << " " << chimes_4b_powers[tmp_int][i][4] << " "
                  << chimes_4b_powers[tmp_int][i][5] << " " << chimes_4b_params[tmp_int][i] << endl;
         }
-        if (dense_coeffs) {
-          densify_4B(ncoeffs_4b[tmp_int], chimes_4b_powers[tmp_int], chimes_4b_params[tmp_int]);
-        }
+        //if (dense_coeffs) {
+        //  densify_4B(ncoeffs_4b[tmp_int], chimes_4b_powers[tmp_int], chimes_4b_params[tmp_int]);
+        //}
       }
 
       if (line.find("QUADMAPS:") != string::npos) {
@@ -2572,7 +2572,7 @@ void chimesFF::densify_3B(int &ncoeffs3, vector<vector<int>> &powers_3b, vector<
     }
   }
 
-  cout << "Maximum 3-B power found = " << max_pow3b;
+  cout << "Maximum 3-B power found = " << max_pow3b << endl;
 
   int dim1 = max_pow3b + 1;
   int dim = dim1 * dim1 * dim1;
@@ -2617,7 +2617,7 @@ void chimesFF::densify_4B(int &ncoeffs4, vector<vector<int>> &powers_4b, vector<
     }
   }
 
-  cout << "Maximum 4-B power found = " << max_pow4b;
+  cout << "Maximum 4-B power found = " << max_pow4b << endl;
 
   int dim1 = max_pow4b + 1;
   int dim = dim1 * dim1 * dim1 * dim1 * dim1 * dim1;
