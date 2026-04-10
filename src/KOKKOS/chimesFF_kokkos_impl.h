@@ -761,7 +761,7 @@ void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* 
     }
 
     poly_3B_dense(poly, dpoly_dx[inv_mapped_pair[0]], dpoly_dx[inv_mapped_pair[1]],
-                  dpoly_dx[inv_mapped_pair[2]], ncoeffs_3b[tripidx], tripidx,
+                  dpoly_dx[inv_mapped_pair[2]], c_ncoeffs_3b[tripidx], tripidx,
                   Tn[0], Tn[1], Tn[2], Tnd[0], Tnd[1], Tnd[2]);
   }
 
@@ -1404,6 +1404,7 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense_loop1(int max_poly, KK_FLOAT &e, 
 {
   auto c_chimes_3b_params_tripidx = Kokkos::subview(c_chimes_3b_params,tripidx,Kokkos::ALL);
 
+  #pragma unroll
   for (int count = 0; count < ncoeffs_3b; count++) {
     int l = count / (max_poly * max_poly);
     //if (l >= max_poly) { cout << "Internal error: l > max_poly: " << l << "\n"; }
