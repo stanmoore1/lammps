@@ -962,9 +962,9 @@ void chimesFF::read_parameters(string paramfile)
                  << chimes_4b_powers[tmp_int][i][3] << " " << chimes_4b_powers[tmp_int][i][4] << " "
                  << chimes_4b_powers[tmp_int][i][5] << " " << chimes_4b_params[tmp_int][i] << endl;
         }
-        //if (dense_coeffs) {
-        //  densify_4B(ncoeffs_4b[tmp_int], chimes_4b_powers[tmp_int], chimes_4b_params[tmp_int]);
-        //}
+        if (dense_coeffs) {
+          densify_4B(ncoeffs_4b[tmp_int], chimes_4b_powers[tmp_int], chimes_4b_params[tmp_int]);
+        }
       }
 
       if (line.find("QUADMAPS:") != string::npos) {

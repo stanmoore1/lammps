@@ -1353,9 +1353,6 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense(KK_FLOAT &e, KK_FLOAT &f0, KK_FLO
 // Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f0, f1, f2)
 // (LEF) 4/02/26
 {
-  KK_FLOAT coeff;
-  int powers[3];
-  KK_FLOAT deriv[3];
   const int loop_style = 2;
 
   e = 0.0;
@@ -1508,5 +1505,162 @@ void chimesFFKokkos<DeviceType>::poly_4B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4
     f[3] += coeff * Tnd_jk[powers[3]] * Tn_ij_ik_il * Tn_jl[powers[4]] * Tn_kl_5;
     f[4] += coeff * Tnd_jl[powers[4]] * Tn_ij_ik_il * Tn_jk[powers[3]] * Tn_kl_5;
     f[5] += coeff * Tnd_kl[powers[5]] * Tn_ij_ik_il * Tn_jk_jl;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::poly_4B_dense(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, KK_FLOAT &f3, KK_FLOAT &f4,
+                             KK_FLOAT &f5, int ncoeffs_4b, int quadidx,
+                             KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_il,
+                             KK_FLOAT* Tn_jk, KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl,
+                             KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il,
+                             KK_FLOAT* Tnd_jk, KK_FLOAT* Tnd_jl, KK_FLOAT* Tnd_kl) const
+// Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f0, f1, f2)
+// (LEF) 4/02/26
+{
+  const int loop_style = 2;
+
+  e = 0.0;
+  f0 = 0.0;
+  f1 = 0.0;
+  f2 = 0.0;
+  f3 = 0.0;
+  f4 = 0.0;
+  f5 = 0.0;
+
+  if (ncoeffs_4b == 0) return;
+
+  int max_poly = 0;
+  const int loop_max = 100;
+  int i = 0;
+  for (; i < loop_max; i++) {
+    if (i * i * i * i * i * i == ncoeffs_4b) {
+      max_poly = i;
+      break;
+    }
+  }
+  if (i == loop_max) {
+    Kokkos::abort("Bad number of 4 body coefficients for dense evaluation");
+  }
+
+  if (loop_style == 1) {
+    poly_4B_dense_loop1(max_poly, e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, quadidx, Tn_ij, Tn_ik,
+                        Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+  } else if (loop_style == 2) {
+    poly_4B_dense_loop2(max_poly, e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, quadidx, Tn_ij, Tn_ik,
+                        Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+  //} else if (loop_style == 3) {
+  //  poly_4B_dense_loop3(max_poly, e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, quadidx, Tn_ij, Tn_ik,
+  //                      Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::poly_4B_dense_loop1(
+    int max_poly, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, KK_FLOAT &f3, KK_FLOAT &f4, KK_FLOAT &f5,
+    int ncoeffs_4b, int quadidx, KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik,
+    KK_FLOAT* Tn_il, KK_FLOAT* Tn_jk, KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl,
+    KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il, KK_FLOAT* Tnd_jk,
+    KK_FLOAT* Tnd_jl, KK_FLOAT* Tnd_kl) const
+{
+  auto c_chimes_4b_params_quadidx = Kokkos::subview(c_chimes_4b_params,quadidx,Kokkos::ALL);
+
+  int max_poly_pow[6];
+  max_poly_pow[5] = 1;
+
+  for (int l = 4; l >= 0; l--) { max_poly_pow[l] = max_poly_pow[l + 1] * max_poly; }
+
+  for (int count = 0; count < ncoeffs_4b; count++) {
+    if (c_chimes_4b_params_quadidx[count] != 0.0) {
+      int index[6];
+      for (int i = 0; i < 6; i++) { index[i] = (count / max_poly_pow[i]) % max_poly; }
+      const KK_FLOAT tn_ij = Tn_ij[index[0]];
+      const KK_FLOAT tnd_ij = Tnd_ij[index[0]];
+      const KK_FLOAT tn_ik = Tn_ik[index[1]];
+      const KK_FLOAT tnd_ik = Tnd_ik[index[1]];
+      const KK_FLOAT tn_il = Tn_il[index[2]];
+      const KK_FLOAT tnd_il = Tnd_il[index[2]];
+      const KK_FLOAT tn_jk = Tn_jk[index[3]];
+      const KK_FLOAT tnd_jk = Tnd_jk[index[3]];
+      const KK_FLOAT tn_jl = Tn_jl[index[4]];
+      const KK_FLOAT tnd_jl = Tnd_jl[index[4]];
+      const KK_FLOAT tn_kl = Tn_kl[index[5]];
+      const KK_FLOAT tnd_kl = Tnd_kl[index[5]];
+      const KK_FLOAT coeff = c_chimes_4b_params_quadidx[count];
+
+      const KK_FLOAT Tn_jk_jl = tn_jk * tn_jl;
+      const KK_FLOAT Tn_ij_ik_il = tn_ij * tn_ik * tn_il;
+
+      e += coeff * Tn_ij_ik_il * Tn_jk_jl * tn_kl;
+
+      f0 += coeff * tnd_ij * tn_ik * tn_il * Tn_jk_jl * tn_kl;
+      f1 += coeff * tnd_ik * tn_ij * tn_il * Tn_jk_jl * tn_kl;
+      f2 += coeff * tnd_il * tn_ij * tn_ik * Tn_jk_jl * tn_kl;
+      f3 += coeff * tnd_jk * Tn_ij_ik_il * tn_jl * tn_kl;
+      f4 += coeff * tnd_jl * Tn_ij_ik_il * tn_jk * tn_kl;
+      f5 += coeff * tnd_kl * Tn_ij_ik_il * Tn_jk_jl;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::poly_4B_dense_loop2(
+    int max_poly, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, KK_FLOAT &f3, KK_FLOAT &f4, KK_FLOAT &f5,
+    int ncoeffs_4b, int quadidx, KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik,
+    KK_FLOAT* Tn_il, KK_FLOAT* Tn_jk, KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl,
+    KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il, KK_FLOAT* Tnd_jk,
+    KK_FLOAT* Tnd_jl, KK_FLOAT* Tnd_kl) const
+{
+  auto c_chimes_4b_params_quadidx = Kokkos::subview(c_chimes_4b_params,quadidx,Kokkos::ALL);
+
+  int count = 0;
+  for (int i = 0; i < max_poly; i++) {
+    const KK_FLOAT tn_ij = Tn_ij[i];
+    const KK_FLOAT tnd_ij = Tnd_ij[i];
+    for (int j = 0; j < max_poly; j++) {
+      const KK_FLOAT tn_ik = Tn_ik[j];
+      const KK_FLOAT tnd_ik = Tnd_ik[j];
+      for (int l = 0; l < max_poly; l++) {
+        const KK_FLOAT tn_il = Tn_il[l];
+        const KK_FLOAT tnd_il = Tnd_il[l];
+        const KK_FLOAT Tn_ij_ik_il = tn_ij * tn_ik * tn_il;
+        for (int m = 0; m < max_poly; m++) {
+          const KK_FLOAT tn_jk = Tn_jk[m];
+          const KK_FLOAT tnd_jk = Tnd_jk[m];
+          for (int n = 0; n < max_poly; n++) {
+            const KK_FLOAT tn_jl = Tn_jl[n];
+            const KK_FLOAT tnd_jl = Tnd_jl[n];
+            const KK_FLOAT Tn_jk_jl = tn_jk * tn_jl;
+            for (int o = 0; o < max_poly; o++) {
+              const KK_FLOAT tn_kl = Tn_kl[o];
+              const KK_FLOAT tnd_kl = Tnd_kl[o];
+
+              if (c_chimes_4b_params_quadidx[count] != 0.0) {
+                const KK_FLOAT coeff = c_chimes_4b_params_quadidx[count];
+
+                e += coeff * Tn_ij_ik_il * Tn_jk_jl * tn_kl;
+
+                f0 += coeff * tnd_ij * tn_ik * tn_il * Tn_jk_jl * tn_kl;
+                f1 += coeff * tnd_ik * tn_ij * tn_il * Tn_jk_jl * tn_kl;
+                f2 += coeff * tnd_il * tn_ij * tn_ik * Tn_jk_jl * tn_kl;
+                f3 += coeff * tnd_jk * Tn_ij_ik_il * tn_jl * tn_kl;
+                f4 += coeff * tnd_jl * Tn_ij_ik_il * tn_jk * tn_kl;
+                f5 += coeff * tnd_kl * Tn_ij_ik_il * Tn_jk_jl;
+              }
+              count++;
+            }
+          }
+        }
+      }
+    }
   }
 }

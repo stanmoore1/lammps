@@ -96,7 +96,7 @@ class chimesFFKokkos : public chimesFF
   typename AT::t_kkfloat_1d d_morse_var;      // [npairs]; morse_lambda
   typename AT::t_kkfloat_1d_const_um c_morse_var;
 
-  double d_penalty_params[2]; // [2];  Second dimension: [0] = A_pen, [1] = d_pen
+  KK_FLOAT d_penalty_params[2]; // [2];  Second dimension: [0] = A_pen, [1] = d_pen
   typename AT::t_kkfloat_1d d_energy_offsets; // [natmtyps]; Single atom ChIMES energies
   typename AT::t_kkfloat_1d_const_um c_energy_offsets;
 
@@ -214,6 +214,36 @@ class chimesFFKokkos : public chimesFF
                KK_FLOAT* Tn_jk, KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl,
                KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il,
                KK_FLOAT* Tnd_jk, KK_FLOAT* Tnd_jl, KK_FLOAT* Tnd_kl) const;
+
+  // Evaluates the 4-body Chebyshev polynomial in dense format
+
+  KOKKOS_INLINE_FUNCTION
+  void poly_4B_dense(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, KK_FLOAT &f3, KK_FLOAT &f4,
+                     KK_FLOAT &f5, int ncoeffs_4b, int quadidx, KK_FLOAT* Tn_ij,
+                     KK_FLOAT* Tn_ik, KK_FLOAT* Tn_il, KK_FLOAT* Tn_jk,
+                     KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl, KK_FLOAT* Tnd_ij,
+                     KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il, KK_FLOAT* Tnd_jk,
+                     KK_FLOAT* Tnd_jl, KK_FLOAT* Tnd_kl) const;
+
+  // Loop1 uses a flat loop to evaluate a dense 4-body polynomial
+
+  KOKKOS_INLINE_FUNCTION
+  void poly_4B_dense_loop1(int max_poly, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, KK_FLOAT &f3,
+                           KK_FLOAT &f4, KK_FLOAT &f5, int ncoeffs_4b, int quadidx,
+                           KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_il,
+                           KK_FLOAT* Tn_jk, KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl,
+                           KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il,
+                           KK_FLOAT* Tnd_jk, KK_FLOAT* Tnd_jl, KK_FLOAT* Tnd_kl) const;
+
+  // Innver evaluation loop for dense 4 body poly.  2nd. variant.
+
+  KOKKOS_INLINE_FUNCTION
+  void poly_4B_dense_loop2(int max_poly, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, KK_FLOAT &f3,
+                           KK_FLOAT &f4, KK_FLOAT &f5, int ncoeffs_4b, int quadidx,
+                           KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_il,
+                           KK_FLOAT* Tn_jk, KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl,
+                           KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il,
+                           KK_FLOAT* Tnd_jk, KK_FLOAT* Tnd_jl, KK_FLOAT* Tnd_kl) const;
 
   KOKKOS_INLINE_FUNCTION
   void set_polys_out_of_range(KK_FLOAT* d_Tn, KK_FLOAT* d_Tnd, KK_FLOAT dx, KK_FLOAT x,
