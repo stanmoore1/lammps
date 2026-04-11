@@ -1031,9 +1031,57 @@ void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* 
 
   KK_FLOAT poly, dpoly_dx[npairs];
 
-  poly_4B(poly, dpoly_dx, c_ncoeffs_4b[quadidx], quadidx, idx,
-          Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik,
-          Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+  //if (!dense_coeffs) {
+  if (1) {
+    poly_4B(poly, dpoly_dx, c_ncoeffs_4b[quadidx], quadidx, idx,
+            Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik,
+            Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+  } else {
+    // Dense evaluation of the chebyshev polynomial and its derivatives
+    int inv_mapped_pair[npairs];
+
+    for (int j = 0; j < npairs; j++) { inv_mapped_pair[c_pair_int_quad_map(idx,j)] = j; }
+
+    KK_FLOAT* Tn[npairs];
+    KK_FLOAT* Tnd[npairs];
+
+    for (int j = 0; j < npairs; j++) {
+      switch (inv_mapped_pair[j]) {
+        case 0:
+          Tn[j] = &Tn_ij[0];
+          Tnd[j] = &Tnd_ij[0];
+          break;
+        case 1:
+          Tn[j] = &Tn_ik[0];
+          Tnd[j] = &Tnd_ik[0];
+          break;
+        case 2:
+          Tn[j] = &Tn_il[0];
+          Tnd[j] = &Tnd_il[0];
+          break;
+        case 3:
+          Tn[j] = &Tn_jk[0];
+          Tnd[j] = &Tnd_jk[0];
+          break;
+        case 4:
+          Tn[j] = &Tn_jl[0];
+          Tnd[j] = &Tnd_jl[0];
+          break;
+        case 5:
+          Tn[j] = &Tn_kl[0];
+          Tnd[j] = &Tnd_kl[0];
+          break;
+        default:
+          Kokkos::abort("Bad inverse pair mapping found");
+      }
+    }
+
+    poly_4B_dense(poly, dpoly_dx[inv_mapped_pair[0]], dpoly_dx[inv_mapped_pair[1]],
+                  dpoly_dx[inv_mapped_pair[2]], dpoly_dx[inv_mapped_pair[3]],
+                  dpoly_dx[inv_mapped_pair[4]], dpoly_dx[inv_mapped_pair[5]], d_ncoeffs_4b[quadidx],
+                  quadidx, Tn[0], Tn[1], Tn[2], Tn[3], Tn[4], Tn[5],
+                  Tnd[0], Tnd[1], Tnd[2], Tnd[3], Tnd[4], Tnd[5]);
+  }
 
   if (eflag)
     energy += poly * fcut_all;
@@ -1576,6 +1624,7 @@ void chimesFFKokkos<DeviceType>::poly_4B_dense_loop1(
 
   for (int l = 4; l >= 0; l--) { max_poly_pow[l] = max_poly_pow[l + 1] * max_poly; }
 
+  #pragma unroll
   for (int count = 0; count < ncoeffs_4b; count++) {
     if (c_chimes_4b_params_quadidx[count] != 0.0) {
       int index[6];
