@@ -1456,14 +1456,14 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense_loop1(int max_poly, KK_FLOAT &e, 
     int m = (count / max_poly) % max_poly;
     int n = count % max_poly;
 
-    if (c_chimes_3b_params_tripidx[count] != 0.0) {
+    const KK_FLOAT coeff = c_chimes_3b_params_tripidx[count];
+    if (coeff != 0.0) {
       const KK_FLOAT tn_ij = Tn_ij[l];
       const KK_FLOAT tnd_ij = Tnd_ij[l];
       const KK_FLOAT tn_ik = Tn_ik[m];
       const KK_FLOAT tnd_ik = Tnd_ik[m];
       const KK_FLOAT tn_jk = Tn_jk[n];
       const KK_FLOAT tnd_jk = Tnd_jk[n];
-      const KK_FLOAT coeff = c_chimes_3b_params_tripidx[count];
 
       e += coeff * tn_ij * tn_ik * tn_jk;
       f0 += coeff * tnd_ij * tn_ik * tn_jk;
@@ -1496,10 +1496,10 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense_loop2(int max_poly, KK_FLOAT &e, 
       const KK_FLOAT tn_ij_ik = tn_ij * tn_ik;
 
       for (int k = 0; k < max_poly; k++) {
-        if (c_chimes_3b_params_tripidx[count] != 0.0) {
+        const KK_FLOAT coeff = c_chimes_3b_params_tripidx[count];
+        if (coeff != 0.0) {
           const KK_FLOAT tn_jk = Tn_jk[k];
           const KK_FLOAT tnd_jk = Tnd_jk[k];
-          const KK_FLOAT coeff = c_chimes_3b_params_tripidx[count];
 
           e += coeff * tn_ij_ik * tn_jk;
           f0 += coeff * tnd_ij * tn_ik * tn_jk;
