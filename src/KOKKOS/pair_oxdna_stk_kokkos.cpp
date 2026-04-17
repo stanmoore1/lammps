@@ -83,46 +83,6 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   atomKK->sync(execution_space,datamask_read);
 
-  k_epsilon_st.template sync<DeviceType>();
-  k_a_st.template sync<DeviceType>();
-  k_cut_st_0.template sync<DeviceType>();
-  k_cut_st_c.template sync<DeviceType>();
-  k_cut_st_lo.template sync<DeviceType>();
-  k_cut_st_hi.template sync<DeviceType>();
-  k_cut_st_lc.template sync<DeviceType>();
-  k_cut_st_hc.template sync<DeviceType>();
-  k_b_st_lo.template sync<DeviceType>();
-  k_b_st_hi.template sync<DeviceType>();
-  k_shift_st.template sync<DeviceType>();
-  k_cutsq_st_hc.template sync<DeviceType>();
-
-  k_a_st4.template sync<DeviceType>();
-  k_theta_st4_0.template sync<DeviceType>();
-  k_dtheta_st4_ast.template sync<DeviceType>();
-  k_b_st4.template sync<DeviceType>();
-  k_dtheta_st4_c.template sync<DeviceType>();
-
-  k_a_st5.template sync<DeviceType>();
-  k_theta_st5_0.template sync<DeviceType>();
-  k_dtheta_st5_ast.template sync<DeviceType>();
-  k_b_st5.template sync<DeviceType>();
-  k_dtheta_st5_c.template sync<DeviceType>();
-
-  k_a_st6.template sync<DeviceType>();
-  k_theta_st6_0.template sync<DeviceType>();
-  k_dtheta_st6_ast.template sync<DeviceType>();
-  k_b_st6.template sync<DeviceType>();
-  k_dtheta_st6_c.template sync<DeviceType>();
-
-  k_a_st1.template sync<DeviceType>();
-  k_cosphi_st1_ast.template sync<DeviceType>();
-  k_b_st1.template sync<DeviceType>();
-  k_cosphi_st1_c.template sync<DeviceType>();
-  k_a_st2.template sync<DeviceType>();
-  k_cosphi_st2_ast.template sync<DeviceType>();
-  k_b_st2.template sync<DeviceType>();
-  k_cosphi_st2_c.template sync<DeviceType>();
-
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
   else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
 
@@ -826,6 +786,35 @@ double PairOxdnaStkKokkos<DeviceType>::init_one(int i, int j)
   k_b_st2.template modify<LMPHostType>();
   k_cosphi_st2_c.template modify<LMPHostType>();
 
+  // Sync to device
+  k_epsilon_st.template sync<DeviceType>();
+  k_a_st.template sync<DeviceType>();
+  k_b_st_lo.template sync<DeviceType>();
+  k_b_st_hi.template sync<DeviceType>();
+
+  k_theta_st4_0.template sync<DeviceType>();
+
+  k_a_st5.template sync<DeviceType>();
+  k_theta_st5_0.template sync<DeviceType>();
+  k_dtheta_st5_ast.template sync<DeviceType>();
+  k_b_st5.template sync<DeviceType>();
+  k_dtheta_st5_c.template sync<DeviceType>();
+
+  k_a_st6.template sync<DeviceType>();
+  k_theta_st6_0.template sync<DeviceType>();
+  k_dtheta_st6_ast.template sync<DeviceType>();
+  k_b_st6.template sync<DeviceType>();
+  k_dtheta_st6_c.template sync<DeviceType>();
+
+  k_a_st1.template sync<DeviceType>();
+  k_cosphi_st1_ast.template sync<DeviceType>();
+  k_b_st1.template sync<DeviceType>();
+  k_cosphi_st1_c.template sync<DeviceType>();
+  k_a_st2.template sync<DeviceType>();
+  k_cosphi_st2_ast.template sync<DeviceType>();
+  k_b_st2.template sync<DeviceType>();
+  k_cosphi_st2_c.template sync<DeviceType>();
+
   // "cutone" is max of "cut_st_hc[a][i][j][b]", sets the master list distance cutoff
   return cutone;
 }
@@ -881,6 +870,20 @@ void PairOxdnaStkKokkos<DeviceType>::coeff(int narg, char **arg)
   k_dtheta_st4_ast.template modify<LMPHostType>();
   k_b_st4.template modify<LMPHostType>();
   k_dtheta_st4_c.template modify<LMPHostType>();
+
+  // Sync to device
+  k_cut_st_0.template sync<DeviceType>();
+  k_cut_st_c.template sync<DeviceType>();
+  k_cut_st_lo.template sync<DeviceType>();
+  k_cut_st_hi.template sync<DeviceType>();
+  k_cut_st_lc.template sync<DeviceType>();
+  k_cut_st_hc.template sync<DeviceType>();
+  k_shift_st.template sync<DeviceType>();
+  k_cutsq_st_hc.template sync<DeviceType>();
+  k_a_st4.template sync<DeviceType>();
+  k_dtheta_st4_ast.template sync<DeviceType>();
+  k_b_st4.template sync<DeviceType>();
+  k_dtheta_st4_c.template sync<DeviceType>();
 }
 
 /* ----------------------------------------------------------------------

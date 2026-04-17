@@ -83,55 +83,6 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   atomKK->sync(execution_space,datamask_read);
 
-  k_epsilon_hb.template sync<DeviceType>();
-  k_a_hb.template sync<DeviceType>();
-  k_cut_hb_0.template sync<DeviceType>();
-  k_cut_hb_c.template sync<DeviceType>();
-  k_cut_hb_lo.template sync<DeviceType>();
-  k_cut_hb_hi.template sync<DeviceType>();
-  k_cut_hb_lc.template sync<DeviceType>();
-  k_cut_hb_hc.template sync<DeviceType>();
-  k_b_hb_lo.template sync<DeviceType>();
-  k_b_hb_hi.template sync<DeviceType>();
-  k_shift_hb.template sync<DeviceType>();
-  k_cutsq_hb_hc.template sync<DeviceType>();
-
-  k_a_hb1.template sync<DeviceType>();
-  k_theta_hb1_0.template sync<DeviceType>();
-  k_dtheta_hb1_ast.template sync<DeviceType>();
-  k_b_hb1.template sync<DeviceType>();
-  k_dtheta_hb1_c.template sync<DeviceType>();
-
-  k_a_hb2.template sync<DeviceType>();
-  k_theta_hb2_0.template sync<DeviceType>();
-  k_dtheta_hb2_ast.template sync<DeviceType>();
-  k_b_hb2.template sync<DeviceType>();
-  k_dtheta_hb2_c.template sync<DeviceType>();
-
-  k_a_hb3.template sync<DeviceType>();
-  k_theta_hb3_0.template sync<DeviceType>();
-  k_dtheta_hb3_ast.template sync<DeviceType>();
-  k_b_hb3.template sync<DeviceType>();
-  k_dtheta_hb3_c.template sync<DeviceType>();
-
-  k_a_hb4.template sync<DeviceType>();
-  k_theta_hb4_0.template sync<DeviceType>();
-  k_dtheta_hb4_ast.template sync<DeviceType>();
-  k_b_hb4.template sync<DeviceType>();
-  k_dtheta_hb4_c.template sync<DeviceType>();
-
-  k_a_hb7.template sync<DeviceType>();
-  k_theta_hb7_0.template sync<DeviceType>();
-  k_dtheta_hb7_ast.template sync<DeviceType>();
-  k_b_hb7.template sync<DeviceType>();
-  k_dtheta_hb7_c.template sync<DeviceType>();
-
-  k_a_hb8.template sync<DeviceType>();
-  k_theta_hb8_0.template sync<DeviceType>();
-  k_dtheta_hb8_ast.template sync<DeviceType>();
-  k_b_hb8.template sync<DeviceType>();
-  k_dtheta_hb8_c.template sync<DeviceType>();
-
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
   else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
 
@@ -897,6 +848,56 @@ double PairOxdnaHbondKokkos<DeviceType>::init_one(int i, int j)
   k_dtheta_hb8_ast.template modify<LMPHostType>();
   k_b_hb8.template modify<LMPHostType>();
   k_dtheta_hb8_c.template modify<LMPHostType>();
+
+  // Sync to device
+  k_epsilon_hb.template sync<DeviceType>();
+  k_a_hb.template sync<DeviceType>();
+  k_cut_hb_0.template sync<DeviceType>();
+  k_cut_hb_c.template sync<DeviceType>();
+  k_cut_hb_lo.template sync<DeviceType>();
+  k_cut_hb_hi.template sync<DeviceType>();
+  k_cut_hb_lc.template sync<DeviceType>();
+  k_cut_hb_hc.template sync<DeviceType>();
+  k_b_hb_lo.template sync<DeviceType>();
+  k_b_hb_hi.template sync<DeviceType>();
+  k_shift_hb.template sync<DeviceType>();
+  k_cutsq_hb_hc.template sync<DeviceType>();
+
+  k_a_hb1.template sync<DeviceType>();
+  k_theta_hb1_0.template sync<DeviceType>();
+  k_dtheta_hb1_ast.template sync<DeviceType>();
+  k_b_hb1.template sync<DeviceType>();
+  k_dtheta_hb1_c.template sync<DeviceType>();
+
+  k_a_hb2.template sync<DeviceType>();
+  k_theta_hb2_0.template sync<DeviceType>();
+  k_dtheta_hb2_ast.template sync<DeviceType>();
+  k_b_hb2.template sync<DeviceType>();
+  k_dtheta_hb2_c.template sync<DeviceType>();
+
+  k_a_hb3.template sync<DeviceType>();
+  k_theta_hb3_0.template sync<DeviceType>();
+  k_dtheta_hb3_ast.template sync<DeviceType>();
+  k_b_hb3.template sync<DeviceType>();
+  k_dtheta_hb3_c.template sync<DeviceType>();
+
+  k_a_hb4.template sync<DeviceType>();
+  k_theta_hb4_0.template sync<DeviceType>();
+  k_dtheta_hb4_ast.template sync<DeviceType>();
+  k_b_hb4.template sync<DeviceType>();
+  k_dtheta_hb4_c.template sync<DeviceType>();
+
+  k_a_hb7.template sync<DeviceType>();
+  k_theta_hb7_0.template sync<DeviceType>();
+  k_dtheta_hb7_ast.template sync<DeviceType>();
+  k_b_hb7.template sync<DeviceType>();
+  k_dtheta_hb7_c.template sync<DeviceType>();
+
+  k_a_hb8.template sync<DeviceType>();
+  k_theta_hb8_0.template sync<DeviceType>();
+  k_dtheta_hb8_ast.template sync<DeviceType>();
+  k_b_hb8.template sync<DeviceType>();
+  k_dtheta_hb8_c.template sync<DeviceType>();
 
   // "cutone" is "cut_hb_hc[i][j]", sets the master list distance cutoff
   return cutone;

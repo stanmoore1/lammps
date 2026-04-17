@@ -84,10 +84,6 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     d_vatom = k_vatom.template view<DeviceType>();
   }
 
-  k_k.template sync<DeviceType>();
-  k_r0.template sync<DeviceType>();
-  k_Delta.template sync<DeviceType>();
-
   x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();
   torque = atomKK->k_torque.template view<DeviceType>();
@@ -415,6 +411,11 @@ void BondOxdnaFENEKokkos<DeviceType>::coeff(int narg, char **arg)
   k_k.template modify<LMPHostType>();
   k_r0.template modify<LMPHostType>();
   k_Delta.template modify<LMPHostType>();
+
+  // Sync to device
+  k_k.template sync<DeviceType>();
+  k_r0.template sync<DeviceType>();
+  k_Delta.template sync<DeviceType>();
 }
 
 /* ----------------------------------------------------------------------

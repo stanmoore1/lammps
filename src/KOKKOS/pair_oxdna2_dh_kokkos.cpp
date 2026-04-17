@@ -87,14 +87,6 @@ void PairOxdna2DhKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   atomKK->sync(execution_space,datamask_read);
 
-  k_qeff_dh_pf.template sync<DeviceType>();
-  k_kappa_dh.template sync<DeviceType>();
-  k_b_dh.template sync<DeviceType>();
-  k_cut_dh_ast.template sync<DeviceType>();
-  k_cutsq_dh_ast.template sync<DeviceType>();
-  k_cut_dh_c.template sync<DeviceType>();
-  k_cutsq_dh_c.template sync<DeviceType>();
-
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
   else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
 
@@ -522,9 +514,17 @@ double PairOxdna2DhKokkos<DeviceType>::init_one(int i, int j)
   k_cut_dh_c.template modify<LMPHostType>();
   k_cutsq_dh_c.template modify<LMPHostType>();
 
+  // Sync to device
+  k_qeff_dh_pf.template sync<DeviceType>();
+  k_kappa_dh.template sync<DeviceType>();
+  k_b_dh.template sync<DeviceType>();
+  k_cut_dh_ast.template sync<DeviceType>();
+  k_cutsq_dh_ast.template sync<DeviceType>();
+  k_cut_dh_c.template sync<DeviceType>();
+  k_cutsq_dh_c.template sync<DeviceType>();
+
   // "cutone" is "cut_dh_c[i][j]", sets the master list distance cutoff
   return cutone;
-
 }
 
 /* ---------------------------------------------------------------------- */

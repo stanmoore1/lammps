@@ -86,51 +86,6 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   atomKK->sync(execution_space,datamask_read);
 
-  k_k_cxst.template sync<DeviceType>();
-  k_cut_cxst_0.template sync<DeviceType>();
-  k_cut_cxst_c.template sync<DeviceType>();
-  k_cut_cxst_lo.template sync<DeviceType>();
-  k_cut_cxst_hi.template sync<DeviceType>();
-  k_cut_cxst_lc.template sync<DeviceType>();
-  k_cut_cxst_hc.template sync<DeviceType>();
-  k_b_cxst_lo.template sync<DeviceType>();
-  k_b_cxst_hi.template sync<DeviceType>();
-  k_cutsq_cxst_hc.template sync<DeviceType>();
-
-  k_a_cxst1.template sync<DeviceType>();
-  k_theta_cxst1_0.template sync<DeviceType>();
-  k_dtheta_cxst1_ast.template sync<DeviceType>();
-  k_b_cxst1.template sync<DeviceType>();
-  k_dtheta_cxst1_c.template sync<DeviceType>();
-
-  k_a_cxst4.template sync<DeviceType>();
-  k_theta_cxst4_0.template sync<DeviceType>();
-  k_dtheta_cxst4_ast.template sync<DeviceType>();
-  k_b_cxst4.template sync<DeviceType>();
-  k_dtheta_cxst4_c.template sync<DeviceType>();
-
-  k_a_cxst5.template sync<DeviceType>();
-  k_theta_cxst5_0.template sync<DeviceType>();
-  k_dtheta_cxst5_ast.template sync<DeviceType>();
-  k_b_cxst5.template sync<DeviceType>();
-  k_dtheta_cxst5_c.template sync<DeviceType>();
-
-  k_a_cxst6.template sync<DeviceType>();
-  k_theta_cxst6_0.template sync<DeviceType>();
-  k_dtheta_cxst6_ast.template sync<DeviceType>();
-  k_b_cxst6.template sync<DeviceType>();
-  k_dtheta_cxst6_c.template sync<DeviceType>();
-
-  k_a_cxst3p.template sync<DeviceType>();
-  k_cosphi_cxst3p_ast.template sync<DeviceType>();
-  k_b_cxst3p.template sync<DeviceType>();
-  k_cosphi_cxst3p_c.template sync<DeviceType>();
-
-  k_a_cxst4p.template sync<DeviceType>();
-  k_cosphi_cxst4p_ast.template sync<DeviceType>();
-  k_b_cxst4p.template sync<DeviceType>();
-  k_cosphi_cxst4p_c.template sync<DeviceType>();
-
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
   else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
 
@@ -950,9 +905,54 @@ double PairOxdnaCoaxstkKokkos<DeviceType>::init_one(int i, int j)
   k_b_cxst4p.template modify<LMPHostType>();
   k_cosphi_cxst4p_c.template modify<LMPHostType>();
 
+  // Sync to device
+  k_k_cxst.template sync<DeviceType>();
+  k_cut_cxst_0.template sync<DeviceType>();
+  k_cut_cxst_c.template sync<DeviceType>();
+  k_cut_cxst_lo.template sync<DeviceType>();
+  k_cut_cxst_hi.template sync<DeviceType>();
+  k_cut_cxst_lc.template sync<DeviceType>();
+  k_cut_cxst_hc.template sync<DeviceType>();
+  k_b_cxst_lo.template sync<DeviceType>();
+  k_b_cxst_hi.template sync<DeviceType>();
+  k_cutsq_cxst_hc.template sync<DeviceType>();
+
+  k_a_cxst1.template sync<DeviceType>();
+  k_theta_cxst1_0.template sync<DeviceType>();
+  k_dtheta_cxst1_ast.template sync<DeviceType>();
+  k_b_cxst1.template sync<DeviceType>();
+  k_dtheta_cxst1_c.template sync<DeviceType>();
+
+  k_a_cxst4.template sync<DeviceType>();
+  k_theta_cxst4_0.template sync<DeviceType>();
+  k_dtheta_cxst4_ast.template sync<DeviceType>();
+  k_b_cxst4.template sync<DeviceType>();
+  k_dtheta_cxst4_c.template sync<DeviceType>();
+
+  k_a_cxst5.template sync<DeviceType>();
+  k_theta_cxst5_0.template sync<DeviceType>();
+  k_dtheta_cxst5_ast.template sync<DeviceType>();
+  k_b_cxst5.template sync<DeviceType>();
+  k_dtheta_cxst5_c.template sync<DeviceType>();
+
+  k_a_cxst6.template sync<DeviceType>();
+  k_theta_cxst6_0.template sync<DeviceType>();
+  k_dtheta_cxst6_ast.template sync<DeviceType>();
+  k_b_cxst6.template sync<DeviceType>();
+  k_dtheta_cxst6_c.template sync<DeviceType>();
+
+  k_a_cxst3p.template sync<DeviceType>();
+  k_cosphi_cxst3p_ast.template sync<DeviceType>();
+  k_b_cxst3p.template sync<DeviceType>();
+  k_cosphi_cxst3p_c.template sync<DeviceType>();
+
+  k_a_cxst4p.template sync<DeviceType>();
+  k_cosphi_cxst4p_ast.template sync<DeviceType>();
+  k_b_cxst4p.template sync<DeviceType>();
+  k_cosphi_cxst4p_c.template sync<DeviceType>();
+
   // "cutone" is "cut_cxst_hc[i][j]", sets the master list distance cutoff
   return cutone;
-
 }
 
 /* ---------------------------------------------------------------------- */

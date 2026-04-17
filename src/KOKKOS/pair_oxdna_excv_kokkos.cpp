@@ -94,45 +94,6 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   atomKK->sync(execution_space,datamask_read);
 
-  k_epsilon_bkbk.template sync<DeviceType>();
-  k_sigma_bkbk.template sync<DeviceType>();
-  k_cut_bkbk_ast.template sync<DeviceType>();
-  k_b_bkbk.template sync<DeviceType>();
-  k_cut_bkbk_c.template sync<DeviceType>();
-  k_lj1_bkbk.template sync<DeviceType>();
-  k_lj2_bkbk.template sync<DeviceType>();
-  k_cutsq_bkbk_ast.template sync<DeviceType>();
-  k_cutsq_bkbk_c.template sync<DeviceType>();
-
-  k_epsilon_bkbs.template sync<DeviceType>();
-  k_sigma_bkbs.template sync<DeviceType>();
-  k_cut_bkbs_ast.template sync<DeviceType>();
-  k_b_bkbs.template sync<DeviceType>();
-  k_cut_bkbs_c.template sync<DeviceType>();
-  k_lj1_bkbs.template sync<DeviceType>();
-  k_lj2_bkbs.template sync<DeviceType>();
-  k_cutsq_bkbs_ast.template sync<DeviceType>();
-  k_cutsq_bkbs_c.template sync<DeviceType>();
-
-  k_epsilon_bsbs.template sync<DeviceType>();
-  k_sigma_bsbs.template sync<DeviceType>();
-  k_cut_bsbs_ast.template sync<DeviceType>();
-  k_b_bsbs.template sync<DeviceType>();
-  k_cut_bsbs_c.template sync<DeviceType>();
-  k_lj1_bsbs.template sync<DeviceType>();
-  k_lj2_bsbs.template sync<DeviceType>();
-  k_cutsq_bsbs_ast.template sync<DeviceType>();
-  k_cutsq_bsbs_c.template sync<DeviceType>();
-
-  k_sigma4_bsbs.template sync<DeviceType>();
-  k_cut4_bsbs_ast.template sync<DeviceType>();
-  k_cut4sq_bsbs_ast.template sync<DeviceType>();
-  k_lj14_bsbs.template sync<DeviceType>();
-  k_lj24_bsbs.template sync<DeviceType>();
-  k_b4_bsbs.template sync<DeviceType>();
-  k_cut4_bsbs_c.template sync<DeviceType>();
-  k_cut4sq_bsbs_c.template sync<DeviceType>();
-
   k_nx.template sync<DeviceType>();
   k_ny.template sync<DeviceType>();
   k_nz.template sync<DeviceType>();
@@ -960,14 +921,36 @@ double PairOxdnaExcvKokkos<DeviceType>::init_one(int i, int j)
   k_cutsq_bsbs_ast.template modify<LMPHostType>();
   k_cutsq_bsbs_c.template modify<LMPHostType>();
 
-  k_sigma4_bsbs.template modify<LMPHostType>();
-  k_cut4_bsbs_ast.template modify<LMPHostType>();
-  k_cut4sq_bsbs_ast.template modify<LMPHostType>();
-  k_lj14_bsbs.template modify<LMPHostType>();
-  k_lj24_bsbs.template modify<LMPHostType>();
-  k_b4_bsbs.template modify<LMPHostType>();
-  k_cut4_bsbs_c.template modify<LMPHostType>();
-  k_cut4sq_bsbs_c.template modify<LMPHostType>();
+  // Sync to device
+  k_epsilon_bkbk.template sync<DeviceType>();
+  k_sigma_bkbk.template sync<DeviceType>();
+  k_cut_bkbk_ast.template sync<DeviceType>();
+  k_b_bkbk.template sync<DeviceType>();
+  k_cut_bkbk_c.template sync<DeviceType>();
+  k_lj1_bkbk.template sync<DeviceType>();
+  k_lj2_bkbk.template sync<DeviceType>();
+  k_cutsq_bkbk_ast.template sync<DeviceType>();
+  k_cutsq_bkbk_c.template sync<DeviceType>();
+
+  k_epsilon_bkbs.template sync<DeviceType>();
+  k_sigma_bkbs.template sync<DeviceType>();
+  k_cut_bkbs_ast.template sync<DeviceType>();
+  k_b_bkbs.template sync<DeviceType>();
+  k_cut_bkbs_c.template sync<DeviceType>();
+  k_lj1_bkbs.template sync<DeviceType>();
+  k_lj2_bkbs.template sync<DeviceType>();
+  k_cutsq_bkbs_ast.template sync<DeviceType>();
+  k_cutsq_bkbs_c.template sync<DeviceType>();
+
+  k_epsilon_bsbs.template sync<DeviceType>();
+  k_sigma_bsbs.template sync<DeviceType>();
+  k_cut_bsbs_ast.template sync<DeviceType>();
+  k_b_bsbs.template sync<DeviceType>();
+  k_cut_bsbs_c.template sync<DeviceType>();
+  k_lj1_bsbs.template sync<DeviceType>();
+  k_lj2_bsbs.template sync<DeviceType>();
+  k_cutsq_bsbs_ast.template sync<DeviceType>();
+  k_cutsq_bsbs_c.template sync<DeviceType>();
 
   // "cutone" is "cut_bkbk_c[i][j]", sets the master list distance cutoff
   return cutone;
@@ -1017,6 +1000,16 @@ void PairOxdnaExcvKokkos<DeviceType>::coeff(int narg, char **arg)
   k_b4_bsbs.template modify<LMPHostType>();
   k_cut4_bsbs_c.template modify<LMPHostType>();
   k_cut4sq_bsbs_c.template modify<LMPHostType>();
+
+  // Sync to device
+  k_sigma4_bsbs.template sync<DeviceType>();
+  k_cut4_bsbs_ast.template sync<DeviceType>();
+  k_cut4sq_bsbs_ast.template sync<DeviceType>();
+  k_lj14_bsbs.template sync<DeviceType>();
+  k_lj24_bsbs.template sync<DeviceType>();
+  k_b4_bsbs.template sync<DeviceType>();
+  k_cut4_bsbs_c.template sync<DeviceType>();
+  k_cut4sq_bsbs_c.template sync<DeviceType>();
 }
 
 /* ---------------------------------------------------------------------- */
