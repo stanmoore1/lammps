@@ -96,7 +96,6 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   // per-atom arrays for local unit vectors
   DAT::tdual_kkfloat_1d_3 k_nx, k_ny, k_nz;
   typename AT::t_kkfloat_1d_3 d_nx, d_ny, d_nz;
-  HAT::t_kkfloat_1d_3 h_nx, h_ny, h_nz;
 
  protected:
  
