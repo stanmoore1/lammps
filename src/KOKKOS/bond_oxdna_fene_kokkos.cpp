@@ -116,8 +116,7 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   d_sametag = atomKK->k_sametag.view<DeviceType>();
   // Reallocate if necessary - store 4 indices per bond: a, b, id3p[a], id5p[b]
   if (nbondlist > k_bond_prime_neighs.extent(0)) {
-    memoryKK->destroy_kokkos(k_bond_prime_neighs);
-    memoryKK->create_kokkos(k_bond_prime_neighs,nbondlist,4,"fene:bond_prime_neighs");
+    MemKK::realloc_kokkos(k_bond_prime_neighs, "fene:bond_prime_neighs", nbondlist);
     d_bond_prime_neighs = k_bond_prime_neighs.template view<DeviceType>();
   }
   copymode = 1;
