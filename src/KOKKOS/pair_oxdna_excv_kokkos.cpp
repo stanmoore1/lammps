@@ -94,10 +94,6 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   atomKK->sync(execution_space,datamask_read);
 
-  k_nx.template sync<DeviceType>();
-  k_ny.template sync<DeviceType>();
-  k_nz.template sync<DeviceType>();
-
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
   else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
 

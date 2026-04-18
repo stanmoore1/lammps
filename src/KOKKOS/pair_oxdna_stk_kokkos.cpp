@@ -123,7 +123,6 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   }
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkPrecomputeBondPrimeNeighs>(0,nbondlist),*this);
   k_bond_prime_neighs.template modify<DeviceType>();
-  k_bond_prime_neighs.template sync<DeviceType>();
 
   // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna/excv/kk or oxdna2/excv/kk
   auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna.*excv.*", 0, 1));
