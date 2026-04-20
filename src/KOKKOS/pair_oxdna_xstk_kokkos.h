@@ -38,6 +38,11 @@ namespace LAMMPS_NS {
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct TagPairOxdnaXstkCompute{};
 
+template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+struct TagPairOxdnaXstkComputeGPUPair{};
+
+struct TagPairOxdnaXstkScreen{};
+
 template<class DeviceType>
 class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
  public:
@@ -53,20 +58,42 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
   void init_style() override;
   double init_one(int, int) override;
 
+  // Standard non-GPU Compute Functor(s). 1 with EV_FLOAT, 1 without.
+
   template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdnaXstkCompute<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&, EV_FLOAT&) const;
 
   template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdnaXstkCompute<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
 
+  // GPU ComputeGPUPair Functor(s). 1 with EV_FLOAT, 1 without.
+
+  template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairOxdnaXstkComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&, EV_FLOAT&) const;
+
+  template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairOxdnaXstkComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairOxdnaXstkScreen, const int&) const;
+
   template<int NEIGHFLAG, int NEWTON_PAIR>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
       const KK_FLOAT &epair, const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz, const KK_FLOAT &delx,
                   const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
 
@@ -98,6 +125,16 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
   typename AT::t_neighbors_2d_randomread d_neighbors;
   typename AT::t_int_1d_randomread d_alist;
   typename AT::t_int_1d_randomread d_numneigh;
+  // Screening takes place on GPUs only
+  DAT::tdual_int_2d k_neighbors_screened;
+  typename AT::t_int_2d d_neighbors_screened;
+  DAT::tdual_int_1d k_numneigh_screened;
+  typename AT::t_int_1d d_numneigh_screened;
+  DAT::tdual_int_1d k_screened_offsets;
+  typename AT::t_int_1d d_screened_offsets;
+  int screened_max_atoms;
+  int screened_max_neigh;
+  int screened_pair_count;
 
   // cross-stacking interaction parameters
   typename AT::tdual_kkfloat_2d k_k_xst, k_cut_xst_0, k_cut_xst_c;
@@ -162,6 +199,11 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
   void allocate() override;
  
   friend void pair_virial_fdotr_compute<PairOxdnaXstkKokkos>(PairOxdnaXstkKokkos*);
+
+ private:
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool screen_pair_fast(const int &a, const int &atype, const int &braw) const;
 };
 
 }
