@@ -132,6 +132,8 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
   typename AT::t_int_1d d_numneigh_screened;
   DAT::tdual_int_1d k_screened_offsets;
   typename AT::t_int_1d d_screened_offsets;
+  DAT::tdual_int_scalar k_screened_pair_count;
+  typename AT::t_int_scalar d_screened_pair_count;
   int screened_max_atoms;
   int screened_max_neigh;
   int screened_pair_count;
@@ -203,7 +205,8 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
  private:
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  bool screen_pair_fast(const int &a, const int &atype, const int &braw) const;
+  bool screen_pair_fast(const int &atype, const int &braw,
+    const KK_FLOAT &a_hb0, const KK_FLOAT &a_hb1, const KK_FLOAT &a_hb2) const;
 };
 
 }

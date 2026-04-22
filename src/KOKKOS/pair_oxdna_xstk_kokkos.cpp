@@ -43,6 +43,7 @@ PairOxdnaXstkKokkos<DeviceType>::PairOxdnaXstkKokkos(LAMMPS *lmp) : PairOxdnaXst
   datamask_read = X_MASK | ELLIPSOID_MASK | BONUS_MASK | F_MASK | 
                   TORQUE_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
+  k_screened_pair_count = DAT::tdual_int_scalar("PairOxdnaXstk:screened_pair_count");
   screened_max_atoms = 0;
   screened_max_neigh = 0;
   screened_pair_count = 0;
@@ -168,21 +169,7 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     const auto d_screened_offsets_local = d_screened_offsets;
     const int anum_local = anum;
 
-    // Second pass is here to replace anum with a "screen_pair_count" - total surviving
-    // (a,b) pairs after f2 screening - in the thread-per-pair ComputeGPUPair functors.
-    // We do a parallel reduction to count the total number of screened pairs across
-    // all atoms, which will be the size of our screened neighbor list.
-    int total_screened_pairs = 0;
-    Kokkos::parallel_reduce(
-      Kokkos::RangePolicy<DeviceType>(0, anum),
-      KOKKOS_LAMBDA(const int i, int &lsum) {
-        const int a = d_alist_local(i);
-        lsum += d_numneigh_screened_local(a);
-      },
-      total_screened_pairs);
-    screened_pair_count = total_screened_pairs;
-
-    // Final pass is a little more conceptually complex. ComputeGPUPair takes one flat
+    // Final/Second pass is a little more conceptually complex. ComputeGPUPair takes one flat
     // "ipair" index which runs from 0 to screened_pair_count - 1, and needs to map that
     // back to the corresponding (a,b) pair. The parallel_scan is building a prefix sum
     // over the screened neighbor counts per atom, which gives us the starting index in
@@ -202,6 +189,14 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
           d_screened_offsets_local(anum_local) = update;
         }
       });
+
+    // After the parallel_scan, the subview just gives us the value at the last offset,
+    // i.e. the total screened pair count.
+    // screened_pair_count is a host-side int, so we can't just directly read the value
+    // from the device-side d_screened_offsets view (would trigger a seg-fault).
+    Kokkos::deep_copy(
+      k_screened_pair_count.view_host(), Kokkos::subview(d_screened_offsets_local, anum_local));
+    screened_pair_count = k_screened_pair_count.view_host()();
   }
 
   // loop over neighbors of my atoms for compute functors
@@ -382,11 +377,11 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
 
     int b = d_neighbors(a,ib);
     const KK_FLOAT factor_lj = special_lj[sbmask(b)];
+    if (!factor_lj) continue;
     b &= NEIGHMASK;
     const int btype = type(b);
 
-    // "p_" for per-pair scalar. Reduces repeated global reads, though offers
-    // little to no speedup. Might remove later for the sake of readability.
+    // "p_" for per-pair scalar. Reduces repeated global reads.
     const KK_FLOAT p_k_xst = d_k_xst(atype,btype);
     const KK_FLOAT p_cut_xst_0 = d_cut_xst_0(atype,btype);
     const KK_FLOAT p_cut_xst_lc = d_cut_xst_lc(atype,btype);
@@ -788,8 +783,11 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-bool PairOxdnaXstkKokkos<DeviceType>::screen_pair_fast(const int &a, const int &atype,
-                                                         const int &braw) const
+bool PairOxdnaXstkKokkos<DeviceType>::screen_pair_fast(const int &atype,
+                                                         const int &braw,
+                                                         const KK_FLOAT &a_hb0,
+                                                         const KK_FLOAT &a_hb1,
+                                                         const KK_FLOAT &a_hb2) const
 {
   const KK_FLOAT factor_lj = special_lj[sbmask(braw)];
   if (factor_lj == 0.0) return false;
@@ -797,36 +795,30 @@ bool PairOxdnaXstkKokkos<DeviceType>::screen_pair_fast(const int &a, const int &
   const int b = braw & NEIGHMASK;
   const int btype = type(b);
 
-  const KK_FLOAT a_nx0 = d_nx_xtrct(a,0);
-  const KK_FLOAT a_nx1 = d_nx_xtrct(a,1);
-  const KK_FLOAT a_nx2 = d_nx_xtrct(a,2);
+  constexpr KK_FLOAT d_chb = +0.4;
 
   const KK_FLOAT b_nx0 = d_nx_xtrct(b,0);
   const KK_FLOAT b_nx1 = d_nx_xtrct(b,1);
   const KK_FLOAT b_nx2 = d_nx_xtrct(b,2);
-
-  constexpr KK_FLOAT d_chb = +0.4;
-  const KK_FLOAT ra0 = d_chb * a_nx0;
-  const KK_FLOAT ra1 = d_chb * a_nx1;
-  const KK_FLOAT ra2 = d_chb * a_nx2;
   const KK_FLOAT rb0 = d_chb * b_nx0;
   const KK_FLOAT rb1 = d_chb * b_nx1;
   const KK_FLOAT rb2 = d_chb * b_nx2;
 
   KK_FLOAT delr_hb[3];
-  delr_hb[0] = x(a,0) + ra0 - x(b,0) - rb0;
-  delr_hb[1] = x(a,1) + ra1 - x(b,1) - rb1;
-  delr_hb[2] = x(a,2) + ra2 - x(b,2) - rb2;
+  delr_hb[0] = a_hb0 - x(b,0) - rb0;
+  delr_hb[1] = a_hb1 - x(b,1) - rb1;
+  delr_hb[2] = a_hb2 - x(b,2) - rb2;
 
-  const KK_FLOAT rsq_hb = delr_hb[0]*delr_hb[0] + delr_hb[1]*delr_hb[1] + delr_hb[2]*delr_hb[2];
-  const KK_FLOAT r_hb = sqrt(rsq_hb);
+  // fma is fused-multipy-add op
+  const KK_FLOAT rsq_hb = fma(delr_hb[2], delr_hb[2],
+                          fma(delr_hb[1], delr_hb[1], delr_hb[0] * delr_hb[0]));
 
-  const KK_FLOAT f2 = F2_KK(r_hb, d_k_xst(atype,btype), d_cut_xst_0(atype,btype),
-    d_cut_xst_lc(atype,btype), d_cut_xst_hc(atype,btype), d_cut_xst_lo(atype,btype), d_cut_xst_hi(atype,btype),
-    d_b_xst_lo(atype,btype), d_b_xst_hi(atype,btype), d_cut_xst_c(atype,btype));
-  // Screening up to f2 only seems to be sufficient and faster than going all the
-  // way down to edvwl or even f4f1.
-  return (f2 != 0.0);
+  // Fast boolean screen: F2_KK is nonzero if r is in [cut_lc, cut_hc]
+  // Use squared-distance comparison instead of usual oxDNA F2 to avoid
+  // expensive sqrt(). It's cheaper to do two squares than one sqrt.
+  const KK_FLOAT cut_lc = d_cut_xst_lc(atype,btype);
+  const KK_FLOAT cut_hc = d_cut_xst_hc(atype,btype);
+  return (rsq_hb >= cut_lc*cut_lc && rsq_hb <= cut_hc*cut_hc);
 }
 
 template<class DeviceType>
@@ -836,11 +828,18 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkScreen, const i
   const int a = d_alist(ia);
   const int atype = type(a);
   const int bnum = d_numneigh(a);
+  const KK_FLOAT a_nx0 = d_nx_xtrct(a,0);
+  const KK_FLOAT a_nx1 = d_nx_xtrct(a,1);
+  const KK_FLOAT a_nx2 = d_nx_xtrct(a,2);
+  constexpr KK_FLOAT d_chb = +0.4;
+  const KK_FLOAT a_hb0 = x(a,0) + d_chb * a_nx0;
+  const KK_FLOAT a_hb1 = x(a,1) + d_chb * a_nx1;
+  const KK_FLOAT a_hb2 = x(a,2) + d_chb * a_nx2;
 
   int nscreen = 0;
   for (int ib = 0; ib < bnum; ib++) {
     const int braw = d_neighbors(a,ib);
-    if (screen_pair_fast(a, atype, braw)) {
+    if (screen_pair_fast(atype, braw, a_hb0, a_hb1, a_hb2)) {
       d_neighbors_screened(a, nscreen++) = braw;
     }
   }
@@ -878,7 +877,7 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
   // And finally, we get our desired (a,b) pair.
   int b = d_neighbors_screened(a, ib);
   const KK_FLOAT factor_lj = special_lj[sbmask(b)];
-  if (factor_lj == 0.0) return;
+  // No need for factor_lj early exit check here since we already screened the neighbor list.
   b &= NEIGHMASK;
   const int btype = type(b);
 
@@ -893,16 +892,17 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
   KK_FLOAT delf[3], delta[3], deltb[3];
   KK_FLOAT evdwl, finc, tpair;
   KK_FLOAT delr_hb[3],delr_hb_norm[3],rsq_hb,r_hb,rinv_hb;
-  KK_FLOAT theta1,t1dir[3],cost1;
-  KK_FLOAT theta2,t2dir[3],cost2;
-  KK_FLOAT theta3,t3dir[3],cost3;
-  KK_FLOAT theta4,theta4p,t4dir[3],cost4;
-  KK_FLOAT theta7,theta7p,t7dir[3],cost7;
-  KK_FLOAT theta8,theta8p,t8dir[3],cost8;
+  KK_FLOAT theta1,cost1;
+  KK_FLOAT theta2,cost2;
+  KK_FLOAT theta3,cost3;
+  KK_FLOAT theta4,theta4p,cost4;
+  KK_FLOAT theta7,theta7p,cost7;
+  KK_FLOAT theta8,theta8p,cost8;
 
   KK_FLOAT f2,f4t1,f4t4,f4t2,f4t3,f4t7,f4t8;
   KK_FLOAT df2,df4t1,df4t4,df4t2,df4t3,df4t7,df4t8,rsint;
 
+  // "p_" for per-pair scalar. Reduces repeated global reads.
   const KK_FLOAT p_k_xst = d_k_xst(atype,btype);
   const KK_FLOAT p_cut_xst_0 = d_cut_xst_0(atype,btype);
   const KK_FLOAT p_cut_xst_lc = d_cut_xst_lc(atype,btype);
@@ -969,7 +969,10 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
   delr_hb[1] = x(a,1) + ra_chb[1] - x(b,1) - rb_chb[1];
   delr_hb[2] = x(a,2) + ra_chb[2] - x(b,2) - rb_chb[2];
 
-  rsq_hb = delr_hb[0]*delr_hb[0] + delr_hb[1]*delr_hb[1] + delr_hb[2]*delr_hb[2];
+  // fma (Kokkos::fma) fuses multiply-add operations: fma(x,y,z) = x*y + z,
+  // but with only one FP rounding error and one instruction instead of two.
+  rsq_hb = fma(delr_hb[2], delr_hb[2],
+           fma(delr_hb[1], delr_hb[1], delr_hb[0] * delr_hb[0]));
   r_hb = sqrt(rsq_hb);
   rinv_hb = 1.0 / r_hb;
 
@@ -980,9 +983,10 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
   f2 = F2_KK(r_hb, p_k_xst, p_cut_xst_0,
          p_cut_xst_lc, p_cut_xst_hc, p_cut_xst_lo, p_cut_xst_hi,
          p_b_xst_lo, p_b_xst_hi, p_cut_xst_c);
-  if (!f2) return;
+  // No need for f2 early exit check here since we already screened the neighbor list.
 
-  cost1 = - (a_nx0*b_nx0 + a_nx1*b_nx1 + a_nx2*b_nx2);
+  cost1 = -fma(a_nx2, b_nx2,
+           fma(a_nx1, b_nx1, a_nx0 * b_nx0));
   if (cost1 > 1.0) cost1 = 1.0;
   if (cost1 < -1.0) cost1 = -1.0;
   theta1 = acos(cost1);
@@ -990,7 +994,8 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
     p_b_xst1, p_dtheta_xst1_c);
   if (!f4t1) return;
 
-  cost2 = - (a_nx0*delr_hb_norm[0] + a_nx1*delr_hb_norm[1] + a_nx2*delr_hb_norm[2]);
+  cost2 = -fma(a_nx2, delr_hb_norm[2],
+           fma(a_nx1, delr_hb_norm[1], a_nx0 * delr_hb_norm[0]));
   if (cost2 > 1.0) cost2 = 1.0;
   if (cost2 < -1.0) cost2 = -1.0;
   theta2 = acos(cost2);
@@ -998,7 +1003,8 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
     p_b_xst2, p_dtheta_xst2_c);
   if (!f4t2) return;
 
-  cost3 = b_nx0*delr_hb_norm[0] + b_nx1*delr_hb_norm[1] + b_nx2*delr_hb_norm[2];
+  cost3 = fma(b_nx2, delr_hb_norm[2],
+          fma(b_nx1, delr_hb_norm[1], b_nx0 * delr_hb_norm[0]));
   if (cost3 > 1.0) cost3 = 1.0;
   if (cost3 < -1.0) cost3 = -1.0;
   theta3 = acos(cost3);
@@ -1006,7 +1012,8 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
     p_b_xst3, p_dtheta_xst3_c);
   if (!f4t3) return;
 
-  cost4 = a_nz0*b_nz0 + a_nz1*b_nz1 + a_nz2*b_nz2;
+  cost4 = fma(a_nz2, b_nz2,
+          fma(a_nz1, b_nz1, a_nz0 * b_nz0));
   if (cost4 > 1.0) cost4 = 1.0;
   if (cost4 < -1.0) cost4 = -1.0;
   theta4 = acos(cost4);
@@ -1017,7 +1024,8 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
     p_b_xst4, p_dtheta_xst4_c);
   if (!f4t4) return;
 
-  cost7 = - (a_nz0*delr_hb_norm[0] + a_nz1*delr_hb_norm[1] + a_nz2*delr_hb_norm[2]);
+  cost7 = -fma(a_nz2, delr_hb_norm[2],
+           fma(a_nz1, delr_hb_norm[1], a_nz0 * delr_hb_norm[0]));
   if (cost7 > 1.0) cost7 = 1.0;
   if (cost7 < -1.0) cost7 = -1.0;
   theta7 = acos(cost7);
@@ -1028,7 +1036,8 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
     p_b_xst7, p_dtheta_xst7_c);
   if (!f4t7) return;
 
-  cost8 = b_nz0*delr_hb_norm[0] + b_nz1*delr_hb_norm[1] + b_nz2*delr_hb_norm[2];
+  cost8 = fma(b_nz2, delr_hb_norm[2],
+          fma(b_nz1, delr_hb_norm[1], b_nz0 * delr_hb_norm[0]));
   if (cost8 > 1.0) cost8 = 1.0;
   if (cost8 < -1.0) cost8 = -1.0;
   theta8 = acos(cost8);
@@ -1083,44 +1092,56 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
 
   finc  = -df2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
 
-  delf[0] += delr_hb[0] * finc;
-  delf[1] += delr_hb[1] * finc;
-  delf[2] += delr_hb[2] * finc;
+  delf[0] = fma(delr_hb[0], finc, delf[0]);
+  delf[1] = fma(delr_hb[1], finc, delf[1]);
+  delf[2] = fma(delr_hb[2], finc, delf[2]);
 
   if (theta2) {
     finc  = -f2 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
-    delf[0] += (delr_hb_norm[0]*cost2 + a_nx0) * finc;
-    delf[1] += (delr_hb_norm[1]*cost2 + a_nx1) * finc;
-    delf[2] += (delr_hb_norm[2]*cost2 + a_nx2) * finc;
+    const KK_FLOAT t2f0 = fma(delr_hb_norm[0], cost2, a_nx0);
+    const KK_FLOAT t2f1 = fma(delr_hb_norm[1], cost2, a_nx1);
+    const KK_FLOAT t2f2 = fma(delr_hb_norm[2], cost2, a_nx2);
+    delf[0] = fma(t2f0, finc, delf[0]);
+    delf[1] = fma(t2f1, finc, delf[1]);
+    delf[2] = fma(t2f2, finc, delf[2]);
   }
 
   if (theta3) {
     finc  = -f2 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
-    delf[0] += (delr_hb_norm[0]*cost3 - b_nx0) * finc;
-    delf[1] += (delr_hb_norm[1]*cost3 - b_nx1) * finc;
-    delf[2] += (delr_hb_norm[2]*cost3 - b_nx2) * finc;
+    const KK_FLOAT t3f0 = fma(delr_hb_norm[0], cost3, -b_nx0);
+    const KK_FLOAT t3f1 = fma(delr_hb_norm[1], cost3, -b_nx1);
+    const KK_FLOAT t3f2 = fma(delr_hb_norm[2], cost3, -b_nx2);
+    delf[0] = fma(t3f0, finc, delf[0]);
+    delf[1] = fma(t3f1, finc, delf[1]);
+    delf[2] = fma(t3f2, finc, delf[2]);
   }
 
   if (theta7) {
     finc  = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * rinv_hb * factor_lj;
-    delf[0] += (delr_hb_norm[0]*cost7 + a_nz0) * finc;
-    delf[1] += (delr_hb_norm[1]*cost7 + a_nz1) * finc;
-    delf[2] += (delr_hb_norm[2]*cost7 + a_nz2) * finc;
+    const KK_FLOAT t7f0 = fma(delr_hb_norm[0], cost7, a_nz0);
+    const KK_FLOAT t7f1 = fma(delr_hb_norm[1], cost7, a_nz1);
+    const KK_FLOAT t7f2 = fma(delr_hb_norm[2], cost7, a_nz2);
+    delf[0] = fma(t7f0, finc, delf[0]);
+    delf[1] = fma(t7f1, finc, delf[1]);
+    delf[2] = fma(t7f2, finc, delf[2]);
   }
 
   if (theta8) {
     finc  = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * rinv_hb * factor_lj;
-    delf[0] += (delr_hb_norm[0]*cost8 - b_nz0) * finc;
-    delf[1] += (delr_hb_norm[1]*cost8 - b_nz1) * finc;
-    delf[2] += (delr_hb_norm[2]*cost8 - b_nz2) * finc;
+    const KK_FLOAT t8f0 = fma(delr_hb_norm[0], cost8, -b_nz0);
+    const KK_FLOAT t8f1 = fma(delr_hb_norm[1], cost8, -b_nz1);
+    const KK_FLOAT t8f2 = fma(delr_hb_norm[2], cost8, -b_nz2);
+    delf[0] = fma(t8f0, finc, delf[0]);
+    delf[1] = fma(t8f1, finc, delf[1]);
+    delf[2] = fma(t8f2, finc, delf[2]);
   }
 
   a_f(a,0) += delf[0];
   a_f(a,1) += delf[1];
   a_f(a,2) += delf[2];
-  delta[0] = ra_chb[1]*delf[2] - ra_chb[2]*delf[1];
-  delta[1] = ra_chb[2]*delf[0] - ra_chb[0]*delf[2];
-  delta[2] = ra_chb[0]*delf[1] - ra_chb[1]*delf[0];
+  delta[0] = fma(ra_chb[1], delf[2], -ra_chb[2] * delf[1]);
+  delta[1] = fma(ra_chb[2], delf[0], -ra_chb[0] * delf[2]);
+  delta[2] = fma(ra_chb[0], delf[1], -ra_chb[1] * delf[0]);
   a_torque(a,0) += delta[0];
   a_torque(a,1) += delta[1];
   a_torque(a,2) += delta[2];
@@ -1129,9 +1150,9 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
     a_f(b,0) -= delf[0];
     a_f(b,1) -= delf[1];
     a_f(b,2) -= delf[2];
-    deltb[0] = rb_chb[1]*delf[2] - rb_chb[2]*delf[1];
-    deltb[1] = rb_chb[2]*delf[0] - rb_chb[0]*delf[2];
-    deltb[2] = rb_chb[0]*delf[1] - rb_chb[1]*delf[0];
+    deltb[0] = fma(rb_chb[1], delf[2], -rb_chb[2] * delf[1]);
+    deltb[1] = fma(rb_chb[2], delf[0], -rb_chb[0] * delf[2]);
+    deltb[2] = fma(rb_chb[0], delf[1], -rb_chb[1] * delf[0]);
     a_torque(b,0) -= deltb[0];
     a_torque(b,1) -= deltb[1];
     a_torque(b,2) -= deltb[2];
@@ -1155,63 +1176,63 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
 
   if (theta1) {
     tpair = -f2 * df4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
-    t1dir[0] = a_nx1 * b_nx2 - a_nx2 * b_nx1;
-    t1dir[1] = a_nx2 * b_nx0 - a_nx0 * b_nx2;
-    t1dir[2] = a_nx0 * b_nx1 - a_nx1 * b_nx0;
-    delta[0] += t1dir[0] * tpair;
-    delta[1] += t1dir[1] * tpair;
-    delta[2] += t1dir[2] * tpair;
-    deltb[0] += t1dir[0] * tpair;
-    deltb[1] += t1dir[1] * tpair;
-    deltb[2] += t1dir[2] * tpair;
+    const KK_FLOAT t1dir0 = fma(a_nx1, b_nx2, -a_nx2 * b_nx1);
+    const KK_FLOAT t1dir1 = fma(a_nx2, b_nx0, -a_nx0 * b_nx2);
+    const KK_FLOAT t1dir2 = fma(a_nx0, b_nx1, -a_nx1 * b_nx0);
+    delta[0] += t1dir0 * tpair;
+    delta[1] += t1dir1 * tpair;
+    delta[2] += t1dir2 * tpair;
+    deltb[0] += t1dir0 * tpair;
+    deltb[1] += t1dir1 * tpair;
+    deltb[2] += t1dir2 * tpair;
   }
   if (theta2) {
     tpair = -f2 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
-    t2dir[0] = a_nx1 * delr_hb_norm[2] - a_nx2 * delr_hb_norm[1];
-    t2dir[1] = a_nx2 * delr_hb_norm[0] - a_nx0 * delr_hb_norm[2];
-    t2dir[2] = a_nx0 * delr_hb_norm[1] - a_nx1 * delr_hb_norm[0];
-    delta[0] += t2dir[0] * tpair;
-    delta[1] += t2dir[1] * tpair;
-    delta[2] += t2dir[2] * tpair;
+    const KK_FLOAT t2dir0 = fma(a_nx1, delr_hb_norm[2], -a_nx2 * delr_hb_norm[1]);
+    const KK_FLOAT t2dir1 = fma(a_nx2, delr_hb_norm[0], -a_nx0 * delr_hb_norm[2]);
+    const KK_FLOAT t2dir2 = fma(a_nx0, delr_hb_norm[1], -a_nx1 * delr_hb_norm[0]);
+    delta[0] += t2dir0 * tpair;
+    delta[1] += t2dir1 * tpair;
+    delta[2] += t2dir2 * tpair;
   }
   if (theta3) {
     tpair = -f2 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
-    t3dir[0] = b_nx1 * delr_hb_norm[2] - b_nx2 * delr_hb_norm[1];
-    t3dir[1] = b_nx2 * delr_hb_norm[0] - b_nx0 * delr_hb_norm[2];
-    t3dir[2] = b_nx0 * delr_hb_norm[1] - b_nx1 * delr_hb_norm[0];
-    deltb[0] += t3dir[0] * tpair;
-    deltb[1] += t3dir[1] * tpair;
-    deltb[2] += t3dir[2] * tpair;
+    const KK_FLOAT t3dir0 = fma(b_nx1, delr_hb_norm[2], -b_nx2 * delr_hb_norm[1]);
+    const KK_FLOAT t3dir1 = fma(b_nx2, delr_hb_norm[0], -b_nx0 * delr_hb_norm[2]);
+    const KK_FLOAT t3dir2 = fma(b_nx0, delr_hb_norm[1], -b_nx1 * delr_hb_norm[0]);
+    deltb[0] += t3dir0 * tpair;
+    deltb[1] += t3dir1 * tpair;
+    deltb[2] += t3dir2 * tpair;
   }
   if (theta4 && theta4p) {
     tpair = -f2 * f4t1 * f4t2 * f4t3 * df4t4 * f4t7 * f4t8 * factor_lj;
-    t4dir[0] = b_nz1 * a_nz2 - b_nz2 * a_nz1;
-    t4dir[1] = b_nz2 * a_nz0 - b_nz0 * a_nz2;
-    t4dir[2] = b_nz0 * a_nz1 - b_nz1 * a_nz0;
-    delta[0] += t4dir[0] * tpair;
-    delta[1] += t4dir[1] * tpair;
-    delta[2] += t4dir[2] * tpair;
-    deltb[0] += t4dir[0] * tpair;
-    deltb[1] += t4dir[1] * tpair;
-    deltb[2] += t4dir[2] * tpair;
+    const KK_FLOAT t4dir0 = fma(b_nz1, a_nz2, -b_nz2 * a_nz1);
+    const KK_FLOAT t4dir1 = fma(b_nz2, a_nz0, -b_nz0 * a_nz2);
+    const KK_FLOAT t4dir2 = fma(b_nz0, a_nz1, -b_nz1 * a_nz0);
+    delta[0] += t4dir0 * tpair;
+    delta[1] += t4dir1 * tpair;
+    delta[2] += t4dir2 * tpair;
+    deltb[0] += t4dir0 * tpair;
+    deltb[1] += t4dir1 * tpair;
+    deltb[2] += t4dir2 * tpair;
   }
   if (theta7) {
     tpair = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * factor_lj;
-    t7dir[0] = a_nz1 * delr_hb_norm[2] - a_nz2 * delr_hb_norm[1];
-    t7dir[1] = a_nz2 * delr_hb_norm[0] - a_nz0 * delr_hb_norm[2];
-    t7dir[2] = a_nz0 * delr_hb_norm[1] - a_nz1 * delr_hb_norm[0];
-    delta[0] += t7dir[0] * tpair;
-    delta[1] += t7dir[1] * tpair;
-    delta[2] += t7dir[2] * tpair;
+    const KK_FLOAT t7dir0 = fma(a_nz1, delr_hb_norm[2], -a_nz2 * delr_hb_norm[1]);
+    const KK_FLOAT t7dir1 = fma(a_nz2, delr_hb_norm[0], -a_nz0 * delr_hb_norm[2]);
+    const KK_FLOAT t7dir2 = fma(a_nz0, delr_hb_norm[1], -a_nz1 * delr_hb_norm[0]);
+    delta[0] += t7dir0 * tpair;
+    delta[1] += t7dir1 * tpair;
+    delta[2] += t7dir2 * tpair;
   }
   if (theta8) {
     tpair = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * factor_lj;
-    t8dir[0] = b_nz1 * delr_hb_norm[2] - b_nz2 * delr_hb_norm[1];
-    t8dir[1] = b_nz2 * delr_hb_norm[0] - b_nz0 * delr_hb_norm[2];
-    t8dir[2] = b_nz0 * delr_hb_norm[1] - b_nz1 * delr_hb_norm[0];
-    deltb[0] += t8dir[0] * tpair;
-    deltb[1] += t8dir[1] * tpair;
-    deltb[2] += t8dir[2] * tpair;
+    const KK_FLOAT t8dir0 = fma(b_nz1, delr_hb_norm[2], -b_nz2 * delr_hb_norm[1]);
+    const KK_FLOAT t8dir1 = fma(b_nz2, delr_hb_norm[0], -b_nz0 * delr_hb_norm[2]);
+    const KK_FLOAT t8dir2 = fma(b_nz0, delr_hb_norm[1], -b_nz1 * delr_hb_norm[0]);
+    deltb[0] += t8dir0 * tpair;
+    deltb[1] += t8dir1 * tpair;
+    deltb[2] += t8dir2 * tpair;
   }
 
   a_torque(a,0) += delta[0];
