@@ -82,6 +82,16 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdnaXstkComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
 
+// *XstkScreen kicks out a heavy/dominant distance check - easiest way to screen
+// valid pairs for the main compute on GPUs.
+// Only applied when execution_space != HostKK.
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairOxdnaXstkScreen, const int&) const;
+
+  template<int NEIGHFLAG, int NEWTON_PAIR>
+
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdnaXstkScreen, const int&) const;
@@ -207,6 +217,91 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   bool screen_pair_fast(const int &atype, const int &braw,
     const KK_FLOAT &a_hb0, const KK_FLOAT &a_hb1, const KK_FLOAT &a_hb2) const;
+
+// The following is totally wild code-readability wise and I don't really like.
+// But I was getting a ton of Live Register Pressure and the only way I could
+// reduce this was to pull everything out into separate:
+// PairOxdnaXstkKokkos<DeviceType>::xstk_* KOKKOS_INLINE_FUNCTIONs.
+// The compilers (HIP and CUDA) wouldn't kill off short-lived vars otherwise,
+// which really bumped up register usage and bumped up runtime. Simple INLINES
+// didn't help.
+//
+// Compute-wise, it would be nice to calc the derivatives only when they are needed
+// after the evdwl. But then I need to have my p_* terms again and the register pressure
+// blows through occupancy and runtime goes up again. In these closed-scope areas,
+// I've so found it best to just take the FP hit and calc the derivs even if they
+// end up not being needed. So far, this is the fastest option.
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void xstk_radial_terms(const int &atype, const int &btype, const KK_FLOAT &r_hb,
+    KK_FLOAT &f2, KK_FLOAT &df2) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool xstk_theta1_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+    KK_FLOAT &theta1, KK_FLOAT &f4t1, KK_FLOAT &df4t1) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool xstk_theta2_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&delr_hb_norm)[3],
+    KK_FLOAT &theta2, KK_FLOAT &cost2, KK_FLOAT &f4t2, KK_FLOAT &df4t2) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool xstk_theta3_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&b_nx)[3], const KK_FLOAT (&delr_hb_norm)[3],
+    KK_FLOAT &theta3, KK_FLOAT &cost3, KK_FLOAT &f4t3, KK_FLOAT &df4t3) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool xstk_theta4_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+    KK_FLOAT &theta4, KK_FLOAT &theta4p, KK_FLOAT &f4t4, KK_FLOAT &df4t4) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool xstk_theta7_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&delr_hb_norm)[3],
+    KK_FLOAT &theta7, KK_FLOAT &cost7, KK_FLOAT &f4t7, KK_FLOAT &df4t7) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool xstk_theta8_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&b_nz)[3], const KK_FLOAT (&delr_hb_norm)[3],
+    KK_FLOAT &theta8, KK_FLOAT &cost8, KK_FLOAT &f4t8, KK_FLOAT &df4t8) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void xstk_force_contrib(const KK_FLOAT &f2, const KK_FLOAT &f4t1, const KK_FLOAT &f4t2,
+    const KK_FLOAT &f4t3, const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
+    const KK_FLOAT &df2, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3, const KK_FLOAT &df4t7,
+    const KK_FLOAT &df4t8, const KK_FLOAT &rinv_hb, const KK_FLOAT &factor_lj,
+    const KK_FLOAT &theta2, const KK_FLOAT &theta3, const KK_FLOAT &theta7, const KK_FLOAT &theta8,
+    const KK_FLOAT &cost2, const KK_FLOAT &cost3, const KK_FLOAT &cost7, const KK_FLOAT &cost8,
+    const KK_FLOAT (&delr_hb)[3], const KK_FLOAT (&delr_hb_norm)[3],
+    const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+    const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+    const KK_FLOAT (&ra_chb)[3], const KK_FLOAT (&rb_chb)[3],
+    KK_FLOAT (&delf)[3], KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void xstk_torque_contrib(const KK_FLOAT &f2,
+    const KK_FLOAT &f4t1, const KK_FLOAT &f4t2, const KK_FLOAT &f4t3,
+    const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
+    const KK_FLOAT &df4t1, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3,
+    const KK_FLOAT &df4t4, const KK_FLOAT &df4t7, const KK_FLOAT &df4t8,
+    const KK_FLOAT &factor_lj,
+    const KK_FLOAT &theta1, const KK_FLOAT &theta2, const KK_FLOAT &theta3,
+    const KK_FLOAT &theta4, const KK_FLOAT &theta4p,
+    const KK_FLOAT &theta7, const KK_FLOAT &theta8,
+    const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+    const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+    const KK_FLOAT (&delr_hb_norm)[3],
+    KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]) const;
 };
 
 }
