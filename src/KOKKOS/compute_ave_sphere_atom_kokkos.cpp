@@ -291,6 +291,7 @@ void ComputeAveSphereAtomKokkos<DeviceType>::operator()(TagComputeAveSphereAtomP
 
 /* ---------------------------------------------------------------------- */
 
+template<class DeviceType>
 void ComputeAveSphereAtomKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_double_1d &buf)
 {
   first = first_in;
