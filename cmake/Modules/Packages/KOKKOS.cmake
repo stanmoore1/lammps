@@ -93,15 +93,15 @@ if(DOWNLOAD_KOKKOS)
   list(APPEND KOKKOS_LIB_BUILD_ARGS "-DCMAKE_CXX_EXTENSIONS=${CMAKE_CXX_EXTENSIONS}")
   list(APPEND KOKKOS_LIB_BUILD_ARGS "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
   include(ExternalProject)
-  set(KOKKOS_URL "https://github.com/kokkos/kokkos/archive/5.0.2.tar.gz" CACHE STRING "URL for KOKKOS tarball")
-  set(KOKKOS_MD5 "65fe6964753ecd3c77120283d107d053" CACHE STRING "MD5 checksum of KOKKOS tarball")
+  set(KOKKOS_URL "https://github.com/kokkos/kokkos/archive/5.1.0.tar.gz" CACHE STRING "URL for KOKKOS tarball")
+  set(KOKKOS_SHA256 "66b2526569a70a21b2aeaed8dbb1cbe8b475f3c33719eac13bc7eed02e8c6590" CACHE STRING "SHA256 checksum of KOKKOS tarball")
   mark_as_advanced(KOKKOS_URL)
-  mark_as_advanced(KOKKOS_MD5)
+  mark_as_advanced(KOKKOS_SHA256)
   GetFallbackURL(KOKKOS_URL KOKKOS_FALLBACK)
 
   ExternalProject_Add(kokkos_build
     URL     ${KOKKOS_URL} ${KOKKOS_FALLBACK}
-    URL_MD5 ${KOKKOS_MD5}
+    URL_HASH SHA256=${KOKKOS_SHA256}
     CMAKE_ARGS ${KOKKOS_LIB_BUILD_ARGS}
     BUILD_BYPRODUCTS <INSTALL_DIR>/lib/libkokkoscore.a <INSTALL_DIR>/lib/libkokkoscontainers.a
   )
@@ -119,7 +119,7 @@ if(DOWNLOAD_KOKKOS)
   add_dependencies(LAMMPS::KOKKOSCORE kokkos_build)
   add_dependencies(LAMMPS::KOKKOSCONTAINERS kokkos_build)
 elseif(EXTERNAL_KOKKOS)
-  find_package(Kokkos 5.0.2 REQUIRED CONFIG)
+  find_package(Kokkos 5.1.0 REQUIRED CONFIG)
   target_link_libraries(lammps PRIVATE Kokkos::kokkos)
 else()
   set(LAMMPS_LIB_KOKKOS_SRC_DIR ${LAMMPS_LIB_SOURCE_DIR}/kokkos)

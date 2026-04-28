@@ -28,9 +28,11 @@
 #include "random_mars.h"
 #include "version.h"
 
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <cstring>
+#include <unordered_map>
 
 #ifdef LAMMPS_JPEG
 #include <jpeglib.h>
@@ -49,9 +51,8 @@ using MathConst::MY_PI4;
 
 // clang-format on
 namespace {
-constexpr int NCOLORS = 140;
-constexpr int NELEMENTS = 109;
 constexpr double EPSILON = 1.0e-6;
+constexpr double TRANS_DELTA = 0.01;
 
 enum { NUMERIC, MINVALUE, MAXVALUE };
 enum { CONTINUOUS, DISCRETE, SEQUENTIAL };
@@ -199,16 +200,16 @@ void scale_pixmap(int ow, int oh, const unsigned char *opix, int nw, int nh, uns
 
       // interpolate R, G, and B channels separately with bilinear scaling
       npix[i * 3 * nw + 3 * j] =
-          (unsigned char) (a[0] * (1 - x_diff) * (1 - y_diff) + b[0] * (x_diff) * (1 - y_diff) +
-                           c[0] * (y_diff) * (1 - x_diff) + d[0] * (x_diff * y_diff));
+          (unsigned char) (a[0] * (1 - x_diff) * (1 - y_diff) + b[0] * x_diff * (1 - y_diff) +
+                           c[0] * y_diff * (1 - x_diff) + d[0] * (x_diff * y_diff));
 
       npix[i * 3 * nw + 3 * j + 1] =
-          (unsigned char) (a[1] * (1 - x_diff) * (1 - y_diff) + b[1] * (x_diff) * (1 - y_diff) +
-                           c[1] * (y_diff) * (1 - x_diff) + d[1] * (x_diff * y_diff));
+          (unsigned char) (a[1] * (1 - x_diff) * (1 - y_diff) + b[1] * x_diff * (1 - y_diff) +
+                           c[1] * y_diff * (1 - x_diff) + d[1] * (x_diff * y_diff));
 
       npix[i * 3 * nw + 3 * j + 2] =
-          (unsigned char) (a[2] * (1 - x_diff) * (1 - y_diff) + b[2] * (x_diff) * (1 - y_diff) +
-                           c[2] * (y_diff) * (1 - x_diff) + d[2] * (x_diff * y_diff));
+          (unsigned char) (a[2] * (1 - x_diff) * (1 - y_diff) + b[2] * x_diff * (1 - y_diff) +
+                           c[2] * y_diff * (1 - x_diff) + d[2] * (x_diff * y_diff));
     }
   }
 }
@@ -346,7 +347,7 @@ constexpr char letter_z[] = {
 Image::Image(LAMMPS *lmp, int nmap_caller) :
   Pointers(lmp), maps(nullptr), depthBuffer(nullptr), surfaceBuffer(nullptr), depthcopy(nullptr),
   surfacecopy(nullptr), imageBuffer(nullptr), rgbcopy(nullptr), writeBuffer(nullptr),
-  recvcounts(nullptr), displs(nullptr), username(nullptr), userrgb(nullptr), random(nullptr)
+  recvcounts(nullptr), displs(nullptr), random(nullptr)
 {
   MPI_Comm_rank(world,&me);
   MPI_Comm_size(world,&nprocs);
@@ -367,17 +368,8 @@ Image::Image(LAMMPS *lmp, int nmap_caller) :
 
   // colors
 
-  ncolors = 0;
-  boxcolor = color2rgb("yellow");
   background[0] = background[1] = background[2] = 0.0;
   background2[0] = background2[1] = background2[2] = -1.0;
-
-  // define nmap colormaps, all with default settings
-
-  nmap = nmap_caller;
-  maps = new ColorMap*[nmap];
-  for (int i = 0; i < nmap; i++)
-    maps[i] = new ColorMap(lmp,this);
 
   // static parameters
 
@@ -403,6 +395,271 @@ Image::Image(LAMMPS *lmp, int nmap_caller) :
   backLightColor[0] = 0.9;
   backLightColor[1] = 0.9;
   backLightColor[2] = 0.9;
+
+  // named colors
+  rgbcolors = {
+    {"aliceblue", {240 / 255.0, 248 / 255.0, 255 / 255.0}},
+    {"antiquewhite", {250 / 255.0, 235 / 255.0, 215 / 255.0}},
+    {"aqua", {0 / 255.0, 255 / 255.0, 255 / 255.0}},
+    {"aquamarine", {127 / 255.0, 255 / 255.0, 212 / 255.0}},
+    {"azure", {240 / 255.0, 255 / 255.0, 255 / 255.0}},
+    {"beige", {245 / 255.0, 245 / 255.0, 220 / 255.0}},
+    {"bisque", {255 / 255.0, 228 / 255.0, 196 / 255.0}},
+    {"black", {0 / 255.0, 0 / 255.0, 0 / 255.0}},
+    {"blanchedalmond", {255 / 255.0, 255 / 255.0, 205 / 255.0}},
+    {"blue", {0 / 255.0, 0 / 255.0, 255 / 255.0}},
+    {"blueviolet", {138 / 255.0, 43 / 255.0, 226 / 255.0}},
+    {"brown", {165 / 255.0, 42 / 255.0, 42 / 255.0}},
+    {"burlywood", {222 / 255.0, 184 / 255.0, 135 / 255.0}},
+    {"cadetblue", {95 / 255.0, 158 / 255.0, 160 / 255.0}},
+    {"chartreuse", {127 / 255.0, 255 / 255.0, 0 / 255.0}},
+    {"chocolate", {210 / 255.0, 105 / 255.0, 30 / 255.0}},
+    {"coral", {255 / 255.0, 127 / 255.0, 80 / 255.0}},
+    {"cornflowerblue", {100 / 255.0, 149 / 255.0, 237 / 255.0}},
+    {"cornsilk", {255 / 255.0, 248 / 255.0, 220 / 255.0}},
+    {"crimson", {220 / 255.0, 20 / 255.0, 60 / 255.0}},
+    {"cyan", {0 / 255.0, 255 / 255.0, 255 / 255.0}},
+    {"darkblue", {0 / 255.0, 0 / 255.0, 139 / 255.0}},
+    {"darkcyan", {0 / 255.0, 139 / 255.0, 139 / 255.0}},
+    {"darkgoldenrod", {184 / 255.0, 134 / 255.0, 11 / 255.0}},
+    {"darkgray", {69 / 255.0, 69 / 255.0, 69 / 255.0}},
+    {"darkgreen", {0 / 255.0, 100 / 255.0, 0 / 255.0}},
+    {"darkkhaki", {189 / 255.0, 183 / 255.0, 107 / 255.0}},
+    {"darkmagenta", {139 / 255.0, 0 / 255.0, 139 / 255.0}},
+    {"darkolivegreen", {85 / 255.0, 107 / 255.0, 47 / 255.0}},
+    {"darkorange", {139 / 255.0, 69 / 255.0, 0 / 255.0}},
+    {"darkorchid", {153 / 255.0, 50 / 255.0, 204 / 255.0}},
+    {"darkred", {139 / 255.0, 0 / 255.0, 0 / 255.0}},
+    {"darksalmon", {233 / 255.0, 150 / 255.0, 122 / 255.0}},
+    {"darkseagreen", {143 / 255.0, 188 / 255.0, 143 / 255.0}},
+    {"darkslateblue", {72 / 255.0, 61 / 255.0, 139 / 255.0}},
+    {"darkslategray", {47 / 255.0, 79 / 255.0, 79 / 255.0}},
+    {"darkturquoise", {0 / 255.0, 206 / 255.0, 209 / 255.0}},
+    {"darkviolet", {148 / 255.0, 0 / 255.0, 211 / 255.0}},
+    {"deeppink", {255 / 255.0, 20 / 255.0, 147 / 255.0}},
+    {"deepskyblue", {0 / 255.0, 191 / 255.0, 255 / 255.0}},
+    {"dimgray", {105 / 255.0, 105 / 255.0, 105 / 255.0}},
+    {"dodgerblue", {30 / 255.0, 144 / 255.0, 255 / 255.0}},
+    {"firebrick", {178 / 255.0, 34 / 255.0, 34 / 255.0}},
+    {"floralwhite", {255 / 255.0, 250 / 255.0, 240 / 255.0}},
+    {"forestgreen", {34 / 255.0, 139 / 255.0, 34 / 255.0}},
+    {"fuchsia", {255 / 255.0, 0 / 255.0, 255 / 255.0}},
+    {"gainsboro", {220 / 255.0, 220 / 255.0, 220 / 255.0}},
+    {"ghostwhite", {248 / 255.0, 248 / 255.0, 255 / 255.0}},
+    {"gold", {255 / 255.0, 215 / 255.0, 0 / 255.0}},
+    {"goldenrod", {218 / 255.0, 165 / 255.0, 32 / 255.0}},
+    {"gray", {128 / 255.0, 128 / 255.0, 128 / 255.0}},
+    {"green", {0 / 255.0, 255.0 / 255.0, 0 / 255.0}},
+    {"greenyellow", {173 / 255.0, 255 / 255.0, 47 / 255.0}},
+    {"honeydew", {240 / 255.0, 255 / 255.0, 240 / 255.0}},
+    {"hotpink", {255 / 255.0, 105 / 255.0, 180 / 255.0}},
+    {"indianred", {205 / 255.0, 92 / 255.0, 92 / 255.0}},
+    {"indigo", {75 / 255.0, 0 / 255.0, 130 / 255.0}},
+    {"ivory", {255 / 255.0, 240 / 255.0, 240 / 255.0}},
+    {"khaki", {240 / 255.0, 230 / 255.0, 140 / 255.0}},
+    {"lavender", {230 / 255.0, 230 / 255.0, 250 / 255.0}},
+    {"lavenderblush", {255 / 255.0, 240 / 255.0, 245 / 255.0}},
+    {"lawngreen", {124 / 255.0, 252 / 255.0, 0 / 255.0}},
+    {"lemonchiffon", {255 / 255.0, 250 / 255.0, 205 / 255.0}},
+    {"lightblue", {173 / 255.0, 216 / 255.0, 230 / 255.0}},
+    {"lightcoral", {240 / 255.0, 128 / 255.0, 128 / 255.0}},
+    {"lightcyan", {224 / 255.0, 255 / 255.0, 255 / 255.0}},
+    {"lightgoldenrodyellow", {250 / 255.0, 250 / 255.0, 210 / 255.0}},
+    {"lightgreen", {144 / 255.0, 238 / 255.0, 144 / 255.0}},
+    {"lightgrey", {211 / 255.0, 211 / 255.0, 211 / 255.0}},
+    {"lightpink", {255 / 255.0, 182 / 255.0, 193 / 255.0}},
+    {"lightsalmon", {255 / 255.0, 160 / 255.0, 122 / 255.0}},
+    {"lightseagreen", {32 / 255.0, 178 / 255.0, 170 / 255.0}},
+    {"lightskyblue", {135 / 255.0, 206 / 255.0, 250 / 255.0}},
+    {"lightslategray", {119 / 255.0, 136 / 255.0, 153 / 255.0}},
+    {"lightsteelblue", {176 / 255.0, 196 / 255.0, 222 / 255.0}},
+    {"lightyellow", {255 / 255.0, 255 / 255.0, 224 / 255.0}},
+    {"lime", {0 / 255.0, 255 / 255.0, 0 / 255.0}},
+    {"limegreen", {50 / 255.0, 205 / 255.0, 50 / 255.0}},
+    {"linen", {250 / 255.0, 240 / 255.0, 230 / 255.0}},
+    {"magenta", {255 / 255.0, 0 / 255.0, 255 / 255.0}},
+    {"maroon", {128 / 255.0, 0 / 255.0, 0 / 255.0}},
+    {"mediumaquamarine", {102 / 255.0, 205 / 255.0, 170 / 255.0}},
+    {"mediumblue", {0 / 255.0, 0 / 255.0, 205 / 255.0}},
+    {"mediumorchid", {186 / 255.0, 85 / 255.0, 211 / 255.0}},
+    {"mediumpurple", {147 / 255.0, 112 / 255.0, 219 / 255.0}},
+    {"mediumseagreen", {60 / 255.0, 179 / 255.0, 113 / 255.0}},
+    {"mediumslateblue", {123 / 255.0, 104 / 255.0, 238 / 255.0}},
+    {"mediumspringgreen", {0 / 255.0, 250 / 255.0, 154 / 255.0}},
+    {"mediumturquoise", {72 / 255.0, 209 / 255.0, 204 / 255.0}},
+    {"mediumvioletred", {199 / 255.0, 21 / 255.0, 133 / 255.0}},
+    {"midnightblue", {25 / 255.0, 25 / 255.0, 112 / 255.0}},
+    {"mintcream", {245 / 255.0, 255 / 255.0, 250 / 255.0}},
+    {"mistyrose", {255 / 255.0, 228 / 255.0, 225 / 255.0}},
+    {"moccasin", {255 / 255.0, 228 / 255.0, 181 / 255.0}},
+    {"navajowhite", {255 / 255.0, 222 / 255.0, 173 / 255.0}},
+    {"navy", {0 / 255.0, 0 / 255.0, 128 / 255.0}},
+    {"oldlace", {253 / 255.0, 245 / 255.0, 230 / 255.0}},
+    {"olive", {128 / 255.0, 128 / 255.0, 0 / 255.0}},
+    {"olivedrab", {107 / 255.0, 142 / 255.0, 35 / 255.0}},
+    {"orange", {255 / 255.0, 128 / 255.0, 0 / 255.0}},
+    {"orangered", {255 / 255.0, 64 / 255.0, 0 / 255.0}},
+    {"orchid", {218 / 255.0, 112 / 255.0, 214 / 255.0}},
+    {"palegoldenrod", {238 / 255.0, 232 / 255.0, 170 / 255.0}},
+    {"palegreen", {152 / 255.0, 251 / 255.0, 152 / 255.0}},
+    {"paleturquoise", {175 / 255.0, 238 / 255.0, 238 / 255.0}},
+    {"palevioletred", {219 / 255.0, 112 / 255.0, 147 / 255.0}},
+    {"papayawhip", {255 / 255.0, 239 / 255.0, 213 / 255.0}},
+    {"peachpuff", {255 / 255.0, 239 / 255.0, 213 / 255.0}},
+    {"peru", {205 / 255.0, 133 / 255.0, 63 / 255.0}},
+    {"pink", {255 / 255.0, 192 / 255.0, 203 / 255.0}},
+    {"plum", {221 / 255.0, 160 / 255.0, 221 / 255.0}},
+    {"powderblue", {176 / 255.0, 224 / 255.0, 230 / 255.0}},
+    {"purple", {128 / 255.0, 0 / 255.0, 128 / 255.0}},
+    {"red", {255 / 255.0, 0 / 255.0, 0 / 255.0}},
+    {"rosybrown", {188 / 255.0, 143 / 255.0, 143 / 255.0}},
+    {"royalblue", {65 / 255.0, 105 / 255.0, 225 / 255.0}},
+    {"saddlebrown", {139 / 255.0, 69 / 255.0, 19 / 255.0}},
+    {"salmon", {250 / 255.0, 128 / 255.0, 114 / 255.0}},
+    {"sandybrown", {244 / 255.0, 164 / 255.0, 96 / 255.0}},
+    {"seagreen", {46 / 255.0, 139 / 255.0, 87 / 255.0}},
+    {"seashell", {255 / 255.0, 245 / 255.0, 238 / 255.0}},
+    {"sienna", {160 / 255.0, 82 / 255.0, 45 / 255.0}},
+    {"silver", {192 / 255.0, 192 / 255.0, 192 / 255.0}},
+    {"skyblue", {135 / 255.0, 206 / 255.0, 235 / 255.0}},
+    {"slateblue", {106 / 255.0, 90 / 255.0, 205 / 255.0}},
+    {"slategray", {112 / 255.0, 128 / 255.0, 144 / 255.0}},
+    {"snow", {255 / 255.0, 250 / 255.0, 250 / 255.0}},
+    {"springgreen", {0 / 255.0, 255 / 255.0, 127 / 255.0}},
+    {"steelblue", {70 / 255.0, 130 / 255.0, 180 / 255.0}},
+    {"tan", {210 / 255.0, 180 / 255.0, 140 / 255.0}},
+    {"teal", {0 / 255.0, 128 / 255.0, 128 / 255.0}},
+    {"thistle", {216 / 255.0, 191 / 255.0, 216 / 255.0}},
+    {"tomato", {253 / 255.0, 99 / 255.0, 71 / 255.0}},
+    {"turquoise", {64 / 255.0, 224 / 255.0, 208 / 255.0}},
+    {"violet", {238 / 255.0, 130 / 255.0, 238 / 255.0}},
+    {"wheat", {245 / 255.0, 222 / 255.0, 179 / 255.0}},
+    {"white", {255 / 255.0, 255 / 255.0, 255 / 255.0}},
+    {"whitesmoke", {245 / 255.0, 245 / 255.0, 245 / 255.0}},
+    {"yellow", {255 / 255.0, 255 / 255.0, 0 / 255.0}},
+    {"yellowgreen", {154 / 255.0, 205 / 255.0, 50 / 255.0}}};
+
+  // assigned per-element info: color as RGB and covalent radius
+  // this list is used by AtomEye and is taken from its Mendeleyev.c file
+  elementdata = {
+    {"H", {{0.8, 0.8, 0.8}, 0.35}},
+    {"He", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.785}},
+    {"Li", {{0.7, 0.7, 0.7}, 1.45}},
+    {"Be", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.05}},
+    {"B", {{0.9, 0.4, 0}, 0.85}},
+    {"C", {{0.35, 0.35, 0.35}, 0.72}},
+    {"N", {{0.2, 0.2, 0.8}, 0.65}},
+    {"O", {{0.8, 0.2, 0.2}, 0.6}},
+    {"F", {{0.7, 0.85, 0.45}, 0.5}},
+    {"Ne", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.5662}},
+    {"Na", {{0.6, 0.6, 0.8}, 1.8}},
+    {"Mg", {{0.6, 0.6, 0.7}, 1.5}},
+    {"Al", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.4255}},
+    {"Si", {{0.6901960784, 0.768627451, 0.8705882353}, 1.07}},
+    {"P", {{0.1, 0.7, 0.3}, 1}},
+    {"S", {{0.95, 0.9, 0.2}, 1}},
+    {"Cl", {{0.15, 0.5, 0.1}, 1}},
+    {"Ar", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.8597}},
+    {"K", {{0.8, 0.5, 0.5}, 2.2}},
+    {"Ca", {{0.8, 0.8, 0.7}, 1.8}},
+    {"Sc", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.6}},
+    {"Ti", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.4}},
+    {"V", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.51995}},
+    {"Cr", {{0, 0.8, 0}, 1.44225}},
+    {"Mn", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.4}},
+    {"Fe", {{0.5176470588, 0.5764705882, 0.6529411765}, 1.43325}},
+    {"Co", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.35}},
+    {"Ni", {{0.257254902, 0.2666666667, 0.271372549}, 1.35}},
+    {"Cu", {{0.95, 0.7900735294, 0.01385869565}, 1.278}},
+    {"Zn", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.35}},
+    {"Ga", {{0.9, 0, 1}, 1.3}},
+    {"Ge", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.25}},
+    {"As", {{1, 1, 0.3}, 1.15}},
+    {"Se", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.15}},
+    {"Br", {{0.5, 0.08, 0.12}, 1.15}},
+    {"Kr", {{0.6431372549, 0.6666666667, 0.6784313725}, 2.0223}},
+    {"Rb", {{0.6431372549, 0.6666666667, 0.6784313725}, 2.35}},
+    {"Sr", {{0.6431372549, 0.6666666667, 0.6784313725}, 2}},
+    {"Y", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.8}},
+    {"Zr", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.55}},
+    {"Nb", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.6504}},
+    {"Mo", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.3872}},
+    {"Tc", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.35}},
+    {"Ru", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.3}},
+    {"Rh", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.35}},
+    {"Pd", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.4}},
+    {"Ag", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.6}},
+    {"Cd", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.55}},
+    {"In", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.55}},
+    {"Sn", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.45}},
+    {"Sb", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.45}},
+    {"Te", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.4}},
+    {"I", {{0.5, 0.1, 0.5}, 1.4}},
+    {"Xe", {{0.6431372549, 0.6666666667, 0.6784313725}, 2.192}},
+    {"Cs", {{0.6431372549, 0.6666666667, 0.6784313725}, 2.6}},
+    {"Ba", {{0.6431372549, 0.6666666667, 0.6784313725}, 2.15}},
+    {"La", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.95}},
+    {"Ce", {{0.8, 0.8, 0}, 1.85}},
+    {"Pr", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.85}},
+    {"Nd", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.85}},
+    {"Pm", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.85}},
+    {"Sm", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.85}},
+    {"Eu", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.85}},
+    {"Gd", {{1, 0.8431372549, 0}, 1.8}},
+    {"Tb", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.75}},
+    {"Dy", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.75}},
+    {"Ho", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.75}},
+    {"Er", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.75}},
+    {"Tm", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.75}},
+    {"Yb", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.75}},
+    {"Lu", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.75}},
+    {"Hf", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.55}},
+    {"Ta", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.6529}},
+    {"W", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.5826}},
+    {"Re", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.35}},
+    {"Os", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.3}},
+    {"Ir", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.35}},
+    {"Pt", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.35}},
+    {"Au", {{0.9, 0.8, 0}, 1.35}},
+    {"Hg", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.5}},
+    {"Tl", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.9}},
+    {"Pb", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.8}},
+    {"Bi", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.6}},
+    {"Po", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.9}},
+    {"At", {{0.8, 0.2, 0.2}, 1.6}},
+    {"Rn", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.0}},
+    {"Fr", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.0}},
+    {"Ra", {{0.6431372549, 0.6666666667, 0.6784313725}, 2.15}},
+    {"Ac", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.95}},
+    {"Th", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.8}},
+    {"Pa", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.8}},
+    {"U", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.75}},
+    {"Np", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.75}},
+    {"Pu", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.75}},
+    {"Am", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.75}},
+    {"Cm", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.0}},
+    {"Bk", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.0}},
+    {"Cf", {{0.1, 0.7, 0.3}, 1.6}},
+    {"Es", {{0.1, 0.3, 0.7}, 1.6}},
+    {"Fm", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.0}},
+    {"Md", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.0}},
+    {"No", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.0}},
+    {"Lr", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.0}},
+    {"Rf", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.0}},
+    {"Db", {{0.9, 0.8, 0}, 1.6}},
+    {"Sg", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.0}},
+    {"Bh", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.0}},
+    {"Hs", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.0}},
+    {"Mt", {{0.6431372549, 0.6666666667, 0.6784313725}, 1.0}}};
+
+  boxcolor = color2rgb("yellow");
+
+  // define requested color maps with default values. must come after defining color names
+
+  nmap = nmap_caller;
+  maps = new ColorMap*[nmap];
+  for (int i = 0; i < nmap; i++)
+    maps[i] = new ColorMap(lmp,this);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -411,10 +668,6 @@ Image::~Image()
 {
   for (int i = 0; i < nmap; i++) delete maps[i];
   delete[] maps;
-
-  for (int i = 0; i < ncolors; i++) delete [] username[i];
-  memory->sfree(username);
-  memory->destroy(userrgb);
 
   memory->destroy(depthBuffer);
   memory->destroy(surfaceBuffer);
@@ -577,8 +830,8 @@ void Image::clear()
   int blue  = background[2];
 
   if (background2[0] < 0.0) {
-    for (int iy = 0; iy < height; iy ++) {
-      for (int ix = 0; ix < width; ix ++) {
+    for (int iy = 0; iy < height; ++iy) {
+      for (int ix = 0; ix < width; ++ix) {
         imageBuffer[iy * width * 3 + ix * 3 + 0] = red;
         imageBuffer[iy * width * 3 + ix * 3 + 1] = green;
         imageBuffer[iy * width * 3 + ix * 3 + 2] = blue;
@@ -586,12 +839,12 @@ void Image::clear()
       }
     }
   } else {
-    for (int iy = 0; iy < height; iy ++) {
+    for (int iy = 0; iy < height; ++iy) {
       double fraction = (double) iy / (double) height;
       red   = static_cast<int>(fraction * background2[0] + (1.0 - fraction) * background[0]);
       green = static_cast<int>(fraction * background2[1] + (1.0 - fraction) * background[1]);
       blue  = static_cast<int>(fraction * background2[2] + (1.0 - fraction) * background[2]);
-      for (int ix = 0; ix < width; ix ++) {
+      for (int ix = 0; ix < width; ++ix) {
         imageBuffer[iy * width * 3 + ix * 3 + 0] = red;
         imageBuffer[iy * width * 3 + ix * 3 + 1] = green;
         imageBuffer[iy * width * 3 + ix * 3 + 2] = blue;
@@ -843,6 +1096,8 @@ void Image::draw_pixmap(const double *x, int pixwidth, int pixheight, const unsi
 void Image::draw_pixmap(int xc, int yc, int pixwidth, int pixheight, const unsigned char *pixmap,
                         double *transcolor, double scale, double opacity, double dist)
 {
+  if (opacity <= 0.0) return;  // nothing to do
+
   const unsigned char *mypixmap = pixmap;
   unsigned char *npixmap = nullptr;
 
@@ -873,7 +1128,7 @@ void Image::draw_pixmap(int xc, int yc, int pixwidth, int pixheight, const unsig
       int iy = ylo + j - pixheight/2;
       int ix = xlo + i - pixwidth/2;
       if (iy < 0 || iy >= height || ix < 0 || ix >= width) continue;
-      if (((opacity < 1.0) && (transthresh[ix % TRANK][iy % TRANK] > opacity)) || (opacity <= 0.0))
+      if ((opacity < 1.0) && (transthresh[ix % TRANK][iy % TRANK] > opacity))
         continue;
 
       // get color of pixel at x/y position of pixmap
@@ -888,9 +1143,9 @@ void Image::draw_pixmap(int xc, int yc, int pixwidth, int pixheight, const unsig
       // we allow a few steps difference for each channel to account
       // for rounding errors and reduce "bleeding" from interpolation
 
-      if ((fabs(pixelcolor[0] - transcolor[0]) < 0.01) &&
-          (fabs(pixelcolor[1] - transcolor[1]) < 0.01) &&
-          (fabs(pixelcolor[2] - transcolor[2]) < 0.01)) continue;
+      if ((fabs(pixelcolor[0] - transcolor[0]) < TRANS_DELTA) &&
+          (fabs(pixelcolor[1] - transcolor[1]) < TRANS_DELTA) &&
+          (fabs(pixelcolor[2] - transcolor[2]) < TRANS_DELTA)) continue;
 
       draw_pixel(ix, iy, dist, normal, pixelcolor);
     }
@@ -939,7 +1194,7 @@ void Image::draw_sphere(const double *x, const double *surfaceColor, double diam
   for (int iy = yc - pixelRadius; iy <= yc + pixelRadius; iy++) {
     for (int ix = xc - pixelRadius; ix <= xc + pixelRadius; ix++) {
       if (iy < 0 || iy >= height || ix < 0 || ix >= width) continue;
-      if (((opacity < 1.0) && (transthresh[ix % TRANK][iy % TRANK] > opacity)) || (opacity <= 0.0))
+      if ((opacity < 1.0) && (transthresh[ix % TRANK][iy % TRANK] > opacity))
         continue;
 
       double surface[3];
@@ -1004,10 +1259,10 @@ void Image::draw_cube(const double *x, const double *surfaceColor, double diamet
   xc += width / 2;
   yc += height / 2;
 
-  for (int iy = yc - pixelHalfWidth; iy <= yc + pixelHalfWidth; iy ++) {
-    for (int ix = xc - pixelHalfWidth; ix <= xc + pixelHalfWidth; ix ++) {
+  for (int iy = yc - pixelHalfWidth; iy <= yc + pixelHalfWidth; ++iy) {
+    for (int ix = xc - pixelHalfWidth; ix <= xc + pixelHalfWidth; ++ix) {
       if (iy < 0 || iy >= height || ix < 0 || ix >= width) continue;
-      if (((opacity < 1.0) && (transthresh[ix % TRANK][iy % TRANK] > opacity)) || (opacity <= 0.0))
+      if ((opacity < 1.0) && (transthresh[ix % TRANK][iy % TRANK] > opacity))
         continue;
 
       double sy = ((iy - yc) - height_error) * pixelWidth;
@@ -1020,7 +1275,7 @@ void Image::draw_cube(const double *x, const double *surfaceColor, double diamet
       // only render up to 3 which are facing the camera
       // these checks short circuit a dot product, testing for > 0
 
-      for (int dim = 0; dim < 3; dim ++) {
+      for (int dim = 0; dim < 3; ++dim) {
         if (camDir[dim] > 0) {          // positive faces camera
           t = (radius - surface[dim]) / camDir[dim];
           normal[0] = camRight[dim];
@@ -1160,10 +1415,10 @@ void Image::draw_cylinder(const double *x, const double *y,
 
   double a = camLDir[0] * camLDir[0];
 
-  for (int iy = yc - pixelHalfHeight; iy <= yc + pixelHalfHeight; iy ++) {
-    for (int ix = xc - pixelHalfWidth; ix <= xc + pixelHalfWidth; ix ++) {
+  for (int iy = yc - pixelHalfHeight; iy <= yc + pixelHalfHeight; ++iy) {
+    for (int ix = xc - pixelHalfWidth; ix <= xc + pixelHalfWidth; ++ix) {
       if (iy < 0 || iy >= height || ix < 0 || ix >= width) continue;
-      if (((opacity < 1.0) && (transthresh[ix % TRANK][iy % TRANK] > opacity)) || (opacity <= 0.0))
+      if ((opacity < 1.0) && (transthresh[ix % TRANK][iy % TRANK] > opacity))
         continue;
 
       double surface[3], normal[3];
@@ -1272,8 +1527,8 @@ void Image::draw_triangle(const double *x, const double *y, const double *z,
   double pixelWidth = (tanPerPixel > 0) ? tanPerPixel * dist : -tanPerPixel / zoom;
   double xf = xmap / pixelWidth;
   double yf = ymap / pixelWidth;
-  int xc = static_cast<int>(xf);
-  int yc = static_cast<int>(yf);
+  int xc = static_cast<int>(floor(xf));
+  int yc = static_cast<int>(floor(yf));
   double width_error = xf - xc;
   double height_error = yf - yc;
 
@@ -1286,15 +1541,15 @@ void Image::draw_triangle(const double *x, const double *y, const double *z,
   double pixelRightFull = rasterRight / pixelWidth;
   double pixelDownFull = rasterDown / pixelWidth;
   double pixelUpFull = rasterUp / pixelWidth;
-  int pixelLeft = std::lround(pixelLeftFull);
-  int pixelRight = std::lround(pixelRightFull);
-  int pixelDown = std::lround(pixelDownFull);
-  int pixelUp = std::lround(pixelUpFull);
+  int pixelLeft = static_cast<int>(ceil(pixelLeftFull));
+  int pixelRight = static_cast<int>(ceil(pixelRightFull));
+  int pixelDown = static_cast<int>(ceil(pixelDownFull));
+  int pixelUp = static_cast<int>(ceil(pixelUpFull));
 
-  for (int iy = yc - pixelDown; iy <= yc + pixelUp; iy ++) {
-    for (int ix = xc - pixelLeft; ix <= xc + pixelRight; ix ++) {
+  for (int iy = yc - pixelDown; iy <= yc + pixelUp; ++iy) {
+    for (int ix = xc - pixelLeft; ix <= xc + pixelRight; ++ix) {
       if (iy < 0 || iy >= height || ix < 0 || ix >= width) continue;
-      if (((opacity < 1.0) && (transthresh[ix % TRANK][iy % TRANK] > opacity)) || (opacity <= 0.0))
+      if ((opacity < 1.0) && (transthresh[ix % TRANK][iy % TRANK] > opacity))
         continue;
 
       double sy = ((iy - yc) - height_error) * pixelWidth;
@@ -1314,12 +1569,6 @@ void Image::draw_triangle(const double *x, const double *y, const double *z,
 
       double s1[3], s2[3], s3[3];
       double c1[3], c2[3];
-
-      // for grid cell and other triangle meshes:
-      // there can be single pixel gaps due to rounding
-      // using <= if test can leave single-pixel gaps between 2 triangles
-      // using < if test fixes most of them
-      // suggested by Nathan Fabian, Nov 2022
 
       MathExtra::sub3(zlocal, xlocal, s1);
       MathExtra::sub3(ylocal, xlocal, s2);
@@ -1353,12 +1602,175 @@ void Image::draw_triangle(const double *x, const double *y, const double *z,
   }
 }
 
+/* ----------------------------------------------------------------------
+   draw triangle with 3 corner points x,y,z
+   3 normals nx,ny,nz and 3 colors cx,cy,cz, one per corner
+   normal and color for each pixel are interpolated using barycentric coords
+------------------------------------------------------------------------- */
+
+void Image::draw_trinorm(const double *x, const double *y, const double *z,
+                         const double *nx, const double *ny, const double *nz,
+                         const double *cx, const double *cy, const double *cz,
+                         const double opacity)
+{
+  if (opacity <= 0.0) return;  // nothing to do
+
+  double d1[3], d1len, d2[3], d2len, normal[3], invndotd;
+  double xlocal[3], ylocal[3], zlocal[3];
+  double surface[3];
+  double depth;
+
+  xlocal[0] = x[0] - xctr;
+  xlocal[1] = x[1] - yctr;
+  xlocal[2] = x[2] - zctr;
+  ylocal[0] = y[0] - xctr;
+  ylocal[1] = y[1] - yctr;
+  ylocal[2] = y[2] - zctr;
+  zlocal[0] = z[0] - xctr;
+  zlocal[1] = z[1] - yctr;
+  zlocal[2] = z[2] - zctr;
+
+  MathExtra::sub3(xlocal, ylocal, d1);
+  d1len = MathExtra::len3(d1);
+  if (d1len == 0.0) return;     // zero length of triangle side
+  MathExtra::scale3(1.0 / d1len, d1);
+
+  MathExtra::sub3(zlocal, ylocal, d2);
+  d2len = MathExtra::len3(d2);
+  if (d2len == 0.0) return;     // zero length of triangle side
+  MathExtra::scale3(1.0 / d2len, d2);
+
+  MathExtra::cross3(d1, d2, normal);
+  MathExtra::norm3(normal);
+  invndotd = MathExtra::dot3(normal, camDir);
+
+  // triangle parallel to camera and thus invisible
+  if (invndotd == 0.0) return;
+  invndotd = 1.0 / invndotd;
+
+  double r[3],u[3];
+
+  r[0] = MathExtra::dot3(camRight,xlocal);
+  r[1] = MathExtra::dot3(camRight,ylocal);
+  r[2] = MathExtra::dot3(camRight,zlocal);
+
+  u[0] = MathExtra::dot3(camUp,xlocal);
+  u[1] = MathExtra::dot3(camUp,ylocal);
+  u[2] = MathExtra::dot3(camUp,zlocal);
+
+  double rasterLeft = r[0] - MIN(r[0],MIN(r[1],r[2]));
+  double rasterRight = MAX(r[0],MAX(r[1],r[2])) - r[0];
+  double rasterDown = u[0] - MIN(u[0],MIN(u[1],u[2]));
+  double rasterUp = MAX(u[0],MAX(u[1],u[2])) - u[0];
+
+  double xmap = MathExtra::dot3(camRight,xlocal);
+  double ymap = MathExtra::dot3(camUp,xlocal);
+  double dist = MathExtra::dot3(camPos,camDir) - MathExtra::dot3(xlocal,camDir);
+
+  double pixelWidth = (tanPerPixel > 0) ? tanPerPixel * dist : -tanPerPixel / zoom;
+  double xf = xmap / pixelWidth;
+  double yf = ymap / pixelWidth;
+  int xc = static_cast<int>(floor(xf));
+  int yc = static_cast<int>(floor(yf));
+  double width_error = xf - xc;
+  double height_error = yf - yc;
+
+  // shift 0,0 to screen center (vs lower left)
+
+  xc += width / 2;
+  yc += height / 2;
+
+  double pixelLeftFull = rasterLeft / pixelWidth;
+  double pixelRightFull = rasterRight / pixelWidth;
+  double pixelDownFull = rasterDown / pixelWidth;
+  double pixelUpFull = rasterUp / pixelWidth;
+  int pixelLeft = static_cast<int>(ceil(pixelLeftFull));
+  int pixelRight = static_cast<int>(ceil(pixelRightFull));
+  int pixelDown = static_cast<int>(ceil(pixelDownFull));
+  int pixelUp = static_cast<int>(ceil(pixelUpFull));
+
+  // precompute for barycentric coordinates
+
+  double v0[3], v1[3];
+  MathExtra::sub3(ylocal, xlocal, v0);
+  MathExtra::sub3(zlocal, xlocal, v1);
+  double d00 = MathExtra::dot3(v0, v0);
+  double d01 = MathExtra::dot3(v0, v1);
+  double d11 = MathExtra::dot3(v1, v1);
+  double denom = d00 * d11 - d01 * d01;
+  if (denom == 0.0) return;    // degenerate triangle
+  double inv_denom = 1.0 / denom;
+
+  for (int iy = yc - pixelDown; iy <= yc + pixelUp; ++iy) {
+    for (int ix = xc - pixelLeft; ix <= xc + pixelRight; ++ix) {
+      if (iy < 0 || iy >= height || ix < 0 || ix >= width) continue;
+      if ((opacity < 1.0) && (transthresh[ix % TRANK][iy % TRANK] > opacity))
+        continue;
+
+      double sy = ((iy - yc) - height_error) * pixelWidth;
+      double sx = ((ix - xc) - width_error) * pixelWidth;
+      surface[0] = camRight[0] * sx + camUp[0] * sy;
+      surface[1] = camRight[1] * sx + camUp[1] * sy;
+      surface[2] = camRight[2] * sx + camUp[2] * sy;
+
+      double t = -MathExtra::dot3(normal,surface) * invndotd;
+
+      // compute point on triangle plane
+
+      double p[3];
+      p[0] = xlocal[0] + surface[0] + camDir[0] * t;
+      p[1] = xlocal[1] + surface[1] + camDir[1] * t;
+      p[2] = xlocal[2] + surface[2] + camDir[2] * t;
+
+      // compute barycentric coordinates
+
+      double v2[3];
+      MathExtra::sub3(p, xlocal, v2);
+      double d20 = MathExtra::dot3(v2, v0);
+      double d21 = MathExtra::dot3(v2, v1);
+      double lambda_y = (d11 * d20 - d01 * d21) * inv_denom;
+      double lambda_z = (d00 * d21 - d01 * d20) * inv_denom;
+      double lambda_x = 1.0 - lambda_y - lambda_z;
+
+      // point outside triangle if any barycentric coordinate is negative
+
+      if ((lambda_x < 0.0) || (lambda_y < 0.0) || (lambda_z < 0.0)) continue;
+
+      // interpolate normal from per-vertex normals
+
+      double inormal[3];
+      inormal[0] = lambda_x * nx[0] + lambda_y * ny[0] + lambda_z * nz[0];
+      inormal[1] = lambda_x * nx[1] + lambda_y * ny[1] + lambda_z * nz[1];
+      inormal[2] = lambda_x * nx[2] + lambda_y * ny[2] + lambda_z * nz[2];
+      MathExtra::norm3(inormal);
+
+      // interpolate color from per-vertex colors
+
+      double icolor[3];
+      icolor[0] = lambda_x * cx[0] + lambda_y * cy[0] + lambda_z * cz[0];
+      icolor[1] = lambda_x * cx[1] + lambda_y * cy[1] + lambda_z * cz[1];
+      icolor[2] = lambda_x * cx[2] + lambda_y * cy[2] + lambda_z * cz[2];
+
+      // transform interpolated normal to camera space
+
+      double cNormal[3];
+      cNormal[0] = MathExtra::dot3(camRight, inormal);
+      cNormal[1] = MathExtra::dot3(camUp, inormal);
+      cNormal[2] = MathExtra::dot3(camDir, inormal);
+
+      depth = dist - t;
+      draw_pixel(ix, iy, depth, cNormal, icolor);
+    }
+  }
+}
+
 /* ---------------------------------------------------------------------- */
 
-void Image::draw_pixel(int ix, int iy, double depth,
-                       const double *surface, const double *surfaceColor)
+void Image::draw_pixel(int ix, int iy, double depth, const double *surface,
+                       const double *surfaceColor)
 {
   if (!std::isfinite(depth)) return; // reject pixels with invalid depth buffer values
+  if (!surfaceColor) return;         // reject pixels with an invalid color
 
   double diffuseKey,diffuseFill,diffuseBack,specularKey;
   if (depth < 0 || (depthBuffer[ix + iy*width] >= 0 && depth >= depthBuffer[ix + iy*width])) return;
@@ -1427,7 +1839,7 @@ void Image::compute_SSAO()
   int pixelstart = static_cast<int>(1.0*me/nprocs * npixels);
   int pixelstop = static_cast<int>(1.0*(me+1)/nprocs * npixels);
 
-  // file buffer with random numbers to avoid race conditions
+  // fill buffer with random numbers to avoid race conditions
   auto *uniform = new double[pixelstop - pixelstart];
   for (int i = 0; i < pixelstop - pixelstart; ++i) uniform[i] = random->uniform();
 
@@ -1448,7 +1860,7 @@ void Image::compute_SSAO()
     double mytheta = uniform[index - pixelstart] * SSAOJitter;
     double ao = 0.0;
 
-    for (int s = 0; s < SSAOSamples; s ++) {
+    for (int s = 0; s < SSAOSamples; ++s) {
       double hx = cos(mytheta);
       double hy = sin(mytheta);
       mytheta += delTheta;
@@ -1757,9 +2169,9 @@ int Image::map_minmax(int index, double mindynamic, double maxdynamic)
    get min/max bounds of dynamic color map index and return 1 if dynamic
 ------------------------------------------------------------------------- */
 
-int Image::map_info(int index, double &min, double &max)
+int Image::map_info(int index, double &min, double &max, bool &sequential)
 {
-  return maps[index]->info(min, max);
+  return maps[index]->info(min, max, sequential);
 }
 
 /* ----------------------------------------------------------------------
@@ -1772,541 +2184,59 @@ double *Image::map_value2color(int index, double value)
 }
 
 /* ----------------------------------------------------------------------
-   add a new color to username and userrgb
-   redefine RGB values in userrgb if name already exists
-   return 1 if RGB values are invalid, else return 0
+   add a new color or redefine RGB values if already exists
+   return 1,2,or 3 if RGB values are invalid, else return 0
 ------------------------------------------------------------------------- */
 
-int Image::addcolor(char *name, double r, double g, double b)
+int Image::addcolor(const std::string &name, double r, double g, double b)
 {
-  int icolor;
-  for (icolor = 0; icolor < ncolors; icolor++)
-    if (strcmp(name,username[icolor]) == 0) break;
-
-  if (icolor == ncolors) {
-    username = (char **)
-      memory->srealloc(username,(ncolors+1)*sizeof(char *),"image:username");
-    memory->grow(userrgb,ncolors+1,3,"image:userrgb");
-    ncolors++;
-  }
-
-  int n = strlen(name) + 1;
-  username[icolor] = new char[n];
-  strcpy(username[icolor],name);
-
   if (r < 0.0 || r > 1.0) return 1;
   if (g < 0.0 || g > 1.0) return 2;
   if (b < 0.0 || b > 1.0) return 3;
 
-  userrgb[icolor][0] = r;
-  userrgb[icolor][1] = g;
-  userrgb[icolor][2] = b;
-
+  rgbcolors[name] = {r, g, b};
   return 0;
 }
 
 /* ----------------------------------------------------------------------
-   if index > 0, return ptr to index-1 color from rgb
-   if index < 0, return ptr to -index-1 color from userrgb
-   if index = 0, search the 2 lists of color names for the string color
-   search user-defined color names first, then the list of NCOLORS names
    return a pointer to the 3 floating point RGB values or nullptr if didn't find
 ------------------------------------------------------------------------- */
 
-double *Image::color2rgb(const char *color, int index)
+double *Image::color2rgb(const std::string &color)
 {
-  static const char *name[NCOLORS] = {
-    "aliceblue",
-    "antiquewhite",
-    "aqua",
-    "aquamarine",
-    "azure",
-    "beige",
-    "bisque",
-    "black",
-    "blanchedalmond",
-    "blue",
-    "blueviolet",
-    "brown",
-    "burlywood",
-    "cadetblue",
-    "chartreuse",
-    "chocolate",
-    "coral",
-    "cornflowerblue",
-    "cornsilk",
-    "crimson",
-    "cyan",
-    "darkblue",
-    "darkcyan",
-    "darkgoldenrod",
-    "darkgray",
-    "darkgreen",
-    "darkkhaki",
-    "darkmagenta",
-    "darkolivegreen",
-    "darkorange",
-    "darkorchid",
-    "darkred",
-    "darksalmon",
-    "darkseagreen",
-    "darkslateblue",
-    "darkslategray",
-    "darkturquoise",
-    "darkviolet",
-    "deeppink",
-    "deepskyblue",
-    "dimgray",
-    "dodgerblue",
-    "firebrick",
-    "floralwhite",
-    "forestgreen",
-    "fuchsia",
-    "gainsboro",
-    "ghostwhite",
-    "gold",
-    "goldenrod",
-    "gray",
-    "green",
-    "greenyellow",
-    "honeydew",
-    "hotpink",
-    "indianred",
-    "indigo",
-    "ivory",
-    "khaki",
-    "lavender",
-    "lavenderblush",
-    "lawngreen",
-    "lemonchiffon",
-    "lightblue",
-    "lightcoral",
-    "lightcyan",
-    "lightgoldenrodyellow",
-    "lightgreen",
-    "lightgrey",
-    "lightpink",
-    "lightsalmon",
-    "lightseagreen",
-    "lightskyblue",
-    "lightslategray",
-    "lightsteelblue",
-    "lightyellow",
-    "lime",
-    "limegreen",
-    "linen",
-    "magenta",
-    "maroon",
-    "mediumaquamarine",
-    "mediumblue",
-    "mediumorchid",
-    "mediumpurple",
-    "mediumseagreen",
-    "mediumslateblue",
-    "mediumspringgreen",
-    "mediumturquoise",
-    "mediumvioletred",
-    "midnightblue",
-    "mintcream",
-    "mistyrose",
-    "moccasin",
-    "navajowhite",
-    "navy",
-    "oldlace",
-    "olive",
-    "olivedrab",
-    "orange",
-    "orangered",
-    "orchid",
-    "palegoldenrod",
-    "palegreen",
-    "paleturquoise",
-    "palevioletred",
-    "papayawhip",
-    "peachpuff",
-    "peru",
-    "pink",
-    "plum",
-    "powderblue",
-    "purple",
-    "red",
-    "rosybrown",
-    "royalblue",
-    "saddlebrown",
-    "salmon",
-    "sandybrown",
-    "seagreen",
-    "seashell",
-    "sienna",
-    "silver",
-    "skyblue",
-    "slateblue",
-    "slategray",
-    "snow",
-    "springgreen",
-    "steelblue",
-    "tan",
-    "teal",
-    "thistle",
-    "tomato",
-    "turquoise",
-    "violet",
-    "wheat",
-    "white",
-    "whitesmoke",
-    "yellow",
-    "yellowgreen"
-  };
+  if (color == "none") return nullptr;
 
-  static double rgb[NCOLORS][3] = {
-    {240/255.0, 248/255.0, 255/255.0},
-    {250/255.0, 235/255.0, 215/255.0},
-    {0/255.0, 255/255.0, 255/255.0},
-    {127/255.0, 255/255.0, 212/255.0},
-    {240/255.0, 255/255.0, 255/255.0},
-    {245/255.0, 245/255.0, 220/255.0},
-    {255/255.0, 228/255.0, 196/255.0},
-    {0/255.0, 0/255.0, 0/255.0},
-    {255/255.0, 255/255.0, 205/255.0},
-    {0/255.0, 0/255.0, 255/255.0},
-    {138/255.0, 43/255.0, 226/255.0},
-    {165/255.0, 42/255.0, 42/255.0},
-    {222/255.0, 184/255.0, 135/255.0},
-    {95/255.0, 158/255.0, 160/255.0},
-    {127/255.0, 255/255.0, 0/255.0},
-    {210/255.0, 105/255.0, 30/255.0},
-    {255/255.0, 127/255.0, 80/255.0},
-    {100/255.0, 149/255.0, 237/255.0},
-    {255/255.0, 248/255.0, 220/255.0},
-    {220/255.0, 20/255.0, 60/255.0},
-    {0/255.0, 255/255.0, 255/255.0},
-    {0/255.0, 0/255.0, 139/255.0},
-    {0/255.0, 139/255.0, 139/255.0},
-    {184/255.0, 134/255.0, 11/255.0},
-    {69/255.0, 69/255.0, 69/255.0},
-    {0/255.0, 100/255.0, 0/255.0},
-    {189/255.0, 183/255.0, 107/255.0},
-    {139/255.0, 0/255.0, 139/255.0},
-    {85/255.0, 107/255.0, 47/255.0},
-    {255/255.0, 140/255.0, 0/255.0},
-    {153/255.0, 50/255.0, 204/255.0},
-    {139/255.0, 0/255.0, 0/255.0},
-    {233/255.0, 150/255.0, 122/255.0},
-    {143/255.0, 188/255.0, 143/255.0},
-    {72/255.0, 61/255.0, 139/255.0},
-    {47/255.0, 79/255.0, 79/255.0},
-    {0/255.0, 206/255.0, 209/255.0},
-    {148/255.0, 0/255.0, 211/255.0},
-    {255/255.0, 20/255.0, 147/255.0},
-    {0/255.0, 191/255.0, 255/255.0},
-    {105/255.0, 105/255.0, 105/255.0},
-    {30/255.0, 144/255.0, 255/255.0},
-    {178/255.0, 34/255.0, 34/255.0},
-    {255/255.0, 250/255.0, 240/255.0},
-    {34/255.0, 139/255.0, 34/255.0},
-    {255/255.0, 0/255.0, 255/255.0},
-    {220/255.0, 220/255.0, 220/255.0},
-    {248/255.0, 248/255.0, 255/255.0},
-    {255/255.0, 215/255.0, 0/255.0},
-    {218/255.0, 165/255.0, 32/255.0},
-    {128/255.0, 128/255.0, 128/255.0},
-    {0/255.0, 128/255.0, 0/255.0},
-    {173/255.0, 255/255.0, 47/255.0},
-    {240/255.0, 255/255.0, 240/255.0},
-    {255/255.0, 105/255.0, 180/255.0},
-    {205/255.0, 92/255.0, 92/255.0},
-    {75/255.0, 0/255.0, 130/255.0},
-    {255/255.0, 240/255.0, 240/255.0},
-    {240/255.0, 230/255.0, 140/255.0},
-    {230/255.0, 230/255.0, 250/255.0},
-    {255/255.0, 240/255.0, 245/255.0},
-    {124/255.0, 252/255.0, 0/255.0},
-    {255/255.0, 250/255.0, 205/255.0},
-    {173/255.0, 216/255.0, 230/255.0},
-    {240/255.0, 128/255.0, 128/255.0},
-    {224/255.0, 255/255.0, 255/255.0},
-    {250/255.0, 250/255.0, 210/255.0},
-    {144/255.0, 238/255.0, 144/255.0},
-    {211/255.0, 211/255.0, 211/255.0},
-    {255/255.0, 182/255.0, 193/255.0},
-    {255/255.0, 160/255.0, 122/255.0},
-    {32/255.0, 178/255.0, 170/255.0},
-    {135/255.0, 206/255.0, 250/255.0},
-    {119/255.0, 136/255.0, 153/255.0},
-    {176/255.0, 196/255.0, 222/255.0},
-    {255/255.0, 255/255.0, 224/255.0},
-    {0/255.0, 255/255.0, 0/255.0},
-    {50/255.0, 205/255.0, 50/255.0},
-    {250/255.0, 240/255.0, 230/255.0},
-    {255/255.0, 0/255.0, 255/255.0},
-    {128/255.0, 0/255.0, 0/255.0},
-    {102/255.0, 205/255.0, 170/255.0},
-    {0/255.0, 0/255.0, 205/255.0},
-    {186/255.0, 85/255.0, 211/255.0},
-    {147/255.0, 112/255.0, 219/255.0},
-    {60/255.0, 179/255.0, 113/255.0},
-    {123/255.0, 104/255.0, 238/255.0},
-    {0/255.0, 250/255.0, 154/255.0},
-    {72/255.0, 209/255.0, 204/255.0},
-    {199/255.0, 21/255.0, 133/255.0},
-    {25/255.0, 25/255.0, 112/255.0},
-    {245/255.0, 255/255.0, 250/255.0},
-    {255/255.0, 228/255.0, 225/255.0},
-    {255/255.0, 228/255.0, 181/255.0},
-    {255/255.0, 222/255.0, 173/255.0},
-    {0/255.0, 0/255.0, 128/255.0},
-    {253/255.0, 245/255.0, 230/255.0},
-    {128/255.0, 128/255.0, 0/255.0},
-    {107/255.0, 142/255.0, 35/255.0},
-    {255/255.0, 165/255.0, 0/255.0},
-    {255/255.0, 69/255.0, 0/255.0},
-    {218/255.0, 112/255.0, 214/255.0},
-    {238/255.0, 232/255.0, 170/255.0},
-    {152/255.0, 251/255.0, 152/255.0},
-    {175/255.0, 238/255.0, 238/255.0},
-    {219/255.0, 112/255.0, 147/255.0},
-    {255/255.0, 239/255.0, 213/255.0},
-    {255/255.0, 239/255.0, 213/255.0},
-    {205/255.0, 133/255.0, 63/255.0},
-    {255/255.0, 192/255.0, 203/255.0},
-    {221/255.0, 160/255.0, 221/255.0},
-    {176/255.0, 224/255.0, 230/255.0},
-    {128/255.0, 0/255.0, 128/255.0},
-    {255/255.0, 0/255.0, 0/255.0},
-    {188/255.0, 143/255.0, 143/255.0},
-    {65/255.0, 105/255.0, 225/255.0},
-    {139/255.0, 69/255.0, 19/255.0},
-    {250/255.0, 128/255.0, 114/255.0},
-    {244/255.0, 164/255.0, 96/255.0},
-    {46/255.0, 139/255.0, 87/255.0},
-    {255/255.0, 245/255.0, 238/255.0},
-    {160/255.0, 82/255.0, 45/255.0},
-    {192/255.0, 192/255.0, 192/255.0},
-    {135/255.0, 206/255.0, 235/255.0},
-    {106/255.0, 90/255.0, 205/255.0},
-    {112/255.0, 128/255.0, 144/255.0},
-    {255/255.0, 250/255.0, 250/255.0},
-    {0/255.0, 255/255.0, 127/255.0},
-    {70/255.0, 130/255.0, 180/255.0},
-    {210/255.0, 180/255.0, 140/255.0},
-    {0/255.0, 128/255.0, 128/255.0},
-    {216/255.0, 191/255.0, 216/255.0},
-    {253/255.0, 99/255.0, 71/255.0},
-    {64/255.0, 224/255.0, 208/255.0},
-    {238/255.0, 130/255.0, 238/255.0},
-    {245/255.0, 222/255.0, 179/255.0},
-    {255/255.0, 255/255.0, 255/255.0},
-    {245/255.0, 245/255.0, 245/255.0},
-    {255/255.0, 255/255.0, 0/255.0},
-    {154/255.0, 205/255.0, 50/255.0}
-  };
-
-  if (index > 0) {
-    if (index > NCOLORS) return nullptr;
-    return rgb[index-1];
-  }
-  if (index < 0) {
-    if (-index > ncolors) return nullptr;
-    return userrgb[-index-1];
-  }
-
-  if (color) {
-    if (strcmp(color,"none") == 0) return nullptr;
-    for (int i = 0; i < ncolors; i++)
-      if (strcmp(color,username[i]) == 0) return userrgb[i];
-    for (int i = 0; i < NCOLORS; i++)
-      if (strcmp(color,name[i]) == 0) return rgb[i];
-  }
-  return nullptr;
+  auto i = rgbcolors.find(color);
+  if (i == rgbcolors.end())
+    return nullptr;
+  else
+    return i->second.data();
 }
 
 /* ----------------------------------------------------------------------
-   return number of default colors
+   return a pointer to the 3 floating point RGB values for the given element
 ------------------------------------------------------------------------- */
 
-int Image::default_colors()
+double *Image::element2color(const std::string &element)
 {
-  return NCOLORS;
+  auto i = elementdata.find(element);
+  if (i == elementdata.end())
+    return nullptr;
+  else
+    return i->second.rgb;
 }
 
 /* ----------------------------------------------------------------------
-   search the list of element names for the string element
-   return a pointer to the 3 floating point RGB values
-   this list is used by AtomEye and is taken from its Mendeleyev.c file
+   return the covalent radius for the given element
 ------------------------------------------------------------------------- */
 
-double *Image::element2color(char *element)
+double Image::element2diam(const std::string &element)
 {
-  static const char *name[NELEMENTS] = {
-    "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
-    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca",
-    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
-    "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr",
-    "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn",
-    "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd",
-    "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
-    "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
-    "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th",
-    "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm",
-    "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt"
-  };
-
-  static double rgb[NELEMENTS][3] = {
-    {0.8, 0.8, 0.8},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.7, 0.7, 0.7},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.9, 0.4, 0},
-    {0.35, 0.35, 0.35},
-    {0.2, 0.2, 0.8},
-    {0.8, 0.2, 0.2},
-    {0.7, 0.85, 0.45},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6, 0.6, 0.8},
-    {0.6, 0.6, 0.7},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6901960784, 0.768627451, 0.8705882353},
-    {0.1, 0.7, 0.3},
-    {0.95, 0.9, 0.2},
-    {0.15, 0.5, 0.1},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.8, 0.5, 0.5},
-    {0.8, 0.8, 0.7},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0, 0.8, 0},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.5176470588, 0.5764705882, 0.6529411765},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.257254902, 0.2666666667, 0.271372549},
-    {0.95, 0.7900735294, 0.01385869565},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.9, 0, 1},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {1, 1, 0.3},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.5, 0.08, 0.12},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.5, 0.1, 0.5},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.8, 0.8, 0},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {1, 0.8431372549, 0},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.9, 0.8, 0},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.8, 0.2, 0.2},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.1, 0.7, 0.3},
-    {0.1, 0.3, 0.7},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.9, 0.8, 0},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725},
-    {0.6431372549, 0.6666666667, 0.6784313725}
-  };
-
-  for (int i = 0; i < NELEMENTS; i++)
-    if (strcmp(element,name[i]) == 0) return rgb[i];
-  return nullptr;
-}
-
-/* ----------------------------------------------------------------------
-   search the list of element names for the string element
-   return a pointer to the 3 floating point RGB values
-   this list is used by AtomEye and is taken from its Mendeleyev.c file
-------------------------------------------------------------------------- */
-
-double Image::element2diam(char *element)
-{
-  static const char *name[NELEMENTS] = {
-    "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
-    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca",
-    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
-    "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr",
-    "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn",
-    "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd",
-    "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
-    "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
-    "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th",
-    "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm",
-    "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt"
-  };
-
-  static double diameter[NELEMENTS] = {
-    0.35, 1.785, 1.45, 1.05, 0.85, 0.72, 0.65, 0.6, 0.5, 1.5662,
-    1.8, 1.5, 1.4255, 1.07, 1, 1, 1, 1.8597, 2.2, 1.8,
-    1.6, 1.4, 1.51995, 1.44225, 1.4, 1.43325, 1.35, 1.35, 1.278, 1.35,
-    1.3, 1.25, 1.15, 1.15, 1.15, 2.0223, 2.35, 2, 1.8, 1.55,
-    1.6504, 1.3872, 1.35, 1.3, 1.35, 1.4, 1.6, 1.55, 1.55, 1.45,
-    1.45, 1.4, 1.4, 2.192, 2.6, 2.15, 1.95, 1.85, 1.85, 1.85,
-    1.85, 1.85, 1.85, 1.8, 1.75, 1.75, 1.75, 1.75, 1.75, 1.75,
-    1.75, 1.55, 1.6529, 1.5826, 1.35, 1.3, 1.35, 1.35, 1.35, 1.5,
-    1.9, 1.8, 1.6, 1.9, 1.6, 1.0, 1.0, 2.15, 1.95, 1.8,
-    1.8, 1.75, 1.75, 1.75, 1.75, 1.0, 1.0, 1.6, 1.6, 1.0,
-    1.0, 1.0, 1.0, 1.0, 1.6, 1.0, 1.0, 1.0, 1.0
-  };
-
-  for (int i = 0; i < NELEMENTS; i++)
-    if (strcmp(element,name[i]) == 0) return diameter[i];
-  return 0.0;
+  auto i = elementdata.find(element);
+  if (i == elementdata.end())
+    return 0.0;
+  else
+    return i->second.diam;
 }
 
 // ----------------------------------------------------------------------
@@ -2340,7 +2270,7 @@ ColorMap::ColorMap(LAMMPS *lmp, Image *caller) : Pointers(lmp)
 
 ColorMap::~ColorMap()
 {
-  delete [] mentry;
+  delete[] mentry;
 }
 
 /* ----------------------------------------------------------------------
@@ -2386,7 +2316,7 @@ int ColorMap::reset(int narg, char **arg)
 
   nentry = utils::inumeric(FLERR,arg[4],false,lmp);
   if (nentry < 1) return 5;
-  delete [] mentry;
+  delete[] mentry;
   mentry = new MapEntry[nentry];
   mentry[0].svalue = 0.0;
 
@@ -2501,10 +2431,13 @@ int ColorMap::minmax(double mindynamic, double maxdynamic)
   return 0;
 }
 
-int ColorMap::info(double &min, double &max)
+// clang-format on
+
+int ColorMap::info(double &min, double &max, bool &sequential)
 {
   min = locurrent;
   max = hicurrent;
+  sequential = mstyle == SEQUENTIAL;
   return dynamic;
 }
 
@@ -2515,14 +2448,16 @@ int ColorMap::info(double &min, double &max)
 
 double *ColorMap::value2color(double value)
 {
-  double lo;//,hi;
+  double lo;    //,hi;
 
-  value = MAX(value,locurrent);
-  value = MIN(value,hicurrent);
+  value = MAX(value, locurrent);
+  value = MIN(value, hicurrent);
 
   if (mrange == FRACTIONAL) {
-    if (locurrent == hicurrent) value = 0.0;
-    else value = (value-locurrent) / (hicurrent-locurrent);
+    if (locurrent == hicurrent)
+      value = 0.0;
+    else
+      value = (value - locurrent) / (hicurrent - locurrent);
     lo = 0.0;
     //hi = 1.0;
   } else {
@@ -2531,26 +2466,29 @@ double *ColorMap::value2color(double value)
   }
 
   if (mstyle == CONTINUOUS) {
-    for (int i = 0; i < nentry-1; i++)
-      if (value >= mentry[i].svalue && value <= mentry[i+1].svalue) {
-        double fraction = (value-mentry[i].svalue) /
-          (mentry[i+1].svalue-mentry[i].svalue);
-        interpolate[0] = mentry[i].color[0] +
-          fraction*(mentry[i+1].color[0]-mentry[i].color[0]);
-        interpolate[1] = mentry[i].color[1] +
-          fraction*(mentry[i+1].color[1]-mentry[i].color[1]);
-        interpolate[2] = mentry[i].color[2] +
-          fraction*(mentry[i+1].color[2]-mentry[i].color[2]);
+    for (int i = 0; i < nentry - 1; i++)
+      if (value >= mentry[i].svalue && value <= mentry[i + 1].svalue) {
+        if (mentry[i].color) {
+          double fraction = (value - mentry[i].svalue) / (mentry[i + 1].svalue - mentry[i].svalue);
+          interpolate[0] =
+              mentry[i].color[0] + fraction * (mentry[i + 1].color[0] - mentry[i].color[0]);
+          interpolate[1] =
+              mentry[i].color[1] + fraction * (mentry[i + 1].color[1] - mentry[i].color[1]);
+          interpolate[2] =
+              mentry[i].color[2] + fraction * (mentry[i + 1].color[2] - mentry[i].color[2]);
+        } else {
+          interpolate[0] = interpolate[1] = interpolate[2] = 1.0;
+        }
         return interpolate;
       }
   } else if (mstyle == DISCRETE) {
     for (int i = 0; i < nentry; i++)
-      if (value >= mentry[i].lvalue && value <= mentry[i].hvalue)
-        return mentry[i].color;
+      if (value >= mentry[i].lvalue && value <= mentry[i].hvalue) return mentry[i].color;
   } else {
-    int ibin = static_cast<int>((value-lo) * mbinsizeinv);
-    return mentry[ibin%nentry].color;
+    int ibin = static_cast<int>((value - lo) * mbinsizeinv);
+    return mentry[ibin % nentry].color;
   }
 
-  return nullptr;
+  // always return a non-NULL pointer
+  return mentry[0].color;
 }

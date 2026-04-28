@@ -33,6 +33,7 @@
 #include "output.h"
 #include "random_mars.h"
 #include "region.h"
+#include "safe_pointers.h"
 #include "thermo.h"
 #include "timer.h"
 #include "tokenizer.h"
@@ -51,18 +52,14 @@
 using namespace LAMMPS_NS;
 using namespace MathConst;
 
-static constexpr int VARDELTA = 4;
-static constexpr int MAXLEVEL = 4;
-static constexpr int MAXLINE = 256;
-static constexpr int CHUNK = 1024;
-static constexpr int MAXFUNCARG = 6;
+namespace {
+constexpr int VARDELTA = 4;
+constexpr int MAXLEVEL = 4;
+constexpr int MAXLINE = 256;
+constexpr int CHUNK = 1024;
+constexpr int MAXFUNCARG = 6;
 
-// must match enumerator in variable.h
-const std::vector<std::string> Variable::varstyles = {
-    "index",  "loop",  "world", "universe", "uloop",  "string", "getenv",   "file",     "atomfile",
-    "format", "equal", "atom",  "vector",   "python", "timer",  "internal", "(unknown)"};
-
-static inline double MYROUND(double a)
+inline double MYROUND(double a)
 {
   return ((a - floor(a)) >= 0.5) ? ceil(a) : floor(a);
 }
@@ -87,23 +84,30 @@ enum{DONE,ADD,SUBTRACT,MULTIPLY,DIVIDE,CARAT,MODULO,UNARY,
 
 enum { SUM, XMIN, XMAX, AVE, TRAP, SLOPE, SORT, RSORT, NOVECTOR };
 
-static constexpr double BIG = 1.0e20;
+constexpr double BIG = 1.0e20;
 
 // INT64_MAX cannot be represented with a double. reduce to avoid overflow when casting back
 
 #if defined(LAMMPS_SMALLBIG) || defined(LAMMPS_BIGBIG)
-static constexpr double MAXBIGINT_DOUBLE = (double) (MAXBIGINT - 512);
+constexpr double MAXBIGINT_DOUBLE = (double) (MAXBIGINT - 512);
 #else
-static constexpr double MAXBIGINT_DOUBLE = (double) MAXBIGINT;
+constexpr double MAXBIGINT_DOUBLE = (double) MAXBIGINT;
 #endif
 
+// NOLINTBEGIN
 // constants for variable expressions. customize by adding new items.
 // if needed (cf. 'version') initialize in Variable class constructor.
 
-static std::unordered_map<std::string, double> constants = {
+std::unordered_map<std::string, double> constants = {
     {"PI", MY_PI}, {"version", -1}, {"yes", 1},  {"no", 0},
     {"on", 1},     {"off", 0},      {"true", 1}, {"false", 0}};
+}
 
+// must match enumerator in variable.h
+const std::vector<std::string> Variable::varstyles = {
+    "index",  "loop",  "world", "universe", "uloop",  "string", "getenv",   "file",     "atomfile",
+    "format", "equal", "atom",  "vector",   "python", "timer",  "internal", "(unknown)"};
+// NOLINTEND
 /* ---------------------------------------------------------------------- */
 
 Variable::Variable(LAMMPS *lmp) : Pointers(lmp)
@@ -302,12 +306,10 @@ void Variable::set(int narg, char **arg)
     which[nvar] = universe->iworld;
 
     if (universe->me == 0) {
-      FILE *fp = fopen("tmp.lammps.variable", "w");
+      SafeFilePtr fp = fopen("tmp.lammps.variable", "w");
       if (fp == nullptr)
         error->one(FLERR, "Cannot open temporary file for world counter: " + utils::getsyserror());
       fprintf(fp, "%d\n", universe->nworlds);
-      fclose(fp);
-      fp = nullptr;
     }
 
     for (int jvar = 0; jvar < nvar; jvar++)
@@ -799,6 +801,7 @@ int Variable::next(int narg, char **arg)
       int done = reader[ivar]->read_scalar(data[ivar][0]);
       if (done) {
         flag = 1;
+        if (comm->me == 0) error->warning(FLERR, "Auto-deleting variable {}\n", arg[iarg]);
         remove(ivar);
       }
     }
@@ -810,6 +813,7 @@ int Variable::next(int narg, char **arg)
       int done = reader[ivar]->read_peratom();
       if (done) {
         flag = 1;
+        if (comm->me == 0) error->warning(FLERR, "Auto-deleting variable {}\n", arg[iarg]);
         remove(ivar);
       }
     }
@@ -845,7 +849,7 @@ int Variable::next(int narg, char **arg)
       // and we have to start over.
       // if the read is short (we need at least one byte) we try reading again.
 
-      FILE *fp;
+      SafeFilePtr fp;
       char buf[64];
       for (int loopmax = 0; loopmax < 100; ++loopmax) {
         fp = fopen("tmp.lammps.variable.lock","r");
@@ -854,7 +858,6 @@ int Variable::next(int narg, char **arg)
         buf[0] = buf[1] = '\0';
         auto tmp = fread(buf,1,64,fp);
         (void) tmp; // can be safely ignored, suppress compiler warning in a portable way
-        fclose(fp);
 
         if (strlen(buf) > 0) {
           nextindex = std::stoi(buf);
@@ -872,8 +875,6 @@ int Variable::next(int narg, char **arg)
 
       fp = fopen("tmp.lammps.variable.lock","w");
       fprintf(fp,"%d\n",nextindex+1);
-      fclose(fp);
-      fp = nullptr;
       (void) rename("tmp.lammps.variable.lock","tmp.lammps.variable");
       if (universe->uscreen)
         fprintf(universe->uscreen, "Increment via next: value %d on partition %d\n",
@@ -4502,11 +4503,15 @@ Region *Variable::region_function(char *id, int ivar)
 
 // to simplify finding matches and assigning constants for functions operating on vectors
 
-static const std::unordered_map<std::string,int> special_function_map = {
+namespace {
+// NOLINTBEGIN
+const std::unordered_map<std::string,int> special_function_map = {
   {"sum", SUM}, {"min", XMIN}, {"max", XMAX}, {"ave", AVE}, {"trap", TRAP}, {"slope", SLOPE},
   {"sort", SORT}, {"rsort", RSORT}, {"gmask", NOVECTOR}, {"rmask", NOVECTOR}, {"grmask", NOVECTOR},
   {"next", NOVECTOR}, {"is_file", NOVECTOR}, {"is_os", NOVECTOR}, {"extract_setting", NOVECTOR},
   {"label2type", NOVECTOR}, {"is_typelabel", NOVECTOR}, {"is_timeout", NOVECTOR} };
+// NOLINTEND
+}
 
 int Variable::special_function(const std::string &word, char *contents, Tree **tree,
                                Tree **treestack, int &ntreestack, double *argstack,
@@ -4912,7 +4917,10 @@ int Variable::special_function(const std::string &word, char *contents, Tree **t
     if (style[ivar] == SCALARFILE) {
       double value = std::stod(data[ivar][0]);
       int done = reader[ivar]->read_scalar(data[ivar][0]);
-      if (done) remove(ivar);
+      if (done) {
+        if (comm->me == 0) error->warning(FLERR, "Auto-deleting variable {}\n", args[0]);
+        remove(ivar);
+      }
 
       if (tree) {
         auto *newtree = new Tree();
@@ -4934,7 +4942,10 @@ int Variable::special_function(const std::string &word, char *contents, Tree **t
       memcpy(result,reader[ivar]->fixstore->vstore,(atom->nlocal*sizeof(double))&MEMCPYMASK);
 
       int done = reader[ivar]->read_peratom();
-      if (done) remove(ivar);
+      if (done) {
+        if (comm->me == 0) error->warning(FLERR, "Auto-deleting variable {}\n", args[0]);
+        remove(ivar);
+      }
 
       auto *newtree = new Tree();
       newtree->type = ATOMARRAY;
@@ -4949,9 +4960,8 @@ int Variable::special_function(const std::string &word, char *contents, Tree **t
     if (narg != 1)
       print_var_error(FLERR,"Invalid is_file() function in variable formula",ivar);
 
-    FILE *fp = fopen(args[0],"r");
+    SafeFilePtr fp = fopen(args[0],"r");
     value = (fp == nullptr) ? 0.0 : 1.0;
-    if (fp) fclose(fp);
 
     // save value in tree or on argstack
 
@@ -5710,7 +5720,6 @@ VarReader::VarReader(LAMMPS *lmp, char *name, char *file, int flag) :
 {
   me = comm->me;
   style = flag;
-  fp = nullptr;
 
   if (me == 0) {
     fp = fopen(file,"r");
@@ -5742,11 +5751,6 @@ VarReader::VarReader(LAMMPS *lmp, char *name, char *file, int flag) :
 
 VarReader::~VarReader()
 {
-  if (me == 0) {
-    fclose(fp);
-    fp = nullptr;
-  }
-
   // check modify in case all fixes have already been deleted
 
   if (fixstore) {
