@@ -21,11 +21,12 @@
 #include "kokkos.h"
 #include "math_const.h"
 #include "memory_kokkos.h"
+#include "modify.h"
 #include "neigh_request.h"
 #include "neighbor.h"
 #include "update.h"
 
-#include "pair_oxdna_excv_kokkos.h"
+#include "fix_oxdna_lrf_kokkos.h"
 #include "mf_oxdna_kokkos.h"
 
 using namespace LAMMPS_NS;
@@ -58,7 +59,7 @@ PairOxdnaXstkKokkos<DeviceType>::PairOxdnaXstkKokkos(LAMMPS *lmp) : PairOxdnaXst
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
-  datamask_read = X_MASK | ELLIPSOID_MASK | BONUS_MASK | F_MASK | 
+  datamask_read = X_MASK | F_MASK | 
                   TORQUE_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
   k_screened_pair_count = DAT::tdual_int_scalar("PairOxdnaXstk:screened_pair_count");
@@ -145,14 +146,10 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   copymode = 1;
 
-  // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from oxdna/excv/kk or oxdna2/excv/kk
-  auto oxdna_excvKK = dynamic_cast<PairOxdnaExcvKokkos<DeviceType> *>(force->pair_match("oxdna.*excv.*", 0, 1));
-  if (!oxdna_excvKK) {
-    error->all(FLERR, "Failed to cast to PairOxdnaExcvKokkos");
-  }
-  d_nx_xtrct = oxdna_excvKK->k_nx.template view<DeviceType>();
-  d_ny_xtrct = oxdna_excvKK->k_ny.template view<DeviceType>();
-  d_nz_xtrct = oxdna_excvKK->k_nz.template view<DeviceType>();
+  // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from fix_oxdna_lrf_kokkos.
+  d_nx_xtrct = fix_oxdna_lrfKK->k_nx.template view<DeviceType>();
+  d_ny_xtrct = fix_oxdna_lrfKK->k_ny.template view<DeviceType>();
+  d_nz_xtrct = fix_oxdna_lrfKK->k_nz.template view<DeviceType>();
 
   // If we're on a GPU, screen pairs and create screened neighbor list
   if (execution_space != HostKK) {
@@ -1541,6 +1538,11 @@ void PairOxdnaXstkKokkos<DeviceType>::init_style()
   request->set_kokkos_device(std::is_same_v<DeviceType,LMPDeviceType>);
   if (neighflag == FULL) request->enable_full();
 
+  fix_oxdna_lrfKK = nullptr;
+  Kokkos::fence("before oxdna/lrf/kk lookup");
+  auto fixes = modify->get_fix_by_style("^oxdna/lrf/kk");
+  if (fixes.size() == 0) error->all(FLERR, "Fix oxdna/lrf/kk not found. Ensure pair ox*na*/excv/kk is present");
+  else fix_oxdna_lrfKK = dynamic_cast<FixOxdnaLRFKokkos<DeviceType> *>(fixes[0]);
 }
 
 /* ---------------------------------------------------------------------- */

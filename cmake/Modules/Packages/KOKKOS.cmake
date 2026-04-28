@@ -171,6 +171,10 @@ if(PKG_GRANULAR)
   list(APPEND KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/fix_wall_gran_old.cpp)
 endif()
 
+if(PKG_CG-DNA)
+  list(APPEND KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/fix_oxdna_lrf_kokkos.cpp)
+endif()
+
 if(PKG_KSPACE)
   list(APPEND KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/fft3d_kokkos.cpp
                                  ${KOKKOS_PKG_SOURCES_DIR}/grid3d_kokkos.cpp
@@ -262,6 +266,9 @@ RegisterStylesExt(${KOKKOS_PKG_SOURCES_DIR} kokkos KOKKOS_PKG_SOURCES)
 RegisterNBinStyle(${KOKKOS_PKG_SOURCES_DIR}/nbin_kokkos.h)
 RegisterNPairStyle(${KOKKOS_PKG_SOURCES_DIR}/npair_kokkos.h)
 RegisterNPairStyle(${KOKKOS_PKG_SOURCES_DIR}/npair_halffull_kokkos.h)
+if(PKG_CG-DNA)
+  RegisterFixStyle(${KOKKOS_PKG_SOURCES_DIR}/fix_oxdna_lrf_kokkos.h)
+endif()
 
 if(PKG_DPD-REACT)
   get_property(KOKKOS_PKG_SOURCES GLOBAL PROPERTY KOKKOS_PKG_SOURCES)

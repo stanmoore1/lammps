@@ -31,9 +31,10 @@ PairStyle(oxdna2/stk/kk/host,PairOxdnaStkKokkos<LMPHostType>);
 #include "pair_oxdna_stk.h"
 #include "neigh_list_kokkos.h"
 
-#include "atom_vec_ellipsoid_kokkos.h"
-
 namespace LAMMPS_NS {
+
+template<class DeviceType>
+class FixOxdnaLRFKokkos;  // forward declaration
 
 struct TagPairOxdnaStkPrecomputeBondPrimeNeighs{};
 
@@ -157,6 +158,8 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
  
   friend void pair_virial_fdotr_compute<PairOxdnaStkKokkos>(PairOxdnaStkKokkos*);
 
+  FixOxdnaLRFKokkos<DeviceType> *fix_oxdna_lrfKK;    // ptr to oxdna/lrf/kk fix
+
   // Atom Mapping
   int map_style;
   DAT::tdual_int_1d k_map_array;
@@ -167,7 +170,6 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
   // 0-3 : atom a, atom b, id3p[a], id5p[b] for each bond
   DAT::tdual_int_1d_4 k_bond_prime_neighs;
   typename AT::t_int_1d_4 d_bond_prime_neighs;
-
 };
 
 }    // namespace LAMMPS_NS

@@ -28,13 +28,10 @@ PairStyle(oxdna/excv/kk/host,PairOxdnaExcvKokkos<LMPHostType>);
 #include "pair_oxdna_excv.h"
 #include "neigh_list_kokkos.h"
 
-#include "atom_vec_ellipsoid_kokkos.h"
-
 namespace LAMMPS_NS {
 
-struct TagPairOxdnaExcvQuatToXYZ{};
-struct TagPairOxdnaExcvPackForwardComm{};
-struct TagPairOxdnaExcvUnpackForwardComm{};
+template<class DeviceType>
+class FixOxdnaLRFKokkos;  // forward declaration
 
 template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct TagPairOxdnaExcvCompute{};
@@ -58,18 +55,6 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   double init_one(int, int) override;
   void coeff(int, char **) override;
 
-// NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairOxdnaExcvQuatToXYZ, const int&) const;
-
-// NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairOxdnaExcvPackForwardComm, const int&) const;
-
-// NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairOxdnaExcvUnpackForwardComm, const int&) const;
-
   template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -91,12 +76,6 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
 
-  void *extract(const char *, int &) override;
-
-  // per-atom arrays for local unit vectors
-  DAT::tdual_kkfloat_1d_3 k_nx, k_ny, k_nz;
-  typename AT::t_kkfloat_1d_3 d_nx, d_ny, d_nz;
-
  protected:
  
   int oxdnaflag;
@@ -106,9 +85,6 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_kkfloat_1d_3 torque;
   typename AT::t_int_1d_randomread type;
-
-  typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d bonus;
-  typename AT::t_int_1d_randomread ellipsoid;
 
   DAT::ttransform_kkfloat_1d k_eatom;
   DAT::ttransform_kkfloat_1d_6 k_vatom;
@@ -148,6 +124,9 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   typename AT::tdual_kkfloat_4d k_lj14_bsbs, k_lj24_bsbs, k_b4_bsbs, k_cut4_bsbs_c, k_cut4sq_bsbs_c;
   typename AT::t_kkfloat_4d d_sigma4_bsbs, d_cut4_bsbs_ast, d_cut4sq_bsbs_ast;
   typename AT::t_kkfloat_4d d_lj14_bsbs, d_lj24_bsbs, d_b4_bsbs, d_cut4_bsbs_c, d_cut4sq_bsbs_c;
+  // per-atom arrays for local unit vectors
+  DAT::tdual_kkfloat_1d_3 k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
+  typename AT::t_kkfloat_1d_3 d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
 
   int first;
   typename AT::t_int_1d d_sendlist;
@@ -184,6 +163,8 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   void allocate() override;
  
   friend void pair_virial_fdotr_compute<PairOxdnaExcvKokkos>(PairOxdnaExcvKokkos*);
+
+  FixOxdnaLRFKokkos<DeviceType> *fix_oxdna_lrfKK;    // ptr to oxdna/lrf/kk fix
 };
 
 }

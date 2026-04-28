@@ -31,9 +31,10 @@ PairStyle(oxdna2/hbond/kk/host,PairOxdnaHbondKokkos<LMPHostType>);
 #include "pair_oxdna_hbond.h"
 #include "neigh_list_kokkos.h"
 
-#include "atom_vec_ellipsoid_kokkos.h"
-
 namespace LAMMPS_NS {
+
+template<class DeviceType>
+class FixOxdnaLRFKokkos;  // forward declaration
 
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct TagPairOxdnaHbondCompute{};
@@ -76,9 +77,6 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
   typename AT::t_kkfloat_1d_3 f;
   typename AT::t_kkfloat_1d_3 torque;
   typename AT::t_int_1d_randomread type;
-
-  typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d bonus;
-  typename AT::t_int_1d_randomread ellipsoid;
 
   DAT::ttransform_kkfloat_1d k_eatom;
   DAT::ttransform_kkfloat_1d_6 k_vatom;
@@ -162,6 +160,8 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
   void allocate() override;
  
   friend void pair_virial_fdotr_compute<PairOxdnaHbondKokkos>(PairOxdnaHbondKokkos*);
+
+  FixOxdnaLRFKokkos<DeviceType> *fix_oxdna_lrfKK;    // ptr to oxdna/lrf/kk fix
 };
 
 }

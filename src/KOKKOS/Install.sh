@@ -197,6 +197,8 @@ action fix_nvt_kokkos.cpp
 action fix_nvt_kokkos.h
 action fix_nvt_sllod_kokkos.cpp
 action fix_nvt_sllod_kokkos.h
+action fix_oxdna_lrf_kokkos.cpp
+action fix_oxdna_lrf_kokkos.h
 action fix_property_atom_kokkos.cpp
 action fix_property_atom_kokkos.h
 action fix_qeq_reaxff_kokkos.cpp fix_qeq_reaxff.cpp

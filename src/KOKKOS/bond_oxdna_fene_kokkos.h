@@ -27,6 +27,9 @@ BondStyle(oxdna/fene/kk/host,BondOxdnaFENEKokkos<LMPHostType>);
 
 namespace LAMMPS_NS {
 
+template<class DeviceType>
+class FixOxdnaLRFKokkos;  // forward declaration
+
 struct TagBondOxdnaFENEPrecomputeBondPrimeNeighs{};
 
 template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
@@ -41,6 +44,7 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
 
   BondOxdnaFENEKokkos(class LAMMPS *);
   ~BondOxdnaFENEKokkos() override;
+  void init_style() override;
   void compute(int, int) override;
   void coeff(int, char **) override;
   void read_restart(FILE *) override;
@@ -104,6 +108,8 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   typename AT::t_kkfloat_1d_3 d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
 
   void allocate() override;
+
+  FixOxdnaLRFKokkos<DeviceType> *fix_oxdna_lrfKK;    // ptr to oxdna/lrf/kk fix
 
   // Atom Mapping
   int map_style;

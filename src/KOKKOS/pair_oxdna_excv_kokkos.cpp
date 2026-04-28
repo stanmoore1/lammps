@@ -20,10 +20,12 @@
 #include "force.h"
 #include "kokkos.h"
 #include "memory_kokkos.h"
+#include "modify.h"
 #include "neigh_request.h"
 #include "neighbor.h"
 #include "update.h"
 
+#include "fix_oxdna_lrf_kokkos.h"
 #include "mf_oxdna_kokkos.h"
 
 using namespace LAMMPS_NS;
@@ -37,7 +39,7 @@ PairOxdnaExcvKokkos<DeviceType>::PairOxdnaExcvKokkos(LAMMPS *lmp) : PairOxdnaExc
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
-  datamask_read = X_MASK | ELLIPSOID_MASK | BONUS_MASK | F_MASK | 
+  datamask_read = X_MASK | F_MASK | 
                   TORQUE_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
 
@@ -55,6 +57,8 @@ PairOxdnaExcvKokkos<DeviceType>::~PairOxdnaExcvKokkos()
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->destroy_kokkos(k_vatom,vatom);
   }
+
+  if (fix_oxdna_lrfKK) modify->delete_fix(fix_oxdna_lrfKK->id);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -82,16 +86,6 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     d_vatom = k_vatom.template view<DeviceType>();
   }
 
-  // reallocate per-atom orientation arrays if atom storage has grown
-  if (atom->nmax > static_cast<int>(k_nx.extent(0))) {
-    MemKK::realloc_kokkos(k_nx, "PairOxdnaExcv:nx", atom->nmax);
-    MemKK::realloc_kokkos(k_ny, "PairOxdnaExcv:ny", atom->nmax);
-    MemKK::realloc_kokkos(k_nz, "PairOxdnaExcv:nz", atom->nmax);
-    d_nx = k_nx.template view<DeviceType>();
-    d_ny = k_ny.template view<DeviceType>();
-    d_nz = k_nz.template view<DeviceType>();
-  }
-
   atomKK->sync(execution_space,datamask_read);
 
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
@@ -101,10 +95,6 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   f = atomKK->k_f.template view<DeviceType>();
   torque = atomKK->k_torque.template view<DeviceType>();
   type = atomKK->k_type.template view<DeviceType>();
-
-  auto avecEllipKK = dynamic_cast<AtomVecEllipsoidKokkos *>(atom->style_match("ellipsoid"));
-  bonus = avecEllipKK->k_bonus.template view<DeviceType>();
-  ellipsoid = atomKK->k_ellipsoid.template view<DeviceType>();
 
   nlocal = atom->nlocal;
   newton_pair = force->newton_pair;
@@ -147,16 +137,14 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     Kokkos::Experimental::ScatterNonDuplicated>(torque);
   }
 
-  copymode = 1;
-
-  // loop over all local+ghost atoms, calculation of local reference frame from quaternions
-  const int nall = nlocal + atom->nghost;
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagPairOxdnaExcvQuatToXYZ>(0,nall),*this);
-  k_nx.template modify<DeviceType>();
-  k_ny.template modify<DeviceType>();
-  k_nz.template modify<DeviceType>();
+  // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from fix_oxdna_lrf_kokkos.
+  d_nx_xtrct = fix_oxdna_lrfKK->k_nx.template view<DeviceType>();
+  d_ny_xtrct = fix_oxdna_lrfKK->k_ny.template view<DeviceType>();
+  d_nz_xtrct = fix_oxdna_lrfKK->k_nz.template view<DeviceType>();
 
   // loop over neighbors of my atoms for compute functors
+
+  copymode = 1;
 
   EV_FLOAT ev;
 
@@ -317,25 +305,6 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 }
 
 template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvQuatToXYZ, const int &in) const
-{
-  double qn[4];
-  for (int i = 0; i < 4; i++) {
-    qn[i] = bonus(ellipsoid(in)).quat[i];
-  }
-  d_nx(in,0) = qn[0]*qn[0] + qn[1]*qn[1] - qn[2]*qn[2] - qn[3]*qn[3];
-  d_nx(in,1) = 2.0 * (qn[1]*qn[2] + qn[0]*qn[3]);
-  d_nx(in,2) = 2.0 * (qn[1]*qn[3] - qn[0]*qn[2]);
-  d_ny(in,0) = 2.0 * (qn[1]*qn[2] - qn[0]*qn[3]);
-  d_ny(in,1) = qn[0]*qn[0] - qn[1]*qn[1] + qn[2]*qn[2] - qn[3]*qn[3];
-  d_ny(in,2) = 2.0 * (qn[2]*qn[3] + qn[0]*qn[1]);
-  d_nz(in,0) = 2.0 * (qn[1]*qn[3] + qn[0]*qn[2]);
-  d_nz(in,1) = 2.0 * (qn[2]*qn[3] - qn[0]*qn[1]);
-  d_nz(in,2) = qn[0]*qn[0] - qn[1]*qn[1] - qn[2]*qn[2] + qn[3]*qn[3];
-}
-
-template<class DeviceType>
 template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
 void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
@@ -368,9 +337,9 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
   // vector COM - backbone and base site a
   if (OXDNAFLAG==OXDNA) {
     constexpr KK_FLOAT d_cs=-0.4;
-    ra_cs[0] = d_cs*d_nx(a,0);
-    ra_cs[1] = d_cs*d_nx(a,1);
-    ra_cs[2] = d_cs*d_nx(a,2);
+    ra_cs[0] = d_cs*d_nx_xtrct(a,0);
+    ra_cs[1] = d_cs*d_nx_xtrct(a,1);
+    ra_cs[2] = d_cs*d_nx_xtrct(a,2);
     ra_cb[0] = -ra_cs[0];
     ra_cb[1] = -ra_cs[1];
     ra_cb[2] = -ra_cs[2];
@@ -378,22 +347,22 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     constexpr KK_FLOAT d_cs_x = -0.34;
     constexpr KK_FLOAT d_cs_y = +0.3408;
     constexpr KK_FLOAT d_cb = +0.4;
-    ra_cs[0] = d_cs_x*d_nx(a,0) + d_cs_y*d_ny(a,0);
-    ra_cs[1] = d_cs_x*d_nx(a,1) + d_cs_y*d_ny(a,1);
-    ra_cs[2] = d_cs_x*d_nx(a,2) + d_cs_y*d_ny(a,2);
-    ra_cb[0] = d_cb*d_nx(a,0);
-    ra_cb[1] = d_cb*d_nx(a,1);
-    ra_cb[2] = d_cb*d_nx(a,2);
+    ra_cs[0] = d_cs_x*d_nx_xtrct(a,0) + d_cs_y*d_ny_xtrct(a,0);
+    ra_cs[1] = d_cs_x*d_nx_xtrct(a,1) + d_cs_y*d_ny_xtrct(a,1);
+    ra_cs[2] = d_cs_x*d_nx_xtrct(a,2) + d_cs_y*d_ny_xtrct(a,2);
+    ra_cb[0] = d_cb*d_nx_xtrct(a,0);
+    ra_cb[1] = d_cb*d_nx_xtrct(a,1);
+    ra_cb[2] = d_cb*d_nx_xtrct(a,2);
   } else if (OXDNAFLAG==OXRNA2) {
     constexpr KK_FLOAT d_cs_x = -0.4;
     constexpr KK_FLOAT d_cs_z = +0.2;
     constexpr KK_FLOAT d_cb = +0.4;
-    ra_cs[0] = d_cs_x*d_nx(a,0) + d_cs_z*d_nz(a,0);
-    ra_cs[1] = d_cs_x*d_nx(a,1) + d_cs_z*d_nz(a,1);
-    ra_cs[2] = d_cs_x*d_nx(a,2) + d_cs_z*d_nz(a,2);
-    ra_cb[0] = d_cb*d_nx(a,0);
-    ra_cb[1] = d_cb*d_nx(a,1);
-    ra_cb[2] = d_cb*d_nx(a,2);
+    ra_cs[0] = d_cs_x*d_nx_xtrct(a,0) + d_cs_z*d_nz_xtrct(a,0);
+    ra_cs[1] = d_cs_x*d_nx_xtrct(a,1) + d_cs_z*d_nz_xtrct(a,1);
+    ra_cs[2] = d_cs_x*d_nx_xtrct(a,2) + d_cs_z*d_nz_xtrct(a,2);
+    ra_cb[0] = d_cb*d_nx_xtrct(a,0);
+    ra_cb[1] = d_cb*d_nx_xtrct(a,1);
+    ra_cb[2] = d_cb*d_nx_xtrct(a,2);
   }
 
   rtmp_s[0] = x(a,0)+ra_cs[0];
@@ -422,9 +391,9 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     // vector COM - backbone and base site b
     if (OXDNAFLAG==OXDNA) {
       constexpr KK_FLOAT d_cs=-0.4;
-      rb_cs[0] = d_cs*d_nx(b,0);
-      rb_cs[1] = d_cs*d_nx(b,1);
-      rb_cs[2] = d_cs*d_nx(b,2);
+      rb_cs[0] = d_cs*d_nx_xtrct(b,0);
+      rb_cs[1] = d_cs*d_nx_xtrct(b,1);
+      rb_cs[2] = d_cs*d_nx_xtrct(b,2);
       rb_cb[0] = -rb_cs[0];
       rb_cb[1] = -rb_cs[1];
       rb_cb[2] = -rb_cs[2];
@@ -432,22 +401,22 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
       constexpr KK_FLOAT d_cs_x = -0.34;
       constexpr KK_FLOAT d_cs_y = +0.3408;
       constexpr KK_FLOAT d_cb = +0.4;
-      rb_cs[0] = d_cs_x*d_nx(b,0) + d_cs_y*d_ny(b,0);
-      rb_cs[1] = d_cs_x*d_nx(b,1) + d_cs_y*d_ny(b,1);
-      rb_cs[2] = d_cs_x*d_nx(b,2) + d_cs_y*d_ny(b,2);
-      rb_cb[0] = d_cb*d_nx(b,0);
-      rb_cb[1] = d_cb*d_nx(b,1);
-      rb_cb[2] = d_cb*d_nx(b,2);
+      rb_cs[0] = d_cs_x*d_nx_xtrct(b,0) + d_cs_y*d_ny_xtrct(b,0);
+      rb_cs[1] = d_cs_x*d_nx_xtrct(b,1) + d_cs_y*d_ny_xtrct(b,1);
+      rb_cs[2] = d_cs_x*d_nx_xtrct(b,2) + d_cs_y*d_ny_xtrct(b,2);
+      rb_cb[0] = d_cb*d_nx_xtrct(b,0);
+      rb_cb[1] = d_cb*d_nx_xtrct(b,1);
+      rb_cb[2] = d_cb*d_nx_xtrct(b,2);
     } else if (OXDNAFLAG==OXRNA2) {
       constexpr KK_FLOAT d_cs_x = -0.4;
       constexpr KK_FLOAT d_cs_z = +0.2;
       constexpr KK_FLOAT d_cb = +0.4;
-      rb_cs[0] = d_cs_x*d_nx(b,0) + d_cs_z*d_nz(b,0);
-      rb_cs[1] = d_cs_x*d_nx(b,1) + d_cs_z*d_nz(b,1);
-      rb_cs[2] = d_cs_x*d_nx(b,2) + d_cs_z*d_nz(b,2);
-      rb_cb[0] = d_cb*d_nx(b,0);
-      rb_cb[1] = d_cb*d_nx(b,1);
-      rb_cb[2] = d_cb*d_nx(b,2);
+      rb_cs[0] = d_cs_x*d_nx_xtrct(b,0) + d_cs_z*d_nz_xtrct(b,0);
+      rb_cs[1] = d_cs_x*d_nx_xtrct(b,1) + d_cs_z*d_nz_xtrct(b,1);
+      rb_cs[2] = d_cs_x*d_nx_xtrct(b,2) + d_cs_z*d_nz_xtrct(b,2);
+      rb_cb[0] = d_cb*d_nx_xtrct(b,0);
+      rb_cb[1] = d_cb*d_nx_xtrct(b,1);
+      rb_cb[2] = d_cb*d_nx_xtrct(b,2);
     }
 
     // vector backbone site b to a
@@ -687,21 +656,6 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void *PairOxdnaExcvKokkos<DeviceType>::extract(const char *str, int &dim)
-{
-  PairOxdnaExcv::extract(str,dim);
-
-  if (strcmp(str,"d_nx") == 0) return (void *) d_nx.data();
-  if (strcmp(str,"d_ny") == 0) return (void *) d_ny.data();
-  if (strcmp(str,"d_nz") == 0) return (void *) d_nz.data();
-
-
-  return nullptr;
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
 void PairOxdnaExcvKokkos<DeviceType>::allocate()
 {
   PairOxdnaExcv::allocate();
@@ -747,10 +701,6 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   memoryKK->create_kokkos(k_cut4_bsbs_c,n+1,n+1,n+1,n+1,"PairOxdnaExcv:cut4_bsbs_c");
   memoryKK->create_kokkos(k_cut4sq_bsbs_c,n+1,n+1,n+1,n+1,"PairOxdnaExcv:cut4sq_bsbs_c");
 
-  memoryKK->create_kokkos(k_nx,atom->nmax,3,"PairOxdnaExcv:nx");
-  memoryKK->create_kokkos(k_ny,atom->nmax,3,"PairOxdnaExcv:ny");
-  memoryKK->create_kokkos(k_nz,atom->nmax,3,"PairOxdnaExcv:nz");
-
   d_epsilon_bkbk = k_epsilon_bkbk.template view<DeviceType>();
   d_sigma_bkbk = k_sigma_bkbk.template view<DeviceType>();
   d_cut_bkbk_ast = k_cut_bkbk_ast.template view<DeviceType>();
@@ -789,10 +739,6 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
   d_b4_bsbs = k_b4_bsbs.template view<DeviceType>();
   d_cut4_bsbs_c = k_cut4_bsbs_c.template view<DeviceType>();
   d_cut4sq_bsbs_c = k_cut4sq_bsbs_c.template view<DeviceType>();
-
-  d_nx = k_nx.template view<DeviceType>();
-  d_ny = k_ny.template view<DeviceType>();
-  d_nz = k_nz.template view<DeviceType>();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -817,6 +763,11 @@ void PairOxdnaExcvKokkos<DeviceType>::init_style()
   request->set_kokkos_device(std::is_same_v<DeviceType,LMPDeviceType>);
   if (neighflag == FULL) request->enable_full();
 
+  // ensure fix oxdna/lrf/kk is added for backward-compatability
+  if (!fix_oxdna_lrfKK) {
+    fix_oxdna_lrfKK = dynamic_cast<FixOxdnaLRFKokkos<DeviceType> *>(modify->add_fix("lrf_kk all oxdna/lrf/kk"));
+    Kokkos::fence("Fix oxdna/lrf/kk creation");
+  }
 }
 
 /* ---------------------------------------------------------------------- */
