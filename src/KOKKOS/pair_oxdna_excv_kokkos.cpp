@@ -44,6 +44,7 @@ PairOxdnaExcvKokkos<DeviceType>::PairOxdnaExcvKokkos(LAMMPS *lmp) : PairOxdnaExc
   datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
 
   oxdnaflag = EnabledOXDNAFlag::OXDNA;
+  fix_oxdna_lrfKK = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
