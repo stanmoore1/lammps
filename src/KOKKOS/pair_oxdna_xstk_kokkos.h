@@ -142,6 +142,13 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
   typename AT::t_int_1d d_screened_offsets;
   DAT::tdual_int_scalar k_screened_pair_count;
   typename AT::t_int_scalar d_screened_pair_count;
+  // Direct (a, b) pair lookup contiguous-ity (Is that a word? SoA): I just mean an a-b pair
+  // is stored together in memory for coalesced access on GPUs. Only used for the ComputeGPUPair
+  // functor after screening.
+  DAT::tdual_int_1d k_pairs_screened_a;
+  DAT::tdual_int_1d k_pairs_screened_b;
+  typename AT::t_int_1d d_pairs_screened_a;
+  typename AT::t_int_1d d_pairs_screened_b;
   int screened_max_atoms;
   int screened_max_neigh;
   int screened_pair_count;

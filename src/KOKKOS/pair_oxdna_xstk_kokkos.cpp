@@ -165,13 +165,19 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
                             screened_max_atoms);
       MemKK::realloc_kokkos(k_screened_offsets, "PairOxdnaXstk:screened_offsets",
                             screened_max_atoms + 1);
+      MemKK::realloc_kokkos(k_pairs_screened_a, "PairOxdnaXstk:pairs_screened_a",
+                screened_max_atoms * screened_max_neigh);
+      MemKK::realloc_kokkos(k_pairs_screened_b, "PairOxdnaXstk:pairs_screened_b",
+                screened_max_atoms * screened_max_neigh);
       d_neighbors_screened = k_neighbors_screened.template view<DeviceType>();
       d_numneigh_screened = k_numneigh_screened.template view<DeviceType>();
       d_screened_offsets = k_screened_offsets.template view<DeviceType>();
+      d_pairs_screened_a = k_pairs_screened_a.template view<DeviceType>();
+      d_pairs_screened_b = k_pairs_screened_b.template view<DeviceType>();
     }
 
     // Pretty simple first pass via "TagPairOxdnaXstkScreen". We just loop through each atom a
-    // and its neighbors, run 'screen_pair_fast' for each a-neighbor pair which runs up
+    // and its neighbors, run 'screen_pair_fast' for each a-neighbor and its b-neighs which runs up
     // to f2 and return bool. If true, we add the neighbor to the d_neighbors_screened neighbor
     // list and increment the screened neighbor count.
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkScreen>(0, anum), *this);
@@ -182,24 +188,40 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     const auto d_alist_local = d_alist;
     const auto d_numneigh_screened_local = d_numneigh_screened;
     const auto d_screened_offsets_local = d_screened_offsets;
+    const auto d_neighbors_screened_local = d_neighbors_screened;
     const int anum_local = anum;
 
-    // Final/Second pass is a little more conceptually complex. ComputeGPUPair takes one flat
-    // "ipair" index which runs from 0 to screened_pair_count - 1, and needs to map that
-    // back to the corresponding (a,b) pair. The parallel_scan is building a prefix sum
+    // Final/Second pass is a little more conceptually complex. ComputeGPUPair takes two flat
+    // "pairs_screened_" a,b index(es) which runs from 0 to screened_pair_count - 1, and does a global
+    // lookup to get the corresponding a,b for that pair index.
+    // The parallel_scan is building a prefix sum
     // over the screened neighbor counts per atom, which gives us the starting index in
     // the screened neighbor list for each atom.
     // So for example if atom 0 has 2 screened neighbors, atom 1 has 0 screened neighbors,
     // and atom 2 has 3 screened neighbors, the scanned screened_offsets would be [0, 2, 2, 5].
     // The Kokkos documentation/wiki explains parallel_scan, prefix sum, "update", "final", etc
     // in more detail.
+    // Pretty much populating d_pairs_screened_[a/b] with the corresponding a,b for each
+    // screened pair index, and d_screened_offsets is passed in as a functor arg for RangePolicy.
+    const auto d_pairs_screened_a_local = d_pairs_screened_a;
+    const auto d_pairs_screened_b_local = d_pairs_screened_b;
+    
     Kokkos::parallel_scan(
       Kokkos::RangePolicy<DeviceType>(0, anum + 1),
       KOKKOS_LAMBDA(const int i, int &update, const bool final) {
         if (i < anum_local) {
           if (final) d_screened_offsets_local(i) = update;
           const int a = d_alist_local(i);
-          update += d_numneigh_screened_local(a);
+          const int num_screened = d_numneigh_screened_local(a);
+          if (final) {
+            for (int ib = 0; ib < num_screened; ib++) {
+              const int ipair = update + ib;
+              const int b = d_neighbors_screened_local(a, ib);
+              d_pairs_screened_a_local(ipair) = a;
+              d_pairs_screened_b_local(ipair) = b;
+            }
+          }
+          update += num_screened;
         } else if (final) {
           d_screened_offsets_local(anum_local) = update;
         }
@@ -1239,24 +1261,10 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
     decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
   auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-  // Firstly, we need to find which atom block owns this ipair.
-  // We can do this via binary search of the screened neighbor list offsets.
-  int lo = 0;
-  int hi = anum;
-  while (lo + 1 < hi) {
-    const int mid = (lo + hi) >> 1;
-    if (d_screened_offsets(mid) <= ipair) lo = mid;
-    else hi = mid;
-  }
-
-  const int ia = lo;
-  const int a = d_alist(ia);
+  // Direct pair lookup: d_pairs_screened_a[ipair], d_pairs_screened_b[ipair]
+  const int a = d_pairs_screened_a(ipair);
   const int atype = type(a);
-  // Secondly, we need to find which neighbor b this ipair corresponds to.
-  const int ib = ipair - d_screened_offsets(ia);
-
-  // And finally, we get our desired (a,b) pair.
-  int b = d_neighbors_screened(a, ib);
+  int b = d_pairs_screened_b(ipair);
   const KK_FLOAT factor_lj = special_lj[sbmask(b)];
   // No need for factor_lj early exit check here since we already screened the neighbor list.
   b &= NEIGHMASK;
