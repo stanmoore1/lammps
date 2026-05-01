@@ -36,13 +36,16 @@ namespace LAMMPS_NS {
 template<class DeviceType>
 class FixOxdnaLRFKokkos;  // forward declaration
 
+template<class DeviceType>
+class FixOxdnaNpairKokkos;  // forward declaration
+
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct TagPairOxdnaXstkCompute{};
 
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct TagPairOxdnaXstkComputeGPUPair{};
 
-struct TagPairOxdnaXstkScreen{};
+struct TagPairOxdnaXstkNpairScreen{};
 
 template<class DeviceType>
 class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
@@ -83,19 +86,13 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdnaXstkComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
 
-// *XstkScreen kicks out a heavy/dominant distance check - easiest way to screen
+// *XstkNpairScreen kicks out a heavy/dominant distance check (factor_lj and f2) - easiest way to screen
 // valid pairs for the main compute on GPUs.
 // Only applied when execution_space != HostKK.
 
 // NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairOxdnaXstkScreen, const int&) const;
-
-  template<int NEIGHFLAG, int NEWTON_PAIR>
-
-// NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION
-  void operator()(TagPairOxdnaXstkScreen, const int&) const;
+   KOKKOS_INLINE_FUNCTION
+   void operator()(TagPairOxdnaXstkNpairScreen, const int&, int &update) const;
 
   template<int NEIGHFLAG, int NEWTON_PAIR>
 // NOLINTNEXTLINE
@@ -134,24 +131,17 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
   typename AT::t_int_1d_randomread d_alist;
   typename AT::t_int_1d_randomread d_numneigh;
   // Screening takes place on GPUs only
-  DAT::tdual_int_2d k_neighbors_screened;
-  typename AT::t_int_2d d_neighbors_screened;
-  DAT::tdual_int_1d k_numneigh_screened;
-  typename AT::t_int_1d d_numneigh_screened;
-  DAT::tdual_int_1d k_screened_offsets;
-  typename AT::t_int_1d d_screened_offsets;
-  DAT::tdual_int_scalar k_screened_pair_count;
-  typename AT::t_int_scalar d_screened_pair_count;
-  // Direct (a, b) pair lookup contiguous-ity (Is that a word? SoA): I just mean an a-b pair
-  // is stored together in memory for coalesced access on GPUs. Only used for the ComputeGPUPair
-  // functor after screening.
-  DAT::tdual_int_1d k_pairs_screened_a;
-  DAT::tdual_int_1d k_pairs_screened_b;
-  typename AT::t_int_1d d_pairs_screened_a;
-  typename AT::t_int_1d d_pairs_screened_b;
-  int screened_max_atoms;
-  int screened_max_neigh;
+  // These are taken from the generic fix_oxdna_npairKK
+  DAT::tdual_uint64_1d k_pairs_screened;
+  typename AT::t_uint64_1d d_pairs_screened;
   int screened_pair_count;
+  // Then we do a further custom xstk screening pass every timestep within compute()
+  DAT::tdual_uint64_1d k_xstk_pairs_screened;
+  typename AT::t_uint64_1d d_xstk_pairs_screened;
+  DAT::tdual_int_scalar k_xstk_screened_pair_count;
+  typename AT::t_int_scalar d_xstk_screened_pair_count;
+  int xstk_screened_pair_count;
+  int xstk_pairs_capacity;
 
   // cross-stacking interaction parameters
   typename AT::tdual_kkfloat_2d k_k_xst, k_cut_xst_0, k_cut_xst_c;
@@ -218,12 +208,13 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
   friend void pair_virial_fdotr_compute<PairOxdnaXstkKokkos>(PairOxdnaXstkKokkos*);
 
   FixOxdnaLRFKokkos<DeviceType> *fix_oxdna_lrfKK;    // ptr to oxdna/lrf/kk fix
+  FixOxdnaNpairKokkos<DeviceType> *fix_oxdna_npairKK;    // ptr to oxdna/pair/kk fix
 
  private:
+
 // NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION
-  bool screen_pair_fast(const int &atype, const int &braw,
-    const KK_FLOAT &a_hb0, const KK_FLOAT &a_hb1, const KK_FLOAT &a_hb2) const;
+   KOKKOS_INLINE_FUNCTION
+   bool screen_xstk_pairs(const int &araw, const int &braw) const;
 
 // The following is totally wild code-readability wise and I don't really like.
 // But I was getting a ton of Live Register Pressure and the only way I could
