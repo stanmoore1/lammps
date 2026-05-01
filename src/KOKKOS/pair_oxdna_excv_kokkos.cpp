@@ -26,6 +26,7 @@
 #include "update.h"
 
 #include "fix_oxdna_lrf_kokkos.h"
+#include "fix_oxdna_npair_kokkos.h"
 #include "mf_oxdna_kokkos.h"
 
 using namespace LAMMPS_NS;
@@ -45,6 +46,7 @@ PairOxdnaExcvKokkos<DeviceType>::PairOxdnaExcvKokkos(LAMMPS *lmp) : PairOxdnaExc
 
   oxdnaflag = EnabledOXDNAFlag::OXDNA;
   fix_oxdna_lrfKK = nullptr;
+  fix_oxdna_npairKK = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -768,6 +770,11 @@ void PairOxdnaExcvKokkos<DeviceType>::init_style()
   if (!fix_oxdna_lrfKK) {
     fix_oxdna_lrfKK = dynamic_cast<FixOxdnaLRFKokkos<DeviceType> *>(modify->add_fix("lrf_kk all oxdna/lrf/kk"));
     Kokkos::fence("Fix oxdna/lrf/kk creation");
+  }
+  // ensure fix oxdna/npair/kk is added
+  if (!fix_oxdna_npairKK) {
+    fix_oxdna_npairKK = dynamic_cast<FixOxdnaNpairKokkos<DeviceType> *>(modify->add_fix("npair_kk all oxdna/npair/kk"));
+    Kokkos::fence("Fix oxdna/npair/kk creation");
   }
 }
 

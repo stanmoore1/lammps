@@ -33,6 +33,9 @@ namespace LAMMPS_NS {
 template<class DeviceType>
 class FixOxdnaLRFKokkos;  // forward declaration
 
+template<class DeviceType>
+class FixOxdnaNpairKokkos;  // forward declaration
+
 template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct TagPairOxdnaExcvCompute{};
 
@@ -165,6 +168,7 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   friend void pair_virial_fdotr_compute<PairOxdnaExcvKokkos>(PairOxdnaExcvKokkos*);
 
   FixOxdnaLRFKokkos<DeviceType> *fix_oxdna_lrfKK;    // ptr to oxdna/lrf/kk fix
+  FixOxdnaNpairKokkos<DeviceType> *fix_oxdna_npairKK;    // ptr to oxdna/npair/kk fix
 };
 
 }
