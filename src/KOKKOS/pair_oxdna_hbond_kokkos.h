@@ -36,8 +36,14 @@ namespace LAMMPS_NS {
 template<class DeviceType>
 class FixOxdnaLRFKokkos;  // forward declaration
 
+template<class DeviceType>
+class FixOxdnaNpairKokkos;  // forward declaration
+
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct TagPairOxdnaHbondCompute{};
+
+template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+struct TagPairOxdnaHbondComputeGPUPair{};
 
 template<class DeviceType>
 class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
@@ -54,20 +60,38 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
   void init_style() override;
   double init_one(int, int) override;
 
+  // Standard non-GPU Compute Functor(s). 1 with EV_FLOAT, 1 without.
+
   template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdnaHbondCompute<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&, EV_FLOAT&) const;
 
   template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdnaHbondCompute<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
 
+// GPU ComputeGPUPair Functor(s). 1 with EV_FLOAT, 1 without.
+
+  template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairOxdnaHbondComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&, EV_FLOAT&) const;
+
+  template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairOxdnaHbondComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
+
   template<int NEIGHFLAG, int NEWTON_PAIR>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
       const KK_FLOAT &epair, const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz, const KK_FLOAT &delx,
                   const KK_FLOAT &dely, const KK_FLOAT &delz) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const;
 
@@ -96,6 +120,10 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
   typename AT::t_neighbors_2d_randomread d_neighbors;
   typename AT::t_int_1d_randomread d_alist;
   typename AT::t_int_1d_randomread d_numneigh;
+  // GPU-specific: screened neighbor arrays for npair fix
+  DAT::tdual_uint64_1d k_pairs_screened;
+  typename AT::t_uint64_1d d_pairs_screened;
+  int screened_pair_count;
 
   // hydrogen-bonding interaction parameters
   typename AT::tdual_kkfloat_2d k_epsilon_hb, k_a_hb, k_cut_hb_0, k_cut_hb_c;
@@ -162,6 +190,7 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
   friend void pair_virial_fdotr_compute<PairOxdnaHbondKokkos>(PairOxdnaHbondKokkos*);
 
   FixOxdnaLRFKokkos<DeviceType> *fix_oxdna_lrfKK;    // ptr to oxdna/lrf/kk fix
+  FixOxdnaNpairKokkos<DeviceType> *fix_oxdna_npairKK;    // ptr to oxdna/npair/kk fix
 };
 
 }
