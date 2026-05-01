@@ -44,6 +44,7 @@ class FixOxdnaLRFKokkos : public Fix {
   ~FixOxdnaLRFKokkos() override;
 
   int setmask() override;
+  void init() override;
   void min_setup_pre_force(int);
   void min_pre_force(int) override;
   void setup_pre_force(int) override;
@@ -63,6 +64,7 @@ class FixOxdnaLRFKokkos : public Fix {
 
  private:
 
+  AtomVecEllipsoidKokkos *avecEllipKK;
   typename AT::t_int_1d_randomread mask;
   typename AT::t_int_1d_randomread ellipsoid;
   typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d bonus;

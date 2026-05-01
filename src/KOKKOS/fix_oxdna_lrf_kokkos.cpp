@@ -29,6 +29,7 @@ FixOxdnaLRFKokkos<DeviceType>::FixOxdnaLRFKokkos(LAMMPS *lmp, int narg, char **a
   Fix(lmp, narg, arg)
 {
   kokkosable = 1;
+  avecEllipKK = nullptr;
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
 
@@ -47,6 +48,15 @@ FixOxdnaLRFKokkos<DeviceType>::FixOxdnaLRFKokkos(LAMMPS *lmp, int narg, char **a
 
 template<class DeviceType>
 FixOxdnaLRFKokkos<DeviceType>::~FixOxdnaLRFKokkos() = default;
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void FixOxdnaLRFKokkos<DeviceType>::init()
+{
+  avecEllipKK = dynamic_cast<AtomVecEllipsoidKokkos *>(atom->style_match("ellipsoid"));
+  if (!avecEllipKK) error->all(FLERR, "Fix oxdna/lrf/kk requires atom style ellipsoid/kk");
+}
 
 /* ---------------------------------------------------------------------- */
 
@@ -104,9 +114,6 @@ void FixOxdnaLRFKokkos<DeviceType>::compute_lrf_kokkos()
     d_ny = k_ny.template view<DeviceType>();
     d_nz = k_nz.template view<DeviceType>();
   }
-
-  auto avecEllipKK = dynamic_cast<AtomVecEllipsoidKokkos *>(atom->style_match("ellipsoid"));
-  if (!avecEllipKK) error->all(FLERR, "Fix oxdna/lrf/kk requires atom style ellipsoid/kk");
 
   atomKK->sync(execution_space, datamask_read);
 
