@@ -180,7 +180,7 @@ void FixOxdnaNpairKokkos<DeviceType>::compute_neigh_screen_to_npair()
 
   // Pretty simple first pass via "TagFixOxdnaNpairNeighScreen". We just loop through each atom a
   // and its neighbors, run 'screen_pair_fast' for each a-neighbor and its b-neighs which runs up
-  // to f2 and return bool. If true, we add the neighbor to the d_neighbors_screened neighbor
+  // to a simple CoM bool. If true, we add the neighbor to the d_neighbors_screened neighbor
   // list and increment the screened neighbor count.
   copymode = 1;
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixOxdnaNpairNeighScreen>(0, anum), *this);
