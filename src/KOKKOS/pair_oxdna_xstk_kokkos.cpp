@@ -65,9 +65,6 @@ PairOxdnaXstkKokkos<DeviceType>::PairOxdnaXstkKokkos(LAMMPS *lmp) : PairOxdnaXst
   datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
 
   screened_pair_count = 0;
-  k_xstk_screened_pair_count = DAT::tdual_int_scalar("PairOxdnaXstk:xstk_screened_pair_count");
-  xstk_screened_pair_count = 0;
-  xstk_pairs_capacity = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -155,46 +152,13 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   // If we're on a GPU, look up fix_oxdna_npairKK screened pair count and packed pair view.
   if (execution_space != HostKK) {
-
     screened_pair_count = fix_oxdna_npairKK->screened_pair_count;
     d_pairs_screened = fix_oxdna_npairKK->k_pairs_screened.template view<DeviceType>();
-
-    if (screened_pair_count > 0) {
-      // Device counter used only for atomic indexing
-      d_xstk_screened_pair_count =
-          k_xstk_screened_pair_count.template view<DeviceType>();
-      // Reset atomic counter
-      Kokkos::deep_copy(d_xstk_screened_pair_count, 0);
-      // Reallocate only if needed
-      if (k_xstk_pairs_screened.extent(0) < screened_pair_count) {
-        MemKK::realloc_kokkos(k_xstk_pairs_screened,
-                            "PairOxdnaXstk:xstk_pairs_screened",
-                            screened_pair_count);
-      }
-      d_xstk_pairs_screened =
-          k_xstk_pairs_screened.template view<DeviceType>();
-      int total_screened = 0; // Used for reduction result of xstk pair count
-
-      Kokkos::parallel_reduce(
-          Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkNpairScreen>(
-              0, screened_pair_count),
-          *this,
-          total_screened);
-
-      xstk_screened_pair_count = total_screened; // Use reducer result directly (no deep_copy needed)
-    }
   }
 
   // loop over neighbors of my atoms for compute functors
 
   EV_FLOAT ev;
-  
-  // For GPU compute, use xstk-prescreened pairs if available, otherwise use npair pairs.
-  int compute_pair_count = screened_pair_count;
-  if (execution_space != HostKK && xstk_screened_pair_count > 0) {
-    compute_pair_count = xstk_screened_pair_count;
-    d_pairs_screened = d_xstk_pairs_screened;
-  }
 
   if (evflag) {
     if (neighflag == HALF) {
@@ -202,36 +166,36 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
         if (execution_space == HostKK)
           Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALF,1,1> >(0,anum),*this,ev);
         else
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALF,1,1> >(0,compute_pair_count),*this,ev);
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALF,1,1> >(0,screened_pair_count),*this,ev);
       } else {
         if (execution_space == HostKK)
           Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALF,0,1> >(0,anum),*this,ev);
         else
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALF,0,1> >(0,compute_pair_count),*this,ev);
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALF,0,1> >(0,screened_pair_count),*this,ev);
       }
     } else if (neighflag == HALFTHREAD) {
       if (newton_pair) {
         if (execution_space == HostKK)
           Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALFTHREAD,1,1> >(0,anum),*this,ev);
         else
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,1,1> >(0,compute_pair_count),*this,ev);
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,1,1> >(0,screened_pair_count),*this,ev);
       } else {
         if (execution_space == HostKK)
           Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALFTHREAD,0,1> >(0,anum),*this,ev);
         else
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,0,1> >(0,compute_pair_count),*this,ev);
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,0,1> >(0,screened_pair_count),*this,ev);
       }
     } else if (neighflag == FULL) {
       if (newton_pair) {
         if (execution_space == HostKK)
           Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<FULL,1,1> >(0,anum),*this,ev);
         else
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<FULL,1,1> >(0,compute_pair_count),*this,ev);
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<FULL,1,1> >(0,screened_pair_count),*this,ev);
       } else {
         if (execution_space == HostKK)
           Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<FULL,0,1> >(0,anum),*this,ev);
         else
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<FULL,0,1> >(0,compute_pair_count),*this,ev);
+          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<FULL,0,1> >(0,screened_pair_count),*this,ev);
       }
     }
   } else {
@@ -240,36 +204,36 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
         if (execution_space == HostKK)
           Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALF,1,0> >(0,anum),*this);
         else
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALF,1,0> >(0,compute_pair_count),*this);
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALF,1,0> >(0,screened_pair_count),*this);
       } else {
         if (execution_space == HostKK)
           Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALF,0,0> >(0,anum),*this);
         else
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALF,0,0> >(0,compute_pair_count),*this);
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALF,0,0> >(0,screened_pair_count),*this);
       }
     } else if (neighflag == HALFTHREAD) {
       if (newton_pair) {
         if (execution_space == HostKK)
           Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALFTHREAD,1,0> >(0,anum),*this);
         else
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,1,0> >(0,compute_pair_count),*this);
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,1,0> >(0,screened_pair_count),*this);
       } else {
         if (execution_space == HostKK)
           Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALFTHREAD,0,0> >(0,anum),*this);
         else
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,0,0> >(0,compute_pair_count),*this);
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,0,0> >(0,screened_pair_count),*this);
       }
     } else if (neighflag == FULL) {
       if (newton_pair) {
         if (execution_space == HostKK)
           Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<FULL,1,0> >(0,anum),*this);
         else
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<FULL,1,0> >(0,compute_pair_count),*this);
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<FULL,1,0> >(0,screened_pair_count),*this);
       } else {
         if (execution_space == HostKK)
           Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<FULL,0,0> >(0,anum),*this);
         else
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<FULL,0,0> >(0,compute_pair_count),*this);
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<FULL,0,0> >(0,screened_pair_count),*this);
       }
     }
   }
@@ -771,82 +735,14 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
 }
 
 /* ----------------------------------------------------------------------
-   ComputeGPUPair Functor(s)
--------------------------------------------------------------------------- */
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkNpairScreen, const int &ipair, int& update) const
-{
-  // Direct packed pair lookup: high 32 bits = a, low 32 bits = b.
-  const uint64_t pair = d_pairs_screened(ipair);
-  // "pair >> 32" shifts the pair to the right by 32 bits, so the upper 32 bits
-  // becomes the lower 32 bits to recover the atom-a index.
-  const int araw = static_cast<int>(pair >> 32);
-  // "pair & 0xffffffffu" keeps only the lower 32 bits to recover the atom-b index.
-  const int braw = static_cast<int>(pair & 0xffffffffu);
-  
-  if (screen_xstk_pairs(araw,braw)) {
-    update += 1; // Contribute to reduction count
-    // Atomically reserve an index in the compacted output buffer and write there.
-    const int out_idx = Kokkos::atomic_fetch_add(&d_xstk_screened_pair_count(), 1);
-    if (out_idx < screened_pair_count) {
-      d_xstk_pairs_screened(out_idx) = pair;
-    }
-  }
-}
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-bool PairOxdnaXstkKokkos<DeviceType>::screen_xstk_pairs(const int &araw,
-                                                         const int &braw) const
-{
-  const KK_FLOAT factor_lj = special_lj[sbmask(braw)];
-  if (!factor_lj) return false;
-  const int b = braw & NEIGHMASK;
-  const int atype = type(araw);
-  const int btype = type(b);
-
-  const KK_FLOAT a_nx0 = d_nx_xtrct(araw,0);
-  const KK_FLOAT a_nx1 = d_nx_xtrct(araw,1);
-  const KK_FLOAT a_nx2 = d_nx_xtrct(araw,2);
-  constexpr KK_FLOAT d_chb = +0.4;
-  const KK_FLOAT a_hb0 = x(araw,0) + d_chb * a_nx0;
-  const KK_FLOAT a_hb1 = x(araw,1) + d_chb * a_nx1;
-  const KK_FLOAT a_hb2 = x(araw,2) + d_chb * a_nx2;
-
-  const KK_FLOAT b_nx0 = d_nx_xtrct(b,0);
-  const KK_FLOAT b_nx1 = d_nx_xtrct(b,1);
-  const KK_FLOAT b_nx2 = d_nx_xtrct(b,2);
-  const KK_FLOAT rb0 = d_chb * b_nx0;
-  const KK_FLOAT rb1 = d_chb * b_nx1;
-  const KK_FLOAT rb2 = d_chb * b_nx2;
-
-  KK_FLOAT delr_hb[3];
-  delr_hb[0] = a_hb0 - x(b,0) - rb0;
-  delr_hb[1] = a_hb1 - x(b,1) - rb1;
-  delr_hb[2] = a_hb2 - x(b,2) - rb2;
-
-  // fma is fused-multipy-add op
-  const KK_FLOAT rsq_hb = fma(delr_hb[2], delr_hb[2],
-                          fma(delr_hb[1], delr_hb[1], delr_hb[0] * delr_hb[0]));
-
-  // Fast boolean screen: F2_KK is nonzero if r is in [cut_lc, cut_hc]
-  // Use squared-distance comparison instead of usual oxDNA F2 to avoid
-  // expensive sqrt(). It's cheaper to do two squares than one sqrt.
-  const KK_FLOAT cut_lc = d_cut_xst_lc(atype,btype);
-  const KK_FLOAT cut_hc = d_cut_xst_hc(atype,btype);
-  return (rsq_hb >= cut_lc*cut_lc && rsq_hb <= cut_hc*cut_hc);
-}
-
-/* ----------------------------------------------------------------------
-   Now we have all the xstk_* terms I don't really like....
+   ComputeGPUPair Functor(s) - first we have all the xstk_* terms I don't
+   really like....
    But these seem the best option performance-wise so far.
 -------------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairOxdnaXstkKokkos<DeviceType>::xstk_radial_terms(const int &atype, const int &btype,
+bool PairOxdnaXstkKokkos<DeviceType>::xstk_radial_terms(const int &atype, const int &btype,
   const KK_FLOAT &r_hb, KK_FLOAT &f2, KK_FLOAT &df2) const
 {
   const KK_FLOAT p_k_xst = d_k_xst(atype,btype);
@@ -862,9 +758,11 @@ void PairOxdnaXstkKokkos<DeviceType>::xstk_radial_terms(const int &atype, const 
   f2 = F2_KK(r_hb, p_k_xst, p_cut_xst_0,
          p_cut_xst_lc, p_cut_xst_hc, p_cut_xst_lo, p_cut_xst_hi,
          p_b_xst_lo, p_b_xst_hi, p_cut_xst_c);
+  if (!f2) return false;
   df2 = DF2_KK(r_hb, p_k_xst, p_cut_xst_0,
           p_cut_xst_lc, p_cut_xst_hc, p_cut_xst_lo, p_cut_xst_hi,
           p_b_xst_lo, p_b_xst_hi);
+  return true;
 }
 
 // angle contributions
@@ -1226,7 +1124,7 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
   // "pair & 0xffffffffu" keeps only the lower 32 bits to recover the atom-b index.
   int b = static_cast<int>(pair & 0xffffffffu);
   const KK_FLOAT factor_lj = special_lj[sbmask(b)];
-  // No need for factor_lj early exit check here since we already screened the neighbor list.
+  if (!factor_lj) return;
   b &= NEIGHMASK;
   const int btype = type(b);
 
@@ -1291,7 +1189,7 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
   KK_FLOAT theta1, theta2, theta3, theta4, theta4p, theta7, theta8;
   KK_FLOAT cost2, cost3, cost7, cost8;
 
-  xstk_radial_terms(atype, btype, r_hb, f2, df2);
+  if (!xstk_radial_terms(atype, btype, r_hb, f2, df2)) return;
   if (!xstk_theta1_terms(atype, btype, a_nx, b_nx, theta1, f4t1, df4t1)) return;
   if (!xstk_theta2_terms(atype, btype, a_nx, delr_hb_norm, theta2, cost2, f4t2, df4t2)) return;
   if (!xstk_theta3_terms(atype, btype, b_nx, delr_hb_norm, theta3, cost3, f4t3, df4t3)) return;
@@ -1481,13 +1379,6 @@ void PairOxdnaXstkKokkos<DeviceType>::allocate()
   d_dtheta_xst8_ast = k_dtheta_xst8_ast.template view<DeviceType>();
   d_b_xst8 = k_b_xst8.template view<DeviceType>();
   d_dtheta_xst8_c = k_dtheta_xst8_c.template view<DeviceType>();
-
-  // Preallocate xstk pairs buffer to avoid repeated reallocations during compute.
-  int init_cap = std::max(1, atom->nmax * 4); // made-up initial capacity: 4 pairs per atom
-  MemKK::realloc_kokkos(k_xstk_pairs_screened, "PairOxdnaXstk:xstk_pairs_screened", init_cap);
-  d_xstk_pairs_screened = k_xstk_pairs_screened.template view<DeviceType>();
-  xstk_pairs_capacity = init_cap;
-
 }
 
 /* ---------------------------------------------------------------------- */
