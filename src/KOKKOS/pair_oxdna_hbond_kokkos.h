@@ -191,6 +191,80 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
 
   FixOxdnaLRFKokkos<DeviceType> *fix_oxdna_lrfKK;    // ptr to oxdna/lrf/kk fix
   FixOxdnaNpairKokkos<DeviceType> *fix_oxdna_npairKK;    // ptr to oxdna/npair/kk fix
+
+ private:
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool hbond_radial_terms(const int &atype, const int &btype, const KK_FLOAT &r_hb,
+    KK_FLOAT &f1, KK_FLOAT &df1) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool hbond_theta1_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+    KK_FLOAT &theta1, KK_FLOAT &f4t1, KK_FLOAT &df4t1) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool hbond_theta2_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&delr_hb_norm)[3],
+    KK_FLOAT &theta2, KK_FLOAT &cost2, KK_FLOAT &f4t2, KK_FLOAT &df4t2) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool hbond_theta3_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&b_nx)[3], const KK_FLOAT (&delr_hb_norm)[3],
+    KK_FLOAT &theta3, KK_FLOAT &cost3, KK_FLOAT &f4t3, KK_FLOAT &df4t3) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool hbond_theta4_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+    KK_FLOAT &theta4, KK_FLOAT &f4t4, KK_FLOAT &df4t4) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool hbond_theta7_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&delr_hb_norm)[3],
+    KK_FLOAT &theta7, KK_FLOAT &cost7, KK_FLOAT &f4t7, KK_FLOAT &df4t7) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool hbond_theta8_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&b_nz)[3], const KK_FLOAT (&delr_hb_norm)[3],
+    KK_FLOAT &theta8, KK_FLOAT &cost8, KK_FLOAT &f4t8, KK_FLOAT &df4t8) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void hbond_force_contrib(const KK_FLOAT &f1,
+    const KK_FLOAT &f4t1, const KK_FLOAT &f4t2, const KK_FLOAT &f4t3,
+    const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
+    const KK_FLOAT &df1, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3,
+    const KK_FLOAT &df4t7, const KK_FLOAT &df4t8,
+    const KK_FLOAT &rinv_hb, const KK_FLOAT &factor_lj,
+    const KK_FLOAT &theta2, const KK_FLOAT &theta3, const KK_FLOAT &theta7, const KK_FLOAT &theta8,
+    const KK_FLOAT &cost2, const KK_FLOAT &cost3, const KK_FLOAT &cost7, const KK_FLOAT &cost8,
+    const KK_FLOAT (&delr_hb)[3], const KK_FLOAT (&delr_hb_norm)[3],
+    const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+    const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+    const KK_FLOAT (&ra_chb)[3], const KK_FLOAT (&rb_chb)[3],
+    KK_FLOAT (&delf)[3], KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void hbond_torque_contrib(const KK_FLOAT &f1,
+    const KK_FLOAT &f4t1, const KK_FLOAT &f4t2, const KK_FLOAT &f4t3,
+    const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
+    const KK_FLOAT &df4t1, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3,
+    const KK_FLOAT &df4t4, const KK_FLOAT &df4t7, const KK_FLOAT &df4t8,
+    const KK_FLOAT &factor_lj,
+    const KK_FLOAT &theta1, const KK_FLOAT &theta2, const KK_FLOAT &theta3,
+    const KK_FLOAT &theta4, const KK_FLOAT &theta7, const KK_FLOAT &theta8,
+    const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+    const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+    const KK_FLOAT (&delr_hb_norm)[3],
+    KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]) const;
 };
 
 }

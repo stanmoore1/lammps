@@ -32,6 +32,11 @@
 using namespace LAMMPS_NS;
 using namespace MFOxdnaKokkos;
 
+// NOTE: I've introduced some extra early returns in calls related to ComputeGPUPair.
+// With the use of fma and trig identity "sin^2(theta) = 1 - cos^2(theta)", some of the
+// math ops yeild unstable/seg-fault results without these - especially when running
+// FP32.
+
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
@@ -657,8 +662,366 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondCompute<NEIGH
 }
 
 /* ----------------------------------------------------------------------
-   ComputeGPUPair Functor(s)
+   ComputeGPUPair Functor(s) and staged hbond helpers for lower
+   live register pressure in GPU kernels.
 -------------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+bool PairOxdnaHbondKokkos<DeviceType>::hbond_radial_terms(const int &atype, const int &btype,
+  const KK_FLOAT &r_hb, KK_FLOAT &f1, KK_FLOAT &df1) const
+{
+  const KK_FLOAT p_epsilon_hb = d_epsilon_hb(atype,btype);
+  const KK_FLOAT p_a_hb = d_a_hb(atype,btype);
+  const KK_FLOAT p_cut_hb_0 = d_cut_hb_0(atype,btype);
+  const KK_FLOAT p_cut_hb_lc = d_cut_hb_lc(atype,btype);
+  const KK_FLOAT p_cut_hb_hc = d_cut_hb_hc(atype,btype);
+  const KK_FLOAT p_cut_hb_lo = d_cut_hb_lo(atype,btype);
+  const KK_FLOAT p_cut_hb_hi = d_cut_hb_hi(atype,btype);
+  const KK_FLOAT p_b_hb_lo = d_b_hb_lo(atype,btype);
+  const KK_FLOAT p_b_hb_hi = d_b_hb_hi(atype,btype);
+  const KK_FLOAT p_shift_hb = d_shift_hb(atype,btype);
+
+  f1 = F1_KK(r_hb, p_epsilon_hb, p_a_hb, p_cut_hb_0,
+      p_cut_hb_lc, p_cut_hb_hc, p_cut_hb_lo, p_cut_hb_hi,
+      p_b_hb_lo, p_b_hb_hi, p_shift_hb);
+  if (!f1) return false;
+
+  df1 = DF1_KK(r_hb, p_epsilon_hb, p_a_hb, p_cut_hb_0,
+      p_cut_hb_lc, p_cut_hb_hc, p_cut_hb_lo, p_cut_hb_hi,
+      p_b_hb_lo, p_b_hb_hi);
+  return true;
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta1_terms(const int &atype, const int &btype,
+  const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+  KK_FLOAT &theta1, KK_FLOAT &f4t1, KK_FLOAT &df4t1) const
+{
+  const KK_FLOAT p_a_hb1 = d_a_hb1(atype,btype);
+  const KK_FLOAT p_theta_hb1_0 = d_theta_hb1_0(atype,btype);
+  const KK_FLOAT p_dtheta_hb1_ast = d_dtheta_hb1_ast(atype,btype);
+  const KK_FLOAT p_b_hb1 = d_b_hb1(atype,btype);
+  const KK_FLOAT p_dtheta_hb1_c = d_dtheta_hb1_c(atype,btype);
+
+  KK_FLOAT cost1 = -fma(a_nx[2], b_nx[2], fma(a_nx[1], b_nx[1], a_nx[0] * b_nx[0]));
+  if (cost1 > 1.0) cost1 = 1.0;
+  if (cost1 < -1.0) cost1 = -1.0;
+  theta1 = acos(cost1);
+
+  f4t1 = F4_KK(theta1, p_a_hb1, p_theta_hb1_0, p_dtheta_hb1_ast, p_b_hb1, p_dtheta_hb1_c);
+  if (!f4t1) return false;
+
+  KK_FLOAT sin1_sq = fma(-cost1, cost1, static_cast<KK_FLOAT>(1.0));
+  if (sin1_sq <= static_cast<KK_FLOAT>(0.0)) return false;
+  const KK_FLOAT rsin1 = static_cast<KK_FLOAT>(1.0) / sqrt(sin1_sq);
+  df4t1 = DF4_KK(theta1, p_a_hb1, p_theta_hb1_0, p_dtheta_hb1_ast, p_b_hb1, p_dtheta_hb1_c) * rsin1;
+  return true;
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta2_terms(const int &atype, const int &btype,
+  const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&delr_hb_norm)[3],
+  KK_FLOAT &theta2, KK_FLOAT &cost2, KK_FLOAT &f4t2, KK_FLOAT &df4t2) const
+{
+  const KK_FLOAT p_a_hb2 = d_a_hb2(atype,btype);
+  const KK_FLOAT p_theta_hb2_0 = d_theta_hb2_0(atype,btype);
+  const KK_FLOAT p_dtheta_hb2_ast = d_dtheta_hb2_ast(atype,btype);
+  const KK_FLOAT p_b_hb2 = d_b_hb2(atype,btype);
+  const KK_FLOAT p_dtheta_hb2_c = d_dtheta_hb2_c(atype,btype);
+
+  cost2 = -fma(a_nx[2], delr_hb_norm[2], fma(a_nx[1], delr_hb_norm[1], a_nx[0] * delr_hb_norm[0]));
+  if (cost2 > 1.0) cost2 = 1.0;
+  if (cost2 < -1.0) cost2 = -1.0;
+  theta2 = acos(cost2);
+
+  f4t2 = F4_KK(theta2, p_a_hb2, p_theta_hb2_0, p_dtheta_hb2_ast, p_b_hb2, p_dtheta_hb2_c);
+  if (!f4t2) return false;
+
+  KK_FLOAT sin2_sq = fma(-cost2, cost2, static_cast<KK_FLOAT>(1.0));
+  if (sin2_sq <= static_cast<KK_FLOAT>(0.0)) return false;
+  const KK_FLOAT rsin2 = static_cast<KK_FLOAT>(1.0) / sqrt(sin2_sq);
+  df4t2 = DF4_KK(theta2, p_a_hb2, p_theta_hb2_0, p_dtheta_hb2_ast, p_b_hb2, p_dtheta_hb2_c) * rsin2;
+  return true;
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta3_terms(const int &atype, const int &btype,
+  const KK_FLOAT (&b_nx)[3], const KK_FLOAT (&delr_hb_norm)[3],
+  KK_FLOAT &theta3, KK_FLOAT &cost3, KK_FLOAT &f4t3, KK_FLOAT &df4t3) const
+{
+  const KK_FLOAT p_a_hb3 = d_a_hb3(atype,btype);
+  const KK_FLOAT p_theta_hb3_0 = d_theta_hb3_0(atype,btype);
+  const KK_FLOAT p_dtheta_hb3_ast = d_dtheta_hb3_ast(atype,btype);
+  const KK_FLOAT p_b_hb3 = d_b_hb3(atype,btype);
+  const KK_FLOAT p_dtheta_hb3_c = d_dtheta_hb3_c(atype,btype);
+
+  cost3 = fma(b_nx[2], delr_hb_norm[2], fma(b_nx[1], delr_hb_norm[1], b_nx[0] * delr_hb_norm[0]));
+  if (cost3 > 1.0) cost3 = 1.0;
+  if (cost3 < -1.0) cost3 = -1.0;
+  theta3 = acos(cost3);
+
+  f4t3 = F4_KK(theta3, p_a_hb3, p_theta_hb3_0, p_dtheta_hb3_ast, p_b_hb3, p_dtheta_hb3_c);
+  if (!f4t3) return false;
+
+  KK_FLOAT sin3_sq = fma(-cost3, cost3, static_cast<KK_FLOAT>(1.0));
+  if (sin3_sq <= static_cast<KK_FLOAT>(0.0)) return false;
+  const KK_FLOAT rsin3 = static_cast<KK_FLOAT>(1.0) / sqrt(sin3_sq);
+  df4t3 = DF4_KK(theta3, p_a_hb3, p_theta_hb3_0, p_dtheta_hb3_ast, p_b_hb3, p_dtheta_hb3_c) * rsin3;
+  return true;
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta4_terms(const int &atype, const int &btype,
+  const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+  KK_FLOAT &theta4, KK_FLOAT &f4t4, KK_FLOAT &df4t4) const
+{
+  const KK_FLOAT p_a_hb4 = d_a_hb4(atype,btype);
+  const KK_FLOAT p_theta_hb4_0 = d_theta_hb4_0(atype,btype);
+  const KK_FLOAT p_dtheta_hb4_ast = d_dtheta_hb4_ast(atype,btype);
+  const KK_FLOAT p_b_hb4 = d_b_hb4(atype,btype);
+  const KK_FLOAT p_dtheta_hb4_c = d_dtheta_hb4_c(atype,btype);
+
+  KK_FLOAT cost4 = fma(a_nz[2], b_nz[2], fma(a_nz[1], b_nz[1], a_nz[0] * b_nz[0]));
+  if (cost4 > 1.0) cost4 = 1.0;
+  if (cost4 < -1.0) cost4 = -1.0;
+  theta4 = acos(cost4);
+
+  f4t4 = F4_KK(theta4, p_a_hb4, p_theta_hb4_0, p_dtheta_hb4_ast, p_b_hb4, p_dtheta_hb4_c);
+  if (!f4t4) return false;
+
+  KK_FLOAT sin4_sq = fma(-cost4, cost4, static_cast<KK_FLOAT>(1.0));
+  if (sin4_sq <= static_cast<KK_FLOAT>(0.0)) return false;
+  const KK_FLOAT rsin4 = static_cast<KK_FLOAT>(1.0) / sqrt(sin4_sq);
+  df4t4 = DF4_KK(theta4, p_a_hb4, p_theta_hb4_0, p_dtheta_hb4_ast, p_b_hb4, p_dtheta_hb4_c) * rsin4;
+  return true;
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta7_terms(const int &atype, const int &btype,
+  const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&delr_hb_norm)[3],
+  KK_FLOAT &theta7, KK_FLOAT &cost7, KK_FLOAT &f4t7, KK_FLOAT &df4t7) const
+{
+  const KK_FLOAT p_a_hb7 = d_a_hb7(atype,btype);
+  const KK_FLOAT p_theta_hb7_0 = d_theta_hb7_0(atype,btype);
+  const KK_FLOAT p_dtheta_hb7_ast = d_dtheta_hb7_ast(atype,btype);
+  const KK_FLOAT p_b_hb7 = d_b_hb7(atype,btype);
+  const KK_FLOAT p_dtheta_hb7_c = d_dtheta_hb7_c(atype,btype);
+
+  cost7 = -fma(a_nz[2], delr_hb_norm[2], fma(a_nz[1], delr_hb_norm[1], a_nz[0] * delr_hb_norm[0]));
+  if (cost7 > 1.0) cost7 = 1.0;
+  if (cost7 < -1.0) cost7 = -1.0;
+  theta7 = acos(cost7);
+
+  f4t7 = F4_KK(theta7, p_a_hb7, p_theta_hb7_0, p_dtheta_hb7_ast, p_b_hb7, p_dtheta_hb7_c);
+  if (!f4t7) return false;
+
+  KK_FLOAT sin7_sq = fma(-cost7, cost7, static_cast<KK_FLOAT>(1.0));
+  if (sin7_sq <= static_cast<KK_FLOAT>(0.0)) return false;
+  const KK_FLOAT rsin7 = static_cast<KK_FLOAT>(1.0) / sqrt(sin7_sq);
+  df4t7 = DF4_KK(theta7, p_a_hb7, p_theta_hb7_0, p_dtheta_hb7_ast, p_b_hb7, p_dtheta_hb7_c) * rsin7;
+  return true;
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta8_terms(const int &atype, const int &btype,
+  const KK_FLOAT (&b_nz)[3], const KK_FLOAT (&delr_hb_norm)[3],
+  KK_FLOAT &theta8, KK_FLOAT &cost8, KK_FLOAT &f4t8, KK_FLOAT &df4t8) const
+{
+  const KK_FLOAT p_a_hb8 = d_a_hb8(atype,btype);
+  const KK_FLOAT p_theta_hb8_0 = d_theta_hb8_0(atype,btype);
+  const KK_FLOAT p_dtheta_hb8_ast = d_dtheta_hb8_ast(atype,btype);
+  const KK_FLOAT p_b_hb8 = d_b_hb8(atype,btype);
+  const KK_FLOAT p_dtheta_hb8_c = d_dtheta_hb8_c(atype,btype);
+
+  cost8 = fma(b_nz[2], delr_hb_norm[2], fma(b_nz[1], delr_hb_norm[1], b_nz[0] * delr_hb_norm[0]));
+  if (cost8 > 1.0) cost8 = 1.0;
+  if (cost8 < -1.0) cost8 = -1.0;
+  theta8 = acos(cost8);
+
+  f4t8 = F4_KK(theta8, p_a_hb8, p_theta_hb8_0, p_dtheta_hb8_ast, p_b_hb8, p_dtheta_hb8_c);
+  if (!f4t8) return false;
+
+  KK_FLOAT sin8_sq = fma(-cost8, cost8, static_cast<KK_FLOAT>(1.0));
+  if (sin8_sq <= static_cast<KK_FLOAT>(0.0)) return false;
+  const KK_FLOAT rsin8 = static_cast<KK_FLOAT>(1.0) / sqrt(sin8_sq);
+  df4t8 = DF4_KK(theta8, p_a_hb8, p_theta_hb8_0, p_dtheta_hb8_ast, p_b_hb8, p_dtheta_hb8_c) * rsin8;
+  return true;
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaHbondKokkos<DeviceType>::hbond_force_contrib(const KK_FLOAT &f1,
+  const KK_FLOAT &f4t1, const KK_FLOAT &f4t2, const KK_FLOAT &f4t3,
+  const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
+  const KK_FLOAT &df1, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3,
+  const KK_FLOAT &df4t7, const KK_FLOAT &df4t8,
+  const KK_FLOAT &rinv_hb, const KK_FLOAT &factor_lj,
+  const KK_FLOAT &theta2, const KK_FLOAT &theta3, const KK_FLOAT &theta7, const KK_FLOAT &theta8,
+  const KK_FLOAT &cost2, const KK_FLOAT &cost3, const KK_FLOAT &cost7, const KK_FLOAT &cost8,
+  const KK_FLOAT (&delr_hb)[3], const KK_FLOAT (&delr_hb_norm)[3],
+  const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+  const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+  const KK_FLOAT (&ra_chb)[3], const KK_FLOAT (&rb_chb)[3],
+  KK_FLOAT (&delf)[3], KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]) const
+{
+  KK_FLOAT finc = -df1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
+
+  delf[0] = fma(delr_hb[0], finc, delf[0]);
+  delf[1] = fma(delr_hb[1], finc, delf[1]);
+  delf[2] = fma(delr_hb[2], finc, delf[2]);
+
+  if (theta2) {
+    finc = -f1 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
+    const KK_FLOAT t2f0 = fma(delr_hb_norm[0], cost2, a_nx[0]);
+    const KK_FLOAT t2f1 = fma(delr_hb_norm[1], cost2, a_nx[1]);
+    const KK_FLOAT t2f2 = fma(delr_hb_norm[2], cost2, a_nx[2]);
+    delf[0] = fma(t2f0, finc, delf[0]);
+    delf[1] = fma(t2f1, finc, delf[1]);
+    delf[2] = fma(t2f2, finc, delf[2]);
+  }
+
+  if (theta3) {
+    finc = -f1 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
+    const KK_FLOAT t3f0 = fma(delr_hb_norm[0], cost3, -b_nx[0]);
+    const KK_FLOAT t3f1 = fma(delr_hb_norm[1], cost3, -b_nx[1]);
+    const KK_FLOAT t3f2 = fma(delr_hb_norm[2], cost3, -b_nx[2]);
+    delf[0] = fma(t3f0, finc, delf[0]);
+    delf[1] = fma(t3f1, finc, delf[1]);
+    delf[2] = fma(t3f2, finc, delf[2]);
+  }
+
+  if (theta7) {
+    finc = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * rinv_hb * factor_lj;
+    const KK_FLOAT t7f0 = fma(delr_hb_norm[0], cost7, a_nz[0]);
+    const KK_FLOAT t7f1 = fma(delr_hb_norm[1], cost7, a_nz[1]);
+    const KK_FLOAT t7f2 = fma(delr_hb_norm[2], cost7, a_nz[2]);
+    delf[0] = fma(t7f0, finc, delf[0]);
+    delf[1] = fma(t7f1, finc, delf[1]);
+    delf[2] = fma(t7f2, finc, delf[2]);
+  }
+
+  if (theta8) {
+    finc = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * rinv_hb * factor_lj;
+    const KK_FLOAT t8f0 = fma(delr_hb_norm[0], cost8, -b_nz[0]);
+    const KK_FLOAT t8f1 = fma(delr_hb_norm[1], cost8, -b_nz[1]);
+    const KK_FLOAT t8f2 = fma(delr_hb_norm[2], cost8, -b_nz[2]);
+    delf[0] = fma(t8f0, finc, delf[0]);
+    delf[1] = fma(t8f1, finc, delf[1]);
+    delf[2] = fma(t8f2, finc, delf[2]);
+  }
+
+  delta[0] = fma(ra_chb[1], delf[2], -ra_chb[2] * delf[1]);
+  delta[1] = fma(ra_chb[2], delf[0], -ra_chb[0] * delf[2]);
+  delta[2] = fma(ra_chb[0], delf[1], -ra_chb[1] * delf[0]);
+
+  deltb[0] = fma(rb_chb[1], delf[2], -rb_chb[2] * delf[1]);
+  deltb[1] = fma(rb_chb[2], delf[0], -rb_chb[0] * delf[2]);
+  deltb[2] = fma(rb_chb[0], delf[1], -rb_chb[1] * delf[0]);
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaHbondKokkos<DeviceType>::hbond_torque_contrib(const KK_FLOAT &f1,
+  const KK_FLOAT &f4t1, const KK_FLOAT &f4t2, const KK_FLOAT &f4t3,
+  const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
+  const KK_FLOAT &df4t1, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3,
+  const KK_FLOAT &df4t4, const KK_FLOAT &df4t7, const KK_FLOAT &df4t8,
+  const KK_FLOAT &factor_lj,
+  const KK_FLOAT &theta1, const KK_FLOAT &theta2, const KK_FLOAT &theta3,
+  const KK_FLOAT &theta4, const KK_FLOAT &theta7, const KK_FLOAT &theta8,
+  const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+  const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+  const KK_FLOAT (&delr_hb_norm)[3],
+  KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]) const
+{
+  delta[0] = 0.0;
+  delta[1] = 0.0;
+  delta[2] = 0.0;
+  deltb[0] = 0.0;
+  deltb[1] = 0.0;
+  deltb[2] = 0.0;
+
+  KK_FLOAT tpair;
+
+  if (theta1) {
+    tpair = -f1 * df4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
+
+    const KK_FLOAT t1dir0 = fma(a_nx[1], b_nx[2], -a_nx[2] * b_nx[1]);
+    const KK_FLOAT t1dir1 = fma(a_nx[2], b_nx[0], -a_nx[0] * b_nx[2]);
+    const KK_FLOAT t1dir2 = fma(a_nx[0], b_nx[1], -a_nx[1] * b_nx[0]);
+    delta[0] = fma(t1dir0, tpair, delta[0]);
+    delta[1] = fma(t1dir1, tpair, delta[1]);
+    delta[2] = fma(t1dir2, tpair, delta[2]);
+    deltb[0] = fma(t1dir0, tpair, deltb[0]);
+    deltb[1] = fma(t1dir1, tpair, deltb[1]);
+    deltb[2] = fma(t1dir2, tpair, deltb[2]);
+  }
+
+  if (theta2) {
+    tpair = -f1 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
+
+    const KK_FLOAT t2dir0 = fma(a_nx[1], delr_hb_norm[2], -a_nx[2] * delr_hb_norm[1]);
+    const KK_FLOAT t2dir1 = fma(a_nx[2], delr_hb_norm[0], -a_nx[0] * delr_hb_norm[2]);
+    const KK_FLOAT t2dir2 = fma(a_nx[0], delr_hb_norm[1], -a_nx[1] * delr_hb_norm[0]);
+    delta[0] = fma(t2dir0, tpair, delta[0]);
+    delta[1] = fma(t2dir1, tpair, delta[1]);
+    delta[2] = fma(t2dir2, tpair, delta[2]);
+  }
+
+  if (theta3) {
+    tpair = -f1 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
+
+    const KK_FLOAT t3dir0 = fma(b_nx[1], delr_hb_norm[2], -b_nx[2] * delr_hb_norm[1]);
+    const KK_FLOAT t3dir1 = fma(b_nx[2], delr_hb_norm[0], -b_nx[0] * delr_hb_norm[2]);
+    const KK_FLOAT t3dir2 = fma(b_nx[0], delr_hb_norm[1], -b_nx[1] * delr_hb_norm[0]);
+    deltb[0] = fma(t3dir0, tpair, deltb[0]);
+    deltb[1] = fma(t3dir1, tpair, deltb[1]);
+    deltb[2] = fma(t3dir2, tpair, deltb[2]);
+  }
+
+  if (theta4) {
+    tpair = -f1 * f4t1 * f4t2 * f4t3 * df4t4 * f4t7 * f4t8 * factor_lj;
+
+    const KK_FLOAT t4dir0 = fma(b_nz[1], a_nz[2], -b_nz[2] * a_nz[1]);
+    const KK_FLOAT t4dir1 = fma(b_nz[2], a_nz[0], -b_nz[0] * a_nz[2]);
+    const KK_FLOAT t4dir2 = fma(b_nz[0], a_nz[1], -b_nz[1] * a_nz[0]);
+    delta[0] = fma(t4dir0, tpair, delta[0]);
+    delta[1] = fma(t4dir1, tpair, delta[1]);
+    delta[2] = fma(t4dir2, tpair, delta[2]);
+    deltb[0] = fma(t4dir0, tpair, deltb[0]);
+    deltb[1] = fma(t4dir1, tpair, deltb[1]);
+    deltb[2] = fma(t4dir2, tpair, deltb[2]);
+  }
+
+  if (theta7) {
+    tpair = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * factor_lj;
+
+    const KK_FLOAT t7dir0 = fma(a_nz[1], delr_hb_norm[2], -a_nz[2] * delr_hb_norm[1]);
+    const KK_FLOAT t7dir1 = fma(a_nz[2], delr_hb_norm[0], -a_nz[0] * delr_hb_norm[2]);
+    const KK_FLOAT t7dir2 = fma(a_nz[0], delr_hb_norm[1], -a_nz[1] * delr_hb_norm[0]);
+    delta[0] = fma(t7dir0, tpair, delta[0]);
+    delta[1] = fma(t7dir1, tpair, delta[1]);
+    delta[2] = fma(t7dir2, tpair, delta[2]);
+  }
+
+  if (theta8) {
+    tpair = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * factor_lj;
+
+    const KK_FLOAT t8dir0 = fma(b_nz[1], delr_hb_norm[2], -b_nz[2] * delr_hb_norm[1]);
+    const KK_FLOAT t8dir1 = fma(b_nz[2], delr_hb_norm[0], -b_nz[0] * delr_hb_norm[2]);
+    const KK_FLOAT t8dir2 = fma(b_nz[0], delr_hb_norm[1], -b_nz[1] * delr_hb_norm[0]);
+    deltb[0] = fma(t8dir0, tpair, deltb[0]);
+    deltb[1] = fma(t8dir1, tpair, deltb[1]);
+    deltb[2] = fma(t8dir2, tpair, deltb[2]);
+  }
+}
 
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
@@ -666,8 +1029,6 @@ KOKKOS_INLINE_FUNCTION
 void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
   const int &ipair, EV_FLOAT &ev) const
 {
-  // f and torque array are duplicated for OpenMP, atomic for GPU, and neither for Serial
-
   auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
   auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
   auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
@@ -687,359 +1048,129 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondComputeGPUPai
   b &= NEIGHMASK;
   const int btype = type(b);
 
-  // vectors COM-hbond site in lab frame
+  KK_FLOAT a_nx[3], a_nz[3], b_nx[3], b_nz[3];
   KK_FLOAT ra_chb[3], rb_chb[3];
+  KK_FLOAT delr_hb[3], delr_hb_norm[3];
+  KK_FLOAT rsq_hb, r_hb, rinv_hb;
+  KK_FLOAT evdwl;
 
-  KK_FLOAT delf[3], delta[3], deltb[3];    // force, torque increment
-  KK_FLOAT evdwl, finc, tpair;             // energy, force, torque
-  KK_FLOAT delr_hb[3],delr_hb_norm[3],rsq_hb,r_hb,rinv_hb;
-  KK_FLOAT theta1,t1dir[3],cost1;
-  KK_FLOAT theta2,t2dir[3],cost2;
-  KK_FLOAT theta3,t3dir[3],cost3;
-  KK_FLOAT theta4,t4dir[3],cost4;
-  KK_FLOAT theta7,t7dir[3],cost7;
-  KK_FLOAT theta8,t8dir[3],cost8;
+  a_nx[0] = d_nx_xtrct(a,0);
+  a_nx[1] = d_nx_xtrct(a,1);
+  a_nx[2] = d_nx_xtrct(a,2);
+  a_nz[0] = d_nz_xtrct(a,0);
+  a_nz[1] = d_nz_xtrct(a,1);
+  a_nz[2] = d_nz_xtrct(a,2);
 
-  KK_FLOAT f1,f4t1,f4t4,f4t2,f4t3,f4t7,f4t8;
-  KK_FLOAT df1,df4t1,df4t4,df4t2,df4t3,df4t7,df4t8;
+  b_nx[0] = d_nx_xtrct(b,0);
+  b_nx[1] = d_nx_xtrct(b,1);
+  b_nx[2] = d_nx_xtrct(b,2);
+  b_nz[0] = d_nz_xtrct(b,0);
+  b_nz[1] = d_nz_xtrct(b,1);
+  b_nz[2] = d_nz_xtrct(b,2);
 
-  // vector COM-hbond site a
   constexpr KK_FLOAT d_chb=+0.4;
-  ra_chb[0] = d_chb*d_nx_xtrct(a,0);
-  ra_chb[1] = d_chb*d_nx_xtrct(a,1);
-  ra_chb[2] = d_chb*d_nx_xtrct(a,2);
+  ra_chb[0] = d_chb*a_nx[0];
+  ra_chb[1] = d_chb*a_nx[1];
+  ra_chb[2] = d_chb*a_nx[2];
 
-  // vector COM-hbond site b
-  rb_chb[0] = d_chb*d_nx_xtrct(b,0);
-  rb_chb[1] = d_chb*d_nx_xtrct(b,1);
-  rb_chb[2] = d_chb*d_nx_xtrct(b,2);
+  rb_chb[0] = d_chb*b_nx[0];
+  rb_chb[1] = d_chb*b_nx[1];
+  rb_chb[2] = d_chb*b_nx[2];
 
-  // vector h-bonding site b-a
   delr_hb[0] = x(a,0) + ra_chb[0] - x(b,0) - rb_chb[0];
   delr_hb[1] = x(a,1) + ra_chb[1] - x(b,1) - rb_chb[1];
   delr_hb[2] = x(a,2) + ra_chb[2] - x(b,2) - rb_chb[2];
 
-  rsq_hb = delr_hb[0]*delr_hb[0] + delr_hb[1]*delr_hb[1] + delr_hb[2]*delr_hb[2];
-  r_hb = sqrt(rsq_hb);
-  rinv_hb = 1.0 / r_hb;
+  rsq_hb = fma(delr_hb[2], delr_hb[2],
+      fma(delr_hb[1], delr_hb[1], delr_hb[0] * delr_hb[0]));
+  if (rsq_hb <= static_cast<KK_FLOAT>(0.0)) return;
+  rinv_hb = static_cast<KK_FLOAT>(1.0) / sqrt(rsq_hb);
+  r_hb = rsq_hb * rinv_hb;
 
   delr_hb_norm[0] = delr_hb[0] * rinv_hb;
   delr_hb_norm[1] = delr_hb[1] * rinv_hb;
   delr_hb_norm[2] = delr_hb[2] * rinv_hb;
 
-  // beginning of modulation factors
+  KK_FLOAT f1, f4t1, f4t2, f4t3, f4t4, f4t7, f4t8;
+  KK_FLOAT df1, df4t1, df4t2, df4t3, df4t4, df4t7, df4t8;
+  KK_FLOAT theta1, theta2, theta3, theta4, theta7, theta8;
+  KK_FLOAT cost2, cost3, cost7, cost8;
 
-  // f1 = f1 modulation factor
-  f1 = F1_KK(r_hb, d_epsilon_hb(atype,btype), d_a_hb(atype,btype), d_cut_hb_0(atype,btype), 
-          d_cut_hb_lc(atype,btype), d_cut_hb_hc(atype,btype), d_cut_hb_lo(atype,btype), 
-          d_cut_hb_hi(atype,btype), d_b_hb_lo(atype,btype), 
-          d_b_hb_hi(atype,btype), d_shift_hb(atype,btype));
+  if (!hbond_radial_terms(atype, btype, r_hb, f1, df1)) return;
+  if (!hbond_theta1_terms(atype, btype, a_nx, b_nx, theta1, f4t1, df4t1)) return;
+  if (!hbond_theta2_terms(atype, btype, a_nx, delr_hb_norm, theta2, cost2, f4t2, df4t2)) return;
+  if (!hbond_theta3_terms(atype, btype, b_nx, delr_hb_norm, theta3, cost3, f4t3, df4t3)) return;
+  if (!hbond_theta4_terms(atype, btype, a_nz, b_nz, theta4, f4t4, df4t4)) return;
+  if (!hbond_theta7_terms(atype, btype, a_nz, delr_hb_norm, theta7, cost7, f4t7, df4t7)) return;
+  if (!hbond_theta8_terms(atype, btype, b_nz, delr_hb_norm, theta8, cost8, f4t8, df4t8)) return;
 
-  // start early rejection criterium
-  if (f1) {
-    // theta1 calculation
-    cost1 = - (d_nx_xtrct(a,0)*d_nx_xtrct(b,0) + d_nx_xtrct(a,1)*d_nx_xtrct(b,1) + d_nx_xtrct(a,2)*d_nx_xtrct(b,2));
-    if (cost1 > 1.0) cost1 = 1.0;
-    if (cost1 < -1.0) cost1 = -1.0;
-    theta1 = acos(cost1);
-    // f4t1 = f4 modulation factor
-    f4t1 = F4_KK(theta1, d_a_hb1(atype,btype), d_theta_hb1_0(atype, btype), d_dtheta_hb1_ast(atype, btype), 
-            d_b_hb1(atype, btype), d_dtheta_hb1_c(atype, btype));
-  // end of f1 
+  evdwl = f1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
+  if (!evdwl) return;
 
-  // f4t1 early rejection criterium
-  if (f4t1) {
-    // theta2 calculation
-    cost2 = - (d_nx_xtrct(a,0)*delr_hb_norm[0] + d_nx_xtrct(a,1)*delr_hb_norm[1] + d_nx_xtrct(a,2)*delr_hb_norm[2]);
-    if (cost2 > 1.0) cost2 = 1.0;
-    if (cost2 < -1.0) cost2 = -1.0;
-    theta2 = acos(cost2);
-    // f4t2 = f4 modulation factor
-    f4t2 = F4_KK(theta2, d_a_hb2(atype,btype), d_theta_hb2_0(atype, btype), d_dtheta_hb2_ast(atype, btype), 
-            d_b_hb2(atype, btype), d_dtheta_hb2_c(atype, btype));
-  // end of f4t1
+  KK_FLOAT delf[3], delta[3], deltb[3];
+  delf[0] = 0.0;
+  delf[1] = 0.0;
+  delf[2] = 0.0;
+  delta[0] = 0.0;
+  delta[1] = 0.0;
+  delta[2] = 0.0;
+  deltb[0] = 0.0;
+  deltb[1] = 0.0;
+  deltb[2] = 0.0;
 
-  // f4t2 early rejection criterium
-  if (f4t2) {
-    // theta3 calculation
-    cost3 = d_nx_xtrct(b,0)*delr_hb_norm[0] + d_nx_xtrct(b,1)*delr_hb_norm[1] + d_nx_xtrct(b,2)*delr_hb_norm[2];
-    if (cost3 > 1.0) cost3 = 1.0;
-    if (cost3 < -1.0) cost3 = -1.0;
-    theta3 = acos(cost3);
-    // f4t3 = f4 modulation factor
-    f4t3 = F4_KK(theta3, d_a_hb3(atype,btype), d_theta_hb3_0(atype, btype), d_dtheta_hb3_ast(atype, btype), 
-            d_b_hb3(atype, btype), d_dtheta_hb3_c(atype, btype));
-  // end of f4t2
+  hbond_force_contrib(
+    f1, f4t1, f4t2, f4t3, f4t4, f4t7, f4t8,
+    df1, df4t2, df4t3, df4t7, df4t8,
+    rinv_hb, factor_lj,
+    theta2, theta3, theta7, theta8,
+    cost2, cost3, cost7, cost8,
+    delr_hb, delr_hb_norm,
+    a_nx, b_nx, a_nz, b_nz,
+    ra_chb, rb_chb,
+    delf, delta, deltb);
 
-  // f4t3 early rejection criterium
-  if (f4t3) {
-    // theta4 calculation
-    cost4 = d_nz_xtrct(a,0)*d_nz_xtrct(b,0) + d_nz_xtrct(a,1)*d_nz_xtrct(b,1) + d_nz_xtrct(a,2)*d_nz_xtrct(b,2);
-    if (cost4 > 1.0) cost4 = 1.0;
-    if (cost4 < -1.0) cost4 = -1.0;
-    theta4 = acos(cost4);
-    // f4t4 = f4 modulation factor
-    f4t4 = F4_KK(theta4, d_a_hb4(atype,btype), d_theta_hb4_0(atype, btype), d_dtheta_hb4_ast(atype, btype), 
-            d_b_hb4(atype, btype), d_dtheta_hb4_c(atype, btype));
-  // end of f4t3
+  a_f(a,0) += delf[0];
+  a_f(a,1) += delf[1];
+  a_f(a,2) += delf[2];
+  a_torque(a,0) += delta[0];
+  a_torque(a,1) += delta[1];
+  a_torque(a,2) += delta[2];
 
-  // f4t4 early rejection criterium
-  if (f4t4) {
-    cost7 = - (d_nz_xtrct(a,0)*delr_hb_norm[0] + d_nz_xtrct(a,1)*delr_hb_norm[1] + d_nz_xtrct(a,2)*delr_hb_norm[2]);
-    if (cost7 > 1.0) cost7 = 1.0;
-    if (cost7 < -1.0) cost7 = -1.0;
-    theta7 = acos(cost7);
-    // f4t7 = f4 modulation factor
-    f4t7 = F4_KK(theta7, d_a_hb7(atype,btype), d_theta_hb7_0(atype, btype), d_dtheta_hb7_ast(atype, btype), 
-            d_b_hb7(atype, btype), d_dtheta_hb7_c(atype, btype));
-  // end of f4t4
+  if ( (NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal) ) {
+    a_f(b,0) -= delf[0];
+    a_f(b,1) -= delf[1];
+    a_f(b,2) -= delf[2];
+    a_torque(b,0) -= deltb[0];
+    a_torque(b,1) -= deltb[1];
+    a_torque(b,2) -= deltb[2];
+  }
 
-  // f4t7 early rejection criterium
-  if (f4t7) {
-    cost8 = d_nz_xtrct(b,0)*delr_hb_norm[0] + d_nz_xtrct(b,1)*delr_hb_norm[1] + d_nz_xtrct(b,2)*delr_hb_norm[2];
-    if (cost8 > 1.0) cost8 = 1.0;
-    if (cost8 < -1.0) cost8 = -1.0;
-    theta8 = acos(cost8);
-    // f4t8 = f4 modulation factor
-    f4t8 = F4_KK(theta8, d_a_hb8(atype,btype), d_theta_hb8_0(atype, btype), d_dtheta_hb8_ast(atype, btype), 
-            d_b_hb8(atype, btype), d_dtheta_hb8_c(atype, btype));
+  if (EVFLAG) {
+    ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
 
-    evdwl = f1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
-  // end of f4t7
-
-  // evdwl early rejection criterium
-  if (evdwl) {
-    // df1 = DF1 modulation factor
-    df1 = DF1_KK(r_hb, d_epsilon_hb(atype,btype), d_a_hb(atype,btype), d_cut_hb_0(atype,btype), 
-          d_cut_hb_lc(atype,btype), d_cut_hb_hc(atype,btype), d_cut_hb_lo(atype,btype), 
-          d_cut_hb_hi(atype,btype), d_b_hb_lo(atype,btype), 
-          d_b_hb_hi(atype,btype));
-    // df4t1 = DF4 modulation factor
-    df4t1 = DF4_KK(theta1, d_a_hb1(atype,btype), d_theta_hb1_0(atype, btype), d_dtheta_hb1_ast(atype, btype), 
-            d_b_hb1(atype, btype), d_dtheta_hb1_c(atype, btype))/sin(theta1);
-    // df4t2 = DF4 modulation factor
-    df4t2 = DF4_KK(theta2, d_a_hb2(atype,btype), d_theta_hb2_0(atype, btype), d_dtheta_hb2_ast(atype, btype), 
-            d_b_hb2(atype, btype), d_dtheta_hb2_c(atype, btype))/sin(theta2);
-    // df4t3 = DF4 modulation factor
-    df4t3 = DF4_KK(theta3, d_a_hb3(atype,btype), d_theta_hb3_0(atype, btype), d_dtheta_hb3_ast(atype, btype), 
-            d_b_hb3(atype, btype), d_dtheta_hb3_c(atype, btype))/sin(theta3);
-    // df4t4 = DF4 modulation factor
-    df4t4 = DF4_KK(theta4, d_a_hb4(atype,btype), d_theta_hb4_0(atype, btype), d_dtheta_hb4_ast(atype, btype), 
-            d_b_hb4(atype, btype), d_dtheta_hb4_c(atype, btype))/sin(theta4);
-    // df4t7 = DF4 modulation factor
-    df4t7 = DF4_KK(theta7, d_a_hb7(atype,btype), d_theta_hb7_0(atype, btype), d_dtheta_hb7_ast(atype, btype), 
-            d_b_hb7(atype, btype), d_dtheta_hb7_c(atype, btype))/sin(theta7);
-    // df4t8 = DF4 modulation factor
-    df4t8 = DF4_KK(theta8, d_a_hb8(atype,btype), d_theta_hb8_0(atype, btype), d_dtheta_hb8_ast(atype, btype), 
-            d_b_hb8(atype, btype), d_dtheta_hb8_c(atype, btype))/sin(theta8);
-
-    // force, torque, and viral contributions for forces between h-bonding sites
-
-    delf[0] = 0.0;
-    delf[1] = 0.0;
-    delf[2] = 0.0;
-
-    delta[0] = 0.0;
-    delta[1] = 0.0;
-    delta[2] = 0.0;
-
-    deltb[0] = 0.0;
-    deltb[1] = 0.0;
-    deltb[2] = 0.0;
-
-    // radial force
-    finc  = -df1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
-
-    delf[0] += delr_hb[0] * finc;
-    delf[1] += delr_hb[1] * finc;
-    delf[2] += delr_hb[2] * finc;
-
-    // theta2 force
-    if (theta2) {
-
-      finc  = -f1 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
-
-      delf[0] += (delr_hb_norm[0]*cost2 + d_nx_xtrct(a,0)) * finc;
-      delf[1] += (delr_hb_norm[1]*cost2 + d_nx_xtrct(a,1)) * finc;
-      delf[2] += (delr_hb_norm[2]*cost2 + d_nx_xtrct(a,2)) * finc;
+    if (vflag_either || eflag_atom) {
+      this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,ev.evdwl,\
+      delf[0],delf[1],delf[2],x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
     }
+  }
 
-    // theta3 force
-    if (theta3) {
+  hbond_torque_contrib(
+    f1, f4t1, f4t2, f4t3, f4t4, f4t7, f4t8,
+    df4t1, df4t2, df4t3, df4t4, df4t7, df4t8,
+    factor_lj,
+    theta1, theta2, theta3, theta4, theta7, theta8,
+    a_nx, b_nx, a_nz, b_nz, delr_hb_norm,
+    delta, deltb);
 
-      finc  = -f1 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
+  a_torque(a,0) += delta[0];
+  a_torque(a,1) += delta[1];
+  a_torque(a,2) += delta[2];
 
-      delf[0] += (delr_hb_norm[0]*cost3 - d_nx_xtrct(b,0)) * finc;
-      delf[1] += (delr_hb_norm[1]*cost3 - d_nx_xtrct(b,1)) * finc;
-      delf[2] += (delr_hb_norm[2]*cost3 - d_nx_xtrct(b,2)) * finc;
-    }
-
-    // theta7 force
-    if (theta7) {
-      
-      finc  = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * rinv_hb * factor_lj;
-
-      delf[0] += (delr_hb_norm[0]*cost7 + d_nz_xtrct(a,0)) * finc;
-      delf[1] += (delr_hb_norm[1]*cost7 + d_nz_xtrct(a,1)) * finc;
-      delf[2] += (delr_hb_norm[2]*cost7 + d_nz_xtrct(a,2)) * finc;
-
-    }
-
-    // theta8 force
-    if (theta8) {
-
-      finc  = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * rinv_hb * factor_lj;
-
-      delf[0] += (delr_hb_norm[0]*cost8 - d_nz_xtrct(b,0)) * finc;
-      delf[1] += (delr_hb_norm[1]*cost8 - d_nz_xtrct(b,1)) * finc;
-      delf[2] += (delr_hb_norm[2]*cost8 - d_nz_xtrct(b,2)) * finc;
-
-    }
-    
-    // increment forces and torques
-
-    a_f(a,0) += delf[0];
-    a_f(a,1) += delf[1];
-    a_f(a,2) += delf[2];
-    delta[0] = ra_chb[1]*delf[2] - ra_chb[2]*delf[1];
-    delta[1] = ra_chb[2]*delf[0] - ra_chb[0]*delf[2];
-    delta[2] = ra_chb[0]*delf[1] - ra_chb[1]*delf[0];
-    a_torque(a,0) += delta[0];
-    a_torque(a,1) += delta[1];
-    a_torque(a,2) += delta[2];
-
-    if ( (NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal) ) {
-      a_f(b,0) -= delf[0];
-      a_f(b,1) -= delf[1];
-      a_f(b,2) -= delf[2];
-      deltb[0] = rb_chb[1]*delf[2] - rb_chb[2]*delf[1];
-      deltb[1] = rb_chb[2]*delf[0] - rb_chb[0]*delf[2];
-      deltb[2] = rb_chb[0]*delf[1] - rb_chb[1]*delf[0];
-      a_torque(b,0) -= deltb[0];
-      a_torque(b,1) -= deltb[1];
-      a_torque(b,2) -= deltb[2];
-    }
-
-    // increment energy and virial
-    // NOTE: The virial is calculated on the 'molecular' basis.
-    // (see G. Ciccotti and J.P. Ryckaert, Comp. Phys. Rep. 4, 345-392 (1986))
-
-    if (EVFLAG) {
-      ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
-
-      if (vflag_either || eflag_atom) {
-        this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,ev.evdwl,\
-        delf[0],delf[1],delf[2],x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
-      }
-    }
-
-    // pure torques not expressible as r x f
-
-    delta[0] = 0.0;
-    delta[1] = 0.0;
-    delta[2] = 0.0;
-    deltb[0] = 0.0;
-    deltb[1] = 0.0;
-    deltb[2] = 0.0;
-
-    // theta1 torque
-    if (theta1) {
-
-      tpair = -f1 * df4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
-
-      t1dir[0] = d_nx_xtrct(a,1) * d_nx_xtrct(b,2) - d_nx_xtrct(a,2) * d_nx_xtrct(b,1);
-      t1dir[1] = d_nx_xtrct(a,2) * d_nx_xtrct(b,0) - d_nx_xtrct(a,0) * d_nx_xtrct(b,2);
-      t1dir[2] = d_nx_xtrct(a,0) * d_nx_xtrct(b,1) - d_nx_xtrct(a,1) * d_nx_xtrct(b,0);
-      delta[0] += t1dir[0] * tpair;
-      delta[1] += t1dir[1] * tpair;
-      delta[2] += t1dir[2] * tpair;
-      deltb[0] += t1dir[0] * tpair;
-      deltb[1] += t1dir[1] * tpair;
-      deltb[2] += t1dir[2] * tpair;
-    }
-    //theta2 torque
-    if (theta2) {
-
-      tpair = -f1 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
-
-      t2dir[0] = d_nx_xtrct(a,1) * delr_hb_norm[2] - d_nx_xtrct(a,2) * delr_hb_norm[1];
-      t2dir[1] = d_nx_xtrct(a,2) * delr_hb_norm[0] - d_nx_xtrct(a,0) * delr_hb_norm[2];
-      t2dir[2] = d_nx_xtrct(a,0) * delr_hb_norm[1] - d_nx_xtrct(a,1) * delr_hb_norm[0];
-      delta[0] += t2dir[0] * tpair;
-      delta[1] += t2dir[1] * tpair;
-      delta[2] += t2dir[2] * tpair;
-    }
-    //theta3 torque
-    if (theta3) {
-
-      tpair = -f1 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
-
-      t3dir[0] = d_nx_xtrct(b,1) * delr_hb_norm[2] - d_nx_xtrct(b,2) * delr_hb_norm[1];
-      t3dir[1] = d_nx_xtrct(b,2) * delr_hb_norm[0] - d_nx_xtrct(b,0) * delr_hb_norm[2];
-      t3dir[2] = d_nx_xtrct(b,0) * delr_hb_norm[1] - d_nx_xtrct(b,1) * delr_hb_norm[0];
-      deltb[0] += t3dir[0] * tpair;
-      deltb[1] += t3dir[1] * tpair;
-      deltb[2] += t3dir[2] * tpair;
-    }
-    //theta4 torque
-    if (theta4) {
-
-      tpair = -f1 * f4t1 * f4t2 * f4t3 * df4t4 * f4t7 * f4t8 * factor_lj;
-
-      t4dir[0] = d_nz_xtrct(b,1) * d_nz_xtrct(a,2) - d_nz_xtrct(b,2) * d_nz_xtrct(a,1);
-      t4dir[1] = d_nz_xtrct(b,2) * d_nz_xtrct(a,0) - d_nz_xtrct(b,0) * d_nz_xtrct(a,2);
-      t4dir[2] = d_nz_xtrct(b,0) * d_nz_xtrct(a,1) - d_nz_xtrct(b,1) * d_nz_xtrct(a,0);
-      delta[0] += t4dir[0] * tpair;
-      delta[1] += t4dir[1] * tpair;
-      delta[2] += t4dir[2] * tpair;
-      deltb[0] += t4dir[0] * tpair;
-      deltb[1] += t4dir[1] * tpair;
-      deltb[2] += t4dir[2] * tpair;
-    }
-    //theta7 torque
-    if (theta7) {
-
-      tpair = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * factor_lj;
-
-      t7dir[0] = d_nz_xtrct(a,1) * delr_hb_norm[2] - d_nz_xtrct(a,2) * delr_hb_norm[1];
-      t7dir[1] = d_nz_xtrct(a,2) * delr_hb_norm[0] - d_nz_xtrct(a,0) * delr_hb_norm[2];
-      t7dir[2] = d_nz_xtrct(a,0) * delr_hb_norm[1] - d_nz_xtrct(a,1) * delr_hb_norm[0];
-      delta[0] += t7dir[0] * tpair;
-      delta[1] += t7dir[1] * tpair;
-      delta[2] += t7dir[2] * tpair;
-    }
-    //theta8 torque
-    if (theta8) {
-
-      tpair = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * factor_lj;
-
-      t8dir[0] = d_nz_xtrct(b,1) * delr_hb_norm[2] - d_nz_xtrct(b,2) * delr_hb_norm[1];
-      t8dir[1] = d_nz_xtrct(b,2) * delr_hb_norm[0] - d_nz_xtrct(b,0) * delr_hb_norm[2];
-      t8dir[2] = d_nz_xtrct(b,0) * delr_hb_norm[1] - d_nz_xtrct(b,1) * delr_hb_norm[0];
-      deltb[0] += t8dir[0] * tpair;
-      deltb[1] += t8dir[1] * tpair;
-      deltb[2] += t8dir[2] * tpair;
-    }
-    
-    // increment torques
-
-    a_torque(a,0) += delta[0];
-    a_torque(a,1) += delta[1];
-    a_torque(a,2) += delta[2];
-
-    if ( (NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal) ) {
-      a_torque(b,0) -= deltb[0];
-      a_torque(b,1) -= deltb[1];
-      a_torque(b,2) -= deltb[2];
-    }
-  // end of early rejection criterion
-  } // evdwl
-  } // f4t7
-  } // f4t4
-  } // f4t3
-  } // f4t2
-  } // f4t1
-  } // f1
+  if ( (NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal) ) {
+    a_torque(b,0) -= deltb[0];
+    a_torque(b,1) -= deltb[1];
+    a_torque(b,2) -= deltb[2];
+  }
 }
 
 template<class DeviceType>
