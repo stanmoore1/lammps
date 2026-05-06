@@ -10,8 +10,8 @@ BUILDDIR_KK_SERIAL=$LMPDIR/build/oxdnaKK_mpi_only
 CMAKEDIR_KK_SERIAL=../../cmake/MINE_OXDNA/kokkos-serial.cmake
 BUILDDIR_KK_HIP_OMP=$LMPDIR/build/oxdnaKK_amd
 CMAKEDIR_KK_HIP_OMP=../../cmake/MINE_OXDNA/kokkos-amd-omp.cmake
-BUILDDIR_KK_CUDA_OMP=$LMPDIR/build/oxdnaKK_cuda_omp
-CMAKEDIR_KK_CUDA_OMP=../../cmake/MINE_OXDNA/kokkos-cuda-omp.cmake
+BUILDDIR_KK_CUDA_OMP=$LMPDIR/build/CUDA_OMP_oxdnaKK
+CMAKEDIR_KK_CUDA_OMP=../../cmake/MINE_OXDNA/CUDA_OMP.cmake
 
 if [ $# -eq 1 ] && [ $1 = run ]; then
 
