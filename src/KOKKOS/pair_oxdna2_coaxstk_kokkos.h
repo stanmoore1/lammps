@@ -33,8 +33,14 @@ namespace LAMMPS_NS {
 template<class DeviceType>
 class FixOxdnaLRFKokkos;  // forward declaration
 
+template<class DeviceType>
+class FixOxdnaNpairKokkos;  // forward declaration
+
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct TagPairOxdna2CoaxstkCompute{};
+
+template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+struct TagPairOxdna2CoaxstkComputeGPUPair{};
 
 template<class DeviceType>
 class PairOxdna2CoaxstkKokkos : public PairOxdna2Coaxstk, public KokkosBase {
@@ -51,6 +57,8 @@ class PairOxdna2CoaxstkKokkos : public PairOxdna2Coaxstk, public KokkosBase {
   void init_style() override;
   double init_one(int, int) override;
 
+  // Standard non-GPU Compute Functor(s). 1 with EV_FLOAT, 1 without.
+
   template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdna2CoaxstkCompute<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&, EV_FLOAT&) const;
@@ -58,6 +66,18 @@ class PairOxdna2CoaxstkKokkos : public PairOxdna2Coaxstk, public KokkosBase {
   template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdna2CoaxstkCompute<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
+
+  // GPU ComputeGPUPair Functor(s). 1 with EV_FLOAT, 1 without.
+
+  template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairOxdna2CoaxstkComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&, EV_FLOAT&) const;
+
+  template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairOxdna2CoaxstkComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
 
   template<int NEIGHFLAG, int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
@@ -93,6 +113,11 @@ class PairOxdna2CoaxstkKokkos : public PairOxdna2Coaxstk, public KokkosBase {
   typename AT::t_neighbors_2d_randomread d_neighbors;
   typename AT::t_int_1d_randomread d_alist;
   typename AT::t_int_1d_randomread d_numneigh;
+  // Screening takes place on GPUs only
+  // These are taken from the generic fix_oxdna_npairKK
+  DAT::tdual_uint64_1d k_pairs_screened;
+  typename AT::t_uint64_1d d_pairs_screened;
+  int screened_pair_count;
 
   // coaxial stacking interaction parameters
   typename AT::tdual_kkfloat_2d k_k_cxst, k_cut_cxst_0, k_cut_cxst_c;
@@ -153,6 +178,13 @@ class PairOxdna2CoaxstkKokkos : public PairOxdna2Coaxstk, public KokkosBase {
   friend void pair_virial_fdotr_compute<PairOxdna2CoaxstkKokkos>(PairOxdna2CoaxstkKokkos*);
 
   FixOxdnaLRFKokkos<DeviceType> *fix_oxdna_lrfKK;    // ptr to oxdna/lrf/kk fix
+  FixOxdnaNpairKokkos<DeviceType> *fix_oxdna_npairKK;    // ptr to oxdna/pair/kk fix
+
+ private:
+
+// Whole load of calls to help reduce register pressure in ComputeGPUPair functors.
+
+
 };
 
 }

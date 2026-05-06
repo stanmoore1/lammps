@@ -27,6 +27,7 @@
 #include "update.h"
 
 #include "fix_oxdna_lrf_kokkos.h"
+#include "fix_oxdna_npair_kokkos.h"
 #include "mf_oxdna_kokkos.h"
 
 using namespace LAMMPS_NS;
@@ -44,6 +45,8 @@ PairOxdna2CoaxstkKokkos<DeviceType>::PairOxdna2CoaxstkKokkos(LAMMPS *lmp) : Pair
   datamask_read = X_MASK | F_MASK | 
                   TORQUE_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
+
+  screened_pair_count = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -132,44 +135,62 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   EV_FLOAT ev;
 
+  // "run_compute" is just a little helper for CPU/GPU dispatch to improve code readability.
+  // It removes an extra if statement from each of the typical compute functor calls.
+  auto run_compute = [&](auto host_tag, auto gpu_tag, const bool use_reduce) {
+    if (execution_space == HostKK) {
+      if (use_reduce) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(host_tag)>(0,anum),*this,ev);
+      } else {
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(host_tag)>(0,anum),*this);
+      }
+    } else {
+      if (use_reduce) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag)>(0,screened_pair_count),*this,ev);
+      } else {
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag)>(0,screened_pair_count),*this);
+      }
+    }
+  };
+
   if (evflag) {
     if (neighflag == HALF) {
       if (newton_pair) {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdna2CoaxstkCompute<HALF,1,1> >(0,anum),*this,ev);
+        run_compute(TagPairOxdna2CoaxstkCompute<HALF,1,1>{}, TagPairOxdna2CoaxstkComputeGPUPair<HALF,1,1>{}, true);
       } else {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdna2CoaxstkCompute<HALF,0,1> >(0,anum),*this,ev);
+        run_compute(TagPairOxdna2CoaxstkCompute<HALF,0,1>{}, TagPairOxdna2CoaxstkComputeGPUPair<HALF,0,1>{}, true);
       }
     } else if (neighflag == HALFTHREAD) {
       if (newton_pair) {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdna2CoaxstkCompute<HALFTHREAD,1,1> >(0,anum),*this,ev);
+        run_compute(TagPairOxdna2CoaxstkCompute<HALFTHREAD,1,1>{}, TagPairOxdna2CoaxstkComputeGPUPair<HALFTHREAD,1,1>{}, true);
       } else {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdna2CoaxstkCompute<HALFTHREAD,0,1> >(0,anum),*this,ev);
+        run_compute(TagPairOxdna2CoaxstkCompute<HALFTHREAD,0,1>{}, TagPairOxdna2CoaxstkComputeGPUPair<HALFTHREAD,0,1>{}, true);
       }
     } else if (neighflag == FULL) {
       if (newton_pair) {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdna2CoaxstkCompute<FULL,1,1> >(0,anum),*this,ev);
+        run_compute(TagPairOxdna2CoaxstkCompute<FULL,1,1>{}, TagPairOxdna2CoaxstkComputeGPUPair<FULL,1,1>{}, true);
       } else {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdna2CoaxstkCompute<FULL,0,1> >(0,anum),*this,ev);
+        run_compute(TagPairOxdna2CoaxstkCompute<FULL,0,1>{}, TagPairOxdna2CoaxstkComputeGPUPair<FULL,0,1>{}, true);
       }
     }
   } else {
     if (neighflag == HALF) {
       if (newton_pair) {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdna2CoaxstkCompute<HALF,1,0> >(0,anum),*this);
+        run_compute(TagPairOxdna2CoaxstkCompute<HALF,1,0>{}, TagPairOxdna2CoaxstkComputeGPUPair<HALF,1,0>{}, false);
       } else {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdna2CoaxstkCompute<HALF,0,0> >(0,anum),*this);
+        run_compute(TagPairOxdna2CoaxstkCompute<HALF,0,0>{}, TagPairOxdna2CoaxstkComputeGPUPair<HALF,0,0>{}, false);
       }
     } else if (neighflag == HALFTHREAD) {
       if (newton_pair) {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdna2CoaxstkCompute<HALFTHREAD,1,0> >(0,anum),*this);
+        run_compute(TagPairOxdna2CoaxstkCompute<HALFTHREAD,1,0>{}, TagPairOxdna2CoaxstkComputeGPUPair<HALFTHREAD,1,0>{}, false);
       } else {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdna2CoaxstkCompute<HALFTHREAD,0,0> >(0,anum),*this);
+        run_compute(TagPairOxdna2CoaxstkCompute<HALFTHREAD,0,0>{}, TagPairOxdna2CoaxstkComputeGPUPair<HALFTHREAD,0,0>{}, false);
       }
     } else if (neighflag == FULL) {
       if (newton_pair) {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdna2CoaxstkCompute<FULL,1,0> >(0,anum),*this);
+        run_compute(TagPairOxdna2CoaxstkCompute<FULL,1,0>{}, TagPairOxdna2CoaxstkComputeGPUPair<FULL,1,0>{}, false);
       } else {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdna2CoaxstkCompute<FULL,0,0> >(0,anum),*this);
+        run_compute(TagPairOxdna2CoaxstkCompute<FULL,0,0>{}, TagPairOxdna2CoaxstkComputeGPUPair<FULL,0,0>{}, false);
       }
     }
   }
@@ -215,6 +236,10 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     dup_vatom    = decltype(dup_vatom)();
   }
 }
+
+/* ----------------------------------------------------------------------
+   Standard non-GPU Compute Functor(s)
+-------------------------------------------------------------------------- */
 
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
@@ -567,6 +592,365 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
   (TagPairOxdna2CoaxstkCompute<NEIGHFLAG,NEWTON_PAIR,EVFLAG>(),ia,ev);
 }
 
+/* ----------------------------------------------------------------------
+   ComputeGPUPair Functor(s)
+------------------------------------------------------------------------- */
+
+// Will add in external register pressure calls here
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
+  const int &ia, EV_FLOAT &ev) const
+{
+  // f and torque array are duplicated for OpenMP, atomic for GPU, and neither for Serial
+
+  auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
+    decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
+  auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  const int a = d_alist(ia);
+  const int atype = type(a);
+  // vectors COM-backbone site, COM-stacking site in lab frame
+  KK_FLOAT ra_cs[3], rb_cs[3], ra_cst[3], rb_cst[3];
+
+  KK_FLOAT delf[3],delta[3],deltb[3];    // force, torque increment
+  KK_FLOAT evdwl, finc, tpair;           // energy, force, torque
+  KK_FLOAT v1tmp[3];
+  KK_FLOAT delr_ss[3],delr_ss_norm[3],rsq_ss,r_ss,rinv_ss;
+  KK_FLOAT delr_st[3],delr_st_norm[3],rsq_st,r_st,rinv_st;
+  KK_FLOAT theta1,theta1p,t1dir[3],cost1;
+  KK_FLOAT theta4,t4dir[3],cost4;
+  KK_FLOAT theta5,theta5p,t5dir[3],cost5;
+  KK_FLOAT theta6,theta6p,t6dir[3],cost6;
+  KK_FLOAT cosphi3;
+
+  KK_FLOAT f2,f4f6t1,f4t4,f4t5,f4t6;
+  KK_FLOAT df2,df4f6t1,df4t4,df4t5,df4t6;
+
+  // vector COM-backbone site a, COM-stacking site a
+  constexpr KK_FLOAT d_cs=-0.4;
+  constexpr KK_FLOAT d_cst=+0.34;
+  ra_cst[0] = d_cst*d_nx_xtrct(a,0);
+  ra_cst[1] = d_cst*d_nx_xtrct(a,1);
+  ra_cst[2] = d_cst*d_nx_xtrct(a,2);
+  ra_cs[0] = d_cs*d_nx_xtrct(a,0);
+  ra_cs[1] = d_cs*d_nx_xtrct(a,1);
+  ra_cs[2] = d_cs*d_nx_xtrct(a,2);
+  
+  const int bnum = d_numneigh(a);
+
+  for (int ib = 0; ib < bnum; ib++) {
+
+    int b = d_neighbors(a,ib);
+    const KK_FLOAT factor_lj = special_lj[sbmask(b)];
+    b &= NEIGHMASK;
+    const int btype = type(b);
+
+    // vector COM b - stacking site b --- (st)
+    rb_cst[0] = d_cst*d_nx_xtrct(b,0);
+    rb_cst[1] = d_cst*d_nx_xtrct(b,1);
+    rb_cst[2] = d_cst*d_nx_xtrct(b,2);
+
+    // vector stacking site b to a
+    delr_st[0] = x(a,0) + ra_cst[0] - x(b,0) - rb_cst[0];
+    delr_st[1] = x(a,1) + ra_cst[1] - x(b,1) - rb_cst[1];
+    delr_st[2] = x(a,2) + ra_cst[2] - x(b,2) - rb_cst[2];
+
+    rsq_st = delr_st[0]*delr_st[0] + delr_st[1]*delr_st[1] + delr_st[2]*delr_st[2];
+    r_st = sqrt(rsq_st);
+    rinv_st = 1.0 / r_st;
+
+    delr_st_norm[0] = delr_st[0] * rinv_st;
+    delr_st_norm[1] = delr_st[1] * rinv_st;
+    delr_st_norm[2] = delr_st[2] * rinv_st;
+
+    // vector COM b - backbone site b --- (ss)
+    rb_cs[0] = d_cs*d_nx_xtrct(b,0);
+    rb_cs[1] = d_cs*d_nx_xtrct(b,1);
+    rb_cs[2] = d_cs*d_nx_xtrct(b,2);
+
+    // vector backbone site b to a
+    delr_ss[0] = x(a,0) + ra_cs[0] - x(b,0) - rb_cs[0];
+    delr_ss[1] = x(a,1) + ra_cs[1] - x(b,1) - rb_cs[1];
+    delr_ss[2] = x(a,2) + ra_cs[2] - x(b,2) - rb_cs[2];
+
+    rsq_ss = delr_ss[0]*delr_ss[0] + delr_ss[1]*delr_ss[1] + delr_ss[2]*delr_ss[2];
+    r_ss = sqrt(rsq_ss);
+    rinv_ss = 1.0 / r_ss;
+
+    delr_ss_norm[0] = delr_ss[0] * rinv_ss;
+    delr_ss_norm[1] = delr_ss[1] * rinv_ss;
+    delr_ss_norm[2] = delr_ss[2] * rinv_ss;
+
+    cost1 = -(d_nx_xtrct(a,0) * d_nx_xtrct(b,0) + d_nx_xtrct(a,1) * d_nx_xtrct(b,1) + d_nx_xtrct(a,2) * d_nx_xtrct(b,2));
+    if (cost1 >  1.0) cost1 =  1.0;
+    if (cost1 < -1.0) cost1 = -1.0;
+    theta1 = acos(cost1);
+    theta1p = 2 * MY_PI - theta1;
+
+    // beginning of modulation factors
+
+    // f4f6t1 = f4(theta1,..) + f6(theta1,..) modulation factors
+    f4f6t1 = F4_KK(theta1, d_a_cxst1(atype,btype), d_theta_cxst1_0(atype,btype), d_dtheta_cxst1_ast(atype,btype), 
+                 d_b_cxst1(atype,btype), d_dtheta_cxst1_c(atype,btype)) + \
+           F6_KK(theta1, d_AA_cxst1(atype,btype), d_BB_cxst1(atype,btype));
+
+    // start early rejection criterium
+    if (f4f6t1) {
+      // theta4 calculation
+      cost4 = d_nz_xtrct(a,0)*d_nz_xtrct(b,0) + d_nz_xtrct(a,1)*d_nz_xtrct(b,1) + d_nz_xtrct(a,2)*d_nz_xtrct(b,2);
+      if (cost4 > 1.0) cost4 = 1.0;
+      if (cost4 < -1.0) cost4 = -1.0;
+      theta4 = acos(cost4);
+      // f4t4 = f4 modulation factor
+      f4t4 = F4_KK(theta4, d_a_cxst4(atype,btype), d_theta_cxst4_0(atype, btype), d_dtheta_cxst4_ast(atype, btype), 
+              d_b_cxst4(atype, btype), d_dtheta_cxst4_c(atype, btype));
+    // end of f4f6t1
+
+    // f4t4 early rejection criterium
+    if (f4t4) {
+      cost5 = (d_nz_xtrct(a,0)*delr_st_norm[0] + d_nz_xtrct(a,1)*delr_st_norm[1] + d_nz_xtrct(a,2)*delr_st_norm[2]);
+      if (cost5 > 1.0) cost5 = 1.0;
+      if (cost5 < -1.0) cost5 = -1.0;
+      theta5 = acos(cost5);
+      theta5p = MY_PI - theta5;
+      // f4t5 = f4(theta5,..) + f4(theta5p,..) modulation factors
+      f4t5 = F4_KK(theta5, d_a_cxst5(atype,btype), d_theta_cxst5_0(atype,btype), d_dtheta_cxst5_ast(atype,btype), 
+              d_b_cxst5(atype,btype), d_dtheta_cxst5_c(atype,btype)) + \
+             F4_KK(theta5p, d_a_cxst5(atype,btype), d_theta_cxst5_0(atype,btype), d_dtheta_cxst5_ast(atype,btype), 
+              d_b_cxst5(atype,btype), d_dtheta_cxst5_c(atype,btype));
+    // end of f4t4
+
+    // f4t5 early rejection criterium
+    if (f4t5) {
+      cost6 = d_nz_xtrct(b,0)*delr_st_norm[0] + d_nz_xtrct(b,1)*delr_st_norm[1] + d_nz_xtrct(b,2)*delr_st_norm[2];
+      if (cost6 > 1.0) cost6 = 1.0;
+      if (cost6 < -1.0) cost6 = -1.0;
+      theta6 = acos(cost6);
+      theta6p = MY_PI - theta6;
+      // f4t6 = f4(theta6,..) + f4(theta6p,..) modulation factors
+      f4t6 = F4_KK(theta6, d_a_cxst6(atype,btype), d_theta_cxst6_0(atype,btype), d_dtheta_cxst6_ast(atype,btype), 
+              d_b_cxst6(atype,btype), d_dtheta_cxst6_c(atype,btype)) + \
+             F4_KK(theta6p, d_a_cxst6(atype,btype), d_theta_cxst6_0(atype,btype), d_dtheta_cxst6_ast(atype,btype), 
+              d_b_cxst6(atype,btype), d_dtheta_cxst6_c(atype,btype));
+
+      v1tmp[0] = delr_ss_norm[1] * d_nx_xtrct(a,2) - delr_ss_norm[2] * d_nx_xtrct(a,1);
+      v1tmp[1] = delr_ss_norm[2] * d_nx_xtrct(a,0) - delr_ss_norm[0] * d_nx_xtrct(a,2);
+      v1tmp[2] = delr_ss_norm[0] * d_nx_xtrct(a,1) - delr_ss_norm[1] * d_nx_xtrct(a,0);
+      cosphi3 = v1tmp[0] * delr_st_norm[0] + v1tmp[1] * delr_st_norm[1] + v1tmp[2] * delr_st_norm[2];
+      if (cosphi3 > 1.0) cosphi3 = 1.0;
+      if (cosphi3 < -1.0) cosphi3 = -1.0;
+      // f2 = f2 modulation factor
+      f2 = F2_KK(r_st, d_k_cxst(atype,btype), d_cut_cxst_0(atype,btype), d_cut_cxst_lc(atype,btype), 
+              d_cut_cxst_hc(atype,btype), d_cut_cxst_lo(atype,btype), d_cut_cxst_hi(atype,btype), 
+              d_b_cxst_lo(atype,btype), d_b_cxst_hi(atype,btype), 
+              d_cut_cxst_c(atype,btype));
+
+      evdwl = f2 * f4f6t1 * f4t4 * f4t5 * f4t6 * factor_lj;
+    // end of f4t5
+
+    // evdwl early rejection criterium
+    if (evdwl) {
+      // df2 = DF2 modulation factor
+      df2 = DF2_KK(r_st, d_k_cxst(atype,btype), d_cut_cxst_0(atype,btype), d_cut_cxst_lc(atype,btype), 
+              d_cut_cxst_hc(atype,btype), d_cut_cxst_lo(atype,btype), d_cut_cxst_hi(atype,btype), 
+              d_b_cxst_lo(atype,btype), d_b_cxst_hi(atype,btype));
+      // df4f6t1 = DF4(theta1,..)/sin(theta1) + DF6(theta1,..)/sin(theta1) modulation factors
+      df4f6t1 = ( DF4_KK(theta1, d_a_cxst1(atype,btype), d_theta_cxst1_0(atype,btype), d_dtheta_cxst1_ast(atype,btype), 
+                     d_b_cxst1(atype,btype), d_dtheta_cxst1_c(atype,btype)) + \
+              DF6_KK(theta1, d_AA_cxst1(atype,btype), d_BB_cxst1(atype,btype)) ) / sin(theta1);
+      // df4t4 = DF4 modulation factor
+      df4t4 = DF4_KK(theta4, d_a_cxst4(atype,btype), d_theta_cxst4_0(atype, btype), d_dtheta_cxst4_ast(atype, btype), 
+                     d_b_cxst4(atype, btype), d_dtheta_cxst4_c(atype, btype)) / sin(theta4);
+      // df4t5 = DF4(theta5,..)/sin(theta5) - DF4(theta5p,..)/sin(theta5) modulation factors
+      df4t5 = ( DF4_KK(theta5, d_a_cxst5(atype,btype), d_theta_cxst5_0(atype,btype), d_dtheta_cxst5_ast(atype,btype), 
+                     d_b_cxst5(atype,btype), d_dtheta_cxst5_c(atype,btype)) - \
+              DF4_KK(theta5p, d_a_cxst5(atype,btype), d_theta_cxst5_0(atype,btype), d_dtheta_cxst5_ast(atype,btype), 
+                     d_b_cxst5(atype,btype), d_dtheta_cxst5_c(atype,btype)) ) / sin(theta5);
+      // df4t6 = DF4(theta6,..)/sin(theta6) - DF4(theta6p,..)/sin(theta6) modulation factors
+      df4t6 = ( DF4_KK(theta6, d_a_cxst6(atype,btype), d_theta_cxst6_0(atype,btype), d_dtheta_cxst6_ast(atype,btype), 
+                     d_b_cxst6(atype,btype), d_dtheta_cxst6_c(atype,btype)) - \
+              DF4_KK(theta6p, d_a_cxst6(atype,btype), d_theta_cxst6_0(atype,btype), d_dtheta_cxst6_ast(atype,btype), 
+                     d_b_cxst6(atype,btype), d_dtheta_cxst6_c(atype,btype)) ) / sin(theta6);
+
+      // force, torque, and viral contributions for forces between h-bonding sites
+
+      delf[0] = 0.0;
+      delf[1] = 0.0;
+      delf[2] = 0.0;
+
+      delta[0] = 0.0;
+      delta[1] = 0.0;
+      delta[2] = 0.0;
+
+      deltb[0] = 0.0;
+      deltb[1] = 0.0;
+      deltb[2] = 0.0;
+
+      // radial force
+      finc  = -df2 * f4f6t1 * f4t4 * f4t5 * f4t6 * rinv_st * factor_lj;
+
+      delf[0] += delr_st[0] * finc;
+      delf[1] += delr_st[1] * finc;
+      delf[2] += delr_st[2] * finc;
+
+      // theta5 force
+      if (theta5 && theta5p) {
+
+        finc  = -f2 * f4f6t1 * f4t4 * df4t5 * f4t6 * rinv_st * factor_lj;
+
+        delf[0] += (delr_st_norm[0]*cost5 - d_nz_xtrct(a,0)) * finc;
+        delf[1] += (delr_st_norm[1]*cost5 - d_nz_xtrct(a,1)) * finc;
+        delf[2] += (delr_st_norm[2]*cost5 - d_nz_xtrct(a,2)) * finc;
+      }
+
+      // theta6 force
+      if (theta6 && theta6p) {
+
+        finc  = -f2 * f4f6t1* f4t4 * f4t5 * df4t6 * rinv_st * factor_lj;
+
+        delf[0] += (delr_st_norm[0]*cost6 - d_nz_xtrct(b,0)) * finc;
+        delf[1] += (delr_st_norm[1]*cost6 - d_nz_xtrct(b,1)) * finc;
+        delf[2] += (delr_st_norm[2]*cost6 - d_nz_xtrct(b,2)) * finc;
+      }
+
+      // increment forces and torques
+
+      a_f(a,0) += delf[0];
+      a_f(a,1) += delf[1];
+      a_f(a,2) += delf[2];
+      delta[0] = ra_cst[1]*delf[2] - ra_cst[2]*delf[1];
+      delta[1] = ra_cst[2]*delf[0] - ra_cst[0]*delf[2];
+      delta[2] = ra_cst[0]*delf[1] - ra_cst[1]*delf[0];
+      a_torque(a,0) += delta[0];
+      a_torque(a,1) += delta[1];
+      a_torque(a,2) += delta[2];
+
+      if ( (NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal) ) {
+        a_f(b,0) -= delf[0];
+        a_f(b,1) -= delf[1];
+        a_f(b,2) -= delf[2];
+        deltb[0] = rb_cst[1]*delf[2] - rb_cst[2]*delf[1];
+        deltb[1] = rb_cst[2]*delf[0] - rb_cst[0]*delf[2];
+        deltb[2] = rb_cst[0]*delf[1] - rb_cst[1]*delf[0];
+        a_torque(b,0) -= deltb[0];
+        a_torque(b,1) -= deltb[1];
+        a_torque(b,2) -= deltb[2];
+      }
+
+      // increment energy and virial
+      // NOTE: The virial is calculated on the 'molecular' basis.
+      // (see G. Ciccotti and J.P. Ryckaert, Comp. Phys. Rep. 4, 345-392 (1986))
+
+      if (EVFLAG) {
+        ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
+
+        if (vflag_either || eflag_atom) {
+          this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,ev.evdwl,\
+          delf[0],delf[1],delf[2],x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
+        }
+      }
+
+      // pure torques not expressible as r x f
+
+      delta[0] = 0.0;
+      delta[1] = 0.0;
+      delta[2] = 0.0;
+      deltb[0] = 0.0;
+      deltb[1] = 0.0;
+      deltb[2] = 0.0;
+
+      // theta1 torque
+      if (theta1 && theta1p) {
+
+        tpair = -f2 * df4f6t1 * f4t4 * f4t5 * f4t6 * factor_lj;
+
+        t1dir[0] = d_nx_xtrct(a,1) * d_nx_xtrct(b,2) - d_nx_xtrct(a,2) * d_nx_xtrct(b,1);
+        t1dir[1] = d_nx_xtrct(a,2) * d_nx_xtrct(b,0) - d_nx_xtrct(a,0) * d_nx_xtrct(b,2);
+        t1dir[2] = d_nx_xtrct(a,0) * d_nx_xtrct(b,1) - d_nx_xtrct(a,1) * d_nx_xtrct(b,0);
+        delta[0] += t1dir[0] * tpair;
+        delta[1] += t1dir[1] * tpair;
+        delta[2] += t1dir[2] * tpair;
+        deltb[0] += t1dir[0] * tpair;
+        deltb[1] += t1dir[1] * tpair;
+        deltb[2] += t1dir[2] * tpair;
+      }
+      //theta4 torque
+      if (theta4) {
+
+        tpair = -f2 * f4f6t1 * df4t4 * f4t5 * f4t6 * factor_lj;
+
+        t4dir[0] = d_nz_xtrct(b,1) * d_nz_xtrct(a,2) - d_nz_xtrct(b,2) * d_nz_xtrct(a,1);
+        t4dir[1] = d_nz_xtrct(b,2) * d_nz_xtrct(a,0) - d_nz_xtrct(b,0) * d_nz_xtrct(a,2);
+        t4dir[2] = d_nz_xtrct(b,0) * d_nz_xtrct(a,1) - d_nz_xtrct(b,1) * d_nz_xtrct(a,0);
+        delta[0] += t4dir[0] * tpair;
+        delta[1] += t4dir[1] * tpair;
+        delta[2] += t4dir[2] * tpair;
+        deltb[0] += t4dir[0] * tpair;
+        deltb[1] += t4dir[1] * tpair;
+        deltb[2] += t4dir[2] * tpair;
+      }
+      //theta5 torque
+      if (theta5 && theta5p) {
+
+        tpair = -f2 * f4f6t1 * f4t4 * df4t5 * f4t6 * factor_lj;
+
+        t5dir[0] = delr_st_norm[1] * d_nz_xtrct(a,2) - delr_st_norm[2] * d_nz_xtrct(a,1);
+        t5dir[1] = delr_st_norm[2] * d_nz_xtrct(a,0) - delr_st_norm[0] * d_nz_xtrct(a,2);
+        t5dir[2] = delr_st_norm[0] * d_nz_xtrct(a,1) - delr_st_norm[1] * d_nz_xtrct(a,0);
+        delta[0] += t5dir[0] * tpair;
+        delta[1] += t5dir[1] * tpair;
+        delta[2] += t5dir[2] * tpair;
+      }
+      // theta6 torque
+      if (theta6 && theta6p) {
+
+        tpair = -f2 * f4f6t1 * f4t4 * f4t5 * df4t6 * factor_lj;
+
+        t6dir[0] = delr_st_norm[1] * d_nz_xtrct(b,2) - delr_st_norm[2] * d_nz_xtrct(b,1);
+        t6dir[1] = delr_st_norm[2] * d_nz_xtrct(b,0) - delr_st_norm[0] * d_nz_xtrct(b,2);
+        t6dir[2] = delr_st_norm[0] * d_nz_xtrct(b,1) - delr_st_norm[1] * d_nz_xtrct(b,0);
+        deltb[0] -= t6dir[0] * tpair;
+        deltb[1] -= t6dir[1] * tpair;
+        deltb[2] -= t6dir[2] * tpair;
+      }
+      
+      // increment torques
+
+      a_torque(a,0) += delta[0];
+      a_torque(a,1) += delta[1];
+      a_torque(a,2) += delta[2];
+
+      if ( (NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal) ) {
+        a_torque(b,0) -= deltb[0];
+        a_torque(b,1) -= deltb[1];
+        a_torque(b,2) -= deltb[2];
+      }
+    // end of early rejection criterion
+    } // evdwl
+    } // f4t5
+    } // f4t4
+    } // f4f6t1
+  }
+}
+
+template<class DeviceType>
+template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
+  const int &ia) const
+{
+  EV_FLOAT ev;
+  this->template operator()<NEIGHFLAG,NEWTON_PAIR,EVFLAG>\
+  (TagPairOxdna2CoaxstkComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>(),ia,ev);
+}
+
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
@@ -681,6 +1065,18 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::init_style()
   auto fixes = modify->get_fix_by_style("^oxdna/lrf/kk");
   if (fixes.size() == 0) error->all(FLERR, "Fix oxdna/lrf/kk not found. Ensure pair ox*na*/excv/kk is present");
   else fix_oxdna_lrfKK = dynamic_cast<FixOxdnaLRFKokkos<DeviceType> *>(fixes[0]);
+
+  fix_oxdna_npairKK = nullptr;
+  Kokkos::fence("before oxdna/npair/kk lookup");
+  auto npair_fixes = modify->get_fix_by_style("^oxdna/npair/kk");
+  if (npair_fixes.size() == 0) {
+    fix_oxdna_npairKK = dynamic_cast<FixOxdnaNpairKokkos<DeviceType> *>(
+      modify->add_fix("npair_kk all oxdna/npair/kk"));
+    Kokkos::fence("Fix oxdna/npair/kk creation");
+  } else {
+    fix_oxdna_npairKK = dynamic_cast<FixOxdnaNpairKokkos<DeviceType> *>(npair_fixes[0]);
+  }
+  if (!fix_oxdna_npairKK) error->all(FLERR, "Fix oxdna/npair/kk lookup failed");
 }
 
 /* ---------------------------------------------------------------------- */
