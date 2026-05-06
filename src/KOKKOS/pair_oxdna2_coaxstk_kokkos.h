@@ -184,6 +184,56 @@ class PairOxdna2CoaxstkKokkos : public PairOxdna2Coaxstk, public KokkosBase {
 
 // Whole load of calls to help reduce register pressure in ComputeGPUPair functors.
 
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool coaxstk_radial_terms(const int &atype, const int &btype, const KK_FLOAT &r_st,
+    KK_FLOAT &f2, KK_FLOAT &df2) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool coaxstk_theta1_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+    KK_FLOAT &theta1, KK_FLOAT &theta1p, KK_FLOAT &f4f6t1, KK_FLOAT &df4f6t1) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool coaxstk_theta4_terms(const int &atype, const int &btype,
+    const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+    KK_FLOAT &theta4, KK_FLOAT &f4t4, KK_FLOAT &df4t4) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool coaxstk_theta5_terms(const int &atype, const int &btype, const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&delr_st_norm)[3],
+    KK_FLOAT &theta5, KK_FLOAT &theta5p, KK_FLOAT &f4t5, KK_FLOAT &df4t5, KK_FLOAT &cost5) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  bool coaxstk_theta6_terms(const int &atype, const int &btype, const KK_FLOAT (&b_nz)[3], const KK_FLOAT (&delr_st_norm)[3],
+    KK_FLOAT &theta6, KK_FLOAT &theta6p, KK_FLOAT &f4t6, KK_FLOAT &df4t6, KK_FLOAT &cost6) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void coaxstk_cosphi3_terms(const KK_FLOAT (&delr_ss_norm)[3], const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&delr_st_norm)[3],
+    KK_FLOAT &cosphi3) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void coaxstk_force_contrib(const KK_FLOAT &df2, const KK_FLOAT &f2, const KK_FLOAT &f4f6t1,
+    const KK_FLOAT &f4t4, const KK_FLOAT &f4t5, const KK_FLOAT &f4t6, const KK_FLOAT &df4t5, const KK_FLOAT &df4t6, const KK_FLOAT &rinv_st,
+    const KK_FLOAT &factor_lj, const KK_FLOAT &cost5, const KK_FLOAT &cost6,
+    const KK_FLOAT &theta5, const KK_FLOAT &theta5p, const KK_FLOAT &theta6, const KK_FLOAT &theta6p,
+    const KK_FLOAT (&delr_st)[3], const KK_FLOAT (&delr_st_norm)[3], const KK_FLOAT (&a_nz)[3],
+    const KK_FLOAT (&b_nz)[3], const KK_FLOAT (&ra_cst)[3], const KK_FLOAT (&rb_cst)[3],
+    KK_FLOAT (&delf)[3], KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void coaxstk_torque_contrib(const KK_FLOAT &f2, const KK_FLOAT &df4f6t1, const KK_FLOAT &f4f6t1,
+    const KK_FLOAT &f4t4, const KK_FLOAT &f4t5, const KK_FLOAT &f4t6, const KK_FLOAT &df4t4, const KK_FLOAT &df4t5, const KK_FLOAT &df4t6, const KK_FLOAT &factor_lj,
+    const KK_FLOAT &theta1, const KK_FLOAT &theta1p, const KK_FLOAT &theta4, const KK_FLOAT &theta5,
+    const KK_FLOAT &theta5p, const KK_FLOAT &theta6, const KK_FLOAT &theta6p,
+    const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3], const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+    const KK_FLOAT (&delr_st_norm)[3], KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]) const;
 
 };
 
