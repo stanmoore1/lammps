@@ -100,13 +100,13 @@ template<class DeviceType>
 void FixOxdnaNpairKokkos<DeviceType>::min_pre_force(int /*vflag*/)
 {
   // TODO: Have a think about how often we need to do this?
-  // Option 1: Every timestep (current implementation)
-  if (execution_space != HostKK) compute_neigh_screen_to_npair();
+  // Option 1: Every timestep
+  // if (execution_space != HostKK) compute_neigh_screen_to_npair();
   // Option 2: Only when neighbor list updates
-  // if (execution_space != HostKK && last_allocate < neighbor->lastcall) {
-  //   compute_neigh_screen_to_npair();
-  //   last_allocate = update->ntimestep;
-  // }
+  if (execution_space != HostKK && last_allocate < neighbor->lastcall) {
+     compute_neigh_screen_to_npair();
+     last_allocate = update->ntimestep;
+  }
   // Option 3: Only every N timesteps
   // if (execution_space != HostKK && update->ntimestep > last_allocate + N) {
   //   compute_neigh_screen_to_npair();
@@ -128,13 +128,13 @@ template<class DeviceType>
 void FixOxdnaNpairKokkos<DeviceType>::pre_force(int /*vflag*/)
 {
   // TODO: Have a think about how often we need to do this?
-  // Option 1: Every timestep (current implementation)
-  if (execution_space != HostKK) compute_neigh_screen_to_npair();
+  // Option 1: Every timestep
+  // if (execution_space != HostKK) compute_neigh_screen_to_npair();
   // Option 2: Only when neighbor list updates
-  // if (execution_space != HostKK && last_allocate < neighbor->lastcall) {
-  //   compute_neigh_screen_to_npair();
-  //   last_allocate = update->ntimestep;
-  // }
+  if (execution_space != HostKK && last_allocate < neighbor->lastcall) {
+     compute_neigh_screen_to_npair();
+     last_allocate = update->ntimestep;
+  }
   // Option 3: Only every N timesteps
   // if (execution_space != HostKK && update->ntimestep > last_allocate + N) {
   //   compute_neigh_screen_to_npair();
