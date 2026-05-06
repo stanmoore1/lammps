@@ -160,80 +160,63 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   EV_FLOAT ev;
 
+  // "run_compute" is just a little helper for CPU/GPU dispatch to improve code readability.
+  // It removes an extra if statement from each of the typical compute functor calls.
+  // Not sure why, but it improved performance too on GPU?
+  auto run_compute = [&](auto host_tag, auto gpu_tag, const bool use_reduce) {
+    if (execution_space == HostKK) {
+      if (use_reduce) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(host_tag)>(0,anum),*this,ev);
+      } else {
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(host_tag)>(0,anum),*this);
+      }
+    } else {
+      if (use_reduce) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag)>(0,screened_pair_count),*this,ev);
+      } else {
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag)>(0,screened_pair_count),*this);
+      }
+    }
+  };
+
   if (evflag) {
     if (neighflag == HALF) {
       if (newton_pair) {
-        if (execution_space == HostKK)
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALF,1,1> >(0,anum),*this,ev);
-        else
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALF,1,1> >(0,screened_pair_count),*this,ev);
+        run_compute(TagPairOxdnaXstkCompute<HALF,1,1>{}, TagPairOxdnaXstkComputeGPUPair<HALF,1,1>{}, true);
       } else {
-        if (execution_space == HostKK)
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALF,0,1> >(0,anum),*this,ev);
-        else
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALF,0,1> >(0,screened_pair_count),*this,ev);
+        run_compute(TagPairOxdnaXstkCompute<HALF,0,1>{}, TagPairOxdnaXstkComputeGPUPair<HALF,0,1>{}, true);
       }
     } else if (neighflag == HALFTHREAD) {
       if (newton_pair) {
-        if (execution_space == HostKK)
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALFTHREAD,1,1> >(0,anum),*this,ev);
-        else
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,1,1> >(0,screened_pair_count),*this,ev);
+        run_compute(TagPairOxdnaXstkCompute<HALFTHREAD,1,1>{}, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,1,1>{}, true);
       } else {
-        if (execution_space == HostKK)
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALFTHREAD,0,1> >(0,anum),*this,ev);
-        else
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,0,1> >(0,screened_pair_count),*this,ev);
+        run_compute(TagPairOxdnaXstkCompute<HALFTHREAD,0,1>{}, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,0,1>{}, true);
       }
     } else if (neighflag == FULL) {
       if (newton_pair) {
-        if (execution_space == HostKK)
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<FULL,1,1> >(0,anum),*this,ev);
-        else
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<FULL,1,1> >(0,screened_pair_count),*this,ev);
+        run_compute(TagPairOxdnaXstkCompute<FULL,1,1>{}, TagPairOxdnaXstkComputeGPUPair<FULL,1,1>{}, true);
       } else {
-        if (execution_space == HostKK)
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<FULL,0,1> >(0,anum),*this,ev);
-        else
-          Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<FULL,0,1> >(0,screened_pair_count),*this,ev);
+        run_compute(TagPairOxdnaXstkCompute<FULL,0,1>{}, TagPairOxdnaXstkComputeGPUPair<FULL,0,1>{}, true);
       }
     }
   } else {
     if (neighflag == HALF) {
       if (newton_pair) {
-        if (execution_space == HostKK)
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALF,1,0> >(0,anum),*this);
-        else
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALF,1,0> >(0,screened_pair_count),*this);
+        run_compute(TagPairOxdnaXstkCompute<HALF,1,0>{}, TagPairOxdnaXstkComputeGPUPair<HALF,1,0>{}, false);
       } else {
-        if (execution_space == HostKK)
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALF,0,0> >(0,anum),*this);
-        else
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALF,0,0> >(0,screened_pair_count),*this);
+        run_compute(TagPairOxdnaXstkCompute<HALF,0,0>{}, TagPairOxdnaXstkComputeGPUPair<HALF,0,0>{}, false);
       }
     } else if (neighflag == HALFTHREAD) {
       if (newton_pair) {
-        if (execution_space == HostKK)
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALFTHREAD,1,0> >(0,anum),*this);
-        else
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,1,0> >(0,screened_pair_count),*this);
+        run_compute(TagPairOxdnaXstkCompute<HALFTHREAD,1,0>{}, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,1,0>{}, false);
       } else {
-        if (execution_space == HostKK)
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<HALFTHREAD,0,0> >(0,anum),*this);
-        else
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,0,0> >(0,screened_pair_count),*this);
+        run_compute(TagPairOxdnaXstkCompute<HALFTHREAD,0,0>{}, TagPairOxdnaXstkComputeGPUPair<HALFTHREAD,0,0>{}, false);
       }
     } else if (neighflag == FULL) {
       if (newton_pair) {
-        if (execution_space == HostKK)
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<FULL,1,0> >(0,anum),*this);
-        else
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<FULL,1,0> >(0,screened_pair_count),*this);
+        run_compute(TagPairOxdnaXstkCompute<FULL,1,0>{}, TagPairOxdnaXstkComputeGPUPair<FULL,1,0>{}, false);
       } else {
-        if (execution_space == HostKK)
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkCompute<FULL,0,0> >(0,anum),*this);
-        else
-          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaXstkComputeGPUPair<FULL,0,0> >(0,screened_pair_count),*this);
+        run_compute(TagPairOxdnaXstkCompute<FULL,0,0>{}, TagPairOxdnaXstkComputeGPUPair<FULL,0,0>{}, false);
       }
     }
   }
