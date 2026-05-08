@@ -769,12 +769,10 @@ void PairOxdnaExcvKokkos<DeviceType>::init_style()
   // ensure fix oxdna/lrf/kk is added for backward-compatability
   if (!fix_oxdna_lrfKK) {
     fix_oxdna_lrfKK = dynamic_cast<FixOxdnaLRFKokkos<DeviceType> *>(modify->add_fix("lrf_kk all oxdna/lrf/kk"));
-    Kokkos::fence("Fix oxdna/lrf/kk creation");
   }
   // ensure fix oxdna/npair/kk is added
   if (!fix_oxdna_npairKK) {
     fix_oxdna_npairKK = dynamic_cast<FixOxdnaNpairKokkos<DeviceType> *>(modify->add_fix("npair_kk all oxdna/npair/kk"));
-    Kokkos::fence("Fix oxdna/npair/kk creation");
   }
 }
 

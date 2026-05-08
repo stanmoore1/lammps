@@ -692,7 +692,6 @@ void PairOxdnaStkKokkos<DeviceType>::init_style()
   request->set_kokkos_device(std::is_same_v<DeviceType,LMPDeviceType>);
 
   fix_oxdna_lrfKK = nullptr;
-  Kokkos::fence("before oxdna/lrf/kk lookup");
   auto fixes = modify->get_fix_by_style("^oxdna/lrf/kk");
   if (fixes.size() == 0) error->all(FLERR, "Fix oxdna/lrf/kk not found. Ensure pair ox*na*/excv/kk is present");
   else fix_oxdna_lrfKK = dynamic_cast<FixOxdnaLRFKokkos<DeviceType> *>(fixes[0]);
