@@ -348,7 +348,7 @@ void PairOxdna2DhKokkos<DeviceType>::operator()(TagPairOxdna2DhCompute<OXDNAFLAG
     delr[0] = rtmp_s[0] - x(b,0) - rb_cs[0];
     delr[1] = rtmp_s[1] - x(b,1) - rb_cs[1];
     delr[2] = rtmp_s[2] - x(b,2) - rb_cs[2];
-    rsq = delr[0]*delr[0] + delr[1]*delr[1] + delr[2]*delr[2];
+    rsq = fma(delr[2], delr[2], fma(delr[1], delr[1], delr[0] * delr[0]));
 
     if (rsq <= d_cutsq_dh_c(atype, btype)) {
 
