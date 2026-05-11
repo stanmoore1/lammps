@@ -357,19 +357,25 @@ void PairOxdna2DhKokkos<DeviceType>::operator()(TagPairOxdna2DhCompute<OXDNAFLAG
 
       if (r <= d_cut_dh_ast(atype, btype)) {
 
-        fpair = d_qeff_dh_pf(atype, btype) * exp(-d_kappa_dh(atype, btype) * r) *
-                (d_kappa_dh(atype, btype) + rinv) * rinv * rinv;
+        const KK_FLOAT qeff = d_qeff_dh_pf(atype, btype);
+        const KK_FLOAT kappa = d_kappa_dh(atype, btype);
+
+        fpair = qeff * exp(-kappa * r) * (kappa + rinv) * rinv * rinv;
 
         if (EVFLAG) {
-          evdwl = d_qeff_dh_pf(atype, btype) * exp(-d_kappa_dh(atype, btype) * r) * rinv;
+          evdwl = qeff * exp(-kappa * r) * rinv;
         }
 
       } else {
 
-        fpair = 2.0 * d_b_dh(atype, btype) * (d_cut_dh_c(atype, btype) - r) * rinv;
+        const KK_FLOAT b_dh = d_b_dh(atype, btype);
+        const KK_FLOAT cut_dh_c = d_cut_dh_c(atype, btype);
+        const KK_FLOAT delrcut = cut_dh_c - r;
+
+        fpair = 2.0 * b_dh * delrcut * rinv;
 
         if (EVFLAG) {
-          evdwl = d_b_dh(atype, btype) * (r - d_cut_dh_c(atype, btype)) * (r - d_cut_dh_c(atype, btype));
+          evdwl = b_dh * delrcut * delrcut; // double negative, so safe to keep delrcut as is
         }
 
       }
