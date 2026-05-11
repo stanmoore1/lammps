@@ -295,20 +295,29 @@ void PairOxdna2DhKokkos<DeviceType>::operator()(TagPairOxdna2DhCompute<OXDNAFLAG
   if (OXDNAFLAG==OXDNA2) {
     constexpr KK_FLOAT d_cs_x = -0.34;
     constexpr KK_FLOAT d_cs_y = +0.3408;
-    ra_cs[0] = d_cs_x*d_nx_xtrct(a,0) + d_cs_y*d_ny_xtrct(a,0);
-    ra_cs[1] = d_cs_x*d_nx_xtrct(a,1) + d_cs_y*d_ny_xtrct(a,1);
-    ra_cs[2] = d_cs_x*d_nx_xtrct(a,2) + d_cs_y*d_ny_xtrct(a,2);
+    ra_cs[0] = fma(d_cs_x, d_nx_xtrct(a,0), d_cs_y*d_ny_xtrct(a,0));
+    ra_cs[1] = fma(d_cs_x, d_nx_xtrct(a,1), d_cs_y*d_ny_xtrct(a,1));
+    ra_cs[2] = fma(d_cs_x, d_nx_xtrct(a,2), d_cs_y*d_ny_xtrct(a,2));
   } else {
     constexpr KK_FLOAT d_cs_x = -0.4;
     constexpr KK_FLOAT d_cs_z = +0.2;
-    ra_cs[0] = d_cs_x*d_nx_xtrct(a,0) + d_cs_z*d_nz_xtrct(a,0);
-    ra_cs[1] = d_cs_x*d_nx_xtrct(a,1) + d_cs_z*d_nz_xtrct(a,1);
-    ra_cs[2] = d_cs_x*d_nx_xtrct(a,2) + d_cs_z*d_nz_xtrct(a,2);
+    ra_cs[0] = fma(d_cs_x, d_nx_xtrct(a,0), d_cs_z*d_nz_xtrct(a,0));
+    ra_cs[1] = fma(d_cs_x, d_nx_xtrct(a,1), d_cs_z*d_nz_xtrct(a,1));
+    ra_cs[2] = fma(d_cs_x, d_nx_xtrct(a,2), d_cs_z*d_nz_xtrct(a,2));
   }
 
   rtmp_s[0] = x(a,0)+ra_cs[0];
   rtmp_s[1] = x(a,1)+ra_cs[1];
   rtmp_s[2] = x(a,2)+ra_cs[2];
+
+  KK_FLOAT ftmp_a[3];
+  ftmp_a[0] = 0.0;
+  ftmp_a[1] = 0.0;
+  ftmp_a[2] = 0.0;
+  KK_FLOAT ttmp_a[3];
+  ttmp_a[0] = 0.0;
+  ttmp_a[1] = 0.0;
+  ttmp_a[2] = 0.0;
   
   const int bnum = d_numneigh(a);
 
@@ -316,6 +325,7 @@ void PairOxdna2DhKokkos<DeviceType>::operator()(TagPairOxdna2DhCompute<OXDNAFLAG
 
     int b = d_neighbors(a,ib);
     const KK_FLOAT factor_lj = special_lj[sbmask(b)];
+    if (!factor_lj) continue;
     b &= NEIGHMASK;
     const int btype = type(b);
 
@@ -323,15 +333,15 @@ void PairOxdna2DhKokkos<DeviceType>::operator()(TagPairOxdna2DhCompute<OXDNAFLAG
     if (OXDNAFLAG==OXDNA2) {
       constexpr KK_FLOAT d_cs_x = -0.34;
       constexpr KK_FLOAT d_cs_y = +0.3408;
-      rb_cs[0] = d_cs_x*d_nx_xtrct(b,0) + d_cs_y*d_ny_xtrct(b,0);
-      rb_cs[1] = d_cs_x*d_nx_xtrct(b,1) + d_cs_y*d_ny_xtrct(b,1);
-      rb_cs[2] = d_cs_x*d_nx_xtrct(b,2) + d_cs_y*d_ny_xtrct(b,2);
+      rb_cs[0] = fma(d_cs_x, d_nx_xtrct(b,0), d_cs_y*d_ny_xtrct(b,0));
+      rb_cs[1] = fma(d_cs_x, d_nx_xtrct(b,1), d_cs_y*d_ny_xtrct(b,1));
+      rb_cs[2] = fma(d_cs_x, d_nx_xtrct(b,2), d_cs_y*d_ny_xtrct(b,2));
     } else {
       constexpr KK_FLOAT d_cs_x = -0.4;
       constexpr KK_FLOAT d_cs_z = +0.2;
-      rb_cs[0] = d_cs_x*d_nx_xtrct(b,0) + d_cs_z*d_nz_xtrct(b,0);
-      rb_cs[1] = d_cs_x*d_nx_xtrct(b,1) + d_cs_z*d_nz_xtrct(b,1);
-      rb_cs[2] = d_cs_x*d_nx_xtrct(b,2) + d_cs_z*d_nz_xtrct(b,2);
+      rb_cs[0] = fma(d_cs_x, d_nx_xtrct(b,0), d_cs_z*d_nz_xtrct(b,0));
+      rb_cs[1] = fma(d_cs_x, d_nx_xtrct(b,1), d_cs_z*d_nz_xtrct(b,1));
+      rb_cs[2] = fma(d_cs_x, d_nx_xtrct(b,2), d_cs_z*d_nz_xtrct(b,2));
     }
 
     // vector backbone site b to a
@@ -373,40 +383,25 @@ void PairOxdna2DhKokkos<DeviceType>::operator()(TagPairOxdna2DhCompute<OXDNAFLAG
       delf[2] = delr[2] * fpair;
 
       // apply force and torque to each of 2 atoms
-
-      if ( NEIGHFLAG!=FULL ) {
-        if ( NEWTON_PAIR || a < nlocal ) {
-          a_f(a,0) += delf[0];
-          a_f(a,1) += delf[1];
-          a_f(a,2) += delf[2];
-          delta[0] = ra_cs[1]*delf[2] - ra_cs[2]*delf[1];
-          delta[1] = ra_cs[2]*delf[0] - ra_cs[0]*delf[2];
-          delta[2] = ra_cs[0]*delf[1] - ra_cs[1]*delf[0];
-          a_torque(a,0) += delta[0];
-          a_torque(a,1) += delta[1];
-          a_torque(a,2) += delta[2];
-        }
-        if ( NEWTON_PAIR || b < nlocal ) {
-          a_f(b,0) -= delf[0];
-          a_f(b,1) -= delf[1];
-          a_f(b,2) -= delf[2];
-          deltb[0] = rb_cs[1]*delf[2] - rb_cs[2]*delf[1];
-          deltb[1] = rb_cs[2]*delf[0] - rb_cs[0]*delf[2];
-          deltb[2] = rb_cs[0]*delf[1] - rb_cs[1]*delf[0];
-          a_torque(b,0) -= deltb[0];
-          a_torque(b,1) -= deltb[1];
-          a_torque(b,2) -= deltb[2];
-        }
-      } else {
-          a_f(a,0) += delf[0];
-          a_f(a,1) += delf[1];
-          a_f(a,2) += delf[2];
-          delta[0] = ra_cs[1]*delf[2] - ra_cs[2]*delf[1];
-          delta[1] = ra_cs[2]*delf[0] - ra_cs[0]*delf[2];
-          delta[2] = ra_cs[0]*delf[1] - ra_cs[1]*delf[0];
-          a_torque(a,0) += delta[0];
-          a_torque(a,1) += delta[1];
-          a_torque(a,2) += delta[2];        
+      ftmp_a[0] += delf[0];
+      ftmp_a[1] += delf[1];
+      ftmp_a[2] += delf[2];
+      delta[0] = fma(ra_cs[1], delf[2], -ra_cs[2]*delf[1]);
+      delta[1] = fma(ra_cs[2], delf[0], -ra_cs[0]*delf[2]);
+      delta[2] = fma(ra_cs[0], delf[1], -ra_cs[1]*delf[0]);
+      ttmp_a[0] += delta[0];
+      ttmp_a[1] += delta[1];
+      ttmp_a[2] += delta[2];
+      if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
+        a_f(b,0) -= delf[0];
+        a_f(b,1) -= delf[1];
+        a_f(b,2) -= delf[2];
+        deltb[0] = fma(rb_cs[1], delf[2], -rb_cs[2]*delf[1]);
+        deltb[1] = fma(rb_cs[2], delf[0], -rb_cs[0]*delf[2]);
+        deltb[2] = fma(rb_cs[0], delf[1], -rb_cs[1]*delf[0]);
+        a_torque(b,0) -= deltb[0];
+        a_torque(b,1) -= deltb[1];
+        a_torque(b,2) -= deltb[2];
       }
 
       // increment energy and virial
@@ -423,6 +418,12 @@ void PairOxdna2DhKokkos<DeviceType>::operator()(TagPairOxdna2DhCompute<OXDNAFLAG
       }
     }
   }
+  a_f(a,0) += ftmp_a[0];
+  a_f(a,1) += ftmp_a[1];
+  a_f(a,2) += ftmp_a[2];
+  a_torque(a,0) += ttmp_a[0];
+  a_torque(a,1) += ttmp_a[1];
+  a_torque(a,2) += ttmp_a[2];
 }
 
 template<class DeviceType>
