@@ -250,7 +250,7 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   KK_FLOAT ra_cbk[3], rb_cbk[3];
 
   // vector COM-backbone site a and b - "compute_interaction_sites" vector COM-sugar-phosphate backbone in oxDNA
-  if (OXDNAFLAG==OXDNA) {
+  if constexpr (OXDNAFLAG==OXDNA) {
     constexpr KK_FLOAT d_cs = -0.4;
     ra_cbk[0] = d_cs * d_nx_xtrct(a,0);
     ra_cbk[1] = d_cs * d_nx_xtrct(a,1);
@@ -258,7 +258,7 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
     rb_cbk[0] = d_cs * d_nx_xtrct(b,0);
     rb_cbk[1] = d_cs * d_nx_xtrct(b,1);
     rb_cbk[2] = d_cs * d_nx_xtrct(b,2);
-  } else if (OXDNAFLAG==OXDNA2) {
+  } else if constexpr (OXDNAFLAG==OXDNA2) {
     constexpr KK_FLOAT d_cs_x = -0.34;
     constexpr KK_FLOAT d_cs_y = +0.3408;
     ra_cbk[0] = d_cs_x * d_nx_xtrct(a,0) + d_cs_y * d_ny_xtrct(a,0);
@@ -267,7 +267,8 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
     rb_cbk[0] = d_cs_x * d_nx_xtrct(b,0) + d_cs_y * d_ny_xtrct(b,0);
     rb_cbk[1] = d_cs_x * d_nx_xtrct(b,1) + d_cs_y * d_ny_xtrct(b,1);
     rb_cbk[2] = d_cs_x * d_nx_xtrct(b,2) + d_cs_y * d_ny_xtrct(b,2);
-  } else if (OXDNAFLAG==OXRNA2) {
+  } else {
+    // OXRNA2
     constexpr KK_FLOAT d_cs_x = -0.4;
     constexpr KK_FLOAT d_cs_z = +0.2;
     ra_cbk[0] = d_cs_x * d_nx_xtrct(a,0) + d_cs_z * d_nz_xtrct(a,0);

@@ -338,7 +338,7 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
   //                           still to profile and test.
 
   // vector COM - backbone and base site a
-  if (OXDNAFLAG==OXDNA) {
+  if constexpr (OXDNAFLAG==OXDNA) {
     constexpr KK_FLOAT d_cs=-0.4;
     ra_cs[0] = d_cs*d_nx_xtrct(a,0);
     ra_cs[1] = d_cs*d_nx_xtrct(a,1);
@@ -346,7 +346,7 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     ra_cb[0] = -ra_cs[0];
     ra_cb[1] = -ra_cs[1];
     ra_cb[2] = -ra_cs[2];
-  } else if (OXDNAFLAG==OXDNA2) {
+  } else if constexpr (OXDNAFLAG==OXDNA2) {
     constexpr KK_FLOAT d_cs_x = -0.34;
     constexpr KK_FLOAT d_cs_y = +0.3408;
     constexpr KK_FLOAT d_cb = +0.4;
@@ -356,7 +356,8 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     ra_cb[0] = d_cb*d_nx_xtrct(a,0);
     ra_cb[1] = d_cb*d_nx_xtrct(a,1);
     ra_cb[2] = d_cb*d_nx_xtrct(a,2);
-  } else if (OXDNAFLAG==OXRNA2) {
+  } else {
+    // OXRNA2
     constexpr KK_FLOAT d_cs_x = -0.4;
     constexpr KK_FLOAT d_cs_z = +0.2;
     constexpr KK_FLOAT d_cb = +0.4;
@@ -392,7 +393,7 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
     const int btype = type(b);
 
     // vector COM - backbone and base site b
-    if (OXDNAFLAG==OXDNA) {
+    if constexpr (OXDNAFLAG==OXDNA) {
       constexpr KK_FLOAT d_cs=-0.4;
       rb_cs[0] = d_cs*d_nx_xtrct(b,0);
       rb_cs[1] = d_cs*d_nx_xtrct(b,1);
@@ -400,7 +401,7 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
       rb_cb[0] = -rb_cs[0];
       rb_cb[1] = -rb_cs[1];
       rb_cb[2] = -rb_cs[2];
-    } else if (OXDNAFLAG==OXDNA2) {
+    } else if constexpr (OXDNAFLAG==OXDNA2) {
       constexpr KK_FLOAT d_cs_x = -0.34;
       constexpr KK_FLOAT d_cs_y = +0.3408;
       constexpr KK_FLOAT d_cb = +0.4;
@@ -410,7 +411,7 @@ void PairOxdnaExcvKokkos<DeviceType>::operator()(TagPairOxdnaExcvCompute<OXDNAFL
       rb_cb[0] = d_cb*d_nx_xtrct(b,0);
       rb_cb[1] = d_cb*d_nx_xtrct(b,1);
       rb_cb[2] = d_cb*d_nx_xtrct(b,2);
-    } else if (OXDNAFLAG==OXRNA2) {
+    } else if constexpr (OXDNAFLAG==OXRNA2) {
       constexpr KK_FLOAT d_cs_x = -0.4;
       constexpr KK_FLOAT d_cs_z = +0.2;
       constexpr KK_FLOAT d_cb = +0.4;

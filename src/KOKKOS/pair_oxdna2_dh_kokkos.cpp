@@ -292,13 +292,14 @@ void PairOxdna2DhKokkos<DeviceType>::operator()(TagPairOxdna2DhCompute<OXDNAFLAG
   KK_FLOAT r,rsq,rinv;
 
   // vector COM-backbone site a
-  if (OXDNAFLAG==OXDNA2) {
+  if constexpr (OXDNAFLAG==OXDNA2) {
     constexpr KK_FLOAT d_cs_x = -0.34;
     constexpr KK_FLOAT d_cs_y = +0.3408;
     ra_cs[0] = fma(d_cs_x, d_nx_xtrct(a,0), d_cs_y*d_ny_xtrct(a,0));
     ra_cs[1] = fma(d_cs_x, d_nx_xtrct(a,1), d_cs_y*d_ny_xtrct(a,1));
     ra_cs[2] = fma(d_cs_x, d_nx_xtrct(a,2), d_cs_y*d_ny_xtrct(a,2));
   } else {
+    // OXRNA2
     constexpr KK_FLOAT d_cs_x = -0.4;
     constexpr KK_FLOAT d_cs_z = +0.2;
     ra_cs[0] = fma(d_cs_x, d_nx_xtrct(a,0), d_cs_z*d_nz_xtrct(a,0));
@@ -330,7 +331,7 @@ void PairOxdna2DhKokkos<DeviceType>::operator()(TagPairOxdna2DhCompute<OXDNAFLAG
     const int btype = type(b);
 
     // vector COM-backbone site b
-    if (OXDNAFLAG==OXDNA2) {
+    if constexpr (OXDNAFLAG==OXDNA2) {
       constexpr KK_FLOAT d_cs_x = -0.34;
       constexpr KK_FLOAT d_cs_y = +0.3408;
       rb_cs[0] = fma(d_cs_x, d_nx_xtrct(b,0), d_cs_y*d_ny_xtrct(b,0));
