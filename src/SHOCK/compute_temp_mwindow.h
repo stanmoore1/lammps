@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    Subroutine made especially for Moving Window technique
@@ -14,7 +14,7 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: You Lin (USF)
+   Contributing author: Saswat Mishra (USF)
 ------------------------------------------------------------------------- */
 
 #ifdef COMPUTE_CLASS
@@ -26,11 +26,11 @@ ComputeStyle(temp/mwindow,ComputeTempMWindow)
 #ifndef COMPUTE_TEMP_MWINDOW_H
 #define COMPUTE_TEMP_MWINDOW_H
 
-#include "compute.h"
+#include "compute_temp.h"
 
 namespace LAMMPS_NS {
 
-class ComputeTempMWindow : public Compute {
+class ComputeTempMWindow : public ComputeTemp {
  public:
   ComputeTempMWindow(class LAMMPS *, int, char **);
   ~ComputeTempMWindow() override;
@@ -44,11 +44,12 @@ class ComputeTempMWindow : public Compute {
   void restore_bias_all() override;
 
  protected:
-  int fix_dof;
-  double tfactor,masstotal;
+  double masstotal;
   double vbias[3];    // stored velocity bias for one atom
 
-  void dof_compute();
+ // Will use the default dof_compute() from compute_temp.h
+ //protected:
+ // void dof_compute() override;
 
 };
 

@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -19,6 +19,7 @@
 #include "stdlib.h"
 #include "string.h"
 #include "compute_temp_mwindow.h"
+//#include "compute_temp.h" // compute_temp_mwindow already includes compute_temp.h
 #include "atom.h"
 #include "force.h"
 #include "group.h"
@@ -36,14 +37,14 @@ using namespace LAMMPS_NS;
 // #define MIN(A,B) ((A) < (B)) ? (A) : (B)
 // #define MAX(A,B) ((A) > (B)) ? (A) : (B)
 
-// Already defined in compute.h
+// INVOKED_XXX way of bitmasking is removed and replaced by update->ntimestep
 // #define INVOKED_SCALAR 1
 // #define INVOKED_VECTOR 2
 
 /* ---------------------------------------------------------------------- */
 
-ComputeTempMWindow::ComputeTempMWindow(LAMMPS *lmp, int narg, char **arg) : 
-  Compute(lmp, narg, arg)
+ComputeTempMWindow::ComputeTempMWindow(LAMMPS *lmp, int narg, char **arg) :
+  ComputeTemp(lmp, 3, arg) // base needs ID, group, style unlike Compute
 {
   if (narg != 6) error->all(FLERR, "Illegal compute temp/mwindow command");
 
@@ -62,44 +63,47 @@ ComputeTempMWindow::ComputeTempMWindow(LAMMPS *lmp, int narg, char **arg) :
 
 /* ---------------------------------------------------------------------- */
 
-ComputeTempMWindow::~ComputeTempMWindow()
-{
-  if (copymode) return;
+// ComputeTempMWindow::~ComputeTempMWindow()
+// {
+//   delete [] vector;
+// }
+ComputeTempMWindow::~ComputeTempMWindow() = default;
 
-  delete [] vector;
-}
 
 /* ---------------------------------------------------------------------- */
 
 void ComputeTempMWindow::init()
 {
-  fix_dof = 0;
-  for (int i = 0; i < modify->nfix; i++)
-    fix_dof += modify->fix[i]->dof(igroup);
-  dof_compute();
+  ComputeTemp::init();  //sets of dof/extra_dof/tfactor from dof_compute()
+
+  // fix_dof = 0;
+  // for (int i = 0; i < modify->nfix; i++)
+  //  fix_dof += modify->fix[i]->dof(igroup);
+  // dof_compute();
 
   masstotal = group->mass(igroup);
 }
 
 /* ---------------------------------------------------------------------- */
-
-void ComputeTempMWindow::dof_compute()
-{
-  double natoms = group->count(igroup);
-  int nper = domain->dimension;
-  dof = nper * natoms;
-  dof -= extra_dof + fix_dof;
-  if (dof > 0) tfactor = force->mvv2e / (dof * force->boltz);
-  else tfactor = 0.0;
-}
+// Removing to avoid clash with lammps - check later if there is something special about this function that could not be done by the default.
+// void ComputeTempMWindow::dof_compute()
+// {
+//   double natoms = group->count(igroup);
+//   int nper = domain->dimension;
+//   dof = nper * natoms;
+//   dof -= extra_dof + fix_dof;
+//   if (dof > 0) tfactor = force->mvv2e / (dof * force->boltz);
+//   else tfactor = 0.0;
+// }
 
 /* ---------------------------------------------------------------------- */
 
 double ComputeTempMWindow::compute_scalar()
 {
-  if (invoked_scalar == update->ntimestep) return scalar;
-  
   double vthermal[3];
+
+  // invoked |= INVOKED_SCALAR;
+  invoked_scalar = update->ntimestep;
 
   if (dynamic) masstotal = group->mass(igroup);
 
@@ -108,7 +112,7 @@ double ComputeTempMWindow::compute_scalar()
   double *rmass = atom->rmass;
   int *type = atom->type;
   int *mask = atom->mask;
-  const int nlocal = atom->nlocal;
+  int nlocal = atom->nlocal;
 
   double t = 0.0;
   for (int i = 0; i < nlocal; i++)
@@ -117,11 +121,11 @@ double ComputeTempMWindow::compute_scalar()
       vthermal[1] = v[i][1] - vbias[1];
       vthermal[2] = v[i][2] - vbias[2];
       if (mass)
-	t += (vthermal[0]*vthermal[0] + vthermal[1]*vthermal[1] + 
-	      vthermal[2]*vthermal[2]) * mass[type[i]];
+        t += (vthermal[0]*vthermal[0] + vthermal[1]*vthermal[1] +
+              vthermal[2]*vthermal[2]) * mass[type[i]];
       else
-	t += (vthermal[0]*vthermal[0] + vthermal[1]*vthermal[1] + 
-	      vthermal[2]*vthermal[2]) * rmass[i];
+        t += (vthermal[0]*vthermal[0] + vthermal[1]*vthermal[1] +
+              vthermal[2]*vthermal[2]) * rmass[i];
     }
 
   MPI_Allreduce(&t,&scalar,1,MPI_DOUBLE,MPI_SUM,world);

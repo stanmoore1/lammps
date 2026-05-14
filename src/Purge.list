@@ -1640,3 +1640,7 @@ compute_voronoi_atom.h
 compute_voronoi_atom.cpp
 dump_vtk.h
 dump_vtk.cpp
+compute_temp_mwindow.cpp
+compute_temp_mwindow.h
+compute2_temp_mwindow.cpp
+compute2_temp_mwindow.h

@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -70,7 +70,7 @@ void FixMWindowErase::end_of_step()
        if (logfile) fprintf(logfile, "MW: Step /Elast   /Etot/Natom/  w/       qq/       bb      /Rx     /A_er/d_er\n");
     }
   }
-      
+
   qq = + (Etot - Elast) /(Ewish - E0);
 
   // bb is a desired rate dE/dt
@@ -86,7 +86,7 @@ void FixMWindowErase::end_of_step()
           Rx = (double)nevery * Rx / ((double)nevery + Rx);
        else
           Rx = (double)nevery * Rx / ((double)nevery - Rx);
-       mw_erase_position_Aerase += Rx; 
+       mw_erase_position_Aerase += Rx;
        if (mw_erase_position_Aerase < 0.) mw_erase_position_Aerase = 0.;
   }
   mw_erase_position_d = mw_erase_d_max - mw_erase_position_Aerase * (Slope + 1. - w) / Slope;
@@ -130,10 +130,10 @@ FixMWindowErase::FixMWindowErase(LAMMPS *lmp, int narg, char **arg) :
 
   scalar_flag = 1;
   extscalar = 0;
-  vector_flag = 8;	// compute_vector(n) available
+  vector_flag = 8;      // compute_vector(n) available
   size_vector = 8;
   extvector = 0;
-  global_freq = 1;	// f_ID[n] available every step
+  global_freq = 1;      // f_ID[n] available every step
 
   if (strcmp(arg[3],"xlo") == 0) {
     mw_erase_dim = 0;
@@ -187,7 +187,7 @@ FixMWindowErase::FixMWindowErase(LAMMPS *lmp, int narg, char **arg) :
   // strcpy(id_compute_pe,arg[16]);
   // The upperblock replaced by this 1 line:
   id_compute_pe = utils::strdup(arg[16]);
-  
+
 
   int icompute_pe = modify->find_compute(id_compute_pe);
   if (icompute_pe < 0)
@@ -291,16 +291,16 @@ void FixMWindowErase::pre_exchange()
     if (mask[i] & groupbit)
 //      // if (domain->regions[iregion]->match(x[i][0],x[i][1],x[i][2]))
 //      if (region->match(x[i][0],x[i][1],x[i][2]))
-	list[ncount++] = i;
+        list[ncount++] = i;
 
   int nall,nwhack;
-  
+
   // nwhack = total number of atoms to delete
   // choose atoms randomly across all procs and mark them for deletion
   // shrink local list of candidates as my atoms get marked for deletion
 
   for (i = 0; i < nlocal; i++) mark[i] = 0;
-  
+
   nall = 0;
   for (iwhichlocal = 0; iwhichlocal < ncount; iwhichlocal ++) {
     i = list[iwhichlocal];
@@ -312,12 +312,12 @@ void FixMWindowErase::pre_exchange()
       }
   }
   MPI_Allreduce(&nall,&nwhack,1,MPI_INT,MPI_SUM,world);
-  
+
   // delete my marked atoms
   // loop in reverse order to avoid copying marked atoms
-  
+
   AtomVec *avec = atom->avec;
-  
+
   for (i = nlocal-1; i >= 0; i--) {
     if (mark[i]) {
       avec->copy(atom->nlocal-1 , i , 1);
@@ -337,7 +337,7 @@ void FixMWindowErase::pre_exchange()
   }
 
   // statistics
-  
+
   ndeleted = nwhack;
   if (update->ntimestep == next_reneighbor)
       next_reneighbor = update->ntimestep + nfreq;
@@ -388,7 +388,7 @@ double FixMWindowErase::memory_usage()
 }
 
 /* ----------------------------------------------------------------------
-   proc 0 writes to restart file 
+   proc 0 writes to restart file
 ------------------------------------------------------------------------- */
 
 void FixMWindowErase::write_restart(FILE *fp)

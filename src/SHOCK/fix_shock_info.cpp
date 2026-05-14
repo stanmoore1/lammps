@@ -33,15 +33,15 @@
 #include "utils.h"
 #include "comm.h"
 
-#define cpnts_of_rho	1
-#define cpnts_of_v	3
-#define cpnts_of_epot	1
-#define cpnts_of_ekin	4
-#define cpnts_of_etot	1
-#define cpnts_of_T	4
+#define cpnts_of_rho    1
+#define cpnts_of_v      3
+#define cpnts_of_epot   1
+#define cpnts_of_ekin   4
+#define cpnts_of_etot   1
+#define cpnts_of_T      4
 
-#define densfactor	1.66053
-#define velfactor	0.1
+#define densfactor      1.66053
+#define velfactor       0.1
 // Pressure factor eV/A^3 ==> GPa
 //#define pressfactor     160.219
 // Pressure factor has changed now
@@ -69,34 +69,34 @@ FixShockInfo::FixShockInfo(LAMMPS *lmp, int narg, char **arg) :
   nfreq   = utils::numeric(FLERR, arg[4], false, lmp);
   nrepeat = utils::numeric(FLERR, arg[5], false, lmp);
 
-  if 	  (strcmp(arg[6],"x") == 0)  dim = 0;
+  if      (strcmp(arg[6],"x") == 0)  dim = 0;
   else if (strcmp(arg[6],"y") == 0)  dim = 1;
   else if (strcmp(arg[6],"z") == 0)  dim = 2;
   else    error->all(FLERR, "Illegal parameter of dim for fix shock/info command");
 
-  //if 	  (strcmp(arg[7],"lower")  == 0)  originflag = LOWER;
+  //if    (strcmp(arg[7],"lower")  == 0)  originflag = LOWER;
   //else if (strcmp(arg[7],"center") == 0)  originflag = CENTER;
   //else if (strcmp(arg[7],"upper")  == 0)  originflag = UPPER;
   //else {
-  //	originflag = COORD;
-  //	origin = utils::numeric(FLERR, arg[7], false, lmp);
-  //	}
+  //    originflag = COORD;
+  //    origin = utils::numeric(FLERR, arg[7], false, lmp);
+  //    }
   // this block is wrong. Doing this to match older buggy results
-  if 	  (strcmp(arg[7],"lower")  == 0)  originflag = LOWER;
+  if      (strcmp(arg[7],"lower")  == 0)  originflag = LOWER;
   if (strcmp(arg[7],"center") == 0)  originflag = CENTER;
   if (strcmp(arg[7],"upper")  == 0)  originflag = UPPER;
   else {
-	originflag = COORD;
-	origin = atof(arg[7]);
-	}
+        originflag = COORD;
+        origin = atof(arg[7]);
+        }
 
   delta = utils::numeric(FLERR, arg[8], false, lmp);
-  nmin 	= utils::numeric(FLERR, arg[9], false, lmp);
+  nmin  = utils::numeric(FLERR, arg[9], false, lmp);
 
-  id_compute_pe 	= utils::strdup(arg[10]);
-  id_compute_stress 	= utils::strdup(arg[11]);
-  einfo_fileprefix	= utils::strdup(arg[12]);
-  stress_fileprefix 	= utils::strdup(arg[13]);
+  id_compute_pe         = utils::strdup(arg[10]);
+  id_compute_stress     = utils::strdup(arg[11]);
+  einfo_fileprefix      = utils::strdup(arg[12]);
+  stress_fileprefix     = utils::strdup(arg[13]);
 
   // get datafile ready for write-in
 
@@ -110,10 +110,10 @@ FixShockInfo::FixShockInfo(LAMMPS *lmp, int narg, char **arg) :
   int iarg = 14;
   while (iarg < narg) {
     if (strcmp(arg[iarg],"units") == 0) {
-      if 	(iarg+2 > narg) error->all(FLERR, "Illegal setup of units for fix shock/info command");
-      if 	(strcmp(arg[iarg+1],"box") == 0) scaleflag = BOX;
-      else if 	(strcmp(arg[iarg+1],"lattice") == 0) scaleflag = LATTICE;
-      else if 	(strcmp(arg[iarg+1],"reduced") == 0) scaleflag = REDUCED;
+      if        (iarg+2 > narg) error->all(FLERR, "Illegal setup of units for fix shock/info command");
+      if        (strcmp(arg[iarg+1],"box") == 0) scaleflag = BOX;
+      else if   (strcmp(arg[iarg+1],"lattice") == 0) scaleflag = LATTICE;
+      else if   (strcmp(arg[iarg+1],"reduced") == 0) scaleflag = REDUCED;
       else error->all(FLERR, "Illegal setup of units for fix shock/info command");
       iarg += 2;
     } else error->all(FLERR, "Illegal setup of units for fix shock/info command");
@@ -146,7 +146,7 @@ FixShockInfo::FixShockInfo(LAMMPS *lmp, int narg, char **arg) :
 
   // setup and error check
 
-  if (nevery <= 0)  
+  if (nevery <= 0)
     error->all(FLERR, "Illegal fix shock/info command: nevery must be positive and non-zero");
   if (nfreq < nevery || nfreq % nevery)
     error->all(FLERR, "Illegal fix shock/info command: nfreq must be a multiple of nevery");
@@ -203,7 +203,7 @@ FixShockInfo::~FixShockInfo()
   delete [] id_compute_stress;
   delete [] einfo_fileprefix;
   delete [] stress_fileprefix;
-  
+
   id_compute_pe = id_compute_stress = nullptr;
   einfo_fileprefix = stress_fileprefix = nullptr;
 }
@@ -239,7 +239,7 @@ void FixShockInfo::end_of_step()
 {
   int i,j,m,ilayer;
   double lo,hi;
-  
+
   if ( (update->ntimestep - 1) % nfreq < nfreq - nevery * nrepeat )  return;
 
   if (nsum == 0)  {
@@ -254,7 +254,7 @@ void FixShockInfo::end_of_step()
       prd = domain->prd;
     }
 
-    if 	    (originflag == LOWER)  origin = boxlo[dim];
+    if      (originflag == LOWER)  origin = boxlo[dim];
     else if (originflag == UPPER)  origin = boxhi[dim];
     else if (originflag == CENTER) origin = 0.5 * (boxlo[dim] + boxhi[dim]);
 
@@ -340,7 +340,7 @@ void FixShockInfo::end_of_step()
   //  compute_pe->compute_peratom();
   //if  (compute_stress->invoked_peratom != update->ntimestep)
   //compute_stress->compute_peratom();
-  
+
   compute_pe->compute_peratom();
   compute_stress->compute_peratom();
 
@@ -568,7 +568,7 @@ void FixShockInfo::end_of_step()
 
         fclose(fp);
       }
-    
+
       // stress file
 
       {

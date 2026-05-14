@@ -20,11 +20,9 @@
 
 #include "atom_kokkos.h"
 #include "atom_masks.h"
-#include "domain.h"
 #include "error.h"
 #include "force.h"
 #include "group.h"
-#include "modify.h"
 #include "update.h"
 #include "utils.h"
 
@@ -33,8 +31,9 @@ using namespace LAMMPS_NS;
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-ComputeTempMWindowKokkos<DeviceType>::ComputeTempMWindowKokkos(LAMMPS *lmp, int narg, char **arg)
-  : Compute(lmp, narg, arg)
+ComputeTempMWindowKokkos<DeviceType>::ComputeTempMWindowKokkos(
+    LAMMPS *lmp, int narg, char **arg)
+  : ComputeTemp(lmp, 3, arg)
 {
   if (narg != 6) error->all(FLERR, "Illegal compute temp/mwindow command");
 
@@ -49,7 +48,7 @@ ComputeTempMWindowKokkos<DeviceType>::ComputeTempMWindowKokkos(LAMMPS *lmp, int 
   tempflag = 1;
   tempbias = 1;
 
-  vector = new double[6];
+  // ComputeTemp already allocated vector; do not reallocate
 
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
@@ -65,7 +64,7 @@ ComputeTempMWindowKokkos<DeviceType>::~ComputeTempMWindowKokkos()
 {
   if (copymode) return;
 
-  delete [] vector;
+  // vector was allocated by ComputeTemp and will be freed there
 }
 
 /* ---------------------------------------------------------------------- */
@@ -73,24 +72,8 @@ ComputeTempMWindowKokkos<DeviceType>::~ComputeTempMWindowKokkos()
 template<class DeviceType>
 void ComputeTempMWindowKokkos<DeviceType>::init()
 {
-  fix_dof = 0;
-  for (int i = 0; i < modify->nfix; i++)
-    fix_dof += modify->fix[i]->dof(igroup);
-  dof_compute();
+  ComputeTemp::init();
   masstotal = group->mass(igroup);
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-void ComputeTempMWindowKokkos<DeviceType>::dof_compute()
-{
-  double natoms = group->count(igroup);
-  int nper = domain->dimension;
-  dof = nper * natoms;
-  dof -= extra_dof + fix_dof;
-  if (dof > 0) tfactor = force->mvv2e / (dof * force->boltz);
-  else tfactor = 0.0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -98,7 +81,6 @@ void ComputeTempMWindowKokkos<DeviceType>::dof_compute()
 template<class DeviceType>
 double ComputeTempMWindowKokkos<DeviceType>::compute_scalar()
 {
-  if (invoked_scalar == update->ntimestep) return scalar;
   invoked_scalar = update->ntimestep;
 
   atomKK->sync(execution_space, datamask_read);

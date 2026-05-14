@@ -1734,8 +1734,6 @@
 /compute_temp_drude.h
 /compute_temp_mwindow.cpp
 /compute_temp_mwindow.h
-/compute2_temp_mwindow.cpp
-/compute2_temp_mwindow.h
 /compute_xrd.cpp
 /compute_xrd.h
 /compute_xrd_consts.h

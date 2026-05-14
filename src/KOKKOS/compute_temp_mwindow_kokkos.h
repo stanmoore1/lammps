@@ -11,8 +11,8 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#ifdef COMPUTE_CLASS
 // clang-format off
+#ifdef COMPUTE_CLASS
 ComputeStyle(temp/mwindow/kk,ComputeTempMWindowKokkos<LMPDeviceType>);
 ComputeStyle(temp/mwindow/kk/device,ComputeTempMWindowKokkos<LMPDeviceType>);
 ComputeStyle(temp/mwindow/kk/host,ComputeTempMWindowKokkos<LMPHostType>);
@@ -23,7 +23,7 @@ ComputeStyle(temp/mwindow/kk/host,ComputeTempMWindowKokkos<LMPHostType>);
 #ifndef LMP_COMPUTE_TEMP_MWINDOW_KOKKOS_H
 #define LMP_COMPUTE_TEMP_MWINDOW_KOKKOS_H
 
-#include "compute.h"
+#include "compute_temp.h"
 #include "kokkos_type.h"
 
 namespace LAMMPS_NS {
@@ -38,7 +38,7 @@ struct TagComputeTempMWindowRemoveBias{};
 struct TagComputeTempMWindowRestoreBias{};
 
 template<class DeviceType>
-class ComputeTempMWindowKokkos : public Compute {
+class ComputeTempMWindowKokkos : public ComputeTemp {
  public:
   struct s_CTEMP {
     double t0, t1, t2, t3, t4, t5;
@@ -88,11 +88,8 @@ class ComputeTempMWindowKokkos : public Compute {
   void operator()(TagComputeTempMWindowRestoreBias, const int&) const;
 
  protected:
-  int fix_dof;
-  double tfactor, masstotal;
+  double masstotal;
   double vbias[3];
-
-  void dof_compute();
 
   typename AT::t_kkfloat_1d_3 v;
   typename AT::t_kkfloat_1d_randomread rmass;
