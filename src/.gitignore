@@ -990,6 +990,8 @@
 /fix_mscg.h
 /fix_msst.cpp
 /fix_msst.h
+/fix_mwindow_erase.cpp
+/fix_mwindow_erase.h
 /fix_neb.cpp
 /fix_neb.h
 /fix_neighbor_swap.cpp
@@ -1116,6 +1118,8 @@
 /fix_shake.h
 /fix_shardlow.cpp
 /fix_shardlow.h
+/fix_shock_info.cpp
+/fix_shock_info.h
 /random_external_state.h
 /fix_smd.cpp
 /fix_smd.h
@@ -1167,6 +1171,8 @@
 /fix_wall_piston.h
 /fix_wall_srd.cpp
 /fix_wall_srd.h
+/fix_wall_ylpiston.cpp
+/fix_wall_ylpiston.h
 /fix_widom.cpp
 /fix_widom.h
 /geturl.cpp
@@ -1726,6 +1732,10 @@
 /compute_temp_cs.h
 /compute_temp_drude.cpp
 /compute_temp_drude.h
+/compute_temp_mwindow.cpp
+/compute_temp_mwindow.h
+/compute2_temp_mwindow.cpp
+/compute2_temp_mwindow.h
 /compute_xrd.cpp
 /compute_xrd.h
 /compute_xrd_consts.h

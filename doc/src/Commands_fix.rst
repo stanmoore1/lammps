@@ -125,6 +125,7 @@ OPT.
    * :doc:`mvv/dpd <fix_mvv_dpd>`
    * :doc:`mvv/edpd <fix_mvv_dpd>`
    * :doc:`mvv/tdpd <fix_mvv_dpd>`
+   * :doc:`mwindow/erase (k) <fix_mwindow_erase>`
    * :doc:`neb <fix_neb>`
    * :doc:`neb/spin <fix_neb_spin>`
    * :doc:`neighbor/swap <fix_neighbor_swap>`
@@ -238,6 +239,7 @@ OPT.
    * :doc:`sgcmc <fix_sgcmc>`
    * :doc:`shake (k) <fix_shake>`
    * :doc:`shardlow (k) <fix_shardlow>`
+   * :doc:`shock/info (k) <fix_shock_info>`
    * :doc:`smd <fix_smd>`
    * :doc:`smd/adjust_dt <fix_smd_adjust_dt>`
    * :doc:`smd/integrate_tlsph <fix_smd_integrate_tlsph>`
@@ -296,4 +298,5 @@ OPT.
    * :doc:`wall/region/ees <fix_wall_ees>`
    * :doc:`wall/srd <fix_wall_srd>`
    * :doc:`wall/table <fix_wall>`
+   * :doc:`wall/ylpiston (k) <fix_wall_ylpiston>`
    * :doc:`widom <fix_widom>`

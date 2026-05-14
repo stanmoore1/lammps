@@ -36,7 +36,7 @@ class FixShockInfo : public Fix {
   void init() override;
   void end_of_step() override;
 
- private:
+ protected:
   int me;
   int nfreq, nrepeat,nmin;
   int dim,originflag,scaleflag;

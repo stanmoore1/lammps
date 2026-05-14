@@ -2796,8 +2796,12 @@ a material.
 * ``src/SHOCK``: filenames -> commands
 * :doc:`fix append/atoms <fix_append_atoms>`
 * :doc:`fix msst <fix_msst>`
+* :doc:`fix mwindow/erase <fix_mwindow_erase>`
 * :doc:`fix nphug <fix_nphug>`
+* :doc:`fix shock/info <fix_shock_info>`
 * :doc:`fix wall/piston <fix_wall_piston>`
+* :doc:`fix wall/ylpiston <fix_wall_ylpiston>`
+* :doc:`compute temp/mwindow <compute_temp_mwindow>`
 * ``examples/hugoniostat``
 * ``examples/msst``
 

@@ -54,7 +54,7 @@ class FixMWindowErase : public Fix {
   void write_restart_settings(FILE *);
   void read_restart_settings(FILE *);
 
- private:
+ protected:
   double Rx, qq, bb, w;
   int me;
   int nmax;

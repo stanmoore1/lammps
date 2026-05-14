@@ -43,7 +43,7 @@ class ComputeTempMWindow : public Compute {
   void restore_bias(int, double *) override;
   void restore_bias_all() override;
 
- private:
+ protected:
   int fix_dof;
   double tfactor,masstotal;
   double vbias[3];    // stored velocity bias for one atom

@@ -37,7 +37,7 @@ class FixWallYLPiston : public Fix {
   double compute_scalar() override;
   double compute_vector(int) override;
 
- private:
+ protected:
   int dim,side;
   double coord,Edeep3,Rdeep,cutoff;
   double offset;
