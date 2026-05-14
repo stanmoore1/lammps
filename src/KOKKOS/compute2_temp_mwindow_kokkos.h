@@ -12,6 +12,11 @@
 ------------------------------------------------------------------------- */
 
 // clang-format off
+// Note: compute2_temp_mwindow and compute_temp_mwindow both register the
+// same style name "temp/mwindow" in the SHOCK package, so only one may be
+// active in a given build.  The Kokkos registration lives in
+// compute_temp_mwindow_kokkos.h; this file provides an alternative
+// implementation (inheriting ComputeTemp) without a duplicate registration.
 #ifndef LMP_COMPUTE2_TEMP_MWINDOW_KOKKOS_H
 #define LMP_COMPUTE2_TEMP_MWINDOW_KOKKOS_H
 

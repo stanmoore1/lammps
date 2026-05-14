@@ -138,6 +138,7 @@ void FixMWindowEraseKokkos<DeviceType>::operator()(
     TagFixMWindowEraseMarkAtoms, const int &i) const
 {
   if (d_mask[i] & groupbit) {
+    // mirrors the delta calculation in FixMWindowErase::pre_exchange()
     const double xi = d_x(i, d_erase_dim);
     const double delta = (d_erase_side == -1) ? (xi - d_erase_pos)
                                                : (d_erase_pos - xi);

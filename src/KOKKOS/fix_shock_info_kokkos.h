@@ -66,7 +66,8 @@ class FixShockInfoKokkos : public FixShockInfo {
   // Cached scalars for use inside the Kokkos kernel
   double d_offset, d_invdelta, d_mvv2e;
   int    d_dim, d_nlayers_kk, d_cpnts_all_kk, d_stress_size_kk;
-  int    d_has_rmass;
+  // int (not bool) for reliable behavior inside KOKKOS_INLINE_FUNCTION on all backends
+  int d_has_rmass;
 };
 
 }    // namespace LAMMPS_NS
