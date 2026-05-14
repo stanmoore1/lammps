@@ -63,6 +63,7 @@ template<class DeviceType>
 Compute2TempMWindowKokkos<DeviceType>::~Compute2TempMWindowKokkos()
 {
   if (copymode) return;
+
   // vector was allocated by ComputeTemp and will be freed there
 }
 

@@ -64,6 +64,8 @@ ComputeTempMWindow::ComputeTempMWindow(LAMMPS *lmp, int narg, char **arg) :
 
 ComputeTempMWindow::~ComputeTempMWindow()
 {
+  if (copymode) return;
+
   delete [] vector;
 }
 

@@ -63,6 +63,7 @@ template<class DeviceType>
 FixShockInfoKokkos<DeviceType>::~FixShockInfoKokkos()
 {
   if (copymode) return;
+
   // parent destructor handles all raw-pointer arrays
 }
 

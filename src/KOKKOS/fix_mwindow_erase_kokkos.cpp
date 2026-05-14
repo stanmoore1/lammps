@@ -48,6 +48,7 @@ template<class DeviceType>
 FixMWindowEraseKokkos<DeviceType>::~FixMWindowEraseKokkos()
 {
   if (copymode) return;
+
   // parent destructor handles mark/list raw pointers;
   // k_mark dual view cleans itself up
 }

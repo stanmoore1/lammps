@@ -64,6 +64,7 @@ template<class DeviceType>
 ComputeTempMWindowKokkos<DeviceType>::~ComputeTempMWindowKokkos()
 {
   if (copymode) return;
+
   delete [] vector;
 }
 

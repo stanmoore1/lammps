@@ -187,6 +187,8 @@ FixShockInfo::FixShockInfo(LAMMPS *lmp, int narg, char **arg) :
 
 FixShockInfo::~FixShockInfo()
 {
+  if (copymode) return;
+
   memory->sfree(coord);
   memory->sfree(count_one);
   memory->sfree(count_many);

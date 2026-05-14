@@ -208,6 +208,8 @@ FixMWindowErase::FixMWindowErase(LAMMPS *lmp, int narg, char **arg) :
 
 FixMWindowErase::~FixMWindowErase()
 {
+  if (copymode) return;
+
   memory->sfree(list);
   memory->sfree(mark);
   // delete id_compute_pe;
