@@ -18,7 +18,7 @@
 #include "math.h"
 #include "stdlib.h"
 #include "string.h"
-#include "fix_wall_piston.h"
+#include "fix_wall_ylpiston.h"
 #include "atom.h"
 #include "domain.h"
 #include "update.h"

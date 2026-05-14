@@ -69,7 +69,7 @@ void FixMWindowEraseKokkos<DeviceType>::pre_exchange()
     mark = (int *) memory->smalloc(nmax * sizeof(int), "mwindow/erase:mark");
     k_mark.resize(nmax);
     d_mark = k_mark.template view<DeviceType>();
-    h_mark = k_mark.view<LMPHostType>();
+    h_mark = k_mark.view_host();
   }
 
   // cache kernel parameters before entering copymode

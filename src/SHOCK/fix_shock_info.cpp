@@ -551,19 +551,19 @@ void FixShockInfo::end_of_step()
         fp = fopen(outputfilename.c_str(), "w");
         if (!fp) error->one(FLERR, "Cannot open output file {} for shock/info", outputfilename);
 
-        fmt::print(fp, "Spatial-averaged (Variable bins) data for Shock Wave Simulation with REBO potential:\n");
-        fmt::print(fp, "TimeStep \tNumber-of-layers (one per snapshot)\n");
-        fmt::print(fp, "{} \t\t{}\n", update->ntimestep, nlayers);
-        fmt::print(fp, "Layer# \t      Coord \t      #Atoms \t      #deltas \t      Dens \t      Vx \t      Vy \t      Vz ");
-        fmt::print(fp, "\t      Epot \t      Ekinx \t      Ekiny \t      Ekinz \t      Ekin \t      Etot ");
-        fmt::print(fp, "\t      Tx \t      Ty \t      Tz \t      T \n");
+        utils::print(fp, "Spatial-averaged (Variable bins) data for Shock Wave Simulation with REBO potential:\n");
+        utils::print(fp, "TimeStep \tNumber-of-layers (one per snapshot)\n");
+        utils::print(fp, fmt::format("{} \t\t{}\n", update->ntimestep, nlayers));
+        utils::print(fp, "Layer# \t      Coord \t      #Atoms \t      #deltas \t      Dens \t      Vx \t      Vy \t      Vz ");
+        utils::print(fp, "\t      Epot \t      Ekinx \t      Ekiny \t      Ekinz \t      Ekin \t      Etot ");
+        utils::print(fp, "\t      Tx \t      Ty \t      Tz \t      T \n");
 
         for (int m = 1; m < nlayers; m++) {
-          fmt::print(fp, " {} \t {:10.5f}\t {:11.5f}\t {:10.4f}\t",
-                     m + 1, coord[m], count_total[m], variable_bin[m]);
+          utils::print(fp, fmt::format(" {} \t {:10.5f}\t {:11.5f}\t {:10.4f}\t",
+                     m + 1, coord[m], count_total[m], variable_bin[m]));
           for (int j = 0; j < cpnts_all; j++)
-            fmt::print(fp, " {:14.8f}\t", values_total[m][j]);
-          fmt::print(fp, "\n");
+            utils::print(fp, fmt::format(" {:14.8f}\t", values_total[m][j]));
+          utils::print(fp, "\n");
         }
 
         fclose(fp);
@@ -576,21 +576,21 @@ void FixShockInfo::end_of_step()
         fp = fopen(outputfilename.c_str(), "w");
         if (!fp) error->one(FLERR, "Cannot open output file {} for shock/info", outputfilename);
 
-        fmt::print(fp, "Spatial-averaged (Variable bins) data for Shock Wave Simulation with REBO potential:\n");
-        fmt::print(fp, "TimeStep \tNumber-of-layers (one per snapshot)\n");
-        fmt::print(fp, "{} \t\t{}\n", update->ntimestep, nlayers);
-        fmt::print(fp, "Layer# \t      Coord \t      #Atoms \t      #deltas ");
-        fmt::print(fp, "\t      Dens \t    PxxPot \t    PyyPot \t    PzzPot \t    PxyPot \t    PxzPot \t    PyzPot ");
-        fmt::print(fp, "\t    PxxKin \t    PyyKin \t    PzzKin \t    PxyKin \t    PxzKin \t    PyzKin ");
-        fmt::print(fp, "\t    PxxTot \t    PyyTot \t    PzzTot \t    PxyTot \t    PxzTot \t    PyzTot \n");
+        utils::print(fp, "Spatial-averaged (Variable bins) data for Shock Wave Simulation with REBO potential:\n");
+        utils::print(fp, "TimeStep \tNumber-of-layers (one per snapshot)\n");
+        utils::print(fp, fmt::format("{} \t\t{}\n", update->ntimestep, nlayers));
+        utils::print(fp, "Layer# \t      Coord \t      #Atoms \t      #deltas ");
+        utils::print(fp, "\t      Dens \t    PxxPot \t    PyyPot \t    PzzPot \t    PxyPot \t    PxzPot \t    PyzPot ");
+        utils::print(fp, "\t    PxxKin \t    PyyKin \t    PzzKin \t    PxyKin \t    PxzKin \t    PyzKin ");
+        utils::print(fp, "\t    PxxTot \t    PyyTot \t    PzzTot \t    PxyTot \t    PxzTot \t    PyzTot \n");
 
         for (int m = 1; m < nlayers; m++) {
-          fmt::print(fp, " {} \t {:10.5f}\t {:11.5f}\t {:10.4f}\t",
-                     m + 1, coord[m], count_total[m], variable_bin[m]);
-          fmt::print(fp, " {:14.8f}\t", values_total[m][0]);  // Dens
+          utils::print(fp, fmt::format(" {} \t {:10.5f}\t {:11.5f}\t {:10.4f}\t",
+                     m + 1, coord[m], count_total[m], variable_bin[m]));
+          utils::print(fp, fmt::format(" {:14.8f}\t", values_total[m][0]));  // Dens
         for (int j = cpnts_all; j < nvalues; j++)
-          fmt::print(fp, " {:14.8f}\t", -values_total[m][j]);
-        fmt::print(fp, "\n");
+          utils::print(fp, fmt::format(" {:14.8f}\t", -values_total[m][j]));
+        utils::print(fp, "\n");
         }
 
         fclose(fp);
