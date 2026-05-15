@@ -351,77 +351,74 @@ void PairOxdna2DhKokkos<DeviceType>::operator()(TagPairOxdna2DhCompute<OXDNAFLAG
     delr[2] = rtmp_s[2] - x(b,2) - rb_cs[2];
     rsq = fma(delr[2], delr[2], fma(delr[1], delr[1], delr[0] * delr[0]));
 
-    if (rsq <= d_cutsq_dh_c(atype, btype)) {
+    if (rsq > d_cutsq_dh_c(atype, btype)) continue; // Note the switch of sign, > vs <=, due to using continue
 
-      r = sqrt(rsq);
-      rinv = 1.0/r;
+    r = sqrt(rsq);
+    rinv = 1.0/r;
 
-      if (r <= d_cut_dh_ast(atype, btype)) {
+    if (r <= d_cut_dh_ast(atype, btype)) {
 
-        const KK_FLOAT qeff = d_qeff_dh_pf(atype, btype);
-        const KK_FLOAT kappa = d_kappa_dh(atype, btype);
+      const KK_FLOAT qeff = d_qeff_dh_pf(atype, btype);
+      const KK_FLOAT kappa = d_kappa_dh(atype, btype);
+      const KK_FLOAT expterm = expf(-kappa * r);
 
-        fpair = qeff * exp(-kappa * r) * (kappa + rinv) * rinv * rinv;
+      fpair = qeff * expterm * (kappa + rinv) * rinv * rinv;
 
-        if (EVFLAG) {
-          evdwl = qeff * exp(-kappa * r) * rinv;
-        }
-
-      } else {
-
-        const KK_FLOAT b_dh = d_b_dh(atype, btype);
-        const KK_FLOAT cut_dh_c = d_cut_dh_c(atype, btype);
-        const KK_FLOAT delrcut = cut_dh_c - r;
-
-        fpair = 2.0 * b_dh * delrcut * rinv;
-
-        if (EVFLAG) {
-          evdwl = b_dh * delrcut * delrcut; // double negative, so safe to keep delrcut as is
-        }
-
+      if constexpr (EVFLAG) {
+        evdwl = qeff * expterm * rinv;
       }
 
-      // knock out nearest-neighbor interaction between adjacent backbone sites
-      fpair *= factor_lj;
-      evdwl *= factor_lj;
+    } else {
 
-      delf[0] = delr[0] * fpair;
-      delf[1] = delr[1] * fpair;
-      delf[2] = delr[2] * fpair;
+      const KK_FLOAT b_dh = d_b_dh(atype, btype);
+      const KK_FLOAT cut_dh_c = d_cut_dh_c(atype, btype);
+      const KK_FLOAT delrcut = cut_dh_c - r;
 
-      // apply force and torque to each of 2 atoms
-      ftmp_a[0] += delf[0];
-      ftmp_a[1] += delf[1];
-      ftmp_a[2] += delf[2];
-      delta[0] = fma(ra_cs[1], delf[2], -ra_cs[2]*delf[1]);
-      delta[1] = fma(ra_cs[2], delf[0], -ra_cs[0]*delf[2]);
-      delta[2] = fma(ra_cs[0], delf[1], -ra_cs[1]*delf[0]);
-      ttmp_a[0] += delta[0];
-      ttmp_a[1] += delta[1];
-      ttmp_a[2] += delta[2];
-      if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
-        a_f(b,0) -= delf[0];
-        a_f(b,1) -= delf[1];
-        a_f(b,2) -= delf[2];
-        deltb[0] = fma(rb_cs[1], delf[2], -rb_cs[2]*delf[1]);
-        deltb[1] = fma(rb_cs[2], delf[0], -rb_cs[0]*delf[2]);
-        deltb[2] = fma(rb_cs[0], delf[1], -rb_cs[1]*delf[0]);
-        a_torque(b,0) -= deltb[0];
-        a_torque(b,1) -= deltb[1];
-        a_torque(b,2) -= deltb[2];
+      fpair = 2.0 * b_dh * delrcut * rinv;
+
+      if constexpr (EVFLAG) {
+        evdwl = b_dh * delrcut * delrcut; // double negative, so safe to keep delrcut as is
       }
+    }
 
-      // increment energy and virial
-      // NOTE: The virial is calculated on the 'molecular' basis.
-      // (see G. Ciccotti and J.P. Ryckaert, Comp. Phys. Rep. 4, 345-392 (1986))
+    // No factor_lj here since we already have its early exit check near the start of the loop.
 
-      if (EVFLAG) {
-        ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
+    delf[0] = delr[0] * fpair;
+    delf[1] = delr[1] * fpair;
+    delf[2] = delr[2] * fpair;
 
-        if (vflag_either || eflag_atom) {
-          this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,ev.evdwl,\
-          delf[0],delf[1],delf[2],x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
-        }
+    // apply force and torque to each of 2 atoms
+    ftmp_a[0] += delf[0];
+    ftmp_a[1] += delf[1];
+    ftmp_a[2] += delf[2];
+    delta[0] = fma(ra_cs[1], delf[2], -ra_cs[2]*delf[1]);
+    delta[1] = fma(ra_cs[2], delf[0], -ra_cs[0]*delf[2]);
+    delta[2] = fma(ra_cs[0], delf[1], -ra_cs[1]*delf[0]);
+    ttmp_a[0] += delta[0];
+    ttmp_a[1] += delta[1];
+    ttmp_a[2] += delta[2];
+    if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal)) {
+      a_f(b,0) -= delf[0];
+      a_f(b,1) -= delf[1];
+      a_f(b,2) -= delf[2];
+      deltb[0] = fma(rb_cs[1], delf[2], -rb_cs[2]*delf[1]);
+      deltb[1] = fma(rb_cs[2], delf[0], -rb_cs[0]*delf[2]);
+      deltb[2] = fma(rb_cs[0], delf[1], -rb_cs[1]*delf[0]);
+      a_torque(b,0) -= deltb[0];
+      a_torque(b,1) -= deltb[1];
+      a_torque(b,2) -= deltb[2];
+    }
+
+    // increment energy and virial
+    // NOTE: The virial is calculated on the 'molecular' basis.
+    // (see G. Ciccotti and J.P. Ryckaert, Comp. Phys. Rep. 4, 345-392 (1986))
+
+    if constexpr (EVFLAG) {
+      ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
+
+      if (vflag_either || eflag_atom) {
+        this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,ev.evdwl,\
+        delf[0],delf[1],delf[2],x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
       }
     }
   }
