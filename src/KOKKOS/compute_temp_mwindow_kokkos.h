@@ -44,12 +44,18 @@ class ComputeTempMWindowKokkos : public ComputeTemp {
     double t0, t1, t2, t3, t4, t5;
 // NOLINTNEXTLINE
     KOKKOS_INLINE_FUNCTION
-    s_CTEMP() { t0 = t1 = t2 = t3 = t4 = t5 = 0.0; }
+    s_CTEMP() {
+      t0 = t1 = t2 = t3 = t4 = t5 = 0.0;
+    }
 // NOLINTNEXTLINE
     KOKKOS_INLINE_FUNCTION
     s_CTEMP& operator+=(const s_CTEMP &rhs) {
-      t0 += rhs.t0; t1 += rhs.t1; t2 += rhs.t2;
-      t3 += rhs.t3; t4 += rhs.t4; t5 += rhs.t5;
+      t0 += rhs.t0;
+      t1 += rhs.t1;
+      t2 += rhs.t2;
+      t3 += rhs.t3;
+      t4 += rhs.t4;
+      t5 += rhs.t5;
       return *this;
     }
   };
