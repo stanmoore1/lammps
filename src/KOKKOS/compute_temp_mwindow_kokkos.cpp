@@ -23,9 +23,8 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
-#include "group.h"
+#include "group_kokkos.h"
 #include "update.h"
-#include "utils.h"
 
 using namespace LAMMPS_NS;
 
@@ -33,41 +32,15 @@ using namespace LAMMPS_NS;
 
 template<class DeviceType>
 ComputeTempMWindowKokkos<DeviceType>::ComputeTempMWindowKokkos(LAMMPS *lmp, int narg, char **arg) :
-  ComputeTemp(lmp, 3, arg)
+  ComputeTempMWindow(lmp, narg, arg)
 {
-  if (narg != 6) error->all(FLERR, "Illegal compute temp/mwindow command");
-
-  vbias[0] = utils::numeric(FLERR, arg[3], false, lmp);
-  vbias[1] = utils::numeric(FLERR, arg[4], false, lmp);
-  vbias[2] = utils::numeric(FLERR, arg[5], false, lmp);
-
-  tempbias = 1;
-
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
+  groupKK = (GroupKokkos *) group;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
 
   datamask_read = V_MASK | MASK_MASK | RMASS_MASK | TYPE_MASK;
   datamask_modify = EMPTY_MASK;
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-ComputeTempMWindowKokkos<DeviceType>::~ComputeTempMWindowKokkos()
-{
-  if (copymode) return;
-
-  // vector was allocated by ComputeTemp and will be freed there
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-void ComputeTempMWindowKokkos<DeviceType>::init()
-{
-  ComputeTemp::init();
-  masstotal = group->mass(igroup);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -79,6 +52,9 @@ double ComputeTempMWindowKokkos<DeviceType>::compute_scalar()
   atomKK->k_mass.sync<DeviceType>();
 
   invoked_scalar = update->ntimestep;
+
+  if (dynamic) masstotal = groupKK->mass_kk<DeviceType>(igroup);
+  groupKK->vcm_kk<DeviceType>(igroup,masstotal,vbias);
 
   v = atomKK->k_v.view<DeviceType>();
   if (atomKK->rmass)
@@ -109,8 +85,6 @@ double ComputeTempMWindowKokkos<DeviceType>::compute_scalar()
 
   return scalar;
 }
-
-/* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 template<int RMASS>
@@ -146,6 +120,9 @@ void ComputeTempMWindowKokkos<DeviceType>::compute_vector()
 
   invoked_vector = update->ntimestep;
 
+  if (dynamic) masstotal = groupKK->mass_kk<DeviceType>(igroup);
+  groupKK->vcm_kk<DeviceType>(igroup,masstotal,vbias);
+
   v = atomKK->k_v.view<DeviceType>();
   if (atomKK->rmass)
     rmass = atomKK->k_rmass.view<DeviceType>();
@@ -177,8 +154,6 @@ void ComputeTempMWindowKokkos<DeviceType>::compute_vector()
   for (i = 0; i < 6; i++) vector[i] *= force->mvv2e;
 }
 
-/* ---------------------------------------------------------------------- */
-
 template<class DeviceType>
 template<int RMASS>
 // NOLINTNEXTLINE
@@ -203,37 +178,33 @@ void ComputeTempMWindowKokkos<DeviceType>::operator()(TagComputeTempMWindowVecto
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void ComputeTempMWindowKokkos<DeviceType>::remove_bias(int /*i*/, double *vel)
-{
-  vel[0] -= vbias[0];
-  vel[1] -= vbias[1];
-  vel[2] -= vbias[2];
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
 void ComputeTempMWindowKokkos<DeviceType>::remove_bias_all()
 {
-  atomKK->sync(execution_space, V_MASK | MASK_MASK);
-  v    = atomKK->k_v.view<DeviceType>();
-  mask = atomKK->k_mask.view<DeviceType>();
-
-  copymode = 1;
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,
-    TagComputeTempMWindowRemoveBias>(0, atom->nlocal), *this);
-  copymode = 0;
-
-  atomKK->modified(execution_space, V_MASK);
+  remove_bias_all_kk();
+  atomKK->sync(Host,V_MASK);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void ComputeTempMWindowKokkos<DeviceType>::operator()(
-    TagComputeTempMWindowRemoveBias, const int &i) const
+void ComputeTempMWindowKokkos<DeviceType>::remove_bias_all_kk()
 {
+  atomKK->sync(execution_space,V_MASK|MASK_MASK);
+  v = atomKK->k_v.view<DeviceType>();
+  mask = atomKK->k_mask.view<DeviceType>();
+  int nlocal = atom->nlocal;
+
+  copymode = 1;
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagComputeTempMWindowRemoveBias >(0,nlocal), *this);
+  copymode = 0;
+
+  atomKK->modified(execution_space,V_MASK);
+}
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void ComputeTempMWindowKokkos<DeviceType>::operator()(TagComputeTempMWindowRemoveBias, const int &i) const {
   if (mask[i] & groupbit) {
     v(i,0) -= (KK_FLOAT)vbias[0];
     v(i,1) -= (KK_FLOAT)vbias[1];
@@ -244,45 +215,39 @@ void ComputeTempMWindowKokkos<DeviceType>::operator()(
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void ComputeTempMWindowKokkos<DeviceType>::restore_bias(int /*i*/, double *vel)
-{
-  vel[0] += vbias[0];
-  vel[1] += vbias[1];
-  vel[2] += vbias[2];
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
 void ComputeTempMWindowKokkos<DeviceType>::restore_bias_all()
 {
-  atomKK->sync(execution_space, V_MASK | MASK_MASK);
-  v    = atomKK->k_v.view<DeviceType>();
-  mask = atomKK->k_mask.view<DeviceType>();
-
-  copymode = 1;
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,
-    TagComputeTempMWindowRestoreBias>(0, atom->nlocal), *this);
-  copymode = 0;
-
-  atomKK->modified(execution_space, V_MASK);
+  restore_bias_all_kk();
+  atomKK->sync(Host,V_MASK);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void ComputeTempMWindowKokkos<DeviceType>::operator()(
-    TagComputeTempMWindowRestoreBias, const int &i) const
+void ComputeTempMWindowKokkos<DeviceType>::restore_bias_all_kk()
 {
+  atomKK->sync(execution_space,V_MASK|MASK_MASK);
+  v = atomKK->k_v.view<DeviceType>();
+  mask = atomKK->k_mask.view<DeviceType>();
+  int nlocal = atom->nlocal;
+
+  copymode = 1;
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagComputeTempMWindowRestoreBias>(0, atom->nlocal), *this);
+  copymode = 0;
+
+  atomKK->modified(execution_space,V_MASK);
+}
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void ComputeTempMWindowKokkos<DeviceType>::operator()(TagComputeTempMWindowRestoreBias, const int &i) const {
   if (mask[i] & groupbit) {
     v(i,0) += (KK_FLOAT)vbias[0];
     v(i,1) += (KK_FLOAT)vbias[1];
     v(i,2) += (KK_FLOAT)vbias[2];
   }
 }
-
-/* ---------------------------------------------------------------------- */
 
 namespace LAMMPS_NS {
 template class ComputeTempMWindowKokkos<LMPDeviceType>;

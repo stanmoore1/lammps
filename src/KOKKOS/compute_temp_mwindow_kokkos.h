@@ -11,8 +11,8 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-// clang-format off
 #ifdef COMPUTE_CLASS
+// clang-format off
 ComputeStyle(temp/mwindow/kk,ComputeTempMWindowKokkos<LMPDeviceType>);
 ComputeStyle(temp/mwindow/kk/device,ComputeTempMWindowKokkos<LMPDeviceType>);
 ComputeStyle(temp/mwindow/kk/host,ComputeTempMWindowKokkos<LMPHostType>);
@@ -23,7 +23,7 @@ ComputeStyle(temp/mwindow/kk/host,ComputeTempMWindowKokkos<LMPHostType>);
 #ifndef LMP_COMPUTE_TEMP_MWINDOW_KOKKOS_H
 #define LMP_COMPUTE_TEMP_MWINDOW_KOKKOS_H
 
-#include "compute_temp.h"
+#include "compute_temp_mwindow.h"
 #include "kokkos_type.h"
 
 namespace LAMMPS_NS {
@@ -38,8 +38,9 @@ struct TagComputeTempMWindowRemoveBias{};
 struct TagComputeTempMWindowRestoreBias{};
 
 template<class DeviceType>
-class ComputeTempMWindowKokkos : public ComputeTemp {
+class ComputeTempMWindowKokkos : public ComputeTempMWindow {
  public:
+
   struct s_CTEMP {
     double t0, t1, t2, t3, t4, t5;
 // NOLINTNEXTLINE
@@ -66,14 +67,12 @@ class ComputeTempMWindowKokkos : public ComputeTemp {
   typedef CTEMP value_type;
 
   ComputeTempMWindowKokkos(class LAMMPS *, int, char **);
-  ~ComputeTempMWindowKokkos() override;
-  void init() override;
   double compute_scalar() override;
   void compute_vector() override;
-  void remove_bias(int, double *) override;
   void remove_bias_all() override;
-  void restore_bias(int, double *) override;
+  void remove_bias_all_kk() override;
   void restore_bias_all() override;
+  void restore_bias_all_kk() override;
 
   template<int RMASS>
 // NOLINTNEXTLINE
@@ -94,14 +93,13 @@ class ComputeTempMWindowKokkos : public ComputeTemp {
   void operator()(TagComputeTempMWindowRestoreBias, const int&) const;
 
  protected:
-  double masstotal;
-  double vbias[3];
-
   typename AT::t_kkfloat_1d_3 v;
   typename AT::t_kkfloat_1d_randomread rmass;
   typename AT::t_kkfloat_1d_randomread mass;
   typename AT::t_int_1d_randomread type;
   typename AT::t_int_1d_randomread mask;
+
+  class GroupKokkos *groupKK;
 };
 
 }    // namespace LAMMPS_NS

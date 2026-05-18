@@ -114,8 +114,8 @@ int FixWallYLPiston::setmask()
 
 void FixWallYLPiston::init()
 {
-  if (strcmp(update->integrate_style,"respa") == 0)
-    nlevels_respa = ((Respa *) update->integrate)->nlevels;
+  //if (strcmp(update->integrate_style,"respa") == 0)
+  //  nlevels_respa = ((Respa *) update->integrate)->nlevels;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -123,13 +123,13 @@ void FixWallYLPiston::init()
 void FixWallYLPiston::setup(int vflag)
 {
   //eflag_enable = 1;
-  if (strcmp(update->integrate_style,"verlet") == 0)
+  //if (strcmp(update->integrate_style,"verlet") == 0)
     post_force(vflag);
-  else {
-    ((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);
-    post_force_respa(vflag,nlevels_respa-1,0);
-    ((Respa *) update->integrate)->copy_f_flevel(nlevels_respa-1);
-  }
+  //else {
+  //  ((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);
+  //  post_force_respa(vflag,nlevels_respa-1,0);
+  //  ((Respa *) update->integrate)->copy_f_flevel(nlevels_respa-1);
+  //}
   //eflag_enable = 0;
 }
 
