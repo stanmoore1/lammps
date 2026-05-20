@@ -41,12 +41,13 @@ static constexpr double SMALL = 0.00001;
 EwaldDipoleSpin::EwaldDipoleSpin(LAMMPS *lmp) :
   EwaldDipole(lmp)
 {
+  ewaldflag = 1;
   dipoleflag = 0;
   spinflag = 1;
 
   hbar = force->hplanck/MY_2PI;                 // eV/(rad.THz)
   mub = 9.274e-4;                               // in A.Ang^2
-  mu_0 = 785.15;                                // in eV/Ang/A^2
+  mu_0 = 784.15;                                // in eV/Ang/A^2
   mub2mu0 = mub * mub * mu_0 / (4.0*MY_PI);     // in eV.Ang^3
   mub2mu0hbinv = mub2mu0 / hbar;                // in rad.THz
 }
@@ -446,9 +447,9 @@ void EwaldDipoleSpin::compute(int eflag, int vflag)
     f[i][0] += spscale * ek[i][0];
     f[i][1] += spscale * ek[i][1];
     if (slabflag != 2) f[i][2] += spscale * ek[i][2];
-    fm_long[i][0] += spscale2 * tk[i][0];
-    fm_long[i][1] += spscale2 * tk[i][1];
-    if (slabflag != 2) fm_long[i][2] += spscale2 * tk[i][2];
+    fm_long[i][0] -= sp[i][3] * spscale2 * tk[i][0];
+    fm_long[i][1] -= sp[i][3] * spscale2 * tk[i][1];
+    if (slabflag != 2) fm_long[i][2] -= sp[i][3] * spscale2 * tk[i][2];
   }
 
   // sum global energy across Kspace vevs and add in volume-dependent term
@@ -791,10 +792,11 @@ void EwaldDipoleSpin::slabcorr()
 
   // add on mag. force corrections
 
-  double ffact = spscale * (-4.0*MY_PI/volume);
+  const double spscale2 = mub2mu0hbinv * scale;
+  double ffact = spscale2 * (-4.0*MY_PI/volume);
   double **fm_long = atom->fm_long;
   for (int i = 0; i < nlocal; i++) {
-    fm_long[i][2] += ffact * spin_all;
+    fm_long[i][2] += sp[i][3] * ffact * spin_all;
   }
 }
 
@@ -817,15 +819,14 @@ void EwaldDipoleSpin::spsum_musq()
       spx = sp[i][0]*sp[i][3];
       spy = sp[i][1]*sp[i][3];
       spz = sp[i][2]*sp[i][3];
-      musum_local += spx + spy + spz;
+      musum_local += sp[i][3];
       musqsum_local += spx*spx + spy*spy + spz*spz;
     }
 
     MPI_Allreduce(&musum_local,&musum,1,MPI_DOUBLE,MPI_SUM,world);
     MPI_Allreduce(&musqsum_local,&musqsum,1,MPI_DOUBLE,MPI_SUM,world);
 
-    //mu2 = musqsum * mub2mu0;
-    mu2 = musqsum;
+    mu2 = musqsum * mub2mu0;
   }
 
   if (mu2 == 0 && comm->me == 0)

@@ -37,7 +37,7 @@ class EwaldDipole : public Ewald {
   double **tk;    // field for torque
   double **vc;    // virial per k
 
-  void musum_musq();
+  virtual void musum_musq();
   double rms_dipole(int, double, bigint);
   void eik_dot_r() override;
   void slabcorr() override;

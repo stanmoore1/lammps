@@ -278,9 +278,9 @@ void PairSpinDipoleLong::compute(int eflag, int vflag)
         bij[2] = (3.0*bij[1] + pre2*expm2) * r2inv;
         bij[3] = (5.0*bij[2] + pre3*expm2) * r2inv;
 
-        compute_long(i,j,eij,bij,fmi,spi,spj);
+        compute_long(i,j,eij,bij,fmi,spi,spj,rsq);
         if (lattice_flag)
-          compute_long_mech(i,j,eij,bij,fmi,spi,spj);
+          compute_long_mech(i,j,eij,bij,fi,spi,spj,rsq);
 
         if (eflag) {
           if (rsq <= local_cut2) {
@@ -415,7 +415,7 @@ void PairSpinDipoleLong::compute_single_pair(int ii, double fmi[3])
         bij[2] = (3.0*bij[1] + pre2*expm2) * r2inv;
         bij[3] = (5.0*bij[2] + pre3*expm2) * r2inv;
 
-        compute_long(ii,j,eij,bij,fmi,spi,spj);
+        compute_long(ii,j,eij,bij,fmi,spi,spj,rsq);
       }
     }
 
@@ -432,7 +432,7 @@ void PairSpinDipoleLong::compute_single_pair(int ii, double fmi[3])
 ------------------------------------------------------------------------- */
 
 void PairSpinDipoleLong::compute_long(int /* i */, int /* j */, double eij[3],
-    double bij[4], double fmi[3], double spi[4], double spj[4])
+    double bij[4], double fmi[3], double spi[4], double spj[4], double rsq)
 {
   double sjeij,pre;
   double b1,b2,gigj;
@@ -444,9 +444,9 @@ void PairSpinDipoleLong::compute_long(int /* i */, int /* j */, double eij[3],
   b1 = bij[1];
   b2 = bij[2];
 
-  fmi[0] += pre * (b2 * sjeij * eij[0] - b1 * spj[0]);
-  fmi[1] += pre * (b2 * sjeij * eij[1] - b1 * spj[1]);
-  fmi[2] += pre * (b2 * sjeij * eij[2] - b1 * spj[2]);
+  fmi[0] += pre * (b2 * rsq * sjeij * eij[0] - b1 * spj[0]);
+  fmi[1] += pre * (b2 * rsq * sjeij * eij[1] - b1 * spj[1]);
+  fmi[2] += pre * (b2 * rsq * sjeij * eij[2] - b1 * spj[2]);
 }
 
 /* ----------------------------------------------------------------------
@@ -455,9 +455,9 @@ void PairSpinDipoleLong::compute_long(int /* i */, int /* j */, double eij[3],
 ------------------------------------------------------------------------- */
 
 void PairSpinDipoleLong::compute_long_mech(int /* i */, int /* j */, double eij[3],
-    double bij[4], double fi[3], double spi[4], double spj[4])
+    double bij[4], double fi[3], double spi[4], double spj[4], double rsq)
 {
-  double sisj,sieij,sjeij,b2,b3;
+  double sisj,sieij,sjeij,b2,b3,r;
   double g1,g2,g1b2_g2b3,gigj,pre;
 
   gigj = spi[3] * spj[3];
@@ -468,13 +468,14 @@ void PairSpinDipoleLong::compute_long_mech(int /* i */, int /* j */, double eij[
 
   b2 = bij[2];
   b3 = bij[3];
+  r = sqrt(rsq);
   g1 = sisj;
-  g2 = -sieij*sjeij;
+  g2 = -rsq * sieij * sjeij;
   g1b2_g2b3 = g1*b2 + g2*b3;
 
-  fi[0] += pre * (eij[0] * g1b2_g2b3 + b2 * (sjeij*spi[0] + sieij*spj[0]));
-  fi[1] += pre * (eij[1] * g1b2_g2b3 + b2 * (sjeij*spi[1] + sieij*spj[1]));
-  fi[2] += pre * (eij[2] * g1b2_g2b3 + b2 * (sjeij*spi[2] + sieij*spj[2]));
+  fi[0] -= pre * r * (eij[0] * g1b2_g2b3 + b2 * (sjeij*spi[0] + sieij*spj[0]));
+  fi[1] -= pre * r * (eij[1] * g1b2_g2b3 + b2 * (sjeij*spi[1] + sieij*spj[1]));
+  fi[2] -= pre * r * (eij[2] * g1b2_g2b3 + b2 * (sjeij*spi[2] + sieij*spj[2]));
 }
 
 
@@ -509,7 +510,7 @@ void PairSpinDipoleLong::write_restart(FILE *fp)
     for (j = i; j <= atom->ntypes; j++) {
       fwrite(&setflag[i][j],sizeof(int),1,fp);
       if (setflag[i][j]) {
-        fwrite(&cut_spin_long[i][j],sizeof(int),1,fp);
+        fwrite(&cut_spin_long[i][j],sizeof(double),1,fp);
       }
     }
   }
@@ -533,7 +534,7 @@ void PairSpinDipoleLong::read_restart(FILE *fp)
       MPI_Bcast(&setflag[i][j],1,MPI_INT,0,world);
       if (setflag[i][j]) {
         if (me == 0) {
-          utils::sfread(FLERR,&cut_spin_long[i][j],sizeof(int),1,fp,nullptr,error);
+          utils::sfread(FLERR,&cut_spin_long[i][j],sizeof(double),1,fp,nullptr,error);
         }
         MPI_Bcast(&cut_spin_long[i][j],1,MPI_DOUBLE,0,world);
       }
