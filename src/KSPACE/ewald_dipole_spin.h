@@ -27,18 +27,19 @@ namespace LAMMPS_NS {
 class EwaldDipoleSpin : public EwaldDipole {
  public:
   EwaldDipoleSpin(class LAMMPS *);
-  ~EwaldDipoleSpin() override = default;
+
   void init() override;
+  void setup() override;
   void compute(int, int) override;
 
  protected:
-  double mub;           // Bohr magneton
-  double mu_0;          // vacuum permeability
-  double mub2mu0;       // mub^2 * mu_0/(4pi), prefactor for mech force
-  double mub2mu0hbinv;  // mub2mu0 / hbar, prefactor for mag force
-  double hbar;          // reduced Planck's constant
+  double hbar;            // reduced Planck's constant
+  double mub;             // Bohr's magneton
+  double mu_0;            // vacuum permeability
+  double mub2mu0;         // prefactor for mech force
+  double mub2mu0hbinv;    // prefactor for mag force
 
-  void musum_musq() override;
+  void spsum_musq();
   void eik_dot_r() override;
   void slabcorr() override;
 };
