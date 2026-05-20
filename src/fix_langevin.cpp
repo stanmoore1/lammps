@@ -106,8 +106,7 @@ FixLangevin::FixLangevin(LAMMPS *lmp, int narg, char **arg) :
         ascale = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
       iarg += 2;
     } else if (strcmp(arg[iarg], "omega") == 0) {
-      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix langevin angmom", error);
-      error->all(FLERR, "Illegal fix langevin command");
+      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix langevin omega", error);
       oflag = utils::logical(FLERR, arg[iarg + 1], false, lmp);
       iarg += 2;
     } else if (strcmp(arg[iarg], "scale") == 0) {
@@ -238,6 +237,11 @@ void FixLangevin::init()
       if (mask[i] & groupbit)
         if (ellipsoid[i] < 0) error->one(FLERR, "Fix langevin angmom requires extended particles");
   }
+
+  // check that superellipsoids are not used
+
+  if (atom->superellipsoid_flag)
+    error->all(FLERR, "Fix langevin does not support superellipsoids");
 
   // set force prefactors
 

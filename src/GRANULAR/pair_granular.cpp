@@ -63,6 +63,9 @@ PairGranular::PairGranular(LAMMPS *lmp) : Pair(lmp)
   maxrad_dynamic = nullptr;
   maxrad_frozen = nullptr;
 
+  types_indices = nullptr;
+  cutoff_type = nullptr;
+
   // set comm size needed by this Pair if used with fix rigid
 
   comm_forward = 1;
@@ -110,13 +113,13 @@ PairGranular::~PairGranular()
 
 void PairGranular::compute(int eflag, int vflag)
 {
-  int i,j,k,ii,jj,inum,jnum,itype,jtype;
-  double factor_lj,mi,mj,meff;
+  int i, j, k, ii, jj, inum, jnum, itype, jtype;
+  double factor_lj, mi, mj, meff;
   double *forces, *torquesi, *torquesj, dq;
 
-  int *ilist,*jlist,*numneigh,**firstneigh;
-  int *touch,**firsttouch;
-  double *history,*allhistory,**firsthistory;
+  int *ilist, *jlist, *numneigh, **firstneigh;
+  int *touch, **firsttouch;
+  double *history, *allhistory, **firsthistory;
 
   bool touchflag = false;
   const bool history_update = update->setupflag == 0;
@@ -148,10 +151,10 @@ void PairGranular::compute(int eflag, int vflag)
     comm->forward_comm(this);
   }
 
+  int *type = atom->type;
   double **x = atom->x;
   double **v = atom->v;
   double **f = atom->f;
-  int *type = atom->type;
   double **omega = atom->omega;
   double **torque = atom->torque;
   double *radius = atom->radius;
@@ -275,10 +278,9 @@ void PairGranular::compute(int eflag, int vflag)
         if (force->newton_pair || j < nlocal) heatflow[j] -= dq;
       }
 
-      if (evflag) {
-        ev_tally_xyz(i,j,nlocal,force->newton_pair,
-          0.0,0.0,forces[0],forces[1],forces[2],model->dx[0],model->dx[1],model->dx[2]);
-      }
+      if (evflag)
+        ev_tally_xyz(i, j, nlocal, force->newton_pair, 0.0, 0.0, forces[0], forces[1], forces[2],
+            model->dx[0], model->dx[1], model->dx[2]);
     }
   }
 }
@@ -609,6 +611,8 @@ double PairGranular::init_one(int i, int j)
         // radius info about both i and j exist
         ((maxrad_frozen[i] > 0.0)  && (maxrad_dynamic[j] > 0.0))) {
       cutoff = maxrad_dynamic[i] + maxrad_dynamic[j];
+      cutoff = MAX(cutoff, maxrad_dynamic[i] + maxrad_frozen[j]);
+      cutoff = MAX(cutoff, maxrad_frozen[i] + maxrad_dynamic[j]);
       pulloff = 0.0;
       if (model->beyond_contact) {
         pulloff = model->pulloff_distance(maxrad_dynamic[i], maxrad_dynamic[j]);

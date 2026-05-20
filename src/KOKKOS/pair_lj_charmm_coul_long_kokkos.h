@@ -47,21 +47,25 @@ class PairLJCharmmCoulLongKokkos : public PairLJCharmmCoulLong {
 
  protected:
   template<bool STACKPARAMS, class Specialisation>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT compute_fpair(const KK_FLOAT& rsq, const int& i, const int&j,
                         const int& itype, const int& jtype) const;
 
   template<bool STACKPARAMS, class Specialisation>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT compute_fcoul(const KK_FLOAT& rsq, const int& i, const int&j, const int& itype,
                         const int& jtype, const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const;
 
   template<bool STACKPARAMS, class Specialisation>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT compute_evdwl(const KK_FLOAT& rsq, const int& i, const int&j,
                         const int& itype, const int& jtype) const;
 
   template<bool STACKPARAMS, class Specialisation>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT compute_ecoul(const KK_FLOAT& rsq, const int& i, const int&j,
                         const int& itype, const int& jtype, const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const;
@@ -103,6 +107,11 @@ class PairLJCharmmCoulLongKokkos : public PairLJCharmmCoulLong {
   KK_FLOAT special_coul[4];
   KK_FLOAT special_lj[4];
   KK_FLOAT qqrd2e;
+  KK_FLOAT g_ewald_kk;
+  KK_FLOAT denom_lj_inv_kk;
+  KK_FLOAT cut_lj_innersq_kk;
+  KK_FLOAT cut_ljsq_kk;
+  KK_FLOAT tabinnersq_kk;
 
   void allocate() override;
 

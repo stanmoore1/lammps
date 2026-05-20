@@ -48,13 +48,16 @@ class PairGranHookeHistoryKokkos : public PairGranHookeHistory {
   void init_style() override;
 
   template<int NEIGHFLAG, int NEWTON_PAIR, int VFLAG, int SHEARUPDATE>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairGranHookeHistoryCompute<NEIGHFLAG,NEWTON_PAIR,VFLAG,SHEARUPDATE>, const int, EV_FLOAT &ev) const;
   template<int NEIGHFLAG, int NEWTON_PAIR, int VFLAG, int SHEARUPDATE>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairGranHookeHistoryCompute<NEIGHFLAG,NEWTON_PAIR,VFLAG,SHEARUPDATE>, const int) const;
 
   template<int NEIGHFLAG, int NEWTON_PAIR>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void ev_tally_xyz(EV_FLOAT &ev, int i, int j,
                     KK_FLOAT fx, KK_FLOAT fy, KK_FLOAT fz,
@@ -66,7 +69,7 @@ class PairGranHookeHistoryKokkos : public PairGranHookeHistory {
   typename AT::t_kkfloat_1d_3_randomread v;
   typename AT::t_kkfloat_1d_3_randomread omega;
   typename AT::t_kkacc_1d_3 f;
-  typename AT::t_kkfloat_1d_3 torque;
+  typename AT::t_kkacc_1d_3 torque;
   typename AT::t_int_1d_randomread type;
   typename AT::t_int_1d_randomread mask;
   typename AT::t_kkfloat_1d_randomread rmass;
@@ -92,8 +95,11 @@ class PairGranHookeHistoryKokkos : public PairGranHookeHistory {
   int neighflag;
   int nlocal,nall,eflag,vflag;
 
+  KK_FLOAT kt_kk, kn_kk, xmu_kk, gammat_kk, gamman_kk, dt_kk;
+
   FixNeighHistoryKokkos<DeviceType> *fix_historyKK;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   int sbmask(const int& j) const {return j >> SBBITS & 3;}
 

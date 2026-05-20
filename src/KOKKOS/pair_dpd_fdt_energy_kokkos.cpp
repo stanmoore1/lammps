@@ -100,7 +100,7 @@ void PairDPDfdtEnergyKokkos<DeviceType>::init_style()
   typedef Kokkos::Experimental::UniqueToken<
     DeviceType, Kokkos::Experimental::UniqueTokenScope::Global> unique_token_type;
   unique_token_type unique_token;
-  rand_pool.init(seed + comm->me,unique_token.size());
+  rand_pool = decltype(rand_pool)(seed + comm->me,unique_token.size());
 #endif
 }
 
@@ -122,7 +122,7 @@ void PairDPDfdtEnergyKokkos<LMPDeviceSpace>::init_style()
 #ifdef DPD_USE_RAN_MARS
   rand_pool.init(random,seed);
 #else
-  rand_pool.init(seed + comm->me,4*32768 /*fake max_hardware_threads()*/);
+  rand_pool = decltype(rand_pool)(seed + comm->me,4*32768 /*fake max_hardware_threads()*/);
 #endif
 }
 #endif
@@ -257,8 +257,8 @@ void PairDPDfdtEnergyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     memoryKK->create_kokkos(k_duMech,duMech,nlocal+nghost,"pair:duMech");
     d_duCond = k_duCond.view<DeviceType>();
     d_duMech = k_duMech.view<DeviceType>();
-    h_duCond = k_duCond.h_view;
-    h_duMech = k_duMech.h_view;
+    h_duCond = k_duCond.view_host();
+    h_duMech = k_duMech.view_host();
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairDPDfdtEnergyZero>(0,nlocal+nghost),*this);
 
     atomKK->sync(execution_space,V_MASK | DPDTHETA_MASK | RMASS_MASK);
@@ -356,6 +356,7 @@ void PairDPDfdtEnergyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 }
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairDPDfdtEnergyKokkos<DeviceType>::operator()(TagPairDPDfdtEnergyZero, const int &ii) const {
   d_duCond[ii] = 0.0;
@@ -364,6 +365,7 @@ void PairDPDfdtEnergyKokkos<DeviceType>::operator()(TagPairDPDfdtEnergyZero, con
 
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG, bool STACKPARAMS>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairDPDfdtEnergyKokkos<DeviceType>::operator()(TagPairDPDfdtEnergyComputeSplit<NEIGHFLAG,NEWTON_PAIR,EVFLAG,STACKPARAMS>, const int &ii, EV_FLOAT& ev) const {
 
@@ -440,6 +442,7 @@ void PairDPDfdtEnergyKokkos<DeviceType>::operator()(TagPairDPDfdtEnergyComputeSp
 
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG, bool STACKPARAMS>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairDPDfdtEnergyKokkos<DeviceType>::operator()(TagPairDPDfdtEnergyComputeSplit<NEIGHFLAG,NEWTON_PAIR,EVFLAG,STACKPARAMS>, const int &ii) const {
   EV_FLOAT ev;
@@ -448,6 +451,7 @@ void PairDPDfdtEnergyKokkos<DeviceType>::operator()(TagPairDPDfdtEnergyComputeSp
 
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG, bool STACKPARAMS>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairDPDfdtEnergyKokkos<DeviceType>::operator()(TagPairDPDfdtEnergyComputeNoSplit<NEIGHFLAG,NEWTON_PAIR,EVFLAG,STACKPARAMS>, const int &ii, EV_FLOAT& ev) const {
 
@@ -597,6 +601,7 @@ void PairDPDfdtEnergyKokkos<DeviceType>::operator()(TagPairDPDfdtEnergyComputeNo
 
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG, bool STACKPARAMS>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairDPDfdtEnergyKokkos<DeviceType>::operator()(TagPairDPDfdtEnergyComputeNoSplit<NEIGHFLAG,NEWTON_PAIR,EVFLAG,STACKPARAMS>, const int &ii) const {
   EV_FLOAT ev;
@@ -630,8 +635,8 @@ void PairDPDfdtEnergyKokkos<DeviceType>::allocate()
     memoryKK->create_kokkos(k_duMech,duMech,nlocal+nghost+1,"pair:duMech");
     d_duCond = k_duCond.view<DeviceType>();
     d_duMech = k_duMech.view<DeviceType>();
-    h_duCond = k_duCond.h_view;
-    h_duMech = k_duMech.h_view;
+    h_duCond = k_duCond.view_host();
+    h_duMech = k_duMech.view_host();
   }
 }
 
@@ -644,19 +649,19 @@ double PairDPDfdtEnergyKokkos<DeviceType>::init_one(int i, int j)
 {
   double cutone = PairDPDfdtEnergy::init_one(i,j);
 
-  k_params.h_view(i,j).cut = cut[i][j];
-  k_params.h_view(i,j).a0 = a0[i][j];
-  k_params.h_view(i,j).sigma = sigma[i][j];
-  k_params.h_view(i,j).kappa = kappa[i][j];
-  k_params.h_view(i,j).alpha = alpha[i][j];
-  k_params.h_view(j,i) = k_params.h_view(i,j);
+  k_params.view_host()(i,j).cut = cut[i][j];
+  k_params.view_host()(i,j).a0 = a0[i][j];
+  k_params.view_host()(i,j).sigma = sigma[i][j];
+  k_params.view_host()(i,j).kappa = kappa[i][j];
+  k_params.view_host()(i,j).alpha = alpha[i][j];
+  k_params.view_host()(j,i) = k_params.view_host()(i,j);
   if (i<MAX_TYPES_STACKPARAMS+1 && j<MAX_TYPES_STACKPARAMS+1) {
-    m_params[i][j] = m_params[j][i] = k_params.h_view(i,j);
+    m_params[i][j] = m_params[j][i] = k_params.view_host()(i,j);
     m_cutsq[j][i] = m_cutsq[i][j] = cutone*cutone;
   }
 
-  k_cutsq.h_view(i,j) = cutone*cutone;
-  k_cutsq.h_view(j,i) = k_cutsq.h_view(i,j);
+  k_cutsq.view_host()(i,j) = cutone*cutone;
+  k_cutsq.view_host()(j,i) = k_cutsq.view_host()(i,j);
   k_cutsq.modify_host();
   k_params.modify_host();
 
@@ -667,6 +672,7 @@ double PairDPDfdtEnergyKokkos<DeviceType>::init_one(int i, int j)
 
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairDPDfdtEnergyKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int &j,
       const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx,
@@ -758,6 +764,7 @@ void PairDPDfdtEnergyKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, co
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 int PairDPDfdtEnergyKokkos<DeviceType>::sbmask(const int& j) const {
   return j >> SBBITS & 3;

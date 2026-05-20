@@ -37,7 +37,7 @@
 using namespace LAMMPS_NS;
 
 static const char cite_bpm[] =
-    "BPM bond style: doi:10.1039/D3SM01373A\n\n"
+    "BPM bond style: https://doi.org/10.1039/D3SM01373A\n\n"
     "@Article{Clemmer2024,\n"
     " author =  {Clemmer, Joel T. and Monti, Joseph M. and Lechman, Jeremy B.},\n"
     " title =   {A soft departure from jamming: the compaction of deformable\n"
@@ -327,16 +327,6 @@ void BondBPM::settings(int narg, char **arg)
         }
       }
     }
-  }
-
-  // Set up necessary history fix
-  if (!fix_bond_history) {
-    auto *newfix = modify->replace_fix(
-        id_fix_dummy_history,
-        fmt::format("{} all BOND_HISTORY {} {}", id_fix_bond_history, update_flag, nhistory), 1);
-    fix_bond_history = dynamic_cast<FixBondHistory *>(newfix);
-    delete[] id_fix_dummy_history;
-    id_fix_dummy_history = nullptr;
   }
 
   // If bonds don't break and there's no overlay, can ignore special requirements

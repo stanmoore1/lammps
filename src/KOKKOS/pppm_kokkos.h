@@ -112,181 +112,240 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
   int timing_3d(int, double &) override;
   double memory_usage() override;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_setup1, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_setup2, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_setup3, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_setup4, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_setup_triclinic1, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_setup_triclinic2, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_compute_gf_ik, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_compute_gf_ik_triclinic, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_self1, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_self2, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_brick2fft, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_particle_map, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_make_rho_zero, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_make_rho_atomic, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_make_rho, typename Kokkos::TeamPolicy<DeviceType, TagPPPM_make_rho>::member_type) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik1, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik2, const int&, EV_FLOAT &) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik3, const int&, EV_FLOAT &) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik4, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik5, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik6, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik7, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik8, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik9, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik10, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik_triclinic1, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik_triclinic2, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik_triclinic3, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik_triclinic4, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik_triclinic5, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_ik_triclinic6, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom1, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom2, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom3, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom4, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom5, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom6, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom7, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom8, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom9, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom10, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom11, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom12, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom13, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_poisson_peratom14, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_fieldforce_ik, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_fieldforce_peratom, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_pack_forward1, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_pack_forward2, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_unpack_forward1, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_unpack_forward2, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_pack_reverse, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_unpack_reverse, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_slabcorr1, const int&, double&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_slabcorr2, const int&, double&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_slabcorr3, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_slabcorr4, const int&) const;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPM_timing_zero, const int&) const;
 
   //template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
   //KOKKOS_INLINE_FUNCTION
   //void operator()(TagPPPMKernelA<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
 
@@ -295,6 +354,12 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
   double scaleinv,s2;
   double qscale,efact,ffact,dipole_all,dipole_r2,zprd;
   double xprd,yprd,zprd_slab;
+  KK_FLOAT qscale_kk;
+  KK_FLOAT g_ewald_kk, g_ewald_inv_kk;
+  KK_FLOAT unitkx_kk,unitky_kk,unitkz_kk;
+  KK_FLOAT scaleinv_kk, s2_kk;
+  KK_FLOAT shift_kk, shiftone_kk;
+  KK_FLOAT delxinv_kk, delyinv_kk, delzinv_kk, delvolinv_kk;
   int nbx,nby,nbz,twoorder;
   int numx_fft,numy_fft,numz_fft;
   int numx_inout,numy_inout,numz_inout;
@@ -304,10 +369,12 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
   // Local copies of the domain box tilt etc.
   Few<double,6> h, h_inv;
 
+  template<typename T>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  void x2lamdaT_kokkos(KK_FLOAT* v, KK_FLOAT* lamda) const
+  void x2lamdaT_kokkos(T* v, T* lamda) const
   {
-    KK_FLOAT lamda_tmp[3];
+    T lamda_tmp[3];
 
     lamda_tmp[0] = h_inv[0]*v[0];
     lamda_tmp[1] = h_inv[5]*v[0] + h_inv[1]*v[1];
@@ -351,8 +418,8 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
   typename FFT_AT::t_FFT_SCALAR_1d d_work1;
   typename FFT_AT::t_FFT_SCALAR_1d d_work2;
 
-  DAT::tdual_kkfloat_1d k_gf_b;
-  typename AT::t_kkfloat_1d d_gf_b;
+  DAT::tdual_double_1d k_gf_b;
+  typename AT::t_double_1d d_gf_b;
 
   //FFT_SCALAR **rho1d,**rho_coeff,**drho1d,**drho_coeff;
   typename FFT_AT::t_FFT_SCALAR_2d_3 d_rho1d;
@@ -360,7 +427,7 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
   typename FFT_AT::t_FFT_SCALAR_2d d_rho_coeff;
   FFT_HAT::t_FFT_SCALAR_2d h_rho_coeff;
   //double **acons;
-  typename Kokkos::DualView<KK_FLOAT[8][7],LMPDeviceLayout,DeviceType>::t_host acons;
+  typename Kokkos::DualView<double[8][7],LMPDeviceLayout,DeviceType>::t_host acons;
 
   // FFTs and grid communication
 
@@ -375,6 +442,7 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
   typename AT::t_int_1d_3 d_part2grid;
 
   double boxlo[3];
+  KK_FLOAT boxlo_kk[3];
 
   void set_grid_local() override;
 
@@ -398,6 +466,7 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
   void poisson_peratom() override;
   void fieldforce_peratom() override;
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void compute_rho1d(const int i, const FFT_SCALAR &, const FFT_SCALAR &,
                      const FFT_SCALAR &) const;
@@ -429,17 +498,18 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
    gf_b = denominator expansion coeffs
 ------------------------------------------------------------------------- */
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  KK_FLOAT gf_denom(const KK_FLOAT &x, const KK_FLOAT &y,
-                         const KK_FLOAT &z) const {
-    KK_FLOAT sx,sy,sz;
-    sz = sy = sx = 0.0;
+  double gf_denom(const double &x, const double &y,
+                         const double &z) const {
+    double sx,sy,sz;
+    sz = sy = sx = 0;
     for (int l = order-1; l >= 0; l--) {
       sx = d_gf_b[l] + sx*x;
       sy = d_gf_b[l] + sy*y;
       sz = d_gf_b[l] + sz*z;
     }
-    KK_FLOAT s = sx*sy*sz;
+    double s = sx*sy*sz;
     return s*s;
   };
 };

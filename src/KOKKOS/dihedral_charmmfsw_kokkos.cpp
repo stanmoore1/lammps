@@ -56,7 +56,7 @@ DihedralCharmmfswKokkos<DeviceType>::DihedralCharmmfswKokkos(LAMMPS *lmp) : Dihe
 
   k_warning_flag = DAT::tdual_int_scalar("Dihedral:warning_flag");
   d_warning_flag = k_warning_flag.template view<DeviceType>();
-  h_warning_flag = k_warning_flag.h_view;
+  h_warning_flag = k_warning_flag.view_host();
 
   centroidstressflag = CENTROID_NOTAVAIL;
 }
@@ -187,7 +187,7 @@ void DihedralCharmmfswKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     k_eatom_pair.template modify<DeviceType>();
     k_eatom_pair.sync_host();
     for (int i = 0; i < n; i++)
-      force->pair->eatom[i] += k_eatom_pair.h_view(i);
+      force->pair->eatom[i] += k_eatom_pair.view_host()(i);
   }
 
   if (vflag_atom) {
@@ -197,12 +197,12 @@ void DihedralCharmmfswKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     k_vatom_pair.template modify<DeviceType>();
     k_vatom_pair.sync_host();
     for (int i = 0; i < n; i++) {
-      force->pair->vatom[i][0] += k_vatom_pair.h_view(i,0);
-      force->pair->vatom[i][1] += k_vatom_pair.h_view(i,1);
-      force->pair->vatom[i][2] += k_vatom_pair.h_view(i,2);
-      force->pair->vatom[i][3] += k_vatom_pair.h_view(i,3);
-      force->pair->vatom[i][4] += k_vatom_pair.h_view(i,4);
-      force->pair->vatom[i][5] += k_vatom_pair.h_view(i,5);
+      force->pair->vatom[i][0] += k_vatom_pair.view_host()(i,0);
+      force->pair->vatom[i][1] += k_vatom_pair.view_host()(i,1);
+      force->pair->vatom[i][2] += k_vatom_pair.view_host()(i,2);
+      force->pair->vatom[i][3] += k_vatom_pair.view_host()(i,3);
+      force->pair->vatom[i][4] += k_vatom_pair.view_host()(i,4);
+      force->pair->vatom[i][5] += k_vatom_pair.view_host()(i,5);
     }
   }
 
@@ -211,6 +211,7 @@ void DihedralCharmmfswKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
 template<class DeviceType>
 template<int NEWTON_BOND, int EVFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void DihedralCharmmfswKokkos<DeviceType>::operator()(TagDihedralCharmmfswCompute<NEWTON_BOND,EVFLAG>, const int &n, EVM_FLOAT& evm) const {
 
@@ -425,6 +426,7 @@ void DihedralCharmmfswKokkos<DeviceType>::operator()(TagDihedralCharmmfswCompute
 
 template<class DeviceType>
 template<int NEWTON_BOND, int EVFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void DihedralCharmmfswKokkos<DeviceType>::operator()(TagDihedralCharmmfswCompute<NEWTON_BOND,EVFLAG>, const int &n) const {
   EVM_FLOAT evm;
@@ -437,6 +439,23 @@ template<class DeviceType>
 void DihedralCharmmfswKokkos<DeviceType>::allocate()
 {
   DihedralCharmmfsw::allocate();
+
+  int nd = atom->ndihedraltypes;
+  k_k = DAT::tdual_kkfloat_1d("DihedralCharmmfsw::k",nd+1);
+  k_multiplicity = DAT::tdual_kkfloat_1d("DihedralCharmmfsw::multiplicity",nd+1);
+  k_shift = DAT::tdual_kkfloat_1d("DihedralCharmmfsw::shift",nd+1);
+  k_cos_shift = DAT::tdual_kkfloat_1d("DihedralCharmmfsw::cos_shift",nd+1);
+  k_sin_shift = DAT::tdual_kkfloat_1d("DihedralCharmmfsw::sin_shift",nd+1);
+  k_weight = DAT::tdual_kkfloat_1d("DihedralCharmmfsw::weight",nd+1);
+
+  d_k = k_k.template view<DeviceType>();
+  d_multiplicity = k_multiplicity.template view<DeviceType>();
+  d_shift = k_shift.template view<DeviceType>();
+  d_cos_shift = k_cos_shift.template view<DeviceType>();
+  d_sin_shift = k_sin_shift.template view<DeviceType>();
+  d_weight = k_weight.template view<DeviceType>();
+
+
 }
 
 /* ----------------------------------------------------------------------
@@ -448,29 +467,16 @@ void DihedralCharmmfswKokkos<DeviceType>::coeff(int narg, char **arg)
 {
   DihedralCharmmfsw::coeff(narg, arg);
 
-  int nd = atom->ndihedraltypes;
-  DAT::tdual_kkfloat_1d k_k("DihedralCharmmfsw::k",nd+1);
-  DAT::tdual_kkfloat_1d k_multiplicity("DihedralCharmmfsw::multiplicity",nd+1);
-  DAT::tdual_kkfloat_1d k_shift("DihedralCharmmfsw::shift",nd+1);
-  DAT::tdual_kkfloat_1d k_cos_shift("DihedralCharmmfsw::cos_shift",nd+1);
-  DAT::tdual_kkfloat_1d k_sin_shift("DihedralCharmmfsw::sin_shift",nd+1);
-  DAT::tdual_kkfloat_1d k_weight("DihedralCharmmfsw::weight",nd+1);
+  int ilo,ihi;
+  utils::bounds(FLERR,arg[0],1,atom->ndihedraltypes,ilo,ihi,error);
 
-  d_k = k_k.template view<DeviceType>();
-  d_multiplicity = k_multiplicity.template view<DeviceType>();
-  d_shift = k_shift.template view<DeviceType>();
-  d_cos_shift = k_cos_shift.template view<DeviceType>();
-  d_sin_shift = k_sin_shift.template view<DeviceType>();
-  d_weight = k_weight.template view<DeviceType>();
-
-  int n = atom->ndihedraltypes;
-  for (int i = 1; i <= n; i++) {
-    k_k.h_view[i] = k[i];
-    k_multiplicity.h_view[i] = multiplicity[i];
-    k_shift.h_view[i] = shift[i];
-    k_cos_shift.h_view[i] = cos_shift[i];
-    k_sin_shift.h_view[i] = sin_shift[i];
-    k_weight.h_view[i] = weight[i];
+  for (int i = ilo; i <= ihi; i++) {
+    k_k.view_host()[i] = k[i];
+    k_multiplicity.view_host()[i] = multiplicity[i];
+    k_shift.view_host()[i] = shift[i];
+    k_cos_shift.view_host()[i] = cos_shift[i];
+    k_sin_shift.view_host()[i] = sin_shift[i];
+    k_weight.view_host()[i] = weight[i];
   }
 
   k_k.modify_host();
@@ -513,10 +519,10 @@ void DihedralCharmmfswKokkos<DeviceType>::init_style()
     int n = atom->ntypes;
     for (int i = 1; i <= n; i++) {
       for (int j = 1; j <= n; j++) {
-        k_lj14_1.h_view(i,j) = lj14_1[i][j];
-        k_lj14_2.h_view(i,j) = lj14_2[i][j];
-        k_lj14_3.h_view(i,j) = lj14_3[i][j];
-        k_lj14_4.h_view(i,j) = lj14_4[i][j];
+        k_lj14_1.view_host()(i,j) = lj14_1[i][j];
+        k_lj14_2.view_host()(i,j) = lj14_2[i][j];
+        k_lj14_3.view_host()(i,j) = lj14_3[i][j];
+        k_lj14_4.view_host()(i,j) = lj14_4[i][j];
       }
     }
   }
@@ -558,12 +564,12 @@ void DihedralCharmmfswKokkos<DeviceType>::read_restart(FILE *fp)
 
   int n = atom->ndihedraltypes;
   for (int i = 1; i <= n; i++) {
-    k_k.h_view[i] = k[i];
-    k_multiplicity.h_view[i] = multiplicity[i];
-    k_shift.h_view[i] = shift[i];
-    k_cos_shift.h_view[i] = cos_shift[i];
-    k_sin_shift.h_view[i] = sin_shift[i];
-    k_weight.h_view[i] = weight[i];
+    k_k.view_host()[i] = k[i];
+    k_multiplicity.view_host()[i] = multiplicity[i];
+    k_shift.view_host()[i] = shift[i];
+    k_cos_shift.view_host()[i] = cos_shift[i];
+    k_sin_shift.view_host()[i] = sin_shift[i];
+    k_weight.view_host()[i] = weight[i];
   }
 
   k_k.modify_host();
@@ -590,6 +596,7 @@ void DihedralCharmmfswKokkos<DeviceType>::read_restart(FILE *fp)
 
 template<class DeviceType>
 //template<int NEWTON_BOND>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void DihedralCharmmfswKokkos<DeviceType>::ev_tally(EVM_FLOAT &evm, const int i1, const int i2, const int i3, const int i4,
                         KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4,
@@ -715,6 +722,7 @@ void DihedralCharmmfswKokkos<DeviceType>::ev_tally(EVM_FLOAT &evm, const int i1,
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void DihedralCharmmfswKokkos<DeviceType>::ev_tally(EVM_FLOAT &evm, const int i, const int j,
       const KK_FLOAT &evdwl, const KK_FLOAT &ecoul, const KK_FLOAT &fpair, const KK_FLOAT &delx,

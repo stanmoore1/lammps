@@ -47,7 +47,7 @@ DihedralClass2Kokkos<DeviceType>::DihedralClass2Kokkos(LAMMPS *lmp) : DihedralCl
 
   k_warning_flag = DAT::tdual_int_scalar("Dihedral:warning_flag");
   d_warning_flag = k_warning_flag.view<DeviceType>();
-  h_warning_flag = k_warning_flag.h_view;
+  h_warning_flag = k_warning_flag.view_host();
 
   centroidstressflag = CENTROID_NOTAVAIL;
 }
@@ -195,6 +195,7 @@ void DihedralClass2Kokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
 template<class DeviceType>
 template<int NEWTON_BOND, int EVFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const {
 
@@ -644,6 +645,7 @@ void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTO
 
 template<class DeviceType>
 template<int NEWTON_BOND, int EVFLAG>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void DihedralClass2Kokkos<DeviceType>::operator()(TagDihedralClass2Compute<NEWTON_BOND,EVFLAG>, const int &n) const {
   EV_FLOAT ev;
@@ -656,16 +658,6 @@ template<class DeviceType>
 void DihedralClass2Kokkos<DeviceType>::allocate()
 {
   DihedralClass2::allocate();
-}
-
-/* ----------------------------------------------------------------------
-   set coeffs for one type
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void DihedralClass2Kokkos<DeviceType>::coeff(int narg, char **arg)
-{
-  DihedralClass2::coeff(narg, arg);
 
   int n = atom->ndihedraltypes;
   k_k1 = DAT::tdual_kkfloat_1d("DihedralClass2::k1",n+1);
@@ -745,46 +737,59 @@ void DihedralClass2Kokkos<DeviceType>::coeff(int narg, char **arg)
   d_setflag_at = k_setflag_at.template view<DeviceType>();
   d_setflag_aat = k_setflag_aat.template view<DeviceType>();
   d_setflag_bb13t = k_setflag_bb13t.template view<DeviceType>();
+}
 
-  for (int i = 1; i <= n; i++) {
-    k_k1.h_view[i] = k1[i];
-    k_k2.h_view[i] = k2[i];
-    k_k3.h_view[i] = k3[i];
-    k_phi1.h_view[i] = phi1[i];
-    k_phi2.h_view[i] = phi2[i];
-    k_phi3.h_view[i] = phi3[i];
-    k_mbt_f1.h_view[i] = mbt_f1[i];
-    k_mbt_f2.h_view[i] = mbt_f2[i];
-    k_mbt_f3.h_view[i] = mbt_f3[i];
-    k_mbt_r0.h_view[i] = mbt_r0[i];
-    k_ebt_f1_1.h_view[i] = ebt_f1_1[i];
-    k_ebt_f2_1.h_view[i] = ebt_f2_1[i];
-    k_ebt_f3_1.h_view[i] = ebt_f3_1[i];
-    k_ebt_r0_1.h_view[i] = ebt_r0_1[i];
-    k_ebt_f1_2.h_view[i] = ebt_f1_2[i];
-    k_ebt_f2_2.h_view[i] = ebt_f2_2[i];
-    k_ebt_f3_2.h_view[i] = ebt_f3_2[i];
-    k_ebt_r0_2.h_view[i] = ebt_r0_2[i];
-    k_at_f1_1.h_view[i] = at_f1_1[i];
-    k_at_f2_1.h_view[i] = at_f2_1[i];
-    k_at_f3_1.h_view[i] = at_f3_1[i];
-    k_at_f1_2.h_view[i] = at_f1_2[i];
-    k_at_f2_2.h_view[i] = at_f2_2[i];
-    k_at_f3_2.h_view[i] = at_f3_2[i];
-    k_at_theta0_1.h_view[i] = at_theta0_1[i];
-    k_at_theta0_2.h_view[i] = at_theta0_2[i];
-    k_aat_k.h_view[i] = aat_k[i];
-    k_aat_theta0_1.h_view[i] = aat_theta0_1[i];
-    k_aat_theta0_2.h_view[i] = aat_theta0_2[i];
-    k_bb13t_k.h_view[i] = bb13t_k[i];
-    k_bb13t_r10.h_view[i] = bb13t_r10[i];
-    k_bb13t_r30.h_view[i] = bb13t_r30[i];
-    k_setflag_d.h_view[i] = setflag_d[i];
-    k_setflag_mbt.h_view[i] = setflag_mbt[i];
-    k_setflag_ebt.h_view[i] = setflag_ebt[i];
-    k_setflag_at.h_view[i] = setflag_at[i];
-    k_setflag_aat.h_view[i] = setflag_aat[i];
-    k_setflag_bb13t.h_view[i] = setflag_bb13t[i];
+/* ----------------------------------------------------------------------
+   set coeffs for one type
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void DihedralClass2Kokkos<DeviceType>::coeff(int narg, char **arg)
+{
+  DihedralClass2::coeff(narg, arg);
+
+  int ilo,ihi;
+  utils::bounds(FLERR,arg[0],1,atom->ndihedraltypes,ilo,ihi,error);
+
+  for (int i = ilo; i <= ihi; i++) {
+    k_k1.view_host()[i] = k1[i];
+    k_k2.view_host()[i] = k2[i];
+    k_k3.view_host()[i] = k3[i];
+    k_phi1.view_host()[i] = phi1[i];
+    k_phi2.view_host()[i] = phi2[i];
+    k_phi3.view_host()[i] = phi3[i];
+    k_mbt_f1.view_host()[i] = mbt_f1[i];
+    k_mbt_f2.view_host()[i] = mbt_f2[i];
+    k_mbt_f3.view_host()[i] = mbt_f3[i];
+    k_mbt_r0.view_host()[i] = mbt_r0[i];
+    k_ebt_f1_1.view_host()[i] = ebt_f1_1[i];
+    k_ebt_f2_1.view_host()[i] = ebt_f2_1[i];
+    k_ebt_f3_1.view_host()[i] = ebt_f3_1[i];
+    k_ebt_r0_1.view_host()[i] = ebt_r0_1[i];
+    k_ebt_f1_2.view_host()[i] = ebt_f1_2[i];
+    k_ebt_f2_2.view_host()[i] = ebt_f2_2[i];
+    k_ebt_f3_2.view_host()[i] = ebt_f3_2[i];
+    k_ebt_r0_2.view_host()[i] = ebt_r0_2[i];
+    k_at_f1_1.view_host()[i] = at_f1_1[i];
+    k_at_f2_1.view_host()[i] = at_f2_1[i];
+    k_at_f3_1.view_host()[i] = at_f3_1[i];
+    k_at_f1_2.view_host()[i] = at_f1_2[i];
+    k_at_f2_2.view_host()[i] = at_f2_2[i];
+    k_at_f3_2.view_host()[i] = at_f3_2[i];
+    k_at_theta0_1.view_host()[i] = at_theta0_1[i];
+    k_at_theta0_2.view_host()[i] = at_theta0_2[i];
+    k_aat_k.view_host()[i] = aat_k[i];
+    k_aat_theta0_1.view_host()[i] = aat_theta0_1[i];
+    k_aat_theta0_2.view_host()[i] = aat_theta0_2[i];
+    k_bb13t_k.view_host()[i] = bb13t_k[i];
+    k_bb13t_r10.view_host()[i] = bb13t_r10[i];
+    k_bb13t_r30.view_host()[i] = bb13t_r30[i];
+    k_setflag_d.view_host()[i] = setflag_d[i];
+    k_setflag_mbt.view_host()[i] = setflag_mbt[i];
+    k_setflag_ebt.view_host()[i] = setflag_ebt[i];
+    k_setflag_at.view_host()[i] = setflag_at[i];
+    k_setflag_aat.view_host()[i] = setflag_aat[i];
+    k_setflag_bb13t.view_host()[i] = setflag_bb13t[i];
   }
 
   k_k1.modify_host();
@@ -917,44 +922,44 @@ void DihedralClass2Kokkos<DeviceType>::read_restart(FILE *fp)
   d_setflag_bb13t = k_setflag_bb13t.template view<DeviceType>();
 
   for (int i = 1; i <= n; i++) {
-    k_k1.h_view[i] = k1[i];
-    k_k2.h_view[i] = k2[i];
-    k_k3.h_view[i] = k3[i];
-    k_phi1.h_view[i] = phi1[i];
-    k_phi2.h_view[i] = phi2[i];
-    k_phi3.h_view[i] = phi3[i];
-    k_mbt_f1.h_view[i] = mbt_f1[i];
-    k_mbt_f2.h_view[i] = mbt_f2[i];
-    k_mbt_f3.h_view[i] = mbt_f3[i];
-    k_mbt_r0.h_view[i] = mbt_r0[i];
-    k_ebt_f1_1.h_view[i] = ebt_f1_1[i];
-    k_ebt_f2_1.h_view[i] = ebt_f2_1[i];
-    k_ebt_f3_1.h_view[i] = ebt_f3_1[i];
-    k_ebt_r0_1.h_view[i] = ebt_r0_1[i];
-    k_ebt_f1_2.h_view[i] = ebt_f1_2[i];
-    k_ebt_f2_2.h_view[i] = ebt_f2_2[i];
-    k_ebt_f3_2.h_view[i] = ebt_f3_2[i];
-    k_ebt_r0_2.h_view[i] = ebt_r0_2[i];
-    k_at_f1_1.h_view[i] = at_f1_1[i];
-    k_at_f2_1.h_view[i] = at_f2_1[i];
-    k_at_f3_1.h_view[i] = at_f3_1[i];
-    k_at_f1_2.h_view[i] = at_f1_2[i];
-    k_at_f2_2.h_view[i] = at_f2_2[i];
-    k_at_f3_2.h_view[i] = at_f3_2[i];
-    k_at_theta0_1.h_view[i] = at_theta0_1[i];
-    k_at_theta0_2.h_view[i] = at_theta0_2[i];
-    k_aat_k.h_view[i] = aat_k[i];
-    k_aat_theta0_1.h_view[i] = aat_theta0_1[i];
-    k_aat_theta0_2.h_view[i] = aat_theta0_2[i];
-    k_bb13t_k.h_view[i] = bb13t_k[i];
-    k_bb13t_r10.h_view[i] = bb13t_r10[i];
-    k_bb13t_r30.h_view[i] = bb13t_r30[i];
-    k_setflag_d.h_view[i] = setflag_d[i];
-    k_setflag_mbt.h_view[i] = setflag_mbt[i];
-    k_setflag_ebt.h_view[i] = setflag_ebt[i];
-    k_setflag_at.h_view[i] = setflag_at[i];
-    k_setflag_aat.h_view[i] = setflag_aat[i];
-    k_setflag_bb13t.h_view[i] = setflag_bb13t[i];
+    k_k1.view_host()[i] = k1[i];
+    k_k2.view_host()[i] = k2[i];
+    k_k3.view_host()[i] = k3[i];
+    k_phi1.view_host()[i] = phi1[i];
+    k_phi2.view_host()[i] = phi2[i];
+    k_phi3.view_host()[i] = phi3[i];
+    k_mbt_f1.view_host()[i] = mbt_f1[i];
+    k_mbt_f2.view_host()[i] = mbt_f2[i];
+    k_mbt_f3.view_host()[i] = mbt_f3[i];
+    k_mbt_r0.view_host()[i] = mbt_r0[i];
+    k_ebt_f1_1.view_host()[i] = ebt_f1_1[i];
+    k_ebt_f2_1.view_host()[i] = ebt_f2_1[i];
+    k_ebt_f3_1.view_host()[i] = ebt_f3_1[i];
+    k_ebt_r0_1.view_host()[i] = ebt_r0_1[i];
+    k_ebt_f1_2.view_host()[i] = ebt_f1_2[i];
+    k_ebt_f2_2.view_host()[i] = ebt_f2_2[i];
+    k_ebt_f3_2.view_host()[i] = ebt_f3_2[i];
+    k_ebt_r0_2.view_host()[i] = ebt_r0_2[i];
+    k_at_f1_1.view_host()[i] = at_f1_1[i];
+    k_at_f2_1.view_host()[i] = at_f2_1[i];
+    k_at_f3_1.view_host()[i] = at_f3_1[i];
+    k_at_f1_2.view_host()[i] = at_f1_2[i];
+    k_at_f2_2.view_host()[i] = at_f2_2[i];
+    k_at_f3_2.view_host()[i] = at_f3_2[i];
+    k_at_theta0_1.view_host()[i] = at_theta0_1[i];
+    k_at_theta0_2.view_host()[i] = at_theta0_2[i];
+    k_aat_k.view_host()[i] = aat_k[i];
+    k_aat_theta0_1.view_host()[i] = aat_theta0_1[i];
+    k_aat_theta0_2.view_host()[i] = aat_theta0_2[i];
+    k_bb13t_k.view_host()[i] = bb13t_k[i];
+    k_bb13t_r10.view_host()[i] = bb13t_r10[i];
+    k_bb13t_r30.view_host()[i] = bb13t_r30[i];
+    k_setflag_d.view_host()[i] = setflag_d[i];
+    k_setflag_mbt.view_host()[i] = setflag_mbt[i];
+    k_setflag_ebt.view_host()[i] = setflag_ebt[i];
+    k_setflag_at.view_host()[i] = setflag_at[i];
+    k_setflag_aat.view_host()[i] = setflag_aat[i];
+    k_setflag_bb13t.view_host()[i] = setflag_bb13t[i];
   }
 
   k_k1.modify_host();
@@ -1006,6 +1011,7 @@ void DihedralClass2Kokkos<DeviceType>::read_restart(FILE *fp)
 
 template<class DeviceType>
 //template<int NEWTON_BOND>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void DihedralClass2Kokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4,
                         KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4,

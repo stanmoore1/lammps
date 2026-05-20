@@ -10,6 +10,9 @@ if(BUILD_TOOLS)
   target_include_directories(reformat-json PRIVATE ${LAMMPS_SOURCE_DIR})
   install(TARGETS reformat-json DESTINATION ${CMAKE_INSTALL_BINDIR})
 
+  add_custom_target(tools ALL COMMENT "Building tools")
+  add_dependencies(tools binary2txt stl_bin2txt reformat-json)
+
   include(CheckGeneratorSupport)
   if(CMAKE_GENERATOR_SUPPORT_FORTRAN)
     include(CheckLanguage)
@@ -21,6 +24,7 @@ if(BUILD_TOOLS)
       add_executable(micelle2d.x ${LAMMPS_TOOLS_DIR}/micelle2d.f90)
       target_link_libraries(micelle2d.x PRIVATE ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES})
       install(TARGETS chain.x micelle2d.x DESTINATION ${CMAKE_INSTALL_BINDIR})
+      add_dependencies(tools chain.x micelle2d.x)
     else()
       message(WARNING "No suitable Fortran compiler found, skipping build of 'chain.x' and 'micelle2d.x'")
     endif()
@@ -39,6 +43,7 @@ if(BUILD_TOOLS)
   install(FILES ${LAMMPS_DOC_DIR}/msi2lmp.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
 
   add_subdirectory(${LAMMPS_TOOLS_DIR}/phonon ${CMAKE_BINARY_DIR}/phana_build)
+  add_dependencies(tools msi2lmp phana)
 endif()
 
 if(BUILD_LAMMPS_GUI)
@@ -71,20 +76,20 @@ if(BUILD_LAMMPS_GUI)
   option(BUILD_WHAM "Download and compile WHAM executable from Grossfield Lab" YES)
   if(BUILD_WHAM)
     set(WHAM_URL "http://membrane.urmc.rochester.edu/sites/default/files/wham/wham-release-2.1.0.tgz" CACHE STRING "URL for WHAM tarball")
-    set(WHAM_MD5 "4ed6e24254925ec124f44bb381c3b87f" CACHE STRING "MD5 checksum of WHAM tarball")
+    set(WHAM_SHA256 "bc7ce8a79269d80979a06c3593960ed936333435bb71414913fa7b5a138dd2cf" CACHE STRING "SHA256 checksum of WHAM tarball")
     mark_as_advanced(WHAM_URL)
-    mark_as_advanced(WHAM_MD5)
+    mark_as_advanced(WHAM_SHA256)
 
     get_filename_component(archive ${WHAM_URL} NAME)
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/_deps/src)
     if(EXISTS ${CMAKE_BINARY_DIR}/_deps/${archive})
-      file(MD5 ${CMAKE_BINARY_DIR}/_deps/${archive} DL_MD5)
+      file(SHA256 ${CMAKE_BINARY_DIR}/_deps/${archive} DL_SHA256)
     endif()
-    if(NOT "${DL_MD5}" STREQUAL "${WHAM_MD5}")
+    if(NOT "${DL_SHA256}" STREQUAL "${WHAM_SHA256}")
       message(STATUS "Downloading ${WHAM_URL}")
       file(DOWNLOAD ${WHAM_URL} ${CMAKE_BINARY_DIR}/_deps/${archive} STATUS DL_STATUS SHOW_PROGRESS)
-      file(MD5 ${CMAKE_BINARY_DIR}/_deps/${archive} DL_MD5)
-      if((NOT DL_STATUS EQUAL 0) OR (NOT "${DL_MD5}" STREQUAL "${WHAM_MD5}"))
+      file(SHA256 ${CMAKE_BINARY_DIR}/_deps/${archive} DL_SHA256)
+      if((NOT DL_STATUS EQUAL 0) OR (NOT "${DL_SHA256}" STREQUAL "${WHAM_SHA256}"))
         message(ERROR "Download of WHAM sources from ${WHAM_URL} failed")
       endif()
     else()
@@ -170,7 +175,7 @@ if(BUILD_LAMMPS_GUI)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${LAMMPS_DIR}/doc/lammps.1 ${APP_CONTENTS}/share/lammps/man/man1/
         COMMAND ${CMAKE_COMMAND} -E create_symlink lammps.1 ${APP_CONTENTS}/share/lammps/man/man1/lmp.1
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${LAMMPS_DIR}/doc/msi2lmp.1 ${APP_CONTENTS}/share/lammps/man/man1
-        DEPENDS lammps lmp binary2txt stl_bin2txt msi2lmp phana lammps-gui_build
+        DEPENDS lammps lmp tools lammps-gui_build
         COMMENT "Copying additional files into macOS app bundle tree"
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
       )
@@ -265,12 +270,22 @@ if(BUILD_LAMMPS_GUI)
       endif() ]]
     )
 
-    add_custom_target(tgz
-      COMMAND ${LAMMPS_DIR}/cmake/packaging/build_linux_tgz.sh ${LAMMPS_RELEASE}
-      DEPENDS lmp lammps-gui_build ${WHAM_EXE}
-      COMMENT "Create compressed tar file of LAMMPS-GUI with dependent libraries and wrapper"
-      BYPRODUCT LAMMPS-Linux-x86_64-GUI-${LAMMPS_RELEASE}.tar.gz
-      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    )
+    if(USE_INTERNAL_LINALG AND (NOT DOWNLOAD_POTENTIALS))
+      add_custom_target(tgz
+        COMMAND ${LAMMPS_DIR}/cmake/packaging/build_linux_tgz.sh ${LAMMPS_RELEASE}
+        DEPENDS lmp tools lammps-gui_build ${WHAM_EXE}
+        COMMENT "Create compressed tar file of LAMMPS-GUI with dependent libraries and wrapper"
+        BYPRODUCT LAMMPS-Linux-x86_64-GUI-${LAMMPS_RELEASE}.tar.gz
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      )
+    else()
+      if(DOWNLOAD_POTENTIALS)
+        add_custom_target(tgz
+              COMMAND ${CMAKE_COMMAND} -E echo "Must use -D DOWLOAD_POTENTIALS=OFF for building Linux tgz package")
+      else()
+        add_custom_target(tgz
+              COMMAND ${CMAKE_COMMAND} -E echo "Must use -D USE_INTERNAL_LINALG=ON for building Linux tgz package")
+      endif()
+    endif()
   endif()
 endif()
