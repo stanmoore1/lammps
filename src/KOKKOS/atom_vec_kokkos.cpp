@@ -1445,6 +1445,116 @@ int AtomVecKokkos::pack_reverse_self_kokkos(const int &n, const DAT::tdual_int_1
 }
 /* ---------------------------------------------------------------------- */
 
+template<class DeviceType,int DEFAULT>
+struct AtomVecKokkos_PackReverseSelfFused {
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
+
+  typename AT::t_kkacc_1d_3 _f,_fm,_fm_long;
+  typename AT::t_kkacc_1d_3 _torque;
+  typename AT::t_int_2d_lr_const _list;
+  typename AT::t_int_1d_const _firstrecv;
+  typename AT::t_int_1d_const _sendnum_scan;
+  typename AT::t_int_1d_const _g2l;
+  uint64_t _datamask;
+
+  AtomVecKokkos_PackReverseSelfFused(
+      const AtomKokkos* atomKK,
+      const typename DAT::tdual_int_2d_lr &list,
+      const typename DAT::tdual_int_1d &firstrecv,
+      const typename DAT::tdual_int_1d &sendnum_scan,
+      const typename DAT::tdual_int_1d &g2l,
+      const uint64_t datamask):
+      _f(atomKK->k_f.view<DeviceType>()),
+      _torque(atomKK->k_torque.view<DeviceType>()),
+      _fm(atomKK->k_fm.view<DeviceType>()),
+      _fm_long(atomKK->k_fm_long.view<DeviceType>()),
+      _list(list.view<DeviceType>()),
+      _firstrecv(firstrecv.view<DeviceType>()),
+      _sendnum_scan(sendnum_scan.view<DeviceType>()),
+      _g2l(g2l.view<DeviceType>()),_datamask(datamask) {};
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const int& ii) const {
+
+    int iswap = 0;
+    while (ii >= _sendnum_scan[iswap]) iswap++;
+    int i = ii;
+    if (iswap > 0)
+      i = ii - _sendnum_scan[iswap-1];
+
+    const int _nfirst = _firstrecv[iswap];
+    const int nlocal = _firstrecv[0];
+
+    int j = _list(iswap,i);
+    if (j >= nlocal)
+      j = _g2l(j-nlocal);
+
+    _f(j,0) += _f(i+_nfirst,0);
+    _f(j,1) += _f(i+_nfirst,1);
+    _f(j,2) += _f(i+_nfirst,2);
+
+    if constexpr (!DEFAULT) {
+
+      // DIPOLE package
+
+      if (_datamask & TORQUE_MASK) {
+        _torque(j,0) += _torque(i+_nfirst,0);
+        _torque(j,1) += _torque(i+_nfirst,1);
+        _torque(j,2) += _torque(i+_nfirst,2);
+      }
+
+      // SPIN package
+
+      if (_datamask & FM_MASK) {
+        _fm(j,0) += _fm(i+_nfirst,0);
+        _fm(j,1) += _fm(i+_nfirst,1);
+        _fm(j,2) += _fm(i+_nfirst,2);
+        _fm(j,3) += _fm(i+_nfirst,3);
+
+        _fm_long(j,0) += _fm_long(i+_nfirst,0);
+        _fm_long(j,1) += _fm_long(i+_nfirst,1);
+        _fm_long(j,2) += _fm_long(i+_nfirst,2);
+      }
+    }
+  }
+};
+
+/* ---------------------------------------------------------------------- */
+
+int AtomVecKokkos::pack_reverse_self_fused_kokkos(const int &n,
+                        const typename DAT::tdual_int_2d_lr &list,
+                        const typename DAT::tdual_int_1d &sendnum_scan,
+                        const typename DAT::tdual_int_1d &firstrecv,
+                        const typename DAT::tdual_int_1d &g2l) {
+  if (lmp->kokkos->reverse_comm_on_host) {
+    atomKK->sync(HostKK,datamask_reverse);
+    if (comm_f_only) {
+      struct AtomVecKokkos_PackReverseSelfFused<LMPHostType,1> f(atomKK,list,firstrecv,sendnum_scan,g2l,datamask_reverse);
+      Kokkos::parallel_for(n,f);
+    } else {
+      struct AtomVecKokkos_PackReverseSelfFused<LMPHostType,0> f(atomKK,list,firstrecv,sendnum_scan,g2l,datamask_reverse);
+      Kokkos::parallel_for(n,f);
+    }
+    atomKK->modified(HostKK,datamask_reverse);
+  } else {
+    atomKK->sync(Device,datamask_reverse);
+    if (comm_f_only) {
+      struct AtomVecKokkos_PackReverseSelfFused<LMPDeviceType,1> f(atomKK,list,firstrecv,sendnum_scan,g2l,datamask_reverse);
+      Kokkos::parallel_for(n,f);
+    } else {
+      struct AtomVecKokkos_PackReverseSelfFused<LMPDeviceType,0> f(atomKK,list,firstrecv,sendnum_scan,g2l,datamask_reverse);
+      Kokkos::parallel_for(n,f);
+    }
+    atomKK->modified(Device,datamask_reverse);
+  }
+
+  return n*size_reverse;
+}
+
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType,int PBC_FLAG,int DEFAULT>
 struct AtomVecKokkos_PackBorder {
   typedef DeviceType device_type;

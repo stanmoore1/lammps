@@ -72,6 +72,11 @@ class AtomVecKokkos : virtual public AtomVec {
   int pack_reverse_self_kokkos(const int &n, const DAT::tdual_int_1d &list,
                                const int nfirst);
 
+  int pack_reverse_self_fused_kokkos(const int &n, const DAT::tdual_int_2d_lr &list,
+                                   const DAT::tdual_int_1d &sendnum_scan,
+                                   const DAT::tdual_int_1d &firstrecv,
+                                   const DAT::tdual_int_1d &g2l);
+
   int pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,
                          DAT::tdual_double_2d_lr buf,
                          int pbc_flag, int *pbc, ExecutionSpace space);
