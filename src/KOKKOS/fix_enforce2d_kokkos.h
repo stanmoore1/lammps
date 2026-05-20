@@ -39,6 +39,7 @@ class FixEnforce2DKokkos : public FixEnforce2D {
   void post_force(int) override;
 
   template <int OMEGA_FLAG, int ANGMOM_FLAG, int TORQUE_FLAG>
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void post_force_item(const int i) const;
 
@@ -52,7 +53,7 @@ class FixEnforce2DKokkos : public FixEnforce2D {
 
   typename AT::t_kkfloat_1d_3 omega;
   typename AT::t_kkfloat_1d_3 angmom;
-  typename AT::t_kkfloat_1d_3 torque;
+  typename AT::t_kkacc_1d_3 torque;
 
   typename AT::t_int_1d mask;
 };
@@ -67,6 +68,7 @@ struct FixEnforce2DKokkosPostForceFunctor {
   FixEnforce2DKokkosPostForceFunctor(FixEnforce2DKokkos<DeviceType>* c_ptr):
     c(*c_ptr) {};
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(const int i) const {
     c.template post_force_item <omega_flag, angmom_flag, torque_flag>(i);

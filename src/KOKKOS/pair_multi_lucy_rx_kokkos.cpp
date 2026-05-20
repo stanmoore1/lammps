@@ -219,11 +219,11 @@ void PairMultiLucyRXKokkos<DeviceType>::compute_style(int eflag_in, int vflag_in
 
   k_error_flag.template modify<DeviceType>();
   k_error_flag.sync_host();
-  if (k_error_flag.h_view() == 1)
+  if (k_error_flag.view_host()() == 1)
     error->one(FLERR,"Density < table inner cutoff");
-  else if (k_error_flag.h_view() == 2)
+  else if (k_error_flag.view_host()() == 2)
     error->one(FLERR,"Density > table outer cutoff");
-  else if (k_error_flag.h_view() == 3)
+  else if (k_error_flag.view_host()() == 3)
     error->one(FLERR,"Only LOOKUP and LINEAR table styles have been implemented for pair multi/lucy/rx");
 
   if (eflag_global) eng_vdwl += ev.evdwl;
@@ -250,6 +250,7 @@ void PairMultiLucyRXKokkos<DeviceType>::compute_style(int eflag_in, int vflag_in
 }
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXgetMixingWeights, const int &i) const {
   getMixingWeights(i, d_mixWtSite1old[i], d_mixWtSite2old[i], d_mixWtSite1[i], d_mixWtSite2[i]);
@@ -257,6 +258,7 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXgetMixingWe
 
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG, int TABSTYLE>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXCompute<NEIGHFLAG,NEWTON_PAIR,EVFLAG,TABSTYLE>, const int &ii, EV_FLOAT& ev) const {
 
@@ -421,6 +423,7 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXCompute<NEI
 
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG, int TABSTYLE>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXCompute<NEIGHFLAG,NEWTON_PAIR,EVFLAG,TABSTYLE>, const int &ii) const {
   EV_FLOAT ev;
@@ -435,7 +438,7 @@ void PairMultiLucyRXKokkos<DeviceType>::computeLocalDensity()
   x = atomKK->k_x.view<DeviceType>();
   type = atomKK->k_type.view<DeviceType>();
   rho = atomKK->k_rho.view<DeviceType>();
-  h_rho = atomKK->k_rho.h_view;
+  h_rho = atomKK->k_rho.view_host();
   nlocal = atom->nlocal;
 
   atomKK->sync(execution_space,X_MASK | TYPE_MASK | DPDRHO_MASK);
@@ -509,6 +512,7 @@ void PairMultiLucyRXKokkos<DeviceType>::computeLocalDensity()
 }
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXZero, const int &i) const {
   rho[i] = 0.0;
@@ -516,6 +520,7 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXZero, const
 
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR, bool ONE_TYPE>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXComputeLocalDensity<NEIGHFLAG,NEWTON_PAIR,ONE_TYPE>, const int &ii) const {
 
@@ -571,6 +576,7 @@ void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXComputeLoca
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairMultiLucyRXKokkos<DeviceType>::getMixingWeights(int id, KK_FLOAT &mixWtSite1old, KK_FLOAT &mixWtSite2old, KK_FLOAT &mixWtSite1, KK_FLOAT &mixWtSite2) const
 {
@@ -657,6 +663,7 @@ int PairMultiLucyRXKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdua
 }
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXPackForwardComm, const int &i) const {
   int j = d_sendlist(i);
@@ -676,6 +683,7 @@ void PairMultiLucyRXKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int fi
 }
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairMultiLucyRXKokkos<DeviceType>::operator()(TagPairMultiLucyRXUnpackForwardComm, const int &i) const {
   rho[i + first] = v_buf[i];
@@ -752,6 +760,7 @@ void PairMultiLucyRXKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, do
 
 template<class DeviceType>
 template<int NEIGHFLAG, int NEWTON_PAIR>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairMultiLucyRXKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int &j,
       const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx,

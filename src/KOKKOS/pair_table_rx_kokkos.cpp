@@ -52,6 +52,7 @@ enum{NONE,RLINEAR,RSQ,BMP};
 #define isOneFluid(_site_) ( (_site_) == OneFluidValue )
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void getMixingWeights(
     typename ArrayTypes<DeviceType>::t_kkfloat_2d_randomread dvector,
@@ -198,12 +199,14 @@ void PairTableRXKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     compute_style<BITMAP>(eflag_in,vflag_in);
 }
 
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION static int sbmask(const int& j)
 {
   return j >> SBBITS & 3;
 }
 
 template <class DeviceType, int TABSTYLE>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 static KK_FLOAT
 compute_fpair(KK_FLOAT rsq,
@@ -238,6 +241,7 @@ compute_fpair(KK_FLOAT rsq,
 }
 
 template<class DeviceType, int TABSTYLE>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 static KK_FLOAT
 compute_evdwl(
@@ -273,6 +277,7 @@ compute_evdwl(
 }
 
 template<class DeviceType, int NEIGHFLAG, int TABSTYLE, int NEWTON_PAIR>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void
 ev_tally(
@@ -384,6 +389,7 @@ ev_tally(
 
 template <class DeviceType, int NEIGHFLAG, bool STACKPARAMS, int TABSTYLE,
           int EVFLAG, int NEWTON_PAIR>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 static EV_FLOAT
 compute_item(
@@ -1196,7 +1202,7 @@ double PairTableRXKokkos<DeviceType>::single(int i, int j, int itype, int jtype,
 
   atomKK->k_dvector.sync_host();
   typename ArrayTypes<LMPHostType>::t_kkfloat_2d_randomread h_dvector =
-    atomKK->k_dvector.h_viewkk;
+    atomKK->k_dvector.view_hostkk();
   getMixingWeights<LMPHostType>(h_dvector,
       nspecies, isite1, isite2, fractionalWeighting,
       i,mixWtSite1old_i,mixWtSite2old_i,

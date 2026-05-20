@@ -127,6 +127,7 @@ void FixWallGranKokkos<DeviceType>::post_force(int /*vflag*/)
 
 template<class DeviceType>
 template<int WallStyle>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void FixWallGranKokkos<DeviceType>::operator()(TagFixWallGranHookeHistory<WallStyle>, const int &i) const
 {
@@ -323,7 +324,7 @@ void FixWallGranKokkos<DeviceType>::sort_kokkos(Kokkos::BinSort<KeyViewType, Bin
 
   k_history_one.sync_device();
 
-  Sorter.sort(LMPDeviceType(), k_history_one.d_view);
+  Sorter.sort(LMPDeviceType(), k_history_one.view_device());
 
   k_history_one.modify_device();
 }
@@ -353,6 +354,7 @@ int FixWallGranKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void FixWallGranKokkos<DeviceType>::operator()(TagFixWallGranPackExchange, const int &mysend) const
 {
@@ -402,6 +404,7 @@ int FixWallGranKokkos<DeviceType>::pack_exchange_kokkos(
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+// NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void FixWallGranKokkos<DeviceType>::operator()(TagFixWallGranUnpackExchange, const int &i) const
 {
