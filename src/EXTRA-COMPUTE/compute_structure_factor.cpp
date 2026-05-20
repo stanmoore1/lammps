@@ -57,9 +57,9 @@ ComputeStructureFactor::ComputeStructureFactor(LAMMPS *lmp, int narg, char **arg
   array_flag = 1;
   extarray = 1;
 
-  kxmax = 5;
-  kymax = 5;
-  kzmax = 5;
+  kxmax = 10;
+  kymax = 10;
+  kzmax = 0;
 
   kunique = 0;
   ksq2unique = nullptr;
@@ -288,7 +288,7 @@ void ComputeStructureFactor::eik_dot_r()
 
   // (k,0,0), (0,l,0), (0,0,m)
 
-  for (ic = 0; ic < 3; ic++) {
+  for (ic = 0; ic < 2; ic++) {
     sqk = unitk[ic]*unitk[ic];
     if (sqk <= gsqmx) {
       cstr1 = 0.0;
@@ -311,7 +311,7 @@ void ComputeStructureFactor::eik_dot_r()
   }
 
   for (m = 2; m <= kmax; m++) {
-    for (ic = 0; ic < 3; ic++) {
+    for (ic = 0; ic < 2; ic++) {
       sqk = m*unitk[ic] * m*unitk[ic];
       if (sqk <= gsqmx) {
         cstr1 = 0.0;
@@ -578,13 +578,13 @@ void ComputeStructureFactor::coeffs()
       kzvecs[kcount] = 0;
       kcount++;
     }
-    sqk = (m*unitk[2]) * (m*unitk[2]);
+    /*sqk = (m*unitk[2]) * (m*unitk[2]);
     if (sqk <= gsqmx) {
       kxvecs[kcount] = 0;
       kyvecs[kcount] = 0;
       kzvecs[kcount] = m;
       kcount++;
-    }
+    }*/
   }
 
   // 1 = (k,l,0), 2 = (k,-l,0)

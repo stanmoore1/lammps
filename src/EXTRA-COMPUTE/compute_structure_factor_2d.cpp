@@ -58,7 +58,7 @@ ComputeStructureFactor2D::ComputeStructureFactor2D(LAMMPS *lmp, int narg, char *
 
   kxmax = 10;
   kymax = 10;
-  nbins = 10;
+  nbins = 2;
 
   kunique = 0;
   ksq2unique = nullptr;
@@ -71,7 +71,7 @@ ComputeStructureFactor2D::ComputeStructureFactor2D(LAMMPS *lmp, int narg, char *
 
   setup();
 
-  size_array_cols = 5;
+  size_array_cols = 1;
   size_array_rows = (kunique+1)*nbins*nbins;
 
   memory->create(array,size_array_rows,size_array_cols,"structure_factor_2d:array");
@@ -264,20 +264,19 @@ void ComputeStructureFactor2D::compute_array()
   MPI_Allreduce(&sfacim[0][0],&sfacim_all[0][0],kmax2d*nbins,MPI_DOUBLE,MPI_SUM,world);
 
   for (int k = 0; k < size_array_rows; k++)
-    array[k][3] = 0.0;
+    array[k][0] = 0.0;
 
   // q = 0
 
   for (int ibin = 0; ibin < nbins; ibin++) {
+    double counts_all_ibin = counts_all[ibin];
     for (int jbin = 0; jbin < nbins; jbin++) {
-      double q = 0;
-      int kunq = 0;
-      int index = kunq*nbins*nbins + ibin*nbins + jbin;
-      array[index][0] = q;
-      array[index][1] = ibin;
-      array[index][2] = jbin;
-      array[index][3] = counts_all[ibin]*counts_all[jbin];//*volbin2inv;
-      array[index][4] = counts_all[ibin];//*volbininv;
+      int index = ibin*nbins + jbin;
+      //array[index][0] = q;
+      //array[index][1] = ibin;
+      //array[index][2] = jbin;
+      array[index][0] = counts_all_ibin*counts_all[jbin];//*volbin2inv;
+      //array[index][4] = counts_all_ibin;//*volbininv;
       //printf("%i %i %i %i\n",ibin,jbin,counts_all[ibin],counts_all[jbin]);
     }
   }
@@ -285,23 +284,24 @@ void ComputeStructureFactor2D::compute_array()
   // q > 0
 
   for (int k = 0; k < kcount; k++) {
+    int l = kxvecs[k];
+    int m = kyvecs[k];
+    int sqk_int = l*l + m*m;
+    double sqk = (double) sqk_int;
+    double q = unitk[0]*sqrt(sqk); ////
+    int kunq = ksq2unique[sqk_int]+1;
     for (int ibin = 0; ibin < nbins; ibin++) {
+      double sqrt_counts_all_ibin = sqrt(counts_all[ibin]);
       for (int jbin = 0; jbin < nbins; jbin++) {
-        int l = kxvecs[k];
-        int m = kyvecs[k];
-        int sqk_int = l*l + m*m;
-        double sqk = (double) sqk_int;
-        double q = unitk[0]*sqrt(sqk); ////
-        int kunq = ksq2unique[sqk_int]+1;
         int index = kunq*nbins*nbins + ibin*nbins + jbin;
         //printf("2D %g: %i %g %g\n",q,norms[sqk_int],sqrt(counts_all[ibin])*sqrt(counts_all[jbin]),(sfacrl_all[ibin][k]*sfacrl_all[jbin][k] +
         //                       sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int]/sqrt(counts_all[ibin])/sqrt(counts_all[jbin]));
-        array[index][0] = q;
-        array[index][1] = ibin;
-        array[index][2] = jbin;
-        array[index][3] += (sfacrl_all[ibin][k]*sfacrl_all[jbin][k] +
-                                   sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int]/sqrt(counts_all[ibin])/sqrt(counts_all[jbin]);
-        array[index][4] = 0.0;
+        //array[index][0] = q;
+        //array[index][1] = ibin;
+        //array[index][2] = jbin;
+        array[index][0] += (sfacrl_all[ibin][k]*sfacrl_all[jbin][k] +
+                                   sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int]/sqrt_counts_all_ibin/sqrt(counts_all[jbin]);
+        //array[index][4] = 0.0;
       }
     }
   }
