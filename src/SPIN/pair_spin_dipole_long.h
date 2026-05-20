@@ -11,39 +11,33 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#ifdef KSPACE_CLASS
+#ifdef PAIR_CLASS
 // clang-format off
-KSpaceStyle(ewald/dipole,EwaldDipole);
+PairStyle(spin/dipole/long,PairSpinDipoleLong);
 // clang-format on
 #else
 
-#ifndef LMP_EWALD_DIPOLE_H
-#define LMP_EWALD_DIPOLE_H
+#ifndef LMP_PAIR_SPIN_DIPOLE_LONG_H
+#define LMP_PAIR_SPIN_DIPOLE_LONG_H
 
-#include "ewald.h"
+#include "pair_spin_dipole_cut.h"
 
 namespace LAMMPS_NS {
 
-class EwaldDipole : public Ewald {
+class PairSpinDipoleLong : public PairSpinDipoleCut {
  public:
-  EwaldDipole(class LAMMPS *);
-  ~EwaldDipole() override;
-  void init() override;
-  void setup() override;
+  PairSpinDipoleLong(class LAMMPS *);
+  ~PairSpinDipoleLong() override = default;
+
   void compute(int, int) override;
+  void compute_single_pair(int, double *) override;
+  void init_style() override;
+  void *extract(const char *, int &) override;
 
- protected:
-  double musum, musqsum, mu2;
-  double **tk;    // field for torque
-  double **vc;    // virial per k
-
-  virtual void musum_musq();
-  double rms_dipole(int, double, bigint);
-  void eik_dot_r() override;
-  void slabcorr() override;
-  double NewtonSolve(double, double, bigint, double, double);
-  double f(double, double, bigint, double, double);
-  double derivf(double, double, bigint, double, double);
+  void compute_dipolar_long(int, int, double *, double *, double *, double *,
+                            double, double);
+  void compute_dipolar_mech_long(int, int, double *, double *, double *, double *,
+                                 double, double);
 };
 
 }    // namespace LAMMPS_NS
