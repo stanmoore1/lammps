@@ -13,37 +13,34 @@
 
 #ifdef KSPACE_CLASS
 // clang-format off
-KSpaceStyle(ewald/dipole,EwaldDipole);
+KSpaceStyle(ewald/dipole/spin,EwaldDipoleSpin);
 // clang-format on
 #else
 
-#ifndef LMP_EWALD_DIPOLE_H
-#define LMP_EWALD_DIPOLE_H
+#ifndef LMP_EWALD_DIPOLE_SPIN_H
+#define LMP_EWALD_DIPOLE_SPIN_H
 
-#include "ewald.h"
+#include "ewald_dipole.h"
 
 namespace LAMMPS_NS {
 
-class EwaldDipole : public Ewald {
+class EwaldDipoleSpin : public EwaldDipole {
  public:
-  EwaldDipole(class LAMMPS *);
-  ~EwaldDipole() override;
+  EwaldDipoleSpin(class LAMMPS *);
+  ~EwaldDipoleSpin() override = default;
   void init() override;
-  void setup() override;
   void compute(int, int) override;
 
  protected:
-  double musum, musqsum, mu2;
-  double **tk;    // field for torque
-  double **vc;    // virial per k
+  double mub;           // Bohr magneton
+  double mu_0;          // vacuum permeability
+  double mub2mu0;       // mub^2 * mu_0/(4pi), prefactor for mech force
+  double mub2mu0hbinv;  // mub2mu0 / hbar, prefactor for mag force
+  double hbar;          // reduced Planck's constant
 
-  virtual void musum_musq();
-  double rms_dipole(int, double, bigint);
+  void musum_musq() override;
   void eik_dot_r() override;
   void slabcorr() override;
-  double NewtonSolve(double, double, bigint, double, double);
-  double f(double, double, bigint, double, double);
-  double derivf(double, double, bigint, double, double);
 };
 
 }    // namespace LAMMPS_NS
