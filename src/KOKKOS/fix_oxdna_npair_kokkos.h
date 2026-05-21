@@ -86,7 +86,7 @@ class FixOxdnaNpairKokkos : public Fix {
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  bool screen_pair_fast(const int &atype, const int &braw,
+  bool screen_pair_fast(const int &braw,
     const KK_FLOAT &a_com0, const KK_FLOAT &a_com1, const KK_FLOAT &a_com2) const;
 };
 

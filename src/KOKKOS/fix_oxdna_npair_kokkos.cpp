@@ -247,14 +247,12 @@ void FixOxdnaNpairKokkos<DeviceType>::compute_neigh_screen_to_npair()
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-bool FixOxdnaNpairKokkos<DeviceType>::screen_pair_fast(const int &atype,
-                                                         const int &braw,
-                                                         const KK_FLOAT &a_com0,
-                                                         const KK_FLOAT &a_com1,
-                                                         const KK_FLOAT &a_com2) const
+bool FixOxdnaNpairKokkos<DeviceType>::screen_pair_fast(const int &braw,
+                                                       const KK_FLOAT &a_com0,
+                                                       const KK_FLOAT &a_com1,
+                                                       const KK_FLOAT &a_com2) const
 {
   const int b = braw & NEIGHMASK;
-  const int btype = type(b);
 
   const KK_FLOAT b_com0 = x(b,0);
   const KK_FLOAT b_com1 = x(b,1);
@@ -279,7 +277,6 @@ KOKKOS_INLINE_FUNCTION
 void FixOxdnaNpairKokkos<DeviceType>::operator()(TagFixOxdnaNpairNeighScreen, const int &ia) const
 {
   const int a = d_alist(ia);
-  const int atype = type(a);
   const int bnum = d_numneigh(a);
   const KK_FLOAT a_com0 = x(a,0);
   const KK_FLOAT a_com1 = x(a,1);
@@ -288,7 +285,7 @@ void FixOxdnaNpairKokkos<DeviceType>::operator()(TagFixOxdnaNpairNeighScreen, co
   int nscreen = 0;
   for (int ib = 0; ib < bnum; ib++) {
     const int braw = d_neighbors(a,ib);
-    if (screen_pair_fast(atype, braw, a_com0, a_com1, a_com2)) {
+    if (screen_pair_fast(braw, a_com0, a_com1, a_com2)) {
       d_neighbors_screened(a, nscreen++) = braw;
     }
   }
