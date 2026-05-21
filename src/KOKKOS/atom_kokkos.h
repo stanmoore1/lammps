@@ -62,6 +62,9 @@ class AtomKokkos : public Atom {
   DAT::ttransform_tagint_2d k_improper_atom1, k_improper_atom2, k_improper_atom3, k_improper_atom4;
 
   DAT::ttransform_kkfloat_2d k_dvector;
+  tdual_struct_tdual_int_1d_1d k_ivector;
+  tdual_struct_tdual_int_2d_1d k_iarray;
+  tdual_struct_tdual_double_2d_1d k_darray;
 
   // SPIN package
 

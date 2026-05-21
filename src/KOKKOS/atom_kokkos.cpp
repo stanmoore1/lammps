@@ -118,6 +118,19 @@ AtomKokkos::~AtomKokkos()
 
   memoryKK->destroy_kokkos(k_dvector, dvector);
   dvector = nullptr;
+
+  for (int i = 0; i < nivector; i++)
+    memoryKK->destroy_kokkos(k_ivector.view_host()[i].k_view, ivector[i]);
+  k_ivector = tdual_struct_tdual_int_1d_1d();
+
+  for (int i = 0; i < niarray; i++)
+    memoryKK->destroy_kokkos(k_iarray.view_host()[i].k_view, iarray[i]);
+  k_iarray = tdual_struct_tdual_int_2d_1d();
+
+  for (int i = 0; i < ndarray; i++)
+    memoryKK->destroy_kokkos(k_darray.view_host()[i].k_view, darray[i]);
+  k_darray = tdual_struct_tdual_double_2d_1d();
+
   delete [] fix_prop_atom;
 }
 
@@ -324,7 +337,13 @@ int AtomKokkos::add_custom(const char *name, int flag, int cols, int ghost)
     ivghost = (int *) memory->srealloc(ivghost,nivector * sizeof(int),"atom:ivghost");
     ivghost[index] = ghost;
     ivector = (int **) memory->srealloc(ivector, nivector * sizeof(int *), "atom:ivector");
-    memory->create(ivector[index], nmax, "atom:ivector");
+    ivector[index] = nullptr;
+
+    k_ivector.resize(Kokkos::view_alloc(Kokkos::SequentialHostInit), nivector);
+    memoryKK->create_kokkos(k_ivector.view_host()[index].k_view, ivector[index],
+                            nmax, "atom:ivector");
+    k_ivector.modify_host();
+    k_ivector.sync_device();
 
   } else if (flag == 1 && cols == 0) {
     index = ndvector;
@@ -346,10 +365,16 @@ int AtomKokkos::add_custom(const char *name, int flag, int cols, int ghost)
     iaghost = (int *) memory->srealloc(iaghost, niarray * sizeof(int), "atom:iaghost");
     iaghost[index] = ghost;
     iarray = (int ***) memory->srealloc(iarray, niarray * sizeof(int **), "atom:iarray");
-    memory->create(iarray[index], nmax, cols, "atom:iarray");
+    iarray[index] = nullptr;
 
     icols = (int *) memory->srealloc(icols, niarray * sizeof(int), "atom:icols");
     icols[index] = cols;
+
+    k_iarray.resize(Kokkos::view_alloc(Kokkos::SequentialHostInit), niarray);
+    memoryKK->create_kokkos(k_iarray.view_host()[index].k_view, iarray[index],
+                            nmax, cols, "atom:iarray");
+    k_iarray.modify_host();
+    k_iarray.sync_device();
 
   } else if (flag == 1 && cols) {
     index = ndarray;
@@ -359,10 +384,16 @@ int AtomKokkos::add_custom(const char *name, int flag, int cols, int ghost)
     daghost = (int *) memory->srealloc(daghost, ndarray * sizeof(int), "atom:daghost");
     daghost[index] = ghost;
     darray = (double ***) memory->srealloc(darray, ndarray * sizeof(double **), "atom:darray");
-    memory->create(darray[index], nmax, cols, "atom:darray");
+    darray[index] = nullptr;
 
     dcols = (int *) memory->srealloc(dcols, ndarray * sizeof(int), "atom:dcols");
     dcols[index] = cols;
+
+    k_darray.resize(Kokkos::view_alloc(Kokkos::SequentialHostInit), ndarray);
+    memoryKK->create_kokkos(k_darray.view_host()[index].k_view, darray[index],
+                            nmax, cols, "atom:darray");
+    k_darray.modify_host();
+    k_darray.sync_device();
   }
 
   if (index < 0)
@@ -380,7 +411,7 @@ int AtomKokkos::add_custom(const char *name, int flag, int cols, int ghost)
 void AtomKokkos::remove_custom(int index, int flag, int cols)
 {
   if (flag == 0 && cols == 0) {
-    memory->destroy(ivector[index]);
+    memoryKK->destroy_kokkos(k_ivector.view_host()[index].k_view, ivector[index]);
     ivector[index] = nullptr;
     delete[] ivname[index];
     ivname[index] = nullptr;
@@ -391,13 +422,13 @@ void AtomKokkos::remove_custom(int index, int flag, int cols)
     dvname[index] = nullptr;
 
   } else if (flag == 0 && cols) {
-    memory->destroy(iarray[index]);
+    memoryKK->destroy_kokkos(k_iarray.view_host()[index].k_view, iarray[index]);
     iarray[index] = nullptr;
     delete[] ianame[index];
     ianame[index] = nullptr;
 
   } else if (flag == 1 && cols) {
-    memory->destroy(darray[index]);
+    memoryKK->destroy_kokkos(k_darray.view_host()[index].k_view, darray[index]);
     darray[index] = nullptr;
     delete[] daname[index];
     daname[index] = nullptr;

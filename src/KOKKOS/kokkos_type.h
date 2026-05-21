@@ -1369,6 +1369,33 @@ typedef tdual_neighbors_2d_lr::t_host_const_randomread t_neighbors_2d_lr_randomr
 typedef struct ArrayTypes<LMPDeviceType> DAT;
 typedef struct ArrayTypes<LMPHostType> HAT;
 
+// Structs for View-of-Views pattern (used by fix property/atom for
+// per-atom ivector, iarray, and darray custom arrays).  Each struct wraps
+// one inner DualView so that an outer DualView<struct*, ...> can hold a
+// dynamically-sized list of inner views that are accessible on device.
+
+namespace LAMMPS_NS {
+
+  struct struct_tdual_int_1d {
+    DAT::tdual_int_1d k_view;
+  };
+  typedef Kokkos::DualView<struct_tdual_int_1d*, Kokkos::LayoutRight, LMPDeviceType>
+    tdual_struct_tdual_int_1d_1d;
+
+  struct struct_tdual_int_2d {
+    DAT::tdual_int_2d_lr k_view;
+  };
+  typedef Kokkos::DualView<struct_tdual_int_2d*, Kokkos::LayoutRight, LMPDeviceType>
+    tdual_struct_tdual_int_2d_1d;
+
+  struct struct_tdual_double_2d {
+    DAT::tdual_double_2d_lr k_view;
+  };
+  typedef Kokkos::DualView<struct_tdual_double_2d*, Kokkos::LayoutRight, LMPDeviceType>
+    tdual_struct_tdual_double_2d_1d;
+
+}
+
 
 template<class DeviceType, class BufferView, class DualView>
 void buffer_view(BufferView &buf, DualView &view,
