@@ -244,6 +244,7 @@ void ComputeStructureFactor2D::compute_array()
   double yprd = domain->yprd;
   double zprd = domain->zprd;
   volume = xprd * yprd * zprd;
+  double invarea = 1.0/(xprd * yprd);
   double volbin = volume/nbins;
   double volbininv = 1.0/(volbin);
   double volbin2inv = 1.0/(volbin*volbin);
@@ -276,8 +277,8 @@ void ComputeStructureFactor2D::compute_array()
       array[index][0] = q;
       array[index][1] = ibin;
       array[index][2] = jbin;
-      array[index][3] = counts_all[ibin]*counts_all[jbin];//*volbin2inv;
-      array[index][4] = counts_all[ibin];//*volbininv;
+      array[index][3] = counts_all[ibin]*counts_all[jbin]*invarea;
+      array[index][4] = counts_all[ibin]*volbininv;
       //printf("%i %i %i %i\n",ibin,jbin,counts_all[ibin],counts_all[jbin]);
     }
   }
@@ -295,12 +296,12 @@ void ComputeStructureFactor2D::compute_array()
         int kunq = ksq2unique[sqk_int]+1;
         int index = kunq*nbins*nbins + ibin*nbins + jbin;
         //printf("2D %g: %i %g %g\n",q,norms[sqk_int],sqrt(counts_all[ibin])*sqrt(counts_all[jbin]),(sfacrl_all[ibin][k]*sfacrl_all[jbin][k] +
-        //                       sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int]/sqrt(counts_all[ibin])/sqrt(counts_all[jbin]));
+        //                       sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int];
         array[index][0] = q;
         array[index][1] = ibin;
         array[index][2] = jbin;
         array[index][3] += (sfacrl_all[ibin][k]*sfacrl_all[jbin][k] +
-                                   sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int]/sqrt(counts_all[ibin])/sqrt(counts_all[jbin]);
+                                   sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int];
         array[index][4] = 0.0;
       }
     }
@@ -462,7 +463,7 @@ void ComputeStructureFactor2D::atom2bin1d()
     if (zremap < boxlo[2]) zremap += prd[2];
     if (zremap >= boxhi[2]) zremap -= prd[2];
 
-    ibin = static_cast<int>(zremap * invdelta);
+    ibin = static_cast<int>((zremap - boxlo[2]) * invdelta);
     ibin = MAX(ibin, 0);
     ibin = MIN(ibin, nbins-1);
 
