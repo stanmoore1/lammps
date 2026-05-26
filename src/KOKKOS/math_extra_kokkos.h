@@ -69,10 +69,10 @@ namespace MathExtraKokkos {
   KOKKOS_INLINE_FUNCTION void vecmat(const KK_FLOAT *v, const KK_FLOAT m[3][3], KK_FLOAT *ans);
   KOKKOS_INLINE_FUNCTION void scalar_times3(const KK_FLOAT f, KK_FLOAT m[3][3]);
 
-  KOKKOS_INLINE_FUNCTION void richardson(double *q, KK_FLOAT *m, KK_FLOAT *w, KK_FLOAT *moments, KK_FLOAT dtq);
-
   // quaternion operations
   // NOTE: we have float & double versions for some of these since quat in bonus struct is still double (i,e, - not just KK_FLOAT)
+  KOKKOS_INLINE_FUNCTION void richardson(KK_FLOAT *q, KK_FLOAT *m, KK_FLOAT *w, KK_FLOAT *moments, KK_FLOAT dtq);
+
   KOKKOS_INLINE_FUNCTION void qnormalize(double *q);
   KOKKOS_INLINE_FUNCTION void qnormalize(float *q);
   KOKKOS_INLINE_FUNCTION void qconjugate(KK_FLOAT *q, KK_FLOAT *qc);
@@ -459,7 +459,7 @@ void MathExtraKokkos::scalar_times3(const KK_FLOAT f, KK_FLOAT m[3][3])
    also returns updated omega at 1/2 step
 ------------------------------------------------------------------------- */
 KOKKOS_INLINE_FUNCTION
-void MathExtraKokkos::richardson(double *q, KK_FLOAT *m, KK_FLOAT *w, KK_FLOAT *moments, KK_FLOAT dtq)
+void MathExtraKokkos::richardson(KK_FLOAT *q, KK_FLOAT *m, KK_FLOAT *w, KK_FLOAT *moments, KK_FLOAT dtq)
 {
   // full update from dq/dt = 1/2 w q
 

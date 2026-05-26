@@ -121,9 +121,19 @@ void FixNVEAsphereKokkos<DeviceType>::initial_integrate_item(const int i) const
     // update quaternion a full step via Richardson iteration
     // returns new normalized quaternion
     double *quat = bonus(ellipsoid(i)).quat;
-    MathExtraKokkos::mq_to_omega(angm, quat, inertia, omega);
+    KK_FLOAT qlocal[4];
+    qlocal[0] = (KK_FLOAT) quat[0];
+    qlocal[1] = (KK_FLOAT) quat[1];
+    qlocal[2] = (KK_FLOAT) quat[2];
+    qlocal[3] = (KK_FLOAT) quat[3];
+    MathExtraKokkos::mq_to_omega(angm, qlocal, inertia, omega);
     const KK_FLOAT dtq = 0.5 * dtv;
-    MathExtraKokkos::richardson(quat, angm, omega, inertia, dtq);
+    MathExtraKokkos::richardson(qlocal, angm, omega, inertia, dtq);
+    // write back updated quaternion into the double bonus storage
+    quat[0] = (double) qlocal[0];
+    quat[1] = (double) qlocal[1];
+    quat[2] = (double) qlocal[2];
+    quat[3] = (double) qlocal[3];
 
     // write back updated angular momentum
     angmom(i,0) = angm[0];
@@ -244,9 +254,18 @@ void FixNVEAsphereKokkos<DeviceType>::fused_integrate_item(const int i) const
     // compute omega at 1/2 step from angmom at 1/2 step and current q
     // update quaternion a full step via Richardson iteration
     // returns new normalized quaternion
-
-    MathExtraKokkos::mq_to_omega(angm, quat, inertia, omega);
-    MathExtraKokkos::richardson(quat, angm, omega, inertia, dtq);
+    KK_FLOAT qlocal[4];
+    qlocal[0] = (KK_FLOAT) quat[0];
+    qlocal[1] = (KK_FLOAT) quat[1];
+    qlocal[2] = (KK_FLOAT) quat[2];
+    qlocal[3] = (KK_FLOAT) quat[3];
+    MathExtraKokkos::mq_to_omega(angm, qlocal, inertia, omega);
+    MathExtraKokkos::richardson(qlocal, angm, omega, inertia, dtq);
+    // write back updated quaternion into the double bonus storage
+    quat[0] = (double) qlocal[0];
+    quat[1] = (double) qlocal[1];
+    quat[2] = (double) qlocal[2];
+    quat[3] = (double) qlocal[3];
 
     // write back updated angular momentum
     angmom(i,0) = angm[0];
