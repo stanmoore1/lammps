@@ -531,6 +531,10 @@ void FixLangevinKokkos<DeviceType>::angmom_thermostat()
   torque = atomKK->k_torque.template view<DeviceType>();
   ellipsoid = atomKK->k_ellipsoid.template view<DeviceType>();
 
+  // Precompute the rotational friction prefactors
+  rot_gamma1 = -ascale / (t_period * ftm2v);
+  rot_gamma2 = sqrt(ascale*24.0*boltz/t_period/dt/mvv2e) / ftm2v;
+
   int nlocal = atomKK->nlocal;
 
   FixLangevinKokkosAngmomThermostatFunctor<DeviceType> angmom_functor(this);
@@ -548,35 +552,45 @@ void FixLangevinKokkos<DeviceType>::angmom_thermostat_item(int i) const
   KK_FLOAT gamma1,gamma2;
 
   KK_FLOAT inertia[3],omega[3],tran[3];
-  double *shape, *quat;
   KK_FLOAT angm[3]; // local angmom vector to pass into mq_to_omega
 
   KK_FLOAT tsqrt_t = tsqrt;
 
   if (mask[i] & groupbit) {
+    const KK_FLOAT rm = rmass(i);
     rand_type rand_gen = rand_pool.get_state();
 
+    double *shape, *quat;
     shape = bonus(ellipsoid(i)).shape;
-    inertia[0] = EINERTIA*rmass[i] * (shape[1]*shape[1]+shape[2]*shape[2]);
-    inertia[1] = EINERTIA*rmass[i] * (shape[0]*shape[0]+shape[2]*shape[2]);
-    inertia[2] = EINERTIA*rmass[i] * (shape[0]*shape[0]+shape[1]*shape[1]);
+    KK_FLOAT s0 = (KK_FLOAT) shape[0];
+    KK_FLOAT s1 = (KK_FLOAT) shape[1];
+    KK_FLOAT s2 = (KK_FLOAT) shape[2];
+    inertia[0] = EINERTIA*rm * (s1*s1+s2*s2);
+    inertia[1] = EINERTIA*rm * (s0*s0+s2*s2);
+    inertia[2] = EINERTIA*rm * (s0*s0+s1*s1);
     quat = bonus(ellipsoid(i)).quat;
+    KK_FLOAT qlocal[4];
+    qlocal[0] = (KK_FLOAT) quat[0];
+    qlocal[1] = (KK_FLOAT) quat[1];
+    qlocal[2] = (KK_FLOAT) quat[2];
+    qlocal[3] = (KK_FLOAT) quat[3];
     angm[0] = angmom(i,0);
     angm[1] = angmom(i,1);
     angm[2] = angmom(i,2);
-    MathExtraKokkos::mq_to_omega(angm,quat,inertia,omega);
+    MathExtraKokkos::mq_to_omega(angm,qlocal,inertia,omega);
 
     if (tstyle == ATOM) tsqrt_t = sqrt(d_tforce[i]);
-    gamma1 = -ascale / t_period / ftm2v;
-    gamma2 = sqrt(ascale*24.0*boltz/t_period/dt/mvv2e) / ftm2v;
-    gamma1 *= 1.0/d_ratio[type[i]];
-    gamma2 *= 1.0/sqrt(d_ratio[type[i]]) * tsqrt_t;
-    tran[0] = sqrt(inertia[0])*gamma2*(rand_gen.drand()-0.5);
-    tran[1] = sqrt(inertia[1])*gamma2*(rand_gen.drand()-0.5);
-    tran[2] = sqrt(inertia[2])*gamma2*(rand_gen.drand()-0.5);
-    torque(i,0) += inertia[0]*gamma1*omega[0] + tran[0];
-    torque(i,1) += inertia[1]*gamma1*omega[1] + tran[1];
-    torque(i,2) += inertia[2]*gamma1*omega[2] + tran[2];
+    gamma1 = rot_gamma1 / d_ratio[type[i]];
+    gamma2 = rot_gamma2 * tsqrt_t / sqrt(d_ratio[type[i]]);
+    const KK_FLOAT sigma0 = sqrt(inertia[0]) * gamma2;
+    const KK_FLOAT sigma1 = sqrt(inertia[1]) * gamma2;
+    const KK_FLOAT sigma2 = sqrt(inertia[2]) * gamma2;
+    tran[0] = Kokkos::fma(sigma0, rand_gen.drand(), -0.5 * sigma0);
+    tran[1] = Kokkos::fma(sigma1, rand_gen.drand(), -0.5 * sigma1);
+    tran[2] = Kokkos::fma(sigma2, rand_gen.drand(), -0.5 * sigma2);
+    torque(i,0) += Kokkos::fma(inertia[0] * gamma1, omega[0], tran[0]);
+    torque(i,1) += Kokkos::fma(inertia[1] * gamma1, omega[1], tran[1]);
+    torque(i,2) += Kokkos::fma(inertia[2] * gamma1, omega[2], tran[2]);
 
     rand_pool.free_state(rand_gen);
   }

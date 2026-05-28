@@ -147,6 +147,8 @@ namespace LAMMPS_NS {
     typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 torque;
     typename ArrayTypes<DeviceType>::t_kkfloat_1d_3 angmom;
     typename ArrayTypes<DeviceType>::t_int_1d ellipsoid;
+    KK_FLOAT rot_gamma1;
+    KK_FLOAT rot_gamma2;
     void angmom_thermostat();
 
 #ifndef LMP_KOKKOS_DEBUG_RNG
