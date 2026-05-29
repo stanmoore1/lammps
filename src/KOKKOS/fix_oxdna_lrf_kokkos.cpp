@@ -33,7 +33,8 @@ FixOxdnaLRFKokkos<DeviceType>::FixOxdnaLRFKokkos(LAMMPS *lmp, int narg, char **a
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
 
-  datamask_read = MASK_MASK | ELLIPSOID_MASK | BONUS_MASK;
+  datamask_read = MASK_MASK | ELLIPSOID_MASK | BONUS_MASK |
+                  X_MASK | F_MASK | TORQUE_MASK | TYPE_MASK | TAG_MASK | CG_DNA_MASK;
   datamask_modify = EMPTY_MASK;
 
   MemKK::realloc_kokkos(k_nx, "FixOxdnaLRF:nx", atom->nmax);
