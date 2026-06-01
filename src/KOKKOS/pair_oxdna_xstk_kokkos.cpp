@@ -60,8 +60,9 @@ PairOxdnaXstkKokkos<DeviceType>::PairOxdnaXstkKokkos(LAMMPS *lmp) : PairOxdnaXst
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
-  datamask_read = X_MASK | F_MASK | 
-                  TORQUE_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
+  // Internal FixOxdnaLRFKokkos already syncs all read masks that do not
+  // change between pair/bond styles. 
+  datamask_read = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
 
   screened_pair_count = 0;
@@ -104,6 +105,11 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"pair:vatom");
     d_vatom = k_vatom.template view<DeviceType>();
   }
+
+  atomKK->sync(execution_space,datamask_read);
+
+  if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
+  else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
 
   x = atomKK->k_x.template view<DeviceType>();
   f = atomKK->k_f.template view<DeviceType>();

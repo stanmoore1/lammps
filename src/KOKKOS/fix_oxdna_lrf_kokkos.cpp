@@ -33,6 +33,10 @@ FixOxdnaLRFKokkos<DeviceType>::FixOxdnaLRFKokkos(LAMMPS *lmp, int narg, char **a
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
 
+  // Since this fix is called pre-force, datamsk_read can contain all read parameters
+  // needed for the oxdna styles. This means each oxdna
+  // style only needs to resync f, torque, energy and virial (which can change between
+  // pair/bond styles).
   datamask_read = MASK_MASK | ELLIPSOID_MASK | BONUS_MASK |
                   X_MASK | F_MASK | TORQUE_MASK | TYPE_MASK | TAG_MASK | CG_DNA_MASK;
   datamask_modify = EMPTY_MASK;
