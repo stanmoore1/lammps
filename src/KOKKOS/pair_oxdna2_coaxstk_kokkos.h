@@ -133,22 +133,22 @@ class PairOxdna2CoaxstkKokkos : public PairOxdna2Coaxstk, public KokkosBase {
   typename AT::tdual_kkfloat_2d k_a_cxst6, k_theta_cxst6_0, k_dtheta_cxst6_ast;
   typename AT::tdual_kkfloat_2d k_b_cxst6, k_dtheta_cxst6_c;
   typename AT::tdual_kkfloat_2d k_AA_cxst1, k_BB_cxst1;
-  typename AT::t_kkfloat_2d d_k_cxst, d_cut_cxst_0, d_cut_cxst_c;
-  typename AT::t_kkfloat_2d d_cut_cxst_lo, d_cut_cxst_hi;
-  typename AT::t_kkfloat_2d d_cut_cxst_lc, d_cut_cxst_hc, d_b_cxst_lo, d_b_cxst_hi;
-  typename AT::t_kkfloat_2d d_cutsq_cxst_hc;
-  typename AT::t_kkfloat_2d d_a_cxst1, d_theta_cxst1_0, d_dtheta_cxst1_ast;
-  typename AT::t_kkfloat_2d d_b_cxst1, d_dtheta_cxst1_c;
-  typename AT::t_kkfloat_2d d_a_cxst4, d_theta_cxst4_0, d_dtheta_cxst4_ast;
-  typename AT::t_kkfloat_2d d_b_cxst4, d_dtheta_cxst4_c;
-  typename AT::t_kkfloat_2d d_a_cxst5, d_theta_cxst5_0, d_dtheta_cxst5_ast;
-  typename AT::t_kkfloat_2d d_b_cxst5, d_dtheta_cxst5_c;
-  typename AT::t_kkfloat_2d d_a_cxst6, d_theta_cxst6_0, d_dtheta_cxst6_ast;
-  typename AT::t_kkfloat_2d d_b_cxst6, d_dtheta_cxst6_c;
-  typename AT::t_kkfloat_2d d_AA_cxst1, d_BB_cxst1;
+  typename AT::t_kkfloat_2d_randomread d_k_cxst, d_cut_cxst_0, d_cut_cxst_c;
+  typename AT::t_kkfloat_2d_randomread d_cut_cxst_lo, d_cut_cxst_hi;
+  typename AT::t_kkfloat_2d_randomread d_cut_cxst_lc, d_cut_cxst_hc, d_b_cxst_lo, d_b_cxst_hi;
+  typename AT::t_kkfloat_2d_randomread d_cutsq_cxst_hc;
+  typename AT::t_kkfloat_2d_randomread d_a_cxst1, d_theta_cxst1_0, d_dtheta_cxst1_ast;
+  typename AT::t_kkfloat_2d_randomread d_b_cxst1, d_dtheta_cxst1_c;
+  typename AT::t_kkfloat_2d_randomread d_a_cxst4, d_theta_cxst4_0, d_dtheta_cxst4_ast;
+  typename AT::t_kkfloat_2d_randomread d_b_cxst4, d_dtheta_cxst4_c;
+  typename AT::t_kkfloat_2d_randomread d_a_cxst5, d_theta_cxst5_0, d_dtheta_cxst5_ast;
+  typename AT::t_kkfloat_2d_randomread d_b_cxst5, d_dtheta_cxst5_c;
+  typename AT::t_kkfloat_2d_randomread d_a_cxst6, d_theta_cxst6_0, d_dtheta_cxst6_ast;
+  typename AT::t_kkfloat_2d_randomread d_b_cxst6, d_dtheta_cxst6_c;
+  typename AT::t_kkfloat_2d_randomread d_AA_cxst1, d_BB_cxst1;
   // per-atom arrays for local unit vectors - ny not needed here
   DAT::tdual_kkfloat_1d_3 k_nx_xtrct, /*k_ny_xtrct,*/ k_nz_xtrct;
-  typename AT::t_kkfloat_1d_3 d_nx_xtrct, /*d_ny_xtrct,*/ d_nz_xtrct;
+  typename AT::t_kkfloat_1d_3_randomread d_nx_xtrct, /*d_ny_xtrct,*/ d_nz_xtrct;
 
   int first;
   typename AT::t_int_1d d_sendlist;

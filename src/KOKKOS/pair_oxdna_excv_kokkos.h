@@ -116,20 +116,20 @@ class PairOxdnaExcvKokkos : public PairOxdnaExcv, public KokkosBase {
   typename AT::tdual_kkfloat_2d k_lj1_bkbs, k_lj2_bkbs, k_b_bkbs, k_cut_bkbs_c, k_cutsq_bkbs_c;
   typename AT::tdual_kkfloat_2d k_epsilon_bsbs, k_sigma_bsbs, k_cut_bsbs_ast, k_cutsq_bsbs_ast;
   typename AT::tdual_kkfloat_2d k_lj1_bsbs, k_lj2_bsbs, k_b_bsbs, k_cut_bsbs_c, k_cutsq_bsbs_c;
-  typename AT::t_kkfloat_2d d_epsilon_bkbk, d_sigma_bkbk, d_cut_bkbk_ast, d_cutsq_bkbk_ast;
-  typename AT::t_kkfloat_2d d_lj1_bkbk, d_lj2_bkbk, d_b_bkbk, d_cut_bkbk_c, d_cutsq_bkbk_c;
-  typename AT::t_kkfloat_2d d_epsilon_bkbs, d_sigma_bkbs, d_cut_bkbs_ast, d_cutsq_bkbs_ast;
-  typename AT::t_kkfloat_2d d_lj1_bkbs, d_lj2_bkbs, d_b_bkbs, d_cut_bkbs_c, d_cutsq_bkbs_c;
-  typename AT::t_kkfloat_2d d_epsilon_bsbs, d_sigma_bsbs, d_cut_bsbs_ast, d_cutsq_bsbs_ast;
-  typename AT::t_kkfloat_2d d_lj1_bsbs, d_lj2_bsbs, d_b_bsbs, d_cut_bsbs_c, d_cutsq_bsbs_c;
+  typename AT::t_kkfloat_2d_randomread d_epsilon_bkbk, d_sigma_bkbk, d_cut_bkbk_ast, d_cutsq_bkbk_ast;
+  typename AT::t_kkfloat_2d_randomread d_lj1_bkbk, d_lj2_bkbk, d_b_bkbk, d_cut_bkbk_c, d_cutsq_bkbk_c;
+  typename AT::t_kkfloat_2d_randomread d_epsilon_bkbs, d_sigma_bkbs, d_cut_bkbs_ast, d_cutsq_bkbs_ast;
+  typename AT::t_kkfloat_2d_randomread d_lj1_bkbs, d_lj2_bkbs, d_b_bkbs, d_cut_bkbs_c, d_cutsq_bkbs_c;
+  typename AT::t_kkfloat_2d_randomread d_epsilon_bsbs, d_sigma_bsbs, d_cut_bsbs_ast, d_cutsq_bsbs_ast;
+  typename AT::t_kkfloat_2d_randomread d_lj1_bsbs, d_lj2_bsbs, d_b_bsbs, d_cut_bsbs_c, d_cutsq_bsbs_c;
   // tetramer-dependent coefficients
   typename AT::tdual_kkfloat_4d k_sigma4_bsbs, k_cut4_bsbs_ast, k_cut4sq_bsbs_ast;
   typename AT::tdual_kkfloat_4d k_lj14_bsbs, k_lj24_bsbs, k_b4_bsbs, k_cut4_bsbs_c, k_cut4sq_bsbs_c;
-  typename AT::t_kkfloat_4d d_sigma4_bsbs, d_cut4_bsbs_ast, d_cut4sq_bsbs_ast;
-  typename AT::t_kkfloat_4d d_lj14_bsbs, d_lj24_bsbs, d_b4_bsbs, d_cut4_bsbs_c, d_cut4sq_bsbs_c;
+  typename AT::t_kkfloat_4d_randomread d_sigma4_bsbs, d_cut4_bsbs_ast, d_cut4sq_bsbs_ast;
+  typename AT::t_kkfloat_4d_randomread d_lj14_bsbs, d_lj24_bsbs, d_b4_bsbs, d_cut4_bsbs_c, d_cut4sq_bsbs_c;
   // per-atom arrays for local unit vectors
   DAT::tdual_kkfloat_1d_3 k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
-  typename AT::t_kkfloat_1d_3 d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
+  typename AT::t_kkfloat_1d_3_randomread d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
 
   int first;
   typename AT::t_int_1d d_sendlist;
