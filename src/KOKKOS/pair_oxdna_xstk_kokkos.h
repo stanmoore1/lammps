@@ -45,8 +45,6 @@ struct TagPairOxdnaXstkCompute{};
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct TagPairOxdnaXstkComputeGPUPair{};
 
-struct TagPairOxdnaXstkNpairScreen{};
-
 template<class DeviceType>
 class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
  public:
