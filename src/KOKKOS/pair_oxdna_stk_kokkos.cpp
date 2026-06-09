@@ -245,7 +245,7 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEWTON_BO
   b5ptype = (id5p_local != -1) ? type(id5p_local) : 0;
 
   rsq_stkstk = delr_stkstk[0]*delr_stkstk[0] + delr_stkstk[1]*delr_stkstk[1] + delr_stkstk[2]*delr_stkstk[2];
-  r_stkstk = sqrt(rsq_stkstk);
+  r_stkstk = sqrtf(rsq_stkstk);
   rinv_stkstk = 1.0/r_stkstk;
 
   delr_stkstk_norm[0] = delr_stkstk[0] * rinv_stkstk;
@@ -267,7 +267,7 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEWTON_BO
   delr_bkbk[2] = x(b,2) + rb_cbk[2] - x(a,2) - ra_cbk[2];
 
   rsq_bkbk = delr_bkbk[0]*delr_bkbk[0] + delr_bkbk[1]*delr_bkbk[1] + delr_bkbk[2]*delr_bkbk[2];
-  r_bkbk = sqrt(rsq_bkbk);
+  r_bkbk = sqrtf(rsq_bkbk);
   rinv_bkbk = 1.0/r_bkbk;
 
   delr_bkbk_norm[0] = delr_bkbk[0] * rinv_bkbk;

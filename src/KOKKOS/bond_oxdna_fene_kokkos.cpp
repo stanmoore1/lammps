@@ -284,7 +284,7 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   delr_bkbk[1] = x(a,1) + ra_cbk[1] - x(b,1) - rb_cbk[1];
   delr_bkbk[2] = x(a,2) + ra_cbk[2] - x(b,2) - rb_cbk[2];
   const KK_FLOAT rsq = delr_bkbk[0]*delr_bkbk[0] + delr_bkbk[1]*delr_bkbk[1] + delr_bkbk[2]*delr_bkbk[2];
-  const KK_FLOAT r_bkbk = sqrt(rsq);
+  const KK_FLOAT r_bkbk = sqrtf(rsq);
 
   KK_FLOAT rr0 = r_bkbk - d_r0(type, a3ptype, atype, btype, b5ptype);
   const KK_FLOAT rr0sq = rr0 * rr0;
@@ -297,32 +297,32 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   if (eflag) { ebond = -0.5*d_k[type]*log(rlogarg);}
 
   // switching to capped force for r-r0 -> Delta at
-  // r > r_max = r0 + Delta*sqrt(1-rlogarg) OR
-  // r < r_min = r0 - Delta*sqrt(1-rlogarg)
+  // r > r_max = r0 + Delta*sqrtf(1-rlogarg) OR
+  // r < r_min = r0 - Delta*sqrtf(1-rlogarg)
   if (rlogarg < 0.2) { // rlogarg_min = 0.2
     // issue warning, reset rlogarg and rr0 to cap force
     d_flag() = 1;
     rlogarg = 0.2;
     // if overstretched F(r)=F(r_max)=F_max, E(r)=E(r_max)+F_max*(r-r_max)
     if (r_bkbk > d_r0(type, a3ptype, atype, btype, b5ptype)) {
-      rr0 = d_Delta(type, a3ptype, atype, btype, b5ptype)*sqrt(1.0 - rlogarg);
+      rr0 = d_Delta(type, a3ptype, atype, btype, b5ptype)*sqrtf(1.0 - rlogarg);
       // energy
       if (eflag) {
         ebond = -0.5 * d_k(type) * log(rlogarg) + d_k(type) * 
-                sqrt(1.0-rlogarg) / rlogarg / d_Delta(type, a3ptype, atype, btype, b5ptype) *
+                sqrtf(1.0-rlogarg) / rlogarg / d_Delta(type, a3ptype, atype, btype, b5ptype) *
                 (r_bkbk - d_r0(type, a3ptype, atype, btype, b5ptype) -
-                d_Delta(type, a3ptype, atype, btype, b5ptype) * sqrt(1.0-rlogarg));
+                d_Delta(type, a3ptype, atype, btype, b5ptype) * sqrtf(1.0-rlogarg));
       }
     } 
     // if overcompressed F(r)=F(r_min)=F_max, E(r)=E(r_min)+F_max*(r_min-r)
     else if (r_bkbk < d_r0(type, a3ptype, atype, btype, b5ptype)) {
-      rr0 = -d_Delta(type, a3ptype, atype, btype, b5ptype)*sqrt(1.0 - rlogarg);
+      rr0 = -d_Delta(type, a3ptype, atype, btype, b5ptype)*sqrtf(1.0 - rlogarg);
       // energy
       if (eflag) {
         ebond = -0.5 * d_k(type) * log(rlogarg) + d_k(type) * 
-                sqrt(1.0-rlogarg) / rlogarg / d_Delta(type, a3ptype, atype, btype, b5ptype) *
+                sqrtf(1.0-rlogarg) / rlogarg / d_Delta(type, a3ptype, atype, btype, b5ptype) *
                 (r_bkbk - d_r0(type, a3ptype, atype, btype, b5ptype) +
-                d_Delta(type, a3ptype, atype, btype, b5ptype) * sqrt(1.0-rlogarg));
+                d_Delta(type, a3ptype, atype, btype, b5ptype) * sqrtf(1.0-rlogarg));
       }
     }
   }

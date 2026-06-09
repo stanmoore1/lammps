@@ -311,7 +311,7 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondCompute<NEIGH
     delr_hb[2] = x(a,2) + ra_chb[2] - x(b,2) - rb_chb[2];
 
     rsq_hb = delr_hb[0]*delr_hb[0] + delr_hb[1]*delr_hb[1] + delr_hb[2]*delr_hb[2];
-    r_hb = sqrt(rsq_hb);
+    r_hb = sqrtf(rsq_hb);
     rinv_hb = 1.0 / r_hb;
 
     delr_hb_norm[0] = delr_hb[0] * rinv_hb;
@@ -699,7 +699,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta1_terms(const int &atype, cons
 
   KK_FLOAT sin1_sq = fma(-cost1, cost1, static_cast<KK_FLOAT>(1.0));
   if (sin1_sq <= static_cast<KK_FLOAT>(0.0)) return false;
-  const KK_FLOAT rsin1 = static_cast<KK_FLOAT>(1.0) / sqrt(sin1_sq);
+  const KK_FLOAT rsin1 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin1_sq);
   df4t1 = DF4_KK(theta1, p_a_hb1, p_theta_hb1_0, p_dtheta_hb1_ast, p_b_hb1, p_dtheta_hb1_c) * rsin1;
   return true;
 }
@@ -726,7 +726,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta2_terms(const int &atype, cons
 
   KK_FLOAT sin2_sq = fma(-cost2, cost2, static_cast<KK_FLOAT>(1.0));
   if (sin2_sq <= static_cast<KK_FLOAT>(0.0)) return false;
-  const KK_FLOAT rsin2 = static_cast<KK_FLOAT>(1.0) / sqrt(sin2_sq);
+  const KK_FLOAT rsin2 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin2_sq);
   df4t2 = DF4_KK(theta2, p_a_hb2, p_theta_hb2_0, p_dtheta_hb2_ast, p_b_hb2, p_dtheta_hb2_c) * rsin2;
   return true;
 }
@@ -753,7 +753,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta3_terms(const int &atype, cons
 
   KK_FLOAT sin3_sq = fma(-cost3, cost3, static_cast<KK_FLOAT>(1.0));
   if (sin3_sq <= static_cast<KK_FLOAT>(0.0)) return false;
-  const KK_FLOAT rsin3 = static_cast<KK_FLOAT>(1.0) / sqrt(sin3_sq);
+  const KK_FLOAT rsin3 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin3_sq);
   df4t3 = DF4_KK(theta3, p_a_hb3, p_theta_hb3_0, p_dtheta_hb3_ast, p_b_hb3, p_dtheta_hb3_c) * rsin3;
   return true;
 }
@@ -780,7 +780,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta4_terms(const int &atype, cons
 
   KK_FLOAT sin4_sq = fma(-cost4, cost4, static_cast<KK_FLOAT>(1.0));
   if (sin4_sq <= static_cast<KK_FLOAT>(0.0)) return false;
-  const KK_FLOAT rsin4 = static_cast<KK_FLOAT>(1.0) / sqrt(sin4_sq);
+  const KK_FLOAT rsin4 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin4_sq);
   df4t4 = DF4_KK(theta4, p_a_hb4, p_theta_hb4_0, p_dtheta_hb4_ast, p_b_hb4, p_dtheta_hb4_c) * rsin4;
   return true;
 }
@@ -807,7 +807,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta7_terms(const int &atype, cons
 
   KK_FLOAT sin7_sq = fma(-cost7, cost7, static_cast<KK_FLOAT>(1.0));
   if (sin7_sq <= static_cast<KK_FLOAT>(0.0)) return false;
-  const KK_FLOAT rsin7 = static_cast<KK_FLOAT>(1.0) / sqrt(sin7_sq);
+  const KK_FLOAT rsin7 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin7_sq);
   df4t7 = DF4_KK(theta7, p_a_hb7, p_theta_hb7_0, p_dtheta_hb7_ast, p_b_hb7, p_dtheta_hb7_c) * rsin7;
   return true;
 }
@@ -834,7 +834,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta8_terms(const int &atype, cons
 
   KK_FLOAT sin8_sq = fma(-cost8, cost8, static_cast<KK_FLOAT>(1.0));
   if (sin8_sq <= static_cast<KK_FLOAT>(0.0)) return false;
-  const KK_FLOAT rsin8 = static_cast<KK_FLOAT>(1.0) / sqrt(sin8_sq);
+  const KK_FLOAT rsin8 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin8_sq);
   df4t8 = DF4_KK(theta8, p_a_hb8, p_theta_hb8_0, p_dtheta_hb8_ast, p_b_hb8, p_dtheta_hb8_c) * rsin8;
   return true;
 }
@@ -1068,7 +1068,7 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondComputeGPUPai
   rsq_hb = fma(delr_hb[2], delr_hb[2],
       fma(delr_hb[1], delr_hb[1], delr_hb[0] * delr_hb[0]));
   if (rsq_hb <= static_cast<KK_FLOAT>(0.0)) return;
-  rinv_hb = static_cast<KK_FLOAT>(1.0) / sqrt(rsq_hb);
+  rinv_hb = static_cast<KK_FLOAT>(1.0) / sqrtf(rsq_hb);
   r_hb = rsq_hb * rinv_hb;
 
   delr_hb_norm[0] = delr_hb[0] * rinv_hb;

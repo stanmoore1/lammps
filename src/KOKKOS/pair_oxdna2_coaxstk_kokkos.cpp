@@ -315,7 +315,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
     delr_st[2] = x(a,2) + ra_cst[2] - x(b,2) - rb_cst[2];
 
     rsq_st = delr_st[0]*delr_st[0] + delr_st[1]*delr_st[1] + delr_st[2]*delr_st[2];
-    r_st = sqrt(rsq_st);
+    r_st = sqrtf(rsq_st);
     rinv_st = 1.0 / r_st;
 
     delr_st_norm[0] = delr_st[0] * rinv_st;
@@ -333,7 +333,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
     delr_ss[2] = x(a,2) + ra_cs[2] - x(b,2) - rb_cs[2];
 
     rsq_ss = delr_ss[0]*delr_ss[0] + delr_ss[1]*delr_ss[1] + delr_ss[2]*delr_ss[2];
-    r_ss = sqrt(rsq_ss);
+    r_ss = sqrtf(rsq_ss);
     rinv_ss = 1.0 / r_ss;
 
     delr_ss_norm[0] = delr_ss[0] * rinv_ss;
@@ -626,7 +626,7 @@ bool PairOxdna2CoaxstkKokkos<DeviceType>::coaxstk_theta1_terms(const int &atype,
   // df4f6t1 = (DF4 + DF6) / sin(theta1)
   KK_FLOAT sin1_sq = fma(-cost1, cost1, static_cast<KK_FLOAT>(1.0));
   if (sin1_sq <= 0.0) return false;
-  KK_FLOAT sin1 = sqrt(sin1_sq);
+  KK_FLOAT sin1 = sqrtf(sin1_sq);
   df4f6t1 = ( DF4_KK(theta1, d_a_cxst1(atype,btype), d_theta_cxst1_0(atype,btype), d_dtheta_cxst1_ast(atype,btype),
                   d_b_cxst1(atype,btype), d_dtheta_cxst1_c(atype,btype)) +
                DF6_KK(theta1, d_AA_cxst1(atype,btype), d_BB_cxst1(atype,btype)) ) / sin1;
@@ -650,7 +650,7 @@ bool PairOxdna2CoaxstkKokkos<DeviceType>::coaxstk_theta4_terms(const int &atype,
   KK_FLOAT sin4_sq = fma(-cost4, cost4, static_cast<KK_FLOAT>(1.0));
   if (sin4_sq <= 0.0) return false;
   df4t4 = DF4_KK(theta4, d_a_cxst4(atype,btype), d_theta_cxst4_0(atype,btype), d_dtheta_cxst4_ast(atype,btype),
-                 d_b_cxst4(atype,btype), d_dtheta_cxst4_c(atype,btype)) / sqrt(sin4_sq);
+                 d_b_cxst4(atype,btype), d_dtheta_cxst4_c(atype,btype)) / sqrtf(sin4_sq);
   return true;
 }
 
@@ -674,7 +674,7 @@ bool PairOxdna2CoaxstkKokkos<DeviceType>::coaxstk_theta5_terms(const int &atype,
   df4t5 = ( DF4_KK(theta5, d_a_cxst5(atype,btype), d_theta_cxst5_0(atype,btype), d_dtheta_cxst5_ast(atype,btype),
                  d_b_cxst5(atype,btype), d_dtheta_cxst5_c(atype,btype)) -
              DF4_KK(theta5p, d_a_cxst5(atype,btype), d_theta_cxst5_0(atype,btype), d_dtheta_cxst5_ast(atype,btype),
-                 d_b_cxst5(atype,btype), d_dtheta_cxst5_c(atype,btype)) ) / sqrt(sin5_sq);
+                 d_b_cxst5(atype,btype), d_dtheta_cxst5_c(atype,btype)) ) / sqrtf(sin5_sq);
   return true;
 }
 
@@ -698,7 +698,7 @@ bool PairOxdna2CoaxstkKokkos<DeviceType>::coaxstk_theta6_terms(const int &atype,
   df4t6 = ( DF4_KK(theta6, d_a_cxst6(atype,btype), d_theta_cxst6_0(atype,btype), d_dtheta_cxst6_ast(atype,btype),
                  d_b_cxst6(atype,btype), d_dtheta_cxst6_c(atype,btype)) -
              DF4_KK(theta6p, d_a_cxst6(atype,btype), d_theta_cxst6_0(atype,btype), d_dtheta_cxst6_ast(atype,btype),
-                 d_b_cxst6(atype,btype), d_dtheta_cxst6_c(atype,btype)) ) / sqrt(sin6_sq);
+                 d_b_cxst6(atype,btype), d_dtheta_cxst6_c(atype,btype)) ) / sqrtf(sin6_sq);
   return true;
 }
 
@@ -920,7 +920,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
   delr_st[2] = x(a,2) + ra_cst[2] - x(b,2) - rb_cst[2];
 
   rsq_st = fma(delr_st[0], delr_st[0], fma(delr_st[1], delr_st[1], delr_st[2]*delr_st[2]));
-  r_st = sqrt(rsq_st);
+  r_st = sqrtf(rsq_st);
   rinv_st = 1.0 / r_st;
 
   delr_st_norm[0] = delr_st[0] * rinv_st;
@@ -938,7 +938,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
   delr_ss[2] = x(a,2) + ra_cs[2] - x(b,2) - rb_cs[2];
 
   rsq_ss = fma(delr_ss[0], delr_ss[0], fma(delr_ss[1], delr_ss[1], delr_ss[2]*delr_ss[2]));
-  r_ss = sqrt(rsq_ss);
+  r_ss = sqrtf(rsq_ss);
   rinv_ss = 1.0 / r_ss;
 
   delr_ss_norm[0] = delr_ss[0] * rinv_ss;

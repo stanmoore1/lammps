@@ -287,7 +287,7 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
     delr_st[2] = x(a,2) + ra_cst[2] - x(b,2) - rb_cst[2];
 
     rsq_st = delr_st[0]*delr_st[0] + delr_st[1]*delr_st[1] + delr_st[2]*delr_st[2];
-    r_st = sqrt(rsq_st);
+    r_st = sqrtf(rsq_st);
     rinv_st = 1.0 / r_st;
 
     delr_st_norm[0] = delr_st[0] * rinv_st;
@@ -305,7 +305,7 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
     delr_ss[2] = x(a,2) + ra_cs[2] - x(b,2) - rb_cs[2];
 
     rsq_ss = delr_ss[0]*delr_ss[0] + delr_ss[1]*delr_ss[1] + delr_ss[2]*delr_ss[2];
-    r_ss = sqrt(rsq_ss);
+    r_ss = sqrtf(rsq_ss);
     rinv_ss = 1.0 / r_ss;
 
     delr_ss_norm[0] = delr_ss[0] * rinv_ss;

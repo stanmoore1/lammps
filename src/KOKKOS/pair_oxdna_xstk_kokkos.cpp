@@ -387,7 +387,7 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkCompute<NEIGHFL
     delr_hb[2] = x(a,2) + ra_chb[2] - x(b,2) - rb_chb[2];
 
     rsq_hb = delr_hb[0]*delr_hb[0] + delr_hb[1]*delr_hb[1] + delr_hb[2]*delr_hb[2];
-    r_hb = sqrt(rsq_hb);
+    r_hb = sqrtf(rsq_hb);
     rinv_hb = 1.0 / r_hb;
 
     delr_hb_norm[0] = delr_hb[0] * rinv_hb;
@@ -773,7 +773,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta1_terms(const int &atype, const 
 
   KK_FLOAT sin1_sq = fma(-cost1, cost1, static_cast<KK_FLOAT>(1.0));
   if (sin1_sq < static_cast<KK_FLOAT>(0.0)) sin1_sq = static_cast<KK_FLOAT>(0.0);
-  const KK_FLOAT rsin1 = static_cast<KK_FLOAT>(1.0) / sqrt(sin1_sq);
+  const KK_FLOAT rsin1 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin1_sq);
   df4t1 = DF4_KK(theta1, p_a_xst1, p_theta_xst1_0, p_dtheta_xst1_ast, p_b_xst1, p_dtheta_xst1_c) * rsin1;
   return true;
 }
@@ -800,7 +800,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta2_terms(const int &atype, const 
 
   KK_FLOAT sin2_sq = fma(-cost2, cost2, static_cast<KK_FLOAT>(1.0));
   if (sin2_sq < static_cast<KK_FLOAT>(0.0)) sin2_sq = static_cast<KK_FLOAT>(0.0);
-  const KK_FLOAT rsin2 = static_cast<KK_FLOAT>(1.0) / sqrt(sin2_sq);
+  const KK_FLOAT rsin2 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin2_sq);
   df4t2 = DF4_KK(theta2, p_a_xst2, p_theta_xst2_0, p_dtheta_xst2_ast, p_b_xst2, p_dtheta_xst2_c) * rsin2;
   return true;
 }
@@ -827,7 +827,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta3_terms(const int &atype, const 
 
   KK_FLOAT sin3_sq = fma(-cost3, cost3, static_cast<KK_FLOAT>(1.0));
   if (sin3_sq < static_cast<KK_FLOAT>(0.0)) sin3_sq = static_cast<KK_FLOAT>(0.0);
-  const KK_FLOAT rsin3 = static_cast<KK_FLOAT>(1.0) / sqrt(sin3_sq);
+  const KK_FLOAT rsin3 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin3_sq);
   df4t3 = DF4_KK(theta3, p_a_xst3, p_theta_xst3_0, p_dtheta_xst3_ast, p_b_xst3, p_dtheta_xst3_c) * rsin3;
   return true;
 }
@@ -856,7 +856,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta4_terms(const int &atype, const 
 
   KK_FLOAT sin4_sq = fma(-cost4, cost4, static_cast<KK_FLOAT>(1.0));
   if (sin4_sq < static_cast<KK_FLOAT>(0.0)) sin4_sq = static_cast<KK_FLOAT>(0.0);
-  const KK_FLOAT rsint = static_cast<KK_FLOAT>(1.0) / sqrt(sin4_sq);
+  const KK_FLOAT rsint = static_cast<KK_FLOAT>(1.0) / sqrtf(sin4_sq);
   df4t4 = DF4_KK(theta4, p_a_xst4, p_theta_xst4_0, p_dtheta_xst4_ast, p_b_xst4, p_dtheta_xst4_c) -
     DF4_KK(theta4p, p_a_xst4, p_theta_xst4_0, p_dtheta_xst4_ast, p_b_xst4, p_dtheta_xst4_c);
   df4t4 *= rsint;
@@ -887,7 +887,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta7_terms(const int &atype, const 
 
   KK_FLOAT sin7_sq = fma(-cost7, cost7, static_cast<KK_FLOAT>(1.0));
   if (sin7_sq < static_cast<KK_FLOAT>(0.0)) sin7_sq = static_cast<KK_FLOAT>(0.0);
-  const KK_FLOAT rsint = static_cast<KK_FLOAT>(1.0) / sqrt(sin7_sq);
+  const KK_FLOAT rsint = static_cast<KK_FLOAT>(1.0) / sqrtf(sin7_sq);
   df4t7 = DF4_KK(theta7, p_a_xst7, p_theta_xst7_0, p_dtheta_xst7_ast, p_b_xst7, p_dtheta_xst7_c) -
     DF4_KK(theta7p, p_a_xst7, p_theta_xst7_0, p_dtheta_xst7_ast, p_b_xst7, p_dtheta_xst7_c);
   df4t7 *= rsint;
@@ -918,7 +918,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta8_terms(const int &atype, const 
 
   KK_FLOAT sin8_sq = fma(-cost8, cost8, static_cast<KK_FLOAT>(1.0));
   if (sin8_sq < static_cast<KK_FLOAT>(0.0)) sin8_sq = static_cast<KK_FLOAT>(0.0);
-  const KK_FLOAT rsint = static_cast<KK_FLOAT>(1.0) / sqrt(sin8_sq);
+  const KK_FLOAT rsint = static_cast<KK_FLOAT>(1.0) / sqrtf(sin8_sq);
   df4t8 = DF4_KK(theta8, p_a_xst8, p_theta_xst8_0, p_dtheta_xst8_ast, p_b_xst8, p_dtheta_xst8_c) -
     DF4_KK(theta8p, p_a_xst8, p_theta_xst8_0, p_dtheta_xst8_ast, p_b_xst8, p_dtheta_xst8_c);
   df4t8 *= rsint;
@@ -1161,7 +1161,7 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
 
   rsq_hb = fma(delr_hb[2], delr_hb[2],
            fma(delr_hb[1], delr_hb[1], delr_hb[0] * delr_hb[0]));
-  rinv_hb = static_cast<KK_FLOAT>(1.0) / sqrt(rsq_hb);
+  rinv_hb = static_cast<KK_FLOAT>(1.0) / sqrtf(rsq_hb);
   r_hb = rsq_hb * rinv_hb;
 
   delr_hb_norm[0] = delr_hb[0] * rinv_hb;
