@@ -103,9 +103,9 @@ void FixOxdnaNpairKokkos<DeviceType>::min_pre_force(int /*vflag*/)
   // Option 1: Every timestep
   // if (execution_space != HostKK) compute_neigh_screen_to_npair();
   // Option 2: Only when neighbor list updates
-  if (execution_space != HostKK && last_allocate < neighbor->lastcall) {
+  if (execution_space != HostKK && last_allocate != neighbor->lastcall) {
      compute_neigh_screen_to_npair();
-     last_allocate = update->ntimestep;
+     last_allocate = neighbor->lastcall;
   }
   // Option 3: Only every N timesteps
   // if (execution_space != HostKK && update->ntimestep > last_allocate + N) {
@@ -131,9 +131,9 @@ void FixOxdnaNpairKokkos<DeviceType>::pre_force(int /*vflag*/)
   // Option 1: Every timestep
   // if (execution_space != HostKK) compute_neigh_screen_to_npair();
   // Option 2: Only when neighbor list updates
-  if (execution_space != HostKK && last_allocate < neighbor->lastcall) {
+  if (execution_space != HostKK && last_allocate != neighbor->lastcall) {
      compute_neigh_screen_to_npair();
-     last_allocate = update->ntimestep;
+     last_allocate = neighbor->lastcall;
   }
   // Option 3: Only every N timesteps
   // if (execution_space != HostKK && update->ntimestep > last_allocate + N) {
