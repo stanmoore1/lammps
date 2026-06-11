@@ -384,6 +384,7 @@ bondscreened
 bondscreenedspin
 bondspin
 bondtype
+bondval
 Bonet
 Bonomi
 boolean
@@ -2336,6 +2337,7 @@ Mattson
 maxangle
 maxbond
 maxchunk
+maxdlogvolratio
 maxelt
 maxeval
 maxfiles
@@ -2926,6 +2928,7 @@ nzlo
 obabo
 ochre
 ocl
+octahedra
 octahedral
 octahedron
 octants
@@ -3105,6 +3108,7 @@ Peridynamics
 Periole
 perl
 permittivity
+perovskite
 perp
 Perram
 persp
@@ -3973,6 +3977,7 @@ Tainter
 Tait
 taitwater
 Tajkhorshid
+Takenaka
 Tamaskovics
 Tanaka
 tanh
