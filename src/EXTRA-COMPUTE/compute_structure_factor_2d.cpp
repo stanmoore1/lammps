@@ -56,9 +56,15 @@ ComputeStructureFactor2D::ComputeStructureFactor2D(LAMMPS *lmp, int narg, char *
   array_flag = 1;
   extarray = 1;
 
-  kxmax = 10;
-  kymax = 10;
-  nbins = 10;
+  // parse arguments: kmax nbins
+
+  if (narg != 5) error->all(FLERR,"Illegal compute structure/factor/2d command");
+
+  kxmax = kymax = utils::inumeric(FLERR,arg[3],false,lmp);
+  nbins = utils::inumeric(FLERR,arg[4],false,lmp);
+
+  if (kxmax <= 0) error->all(FLERR,"Compute structure/factor/2d kmax must be positive");
+  if (nbins <= 0) error->all(FLERR,"Compute structure/factor/2d nbins must be positive");
 
   kunique = 0;
   ksq2unique = nullptr;
@@ -112,6 +118,12 @@ void ComputeStructureFactor2D::init()
   if (domain->triclinic)
     error->all(FLERR,"Cannot (yet) use StructureFactor2D with triclinic box");
 
+  // this compute assumes a square cross-section (Lx == Ly) so that the in-plane
+  // reciprocal-lattice spacing is isotropic and |k| = unitk[0]*sqrt(l*l+m*m)
+
+  if (fabs(domain->xprd - domain->yprd) > SMALL*domain->xprd)
+    error->all(FLERR,"Compute structure/factor/2d requires a square box in x and y (Lx == Ly)");
+
   // setup StructureFactor coefficients so can print stats
 
   setup();
@@ -151,11 +163,12 @@ void ComputeStructureFactor2D::setup()
   kmax = MAX(kxmax,kymax);
   kmax2d = 6*kmax*kmax + 3*kmax;
 
+  // circular cutoff in reciprocal space with radius kmax
+  // (square box guarantees unitk[0] == unitk[1])
+
   double gsqxmx = unitk[0]*unitk[0]*kxmax*kxmax;
   double gsqymx = unitk[1]*unitk[1]*kymax*kymax;
   gsqmx = MAX(gsqxmx,gsqymx);
-
-  gsqmx = unitk[0]*unitk[0]*17; ////
 
   gsqmx *= 1.00001;
 
@@ -215,7 +228,21 @@ void ComputeStructureFactor2D::setup()
 }
 
 /* ----------------------------------------------------------------------
-   compute the structure factor
+   compute the bin-resolved (planar) structure factor
+
+   the global array has size_array_cols = 5 columns:
+     [0] q     = |k_parallel| = unitk[0]*sqrt(l*l+m*m)  (requires Lx == Ly)
+     [1] ibin  = z-bin index i
+     [2] jbin  = z-bin index j
+     [3] S_ij  = <rho_hat_i(k) * conj(rho_hat_j(k))>, direction-averaged over
+                 in-plane k-vectors of equal |k|.  On the q == 0 rows this column
+                 instead holds the disconnected product N_i*N_j/A and is unused
+                 by the OZ inversion.
+     [4] density = per-bin number density rho_i, stored only on the q == 0 rows.
+
+   the value emitted here is instantaneous and unnormalized (no division by area
+   or time); time-averaging is done with fix ave/time and all normalization for
+   the Ornstein-Zernike inversion is done in post-processing.
 ------------------------------------------------------------------------- */
 
 void ComputeStructureFactor2D::compute_array()

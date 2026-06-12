@@ -1,0 +1,56 @@
+Inhomogeneous direct correlation function from MD via OZ inversion (proof of concept)
+=====================================================================================
+
+These examples drive "compute structure/factor/2d", which measures the bin-resolved
+(planar) static structure factor S_ij(k_parallel) of a fluid whose density varies
+along z.  Time-averaged with fix ave/time, S_ij(k) is inverted (in Python) through the
+inhomogeneous Ornstein-Zernike equation to obtain the inhomogeneous direct correlation
+function C(z1,z2,s).  For a liquid-vapor slab this yields the Triezenberg-Zwanzig (TZ)
+inhomogeneous Helmholtz energy density psi_IH(z) and surface tension directly from MD,
+instead of the local-density + Percus-Yevick approximation.
+
+Requirements
+------------
+- LAMMPS built with the EXTRA-COMPUTE package.
+- Python 3 with NumPy (matplotlib optional, for --plot).
+- The simulation box must be square in x and y (Lx == Ly); the compute aborts otherwise.
+
+compute structure/factor/2d syntax
+----------------------------------
+    compute ID group-ID structure/factor/2d kmax nbins
+
+    kmax  = maximum reciprocal-lattice index (circular cutoff radius in k-space)
+    nbins = number of z-bins (interface-normal direction)
+
+Output: a global array with columns [q=|k_parallel|, ibin, jbin, S_ij, density].
+The per-bin density rho_i is stored on the q==0 rows (column 5).  Values are
+instantaneous and unnormalized -- divide by area and time-average externally.
+
+Workflow
+--------
+1. Bulk validation:
+       lmp -in in.bulk_lj
+       python3 oz_invert.py --mode bulk --sf-file sf_bulk.out --nbins 8 \
+               --lx <Lx> --lz <Lz> --temp 0.90 --rdf-file rdf_bulk.out
+   Checks that the inverted C_ij is translationally invariant in z and that its
+   z-Fourier transform reproduces the bulk c(k) ~ (1 - 1/S(q))/rho.
+
+2. Liquid-vapor slab:
+       lmp -in in.slab_lj
+       python3 oz_invert.py --mode slab --sf-file sf_slab.out --nbins 40 \
+               --lx <Lx> --lz <Lz> --temp 0.80
+   Produces psi_IH(z) and the TZ surface tension; compare gamma to the mechanical
+   value in gamma_slab.out.
+
+Get Lx and Lz from the LAMMPS log (printed box bounds) or thermo output.
+
+Notes / caveats
+---------------
+- The OZ inversion is ill-conditioned in low-density (vapor) bins; oz_invert.py drops
+  bins below --rho-min and reports the condition number of (I + D h).
+- The smallest accessible wavevector is k = 2*pi/L, which limits the small-k slope used
+  for the TZ second moment -- expect finite-size sensitivity; increase the box to test.
+- The s^3 weighting in the TZ second moment emphasizes the large-s tail of C(s); a
+  -beta*u(s) tail correction beyond s = L/2 is a natural refinement (not yet applied).
+- This is a proof of concept: parameters (run length, kmax, nbins, box size) are modest
+  and should be converged for production use.

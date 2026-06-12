@@ -1,0 +1,53 @@
+# Lennard-Jones liquid-vapor slab: bin-resolved planar structure factor S_ij(k_parallel)
+# Proof-of-concept input for the inhomogeneous Ornstein-Zernike inversion and the
+# Triezenberg-Zwanzig (TZ) inhomogeneous correction (see README).
+#
+# A dense liquid slab is placed in the center of a long box, leaving vapor space on
+# either side along z, producing two planar interfaces.  Lx == Ly (square cross
+# section) as required by compute structure/factor/2d.  The z-binned structure factor
+# feeds the OZ inversion -> inhomogeneous C(z1,z2,s) -> psi_IH(z) and surface tension.
+# The mechanical (pressure-tensor) surface tension is also written for cross-checking.
+
+units           lj
+atom_style      atomic
+
+variable        rho   index 0.75      # density of the initial liquid slab
+variable        temp  index 0.80      # reduced temperature (two-phase coexistence)
+variable        kmax  index 8         # max reciprocal-lattice index (circular cutoff)
+variable        nbins index 40        # number of z-bins (resolve the interfaces)
+
+lattice         fcc ${rho}
+region          box  block 0 10 0 10 -20 20    # long in z; Lx == Ly
+create_box      1 box
+region          slab block 0 10 0 10  -8  8    # liquid slab in the center
+create_atoms    1 region slab
+mass            1 1.0
+
+velocity        all create ${temp} 87287 loop geom
+
+pair_style      lj/cut 4.0
+pair_coeff      1 1 1.0 1.0
+
+neighbor        0.3 bin
+neigh_modify    every 10 delay 0 check yes
+
+fix             1 all nvt temp ${temp} ${temp} 0.5
+timestep        0.005
+
+# equilibrate the two interfaces
+
+thermo          500
+run             20000
+
+# production: time-averaged S_ij(k), density profile, and pressure tensor
+
+compute         sf  all structure/factor/2d ${kmax} ${nbins}
+compute         chunkz all chunk/atom bin/1d z lower ${nbins} units reduced
+fix             sfavg  all ave/time  10 500 5000 c_sf[*] mode vector file sf_slab.out
+fix             rhoavg all ave/chunk 10 500 5000 chunkz density/number file rho_slab.out
+
+# mechanical surface tension: gamma = 0.5 * Lz * (Pzz - 0.5*(Pxx+Pyy))
+variable        gamma equal 0.5*lz*(pzz-0.5*(pxx+pyy))
+fix             gavg  all ave/time 10 500 5000 v_gamma file gamma_slab.out
+
+run             5000
