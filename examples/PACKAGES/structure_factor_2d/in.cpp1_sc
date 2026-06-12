@@ -57,7 +57,7 @@ run             ${Nequil}
 
 # apply the external field and equilibrate
 variable        forcez atom 2*PI*${AF}*sin(2*PI*z/lz)/lz
-fix             ext all addforce v_forcez 0.0 0.0
+fix             ext all addforce 0.0 0.0 v_forcez
 run             ${Nfield}
 
 # ----- production measurements -----
