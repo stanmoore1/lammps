@@ -107,14 +107,17 @@ def invert_oz(Smat, rho, dz, area, active=None, ridge=0.0):
     return C, cond
 
 
-def fourier_cosine_smooth(rho, nmodes):
-    """Smooth a periodic profile with a truncated cosine series (the dissertation's
-    smoothing of rho(z))."""
-    n = len(rho)
-    # full real FFT, keep only the lowest nmodes harmonics
-    f = np.fft.rfft(rho)
-    f[nmodes + 1:] = 0.0
-    return np.fft.irfft(f, n)
+def fourier_cosine_smooth(y, nmodes):
+    """Least-squares fit of a profile to a Fourier cosine series
+    sum_k a_k cos(2 pi k z / L), k = 0..nmodes (the dissertation's smoothing).
+    The cosine basis is even about the box center, so the fit automatically
+    symmetrizes the data about z = L/2 (averaging the two symmetric halves) in
+    addition to low-pass smoothing."""
+    n = len(y)
+    z = (np.arange(n) + 0.5) / n                  # bin centers in units of L
+    B = np.cos(2.0 * np.pi * np.outer(z, np.arange(nmodes + 1)))
+    coef, *_ = np.linalg.lstsq(B, y, rcond=None)
+    return B @ coef
 
 
 # ----------------------------------------------------------------------------
