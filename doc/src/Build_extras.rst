@@ -57,6 +57,7 @@ This is the list of packages that may require additional steps.
    * :ref:`ML-PACE <ml-pace>`
    * :ref:`ML-POD <ml-pod>`
    * :ref:`ML-QUIP <ml-quip>`
+   * :ref:`ML-RUNNER <ml-runner>`
    * :ref:`MOLFILE <molfile>`
    * :ref:`NETCDF <netcdf>`
    * :ref:`OPENMP <openmp>`
@@ -1590,13 +1591,112 @@ details please see ``lib/hdnnp/README`` and the `n2p2 build documentation
 
 ----------
 
+
+.. _ml-runner:
+
+ML-RUNNER package
+-----------------
+
+The ML-RUNNER package provides an interface to the
+`RuNNer <https://www.theochem2.ruhr-uni-bochum.de/tc/software/runner.html.en>`_
+(Ruhr University Neural Network Energy Representation) library for
+high-dimensional neural network potentials (HDNNP).
+
+**Prerequisites**
+
+* **Fortran Compiler:** Since the RuNNer library is written in Fortran, a working Fortran compiler must be available on your system and detectable by CMake.
+* **BLAS/LAPACK:** RuNNer requires BLAS and LAPACK libraries for linear algebra operations.
+* **FFT Library:** RuNNer uses an FFT library for electrostatic calculations (3G/4G).
+  It can use either MKL or FFTW3 and the choice is imported from the KSPACE package configuration.
+  When using FFTW3 also FFTW3 threading (-DFFT_FFTW_THREADING=ON) needs to be enabled
+  which is usually auto-detected.  These restrictions are needed so that LAMMPS and RuNNer
+  use the same FFT library settings and link to the same library.  In both cases the
+  Fortran 03 wrapper file ``fftw3.f03`` must be in the Fortran compiler include path.
+
+**Building RuNNer**
+
+By default, the LAMMPS build process automatically downloads and compiles the
+RuNNer library as a static library. Alternatively, you can point LAMMPS to a
+pre-compiled version already present on your system.
+
+.. tabs::
+
+   .. tab:: CMake build
+
+      **Basic Options:**
+
+      .. code-block:: bash
+
+         -D PKG_ML-RUNNER=yes       # yes (default): Download and build RuNNer automatically.
+         -D DOWNLOAD_RUNNER=yes     # yes (default): clone the stable version of the official RuNNer repo.
+                                    # no: Use a pre-compiled RuNNer library.
+         -D RUNNER_SHARED_LIB=yes    # no: (default): Look for static library (.a).
+                                     # yes: Look for shared library (.so).
+
+      **Manual Library Configuration (if DOWNLOAD_RUNNER=no):**
+
+      .. code-block:: bash
+
+         -D RUNNER_LIB_DIR=path      # Directory containing the RuNNer library.
+                                     # (default: $HOME/.local/lib)
+         -D RUNNER_LIB_NAME=name     # Filename of the library (without extension).
+                                     # (default: libRuNNer_mpi)
+
+      **FFT Library Selection:**
+
+      The build system uses the FFT selection from the KSPACE package.
+      Only MKL and FFTW3 are currently supported
+
+      .. code-block:: bash
+
+         -D FFT=value                # FFTW3 or MKL
+         -D FFT_MKL_THREADS=yes      # required with MKL (default)
+         -D FFT_FFTW_THREADS=yes     # required with FFTW3 (default)
+
+   .. tab:: Traditional make
+
+      The ML-RUNNER package does not support the traditional make build system.
+      You must build LAMMPS with CMake.
+
+**Detailed Option Table**
+
+.. list-table::
+   :widths: 25 50 25
+   :header-rows: 1
+
+   * - Option
+     - Description
+     - Default
+   * - ``DOWNLOAD_RUNNER``
+     - Download and build RuNNer from source
+     - ``yes``
+   * - ``RUNNER_LIB_DIR``
+     - Path to a pre-installed RuNNer library
+     - ``$HOME/.local/lib``
+   * - ``RUNNER_LIB_NAME``
+     - Name of the RuNNer library file without extension
+     - ``libRuNNer_mpi``
+   * - ``RUNNER_SHARED_LIB``
+     - Link against a shared RuNNer library
+     - ``yes``
+   * - ``FFT``
+     - FFT library to use (FFTW3 or MKL)
+     - ``auto-detected``
+   * - ``FFT_MKL_THREADS``
+     - Use multi-threaded MKL FFT
+     - ``yes``
+   * - ``FFT_FFTW_THREADS``
+     - Use multi-threaded FFTW
+     - ``yes``
+
+----------
+
 .. _intel:
 
 INTEL package
 -----------------------------------
 
-To build with this package, you must choose which hardware you want to
-build for, either x86 CPUs or Intel KNLs in offload mode.  You should
+This package optimizes styles for x86 CPUs.  You should
 also typically :ref:`install the OPENMP package <openmp>`, as it can be
 used in tandem with the INTEL package to good effect, as explained
 on the :doc:`Speed_intel` page.
@@ -1616,31 +1716,18 @@ code when using features from the INTEL package.
 
       .. code-block:: bash
 
-         -D INTEL_ARCH=value     # value = cpu (default) or knl
          -D INTEL_LRT_MODE=value # value = threads, none, or c++17
 
    .. tab:: Traditional make
 
-      Choose which hardware to compile for in Makefile.machine via the
-      following settings.  See ``src/MAKE/OPTIONS/Makefile.intel_cpu*``
-      and ``Makefile.knl`` files for examples. and
-      ``src/INTEL/README`` for additional information.
-
-      For CPUs:
+      Choose compiler flags in Makefile.machine via the following
+      settings.  See ``src/MAKE/OPTIONS/Makefile.intel_cpu*`` files for
+      examples and ``src/INTEL/README`` for additional information.
 
       .. code-block:: make
 
          OPTFLAGS =  -xHost -O2 -fp-model fast=2 -no-prec-div -qoverride-limits -qopt-zmm-usage=high
-         CCFLAGS =   -g -qopenmp -DLAMMPS_MEMALIGN=64 -no-offload -fno-alias -ansi-alias -restrict $(OPTFLAGS)
-         LINKFLAGS = -g -qopenmp $(OPTFLAGS)
-         LIB =       -ltbbmalloc
-
-      For KNLs:
-
-      .. code-block:: make
-
-         OPTFLAGS =  -xMIC-AVX512 -O2 -fp-model fast=2 -no-prec-div -qoverride-limits
-         CCFLAGS =   -g -qopenmp -DLAMMPS_MEMALIGN=64 -no-offload -fno-alias -ansi-alias -restrict $(OPTFLAGS)
+         CCFLAGS =   -g -qopenmp -DLAMMPS_MEMALIGN=64 -fno-alias -ansi-alias -restrict $(OPTFLAGS)
          LINKFLAGS = -g -qopenmp $(OPTFLAGS)
          LIB =       -ltbbmalloc
 
