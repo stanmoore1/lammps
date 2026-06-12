@@ -11,39 +11,42 @@
 units           lj
 atom_style      atomic
 
-variable        rho   index 0.80      # reduced number density
-variable        temp  index 0.90      # reduced temperature (liquid)
+variable        rho   index 0.437     # reduced number density (CPP-1 avg)
+variable        temp  index 1.5       # reduced temperature (CPP-1)
 variable        kmax  index 8         # max reciprocal-lattice index (circular cutoff)
 variable        nbins index 8         # number of z-bins
+variable        rcut  index 2.5       # truncated LJ (no tail correction)
 
-lattice         fcc ${rho}
-region          box block 0 8 0 8 0 8     # cubic -> Lx == Ly == Lz
+lattice         sc ${rho}
+region          box block 0 12 0 12 0 12   # cubic -> Lx == Ly == Lz
 create_box      1 box
 create_atoms    1 box
 mass            1 1.0
 
 velocity        all create ${temp} 87287 loop geom
 
-pair_style      lj/cut 4.0
+pair_style      lj/cut ${rcut}
 pair_coeff      1 1 1.0 1.0
 
 neighbor        0.3 bin
 neigh_modify    every 10 delay 0 check yes
+comm_modify     cutoff 6.5             # so the rdf can reach r = 6 sigma
 
-fix             1 all nvt temp ${temp} ${temp} 0.5
-timestep        0.005
+fix             1 all nvt temp ${temp} ${temp} 1.0
+timestep        0.002
 
 # equilibration
 
-thermo          200
-run             5000
+thermo          2000
+run             20000
 
 # production: accumulate time-averaged S_ij(k) and g(r)
 
 compute         sf  all structure/factor/2d ${kmax} ${nbins}
-compute         rdf all rdf 200 1 1
+compute         rdf all rdf 200 1 1 cutoff 6.0
 
-fix             sfavg  all ave/time 10 500 5000 c_sf[*]  mode vector file sf_bulk.out
-fix             rdfavg all ave/time 10 500 5000 c_rdf[*] mode vector file rdf_bulk.out
+fix             sfavg  all ave/time 10 5000 50000 c_sf[*]  mode vector file sf_bulk.out
+fix             rdfavg all ave/time 10 5000 50000 c_rdf[*] mode vector file rdf_bulk.out
 
-run             5000
+run             500000
+print           "BOX Lx $(lx) Lz $(lz) rho $(count(all)/vol)"

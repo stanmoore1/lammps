@@ -327,8 +327,9 @@ void ComputeStructureFactor2D::compute_array()
         array[index][0] = q;
         array[index][1] = ibin;
         array[index][2] = jbin;
-        array[index][3] += (sfacrl_all[ibin][k]*sfacrl_all[jbin][k] +
-                                   sfacim_all[ibin][k]*sfacim_all[jbin][k])/norms[sqk_int];
+        // sfacrl_all is indexed [kvector][bin]; accumulate the cross-bin product
+        array[index][3] += (sfacrl_all[k][ibin]*sfacrl_all[k][jbin] +
+                                   sfacim_all[k][ibin]*sfacim_all[k][jbin])/norms[sqk_int];
         array[index][4] = 0.0;
       }
     }
