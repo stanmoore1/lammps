@@ -69,9 +69,10 @@ compute         cz all chunk/atom bin/1d z lower ${dzr} units reduced
 fix             den all ave/chunk 10 5000 50000 cz density/number file cpp1_density.out
 
 # per-atom configurational stress (pair only: excludes the external-field virial
-# and the kinetic term, which cancels in PN-PT) -> pressure-tensor profile
+# and the kinetic term, which cancels in PN-PT) -> pressure-tensor profile.
+# norm none gives the SUMMED stress per bin, so P_aa(z) = -sum(stress)/V_bin.
 compute         s all stress/atom NULL pair
-fix             prof all ave/chunk 10 5000 50000 cz c_s[1] c_s[2] c_s[3] file cpp1_stress.out
+fix             prof all ave/chunk 10 5000 50000 cz c_s[1] c_s[2] c_s[3] norm none file cpp1_stress.out
 
 # global pressure tensor for the induced surface tension (pair virial only, so the
 # fix addforce external-field virial is NOT included)
