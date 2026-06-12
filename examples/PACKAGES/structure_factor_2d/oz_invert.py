@@ -246,20 +246,15 @@ def run_slab(args):
     rprime[-1] = (rho_s[0] - rho_s[-2]) / (2 * dz)
     rho = rho_s
 
-    # psi_IH(z_i) = 1/(4 pi kT rho'_i) sum_j dz rho'_j INT ds s^3 C_ij   (Eq. 3.33)
-    # only meaningful where rho' is appreciable (the interface); in the flat bulk
-    # it is a 0/0 limit, so we report it only where |rho'| > rgrad_min*max|rho'|.
-    rgrad_min = 0.05 * np.abs(rprime).max()
-    psi = np.full(na, np.nan)
-    for a in range(na):
-        if abs(rprime[a]) < rgrad_min:
-            continue
-        psi[a] = (dz * np.sum(rprime * M2[a, :])) / (4.0 * np.pi * kT * rprime[a])
+    # psi_IH(z_i) = (pi kT/4) rho'_i sum_j dz rho'_j INT ds s^3 C_ij   (Eq. 3.33,
+    # consistent with the surface tension Eq. 3.32 via gamma = 2 INT psi_IH dz).
+    # rho' is in the numerator, so psi_IH -> 0 at the density extrema as it should.
+    psi = (np.pi * kT / 4.0) * rprime * (dz * (M2 @ rprime))
 
     # surface tension (Eq. 3.32): gamma = (pi/2) kT sum_i sum_j dz^2 rho'_i rho'_j M2_ij
     gamma_tz = 0.5 * np.pi * kT * dz * dz * (rprime @ M2 @ rprime)
 
-    print("\n# z        rho        rho'       psi_IH (NaN where rho' too small)")
+    print("\n# z        rho        rho'       psi_IH")
     for a in range(na):
         print(f"  {z[a]:7.3f}  {rho[a]:8.4f}  {rprime[a]: .4e}  {psi[a]: .4e}")
     print(f"\n# TZ surface tension (Eq. 3.32, both interfaces): gamma = {gamma_tz:.4f}")
