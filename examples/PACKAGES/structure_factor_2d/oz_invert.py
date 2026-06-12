@@ -215,25 +215,27 @@ def run_slab(args):
     area = args.lx * args.lx
     kT = args.temp
 
-    # keep ALL bins (low-density bins give c ~ 0); use ridge regularization so the
-    # near-vacuum bins do not make the inversion blow up.
-    rho_s = fourier_cosine_smooth(rho, args.smooth)   # smooth rho(z)
+    # Invert only on bins with appreciable density (h ~ 1/rho^2 blows up in vacuum);
+    # vacuum bins get c = 0, which is fine because rho'(z) ~ 0 there so they carry no
+    # weight in the TZ integral.  rho'(z) itself uses the full smoothed profile.
+    rho_s = fourier_cosine_smooth(rho, args.smooth)
     na = args.nbins
-    print(f"# slab OZ inversion: {na} bins, ridge={args.ridge}, "
-          f"rho smoothed with {args.smooth} cosine modes "
-          f"(rho {rho_s.min():.3f}-{rho_s.max():.3f})")
+    active = np.where(rho > args.rho_min)[0]
+    print(f"# slab OZ inversion: {len(active)}/{na} active bins (rho>{args.rho_min}), "
+          f"ridge={args.ridge}, rho_smooth {rho_s.min():.3f}-{rho_s.max():.3f}")
 
-    Carr = {q: invert_oz(Smats[q], rho, dz, area, ridge=args.ridge)[0] for q in qs}
+    Carr = {q: invert_oz(Smats[q], rho, dz, area, active=active, ridge=args.ridge)[0]
+            for q in qs}
 
     # second moment from the small-k slope: C_ij(k) ~ C_ij(0) - (pi/2) k^2 * M2_ij
     ksmall = qs[qs < args.kfit]
     if len(ksmall) < 2:
         sys.exit("not enough small-k points to fit the second moment; raise --kfit")
     k2 = ksmall ** 2
-    M2 = np.zeros((na, na))
-    for a in range(na):
-        for b in range(na):
-            y = np.array([Carr[q][a, b] for q in ksmall])
+    M2 = np.zeros((na, na))                            # full grid, zeros in vacuum
+    for ia, a in enumerate(active):
+        for ib, b in enumerate(active):
+            y = np.array([Carr[q][ia, ib] for q in ksmall])
             slope = np.polyfit(k2, y, 1)[0]
             M2[a, b] = -(2.0 / np.pi) * slope         # = INT ds s^3 C_ij(s)
 
