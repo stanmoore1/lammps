@@ -10,7 +10,7 @@
 # Inhomogeneity is along z (the long axis), matching compute structure/factor/2d.
 
 # ----- adjustable -----
-variable        T      equal 1.5        # T* (supercritical; Tc ~ 1.326)
+variable        T      index 1.5        # T* (supercritical; Tc ~ 1.326). override: -var T X
 variable        rho    equal 0.437      # rho_avg
 # dUmax: dissertation sim 1 uses 5.0 (with rcut=5.5).  With the truncated rcut=2.5
 # potential that field drives vacuum-to-solid; use a milder field so the density

@@ -81,8 +81,9 @@ def assemble_matrices(sf, nbins):
 # OZ inversion
 # ----------------------------------------------------------------------------
 
-def invert_oz(Smat, rho, dz, area, active=None):
-    """Return C_ij(k) from one S_ij(k) matrix via the inhomogeneous OZ equation."""
+def invert_oz(Smat, rho, dz, area, active=None, ridge=0.0):
+    """Return C_ij(k) from one S_ij(k) matrix via the inhomogeneous OZ equation.
+    `ridge` adds Tikhonov regularization for ill-conditioned (low-density) bins."""
     nb = Smat.shape[0]
     if active is None:
         active = np.arange(nb)
@@ -96,11 +97,24 @@ def invert_oz(Smat, rho, dz, area, active=None):
     D = np.diag(r * dz)
     M = np.eye(len(active)) + D @ h           # C = h (I + D h)^-1
     cond = np.linalg.cond(M)
-    try:
-        C = np.linalg.solve(M.T, h.T).T
-    except np.linalg.LinAlgError:             # ill-conditioned -> pseudo-inverse
-        C = h @ np.linalg.pinv(M)
+    if ridge > 0.0:
+        C = h @ np.linalg.solve(M.T @ M + ridge * np.eye(len(active)), M.T).T
+    else:
+        try:
+            C = np.linalg.solve(M.T, h.T).T
+        except np.linalg.LinAlgError:         # ill-conditioned -> pseudo-inverse
+            C = h @ np.linalg.pinv(M)
     return C, cond
+
+
+def fourier_cosine_smooth(rho, nmodes):
+    """Smooth a periodic profile with a truncated cosine series (the dissertation's
+    smoothing of rho(z))."""
+    n = len(rho)
+    # full real FFT, keep only the lowest nmodes harmonics
+    f = np.fft.rfft(rho)
+    f[nmodes + 1:] = 0.0
+    return np.fft.irfft(f, n)
 
 
 # ----------------------------------------------------------------------------
@@ -201,19 +215,21 @@ def run_slab(args):
     area = args.lx * args.lx
     kT = args.temp
 
-    active = np.where(rho > args.rho_min)[0]      # drop near-empty vapor bins
-    print(f"# slab OZ inversion: {len(active)}/{args.nbins} active bins "
-          f"(rho > {args.rho_min})")
+    # keep ALL bins (low-density bins give c ~ 0); use ridge regularization so the
+    # near-vacuum bins do not make the inversion blow up.
+    rho_s = fourier_cosine_smooth(rho, args.smooth)   # smooth rho(z)
+    na = args.nbins
+    print(f"# slab OZ inversion: {na} bins, ridge={args.ridge}, "
+          f"rho smoothed with {args.smooth} cosine modes "
+          f"(rho {rho_s.min():.3f}-{rho_s.max():.3f})")
 
-    # C_ij(k) for each k, restricted to active bins
-    Carr = {q: invert_oz(Smats[q], rho, dz, area, active)[0] for q in qs}
+    Carr = {q: invert_oz(Smats[q], rho, dz, area, ridge=args.ridge)[0] for q in qs}
 
     # second moment from the small-k slope: C_ij(k) ~ C_ij(0) - (pi/2) k^2 * M2_ij
     ksmall = qs[qs < args.kfit]
     if len(ksmall) < 2:
         sys.exit("not enough small-k points to fit the second moment; raise --kfit")
     k2 = ksmall ** 2
-    na = len(active)
     M2 = np.zeros((na, na))
     for a in range(na):
         for b in range(na):
@@ -221,9 +237,12 @@ def run_slab(args):
             slope = np.polyfit(k2, y, 1)[0]
             M2[a, b] = -(2.0 / np.pi) * slope         # = INT ds s^3 C_ij(s)
 
-    # density gradient on the active bins
-    z = (active + 0.5) * dz
-    rprime = np.gradient(rho[active], dz)
+    # density gradient from the smoothed, periodic profile
+    z = (np.arange(na) + 0.5) * dz
+    rprime = np.gradient(rho_s, dz)
+    rprime[0] = (rho_s[1] - rho_s[-1]) / (2 * dz)     # periodic ends
+    rprime[-1] = (rho_s[0] - rho_s[-2]) / (2 * dz)
+    rho = rho_s
 
     # psi_IH(z_i) = 1/(4 pi kT rho'_i) sum_j dz rho'_j INT ds s^3 C_ij   (Eq. 3.33)
     # only meaningful where rho' is appreciable (the interface); in the flat bulk
@@ -240,7 +259,7 @@ def run_slab(args):
 
     print("\n# z        rho        rho'       psi_IH (NaN where rho' too small)")
     for a in range(na):
-        print(f"  {z[a]:7.3f}  {rho[active][a]:8.4f}  {rprime[a]: .4e}  {psi[a]: .4e}")
+        print(f"  {z[a]:7.3f}  {rho[a]:8.4f}  {rprime[a]: .4e}  {psi[a]: .4e}")
     print(f"\n# TZ surface tension (Eq. 3.32, both interfaces): gamma = {gamma_tz:.4f}")
     print("#   compare to mechanical gamma = 0.5*Lz*(Pzz-0.5(Pxx+Pyy)) in gamma_slab.out")
     print("#   (factor-of-2 for the two interfaces handled consistently by both routes)")
@@ -262,6 +281,10 @@ def main():
                    help='[slab] drop bins with density below this (vapor)')
     p.add_argument('--kfit', type=float, default=2.0,
                    help='[slab] fit C_ij(k) vs k^2 for k below this')
+    p.add_argument('--smooth', type=int, default=6,
+                   help='[slab] number of cosine modes to smooth rho(z)')
+    p.add_argument('--ridge', type=float, default=1e-4,
+                   help='[slab] Tikhonov regularization for the OZ inversion')
     p.add_argument('--plot', action='store_true')
     args = p.parse_args()
 
