@@ -71,8 +71,10 @@ def main():
     zc = (np.arange(nb) + 0.5) * dz
     Vbin = A * dz
     rho_pt = oz.fourier_cosine_smooth(de[:, 3], 10)
-    dP = oz.fourier_cosine_smooth(-(st[:, 5] - 0.5 * (st[:, 3] + st[:, 4])) / Vbin, 10)
-    mu_pt_z = -1.5 * np.cumsum(np.gradient(dP, dz) / rho_pt) * dz
+    # smooth the normal and tangential pressure components separately
+    PN = oz.fourier_cosine_smooth(-st[:, 5] / Vbin, 10)
+    PT = oz.fourier_cosine_smooth(-0.5 * (st[:, 3] + st[:, 4]) / Vbin, 10)
+    mu_pt_z = -1.5 * np.cumsum(np.gradient(PN - PT, dz) / rho_pt) * dz
     m = zc <= args.lz / 2
     o = np.argsort(rho_pt[m]); r_pt, mu_pt = rho_pt[m][o], mu_pt_z[m][o]
     mu_pt += mu_ref_avg - np.interp(args.rho_avg, r_pt, mu_pt)
