@@ -16,11 +16,10 @@ variable        rho    equal 0.437      # rho_avg
 # potential that field drives vacuum-to-solid; use a milder field so the density
 # gradient stays small (gradient-theory regime, well-conditioned OZ inversion).
 variable        dUmax  index 1.0        # max external potential difference (override: -var dUmax X)
-# Cutoff: dissertation uses 5.5 sigma (+ inhomogeneous LRC) to match its absolute
-# gamma.  Default here is the truncated potential rcut=2.5 (no tail correction):
-# absolute gamma will NOT match the dissertation, but the pressure-tensor and TZ
-# methods are computed on the SAME potential and should agree with each other.
-variable        RCUT   index 2.5        # cutoff (override: -var RCUT 5.5)
+# Cutoff: 5.5 sigma as in the dissertation (truncated forces, no tail correction
+# during the run; apply the local LRC in post-processing via plot_muih.py
+# --lrc-rcut 5.5 when comparing against the full-LJ EOS).
+variable        RCUT   index 5.5        # cutoff (override: -var RCUT X)
 variable        NBIN   equal 200        # z-bins for density/pressure profiles
 variable        KMAX   equal 8          # structure-factor reciprocal cutoff
 variable        SFBIN  equal 40         # z-bins for the structure factor (OZ matrix)
