@@ -44,6 +44,28 @@ Workflow
 
 Get Lx and Lz from the LAMMPS log (printed box bounds) or thermo output.
 
+3. Field-coupling (Kirkwood) EOS route (field_coupling.py):
+   An independent, pressure-tensor-free route to the homogeneous EOS and the
+   interfacial free energy, from a LADDER of CPP runs at increasing field
+   amplitude (U_ext = A cos(2 pi z/Lz), A = dUmax/2).
+       python3 field_coupling.py --ladder ladder.csv --lz <Lz> --temp <T> \
+               [--kappa <c>] [--deg <n>]
+   where ladder.csv lists "dumax,density_file" per line.  It returns:
+     * mu0(rho), P0(rho) (the van der Waals loop below Tc) from the LOCAL
+       Euler-Lagrange condition mu0(rho(z)) - kappa rho''(z) + U_ext(z) = mu_tot
+       -- pointwise in rho(z), so well conditioned (unlike fitting a polynomial to
+       the integrated coupling free energy, which is collinear and fails);
+     * INT psi_IH dz and gamma = 2 INT psi_IH from the exact Hellmann-Feynman
+       coupling integral, cross-checked against the square-gradient (kappa/2) INT
+       rho'^2 dz.
+   Self-test: python3 field_coupling.py --selftest  (recovers a known EOS + kappa
+   from EL-solved profiles to ~1e-14 / few %).  Validated on the supercritical
+   CPP-1 snapshot (single field strength, A=2.32): the direct relation holds to
+   2.4% rms, and with the OZ-route gradient kappa~4 the recovered mu0(rho) lands
+   on the LJ EOS to 0.038 rms over rho=0.04-0.75.  NOTE: a single field strength
+   gives mu0(rho) (with kappa supplied) but not the coupling integral (gamma needs
+   the ladder), and cannot separate kappa from mu_ex on its own.
+
 Notes / caveats
 ---------------
 - The OZ inversion is ill-conditioned in low-density (vapor) bins; oz_invert.py drops
