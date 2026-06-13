@@ -257,6 +257,36 @@ def kb_chemical_potential(rho_bins, chat0, temp, h_star=0.183, poly=5):
     return rg, mu_id + temp * bmu_ex
 
 
+def intercept_matrix(qs, Carr, active, kfit):
+    """Full matrix of k->0 intercepts C_ij(0) = lim_{k->0} C_ij(k) (in-plane
+    integral of the direct correlation function between bins i and j)."""
+    ks = qs[qs < kfit]
+    k2 = ks ** 2
+    na = len(active)
+    C0 = np.empty((na, na))
+    for ia in range(na):
+        for ib in range(na):
+            y = np.array([Carr[q][ia, ib] for q in ks])
+            C0[ia, ib] = np.polyfit(k2, y, 2)[-1]      # constant term
+    return C0
+
+
+def dft_mu_ih(C0, rho_active, dz, temp):
+    """Inhomogeneous chemical-potential correction from the EXACT nonlocal DFT
+    relation (Evans 1979), one-shot (lambda=1) approximation:
+
+        beta mu_IH(z_i) = - sum_j dz C_ij(0) [rho(z_j) - rho(z_i)]
+
+    Unlike the TZ second moment this uses the FULL z,z' structure of C_ij(0)
+    (not just its s^2 moment) and the density DIFFERENCE rather than rho'(z)rho'(z'),
+    so it is exact in the gradient to all orders -- agreeing with TZ only at second
+    order.  It uses the robust k=0 intercept (no tail correction).  The one-shot
+    form is exact for weak inhomogeneity; for a strong density swing do a
+    thermodynamic integration over the field strength (the lambda path)."""
+    one = np.ones(len(rho_active))
+    return -temp * dz * (C0 @ rho_active - rho_active * (C0 @ one))
+
+
 # ----------------------------------------------------------------------------
 # bulk validation
 # ----------------------------------------------------------------------------
@@ -430,11 +460,44 @@ def run_kb(args):
 
 
 # ----------------------------------------------------------------------------
+# slab: nonlocal DFT route to mu0 / P0 (the van der Waals loop), gradient-exact
+# ----------------------------------------------------------------------------
+
+def run_dft(args):
+    sf = read_ave_time_vector(args.sf_file)
+    qs, Smats, rho = assemble_matrices(sf, args.nbins)
+    if not args.no_mirror:
+        Smats, rho = mirror_symmetrize(Smats, rho)
+    dz = args.lz / args.nbins
+    area = args.lx * args.lx
+    active = np.where(rho > args.rho_min)[0]
+    z = (active + 0.5) * dz
+    rho_s = fourier_cosine_smooth(rho, args.smooth)
+    Carr = {q: invert_oz(Smats[q], rho, dz, area, active=active, ridge=args.ridge)[0]
+            for q in qs}
+
+    C0 = intercept_matrix(qs, Carr, active, args.kfit)
+    mu_ih = dft_mu_ih(C0, rho_s[active], dz, args.temp)
+
+    # mu0(z) = mu_int(z) - mu_IH(z) = (mu_tot - U_ext(z)) - mu_IH(z); mu_tot is the
+    # additive constant, fixed downstream by matching mu0 to a reference at one rho.
+    Uext = 0.5 * args.dumax * np.cos(2.0 * np.pi * z / args.lz)
+    mu0 = -Uext - mu_ih
+
+    print("# nonlocal DFT route (gradient-exact mu0; Evans 1979):")
+    print("# rho      U_ext     mu_IH     mu0 (up to +mu_tot)")
+    order = np.argsort(rho_s[active])
+    for k in order:
+        print(f"  {rho_s[active][k]:6.3f}  {Uext[k]: .4f}  {mu_ih[k]: .4f}  {mu0[k]: .4f}")
+    print("# add mu_tot (match a reference at one rho); P0(rho) = rho*mu0 - INT mu0 drho")
+
+
+# ----------------------------------------------------------------------------
 
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--mode', choices=['bulk', 'slab', 'kb'], required=True)
+    p.add_argument('--mode', choices=['bulk', 'slab', 'kb', 'dft'], required=True)
     p.add_argument('--sf-file', required=True, help='fix ave/time output of c_sf[*]')
     p.add_argument('--nbins', type=int, required=True)
     p.add_argument('--lx', type=float, required=True, help='box length in x (= y)')
@@ -460,6 +523,8 @@ def main():
                    help='[slab] Tikhonov regularization for the OZ inversion')
     p.add_argument('--hstar', type=float, default=0.183,
                    help='[kb] reduced thermal wavelength h* for the ideal-gas mu')
+    p.add_argument('--dumax', type=float, default=5.0,
+                   help='[dft] CPP external-field amplitude, U_ext=(dumax/2)cos(2 pi z/Lz)')
     p.add_argument('--plot', action='store_true')
     args = p.parse_args()
 
@@ -467,6 +532,8 @@ def main():
         run_bulk(args)
     elif args.mode == 'kb':
         run_kb(args)
+    elif args.mode == 'dft':
+        run_dft(args)
     else:
         run_slab(args)
 
