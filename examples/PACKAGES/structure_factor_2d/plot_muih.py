@@ -62,6 +62,8 @@ def main():
     ap.add_argument('--kfit', type=float, default=1.5)
     ap.add_argument('--psi-deg', type=int, default=6,
                     help='polynomial degree for the psi(rho) fit (paper: 14)')
+    ap.add_argument('--lrc-rcut', type=float, default=0.0,
+                    help='apply local LJ tail correction to P0 for this cutoff (0 = off)')
     ap.add_argument('--ridge', type=float, default=1e-3)
     ap.add_argument('--ref', help='reference csv: rho,mu_IH (e.g. LJ EOS)')
     ap.add_argument('--out', default='muih.png')
@@ -88,6 +90,13 @@ def main():
     dPdz = (oz.fourier_cosine_deriv(-st[:, 5] / Vbin, 10, args.lz)
             - oz.fourier_cosine_deriv(-0.5 * (st[:, 3] + st[:, 4]) / Vbin, 10, args.lz))
     mu_pt_z = -1.5 * np.cumsum(dPdz / rho_pt) * dz
+    if args.lrc_rcut > 0.0:
+        # local standard LJ tail correction to P0 evaluated at rho(z) (paper
+        # sec. 3.5): P_lrc = (16/3) pi rho^2 [(2/3) rc^-9 - rc^-3], which adds
+        # (1/rho) dP_lrc = 2 a rho to the plotted mu (needed when comparing the
+        # truncated-LJ simulation against the full-LJ EOS).
+        a = (16.0 / 3.0) * np.pi * ((2.0 / 3.0) * args.lrc_rcut ** -9 - args.lrc_rcut ** -3)
+        mu_pt_z = mu_pt_z + 2.0 * a * rho_pt
     m = zc <= args.lz / 2
     o = np.argsort(rho_pt[m]); r_pt, mu_pt = rho_pt[m][o], mu_pt_z[m][o]
     mu_pt += mu_ref_avg - np.interp(args.rho_avg, r_pt, mu_pt)
