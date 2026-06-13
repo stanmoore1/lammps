@@ -171,6 +171,15 @@ def mean_field_tail(dz, kvals, beta, r_split, smax, ns=4000):
     return M2, Chat
 
 
+def mirror_symmetrize(Smats, rho):
+    """Average S_ij(k) and rho_i with their mirror images about the box center
+    (z -> Lz - z), which is an exact symmetry when U_ext is even about z = Lz/2.
+    Halves the noise in the matrices BEFORE the (nonlinear) OZ inversion and makes
+    the two interface peaks exactly equivalent."""
+    Sm = {q: 0.5 * (S + S[::-1, ::-1].copy()) for q, S in Smats.items()}
+    return Sm, 0.5 * (rho + rho[::-1])
+
+
 def second_moment(qs, Carr, active, nbins, kfit, dzs, temp, lx,
                   fit_order=2, tail_rsplit=0.0):
     """M2_ij = INT ds s^3 C_ij(s) for every bin pair, from the small-k behaviour of
@@ -298,6 +307,8 @@ def _plot_bulk(kmag, chat, qref, cref):
 def run_slab(args):
     sf = read_ave_time_vector(args.sf_file)
     qs, Smats, rho = assemble_matrices(sf, args.nbins)
+    if not args.no_mirror:
+        Smats, rho = mirror_symmetrize(Smats, rho)
     dz = args.lz / args.nbins
     area = args.lx * args.lx
     kT = args.temp
@@ -358,8 +369,11 @@ def main():
     p.add_argument('--rdf-file', help='[bulk] rdf ave/time file for the S(q) cross-check')
     p.add_argument('--rho-min', type=float, default=0.05,
                    help='[slab] drop bins with density below this (vapor)')
-    p.add_argument('--kfit', type=float, default=2.0,
-                   help='[slab] fit C_ij(k) vs k^2 for k below this')
+    p.add_argument('--kfit', type=float, default=2.5,
+                   help='[slab] fit C_ij(k) vs k^2 for k below this (with the '
+                        'tail correction the residual is smooth to k ~ 2.5)')
+    p.add_argument('--no-mirror', action='store_true',
+                   help='[slab] disable mirror symmetrization of S_ij about Lz/2')
     p.add_argument('--fit-order', type=int, default=2,
                    help='[slab] polynomial order in k^2 for the second-moment fit')
     p.add_argument('--tail-rsplit', type=float, default=1.5,

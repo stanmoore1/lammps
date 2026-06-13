@@ -107,6 +107,7 @@ def main():
     # ----- TZ / OZ-inversion method -----
     sf = oz.read_ave_time_vector(args.sf); nbs = args.nbins_sf
     qs, Smats, rho_s = oz.assemble_matrices(sf, nbs)
+    Smats, rho_s = oz.mirror_symmetrize(Smats, rho_s)
     dzs = args.lz / nbs
     rho_tz = oz.fourier_cosine_smooth(rho_s, 8)
     rp = oz.fourier_cosine_deriv(rho_s, 8, args.lz)   # analytic sine-series derivative
