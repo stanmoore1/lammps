@@ -52,9 +52,12 @@ Get Lx and Lz from the LAMMPS log (printed box bounds) or thermo output.
                [--kappa <c>] [--deg <n>]
    where ladder.csv lists "dumax,density_file" per line.  It returns:
      * mu0(rho), P0(rho) (the van der Waals loop below Tc) from the LOCAL
-       Euler-Lagrange condition mu0(rho(z)) - kappa rho''(z) + U_ext(z) = mu_tot
-       -- pointwise in rho(z), so well conditioned (unlike fitting a polynomial to
-       the integrated coupling free energy, which is collinear and fails);
+       Euler-Lagrange condition mu0(rho(z)) + mu_IH(z) + U_ext(z) = mu_tot.  The
+       gradient correction mu_IH = sum_g b_g d^g rho/dz^g (even g) is FIT from the
+       ladder (--grad-orders, default 2,4) rather than assuming the second-order
+       square-gradient closure b_2 rho'' (= -kappa rho'', the VdW form that fails
+       at sharp interfaces) -- a ladder samples each rho at different gradients, so
+       the b_g are identifiable.  Pointwise in rho(z), well conditioned.
      * INT psi_IH dz and gamma = 2 INT psi_IH from the exact Hellmann-Feynman
        coupling integral, cross-checked against the square-gradient (kappa/2) INT
        rho'^2 dz.

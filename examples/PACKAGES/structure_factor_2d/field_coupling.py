@@ -3,50 +3,52 @@
 energy for CPP, from a LADDER of CPP runs at increasing external-field amplitude.
 
 The external field is U_ext(z) = A cos(2 pi z / Lz)  (A = dUmax/2).  Each rung k
-provides a measured density profile rho_k(z).  Two independent quantities are
-returned, each from the part of the data it is best suited to:
+provides a measured density profile rho_k(z).  Two quantities are returned, each
+from the part of the data it is best suited to:
 
-1. mu0(rho), P0(rho) -- the homogeneous EOS / van der Waals loop -- from the
-   LOCAL Euler-Lagrange (CPP "direct") condition.  Minimising the square-gradient
-   functional  F[rho] = INT [ f0(rho) + (kappa/2) rho'(z)^2 ] dz  at fixed average
-   density gives, at every z,
+1. mu0(rho), P0(rho) -- the homogeneous EOS / van der Waals loop -- from the LOCAL
+   Euler-Lagrange (CPP "direct") condition.  At every z the intrinsic chemical
+   potential equals mu_tot minus the field:
 
-        mu0(rho_k(z)) - kappa rho_k''(z) + U_ext(z) = mu_tot(k).             (*)
+        mu0(rho_k(z)) + mu_IH_k(z) + U_ext(z) = mu_tot(k).                   (*)
 
-   So each profile traces out mu0 POINTWISE in rho_k(z): we pool the points
-   (rho_k(z), U_ext, rho_k'') over all z and all rungs and solve the LINEAR system
+   mu_IH is the inhomogeneous (gradient) correction.  Instead of ASSUMING the
+   second-order square-gradient closure mu_IH = -kappa rho'' (the dissertation's
+   VdW form, which fails at a sharp interface), we expand it in a gradient series
 
-        mu_ex(rho_i) - kappa rho_i'' - mu_tot(k_i) = U_ext,i - T ln rho_i
+        mu_IH(z) = sum_g b_g  d^g rho / dz^g     (even g = 2, 4, ...)
 
-   for the excess-EOS polynomial mu_ex(rho), the square-gradient coefficient
-   kappa, and one reference constant mu_tot(k) per rung (the ideal part T ln rho
-   is taken analytically).  Unlike the integrated-G moment fit, rho'' and U_ext
-   vary WITHIN each profile, so this is well conditioned even for a perturbative
-   field ladder.  mu0 = T ln rho + mu_ex; f0 = f_ideal + INT mu_ex drho;
-   P0 = rho mu0 - f0.
+   and FIT the b_g from the ladder: pooling (*) over all z and all rungs,
+
+        mu_ex(rho_i) + sum_g b_g d^g rho_i - mu_tot(k_i) = -U_ext,i - T ln rho_i,
+
+   a single linear system for the excess-EOS polynomial mu_ex(rho), the gradient
+   coefficients b_g, and one reference constant mu_tot(k) per rung.  Because a
+   LADDER samples a given rho at DIFFERENT gradients (different rungs), the b_g
+   are identifiable, so the gradient correction is data-determined rather than
+   truncated at second order.  grad_orders=(2,) reproduces the old square-gradient
+   closure; (2,4) goes to fourth order; etc.  mu0 = T ln rho + mu_ex;
+   f0 = f_ideal + INT mu_ex; P0 = rho mu0 - f0.
 
 2. INT psi_IH dz and gamma -- the interfacial (gradient) free energy -- from the
-   EXACT Hellmann-Feynman coupling integral, which needs no pressure tensor and
-   no contour choice:
+   EXACT Hellmann-Feynman coupling integral (no pressure tensor, no contour, NO
+   gradient expansion):
 
         A_tot(A) - A_tot(0) = INT_0^A dA' Area INT dz rho_A'(z) cos(2 pi z/Lz),
-        G(A) = F[rho_A]/Area - F_unif/Area = A_tot(A)/Area - A INT rho_A cos dz,
+        G(A) = A_tot(A)/Area - A INT rho_A cos dz,
         INT psi_IH dz = G(A) - ( INT f0(rho_A) dz - f0(rho_avg) Lz ),
         gamma = 2 INT psi_IH dz.
 
-   As a built-in consistency check this is compared with the square-gradient value
-   (kappa/2) INT rho_A'^2 dz from the fitted kappa.
+   This is gradient-exact.  As a cross-check it is compared with the gradient-
+   expansion energy sum_g (c_g/2) INT (d^(g/2) rho)^2, c_g = (-1)^(g/2) b_g.
 
 Number of field strengths needed
 ---------------------------------
-* mu0(rho), P0(rho) need only ONE strong-field profile: it traces mu0 pointwise
-  along z.  But from a single (symmetric) profile rho''(z) is itself a function
-  of rho, so the square-gradient kappa is NOT separable from mu_ex(rho) -- pass a
-  fixed --kappa (e.g. from the TZ/OZ inversion route) for the gradient-corrected
-  EOS, or kappa=0 for the bare local-density estimate.  Two or more rungs (varying
-  rho'' at the same rho) make kappa identifiable on its own.
-* INT psi_IH dz and gamma come from the coupling integral, which needs the LADDER
-  (>= 2 field strengths) to do the dA' charging integral.
+* gamma, INT psi_IH need the LADDER (>= 2 strengths) for the dA' charging integral.
+* The b_g (gradient correction) also need the ladder: from ONE symmetric profile
+  d^g rho is itself a function of rho, so b_g cannot be separated from mu_ex.  With
+  one strength, pass grad_orders=() and supply the gradient correction externally
+  (e.g. kappa from the OZ/TZ route) or accept the bare local-density mu0.
 
 Reference: coupling-constant (charging) integration, e.g. Hansen & McDonald,
 "Theory of Simple Liquids"; R. Evans, Adv. Phys. 28, 143 (1979).
@@ -74,12 +76,18 @@ def f_ideal(rho, temp):
     return temp * r * (np.log(r) - 1.0)
 
 
-def fourier_deriv2(y, nmodes, length):
-    """Analytic second z-derivative of the cosine-series fit of y (a cosine
-    series): d2/dz2 sum a_k cos(2 pi k z/L) = -sum a_k (2 pi k/L)^2 cos(...)."""
+def fderiv(y, nmodes, length, n):
+    """n-th z-derivative of the cosine-series fit of y, evaluated at the bin
+    centers.  Even n give a cosine series, odd n a sine series; both are exactly
+    periodic (no finite-difference error)."""
     coef, z = oz.fourier_cosine_coef(y, nmodes)
     k = np.arange(nmodes + 1)
-    return (-np.cos(2.0 * np.pi * np.outer(z, k)) * (2.0 * np.pi * k / length) ** 2) @ coef
+    fac = (2.0 * np.pi * k / length) ** n
+    if n % 2 == 0:
+        basis = np.cos(2.0 * np.pi * np.outer(z, k)) * ((-1) ** (n // 2)) * fac
+    else:
+        basis = -np.sin(2.0 * np.pi * np.outer(z, k)) * ((-1) ** (n // 2)) * fac
+    return basis @ coef
 
 
 def coupling_G(amps, profiles, Lz):
@@ -94,119 +102,114 @@ def coupling_G(amps, profiles, Lz):
     return cum - amps * I                             # (F[rho_k]-F_unif)/Area
 
 
-def local_eos(amps, profiles, temp, Lz, deg=4, smooth=10, kappa=None):
-    """mu0(rho), P0(rho), and the square-gradient kappa from the local
-    Euler-Lagrange condition (*).  Pools (rho, rho'', U_ext) over all z and rungs
-    and solves the linear system for the excess-EOS polynomial mu_ex(rho), kappa,
-    and a per-rung reference constant mu_tot(k).  If kappa is given it is held
-    fixed (and moved to the RHS) instead of fitted."""
+def local_eos(amps, profiles, temp, Lz, deg=4, smooth=10, grad_orders=(2, 4)):
+    """mu0(rho), P0(rho) and the gradient (mu_IH) coefficients from the local
+    Euler-Lagrange condition (*), pooled pointwise over z and all rungs.  The
+    gradient correction mu_IH = sum_g b_g d^g rho/dz^g (even g) is FIT from the
+    ladder rather than assuming the second-order b_2 rho'' closure.  grad_orders
+    lists the even derivative orders kept; () drops the gradient fit entirely
+    (bare local-density mu0).  Returns rho grid, mu0, P0, f0, mu_ex, the b_g, and
+    the equivalent square-gradient kappa = -b_2."""
     nb = profiles.shape[1]
     dz = Lz / nb
     z = (np.arange(nb) + 0.5) / nb
     rho_avg = profiles[0].mean()
     nr = len(amps)
-    # build the pooled point list, skipping near-empty bins where ln rho blows up
+    ms = list(range(1, deg + 1))
+    go = list(grad_orders)
+    gderiv = {g: np.array([fderiv(p, smooth, Lz, g) for p in profiles]) for g in go}
     rows, rhs = [], []
-    ms = list(range(1, deg + 1))                      # excess-EOS powers rho^1..deg
     for k in range(nr):
         rho = profiles[k]
-        d2 = fourier_deriv2(rho, smooth, Lz)
         U = amps[k] * np.cos(2.0 * np.pi * z)
-        good = rho > 1e-3
-        for i in np.where(good)[0]:
-            # columns: [mu_ex powers m*rho^(m-1)] , [-rho''(if fitting kappa)] ,
-            #          [-1 in this rung's mu_tot slot]
+        for i in np.where(rho > 1e-3)[0]:
             mucol = [m * rho[i] ** (m - 1) for m in ms]
-            rungcol = [0.0] * nr
-            rungcol[k] = -1.0
-            row = mucol + ([-d2[i]] if kappa is None else []) + rungcol
-            r = -U[i] - temp * np.log(rho[i]) + (kappa * d2[i] if kappa is not None else 0.0)
-            rows.append(row); rhs.append(r)
+            gradcol = [gderiv[g][k, i] for g in go]
+            rungcol = [0.0] * nr; rungcol[k] = -1.0
+            rows.append(mucol + gradcol + rungcol)
+            rhs.append(-U[i] - temp * np.log(rho[i]))
     M = np.array(rows); b = np.array(rhs)
-    # gauge: the overall constant is split between mu_ex's reference and mu_tot;
-    # pin mu_tot(rung 0, the uniform reference) = 0 by dropping its column
-    drop = len(ms) + (0 if kappa is not None else 1)      # index of mu_tot(0) col
+    drop = len(ms) + len(go)                          # mu_tot(rung 0) col -> gauge fix
     keep = [j for j in range(M.shape[1]) if j != drop]
     coef, *_ = np.linalg.lstsq(M[:, keep], b, rcond=None)
     cm = coef[:len(ms)]
-    if kappa is None:
-        kappa = coef[len(ms)]
+    bg = dict(zip(go, coef[len(ms):len(ms) + len(go)]))
     rg = np.linspace(profiles.min() + 1e-3, profiles.max() - 1e-3, 200)
     mu_ex = sum(c * m * rg ** (m - 1) for c, m in zip(cm, ms))
     f_ex = sum(c * rg ** m for c, m in zip(cm, ms))
     mu0 = temp * np.log(rg) + mu_ex
     f0 = f_ideal(rg, temp) + f_ex
     P0 = rg * mu0 - f0
-    return dict(rho=rg, mu0=mu0, P0=P0, f0=f0, kappa=float(kappa),
-                mu_ex=mu_ex, cm=cm, ms=ms, rho_avg=rho_avg)
+    return dict(rho=rg, mu0=mu0, P0=P0, f0=f0, mu_ex=mu_ex, cm=cm, ms=ms,
+                bg=bg, kappa=float(-bg.get(2, 0.0)), rho_avg=rho_avg)
 
 
 def interfacial(amps, profiles, eos, temp, Lz, smooth=10):
     """INT psi_IH dz and gamma=2 INT psi_IH per rung, from the coupling integral G
-    minus the local free energy INT f0(rho) dz; cross-checked against the
-    square-gradient value (kappa/2) INT rho'^2 dz."""
+    minus the local free energy INT f0(rho) dz (gradient-exact); cross-checked
+    against the fitted gradient-expansion energy sum_g (c_g/2) INT (d^(g/2) rho)^2,
+    c_g = (-1)^(g/2) b_g."""
     nb = profiles.shape[1]; dz = Lz / nb
     G = coupling_G(amps, profiles, Lz)
     f0_of = lambda r: f_ideal(r, temp) + sum(c * r ** m for c, m in zip(eos['cm'], eos['ms']))
     floc = f0_of(profiles).sum(axis=1) * dz - f0_of(eos['rho_avg']) * Lz
-    psi_int = G - floc                                # INT psi_IH dz
-    rp = np.array([oz.fourier_cosine_deriv(p, smooth, Lz) for p in profiles])
-    psi_sg = 0.5 * eos['kappa'] * (rp ** 2).sum(axis=1) * dz   # square-gradient check
+    psi_int = G - floc                                # gradient-exact INT psi_IH
+    psi_sg = np.zeros(len(amps))
+    for g, bgv in eos['bg'].items():
+        cg = ((-1) ** (g // 2)) * bgv
+        d = np.array([fderiv(p, smooth, Lz, g // 2) for p in profiles])
+        psi_sg += 0.5 * cg * (d ** 2).sum(axis=1) * dz
     return dict(G=G, psi_int=psi_int, gamma=2.0 * psi_int, psi_sg=psi_sg)
 
 
 # ----------------------------------------------------------------------------
 
-def _solve_el(mu0_fn, kappa, A, temp, rho_avg, Lz, nb, iters=6000, dt=0.02):
-    """Equilibrium square-gradient profile for U_ext = A cos(2 pi z/Lz), by a
-    spectral semi-implicit relaxation of  d rho/dt = -(mu0(rho) - kappa rho'' +
-    U_ext - mu_tot).  The stiff -kappa rho'' term is treated implicitly (Fourier
-    factor 1 + dt kappa k^2), so the iteration is unconditionally stable; mu_tot
-    is the Lagrange multiplier fixing <rho> = rho_avg."""
+def _solve_el(mu0_fn, grad, A, temp, rho_avg, Lz, nb, iters=8000, dt=0.02):
+    """Equilibrium profile for the functional F = INT[f0(rho) + sum_g (c_g/2)
+    (d^(g/2) rho)^2] dz under U_ext = A cos(2 pi z/Lz), by spectral semi-implicit
+    relaxation; grad = {g: c_g} (e.g. {2: kappa2, 4: kappa4}).  The stiff gradient
+    operator (Fourier factor sum_g c_g k^g) is treated implicitly."""
     z = (np.arange(nb) + 0.5) / nb * Lz
     U = A * np.cos(2.0 * np.pi * z / Lz)
     k = 2.0 * np.pi * np.fft.rfftfreq(nb, d=Lz / nb)
-    denom = 1.0 + dt * kappa * k ** 2
+    denom = 1.0 + dt * sum(c * k ** g for g, c in grad.items())
     rho = rho_avg + 0.01 * np.cos(2.0 * np.pi * z / Lz)
     for _ in range(iters):
         expl = mu0_fn(np.clip(rho, 1e-6, None)) + U
-        expl -= expl.mean()                           # remove mu_tot (mean) -> conserve mass
+        expl -= expl.mean()
         rho = np.fft.irfft(np.fft.rfft(rho - dt * expl) / denom, n=nb)
         rho *= rho_avg / rho.mean()
     return rho
 
 
 def _selftest():
-    """Validate mu0(rho)/kappa recovery on EQUILIBRIUM profiles: prescribe a known
-    EOS mu0 = T ln rho + sum a_m rho^m derivative and square-gradient kappa, solve
-    the EL at a ladder of field strengths, then check local_eos recovers them and
-    that the coupling-integral interfacial energy matches the square-gradient one."""
+    """Validate the ladder-fit gradient extraction BEYOND second order: prescribe a
+    known EOS and a gradient functional with BOTH a square-gradient (kappa2) and a
+    fourth-order (kappa4) term, solve the EL at a ladder of fields, and check
+    local_eos recovers mu_ex, kappa2 AND kappa4, plus the gradient-exact INT psi_IH."""
     Lz = 30.0; T = 1.0; nb = 200; rho_avg = 0.45
-    a = {2: 2.5, 3: -1.0, 4: 0.6}                     # f_ex = sum a_m rho^m
+    a = {2: 2.5, 3: -1.0, 4: 0.6}
     mu_ex = lambda r: sum(a[m] * m * r ** (m - 1) for m in a)
     mu0 = lambda r: T * np.log(r) + mu_ex(r)
-    kappa_true = 1.5
-    # the coupling integral uses a trapezoidal A-quadrature whose error is O(dA^2);
-    # 13 rungs bring the coupling-vs-square-gradient cross-check under a few %
+    grad = {2: 1.5, 4: 0.8}                           # (k2/2)(rho')^2 + (k4/2)(rho'')^2
     amps = np.linspace(0.0, 2.4, 13)
     profiles = [np.full(nb, rho_avg)]
     for A in amps[1:]:
-        profiles.append(_solve_el(mu0, kappa_true, A, T, rho_avg, Lz, nb))
+        profiles.append(_solve_el(mu0, grad, A, T, rho_avg, Lz, nb))
     profiles = np.array(profiles)
-    eos = local_eos(amps, profiles, T, Lz, deg=4, smooth=12)
-    rg = eos['rho']
-    mt = mu_ex(rg)
+    eos = local_eos(amps, profiles, T, Lz, deg=4, smooth=12, grad_orders=(2, 4))
+    rg = eos['rho']; mt = mu_ex(rg)
     de = (eos['mu_ex'] - eos['mu_ex'].mean()) - (mt - mt.mean())
     itf = interfacial(amps, profiles, eos, T, Lz, smooth=12)
-    rel_grad = np.max(np.abs(itf['psi_int'] - itf['psi_sg'])
-                      / (np.abs(itf['psi_sg']) + 1e-9))
+    rel = np.max(np.abs(itf['psi_int'] - itf['psi_sg']) / (np.abs(itf['psi_sg']) + 1e-9))
+    k2, k4 = -eos['bg'][2], eos['bg'][4]
     print("rho range %.3f-%.3f" % (profiles.min(), profiles.max()))
-    print("kappa  true=%.3f  fit=%.4f" % (kappa_true, eos['kappa']))
-    print("max|mu_ex - ref| over sampled rho = %.2e" % np.max(np.abs(de)))
-    print("max rel diff (coupling INT psi vs square-gradient) = %.2e" % rel_grad)
-    ok = (abs(eos['kappa'] - kappa_true) < 0.05
-          and np.max(np.abs(de)) < 2e-2 and rel_grad < 0.05)
-    print("  -> mu0(rho), kappa, and interfacial energy recovered"
+    print("kappa2 true=%.3f fit=%.4f ; kappa4 true=%.3f fit=%.4f" % (grad[2], k2, grad[4], k4))
+    print("max|mu_ex - ref| = %.2e ; coupling vs grad-expansion rel = %.2e"
+          % (np.max(np.abs(de)), rel))
+    ok = (abs(k2 - grad[2]) < 0.05 and abs(k4 - grad[4]) < 0.05
+          and np.max(np.abs(de)) < 2e-2 and rel < 0.05)
+    print("  -> mu_ex, kappa2, kappa4 and interfacial energy recovered (beyond 2nd order)"
           if ok else "  -> MISMATCH")
 
 
@@ -218,14 +221,16 @@ def main():
     ap.add_argument('--lz', type=float)
     ap.add_argument('--temp', type=float, default=1.0)
     ap.add_argument('--deg', type=int, default=4, help='excess-EOS polynomial degree')
-    ap.add_argument('--kappa', type=float, default=None,
-                    help='fix the square-gradient coefficient instead of fitting it')
+    ap.add_argument('--grad-orders', default='2,4',
+                    help='comma list of even gradient orders for mu_IH '
+                         '(e.g. "2" = square-gradient/VdW, "2,4" = 4th order, "" = none)')
     ap.add_argument('--smooth', type=int, default=10, help='cosine modes for profiles')
     ap.add_argument('--selftest', action='store_true')
     args = ap.parse_args()
     if args.selftest:
         _selftest(); return
 
+    go = tuple(int(x) for x in args.grad_orders.split(',') if x.strip())
     rows = [l.split(',') for l in open(args.ladder) if l.strip() and not l.startswith('#')]
     amps, grids = [0.0], []
     for du, fn in rows:
@@ -234,12 +239,13 @@ def main():
     profiles = np.array([np.full_like(grids[0], np.mean(grids[0]))] + grids)
     amps = np.array(amps)
     eos = local_eos(amps, profiles, args.temp, args.lz, deg=args.deg,
-                    smooth=args.smooth, kappa=args.kappa)
+                    smooth=args.smooth, grad_orders=go)
     itf = interfacial(amps, profiles, eos, args.temp, args.lz, smooth=args.smooth)
-    print("# field-coupling EOS:  kappa=%.4f" % eos['kappa'])
-    print("# INT psi_IH (coupling) strongest rung = %.4f ; gamma = %.4f"
+    print("# field-coupling EOS: gradient coeffs b_g = %s (kappa=-b_2=%.4f)"
+          % ({g: round(v, 4) for g, v in eos['bg'].items()}, eos['kappa']))
+    print("# INT psi_IH (coupling, exact) strongest rung = %.4f ; gamma = %.4f"
           % (itf['psi_int'][-1], itf['gamma'][-1]))
-    print("# (square-gradient cross-check INT psi_IH = %.4f)" % itf['psi_sg'][-1])
+    print("# (gradient-expansion cross-check INT psi_IH = %.4f)" % itf['psi_sg'][-1])
     print("# rho      mu0        P0")
     for r, m, p in zip(eos['rho'][::8], eos['mu0'][::8], eos['P0'][::8]):
         print(f"  {r:6.3f}  {m: .4f}  {p: .4f}")
