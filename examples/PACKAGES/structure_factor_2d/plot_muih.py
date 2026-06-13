@@ -60,6 +60,8 @@ def main():
     ap.add_argument('--sf', default='cpp1_sf.out')
     ap.add_argument('--nbins-sf', type=int, default=40)
     ap.add_argument('--kfit', type=float, default=1.5)
+    ap.add_argument('--psi-deg', type=int, default=6,
+                    help='polynomial degree for the psi(rho) fit (paper: 14)')
     ap.add_argument('--ridge', type=float, default=1e-3)
     ap.add_argument('--ref', help='reference csv: rho,mu_IH (e.g. LJ EOS)')
     ap.add_argument('--out', default='muih.png')
@@ -111,7 +113,11 @@ def main():
     keep = (rho_tz > rmin + 0.05) & (rho_tz < rmax - 0.05)
     o = np.argsort(rho_tz[keep])
     rk, pk = rho_tz[keep][o], psi[keep][o]
-    dp = np.polyder(np.polyfit(rk, pk, 4))
+    # psi(rho) polynomial: the paper used 15 coefficients (deg 14) on clean
+    # LDA+PY psi; raise --psi-deg toward that once the MD psi is well sampled
+    # (validated: paper psi -> paper mu_TZ to 0.01 at deg 14).  Low degrees
+    # distort the shape; high degrees oscillate on noisy psi.
+    dp = np.polyder(np.polyfit(rk, pk, args.psi_deg))
     r_tz = np.linspace(rk.min(), rk.max(), 100)
     mu_tz = np.polyval(dp, r_tz)
     mu_tz += mu_ref_avg - np.interp(args.rho_avg, r_tz, mu_tz)
