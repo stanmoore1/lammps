@@ -141,6 +141,69 @@ def fourier_cosine_deriv(y, nmodes, length):
     return Bd @ coef
 
 
+def _lj_u(r):
+    """LJ pair potential, eps = sigma = 1."""
+    inv6 = r ** -6
+    return 4.0 * (inv6 * inv6 - inv6)
+
+
+def mean_field_tail(dz, kvals, beta, r_split, smax, ns=4000):
+    """Analytic mean-field (RPA) tail of the in-plane direct correlation function
+    between two z-planes separated by dz:
+
+        C_tail(s) = -beta u(sqrt(dz^2 + s^2))  for sqrt(dz^2+s^2) > r_split, else 0
+
+    Returns (M2_tail, Chat_tail(kvals)) with
+        M2_tail   = INT_0^inf  s^3 C_tail(s) ds          (the s^3 second moment)
+        Chat_tail = 2 pi INT_0^inf s J0(ks) C_tail(s) ds (its in-plane transform).
+
+    The s^3-weighted second moment of c is DOMINATED by this attractive tail, which
+    is known exactly from the potential; computing it analytically (instead of from
+    a biased, noisy small-k slope of the MD c) is what makes the TZ moment robust to
+    noise and to a large k_min = 2 pi / Lx in small systems."""
+    from scipy.special import j0
+    s = np.linspace(1e-3, smax, ns)
+    r = np.sqrt(dz * dz + s * s)
+    Ct = np.where(r > r_split, -beta * _lj_u(r), 0.0)
+    trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz
+    M2 = trapz(s ** 3 * Ct, s)
+    Chat = np.array([2.0 * np.pi * trapz(s * j0(k * s) * Ct, s) for k in kvals])
+    return M2, Chat
+
+
+def second_moment(qs, Carr, active, nbins, kfit, dzs, temp, lx,
+                  fit_order=2, tail_rsplit=0.0):
+    """M2_ij = INT ds s^3 C_ij(s) for every bin pair, from the small-k behaviour of
+    the inverted C_ij(k): C_ij(k) = C_ij(0) - (pi/2) k^2 M2_ij + O(k^4).
+
+    With tail_rsplit > 0 the long-range (r > tail_rsplit) part of c is replaced by
+    the analytic mean-field tail and only the SHORT-RANGE residual is fit from the
+    data; the residual is smooth in k (short-ranged in s), so a low-order fit from
+    a coarse k-grid is unbiased and noise-robust."""
+    ks = qs[qs < kfit]
+    k2 = ks ** 2
+    deg = min(fit_order, len(ks) - 1)
+    if deg < 1:
+        sys.exit("not enough small-k points; raise --kfit")
+    M2 = np.zeros((nbins, nbins))
+    tail = {}
+    if tail_rsplit > 0.0:
+        beta = 1.0 / temp
+        smax = lx / 2.0                       # in-plane half-box
+        for m in range(nbins):
+            dz = (((m + nbins // 2) % nbins) - nbins // 2) * dzs   # min-image
+            tail[m] = mean_field_tail(abs(dz), ks, beta, tail_rsplit, smax)
+    for ia, a in enumerate(active):
+        for ib, b in enumerate(active):
+            y = np.array([Carr[q][ia, ib] for q in ks])
+            if tail_rsplit > 0.0:
+                M2t, Ct = tail[abs(a - b)]
+                M2[a, b] = M2t - (2.0 / np.pi) * np.polyfit(k2, y - Ct, deg)[-2]
+            else:
+                M2[a, b] = -(2.0 / np.pi) * np.polyfit(k2, y, deg)[-2]
+    return M2
+
+
 # ----------------------------------------------------------------------------
 # bulk validation
 # ----------------------------------------------------------------------------
@@ -251,23 +314,12 @@ def run_slab(args):
     Carr = {q: invert_oz(Smats[q], rho, dz, area, active=active, ridge=args.ridge)[0]
             for q in qs}
 
-    # second moment from the small-k behavior: C_ij(k) = C_ij(0) - (pi/2) k^2 M2_ij
-    # + O(k^4).  CAUTION: the smallest accessible k = 2*pi/Lx is often NOT in the
-    # asymptotic k^2 regime (J0(ks) deviates from 1-(ks)^2/4 for ks ~ 1, and the
-    # s^3-weighted c(s) extends to several sigma), which biases a linear fit LOW.
-    # A polynomial in k^2 of order --fit-order partially corrects this; the real
-    # fix is a larger in-plane box (smaller k_min).
-    ksmall = qs[qs < args.kfit]
-    deg = min(args.fit_order, len(ksmall) - 1)
-    if deg < 1:
-        sys.exit("not enough small-k points to fit the second moment; raise --kfit")
-    k2 = ksmall ** 2
-    M2 = np.zeros((na, na))                            # full grid, zeros in vacuum
-    for ia, a in enumerate(active):
-        for ib, b in enumerate(active):
-            y = np.array([Carr[q][ia, ib] for q in ksmall])
-            coef = np.polyfit(k2, y, deg)
-            M2[a, b] = -(2.0 / np.pi) * coef[-2]      # k^2 coefficient -> INT ds s^3 C
+    # second moment INT ds s^3 C_ij from the small-k behaviour of C_ij(k).  With
+    # --tail-rsplit the s^3-dominant long-range part is taken analytically from the
+    # mean-field tail -beta u(r) and only the short-range residual is fit -- this
+    # removes the small-k (large k_min) bias and is robust to noise / small boxes.
+    M2 = second_moment(qs, Carr, active, na, args.kfit, dz, kT, args.lx,
+                       fit_order=args.fit_order, tail_rsplit=args.tail_rsplit)
 
     # density gradient: analytic derivative of the cosine fit (a sine series)
     z = (np.arange(na) + 0.5) * dz
@@ -310,6 +362,10 @@ def main():
                    help='[slab] fit C_ij(k) vs k^2 for k below this')
     p.add_argument('--fit-order', type=int, default=2,
                    help='[slab] polynomial order in k^2 for the second-moment fit')
+    p.add_argument('--tail-rsplit', type=float, default=1.5,
+                   help='[slab] use the analytic mean-field tail of c for '
+                        'r > this (sigma) and fit only the short-range residual; '
+                        '0 disables (much noisier). Requires scipy.')
     p.add_argument('--smooth', type=int, default=6,
                    help='[slab] number of cosine modes to smooth rho(z)')
     p.add_argument('--ridge', type=float, default=1e-4,

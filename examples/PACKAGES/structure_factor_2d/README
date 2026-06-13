@@ -48,12 +48,16 @@ Notes / caveats
 ---------------
 - The OZ inversion is ill-conditioned in low-density (vapor) bins; oz_invert.py drops
   bins below --rho-min and reports the condition number of (I + D h).
-- The smallest accessible wavevector is k = 2*pi/Lx, which limits the small-k fit used
-  for the TZ second moment.  For Lx ~ 13 sigma this is a SYSTEMATIC LOW BIAS of order
-  2x in gamma_TZ (the k^2 regime is not reached; J0(ks) corrections matter for the
-  s^3-weighted tail of c).  A quadratic fit in k^2 (--fit-order 2) partially corrects
-  it; the real remedy is a larger in-plane box.  Validate against the full-cell
-  mechanical gamma = Lz*<Pzz-(Pxx+Pyy)/2> (NOT the per-interface value).
+- ROBUSTNESS: the s^3-weighted TZ second moment INT ds s^3 c is dominated by the
+  long-range attractive tail of c, where c(r) -> -beta u(r) (mean field / RPA).  The
+  small-k slope of the inverted c(k) estimates this tail poorly (the smallest
+  k = 2*pi/Lx is not in the k^2 regime for Lx ~ 13 sigma) and noisily, giving a ~2x
+  LOW bias in gamma_TZ.  The --tail-rsplit option (default 1.5 sigma, requires scipy)
+  takes that tail ANALYTICALLY from -beta u(r) and fits only the smooth short-range
+  residual; this removes the bias and the noise sensitivity, so the method works for
+  small/short runs.  On a 100k-step Lx=13 sigma snapshot it brings gamma_TZ from 0.38
+  to 0.62 (mechanical full-cell 0.72) and psi_IH onto the published curve.  Validate
+  gamma_TZ against the full-cell mechanical gamma = Lz*<Pzz-(Pxx+Pyy)/2>.
 - The s^3 weighting in the TZ second moment emphasizes the large-s tail of C(s); a
   -beta*u(s) tail correction beyond s = L/2 is a natural refinement (not yet applied).
 - This is a proof of concept: parameters (run length, kmax, nbins, box size) are modest

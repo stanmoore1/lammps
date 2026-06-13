@@ -64,6 +64,9 @@ def main():
                     help='polynomial degree for the psi(rho) fit (paper: 14)')
     ap.add_argument('--lrc-rcut', type=float, default=0.0,
                     help='apply local LJ tail correction to P0 for this cutoff (0 = off)')
+    ap.add_argument('--tail-rsplit', type=float, default=1.5,
+                    help='mean-field tail correction radius for the TZ second moment '
+                         '(0 = off; requires scipy)')
     ap.add_argument('--ridge', type=float, default=1e-3)
     ap.add_argument('--ref', help='reference csv: rho,mu_IH (e.g. LJ EOS)')
     ap.add_argument('--out', default='muih.png')
@@ -110,13 +113,11 @@ def main():
     active = np.where(rho_s > 0.1)[0]
     Carr = {q: oz.invert_oz(Smats[q], rho_s, dzs, A, active=active, ridge=args.ridge)[0]
             for q in qs}
-    ksmall = qs[qs < args.kfit]; k2 = ksmall ** 2
-    deg = min(2, len(ksmall) - 1)         # quadratic in k^2 reduces small-k fit bias
-    M2 = np.zeros((nbs, nbs))
-    for ia, a in enumerate(active):
-        for ib, b in enumerate(active):
-            y = np.array([Carr[q][ia, ib] for q in ksmall])
-            M2[a, b] = -(2.0 / np.pi) * np.polyfit(k2, y, deg)[-2]
+    # mean-field tail correction (default on) makes the second moment robust to
+    # noise and to a coarse k-grid; linear residual fit suffices then.
+    fo = 1 if args.tail_rsplit > 0 else 2
+    M2 = oz.second_moment(qs, Carr, active, nbs, args.kfit, dzs, kT, A ** 0.5,
+                          fit_order=fo, tail_rsplit=args.tail_rsplit)
     psi = (np.pi * kT / 4.0) * rp * (dzs * (M2 @ rp))
     rmin, rmax = rho_tz.min(), rho_tz.max()
     keep = (rho_tz > rmin + 0.05) & (rho_tz < rmax - 0.05)
