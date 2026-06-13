@@ -15,9 +15,14 @@ correlation function C(z_i, z_j, s).
 bulk mode : homogeneous fluid -- check that C_ij is translationally invariant in
             z and that its z-Fourier transform reproduces the bulk c(k); optional
             cross-check against (1 - 1/S(q))/rho from an rdf file.
-slab mode : liquid-vapor slab -- extract the TZ second moment from the small-k
-            slope of C_ij(k), then psi_IH(z) (Eq. 3.33) and the surface tension
-            (Eq. 3.32) of the dissertation.
+slab mode : liquid-vapor / CPP slab -- extract the TZ second moment from the
+            small-k slope of C_ij(k), then psi_IH(z) (Eq. 3.33) and the surface
+            tension (Eq. 3.32) of the dissertation.
+kb mode   : Kirkwood-Buff / compressibility route to the homogeneous chemical
+            potential mu0(rho), from the k->0 INTERCEPT of the same C_ij(k)
+            (c_hat(0; rho) = dz sum_j C_ij(0); beta dmu0/drho = 1/rho - c_hat(0)).
+            An independent third route to mu0 alongside the pressure-tensor and
+            TZ methods (Nichols, Moore & Wheeler, Phys. Rev. E 80, 051203 (2009)).
 
 Time-averaging is done by fix ave/time in the LAMMPS input; this script does only
 the normalization and linear algebra.
@@ -213,6 +218,45 @@ def second_moment(qs, Carr, active, nbins, kfit, dzs, temp, lx,
     return M2
 
 
+def local_chat0(qs, Carr, active, nbins, kfit, dz):
+    """Local 3D direct correlation at zero wavevector for each z-bin,
+        c_hat(0; rho_i) = dz * sum_j C_ij(k->0),
+    i.e. the row sum of the k=0 intercepts of the inverted in-plane direct
+    correlation matrix (the z-integral of c at the local density).  Combined with
+    the compressibility equation beta dP/drho = 1 - rho c_hat(0) this gives the
+    local beta dmu0/drho = 1/rho - c_hat(0) -- the Kirkwood-Buff / fluctuation
+    route to the homogeneous chemical potential (Nichols, Moore & Wheeler,
+    Phys. Rev. E 80, 051203 (2009)).  The intercept needs no tail correction:
+    unlike the s^3 second moment it is set by the short-range core, not the tail."""
+    ks = qs[qs < kfit]
+    k2 = ks ** 2
+    aidx = {a: i for i, a in enumerate(active)}
+    chat0 = np.full(nbins, np.nan)
+    for a in active:
+        tot = 0.0
+        for b in active:
+            y = np.array([Carr[q][aidx[a], aidx[b]] for q in ks])
+            tot += np.polyfit(k2, y, 2)[-1]          # constant term = C_ab(0)
+        chat0[a] = dz * tot
+    return chat0
+
+
+def kb_chemical_potential(rho_bins, chat0, temp, h_star=0.183, poly=5):
+    """mu0(rho) from c_hat(0; rho): integrate  beta dmu_ex/drho = -c_hat(0)  and add
+    the ideal-gas part mu_id = T ln[(h*^2/(2 pi T))^(3/2) rho].  Returns (rho_grid,
+    mu0) up to one additive constant (mu_tot), fixed by matching to a reference at
+    one density."""
+    m = ~np.isnan(chat0)
+    r, c = rho_bins[m], chat0[m]
+    o = np.argsort(r)
+    cfit = np.poly1d(np.polyfit(r[o], c[o], poly))
+    rg = np.linspace(r.min(), r.max(), 300)
+    bmu_ex = -np.concatenate([[0.0], np.cumsum(0.5 * (cfit(rg[1:]) + cfit(rg[:-1]))
+                                               * np.diff(rg))])
+    mu_id = temp * np.log((h_star ** 2 / (2.0 * np.pi * temp)) ** 1.5 * rg)
+    return rg, mu_id + temp * bmu_ex
+
+
 # ----------------------------------------------------------------------------
 # bulk validation
 # ----------------------------------------------------------------------------
@@ -356,11 +400,41 @@ def run_slab(args):
 
 
 # ----------------------------------------------------------------------------
+# slab: KB / compressibility route to the homogeneous chemical potential mu0(rho)
+# ----------------------------------------------------------------------------
+
+def run_kb(args):
+    sf = read_ave_time_vector(args.sf_file)
+    qs, Smats, rho = assemble_matrices(sf, args.nbins)
+    if not args.no_mirror:
+        Smats, rho = mirror_symmetrize(Smats, rho)
+    dz = args.lz / args.nbins
+    area = args.lx * args.lx
+    active = np.where(rho > args.rho_min)[0]
+    Carr = {q: invert_oz(Smats[q], rho, dz, area, active=active, ridge=args.ridge)[0]
+            for q in qs}
+
+    # local c_hat(0; rho) = dz sum_j C_ij(0) and the implied beta dmu0/drho
+    chat0 = local_chat0(qs, Carr, active, args.nbins, args.kfit, dz)
+    rg, mu0 = kb_chemical_potential(rho, chat0, args.temp, h_star=args.hstar)
+
+    print("# KB / compressibility route (PRE 80, 051203):")
+    print("# rho     c_hat(0)   beta*dmu0/drho")
+    for a in active:
+        if np.isnan(chat0[a]):
+            continue
+        print(f"  {rho[a]:6.3f}  {chat0[a]: .3f}   {1.0/rho[a]-chat0[a]: .3f}")
+    print("\n# mu0(rho) (one additive constant = mu_tot, fix by matching a reference):")
+    for k in range(0, len(rg), max(1, len(rg) // 20)):
+        print(f"  rho={rg[k]:6.3f}  mu0={mu0[k]: .4f}")
+
+
+# ----------------------------------------------------------------------------
 
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--mode', choices=['bulk', 'slab'], required=True)
+    p.add_argument('--mode', choices=['bulk', 'slab', 'kb'], required=True)
     p.add_argument('--sf-file', required=True, help='fix ave/time output of c_sf[*]')
     p.add_argument('--nbins', type=int, required=True)
     p.add_argument('--lx', type=float, required=True, help='box length in x (= y)')
@@ -384,11 +458,15 @@ def main():
                    help='[slab] number of cosine modes to smooth rho(z)')
     p.add_argument('--ridge', type=float, default=1e-4,
                    help='[slab] Tikhonov regularization for the OZ inversion')
+    p.add_argument('--hstar', type=float, default=0.183,
+                   help='[kb] reduced thermal wavelength h* for the ideal-gas mu')
     p.add_argument('--plot', action='store_true')
     args = p.parse_args()
 
     if args.mode == 'bulk':
         run_bulk(args)
+    elif args.mode == 'kb':
+        run_kb(args)
     else:
         run_slab(args)
 
