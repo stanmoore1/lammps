@@ -73,6 +73,11 @@ fix             den all ave/chunk 10 5000 50000 cz density/number file cpp1_dens
 compute         s all stress/atom NULL pair
 fix             prof all ave/chunk 10 5000 50000 cz c_s[1] c_s[2] c_s[3] norm none file cpp1_stress.out
 
+# per-atom potential energy -> energy-density profile u(z) (= sum(pe)/V_bin); used
+# for the inhomogeneous internal-energy / enthalpy density (h = u + P0).
+compute         pe all pe/atom
+fix             edens all ave/chunk 10 5000 50000 cz c_pe norm none file cpp1_energy.out
+
 # global pressure tensor for the induced surface tension (pair virial only, so the
 # fix addforce external-field virial is NOT included)
 compute         press all pressure NULL pair

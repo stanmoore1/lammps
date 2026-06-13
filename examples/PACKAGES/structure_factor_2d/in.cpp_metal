@@ -1,0 +1,89 @@
+# CPP simulation for a many-body machine-learned (ML) metal potential (copper).
+#
+# Same construction as in.cpp1_sc (external cosine field -> density wave -> field-
+# coupling homogeneous EOS), but with a SNAP/ACE potential in `units metal`.  The
+# point of this run for the paper: for a many-body potential the Irving-Kirkwood
+# pressure contour is UNDEFINED, so the second-order P0 = 3/2 PT - 1/2 PN and the
+# IK-vs-Harasima accuracy gauge are unavailable.  Only the Harasima contour (per-atom
+# virial from compute stress/atom) can be formed.  The field-coupling method
+# (field_coupling.py / fc_isotherm.py) needs ONLY the density profile, so it is the
+# exact route here -- and supplies the accuracy check that the missing IK contour
+# would otherwise provide.
+#
+# Potential files (in the LAMMPS potentials/ dir; set $LAMMPS_POTENTIALS or copy
+# Cu_Zuo_JPCA2020.snap{coeff,param} locally):  Y. Zuo et al., J. Phys. Chem. A 124,
+# 731 (2020).
+
+# ----- adjustable -----
+variable        T      index 6000.0      # temperature (K); Cu liquid-vapor Tc ~ 8000 K
+variable        ALAT   index 3.80        # fcc lattice constant (Ang) -> sets rho_avg
+variable        dUmax  index 0.50        # max external potential difference (eV)
+variable        NBIN   equal 200         # z-bins for density/stress/energy profiles
+variable        KMAX   equal 8           # structure-factor reciprocal cutoff
+variable        SFBIN  equal 40          # z-bins for the structure factor (OZ matrix)
+variable        Nequil index 20000       # field-off equilibration / melting
+variable        Nfield index 40000       # field-on equilibration (discard)
+variable        Nprod  index 200000      # production
+# ----------------------
+
+variable        AF     equal ${dUmax}/2.0
+
+units           metal
+atom_style      atomic
+
+# fcc, square cross-section, aspect Lz/Lx = 2 (8 x 8 x 16 cells -> 4096 atoms)
+lattice         fcc ${ALAT}
+region          box block 0 8 0 8 0 16
+create_box      1 box
+create_atoms    1 box
+mass            1 63.546
+
+velocity        all create ${T} 87287 rot yes dist gaussian
+
+# SNAP copper (many-body).  For ACE instead, use:
+#   pair_style    pace recursive
+#   pair_coeff    * * Cu-PBE-core-rep.ace Cu
+pair_style      snap
+pair_coeff      * * Cu_Zuo_JPCA2020.snapcoeff Cu_Zuo_JPCA2020.snapparam Cu
+neighbor        0.3 bin
+neigh_modify    every 10 delay 0 check no
+
+timestep        0.001
+fix             1 all nvt temp ${T} ${T} 0.1
+
+# field-off equilibration (melts the lattice at high T)
+thermo          2000
+run             ${Nequil}
+
+# apply the external field U_ext(z) = (dUmax/2) cos(2 pi z/Lz); F_z = -dU/dz.
+# (eV and Angstrom -> force in eV/Ang automatically; field is units-agnostic.)
+variable        forcez atom 2*PI*${AF}*sin(2*PI*z/lz)/lz
+fix             ext all addforce 0.0 0.0 v_forcez
+run             ${Nfield}
+
+# ----- production measurements -----
+reset_timestep  0
+variable        dzr equal 1.0/${NBIN}
+compute         cz all chunk/atom bin/1d z lower ${dzr} units reduced
+
+# density profile rho(z) -- the ONLY input the field-coupling method needs
+fix             den all ave/chunk 10 5000 50000 cz density/number file metal_density.out
+
+# Harasima configurational stress (pair virial only) -> pressure-tensor profile.
+# This is the ONLY contour available for a many-body potential (no IK).
+compute         s all stress/atom NULL pair
+fix             prof all ave/chunk 10 5000 50000 cz c_s[1] c_s[2] c_s[3] norm none file metal_stress.out
+
+# per-atom potential energy -> energy-density profile u(z)
+compute         pe all pe/atom
+fix             edens all ave/chunk 10 5000 50000 cz c_pe norm none file metal_energy.out
+
+# bin-resolved structure factor for the OZ / DCF cross-check (potential-agnostic)
+compute         sf all structure/factor/2d ${KMAX} ${SFBIN}
+fix             sfavg all ave/time 10 5000 50000 c_sf[*] mode vector file metal_sf.out
+
+thermo          10000
+thermo_style    custom step temp pe press pxx pyy pzz
+run             ${Nprod}
+
+print           "BOX Lx $(lx) Ly $(ly) Lz $(lz)  N $(count(all))  number_density $(count(all)/vol)"
