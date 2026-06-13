@@ -11,8 +11,12 @@
 units           lj
 atom_style      atomic
 
-variable        rho   index 0.437     # reduced number density (CPP-1 avg)
-variable        temp  index 1.5       # reduced temperature (CPP-1)
+# Default state point is a dense liquid: S(q) is small and smooth there, so the
+# rdf-based (1-1/S)/rho cross-check is reliable.  (Near-critical points, e.g.
+# rho=0.437 T=1.5, have huge S(q) and a long-ranged g(r) that the finite rdf
+# cutoff truncates badly -- not a good validation target.)
+variable        rho   index 0.85      # reduced number density
+variable        temp  index 1.5       # reduced temperature
 variable        kmax  index 8         # max reciprocal-lattice index (circular cutoff)
 variable        nbins index 8         # number of z-bins
 variable        rcut  index 2.5       # truncated LJ (no tail correction)

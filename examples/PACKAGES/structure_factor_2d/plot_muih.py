@@ -3,9 +3,17 @@
 pressure-tensor and TZ (OZ-inversion) methods, optionally compared to a
 reference (e.g. LJ EOS) curve.  Recreates dissertation Fig 3.4(b).
 
-    pressure tensor:  mu_IH(z) = -(3/2) INT (1/rho) d(PN-PT)/dz dz
-    TZ:               psi_IH(z) = (pi kT/4) rho'(z) INT dz2 rho'(z2) INT ds s^3 C
-                      mu_IH(z)  =  d psi_IH / d rho
+Sign convention: the published figure (JCP 134, 114514, Fig. 3b supplemental
+data) plots the NEGATIVE of the dissertation's Eq. 3.6/3.7 mu_IH, i.e. the
+correction mu0 - mu_int that is ADDED to Widom's mu_int to obtain mu0.  (Check:
+Eq. 3.7 gives mu_IH(rho_min) = -c*rho'' < 0 at the density minimum, while the
+spreadsheet VdW value there is +0.236.)  This script plots the published
+convention:
+
+    pressure tensor:  mu_plot(z) = -(3/2) INT (1/rho) d(PN-PT)/dz dz
+    TZ:               psi_IH(z)  = (pi kT/4) rho'(z) INT dz2 rho'(z2) INT ds s^3 C
+                      mu_plot(z) = +d psi_IH / d rho
+                      (for constant c these reduce to +c*rho'' = -mu_IH^Eq3.7)
 
 Both curves carry one additive constant (the mu_tot reference); they are shifted
 to a common value at rho_avg, as in the paper (mu_tot fixed by matching mu0 to
@@ -51,7 +59,7 @@ def main():
     ap.add_argument('--density', default='cpp1_density.out')
     ap.add_argument('--sf', default='cpp1_sf.out')
     ap.add_argument('--nbins-sf', type=int, default=40)
-    ap.add_argument('--kfit', type=float, default=1.0)
+    ap.add_argument('--kfit', type=float, default=1.5)
     ap.add_argument('--ridge', type=float, default=1e-3)
     ap.add_argument('--ref', help='reference csv: rho,mu_IH (e.g. LJ EOS)')
     ap.add_argument('--out', default='muih.png')
@@ -91,11 +99,12 @@ def main():
     Carr = {q: oz.invert_oz(Smats[q], rho_s, dzs, A, active=active, ridge=args.ridge)[0]
             for q in qs}
     ksmall = qs[qs < args.kfit]; k2 = ksmall ** 2
+    deg = min(2, len(ksmall) - 1)         # quadratic in k^2 reduces small-k fit bias
     M2 = np.zeros((nbs, nbs))
     for ia, a in enumerate(active):
         for ib, b in enumerate(active):
             y = np.array([Carr[q][ia, ib] for q in ksmall])
-            M2[a, b] = -(2.0 / np.pi) * np.polyfit(k2, y, 1)[0]
+            M2[a, b] = -(2.0 / np.pi) * np.polyfit(k2, y, deg)[-2]
     psi = (np.pi * kT / 4.0) * rp * (dzs * (M2 @ rp))
     rmin, rmax = rho_tz.min(), rho_tz.max()
     keep = (rho_tz > rmin + 0.05) & (rho_tz < rmax - 0.05)

@@ -48,8 +48,12 @@ Notes / caveats
 ---------------
 - The OZ inversion is ill-conditioned in low-density (vapor) bins; oz_invert.py drops
   bins below --rho-min and reports the condition number of (I + D h).
-- The smallest accessible wavevector is k = 2*pi/L, which limits the small-k slope used
-  for the TZ second moment -- expect finite-size sensitivity; increase the box to test.
+- The smallest accessible wavevector is k = 2*pi/Lx, which limits the small-k fit used
+  for the TZ second moment.  For Lx ~ 13 sigma this is a SYSTEMATIC LOW BIAS of order
+  2x in gamma_TZ (the k^2 regime is not reached; J0(ks) corrections matter for the
+  s^3-weighted tail of c).  A quadratic fit in k^2 (--fit-order 2) partially corrects
+  it; the real remedy is a larger in-plane box.  Validate against the full-cell
+  mechanical gamma = Lz*<Pzz-(Pxx+Pyy)/2> (NOT the per-interface value).
 - The s^3 weighting in the TZ second moment emphasizes the large-s tail of C(s); a
   -beta*u(s) tail correction beyond s = L/2 is a natural refinement (not yet applied).
 - This is a proof of concept: parameters (run length, kmax, nbins, box size) are modest

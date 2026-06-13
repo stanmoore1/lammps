@@ -344,6 +344,7 @@ void ComputeStructureFactor2D::eik_dot_r()
   double sqk;
 
   double **x = atom->x;
+  int *mask = atom->mask;
   int nlocal = atom->nlocal;
 
   n = 0;
@@ -354,6 +355,7 @@ void ComputeStructureFactor2D::eik_dot_r()
     sqk = unitk[ic]*unitk[ic];
     if (sqk <= gsqmx) {
       for (i = 0; i < nlocal; i++) {
+        if (!(mask[i] & groupbit)) continue;
         cs[0][ic][i] = 1.0;
         sn[0][ic][i] = 0.0;
         cs[1][ic][i] = cos(unitk[ic]*x[i][ic]);
@@ -374,6 +376,7 @@ void ComputeStructureFactor2D::eik_dot_r()
       sqk = m*unitk[ic] * m*unitk[ic];
       if (sqk <= gsqmx) {
         for (i = 0; i < nlocal; i++) {
+          if (!(mask[i] & groupbit)) continue;
           cs[m][ic][i] = cs[m-1][ic][i]*cs[1][ic][i] -
             sn[m-1][ic][i]*sn[1][ic][i];
           sn[m][ic][i] = sn[m-1][ic][i]*cs[1][ic][i] +
@@ -397,6 +400,7 @@ void ComputeStructureFactor2D::eik_dot_r()
       sqk = (k*unitk[0] * k*unitk[0]) + (l*unitk[1] * l*unitk[1]);
       if (sqk <= gsqmx) {
         for (i = 0; i < nlocal; i++) {
+          if (!(mask[i] & groupbit)) continue;
           int ibin = bins[i];
           sfacrl[n][ibin] += cs[k][0][i]*cs[l][1][i] - sn[k][0][i]*sn[l][1][i];
           sfacim[n][ibin] += sn[k][0][i]*cs[l][1][i] + cs[k][0][i]*sn[l][1][i];
@@ -466,6 +470,7 @@ void ComputeStructureFactor2D::atom2bin1d()
   double zremap;
 
   double **x = atom->x;
+  int *mask = atom->mask;
   int nlocal = atom->nlocal;
 
   boxlo = domain->boxlo;
@@ -478,6 +483,7 @@ void ComputeStructureFactor2D::atom2bin1d()
   // remap each atom's relevant coord back into box via PBC if necessary
 
   for (i = 0; i < nlocal; i++) {
+    if (!(mask[i] & groupbit)) continue;
     //xremap = x[i][0];
     //yremap = x[i][1];
     zremap = x[i][2];

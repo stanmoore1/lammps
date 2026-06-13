@@ -33,10 +33,11 @@ import numpy as np
 # ----------------------------------------------------------------------------
 
 def read_ave_time_vector(path):
-    """Read the last block of a 'fix ave/time mode vector' file.
+    """Read a 'fix ave/time mode vector' file and average over ALL blocks.
 
-    Returns a 2D array of shape (nrows, ncols) of the averaged column values
-    (the leading per-row index column is stripped)."""
+    Each Nfreq window is written as its own block; averaging the blocks uses the
+    whole production run.  Returns a 2D array (nrows, ncols) of the averaged
+    column values (the leading per-row index column is stripped)."""
     blocks = []
     cur = None
     with open(path) as f:
@@ -51,7 +52,7 @@ def read_ave_time_vector(path):
                 cur.append([float(x) for x in parts[1:]])   # drop row index
     if not blocks:
         sys.exit(f"no data blocks found in {path}")
-    return np.array(blocks[-1], dtype=float)
+    return np.mean([np.array(b, dtype=float) for b in blocks], axis=0)
 
 
 def assemble_matrices(sf, nbins):
@@ -98,7 +99,8 @@ def invert_oz(Smat, rho, dz, area, active=None, ridge=0.0):
     M = np.eye(len(active)) + D @ h           # C = h (I + D h)^-1
     cond = np.linalg.cond(M)
     if ridge > 0.0:
-        C = h @ np.linalg.solve(M.T @ M + ridge * np.eye(len(active)), M.T).T
+        # regularized right-inverse: C = h (M^T M + ridge I)^-1 M^T  ->  h M^-1
+        C = h @ np.linalg.solve(M.T @ M + ridge * np.eye(len(active)), M.T)
     else:
         try:
             C = np.linalg.solve(M.T, h.T).T
@@ -125,14 +127,14 @@ def fourier_cosine_smooth(y, nmodes):
 # ----------------------------------------------------------------------------
 
 def circulant_deviation(C):
-    """Max relative deviation of C_ij from depending only on (i-j) mod nbins."""
+    """Max deviation of C_ij from depending only on (i-j) mod nbins, relative to
+    the overall scale max|C| (so near-zero off-diagonals don't dominate)."""
     nb = C.shape[0]
+    scale = np.abs(C).max() + 1e-12
     dev = 0.0
     for m in range(nb):
         diag = np.array([C[i, (i + m) % nb] for i in range(nb)])
-        spread = diag.max() - diag.min()
-        scale = abs(diag.mean()) + 1e-12
-        dev = max(dev, spread / scale)
+        dev = max(dev, (diag.max() - diag.min()) / scale)
     return dev
 
 
@@ -230,17 +232,23 @@ def run_slab(args):
     Carr = {q: invert_oz(Smats[q], rho, dz, area, active=active, ridge=args.ridge)[0]
             for q in qs}
 
-    # second moment from the small-k slope: C_ij(k) ~ C_ij(0) - (pi/2) k^2 * M2_ij
+    # second moment from the small-k behavior: C_ij(k) = C_ij(0) - (pi/2) k^2 M2_ij
+    # + O(k^4).  CAUTION: the smallest accessible k = 2*pi/Lx is often NOT in the
+    # asymptotic k^2 regime (J0(ks) deviates from 1-(ks)^2/4 for ks ~ 1, and the
+    # s^3-weighted c(s) extends to several sigma), which biases a linear fit LOW.
+    # A polynomial in k^2 of order --fit-order partially corrects this; the real
+    # fix is a larger in-plane box (smaller k_min).
     ksmall = qs[qs < args.kfit]
-    if len(ksmall) < 2:
+    deg = min(args.fit_order, len(ksmall) - 1)
+    if deg < 1:
         sys.exit("not enough small-k points to fit the second moment; raise --kfit")
     k2 = ksmall ** 2
     M2 = np.zeros((na, na))                            # full grid, zeros in vacuum
     for ia, a in enumerate(active):
         for ib, b in enumerate(active):
             y = np.array([Carr[q][ia, ib] for q in ksmall])
-            slope = np.polyfit(k2, y, 1)[0]
-            M2[a, b] = -(2.0 / np.pi) * slope         # = INT ds s^3 C_ij(s)
+            coef = np.polyfit(k2, y, deg)
+            M2[a, b] = -(2.0 / np.pi) * coef[-2]      # k^2 coefficient -> INT ds s^3 C
 
     # density gradient from the smoothed, periodic profile
     z = (np.arange(na) + 0.5) * dz
@@ -260,9 +268,11 @@ def run_slab(args):
     print("\n# z        rho        rho'       psi_IH")
     for a in range(na):
         print(f"  {z[a]:7.3f}  {rho[a]:8.4f}  {rprime[a]: .4e}  {psi[a]: .4e}")
-    print(f"\n# TZ surface tension (Eq. 3.32, both interfaces): gamma = {gamma_tz:.4f}")
-    print("#   compare to mechanical gamma = 0.5*Lz*(Pzz-0.5(Pxx+Pyy)) in gamma_slab.out")
-    print("#   (factor-of-2 for the two interfaces handled consistently by both routes)")
+    print(f"\n# TZ surface tension (Eq. 3.32), z-integrals over the WHOLE cell:")
+    print(f"#   gamma_full_cell    = {gamma_tz:.4f}   (compare to Lz*<Pzz-0.5(Pxx+Pyy)>)")
+    print(f"#   gamma_per_interface = {0.5*gamma_tz:.4f}  (full cell / 2: two gradient regions)")
+    print("# NOTE: the small-k second-moment fit is biased low when 2*pi/Lx is not")
+    print("# asymptotically small; converge with larger Lx and check --fit-order/--kfit.")
 
 
 # ----------------------------------------------------------------------------
@@ -281,6 +291,8 @@ def main():
                    help='[slab] drop bins with density below this (vapor)')
     p.add_argument('--kfit', type=float, default=2.0,
                    help='[slab] fit C_ij(k) vs k^2 for k below this')
+    p.add_argument('--fit-order', type=int, default=2,
+                   help='[slab] polynomial order in k^2 for the second-moment fit')
     p.add_argument('--smooth', type=int, default=6,
                    help='[slab] number of cosine modes to smooth rho(z)')
     p.add_argument('--ridge', type=float, default=1e-4,
