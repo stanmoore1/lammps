@@ -79,10 +79,13 @@ def main():
     zc = (np.arange(nb) + 0.5) * dz
     Vbin = A * dz
     rho_pt = oz.fourier_cosine_smooth(de[:, 3], 10)
-    # smooth the normal and tangential pressure components separately
+    # cosine-fit the normal and tangential pressure components separately;
+    # d(PN-PT)/dz is the analytic (sine-series) derivative of the fits
     PN = oz.fourier_cosine_smooth(-st[:, 5] / Vbin, 10)
     PT = oz.fourier_cosine_smooth(-0.5 * (st[:, 3] + st[:, 4]) / Vbin, 10)
-    mu_pt_z = -1.5 * np.cumsum(np.gradient(PN - PT, dz) / rho_pt) * dz
+    dPdz = (oz.fourier_cosine_deriv(-st[:, 5] / Vbin, 10, args.lz)
+            - oz.fourier_cosine_deriv(-0.5 * (st[:, 3] + st[:, 4]) / Vbin, 10, args.lz))
+    mu_pt_z = -1.5 * np.cumsum(dPdz / rho_pt) * dz
     m = zc <= args.lz / 2
     o = np.argsort(rho_pt[m]); r_pt, mu_pt = rho_pt[m][o], mu_pt_z[m][o]
     mu_pt += mu_ref_avg - np.interp(args.rho_avg, r_pt, mu_pt)
@@ -92,9 +95,7 @@ def main():
     qs, Smats, rho_s = oz.assemble_matrices(sf, nbs)
     dzs = args.lz / nbs
     rho_tz = oz.fourier_cosine_smooth(rho_s, 8)
-    rp = np.gradient(rho_tz, dzs)
-    rp[0] = (rho_tz[1] - rho_tz[-1]) / (2 * dzs)
-    rp[-1] = (rho_tz[0] - rho_tz[-2]) / (2 * dzs)
+    rp = oz.fourier_cosine_deriv(rho_s, 8, args.lz)   # analytic sine-series derivative
     active = np.where(rho_s > 0.1)[0]
     Carr = {q: oz.invert_oz(Smats[q], rho_s, dzs, A, active=active, ridge=args.ridge)[0]
             for q in qs}

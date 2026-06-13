@@ -109,17 +109,36 @@ def invert_oz(Smat, rho, dz, area, active=None, ridge=0.0):
     return C, cond
 
 
-def fourier_cosine_smooth(y, nmodes):
-    """Least-squares fit of a profile to a Fourier cosine series
-    sum_k a_k cos(2 pi k z / L), k = 0..nmodes (the dissertation's smoothing).
-    The cosine basis is even about the box center, so the fit automatically
-    symmetrizes the data about z = L/2 (averaging the two symmetric halves) in
-    addition to low-pass smoothing."""
+def fourier_cosine_coef(y, nmodes):
+    """Least-squares coefficients a_k of the Fourier cosine series
+    sum_k a_k cos(2 pi k z / L), k = 0..nmodes, fit at the bin centers."""
     n = len(y)
     z = (np.arange(n) + 0.5) / n                  # bin centers in units of L
     B = np.cos(2.0 * np.pi * np.outer(z, np.arange(nmodes + 1)))
     coef, *_ = np.linalg.lstsq(B, y, rcond=None)
+    return coef, z
+
+
+def fourier_cosine_smooth(y, nmodes):
+    """Fourier cosine-series fit of a profile (the dissertation's smoothing).
+    The cosine basis is even about the box center, so the fit automatically
+    symmetrizes the data about z = L/2 (averaging the two symmetric halves) in
+    addition to low-pass smoothing."""
+    coef, z = fourier_cosine_coef(y, nmodes)
+    B = np.cos(2.0 * np.pi * np.outer(z, np.arange(nmodes + 1)))
     return B @ coef
+
+
+def fourier_cosine_deriv(y, nmodes, length):
+    """Analytic z-derivative of the cosine-series fit, evaluated at the bin
+    centers.  The derivative of a cosine series is a SINE series:
+        d/dz sum_k a_k cos(2 pi k z/L) = -sum_k a_k (2 pi k/L) sin(2 pi k z/L),
+    which is exactly periodic and antisymmetric about z = L/2 (no
+    finite-difference error, no special handling of the periodic ends)."""
+    coef, z = fourier_cosine_coef(y, nmodes)
+    karr = np.arange(nmodes + 1)
+    Bd = -np.sin(2.0 * np.pi * np.outer(z, karr)) * (2.0 * np.pi * karr / length)
+    return Bd @ coef
 
 
 # ----------------------------------------------------------------------------
@@ -250,11 +269,9 @@ def run_slab(args):
             coef = np.polyfit(k2, y, deg)
             M2[a, b] = -(2.0 / np.pi) * coef[-2]      # k^2 coefficient -> INT ds s^3 C
 
-    # density gradient from the smoothed, periodic profile
+    # density gradient: analytic derivative of the cosine fit (a sine series)
     z = (np.arange(na) + 0.5) * dz
-    rprime = np.gradient(rho_s, dz)
-    rprime[0] = (rho_s[1] - rho_s[-1]) / (2 * dz)     # periodic ends
-    rprime[-1] = (rho_s[0] - rho_s[-2]) / (2 * dz)
+    rprime = fourier_cosine_deriv(rho, args.smooth, args.lz)
     rho = rho_s
 
     # psi_IH(z_i) = (pi kT/4) rho'_i sum_j dz rho'_j INT ds s^3 C_ij   (Eq. 3.33,
