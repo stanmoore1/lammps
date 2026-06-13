@@ -49,25 +49,31 @@ Get Lx and Lz from the LAMMPS log (printed box bounds) or thermo output.
    interfacial free energy, from a LADDER of CPP runs at increasing field
    amplitude (U_ext = A cos(2 pi z/Lz), A = dUmax/2).
        python3 field_coupling.py --ladder ladder.csv --lz <Lz> --temp <T> \
-               [--kappa <c>] [--deg <n>]
+               [--grad-spec 2:0,4:0] [--deg <n>]
    where ladder.csv lists "dumax,density_file" per line.  It returns:
      * mu0(rho), P0(rho) (the van der Waals loop below Tc) from the LOCAL
        Euler-Lagrange condition mu0(rho(z)) + mu_IH(z) + U_ext(z) = mu_tot.  The
-       gradient correction mu_IH = sum_g b_g d^g rho/dz^g (even g) is FIT from the
-       ladder (--grad-orders, default 2,4) rather than assuming the second-order
-       square-gradient closure b_2 rho'' (= -kappa rho'', the VdW form that fails
-       at sharp interfaces) -- a ladder samples each rho at different gradients, so
-       the b_g are identifiable.  Pointwise in rho(z), well conditioned.
-     * INT psi_IH dz and gamma = 2 INT psi_IH from the exact Hellmann-Feynman
-       coupling integral, cross-checked against the square-gradient (kappa/2) INT
-       rho'^2 dz.
-   Self-test: python3 field_coupling.py --selftest  (recovers a known EOS + kappa
-   from EL-solved profiles to ~1e-14 / few %).  Validated on the supercritical
-   CPP-1 snapshot (single field strength, A=2.32): the direct relation holds to
-   2.4% rms, and with the OZ-route gradient kappa~4 the recovered mu0(rho) lands
-   on the LJ EOS to 0.038 rms over rho=0.04-0.75.  NOTE: a single field strength
-   gives mu0(rho) (with kappa supplied) but not the coupling integral (gamma needs
-   the ladder), and cannot separate kappa from mu_ex on its own.
+       gradient correction mu_IH is the variational derivative of a gradient free
+       energy F_grad = INT sum_g (kappa_g(rho)/2)(d^(g/2) rho)^2 dz with influence
+       parameters kappa_g(rho) = sum_p a_{g,p} rho^p (even g=2,4), FIT from the
+       ladder -- NOT the assumed second-order square-gradient closure (-kappa rho'',
+       the VdW form that fails at sharp interfaces).  --grad-spec "order:density-
+       degree" controls it: "2:0,4:0" = constant kappa2,kappa4; "2:1" = kappa2
+       linear in rho; "2:2,4:1" etc.  Density dependence and 4th order generate the
+       thermodynamically consistent linked terms ((rho')^2, rho'rho''', ...)
+       automatically.  Identifiable because a (rho_avg x field) grid samples each
+       rho at many gradients; pointwise in rho(z), well conditioned.
+     * INT psi_IH dz and gamma = 2 INT psi_IH from the exact (gradient-exact)
+       Hellmann-Feynman coupling integral, cross-checked against F_grad.
+   Self-test: python3 field_coupling.py --selftest  (recovers a known EOS and a
+   DENSITY-DEPENDENT kappa2(rho)=k20+k21 rho + kappa4 from EL-solved profiles on a
+   2D grid to ~1e-12, interfacial consistency to a few %).  Validated on the
+   supercritical CPP-1 snapshot (single field strength, A=2.32): the direct
+   relation holds to 2.4% rms, and with the OZ-route gradient kappa~4 the recovered
+   mu0(rho) lands on the LJ EOS to 0.038 rms over rho=0.04-0.75.  NOTE: a single
+   field strength gives mu0(rho) (with the gradient term supplied) but not the
+   coupling integral (gamma needs the ladder), and cannot separate the gradient
+   coefficients from mu_ex on its own -- vary rho_avg AND field for full coverage.
 
 Notes / caveats
 ---------------
