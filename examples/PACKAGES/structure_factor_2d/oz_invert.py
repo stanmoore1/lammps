@@ -257,17 +257,35 @@ def kb_chemical_potential(rho_bins, chat0, temp, h_star=0.183, poly=5):
     return rg, mu_id + temp * bmu_ex
 
 
-def intercept_matrix(qs, Carr, active, kfit):
+def intercept_matrix(qs, Carr, active, kfit, dz=None, beta=None, smax=None,
+                     tail_rsplit=0.0):
     """Full matrix of k->0 intercepts C_ij(0) = lim_{k->0} C_ij(k) (in-plane
-    integral of the direct correlation function between bins i and j)."""
+    integral of the direct correlation function between bins i and j).
+
+    With tail_rsplit>0 the long-range part (r>tail_rsplit, the attractive -beta u
+    tail) is taken analytically and only the short-range residual is fit.  This is
+    the key denoising step for the DFT route: the FAR off-diagonal C_ij(0) are
+    small, smooth tail values, but from finite sampling they are pure noise -- and
+    in mu_IH they get multiplied by LARGE density differences (a liquid bin times a
+    vapor bin).  Replacing them with the exact tail (and keeping data only for the
+    short-range core) cut the mu_IH noise ~4x on the test snapshot."""
     ks = qs[qs < kfit]
     k2 = ks ** 2
     na = len(active)
     C0 = np.empty((na, na))
-    for ia in range(na):
-        for ib in range(na):
-            y = np.array([Carr[q][ia, ib] for q in ks])
-            C0[ia, ib] = np.polyfit(k2, y, 2)[-1]      # constant term
+    for ia, a in enumerate(active):
+        for ib, b in enumerate(active):
+            if tail_rsplit > 0.0:
+                Dz = abs(a - b) * dz
+                _, Ct = mean_field_tail(Dz, np.append(0.0, ks), beta, tail_rsplit, smax)
+                c0 = Ct[0]                              # analytic tail intercept
+                if Dz < tail_rsplit:                    # core present -> add residual
+                    y = np.array([Carr[q][ia, ib] for q in ks])
+                    c0 += np.polyfit(k2, y - Ct[1:], 2)[-1]
+                C0[ia, ib] = c0
+            else:
+                y = np.array([Carr[q][ia, ib] for q in ks])
+                C0[ia, ib] = np.polyfit(k2, y, 2)[-1]   # constant term
     return C0
 
 
@@ -476,7 +494,8 @@ def run_dft(args):
     Carr = {q: invert_oz(Smats[q], rho, dz, area, active=active, ridge=args.ridge)[0]
             for q in qs}
 
-    C0 = intercept_matrix(qs, Carr, active, args.kfit)
+    C0 = intercept_matrix(qs, Carr, active, args.kfit, dz=dz, beta=1.0 / args.temp,
+                          smax=args.lx / 2, tail_rsplit=args.tail_rsplit)
     mu_ih = dft_mu_ih(C0, rho_s[active], dz, args.temp)
 
     # mu0(z) = mu_int(z) - mu_IH(z) = (mu_tot - U_ext(z)) - mu_IH(z); mu_tot is the
