@@ -60,6 +60,38 @@ def read_ave_time_vector(path):
     return np.mean([np.array(b, dtype=float) for b in blocks], axis=0)
 
 
+def read_ave_time_blocks(path):
+    """Return the list of per-Nfreq-window blocks (each a 2D array, index column
+    stripped) of a 'fix ave/time mode vector' file -- for block bootstrapping."""
+    blocks = []
+    cur = None
+    with open(path) as f:
+        for line in f:
+            if line.startswith('#'):
+                continue
+            parts = line.split()
+            if len(parts) == 2:
+                cur = []
+                blocks.append(cur)
+            elif cur is not None:
+                cur.append([float(x) for x in parts[1:]])
+    return [np.array(b, dtype=float) for b in blocks]
+
+
+def bootstrap_blocks(blocks, analysis, nresample=200, seed=0):
+    """Block bootstrap: resample the Nfreq blocks with replacement, average each
+    resample, run analysis(avg_sf) -> scalar or 1D array, and return (mean, std)
+    over the resamples.  `analysis` must accept a single averaged sf array."""
+    rng = np.random.default_rng(seed)
+    nb = len(blocks)
+    out = []
+    for _ in range(nresample):
+        pick = rng.integers(0, nb, nb)
+        out.append(analysis(np.mean([blocks[i] for i in pick], axis=0)))
+    out = np.array(out)
+    return out.mean(axis=0), out.std(axis=0)
+
+
 def assemble_matrices(sf, nbins):
     """Group the [q, ibin, jbin, S_ij, density] rows into S(q) matrices.
 
@@ -289,6 +321,28 @@ def intercept_matrix(qs, Carr, active, kfit, dz=None, beta=None, smax=None,
     return C0
 
 
+def smooth_intercept(C0, active, rho, deg=3, max_band=8):
+    """Regularize the intercept matrix by its physical structure: C_ij(0) is
+    band-diagonal and, within each separation band m=|i-j|, a smooth function of
+    the pair's mean density.  Fit each band's values vs (rho_i+rho_j)/2 with a
+    low-order polynomial -- averaging the many same-separation pairs that share a
+    density reduces per-element scatter (use after tail splicing)."""
+    na = len(active)
+    ra = rho[active]
+    Cs = C0.copy()
+    for m in range(min(max_band, na)):
+        idx = [(i, i + m) for i in range(na - m)]
+        if len(idx) < deg + 2:
+            continue
+        rbar = np.array([0.5 * (ra[i] + ra[j]) for i, j in idx])
+        vals = np.array([C0[i, j] for i, j in idx])
+        o = np.argsort(rbar)
+        fit = np.poly1d(np.polyfit(rbar[o], vals[o], min(deg, len(idx) - 1)))
+        for i, j in idx:
+            Cs[i, j] = Cs[j, i] = fit(0.5 * (ra[i] + ra[j]))
+    return Cs
+
+
 def dft_mu_ih(C0, rho_active, dz, temp):
     """Inhomogeneous chemical-potential correction from the EXACT nonlocal DFT
     relation (Evans 1979), one-shot (lambda=1) approximation:
@@ -396,6 +450,45 @@ def _plot_bulk(kmag, chat, qref, cref):
 # slab: TZ correction
 # ----------------------------------------------------------------------------
 
+def tz_gamma_from_sf(sf, args):
+    """Full-cell TZ surface tension from one (averaged) sf array -- the core used
+    both by run_slab and by the block bootstrap."""
+    qs, Smats, rho = assemble_matrices(sf, args.nbins)
+    if not args.no_mirror:
+        Smats, rho = mirror_symmetrize(Smats, rho)
+    dz = args.lz / args.nbins
+    active = np.where(rho > args.rho_min)[0]
+    Carr = {q: invert_oz(Smats[q], rho, dz, args.lx ** 2, active=active,
+                         ridge=args.ridge)[0] for q in qs}
+    M2 = second_moment(qs, Carr, active, args.nbins, args.kfit, dz, args.temp,
+                       args.lx, fit_order=args.fit_order, tail_rsplit=args.tail_rsplit)
+    rprime = fourier_cosine_deriv(rho, args.smooth, args.lz)
+    return 0.5 * np.pi * args.temp * dz * dz * (rprime @ M2 @ rprime)
+
+
+def dft_muih_from_sf(sf, args):
+    """DFT nonlocal mu_IH on the active bins from one (averaged) sf array, mapped
+    onto a fixed density grid so bootstrap resamples are aligned.  Returns
+    (rho_grid, mu_IH_on_grid)."""
+    qs, Smats, rho = assemble_matrices(sf, args.nbins)
+    if not args.no_mirror:
+        Smats, rho = mirror_symmetrize(Smats, rho)
+    dz = args.lz / args.nbins
+    rho_s = fourier_cosine_smooth(rho, args.smooth)
+    active = np.where(rho > args.rho_min)[0]
+    Carr = {q: invert_oz(Smats[q], rho, dz, args.lx ** 2, active=active,
+                         ridge=args.ridge)[0] for q in qs}
+    C0 = intercept_matrix(qs, Carr, active, args.kfit, dz=dz, beta=1.0 / args.temp,
+                          smax=args.lx / 2, tail_rsplit=args.tail_rsplit)
+    if args.smooth_c0:
+        C0 = smooth_intercept(C0, active, rho_s, deg=args.smooth_c0)
+    mu_ih = dft_mu_ih(C0, rho_s[active], dz, args.temp)
+    ra = rho_s[active]
+    o = np.argsort(ra)
+    grid = np.linspace(ra.min() + 1e-3, ra.max() - 1e-3, 60)
+    return grid, np.interp(grid, ra[o], mu_ih[o])
+
+
 def run_slab(args):
     sf = read_ave_time_vector(args.sf_file)
     qs, Smats, rho = assemble_matrices(sf, args.nbins)
@@ -441,7 +534,14 @@ def run_slab(args):
     for a in range(na):
         print(f"  {z[a]:7.3f}  {rho[a]:8.4f}  {rprime[a]: .4e}  {psi[a]: .4e}")
     print(f"\n# TZ surface tension (Eq. 3.32), z-integrals over the WHOLE cell:")
-    print(f"#   gamma_full_cell    = {gamma_tz:.4f}   (compare to Lz*<Pzz-0.5(Pxx+Pyy)>)")
+    if args.bootstrap:
+        blocks = read_ave_time_blocks(args.sf_file)
+        _, gerr = bootstrap_blocks(blocks, lambda s: tz_gamma_from_sf(s, args),
+                                   nresample=args.bootstrap)
+        print(f"#   gamma_full_cell    = {gamma_tz:.4f} +/- {gerr:.4f}  "
+              f"(block bootstrap, {len(blocks)} blocks)")
+    else:
+        print(f"#   gamma_full_cell    = {gamma_tz:.4f}   (compare to Lz*<Pzz-0.5(Pxx+Pyy)>)")
     print(f"#   gamma_per_interface = {0.5*gamma_tz:.4f}  (full cell / 2: two gradient regions)")
     print("# NOTE: the small-k second-moment fit is biased low when 2*pi/Lx is not")
     print("# asymptotically small; converge with larger Lx and check --fit-order/--kfit.")
@@ -496,6 +596,8 @@ def run_dft(args):
 
     C0 = intercept_matrix(qs, Carr, active, args.kfit, dz=dz, beta=1.0 / args.temp,
                           smax=args.lx / 2, tail_rsplit=args.tail_rsplit)
+    if args.smooth_c0:
+        C0 = smooth_intercept(C0, active, rho_s, deg=args.smooth_c0)
     mu_ih = dft_mu_ih(C0, rho_s[active], dz, args.temp)
 
     # mu0(z) = mu_int(z) - mu_IH(z) = (mu_tot - U_ext(z)) - mu_IH(z); mu_tot is the
@@ -503,11 +605,24 @@ def run_dft(args):
     Uext = 0.5 * args.dumax * np.cos(2.0 * np.pi * z / args.lz)
     mu0 = -Uext - mu_ih
 
-    print("# nonlocal DFT route (gradient-exact mu0; Evans 1979):")
-    print("# rho      U_ext     mu_IH     mu0 (up to +mu_tot)")
-    order = np.argsort(rho_s[active])
-    for k in order:
-        print(f"  {rho_s[active][k]:6.3f}  {Uext[k]: .4f}  {mu_ih[k]: .4f}  {mu0[k]: .4f}")
+    err = None
+    if args.bootstrap:
+        blocks = read_ave_time_blocks(args.sf_file)
+        grid, gerr = bootstrap_blocks(blocks, lambda s: dft_muih_from_sf(s, args)[1],
+                                      nresample=args.bootstrap)
+        order = np.argsort(rho_s[active])
+        err = np.interp(rho_s[active][order], grid, gerr)
+        print(f"# nonlocal DFT route (gradient-exact mu0; Evans 1979) "
+              f"-- block bootstrap, {len(blocks)} blocks:")
+        print("# rho      U_ext     mu_IH      +/-      mu0 (up to +mu_tot)")
+        for n, k in enumerate(order):
+            print(f"  {rho_s[active][k]:6.3f}  {Uext[k]: .4f}  {mu_ih[k]: .4f}  "
+                  f"{err[n]:.4f}  {mu0[k]: .4f}")
+    else:
+        print("# nonlocal DFT route (gradient-exact mu0; Evans 1979):")
+        print("# rho      U_ext     mu_IH     mu0 (up to +mu_tot)")
+        for k in np.argsort(rho_s[active]):
+            print(f"  {rho_s[active][k]:6.3f}  {Uext[k]: .4f}  {mu_ih[k]: .4f}  {mu0[k]: .4f}")
     print("# add mu_tot (match a reference at one rho); P0(rho) = rho*mu0 - INT mu0 drho")
 
 
@@ -544,6 +659,12 @@ def main():
                    help='[kb] reduced thermal wavelength h* for the ideal-gas mu')
     p.add_argument('--dumax', type=float, default=5.0,
                    help='[dft] CPP external-field amplitude, U_ext=(dumax/2)cos(2 pi z/Lz)')
+    p.add_argument('--smooth-c0', type=int, default=0,
+                   help='[dft] smooth each C_ij(0) separation band vs mean density '
+                        'with this polynomial degree (0 = off)')
+    p.add_argument('--bootstrap', type=int, default=0,
+                   help='[slab/dft] block-bootstrap error bars from N resamples '
+                        '(needs several fix ave/time blocks)')
     p.add_argument('--plot', action='store_true')
     args = p.parse_args()
 
