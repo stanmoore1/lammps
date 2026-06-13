@@ -44,6 +44,25 @@ Workflow
 
 Get Lx and Lz from the LAMMPS log (printed box bounds) or thermo output.
 
+Paper analysis pipeline (each driver self-tests with --selftest)
+----------------------------------------------------------------
+For the van der Waals loop / spinodal / critical-point study (see paper/):
+  fc_isotherm.py     pool a (rho_avg x field) ladder at one temperature into the
+                     homogeneous mu0(rho)/P0(rho) loop + gamma + kappa_g(rho);
+                     writes a table for phase_diagram.py.  Manifest line:
+                     "dumax,rho_avg,density_file".
+  phase_diagram.py   binodal (equal-mu/equal-P = Maxwell-in-V), spinodal
+                     (dP/drho=0), and critical-point estimators (scaling laws,
+                     rectilinear diameters, spinodal-gap).  Maxwell is exact on
+                     the TRUE loop -- run it on the exact and the 2nd-order loops.
+  contour_pressure.py  2nd-order P0 = 3/2 PT - 1/2 PN (IK contour) and the
+                     IK-vs-Harasima accuracy diagnostic; pressure-tensor mu_IH.
+  capillary.py       interface width, position fluctuation, and capillary-wave
+                     gamma from w^2 = w0^2 + (kT/2 pi gamma) ln L (field pinning).
+  in.cpp_metal       CPP input for a many-body ML metal (SNAP/ACE copper), where
+                     only the Harasima contour exists and field-coupling is the
+                     exact route.
+
 3. Field-coupling (Kirkwood) EOS route (field_coupling.py):
    An independent, pressure-tensor-free route to the homogeneous EOS and the
    interfacial free energy, from a LADDER of CPP runs at increasing field
