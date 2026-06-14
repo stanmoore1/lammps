@@ -101,6 +101,9 @@ class FFT3dKokkos : protected Pointers {
   ~FFT3dKokkos() override;
   void compute(typename FFT_AT::t_FFT_SCALAR_1d, typename FFT_AT::t_FFT_SCALAR_1d, int);
   void timing1d(typename FFT_AT::t_FFT_SCALAR_1d, int, int);
+  // perform only the local 1d FFT passes (no inter-dimension remaps); for a plan
+  // configured with a single non-trivial dimension this is a pure 1d transform
+  void compute1d(typename FFT_AT::t_FFT_SCALAR_1d, int, int);
 
  private:
   struct fft_plan_3d_kokkos<DeviceType> *plan;

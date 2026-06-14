@@ -76,6 +76,7 @@ PPPMDispSlab::PPPMDispSlab(LAMMPS *lmp) :
 
 PPPMDispSlab::~PPPMDispSlab()
 {
+  if (copymode) return;
   delete[] B;
   memory->destroy(dens);
   memory->destroy(fre);

@@ -538,6 +538,8 @@ action pair_ylz_kokkos.cpp pair_ylz.cpp
 action pair_ylz_kokkos.h pair_ylz.h
 action pair_zbl_kokkos.cpp
 action pair_zbl_kokkos.h
+action pppm_disp_slab_kokkos.cpp pppm_disp_slab.cpp
+action pppm_disp_slab_kokkos.h pppm_disp_slab.h
 action pppm_kokkos.cpp pppm.cpp
 action pppm_kokkos.h pppm.h
 action rand_pool_wrap_kokkos.cpp
