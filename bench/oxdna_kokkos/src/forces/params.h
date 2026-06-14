@@ -276,48 +276,41 @@ inline DNAParams make_oxdna1_params(double T = 0.1, double hb_multi = 0.0) {
     p.alpha_hb[2][1] = static_cast<c_number>(1.077 + hb_multi);  // G:C
 
     // ---- Stacking ----
-    // pair_coeff * * oxdna/stk seqav T 1.3448 2.6568 6.0 0.4 0.9 0.32 0.75 1.3
-    //   0 0.8 0.9 0 0.95 0.9 0 0.95 2.0 0.65 2.0 0.65
-    // F1 radial: eps=T*1.3448, a=2.6568 (sequence-averaged stacking strength)
+    // F1 radial parameters from standalone oxDNA model.h:
+    // BASE_EPS=1.3448, FACT_EPS=2.6568, A=6.0, R0=0.4, RC=0.9
+    // RLOW=0.32, RHIGH=0.75, RCLOW=0.23239, RCHIGH=0.956
+    // BLOW=-68.1857, BHIGH=-3.12992
+    // shift = eps*(1-exp(-A*(RC-R0)))^2 = eps*(1-exp(-3))^2 ~ 0.9029*eps
     {
-        double stk_eps = T * 1.3448;
+        double stk_a   = 6.0;
+        double stk_r0  = 0.4;
+        double stk_rc  = 0.9;
+        double stk_eps = 1.3448 + 2.6568 * T;
         p.stk_f1.eps    = static_cast<c_number>(stk_eps);
-        p.stk_f1.a      = static_cast<c_number>(2.6568);
-        p.stk_f1.cut_0  = static_cast<c_number>(0.4);
-        p.stk_f1.cut_lc = static_cast<c_number>(0.32);
-        p.stk_f1.cut_hc = static_cast<c_number>(0.75);
+        p.stk_f1.a      = static_cast<c_number>(stk_a);
+        p.stk_f1.cut_0  = static_cast<c_number>(stk_r0);
         p.stk_f1.cut_lo = static_cast<c_number>(0.32);
         p.stk_f1.cut_hi = static_cast<c_number>(0.75);
-        // Derived b_lo, b_hi, shift
-        double a2 = 2.6568;
-        auto derive_f1_smooth = [&](double r, double eps2, double a_p, double cut0_p) {
-            double ex = std::exp(-(r - cut0_p) * a_p);
-            double U  = eps2 * (1 - ex) * (1 - ex);
-            double dU = 2 * eps2 * (1 - ex) * ex * a_p;
-            return std::make_pair(dU * dU / (4 * U), dU);
-        };
-        auto [b_lo, dU_lo] = derive_f1_smooth(0.32, stk_eps, a2, 0.4);
-        auto [b_hi, dU_hi] = derive_f1_smooth(0.75, stk_eps, a2, 0.4);
-        double exs = std::exp(-(0.32 - 0.4) * a2);
-        double shift = stk_eps * (1 - exs) * (1 - exs);
-        p.stk_f1.b_lo  = static_cast<c_number>(b_lo);
-        p.stk_f1.b_hi  = static_cast<c_number>(b_hi);
-        p.stk_f1.shift = static_cast<c_number>(shift);
+        p.stk_f1.cut_lc = static_cast<c_number>(0.23239);
+        p.stk_f1.cut_hc = static_cast<c_number>(0.956);
+        p.stk_f1.b_lo   = static_cast<c_number>(-68.1857);
+        p.stk_f1.b_hi   = static_cast<c_number>(-3.12992);
+        double ex_rc    = std::exp(-stk_a * (stk_rc - stk_r0));
+        p.stk_f1.shift  = static_cast<c_number>(stk_eps * (1 - ex_rc) * (1 - ex_rc));
     }
 
-    // F4 stacking angles: theta4(0.8), theta5(0.9), theta6(0.95), phi1(0.65), phi2(0.65)
-    // From: 0 0.8 0.9 0 0.95 0.9 0 0.95  2.0 0.65 2.0 0.65
-    //   t4: a=0.9, theta0=0, dtheta_ast=0.8
+    // F4 stacking angles from STCK_THETA{4,5,6} in standalone model.h:
+    //   t4: a=1.3, theta0=0, dtheta_ast=0.8   (STCK_THETA4_A=1.3)
     //   t5: a=0.9, theta0=0, dtheta_ast=0.95
     //   t6: a=0.9, theta0=0, dtheta_ast=0.95
-    p.stk_t4 = make_f4(0.9, 0.0, 0.8);
+    p.stk_t4 = make_f4(1.3, 0.0, 0.8);
     p.stk_t5 = make_f4(0.9, 0.0, 0.95);
     p.stk_t6 = make_f4(0.9, 0.0, 0.95);
     // F5 cosphi: a=2.0, x_ast=0.65, b=auto, x_c=auto
     auto make_f5 = [](double a, double x_ast) -> F5Params {
         F5Params f;
         f.a     = static_cast<c_number>(a);
-        f.x_ast = static_cast<c_number>(x_ast);
+        f.x_ast = static_cast<c_number>(-x_ast);  // store negated: LAMMPS calls F5 with -x_ast
         double dU  = 2 * a * x_ast;
         double U   = 1 - a * x_ast * x_ast;
         f.b     = static_cast<c_number>(dU * dU / (4 * U));
