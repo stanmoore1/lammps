@@ -42,12 +42,14 @@ class EwaldDispSlab : public KSpace {
   double *pt_profile, *pn_profile;
 
  protected:
-  int kmax, kcount;    // # of 1-D z wavevectors (modes k=0..kmax-1), kcount=kmax
+  int dim;               // inhomogeneous dimension: 0=x, 1=y, 2=z (default 2)
+  int lat1, lat2;        // lateral dimensions = (dim+1)%3, (dim+2)%3
+  int kmax, kcount;    // # of 1-D wavevectors (modes k=0..kmax-1), kcount=kmax
   int kmax_created;
   int kmax_user;         // user override via kspace_modify kmax (0 if unset)
   int damp_flag;         // 0 = non-damped (SB), 1 = damped (SSB)
-  int corr_mode;         // damped correction: 0 = raw pairwise, 1 = z-binned (faster)
-  double bin_dz_user;    // requested z-bin width (0 => default)
+  int corr_mode;         // damped correction: 0 = raw pairwise, 1 = binned (faster)
+  double bin_dz_user;    // requested bin width (0 => default)
   double volume, cutoff, rc2;
   double unitk;                       // 2*pi/Lz
   double estimated_force_accuracy;    // predicted RMS per-atom force error

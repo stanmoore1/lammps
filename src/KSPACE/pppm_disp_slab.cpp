@@ -61,6 +61,9 @@ PPPMDispSlab::PPPMDispSlab(LAMMPS *lmp) :
   contour_flag = 0;
   profile_flag = 0;
   npro = 0;
+  dim = 2;
+  lat1 = 0;
+  lat2 = 1;
   nz = 0;
   order = 6;
   corr_mode = 0;
@@ -143,6 +146,16 @@ int PPPMDispSlab::modify_param(int narg, char **arg)
     if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify pressure/profile", error);
     npro = utils::inumeric(FLERR, arg[1], false, lmp);
     profile_flag = (npro > 0);
+    return 2;
+  }
+  if (strcmp(arg[0], "dim") == 0) {
+    if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify dim", error);
+    if (strcmp(arg[1], "x") == 0) dim = 0;
+    else if (strcmp(arg[1], "y") == 0) dim = 1;
+    else if (strcmp(arg[1], "z") == 0) dim = 2;
+    else error->all(FLERR, "kspace_modify dim must be x, y, or z");
+    lat1 = (dim + 1) % 3;
+    lat2 = (dim + 2) % 3;
     return 2;
   }
   return 0;
@@ -322,10 +335,12 @@ void PPPMDispSlab::estimate_params()
 
 void PPPMDispSlab::set_grid_params()
 {
-  zprd = domain->zprd;
-  area = domain->xprd * domain->yprd;
+  lat1 = (dim + 1) % 3;
+  lat2 = (dim + 2) % 3;
+  zprd = domain->prd[dim];
+  area = domain->prd[lat1] * domain->prd[lat2];
   volume = area * zprd;
-  zlo = domain->boxlo[2];
+  zlo = domain->boxlo[dim];
 
   // grid-assignment shift and stencil bounds (LAMMPS PPPM convention)
   if (order % 2)
@@ -485,7 +500,7 @@ void PPPMDispSlab::make_rho()
   double w[MAXORDER];
 
   for (int i = 0; i < nlocal; i++) {
-    double u = (x[i][2] - zlo) * delzinv;
+    double u = (x[i][dim] - zlo) * delzinv;
     int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;    // nearest grid pt
     double dz = g0 + shiftone - u;
     compute_rho1d(dz, w);
@@ -570,8 +585,8 @@ void PPPMDispSlab::poisson()
   e_recip_mesh = e;
   if (eflag_global) energy += e;
   if (vflag_global) {
-    virial[0] += e;
-    virial[1] += e;
+    virial[lat1] += e;
+    virial[lat2] += e;
   }
 
   // per-atom potential field u_grid = IFFT[2 Gk rho_hat]
@@ -618,7 +633,7 @@ void PPPMDispSlab::fieldforce()
   double w[MAXORDER];
 
   for (int i = 0; i < nlocal; i++) {
-    double u = (x[i][2] - zlo) * delzinv;
+    double u = (x[i][dim] - zlo) * delzinv;
     int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;
     double dz = g0 + shiftone - u;
     compute_rho1d(dz, w);
@@ -631,14 +646,14 @@ void PPPMDispSlab::fieldforce()
       fz += w[s] * fz_grid[g];
       if (evflag_atom) uu += w[s] * ugrid[g];
     }
-    f[i][2] += bi * fz;
+    f[i][dim] += bi * fz;
 
     if (evflag_atom) {
       double pe = 0.5 * bi * uu;    // per-atom reciprocal energy
       peatom[i] += pe;
       if (vflag_atom) {
-        vatom[i][0] += pe;    // tangential xx=yy (GT=GU)
-        vatom[i][1] += pe;
+        vatom[i][lat1] += pe;    // tangential (GT=GU)
+        vatom[i][lat2] += pe;
       }
     }
   }
@@ -674,10 +689,10 @@ void PPPMDispSlab::compute(int eflag, int vflag)
   // virial_zz = 6*E_kspace - virial_xx - virial_yy (total pressure, and per-atom
   // the IK-contour local normal pressure).
 
-  if (vflag_global) virial[2] = 6.0 * (e_recip_mesh + corr_energy) - virial[0] - virial[1];
+  if (vflag_global) virial[dim] = 6.0 * (e_recip_mesh + corr_energy) - virial[lat1] - virial[lat2];
   if (vflag_atom)
     for (int i = 0; i < atom->nlocal; i++)
-      vatom[i][2] = 6.0 * peatom[i] - vatom[i][0] - vatom[i][1];
+      vatom[i][dim] = 6.0 * peatom[i] - vatom[i][lat1] - vatom[i][lat2];
 
   if (eflag_atom)
     for (int i = 0; i < atom->nlocal; i++) eatom[i] += peatom[i];
@@ -706,7 +721,7 @@ void PPPMDispSlab::corr_kernels(double x2, double &w2, double &f2, double &pt2)
   const double g2 = g_ewald * g_ewald;
   const double g4 = g2 * g2, g6 = g4 * g2, g8 = g4 * g4, g10 = g8 * g2, g12 = g10 * g2;
   const double rc4 = rc2 * rc2, rc6 = rc4 * rc2;
-  const double area = domain->xprd * domain->yprd;    // current lateral area
+  const double area = domain->prd[(dim + 1) % 3] * domain->prd[(dim + 2) % 3];
 
   if (x2 < 1.0e-3) {
     const double x4 = x2 * x2, x6 = x4 * x2;
@@ -762,7 +777,7 @@ void PPPMDispSlab::corr_raw()
   auto *zloc = new double[nlocal > 0 ? nlocal : 1];
   auto *bloc = new double[nlocal > 0 ? nlocal : 1];
   for (int i = 0; i < nlocal; i++) {
-    zloc[i] = x[i][2];
+    zloc[i] = x[i][dim];
     bloc[i] = B[type[i]];
   }
   auto *zall = new double[natoms_all > 0 ? natoms_all : 1];
@@ -786,12 +801,12 @@ void PPPMDispSlab::corr_raw()
     for (int i = 0; i < nlocal; i++) peatom[i] += B[type[i]] * B[type[i]] * w2_self;
   if (vflag_atom)
     for (int i = 0; i < nlocal; i++) {
-      vatom[i][0] += B[type[i]] * B[type[i]] * pt2_self;
-      vatom[i][1] += B[type[i]] * B[type[i]] * pt2_self;
+      vatom[i][lat1] += B[type[i]] * B[type[i]] * pt2_self;
+      vatom[i][lat2] += B[type[i]] * B[type[i]] * pt2_self;
     }
 
   for (int i = 0; i < nlocal; i++) {
-    const double zi = x[i][2];
+    const double zi = x[i][dim];
     const double bi = B[type[i]];
     const int iglob = myoff + i;
     double fz_i = 0.0;
@@ -814,12 +829,12 @@ void PPPMDispSlab::corr_raw()
 
       if (evflag_atom) peatom[i] += 0.5 * bij * w2;
       if (vflag_atom) {
-        vatom[i][0] += 0.5 * bij * pt2;
-        vatom[i][1] += 0.5 * bij * pt2;
+        vatom[i][lat1] += 0.5 * bij * pt2;
+        vatom[i][lat2] += 0.5 * bij * pt2;
       }
     }
 
-    f[i][2] += fz_i;
+    f[i][dim] += fz_i;
   }
 
   double e_all;
@@ -829,8 +844,8 @@ void PPPMDispSlab::corr_raw()
   if (vflag_global) {
     double v_all[2];
     MPI_Allreduce(v_local, v_all, 2, MPI_DOUBLE, MPI_SUM, world);
-    virial[0] += v_all[0];
-    virial[1] += v_all[1];
+    virial[lat1] += v_all[0];
+    virial[lat2] += v_all[1];
   }
 
   delete[] recvcounts;
@@ -877,7 +892,7 @@ void PPPMDispSlab::corr_bin()
   auto *adz = new double[nlocal > 0 ? nlocal : 1];
   double w[MAXORDER];
   for (int i = 0; i < nlocal; i++) {
-    double u = (x[i][2] - zlo) * delzc;
+    double u = (x[i][dim] - zlo) * delzc;
     int g0 = (int) (u + shift) - OFFSET;
     double dzf = g0 + shiftone - u;
     compute_rho1d(dzf, w);
@@ -932,8 +947,8 @@ void PPPMDispSlab::corr_bin()
   if (vflag_global) {
     double vpt = 0.0;
     for (int b = 0; b < nbins; b++) vpt += dens_all[b] * phiPT[b];
-    virial[0] += 0.5 * vpt;
-    virial[1] += 0.5 * vpt;
+    virial[lat1] += 0.5 * vpt;
+    virial[lat2] += 0.5 * vpt;
   }
 
   // forces (exact z-gradient of the binned energy via the B-spline derivative)
@@ -953,11 +968,11 @@ void PPPMDispSlab::corr_bin()
       if (evflag_atom) pe += w[s] * phiW[g];
       if (vflag_atom) pt += w[s] * phiPT[g];
     }
-    f[i][2] += bi * delzc * fz;
+    f[i][dim] += bi * delzc * fz;
     if (evflag_atom) peatom[i] += 0.5 * bi * pe;
     if (vflag_atom) {
-      vatom[i][0] += 0.5 * bi * pt;
-      vatom[i][1] += 0.5 * bi * pt;
+      vatom[i][lat1] += 0.5 * bi * pt;
+      vatom[i][lat2] += 0.5 * bi * pt;
     }
   }
 
@@ -994,7 +1009,7 @@ void PPPMDispSlab::corr_bin_force(int nbins, double *fzloc)
   auto *adz = new double[nlocal > 0 ? nlocal : 1];
   double w[MAXORDER];
   for (int i = 0; i < nlocal; i++) {
-    double u = (x[i][2] - zlo) * delzc;
+    double u = (x[i][dim] - zlo) * delzc;
     int g0 = (int) (u + shift) - OFFSET;
     double dzf = g0 + shiftone - u;
     compute_rho1d(dzf, w);
@@ -1078,7 +1093,7 @@ void PPPMDispSlab::corr_raw_force(double *fzloc)
   auto *zloc = new double[nlocal > 0 ? nlocal : 1];
   auto *bloc = new double[nlocal > 0 ? nlocal : 1];
   for (int i = 0; i < nlocal; i++) {
-    zloc[i] = x[i][2];
+    zloc[i] = x[i][dim];
     bloc[i] = B[type[i]];
   }
   auto *zall = new double[natoms_all > 0 ? natoms_all : 1];
@@ -1087,7 +1102,7 @@ void PPPMDispSlab::corr_raw_force(double *fzloc)
   MPI_Allgatherv(bloc, nlocal, MPI_DOUBLE, ball, recvcounts, displs, MPI_DOUBLE, world);
 
   for (int i = 0; i < nlocal; i++) {
-    const double zi = x[i][2];
+    const double zi = x[i][dim];
     const double bi = B[type[i]];
     const int iglob = myoff + i;
     double fz = 0.0;
@@ -1226,7 +1241,7 @@ void PPPMDispSlab::compute_pressure_profile()
   int nlocal = atom->nlocal;
   for (int i = 0; i < nlocal; i++) {
     const double bi = B[type[i]];
-    double c1 = cos(unitk * x[i][2]), s1 = sin(unitk * x[i][2]);
+    double c1 = cos(unitk * x[i][dim]), s1 = sin(unitk * x[i][dim]);
     double cn = 1.0, sn = 0.0;    // cos/sin(n*unitk*z), recurrence
     srl[0] += bi;
     for (int n = 1; n <= K; n++) {
@@ -1256,7 +1271,7 @@ void PPPMDispSlab::compute_pressure_profile()
     auto *bdens = new double[npro];
     for (int g = 0; g < npro; g++) bdens[g] = 0.0;
     for (int i = 0; i < nlocal; i++) {
-      double u = (x[i][2] - zlo) / zprd * npro;
+      double u = (x[i][dim] - zlo) / zprd * npro;
       u -= npro * floor(u / npro);
       int g = (int) u;
       if (g >= npro) g -= npro;

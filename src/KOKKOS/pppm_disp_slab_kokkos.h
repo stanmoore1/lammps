@@ -261,6 +261,7 @@ class PPPMDispSlabKokkos : public PPPMDispSlab {
   // scalar device copies of hot-path parameters
   KK_FLOAT delzinv_kk, zlo_kk, shiftone_kk, zprd_kk;
   int nz_kk, order_kk, nlower_kk, nupper_kk;
+  int dim_kk, lat1_kk, lat2_kk;   // inhomogeneous and lateral dim indices
 
   // scalar device copies for the corr kernels
   double g_ewald_kk, rc2_kk, area_kk;        // damping, cutoff^2, lateral area

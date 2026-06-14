@@ -60,6 +60,9 @@ EwaldDispSlab::EwaldDispSlab(LAMMPS *lmp) :
     sn(nullptr), B(nullptr)
 {
   dispersionflag = 1;
+  dim = 2;
+  lat1 = 0;
+  lat2 = 1;
   damp_flag = 0;
   corr_mode = 0;
   bin_dz_user = 0.0;
@@ -151,6 +154,16 @@ int EwaldDispSlab::modify_param(int narg, char **arg)
     if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify pressure/profile", error);
     npro = utils::inumeric(FLERR, arg[1], false, lmp);
     profile_flag = (npro > 0);
+    return 2;
+  }
+  if (strcmp(arg[0], "dim") == 0) {
+    if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify dim", error);
+    if (strcmp(arg[1], "x") == 0) dim = 0;
+    else if (strcmp(arg[1], "y") == 0) dim = 1;
+    else if (strcmp(arg[1], "z") == 0) dim = 2;
+    else error->all(FLERR, "kspace_modify dim must be x, y, or z");
+    lat1 = (dim + 1) % 3;
+    lat2 = (dim + 2) % 3;
     return 2;
   }
   return 0;
@@ -254,8 +267,10 @@ double EwaldDispSlab::gf_of_k(int k)
 
 void EwaldDispSlab::estimate_params()
 {
-  volume = domain->xprd * domain->yprd * domain->zprd;
-  unitk = 2.0 * MY_PI / domain->zprd;
+  lat1 = (dim + 1) % 3;
+  lat2 = (dim + 2) % 3;
+  volume = domain->prd[0] * domain->prd[1] * domain->prd[2];
+  unitk = 2.0 * MY_PI / domain->prd[dim];
 
   // g_ewald for the damped variant (Gaussian short-range tail criterion)
 
@@ -338,8 +353,8 @@ void EwaldDispSlab::estimate_params()
 
 void EwaldDispSlab::setup()
 {
-  volume = domain->xprd * domain->yprd * domain->zprd;
-  unitk = 2.0 * MY_PI / domain->zprd;
+  volume = domain->prd[0] * domain->prd[1] * domain->prd[2];
+  unitk = 2.0 * MY_PI / domain->prd[dim];
 
   deallocate();
   allocate();
@@ -469,8 +484,8 @@ void EwaldDispSlab::eik_dot_r()
     sfacrl[0] += bi;
 
     if (kcount > 1) {
-      cs[1][i] = cos(unitk * x[i][2]);
-      sn[1][i] = sin(unitk * x[i][2]);
+      cs[1][i] = cos(unitk * x[i][dim]);
+      sn[1][i] = sin(unitk * x[i][dim]);
       sfacrl[1] += bi * cs[1][i];
       sfacim[1] += bi * sn[1][i];
     }
@@ -538,9 +553,9 @@ void EwaldDispSlab::compute(int eflag, int vflag)
         // even when only the per-atom virial, not energy, is requested)
         peatom[i] += GU[k] * partial_peratom;
         if (vflag_atom) {
-          // tangential (xx=yy) from GT; zz (normal) set from the virial trace
-          vatom[i][0] += GT[k] * partial_peratom;
-          vatom[i][1] += GT[k] * partial_peratom;
+          // tangential from GT; normal (dim) set from the virial trace
+          vatom[i][lat1] += GT[k] * partial_peratom;
+          vatom[i][lat2] += GT[k] * partial_peratom;
         }
       }
     }
@@ -548,7 +563,7 @@ void EwaldDispSlab::compute(int eflag, int vflag)
 
   // reciprocal z-force on each atom (scaled by its own B)
 
-  for (i = 0; i < nlocal; i++) f[i][2] += B[type[i]] * ek[i];
+  for (i = 0; i < nlocal; i++) f[i][dim] += B[type[i]] * ek[i];
 
   // reciprocal energy (full system value, identical on every proc); always
   // evaluated when the virial is needed (the zz trace uses it)
@@ -565,8 +580,8 @@ void EwaldDispSlab::compute(int eflag, int vflag)
   if (vflag_global) {
     for (k = 0; k < kcount; k++) {
       double uk = sfacrl_all[k] * sfacrl_all[k] + sfacim_all[k] * sfacim_all[k];
-      virial[0] += uk * GT[k];
-      virial[1] += uk * GT[k];
+      virial[lat1] += uk * GT[k];
+      virial[lat2] += uk * GT[k];
     }
   }
 
@@ -576,8 +591,8 @@ void EwaldDispSlab::compute(int eflag, int vflag)
     for (i = 0; i < nlocal; i++) peatom[i] *= B[type[i]];
   if (vflag_atom)
     for (i = 0; i < nlocal; i++) {
-      vatom[i][0] *= B[type[i]];
-      vatom[i][1] *= B[type[i]];
+      vatom[i][lat1] *= B[type[i]];
+      vatom[i][lat2] *= B[type[i]];
     }
 
   // damped variant: real-space "slab" correction (adds to energy, corr_energy,
@@ -591,9 +606,9 @@ void EwaldDispSlab::compute(int eflag, int vflag)
   // virial_zz = 6*E_kspace - virial_xx - virial_yy.  This is the total pressure
   // (contour-independent) and, per-atom, the IK-contour local normal pressure.
 
-  if (vflag_global) virial[2] = 6.0 * (e_recip + corr_energy) - virial[0] - virial[1];
+  if (vflag_global) virial[dim] = 6.0 * (e_recip + corr_energy) - virial[lat1] - virial[lat2];
   if (vflag_atom)
-    for (i = 0; i < nlocal; i++) vatom[i][2] = 6.0 * peatom[i] - vatom[i][0] - vatom[i][1];
+    for (i = 0; i < nlocal; i++) vatom[i][dim] = 6.0 * peatom[i] - vatom[i][lat1] - vatom[i][lat2];
 
   // report per-atom energy (from the buffer) when requested
   if (eflag_atom)
@@ -646,8 +661,8 @@ double EwaldDispSlab::ik_psi(double h)
 
 void EwaldDispSlab::compute_pressure_profile()
 {
-  const double zprd = domain->zprd, zlo = domain->boxlo[2];
-  const double area = domain->xprd * domain->yprd;
+  const double zprd = domain->prd[dim], zlo = domain->boxlo[dim];
+  const double area = domain->prd[lat1] * domain->prd[lat2];
   const double rc3 = cutoff * cutoff * cutoff;
   const int K = kcount - 1;    // highest mode index
 
@@ -676,7 +691,7 @@ void EwaldDispSlab::compute_pressure_profile()
     int *type = atom->type;
     double **x = atom->x;
     for (int i = 0; i < atom->nlocal; i++) {
-      double u = (x[i][2] - zlo) / zprd * npro;
+      double u = (x[i][dim] - zlo) / zprd * npro;
       u -= npro * floor(u / npro);
       int g = (int) u;
       if (g >= npro) g -= npro;
@@ -786,7 +801,7 @@ void EwaldDispSlab::corr_kernels(double x2, double &w2, double &f2, double &pt2)
   const double g2 = g_ewald * g_ewald;
   const double g4 = g2 * g2, g6 = g4 * g2, g8 = g4 * g4, g10 = g8 * g2, g12 = g10 * g2;
   const double rc4 = rc2 * rc2, rc6 = rc4 * rc2;
-  const double area = domain->xprd * domain->yprd;
+  const double area = domain->prd[(dim + 1) % 3] * domain->prd[(dim + 2) % 3];
 
   if (x2 < 1.0e-3) {    // Taylor branch (avoids 1/x^n cancellation near x=0)
     const double x4 = x2 * x2, x6 = x4 * x2;
@@ -842,7 +857,7 @@ void EwaldDispSlab::corr()
 
 void EwaldDispSlab::corr_raw()
 {
-  const double zprd = domain->zprd;
+  const double zprd = domain->prd[dim];
   double **x = atom->x;
   double **f = atom->f;
   int *type = atom->type;
@@ -864,7 +879,7 @@ void EwaldDispSlab::corr_raw()
   auto *zloc = new double[nlocal > 0 ? nlocal : 1];
   auto *bloc = new double[nlocal > 0 ? nlocal : 1];
   for (int i = 0; i < nlocal; i++) {
-    zloc[i] = x[i][2];
+    zloc[i] = x[i][dim];
     bloc[i] = B[type[i]];
   }
   auto *zall = new double[natoms_all > 0 ? natoms_all : 1];
@@ -884,20 +899,20 @@ void EwaldDispSlab::corr_raw()
   double bsqsum_local = 0.0;
   for (int i = 0; i < nlocal; i++) bsqsum_local += B[type[i]] * B[type[i]];
   e_local += bsqsum_local * w2_self;
-  v_local[0] += bsqsum_local * pt2_self;
-  v_local[1] += bsqsum_local * pt2_self;
+  v_local[lat1] += bsqsum_local * pt2_self;
+  v_local[lat2] += bsqsum_local * pt2_self;
   if (evflag_atom)
     for (int i = 0; i < nlocal; i++) peatom[i] += B[type[i]] * B[type[i]] * w2_self;
   if (vflag_atom)
     for (int i = 0; i < nlocal; i++) {
-      vatom[i][0] += B[type[i]] * B[type[i]] * pt2_self;
-      vatom[i][1] += B[type[i]] * B[type[i]] * pt2_self;
+      vatom[i][lat1] += B[type[i]] * B[type[i]] * pt2_self;
+      vatom[i][lat2] += B[type[i]] * B[type[i]] * pt2_self;
     }
 
   // pair contributions: local i vs all global j in the z-window (full sum)
 
   for (int i = 0; i < nlocal; i++) {
-    const double zi = x[i][2];
+    const double zi = x[i][dim];
     const double bi = B[type[i]];
     const int iglob = myoff + i;
     double fz_i = 0.0;
@@ -914,20 +929,20 @@ void EwaldDispSlab::corr_raw()
       const double bij = bi * ball[jg];
 
       // each unordered pair is summed from both ends -> 0.5 weight on energy/virial.
-      // zz (normal) virial is set from the trace in compute(), not here.
+      // normal (dim) virial is set from the trace in compute(), not here.
       e_local += 0.5 * bij * w2;
       fz_i += delz * bij * f2;
-      v_local[0] += 0.5 * bij * pt2;    // xx (tangential)
-      v_local[1] += 0.5 * bij * pt2;    // yy (tangential)
+      v_local[lat1] += 0.5 * bij * pt2;    // tangential lat1
+      v_local[lat2] += 0.5 * bij * pt2;    // tangential lat2
 
       if (evflag_atom) peatom[i] += 0.5 * bij * w2;
       if (vflag_atom) {
-        vatom[i][0] += 0.5 * bij * pt2;
-        vatom[i][1] += 0.5 * bij * pt2;
+        vatom[i][lat1] += 0.5 * bij * pt2;
+        vatom[i][lat2] += 0.5 * bij * pt2;
       }
     }
 
-    f[i][2] += fz_i;
+    f[i][dim] += fz_i;
   }
 
   // corr energy reduced to a full-system value (always, for the virial trace)
@@ -936,10 +951,10 @@ void EwaldDispSlab::corr_raw()
   corr_energy = e_all;
   if (eflag_global) energy += e_all;
   if (vflag_global) {
-    double v_all[2];
-    MPI_Allreduce(v_local, v_all, 2, MPI_DOUBLE, MPI_SUM, world);
-    virial[0] += v_all[0];
-    virial[1] += v_all[1];
+    double v_all[6];
+    MPI_Allreduce(v_local, v_all, 6, MPI_DOUBLE, MPI_SUM, world);
+    virial[lat1] += v_all[lat1];
+    virial[lat2] += v_all[lat2];
   }
 
   delete[] recvcounts;
@@ -961,8 +976,8 @@ void EwaldDispSlab::corr_raw()
 
 void EwaldDispSlab::corr_bin()
 {
-  const double zprd = domain->zprd;
-  const double zlo = domain->boxlo[2];
+  const double zprd = domain->prd[dim];
+  const double zlo = domain->boxlo[dim];
   double **x = atom->x;
   double **f = atom->f;
   int *type = atom->type;
@@ -988,7 +1003,7 @@ void EwaldDispSlab::corr_bin()
   auto *ab0 = new int[nlocal > 0 ? nlocal : 1];
   auto *afrac = new double[nlocal > 0 ? nlocal : 1];
   for (int i = 0; i < nlocal; i++) {
-    double u = (x[i][2] - zlo) / dz;
+    double u = (x[i][dim] - zlo) / dz;
     u -= nbins * floor(u / nbins);    // wrap into [0,nbins)
     int b0 = (int) u;
     if (b0 >= nbins) b0 -= nbins;
@@ -1054,8 +1069,8 @@ void EwaldDispSlab::corr_bin()
   if (vflag_global) {
     double vpt = 0.0;
     for (int b = 0; b < nbins; b++) vpt += dens_all[b] * phiPT[b];
-    virial[0] += 0.5 * vpt;
-    virial[1] += 0.5 * vpt;
+    virial[lat1] += 0.5 * vpt;
+    virial[lat2] += 0.5 * vpt;
   }
 
   // forces (CIC gradient of the binned energy), per-atom energy buffer / virial
@@ -1067,12 +1082,12 @@ void EwaldDispSlab::corr_bin()
     if (b1 >= nbins) b1 -= nbins;
     const double bi = B[type[i]];
     // f = -B_i d/dz_i [0.5 sum dens phi] = -B_i (phiW[b1]-phiW[b0])/dz
-    f[i][2] += -bi * (phiW[b1] - phiW[b0]) / dz;
+    f[i][dim] += -bi * (phiW[b1] - phiW[b0]) / dz;
     if (evflag_atom) peatom[i] += 0.5 * bi * (phiW[b0] * (1.0 - frac) + phiW[b1] * frac);
     if (vflag_atom) {
       double pt = phiPT[b0] * (1.0 - frac) + phiPT[b1] * frac;
-      vatom[i][0] += 0.5 * bi * pt;
-      vatom[i][1] += 0.5 * bi * pt;
+      vatom[i][lat1] += 0.5 * bi * pt;
+      vatom[i][lat2] += 0.5 * bi * pt;
     }
   }
 

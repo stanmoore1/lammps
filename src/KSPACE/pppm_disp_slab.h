@@ -24,13 +24,13 @@ KSpaceStyle(pppm/disp/slab,PPPMDispSlab);
 
 namespace LAMMPS_NS {
 
-// Mesh (z-grid) accelerated damped slab-based dispersion Ewald.
-// The dispersion-weighted (geometric-mixing) density varies only in z, so the
-// smooth reciprocal part is a 1-D convolution in z: spread the B-weighted
-// density onto a 1-D z grid, FFT in z, apply the damped influence function,
-// inverse-FFT the z-force field, and interpolate.  The real-space slab
-// correction corr() and the H/IK pressure profiles are shared (identical math)
-// with ewald/disp/slab.  Damped (SSB) only.
+// Mesh (1-D grid) accelerated damped slab-based dispersion Ewald.
+// The dispersion-weighted (geometric-mixing) density varies only in the chosen
+// inhomogeneous dimension (x, y, or z; default z), so the smooth reciprocal
+// part is a 1-D convolution: spread the B-weighted density onto a 1-D grid,
+// FFT, apply the damped influence function, inverse-FFT the force field, and
+// interpolate.  The real-space slab correction corr() and the H/IK pressure
+// profiles are shared (identical math) with ewald/disp/slab.  Damped (SSB) only.
 
 class PPPMDispSlab : public KSpace {
  public:
@@ -49,10 +49,12 @@ class PPPMDispSlab : public KSpace {
   double *pt_profile, *pn_profile;
 
  protected:
-  int nz;                // # z grid points (power of two)
+  int dim;               // inhomogeneous dimension: 0=x, 1=y, 2=z (default 2)
+  int lat1, lat2;        // lateral dimensions = (dim+1)%3, (dim+2)%3
+  int nz;                // # grid points along dim (power of two)
   int order;             // assignment/interpolation stencil order
-  int corr_mode;         // damped correction: 0 = raw pairwise, 1 = z-binned
-  double bin_dz_user;    // user-requested z-bin width for corr bin (0 => auto)
+  int corr_mode;         // damped correction: 0 = raw pairwise, 1 = binned
+  double bin_dz_user;    // user-requested bin width for corr bin (0 => auto)
   int bin_nbins;         // calibrated # corr bins (0 => not calibrated)
   double g_ewald_set;    // splitting parameter actually used
 

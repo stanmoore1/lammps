@@ -250,7 +250,10 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
   order_kk = order;
   nlower_kk = nlower;
   nupper_kk = nupper;
-  area_kk = domain->xprd * domain->yprd;   // NPT-safe refresh
+  dim_kk  = dim;
+  lat1_kk = lat1;
+  lat2_kk = lat2;
+  area_kk = domain->prd[lat1] * domain->prd[lat2];   // NPT-safe refresh
 
   const int nlocal = atomKK->nlocal;
 
@@ -282,8 +285,8 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
   e_recip_mesh = e;
   if (eflag_global) energy += e;
   if (vflag_global) {
-    virial[0] += e;
-    virial[1] += e;
+    virial[lat1] += e;
+    virial[lat2] += e;
   }
 
   copymode = 1;
@@ -348,8 +351,8 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
     }
   }
 
-  // normal (zz) virial from the exact 1/r^6 virial trace
-  if (vflag_global) virial[2] = 6.0 * (e_recip_mesh + corr_energy) - virial[0] - virial[1];
+  // normal virial from the exact 1/r^6 virial trace
+  if (vflag_global) virial[dim] = 6.0 * (e_recip_mesh + corr_energy) - virial[lat1] - virial[lat2];
 
   if (profile_flag) compute_pressure_profile();
 }
@@ -462,8 +465,8 @@ void PPPMDispSlabKokkos<DeviceType>::corr_raw_kk()
   if (vflag_global) {
     double vt_all;
     MPI_Allreduce(&vt_local, &vt_all, 1, MPI_DOUBLE, MPI_SUM, world);
-    virial[0] += vt_all;
-    virial[1] += vt_all;
+    virial[lat1] += vt_all;
+    virial[lat2] += vt_all;
   }
 }
 
@@ -546,8 +549,8 @@ void PPPMDispSlabKokkos<DeviceType>::corr_bin_kk()
   corr_energy += 0.5 * ev.e;
   if (eflag_global) energy += 0.5 * ev.e;
   if (vflag_global) {
-    virial[0] += 0.5 * ev.vt;
-    virial[1] += 0.5 * ev.vt;
+    virial[lat1] += 0.5 * ev.vt;
+    virial[lat2] += 0.5 * ev.vt;
   }
 
   // 7. force/per-atom interpolation
@@ -613,7 +616,10 @@ void PPPMDispSlabKokkos<DeviceType>::calibrate_bin_kk()
   // update all device scalars needed by corr/bin kernels during calibration
   g_ewald_kk  = g_ewald;
   rc2_kk      = cutoff * cutoff;
-  area_kk     = domain->xprd * domain->yprd;
+  dim_kk      = dim;
+  lat1_kk     = lat1;
+  lat2_kk     = lat2;
+  area_kk     = domain->prd[lat1] * domain->prd[lat2];
   zprd_kk     = static_cast<KK_FLOAT>(zprd);
   zlo_kk      = static_cast<KK_FLOAT>(zlo);
   shiftone_kk = static_cast<KK_FLOAT>(shiftone);
@@ -703,7 +709,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_make_rho, const int &i) const
 {
-  const double u = (static_cast<double>(x(i, 2)) - zlo_kk) * delzinv_kk;
+  const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzinv_kk;
   const double offs = (order_kk % 2) ? OFFSET + 0.5 : (double) OFFSET;
   const int g0 = (int) (u + offs) - OFFSET;
   const double dz = g0 + shiftone_kk - u;
@@ -775,7 +781,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_fieldforce, const int &i) const
 {
-  const double u = (static_cast<double>(x(i, 2)) - zlo_kk) * delzinv_kk;
+  const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzinv_kk;
   const double offs = (order_kk % 2) ? OFFSET + 0.5 : (double) OFFSET;
   const int g0 = (int) (u + offs) - OFFSET;
   const double dz = g0 + shiftone_kk - u;
@@ -789,7 +795,7 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_fieldforce, cons
     g = ((g % nz_kk) + nz_kk) % nz_kk;
     fz += w[s] * d_fz_grid(g);
   }
-  f(i, 2) += static_cast<KK_ACC_FLOAT>(bi * fz);
+  f(i, dim_kk) += static_cast<KK_ACC_FLOAT>(bi * fz);
 }
 
 template<class DeviceType>
@@ -804,7 +810,7 @@ KOKKOS_INLINE_FUNCTION
 void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_fieldforce_peratom,
                                                 const int &i) const
 {
-  const double u = (static_cast<double>(x(i, 2)) - zlo_kk) * delzinv_kk;
+  const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzinv_kk;
   const double offs = (order_kk % 2) ? OFFSET + 0.5 : (double) OFFSET;
   const int g0 = (int) (u + offs) - OFFSET;
   const double dz = g0 + shiftone_kk - u;
@@ -822,8 +828,8 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_fieldforce_perat
   double pe = 0.5 * bi * uu;
   d_peatom(i) += pe;
   if (vflag_atom) {
-    d_vatom(i, 0) += static_cast<KK_ACC_FLOAT>(pe);
-    d_vatom(i, 1) += static_cast<KK_ACC_FLOAT>(pe);
+    d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(pe);
+    d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(pe);
   }
 }
 
@@ -836,7 +842,7 @@ KOKKOS_INLINE_FUNCTION
 void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_raw, const int &i,
                                                 s_corr &ev) const
 {
-  const double zi = static_cast<double>(x(i, 2));
+  const double zi = static_cast<double>(x(i, dim_kk));
   const double bi = d_B(type(i));
   const int iglob = myoff_kk + i;
 
@@ -845,8 +851,8 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_raw, const 
   ev.vt += bi * bi * pt2self_kk;
   if (evflag_atom) d_peatom(i) += bi * bi * w2self_kk;
   if (vflag_atom) {
-    d_vatom(i, 0) += static_cast<KK_ACC_FLOAT>(bi * bi * pt2self_kk);
-    d_vatom(i, 1) += static_cast<KK_ACC_FLOAT>(bi * bi * pt2self_kk);
+    d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(bi * bi * pt2self_kk);
+    d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(bi * bi * pt2self_kk);
   }
 
   double fz = 0.0;
@@ -867,18 +873,18 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_raw, const 
 
     if (evflag_atom) d_peatom(i) += 0.5 * bij * w2;
     if (vflag_atom) {
-      d_vatom(i, 0) += static_cast<KK_ACC_FLOAT>(0.5 * bij * pt2);
-      d_vatom(i, 1) += static_cast<KK_ACC_FLOAT>(0.5 * bij * pt2);
+      d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bij * pt2);
+      d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bij * pt2);
     }
   }
-  f(i, 2) += static_cast<KK_ACC_FLOAT>(fz);
+  f(i, dim_kk) += static_cast<KK_ACC_FLOAT>(fz);
 }
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_raw_force, const int &i) const
 {
-  const double zi = static_cast<double>(x(i, 2));
+  const double zi = static_cast<double>(x(i, dim_kk));
   const double bi = d_B(type(i));
   const int iglob = myoff_kk + i;
   double fz = 0.0;
@@ -910,7 +916,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_bin_spread, const int &i) const
 {
-  const double u = (static_cast<double>(x(i, 2)) - zlo_kk) * delzc_kk;
+  const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzc_kk;
   const double offs = (order_kk % 2) ? OFFSET + 0.5 : (double) OFFSET;
   const int g0 = (int) (u + offs) - OFFSET;
   const double dz = g0 + shiftone_kk - u;
@@ -990,7 +996,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_bin_interp, const int &i) const
 {
-  const double u = (static_cast<double>(x(i, 2)) - zlo_kk) * delzc_kk;
+  const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzc_kk;
   const double offs = (order_kk % 2) ? OFFSET + 0.5 : (double) OFFSET;
   const int g0 = (int) (u + offs) - OFFSET;
   const double dz = g0 + shiftone_kk - u;
@@ -1007,11 +1013,11 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_bin_interp,
     if (evflag_atom) pe += w[s] * d_phiW(g);
     if (vflag_atom)  pt += w[s] * d_phiPT(g);
   }
-  f(i, 2) += static_cast<KK_ACC_FLOAT>(bi * delzc_kk * fz);
+  f(i, dim_kk) += static_cast<KK_ACC_FLOAT>(bi * delzc_kk * fz);
   if (evflag_atom) d_peatom(i) += 0.5 * bi * pe;
   if (vflag_atom) {
-    d_vatom(i, 0) += static_cast<KK_ACC_FLOAT>(0.5 * bi * pt);
-    d_vatom(i, 1) += static_cast<KK_ACC_FLOAT>(0.5 * bi * pt);
+    d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * pt);
+    d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * pt);
   }
 }
 
@@ -1021,7 +1027,7 @@ KOKKOS_INLINE_FUNCTION
 void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_bin_interp_force,
                                                 const int &i) const
 {
-  const double u = (static_cast<double>(x(i, 2)) - zlo_kk) * delzc_kk;
+  const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzc_kk;
   const double offs = (order_kk % 2) ? OFFSET + 0.5 : (double) OFFSET;
   const int g0 = (int) (u + offs) - OFFSET;
   const double dz = g0 + shiftone_kk - u;
@@ -1058,10 +1064,11 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_peratom_finalize
 {
   // d_peatom holds the full kspace per-atom energy (reciprocal + corr)
   if (eflag_atom) d_eatom(i) += static_cast<KK_ACC_FLOAT>(d_peatom(i));
-  // zz per-atom virial from the virial trace: 6*e_i - vxx_i - vyy_i
+  // normal per-atom virial from the virial trace: 6*e_i - v_lat1 - v_lat2
   if (vflag_atom)
-    d_vatom(i, 2) += static_cast<KK_ACC_FLOAT>(
-        6.0 * d_peatom(i) - static_cast<double>(d_vatom(i, 0)) - static_cast<double>(d_vatom(i, 1)));
+    d_vatom(i, dim_kk) += static_cast<KK_ACC_FLOAT>(
+        6.0 * d_peatom(i) - static_cast<double>(d_vatom(i, lat1_kk)) -
+        static_cast<double>(d_vatom(i, lat2_kk)));
 }
 
 /* ---------------------------------------------------------------------- */
