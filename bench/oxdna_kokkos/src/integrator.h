@@ -87,13 +87,10 @@ struct FirstStepFunctor {
         poss(i,1) += vels(i,1) * dt;
         poss(i,2) += vels(i,2) * dt;
 
-        // Apply periodic boundary (fold into box)
-        if (poss(i,0) >  box.Lx_half()) poss(i,0) -= box.Lx;
-        if (poss(i,0) < -box.Lx_half()) poss(i,0) += box.Lx;
-        if (poss(i,1) >  box.Ly_half()) poss(i,1) -= box.Ly;
-        if (poss(i,1) < -box.Ly_half()) poss(i,1) += box.Ly;
-        if (poss(i,2) >  box.Lz_half()) poss(i,2) -= box.Lz;
-        if (poss(i,2) < -box.Lz_half()) poss(i,2) += box.Lz;
+        // Apply periodic boundary (modular fold: handles any displacement size)
+        poss(i,0) -= box.Lx * Kokkos::floor(poss(i,0) / box.Lx + c_number(0.5));
+        poss(i,1) -= box.Ly * Kokkos::floor(poss(i,1) / box.Ly + c_number(0.5));
+        poss(i,2) -= box.Lz * Kokkos::floor(poss(i,2) / box.Lz + c_number(0.5));
 
         // Angular momentum half-step
         Ls(i,0) += torques(i,0) * dt_half;
