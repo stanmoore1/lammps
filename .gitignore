@@ -64,3 +64,4 @@ src/Makefile.package.settings-e
 /test
 /dev
 .Rhistory
+sb_ewald_dev/
