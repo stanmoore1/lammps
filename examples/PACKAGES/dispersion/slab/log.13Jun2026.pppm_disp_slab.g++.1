@@ -1,0 +1,99 @@
+LAMMPS (30 Mar 2026 - Development - 834d2f1a-modified)
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread.
+  using 1 OpenMP thread(s) per MPI task
+# Mesh-accelerated slab-based dispersion Ewald (pppm/disp/slab) for a planar LJ
+# liquid-vapor slab -- typically the fastest accurate long-range dispersion for
+# planar interfaces.  Damped only; pairs with a plain-cutoff LJ pair style.
+# Here we also tabulate the long-range pressure profile with the IK contour.
+
+units           lj
+atom_style      atomic
+boundary        p p p
+
+read_data       data.lj_slab
+Reading data file ...
+  orthogonal box = (0 0 0) to (10 10 36)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  1267 atoms
+  reading velocities ...
+  1267 velocities
+  read_data CPU = 0.006 seconds
+
+pair_style      lj/cut 3.0
+pair_coeff      1 1 1.0 1.0
+
+kspace_style    pppm/disp/slab 1.0e-3
+kspace_modify   corr bin contour ik
+# corr bin is auto-sized to the requested force accuracy; for very tight
+# tolerances the fine bins become costly, so use corr raw (exact) instead.
+
+variable        lz equal lz
+variable        gamma equal 0.5*v_lz*(pzz-0.5*(pxx+pyy))
+thermo_style    custom step temp pe etotal press pxx pyy pzz v_gamma
+thermo          50
+
+velocity        all create 0.85 4928 mom yes
+fix             1 all nve
+timestep        0.004
+run             500
+PPPM slab-based dispersion Ewald (pppm/disp/slab) ...
+  corr bin: 1440 bins (dz = 0.025), force error 0.000844 vs target 0.001
+  damped, z grid = 128, stencil order = 5, g_ewald = 1.23897
+  estimated absolute RMS force accuracy = 4.82882e-05
+  estimated relative force accuracy = 4.82882e-05
+Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 3.3
+  ghost atom cutoff = 3.3
+  binsize = 1.65, bins = 7 7 22
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair lj/cut, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d
+      bin: standard
+  corr bin: 1440 bins (dz = 0.025), force error 0.000844 vs target 0.001
+Per MPI rank memory allocation (min/avg/max) = 3.31 | 3.31 | 3.31 Mbytes
+   Step          Temp          PotEng         TotEng         Press           Pxx            Pyy            Pzz          v_gamma    
+         0   0.85          -4.9106212     -3.6366275     -0.21694604    -0.16351464    -0.29804048    -0.18928299     0.74690221   
+        50   0.8301764     -4.880324      -3.6360423     -0.22237353    -0.20809966    -0.1848789     -0.27414201    -1.397749     
+       100   0.81221171    -4.8534494     -3.6360934     -0.20582352    -0.19423998    -0.24223092    -0.18099965     0.67024434   
+       150   0.80918041    -4.8497807     -3.6369681     -0.16232262    -0.2291681     -0.1779845     -0.079815254    2.2276988    
+       200   0.82836566    -4.8788348     -3.637267      -0.20903841    -0.25252842    -0.15328881    -0.22129799    -0.33100883   
+       250   0.82625692    -4.8760899     -3.6376827     -0.13387295    -0.10424248    -0.21472745    -0.082648908    1.383049     
+       300   0.85702827    -4.9227948     -3.638267      -0.12415688    -0.082306227   -0.21818186    -0.071982538    1.4087071    
+       350   0.85225991    -4.9164713     -3.6390905     -0.085985148   -0.1334882     -0.13218098     0.0077137356   2.5298699    
+       400   0.86308551    -4.9332367     -3.6396302     -0.015662885   -0.074097778   -0.030726546    0.057835667    1.9844609    
+       450   0.88303408    -4.9635183     -3.6400126     -0.06277005    -0.066922446   -0.029048536   -0.092339169   -0.7983662    
+       500   0.85087263    -4.9155341     -3.6402325     -0.024238561   -0.079114852   -0.021060224    0.027459392    1.3958447    
+Loop time of 0.659712 on 1 procs for 500 steps with 1267 atoms
+
+Performance: 261932.439 tau/day, 757.906 timesteps/s, 960.267 katom-step/s
+100.0% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.32742    | 0.32742    | 0.32742    |   0.0 | 49.63
+Kspace  | 0.22324    | 0.22324    | 0.22324    |   0.0 | 33.84
+Neigh   | 0.095221   | 0.095221   | 0.095221   |   0.0 | 14.43
+Comm    | 0.0064174  | 0.0064174  | 0.0064174  |   0.0 |  0.97
+Output  | 0.00066582 | 0.00066582 | 0.00066582 |   0.0 |  0.10
+Modify  | 0.0045574  | 0.0045574  | 0.0045574  |   0.0 |  0.69
+Other   |            | 0.002192   |            |       |  0.33
+
+Nlocal:           1267 ave        1267 max        1267 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:           2286 ave        2286 max        2286 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:          64313 ave       64313 max       64313 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 64313
+Ave neighs/atom = 50.760063
+Neighbor list builds = 47
+Dangerous builds = 0
+Total wall time: 0:00:00

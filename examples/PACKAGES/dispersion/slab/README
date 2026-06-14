@@ -1,0 +1,15 @@
+Slab-based (SB) Ewald long-range dispersion examples
+====================================================
+
+Planar Lennard-Jones liquid-vapor slab (1267 atoms, fully periodic) using the
+slab-based dispersion long-range solvers:
+
+  in.ewald_disp_slab   kspace_style ewald/disp/slab (damped SSB; corr bin)
+  in.pppm_disp_slab    kspace_style pppm/disp/slab  (mesh-accelerated; corr bin, IK contour)
+
+Both pair with pair_style lj/cut (full LJ to r_cut) and add the r>r_cut
+dispersion tail with a 1-D z Fourier sum.  The thermo output includes the
+long-range surface tension gamma = (Lz/2)(P_zz - (P_xx+P_yy)/2).
+
+These styles require fully periodic boundaries and must NOT be combined with the
+EW3DC "kspace_modify slab" correction.
