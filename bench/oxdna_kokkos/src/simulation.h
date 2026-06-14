@@ -6,6 +6,7 @@
 #include "integrator.h"
 #include "forces/dna_forces.h"
 #include "forces/backbone.h"
+#include "forces/stacking.h"
 #include "forces/params.h"
 #include "io/topology_reader.h"
 #include "io/config_reader.h"
@@ -47,6 +48,7 @@ public:
         // Initial forces
         dev_.zero_forces();
         epot_ = compute_backbone_forces(dev_, par_, box_);
+        epot_ += compute_stacking_forces(dev_, par_, box_);
         epot_ += compute_nonbonded_forces(dev_, nl_, par_, box_);
 
         std::cout << "Initialized " << N_ << " particles, "
@@ -57,6 +59,15 @@ public:
         auto t_start = std::chrono::high_resolution_clock::now();
         long long step = step_;
 
+        // Print initial (step 0) energy from forces computed in init()
+        {
+            Kokkos::fence();
+            c_number ekin = kinetic_energy(dev_);
+            std::printf("step %8lld  Epot=%12.6f  Ekin=%12.6f  Etot=%12.6f  pairs=%d\n",
+                        step, (double)epot_, (double)ekin, (double)(ekin + epot_),
+                        nl_.N_edges);
+        }
+
         for (long long s = 0; s < cfg_.nsteps; s++, step++) {
             first_step(dev_, cfg_.dt, box_);
 
@@ -66,6 +77,7 @@ public:
 
             dev_.zero_forces();
             epot_  = compute_backbone_forces(dev_, par_, box_);
+            epot_ += compute_stacking_forces(dev_, par_, box_);
             epot_ += compute_nonbonded_forces(dev_, nl_, par_, box_);
 
             second_step(dev_, cfg_.dt);

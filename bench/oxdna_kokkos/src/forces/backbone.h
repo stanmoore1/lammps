@@ -68,11 +68,18 @@ struct BackboneFunctor {
 
         c_number dr = r - r0;
         c_number t  = dr / Delta;
-        if (Kokkos::fabs(t) >= 1) return;  // outside valid FENE region
+        if (Kokkos::fabs(t) >= c_number(1.0)) return;  // bond completely broken
+
+        // Cap force at max_backbone_force=20000 (same as standalone oxDNA).
+        // Beyond t_mbf, force magnitude would exceed ~20000 reduced units.
+        // mbf_xmax = 0.24995 → t_mbf = 0.24995/0.25 = 0.9998
+        static const c_number t_mbf = c_number(0.9998);
+        if (t >  t_mbf) t =  t_mbf;
+        if (t < -t_mbf) t = -t_mbf;
 
         c_number denom = 1 - t * t;
-        c_number U     = -k * Delta * Delta * 0.5 * Kokkos::log(denom);
-        c_number fpair = -k * dr / (r * denom);   // dU/dr * (1/r)
+        c_number U     = c_number(-0.5) * k * Kokkos::log(denom);
+        c_number fpair = -k * t / (r * Delta * denom);
 
         ev += U;
 
