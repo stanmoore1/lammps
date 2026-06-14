@@ -96,7 +96,7 @@ class PPPMDispSlab : public KSpace {
   void corr_bin();
   void corr_raw_force(double *fzloc);    // lean exact pairwise corr force (calibration ref)
   void corr_bin_force(int nbins, double *fzloc);    // lean force-only binned corr (for calibration)
-  void calibrate_bin();                             // tie corr bin count to target accuracy
+  virtual void calibrate_bin();                     // tie corr bin count to target accuracy
   void corr_kernels(double x2, double &w2, double &f2, double &pt2);
   void compute_pressure_profile();
   double ik_phi(double h), ik_psi(double h);
