@@ -6,7 +6,8 @@ project(oxdna_kokkos CXX)
 # -----------------------------------------------------------------------
 find_package(Kokkos QUIET)
 if(NOT Kokkos_FOUND)
-    set(KOKKOS_SOURCE_DIR "/home/user/lammps/lib/kokkos"
+    # Default to the Kokkos bundled with this LAMMPS tree (bench/oxdna_kokkos -> lib/kokkos)
+    set(KOKKOS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/kokkos"
         CACHE PATH "Path to Kokkos source tree")
     if(NOT EXISTS "${KOKKOS_SOURCE_DIR}/CMakeLists.txt")
         message(FATAL_ERROR
