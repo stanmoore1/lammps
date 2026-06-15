@@ -16,6 +16,7 @@ int main(int argc, char**argv){
     double salt=(argc>3)? std::atof(argv[3]) : 0.5;
     const char* top  = (argc>4)? argv[4] : "tests/8bp_duplex/test.top";
     const char* conf = (argc>5)? argv[5] : "tests/8bp_duplex/test.conf";
+    const char* ftout= (argc>6)? argv[6] : nullptr;  // if set, dump per-particle force/torque
     Kokkos::initialize(argc,argv);
     {
         ParticleArraysHost host; int N;
@@ -40,6 +41,18 @@ int main(int argc, char**argv){
         std::printf("  stacking             = %12.6f  (%.6f /particle)\n", (double)e_stk,  (double)e_stk/N);
         std::printf("  nonbonded(all)       = %12.6f  (%.6f /particle)\n", (double)e_nb,   (double)e_nb/N);
         std::printf("  TOTAL                = %12.6f  (%.6f /particle)\n", (double)tot,    (double)tot/N);
+
+        if (ftout) {
+            auto F = Kokkos::create_mirror_view(dev.forces);  Kokkos::deep_copy(F, dev.forces);
+            auto Tq= Kokkos::create_mirror_view(dev.torques); Kokkos::deep_copy(Tq, dev.torques);
+            FILE* f = std::fopen(ftout, "w");
+            for (int i=0;i<N;i++)
+                std::fprintf(f, "%d %.10g %.10g %.10g %.10g %.10g %.10g\n", i,
+                             (double)F(i,0),(double)F(i,1),(double)F(i,2),
+                             (double)Tq(i,0),(double)Tq(i,1),(double)Tq(i,2));
+            std::fclose(f);
+            std::printf("  wrote per-particle force/torque (lab frame) to %s\n", ftout);
+        }
     }
     Kokkos::finalize();
     return 0;
