@@ -26,10 +26,10 @@ struct SimConfig {
     int         output_freq = 1000;
     int         model       = 1;     // 1 = oxDNA1, 2 = oxDNA2
     c_number    salt        = 0.5;   // salt concentration [mol/L] (oxDNA2 only)
-    // Thermostat (Andersen / "John"). newtonian_steps <= 0 disables it (NVE).
+    // Brownian ("John") thermostat. newtonian_steps <= 0 disables it (NVE).
     int         newtonian_steps = 0;
-    c_number    pt          = 0.1;   // translational refresh probability
-    c_number    pr          = 0.1;   // rotational refresh probability
+    c_number    diff_coeff  = 2.5;   // translational diffusion coefficient
+    c_number    pt          = 0.0;   // refresh probability (if >0, overrides diff_coeff)
     uint64_t    seed        = 12345;
 };
 
@@ -51,8 +51,8 @@ public:
                                  : make_oxdna1_params(cfg_.T);
 
         // Thermostat (optional)
-        if (cfg_.newtonian_steps > 0)
-            thermo_.init(cfg_.T, cfg_.pt, cfg_.pr, cfg_.seed);
+        thermo_.init(cfg_.T, cfg_.newtonian_steps, cfg_.dt, cfg_.diff_coeff,
+                     cfg_.pt, cfg_.seed);
 
         // Neighbor list: cover the longest-range interaction (e.g. Debye-Huckel)
         c_number nl_cut = std::max(static_cast<double>(cfg_.cutoff),

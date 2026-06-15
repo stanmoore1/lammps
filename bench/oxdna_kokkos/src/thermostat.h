@@ -1,20 +1,24 @@
 #pragma once
 
-// Andersen-style ("John") thermostat, as used by the standalone oxDNA MD
-// backend. Every `newtonian_steps` MD steps the thermostat is applied: each
-// particle's linear velocity is refreshed from the Maxwell-Boltzmann
-// distribution with probability pt, and its angular momentum with probability
-// pr. Masses and the (isotropic) inertia are unity, so each component is drawn
-// from N(0, sqrt(T)).
+// Brownian ("John") thermostat, matching the standalone oxDNA
+// BrownianThermostat. Every `newtonian_steps` MD steps each particle's linear
+// velocity is refreshed from the Maxwell-Boltzmann distribution with
+// probability pt, and its angular momentum with probability pr; masses and the
+// (isotropic) inertia are unity, so each component is drawn from N(0, sqrt(T)).
 //
-// Disabled by default (newtonian_steps <= 0) so the engine runs NVE, which is
-// the configuration used for force-throughput benchmarking.
+// The refresh probabilities are derived from the translational diffusion
+// coefficient exactly as in the standalone (rotational Dr = 3 Dt):
+//     pt = 2 T n dt / (T n dt + 2 D)        [or supplied directly]
+//     D  = T n dt (1/pt - 1/2)
+//     pr = 2 T n dt / (T n dt + 2 (3 D))
+// where n = newtonian_steps. Disabled by default (newtonian_steps <= 0 -> NVE).
 
 #include "types.h"
 #include "particles.h"
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
 #include <cstdint>
+#include <stdexcept>
 
 struct Thermostat {
     using Pool = Kokkos::Random_XorShift64_Pool<>;
@@ -23,12 +27,25 @@ struct Thermostat {
     c_number pt = 0, pr = 0;
     bool     enabled = false;
 
-    void init(c_number T, c_number pt_in, c_number pr_in, uint64_t seed) {
-        pool    = Pool(seed);
-        sqrtT   = Kokkos::sqrt(T);   // unit mass and unit inertia
-        pt      = pt_in;
-        pr      = pr_in;
-        enabled = (pt_in > 0 || pr_in > 0);
+    // T          : target temperature
+    // newt       : newtonian_steps (>0 to enable)
+    // dt         : integration timestep
+    // diff_coeff : translational diffusion coefficient (used if pt_in <= 0)
+    // pt_in      : translational refresh probability (if > 0, used directly)
+    void init(c_number T, int newt, c_number dt, c_number diff_coeff,
+              c_number pt_in, uint64_t seed) {
+        enabled = (newt > 0);
+        if (!enabled) return;
+        pool  = Pool(seed);
+        sqrtT = Kokkos::sqrt(T);                 // unit mass and inertia
+
+        c_number Tndt = T * newt * dt;
+        pt = pt_in;
+        if (pt <= 0) pt = (2 * Tndt) / (Tndt + 2 * diff_coeff);
+        if (pt > 1) throw std::runtime_error("Brownian thermostat: pt > 1 (reduce diff_coeff or dt)");
+        // back out the diffusion coefficient consistent with pt, then pr (Dr = 3 Dt)
+        c_number D = Tndt * (1 / pt - c_number(0.5));
+        pr = (2 * Tndt) / (Tndt + 2 * 3 * D);
     }
 
     void apply(ParticleArrays &p) const {

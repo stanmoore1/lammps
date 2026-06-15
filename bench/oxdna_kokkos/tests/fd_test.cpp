@@ -135,8 +135,10 @@ static void test_conservation(Sys &s, c_number dt, int nsteps) {
 }
 
 static void test_thermostat(Sys &s, c_number T, int nsteps) {
-    Thermostat th; th.init(T, 0.1, 0.1, 777);
     c_number dt = 2e-3;
+    // strong direct coupling (pt=0.3) so the small system equilibrates quickly;
+    // this checks equipartition, not the diff_coeff -> pt mapping.
+    Thermostat th; th.init(T, 50, dt, 0.0, 0.3, 777);
     // equilibrate, then average kinetic energy
     for (int step=1; step<=nsteps/2; step++) md_step(s, dt, &th, step, 50);
     double sum=0; int cnt=0;
@@ -161,7 +163,7 @@ int main(int argc, char**argv){
             { Sys s; load(s, model);
               test_conservation(s, dts[model], 3000); }
             { Sys s; load(s, model);
-              test_thermostat(s, 0.1, 4000); }
+              test_thermostat(s, 0.1, 12000); }
         }
         std::printf("\n%s (%d failure%s)\n", g_fail==0?"ALL TESTS PASSED":"TESTS FAILED",
                     g_fail, g_fail==1?"":"s");

@@ -13,7 +13,7 @@ three interaction sites (backbone, base, stacking) derived from its orientation.
 
 ## What it computes
 
-Molecular dynamics in the NVE or NVT (Andersen thermostat) ensemble, with the
+Molecular dynamics in the NVE or NVT (Brownian thermostat) ensemble, with the
 full oxDNA interaction set:
 
 | Interaction | Type | oxDNA1 | oxDNA2 |
@@ -41,7 +41,7 @@ All model constants are taken directly from the standalone oxDNA `src/model.h`
 | `src/main.cpp` | CLI entry point |
 | `src/simulation.h` | MD driver: I/O, force evaluation, time loop |
 | `src/integrator.h` | Velocity-Verlet + quaternion (lab-frame) orientation update |
-| `src/thermostat.h` | Andersen ("John") thermostat (optional, NVT) |
+| `src/thermostat.h` | Brownian ("John") thermostat (optional, NVT) |
 | `src/neighbor_list.h` | Cell list + flat Verlet edge list (one thread per pair) |
 | `src/particles.h`, `src/types.h` | SoA particle storage, quaternion / box types |
 | `src/forces/params.h` | Force-field parameters (`make_oxdna1_params`, `make_oxdna2_params`) |
@@ -98,8 +98,9 @@ Useful CMake options:
 | `-salt <c>`     | 0.5 | Salt concentration [mol/L] (oxDNA2 only) |
 | `-cut <r>`      | 2.5 | Minimum nonbonded cutoff (grown automatically for Debye–Hückel) |
 | `-skin <r>`     | 0.3 | Verlet skin |
-| `-newt <N>`     | 0 | Andersen thermostat period in steps (`0` = NVE) |
-| `-pt <p>` / `-pr <p>` | 0.1 | Translational / rotational refresh probability |
+| `-newt <N>`     | 0 | Brownian thermostat period in steps (`0` = NVE) |
+| `-diff <D>`     | 2.5 | Translational diffusion coefficient (sets refresh probability) |
+| `-pt <p>`       | 0 | Refresh probability; overrides `-diff` if `> 0` |
 | `-seed <N>`     | 12345 | Thermostat RNG seed |
 | `-freq <N>`     | 1000 | Energy print frequency |
 
