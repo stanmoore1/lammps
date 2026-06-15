@@ -1,0 +1,50 @@
+# Build the oxDNA-Kokkos standalone (bench/oxdna_kokkos) with the Serial Kokkos
+# backend and run the self-checking validation suite (finite-difference forces
+# & torques, NVE energy conservation, and thermostat temperature) for both
+# oxDNA1 and oxDNA2. The suite exits non-zero on any failure.
+name: "oxDNA-Kokkos tests"
+
+on:
+  push:
+    paths:
+      - 'bench/oxdna_kokkos/**'
+      - 'lib/kokkos/**'
+      - '.github/workflows/oxdna-kokkos.yml'
+  pull_request:
+    paths:
+      - 'bench/oxdna_kokkos/**'
+      - '.github/workflows/oxdna-kokkos.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & validate (Serial)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ ninja-build
+
+      - name: Configure
+        working-directory: bench/oxdna_kokkos
+        run: |
+          cmake -B build -G Ninja \
+            -DKokkos_ENABLE_SERIAL=ON \
+            -DOXDNA_BUILD_TESTS=ON \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        working-directory: bench/oxdna_kokkos
+        run: cmake --build build -j
+
+      - name: Run validation suite (oxDNA1 + oxDNA2)
+        working-directory: bench/oxdna_kokkos
+        run: ./build/fd_test
