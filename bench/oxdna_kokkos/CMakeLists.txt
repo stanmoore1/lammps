@@ -61,3 +61,18 @@ message(STATUS "
   Build with Serial backend (debug):
     cmake -DKokkos_ENABLE_SERIAL=ON ..
 ")
+
+# -----------------------------------------------------------------------
+# Optional finite-difference force/torque validation tool
+#   cmake -DOXDNA_BUILD_TESTS=ON ..   (then run ./fd_test from the source dir)
+# -----------------------------------------------------------------------
+option(OXDNA_BUILD_TESTS "Build the finite-difference validation tool" OFF)
+if(OXDNA_BUILD_TESTS)
+    add_executable(fd_test tests/fd_test.cpp)
+    target_compile_features(fd_test PRIVATE cxx_std_17)
+    target_link_libraries(fd_test PRIVATE Kokkos::kokkos)
+    target_include_directories(fd_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    if(OXDNA_SINGLE_PRECISION)
+        target_compile_definitions(fd_test PRIVATE OXDNA_SINGLE_PRECISION)
+    endif()
+endif()

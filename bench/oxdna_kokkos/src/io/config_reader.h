@@ -26,12 +26,13 @@
 // following the Shepperd method. The quaternion is (q0, q1, q2, q3) = (w, x, y, z).
 inline void rot_to_quat(const double a1[3], const double a2[3], const double a3[3],
                         c_number &q0, c_number &q1, c_number &q2, c_number &q3) {
-    // Build R as column-major: R[col][row]
-    // a1 = first row = (R[0][0], R[1][0], R[2][0]) etc.
+    // Store a1, a2, a3 as the COLUMNS of R, so that get_vectors_from_quat()
+    // (which extracts the rotation-matrix columns) reconstructs nx=a1, ny=a2,
+    // nz=a3 exactly. (a1/a2/a3 are the lab-frame body axes from the conf.)
     double R[3][3];
-    R[0][0] = a1[0]; R[0][1] = a1[1]; R[0][2] = a1[2];
-    R[1][0] = a2[0]; R[1][1] = a2[1]; R[1][2] = a2[2];
-    R[2][0] = a3[0]; R[2][1] = a3[1]; R[2][2] = a3[2];
+    R[0][0] = a1[0]; R[1][0] = a1[1]; R[2][0] = a1[2];
+    R[0][1] = a2[0]; R[1][1] = a2[1]; R[2][1] = a2[2];
+    R[0][2] = a3[0]; R[1][2] = a3[1]; R[2][2] = a3[2];
 
     double trace = R[0][0] + R[1][1] + R[2][2];
     double w, x, y, z;
