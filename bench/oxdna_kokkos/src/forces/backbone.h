@@ -9,6 +9,7 @@
 #include "../particles.h"
 #include "params.h"
 #include "orient.h"
+#include "mf_oxdna.h"
 #include <Kokkos_Core.hpp>
 #include <Kokkos_ScatterView.hpp>
 
@@ -20,6 +21,25 @@ void cross3b(const c_number a[3], const c_number b[3], c_number c[3]) {
     c[2] = a[0]*b[1] - a[1]*b[0];
 }
 
+// One site-site bonded excluded-volume term (F3). a = particle i, b = n3.
+// d = delr_com + rb_site - ra_site (a->b). Force on a is -df, on b is +df.
+KOKKOS_INLINE_FUNCTION
+void bonded_excv_term(const c_number ra[3], const c_number rb[3], const c_number d[3],
+                      const ExcvParams &ep,
+                      c_number (&fi)[3], c_number (&ti)[3],
+                      c_number (&fn)[3], c_number (&tn)[3], c_number &e) {
+    c_number rsq = d[0]*d[0] + d[1]*d[1] + d[2]*d[2];
+    if (rsq >= ep.cutsq_c) return;
+    c_number fpair = 0;
+    e += MFOxdna::F3(rsq, ep.cutsq_ast, ep.cut_c, ep.lj1, ep.lj2, ep.eps, ep.b, fpair);
+    c_number df[3] = {d[0]*fpair, d[1]*fpair, d[2]*fpair};
+    fi[0]-=df[0]; fi[1]-=df[1]; fi[2]-=df[2];
+    fn[0]+=df[0]; fn[1]+=df[1]; fn[2]+=df[2];
+    c_number c[3];
+    cross3b(ra, df, c); ti[0]-=c[0]; ti[1]-=c[1]; ti[2]-=c[2];
+    cross3b(rb, df, c); tn[0]+=c[0]; tn[1]+=c[1]; tn[2]+=c[2];
+}
+
 // FENE potential: U = -k*Delta^2/2 * ln(1 - ((r-r0)/Delta)^2)
 // Valid only when |r - r0| < Delta.
 struct BackboneFunctor {
@@ -29,6 +49,9 @@ struct BackboneFunctor {
     SimBox box;
     FeneParams fene;
     c_number d_cbk;  // backbone site offset along nx
+    c_number d_cbs;  // base site offset along nx
+    ExcvParams excv_bsbs;  // bonded base-base excluded volume (EXCL_S2)
+    ExcvParams excv_bkbs;  // bonded back-base excluded volume (EXCL_S3/S4)
 
     using SV = Kokkos::Experimental::ScatterView<
         c_number *[4],
@@ -95,6 +118,33 @@ struct BackboneFunctor {
         cross3b(rb, delf, db);
         at_v(i,  0) += da[0]; at_v(i,  1) += da[1]; at_v(i,  2) += da[2];
         at_v(n3, 0) -= db[0]; at_v(n3, 1) -= db[1]; at_v(n3, 2) -= db[2];
+
+        // ---- Bonded excluded volume (base-base, base-back, back-base) ----
+        // a = i, b = n3. Backbone sites already as ra/rb; base sites along nx.
+        c_number ra_bs[3] = {d_cbs*ax_i[0], d_cbs*ax_i[1], d_cbs*ax_i[2]};
+        c_number rb_bs[3] = {d_cbs*ax_n[0], d_cbs*ax_n[1], d_cbs*ax_n[2]};
+
+        c_number rcom[3] = {poss(n3,0)-poss(i,0), poss(n3,1)-poss(i,1), poss(n3,2)-poss(i,2)};
+        box.wrap(rcom[0], rcom[1], rcom[2]);
+
+        c_number fi[3] = {0,0,0}, ti[3] = {0,0,0}, fn[3] = {0,0,0}, tn[3] = {0,0,0};
+        c_number eb = 0;
+
+        // base(i)-base(n3)
+        { c_number d[3] = {rcom[0]+rb_bs[0]-ra_bs[0], rcom[1]+rb_bs[1]-ra_bs[1], rcom[2]+rb_bs[2]-ra_bs[2]};
+          bonded_excv_term(ra_bs, rb_bs, d, excv_bsbs, fi, ti, fn, tn, eb); }
+        // base(i)-back(n3)
+        { c_number d[3] = {rcom[0]+rb[0]-ra_bs[0], rcom[1]+rb[1]-ra_bs[1], rcom[2]+rb[2]-ra_bs[2]};
+          bonded_excv_term(ra_bs, rb, d, excv_bkbs, fi, ti, fn, tn, eb); }
+        // back(i)-base(n3)
+        { c_number d[3] = {rcom[0]+rb_bs[0]-ra[0], rcom[1]+rb_bs[1]-ra[1], rcom[2]+rb_bs[2]-ra[2]};
+          bonded_excv_term(ra, rb_bs, d, excv_bkbs, fi, ti, fn, tn, eb); }
+
+        ev += eb;
+        af(i,  0) += fi[0]; af(i,  1) += fi[1]; af(i,  2) += fi[2];
+        af(n3, 0) += fn[0]; af(n3, 1) += fn[1]; af(n3, 2) += fn[2];
+        at_v(i,  0) += ti[0]; at_v(i,  1) += ti[1]; at_v(i,  2) += ti[2];
+        at_v(n3, 0) += tn[0]; at_v(n3, 1) += tn[1]; at_v(n3, 2) += tn[2];
     }
 };
 
@@ -118,6 +168,9 @@ inline c_number compute_backbone_forces(ParticleArrays &p,
     fun.box          = box;
     fun.fene         = par.fene;
     fun.d_cbk        = par.d_cbk;
+    fun.d_cbs        = par.d_cbs;
+    fun.excv_bsbs    = par.excv_bsbs;
+    fun.excv_bkbs    = par.excv_bkbs;
     fun.sf           = sf;
     fun.st           = st;
 

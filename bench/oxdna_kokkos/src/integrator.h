@@ -48,8 +48,11 @@ void update_orientation(c_number &qw, c_number &qx, c_number &qy, c_number &qz,
     c_number ry = Ly * inv_norm * s;
     c_number rz = Lz * inv_norm * s;
 
+    // Torque and angular momentum are accumulated in the LAB frame (the force
+    // kernels build lab-frame torques and the inertia is unit-isotropic), so the
+    // finite rotation is applied by LEFT-multiplication: q(t+dt) = r ⊗ q(t).
     c_number nw, nx, ny, nz;
-    quat_multiply(qw, qx, qy, qz, rw, rx, ry, rz, nw, nx, ny, nz);
+    quat_multiply(rw, rx, ry, rz, qw, qx, qy, qz, nw, nx, ny, nz);
 
     // Re-normalise for numerical stability
     c_number mag = Kokkos::sqrt(nw*nw + nx*nx + ny*ny + nz*nz);

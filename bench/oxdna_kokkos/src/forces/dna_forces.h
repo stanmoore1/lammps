@@ -1,11 +1,13 @@
 #pragma once
 
-// DNA nonbonded force computation kernel.
+// DNA nonbonded force computation kernel (oxDNA1).
 // One Kokkos thread per edge (pair i,j) — no inner loop, perfect load balance.
-// Force accumulation uses Kokkos::ScatterView (atomic on GPU, duplicated on OpenMP).
 //
-// Physics: excluded volume + hydrogen bonding + stacking + cross-stacking.
-// Only oxDNA1 is implemented; oxDNA2/oxDNA3 can be added via template flags.
+// Physics (matches the standalone DNAInteraction::pair_interaction_nonbonded):
+//   nonbonded excluded volume + hydrogen bonding + cross stacking + coaxial stacking.
+// Each angular/dihedral term is a faithful port of the standalone force/torque
+// expressions; torques are accumulated in the lab frame (the integrator uses unit
+// isotropic inertia, so lab-frame angular momentum integration is exact).
 
 #include "../types.h"
 #include "../particles.h"
@@ -20,7 +22,7 @@
 using namespace MFOxdna;
 
 // -----------------------------------------------------------------------
-// Cross product: c = a × b
+// Small vector helpers
 // -----------------------------------------------------------------------
 KOKKOS_INLINE_FUNCTION
 void cross3(const c_number a[3], const c_number b[3], c_number c[3]) {
@@ -34,229 +36,418 @@ c_number dot3(const c_number a[3], const c_number b[3]) {
     return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
 }
 
+// f4 value and its derivative w.r.t. cos(theta) (== standalone _custom_f4D).
+KOKKOS_INLINE_FUNCTION
+void eval_f4(c_number cost, const F4Params &P, c_number &f4v, c_number &Dc) {
+    if (cost >  1) cost =  1;
+    if (cost < -1) cost = -1;
+    c_number th = Kokkos::acos(cost);
+    f4v = F4(th, P.a, P.theta_0, P.dtheta_ast, P.b, P.dtheta_c);
+    c_number sint = Kokkos::sqrt(Kokkos::fmax(c_number(0), 1 - cost*cost));
+    Dc = (sint > c_number(1e-8))
+       ? (-DF4(th, P.a, P.theta_0, P.dtheta_ast, P.b, P.dtheta_c) / sint)
+       : c_number(0);
+}
+
 // -----------------------------------------------------------------------
-// Force/torque accumulation for one site-site term (F3 excluded volume).
-// ra_site = vector from COM of particle a to interaction site of a.
-// delf    = accumulated force on a (pointing from b→a).
-// delta   = accumulated torque on a.
+// Force/torque accumulation for one site-site F3 (excluded volume) term.
+// delf/delta accumulate force/torque on particle a; delf_b/delta_b on b.
 // -----------------------------------------------------------------------
 KOKKOS_INLINE_FUNCTION
 void add_excv_contrib(const c_number ra_site[3], const c_number rb_site[3],
                       const c_number delr_site[3], const ExcvParams &ep,
-                      c_number rsq, bool bonded_exclusion,
+                      c_number rsq,
                       c_number (&delf)[3], c_number (&delta)[3],
                       c_number (&delf_b)[3], c_number (&delta_b)[3],
                       c_number &evdwl) {
-    if (bonded_exclusion) return;
     if (rsq >= ep.cutsq_c) return;
 
     c_number fpair = 0;
     c_number U = F3(rsq, ep.cutsq_ast, ep.cut_c, ep.lj1, ep.lj2, ep.eps, ep.b, fpair);
     evdwl += U;
 
+    // df is the standalone "force" vector (points a->b for repulsion, fpair>0).
+    // Force on a is -df, on b is +df (matches _repulsive_lj: p->force -= force).
     c_number df[3] = {delr_site[0]*fpair, delr_site[1]*fpair, delr_site[2]*fpair};
-    delf[0] += df[0]; delf[1] += df[1]; delf[2] += df[2];
-    delf_b[0] -= df[0]; delf_b[1] -= df[1]; delf_b[2] -= df[2];
+    delf[0] -= df[0]; delf[1] -= df[1]; delf[2] -= df[2];
+    delf_b[0] += df[0]; delf_b[1] += df[1]; delf_b[2] += df[2];
 
     c_number d[3], db[3];
     cross3(ra_site, df, d);
-    delta[0] += d[0]; delta[1] += d[1]; delta[2] += d[2];
+    delta[0] -= d[0]; delta[1] -= d[1]; delta[2] -= d[2];
     cross3(rb_site, df, db);
-    delta_b[0] -= db[0]; delta_b[1] -= db[1]; delta_b[2] -= db[2];
+    delta_b[0] += db[0]; delta_b[1] += db[1]; delta_b[2] += db[2];
 }
 
 // -----------------------------------------------------------------------
-// Safe acos: clamp to [-1,1] and handle near-zero sin(theta) gracefully.
-// -----------------------------------------------------------------------
-KOKKOS_INLINE_FUNCTION
-c_number safe_acos(c_number x) {
-    if (x >  1) x =  1;
-    if (x < -1) x = -1;
-    return Kokkos::acos(x);
-}
-
-// -----------------------------------------------------------------------
-// H-bonding interaction for one pair (i,j).
-// Returns energy and accumulates delf_a, delta_a (force on a), and
-// delf_b, delta_b (force on b).
+// Hydrogen bonding (a = particle ia, b = particle ib).
+// delr_bs is the a-base -> b-base separation; norm is its unit vector.
+// Accumulates force on a into delf_a (force -= force convention is folded in:
+// here we add the standalone "force on a", i.e. -force).
 // -----------------------------------------------------------------------
 KOKKOS_INLINE_FUNCTION
 c_number hbond_pair(const c_number ra_bs[3], const c_number rb_bs[3],
-                    const c_number delr_bs[3],  // b_site → a_site
-                    c_number rinv_bs,
-                    const DNAParams &par, int atype, int btype,
-                    const c_number ax[3], const c_number az[3],
-                    const c_number bx[3], const c_number bz[3],
+                    const c_number delr_bs[3], c_number r_bs, c_number rinv,
+                    const DNAParams &par, c_number alpha,
+                    const c_number a1[3], const c_number a3[3],
+                    const c_number b1[3], const c_number b3[3],
                     c_number (&delf_a)[3], c_number (&delta_a)[3],
                     c_number (&delf_b)[3], c_number (&delta_b)[3]) {
-    c_number r_bs = 1 / rinv_bs;
     const F1Params &fp = par.hb_f1;
+    if (r_bs <= fp.cut_lc || r_bs >= fp.cut_hc) return 0;
 
-    c_number f1 = F1(r_bs, fp.eps, fp.a, fp.cut_0,
-                     fp.cut_lc, fp.cut_hc, fp.cut_lo, fp.cut_hi,
-                     fp.b_lo, fp.b_hi, fp.shift);
-    if (f1 == 0) return 0;
+    c_number f1 = F1(r_bs, fp.eps, fp.a, fp.cut_0, fp.cut_lc, fp.cut_hc,
+                     fp.cut_lo, fp.cut_hi, fp.b_lo, fp.b_hi, fp.shift);
 
-    // theta1: angle between -ax and bx (DNA base-base angle)
-    c_number cost1 = -dot3(ax, bx);
-    c_number theta1 = safe_acos(cost1);
-    c_number f4t1 = F4(theta1, par.hb_t1.a, par.hb_t1.theta_0,
-                       par.hb_t1.dtheta_ast, par.hb_t1.b, par.hb_t1.dtheta_c);
-    if (f4t1 == 0) return 0;
+    c_number norm[3] = {delr_bs[0]*rinv, delr_bs[1]*rinv, delr_bs[2]*rinv};
 
-    c_number norm[3] = {delr_bs[0]*rinv_bs, delr_bs[1]*rinv_bs, delr_bs[2]*rinv_bs};
+    c_number cost1 = -dot3(a1, b1);
+    c_number cost2 = -dot3(b1, norm);
+    c_number cost3 =  dot3(a1, norm);
+    c_number cost4 =  dot3(a3, b3);
+    c_number cost7 = -dot3(b3, norm);
+    c_number cost8 =  dot3(a3, norm);
 
-    // theta2: angle between -ax and delr_bs
-    c_number cost2 = -dot3(ax, norm);
-    c_number theta2 = safe_acos(cost2);
-    c_number f4t2 = F4(theta2, par.hb_t2.a, par.hb_t2.theta_0,
-                       par.hb_t2.dtheta_ast, par.hb_t2.b, par.hb_t2.dtheta_c);
-    if (f4t2 == 0) return 0;
+    c_number f4t1, D1, f4t2, D2, f4t3, D3, f4t4, D4, f4t7, D7, f4t8, D8;
+    eval_f4(cost1, par.hb_t1, f4t1, D1);
+    eval_f4(cost2, par.hb_t2, f4t2, D2);
+    eval_f4(cost3, par.hb_t3, f4t3, D3);
+    eval_f4(cost4, par.hb_t4, f4t4, D4);
+    eval_f4(cost7, par.hb_t7, f4t7, D7);
+    eval_f4(cost8, par.hb_t8, f4t8, D8);
 
-    // theta3: angle between bx and delr_bs
-    c_number cost3 = dot3(bx, norm);
-    c_number theta3 = safe_acos(cost3);
-    c_number f4t3 = F4(theta3, par.hb_t3.a, par.hb_t3.theta_0,
-                       par.hb_t3.dtheta_ast, par.hb_t3.b, par.hb_t3.dtheta_c);
-    if (f4t3 == 0) return 0;
+    c_number prod = f4t1*f4t2*f4t3*f4t4*f4t7*f4t8;
+    c_number energy = f1 * prod;
+    if (energy == 0) return 0;
 
-    // theta4: angle between az and bz
-    c_number cost4 = dot3(az, bz);
-    c_number theta4 = safe_acos(cost4);
-    c_number f4t4 = F4(theta4, par.hb_t4.a, par.hb_t4.theta_0,
-                       par.hb_t4.dtheta_ast, par.hb_t4.b, par.hb_t4.dtheta_c);
-    if (f4t4 == 0) return 0;
+    c_number df1 = DF1(r_bs, fp.eps, fp.a, fp.cut_0, fp.cut_lc, fp.cut_hc,
+                       fp.cut_lo, fp.cut_hi, fp.b_lo, fp.b_hi);  // = df1/dr / r
 
-    // theta7: angle between -az and delr_bs
-    c_number cost7 = -dot3(az, norm);
-    c_number theta7 = safe_acos(cost7);
-    c_number f4t7 = F4(theta7, par.hb_t7.a, par.hb_t7.theta_0,
-                       par.hb_t7.dtheta_ast, par.hb_t7.b, par.hb_t7.dtheta_c);
-    if (f4t7 == 0) return 0;
+    // standalone f4tXDsin (= d f4/d cost, signed)
+    c_number f4t1Ds =  D1, f4t2Ds =  D2, f4t3Ds = -D3,
+             f4t4Ds = -D4, f4t7Ds =  D7, f4t8Ds = -D8;
 
-    // theta8: angle between bz and delr_bs
-    c_number cost8 = dot3(bz, norm);
-    c_number theta8 = safe_acos(cost8);
-    c_number f4t8 = F4(theta8, par.hb_t8.a, par.hb_t8.theta_0,
-                       par.hb_t8.dtheta_ast, par.hb_t8.b, par.hb_t8.dtheta_c);
+    c_number force[3] = {0,0,0}, tp[3] = {0,0,0}, tq[3] = {0,0,0};
 
-    c_number alpha = par.alpha_hb[atype][btype];
-    c_number evdwl = f1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * alpha;
-    if (evdwl == 0) return 0;
+    // RADIAL  (force = -rhat * df1/dr * prod = -delr * (df1/dr/r) * prod)
+    c_number fr = df1 * prod;
+    force[0] -= delr_bs[0]*fr; force[1] -= delr_bs[1]*fr; force[2] -= delr_bs[2]*fr;
 
-    c_number df1 = DF1(r_bs, fp.eps, fp.a, fp.cut_0,
-                       fp.cut_lc, fp.cut_hc, fp.cut_lo, fp.cut_hi,
-                       fp.b_lo, fp.b_hi);
+    // THETA4 (pure torque)
+    { c_number dir[3]; cross3(a3,b3,dir);
+      c_number tm = -f1*f4t1*f4t2*f4t3*f4t4Ds*f4t7*f4t8;
+      tp[0]-=dir[0]*tm; tp[1]-=dir[1]*tm; tp[2]-=dir[2]*tm;
+      tq[0]+=dir[0]*tm; tq[1]+=dir[1]*tm; tq[2]+=dir[2]*tm; }
 
-    c_number sint1 = Kokkos::sqrt(Kokkos::fmax(c_number(0), 1 - cost1*cost1));
-    c_number sint2 = Kokkos::sqrt(Kokkos::fmax(c_number(0), 1 - cost2*cost2));
-    c_number sint3 = Kokkos::sqrt(Kokkos::fmax(c_number(0), 1 - cost3*cost3));
-    c_number sint4 = Kokkos::sqrt(Kokkos::fmax(c_number(0), 1 - cost4*cost4));
-    c_number sint7 = Kokkos::sqrt(Kokkos::fmax(c_number(0), 1 - cost7*cost7));
-    c_number sint8 = Kokkos::sqrt(Kokkos::fmax(c_number(0), 1 - cost8*cost8));
+    // THETA1 (pure torque)
+    { c_number dir[3]; cross3(a1,b1,dir);
+      c_number tm = -f1*f4t1Ds*f4t2*f4t3*f4t4*f4t7*f4t8;
+      tp[0]-=dir[0]*tm; tp[1]-=dir[1]*tm; tp[2]-=dir[2]*tm;
+      tq[0]+=dir[0]*tm; tq[1]+=dir[1]*tm; tq[2]+=dir[2]*tm; }
 
-    c_number df4t1 = (sint1 > 1e-8) ? DF4(theta1, par.hb_t1.a, par.hb_t1.theta_0,
-        par.hb_t1.dtheta_ast, par.hb_t1.b, par.hb_t1.dtheta_c) / sint1 : 0;
-    c_number df4t2 = (sint2 > 1e-8) ? DF4(theta2, par.hb_t2.a, par.hb_t2.theta_0,
-        par.hb_t2.dtheta_ast, par.hb_t2.b, par.hb_t2.dtheta_c) / sint2 : 0;
-    c_number df4t3 = (sint3 > 1e-8) ? DF4(theta3, par.hb_t3.a, par.hb_t3.theta_0,
-        par.hb_t3.dtheta_ast, par.hb_t3.b, par.hb_t3.dtheta_c) / sint3 : 0;
-    c_number df4t4 = (sint4 > 1e-8) ? DF4(theta4, par.hb_t4.a, par.hb_t4.theta_0,
-        par.hb_t4.dtheta_ast, par.hb_t4.b, par.hb_t4.dtheta_c) / sint4 : 0;
-    c_number df4t7 = (sint7 > 1e-8) ? DF4(theta7, par.hb_t7.a, par.hb_t7.theta_0,
-        par.hb_t7.dtheta_ast, par.hb_t7.b, par.hb_t7.dtheta_c) / sint7 : 0;
-    c_number df4t8 = (sint8 > 1e-8) ? DF4(theta8, par.hb_t8.a, par.hb_t8.theta_0,
-        par.hb_t8.dtheta_ast, par.hb_t8.b, par.hb_t8.dtheta_c) / sint8 : 0;
+    // THETA2
+    { c_number fact = f1*f4t1*f4t2Ds*f4t3*f4t4*f4t7*f4t8;
+      c_number fr2 = fact*rinv;
+      force[0]+=(b1[0]+norm[0]*cost2)*fr2; force[1]+=(b1[1]+norm[1]*cost2)*fr2; force[2]+=(b1[2]+norm[2]*cost2)*fr2;
+      c_number dir[3]; cross3(norm,b1,dir);
+      tq[0]-=dir[0]*fact; tq[1]-=dir[1]*fact; tq[2]-=dir[2]*fact; }
 
-    c_number prod_rest = f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * alpha;
-    c_number delf[3] = {0, 0, 0};
+    // THETA3
+    { c_number fact = f1*f4t1*f4t2*f4t3Ds*f4t4*f4t7*f4t8;
+      c_number fr3 = fact*rinv;
+      force[0]+=(a1[0]-norm[0]*cost3)*fr3; force[1]+=(a1[1]-norm[1]*cost3)*fr3; force[2]+=(a1[2]-norm[2]*cost3)*fr3;
+      c_number dir[3]; cross3(norm,a1,dir);
+      c_number tm = -fact;
+      tp[0]+=dir[0]*tm; tp[1]+=dir[1]*tm; tp[2]+=dir[2]*tm; }
 
-    // radial force
-    c_number finc = -df1 * prod_rest;
-    delf[0] += delr_bs[0] * finc;
-    delf[1] += delr_bs[1] * finc;
-    delf[2] += delr_bs[2] * finc;
+    // THETA7
+    { c_number fact = f1*f4t1*f4t2*f4t3*f4t4*f4t7Ds*f4t8;
+      c_number fr7 = fact*rinv;
+      force[0]+=(b3[0]+norm[0]*cost7)*fr7; force[1]+=(b3[1]+norm[1]*cost7)*fr7; force[2]+=(b3[2]+norm[2]*cost7)*fr7;
+      c_number dir[3]; cross3(norm,b3,dir);
+      c_number tm = -fact;
+      tq[0]+=dir[0]*tm; tq[1]+=dir[1]*tm; tq[2]+=dir[2]*tm; }
 
-    // theta2 force (depends on ax and norm)
-    if (theta2 != 0) {
-        finc = -f1 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * alpha * rinv_bs;
-        delf[0] += (norm[0]*cost2 + ax[0]) * finc;
-        delf[1] += (norm[1]*cost2 + ax[1]) * finc;
-        delf[2] += (norm[2]*cost2 + ax[2]) * finc;
-    }
-    // theta3 force (depends on bx and norm)
-    if (theta3 != 0) {
-        finc = -f1 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * alpha * rinv_bs;
-        delf[0] += (norm[0]*cost3 - bx[0]) * finc;
-        delf[1] += (norm[1]*cost3 - bx[1]) * finc;
-        delf[2] += (norm[2]*cost3 - bx[2]) * finc;
-    }
-    // theta7 force
-    if (theta7 != 0) {
-        finc = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * alpha * rinv_bs;
-        delf[0] += (norm[0]*cost7 + az[0]) * finc;
-        delf[1] += (norm[1]*cost7 + az[1]) * finc;
-        delf[2] += (norm[2]*cost7 + az[2]) * finc;
-    }
-    // theta8 force
-    if (theta8 != 0) {
-        finc = -f1 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * alpha * rinv_bs;
-        delf[0] += (norm[0]*cost8 - bz[0]) * finc;
-        delf[1] += (norm[1]*cost8 - bz[1]) * finc;
-        delf[2] += (norm[2]*cost8 - bz[2]) * finc;
-    }
+    // THETA8
+    { c_number fact = f1*f4t1*f4t2*f4t3*f4t4*f4t7*f4t8Ds;
+      c_number fr8 = fact*rinv;
+      force[0]+=(a3[0]-norm[0]*cost8)*fr8; force[1]+=(a3[1]-norm[1]*cost8)*fr8; force[2]+=(a3[2]-norm[2]*cost8)*fr8;
+      c_number dir[3]; cross3(norm,a3,dir);
+      c_number tm = -fact;
+      tp[0]+=dir[0]*tm; tp[1]+=dir[1]*tm; tp[2]+=dir[2]*tm; }
 
-    delf_a[0] += delf[0]; delf_a[1] += delf[1]; delf_a[2] += delf[2];
-    delf_b[0] -= delf[0]; delf_b[1] -= delf[1]; delf_b[2] -= delf[2];
+    // site torque contributions: tp -= ra x force ; tq += rb x force
+    { c_number c[3]; cross3(ra_bs,force,c); tp[0]-=c[0]; tp[1]-=c[1]; tp[2]-=c[2]; }
+    { c_number c[3]; cross3(rb_bs,force,c); tq[0]+=c[0]; tq[1]+=c[1]; tq[2]+=c[2]; }
 
-    c_number d_a[3], d_b[3];
-    cross3(ra_bs, delf, d_a);
-    delta_a[0] += d_a[0]; delta_a[1] += d_a[1]; delta_a[2] += d_a[2];
-    cross3(rb_bs, delf, d_b);
-    delta_b[0] -= d_b[0]; delta_b[1] -= d_b[1]; delta_b[2] -= d_b[2];
+    // force on a = -force, force on b = +force; scale everything by alpha
+    delf_a[0] -= alpha*force[0]; delf_a[1] -= alpha*force[1]; delf_a[2] -= alpha*force[2];
+    delf_b[0] += alpha*force[0]; delf_b[1] += alpha*force[1]; delf_b[2] += alpha*force[2];
+    delta_a[0]+= alpha*tp[0]; delta_a[1]+= alpha*tp[1]; delta_a[2]+= alpha*tp[2];
+    delta_b[0]+= alpha*tq[0]; delta_b[1]+= alpha*tq[1]; delta_b[2]+= alpha*tq[2];
 
-    // pure torques (theta1, theta4 — no positional component)
-    if (theta1 != 0) {
-        c_number ax_x_bx[3];
-        cross3(ax, bx, ax_x_bx);
-        finc = -f1 * df4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * alpha;
-        delta_a[0] -= ax_x_bx[0] * finc;
-        delta_a[1] -= ax_x_bx[1] * finc;
-        delta_a[2] -= ax_x_bx[2] * finc;
-        delta_b[0] += ax_x_bx[0] * finc;
-        delta_b[1] += ax_x_bx[1] * finc;
-        delta_b[2] += ax_x_bx[2] * finc;
-    }
-    if (theta4 != 0) {
-        c_number az_x_bz[3];
-        cross3(az, bz, az_x_bz);
-        finc = -f1 * f4t1 * f4t2 * f4t3 * df4t4 * f4t7 * f4t8 * alpha;
-        delta_a[0] += az_x_bz[0] * finc;
-        delta_a[1] += az_x_bz[1] * finc;
-        delta_a[2] += az_x_bz[2] * finc;
-        delta_b[0] -= az_x_bz[0] * finc;
-        delta_b[1] -= az_x_bz[1] * finc;
-        delta_b[2] -= az_x_bz[2] * finc;
-    }
-
-    return evdwl;
+    return alpha * energy;
 }
 
 // -----------------------------------------------------------------------
-// Main nonbonded force dispatch — runs one kernel per pair (flat edge list)
+// Cross stacking (a = ia, b = ib). Uses the base-site separation, same six
+// angles as H-bonding but with t4/t7/t8 symmetrised and an F2 radial term.
+// -----------------------------------------------------------------------
+KOKKOS_INLINE_FUNCTION
+c_number crst_pair(const c_number ra_bs[3], const c_number rb_bs[3],
+                   const c_number delr_bs[3], c_number r_bs, c_number rinv,
+                   const DNAParams &par,
+                   const c_number a1[3], const c_number a3[3],
+                   const c_number b1[3], const c_number b3[3],
+                   c_number (&delf_a)[3], c_number (&delta_a)[3],
+                   c_number (&delf_b)[3], c_number (&delta_b)[3]) {
+    const F2Params &fp = par.xstk_f2;
+    if (r_bs <= fp.cut_lc || r_bs >= fp.cut_hc) return 0;
+
+    c_number norm[3] = {delr_bs[0]*rinv, delr_bs[1]*rinv, delr_bs[2]*rinv};
+
+    c_number cost1 = -dot3(a1, b1);
+    c_number cost2 = -dot3(b1, norm);
+    c_number cost3 =  dot3(a1, norm);
+    c_number cost4 =  dot3(a3, b3);
+    c_number cost7 = -dot3(b3, norm);
+    c_number cost8 =  dot3(a3, norm);
+
+    // t1,t2,t3 simple; t4,t7,t8 symmetrised: f4(c)+f4(-c)
+    c_number f4t1, D1, f4t2, D2, f4t3, D3;
+    eval_f4(cost1, par.xstk_t1, f4t1, D1);
+    eval_f4(cost2, par.xstk_t2, f4t2, D2);
+    eval_f4(cost3, par.xstk_t3, f4t3, D3);
+    c_number f4p, Dp, f4m, Dm;
+    eval_f4( cost4, par.xstk_t4, f4p, Dp); eval_f4(-cost4, par.xstk_t4, f4m, Dm);
+    c_number f4t4 = f4p + f4m;  c_number f4t4Ds = -Dp + Dm;
+    eval_f4( cost7, par.xstk_t7, f4p, Dp); eval_f4(-cost7, par.xstk_t7, f4m, Dm);
+    c_number f4t7 = f4p + f4m;  c_number f4t7Ds =  Dp - Dm;
+    eval_f4( cost8, par.xstk_t8, f4p, Dp); eval_f4(-cost8, par.xstk_t8, f4m, Dm);
+    c_number f4t8 = f4p + f4m;  c_number f4t8Ds = -Dp + Dm;
+
+    c_number prod = f4t1*f4t2*f4t3*f4t4*f4t7*f4t8;
+    c_number f2 = F2(r_bs, fp.k, fp.cut_0, fp.cut_lc, fp.cut_hc,
+                     fp.cut_lo, fp.cut_hi, fp.b_lo, fp.b_hi, fp.cut_c);
+    c_number energy = f2 * prod;
+    if (energy == 0) return 0;
+
+    c_number f2D = DF2(r_bs, fp.k, fp.cut_0, fp.cut_lc, fp.cut_hc,
+                       fp.cut_lo, fp.cut_hi, fp.b_lo, fp.b_hi);  // df2/dr
+
+    c_number f4t1Ds = D1, f4t2Ds = D2, f4t3Ds = -D3;
+
+    c_number force[3] = {0,0,0}, tp[3] = {0,0,0}, tq[3] = {0,0,0};
+
+    // RADIAL  force = -rhat * df2/dr * prod
+    c_number fr = f2D * prod;
+    force[0]-=norm[0]*fr; force[1]-=norm[1]*fr; force[2]-=norm[2]*fr;
+
+    // THETA1 (pure torque)
+    { c_number dir[3]; cross3(a1,b1,dir);
+      c_number tm = -f2*f4t1Ds*f4t2*f4t3*f4t4*f4t7*f4t8;
+      tp[0]-=dir[0]*tm; tp[1]-=dir[1]*tm; tp[2]-=dir[2]*tm;
+      tq[0]+=dir[0]*tm; tq[1]+=dir[1]*tm; tq[2]+=dir[2]*tm; }
+
+    // THETA2
+    { c_number fact = f2*f4t1*f4t2Ds*f4t3*f4t4*f4t7*f4t8;
+      c_number f = fact*rinv;
+      force[0]+=(b1[0]+norm[0]*cost2)*f; force[1]+=(b1[1]+norm[1]*cost2)*f; force[2]+=(b1[2]+norm[2]*cost2)*f;
+      c_number dir[3]; cross3(norm,b1,dir);
+      tq[0]-=dir[0]*fact; tq[1]-=dir[1]*fact; tq[2]-=dir[2]*fact; }
+
+    // THETA3
+    { c_number fact = f2*f4t1*f4t2*f4t3Ds*f4t4*f4t7*f4t8;
+      c_number f = fact*rinv;
+      force[0]+=(a1[0]-norm[0]*cost3)*f; force[1]+=(a1[1]-norm[1]*cost3)*f; force[2]+=(a1[2]-norm[2]*cost3)*f;
+      c_number dir[3]; cross3(norm,a1,dir);
+      tp[0]-=dir[0]*fact; tp[1]-=dir[1]*fact; tp[2]-=dir[2]*fact; }
+
+    // THETA4 (pure torque)
+    { c_number dir[3]; cross3(a3,b3,dir);
+      c_number tm = -f2*f4t1*f4t2*f4t3*f4t4Ds*f4t7*f4t8;
+      tp[0]-=dir[0]*tm; tp[1]-=dir[1]*tm; tp[2]-=dir[2]*tm;
+      tq[0]+=dir[0]*tm; tq[1]+=dir[1]*tm; tq[2]+=dir[2]*tm; }
+
+    // THETA7
+    { c_number fact = f2*f4t1*f4t2*f4t3*f4t4*f4t7Ds*f4t8;
+      c_number f = fact*rinv;
+      force[0]+=(b3[0]+norm[0]*cost7)*f; force[1]+=(b3[1]+norm[1]*cost7)*f; force[2]+=(b3[2]+norm[2]*cost7)*f;
+      c_number dir[3]; cross3(norm,b3,dir);
+      tq[0]-=dir[0]*fact; tq[1]-=dir[1]*fact; tq[2]-=dir[2]*fact; }
+
+    // THETA8
+    { c_number fact = f2*f4t1*f4t2*f4t3*f4t4*f4t7*f4t8Ds;
+      c_number f = fact*rinv;
+      force[0]+=(a3[0]-norm[0]*cost8)*f; force[1]+=(a3[1]-norm[1]*cost8)*f; force[2]+=(a3[2]-norm[2]*cost8)*f;
+      c_number dir[3]; cross3(norm,a3,dir);
+      tp[0]-=dir[0]*fact; tp[1]-=dir[1]*fact; tp[2]-=dir[2]*fact; }
+
+    { c_number c[3]; cross3(ra_bs,force,c); tp[0]-=c[0]; tp[1]-=c[1]; tp[2]-=c[2]; }
+    { c_number c[3]; cross3(rb_bs,force,c); tq[0]+=c[0]; tq[1]+=c[1]; tq[2]+=c[2]; }
+
+    delf_a[0]-=force[0]; delf_a[1]-=force[1]; delf_a[2]-=force[2];
+    delf_b[0]+=force[0]; delf_b[1]+=force[1]; delf_b[2]+=force[2];
+    delta_a[0]+=tp[0]; delta_a[1]+=tp[1]; delta_a[2]+=tp[2];
+    delta_b[0]+=tq[0]; delta_b[1]+=tq[1]; delta_b[2]+=tq[2];
+
+    return energy;
+}
+
+// -----------------------------------------------------------------------
+// Coaxial stacking (a = ia, b = ib). Uses the stacking-site separation plus a
+// backbone reference vector for the cosphi3 dihedral (faithful standalone port).
+// -----------------------------------------------------------------------
+KOKKOS_INLINE_FUNCTION
+c_number cxst_pair(const c_number ra_st[3], const c_number rb_st[3],
+                   const c_number delr_st[3], c_number r_st, c_number rinv,
+                   const c_number delr_com[3], const DNAParams &par,
+                   const c_number a1[3], const c_number a2[3], const c_number a3[3],
+                   const c_number b1[3], const c_number b3[3],
+                   c_number (&delf_a)[3], c_number (&delta_a)[3],
+                   c_number (&delf_b)[3], c_number (&delta_b)[3]) {
+    const F2Params &fp = par.cxst_f2;
+    if (r_st <= fp.cut_lc || r_st >= fp.cut_hc) return 0;
+
+    c_number rdir[3] = {delr_st[0]*rinv, delr_st[1]*rinv, delr_st[2]*rinv};
+
+    c_number cost1 = -dot3(a1, b1);
+    c_number cost4 =  dot3(a3, b3);
+    c_number cost5 =  dot3(a3, rdir);
+    c_number cost6 = -dot3(b3, rdir);
+
+    // backbone reference vector (symmetric grooves): rbackref = rcom + b1*POS_BACK - a1*POS_BACK
+    const c_number pb = par.d_cbk;       // POS_BACK (-0.4)
+    c_number rbref[3] = { delr_com[0] + pb*b1[0] - pb*a1[0],
+                          delr_com[1] + pb*b1[1] - pb*a1[1],
+                          delr_com[2] + pb*b1[2] - pb*a1[2] };
+    c_number rbrefmod = Kokkos::sqrt(rbref[0]*rbref[0]+rbref[1]*rbref[1]+rbref[2]*rbref[2]);
+    c_number rbrefinv = 1 / rbrefmod;
+    c_number rbrefdir[3] = {rbref[0]*rbrefinv, rbref[1]*rbrefinv, rbref[2]*rbrefinv};
+    c_number cr[3]; cross3(rbrefdir, a1, cr);
+    c_number cosphi3 = dot3(rdir, cr);
+
+    c_number f4t1, D1, f4t4, D4;
+    eval_f4(cost1, par.cxst_t1, f4t1, D1);
+    eval_f4(cost4, par.cxst_t4, f4t4, D4);
+    c_number f4p, Dp, f4m, Dm;
+    eval_f4( cost5, par.cxst_t5, f4p, Dp); eval_f4(-cost5, par.cxst_t5, f4m, Dm);
+    c_number f4t5 = f4p + f4m;  c_number f4t5Ds = -Dp + Dm;
+    eval_f4( cost6, par.cxst_t6, f4p, Dp); eval_f4(-cost6, par.cxst_t6, f4m, Dm);
+    c_number f4t6 = f4p + f4m;  c_number f4t6Ds =  Dp - Dm;
+
+    c_number f5 = F5(cosphi3, par.cxst_cp.a, par.cxst_cp.x_ast, par.cxst_cp.b, par.cxst_cp.x_c);
+    c_number f2 = F2(r_st, fp.k, fp.cut_0, fp.cut_lc, fp.cut_hc,
+                     fp.cut_lo, fp.cut_hi, fp.b_lo, fp.b_hi, fp.cut_c);
+    c_number energy = f2 * f4t1 * f4t4 * f4t5 * f4t6 * (f5*f5);
+    if (energy == 0) return 0;
+
+    c_number f2D = DF2(r_st, fp.k, fp.cut_0, fp.cut_lc, fp.cut_hc,
+                       fp.cut_lo, fp.cut_hi, fp.b_lo, fp.b_hi);
+    c_number f5D = DF5(cosphi3, par.cxst_cp.a, par.cxst_cp.x_ast, par.cxst_cp.b, par.cxst_cp.x_c);
+    c_number f4t1Ds = D1, f4t4Ds = -D4;
+
+    c_number force[3] = {0,0,0}, tp[3] = {0,0,0}, tq[3] = {0,0,0};
+
+    // RADIAL
+    c_number fr = f2D * f4t1 * f4t4 * f4t5 * f4t6 * (f5*f5);
+    force[0]-=rdir[0]*fr; force[1]-=rdir[1]*fr; force[2]-=rdir[2]*fr;
+
+    // THETA1 (pure torque)
+    { c_number dir[3]; cross3(a1,b1,dir);
+      c_number tm = -f2*f4t1Ds*f4t4*f4t5*f4t6*(f5*f5);
+      tp[0]-=dir[0]*tm; tp[1]-=dir[1]*tm; tp[2]-=dir[2]*tm;
+      tq[0]+=dir[0]*tm; tq[1]+=dir[1]*tm; tq[2]+=dir[2]*tm; }
+
+    // THETA4 (pure torque)
+    { c_number dir[3]; cross3(a3,b3,dir);
+      c_number tm = -f2*f4t1*f4t4Ds*f4t5*f4t6*(f5*f5);
+      tp[0]-=dir[0]*tm; tp[1]-=dir[1]*tm; tp[2]-=dir[2]*tm;
+      tq[0]+=dir[0]*tm; tq[1]+=dir[1]*tm; tq[2]+=dir[2]*tm; }
+
+    // THETA5
+    { c_number fact = f2*f4t1*f4t4*f4t5Ds*f4t6*(f5*f5);
+      c_number f = fact*rinv;
+      force[0]+=(a3[0]-rdir[0]*cost5)*f; force[1]+=(a3[1]-rdir[1]*cost5)*f; force[2]+=(a3[2]-rdir[2]*cost5)*f;
+      c_number dir[3]; cross3(rdir,a3,dir);
+      tp[0]-=dir[0]*fact; tp[1]-=dir[1]*fact; tp[2]-=dir[2]*fact; }
+
+    // THETA6
+    { c_number fact = f2*f4t1*f4t4*f4t5*f4t6Ds*(f5*f5);
+      c_number f = fact*rinv;
+      force[0]+=(b3[0]+rdir[0]*cost6)*f; force[1]+=(b3[1]+rdir[1]*cost6)*f; force[2]+=(b3[2]+rdir[2]*cost6)*f;
+      c_number dir[3]; cross3(rdir,b3,dir);
+      tq[0]-=dir[0]*fact; tq[1]-=dir[1]*fact; tq[2]-=dir[2]*fact; }
+
+    // COSPHI3 (gamma = POS_STACK - POS_BACK)
+    {
+        c_number gamma = par.d_cstk - par.d_cbk;          // 0.34 - (-0.4) = 0.74
+        c_number gammacub = gamma*gamma*gamma;
+        c_number rbrefcub = rbrefmod*rbrefmod*rbrefmod;
+        c_number a2b1 = dot3(a2,b1);
+        c_number a3b1 = dot3(a3,b1);
+        c_number ra1 = dot3(rdir,a1);
+        c_number ra2 = dot3(rdir,a2);
+        c_number ra3 = dot3(rdir,a3);
+        c_number rb1 = dot3(rdir,b1);
+        c_number paren = ra3*a2b1 - ra2*a3b1;
+
+        c_number dcdr    = -gamma*paren*(gamma*(ra1-rb1)+r_st)/rbrefcub;
+        c_number dcda1b1 =  gammacub*paren/rbrefcub;
+        c_number dcda2b1 =  gamma*ra3*rbrefinv;
+        c_number dcda3b1 = -gamma*ra2*rbrefinv;
+        c_number dcdra1  = -gamma*gamma*paren*r_st/rbrefcub;
+        c_number dcdra2  = -gamma*a3b1*rbrefinv;
+        c_number dcdra3  =  gamma*a2b1*rbrefinv;
+        c_number dcdrb1  =  gamma*gamma*paren*r_st/rbrefcub;
+
+        c_number fc = f2*f4t1*f4t4*f4t5*f4t6*2*f5*f5D;
+
+        // force += -fc*( rdir*dcdr + ((a1 - rdir*ra1)*dcdra1 + (a2 - rdir*ra2)*dcdra2
+        //                            + (a3 - rdir*ra3)*dcdra3 + (b1 - rdir*rb1)*dcdrb1)/r_st )
+        for (int k=0;k<3;k++) {
+            c_number perp = (a1[k]-rdir[k]*ra1)*dcdra1 + (a2[k]-rdir[k]*ra2)*dcdra2
+                          + (a3[k]-rdir[k]*ra3)*dcdra3 + (b1[k]-rdir[k]*rb1)*dcdrb1;
+            force[k] += -fc*( rdir[k]*dcdr + perp*rinv );
+        }
+
+        c_number ca1[3], ca2[3], ca3[3], cb1[3];
+        cross3(rdir,a1,ca1); cross3(rdir,a2,ca2); cross3(rdir,a3,ca3); cross3(rdir,b1,cb1);
+        for (int k=0;k<3;k++) {
+            tp[k] += fc*( ca1[k]*dcdra1 + ca2[k]*dcdra2 + ca3[k]*dcdra3 );
+            tq[k] += fc*( cb1[k]*dcdrb1 );
+        }
+        c_number a1b1[3], a2b1v[3], a3b1v[3];
+        cross3(a1,b1,a1b1); cross3(a2,b1,a2b1v); cross3(a3,b1,a3b1v);
+        for (int k=0;k<3;k++) {
+            c_number pt = fc*( a1b1[k]*dcda1b1 + a2b1v[k]*dcda2b1 + a3b1v[k]*dcda3b1 );
+            tp[k] -= pt; tq[k] += pt;
+        }
+    }
+
+    { c_number c[3]; cross3(ra_st,force,c); tp[0]-=c[0]; tp[1]-=c[1]; tp[2]-=c[2]; }
+    { c_number c[3]; cross3(rb_st,force,c); tq[0]+=c[0]; tq[1]+=c[1]; tq[2]+=c[2]; }
+
+    delf_a[0]-=force[0]; delf_a[1]-=force[1]; delf_a[2]-=force[2];
+    delf_b[0]+=force[0]; delf_b[1]+=force[1]; delf_b[2]+=force[2];
+    delta_a[0]+=tp[0]; delta_a[1]+=tp[1]; delta_a[2]+=tp[2];
+    delta_b[0]+=tq[0]; delta_b[1]+=tq[1]; delta_b[2]+=tq[2];
+
+    return energy;
+}
+
+// -----------------------------------------------------------------------
+// Main nonbonded force dispatch — one kernel per pair (flat edge list)
 // -----------------------------------------------------------------------
 struct DNAForcesFunctor {
-    // Input views (read-only)
     Kokkos::View<const c_number *[4]> poss;
     Kokkos::View<const c_number *[4]> orientations;
     Kokkos::View<const int *>         btype;
     Kokkos::View<const int *>         edge_i;
     Kokkos::View<const int *>         edge_j;
 
-    // Params (small struct; lives in constant cache on GPU when accessed uniformly)
     DNAParams par;
 
-    // Force/torque accumulators (ScatterView handles atomics on GPU)
     using ScatterF = Kokkos::Experimental::ScatterView<
         c_number *[4],
         Kokkos::LayoutRight,
@@ -274,100 +465,80 @@ struct DNAForcesFunctor {
         const int ia = edge_i(edge);
         const int ib = edge_j(edge);
 
-        // Load positions with PBC
         c_number xai = poss(ia,0), yai = poss(ia,1), zai = poss(ia,2);
         c_number xbi = poss(ib,0), ybi = poss(ib,1), zbi = poss(ib,2);
 
-        c_number dx = xbi - xai;
-        c_number dy = ybi - yai;
-        c_number dz = zbi - zai;
+        c_number dx = xbi - xai, dy = ybi - yai, dz = zbi - zai;
         box.wrap(dx, dy, dz);
+        c_number delr_com[3] = {dx, dy, dz};
 
-        // Load quaternions and get orientation vectors
-        c_number axa[3], aya[3], aza[3];
-        c_number axb[3], ayb[3], azb[3];
-        get_vectors_from_quat_view(orientations, ia, axa, aya, aza);
-        get_vectors_from_quat_view(orientations, ib, axb, ayb, azb);
+        c_number a1[3], a2[3], a3[3];
+        c_number b1[3], b2[3], b3[3];
+        get_vectors_from_quat_view(orientations, ia, a1, a2, a3);
+        get_vectors_from_quat_view(orientations, ib, b1, b2, b3);
 
-        // Site offsets
-        c_number d_cbk = par.d_cbk;
-        c_number d_cbs = par.d_cbs;
+        c_number d_cbk = par.d_cbk, d_cbs = par.d_cbs, d_cstk = par.d_cstk;
 
-        // COM → backbone site for a and b
-        c_number ra_cbk[3] = {d_cbk*axa[0], d_cbk*axa[1], d_cbk*axa[2]};
-        c_number rb_cbk[3] = {d_cbk*axb[0], d_cbk*axb[1], d_cbk*axb[2]};
+        c_number ra_cbk[3] = {d_cbk*a1[0], d_cbk*a1[1], d_cbk*a1[2]};
+        c_number rb_cbk[3] = {d_cbk*b1[0], d_cbk*b1[1], d_cbk*b1[2]};
+        c_number ra_cbs[3] = {d_cbs*a1[0], d_cbs*a1[1], d_cbs*a1[2]};
+        c_number rb_cbs[3] = {d_cbs*b1[0], d_cbs*b1[1], d_cbs*b1[2]};
 
-        // COM → base site for a and b
-        c_number ra_cbs[3] = {d_cbs*axa[0], d_cbs*axa[1], d_cbs*axa[2]};
-        c_number rb_cbs[3] = {d_cbs*axb[0], d_cbs*axb[1], d_cbs*axb[2]};
-
-        // Force/torque accumulators (local, then one atomic update at the end)
         c_number delf_a[3] = {0,0,0}, delf_b[3] = {0,0,0};
         c_number delta_a[3]= {0,0,0}, delta_b[3]= {0,0,0};
         c_number evdwl = 0;
 
-        // ---- Excluded volume ----
-        // backbone-backbone
+        // ---- Nonbonded excluded volume (base-base, base-back, back-base, back-back) ----
         {
-            c_number drx = dx + rb_cbk[0] - ra_cbk[0];
-            c_number dry = dy + rb_cbk[1] - ra_cbk[1];
-            c_number drz = dz + rb_cbk[2] - ra_cbk[2];
-            c_number rsq = drx*drx + dry*dry + drz*drz;
-            c_number delr[3] = {drx, dry, drz};
-            add_excv_contrib(ra_cbk, rb_cbk, delr, par.excv_bkbk,
-                             rsq, false, delf_a, delta_a, delf_b, delta_b, evdwl);
+            c_number d[3] = {dx + rb_cbs[0] - ra_cbs[0], dy + rb_cbs[1] - ra_cbs[1], dz + rb_cbs[2] - ra_cbs[2]};
+            add_excv_contrib(ra_cbs, rb_cbs, d, par.excv_bsbs, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl);
         }
-        // backbone-base (a backbone → b base)
         {
-            c_number drx = dx + rb_cbs[0] - ra_cbk[0];
-            c_number dry = dy + rb_cbs[1] - ra_cbk[1];
-            c_number drz = dz + rb_cbs[2] - ra_cbk[2];
-            c_number rsq = drx*drx + dry*dry + drz*drz;
-            c_number delr[3] = {drx, dry, drz};
-            add_excv_contrib(ra_cbk, rb_cbs, delr, par.excv_bkbs,
-                             rsq, false, delf_a, delta_a, delf_b, delta_b, evdwl);
+            c_number d[3] = {dx + rb_cbs[0] - ra_cbk[0], dy + rb_cbs[1] - ra_cbk[1], dz + rb_cbs[2] - ra_cbk[2]};
+            add_excv_contrib(ra_cbk, rb_cbs, d, par.excv_bkbs, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl);
         }
-        // base-backbone (a base → b backbone)
         {
-            c_number drx = dx + rb_cbk[0] - ra_cbs[0];
-            c_number dry = dy + rb_cbk[1] - ra_cbs[1];
-            c_number drz = dz + rb_cbk[2] - ra_cbs[2];
-            c_number rsq = drx*drx + dry*dry + drz*drz;
-            c_number delr[3] = {drx, dry, drz};
-            add_excv_contrib(ra_cbs, rb_cbk, delr, par.excv_bkbs,
-                             rsq, false, delf_a, delta_a, delf_b, delta_b, evdwl);
+            c_number d[3] = {dx + rb_cbk[0] - ra_cbs[0], dy + rb_cbk[1] - ra_cbs[1], dz + rb_cbk[2] - ra_cbs[2]};
+            add_excv_contrib(ra_cbs, rb_cbk, d, par.excv_bkbs, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl);
         }
-        // base-base
         {
-            c_number drx = dx + rb_cbs[0] - ra_cbs[0];
-            c_number dry = dy + rb_cbs[1] - ra_cbs[1];
-            c_number drz = dz + rb_cbs[2] - ra_cbs[2];
-            c_number rsq = drx*drx + dry*dry + drz*drz;
-            c_number delr[3] = {drx, dry, drz};
-            add_excv_contrib(ra_cbs, rb_cbs, delr, par.excv_bsbs,
-                             rsq, false, delf_a, delta_a, delf_b, delta_b, evdwl);
+            c_number d[3] = {dx + rb_cbk[0] - ra_cbk[0], dy + rb_cbk[1] - ra_cbk[1], dz + rb_cbk[2] - ra_cbk[2]};
+            add_excv_contrib(ra_cbk, rb_cbk, d, par.excv_bkbk, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl);
         }
 
-        // ---- Hydrogen bonding ----
+        // ---- Base-site separation (H-bonding + cross stacking) ----
         {
-            // Displacement vector: b base site → a base site
-            c_number drx = dx + rb_cbs[0] - ra_cbs[0];
-            c_number dry = dy + rb_cbs[1] - ra_cbs[1];
-            c_number drz = dz + rb_cbs[2] - ra_cbs[2];
-            c_number rsq = drx*drx + dry*dry + drz*drz;
-            c_number r   = Kokkos::sqrt(rsq);
-            if (r > 0 && r < par.hb_f1.cut_hc + 1) {
-                c_number delr[3] = {drx, dry, drz};
+            c_number d[3] = {dx + rb_cbs[0] - ra_cbs[0], dy + rb_cbs[1] - ra_cbs[1], dz + rb_cbs[2] - ra_cbs[2]};
+            c_number rsq = dot3(d,d);
+            c_number r = Kokkos::sqrt(rsq);
+            if (r > 0) {
+                c_number rinv = 1 / r;
                 int at = btype(ia), bt = btype(ib);
-                evdwl += hbond_pair(ra_cbs, rb_cbs, delr, 1/r, par,
-                                    at, bt, axa, aza, axb, azb,
-                                    delf_a, delta_a, delf_b, delta_b);
+                c_number alpha = par.alpha_hb[at][bt];
+                if (alpha != 0)
+                    evdwl += hbond_pair(ra_cbs, rb_cbs, d, r, rinv, par, alpha,
+                                        a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
+                evdwl += crst_pair(ra_cbs, rb_cbs, d, r, rinv, par,
+                                   a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
+            }
+        }
+
+        // ---- Stacking-site separation (coaxial stacking) ----
+        {
+            c_number ra_st[3] = {d_cstk*a1[0], d_cstk*a1[1], d_cstk*a1[2]};
+            c_number rb_st[3] = {d_cstk*b1[0], d_cstk*b1[1], d_cstk*b1[2]};
+            c_number d[3] = {dx + rb_st[0] - ra_st[0], dy + rb_st[1] - ra_st[1], dz + rb_st[2] - ra_st[2]};
+            c_number rsq = dot3(d,d);
+            c_number r = Kokkos::sqrt(rsq);
+            if (r > 0) {
+                c_number rinv = 1 / r;
+                evdwl += cxst_pair(ra_st, rb_st, d, r, rinv, delr_com, par,
+                                   a1, a2, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
             }
         }
 
         ev += evdwl;
 
-        // Accumulate forces and torques atomically
         auto af = sf.access();
         auto at_v = st.access();
         af(ia, 0) += delf_a[0]; af(ia, 1) += delf_a[1]; af(ia, 2) += delf_a[2];

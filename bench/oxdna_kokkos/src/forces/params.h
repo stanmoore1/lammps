@@ -1,15 +1,10 @@
 #pragma once
 
 // oxDNA1 force-field parameters.
-// All values are for lj-units as used in the LAMMPS CG-DNA package.
-// Derived quantities (lj1, lj2, b, cut_c) are computed at initialization
-// from the fundamental input parameters (epsilon, sigma, cut_ast).
-//
-// Reference input:
-//   pair_coeff * * oxdna/excv 2.0 0.7 0.675  2.0 0.515 0.5  2.0 0.33 0.32
-//   pair_coeff * * oxdna/hbond seqav 0.0 8.0 0.4 0.75 ...
-//   pair_coeff * * oxdna/stk  seqav T 1.3448 2.6568 ...
-//   bond_coeff  * 2.0 0.25 0.7525  (FENE: k, Delta, r0)
+// Values are taken directly from the standalone oxDNA `src/model.h` (lj/reduced
+// units), so the Kokkos port reproduces the standalone oxDNA1 interaction.
+// Derived quantities (lj1, lj2, smoothing b, outer cutoff) are computed at
+// initialization from the fundamental input parameters.
 
 #include "../types.h"
 #include <cmath>
@@ -93,7 +88,7 @@ struct F5Params {
     c_number x_c;
 };
 
-// Parameters for one F2 term (cross-stacking radial)
+// Parameters for one F2 term (cross-stacking / coaxial-stacking radial)
 struct F2Params {
     c_number k;
     c_number cut_0;
@@ -107,263 +102,214 @@ struct F2Params {
 };
 
 // =====================================================================
-// All force-field parameters in one struct, stored in a Kokkos::View
-// so they are accessible on device. Using a single-element View<DNAParams>
-// keeps the data together for potential constant-memory mapping.
+// All force-field parameters in one struct, stored by value in the
+// force functors so they are accessible on device.
 // =====================================================================
 struct DNAParams {
     // --- Excluded volume (backbone-backbone, backbone-base, base-base) ---
-    ExcvParams excv_bkbk;   // backbone-backbone (type-independent for DNA1)
-    ExcvParams excv_bkbs;   // backbone-base
-    ExcvParams excv_bsbs;   // base-base (non-neighbour)
+    ExcvParams excv_bkbk;   // backbone-backbone (EXCL_S1/R1)
+    ExcvParams excv_bkbs;   // backbone-base     (EXCL_S3/R3)
+    ExcvParams excv_bsbs;   // base-base         (EXCL_S2/R2)
 
     // Site offsets from COM along nx (oxDNA1 convention)
-    c_number d_cbk;  // backbone site: -0.4
-    c_number d_cbs;  // base site:     +0.4
-    c_number d_cstk; // stacking site: +0.34
+    c_number d_cbk;  // backbone site: POS_BACK  = -0.4
+    c_number d_cbs;  // base site:     POS_BASE  = +0.4
+    c_number d_cstk; // stacking site: POS_STACK = +0.34
 
     // --- FENE backbone bond ---
     FeneParams fene;
 
-    // --- Hydrogen bonding (seqav, default hbond coeff from in.duplex1) ---
-    // F1 radial: args 2-11 of hbond pair_coeff
+    // --- Hydrogen bonding ---
     F1Params hb_f1;
-    // F4 angular: theta1..theta8 (six angles)
     F4Params hb_t1, hb_t2, hb_t3, hb_t4, hb_t7, hb_t8;
-    // Sequence-specific h-bond strength multiplier
-    // AT=0, TA=0, GC=0, CG=0 by default; AT=TA=1.077 for cognate pairs
-    // Stored as 4x4 matrix (indexed by [atype][btype], A=0,C=1,G=2,T=3)
+    // Watson-Crick complementarity gate / strength (A=0,C=1,G=2,T=3).
+    // Nonzero only for A:T, T:A, C:G, G:C (HYDR_EPS_OXDNA = 1.077).
     c_number alpha_hb[4][4];
 
-    // --- Stacking (seqav single-temperature) ---
-    // F1 radial
+    // --- Stacking (bonded) ---
     F1Params stk_f1;
-    // F4 angular: theta4, theta5, theta6
     F4Params stk_t4, stk_t5, stk_t6;
-    // F5 dihedral: cosphi1, cosphi2
     F5Params stk_cp1, stk_cp2;
 
-    // --- Cross-stacking ---
-    // F2 radial
+    // --- Cross-stacking (nonbonded) ---
     F2Params xstk_f2;
     F4Params xstk_t1, xstk_t2, xstk_t3, xstk_t4, xstk_t7, xstk_t8;
-    F5Params xstk_cp1, xstk_cp2, xstk_cp3, xstk_cp4;
 
-    // Global nonbonded cutoff squared (max over all terms)
+    // --- Coaxial stacking (nonbonded) ---
+    F2Params cxst_f2;
+    F4Params cxst_t1, cxst_t4, cxst_t5, cxst_t6;
+    F5Params cxst_cp;   // phi3 (=phi4)
+
+    // Global nonbonded COM-COM cutoff squared (max over all terms)
     c_number cutsq_nb;
 };
 
-// Initialize all parameters for oxDNA1 with default values from
-// the LAMMPS cgdna duplex1 example (lj units).
-// hb_multi: sequence-averaged h-bond strength multiplier (1.077 for AT/GC pairs)
+// make_f4: build an F4 term from (a, theta0, dtheta_ast), deriving the
+// smoothing coefficient b and the outer cutoff dtheta_c from C1 continuity.
+// Matches the standalone F4_THETA_B / F4_THETA_TC values in model.h.
+inline F4Params make_f4(double a, double th0, double dth_ast) {
+    F4Params f;
+    f.a          = static_cast<c_number>(a);
+    f.theta_0    = static_cast<c_number>(th0);
+    f.dtheta_ast = static_cast<c_number>(dth_ast);
+    double dU    = 2 * a * dth_ast;
+    double U     = 1 - a * dth_ast * dth_ast;
+    f.b          = static_cast<c_number>(dU * dU / (4 * U));
+    f.dtheta_c   = static_cast<c_number>(dth_ast + 2 * U / dU);
+    return f;
+}
+
+// make_f5: build an F5 term from (a, x_ast). x_ast is stored negated because
+// the standalone F5 acts on cos(phi) with negative XS/XC boundaries.
+inline F5Params make_f5(double a, double x_ast) {
+    F5Params f;
+    f.a     = static_cast<c_number>(a);
+    f.x_ast = static_cast<c_number>(-x_ast);
+    double dU  = 2 * a * x_ast;
+    double U   = 1 - a * x_ast * x_ast;
+    f.b     = static_cast<c_number>(dU * dU / (4 * U));
+    f.x_c   = static_cast<c_number>(-x_ast - 2 * U / dU);
+    return f;
+}
+
+// Initialize all parameters for oxDNA1 (standalone model.h, average-sequence).
+//   T        : reduced temperature (sets stacking strength)
+//   hb_multi : extra additive H-bond strength (default 0 → HYDR_EPS_OXDNA)
 inline DNAParams make_oxdna1_params(double T = 0.1, double hb_multi = 0.0) {
     DNAParams p;
+    constexpr double PI  = 3.141592653589793;
+    constexpr double PI2 = PI / 2;
 
-    // ---- Site offsets ----
-    p.d_cbk  = static_cast<c_number>(-0.4);
-    p.d_cbs  = static_cast<c_number>( 0.4);
-    p.d_cstk = static_cast<c_number>( 0.34);
+    // ---- Site offsets (model.h POS_*) ----
+    p.d_cbk  = static_cast<c_number>(-0.4);   // POS_BACK
+    p.d_cbs  = static_cast<c_number>( 0.4);   // POS_BASE
+    p.d_cstk = static_cast<c_number>( 0.34);  // POS_STACK
 
-    // ---- Excluded volume ----
-    // pair_coeff * * oxdna/excv 2.0 0.7 0.675  2.0 0.515 0.5  2.0 0.33 0.32
-    p.excv_bkbk.init(2.0, 0.7,   0.675);
-    p.excv_bkbs.init(2.0, 0.515, 0.5);
+    // ---- Excluded volume (model.h EXCL_*) ----
+    // EXCL_EPS=2; backbone-backbone S1/R1, backbone-base S3/R3, base-base S2/R2.
+    p.excv_bkbk.init(2.0, 0.70,  0.675);
+    p.excv_bkbs.init(2.0, 0.515, 0.50);
     p.excv_bsbs.init(2.0, 0.33,  0.32);
 
     // ---- FENE backbone bond ----
-    // bond_coeff * 2.0 0.25 0.7525
+    // FENE_EPS=2, FENE_DELTA=0.25, FENE_R0_OXDNA=0.7525
     p.fene.k     = static_cast<c_number>(2.0);
     p.fene.Delta = static_cast<c_number>(0.25);
     p.fene.r0    = static_cast<c_number>(0.7525);
 
-    // ---- Hydrogen bonding ----
-    // pair_coeff * * oxdna/hbond seqav 0.0 8.0 0.4 0.75 0.34 0.7 1.5 0 0.7 1.5 0 0.7 1.5 0 0.7
-    //              0.46 3.14159 0.7  4.0 1.5707963 0.45  4.0 1.5707963 0.45
+    // ---- Hydrogen bonding (model.h HYDR_*) ----
+    // Radial F1: eps carried by alpha_hb gate; a=8, R0=0.4, RLOW/RHIGH=0.34/0.7,
+    // RCLOW/RCHIGH=0.276908/0.783775, BLOW=-126.243, BHIGH=-7.87708.
     {
-        // radial F1
-        p.hb_f1.eps     = static_cast<c_number>(8.0);
-        p.hb_f1.a       = static_cast<c_number>(0.4);
-        p.hb_f1.cut_0   = static_cast<c_number>(0.75);
-        p.hb_f1.cut_lc  = static_cast<c_number>(0.34);
-        p.hb_f1.cut_hc  = static_cast<c_number>(0.7);
-        // The 1.5 0 pairs encode: cut_lo, cut_hi and smoothing coefficients b_lo, b_hi, shift
-        // These are the standard values from the LAMMPS coeff block:
-        p.hb_f1.cut_lo  = static_cast<c_number>(0.7);
-        p.hb_f1.cut_hi  = static_cast<c_number>(0.7);
-        p.hb_f1.b_lo    = static_cast<c_number>(0.0);
-        p.hb_f1.b_hi    = static_cast<c_number>(0.0);
-        p.hb_f1.shift   = static_cast<c_number>(0.0);
-        // Actually the full hbond pair_coeff parsing is more complex.
-        // The format is: seqav eps a cut_0 cut_lc cut_hc cut_lo cut_hi b_lo b_hi shift
-        // From in.duplex1: seqav 0.0  8.0 0.4 0.75 0.34 0.7 1.5 0 0.7 1.5 0 0.7
-        // First 0.0 is the sequence-specific multiplier override (0.0=use seqav)
-        // Then: eps a cut_0 cut_lc cut_hc [b_hb_lo=auto] [b_hb_hi=auto]
-        // Actual parameter block from pair_oxdna_hbond.cpp coeff():
-        // eps=8.0, a=0.4, cut_hb_0=0.75, cut_hb_lc=0.34, cut_hb_hc=0.7,
-        // cut_hb_lo=0.7 (from 1.5), cut_hb_hi=0.7 (smoothed)
-        // b_lo and b_hi auto-derived for continuity; shift auto-derived
-        // We use exact computed values below.
-        double eps = 8.0, a_hb = 0.4, cut0 = 0.75, cutlc = 0.34, cuthc = 0.7;
-        double cutlo = 0.7, cuthi = 0.7;
-        // Smoothing coefficients b_lo, b_hi from continuity conditions:
-        double b_lo, b_hi, shift;
-        {
-            double explo = std::exp(-(cutlo - cut0) * a_hb);
-            double Ulo   = eps * (1 - explo) * (1 - explo);
-            double dUlo  = 2 * eps * (1 - explo) * explo * a_hb;
-            b_lo = dUlo * dUlo / (4 * Ulo);
-            double cutlc_d = cutlo - 2 * Ulo / dUlo;
-            (void)cutlc_d;
-        }
-        {
-            double exphi = std::exp(-(cuthi - cut0) * a_hb);
-            double Uhi   = eps * (1 - exphi) * (1 - exphi);
-            double dUhi  = 2 * eps * (1 - exphi) * exphi * a_hb;
-            b_hi = dUhi * dUhi / (4 * Uhi);
-            double cuthc_d = cuthi - 2 * Uhi / dUhi;
-            (void)cuthc_d;
-        }
-        {
-            // shift = F1(cutlc) via smooth branch
-            // Actually shift is chosen so F1(cutlc)=0 via Morse branch
-            double exps = std::exp(-(cutlc - cut0) * a_hb);
-            shift = eps * (1 - exps) * (1 - exps);
-        }
+        const double eps   = 1.0;        // strength supplied by alpha_hb below
+        const double a_hb  = 8.0;        // HYDR_A
+        const double r0    = 0.4;        // HYDR_R0  (Morse centre, cut_0)
+        const double rc    = 0.75;       // HYDR_RC  (only used for the shift)
+        const double rlow  = 0.34;       // HYDR_RLOW   -> cut_lo
+        const double rhigh = 0.7;        // HYDR_RHIGH  -> cut_hi
+        const double rclow = 0.276908;   // HYDR_RCLOW  -> cut_lc
+        const double rchigh= 0.783775;   // HYDR_RCHIGH -> cut_hc
+        const double blow  = -126.243;   // HYDR_BLOW
+        const double bhigh = -7.87708;   // HYDR_BHIGH
+        const double m     = 1.0 - std::exp(-(rc - r0) * a_hb);
         p.hb_f1.eps    = static_cast<c_number>(eps);
         p.hb_f1.a      = static_cast<c_number>(a_hb);
-        p.hb_f1.cut_0  = static_cast<c_number>(cut0);
-        p.hb_f1.cut_lc = static_cast<c_number>(cutlc);
-        p.hb_f1.cut_hc = static_cast<c_number>(cuthc);
-        p.hb_f1.cut_lo = static_cast<c_number>(cutlo);
-        p.hb_f1.cut_hi = static_cast<c_number>(cuthi);
-        p.hb_f1.b_lo   = static_cast<c_number>(b_lo);
-        p.hb_f1.b_hi   = static_cast<c_number>(b_hi);
-        p.hb_f1.shift  = static_cast<c_number>(shift);
+        p.hb_f1.cut_0  = static_cast<c_number>(r0);
+        p.hb_f1.cut_lo = static_cast<c_number>(rlow);
+        p.hb_f1.cut_hi = static_cast<c_number>(rhigh);
+        p.hb_f1.cut_lc = static_cast<c_number>(rclow);
+        p.hb_f1.cut_hc = static_cast<c_number>(rchigh);
+        p.hb_f1.b_lo   = static_cast<c_number>(blow);
+        p.hb_f1.b_hi   = static_cast<c_number>(bhigh);
+        p.hb_f1.shift  = static_cast<c_number>(eps * m * m);
     }
 
-    // Angular F4 parameters from in.duplex1 hbond pair_coeff:
-    // theta1: 0.46 pi 0.7   -> a=0.46, theta0=pi, dtheta_ast=0.7
-    //   b and dtheta_c from continuity
-    auto make_f4 = [](double a, double th0, double dth_ast) -> F4Params {
-        F4Params f;
-        f.a         = static_cast<c_number>(a);
-        f.theta_0   = static_cast<c_number>(th0);
-        f.dtheta_ast= static_cast<c_number>(dth_ast);
-        double dU   = 2 * a * dth_ast;
-        double U    = 1 - a * dth_ast * dth_ast;
-        f.b         = static_cast<c_number>(dU * dU / (4 * U));
-        f.dtheta_c  = static_cast<c_number>(dth_ast + 2 * U / dU);
-        return f;
-    };
-    constexpr double PI = 3.141592653589793;
-    constexpr double PI2 = PI / 2;
-
-    p.hb_t1 = make_f4(0.46, PI,  0.7);
-    p.hb_t2 = make_f4(4.0,  PI2, 0.45);
-    p.hb_t3 = make_f4(4.0,  PI2, 0.45);
-    p.hb_t4 = make_f4(1.5,  PI,  0.7);   // theta4 (not explicitly set in seqav, using same as t1 per convention)
+    // Angular F4 (model.h HYDR_THETA*): t1=t2=t3, t4, t7=t8.
+    p.hb_t1 = make_f4(1.5,  0.0, 0.7);
+    p.hb_t2 = make_f4(1.5,  0.0, 0.7);
+    p.hb_t3 = make_f4(1.5,  0.0, 0.7);
+    p.hb_t4 = make_f4(0.46, PI,  0.7);
     p.hb_t7 = make_f4(4.0,  PI2, 0.45);
     p.hb_t8 = make_f4(4.0,  PI2, 0.45);
 
-    // Sequence-specific H-bond matrix (A=0, C=1, G=2, T=3)
-    // Default: all 0 except AT (0,3) and TA (3,0) and GC (2,1) and CG (1,2)
+    // Watson-Crick gate / strength (HYDR_EPS_OXDNA = 1.077). Sum of types == 3
+    // identifies complementary pairs: A(0)+T(3), C(1)+G(2).
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++)
             p.alpha_hb[i][j] = static_cast<c_number>(0.0);
-    p.alpha_hb[0][3] = static_cast<c_number>(1.077 + hb_multi);  // A:T
-    p.alpha_hb[3][0] = static_cast<c_number>(1.077 + hb_multi);  // T:A
-    p.alpha_hb[1][2] = static_cast<c_number>(1.077 + hb_multi);  // C:G
-    p.alpha_hb[2][1] = static_cast<c_number>(1.077 + hb_multi);  // G:C
+    const c_number hb_eps = static_cast<c_number>(1.077 + hb_multi);
+    p.alpha_hb[0][3] = hb_eps;  // A:T
+    p.alpha_hb[3][0] = hb_eps;  // T:A
+    p.alpha_hb[1][2] = hb_eps;  // C:G
+    p.alpha_hb[2][1] = hb_eps;  // G:C
 
-    // ---- Stacking ----
-    // F1 radial parameters from standalone oxDNA model.h:
-    // BASE_EPS=1.3448, FACT_EPS=2.6568, A=6.0, R0=0.4, RC=0.9
-    // RLOW=0.32, RHIGH=0.75, RCLOW=0.23239, RCHIGH=0.956
-    // BLOW=-68.1857, BHIGH=-3.12992
-    // shift = eps*(1-exp(-A*(RC-R0)))^2 = eps*(1-exp(-3))^2 ~ 0.9029*eps
+    // ---- Stacking (model.h STCK_*) ----
     {
-        double stk_a   = 6.0;
-        double stk_r0  = 0.4;
-        double stk_rc  = 0.9;
-        double stk_eps = 1.3448 + 2.6568 * T;
+        const double stk_a   = 6.0;                     // STCK_A
+        const double stk_r0  = 0.4;                     // STCK_R0
+        const double stk_rc  = 0.9;                     // STCK_RC (for shift)
+        const double stk_eps = 1.3448 + 2.6568 * T;     // BASE_EPS + FACT_EPS*T
         p.stk_f1.eps    = static_cast<c_number>(stk_eps);
         p.stk_f1.a      = static_cast<c_number>(stk_a);
         p.stk_f1.cut_0  = static_cast<c_number>(stk_r0);
-        p.stk_f1.cut_lo = static_cast<c_number>(0.32);
-        p.stk_f1.cut_hi = static_cast<c_number>(0.75);
-        p.stk_f1.cut_lc = static_cast<c_number>(0.23239);
-        p.stk_f1.cut_hc = static_cast<c_number>(0.956);
-        p.stk_f1.b_lo   = static_cast<c_number>(-68.1857);
-        p.stk_f1.b_hi   = static_cast<c_number>(-3.12992);
-        double ex_rc    = std::exp(-stk_a * (stk_rc - stk_r0));
-        p.stk_f1.shift  = static_cast<c_number>(stk_eps * (1 - ex_rc) * (1 - ex_rc));
+        p.stk_f1.cut_lo = static_cast<c_number>(0.32);     // STCK_RLOW
+        p.stk_f1.cut_hi = static_cast<c_number>(0.75);     // STCK_RHIGH
+        p.stk_f1.cut_lc = static_cast<c_number>(0.23239);  // STCK_RCLOW
+        p.stk_f1.cut_hc = static_cast<c_number>(0.956);    // STCK_RCHIGH
+        p.stk_f1.b_lo   = static_cast<c_number>(-68.1857); // STCK_BLOW
+        p.stk_f1.b_hi   = static_cast<c_number>(-3.12992); // STCK_BHIGH
+        const double m  = 1.0 - std::exp(-stk_a * (stk_rc - stk_r0));
+        p.stk_f1.shift  = static_cast<c_number>(stk_eps * m * m);
     }
+    p.stk_t4 = make_f4(1.3, 0.0, 0.8);   // STCK_THETA4
+    p.stk_t5 = make_f4(0.9, 0.0, 0.95);  // STCK_THETA5
+    p.stk_t6 = make_f4(0.9, 0.0, 0.95);  // STCK_THETA6
+    p.stk_cp1 = make_f5(2.0, 0.65);      // STCK_PHI1
+    p.stk_cp2 = make_f5(2.0, 0.65);      // STCK_PHI2
 
-    // F4 stacking angles from STCK_THETA{4,5,6} in standalone model.h:
-    //   t4: a=1.3, theta0=0, dtheta_ast=0.8   (STCK_THETA4_A=1.3)
-    //   t5: a=0.9, theta0=0, dtheta_ast=0.95
-    //   t6: a=0.9, theta0=0, dtheta_ast=0.95
-    p.stk_t4 = make_f4(1.3, 0.0, 0.8);
-    p.stk_t5 = make_f4(0.9, 0.0, 0.95);
-    p.stk_t6 = make_f4(0.9, 0.0, 0.95);
-    // F5 cosphi: a=2.0, x_ast=0.65, b=auto, x_c=auto
-    auto make_f5 = [](double a, double x_ast) -> F5Params {
-        F5Params f;
-        f.a     = static_cast<c_number>(a);
-        f.x_ast = static_cast<c_number>(-x_ast);  // store negated: LAMMPS calls F5 with -x_ast
-        double dU  = 2 * a * x_ast;
-        double U   = 1 - a * x_ast * x_ast;
-        f.b     = static_cast<c_number>(dU * dU / (4 * U));
-        f.x_c   = static_cast<c_number>(-x_ast - 2 * U / dU);
-        return f;
-    };
-    p.stk_cp1 = make_f5(2.0, 0.65);
-    p.stk_cp2 = make_f5(2.0, 0.65);
+    // ---- Cross-stacking (model.h CRST_*) ----
+    // F2: K=47.5, R0=0.575, RC=0.675, RLOW/RCLOW=0.495/0.45,
+    //     RHIGH/RCHIGH=0.655/0.7, BLOW=BHIGH=-0.888889.
+    p.xstk_f2.k      = static_cast<c_number>(47.5);
+    p.xstk_f2.cut_0  = static_cast<c_number>(0.575);
+    p.xstk_f2.cut_c  = static_cast<c_number>(0.675);
+    p.xstk_f2.cut_lo = static_cast<c_number>(0.495);
+    p.xstk_f2.cut_lc = static_cast<c_number>(0.45);
+    p.xstk_f2.cut_hi = static_cast<c_number>(0.655);
+    p.xstk_f2.cut_hc = static_cast<c_number>(0.7);
+    p.xstk_f2.b_lo   = static_cast<c_number>(-0.888889);
+    p.xstk_f2.b_hi   = static_cast<c_number>(-0.888889);
+    p.xstk_t1 = make_f4(2.25, PI - 2.35, 0.58);  // CRST_THETA1
+    p.xstk_t2 = make_f4(1.70, 1.0,       0.68);  // CRST_THETA2
+    p.xstk_t3 = make_f4(1.70, 1.0,       0.68);  // CRST_THETA3
+    p.xstk_t4 = make_f4(1.50, 0.0,       0.65);  // CRST_THETA4
+    p.xstk_t7 = make_f4(1.70, 0.875,     0.68);  // CRST_THETA7
+    p.xstk_t8 = make_f4(1.70, 0.875,     0.68);  // CRST_THETA8
 
-    // ---- Cross-stacking ----
-    // pair_coeff * * oxdna/xstk 47.5 0.575 0.675 0.495 0.655 2.25 0.791592653589793
-    //   0.58 1.7 1.0 0.68 1.7 1.0 0.68 1.5 0 0.65 1.7 0.875 0.68 1.7 0.875 0.68
-    {
-        double xstk_k=47.5, xstk_cut0=0.575, xstk_cutlc=0.495, xstk_cuthc=0.655,
-               xstk_cutlo=2.25, xstk_cuthi=0.791592653589793, xstk_cutc=0.58;
-        // F2: k cut0 cutlc cuthc cutlo cuthi b_lo b_hi cut_c
-        p.xstk_f2.k      = static_cast<c_number>(xstk_k);
-        p.xstk_f2.cut_0  = static_cast<c_number>(xstk_cut0);
-        p.xstk_f2.cut_lc = static_cast<c_number>(xstk_cutlc);
-        p.xstk_f2.cut_hc = static_cast<c_number>(xstk_cuthc);
-        p.xstk_f2.cut_lo = static_cast<c_number>(xstk_cutlo);
-        p.xstk_f2.cut_hi = static_cast<c_number>(xstk_cuthi);
-        p.xstk_f2.cut_c  = static_cast<c_number>(xstk_cutc);
-        // b_lo, b_hi from continuity of F2
-        {
-            double U_lo = xstk_k * 0.5 * ((xstk_cutlo - xstk_cut0)*(xstk_cutlo - xstk_cut0)
-                                         - (xstk_cut0 - xstk_cutc)*(xstk_cut0 - xstk_cutc));
-            double dU_lo= xstk_k * (xstk_cutlo - xstk_cut0);
-            p.xstk_f2.b_lo = static_cast<c_number>(dU_lo * dU_lo / (4 * U_lo));
+    // ---- Coaxial stacking (model.h CXST_*, oxDNA1) ----
+    // F2: K=46, R0=0.4, RC=0.6, RLOW/RCLOW=0.22/0.177778,
+    //     RHIGH/RCHIGH=0.58/0.6222222, BLOW=BHIGH=-2.13158.
+    p.cxst_f2.k      = static_cast<c_number>(46.0);
+    p.cxst_f2.cut_0  = static_cast<c_number>(0.400);
+    p.cxst_f2.cut_c  = static_cast<c_number>(0.6);
+    p.cxst_f2.cut_lo = static_cast<c_number>(0.22);
+    p.cxst_f2.cut_lc = static_cast<c_number>(0.177778);
+    p.cxst_f2.cut_hi = static_cast<c_number>(0.58);
+    p.cxst_f2.cut_hc = static_cast<c_number>(0.6222222);
+    p.cxst_f2.b_lo   = static_cast<c_number>(-2.13158);
+    p.cxst_f2.b_hi   = static_cast<c_number>(-2.13158);
+    p.cxst_t1 = make_f4(2.0, PI - 0.60, 0.65);  // CXST_THETA1 (oxDNA1 T0)
+    p.cxst_t4 = make_f4(1.3, 0.0,       0.8);   // CXST_THETA4
+    p.cxst_t5 = make_f4(0.9, 0.0,       0.95);  // CXST_THETA5
+    p.cxst_t6 = make_f4(0.9, 0.0,       0.95);  // CXST_THETA6
+    p.cxst_cp = make_f5(2.0, 0.65);             // CXST_PHI3 (=PHI4)
 
-            double U_hi = xstk_k * 0.5 * ((xstk_cuthi - xstk_cut0)*(xstk_cuthi - xstk_cut0)
-                                          - (xstk_cut0 - xstk_cutc)*(xstk_cut0 - xstk_cutc));
-            double dU_hi= xstk_k * (xstk_cuthi - xstk_cut0);
-            p.xstk_f2.b_hi = static_cast<c_number>(dU_hi * dU_hi / (4 * U_hi));
-        }
-    }
-    // cross-stacking angles: 1.7 1.0 0.68  1.7 1.0 0.68  1.5 0 0.65  1.7 0.875 0.68  1.7 0.875 0.68
-    p.xstk_t1 = make_f4(1.7, 1.0, 0.68);
-    p.xstk_t2 = make_f4(1.7, 1.0, 0.68);
-    p.xstk_t3 = make_f4(1.5, 0.0, 0.65);
-    p.xstk_t4 = make_f4(1.7, 0.875, 0.68);
-    p.xstk_t7 = make_f4(1.7, 0.875, 0.68);
-    p.xstk_t8 = make_f4(1.7, 0.875, 0.68);
-    p.xstk_cp1 = make_f5(2.0, 0.65);
-    p.xstk_cp2 = make_f5(2.0, 0.65);
-    p.xstk_cp3 = make_f5(2.0, 0.65);
-    p.xstk_cp4 = make_f5(2.0, 0.65);
-
-    // ---- Global nonbonded cutoff ----
-    // max cutoff for neighbor list: use backbone-backbone hard cutoff + skin
-    double max_cut = static_cast<double>(p.excv_bkbk.cut_c);
-    max_cut = std::max(max_cut, static_cast<double>(p.hb_f1.cut_hc) + 0.8); // hbond COM-COM range
-    max_cut = std::max(max_cut, static_cast<double>(p.stk_f1.cut_hc) + 0.8);
+    // ---- Global nonbonded COM-COM cutoff ----
+    // Largest site-site range plus the two site offsets from the COM (~0.4 each).
+    double max_cut = static_cast<double>(p.excv_bkbk.cut_c) + 0.8;
+    max_cut = std::max(max_cut, static_cast<double>(p.hb_f1.cut_hc)   + 0.8);
+    max_cut = std::max(max_cut, static_cast<double>(p.xstk_f2.cut_hc) + 0.8);
+    max_cut = std::max(max_cut, static_cast<double>(p.cxst_f2.cut_hc) + 0.8);
     p.cutsq_nb = static_cast<c_number>(max_cut * max_cut);
 
     return p;
