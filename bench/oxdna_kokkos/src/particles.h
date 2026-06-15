@@ -59,26 +59,26 @@ struct ParticleArrays {
 
 // Host-resident particle arrays for I/O (always in HostSpace)
 struct ParticleArraysHost {
-    Kokkos::View<c_number *[4], Kokkos::HostSpace> poss;
-    Kokkos::View<c_number *[4], Kokkos::HostSpace> vels;
-    Kokkos::View<c_number *[4], Kokkos::HostSpace> Ls;
-    Kokkos::View<c_number *[4], Kokkos::HostSpace> forces;
-    Kokkos::View<c_number *[4], Kokkos::HostSpace> torques;
-    Kokkos::View<c_number *[4], Kokkos::HostSpace> orientations;
-    Kokkos::View<LR_bonds *,    Kokkos::HostSpace> bonds;
-    Kokkos::View<int *,         Kokkos::HostSpace> btype;
+    Kokkos::View<c_number *[4]>::host_mirror_type poss;
+    Kokkos::View<c_number *[4]>::host_mirror_type vels;
+    Kokkos::View<c_number *[4]>::host_mirror_type Ls;
+    Kokkos::View<c_number *[4]>::host_mirror_type forces;
+    Kokkos::View<c_number *[4]>::host_mirror_type torques;
+    Kokkos::View<c_number *[4]>::host_mirror_type orientations;
+    Kokkos::View<LR_bonds *,  >::host_mirror_type bonds;
+    Kokkos::View<int *,       >::host_mirror_type btype;
     int N = 0;
 
     void allocate(int n) {
         N            = n;
-        poss         = Kokkos::View<c_number *[4], Kokkos::HostSpace>("poss",         n);
-        vels         = Kokkos::View<c_number *[4], Kokkos::HostSpace>("vels",         n);
-        Ls           = Kokkos::View<c_number *[4], Kokkos::HostSpace>("Ls",           n);
-        forces       = Kokkos::View<c_number *[4], Kokkos::HostSpace>("forces",       n);
-        torques      = Kokkos::View<c_number *[4], Kokkos::HostSpace>("torques",      n);
-        orientations = Kokkos::View<c_number *[4], Kokkos::HostSpace>("orientations", n);
-        bonds        = Kokkos::View<LR_bonds *,    Kokkos::HostSpace>("bonds",        n);
-        btype        = Kokkos::View<int *,         Kokkos::HostSpace>("btype",        n);
+        poss         = Kokkos::View<c_number *[4]>::host_mirror_type("poss",         n);
+        vels         = Kokkos::View<c_number *[4]>::host_mirror_type("vels",         n);
+        Ls           = Kokkos::View<c_number *[4]>::host_mirror_type("Ls",           n);
+        forces       = Kokkos::View<c_number *[4]>::host_mirror_type("forces",       n);
+        torques      = Kokkos::View<c_number *[4]>::host_mirror_type("torques",      n);
+        orientations = Kokkos::View<c_number *[4]>::host_mirror_type("orientations", n);
+        bonds        = Kokkos::View<LR_bonds *>::host_mirror_type("bonds",        n);
+        btype        = Kokkos::View<int *>::host_mirror_type("btype",        n);
     }
 };
 
