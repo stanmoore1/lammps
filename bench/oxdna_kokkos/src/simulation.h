@@ -4,6 +4,7 @@
 #include "particles.h"
 #include "neighbor_list.h"
 #include "integrator.h"
+#include "thermostat.h"
 #include "forces/dna_forces.h"
 #include "forces/backbone.h"
 #include "forces/stacking.h"
@@ -23,6 +24,11 @@ struct SimConfig {
     c_number    cutoff      = 2.5;
     c_number    skin        = 0.3;
     int         output_freq = 1000;
+    // Thermostat (Andersen / "John"). newtonian_steps <= 0 disables it (NVE).
+    int         newtonian_steps = 0;
+    c_number    pt          = 0.1;   // translational refresh probability
+    c_number    pr          = 0.1;   // rotational refresh probability
+    uint64_t    seed        = 12345;
 };
 
 class Simulation {
@@ -40,6 +46,10 @@ public:
 
         // Force-field
         par_ = make_oxdna1_params(cfg_.T);
+
+        // Thermostat (optional)
+        if (cfg_.newtonian_steps > 0)
+            thermo_.init(cfg_.T, cfg_.pt, cfg_.pr, cfg_.seed);
 
         // Neighbor list
         nl_.init(cfg_.cutoff, cfg_.skin, N_, box_);
@@ -82,6 +92,9 @@ public:
 
             second_step(dev_, cfg_.dt);
 
+            if (cfg_.newtonian_steps > 0 && (step % cfg_.newtonian_steps == 0))
+                thermo_.apply(dev_);
+
             if (s % cfg_.output_freq == 0) {
                 Kokkos::fence();
                 c_number ekin = kinetic_energy(dev_);
@@ -113,5 +126,6 @@ private:
     ParticleArrays   dev_;
     DNAParams        par_;
     NeighborList     nl_;
+    Thermostat       thermo_;
     c_number         epot_= 0;
 };
