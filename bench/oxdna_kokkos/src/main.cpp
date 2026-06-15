@@ -18,9 +18,9 @@ static void print_usage(const char *prog) {
               << "  -cut  <r>      Nonbonded cutoff (default: 2.5)\n"
               << "  -skin <r>      Verlet skin (default: 0.3)\n"
               << "  -freq <N>      Output frequency (default: 1000)\n"
-              << "  -newt <N>      Andersen thermostat period in steps (0=NVE, default: 0)\n"
-              << "  -pt   <p>      Translational refresh probability (default: 0.1)\n"
-              << "  -pr   <p>      Rotational refresh probability (default: 0.1)\n"
+              << "  -newt <N>      Brownian thermostat period in steps (0=NVE, default: 0)\n"
+              << "  -diff <D>      Translational diffusion coefficient (default: 2.5)\n"
+              << "  -pt   <p>      Refresh probability; overrides -diff if >0 (default: 0)\n"
               << "  -seed <N>      RNG seed for the thermostat (default: 12345)\n";
 }
 
@@ -42,8 +42,8 @@ int main(int argc, char *argv[]) {
             else if (strcmp(argv[i], "-skin")  == 0 && i+1 < argc) { cfg.skin     = static_cast<c_number>(std::atof(argv[++i])); }
             else if (strcmp(argv[i], "-freq")  == 0 && i+1 < argc) { cfg.output_freq = std::atoi(argv[++i]); }
             else if (strcmp(argv[i], "-newt")  == 0 && i+1 < argc) { cfg.newtonian_steps = std::atoi(argv[++i]); }
+            else if (strcmp(argv[i], "-diff")  == 0 && i+1 < argc) { cfg.diff_coeff = static_cast<c_number>(std::atof(argv[++i])); }
             else if (strcmp(argv[i], "-pt")    == 0 && i+1 < argc) { cfg.pt   = static_cast<c_number>(std::atof(argv[++i])); }
-            else if (strcmp(argv[i], "-pr")    == 0 && i+1 < argc) { cfg.pr   = static_cast<c_number>(std::atof(argv[++i])); }
             else if (strcmp(argv[i], "-seed")  == 0 && i+1 < argc) { cfg.seed = std::strtoull(argv[++i], nullptr, 10); }
             else if (strcmp(argv[i], "-h")     == 0 || strcmp(argv[i], "--help") == 0) {
                 print_usage(argv[0]); Kokkos::finalize(); return 0;
