@@ -13,6 +13,8 @@ static void print_usage(const char *prog) {
               << "  -steps <N>     Number of steps (default: 10000)\n"
               << "  -dt   <dt>     Timestep (default: 0.001)\n"
               << "  -T    <T>      Temperature (default: 0.1)\n"
+              << "  -model <1|2>   oxDNA1 or oxDNA2 (default: 1)\n"
+              << "  -salt <c>      Salt concentration mol/L, oxDNA2 only (default: 0.5)\n"
               << "  -cut  <r>      Nonbonded cutoff (default: 2.5)\n"
               << "  -skin <r>      Verlet skin (default: 0.3)\n"
               << "  -freq <N>      Output frequency (default: 1000)\n"
@@ -34,6 +36,8 @@ int main(int argc, char *argv[]) {
             else if (strcmp(argv[i], "-steps") == 0 && i+1 < argc) { cfg.nsteps   = std::atoll(argv[++i]); }
             else if (strcmp(argv[i], "-dt")    == 0 && i+1 < argc) { cfg.dt       = static_cast<c_number>(std::atof(argv[++i])); }
             else if (strcmp(argv[i], "-T")     == 0 && i+1 < argc) { cfg.T        = static_cast<c_number>(std::atof(argv[++i])); }
+            else if (strcmp(argv[i], "-model") == 0 && i+1 < argc) { cfg.model    = std::atoi(argv[++i]); }
+            else if (strcmp(argv[i], "-salt")  == 0 && i+1 < argc) { cfg.salt     = static_cast<c_number>(std::atof(argv[++i])); }
             else if (strcmp(argv[i], "-cut")   == 0 && i+1 < argc) { cfg.cutoff   = static_cast<c_number>(std::atof(argv[++i])); }
             else if (strcmp(argv[i], "-skin")  == 0 && i+1 < argc) { cfg.skin     = static_cast<c_number>(std::atof(argv[++i])); }
             else if (strcmp(argv[i], "-freq")  == 0 && i+1 < argc) { cfg.output_freq = std::atoi(argv[++i]); }
