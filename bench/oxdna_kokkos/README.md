@@ -54,9 +54,9 @@ All model constants are taken directly from the standalone oxDNA `src/model.h`
 
 ## Building
 
-Requires CMake ≥ 3.20 and a C++17 compiler. Kokkos is taken from the bundled
-LAMMPS tree (`lib/kokkos`) by default, or any installed/standalone Kokkos via
-`-DKOKKOS_SOURCE_DIR=<path>` (or `find_package`).
+Requires CMake ≥ 3.20 and a C++20 compiler (Kokkos 5.0 requires C++20). Kokkos
+is taken from the bundled LAMMPS tree (`lib/kokkos`) by default, or any
+installed/standalone Kokkos via `-DKOKKOS_SOURCE_DIR=<path>` (or `find_package`).
 
 ```bash
 cd bench/oxdna_kokkos

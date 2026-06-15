@@ -25,7 +25,7 @@ add_executable(oxdna_kokkos
     src/main.cpp
 )
 
-target_compile_features(oxdna_kokkos PRIVATE cxx_std_17)
+target_compile_features(oxdna_kokkos PRIVATE cxx_std_20)
 target_link_libraries(oxdna_kokkos PRIVATE Kokkos::kokkos)
 target_include_directories(oxdna_kokkos PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -70,7 +70,7 @@ message(STATUS "
 option(OXDNA_BUILD_TESTS "Build the finite-difference validation tool" OFF)
 if(OXDNA_BUILD_TESTS)
     add_executable(fd_test tests/fd_test.cpp)
-    target_compile_features(fd_test PRIVATE cxx_std_17)
+    target_compile_features(fd_test PRIVATE cxx_std_20)
     target_link_libraries(fd_test PRIVATE Kokkos::kokkos)
     target_include_directories(fd_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     if(OXDNA_SINGLE_PRECISION)
@@ -80,7 +80,7 @@ endif()
 
 if(OXDNA_BUILD_TESTS)
     add_executable(xcheck tests/xcheck.cpp)
-    target_compile_features(xcheck PRIVATE cxx_std_17)
+    target_compile_features(xcheck PRIVATE cxx_std_20)
     target_link_libraries(xcheck PRIVATE Kokkos::kokkos)
     target_include_directories(xcheck PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 endif()
