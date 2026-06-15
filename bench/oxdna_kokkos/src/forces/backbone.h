@@ -55,7 +55,7 @@ struct BackboneFunctor {
 
     using SV = Kokkos::Experimental::ScatterView<
         c_number *[4],
-        Kokkos::LayoutRight,
+        Kokkos::DefaultExecutionSpace::array_layout,
         Kokkos::DefaultExecutionSpace,
         Kokkos::Experimental::ScatterSum,
         Kokkos::Experimental::ScatterNonDuplicated>;
@@ -153,7 +153,7 @@ inline c_number compute_backbone_forces(ParticleArrays &p,
                                         const SimBox &box) {
     using SV = Kokkos::Experimental::ScatterView<
         c_number *[4],
-        Kokkos::LayoutRight,
+        Kokkos::DefaultExecutionSpace::array_layout,
         Kokkos::DefaultExecutionSpace,
         Kokkos::Experimental::ScatterSum,
         Kokkos::Experimental::ScatterNonDuplicated>;
