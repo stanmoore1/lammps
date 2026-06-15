@@ -55,6 +55,12 @@ For the van der Waals loop / spinodal / critical-point study (see paper/):
                      (dP/drho=0), and critical-point estimators (scaling laws,
                      rectilinear diameters, spinodal-gap).  Maxwell is exact on
                      the TRUE loop -- run it on the exact and the 2nd-order loops.
+  energy_from_isotherms.py  EXACT homogeneous internal energy / entropy / enthalpy
+                     from the temperature derivative of the field-coupling free
+                     energy f0 = rho mu0 - P0 across a T-ladder: phi0 = f0 -
+                     T(df0/dT), s0 = -(df0/dT), eta0 = phi0 + P0.  Avoids the
+                     k = k' influence-parameter approximation (dissertation Eq. 4.15);
+                     needs >=3 temperatures (already run for the phase diagram).
   contour_pressure.py  2nd-order P0 = 3/2 PT - 1/2 PN (IK contour) and the
                      IK-vs-Harasima accuracy diagnostic; pressure-tensor mu_IH.
   capillary.py       interface width, position fluctuation, and capillary-wave
