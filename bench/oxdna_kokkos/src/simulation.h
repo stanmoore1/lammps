@@ -24,6 +24,8 @@ struct SimConfig {
     c_number    cutoff      = 2.5;
     c_number    skin        = 0.3;
     int         output_freq = 1000;
+    int         model       = 1;     // 1 = oxDNA1, 2 = oxDNA2
+    c_number    salt        = 0.5;   // salt concentration [mol/L] (oxDNA2 only)
     // Thermostat (Andersen / "John"). newtonian_steps <= 0 disables it (NVE).
     int         newtonian_steps = 0;
     c_number    pt          = 0.1;   // translational refresh probability
@@ -45,14 +47,17 @@ public:
         copy_to_device(host_, dev_);
 
         // Force-field
-        par_ = make_oxdna1_params(cfg_.T);
+        par_ = (cfg_.model == 2) ? make_oxdna2_params(cfg_.T, cfg_.salt)
+                                 : make_oxdna1_params(cfg_.T);
 
         // Thermostat (optional)
         if (cfg_.newtonian_steps > 0)
             thermo_.init(cfg_.T, cfg_.pt, cfg_.pr, cfg_.seed);
 
-        // Neighbor list
-        nl_.init(cfg_.cutoff, cfg_.skin, N_, box_);
+        // Neighbor list: cover the longest-range interaction (e.g. Debye-Huckel)
+        c_number nl_cut = std::max(static_cast<double>(cfg_.cutoff),
+                                   std::sqrt(static_cast<double>(par_.cutsq_nb)));
+        nl_.init(nl_cut, cfg_.skin, N_, box_);
         nl_.build(dev_, box_);
 
         // Initial forces

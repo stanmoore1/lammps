@@ -48,8 +48,8 @@ struct BackboneFunctor {
     Kokkos::View<const LR_bonds *>    bonds;
     SimBox box;
     FeneParams fene;
-    c_number d_cbk;  // backbone site offset along nx
-    c_number d_cbs;  // base site offset along nx
+    c_number pb1, pb2;  // backbone site = pb1*a1 + pb2*a2 (grooved for oxDNA2)
+    c_number d_cbs;     // base site offset along nx
     ExcvParams excv_bsbs;  // bonded base-base excluded volume (EXCL_S2)
     ExcvParams excv_bkbs;  // bonded back-base excluded volume (EXCL_S3/S4)
 
@@ -73,9 +73,9 @@ struct BackboneFunctor {
         get_vectors_from_quat_view(orientations, i,  ax_i, ay_i, az_i);
         get_vectors_from_quat_view(orientations, n3, ax_n, ay_n, az_n);
 
-        // Backbone site vectors
-        c_number ra[3] = {d_cbk*ax_i[0], d_cbk*ax_i[1], d_cbk*ax_i[2]};
-        c_number rb[3] = {d_cbk*ax_n[0], d_cbk*ax_n[1], d_cbk*ax_n[2]};
+        // Backbone site vectors (grooved for oxDNA2: pb1*a1 + pb2*a2)
+        c_number ra[3] = {pb1*ax_i[0]+pb2*ay_i[0], pb1*ax_i[1]+pb2*ay_i[1], pb1*ax_i[2]+pb2*ay_i[2]};
+        c_number rb[3] = {pb1*ax_n[0]+pb2*ay_n[0], pb1*ax_n[1]+pb2*ay_n[1], pb1*ax_n[2]+pb2*ay_n[2]};
 
         // Vector between backbone sites: n3 → i
         c_number dx = poss(i,0) - poss(n3,0) + ra[0] - rb[0];
@@ -167,7 +167,8 @@ inline c_number compute_backbone_forces(ParticleArrays &p,
     fun.bonds        = p.bonds;
     fun.box          = box;
     fun.fene         = par.fene;
-    fun.d_cbk        = par.d_cbk;
+    fun.pb1          = par.pb1;
+    fun.pb2          = par.pb2;
     fun.d_cbs        = par.d_cbs;
     fun.excv_bsbs    = par.excv_bsbs;
     fun.excv_bkbs    = par.excv_bkbs;

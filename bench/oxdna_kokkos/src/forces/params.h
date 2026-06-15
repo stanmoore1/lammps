@@ -138,7 +138,22 @@ struct DNAParams {
     // --- Coaxial stacking (nonbonded) ---
     F2Params cxst_f2;
     F4Params cxst_t1, cxst_t4, cxst_t5, cxst_t6;
-    F5Params cxst_cp;   // phi3 (=phi4)
+    F5Params cxst_cp;   // phi3 (=phi4); only used when cxst_has_cosphi
+    int      cxst_t1_mode = 0;   // 0 = reflection f4(t)+f4(2pi-t) [oxDNA1],
+                                 // 1 = harmonic f4(t)+SA*(t-SB)^2  [oxDNA2]
+    c_number cxst_t1_SA = 0, cxst_t1_SB = 0;
+    bool     cxst_has_cosphi = true;  // oxDNA1 has the cosphi3 factor; oxDNA2 doesn't
+
+    // --- Backbone interaction site offset (BACK = pb1*a1 + pb2*a2) ---
+    // oxDNA1: (-0.4, 0). oxDNA2 grooving: (POS_MM_BACK1, POS_MM_BACK2).
+    c_number pb1, pb2;
+
+    // --- Debye-Huckel electrostatics (oxDNA2) ---
+    bool     dh_enabled = false;
+    bool     dh_half_ends = true;
+    c_number dh_prefactor = 0, dh_minus_kappa = 0, dh_RHIGH = 0, dh_RC = 0, dh_B = 0;
+
+    int model = 1;   // 1 = oxDNA1, 2 = oxDNA2
 
     // Global nonbonded COM-COM cutoff squared (max over all terms)
     c_number cutsq_nb;
@@ -181,9 +196,12 @@ inline DNAParams make_oxdna1_params(double T = 0.1, double hb_multi = 0.0) {
     constexpr double PI2 = PI / 2;
 
     // ---- Site offsets (model.h POS_*) ----
-    p.d_cbk  = static_cast<c_number>(-0.4);   // POS_BACK
+    p.d_cbk  = static_cast<c_number>(-0.4);   // POS_BACK (reference for stacking/coaxial)
     p.d_cbs  = static_cast<c_number>( 0.4);   // POS_BASE
     p.d_cstk = static_cast<c_number>( 0.34);  // POS_STACK
+    p.pb1    = static_cast<c_number>(-0.4);   // actual backbone site (oxDNA1: along a1 only)
+    p.pb2    = static_cast<c_number>( 0.0);
+    p.model  = 1;
 
     // ---- Excluded volume (model.h EXCL_*) ----
     // EXCL_EPS=2; backbone-backbone S1/R1, backbone-base S3/R3, base-base S2/R2.
@@ -303,6 +321,9 @@ inline DNAParams make_oxdna1_params(double T = 0.1, double hb_multi = 0.0) {
     p.cxst_t5 = make_f4(0.9, 0.0,       0.95);  // CXST_THETA5
     p.cxst_t6 = make_f4(0.9, 0.0,       0.95);  // CXST_THETA6
     p.cxst_cp = make_f5(2.0, 0.65);             // CXST_PHI3 (=PHI4)
+    p.cxst_t1_mode    = 0;                       // reflection f4(t)+f4(2pi-t)
+    p.cxst_has_cosphi = true;
+    p.dh_enabled      = false;
 
     // ---- Global nonbonded COM-COM cutoff ----
     // Largest site-site range plus the two site offsets from the COM (~0.4 each).
@@ -310,6 +331,72 @@ inline DNAParams make_oxdna1_params(double T = 0.1, double hb_multi = 0.0) {
     max_cut = std::max(max_cut, static_cast<double>(p.hb_f1.cut_hc)   + 0.8);
     max_cut = std::max(max_cut, static_cast<double>(p.xstk_f2.cut_hc) + 0.8);
     max_cut = std::max(max_cut, static_cast<double>(p.cxst_f2.cut_hc) + 0.8);
+    p.cutsq_nb = static_cast<c_number>(max_cut * max_cut);
+
+    return p;
+}
+
+// Initialize parameters for oxDNA2 (standalone DNA2Interaction):
+//   - oxDNA2 well depths (HB, stacking) and FENE r0
+//   - grooved backbone site (POS_MM_BACK1/2)
+//   - modified coaxial stacking (no cosphi3, harmonic theta1, K=58.5)
+//   - Debye-Huckel electrostatics at the given salt concentration (mol/L)
+inline DNAParams make_oxdna2_params(double T = 0.1, double salt = 0.5,
+                                    double hb_multi = 0.0) {
+    DNAParams p = make_oxdna1_params(T, hb_multi);
+    constexpr double PI = 3.141592653589793;
+    p.model = 2;
+
+    // ---- oxDNA2 well depths ----
+    // HB: HYDR_EPS_OXDNA2 = 1.0678 (carried by the alpha gate)
+    const c_number hb_eps = static_cast<c_number>(1.0678 + hb_multi);
+    p.alpha_hb[0][3] = p.alpha_hb[3][0] = hb_eps;
+    p.alpha_hb[1][2] = p.alpha_hb[2][1] = hb_eps;
+    // Stacking: STCK_BASE_EPS_OXDNA2 + STCK_FACT_EPS_OXDNA2 * T
+    {
+        const double stk_a = 6.0, stk_r0 = 0.4, stk_rc = 0.9;
+        const double stk_eps = 1.3523 + 2.6717 * T;
+        p.stk_f1.eps = static_cast<c_number>(stk_eps);
+        const double m = 1.0 - std::exp(-stk_a * (stk_rc - stk_r0));
+        p.stk_f1.shift = static_cast<c_number>(stk_eps * m * m);
+    }
+
+    // ---- FENE_R0_OXDNA2 ----
+    p.fene.r0 = static_cast<c_number>(0.7564);
+
+    // ---- Grooved backbone site (POS_MM_BACK1, POS_MM_BACK2) ----
+    p.pb1 = static_cast<c_number>(-0.34);
+    p.pb2 = static_cast<c_number>( 0.3408);
+
+    // ---- Modified coaxial stacking ----
+    p.cxst_f2.k = static_cast<c_number>(58.5);                 // CXST_K_OXDNA2
+    p.cxst_t1   = make_f4(2.0, PI - 0.25, 0.65);               // CXST_THETA1_T0_OXDNA2
+    p.cxst_t1_mode = 1;                                        // harmonic extension
+    p.cxst_t1_SA   = static_cast<c_number>(20.0);              // CXST_THETA1_SA
+    p.cxst_t1_SB   = static_cast<c_number>(PI - 0.025);        // CXST_THETA1_SB
+    p.cxst_has_cosphi = false;                                 // oxDNA2 drops cosphi3
+
+    // ---- Debye-Huckel ----
+    const double lambdafactor = 0.3616455;   // dh_lambda (T=300K, I=1M)
+    const double prefactor    = 0.0543;       // dh_strength
+    const double lambda = lambdafactor * std::sqrt(T / 0.1) / std::sqrt(salt);
+    const double rhigh  = 3.0 * lambda;
+    const double q = prefactor, l = lambda, x = rhigh;
+    const double B  = -(std::exp(-x / l) * q * q * (x + l) * (x + l)) / (-4.0 * x * x * x * l * l * q);
+    const double RC = x * (q * x + 3.0 * q * l) / (q * (x + l));
+    p.dh_enabled    = true;
+    p.dh_half_ends  = true;
+    p.dh_prefactor  = static_cast<c_number>(prefactor);
+    p.dh_minus_kappa= static_cast<c_number>(-1.0 / lambda);
+    p.dh_RHIGH      = static_cast<c_number>(rhigh);
+    p.dh_RC         = static_cast<c_number>(RC);
+    p.dh_B          = static_cast<c_number>(B);
+
+    // ---- Nonbonded cutoff must cover Debye-Huckel ----
+    double back_off = std::sqrt(0.34*0.34 + 0.3408*0.3408);   // |backbone site|
+    double dh_cut   = 2.0 * back_off + RC;
+    double max_cut  = std::sqrt(static_cast<double>(p.cutsq_nb));
+    max_cut = std::max(max_cut, dh_cut);
     p.cutsq_nb = static_cast<c_number>(max_cut * max_cut);
 
     return p;

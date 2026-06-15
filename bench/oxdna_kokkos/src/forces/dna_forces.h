@@ -49,6 +49,34 @@ void eval_f4(c_number cost, const F4Params &P, c_number &f4v, c_number &Dc) {
        : c_number(0);
 }
 
+// Coaxial theta1 (CXST_F4_THETA1): standalone _fakef4_cxst_t1.
+//   mode 0 (oxDNA1): g = f4(t) + f4(2*pi - t)
+//   mode 1 (oxDNA2): g = f4(t) + SA*(t-SB)^2   (t > SB)
+// Returns g and Dc = dg/dcost (== standalone _custom_f4D for this mesh).
+KOKKOS_INLINE_FUNCTION
+void eval_cxst_t1(c_number cost, const F4Params &P, int mode, c_number SA, c_number SB,
+                  c_number &g, c_number &Dc) {
+    constexpr c_number PI = c_number(3.141592653589793);
+    if (cost >  1) cost =  1;
+    if (cost < -1) cost = -1;
+    c_number t  = Kokkos::acos(cost);
+    c_number f4b  = F4(t, P.a, P.theta_0, P.dtheta_ast, P.b, P.dtheta_c);
+    c_number dfb  = DF4(t, P.a, P.theta_0, P.dtheta_ast, P.b, P.dtheta_c);  // df4/dt
+    c_number gg, dgdt;
+    if (mode == 0) {
+        c_number tr = 2*PI - t;
+        gg   = f4b + F4(tr, P.a, P.theta_0, P.dtheta_ast, P.b, P.dtheta_c);
+        dgdt = dfb - DF4(tr, P.a, P.theta_0, P.dtheta_ast, P.b, P.dtheta_c);
+    } else {
+        c_number h  = (t > SB) ? SA*(t-SB)*(t-SB) : c_number(0);
+        c_number dh = (t > SB) ? 2*SA*(t-SB)      : c_number(0);
+        gg = f4b + h;  dgdt = dfb + dh;
+    }
+    g = gg;
+    c_number sint = Kokkos::sqrt(Kokkos::fmax(c_number(0), 1 - cost*cost));
+    Dc = (sint > c_number(1e-8)) ? (-dgdt / sint) : c_number(0);
+}
+
 // -----------------------------------------------------------------------
 // Force/torque accumulation for one site-site F3 (excluded volume) term.
 // delf/delta accumulate force/torque on particle a; delf_b/delta_b on b.
@@ -316,19 +344,24 @@ c_number cxst_pair(const c_number ra_st[3], const c_number rb_st[3],
     c_number cost5 =  dot3(a3, rdir);
     c_number cost6 = -dot3(b3, rdir);
 
-    // backbone reference vector (symmetric grooves): rbackref = rcom + b1*POS_BACK - a1*POS_BACK
+    // backbone reference vector (symmetric grooves): rbackref = rcom + b1*POS_BACK - a1*POS_BACK.
+    // Only the oxDNA1 coaxial term uses the cosphi3 dihedral; oxDNA2 omits it.
     const c_number pb = par.d_cbk;       // POS_BACK (-0.4)
-    c_number rbref[3] = { delr_com[0] + pb*b1[0] - pb*a1[0],
-                          delr_com[1] + pb*b1[1] - pb*a1[1],
-                          delr_com[2] + pb*b1[2] - pb*a1[2] };
-    c_number rbrefmod = Kokkos::sqrt(rbref[0]*rbref[0]+rbref[1]*rbref[1]+rbref[2]*rbref[2]);
-    c_number rbrefinv = 1 / rbrefmod;
-    c_number rbrefdir[3] = {rbref[0]*rbrefinv, rbref[1]*rbrefinv, rbref[2]*rbrefinv};
-    c_number cr[3]; cross3(rbrefdir, a1, cr);
-    c_number cosphi3 = dot3(rdir, cr);
+    c_number rbrefmod = 0, rbrefinv = 0, cosphi3 = 0;
+    c_number rbrefdir[3] = {0,0,0};
+    if (par.cxst_has_cosphi) {
+        c_number rbref[3] = { delr_com[0] + pb*b1[0] - pb*a1[0],
+                              delr_com[1] + pb*b1[1] - pb*a1[1],
+                              delr_com[2] + pb*b1[2] - pb*a1[2] };
+        rbrefmod = Kokkos::sqrt(rbref[0]*rbref[0]+rbref[1]*rbref[1]+rbref[2]*rbref[2]);
+        rbrefinv = 1 / rbrefmod;
+        rbrefdir[0]=rbref[0]*rbrefinv; rbrefdir[1]=rbref[1]*rbrefinv; rbrefdir[2]=rbref[2]*rbrefinv;
+        c_number cr[3]; cross3(rbrefdir, a1, cr);
+        cosphi3 = dot3(rdir, cr);
+    }
 
     c_number f4t1, D1, f4t4, D4;
-    eval_f4(cost1, par.cxst_t1, f4t1, D1);
+    eval_cxst_t1(cost1, par.cxst_t1, par.cxst_t1_mode, par.cxst_t1_SA, par.cxst_t1_SB, f4t1, D1);
     eval_f4(cost4, par.cxst_t4, f4t4, D4);
     c_number f4p, Dp, f4m, Dm;
     eval_f4( cost5, par.cxst_t5, f4p, Dp); eval_f4(-cost5, par.cxst_t5, f4m, Dm);
@@ -336,7 +369,10 @@ c_number cxst_pair(const c_number ra_st[3], const c_number rb_st[3],
     eval_f4( cost6, par.cxst_t6, f4p, Dp); eval_f4(-cost6, par.cxst_t6, f4m, Dm);
     c_number f4t6 = f4p + f4m;  c_number f4t6Ds =  Dp - Dm;
 
-    c_number f5 = F5(cosphi3, par.cxst_cp.a, par.cxst_cp.x_ast, par.cxst_cp.b, par.cxst_cp.x_c);
+    // oxDNA1 multiplies by f5(cosphi3)^2; oxDNA2 drops it (f5 == 1).
+    c_number f5  = par.cxst_has_cosphi
+        ? F5(cosphi3, par.cxst_cp.a, par.cxst_cp.x_ast, par.cxst_cp.b, par.cxst_cp.x_c)
+        : c_number(1);
     c_number f2 = F2(r_st, fp.k, fp.cut_0, fp.cut_lc, fp.cut_hc,
                      fp.cut_lo, fp.cut_hi, fp.b_lo, fp.b_hi, fp.cut_c);
     c_number energy = f2 * f4t1 * f4t4 * f4t5 * f4t6 * (f5*f5);
@@ -344,7 +380,9 @@ c_number cxst_pair(const c_number ra_st[3], const c_number rb_st[3],
 
     c_number f2D = DF2(r_st, fp.k, fp.cut_0, fp.cut_lc, fp.cut_hc,
                        fp.cut_lo, fp.cut_hi, fp.b_lo, fp.b_hi);
-    c_number f5D = DF5(cosphi3, par.cxst_cp.a, par.cxst_cp.x_ast, par.cxst_cp.b, par.cxst_cp.x_c);
+    c_number f5D = par.cxst_has_cosphi
+        ? DF5(cosphi3, par.cxst_cp.a, par.cxst_cp.x_ast, par.cxst_cp.b, par.cxst_cp.x_c)
+        : c_number(0);
     c_number f4t1Ds = D1, f4t4Ds = -D4;
 
     c_number force[3] = {0,0,0}, tp[3] = {0,0,0}, tq[3] = {0,0,0};
@@ -380,7 +418,7 @@ c_number cxst_pair(const c_number ra_st[3], const c_number rb_st[3],
       tq[0]-=dir[0]*fact; tq[1]-=dir[1]*fact; tq[2]-=dir[2]*fact; }
 
     // COSPHI3 (gamma = POS_STACK - POS_BACK)
-    {
+    if (par.cxst_has_cosphi) {
         c_number gamma = par.d_cstk - par.d_cbk;          // 0.34 - (-0.4) = 0.74
         c_number gammacub = gamma*gamma*gamma;
         c_number rbrefcub = rbrefmod*rbrefmod*rbrefmod;
@@ -437,12 +475,49 @@ c_number cxst_pair(const c_number ra_st[3], const c_number rb_st[3],
 }
 
 // -----------------------------------------------------------------------
+// Debye-Huckel electrostatics (oxDNA2). Acts on the backbone-site separation
+// delr_bk (a->b, magnitude rmod). cut_factor halves the charge per terminus.
+// -----------------------------------------------------------------------
+KOKKOS_INLINE_FUNCTION
+c_number dh_pair(const c_number ra_bk[3], const c_number rb_bk[3],
+                 const c_number delr_bk[3], c_number rmod, c_number cut_factor,
+                 const DNAParams &par,
+                 c_number (&delf_a)[3], c_number (&delta_a)[3],
+                 c_number (&delf_b)[3], c_number (&delta_b)[3]) {
+    if (rmod >= par.dh_RC) return 0;
+    c_number rinv = 1 / rmod;
+    c_number rbackdir[3] = {delr_bk[0]*rinv, delr_bk[1]*rinv, delr_bk[2]*rinv};
+
+    c_number energy, fmag;   // standalone "force" = rbackdir * fmag
+    if (rmod < par.dh_RHIGH) {
+        c_number ex = Kokkos::exp(rmod * par.dh_minus_kappa);
+        energy = ex * (par.dh_prefactor * rinv);
+        fmag   = -par.dh_prefactor * ex * (par.dh_minus_kappa * rinv - rinv*rinv);
+    } else {
+        c_number dr = rmod - par.dh_RC;
+        energy = par.dh_B * dr * dr;
+        fmag   = -2 * par.dh_B * dr;
+    }
+    energy *= cut_factor;
+    fmag   *= cut_factor;
+
+    c_number force[3] = {rbackdir[0]*fmag, rbackdir[1]*fmag, rbackdir[2]*fmag};
+    delf_a[0]-=force[0]; delf_a[1]-=force[1]; delf_a[2]-=force[2];
+    delf_b[0]+=force[0]; delf_b[1]+=force[1]; delf_b[2]+=force[2];
+    c_number c[3];
+    cross3(ra_bk, force, c); delta_a[0]-=c[0]; delta_a[1]-=c[1]; delta_a[2]-=c[2];
+    cross3(rb_bk, force, c); delta_b[0]+=c[0]; delta_b[1]+=c[1]; delta_b[2]+=c[2];
+    return energy;
+}
+
+// -----------------------------------------------------------------------
 // Main nonbonded force dispatch — one kernel per pair (flat edge list)
 // -----------------------------------------------------------------------
 struct DNAForcesFunctor {
     Kokkos::View<const c_number *[4]> poss;
     Kokkos::View<const c_number *[4]> orientations;
     Kokkos::View<const int *>         btype;
+    Kokkos::View<const LR_bonds *>    bonds;
     Kokkos::View<const int *>         edge_i;
     Kokkos::View<const int *>         edge_j;
 
@@ -477,10 +552,12 @@ struct DNAForcesFunctor {
         get_vectors_from_quat_view(orientations, ia, a1, a2, a3);
         get_vectors_from_quat_view(orientations, ib, b1, b2, b3);
 
-        c_number d_cbk = par.d_cbk, d_cbs = par.d_cbs, d_cstk = par.d_cstk;
+        c_number d_cbs = par.d_cbs, d_cstk = par.d_cstk;
+        c_number pb1 = par.pb1, pb2 = par.pb2;
 
-        c_number ra_cbk[3] = {d_cbk*a1[0], d_cbk*a1[1], d_cbk*a1[2]};
-        c_number rb_cbk[3] = {d_cbk*b1[0], d_cbk*b1[1], d_cbk*b1[2]};
+        // Backbone site (grooved for oxDNA2): pb1*a1 + pb2*a2
+        c_number ra_cbk[3] = {pb1*a1[0]+pb2*a2[0], pb1*a1[1]+pb2*a2[1], pb1*a1[2]+pb2*a2[2]};
+        c_number rb_cbk[3] = {pb1*b1[0]+pb2*b2[0], pb1*b1[1]+pb2*b2[1], pb1*b1[2]+pb2*b2[2]};
         c_number ra_cbs[3] = {d_cbs*a1[0], d_cbs*a1[1], d_cbs*a1[2]};
         c_number rb_cbs[3] = {d_cbs*b1[0], d_cbs*b1[1], d_cbs*b1[2]};
 
@@ -537,6 +614,21 @@ struct DNAForcesFunctor {
             }
         }
 
+        // ---- Debye-Huckel electrostatics (oxDNA2; backbone-site separation) ----
+        if (par.dh_enabled) {
+            c_number d[3] = {dx + rb_cbk[0] - ra_cbk[0], dy + rb_cbk[1] - ra_cbk[1], dz + rb_cbk[2] - ra_cbk[2]};
+            c_number rmod = Kokkos::sqrt(dot3(d,d));
+            if (rmod > 0 && rmod < par.dh_RC) {
+                c_number cut_factor = 1;
+                if (par.dh_half_ends) {
+                    if (bonds(ia).n3 < 0 || bonds(ia).n5 < 0) cut_factor *= c_number(0.5);
+                    if (bonds(ib).n3 < 0 || bonds(ib).n5 < 0) cut_factor *= c_number(0.5);
+                }
+                evdwl += dh_pair(ra_cbk, rb_cbk, d, rmod, cut_factor, par,
+                                 delf_a, delta_a, delf_b, delta_b);
+            }
+        }
+
         ev += evdwl;
 
         auto af = sf.access();
@@ -573,6 +665,7 @@ inline c_number compute_nonbonded_forces(
     fun.poss         = p.poss;
     fun.orientations = p.orientations;
     fun.btype        = p.btype;
+    fun.bonds        = p.bonds;
     fun.edge_i       = nl.edge_i;
     fun.edge_j       = nl.edge_j;
     fun.par          = par;
