@@ -47,9 +47,10 @@ class EwaldDispSlab : public KSpace {
   int kmax, kcount;    // # of 1-D wavevectors (modes k=0..kmax-1), kcount=kmax
   int kmax_created;
   int kmax_user;         // user override via kspace_modify kmax (0 if unset)
-  int damp_flag;         // 0 = non-damped (SB), 1 = damped (SSB)
+  int damp_flag;         // 0 = non-damped (SB), 1 = damped (SSB), 2 = compact switch (CSB)
   int corr_mode;         // damped correction: 0 = raw pairwise, 1 = binned (faster)
   double bin_dz_user;    // requested bin width (0 => default)
+  double sw_width;       // compact-switch width Delta (read from the matched pair style)
   double volume, cutoff, rc2;
   double unitk;                       // 2*pi/Lz
   double estimated_force_accuracy;    // predicted RMS per-atom force error
@@ -67,6 +68,11 @@ class EwaldDispSlab : public KSpace {
   void init_coeffs();
   void coeffs();
   double gf_of_k(int k);     // force coefficient GF for a single z mode k>=1
+  // compact-switch (CSB) helpers: smoothed-truncation reciprocal coefficients
+  double switch_S(double t);                                      // C3 septic smoothstep
+  void switch_transitions(double h, double &t5, double &t7, double &t6);
+  double gu_switch(int k);                                        // GU[k] for the compact switch
+  double gu0_switch();                                            // k=0 energy coefficient
   void estimate_params();    // choose g_ewald (damped) and kmax from target accuracy
   void allocate();
   void deallocate();

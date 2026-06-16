@@ -66,6 +66,7 @@ EwaldDispSlab::EwaldDispSlab(LAMMPS *lmp) :
   damp_flag = 0;
   corr_mode = 0;
   bin_dz_user = 0.0;
+  sw_width = 0.0;
   contour_flag = 0;
   profile_flag = 0;
   npro = 0;
@@ -115,7 +116,11 @@ int EwaldDispSlab::modify_param(int narg, char **arg)
 {
   if (strcmp(arg[0], "damp") == 0) {
     if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify damp", error);
-    damp_flag = utils::logical(FLERR, arg[1], false, lmp);
+    // "compact"/"switch" selects the compact-switch (CSB) variant; otherwise yes/no
+    if (strcmp(arg[1], "compact") == 0 || strcmp(arg[1], "switch") == 0)
+      damp_flag = 2;
+    else
+      damp_flag = utils::logical(FLERR, arg[1], false, lmp);
     return 2;
   }
   if (strcmp(arg[0], "kmax") == 0) {
@@ -202,6 +207,21 @@ void EwaldDispSlab::init()
   cutoff = *p_cutoff;
   rc2 = cutoff * cutoff;
 
+  // compact-switch (CSB) variant: the matched pair style supplies the switch
+  // width Delta (and the (1-S)*u shell complement over [rcut, rcut+Delta]).  The
+  // pair's interaction cutoff is rcut+Delta; "cut_lj" above is the inner rcut.
+
+  if (damp_flag == 2) {
+    int itmp2;
+    double *p_dz = (double *) force->pair->extract("disp_switch_width", itmp2);
+    if (p_dz == nullptr)
+      error->all(FLERR,
+                 "kspace_modify damp compact requires a pair style that provides the dispersion "
+                 "switch width (e.g. pair_style lj/cut/dispswitch)");
+    sw_width = *p_dz;
+    if (sw_width <= 0.0) error->all(FLERR, "ewald/disp/slab compact switch width must be > 0");
+  }
+
   // accuracy in force units
 
   two_charge();
@@ -220,9 +240,11 @@ void EwaldDispSlab::init()
   setup();
 
   if (comm->me == 0) {
-    utils::logmesg(lmp, "  {} slab-based dispersion Ewald, {} z wavevectors\n",
-                   damp_flag ? "damped" : "non-damped", kmax);
-    if (damp_flag) utils::logmesg(lmp, "  g_ewald = {:.6g}\n", g_ewald);
+    const char *variant =
+        (damp_flag == 2) ? "compact-switch" : (damp_flag == 1) ? "damped" : "non-damped";
+    utils::logmesg(lmp, "  {} slab-based dispersion Ewald, {} z wavevectors\n", variant, kmax);
+    if (damp_flag == 1) utils::logmesg(lmp, "  g_ewald = {:.6g}\n", g_ewald);
+    if (damp_flag == 2) utils::logmesg(lmp, "  switch width Delta = {:.6g}\n", sw_width);
     utils::logmesg(lmp, "  estimated absolute RMS force accuracy = {:.6g}\n",
                    estimated_force_accuracy);
     utils::logmesg(lmp, "  estimated relative force accuracy = {:.6g}\n",
@@ -239,7 +261,10 @@ double EwaldDispSlab::gf_of_k(int k)
 {
   const double kcell = k * unitk;
   const double kcell3 = kcell * kcell * kcell;
-  if (!damp_flag) {
+  if (damp_flag == 2) {
+    // compact switch: force is the exact z-gradient of the energy term, GF=2k*GU
+    return 2.0 * kcell * gu_switch(k);
+  } else if (!damp_flag) {
     double A[8], Bc[8];
     sici_chain(kcell * cutoff, A, Bc);
     const double GUk = (-4.0 * MY_PI * kcell3 / volume) * (MY_PI / 48.0 - A[5]);
@@ -276,7 +301,7 @@ void EwaldDispSlab::estimate_params()
 
   double acc = accuracy / two_charge_force;    // relative target for the log
   if (acc <= 0.0 || acc >= 1.0) acc = 1.0e-4;
-  if (damp_flag && !gewaldflag) g_ewald = sqrt(-2.0 * log(acc)) / cutoff;
+  if (damp_flag == 1 && !gewaldflag) g_ewald = sqrt(-2.0 * log(acc)) / cutoff;
 
   // dispersion sum b2 = sum_i B_i^2 (full system).  NOTE kspace->init() runs
   // before pair->init(), so lj4 (hence B) is not populated yet -- compute the
@@ -315,9 +340,26 @@ void EwaldDispSlab::estimate_params()
 
   // sum GF^2 from the top down so tail(kmax) = sum_{k>kmax}
   auto *gf2 = new double[kbig + 1];
-  for (int k = 1; k <= kbig; k++) {
-    double g = gf_of_k(k);
-    gf2[k] = g * g;
+  if (damp_flag == 2) {
+    // the compact-switch GF^2 decays fast; compute upward and stop once it has
+    // been negligible for a run of modes (avoids costly high-k quadrature).
+    double gf2max = 0.0;
+    int nsmall = 0, kstop = kbig;
+    for (int k = 1; k <= kbig; k++) {
+      double g = gf_of_k(k);
+      gf2[k] = g * g;
+      gf2max = MAX(gf2max, gf2[k]);
+      if (gf2[k] < 1.0e-16 * gf2max) {
+        if (++nsmall >= 32) { kstop = k; break; }
+      } else
+        nsmall = 0;
+    }
+    for (int k = kstop + 1; k <= kbig; k++) gf2[k] = 0.0;
+  } else {
+    for (int k = 1; k <= kbig; k++) {
+      double g = gf_of_k(k);
+      gf2[k] = g * g;
+    }
   }
   double tail = 0.0;
   int chosen = kbig;
@@ -340,10 +382,11 @@ void EwaldDispSlab::estimate_params()
 
   // the non-damped reciprocal converges only algebraically (~kmax^-0.7) because
   // of Gibbs ringing; warn if the target is not reachable within the cap
-  if (chosen >= kbig && comm->me == 0)
+  if (chosen >= kbig && damp_flag == 0 && comm->me == 0)
     error->warning(FLERR,
                    "ewald/disp/slab: target accuracy needs kmax >= {} (capped); the non-damped "
-                   "variant converges slowly -- use kspace_modify damp yes for tighter accuracy",
+                   "variant converges slowly -- use kspace_modify damp yes (or damp compact) for "
+                   "tighter accuracy",
                    kbig);
 }
 
@@ -411,7 +454,36 @@ void EwaldDispSlab::coeffs()
 
   kcount = kmax;
 
-  if (!damp_flag) {
+  if (damp_flag == 2) {
+
+    // compact switch (CSB): smoothed truncation over [rcut, rcut+Delta].  The
+    // long-range part S(r)*u(r) vanishes inside rcut, so no real-space (slab)
+    // correction is needed; the kernel is smooth at rcut, so the reciprocal sum
+    // converges fast (no Gibbs ringing).  GU/GT = analytic tail evaluated at
+    // rcut+Delta plus a numerically integrated transition over the shell.
+
+    GU[0] = gu0_switch();
+    GF[0] = 0.0;
+    GT[0] = 2.0 * GU[0];    // tail tangential constant is 2x the energy constant
+
+    const double c = cutoff + sw_width;
+    for (k = 1; k < kcount; k++) {
+      kcell = k * unitk;
+      kcell3 = kcell * kcell * kcell;
+      sici_chain(kcell * c, A, Bc);    // tail evaluated at rcut+Delta
+      double t5, t7, t6;
+      switch_transitions(kcell, t5, t7, t6);
+
+      // energy: GU = [non-damped tail at c] + [-(4pi/V)(1/k) * t5]
+      GU[k] = (-4.0 * MY_PI * kcell3 / volume) * (MY_PI / 48.0 - A[5]) -
+          (4.0 * MY_PI / volume) * t5 / kcell;
+      GF[k] = 2.0 * kcell * GU[k];    // exact z-gradient of the energy term
+      // tangential pressure: [non-damped tail at c] + transition (Si7/Ci6 parts)
+      GT[k] = (-24.0 * MY_PI * kcell3 / volume) * (MY_PI / 288.0 - A[7] + Bc[6]) -
+          (24.0 * MY_PI / volume) * (t7 / kcell3 - t6 / (kcell * kcell));
+    }
+
+  } else if (!damp_flag) {
 
     // non-damped (SB): sharp truncation, Si_m/Ci_m coefficients
 
@@ -460,6 +532,97 @@ void EwaldDispSlab::coeffs()
       GT[k] = GU[k];
     }
   }
+}
+
+/* ----------------------------------------------------------------------
+   compact-switch (CSB) smoothstep S(t), C3 (septic) on t in [0,1]:
+   S(0)=0, S(1)=1, S=S'=S''=S'''=0 at both ends.  In r: S=0 for r<=rcut,
+   S=1 for r>=rcut+Delta.  The long-range part fed to the reciprocal sum is
+   S(r)*u(r); it vanishes inside rcut (so no slab correction) and is smooth at
+   rcut (so the z-Fourier coefficients decay fast -- no Gibbs ringing).
+------------------------------------------------------------------------- */
+
+double EwaldDispSlab::switch_S(double t)
+{
+  if (t <= 0.0) return 0.0;
+  if (t >= 1.0) return 1.0;
+  const double t2 = t * t, t3 = t2 * t, t4 = t3 * t;
+  return t4 * (35.0 - 84.0 * t + 70.0 * t2 - 20.0 * t3);
+}
+
+/* ----------------------------------------------------------------------
+   transition integrals over the switch shell [rcut, rcut+Delta]:
+     t5 = int S(r) r^-5 sin(h r) dr   (energy)
+     t7 = int S(r) r^-7 sin(h r) dr   (tangential, Si7 part)
+     t6 = int S(r) r^-6 cos(h r) dr   (tangential, Ci6 part)
+   composite Simpson with the panel count scaled to the oscillation count
+   (h*Delta) so accuracy is k-independent.  Built once at setup, so cheap.
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::switch_transitions(double h, double &t5, double &t7, double &t6)
+{
+  const double a = cutoff, b = cutoff + sw_width, dz = sw_width;
+  int n = (int) (24.0 * h * dz / (2.0 * MY_PI)) + 1;
+  n = MAX(64, n);
+  n = MIN(n, 200000);
+  if (n % 2) n++;    // even count for Simpson
+  const double dr = (b - a) / n;
+  double s5 = 0.0, s7 = 0.0, s6 = 0.0;
+  for (int i = 0; i <= n; i++) {
+    const double r = a + i * dr;
+    const double S = switch_S((r - a) / dz);
+    const double sr = sin(h * r), cr = cos(h * r);
+    const double r2 = r * r, r4 = r2 * r2;
+    const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+    s5 += w * S * sr / (r4 * r);          // r^-5 sin
+    s7 += w * S * sr / (r4 * r2 * r);     // r^-7 sin
+    s6 += w * S * cr / (r4 * r2);         // r^-6 cos
+  }
+  const double f = dr / 3.0;
+  t5 = f * s5;
+  t7 = f * s7;
+  t6 = f * s6;
+}
+
+/* ----------------------------------------------------------------------
+   compact-switch energy coefficient GU[k] (k>=1): non-damped tail evaluated at
+   rcut+Delta plus the numerically integrated shell transition.
+------------------------------------------------------------------------- */
+
+double EwaldDispSlab::gu_switch(int k)
+{
+  const double kcell = k * unitk;
+  const double kcell3 = kcell * kcell * kcell;
+  const double c = cutoff + sw_width;
+  double A[8], Bc[8];
+  sici_chain(kcell * c, A, Bc);
+  double t5, t7, t6;
+  switch_transitions(kcell, t5, t7, t6);
+  return (-4.0 * MY_PI * kcell3 / volume) * (MY_PI / 48.0 - A[5]) -
+      (4.0 * MY_PI / volume) * t5 / kcell;
+}
+
+/* ----------------------------------------------------------------------
+   compact-switch k=0 energy coefficient:
+     GU[0] = -(2pi/V) [ int_rcut^{rcut+Delta} S(r) r^-4 dr + 1/(3 (rcut+Delta)^3) ]
+   (-> the non-damped -2pi/(3 rcut^3 V) as Delta->0).
+------------------------------------------------------------------------- */
+
+double EwaldDispSlab::gu0_switch()
+{
+  const double a = cutoff, b = cutoff + sw_width, dz = sw_width;
+  const int n = 256;
+  const double dr = (b - a) / n;
+  double s = 0.0;
+  for (int i = 0; i <= n; i++) {
+    const double r = a + i * dr;
+    const double S = switch_S((r - a) / dz);
+    const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+    s += w * S / (r * r * r * r);
+  }
+  const double trans = dr / 3.0 * s;
+  const double tail = 1.0 / (3.0 * b * b * b);
+  return -(2.0 * MY_PI / volume) * (trans + tail);
 }
 
 /* ----------------------------------------------------------------------
@@ -600,7 +763,7 @@ void EwaldDispSlab::compute(int eflag, int vflag)
   // set from the trace below)
 
   corr_energy = 0.0;
-  if (damp_flag) corr();
+  if (damp_flag == 1) corr();
 
   // normal (zz) virial from the exact 1/r^6 virial trace:  sum r.f = 6 U, so
   // virial_zz = 6*E_kspace - virial_xx - virial_yy.  This is the total pressure
