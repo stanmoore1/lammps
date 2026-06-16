@@ -55,7 +55,7 @@ static constexpr double EULER = 0.57721566490153286061;
 /* ---------------------------------------------------------------------- */
 
 EwaldDispSlab::EwaldDispSlab(LAMMPS *lmp) :
-    KSpace(lmp), GU(nullptr), GF(nullptr), GT(nullptr), ek(nullptr), peatom(nullptr),
+    KSpace(lmp), GU(nullptr), GF(nullptr), GT(nullptr), GN(nullptr), ek(nullptr), peatom(nullptr),
     sfacrl(nullptr), sfacim(nullptr), sfacrl_all(nullptr), sfacim_all(nullptr), cs(nullptr),
     sn(nullptr), B(nullptr)
 {
@@ -461,28 +461,42 @@ void EwaldDispSlab::coeffs()
     // compact switch (CSB): smoothed truncation over [rcut, rcut+Delta].  The
     // long-range part S(r)*u(r) vanishes inside rcut, so no real-space (slab)
     // correction is needed; the kernel is smooth at rcut, so the reciprocal sum
-    // converges fast (no Gibbs ringing).  GU/GT = analytic tail evaluated at
-    // rcut+Delta plus a numerically integrated transition over the shell.
+    // converges fast (no Gibbs ringing).
+    //
+    // Energy/force, tangential (GT) and normal (GN) pressure are all the strain
+    // derivative of the SAME functional U = sum_k GU[k]|S_k|^2.  Under strain
+    // r_ij scales against the fixed lengths rcut,Delta, so the pressure picks up
+    // the switch derivative: the relevant force is phi' = (S u)' = S' u + S u'.
+    // The S u' piece is the smooth (non-damped) tail at rcut+Delta; the S' u piece
+    // is a shell-localized term (the consistent counterpart of the matched pair's
+    // -S'u switch-force virial).  GN is computed explicitly (the homogeneity trace
+    // relation GN+2GT=6GU holds only for the pure power law, not for S*u).
 
-    GU[0] = gu0_switch();
+    GU[0] = gu0_switch();           // energy
     GF[0] = 0.0;
-    GT[0] = 2.0 * GU[0];    // tail tangential constant is 2x the energy constant
+    GT[0] = 2.0 * GU[0];            // h->0 limit of both pressure kernels reduces
+    GN[0] = 2.0 * GU[0];            // to the energy k=0 constant (= 2*GU[0])
 
     const double c = cutoff + sw_width;
     for (k = 1; k < kcount; k++) {
       kcell = k * unitk;
       kcell3 = kcell * kcell * kcell;
-      sici_chain(kcell * c, A, Bc);    // tail evaluated at rcut+Delta
-      double t5, t7, t6;
-      switch_transitions(kcell, t5, t7, t6);
+      const double t5 = switch_trans5(kcell);
 
-      // energy: GU = [non-damped tail at c] + [-(4pi/V)(1/k) * t5]
+      // energy: smoothed tail at rcut+Delta plus the shell transition
+      sici_chain(kcell * c, A, Bc);
       GU[k] = (-4.0 * MY_PI * kcell3 / volume) * (MY_PI / 48.0 - A[5]) -
           (4.0 * MY_PI / volume) * t5 / kcell;
       GF[k] = 2.0 * kcell * GU[k];    // exact z-gradient of the energy term
-      // tangential pressure: [non-damped tail at c] + transition (Si7/Ci6 parts)
-      GT[k] = (-24.0 * MY_PI * kcell3 / volume) * (MY_PI / 288.0 - A[7] + Bc[6]) -
-          (24.0 * MY_PI / volume) * (t7 / kcell3 - t6 / (kcell * kcell));
+
+      // pressure: [non-damped tail at rcut+Delta] + [shell virial of phi'=(S u)']
+      const double GTtail = (-24.0 * MY_PI * kcell3 / volume) * (MY_PI / 288.0 - A[7] + Bc[6]);
+      const double GNtail =
+          (-24.0 * MY_PI * kcell3 / volume) * (MY_PI / 72.0 - A[5] + 2.0 * A[7] - 2.0 * Bc[6]);
+      double sGT, sGN;
+      switch_shell_virial(kcell, sGT, sGN);
+      GT[k] = GTtail - (MY_PI / volume) * sGT;
+      GN[k] = GNtail - (2.0 * MY_PI / volume) * sGN;
     }
 
   } else if (!damp_flag) {
@@ -561,7 +575,7 @@ double EwaldDispSlab::switch_S(double t)
    (h*Delta) so accuracy is k-independent.  Built once at setup, so cheap.
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::switch_transitions(double h, double &t5, double &t7, double &t6)
+double EwaldDispSlab::switch_trans5(double h)
 {
   // 10-point Gauss-Legendre per panel; panel count scaled to the oscillation
   // count (h*Delta) so the result is accurate (~1e-13) for all h.  High accuracy
@@ -581,24 +595,74 @@ void EwaldDispSlab::switch_transitions(double h, double &t5, double &t7, double 
   np = MAX(8, np);
   np = MIN(np, 20000);
   const double hp = dz / np;    // panel width
-  double s5 = 0.0, s7 = 0.0, s6 = 0.0;
+  double s5 = 0.0;
   for (int p = 0; p < np; p++) {
     const double c0 = a + (p + 0.5) * hp;    // panel center
     for (int g = 0; g < 10; g++) {
       const double r = c0 + 0.5 * hp * gx[g];
       const double S = switch_S((r - a) / dz);
-      const double wsr = gw[g] * S * sin(h * r);
-      const double wcr = gw[g] * S * cos(h * r);
       const double r2 = r * r, r4 = r2 * r2;
-      s5 += wsr / (r4 * r);          // r^-5 sin
-      s7 += wsr / (r4 * r2 * r);     // r^-7 sin
-      s6 += wcr / (r4 * r2);         // r^-6 cos
+      s5 += gw[g] * S * sin(h * r) / (r4 * r);    // r^-5 sin
     }
   }
-  const double f = 0.5 * hp;
-  t5 = f * s5;
-  t7 = f * s7;
-  t6 = f * s6;
+  return 0.5 * hp * s5;
+}
+
+/* ---------------------------------------------------------------------- */
+
+double EwaldDispSlab::switch_dS(double t)
+{
+  if (t <= 0.0 || t >= 1.0) return 0.0;
+  const double u = 1.0 - t;
+  return 140.0 * t * t * t * u * u * u;    // dS/dt
+}
+
+/* ----------------------------------------------------------------------
+   shell virial integrals over [rcut, rcut+Delta]:
+     sGT = int phi'(r) A_T(r,h) dr,   sGN = int phi'(r) A_N(r,h) dr,
+   with the switched dispersion force phi'(r) = S'(r)u(r) + S(r)u'(r),
+   u = -1/r^6, u' = 6/r^7, S'(r) = (1/Delta) dS/dt, and the slab angular factors
+     A_T = -4 r cos(hr)/h^2 + 4 sin(hr)/h^3,
+     A_N =  2 r^2 sin(hr)/h + 4 r cos(hr)/h^2 - 4 sin(hr)/h^3.
+   The k-space pressure coeffs are GT = GT_tail - (pi/V) sGT, GN = GN_tail
+   - (2 pi/V) sGN.  Same Gauss-Legendre quadrature as switch_trans5.
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::switch_shell_virial(double h, double &sGT, double &sGN)
+{
+  static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
+                                -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
+                                0.4333953941292472,  0.6794095682990244,  0.8650633666889845,
+                                0.9739065285171717};
+  static const double gw[10] = {0.0666713443086881, 0.1494513491505806, 0.2190863625159820,
+                                0.2692667193099963, 0.2955242247147529, 0.2955242247147529,
+                                0.2692667193099963, 0.2190863625159820, 0.1494513491505806,
+                                0.0666713443086881};
+  const double a = cutoff, dz = sw_width;
+  int np = (int) (8.0 * h * dz / (2.0 * MY_PI)) + 1;
+  np = MAX(8, np);
+  np = MIN(np, 20000);
+  const double hp = dz / np;
+  const double h2 = h * h, h3 = h2 * h;
+  double accT = 0.0, accN = 0.0;
+  for (int p = 0; p < np; p++) {
+    const double c0 = a + (p + 0.5) * hp;
+    for (int g = 0; g < 10; g++) {
+      const double r = c0 + 0.5 * hp * gx[g];
+      const double t = (r - a) / dz;
+      const double S = switch_S(t);
+      const double Sp = switch_dS(t) / dz;    // S'(r)
+      const double r2 = r * r, r6 = r2 * r2 * r2, r7 = r6 * r;
+      const double phip = -Sp / r6 + 6.0 * S / r7;    // (S u)' = S'u + S u'
+      const double sr = sin(h * r), cr = cos(h * r);
+      const double AT = -4.0 * r * cr / h2 + 4.0 * sr / h3;
+      const double AN = 2.0 * r2 * sr / h + 4.0 * r * cr / h2 - 4.0 * sr / h3;
+      accT += gw[g] * phip * AT;
+      accN += gw[g] * phip * AN;
+    }
+  }
+  sGT = 0.5 * hp * accT;
+  sGN = 0.5 * hp * accN;
 }
 
 /* ----------------------------------------------------------------------
@@ -613,8 +677,7 @@ double EwaldDispSlab::gu_switch(int k)
   const double c = cutoff + sw_width;
   double A[8], Bc[8];
   sici_chain(kcell * c, A, Bc);
-  double t5, t7, t6;
-  switch_transitions(kcell, t5, t7, t6);
+  const double t5 = switch_trans5(kcell);
   return (-4.0 * MY_PI * kcell3 / volume) * (MY_PI / 48.0 - A[5]) -
       (4.0 * MY_PI / volume) * t5 / kcell;
 }
@@ -733,9 +796,11 @@ void EwaldDispSlab::compute(int eflag, int vflag)
         // even when only the per-atom virial, not energy, is requested)
         peatom[i] += GU[k] * partial_peratom;
         if (vflag_atom) {
-          // tangential from GT; normal (dim) set from the virial trace
+          // tangential from GT; normal (dim) from GN (compact switch) or the
+          // virial trace (other variants, set after corr below)
           vatom[i][lat1] += GT[k] * partial_peratom;
           vatom[i][lat2] += GT[k] * partial_peratom;
+          if (damp_flag == 2) vatom[i][dim] += GN[k] * partial_peratom;
         }
       }
     }
@@ -762,6 +827,7 @@ void EwaldDispSlab::compute(int eflag, int vflag)
       double uk = sfacrl_all[k] * sfacrl_all[k] + sfacim_all[k] * sfacim_all[k];
       virial[lat1] += uk * GT[k];
       virial[lat2] += uk * GT[k];
+      if (damp_flag == 2) virial[dim] += uk * GN[k];    // explicit normal kernel
     }
   }
 
@@ -773,6 +839,7 @@ void EwaldDispSlab::compute(int eflag, int vflag)
     for (i = 0; i < nlocal; i++) {
       vatom[i][lat1] *= B[type[i]];
       vatom[i][lat2] *= B[type[i]];
+      if (damp_flag == 2) vatom[i][dim] *= B[type[i]];
     }
 
   // damped variant: real-space "slab" correction (adds to energy, corr_energy,
@@ -782,13 +849,17 @@ void EwaldDispSlab::compute(int eflag, int vflag)
   corr_energy = 0.0;
   if (damp_flag == 1) corr();
 
-  // normal (zz) virial from the exact 1/r^6 virial trace:  sum r.f = 6 U, so
-  // virial_zz = 6*E_kspace - virial_xx - virial_yy.  This is the total pressure
-  // (contour-independent) and, per-atom, the IK-contour local normal pressure.
-
-  if (vflag_global) virial[dim] = 6.0 * (e_recip + corr_energy) - virial[lat1] - virial[lat2];
-  if (vflag_atom)
-    for (i = 0; i < nlocal; i++) vatom[i][dim] = 6.0 * peatom[i] - vatom[i][lat1] - vatom[i][lat2];
+  // normal (zz) virial.  For the sharp/Gaussian variants the dispersion is the
+  // exact power law (homogeneous degree -6), so the trace gives it cheaply:
+  // sum r.f = 6 U => virial_zz = 6*E_kspace - virial_xx - virial_yy.  The compact
+  // switch is non-homogeneous (S varies), so its normal is the explicit GN kernel
+  // accumulated above instead.
+  if (damp_flag != 2) {
+    if (vflag_global) virial[dim] = 6.0 * (e_recip + corr_energy) - virial[lat1] - virial[lat2];
+    if (vflag_atom)
+      for (i = 0; i < nlocal; i++)
+        vatom[i][dim] = 6.0 * peatom[i] - vatom[i][lat1] - vatom[i][lat2];
+  }
 
   // report per-atom energy (from the buffer) when requested
   if (eflag_atom)
@@ -1377,6 +1448,7 @@ void EwaldDispSlab::allocate()
   memory->create(GU, kmax, "ewald/disp/slab:GU");
   memory->create(GF, kmax, "ewald/disp/slab:GF");
   memory->create(GT, kmax, "ewald/disp/slab:GT");
+  memory->create(GN, kmax, "ewald/disp/slab:GN");
   memory->create(sfacrl, kmax, "ewald/disp/slab:sfacrl");
   memory->create(sfacim, kmax, "ewald/disp/slab:sfacim");
   memory->create(sfacrl_all, kmax, "ewald/disp/slab:sfacrl_all");
@@ -1390,11 +1462,12 @@ void EwaldDispSlab::deallocate()
   memory->destroy(GU);
   memory->destroy(GF);
   memory->destroy(GT);
+  memory->destroy(GN);
   memory->destroy(sfacrl);
   memory->destroy(sfacim);
   memory->destroy(sfacrl_all);
   memory->destroy(sfacim_all);
-  GU = GF = GT = nullptr;
+  GU = GF = GT = GN = nullptr;
   sfacrl = sfacim = sfacrl_all = sfacim_all = nullptr;
 }
 

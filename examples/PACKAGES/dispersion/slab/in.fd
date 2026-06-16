@@ -1,0 +1,18 @@
+units lj
+atom_style atomic
+boundary p p p
+read_data data.lj_slab
+pair_style lj/cut/dispswitch 3.0 0.3
+pair_coeff 1 1 1.0 1.0
+kspace_style ewald/disp/slab 1.0e-4
+kspace_modify damp compact
+# zero T: pressure = pure virial
+thermo_style custom step pe pxx pyy pzz vol
+run 0
+variable v0 equal vol
+variable pe0 equal pe
+variable px0 equal pxx
+print "BASE pe=$(pe:%.10f) Pxx=$(pxx:%.8f) Pyy=$(pyy:%.8f) Pzz=$(pzz:%.8f) V=$(vol:%.6f)"
+# strain x by +eps and -eps (remap coords), measure dPE/d(eps) -> Pxx = -dPE/deps / V
+variable eps equal 1.0e-4
+change_box all x scale ${eps_p} remap units box

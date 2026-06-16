@@ -1,0 +1,20 @@
+units lj
+atom_style atomic
+boundary p p p
+read_data data.lj_slab
+pair_style lj/cut 3.0
+pair_coeff 1 1 1.0 1.0
+kspace_style ewald/disp/slab 1.0e-4
+kspace_modify damp no
+thermo_style custom step pxx pyy pzz pxy pxz pyz
+run 0
+print "SB     Pxx=$(pxx:%.6f) Pyy=$(pyy:%.6f) Pzz=$(pzz:%.6f)"
+clear
+read_data data.lj_slab
+pair_style lj/cut/dispswitch 3.0 0.001
+pair_coeff 1 1 1.0 1.0
+kspace_style ewald/disp/slab 1.0e-4
+kspace_modify damp compact
+thermo_style custom step pxx pyy pzz pxy pxz pyz
+run 0
+print "CSالبb  Pxx=$(pxx:%.6f) Pyy=$(pyy:%.6f) Pzz=$(pzz:%.6f)"

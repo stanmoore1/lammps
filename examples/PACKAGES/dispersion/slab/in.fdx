@@ -1,0 +1,16 @@
+units lj
+atom_style atomic
+boundary p p p
+variable s index 1.0001 0.9999
+label L
+clear
+read_data data.lj_slab
+pair_style lj/cut/dispswitch 3.0 0.3
+pair_coeff 1 1 1.0 1.0
+kspace_style ewald/disp/slab 1.0e-4
+kspace_modify damp compact
+change_box all x scale ${s} remap units box
+run 0
+print "SX s=${s} pe=$(pe:%.10f) Lx=$(lx:%.8f)"
+next s
+jump in.fdx L

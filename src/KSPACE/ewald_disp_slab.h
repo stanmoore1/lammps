@@ -58,6 +58,7 @@ class EwaldDispSlab : public KSpace {
   int nmax;                           // size of per-atom arrays
 
   double *GU, *GF, *GT;    // precomputed coeffs: energy, z-force, tangential pressure
+  double *GN;              // normal-pressure coeffs (compact switch; explicit, not via trace)
   double *ek;              // per-atom reciprocal z-force accumulator
   double *peatom;          // per-atom kspace energy buffer (for the zz virial trace)
   double *sfacrl, *sfacim, *sfacrl_all, *sfacim_all;
@@ -69,10 +70,13 @@ class EwaldDispSlab : public KSpace {
   void coeffs();
   double gf_of_k(int k);     // force coefficient GF for a single z mode k>=1
   // compact-switch (CSB) helpers: smoothed-truncation reciprocal coefficients
-  double switch_S(double t);                                      // C3 septic smoothstep
-  void switch_transitions(double h, double &t5, double &t7, double &t6);
-  double gu_switch(int k);                                        // GU[k] for the compact switch
-  double gu0_switch();                                            // k=0 energy coefficient
+  double switch_S(double t);     // C3 septic smoothstep
+  double switch_dS(double t);    // dS/dt = 140 t^3 (1-t)^3
+  double switch_trans5(double h);    // shell transition integral int S(r) r^-5 sin(h r) dr
+  // shell virial integrals int_rcut^{rcut+D} (S'u + S u') A_{T,N}(r,h) dr
+  void switch_shell_virial(double h, double &sGT, double &sGN);
+  double gu_switch(int k);     // GU[k] for the compact switch
+  double gu0_switch();         // k=0 energy coefficient
   void estimate_params();    // choose g_ewald (damped) and kmax from target accuracy
   void allocate();
   void deallocate();
