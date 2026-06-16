@@ -472,24 +472,26 @@ void EwaldDispSlab::coeffs()
     // -S'u switch-force virial).  GN is computed explicitly (the homogeneity trace
     // relation GN+2GT=6GU holds only for the pure power law, not for S*u).
 
+    const double c = cutoff + sw_width;
     GU[0] = gu0_switch();           // energy
     GF[0] = 0.0;
-    GT[0] = 2.0 * GU[0];            // h->0 limit of both pressure kernels reduces
-    GN[0] = 2.0 * GU[0];            // to the energy k=0 constant (= 2*GU[0])
-
-    const double c = cutoff + sw_width;
+    GT[0] = 2.0 * GU[0];            // h->0 limit of the consistent (S u)' pressure
+    GN[0] = 2.0 * GU[0];            // kernels (= 2*GU[0]); reduces to non-damped as D->0
     for (k = 1; k < kcount; k++) {
       kcell = k * unitk;
       kcell3 = kcell * kcell * kcell;
       const double t5 = switch_trans5(kcell);
 
       // energy: smoothed tail at rcut+Delta plus the shell transition
-      sici_chain(kcell * c, A, Bc);
+      sici_chain(kcell * c, A, Bc);    // evaluated at rcut+Delta
       GU[k] = (-4.0 * MY_PI * kcell3 / volume) * (MY_PI / 48.0 - A[5]) -
           (4.0 * MY_PI / volume) * t5 / kcell;
       GF[k] = 2.0 * kcell * GU[k];    // exact z-gradient of the energy term
 
-      // pressure: [non-damped tail at rcut+Delta] + [shell virial of phi'=(S u)']
+      // pressure: consistent (S u)' mean-field = non-damped tail at rcut+Delta plus
+      // the shell virial of phi' = (S u)' = S'u + S u'.  This is the strain
+      // derivative of the same S*u functional as the energy/force (no sharp split);
+      // its shell-correlation residual is removed by the real-space correction below.
       const double GTtail = (-24.0 * MY_PI * kcell3 / volume) * (MY_PI / 288.0 - A[7] + Bc[6]);
       const double GNtail =
           (-24.0 * MY_PI * kcell3 / volume) * (MY_PI / 72.0 - A[5] + 2.0 * A[7] - 2.0 * Bc[6]);
@@ -619,13 +621,19 @@ double EwaldDispSlab::switch_dS(double t)
 
 /* ----------------------------------------------------------------------
    shell virial integrals over [rcut, rcut+Delta]:
-     sGT = int phi'(r) A_T(r,h) dr,   sGN = int phi'(r) A_N(r,h) dr,
-   with the switched dispersion force phi'(r) = S'(r)u(r) + S(r)u'(r),
-   u = -1/r^6, u' = 6/r^7, S'(r) = (1/Delta) dS/dt, and the slab angular factors
+     sGT = int f(r) A_T(r,h) dr,   sGN = int f(r) A_N(r,h) dr,
+   with the SMOOTH dispersion force f(r) = S(r) u'(r) = 6 S(r)/r^7 ONLY -- the
+   S'(r)u switch-force virial is deliberately omitted here.  That S'u term is a
+   split artifact (pure 1/r^6 has no S'): the pair's exact -S'u and the kspace's
+   mean-field +S'u are meant to cancel but don't (exact vs plane), leaving a
+   shell-correlation residual in the pressure.  Computing the virial from the
+   (1-S)u' / S u' force split instead (both pieces exact/smooth, no S' spike, and
+   summing to u') removes the residual.  The matched pair tallies its shell virial
+   with (1-S)u' to match.  Forces are unchanged (still the conservative (S u)' /
+   ((1-S)u)').  Angular factors:
      A_T = -4 r cos(hr)/h^2 + 4 sin(hr)/h^3,
      A_N =  2 r^2 sin(hr)/h + 4 r cos(hr)/h^2 - 4 sin(hr)/h^3.
-   The k-space pressure coeffs are GT = GT_tail - (pi/V) sGT, GN = GN_tail
-   - (2 pi/V) sGN.  Same Gauss-Legendre quadrature as switch_trans5.
+   GT = GT_tail - (pi/V) sGT, GN = GN_tail - (2 pi/V) sGN.
 ------------------------------------------------------------------------- */
 
 void EwaldDispSlab::switch_shell_virial(double h, double &sGT, double &sGN)
