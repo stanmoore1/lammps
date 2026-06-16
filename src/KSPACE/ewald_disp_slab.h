@@ -103,6 +103,10 @@ class EwaldDispSlab : public KSpace {
   // generalized sine/cosine integrals via recurrence + continued fraction
   void cisi(double x, double &si, double &ci);
   void sici_chain(double x, double *Aarr, double *Barr);    // fills A[1..7], B[1..7]
+  // complementary chain C[m]=A[m]_inf-A[m], D[m]=B[m]_inf-B[m] computed without the
+  // pi/2 (Si) constant subtraction; gives the small tail coefficients (pi/48-A[5])
+  // etc. directly so the high-k reciprocal coefficients are free of cancellation.
+  void sici_compl_chain(double x, double *Carr, double *Darr);    // fills C[1..7], D[1..7]
 };
 
 }    // namespace LAMMPS_NS

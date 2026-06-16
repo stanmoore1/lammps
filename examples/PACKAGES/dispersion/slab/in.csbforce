@@ -1,0 +1,15 @@
+# CSB force dump at a given kmax (for the RMS force calculator / estimator check)
+units lj
+atom_style atomic
+boundary p p p
+variable rc index 3.0
+variable D  index 0.5
+variable km index 124
+pair_style lj/cut/dispswitch ${rc} ${D}
+read_data data.lj_slab
+pair_coeff 1 1 1.0 1.0
+kspace_style ewald/disp/slab 1.0e-4
+kspace_modify damp compact kmax ${km}
+dump f all custom 1 force_${km}.dump id fx fy fz
+dump_modify f sort id format float %.14g
+run 0

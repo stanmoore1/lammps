@@ -330,33 +330,35 @@ void EwaldDispSlab::estimate_params()
   double natoms = (double) atom->natoms;
   if (natoms < 1.0) natoms = 1.0;
 
-  if (kmax_user > 0) {
-    kmax = kmax_user;
-    return;
-  }
+  // (a user-set kmax still gets a predicted RMS force error reported below)
 
   // cumulative tail of GF[k]^2 from a large cap; pick kmax for target accuracy
 
   const int kbig = 8192;
   const double prefac = 0.5 * b2 * b2 / natoms;
-  // require predicted rms < accuracy/4 (safety margin: the random-phase model
-  // under-predicts for correlated/interfacial systems by a factor of a few)
-  const double target = accuracy * accuracy / 16.0;
+  // require predicted rms < accuracy/8 (safety margin: the random-phase model
+  // under-predicts the true per-atom force error for correlated/interfacial
+  // systems by up to ~7x -- measured against the RMS force calculator).
+  const double target = accuracy * accuracy / 64.0;
 
   // sum GF^2 from the top down so tail(kmax) = sum_{k>kmax}
   auto *gf2 = new double[kbig + 1];
   if (damp_flag == 2) {
-    // the compact-switch GF^2 decays fast; compute upward and stop once it has
-    // dropped well past its peak (negligible, and above the quadrature noise
-    // floor).  This avoids costly high-k quadrature; modes beyond are zeroed.
-    double gf2max = 0.0;
+    // The compact-switch GF decays only ALGEBRAICALLY (~k^-5) past the switch
+    // bandwidth, so the tail is not negligible relative to the *peak* -- only
+    // once its remaining sum falls below the tightest tail the target accuracy
+    // needs.  Compute upward and stop when the estimated remaining tail
+    // (Sum_{j>k} gf2 ~ gf2[k]*k/9 for a ~k^-10 spectrum) is a small fraction of
+    // that target tail; the genuinely-negligible remainder is zeroed.  (The old
+    // "10 orders below peak" cutoff truncated this algebraic tail, making the
+    // estimator report zero at high kmax.)  C[m]/D[m] keep the high-k gf2 free
+    // of cancellation roundoff so the summed tail is real, not noise.
+    const double tail_floor = 1.0e-3 * accuracy * accuracy / (16.0 * prefac);
     int kstop = kbig;
     for (int k = 1; k <= kbig; k++) {
       double g = gf_of_k(k);
       gf2[k] = g * g;
-      gf2max = MAX(gf2max, gf2[k]);
-      // once we are past the peak and 10 orders of magnitude down, stop
-      if (k > 8 && gf2[k] < 1.0e-10 * gf2max && gf2[k] < gf2[k - 1]) {
+      if (k > 16 && gf2[k] * k / 9.0 < tail_floor && gf2[k] < gf2[k - 1]) {
         kstop = k;
         break;
       }
@@ -379,7 +381,8 @@ void EwaldDispSlab::estimate_params()
     chosen = kmx;
   }
 
-  kmax = MAX(8, MIN(chosen, kbig));
+  if (kmax_user > 0) kmax = kmax_user;
+  else kmax = MAX(8, MIN(chosen, kbig));
 
   // predicted RMS per-atom force error at the chosen kmax
   double tk = 0.0;
@@ -511,19 +514,22 @@ void EwaldDispSlab::coeffs()
       kcell3 = kcell * kcell * kcell;
       const double t5 = switch_trans5(kcell);
 
-      // energy: smoothed tail at rcut+Delta plus the shell transition
-      sici_chain(kcell * c, A, Bc);    // evaluated at rcut+Delta
-      GU[k] = (-4.0 * MY_PI * kcell3 / volume) * (MY_PI / 48.0 - A[5]) -
-          (4.0 * MY_PI / volume) * t5 / kcell;
+      // energy: smoothed tail at rcut+Delta plus the shell transition.  The tail
+      // combinations (pi/48 - A[5]) etc. are taken from the complementary chain
+      // C[m]=A[m](inf)-A[m], D[m]=B[m](inf)-B[m] so the small high-k coefficients
+      // are computed without the A[m]=A[m](inf)+(tiny) roundoff cancellation.
+      double C[8], D[8];
+      sici_compl_chain(kcell * c, C, D);    // evaluated at rcut+Delta
+      GU[k] = (-4.0 * MY_PI * kcell3 / volume) * C[5] - (4.0 * MY_PI / volume) * t5 / kcell;
       GF[k] = 2.0 * kcell * GU[k];    // exact z-gradient of the energy term
 
       // pressure: consistent (S u)' mean-field = non-damped tail at rcut+Delta plus
       // the shell virial of phi' = (S u)' = S'u + S u'.  This is the strain
       // derivative of the same S*u functional as the energy/force (no sharp split);
       // its shell-correlation residual is removed by the real-space correction below.
-      const double GTtail = (-24.0 * MY_PI * kcell3 / volume) * (MY_PI / 288.0 - A[7] + Bc[6]);
+      const double GTtail = (-24.0 * MY_PI * kcell3 / volume) * (C[7] - D[6]);
       const double GNtail =
-          (-24.0 * MY_PI * kcell3 / volume) * (MY_PI / 72.0 - A[5] + 2.0 * A[7] - 2.0 * Bc[6]);
+          (-24.0 * MY_PI * kcell3 / volume) * (C[5] - 2.0 * C[7] + 2.0 * D[6]);
       double sGT, sGN;
       switch_shell_virial(kcell, sGT, sGN);
       GT[k] = GTtail - (MY_PI / volume) * sGT;
@@ -712,11 +718,10 @@ double EwaldDispSlab::gu_switch(int k)
   const double kcell = k * unitk;
   const double kcell3 = kcell * kcell * kcell;
   const double c = cutoff + sw_width;
-  double A[8], Bc[8];
-  sici_chain(kcell * c, A, Bc);
+  double C[8], D[8];
+  sici_compl_chain(kcell * c, C, D);    // (pi/48 - A[5]) = C[5], cancellation-free
   const double t5 = switch_trans5(kcell);
-  return (-4.0 * MY_PI * kcell3 / volume) * (MY_PI / 48.0 - A[5]) -
-      (4.0 * MY_PI / volume) * t5 / kcell;
+  return (-4.0 * MY_PI * kcell3 / volume) * C[5] - (4.0 * MY_PI / volume) * t5 / kcell;
 }
 
 /* ----------------------------------------------------------------------
@@ -1749,6 +1754,31 @@ void EwaldDispSlab::sici_chain(double x, double *Aarr, double *Barr)
     double xm = pow(x, 1 - m);
     Aarr[m] = -sx * xm / (m - 1) + Barr[m - 1] / (m - 1);
     Barr[m] = -cx * xm / (m - 1) - Aarr[m - 1] / (m - 1);
+  }
+}
+
+/* ----------------------------------------------------------------------
+   complementary chain  C[m] = A[m](inf) - A[m],  D[m] = B[m](inf) - B[m],
+   i.e. the *small* tail parts that the reciprocal coefficients actually need:
+     (pi/48  - A[5])              = C[5]
+     (pi/288 - A[7] + B[6])       = C[7] - D[6]
+     (pi/72  - A[5] + 2A[7] -2B[6]) = C[5] - 2C[7] + 2D[6]
+   Computing them via this recurrence (seeded by C[1]=pi/2-Si, D[1]=-Ci) avoids
+   the catastrophic A[m] = A[m](inf) + (tiny) cancellation, so the high-k
+   coefficients (and forces/virial) no longer hit the ~1e-6 roundoff floor.
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::sici_compl_chain(double x, double *Carr, double *Darr)
+{
+  double si, ci;
+  cisi(x, si, ci);
+  Carr[1] = MY_PI / 2.0 - si;    // A[1](inf) - A[1] = pi/2 - Si(x)
+  Darr[1] = -ci;                 // B[1](inf) - B[1] = -gamma - (Ci - gamma) = -Ci(x)
+  const double sx = sin(x), cx = cos(x);
+  for (int m = 2; m <= 7; m++) {
+    const double xm = pow(x, 1 - m);
+    Carr[m] = (Darr[m - 1] + sx * xm) / (m - 1);
+    Darr[m] = (cx * xm - Carr[m - 1]) / (m - 1);
   }
 }
 
