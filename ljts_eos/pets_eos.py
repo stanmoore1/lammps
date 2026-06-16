@@ -248,8 +248,10 @@ def vle(T, rho_v0=0.01, rho_l0=None):
             break
         rv -= (J22 * F1 - J12 * F2) / det
         rl -= (-J21 * F1 + J11 * F2) / det
-        rv = min(max(rv, 1e-9), 0.25)
-        rl = min(max(rl, 0.30), 0.95)
+        # keep densities positive, ordered (rv < rl) and physical -- but no
+        # tight bounds, so the two branches can approach rho_c near T_c
+        rv = min(max(rv, 1e-9), 0.95)
+        rl = min(max(rl, rv + 1e-6), 0.95)
     return rv, rl, pressure(T, rv)
 
 

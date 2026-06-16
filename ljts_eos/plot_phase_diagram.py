@@ -34,14 +34,17 @@ def binodal(mod, Tc, rhoc, T_low=0.60):
     Tv, rho_v, rho_l = [], [], []
     rv, rl = 0.0015, 0.82           # low-T initial guess (dilute vapour / dense liquid)
     T = T_low
-    while T < Tc - 1.5e-3:
+    while T < Tc - 1.0e-4:
         rv_s, rl_s, _ = mod.vle(T, rv, rl)
-        if not (1e-6 < rv_s < rl_s) or (rl_s - rv_s) < 3e-3:
+        if not (1e-6 < rv_s < rl_s) or (rl_s - rv_s) < 1e-3:
             break                   # branches have merged -> stop below T_c
         Tv.append(T); rho_v.append(rv_s); rho_l.append(rl_s)
         rv, rl = rv_s, rl_s         # continuation
-        # finer steps close to the critical point where the curve turns over
-        T += 0.02 if (Tc - T) > 0.06 else 0.005
+        # The coexistence width scales like (T_c - T)^1/2, so the dome is flat
+        # in T but wide in rho near the critical point: shrink the T-step there
+        # (proportional to the distance to T_c) to resolve the cap smoothly.
+        dT = max(0.02 * (Tc - T), 2.0e-4)
+        T += min(dT, 0.02)
     return Tv, rho_v, rho_l
 
 
@@ -77,7 +80,7 @@ def spinodal(mod, Tc, rhoc, T_low=0.60):
                 roots.append(_bisect_root(lambda r: dpdrho(mod, T, r), r0, r1))
         if len(roots) >= 2:
             Tv.append(T); rho_v.append(roots[0]); rho_l.append(roots[-1])
-        T += 0.02 if (Tc - T) > 0.06 else 0.004
+        T += min(max(0.02 * (Tc - T), 1.0e-4), 0.02)
     return Tv, rho_v, rho_l
 
 
