@@ -557,12 +557,10 @@ void Info::command(int narg, char **arg)
   }
 
   if (flags & VARIABLES) {
-    int nvar = input->variable->nvar;
+    int nvar = input->variable->get_nvar();
     fputs("\nVariable information:\n",out);
-    for (int i=0; i < nvar; ++i) {
-      auto vinfo = get_variable_info(i);
+    for (int i=0; i < nvar; ++i)
       utils::print(out, get_variable_info(i));
-    }
   }
 
   if (flags & TIME) {
@@ -1173,9 +1171,7 @@ bool Info::has_accelerator_feature(const std::string &package,
       else return false;
     }
     if (category == "api") {
-#if defined(LMP_INTEL_OFFLOAD)
-      if (setting == "phi") return true;
-#elif defined(_OPENMP)
+#if defined(_OPENMP)
       if (setting == "openmp") return true;
 #else
       if (setting == "serial") return true;
@@ -1241,7 +1237,6 @@ std::string Info::get_accelerator_info(const std::string &package)
   }
   if ((package.empty() || (package == "INTEL")) && has_package("INTEL")) {
     mesg += "INTEL package API:";
-    if (has_accelerator_feature("INTEL","api","phi"))      mesg += " Phi";
     if (has_accelerator_feature("INTEL","api","openmp"))   mesg += " OpenMP";
     mesg +=  "\nINTEL package precision:";
     if (has_accelerator_feature("INTEL","precision","single")) mesg += " single";
@@ -1287,7 +1282,11 @@ std::string Info::get_fft_info()
 #elif defined(FFT_MKL_GPU)
   fft_info += "FFT library = MKL GPU\n";
 #elif defined(FFT_NVPL)
+#if defined(FFT_FFTW_THREADS)
+  fft_info += "FFT library = NVPL with threads\n";
+#else
   fft_info += "FFT library = NVPL\n";
+#endif
 #elif defined(FFT_FFTW3)
 #if defined(FFT_FFTW_THREADS)
   fft_info += "FFT library = FFTW3 with threads\n";
@@ -1405,35 +1404,20 @@ void Info::get_memory_info(double *meminfo)
 
 /* ---------------------------------------------------------------------- */
 
-char **Info::get_variable_names(int &num) {
-  num = input->variable->nvar;
-  return input->variable->names;
+std::vector<std::string> Info::get_variable_names(int &num) {
+  num = input->variable->get_nvar();
+  std::vector<std::string> names;
+  for (int i=0; i < num; ++i) {
+    const auto *n =input->variable->get_name(i);
+    names.emplace_back(n ? n : "(unknown)");
+  }
+  return names;
 }
 
 /* ---------------------------------------------------------------------- */
 
 std::string Info::get_variable_info(int num) {
-  int *style = input->variable->style;
-  char **names = input->variable->names;
-  char ***data = input->variable->data;
-  std::string text;
-  int ndata = 1;
-  text = fmt::format("Variable[{:3d}]: {:16}  style = {:16}  def =", num,
-                     std::string(names[num]) + ',', Variable::varstyles[style[num]] + ',');
-  if (style[num] == Variable::INTERNAL) {
-    text += fmt::format("{:.8}\n",input->variable->dvalue[num]);
-    return text;
-  }
-
-  if ((style[num] != Variable::LOOP) && (style[num] != Variable::ULOOP))
-    ndata = input->variable->num[num];
-  else
-    input->variable->retrieve(names[num]);
-
-  for (int j=0; j < ndata; ++j)
-    if (data[num][j]) text += fmt::format(" {}",data[num][j]);
-  text += "\n";
-  return text;
+  return input->variable->get_info(num);
 }
 
 /* ---------------------------------------------------------------------- */

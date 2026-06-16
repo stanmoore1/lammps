@@ -3405,7 +3405,7 @@ int lammps_variable_info(void *handle, int idx, char *buffer, int buf_size) {
   }
   Info info(lmp);
 
-  if ((idx >= 0) && (idx < lmp->input->variable->nvar)) {
+  if ((idx >= 0) && (idx < lmp->input->variable->get_nvar())) {
     auto varinfo = info.get_variable_info(idx);
     strncpy(buffer, varinfo.c_str(), buf_size);
     return 1;
@@ -6447,18 +6447,19 @@ int lammps_find_compute_neighlist(void *handle, const char *id, int reqid) {
 
 // helper Command class for a single neighbor list build
 
-namespace LAMMPS_NS {
-  class NeighProxy : protected Command
-  {
+namespace {
+// NOLINTBEGIN
+class NeighProxy : protected Command {
  public:
   NeighProxy(class LAMMPS *lmp) : Command(lmp), neigh_idx(-1) {};
 
   void command(int, char **) override;
   [[nodiscard]] int get_index() const { return neigh_idx; }
+
  protected:
   int neigh_idx;
 };
-}
+// NOLINTEND
 
 void NeighProxy::command(int narg, char **arg)
 {
@@ -6498,6 +6499,7 @@ void NeighProxy::command(int narg, char **arg)
     }
   }
 }
+}    // namespace
 
 /** Build a single neighbor list in between runs and return its index
  *
@@ -7170,7 +7172,7 @@ int lammps_id_count(void *handle, const char *category) {
   } else if (strcmp(category,"region") == 0) {
     return lmp->domain->get_region_list().size();
   } else if (strcmp(category,"variable") == 0) {
-    return lmp->input->variable->nvar;
+    return lmp->input->variable->get_nvar();
   }
   return 0;
 }
@@ -7250,8 +7252,9 @@ int lammps_id_name(void *handle, const char *category, int idx, char *buffer, in
       return 1;
     }
   } else if (strcmp(category,"variable") == 0) {
-    if ((idx >= 0) && (idx < lmp->input->variable->nvar)) {
-      strncpy(buffer, lmp->input->variable->names[idx], buf_size);
+    if ((idx >= 0) && (idx < lmp->input->variable->get_nvar()) &&
+        lmp->input->variable->get_name(idx)) {
+      strncpy(buffer, lmp->input->variable->get_name(idx), buf_size);
       return 1;
     }
   }

@@ -4160,17 +4160,17 @@ void Molecule::shaketype_read(char *line)
       case 1:
         subst = utils::expand_type(FLERR, values[1], Atom::BOND, lmp);
         if (subst) values[1] = subst;
-        shake_type[iatom][0] = utils::inumeric(FLERR, values[1], false, lmp) + ((subst) ? 0 : boffset);
+        shake_type[iatom][0] = utils::inumeric(FLERR, values[1], false, lmp) + (subst ? 0 : boffset);
         delete[] subst;
 
         subst = utils::expand_type(FLERR, values[2], Atom::BOND, lmp);
         if (subst) values[2] = subst;
-        shake_type[iatom][1] = utils::inumeric(FLERR, values[2], false, lmp) + ((subst) ? 0 : boffset);
+        shake_type[iatom][1] = utils::inumeric(FLERR, values[2], false, lmp) + (subst ? 0 : boffset);
         delete[] subst;
 
         subst = utils::expand_type(FLERR, values[3], Atom::ANGLE, lmp);
         if (subst) values[3] = subst;
-        shake_type[iatom][2] = utils::inumeric(FLERR, values[3], false, lmp) + ((subst) ? 0 : aoffset);
+        shake_type[iatom][2] = utils::inumeric(FLERR, values[3], false, lmp) + (subst ? 0 : aoffset);
         delete[] subst;
 
         nwant = 4;
@@ -4179,7 +4179,7 @@ void Molecule::shaketype_read(char *line)
       case 2:
         subst = utils::expand_type(FLERR, values[1], Atom::BOND, lmp);
         if (subst) values[1] = subst;
-        shake_type[iatom][0] = utils::inumeric(FLERR, values[1], false, lmp) + ((subst) ? 0 : boffset);
+        shake_type[iatom][0] = utils::inumeric(FLERR, values[1], false, lmp) + (subst ? 0 : boffset);
         delete[] subst;
 
         nwant = 2;
@@ -4188,12 +4188,12 @@ void Molecule::shaketype_read(char *line)
       case 3:
         subst = utils::expand_type(FLERR, values[1], Atom::BOND, lmp);
         if (subst) values[1] = subst;
-        shake_type[iatom][0] = utils::inumeric(FLERR, values[1], false, lmp) + ((subst) ? 0 : boffset);
+        shake_type[iatom][0] = utils::inumeric(FLERR, values[1], false, lmp) + (subst ? 0 : boffset);
         delete[] subst;
 
         subst = utils::expand_type(FLERR, values[2], Atom::BOND, lmp);
         if (subst) values[2] = subst;
-        shake_type[iatom][1] = utils::inumeric(FLERR, values[2], false, lmp) + ((subst) ? 0 : boffset);
+        shake_type[iatom][1] = utils::inumeric(FLERR, values[2], false, lmp) + (subst ? 0 : boffset);
         delete[] subst;
 
         nwant = 3;
@@ -4202,17 +4202,17 @@ void Molecule::shaketype_read(char *line)
       case 4:
         subst = utils::expand_type(FLERR, values[1], Atom::BOND, lmp);
         if (subst) values[1] = subst;
-        shake_type[iatom][0] = utils::inumeric(FLERR, values[1], false, lmp) + ((subst) ? 0 : boffset);
+        shake_type[iatom][0] = utils::inumeric(FLERR, values[1], false, lmp) + (subst ? 0 : boffset);
         delete[] subst;
 
         subst = utils::expand_type(FLERR, values[2], Atom::BOND, lmp);
         if (subst) values[2] = subst;
-        shake_type[iatom][1] = utils::inumeric(FLERR, values[2], false, lmp) + ((subst) ? 0 : boffset);
+        shake_type[iatom][1] = utils::inumeric(FLERR, values[2], false, lmp) + (subst ? 0 : boffset);
         delete[] subst;
 
         subst = utils::expand_type(FLERR, values[3], Atom::BOND, lmp);
         if (subst) values[3] = subst;
-        shake_type[iatom][2] = utils::inumeric(FLERR, values[3], false, lmp) + ((subst) ? 0 : boffset);
+        shake_type[iatom][2] = utils::inumeric(FLERR, values[3], false, lmp) + (subst ? 0 : boffset);
         delete[] subst;
 
         nwant = 4;
@@ -4739,6 +4739,65 @@ void Molecule::check_labels()
       if (perfect_labels) utils::logmesg(lmp, "All impropers in molecule '{}' have self-consistent type labels\n", id);
     }
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+double Molecule::memory_usage()
+{
+  double bytes = 0.0;
+
+  // per-atom coordinate and property arrays
+  if (xflag) bytes += (double) natoms * 3 * sizeof(double);
+  if (typeflag) bytes += (double) natoms * sizeof(int);
+  if (moleculeflag) bytes += (double) natoms * sizeof(tagint);
+  if (qflag) bytes += (double) natoms * sizeof(double);
+  if (radiusflag) bytes += (double) natoms * sizeof(double);
+  if (rmassflag) bytes += (double) natoms * sizeof(double);
+  if (muflag) bytes += (double) natoms * 3 * sizeof(double);
+
+  // connectivity counts (always allocated)
+  bytes += (double) natoms * 4 * sizeof(int);    // num_bond/angle/dihedral/improper
+  bytes += (double) natoms * 3 * sizeof(int);    // nspecial[natoms][3]
+
+  if (specialflag) bytes += (double) natoms * maxspecial * sizeof(tagint);
+
+  if (bondflag) {
+    bytes += (double) natoms * bond_per_atom * sizeof(int);
+    bytes += (double) natoms * bond_per_atom * sizeof(tagint);
+  }
+  if (angleflag) {
+    bytes += (double) natoms * angle_per_atom * sizeof(int);
+    bytes += (double) natoms * angle_per_atom * 3 * sizeof(tagint);
+  }
+  if (dihedralflag) {
+    bytes += (double) natoms * dihedral_per_atom * sizeof(int);
+    bytes += (double) natoms * dihedral_per_atom * 4 * sizeof(tagint);
+  }
+  if (improperflag) {
+    bytes += (double) natoms * improper_per_atom * sizeof(int);
+    bytes += (double) natoms * improper_per_atom * 4 * sizeof(tagint);
+  }
+
+  if (shakeflag) {
+    bytes += (double) natoms * sizeof(int);          // shake_flag
+    bytes += (double) natoms * 4 * sizeof(tagint);   // shake_atom[natoms][4]
+    bytes += (double) natoms * 3 * sizeof(int);      // shake_type[natoms][3]
+  }
+
+  if (bodyflag) {
+    bytes += (double) nibody * sizeof(int);
+    bytes += (double) ndbody * sizeof(double);
+  }
+
+  if (fragmentflag) bytes += (double) nfragments * natoms * sizeof(int);
+
+  // geometric displacement arrays (allocated lazily by compute_center/com/inertia)
+  if (centerflag) bytes += (double) natoms * 3 * sizeof(double);   // dx
+  if (comflag) bytes += (double) natoms * 3 * sizeof(double);      // dxcom
+  if (inertiaflag) bytes += (double) natoms * 3 * sizeof(double);  // dxbody
+
+  return bytes;
 }
 
 /* ------------------------------------------------------------------------------ */
