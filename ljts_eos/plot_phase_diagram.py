@@ -99,17 +99,18 @@ def main():
         Tc, rhoc, pc = mod.critical_point()
         print(f"{label:28s}  T_c={Tc:.4f}  rho_c={rhoc:.4f}  p_c={pc:.4f}")
 
-        # binodal
+        # binodal: trace continuously up the vapour branch (low->high T) through
+        # the critical point, then back down the liquid branch (high->low T)
         Tb, rv, rl = binodal(mod, Tc, rhoc)
-        rho_bin = rv[::-1] + [rhoc] + rl   # vapour branch + apex + liquid branch
-        T_bin = Tb[::-1] + [Tc] + Tb
+        rho_bin = rv + [rhoc] + rl[::-1]
+        T_bin = Tb + [Tc] + Tb[::-1]
         ax.plot(rho_bin, T_bin, "-", color=color, lw=2.0,
                 label=f"{label} — binodal")
 
-        # spinodal
+        # spinodal: same ordering (vapour branch up, apex, liquid branch down)
         Ts, sv, sl = spinodal(mod, Tc, rhoc)
-        rho_spin = sv[::-1] + [rhoc] + sl
-        T_spin = Ts[::-1] + [Tc] + Ts
+        rho_spin = sv + [rhoc] + sl[::-1]
+        T_spin = Ts + [Tc] + Ts[::-1]
         ax.plot(rho_spin, T_spin, "--", color=color, lw=1.6,
                 label=f"{label} — spinodal")
 
