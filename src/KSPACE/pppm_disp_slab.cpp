@@ -55,7 +55,8 @@ static constexpr int MAXORDER = 8;
 
 PPPMDispSlab::PPPMDispSlab(LAMMPS *lmp) :
     KSpace(lmp), pt_profile(nullptr), pn_profile(nullptr), B(nullptr), dens(nullptr), fre(nullptr),
-    fim(nullptr), Gk(nullptr), fz_grid(nullptr), ugrid(nullptr), rho_coeff(nullptr), peatom(nullptr)
+    fim(nullptr), Gk(nullptr), GTk(nullptr), GNk(nullptr), fz_grid(nullptr), ugrid(nullptr),
+    uTgrid(nullptr), uNgrid(nullptr), rho_coeff(nullptr), peatom(nullptr)
 {
   dispersionflag = 1;
   contour_flag = 0;
@@ -66,6 +67,8 @@ PPPMDispSlab::PPPMDispSlab(LAMMPS *lmp) :
   lat2 = 1;
   nz = 0;
   order = 6;
+  damp_flag = 0;
+  sw_width = 0.0;
   corr_mode = 0;
   bin_dz_user = 0.0;
   bin_nbins = 0;
@@ -85,8 +88,12 @@ PPPMDispSlab::~PPPMDispSlab()
   memory->destroy(fre);
   memory->destroy(fim);
   memory->destroy(Gk);
+  memory->destroy(GTk);
+  memory->destroy(GNk);
   memory->destroy(fz_grid);
   memory->destroy(ugrid);
+  memory->destroy(uTgrid);
+  memory->destroy(uNgrid);
   memory->destroy(peatom);
   memory->destroy(pt_profile);
   memory->destroy(pn_profile);
@@ -116,6 +123,18 @@ int PPPMDispSlab::modify_param(int narg, char **arg)
 {
   // mesh/disp, order/disp, gewald/disp are consumed by the base KSpace parser
   // (they set nz_pppm_6/gridflag_6, order_6, g_ewald_6/gewaldflag_6).
+  if (strcmp(arg[0], "damp") == 0) {
+    if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify damp", error);
+    // "compact"/"switch" selects the compact-switch (CSB) variant; "yes" keeps the
+    // default damped (SSB) mesh.  The non-damped (SB) variant is not meshed here.
+    if (strcmp(arg[1], "compact") == 0 || strcmp(arg[1], "switch") == 0)
+      damp_flag = 2;
+    else if (utils::logical(FLERR, arg[1], false, lmp))
+      damp_flag = 0;
+    else
+      error->all(FLERR, "pppm/disp/slab supports only damp yes (SSB) or damp compact (CSB)");
+    return 2;
+  }
   if (strcmp(arg[0], "corr") == 0) {
     if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify corr", error);
     if (strcmp(arg[1], "raw") == 0) {
@@ -187,6 +206,22 @@ void PPPMDispSlab::init()
   cutoff = *p;
   rc2 = cutoff * cutoff;
 
+  // compact-switch (CSB) variant: the matched pair style supplies the switch width
+  // Delta and the (1-S)*u shell complement over [rcut, rcut+Delta]; "cut_lj" above
+  // is the inner rcut.  The long-range S(r)*u(r) vanishes inside rcut, so no
+  // real-space slab correction (corr()) is needed for this variant.
+
+  if (damp_flag == 2) {
+    int itmp2;
+    double *p_dz = (double *) force->pair->extract("disp_switch_width", itmp2);
+    if (p_dz == nullptr)
+      error->all(FLERR,
+                 "kspace_modify damp compact requires a pair style that provides the dispersion "
+                 "switch width (e.g. pair_style lj/cut/dispswitch)");
+    sw_width = *p_dz;
+    if (sw_width <= 0.0) error->all(FLERR, "pppm/disp/slab compact switch width must be > 0");
+  }
+
   // accuracy in force units
 
   two_charge();
@@ -219,8 +254,14 @@ void PPPMDispSlab::init()
   setup();
 
   if (comm->me == 0) {
-    utils::logmesg(lmp, "  damped, z grid = {}, stencil order = {}, g_ewald = {:.6g}\n", nz, order,
-                   g_ewald);
+    if (damp_flag == 2)
+      utils::logmesg(lmp,
+                     "  compact-switch, z grid = {}, stencil order = {}, switch width Delta = "
+                     "{:.6g}\n",
+                     nz, order, sw_width);
+    else
+      utils::logmesg(lmp, "  damped, z grid = {}, stencil order = {}, g_ewald = {:.6g}\n", nz, order,
+                     g_ewald);
     utils::logmesg(lmp, "  estimated absolute RMS force accuracy = {:.6g}\n",
                    estimated_force_accuracy);
     utils::logmesg(lmp, "  estimated relative force accuracy = {:.6g}\n",
@@ -255,9 +296,15 @@ double PPPMDispSlab::compute_qopt(int ngrid, int ord)
       double ka = meff * unitk, ak = fabs(ka);
       double D = 0.0;
       if (ak > 0.0) {
-        double b = ak / (2.0 * g_ewald), b2 = b * b, b3 = b2 * b;
-        double Bk = ak * ak * ak * (sqpi * erfc(b) + (0.5 / b3 - 1.0 / b) * exp(-b2));
-        D = coefD * Bk;
+        if (damp_flag == 2) {
+          // compact switch: the de-convolved potential coefficient is the CSB GU
+          // at the aliased mode (no g_ewald; the switch sets the spectrum).
+          D = gu_switch(meff < 0 ? -meff : meff);
+        } else {
+          double b = ak / (2.0 * g_ewald), b2 = b * b, b3 = b2 * b;
+          double Bk = ak * ak * ak * (sqpi * erfc(b) + (0.5 / b3 - 1.0 / b) * exp(-b2));
+          D = coefD * Bk;
+        }
       }
       double a = MY_PI * meff / ngrid;
       double w = (fabs(a) < 1.0e-12) ? 1.0 : sin(a) / a;
@@ -292,13 +339,17 @@ void PPPMDispSlab::estimate_params()
 
   double acc = accuracy / two_charge_force;
   if (acc <= 0.0 || acc >= 1.0) acc = 1.0e-4;
-  if (gewaldflag_6)
-    g_ewald = g_ewald_6;    // kspace_modify gewald/disp
-  else if (gewaldflag)
-    ;    // kspace_modify gewald (g_ewald already set by the base parser)
-  else
-    g_ewald = sqrt(-2.0 * log(acc)) / cutoff;
-  g_ewald_set = g_ewald;
+  // the compact switch has no g_ewald (the switch width Delta, fixed by the pair,
+  // sets the reciprocal spectrum), so skip the splitting-parameter heuristic.
+  if (damp_flag != 2) {
+    if (gewaldflag_6)
+      g_ewald = g_ewald_6;    // kspace_modify gewald/disp
+    else if (gewaldflag)
+      ;    // kspace_modify gewald (g_ewald already set by the base parser)
+    else
+      g_ewald = sqrt(-2.0 * log(acc)) / cutoff;
+    g_ewald_set = g_ewald;
+  }
 
   // dispersion sum b2 = sum_i B_i^2 (full system)
 
@@ -362,14 +413,24 @@ void PPPMDispSlab::setup()
   memory->destroy(fre);
   memory->destroy(fim);
   memory->destroy(Gk);
+  memory->destroy(GTk);
+  memory->destroy(GNk);
   memory->destroy(fz_grid);
   memory->destroy(ugrid);
+  memory->destroy(uTgrid);
+  memory->destroy(uNgrid);
   memory->create(dens, nz, "pppm/disp/slab:dens");
   memory->create(fre, nz, "pppm/disp/slab:fre");
   memory->create(fim, nz, "pppm/disp/slab:fim");
   memory->create(Gk, nz, "pppm/disp/slab:Gk");
+  memory->create(GTk, nz, "pppm/disp/slab:GTk");
+  memory->create(GNk, nz, "pppm/disp/slab:GNk");
   memory->create(fz_grid, nz, "pppm/disp/slab:fz_grid");
   memory->create(ugrid, nz, "pppm/disp/slab:ugrid");
+  if (damp_flag == 2) {
+    memory->create(uTgrid, nz, "pppm/disp/slab:uTgrid");
+    memory->create(uNgrid, nz, "pppm/disp/slab:uNgrid");
+  }
 
   if (rho_coeff == nullptr || order != order_allocated) {
     if (rho_coeff) memory->destroy(rho_coeff);
@@ -381,8 +442,9 @@ void PPPMDispSlab::setup()
   influence_function();
 
   // size the corr bin grid to the requested force accuracy (auto, unless the
-  // user fixed the width with kspace_modify corr bin <dz>)
-  if (corr_mode == 1 && bin_dz_user <= 0.0) calibrate_bin();
+  // user fixed the width with kspace_modify corr bin <dz>).  The compact-switch
+  // variant needs no real-space correction, so skip the calibration entirely.
+  if (damp_flag != 2 && corr_mode == 1 && bin_dz_user <= 0.0) calibrate_bin();
 }
 
 /* ----------------------------------------------------------------------
@@ -401,6 +463,66 @@ void PPPMDispSlab::setup()
 void PPPMDispSlab::influence_function()
 {
   const double sqpi = sqrt(MY_PI);
+
+  if (damp_flag == 2) {
+
+    // compact switch (CSB): the per-mode reciprocal coefficients are the same
+    // GU/GT/GN as ewald/disp/slab (built at k = |mm| * unitk by gu_switch /
+    // switch_shell_virial), with the +/- m double-count factor 0.5 for m != 0 and
+    // the order-p assignment de-convolution.  No g_ewald, no slab correction.
+
+    const double c = cutoff + sw_width;
+    Gk[0] = gu0_switch();
+    // k=0 (uniform) virial of S*u; GT[0]=GN[0] (includes the S'u switch term)
+    {
+      const double a = cutoff, dz = sw_width;
+      const int n = 2000;
+      const double dr = dz / n;
+      double iJ = 0.0, iT = 0.0;
+      for (int i = 0; i <= n; i++) {
+        const double r = a + i * dr;
+        const double t = (r - a) / dz;
+        const double S = switch_S(t);
+        const double Sp = switch_dS(t) / dz;    // S'(r)
+        const double r3 = r * r * r, r4 = r3 * r;
+        const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+        iJ += w * Sp / r3;
+        iT += w * S / r4;
+      }
+      const double Jint = dr / 3.0 * iJ;
+      const double trans = dr / 3.0 * iT;
+      GTk[0] = GNk[0] =
+          -(2.0 * MY_PI / (3.0 * volume)) * (-Jint + 6.0 * trans + 2.0 / (c * c * c));
+    }
+    for (int m = 1; m < nz; m++) {
+      int mm = (m <= nz / 2) ? m : m - nz;    // signed mode index
+      int am = mm < 0 ? -mm : mm;             // |mm|
+      double kcell = am * 2.0 * MY_PI / zprd;
+      double kcell3 = kcell * kcell * kcell;
+      double s = sin(MY_PI * mm / nz) / (MY_PI * mm / nz);
+      double w2 = pow(s, 2 * order);
+      const double inv = 0.5 / w2;    // 0.5 = GU[|mm|]/2 double-count, /w2 de-conv
+
+      double C[8], D[8];
+      sici_compl_chain(kcell * c, C, D);
+      const double t5 = switch_trans5(kcell);
+      const double GU = (-4.0 * MY_PI * kcell3 / volume) * C[5] -
+          (4.0 * MY_PI / volume) * t5 / kcell;
+      const double GTtail = (-24.0 * MY_PI * kcell3 / volume) * (C[7] - D[6]);
+      const double GNtail =
+          (-24.0 * MY_PI * kcell3 / volume) * (C[5] - 2.0 * C[7] + 2.0 * D[6]);
+      double sGT, sGN;
+      switch_shell_virial(kcell, sGT, sGN);
+      const double GT = GTtail - (MY_PI / volume) * sGT;
+      const double GN = GNtail - (2.0 * MY_PI / volume) * sGN;
+
+      Gk[m] = GU * inv;
+      GTk[m] = GT * inv;
+      GNk[m] = GN * inv;
+    }
+    return;
+  }
+
   const double coef = -2.0 * MY_PI * sqpi / (24.0 * volume);
   // m=0 (homogeneous tail) term: W_E(0) = GU[0] = -pi^1.5 g^3 / (6 V)
   Gk[0] = -MY_PI * sqpi * g_ewald * g_ewald * g_ewald / (6.0 * volume);
@@ -414,6 +536,162 @@ void PPPMDispSlab::influence_function()
     double s = sin(MY_PI * mm / nz) / (MY_PI * mm / nz);
     double w2 = pow(s, 2 * order);
     Gk[m] = WE / w2;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   compact-switch (CSB) reciprocal-coefficient helpers (verbatim from
+   ewald/disp/slab; see that file for the derivations and accuracy notes).
+------------------------------------------------------------------------- */
+
+double PPPMDispSlab::switch_S(double t)
+{
+  if (t <= 0.0) return 0.0;
+  if (t >= 1.0) return 1.0;
+  const double t2 = t * t, t3 = t2 * t, t4 = t3 * t;
+  return t4 * (35.0 - 84.0 * t + 70.0 * t2 - 20.0 * t3);
+}
+
+/* ---------------------------------------------------------------------- */
+
+double PPPMDispSlab::switch_dS(double t)
+{
+  if (t <= 0.0 || t >= 1.0) return 0.0;
+  const double u = 1.0 - t;
+  return 140.0 * t * t * t * u * u * u;    // dS/dt
+}
+
+/* ----------------------------------------------------------------------
+   energy shell integral t5 = int_rcut^{rcut+Delta} S(r) r^-5 sin(h r) dr
+   (10-point Gauss-Legendre per panel, panel count scaled to the oscillation
+   count so the result is accurate ~1e-13 for all h).
+------------------------------------------------------------------------- */
+
+double PPPMDispSlab::switch_trans5(double h)
+{
+  static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
+                                -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
+                                0.4333953941292472,  0.6794095682990244,  0.8650633666889845,
+                                0.9739065285171717};
+  static const double gw[10] = {0.0666713443086881, 0.1494513491505806, 0.2190863625159820,
+                                0.2692667193099963, 0.2955242247147529, 0.2955242247147529,
+                                0.2692667193099963, 0.2190863625159820, 0.1494513491505806,
+                                0.0666713443086881};
+  const double a = cutoff, dz = sw_width;
+  int np = (int) (8.0 * h * dz / (2.0 * MY_PI)) + 1;
+  np = MAX(8, np);
+  np = MIN(np, 20000);
+  const double hp = dz / np;    // panel width
+  double s5 = 0.0;
+  for (int p = 0; p < np; p++) {
+    const double c0 = a + (p + 0.5) * hp;    // panel center
+    for (int g = 0; g < 10; g++) {
+      const double r = c0 + 0.5 * hp * gx[g];
+      const double S = switch_S((r - a) / dz);
+      const double r2 = r * r, r4 = r2 * r2;
+      s5 += gw[g] * S * sin(h * r) / (r4 * r);    // r^-5 sin
+    }
+  }
+  return 0.5 * hp * s5;
+}
+
+/* ----------------------------------------------------------------------
+   shell virial integrals over [rcut, rcut+Delta] with the smooth force
+   phi'(r) = (S u)' = -S'/r^6 + 6 S/r^7:
+     sGT = int phi'(r) A_T dr, sGN = int phi'(r) A_N dr.
+   GT = GT_tail - (pi/V) sGT, GN = GN_tail - (2 pi/V) sGN.
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::switch_shell_virial(double h, double &sGT, double &sGN)
+{
+  static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
+                                -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
+                                0.4333953941292472,  0.6794095682990244,  0.8650633666889845,
+                                0.9739065285171717};
+  static const double gw[10] = {0.0666713443086881, 0.1494513491505806, 0.2190863625159820,
+                                0.2692667193099963, 0.2955242247147529, 0.2955242247147529,
+                                0.2692667193099963, 0.2190863625159820, 0.1494513491505806,
+                                0.0666713443086881};
+  const double a = cutoff, dz = sw_width;
+  int np = (int) (8.0 * h * dz / (2.0 * MY_PI)) + 1;
+  np = MAX(8, np);
+  np = MIN(np, 20000);
+  const double hp = dz / np;
+  const double h2 = h * h, h3 = h2 * h;
+  double accT = 0.0, accN = 0.0;
+  for (int p = 0; p < np; p++) {
+    const double c0 = a + (p + 0.5) * hp;
+    for (int g = 0; g < 10; g++) {
+      const double r = c0 + 0.5 * hp * gx[g];
+      const double t = (r - a) / dz;
+      const double S = switch_S(t);
+      const double Sp = switch_dS(t) / dz;    // S'(r)
+      const double r2 = r * r, r6 = r2 * r2 * r2, r7 = r6 * r;
+      const double phip = -Sp / r6 + 6.0 * S / r7;    // (S u)' = S'u + S u'
+      const double sr = sin(h * r), cr = cos(h * r);
+      const double AT = -4.0 * r * cr / h2 + 4.0 * sr / h3;
+      const double AN = 2.0 * r2 * sr / h + 4.0 * r * cr / h2 - 4.0 * sr / h3;
+      accT += gw[g] * phip * AT;
+      accN += gw[g] * phip * AN;
+    }
+  }
+  sGT = 0.5 * hp * accT;
+  sGN = 0.5 * hp * accN;
+}
+
+/* ----------------------------------------------------------------------
+   compact-switch energy coefficient GU at mesh mode k (k = m*unitk): non-damped
+   tail at rcut+Delta plus the numerically integrated shell transition.
+------------------------------------------------------------------------- */
+
+double PPPMDispSlab::gu_switch(int k)
+{
+  const double kcell = k * (2.0 * MY_PI / zprd);
+  const double kcell3 = kcell * kcell * kcell;
+  const double c = cutoff + sw_width;
+  double C[8], D[8];
+  sici_compl_chain(kcell * c, C, D);
+  const double t5 = switch_trans5(kcell);
+  return (-4.0 * MY_PI * kcell3 / volume) * C[5] - (4.0 * MY_PI / volume) * t5 / kcell;
+}
+
+/* ----------------------------------------------------------------------
+   compact-switch k=0 energy coefficient.
+------------------------------------------------------------------------- */
+
+double PPPMDispSlab::gu0_switch()
+{
+  const double a = cutoff, b = cutoff + sw_width, dz = sw_width;
+  const int n = 256;
+  const double dr = (b - a) / n;
+  double s = 0.0;
+  for (int i = 0; i <= n; i++) {
+    const double r = a + i * dr;
+    const double S = switch_S((r - a) / dz);
+    const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+    s += w * S / (r * r * r * r);
+  }
+  const double trans = dr / 3.0 * s;
+  const double tail = 1.0 / (3.0 * b * b * b);
+  return -(2.0 * MY_PI / volume) * (trans + tail);
+}
+
+/* ----------------------------------------------------------------------
+   complementary chain C[m]=A[m](inf)-A[m], D[m]=B[m](inf)-B[m] (cancellation
+   free high-k tail coefficients); see ewald/disp/slab.
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::sici_compl_chain(double x, double *Carr, double *Darr)
+{
+  double si, ci;
+  cisi(x, si, ci);
+  Carr[1] = MY_PI / 2.0 - si;    // A[1](inf) - A[1] = pi/2 - Si(x)
+  Darr[1] = -ci;                 // B[1](inf) - B[1] = -Ci(x)
+  const double sx = sin(x), cx = cos(x);
+  for (int m = 2; m <= 7; m++) {
+    const double xm = pow(x, 1 - m);
+    Carr[m] = (Darr[m - 1] + sx * xm) / (m - 1);
+    Darr[m] = (cx * xm - Carr[m - 1]) / (m - 1);
   }
 }
 
@@ -585,8 +863,22 @@ void PPPMDispSlab::poisson()
   e_recip_mesh = e;
   if (eflag_global) energy += e;
   if (vflag_global) {
-    virial[lat1] += e;
-    virial[lat2] += e;
+    if (damp_flag == 2) {
+      // compact switch: explicit tangential (GTk) and normal (GNk) kernels (the
+      // homogeneity trace relation does not hold for the non-power-law S*u)
+      double vt = 0.0, vn = 0.0;
+      for (int m = 0; m < nz; m++) {
+        double uk = fre[m] * fre[m] + fim[m] * fim[m];
+        vt += GTk[m] * uk;
+        vn += GNk[m] * uk;
+      }
+      virial[lat1] += vt;
+      virial[lat2] += vt;
+      virial[dim] += vn;
+    } else {
+      virial[lat1] += e;    // tangential (GT = GU)
+      virial[lat2] += e;
+    }
   }
 
   // per-atom potential field u_grid = IFFT[2 Gk rho_hat]
@@ -602,6 +894,23 @@ void PPPMDispSlab::poisson()
     }
     fft1d(ur, ui, nz, +1);
     for (int g = 0; g < nz; g++) ugrid[g] = ur[g];
+    // compact switch: tangential/normal per-atom virial fields (GTk/GNk kernels)
+    if (damp_flag == 2) {
+      for (int m = 0; m < nz; m++) {
+        double gt2 = 2.0 * GTk[m];
+        ur[m] = gt2 * fre[m];
+        ui[m] = gt2 * fim[m];
+      }
+      fft1d(ur, ui, nz, +1);
+      for (int g = 0; g < nz; g++) uTgrid[g] = ur[g];
+      for (int m = 0; m < nz; m++) {
+        double gn2 = 2.0 * GNk[m];
+        ur[m] = gn2 * fre[m];
+        ui[m] = gn2 * fim[m];
+      }
+      fft1d(ur, ui, nz, +1);
+      for (int g = 0; g < nz; g++) uNgrid[g] = ur[g];
+    }
     memory->destroy(ur);
     memory->destroy(ui);
   }
@@ -639,12 +948,18 @@ void PPPMDispSlab::fieldforce()
     compute_rho1d(dz, w);
     const double bi = B[type[i]];
 
-    double fz = 0.0, uu = 0.0;
+    double fz = 0.0, uu = 0.0, uT = 0.0, uN = 0.0;
     for (int s = 0; s < order; s++) {
       int g = g0 + nlower + s;
       g = ((g % nz) + nz) % nz;
       fz += w[s] * fz_grid[g];
-      if (evflag_atom) uu += w[s] * ugrid[g];
+      if (evflag_atom) {
+        uu += w[s] * ugrid[g];
+        if (damp_flag == 2) {
+          uT += w[s] * uTgrid[g];
+          uN += w[s] * uNgrid[g];
+        }
+      }
     }
     f[i][dim] += bi * fz;
 
@@ -652,8 +967,15 @@ void PPPMDispSlab::fieldforce()
       double pe = 0.5 * bi * uu;    // per-atom reciprocal energy
       peatom[i] += pe;
       if (vflag_atom) {
-        vatom[i][lat1] += pe;    // tangential (GT=GU)
-        vatom[i][lat2] += pe;
+        if (damp_flag == 2) {
+          // explicit tangential (GTk) and normal (GNk) per-atom virial fields
+          vatom[i][lat1] += 0.5 * bi * uT;
+          vatom[i][lat2] += 0.5 * bi * uT;
+          vatom[i][dim] += 0.5 * bi * uN;
+        } else {
+          vatom[i][lat1] += pe;    // tangential (GT=GU)
+          vatom[i][lat2] += pe;
+        }
       }
     }
   }
@@ -680,19 +1002,24 @@ void PPPMDispSlab::compute(int eflag, int vflag)
   fieldforce();
 
   // damped real-space slab correction (adds to energy, corr_energy, tangential
-  // virial, per-atom energy buffer; zz set from the trace below)
+  // virial, per-atom energy buffer; zz set from the trace below).  The compact
+  // switch needs no real-space correction (S*u vanishes inside rcut), so skip it.
 
   corr_energy = 0.0;
-  corr();
+  if (damp_flag != 2) corr();
 
-  // normal (zz) virial from the exact 1/r^6 virial trace: sum r.f = 6 U, so
-  // virial_zz = 6*E_kspace - virial_xx - virial_yy (total pressure, and per-atom
-  // the IK-contour local normal pressure).
+  // normal (zz) virial.  For the damped (power-law) variant the homogeneity trace
+  // gives it cheaply: sum r.f = 6 U => virial_zz = 6*E - virial_xx - virial_yy.
+  // The compact switch is non-homogeneous (S varies), so its normal is the
+  // explicit GNk kernel accumulated in poisson()/fieldforce() instead.
 
-  if (vflag_global) virial[dim] = 6.0 * (e_recip_mesh + corr_energy) - virial[lat1] - virial[lat2];
-  if (vflag_atom)
-    for (int i = 0; i < atom->nlocal; i++)
-      vatom[i][dim] = 6.0 * peatom[i] - vatom[i][lat1] - vatom[i][lat2];
+  if (damp_flag != 2) {
+    if (vflag_global)
+      virial[dim] = 6.0 * (e_recip_mesh + corr_energy) - virial[lat1] - virial[lat2];
+    if (vflag_atom)
+      for (int i = 0; i < atom->nlocal; i++)
+        vatom[i][dim] = 6.0 * peatom[i] - vatom[i][lat1] - vatom[i][lat2];
+  }
 
   if (eflag_atom)
     for (int i = 0; i < atom->nlocal; i++) eatom[i] += peatom[i];
@@ -1450,7 +1777,8 @@ void PPPMDispSlab::sici_chain(double x, double *Aarr, double *Barr)
 
 double PPPMDispSlab::memory_usage()
 {
-  double bytes = 6.0 * nz * sizeof(double);
+  double bytes = 8.0 * nz * sizeof(double);    // dens,fre,fim,Gk,GTk,GNk,fz_grid,ugrid
+  if (damp_flag == 2) bytes += 2.0 * nz * sizeof(double);    // uTgrid, uNgrid
   bytes += (double) nmax * sizeof(double);
   bytes += (double) order * order * sizeof(double);
   if (profile_flag) bytes += 2.0 * (double) npro * sizeof(double);

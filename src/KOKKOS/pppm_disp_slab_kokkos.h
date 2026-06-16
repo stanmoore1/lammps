@@ -36,6 +36,11 @@ struct TagPPPMDispSlab_make_rho_zero{};
 struct TagPPPMDispSlab_make_rho{};
 struct TagPPPMDispSlab_dens_to_work{};
 struct TagPPPMDispSlab_poisson_energy{};
+struct TagPPPMDispSlab_poisson_virial_csb{};
+struct TagPPPMDispSlab_poisson_uT_prep{};
+struct TagPPPMDispSlab_poisson_uT_copy{};
+struct TagPPPMDispSlab_poisson_uN_prep{};
+struct TagPPPMDispSlab_poisson_uN_copy{};
 struct TagPPPMDispSlab_poisson_fz_prep{};
 struct TagPPPMDispSlab_poisson_fz_copy{};
 struct TagPPPMDispSlab_poisson_u_prep{};
@@ -67,6 +72,15 @@ struct s_PPPMDispSlabCorr {
 };
 typedef struct s_PPPMDispSlabCorr s_corr;
 
+// (tangential, normal) virial reduction accumulator for the compact-switch mesh
+struct s_PPPMDispSlabVir {
+  double vt, vn;
+  KOKKOS_INLINE_FUNCTION s_PPPMDispSlabVir() { vt = 0.0; vn = 0.0; }
+  KOKKOS_INLINE_FUNCTION
+  void operator+=(const s_PPPMDispSlabVir &rhs) { vt += rhs.vt; vn += rhs.vn; }
+};
+typedef struct s_PPPMDispSlabVir s_vir;
+
 template<class DeviceType>
 class PPPMDispSlabKokkos : public PPPMDispSlab {
  public:
@@ -92,6 +106,21 @@ class PPPMDispSlabKokkos : public PPPMDispSlab {
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispSlab_poisson_energy, const int&, double&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispSlab_poisson_virial_csb, const int&, s_vir&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispSlab_poisson_uT_prep, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispSlab_poisson_uT_copy, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispSlab_poisson_uN_prep, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispSlab_poisson_uN_copy, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispSlab_poisson_fz_prep, const int&) const;
@@ -221,9 +250,11 @@ class PPPMDispSlabKokkos : public PPPMDispSlab {
 
   // z-grid fields (length nz)
   typename AT::t_double_1d d_dens;        // gathered B-weighted density
-  typename AT::t_double_1d d_Gk;          // damped influence function
+  typename AT::t_double_1d d_Gk;          // energy influence function
+  typename AT::t_double_1d d_GTk, d_GNk;  // tangential/normal virial influence (compact switch)
   typename AT::t_double_1d d_fz_grid;     // z-force field
   typename AT::t_double_1d d_ugrid;       // per-atom potential field
+  typename AT::t_double_1d d_uTgrid, d_uNgrid;   // per-atom T/N virial fields (compact switch)
   Kokkos::View<double*, Kokkos::LayoutRight, Kokkos::HostSpace> h_dens;   // Allreduce staging
 
   typename AT::t_double_1d d_B;           // per-type amplitude B[ntypes+1]

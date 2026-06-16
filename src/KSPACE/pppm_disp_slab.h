@@ -28,9 +28,11 @@ namespace LAMMPS_NS {
 // The dispersion-weighted (geometric-mixing) density varies only in the chosen
 // inhomogeneous dimension (x, y, or z; default z), so the smooth reciprocal
 // part is a 1-D convolution: spread the B-weighted density onto a 1-D grid,
-// FFT, apply the damped influence function, inverse-FFT the force field, and
+// FFT, apply the influence function, inverse-FFT the force field, and
 // interpolate.  The real-space slab correction corr() and the H/IK pressure
-// profiles are shared (identical math) with ewald/disp/slab.  Damped (SSB) only.
+// profiles are shared (identical math) with ewald/disp/slab.  Supports the
+// damped (SSB, kspace_modify damp yes) and compact-switch (CSB, damp compact)
+// variants; the CSB variant needs no real-space correction.
 
 class PPPMDispSlab : public KSpace {
  public:
@@ -53,10 +55,12 @@ class PPPMDispSlab : public KSpace {
   int lat1, lat2;        // lateral dimensions = (dim+1)%3, (dim+2)%3
   int nz;                // # grid points along dim (power of two)
   int order;             // assignment/interpolation stencil order
+  int damp_flag;         // 0 = damped (SSB); 2 = compact switch (CSB)
   int corr_mode;         // damped correction: 0 = raw pairwise, 1 = binned
   double bin_dz_user;    // user-requested bin width for corr bin (0 => auto)
   int bin_nbins;         // calibrated # corr bins (0 => not calibrated)
   double g_ewald_set;    // splitting parameter actually used
+  double sw_width;       // compact-switch width Delta (read from the matched pair style)
 
   double volume, cutoff, rc2, area, zprd, zlo;
   double delzinv;        // nz/zprd
@@ -68,8 +72,10 @@ class PPPMDispSlab : public KSpace {
   double *dens;         // spread B-weighted density (real)
   double *fre, *fim;    // FFT workspace (real/imag)
   double *Gk;           // de-convolved energy influence function (per grid mode)
+  double *GTk, *GNk;    // de-convolved tangential/normal virial influence (compact switch)
   double *fz_grid;      // z-force field on the grid
   double *ugrid;        // per-atom potential field (for eatom/vatom)
+  double *uTgrid, *uNgrid;    // per-atom tangential/normal virial fields (compact switch)
 
   double **rho_coeff;     // B-spline assignment polynomial coefficients
   int order_allocated;    // order at last rho_coeff allocation
@@ -84,7 +90,17 @@ class PPPMDispSlab : public KSpace {
   void make_rho();              // spread density to z grid (global)
   void poisson();               // FFT, influence fn, energy/force/per-atom field
   void fieldforce();            // interpolate z-force (and per-atom e/v) to atoms
-  void influence_function();    // fill Gk (damped, de-convolved)
+  void influence_function();    // fill Gk (damped/compact, de-convolved)
+
+  // compact-switch (CSB) reciprocal coefficients (copied from ewald/disp/slab)
+  double switch_S(double t);     // C3 septic smoothstep
+  double switch_dS(double t);    // dS/dt = 140 t^3 (1-t)^3
+  double switch_trans5(double h);                              // energy shell integral
+  void switch_shell_virial(double h, double &sGT, double &sGN);    // shell virial integrals
+  double gu_switch(int k);     // GU[k] at mesh mode k for the compact switch
+  double gu0_switch();         // k=0 energy coefficient
+  void sici_compl_chain(double x, double *Carr, double *Darr);    // C[1..7], D[1..7]
+
   void fft1d(double *re, double *im, int n, int sign);    // radix-2 in-place FFT
   void compute_rho_coeff();                      // B-spline coefficients (LAMMPS PPPM convention)
   void compute_rho1d(double dz, double *w);      // assignment weights at offset dz

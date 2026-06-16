@@ -129,6 +129,15 @@ void PPPMDispSlabKokkos<DeviceType>::setup()
   for (int m = 0; m < nz; m++) h_Gk(m) = Gk[m];
   Kokkos::deep_copy(d_Gk, h_Gk);
 
+  // compact switch: upload the explicit tangential/normal virial influence too
+  if (damp_flag == 2) {
+    auto h_GTk = Kokkos::create_mirror_view(d_GTk);
+    auto h_GNk = Kokkos::create_mirror_view(d_GNk);
+    for (int m = 0; m < nz; m++) { h_GTk(m) = GTk[m]; h_GNk(m) = GNk[m]; }
+    Kokkos::deep_copy(d_GTk, h_GTk);
+    Kokkos::deep_copy(d_GNk, h_GNk);
+  }
+
   auto h_rho = Kokkos::create_mirror_view(d_rho_coeff);
   for (int l = 0; l < order; l++)
     for (int s = 0; s < order; s++) h_rho(l, s) = rho_coeff[l][s];
@@ -162,6 +171,12 @@ void PPPMDispSlabKokkos<DeviceType>::allocate_device()
   d_Gk = typename AT::t_double_1d("pppm/disp/slab/kk:Gk", nz);
   d_fz_grid = typename AT::t_double_1d("pppm/disp/slab/kk:fz_grid", nz);
   d_ugrid = typename AT::t_double_1d("pppm/disp/slab/kk:ugrid", nz);
+  if (damp_flag == 2) {
+    d_GTk = typename AT::t_double_1d("pppm/disp/slab/kk:GTk", nz);
+    d_GNk = typename AT::t_double_1d("pppm/disp/slab/kk:GNk", nz);
+    d_uTgrid = typename AT::t_double_1d("pppm/disp/slab/kk:uTgrid", nz);
+    d_uNgrid = typename AT::t_double_1d("pppm/disp/slab/kk:uNgrid", nz);
+  }
   h_dens = Kokkos::View<double*, Kokkos::LayoutRight, Kokkos::HostSpace>(
       "pppm/disp/slab/kk:h_dens", nz);
 
@@ -285,8 +300,20 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
   e_recip_mesh = e;
   if (eflag_global) energy += e;
   if (vflag_global) {
-    virial[lat1] += e;
-    virial[lat2] += e;
+    if (damp_flag == 2) {
+      // compact switch: explicit tangential (GTk) and normal (GNk) virial kernels
+      s_vir vir;
+      copymode = 1;
+      Kokkos::parallel_reduce(
+          Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_virial_csb>(0, nz), *this, vir);
+      copymode = 0;
+      virial[lat1] += vir.vt;
+      virial[lat2] += vir.vt;
+      virial[dim] += vir.vn;
+    } else {
+      virial[lat1] += e;    // tangential (GT = GU)
+      virial[lat2] += e;
+    }
   }
 
   copymode = 1;
@@ -305,6 +332,24 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
     copymode = 1;
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_u_copy>(0, nz), *this);
     copymode = 0;
+
+    // compact switch: per-atom tangential/normal virial fields (GTk/GNk kernels)
+    if (damp_flag == 2) {
+      copymode = 1;
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uT_prep>(0, nz), *this);
+      copymode = 0;
+      fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
+      copymode = 1;
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uT_copy>(0, nz), *this);
+      copymode = 0;
+      copymode = 1;
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uN_prep>(0, nz), *this);
+      copymode = 0;
+      fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
+      copymode = 1;
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uN_copy>(0, nz), *this);
+      copymode = 0;
+    }
   }
 
   // --- fieldforce: interpolate the z-force field to atoms (device) ---
@@ -328,9 +373,10 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
   }
 
   // --- damped real-space slab correction on the device ---
+  // the compact switch needs no real-space correction (S*u vanishes inside rcut)
 
   corr_energy = 0.0;
-  corr_kk();
+  if (damp_flag != 2) corr_kk();
 
   atomKK->modified(execution_space, F_MASK);
 
@@ -351,8 +397,10 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
     }
   }
 
-  // normal virial from the exact 1/r^6 virial trace
-  if (vflag_global) virial[dim] = 6.0 * (e_recip_mesh + corr_energy) - virial[lat1] - virial[lat2];
+  // normal virial from the exact 1/r^6 virial trace (the compact switch is
+  // non-homogeneous, so its normal virial is the explicit GNk kernel above)
+  if (damp_flag != 2 && vflag_global)
+    virial[dim] = 6.0 * (e_recip_mesh + corr_energy) - virial[lat1] - virial[lat2];
 
   if (profile_flag) compute_pressure_profile();
 }
@@ -743,6 +791,50 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_energy, 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
+void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_virial_csb, const int &m,
+                                                s_vir &vir) const
+{
+  const double re = static_cast<double>(d_work(2 * m));
+  const double im = static_cast<double>(d_work(2 * m + 1));
+  const double uk = re * re + im * im;
+  vir.vt += d_GTk(m) * uk;
+  vir.vn += d_GNk(m) * uk;
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_uT_prep, const int &m) const
+{
+  const double g2 = 2.0 * d_GTk(m);
+  d_work2(2 * m) = static_cast<FFT_SCALAR>(g2 * static_cast<double>(d_work(2 * m)));
+  d_work2(2 * m + 1) = static_cast<FFT_SCALAR>(g2 * static_cast<double>(d_work(2 * m + 1)));
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_uT_copy, const int &m) const
+{
+  d_uTgrid(m) = static_cast<double>(d_work2(2 * m));
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_uN_prep, const int &m) const
+{
+  const double g2 = 2.0 * d_GNk(m);
+  d_work2(2 * m) = static_cast<FFT_SCALAR>(g2 * static_cast<double>(d_work(2 * m)));
+  d_work2(2 * m + 1) = static_cast<FFT_SCALAR>(g2 * static_cast<double>(d_work(2 * m + 1)));
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_uN_copy, const int &m) const
+{
+  d_uNgrid(m) = static_cast<double>(d_work2(2 * m));
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
 void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_fz_prep, const int &m) const
 {
   const int mm = (m <= nz_kk / 2) ? m : m - nz_kk;
@@ -818,18 +910,30 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_fieldforce_perat
   compute_rho1d_kk(dz, w);
   const double bi = d_B(type(i));
 
-  double uu = 0.0;
+  double uu = 0.0, uT = 0.0, uN = 0.0;
+  const bool csb = (damp_flag == 2);
   for (int s = 0; s < order_kk; s++) {
     int g = g0 + nlower_kk + s;
     g = ((g % nz_kk) + nz_kk) % nz_kk;
     uu += w[s] * d_ugrid(g);
+    if (csb) {
+      uT += w[s] * d_uTgrid(g);
+      uN += w[s] * d_uNgrid(g);
+    }
   }
-  // reciprocal per-atom energy; tangential virial = pe (GT = GU)
+  // reciprocal per-atom energy
   double pe = 0.5 * bi * uu;
   d_peatom(i) += pe;
   if (vflag_atom) {
-    d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(pe);
-    d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(pe);
+    if (csb) {
+      // explicit tangential (GTk) and normal (GNk) per-atom virial fields
+      d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * uT);
+      d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * uT);
+      d_vatom(i, dim_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * uN);
+    } else {
+      d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(pe);    // tangential (GT = GU)
+      d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(pe);
+    }
   }
 }
 
@@ -1064,8 +1168,9 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_peratom_finalize
 {
   // d_peatom holds the full kspace per-atom energy (reciprocal + corr)
   if (eflag_atom) d_eatom(i) += static_cast<KK_ACC_FLOAT>(d_peatom(i));
-  // normal per-atom virial from the virial trace: 6*e_i - v_lat1 - v_lat2
-  if (vflag_atom)
+  // normal per-atom virial from the virial trace: 6*e_i - v_lat1 - v_lat2.
+  // The compact switch already set vatom[dim] from its explicit GNk field.
+  if (vflag_atom && damp_flag != 2)
     d_vatom(i, dim_kk) += static_cast<KK_ACC_FLOAT>(
         6.0 * d_peatom(i) - static_cast<double>(d_vatom(i, lat1_kk)) -
         static_cast<double>(d_vatom(i, lat2_kk)));
