@@ -481,8 +481,31 @@ void EwaldDispSlab::coeffs()
     const double c = cutoff + sw_width;
     GU[0] = gu0_switch();           // energy
     GF[0] = 0.0;
-    GT[0] = 2.0 * GU[0];            // h->0 limit of the consistent (S u)' pressure
-    GN[0] = 2.0 * GU[0];            // kernels (= 2*GU[0]); reduces to non-damped as D->0
+    // k=0 (uniform) virial of the S*u long-range part: P = -(rho_B^2/6) int r phi'
+    // 4 pi r^2 dr with phi=S*u, giving GT[0]=GN[0] = -(2 pi/3V)(-J + 6 trans + 2/c^3),
+    // J = int_rcut^c S'(r)/r^3 dr, trans = int_rcut^c S(r)/r^4 dr.  This is the
+    // pure-power-law value 2*GU[0] PLUS the (2 pi/3V) J switch-derivative (S'u) term
+    // that the old "GT[0]=2*GU[0]" shortcut dropped, leaving a ~1/rcut^3 isotropic
+    // pressure offset.  Reduces to the non-damped -4 pi/(3 c^3 V) as Delta->0 (J->0).
+    {
+      const double a = cutoff, dz = sw_width;
+      const int n = 2000;
+      const double dr = dz / n;
+      double iJ = 0.0, iT = 0.0;
+      for (int i = 0; i <= n; i++) {
+        const double r = a + i * dr;
+        const double t = (r - a) / dz;
+        const double S = switch_S(t);
+        const double Sp = switch_dS(t) / dz;    // S'(r)
+        const double r2 = r * r, r3 = r2 * r, r4 = r2 * r2;
+        const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+        iJ += w * Sp / r3;
+        iT += w * S / r4;
+      }
+      const double Jint = dr / 3.0 * iJ;
+      const double trans = dr / 3.0 * iT;
+      GT[0] = GN[0] = -(2.0 * MY_PI / (3.0 * volume)) * (-Jint + 6.0 * trans + 2.0 / (c * c * c));
+    }
     for (k = 1; k < kcount; k++) {
       kcell = k * unitk;
       kcell3 = kcell * kcell * kcell;
