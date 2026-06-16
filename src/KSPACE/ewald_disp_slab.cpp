@@ -342,17 +342,19 @@ void EwaldDispSlab::estimate_params()
   auto *gf2 = new double[kbig + 1];
   if (damp_flag == 2) {
     // the compact-switch GF^2 decays fast; compute upward and stop once it has
-    // been negligible for a run of modes (avoids costly high-k quadrature).
+    // dropped well past its peak (negligible, and above the quadrature noise
+    // floor).  This avoids costly high-k quadrature; modes beyond are zeroed.
     double gf2max = 0.0;
-    int nsmall = 0, kstop = kbig;
+    int kstop = kbig;
     for (int k = 1; k <= kbig; k++) {
       double g = gf_of_k(k);
       gf2[k] = g * g;
       gf2max = MAX(gf2max, gf2[k]);
-      if (gf2[k] < 1.0e-16 * gf2max) {
-        if (++nsmall >= 32) { kstop = k; break; }
-      } else
-        nsmall = 0;
+      // once we are past the peak and 10 orders of magnitude down, stop
+      if (k > 8 && gf2[k] < 1.0e-10 * gf2max && gf2[k] < gf2[k - 1]) {
+        kstop = k;
+        break;
+      }
     }
     for (int k = kstop + 1; k <= kbig; k++) gf2[k] = 0.0;
   } else {
@@ -561,24 +563,39 @@ double EwaldDispSlab::switch_S(double t)
 
 void EwaldDispSlab::switch_transitions(double h, double &t5, double &t7, double &t6)
 {
-  const double a = cutoff, b = cutoff + sw_width, dz = sw_width;
-  int n = (int) (24.0 * h * dz / (2.0 * MY_PI)) + 1;
-  n = MAX(64, n);
-  n = MIN(n, 200000);
-  if (n % 2) n++;    // even count for Simpson
-  const double dr = (b - a) / n;
+  // 10-point Gauss-Legendre per panel; panel count scaled to the oscillation
+  // count (h*Delta) so the result is accurate (~1e-13) for all h.  High accuracy
+  // is required because GU = [tail at rcut+Delta] + [transition] is a difference
+  // of two slowly-decaying (ringing) terms whose cancellation gives the true
+  // fast-decaying coefficient.
+  static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
+                                -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
+                                0.4333953941292472,  0.6794095682990244,  0.8650633666889845,
+                                0.9739065285171717};
+  static const double gw[10] = {0.0666713443086881, 0.1494513491505806, 0.2190863625159820,
+                                0.2692667193099963, 0.2955242247147529, 0.2955242247147529,
+                                0.2692667193099963, 0.2190863625159820, 0.1494513491505806,
+                                0.0666713443086881};
+  const double a = cutoff, dz = sw_width;
+  int np = (int) (8.0 * h * dz / (2.0 * MY_PI)) + 1;
+  np = MAX(8, np);
+  np = MIN(np, 20000);
+  const double hp = dz / np;    // panel width
   double s5 = 0.0, s7 = 0.0, s6 = 0.0;
-  for (int i = 0; i <= n; i++) {
-    const double r = a + i * dr;
-    const double S = switch_S((r - a) / dz);
-    const double sr = sin(h * r), cr = cos(h * r);
-    const double r2 = r * r, r4 = r2 * r2;
-    const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
-    s5 += w * S * sr / (r4 * r);          // r^-5 sin
-    s7 += w * S * sr / (r4 * r2 * r);     // r^-7 sin
-    s6 += w * S * cr / (r4 * r2);         // r^-6 cos
+  for (int p = 0; p < np; p++) {
+    const double c0 = a + (p + 0.5) * hp;    // panel center
+    for (int g = 0; g < 10; g++) {
+      const double r = c0 + 0.5 * hp * gx[g];
+      const double S = switch_S((r - a) / dz);
+      const double wsr = gw[g] * S * sin(h * r);
+      const double wcr = gw[g] * S * cos(h * r);
+      const double r2 = r * r, r4 = r2 * r2;
+      s5 += wsr / (r4 * r);          // r^-5 sin
+      s7 += wsr / (r4 * r2 * r);     // r^-7 sin
+      s6 += wcr / (r4 * r2);         // r^-6 cos
+    }
   }
-  const double f = dr / 3.0;
+  const double f = 0.5 * hp;
   t5 = f * s5;
   t7 = f * s7;
   t6 = f * s6;

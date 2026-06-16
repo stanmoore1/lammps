@@ -1,0 +1,38 @@
+units lj
+atom_style atomic
+boundary p p p
+# A: plain lj/cut + non-damped kspace (reference)
+read_data data.lj_slab
+pair_style lj/cut 3.0
+pair_coeff 1 1 1.0 1.0
+kspace_style ewald/disp/slab 1.0e-4
+kspace_modify damp no
+thermo_style custom step pe pxx pyy pzz
+run 0
+print "A lj/cut + SB       PE=$(pe:%.6f) Pxx=$(pxx:%.6f) Pzz=$(pzz:%.6f)"
+# B: dispswitch(D->0) + non-damped kspace  (isolates the PAIR virial)
+clear
+read_data data.lj_slab
+pair_style lj/cut/dispswitch 3.0 0.001
+pair_coeff 1 1 1.0 1.0
+kspace_style ewald/disp/slab 1.0e-4
+kspace_modify damp no
+thermo_style custom step pe pxx pyy pzz
+run 0
+print "B dispsw + SB       PE=$(pe:%.6f) Pxx=$(pxx:%.6f) Pzz=$(pzz:%.6f)"
+# C: plain lj/cut, NO kspace at all (pure pair pressure, sanity)
+clear
+read_data data.lj_slab
+pair_style lj/cut 3.0
+pair_coeff 1 1 1.0 1.0
+thermo_style custom step pe pxx pyy pzz
+run 0
+print "C lj/cut only       PE=$(pe:%.6f) Pxx=$(pxx:%.6f) Pzz=$(pzz:%.6f)"
+# D: dispswitch only, NO kspace (pure pair pressure)
+clear
+read_data data.lj_slab
+pair_style lj/cut/dispswitch 3.0 0.001
+pair_coeff 1 1 1.0 1.0
+thermo_style custom step pe pxx pyy pzz
+run 0
+print "D dispsw only       PE=$(pe:%.6f) Pxx=$(pxx:%.6f) Pzz=$(pzz:%.6f)"

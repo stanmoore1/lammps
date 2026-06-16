@@ -1,0 +1,16 @@
+units lj
+atom_style atomic
+boundary p p p
+variable D index 0.001 0.01 0.05 0.2 0.6
+label loop
+clear
+read_data data.lj_slab
+pair_style lj/cut/dispswitch 3.0 ${D}
+pair_coeff 1 1 1.0 1.0
+kspace_style ewald/disp/slab 1.0e-4
+kspace_modify damp compact
+thermo_style custom step pe press pxx pzz
+run 0
+print "CSB Delta=${D}  PE=$(pe:%.8f)  Pxx=$(pxx:%.8f)  Pzz=$(pzz:%.8f)"
+next D
+jump in.sweep loop

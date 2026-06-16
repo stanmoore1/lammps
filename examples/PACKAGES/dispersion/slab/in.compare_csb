@@ -1,0 +1,39 @@
+# Compare non-damped (SB), damped (SSB), and compact-switch (CSB) dispersion
+# slab Ewald on the same config: single-point PE/pressure must agree (same
+# physical 1/r^6 system), and CSB needs no corr() and few kmax modes.
+
+units           lj
+atom_style      atomic
+boundary        p p p
+
+# ---------- damped (SSB) reference ----------
+read_data       data.lj_slab
+pair_style      lj/cut 3.0
+pair_coeff      1 1 1.0 1.0
+kspace_style    ewald/disp/slab 1.0e-4
+kspace_modify   damp yes corr bin
+thermo_style    custom step pe press pxx pyy pzz
+run             0
+print           "SSB  PE=$(pe:%.8f)  P=$(press:%.8f)  Pxx=$(pxx:%.8f)  Pzz=$(pzz:%.8f)"
+
+# ---------- non-damped (SB) reference ----------
+clear
+read_data       data.lj_slab
+pair_style      lj/cut 3.0
+pair_coeff      1 1 1.0 1.0
+kspace_style    ewald/disp/slab 1.0e-4
+kspace_modify   damp no
+thermo_style    custom step pe press pxx pyy pzz
+run             0
+print           "SB   PE=$(pe:%.8f)  P=$(press:%.8f)  Pxx=$(pxx:%.8f)  Pzz=$(pzz:%.8f)"
+
+# ---------- compact switch (CSB), Delta = 0.2*rcut ----------
+clear
+read_data       data.lj_slab
+pair_style      lj/cut/dispswitch 3.0 0.6
+pair_coeff      1 1 1.0 1.0
+kspace_style    ewald/disp/slab 1.0e-4
+kspace_modify   damp compact
+thermo_style    custom step pe press pxx pyy pzz
+run             0
+print           "CSB  PE=$(pe:%.8f)  P=$(press:%.8f)  Pxx=$(pxx:%.8f)  Pzz=$(pzz:%.8f)"
