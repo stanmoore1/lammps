@@ -1,0 +1,19 @@
+units lj
+atom_style atomic
+boundary p p p
+variable M index sb ssb csb
+label loop
+clear
+read_data data.lj_slab
+velocity all set 0.0 0.0 0.0
+if "${M} == csb" then "pair_style lj/cut/dispswitch 3.0 0.3" else "pair_style lj/cut 3.0"
+pair_coeff 1 1 1.0 1.0
+kspace_style ewald/disp/slab 1.0e-4
+if "${M} == sb" then "kspace_modify damp no"
+if "${M} == ssb" then "kspace_modify damp yes corr bin"
+if "${M} == csb" then "kspace_modify damp compact"
+thermo_style custom step pe pxx pyy pzz
+run 0
+print "VIR ${M}  Pxx=$(pxx:%.6f) Pyy=$(pyy:%.6f) Pzz=$(pzz:%.6f)"
+next M
+jump in.purevir loop

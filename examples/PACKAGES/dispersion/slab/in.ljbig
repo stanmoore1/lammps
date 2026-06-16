@@ -1,0 +1,9 @@
+units lj
+atom_style atomic
+boundary p p p
+read_data data.lj_slab
+pair_style lj/cut 4.9
+pair_coeff 1 1 1.0 1.0
+thermo_style custom step pe pxx pyy pzz
+run 0
+print "LJCUT4.9  PE=$(pe:%.6f) Pxx=$(pxx:%.6f) Pyy=$(pyy:%.6f) Pzz=$(pzz:%.6f)"
