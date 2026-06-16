@@ -156,7 +156,6 @@ void PairLJCutDispSwitch::compute(int eflag, int vflag)
         const double oneMinusS = 1.0 - S;
         const double lj4ij = lj4[itype][jtype];
         const double rinv = 1.0 / r;
-        // -dE/dr = -lj4[ (dS/dt)/Delta r^-6 + 6 (1-S) r^-7 ];  fpair = (-dE/dr)/r
         fpair = -factor_lj * lj4ij *
             ((dS / dz) * r6inv * rinv + 6.0 * oneMinusS * r6inv * r2inv);
         if (eflag) evdwl = -factor_lj * oneMinusS * lj4ij * r6inv;

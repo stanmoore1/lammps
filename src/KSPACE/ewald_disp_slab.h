@@ -83,6 +83,18 @@ class EwaldDispSlab : public KSpace {
   void corr();                        // damped slab correction dispatcher
   void corr_raw();                    // exact pairwise (global z-gather) correction
   void corr_bin();                    // z-binned (1D particle-mesh, CIC) correction
+  // compact-switch shell virial correction: subtract the plane (mean-field) virial
+  // of (S u)' over [rcut, rcut+Delta] so the pair's exact full-u' shell virial
+  // replaces it (removes the lateral-correlation pressure residual).  Mirrors the
+  // damped corr_raw/corr_bin but on the shell slice.  Selected by corr_mode.
+  double *wTgrid, *wNgrid;            // tabulated plane virial kernels w_T(dz), w_N(dz)
+  int nwgrid;                         // grid points on [0, rcut+Delta]
+  double wdz;                         // grid spacing
+  void build_shell_vkernels();        // tabulate w_T, w_N at setup
+  void shell_vkernel(double adz, double &wT, double &wN);    // interpolate at |dz|
+  void corr_csb();                    // dispatcher (compact-switch virial correction)
+  void corr_csb_raw();                // global z-gather (N^2)
+  void corr_csb_bin();                // z-binned
   void compute_pressure_profile();    // P_T(z), P_N(z) profiles (H or IK contour)
   double ik_phi(double h);            // IK tangential building block Phi(h)
   double ik_psi(double h);            // IK normal building block Psi(h)

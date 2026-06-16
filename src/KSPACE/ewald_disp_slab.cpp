@@ -67,6 +67,9 @@ EwaldDispSlab::EwaldDispSlab(LAMMPS *lmp) :
   corr_mode = 0;
   bin_dz_user = 0.0;
   sw_width = 0.0;
+  wTgrid = wNgrid = nullptr;
+  nwgrid = 0;
+  wdz = 0.0;
   contour_flag = 0;
   profile_flag = 0;
   npro = 0;
@@ -91,6 +94,8 @@ EwaldDispSlab::~EwaldDispSlab()
   delete[] B;
   memory->destroy(pt_profile);
   memory->destroy(pn_profile);
+  delete[] wTgrid;
+  delete[] wNgrid;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -425,6 +430,7 @@ void EwaldDispSlab::setup()
 
   init_coeffs();
   coeffs();
+  if (damp_flag == 2) build_shell_vkernels();
 }
 
 /* ----------------------------------------------------------------------
@@ -714,6 +720,271 @@ double EwaldDispSlab::gu0_switch()
 }
 
 /* ----------------------------------------------------------------------
+   tabulate the plane (mean-field) virial kernels of (S u)' over the shell
+   [rcut, rcut+Delta] as functions of |dz|:
+     wT(dz) = -(pi/area) int_{max(dz,rcut)}^{rcut+Delta} (S u)'(r) (r^2 - dz^2) dr
+     wN(dz) = -(2 pi/area) dz^2 int ... (S u)'(r) dr
+   with (S u)'(r) = -S'(r)/r^6 + 6 S(r)/r^7.  These are the per-(B_i B_j) tangential
+   and normal slab-virial contributions of an atom interacting with the plane of
+   another at z-separation dz; corr_csb subtracts them so the pair's exact full-u'
+   shell virial replaces the mean field.
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::build_shell_vkernels()
+{
+  const double a = cutoff, b = cutoff + sw_width;
+  const double area = domain->prd[lat1] * domain->prd[lat2];
+  nwgrid = 1024;
+  wdz = b / nwgrid;
+  delete[] wTgrid;
+  delete[] wNgrid;
+  wTgrid = new double[nwgrid + 1];
+  wNgrid = new double[nwgrid + 1];
+  for (int g = 0; g <= nwgrid; g++) {
+    const double adz = g * wdz;
+    const double rlo = MAX(adz, a);
+    if (rlo >= b) {
+      wTgrid[g] = wNgrid[g] = 0.0;
+      continue;
+    }
+    const int n = 600;
+    const double hr = (b - rlo) / n;
+    double IT = 0.0, IN = 0.0;
+    for (int i = 0; i <= n; i++) {
+      const double r = rlo + i * hr;
+      const double t = (r - a) / sw_width;
+      const double S = switch_S(t);
+      const double Sp = switch_dS(t) / sw_width;    // S'(r)
+      const double r2 = r * r, r6 = r2 * r2 * r2, r7 = r6 * r;
+      const double Sup = -Sp / r6 + 6.0 * S / r7;    // (S u)'
+      const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+      IT += w * Sup * (r2 - adz * adz);
+      IN += w * Sup;
+    }
+    IT *= hr / 3.0;
+    IN *= hr / 3.0;
+    wTgrid[g] = -(MY_PI / area) * IT;
+    wNgrid[g] = -(2.0 * MY_PI / area) * adz * adz * IN;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void EwaldDispSlab::shell_vkernel(double adz, double &wT, double &wN)
+{
+  if (adz >= nwgrid * wdz) {
+    wT = wN = 0.0;
+    return;
+  }
+  const double x = adz / wdz;
+  int g = (int) x;
+  if (g >= nwgrid) g = nwgrid - 1;
+  const double f = x - g;
+  wT = wTgrid[g] * (1.0 - f) + wTgrid[g + 1] * f;
+  wN = wNgrid[g] * (1.0 - f) + wNgrid[g + 1] * f;
+}
+
+/* ----------------------------------------------------------------------
+   compact-switch shell virial correction dispatcher
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::corr_csb()
+{
+  if (corr_mode == 1)
+    corr_csb_bin();
+  else
+    corr_csb_raw();
+}
+
+/* ----------------------------------------------------------------------
+   exact (global z-gather) subtraction of the plane shell virial.  Mirrors
+   corr_raw: every proc gathers the global (z, B) list and each local atom sums
+   the plane kernel over all global atoms in its |dz| < rcut+Delta window
+   (slab-slab).  Subtracted from the tangential (lat1,lat2) and normal (dim)
+   virial.  Matches the kspace |S_k|^2 convention (full ordered sum incl. self).
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::corr_csb_raw()
+{
+  const double zprd = domain->prd[dim];
+  const double bcut = cutoff + sw_width;
+  double **x = atom->x;
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+
+  int nprocs = comm->nprocs;
+  int *recvcounts = new int[nprocs];
+  int *displs = new int[nprocs];
+  MPI_Allgather(&nlocal, 1, MPI_INT, recvcounts, 1, MPI_INT, world);
+  int natoms_all = 0;
+  for (int p = 0; p < nprocs; p++) {
+    displs[p] = natoms_all;
+    natoms_all += recvcounts[p];
+  }
+
+  auto *zloc = new double[nlocal > 0 ? nlocal : 1];
+  auto *bloc = new double[nlocal > 0 ? nlocal : 1];
+  for (int i = 0; i < nlocal; i++) {
+    zloc[i] = x[i][dim];
+    bloc[i] = B[type[i]];
+  }
+  auto *zall = new double[natoms_all > 0 ? natoms_all : 1];
+  auto *ball = new double[natoms_all > 0 ? natoms_all : 1];
+  MPI_Allgatherv(zloc, nlocal, MPI_DOUBLE, zall, recvcounts, displs, MPI_DOUBLE, world);
+  MPI_Allgatherv(bloc, nlocal, MPI_DOUBLE, ball, recvcounts, displs, MPI_DOUBLE, world);
+
+  double vt_local = 0.0, vn_local = 0.0;
+  for (int i = 0; i < nlocal; i++) {
+    const double zi = x[i][dim];
+    const double bi = B[type[i]];
+    double vt_i = 0.0, vn_i = 0.0;
+    for (int jg = 0; jg < natoms_all; jg++) {
+      double delz = zi - zall[jg];
+      delz -= zprd * floor(delz / zprd + 0.5);    // nearest image
+      const double adz = fabs(delz);
+      if (adz >= bcut) continue;
+      double wT, wN;
+      shell_vkernel(adz, wT, wN);
+      const double bij = bi * ball[jg];
+      vt_i += bij * wT;
+      vn_i += bij * wN;
+    }
+    vt_local += vt_i;
+    vn_local += vn_i;
+    if (vflag_atom) {
+      vatom[i][lat1] -= vt_i;
+      vatom[i][lat2] -= vt_i;
+      vatom[i][dim] -= vn_i;
+    }
+  }
+
+  if (vflag_global) {
+    double vt_all, vn_all;
+    MPI_Allreduce(&vt_local, &vt_all, 1, MPI_DOUBLE, MPI_SUM, world);
+    MPI_Allreduce(&vn_local, &vn_all, 1, MPI_DOUBLE, MPI_SUM, world);
+    virial[lat1] -= vt_all;
+    virial[lat2] -= vt_all;
+    virial[dim] -= vn_all;
+  }
+
+  delete[] recvcounts;
+  delete[] displs;
+  delete[] zloc;
+  delete[] bloc;
+  delete[] zall;
+  delete[] ball;
+}
+
+/* ----------------------------------------------------------------------
+   z-binned version of the shell virial correction (1D particle-mesh, CIC).
+   Bins the B-weighted density, convolves with the plane kernels, interpolates
+   back.  O(nbins*nwin)+O(N) instead of O(N*N_slice).
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::corr_csb_bin()
+{
+  const double zprd = domain->prd[dim];
+  const double zlo = domain->boxlo[dim];
+  const double bcut = cutoff + sw_width;
+  double **x = atom->x;
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+
+  double dz_target = (bin_dz_user > 0.0) ? bin_dz_user : MIN(0.02 * bcut, 0.5 * sw_width);
+  int nbins = (int) (zprd / dz_target + 0.5);
+  if (nbins < 4) nbins = 4;
+  const double dz = zprd / nbins;
+  int nwin = (int) (bcut / dz) + 1;
+  if (nwin > nbins / 2) nwin = nbins / 2;
+
+  auto *dens = new double[nbins];
+  auto *dens_all = new double[nbins];
+  for (int b = 0; b < nbins; b++) dens[b] = 0.0;
+
+  auto *ab0 = new int[nlocal > 0 ? nlocal : 1];
+  auto *afrac = new double[nlocal > 0 ? nlocal : 1];
+  for (int i = 0; i < nlocal; i++) {
+    double u = (x[i][dim] - zlo) / dz;
+    u -= nbins * floor(u / nbins);
+    int b0 = (int) u;
+    if (b0 >= nbins) b0 -= nbins;
+    double frac = u - (int) u;
+    ab0[i] = b0;
+    afrac[i] = frac;
+    int b1 = b0 + 1;
+    if (b1 >= nbins) b1 -= nbins;
+    const double bi = B[type[i]];
+    dens[b0] += bi * (1.0 - frac);
+    dens[b1] += bi * frac;
+  }
+  MPI_Allreduce(dens, dens_all, nbins, MPI_DOUBLE, MPI_SUM, world);
+
+  // precompute kernels on the bin offsets
+  auto *KT = new double[nwin + 1];
+  auto *KN = new double[nwin + 1];
+  for (int d = 0; d <= nwin; d++) {
+    double wT, wN;
+    shell_vkernel(d * dz, wT, wN);
+    KT[d] = wT;
+    KN[d] = wN;
+  }
+
+  auto *phiT = new double[nbins];
+  auto *phiN = new double[nbins];
+  for (int b = 0; b < nbins; b++) {
+    double sT = KT[0] * dens_all[b];
+    double sN = KN[0] * dens_all[b];
+    for (int d = 1; d <= nwin; d++) {
+      int bp = b + d;
+      if (bp >= nbins) bp -= nbins;
+      int bm = b - d;
+      if (bm < 0) bm += nbins;
+      double s = dens_all[bp] + dens_all[bm];
+      sT += KT[d] * s;
+      sN += KN[d] * s;
+    }
+    phiT[b] = sT;
+    phiN[b] = sN;
+  }
+
+  // per-atom virial from the interpolated potential (local atoms)
+  if (vflag_atom)
+    for (int i = 0; i < nlocal; i++) {
+      int b0 = ab0[i];
+      double frac = afrac[i];
+      int b1 = b0 + 1;
+      if (b1 >= nbins) b1 -= nbins;
+      const double bi = B[type[i]];
+      const double pT = phiT[b0] * (1.0 - frac) + phiT[b1] * frac;
+      const double pN = phiN[b0] * (1.0 - frac) + phiN[b1] * frac;
+      vatom[i][lat1] -= bi * pT;
+      vatom[i][lat2] -= bi * pT;
+      vatom[i][dim] -= bi * pN;
+    }
+
+  // global virial from the binned density (full-system value on every proc)
+  if (vflag_global) {
+    double vt = 0.0, vn = 0.0;
+    for (int b = 0; b < nbins; b++) {
+      vt += dens_all[b] * phiT[b];
+      vn += dens_all[b] * phiN[b];
+    }
+    virial[lat1] -= vt;
+    virial[lat2] -= vt;
+    virial[dim] -= vn;
+  }
+
+  delete[] dens;
+  delete[] dens_all;
+  delete[] KT;
+  delete[] KN;
+  delete[] phiT;
+  delete[] phiN;
+  delete[] ab0;
+  delete[] afrac;
+}
+
+/* ----------------------------------------------------------------------
    1-D dispersion-weighted structure factors S(h_n) = sum_j B_j exp(-i h_n z_j)
 ------------------------------------------------------------------------- */
 
@@ -856,6 +1127,17 @@ void EwaldDispSlab::compute(int eflag, int vflag)
 
   corr_energy = 0.0;
   if (damp_flag == 1) corr();
+
+  // NOTE: corr_csb() (corr_csb_raw / corr_csb_bin) implements a slab subtraction of
+  // the plane mean-field virial of (S u)' over the shell, intended to remove the
+  // compact switch's lateral-correlation pressure residual.  It is deliberately not
+  // enabled: the S'u switch-force makes the shell virial kernel intrinsically sharp,
+  // so it rings in Fourier (the kspace shell representation never converges cleanly)
+  // and no real-space slab kernel matches it -- enabling it makes the pressure worse
+  // (verified against an exact lattice sum).  The consistent smooth-switch virial
+  // (GT/GN with the full (S u)' shell) below is the correct converged approximation;
+  // its residual ~ (g(rcut)-1) and shrinks with larger rcut.
+  if (/*disabled*/ false && damp_flag == 2 && (vflag_global || vflag_atom)) corr_csb();
 
   // normal (zz) virial.  For the sharp/Gaussian variants the dispersion is the
   // exact power law (homogeneous degree -6), so the trace gives it cheaply:
