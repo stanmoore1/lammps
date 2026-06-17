@@ -45,15 +45,16 @@ def pets_mu0(T, rho):
 
 
 def analyze_T(T, rho_avg, smooth=10):
+    Tf = float(T)                      # T stays a str for the manifest filename
     Lx, Lz = box_dims(rho_avg)
     amps, profiles, dus, files = load_manifest(T, smooth)
     # field coupling: gradient expansion and nonlocal kernel
-    eg = fc.local_eos(amps, profiles, T, Lz, deg=6, smooth=smooth, grad_spec={2: 0, 4: 0})
-    ek = kf.kernel_eos(amps, profiles, T, Lz, deg=6, smax=2.5, nmodes=3, ridge=1e-3, smooth=smooth)
+    eg = fc.local_eos(amps, profiles, Tf, Lz, deg=6, smooth=smooth, grad_spec={2: 0, 4: 0})
+    ek = kf.kernel_eos(amps, profiles, Tf, Lz, deg=6, smax=2.5, nmodes=3, ridge=1e-3, smooth=smooth)
     # pressure tensor (IK, H) from the strongest-field run (widest density range)
     tag = files[-1].replace('_dens.out', '')
     rik, PNik, PTik = cp.ik_profile(tag + '_ikstress.out', Lz, smooth)
-    rh, PNh, PTh = cp.h_profile(tag + '_hstress.out', tag + '_dens.out', Lz, Lx * Lx, T, smooth)
+    rh, PNh, PTh = cp.h_profile(tag + '_hstress.out', tag + '_dens.out', Lz, Lx * Lx, Tf, smooth)
     rik2, muik = cp.mu0_from_p0(rik, cp.p0_ik(PNik, PTik), Lz, smooth)
     rh2, muh = cp.mu0_from_p0(rh, cp.p0_ik(PNh, PTh), Lz, smooth)
     out = dict(T=T, Lz=Lz, eg=eg, ek=ek,
