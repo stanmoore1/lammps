@@ -1,0 +1,66 @@
+# CPP LJTS production phase (OPENMP, double precision).  Reads the equilibrated
+# restart and measures, over 1e6 steps in 10 blocks: density rho(z), the Harasima (H)
+# and Irving-Kirkwood (IK) pressure-tensor profiles, energy density, and the global
+# mechanical surface tension.  OPENMP is used (not INTEL) because the H contour needs
+# per-atom virials, which the INTEL package does not provide.
+#
+# Run:  lmp -sf omp -pk omp <n> -in in.cpp_ljts_prod \
+#           -var T <T> -var dUmax <dU> -var tag <name>
+
+variable        T       index 0.98
+variable        dUmax   index 0.4
+variable        tag     index run
+variable        Nprod   index 1000000
+variable        NBIN    equal 200
+
+units           lj
+atom_style      atomic
+read_restart    ${tag}.equil.restart
+
+pair_style      lj/cut 2.5
+pair_coeff      1 1 1.0 1.0 2.5
+pair_modify     shift yes
+neighbor        0.3 bin
+neigh_modify    every 10 delay 0 check yes
+
+timestep        0.005
+fix             1 all nvt temp ${T} ${T} 0.5
+variable        AF      equal ${dUmax}/2.0
+variable        forcez  atom 2*PI*${AF}*sin(2*PI*z/lz)/lz
+fix             ext all addforce 0.0 0.0 v_forcez
+
+reset_timestep  0
+variable        dzr     equal 1.0/${NBIN}
+variable        dzb     equal lz/${NBIN}
+compute         cz all chunk/atom bin/1d z lower ${dzr} units reduced
+
+# density rho(z)
+fix             den all ave/chunk 100 1000 100000 cz density/number file ${tag}_dens.out
+
+# Harasima (H) contour: per-atom configurational virial (pair only) binned in z.
+compute         sa all stress/atom NULL pair
+fix             hpr all ave/chunk 100 1000 100000 cz c_sa[1] c_sa[2] c_sa[3] norm none file ${tag}_hstress.out
+
+# Irving-Kirkwood (IK) contour: compute stress/cartesian (kinetic + configurational).
+# columns: z, ndens, pkxx,pkyy,pkzz, pcxx,pcyy,pczz.
+# stress/cartesian is expensive (distributes each pair virial across the bins it
+# crosses); sample it less often (every 500 steps, 200 samples/block).
+compute         ik all stress/cartesian z ${dzb} NULL ${dzb}
+fix             ikpr all ave/time 500 200 100000 c_ik[1] c_ik[2] c_ik[3] c_ik[4] c_ik[5] c_ik[6] c_ik[7] c_ik[8] mode vector file ${tag}_ikstress.out
+
+# energy density u(z)
+compute         pe all pe/atom
+fix             epr all ave/chunk 100 1000 100000 cz c_pe norm none file ${tag}_energy.out
+
+# global mechanical surface tension (pair virial only; excludes the field)
+compute         press all pressure NULL pair
+variable        pN  equal c_press[3]
+variable        pT  equal 0.5*(c_press[1]+c_press[2])
+variable        gam equal lz*(v_pN-v_pT)/2.0
+fix             gt all ave/time 100 1000 100000 v_pN v_pT v_gam file ${tag}_gamma.out
+
+thermo          100000
+thermo_style    custom step temp pe press pzz v_gam
+run             ${Nprod}
+
+print           "PROD DONE tag ${tag} T ${T} dUmax ${dUmax}  Lx $(lx) Lz $(lz) N $(count(all)) rho_avg $(count(all)/vol)"

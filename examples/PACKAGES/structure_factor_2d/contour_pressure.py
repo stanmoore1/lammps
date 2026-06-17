@@ -62,8 +62,60 @@ def stress_profile(stress_file, density_file, Lz, area, smooth=10):
     return rho, PN, PT
 
 
+def read_avetime_vec(fn):
+    """Block-averaged fix ave/time mode-vector array (2-field block headers).
+    Rows = bins; columns = the listed c_*[i] (plus the leading row index)."""
+    blocks, cur = [], None
+    for l in open(fn):
+        if l.startswith('#'):
+            continue
+        p = l.split()
+        if len(p) == 2:
+            cur = []; blocks.append(cur)
+        elif cur is not None:
+            cur.append([float(x) for x in p])
+    return np.mean([np.array(b) for b in blocks], axis=0)
+
+
+def ik_profile(ik_file, Lz, smooth=10):
+    """z, rho, PN, PT from a `compute stress/cartesian` (Irving-Kirkwood) fix ave/time
+    file.  Columns (after the row index): z, ndens, pkxx,pkyy,pkzz, pcxx,pcyy,pczz
+    (kinetic + configurational).  PN=Pzz, PT=(Pxx+Pyy)/2 INCLUDE the kinetic part."""
+    ik = read_avetime_vec(ik_file)
+    rho = oz.fourier_cosine_smooth(ik[:, 2], smooth)
+    PN = oz.fourier_cosine_smooth(ik[:, 5] + ik[:, 8], smooth)
+    PT = oz.fourier_cosine_smooth(0.5 * ((ik[:, 3] + ik[:, 6]) + (ik[:, 4] + ik[:, 7])), smooth)
+    return rho, PN, PT
+
+
+def h_profile(stress_file, density_file, Lz, area, kT, smooth=10):
+    """z, rho, PN, PT from the Harasima (per-atom virial) stress + density files,
+    WITH the ideal/kinetic term rho*kT added to each diagonal (so P0=3/2PT-1/2PN
+    carries the ideal pressure, comparable to the IK contour)."""
+    st = read_chunk(stress_file); de = read_chunk(density_file)
+    nb = len(st); Vbin = area * (Lz / nb)
+    rho = oz.fourier_cosine_smooth(de[:, 3], smooth)
+    PN = oz.fourier_cosine_smooth(-st[:, 5] / Vbin, smooth) + rho * kT
+    PT = oz.fourier_cosine_smooth(-0.5 * (st[:, 3] + st[:, 4]) / Vbin, smooth) + rho * kT
+    return rho, PN, PT
+
+
+def mu0_from_p0(rho, P0, Lz, smooth=10):
+    """Homogeneous chemical potential from the pressure-tensor P0(z) by thermodynamic
+    integration  mu0(z) = INT (1/rho) dP0/dz dz  (Gibbs-Duhem; up to a constant).
+    Returns the (rho, mu0) pairs on the monotonic lower half of the profile."""
+    nb = len(rho); dz = Lz / nb
+    dP0 = oz.fourier_cosine_deriv(P0, smooth, Lz)
+    mu0 = np.cumsum(dP0 / np.clip(rho, 1e-3, None)) * dz
+    z = (np.arange(nb) + 0.5) * dz
+    m = z <= Lz / 2
+    o = np.argsort(rho[m])
+    return rho[m][o], mu0[m][o]
+
+
 def p0_ik(PN, PT):
-    """Second-order homogeneous pressure, IK contour: P0 = 3/2 PT - 1/2 PN."""
+    """Second-order homogeneous pressure (BOTH IK and Harasima contours, since
+    PT-P0=(1/3)(PN-P0) for each -- dissertation App. A): P0 = 3/2 PT - 1/2 PN."""
     return 1.5 * PT - 0.5 * PN
 
 
