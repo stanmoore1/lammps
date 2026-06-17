@@ -66,6 +66,7 @@ EwaldDispSlab::EwaldDispSlab(LAMMPS *lmp) :
   damp_flag = 0;
   corr_mode = 0;
   bin_dz_user = 0.0;
+  bin_nbins = 0;
   sw_width = 0.0;
   switch_order = 3;
   wEgrid = wFgrid = wTgrid = wNgrid = nullptr;
@@ -462,6 +463,11 @@ void EwaldDispSlab::setup()
   init_coeffs();
   coeffs();
   if (damp_flag == 2) build_shell_vkernels();
+
+  // size the corr bin count to the target force accuracy (auto, unless the user
+  // fixed the bin width); the compact switch uses corr_csb, not corr(), so skip.
+  bin_nbins = 0;
+  if (damp_flag == 1 && corr_mode == 1 && bin_dz_user <= 0.0) calibrate_bin();
 }
 
 /* ----------------------------------------------------------------------
@@ -1667,7 +1673,7 @@ void EwaldDispSlab::corr_bin()
   // dz = 1/(40 g_ewald) (~0.4% error), capped at 0.025*cutoff; user-tunable.
 
   double dz_target = (bin_dz_user > 0.0) ? bin_dz_user : MIN(0.025 / g_ewald, 0.025 * cutoff);
-  int nbins = (int) (zprd / dz_target + 0.5);
+  int nbins = (bin_nbins > 0) ? bin_nbins : (int) (zprd / dz_target + 0.5);
   if (nbins < 4) nbins = 4;
   const double dz = zprd / nbins;
   int nwin = (int) (cutoff / dz) + 1;
@@ -1779,6 +1785,210 @@ void EwaldDispSlab::corr_bin()
   delete[] Kpt;
   delete[] ab0;
   delete[] afrac;
+}
+
+/* ----------------------------------------------------------------------
+   lean exact-pairwise corr z-force (global z-gather) -> fzloc[nlocal].
+   Calibration reference: corr_bin() should reproduce this to target accuracy.
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::corr_raw_force(double *fzloc)
+{
+  const double zprd = domain->prd[dim];
+  double **x = atom->x;
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+
+  int nprocs = comm->nprocs;
+  int *recvcounts = new int[nprocs];
+  int *displs = new int[nprocs];
+  MPI_Allgather(&nlocal, 1, MPI_INT, recvcounts, 1, MPI_INT, world);
+  int natoms_all = 0;
+  for (int p = 0; p < nprocs; p++) {
+    displs[p] = natoms_all;
+    natoms_all += recvcounts[p];
+  }
+  int myoff = displs[comm->me];
+
+  auto *zloc = new double[nlocal > 0 ? nlocal : 1];
+  auto *bloc = new double[nlocal > 0 ? nlocal : 1];
+  for (int i = 0; i < nlocal; i++) {
+    zloc[i] = x[i][dim];
+    bloc[i] = B[type[i]];
+  }
+  auto *zall = new double[natoms_all > 0 ? natoms_all : 1];
+  auto *ball = new double[natoms_all > 0 ? natoms_all : 1];
+  MPI_Allgatherv(zloc, nlocal, MPI_DOUBLE, zall, recvcounts, displs, MPI_DOUBLE, world);
+  MPI_Allgatherv(bloc, nlocal, MPI_DOUBLE, ball, recvcounts, displs, MPI_DOUBLE, world);
+
+  for (int i = 0; i < nlocal; i++) {
+    const double zi = x[i][dim];
+    const double bi = B[type[i]];
+    const int iglob = myoff + i;
+    double fz = 0.0;
+    for (int jg = 0; jg < natoms_all; jg++) {
+      if (jg == iglob) continue;
+      double delz = zi - zall[jg];
+      delz -= zprd * trunc(2.0 * delz / zprd);
+      double x2 = delz * delz;
+      if (x2 >= rc2) continue;
+      double w2, f2, pt2;
+      corr_kernels(x2, w2, f2, pt2);
+      fz += delz * bi * ball[jg] * f2;
+    }
+    fzloc[i] = fz;
+  }
+
+  delete[] recvcounts;
+  delete[] displs;
+  delete[] zloc;
+  delete[] bloc;
+  delete[] zall;
+  delete[] ball;
+}
+
+/* ----------------------------------------------------------------------
+   binned corr z-force at a given bin count -> fzloc[nlocal] (CIC, force only;
+   used by calibrate_bin to size the grid; no energy/virial/state changes).
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::corr_bin_force(int nbins, double *fzloc)
+{
+  const double zprd = domain->prd[dim];
+  const double zlo = domain->boxlo[dim];
+  double **x = atom->x;
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+  if (nbins < 4) nbins = 4;
+  const double dz = zprd / nbins;
+  int nwin = (int) (cutoff / dz) + 1;
+  if (nwin > nbins / 2) nwin = nbins / 2;
+
+  auto *dens = new double[nbins];
+  auto *phiW = new double[nbins];
+  for (int b = 0; b < nbins; b++) dens[b] = 0.0;
+  auto *ab0 = new int[nlocal > 0 ? nlocal : 1];
+  for (int i = 0; i < nlocal; i++) {
+    double u = (x[i][dim] - zlo) / dz;
+    u -= nbins * floor(u / nbins);
+    int b0 = (int) u;
+    if (b0 >= nbins) b0 -= nbins;
+    double frac = u - (int) u;
+    int b1 = b0 + 1;
+    if (b1 >= nbins) b1 -= nbins;
+    const double bi = B[type[i]];
+    dens[b0] += bi * (1.0 - frac);
+    dens[b1] += bi * frac;
+    ab0[i] = b0;
+  }
+  auto *dens_all = new double[nbins];
+  MPI_Allreduce(dens, dens_all, nbins, MPI_DOUBLE, MPI_SUM, world);
+
+  auto *Kw = new double[nwin + 1];
+  for (int d = 0; d <= nwin; d++) {
+    double xi = d * dz, x2 = xi * xi, w2, f2, pt2;
+    if (x2 >= rc2)
+      Kw[d] = 0.0;
+    else {
+      corr_kernels(x2, w2, f2, pt2);
+      Kw[d] = w2;
+    }
+  }
+  for (int b = 0; b < nbins; b++) {
+    double sw = Kw[0] * dens_all[b];
+    for (int d = 1; d <= nwin; d++) {
+      int bp = b + d;
+      if (bp >= nbins) bp -= nbins;
+      int bm = b - d;
+      if (bm < 0) bm += nbins;
+      sw += Kw[d] * (dens_all[bp] + dens_all[bm]);
+    }
+    phiW[b] = sw;
+  }
+  for (int i = 0; i < nlocal; i++) {
+    int b0 = ab0[i];
+    int b1 = b0 + 1;
+    if (b1 >= nbins) b1 -= nbins;
+    fzloc[i] = -B[type[i]] * (phiW[b1] - phiW[b0]) / dz;
+  }
+
+  delete[] dens;
+  delete[] phiW;
+  delete[] dens_all;
+  delete[] Kw;
+  delete[] ab0;
+}
+
+/* ----------------------------------------------------------------------
+   choose the corr bin count so the binned corr force matches the exact pairwise
+   corr force to the target RMS force accuracy (mirrors pppm/disp/slab).  Binning
+   a sharp-cutoff kernel converges only ~sqrt(dz), so tight force targets cannot
+   be met -- back off at the error floor and warn (corr raw is exact).
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::calibrate_bin()
+{
+  int nlocal = atom->nlocal;
+  int *type = atom->type;
+  double natoms = (double) atom->natoms;
+  if (natoms < 1.0) natoms = 1.0;
+
+  // skip if the dispersion amplitudes B are not populated yet (kspace->init()
+  // runs before pair->init(), so the first setup() has B = 0); the production
+  // setup() after pair->init() recalibrates with valid B.
+  double bmax = 0.0;
+  for (int i = 0; i < nlocal; i++) bmax = MAX(bmax, fabs(B[type[i]]));
+  double bmax_all;
+  MPI_Allreduce(&bmax, &bmax_all, 1, MPI_DOUBLE, MPI_MAX, world);
+  if (bmax_all == 0.0) return;
+
+  const double zprd = domain->prd[dim];
+  auto *fref = new double[nlocal > 0 ? nlocal : 1];
+  auto *fb = new double[nlocal > 0 ? nlocal : 1];
+
+  corr_raw_force(fref);    // exact target (once)
+
+  const int nb_cap = (int) (zprd / (0.02 * cutoff) + 0.5);    // dz >= 0.02*cutoff
+  int nb = (int) (zprd / 0.1 + 0.5);                          // start near dz = 0.1 sigma
+  if (nb < 8) nb = 8;
+  int chosen = nb;
+  double err = 0.0, prev_err = -1.0;
+  int prev_nb = nb;
+  for (int it = 0; it < 20; it++) {
+    corr_bin_force(nb, fb);
+    double s = 0.0;
+    for (int i = 0; i < nlocal; i++) {
+      double d = fb[i] - fref[i];
+      s += d * d;
+    }
+    double sall;
+    MPI_Allreduce(&s, &sall, 1, MPI_DOUBLE, MPI_SUM, world);
+    err = sqrt(sall / natoms);
+    chosen = nb;
+    if (err < accuracy) break;                          // target met
+    if (prev_err > 0.0 && err > 0.7 * prev_err) {       // diminishing returns: at the floor
+      chosen = prev_nb;
+      err = prev_err;
+      break;
+    }
+    if (nb >= nb_cap) break;
+    prev_err = err;
+    prev_nb = nb;
+    nb *= 2;
+  }
+  bin_nbins = chosen;
+  if (comm->me == 0) {
+    utils::logmesg(lmp, "  corr bin: {} bins (dz = {:.4g}), force error {:.3g} vs target {:.3g}\n",
+                   bin_nbins, zprd / bin_nbins, err, accuracy);
+    if (err > accuracy)
+      error->warning(FLERR,
+                     "ewald/disp/slab corr bin did not reach the target force accuracy {:.3g} "
+                     "(reached {:.3g}); use kspace_modify corr raw for tighter accuracy",
+                     accuracy, err);
+  }
+
+  delete[] fref;
+  delete[] fb;
 }
 
 /* ----------------------------------------------------------------------

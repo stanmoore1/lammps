@@ -50,6 +50,7 @@ class EwaldDispSlab : public KSpace {
   int damp_flag;         // 0 = non-damped (SB), 1 = damped (SSB), 2 = compact switch (CSB)
   int corr_mode;         // damped correction: 0 = raw pairwise, 1 = binned (faster)
   double bin_dz_user;    // requested bin width (0 => default)
+  int bin_nbins;         // calibrated # corr bins (0 => not calibrated)
   double sw_width;       // compact-switch width Delta (read from the matched pair style)
   int switch_order;      // smoothstep continuity C^n (n=3 septic default, 5, or 7)
   double volume, cutoff, rc2;
@@ -84,6 +85,9 @@ class EwaldDispSlab : public KSpace {
   void corr();                        // damped slab correction dispatcher
   void corr_raw();                    // exact pairwise (global z-gather) correction
   void corr_bin();                    // z-binned (1D particle-mesh, CIC) correction
+  void corr_raw_force(double *fzloc);          // exact pairwise corr z-force (calibration ref)
+  void corr_bin_force(int nbins, double *fzloc);    // binned corr z-force (calibration)
+  void calibrate_bin();               // size the corr bin count to the target accuracy
   // compact-switch shell correction: subtract the plane (mean-field) energy, z-force
   // and virial of S*u over [rcut, rcut+Delta] (what the reciprocal sum injects there
   // with a laterally-uniform density) so the matched pair's exact 3-D full-u shell
