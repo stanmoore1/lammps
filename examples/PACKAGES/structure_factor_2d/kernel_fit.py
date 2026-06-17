@@ -62,9 +62,18 @@ def _kernel_columns(rho, dz, Lz, smax, nmodes, zero_integral=True):
 
 
 def kernel_eos(amps, profiles, temp, Lz, deg=4, smax=2.5, nmodes=3, ridge=1e-4,
-               smooth=12, zero_integral=True, ridge_curv=True):
+               smooth=12, zero_integral=True, ridge_curv=True, local_backbone=True):
     """Pooled nonlocal-kernel fit.  Returns rho-grid, mu0, P0, f0, mu_ex, the kernel
-    coefficients a_m and C(s), kappa2_eff/kappa4_eff, per-rung mu_tot, cond, resid."""
+    coefficients a_m and C(s), kappa2_eff/kappa4_eff, per-rung mu_tot, cond, resid.
+
+    local_backbone (default True): also fit a LOCAL 2nd-moment term kappa2_loc*(-rho''),
+    so the nonlocal kernel C(s) carries only the higher-moment SHAPE.  Without it the
+    nonlocal modes and the bulk EOS polynomial are degenerate over the narrow liquid
+    slab: the fit then under-estimates the 2nd moment and the recovered mu0(rho) bends
+    the wrong way on the liquid branch (the Maxwell liquid density comes out far too
+    low).  The robust local backbone breaks that degeneracy; the data still set the
+    nonlocal shape on top of it.  Set False to fit a purely nonlocal kernel (used by
+    the self-test, where the synthetic ladder makes the kernel fully identifiable)."""
     profiles = np.asarray(profiles, float)
     profiles = np.array([oz.fourier_cosine_smooth(p, smooth) for p in profiles])
     nb = profiles.shape[1]; dz = Lz / nb
@@ -72,21 +81,24 @@ def kernel_eos(amps, profiles, temp, Lz, deg=4, smax=2.5, nmodes=3, ridge=1e-4,
     nr = len(amps)
     ms = list(range(1, deg + 1))
     Kc = [_kernel_columns(p, dz, Lz, smax, nmodes, zero_integral) for p in profiles]
+    d2 = [fc.fderiv(p, smooth, Lz, 2) for p in profiles] if local_backbone else None
+    nloc = 1 if local_backbone else 0
     rows, rhs = [], []
     for k in range(nr):
         rho = profiles[k]; U = amps[k] * np.cos(2.0 * np.pi * z)
         for i in np.where(rho > 1e-3)[0]:
             mucol = [m * rho[i] ** (m - 1) for m in ms]
+            loccol = [-d2[k][i]] if local_backbone else []   # local kappa2 backbone
             kcol = list(Kc[k][i])
             rungcol = [0.0] * nr; rungcol[k] = -1.0
-            rows.append(mucol + kcol + rungcol)
+            rows.append(mucol + loccol + kcol + rungcol)
             rhs.append(-U[i] - temp * np.log(rho[i]))
     M = np.array(rows); b = np.array(rhs)
-    drop = len(ms) + nmodes                                 # mu_tot(rung 0) gauge
+    drop = len(ms) + nloc + nmodes                          # mu_tot(rung 0) gauge
     keep = [j for j in range(M.shape[1]) if j != drop]
     Mk = M[:, keep]
     # ridge on the a_m block only (m^2-weighted to damp oscillatory modes)
-    aidx = list(range(len(ms), len(ms) + nmodes))
+    aidx = list(range(len(ms) + nloc, len(ms) + nloc + nmodes))
     pen = np.zeros((nmodes, Mk.shape[1]))
     for jj, col in enumerate(aidx):
         w = (jj + 1) ** 2 if ridge_curv else 1.0
@@ -96,11 +108,12 @@ def kernel_eos(amps, profiles, temp, Lz, deg=4, smax=2.5, nmodes=3, ridge=1e-4,
     cond = np.linalg.cond(Mk)
     resid = np.sqrt(np.mean((Mk @ coef - b) ** 2))
     cm = coef[:len(ms)]
-    a = coef[len(ms):len(ms) + nmodes]
-    # kernel C(s) and its moments
+    kap2_loc = float(coef[len(ms)]) if local_backbone else 0.0
+    a = coef[len(ms) + nloc:len(ms) + nloc + nmodes]
+    # kernel C(s) and its moments; the 2nd moment includes the local backbone
     sg = np.linspace(-smax, smax, 400)
     Cs = kernel_basis(sg, smax, nmodes, zero_integral) @ a
-    kap2 = 0.5 * np.trapezoid(sg ** 2 * Cs, sg)
+    kap2 = kap2_loc + 0.5 * np.trapezoid(sg ** 2 * Cs, sg)
     kap4 = -(1.0 / 24.0) * np.trapezoid(sg ** 4 * Cs, sg)
     rg = np.linspace(profiles.min() + 1e-3, profiles.max() - 1e-3, 200)
     mu_ex = sum(c * m * rg ** (m - 1) for c, m in zip(cm, ms))
@@ -110,6 +123,7 @@ def kernel_eos(amps, profiles, temp, Lz, deg=4, smax=2.5, nmodes=3, ridge=1e-4,
     P0 = rg * mu0 - f0
     return dict(rho=rg, mu0=mu0, P0=P0, f0=f0, mu_ex=mu_ex, cm=cm, ms=ms,
                 a=a, s=sg, C=Cs, kappa2_eff=float(kap2), kappa4_eff=float(kap4),
+                kappa2_loc=kap2_loc,
                 cond=float(cond), resid=float(resid), nmodes=nmodes,
                 rho_avg=profiles[0].mean())
 
@@ -162,9 +176,9 @@ def _selftest():
         profiles.append(_solve_el_kernel(mu0, Cv, A, T, rho_avg, Lz, nb))
     profiles = np.array(profiles)
     eos = kernel_eos(amps, profiles, T, Lz, deg=4, smax=smax_t, nmodes=3,
-                     ridge=1e-6, smooth=14)
+                     ridge=1e-6, smooth=14, local_backbone=False)
     eos1 = kernel_eos(amps, profiles, T, Lz, deg=4, smax=smax_t, nmodes=1,
-                      ridge=1e-6, smooth=14)                # 2nd-moment-ish (1 mode)
+                      ridge=1e-6, smooth=14, local_backbone=False)  # 2nd-moment-ish
     rg = eos['rho']; mt = mu_ex(rg)
     de = (eos['mu_ex'] - eos['mu_ex'].mean()) - (mt - mt.mean())
     # compare recovered kernel shape to the truth on the s-grid
