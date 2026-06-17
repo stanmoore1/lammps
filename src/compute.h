@@ -146,6 +146,13 @@ class Compute : protected Pointers {
   virtual int get_griddata_by_name(int, const std::string &, int &) { return -1; };
   virtual void *get_griddata_by_index(int) { return nullptr; };
 
+  // callbacks for Grid3d/Grid2d ghost-cell communication (Grid3d::COMPUTE caller)
+
+  virtual void pack_forward_grid(int, void *, int, int *) {};
+  virtual void unpack_forward_grid(int, void *, int, int *) {};
+  virtual void pack_reverse_grid(int, void *, int, int *) {};
+  virtual void unpack_reverse_grid(int, void *, int, int *) {};
+
   virtual void dof_remove_pre() {}
   virtual int dof_remove(int) { return 0; }
   virtual void remove_bias(int, double *) {}
