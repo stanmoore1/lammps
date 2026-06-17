@@ -1,0 +1,31 @@
+variable T index 1.198
+variable dUmax index 4.0
+variable rho index 0.31
+variable Natoms index 100
+units lj
+atom_style atomic
+variable vol equal ${Natoms}/${rho}
+variable L equal (${vol})^(1.0/3.0)
+region box block 0 ${L} 0 ${L} 0 ${L} units box
+create_box 1 box
+create_atoms 1 random ${Natoms} 12345 NULL overlap 0.9 maxtry 5000
+mass 1 1.0
+pair_style lj/cut 2.5
+pair_coeff 1 1 1.0 1.0 2.5
+pair_modify shift yes
+neighbor 0.5 bin
+neigh_modify every 1 delay 0 check yes
+minimize 1.0e-4 1.0e-6 1000 10000
+reset_timestep 0
+velocity all create ${T} 12345 rot yes dist gaussian
+timestep 0.005
+fix 1 all nvt temp ${T} ${T} 0.5
+variable AF equal ${dUmax}/2.0
+variable forcez atom 2*PI*${AF}*sin(2*PI*z/lz)/lz
+fix ext all addforce 0.0 0.0 v_forcez
+run 200000
+reset_timestep 0
+dump d all custom 50 cube100u4_xyz.lammpstrj x y z
+dump_modify d sort id
+run 3000000
+print "CONFIGS DONE L $(lx)"
