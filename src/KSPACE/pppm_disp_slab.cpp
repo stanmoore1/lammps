@@ -317,8 +317,14 @@ double PPPMDispSlab::compute_qopt(int ngrid, int ord)
       if (ak > 0.0) {
         if (damp_flag == 2) {
           // compact switch: the de-convolved potential coefficient is the CSB GU
-          // at the aliased mode (no g_ewald; the switch sets the spectrum).
+          // at the aliased mode (no g_ewald; the switch sets the spectrum).  gu_switch
+          // is roundoff-limited at high modes -- its analytic ~k^-(n+2) tail is formed
+          // by a k^3 cancellation, so below ~(4pi/V) k^3 * 1e-13 the value is noise.
+          // The true contribution there is negligible, so zero it; this keeps qopt
+          // monotonically decreasing in the grid (otherwise the noise floor, summed as
+          // D^2 k^2, makes qopt spuriously blow up at fine grids / tight targets).
           D = gu_switch(meff < 0 ? -meff : meff);
+          if (fabs(D) < (4.0 * MY_PI / volume) * ak * ak * ak * 1.0e-13) D = 0.0;
         } else {
           double b = ak / (2.0 * g_ewald), b2 = b * b, b3 = b2 * b;
           double Bk = ak * ak * ak * (sqpi * erfc(b) + (0.5 / b3 - 1.0 / b) * exp(-b2));
@@ -386,15 +392,17 @@ void PPPMDispSlab::estimate_params()
     nz = 1;
     while (nz < nz_pppm_6) nz <<= 1;    // round up to a power of two for the FFT
   } else {
-    // compact switch: cap the grid search.  qopt for CSB evaluates gu_switch at the
-    // aliased modes, whose shell-integration cost grows with the mode number, so an
-    // unbounded search (driven by a too-tight target the compact spectrum cannot
-    // reach on a mesh) is pathologically slow.  The switch already band-limits the
-    // field (~k^-5), so a grid resolving Delta is enough; 4096 is a generous ceiling.
-    const int ngrid_max = (damp_flag == 2) ? 4096 : 65536;
+    // The qopt model (optimal influence function) under-predicts the de-convolved
+    // mesh force error by ~1.8x for the compact switch (measured vs the RMS force
+    // calculator); fold that into the selection so the chosen grid meets the target.
+    // gu_switch noise at fine grids is clamped in compute_qopt, so qopt is monotone
+    // and the search terminates without the old pathological run-up; keep a generous
+    // ceiling only as a safety net.
+    const double bias = (damp_flag == 2) ? 1.8 : 1.0;
+    const int ngrid_max = (damp_flag == 2) ? 16384 : 65536;
     int ngrid = 16;
     while (ngrid < ngrid_max) {
-      double df = sqrt(compute_qopt(ngrid, order)) * pref;
+      double df = bias * sqrt(compute_qopt(ngrid, order)) * pref;
       if (df < accuracy) break;
       ngrid <<= 1;
     }
@@ -402,12 +410,12 @@ void PPPMDispSlab::estimate_params()
   }
   if (nz < 8) nz = 8;
 
-  estimated_force_accuracy = sqrt(compute_qopt(nz, order)) * pref;
-  if (damp_flag == 2 && nz >= 4096 && estimated_force_accuracy > accuracy && comm->me == 0)
+  const double bias = (damp_flag == 2) ? 1.8 : 1.0;
+  estimated_force_accuracy = bias * sqrt(compute_qopt(nz, order)) * pref;
+  if (damp_flag == 2 && nz >= 16384 && estimated_force_accuracy > accuracy && comm->me == 0)
     error->warning(FLERR,
                    "pppm/disp/slab compact switch: grid capped at nz={}; estimated force "
-                   "accuracy {:.3g} exceeds the target {:.3g} (the compact spectrum limits "
-                   "the reachable mesh accuracy)",
+                   "accuracy {:.3g} exceeds the target {:.3g}",
                    nz, estimated_force_accuracy, accuracy);
 }
 
