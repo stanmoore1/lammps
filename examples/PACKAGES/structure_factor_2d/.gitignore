@@ -4,3 +4,7 @@
 *.restart
 *.png
 ladder_T*.csv
+
+# MD trajectory/dump scratch
+*.lammpstrj
+*.dump
