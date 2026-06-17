@@ -100,26 +100,39 @@ def load(tag):
     return ik, hs, de
 
 
-u2 = load('cube100'); u4 = load('cube100u4')
-p2 = field_profiles(np.mean(u2[0], 0), np.mean(u2[1], 0), np.mean(u2[2], 0))
-p4 = field_profiles(np.mean(u4[0], 0), np.mean(u4[1], 0), np.mean(u4[2], 0))
-SNORM = np.nanmax(np.concatenate([p2[2], p4[2]]))      # normalize s -> alpha1 ~ O(1)
+TAGS = [('cube100', 2.0), ('cube100u3', 3.0), ('cube100u4', 4.0)]
+import os
+fields = []                                            # list of (tag, dumax, raw_blocks, mean_profiles)
+for tag, dU in TAGS:
+    if not os.path.exists('%s_ikstress.out' % tag):
+        print('  (skipping %s: no data yet)' % tag); continue
+    raw = load(tag)
+    fields.append((tag, dU, raw, field_profiles(np.mean(raw[0], 0), np.mean(raw[1], 0), np.mean(raw[2], 0))))
+print('ladder fields: ' + ', '.join('%s(dU=%g)' % (f[0], f[1]) for f in fields))
+SNORM = np.nanmax(np.concatenate([f[3][2] for f in fields]))   # normalize s -> alpha1 ~ O(1)
 
 
-def ladder_fit(p2, p4):
-    """EOS-blind least squares: make P0_corr(u4)=P0_corr(u2) on the overlap.
-    P0_corr_f = g2ik_f - (a0 + a1 s_f) D_f ;  fit (a0,a1)."""
-    g2ik2, g2h2, s2 = p2; g2ik4, g2h4, s4 = p4
-    D2, D4 = g2ik2 - g2h2, g2ik4 - g2h4
-    sn2, sn4 = s2 / SNORM, s4 / SNORM
-    A = g2ik4 - g2ik2                                   # known mismatch
-    B = D4 - D2                                         # alpha0 regressor
-    C = sn4 * D4 - sn2 * D2                             # alpha1 (6th-order) regressor
-    m = np.isfinite(A) & np.isfinite(B) & np.isfinite(C)
-    m &= (GRID > 0.12) & (GRID < 0.575)
-    M = np.vstack([B[m], C[m]]).T
-    a, *_ = np.linalg.lstsq(M, A[m], rcond=None)        # minimize ||A - a0 B - a1 C||
-    return a[0], a[1]
+def ladder_fit(profs):
+    """EOS-blind: choose (a0,a1) to minimize the cross-field variance of
+    P0_corr_f = g2ik_f - (a0 + a1 s_f/SNORM) D_f  at each rho (the true P0 is
+    field-independent).  Linear LSQ on the field-centered regressors."""
+    a = np.array([p[0] for p in profs])                # g2ik_f
+    D = np.array([p[0] - p[1] for p in profs])         # D_f = g2ik - g2h
+    C = np.array([(p[2] / SNORM) * (p[0] - p[1]) for p in profs])   # s_f D_f
+    msk = (GRID > 0.12) & (GRID < 0.575)
+    a, D, C = a[:, msk], D[:, msk], C[:, msk]
+    fin = np.isfinite(a) & np.isfinite(D) & np.isfinite(C)
+    # center across fields (axis 0), ignoring nans
+    def center(X):
+        Xm = np.nanmean(np.where(fin, X, np.nan), 0)
+        return (X - Xm)
+    A, B, Cc = center(a), center(D), center(C)
+    g = fin.all(0)                                     # rho columns finite in all fields
+    rows = np.isfinite(A) & np.isfinite(B) & np.isfinite(Cc)
+    sel = rows & g[None, :]
+    M = np.vstack([B[sel], Cc[sel]]).T
+    sol, *_ = np.linalg.lstsq(M, A[sel], rcond=None)
+    return sol[0], sol[1]
 
 
 def corrected_P0(pf, a0, a1):
@@ -141,17 +154,19 @@ def anchor(rg, mu, ref):
     return mua, np.sqrt(np.mean((np.interp(sc, rg, mua) - ref) ** 2))
 
 
-a0, a1 = ladder_fit(p2, p4)
-print('ladder fit (EOS-blind):  alpha0=%.3f  alpha1=%.3f  (alpha0 only: linear combo a=%.2f)'
-      % (a0, a1, 1 - a0))
+def field_mean(fn):
+    """Average a per-field array fn(profiles) over all fields, ignoring nans."""
+    return np.nanmean(np.array([fn(f[3]) for f in fields]), 0)
 
-# --- build the curves on GRID ---
-# pure IK contour
-P0_ik = 0.5 * (p2[0] + p4[0])
-# 4th-order gauge (ladder alpha0, alpha1=0), field-averaged
-P0_4 = 0.5 * (corrected_P0(p2, a0, 0.0) + corrected_P0(p4, a0, 0.0))
-# 4th+6th-order gauge, field-averaged
-P0_46 = 0.5 * (corrected_P0(p2, a0, a1) + corrected_P0(p4, a0, a1))
+
+a0, a1 = ladder_fit([f[3] for f in fields])
+print('ladder fit (EOS-blind, %d fields):  alpha0=%.3f  alpha1=%.3f  (alpha0 only: linear combo a=%.2f)'
+      % (len(fields), a0, a1, 1 - a0))
+
+# --- build the curves on GRID (averaged over the ladder) ---
+P0_ik = field_mean(lambda p: p[0])
+P0_4 = field_mean(lambda p: corrected_P0(p, a0, 0.0))
+P0_46 = field_mean(lambda p: corrected_P0(p, a0, a1))
 
 results = {}
 for lab, P0 in [('IK contour', P0_ik), ('4th-order gauge', P0_4), ('4th+6th gauge', P0_46)]:
@@ -164,13 +179,12 @@ for lab, P0 in [('IK contour', P0_ik), ('4th-order gauge', P0_4), ('4th+6th gaug
 # --- block-bootstrap band on the 4th+6th gauge (alpha fixed) ---
 nboot = 200
 boot = []
+def res(blocks):
+    i = rng.integers(0, len(blocks), len(blocks))
+    return np.mean([blocks[k] for k in i], 0)
 for _ in range(nboot):
-    def res(blocks):
-        i = rng.integers(0, len(blocks), len(blocks))
-        return np.mean([blocks[k] for k in i], 0)
-    b2 = field_profiles(res(u2[0]), res(u2[1]), res(u2[2]))
-    b4 = field_profiles(res(u4[0]), res(u4[1]), res(u4[2]))
-    P0b = 0.5 * (corrected_P0(b2, a0, a1) + corrected_P0(b4, a0, a1))
+    bp = [corrected_P0(field_profiles(res(f[2][0]), res(f[2][1]), res(f[2][2])), a0, a1) for f in fields]
+    P0b = np.nanmean(np.array(bp), 0)
     try:
         rg, mu = p0_to_mu0(P0b); mua, _ = anchor(rg, mu, mp)
         boot.append(np.interp(GRID, rg, mua, left=np.nan, right=np.nan))
@@ -204,7 +218,8 @@ for x in (0.10, 0.57):
 plt.text(0.075, -2.05, 'tail', color='gray', fontsize=8)
 plt.text(0.585, -2.05, 'tail', color='gray', fontsize=8)
 plt.xlabel(r'$\rho^*$'); plt.ylabel(r'$\mu_0^*$ (anchored)')
-plt.title(r'Fourth-order contour gauge ($\Delta U$ ladder 2+4): fixing the tails (N=100, $T^*=1.198$)')
+plt.title(r'Fourth-order contour gauge ($\Delta U$ ladder %s): fixing the tails (N=100, $T^*=1.198$)'
+          % '+'.join('%g' % f[1] for f in fields))
 plt.legend(fontsize=8, loc='upper left'); plt.grid(alpha=0.3); plt.tight_layout()
 plt.savefig('cube100_contour4.png', dpi=140)
 print('wrote cube100_contour4.png')

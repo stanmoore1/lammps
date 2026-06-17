@@ -56,13 +56,18 @@ eg = fc.local_eos(np.array([0.0, 2.0]), prof4, T, Lz, deg=6, smooth=6, grad_spec
 print('\n(C) vdW square-gradient fit (mu0+kappa rho'', single dUmax=4):  RMS=%.4f  kappa=%.3f'
       % (rms(eg['rho'], eg['mu0']), eg['kappa2'](0.3)))
 
-# ---------- (D) two-field mini-ladder: dUmax=2 + dUmax=4 ----------
+# ---------- (D) mini-ladder: dUmax=2 (+3) + 4 ----------
+import os
 rho2 = oz.fourier_cosine_smooth(fc._read_density('cube100_dens.out'), 6)
-amps = np.array([0.0, 1.0, 2.0])                       # AF = dUmax/2 for 0,2,4
-prof = np.array([np.full_like(rho2, rho2.mean()), rho2, rho4])
+ladder = [(1.0, rho2), (2.0, rho4)]                    # AF = dUmax/2 for 0,2,4
+if os.path.exists('cube100u3_dens.out'):
+    rho3 = oz.fourier_cosine_smooth(fc._read_density('cube100u3_dens.out'), 6)
+    ladder.insert(1, (1.5, rho3))
+amps = np.array([0.0] + [a for a, _ in ladder])
+prof = np.array([np.full_like(rho2, rho2.mean())] + [r for _, r in ladder])
 egl = fc.local_eos(amps, prof, T, Lz, deg=6, smooth=6, grad_spec={2: 0, 4: 0})
 ekl = kf.kernel_eos(amps, prof, T, Lz, deg=6, smax=2.5, nmodes=3, ridge=1e-3, smooth=6)
-print('\n(D) two-field ladder (dUmax=2 + dUmax=4):')
+print('\n(D) mini-ladder (dUmax=%s):' % '+'.join('%g' % (2 * a) for a, _ in ladder))
 print('    field-coupling gradient: RMS=%.4f   (single-field FC-gradient was ~0.33)'
       % rms(egl['rho'], egl['mu0']))
 print('    field-coupling kernel:   RMS=%.4f   (single-field FC-kernel was ~0.58)'
