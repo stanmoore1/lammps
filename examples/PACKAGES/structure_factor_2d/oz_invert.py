@@ -178,13 +178,19 @@ def fourier_cosine_deriv(y, nmodes, length):
     return Bd @ coef
 
 
-def _lj_u(r):
-    """LJ pair potential, eps = sigma = 1."""
+def _lj_u(r, rcut=None):
+    """LJ pair potential, eps = sigma = 1.  If rcut is given, return the
+    truncated-and-shifted (LJTS) potential: u(r)-u(rcut) for r<rcut, else 0 --
+    matching pair_style lj/cut <rcut> with pair_modify shift yes."""
     inv6 = r ** -6
-    return 4.0 * (inv6 * inv6 - inv6)
+    u = 4.0 * (inv6 * inv6 - inv6)
+    if rcut is None:
+        return u
+    ushift = 4.0 * (rcut ** -12 - rcut ** -6)
+    return np.where(r < rcut, u - ushift, 0.0)
 
 
-def mean_field_tail(dz, kvals, beta, r_split, smax, ns=4000):
+def mean_field_tail(dz, kvals, beta, r_split, smax, ns=4000, rcut=2.5):
     """Analytic mean-field (RPA) tail of the in-plane direct correlation function
     between two z-planes separated by dz:
 
@@ -201,7 +207,7 @@ def mean_field_tail(dz, kvals, beta, r_split, smax, ns=4000):
     from scipy.special import j0
     s = np.linspace(1e-3, smax, ns)
     r = np.sqrt(dz * dz + s * s)
-    Ct = np.where(r > r_split, -beta * _lj_u(r), 0.0)
+    Ct = np.where(r > r_split, -beta * _lj_u(r, rcut), 0.0)
     trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz
     M2 = trapz(s ** 3 * Ct, s)
     Chat = np.array([2.0 * np.pi * trapz(s * j0(k * s) * Ct, s) for k in kvals])
@@ -218,7 +224,7 @@ def mirror_symmetrize(Smats, rho):
 
 
 def second_moment(qs, Carr, active, nbins, kfit, dzs, temp, lx,
-                  fit_order=2, tail_rsplit=0.0):
+                  fit_order=2, tail_rsplit=0.0, rcut=2.5):
     """M2_ij = INT ds s^3 C_ij(s) for every bin pair, from the small-k behaviour of
     the inverted C_ij(k): C_ij(k) = C_ij(0) - (pi/2) k^2 M2_ij + O(k^4).
 
@@ -238,7 +244,7 @@ def second_moment(qs, Carr, active, nbins, kfit, dzs, temp, lx,
         smax = lx / 2.0                       # in-plane half-box
         for m in range(nbins):
             dz = (((m + nbins // 2) % nbins) - nbins // 2) * dzs   # min-image
-            tail[m] = mean_field_tail(abs(dz), ks, beta, tail_rsplit, smax)
+            tail[m] = mean_field_tail(abs(dz), ks, beta, tail_rsplit, smax, rcut=rcut)
     for ia, a in enumerate(active):
         for ib, b in enumerate(active):
             y = np.array([Carr[q][ia, ib] for q in ks])
@@ -290,7 +296,7 @@ def kb_chemical_potential(rho_bins, chat0, temp, h_star=0.183, poly=5):
 
 
 def intercept_matrix(qs, Carr, active, kfit, dz=None, beta=None, smax=None,
-                     tail_rsplit=0.0):
+                     tail_rsplit=0.0, rcut=2.5):
     """Full matrix of k->0 intercepts C_ij(0) = lim_{k->0} C_ij(k) (in-plane
     integral of the direct correlation function between bins i and j).
 
@@ -309,7 +315,7 @@ def intercept_matrix(qs, Carr, active, kfit, dz=None, beta=None, smax=None,
         for ib, b in enumerate(active):
             if tail_rsplit > 0.0:
                 Dz = abs(a - b) * dz
-                _, Ct = mean_field_tail(Dz, np.append(0.0, ks), beta, tail_rsplit, smax)
+                _, Ct = mean_field_tail(Dz, np.append(0.0, ks), beta, tail_rsplit, smax, rcut=rcut)
                 c0 = Ct[0]                              # analytic tail intercept
                 if Dz < tail_rsplit:                    # core present -> add residual
                     y = np.array([Carr[q][ia, ib] for q in ks])
@@ -462,7 +468,7 @@ def tz_gamma_from_sf(sf, args):
     Carr = {q: invert_oz(Smats[q], rho, dz, args.lx ** 2, active=active,
                          ridge=args.ridge)[0] for q in qs}
     M2 = second_moment(qs, Carr, active, args.nbins, args.kfit, dz, args.temp,
-                       args.lx, fit_order=args.fit_order, tail_rsplit=args.tail_rsplit)
+                       args.lx, fit_order=args.fit_order, tail_rsplit=args.tail_rsplit, rcut=args.rcut)
     rprime = fourier_cosine_deriv(rho, args.smooth, args.lz)
     return 0.5 * np.pi * args.temp * dz * dz * (rprime @ M2 @ rprime)
 
@@ -480,7 +486,7 @@ def dft_muih_from_sf(sf, args):
     Carr = {q: invert_oz(Smats[q], rho, dz, args.lx ** 2, active=active,
                          ridge=args.ridge)[0] for q in qs}
     C0 = intercept_matrix(qs, Carr, active, args.kfit, dz=dz, beta=1.0 / args.temp,
-                          smax=args.lx / 2, tail_rsplit=args.tail_rsplit)
+                          smax=args.lx / 2, tail_rsplit=args.tail_rsplit, rcut=args.rcut)
     if args.smooth_c0:
         C0 = smooth_intercept(C0, active, rho_s, deg=args.smooth_c0)
     mu_ih = dft_mu_ih(C0, rho_s[active], dz, args.temp)
@@ -516,7 +522,7 @@ def run_slab(args):
     # mean-field tail -beta u(r) and only the short-range residual is fit -- this
     # removes the small-k (large k_min) bias and is robust to noise / small boxes.
     M2 = second_moment(qs, Carr, active, na, args.kfit, dz, kT, args.lx,
-                       fit_order=args.fit_order, tail_rsplit=args.tail_rsplit)
+                       fit_order=args.fit_order, tail_rsplit=args.tail_rsplit, rcut=args.rcut)
 
     # density gradient: analytic derivative of the cosine fit (a sine series)
     z = (np.arange(na) + 0.5) * dz
@@ -596,7 +602,7 @@ def run_dft(args):
             for q in qs}
 
     C0 = intercept_matrix(qs, Carr, active, args.kfit, dz=dz, beta=1.0 / args.temp,
-                          smax=args.lx / 2, tail_rsplit=args.tail_rsplit)
+                          smax=args.lx / 2, tail_rsplit=args.tail_rsplit, rcut=args.rcut)
     if args.smooth_c0:
         C0 = smooth_intercept(C0, active, rho_s, deg=args.smooth_c0)
     mu_ih = dft_mu_ih(C0, rho_s[active], dz, args.temp)
@@ -652,6 +658,9 @@ def main():
                    help='[slab] use the analytic mean-field tail of c for '
                         'r > this (sigma) and fit only the short-range residual; '
                         '0 disables (much noisier). Requires scipy.')
+    p.add_argument('--rcut', type=float, default=2.5,
+                   help='pair cutoff of the (truncated+shifted) potential for the\n'
+                        'analytic mean-field c-tail; matches lj/cut rcut shift yes')
     p.add_argument('--smooth', type=int, default=6,
                    help='[slab] number of cosine modes to smooth rho(z)')
     p.add_argument('--ridge', type=float, default=1e-4,
