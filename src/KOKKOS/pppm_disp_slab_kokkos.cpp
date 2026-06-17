@@ -706,11 +706,15 @@ void PPPMDispSlabKokkos<DeviceType>::calibrate_bin_kk()
   // exact pairwise reference force -> d_fzref
   corr_raw_force_kk();
 
-  const int nb_cap = (int) (zprd / (0.2 * cutoff / 600.0) + 0.5);
+  // see PPPMDispSlab::calibrate_bin -- stop refining once the binned correction
+  // hits its intrinsic error floor, otherwise the O(nbins^2) per-step cost blows
+  // up as nb runs to the cap.
+  const int nb_cap = (int) (zprd / (0.02 * cutoff) + 0.5);    // dz >= 0.02*cutoff
   int nb = (int) (zprd / 0.1 + 0.5);
   if (nb < 8) nb = 8;
   int chosen = nb;
-  double err = 0.0;
+  double err = 0.0, prev_err = -1.0;
+  int prev_nb = nb;
 
   for (int it = 0; it < 20; it++) {
     corr_bin_force_kk(nb);
@@ -727,7 +731,15 @@ void PPPMDispSlabKokkos<DeviceType>::calibrate_bin_kk()
     MPI_Allreduce(&s_local, &sall, 1, MPI_DOUBLE, MPI_SUM, world);
     err = sqrt(sall / natoms);
     chosen = nb;
-    if (err < accuracy || nb >= nb_cap) break;
+    if (err < accuracy) break;                          // target met
+    if (prev_err > 0.0 && err > 0.7 * prev_err) {       // diminishing returns: at the floor
+      chosen = prev_nb;
+      err = prev_err;
+      break;
+    }
+    if (nb >= nb_cap) break;                            // safety cap
+    prev_err = err;
+    prev_nb = nb;
     nb *= 2;
   }
   bin_nbins = chosen;

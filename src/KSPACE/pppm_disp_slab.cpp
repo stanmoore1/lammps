@@ -1475,11 +1475,19 @@ void PPPMDispSlab::calibrate_bin()
 
   corr_raw_force(fref);    // exact target (once)
 
-  const int nb_cap = (int) (zprd / (0.2 * cutoff / 600.0) + 0.5);    // ~ zprd/0.001 cap
-  int nb = (int) (zprd / 0.1 + 0.5);                                 // start near dz = 0.1 sigma
+  // Refine the bin count by doubling, but stop as soon as refinement stops
+  // paying off.  The binned correction has an intrinsic error floor (set by the
+  // CIC/B-spline assignment), so a target below that floor can never be met --
+  // without the knee test below the loop would run to nb_cap, and since the
+  // per-step correction is O(nbins^2) (nwin grows with nbins) that makes the
+  // default pathologically slow.  Back off to the coarsest grid that is still
+  // within ~30% of the floor.
+  const int nb_cap = (int) (zprd / (0.02 * cutoff) + 0.5);    // dz >= 0.02*cutoff
+  int nb = (int) (zprd / 0.1 + 0.5);                          // start near dz = 0.1 sigma
   if (nb < 8) nb = 8;
   int chosen = nb;
-  double err = 0.0;
+  double err = 0.0, prev_err = -1.0;
+  int prev_nb = nb;
   for (int it = 0; it < 20; it++) {
     corr_bin_force(nb, fb);
     double s = 0.0;
@@ -1491,7 +1499,15 @@ void PPPMDispSlab::calibrate_bin()
     MPI_Allreduce(&s, &sall, 1, MPI_DOUBLE, MPI_SUM, world);
     err = sqrt(sall / natoms);    // RMS(binned - exact) corr force
     chosen = nb;
-    if (err < accuracy || nb >= nb_cap) break;
+    if (err < accuracy) break;                          // target met
+    if (prev_err > 0.0 && err > 0.7 * prev_err) {       // diminishing returns: at the floor
+      chosen = prev_nb;                                 // keep coarser grid (~same error)
+      err = prev_err;
+      break;
+    }
+    if (nb >= nb_cap) break;                            // safety cap
+    prev_err = err;
+    prev_nb = nb;
     nb *= 2;
   }
   bin_nbins = chosen;
