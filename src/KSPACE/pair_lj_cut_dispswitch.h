@@ -30,10 +30,12 @@ namespace LAMMPS_NS {
 // of two ways, selected by the matched kspace via extract("csb_full_shell"):
 //   0 (default, e.g. pppm/disp/slab): the attractive dispersion is switched off
 //     by (1 - S(r)); the reciprocal sum supplies the plane S(r)*u there.
-//   1 (ewald/disp/slab): the FULL dispersion u is evaluated (exact 3-D); the
-//     reciprocal sum's plane mean-field S*u over the shell is removed by its
-//     corr_csb(), so the pair gives the laterally-correlated shell interaction
-//     and the lateral-correlation residual in energy/pressure is eliminated.
+//   1 (ewald/disp/slab, pppm/disp/slab): full LJ is evaluated over the shell
+//     (repulsion + full dispersion, exact 3-D); the reciprocal sum's plane
+//     mean-field S*u over the shell is removed by corr_csb(), so the pair gives
+//     the laterally-correlated shell interaction and the lateral-correlation
+//     residual in energy/pressure is eliminated.  The switch only splits the
+//     1/r^6 dispersion; the 1/r^12 repulsion is short-range and always in full.
 // S is the same C3 septic smoothstep used by the kspace style.
 
 class PairLJCutDispSwitch : public PairLJCut {

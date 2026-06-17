@@ -137,24 +137,17 @@ void PairLJCutDispSwitch::compute(int eflag, int vflag)
       r2inv = 1.0 / rsq;
       r6inv = r2inv * r2inv * r2inv;
 
-      if (rsq < inner_rc2) {
+      if (rsq < inner_rc2 || csb_full_shell) {
 
-        // full LJ inside rcut (offset = 0; kspace continues the tail)
+        // full LJ to rcut+Delta (csb_full_shell) or to rcut (inner; kspace continues
+        // the dispersion tail).  The switch only splits the 1/r^6 dispersion between
+        // real and reciprocal space; the 1/r^12 repulsion is short-range and is
+        // computed in full here.  In csb_full_shell mode the reciprocal sum's plane
+        // mean-field S*u over the shell is removed by corr_csb(), so the pair supplies
+        // the exact 3-D dispersion as well as the repulsion to rcut+Delta.
         forcelj = r6inv * (lj1[itype][jtype] * r6inv - lj2[itype][jtype]);
         fpair = factor_lj * forcelj * r2inv;
         if (eflag) evdwl = factor_lj * r6inv * (lj3[itype][jtype] * r6inv - lj4[itype][jtype]);
-
-      } else if (csb_full_shell) {
-
-        // shell [rcut, rcut+Delta]: evaluate the FULL dispersion u = -lj4 r^-6
-        // (exact 3-D, laterally correlated).  The reciprocal sum's plane mean-field
-        // S*u over this shell is removed by ewald/disp/slab's corr_csb(), so the
-        // total long-range shell interaction is this exact pair sum.  (The r^-12
-        // repulsion is negligible beyond rcut and is dropped, as in the inner-only
-        // tail convention.)
-        const double lj4ij = lj4[itype][jtype];
-        fpair = -factor_lj * lj4ij * 6.0 * r6inv * r2inv;
-        if (eflag) evdwl = -factor_lj * lj4ij * r6inv;
 
       } else {
 
@@ -202,15 +195,12 @@ double PairLJCutDispSwitch::single(int /*i*/, int /*j*/, int itype, int jtype, d
   const double r2inv = 1.0 / rsq;
   const double r6inv = r2inv * r2inv * r2inv;
   double phi, forcelj;
-  if (rsq < inner_rc2) {
+  if (rsq < inner_rc2 || csb_full_shell) {
+    // full LJ (csb_full_shell evaluates the repulsion + full dispersion to rcut+Delta;
+    // the kspace plane mean-field S*u is removed by corr_csb)
     forcelj = r6inv * (lj1[itype][jtype] * r6inv - lj2[itype][jtype]);
     fforce = factor_lj * forcelj * r2inv;
     phi = r6inv * (lj3[itype][jtype] * r6inv - lj4[itype][jtype]);
-  } else if (csb_full_shell) {
-    // shell: full dispersion u = -lj4 r^-6 (kspace plane mean field removed by corr_csb)
-    const double lj4ij = lj4[itype][jtype];
-    fforce = -factor_lj * lj4ij * 6.0 * r6inv * r2inv;
-    phi = -lj4ij * r6inv;
   } else {
     const double r = sqrt(rsq), rinv = 1.0 / r;
     const double t = (r - cut_global) / sw_width;
