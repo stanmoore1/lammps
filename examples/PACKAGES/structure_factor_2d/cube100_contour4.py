@@ -219,11 +219,12 @@ plt.fill_between(GRID[m], band_on[m] - band[m], band_on[m] + band[m], color='tab
 # mark the tail regions the gauge is meant to fix
 for x in (0.10, 0.57):
     plt.axvline(x, color='gray', ls=':', lw=0.8)
-plt.text(0.075, -2.05, 'tail', color='gray', fontsize=8)
-plt.text(0.585, -2.05, 'tail', color='gray', fontsize=8)
+_yt = plt.ylim()[0] + 0.05 * (plt.ylim()[1] - plt.ylim()[0])
+plt.text(0.075, _yt, 'tail', color='gray', fontsize=8)
+plt.text(0.585, _yt, 'tail', color='gray', fontsize=8)
 plt.xlabel(r'$\rho^*$'); plt.ylabel(r'$\mu_0^*$ (anchored)')
-plt.title(r'Fourth-order contour gauge ($\Delta U$ ladder %s): fixing the tails (N=100, $T^*=1.198$)'
-          % '+'.join('%g' % f[1] for f in fields))
+plt.title(r'Fourth-order contour gauge ($\Delta U$ ladder %s): fixing the tails (N=100, $T^*=%g$)'
+          % ('+'.join('%g' % f[1] for f in fields), T))
 plt.legend(fontsize=8, loc='upper left'); plt.grid(alpha=0.3); plt.tight_layout()
 _out = 'cube100Tc_contour4.png' if TCSET else 'cube100_contour4.png'
 plt.savefig(_out, dpi=140)
