@@ -18,22 +18,37 @@ import numpy as np
 sys.path.insert(0, '.'); sys.path.insert(0, '/home/user/lammps/ljts_eos')
 import oz_invert as oz, contour_pressure as cp
 import pets_eos as pets, thol2015_ljts_eos as thol
+from scipy.signal import savgol_filter
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 T = 0.980
 Lx = 10.244851881402800231; Lz = 30.734555644208398917; area = Lx * Lx
-SM = int(sys.argv[1]) if len(sys.argv) > 1 else 24      # cosine modes (resolve the interface)
+# Subcritical profiles have flat liquid/vapor plateaus + a sharp interface, so the
+# GLOBAL cosine basis rings (Gibbs).  Use a LOCAL Savitzky-Golay filter instead.
+SGW = int(sys.argv[1]) if len(sys.argv) > 1 else 15     # savgol window (odd # of bins)
+SGP = 3                                                 # savgol polynomial order
 LADDER = [('T0.980_d0.2', 0.2, 'tab:green'), ('T0.980_d0.4', 0.4, 'tab:orange'),
           ('T0.980_d0.8', 0.8, 'tab:red')]
 pP = lambda r: pets.properties(T, r)['p']
 tP = lambda r: thol.properties(T, r)['p']
 
 
+def sg(y):
+    return savgol_filter(y, SGW, SGP, mode='wrap')      # periodic, local -> no Gibbs ringing
+
+
 def field(tag):
-    rik, PNik, PTik = cp.ik_profile('%s_ikstress.out' % tag, Lz, SM)
-    rh, PNh, PTh = cp.h_profile('%s_hstress.out' % tag, '%s_dens.out' % tag, Lz, area, T, SM)
+    ik = cp.read_avetime_vec('%s_ikstress.out' % tag)   # IK: stress/cartesian (kin+conf)
+    rik = sg(ik[:, 2])
+    PNik = sg(ik[:, 5] + ik[:, 8])
+    PTik = sg(0.5 * ((ik[:, 3] + ik[:, 6]) + (ik[:, 4] + ik[:, 7])))
+    de = cp.read_chunk('%s_dens.out' % tag); st = cp.read_chunk('%s_hstress.out' % tag)
+    nb = len(de); Vbin = area * (Lz / nb)
+    rh = sg(de[:, 3])                                    # Harasima: per-atom virial + rho*kT
+    PNh = sg(-st[:, 5] / Vbin) + rh * T
+    PTh = sg(-0.5 * (st[:, 3] + st[:, 4]) / Vbin) + rh * T
     zik = (np.arange(len(rik)) + 0.5) / len(rik) * Lz
-    zh = (np.arange(len(rh)) + 0.5) / len(rh) * Lz
+    zh = (np.arange(nb) + 0.5) / nb * Lz
     zg = np.linspace(0, Lz, 600, endpoint=False) + 0.5 * Lz / 600
     P0ik = np.interp(zg, zik, 1.5 * PTik - 0.5 * PNik, period=Lz)
     P0h = np.interp(zg, zh, 1.5 * PTh - 0.5 * PNh, period=Lz)
@@ -51,7 +66,7 @@ def p0_rms(rho, P0z):
 
 
 alphas = np.linspace(-1.0, 2.5, 71)
-print('SUBCRITICAL 0.9 Tc (T*=0.980) gradient-expansion gauge test  [SM=%d]:' % SM)
+print('SUBCRITICAL 0.9 Tc (T*=0.980) gradient-expansion gauge test  [savgol w=%d p=%d]:' % (SGW, SGP))
 fig, ax = plt.subplots(1, 2, figsize=(13, 5.2))
 abest = {}
 for tag, dU, col in LADDER:
@@ -83,6 +98,16 @@ print('alpha(dU) =', dict((d, round(abest[d], 2)) for d in dU_arr))
 print('wrote ljts_gauge_theory.png')
 
 # --- payoff plot: the recovered vdW loop P0(rho) vs PeTS & Thol at 0.9 Tc ---
+# P0(rho) is single-valued, so bin-average P0 over rho-bins (collapses the noisy
+# liquid/vapor plateaus to clean points; the two interfaces reinforce each other).
+def loop_binned(rho, P0, edges):
+    idx = np.digitize(rho, edges) - 1
+    rc = 0.5 * (edges[1:] + edges[:-1])
+    m = np.array([P0[idx == k].mean() if np.any(idx == k) else np.nan for k in range(len(rc))])
+    return rc, m
+
+
+redges = np.linspace(0.03, 0.66, 46)
 plt.figure(figsize=(8.5, 6))
 rr = np.linspace(0.03, 0.66, 300)
 plt.plot(rr, [pP(x) for x in rr], 'k-', lw=2.6, label='PeTS EOS (vdW loop)')
@@ -90,11 +115,12 @@ plt.plot(rr, [tP(x) for x in rr], '--', color='dimgray', lw=2.0, label='Thol 201
 plt.axhline(0, color='gray', lw=0.6)
 for tag, dU, col in LADDER:
     zg, rho, P0ik, P0h = field(tag)
-    o = np.argsort(rho)
-    plt.plot(rho[o], P0ik[o], '-', color=col, lw=1.6, alpha=0.9, label=r'IK contour, $\Delta U=%g$' % dU)
-    plt.plot(rho[o], P0h[o], ':', color=col, lw=1.6, alpha=0.9)
+    rc, mik = loop_binned(rho, P0ik, redges)
+    _, mh = loop_binned(rho, P0h, redges)
+    plt.plot(rc, mik, '-', color=col, lw=1.8, alpha=0.95, label=r'IK contour, $\Delta U=%g$' % dU)
+    plt.plot(rc, mh, ':', color=col, lw=1.8, alpha=0.95)
 plt.xlabel(r'$\rho^*$'); plt.ylabel(r'$P_0^*$')
 plt.title(r'0.9 $T_c$ ($T^*=0.980$): contour recovery of the van der Waals loop  (solid=IK, dotted=H)')
 plt.legend(fontsize=8, ncol=2); plt.grid(alpha=0.3); plt.ylim(-0.06, 0.18)
 plt.tight_layout(); plt.savefig('ljts_vdw_loop.png', dpi=140)
-print('wrote ljts_vdw_loop.png')
+print('wrote ljts_vdw_loop.png  (rho-binned)')
