@@ -1,9 +1,10 @@
-# CPP LJTS equilibration phase (INTEL package, double precision).  Equilibrates the
-# field-pinned two-phase density wave, then writes a restart for the production phase
-# (which uses OPENMP because the INTEL package cannot produce the per-atom virials
-# needed for the Harasima pressure contour).
+# CPP LJTS equilibration phase (plain MPI, double precision).  Equilibrates the
+# field-pinned two-phase density wave, then writes a restart for the production phase.
+# Runs as pure MPI (4 ranks) rather than threaded packages: LAMMPS decomposes the box
+# across ranks, which is more efficient here, and the plain lj/cut style provides the
+# per-atom virials the Harasima pressure contour needs in production.
 #
-# Run:  lmp -sf intel -pk intel 0 omp <n> mode double -in in.cpp_ljts_equil \
+# Run:  mpirun -np <n> lmp -in in.cpp_ljts_equil \
 #           -var T <T> -var dUmax <dU> -var seed <s> -var tag <name>
 
 variable        T       index 0.98
@@ -29,8 +30,8 @@ mass            1 1.0
 pair_style      lj/cut 2.5
 pair_coeff      1 1 1.0 1.0 2.5
 pair_modify     shift yes                # truncated+shifted (PeTS), no tail correction
-neighbor        0.3 bin
-neigh_modify    every 10 delay 0 check yes
+neighbor        0.5 bin
+neigh_modify    every 1 delay 0 check yes    # check every step: avoids dangerous builds
 
 minimize        1.0e-4 1.0e-6 1000 10000
 reset_timestep  0
