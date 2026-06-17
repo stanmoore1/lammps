@@ -1,39 +1,42 @@
 # Compare non-damped (SB), damped (SSB), and compact-switch (CSB) dispersion
-# slab Ewald on the same config: single-point PE/pressure must agree (same
-# physical 1/r^6 system), and CSB needs no corr() and few kmax modes.
+# slab Ewald on the same config.  CSB evaluates the full dispersion in real space
+# out to rcut+Delta (the switch shell is exact 3-D; the reciprocal sum's plane
+# mean-field S*u there is removed by corr_csb), so CSB(rcut,Delta) reproduces the
+# method at the OUTER cutoff rcut+Delta.  Hence CSB at 3.0/0.3 is compared with
+# SSB/SB at cutoff 3.3, and single-point PE/pressure agree to ~1e-4.
 
 units           lj
 atom_style      atomic
 boundary        p p p
 
-# ---------- damped (SSB) reference ----------
+# ---------- damped (SSB) reference at the CSB outer cutoff 3.3 ----------
 read_data       data.lj_slab
-pair_style      lj/cut 3.0
+pair_style      lj/cut 3.3
 pair_coeff      1 1 1.0 1.0
-kspace_style    ewald/disp/slab 1.0e-4
+kspace_style    ewald/disp/slab 1.0e-6
 kspace_modify   damp yes corr bin
 thermo_style    custom step pe press pxx pyy pzz
 run             0
-print           "SSB  PE=$(pe:%.8f)  P=$(press:%.8f)  Pxx=$(pxx:%.8f)  Pzz=$(pzz:%.8f)"
+print           "SSB(3.3)  PE=$(pe:%.8f)  Pxx=$(pxx:%.8f)  Pzz=$(pzz:%.8f)"
 
-# ---------- non-damped (SB) reference ----------
+# ---------- non-damped (SB) reference at 3.3 ----------
 clear
 read_data       data.lj_slab
-pair_style      lj/cut 3.0
+pair_style      lj/cut 3.3
 pair_coeff      1 1 1.0 1.0
-kspace_style    ewald/disp/slab 1.0e-4
+kspace_style    ewald/disp/slab 1.0e-6
 kspace_modify   damp no
 thermo_style    custom step pe press pxx pyy pzz
 run             0
-print           "SB   PE=$(pe:%.8f)  P=$(press:%.8f)  Pxx=$(pxx:%.8f)  Pzz=$(pzz:%.8f)"
+print           "SB(3.3)   PE=$(pe:%.8f)  Pxx=$(pxx:%.8f)  Pzz=$(pzz:%.8f)"
 
-# ---------- compact switch (CSB), Delta = 0.2*rcut ----------
+# ---------- compact switch (CSB), rcut=3.0, Delta=0.3 (outer cutoff 3.3) ----------
 clear
 read_data       data.lj_slab
-pair_style      lj/cut/dispswitch 3.0 0.6
+pair_style      lj/cut/dispswitch 3.0 0.3
 pair_coeff      1 1 1.0 1.0
-kspace_style    ewald/disp/slab 1.0e-4
+kspace_style    ewald/disp/slab 1.0e-6
 kspace_modify   damp compact
 thermo_style    custom step pe press pxx pyy pzz
 run             0
-print           "CSB  PE=$(pe:%.8f)  P=$(press:%.8f)  Pxx=$(pxx:%.8f)  Pzz=$(pzz:%.8f)"
+print           "CSB(3.0,0.3)  PE=$(pe:%.8f)  Pxx=$(pxx:%.8f)  Pzz=$(pzz:%.8f)"

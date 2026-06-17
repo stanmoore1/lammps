@@ -24,12 +24,17 @@ PairStyle(lj/cut/dispswitch,PairLJCutDispSwitch);
 
 namespace LAMMPS_NS {
 
-// Matched short-range pair style for kspace_style ewald/disp/slab with
+// Matched short-range pair style for the slab dispersion solvers with
 // "kspace_modify damp compact".  The full LJ is computed to the inner cutoff
-// rcut; the attractive 1/r^6 dispersion is then smoothly switched off over the
-// shell [rcut, rcut+Delta] by the factor (1 - S(r)), so that pair + kspace
-// (which supplies S(r)*tail) reproduce the full dispersion.  S is the same C3
-// septic smoothstep used by the kspace style.
+// rcut.  Over the shell [rcut, rcut+Delta] the 1/r^6 dispersion is handled in one
+// of two ways, selected by the matched kspace via extract("csb_full_shell"):
+//   0 (default, e.g. pppm/disp/slab): the attractive dispersion is switched off
+//     by (1 - S(r)); the reciprocal sum supplies the plane S(r)*u there.
+//   1 (ewald/disp/slab): the FULL dispersion u is evaluated (exact 3-D); the
+//     reciprocal sum's plane mean-field S*u over the shell is removed by its
+//     corr_csb(), so the pair gives the laterally-correlated shell interaction
+//     and the lateral-correlation residual in energy/pressure is eliminated.
+// S is the same C3 septic smoothstep used by the kspace style.
 
 class PairLJCutDispSwitch : public PairLJCut {
  public:
@@ -43,6 +48,11 @@ class PairLJCutDispSwitch : public PairLJCut {
  protected:
   double sw_width;     // switch width Delta
   double inner_rc2;    // rcut^2 (inner boundary; full LJ for r < rcut)
+  // shell [rcut, rcut+Delta] treatment, set via extract("csb_full_shell") by the
+  // matched kspace: 0 = (1-S)*u complement (kspace supplies the plane S*u, e.g.
+  // pppm/disp/slab); 1 = full u (ewald/disp/slab removes the plane S*u in corr_csb
+  // so the pair gives the exact 3-D shell interaction).
+  int csb_full_shell;
   static double sw_S(double t);
   static double sw_dS(double t);
 };

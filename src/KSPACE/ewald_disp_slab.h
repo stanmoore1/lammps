@@ -83,15 +83,17 @@ class EwaldDispSlab : public KSpace {
   void corr();                        // damped slab correction dispatcher
   void corr_raw();                    // exact pairwise (global z-gather) correction
   void corr_bin();                    // z-binned (1D particle-mesh, CIC) correction
-  // compact-switch shell virial correction: subtract the plane (mean-field) virial
-  // of (S u)' over [rcut, rcut+Delta] so the pair's exact full-u' shell virial
-  // replaces it (removes the lateral-correlation pressure residual).  Mirrors the
-  // damped corr_raw/corr_bin but on the shell slice.  Selected by corr_mode.
+  // compact-switch shell correction: subtract the plane (mean-field) energy, z-force
+  // and virial of S*u over [rcut, rcut+Delta] (what the reciprocal sum injects there
+  // with a laterally-uniform density) so the matched pair's exact 3-D full-u shell
+  // interaction replaces it (removes the lateral-correlation residual in energy AND
+  // pressure).  Mirrors the damped corr_raw/corr_bin but on the shell slice.
+  double *wEgrid, *wFgrid;            // tabulated plane energy / z-force kernels
   double *wTgrid, *wNgrid;            // tabulated plane virial kernels w_T(dz), w_N(dz)
   int nwgrid;                         // grid points on [0, rcut+Delta]
   double wdz;                         // grid spacing
-  void build_shell_vkernels();        // tabulate w_T, w_N at setup
-  void shell_vkernel(double adz, double &wT, double &wN);    // interpolate at |dz|
+  void build_shell_vkernels();        // tabulate w_E, w_F, w_T, w_N at setup
+  void shell_vkernel(double adz, double &wE, double &wF, double &wT, double &wN);    // interp
   void corr_csb();                    // dispatcher (compact-switch virial correction)
   void corr_csb_raw();                // global z-gather (N^2)
   void corr_csb_bin();                // z-binned
