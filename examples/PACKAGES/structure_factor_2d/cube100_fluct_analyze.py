@@ -12,6 +12,7 @@ import sys
 import numpy as np
 sys.path.insert(0, '/home/user/lammps/ljts_eos')
 import pets_eos as pets
+import thol2015_ljts_eos as thol
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 T = 1.198; L = 6.8582414181223398941; Lz = L
@@ -42,6 +43,8 @@ def pmu(r): return T*np.log(r) + pets.properties(T, r)['mu_res']
 plt.figure(figsize=(8.5, 6))
 rr = np.linspace(0.05, 0.6, 200)
 plt.plot(rr, np.array([pmu(x) for x in rr]), 'k-', lw=2.5, label='PeTS EOS')
+plt.plot(rr, np.array([T*np.log(x)+thol.properties(T, x)['mu_res'] for x in rr]),
+         '--', color='dimgray', lw=2.0, label='Thol 2015 EOS')
 sc = np.linspace(0.15, 0.55, 40); mp = np.array([pmu(x) for x in sc])
 for Nbins, col in [(12, 'tab:blue'), (16, 'tab:green'), (24, 'tab:red')]:
     v = L*L*(Lz/Nbins)

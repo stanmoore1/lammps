@@ -9,6 +9,7 @@ import numpy as np
 sys.path.insert(0, '.'); sys.path.insert(0, '/home/user/lammps/ljts_eos')
 import oz_invert as oz, field_coupling as fc
 import pets_eos as pets
+import thol2015_ljts_eos as thol
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 tag = sys.argv[1] if len(sys.argv) > 1 else 'cube100'
@@ -158,6 +159,7 @@ except Exception as e:
 plt.figure(figsize=(8.5, 6))
 rr = np.linspace(0.06, 0.58, 200)
 plt.plot(rr, [T*np.log(x)+pets.properties(T, x)['mu_res'] for x in rr], 'k-', lw=2.5, label='PeTS EOS')
+plt.plot(rr, [T*np.log(x)+thol.properties(T, x)['mu_res'] for x in rr], '--', color='dimgray', lw=2.0, label='Thol 2015 EOS')
 for lab, ((gm, gs, rms), col) in curves.items():
     plt.fill_between(grid, gm-gs, gm+gs, color=col, alpha=0.25)
     plt.plot(grid, gm, 'o-', ms=3, color=col, label='%s (RMS %.3f$\\pm$%.3f)' % (lab, rms, np.median(gs)))
