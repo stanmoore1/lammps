@@ -98,13 +98,24 @@ def ladder_fit(profs):
 
 a0, a1 = ladder_fit(gp)
 print('(3) contour gauge ladder fit (EOS-blind): alpha0=%.3f alpha1=%.3f' % (a0, a1))
+
+
+def p0grid_to_mu0(P0grid):
+    """mu0 by Gibbs-Duhem in rho-space through the loop (deg-6 fit of P0(rho))."""
+    m = np.isfinite(P0grid) & (GRID > 0.09) & (GRID < 0.61)
+    cf = np.polyfit(GRID[m], P0grid[m], 6); dP = np.polyder(np.poly1d(cf))
+    rg = np.linspace(GRID[m].min(), GRID[m].max(), 200)
+    mu = np.concatenate([[0], np.cumsum(0.5 * (dP(rg[1:]) / rg[1:] + dP(rg[:-1]) / rg[:-1]) * np.diff(rg))])
+    return rg, anchor_mu(rg, mu), np.polyval(cf, rg)
+
+
+# field-averaged pure contours (the alpha=1 / alpha=0 endpoints) + the ladder gauge
+P0ik = np.nanmean(np.array([p[0] for p in gp]), 0)
+P0h = np.nanmean(np.array([p[1] for p in gp]), 0)
 P0g = np.nanmean(np.array([p[0] - (a0 + a1 * p[2] / SN) * (p[0] - p[1]) for p in gp]), 0)
-# mu0 by Gibbs-Duhem in rho-space through the loop (deg-6 fit of P0(rho))
-m = np.isfinite(P0g) & (GRID > 0.09) & (GRID < 0.61)
-cf = np.polyfit(GRID[m], P0g[m], 6); dP = np.polyder(np.poly1d(cf))
-rgg = np.linspace(GRID[m].min(), GRID[m].max(), 200)
-mu0g = np.concatenate([[0], np.cumsum(0.5 * (dP(rgg[1:]) / rgg[1:] + dP(rgg[:-1]) / rgg[:-1]) * np.diff(rgg))])
-res['4th-order contour gauge'] = (rgg, anchor_mu(rgg, mu0g), np.polyval(cf, rgg), 'tab:red')
+res['IK contour'] = (*p0grid_to_mu0(P0ik), 'tab:blue')
+res['H contour'] = (*p0grid_to_mu0(P0h), 'tab:green')
+res['4th-order contour gauge'] = (*p0grid_to_mu0(P0g), 'tab:red')
 
 
 def rms_mu(rg, mu):
@@ -120,10 +131,14 @@ ax[0].plot(rr, [tmu(x) for x in rr], '--', color='dimgray', lw=2, label='Thol 20
 ax[1].plot(rr, [pP(x) for x in rr], 'k-', lw=2.6, label='PeTS EOS')
 ax[1].plot(rr, [tP(x) for x in rr], '--', color='dimgray', lw=2, label='Thol 2015 EOS')
 ax[1].axhline(0, color='gray', lw=0.6)
-for lab, (rg, mu, P0, col) in res.items():
+order = ['IK contour', 'H contour', 'FC-gradient ladder', 'FC-kernel ladder', '4th-order contour gauge']
+for lab in [l for l in order if l in res]:
+    rg, mu, P0, col = res[lab]
     r = rms_mu(rg, mu)
-    ax[0].plot(rg, mu, '-', color=col, lw=2, label='%s (mu0 RMS %.3f)' % (lab, r))
-    ax[1].plot(rg, P0, '-', color=col, lw=2, label=lab)
+    pure = 'contour' in lab and 'gauge' not in lab          # raw IK / H endpoints
+    ls, lw, al = (('--', 1.6, 0.8) if pure else ('-', 2.4, 1.0))
+    ax[0].plot(rg, mu, ls, color=col, lw=lw, alpha=al, label='%s (mu0 RMS %.3f)' % (lab, r))
+    ax[1].plot(rg, P0, ls, color=col, lw=lw, alpha=al, label=lab)
     print('   %-26s mu0 RMS vs PeTS = %.4f' % (lab, r))
 ax[0].set_xlabel(r'$\rho^*$'); ax[0].set_ylabel(r'$\mu_0^*$'); ax[0].set_title(r'0.9 $T_c$: ladder-method $\mu_0(\rho)$')
 ax[0].legend(fontsize=8); ax[0].grid(alpha=0.3)
