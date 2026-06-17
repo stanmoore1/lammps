@@ -1,0 +1,10 @@
+Verification inputs for the FFT structure-factor computes (KSPACE):
+
+  in.verify_sf_fft_3d : compute structure/factor/fft     vs structure/factor
+  in.verify_sf_fft_2d : compute structure/factor/2d/fft  vs structure/factor/2d
+
+Each runs both the FFT (Kaiser-Bessel NUFFT mesh) and the direct-DFT compute on
+the same disordered config and writes their global arrays to *_dft.out / *_fft.out
+for element-by-element comparison.  Agreement is mesh-resolution limited
+(~1e-6 in 3D, ~1e-4 in 2D at the default order/oversampling) and independent of
+the MPI rank count.

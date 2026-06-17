@@ -1,0 +1,25 @@
+# verify compute structure/factor/fft (FFT) vs structure/factor (direct DFT)
+units           lj
+atom_style      atomic
+lattice         fcc 0.8
+region          box block 0 6 0 6 0 6
+create_box      1 box
+create_atoms    1 box
+mass            1 1.0
+velocity        all create 1.0 12345 dist gaussian
+
+pair_style      lj/cut 2.5
+pair_coeff      1 1 1.0 1.0
+neighbor        0.3 bin
+neigh_modify    every 1 delay 0 check yes
+
+fix             1 all nve
+timestep        0.005
+run             300                      # disorder the lattice -> nontrivial S(k)
+
+compute         sf  all structure/factor
+compute         sff all structure/factor/fft
+
+fix             d1 all ave/time 1 1 1 c_sf[1]  c_sf[2]  c_sf[3]  mode vector file sf_dft.out
+fix             d2 all ave/time 1 1 1 c_sff[1] c_sff[2] c_sff[3] mode vector file sf_fft.out
+run             1
