@@ -44,17 +44,26 @@ curves['LDA'] = (rho_z.copy(), -U.copy())
 try:
     rik, PNik, PTik = cp.ik_profile('%s_ikstress.out' % tag, Lz, smooth)
     nbk = len(rik); zk = (np.arange(nbk)+0.5)*(Lz/nbk)
-    rho_k = oz.fourier_cosine_smooth(fc._read_density('%s_dens.out' % tag), smooth)
     fext_k = 2.0*np.pi*AF*np.sin(2.0*np.pi*zk/Lz)/Lz
-    PN_fb = np.concatenate([[0.0], np.cumsum(0.5*(rho_k[1:]*fext_k[1:]+rho_k[:-1]*fext_k[:-1])*(Lz/nbk))])
-    PN_fb -= PN_fb.mean()
+    # exact momentum balance dPN/dz = rho*f_ext, integrated from the (clean) IK density
+    integrand = rik*fext_k
+    PN_fb = np.concatenate([[0.0], np.cumsum(0.5*(integrand[1:]+integrand[:-1])*(Lz/nbk))])
+    PN_fb -= PN_fb.mean()                          # gauge (cancels in dP0/dz)
     P0_fb = 1.5*PTik - 0.5*PN_fb
     r2, mu, _ = cp.mu0_from_p0(rik, P0_fb, Lz, smooth)
     curves['force-balance'] = (r2, mu)
-    # contour-direct (measured PN) for contrast
+    # IK and H contours, and their average
     r3, mu3, _ = cp.mu0_from_p0(rik, cp.p0_ik(PNik, PTik), Lz, smooth)
     curves['IK-contour'] = (r3, mu3)
+    rh, PNh, PTh = cp.h_profile('%s_hstress.out' % tag, '%s_dens.out' % tag, Lz, L*L, T, smooth)
+    rH, muH, _ = cp.mu0_from_p0(rh, cp.p0_ik(PNh, PTh), Lz, smooth)
+    curves['H-contour'] = (rH, muH)
+    # IK+H average P0 (the two contours bracket the truth; average cancels opposite bias)
+    P0avg = 0.5*(cp.p0_ik(PNik, PTik) + cp.p0_ik(PNh, PTh))
+    ra, mua, _ = cp.mu0_from_p0(rik, P0avg, Lz, smooth)
+    curves['IK+H avg'] = (ra, mua)
 except Exception as e:
+    import traceback; traceback.print_exc()
     print('contour/force-balance failed:', e)
 
 # 3) forward Euler-Lagrange fit: mu0(rho)=T ln rho + sum_m c_m m rho^(m-1),
