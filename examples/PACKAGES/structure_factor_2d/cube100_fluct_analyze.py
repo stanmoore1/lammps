@@ -30,7 +30,9 @@ def parse_dump(path):
     return np.array(frames)
 
 
-Z = parse_dump('cube100_zdump.lammpstrj') % Lz
+dumpfile = sys.argv[1] if len(sys.argv) > 1 else 'cube100_zdump.lammpstrj'
+pngfile = dumpfile.replace('_zdump.lammpstrj', '_fluct.png')
+Z = parse_dump(dumpfile) % Lz
 print('frames=%d, atoms=%d' % Z.shape)
 
 
@@ -60,5 +62,5 @@ for Nbins, col in [(12, 'tab:blue'), (16, 'tab:green'), (24, 'tab:red')]:
 plt.xlabel(r'$\rho^*$'); plt.ylabel(r'$\mu_0^*$ (anchored)')
 plt.title(r'Occupancy-fluctuation EOS recovery, N=100 cubic $T^*=1.198$')
 plt.legend(fontsize=8); plt.grid(alpha=0.3); plt.tight_layout()
-plt.savefig('cube100_fluct.png', dpi=140)
-print('wrote cube100_fluct.png')
+plt.savefig(pngfile, dpi=140)
+print('wrote ' + pngfile)
