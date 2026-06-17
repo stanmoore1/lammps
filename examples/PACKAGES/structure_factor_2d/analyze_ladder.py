@@ -24,11 +24,13 @@ def box_dims(rho, N=1000, aspect=3.0):
     V = N / rho; Lx = (V / aspect) ** (1.0 / 3.0); return Lx, aspect * Lx
 
 
-def load_manifest(T):
+def load_manifest(T, smooth=10):
     rows = [l.split(',') for l in open('ladder_T%s.csv' % T) if l.strip() and not l.startswith('#')]
     dus = [float(r[0]) for r in rows]
     files = [r[2].strip() for r in rows]
-    profs = [fc._read_density(f) for f in files]
+    # fit each measured density profile to a 1D cosine (Fourier) series to suppress
+    # bin noise before it propagates into the gradient field-coupling EOS.
+    profs = [oz.fourier_cosine_smooth(fc._read_density(f), smooth) for f in files]
     amps = np.array([0.0] + [d / 2.0 for d in dus])
     profiles = np.array([np.full_like(profs[0], np.mean(profs[0]))] + profs)
     return amps, profiles, dus, files
@@ -44,7 +46,7 @@ def pets_mu0(T, rho):
 
 def analyze_T(T, rho_avg, smooth=10):
     Lx, Lz = box_dims(rho_avg)
-    amps, profiles, dus, files = load_manifest(T)
+    amps, profiles, dus, files = load_manifest(T, smooth)
     # field coupling: gradient expansion and nonlocal kernel
     eg = fc.local_eos(amps, profiles, T, Lz, deg=6, smooth=smooth, grad_spec={2: 0, 4: 0})
     ek = kf.kernel_eos(amps, profiles, T, Lz, deg=6, smax=2.5, nmodes=3, ridge=1e-3, smooth=smooth)
