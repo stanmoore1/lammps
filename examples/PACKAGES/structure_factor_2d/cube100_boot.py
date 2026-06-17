@@ -4,6 +4,7 @@ N=100 CPP torture runs.  Usage: cube100_boot.py <tag> <dumax>
 (tag = cube100 or cube100u4).  Each fix ave/* window is a block; we resample the
 blocks with replacement, recompute mu0(rho) on a fixed grid per resample, and band
 = +/- std over resamples.  The dump-based fluctuation method blocks the frames."""
+import os
 import sys
 import numpy as np
 sys.path.insert(0, '.'); sys.path.insert(0, '/home/user/lammps/ljts_eos')
@@ -153,12 +154,14 @@ try:
     print('OZ-KB: %d blocks' % len(sfb))
 except Exception as e:
     print('OZ-KB failed:', e)
-# FC-gradient
-try:
-    db = read_chunk_blocks('%s_dens.out' % tag)
-    curves['FC-gradient'] = (boot(db, fc_grad_mu0), 'tab:orange')
-except Exception as e:
-    print('FC-gradient failed:', e)
+# FC-gradient: single-field density-only inversion -- omitted from the plot (its huge
+# near-critical swing + error band skew the y-scale). Set FCGRAD=1 to include it.
+if os.environ.get('FCGRAD'):
+    try:
+        db = read_chunk_blocks('%s_dens.out' % tag)
+        curves['FC-gradient'] = (boot(db, fc_grad_mu0), 'tab:orange')
+    except Exception as e:
+        print('FC-gradient failed:', e)
 
 # plot
 plt.figure(figsize=(8.5, 6))
