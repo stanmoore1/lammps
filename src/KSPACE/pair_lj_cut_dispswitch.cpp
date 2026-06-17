@@ -92,6 +92,15 @@ double PairLJCutDispSwitch::init_one(int i, int j)
 
 void PairLJCutDispSwitch::compute(int eflag, int vflag)
 {
+  // csb_full_shell evaluates full LJ over the whole [0, rcut+Delta] range (the
+  // switch lives entirely in the kspace S*u split + corr_csb), which is exactly
+  // what the optimized base PairLJCut::compute does with cut = rcut+Delta and no
+  // energy offset.  Delegate to it so the matched pair is as fast as lj/cut.
+  if (csb_full_shell) {
+    PairLJCut::compute(eflag, vflag);
+    return;
+  }
+
   int i, j, ii, jj, inum, jnum, itype, jtype;
   double xtmp, ytmp, ztmp, delx, dely, delz, evdwl, fpair;
   double rsq, r2inv, r6inv, forcelj, factor_lj;
