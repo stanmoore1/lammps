@@ -5,13 +5,15 @@ curves fan out systematically with field strength.  The dUmax->0 trend (and the
 ladder-fit 4th-order gauge from cube100_contour4) is what removes that error.
 Each curve carries its block-bootstrap band; PeTS and Thol 2015 shown."""
 import sys
+import os
 import numpy as np
 sys.path.insert(0, '.'); sys.path.insert(0, '/home/user/lammps/ljts_eos')
 import oz_invert as oz
 import pets_eos as pets, thol2015_ljts_eos as thol
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
-T = 1.198; L = 6.8582414181223398941; Lz = L; area = L * L
+TCSET = bool(os.environ.get('TCSET'))                  # TCSET=1 -> Tc=1.089 ladder
+T = 1.089 if TCSET else 1.198; L = 6.8582414181223398941; Lz = L; area = L * L
 pmu = lambda r: T * np.log(r) + pets.properties(T, r)['mu_res']
 tmu = lambda r: T * np.log(r) + thol.properties(T, r)['mu_res']
 sc = np.linspace(0.14, 0.55, 40); mp = np.array([pmu(x) for x in sc])
@@ -54,8 +56,10 @@ plt.figure(figsize=(8.5, 6))
 rr = np.linspace(0.06, 0.61, 250)
 plt.plot(rr, [pmu(x) for x in rr], 'k-', lw=2.6, label='PeTS EOS')
 plt.plot(rr, [tmu(x) for x in rr], '--', color='dimgray', lw=2.0, label='Thol 2015 EOS')
-for tag, dU, col in [('cube100', 2.0, 'tab:green'), ('cube100u3', 3.0, 'tab:orange'),
-                     ('cube100u4', 4.0, 'tab:red')]:
+_LAD = ([('cube100Tc2', 2.0, 'tab:green'), ('cube100Tc3', 3.0, 'tab:orange'), ('cube100Tc4', 4.0, 'tab:red')]
+        if TCSET else
+        [('cube100', 2.0, 'tab:green'), ('cube100u3', 3.0, 'tab:orange'), ('cube100u4', 4.0, 'tab:red')])
+for tag, dU, col in _LAD:
     hb = read_chunk_blocks('%s_hstress.out' % tag); db = read_chunk_blocks('%s_dens.out' % tag)
     n = min(len(hb), len(db)); hb, db = hb[:n], db[:n]
     rg, mu = h_mu0(np.mean(hb, 0), np.mean(db, 0)); mua, rms = anchor(rg, mu)
@@ -72,5 +76,6 @@ for tag, dU, col in [('cube100', 2.0, 'tab:green'), ('cube100u3', 3.0, 'tab:oran
 plt.xlabel(r'$\rho^*$'); plt.ylabel(r'$\mu_0^*$ (anchored)')
 plt.title(r'Field ladder: Harasima contour $\mu_0(\rho)$ vs field strength (N=100, $T^*=1.198$)')
 plt.legend(fontsize=8); plt.grid(alpha=0.3); plt.tight_layout()
-plt.savefig('cube100_ladder_compare.png', dpi=140)
-print('wrote cube100_ladder_compare.png')
+_out = 'cube100Tc_ladder_compare.png' if TCSET else 'cube100_ladder_compare.png'
+plt.savefig(_out, dpi=140)
+print('wrote ' + _out)

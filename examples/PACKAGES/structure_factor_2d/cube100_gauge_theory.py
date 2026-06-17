@@ -17,14 +17,16 @@ Two exact algebraic facts (verified with sympy):
       The alpha that kills the leading (rho rho'''') term is 5/3 (extrapolation).
 """
 import sys
+import os
 import numpy as np
 sys.path.insert(0, '.'); sys.path.insert(0, '/home/user/lammps/ljts_eos')
 import oz_invert as oz, contour_pressure as cp
 import pets_eos as pets
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
-T = 1.198; L = 6.8582414181223398941; Lz = L; area = L * L
-tag = sys.argv[1] if len(sys.argv) > 1 else 'cube100u4'
+TCSET = bool(os.environ.get('TCSET'))                  # TCSET=1 -> Tc=1.089 ladder
+T = 1.089 if TCSET else 1.198; L = 6.8582414181223398941; Lz = L; area = L * L
+tag = sys.argv[1] if len(sys.argv) > 1 else ('cube100Tc4' if TCSET else 'cube100u4')
 SM = 6
 
 
@@ -73,8 +75,10 @@ alphas = np.linspace(-0.6, 2.0, 53)
 fig, ax = plt.subplots(1, 2, figsize=(13, 5.2))
 print('Field-ladder test of the gradient-expansion 4th-order gauge:')
 abest = {}
-for tag, dU, col in [('cube100', 2.0, 'tab:green'), ('cube100u3', 3.0, 'tab:orange'),
-                     ('cube100u4', 4.0, 'tab:red')]:
+_LAD = ([('cube100Tc2', 2.0, 'tab:green'), ('cube100Tc3', 3.0, 'tab:orange'), ('cube100Tc4', 4.0, 'tab:red')]
+        if TCSET else
+        [('cube100', 2.0, 'tab:green'), ('cube100u3', 3.0, 'tab:orange'), ('cube100u4', 4.0, 'tab:red')])
+for tag, dU, col in _LAD:
     zg, rho, P0ik, P0h = field(tag)
     dP0 = P0ik - P0h
     Idiff = np.trapezoid(dP0, zg); Iabs = np.trapezoid(np.abs(dP0), zg)
@@ -98,7 +102,8 @@ ax[1].axhline(1.0, color='gray', ls=':', label='pure IK')
 ax[1].set_xlabel(r'field strength $\Delta U$'); ax[1].set_ylabel(r'optimal $\alpha$')
 ax[1].set_title('No universal constant: $\\alpha$ is gradient-dependent')
 ax[1].legend(fontsize=9); ax[1].grid(alpha=0.3)
-plt.tight_layout(); plt.savefig('cube100_gauge_theory.png', dpi=140)
+_out = 'cube100Tc_gauge_theory.png' if TCSET else 'cube100_gauge_theory.png'
+plt.tight_layout(); plt.savefig(_out, dpi=140)
 print('=> data refutes a universal 4th-order constant: the 4th-order gradient expansion has')
 print('   broken down at these gradients (IK-H not a total derivative; alpha field-dependent).')
-print('wrote cube100_gauge_theory.png')
+print('wrote ' + _out)

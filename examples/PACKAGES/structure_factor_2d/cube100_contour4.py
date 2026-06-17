@@ -21,6 +21,7 @@ occurs at two field strengths (dUmax=2 and 4) with different gradient, but the t
 P0(rho) is field-independent, so we choose (alpha0,alpha1) to make the two corrected
 curves coincide.  Block-bootstrap error bars; compared to PeTS and Thol 2015.
 """
+import os
 import sys
 import numpy as np
 sys.path.insert(0, '.'); sys.path.insert(0, '/home/user/lammps/ljts_eos')
@@ -29,7 +30,10 @@ import pets_eos as pets
 import thol2015_ljts_eos as thol
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
-T = 1.198; L = 6.8582414181223398941; Lz = L; area = L * L
+# TCSET=1 switches the whole analysis to the Tc=1.089 ladder (cube100Tc{2,3,4}).
+TCSET = bool(os.environ.get('TCSET'))
+T = 1.089 if TCSET else 1.198
+L = 6.8582414181223398941; Lz = L; area = L * L
 SM = 6
 GRID = np.linspace(0.09, 0.595, 140)          # common rho grid for interpolation
 pmu = lambda r: T * np.log(r) + pets.properties(T, r)['mu_res']
@@ -100,8 +104,8 @@ def load(tag):
     return ik, hs, de
 
 
-TAGS = [('cube100', 2.0), ('cube100u3', 3.0), ('cube100u4', 4.0)]
-import os
+TAGS = ([('cube100Tc2', 2.0), ('cube100Tc3', 3.0), ('cube100Tc4', 4.0)] if TCSET else
+        [('cube100', 2.0), ('cube100u3', 3.0), ('cube100u4', 4.0)])
 fields = []                                            # list of (tag, dumax, raw_blocks, mean_profiles)
 for tag, dU in TAGS:
     if not os.path.exists('%s_ikstress.out' % tag):
@@ -221,5 +225,6 @@ plt.xlabel(r'$\rho^*$'); plt.ylabel(r'$\mu_0^*$ (anchored)')
 plt.title(r'Fourth-order contour gauge ($\Delta U$ ladder %s): fixing the tails (N=100, $T^*=1.198$)'
           % '+'.join('%g' % f[1] for f in fields))
 plt.legend(fontsize=8, loc='upper left'); plt.grid(alpha=0.3); plt.tight_layout()
-plt.savefig('cube100_contour4.png', dpi=140)
-print('wrote cube100_contour4.png')
+_out = 'cube100Tc_contour4.png' if TCSET else 'cube100_contour4.png'
+plt.savefig(_out, dpi=140)
+print('wrote ' + _out)

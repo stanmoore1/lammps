@@ -6,12 +6,17 @@
  (D) two-field mini-ladder: pool the dUmax=2 and dUmax=4 density profiles into the
      field-coupling fit (more states -> break the single-field degeneracy)
 """
+import os
 import sys
 import numpy as np
 sys.path.insert(0, '.'); sys.path.insert(0, '/home/user/lammps/ljts_eos')
 import oz_invert as oz, field_coupling as fc, kernel_fit as kf, contour_pressure as cp
 import pets_eos as pets
-T = 1.198; L = 6.8582414181223398941; Lz = L
+TCSET = bool(os.environ.get('TCSET'))                  # TCSET=1 -> Tc=1.089 ladder
+T = 1.089 if TCSET else 1.198
+TAG2, TAG3, TAG4 = (('cube100Tc2', 'cube100Tc3', 'cube100Tc4') if TCSET else
+                    ('cube100', 'cube100u3', 'cube100u4'))
+L = 6.8582414181223398941; Lz = L
 pmu = lambda r: T*np.log(r) + pets.properties(T, r)['mu_res']
 sc = np.linspace(0.14, 0.55, 40); mp = np.array([pmu(x) for x in sc])
 
@@ -31,8 +36,8 @@ def p0_to_mu0(rho, P0):
 
 
 # ---------- (A) linear combination of IK and H contours, dUmax=4 ----------
-rik, PNik, PTik = cp.ik_profile('cube100u4_ikstress.out', Lz, 6)
-rh, PNh, PTh = cp.h_profile('cube100u4_hstress.out', 'cube100u4_dens.out', Lz, L*L, T, 6)
+rik, PNik, PTik = cp.ik_profile('%s_ikstress.out'%TAG4, Lz, 6)
+rh, PNh, PTh = cp.h_profile('%s_hstress.out'%TAG4, '%s_dens.out'%TAG4, Lz, L*L, T, 6)
 P0ik, P0h = cp.p0_ik(PNik, PTik), cp.p0_ik(PNh, PTh)
 rcom = np.linspace(0.10, 0.60, 60)
 oik, oh = np.argsort(rik), np.argsort(rh)
@@ -50,7 +55,7 @@ print('    optimal a=%.2f:  RMS=%.4f   <- a in [0,1] would mean H/IK bracket the
       % (best[0], best[1]))
 
 # ---------- (C) empirical vdW square-gradient fit (single field, dUmax=4) ----------
-rho4 = oz.fourier_cosine_smooth(fc._read_density('cube100u4_dens.out'), 6)
+rho4 = oz.fourier_cosine_smooth(fc._read_density('%s_dens.out'%TAG4), 6)
 prof4 = np.array([np.full_like(rho4, rho4.mean()), rho4])
 eg = fc.local_eos(np.array([0.0, 2.0]), prof4, T, Lz, deg=6, smooth=6, grad_spec={2: 0})
 print('\n(C) vdW square-gradient fit (mu0+kappa rho'', single dUmax=4):  RMS=%.4f  kappa=%.3f'
@@ -58,10 +63,10 @@ print('\n(C) vdW square-gradient fit (mu0+kappa rho'', single dUmax=4):  RMS=%.4
 
 # ---------- (D) mini-ladder: dUmax=2 (+3) + 4 ----------
 import os
-rho2 = oz.fourier_cosine_smooth(fc._read_density('cube100_dens.out'), 6)
+rho2 = oz.fourier_cosine_smooth(fc._read_density('%s_dens.out'%TAG2), 6)
 ladder = [(1.0, rho2), (2.0, rho4)]                    # AF = dUmax/2 for 0,2,4
-if os.path.exists('cube100u3_dens.out'):
-    rho3 = oz.fourier_cosine_smooth(fc._read_density('cube100u3_dens.out'), 6)
+if os.path.exists('%s_dens.out'%TAG3):
+    rho3 = oz.fourier_cosine_smooth(fc._read_density('%s_dens.out'%TAG3), 6)
     ladder.insert(1, (1.5, rho3))
 amps = np.array([0.0] + [a for a, _ in ladder])
 prof = np.array([np.full_like(rho2, rho2.mean())] + [r for _, r in ladder])
