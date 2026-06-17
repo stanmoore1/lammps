@@ -1,5 +1,6 @@
 # CPP LJTS field-ladder run artifacts (regenerable data; kept local, not committed)
 *.log
+log.*
 *.out
 *.restart
 *.png
