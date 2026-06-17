@@ -18,7 +18,11 @@ import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 T = 0.980
 Lx = 10.244851881402800231; Lz = 30.734555644208398917; area = Lx * Lx
 SGW, SGP = 15, 3
-LAD = [('T0.980_d0.2', 0.2), ('T0.980_d0.4', 0.4), ('T0.980_d0.8', 0.8)]
+# field ladder rungs; pass dUmax values on the CLI to subset, e.g. `... 0.4 0.8`
+# to drop the weak dUmax=0.2 rung (default = all three).
+_ALL = [('T0.980_d0.2', 0.2), ('T0.980_d0.4', 0.4), ('T0.980_d0.8', 0.8)]
+_want = set(float(a) for a in sys.argv[1:]) if len(sys.argv) > 1 else set(d for _, d in _ALL)
+LAD = [(t, d) for t, d in _ALL if d in _want]
 pmu = lambda r: T * np.log(r) + pets.properties(T, r)['mu_res']
 tmu = lambda r: T * np.log(r) + thol.properties(T, r)['mu_res']
 pP = lambda r: pets.properties(T, r)['p']
@@ -140,9 +144,10 @@ for lab in [l for l in order if l in res]:
     ax[0].plot(rg, mu, ls, color=col, lw=lw, alpha=al, label='%s (mu0 RMS %.3f)' % (lab, r))
     ax[1].plot(rg, P0, ls, color=col, lw=lw, alpha=al, label=lab)
     print('   %-26s mu0 RMS vs PeTS = %.4f' % (lab, r))
-ax[0].set_xlabel(r'$\rho^*$'); ax[0].set_ylabel(r'$\mu_0^*$'); ax[0].set_title(r'0.9 $T_c$: ladder-method $\mu_0(\rho)$')
+_rungs = '+'.join('%g' % dU for _, dU in LAD)
+ax[0].set_xlabel(r'$\rho^*$'); ax[0].set_ylabel(r'$\mu_0^*$'); ax[0].set_title(r'0.9 $T_c$: ladder-method $\mu_0(\rho)$  ($\Delta U=%s$)' % _rungs)
 ax[0].legend(fontsize=8); ax[0].grid(alpha=0.3)
-ax[1].set_xlabel(r'$\rho^*$'); ax[1].set_ylabel(r'$P_0^*$'); ax[1].set_title(r'0.9 $T_c$: ladder-method $P_0(\rho)$ (vdW loop)')
+ax[1].set_xlabel(r'$\rho^*$'); ax[1].set_ylabel(r'$P_0^*$'); ax[1].set_title(r'0.9 $T_c$: ladder-method $P_0(\rho)$ (vdW loop, $\Delta U=%s$)' % _rungs)
 ax[1].set_ylim(-0.06, 0.18); ax[1].legend(fontsize=8); ax[1].grid(alpha=0.3)
 plt.tight_layout(); plt.savefig('ljts_ladder_methods.png', dpi=140)
 print('wrote ljts_ladder_methods.png')
