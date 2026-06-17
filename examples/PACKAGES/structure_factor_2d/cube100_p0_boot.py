@@ -9,7 +9,8 @@ import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 tag = sys.argv[1] if len(sys.argv) > 1 else 'cube100'
 dumax = float(sys.argv[2]) if len(sys.argv) > 2 else 2.0
-T = 1.198; L = 6.8582414181223398941; Lz = L; area = L*L
+T = float(sys.argv[3]) if len(sys.argv) > 3 else 1.198   # 1.089 for the Tc runs
+L = 6.8582414181223398941; Lz = L; area = L*L
 nboot = 200; rng = np.random.default_rng(0); grid = np.linspace(0.10, 0.57, 45)
 sm = lambda y: oz.fourier_cosine_smooth(y, 6)
 
