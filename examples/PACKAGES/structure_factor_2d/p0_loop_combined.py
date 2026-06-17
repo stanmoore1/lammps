@@ -14,9 +14,12 @@ Lx = 10.244851881402800231
 Tstr = sys.argv[1] if len(sys.argv) > 1 else '0.980'
 T = float(Tstr)
 sm = 10
-runs = [('T%s_d0.2' % Tstr, 0.2, 'tab:green'),
-        ('T%s_d0.4' % Tstr, 0.4, 'tab:orange'),
-        ('T%s_d0.8' % Tstr, 0.8, 'tab:red')]
+# read the field strengths actually run from the per-temperature manifest
+rows = [l.split(',') for l in open('ladder_T%s.csv' % Tstr)
+        if l.strip() and not l.startswith('#')]
+colors = ['tab:green', 'tab:orange', 'tab:red', 'tab:purple', 'tab:brown']
+runs = [(r[2].strip().replace('_dens.out', ''), float(r[0]), colors[i % len(colors)])
+        for i, r in enumerate(rows)]
 
 fig, ax = plt.subplots(figsize=(7.5, 6))
 for tag, du, c in runs:

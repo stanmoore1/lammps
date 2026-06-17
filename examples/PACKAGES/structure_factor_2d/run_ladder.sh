@@ -20,7 +20,8 @@ MPI="mpirun --allow-run-as-root -np $RANKS"
 
 # temperatures: 0.9 Tc, Tc, 1.1 Tc  (PeTS Tc=1.089).  Override via TEMPS env var.
 read -ra TEMPS <<< "${TEMPS:-0.980 1.089 1.198}"
-DUS=(0.2 0.4 0.8)
+# field strengths dUmax; override via DUS env var (e.g. stronger fields near Tc).
+read -ra DUS <<< "${DUS:-0.2 0.4 0.8}"
 SEED=1000
 
 for T in "${TEMPS[@]}"; do
