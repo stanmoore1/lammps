@@ -63,6 +63,9 @@ struct TagPPPMDispSlab_corr_bin_interp_force{};
 struct TagPPPMDispSlab_corr_calib_err{};
 struct TagPPPMDispSlab_peratom_finalize{};
 
+// compact-switch (CSB) shell correction (exact pairwise, device)
+struct TagPPPMDispSlab_corr_csb_raw{};
+
 // double-precision (energy, tangential virial) reduction accumulator for corr
 struct s_PPPMDispSlabCorr {
   double e, vt;
@@ -80,6 +83,15 @@ struct s_PPPMDispSlabVir {
   void operator+=(const s_PPPMDispSlabVir &rhs) { vt += rhs.vt; vn += rhs.vn; }
 };
 typedef struct s_PPPMDispSlabVir s_vir;
+
+// (energy, tangential, normal) reduction accumulator for the CSB shell correction
+struct s_PPPMDispSlabCsb {
+  double e, vt, vn;
+  KOKKOS_INLINE_FUNCTION s_PPPMDispSlabCsb() { e = 0.0; vt = 0.0; vn = 0.0; }
+  KOKKOS_INLINE_FUNCTION
+  void operator+=(const s_PPPMDispSlabCsb &rhs) { e += rhs.e; vt += rhs.vt; vn += rhs.vn; }
+};
+typedef struct s_PPPMDispSlabCsb s_csb;
 
 template<class DeviceType>
 class PPPMDispSlabKokkos : public PPPMDispSlab {
@@ -179,6 +191,9 @@ class PPPMDispSlabKokkos : public PPPMDispSlab {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispSlab_peratom_finalize, const int&) const;
 
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispSlab_corr_csb_raw, const int&, s_csb&) const;
+
   // assignment weights w[0..order-1] at fractional offset dz (Horner in dz)
   KOKKOS_INLINE_FUNCTION
   void compute_rho1d_kk(const double dz, double *w) const {
@@ -236,6 +251,20 @@ class PPPMDispSlabKokkos : public PPPMDispSlab {
     }
   }
 
+  // CSB shell kernels at |dz| (device port of PPPMDispSlab::shell_vkernel)
+  KOKKOS_INLINE_FUNCTION
+  void shell_vkernel_kk(const double adz, double &wE, double &wF, double &wT, double &wN) const {
+    if (adz >= nwgrid_kk * wdz_kk) { wE = wF = wT = wN = 0.0; return; }
+    const double xx = adz / wdz_kk;
+    int g = (int) xx;
+    if (g >= nwgrid_kk) g = nwgrid_kk - 1;
+    const double fr = xx - g;
+    wE = d_wEgrid(g) * (1.0 - fr) + d_wEgrid(g + 1) * fr;
+    wF = d_wFgrid(g) * (1.0 - fr) + d_wFgrid(g + 1) * fr;
+    wT = d_wTgrid(g) * (1.0 - fr) + d_wTgrid(g + 1) * fr;
+    wN = d_wNgrid(g) * (1.0 - fr) + d_wNgrid(g + 1) * fr;
+  }
+
  protected:
   class AtomKokkos *atomKK;
 
@@ -255,6 +284,7 @@ class PPPMDispSlabKokkos : public PPPMDispSlab {
   typename AT::t_double_1d d_fz_grid;     // z-force field
   typename AT::t_double_1d d_ugrid;       // per-atom potential field
   typename AT::t_double_1d d_uTgrid, d_uNgrid;   // per-atom T/N virial fields (compact switch)
+  typename AT::t_double_1d d_wEgrid, d_wFgrid, d_wTgrid, d_wNgrid;   // CSB shell kernel tables
   Kokkos::View<double*, Kokkos::LayoutRight, Kokkos::HostSpace> h_dens;   // Allreduce staging
 
   typename AT::t_double_1d d_B;           // per-type amplitude B[ntypes+1]
@@ -299,10 +329,13 @@ class PPPMDispSlabKokkos : public PPPMDispSlab {
   double w2self_kk, pt2self_kk;              // corr raw self terms (x2 = 0)
   double delzc_kk, bindz_kk;                 // corr bin: 1/dz and dz
   int nbins_kk, nwin_kk, myoff_kk, natoms_all_kk;   // corr bin counts; corr raw offsets
+  int nwgrid_kk;                             // CSB shell kernel table size
+  double wdz_kk;                             // CSB shell kernel table spacing
 
   void allocate_device();
   void calibrate_bin() override;       // override: dispatch to calibrate_bin_kk
   void corr_kk();              // dispatch raw/bin on the device
+  void corr_csb_kk();          // CSB shell correction (exact pairwise, device)
   void corr_raw_kk();          // exact pairwise corr (device)
   void corr_bin_kk();          // z-binned corr incl. O(nbins^2) convolution (device)
   void corr_raw_force_kk();    // force-only pairwise corr -> d_fzref (calibration)

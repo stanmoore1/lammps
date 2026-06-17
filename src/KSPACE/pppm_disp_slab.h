@@ -32,7 +32,8 @@ namespace LAMMPS_NS {
 // interpolate.  The real-space slab correction corr() and the H/IK pressure
 // profiles are shared (identical math) with ewald/disp/slab.  Supports the
 // damped (SSB, kspace_modify damp yes) and compact-switch (CSB, damp compact)
-// variants; the CSB variant needs no real-space correction.
+// variants; the CSB variant's shell mean field is removed in real space by
+// corr_csb() so the matched pair supplies the exact 3-D shell interaction.
 
 class PPPMDispSlab : public KSpace {
  public:
@@ -77,6 +78,13 @@ class PPPMDispSlab : public KSpace {
   double *ugrid;        // per-atom potential field (for eatom/vatom)
   double *uTgrid, *uNgrid;    // per-atom tangential/normal virial fields (compact switch)
 
+  // CSB shell correction: tabulated plane (mean-field) energy/z-force/virial kernels
+  // of S*u over [rcut, rcut+Delta], subtracted in real space so the matched pair's
+  // exact 3-D shell interaction replaces the reciprocal sum's plane mean field.
+  double *wEgrid, *wFgrid, *wTgrid, *wNgrid;
+  int nwgrid;
+  double wdz;
+
   double **rho_coeff;     // B-spline assignment polynomial coefficients
   int order_allocated;    // order at last rho_coeff allocation
 
@@ -107,6 +115,13 @@ class PPPMDispSlab : public KSpace {
   void compute_drho1d(double dz, double *dw);    // d(assignment weights)/d(dz)
   void estimate_params();                        // choose g_ewald and the z grid size nz
   double compute_qopt(int ngrid, int ord);       // Hockney-Eastwood 1-D qopt (z aliases)
+
+  // CSB shell correction (compact switch); shared math with ewald/disp/slab
+  void build_shell_vkernels();
+  void shell_vkernel(double adz, double &wE, double &wF, double &wT, double &wN);
+  void corr_csb();
+  void corr_csb_raw();
+  void corr_csb_bin();
 
   // shared with ewald/disp/slab (identical formulas)
   void corr();

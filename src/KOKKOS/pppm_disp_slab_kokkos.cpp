@@ -82,6 +82,8 @@ PPPMDispSlabKokkos<DeviceType>::PPPMDispSlabKokkos(LAMMPS *lmp) : PPPMDispSlab(l
   nwin_kk = 0;
   myoff_kk = 0;
   natoms_all_kk = 0;
+  nwgrid_kk = 0;
+  wdz_kk = 0.0;
 
 }
 
@@ -129,13 +131,32 @@ void PPPMDispSlabKokkos<DeviceType>::setup()
   for (int m = 0; m < nz; m++) h_Gk(m) = Gk[m];
   Kokkos::deep_copy(d_Gk, h_Gk);
 
-  // compact switch: upload the explicit tangential/normal virial influence too
+  // compact switch: upload the explicit tangential/normal virial influence too,
+  // plus the shell-correction kernel tables (built host-side in PPPMDispSlab::setup)
   if (damp_flag == 2) {
     auto h_GTk = Kokkos::create_mirror_view(d_GTk);
     auto h_GNk = Kokkos::create_mirror_view(d_GNk);
     for (int m = 0; m < nz; m++) { h_GTk(m) = GTk[m]; h_GNk(m) = GNk[m]; }
     Kokkos::deep_copy(d_GTk, h_GTk);
     Kokkos::deep_copy(d_GNk, h_GNk);
+
+    nwgrid_kk = nwgrid;
+    wdz_kk = wdz;
+    d_wEgrid = typename AT::t_double_1d("pppm/disp/slab/kk:wEgrid", nwgrid + 1);
+    d_wFgrid = typename AT::t_double_1d("pppm/disp/slab/kk:wFgrid", nwgrid + 1);
+    d_wTgrid = typename AT::t_double_1d("pppm/disp/slab/kk:wTgrid", nwgrid + 1);
+    d_wNgrid = typename AT::t_double_1d("pppm/disp/slab/kk:wNgrid", nwgrid + 1);
+    auto h_wE = Kokkos::create_mirror_view(d_wEgrid);
+    auto h_wF = Kokkos::create_mirror_view(d_wFgrid);
+    auto h_wT = Kokkos::create_mirror_view(d_wTgrid);
+    auto h_wN = Kokkos::create_mirror_view(d_wNgrid);
+    for (int g = 0; g <= nwgrid; g++) {
+      h_wE(g) = wEgrid[g]; h_wF(g) = wFgrid[g]; h_wT(g) = wTgrid[g]; h_wN(g) = wNgrid[g];
+    }
+    Kokkos::deep_copy(d_wEgrid, h_wE);
+    Kokkos::deep_copy(d_wFgrid, h_wF);
+    Kokkos::deep_copy(d_wTgrid, h_wT);
+    Kokkos::deep_copy(d_wNgrid, h_wN);
   }
 
   auto h_rho = Kokkos::create_mirror_view(d_rho_coeff);
@@ -372,11 +393,13 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
     copymode = 0;
   }
 
-  // --- damped real-space slab correction on the device ---
-  // the compact switch needs no real-space correction (S*u vanishes inside rcut)
+  // --- real-space slab correction on the device ---
+  // damped: corr_kk(); compact switch: corr_csb_kk() subtracts the reciprocal sum's
+  // plane mean-field S*u over the shell so the matched pair's exact 3-D shell remains
 
   corr_energy = 0.0;
   if (damp_flag != 2) corr_kk();
+  else corr_csb_kk();
 
   atomKK->modified(execution_space, F_MASK);
 
@@ -414,6 +437,44 @@ void PPPMDispSlabKokkos<DeviceType>::corr_kk()
     corr_bin_kk();
   else
     corr_raw_kk();
+}
+
+/* ----------------------------------------------------------------------
+   compact-switch (CSB) shell correction: gather z/B, then an O(N*Nall) device
+   kernel subtracts the reciprocal sum's plane mean-field S*u over the shell
+   (energy, z-force, virial) so the matched pair's exact 3-D shell interaction
+   remains.  Full ordered double sum incl. self (no 1/2; force carries a factor
+   2).  Device port of PPPMDispSlab::corr_csb_raw.  The exact pairwise form is
+   used for both corr raw and corr bin requests on the device.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PPPMDispSlabKokkos<DeviceType>::corr_csb_kk()
+{
+  corr_gather();    // fills d_zall/d_ball, natoms_all_kk (self included below)
+
+  const int nlocal = atomKK->nlocal;
+
+  s_csb ev{};
+  copymode = 1;
+  Kokkos::parallel_reduce(
+      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_csb_raw>(0, nlocal), *this, ev);
+  copymode = 0;
+
+  if (eflag_global || vflag_global) {
+    double e_all;
+    MPI_Allreduce(&ev.e, &e_all, 1, MPI_DOUBLE, MPI_SUM, world);
+    corr_energy -= e_all;
+    if (eflag_global) energy -= e_all;
+  }
+  if (vflag_global) {
+    double vt_all, vn_all;
+    MPI_Allreduce(&ev.vt, &vt_all, 1, MPI_DOUBLE, MPI_SUM, world);
+    MPI_Allreduce(&ev.vn, &vn_all, 1, MPI_DOUBLE, MPI_SUM, world);
+    virial[lat1] -= vt_all;
+    virial[lat2] -= vt_all;
+    virial[dim] -= vn_all;
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -994,6 +1055,44 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_raw, const 
     }
   }
   f(i, dim_kk) += static_cast<KK_ACC_FLOAT>(fz);
+}
+
+// compact-switch (CSB) shell correction: subtract the plane mean-field S*u over
+// the shell.  Full ordered sum incl. self; energy/virial carry no 1/2, the
+// z-force a factor 2.  Device port of PPPMDispSlab::corr_csb_raw.
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_csb_raw, const int &i,
+                                                s_csb &ev) const
+{
+  const double zi = static_cast<double>(x(i, dim_kk));
+  const double bi = d_B(type(i));
+  const double zprd = static_cast<double>(zprd_kk);
+  const double bcut = nwgrid_kk * wdz_kk;
+  double e_i = 0.0, fz_i = 0.0, vt_i = 0.0, vn_i = 0.0;
+  for (int jg = 0; jg < natoms_all_kk; jg++) {
+    double delz = zi - d_zall(jg);
+    delz -= zprd * floor(delz / zprd + 0.5);    // nearest image (self -> delz=0)
+    const double adz = fabs(delz);
+    if (adz >= bcut) continue;
+    double wE, wF, wT, wN;
+    shell_vkernel_kk(adz, wE, wF, wT, wN);
+    const double bij = bi * d_ball(jg);
+    e_i  += bij * wE;
+    fz_i += 2.0 * delz * bij * wF;    // remove the plane z-force (factor 2)
+    vt_i += bij * wT;
+    vn_i += bij * wN;
+  }
+  ev.e  += e_i;
+  ev.vt += vt_i;
+  ev.vn += vn_i;
+  f(i, dim_kk) += static_cast<KK_ACC_FLOAT>(fz_i);
+  if (evflag_atom) d_peatom(i) -= e_i;
+  if (vflag_atom) {
+    d_vatom(i, lat1_kk) -= static_cast<KK_ACC_FLOAT>(vt_i);
+    d_vatom(i, lat2_kk) -= static_cast<KK_ACC_FLOAT>(vt_i);
+    d_vatom(i, dim_kk)  -= static_cast<KK_ACC_FLOAT>(vn_i);
+  }
 }
 
 template<class DeviceType>
