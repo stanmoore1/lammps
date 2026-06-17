@@ -103,14 +103,15 @@ def h_profile(stress_file, density_file, Lz, area, kT, smooth=10):
 def mu0_from_p0(rho, P0, Lz, smooth=10):
     """Homogeneous chemical potential from the pressure-tensor P0(z) by thermodynamic
     integration  mu0(z) = INT (1/rho) dP0/dz dz  (Gibbs-Duhem; up to a constant).
-    Returns the (rho, mu0) pairs on the monotonic lower half of the profile."""
+    Returns (rho, mu0, P0) on the monotonic lower half of the profile (rho-sorted),
+    ready for the Maxwell / common-tangent construction (phase_diagram.binodal)."""
     nb = len(rho); dz = Lz / nb
     dP0 = oz.fourier_cosine_deriv(P0, smooth, Lz)
     mu0 = np.cumsum(dP0 / np.clip(rho, 1e-3, None)) * dz
     z = (np.arange(nb) + 0.5) * dz
     m = z <= Lz / 2
     o = np.argsort(rho[m])
-    return rho[m][o], mu0[m][o]
+    return rho[m][o], mu0[m][o], P0[m][o]
 
 
 def p0_ik(PN, PT):

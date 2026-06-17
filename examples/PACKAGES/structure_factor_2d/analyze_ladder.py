@@ -55,10 +55,10 @@ def analyze_T(T, rho_avg, smooth=10):
     tag = files[-1].replace('_dens.out', '')
     rik, PNik, PTik = cp.ik_profile(tag + '_ikstress.out', Lz, smooth)
     rh, PNh, PTh = cp.h_profile(tag + '_hstress.out', tag + '_dens.out', Lz, Lx * Lx, Tf, smooth)
-    rik2, muik = cp.mu0_from_p0(rik, cp.p0_ik(PNik, PTik), Lz, smooth)
-    rh2, muh = cp.mu0_from_p0(rh, cp.p0_ik(PNh, PTh), Lz, smooth)
+    rik2, muik, P0ik2 = cp.mu0_from_p0(rik, cp.p0_ik(PNik, PTik), Lz, smooth)
+    rh2, muh, P0h2 = cp.mu0_from_p0(rh, cp.p0_ik(PNh, PTh), Lz, smooth)
     out = dict(T=T, Lz=Lz, eg=eg, ek=ek,
-               ik=(rik2, muik), h=(rh2, muh), rho_avg=rho_avg)
+               ik=(rik2, muik, P0ik2), h=(rh2, muh, P0h2), rho_avg=rho_avg)
     return out
 
 
@@ -83,7 +83,7 @@ def main():
             e = r[key]; mu = anchor(e['rho'], e['mu0'], ra, m0)
             ax.plot(e['rho'], mu, ls, color=c, lw=1.8, label=lab)
         for key, lab, c in [('ik', 'PT (IK)', 'tab:blue'), ('h', 'PT (H)', 'tab:green')]:
-            rho2, mu2 = r[key]; mu2 = anchor(rho2, mu2, ra, m0)
+            rho2, mu2, _ = r[key]; mu2 = anchor(rho2, mu2, ra, m0)
             ax.plot(rho2, mu2, ':', color=c, lw=1.8, label=lab)
         ax.axvline(ra, color='gray', ls=':', lw=0.7)
         ax.set_xlabel(r'$\rho^*$'); ax.set_ylabel(r'$\mu_0^*$')
@@ -95,16 +95,24 @@ def main():
     rlow = res[int(np.argmin([float(r['T']) for r in res]))]
     Tlow = float(rlow['T'])
     print('\n=== Binodal at lowest T*=%.3f ===' % Tlow)
-    for key, lab in [('ek', 'FC kernel'), ('eg', 'FC gradient')]:
+    print('  %-12s %-8s %-8s %s' % ('route', 'rho_v', 'rho_l', 'P_sat'))
+    # field-coupling routes carry (rho, P0, mu0) as dict fields; PT routes as tuples
+    rows_bi = [('eg', 'FC gradient'), ('ek', 'FC kernel'),
+               ('ik', 'PT (IK)'), ('h', 'PT (H)')]
+    for key, lab in rows_bi:
         e = rlow[key]
-        bi = pd.binodal(e['rho'], e['P0'], e['mu0'])
-        if bi:
-            print('  %-12s rho_v=%.3f rho_l=%.3f' % (lab, bi['rho_v'], bi['rho_l']))
+        if isinstance(e, dict):
+            rho_, P0_, mu_ = e['rho'], e['P0'], e['mu0']
         else:
-            print('  %-12s no loop found' % lab)
+            rho_, mu_, P0_ = e                         # PT route tuple (rho, mu0, P0)
+        bi = pd.binodal(rho_, P0_, mu_)
+        if bi:
+            print('  %-12s %-8.3f %-8.3f %.4f' % (lab, bi['rho_v'], bi['rho_l'], bi['P_sat']))
+        else:
+            print('  %-12s %s' % (lab, 'no loop found'))
     if pets:
         rv, rl, ps = pets.vle(Tlow)
-        print('  %-12s rho_v=%.3f rho_l=%.3f (P_sat=%.4f)' % ('PeTS vle', rv, rl, ps))
+        print('  %-12s %-8.3f %-8.3f %.4f  (reference)' % ('PeTS vle', rv, rl, ps))
 
 
 if __name__ == '__main__':
