@@ -16,7 +16,8 @@ sys.path.insert(0, '/home/user/lammps/ljts_eos')
 import field_coupling as fc, kernel_fit as kf
 import oz_invert as oz
 
-T = 0.980; rho_avg = 0.31; sm = 10
+Tstr = sys.argv[1] if len(sys.argv) > 1 else '0.980'
+T = float(Tstr); rho_avg = 0.31; sm = 10
 
 
 def box_dims(rho, N=1000, aspect=3.0):
@@ -36,7 +37,7 @@ def rms(x):
 
 
 Lx, Lz = box_dims(rho_avg)
-amps, dus, profiles = load('0.980')
+amps, dus, profiles = load(Tstr)
 
 # one pooled hybrid kernel fit -> the kernel shape C(s) and its even moments
 ek = kf.kernel_eos(amps, profiles, T, Lz, deg=6, smax=2.5, nmodes=3, ridge=1e-3, smooth=sm)
