@@ -1,0 +1,42 @@
+# CPP LJTS production that measures the bin-resolved planar structure factor
+# S_ij(k) for the DCF (direct-correlation-function) charging route to mu0(rho):
+# OZ-invert S_ij(k) -> c_ij(k) -> mu0(rho) (oz_invert.py --mode dft / kb).  This is
+# an independent route alongside the field-coupling ("field charging") method, and
+# needs only a SINGLE strong-field run (not a field ladder).  Uses the direct-DFT
+# compute structure/factor/2d (faster than the FFT version at N=1000).
+
+variable        T       index 1.089
+variable        dUmax   index 2.0
+variable        tag     index dcf
+variable        Nprod   index 500000
+variable        KMAX    equal 8          # structure-factor reciprocal cutoff
+variable        SFBIN   equal 40         # z-bins for the S_ij OZ matrix
+
+units           lj
+atom_style      atomic
+read_restart    ${tag}.equil.restart
+
+pair_style      lj/cut 2.5
+pair_coeff      1 1 1.0 1.0 2.5
+pair_modify     shift yes
+neighbor        0.5 bin
+neigh_modify    every 1 delay 0 check yes
+
+timestep        0.005
+fix             1 all nvt temp ${T} ${T} 0.5
+variable        AF      equal ${dUmax}/2.0
+variable        forcez  atom 2*PI*${AF}*sin(2*PI*z/lz)/lz
+fix             ext all addforce 0.0 0.0 v_forcez
+
+reset_timestep  0
+
+# bin-resolved planar structure factor (direct DFT); block-averaged for bootstrap:
+# 2500 samples every 20 steps per 50k-step block -> 10 blocks over a 500k run
+compute         sf all structure/factor/2d ${KMAX} ${SFBIN}
+fix             sfavg all ave/time 20 2500 50000 c_sf[1] c_sf[2] c_sf[3] c_sf[4] c_sf[5] &
+                mode vector file ${tag}_sf.out
+
+thermo          50000
+thermo_style    custom step temp pe press pzz
+run             ${Nprod}
+print           "DCF DONE tag ${tag} T ${T} dUmax ${dUmax}  Lx $(lx) Lz $(lz) N $(count(all))"

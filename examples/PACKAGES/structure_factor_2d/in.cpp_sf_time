@@ -1,0 +1,39 @@
+# time compute structure/factor/2d (DFT) vs structure/factor/2d/fft (FFT)
+# on the equilibrated Tc=1.089 N=1000 CPP slab.  MODE = none|dft|fft
+variable        MODE   index none
+variable        KMAX   equal 8
+variable        SFBIN  equal 40
+variable        Nt     equal 500
+
+variable        REP    index 1          # replicate the box REPxREPxREP to scale N
+
+units           lj
+atom_style      atomic
+read_restart    sftime.equil.restart
+replicate       ${REP} ${REP} ${REP}
+
+pair_style      lj/cut 2.5
+pair_coeff      1 1 1.0 1.0 2.5
+pair_modify     shift yes
+neighbor        0.5 bin
+neigh_modify    every 1 delay 0 check yes
+
+timestep        0.005
+fix             1 all nvt temp 1.089 1.089 0.5
+variable        AF      equal 0.5
+variable        forcez  atom 2*PI*${AF}*sin(2*PI*z/lz)/lz
+fix             ext all addforce 0.0 0.0 v_forcez
+
+# define the structure-factor compute for this mode and force it every step
+if "${MODE} == dft" then &
+  "compute sf all structure/factor/2d ${KMAX} ${SFBIN}" &
+  "thermo_style custom step temp c_sf[1][4]"
+if "${MODE} == fft" then &
+  "compute sf all structure/factor/2d/fft ${KMAX} ${SFBIN}" &
+  "thermo_style custom step temp c_sf[1][4]"
+if "${MODE} == none" then &
+  "thermo_style custom step temp"
+
+thermo          1
+reset_timestep  0
+run             ${Nt}
