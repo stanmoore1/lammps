@@ -82,3 +82,18 @@ plt.tight_layout()
 out = 'p0_contours_%s.png' % tag
 plt.savefig(out, dpi=140)
 print('wrote ' + out)
+
+# --- plot: P0 vs rho (parametric van der Waals loop) for IK and H ---
+# trace in z-order: rho sweeps vapor -> liquid -> vapor across the two interfaces,
+# so (rho, P0) draws the loop directly (no sorting, which would mix the two sides).
+fig2, bx = plt.subplots(figsize=(7, 5.5))
+bx.plot(rik, P0ik, color='tab:blue', lw=1.6, label='IK contour')
+bx.plot(rh, P0h, color='tab:green', lw=1.6, label='H contour')
+bx.set_xlabel(r'$\rho^*$'); bx.set_ylabel(r'$P_0^*$')
+bx.set_title(r'CPP LJTS $T^*=%.3f$, $\Delta U=%s$:  $P_0$ vs $\rho$'
+             % (T, tag.split('_d')[1]))
+bx.legend(fontsize=9); bx.grid(alpha=0.3)
+plt.tight_layout()
+out2 = 'p0_vs_rho_%s.png' % tag
+plt.savefig(out2, dpi=140)
+print('wrote ' + out2)
