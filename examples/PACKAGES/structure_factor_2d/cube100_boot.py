@@ -37,8 +37,12 @@ def read_chunk_blocks(fn):
 
 
 def anchor_rms(rg, mu):
+    # mu0 is defined up to an additive constant -> anchor by the least-squares offset
+    # over the whole window (no arbitrary single-point pivot, which is ill-posed in
+    # the flat critical region at Tc).
     o = np.argsort(rg); rg, mu = rg[o], mu[o]
-    mua = mu + (np.interp(np.median(sc), sc, mp) - np.interp(np.median(sc), rg, mu))
+    shift = np.mean(mp - np.interp(sc, rg, mu))
+    mua = mu + shift
     return np.interp(grid, rg, mua), np.sqrt(np.mean((np.interp(sc, rg, mua) - mp)**2))
 
 
