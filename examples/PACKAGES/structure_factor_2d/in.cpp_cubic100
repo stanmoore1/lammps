@@ -40,6 +40,10 @@ variable        AF      equal ${dUmax}/2.0
 variable        forcez  atom 2*PI*${AF}*sin(2*PI*z/lz)/lz
 fix             ext all addforce 0.0 0.0 v_forcez
 
+# the strong field pins all atoms into a thin z-slab -> rebalance the z cut-planes
+# across ranks (shift, not tiled) so MPI runs aren't bottlenecked by one rank
+fix             bal all balance 10000 1.1 shift z 10 1.05
+
 thermo          20000
 thermo_style    custom step temp pe press pzz
 run             ${Nequil}
