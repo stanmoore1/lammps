@@ -53,7 +53,7 @@ for Nbins, col in [(12, 'tab:blue'), (16, 'tab:green'), (24, 'tab:red')]:
     Nmean = counts.mean(0); Nvar = counts.var(0)
     rho = Nmean/v
     good = (Nmean > 1.0) & (Nvar > 0)
-    dmu = T*Nmean[good]/Nvar[good]                                   # kT <N>/Var(N)
+    dmu = T*v/Nvar[good]                              # kT*v_bin/Var(N) = kT/(rho S(0))
     rg = rho[good]; o = np.argsort(rg); rg, dmu = rg[o], dmu[o]
     # collapse duplicate densities, integrate dmu0/drho over rho
     mu0 = np.concatenate([[0], np.cumsum(0.5*(dmu[1:]+dmu[:-1])*np.diff(rg))])

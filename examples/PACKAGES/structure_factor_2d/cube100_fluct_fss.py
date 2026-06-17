@@ -41,7 +41,7 @@ for Nb in Nbins_list:
     cnt = np.array([np.histogram(z, bins=edges)[0] for z in Z])
     Nm = cnt.mean(0); Nv = cnt.var(0)
     good = (Nm > 0.5) & (Nv > 0)
-    rho = Nm[good]/v; dmu = T*Nm[good]/Nv[good]        # kT<N>/Var(N) = kT/S_app
+    rho = Nm[good]/v; dmu = T*v/Nv[good]                          # kT*v_bin/Var(N) = kT/(rho S(0))
     o = np.argsort(rho)
     widths.append(Lz/Nb)
     dmu_w.append(np.interp(rg, rho[o], dmu[o], left=np.nan, right=np.nan))
