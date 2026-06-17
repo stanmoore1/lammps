@@ -1,0 +1,31 @@
+# Bug-check: homogeneous LJTS fluid.  OZ-invert the planar structure factor and
+# compare the recovered bulk c_hat(k) to the independent (1-1/S(q))/rho from g(r).
+# Agreement validates the structure-factor compute + OZ inversion + normalization.
+units           lj
+atom_style      atomic
+lattice         fcc 0.5
+region          box block 0 8 0 8 0 8          # square xy, Lx=Ly=Lz=16
+create_box      1 box
+create_atoms    1 box
+mass            1 1.0
+velocity        all create 1.5 123 dist gaussian
+
+pair_style      lj/cut 2.5
+pair_coeff      1 1 1.0 1.0
+pair_modify     shift yes
+neighbor        0.5 bin
+neigh_modify    every 1 delay 0 check yes
+comm_modify     cutoff 6.5                       # for the long-range rdf
+
+timestep        0.005
+fix             1 all nvt temp 1.5 1.5 0.5
+run             20000                           # equilibrate (homogeneous, supercritical)
+reset_timestep  0
+
+compute         sf all structure/factor/2d 8 20
+compute         myrdf all rdf 250 1 1 cutoff 6.0
+fix             rdfavg all ave/time 50 200 100000 c_myrdf[*] mode vector file bulk_rdf.out
+fix             sfavg  all ave/time 20 2500 50000 c_sf[1] c_sf[2] c_sf[3] c_sf[4] c_sf[5] &
+                mode vector file bulk_sf.out
+run             200000
+print           "BULK DONE  Lx $(lx) Lz $(lz) N $(count(all)) rho $(count(all)/vol)"

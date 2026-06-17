@@ -11,10 +11,14 @@ variable        tag     index dcf
 variable        Nprod   index 500000
 variable        KMAX    equal 8          # structure-factor reciprocal cutoff
 variable        SFBIN   equal 40         # z-bins for the S_ij OZ matrix
+variable        RST     index dcf.equil.restart   # equilibrated field-on restart
+variable        OUT     index dcf_sf.out          # structure-factor output file
+variable        GAM     index dcf_gamma.out       # mechanical surface-tension output
+variable        VSEED   index 0          # >0: reseed velocities for an independent run
 
 units           lj
 atom_style      atomic
-read_restart    ${tag}.equil.restart
+read_restart    ${RST}
 
 pair_style      lj/cut 2.5
 pair_coeff      1 1 1.0 1.0 2.5
@@ -28,13 +32,30 @@ variable        AF      equal ${dUmax}/2.0
 variable        forcez  atom 2*PI*${AF}*sin(2*PI*z/lz)/lz
 fix             ext all addforce 0.0 0.0 v_forcez
 
+# the strong field pins nearly all atoms into one thin z-slab -> severe load
+# imbalance with the 1x1xP z-decomposition.  Rebalance the z cut-planes (shift,
+# not tiled/RCB) every 10k steps to even out atoms/proc.
+fix             bal all balance 10000 1.1 shift z 10 1.05
+
+# optional: reseed velocities for a trajectory independent of a previous run
+if "${VSEED} > 0" then "velocity all create ${T} ${VSEED} dist gaussian"
+
 reset_timestep  0
 
 # bin-resolved planar structure factor (direct DFT); block-averaged for bootstrap:
 # 2500 samples every 20 steps per 50k-step block -> 10 blocks over a 500k run
 compute         sf all structure/factor/2d ${KMAX} ${SFBIN}
 fix             sfavg all ave/time 20 2500 50000 c_sf[1] c_sf[2] c_sf[3] c_sf[4] c_sf[5] &
-                mode vector file ${tag}_sf.out
+                mode vector file ${OUT}
+
+# mechanical surface tension of the (field-induced, "artificial") interface, measured
+# the normal way from the pair virial: gamma_per_interface = lz*(pN - pT)/2.
+# This is the mechanical reference for the TZ (structure-factor) surface tension.
+compute         press all pressure NULL pair
+variable        pN  equal c_press[3]
+variable        pT  equal 0.5*(c_press[1]+c_press[2])
+variable        gam equal lz*(v_pN-v_pT)/2.0
+fix             gt all ave/time 100 1000 100000 v_pN v_pT v_gam file ${GAM}
 
 thermo          50000
 thermo_style    custom step temp pe press pzz

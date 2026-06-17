@@ -376,11 +376,12 @@ def circulant_deviation(C):
 
 
 def s_of_q_from_rdf(rdf, rho):
-    """Bulk S(q) from g(r): compute rdf array has columns [bin, r, g(r), coord].
+    """Bulk S(q) from g(r).  rdf is the read_ave_time_vector output, whose leading
+    per-row index column is already stripped, so the columns are [r, g(r), coord].
     S(q) = 1 + 4 pi rho INT [g(r)-1] sin(qr)/(qr) r^2 dr."""
     trapz = getattr(np, 'trapezoid', getattr(np, 'trapz', None))
-    r = rdf[:, 1]
-    g = rdf[:, 2]
+    r = rdf[:, 0]
+    g = rdf[:, 1]
     mask = r > 0.0
     r, g = r[mask], g[mask]
     dr = r[1] - r[0]
