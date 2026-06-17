@@ -1857,8 +1857,19 @@ void PPPMDispSlab::corr_raw_force(double *fzloc)
 void PPPMDispSlab::calibrate_bin()
 {
   int nlocal = atom->nlocal;
+  int *type = atom->type;
   double natoms = (double) atom->natoms;
   if (natoms < 1.0) natoms = 1.0;
+
+  // skip if the dispersion amplitudes B are not populated yet (defensive parity
+  // with ewald/disp/slab; pppm fills B in init() before setup(), so this is
+  // currently always satisfied, but guard in case the call order changes)
+  double bmax = 0.0;
+  for (int i = 0; i < nlocal; i++) bmax = MAX(bmax, fabs(B[type[i]]));
+  double bmax_all;
+  MPI_Allreduce(&bmax, &bmax_all, 1, MPI_DOUBLE, MPI_MAX, world);
+  if (bmax_all == 0.0) return;
+
   auto *fref = new double[nlocal > 0 ? nlocal : 1];
   auto *fb = new double[nlocal > 0 ? nlocal : 1];
 

@@ -26,24 +26,30 @@ namespace LAMMPS_NS {
 
 // Matched short-range pair style for the slab dispersion solvers with
 // "kspace_modify damp compact".  The full LJ is computed to the inner cutoff
-// rcut.  Over the shell [rcut, rcut+Delta] the 1/r^6 dispersion is handled in one
-// of two ways, selected by the matched kspace via extract("csb_full_shell"):
-//   0 (default, e.g. pppm/disp/slab): the attractive dispersion is switched off
-//     by (1 - S(r)); the reciprocal sum supplies the plane S(r)*u there.
-//   1 (ewald/disp/slab, pppm/disp/slab): full LJ is evaluated over the shell
-//     (repulsion + full dispersion, exact 3-D); the reciprocal sum's plane
-//     mean-field S*u over the shell is removed by corr_csb(), so the pair gives
-//     the laterally-correlated shell interaction and the lateral-correlation
-//     residual in energy/pressure is eliminated.  The switch only splits the
-//     1/r^6 dispersion; the 1/r^12 repulsion is short-range and always in full.
-// S is the same C3 septic smoothstep used by the kspace style.
+// rcut.  Over the shell [rcut, rcut+Delta] the 1/r^6 dispersion is split between
+// this pair and the reciprocal sum by the smoothstep S(r), via the flag
+// csb_full_shell set by the matched kspace through extract("csb_full_shell"):
+//   1 (the live path -- both ewald/disp/slab and pppm/disp/slab set this): full
+//     LJ is evaluated over the whole [0, rcut+Delta] range (repulsion + full
+//     dispersion, exact 3-D); the reciprocal sum's plane mean-field S*u over the
+//     shell is removed by the kspace corr_csb(), so the pair supplies the exact
+//     laterally-correlated shell interaction.  compute() delegates to PairLJCut.
+//   0 (fallback, currently unused by any shipped kspace): over the shell the
+//     attractive dispersion is switched off by (1-S(r)) and the reciprocal sum
+//     supplies the plane S(r)*u with no real-space shell correction.
+// The switch only splits the 1/r^6 dispersion; the 1/r^12 repulsion is short-
+// range and is always evaluated in full.  S is the C^n smoothstep of the matched
+// kspace (n=3 septic by default); only the unused fallback path evaluates S here.
 
 class PairLJCutDispSwitch : public PairLJCut {
  public:
   PairLJCutDispSwitch(class LAMMPS *);
   void compute(int, int) override;
   void settings(int, char **) override;
+  void init_style() override;
   double init_one(int, int) override;
+  void write_restart_settings(FILE *) override;
+  void read_restart_settings(FILE *) override;
   void *extract(const char *, int &) override;
   double single(int, int, int, int, double, double, double, double &) override;
 
@@ -51,9 +57,8 @@ class PairLJCutDispSwitch : public PairLJCut {
   double sw_width;     // switch width Delta
   double inner_rc2;    // rcut^2 (inner boundary; full LJ for r < rcut)
   // shell [rcut, rcut+Delta] treatment, set via extract("csb_full_shell") by the
-  // matched kspace: 0 = (1-S)*u complement (kspace supplies the plane S*u, e.g.
-  // pppm/disp/slab); 1 = full u (ewald/disp/slab removes the plane S*u in corr_csb
-  // so the pair gives the exact 3-D shell interaction).
+  // matched kspace: 1 = full LJ (the live path; kspace removes the plane S*u in
+  // corr_csb), 0 = (1-S)*u complement fallback (unused by shipped kspace styles).
   int csb_full_shell;
   static double sw_S(double t);
   static double sw_dS(double t);

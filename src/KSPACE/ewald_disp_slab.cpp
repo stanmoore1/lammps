@@ -237,11 +237,11 @@ void EwaldDispSlab::init()
     sw_width = *p_dz;
     if (sw_width <= 0.0) error->all(FLERR, "ewald/disp/slab compact switch width must be > 0");
 
-    // tell the pair to evaluate the FULL dispersion u over the shell [rcut,
-    // rcut+Delta] (exact 3-D), not just the (1-S)*u complement: corr_csb() below
-    // removes the reciprocal sum's plane mean-field S*u there, so the pair supplies
-    // the laterally-correlated shell interaction.  pppm/disp/slab (no corr_csb)
-    // leaves this flag at 0 and the pair keeps the (1-S)*u complement.
+    // tell the pair to evaluate the FULL dispersion (repulsion + 1/r^6) over the
+    // shell [rcut, rcut+Delta] (exact 3-D): corr_csb() below removes the reciprocal
+    // sum's plane mean-field S*u there, so the pair supplies the laterally-
+    // correlated shell interaction.  (pppm/disp/slab also has corr_csb and sets
+    // this flag the same way.)
     int *p_full = (int *) force->pair->extract("csb_full_shell", itmp2);
     if (p_full) *p_full = 1;
   }
@@ -335,9 +335,9 @@ void EwaldDispSlab::estimate_params()
   int *type = atom->type;
   int nlocal = atom->nlocal;
   int ntypes = atom->ntypes;
-  int dim;
-  auto **eps = (double **) force->pair->extract("epsilon", dim);
-  auto **sig = (double **) force->pair->extract("sigma", dim);
+  int etmp;    // extract() out-param; do NOT shadow the member `dim`
+  auto **eps = (double **) force->pair->extract("epsilon", etmp);
+  auto **sig = (double **) force->pair->extract("sigma", etmp);
   auto *Bt = new double[ntypes + 1];
   for (int t = 1; t <= ntypes; t++)
     Bt[t] = (eps && sig) ? 2.0 * sqrt(eps[t][t]) * sig[t][t] * sig[t][t] * sig[t][t] : B[t];
@@ -523,7 +523,10 @@ void EwaldDispSlab::coeffs()
     // J = int_rcut^c S'(r)/r^3 dr, trans = int_rcut^c S(r)/r^4 dr.  This is the
     // pure-power-law value 2*GU[0] PLUS the (2 pi/3V) J switch-derivative (S'u) term
     // that the old "GT[0]=2*GU[0]" shortcut dropped, leaving a ~1/rcut^3 isotropic
-    // pressure offset.  Reduces to the non-damped -4 pi/(3 c^3 V) as Delta->0 (J->0).
+    // pressure offset.  NOTE J does NOT vanish as Delta->0 (S' -> a delta at rcut, so
+    // J -> 1/rcut^3); the plane S'u mean field this term represents is removed by
+    // corr_csb() and replaced by the matched pair's exact 3-D shell, so the TOTAL
+    // pressure -> the sharp non-damped value for any Delta (verified to Delta=0.01).
     {
       const double a = cutoff, dz = sw_width;
       const int n = 2000;
@@ -715,16 +718,13 @@ double EwaldDispSlab::switch_dS(double t)
 
 /* ----------------------------------------------------------------------
    shell virial integrals over [rcut, rcut+Delta]:
-     sGT = int f(r) A_T(r,h) dr,   sGN = int f(r) A_N(r,h) dr,
-   with the SMOOTH dispersion force f(r) = S(r) u'(r) = 6 S(r)/r^7 ONLY -- the
-   S'(r)u switch-force virial is deliberately omitted here.  That S'u term is a
-   split artifact (pure 1/r^6 has no S'): the pair's exact -S'u and the kspace's
-   mean-field +S'u are meant to cancel but don't (exact vs plane), leaving a
-   shell-correlation residual in the pressure.  Computing the virial from the
-   (1-S)u' / S u' force split instead (both pieces exact/smooth, no S' spike, and
-   summing to u') removes the residual.  The matched pair tallies its shell virial
-   with (1-S)u' to match.  Forces are unchanged (still the conservative (S u)' /
-   ((1-S)u)').  Angular factors:
+     sGT = int phi'(r) A_T(r,h) dr,   sGN = int phi'(r) A_N(r,h) dr,
+   with the FULL switched-dispersion force phi'(r) = (S u)'(r) = -S'(r)/r^6 +
+   6 S(r)/r^7 -- i.e. the consistent strain derivative of the energy functional
+   sum_k GU[k]|S_k|^2 (the S'(r)u "switch-force" term is INCLUDED).  This plane
+   mean field over the shell is what corr_csb() then subtracts and replaces with
+   the matched pair's exact 3-D shell virial, so the residual is removed by the
+   real-space correction, not by dropping the S'u term here.  Angular factors:
      A_T = -4 r cos(hr)/h^2 + 4 sin(hr)/h^3,
      A_N =  2 r^2 sin(hr)/h + 4 r cos(hr)/h^2 - 4 sin(hr)/h^3.
    GT = GT_tail - (pi/V) sGT, GN = GN_tail - (2 pi/V) sGN.
@@ -2139,9 +2139,10 @@ void EwaldDispSlab::deallocate()
 
 double EwaldDispSlab::memory_usage()
 {
-  double bytes = 7.0 * kmax * sizeof(double);
+  double bytes = 8.0 * kmax * sizeof(double);    // GU,GF,GT,GN,sfacrl/im,sfacrl/im_all
   bytes += (double) nmax * sizeof(double);
   bytes += 2.0 * (double) kmax * nmax * sizeof(double);
+  if (damp_flag == 2) bytes += 4.0 * (nwgrid + 1) * sizeof(double);    // shell kernels
   if (profile_flag) bytes += 2.0 * (double) npro * sizeof(double);
   return bytes;
 }

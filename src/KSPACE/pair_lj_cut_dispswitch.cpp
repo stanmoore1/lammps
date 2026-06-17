@@ -88,6 +88,38 @@ double PairLJCutDispSwitch::init_one(int i, int j)
   return cut_global + sw_width;
 }
 
+/* ----------------------------------------------------------------------
+   the matched kspace style handles the 1/r^6 dispersion beyond the cutoff, so
+   the analytic long-range tail correction would double count it
+------------------------------------------------------------------------- */
+
+void PairLJCutDispSwitch::init_style()
+{
+  if (tail_flag)
+    error->all(FLERR, "Pair style lj/cut/dispswitch is incompatible with pair_modify tail yes "
+                      "(the dispersion tail is handled by the matched kspace style)");
+  PairLJCut::init_style();
+}
+
+/* ----------------------------------------------------------------------
+   proc 0 writes/reads to restart file.  The base writes cut_global etc.; the
+   switch width Delta must be persisted too, or it resets to 0 on restart (which
+   collapses the cutoff to the inner rcut and aborts the matched kspace).
+------------------------------------------------------------------------- */
+
+void PairLJCutDispSwitch::write_restart_settings(FILE *fp)
+{
+  PairLJCut::write_restart_settings(fp);
+  fwrite(&sw_width, sizeof(double), 1, fp);
+}
+
+void PairLJCutDispSwitch::read_restart_settings(FILE *fp)
+{
+  PairLJCut::read_restart_settings(fp);
+  if (comm->me == 0) utils::sfread(FLERR, &sw_width, sizeof(double), 1, fp, nullptr, error);
+  MPI_Bcast(&sw_width, 1, MPI_DOUBLE, 0, world);
+}
+
 /* ---------------------------------------------------------------------- */
 
 void PairLJCutDispSwitch::compute(int eflag, int vflag)
