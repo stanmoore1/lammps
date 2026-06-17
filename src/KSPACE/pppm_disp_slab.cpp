@@ -70,6 +70,7 @@ PPPMDispSlab::PPPMDispSlab(LAMMPS *lmp) :
   order = 6;
   damp_flag = 0;
   sw_width = 0.0;
+  switch_order = 3;
   corr_mode = 0;
   bin_dz_user = 0.0;
   bin_nbins = 0;
@@ -138,6 +139,13 @@ int PPPMDispSlab::modify_param(int narg, char **arg)
       damp_flag = 0;
     else
       error->all(FLERR, "pppm/disp/slab supports only damp yes (SSB) or damp compact (CSB)");
+    return 2;
+  }
+  if (strcmp(arg[0], "disp/switch/order") == 0) {
+    if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify disp/switch/order", error);
+    switch_order = utils::inumeric(FLERR, arg[1], false, lmp);
+    if (switch_order < 1 || switch_order == 4 || switch_order == 6 || switch_order > 7)
+      error->all(FLERR, "kspace_modify disp/switch/order must be 1, 2, 3, 5, or 7");
     return 2;
   }
   if (strcmp(arg[0], "corr") == 0) {
@@ -573,7 +581,19 @@ double PPPMDispSlab::switch_S(double t)
 {
   if (t <= 0.0) return 0.0;
   if (t >= 1.0) return 1.0;
-  const double t2 = t * t, t3 = t2 * t, t4 = t3 * t;
+  const double t2 = t * t;
+  if (switch_order == 1) return t2 * (3.0 - 2.0 * t);                       // cubic, C1
+  if (switch_order == 2) return t2 * t * (10.0 - 15.0 * t + 6.0 * t2);      // quintic, C2
+  if (switch_order == 5) {
+    const double t6 = t2 * t2 * t2;
+    return t6 * (462.0 + t * (-1980.0 + t * (3465.0 + t * (-3080.0 + t * (1386.0 - 252.0 * t)))));
+  }
+  if (switch_order == 7) {
+    const double t4 = t2 * t2, t8 = t4 * t4;
+    return t8 * (6435.0 + t * (-40040.0 + t * (108108.0 + t * (-163800.0 +
+           t * (150150.0 + t * (-83160.0 + t * (25740.0 - 3432.0 * t)))))));
+  }
+  const double t3 = t2 * t, t4 = t3 * t;    // n=3 septic
   return t4 * (35.0 - 84.0 * t + 70.0 * t2 - 20.0 * t3);
 }
 
@@ -581,9 +601,20 @@ double PPPMDispSlab::switch_S(double t)
 
 double PPPMDispSlab::switch_dS(double t)
 {
+  // dS/dt of the order-n smoothstep is (2n+1)!/(n!)^2 * (t(1-t))^n
   if (t <= 0.0 || t >= 1.0) return 0.0;
-  const double u = 1.0 - t;
-  return 140.0 * t * t * t * u * u * u;    // dS/dt
+  const double tu = t * (1.0 - t);
+  if (switch_order == 1) return 6.0 * tu;
+  if (switch_order == 2) return 30.0 * tu * tu;
+  if (switch_order == 5) {
+    const double tu2 = tu * tu;
+    return 2772.0 * tu2 * tu2 * tu;
+  }
+  if (switch_order == 7) {
+    const double tu2 = tu * tu, tu3 = tu2 * tu;
+    return 51480.0 * tu3 * tu3 * tu;
+  }
+  return 140.0 * tu * tu * tu;
 }
 
 /* ----------------------------------------------------------------------

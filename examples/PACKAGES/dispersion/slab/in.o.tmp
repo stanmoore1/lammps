@@ -1,0 +1,17 @@
+units lj
+atom_style atomic
+boundary p p p
+variable N index 3 5 7
+label loop
+clear
+read_data data.lj_slab
+velocity all set 0.0 0.0 0.0
+pair_style lj/cut/dispswitch 2.5 0.5
+pair_coeff 1 1 1.0 1.0
+kspace_style ewald/disp/slab 1.0e-8
+kspace_modify damp compact disp/switch/order ${N} kmax 200
+thermo_style custom step pe pxx pzz
+run 0
+print "ORDER=${N}  PE=$(pe:%.9f)  Pxx=$(pxx:%.9f)  Pzz=$(pzz:%.9f)"
+next N
+jump in.o.tmp loop

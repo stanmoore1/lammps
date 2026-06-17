@@ -1,0 +1,23 @@
+units lj
+atom_style atomic
+boundary p p p
+variable N index 3 5 7
+variable K index 8 10 12 14 16 20 24 32
+label louter
+  label linner
+    clear
+    read_data data.lj_slab
+    velocity all set 0.0 0.0 0.0
+    pair_style lj/cut/dispswitch 2.5 0.5
+    pair_coeff 1 1 1.0 1.0
+    kspace_style ewald/disp/slab 1.0e-8
+    kspace_modify damp compact disp/switch/order ${N} kmax ${K}
+    thermo_style custom step pe
+    run 0
+    print "CONV order=${N} kmax=${K} PE=$(pe:%.9f)"
+  next K
+  jump in.conv.tmp linner
+  variable K delete
+  variable K index 8 10 12 14 16 20 24 32
+next N
+jump in.conv.tmp louter

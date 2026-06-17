@@ -62,6 +62,7 @@ class PPPMDispSlab : public KSpace {
   int bin_nbins;         // calibrated # corr bins (0 => not calibrated)
   double g_ewald_set;    // splitting parameter actually used
   double sw_width;       // compact-switch width Delta (read from the matched pair style)
+  int switch_order;      // smoothstep continuity C^n (n=3 septic default, 5, or 7)
 
   double volume, cutoff, rc2, area, zprd, zlo;
   double delzinv;        // nz/zprd

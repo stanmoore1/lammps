@@ -67,6 +67,7 @@ EwaldDispSlab::EwaldDispSlab(LAMMPS *lmp) :
   corr_mode = 0;
   bin_dz_user = 0.0;
   sw_width = 0.0;
+  switch_order = 3;
   wEgrid = wFgrid = wTgrid = wNgrid = nullptr;
   nwgrid = 0;
   wdz = 0.0;
@@ -134,6 +135,13 @@ int EwaldDispSlab::modify_param(int narg, char **arg)
     if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify kmax", error);
     kmax_user = utils::inumeric(FLERR, arg[1], false, lmp);
     if (kmax_user < 2) error->all(FLERR, "kspace_modify kmax must be >= 2");
+    return 2;
+  }
+  if (strcmp(arg[0], "disp/switch/order") == 0) {
+    if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify disp/switch/order", error);
+    switch_order = utils::inumeric(FLERR, arg[1], false, lmp);
+    if (switch_order < 1 || switch_order == 4 || switch_order == 6 || switch_order > 7)
+      error->all(FLERR, "kspace_modify disp/switch/order must be 1, 2, 3, 5, or 7");
     return 2;
   }
   if (strcmp(arg[0], "corr") == 0) {
@@ -598,18 +606,32 @@ void EwaldDispSlab::coeffs()
 }
 
 /* ----------------------------------------------------------------------
-   compact-switch (CSB) smoothstep S(t), C3 (septic) on t in [0,1]:
-   S(0)=0, S(1)=1, S=S'=S''=S'''=0 at both ends.  In r: S=0 for r<=rcut,
-   S=1 for r>=rcut+Delta.  The long-range part fed to the reciprocal sum is
-   S(r)*u(r); it vanishes inside rcut (so no slab correction) and is smooth at
-   rcut (so the z-Fourier coefficients decay fast -- no Gibbs ringing).
+   compact-switch (CSB) smoothstep S(t), the order-n "smootherstep" on t in
+   [0,1]: S(0)=0, S(1)=1 with the first n derivatives zero at both ends (C^n).
+   In r: S=0 for r<=rcut, S=1 for r>=rcut+Delta.  The long-range part fed to the
+   reciprocal sum is S(r)*u(r); it vanishes inside rcut (so no slab correction)
+   and meets r>=rcut with C^n continuity, so the z-Fourier coefficients decay as
+   ~k^-(n+2) (no Gibbs ringing).  n=3 (septic) default; 5 or 7 decay faster but
+   the transition is steeper.  Selectable via kspace_modify disp/switch/order.
 ------------------------------------------------------------------------- */
 
 double EwaldDispSlab::switch_S(double t)
 {
   if (t <= 0.0) return 0.0;
   if (t >= 1.0) return 1.0;
-  const double t2 = t * t, t3 = t2 * t, t4 = t3 * t;
+  const double t2 = t * t;
+  if (switch_order == 1) return t2 * (3.0 - 2.0 * t);                       // cubic, C1
+  if (switch_order == 2) return t2 * t * (10.0 - 15.0 * t + 6.0 * t2);      // quintic, C2
+  if (switch_order == 5) {
+    const double t6 = t2 * t2 * t2;
+    return t6 * (462.0 + t * (-1980.0 + t * (3465.0 + t * (-3080.0 + t * (1386.0 - 252.0 * t)))));
+  }
+  if (switch_order == 7) {
+    const double t4 = t2 * t2, t8 = t4 * t4;
+    return t8 * (6435.0 + t * (-40040.0 + t * (108108.0 + t * (-163800.0 +
+           t * (150150.0 + t * (-83160.0 + t * (25740.0 - 3432.0 * t)))))));
+  }
+  const double t3 = t2 * t, t4 = t3 * t;    // n=3 septic
   return t4 * (35.0 - 84.0 * t + 70.0 * t2 - 20.0 * t3);
 }
 
@@ -659,9 +681,20 @@ double EwaldDispSlab::switch_trans5(double h)
 
 double EwaldDispSlab::switch_dS(double t)
 {
+  // dS/dt of the order-n smoothstep is (2n+1)!/(n!)^2 * (t(1-t))^n
   if (t <= 0.0 || t >= 1.0) return 0.0;
-  const double u = 1.0 - t;
-  return 140.0 * t * t * t * u * u * u;    // dS/dt
+  const double tu = t * (1.0 - t);
+  if (switch_order == 1) return 6.0 * tu;            // 6 t(1-t)
+  if (switch_order == 2) return 30.0 * tu * tu;      // 30 (t(1-t))^2
+  if (switch_order == 5) {
+    const double tu2 = tu * tu;
+    return 2772.0 * tu2 * tu2 * tu;    // 2772 (t(1-t))^5
+  }
+  if (switch_order == 7) {
+    const double tu2 = tu * tu, tu3 = tu2 * tu;
+    return 51480.0 * tu3 * tu3 * tu;    // 51480 (t(1-t))^7
+  }
+  return 140.0 * tu * tu * tu;    // 140 (t(1-t))^3
 }
 
 /* ----------------------------------------------------------------------

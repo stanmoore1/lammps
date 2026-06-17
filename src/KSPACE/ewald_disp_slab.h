@@ -51,6 +51,7 @@ class EwaldDispSlab : public KSpace {
   int corr_mode;         // damped correction: 0 = raw pairwise, 1 = binned (faster)
   double bin_dz_user;    // requested bin width (0 => default)
   double sw_width;       // compact-switch width Delta (read from the matched pair style)
+  int switch_order;      // smoothstep continuity C^n (n=3 septic default, 5, or 7)
   double volume, cutoff, rc2;
   double unitk;                       // 2*pi/Lz
   double estimated_force_accuracy;    // predicted RMS per-atom force error
