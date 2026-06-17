@@ -354,10 +354,20 @@ void EwaldDispSlab::estimate_params()
 
   const int kbig = 8192;
   const double prefac = 0.5 * b2 * b2 / natoms;
-  // require predicted rms < accuracy/8 (safety margin: the random-phase model
-  // under-predicts the true per-atom force error for correlated/interfacial
-  // systems by up to ~7x -- measured against the RMS force calculator).
-  const double target = accuracy * accuracy / 64.0;
+  // The random-phase model rms = sqrt(prefac * sum_{k>kmax} GF[k]^2) under-predicts
+  // the true per-atom force error by a roughly constant factor (the cross-term /
+  // diagonal-approximation contribution; |S_k|^2 -> b2 in the relevant high-k tail).
+  // For the compact switch this factor is ~1.4 for the default C3 septic and the
+  // faster-decaying C5/C7; it rises toward ~2x only for the gentle C2 at loose
+  // accuracy, whose slow ~k^-4 tail picks a small kmax where the random-phase
+  // diagonal approximation is weakest.  Measured against the RMS force calculator
+  // over kmax and switch order.  Fold in ~1.6 (the chosen kmax then meets the
+  // requested accuracy within ~1.5x across orders, vs the old fixed 8x over-margin
+  // that over-resolved by ~5x) and select with no extra margin.  The damped and
+  // non-damped variants keep the original conservative 8x margin (not recalibrated).
+  const double bias = (damp_flag == 2) ? 1.6 : 1.0;
+  const double safety = (damp_flag == 2) ? 1.0 : 8.0;
+  const double target = accuracy * accuracy / (bias * bias * safety * safety);
 
   // sum GF^2 from the top down so tail(kmax) = sum_{k>kmax}
   auto *gf2 = new double[kbig + 1];
@@ -402,10 +412,10 @@ void EwaldDispSlab::estimate_params()
   if (kmax_user > 0) kmax = kmax_user;
   else kmax = MAX(8, MIN(chosen, kbig));
 
-  // predicted RMS per-atom force error at the chosen kmax
+  // predicted RMS per-atom force error at the chosen kmax (bias-corrected)
   double tk = 0.0;
   for (int k = kmax + 1; k <= kbig; k++) tk += gf2[k];
-  estimated_force_accuracy = sqrt(prefac * tk);
+  estimated_force_accuracy = bias * sqrt(prefac * tk);
   delete[] gf2;
 
   // the non-damped reciprocal converges only algebraically (~kmax^-0.7) because
