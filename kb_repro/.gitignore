@@ -1,0 +1,4 @@
+# build + run artifacts
+bench*
+*.log
+sf?_bench.txt

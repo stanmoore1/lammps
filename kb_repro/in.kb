@@ -1,0 +1,57 @@
+# Kirkwood-Buff CF4/CH4 binary LJ mixture
+# Reproduces Nichols, Moore, Wheeler, Phys. Rev. E 80, 051203 (2009)
+# Fourier structure-factor method (Figs. 4 and 5), y1=0.4, T=120 K
+#
+# Required -var on command line: L N1 N2 tag nequil nprod
+
+units           real
+atom_style      atomic
+boundary        p p p
+
+region          box block 0 ${L} 0 ${L} 0 ${L} units box
+create_box      2 box
+create_atoms    1 random ${N1} 4321 box overlap 3.0 maxtry 500
+create_atoms    2 random ${N2} 8765 box overlap 3.0 maxtry 500
+
+mass            1 88.0       # CF4
+mass            2 16.04      # CH4
+
+# LJ params (Table I): eps[K]->kcal/mol via kB=0.0019872041
+pair_style      lj/cut 13.4
+pair_coeff      1 1 0.347761 4.150
+pair_coeff      2 2 0.296093 3.728
+pair_coeff      1 2 0.282382 3.939
+pair_modify     tail yes
+
+neighbor        2.5 bin
+neigh_modify    every 5 delay 0 check yes
+
+# remove any residual overlaps from random insertion
+minimize        1.0e-4 1.0e-6 2000 20000
+reset_timestep  0
+
+velocity        all create 120.0 90210 mom yes rot yes dist gaussian
+timestep        4.0
+fix             1 all nvt temp 120.0 120.0 200.0
+
+thermo          2000
+thermo_style    custom step temp press pe ke etotal density
+
+# equilibration
+run             ${nequil}
+
+# ---- production: Fourier partial structure factors ----
+group           sp1 type 1
+group           sp2 type 2
+compute         sf1  sp1 structure/factor
+compute         sf2  sp2 structure/factor
+compute         sfa  all structure/factor
+
+reset_timestep  0
+variable        nrep  equal ${nprod}/50
+fix             a1 all ave/time 50 ${nrep} ${nprod} c_sf1[1] c_sf1[2] c_sf1[3] file sf1_${tag}.txt mode vector
+fix             a2 all ave/time 50 ${nrep} ${nprod} c_sf2[1] c_sf2[2] c_sf2[3] file sf2_${tag}.txt mode vector
+fix             aa all ave/time 50 ${nrep} ${nprod} c_sfa[1] c_sfa[2] c_sfa[3] file sfa_${tag}.txt mode vector
+
+run             ${nprod}
+print           "DONE ${tag}"
