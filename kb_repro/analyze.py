@@ -225,6 +225,26 @@ def main():
             c11.append(rhoC[0,0]); c12.append(rhoC[0,1]); c22.append(rhoC[1,1])
         ax2.plot(qf, c11, "c-", lw=1.2, label="empir fit")
         ax2.plot(qf, c12, "c-", lw=1.2); ax2.plot(qf, c22, "c-", lw=1.2)
+
+        # ---- asymptotic fit, Eq. (27): rho C_ij(q) = A + B q^2 ----
+        # (truncation of c_ij(r) -> finite core + r^-6 dispersion tail; even in q)
+        p1 = data["N1200"]
+        qd = p1["q"]
+        fasy = lambda q, A, B: A + B*q**2
+        emp_at = dict(rhoC11=c11, rhoC12=c12, rhoC22=c22)  # on fine grid qf
+        print("\nFigure 5 fit diagnostics (N=1200), RMS residual of rho*C_ij:")
+        for key, lab, off in (("rhoC11", "11", 0.0), ("rhoC12", "12", 0.0),
+                              ("rhoC22", "22", 0.0)):
+            ca, _ = curve_fit(fasy, qd, p1[key])
+            ax2.plot(qf, fasy(qf, *ca), "g--", lw=1.1,
+                     label="asym fit" if key == "rhoC11" else None)
+            # residuals: asymptotic vs empirical, both at simulated q points
+            res_asy = np.sqrt(np.mean((fasy(qd, *ca) - p1[key])**2))
+            emp_interp = np.interp(qd, qf, emp_at[key])
+            res_emp = np.sqrt(np.mean((emp_interp - p1[key])**2))
+            print(f"  rhoC{lab}:  empirical RMS = {res_emp:.3f}   "
+                  f"asymptotic RMS = {res_asy:.3f}   "
+                  f"(A={ca[0]:.2f}, B={ca[1]:.3f})")
     ax2.set_xlabel(r"$q$ (nm$^{-1}$)"); ax2.set_ylabel(r"$\rho C_{ij}$")
     ax2.set_xlim(0, 6); ax2.set_ylim(-26, -8)
     ax2.text(0.5, 0.8, r"$\rho C_{22}$", transform=ax2.transAxes)
