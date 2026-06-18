@@ -109,7 +109,8 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
 
   if ((int)A.extent(0) < natom) {
 
-    MemKK::realloc_kokkos(A_sph, "pace:A_sph", natom, nelements, idx_sph_max, nradmax + 1);
+    MemKK::realloc_kokkos(A_sph_re, "pace:A_sph_re", natom, nelements, idx_sph_max, nradmax + 1);
+    MemKK::realloc_kokkos(A_sph_im, "pace:A_sph_im", natom, nelements, idx_sph_max, nradmax + 1);
     MemKK::realloc_kokkos(A, "pace:A", natom, nelements, (lmax + 1) * (lmax + 1), nradmax + 1);
     MemKK::realloc_kokkos(A_rank1, "pace:A_rank1", natom, nelements, nradbase);
 
@@ -121,7 +122,8 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
     MemKK::realloc_kokkos(rhos, "pace:rhos", natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
     MemKK::realloc_kokkos(dF_drho, "pace:dF_drho", natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
 
-    MemKK::realloc_kokkos(weights, "pace:weights", natom, nelements, idx_sph_max, nradmax + 1);
+    MemKK::realloc_kokkos(weights_re, "pace:weights_re", natom, nelements, idx_sph_max, nradmax + 1);
+    MemKK::realloc_kokkos(weights_im, "pace:weights_im", natom, nelements, idx_sph_max, nradmax + 1);
     MemKK::realloc_kokkos(weights_rank1, "pace:weights_rank1", natom, nelements, nradbase);
 
     // hard-core repulsion
@@ -606,9 +608,11 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   while (chunk_offset < inum) { // chunk up loop to prevent running out of memory
 
-    Kokkos::deep_copy(weights, 0.0);
+    Kokkos::deep_copy(weights_re, 0.0);
+    Kokkos::deep_copy(weights_im, 0.0);
     Kokkos::deep_copy(weights_rank1, 0.0);
-    Kokkos::deep_copy(A_sph, 0.0);
+    Kokkos::deep_copy(A_sph_re, 0.0);
+    Kokkos::deep_copy(A_sph_im, 0.0);
     Kokkos::deep_copy(A_rank1, 0.0);
     Kokkos::deep_copy(rhos, 0.0);
     Kokkos::deep_copy(rho_core, 0.0);
@@ -951,8 +955,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
     ylm.im = 0.0;
 
     for (int n = 0; n < nradmax; n++) {
-      Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).re, fr(ii, jj, l, n) * ylm.re);
-      Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).im, fr(ii, jj, l, n) * ylm.im);
+      Kokkos::atomic_add(&A_sph_re(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.re);
+      Kokkos::atomic_add(&A_sph_im(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.im);
     }
 
     plm_idx2 = plm_idx1;
@@ -980,8 +984,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
     ylm = phase * plm_idx;
 
     for (int n = 0; n < nradmax; n++) {
-      Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).re, fr(ii, jj, l, n) * ylm.re);
-      Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).im, fr(ii, jj, l, n) * ylm.im);
+      Kokkos::atomic_add(&A_sph_re(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.re);
+      Kokkos::atomic_add(&A_sph_im(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.im);
     }
 
     plm_idx2 = plm_idx1;
@@ -1019,8 +1023,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
       ylm.im = phasem.im * plm_idx;
 
       for (int n = 0; n < nradmax; n++) {
-        Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).re, fr(ii, jj, l, n) * ylm.re);
-        Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).im, fr(ii, jj, l, n) * ylm.im);
+        Kokkos::atomic_add(&A_sph_re(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.re);
+        Kokkos::atomic_add(&A_sph_im(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.im);
       }
 
       plm_idx2 = plm_idx1;
@@ -1051,7 +1055,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEConjugateAi, const int& 
       for (int l = m; l <= lmax; l++) {
         const int idx = l * (l + 1) + m;
         for (int n = 0; n < nradmax; n++) {
-          A(ii, mu_j, idx, n) = A_sph(ii, mu_j, idx_sph, n);
+          A(ii, mu_j, idx, n) = complex(A_sph_re(ii, mu_j, idx_sph, n), A_sph_im(ii, mu_j, idx_sph, n));
         }
 
         idx_sph++;
@@ -1069,7 +1073,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEConjugateAi, const int& 
         const int idx_sph = d_idx_sph(idx);
         const int factor = m % 2 == 0 ? 1 : -1;
         for (int n = 0; n < nradmax; n++) {
-          A(ii, mu_j, idxm, n) = A_sph(ii, mu_j, idx_sph, n).conj() * (KK_FLOAT)factor;
+          A(ii, mu_j, idxm, n) = complex(A_sph_re(ii, mu_j, idx_sph, n), -A_sph_im(ii, mu_j, idx_sph, n)) * (KK_FLOAT)factor;
         }
       }
     }
@@ -1246,16 +1250,16 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const in
       const int idx_sph = d_idx_sph(idx);
       if (idx_sph >= 0) {
         const complex value = theta * dB;
-        Kokkos::atomic_add(&(weights(ii, mu_t, idx_sph, n_t - 1).re), value.re);
-        Kokkos::atomic_add(&(weights(ii, mu_t, idx_sph, n_t - 1).im), value.im);
+        Kokkos::atomic_add(&(weights_re(ii, mu_t, idx_sph, n_t - 1)), value.re);
+        Kokkos::atomic_add(&(weights_im(ii, mu_t, idx_sph, n_t - 1)), value.im);
       }
       // update -m_t (that could also be positive), because the basis is half_basis
       const int idxm = l_t * (l_t + 1) - m_t; // (l, -m)
       const int idxm_sph = d_idx_sph(idxm);
       if (idxm_sph >= 0) {
         const complex valuem = theta * dB.conj() * (KK_FLOAT)factor;
-        Kokkos::atomic_add(&(weights(ii, mu_t, idxm_sph, n_t - 1).re), valuem.re);
-        Kokkos::atomic_add(&(weights(ii, mu_t, idxm_sph, n_t - 1).im), valuem.im);
+        Kokkos::atomic_add(&(weights_re(ii, mu_t, idxm_sph, n_t - 1)), valuem.re);
+        Kokkos::atomic_add(&(weights_im(ii, mu_t, idxm_sph, n_t - 1)), valuem.im);
       }
     }
   }
@@ -1369,7 +1373,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivative, const
       const KK_FLOAT DR = dfr(ii, jj, l, n);
       const complex Y_DR = ylm * DR;
 
-      complex w = weights(ii, mu_j, idx_sph, n);
+      complex w = complex(weights_re(ii, mu_j, idx_sph, n), weights_im(ii, mu_j, idx_sph, n));
       if (w.re == 0.0 && w.im == 0.0) continue;
 
       complex grad_phi_nlm[3];
@@ -1436,7 +1440,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivative, const
       const KK_FLOAT DR = dfr(ii, jj, l, n);
       const complex Y_DR = ylm * DR;
 
-      complex w = weights(ii, mu_j, idx_sph, n);
+      complex w = complex(weights_re(ii, mu_j, idx_sph, n), weights_im(ii, mu_j, idx_sph, n));
       if (w.re == 0.0 && w.im == 0.0) continue;
       // counting for -m cases if m > 0
       w.re *= 2.0;
@@ -1514,7 +1518,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivative, const
         const KK_FLOAT DR = dfr(ii, jj, l, n);
         const complex Y_DR = ylm * DR;
 
-        complex w = weights(ii, mu_j, idx_sph, n);
+        complex w = complex(weights_re(ii, mu_j, idx_sph, n), weights_im(ii, mu_j, idx_sph, n));
         if (w.re == 0.0 && w.im == 0.0) continue;
         // counting for -m cases if m > 0
         w.re *= 2.0;
@@ -1970,12 +1974,15 @@ double PairPACEKokkos<DeviceType>::memory_usage()
 
   bytes += MemKK::memory_usage(A);
   bytes += MemKK::memory_usage(A_rank1);
+  bytes += MemKK::memory_usage(A_sph_re);
+  bytes += MemKK::memory_usage(A_sph_im);
   bytes += MemKK::memory_usage(A_list);
   bytes += MemKK::memory_usage(A_forward_prod);
   bytes += MemKK::memory_usage(e_atom);
   bytes += MemKK::memory_usage(rhos);
   bytes += MemKK::memory_usage(dF_drho);
-  bytes += MemKK::memory_usage(weights);
+  bytes += MemKK::memory_usage(weights_re);
+  bytes += MemKK::memory_usage(weights_im);
   bytes += MemKK::memory_usage(weights_rank1);
   bytes += MemKK::memory_usage(rho_core);
   bytes += MemKK::memory_usage(dF_drho_core);
