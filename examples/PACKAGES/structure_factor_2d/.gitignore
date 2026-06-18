@@ -5,6 +5,7 @@ log.*
 *.restart
 *.png
 ladder_T*.csv
+ladder10k_T*.csv
 
 # MD trajectory/dump scratch
 *.lammpstrj
