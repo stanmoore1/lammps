@@ -1,0 +1,75 @@
+# CPP LJTS production, N=10000 CUBIC box, for the DCF route.  Reads the equilibrated
+# restart and measures, over Nprod steps: the bin-resolved planar structure factor
+# S_ij(k) (the DCF charging route, oz_invert.py --mode dft/kb), plus density rho(z),
+# the Harasima (H) pressure contour, the Irving-Kirkwood (IK) contour, energy density,
+# and the global mechanical surface tension (cross-checks alongside the DCF).
+# Pure MPI, double precision.
+#
+# Run:  mpirun -np <n> lmp -in in.cpp_ljts_dcf10k \
+#           -var T <T> -var dUmax <dU> -var tag <name> -var Nprod <n>
+
+variable        T       index 0.98
+variable        dUmax   index 0.4
+variable        tag     index run10k
+variable        Nprod   index 10000000
+variable        NBIN    equal 200
+variable        KMAX    equal 8           # structure-factor reciprocal cutoff
+variable        SFBIN   equal 40          # z-bins for the S_ij OZ matrix
+
+units           lj
+atom_style      atomic
+# decompose the lateral plane (2x2x1): the field pins a z-slab, so density is uniform
+# in x,y -> each rank owns a full z-column with equal atoms (balanced, no z-rebalance).
+processors      2 2 1
+read_restart    ${tag}.equil.restart
+
+pair_style      lj/cut 2.5
+pair_coeff      1 1 1.0 1.0 2.5
+pair_modify     shift yes
+neighbor        0.5 bin
+neigh_modify    every 1 delay 0 check yes
+
+timestep        0.005
+fix             1 all nvt temp ${T} ${T} 0.5
+variable        AF      equal ${dUmax}/2.0
+variable        forcez  atom 2*PI*${AF}*sin(2*PI*z/lz)/lz
+fix             ext all addforce 0.0 0.0 v_forcez
+
+reset_timestep  0
+variable        dzr     equal 1.0/${NBIN}
+variable        dzb     equal lz/${NBIN}
+compute         cz all chunk/atom bin/1d z lower ${dzr} units reduced
+
+# --- DCF: bin-resolved planar structure factor (direct DFT) ---
+# 2500 samples every 20 steps per 50k-step block -> 200 blocks over a 1e7 run
+compute         sf all structure/factor/2d ${KMAX} ${SFBIN}
+fix             sfavg all ave/time 20 2500 50000 c_sf[1] c_sf[2] c_sf[3] c_sf[4] c_sf[5] &
+                mode vector file ${tag}_sf.out
+
+# --- density rho(z) ---
+fix             den all ave/chunk 100 1000 100000 cz density/number file ${tag}_dens.out
+
+# --- Harasima (H) contour: per-atom configurational virial binned in z ---
+compute         sa all stress/atom NULL pair
+fix             hpr all ave/chunk 100 1000 100000 cz c_sa[1] c_sa[2] c_sa[3] norm none file ${tag}_hstress.out
+
+# --- Irving-Kirkwood (IK) contour: stress/cartesian (sampled sparsely; expensive) ---
+compute         ik all stress/cartesian z ${dzb} NULL ${dzb}
+fix             ikpr all ave/time 1000 100 100000 c_ik[1] c_ik[2] c_ik[3] c_ik[4] c_ik[5] c_ik[6] c_ik[7] c_ik[8] mode vector file ${tag}_ikstress.out
+
+# --- energy density u(z) ---
+compute         pe all pe/atom
+fix             epr all ave/chunk 100 1000 100000 cz c_pe norm none file ${tag}_energy.out
+
+# --- global mechanical surface tension (pair virial only) ---
+compute         press all pressure NULL pair
+variable        pN  equal c_press[3]
+variable        pT  equal 0.5*(c_press[1]+c_press[2])
+variable        gam equal lz*(v_pN-v_pT)/2.0
+fix             gt all ave/time 100 1000 100000 v_pN v_pT v_gam file ${tag}_gamma.out
+
+thermo          100000
+thermo_style    custom step temp pe press pzz v_gam
+run             ${Nprod}
+
+print           "PROD DONE tag ${tag} T ${T} dUmax ${dUmax}  Lx $(lx) Lz $(lz) N $(count(all)) rho_avg $(count(all)/vol)"
