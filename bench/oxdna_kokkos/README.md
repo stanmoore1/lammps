@@ -84,38 +84,42 @@ Useful CMake options:
 ## Running
 
 ```bash
-./build/oxdna_kokkos -top <file.top> -conf <file.conf> [options]
+./build/oxdna_kokkos <input_file>
 ```
 
-| Option | Default | Description |
+The program is driven by a **standalone-oxDNA-style input file** (`key = value`),
+so the *same* input that drives the reference oxDNA drives this code —
+unrecognized keys (`backend`, `CUDA_list`, `trajectory_file`, `ensemble`,
+`data_output_*` blocks, `${...}` expressions, ...) are ignored. Recognized keys:
+
+| Key | Default | Description |
 |---|---|---|
-| `-top <file>`   | — | Topology (`.top`) |
-| `-conf <file>`  | — | Configuration (`.conf`/`.dat`) |
-| `-steps <N>`    | 10000 | Number of MD steps |
-| `-dt <dt>`      | 0.001 | Timestep (reduced units) |
-| `-T <T>`        | 0.1 | Temperature (reduced units; 1 unit ≈ 3000 K) |
-| `-model <1\|2>` | 1 | oxDNA1 or oxDNA2 |
-| `-salt <c>`     | 0.5 | Salt concentration [mol/L] (oxDNA2 only) |
-| `-cut <r>`      | 2.5 | Minimum nonbonded cutoff (grown automatically for Debye–Hückel) |
-| `-skin <r>`     | 0.3 | Verlet skin |
-| `-newt <N>`     | 0 | Brownian thermostat period in steps (`0` = NVE) |
-| `-diff <D>`     | 2.5 | Translational diffusion coefficient (sets refresh probability) |
-| `-pt <p>`       | 0 | Refresh probability; overrides `-diff` if `> 0` |
-| `-seed <N>`     | 12345 | Thermostat RNG seed |
-| `-freq <N>`     | 1000 | Energy print frequency |
-| `-timing`       | off | Print the per-kernel breakdown (adds a fence per section; omit for production throughput) |
+| `topology`           | — | Topology `.top` (mandatory) |
+| `conf_file`          | — | Configuration `.conf`/`.dat` (mandatory) |
+| `interaction_type`   | DNA | `DNA`/`DNA1` → oxDNA1, `DNA2` → oxDNA2 |
+| `salt_concentration` | 0.5 | mol/L (oxDNA2) |
+| `T`                  | 0.1 | `20C`, `300K`, or a number in oxDNA units (1 unit ≈ 3000 K) |
+| `dt`                 | 0.001 | Timestep |
+| `steps`              | 10000 | Number of MD steps (accepts `1e7`) |
+| `verlet_skin`        | 0.3 | Verlet skin |
+| `print_energy_every` | 1000 | Energy print frequency |
+| `seed`               | 12345 | Thermostat RNG seed |
+| `thermostat`         | (none) | `brownian`/`john` → NVT; otherwise NVE |
+| `newtonian_steps`    | 0 | Brownian thermostat period in steps |
+| `diff_coeff`         | 2.5 | Translational diffusion coefficient |
+| `pt`                 | 0 | Refresh probability; overrides `diff_coeff` if `> 0` |
+| `timing`             | 0 | `1` → per-kernel timing breakdown (adds fences; `0` for production) |
 
-Input files use the standard oxDNA formats: the `.top` lists
-`<N> <N_strands>` then one `<strand_id> <base> <n3> <n5>` line per nucleotide;
-the `.conf` has `t = …`, `b = Lx Ly Lz`, `E = …`, then one line per nucleotide
-with position, `a1`, `a3`, velocity, and angular momentum. Coordinates should be
-folded into the box.
+Paths are resolved relative to the working directory (run from the case
+directory, as with the reference oxDNA). The `.top` lists `<N> <N_strands>`
+then one `<strand_id> <base> <n3> <n5>` line per nucleotide; the `.conf` has
+`t = …`, `b = Lx Ly Lz`, `E = …`, then one line per nucleotide with position,
+`a1`, `a3`, and optionally velocity and angular momentum.
 
-Example (oxDNA2, NVE, 8bp duplex bundled under `tests/`):
+Example (the bundled oxDNA2 cases each ship an `input` file):
 
 ```bash
-./build/oxdna_kokkos -top tests/8bp_duplex/test.top -conf tests/8bp_duplex/test.conf \
-                     -model 2 -salt 0.5 -T 0.1 -dt 1e-4 -steps 10000
+cd tests/N8 && ../../build/oxdna_kokkos input
 ```
 
 ## Performance output
@@ -128,12 +132,12 @@ with no per-section fences, so the loop time is the true throughput:
 Loop time of 3.92618 on 1 procs (Serial x 1) for 2000 steps with 1024 atoms
 
 Performance: 132036.667 tau/day, 509.401 timesteps/s, 0.522 Matom-step/s
-(run with -timing for the per-kernel breakdown)
+(set 'timing = 1' in the input file for the per-kernel breakdown)
 ```
 
-Pass `-timing` to also get the per-kernel breakdown. This fences at each
-section boundary (a no-op on CPU; one sync per section on GPU, like LAMMPS
-`timer full`), so prefer the default for production throughput numbers:
+Set `timing = 1` in the input to also get the per-kernel breakdown. This fences
+at each section boundary (a no-op on CPU; one sync per section on GPU, like
+LAMMPS `timer full`), so prefer `timing = 0` for production throughput numbers:
 
 ```
 Loop time of 4.8036 on 1 procs (Serial x 1) for 2000 steps with 1024 atoms

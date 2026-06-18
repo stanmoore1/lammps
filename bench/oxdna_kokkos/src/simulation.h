@@ -150,7 +150,7 @@ private:
                     tau_per_day, steps_per_s, matomstep_s);
 
         if (!cfg_.timing) {
-            std::printf("(run with -timing for the per-kernel breakdown)\n");
+            std::printf("(set 'timing = 1' in the input file for the per-kernel breakdown)\n");
             return;
         }
 
