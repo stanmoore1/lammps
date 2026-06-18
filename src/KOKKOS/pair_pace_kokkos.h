@@ -256,7 +256,12 @@ class PairPACEKokkos : public PairPACE {
   t_ace_3c A_forward_prod;
 
   t_ace_3d weights_rank1;
-  t_ace_4c weights;
+  // Spherical-harmonic weights, stored as separate real/imaginary arrays
+  // (rather than an interleaved complex array) so that the atomic
+  // accumulation in ComputeWeights is coalesced across the (innermost) atom
+  // index on GPUs. Mirrors the ulisttot_re/ulisttot_im layout in Kokkos SNAP.
+  t_ace_4d weights_re;
+  t_ace_4d weights_im;
 
   t_ace_1d e_atom;
   t_ace_2d rhos;
@@ -285,7 +290,12 @@ class PairPACEKokkos : public PairPACE {
 
   void pre_compute_harmonics(int);
 
-  t_ace_4c A_sph;
+  // Spherical-harmonic basis A, stored as separate real/imaginary arrays
+  // (rather than an interleaved complex array) so that the atomic
+  // accumulation over neighbors in ComputeAi is coalesced across the
+  // (innermost) atom index on GPUs. Mirrors Kokkos SNAP's ulisttot_re/im.
+  t_ace_4d A_sph_re;
+  t_ace_4d A_sph_im;
   t_ace_1d d_idx_sph;
   t_ace_1d alm;
   t_ace_1d blm;
