@@ -24,6 +24,7 @@ struct SimConfig {
     c_number    cutoff      = 2.5;
     c_number    skin        = 0.3;
     int         output_freq = 1000;
+    bool        timing      = false; // per-kernel breakdown (adds fences); off = production
     int         model       = 1;     // 1 = oxDNA1, 2 = oxDNA2
     c_number    salt        = 0.5;   // salt concentration [mol/L] (oxDNA2 only)
     // Brownian ("John") thermostat. newtonian_steps <= 0 disables it (NVE).
@@ -71,13 +72,15 @@ public:
     }
 
     void run() {
-        // Per-section timers (LAMMPS-style breakdown). On CPU backends
-        // Kokkos::fence() is a no-op, so attribution is exact; on GPU each
-        // boundary fence adds a sync (comparable to LAMMPS `timer full`).
+        // Per-section timers (LAMMPS-style breakdown). Each section boundary
+        // fences only when -timing is on, so a production run (timing off) keeps
+        // the kernels pipelined and reports the true loop time; the breakdown is
+        // exact on CPU and adds one sync per section on GPU (like LAMMPS
+        // `timer full`).
         double t_neigh = 0, t_bond = 0, t_stk = 0, t_nb = 0, t_mod = 0, t_out = 0;
         auto clk  = []{ return std::chrono::high_resolution_clock::now(); };
         auto sec  = [](auto a, auto b){ return std::chrono::duration<double>(b - a).count(); };
-        auto mark = [&]{ Kokkos::fence(); return clk(); };
+        auto mark = [&]{ if (cfg_.timing) Kokkos::fence(); return clk(); };
 
         long long step = step_;
 
@@ -90,7 +93,8 @@ public:
                         nl_.N_edges);
         }
 
-        auto loop0 = mark();
+        Kokkos::fence();
+        auto loop0 = clk();
         for (long long s = 0; s < cfg_.nsteps; s++, step++) {
             auto a = clk();
             first_step(dev_, cfg_.dt, box_);
@@ -115,14 +119,15 @@ public:
             auto g = mark(); t_mod += sec(f, g);
 
             if (s % cfg_.output_freq == 0) {
-                c_number ekin = kinetic_energy(dev_);
+                c_number ekin = kinetic_energy(dev_);  // reduction syncs
                 std::printf("step %8lld  Epot=%14.6f  Ekin=%14.6f  Etot=%14.6f  pairs=%d\n",
                             step, (double)epot_, (double)ekin,
                             (double)(ekin + epot_), nl_.N_edges);
             }
             auto h = mark(); t_out += sec(g, h);
         }
-        auto loop1 = mark();
+        Kokkos::fence();
+        auto loop1 = clk();
         double loop_time = sec(loop0, loop1);
 
         print_performance(loop_time, t_neigh, t_bond, t_stk, t_nb, t_mod, t_out);
@@ -132,8 +137,6 @@ private:
     void print_performance(double loop, double t_neigh, double t_bond,
                            double t_stk, double t_nb, double t_mod, double t_out) const {
         const long long nsteps = cfg_.nsteps;
-        const double sum   = t_neigh + t_bond + t_stk + t_nb + t_mod + t_out;
-        const double other = (loop > sum) ? (loop - sum) : 0.0;
         const int    nthreads = Kokkos::DefaultExecutionSpace().concurrency();
         const char  *backend  = Kokkos::DefaultExecutionSpace::name();
 
@@ -146,6 +149,13 @@ private:
         std::printf("\nPerformance: %.3f tau/day, %.3f timesteps/s, %.3f Matom-step/s\n",
                     tau_per_day, steps_per_s, matomstep_s);
 
+        if (!cfg_.timing) {
+            std::printf("(run with -timing for the per-kernel breakdown)\n");
+            return;
+        }
+
+        const double sum   = t_neigh + t_bond + t_stk + t_nb + t_mod + t_out;
+        const double other = (loop > sum) ? (loop - sum) : 0.0;
         auto row = [&](const char *name, double t) {
             std::printf("%-22s | %10.4f | %6.2f | %10.3f\n",
                         name, t, loop > 0 ? 100.0 * t / loop : 0.0,
