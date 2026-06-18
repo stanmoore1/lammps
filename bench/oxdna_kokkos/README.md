@@ -96,6 +96,7 @@ unrecognized keys (`backend`, `CUDA_list`, `trajectory_file`, `ensemble`,
 |---|---|---|
 | `topology`           | — | Topology `.top` (mandatory) |
 | `conf_file`          | — | Configuration `.conf`/`.dat` (mandatory) |
+| `energy_file`        | (none) | If set, write oxDNA-style `time U K total` (per nucleotide) |
 | `interaction_type`   | DNA | `DNA`/`DNA1` → oxDNA1, `DNA2` → oxDNA2 |
 | `salt_concentration` | 0.5 | mol/L (oxDNA2) |
 | `T`                  | 0.1 | `20C`, `300K`, or a number in oxDNA units (1 unit ≈ 3000 K) |
@@ -121,6 +122,22 @@ Example (the bundled oxDNA2 cases each ship an `input` file):
 ```bash
 cd tests/N8 && ../../build/oxdna_kokkos input
 ```
+
+### Energy output
+
+Energies are reported **per nucleotide** in oxDNA units, exactly like the
+reference oxDNA (the reference divides the total energy by N). stdout has the
+columns `step  time  U  K  total` (with `time = step * dt`), and if
+`energy_file` is set it is written in oxDNA's `time U K total` format so it can
+be compared directly with the reference `energy_file`:
+
+```
+#       step           time              U              K          total
+           0       0.000000      -1.354229       0.293346      -1.060883
+```
+
+(The earlier builds printed *total* extensive energies; multiply by N to
+convert old output, or just use the per-nucleotide values now emitted.)
 
 ## Performance output
 
