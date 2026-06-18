@@ -117,6 +117,47 @@ Example (oxDNA2, NVE, 8bp duplex bundled under `tests/`):
                      -model 2 -salt 0.5 -T 0.1 -dt 1e-4 -steps 10000
 ```
 
+## Performance output
+
+At the end of a run the code prints a LAMMPS-style loop-time / performance
+summary and a per-kernel timing breakdown, e.g.:
+
+```
+Loop time of 4.8036 on 1 procs (Serial x 1) for 2000 steps with 1024 atoms
+
+Performance: 107918.974 tau/day, 416.354 timesteps/s, 0.426 Matom-step/s
+
+Kernel timing breakdown:
+Section                |   time (s) |  %loop |    us/step
+------------------------------------------------------------
+Neigh                  |     0.9686 |  20.16 |    484.318
+Bond (FENE+bond-excv)  |     0.2581 |   5.37 |    129.073
+Pair: stacking         |     0.4989 |  10.39 |    249.444
+Pair: nonbonded        |     2.9464 |  61.34 |   1473.225
+Modify (integ+thermo)  |     0.1311 |   2.73 |     65.550
+Output                 |     0.0003 |   0.01 |      0.141
+Other                  |     0.0001 |   0.00 |      0.052
+------------------------------------------------------------
+Total (loop)           |     4.8036 | 100.00 |   2401.802
+```
+
+The sections map onto LAMMPS' timing breakdown for a CG-DNA run as follows, so
+the two can be compared side by side:
+
+| This code | LAMMPS section(s) |
+|---|---|
+| `Neigh` | `Neigh` |
+| `Bond (FENE+bond-excv)` | `Bond` (FENE) + part of `Pair` (bonded excluded volume) |
+| `Pair: stacking` | `Pair` (`oxdna/stk`) |
+| `Pair: nonbonded` | `Pair` (`oxdna2/excv`, `oxdna/hbond`, `oxdna/xstk`, `oxdna2/coaxstk`, `oxdna2/dh`) |
+| `Modify (integ+thermo)` | `Modify` (`nve/dotc/langevin` + thermostat) |
+| `Output` | `Output` |
+
+`timesteps/s` is the most directly comparable metric to LAMMPS' `Performance:`
+line. On CPU backends `Kokkos::fence()` is a no-op, so the section times are
+exact; on the CUDA backend each section boundary fences (like LAMMPS `timer
+full`), which slightly inflates the loop time versus an untimed run.
+
 ## Validation
 
 Build with `-DOXDNA_BUILD_TESTS=ON` and run from this directory.
