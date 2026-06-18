@@ -12,10 +12,8 @@ oxDNA2, average sequence, `T = 20C` (= 0.097717 reduced), `salt_concentration = 
 ## Run (Kokkos)
 
 ```bash
-# from bench/oxdna_kokkos, after building (see ../../README.md)
-./build/oxdna_kokkos -top tests/N8/topology_N8.top -conf tests/N8/init_conf_N8.dat \
-                     -model 2 -salt 1.0 -T 0.097717 -dt 0.003 \
-                     -newt 103 -diff 2.5 -steps 100000 -freq 1000
+# this directory ships an `input` file in standalone-oxDNA format
+cd tests/N8 && ../../build/oxdna_kokkos input
 ```
 
 ## Cross-check vs. standalone oxDNA

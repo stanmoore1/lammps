@@ -11,6 +11,5 @@ Verified against the standalone oxDNA (oxDNA2, T=20C, salt=1.0, average seq):
 
 Run:
 ```bash
-./build/oxdna_kokkos -top tests/N64/topology_N64.top -conf tests/N64/init_conf_N64.dat \
-                     -model 2 -salt 1.0 -T 0.097717 -dt 0.003 -newt 103 -diff 2.5 -steps 100000
+cd tests/N64 && ../../build/oxdna_kokkos input
 ```
