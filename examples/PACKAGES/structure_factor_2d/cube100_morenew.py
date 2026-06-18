@@ -13,14 +13,17 @@ sys.path.insert(0, '.'); sys.path.insert(0, '/home/user/lammps/ljts_eos')
 import oz_invert as oz, field_coupling as fc, kernel_fit as kf, contour_pressure as cp
 import pets_eos as pets
 TCLOW = bool(os.environ.get('TCLOW'))
-TCSET = bool(os.environ.get('TCSET')) or TCLOW  # TCSET/TCLOW -> Tc=1.089 ladders
+TCMID = bool(os.environ.get('TCMID'))   # dUmax 1,2,3 at Tc
+TCSET = bool(os.environ.get('TCSET')) or TCLOW or TCMID  # Tc=1.089 ladders
 T = 1.089 if TCSET else 1.198
 TAG2, TAG3, TAG4 = (('cube100Tc025', 'cube100Tc05', 'cube100Tc1') if TCLOW else
+                    ('cube100Tc1', 'cube100Tc2', 'cube100Tc3') if TCMID else
                     ('cube100Tc2', 'cube100Tc3', 'cube100Tc4') if TCSET else
                     ('cube100', 'cube100u3', 'cube100u4'))
+DU2, DU3, DU4 = ((0.25, 0.5, 1.0) if TCLOW else (1.0, 2.0, 3.0) if TCMID else (2.0, 3.0, 4.0))
 L = 6.8582414181223398941; Lz = L
 pmu = lambda r: T*np.log(r) + pets.properties(T, r)['mu_res']
-sc = np.linspace(0.17, 0.47, 40) if TCLOW else np.linspace(0.14, 0.55, 40)
+sc = np.linspace(0.17, 0.47, 40) if TCLOW else np.linspace(0.14, 0.50, 40) if TCMID else np.linspace(0.14, 0.55, 40)
 mp = np.array([pmu(x) for x in sc])
 
 
@@ -57,20 +60,20 @@ print('    pure H  (a=0):   RMS=%.4f' % rms(*p0_to_mu0(rcom, P0h_c)))
 print('    optimal a=%.2f:  RMS=%.4f   <- a in [0,1] would mean H/IK bracket the EOS'
       % (best[0], best[1]))
 
-# ---------- (C) empirical vdW square-gradient fit (single field, dUmax=4) ----------
+# ---------- (C) empirical vdW square-gradient fit (single strongest field) ----------
 rho4 = oz.fourier_cosine_smooth(fc._read_density('%s_dens.out'%TAG4), 6)
 prof4 = np.array([np.full_like(rho4, rho4.mean()), rho4])
-eg = fc.local_eos(np.array([0.0, 2.0]), prof4, T, Lz, deg=6, smooth=6, grad_spec={2: 0})
-print('\n(C) vdW square-gradient fit (mu0+kappa rho'', single dUmax=4):  RMS=%.4f  kappa=%.3f'
-      % (rms(eg['rho'], eg['mu0']), eg['kappa2'](0.3)))
+eg = fc.local_eos(np.array([0.0, DU4 / 2]), prof4, T, Lz, deg=6, smooth=6, grad_spec={2: 0})
+print('\n(C) vdW square-gradient fit (mu0+kappa rho'', single dUmax=%g):  RMS=%.4f  kappa=%.3f'
+      % (DU4, rms(eg['rho'], eg['mu0']), eg['kappa2'](0.3)))
 
-# ---------- (D) mini-ladder: dUmax=2 (+3) + 4 ----------
+# ---------- (D) mini-ladder: pool the three fields (AF = dUmax/2 each) ----------
 import os
 rho2 = oz.fourier_cosine_smooth(fc._read_density('%s_dens.out'%TAG2), 6)
-ladder = [(1.0, rho2), (2.0, rho4)]                    # AF = dUmax/2 for 0,2,4
+ladder = [(DU2 / 2, rho2), (DU4 / 2, rho4)]
 if os.path.exists('%s_dens.out'%TAG3):
     rho3 = oz.fourier_cosine_smooth(fc._read_density('%s_dens.out'%TAG3), 6)
-    ladder.insert(1, (1.5, rho3))
+    ladder.insert(1, (DU3 / 2, rho3))
 amps = np.array([0.0] + [a for a, _ in ladder])
 prof = np.array([np.full_like(rho2, rho2.mean())] + [r for _, r in ladder])
 egl = fc.local_eos(amps, prof, T, Lz, deg=6, smooth=6, grad_spec={2: 0, 4: 0})

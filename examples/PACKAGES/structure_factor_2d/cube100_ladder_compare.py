@@ -13,9 +13,10 @@ import pets_eos as pets, thol2015_ljts_eos as thol
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 TCLOW = bool(os.environ.get('TCLOW'))
-TCSET = bool(os.environ.get('TCSET')) or TCLOW  # TCSET/TCLOW -> Tc=1.089 ladders
+TCMID = bool(os.environ.get('TCMID'))   # dUmax 1,2,3 at Tc
+TCSET = bool(os.environ.get('TCSET')) or TCLOW or TCMID  # Tc=1.089 ladders
 T = 1.089 if TCSET else 1.198; L = 6.8582414181223398941; Lz = L; area = L * L
-WLO, WHI = (0.17, 0.47) if TCLOW else (0.14, 0.55)
+WLO, WHI = (0.17, 0.47) if TCLOW else (0.14, 0.50) if TCMID else (0.14, 0.55)
 pmu = lambda r: T * np.log(r) + pets.properties(T, r)['mu_res']
 tmu = lambda r: T * np.log(r) + thol.properties(T, r)['mu_res']
 sc = np.linspace(WLO, WHI, 40); mp = np.array([pmu(x) for x in sc])
@@ -59,6 +60,7 @@ rr = np.linspace(0.06, 0.61, 250)
 plt.plot(rr, [pmu(x) for x in rr], 'k-', lw=2.6, label='PeTS EOS')
 plt.plot(rr, [tmu(x) for x in rr], '--', color='dimgray', lw=2.0, label='Thol 2015 EOS')
 _LAD = ([('cube100Tc025', 0.25, 'tab:green'), ('cube100Tc05', 0.5, 'tab:orange'), ('cube100Tc1', 1.0, 'tab:red')] if TCLOW else
+        [('cube100Tc1', 1.0, 'tab:green'), ('cube100Tc2', 2.0, 'tab:orange'), ('cube100Tc3', 3.0, 'tab:red')] if TCMID else
         [('cube100Tc2', 2.0, 'tab:green'), ('cube100Tc3', 3.0, 'tab:orange'), ('cube100Tc4', 4.0, 'tab:red')]
         if TCSET else
         [('cube100', 2.0, 'tab:green'), ('cube100u3', 3.0, 'tab:orange'), ('cube100u4', 4.0, 'tab:red')])
@@ -79,6 +81,6 @@ for tag, dU, col in _LAD:
 plt.xlabel(r'$\rho^*$'); plt.ylabel(r'$\mu_0^*$ (anchored)')
 plt.title(r'Field ladder: Harasima contour $\mu_0(\rho)$ vs field strength (N=100, $T^*=1.198$)')
 plt.legend(fontsize=8); plt.grid(alpha=0.3); plt.tight_layout()
-_out = 'cube100TcLow_ladder_compare.png' if TCLOW else 'cube100Tc_ladder_compare.png' if TCSET else 'cube100_ladder_compare.png'
+_out = 'cube100TcLow_ladder_compare.png' if TCLOW else 'cube100TcMid_ladder_compare.png' if TCMID else 'cube100Tc_ladder_compare.png' if TCSET else 'cube100_ladder_compare.png'
 plt.savefig(_out, dpi=140)
 print('wrote ' + _out)

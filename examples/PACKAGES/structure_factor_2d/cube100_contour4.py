@@ -33,13 +33,14 @@ import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 # TCSET=1 -> Tc=1.089 ladder (cube100Tc{2,3,4}).  TCLOW=1 -> Tc weak ladder
 # (cube100Tc{025,05,1}, dUmax=0.25,0.5,1): narrow near-critical window only.
 TCLOW = bool(os.environ.get('TCLOW'))
-TCSET = bool(os.environ.get('TCSET')) or TCLOW
+TCMID = bool(os.environ.get('TCMID'))   # dUmax 1,2,3 at Tc
+TCSET = bool(os.environ.get('TCSET')) or TCLOW or TCMID
 T = 1.089 if TCSET else 1.198
 L = 6.8582414181223398941; Lz = L; area = L * L
 SM = 6
 GRID = np.linspace(0.09, 0.595, 140)          # common rho grid for interpolation
 # comparison/fit window (narrow near-critical core for the weak-field ladder)
-WLO, WHI = (0.17, 0.47) if TCLOW else (0.12, 0.575)
+WLO, WHI = (0.17, 0.47) if TCLOW else (0.14, 0.50) if TCMID else (0.12, 0.575)
 pmu = lambda r: T * np.log(r) + pets.properties(T, r)['mu_res']
 tmu = lambda r: T * np.log(r) + thol.properties(T, r)['mu_res']
 sc = np.linspace(WLO + 0.02, WHI - 0.02, 40)
@@ -109,6 +110,7 @@ def load(tag):
 
 
 TAGS = ([('cube100Tc025', 0.25), ('cube100Tc05', 0.5), ('cube100Tc1', 1.0)] if TCLOW else
+        [('cube100Tc1', 1.0), ('cube100Tc2', 2.0), ('cube100Tc3', 3.0)] if TCMID else
         [('cube100Tc2', 2.0), ('cube100Tc3', 3.0), ('cube100Tc4', 4.0)] if TCSET else
         [('cube100', 2.0), ('cube100u3', 3.0), ('cube100u4', 4.0)])
 fields = []                                            # list of (tag, dumax, raw_blocks, mean_profiles)
@@ -231,6 +233,6 @@ plt.xlabel(r'$\rho^*$'); plt.ylabel(r'$\mu_0^*$ (anchored)')
 plt.title(r'Fourth-order contour gauge ($\Delta U$ ladder %s): fixing the tails (N=100, $T^*=%g$)'
           % ('+'.join('%g' % f[1] for f in fields), T))
 plt.legend(fontsize=8, loc='upper left'); plt.grid(alpha=0.3); plt.tight_layout()
-_out = 'cube100TcLow_contour4.png' if TCLOW else 'cube100Tc_contour4.png' if TCSET else 'cube100_contour4.png'
+_out = 'cube100TcLow_contour4.png' if TCLOW else 'cube100TcMid_contour4.png' if TCMID else 'cube100Tc_contour4.png' if TCSET else 'cube100_contour4.png'
 plt.savefig(_out, dpi=140)
 print('wrote ' + _out)
