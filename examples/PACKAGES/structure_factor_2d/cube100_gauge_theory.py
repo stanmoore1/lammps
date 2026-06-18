@@ -24,9 +24,11 @@ import oz_invert as oz, contour_pressure as cp
 import pets_eos as pets
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
-TCSET = bool(os.environ.get('TCSET'))                  # TCSET=1 -> Tc=1.089 ladder
+TCLOW = bool(os.environ.get('TCLOW'))
+TCSET = bool(os.environ.get('TCSET')) or TCLOW  # TCSET/TCLOW -> Tc=1.089 ladders
 T = 1.089 if TCSET else 1.198; L = 6.8582414181223398941; Lz = L; area = L * L
-tag = sys.argv[1] if len(sys.argv) > 1 else ('cube100Tc4' if TCSET else 'cube100u4')
+WLO, WHI = (0.17, 0.47) if TCLOW else (0.14, 0.55)
+tag = sys.argv[1] if len(sys.argv) > 1 else ('cube100Tc1' if TCLOW else 'cube100Tc4' if TCSET else 'cube100u4')
 SM = 6
 
 
@@ -46,7 +48,7 @@ def deriv_set(y, Lz, nmodes=SM, zq=None):
     return rho, r1, r2, r3, r4
 
 
-sc = np.linspace(0.14, 0.55, 40); mp = np.array([T*np.log(x)+pets.properties(T, x)['mu_res'] for x in sc])
+sc = np.linspace(WLO, WHI, 40); mp = np.array([T*np.log(x)+pets.properties(T, x)['mu_res'] for x in sc])
 
 
 def mu0_rms(rho, P0z):
@@ -71,11 +73,12 @@ def field(tag):
     return zg, rho, P0ik, P0h
 
 
-alphas = np.linspace(-0.6, 2.0, 53)
+alphas = np.linspace(-3.0, 2.0, 101) if TCLOW else np.linspace(-0.6, 2.0, 53)
 fig, ax = plt.subplots(1, 2, figsize=(13, 5.2))
 print('Field-ladder test of the gradient-expansion 4th-order gauge:')
 abest = {}
-_LAD = ([('cube100Tc2', 2.0, 'tab:green'), ('cube100Tc3', 3.0, 'tab:orange'), ('cube100Tc4', 4.0, 'tab:red')]
+_LAD = ([('cube100Tc025', 0.25, 'tab:green'), ('cube100Tc05', 0.5, 'tab:orange'), ('cube100Tc1', 1.0, 'tab:red')] if TCLOW else
+        [('cube100Tc2', 2.0, 'tab:green'), ('cube100Tc3', 3.0, 'tab:orange'), ('cube100Tc4', 4.0, 'tab:red')]
         if TCSET else
         [('cube100', 2.0, 'tab:green'), ('cube100u3', 3.0, 'tab:orange'), ('cube100u4', 4.0, 'tab:red')])
 for tag, dU, col in _LAD:
@@ -91,18 +94,18 @@ for tag, dU, col in _LAD:
 ax[0].axvline(5/3, color='k', ls='--', lw=1.5, label=r'gradient theory $\alpha=5/3$')
 ax[0].axvline(1.0, color='gray', ls=':', label=r'pure IK')
 ax[0].set_xlabel(r'$\alpha$  in  $\alpha P_0^{IK}+(1-\alpha)P_0^{H}$'); ax[0].set_ylabel(r'$\mu_0$ RMS vs PeTS')
-ax[0].set_ylim(0, 0.12)
+ax[0].set_ylim(0, 0.12 if not TCLOW else 0.06)
 ax[0].set_title(r'Optimal mixing $\alpha$ DRIFTS with field (not the universal 5/3)')
 ax[0].legend(fontsize=8); ax[0].grid(alpha=0.3)
 
-dU_arr = np.array([2.0, 3.0, 4.0]); a_arr = np.array([abest[d] for d in dU_arr])
+dU_arr = np.array(sorted(abest)); a_arr = np.array([abest[d] for d in dU_arr])
 ax[1].plot(dU_arr, a_arr, 'o-', ms=8, color='tab:blue', lw=2, label='data: optimal $\\alpha(\\Delta U)$')
 ax[1].axhline(5/3, color='k', ls='--', lw=1.5, label=r'gradient theory $\alpha=5/3$ (leading 4th-order)')
 ax[1].axhline(1.0, color='gray', ls=':', label='pure IK')
 ax[1].set_xlabel(r'field strength $\Delta U$'); ax[1].set_ylabel(r'optimal $\alpha$')
 ax[1].set_title('No universal constant: $\\alpha$ is gradient-dependent')
 ax[1].legend(fontsize=9); ax[1].grid(alpha=0.3)
-_out = 'cube100Tc_gauge_theory.png' if TCSET else 'cube100_gauge_theory.png'
+_out = 'cube100TcLow_gauge_theory.png' if TCLOW else 'cube100Tc_gauge_theory.png' if TCSET else 'cube100_gauge_theory.png'
 plt.tight_layout(); plt.savefig(_out, dpi=140)
 print('=> data refutes a universal 4th-order constant: the 4th-order gradient expansion has')
 print('   broken down at these gradients (IK-H not a total derivative; alpha field-dependent).')

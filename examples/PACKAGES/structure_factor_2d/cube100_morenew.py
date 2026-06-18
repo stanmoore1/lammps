@@ -12,13 +12,16 @@ import numpy as np
 sys.path.insert(0, '.'); sys.path.insert(0, '/home/user/lammps/ljts_eos')
 import oz_invert as oz, field_coupling as fc, kernel_fit as kf, contour_pressure as cp
 import pets_eos as pets
-TCSET = bool(os.environ.get('TCSET'))                  # TCSET=1 -> Tc=1.089 ladder
+TCLOW = bool(os.environ.get('TCLOW'))
+TCSET = bool(os.environ.get('TCSET')) or TCLOW  # TCSET/TCLOW -> Tc=1.089 ladders
 T = 1.089 if TCSET else 1.198
-TAG2, TAG3, TAG4 = (('cube100Tc2', 'cube100Tc3', 'cube100Tc4') if TCSET else
+TAG2, TAG3, TAG4 = (('cube100Tc025', 'cube100Tc05', 'cube100Tc1') if TCLOW else
+                    ('cube100Tc2', 'cube100Tc3', 'cube100Tc4') if TCSET else
                     ('cube100', 'cube100u3', 'cube100u4'))
 L = 6.8582414181223398941; Lz = L
 pmu = lambda r: T*np.log(r) + pets.properties(T, r)['mu_res']
-sc = np.linspace(0.14, 0.55, 40); mp = np.array([pmu(x) for x in sc])
+sc = np.linspace(0.17, 0.47, 40) if TCLOW else np.linspace(0.14, 0.55, 40)
+mp = np.array([pmu(x) for x in sc])
 
 
 def rms(rg, mu):
