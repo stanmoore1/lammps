@@ -65,8 +65,8 @@ struct ParticleArraysHost {
     Kokkos::View<c_number *[4]>::host_mirror_type forces;
     Kokkos::View<c_number *[4]>::host_mirror_type torques;
     Kokkos::View<c_number *[4]>::host_mirror_type orientations;
-    Kokkos::View<LR_bonds *,  >::host_mirror_type bonds;
-    Kokkos::View<int *,       >::host_mirror_type btype;
+    Kokkos::View<LR_bonds *>::host_mirror_type bonds;
+    Kokkos::View<int *>::host_mirror_type btype;
     int N = 0;
 
     void allocate(int n) {

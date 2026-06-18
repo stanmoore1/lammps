@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include <fstream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -86,15 +87,24 @@ inline void read_config(const std::string &filename, ParticleArraysHost &host,
 
     const int N = host.N;
     for (int i = 0; i < N; i++) {
+        // oxDNA conf lines have 9 mandatory columns (position, a1, a3) and
+        // optionally 6 more (velocity, angular momentum). Velocity-less confs
+        // (9 columns) are valid; the missing v/L default to zero. Parse per
+        // line so a short line never bleeds into the next particle.
+        std::string pline;
+        if (!std::getline(f, pline))
+            throw std::runtime_error("Config file truncated (too few particle lines)");
+        std::istringstream ls(pline);
+
         double x, y, z;
         double a1x, a1y, a1z, a3x, a3y, a3z;
-        double vx, vy, vz, Lx, Ly, Lz;
+        double vx = 0, vy = 0, vz = 0, Lx = 0, Ly = 0, Lz = 0;
 
-        f >> x >> y >> z
-          >> a1x >> a1y >> a1z
-          >> a3x >> a3y >> a3z
-          >> vx >> vy >> vz
-          >> Lx >> Ly >> Lz;
+        if (!(ls >> x >> y >> z
+                 >> a1x >> a1y >> a1z
+                 >> a3x >> a3y >> a3z))
+            throw std::runtime_error("Malformed config line (need >= 9 columns)");
+        ls >> vx >> vy >> vz >> Lx >> Ly >> Lz;  // optional; stay 0 if absent
 
         // Pack index and btype into .w: lower 22 bits = index, upper bits = btype
         int btype_i = host.btype(i);
