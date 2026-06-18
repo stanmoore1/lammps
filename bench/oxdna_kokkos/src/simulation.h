@@ -12,12 +12,15 @@
 #include "io/topology_reader.h"
 #include "io/config_reader.h"
 #include <chrono>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <string>
 
 struct SimConfig {
     std::string topology_file;
     std::string config_file;
+    std::string energy_file;          // if set, write oxDNA-style "time U K total" (per nucleotide)
     long long   nsteps      = 10000;
     c_number    dt          = 1e-3;
     c_number    T           = 0.1;
@@ -84,14 +87,25 @@ public:
 
         long long step = step_;
 
-        // Print initial (step 0) energy from forces computed in init()
-        {
-            Kokkos::fence();
-            c_number ekin = kinetic_energy(dev_);
-            std::printf("step %8lld  Epot=%14.6f  Ekin=%14.6f  Etot=%14.6f  pairs=%d\n",
-                        step, (double)epot_, (double)ekin, (double)(ekin + epot_),
-                        nl_.N_edges);
-        }
+        // Energy output matches the standalone oxDNA: energies are per nucleotide
+        // and time = step * dt. stdout columns: "step time U K total"; the
+        // optional energy_file gets oxDNA's "time U K total".
+        std::ofstream efile;
+        if (!cfg_.energy_file.empty()) efile.open(cfg_.energy_file);
+        const double invN = (N_ > 0) ? 1.0 / N_ : 0.0;
+        std::printf("# %10s %14s %14s %14s %14s\n", "step", "time", "U", "K", "total");
+        auto emit = [&](long long st) {
+            c_number ekin = kinetic_energy(dev_);   // reduction syncs
+            double U = (double)epot_ * invN, K = (double)ekin * invN, tot = U + K;
+            double time = (double)st * cfg_.dt;
+            std::printf("%12lld %14.6f %14.6f %14.6f %14.6f\n", st, time, U, K, tot);
+            if (efile) efile << std::fixed << std::setprecision(6)
+                             << time << ' ' << U << ' ' << K << ' ' << tot << '\n';
+        };
+
+        // Initial (step 0) energy from forces computed in init()
+        Kokkos::fence();
+        emit(step);
 
         Kokkos::fence();
         auto loop0 = clk();
@@ -118,12 +132,7 @@ public:
                 thermo_.apply(dev_);
             auto g = mark(); t_mod += sec(f, g);
 
-            if (s % cfg_.output_freq == 0) {
-                c_number ekin = kinetic_energy(dev_);  // reduction syncs
-                std::printf("step %8lld  Epot=%14.6f  Ekin=%14.6f  Etot=%14.6f  pairs=%d\n",
-                            step, (double)epot_, (double)ekin,
-                            (double)(ekin + epot_), nl_.N_edges);
-            }
+            if ((s + 1) % cfg_.output_freq == 0) emit(step + 1);
             auto h = mark(); t_out += sec(g, h);
         }
         Kokkos::fence();

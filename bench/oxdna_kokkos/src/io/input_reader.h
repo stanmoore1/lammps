@@ -94,6 +94,7 @@ inline void read_input(const std::string &file, SimConfig &cfg) {
     if (!has("conf_file")) throw std::runtime_error("input: missing mandatory key 'conf_file'");
     cfg.topology_file = get("topology");
     cfg.config_file   = get("conf_file");
+    if (has("energy_file")) cfg.energy_file = get("energy_file");
 
     if (has("interaction_type")) {
         std::string it = inp_detail::lower(get("interaction_type"));
