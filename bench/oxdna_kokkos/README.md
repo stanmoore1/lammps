@@ -103,6 +103,7 @@ Useful CMake options:
 | `-pt <p>`       | 0 | Refresh probability; overrides `-diff` if `> 0` |
 | `-seed <N>`     | 12345 | Thermostat RNG seed |
 | `-freq <N>`     | 1000 | Energy print frequency |
+| `-timing`       | off | Print the per-kernel breakdown (adds a fence per section; omit for production throughput) |
 
 Input files use the standard oxDNA formats: the `.top` lists
 `<N> <N_strands>` then one `<strand_id> <base> <n3> <n5>` line per nucleotide;
@@ -120,7 +121,19 @@ Example (oxDNA2, NVE, 8bp duplex bundled under `tests/`):
 ## Performance output
 
 At the end of a run the code prints a LAMMPS-style loop-time / performance
-summary and a per-kernel timing breakdown, e.g.:
+summary. By default (production) it reports only the loop time and performance
+with no per-section fences, so the loop time is the true throughput:
+
+```
+Loop time of 3.92618 on 1 procs (Serial x 1) for 2000 steps with 1024 atoms
+
+Performance: 132036.667 tau/day, 509.401 timesteps/s, 0.522 Matom-step/s
+(run with -timing for the per-kernel breakdown)
+```
+
+Pass `-timing` to also get the per-kernel breakdown. This fences at each
+section boundary (a no-op on CPU; one sync per section on GPU, like LAMMPS
+`timer full`), so prefer the default for production throughput numbers:
 
 ```
 Loop time of 4.8036 on 1 procs (Serial x 1) for 2000 steps with 1024 atoms
