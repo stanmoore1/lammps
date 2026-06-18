@@ -52,3 +52,15 @@ Validated agreement (standalone CPU/double vs. Kokkos double):
 N8 is small, so CPU threading overhead limits scaling; the Kokkos data layout
 and one-thread-per-edge kernel are intended for GPU throughput
 (`-DKokkos_ENABLE_CUDA=ON`).
+
+## Larger cases from the same suite
+
+`N64` (1024 nt) and `N512` (8192 nt) are committed alongside this case and
+verified the same way. The much larger `N4096` (65536 nt) and `N32768`
+(524288 nt) configurations are not committed here (≈15 MB / ≈70 MB); fetch them
+from the upstream performance repo to run. All sizes reproduce the standalone
+per-particle energies to ~1e-5 and forces/torques to ~1e-4.
+
+Note: the `N32768` configuration stores only 9 columns per line (position, a1,
+a3) with no velocity/angular-momentum — the config reader handles such
+velocity-less confs (missing v/L default to zero).
