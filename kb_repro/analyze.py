@@ -138,8 +138,21 @@ def reconstruct_S(p, fits, tag):
     return qf, np.array(S11f), np.array(S22f), np.array(S12f), np.array(V2f)
 
 # ----------------------------- plotting -----------------------------------
+def has_data(tag):
+    import os
+    for pre in ("sf1", "sf2", "sfa"):
+        p = f"{pre}_{tag}.txt"
+        if not os.path.exists(p):
+            return False
+        try:
+            if len(read_sf(p)[0]) < 15:
+                return False
+        except Exception:
+            return False
+    return True
+
 def main():
-    data = {t: properties(t) for t in SYS if __import__("os").path.exists(f"sf1_{t}.txt")}
+    data = {t: properties(t) for t in SYS if has_data(t)}
     tags = list(data)
     print("Loaded:", tags)
     for t in tags:
@@ -176,9 +189,9 @@ def main():
         print(f"  V2(0)= {V2f[0]:.2f} cm3/mol")
 
     ax[0].set_ylabel(r"$S_{ij}$"); ax[0].set_ylim(-2, 2.5)
-    ax[0].text(0.97, 0.92, r"$S_{22}$", transform=ax[0].transAxes, ha="right")
-    ax[0].text(0.97, 0.62, r"$S_{11}$", transform=ax[0].transAxes, ha="right")
-    ax[0].text(0.97, 0.12, r"$S_{12}$", transform=ax[0].transAxes, ha="right")
+    ax[0].text(0.50, 0.82, r"$S_{22}$", transform=ax[0].transAxes, ha="right")
+    ax[0].text(0.58, 0.60, r"$S_{11}$", transform=ax[0].transAxes, ha="right")
+    ax[0].text(0.45, 0.14, r"$S_{12}$", transform=ax[0].transAxes, ha="right")
     ax[1].set_ylabel(r"vol (cm$^3$/mol)"); ax[1].set_ylim(30, 60)
     ax[1].text(0.5, 0.85, r"$\bar V_1$", transform=ax[1].transAxes)
     ax[1].text(0.5, 0.18, r"$\bar V_2$", transform=ax[1].transAxes)
@@ -187,7 +200,7 @@ def main():
     ax[3].set_ylabel(r"$Q_{11}$"); ax[3].set_ylim(0, 1.0)
     ax[3].text(0.6, 0.3, r"$Q_{11}$", transform=ax[3].transAxes)
     ax[3].set_xlabel(r"$q$ (nm$^{-1}$)"); ax[3].set_xlim(0, 6)
-    ax[0].legend(loc="lower right", fontsize=8, frameon=False)
+    ax[0].legend(loc="upper right", fontsize=8, frameon=False)
     for i, lab in enumerate("abcd"):
         ax[i].text(0.02, 0.9, f"({lab})", transform=ax[i].transAxes, fontweight="bold")
     fig.suptitle("FIG. 4  Properties from Fourier analysis, $y_1=0.4$", fontsize=10)
