@@ -112,10 +112,12 @@ unrecognized keys (`backend`, `CUDA_list`, `trajectory_file`, `ensemble`,
 | `timing`             | 0 | `1` → per-kernel timing breakdown (adds fences; `0` for production) |
 
 Paths are resolved relative to the working directory (run from the case
-directory, as with the reference oxDNA). The `.top` lists `<N> <N_strands>`
-then one `<strand_id> <base> <n3> <n5>` line per nucleotide; the `.conf` has
-`t = …`, `b = Lx Ly Lz`, `E = …`, then one line per nucleotide with position,
-`a1`, `a3`, and optionally velocity and angular momentum.
+directory, as with the reference oxDNA). oxDNA value expressions are supported:
+`$(key)` substitutes another key's value and `${ ... }` evaluates `+ - * / ()`
+arithmetic, e.g. `print_energy_every = ${$(steps) / 100}`. The `.top` lists
+`<N> <N_strands>` then one `<strand_id> <base> <n3> <n5>` line per nucleotide;
+the `.conf` has `t = …`, `b = Lx Ly Lz`, `E = …`, then one line per nucleotide
+with position, `a1`, `a3`, and optionally velocity and angular momentum.
 
 Example (the bundled oxDNA2 cases each ship an `input` file):
 
