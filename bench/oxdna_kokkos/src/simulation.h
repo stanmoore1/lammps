@@ -6,8 +6,7 @@
 #include "integrator.h"
 #include "thermostat.h"
 #include "forces/dna_forces.h"
-#include "forces/backbone.h"
-#include "forces/stacking.h"
+#include "forces/bonded.h"
 #include "forces/params.h"
 #include "io/topology_reader.h"
 #include "io/config_reader.h"
@@ -71,11 +70,11 @@ public:
         nl_.init(nl_cut, cfg_.skin, N_, box_);
         nl_.build(dev_, box_);
 
-        // Initial forces
+        // Initial forces: nonbonded (atomic scatter) first, then the bonded
+        // gather kernel adds on top (each thread owns its particle, no atomics).
         dev_.zero_forces();
-        epot_ = compute_backbone_forces(dev_, par_, box_);
-        epot_ += compute_stacking_forces(dev_, par_, box_);
-        epot_ += compute_nonbonded_forces(dev_, nl_, par_, box_);
+        epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_);
+        epot_ += compute_bonded_forces(dev_, par_, box_);
 
         std::cout << "Initialized " << N_ << " particles, "
                   << nl_.N_edges << " nonbonded pairs.\n";
@@ -87,7 +86,7 @@ public:
         // the kernels pipelined and reports the true loop time; the breakdown is
         // exact on CPU and adds one sync per section on GPU (like LAMMPS
         // `timer full`).
-        double t_neigh = 0, t_bond = 0, t_stk = 0, t_nb = 0, t_mod = 0, t_out = 0;
+        double t_neigh = 0, t_bond = 0, t_nb = 0, t_mod = 0, t_out = 0;
         auto clk  = []{ return std::chrono::high_resolution_clock::now(); };
         auto sec  = [](auto a, auto b){ return std::chrono::duration<double>(b - a).count(); };
         auto mark = [&]{ if (cfg_.timing) Kokkos::fence(); return clk(); };
@@ -125,14 +124,11 @@ public:
             auto c = mark(); t_neigh += sec(b, c);
 
             dev_.zero_forces();
-            epot_  = compute_backbone_forces(dev_, par_, box_);
-            auto d = mark(); t_bond += sec(c, d);
+            epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_);
+            auto e = mark(); t_nb += sec(c, e);
 
-            epot_ += compute_stacking_forces(dev_, par_, box_);
-            auto e = mark(); t_stk += sec(d, e);
-
-            epot_ += compute_nonbonded_forces(dev_, nl_, par_, box_);
-            auto f = mark(); t_nb += sec(e, f);
+            epot_ += compute_bonded_forces(dev_, par_, box_);
+            auto f = mark(); t_bond += sec(e, f);
 
             second_step(dev_, cfg_.dt);
             if (cfg_.newtonian_steps > 0 && (step % cfg_.newtonian_steps == 0))
@@ -146,12 +142,12 @@ public:
         auto loop1 = clk();
         double loop_time = sec(loop0, loop1);
 
-        print_performance(loop_time, t_neigh, t_bond, t_stk, t_nb, t_mod, t_out);
+        print_performance(loop_time, t_neigh, t_bond, t_nb, t_mod, t_out);
     }
 
 private:
     void print_performance(double loop, double t_neigh, double t_bond,
-                           double t_stk, double t_nb, double t_mod, double t_out) const {
+                           double t_nb, double t_mod, double t_out) const {
         const long long nsteps = cfg_.nsteps;
         const int    nthreads = Kokkos::DefaultExecutionSpace().concurrency();
         const char  *backend  = Kokkos::DefaultExecutionSpace::name();
@@ -170,7 +166,7 @@ private:
             return;
         }
 
-        const double sum   = t_neigh + t_bond + t_stk + t_nb + t_mod + t_out;
+        const double sum   = t_neigh + t_bond + t_nb + t_mod + t_out;
         const double other = (loop > sum) ? (loop - sum) : 0.0;
         auto row = [&](const char *name, double t) {
             std::printf("%-22s | %10.4f | %6.2f | %10.3f\n",
@@ -181,9 +177,8 @@ private:
         std::printf("%-22s | %10s | %6s | %10s\n", "Section", "time (s)", "%loop", "us/step");
         std::printf("------------------------------------------------------------\n");
         row("Neigh",                   t_neigh);   // neighbor list build + rebuild check
-        row("Bond (FENE+bond-excv)",   t_bond);    // LAMMPS: Bond + part of Pair
-        row("Pair: stacking",          t_stk);     // LAMMPS: Pair (oxdna/stk)
         row("Pair: nonbonded",         t_nb);      // LAMMPS: Pair (excv/hbond/xstk/coax/dh)
+        row("Bonded (FENE+excv+stk)",  t_bond);    // LAMMPS: Bond + bonded part of Pair
         row("Modify (integ+thermo)",   t_mod);     // LAMMPS: Modify (nve + thermostat)
         row("Output",                  t_out);
         row("Other",                   other);
