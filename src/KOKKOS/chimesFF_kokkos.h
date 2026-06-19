@@ -27,6 +27,14 @@ constexpr int MAX_2B_POLY = 13;
 constexpr int MAX_3B_POLY = 9;
 constexpr int MAX_4B_POLY = 4;
 
+// Pad the trailing (coefficient) dimension of the 3B/4B parameter tables to a
+// multiple of this, so each triplet/quadruplet row starts at an aligned offset.
+// A team reads one row at consecutive coefficient indices across its vector
+// lanes, so aligned row starts give fully coalesced loads (mirrors SNAP's
+// padding_factor). The padding entries are zero-filled and never read (the
+// reductions are bounded by the true per-type coefficient count).
+constexpr int CHIMES_PARAM_PAD = 32;
+
 using namespace std;
 
 // Notes:
