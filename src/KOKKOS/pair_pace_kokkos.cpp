@@ -611,11 +611,8 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     Kokkos::deep_copy(weights_re, 0.0);
     Kokkos::deep_copy(weights_im, 0.0);
     Kokkos::deep_copy(weights_rank1, 0.0);
-    Kokkos::deep_copy(A_sph_re, 0.0);
-    Kokkos::deep_copy(A_sph_im, 0.0);
-    Kokkos::deep_copy(A_rank1, 0.0);
-    Kokkos::deep_copy(rhos, 0.0);
-    Kokkos::deep_copy(rho_core, 0.0);
+    // A_sph_re/A_sph_im/A_rank1/rho_core/rhos are zeroed via first-touch in
+    // ComputeAi (one thread per atom), so no full-array deep_copy is needed.
     Kokkos::deep_copy(d_d_min, PairPACE::aceimpl->basis_set->cutoffmax);
     Kokkos::deep_copy(d_jj_min, -1);
     Kokkos::deep_copy(d_corerep, 0.0);
@@ -897,6 +894,24 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii
   // owned by a single thread, which removes the per-neighbor atomic contention
   // on A_sph/A_rank1/rho_core that the previous (ii,jj)-parallel version incurred.
   const int ncount = d_ncount(ii);
+
+  // First-touch zeroing of this atom's accumulation targets. Because each atom
+  // is owned by exactly one thread, the slice is initialized here instead of
+  // with separate per-chunk deep_copy passes over the whole (large) arrays.
+  // rhos is accumulated later in ComputeRho but is also per-atom, so it is
+  // cleared here while atom ii is resident.
+  rho_core(ii) = 0.0;
+  for (int p = 0; p < (int)rhos.extent(1); p++)
+    rhos(ii, p) = 0.0;
+  for (int mu = 0; mu < nelements; mu++) {
+    for (int n = 0; n < nradbase; n++)
+      A_rank1(ii, mu, n) = 0.0;
+    for (int idx = 0; idx < idx_sph_max; idx++)
+      for (int n = 0; n <= nradmax; n++) {
+        A_sph_re(ii, mu, idx, n) = 0.0;
+        A_sph_im(ii, mu, idx, n) = 0.0;
+      }
+  }
 
   for (int jj = 0; jj < ncount; jj++) {
 
