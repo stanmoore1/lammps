@@ -608,11 +608,10 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   while (chunk_offset < inum) { // chunk up loop to prevent running out of memory
 
-    Kokkos::deep_copy(weights_re, 0.0);
-    Kokkos::deep_copy(weights_im, 0.0);
-    Kokkos::deep_copy(weights_rank1, 0.0);
-    // A_sph_re/A_sph_im/A_rank1/rho_core/rhos are zeroed via first-touch in
-    // ComputeAi (one thread per atom), so no full-array deep_copy is needed.
+    // weights_re/weights_im/weights_rank1 are zeroed via first-touch in
+    // ComputeFS (one thread per atom, run just before ComputeWeights), and
+    // A_sph_re/A_sph_im/A_rank1/rho_core/rhos likewise in ComputeAi, so no
+    // full-array deep_copy is needed for any of them.
     Kokkos::deep_copy(d_d_min, PairPACE::aceimpl->basis_set->cutoffmax);
     Kokkos::deep_copy(d_jj_min, -1);
     Kokkos::deep_copy(d_corerep, 0.0);
@@ -1171,6 +1170,20 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeFS, const int& ii
 {
   const int i = d_ilist[ii + chunk_offset];
   const int mu_i = d_map(type(i));
+
+  // First-touch zeroing of this atom's weight accumulators. ComputeFS runs one
+  // thread per atom immediately before ComputeWeights (which accumulates into
+  // these via atomic_add), so the slice is cleared here instead of with
+  // separate per-chunk deep_copy passes over the full (large) weight arrays.
+  for (int mu = 0; mu < nelements; mu++) {
+    for (int n = 0; n < nradbase; n++)
+      weights_rank1(ii, mu, n) = 0.0;
+    for (int idx = 0; idx < idx_sph_max; idx++)
+      for (int n = 0; n <= nradmax; n++) {
+        weights_re(ii, mu, idx, n) = 0.0;
+        weights_im(ii, mu, idx, n) = 0.0;
+      }
+  }
 
   const KK_FLOAT rho_cut = d_rho_core_cutoff(mu_i);
   const KK_FLOAT drho_cut = d_drho_core_cutoff(mu_i);
