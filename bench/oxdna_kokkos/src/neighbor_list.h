@@ -23,7 +23,7 @@ struct NeighborList {
     int N_edges = 0;
     int edge_capacity = 0;   // allocated length of edge_i/edge_j (grow-only)
 
-    // Verlet skin: list rebuilt when any particle moves > skin/2 from list pos
+    // Verlet skin: list rebuilt when any particle moves > skin from list pos
     c_number skin;
     c_number cutoff;
     c_number cutsq;     // (cutoff)^2
@@ -50,15 +50,20 @@ struct NeighborList {
     void init(c_number cut, c_number skin_in, int N, const SimBox &box) {
         cutoff = cut;
         skin   = skin_in;
-        cutsq  = (cut + skin) * (cut + skin);  // rebuild using extended cutoff+skin
+        // Verlet convention matching the standalone oxDNA: list radius is
+        // rverlet = rcut + 2*skin, and a rebuild is triggered when a particle
+        // moves more than skin (not skin/2). Same verlet_skin -> same list size
+        // and rebuild frequency as the reference.
+        c_number rverlet = cut + 2 * skin;
+        cutsq  = rverlet * rverlet;
 
         list_poss      = Kokkos::View<c_number *[4]>("list_poss", N);
         d_needs_rebuild= Kokkos::View<int *>("needs_rebuild", 1);
         d_num_neigh    = Kokkos::View<int *>("num_neigh", N);
         d_neigh_offsets= Kokkos::View<int *>("neigh_offsets", N + 1);
 
-        // cell dimensions: at least 1 cell, cell edge >= cutoff+skin
-        c_number cell_size = cutoff + skin;
+        // cell edge >= rverlet so the 27-cell (+-1) search covers the list radius
+        c_number cell_size = rverlet;
         Ncx = std::max(1, static_cast<int>(box.Lx / cell_size));
         Ncy = std::max(1, static_cast<int>(box.Ly / cell_size));
         Ncz = std::max(1, static_cast<int>(box.Lz / cell_size));
@@ -82,11 +87,12 @@ struct NeighborList {
     // Full rebuild
     void build(const ParticleArrays &p, const SimBox &box);
 
-    // Check if rebuild needed (max displacement > skin/2)
+    // Check if rebuild needed (max displacement > skin)
     bool needs_rebuild(const ParticleArrays &p, const SimBox &box);
 
-    // (skin/2)^2 — threshold used by the fused first-step displacement check.
-    c_number skin_half_sq() const { return (skin / 2) * (skin / 2); }
+    // skin^2 — rebuild displacement threshold (oxDNA convention: move > skin),
+    // used by the fused first-step displacement check.
+    c_number rebuild_disp_sq() const { return skin * skin; }
 
     // Read the device rebuild flag (set inside the fused first-step kernel).
     // One int host-copy instead of a full-N reduction.
@@ -250,7 +256,7 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
     f.d_needs_rebuild= d_needs_rebuild;
     f.box            = box;
     f.cutsq          = cutsq;
-    f.skin_half_sq   = (skin / 2) * (skin / 2);
+    f.skin_half_sq   = skin * skin;
     f.N              = N;
     f.Ncx = Ncx; f.Ncy = Ncy; f.Ncz = Ncz;
     f.max_per_cell   = max_per_cell;
@@ -311,7 +317,7 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
 
 inline bool NeighborList::needs_rebuild(const ParticleArrays &p, const SimBox &box) {
     int N = p.N;
-    c_number skin_half_sq = (skin / 2) * (skin / 2);
+    c_number skin_half_sq = skin * skin;
     auto poss_d    = p.poss;
     auto lp        = list_poss;
     auto box_d     = box;
