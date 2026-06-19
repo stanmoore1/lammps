@@ -1265,6 +1265,41 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const in
 }
 
 /* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::compute_derivative_radial(const int ii, const int jj,
+    const int mu_j, const int idx_sph, const int l, const complex &ylm,
+    const complex (&dylm)[3], const KK_FLOAT rinv, const KK_FLOAT (&r_hat)[3],
+    const KK_FLOAT wscale, KK_ACC_FLOAT (&f_ji)[3]) const
+{
+  for (int n = 0; n < nradmax; n++) {
+
+    // Read and test the (idx_sph, n) weight first: skipping the radial reads
+    // and complex products for zero weights avoids needless memory traffic.
+    complex w = complex(weights_re(ii, mu_j, idx_sph, n), weights_im(ii, mu_j, idx_sph, n));
+    if (w.re == 0.0 && w.im == 0.0) continue;
+    // wscale folds in the factor-of-2 that accounts for the -m cases (m > 0)
+    w.re *= wscale;
+    w.im *= wscale;
+
+    const KK_FLOAT R_over_r = fr(ii, jj, l, n) * rinv;
+    const KK_FLOAT DR = dfr(ii, jj, l, n);
+    const complex Y_DR = ylm * DR;
+
+    complex grad_phi_nlm[3];
+    grad_phi_nlm[0] = Y_DR * r_hat[0] + dylm[0] * R_over_r;
+    grad_phi_nlm[1] = Y_DR * r_hat[1] + dylm[1] * R_over_r;
+    grad_phi_nlm[2] = Y_DR * r_hat[2] + dylm[2] * R_over_r;
+    // real-part multiplication only
+    f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
+    f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
+    f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
@@ -1366,24 +1401,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivative, const
     dylm[2].re = dyz.re - rdy.re * rz;
     dylm[2].im = 0;
 
-    for (int n = 0; n < nradmax; n++) {
-
-      const KK_FLOAT R_over_r = fr(ii, jj, l, n) * rinv;
-      const KK_FLOAT DR = dfr(ii, jj, l, n);
-      const complex Y_DR = ylm * DR;
-
-      complex w = complex(weights_re(ii, mu_j, idx_sph, n), weights_im(ii, mu_j, idx_sph, n));
-      if (w.re == 0.0 && w.im == 0.0) continue;
-
-      complex grad_phi_nlm[3];
-      grad_phi_nlm[0] = Y_DR * r_hat[0] + dylm[0] * R_over_r;
-      grad_phi_nlm[1] = Y_DR * r_hat[1] + dylm[1] * R_over_r;
-      grad_phi_nlm[2] = Y_DR * r_hat[2] + dylm[2] * R_over_r;
-      // real-part multiplication only
-      f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
-      f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
-      f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
-    }
+    // m = 0: weights are used as-is (no factor-of-2 for -m cases)
+    compute_derivative_radial(ii, jj, mu_j, idx_sph, l, ylm, dylm, rinv, r_hat, 1.0, f_ji);
 
     plm_idx2 = plm_idx1;
     dplm_idx2 = dplm_idx1;
@@ -1433,27 +1452,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivative, const
     dylm[2].re = dyz.re - rdy.re * rz;
     dylm[2].im = dyz.im - rdy.im * rz;
 
-    for (int n = 0; n < nradmax; n++) {
-
-      const KK_FLOAT R_over_r = fr(ii, jj, l, n) * rinv;
-      const KK_FLOAT DR = dfr(ii, jj, l, n);
-      const complex Y_DR = ylm * DR;
-
-      complex w = complex(weights_re(ii, mu_j, idx_sph, n), weights_im(ii, mu_j, idx_sph, n));
-      if (w.re == 0.0 && w.im == 0.0) continue;
-      // counting for -m cases if m > 0
-      w.re *= 2.0;
-      w.im *= 2.0;
-
-      complex grad_phi_nlm[3];
-      grad_phi_nlm[0] = Y_DR * r_hat[0] + dylm[0] * R_over_r;
-      grad_phi_nlm[1] = Y_DR * r_hat[1] + dylm[1] * R_over_r;
-      grad_phi_nlm[2] = Y_DR * r_hat[2] + dylm[2] * R_over_r;
-      // real-part multiplication only
-      f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
-      f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
-      f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
-    }
+    // m = 1: weights doubled to account for the -m cases
+    compute_derivative_radial(ii, jj, mu_j, idx_sph, l, ylm, dylm, rinv, r_hat, 2.0, f_ji);
 
     plm_idx2 = plm_idx1;
     dplm_idx2 = dplm_idx1;
@@ -1511,27 +1511,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivative, const
       dylm[2].re = dyz.re - rdy.re * rz;
       dylm[2].im = dyz.im - rdy.im * rz;
 
-      for (int n = 0; n < nradmax; n++) {
-
-        const KK_FLOAT R_over_r = fr(ii, jj, l, n) * rinv;
-        const KK_FLOAT DR = dfr(ii, jj, l, n);
-        const complex Y_DR = ylm * DR;
-
-        complex w = complex(weights_re(ii, mu_j, idx_sph, n), weights_im(ii, mu_j, idx_sph, n));
-        if (w.re == 0.0 && w.im == 0.0) continue;
-        // counting for -m cases if m > 0
-        w.re *= 2.0;
-        w.im *= 2.0;
-
-        complex grad_phi_nlm[3];
-        grad_phi_nlm[0] = Y_DR * r_hat[0] + dylm[0] * R_over_r;
-        grad_phi_nlm[1] = Y_DR * r_hat[1] + dylm[1] * R_over_r;
-        grad_phi_nlm[2] = Y_DR * r_hat[2] + dylm[2] * R_over_r;
-        // real-part multiplication only
-        f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
-        f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
-        f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
-      }
+      // m > 1: weights doubled to account for the -m cases
+      compute_derivative_radial(ii, jj, mu_j, idx_sph, l, ylm, dylm, rinv, r_hat, 2.0, f_ji);
 
       plm_idx2 = plm_idx1;
       dplm_idx2 = dplm_idx1;

@@ -214,6 +214,16 @@ class PairPACEKokkos : public PairPACE {
   KOKKOS_INLINE_FUNCTION
   void evaluate_splines(const int, const int, KK_FLOAT, int, int, int, int) const;
 
+  // Shared inner radial loop for ComputeDerivative. Accumulates the gradient
+  // contribution of a single (l, m) spherical-harmonic channel into f_ji for
+  // all radial functions n. wscale folds in the factor-of-2 used for m > 0.
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void compute_derivative_radial(const int ii, const int jj, const int mu_j,
+      const int idx_sph, const int l, const complex &ylm, const complex (&dylm)[3],
+      const KK_FLOAT rinv, const KK_FLOAT (&r_hat)[3], const KK_FLOAT wscale,
+      KK_ACC_FLOAT (&f_ji)[3]) const;
+
   template<class TagStyle>
   void check_team_size_for(int, int&, int);
 
