@@ -647,10 +647,9 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     //ComputeAi
     {
-      int vector_length = vector_length_default;
-      int team_size = team_size_compute_ai;
-      check_team_size_for<TagPairPACEComputeAi>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
-      typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeAi> policy_ai(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
+      // One thread per atom (loops over neighbors internally) so that the A
+      // basis functions can be accumulated without atomics.
+      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeAi> policy_ai(0,chunk_size);
       Kokkos::parallel_for("ComputeAi",policy_ai,*this);
     }
 
@@ -891,23 +890,21 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRadial, const typ
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeAi>::member_type& team) const
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii) const
 {
-  // Extract the atom number
-  int ii = team.team_rank() + team.team_size() * (team.league_rank() %
-           ((chunk_size+team.team_size()-1)/team.team_size()));
-  if (ii >= chunk_size) return;
-
-  // Extract the neighbor number
-  const int jj = team.league_rank() / ((chunk_size+team.team_size()-1)/team.team_size());
+  // One thread per atom: loop over this atom's neighbors and accumulate the A
+  // basis functions directly. No atomics are required because each atom is
+  // owned by a single thread, which removes the per-neighbor atomic contention
+  // on A_sph/A_rank1/rho_core that the previous (ii,jj)-parallel version incurred.
   const int ncount = d_ncount(ii);
-  if (jj >= ncount) return;
+
+  for (int jj = 0; jj < ncount; jj++) {
 
   const int mu_j = d_mu(ii, jj);
 
   // rank = 1
   for (int n = 0; n < nradbase; n++)
-    Kokkos::atomic_add(&A_rank1(ii, mu_j, n), gr(ii, jj, n) * Y00);
+    A_rank1(ii, mu_j, n) += gr(ii, jj, n) * Y00;
 
   // rank > 1
 
@@ -955,8 +952,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
     ylm.im = 0.0;
 
     for (int n = 0; n < nradmax; n++) {
-      Kokkos::atomic_add(&A_sph_re(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.re);
-      Kokkos::atomic_add(&A_sph_im(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.im);
+      A_sph_re(ii, mu_j, idx_sph, n) += fr(ii, jj, l, n) * ylm.re;
+      A_sph_im(ii, mu_j, idx_sph, n) += fr(ii, jj, l, n) * ylm.im;
     }
 
     plm_idx2 = plm_idx1;
@@ -984,8 +981,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
     ylm = phase * plm_idx;
 
     for (int n = 0; n < nradmax; n++) {
-      Kokkos::atomic_add(&A_sph_re(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.re);
-      Kokkos::atomic_add(&A_sph_im(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.im);
+      A_sph_re(ii, mu_j, idx_sph, n) += fr(ii, jj, l, n) * ylm.re;
+      A_sph_im(ii, mu_j, idx_sph, n) += fr(ii, jj, l, n) * ylm.im;
     }
 
     plm_idx2 = plm_idx1;
@@ -1023,8 +1020,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
       ylm.im = phasem.im * plm_idx;
 
       for (int n = 0; n < nradmax; n++) {
-        Kokkos::atomic_add(&A_sph_re(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.re);
-        Kokkos::atomic_add(&A_sph_im(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.im);
+        A_sph_re(ii, mu_j, idx_sph, n) += fr(ii, jj, l, n) * ylm.re;
+        A_sph_im(ii, mu_j, idx_sph, n) += fr(ii, jj, l, n) * ylm.im;
       }
 
       plm_idx2 = plm_idx1;
@@ -1035,7 +1032,9 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
   }
 
   // hard-core repulsion
-  Kokkos::atomic_add(&rho_core(ii), cr(ii, jj));
+  rho_core(ii) += cr(ii, jj);
+
+  } // end loop over neighbors jj
 }
 
 /* ---------------------------------------------------------------------- */

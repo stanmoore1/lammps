@@ -69,7 +69,7 @@ class PairPACEKokkos : public PairPACE {
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairPACEComputeAi,const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeAi>::member_type& team) const;
+  void operator() (TagPairPACEComputeAi,const int& ii) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
