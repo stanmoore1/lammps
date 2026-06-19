@@ -17,9 +17,13 @@
 
 #ifdef PAIR_CLASS
 // clang-format off
-PairStyle(chimesFF/kk,PairCHIMESKokkos<LMPDeviceType>);
-PairStyle(chimesFF/kk/device,PairCHIMESKokkos<LMPDeviceType>);
-PairStyle(chimesFF/kk/host,PairCHIMESKokkos<LMPHostType>);
+PairStyle(chimesFF/kk,PairCHIMESKokkosDevice<LMPDeviceType>);
+PairStyle(chimesFF/kk/device,PairCHIMESKokkosDevice<LMPDeviceType>);
+#ifdef LMP_KOKKOS_GPU
+PairStyle(chimesFF/kk/host,PairCHIMESKokkosHost<LMPHostType>);
+#else
+PairStyle(chimesFF/kk/host,PairCHIMESKokkosDevice<LMPHostType>);
+#endif
 // clang-format on
 #else
 
@@ -53,10 +57,12 @@ namespace LAMMPS_NS {
 constexpr int chimes_min_blocks_3b = 1;
 constexpr int chimes_min_blocks_4b = 1;
 
-template<class DeviceType>
+template<class DeviceType, int vector_length_>
 class PairCHIMESKokkos : public PairCHIMES
 {
  public:
+  static constexpr int vector_length = vector_length_;
+
   struct TagPairCHIMESZero{};
 
   struct TagPairCHIMESComputeNeigh4Body{};
@@ -201,13 +207,13 @@ class PairCHIMESKokkos : public PairCHIMES
 
 };
 
-template <class DeviceType>
+template <class DeviceType, int vector_length>
 struct PairCHIMESComputeNeigh2BodyFunctor  {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   typedef int value_type;
-  PairCHIMESKokkos<DeviceType> c;
-  PairCHIMESComputeNeigh2BodyFunctor(PairCHIMESKokkos<DeviceType>* c_ptr):c(*c_ptr) {};
+  PairCHIMESKokkos<DeviceType, vector_length> c;
+  PairCHIMESComputeNeigh2BodyFunctor(PairCHIMESKokkos<DeviceType, vector_length>* c_ptr):c(*c_ptr) {};
 
   KOKKOS_INLINE_FUNCTION
   void operator()(const int &ii, int &offset, const bool &final) const {
@@ -215,13 +221,13 @@ struct PairCHIMESComputeNeigh2BodyFunctor  {
   }
 };
 
-template <class DeviceType>
+template <class DeviceType, int vector_length>
 struct PairCHIMESComputeNeigh3BodyFunctor  {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   typedef int value_type;
-  PairCHIMESKokkos<DeviceType> c;
-  PairCHIMESComputeNeigh3BodyFunctor(PairCHIMESKokkos<DeviceType>* c_ptr):c(*c_ptr) {};
+  PairCHIMESKokkos<DeviceType, vector_length> c;
+  PairCHIMESComputeNeigh3BodyFunctor(PairCHIMESKokkos<DeviceType, vector_length>* c_ptr):c(*c_ptr) {};
 
   KOKKOS_INLINE_FUNCTION
   void operator()(const int &ii, int &offset, const bool &final) const {
@@ -229,19 +235,51 @@ struct PairCHIMESComputeNeigh3BodyFunctor  {
   }
 };
 
-template <class DeviceType>
+template <class DeviceType, int vector_length>
 struct PairCHIMESComputeNeigh4BodyFunctor  {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   typedef int value_type;
-  PairCHIMESKokkos<DeviceType> c;
-  PairCHIMESComputeNeigh4BodyFunctor(PairCHIMESKokkos<DeviceType>* c_ptr):c(*c_ptr) {};
+  PairCHIMESKokkos<DeviceType, vector_length> c;
+  PairCHIMESComputeNeigh4BodyFunctor(PairCHIMESKokkos<DeviceType, vector_length>* c_ptr):c(*c_ptr) {};
 
   KOKKOS_INLINE_FUNCTION
   void operator()(const int &ii, int &offset, const bool &final) const {
     c.neigh_4B_item(ii,offset,final);
   }
 };
+
+// Wrapper subclasses fixing the vector_length template parameter per backend,
+// so the pair-style factory (which only supplies the DeviceType argument) can
+// instantiate the right specialization. Mirrors PairSNAPKokkosDevice/Host.
+
+template <class DeviceType>
+class PairCHIMESKokkosDevice : public PairCHIMESKokkos<DeviceType, CHIMES_KOKKOS_DEVICE_VECLEN> {
+ private:
+  using Base = PairCHIMESKokkos<DeviceType, CHIMES_KOKKOS_DEVICE_VECLEN>;
+ public:
+  PairCHIMESKokkosDevice(class LAMMPS *lmp) : Base(lmp) {}
+  void coeff(int narg, char **arg) override { Base::coeff(narg, arg); }
+  void init_style() override { Base::init_style(); }
+  void allocate() override { Base::allocate(); }
+  void compute(int eflag, int vflag) override { Base::compute(eflag, vflag); }
+  void build_mb_neighlists() override { Base::build_mb_neighlists(); }
+};
+
+#ifdef LMP_KOKKOS_GPU
+template <class DeviceType>
+class PairCHIMESKokkosHost : public PairCHIMESKokkos<DeviceType, CHIMES_KOKKOS_HOST_VECLEN> {
+ private:
+  using Base = PairCHIMESKokkos<DeviceType, CHIMES_KOKKOS_HOST_VECLEN>;
+ public:
+  PairCHIMESKokkosHost(class LAMMPS *lmp) : Base(lmp) {}
+  void coeff(int narg, char **arg) override { Base::coeff(narg, arg); }
+  void init_style() override { Base::init_style(); }
+  void allocate() override { Base::allocate(); }
+  void compute(int eflag, int vflag) override { Base::compute(eflag, vflag); }
+  void build_mb_neighlists() override { Base::build_mb_neighlists(); }
+};
+#endif
 
 }    // namespace LAMMPS_NS
 

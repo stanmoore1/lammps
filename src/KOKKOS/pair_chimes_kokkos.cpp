@@ -47,8 +47,8 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-PairCHIMESKokkos<DeviceType>::PairCHIMESKokkos(LAMMPS *lmp) : PairCHIMES(lmp)
+template<class DeviceType, int vector_length>
+PairCHIMESKokkos<DeviceType, vector_length>::PairCHIMESKokkos(LAMMPS *lmp) : PairCHIMES(lmp)
 {
   respa_enable = 0;
 
@@ -81,8 +81,8 @@ PairCHIMESKokkos<DeviceType>::PairCHIMESKokkos(LAMMPS *lmp) : PairCHIMES(lmp)
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-PairCHIMESKokkos<DeviceType>::~PairCHIMESKokkos()
+template<class DeviceType, int vector_length>
+PairCHIMESKokkos<DeviceType, vector_length>::~PairCHIMESKokkos()
 {
   if (copymode) return;
 
@@ -100,16 +100,16 @@ PairCHIMESKokkos<DeviceType>::~PairCHIMESKokkos()
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-void PairCHIMESKokkos<DeviceType>::allocate()
+template<class DeviceType, int vector_length>
+void PairCHIMESKokkos<DeviceType, vector_length>::allocate()
 {
   PairCHIMES::allocate();
 }
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-void PairCHIMESKokkos<DeviceType>::init_style()
+template<class DeviceType, int vector_length>
+void PairCHIMESKokkos<DeviceType, vector_length>::init_style()
 {
   PairCHIMES::init_style();
 
@@ -129,8 +129,8 @@ void PairCHIMESKokkos<DeviceType>::init_style()
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-void PairCHIMESKokkos<DeviceType>::coeff(int narg, char **arg)
+template<class DeviceType, int vector_length>
+void PairCHIMESKokkos<DeviceType, vector_length>::coeff(int narg, char **arg)
 {
   PairCHIMES::coeff(narg,arg);
 
@@ -164,9 +164,9 @@ void PairCHIMESKokkos<DeviceType>::coeff(int narg, char **arg)
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, int vector_length>
 KOKKOS_INLINE_FUNCTION
-KK_FLOAT PairCHIMESKokkos<DeviceType>::get_dist(int i, int j, KK_FLOAT *dr) const
+KK_FLOAT PairCHIMESKokkos<DeviceType, vector_length>::get_dist(int i, int j, KK_FLOAT *dr) const
 {
   dr[0] = x(j,0) - x(i,0);
   dr[1] = x(j,1) - x(i,1);
@@ -177,9 +177,9 @@ KK_FLOAT PairCHIMESKokkos<DeviceType>::get_dist(int i, int j, KK_FLOAT *dr) cons
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, int vector_length>
 KOKKOS_INLINE_FUNCTION
-KK_FLOAT PairCHIMESKokkos<DeviceType>::get_dist(int i, int j) const
+KK_FLOAT PairCHIMESKokkos<DeviceType, vector_length>::get_dist(int i, int j) const
 {
   KK_FLOAT dummy_dr[3];
 
@@ -188,8 +188,8 @@ KK_FLOAT PairCHIMESKokkos<DeviceType>::get_dist(int i, int j) const
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
+template<class DeviceType, int vector_length>
+void PairCHIMESKokkos<DeviceType, vector_length>::build_mb_neighlists()
 {
   if (maxcut_3b > maxcut_2b)
     error->all(FLERR,"KOKKOS ChIMES assumes 2-body cutoffs >= 3-body cutoffs");
@@ -214,7 +214,7 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
   while (resize) {
     resize = 0;
 
-    PairCHIMESComputeNeigh2BodyFunctor<DeviceType> neigh_2B_functor(this);
+    PairCHIMESComputeNeigh2BodyFunctor<DeviceType, vector_length> neigh_2B_functor(this);
     Kokkos::parallel_scan("ComputeNeigh2Body", inum, neigh_2B_functor,size_2mers);
 
     resize = size_2mers > max_2mers;
@@ -231,7 +231,7 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
     while (resize) {
       resize = 0;
 
-      PairCHIMESComputeNeigh3BodyFunctor<DeviceType> neigh_3B_functor(this);
+      PairCHIMESComputeNeigh3BodyFunctor<DeviceType, vector_length> neigh_3B_functor(this);
       Kokkos::parallel_scan("ComputeNeigh3Body", size_2mers, neigh_3B_functor, size_3mers);
 
       resize = size_3mers > max_3mers;
@@ -270,9 +270,9 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, int vector_length>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::neigh_2B_item(const int& ii, int &offset, const bool &final) const
+void PairCHIMESKokkos<DeviceType, vector_length>::neigh_2B_item(const int& ii, int &offset, const bool &final) const
 {
   const int i = d_ilist[ii];
   const tagint itag = tag[i];
@@ -314,9 +314,9 @@ void PairCHIMESKokkos<DeviceType>::neigh_2B_item(const int& ii, int &offset, con
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, int vector_length>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::neigh_3B_item(const int& ii, int &offset, const bool &final) const
+void PairCHIMESKokkos<DeviceType, vector_length>::neigh_3B_item(const int& ii, int &offset, const bool &final) const
 {
   const int i = d_neighborlist_2mers(ii,0);
   const int j = d_neighborlist_2mers(ii,1);
@@ -400,10 +400,10 @@ void PairCHIMESKokkos<DeviceType>::neigh_3B_item(const int& ii, int &offset, con
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, int vector_length>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh4Body, const int& ii) const
-//void PairCHIMESKokkos<DeviceType>::neigh_4B_item(const int& ii, int &offset, const bool &final) const
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESComputeNeigh4Body, const int& ii) const
+//void PairCHIMESKokkos<DeviceType, vector_length>::neigh_4B_item(const int& ii, int &offset, const bool &final) const
 {
   const int i = d_neighborlist_3mers(ii,0);
   const int j = d_neighborlist_3mers(ii,1);
@@ -506,8 +506,8 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh4Body, c
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
+template<class DeviceType, int vector_length>
+void PairCHIMESKokkos<DeviceType, vector_length>::compute(int eflag_in, int vflag_in)
 {
   copymode = 1;
 
@@ -634,7 +634,6 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // and this reproduces the original serial per-cluster behavior.
   if (chimes_calculatorKK.poly_orders[1] > 0)
   {
-    constexpr int vector_length = std::is_same<DeviceType, LMPHostType>::value ? CHIMES_KOKKOS_HOST_VECLEN : CHIMES_KOKKOS_DEVICE_VECLEN;
     using LB3 = Kokkos::LaunchBounds<vector_length,chimes_min_blocks_3b>;
     const int scratch_3b = chimes_calculatorKK.scratch_bytes(2*3*MAX_3B_POLY); // 3 pairs x (Tn + Tnd)
     const auto scratch_req_3b = Kokkos::PerTeam(scratch_3b);
@@ -666,7 +665,6 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // and this reproduces the original serial per-cluster behavior.
   if (chimes_calculatorKK.poly_orders[2] > 0)
   {
-    constexpr int vector_length = std::is_same<DeviceType, LMPHostType>::value ? CHIMES_KOKKOS_HOST_VECLEN : CHIMES_KOKKOS_DEVICE_VECLEN;
     using LB4 = Kokkos::LaunchBounds<vector_length,chimes_min_blocks_4b>;
     const int scratch_4b = chimes_calculatorKK.scratch_bytes(2*6*MAX_4B_POLY); // 6 pairs x (Tn + Tnd)
     const auto scratch_req_4b = Kokkos::PerTeam(scratch_4b);
@@ -731,10 +729,10 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, int vector_length>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute1Body<NEIGHFLAG>, const int& ii, EV_FLOAT& ev) const
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompute1Body<NEIGHFLAG>, const int& ii, EV_FLOAT& ev) const
 {
   ////////////////////////////////////////
   // Compute 1-body interactions
@@ -758,10 +756,10 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute1Body<NEIGHFL
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, int vector_length>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFLAG,EVFLAG>, const int& ii, EV_FLOAT& ev) const
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompute2Body<NEIGHFLAG,EVFLAG>, const int& ii, EV_FLOAT& ev) const
 {
   ////////////////////////////////////////
   // Compute 2-body interactions
@@ -829,20 +827,20 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFL
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, int vector_length>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFLAG,EVFLAG>,const int& ii) const {
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompute2Body<NEIGHFLAG,EVFLAG>,const int& ii) const {
   EV_FLOAT ev;
   this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESCompute2Body<NEIGHFLAG,EVFLAG>(), ii, ev);
 }
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, int vector_length>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>, const t_team& team, EV_FLOAT& ev) const
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>, const t_team& team, EV_FLOAT& ev) const
 {
   ////////////////////////////////////////
   // Compute 3-body interactions
@@ -917,20 +915,20 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFL
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, int vector_length>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>,const t_team& team) const {
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>,const t_team& team) const {
   EV_FLOAT ev;
   this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>(), team, ev);
 }
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, int vector_length>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute4Body<NEIGHFLAG,EVFLAG>, const t_team& team, EV_FLOAT& ev) const
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompute4Body<NEIGHFLAG,EVFLAG>, const t_team& team, EV_FLOAT& ev) const
 {
   ////////////////////////////////////////
   // Compute 4-body interactions
@@ -1013,10 +1011,10 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute4Body<NEIGHFL
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, int vector_length>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute4Body<NEIGHFLAG,EVFLAG>,const t_team& team) const {
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompute4Body<NEIGHFLAG,EVFLAG>,const t_team& team) const {
   EV_FLOAT ev;
   this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESCompute4Body<NEIGHFLAG,EVFLAG>(), team, ev);
 }
@@ -1026,10 +1024,10 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute4Body<NEIGHFL
    do not make sense. Expects newton_pair = 1.
  ------------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, int vector_length>
 template<int NEIGHFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::ev_tally_mb(int ninteractionatoms, int npairs,
+void PairCHIMESKokkos<DeviceType, vector_length>::ev_tally_mb(int ninteractionatoms, int npairs,
                                                int atmpairidxlst[6][2],
                                                KK_FLOAT evdwl, KK_FLOAT stress[6],
                                                EV_FLOAT &ev) const
@@ -1099,8 +1097,8 @@ void PairCHIMESKokkos<DeviceType>::ev_tally_mb(int ninteractionatoms, int npairs
 /* ---------------------------------------------------------------------- */
 
 namespace LAMMPS_NS {
-template class PairCHIMESKokkos<LMPDeviceType>;
+template class PairCHIMESKokkosDevice<LMPDeviceType>;
 #ifdef LMP_KOKKOS_GPU
-template class PairCHIMESKokkos<LMPHostType>;
+template class PairCHIMESKokkosHost<LMPHostType>;
 #endif
 }
