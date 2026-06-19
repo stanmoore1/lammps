@@ -631,12 +631,19 @@ struct DNAForcesFunctor {
 
         ev += evdwl;
 
-        auto af = sf.access();
-        auto at_v = st.access();
-        af(ia, 0) += delf_a[0]; af(ia, 1) += delf_a[1]; af(ia, 2) += delf_a[2];
-        af(ib, 0) += delf_b[0]; af(ib, 1) += delf_b[1]; af(ib, 2) += delf_b[2];
-        at_v(ia, 0) += delta_a[0]; at_v(ia, 1) += delta_a[1]; at_v(ia, 2) += delta_a[2];
-        at_v(ib, 0) += delta_b[0]; at_v(ib, 1) += delta_b[1]; at_v(ib, 2) += delta_b[2];
+        // Skip the atomic accumulation entirely for pairs that contributed
+        // nothing (in the Verlet list but beyond every interaction cutoff) —
+        // mirrors oxDNA's `if(dF·dF > 0)` / `if(dT·dT > 0)` atomic guards.
+        c_number nz = dot3(delf_a,delf_a) + dot3(delta_a,delta_a)
+                    + dot3(delf_b,delf_b) + dot3(delta_b,delta_b);
+        if (nz > c_number(0)) {
+            auto af = sf.access();
+            auto at_v = st.access();
+            af(ia, 0) += delf_a[0]; af(ia, 1) += delf_a[1]; af(ia, 2) += delf_a[2];
+            af(ib, 0) += delf_b[0]; af(ib, 1) += delf_b[1]; af(ib, 2) += delf_b[2];
+            at_v(ia, 0) += delta_a[0]; at_v(ia, 1) += delta_a[1]; at_v(ia, 2) += delta_a[2];
+            at_v(ib, 0) += delta_b[0]; at_v(ib, 1) += delta_b[1]; at_v(ib, 2) += delta_b[2];
+        }
     }
 };
 
