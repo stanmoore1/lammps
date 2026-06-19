@@ -84,6 +84,17 @@ struct NeighborList {
 
     // Check if rebuild needed (max displacement > skin/2)
     bool needs_rebuild(const ParticleArrays &p, const SimBox &box);
+
+    // (skin/2)^2 — threshold used by the fused first-step displacement check.
+    c_number skin_half_sq() const { return (skin / 2) * (skin / 2); }
+
+    // Read the device rebuild flag (set inside the fused first-step kernel).
+    // One int host-copy instead of a full-N reduction.
+    bool flag_is_set() const {
+        auto h = Kokkos::create_mirror_view(d_needs_rebuild);
+        Kokkos::deep_copy(h, d_needs_rebuild);
+        return h(0) != 0;
+    }
 };
 
 // -----------------------------------------------------------------------
