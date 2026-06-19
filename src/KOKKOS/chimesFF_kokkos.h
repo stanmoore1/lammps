@@ -218,7 +218,7 @@ class chimesFFKokkos : public chimesFF
                KK_FLOAT* Tn, KK_FLOAT* Tnd) const;
 
   KOKKOS_INLINE_FUNCTION
-  void poly_3B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3b, int tripidx, int idx,
+  void poly_3B(const t_team& team, KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3b, int tripidx, int idx,
                KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_jk,
                KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_jk) const;
 
