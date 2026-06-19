@@ -30,6 +30,7 @@ struct SimConfig {
     bool        timing      = false; // per-kernel breakdown (adds fences); off = production
     int         model       = 1;     // 1 = oxDNA1, 2 = oxDNA2
     c_number    salt        = 0.5;   // salt concentration [mol/L] (oxDNA2 only)
+    bool        refresh_vel = false; // regenerate velocities from Maxwell-Boltzmann at startup
     // Brownian ("John") thermostat. newtonian_steps <= 0 disables it (NVE).
     int         newtonian_steps = 0;
     c_number    diff_coeff  = 2.5;   // translational diffusion coefficient
@@ -49,6 +50,12 @@ public:
         // Device arrays
         dev_.allocate(N_);
         copy_to_device(host_, dev_);
+
+        // Regenerate velocities from Maxwell-Boltzmann at T (oxDNA refresh_vel).
+        // Required for velocity-less configs and to match the reference, which
+        // refreshes velocities at startup when refresh_vel = true.
+        if (cfg_.refresh_vel)
+            randomize_velocities(dev_, cfg_.T, cfg_.seed);
 
         // Force-field
         par_ = (cfg_.model == 2) ? make_oxdna2_params(cfg_.T, cfg_.salt)

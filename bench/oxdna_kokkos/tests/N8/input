@@ -11,6 +11,7 @@ diff_coeff = 2.5
 verlet_skin = 0.5
 print_energy_every = 1000
 seed = 12345
+refresh_vel = 1
 timing = 0
 topology = topology_N8.top
 conf_file = init_conf_N8.dat
