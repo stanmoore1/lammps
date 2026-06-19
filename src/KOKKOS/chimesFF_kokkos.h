@@ -27,6 +27,18 @@ constexpr int MAX_2B_POLY = 13;
 constexpr int MAX_3B_POLY = 9;
 constexpr int MAX_4B_POLY = 4;
 
+// PR #4601-style register-blocking factor for the dense/sparse coefficient
+// reductions. Each vector lane keeps CHIMES_COEFF_BATCH independent
+// Kokkos::Array accumulators (filled from coalesced, ThreadVectorRange-strided
+// coefficient reads) to break the single dependent FMA chain into independent
+// chains and expose instruction-level parallelism.
+//
+// 1 = disabled (default; bitwise-unchanged vs the prior reductions). The
+// optimal value is hardware dependent, so — exactly like the Kokkos SNAP
+// implementation, which defaults to 1 and sets per-architecture values — bump
+// this to 2 or 4 for the target GPU and validate/profile before relying on it.
+constexpr int CHIMES_COEFF_BATCH = 1;
+
 using namespace std;
 
 // Notes:

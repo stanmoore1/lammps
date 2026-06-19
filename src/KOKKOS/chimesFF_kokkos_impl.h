@@ -1373,20 +1373,34 @@ void chimesFFKokkos<DeviceType>::poly_3B(const t_team& team, KK_FLOAT &e, KK_FLO
   auto c_chimes_3b_params_tripidx = Kokkos::subview(c_chimes_3b_params,tripidx,Kokkos::ALL);
   auto c_chimes_3b_powers_tripidx = Kokkos::subview(c_chimes_3b_powers,tripidx,Kokkos::ALL,Kokkos::ALL);
 
+  constexpr int coeff_batch = std::is_same<DeviceType, LMPHostType>::value ? 1 : CHIMES_COEFF_BATCH;
+  const int n_groups = (ncoeffs_3b + coeff_batch - 1) / coeff_batch;
+
   s_chimes_poly3 result;
 
-  Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, ncoeffs_3b),
-    [&] (const int coeffs, s_chimes_poly3& upd) {
-      const KK_FLOAT coeff = c_chimes_3b_params_tripidx(coeffs);
+  Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, n_groups),
+    [&] (const int t, s_chimes_poly3& upd) {
+      Kokkos::Array<s_chimes_poly3, coeff_batch> acc;
 
-      const int powers[3] = { c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[0]),
-                              c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[1]),
-                              c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[2]) };
+      #pragma unroll
+      for (int b = 0; b < coeff_batch; b++) {
+        const int coeffs = t + b * n_groups;   // coalesced across lanes at fixed b
+        if (coeffs < ncoeffs_3b) {
+          const KK_FLOAT coeff = c_chimes_3b_params_tripidx(coeffs);
 
-      upd.e  += coeff * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
-      upd.f0 += coeff * Tnd_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
-      upd.f1 += coeff * Tnd_ik[powers[1]] * Tn_ij[powers[0]] * Tn_jk[powers[2]];
-      upd.f2 += coeff * Tnd_jk[powers[2]] * Tn_ij[powers[0]] * Tn_ik[powers[1]];
+          const int powers[3] = { c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[0]),
+                                  c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[1]),
+                                  c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[2]) };
+
+          acc[b].e  += coeff * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
+          acc[b].f0 += coeff * Tnd_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
+          acc[b].f1 += coeff * Tnd_ik[powers[1]] * Tn_ij[powers[0]] * Tn_jk[powers[2]];
+          acc[b].f2 += coeff * Tnd_jk[powers[2]] * Tn_ij[powers[0]] * Tn_ik[powers[1]];
+        }
+      }
+
+      #pragma unroll
+      for (int b = 0; b < coeff_batch; b++) upd += acc[b];
     }, Kokkos::Sum<s_chimes_poly3>(result));
 
   e = result.e;
@@ -1499,29 +1513,43 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense_loop2(const t_team& team, int max
 
   auto c_chimes_3b_params_tripidx = Kokkos::subview(c_chimes_3b_params,tripidx,Kokkos::ALL);
 
+  constexpr int coeff_batch = std::is_same<DeviceType, LMPHostType>::value ? 1 : CHIMES_COEFF_BATCH;
+  const int n_groups = (ncoeffs_3b + coeff_batch - 1) / coeff_batch;
+
   s_chimes_poly3 result;
 
-  Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, ncoeffs_3b),
-    [&] (const int count, s_chimes_poly3& upd) {
-      const KK_FLOAT coeff = c_chimes_3b_params_tripidx[count];
-      if (coeff != 0.0) {
-        const int l = count / (max_poly * max_poly);
-        const int m = (count / max_poly) % max_poly;
-        const int n = count % max_poly;
+  Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, n_groups),
+    [&] (const int t, s_chimes_poly3& upd) {
+      Kokkos::Array<s_chimes_poly3, coeff_batch> acc;
 
-        const KK_FLOAT tn_ij = Tn_ij[l];
-        const KK_FLOAT tnd_ij = Tnd_ij[l];
-        const KK_FLOAT tn_ik = Tn_ik[m];
-        const KK_FLOAT tnd_ik = Tnd_ik[m];
-        const KK_FLOAT tn_jk = Tn_jk[n];
-        const KK_FLOAT tnd_jk = Tnd_jk[n];
-        const KK_FLOAT tn_ij_ik = tn_ij * tn_ik;
+      #pragma unroll
+      for (int b = 0; b < coeff_batch; b++) {
+        const int count = t + b * n_groups;   // coalesced across lanes at fixed b
+        if (count < ncoeffs_3b) {
+          const KK_FLOAT coeff = c_chimes_3b_params_tripidx[count];
+          if (coeff != 0.0) {
+            const int l = count / (max_poly * max_poly);
+            const int m = (count / max_poly) % max_poly;
+            const int n = count % max_poly;
 
-        upd.e  += coeff * tn_ij_ik * tn_jk;
-        upd.f0 += coeff * tnd_ij * tn_ik * tn_jk;
-        upd.f1 += coeff * tnd_ik * tn_ij * tn_jk;
-        upd.f2 += coeff * tnd_jk * tn_ij_ik;
+            const KK_FLOAT tn_ij = Tn_ij[l];
+            const KK_FLOAT tnd_ij = Tnd_ij[l];
+            const KK_FLOAT tn_ik = Tn_ik[m];
+            const KK_FLOAT tnd_ik = Tnd_ik[m];
+            const KK_FLOAT tn_jk = Tn_jk[n];
+            const KK_FLOAT tnd_jk = Tnd_jk[n];
+            const KK_FLOAT tn_ij_ik = tn_ij * tn_ik;
+
+            acc[b].e  += coeff * tn_ij_ik * tn_jk;
+            acc[b].f0 += coeff * tnd_ij * tn_ik * tn_jk;
+            acc[b].f1 += coeff * tnd_ik * tn_ij * tn_jk;
+            acc[b].f2 += coeff * tnd_jk * tn_ij_ik;
+          }
+        }
       }
+
+      #pragma unroll
+      for (int b = 0; b < coeff_batch; b++) upd += acc[b];
     }, Kokkos::Sum<s_chimes_poly3>(result));
 
   e += result.e;
@@ -1555,27 +1583,41 @@ void chimesFFKokkos<DeviceType>::poly_4B(const t_team& team, KK_FLOAT &e, KK_FLO
   auto c_chimes_4b_params_quadidx = Kokkos::subview(c_chimes_4b_params,quadidx,Kokkos::ALL);
   auto c_chimes_4b_powers_quadidx = Kokkos::subview(c_chimes_4b_powers,quadidx,Kokkos::ALL,Kokkos::ALL);
 
+  constexpr int coeff_batch = std::is_same<DeviceType, LMPHostType>::value ? 1 : CHIMES_COEFF_BATCH;
+  const int n_groups = (ncoeffs_4b + coeff_batch - 1) / coeff_batch;
+
   s_chimes_poly4 result;
 
-  Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, ncoeffs_4b),
-    [&] (const int coeffs, s_chimes_poly4& upd) {
-      const KK_FLOAT coeff = c_chimes_4b_params_quadidx(coeffs);
+  Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, n_groups),
+    [&] (const int t, s_chimes_poly4& upd) {
+      Kokkos::Array<s_chimes_poly4, coeff_batch> acc;
 
-      int powers[npairs];
-      for (int i = 0; i < npairs; i++) powers[i] = c_chimes_4b_powers_quadidx(coeffs,quad_map_idx[i]);
+      #pragma unroll
+      for (int bb = 0; bb < coeff_batch; bb++) {
+        const int coeffs = t + bb * n_groups;   // coalesced across lanes at fixed bb
+        if (coeffs < ncoeffs_4b) {
+          const KK_FLOAT coeff = c_chimes_4b_params_quadidx(coeffs);
 
-      const KK_FLOAT Tn_ij_ik_il = Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]];
-      const KK_FLOAT Tn_jk_jl = Tn_jk[powers[3]] * Tn_jl[powers[4]];
-      const KK_FLOAT Tn_kl_5 = Tn_kl[powers[5]];
+          int powers[npairs];
+          for (int i = 0; i < npairs; i++) powers[i] = c_chimes_4b_powers_quadidx(coeffs,quad_map_idx[i]);
 
-      upd.e  += coeff * Tn_ij_ik_il * Tn_jk_jl * Tn_kl_5;
+          const KK_FLOAT Tn_ij_ik_il = Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]];
+          const KK_FLOAT Tn_jk_jl = Tn_jk[powers[3]] * Tn_jl[powers[4]];
+          const KK_FLOAT Tn_kl_5 = Tn_kl[powers[5]];
 
-      upd.f0 += coeff * Tnd_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
-      upd.f1 += coeff * Tnd_ik[powers[1]] * Tn_ij[powers[0]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
-      upd.f2 += coeff * Tnd_il[powers[2]] * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk_jl * Tn_kl_5;
-      upd.f3 += coeff * Tnd_jk[powers[3]] * Tn_ij_ik_il * Tn_jl[powers[4]] * Tn_kl_5;
-      upd.f4 += coeff * Tnd_jl[powers[4]] * Tn_ij_ik_il * Tn_jk[powers[3]] * Tn_kl_5;
-      upd.f5 += coeff * Tnd_kl[powers[5]] * Tn_ij_ik_il * Tn_jk_jl;
+          acc[bb].e  += coeff * Tn_ij_ik_il * Tn_jk_jl * Tn_kl_5;
+
+          acc[bb].f0 += coeff * Tnd_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
+          acc[bb].f1 += coeff * Tnd_ik[powers[1]] * Tn_ij[powers[0]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
+          acc[bb].f2 += coeff * Tnd_il[powers[2]] * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk_jl * Tn_kl_5;
+          acc[bb].f3 += coeff * Tnd_jk[powers[3]] * Tn_ij_ik_il * Tn_jl[powers[4]] * Tn_kl_5;
+          acc[bb].f4 += coeff * Tnd_jl[powers[4]] * Tn_ij_ik_il * Tn_jk[powers[3]] * Tn_kl_5;
+          acc[bb].f5 += coeff * Tnd_kl[powers[5]] * Tn_ij_ik_il * Tn_jk_jl;
+        }
+      }
+
+      #pragma unroll
+      for (int bb = 0; bb < coeff_batch; bb++) upd += acc[bb];
     }, Kokkos::Sum<s_chimes_poly4>(result));
 
   e = result.e;
@@ -1636,39 +1678,53 @@ void chimesFFKokkos<DeviceType>::poly_4B_dense(const t_team& team, KK_FLOAT &e, 
 
   auto c_chimes_4b_params_quadidx = Kokkos::subview(c_chimes_4b_params,quadidx,Kokkos::ALL);
 
+  constexpr int coeff_batch = std::is_same<DeviceType, LMPHostType>::value ? 1 : CHIMES_COEFF_BATCH;
+  const int n_groups = (ncoeffs_4b + coeff_batch - 1) / coeff_batch;
+
   s_chimes_poly4 result;
 
-  Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, ncoeffs_4b),
-    [&] (const int count, s_chimes_poly4& upd) {
-      const KK_FLOAT coeff = c_chimes_4b_params_quadidx[count];
-      if (coeff != 0.0) {
-        int index[6];
-        for (int n = 0; n < 6; n++) { index[n] = (count / max_poly_pow[n]) % max_poly; }
+  Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, n_groups),
+    [&] (const int t, s_chimes_poly4& upd) {
+      Kokkos::Array<s_chimes_poly4, coeff_batch> acc;
 
-        const KK_FLOAT tn_ij = Tn_ij[index[0]];
-        const KK_FLOAT tnd_ij = Tnd_ij[index[0]];
-        const KK_FLOAT tn_ik = Tn_ik[index[1]];
-        const KK_FLOAT tnd_ik = Tnd_ik[index[1]];
-        const KK_FLOAT tn_il = Tn_il[index[2]];
-        const KK_FLOAT tnd_il = Tnd_il[index[2]];
-        const KK_FLOAT tn_jk = Tn_jk[index[3]];
-        const KK_FLOAT tnd_jk = Tnd_jk[index[3]];
-        const KK_FLOAT tn_jl = Tn_jl[index[4]];
-        const KK_FLOAT tnd_jl = Tnd_jl[index[4]];
-        const KK_FLOAT tn_kl = Tn_kl[index[5]];
-        const KK_FLOAT tnd_kl = Tnd_kl[index[5]];
+      #pragma unroll
+      for (int bb = 0; bb < coeff_batch; bb++) {
+        const int count = t + bb * n_groups;   // coalesced across lanes at fixed bb
+        if (count < ncoeffs_4b) {
+          const KK_FLOAT coeff = c_chimes_4b_params_quadidx[count];
+          if (coeff != 0.0) {
+            int index[6];
+            for (int n = 0; n < 6; n++) { index[n] = (count / max_poly_pow[n]) % max_poly; }
 
-        const KK_FLOAT Tn_jk_jl = tn_jk * tn_jl;
-        const KK_FLOAT Tn_ij_ik_il = tn_ij * tn_ik * tn_il;
+            const KK_FLOAT tn_ij = Tn_ij[index[0]];
+            const KK_FLOAT tnd_ij = Tnd_ij[index[0]];
+            const KK_FLOAT tn_ik = Tn_ik[index[1]];
+            const KK_FLOAT tnd_ik = Tnd_ik[index[1]];
+            const KK_FLOAT tn_il = Tn_il[index[2]];
+            const KK_FLOAT tnd_il = Tnd_il[index[2]];
+            const KK_FLOAT tn_jk = Tn_jk[index[3]];
+            const KK_FLOAT tnd_jk = Tnd_jk[index[3]];
+            const KK_FLOAT tn_jl = Tn_jl[index[4]];
+            const KK_FLOAT tnd_jl = Tnd_jl[index[4]];
+            const KK_FLOAT tn_kl = Tn_kl[index[5]];
+            const KK_FLOAT tnd_kl = Tnd_kl[index[5]];
 
-        upd.e  += coeff * Tn_ij_ik_il * Tn_jk_jl * tn_kl;
-        upd.f0 += coeff * tnd_ij * tn_ik * tn_il * Tn_jk_jl * tn_kl;
-        upd.f1 += coeff * tnd_ik * tn_ij * tn_il * Tn_jk_jl * tn_kl;
-        upd.f2 += coeff * tnd_il * tn_ij * tn_ik * Tn_jk_jl * tn_kl;
-        upd.f3 += coeff * tnd_jk * Tn_ij_ik_il * tn_jl * tn_kl;
-        upd.f4 += coeff * tnd_jl * Tn_ij_ik_il * tn_jk * tn_kl;
-        upd.f5 += coeff * tnd_kl * Tn_ij_ik_il * Tn_jk_jl;
+            const KK_FLOAT Tn_jk_jl = tn_jk * tn_jl;
+            const KK_FLOAT Tn_ij_ik_il = tn_ij * tn_ik * tn_il;
+
+            acc[bb].e  += coeff * Tn_ij_ik_il * Tn_jk_jl * tn_kl;
+            acc[bb].f0 += coeff * tnd_ij * tn_ik * tn_il * Tn_jk_jl * tn_kl;
+            acc[bb].f1 += coeff * tnd_ik * tn_ij * tn_il * Tn_jk_jl * tn_kl;
+            acc[bb].f2 += coeff * tnd_il * tn_ij * tn_ik * Tn_jk_jl * tn_kl;
+            acc[bb].f3 += coeff * tnd_jk * Tn_ij_ik_il * tn_jl * tn_kl;
+            acc[bb].f4 += coeff * tnd_jl * Tn_ij_ik_il * tn_jk * tn_kl;
+            acc[bb].f5 += coeff * tnd_kl * Tn_ij_ik_il * Tn_jk_jl;
+          }
+        }
       }
+
+      #pragma unroll
+      for (int bb = 0; bb < coeff_batch; bb++) upd += acc[bb];
     }, Kokkos::Sum<s_chimes_poly4>(result));
 
   e = result.e;
