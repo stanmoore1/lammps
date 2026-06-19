@@ -132,6 +132,14 @@ class chimesFFKokkos : public chimesFF
   KOKKOS_INLINE_FUNCTION
   void compute_4B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
 
+  // Per-team scratch byte count for the n_values Chebyshev (Tn/Tnd) entries
+  // cached in team scratch by compute_3B/compute_4B. Mirrors the Kokkos SNAP
+  // scratch_size_helper idiom.
+  static size_t scratch_bytes(int n_values) {
+    typedef Kokkos::View<KK_FLOAT*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > ScratchViewType;
+    return ScratchViewType::shmem_size(n_values);
+  }
+
   // Functions to aid using ChIMES Calculator for fitting
 
   void build_pair_int_trip_map() override;

@@ -653,13 +653,19 @@ void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, const KK_FLOAT* 
   constexpr int natoms = 3;                   // Number of atoms in an interaction set
   constexpr int npairs = natoms*(natoms-1)/2; // Number of pairs in an interaction set
 
-  KK_FLOAT Tn_ij[MAX_3B_POLY];
-  KK_FLOAT Tn_ik[MAX_3B_POLY];
-  KK_FLOAT Tn_jk[MAX_3B_POLY];
+  // Cache the Chebyshev arrays (Tn/Tnd) in per-team scratch memory rather than
+  // recomputing them redundantly on every vector lane (mirrors the Kokkos SNAP
+  // approach of staging recurrence intermediates in scratch). All vector lanes
+  // of the team see the same scratch pointers; the arrays are built once (below)
+  // and read by the ThreadVectorRange coefficient reduction.
 
-  KK_FLOAT Tnd_ij[MAX_3B_POLY];
-  KK_FLOAT Tnd_ik[MAX_3B_POLY];
-  KK_FLOAT Tnd_jk[MAX_3B_POLY];
+  KK_FLOAT* scratch = (KK_FLOAT*) team.team_shmem().get_shmem(2 * npairs * MAX_3B_POLY * sizeof(KK_FLOAT), 0);
+  KK_FLOAT* Tn_ij  = scratch + 0 * MAX_3B_POLY;
+  KK_FLOAT* Tn_ik  = scratch + 1 * MAX_3B_POLY;
+  KK_FLOAT* Tn_jk  = scratch + 2 * MAX_3B_POLY;
+  KK_FLOAT* Tnd_ij = scratch + 3 * MAX_3B_POLY;
+  KK_FLOAT* Tnd_ik = scratch + 4 * MAX_3B_POLY;
+  KK_FLOAT* Tnd_jk = scratch + 5 * MAX_3B_POLY;
 
   // Avoid allocating vector quantities.  Heap memory allocation is slow on the GPU.
   // fixed-length C arrays are allocated on the stack
@@ -710,11 +716,15 @@ void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, const KK_FLOAT* 
     init_distance_tensor(dr2, dr, npairs);
 #endif
 
-  // Set up the polynomials
+  // Set up the polynomials, once per team, into shared scratch (then barrier
+  // so all vector lanes can read them in the reduction below)
 
-  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
-  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
-  set_cheby_polys(Tn_jk, Tnd_jk, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
+  Kokkos::single(Kokkos::PerTeam(team), [&] () {
+    set_cheby_polys(Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
+    set_cheby_polys(Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
+    set_cheby_polys(Tn_jk, Tnd_jk, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
+  });
+  team.team_barrier();
 
   // Set up the smoothing functions
 
@@ -904,19 +914,22 @@ void chimesFFKokkos<DeviceType>::compute_4B(const t_team& team, const KK_FLOAT* 
   KK_FLOAT fcutderiv[npairs];
   KK_FLOAT deriv[npairs];
 
-  KK_FLOAT Tn_ij[MAX_4B_POLY];
-  KK_FLOAT Tn_ik[MAX_4B_POLY];
-  KK_FLOAT Tn_il[MAX_4B_POLY];
-  KK_FLOAT Tn_jk[MAX_4B_POLY];
-  KK_FLOAT Tn_jl[MAX_4B_POLY];
-  KK_FLOAT Tn_kl[MAX_4B_POLY];
+  // Cache the Chebyshev arrays (Tn/Tnd) in per-team scratch memory rather than
+  // recomputing them redundantly on every vector lane (mirrors Kokkos SNAP).
 
-  KK_FLOAT Tnd_ij[MAX_4B_POLY];
-  KK_FLOAT Tnd_ik[MAX_4B_POLY];
-  KK_FLOAT Tnd_il[MAX_4B_POLY];
-  KK_FLOAT Tnd_jk[MAX_4B_POLY];
-  KK_FLOAT Tnd_jl[MAX_4B_POLY];
-  KK_FLOAT Tnd_kl[MAX_4B_POLY];
+  KK_FLOAT* scratch = (KK_FLOAT*) team.team_shmem().get_shmem(2 * npairs * MAX_4B_POLY * sizeof(KK_FLOAT), 0);
+  KK_FLOAT* Tn_ij  = scratch +  0 * MAX_4B_POLY;
+  KK_FLOAT* Tn_ik  = scratch +  1 * MAX_4B_POLY;
+  KK_FLOAT* Tn_il  = scratch +  2 * MAX_4B_POLY;
+  KK_FLOAT* Tn_jk  = scratch +  3 * MAX_4B_POLY;
+  KK_FLOAT* Tn_jl  = scratch +  4 * MAX_4B_POLY;
+  KK_FLOAT* Tn_kl  = scratch +  5 * MAX_4B_POLY;
+  KK_FLOAT* Tnd_ij = scratch +  6 * MAX_4B_POLY;
+  KK_FLOAT* Tnd_ik = scratch +  7 * MAX_4B_POLY;
+  KK_FLOAT* Tnd_il = scratch +  8 * MAX_4B_POLY;
+  KK_FLOAT* Tnd_jk = scratch +  9 * MAX_4B_POLY;
+  KK_FLOAT* Tnd_jl = scratch + 10 * MAX_4B_POLY;
+  KK_FLOAT* Tnd_kl = scratch + 11 * MAX_4B_POLY;
 
   const int idx = typ_idxs[0]*natmtyps*natmtyps*natmtyps
       + typ_idxs[1]*natmtyps*natmtyps + typ_idxs[2]*natmtyps + typ_idxs[3];
@@ -984,12 +997,15 @@ void chimesFFKokkos<DeviceType>::compute_4B(const t_team& team, const KK_FLOAT* 
 
   // Set up the polynomials
 
-  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
-  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
-  set_cheby_polys(Tn_il, Tnd_il, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
-  set_cheby_polys(Tn_jk, Tnd_jk, dx[3], c_morse_var[pair_type_4], cutoff_03, cutoff_3, order);
-  set_cheby_polys(Tn_jl, Tnd_jl, dx[4], c_morse_var[pair_type_5], cutoff_04, cutoff_4, order);
-  set_cheby_polys(Tn_kl, Tnd_kl, dx[5], c_morse_var[pair_type_6], cutoff_05, cutoff_5, order);
+  Kokkos::single(Kokkos::PerTeam(team), [&] () {
+    set_cheby_polys(Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
+    set_cheby_polys(Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
+    set_cheby_polys(Tn_il, Tnd_il, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
+    set_cheby_polys(Tn_jk, Tnd_jk, dx[3], c_morse_var[pair_type_4], cutoff_03, cutoff_3, order);
+    set_cheby_polys(Tn_jl, Tnd_jl, dx[4], c_morse_var[pair_type_5], cutoff_04, cutoff_4, order);
+    set_cheby_polys(Tn_kl, Tnd_kl, dx[5], c_morse_var[pair_type_6], cutoff_05, cutoff_5, order);
+  });
+  team.team_barrier();
 
 #ifdef USE_DISTANCE_TENSOR
   // Tensor product of displacement vectors
