@@ -196,9 +196,13 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   for (int i = 0; i < size; i++)
     max_j = MAX(max_j,chimes_3b_params[i].size());
 
-  LAMMPS_NS::MemKK::realloc_kokkos(d_chimes_3b_params,"chimesFF:chimes_3b_params",size,max_j);
+  // Pad the coefficient dimension so each triplet row starts aligned (coalesced reads)
+  const int max_j_pad_3b = ((max_j + CHIMES_PARAM_PAD - 1) / CHIMES_PARAM_PAD) * CHIMES_PARAM_PAD;
+
+  LAMMPS_NS::MemKK::realloc_kokkos(d_chimes_3b_params,"chimesFF:chimes_3b_params",size,max_j_pad_3b);
 
   auto h_chimes_3b_params = Kokkos::create_mirror_view(d_chimes_3b_params);
+  Kokkos::deep_copy(h_chimes_3b_params, 0.0); // zero-fill the padding
 
   for (int i = 0; i < size; i++) {
     int size_j = chimes_3b_params[i].size();
@@ -298,9 +302,13 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
   for (int i = 0; i < size; i++)
     max_j = MAX(max_j,chimes_4b_params[i].size());
 
-  LAMMPS_NS::MemKK::realloc_kokkos(d_chimes_4b_params,"chimesFF:chimes_4b_params",size,max_j);
+  // Pad the coefficient dimension so each quadruplet row starts aligned (coalesced reads)
+  const int max_j_pad_4b = ((max_j + CHIMES_PARAM_PAD - 1) / CHIMES_PARAM_PAD) * CHIMES_PARAM_PAD;
+
+  LAMMPS_NS::MemKK::realloc_kokkos(d_chimes_4b_params,"chimesFF:chimes_4b_params",size,max_j_pad_4b);
 
   auto h_chimes_4b_params = Kokkos::create_mirror_view(d_chimes_4b_params);
+  Kokkos::deep_copy(h_chimes_4b_params, 0.0); // zero-fill the padding
 
   for (int i = 0; i < size; i++) {
     int size_j = chimes_4b_params[i].size();

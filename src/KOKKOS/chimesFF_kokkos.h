@@ -39,6 +39,14 @@ constexpr int MAX_4B_POLY = 4;
 // this to 2 or 4 for the target GPU and validate/profile before relying on it.
 constexpr int CHIMES_COEFF_BATCH = 1;
 
+// Pad the trailing (coefficient) dimension of the 3B/4B parameter tables to a
+// multiple of this, so each triplet/quadruplet row starts at an aligned offset.
+// A team reads one row at consecutive coefficient indices across its vector
+// lanes, so aligned row starts give fully coalesced loads (mirrors SNAP's
+// padding_factor). The padding entries are zero-filled and never read (the
+// reductions are bounded by the true per-type coefficient count).
+constexpr int CHIMES_PARAM_PAD = 32;
+
 using namespace std;
 
 // Notes:
