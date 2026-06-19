@@ -884,6 +884,26 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRadial, const typ
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+template<bool M0>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::accumulate_A_sph(const int ii, const int jj,
+    const int mu_j, const int idx_sph, const int l, const complex &ylm) const
+{
+  for (int n = 0; n < nradmax; n++) {
+    const KK_FLOAT f = fr(ii, jj, l, n);
+    A_sph_re(ii, mu_j, idx_sph, n) += f * ylm.re;
+    // For m = 0 the spherical harmonic is purely real (ylm.im == 0), so the
+    // imaginary accumulation is a no-op and is skipped; A_sph_im keeps its
+    // first-touch zero.
+    if (!M0)
+      A_sph_im(ii, mu_j, idx_sph, n) += f * ylm.im;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii) const
@@ -965,10 +985,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii
     ylm.re = plm_idx;
     ylm.im = 0.0;
 
-    for (int n = 0; n < nradmax; n++) {
-      A_sph_re(ii, mu_j, idx_sph, n) += fr(ii, jj, l, n) * ylm.re;
-      A_sph_im(ii, mu_j, idx_sph, n) += fr(ii, jj, l, n) * ylm.im;
-    }
+    accumulate_A_sph<true>(ii, jj, mu_j, idx_sph, l, ylm);
 
     plm_idx2 = plm_idx1;
     plm_idx1 = plm_idx;
@@ -994,10 +1011,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii
 
     ylm = phase * plm_idx;
 
-    for (int n = 0; n < nradmax; n++) {
-      A_sph_re(ii, mu_j, idx_sph, n) += fr(ii, jj, l, n) * ylm.re;
-      A_sph_im(ii, mu_j, idx_sph, n) += fr(ii, jj, l, n) * ylm.im;
-    }
+    accumulate_A_sph<false>(ii, jj, mu_j, idx_sph, l, ylm);
 
     plm_idx2 = plm_idx1;
     plm_idx1 = plm_idx;
@@ -1033,10 +1047,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii
       ylm.re = phasem.re * plm_idx;
       ylm.im = phasem.im * plm_idx;
 
-      for (int n = 0; n < nradmax; n++) {
-        A_sph_re(ii, mu_j, idx_sph, n) += fr(ii, jj, l, n) * ylm.re;
-        A_sph_im(ii, mu_j, idx_sph, n) += fr(ii, jj, l, n) * ylm.im;
-      }
+      accumulate_A_sph<false>(ii, jj, mu_j, idx_sph, l, ylm);
 
       plm_idx2 = plm_idx1;
       plm_idx1 = plm_idx;

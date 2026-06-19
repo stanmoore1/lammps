@@ -224,6 +224,16 @@ class PairPACEKokkos : public PairPACE {
       const KK_FLOAT rinv, const KK_FLOAT (&r_hat)[3], const KK_FLOAT wscale,
       KK_ACC_FLOAT (&f_ji)[3]) const;
 
+  // Shared inner radial loop for ComputeAi. Accumulates one (l, m) channel of
+  // the A basis functions over all radial functions n. M0 selects the m = 0
+  // path, whose ylm is purely real, so the (zero) imaginary accumulation is
+  // skipped entirely.
+  template<bool M0>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void accumulate_A_sph(const int ii, const int jj, const int mu_j,
+      const int idx_sph, const int l, const complex &ylm) const;
+
   template<class TagStyle>
   void check_team_size_for(int, int&, int);
 
