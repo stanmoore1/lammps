@@ -46,8 +46,7 @@ All model constants are taken directly from the standalone oxDNA `src/model.h`
 | `src/particles.h`, `src/types.h` | SoA particle storage, quaternion / box types |
 | `src/forces/params.h` | Force-field parameters (`make_oxdna1_params`, `make_oxdna2_params`) |
 | `src/forces/mf_oxdna.h` | Modulation functions F1–F6 and derivatives |
-| `src/forces/backbone.h` | FENE + bonded excluded volume |
-| `src/forces/stacking.h` | Bonded stacking |
+| `src/forces/bonded.h` | Bonded gather kernel: FENE + bonded excluded volume + stacking (one thread per particle, reads its n3/n5 neighbours, no atomics — mirrors oxDNA's `dna_forces_edge_bonded`) |
 | `src/forces/dna_forces.h` | Nonbonded kernel: excv + H-bond + cross + coaxial + Debye–Hückel |
 | `src/forces/orient.h` | Quaternion → body-axis vectors |
 | `src/io/topology_reader.h`, `src/io/config_reader.h` | oxDNA `.top` / `.conf` readers |
@@ -80,6 +79,27 @@ Useful CMake options:
 
 - `-DOXDNA_SINGLE_PRECISION=ON` — use `float` instead of `double`.
 - `-DOXDNA_BUILD_TESTS=ON` — also build the validation tools (`fd_test`, `xcheck`).
+
+### Matching the reference GPU performance
+
+The single biggest performance lever is **precision**. The standalone oxDNA GPU
+benchmarks run with `backend_precision = mixed`, which means the **force kernels
+execute in FP32** (only the integrator uses FP64). This code's force kernels run
+at the compile-time `c_number` precision, so the **default `double` build runs
+the force kernels in FP64** — roughly 2× the compute and 2× the memory traffic
+of the reference on most GPUs, which accounts for most of the observed slowdown.
+For an apples-to-apples GPU comparison build single precision:
+
+```bash
+cmake -B build -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH_AMPERE80=ON \
+      -DCMAKE_CXX_COMPILER=$(pwd)/../../lib/kokkos/bin/nvcc_wrapper \
+      -DOXDNA_SINGLE_PRECISION=ON -DCMAKE_BUILD_TYPE=Release
+```
+
+Structurally the code now mirrors the reference GPU layout: one thread-per-edge
+nonbonded kernel with atomic accumulation (oxDNA `use_edge`, `edge_n_forces=1`),
+and one thread-per-particle **gather** bonded kernel (FENE + bonded excluded
+volume + stacking) that writes only its own particle with no atomics.
 
 ## Running
 

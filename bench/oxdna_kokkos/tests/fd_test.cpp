@@ -10,14 +10,13 @@
 #include <Kokkos_Core.hpp>
 #include "../src/simulation.h"
 #include "../src/forces/dna_forces.h"
-#include "../src/forces/backbone.h"
-#include "../src/forces/stacking.h"
+#include "../src/forces/bonded.h"
 #include "../src/integrator.h"
 #include "../src/thermostat.h"
 #include <cstdio>
 #include <cmath>
 
-enum Term { BACKBONE, STACKING, NONBONDED, ALL };
+enum Term { NONBONDED, BONDED, ALL };
 
 struct Sys {
     ParticleArraysHost host;
@@ -50,9 +49,8 @@ static void load(Sys &s, int model) {
 static c_number energy(Sys &s, Term t) {
     s.dev.zero_forces();
     c_number e = 0;
-    if (t==BACKBONE || t==ALL) e += compute_backbone_forces(s.dev, s.par, s.box);
-    if (t==STACKING || t==ALL) e += compute_stacking_forces(s.dev, s.par, s.box);
     if (t==NONBONDED|| t==ALL) e += compute_nonbonded_forces(s.dev, s.nl, s.par, s.box);
+    if (t==BONDED   || t==ALL) e += compute_bonded_forces(s.dev, s.par, s.box);
     Kokkos::fence();
     return e;
 }
@@ -105,18 +103,16 @@ static void md_step(Sys &s, c_number dt, Thermostat *th, int step, int newt) {
     first_step(s.dev, dt, s.box);
     if (s.nl.needs_rebuild(s.dev, s.box)) s.nl.build(s.dev, s.box);
     s.dev.zero_forces();
-    compute_backbone_forces(s.dev, s.par, s.box);
-    compute_stacking_forces(s.dev, s.par, s.box);
     compute_nonbonded_forces(s.dev, s.nl, s.par, s.box);
+    compute_bonded_forces(s.dev, s.par, s.box);
     second_step(s.dev, dt);
     if (th && newt>0 && step%newt==0) th->apply(s.dev);
 }
 
 static c_number potential(Sys &s) {
     s.dev.zero_forces();
-    c_number e = compute_backbone_forces(s.dev, s.par, s.box);
-    e += compute_stacking_forces(s.dev, s.par, s.box);
-    e += compute_nonbonded_forces(s.dev, s.nl, s.par, s.box);
+    c_number e = compute_nonbonded_forces(s.dev, s.nl, s.par, s.box);
+    e += compute_bonded_forces(s.dev, s.par, s.box);
     Kokkos::fence();
     return e;
 }
@@ -154,12 +150,12 @@ static void test_thermostat(Sys &s, c_number T, int nsteps) {
 int main(int argc, char**argv){
     Kokkos::initialize(argc,argv);
     {
-        const char* names[4]={"backbone","stacking","nonbonded","all"};
+        const char* names[3]={"nonbonded","bonded","all"};
         const c_number dts[3] = {0, 5e-4, 1e-4};  // [model index]; oxDNA2 needs smaller dt
         for (int model=1; model<=2; model++) {
             std::printf("================ oxDNA%d ================\n", model);
             { Sys s; load(s, model);
-              for (int t=0;t<4;t++) fd_term(s,(Term)t,names[t]); }
+              for (int t=0;t<3;t++) fd_term(s,(Term)t,names[t]); }
             { Sys s; load(s, model);
               test_conservation(s, dts[model], 3000); }
             { Sys s; load(s, model);

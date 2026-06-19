@@ -4,8 +4,7 @@
 #include <Kokkos_Core.hpp>
 #include "../src/simulation.h"
 #include "../src/forces/dna_forces.h"
-#include "../src/forces/backbone.h"
-#include "../src/forces/stacking.h"
+#include "../src/forces/bonded.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -31,15 +30,13 @@ int main(int argc, char**argv){
         nl.build(dev, box);
 
         dev.zero_forces();
-        c_number e_back = compute_backbone_forces(dev, par, box);
-        c_number e_stk  = compute_stacking_forces(dev, par, box);
         c_number e_nb   = compute_nonbonded_forces(dev, nl, par, box);
+        c_number e_bond = compute_bonded_forces(dev, par, box);
         Kokkos::fence();
-        c_number tot = e_back + e_stk + e_nb;
+        c_number tot = e_nb + e_bond;
         std::printf("Kokkos oxDNA%d  N=%d  T=%.4f salt=%.3f\n", model, N, T, salt);
-        std::printf("  backbone(FENE+bexcv) = %12.6f  (%.6f /particle)\n", (double)e_back, (double)e_back/N);
-        std::printf("  stacking             = %12.6f  (%.6f /particle)\n", (double)e_stk,  (double)e_stk/N);
         std::printf("  nonbonded(all)       = %12.6f  (%.6f /particle)\n", (double)e_nb,   (double)e_nb/N);
+        std::printf("  bonded(FENE+excv+stk)= %12.6f  (%.6f /particle)\n", (double)e_bond, (double)e_bond/N);
         std::printf("  TOTAL                = %12.6f  (%.6f /particle)\n", (double)tot,    (double)tot/N);
 
         if (ftout) {
