@@ -76,6 +76,16 @@ struct FirstStepFunctor {
     c_number dt;
     SimBox box;
 
+    // Optional fused neighbor-list displacement check (set check_rebuild = true).
+    // Avoids a separate full-N reduction every step: while updating positions we
+    // flag a rebuild if a particle has moved more than skin/2 from its reference
+    // position at the last list build. Mirrors oxDNA's _d_are_lists_old flag set
+    // inside the first-step kernel.
+    Kokkos::View<const c_number *[4]> list_poss;
+    Kokkos::View<int *>               rebuild_flag;
+    c_number skin_half_sq = 0;
+    bool     check_rebuild = false;
+
     KOKKOS_INLINE_FUNCTION
     void operator()(int i) const {
         c_number dt_half = dt * c_number(0.5);
@@ -94,6 +104,16 @@ struct FirstStepFunctor {
         poss(i,0) -= box.Lx * Kokkos::floor(poss(i,0) / box.Lx + c_number(0.5));
         poss(i,1) -= box.Ly * Kokkos::floor(poss(i,1) / box.Ly + c_number(0.5));
         poss(i,2) -= box.Lz * Kokkos::floor(poss(i,2) / box.Lz + c_number(0.5));
+
+        // Fused Verlet-list rebuild check (displacement since last build)
+        if (check_rebuild) {
+            c_number ddx = poss(i,0) - list_poss(i,0);
+            c_number ddy = poss(i,1) - list_poss(i,1);
+            c_number ddz = poss(i,2) - list_poss(i,2);
+            box.wrap(ddx, ddy, ddz);
+            if (ddx*ddx + ddy*ddy + ddz*ddz > skin_half_sq)
+                Kokkos::atomic_max(&rebuild_flag(0), 1);
+        }
 
         // Angular momentum half-step
         Ls(i,0) += torques(i,0) * dt_half;
@@ -132,7 +152,10 @@ struct SecondStepFunctor {
     }
 };
 
-inline void first_step(ParticleArrays &p, c_number dt, const SimBox &box) {
+inline void first_step(ParticleArrays &p, c_number dt, const SimBox &box,
+                       Kokkos::View<const c_number *[4]> list_poss = {},
+                       Kokkos::View<int *> rebuild_flag = {},
+                       c_number skin_half_sq = 0) {
     FirstStepFunctor f;
     f.poss         = p.poss;
     f.vels         = p.vels;
@@ -142,6 +165,12 @@ inline void first_step(ParticleArrays &p, c_number dt, const SimBox &box) {
     f.orientations = p.orientations;
     f.dt           = dt;
     f.box          = box;
+    // Enable the fused rebuild check only when a reference position array and a
+    // flag are supplied (default-constructed Views are empty).
+    f.list_poss     = list_poss;
+    f.rebuild_flag  = rebuild_flag;
+    f.skin_half_sq  = skin_half_sq;
+    f.check_rebuild = (list_poss.data() != nullptr && rebuild_flag.data() != nullptr);
     Kokkos::parallel_for("first_step", Kokkos::RangePolicy<>(0, p.N), f);
 }
 

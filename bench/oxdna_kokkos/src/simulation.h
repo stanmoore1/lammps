@@ -117,10 +117,14 @@ public:
         auto loop0 = clk();
         for (long long s = 0; s < cfg_.nsteps; s++, step++) {
             auto a = clk();
-            first_step(dev_, cfg_.dt, box_);
+            // Fused first step: integrate AND flag a rebuild if any particle has
+            // moved > skin/2 since the last build (sets nl_.d_needs_rebuild on
+            // device), avoiding a separate full-N reduction every step.
+            first_step(dev_, cfg_.dt, box_,
+                       nl_.list_poss, nl_.d_needs_rebuild, nl_.skin_half_sq());
             auto b = mark(); t_mod += sec(a, b);
 
-            if (nl_.needs_rebuild(dev_, box_)) nl_.build(dev_, box_);
+            if (nl_.flag_is_set()) nl_.build(dev_, box_);
             auto c = mark(); t_neigh += sec(b, c);
 
             dev_.zero_forces();

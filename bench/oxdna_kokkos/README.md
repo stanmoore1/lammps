@@ -99,7 +99,10 @@ cmake -B build -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH_AMPERE80=ON \
 Structurally the code now mirrors the reference GPU layout: one thread-per-edge
 nonbonded kernel with atomic accumulation (oxDNA `use_edge`, `edge_n_forces=1`),
 and one thread-per-particle **gather** bonded kernel (FENE + bonded excluded
-volume + stacking) that writes only its own particle with no atomics.
+volume + stacking) that writes only its own particle with no atomics. The
+Verlet-list rebuild check is **fused into the first-step kernel** (it flags a
+rebuild via a single device int while integrating), so no separate full-N
+reduction runs each step — matching oxDNA's `_d_are_lists_old` flag.
 
 ## Running
 
