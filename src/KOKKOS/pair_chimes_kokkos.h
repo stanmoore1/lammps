@@ -30,7 +30,28 @@ PairStyle(chimesFF/kk/host,PairCHIMESKokkos<LMPHostType>);
 #include "chimesFF_kokkos.h"
 #include "pair_chimes.h"
 
+// Per-backend vector (sub-group / warp) length for the 3B/4B Compute
+// TeamPolicies, mirroring the Kokkos SNAP convention (kokkos_type.h:
+// SNAP_KOKKOS_*_VECLEN). The host backend always uses 1.
+#ifdef LMP_KOKKOS_GPU
+  #if defined(KOKKOS_ENABLE_SYCL)
+    #define CHIMES_KOKKOS_DEVICE_VECLEN 16
+  #else
+    #define CHIMES_KOKKOS_DEVICE_VECLEN 32
+  #endif
+#else
+  #define CHIMES_KOKKOS_DEVICE_VECLEN 1
+#endif
+#define CHIMES_KOKKOS_HOST_VECLEN 1
+
 namespace LAMMPS_NS {
+
+// LaunchBounds occupancy hint (minimum resident blocks per SM) for the 3B/4B
+// Compute TeamPolicies; tune per architecture (mirrors SNAP's
+// min_blocks_compute_*). Raising these lowers the per-thread register cap to
+// improve occupancy, at the risk of spills — validate on the target GPU.
+constexpr int chimes_min_blocks_3b = 1;
+constexpr int chimes_min_blocks_4b = 1;
 
 template<class DeviceType>
 class PairCHIMESKokkos : public PairCHIMES

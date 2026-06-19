@@ -634,21 +634,22 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // and this reproduces the original serial per-cluster behavior.
   if (chimes_calculatorKK.poly_orders[1] > 0)
   {
-    const int vector_length = host_flag ? 1 : 32;
+    constexpr int vector_length = std::is_same<DeviceType, LMPHostType>::value ? CHIMES_KOKKOS_HOST_VECLEN : CHIMES_KOKKOS_DEVICE_VECLEN;
+    using LB3 = Kokkos::LaunchBounds<vector_length,chimes_min_blocks_3b>;
     if (evflag) {
       if (neighflag == HALF) {
-        typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,1> > policy_3body(size_3mers,1,vector_length);
+        typename Kokkos::TeamPolicy<DeviceType,LB3,TagPairCHIMESCompute3Body<HALF,1> > policy_3body(size_3mers,1,vector_length);
         Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
       } else if (neighflag == HALFTHREAD) {
-        typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,1> > policy_3body(size_3mers,1,vector_length);
+        typename Kokkos::TeamPolicy<DeviceType,LB3,TagPairCHIMESCompute3Body<HALFTHREAD,1> > policy_3body(size_3mers,1,vector_length);
         Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
       }
     } else {
       if (neighflag == HALF) {
-        typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,0> > policy_3body(size_3mers,1,vector_length);
+        typename Kokkos::TeamPolicy<DeviceType,LB3,TagPairCHIMESCompute3Body<HALF,0> > policy_3body(size_3mers,1,vector_length);
         Kokkos::parallel_for("Compute3Body", policy_3body, *this);
       } else if (neighflag == HALFTHREAD) {
-        typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,0> > policy_3body(size_3mers,1,vector_length);
+        typename Kokkos::TeamPolicy<DeviceType,LB3,TagPairCHIMESCompute3Body<HALFTHREAD,0> > policy_3body(size_3mers,1,vector_length);
         Kokkos::parallel_for("Compute3Body", policy_3body, *this);
       }
     }
@@ -663,21 +664,22 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // and this reproduces the original serial per-cluster behavior.
   if (chimes_calculatorKK.poly_orders[2] > 0)
   {
-    const int vector_length = host_flag ? 1 : 32;
+    constexpr int vector_length = std::is_same<DeviceType, LMPHostType>::value ? CHIMES_KOKKOS_HOST_VECLEN : CHIMES_KOKKOS_DEVICE_VECLEN;
+    using LB4 = Kokkos::LaunchBounds<vector_length,chimes_min_blocks_4b>;
     if (evflag) {
       if (neighflag == HALF) {
-        typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute4Body<HALF,1> > policy_4body(size_4mers,1,vector_length);
+        typename Kokkos::TeamPolicy<DeviceType,LB4,TagPairCHIMESCompute4Body<HALF,1> > policy_4body(size_4mers,1,vector_length);
         Kokkos::parallel_reduce("Compute4Body", policy_4body, *this, ev_tmp);
       } else if (neighflag == HALFTHREAD) {
-        typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute4Body<HALFTHREAD,1> > policy_4body(size_4mers,1,vector_length);
+        typename Kokkos::TeamPolicy<DeviceType,LB4,TagPairCHIMESCompute4Body<HALFTHREAD,1> > policy_4body(size_4mers,1,vector_length);
         Kokkos::parallel_reduce("Compute4Body",policy_4body, *this, ev_tmp);
       }
     } else {
       if (neighflag == HALF) {
-        typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute4Body<HALF,0> > policy_4body(size_4mers,1,vector_length);
+        typename Kokkos::TeamPolicy<DeviceType,LB4,TagPairCHIMESCompute4Body<HALF,0> > policy_4body(size_4mers,1,vector_length);
         Kokkos::parallel_for("Compute4Body", policy_4body, *this);
       } else if (neighflag == HALFTHREAD) {
-        typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute4Body<HALFTHREAD,0> > policy_4body(size_4mers,1,vector_length);
+        typename Kokkos::TeamPolicy<DeviceType,LB4,TagPairCHIMESCompute4Body<HALFTHREAD,0> > policy_4body(size_4mers,1,vector_length);
         Kokkos::parallel_for("Compute4Body", policy_4body, *this);
       }
     }
