@@ -1076,7 +1076,7 @@ void chimesFFKokkos<DeviceType>::compute_4B(const t_team& team, const KK_FLOAT* 
       }
     }
 
-    poly_4B_dense(poly, dpoly_dx[inv_mapped_pair[0]], dpoly_dx[inv_mapped_pair[1]],
+    poly_4B_dense(team, poly, dpoly_dx[inv_mapped_pair[0]], dpoly_dx[inv_mapped_pair[1]],
                   dpoly_dx[inv_mapped_pair[2]], dpoly_dx[inv_mapped_pair[3]],
                   dpoly_dx[inv_mapped_pair[4]], dpoly_dx[inv_mapped_pair[5]], d_ncoeffs_4b[quadidx],
                   quadidx, Tn[0], Tn[1], Tn[2], Tn[3], Tn[4], Tn[5],
@@ -1593,17 +1593,22 @@ void chimesFFKokkos<DeviceType>::poly_4B(const t_team& team, KK_FLOAT &e, KK_FLO
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::poly_4B_dense(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, KK_FLOAT &f3, KK_FLOAT &f4,
+void chimesFFKokkos<DeviceType>::poly_4B_dense(const t_team& team, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, KK_FLOAT &f3, KK_FLOAT &f4,
                              KK_FLOAT &f5, int ncoeffs_4b, int quadidx,
                              KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_il,
                              KK_FLOAT* Tn_jk, KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl,
                              KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il,
                              KK_FLOAT* Tnd_jk, KK_FLOAT* Tnd_jl, KK_FLOAT* Tnd_kl) const
-// Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f0, f1, f2)
+// Compute the 4 body polynomial (e) and derivatives with respect to each pair distance (f0..f5)
 // (LEF) 4/02/26
+//
+// Hierarchical-parallelism port (mirrors Kokkos SNAP): the flat coefficient
+// index is distributed across the team's ThreadVectorRange, with each lane
+// deriving its 6 power indices from the flat count (as poly_4B_dense_loop1
+// did) and reading params[count] contiguously (coalesced). Reduced into a
+// single {energy, 6 pair-force derivatives} value. On host backends (vector
+// length 1) this reproduces the original serial loop.
 {
-  const int loop_style = 2;
-
   e = 0.0;
   f0 = 0.0;
   f1 = 0.0;
@@ -1627,16 +1632,54 @@ void chimesFFKokkos<DeviceType>::poly_4B_dense(KK_FLOAT &e, KK_FLOAT &f0, KK_FLO
     Kokkos::abort("Bad number of 4 body coefficients for dense evaluation");
   }
 
-  if (loop_style == 1) {
-    poly_4B_dense_loop1(max_poly, e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, quadidx, Tn_ij, Tn_ik,
-                        Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
-  } else if (loop_style == 2) {
-    poly_4B_dense_loop2(max_poly, e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, quadidx, Tn_ij, Tn_ik,
-                        Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
-  //} else if (loop_style == 3) {
-  //  poly_4B_dense_loop3(max_poly, e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, quadidx, Tn_ij, Tn_ik,
-  //                      Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
-  }
+  int max_poly_pow[6];
+  max_poly_pow[5] = 1;
+  for (int l = 4; l >= 0; l--) { max_poly_pow[l] = max_poly_pow[l + 1] * max_poly; }
+
+  auto c_chimes_4b_params_quadidx = Kokkos::subview(c_chimes_4b_params,quadidx,Kokkos::ALL);
+
+  s_chimes_poly4 result;
+
+  Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, ncoeffs_4b),
+    [&] (const int count, s_chimes_poly4& upd) {
+      const KK_FLOAT coeff = c_chimes_4b_params_quadidx[count];
+      if (coeff != 0.0) {
+        int index[6];
+        for (int n = 0; n < 6; n++) { index[n] = (count / max_poly_pow[n]) % max_poly; }
+
+        const KK_FLOAT tn_ij = Tn_ij[index[0]];
+        const KK_FLOAT tnd_ij = Tnd_ij[index[0]];
+        const KK_FLOAT tn_ik = Tn_ik[index[1]];
+        const KK_FLOAT tnd_ik = Tnd_ik[index[1]];
+        const KK_FLOAT tn_il = Tn_il[index[2]];
+        const KK_FLOAT tnd_il = Tnd_il[index[2]];
+        const KK_FLOAT tn_jk = Tn_jk[index[3]];
+        const KK_FLOAT tnd_jk = Tnd_jk[index[3]];
+        const KK_FLOAT tn_jl = Tn_jl[index[4]];
+        const KK_FLOAT tnd_jl = Tnd_jl[index[4]];
+        const KK_FLOAT tn_kl = Tn_kl[index[5]];
+        const KK_FLOAT tnd_kl = Tnd_kl[index[5]];
+
+        const KK_FLOAT Tn_jk_jl = tn_jk * tn_jl;
+        const KK_FLOAT Tn_ij_ik_il = tn_ij * tn_ik * tn_il;
+
+        upd.e  += coeff * Tn_ij_ik_il * Tn_jk_jl * tn_kl;
+        upd.f0 += coeff * tnd_ij * tn_ik * tn_il * Tn_jk_jl * tn_kl;
+        upd.f1 += coeff * tnd_ik * tn_ij * tn_il * Tn_jk_jl * tn_kl;
+        upd.f2 += coeff * tnd_il * tn_ij * tn_ik * Tn_jk_jl * tn_kl;
+        upd.f3 += coeff * tnd_jk * Tn_ij_ik_il * tn_jl * tn_kl;
+        upd.f4 += coeff * tnd_jl * Tn_ij_ik_il * tn_jk * tn_kl;
+        upd.f5 += coeff * tnd_kl * Tn_ij_ik_il * Tn_jk_jl;
+      }
+    }, Kokkos::Sum<s_chimes_poly4>(result));
+
+  e = result.e;
+  f0 = result.f0;
+  f1 = result.f1;
+  f2 = result.f2;
+  f3 = result.f3;
+  f4 = result.f4;
+  f5 = result.f5;
 }
 
 /* ---------------------------------------------------------------------- */

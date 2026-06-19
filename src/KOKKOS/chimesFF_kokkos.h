@@ -254,7 +254,7 @@ class chimesFFKokkos : public chimesFF
   // Evaluates the 4-body Chebyshev polynomial in dense format
 
   KOKKOS_INLINE_FUNCTION
-  void poly_4B_dense(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, KK_FLOAT &f3, KK_FLOAT &f4,
+  void poly_4B_dense(const t_team& team, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, KK_FLOAT &f3, KK_FLOAT &f4,
                      KK_FLOAT &f5, int ncoeffs_4b, int quadidx, KK_FLOAT* Tn_ij,
                      KK_FLOAT* Tn_ik, KK_FLOAT* Tn_il, KK_FLOAT* Tn_jk,
                      KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl, KK_FLOAT* Tnd_ij,
