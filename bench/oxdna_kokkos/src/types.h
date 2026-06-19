@@ -25,6 +25,13 @@ struct LR_bonds {
     int n3, n5;
 };
 
+// Per-particle 4-component arrays stored AoS (LayoutRight) so a particle's four
+// components are contiguous in memory — matching the standalone oxDNA
+// c_number4/float4 layout, which gives one coalesced transaction per particle
+// for the scattered reads in the per-edge nonbonded kernel.
+using Vec4  = Kokkos::View<c_number *[4], Kokkos::LayoutRight>;
+using Vec4c = Kokkos::View<const c_number *[4], Kokkos::LayoutRight>;
+
 // Box: periodic boundary conditions (orthogonal)
 struct SimBox {
     c_number Lx, Ly, Lz;

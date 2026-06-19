@@ -13,22 +13,22 @@ struct ParticleArrays {
     // Position: (x, y, z, w). The .w component stores a float-encoded integer
     // packing particle index (lower 22 bits) and base type btype (upper bits),
     // following the standalone oxDNA convention for a single coalesced load.
-    Kokkos::View<c_number *[4]> poss;
+    Vec4 poss;
 
     // Linear velocity (x, y, z, 0)
-    Kokkos::View<c_number *[4]> vels;
+    Vec4 vels;
 
     // Angular momentum (x, y, z, 0)
-    Kokkos::View<c_number *[4]> Ls;
+    Vec4 Ls;
 
     // Net force (x, y, z, 0) — zeroed before each force evaluation
-    Kokkos::View<c_number *[4]> forces;
+    Vec4 forces;
 
     // Net torque (x, y, z, 0) — zeroed before each force evaluation
-    Kokkos::View<c_number *[4]> torques;
+    Vec4 torques;
 
     // Orientation as unit quaternion (w, x, y, z) stored in .x/.y/.z/.w
-    Kokkos::View<c_number *[4]> orientations;
+    Vec4 orientations;
 
     // Bonded strand neighbours (n3, n5)
     Kokkos::View<LR_bonds *> bonds;
@@ -41,12 +41,12 @@ struct ParticleArrays {
 
     void allocate(int n) {
         N = n;
-        poss        = Kokkos::View<c_number *[4]>("poss",        n);
-        vels        = Kokkos::View<c_number *[4]>("vels",        n);
-        Ls          = Kokkos::View<c_number *[4]>("Ls",          n);
-        forces      = Kokkos::View<c_number *[4]>("forces",      n);
-        torques     = Kokkos::View<c_number *[4]>("torques",     n);
-        orientations= Kokkos::View<c_number *[4]>("orientations",n);
+        poss        = Vec4("poss",        n);
+        vels        = Vec4("vels",        n);
+        Ls          = Vec4("Ls",          n);
+        forces      = Vec4("forces",      n);
+        torques     = Vec4("torques",     n);
+        orientations= Vec4("orientations",n);
         bonds       = Kokkos::View<LR_bonds *>   ("bonds",       n);
         btype       = Kokkos::View<int *>        ("btype",       n);
     }
@@ -59,24 +59,24 @@ struct ParticleArrays {
 
 // Host-resident particle arrays for I/O (always in HostSpace)
 struct ParticleArraysHost {
-    Kokkos::View<c_number *[4]>::host_mirror_type poss;
-    Kokkos::View<c_number *[4]>::host_mirror_type vels;
-    Kokkos::View<c_number *[4]>::host_mirror_type Ls;
-    Kokkos::View<c_number *[4]>::host_mirror_type forces;
-    Kokkos::View<c_number *[4]>::host_mirror_type torques;
-    Kokkos::View<c_number *[4]>::host_mirror_type orientations;
+    Vec4::host_mirror_type poss;
+    Vec4::host_mirror_type vels;
+    Vec4::host_mirror_type Ls;
+    Vec4::host_mirror_type forces;
+    Vec4::host_mirror_type torques;
+    Vec4::host_mirror_type orientations;
     Kokkos::View<LR_bonds *>::host_mirror_type bonds;
     Kokkos::View<int *>::host_mirror_type btype;
     int N = 0;
 
     void allocate(int n) {
         N            = n;
-        poss         = Kokkos::View<c_number *[4]>::host_mirror_type("poss",         n);
-        vels         = Kokkos::View<c_number *[4]>::host_mirror_type("vels",         n);
-        Ls           = Kokkos::View<c_number *[4]>::host_mirror_type("Ls",           n);
-        forces       = Kokkos::View<c_number *[4]>::host_mirror_type("forces",       n);
-        torques      = Kokkos::View<c_number *[4]>::host_mirror_type("torques",      n);
-        orientations = Kokkos::View<c_number *[4]>::host_mirror_type("orientations", n);
+        poss         = Vec4::host_mirror_type("poss",         n);
+        vels         = Vec4::host_mirror_type("vels",         n);
+        Ls           = Vec4::host_mirror_type("Ls",           n);
+        forces       = Vec4::host_mirror_type("forces",       n);
+        torques      = Vec4::host_mirror_type("torques",      n);
+        orientations = Vec4::host_mirror_type("orientations", n);
         bonds        = Kokkos::View<LR_bonds *>::host_mirror_type("bonds",        n);
         btype        = Kokkos::View<int *>::host_mirror_type("btype",        n);
     }

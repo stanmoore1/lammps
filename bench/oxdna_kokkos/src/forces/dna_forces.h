@@ -514,8 +514,8 @@ c_number dh_pair(const c_number ra_bk[3], const c_number rb_bk[3],
 // Main nonbonded force dispatch — one kernel per pair (flat edge list)
 // -----------------------------------------------------------------------
 struct DNAForcesFunctor {
-    Kokkos::View<const c_number *[4]> poss;
-    Kokkos::View<const c_number *[4]> orientations;
+    Vec4c poss;
+    Vec4c orientations;
     Kokkos::View<const int *>         btype;
     Kokkos::View<const LR_bonds *>    bonds;
     Kokkos::View<const int *>         edge_i;
@@ -525,7 +525,7 @@ struct DNAForcesFunctor {
 
     using ScatterF = Kokkos::Experimental::ScatterView<
         c_number *[4],
-        Kokkos::DefaultExecutionSpace::array_layout,
+        Kokkos::LayoutRight,
         Kokkos::DefaultExecutionSpace,
         Kokkos::Experimental::ScatterSum,
         Kokkos::Experimental::ScatterNonDuplicated>;
@@ -660,7 +660,7 @@ inline c_number compute_nonbonded_forces(
 
     using SV = Kokkos::Experimental::ScatterView<
         c_number *[4],
-        Kokkos::DefaultExecutionSpace::array_layout,
+        Kokkos::LayoutRight,
         Kokkos::DefaultExecutionSpace,
         Kokkos::Experimental::ScatterSum,
         Kokkos::Experimental::ScatterNonDuplicated>;

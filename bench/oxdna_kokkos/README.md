@@ -102,7 +102,12 @@ and one thread-per-particle **gather** bonded kernel (FENE + bonded excluded
 volume + stacking) that writes only its own particle with no atomics. The
 Verlet-list rebuild check is **fused into the first-step kernel** (it flags a
 rebuild via a single device int while integrating), so no separate full-N
-reduction runs each step — matching oxDNA's `_d_are_lists_old` flag.
+reduction runs each step — matching oxDNA's `_d_are_lists_old` flag. The Verlet
+list uses oxDNA's convention (radius `rcut + 2·skin`, rebuild when a particle
+moves `> skin`). Per-particle arrays are stored **AoS** (`Kokkos::LayoutRight`,
+i.e. each particle's `x,y,z,w` contiguous) to match oxDNA's `c_number4`/`float4`
+layout, giving one coalesced transaction per particle for the scattered reads in
+the edge kernel.
 
 ## Running
 
