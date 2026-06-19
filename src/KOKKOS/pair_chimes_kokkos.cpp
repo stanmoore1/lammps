@@ -55,6 +55,7 @@ PairCHIMESKokkos<DeviceType>::PairCHIMESKokkos(LAMMPS *lmp) : PairCHIMES(lmp)
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
+  host_flag = (execution_space == HostKK);
   datamask_read = EMPTY_MASK;
   datamask_modify = EMPTY_MASK;
 
@@ -626,22 +627,28 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   ev += ev_tmp;
 
   //Compute3Body
+  //
+  // Hierarchical parallelism (ported from Kokkos SNAP): one team per 3-body
+  // cluster, with the dense Chebyshev coefficient reduction distributed across
+  // the team's ThreadVectorRange. On host backends vector_length collapses to 1
+  // and this reproduces the original serial per-cluster behavior.
   if (chimes_calculatorKK.poly_orders[1] > 0)
   {
+    const int vector_length = host_flag ? 1 : 32;
     if (evflag) {
       if (neighflag == HALF) {
-        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,1> > policy_3body(0,size_3mers);
+        typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,1> > policy_3body(size_3mers,1,vector_length);
         Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
       } else if (neighflag == HALFTHREAD) {
-        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,1> > policy_3body(0,size_3mers);
+        typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,1> > policy_3body(size_3mers,1,vector_length);
         Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
       }
     } else {
       if (neighflag == HALF) {
-        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,0> > policy_3body(0,size_3mers);
+        typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,0> > policy_3body(size_3mers,1,vector_length);
         Kokkos::parallel_for("Compute3Body", policy_3body, *this);
       } else if (neighflag == HALFTHREAD) {
-        typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,0> > policy_3body(0,size_3mers);
+        typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,0> > policy_3body(size_3mers,1,vector_length);
         Kokkos::parallel_for("Compute3Body", policy_3body, *this);
       }
     }
@@ -823,11 +830,20 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute2Body<NEIGHFL
 template<class DeviceType>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>, const int& ii, EV_FLOAT& ev) const
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>, const t_team& team, EV_FLOAT& ev) const
 {
   ////////////////////////////////////////
   // Compute 3-body interactions
   ////////////////////////////////////////
+
+  // One team handles one 3-body cluster (ii). The expensive dense Chebyshev
+  // coefficient reduction inside compute_3B is parallelized over the team's
+  // ThreadVectorRange; all vector lanes redundantly compute the cheap setup and
+  // receive the (broadcast) reduced energy/forces. Global force scatter and the
+  // energy/virial tally are therefore done exactly once per cluster, guarded by
+  // Kokkos::single(PerTeam), to avoid multi-counting across lanes.
+
+  const int ii = team.league_rank();
 
   // The f array is duplicated for OpenMP, atomic for GPU, and neither for Serial
   const auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
@@ -860,29 +876,31 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFL
   KK_FLOAT stensor[6];
   for (int n = 0; n < 6; n++) stensor[n] = 0.0;
 
-  chimes_calculatorKK.compute_3B(dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy);
+  chimes_calculatorKK.compute_3B(team, dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy);
 
-  for (int idx = 0; idx < 3; idx++)
-  {
-    a_f(i,idx) += force_3b[idx];
-    a_f(j,idx) += force_3b[CHDIM+idx];
-    a_f(k,idx) += force_3b[2*CHDIM+idx];
-  }
+  Kokkos::single(Kokkos::PerTeam(team), [&] () {
+    for (int idx = 0; idx < 3; idx++)
+    {
+      a_f(i,idx) += force_3b[idx];
+      a_f(j,idx) += force_3b[CHDIM+idx];
+      a_f(k,idx) += force_3b[2*CHDIM+idx];
+    }
 
-  int atmidxlst[6][2];
+    int atmidxlst[6][2];
 
-  if (EVFLAG && vflag_atom)
-  {
-    atmidxlst[0][0] = i;
-    atmidxlst[0][1] = j;
-    atmidxlst[1][0] = i;
-    atmidxlst[1][1] = k;
-    atmidxlst[2][0] = j;
-    atmidxlst[2][1] = k;
-  }
+    if (EVFLAG && vflag_atom)
+    {
+      atmidxlst[0][0] = i;
+      atmidxlst[0][1] = j;
+      atmidxlst[1][0] = i;
+      atmidxlst[1][1] = k;
+      atmidxlst[2][0] = j;
+      atmidxlst[2][1] = k;
+    }
 
-  if (EVFLAG)
-    ev_tally_mb<NEIGHFLAG>(3, 3, atmidxlst, energy, stensor, ev);
+    if (EVFLAG)
+      ev_tally_mb<NEIGHFLAG>(3, 3, atmidxlst, energy, stensor, ev);
+  });
 }
 
 /* ---------------------------------------------------------------------- */
@@ -890,9 +908,9 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFL
 template<class DeviceType>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>,const int& ii) const {
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>,const t_team& team) const {
   EV_FLOAT ev;
-  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>(), ii, ev);
+  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>(), team, ev);
 }
 
 /* ---------------------------------------------------------------------- */

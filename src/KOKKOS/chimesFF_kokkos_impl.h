@@ -620,17 +620,17 @@ void chimesFFKokkos<DeviceType>::compute_2B(const KK_FLOAT dx, const KK_FLOAT* d
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
+void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
 {
   KK_FLOAT dummy_force_scalar[3];
-  compute_3B(dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
+  compute_3B(team, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
+void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
 {
   // Compute 3b (input: 3 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -760,7 +760,7 @@ void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* 
       }
     }
 
-    poly_3B_dense(poly, dpoly_dx[inv_mapped_pair[0]], dpoly_dx[inv_mapped_pair[1]],
+    poly_3B_dense(team, poly, dpoly_dx[inv_mapped_pair[0]], dpoly_dx[inv_mapped_pair[1]],
                   dpoly_dx[inv_mapped_pair[2]], c_ncoeffs_3b[tripidx], tripidx,
                   Tn[0], Tn[1], Tn[2], Tnd[0], Tnd[1], Tnd[2]);
   }
@@ -1395,7 +1395,7 @@ void chimesFFKokkos<DeviceType>::poly_3B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::poly_3B_dense(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, int ncoeffs_3b, int tripidx,
+void chimesFFKokkos<DeviceType>::poly_3B_dense(const t_team& team, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, int ncoeffs_3b, int tripidx,
                                                KK_FLOAT *Tn_ij, KK_FLOAT *Tn_ik, KK_FLOAT *Tn_jk,
                                                KK_FLOAT *Tnd_ij, KK_FLOAT *Tnd_ik, KK_FLOAT *Tnd_jk) const
 // Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f0, f1, f2)
@@ -1427,7 +1427,7 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense(KK_FLOAT &e, KK_FLOAT &f0, KK_FLO
     poly_3B_dense_loop1(max_poly, e, f0, f1, f2, ncoeffs_3b, tripidx, Tn_ij, Tn_ik, Tn_jk,
                         Tnd_ij, Tnd_ik, Tnd_jk);
   } else if (loop_style == 2) {
-    poly_3B_dense_loop2(max_poly, e, f0, f1, f2, ncoeffs_3b, tripidx, Tn_ij, Tn_ik, Tn_jk,
+    poly_3B_dense_loop2(team, max_poly, e, f0, f1, f2, ncoeffs_3b, tripidx, Tn_ij, Tn_ik, Tn_jk,
                         Tnd_ij, Tnd_ik, Tnd_jk);
   //} else if (loop_style == 3) {
   //  poly_3B_dense_loop3(max_poly, e, f0, f1, f2, ncoeffs_3b, tripidx, Tn_ij, Tn_ik, Tn_jk,
@@ -1477,39 +1477,55 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense_loop1(int max_poly, KK_FLOAT &e, 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::poly_3B_dense_loop2(int max_poly, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+void chimesFFKokkos<DeviceType>::poly_3B_dense_loop2(const t_team& team, int max_poly, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
                                    int ncoeffs_3b, int tripidx,
                                    KK_FLOAT *Tn_ij, KK_FLOAT *Tn_ik,
                                    KK_FLOAT *Tn_jk, KK_FLOAT *Tnd_ij,
                                    KK_FLOAT *Tnd_ik, KK_FLOAT *Tnd_jk) const
 {
+  // Hierarchical-parallelism port of the dense 3-body Chebyshev reduction
+  // (mirrors the Kokkos SNAP approach): the outermost polynomial-order loop is
+  // distributed across the team's ThreadVectorRange and reduced into a single
+  // {energy, 3 pair-force derivatives} value. The flat coefficient index is
+  // computed arithmetically (count = (i*max_poly + j)*max_poly + k) so each
+  // vector lane is independent. On host backends (vector length 1) this
+  // degenerates to the original serial loop.
+
   auto c_chimes_3b_params_tripidx = Kokkos::subview(c_chimes_3b_params,tripidx,Kokkos::ALL);
 
-  int count = 0;
-  for (int i = 0; i < max_poly; i++) {
-    const KK_FLOAT tn_ij = Tn_ij[i];
-    const KK_FLOAT tnd_ij = Tnd_ij[i];
+  s_chimes_poly3 result;
 
-    for (int j = 0; j < max_poly; j++) {
-      const KK_FLOAT tn_ik = Tn_ik[j];
-      const KK_FLOAT tnd_ik = Tnd_ik[j];
-      const KK_FLOAT tn_ij_ik = tn_ij * tn_ik;
+  Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, max_poly),
+    [&] (const int i, s_chimes_poly3& upd) {
+      const KK_FLOAT tn_ij = Tn_ij[i];
+      const KK_FLOAT tnd_ij = Tnd_ij[i];
+      const int base_i = i * max_poly * max_poly;
 
-      for (int k = 0; k < max_poly; k++) {
-        const KK_FLOAT coeff = c_chimes_3b_params_tripidx[count];
-        if (coeff != 0.0) {
-          const KK_FLOAT tn_jk = Tn_jk[k];
-          const KK_FLOAT tnd_jk = Tnd_jk[k];
+      for (int j = 0; j < max_poly; j++) {
+        const KK_FLOAT tn_ik = Tn_ik[j];
+        const KK_FLOAT tnd_ik = Tnd_ik[j];
+        const KK_FLOAT tn_ij_ik = tn_ij * tn_ik;
+        const int base = base_i + j * max_poly;
 
-          e += coeff * tn_ij_ik * tn_jk;
-          f0 += coeff * tnd_ij * tn_ik * tn_jk;
-          f1 += coeff * tnd_ik * tn_ij * tn_jk;
-          f2 += coeff * tnd_jk * tn_ij_ik;
+        for (int k = 0; k < max_poly; k++) {
+          const KK_FLOAT coeff = c_chimes_3b_params_tripidx[base + k];
+          if (coeff != 0.0) {
+            const KK_FLOAT tn_jk = Tn_jk[k];
+            const KK_FLOAT tnd_jk = Tnd_jk[k];
+
+            upd.e  += coeff * tn_ij_ik * tn_jk;
+            upd.f0 += coeff * tnd_ij * tn_ik * tn_jk;
+            upd.f1 += coeff * tnd_ik * tn_ij * tn_jk;
+            upd.f2 += coeff * tnd_jk * tn_ij_ik;
+          }
         }
-        count++;
       }
-    }
-  }
+    }, Kokkos::Sum<s_chimes_poly3>(result));
+
+  e += result.e;
+  f0 += result.f0;
+  f1 += result.f1;
+  f2 += result.f2;
 }
 
 /* ---------------------------------------------------------------------- */

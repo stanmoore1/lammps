@@ -55,6 +55,7 @@ class PairCHIMESKokkos : public PairCHIMES
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   typedef EV_FLOAT value_type;
+  typedef typename Kokkos::TeamPolicy<DeviceType>::member_type t_team;
 
   PairCHIMESKokkos(class LAMMPS *);
   ~PairCHIMESKokkos() override;
@@ -91,11 +92,11 @@ class PairCHIMESKokkos : public PairCHIMES
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>,const int& ii) const;
+  void operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>,const t_team& team) const;
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>,const int& ii, EV_FLOAT&) const;
+  void operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>,const t_team& team, EV_FLOAT&) const;
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION

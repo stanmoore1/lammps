@@ -39,12 +39,33 @@ using namespace std;
 #define CHDIM 3 // The number of spatial dimensions.
 #define USE_DISTANCE_TENSOR 0 // Use tensor of distances in computing stresses.
 
+// Reduction value type used to parallelize the dense 3-body Chebyshev
+// evaluation across a Kokkos ThreadVectorRange (energy + 3 pair-force
+// derivatives). Modeled on the hierarchical-parallelism reductions used by
+// the Kokkos SNAP implementation.
+
+struct s_chimes_poly3 {
+  KK_FLOAT e, f0, f1, f2;
+  KOKKOS_INLINE_FUNCTION s_chimes_poly3() { e = 0.0; f0 = 0.0; f1 = 0.0; f2 = 0.0; }
+  KOKKOS_INLINE_FUNCTION void operator+=(const s_chimes_poly3& rhs) {
+    e += rhs.e; f0 += rhs.f0; f1 += rhs.f1; f2 += rhs.f2;
+  }
+};
+
+namespace Kokkos {
+  template<>
+  struct reduction_identity<s_chimes_poly3> {
+    KOKKOS_FORCEINLINE_FUNCTION static s_chimes_poly3 sum() { return s_chimes_poly3(); }
+  };
+}
+
 template<class DeviceType>
 class chimesFFKokkos : public chimesFF
 {
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
+  typedef typename Kokkos::TeamPolicy<DeviceType>::member_type t_team;
 
   ////////////////////////
   // General parameters
@@ -73,10 +94,10 @@ class chimesFFKokkos : public chimesFF
   void compute_2B(const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT& force_scalar) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_3B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
+  void compute_3B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_3B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force,KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
+  void compute_3B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force,KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
 
   KOKKOS_INLINE_FUNCTION
   void compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
@@ -189,7 +210,7 @@ class chimesFFKokkos : public chimesFF
   // Evaluates the 3-Body chebyshev polynomial in dense format
 
   KOKKOS_INLINE_FUNCTION
-  void poly_3B_dense(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, int ncoeffs_3b,
+  void poly_3B_dense(const t_team& team, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2, int ncoeffs_3b,
                      int tripidx, KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik,
                      KK_FLOAT* Tn_jk, KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik,
                      KK_FLOAT* Tnd_jk) const;
@@ -203,7 +224,7 @@ class chimesFFKokkos : public chimesFF
                            KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_jk) const;
 
   KOKKOS_INLINE_FUNCTION
-  void poly_3B_dense_loop2(int max_poly, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+  void poly_3B_dense_loop2(const t_team& team, int max_poly, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
                            int ncoeffs_3b, int tripidx, KK_FLOAT* Tn_ij,
                            KK_FLOAT* Tn_ik, KK_FLOAT* Tn_jk, KK_FLOAT* Tnd_ij,
                            KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_jk) const;
