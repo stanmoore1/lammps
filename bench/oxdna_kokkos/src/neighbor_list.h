@@ -21,6 +21,7 @@ struct NeighborList {
     Kokkos::View<int *> edge_i;
     Kokkos::View<int *> edge_j;
     int N_edges = 0;
+    int edge_capacity = 0;   // allocated length of edge_i/edge_j (grow-only)
 
     // Verlet skin: list rebuilt when any particle moves > skin/2 from list pos
     c_number skin;
@@ -276,9 +277,14 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
     }
     N_edges = total_edges;
 
-    // Resize edge arrays
-    Kokkos::resize(edge_i, total_edges);
-    Kokkos::resize(edge_j, total_edges);
+    // Grow-only edge arrays: reallocate only when the count exceeds capacity,
+    // avoiding a device malloc/free on every rebuild (the count is steady once
+    // equilibrated). The force kernel iterates only [0, N_edges).
+    if (total_edges > edge_capacity) {
+        edge_capacity = total_edges + total_edges / 5 + 64;  // ~20% headroom
+        edge_i = Kokkos::View<int *>("edge_i", edge_capacity);
+        edge_j = Kokkos::View<int *>("edge_j", edge_capacity);
+    }
     f.edge_i = edge_i;
     f.edge_j = edge_j;
 
