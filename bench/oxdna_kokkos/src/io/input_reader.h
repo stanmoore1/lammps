@@ -190,6 +190,11 @@ inline void read_input(const std::string &file, SimConfig &cfg) {
     if (has("pt"))              cfg.pt = num("pt");
     if (!thermo_on) cfg.newtonian_steps = 0;   // NVE unless a supported thermostat is requested
 
+    if (has("refresh_vel")) {
+        std::string v = inp_detail::lower(str("refresh_vel"));
+        cfg.refresh_vel = (v == "1" || v == "yes" || v == "true" || v == "on");
+    }
+
     // Kokkos-specific extension (not a standalone-oxDNA key).
     if (has("timing")) {
         std::string v = inp_detail::lower(str("timing"));

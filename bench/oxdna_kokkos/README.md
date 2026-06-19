@@ -104,7 +104,8 @@ unrecognized keys (`backend`, `CUDA_list`, `trajectory_file`, `ensemble`,
 | `steps`              | 10000 | Number of MD steps (accepts `1e7`) |
 | `verlet_skin`        | 0.3 | Verlet skin |
 | `print_energy_every` | 1000 | Energy print frequency |
-| `seed`               | 12345 | Thermostat RNG seed |
+| `seed`               | 12345 | RNG seed (velocity refresh + thermostat) |
+| `refresh_vel`        | 0 | `1` → draw fresh Maxwell-Boltzmann velocities at T on startup (required for velocity-less confs) |
 | `thermostat`         | (none) | `brownian`/`john` → NVT; otherwise NVE |
 | `newtonian_steps`    | 0 | Brownian thermostat period in steps |
 | `diff_coeff`         | 2.5 | Translational diffusion coefficient |

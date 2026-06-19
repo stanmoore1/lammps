@@ -20,6 +20,25 @@
 #include <cstdint>
 #include <stdexcept>
 
+// Draw fresh linear velocities and angular momenta from the Maxwell-Boltzmann
+// distribution at temperature T (unit mass and inertia, so each component is
+// N(0, sqrt(T))). This reproduces the standalone oxDNA `refresh_vel = true`,
+// which regenerates velocities at startup regardless of those in the conf.
+inline void randomize_velocities(ParticleArrays &p, c_number T, uint64_t seed) {
+    using Pool = Kokkos::Random_XorShift64_Pool<>;
+    Pool pool(seed);
+    auto vels = p.vels;
+    auto Ls   = p.Ls;
+    c_number sT = Kokkos::sqrt(T);
+    Kokkos::parallel_for("refresh_vel", p.N, KOKKOS_LAMBDA(int i) {
+        auto gen = pool.get_state();
+        vels(i,0) = sT * gen.normal(); vels(i,1) = sT * gen.normal(); vels(i,2) = sT * gen.normal();
+        Ls(i,0)   = sT * gen.normal(); Ls(i,1)   = sT * gen.normal(); Ls(i,2)   = sT * gen.normal();
+        pool.free_state(gen);
+    });
+    Kokkos::fence();
+}
+
 struct Thermostat {
     using Pool = Kokkos::Random_XorShift64_Pool<>;
     Pool     pool;
