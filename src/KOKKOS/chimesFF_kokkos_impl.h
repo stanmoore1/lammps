@@ -869,17 +869,17 @@ void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, const KK_FLOAT* 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
+void chimesFFKokkos<DeviceType>::compute_4B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
 {
   KK_FLOAT dummy_force_scalar[6];
-  compute_4B(dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
+  compute_4B(team, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
+void chimesFFKokkos<DeviceType>::compute_4B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
 {
   // Compute 3b (input: 3 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -1033,7 +1033,7 @@ void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* 
 
   //if (!dense_coeffs) {
   if (1) {
-    poly_4B(poly, dpoly_dx, c_ncoeffs_4b[quadidx], quadidx, idx,
+    poly_4B(team, poly, dpoly_dx, c_ncoeffs_4b[quadidx], quadidx, idx,
             Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik,
             Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
   } else {
@@ -1532,44 +1532,57 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense_loop2(const t_team& team, int max
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::poly_4B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4b, int quadidx, int idx,
+void chimesFFKokkos<DeviceType>::poly_4B(const t_team& team, KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4b, int quadidx, int idx,
                                          KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_il,
                                          KK_FLOAT* Tn_jk, KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl,
                                          KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il,
                                          KK_FLOAT* Tnd_jk, KK_FLOAT* Tnd_jl, KK_FLOAT* Tnd_kl) const
 // Compute the 4 body polynomial (e) and derivatives with respect to each pair distance (f)
 // (LEF) 3/11/26
+//
+// Hierarchical-parallelism port (mirrors Kokkos SNAP): the flat coefficient
+// loop is distributed across the team's ThreadVectorRange and reduced into a
+// single {energy, 6 pair-force derivatives} value. On host backends (vector
+// length 1) this reproduces the original serial loop.
 {
   constexpr int npairs = 6;
-  int powers[npairs],quad_map_idx[npairs];
-
-  e = 0;
-  for (int i = 0; i < npairs; i++) f[i] = 0.0;
+  int quad_map_idx[npairs];
 
   for (int i = 0; i < npairs; i++) quad_map_idx[i] = c_pair_int_quad_map(idx,i);
 
   auto c_chimes_4b_params_quadidx = Kokkos::subview(c_chimes_4b_params,quadidx,Kokkos::ALL);
   auto c_chimes_4b_powers_quadidx = Kokkos::subview(c_chimes_4b_powers,quadidx,Kokkos::ALL,Kokkos::ALL);
 
-  #pragma unroll
-  for (int coeffs = 0; coeffs < ncoeffs_4b; coeffs++) {
-    const KK_FLOAT coeff = c_chimes_4b_params_quadidx(coeffs);
+  s_chimes_poly4 result;
 
-    for (int i = 0; i < npairs; i++) powers[i] = c_chimes_4b_powers_quadidx(coeffs,quad_map_idx[i]);
+  Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, ncoeffs_4b),
+    [&] (const int coeffs, s_chimes_poly4& upd) {
+      const KK_FLOAT coeff = c_chimes_4b_params_quadidx(coeffs);
 
-    const KK_FLOAT Tn_ij_ik_il = Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]];
-    const KK_FLOAT Tn_jk_jl = Tn_jk[powers[3]] * Tn_jl[powers[4]];
-    const KK_FLOAT Tn_kl_5 = Tn_kl[powers[5]];
+      int powers[npairs];
+      for (int i = 0; i < npairs; i++) powers[i] = c_chimes_4b_powers_quadidx(coeffs,quad_map_idx[i]);
 
-    e += coeff * Tn_ij_ik_il * Tn_jk_jl * Tn_kl_5;
+      const KK_FLOAT Tn_ij_ik_il = Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]];
+      const KK_FLOAT Tn_jk_jl = Tn_jk[powers[3]] * Tn_jl[powers[4]];
+      const KK_FLOAT Tn_kl_5 = Tn_kl[powers[5]];
 
-    f[0] += coeff * Tnd_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
-    f[1] += coeff * Tnd_ik[powers[1]] * Tn_ij[powers[0]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
-    f[2] += coeff * Tnd_il[powers[2]] * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk_jl * Tn_kl_5;
-    f[3] += coeff * Tnd_jk[powers[3]] * Tn_ij_ik_il * Tn_jl[powers[4]] * Tn_kl_5;
-    f[4] += coeff * Tnd_jl[powers[4]] * Tn_ij_ik_il * Tn_jk[powers[3]] * Tn_kl_5;
-    f[5] += coeff * Tnd_kl[powers[5]] * Tn_ij_ik_il * Tn_jk_jl;
-  }
+      upd.e  += coeff * Tn_ij_ik_il * Tn_jk_jl * Tn_kl_5;
+
+      upd.f0 += coeff * Tnd_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
+      upd.f1 += coeff * Tnd_ik[powers[1]] * Tn_ij[powers[0]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
+      upd.f2 += coeff * Tnd_il[powers[2]] * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk_jl * Tn_kl_5;
+      upd.f3 += coeff * Tnd_jk[powers[3]] * Tn_ij_ik_il * Tn_jl[powers[4]] * Tn_kl_5;
+      upd.f4 += coeff * Tnd_jl[powers[4]] * Tn_ij_ik_il * Tn_jk[powers[3]] * Tn_kl_5;
+      upd.f5 += coeff * Tnd_kl[powers[5]] * Tn_ij_ik_il * Tn_jk_jl;
+    }, Kokkos::Sum<s_chimes_poly4>(result));
+
+  e = result.e;
+  f[0] = result.f0;
+  f[1] = result.f1;
+  f[2] = result.f2;
+  f[3] = result.f3;
+  f[4] = result.f4;
+  f[5] = result.f5;
 }
 
 /* ---------------------------------------------------------------------- */

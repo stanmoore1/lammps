@@ -52,10 +52,25 @@ struct s_chimes_poly3 {
   }
 };
 
+// Reduction value type for the dense 4-body evaluation (energy + 6 pair-force
+// derivatives), distributed across a Kokkos ThreadVectorRange.
+
+struct s_chimes_poly4 {
+  KK_FLOAT e, f0, f1, f2, f3, f4, f5;
+  KOKKOS_INLINE_FUNCTION s_chimes_poly4() { e = 0.0; f0 = 0.0; f1 = 0.0; f2 = 0.0; f3 = 0.0; f4 = 0.0; f5 = 0.0; }
+  KOKKOS_INLINE_FUNCTION void operator+=(const s_chimes_poly4& rhs) {
+    e += rhs.e; f0 += rhs.f0; f1 += rhs.f1; f2 += rhs.f2; f3 += rhs.f3; f4 += rhs.f4; f5 += rhs.f5;
+  }
+};
+
 namespace Kokkos {
   template<>
   struct reduction_identity<s_chimes_poly3> {
     KOKKOS_FORCEINLINE_FUNCTION static s_chimes_poly3 sum() { return s_chimes_poly3(); }
+  };
+  template<>
+  struct reduction_identity<s_chimes_poly4> {
+    KOKKOS_FORCEINLINE_FUNCTION static s_chimes_poly4 sum() { return s_chimes_poly4(); }
   };
 }
 
@@ -100,10 +115,10 @@ class chimesFFKokkos : public chimesFF
   void compute_3B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force,KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
+  void compute_4B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
+  void compute_4B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
 
   // Functions to aid using ChIMES Calculator for fitting
 
@@ -230,7 +245,7 @@ class chimesFFKokkos : public chimesFF
                            KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_jk) const;
 
   KOKKOS_INLINE_FUNCTION
-  void poly_4B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4b, int quadidx, int idx,
+  void poly_4B(const t_team& team, KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4b, int quadidx, int idx,
                KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tn_il,
                KK_FLOAT* Tn_jk, KK_FLOAT* Tn_jl, KK_FLOAT* Tn_kl,
                KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_il,
