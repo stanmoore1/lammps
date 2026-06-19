@@ -29,7 +29,7 @@ struct NeighborList {
     c_number cutsq;     // (cutoff)^2
 
     // Reference positions at last build
-    Kokkos::View<c_number *[4]> list_poss;
+    Vec4 list_poss;
     // Flag: needs rebuild?
     Kokkos::View<int *> d_needs_rebuild;
 
@@ -57,7 +57,7 @@ struct NeighborList {
         c_number rverlet = cut + 2 * skin;
         cutsq  = rverlet * rverlet;
 
-        list_poss      = Kokkos::View<c_number *[4]>("list_poss", N);
+        list_poss      = Vec4("list_poss", N);
         d_needs_rebuild= Kokkos::View<int *>("needs_rebuild", 1);
         d_num_neigh    = Kokkos::View<int *>("num_neigh", N);
         d_neigh_offsets= Kokkos::View<int *>("neigh_offsets", N + 1);
@@ -118,7 +118,7 @@ struct TagCheckDisplacement {};
 // Functor owning all views (passed by value to Kokkos::parallel_* )
 // -----------------------------------------------------------------------
 struct NeighListFunctor {
-    Kokkos::View<c_number *[4]> poss;
+    Vec4 poss;
     Kokkos::View<LR_bonds *>    bonds;
     Kokkos::View<int *>         d_cell_count;
     Kokkos::View<int *>         d_cell_offset;
@@ -128,7 +128,7 @@ struct NeighListFunctor {
     Kokkos::View<int *>         d_neigh_offsets;
     Kokkos::View<int *>         edge_i;
     Kokkos::View<int *>         edge_j;
-    Kokkos::View<c_number *[4]> list_poss;
+    Vec4 list_poss;
     Kokkos::View<int *>         d_needs_rebuild;
     SimBox box;
     c_number cutsq;

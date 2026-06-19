@@ -67,12 +67,12 @@ void update_orientation(c_number &qw, c_number &qx, c_number &qy, c_number &qz,
 // First half-step: v += F*dt/2, r += v*dt, L += T*dt/2, update orientation
 // -----------------------------------------------------------------------
 struct FirstStepFunctor {
-    Kokkos::View<c_number *[4]> poss;
-    Kokkos::View<c_number *[4]> vels;
-    Kokkos::View<c_number *[4]> Ls;
-    Kokkos::View<const c_number *[4]> forces;
-    Kokkos::View<const c_number *[4]> torques;
-    Kokkos::View<c_number *[4]> orientations;
+    Vec4 poss;
+    Vec4 vels;
+    Vec4 Ls;
+    Vec4c forces;
+    Vec4c torques;
+    Vec4 orientations;
     c_number dt;
     SimBox box;
 
@@ -81,7 +81,7 @@ struct FirstStepFunctor {
     // flag a rebuild if a particle has moved more than skin/2 from its reference
     // position at the last list build. Mirrors oxDNA's _d_are_lists_old flag set
     // inside the first-step kernel.
-    Kokkos::View<const c_number *[4]> list_poss;
+    Vec4c list_poss;
     Kokkos::View<int *>               rebuild_flag;
     c_number skin_half_sq = 0;
     bool     check_rebuild = false;
@@ -134,10 +134,10 @@ struct FirstStepFunctor {
 // Second half-step: v += F*dt/2, L += T*dt/2
 // -----------------------------------------------------------------------
 struct SecondStepFunctor {
-    Kokkos::View<c_number *[4]> vels;
-    Kokkos::View<c_number *[4]> Ls;
-    Kokkos::View<const c_number *[4]> forces;
-    Kokkos::View<const c_number *[4]> torques;
+    Vec4 vels;
+    Vec4 Ls;
+    Vec4c forces;
+    Vec4c torques;
     c_number dt;
 
     KOKKOS_INLINE_FUNCTION
@@ -153,7 +153,7 @@ struct SecondStepFunctor {
 };
 
 inline void first_step(ParticleArrays &p, c_number dt, const SimBox &box,
-                       Kokkos::View<const c_number *[4]> list_poss = {},
+                       Vec4c list_poss = {},
                        Kokkos::View<int *> rebuild_flag = {},
                        c_number skin_half_sq = 0) {
     FirstStepFunctor f;
