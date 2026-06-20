@@ -175,6 +175,7 @@ class PairPACEKokkos : public PairPACE {
 
   friend void pair_virial_fdotr_compute<PairPACEKokkos>(PairPACEKokkos*);
 
+  void settings(int, char **) override;
   void grow(int, int);
   void copy_pertype();
   void copy_splines();
@@ -213,6 +214,14 @@ class PairPACEKokkos : public PairPACE {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void evaluate_splines(const int, const int, KK_FLOAT, int, int, int, int) const;
+
+  // Direct (spline-free) evaluation of the ChebPow radial basis: computes the
+  // Chebyshev recurrence on the fly for gr/dgr, then fr/dfr via the crad
+  // matrix product. Trades the memory-bound spline-table lookup for higher
+  // arithmetic intensity (crad is per-element-pair constant and stays cached).
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void evaluate_radial_direct_chebpow(const int, const int, const KK_FLOAT, const int, const int) const;
 
   // Shared inner radial loop for ComputeDerivative. Accumulates the gradient
   // contribution of a single (l, m) spherical-harmonic channel into f_ji for
@@ -295,6 +304,13 @@ class PairPACEKokkos : public PairPACE {
   t_ace_3d dgr;
   t_ace_3d d_values;
   t_ace_3d d_derivatives;
+
+  // direct (spline-free) radial evaluation
+  enum { RADBASE_OTHER = 0, RADBASE_CHEBPOW = 1 };
+  int radial_direct;                          // user flag: use direct Chebyshev evaluation
+  Kokkos::View<int**, DeviceType> d_radbasename; // per element-pair radial basis code
+  t_fparams d_lambda, d_cut;                  // radial scaling lambda and cutoff, [nelements][nelements]
+  Kokkos::View<KK_FLOAT*****, DeviceType> d_crad; // crad coeffs [nelements][nelements][nradmax][lmax+1][nradbase]
 
   // Spherical Harmonics
 

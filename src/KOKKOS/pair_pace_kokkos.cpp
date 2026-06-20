@@ -65,6 +65,33 @@ PairPACEKokkos<DeviceType>::PairPACEKokkos(LAMMPS *lmp) : PairPACE(lmp)
   datamask_modify = EMPTY_MASK;
 
   host_flag = (execution_space == HostKK);
+
+  radial_direct = 0;
+}
+
+/* ----------------------------------------------------------------------
+   global settings: intercept the KOKKOS-only "direct" keyword (direct
+   Chebyshev radial evaluation instead of spline lookup), then defer the
+   remaining keywords to the base class.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairPACEKokkos<DeviceType>::settings(int narg, char **arg)
+{
+  radial_direct = 0;
+  char **arg_filtered = new char*[narg];
+  int narg_filtered = 0;
+  for (int i = 0; i < narg; i++) {
+    if (strcmp(arg[i], "direct") == 0)
+      radial_direct = 1;
+    else
+      arg_filtered[narg_filtered++] = arg[i];
+  }
+  PairPACE::settings(narg_filtered, arg_filtered);
+  delete[] arg_filtered;
+
+  if (radial_direct && comm->me == 0)
+    utils::logmesg(lmp, "Direct (spline-free) ChebPow radial evaluation requested\n");
 }
 
 /* ----------------------------------------------------------------------
@@ -271,6 +298,50 @@ void PairPACEKokkos<DeviceType>::copy_splines()
   k_splines_gk.sync_device();
   k_splines_rnl.sync_device();
   k_splines_hc.sync_device();
+
+  // ---- device data for direct (spline-free) ChebPow radial evaluation ----
+  const int nr = radial_functions->nradial;
+  const int nl = radial_functions->lmax + 1;
+  const int nb = radial_functions->nradbase;
+
+  d_crad = Kokkos::View<KK_FLOAT*****, DeviceType>("pace:crad", nelements, nelements, nr, nl, nb);
+  d_radbasename = Kokkos::View<int**, DeviceType>("pace:radbasename", nelements, nelements);
+  MemKK::realloc_kokkos(d_lambda, "pace:lambda", nelements, nelements);
+  MemKK::realloc_kokkos(d_cut, "pace:cut", nelements, nelements);
+
+  auto h_crad = Kokkos::create_mirror_view(d_crad);
+  auto h_radbasename = Kokkos::create_mirror_view(d_radbasename);
+  auto h_lambda = Kokkos::create_mirror_view(d_lambda);
+  auto h_cut = Kokkos::create_mirror_view(d_cut);
+
+  for (int i = 0; i < nelements; i++) {
+    for (int j = 0; j < nelements; j++) {
+      h_lambda(i, j) = radial_functions->lambda(i, j);
+      h_cut(i, j) = radial_functions->cut(i, j);
+      h_radbasename(i, j) =
+          (radial_functions->radbasenameij(i, j) == "ChebPow") ? RADBASE_CHEBPOW : RADBASE_OTHER;
+      for (int n = 0; n < nr; n++)
+        for (int l = 0; l < nl; l++)
+          for (int k = 0; k < nb; k++)
+            h_crad(i, j, n, l, k) = radial_functions->crad(i, j, n, l, k);
+    }
+  }
+
+  Kokkos::deep_copy(d_crad, h_crad);
+  Kokkos::deep_copy(d_radbasename, h_radbasename);
+  Kokkos::deep_copy(d_lambda, h_lambda);
+  Kokkos::deep_copy(d_cut, h_cut);
+
+  // Direct evaluation currently supports only the ChebPow basis; warn and fall
+  // back to splines for any element pair that uses a different basis.
+  if (radial_direct && comm->me == 0) {
+    for (int i = 0; i < nelements; i++)
+      for (int j = 0; j < nelements; j++)
+        if (h_radbasename(i, j) != RADBASE_CHEBPOW)
+          error->warning(FLERR, "pair pace/kk 'direct' requested but element pair {}-{} uses "
+                                "radial basis '{}', which is not supported; using splines for it",
+                         i, j, radial_functions->radbasenameij(i, j));
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1833,6 +1904,65 @@ void PairPACEKokkos<DeviceType>::FS_values_and_derivatives(const int ii, KK_FLOA
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::evaluate_radial_direct_chebpow(const int ii, const int jj,
+    const KK_FLOAT r, const int mu_i, const int mu_j) const
+{
+  const KK_FLOAT cut = d_cut(mu_i, mu_j);
+  const KK_FLOAT lam = d_lambda(mu_i, mu_j);
+
+  // ChebPow scaled coordinate x(r) and its derivative:
+  //   yb = 1 - r/cut,  y = yb^lam,  x = 2*(1 - y) - 1
+  const KK_FLOAT yb = 1.0 - r / cut;
+  const KK_FLOAT yp = pow(yb, lam - 1.0);  // yb^(lam-1)
+  const KK_FLOAT y = yp * yb;              // yb^lam
+  const KK_FLOAT dydr = -lam / cut * yp;   // dy/dr
+  const KK_FLOAT x = 2.0 * (1.0 - y) - 1.0;
+  const KK_FLOAT dx = -2.0 * dydr;
+
+  // Chebyshev polynomials of the first kind (cheb) and second kind (cheb2),
+  // advanced on the fly so no per-degree scratch array is needed. For ChebPow
+  //   gr(m-1)  = 0.5 - 0.5*cheb(m)
+  //   dgr(m-1) = -0.5 * dcheb(m) * dx,  dcheb(m) = m * cheb2(m-1)
+  // with cheb(0)=1, cheb(1)=x, cheb2(0)=1, cheb2(1)=2x and the three-term
+  // recurrence p(m+1) = 2x*p(m) - p(m-1).
+  const KK_FLOAT twox = 2.0 * x;
+  KK_FLOAT cheb_prev = 1.0;    // cheb(m-1), starts at cheb(0)
+  KK_FLOAT cheb_cur = x;       // cheb(m),   starts at cheb(1)
+  KK_FLOAT cheb2_prev = 1.0;   // cheb2(m-1), starts at cheb2(0)
+  KK_FLOAT cheb2_cur = twox;   // cheb2(m),   starts at cheb2(1)
+  for (int m = 1; m <= nradbase; m++) {
+    gr(ii, jj, m - 1) = 0.5 - 0.5 * cheb_cur;
+    dgr(ii, jj, m - 1) = -0.5 * (KK_FLOAT)m * cheb2_prev * dx;
+    const KK_FLOAT cheb_next = twox * cheb_cur - cheb_prev;
+    cheb_prev = cheb_cur;
+    cheb_cur = cheb_next;
+    const KK_FLOAT cheb2_next = twox * cheb2_cur - cheb2_prev;
+    cheb2_prev = cheb2_cur;
+    cheb2_cur = cheb2_next;
+  }
+
+  // R_nl(r) = sum_k crad(mu_i,mu_j,n,l,k) * g_k(r); crad is constant per
+  // element pair, so it streams from cache while gr/dgr stay resident.
+  for (int n = 0; n < nradmax; n++) {
+    for (int l = 0; l <= lmax; l++) {
+      KK_FLOAT frval = 0.0;
+      KK_FLOAT dfrval = 0.0;
+      for (int k = 0; k < nradbase; k++) {
+        const KK_FLOAT c = d_crad(mu_i, mu_j, n, l, k);
+        frval += c * gr(ii, jj, k);
+        dfrval += c * dgr(ii, jj, k);
+      }
+      fr(ii, jj, l, n) = frval;
+      dfr(ii, jj, l, n) = dfrval;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::evaluate_splines(const int ii, const int jj, KK_FLOAT r,
                                                   int /*nradbase_c*/, int /*nradial_c*/,
                                                   int mu_i, int mu_j) const
@@ -1841,17 +1971,24 @@ void PairPACEKokkos<DeviceType>::evaluate_splines(const int ii, const int jj, KK
   auto &spline_rnl = k_splines_rnl.template view<DeviceType>()(mu_i, mu_j);
   auto &spline_hc = k_splines_hc.template view<DeviceType>()(mu_i, mu_j);
 
-  spline_gk.calcSplines(ii, jj, r, gr, dgr);
+  if (radial_direct && d_radbasename(mu_i, mu_j) == RADBASE_CHEBPOW) {
+    // Direct Chebyshev evaluation fills gr/dgr and fr/dfr without the spline
+    // table lookup (higher arithmetic intensity, no per-neighbor table reads).
+    evaluate_radial_direct_chebpow(ii, jj, r, mu_i, mu_j);
+  } else {
+    spline_gk.calcSplines(ii, jj, r, gr, dgr);
 
-  spline_rnl.calcSplines(ii, jj, r, d_values, d_derivatives);
-  for (int ll = 0; ll < (int)fr.extent(2); ll++) {
-    for (int kk = 0; kk < (int)fr.extent(3); kk++) {
-      const int flatten = kk*fr.extent(2) + ll;
-      fr(ii, jj, ll, kk) = d_values(ii, jj, flatten);
-      dfr(ii, jj, ll, kk) = d_derivatives(ii, jj, flatten);
+    spline_rnl.calcSplines(ii, jj, r, d_values, d_derivatives);
+    for (int ll = 0; ll < (int)fr.extent(2); ll++) {
+      for (int kk = 0; kk < (int)fr.extent(3); kk++) {
+        const int flatten = kk*fr.extent(2) + ll;
+        fr(ii, jj, ll, kk) = d_values(ii, jj, flatten);
+        dfr(ii, jj, ll, kk) = d_derivatives(ii, jj, flatten);
+      }
     }
   }
 
+  // the hard-core repulsion is always taken from its (single-function) spline
   spline_hc.calcSplines(ii, jj, r, d_values, d_derivatives);
   cr(ii, jj) = d_values(ii, jj, 0);
   dcr(ii, jj) = d_derivatives(ii, jj, 0);
