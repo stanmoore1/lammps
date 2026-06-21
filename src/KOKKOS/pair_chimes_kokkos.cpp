@@ -232,21 +232,11 @@ void PairCHIMESKokkos<DeviceType, vector_length>::build_mb_neighlists()
   if (d_neighborlist_2mers.extent(0) < max_2mers)
     LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_2mers,"chimes:neighborlist_2mers",max_2mers);
 
-  if (d_neighborlist_3mers.extent(0) < max_3mers) {
+  if (d_neighborlist_3mers.extent(0) < max_3mers)
     LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_3mers,"chimes:neighborlist_3mers",max_3mers);
-    if constexpr (chimes_cache_distances) {
-      LAMMPS_NS::MemKK::realloc_kokkos(d_dr_3mers,"chimes:dr_3mers",max_3mers,3*CHDIM);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_dist_3mers,"chimes:dist_3mers",max_3mers,3);
-    }
-  }
 
-  if (d_neighborlist_4mers.extent(0) < max_4mers) {
+  if (d_neighborlist_4mers.extent(0) < max_4mers)
     LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_4mers,"chimes:neighborlist_4mers",max_4mers);
-    if constexpr (chimes_cache_distances) {
-      LAMMPS_NS::MemKK::realloc_kokkos(d_dr_4mers,"chimes:dr_4mers",max_4mers,6*CHDIM);
-      LAMMPS_NS::MemKK::realloc_kokkos(d_dist_4mers,"chimes:dist_4mers",max_4mers,6);
-    }
-  }
 
   // try building 2-body list, resize if necessary
 
@@ -278,10 +268,6 @@ void PairCHIMESKokkos<DeviceType, vector_length>::build_mb_neighlists()
       if (resize) {
         max_3mers = MAX(max_3mers+MAX(1,max_3mers*0.1),size_3mers);
         LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_3mers,"chimes:neighborlist_3mers",max_3mers);
-        if constexpr (chimes_cache_distances) {
-          LAMMPS_NS::MemKK::realloc_kokkos(d_dr_3mers,"chimes:dr_3mers",max_3mers,3*CHDIM);
-          LAMMPS_NS::MemKK::realloc_kokkos(d_dist_3mers,"chimes:dist_3mers",max_3mers,3);
-        }
       }
     }
   }
@@ -307,10 +293,6 @@ void PairCHIMESKokkos<DeviceType, vector_length>::build_mb_neighlists()
       if (resize) {
         max_4mers = MAX(max_4mers+MAX(1,max_4mers*0.1),size_4mers);
         LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_4mers,"chimes:neighborlist_4mers",max_4mers);
-        if constexpr (chimes_cache_distances) {
-          LAMMPS_NS::MemKK::realloc_kokkos(d_dr_4mers,"chimes:dr_4mers",max_4mers,6*CHDIM);
-          LAMMPS_NS::MemKK::realloc_kokkos(d_dist_4mers,"chimes:dist_4mers",max_4mers,6);
-        }
       }
     }
   }
@@ -438,15 +420,6 @@ void PairCHIMESKokkos<DeviceType, vector_length>::neigh_3B_item(const int& ii, i
           d_neighborlist_3mers(offset,0) = i;
           d_neighborlist_3mers(offset,1) = j;
           d_neighborlist_3mers(offset,2) = k;
-          if constexpr (chimes_cache_distances) {
-            KK_FLOAT dr[3];
-            d_dist_3mers(offset,0) = get_dist(i,j,&dr[0]);
-            d_dr_3mers(offset,0) = dr[0]; d_dr_3mers(offset,1) = dr[1]; d_dr_3mers(offset,2) = dr[2];
-            d_dist_3mers(offset,1) = get_dist(i,k,&dr[0]);
-            d_dr_3mers(offset,3) = dr[0]; d_dr_3mers(offset,4) = dr[1]; d_dr_3mers(offset,5) = dr[2];
-            d_dist_3mers(offset,2) = get_dist(j,k,&dr[0]);
-            d_dr_3mers(offset,6) = dr[0]; d_dr_3mers(offset,7) = dr[1]; d_dr_3mers(offset,8) = dr[2];
-          }
         }
       }
 
@@ -554,21 +527,6 @@ void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompu
         d_neighborlist_4mers(offset,1) = j;
         d_neighborlist_4mers(offset,2) = k;
         d_neighborlist_4mers(offset,3) = l;
-        if constexpr (chimes_cache_distances) {
-          KK_FLOAT dr[3];
-          d_dist_4mers(offset,0) = get_dist(i,j,&dr[0]);
-          d_dr_4mers(offset,0) = dr[0]; d_dr_4mers(offset,1) = dr[1]; d_dr_4mers(offset,2) = dr[2];
-          d_dist_4mers(offset,1) = get_dist(i,k,&dr[0]);
-          d_dr_4mers(offset,3) = dr[0]; d_dr_4mers(offset,4) = dr[1]; d_dr_4mers(offset,5) = dr[2];
-          d_dist_4mers(offset,2) = get_dist(i,l,&dr[0]);
-          d_dr_4mers(offset,6) = dr[0]; d_dr_4mers(offset,7) = dr[1]; d_dr_4mers(offset,8) = dr[2];
-          d_dist_4mers(offset,3) = get_dist(j,k,&dr[0]);
-          d_dr_4mers(offset,9)  = dr[0]; d_dr_4mers(offset,10) = dr[1]; d_dr_4mers(offset,11) = dr[2];
-          d_dist_4mers(offset,4) = get_dist(j,l,&dr[0]);
-          d_dr_4mers(offset,12) = dr[0]; d_dr_4mers(offset,13) = dr[1]; d_dr_4mers(offset,14) = dr[2];
-          d_dist_4mers(offset,5) = get_dist(k,l,&dr[0]);
-          d_dr_4mers(offset,15) = dr[0]; d_dr_4mers(offset,16) = dr[1]; d_dr_4mers(offset,17) = dr[2];
-        }
       }
     //}
 
@@ -933,16 +891,9 @@ void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompu
   const int k = d_neighborlist_3mers(ii,2);
 
   KK_FLOAT dist_3b[3], dr_3b[3*CHDIM];
-  if constexpr (chimes_cache_distances) {
-    dist_3b[0] = d_dist_3mers(ii,0);
-    dist_3b[1] = d_dist_3mers(ii,1);
-    dist_3b[2] = d_dist_3mers(ii,2);
-    for (int n = 0; n < 3*CHDIM; n++) dr_3b[n] = d_dr_3mers(ii,n);
-  } else {
-    dist_3b[0] = get_dist(i,j,&dr_3b[0*CHDIM]);
-    dist_3b[1] = get_dist(i,k,&dr_3b[CHDIM]);
-    dist_3b[2] = get_dist(j,k,&dr_3b[2*CHDIM]);
-  }
+  dist_3b[0] = get_dist(i,j,&dr_3b[0*CHDIM]);
+  dist_3b[1] = get_dist(i,k,&dr_3b[CHDIM]);
+  dist_3b[2] = get_dist(j,k,&dr_3b[2*CHDIM]);
 
   int typ_idxs_3b[3];
   typ_idxs_3b[0] = d_chimes_type[type[i]-1];
@@ -1027,17 +978,12 @@ void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompu
   const int l = d_neighborlist_4mers(ii,3);
 
   KK_FLOAT dist_4b[6], dr_4b[6*CHDIM];
-  if constexpr (chimes_cache_distances) {
-    for (int n = 0; n < 6; n++) dist_4b[n] = d_dist_4mers(ii,n);
-    for (int n = 0; n < 6*CHDIM; n++) dr_4b[n] = d_dr_4mers(ii,n);
-  } else {
-    dist_4b[0] = get_dist(i,j,&dr_4b[0*CHDIM]);
-    dist_4b[1] = get_dist(i,k,&dr_4b[CHDIM]);
-    dist_4b[2] = get_dist(i,l,&dr_4b[2*CHDIM]);
-    dist_4b[3] = get_dist(j,k,&dr_4b[3*CHDIM]);
-    dist_4b[4] = get_dist(j,l,&dr_4b[4*CHDIM]);
-    dist_4b[5] = get_dist(k,l,&dr_4b[5*CHDIM]);
-  }
+  dist_4b[0] = get_dist(i,j,&dr_4b[0*CHDIM]);
+  dist_4b[1] = get_dist(i,k,&dr_4b[CHDIM]);
+  dist_4b[2] = get_dist(i,l,&dr_4b[2*CHDIM]);
+  dist_4b[3] = get_dist(j,k,&dr_4b[3*CHDIM]);
+  dist_4b[4] = get_dist(j,l,&dr_4b[4*CHDIM]);
+  dist_4b[5] = get_dist(k,l,&dr_4b[5*CHDIM]);
 
   int typ_idxs_4b[4];
   typ_idxs_4b[0] = d_chimes_type[type[i]-1];
