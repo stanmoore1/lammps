@@ -1885,8 +1885,13 @@ void PairPACEKokkos<DeviceType>::cutoff_func_poly(const KK_FLOAT r, const KK_FLO
     dfc = 0;
   } else {
     KK_FLOAT x = 1 - 2 * (1 + (r - r_in) / delta_in);
-    fc = 0.5 + 7.5 / 2. * (x / 4. - pow(x, 3) / 6. + pow(x, 5) / 20.);
-    dfc = -7.5 / delta_in * (0.25 - x * x / 2.0 + pow(x, 4) / 4.);
+    // explicit integer powers (avoid pow(): ~hundreds of cycles on GPU)
+    const KK_FLOAT x2 = x * x;
+    const KK_FLOAT x3 = x2 * x;
+    const KK_FLOAT x4 = x2 * x2;
+    const KK_FLOAT x5 = x4 * x;
+    fc = 0.5 + 7.5 / 2. * (x / 4. - x3 / 6. + x5 / 20.);
+    dfc = -7.5 / delta_in * (0.25 - x2 / 2.0 + x4 / 4.);
   }
 }
 
@@ -1905,7 +1910,8 @@ void PairPACEKokkos<DeviceType>::Fexp(const KK_FLOAT x, const KK_FLOAT m, KK_FLO
     KK_FLOAT g;
     const KK_FLOAT a = abs(x);
     const KK_FLOAT am = pow(a, m);
-    const KK_FLOAT w3x3 = pow(w * a, 3); //// use cube
+    const KK_FLOAT wa = w * a;
+    const KK_FLOAT w3x3 = wa * wa * wa; // cube (avoid pow())
     const KK_FLOAT sign_factor = (signbit(x) ? -1 : 1);
     if (w3x3 > 30.0)
         g = 0.0;
@@ -2004,7 +2010,18 @@ void PairPACEKokkos<DeviceType>::evaluate_radial_direct_chebpow(const int ii, co
   // ChebPow scaled coordinate x(r) and its derivative:
   //   yb = 1 - r/cut,  y = yb^lam,  x = 2*(1 - y) - 1
   const KK_FLOAT yb = 1.0 - r / cut;
-  const KK_FLOAT yp = pow(yb, lam - 1.0);  // yb^(lam-1)
+  // yb^(lam-1): most ChebPow potentials use an integer lambda, so evaluate the
+  // power by repeated multiplication (a handful of FLOPs) instead of pow(),
+  // which is a ~hundreds-of-cycles transcendental on the GPU. Fall back to
+  // pow() for non-integer lambda.
+  KK_FLOAT yp;
+  const int lam_int = (int)lam;
+  if ((KK_FLOAT)lam_int == lam) {
+    yp = 1.0;
+    for (int e = 0; e < lam_int - 1; e++) yp *= yb;
+  } else {
+    yp = pow(yb, lam - 1.0);
+  }
   const KK_FLOAT y = yp * yb;              // yb^lam
   const KK_FLOAT dydr = -lam / cut * yp;   // dy/dr
   const KK_FLOAT x = 2.0 * (1.0 - y) - 1.0;
