@@ -728,7 +728,9 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     //ComputeRho
     {
-      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeRho> policy_rho(0,chunk_size*idx_ms_combs_max);
+      // One thread per atom (loops over ms-combinations internally) so that the
+      // densities rho(p) can be accumulated without atomics.
+      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeRho> policy_rho(0,chunk_size);
       Kokkos::parallel_for("ComputeRho",policy_rho,*this);
     }
 
@@ -740,7 +742,9 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     //ComputeWeights
     {
-      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeWeights> policy_weights(0,chunk_size * idx_ms_combs_max);
+      // One thread per atom (loops over ms-combinations internally) so that the
+      // weights can be accumulated without atomics.
+      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeWeights> policy_weights(0,chunk_size);
       Kokkos::parallel_for("ComputeWeights",policy_weights,*this);
     }
 
@@ -1180,65 +1184,67 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEConjugateAi, const int& 
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& iter) const
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& ii) const
 {
-  const int idx_ms_combs = iter / chunk_size;
-  const int ii = iter % chunk_size;
-
   const int i = d_ilist[ii + chunk_offset];
   const int mu_i = d_map(type(i));
 
-  if (idx_ms_combs >= d_idx_ms_combs_count(mu_i)) return;
-
   const int ndensity = d_ndensity(mu_i);
+  const int ms_combs_count = d_idx_ms_combs_count(mu_i);
 
-  const int idx_func = d_idx_funcs(mu_i, idx_ms_combs);
-  const int rank = d_rank(mu_i, idx_func);
-  const int r = rank - 1;
+  // One thread per atom loops over all ms-combinations so that rho(p) is owned
+  // exclusively by this thread and accumulated without atomics (rhos was zeroed
+  // in ComputeAi).
+  for (int idx_ms_combs = 0; idx_ms_combs < ms_combs_count; idx_ms_combs++) {
 
-  // Basis functions B with iterative product and density rho(p) calculation
-  if (rank == 1) {
-    const int mu = d_mus(mu_i, idx_func, 0);
-    const int n = d_ns(mu_i, idx_func, 0);
-    KK_FLOAT A_cur = A_rank1(ii, mu, n - 1);
-    for (int p = 0; p < ndensity; ++p) {
-      //for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
-      Kokkos::atomic_add(&rhos(ii, p), d_ctildes(mu_i, idx_ms_combs, p) * A_cur);
-    }
-  } else { // rank > 1
-    // loop over {ms} combinations in sum
+    const int idx_func = d_idx_funcs(mu_i, idx_ms_combs);
+    const int rank = d_rank(mu_i, idx_func);
+    const int r = rank - 1;
 
-    // loop over m, collect B  = product of A with given ms
-    A_forward_prod(ii, idx_ms_combs, 0) = complex::one();
+    // Basis functions B with iterative product and density rho(p) calculation
+    if (rank == 1) {
+      const int mu = d_mus(mu_i, idx_func, 0);
+      const int n = d_ns(mu_i, idx_func, 0);
+      KK_FLOAT A_cur = A_rank1(ii, mu, n - 1);
+      for (int p = 0; p < ndensity; ++p) {
+        //for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
+        rhos(ii, p) += d_ctildes(mu_i, idx_ms_combs, p) * A_cur;
+      }
+    } else { // rank > 1
+      // loop over {ms} combinations in sum
 
-    // fill forward A-product triangle
-    for (int t = 0; t < rank; t++) {
-      //TODO: optimize ns[t]-1 -> ns[t] during functions construction
-      const int mu = d_mus(mu_i, idx_func, t);
-      const int n = d_ns(mu_i, idx_func, t);
-      const int l = d_ls(mu_i, idx_func, t);
-      const int m = d_ms_combs(mu_i, idx_ms_combs, t); // current ms-combination (of length = rank)
-      const int idx = l * (l + 1) + m; // (l, m)
-      A_list(ii, idx_ms_combs, t) = A(ii, mu, idx, n - 1);
-      A_forward_prod(ii, idx_ms_combs, t + 1) = A_forward_prod(ii, idx_ms_combs, t) * A_list(ii, idx_ms_combs, t);
-    }
+      // loop over m, collect B  = product of A with given ms
+      A_forward_prod(ii, idx_ms_combs, 0) = complex::one();
 
-    complex A_backward_prod = complex::one();
+      // fill forward A-product triangle
+      for (int t = 0; t < rank; t++) {
+        //TODO: optimize ns[t]-1 -> ns[t] during functions construction
+        const int mu = d_mus(mu_i, idx_func, t);
+        const int n = d_ns(mu_i, idx_func, t);
+        const int l = d_ls(mu_i, idx_func, t);
+        const int m = d_ms_combs(mu_i, idx_ms_combs, t); // current ms-combination (of length = rank)
+        const int idx = l * (l + 1) + m; // (l, m)
+        A_list(ii, idx_ms_combs, t) = A(ii, mu, idx, n - 1);
+        A_forward_prod(ii, idx_ms_combs, t + 1) = A_forward_prod(ii, idx_ms_combs, t) * A_list(ii, idx_ms_combs, t);
+      }
 
-    // fill backward A-product triangle
-    for (int t = r; t >= 1; t--) {
-      const complex dB = A_forward_prod(ii, idx_ms_combs, t) * A_backward_prod; // dB - product of all A's except t-th
-      dB_flatten(ii, idx_ms_combs, t) = dB;
+      complex A_backward_prod = complex::one();
 
-      A_backward_prod = A_backward_prod * A_list(ii, idx_ms_combs, t);
-    }
-    dB_flatten(ii, idx_ms_combs, 0) = A_forward_prod(ii, idx_ms_combs, 0) * A_backward_prod;
+      // fill backward A-product triangle
+      for (int t = r; t >= 1; t--) {
+        const complex dB = A_forward_prod(ii, idx_ms_combs, t) * A_backward_prod; // dB - product of all A's except t-th
+        dB_flatten(ii, idx_ms_combs, t) = dB;
 
-    const complex B = A_forward_prod(ii, idx_ms_combs, rank);
+        A_backward_prod = A_backward_prod * A_list(ii, idx_ms_combs, t);
+      }
+      dB_flatten(ii, idx_ms_combs, 0) = A_forward_prod(ii, idx_ms_combs, 0) * A_backward_prod;
 
-    for (int p = 0; p < ndensity; ++p) {
-      // real-part only multiplication
-      Kokkos::atomic_add(&rhos(ii, p), B.real_part_product(d_ctildes(mu_i, idx_ms_combs, p)));
+      const complex B = A_forward_prod(ii, idx_ms_combs, rank);
+
+      for (int p = 0; p < ndensity; ++p) {
+        // real-part only multiplication
+        rhos(ii, p) += B.real_part_product(d_ctildes(mu_i, idx_ms_combs, p));
+      }
     }
   }
 }
@@ -1316,59 +1322,61 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeFS, const int& ii
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const int& iter) const
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const int& ii) const
 {
-  const int idx_ms_combs = iter / chunk_size;
-  const int ii = iter % chunk_size;
-
   const int i = d_ilist[ii + chunk_offset];
   const int mu_i = d_map(type(i));
 
-  if (idx_ms_combs >= d_idx_ms_combs_count(mu_i)) return;
-
   const int ndensity = d_ndensity(mu_i);
+  const int ms_combs_count = d_idx_ms_combs_count(mu_i);
 
-  const int idx_func = d_idx_funcs(mu_i, idx_ms_combs);
-  const int rank = d_rank(mu_i, idx_func);
+  // One thread per atom loops over all ms-combinations so that the weights
+  // weights_rank1/weights_re/weights_im(ii, ...) are owned exclusively by this
+  // thread and accumulated without atomics (zeroed by first-touch in ComputeFS).
+  for (int idx_ms_combs = 0; idx_ms_combs < ms_combs_count; idx_ms_combs++) {
 
-  // Weights and theta calculation
+    const int idx_func = d_idx_funcs(mu_i, idx_ms_combs);
+    const int rank = d_rank(mu_i, idx_func);
 
-  if (rank == 1) {
-    const int mu = d_mus(mu_i, idx_func, 0);
-    const int n = d_ns(mu_i, idx_func, 0);
-    KK_FLOAT theta = 0.0;
-    for (int p = 0; p < ndensity; ++p) {
-      // for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
-      theta += dF_drho(ii, p) * d_ctildes(mu_i, idx_ms_combs, p);
-    }
-    Kokkos::atomic_add(&weights_rank1(ii, mu, n - 1), theta);
-  } else { // rank > 1
-    KK_FLOAT theta = 0.0;
-    for (int p = 0; p < ndensity; ++p)
-      theta += dF_drho(ii, p) * d_ctildes(mu_i, idx_ms_combs, p);
+    // Weights and theta calculation
 
-    theta *= 0.5; // 0.5 factor due to possible KK_FLOAT counting ???
-    for (int t = 0; t < rank; ++t) {
-      const int m_t = d_ms_combs(mu_i, idx_ms_combs, t);
-      const int factor = (m_t % 2 == 0 ? 1 : -1);
-      const complex dB = dB_flatten(ii, idx_ms_combs, t);
-      const int mu_t = d_mus(mu_i, idx_func, t);
-      const int n_t = d_ns(mu_i, idx_func, t);
-      const int l_t = d_ls(mu_i, idx_func, t);
-      const int idx = l_t * (l_t + 1) + m_t; // (l, m)
-      const int idx_sph = d_idx_sph(idx);
-      if (idx_sph >= 0) {
-        const complex value = theta * dB;
-        Kokkos::atomic_add(&(weights_re(ii, mu_t, idx_sph, n_t - 1)), value.re);
-        Kokkos::atomic_add(&(weights_im(ii, mu_t, idx_sph, n_t - 1)), value.im);
+    if (rank == 1) {
+      const int mu = d_mus(mu_i, idx_func, 0);
+      const int n = d_ns(mu_i, idx_func, 0);
+      KK_FLOAT theta = 0.0;
+      for (int p = 0; p < ndensity; ++p) {
+        // for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
+        theta += dF_drho(ii, p) * d_ctildes(mu_i, idx_ms_combs, p);
       }
-      // update -m_t (that could also be positive), because the basis is half_basis
-      const int idxm = l_t * (l_t + 1) - m_t; // (l, -m)
-      const int idxm_sph = d_idx_sph(idxm);
-      if (idxm_sph >= 0) {
-        const complex valuem = theta * dB.conj() * (KK_FLOAT)factor;
-        Kokkos::atomic_add(&(weights_re(ii, mu_t, idxm_sph, n_t - 1)), valuem.re);
-        Kokkos::atomic_add(&(weights_im(ii, mu_t, idxm_sph, n_t - 1)), valuem.im);
+      weights_rank1(ii, mu, n - 1) += theta;
+    } else { // rank > 1
+      KK_FLOAT theta = 0.0;
+      for (int p = 0; p < ndensity; ++p)
+        theta += dF_drho(ii, p) * d_ctildes(mu_i, idx_ms_combs, p);
+
+      theta *= 0.5; // 0.5 factor due to possible KK_FLOAT counting ???
+      for (int t = 0; t < rank; ++t) {
+        const int m_t = d_ms_combs(mu_i, idx_ms_combs, t);
+        const int factor = (m_t % 2 == 0 ? 1 : -1);
+        const complex dB = dB_flatten(ii, idx_ms_combs, t);
+        const int mu_t = d_mus(mu_i, idx_func, t);
+        const int n_t = d_ns(mu_i, idx_func, t);
+        const int l_t = d_ls(mu_i, idx_func, t);
+        const int idx = l_t * (l_t + 1) + m_t; // (l, m)
+        const int idx_sph = d_idx_sph(idx);
+        if (idx_sph >= 0) {
+          const complex value = theta * dB;
+          weights_re(ii, mu_t, idx_sph, n_t - 1) += value.re;
+          weights_im(ii, mu_t, idx_sph, n_t - 1) += value.im;
+        }
+        // update -m_t (that could also be positive), because the basis is half_basis
+        const int idxm = l_t * (l_t + 1) - m_t; // (l, -m)
+        const int idxm_sph = d_idx_sph(idxm);
+        if (idxm_sph >= 0) {
+          const complex valuem = theta * dB.conj() * (KK_FLOAT)factor;
+          weights_re(ii, mu_t, idxm_sph, n_t - 1) += valuem.re;
+          weights_im(ii, mu_t, idxm_sph, n_t - 1) += valuem.im;
+        }
       }
     }
   }
