@@ -67,6 +67,7 @@ PairPACEKokkos<DeviceType>::PairPACEKokkos(LAMMPS *lmp) : PairPACE(lmp)
   host_flag = (execution_space == HostKK);
 
   radial_direct = 0;
+  ai_parallel = 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -79,11 +80,14 @@ template<class DeviceType>
 void PairPACEKokkos<DeviceType>::settings(int narg, char **arg)
 {
   radial_direct = 0;
+  ai_parallel = 0;
   char **arg_filtered = new char*[narg];
   int narg_filtered = 0;
   for (int i = 0; i < narg; i++) {
     if (strcmp(arg[i], "direct") == 0)
       radial_direct = 1;
+    else if (strcmp(arg[i], "ai_parallel") == 0)
+      ai_parallel = 1;
     else
       arg_filtered[narg_filtered++] = arg[i];
   }
@@ -92,6 +96,8 @@ void PairPACEKokkos<DeviceType>::settings(int narg, char **arg)
 
   if (radial_direct && comm->me == 0)
     utils::logmesg(lmp, "Direct (spline-free) ChebPow radial evaluation requested\n");
+  if (ai_parallel && comm->me == 0)
+    utils::logmesg(lmp, "Neighbor-parallel (team+atomic) ComputeAi requested\n");
 }
 
 /* ----------------------------------------------------------------------
@@ -720,9 +726,19 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
 
     //ComputeAi
-    {
-      // One thread per atom (loops over neighbors internally) so that the A
-      // basis functions can be accumulated without atomics.
+    if (ai_parallel) {
+      // Neighbor-parallel variant (user "ai_parallel" keyword): one team per
+      // atom, team threads cooperate over neighbors and accumulate into A_sph
+      // with atomics. Trades atomic contention for neighbor parallelism on the
+      // heaviest kernel; provided for GPU A/B benchmarking against the default.
+      int vector_length = vector_length_default;
+      int team_size = team_size_compute_ai;
+      check_team_size_for<TagPairPACEComputeAiTeam>(chunk_size,team_size,vector_length);
+      typename Kokkos::TeamPolicy<DeviceType,TagPairPACEComputeAiTeam> policy_ai(chunk_size,team_size,vector_length);
+      Kokkos::parallel_for("ComputeAiTeam",policy_ai,*this);
+    } else {
+      // Default: one thread per atom (loops over neighbors internally) so that
+      // the A basis functions can be accumulated without atomics.
       typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeAi> policy_ai(0,chunk_size);
       Kokkos::parallel_for("ComputeAi",policy_ai,*this);
     }
@@ -972,7 +988,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRadial, const typ
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-template<bool M0>
+template<bool M0, bool ATOMIC>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::accumulate_A_sph(const int ii, const int jj,
@@ -980,66 +996,47 @@ void PairPACEKokkos<DeviceType>::accumulate_A_sph(const int ii, const int jj,
 {
   for (int n = 0; n < nradmax; n++) {
     const KK_FLOAT f = fr(ii, jj, l, n);
-    A_sph_re(ii, mu_j, idx_sph, n) += f * ylm.re;
     // For m = 0 the spherical harmonic is purely real (ylm.im == 0), so the
     // imaginary accumulation is a no-op and is skipped; A_sph_im keeps its
-    // first-touch zero.
-    if (!M0)
-      A_sph_im(ii, mu_j, idx_sph, n) += f * ylm.im;
+    // first-touch zero. ATOMIC selects the neighbor-parallel (team) path where
+    // multiple neighbor threads accumulate into the same A_sph slot.
+    if (ATOMIC) {
+      Kokkos::atomic_add(&A_sph_re(ii, mu_j, idx_sph, n), f * ylm.re);
+      if (!M0)
+        Kokkos::atomic_add(&A_sph_im(ii, mu_j, idx_sph, n), f * ylm.im);
+    } else {
+      A_sph_re(ii, mu_j, idx_sph, n) += f * ylm.re;
+      if (!M0)
+        A_sph_im(ii, mu_j, idx_sph, n) += f * ylm.im;
+    }
   }
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+template<bool ATOMIC>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii) const
+void PairPACEKokkos<DeviceType>::compute_A_neighbor(const int ii, const int jj) const
 {
-  // One thread per atom: loop over this atom's neighbors and accumulate the A
-  // basis functions directly. No atomics are required because each atom is
-  // owned by a single thread, which removes the per-neighbor atomic contention
-  // on A_sph/A_rank1/rho_core that the previous (ii,jj)-parallel version incurred.
-  const int ncount = d_ncount(ii);
-
-  // First-touch zeroing of this atom's accumulation targets. Because each atom
-  // is owned by exactly one thread, the slice is initialized here instead of
-  // with separate per-chunk deep_copy passes over the whole (large) arrays.
-  // rhos is accumulated later in ComputeRho but is also per-atom, so it is
-  // cleared here while atom ii is resident.
-  rho_core(ii) = 0.0;
-  for (int p = 0; p < (int)rhos.extent(1); p++)
-    rhos(ii, p) = 0.0;
-  for (int mu = 0; mu < nelements; mu++) {
-    for (int n = 0; n < nradbase; n++)
-      A_rank1(ii, mu, n) = 0.0;
-    for (int idx = 0; idx < idx_sph_max; idx++)
-      for (int n = 0; n <= nradmax; n++) {
-        A_sph_re(ii, mu, idx, n) = 0.0;
-        A_sph_im(ii, mu, idx, n) = 0.0;
-      }
-  }
-
-  for (int jj = 0; jj < ncount; jj++) {
-
+  // Accumulate one neighbor's contribution to the A basis functions. ATOMIC
+  // selects the neighbor-parallel team path (multiple neighbor threads writing
+  // the same A_sph/A_rank1/rho_core slots); the per-atom path uses plain +=.
   const int mu_j = d_mu(ii, jj);
 
   // rank = 1
-  for (int n = 0; n < nradbase; n++)
-    A_rank1(ii, mu_j, n) += gr(ii, jj, n) * Y00;
+  for (int n = 0; n < nradbase; n++) {
+    const KK_FLOAT val = gr(ii, jj, n) * Y00;
+    if (ATOMIC) Kokkos::atomic_add(&A_rank1(ii, mu_j, n), val);
+    else        A_rank1(ii, mu_j, n) += val;
+  }
 
-  // rank > 1
-
-  // Compute plm and ylm
-
-  // requires rx^2 + ry^2 + rz^2 = 1 , NO CHECKING IS PERFORMED !!!!!!!!!
-  // requires -1 <= rz <= 1 , NO CHECKING IS PERFORMED !!!!!!!!!
+  // rank > 1: compute plm and ylm
+  // requires rx^2 + ry^2 + rz^2 = 1 and -1 <= rz <= 1 , NO CHECKING PERFORMED
   // prefactors include 1/sqrt(2) factor compared to reference
 
-  complex ylm, phase;
-  complex phasem, mphasem1;
-  complex dyx, dyy, dyz;
-  complex rdy;
+  complex ylm, phase, phasem;
 
   const KK_FLOAT rx = d_rhats(ii, jj, 0);
   const KK_FLOAT ry = d_rhats(ii, jj, 1);
@@ -1048,36 +1045,27 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii
   phase.re = rx;
   phase.im = ry;
 
-  KK_FLOAT plm_idx,plm_idx1,plm_idx2;
-
+  KK_FLOAT plm_idx, plm_idx1, plm_idx2;
   plm_idx = plm_idx1 = plm_idx2 = 0.0;
 
   int idx_sph = 0;
 
   // m = 0
   for (int l = 0; l <= lmax; l++) {
-    // const int idx = l * (l + 1);
-
-    if (l == 0) {
-      // l=0, m=0
-      // plm[0] = Y00/sq1o4pi; //= sq1o4pi;
-      plm_idx = Y00; //= 1;
-    } else if (l == 1) {
-      // l=1, m=0
+    if (l == 0)
+      plm_idx = Y00;
+    else if (l == 1)
       plm_idx = Y00 * sq3 * rz;
-    } else {
-      // l>=2, m=0
+    else
       plm_idx = alm(idx_sph) * (rz * plm_idx1 + blm(idx_sph) * plm_idx2);
-    }
 
     ylm.re = plm_idx;
     ylm.im = 0.0;
 
-    accumulate_A_sph<true>(ii, jj, mu_j, idx_sph, l, ylm);
+    accumulate_A_sph<true, ATOMIC>(ii, jj, mu_j, idx_sph, l, ylm);
 
     plm_idx2 = plm_idx1;
     plm_idx1 = plm_idx;
-
     idx_sph++;
   }
 
@@ -1085,10 +1073,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii
 
   // m = 1
   for (int l = 1; l <= lmax; l++) {
-    // const int idx = l * (l + 1) + 1; // (l, 1)
-
     if (l == 1) {
-      // l=1, m=1
       plm_idx = -sq3o2 * Y00;
     } else if (l == 2) {
       const KK_FLOAT t = dl(l) * plm_idx1;
@@ -1099,11 +1084,10 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii
 
     ylm = phase * plm_idx;
 
-    accumulate_A_sph<false>(ii, jj, mu_j, idx_sph, l, ylm);
+    accumulate_A_sph<false, ATOMIC>(ii, jj, mu_j, idx_sph, l, ylm);
 
     plm_idx2 = plm_idx1;
     plm_idx1 = plm_idx;
-
     idx_sph++;
   }
 
@@ -1115,13 +1099,9 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii
   phasem = phase;
   for (int m = 2; m <= lmax; m++) {
 
-    mphasem1.re = phasem.re * KK_FLOAT(m);
-    mphasem1.im = phasem.im * KK_FLOAT(m);
     phasem = phasem * phase;
 
     for (int l = m; l <= lmax; l++) {
-      // const int idx = l * (l + 1) + m;
-
       if (l == m) {
         plm_idx = cl(l) * plm_mm1_mm1; // (m+1, m)
         plm_mm1_mm1 = plm_idx;
@@ -1135,48 +1115,133 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii
       ylm.re = phasem.re * plm_idx;
       ylm.im = phasem.im * plm_idx;
 
-      accumulate_A_sph<false>(ii, jj, mu_j, idx_sph, l, ylm);
+      accumulate_A_sph<false, ATOMIC>(ii, jj, mu_j, idx_sph, l, ylm);
 
       plm_idx2 = plm_idx1;
       plm_idx1 = plm_idx;
-
       idx_sph++;
     }
   }
 
   // hard-core repulsion
-  rho_core(ii) += cr(ii, jj);
+  if (ATOMIC) Kokkos::atomic_add(&rho_core(ii), cr(ii, jj));
+  else        rho_core(ii) += cr(ii, jj);
+}
 
-  } // end loop over neighbors jj
+/* ---------------------------------------------------------------------- */
 
-  // Conjugate/transpose step (formerly the separate ConjugateAi kernel), fused
-  // here so the just-accumulated A_sph(ii, ...) is reused while still resident
-  // instead of being re-read from global memory in a second kernel launch.
-  for (int mu_j = 0; mu_j < nelements; mu_j++) {
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::fill_conjugate_A_mu(const int ii, const int mu_j) const
+{
+  // Transpose/conjugate step (formerly the separate ConjugateAi kernel):
+  // expand one element's half-basis A_sph into the full complex A array.
 
-    // transpose A_sph (half, idx_sph order) into A (full (l,m) order), m >= 0
-    int idx_sph = 0;
-    for (int m = 0; m <= lmax; m++) {
-      for (int l = m; l <= lmax; l++) {
-        const int idx = l * (l + 1) + m;
-        for (int n = 0; n < nradmax; n++)
-          A(ii, mu_j, idx, n) = complex(A_sph_re(ii, mu_j, idx_sph, n), A_sph_im(ii, mu_j, idx_sph, n));
-        idx_sph++;
-      }
-    }
-
-    // complex-conjugate A's for the negative-m terms (half_basis symmetry)
-    for (int l = 0; l <= lmax; l++) {
-      for (int m = 1; m <= l; m++) {
-        const int idx = l * (l + 1) + m;  // (l, m)
-        const int idxm = l * (l + 1) - m; // (l, -m)
-        const int idx_sph_lm = d_idx_sph(idx);
-        const int factor = m % 2 == 0 ? 1 : -1;
-        for (int n = 0; n < nradmax; n++)
-          A(ii, mu_j, idxm, n) = complex(A_sph_re(ii, mu_j, idx_sph_lm, n), -A_sph_im(ii, mu_j, idx_sph_lm, n)) * (KK_FLOAT)factor;
-      }
+  // transpose A_sph (half, idx_sph order) into A (full (l,m) order), m >= 0
+  int idx_sph = 0;
+  for (int m = 0; m <= lmax; m++) {
+    for (int l = m; l <= lmax; l++) {
+      const int idx = l * (l + 1) + m;
+      for (int n = 0; n < nradmax; n++)
+        A(ii, mu_j, idx, n) = complex(A_sph_re(ii, mu_j, idx_sph, n), A_sph_im(ii, mu_j, idx_sph, n));
+      idx_sph++;
     }
   }
+
+  // complex-conjugate A's for the negative-m terms (half_basis symmetry)
+  for (int l = 0; l <= lmax; l++) {
+    for (int m = 1; m <= l; m++) {
+      const int idx = l * (l + 1) + m;  // (l, m)
+      const int idxm = l * (l + 1) - m; // (l, -m)
+      const int idx_sph_lm = d_idx_sph(idx);
+      const int factor = m % 2 == 0 ? 1 : -1;
+      for (int n = 0; n < nradmax; n++)
+        A(ii, mu_j, idxm, n) = complex(A_sph_re(ii, mu_j, idx_sph_lm, n), -A_sph_im(ii, mu_j, idx_sph_lm, n)) * (KK_FLOAT)factor;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii) const
+{
+  // One thread per atom: loop over this atom's neighbors and accumulate the A
+  // basis functions directly. No atomics are required because each atom is
+  // owned by a single thread.
+  const int ncount = d_ncount(ii);
+
+  // First-touch zeroing of this atom's accumulation targets (instead of a
+  // separate per-chunk deep_copy over the whole arrays). rhos is accumulated
+  // later in ComputeRho but is per-atom, so it is cleared here too.
+  rho_core(ii) = 0.0;
+  for (int p = 0; p < (int)rhos.extent(1); p++)
+    rhos(ii, p) = 0.0;
+  for (int mu = 0; mu < nelements; mu++) {
+    for (int n = 0; n < nradbase; n++)
+      A_rank1(ii, mu, n) = 0.0;
+    for (int idx = 0; idx < idx_sph_max; idx++)
+      for (int n = 0; n <= nradmax; n++) {
+        A_sph_re(ii, mu, idx, n) = 0.0;
+        A_sph_im(ii, mu, idx, n) = 0.0;
+      }
+  }
+
+  for (int jj = 0; jj < ncount; jj++)
+    compute_A_neighbor<false>(ii, jj);
+
+  for (int mu_j = 0; mu_j < nelements; mu_j++)
+    fill_conjugate_A_mu(ii, mu_j);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAiTeam, const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeAiTeam>::member_type& team) const
+{
+  // Neighbor-parallel ComputeAi (user "ai_parallel" keyword): one team per
+  // atom, team threads cooperate over neighbors and accumulate into
+  // A_sph/A_rank1/rho_core with atomics, then cooperatively fill A.
+  const int ii = team.league_rank();
+  const int ncount = d_ncount(ii);
+
+  // cooperative first-touch zeroing
+  Kokkos::single(Kokkos::PerTeam(team), [&] () {
+    rho_core(ii) = 0.0;
+    for (int p = 0; p < (int)rhos.extent(1); p++)
+      rhos(ii, p) = 0.0;
+  });
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nelements * nradbase), [&] (const int idx) {
+    const int n = idx % nradbase;
+    const int mu = idx / nradbase;
+    A_rank1(ii, mu, n) = 0.0;
+  });
+  const int nfill = nelements * idx_sph_max * (nradmax + 1);
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nfill), [&] (const int idx) {
+    const int n = idx % (nradmax + 1);
+    const int rem = idx / (nradmax + 1);
+    const int idx_sph = rem % idx_sph_max;
+    const int mu = rem / idx_sph_max;
+    A_sph_re(ii, mu, idx_sph, n) = 0.0;
+    A_sph_im(ii, mu, idx_sph, n) = 0.0;
+  });
+  team.team_barrier();
+
+  // neighbor-parallel accumulation (atomic into A_sph/A_rank1/rho_core)
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(team, ncount), [&] (const int jj) {
+    compute_A_neighbor<true>(ii, jj);
+  });
+  team.team_barrier();
+
+  // conjugate/transpose fill, distributed over elements
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nelements), [&] (const int mu_j) {
+    fill_conjugate_A_mu(ii, mu_j);
+  });
 }
 
 /* ---------------------------------------------------------------------- */

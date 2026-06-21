@@ -37,6 +37,7 @@ class PairPACEKokkos : public PairPACE {
   struct TagPairPACEComputeNeigh{};
   struct TagPairPACEComputeRadial{};
   struct TagPairPACEComputeAi{};
+  struct TagPairPACEComputeAiTeam{};
   struct TagPairPACEComputeRho{};
   struct TagPairPACEComputeFS{};
   struct TagPairPACEComputeWeights{};
@@ -69,6 +70,10 @@ class PairPACEKokkos : public PairPACE {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairPACEComputeAi,const int& ii) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeAiTeam,const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeAiTeam>::member_type& team) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -235,11 +240,23 @@ class PairPACEKokkos : public PairPACE {
   // the A basis functions over all radial functions n. M0 selects the m = 0
   // path, whose ylm is purely real, so the (zero) imaginary accumulation is
   // skipped entirely.
-  template<bool M0>
+  template<bool M0, bool ATOMIC>
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void accumulate_A_sph(const int ii, const int jj, const int mu_j,
       const int idx_sph, const int l, const complex &ylm) const;
+
+  // per-neighbor A accumulation, shared by the per-atom (ATOMIC=false) and
+  // neighbor-parallel team (ATOMIC=true) ComputeAi kernels
+  template<bool ATOMIC>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void compute_A_neighbor(const int ii, const int jj) const;
+
+  // transpose/conjugate one element's A_sph slice into the full A array
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void fill_conjugate_A_mu(const int ii, const int mu_j) const;
 
   template<class TagStyle>
   void check_team_size_for(int, int&, int);
@@ -321,6 +338,7 @@ class PairPACEKokkos : public PairPACE {
   // direct (spline-free) radial evaluation
   enum { RADBASE_OTHER = 0, RADBASE_CHEBPOW = 1 };
   int radial_direct;                          // user flag: use direct Chebyshev evaluation
+  int ai_parallel;                            // user flag: neighbor-parallel (team+atomic) ComputeAi
   Kokkos::View<int**, DeviceType> d_radbasename; // per element-pair radial basis code
   t_fparams d_lambda, d_cut;                  // radial scaling lambda and cutoff, [nelements][nelements]
   Kokkos::View<KK_FLOAT*****, DeviceType> d_crad; // crad coeffs [nelements][nelements][nradmax][lmax+1][nradbase]
