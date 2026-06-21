@@ -86,6 +86,7 @@ class PairCHIMESKokkos : public PairCHIMES
 
   PairCHIMESKokkos(class LAMMPS *);
   ~PairCHIMESKokkos() override;
+  void settings(int narg, char **arg) override;
   void init_style() override;
   void coeff(int narg, char **arg) override;
   void allocate() override;
@@ -141,7 +142,7 @@ class PairCHIMESKokkos : public PairCHIMES
 
  private:
   int neighflag;
-  int inum, maxneigh, chunk_size, chunk_offset;
+  int inum, maxneigh, chunk_size, chunk_offset, chunksize;
   int host_flag, max_2mers, max_3mers, max_4mers;
   int size_2mers, size_3mers, size_4mers;
 
