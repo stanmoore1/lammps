@@ -281,8 +281,13 @@ class PairPACEKokkos : public PairPACE {
   t_ace_3d A_rank1;
   t_ace_4c A;
 
-  t_ace_3c A_list;
-  t_ace_3c A_forward_prod;
+  // Compile-time bound on the basis-function rank (correlation/body order).
+  // ComputeRho keeps the per-ms-combination A product chain (A_list and the
+  // forward-product prefixes) in thread-local arrays of this size instead of
+  // global scratch, so the chain stays in registers and independent
+  // ms-combinations can overlap (instruction-level parallelism). Covers all
+  // standard ACE potentials; init_style errors out if a model exceeds it.
+  static constexpr int MAX_RANK = 8;
 
   t_ace_3d weights_rank1;
   // Spherical-harmonic weights, stored as separate real/imaginary arrays

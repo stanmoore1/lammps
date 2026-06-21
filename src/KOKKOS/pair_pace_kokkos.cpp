@@ -141,9 +141,8 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
     MemKK::realloc_kokkos(A, "pace:A", natom, nelements, (lmax + 1) * (lmax + 1), nradmax + 1);
     MemKK::realloc_kokkos(A_rank1, "pace:A_rank1", natom, nelements, nradbase);
 
-    MemKK::realloc_kokkos(A_list, "pace:A_list", natom, idx_ms_combs_max, basis_set->rankmax);
-    //size is +1 of max to avoid out-of-boundary array access in double-triangular scheme
-    MemKK::realloc_kokkos(A_forward_prod, "pace:A_forward_prod", natom, idx_ms_combs_max, basis_set->rankmax + 1);
+    // A_list and A_forward_prod are no longer global scratch: ComputeRho keeps
+    // them in thread-local arrays of size MAX_RANK (see pair_pace_kokkos.h).
 
     MemKK::realloc_kokkos(e_atom, "pace:e_atom", natom);
     MemKK::realloc_kokkos(rhos, "pace:rhos", natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
@@ -508,6 +507,13 @@ void PairPACEKokkos<DeviceType>::init_style()
   lmax = basis_set->lmax;
   nradmax = basis_set->nradmax;
   nradbase = basis_set->nradbase;
+
+  // ComputeRho holds the per-ms-combination A product chain in thread-local
+  // arrays of size MAX_RANK; bail out clearly if a model exceeds that bound.
+  if ((int)basis_set->rankmax > MAX_RANK)
+    error->all(FLERR, "Pair style pace/kk: basis-function rank {} exceeds "
+               "compile-time MAX_RANK {}; increase MAX_RANK in "
+               "pair_pace_kokkos.h", (int)basis_set->rankmax, MAX_RANK);
 
   // spherical harmonics
 
@@ -1213,8 +1219,14 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& i
     } else { // rank > 1
       // loop over {ms} combinations in sum
 
+      // The A product chain is kept in thread-local arrays (instead of global
+      // scratch) so it stays in registers and successive ms-combinations can
+      // overlap. dB_flatten remains global since ComputeWeights consumes it.
+      complex A_list_loc[MAX_RANK];
+      complex A_forward_prod_loc[MAX_RANK + 1];
+
       // loop over m, collect B  = product of A with given ms
-      A_forward_prod(ii, idx_ms_combs, 0) = complex::one();
+      A_forward_prod_loc[0] = complex::one();
 
       // fill forward A-product triangle
       for (int t = 0; t < rank; t++) {
@@ -1224,22 +1236,22 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& i
         const int l = d_ls(mu_i, idx_func, t);
         const int m = d_ms_combs(mu_i, idx_ms_combs, t); // current ms-combination (of length = rank)
         const int idx = l * (l + 1) + m; // (l, m)
-        A_list(ii, idx_ms_combs, t) = A(ii, mu, idx, n - 1);
-        A_forward_prod(ii, idx_ms_combs, t + 1) = A_forward_prod(ii, idx_ms_combs, t) * A_list(ii, idx_ms_combs, t);
+        A_list_loc[t] = A(ii, mu, idx, n - 1);
+        A_forward_prod_loc[t + 1] = A_forward_prod_loc[t] * A_list_loc[t];
       }
 
       complex A_backward_prod = complex::one();
 
       // fill backward A-product triangle
       for (int t = r; t >= 1; t--) {
-        const complex dB = A_forward_prod(ii, idx_ms_combs, t) * A_backward_prod; // dB - product of all A's except t-th
+        const complex dB = A_forward_prod_loc[t] * A_backward_prod; // dB - product of all A's except t-th
         dB_flatten(ii, idx_ms_combs, t) = dB;
 
-        A_backward_prod = A_backward_prod * A_list(ii, idx_ms_combs, t);
+        A_backward_prod = A_backward_prod * A_list_loc[t];
       }
-      dB_flatten(ii, idx_ms_combs, 0) = A_forward_prod(ii, idx_ms_combs, 0) * A_backward_prod;
+      dB_flatten(ii, idx_ms_combs, 0) = A_forward_prod_loc[0] * A_backward_prod;
 
-      const complex B = A_forward_prod(ii, idx_ms_combs, rank);
+      const complex B = A_forward_prod_loc[rank];
 
       for (int p = 0; p < ndensity; ++p) {
         // real-part only multiplication
@@ -2140,8 +2152,6 @@ double PairPACEKokkos<DeviceType>::memory_usage()
   bytes += MemKK::memory_usage(A_rank1);
   bytes += MemKK::memory_usage(A_sph_re);
   bytes += MemKK::memory_usage(A_sph_im);
-  bytes += MemKK::memory_usage(A_list);
-  bytes += MemKK::memory_usage(A_forward_prod);
   bytes += MemKK::memory_usage(e_atom);
   bytes += MemKK::memory_usage(rhos);
   bytes += MemKK::memory_usage(dF_drho);
