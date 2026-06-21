@@ -57,6 +57,19 @@ namespace LAMMPS_NS {
 constexpr int chimes_min_blocks_3b = 1;
 constexpr int chimes_min_blocks_4b = 1;
 
+// Cache per-cluster displacement vectors (dr) + distances during the many-body
+// list build and reuse them in Compute3Body/Compute4Body, removing the
+// redundant get_dist (atom-position gather + sqrt) in those kernels.
+//
+// OFF by default: it trades a much larger 3/4-mer list footprint (the dr/dist
+// arrays add 12 floats per 3-mer and 24 per 4-mer, ~7x the 4-mer index size)
+// for fewer per-cluster reads. Because the many-body lists are exactly what the
+// chunking is designed to bound, enabling this typically requires a smaller
+// chunksize. Results are numerically identical either way; enable and benchmark
+// on the target GPU (the distance work is small relative to the polynomial
+// reduction, so the payoff is workload dependent).
+constexpr bool chimes_cache_distances = false;
+
 template<class DeviceType, int vector_length_>
 class PairCHIMESKokkos : public PairCHIMES
 {
@@ -174,6 +187,14 @@ class PairCHIMESKokkos : public PairCHIMES
   typename AT::t_int_1d_2 d_neighborlist_2mers;
   typename AT::t_int_1d_3 d_neighborlist_3mers;
   typename AT::t_int_1d_4 d_neighborlist_4mers;
+
+  // Optional cached per-cluster displacement vectors (dr) and distances,
+  // populated during the list build and reused in Compute3Body/Compute4Body
+  // when chimes_cache_distances is enabled (see pair_chimes_kokkos.h header).
+  typename AT::t_kkfloat_2d d_dr_3mers;    // [max_3mers][3 pairs * CHDIM]
+  typename AT::t_kkfloat_2d d_dist_3mers;  // [max_3mers][3 pairs]
+  typename AT::t_kkfloat_2d d_dr_4mers;    // [max_4mers][6 pairs * CHDIM]
+  typename AT::t_kkfloat_2d d_dist_4mers;  // [max_4mers][6 pairs]
 
   typename AT::t_int_scalar d_size_4mers;
 
