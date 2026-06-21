@@ -37,7 +37,6 @@ class PairPACEKokkos : public PairPACE {
   struct TagPairPACEComputeNeigh{};
   struct TagPairPACEComputeRadial{};
   struct TagPairPACEComputeAi{};
-  struct TagPairPACEConjugateAi{};
   struct TagPairPACEComputeRho{};
   struct TagPairPACEComputeFS{};
   struct TagPairPACEComputeWeights{};
@@ -70,10 +69,6 @@ class PairPACEKokkos : public PairPACE {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairPACEComputeAi,const int& ii) const;
-
-// NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairPACEConjugateAi,const int& ii) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION

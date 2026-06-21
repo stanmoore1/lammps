@@ -727,11 +727,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       Kokkos::parallel_for("ComputeAi",policy_ai,*this);
     }
 
-    //ConjugateAi
-    {
-      typename Kokkos::RangePolicy<DeviceType,TagPairPACEConjugateAi> policy_conj_ai(0,chunk_size);
-      Kokkos::parallel_for("ConjugateAi",policy_conj_ai,*this);
-    }
+    // (ConjugateAi is now fused into the tail of ComputeAi)
 
     //ComputeRho
     {
@@ -1152,49 +1148,38 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const int& ii
   rho_core(ii) += cr(ii, jj);
 
   } // end loop over neighbors jj
-}
 
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-// NOLINTNEXTLINE
-KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEConjugateAi, const int& ii) const
-{
+  // Conjugate/transpose step (formerly the separate ConjugateAi kernel), fused
+  // here so the just-accumulated A_sph(ii, ...) is reused while still resident
+  // instead of being re-read from global memory in a second kernel launch.
   for (int mu_j = 0; mu_j < nelements; mu_j++) {
 
-    // transpose
-
+    // transpose A_sph (half, idx_sph order) into A (full (l,m) order), m >= 0
     int idx_sph = 0;
-
     for (int m = 0; m <= lmax; m++) {
       for (int l = m; l <= lmax; l++) {
         const int idx = l * (l + 1) + m;
-        for (int n = 0; n < nradmax; n++) {
+        for (int n = 0; n < nradmax; n++)
           A(ii, mu_j, idx, n) = complex(A_sph_re(ii, mu_j, idx_sph, n), A_sph_im(ii, mu_j, idx_sph, n));
-        }
-
         idx_sph++;
       }
     }
 
-    // complex conjugate A's (for NEGATIVE (-m) terms)
-    //  for rank > 1
-
+    // complex-conjugate A's for the negative-m terms (half_basis symmetry)
     for (int l = 0; l <= lmax; l++) {
-        //fill in -m part in the outer loop using the same m <-> -m symmetry as for Ylm
       for (int m = 1; m <= l; m++) {
-        const int idx = l * (l + 1) + m; // (l, m)
+        const int idx = l * (l + 1) + m;  // (l, m)
         const int idxm = l * (l + 1) - m; // (l, -m)
-        const int idx_sph = d_idx_sph(idx);
+        const int idx_sph_lm = d_idx_sph(idx);
         const int factor = m % 2 == 0 ? 1 : -1;
-        for (int n = 0; n < nradmax; n++) {
-          A(ii, mu_j, idxm, n) = complex(A_sph_re(ii, mu_j, idx_sph, n), -A_sph_im(ii, mu_j, idx_sph, n)) * (KK_FLOAT)factor;
-        }
+        for (int n = 0; n < nradmax; n++)
+          A(ii, mu_j, idxm, n) = complex(A_sph_re(ii, mu_j, idx_sph_lm, n), -A_sph_im(ii, mu_j, idx_sph_lm, n)) * (KK_FLOAT)factor;
       }
     }
   }
 }
+
+/* ---------------------------------------------------------------------- */
 
 /* ---------------------------------------------------------------------- */
 
