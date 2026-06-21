@@ -158,6 +158,11 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
 
 
   // chimes_3b_powers
+  //
+  // Stored transposed to [ntrips][constit. pair][nparams] (coefficient index
+  // innermost) with the coefficient dimension padded, so the ThreadVectorRange
+  // reduction in poly_3B reads consecutive coefficients across lanes as
+  // coalesced, aligned loads (mirrors the chimes_3b_params layout).
 
   size = chimes_3b_powers.size();
   max_j = 0;
@@ -171,16 +176,20 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     }
   }
 
-  LAMMPS_NS::MemKK::realloc_kokkos(d_chimes_3b_powers,"chimesFF:chimes_3b_powers",size,max_j,max_k);
+  // Pad the (innermost) coefficient dimension so each pair row starts aligned
+  const int max_j_pad_3b_pow = ((max_j + CHIMES_PARAM_PAD - 1) / CHIMES_PARAM_PAD) * CHIMES_PARAM_PAD;
+
+  LAMMPS_NS::MemKK::realloc_kokkos(d_chimes_3b_powers,"chimesFF:chimes_3b_powers",size,max_k,max_j_pad_3b_pow);
 
   auto h_chimes_3b_powers = Kokkos::create_mirror_view(d_chimes_3b_powers);
+  Kokkos::deep_copy(h_chimes_3b_powers, 0); // zero-fill the padding
 
   for (int i = 0; i < size; i++) {
     int size_j = chimes_3b_powers[i].size();
     for (int j = 0; j < size_j; j++) {
       int size_k = chimes_3b_powers[i][j].size();
       for (int k = 0; k < size_k; k++) {
-        h_chimes_3b_powers(i,j,k) = chimes_3b_powers[i][j][k];
+        h_chimes_3b_powers(i,k,j) = chimes_3b_powers[i][j][k];
       }
     }
   }
@@ -264,6 +273,11 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
 
 
   // chimes_4b_powers
+  //
+  // Stored transposed to [nquads][constit. pair][nparams] (coefficient index
+  // innermost) with the coefficient dimension padded, so the ThreadVectorRange
+  // reduction in poly_4B reads consecutive coefficients across lanes as
+  // coalesced, aligned loads (mirrors the chimes_4b_params layout).
 
   size = chimes_4b_powers.size();
   max_j = 0;
@@ -277,16 +291,20 @@ void chimesFFKokkos<DeviceType>::read_parameters(string paramfile)
     }
   }
 
-  LAMMPS_NS::MemKK::realloc_kokkos(d_chimes_4b_powers,"chimesFF:chimes_4b_powers",size,max_j,max_k);
+  // Pad the (innermost) coefficient dimension so each pair row starts aligned
+  const int max_j_pad_4b_pow = ((max_j + CHIMES_PARAM_PAD - 1) / CHIMES_PARAM_PAD) * CHIMES_PARAM_PAD;
+
+  LAMMPS_NS::MemKK::realloc_kokkos(d_chimes_4b_powers,"chimesFF:chimes_4b_powers",size,max_k,max_j_pad_4b_pow);
 
   auto h_chimes_4b_powers = Kokkos::create_mirror_view(d_chimes_4b_powers);
+  Kokkos::deep_copy(h_chimes_4b_powers, 0); // zero-fill the padding
 
   for (int i = 0; i < size; i++) {
     int size_j = chimes_4b_powers[i].size();
     for (int j = 0; j < size_j; j++) {
       int size_k = chimes_4b_powers[i][j].size();
       for (int k = 0; k < size_k; k++) {
-        h_chimes_4b_powers(i,j,k) = chimes_4b_powers[i][j][k];
+        h_chimes_4b_powers(i,k,j) = chimes_4b_powers[i][j][k];
       }
     }
   }
@@ -724,13 +742,21 @@ void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, const KK_FLOAT* 
     init_distance_tensor(dr2, dr, npairs);
 #endif
 
-  // Set up the polynomials, once per team, into shared scratch (then barrier
-  // so all vector lanes can read them in the reduction below)
+  // Set up the polynomials into shared scratch, distributing the npairs
+  // independent Chebyshev recurrences across the team's vector lanes (one pair
+  // per lane) rather than computing them all on a single lane. Barrier afterward
+  // so all vector lanes can read them in the reduction below. On host backends
+  // (vector length 1) the lanes collapse and the pairs are built in order,
+  // reproducing the original serial setup.
 
-  Kokkos::single(Kokkos::PerTeam(team), [&] () {
-    set_cheby_polys(Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
-    set_cheby_polys(Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
-    set_cheby_polys(Tn_jk, Tnd_jk, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
+  KK_FLOAT* const Tn_p[npairs]  = { Tn_ij,  Tn_ik,  Tn_jk };
+  KK_FLOAT* const Tnd_p[npairs] = { Tnd_ij, Tnd_ik, Tnd_jk };
+  const KK_FLOAT morse_p[npairs] = { c_morse_var[pair_type_1], c_morse_var[pair_type_2], c_morse_var[pair_type_3] };
+  const KK_FLOAT inner_p[npairs] = { cutoff_00, cutoff_01, cutoff_02 };
+  const KK_FLOAT outer_p[npairs] = { cutoff_0,  cutoff_1,  cutoff_2 };
+
+  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, npairs), [&] (const int p) {
+    set_cheby_polys(Tn_p[p], Tnd_p[p], dx[p], morse_p[p], inner_p[p], outer_p[p], order);
   });
   team.team_barrier();
 
@@ -1003,15 +1029,21 @@ void chimesFFKokkos<DeviceType>::compute_4B(const t_team& team, const KK_FLOAT* 
   const int pair_type_6 = c_atom_int_pair_map(typ_idxs[2]*natmtyps + typ_idxs[3]);
   const int order = d_poly_orders[2];
 
-  // Set up the polynomials
+  // Set up the polynomials into shared scratch, distributing the npairs
+  // independent Chebyshev recurrences across the team's vector lanes (one pair
+  // per lane) rather than computing them all on a single lane. On host backends
+  // (vector length 1) the lanes collapse and the pairs are built in order,
+  // reproducing the original serial setup.
 
-  Kokkos::single(Kokkos::PerTeam(team), [&] () {
-    set_cheby_polys(Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
-    set_cheby_polys(Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
-    set_cheby_polys(Tn_il, Tnd_il, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
-    set_cheby_polys(Tn_jk, Tnd_jk, dx[3], c_morse_var[pair_type_4], cutoff_03, cutoff_3, order);
-    set_cheby_polys(Tn_jl, Tnd_jl, dx[4], c_morse_var[pair_type_5], cutoff_04, cutoff_4, order);
-    set_cheby_polys(Tn_kl, Tnd_kl, dx[5], c_morse_var[pair_type_6], cutoff_05, cutoff_5, order);
+  KK_FLOAT* const Tn_p[npairs]  = { Tn_ij,  Tn_ik,  Tn_il,  Tn_jk,  Tn_jl,  Tn_kl };
+  KK_FLOAT* const Tnd_p[npairs] = { Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl };
+  const KK_FLOAT morse_p[npairs] = { c_morse_var[pair_type_1], c_morse_var[pair_type_2], c_morse_var[pair_type_3],
+                                     c_morse_var[pair_type_4], c_morse_var[pair_type_5], c_morse_var[pair_type_6] };
+  const KK_FLOAT inner_p[npairs] = { cutoff_00, cutoff_01, cutoff_02, cutoff_03, cutoff_04, cutoff_05 };
+  const KK_FLOAT outer_p[npairs] = { cutoff_0,  cutoff_1,  cutoff_2,  cutoff_3,  cutoff_4,  cutoff_5 };
+
+  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, npairs), [&] (const int p) {
+    set_cheby_polys(Tn_p[p], Tnd_p[p], dx[p], morse_p[p], inner_p[p], outer_p[p], order);
   });
   team.team_barrier();
 
@@ -1412,9 +1444,9 @@ void chimesFFKokkos<DeviceType>::poly_3B(const t_team& team, KK_FLOAT &e, KK_FLO
         if (coeffs < ncoeffs_3b) {
           const KK_FLOAT coeff = c_chimes_3b_params_tripidx(coeffs);
 
-          const int powers[3] = { c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[0]),
-                                  c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[1]),
-                                  c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[2]) };
+          const int powers[3] = { c_chimes_3b_powers_tripidx(trip_map_idx[0],coeffs),
+                                  c_chimes_3b_powers_tripidx(trip_map_idx[1],coeffs),
+                                  c_chimes_3b_powers_tripidx(trip_map_idx[2],coeffs) };
 
           acc[b].e  += coeff * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
           acc[b].f0 += coeff * Tnd_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
@@ -1623,7 +1655,7 @@ void chimesFFKokkos<DeviceType>::poly_4B(const t_team& team, KK_FLOAT &e, KK_FLO
           const KK_FLOAT coeff = c_chimes_4b_params_quadidx(coeffs);
 
           int powers[npairs];
-          for (int i = 0; i < npairs; i++) powers[i] = c_chimes_4b_powers_quadidx(coeffs,quad_map_idx[i]);
+          for (int i = 0; i < npairs; i++) powers[i] = c_chimes_4b_powers_quadidx(quad_map_idx[i],coeffs);
 
           const KK_FLOAT Tn_ij_ik_il = Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]];
           const KK_FLOAT Tn_jk_jl = Tn_jk[powers[3]] * Tn_jl[powers[4]];

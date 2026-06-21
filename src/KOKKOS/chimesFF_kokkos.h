@@ -212,7 +212,7 @@ class chimesFFKokkos : public chimesFF
   typename AT::t_int_1d d_ncoeffs_3b;              // [ntrips]
   typename AT::t_int_1d_const_um c_ncoeffs_3b;
 
-  typename AT::t_int_3d d_chimes_3b_powers;    // [ntrips][nparams][constit. pair]
+  typename AT::t_int_3d d_chimes_3b_powers;    // [ntrips][constit. pair][nparams] (coeff innermost, padded)
   typename AT::t_int_3d_const_um c_chimes_3b_powers;
 
   typename AT::t_kkfloat_2d d_chimes_3b_params;    // [ntrips][nparams]
@@ -224,7 +224,7 @@ class chimesFFKokkos : public chimesFF
   typename AT::t_int_1d d_ncoeffs_4b;          // [nquads]
   typename AT::t_int_1d_const_um c_ncoeffs_4b;
 
-  typename AT::t_int_3d d_chimes_4b_powers;    // [nquads][nparams][constit. pair]
+  typename AT::t_int_3d d_chimes_4b_powers;    // [nquads][constit. pair][nparams] (coeff innermost, padded)
   typename AT::t_int_3d_const_um c_chimes_4b_powers;
 
   typename AT::t_kkfloat_2d d_chimes_4b_params;    // [nquads][nparams]
