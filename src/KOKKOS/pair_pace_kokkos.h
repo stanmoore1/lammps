@@ -292,8 +292,8 @@ class PairPACEKokkos : public PairPACE {
   th_ace_1d h_corerep;
 
   // radial functions
-  t_ace_4d fr;
-  t_ace_4d dfr;
+  t_ace_3d fr;
+  t_ace_3d dfr;
   t_ace_3d gr;
   t_ace_3d dgr;
   t_ace_3d d_values;
