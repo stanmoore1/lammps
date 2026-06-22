@@ -539,6 +539,17 @@ struct DNAForcesFunctor {
 
     SimBox box;
 
+    // Forces-only entry point (parallel_for): identical work, but no reduction
+    // machinery. Used on the (vast majority of) steps where the potential energy
+    // is not output, so the kernel keeps the higher occupancy of a plain
+    // parallel_for. The energy is still computed and simply discarded (it is a
+    // byproduct of the force evaluation), so trajectories are unaffected.
+    KOKKOS_INLINE_FUNCTION
+    void operator()(int edge) const {
+        c_number ev_unused = 0;
+        (*this)(edge, ev_unused);
+    }
+
     KOKKOS_INLINE_FUNCTION
     void operator()(int edge, c_number &ev) const {
         const int ia = edge_i(edge);
@@ -658,7 +669,8 @@ inline c_number compute_nonbonded_forces(
     ParticleArrays &p,
     const NeighborList &nl,
     const DNAParams &par,
-    const SimBox &box)
+    const SimBox &box,
+    bool want_energy = true)
 {
     if (nl.N_edges == 0) return 0;
 
@@ -685,8 +697,13 @@ inline c_number compute_nonbonded_forces(
     fun.box          = box;
 
     c_number etot = 0;
-    Kokkos::parallel_reduce("dna_forces_nonbonded",
-        Kokkos::RangePolicy<>(0, nl.N_edges), fun, etot);
+    if (want_energy) {
+        Kokkos::parallel_reduce("dna_forces_nonbonded",
+            Kokkos::RangePolicy<>(0, nl.N_edges), fun, etot);
+    } else {
+        Kokkos::parallel_for("dna_forces_nonbonded",
+            Kokkos::RangePolicy<>(0, nl.N_edges), fun);
+    }
 
     Kokkos::Experimental::contribute(p.forces, sf);
     Kokkos::Experimental::contribute(p.torques, st);

@@ -203,6 +203,13 @@ struct BondedFunctor {
     DNAParams par;
     SimBox box;
 
+    // Forces-only entry point (parallel_for) for steps that don't output energy.
+    KOKKOS_INLINE_FUNCTION
+    void operator()(int i) const {
+        c_number ev_unused = 0;
+        (*this)(i, ev_unused);
+    }
+
     KOKKOS_INLINE_FUNCTION
     void operator()(int i, c_number &ev) const {
         int n3 = bonds(i).n3;
@@ -242,11 +249,16 @@ struct BondedFunctor {
     }
 };
 
-inline c_number compute_bonded_forces(ParticleArrays &p, const DNAParams &par, const SimBox &box) {
+inline c_number compute_bonded_forces(ParticleArrays &p, const DNAParams &par,
+                                      const SimBox &box, bool want_energy = true) {
     BondedFunctor fun;
     fun.poss = p.poss; fun.orientations = p.orientations; fun.bonds = p.bonds;
     fun.forces = p.forces; fun.torques = p.torques; fun.par = par; fun.box = box;
     c_number etot = 0;
-    Kokkos::parallel_reduce("bonded_forces", Kokkos::RangePolicy<>(0, p.N), fun, etot);
+    if (want_energy) {
+        Kokkos::parallel_reduce("bonded_forces", Kokkos::RangePolicy<>(0, p.N), fun, etot);
+    } else {
+        Kokkos::parallel_for("bonded_forces", Kokkos::RangePolicy<>(0, p.N), fun);
+    }
     return etot;
 }
