@@ -67,7 +67,7 @@ PairPACEKokkos<DeviceType>::PairPACEKokkos(LAMMPS *lmp) : PairPACE(lmp)
   host_flag = (execution_space == HostKK);
 
   radial_direct = 0;
-  ai_parallel = 0;
+  ai_serial = 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -80,14 +80,14 @@ template<class DeviceType>
 void PairPACEKokkos<DeviceType>::settings(int narg, char **arg)
 {
   radial_direct = 0;
-  ai_parallel = 0;
+  ai_serial = 0;
   char **arg_filtered = new char*[narg];
   int narg_filtered = 0;
   for (int i = 0; i < narg; i++) {
     if (strcmp(arg[i], "direct") == 0)
       radial_direct = 1;
-    else if (strcmp(arg[i], "ai_parallel") == 0)
-      ai_parallel = 1;
+    else if (strcmp(arg[i], "ai_serial") == 0)
+      ai_serial = 1;
     else
       arg_filtered[narg_filtered++] = arg[i];
   }
@@ -96,8 +96,8 @@ void PairPACEKokkos<DeviceType>::settings(int narg, char **arg)
 
   if (radial_direct && comm->me == 0)
     utils::logmesg(lmp, "Direct (spline-free) ChebPow radial evaluation requested\n");
-  if (ai_parallel && comm->me == 0)
-    utils::logmesg(lmp, "Neighbor-parallel (team+atomic) ComputeAi requested\n");
+  if (ai_serial && comm->me == 0)
+    utils::logmesg(lmp, "Serial one-thread-per-atom ComputeAi requested\n");
 }
 
 /* ----------------------------------------------------------------------
@@ -726,21 +726,22 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
 
     //ComputeAi
-    if (ai_parallel) {
-      // Neighbor-parallel variant (user "ai_parallel" keyword): one team per
-      // atom, team threads cooperate over neighbors and accumulate into A_sph
-      // with atomics. Trades atomic contention for neighbor parallelism on the
-      // heaviest kernel; provided for GPU A/B benchmarking against the default.
+    if (ai_serial) {
+      // Opt-in ("ai_serial" keyword): one thread per atom, looping over
+      // neighbors internally (no atomics). Kept for A/B benchmarking; the
+      // neighbor-parallel team kernel below is the default.
+      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeAi> policy_ai(0,chunk_size);
+      Kokkos::parallel_for("ComputeAi",policy_ai,*this);
+    } else {
+      // Default: neighbor-parallel team kernel. One team per atom, team threads
+      // cooperate over neighbors and accumulate into A_sph with atomics, then
+      // cooperatively fill A. Restores neighbor-level parallelism on the
+      // heaviest kernel.
       int vector_length = vector_length_default;
       int team_size = team_size_compute_ai;
       check_team_size_for<TagPairPACEComputeAiTeam>(chunk_size,team_size,vector_length);
       typename Kokkos::TeamPolicy<DeviceType,TagPairPACEComputeAiTeam> policy_ai(chunk_size,team_size,vector_length);
       Kokkos::parallel_for("ComputeAiTeam",policy_ai,*this);
-    } else {
-      // Default: one thread per atom (loops over neighbors internally) so that
-      // the A basis functions can be accumulated without atomics.
-      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeAi> policy_ai(0,chunk_size);
-      Kokkos::parallel_for("ComputeAi",policy_ai,*this);
     }
 
     // (ConjugateAi is now fused into the tail of ComputeAi)
@@ -771,9 +772,9 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     //ComputeWeights
     {
-      // One thread per atom (loops over ms-combinations internally) so that the
-      // weights can be accumulated without atomics.
-      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeWeights> policy_weights(0,chunk_size);
+      // One thread per (atom, ms-combination); weights accumulated with atomics
+      // (weight arrays are first-touch zeroed in ComputeFS, which runs above).
+      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeWeights> policy_weights(0,chunk_size * idx_ms_combs_max);
       Kokkos::parallel_for("ComputeWeights",policy_weights,*this);
     }
 
@@ -1417,61 +1418,61 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeFS, const int& ii
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const int& ii) const
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const int& iter) const
 {
+  const int idx_ms_combs = iter / chunk_size;
+  const int ii = iter % chunk_size;
+
   const int i = d_ilist[ii + chunk_offset];
   const int mu_i = d_map(type(i));
 
+  if (idx_ms_combs >= d_idx_ms_combs_count(mu_i)) return;
+
   const int ndensity = d_ndensity(mu_i);
-  const int ms_combs_count = d_idx_ms_combs_count(mu_i);
 
-  // One thread per atom loops over all ms-combinations so that the weights
-  // weights_rank1/weights_re/weights_im(ii, ...) are owned exclusively by this
-  // thread and accumulated without atomics (zeroed by first-touch in ComputeFS).
-  for (int idx_ms_combs = 0; idx_ms_combs < ms_combs_count; idx_ms_combs++) {
+  const int idx_func = d_idx_funcs(mu_i, idx_ms_combs);
+  const int rank = d_rank(mu_i, idx_func);
 
-    const int idx_func = d_idx_funcs(mu_i, idx_ms_combs);
-    const int rank = d_rank(mu_i, idx_func);
+  // Weights and theta calculation. One thread per (atom, ms-combination):
+  // different ms-combinations of the same atom accumulate into shared weight
+  // slots, so accumulation uses atomics (arrays first-touch zeroed in ComputeFS).
 
-    // Weights and theta calculation
+  if (rank == 1) {
+    const int mu = d_mus(mu_i, idx_func, 0);
+    const int n = d_ns(mu_i, idx_func, 0);
+    KK_FLOAT theta = 0.0;
+    for (int p = 0; p < ndensity; ++p) {
+      // for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
+      theta += dF_drho(ii, p) * d_ctildes(mu_i, idx_ms_combs, p);
+    }
+    Kokkos::atomic_add(&weights_rank1(ii, mu, n - 1), theta);
+  } else { // rank > 1
+    KK_FLOAT theta = 0.0;
+    for (int p = 0; p < ndensity; ++p)
+      theta += dF_drho(ii, p) * d_ctildes(mu_i, idx_ms_combs, p);
 
-    if (rank == 1) {
-      const int mu = d_mus(mu_i, idx_func, 0);
-      const int n = d_ns(mu_i, idx_func, 0);
-      KK_FLOAT theta = 0.0;
-      for (int p = 0; p < ndensity; ++p) {
-        // for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
-        theta += dF_drho(ii, p) * d_ctildes(mu_i, idx_ms_combs, p);
+    theta *= 0.5; // 0.5 factor due to possible KK_FLOAT counting ???
+    for (int t = 0; t < rank; ++t) {
+      const int m_t = d_ms_combs(mu_i, idx_ms_combs, t);
+      const int factor = (m_t % 2 == 0 ? 1 : -1);
+      const complex dB = dB_flatten(ii, idx_ms_combs, t);
+      const int mu_t = d_mus(mu_i, idx_func, t);
+      const int n_t = d_ns(mu_i, idx_func, t);
+      const int l_t = d_ls(mu_i, idx_func, t);
+      const int idx = l_t * (l_t + 1) + m_t; // (l, m)
+      const int idx_sph = d_idx_sph(idx);
+      if (idx_sph >= 0) {
+        const complex value = theta * dB;
+        Kokkos::atomic_add(&(weights_re(ii, mu_t, idx_sph, n_t - 1)), value.re);
+        Kokkos::atomic_add(&(weights_im(ii, mu_t, idx_sph, n_t - 1)), value.im);
       }
-      weights_rank1(ii, mu, n - 1) += theta;
-    } else { // rank > 1
-      KK_FLOAT theta = 0.0;
-      for (int p = 0; p < ndensity; ++p)
-        theta += dF_drho(ii, p) * d_ctildes(mu_i, idx_ms_combs, p);
-
-      theta *= 0.5; // 0.5 factor due to possible KK_FLOAT counting ???
-      for (int t = 0; t < rank; ++t) {
-        const int m_t = d_ms_combs(mu_i, idx_ms_combs, t);
-        const int factor = (m_t % 2 == 0 ? 1 : -1);
-        const complex dB = dB_flatten(ii, idx_ms_combs, t);
-        const int mu_t = d_mus(mu_i, idx_func, t);
-        const int n_t = d_ns(mu_i, idx_func, t);
-        const int l_t = d_ls(mu_i, idx_func, t);
-        const int idx = l_t * (l_t + 1) + m_t; // (l, m)
-        const int idx_sph = d_idx_sph(idx);
-        if (idx_sph >= 0) {
-          const complex value = theta * dB;
-          weights_re(ii, mu_t, idx_sph, n_t - 1) += value.re;
-          weights_im(ii, mu_t, idx_sph, n_t - 1) += value.im;
-        }
-        // update -m_t (that could also be positive), because the basis is half_basis
-        const int idxm = l_t * (l_t + 1) - m_t; // (l, -m)
-        const int idxm_sph = d_idx_sph(idxm);
-        if (idxm_sph >= 0) {
-          const complex valuem = theta * dB.conj() * (KK_FLOAT)factor;
-          weights_re(ii, mu_t, idxm_sph, n_t - 1) += valuem.re;
-          weights_im(ii, mu_t, idxm_sph, n_t - 1) += valuem.im;
-        }
+      // update -m_t (that could also be positive), because the basis is half_basis
+      const int idxm = l_t * (l_t + 1) - m_t; // (l, -m)
+      const int idxm_sph = d_idx_sph(idxm);
+      if (idxm_sph >= 0) {
+        const complex valuem = theta * dB.conj() * (KK_FLOAT)factor;
+        Kokkos::atomic_add(&(weights_re(ii, mu_t, idxm_sph, n_t - 1)), valuem.re);
+        Kokkos::atomic_add(&(weights_im(ii, mu_t, idxm_sph, n_t - 1)), valuem.im);
       }
     }
   }
