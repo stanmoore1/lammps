@@ -288,3 +288,31 @@ Serial backend and runs `fd_test` on every change under `bench/oxdna_kokkos/`.
 > (`-dt 1e-4`) than oxDNA1 because the Debye–Hückel + grooved backbone make the
 > potential stiffer near close approaches; a thermostat or smaller `dt` keeps it
 > stable. This does not affect force-evaluation throughput.
+
+## `lammps_overhead` toggle (isolating the framework cost)
+
+The lean standalone above is *faster* than in-tree LAMMPS-KOKKOS because it omits
+several real LAMMPS per-step framework overheads. Setting `lammps_overhead = 1`
+in the input adds them back (physics/energy output is unchanged — verified
+identical on/off):
+
+- **Per-step bond-prime-neigh precompute**: two extra per-bond kernels (stk, fene)
+  that re-derive the 3'/5' bonded-neighbour table every step, mirroring
+  `TagPairOxdnaStkPrecomputeBondPrimeNeighs` (the lean code stores `bonds.n3/n5`
+  directly and skips this).
+- **Per-kernel ScatterView**: each nonbonded kernel creates its own ScatterView
+  instead of sharing one (mirrors LAMMPS creating `dup_f/dup_torque` per pair
+  style; cheap on GPU where HALFTHREAD uses non-duplicated atomics).
+- **Per-step host flag copy**: a device->host `deep_copy` each step, mirroring
+  the FENE bond-overstretch flag check.
+
+What it deliberately does NOT model is **ghost atoms + per-step communication**:
+the standalone uses minimum-image PBC (`box.wrap`) and processes exactly N atoms,
+whereas LAMMPS replicates the boundary shell as ghosts, forward-communicates
+positions every step, and runs the LRF fix / neighbour list / pair styles over
+`nlocal+nghost`. So:
+
+    (LAMMPS time) - (standalone with lammps_overhead=1) ~= ghost/comm cost,
+
+isolating the fundamental (domain-decomposition) floor from the optimizable
+per-step overheads (bond precompute, per-style setup, flag copies).

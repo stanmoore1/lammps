@@ -43,6 +43,11 @@ struct ParticleArrays {
     // Integer base type: A=0, C=1, G=2, T=3 (same as LAMMPS btype convention)
     Kokkos::View<int *> btype;
 
+    // LAMMPS-overhead mode scratch: the per-bond "prime-neigh" table that LAMMPS
+    // re-derives every step (TagPair...PrecomputeBondPrimeNeighs). Unused unless
+    // the lammps_overhead toggle is on.
+    Kokkos::View<int *[4]> bond_prime_neighs;
+
     // Number of particles
     int N = 0;
 
@@ -59,6 +64,7 @@ struct ParticleArrays {
         nz          = Vec4("nz",          n);
         bonds       = Kokkos::View<LR_bonds *>   ("bonds",       n);
         btype       = Kokkos::View<int *>        ("btype",       n);
+        bond_prime_neighs = Kokkos::View<int *[4]>("bond_prime_neighs", n);
     }
 
     void zero_forces() {

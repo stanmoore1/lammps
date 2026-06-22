@@ -27,6 +27,7 @@ struct SimConfig {
     c_number    skin        = 0.3;
     int         output_freq = 1000;
     bool        timing      = false; // per-kernel breakdown (adds fences); off = production
+    bool        lammps_overhead = false; // add LAMMPS per-step framework overheads (bond precompute, per-kernel scatter, host flag copy)
     int         model       = 1;     // 1 = oxDNA1, 2 = oxDNA2
     c_number    salt        = 0.5;   // salt concentration [mol/L] (oxDNA2 only)
     bool        refresh_vel = false; // regenerate velocities from Maxwell-Boltzmann at startup
@@ -136,10 +137,10 @@ public:
             const bool want_e = ((s + 1) % cfg_.output_freq == 0);
 
             dev_.zero_forces();
-            epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_, want_e);
+            epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_, want_e, cfg_.lammps_overhead);
             auto e = mark(); t_nb += sec(c, e);
 
-            epot_ += compute_bonded_forces(dev_, par_, box_, want_e);
+            epot_ += compute_bonded_forces(dev_, par_, box_, want_e, cfg_.lammps_overhead);
             auto f = mark(); t_bond += sec(e, f);
 
             second_step(dev_, cfg_.dt);

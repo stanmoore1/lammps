@@ -851,7 +851,8 @@ inline c_number compute_nonbonded_forces(
     const NeighborList &nl,
     const DNAParams &par,
     const SimBox &box,
-    bool want_energy = true)
+    bool want_energy = true,
+    bool lammps_overhead = false)
 {
     // LRF precompute (always — every kernel below reads nx/ny/nz).
     compute_lrf(p);
@@ -871,7 +872,7 @@ inline c_number compute_nonbonded_forces(
         ExcvFunctor f;
         f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
         f.num_neigh = nl.d_num_neigh; f.neigh_matrix = nl.d_neigh_matrix;
-        f.par = par; f.sf = sf; f.st = st; f.box = box;
+        f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
         if (want_energy) { e_term = 0;
             Kokkos::parallel_reduce("oxdna_excv", p.N, f, e_term); etot += e_term;
         } else Kokkos::parallel_for("oxdna_excv", p.N, f);
@@ -882,7 +883,7 @@ inline c_number compute_nonbonded_forces(
         HbondFunctor f;
         f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
         f.btype = p.btype; f.sa = nl.screened_a; f.sb = nl.screened_b;
-        f.par = par; f.sf = sf; f.st = st; f.box = box;
+        f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
         if (want_energy) { e_term = 0;
             Kokkos::parallel_reduce("oxdna_hbond", nl.N_screened, f, e_term); etot += e_term;
         } else Kokkos::parallel_for("oxdna_hbond", nl.N_screened, f);
@@ -893,7 +894,7 @@ inline c_number compute_nonbonded_forces(
         XstkFunctor f;
         f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
         f.sa = nl.screened_a; f.sb = nl.screened_b;
-        f.par = par; f.sf = sf; f.st = st; f.box = box;
+        f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
         if (want_energy) { e_term = 0;
             Kokkos::parallel_reduce("oxdna_xstk", nl.N_screened, f, e_term); etot += e_term;
         } else Kokkos::parallel_for("oxdna_xstk", nl.N_screened, f);
@@ -904,7 +905,7 @@ inline c_number compute_nonbonded_forces(
         CoaxstkFunctor f;
         f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
         f.sa = nl.screened_a; f.sb = nl.screened_b;
-        f.par = par; f.sf = sf; f.st = st; f.box = box;
+        f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
         if (want_energy) { e_term = 0;
             Kokkos::parallel_reduce("oxdna_coaxstk", nl.N_screened, f, e_term); etot += e_term;
         } else Kokkos::parallel_for("oxdna_coaxstk", nl.N_screened, f);
@@ -916,7 +917,7 @@ inline c_number compute_nonbonded_forces(
         f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
         f.bonds = p.bonds;
         f.num_neigh = nl.d_num_neigh; f.neigh_matrix = nl.d_neigh_matrix;
-        f.par = par; f.sf = sf; f.st = st; f.box = box;
+        f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
         if (want_energy) { e_term = 0;
             Kokkos::parallel_reduce("oxdna_dh", p.N, f, e_term); etot += e_term;
         } else Kokkos::parallel_for("oxdna_dh", p.N, f);

@@ -297,6 +297,33 @@ struct BondedTermFunctor {
     }
 };
 
+// ---------------------------------------------------------------------------
+// LAMMPS-overhead-mode: per-step bond "prime-neigh" precompute (no-op for the
+// physics; faithfully reproduces the LAMMPS kernel that re-derives the 3'/5'
+// bonded-neighbour indices from the bond list + atom map every step, which the
+// lean standalone skips because it stores bonds(i).n3/n5 directly). One thread
+// per particle reads its bonded neighbours (and theirs) and writes a scratch
+// table - matching the launch + per-bond memory pass of
+// TagPairOxdnaStkPrecomputeBondPrimeNeighs / the FENE equivalent.
+// ---------------------------------------------------------------------------
+struct BondPrecomputeFunctor {
+    Kokkos::View<LR_bonds *> bonds;
+    Kokkos::View<int *[4]>   prime;
+    KOKKOS_INLINE_FUNCTION
+    void operator()(int i) const {
+        const int n3 = bonds(i).n3;
+        const int n5 = bonds(i).n5;
+        prime(i,0) = n3;
+        prime(i,1) = n5;
+        prime(i,2) = (n3 >= 0) ? bonds(n3).n5 : -1;
+        prime(i,3) = (n5 >= 0) ? bonds(n5).n3 : -1;
+    }
+};
+inline void bond_precompute(ParticleArrays &p, const char *label) {
+    BondPrecomputeFunctor f; f.bonds = p.bonds; f.prime = p.bond_prime_neighs;
+    Kokkos::parallel_for(label, p.N, f);
+}
+
 // Run one bonded term kernel. NOTE: requires the LRF precompute (compute_lrf)
 // to have populated p.nx/ny/nz first (done by compute_nonbonded_forces).
 template <bool FENE>
@@ -318,14 +345,25 @@ inline c_number run_bonded_term(ParticleArrays &p, const DNAParams &par,
 // mirroring `pair oxdna/stk` + `bond oxdna/fene`. Same public signature as
 // the original fused driver (so fd_test / xcheck build unchanged).
 inline c_number compute_bonded_forces(ParticleArrays &p, const DNAParams &par,
-                                      const SimBox &box, bool want_energy = true) {
+                                      const SimBox &box, bool want_energy = true,
+                                      bool lammps_overhead = false) {
     // Ensure the precomputed body frames (nx/ny/nz) are current. In the normal
     // per-step sequence compute_nonbonded_forces already ran the LRF pass, but
     // calling it here too keeps this entry point self-contained (the validation
     // tools may invoke the bonded kernels on their own).
     compute_lrf(p);
     c_number e = 0;
+    // LAMMPS runs a separate bond-prime-neigh precompute kernel before EACH of
+    // stk and fene, every step. Reproduce that overhead (results are unaffected).
+    if (lammps_overhead) bond_precompute(p, "oxdna_stk_precompute");
     e += run_bonded_term<false>(p, par, box, want_energy, "oxdna_stk");   // stacking
+    if (lammps_overhead) bond_precompute(p, "oxdna_fene_precompute");
     e += run_bonded_term<true> (p, par, box, want_energy, "oxdna_fene");  // FENE + bonded excv
+    // LAMMPS bond/fene does a device->host copy of a 1-int overstretch flag every
+    // step; reproduce that host round-trip.
+    if (lammps_overhead) {
+        auto hflag = Kokkos::create_mirror_view(Kokkos::subview(p.bond_prime_neighs, 0, Kokkos::ALL));
+        Kokkos::deep_copy(hflag, Kokkos::subview(p.bond_prime_neighs, 0, Kokkos::ALL));
+    }
     return e;
 }

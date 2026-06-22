@@ -200,4 +200,5 @@ inline void read_input(const std::string &file, SimConfig &cfg) {
         std::string v = inp_detail::lower(str("timing"));
         cfg.timing = (v == "1" || v == "yes" || v == "true" || v == "on");
     }
+    if (has("lammps_overhead")) { std::string v = str("lammps_overhead"); cfg.lammps_overhead = (v=="1"||v=="yes"||v=="true"||v=="on"); }
 }
