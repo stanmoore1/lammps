@@ -1,0 +1,1264 @@
+From 90fb2c0f0165d10bd9f8fd8d43a45865c1aa31ca Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 22 Jun 2026 13:56:19 +0000
+Subject: [PATCH] Prototype: fuse oxDNA hbond+xstk Kokkos kernels and use acosf
+ (FP32)
+
+Two GPU-oriented optimizations for the screened-pair oxDNA Kokkos pair styles,
+prototyped and verified with the Kokkos Serial backend on the oxDNA2 duplex2
+example (examples/PACKAGES/cgdna/.../oxDNA2/duplex2).
+
+#1 Fused hbond + xstk kernel
+  The hydrogen-bonding (F1) and cross-stacking (F2) screened-pair kernels both
+  act on the same base-site separation (COM + 0.4*nx) and share the same six
+  interaction angles theta1..4,7,8. They previously ran as two separate
+  edge-parallel kernels, each recomputing the base-site geometry and all six
+  acos() angles over the same screened pair list. The new fused kernel
+  (TagPairOxdnaHbXstkFused in pair_oxdna_hbond_kokkos) computes that geometry
+  and the six acosf() values once, then evaluates both interactions. Each term
+  self-cuts via its own radial modulation (F1 with the hbond cutoff, F2 with the
+  xstk cutoff), so the differing hbond/xstk radial cutoffs on the shared screened
+  list are handled correctly. The xstk style skips its own screened pass when
+  fusion is active; the combined energy is tallied by the hbond style, so the
+  total potential energy is unchanged.
+
+#2 acos -> acosf in the screened-pair kernels
+  The screened/GPU kernels already use sqrtf/expf FP32 intrinsics; switch the
+  six per-pair acos() calls to acosf() for consistency.
+
+Verification harness (prototype only, default OFF):
+  - OXDNA_KK_FORCE_SCREENED=1 runs the screened/GPU pair path on the host so it
+    can be exercised under Kokkos Serial.
+  - OXDNA_KK_FUSE_HBXSTK=1 enables the fused hbond+xstk kernel.
+  Neither variable affects normal GPU execution or the default host path.
+
+Serial results (duplex2, 1000 steps, total potential energy):
+  - Fused kernel reproduces the separate hbond+xstk screened kernels
+    bit-for-bit at every printed step.
+  - The screened/acosf path (and hence the fused kernel) tracks the original
+    double-precision per-atom path to ~1e-7, i.e. only the expected FP32
+    intrinsic difference.
+---
+ src/KOKKOS/fix_oxdna_npair_kokkos.cpp     |   6 +-
+ src/KOKKOS/oxdna_hbxstk_fused.h           |  45 ++++
+ src/KOKKOS/oxdna_screened_toggle.h        |  47 ++++
+ src/KOKKOS/pair_oxdna2_coaxstk_kokkos.cpp |  14 +-
+ src/KOKKOS/pair_oxdna_hbond_kokkos.cpp    | 308 ++++++++++++++++++++--
+ src/KOKKOS/pair_oxdna_hbond_kokkos.h      |  22 ++
+ src/KOKKOS/pair_oxdna_xstk_kokkos.cpp     | 209 +++------------
+ src/KOKKOS/pair_oxdna_xstk_kokkos.h       | 177 ++++++++++++-
+ 8 files changed, 628 insertions(+), 200 deletions(-)
+ create mode 100644 src/KOKKOS/oxdna_hbxstk_fused.h
+ create mode 100644 src/KOKKOS/oxdna_screened_toggle.h
+
+diff --git a/src/KOKKOS/fix_oxdna_npair_kokkos.cpp b/src/KOKKOS/fix_oxdna_npair_kokkos.cpp
+index 4a46b1c..6f0facf 100644
+--- a/src/KOKKOS/fix_oxdna_npair_kokkos.cpp
++++ b/src/KOKKOS/fix_oxdna_npair_kokkos.cpp
+@@ -23,6 +23,8 @@
+ #include "neigh_list_kokkos.h"
+ #include "neigh_request.h"
+ 
++#include "oxdna_screened_toggle.h"
++
+ using namespace LAMMPS_NS;
+ using namespace FixConst;
+ 
+@@ -103,7 +105,7 @@ void FixOxdnaNpairKokkos<DeviceType>::min_pre_force(int /*vflag*/)
+   // Option 1: Every timestep
+   // if (execution_space != HostKK) compute_neigh_screen_to_npair();
+   // Option 2: Only when neighbor list updates
+-  if (execution_space != HostKK && last_allocate != neighbor->lastcall) {
++  if ((execution_space != HostKK || oxdna_force_screened_host()) && last_allocate != neighbor->lastcall) {
+      compute_neigh_screen_to_npair();
+      last_allocate = neighbor->lastcall;
+   }
+@@ -131,7 +133,7 @@ void FixOxdnaNpairKokkos<DeviceType>::pre_force(int /*vflag*/)
+   // Option 1: Every timestep
+   // if (execution_space != HostKK) compute_neigh_screen_to_npair();
+   // Option 2: Only when neighbor list updates
+-  if (execution_space != HostKK && last_allocate != neighbor->lastcall) {
++  if ((execution_space != HostKK || oxdna_force_screened_host()) && last_allocate != neighbor->lastcall) {
+      compute_neigh_screen_to_npair();
+      last_allocate = neighbor->lastcall;
+   }
+diff --git a/src/KOKKOS/oxdna_hbxstk_fused.h b/src/KOKKOS/oxdna_hbxstk_fused.h
+new file mode 100644
+index 0000000..24be425
+--- /dev/null
++++ b/src/KOKKOS/oxdna_hbxstk_fused.h
+@@ -0,0 +1,45 @@
++/* -*- c++ -*- ----------------------------------------------------------
++   Prototype helper for fusing the oxDNA hbond + xstk Kokkos pair styles.
++
++   OxdnaXstkCoeffs bundles the (shallow) device view handles for every
++   cross-stacking coefficient so that the hbond pair style can evaluate the
++   xstk term inside a single fused kernel. The xstk pair style fills it via
++   PairOxdnaXstkKokkos::export_fused_coeffs(); the views alias the xstk style's
++   own coefficient arrays (no deep copy), so this is cheap to populate once per
++   compute() call.
++------------------------------------------------------------------------- */
++
++#ifndef LMP_OXDNA_HBXSTK_FUSED_H
++#define LMP_OXDNA_HBXSTK_FUSED_H
++
++#include "kokkos_type.h"
++
++namespace LAMMPS_NS {
++
++template<class DeviceType>
++struct OxdnaXstkCoeffs {
++  typedef ArrayTypes<DeviceType> AT;
++
++  // radial F2 coefficients
++  typename AT::t_kkfloat_2d_randomread d_k_xst, d_cut_xst_0, d_cut_xst_c;
++  typename AT::t_kkfloat_2d_randomread d_cut_xst_lo, d_cut_xst_hi;
++  typename AT::t_kkfloat_2d_randomread d_cut_xst_lc, d_cut_xst_hc, d_b_xst_lo, d_b_xst_hi;
++
++  // angular F4 coefficients (theta 1,2,3,4,7,8)
++  typename AT::t_kkfloat_2d_randomread d_a_xst1, d_theta_xst1_0, d_dtheta_xst1_ast;
++  typename AT::t_kkfloat_2d_randomread d_b_xst1, d_dtheta_xst1_c;
++  typename AT::t_kkfloat_2d_randomread d_a_xst2, d_theta_xst2_0, d_dtheta_xst2_ast;
++  typename AT::t_kkfloat_2d_randomread d_b_xst2, d_dtheta_xst2_c;
++  typename AT::t_kkfloat_2d_randomread d_a_xst3, d_theta_xst3_0, d_dtheta_xst3_ast;
++  typename AT::t_kkfloat_2d_randomread d_b_xst3, d_dtheta_xst3_c;
++  typename AT::t_kkfloat_2d_randomread d_a_xst4, d_theta_xst4_0, d_dtheta_xst4_ast;
++  typename AT::t_kkfloat_2d_randomread d_b_xst4, d_dtheta_xst4_c;
++  typename AT::t_kkfloat_2d_randomread d_a_xst7, d_theta_xst7_0, d_dtheta_xst7_ast;
++  typename AT::t_kkfloat_2d_randomread d_b_xst7, d_dtheta_xst7_c;
++  typename AT::t_kkfloat_2d_randomread d_a_xst8, d_theta_xst8_0, d_dtheta_xst8_ast;
++  typename AT::t_kkfloat_2d_randomread d_b_xst8, d_dtheta_xst8_c;
++};
++
++}    // namespace LAMMPS_NS
++
++#endif
+diff --git a/src/KOKKOS/oxdna_screened_toggle.h b/src/KOKKOS/oxdna_screened_toggle.h
+new file mode 100644
+index 0000000..e1444df
+--- /dev/null
++++ b/src/KOKKOS/oxdna_screened_toggle.h
+@@ -0,0 +1,47 @@
++#ifndef LMP_OXDNA_SCREENED_TOGGLE_H
++#define LMP_OXDNA_SCREENED_TOGGLE_H
++
++#include <cstdlib>
++
++// -----------------------------------------------------------------------------
++// Verification helper (prototype only).
++//
++// The screened edge-parallel "GPUPair" path for the oxDNA hbond/xstk/coaxstk
++// pair styles is normally gated to device execution spaces. To verify the fused
++// kernel (#1) and the acosf change (#2) using the Kokkos Serial backend, we
++// allow the screened path to also run on the host when the environment variable
++// OXDNA_KK_FORCE_SCREENED=1 is set. This affects nothing on GPU (where the
++// screened path always runs) and defaults OFF, so the normal host per-atom path
++// is unchanged unless the user opts in.
++// -----------------------------------------------------------------------------
++
++namespace LAMMPS_NS {
++
++static inline bool oxdna_force_screened_host()
++{
++  static int cached = -1;
++  if (cached < 0) {
++    const char *e = std::getenv("OXDNA_KK_FORCE_SCREENED");
++    cached = (e && e[0] == '1') ? 1 : 0;
++  }
++  return cached == 1;
++}
++
++// Prototype #1: fuse the hbond + xstk screened-pair kernels into one. When
++// OXDNA_KK_FUSE_HBXSTK=1, the hbond pair style runs a combined kernel that
++// computes the shared base-site geometry and the 6 angle acos() values once and
++// evaluates both the hydrogen-bonding (F1) and cross-stacking (F2) terms; the
++// xstk pair style then skips its own screened pass to avoid double counting.
++static inline bool oxdna_fuse_hbxstk()
++{
++  static int cached = -1;
++  if (cached < 0) {
++    const char *e = std::getenv("OXDNA_KK_FUSE_HBXSTK");
++    cached = (e && e[0] == '1') ? 1 : 0;
++  }
++  return cached == 1;
++}
++
++}    // namespace LAMMPS_NS
++
++#endif
+diff --git a/src/KOKKOS/pair_oxdna2_coaxstk_kokkos.cpp b/src/KOKKOS/pair_oxdna2_coaxstk_kokkos.cpp
+index 250fc8a..a1e902b 100644
+--- a/src/KOKKOS/pair_oxdna2_coaxstk_kokkos.cpp
++++ b/src/KOKKOS/pair_oxdna2_coaxstk_kokkos.cpp
+@@ -31,6 +31,8 @@
+ #include "mf_oxdna_kokkos.h"
+ 
+ using namespace LAMMPS_NS;
++
++#include "oxdna_screened_toggle.h"
+ using namespace MFOxdnaKokkos;
+ using MathConst::MY_PI;
+ 
+@@ -137,7 +139,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
+   d_nz_xtrct = fix_oxdna_lrfKK->k_nz.template view<DeviceType>();
+ 
+   // If we're on a GPU, look up fix_oxdna_npairKK screened pair count and packed pair view.
+-  if (execution_space != HostKK) {
++  if (execution_space != HostKK || oxdna_force_screened_host()) {
+     screened_pair_count = fix_oxdna_npairKK->screened_pair_count;
+     d_pairs_screened = fix_oxdna_npairKK->k_pairs_screened.template view<DeviceType>();
+   }
+@@ -149,7 +151,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
+   // "run_compute" is just a little helper for CPU/GPU dispatch to improve code readability.
+   // It removes an extra if statement from each of the typical compute functor calls.
+   auto run_compute = [&](auto host_tag, auto gpu_tag, const bool use_reduce) {
+-    if (execution_space == HostKK) {
++    if (execution_space == HostKK && !oxdna_force_screened_host()) {
+       if (use_reduce) {
+         Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(host_tag)>(0,anum),*this,ev);
+       } else {
+@@ -948,7 +950,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
+   cost1 = -(fma(a_nx0, b_nx0, fma(a_nx1, b_nx1, a_nx2 * b_nx2)));
+   if (cost1 >  1.0) cost1 =  1.0;
+   if (cost1 < -1.0) cost1 = -1.0;
+-  theta1 = acos(cost1);
++  theta1 = acosf(cost1);
+   theta1p = 2.0 * MY_PI_KK - theta1;
+ 
+   // beginning of modulation factors
+@@ -965,7 +967,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
+   cost4 = fma(a_nz0, b_nz0, fma(a_nz1, b_nz1, a_nz2*b_nz2));
+   if (cost4 > 1.0) cost4 = 1.0;
+   if (cost4 < -1.0) cost4 = -1.0;
+-  theta4 = acos(cost4);
++  theta4 = acosf(cost4);
+   // f4t4 = f4 modulation factor
+   f4t4 = F4_KK(theta4, d_a_cxst4(atype,btype), d_theta_cxst4_0(atype, btype), d_dtheta_cxst4_ast(atype, btype), 
+     d_b_cxst4(atype, btype), d_dtheta_cxst4_c(atype, btype));
+@@ -974,7 +976,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
+   cost5 = fma(a_nz0, delr_st_norm[0], fma(a_nz1, delr_st_norm[1], a_nz2*delr_st_norm[2]));
+   if (cost5 > 1.0) cost5 = 1.0;
+   if (cost5 < -1.0) cost5 = -1.0;
+-  theta5 = acos(cost5);
++  theta5 = acosf(cost5);
+   theta5p = MY_PI_KK - theta5;
+   // f4t5 = f4(theta5,..) + f4(theta5p,..) modulation factors
+   f4t5 = F4_KK(theta5, d_a_cxst5(atype,btype), d_theta_cxst5_0(atype,btype), d_dtheta_cxst5_ast(atype,btype), 
+@@ -986,7 +988,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
+   cost6 = fma(b_nz0, delr_st_norm[0], fma(b_nz1, delr_st_norm[1], b_nz2*delr_st_norm[2]));
+   if (cost6 > 1.0) cost6 = 1.0;
+   if (cost6 < -1.0) cost6 = -1.0;
+-  theta6 = acos(cost6);
++  theta6 = acosf(cost6);
+   theta6p = MY_PI_KK - theta6;
+   // f4t6 = f4(theta6,..) + f4(theta6p,..) modulation factors
+   f4t6 = F4_KK(theta6, d_a_cxst6(atype,btype), d_theta_cxst6_0(atype,btype), d_dtheta_cxst6_ast(atype,btype), 
+diff --git a/src/KOKKOS/pair_oxdna_hbond_kokkos.cpp b/src/KOKKOS/pair_oxdna_hbond_kokkos.cpp
+index 0c90ae7..7c17cd6 100644
+--- a/src/KOKKOS/pair_oxdna_hbond_kokkos.cpp
++++ b/src/KOKKOS/pair_oxdna_hbond_kokkos.cpp
+@@ -28,9 +28,14 @@
+ #include "fix_oxdna_lrf_kokkos.h"
+ #include "fix_oxdna_npair_kokkos.h"
+ #include "mf_oxdna_kokkos.h"
++#include "math_const.h"
+ 
+ using namespace LAMMPS_NS;
++
++#include "oxdna_screened_toggle.h"
+ using namespace MFOxdnaKokkos;
++using MathConst::MY_PI;
++static constexpr KK_FLOAT MY_PI_KK = static_cast<KK_FLOAT>(MY_PI);
+ 
+ // NOTE: I've introduced some extra early returns in calls related to ComputeGPUPair.
+ // With the use of fma and trig identity "sin^2(theta) = 1 - cos^2(theta)", some of the
+@@ -136,12 +141,19 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
+   d_ny_xtrct = fix_oxdna_lrfKK->k_ny.template view<DeviceType>();
+   d_nz_xtrct = fix_oxdna_lrfKK->k_nz.template view<DeviceType>();
+ 
+-  // If we're on a GPU, look up fix_oxdna_npairKK screened pair count and pair_a/b views.
+-  if (execution_space != HostKK) {
++  // If we're on a GPU (or the host screened path is forced), look up the
++  // fix_oxdna_npairKK screened pair count and packed pair list.
++  const bool use_screened = (execution_space != HostKK) || oxdna_force_screened_host();
++  if (use_screened) {
+     screened_pair_count = fix_oxdna_npairKK->screened_pair_count;
+     d_pairs_screened = fix_oxdna_npairKK->k_pairs_screened.template view<DeviceType>();
+   }
+ 
++  // Prototype #1: fuse the hbond + xstk screened-pair kernels. Active only on
++  // the screened path, when requested, and when the xstk pair style is present.
++  const bool fuse = use_screened && oxdna_fuse_hbxstk() && (fused_xstkKK != nullptr);
++  if (fuse) fused_xstkKK->export_fused_coeffs(xstk_fc);
++
+   // loop over neighbors of my atoms for compute functors
+ 
+   EV_FLOAT ev;
+@@ -149,13 +161,19 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
+   // "run_compute" is just a little helper for CPU/GPU dispatch to improve code readability.
+   // It removes an extra if statement from each of the typical compute functor calls.
+   // Not sure why, but it improved performance too on GPU?
+-  auto run_compute = [&](auto host_tag, auto gpu_tag, const bool use_reduce) {
+-    if (execution_space == HostKK) {
++  auto run_compute = [&](auto host_tag, auto gpu_tag, auto fused_tag, const bool use_reduce) {
++    if (!use_screened) {
+       if (use_reduce) {
+         Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(host_tag)>(0,anum),*this,ev);
+       } else {
+         Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(host_tag)>(0,anum),*this);
+       }
++    } else if (fuse) {
++      if (use_reduce) {
++        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(fused_tag)>(0,screened_pair_count),*this,ev);
++      } else {
++        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(fused_tag)>(0,screened_pair_count),*this);
++      }
+     } else {
+       if (use_reduce) {
+         Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag)>(0,screened_pair_count),*this,ev);
+@@ -168,41 +186,41 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
+   if (evflag) {
+     if (neighflag == HALF) {
+       if (newton_pair) {
+-        run_compute(TagPairOxdnaHbondCompute<HALF,1,1>{}, TagPairOxdnaHbondComputeGPUPair<HALF,1,1>{}, true);
++        run_compute(TagPairOxdnaHbondCompute<HALF,1,1>{}, TagPairOxdnaHbondComputeGPUPair<HALF,1,1>{}, TagPairOxdnaHbXstkFused<HALF,1,1>{}, true);
+       } else {
+-        run_compute(TagPairOxdnaHbondCompute<HALF,0,1>{}, TagPairOxdnaHbondComputeGPUPair<HALF,0,1>{}, true);
++        run_compute(TagPairOxdnaHbondCompute<HALF,0,1>{}, TagPairOxdnaHbondComputeGPUPair<HALF,0,1>{}, TagPairOxdnaHbXstkFused<HALF,0,1>{}, true);
+       }
+     } else if (neighflag == HALFTHREAD) {
+       if (newton_pair) {
+-        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,1,1>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,1,1>{}, true);
++        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,1,1>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,1,1>{}, TagPairOxdnaHbXstkFused<HALFTHREAD,1,1>{}, true);
+       } else {
+-        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,0,1>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,0,1>{}, true);
++        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,0,1>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,0,1>{}, TagPairOxdnaHbXstkFused<HALFTHREAD,0,1>{}, true);
+       }
+     } else if (neighflag == FULL) {
+       if (newton_pair) {
+-        run_compute(TagPairOxdnaHbondCompute<FULL,1,1>{}, TagPairOxdnaHbondComputeGPUPair<FULL,1,1>{}, true);
++        run_compute(TagPairOxdnaHbondCompute<FULL,1,1>{}, TagPairOxdnaHbondComputeGPUPair<FULL,1,1>{}, TagPairOxdnaHbXstkFused<FULL,1,1>{}, true);
+       } else {
+-        run_compute(TagPairOxdnaHbondCompute<FULL,0,1>{}, TagPairOxdnaHbondComputeGPUPair<FULL,0,1>{}, true);
++        run_compute(TagPairOxdnaHbondCompute<FULL,0,1>{}, TagPairOxdnaHbondComputeGPUPair<FULL,0,1>{}, TagPairOxdnaHbXstkFused<FULL,0,1>{}, true);
+       }
+     }
+   } else {
+     if (neighflag == HALF) {
+       if (newton_pair) {
+-        run_compute(TagPairOxdnaHbondCompute<HALF,1,0>{}, TagPairOxdnaHbondComputeGPUPair<HALF,1,0>{}, false);
++        run_compute(TagPairOxdnaHbondCompute<HALF,1,0>{}, TagPairOxdnaHbondComputeGPUPair<HALF,1,0>{}, TagPairOxdnaHbXstkFused<HALF,1,0>{}, false);
+       } else {
+-        run_compute(TagPairOxdnaHbondCompute<HALF,0,0>{}, TagPairOxdnaHbondComputeGPUPair<HALF,0,0>{}, false);
++        run_compute(TagPairOxdnaHbondCompute<HALF,0,0>{}, TagPairOxdnaHbondComputeGPUPair<HALF,0,0>{}, TagPairOxdnaHbXstkFused<HALF,0,0>{}, false);
+       }
+     } else if (neighflag == HALFTHREAD) {
+       if (newton_pair) {
+-        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,1,0>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,1,0>{}, false);
++        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,1,0>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,1,0>{}, TagPairOxdnaHbXstkFused<HALFTHREAD,1,0>{}, false);
+       } else {
+-        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,0,0>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,0,0>{}, false);
++        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,0,0>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,0,0>{}, TagPairOxdnaHbXstkFused<HALFTHREAD,0,0>{}, false);
+       }
+     } else if (neighflag == FULL) {
+       if (newton_pair) {
+-        run_compute(TagPairOxdnaHbondCompute<FULL,1,0>{}, TagPairOxdnaHbondComputeGPUPair<FULL,1,0>{}, false);
++        run_compute(TagPairOxdnaHbondCompute<FULL,1,0>{}, TagPairOxdnaHbondComputeGPUPair<FULL,1,0>{}, TagPairOxdnaHbXstkFused<FULL,1,0>{}, false);
+       } else {
+-        run_compute(TagPairOxdnaHbondCompute<FULL,0,0>{}, TagPairOxdnaHbondComputeGPUPair<FULL,0,0>{}, false);
++        run_compute(TagPairOxdnaHbondCompute<FULL,0,0>{}, TagPairOxdnaHbondComputeGPUPair<FULL,0,0>{}, TagPairOxdnaHbXstkFused<FULL,0,0>{}, false);
+       }
+     }
+   }
+@@ -692,7 +710,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta1_terms(const int &atype, cons
+   KK_FLOAT cost1 = -fma(a_nx[2], b_nx[2], fma(a_nx[1], b_nx[1], a_nx[0] * b_nx[0]));
+   if (cost1 > 1.0) cost1 = 1.0;
+   if (cost1 < -1.0) cost1 = -1.0;
+-  theta1 = acos(cost1);
++  theta1 = acosf(cost1);
+ 
+   f4t1 = F4_KK(theta1, p_a_hb1, p_theta_hb1_0, p_dtheta_hb1_ast, p_b_hb1, p_dtheta_hb1_c);
+   if (!f4t1) return false;
+@@ -719,7 +737,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta2_terms(const int &atype, cons
+   cost2 = -fma(a_nx[2], delr_hb_norm[2], fma(a_nx[1], delr_hb_norm[1], a_nx[0] * delr_hb_norm[0]));
+   if (cost2 > 1.0) cost2 = 1.0;
+   if (cost2 < -1.0) cost2 = -1.0;
+-  theta2 = acos(cost2);
++  theta2 = acosf(cost2);
+ 
+   f4t2 = F4_KK(theta2, p_a_hb2, p_theta_hb2_0, p_dtheta_hb2_ast, p_b_hb2, p_dtheta_hb2_c);
+   if (!f4t2) return false;
+@@ -746,7 +764,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta3_terms(const int &atype, cons
+   cost3 = fma(b_nx[2], delr_hb_norm[2], fma(b_nx[1], delr_hb_norm[1], b_nx[0] * delr_hb_norm[0]));
+   if (cost3 > 1.0) cost3 = 1.0;
+   if (cost3 < -1.0) cost3 = -1.0;
+-  theta3 = acos(cost3);
++  theta3 = acosf(cost3);
+ 
+   f4t3 = F4_KK(theta3, p_a_hb3, p_theta_hb3_0, p_dtheta_hb3_ast, p_b_hb3, p_dtheta_hb3_c);
+   if (!f4t3) return false;
+@@ -773,7 +791,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta4_terms(const int &atype, cons
+   KK_FLOAT cost4 = fma(a_nz[2], b_nz[2], fma(a_nz[1], b_nz[1], a_nz[0] * b_nz[0]));
+   if (cost4 > 1.0) cost4 = 1.0;
+   if (cost4 < -1.0) cost4 = -1.0;
+-  theta4 = acos(cost4);
++  theta4 = acosf(cost4);
+ 
+   f4t4 = F4_KK(theta4, p_a_hb4, p_theta_hb4_0, p_dtheta_hb4_ast, p_b_hb4, p_dtheta_hb4_c);
+   if (!f4t4) return false;
+@@ -800,7 +818,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta7_terms(const int &atype, cons
+   cost7 = -fma(a_nz[2], delr_hb_norm[2], fma(a_nz[1], delr_hb_norm[1], a_nz[0] * delr_hb_norm[0]));
+   if (cost7 > 1.0) cost7 = 1.0;
+   if (cost7 < -1.0) cost7 = -1.0;
+-  theta7 = acos(cost7);
++  theta7 = acosf(cost7);
+ 
+   f4t7 = F4_KK(theta7, p_a_hb7, p_theta_hb7_0, p_dtheta_hb7_ast, p_b_hb7, p_dtheta_hb7_c);
+   if (!f4t7) return false;
+@@ -827,7 +845,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta8_terms(const int &atype, cons
+   cost8 = fma(b_nz[2], delr_hb_norm[2], fma(b_nz[1], delr_hb_norm[1], b_nz[0] * delr_hb_norm[0]));
+   if (cost8 > 1.0) cost8 = 1.0;
+   if (cost8 < -1.0) cost8 = -1.0;
+-  theta8 = acos(cost8);
++  theta8 = acosf(cost8);
+ 
+   f4t8 = F4_KK(theta8, p_a_hb8, p_theta_hb8_0, p_dtheta_hb8_ast, p_b_hb8, p_dtheta_hb8_c);
+   if (!f4t8) return false;
+@@ -1168,6 +1186,247 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondComputeGPUPai
+   (TagPairOxdnaHbondComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>(),ipair,ev);
+ }
+ 
++/* ----------------------------------------------------------------------
++   Prototype #1: fused hbond + xstk screened-pair kernel.
++
++   The hydrogen-bonding (F1) and cross-stacking (F2) terms both act on the same
++   base-site separation (COM + 0.4*nx) and share the same six interaction
++   angles (theta1..4,7,8). This kernel computes that geometry and the six
++   acosf() values ONCE per screened pair, then evaluates both interactions.
++   Each term self-cuts via its own radial modulation (F1 with the hbond cutoff,
++   F2 with the xstk cutoff), so the differing hbond/xstk radial cutoffs are
++   handled correctly even though the screened pair list is shared.
++
++   Forces/torques for the two terms are independent and simply summed. The
++   combined energy is tallied here (the xstk pair style skips its own pass when
++   fusion is active), so the total potential energy is unchanged; only the
++   per-style energy attribution differs.
++-------------------------------------------------------------------------- */
++
++template<class DeviceType>
++template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
++KOKKOS_INLINE_FUNCTION
++void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbXstkFused<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
++  const int &ipair, EV_FLOAT &ev) const
++{
++  auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
++  auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
++  auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
++    decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
++  auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
++
++  const uint64_t pair = d_pairs_screened(ipair);
++  const int a = static_cast<int>(pair >> 32);
++  const int atype = type(a);
++  int b = static_cast<int>(pair & 0xffffffffu);
++  const KK_FLOAT factor_lj = special_lj[sbmask(b)];
++  if (!factor_lj) return;
++  b &= NEIGHMASK;
++  const int btype = type(b);
++
++  const bool do_b = (NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal);
++  const KK_FLOAT ev_factor = do_b ? static_cast<KK_FLOAT>(1.0) : static_cast<KK_FLOAT>(0.5);
++
++  // --- shared base-site geometry (identical to hbond/xstk GPUPair kernels) ---
++  KK_FLOAT a_nx[3], a_nz[3], b_nx[3], b_nz[3];
++  a_nx[0]=d_nx_xtrct(a,0); a_nx[1]=d_nx_xtrct(a,1); a_nx[2]=d_nx_xtrct(a,2);
++  a_nz[0]=d_nz_xtrct(a,0); a_nz[1]=d_nz_xtrct(a,1); a_nz[2]=d_nz_xtrct(a,2);
++  b_nx[0]=d_nx_xtrct(b,0); b_nx[1]=d_nx_xtrct(b,1); b_nx[2]=d_nx_xtrct(b,2);
++  b_nz[0]=d_nz_xtrct(b,0); b_nz[1]=d_nz_xtrct(b,1); b_nz[2]=d_nz_xtrct(b,2);
++
++  constexpr KK_FLOAT d_chb=+0.4;
++  KK_FLOAT ra_chb[3], rb_chb[3];
++  ra_chb[0]=d_chb*a_nx[0]; ra_chb[1]=d_chb*a_nx[1]; ra_chb[2]=d_chb*a_nx[2];
++  rb_chb[0]=d_chb*b_nx[0]; rb_chb[1]=d_chb*b_nx[1]; rb_chb[2]=d_chb*b_nx[2];
++
++  KK_FLOAT delr_hb[3], delr_hb_norm[3];
++  delr_hb[0]=x(a,0)+ra_chb[0]-x(b,0)-rb_chb[0];
++  delr_hb[1]=x(a,1)+ra_chb[1]-x(b,1)-rb_chb[1];
++  delr_hb[2]=x(a,2)+ra_chb[2]-x(b,2)-rb_chb[2];
++
++  const KK_FLOAT rsq_hb = fma(delr_hb[2],delr_hb[2], fma(delr_hb[1],delr_hb[1], delr_hb[0]*delr_hb[0]));
++  if (rsq_hb <= static_cast<KK_FLOAT>(0.0)) return;
++  const KK_FLOAT rinv_hb = static_cast<KK_FLOAT>(1.0)/sqrtf(rsq_hb);
++  const KK_FLOAT r_hb = rsq_hb*rinv_hb;
++  delr_hb_norm[0]=delr_hb[0]*rinv_hb;
++  delr_hb_norm[1]=delr_hb[1]*rinv_hb;
++  delr_hb_norm[2]=delr_hb[2]*rinv_hb;
++
++  // --- shared cosines + angles (the expensive acosf, computed ONCE) ---
++  KK_FLOAT cost1=-fma(a_nx[2],b_nx[2], fma(a_nx[1],b_nx[1], a_nx[0]*b_nx[0]));
++  if (cost1> 1.0) cost1= 1.0; if (cost1<-1.0) cost1=-1.0;
++  const KK_FLOAT theta1=acosf(cost1);
++  KK_FLOAT cost2=-fma(a_nx[2],delr_hb_norm[2], fma(a_nx[1],delr_hb_norm[1], a_nx[0]*delr_hb_norm[0]));
++  if (cost2> 1.0) cost2= 1.0; if (cost2<-1.0) cost2=-1.0;
++  const KK_FLOAT theta2=acosf(cost2);
++  KK_FLOAT cost3= fma(b_nx[2],delr_hb_norm[2], fma(b_nx[1],delr_hb_norm[1], b_nx[0]*delr_hb_norm[0]));
++  if (cost3> 1.0) cost3= 1.0; if (cost3<-1.0) cost3=-1.0;
++  const KK_FLOAT theta3=acosf(cost3);
++  KK_FLOAT cost4= fma(a_nz[2],b_nz[2], fma(a_nz[1],b_nz[1], a_nz[0]*b_nz[0]));
++  if (cost4> 1.0) cost4= 1.0; if (cost4<-1.0) cost4=-1.0;
++  const KK_FLOAT theta4=acosf(cost4);
++  KK_FLOAT cost7=-fma(a_nz[2],delr_hb_norm[2], fma(a_nz[1],delr_hb_norm[1], a_nz[0]*delr_hb_norm[0]));
++  if (cost7> 1.0) cost7= 1.0; if (cost7<-1.0) cost7=-1.0;
++  const KK_FLOAT theta7=acosf(cost7);
++  KK_FLOAT cost8= fma(b_nz[2],delr_hb_norm[2], fma(b_nz[1],delr_hb_norm[1], b_nz[0]*delr_hb_norm[0]));
++  if (cost8> 1.0) cost8= 1.0; if (cost8<-1.0) cost8=-1.0;
++  const KK_FLOAT theta8=acosf(cost8);
++
++  // shared reciprocal-sine (theta in [0,pi] => sin>=0); xstk clamps <0 to 0,
++  // hbond skips when <=0. Compute the magnitude once; branches apply their guard.
++  const KK_FLOAT s1=fma(-cost1,cost1,static_cast<KK_FLOAT>(1.0));
++  const KK_FLOAT s2=fma(-cost2,cost2,static_cast<KK_FLOAT>(1.0));
++  const KK_FLOAT s3=fma(-cost3,cost3,static_cast<KK_FLOAT>(1.0));
++  const KK_FLOAT s4=fma(-cost4,cost4,static_cast<KK_FLOAT>(1.0));
++  const KK_FLOAT s7=fma(-cost7,cost7,static_cast<KK_FLOAT>(1.0));
++  const KK_FLOAT s8=fma(-cost8,cost8,static_cast<KK_FLOAT>(1.0));
++
++  KK_FLOAT delf[3], delta[3], deltb[3];
++
++  // ============================ HBOND (F1) ============================
++  {
++    const KK_FLOAT f1 = F1_KK(r_hb, d_epsilon_hb(atype,btype), d_a_hb(atype,btype),
++        d_cut_hb_0(atype,btype), d_cut_hb_lc(atype,btype), d_cut_hb_hc(atype,btype),
++        d_cut_hb_lo(atype,btype), d_cut_hb_hi(atype,btype),
++        d_b_hb_lo(atype,btype), d_b_hb_hi(atype,btype), d_shift_hb(atype,btype));
++    bool ok = (f1 != static_cast<KK_FLOAT>(0.0));
++    KK_FLOAT f4t1=0,f4t2=0,f4t3=0,f4t4=0,f4t7=0,f4t8=0;
++    if (ok) { f4t1=F4_KK(theta1,d_a_hb1(atype,btype),d_theta_hb1_0(atype,btype),d_dtheta_hb1_ast(atype,btype),d_b_hb1(atype,btype),d_dtheta_hb1_c(atype,btype)); ok = (f4t1!=0.0) && (s1> 0.0); }
++    if (ok) { f4t2=F4_KK(theta2,d_a_hb2(atype,btype),d_theta_hb2_0(atype,btype),d_dtheta_hb2_ast(atype,btype),d_b_hb2(atype,btype),d_dtheta_hb2_c(atype,btype)); ok = (f4t2!=0.0) && (s2> 0.0); }
++    if (ok) { f4t3=F4_KK(theta3,d_a_hb3(atype,btype),d_theta_hb3_0(atype,btype),d_dtheta_hb3_ast(atype,btype),d_b_hb3(atype,btype),d_dtheta_hb3_c(atype,btype)); ok = (f4t3!=0.0) && (s3> 0.0); }
++    if (ok) { f4t4=F4_KK(theta4,d_a_hb4(atype,btype),d_theta_hb4_0(atype,btype),d_dtheta_hb4_ast(atype,btype),d_b_hb4(atype,btype),d_dtheta_hb4_c(atype,btype)); ok = (f4t4!=0.0) && (s4> 0.0); }
++    if (ok) { f4t7=F4_KK(theta7,d_a_hb7(atype,btype),d_theta_hb7_0(atype,btype),d_dtheta_hb7_ast(atype,btype),d_b_hb7(atype,btype),d_dtheta_hb7_c(atype,btype)); ok = (f4t7!=0.0) && (s7> 0.0); }
++    if (ok) { f4t8=F4_KK(theta8,d_a_hb8(atype,btype),d_theta_hb8_0(atype,btype),d_dtheta_hb8_ast(atype,btype),d_b_hb8(atype,btype),d_dtheta_hb8_c(atype,btype)); ok = (f4t8!=0.0) && (s8> 0.0); }
++    KK_FLOAT evdwl = ok ? (f1*f4t1*f4t2*f4t3*f4t4*f4t7*f4t8*factor_lj) : static_cast<KK_FLOAT>(0.0);
++    if (ok && evdwl != static_cast<KK_FLOAT>(0.0)) {
++      const KK_FLOAT df1  = DF1_KK(r_hb, d_epsilon_hb(atype,btype), d_a_hb(atype,btype),
++          d_cut_hb_0(atype,btype), d_cut_hb_lc(atype,btype), d_cut_hb_hc(atype,btype),
++          d_cut_hb_lo(atype,btype), d_cut_hb_hi(atype,btype),
++          d_b_hb_lo(atype,btype), d_b_hb_hi(atype,btype));
++      const KK_FLOAT df4t1=DF4_KK(theta1,d_a_hb1(atype,btype),d_theta_hb1_0(atype,btype),d_dtheta_hb1_ast(atype,btype),d_b_hb1(atype,btype),d_dtheta_hb1_c(atype,btype))/sqrtf(s1);
++      const KK_FLOAT df4t2=DF4_KK(theta2,d_a_hb2(atype,btype),d_theta_hb2_0(atype,btype),d_dtheta_hb2_ast(atype,btype),d_b_hb2(atype,btype),d_dtheta_hb2_c(atype,btype))/sqrtf(s2);
++      const KK_FLOAT df4t3=DF4_KK(theta3,d_a_hb3(atype,btype),d_theta_hb3_0(atype,btype),d_dtheta_hb3_ast(atype,btype),d_b_hb3(atype,btype),d_dtheta_hb3_c(atype,btype))/sqrtf(s3);
++      const KK_FLOAT df4t4=DF4_KK(theta4,d_a_hb4(atype,btype),d_theta_hb4_0(atype,btype),d_dtheta_hb4_ast(atype,btype),d_b_hb4(atype,btype),d_dtheta_hb4_c(atype,btype))/sqrtf(s4);
++      const KK_FLOAT df4t7=DF4_KK(theta7,d_a_hb7(atype,btype),d_theta_hb7_0(atype,btype),d_dtheta_hb7_ast(atype,btype),d_b_hb7(atype,btype),d_dtheta_hb7_c(atype,btype))/sqrtf(s7);
++      const KK_FLOAT df4t8=DF4_KK(theta8,d_a_hb8(atype,btype),d_theta_hb8_0(atype,btype),d_dtheta_hb8_ast(atype,btype),d_b_hb8(atype,btype),d_dtheta_hb8_c(atype,btype))/sqrtf(s8);
++
++      delf[0]=delf[1]=delf[2]=0.0; delta[0]=delta[1]=delta[2]=0.0; deltb[0]=deltb[1]=deltb[2]=0.0;
++      hbond_force_contrib(f1,f4t1,f4t2,f4t3,f4t4,f4t7,f4t8, df1,df4t2,df4t3,df4t7,df4t8,
++        rinv_hb,factor_lj, theta2,theta3,theta7,theta8, cost2,cost3,cost7,cost8,
++        delr_hb,delr_hb_norm, a_nx,b_nx,a_nz,b_nz, ra_chb,rb_chb, delf,delta,deltb);
++      a_f(a,0)+=delf[0]; a_f(a,1)+=delf[1]; a_f(a,2)+=delf[2];
++      a_torque(a,0)+=delta[0]; a_torque(a,1)+=delta[1]; a_torque(a,2)+=delta[2];
++      if (do_b) {
++        a_f(b,0)-=delf[0]; a_f(b,1)-=delf[1]; a_f(b,2)-=delf[2];
++        a_torque(b,0)-=deltb[0]; a_torque(b,1)-=deltb[1]; a_torque(b,2)-=deltb[2];
++      }
++      if (EVFLAG) {
++        const KK_FLOAT e = ev_factor*evdwl;
++        ev.evdwl += e;
++        if (vflag_either || eflag_atom)
++          this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,e,delf[0],delf[1],delf[2],
++            x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
++      }
++      hbond_torque_contrib(f1,f4t1,f4t2,f4t3,f4t4,f4t7,f4t8, df4t1,df4t2,df4t3,df4t4,df4t7,df4t8,
++        factor_lj, theta1,theta2,theta3,theta4,theta7,theta8,
++        a_nx,b_nx,a_nz,b_nz, delr_hb_norm, delta,deltb);
++      a_torque(a,0)+=delta[0]; a_torque(a,1)+=delta[1]; a_torque(a,2)+=delta[2];
++      if (do_b) { a_torque(b,0)-=deltb[0]; a_torque(b,1)-=deltb[1]; a_torque(b,2)-=deltb[2]; }
++    }
++  }
++
++  // ========================= CROSS-STACKING (F2) =========================
++  {
++    const KK_FLOAT f2 = F2_KK(r_hb, xstk_fc.d_k_xst(atype,btype), xstk_fc.d_cut_xst_0(atype,btype),
++        xstk_fc.d_cut_xst_lc(atype,btype), xstk_fc.d_cut_xst_hc(atype,btype),
++        xstk_fc.d_cut_xst_lo(atype,btype), xstk_fc.d_cut_xst_hi(atype,btype),
++        xstk_fc.d_b_xst_lo(atype,btype), xstk_fc.d_b_xst_hi(atype,btype), xstk_fc.d_cut_xst_c(atype,btype));
++    bool ok = (f2 != static_cast<KK_FLOAT>(0.0));
++    const KK_FLOAT theta4p=fma(static_cast<KK_FLOAT>(-1.0),theta4,MY_PI_KK);
++    const KK_FLOAT theta7p=fma(static_cast<KK_FLOAT>(-1.0),theta7,MY_PI_KK);
++    const KK_FLOAT theta8p=fma(static_cast<KK_FLOAT>(-1.0),theta8,MY_PI_KK);
++    KK_FLOAT f4t1=0,f4t2=0,f4t3=0,f4t4=0,f4t7=0,f4t8=0;
++    if (ok) { f4t1=F4_KK(theta1,xstk_fc.d_a_xst1(atype,btype),xstk_fc.d_theta_xst1_0(atype,btype),xstk_fc.d_dtheta_xst1_ast(atype,btype),xstk_fc.d_b_xst1(atype,btype),xstk_fc.d_dtheta_xst1_c(atype,btype)); ok = (f4t1!=0.0); }
++    if (ok) { f4t2=F4_KK(theta2,xstk_fc.d_a_xst2(atype,btype),xstk_fc.d_theta_xst2_0(atype,btype),xstk_fc.d_dtheta_xst2_ast(atype,btype),xstk_fc.d_b_xst2(atype,btype),xstk_fc.d_dtheta_xst2_c(atype,btype)); ok = (f4t2!=0.0); }
++    if (ok) { f4t3=F4_KK(theta3,xstk_fc.d_a_xst3(atype,btype),xstk_fc.d_theta_xst3_0(atype,btype),xstk_fc.d_dtheta_xst3_ast(atype,btype),xstk_fc.d_b_xst3(atype,btype),xstk_fc.d_dtheta_xst3_c(atype,btype)); ok = (f4t3!=0.0); }
++    if (ok) {
++      f4t4=F4_KK(theta4,xstk_fc.d_a_xst4(atype,btype),xstk_fc.d_theta_xst4_0(atype,btype),xstk_fc.d_dtheta_xst4_ast(atype,btype),xstk_fc.d_b_xst4(atype,btype),xstk_fc.d_dtheta_xst4_c(atype,btype))
++         +F4_KK(theta4p,xstk_fc.d_a_xst4(atype,btype),xstk_fc.d_theta_xst4_0(atype,btype),xstk_fc.d_dtheta_xst4_ast(atype,btype),xstk_fc.d_b_xst4(atype,btype),xstk_fc.d_dtheta_xst4_c(atype,btype));
++      ok = (f4t4!=0.0);
++    }
++    if (ok) {
++      f4t7=F4_KK(theta7,xstk_fc.d_a_xst7(atype,btype),xstk_fc.d_theta_xst7_0(atype,btype),xstk_fc.d_dtheta_xst7_ast(atype,btype),xstk_fc.d_b_xst7(atype,btype),xstk_fc.d_dtheta_xst7_c(atype,btype))
++         +F4_KK(theta7p,xstk_fc.d_a_xst7(atype,btype),xstk_fc.d_theta_xst7_0(atype,btype),xstk_fc.d_dtheta_xst7_ast(atype,btype),xstk_fc.d_b_xst7(atype,btype),xstk_fc.d_dtheta_xst7_c(atype,btype));
++      ok = (f4t7!=0.0);
++    }
++    if (ok) {
++      f4t8=F4_KK(theta8,xstk_fc.d_a_xst8(atype,btype),xstk_fc.d_theta_xst8_0(atype,btype),xstk_fc.d_dtheta_xst8_ast(atype,btype),xstk_fc.d_b_xst8(atype,btype),xstk_fc.d_dtheta_xst8_c(atype,btype))
++         +F4_KK(theta8p,xstk_fc.d_a_xst8(atype,btype),xstk_fc.d_theta_xst8_0(atype,btype),xstk_fc.d_dtheta_xst8_ast(atype,btype),xstk_fc.d_b_xst8(atype,btype),xstk_fc.d_dtheta_xst8_c(atype,btype));
++    }
++    KK_FLOAT evdwl = ok ? (f2*f4t1*f4t2*f4t3*f4t4*f4t7*f4t8*factor_lj) : static_cast<KK_FLOAT>(0.0);
++    if (ok && evdwl != static_cast<KK_FLOAT>(0.0)) {
++      const KK_FLOAT s4c = (s4<0.0)?static_cast<KK_FLOAT>(0.0):s4;
++      const KK_FLOAT s7c = (s7<0.0)?static_cast<KK_FLOAT>(0.0):s7;
++      const KK_FLOAT s8c = (s8<0.0)?static_cast<KK_FLOAT>(0.0):s8;
++      const KK_FLOAT s1c = (s1<0.0)?static_cast<KK_FLOAT>(0.0):s1;
++      const KK_FLOAT s2c = (s2<0.0)?static_cast<KK_FLOAT>(0.0):s2;
++      const KK_FLOAT s3c = (s3<0.0)?static_cast<KK_FLOAT>(0.0):s3;
++      const KK_FLOAT df2 = DF2_KK(r_hb, xstk_fc.d_k_xst(atype,btype), xstk_fc.d_cut_xst_0(atype,btype),
++          xstk_fc.d_cut_xst_lc(atype,btype), xstk_fc.d_cut_xst_hc(atype,btype),
++          xstk_fc.d_cut_xst_lo(atype,btype), xstk_fc.d_cut_xst_hi(atype,btype),
++          xstk_fc.d_b_xst_lo(atype,btype), xstk_fc.d_b_xst_hi(atype,btype));
++      const KK_FLOAT df4t1=DF4_KK(theta1,xstk_fc.d_a_xst1(atype,btype),xstk_fc.d_theta_xst1_0(atype,btype),xstk_fc.d_dtheta_xst1_ast(atype,btype),xstk_fc.d_b_xst1(atype,btype),xstk_fc.d_dtheta_xst1_c(atype,btype))/sqrtf(s1c);
++      const KK_FLOAT df4t2=DF4_KK(theta2,xstk_fc.d_a_xst2(atype,btype),xstk_fc.d_theta_xst2_0(atype,btype),xstk_fc.d_dtheta_xst2_ast(atype,btype),xstk_fc.d_b_xst2(atype,btype),xstk_fc.d_dtheta_xst2_c(atype,btype))/sqrtf(s2c);
++      const KK_FLOAT df4t3=DF4_KK(theta3,xstk_fc.d_a_xst3(atype,btype),xstk_fc.d_theta_xst3_0(atype,btype),xstk_fc.d_dtheta_xst3_ast(atype,btype),xstk_fc.d_b_xst3(atype,btype),xstk_fc.d_dtheta_xst3_c(atype,btype))/sqrtf(s3c);
++      KK_FLOAT df4t4=DF4_KK(theta4,xstk_fc.d_a_xst4(atype,btype),xstk_fc.d_theta_xst4_0(atype,btype),xstk_fc.d_dtheta_xst4_ast(atype,btype),xstk_fc.d_b_xst4(atype,btype),xstk_fc.d_dtheta_xst4_c(atype,btype))
++         -DF4_KK(theta4p,xstk_fc.d_a_xst4(atype,btype),xstk_fc.d_theta_xst4_0(atype,btype),xstk_fc.d_dtheta_xst4_ast(atype,btype),xstk_fc.d_b_xst4(atype,btype),xstk_fc.d_dtheta_xst4_c(atype,btype));
++      df4t4/=sqrtf(s4c);
++      KK_FLOAT df4t7=DF4_KK(theta7,xstk_fc.d_a_xst7(atype,btype),xstk_fc.d_theta_xst7_0(atype,btype),xstk_fc.d_dtheta_xst7_ast(atype,btype),xstk_fc.d_b_xst7(atype,btype),xstk_fc.d_dtheta_xst7_c(atype,btype))
++         -DF4_KK(theta7p,xstk_fc.d_a_xst7(atype,btype),xstk_fc.d_theta_xst7_0(atype,btype),xstk_fc.d_dtheta_xst7_ast(atype,btype),xstk_fc.d_b_xst7(atype,btype),xstk_fc.d_dtheta_xst7_c(atype,btype));
++      df4t7/=sqrtf(s7c);
++      KK_FLOAT df4t8=DF4_KK(theta8,xstk_fc.d_a_xst8(atype,btype),xstk_fc.d_theta_xst8_0(atype,btype),xstk_fc.d_dtheta_xst8_ast(atype,btype),xstk_fc.d_b_xst8(atype,btype),xstk_fc.d_dtheta_xst8_c(atype,btype))
++         -DF4_KK(theta8p,xstk_fc.d_a_xst8(atype,btype),xstk_fc.d_theta_xst8_0(atype,btype),xstk_fc.d_dtheta_xst8_ast(atype,btype),xstk_fc.d_b_xst8(atype,btype),xstk_fc.d_dtheta_xst8_c(atype,btype));
++      df4t8/=sqrtf(s8c);
++
++      delf[0]=delf[1]=delf[2]=0.0; delta[0]=delta[1]=delta[2]=0.0; deltb[0]=deltb[1]=deltb[2]=0.0;
++      PairOxdnaXstkKokkos<DeviceType>::xstk_force_contrib(f2,f4t1,f4t2,f4t3,f4t4,f4t7,f4t8,
++        df2,df4t2,df4t3,df4t7,df4t8, rinv_hb,factor_lj, theta2,theta3,theta7,theta8,
++        cost2,cost3,cost7,cost8, delr_hb,delr_hb_norm, a_nx,b_nx,a_nz,b_nz, ra_chb,rb_chb,
++        delf,delta,deltb);
++      a_f(a,0)+=delf[0]; a_f(a,1)+=delf[1]; a_f(a,2)+=delf[2];
++      a_torque(a,0)+=delta[0]; a_torque(a,1)+=delta[1]; a_torque(a,2)+=delta[2];
++      if (do_b) {
++        a_f(b,0)-=delf[0]; a_f(b,1)-=delf[1]; a_f(b,2)-=delf[2];
++        a_torque(b,0)-=deltb[0]; a_torque(b,1)-=deltb[1]; a_torque(b,2)-=deltb[2];
++      }
++      if (EVFLAG) {
++        const KK_FLOAT e = ev_factor*evdwl;
++        ev.evdwl += e;
++        if (vflag_either || eflag_atom)
++          this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,e,delf[0],delf[1],delf[2],
++            x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
++      }
++      PairOxdnaXstkKokkos<DeviceType>::xstk_torque_contrib(f2,f4t1,f4t2,f4t3,f4t4,f4t7,f4t8,
++        df4t1,df4t2,df4t3,df4t4,df4t7,df4t8, factor_lj,
++        theta1,theta2,theta3,theta4,theta4p,theta7,theta8,
++        a_nx,b_nx,a_nz,b_nz, delr_hb_norm, delta,deltb);
++      a_torque(a,0)+=delta[0]; a_torque(a,1)+=delta[1]; a_torque(a,2)+=delta[2];
++      if (do_b) { a_torque(b,0)-=deltb[0]; a_torque(b,1)-=deltb[1]; a_torque(b,2)-=deltb[2]; }
++    }
++  }
++}
++
++template<class DeviceType>
++template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
++KOKKOS_INLINE_FUNCTION
++void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbXstkFused<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
++  const int &ipair) const
++{
++  EV_FLOAT ev;
++  this->template operator()<NEIGHFLAG,NEWTON_PAIR,EVFLAG>\
++  (TagPairOxdnaHbXstkFused<NEIGHFLAG,NEWTON_PAIR,EVFLAG>(),ipair,ev);
++}
++
+ /* ---------------------------------------------------------------------- */
+ 
+ template<class DeviceType>
+@@ -1312,6 +1571,11 @@ void PairOxdnaHbondKokkos<DeviceType>::init_style()
+     fix_oxdna_npairKK = dynamic_cast<FixOxdnaNpairKokkos<DeviceType> *>(npair_fixes[0]);
+   }
+   if (!fix_oxdna_npairKK) error->all(FLERR, "Fix oxdna/npair/kk lookup failed");
++
++  // Prototype #1: locate the cross-stacking pair style (a hybrid/overlay
++  // substyle) so its term can be evaluated inside the fused kernel. Optional:
++  // if absent, fusion stays disabled. Match "/xstk" (not "coaxstk").
++  fused_xstkKK = dynamic_cast<PairOxdnaXstkKokkos<DeviceType> *>(force->pair_match("/xstk", 0));
+ }
+ 
+ /* ---------------------------------------------------------------------- */
+diff --git a/src/KOKKOS/pair_oxdna_hbond_kokkos.h b/src/KOKKOS/pair_oxdna_hbond_kokkos.h
+index a975da6..8e509f3 100644
+--- a/src/KOKKOS/pair_oxdna_hbond_kokkos.h
++++ b/src/KOKKOS/pair_oxdna_hbond_kokkos.h
+@@ -30,6 +30,8 @@ PairStyle(oxdna2/hbond/kk/host,PairOxdnaHbondKokkos<LMPHostType>);
+ #include "pair_kokkos.h"
+ #include "pair_oxdna_hbond.h"
+ #include "neigh_list_kokkos.h"
++#include "pair_oxdna_xstk_kokkos.h"
++#include "oxdna_hbxstk_fused.h"
+ 
+ namespace LAMMPS_NS {
+ 
+@@ -45,6 +47,10 @@ struct TagPairOxdnaHbondCompute{};
+ template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+ struct TagPairOxdnaHbondComputeGPUPair{};
+ 
++// Prototype #1: fused hbond + xstk screened-pair kernel tag.
++template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
++struct TagPairOxdnaHbXstkFused{};
++
+ template<class DeviceType>
+ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
+  public:
+@@ -84,6 +90,18 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
+   KOKKOS_INLINE_FUNCTION
+   void operator()(TagPairOxdnaHbondComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
+ 
++// Fused hbond+xstk ComputeGPUPair Functor(s). 1 with EV_FLOAT, 1 without.
++
++  template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
++// NOLINTNEXTLINE
++  KOKKOS_INLINE_FUNCTION
++  void operator()(TagPairOxdnaHbXstkFused<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&, EV_FLOAT&) const;
++
++  template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
++// NOLINTNEXTLINE
++  KOKKOS_INLINE_FUNCTION
++  void operator()(TagPairOxdnaHbXstkFused<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
++
+   template<int NEIGHFLAG, int NEWTON_PAIR>
+ // NOLINTNEXTLINE
+   KOKKOS_INLINE_FUNCTION
+@@ -192,6 +210,10 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
+   FixOxdnaLRFKokkos<DeviceType> *fix_oxdna_lrfKK;    // ptr to oxdna/lrf/kk fix
+   FixOxdnaNpairKokkos<DeviceType> *fix_oxdna_npairKK;    // ptr to oxdna/npair/kk fix
+ 
++  // Prototype #1: fused hbond+xstk support.
++  PairOxdnaXstkKokkos<DeviceType> *fused_xstkKK = nullptr;  // ptr to oxdna2/xstk/kk pair
++  OxdnaXstkCoeffs<DeviceType> xstk_fc;                      // xstk coeff view handles
++
+  private:
+ 
+ // NOLINTNEXTLINE
+diff --git a/src/KOKKOS/pair_oxdna_xstk_kokkos.cpp b/src/KOKKOS/pair_oxdna_xstk_kokkos.cpp
+index c396246..b2648e4 100644
+--- a/src/KOKKOS/pair_oxdna_xstk_kokkos.cpp
++++ b/src/KOKKOS/pair_oxdna_xstk_kokkos.cpp
+@@ -31,6 +31,8 @@
+ #include "mf_oxdna_kokkos.h"
+ 
+ using namespace LAMMPS_NS;
++
++#include "oxdna_screened_toggle.h"
+ using namespace MFOxdnaKokkos;
+ using MathConst::MY_PI;
+ 
+@@ -81,6 +83,32 @@ PairOxdnaXstkKokkos<DeviceType>::~PairOxdnaXstkKokkos()
+   }
+ }
+ 
++/* ----------------------------------------------------------------------
++   Export cross-stacking coefficient view handles for the fused hbond+xstk
++   kernel (prototype). Shallow copies; valid after allocate()/coeff().
++------------------------------------------------------------------------- */
++
++template<class DeviceType>
++void PairOxdnaXstkKokkos<DeviceType>::export_fused_coeffs(OxdnaXstkCoeffs<DeviceType> &o) const
++{
++  o.d_k_xst = d_k_xst; o.d_cut_xst_0 = d_cut_xst_0; o.d_cut_xst_c = d_cut_xst_c;
++  o.d_cut_xst_lo = d_cut_xst_lo; o.d_cut_xst_hi = d_cut_xst_hi;
++  o.d_cut_xst_lc = d_cut_xst_lc; o.d_cut_xst_hc = d_cut_xst_hc;
++  o.d_b_xst_lo = d_b_xst_lo; o.d_b_xst_hi = d_b_xst_hi;
++  o.d_a_xst1 = d_a_xst1; o.d_theta_xst1_0 = d_theta_xst1_0; o.d_dtheta_xst1_ast = d_dtheta_xst1_ast;
++  o.d_b_xst1 = d_b_xst1; o.d_dtheta_xst1_c = d_dtheta_xst1_c;
++  o.d_a_xst2 = d_a_xst2; o.d_theta_xst2_0 = d_theta_xst2_0; o.d_dtheta_xst2_ast = d_dtheta_xst2_ast;
++  o.d_b_xst2 = d_b_xst2; o.d_dtheta_xst2_c = d_dtheta_xst2_c;
++  o.d_a_xst3 = d_a_xst3; o.d_theta_xst3_0 = d_theta_xst3_0; o.d_dtheta_xst3_ast = d_dtheta_xst3_ast;
++  o.d_b_xst3 = d_b_xst3; o.d_dtheta_xst3_c = d_dtheta_xst3_c;
++  o.d_a_xst4 = d_a_xst4; o.d_theta_xst4_0 = d_theta_xst4_0; o.d_dtheta_xst4_ast = d_dtheta_xst4_ast;
++  o.d_b_xst4 = d_b_xst4; o.d_dtheta_xst4_c = d_dtheta_xst4_c;
++  o.d_a_xst7 = d_a_xst7; o.d_theta_xst7_0 = d_theta_xst7_0; o.d_dtheta_xst7_ast = d_dtheta_xst7_ast;
++  o.d_b_xst7 = d_b_xst7; o.d_dtheta_xst7_c = d_dtheta_xst7_c;
++  o.d_a_xst8 = d_a_xst8; o.d_theta_xst8_0 = d_theta_xst8_0; o.d_dtheta_xst8_ast = d_dtheta_xst8_ast;
++  o.d_b_xst8 = d_b_xst8; o.d_dtheta_xst8_c = d_dtheta_xst8_c;
++}
++
+ /* ---------------------------------------------------------------------- */
+ 
+ template<class DeviceType>
+@@ -152,7 +180,7 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
+   d_nz_xtrct = fix_oxdna_lrfKK->k_nz.template view<DeviceType>();
+ 
+   // If we're on a GPU, look up fix_oxdna_npairKK screened pair count and packed pair view.
+-  if (execution_space != HostKK) {
++  if (execution_space != HostKK || oxdna_force_screened_host()) {
+     screened_pair_count = fix_oxdna_npairKK->screened_pair_count;
+     d_pairs_screened = fix_oxdna_npairKK->k_pairs_screened.template view<DeviceType>();
+   }
+@@ -164,14 +192,19 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
+   // "run_compute" is just a little helper for CPU/GPU dispatch to improve code readability.
+   // It removes an extra if statement from each of the typical compute functor calls.
+   // Not sure why, but it improved performance too on GPU?
++  const bool use_screened = (execution_space != HostKK) || oxdna_force_screened_host();
+   auto run_compute = [&](auto host_tag, auto gpu_tag, const bool use_reduce) {
+-    if (execution_space == HostKK) {
++    if (!use_screened) {
+       if (use_reduce) {
+         Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(host_tag)>(0,anum),*this,ev);
+       } else {
+         Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(host_tag)>(0,anum),*this);
+       }
+     } else {
++      // Prototype #1: when the fused hbond+xstk kernel is active, the cross-
++      // stacking term is evaluated inside the hbond pair style. Skip the xstk
++      // screened pass here to avoid double counting.
++      if (oxdna_fuse_hbxstk()) return;
+       if (use_reduce) {
+         Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag)>(0,screened_pair_count),*this,ev);
+       } else {
+@@ -766,7 +799,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta1_terms(const int &atype, const
+   KK_FLOAT cost1 = -fma(a_nx[2], b_nx[2], fma(a_nx[1], b_nx[1], a_nx[0] * b_nx[0]));
+   if (cost1 > 1.0) cost1 = 1.0;
+   if (cost1 < -1.0) cost1 = -1.0;
+-  theta1 = acos(cost1);
++  theta1 = acosf(cost1);
+ 
+   f4t1 = F4_KK(theta1, p_a_xst1, p_theta_xst1_0, p_dtheta_xst1_ast, p_b_xst1, p_dtheta_xst1_c);
+   if (!f4t1) return false;
+@@ -793,7 +826,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta2_terms(const int &atype, const
+   cost2 = -fma(a_nx[2], delr_hb_norm[2], fma(a_nx[1], delr_hb_norm[1], a_nx[0] * delr_hb_norm[0]));
+   if (cost2 > 1.0) cost2 = 1.0;
+   if (cost2 < -1.0) cost2 = -1.0;
+-  theta2 = acos(cost2);
++  theta2 = acosf(cost2);
+ 
+   f4t2 = F4_KK(theta2, p_a_xst2, p_theta_xst2_0, p_dtheta_xst2_ast, p_b_xst2, p_dtheta_xst2_c);
+   if (!f4t2) return false;
+@@ -820,7 +853,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta3_terms(const int &atype, const
+   cost3 = fma(b_nx[2], delr_hb_norm[2], fma(b_nx[1], delr_hb_norm[1], b_nx[0] * delr_hb_norm[0]));
+   if (cost3 > 1.0) cost3 = 1.0;
+   if (cost3 < -1.0) cost3 = -1.0;
+-  theta3 = acos(cost3);
++  theta3 = acosf(cost3);
+ 
+   f4t3 = F4_KK(theta3, p_a_xst3, p_theta_xst3_0, p_dtheta_xst3_ast, p_b_xst3, p_dtheta_xst3_c);
+   if (!f4t3) return false;
+@@ -847,7 +880,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta4_terms(const int &atype, const
+   KK_FLOAT cost4 = fma(a_nz[2], b_nz[2], fma(a_nz[1], b_nz[1], a_nz[0] * b_nz[0]));
+   if (cost4 > 1.0) cost4 = 1.0;
+   if (cost4 < -1.0) cost4 = -1.0;
+-  theta4 = acos(cost4);
++  theta4 = acosf(cost4);
+   theta4p = fma(static_cast<KK_FLOAT>(-1.0), theta4, MY_PI_KK);
+ 
+   f4t4 = F4_KK(theta4, p_a_xst4, p_theta_xst4_0, p_dtheta_xst4_ast, p_b_xst4, p_dtheta_xst4_c) +
+@@ -878,7 +911,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta7_terms(const int &atype, const
+   cost7 = -fma(a_nz[2], delr_hb_norm[2], fma(a_nz[1], delr_hb_norm[1], a_nz[0] * delr_hb_norm[0]));
+   if (cost7 > 1.0) cost7 = 1.0;
+   if (cost7 < -1.0) cost7 = -1.0;
+-  theta7 = acos(cost7);
++  theta7 = acosf(cost7);
+   const KK_FLOAT theta7p = fma(static_cast<KK_FLOAT>(-1.0), theta7, MY_PI_KK);
+ 
+   f4t7 = F4_KK(theta7, p_a_xst7, p_theta_xst7_0, p_dtheta_xst7_ast, p_b_xst7, p_dtheta_xst7_c) +
+@@ -909,7 +942,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta8_terms(const int &atype, const
+   cost8 = fma(b_nz[2], delr_hb_norm[2], fma(b_nz[1], delr_hb_norm[1], b_nz[0] * delr_hb_norm[0]));
+   if (cost8 > 1.0) cost8 = 1.0;
+   if (cost8 < -1.0) cost8 = -1.0;
+-  theta8 = acos(cost8);
++  theta8 = acosf(cost8);
+   const KK_FLOAT theta8p = fma(static_cast<KK_FLOAT>(-1.0), theta8, MY_PI_KK);
+ 
+   f4t8 = F4_KK(theta8, p_a_xst8, p_theta_xst8_0, p_dtheta_xst8_ast, p_b_xst8, p_dtheta_xst8_c) +
+@@ -925,165 +958,9 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta8_terms(const int &atype, const
+   return true;
+ }
+ 
+-// force and torque contributions.
+-
+-template<class DeviceType>
+-KOKKOS_INLINE_FUNCTION
+-void PairOxdnaXstkKokkos<DeviceType>::xstk_force_contrib(const KK_FLOAT &f2,
+-  const KK_FLOAT &f4t1, const KK_FLOAT &f4t2,
+-  const KK_FLOAT &f4t3, const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
+-  const KK_FLOAT &df2, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3, const KK_FLOAT &df4t7,
+-  const KK_FLOAT &df4t8, const KK_FLOAT &rinv_hb, const KK_FLOAT &factor_lj,
+-  const KK_FLOAT &theta2, const KK_FLOAT &theta3, const KK_FLOAT &theta7, const KK_FLOAT &theta8,
+-  const KK_FLOAT &cost2, const KK_FLOAT &cost3, const KK_FLOAT &cost7, const KK_FLOAT &cost8,
+-  const KK_FLOAT (&delr_hb)[3], const KK_FLOAT (&delr_hb_norm)[3],
+-  const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+-  const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+-  const KK_FLOAT (&ra_chb)[3], const KK_FLOAT (&rb_chb)[3],
+-  KK_FLOAT (&delf)[3], KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]) const
+-{
+-  KK_FLOAT finc;
+-
+-  finc  = -df2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
+-  delf[0] = fma(delr_hb[0], finc, delf[0]);
+-  delf[1] = fma(delr_hb[1], finc, delf[1]);
+-  delf[2] = fma(delr_hb[2], finc, delf[2]);
+-
+-  if (theta2) {
+-    finc = -f2 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
+-    const KK_FLOAT t2f0 = fma(delr_hb_norm[0], cost2, a_nx[0]);
+-    const KK_FLOAT t2f1 = fma(delr_hb_norm[1], cost2, a_nx[1]);
+-    const KK_FLOAT t2f2 = fma(delr_hb_norm[2], cost2, a_nx[2]);
+-    delf[0] = fma(t2f0, finc, delf[0]);
+-    delf[1] = fma(t2f1, finc, delf[1]);
+-    delf[2] = fma(t2f2, finc, delf[2]);
+-  }
+-
+-  if (theta3) {
+-    finc = -f2 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
+-    const KK_FLOAT t3f0 = fma(delr_hb_norm[0], cost3, -b_nx[0]);
+-    const KK_FLOAT t3f1 = fma(delr_hb_norm[1], cost3, -b_nx[1]);
+-    const KK_FLOAT t3f2 = fma(delr_hb_norm[2], cost3, -b_nx[2]);
+-    delf[0] = fma(t3f0, finc, delf[0]);
+-    delf[1] = fma(t3f1, finc, delf[1]);
+-    delf[2] = fma(t3f2, finc, delf[2]);
+-  }
+-
+-  if (theta7) {
+-    finc = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * rinv_hb * factor_lj;
+-    const KK_FLOAT t7f0 = fma(delr_hb_norm[0], cost7, a_nz[0]);
+-    const KK_FLOAT t7f1 = fma(delr_hb_norm[1], cost7, a_nz[1]);
+-    const KK_FLOAT t7f2 = fma(delr_hb_norm[2], cost7, a_nz[2]);
+-    delf[0] = fma(t7f0, finc, delf[0]);
+-    delf[1] = fma(t7f1, finc, delf[1]);
+-    delf[2] = fma(t7f2, finc, delf[2]);
+-  }
+-
+-  if (theta8) {
+-    finc = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * rinv_hb * factor_lj;
+-    const KK_FLOAT t8f0 = fma(delr_hb_norm[0], cost8, -b_nz[0]);
+-    const KK_FLOAT t8f1 = fma(delr_hb_norm[1], cost8, -b_nz[1]);
+-    const KK_FLOAT t8f2 = fma(delr_hb_norm[2], cost8, -b_nz[2]);
+-    delf[0] = fma(t8f0, finc, delf[0]);
+-    delf[1] = fma(t8f1, finc, delf[1]);
+-    delf[2] = fma(t8f2, finc, delf[2]);
+-  }
+-
+-  delta[0] = fma(ra_chb[1], delf[2], -ra_chb[2] * delf[1]);
+-  delta[1] = fma(ra_chb[2], delf[0], -ra_chb[0] * delf[2]);
+-  delta[2] = fma(ra_chb[0], delf[1], -ra_chb[1] * delf[0]);
++// xstk_force_contrib / xstk_torque_contrib are now defined in
++// pair_oxdna_xstk_kokkos.h so the fused hbond+xstk kernel can reuse them.
+ 
+-  deltb[0] = fma(rb_chb[1], delf[2], -rb_chb[2] * delf[1]);
+-  deltb[1] = fma(rb_chb[2], delf[0], -rb_chb[0] * delf[2]);
+-  deltb[2] = fma(rb_chb[0], delf[1], -rb_chb[1] * delf[0]);
+-}
+-
+-template<class DeviceType>
+-KOKKOS_INLINE_FUNCTION
+-void PairOxdnaXstkKokkos<DeviceType>::xstk_torque_contrib(const KK_FLOAT &f2,
+-  const KK_FLOAT &f4t1, const KK_FLOAT &f4t2, const KK_FLOAT &f4t3,
+-  const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
+-  const KK_FLOAT &df4t1, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3,
+-  const KK_FLOAT &df4t4, const KK_FLOAT &df4t7, const KK_FLOAT &df4t8,
+-  const KK_FLOAT &factor_lj,
+-  const KK_FLOAT &theta1, const KK_FLOAT &theta2, const KK_FLOAT &theta3,
+-  const KK_FLOAT &theta4, const KK_FLOAT &theta4p,
+-  const KK_FLOAT &theta7, const KK_FLOAT &theta8,
+-  const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+-  const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+-  const KK_FLOAT (&delr_hb_norm)[3],
+-  KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]) const
+-{
+-  delta[0] = 0.0;
+-  delta[1] = 0.0;
+-  delta[2] = 0.0;
+-  deltb[0] = 0.0;
+-  deltb[1] = 0.0;
+-  deltb[2] = 0.0;
+-
+-  KK_FLOAT tpair;
+-
+-  if (theta1) {
+-    tpair = -f2 * df4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
+-    const KK_FLOAT t1dir0 = fma(a_nx[1], b_nx[2], -a_nx[2] * b_nx[1]);
+-    const KK_FLOAT t1dir1 = fma(a_nx[2], b_nx[0], -a_nx[0] * b_nx[2]);
+-    const KK_FLOAT t1dir2 = fma(a_nx[0], b_nx[1], -a_nx[1] * b_nx[0]);
+-    delta[0] += t1dir0 * tpair;
+-    delta[1] += t1dir1 * tpair;
+-    delta[2] += t1dir2 * tpair;
+-    deltb[0] += t1dir0 * tpair;
+-    deltb[1] += t1dir1 * tpair;
+-    deltb[2] += t1dir2 * tpair;
+-  }
+-  if (theta2) {
+-    tpair = -f2 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
+-    const KK_FLOAT t2dir0 = fma(a_nx[1], delr_hb_norm[2], -a_nx[2] * delr_hb_norm[1]);
+-    const KK_FLOAT t2dir1 = fma(a_nx[2], delr_hb_norm[0], -a_nx[0] * delr_hb_norm[2]);
+-    const KK_FLOAT t2dir2 = fma(a_nx[0], delr_hb_norm[1], -a_nx[1] * delr_hb_norm[0]);
+-    delta[0] += t2dir0 * tpair;
+-    delta[1] += t2dir1 * tpair;
+-    delta[2] += t2dir2 * tpair;
+-  }
+-  if (theta3) {
+-    tpair = -f2 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
+-    const KK_FLOAT t3dir0 = fma(b_nx[1], delr_hb_norm[2], -b_nx[2] * delr_hb_norm[1]);
+-    const KK_FLOAT t3dir1 = fma(b_nx[2], delr_hb_norm[0], -b_nx[0] * delr_hb_norm[2]);
+-    const KK_FLOAT t3dir2 = fma(b_nx[0], delr_hb_norm[1], -b_nx[1] * delr_hb_norm[0]);
+-    deltb[0] += t3dir0 * tpair;
+-    deltb[1] += t3dir1 * tpair;
+-    deltb[2] += t3dir2 * tpair;
+-  }
+-  if (theta4 && theta4p) {
+-    tpair = -f2 * f4t1 * f4t2 * f4t3 * df4t4 * f4t7 * f4t8 * factor_lj;
+-    const KK_FLOAT t4dir0 = fma(b_nz[1], a_nz[2], -b_nz[2] * a_nz[1]);
+-    const KK_FLOAT t4dir1 = fma(b_nz[2], a_nz[0], -b_nz[0] * a_nz[2]);
+-    const KK_FLOAT t4dir2 = fma(b_nz[0], a_nz[1], -b_nz[1] * a_nz[0]);
+-    delta[0] += t4dir0 * tpair;
+-    delta[1] += t4dir1 * tpair;
+-    delta[2] += t4dir2 * tpair;
+-    deltb[0] += t4dir0 * tpair;
+-    deltb[1] += t4dir1 * tpair;
+-    deltb[2] += t4dir2 * tpair;
+-  }
+-  if (theta7) {
+-    tpair = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * factor_lj;
+-    const KK_FLOAT t7dir0 = fma(a_nz[1], delr_hb_norm[2], -a_nz[2] * delr_hb_norm[1]);
+-    const KK_FLOAT t7dir1 = fma(a_nz[2], delr_hb_norm[0], -a_nz[0] * delr_hb_norm[2]);
+-    const KK_FLOAT t7dir2 = fma(a_nz[0], delr_hb_norm[1], -a_nz[1] * delr_hb_norm[0]);
+-    delta[0] += t7dir0 * tpair;
+-    delta[1] += t7dir1 * tpair;
+-    delta[2] += t7dir2 * tpair;
+-  }
+-  if (theta8) {
+-    tpair = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * factor_lj;
+-    const KK_FLOAT t8dir0 = fma(b_nz[1], delr_hb_norm[2], -b_nz[2] * delr_hb_norm[1]);
+-    const KK_FLOAT t8dir1 = fma(b_nz[2], delr_hb_norm[0], -b_nz[0] * delr_hb_norm[2]);
+-    const KK_FLOAT t8dir2 = fma(b_nz[0], delr_hb_norm[1], -b_nz[1] * delr_hb_norm[0]);
+-    deltb[0] += t8dir0 * tpair;
+-    deltb[1] += t8dir1 * tpair;
+-    deltb[2] += t8dir2 * tpair;
+-  }
+-}
+ 
+ /* ---------------------------------------------------------------------- */
+ 
+diff --git a/src/KOKKOS/pair_oxdna_xstk_kokkos.h b/src/KOKKOS/pair_oxdna_xstk_kokkos.h
+index 4955862..c811dde 100644
+--- a/src/KOKKOS/pair_oxdna_xstk_kokkos.h
++++ b/src/KOKKOS/pair_oxdna_xstk_kokkos.h
+@@ -30,6 +30,7 @@ PairStyle(oxdna2/xstk/kk/host,PairOxdnaXstkKokkos<LMPHostType>);
+ #include "pair_kokkos.h"
+ #include "pair_oxdna_xstk.h"
+ #include "neigh_list_kokkos.h"
++#include "oxdna_hbxstk_fused.h"
+ 
+ namespace LAMMPS_NS {
+ 
+@@ -60,6 +61,12 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
+   void init_style() override;
+   double init_one(int, int) override;
+ 
++  // Prototype hbond+xstk fusion: export the cross-stacking coefficient view
++  // handles so the hbond style can evaluate the xstk term in a fused kernel.
++  void export_fused_coeffs(OxdnaXstkCoeffs<DeviceType> &out) const;
++
++  // Pure (argument-only) force/torque accumulators, reused by the fused kernel.
++  // Declared public so the hbond style can call them on the cross-stacking term.
+   // Standard non-GPU Compute Functor(s). 1 with EV_FLOAT, 1 without.
+ 
+   template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+@@ -250,9 +257,10 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
+     const KK_FLOAT (&b_nz)[3], const KK_FLOAT (&delr_hb_norm)[3],
+     KK_FLOAT &theta8, KK_FLOAT &cost8, KK_FLOAT &f4t8, KK_FLOAT &df4t8) const;
+ 
++ public:
+ // NOLINTNEXTLINE
+   KOKKOS_INLINE_FUNCTION
+-  void xstk_force_contrib(const KK_FLOAT &f2, const KK_FLOAT &f4t1, const KK_FLOAT &f4t2,
++  static void xstk_force_contrib(const KK_FLOAT &f2, const KK_FLOAT &f4t1, const KK_FLOAT &f4t2,
+     const KK_FLOAT &f4t3, const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
+     const KK_FLOAT &df2, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3, const KK_FLOAT &df4t7,
+     const KK_FLOAT &df4t8, const KK_FLOAT &rinv_hb, const KK_FLOAT &factor_lj,
+@@ -262,11 +270,11 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
+     const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+     const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+     const KK_FLOAT (&ra_chb)[3], const KK_FLOAT (&rb_chb)[3],
+-    KK_FLOAT (&delf)[3], KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]) const;
++    KK_FLOAT (&delf)[3], KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]);
+ 
+ // NOLINTNEXTLINE
+   KOKKOS_INLINE_FUNCTION
+-  void xstk_torque_contrib(const KK_FLOAT &f2,
++  static void xstk_torque_contrib(const KK_FLOAT &f2,
+     const KK_FLOAT &f4t1, const KK_FLOAT &f4t2, const KK_FLOAT &f4t3,
+     const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
+     const KK_FLOAT &df4t1, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3,
+@@ -278,9 +286,170 @@ class PairOxdnaXstkKokkos : public PairOxdnaXstk, public KokkosBase {
+     const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
+     const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
+     const KK_FLOAT (&delr_hb_norm)[3],
+-    KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]) const;
++    KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3]);
+ };
+ 
++// ---- out-of-class definitions (in header so the fused hbond+xstk kernel
++// in pair_oxdna_hbond_kokkos.cpp can reuse these device helpers) ----
++
++template<class DeviceType>
++KOKKOS_INLINE_FUNCTION
++void PairOxdnaXstkKokkos<DeviceType>::xstk_force_contrib(const KK_FLOAT &f2,
++  const KK_FLOAT &f4t1, const KK_FLOAT &f4t2,
++  const KK_FLOAT &f4t3, const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
++  const KK_FLOAT &df2, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3, const KK_FLOAT &df4t7,
++  const KK_FLOAT &df4t8, const KK_FLOAT &rinv_hb, const KK_FLOAT &factor_lj,
++  const KK_FLOAT &theta2, const KK_FLOAT &theta3, const KK_FLOAT &theta7, const KK_FLOAT &theta8,
++  const KK_FLOAT &cost2, const KK_FLOAT &cost3, const KK_FLOAT &cost7, const KK_FLOAT &cost8,
++  const KK_FLOAT (&delr_hb)[3], const KK_FLOAT (&delr_hb_norm)[3],
++  const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
++  const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
++  const KK_FLOAT (&ra_chb)[3], const KK_FLOAT (&rb_chb)[3],
++  KK_FLOAT (&delf)[3], KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3])
++{
++  KK_FLOAT finc;
++
++  finc  = -df2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
++  delf[0] = fma(delr_hb[0], finc, delf[0]);
++  delf[1] = fma(delr_hb[1], finc, delf[1]);
++  delf[2] = fma(delr_hb[2], finc, delf[2]);
++
++  if (theta2) {
++    finc = -f2 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
++    const KK_FLOAT t2f0 = fma(delr_hb_norm[0], cost2, a_nx[0]);
++    const KK_FLOAT t2f1 = fma(delr_hb_norm[1], cost2, a_nx[1]);
++    const KK_FLOAT t2f2 = fma(delr_hb_norm[2], cost2, a_nx[2]);
++    delf[0] = fma(t2f0, finc, delf[0]);
++    delf[1] = fma(t2f1, finc, delf[1]);
++    delf[2] = fma(t2f2, finc, delf[2]);
++  }
++
++  if (theta3) {
++    finc = -f2 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * rinv_hb * factor_lj;
++    const KK_FLOAT t3f0 = fma(delr_hb_norm[0], cost3, -b_nx[0]);
++    const KK_FLOAT t3f1 = fma(delr_hb_norm[1], cost3, -b_nx[1]);
++    const KK_FLOAT t3f2 = fma(delr_hb_norm[2], cost3, -b_nx[2]);
++    delf[0] = fma(t3f0, finc, delf[0]);
++    delf[1] = fma(t3f1, finc, delf[1]);
++    delf[2] = fma(t3f2, finc, delf[2]);
++  }
++
++  if (theta7) {
++    finc = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * rinv_hb * factor_lj;
++    const KK_FLOAT t7f0 = fma(delr_hb_norm[0], cost7, a_nz[0]);
++    const KK_FLOAT t7f1 = fma(delr_hb_norm[1], cost7, a_nz[1]);
++    const KK_FLOAT t7f2 = fma(delr_hb_norm[2], cost7, a_nz[2]);
++    delf[0] = fma(t7f0, finc, delf[0]);
++    delf[1] = fma(t7f1, finc, delf[1]);
++    delf[2] = fma(t7f2, finc, delf[2]);
++  }
++
++  if (theta8) {
++    finc = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * rinv_hb * factor_lj;
++    const KK_FLOAT t8f0 = fma(delr_hb_norm[0], cost8, -b_nz[0]);
++    const KK_FLOAT t8f1 = fma(delr_hb_norm[1], cost8, -b_nz[1]);
++    const KK_FLOAT t8f2 = fma(delr_hb_norm[2], cost8, -b_nz[2]);
++    delf[0] = fma(t8f0, finc, delf[0]);
++    delf[1] = fma(t8f1, finc, delf[1]);
++    delf[2] = fma(t8f2, finc, delf[2]);
++  }
++
++  delta[0] = fma(ra_chb[1], delf[2], -ra_chb[2] * delf[1]);
++  delta[1] = fma(ra_chb[2], delf[0], -ra_chb[0] * delf[2]);
++  delta[2] = fma(ra_chb[0], delf[1], -ra_chb[1] * delf[0]);
++
++  deltb[0] = fma(rb_chb[1], delf[2], -rb_chb[2] * delf[1]);
++  deltb[1] = fma(rb_chb[2], delf[0], -rb_chb[0] * delf[2]);
++  deltb[2] = fma(rb_chb[0], delf[1], -rb_chb[1] * delf[0]);
++}
++
++template<class DeviceType>
++KOKKOS_INLINE_FUNCTION
++void PairOxdnaXstkKokkos<DeviceType>::xstk_torque_contrib(const KK_FLOAT &f2,
++  const KK_FLOAT &f4t1, const KK_FLOAT &f4t2, const KK_FLOAT &f4t3,
++  const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
++  const KK_FLOAT &df4t1, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3,
++  const KK_FLOAT &df4t4, const KK_FLOAT &df4t7, const KK_FLOAT &df4t8,
++  const KK_FLOAT &factor_lj,
++  const KK_FLOAT &theta1, const KK_FLOAT &theta2, const KK_FLOAT &theta3,
++  const KK_FLOAT &theta4, const KK_FLOAT &theta4p,
++  const KK_FLOAT &theta7, const KK_FLOAT &theta8,
++  const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
++  const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
++  const KK_FLOAT (&delr_hb_norm)[3],
++  KK_FLOAT (&delta)[3], KK_FLOAT (&deltb)[3])
++{
++  delta[0] = 0.0;
++  delta[1] = 0.0;
++  delta[2] = 0.0;
++  deltb[0] = 0.0;
++  deltb[1] = 0.0;
++  deltb[2] = 0.0;
++
++  KK_FLOAT tpair;
++
++  if (theta1) {
++    tpair = -f2 * df4t1 * f4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
++    const KK_FLOAT t1dir0 = fma(a_nx[1], b_nx[2], -a_nx[2] * b_nx[1]);
++    const KK_FLOAT t1dir1 = fma(a_nx[2], b_nx[0], -a_nx[0] * b_nx[2]);
++    const KK_FLOAT t1dir2 = fma(a_nx[0], b_nx[1], -a_nx[1] * b_nx[0]);
++    delta[0] += t1dir0 * tpair;
++    delta[1] += t1dir1 * tpair;
++    delta[2] += t1dir2 * tpair;
++    deltb[0] += t1dir0 * tpair;
++    deltb[1] += t1dir1 * tpair;
++    deltb[2] += t1dir2 * tpair;
++  }
++  if (theta2) {
++    tpair = -f2 * f4t1 * df4t2 * f4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
++    const KK_FLOAT t2dir0 = fma(a_nx[1], delr_hb_norm[2], -a_nx[2] * delr_hb_norm[1]);
++    const KK_FLOAT t2dir1 = fma(a_nx[2], delr_hb_norm[0], -a_nx[0] * delr_hb_norm[2]);
++    const KK_FLOAT t2dir2 = fma(a_nx[0], delr_hb_norm[1], -a_nx[1] * delr_hb_norm[0]);
++    delta[0] += t2dir0 * tpair;
++    delta[1] += t2dir1 * tpair;
++    delta[2] += t2dir2 * tpair;
++  }
++  if (theta3) {
++    tpair = -f2 * f4t1 * f4t2 * df4t3 * f4t4 * f4t7 * f4t8 * factor_lj;
++    const KK_FLOAT t3dir0 = fma(b_nx[1], delr_hb_norm[2], -b_nx[2] * delr_hb_norm[1]);
++    const KK_FLOAT t3dir1 = fma(b_nx[2], delr_hb_norm[0], -b_nx[0] * delr_hb_norm[2]);
++    const KK_FLOAT t3dir2 = fma(b_nx[0], delr_hb_norm[1], -b_nx[1] * delr_hb_norm[0]);
++    deltb[0] += t3dir0 * tpair;
++    deltb[1] += t3dir1 * tpair;
++    deltb[2] += t3dir2 * tpair;
++  }
++  if (theta4 && theta4p) {
++    tpair = -f2 * f4t1 * f4t2 * f4t3 * df4t4 * f4t7 * f4t8 * factor_lj;
++    const KK_FLOAT t4dir0 = fma(b_nz[1], a_nz[2], -b_nz[2] * a_nz[1]);
++    const KK_FLOAT t4dir1 = fma(b_nz[2], a_nz[0], -b_nz[0] * a_nz[2]);
++    const KK_FLOAT t4dir2 = fma(b_nz[0], a_nz[1], -b_nz[1] * a_nz[0]);
++    delta[0] += t4dir0 * tpair;
++    delta[1] += t4dir1 * tpair;
++    delta[2] += t4dir2 * tpair;
++    deltb[0] += t4dir0 * tpair;
++    deltb[1] += t4dir1 * tpair;
++    deltb[2] += t4dir2 * tpair;
++  }
++  if (theta7) {
++    tpair = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * df4t7 * f4t8 * factor_lj;
++    const KK_FLOAT t7dir0 = fma(a_nz[1], delr_hb_norm[2], -a_nz[2] * delr_hb_norm[1]);
++    const KK_FLOAT t7dir1 = fma(a_nz[2], delr_hb_norm[0], -a_nz[0] * delr_hb_norm[2]);
++    const KK_FLOAT t7dir2 = fma(a_nz[0], delr_hb_norm[1], -a_nz[1] * delr_hb_norm[0]);
++    delta[0] += t7dir0 * tpair;
++    delta[1] += t7dir1 * tpair;
++    delta[2] += t7dir2 * tpair;
++  }
++  if (theta8) {
++    tpair = -f2 * f4t1 * f4t2 * f4t3 * f4t4 * f4t7 * df4t8 * factor_lj;
++    const KK_FLOAT t8dir0 = fma(b_nz[1], delr_hb_norm[2], -b_nz[2] * delr_hb_norm[1]);
++    const KK_FLOAT t8dir1 = fma(b_nz[2], delr_hb_norm[0], -b_nz[0] * delr_hb_norm[2]);
++    const KK_FLOAT t8dir2 = fma(b_nz[0], delr_hb_norm[1], -b_nz[1] * delr_hb_norm[0]);
++    deltb[0] += t8dir0 * tpair;
++    deltb[1] += t8dir1 * tpair;
++    deltb[2] += t8dir2 * tpair;
++  }
++}
++
+ }
+ 
+ #endif
+-- 
+2.43.0
+
