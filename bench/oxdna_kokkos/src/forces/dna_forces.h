@@ -514,10 +514,14 @@ c_number dh_pair(const c_number ra_bk[3], const c_number rb_bk[3],
 // Main nonbonded force dispatch — one kernel per pair (flat edge list)
 // -----------------------------------------------------------------------
 struct DNAForcesFunctor {
-    Vec4c poss;
-    Vec4c orientations;
-    Kokkos::View<const int *>         btype;
-    Kokkos::View<const LR_bonds *>    bonds;
+    // Gathered at random per-atom indices -> route through the read-only/texture
+    // cache (RandomAccess), like the standalone oxDNA __ldg reads.
+    Vec4cr poss;
+    Vec4cr orientations;
+    RandomRead<int>      btype;
+    RandomRead<LR_bonds> bonds;
+    // edge_i/edge_j are read sequentially (thread `edge` -> entry `edge`), so a
+    // plain coalesced view is already optimal here.
     Kokkos::View<const int *>         edge_i;
     Kokkos::View<const int *>         edge_j;
 

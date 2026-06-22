@@ -193,9 +193,11 @@ c_number bonded_pair(const c_number p5[3], const c_number a1[3], const c_number 
 
 // Gather functor: one thread per particle, no atomics.
 struct BondedFunctor {
-    Vec4 poss;
-    Vec4 orientations;
-    Kokkos::View<const LR_bonds *> bonds;
+    // Read-only gathers (i, n3, n5) via the read-only/texture cache.
+    Vec4cr poss;
+    Vec4cr orientations;
+    RandomRead<LR_bonds> bonds;
+    // Output at the thread's own index i (coalesced), so plain writable views.
     Vec4 forces;
     Vec4 torques;
     DNAParams par;

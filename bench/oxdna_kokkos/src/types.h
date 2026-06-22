@@ -32,6 +32,16 @@ struct LR_bonds {
 using Vec4  = Kokkos::View<c_number *[4], Kokkos::LayoutRight>;
 using Vec4c = Kokkos::View<const c_number *[4], Kokkos::LayoutRight>;
 
+// Read-only (RandomAccess) views route scattered gather reads through the GPU's
+// read-only/texture data cache (__ldg), matching the standalone oxDNA CUDA
+// kernels. Used for the per-atom data the per-edge force kernel gathers at
+// random indices (positions, orientations, types, bonds).
+using Vec4cr = Kokkos::View<const c_number *[4], Kokkos::LayoutRight,
+                            Kokkos::MemoryTraits<Kokkos::RandomAccess>>;
+template <class T>
+using RandomRead = Kokkos::View<const T *, Kokkos::MemoryTraits<Kokkos::RandomAccess>>;
+
+
 // Box: periodic boundary conditions (orthogonal)
 struct SimBox {
     c_number Lx, Ly, Lz;
