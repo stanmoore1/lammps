@@ -22,6 +22,15 @@
 #include "mf_oxdna.h"
 #include <Kokkos_Core.hpp>
 
+// Launch-bounds / register tuning for the bonded gather kernel (GPU). See the
+// note in dna_forces.h; sweep on the target GPU (no-op on CPU backends).
+#ifndef OXDNA_BOND_MAXT
+#define OXDNA_BOND_MAXT 128
+#endif
+#ifndef OXDNA_BOND_MINB
+#define OXDNA_BOND_MINB 6
+#endif
+
 KOKKOS_INLINE_FUNCTION
 void bx_cross(const c_number a[3], const c_number b[3], c_number c[3]) {
     c[0] = a[1]*b[2] - a[2]*b[1];
@@ -254,11 +263,13 @@ inline c_number compute_bonded_forces(ParticleArrays &p, const DNAParams &par,
     BondedFunctor fun;
     fun.poss = p.poss; fun.orientations = p.orientations; fun.bonds = p.bonds;
     fun.forces = p.forces; fun.torques = p.torques; fun.par = par; fun.box = box;
+    using BondPolicy = Kokkos::RangePolicy<Kokkos::LaunchBounds<OXDNA_BOND_MAXT, OXDNA_BOND_MINB>>;
+
     c_number etot = 0;
     if (want_energy) {
-        Kokkos::parallel_reduce("bonded_forces", Kokkos::RangePolicy<>(0, p.N), fun, etot);
+        Kokkos::parallel_reduce("bonded_forces", BondPolicy(0, p.N), fun, etot);
     } else {
-        Kokkos::parallel_for("bonded_forces", Kokkos::RangePolicy<>(0, p.N), fun);
+        Kokkos::parallel_for("bonded_forces", BondPolicy(0, p.N), fun);
     }
     return etot;
 }
