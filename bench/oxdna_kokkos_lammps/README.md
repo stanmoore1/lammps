@@ -1,4 +1,38 @@
-# oxDNA-Kokkos
+# oxDNA-Kokkos (LAMMPS-faithful variant)
+
+> **This is the `oxdna_kokkos_lammps` benchmark — the LAMMPS-faithful sibling of
+> `bench/oxdna_kokkos`.** It reads the *same* input files and produces the *same*
+> oxDNA energy output (`step time U K total`, per nucleotide) as `bench/oxdna_kokkos`,
+> but its internal force-kernel *structure* mirrors the **LAMMPS KOKKOS** oxDNA
+> implementation instead of the original CUDA standalone. The physics functions are
+> reused verbatim, so energies agree; only *which kernel calls them and how data is
+> read* changes. Use it to benchmark the LAMMPS kernel fragmentation head-to-head
+> against the CUDA-faithful `bench/oxdna_kokkos`.
+
+## How this differs from `bench/oxdna_kokkos` (CUDA-faithful)
+
+| Aspect | `bench/oxdna_kokkos` (CUDA-faithful) | `bench/oxdna_kokkos_lammps` (this, LAMMPS-faithful) |
+|---|---|---|
+| Body frames (a1,a2,a3) | recomputed from the quaternion inside every force kernel | **LRF precompute pass** (`compute_lrf`, mirrors `fix oxdna/lrf`): one thread/atom computes a1/a2/a3 and stores them in per-particle arrays `nx,ny,nz`; every force kernel *reads* these |
+| Nonbonded operator | one *fused* edge kernel computing excv + hbond + xstk + coaxstk + dh per pair | **one separate kernel per interaction term**: `excv`, `hbond`, `xstk`, `coaxstk`, `dh` (LAMMPS `pair oxdna/*`) |
+| Neighbor handling | flat edge list (one thread per pair) for everything | **excv & dh** iterate *per-atom* over the half neighbor matrix (`d_num_neigh`/`d_neigh_matrix`, each pair once — LAMMPS `neigh half` HALFTHREAD); **hbond, xstk, coaxstk** iterate over a **screened flat pair list** (`fix oxdna/npair`): pairs whose center-of-mass distance is within `rsq < 4.0` (r < 2.0), rebuilt only when the neighbor list rebuilds |
+| Bonded operator | one *fused* per-particle gather kernel (FENE + bonded-excv + stacking) | **two separate kernels**: `fene` (FENE + 3 bonded-excv terms, LAMMPS `bond oxdna/fene`) and `stk` (stacking, LAMMPS `pair oxdna/stk`) |
+
+**Per-step kernel sequence** (mirroring LAMMPS): LRF precompute → excv → hbond →
+xstk → coaxstk → dh → stk → fene (8 force kernels + the bonded LRF guard). Each
+term-kernel does its own atomic scatter into the shared force/torque arrays, so
+the order is interchangeable; the energies are summed into `epot_` exactly as
+before. (The screened pair list is rebuilt only on neighbor-list rebuild steps.)
+
+The physics helpers — `add_excv_contrib`, `hbond_pair`, `crst_pair`,
+`cxst_pair`, `dh_pair` (`forces/dna_forces.h`), and the split `bonded_fene_excv`
+/ `bonded_stk` (`forces/bonded.h`, identical math to the original fused
+`bonded_pair`) — are unchanged, so the printed oxDNA energy matches
+`bench/oxdna_kokkos` to FP round-off (exact on the oxDNA1 8bp duplex; identical
+through thousands of steps on the oxDNA2 N8 case, then drifting only at the level
+of floating-point operation-reordering chaos).
+
+---
 
 A portable, GPU-ready standalone implementation of the [oxDNA](https://github.com/lorenzo-rovigatti/oxdna)
 coarse-grained DNA model, written with [Kokkos](https://github.com/kokkos/kokkos).

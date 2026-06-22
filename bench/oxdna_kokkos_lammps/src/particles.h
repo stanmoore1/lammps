@@ -30,6 +30,13 @@ struct ParticleArrays {
     // Orientation as unit quaternion (w, x, y, z) stored in .x/.y/.z/.w
     Vec4 orientations;
 
+    // Precomputed body-frame basis vectors (LAMMPS-faithful "fix oxdna/lrf").
+    // nx=a1, ny=a2, nz=a3 are the rows of the rotation matrix from the quaternion.
+    // A dedicated LRF precompute kernel fills these once per step; every force
+    // kernel then READS them instead of recomputing from the quaternion.
+    // Stored as (x, y, z, 0) per particle.
+    Vec4 nx, ny, nz;
+
     // Bonded strand neighbours (n3, n5)
     Kokkos::View<LR_bonds *> bonds;
 
@@ -47,6 +54,9 @@ struct ParticleArrays {
         forces      = Vec4("forces",      n);
         torques     = Vec4("torques",     n);
         orientations= Vec4("orientations",n);
+        nx          = Vec4("nx",          n);
+        ny          = Vec4("ny",          n);
+        nz          = Vec4("nz",          n);
         bonds       = Kokkos::View<LR_bonds *>   ("bonds",       n);
         btype       = Kokkos::View<int *>        ("btype",       n);
     }

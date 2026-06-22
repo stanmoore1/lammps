@@ -39,6 +39,20 @@ struct NeighborList {
     Kokkos::View<int **>   d_neigh_matrix;   // [N][max_neigh]
     int max_neigh = 0;
 
+    // -------------------------------------------------------------------
+    // Screened flat pair list (LAMMPS-faithful "fix oxdna/npair").
+    // The hbond / xstk / coaxstk kernels run one thread per *screened* pair:
+    // a flat list of (a,b) pairs whose center-of-mass separation is within a
+    // constexpr screen cutoff (rsq_com < 4.0, i.e. r < 2.0 — the same value
+    // LAMMPS uses in fix_oxdna_npair_kokkos.cpp). Rebuilt only when the
+    // neighbor list rebuilds (inside build()).
+    // -------------------------------------------------------------------
+    Kokkos::View<int *>    screened_a;
+    Kokkos::View<int *>    screened_b;
+    Kokkos::View<int *>    d_screened_count; // device scalar (1 elem)
+    int N_screened = 0;
+    int screened_capacity = 0;
+
     // Cell list
     Kokkos::View<int *>    d_cell_count;     // particles per cell
     Kokkos::View<int *>    d_cell_offset;    // prefix-sum for cell start
@@ -82,6 +96,10 @@ struct NeighborList {
 
         edge_i = Kokkos::View<int *>("edge_i", 0);
         edge_j = Kokkos::View<int *>("edge_j", 0);
+
+        screened_a = Kokkos::View<int *>("screened_a", 0);
+        screened_b = Kokkos::View<int *>("screened_b", 0);
+        d_screened_count = Kokkos::View<int *>("screened_count", 1);
     }
 
     // Full rebuild
@@ -313,6 +331,50 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
     // Save reference positions for displacement check
     Kokkos::deep_copy(list_poss, p.poss);
     Kokkos::deep_copy(d_needs_rebuild, 0);
+
+    // -------------------------------------------------------------------
+    // Build the screened flat pair list (LAMMPS-faithful "fix oxdna/npair").
+    // Scan the per-atom half neighbor matrix and append (a,b) pairs whose
+    // center-of-mass distance is within the screen cutoff (rsq_com < 4.0).
+    // Grow-only flat arrays, filled with an atomic running index.
+    // -------------------------------------------------------------------
+    if (total_edges > screened_capacity) {
+        screened_capacity = total_edges + total_edges / 5 + 64;
+        screened_a = Kokkos::View<int *>("screened_a", screened_capacity);
+        screened_b = Kokkos::View<int *>("screened_b", screened_capacity);
+    }
+    Kokkos::deep_copy(d_screened_count, 0);
+    {
+        auto poss_d   = p.poss;
+        auto nmat     = d_neigh_matrix;
+        auto nnum     = d_num_neigh;
+        auto sa       = screened_a;
+        auto sb       = screened_b;
+        auto cnt      = d_screened_count;
+        auto box_d    = box;
+        constexpr c_number screen_cutsq = c_number(4.0);   // r < 2.0 (LAMMPS)
+        Kokkos::parallel_for("build_screened", N, KOKKOS_LAMBDA(int i) {
+            c_number xi = poss_d(i,0), yi = poss_d(i,1), zi = poss_d(i,2);
+            int m = nnum(i);
+            for (int k = 0; k < m; k++) {
+                int j = nmat(i, k);
+                c_number dx = poss_d(j,0) - xi;
+                c_number dy = poss_d(j,1) - yi;
+                c_number dz = poss_d(j,2) - zi;
+                box_d.wrap(dx, dy, dz);
+                if (dx*dx + dy*dy + dz*dz < screen_cutsq) {
+                    int slot = Kokkos::atomic_fetch_add(&cnt(0), 1);
+                    sa(slot) = i;
+                    sb(slot) = j;
+                }
+            }
+        });
+    }
+    {
+        auto h_cnt = Kokkos::create_mirror_view(d_screened_count);
+        Kokkos::deep_copy(h_cnt, d_screened_count);
+        N_screened = h_cnt(0);
+    }
 }
 
 inline bool NeighborList::needs_rebuild(const ParticleArrays &p, const SimBox &box) {

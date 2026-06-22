@@ -1,0 +1,15 @@
+# oxDNA1 8bp duplex benchmark — runnable by both oxdna_kokkos and oxdna_kokkos_lammps.
+interaction_type = DNA
+T = 20C
+dt = 0.003
+steps = 5000
+thermostat = brownian
+newtonian_steps = 103
+diff_coeff = 2.5
+verlet_skin = 0.5
+print_energy_every = 500
+seed = 12345
+refresh_vel = 1
+timing = 0
+topology = test.top
+conf_file = test.conf

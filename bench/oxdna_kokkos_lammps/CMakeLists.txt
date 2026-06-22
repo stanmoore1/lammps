@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
-project(oxdna_kokkos CXX)
+project(oxdna_kokkos_lammps CXX)
 
 # -----------------------------------------------------------------------
 # Kokkos: prefer an installed version; fall back to bundled LAMMPS source
 # -----------------------------------------------------------------------
 find_package(Kokkos QUIET)
 if(NOT Kokkos_FOUND)
-    # Default to the Kokkos bundled with this LAMMPS tree (bench/oxdna_kokkos -> lib/kokkos)
+    # Default to the Kokkos bundled with this LAMMPS tree (bench/oxdna_kokkos_lammps -> lib/kokkos)
     set(KOKKOS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/kokkos"
         CACHE PATH "Path to Kokkos source tree")
     if(NOT EXISTS "${KOKKOS_SOURCE_DIR}/CMakeLists.txt")
@@ -21,23 +21,23 @@ endif()
 # -----------------------------------------------------------------------
 # Executable
 # -----------------------------------------------------------------------
-add_executable(oxdna_kokkos
+add_executable(oxdna_kokkos_lammps
     src/main.cpp
 )
 
-target_compile_features(oxdna_kokkos PRIVATE cxx_std_20)
-target_link_libraries(oxdna_kokkos PRIVATE Kokkos::kokkos)
-target_include_directories(oxdna_kokkos PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_features(oxdna_kokkos_lammps PRIVATE cxx_std_20)
+target_link_libraries(oxdna_kokkos_lammps PRIVATE Kokkos::kokkos)
+target_include_directories(oxdna_kokkos_lammps PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # -----------------------------------------------------------------------
 # Precision (default: double)
 # -----------------------------------------------------------------------
 option(OXDNA_SINGLE_PRECISION "Use single precision (float)" OFF)
 if(OXDNA_SINGLE_PRECISION)
-    target_compile_definitions(oxdna_kokkos PRIVATE OXDNA_SINGLE_PRECISION)
-    message(STATUS "oxdna_kokkos: single precision enabled")
+    target_compile_definitions(oxdna_kokkos_lammps PRIVATE OXDNA_SINGLE_PRECISION)
+    message(STATUS "oxdna_kokkos_lammps: single precision enabled")
 else()
-    message(STATUS "oxdna_kokkos: double precision (default)")
+    message(STATUS "oxdna_kokkos_lammps: double precision (default)")
 endif()
 
 # -----------------------------------------------------------------------

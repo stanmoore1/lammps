@@ -20,6 +20,7 @@
 #include "params.h"
 #include "orient.h"
 #include "mf_oxdna.h"
+#include "dna_forces.h"   // compute_lrf (LRF precompute) + frame helpers
 #include <Kokkos_Core.hpp>
 
 // Launch-bounds / register tuning for the bonded gather kernel (GPU). See the
@@ -41,12 +42,20 @@ void bx_cross(const c_number a[3], const c_number b[3], c_number c[3]) {
 // One bond, 5' end = (p5, a1/a2/a3), 3' end = (p3, b1/b2/b3).
 // Accumulates force on the 5' end into F, torque on 5' into T5, on 3' into T3.
 // Returns the bond energy (FENE + bonded excv + stacking).
+// =======================================================================
+// LAMMPS-FAITHFUL split: the per-bond interaction is computed by TWO separate
+// kernels (LAMMPS has `bond oxdna/fene` and `pair oxdna/stk`):
+//   * bonded_fene_excv : FENE + the 3 bonded excluded-volume terms
+//   * bonded_stk       : stacking only
+// The math in each is byte-for-byte the same as the original fused bonded_pair
+// (which is retained below as an inline FENE+excv+stk = sum of the two halves).
+// =======================================================================
 KOKKOS_INLINE_FUNCTION
-c_number bonded_pair(const c_number p5[3], const c_number a1[3], const c_number a2[3], const c_number a3[3],
-                     const c_number p3[3], const c_number b1[3], const c_number b2[3], const c_number b3[3],
-                     const DNAParams &par, const SimBox &box,
-                     c_number (&F)[3], c_number (&T5)[3], c_number (&T3)[3]) {
-    const c_number pb1 = par.pb1, pb2 = par.pb2, dcbs = par.d_cbs, dcstk = par.d_cstk;
+c_number bonded_fene_excv(const c_number p5[3], const c_number a1[3], const c_number a2[3], const c_number a3[3],
+                          const c_number p3[3], const c_number b1[3], const c_number b2[3], const c_number b3[3],
+                          const DNAParams &par, const SimBox &box,
+                          c_number (&F)[3], c_number (&T5)[3], c_number (&T3)[3]) {
+    const c_number pb1 = par.pb1, pb2 = par.pb2, dcbs = par.d_cbs;
     c_number energy = 0;
 
     // 5'-3' COM separation (wrapped)
@@ -97,6 +106,22 @@ c_number bonded_pair(const c_number p5[3], const c_number a1[3], const c_number 
     excv(r5bs, r3bs, par.excv_bsbs);   // base(5') - base(3')
     excv(r5bs, r3bk, par.excv_bkbs);   // base(5') - back(3')
     excv(r5bk, r3bs, par.excv_bkbs);   // back(5') - base(3')
+
+    return energy;
+}
+
+// ---- Stacking only (LAMMPS `pair oxdna/stk`) ----
+KOKKOS_INLINE_FUNCTION
+c_number bonded_stk(const c_number p5[3], const c_number a1[3], const c_number a2[3], const c_number a3[3],
+                    const c_number p3[3], const c_number b1[3], const c_number b2[3], const c_number b3[3],
+                    const DNAParams &par, const SimBox &box,
+                    c_number (&F)[3], c_number (&T5)[3], c_number (&T3)[3]) {
+    const c_number dcstk = par.d_cstk;
+    c_number energy = 0;
+
+    // 5'-3' COM separation (wrapped)
+    c_number d53[3] = {p5[0]-p3[0], p5[1]-p3[1], p5[2]-p3[2]};
+    box.wrap(d53[0], d53[1], d53[2]);
 
     // ---- Stacking (b = 5', a = 3'; sites along a1/b1) ----
     {
@@ -200,24 +225,39 @@ c_number bonded_pair(const c_number p5[3], const c_number a1[3], const c_number 
     return energy;
 }
 
-// Gather functor: one thread per particle, no atomics.
-struct BondedFunctor {
-    // Read-only gathers (i, n3, n5) via the read-only/texture cache.
+KOKKOS_INLINE_FUNCTION
+void bonded_load_frame(const Vec4cr &nx, const Vec4cr &ny, const Vec4cr &nz, int i,
+                       c_number (&a1)[3], c_number (&a2)[3], c_number (&a3)[3]) {
+    a1[0]=nx(i,0); a1[1]=nx(i,1); a1[2]=nx(i,2);
+    a2[0]=ny(i,0); a2[1]=ny(i,1); a2[2]=ny(i,2);
+    a3[0]=nz(i,0); a3[1]=nz(i,1); a3[2]=nz(i,2);
+}
+
+// Gather functor template: one thread per particle, no atomics. Reads the
+// PRECOMPUTED body frames (nx/ny/nz) from the LRF pass. The template parameter
+// FENE selects which half-interaction this kernel computes:
+//   FENE=true  -> bonded_fene_excv (LAMMPS `bond oxdna/fene`)
+//   FENE=false -> bonded_stk        (LAMMPS `pair oxdna/stk`)
+template <bool FENE>
+struct BondedTermFunctor {
     Vec4cr poss;
-    Vec4cr orientations;
+    Vec4cr nx, ny, nz;
     RandomRead<LR_bonds> bonds;
-    // Output at the thread's own index i (coalesced), so plain writable views.
     Vec4 forces;
     Vec4 torques;
     DNAParams par;
     SimBox box;
 
-    // Forces-only entry point (parallel_for) for steps that don't output energy.
     KOKKOS_INLINE_FUNCTION
-    void operator()(int i) const {
-        c_number ev_unused = 0;
-        (*this)(i, ev_unused);
+    c_number bond_call(const c_number p5[3], const c_number a1[3], const c_number a2[3], const c_number a3[3],
+                       const c_number p3[3], const c_number b1[3], const c_number b2[3], const c_number b3[3],
+                       c_number (&F)[3], c_number (&T5)[3], c_number (&T3)[3]) const {
+        if (FENE) return bonded_fene_excv(p5,a1,a2,a3,p3,b1,b2,b3,par,box,F,T5,T3);
+        else      return bonded_stk      (p5,a1,a2,a3,p3,b1,b2,b3,par,box,F,T5,T3);
     }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(int i) const { c_number ev=0; (*this)(i, ev); }
 
     KOKKOS_INLINE_FUNCTION
     void operator()(int i, c_number &ev) const {
@@ -226,7 +266,7 @@ struct BondedFunctor {
         if (n3 < 0 && n5 < 0) return;
 
         c_number ai1[3], ai2[3], ai3[3];
-        get_vectors_from_quat_view(orientations, i, ai1, ai2, ai3);
+        bonded_load_frame(nx, ny, nz, i, ai1, ai2, ai3);
         c_number pi[3] = {poss(i,0), poss(i,1), poss(i,2)};
 
         c_number F[3] = {0,0,0}, Tt[3] = {0,0,0};
@@ -234,42 +274,58 @@ struct BondedFunctor {
         // bond (i = 5', n3 = 3'): take 5'-end contribution; count energy here
         if (n3 >= 0) {
             c_number bj1[3], bj2[3], bj3[3];
-            get_vectors_from_quat_view(orientations, n3, bj1, bj2, bj3);
+            bonded_load_frame(nx, ny, nz, n3, bj1, bj2, bj3);
             c_number pj[3] = {poss(n3,0), poss(n3,1), poss(n3,2)};
             c_number F5[3] = {0,0,0}, T5[3] = {0,0,0}, T3[3] = {0,0,0};
-            ev += bonded_pair(pi, ai1, ai2, ai3, pj, bj1, bj2, bj3, par, box, F5, T5, T3);
+            ev += bond_call(pi, ai1, ai2, ai3, pj, bj1, bj2, bj3, F5, T5, T3);
             F[0]+=F5[0]; F[1]+=F5[1]; F[2]+=F5[2];
             Tt[0]+=T5[0]; Tt[1]+=T5[1]; Tt[2]+=T5[2];
         }
         // bond (n5 = 5', i = 3'): take 3'-end contribution (force = -F5); energy counted by n5
         if (n5 >= 0) {
             c_number bj1[3], bj2[3], bj3[3];
-            get_vectors_from_quat_view(orientations, n5, bj1, bj2, bj3);
+            bonded_load_frame(nx, ny, nz, n5, bj1, bj2, bj3);
             c_number pj[3] = {poss(n5,0), poss(n5,1), poss(n5,2)};
             c_number F5[3] = {0,0,0}, T5[3] = {0,0,0}, T3[3] = {0,0,0};
-            bonded_pair(pj, bj1, bj2, bj3, pi, ai1, ai2, ai3, par, box, F5, T5, T3);
+            bond_call(pj, bj1, bj2, bj3, pi, ai1, ai2, ai3, F5, T5, T3);
             F[0]-=F5[0]; F[1]-=F5[1]; F[2]-=F5[2];
             Tt[0]+=T3[0]; Tt[1]+=T3[1]; Tt[2]+=T3[2];
         }
 
-        // each thread owns particle i -> plain add on top of the nonbonded result
         forces(i,0)+=F[0];  forces(i,1)+=F[1];  forces(i,2)+=F[2];
         torques(i,0)+=Tt[0]; torques(i,1)+=Tt[1]; torques(i,2)+=Tt[2];
     }
 };
 
-inline c_number compute_bonded_forces(ParticleArrays &p, const DNAParams &par,
-                                      const SimBox &box, bool want_energy = true) {
-    BondedFunctor fun;
-    fun.poss = p.poss; fun.orientations = p.orientations; fun.bonds = p.bonds;
+// Run one bonded term kernel. NOTE: requires the LRF precompute (compute_lrf)
+// to have populated p.nx/ny/nz first (done by compute_nonbonded_forces).
+template <bool FENE>
+inline c_number run_bonded_term(ParticleArrays &p, const DNAParams &par,
+                                const SimBox &box, bool want_energy,
+                                const char *label) {
+    BondedTermFunctor<FENE> fun;
+    fun.poss = p.poss; fun.nx = p.nx; fun.ny = p.ny; fun.nz = p.nz;
+    fun.bonds = p.bonds;
     fun.forces = p.forces; fun.torques = p.torques; fun.par = par; fun.box = box;
     using BondPolicy = Kokkos::RangePolicy<Kokkos::LaunchBounds<OXDNA_BOND_MAXT, OXDNA_BOND_MINB>>;
-
     c_number etot = 0;
-    if (want_energy) {
-        Kokkos::parallel_reduce("bonded_forces", BondPolicy(0, p.N), fun, etot);
-    } else {
-        Kokkos::parallel_for("bonded_forces", BondPolicy(0, p.N), fun);
-    }
+    if (want_energy) Kokkos::parallel_reduce(label, BondPolicy(0, p.N), fun, etot);
+    else             Kokkos::parallel_for(label, BondPolicy(0, p.N), fun);
     return etot;
+}
+
+// LAMMPS-faithful bonded driver: TWO separate kernels (stk, then fene),
+// mirroring `pair oxdna/stk` + `bond oxdna/fene`. Same public signature as
+// the original fused driver (so fd_test / xcheck build unchanged).
+inline c_number compute_bonded_forces(ParticleArrays &p, const DNAParams &par,
+                                      const SimBox &box, bool want_energy = true) {
+    // Ensure the precomputed body frames (nx/ny/nz) are current. In the normal
+    // per-step sequence compute_nonbonded_forces already ran the LRF pass, but
+    // calling it here too keeps this entry point self-contained (the validation
+    // tools may invoke the bonded kernels on their own).
+    compute_lrf(p);
+    c_number e = 0;
+    e += run_bonded_term<false>(p, par, box, want_energy, "oxdna_stk");   // stacking
+    e += run_bonded_term<true> (p, par, box, want_energy, "oxdna_fene");  // FENE + bonded excv
+    return e;
 }
