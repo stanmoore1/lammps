@@ -34,6 +34,7 @@ using namespace LAMMPS_NS;
 
 #include "oxdna_screened_toggle.h"
 using namespace MFOxdnaKokkos;
+#include "oxdna_screened_launch_bounds.h"
 using MathConst::MY_PI;
 
 namespace {
@@ -207,9 +208,9 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       // energy/virial is requested, so run normally in that case.
       if (fused_hbondKK != nullptr && !(eflag_atom || vflag_atom)) return;
       if (use_reduce) {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag)>(0,screened_pair_count),*this,ev);
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag), OXDNA_SCREENED_LAUNCH_BOUNDS>(0,screened_pair_count),*this,ev);
       } else {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag)>(0,screened_pair_count),*this);
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag), OXDNA_SCREENED_LAUNCH_BOUNDS>(0,screened_pair_count),*this);
       }
     }
   };

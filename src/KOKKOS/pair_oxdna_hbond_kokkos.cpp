@@ -34,6 +34,7 @@ using namespace LAMMPS_NS;
 
 #include "oxdna_screened_toggle.h"
 using namespace MFOxdnaKokkos;
+#include "oxdna_screened_launch_bounds.h"
 using MathConst::MY_PI;
 static constexpr KK_FLOAT MY_PI_KK = static_cast<KK_FLOAT>(MY_PI);
 
@@ -176,15 +177,15 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       }
     } else if (fuse) {
       if (use_reduce) {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(fused_tag)>(0,screened_pair_count),*this,evx);
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(fused_tag), OXDNA_SCREENED_LAUNCH_BOUNDS>(0,screened_pair_count),*this,evx);
       } else {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(fused_tag)>(0,screened_pair_count),*this);
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(fused_tag), OXDNA_SCREENED_LAUNCH_BOUNDS>(0,screened_pair_count),*this);
       }
     } else {
       if (use_reduce) {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag)>(0,screened_pair_count),*this,ev);
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag), OXDNA_SCREENED_LAUNCH_BOUNDS>(0,screened_pair_count),*this,ev);
       } else {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag)>(0,screened_pair_count),*this);
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag), OXDNA_SCREENED_LAUNCH_BOUNDS>(0,screened_pair_count),*this);
       }
     }
   };
