@@ -31,6 +31,7 @@
 
 using namespace LAMMPS_NS;
 using namespace MFOxdnaKokkos;
+#include "oxdna_screened_launch_bounds.h"
 
 // NOTE: I've introduced some extra early returns in calls related to ComputeGPUPair.
 // With the use of fma and trig identity "sin^2(theta) = 1 - cos^2(theta)", some of the
@@ -158,9 +159,9 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       }
     } else {
       if (use_reduce) {
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag)>(0,screened_pair_count),*this,ev);
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag), OXDNA_SCREENED_LAUNCH_BOUNDS>(0,screened_pair_count),*this,ev);
       } else {
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag)>(0,screened_pair_count),*this);
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag), OXDNA_SCREENED_LAUNCH_BOUNDS>(0,screened_pair_count),*this);
       }
     }
   };
