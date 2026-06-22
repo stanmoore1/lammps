@@ -134,11 +134,10 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
 {
   auto basis_set = aceimpl->basis_set;
 
-  if ((int)A.extent(0) < natom) {
+  if ((int)A_sph_re.extent(0) < natom) {
 
     MemKK::realloc_kokkos(A_sph_re, "pace:A_sph_re", natom, nelements, idx_sph_max, nradmax + 1);
     MemKK::realloc_kokkos(A_sph_im, "pace:A_sph_im", natom, nelements, idx_sph_max, nradmax + 1);
-    MemKK::realloc_kokkos(A, "pace:A", natom, nelements, (lmax + 1) * (lmax + 1), nradmax + 1);
     MemKK::realloc_kokkos(A_rank1, "pace:A_rank1", natom, nelements, nradbase);
 
     MemKK::realloc_kokkos(A_list, "pace:A_list", natom, idx_ms_combs_max, basis_set->rankmax);
@@ -724,11 +723,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       Kokkos::parallel_for("ComputeAi",policy_ai,*this);
     }
 
-    //ConjugateAi
-    {
-      typename Kokkos::RangePolicy<DeviceType,TagPairPACEConjugateAi> policy_conj_ai(0,chunk_size);
-      Kokkos::parallel_for("ConjugateAi",policy_conj_ai,*this);
-    }
+    // (ConjugateAi removed: ComputeRho reads A_sph directly via conjugate symmetry)
 
     //ComputeRho
     {
@@ -1113,48 +1108,6 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEConjugateAi, const int& ii) const
-{
-  for (int mu_j = 0; mu_j < nelements; mu_j++) {
-
-    // transpose
-
-    int idx_sph = 0;
-
-    for (int m = 0; m <= lmax; m++) {
-      for (int l = m; l <= lmax; l++) {
-        const int idx = l * (l + 1) + m;
-        for (int n = 0; n < nradmax; n++) {
-          A(ii, mu_j, idx, n) = complex(A_sph_re(ii, mu_j, idx_sph, n), A_sph_im(ii, mu_j, idx_sph, n));
-        }
-
-        idx_sph++;
-      }
-    }
-
-    // complex conjugate A's (for NEGATIVE (-m) terms)
-    //  for rank > 1
-
-    for (int l = 0; l <= lmax; l++) {
-        //fill in -m part in the outer loop using the same m <-> -m symmetry as for Ylm
-      for (int m = 1; m <= l; m++) {
-        const int idx = l * (l + 1) + m; // (l, m)
-        const int idxm = l * (l + 1) - m; // (l, -m)
-        const int idx_sph = d_idx_sph(idx);
-        const int factor = m % 2 == 0 ? 1 : -1;
-        for (int n = 0; n < nradmax; n++) {
-          A(ii, mu_j, idxm, n) = complex(A_sph_re(ii, mu_j, idx_sph, n), -A_sph_im(ii, mu_j, idx_sph, n)) * (KK_FLOAT)factor;
-        }
-      }
-    }
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-// NOLINTNEXTLINE
-KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& iter) const
 {
   const int idx_ms_combs = iter / chunk_size;
@@ -1193,8 +1146,22 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& i
       const int n = d_ns(mu_i, idx_func, t);
       const int l = d_ls(mu_i, idx_func, t);
       const int m = d_ms_combs(mu_i, idx_ms_combs, t); // current ms-combination (of length = rank)
-      const int idx = l * (l + 1) + m; // (l, m)
-      A_list(ii, idx_ms_combs, t) = A(ii, mu, idx, n - 1);
+      // Read A(l,m) directly from the half-basis A_sph using the conjugate
+      // symmetry A(l,-p) = (-1)^p * conj(A(l,p)); avoids storing/reading the
+      // full (both-sign) complex A array and the ConjugateAi expansion kernel.
+      complex A_t;
+      if (m >= 0) {
+        const int idx_sph = d_idx_sph(l * (l + 1) + m);
+        A_t.re = A_sph_re(ii, mu, idx_sph, n - 1);
+        A_t.im = A_sph_im(ii, mu, idx_sph, n - 1);
+      } else {
+        const int p = -m;
+        const int idx_sph = d_idx_sph(l * (l + 1) + p);
+        const KK_FLOAT factor = (p % 2 == 0) ? 1.0 : -1.0;
+        A_t.re =  A_sph_re(ii, mu, idx_sph, n - 1) * factor;
+        A_t.im = -A_sph_im(ii, mu, idx_sph, n - 1) * factor;
+      }
+      A_list(ii, idx_ms_combs, t) = A_t;
       A_forward_prod(ii, idx_ms_combs, t + 1) = A_forward_prod(ii, idx_ms_combs, t) * A_list(ii, idx_ms_combs, t);
     }
 
@@ -2120,7 +2087,6 @@ double PairPACEKokkos<DeviceType>::memory_usage()
 {
   double bytes = 0;
 
-  bytes += MemKK::memory_usage(A);
   bytes += MemKK::memory_usage(A_rank1);
   bytes += MemKK::memory_usage(A_sph_re);
   bytes += MemKK::memory_usage(A_sph_im);
