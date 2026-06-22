@@ -127,11 +127,16 @@ public:
             if (nl_.flag_is_set()) nl_.build(dev_, box_);
             auto c = mark(); t_neigh += sec(b, c);
 
+            // Potential energy is only needed on output steps. Off those steps,
+            // run the force kernels as plain parallel_for (no per-step reduction
+            // kernel / device->host scalar copy), which keeps higher occupancy.
+            const bool want_e = ((s + 1) % cfg_.output_freq == 0);
+
             dev_.zero_forces();
-            epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_);
+            epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_, want_e);
             auto e = mark(); t_nb += sec(c, e);
 
-            epot_ += compute_bonded_forces(dev_, par_, box_);
+            epot_ += compute_bonded_forces(dev_, par_, box_, want_e);
             auto f = mark(); t_bond += sec(e, f);
 
             second_step(dev_, cfg_.dt);
