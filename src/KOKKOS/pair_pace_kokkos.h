@@ -228,6 +228,13 @@ class PairPACEKokkos : public PairPACE {
       const KK_FLOAT rinv, const KK_FLOAT (&r_hat)[3], const KK_FLOAT wscale,
       KK_ACC_FLOAT (&f_ji)[3]) const;
 
+  // Read A(l,m) for atom-slot ii, element mu, radial index n from the half-basis
+  // A_sph using conjugate symmetry A(l,-p) = (-1)^p * conj(A(l,p)). Shared by
+  // ComputeRho (product) and ComputeWeights (leave-one-out product recompute).
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  complex read_A(const int ii, const int mu, const int l, const int m, const int n) const;
+
   template<class TagStyle>
   void check_team_size_for(int, int&, int);
 
@@ -265,8 +272,6 @@ class PairPACEKokkos : public PairPACE {
 
   t_ace_3d A_rank1;
 
-  t_ace_3c A_list;
-  t_ace_3c A_forward_prod;
 
   t_ace_3d weights_rank1;
   // Spherical-harmonic weights, stored as separate real/imaginary arrays
@@ -280,7 +285,6 @@ class PairPACEKokkos : public PairPACE {
   t_ace_2d rhos;
   t_ace_2d dF_drho;
 
-  t_ace_3c dB_flatten;
 
   // hard-core repulsion
   t_ace_1d rho_core;
