@@ -10,6 +10,31 @@
 // isotropic inertia, so lab-frame angular momentum integration is exact).
 
 #include "../types.h"
+
+// ---------------------------------------------------------------------------
+// Launch-bounds / register-pressure tuning for the nonbonded edge kernel (GPU).
+//
+// The edge kernel is register-heavy (all nonbonded terms inlined), so without a
+// register cap the compiler may use enough registers to limit occupancy. A
+// Kokkos::LaunchBounds<MaxThreadsPerBlock, MinBlocksPerSM> emits CUDA
+// __launch_bounds__, telling the compiler to fit at least MinBlocksPerSM blocks
+// of MaxThreadsPerBlock threads per SM (i.e. cap registers to
+// regs <= 65536 / (MaxThreads * MinBlocks) on most NVIDIA SMs).
+//
+// These defaults are a starting point, NOT a tuned optimum: the sweet spot is
+// GPU- and precision-dependent (too aggressive a MinBlocks forces register
+// spills and gets slower). Sweep them on the target GPU, e.g.
+//   -DOXDNA_NB_MAXT=64  -DOXDNA_NB_MINB=16   (mirrors oxDNA's 64-thread blocks)
+//   -DOXDNA_NB_MAXT=128 -DOXDNA_NB_MINB=8
+// and compare achieved occupancy / registers-per-thread in Nsight Compute.
+// LaunchBounds is ignored on CPU backends, so this is a no-op there.
+// ---------------------------------------------------------------------------
+#ifndef OXDNA_NB_MAXT
+#define OXDNA_NB_MAXT 128
+#endif
+#ifndef OXDNA_NB_MINB
+#define OXDNA_NB_MINB 6
+#endif
 #include "../particles.h"
 #include "../neighbor_list.h"
 #include "orient.h"
@@ -696,13 +721,15 @@ inline c_number compute_nonbonded_forces(
     fun.st           = st;
     fun.box          = box;
 
+    using NBPolicy = Kokkos::RangePolicy<Kokkos::LaunchBounds<OXDNA_NB_MAXT, OXDNA_NB_MINB>>;
+
     c_number etot = 0;
     if (want_energy) {
         Kokkos::parallel_reduce("dna_forces_nonbonded",
-            Kokkos::RangePolicy<>(0, nl.N_edges), fun, etot);
+            NBPolicy(0, nl.N_edges), fun, etot);
     } else {
         Kokkos::parallel_for("dna_forces_nonbonded",
-            Kokkos::RangePolicy<>(0, nl.N_edges), fun);
+            NBPolicy(0, nl.N_edges), fun);
     }
 
     Kokkos::Experimental::contribute(p.forces, sf);
