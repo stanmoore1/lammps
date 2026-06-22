@@ -77,7 +77,7 @@ class PairPACEKokkos : public PairPACE {
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairPACEComputeRho,const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeRho>::member_type& team) const;
+  void operator() (TagPairPACEComputeRho,const int& iter) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -103,7 +103,6 @@ class PairPACEKokkos : public PairPACE {
 
  protected:
   int inum, maxneigh, chunk_size, chunk_offset, idx_ms_combs_max, idx_sph_max;
-  int ndensitymax; // max densities over element types (for ComputeRho team scratch)
   int host_flag;
 
   int eflag, vflag;
@@ -130,13 +129,11 @@ class PairPACEKokkos : public PairPACE {
   static constexpr int team_size_compute_radial = 32;
   static constexpr int team_size_compute_ai = 32;
   static constexpr int team_size_compute_derivative = 32;
-  static constexpr int team_size_compute_rho = 16;
 #else
   static constexpr int team_size_compute_neigh = 1;
   static constexpr int team_size_compute_radial = 1;
   static constexpr int team_size_compute_ai = 1;
   static constexpr int team_size_compute_derivative = 1;
-  static constexpr int team_size_compute_rho = 1;
 #endif
 
   typename AT::t_neighbors_2d d_neighbors;

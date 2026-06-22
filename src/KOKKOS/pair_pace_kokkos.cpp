@@ -359,7 +359,6 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
   // flatten loops, get per-element count and max
 
   idx_ms_combs_max = 0;
-  ndensitymax = basis_set->ndensitymax;
   int total_basis_size_max = 0;
 
   MemKK::realloc_kokkos(d_idx_ms_combs_count, "pace:idx_ms_combs_count", nelements);
@@ -748,19 +747,9 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     //ComputeRho
     {
-      // SNAP-style team prototype: one team per atom, team threads cooperate
-      // over the ms-combinations. The per-thread A product chain is staged in
-      // team scratch (shared memory) rather than registers/local memory, and
-      // the densities rho(p) are summed with a team reduction (no atomics).
-      int vector_length = vector_length_default;
-      int team_size = team_size_compute_rho;
-      check_team_size_for<TagPairPACEComputeRho>(chunk_size,team_size,vector_length);
-      // scratch: per-thread forward-product chain [team_size][MAX_RANK+1] plus
-      // per-thread partial densities [team_size][ndensitymax].
-      int scratch_size = scratch_size_helper<complex>(team_size * (MAX_RANK + 1))
-                       + scratch_size_helper<KK_FLOAT>(team_size * ndensitymax);
-      typename Kokkos::TeamPolicy<DeviceType,TagPairPACEComputeRho> policy_rho(chunk_size,team_size,vector_length);
-      policy_rho = policy_rho.set_scratch_size(0, Kokkos::PerTeam(scratch_size));
+      // One thread per (atom, ms-combination); densities accumulated with
+      // atomics (rhos is first-touch zeroed in ComputeAi, which runs above).
+      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeRho> policy_rho(0,chunk_size * idx_ms_combs_max);
       Kokkos::parallel_for("ComputeRho",policy_rho,*this);
     }
 
@@ -1252,97 +1241,75 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAiTeam, const typ
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeRho>::member_type& team) const
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& iter) const
 {
-  // SNAP-style team kernel: one team per atom, team threads cooperate over the
-  // ms-combinations. The per-thread forward-product chain lives in team scratch
-  // (shared memory) instead of registers, and the densities are summed with a
-  // team reduction rather than global atomics.
-  const int ii = team.league_rank();
+  // One thread per (atom, ms-combination): different ms-combinations of the
+  // same atom accumulate into shared rhos slots, so accumulation uses atomics
+  // (rhos is first-touch zeroed in ComputeAi). The per-ms-combination A product
+  // chain is kept in thread-local arrays of size MAX_RANK (registers), so no
+  // global scratch is needed; dB_flatten stays global for ComputeWeights.
+  const int idx_ms_combs = iter / chunk_size;
+  const int ii = iter % chunk_size;
+
   const int i = d_ilist[ii + chunk_offset];
   const int mu_i = d_map(type(i));
 
+  if (idx_ms_combs >= d_idx_ms_combs_count(mu_i)) return;
+
   const int ndensity = d_ndensity(mu_i);
-  const int ms_combs_count = d_idx_ms_combs_count(mu_i);
-  const int team_size = team.team_size();
-  const int tr = team.team_rank();
 
-  // team scratch: per-thread forward-product chain, then per-thread partial
-  // densities. get_shmem is team-collective, so every thread sees the same base.
-  complex* fwd_all = (complex*) team.team_shmem().get_shmem(team_size * (MAX_RANK + 1) * sizeof(complex), 0);
-  KK_FLOAT* rho_all = (KK_FLOAT*) team.team_shmem().get_shmem(team_size * ndensitymax * sizeof(KK_FLOAT), 0);
-  complex* fwd = fwd_all + tr * (MAX_RANK + 1);
-  KK_FLOAT* my_rho = rho_all + tr * ndensitymax;
+  const int idx_func = d_idx_funcs(mu_i, idx_ms_combs);
+  const int rank = d_rank(mu_i, idx_func);
+  const int r = rank - 1;
 
-  // every thread zeroes its own partial-density slice (threads that get no
-  // ms-combinations must still contribute zeros to the reduction below)
-  for (int p = 0; p < ndensity; ++p)
-    my_rho[p] = 0.0;
-
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team, ms_combs_count), [&] (const int idx_ms_combs) {
-
-    const int idx_func = d_idx_funcs(mu_i, idx_ms_combs);
-    const int rank = d_rank(mu_i, idx_func);
-    const int r = rank - 1;
-
-    // Basis functions B with iterative product and density rho(p) calculation
-    if (rank == 1) {
-      const int mu = d_mus(mu_i, idx_func, 0);
-      const int n = d_ns(mu_i, idx_func, 0);
-      KK_FLOAT A_cur = A_rank1(ii, mu, n - 1);
-      for (int p = 0; p < ndensity; ++p) {
-        //for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
-        my_rho[p] += d_ctildes(mu_i, idx_ms_combs, p) * A_cur;
-      }
-    } else { // rank > 1
-      // loop over {ms} combinations in sum
-
-      // forward A-product chain, staged in this thread's team-scratch slice
-      fwd[0] = complex::one();
-      complex A_list_loc[MAX_RANK];
-
-      // fill forward A-product triangle
-      for (int t = 0; t < rank; t++) {
-        //TODO: optimize ns[t]-1 -> ns[t] during functions construction
-        const int mu = d_mus(mu_i, idx_func, t);
-        const int n = d_ns(mu_i, idx_func, t);
-        const int l = d_ls(mu_i, idx_func, t);
-        const int m = d_ms_combs(mu_i, idx_ms_combs, t); // current ms-combination (of length = rank)
-        const int idx = l * (l + 1) + m; // (l, m)
-        A_list_loc[t] = A(ii, mu, idx, n - 1);
-        fwd[t + 1] = fwd[t] * A_list_loc[t];
-      }
-
-      complex A_backward_prod = complex::one();
-
-      // fill backward A-product triangle
-      for (int t = r; t >= 1; t--) {
-        const complex dB = fwd[t] * A_backward_prod; // dB - product of all A's except t-th
-        dB_flatten(ii, idx_ms_combs, t) = dB;
-
-        A_backward_prod = A_backward_prod * A_list_loc[t];
-      }
-      dB_flatten(ii, idx_ms_combs, 0) = fwd[0] * A_backward_prod;
-
-      const complex B = fwd[rank];
-
-      for (int p = 0; p < ndensity; ++p) {
-        // real-part only multiplication
-        my_rho[p] += B.real_part_product(d_ctildes(mu_i, idx_ms_combs, p));
-      }
-    }
-  });
-
-  // sum the per-thread partial densities into rhos(ii, p) (no atomics)
-  team.team_barrier();
-  Kokkos::single(Kokkos::PerTeam(team), [&] () {
+  // Basis functions B with iterative product and density rho(p) calculation
+  if (rank == 1) {
+    const int mu = d_mus(mu_i, idx_func, 0);
+    const int n = d_ns(mu_i, idx_func, 0);
+    KK_FLOAT A_cur = A_rank1(ii, mu, n - 1);
     for (int p = 0; p < ndensity; ++p) {
-      KK_FLOAT s = 0.0;
-      for (int t = 0; t < team_size; ++t)
-        s += rho_all[t * ndensitymax + p];
-      rhos(ii, p) = s;
+      //for rank=1 (r=0) only 1 ms-combination exists (ms_ind=0), so index of func.ctildes is 0..ndensity-1
+      Kokkos::atomic_add(&rhos(ii, p), d_ctildes(mu_i, idx_ms_combs, p) * A_cur);
     }
-  });
+  } else { // rank > 1
+    // loop over {ms} combinations in sum
+
+    complex A_list_loc[MAX_RANK];
+    complex A_forward_prod_loc[MAX_RANK + 1];
+
+    // loop over m, collect B  = product of A with given ms
+    A_forward_prod_loc[0] = complex::one();
+
+    // fill forward A-product triangle
+    for (int t = 0; t < rank; t++) {
+      //TODO: optimize ns[t]-1 -> ns[t] during functions construction
+      const int mu = d_mus(mu_i, idx_func, t);
+      const int n = d_ns(mu_i, idx_func, t);
+      const int l = d_ls(mu_i, idx_func, t);
+      const int m = d_ms_combs(mu_i, idx_ms_combs, t); // current ms-combination (of length = rank)
+      const int idx = l * (l + 1) + m; // (l, m)
+      A_list_loc[t] = A(ii, mu, idx, n - 1);
+      A_forward_prod_loc[t + 1] = A_forward_prod_loc[t] * A_list_loc[t];
+    }
+
+    complex A_backward_prod = complex::one();
+
+    // fill backward A-product triangle
+    for (int t = r; t >= 1; t--) {
+      const complex dB = A_forward_prod_loc[t] * A_backward_prod; // dB - product of all A's except t-th
+      dB_flatten(ii, idx_ms_combs, t) = dB;
+
+      A_backward_prod = A_backward_prod * A_list_loc[t];
+    }
+    dB_flatten(ii, idx_ms_combs, 0) = A_forward_prod_loc[0] * A_backward_prod;
+
+    const complex B = A_forward_prod_loc[rank];
+
+    for (int p = 0; p < ndensity; ++p) {
+      // real-part only multiplication
+      Kokkos::atomic_add(&rhos(ii, p), B.real_part_product(d_ctildes(mu_i, idx_ms_combs, p)));
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------- */
