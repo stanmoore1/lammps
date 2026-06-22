@@ -1,0 +1,17 @@
+# oxDNA2 N512 benchmark — runnable by both oxdna_kokkos and the standalone oxDNA.
+# Run from this directory:  ../../build/oxdna_kokkos input
+interaction_type = DNA2
+salt_concentration = 1.0
+T = 20C
+dt = 0.003
+steps = 10000
+thermostat = brownian
+newtonian_steps = 103
+diff_coeff = 2.5
+verlet_skin = 0.5
+print_energy_every = 1000
+seed = 12345
+refresh_vel = 1
+timing = 0
+topology = topology_N512.top
+conf_file = init_conf_N512.dat
