@@ -140,6 +140,8 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   d_nx_xtrct = fix_oxdna_lrfKK->k_nx.template view<DeviceType>();
   d_ny_xtrct = fix_oxdna_lrfKK->k_ny.template view<DeviceType>();
   d_nz_xtrct = fix_oxdna_lrfKK->k_nz.template view<DeviceType>();
+  // dense orientation quaternion for in-kernel frame reconstruction (fused kernel)
+  d_quat_xtrct = fix_oxdna_lrfKK->k_quat.template view<DeviceType>();
 
   // If we're on a GPU (or the host screened path is forced), look up the
   // fix_oxdna_npairKK screened pair count and packed pair list.
@@ -1249,11 +1251,12 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbXstkFused<NEIGHF
   const KK_FLOAT ev_factor = do_b ? static_cast<KK_FLOAT>(1.0) : static_cast<KK_FLOAT>(0.5);
 
   // --- shared base-site geometry (identical to hbond/xstk GPUPair kernels) ---
+  // Standalone-oxDNA style: load one orientation quaternion (float4) per atom and
+  // reconstruct the nx/nz frame vectors in-register, instead of reading the
+  // precomputed nx/nz arrays (fewer, fully-coalesced loads: 4 floats vs 6).
   KK_FLOAT a_nx[3], a_nz[3], b_nx[3], b_nz[3];
-  a_nx[0]=d_nx_xtrct(a,0); a_nx[1]=d_nx_xtrct(a,1); a_nx[2]=d_nx_xtrct(a,2);
-  a_nz[0]=d_nz_xtrct(a,0); a_nz[1]=d_nz_xtrct(a,1); a_nz[2]=d_nz_xtrct(a,2);
-  b_nx[0]=d_nx_xtrct(b,0); b_nx[1]=d_nx_xtrct(b,1); b_nx[2]=d_nx_xtrct(b,2);
-  b_nz[0]=d_nz_xtrct(b,0); b_nz[1]=d_nz_xtrct(b,1); b_nz[2]=d_nz_xtrct(b,2);
+  oxdna_quat_to_nx_nz(d_quat_xtrct(a,0), d_quat_xtrct(a,1), d_quat_xtrct(a,2), d_quat_xtrct(a,3), a_nx, a_nz);
+  oxdna_quat_to_nx_nz(d_quat_xtrct(b,0), d_quat_xtrct(b,1), d_quat_xtrct(b,2), d_quat_xtrct(b,3), b_nx, b_nz);
 
   constexpr KK_FLOAT d_chb=+0.4;
   KK_FLOAT ra_chb[3], rb_chb[3];

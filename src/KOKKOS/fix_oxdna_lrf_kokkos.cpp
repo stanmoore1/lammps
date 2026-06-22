@@ -44,9 +44,11 @@ FixOxdnaLRFKokkos<DeviceType>::FixOxdnaLRFKokkos(LAMMPS *lmp, int narg, char **a
   MemKK::realloc_kokkos(k_nx, "FixOxdnaLRF:nx", atom->nmax);
   MemKK::realloc_kokkos(k_ny, "FixOxdnaLRF:ny", atom->nmax);
   MemKK::realloc_kokkos(k_nz, "FixOxdnaLRF:nz", atom->nmax);
+  MemKK::realloc_kokkos(k_quat, "FixOxdnaLRF:quat", atom->nmax);
   d_nx = k_nx.template view<DeviceType>();
   d_ny = k_ny.template view<DeviceType>();
   d_nz = k_nz.template view<DeviceType>();
+  d_quat = k_quat.template view<DeviceType>();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -115,9 +117,11 @@ void FixOxdnaLRFKokkos<DeviceType>::compute_lrf_kokkos()
     MemKK::realloc_kokkos(k_nx, "FixOxdnaLRFKokkos:nx", atom->nmax);
     MemKK::realloc_kokkos(k_ny, "FixOxdnaLRFKokkos:ny", atom->nmax);
     MemKK::realloc_kokkos(k_nz, "FixOxdnaLRFKokkos:nz", atom->nmax);
+    MemKK::realloc_kokkos(k_quat, "FixOxdnaLRFKokkos:quat", atom->nmax);
     d_nx = k_nx.template view<DeviceType>();
     d_ny = k_ny.template view<DeviceType>();
     d_nz = k_nz.template view<DeviceType>();
+    d_quat = k_quat.template view<DeviceType>();
   }
 
   atomKK->sync(execution_space, datamask_read);
@@ -133,6 +137,7 @@ void FixOxdnaLRFKokkos<DeviceType>::compute_lrf_kokkos()
   k_nx.template modify<DeviceType>();
   k_ny.template modify<DeviceType>();
   k_nz.template modify<DeviceType>();
+  k_quat.template modify<DeviceType>();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -151,6 +156,7 @@ void FixOxdnaLRFKokkos<DeviceType>::operator()(TagFixOxdnaLRFComputeQuatToXYZ, c
     d_nz(i, 0) = 0.0;
     d_nz(i, 1) = 0.0;
     d_nz(i, 2) = 0.0;
+    d_quat(i, 0) = 1.0; d_quat(i, 1) = 0.0; d_quat(i, 2) = 0.0; d_quat(i, 3) = 0.0;
     return;
   }
 
@@ -165,6 +171,7 @@ void FixOxdnaLRFKokkos<DeviceType>::operator()(TagFixOxdnaLRFComputeQuatToXYZ, c
     d_nz(i, 0) = 0.0;
     d_nz(i, 1) = 0.0;
     d_nz(i, 2) = 0.0;
+    d_quat(i, 0) = 1.0; d_quat(i, 1) = 0.0; d_quat(i, 2) = 0.0; d_quat(i, 3) = 0.0;
     return;
   }
 
@@ -172,6 +179,9 @@ void FixOxdnaLRFKokkos<DeviceType>::operator()(TagFixOxdnaLRFComputeQuatToXYZ, c
   const KK_FLOAT q1 = bonus(n).quat[1];
   const KK_FLOAT q2 = bonus(n).quat[2];
   const KK_FLOAT q3 = bonus(n).quat[3];
+
+  // Publish the quaternion (dense AoS) for in-kernel frame reconstruction.
+  d_quat(i, 0) = q0; d_quat(i, 1) = q1; d_quat(i, 2) = q2; d_quat(i, 3) = q3;
 
   const KK_FLOAT two = 2.0;
 

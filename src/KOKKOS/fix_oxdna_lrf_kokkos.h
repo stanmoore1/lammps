@@ -58,6 +58,13 @@ class FixOxdnaLRFKokkos : public Fix {
   DAT::tdual_kkfloat_1d_3_lr k_nx, k_ny, k_nz;
   typename AT::t_kkfloat_1d_3_lr d_nx, d_ny, d_nz;
 
+  // Dense per-atom orientation quaternion (AoS float4), published so kernels can
+  // reconstruct the frame vectors in-register (standalone-oxDNA style) instead of
+  // reading the precomputed nx/ny/nz. (Prototype: consumed by the fused hbond+xstk
+  // kernel only.)
+  DAT::tdual_kkfloat_1d_4_lr k_quat;
+  typename AT::t_kkfloat_1d_4_lr d_quat;
+
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixOxdnaLRFComputeQuatToXYZ, const int &) const;

@@ -35,6 +35,24 @@ struct s_EV_HBXST {
 };
 typedef struct s_EV_HBXST EV_HBXST;
 
+// Reconstruct the nx and nz frame vectors from an orientation quaternion, using
+// the exact fma expressions of FixOxdnaLRFKokkos so the result is bit-identical
+// to the precomputed d_nx/d_nz. (nx = first body axis a1, nz = third body axis
+// a3; the fused hbond+xstk kernel needs only these two.)
+KOKKOS_INLINE_FUNCTION
+static void oxdna_quat_to_nx_nz(const KK_FLOAT q0, const KK_FLOAT q1,
+                               const KK_FLOAT q2, const KK_FLOAT q3,
+                               KK_FLOAT (&nx)[3], KK_FLOAT (&nz)[3])
+{
+  const KK_FLOAT two = 2.0;
+  nx[0] = fma(q0, q0, fma(q1, q1, -fma(q2, q2, q3 * q3)));
+  nx[1] = two * fma(q1, q2, q0 * q3);
+  nx[2] = two * fma(q1, q3, -q0 * q2);
+  nz[0] = two * fma(q1, q3, q0 * q2);
+  nz[1] = two * fma(q2, q3, -q0 * q1);
+  nz[2] = fma(q0, q0, q3 * q3 - fma(q1, q1, q2 * q2));
+}
+
 template<class DeviceType>
 struct OxdnaXstkCoeffs {
   typedef ArrayTypes<DeviceType> AT;

@@ -181,6 +181,8 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
   // per-atom arrays for local unit vectors
   DAT::tdual_kkfloat_1d_3_lr k_nx_xtrct, k_ny_xtrct, k_nz_xtrct;
   typename AT::t_kkfloat_1d_3_lr_randomread d_nx_xtrct, d_ny_xtrct, d_nz_xtrct;
+  // dense orientation quaternion (AoS) for in-kernel frame reconstruction (fused kernel)
+  typename AT::t_kkfloat_1d_4_lr_randomread d_quat_xtrct;
 
   int first;
   typename AT::t_int_1d d_sendlist;
