@@ -766,7 +766,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta1_terms(const int &atype, const 
   KK_FLOAT cost1 = -fma(a_nx[2], b_nx[2], fma(a_nx[1], b_nx[1], a_nx[0] * b_nx[0]));
   if (cost1 > 1.0) cost1 = 1.0;
   if (cost1 < -1.0) cost1 = -1.0;
-  theta1 = acos(cost1);
+  theta1 = acosf(cost1);
 
   f4t1 = F4_KK(theta1, p_a_xst1, p_theta_xst1_0, p_dtheta_xst1_ast, p_b_xst1, p_dtheta_xst1_c);
   if (!f4t1) return false;
@@ -793,7 +793,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta2_terms(const int &atype, const 
   cost2 = -fma(a_nx[2], delr_hb_norm[2], fma(a_nx[1], delr_hb_norm[1], a_nx[0] * delr_hb_norm[0]));
   if (cost2 > 1.0) cost2 = 1.0;
   if (cost2 < -1.0) cost2 = -1.0;
-  theta2 = acos(cost2);
+  theta2 = acosf(cost2);
 
   f4t2 = F4_KK(theta2, p_a_xst2, p_theta_xst2_0, p_dtheta_xst2_ast, p_b_xst2, p_dtheta_xst2_c);
   if (!f4t2) return false;
@@ -820,7 +820,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta3_terms(const int &atype, const 
   cost3 = fma(b_nx[2], delr_hb_norm[2], fma(b_nx[1], delr_hb_norm[1], b_nx[0] * delr_hb_norm[0]));
   if (cost3 > 1.0) cost3 = 1.0;
   if (cost3 < -1.0) cost3 = -1.0;
-  theta3 = acos(cost3);
+  theta3 = acosf(cost3);
 
   f4t3 = F4_KK(theta3, p_a_xst3, p_theta_xst3_0, p_dtheta_xst3_ast, p_b_xst3, p_dtheta_xst3_c);
   if (!f4t3) return false;
@@ -847,7 +847,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta4_terms(const int &atype, const 
   KK_FLOAT cost4 = fma(a_nz[2], b_nz[2], fma(a_nz[1], b_nz[1], a_nz[0] * b_nz[0]));
   if (cost4 > 1.0) cost4 = 1.0;
   if (cost4 < -1.0) cost4 = -1.0;
-  theta4 = acos(cost4);
+  theta4 = acosf(cost4);
   theta4p = fma(static_cast<KK_FLOAT>(-1.0), theta4, MY_PI_KK);
 
   f4t4 = F4_KK(theta4, p_a_xst4, p_theta_xst4_0, p_dtheta_xst4_ast, p_b_xst4, p_dtheta_xst4_c) +
@@ -878,7 +878,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta7_terms(const int &atype, const 
   cost7 = -fma(a_nz[2], delr_hb_norm[2], fma(a_nz[1], delr_hb_norm[1], a_nz[0] * delr_hb_norm[0]));
   if (cost7 > 1.0) cost7 = 1.0;
   if (cost7 < -1.0) cost7 = -1.0;
-  theta7 = acos(cost7);
+  theta7 = acosf(cost7);
   const KK_FLOAT theta7p = fma(static_cast<KK_FLOAT>(-1.0), theta7, MY_PI_KK);
 
   f4t7 = F4_KK(theta7, p_a_xst7, p_theta_xst7_0, p_dtheta_xst7_ast, p_b_xst7, p_dtheta_xst7_c) +
@@ -909,7 +909,7 @@ bool PairOxdnaXstkKokkos<DeviceType>::xstk_theta8_terms(const int &atype, const 
   cost8 = fma(b_nz[2], delr_hb_norm[2], fma(b_nz[1], delr_hb_norm[1], b_nz[0] * delr_hb_norm[0]));
   if (cost8 > 1.0) cost8 = 1.0;
   if (cost8 < -1.0) cost8 = -1.0;
-  theta8 = acos(cost8);
+  theta8 = acosf(cost8);
   const KK_FLOAT theta8p = fma(static_cast<KK_FLOAT>(-1.0), theta8, MY_PI_KK);
 
   f4t8 = F4_KK(theta8, p_a_xst8, p_theta_xst8_0, p_dtheta_xst8_ast, p_b_xst8, p_dtheta_xst8_c) +

@@ -692,7 +692,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta1_terms(const int &atype, cons
   KK_FLOAT cost1 = -fma(a_nx[2], b_nx[2], fma(a_nx[1], b_nx[1], a_nx[0] * b_nx[0]));
   if (cost1 > 1.0) cost1 = 1.0;
   if (cost1 < -1.0) cost1 = -1.0;
-  theta1 = acos(cost1);
+  theta1 = acosf(cost1);
 
   f4t1 = F4_KK(theta1, p_a_hb1, p_theta_hb1_0, p_dtheta_hb1_ast, p_b_hb1, p_dtheta_hb1_c);
   if (!f4t1) return false;
@@ -719,7 +719,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta2_terms(const int &atype, cons
   cost2 = -fma(a_nx[2], delr_hb_norm[2], fma(a_nx[1], delr_hb_norm[1], a_nx[0] * delr_hb_norm[0]));
   if (cost2 > 1.0) cost2 = 1.0;
   if (cost2 < -1.0) cost2 = -1.0;
-  theta2 = acos(cost2);
+  theta2 = acosf(cost2);
 
   f4t2 = F4_KK(theta2, p_a_hb2, p_theta_hb2_0, p_dtheta_hb2_ast, p_b_hb2, p_dtheta_hb2_c);
   if (!f4t2) return false;
@@ -746,7 +746,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta3_terms(const int &atype, cons
   cost3 = fma(b_nx[2], delr_hb_norm[2], fma(b_nx[1], delr_hb_norm[1], b_nx[0] * delr_hb_norm[0]));
   if (cost3 > 1.0) cost3 = 1.0;
   if (cost3 < -1.0) cost3 = -1.0;
-  theta3 = acos(cost3);
+  theta3 = acosf(cost3);
 
   f4t3 = F4_KK(theta3, p_a_hb3, p_theta_hb3_0, p_dtheta_hb3_ast, p_b_hb3, p_dtheta_hb3_c);
   if (!f4t3) return false;
@@ -773,7 +773,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta4_terms(const int &atype, cons
   KK_FLOAT cost4 = fma(a_nz[2], b_nz[2], fma(a_nz[1], b_nz[1], a_nz[0] * b_nz[0]));
   if (cost4 > 1.0) cost4 = 1.0;
   if (cost4 < -1.0) cost4 = -1.0;
-  theta4 = acos(cost4);
+  theta4 = acosf(cost4);
 
   f4t4 = F4_KK(theta4, p_a_hb4, p_theta_hb4_0, p_dtheta_hb4_ast, p_b_hb4, p_dtheta_hb4_c);
   if (!f4t4) return false;
@@ -800,7 +800,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta7_terms(const int &atype, cons
   cost7 = -fma(a_nz[2], delr_hb_norm[2], fma(a_nz[1], delr_hb_norm[1], a_nz[0] * delr_hb_norm[0]));
   if (cost7 > 1.0) cost7 = 1.0;
   if (cost7 < -1.0) cost7 = -1.0;
-  theta7 = acos(cost7);
+  theta7 = acosf(cost7);
 
   f4t7 = F4_KK(theta7, p_a_hb7, p_theta_hb7_0, p_dtheta_hb7_ast, p_b_hb7, p_dtheta_hb7_c);
   if (!f4t7) return false;
@@ -827,7 +827,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta8_terms(const int &atype, cons
   cost8 = fma(b_nz[2], delr_hb_norm[2], fma(b_nz[1], delr_hb_norm[1], b_nz[0] * delr_hb_norm[0]));
   if (cost8 > 1.0) cost8 = 1.0;
   if (cost8 < -1.0) cost8 = -1.0;
-  theta8 = acos(cost8);
+  theta8 = acosf(cost8);
 
   f4t8 = F4_KK(theta8, p_a_hb8, p_theta_hb8_0, p_dtheta_hb8_ast, p_b_hb8, p_dtheta_hb8_c);
   if (!f4t8) return false;
