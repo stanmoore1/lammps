@@ -76,6 +76,9 @@ public:
         epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_);
         epot_ += compute_bonded_forces(dev_, par_, box_);
 
+        std::cout << "Precision: "
+                  << (sizeof(c_number) == 4 ? "single (float)" : "double")
+                  << " (" << (sizeof(c_number) * 8) << "-bit c_number)\n";
         std::cout << "Initialized " << N_ << " particles, "
                   << nl_.N_edges << " nonbonded pairs.\n";
     }
