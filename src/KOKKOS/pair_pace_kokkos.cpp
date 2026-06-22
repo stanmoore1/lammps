@@ -139,8 +139,8 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
   if (((int)fr.extent(0) < natom) || ((int)fr.extent(1) < maxneigh)) {
 
     // radial functions
-    MemKK::realloc_kokkos(fr, "pace:fr", natom, maxneigh, lmax + 1, nradmax);
-    MemKK::realloc_kokkos(dfr, "pace:dfr", natom, maxneigh, lmax + 1, nradmax);
+    MemKK::realloc_kokkos(fr, "pace:fr", natom, maxneigh, (lmax + 1) * nradmax);
+    MemKK::realloc_kokkos(dfr, "pace:dfr", natom, maxneigh, (lmax + 1) * nradmax);
     MemKK::realloc_kokkos(gr, "pace:gr", natom, maxneigh, nradbase);
     MemKK::realloc_kokkos(dgr, "pace:dgr", natom, maxneigh, nradbase);
     const int max_num_functions = MAX(nradbase, nradmax*(lmax + 1));
@@ -949,8 +949,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
     ylm.im = 0.0;
 
     for (int n = 0; n < nradmax; n++) {
-      Kokkos::atomic_add(&A_sph_re(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.re);
-      Kokkos::atomic_add(&A_sph_im(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.im);
+      Kokkos::atomic_add(&A_sph_re(ii, mu_j, idx_sph, n), fr(ii, jj, n * (lmax + 1) + l) * ylm.re);
+      Kokkos::atomic_add(&A_sph_im(ii, mu_j, idx_sph, n), fr(ii, jj, n * (lmax + 1) + l) * ylm.im);
     }
 
     plm_idx2 = plm_idx1;
@@ -978,8 +978,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
     ylm = phase * plm_idx;
 
     for (int n = 0; n < nradmax; n++) {
-      Kokkos::atomic_add(&A_sph_re(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.re);
-      Kokkos::atomic_add(&A_sph_im(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.im);
+      Kokkos::atomic_add(&A_sph_re(ii, mu_j, idx_sph, n), fr(ii, jj, n * (lmax + 1) + l) * ylm.re);
+      Kokkos::atomic_add(&A_sph_im(ii, mu_j, idx_sph, n), fr(ii, jj, n * (lmax + 1) + l) * ylm.im);
     }
 
     plm_idx2 = plm_idx1;
@@ -1017,8 +1017,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
       ylm.im = phasem.im * plm_idx;
 
       for (int n = 0; n < nradmax; n++) {
-        Kokkos::atomic_add(&A_sph_re(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.re);
-        Kokkos::atomic_add(&A_sph_im(ii, mu_j, idx_sph, n), fr(ii, jj, l, n) * ylm.im);
+        Kokkos::atomic_add(&A_sph_re(ii, mu_j, idx_sph, n), fr(ii, jj, n * (lmax + 1) + l) * ylm.re);
+        Kokkos::atomic_add(&A_sph_im(ii, mu_j, idx_sph, n), fr(ii, jj, n * (lmax + 1) + l) * ylm.im);
       }
 
       plm_idx2 = plm_idx1;
@@ -1265,8 +1265,8 @@ void PairPACEKokkos<DeviceType>::compute_derivative_radial(const int ii, const i
     w.re *= wscale;
     w.im *= wscale;
 
-    const KK_FLOAT R_over_r = fr(ii, jj, l, n) * rinv;
-    const KK_FLOAT DR = dfr(ii, jj, l, n);
+    const KK_FLOAT R_over_r = fr(ii, jj, n * (lmax + 1) + l) * rinv;
+    const KK_FLOAT DR = dfr(ii, jj, n * (lmax + 1) + l);
     const complex Y_DR = ylm * DR;
 
     complex grad_phi_nlm[3];
@@ -1829,15 +1829,11 @@ void PairPACEKokkos<DeviceType>::evaluate_splines(const int ii, const int jj, KK
 
   spline_gk.calcSplines(ii, jj, r, gr, dgr);
 
-  spline_rnl.calcSplines(ii, jj, r, d_values, d_derivatives);
-  for (int ll = 0; ll < (int)fr.extent(2); ll++) {
-    for (int kk = 0; kk < (int)fr.extent(3); kk++) {
-      const int flatten = kk*fr.extent(2) + ll;
-      fr(ii, jj, ll, kk) = d_values(ii, jj, flatten);
-      dfr(ii, jj, ll, kk) = d_derivatives(ii, jj, flatten);
-    }
-  }
+  // fr/dfr use the spline's flat (n*(lmax+1)+l) function order, so the rnl
+  // spline writes them directly -- no separate d_values buffer + copy pass.
+  spline_rnl.calcSplines(ii, jj, r, fr, dfr);
 
+  // the hard-core repulsion is always taken from its (single-function) spline
   spline_hc.calcSplines(ii, jj, r, d_values, d_derivatives);
   cr(ii, jj) = d_values(ii, jj, 0);
   dcr(ii, jj) = d_derivatives(ii, jj, 0);
