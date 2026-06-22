@@ -31,6 +31,8 @@
 #include "mf_oxdna_kokkos.h"
 
 using namespace LAMMPS_NS;
+
+#include "oxdna_screened_toggle.h"
 using namespace MFOxdnaKokkos;
 using MathConst::MY_PI;
 
@@ -137,7 +139,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   d_nz_xtrct = fix_oxdna_lrfKK->k_nz.template view<DeviceType>();
 
   // If we're on a GPU, look up fix_oxdna_npairKK screened pair count and packed pair view.
-  if (execution_space != HostKK) {
+  if (execution_space != HostKK || oxdna_force_screened_host()) {
     screened_pair_count = fix_oxdna_npairKK->screened_pair_count;
     d_pairs_screened = fix_oxdna_npairKK->k_pairs_screened.template view<DeviceType>();
   }
@@ -149,7 +151,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // "run_compute" is just a little helper for CPU/GPU dispatch to improve code readability.
   // It removes an extra if statement from each of the typical compute functor calls.
   auto run_compute = [&](auto host_tag, auto gpu_tag, const bool use_reduce) {
-    if (execution_space == HostKK) {
+    if (execution_space == HostKK && !oxdna_force_screened_host()) {
       if (use_reduce) {
         Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(host_tag)>(0,anum),*this,ev);
       } else {
@@ -948,7 +950,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
   cost1 = -(fma(a_nx0, b_nx0, fma(a_nx1, b_nx1, a_nx2 * b_nx2)));
   if (cost1 >  1.0) cost1 =  1.0;
   if (cost1 < -1.0) cost1 = -1.0;
-  theta1 = acos(cost1);
+  theta1 = acosf(cost1);
   theta1p = 2.0 * MY_PI_KK - theta1;
 
   // beginning of modulation factors
@@ -965,7 +967,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
   cost4 = fma(a_nz0, b_nz0, fma(a_nz1, b_nz1, a_nz2*b_nz2));
   if (cost4 > 1.0) cost4 = 1.0;
   if (cost4 < -1.0) cost4 = -1.0;
-  theta4 = acos(cost4);
+  theta4 = acosf(cost4);
   // f4t4 = f4 modulation factor
   f4t4 = F4_KK(theta4, d_a_cxst4(atype,btype), d_theta_cxst4_0(atype, btype), d_dtheta_cxst4_ast(atype, btype), 
     d_b_cxst4(atype, btype), d_dtheta_cxst4_c(atype, btype));
@@ -974,7 +976,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
   cost5 = fma(a_nz0, delr_st_norm[0], fma(a_nz1, delr_st_norm[1], a_nz2*delr_st_norm[2]));
   if (cost5 > 1.0) cost5 = 1.0;
   if (cost5 < -1.0) cost5 = -1.0;
-  theta5 = acos(cost5);
+  theta5 = acosf(cost5);
   theta5p = MY_PI_KK - theta5;
   // f4t5 = f4(theta5,..) + f4(theta5p,..) modulation factors
   f4t5 = F4_KK(theta5, d_a_cxst5(atype,btype), d_theta_cxst5_0(atype,btype), d_dtheta_cxst5_ast(atype,btype), 
@@ -986,7 +988,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
   cost6 = fma(b_nz0, delr_st_norm[0], fma(b_nz1, delr_st_norm[1], b_nz2*delr_st_norm[2]));
   if (cost6 > 1.0) cost6 = 1.0;
   if (cost6 < -1.0) cost6 = -1.0;
-  theta6 = acos(cost6);
+  theta6 = acosf(cost6);
   theta6p = MY_PI_KK - theta6;
   // f4t6 = f4(theta6,..) + f4(theta6p,..) modulation factors
   f4t6 = F4_KK(theta6, d_a_cxst6(atype,btype), d_theta_cxst6_0(atype,btype), d_dtheta_cxst6_ast(atype,btype), 

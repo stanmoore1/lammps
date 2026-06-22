@@ -30,6 +30,8 @@ PairStyle(oxdna2/hbond/kk/host,PairOxdnaHbondKokkos<LMPHostType>);
 #include "pair_kokkos.h"
 #include "pair_oxdna_hbond.h"
 #include "neigh_list_kokkos.h"
+#include "pair_oxdna_xstk_kokkos.h"
+#include "oxdna_hbxstk_fused.h"
 
 namespace LAMMPS_NS {
 
@@ -44,6 +46,10 @@ struct TagPairOxdnaHbondCompute{};
 
 template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct TagPairOxdnaHbondComputeGPUPair{};
+
+// Prototype #1: fused hbond + xstk screened-pair kernel tag.
+template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+struct TagPairOxdnaHbXstkFused{};
 
 template<class DeviceType>
 class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
@@ -83,6 +89,20 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdnaHbondComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
+
+// Fused hbond+xstk ComputeGPUPair Functor(s). The reduction value EV_HBXST
+// carries the hbond and xstk global energy/virial separately so each style is
+// credited its own contribution. 1 with EV_HBXST, 1 without.
+
+  template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairOxdnaHbXstkFused<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&, EV_HBXST&) const;
+
+  template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairOxdnaHbXstkFused<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
 
   template<int NEIGHFLAG, int NEWTON_PAIR>
 // NOLINTNEXTLINE
@@ -191,6 +211,10 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
 
   FixOxdnaLRFKokkos<DeviceType> *fix_oxdna_lrfKK;    // ptr to oxdna/lrf/kk fix
   FixOxdnaNpairKokkos<DeviceType> *fix_oxdna_npairKK;    // ptr to oxdna/npair/kk fix
+
+  // Prototype #1: fused hbond+xstk support.
+  PairOxdnaXstkKokkos<DeviceType> *fused_xstkKK = nullptr;  // ptr to oxdna2/xstk/kk pair
+  OxdnaXstkCoeffs<DeviceType> xstk_fc;                      // xstk coeff view handles
 
  private:
 

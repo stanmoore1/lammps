@@ -28,9 +28,14 @@
 #include "fix_oxdna_lrf_kokkos.h"
 #include "fix_oxdna_npair_kokkos.h"
 #include "mf_oxdna_kokkos.h"
+#include "math_const.h"
 
 using namespace LAMMPS_NS;
+
+#include "oxdna_screened_toggle.h"
 using namespace MFOxdnaKokkos;
+using MathConst::MY_PI;
+static constexpr KK_FLOAT MY_PI_KK = static_cast<KK_FLOAT>(MY_PI);
 
 // NOTE: I've introduced some extra early returns in calls related to ComputeGPUPair.
 // With the use of fma and trig identity "sin^2(theta) = 1 - cos^2(theta)", some of the
@@ -136,25 +141,42 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   d_ny_xtrct = fix_oxdna_lrfKK->k_ny.template view<DeviceType>();
   d_nz_xtrct = fix_oxdna_lrfKK->k_nz.template view<DeviceType>();
 
-  // If we're on a GPU, look up fix_oxdna_npairKK screened pair count and pair_a/b views.
-  if (execution_space != HostKK) {
+  // If we're on a GPU (or the host screened path is forced), look up the
+  // fix_oxdna_npairKK screened pair count and packed pair list.
+  const bool use_screened = (execution_space != HostKK) || oxdna_force_screened_host();
+  if (use_screened) {
     screened_pair_count = fix_oxdna_npairKK->screened_pair_count;
     d_pairs_screened = fix_oxdna_npairKK->k_pairs_screened.template view<DeviceType>();
   }
 
+  // Fuse the hbond + xstk screened-pair kernels. Enabled automatically on the
+  // screened (device) path whenever the oxdna2/xstk substyle is present. Per-atom
+  // energy/virial output is not split by the fused kernel, so fall back to the
+  // separate kernels when eflag_atom/vflag_atom is requested (rare, off the hot
+  // path); global per-style energy and virial are split via EV_HBXST below.
+  const bool fuse = use_screened && (fused_xstkKK != nullptr) && !(eflag_atom || vflag_atom);
+  if (fuse) fused_xstkKK->export_fused_coeffs(xstk_fc);
+
   // loop over neighbors of my atoms for compute functors
 
-  EV_FLOAT ev;
+  EV_FLOAT ev;       // hbond-only (per-atom path or hbond-only screened kernel)
+  EV_HBXST evx;      // fused kernel: hbond + xstk global energy/virial, split
 
   // "run_compute" is just a little helper for CPU/GPU dispatch to improve code readability.
   // It removes an extra if statement from each of the typical compute functor calls.
   // Not sure why, but it improved performance too on GPU?
-  auto run_compute = [&](auto host_tag, auto gpu_tag, const bool use_reduce) {
-    if (execution_space == HostKK) {
+  auto run_compute = [&](auto host_tag, auto gpu_tag, auto fused_tag, const bool use_reduce) {
+    if (!use_screened) {
       if (use_reduce) {
         Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(host_tag)>(0,anum),*this,ev);
       } else {
         Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(host_tag)>(0,anum),*this);
+      }
+    } else if (fuse) {
+      if (use_reduce) {
+        Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(fused_tag)>(0,screened_pair_count),*this,evx);
+      } else {
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, decltype(fused_tag)>(0,screened_pair_count),*this);
       }
     } else {
       if (use_reduce) {
@@ -168,41 +190,41 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   if (evflag) {
     if (neighflag == HALF) {
       if (newton_pair) {
-        run_compute(TagPairOxdnaHbondCompute<HALF,1,1>{}, TagPairOxdnaHbondComputeGPUPair<HALF,1,1>{}, true);
+        run_compute(TagPairOxdnaHbondCompute<HALF,1,1>{}, TagPairOxdnaHbondComputeGPUPair<HALF,1,1>{}, TagPairOxdnaHbXstkFused<HALF,1,1>{}, true);
       } else {
-        run_compute(TagPairOxdnaHbondCompute<HALF,0,1>{}, TagPairOxdnaHbondComputeGPUPair<HALF,0,1>{}, true);
+        run_compute(TagPairOxdnaHbondCompute<HALF,0,1>{}, TagPairOxdnaHbondComputeGPUPair<HALF,0,1>{}, TagPairOxdnaHbXstkFused<HALF,0,1>{}, true);
       }
     } else if (neighflag == HALFTHREAD) {
       if (newton_pair) {
-        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,1,1>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,1,1>{}, true);
+        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,1,1>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,1,1>{}, TagPairOxdnaHbXstkFused<HALFTHREAD,1,1>{}, true);
       } else {
-        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,0,1>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,0,1>{}, true);
+        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,0,1>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,0,1>{}, TagPairOxdnaHbXstkFused<HALFTHREAD,0,1>{}, true);
       }
     } else if (neighflag == FULL) {
       if (newton_pair) {
-        run_compute(TagPairOxdnaHbondCompute<FULL,1,1>{}, TagPairOxdnaHbondComputeGPUPair<FULL,1,1>{}, true);
+        run_compute(TagPairOxdnaHbondCompute<FULL,1,1>{}, TagPairOxdnaHbondComputeGPUPair<FULL,1,1>{}, TagPairOxdnaHbXstkFused<FULL,1,1>{}, true);
       } else {
-        run_compute(TagPairOxdnaHbondCompute<FULL,0,1>{}, TagPairOxdnaHbondComputeGPUPair<FULL,0,1>{}, true);
+        run_compute(TagPairOxdnaHbondCompute<FULL,0,1>{}, TagPairOxdnaHbondComputeGPUPair<FULL,0,1>{}, TagPairOxdnaHbXstkFused<FULL,0,1>{}, true);
       }
     }
   } else {
     if (neighflag == HALF) {
       if (newton_pair) {
-        run_compute(TagPairOxdnaHbondCompute<HALF,1,0>{}, TagPairOxdnaHbondComputeGPUPair<HALF,1,0>{}, false);
+        run_compute(TagPairOxdnaHbondCompute<HALF,1,0>{}, TagPairOxdnaHbondComputeGPUPair<HALF,1,0>{}, TagPairOxdnaHbXstkFused<HALF,1,0>{}, false);
       } else {
-        run_compute(TagPairOxdnaHbondCompute<HALF,0,0>{}, TagPairOxdnaHbondComputeGPUPair<HALF,0,0>{}, false);
+        run_compute(TagPairOxdnaHbondCompute<HALF,0,0>{}, TagPairOxdnaHbondComputeGPUPair<HALF,0,0>{}, TagPairOxdnaHbXstkFused<HALF,0,0>{}, false);
       }
     } else if (neighflag == HALFTHREAD) {
       if (newton_pair) {
-        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,1,0>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,1,0>{}, false);
+        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,1,0>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,1,0>{}, TagPairOxdnaHbXstkFused<HALFTHREAD,1,0>{}, false);
       } else {
-        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,0,0>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,0,0>{}, false);
+        run_compute(TagPairOxdnaHbondCompute<HALFTHREAD,0,0>{}, TagPairOxdnaHbondComputeGPUPair<HALFTHREAD,0,0>{}, TagPairOxdnaHbXstkFused<HALFTHREAD,0,0>{}, false);
       }
     } else if (neighflag == FULL) {
       if (newton_pair) {
-        run_compute(TagPairOxdnaHbondCompute<FULL,1,0>{}, TagPairOxdnaHbondComputeGPUPair<FULL,1,0>{}, false);
+        run_compute(TagPairOxdnaHbondCompute<FULL,1,0>{}, TagPairOxdnaHbondComputeGPUPair<FULL,1,0>{}, TagPairOxdnaHbXstkFused<FULL,1,0>{}, false);
       } else {
-        run_compute(TagPairOxdnaHbondCompute<FULL,0,0>{}, TagPairOxdnaHbondComputeGPUPair<FULL,0,0>{}, false);
+        run_compute(TagPairOxdnaHbondCompute<FULL,0,0>{}, TagPairOxdnaHbondComputeGPUPair<FULL,0,0>{}, TagPairOxdnaHbXstkFused<FULL,0,0>{}, false);
       }
     }
   }
@@ -212,14 +234,31 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     Kokkos::Experimental::contribute(torque, dup_torque);
   }
 
-  if (eflag_global) eng_vdwl += ev.evdwl;
-  if (vflag_global) {
-    virial[0] += ev.v[0];
-    virial[1] += ev.v[1];
-    virial[2] += ev.v[2];
-    virial[3] += ev.v[3];
-    virial[4] += ev.v[4];
-    virial[5] += ev.v[5];
+  if (fuse) {
+    // Split the fused energy/virial: credit the hbond part to this style now, and
+    // stash the xstk part on the xstk style. The xstk style adds the stash after
+    // its own ev_init() zeroes its accumulators (it runs later in hybrid/overlay),
+    // so per-style energy/pressure decomposition stays correct.
+    if (eflag_global) {
+      eng_vdwl += evx.evdwl_hb;
+      fused_xstkKK->fused_eng_vdwl = evx.evdwl_xst;
+    }
+    if (vflag_global) {
+      for (int k = 0; k < 6; k++) {
+        virial[k] += evx.v_hb[k];
+        fused_xstkKK->fused_virial[k] = evx.v_xst[k];
+      }
+    }
+  } else {
+    if (eflag_global) eng_vdwl += ev.evdwl;
+    if (vflag_global) {
+      virial[0] += ev.v[0];
+      virial[1] += ev.v[1];
+      virial[2] += ev.v[2];
+      virial[3] += ev.v[3];
+      virial[4] += ev.v[4];
+      virial[5] += ev.v[5];
+    }
   }
 
   if (vflag_fdotr) pair_virial_fdotr_compute(this);
@@ -692,7 +731,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta1_terms(const int &atype, cons
   KK_FLOAT cost1 = -fma(a_nx[2], b_nx[2], fma(a_nx[1], b_nx[1], a_nx[0] * b_nx[0]));
   if (cost1 > 1.0) cost1 = 1.0;
   if (cost1 < -1.0) cost1 = -1.0;
-  theta1 = acos(cost1);
+  theta1 = acosf(cost1);
 
   f4t1 = F4_KK(theta1, p_a_hb1, p_theta_hb1_0, p_dtheta_hb1_ast, p_b_hb1, p_dtheta_hb1_c);
   if (!f4t1) return false;
@@ -719,7 +758,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta2_terms(const int &atype, cons
   cost2 = -fma(a_nx[2], delr_hb_norm[2], fma(a_nx[1], delr_hb_norm[1], a_nx[0] * delr_hb_norm[0]));
   if (cost2 > 1.0) cost2 = 1.0;
   if (cost2 < -1.0) cost2 = -1.0;
-  theta2 = acos(cost2);
+  theta2 = acosf(cost2);
 
   f4t2 = F4_KK(theta2, p_a_hb2, p_theta_hb2_0, p_dtheta_hb2_ast, p_b_hb2, p_dtheta_hb2_c);
   if (!f4t2) return false;
@@ -746,7 +785,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta3_terms(const int &atype, cons
   cost3 = fma(b_nx[2], delr_hb_norm[2], fma(b_nx[1], delr_hb_norm[1], b_nx[0] * delr_hb_norm[0]));
   if (cost3 > 1.0) cost3 = 1.0;
   if (cost3 < -1.0) cost3 = -1.0;
-  theta3 = acos(cost3);
+  theta3 = acosf(cost3);
 
   f4t3 = F4_KK(theta3, p_a_hb3, p_theta_hb3_0, p_dtheta_hb3_ast, p_b_hb3, p_dtheta_hb3_c);
   if (!f4t3) return false;
@@ -773,7 +812,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta4_terms(const int &atype, cons
   KK_FLOAT cost4 = fma(a_nz[2], b_nz[2], fma(a_nz[1], b_nz[1], a_nz[0] * b_nz[0]));
   if (cost4 > 1.0) cost4 = 1.0;
   if (cost4 < -1.0) cost4 = -1.0;
-  theta4 = acos(cost4);
+  theta4 = acosf(cost4);
 
   f4t4 = F4_KK(theta4, p_a_hb4, p_theta_hb4_0, p_dtheta_hb4_ast, p_b_hb4, p_dtheta_hb4_c);
   if (!f4t4) return false;
@@ -800,7 +839,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta7_terms(const int &atype, cons
   cost7 = -fma(a_nz[2], delr_hb_norm[2], fma(a_nz[1], delr_hb_norm[1], a_nz[0] * delr_hb_norm[0]));
   if (cost7 > 1.0) cost7 = 1.0;
   if (cost7 < -1.0) cost7 = -1.0;
-  theta7 = acos(cost7);
+  theta7 = acosf(cost7);
 
   f4t7 = F4_KK(theta7, p_a_hb7, p_theta_hb7_0, p_dtheta_hb7_ast, p_b_hb7, p_dtheta_hb7_c);
   if (!f4t7) return false;
@@ -827,7 +866,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta8_terms(const int &atype, cons
   cost8 = fma(b_nz[2], delr_hb_norm[2], fma(b_nz[1], delr_hb_norm[1], b_nz[0] * delr_hb_norm[0]));
   if (cost8 > 1.0) cost8 = 1.0;
   if (cost8 < -1.0) cost8 = -1.0;
-  theta8 = acos(cost8);
+  theta8 = acosf(cost8);
 
   f4t8 = F4_KK(theta8, p_a_hb8, p_theta_hb8_0, p_dtheta_hb8_ast, p_b_hb8, p_dtheta_hb8_c);
   if (!f4t8) return false;
@@ -1168,6 +1207,253 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondComputeGPUPai
   (TagPairOxdnaHbondComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>(),ipair,ev);
 }
 
+/* ----------------------------------------------------------------------
+   Prototype #1: fused hbond + xstk screened-pair kernel.
+
+   The hydrogen-bonding (F1) and cross-stacking (F2) terms both act on the same
+   base-site separation (COM + 0.4*nx) and share the same six interaction
+   angles (theta1..4,7,8). This kernel computes that geometry and the six
+   acosf() values ONCE per screened pair, then evaluates both interactions.
+   Each term self-cuts via its own radial modulation (F1 with the hbond cutoff,
+   F2 with the xstk cutoff), so the differing hbond/xstk radial cutoffs are
+   handled correctly even though the screened pair list is shared.
+
+   Forces/torques for the two terms are independent and simply summed. The
+   combined energy is tallied here (the xstk pair style skips its own pass when
+   fusion is active), so the total potential energy is unchanged; only the
+   per-style energy attribution differs.
+-------------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbXstkFused<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
+  const int &ipair, EV_HBXST &ev) const
+{
+  auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
+    decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
+  auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  const uint64_t pair = d_pairs_screened(ipair);
+  const int a = static_cast<int>(pair >> 32);
+  const int atype = type(a);
+  int b = static_cast<int>(pair & 0xffffffffu);
+  const KK_FLOAT factor_lj = special_lj[sbmask(b)];
+  if (!factor_lj) return;
+  b &= NEIGHMASK;
+  const int btype = type(b);
+
+  const bool do_b = (NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || b < nlocal);
+  const KK_FLOAT ev_factor = do_b ? static_cast<KK_FLOAT>(1.0) : static_cast<KK_FLOAT>(0.5);
+
+  // --- shared base-site geometry (identical to hbond/xstk GPUPair kernels) ---
+  KK_FLOAT a_nx[3], a_nz[3], b_nx[3], b_nz[3];
+  a_nx[0]=d_nx_xtrct(a,0); a_nx[1]=d_nx_xtrct(a,1); a_nx[2]=d_nx_xtrct(a,2);
+  a_nz[0]=d_nz_xtrct(a,0); a_nz[1]=d_nz_xtrct(a,1); a_nz[2]=d_nz_xtrct(a,2);
+  b_nx[0]=d_nx_xtrct(b,0); b_nx[1]=d_nx_xtrct(b,1); b_nx[2]=d_nx_xtrct(b,2);
+  b_nz[0]=d_nz_xtrct(b,0); b_nz[1]=d_nz_xtrct(b,1); b_nz[2]=d_nz_xtrct(b,2);
+
+  constexpr KK_FLOAT d_chb=+0.4;
+  KK_FLOAT ra_chb[3], rb_chb[3];
+  ra_chb[0]=d_chb*a_nx[0]; ra_chb[1]=d_chb*a_nx[1]; ra_chb[2]=d_chb*a_nx[2];
+  rb_chb[0]=d_chb*b_nx[0]; rb_chb[1]=d_chb*b_nx[1]; rb_chb[2]=d_chb*b_nx[2];
+
+  KK_FLOAT delr_hb[3], delr_hb_norm[3];
+  delr_hb[0]=x(a,0)+ra_chb[0]-x(b,0)-rb_chb[0];
+  delr_hb[1]=x(a,1)+ra_chb[1]-x(b,1)-rb_chb[1];
+  delr_hb[2]=x(a,2)+ra_chb[2]-x(b,2)-rb_chb[2];
+
+  const KK_FLOAT rsq_hb = fma(delr_hb[2],delr_hb[2], fma(delr_hb[1],delr_hb[1], delr_hb[0]*delr_hb[0]));
+  if (rsq_hb <= static_cast<KK_FLOAT>(0.0)) return;
+  const KK_FLOAT rinv_hb = static_cast<KK_FLOAT>(1.0)/sqrtf(rsq_hb);
+  const KK_FLOAT r_hb = rsq_hb*rinv_hb;
+  delr_hb_norm[0]=delr_hb[0]*rinv_hb;
+  delr_hb_norm[1]=delr_hb[1]*rinv_hb;
+  delr_hb_norm[2]=delr_hb[2]*rinv_hb;
+
+  // --- shared cosines + angles (the expensive acosf, computed ONCE) ---
+  KK_FLOAT cost1=-fma(a_nx[2],b_nx[2], fma(a_nx[1],b_nx[1], a_nx[0]*b_nx[0]));
+  if (cost1> 1.0) cost1= 1.0; if (cost1<-1.0) cost1=-1.0;
+  const KK_FLOAT theta1=acosf(cost1);
+  KK_FLOAT cost2=-fma(a_nx[2],delr_hb_norm[2], fma(a_nx[1],delr_hb_norm[1], a_nx[0]*delr_hb_norm[0]));
+  if (cost2> 1.0) cost2= 1.0; if (cost2<-1.0) cost2=-1.0;
+  const KK_FLOAT theta2=acosf(cost2);
+  KK_FLOAT cost3= fma(b_nx[2],delr_hb_norm[2], fma(b_nx[1],delr_hb_norm[1], b_nx[0]*delr_hb_norm[0]));
+  if (cost3> 1.0) cost3= 1.0; if (cost3<-1.0) cost3=-1.0;
+  const KK_FLOAT theta3=acosf(cost3);
+  KK_FLOAT cost4= fma(a_nz[2],b_nz[2], fma(a_nz[1],b_nz[1], a_nz[0]*b_nz[0]));
+  if (cost4> 1.0) cost4= 1.0; if (cost4<-1.0) cost4=-1.0;
+  const KK_FLOAT theta4=acosf(cost4);
+  KK_FLOAT cost7=-fma(a_nz[2],delr_hb_norm[2], fma(a_nz[1],delr_hb_norm[1], a_nz[0]*delr_hb_norm[0]));
+  if (cost7> 1.0) cost7= 1.0; if (cost7<-1.0) cost7=-1.0;
+  const KK_FLOAT theta7=acosf(cost7);
+  KK_FLOAT cost8= fma(b_nz[2],delr_hb_norm[2], fma(b_nz[1],delr_hb_norm[1], b_nz[0]*delr_hb_norm[0]));
+  if (cost8> 1.0) cost8= 1.0; if (cost8<-1.0) cost8=-1.0;
+  const KK_FLOAT theta8=acosf(cost8);
+
+  // shared reciprocal-sine (theta in [0,pi] => sin>=0); xstk clamps <0 to 0,
+  // hbond skips when <=0. Compute the magnitude once; branches apply their guard.
+  const KK_FLOAT s1=fma(-cost1,cost1,static_cast<KK_FLOAT>(1.0));
+  const KK_FLOAT s2=fma(-cost2,cost2,static_cast<KK_FLOAT>(1.0));
+  const KK_FLOAT s3=fma(-cost3,cost3,static_cast<KK_FLOAT>(1.0));
+  const KK_FLOAT s4=fma(-cost4,cost4,static_cast<KK_FLOAT>(1.0));
+  const KK_FLOAT s7=fma(-cost7,cost7,static_cast<KK_FLOAT>(1.0));
+  const KK_FLOAT s8=fma(-cost8,cost8,static_cast<KK_FLOAT>(1.0));
+
+  KK_FLOAT delf[3], delta[3], deltb[3];
+
+  // ============================ HBOND (F1) ============================
+  {
+    const KK_FLOAT f1 = F1_KK(r_hb, d_epsilon_hb(atype,btype), d_a_hb(atype,btype),
+        d_cut_hb_0(atype,btype), d_cut_hb_lc(atype,btype), d_cut_hb_hc(atype,btype),
+        d_cut_hb_lo(atype,btype), d_cut_hb_hi(atype,btype),
+        d_b_hb_lo(atype,btype), d_b_hb_hi(atype,btype), d_shift_hb(atype,btype));
+    bool ok = (f1 != static_cast<KK_FLOAT>(0.0));
+    KK_FLOAT f4t1=0,f4t2=0,f4t3=0,f4t4=0,f4t7=0,f4t8=0;
+    if (ok) { f4t1=F4_KK(theta1,d_a_hb1(atype,btype),d_theta_hb1_0(atype,btype),d_dtheta_hb1_ast(atype,btype),d_b_hb1(atype,btype),d_dtheta_hb1_c(atype,btype)); ok = (f4t1!=0.0) && (s1> 0.0); }
+    if (ok) { f4t2=F4_KK(theta2,d_a_hb2(atype,btype),d_theta_hb2_0(atype,btype),d_dtheta_hb2_ast(atype,btype),d_b_hb2(atype,btype),d_dtheta_hb2_c(atype,btype)); ok = (f4t2!=0.0) && (s2> 0.0); }
+    if (ok) { f4t3=F4_KK(theta3,d_a_hb3(atype,btype),d_theta_hb3_0(atype,btype),d_dtheta_hb3_ast(atype,btype),d_b_hb3(atype,btype),d_dtheta_hb3_c(atype,btype)); ok = (f4t3!=0.0) && (s3> 0.0); }
+    if (ok) { f4t4=F4_KK(theta4,d_a_hb4(atype,btype),d_theta_hb4_0(atype,btype),d_dtheta_hb4_ast(atype,btype),d_b_hb4(atype,btype),d_dtheta_hb4_c(atype,btype)); ok = (f4t4!=0.0) && (s4> 0.0); }
+    if (ok) { f4t7=F4_KK(theta7,d_a_hb7(atype,btype),d_theta_hb7_0(atype,btype),d_dtheta_hb7_ast(atype,btype),d_b_hb7(atype,btype),d_dtheta_hb7_c(atype,btype)); ok = (f4t7!=0.0) && (s7> 0.0); }
+    if (ok) { f4t8=F4_KK(theta8,d_a_hb8(atype,btype),d_theta_hb8_0(atype,btype),d_dtheta_hb8_ast(atype,btype),d_b_hb8(atype,btype),d_dtheta_hb8_c(atype,btype)); ok = (f4t8!=0.0) && (s8> 0.0); }
+    KK_FLOAT evdwl = ok ? (f1*f4t1*f4t2*f4t3*f4t4*f4t7*f4t8*factor_lj) : static_cast<KK_FLOAT>(0.0);
+    if (ok && evdwl != static_cast<KK_FLOAT>(0.0)) {
+      const KK_FLOAT df1  = DF1_KK(r_hb, d_epsilon_hb(atype,btype), d_a_hb(atype,btype),
+          d_cut_hb_0(atype,btype), d_cut_hb_lc(atype,btype), d_cut_hb_hc(atype,btype),
+          d_cut_hb_lo(atype,btype), d_cut_hb_hi(atype,btype),
+          d_b_hb_lo(atype,btype), d_b_hb_hi(atype,btype));
+      const KK_FLOAT df4t1=DF4_KK(theta1,d_a_hb1(atype,btype),d_theta_hb1_0(atype,btype),d_dtheta_hb1_ast(atype,btype),d_b_hb1(atype,btype),d_dtheta_hb1_c(atype,btype))/sqrtf(s1);
+      const KK_FLOAT df4t2=DF4_KK(theta2,d_a_hb2(atype,btype),d_theta_hb2_0(atype,btype),d_dtheta_hb2_ast(atype,btype),d_b_hb2(atype,btype),d_dtheta_hb2_c(atype,btype))/sqrtf(s2);
+      const KK_FLOAT df4t3=DF4_KK(theta3,d_a_hb3(atype,btype),d_theta_hb3_0(atype,btype),d_dtheta_hb3_ast(atype,btype),d_b_hb3(atype,btype),d_dtheta_hb3_c(atype,btype))/sqrtf(s3);
+      const KK_FLOAT df4t4=DF4_KK(theta4,d_a_hb4(atype,btype),d_theta_hb4_0(atype,btype),d_dtheta_hb4_ast(atype,btype),d_b_hb4(atype,btype),d_dtheta_hb4_c(atype,btype))/sqrtf(s4);
+      const KK_FLOAT df4t7=DF4_KK(theta7,d_a_hb7(atype,btype),d_theta_hb7_0(atype,btype),d_dtheta_hb7_ast(atype,btype),d_b_hb7(atype,btype),d_dtheta_hb7_c(atype,btype))/sqrtf(s7);
+      const KK_FLOAT df4t8=DF4_KK(theta8,d_a_hb8(atype,btype),d_theta_hb8_0(atype,btype),d_dtheta_hb8_ast(atype,btype),d_b_hb8(atype,btype),d_dtheta_hb8_c(atype,btype))/sqrtf(s8);
+
+      delf[0]=delf[1]=delf[2]=0.0; delta[0]=delta[1]=delta[2]=0.0; deltb[0]=deltb[1]=deltb[2]=0.0;
+      hbond_force_contrib(f1,f4t1,f4t2,f4t3,f4t4,f4t7,f4t8, df1,df4t2,df4t3,df4t7,df4t8,
+        rinv_hb,factor_lj, theta2,theta3,theta7,theta8, cost2,cost3,cost7,cost8,
+        delr_hb,delr_hb_norm, a_nx,b_nx,a_nz,b_nz, ra_chb,rb_chb, delf,delta,deltb);
+      a_f(a,0)+=delf[0]; a_f(a,1)+=delf[1]; a_f(a,2)+=delf[2];
+      a_torque(a,0)+=delta[0]; a_torque(a,1)+=delta[1]; a_torque(a,2)+=delta[2];
+      if (do_b) {
+        a_f(b,0)-=delf[0]; a_f(b,1)-=delf[1]; a_f(b,2)-=delf[2];
+        a_torque(b,0)-=deltb[0]; a_torque(b,1)-=deltb[1]; a_torque(b,2)-=deltb[2];
+      }
+      if (EVFLAG) {
+        if (eflag_global) ev.evdwl_hb += ev_factor*evdwl;
+        if (vflag_global) {
+          // molecular virial = r_ab (x) f, distributed per ev_tally_xyz:
+          // 0.5 for atom a, plus 0.5 for atom b when b is owned/Newton.
+          const KK_FLOAT vfac = (NEIGHFLAG!=FULL && do_b) ? static_cast<KK_FLOAT>(1.0) : static_cast<KK_FLOAT>(0.5);
+          const KK_FLOAT dx0=x(a,0)-x(b,0), dx1=x(a,1)-x(b,1), dx2=x(a,2)-x(b,2);
+          ev.v_hb[0]+=vfac*dx0*delf[0]; ev.v_hb[1]+=vfac*dx1*delf[1]; ev.v_hb[2]+=vfac*dx2*delf[2];
+          ev.v_hb[3]+=vfac*dx0*delf[1]; ev.v_hb[4]+=vfac*dx0*delf[2]; ev.v_hb[5]+=vfac*dx1*delf[2];
+        }
+      }
+      hbond_torque_contrib(f1,f4t1,f4t2,f4t3,f4t4,f4t7,f4t8, df4t1,df4t2,df4t3,df4t4,df4t7,df4t8,
+        factor_lj, theta1,theta2,theta3,theta4,theta7,theta8,
+        a_nx,b_nx,a_nz,b_nz, delr_hb_norm, delta,deltb);
+      a_torque(a,0)+=delta[0]; a_torque(a,1)+=delta[1]; a_torque(a,2)+=delta[2];
+      if (do_b) { a_torque(b,0)-=deltb[0]; a_torque(b,1)-=deltb[1]; a_torque(b,2)-=deltb[2]; }
+    }
+  }
+
+  // ========================= CROSS-STACKING (F2) =========================
+  {
+    const KK_FLOAT f2 = F2_KK(r_hb, xstk_fc.d_k_xst(atype,btype), xstk_fc.d_cut_xst_0(atype,btype),
+        xstk_fc.d_cut_xst_lc(atype,btype), xstk_fc.d_cut_xst_hc(atype,btype),
+        xstk_fc.d_cut_xst_lo(atype,btype), xstk_fc.d_cut_xst_hi(atype,btype),
+        xstk_fc.d_b_xst_lo(atype,btype), xstk_fc.d_b_xst_hi(atype,btype), xstk_fc.d_cut_xst_c(atype,btype));
+    bool ok = (f2 != static_cast<KK_FLOAT>(0.0));
+    const KK_FLOAT theta4p=fma(static_cast<KK_FLOAT>(-1.0),theta4,MY_PI_KK);
+    const KK_FLOAT theta7p=fma(static_cast<KK_FLOAT>(-1.0),theta7,MY_PI_KK);
+    const KK_FLOAT theta8p=fma(static_cast<KK_FLOAT>(-1.0),theta8,MY_PI_KK);
+    KK_FLOAT f4t1=0,f4t2=0,f4t3=0,f4t4=0,f4t7=0,f4t8=0;
+    if (ok) { f4t1=F4_KK(theta1,xstk_fc.d_a_xst1(atype,btype),xstk_fc.d_theta_xst1_0(atype,btype),xstk_fc.d_dtheta_xst1_ast(atype,btype),xstk_fc.d_b_xst1(atype,btype),xstk_fc.d_dtheta_xst1_c(atype,btype)); ok = (f4t1!=0.0); }
+    if (ok) { f4t2=F4_KK(theta2,xstk_fc.d_a_xst2(atype,btype),xstk_fc.d_theta_xst2_0(atype,btype),xstk_fc.d_dtheta_xst2_ast(atype,btype),xstk_fc.d_b_xst2(atype,btype),xstk_fc.d_dtheta_xst2_c(atype,btype)); ok = (f4t2!=0.0); }
+    if (ok) { f4t3=F4_KK(theta3,xstk_fc.d_a_xst3(atype,btype),xstk_fc.d_theta_xst3_0(atype,btype),xstk_fc.d_dtheta_xst3_ast(atype,btype),xstk_fc.d_b_xst3(atype,btype),xstk_fc.d_dtheta_xst3_c(atype,btype)); ok = (f4t3!=0.0); }
+    if (ok) {
+      f4t4=F4_KK(theta4,xstk_fc.d_a_xst4(atype,btype),xstk_fc.d_theta_xst4_0(atype,btype),xstk_fc.d_dtheta_xst4_ast(atype,btype),xstk_fc.d_b_xst4(atype,btype),xstk_fc.d_dtheta_xst4_c(atype,btype))
+         +F4_KK(theta4p,xstk_fc.d_a_xst4(atype,btype),xstk_fc.d_theta_xst4_0(atype,btype),xstk_fc.d_dtheta_xst4_ast(atype,btype),xstk_fc.d_b_xst4(atype,btype),xstk_fc.d_dtheta_xst4_c(atype,btype));
+      ok = (f4t4!=0.0);
+    }
+    if (ok) {
+      f4t7=F4_KK(theta7,xstk_fc.d_a_xst7(atype,btype),xstk_fc.d_theta_xst7_0(atype,btype),xstk_fc.d_dtheta_xst7_ast(atype,btype),xstk_fc.d_b_xst7(atype,btype),xstk_fc.d_dtheta_xst7_c(atype,btype))
+         +F4_KK(theta7p,xstk_fc.d_a_xst7(atype,btype),xstk_fc.d_theta_xst7_0(atype,btype),xstk_fc.d_dtheta_xst7_ast(atype,btype),xstk_fc.d_b_xst7(atype,btype),xstk_fc.d_dtheta_xst7_c(atype,btype));
+      ok = (f4t7!=0.0);
+    }
+    if (ok) {
+      f4t8=F4_KK(theta8,xstk_fc.d_a_xst8(atype,btype),xstk_fc.d_theta_xst8_0(atype,btype),xstk_fc.d_dtheta_xst8_ast(atype,btype),xstk_fc.d_b_xst8(atype,btype),xstk_fc.d_dtheta_xst8_c(atype,btype))
+         +F4_KK(theta8p,xstk_fc.d_a_xst8(atype,btype),xstk_fc.d_theta_xst8_0(atype,btype),xstk_fc.d_dtheta_xst8_ast(atype,btype),xstk_fc.d_b_xst8(atype,btype),xstk_fc.d_dtheta_xst8_c(atype,btype));
+    }
+    KK_FLOAT evdwl = ok ? (f2*f4t1*f4t2*f4t3*f4t4*f4t7*f4t8*factor_lj) : static_cast<KK_FLOAT>(0.0);
+    if (ok && evdwl != static_cast<KK_FLOAT>(0.0)) {
+      const KK_FLOAT s4c = (s4<0.0)?static_cast<KK_FLOAT>(0.0):s4;
+      const KK_FLOAT s7c = (s7<0.0)?static_cast<KK_FLOAT>(0.0):s7;
+      const KK_FLOAT s8c = (s8<0.0)?static_cast<KK_FLOAT>(0.0):s8;
+      const KK_FLOAT s1c = (s1<0.0)?static_cast<KK_FLOAT>(0.0):s1;
+      const KK_FLOAT s2c = (s2<0.0)?static_cast<KK_FLOAT>(0.0):s2;
+      const KK_FLOAT s3c = (s3<0.0)?static_cast<KK_FLOAT>(0.0):s3;
+      const KK_FLOAT df2 = DF2_KK(r_hb, xstk_fc.d_k_xst(atype,btype), xstk_fc.d_cut_xst_0(atype,btype),
+          xstk_fc.d_cut_xst_lc(atype,btype), xstk_fc.d_cut_xst_hc(atype,btype),
+          xstk_fc.d_cut_xst_lo(atype,btype), xstk_fc.d_cut_xst_hi(atype,btype),
+          xstk_fc.d_b_xst_lo(atype,btype), xstk_fc.d_b_xst_hi(atype,btype));
+      const KK_FLOAT df4t1=DF4_KK(theta1,xstk_fc.d_a_xst1(atype,btype),xstk_fc.d_theta_xst1_0(atype,btype),xstk_fc.d_dtheta_xst1_ast(atype,btype),xstk_fc.d_b_xst1(atype,btype),xstk_fc.d_dtheta_xst1_c(atype,btype))/sqrtf(s1c);
+      const KK_FLOAT df4t2=DF4_KK(theta2,xstk_fc.d_a_xst2(atype,btype),xstk_fc.d_theta_xst2_0(atype,btype),xstk_fc.d_dtheta_xst2_ast(atype,btype),xstk_fc.d_b_xst2(atype,btype),xstk_fc.d_dtheta_xst2_c(atype,btype))/sqrtf(s2c);
+      const KK_FLOAT df4t3=DF4_KK(theta3,xstk_fc.d_a_xst3(atype,btype),xstk_fc.d_theta_xst3_0(atype,btype),xstk_fc.d_dtheta_xst3_ast(atype,btype),xstk_fc.d_b_xst3(atype,btype),xstk_fc.d_dtheta_xst3_c(atype,btype))/sqrtf(s3c);
+      KK_FLOAT df4t4=DF4_KK(theta4,xstk_fc.d_a_xst4(atype,btype),xstk_fc.d_theta_xst4_0(atype,btype),xstk_fc.d_dtheta_xst4_ast(atype,btype),xstk_fc.d_b_xst4(atype,btype),xstk_fc.d_dtheta_xst4_c(atype,btype))
+         -DF4_KK(theta4p,xstk_fc.d_a_xst4(atype,btype),xstk_fc.d_theta_xst4_0(atype,btype),xstk_fc.d_dtheta_xst4_ast(atype,btype),xstk_fc.d_b_xst4(atype,btype),xstk_fc.d_dtheta_xst4_c(atype,btype));
+      df4t4/=sqrtf(s4c);
+      KK_FLOAT df4t7=DF4_KK(theta7,xstk_fc.d_a_xst7(atype,btype),xstk_fc.d_theta_xst7_0(atype,btype),xstk_fc.d_dtheta_xst7_ast(atype,btype),xstk_fc.d_b_xst7(atype,btype),xstk_fc.d_dtheta_xst7_c(atype,btype))
+         -DF4_KK(theta7p,xstk_fc.d_a_xst7(atype,btype),xstk_fc.d_theta_xst7_0(atype,btype),xstk_fc.d_dtheta_xst7_ast(atype,btype),xstk_fc.d_b_xst7(atype,btype),xstk_fc.d_dtheta_xst7_c(atype,btype));
+      df4t7/=sqrtf(s7c);
+      KK_FLOAT df4t8=DF4_KK(theta8,xstk_fc.d_a_xst8(atype,btype),xstk_fc.d_theta_xst8_0(atype,btype),xstk_fc.d_dtheta_xst8_ast(atype,btype),xstk_fc.d_b_xst8(atype,btype),xstk_fc.d_dtheta_xst8_c(atype,btype))
+         -DF4_KK(theta8p,xstk_fc.d_a_xst8(atype,btype),xstk_fc.d_theta_xst8_0(atype,btype),xstk_fc.d_dtheta_xst8_ast(atype,btype),xstk_fc.d_b_xst8(atype,btype),xstk_fc.d_dtheta_xst8_c(atype,btype));
+      df4t8/=sqrtf(s8c);
+
+      delf[0]=delf[1]=delf[2]=0.0; delta[0]=delta[1]=delta[2]=0.0; deltb[0]=deltb[1]=deltb[2]=0.0;
+      PairOxdnaXstkKokkos<DeviceType>::xstk_force_contrib(f2,f4t1,f4t2,f4t3,f4t4,f4t7,f4t8,
+        df2,df4t2,df4t3,df4t7,df4t8, rinv_hb,factor_lj, theta2,theta3,theta7,theta8,
+        cost2,cost3,cost7,cost8, delr_hb,delr_hb_norm, a_nx,b_nx,a_nz,b_nz, ra_chb,rb_chb,
+        delf,delta,deltb);
+      a_f(a,0)+=delf[0]; a_f(a,1)+=delf[1]; a_f(a,2)+=delf[2];
+      a_torque(a,0)+=delta[0]; a_torque(a,1)+=delta[1]; a_torque(a,2)+=delta[2];
+      if (do_b) {
+        a_f(b,0)-=delf[0]; a_f(b,1)-=delf[1]; a_f(b,2)-=delf[2];
+        a_torque(b,0)-=deltb[0]; a_torque(b,1)-=deltb[1]; a_torque(b,2)-=deltb[2];
+      }
+      if (EVFLAG) {
+        if (eflag_global) ev.evdwl_xst += ev_factor*evdwl;
+        if (vflag_global) {
+          const KK_FLOAT vfac = (NEIGHFLAG!=FULL && do_b) ? static_cast<KK_FLOAT>(1.0) : static_cast<KK_FLOAT>(0.5);
+          const KK_FLOAT dx0=x(a,0)-x(b,0), dx1=x(a,1)-x(b,1), dx2=x(a,2)-x(b,2);
+          ev.v_xst[0]+=vfac*dx0*delf[0]; ev.v_xst[1]+=vfac*dx1*delf[1]; ev.v_xst[2]+=vfac*dx2*delf[2];
+          ev.v_xst[3]+=vfac*dx0*delf[1]; ev.v_xst[4]+=vfac*dx0*delf[2]; ev.v_xst[5]+=vfac*dx1*delf[2];
+        }
+      }
+      PairOxdnaXstkKokkos<DeviceType>::xstk_torque_contrib(f2,f4t1,f4t2,f4t3,f4t4,f4t7,f4t8,
+        df4t1,df4t2,df4t3,df4t4,df4t7,df4t8, factor_lj,
+        theta1,theta2,theta3,theta4,theta4p,theta7,theta8,
+        a_nx,b_nx,a_nz,b_nz, delr_hb_norm, delta,deltb);
+      a_torque(a,0)+=delta[0]; a_torque(a,1)+=delta[1]; a_torque(a,2)+=delta[2];
+      if (do_b) { a_torque(b,0)-=deltb[0]; a_torque(b,1)-=deltb[1]; a_torque(b,2)-=deltb[2]; }
+    }
+  }
+}
+
+template<class DeviceType>
+template<int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbXstkFused<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
+  const int &ipair) const
+{
+  EV_HBXST ev;
+  this->template operator()<NEIGHFLAG,NEWTON_PAIR,EVFLAG>\
+  (TagPairOxdnaHbXstkFused<NEIGHFLAG,NEWTON_PAIR,EVFLAG>(),ipair,ev);
+}
+
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
@@ -1312,6 +1598,11 @@ void PairOxdnaHbondKokkos<DeviceType>::init_style()
     fix_oxdna_npairKK = dynamic_cast<FixOxdnaNpairKokkos<DeviceType> *>(npair_fixes[0]);
   }
   if (!fix_oxdna_npairKK) error->all(FLERR, "Fix oxdna/npair/kk lookup failed");
+
+  // Prototype #1: locate the cross-stacking pair style (a hybrid/overlay
+  // substyle) so its term can be evaluated inside the fused kernel. Optional:
+  // if absent, fusion stays disabled. Match "/xstk" (not "coaxstk").
+  fused_xstkKK = dynamic_cast<PairOxdnaXstkKokkos<DeviceType> *>(force->pair_match("/xstk", 0));
 }
 
 /* ---------------------------------------------------------------------- */

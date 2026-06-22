@@ -23,6 +23,8 @@
 #include "neigh_list_kokkos.h"
 #include "neigh_request.h"
 
+#include "oxdna_screened_toggle.h"
+
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
@@ -103,7 +105,7 @@ void FixOxdnaNpairKokkos<DeviceType>::min_pre_force(int /*vflag*/)
   // Option 1: Every timestep
   // if (execution_space != HostKK) compute_neigh_screen_to_npair();
   // Option 2: Only when neighbor list updates
-  if (execution_space != HostKK && last_allocate != neighbor->lastcall) {
+  if ((execution_space != HostKK || oxdna_force_screened_host()) && last_allocate != neighbor->lastcall) {
      compute_neigh_screen_to_npair();
      last_allocate = neighbor->lastcall;
   }
@@ -131,7 +133,7 @@ void FixOxdnaNpairKokkos<DeviceType>::pre_force(int /*vflag*/)
   // Option 1: Every timestep
   // if (execution_space != HostKK) compute_neigh_screen_to_npair();
   // Option 2: Only when neighbor list updates
-  if (execution_space != HostKK && last_allocate != neighbor->lastcall) {
+  if ((execution_space != HostKK || oxdna_force_screened_host()) && last_allocate != neighbor->lastcall) {
      compute_neigh_screen_to_npair();
      last_allocate = neighbor->lastcall;
   }
