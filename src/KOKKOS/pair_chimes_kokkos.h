@@ -93,6 +93,9 @@ class PairCHIMESKokkos : public PairCHIMES
   template<int NEIGHFLAG, int EVFLAG>
   struct TagPairCHIMESCompute4Body{};
 
+  struct TagPairCHIMESKey3Body{};
+  struct TagPairCHIMESKey4Body{};
+
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   typedef EV_FLOAT value_type;
@@ -119,6 +122,12 @@ class PairCHIMESKokkos : public PairCHIMES
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairCHIMESComputeNeigh4Body,const int& ii) const;
   //void neigh_4B_item(const int& ii, int& offset, const bool& final) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairCHIMESKey3Body,const int& ii) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairCHIMESKey4Body,const int& ii) const;
 
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
@@ -192,6 +201,11 @@ class PairCHIMESKokkos : public PairCHIMES
   Kokkos::View<int*[2], Kokkos::LayoutLeft, DeviceType> d_neighborlist_2mers;
   Kokkos::View<int*[3], Kokkos::LayoutLeft, DeviceType> d_neighborlist_3mers;
   Kokkos::View<int*[4], Kokkos::LayoutLeft, DeviceType> d_neighborlist_4mers;
+
+  // Per-cluster type key (tripidx/quadidx); the m-mer lists are sorted by this
+  // so same-type clusters are contiguous (uniform ncoeffs per warp + coalesced
+  // coefficient-table reads in the dominant 3B/4B reduction).
+  typename AT::t_int_1d d_cluster_key;
 
   typename AT::t_int_scalar d_size_4mers;
 

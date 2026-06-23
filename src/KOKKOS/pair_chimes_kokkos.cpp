@@ -42,6 +42,7 @@
 //#include <iostream>
 //#include <sstream>
 #include <cstring>
+#include <Kokkos_Sort.hpp>
 
 using namespace LAMMPS_NS;
 
@@ -219,6 +220,44 @@ KK_FLOAT PairCHIMESKokkos<DeviceType, vector_length>::get_dist(int i, int j) con
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType, int vector_length>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESKey3Body, const int& ii) const
+{
+  // Per-cluster triplet-type key used to sort the 3-mer list by type.
+  const int i = d_neighborlist_3mers(ii,0);
+  const int j = d_neighborlist_3mers(ii,1);
+  const int k = d_neighborlist_3mers(ii,2);
+  const int natmtyps = chimes_calculatorKK.natmtyps;
+  const int t0 = d_chimes_type[type[i]-1];
+  const int t1 = d_chimes_type[type[j]-1];
+  const int t2 = d_chimes_type[type[k]-1];
+  const int type_idx = t0*natmtyps*natmtyps + t1*natmtyps + t2;
+  d_cluster_key(ii) = chimes_calculatorKK.c_atom_int_trip_map[type_idx];
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType, int vector_length>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESKey4Body, const int& ii) const
+{
+  // Per-cluster quadruplet-type key used to sort the 4-mer list by type.
+  const int i = d_neighborlist_4mers(ii,0);
+  const int j = d_neighborlist_4mers(ii,1);
+  const int k = d_neighborlist_4mers(ii,2);
+  const int l = d_neighborlist_4mers(ii,3);
+  const int natmtyps = chimes_calculatorKK.natmtyps;
+  const int t0 = d_chimes_type[type[i]-1];
+  const int t1 = d_chimes_type[type[j]-1];
+  const int t2 = d_chimes_type[type[k]-1];
+  const int t3 = d_chimes_type[type[l]-1];
+  const int idx = t0*natmtyps*natmtyps*natmtyps + t1*natmtyps*natmtyps + t2*natmtyps + t3;
+  d_cluster_key(ii) = chimes_calculatorKK.c_atom_int_quad_map[idx];
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType, int vector_length>
 void PairCHIMESKokkos<DeviceType, vector_length>::build_mb_neighlists()
 {
   if (maxcut_3b > maxcut_2b)
@@ -272,6 +311,28 @@ void PairCHIMESKokkos<DeviceType, vector_length>::build_mb_neighlists()
     }
   }
 
+  // sort the 3-mer list by triplet type so same-type clusters are contiguous
+  // (uniform ncoeffs per warp + coalesced coefficient reads in Compute3Body).
+  // Reordering only changes the force-scatter order -> results unchanged to
+  // round-off.
+
+  if (chimes_calculatorKK.poly_orders[1] > 0 && size_3mers > 1) {
+    int ntypes3 = chimes_calculatorKK.c_ncoeffs_3b.extent(0);
+    if (ntypes3 < 1) ntypes3 = 1;
+    if ((int)d_cluster_key.extent(0) < max_3mers)
+      LAMMPS_NS::MemKK::realloc_kokkos(d_cluster_key,"chimes:cluster_key",max_3mers);
+
+    Kokkos::parallel_for("ChimesKey3Body",
+      Kokkos::RangePolicy<DeviceType,TagPairCHIMESKey3Body>(0,size_3mers),*this);
+
+    using KeyViewType = typename AT::t_int_1d;
+    using BinOp = Kokkos::BinOp1D<KeyViewType>;
+    BinOp binner(ntypes3,0,ntypes3);
+    Kokkos::BinSort<KeyViewType,BinOp> Sorter(d_cluster_key,0,size_3mers,binner,false);
+    Sorter.create_permute_vector(DeviceType());
+    Sorter.sort(DeviceType(),d_neighborlist_3mers);
+  }
+
   // try building 4-body list, resize if necessary
 
   if (chimes_calculatorKK.poly_orders[2] > 0) {
@@ -295,6 +356,25 @@ void PairCHIMESKokkos<DeviceType, vector_length>::build_mb_neighlists()
         LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_4mers,"chimes:neighborlist_4mers",max_4mers);
       }
     }
+  }
+
+  // sort the 4-mer list by quadruplet type (see 3-mer note above)
+
+  if (chimes_calculatorKK.poly_orders[2] > 0 && size_4mers > 1) {
+    int ntypes4 = chimes_calculatorKK.c_ncoeffs_4b.extent(0);
+    if (ntypes4 < 1) ntypes4 = 1;
+    if ((int)d_cluster_key.extent(0) < max_4mers)
+      LAMMPS_NS::MemKK::realloc_kokkos(d_cluster_key,"chimes:cluster_key",max_4mers);
+
+    Kokkos::parallel_for("ChimesKey4Body",
+      Kokkos::RangePolicy<DeviceType,TagPairCHIMESKey4Body>(0,size_4mers),*this);
+
+    using KeyViewType = typename AT::t_int_1d;
+    using BinOp = Kokkos::BinOp1D<KeyViewType>;
+    BinOp binner(ntypes4,0,ntypes4);
+    Kokkos::BinSort<KeyViewType,BinOp> Sorter(d_cluster_key,0,size_4mers,binner,false);
+    Sorter.create_permute_vector(DeviceType());
+    Sorter.sort(DeviceType(),d_neighborlist_4mers);
   }
 }
 
