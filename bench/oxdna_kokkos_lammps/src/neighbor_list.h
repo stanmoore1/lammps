@@ -46,10 +46,17 @@ struct NeighborList {
     // constexpr screen cutoff (rsq_com < 4.0, i.e. r < 2.0 — the same value
     // LAMMPS uses in fix_oxdna_npair_kokkos.cpp). Rebuilt only when the
     // neighbor list rebuilds (inside build()).
+    //
+    // The list is built with a prefix-scan (count -> scan -> fill), exactly
+    // like fix_oxdna_npair_kokkos, rather than an atomic running counter. The
+    // scan fixes a deterministic pair ORDER (atom i, then neighbor-index k),
+    // so the screened list and the downstream force-accumulation order are
+    // reproducible run-to-run.
     // -------------------------------------------------------------------
     Kokkos::View<int *>    screened_a;
     Kokkos::View<int *>    screened_b;
-    Kokkos::View<int *>    d_screened_count; // device scalar (1 elem)
+    Kokkos::View<int *>    d_num_screened;     // per-atom screened-neighbor count
+    Kokkos::View<int *>    d_screened_offsets; // prefix-sum offsets (length N+1)
     int N_screened = 0;
     int screened_capacity = 0;
 
@@ -99,7 +106,8 @@ struct NeighborList {
 
         screened_a = Kokkos::View<int *>("screened_a", 0);
         screened_b = Kokkos::View<int *>("screened_b", 0);
-        d_screened_count = Kokkos::View<int *>("screened_count", 1);
+        d_num_screened     = Kokkos::View<int *>("num_screened", N);
+        d_screened_offsets = Kokkos::View<int *>("screened_offsets", N + 1);
     }
 
     // Full rebuild
@@ -334,28 +342,89 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
 
     // -------------------------------------------------------------------
     // Build the screened flat pair list (LAMMPS-faithful "fix oxdna/npair").
-    // Scan the per-atom half neighbor matrix and append (a,b) pairs whose
-    // center-of-mass distance is within the screen cutoff (rsq_com < 4.0).
-    // Grow-only flat arrays, filled with an atomic running index.
+    // Scan the per-atom half neighbor matrix for (a,b) pairs whose
+    // center-of-mass separation is within the screen cutoff (rsq_com < 4.0).
+    //
+    // Deterministic prefix-scan construction, mirroring
+    // fix_oxdna_npair_kokkos::compute_neigh_screen_to_npair:
+    //   1. count   : survivors per atom         -> d_num_screened
+    //   2. scan    : prefix-sum the counts       -> d_screened_offsets, total
+    //   3. fill    : re-screen and write each survivor at its fixed slot
+    //                (offset of atom i, then sequential in neighbor order)
+    // Re-screening in the fill pass avoids a per-atom screened scratch matrix;
+    // the COM distance test is cheap and runs only once per neighbor rebuild.
+    // Unlike an atomic running counter, the scan pins the pair ORDER, so the
+    // screened list is reproducible run-to-run.
     // -------------------------------------------------------------------
-    if (total_edges > screened_capacity) {
-        screened_capacity = total_edges + total_edges / 5 + 64;
-        screened_a = Kokkos::View<int *>("screened_a", screened_capacity);
-        screened_b = Kokkos::View<int *>("screened_b", screened_capacity);
-    }
-    Kokkos::deep_copy(d_screened_count, 0);
     {
         auto poss_d   = p.poss;
         auto nmat     = d_neigh_matrix;
         auto nnum     = d_num_neigh;
-        auto sa       = screened_a;
-        auto sb       = screened_b;
-        auto cnt      = d_screened_count;
+        auto nscreen  = d_num_screened;
+        auto soff     = d_screened_offsets;
         auto box_d    = box;
         constexpr c_number screen_cutsq = c_number(4.0);   // r < 2.0 (LAMMPS)
-        Kokkos::parallel_for("build_screened", N, KOKKOS_LAMBDA(int i) {
+
+        // 1. count screened neighbours per atom
+        Kokkos::parallel_for("count_screened", N, KOKKOS_LAMBDA(int i) {
             c_number xi = poss_d(i,0), yi = poss_d(i,1), zi = poss_d(i,2);
             int m = nnum(i);
+            int ns = 0;
+            for (int k = 0; k < m; k++) {
+                int j = nmat(i, k);
+                c_number dx = poss_d(j,0) - xi;
+                c_number dy = poss_d(j,1) - yi;
+                c_number dz = poss_d(j,2) - zi;
+                box_d.wrap(dx, dy, dz);
+                if (dx*dx + dy*dy + dz*dz < screen_cutsq) ns++;
+            }
+            nscreen(i) = ns;
+        });
+
+        // 2. prefix-sum the per-atom counts into offsets; offsets(N) = total
+        Kokkos::parallel_scan("scan_screened",
+            Kokkos::RangePolicy<>(0, N + 1),
+            KOKKOS_LAMBDA(int i, int &update, bool final) {
+                if (i < N) {
+                    if (final) soff(i) = update;
+                    update += nscreen(i);
+                } else if (final) {
+                    soff(N) = update;
+                }
+            });
+    }
+
+    int total_screened = 0;
+    {
+        auto h_off = Kokkos::create_mirror_view(d_screened_offsets);
+        Kokkos::deep_copy(h_off, d_screened_offsets);
+        total_screened = h_off(N);
+    }
+    N_screened = total_screened;
+
+    // Grow-only flat arrays (sized from the actual screened total, which is
+    // always <= total_edges).
+    if (total_screened > screened_capacity) {
+        screened_capacity = total_screened + total_screened / 5 + 64;
+        screened_a = Kokkos::View<int *>("screened_a", screened_capacity);
+        screened_b = Kokkos::View<int *>("screened_b", screened_capacity);
+    }
+
+    // 3. re-screen and write each survivor at its deterministic slot
+    {
+        auto poss_d   = p.poss;
+        auto nmat     = d_neigh_matrix;
+        auto nnum     = d_num_neigh;
+        auto soff     = d_screened_offsets;
+        auto sa       = screened_a;
+        auto sb       = screened_b;
+        auto box_d    = box;
+        constexpr c_number screen_cutsq = c_number(4.0);   // r < 2.0 (LAMMPS)
+        Kokkos::parallel_for("fill_screened", N, KOKKOS_LAMBDA(int i) {
+            c_number xi = poss_d(i,0), yi = poss_d(i,1), zi = poss_d(i,2);
+            int m = nnum(i);
+            int base = soff(i);
+            int ns = 0;
             for (int k = 0; k < m; k++) {
                 int j = nmat(i, k);
                 c_number dx = poss_d(j,0) - xi;
@@ -363,17 +432,12 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
                 c_number dz = poss_d(j,2) - zi;
                 box_d.wrap(dx, dy, dz);
                 if (dx*dx + dy*dy + dz*dz < screen_cutsq) {
-                    int slot = Kokkos::atomic_fetch_add(&cnt(0), 1);
-                    sa(slot) = i;
-                    sb(slot) = j;
+                    sa(base + ns) = i;
+                    sb(base + ns) = j;
+                    ns++;
                 }
             }
         });
-    }
-    {
-        auto h_cnt = Kokkos::create_mirror_view(d_screened_count);
-        Kokkos::deep_copy(h_cnt, d_screened_count);
-        N_screened = h_cnt(0);
     }
 }
 
