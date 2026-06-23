@@ -655,19 +655,19 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       if (evflag) {
         EV_FLOAT ev_tmp;
         if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,1> > policy_3body(0,size_3mers);
+          typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,1> > policy_3body(size_3mers, Kokkos::AUTO);
           Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
         } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,1> > policy_3body(0,size_3mers);
+          typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,1> > policy_3body(size_3mers, Kokkos::AUTO);
           Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
         }
         ev += ev_tmp;
       } else {
         if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,0> > policy_3body(0,size_3mers);
+          typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,0> > policy_3body(size_3mers, Kokkos::AUTO);
           Kokkos::parallel_for("Compute3Body", policy_3body, *this);
         } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,0> > policy_3body(0,size_3mers);
+          typename Kokkos::TeamPolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,0> > policy_3body(size_3mers, Kokkos::AUTO);
           Kokkos::parallel_for("Compute3Body", policy_3body, *this);
         }
       }
@@ -918,6 +918,90 @@ KOKKOS_INLINE_FUNCTION
 void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>,const int& ii) const {
   EV_FLOAT ev;
   this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>(), ii, ev);
+}
+
+/* ---------------------------------------------------------------------- */
+
+// Team/warp-per-cluster 3-body operator (experiment): one team per 3-mer. All
+// lanes run the setup redundantly and the dense coefficient reduction is split
+// across the team inside compute_3B; the force scatter / ev_tally is applied
+// once per team via Kokkos::single.
+
+template<class DeviceType>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>, const team_member_3b& team, EV_FLOAT& ev) const
+{
+  const auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  const auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  const int ii = team.league_rank();
+
+  const int i = d_neighborlist_3mers(ii,0);
+  const int j = d_neighborlist_3mers(ii,1);
+  const int k = d_neighborlist_3mers(ii,2);
+
+  KK_FLOAT dist_3b[3], dr_3b[3*CHDIM];
+  dist_3b[0] = get_dist(i,j,&dr_3b[0*CHDIM]);
+  dist_3b[1] = get_dist(i,k,&dr_3b[CHDIM]);
+  dist_3b[2] = get_dist(j,k,&dr_3b[2*CHDIM]);
+
+  int typ_idxs_3b[3];
+  typ_idxs_3b[0] = d_chimes_type[type[i]-1];
+  typ_idxs_3b[1] = d_chimes_type[type[j]-1];
+  typ_idxs_3b[2] = d_chimes_type[type[k]-1];
+
+  KK_FLOAT energy = 0.0;
+
+  KK_FLOAT force_3b[3*CHDIM];
+  for (int idx = 0; idx < 3; idx++)
+  {
+    force_3b[idx] = 0.0;
+    force_3b[CHDIM+idx] = 0.0;
+    force_3b[2*CHDIM+idx] = 0.0;
+  }
+
+  KK_FLOAT stensor[6];
+  for (int n = 0; n < 6; n++) stensor[n] = 0.0;
+
+  // Dense NP^3 reduction is split across the team; every lane returns with the
+  // same force_3b/energy.
+  chimes_calculatorKK.compute_3B(team, dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy);
+
+  // Apply the per-cluster contribution exactly once.
+  Kokkos::single(Kokkos::PerTeam(team), [&]() {
+    for (int idx = 0; idx < 3; idx++)
+    {
+      a_f(i,idx) += force_3b[idx];
+      a_f(j,idx) += force_3b[CHDIM+idx];
+      a_f(k,idx) += force_3b[2*CHDIM+idx];
+    }
+
+    int atmidxlst[6][2];
+
+    if (EVFLAG && vflag_atom)
+    {
+      atmidxlst[0][0] = i;
+      atmidxlst[0][1] = j;
+      atmidxlst[1][0] = i;
+      atmidxlst[1][1] = k;
+      atmidxlst[2][0] = j;
+      atmidxlst[2][1] = k;
+    }
+
+    if (EVFLAG)
+      ev_tally_mb<NEIGHFLAG>(3, 3, atmidxlst, energy, stensor, ev);
+  });
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>, const team_member_3b& team) const {
+  EV_FLOAT ev;
+  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>(), team, ev);
 }
 
 /* ---------------------------------------------------------------------- */
