@@ -1372,7 +1372,6 @@ void chimesFFKokkos<DeviceType>::poly_2B(KK_FLOAT &e, KK_FLOAT &f0, const int nc
   auto c_chimes_2b_params_pairidx = Kokkos::subview(c_chimes_2b_params,pair_idx,Kokkos::ALL);
   auto c_chimes_2b_pows_pairidx = Kokkos::subview(c_chimes_2b_pows,pair_idx,Kokkos::ALL);
 
-  #pragma unroll
   for (int coeffs = 0; coeffs < ncoeffs_2b; coeffs++) {
     const KK_FLOAT coeff_val = c_chimes_2b_params_pairidx(coeffs);
     const int powerp1 = c_chimes_2b_pows_pairidx(coeffs) + 1;
@@ -1407,7 +1406,6 @@ void chimesFFKokkos<DeviceType>::poly_3B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3
   auto c_chimes_3b_params_tripidx = Kokkos::subview(c_chimes_3b_params,tripidx,Kokkos::ALL);
   auto c_chimes_3b_powers_tripidx = Kokkos::subview(c_chimes_3b_powers,tripidx,Kokkos::ALL,Kokkos::ALL);
 
-  #pragma unroll
   for (int coeffs = 0; coeffs < ncoeffs_3b; coeffs++) {
     const KK_FLOAT coeff = c_chimes_3b_params_tripidx(coeffs);
 
@@ -1481,7 +1479,6 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense_loop1(int max_poly, KK_FLOAT &e, 
 {
   auto c_chimes_3b_params_tripidx = Kokkos::subview(c_chimes_3b_params,tripidx,Kokkos::ALL);
 
-  #pragma unroll
   for (int count = 0; count < ncoeffs_3b; count++) {
     int l = count / (max_poly * max_poly);
     //if (l >= max_poly) { cout << "Internal error: l > max_poly: " << l << "\n"; }
@@ -1560,36 +1557,64 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense_loop2_t(KK_FLOAT &e, KK_FLOAT &f0
                                    const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
                                    const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const
 {
-  auto c_chimes_3b_params_tripidx = Kokkos::subview(c_chimes_3b_params,tripidx,Kokkos::ALL);
+  // Fully unroll the NP^3 coefficient loop via a compile-time fold. This is the
+  // portable equivalent of "#pragma unroll" (which HIP/clang reject on a loop
+  // this large): every coefficient term becomes a poly_3B_dense_term<NP,C>
+  // instantiation with a compile-time linear index C, so the Tn/Tnd reads use
+  // compile-time offsets and stay in registers.
+  poly_3B_dense_unroll<NP>(std::make_integer_sequence<int, NP * NP * NP>{},
+                           e, f0, f1, f2, tripidx,
+                           Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+}
 
-  int count = 0;
-  #pragma unroll
-  for (int i = 0; i < NP; i++) {
+/* ---------------------------------------------------------------------- */
+
+// One coefficient term of the unrolled 3-body dense reduction. The linear index
+// C in [0, NP^3) maps to the same (i,j,k) the runtime triple loop used:
+// count = (i*NP + j)*NP + k, incremented with k innermost.
+
+template<class DeviceType>
+template<int NP, int C>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::poly_3B_dense_term(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                                   int tripidx, const KK_FLOAT* Tn_ij,
+                                   const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
+                                   const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const
+{
+  constexpr int i = C / (NP * NP);
+  constexpr int j = (C / NP) % NP;
+  constexpr int k = C % NP;
+
+  const KK_FLOAT coeff = c_chimes_3b_params(tripidx, C);
+  if (coeff != 0.0) {
     const KK_FLOAT tn_ij = Tn_ij[i];
-    const KK_FLOAT tnd_ij = Tnd_ij[i];
+    const KK_FLOAT tn_ik = Tn_ik[j];
+    const KK_FLOAT tn_jk = Tn_jk[k];
+    const KK_FLOAT tn_ij_ik = tn_ij * tn_ik;
 
-    #pragma unroll
-    for (int j = 0; j < NP; j++) {
-      const KK_FLOAT tn_ik = Tn_ik[j];
-      const KK_FLOAT tnd_ik = Tnd_ik[j];
-      const KK_FLOAT tn_ij_ik = tn_ij * tn_ik;
-
-      #pragma unroll
-      for (int k = 0; k < NP; k++) {
-        const KK_FLOAT coeff = c_chimes_3b_params_tripidx[count];
-        if (coeff != 0.0) {
-          const KK_FLOAT tn_jk = Tn_jk[k];
-          const KK_FLOAT tnd_jk = Tnd_jk[k];
-
-          e += coeff * tn_ij_ik * tn_jk;
-          f0 += coeff * tnd_ij * tn_ik * tn_jk;
-          f1 += coeff * tnd_ik * tn_ij * tn_jk;
-          f2 += coeff * tnd_jk * tn_ij_ik;
-        }
-        count++;
-      }
-    }
+    e  += coeff * tn_ij_ik * tn_jk;
+    f0 += coeff * Tnd_ij[i] * tn_ik * tn_jk;
+    f1 += coeff * Tnd_ik[j] * tn_ij * tn_jk;
+    f2 += coeff * Tnd_jk[k] * tn_ij_ik;
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+// Expand the NP^3 terms with a C++17 comma fold (flat, so no deep template
+// recursion regardless of NP). Each Cs is a compile-time index.
+
+template<class DeviceType>
+template<int NP, int... Cs>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::poly_3B_dense_unroll(std::integer_sequence<int, Cs...>,
+                                   KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                                   int tripidx, const KK_FLOAT* Tn_ij,
+                                   const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
+                                   const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const
+{
+  ( this->template poly_3B_dense_term<NP, Cs>(e, f0, f1, f2, tripidx,
+                                              Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk), ... );
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1648,7 +1673,6 @@ void chimesFFKokkos<DeviceType>::poly_4B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4
   auto c_chimes_4b_params_quadidx = Kokkos::subview(c_chimes_4b_params,quadidx,Kokkos::ALL);
   auto c_chimes_4b_powers_quadidx = Kokkos::subview(c_chimes_4b_powers,quadidx,Kokkos::ALL,Kokkos::ALL);
 
-  #pragma unroll
   for (int coeffs = 0; coeffs < ncoeffs_4b; coeffs++) {
     const KK_FLOAT coeff = c_chimes_4b_params_quadidx(coeffs);
 
@@ -1737,7 +1761,6 @@ void chimesFFKokkos<DeviceType>::poly_4B_dense_loop1(
 
   for (int l = 4; l >= 0; l--) { max_poly_pow[l] = max_poly_pow[l + 1] * max_poly; }
 
-  #pragma unroll
   for (int count = 0; count < ncoeffs_4b; count++) {
     if (c_chimes_4b_params_quadidx[count] != 0.0) {
       int index[6];

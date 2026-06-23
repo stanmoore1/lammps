@@ -20,6 +20,7 @@
 #include<algorithm>
 #include<cmath>
 #include<map>
+#include<utility>
 
 #define pi 3.14159265359
 
@@ -243,6 +244,26 @@ class chimesFFKokkos : public chimesFF
                              int tripidx, const KK_FLOAT* Tn_ij,
                              const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
                              const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const;
+
+  // Manual unroll of poly_3B_dense_loop2_t's NP^3 coefficient loop. _term
+  // evaluates one compile-time linear index C (so the Tn/Tnd reads use
+  // compile-time offsets and stay in registers); _unroll expands the whole
+  // loop with a C++17 fold over make_integer_sequence<NP*NP*NP>. This replaces
+  // the #pragma unroll that HIP/clang reject on a loop this large.
+  template<int NP, int C>
+  KOKKOS_INLINE_FUNCTION
+  void poly_3B_dense_term(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                          int tripidx, const KK_FLOAT* Tn_ij,
+                          const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
+                          const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const;
+
+  template<int NP, int... Cs>
+  KOKKOS_INLINE_FUNCTION
+  void poly_3B_dense_unroll(std::integer_sequence<int, Cs...>,
+                            KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                            int tripidx, const KK_FLOAT* Tn_ij,
+                            const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
+                            const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const;
 
   template<int NP>
   KOKKOS_INLINE_FUNCTION
@@ -506,13 +527,11 @@ void chimesFFKokkos<DeviceType>::set_cheby_polys_t(KK_FLOAT* Tn, KK_FLOAT* Tnd, 
     Tnd[0] = 1.0;
     Tnd[1] = 2.0 * x;
 
-    #pragma unroll
     for (int i = 2; i < NP; i++) {
       Tn[i]  = 2.0 * x *  Tn[i-1] -  Tn[i-2];
       Tnd[i] = 2.0 * x * Tnd[i-1] - Tnd[i-2];
     }
 
-    #pragma unroll
     for (int i = NP - 1; i >= 1; i--)
       Tnd[i] = i * dx_dr * Tnd[i-1];
 
@@ -538,13 +557,11 @@ void chimesFFKokkos<DeviceType>::set_polys_out_of_range_t(KK_FLOAT* Tn, KK_FLOAT
   Tnd[0] = 1.0;
   Tnd[1] = 2.0 * x;
 
-  #pragma unroll
   for (int i = 2; i < NP; i++) {
     Tn[i] = 2.0 * x * Tn[i-1] - Tn[i-2];
     Tnd[i] = 2.0 * x * Tnd[i-1] - Tnd[i-2];
   }
 
-  #pragma unroll
   for (int i = NP - 1; i >= 1; i--)
     Tnd[i] = i * dx_dr * Tnd[i-1];
 
@@ -552,7 +569,6 @@ void chimesFFKokkos<DeviceType>::set_polys_out_of_range_t(KK_FLOAT* Tn, KK_FLOAT
 
   const KK_FLOAT damp_fac = exp((dx-inner_cutoff) / inner_smooth_distance);
 
-  #pragma unroll
   for (int i = 0 ; i < NP ; i++) {
     Tn[i] += inner_smooth_distance * (damp_fac-1.0)  * Tnd[i];
     Tnd[i] *= damp_fac;
