@@ -641,9 +641,13 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     // (ConjugateAi removed: ComputeRho reads A_sph directly via conjugate symmetry)
 
-    //ComputeRho
+    //ComputeRho (atom = fast/coalesced tile dim, ms-combination = slow dim)
     {
-      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeRho> policy_rho(0,chunk_size*idx_ms_combs_max);
+      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>,
+        Kokkos::Rank<2, Kokkos::Iterate::Left, Kokkos::Iterate::Left>,
+        Kokkos::LaunchBounds<tile_atom_msrange * tile_ms_msrange, min_blocks_compute_rho>,
+        TagPairPACEComputeRho>
+        policy_rho({0, 0}, {chunk_size, idx_ms_combs_max}, {tile_atom_msrange, tile_ms_msrange});
       Kokkos::parallel_for("ComputeRho",policy_rho,*this);
     }
 
@@ -653,9 +657,13 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       Kokkos::parallel_for("ComputeFS",policy_fs,*this);
     }
 
-    //ComputeWeights
+    //ComputeWeights (atom = fast/coalesced tile dim, ms-combination = slow dim)
     {
-      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeWeights> policy_weights(0,chunk_size * idx_ms_combs_max);
+      Kokkos::MDRangePolicy<DeviceType, Kokkos::IndexType<int>,
+        Kokkos::Rank<2, Kokkos::Iterate::Left, Kokkos::Iterate::Left>,
+        Kokkos::LaunchBounds<tile_atom_msrange * tile_ms_msrange, min_blocks_compute_weights>,
+        TagPairPACEComputeWeights>
+        policy_weights({0, 0}, {chunk_size, idx_ms_combs_max}, {tile_atom_msrange, tile_ms_msrange});
       Kokkos::parallel_for("ComputeWeights",policy_weights,*this);
     }
 
@@ -1033,11 +1041,8 @@ PairPACEKokkos<DeviceType>::read_A(const int ii, const int mu, const int l, cons
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& iter) const
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int ii, const int idx_ms_combs) const
 {
-  const int idx_ms_combs = iter / chunk_size;
-  const int ii = iter % chunk_size;
-
   const int i = d_ilist[ii + chunk_offset];
   const int mu_i = d_map(type(i));
 
@@ -1151,11 +1156,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeFS, const int& ii
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const int& iter) const
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const int ii, const int idx_ms_combs) const
 {
-  const int idx_ms_combs = iter / chunk_size;
-  const int ii = iter % chunk_size;
-
   const int i = d_ilist[ii + chunk_offset];
   const int mu_i = d_map(type(i));
 
