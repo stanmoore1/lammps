@@ -96,6 +96,9 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
 
   int nlocal,newton_bond;
   int eflag,vflag;
+  // bond->prime-neigh table only changes on reneighbor; cache the lastcall it
+  // was built for so it is recomputed once per neighbor build, not every step.
+  bigint last_precompute_lastcall = -1;
 
   DAT::tdual_kkfloat_1d k_k;
   DAT::tdual_kkfloat_5d k_r0;

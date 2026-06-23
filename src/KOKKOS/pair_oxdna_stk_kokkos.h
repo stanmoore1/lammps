@@ -95,6 +95,9 @@ class PairOxdnaStkKokkos : public PairOxdnaStk, public KokkosBase {
 
   int nbondlist;
   int nlocal, newton_bond, eflag, vflag;
+  // bond->prime-neigh table only changes on reneighbor; cache the lastcall it
+  // was built for so it is recomputed once per neighbor build, not every step.
+  bigint last_precompute_lastcall = -1;
 
   // stacking interaction parameters
   typename AT::tdual_kkfloat_2d k_epsilon_st, k_a_st;

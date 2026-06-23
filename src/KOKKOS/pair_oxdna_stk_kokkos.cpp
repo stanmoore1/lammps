@@ -92,38 +92,46 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   torque = atomKK->k_torque.view<DeviceType>();
   type = atomKK->k_type.view<DeviceType>();
   tag = atomKK->k_tag.view<DeviceType>();
-  bondlist = neighborKK->k_bondlist.view<DeviceType>();
-  id5p = atomKK->k_id5p.view<DeviceType>();
-  id3p = atomKK->k_id3p.view<DeviceType>();
-
   nlocal = atom->nlocal;
   newton_bond = force->newton_bond;
-  neighborKK->k_bondlist.template sync<DeviceType>();
   nbondlist = neighborKK->nbondlist;
 
   int need_dup = lmp->kokkos->need_dup<DeviceType>();
 
   copymode = 1;
 
-  // Precompute bondlist atoms a/b 3'-> 5' directionality, as well as their 3' and 5' neighbors
-  // for tetramer type determination in compute.
-  map_style = atom->map_style;
-  if (map_style == Atom::MAP_ARRAY) {
-    k_map_array = atomKK->k_map_array;
-    k_map_array.template sync<DeviceType>();
-  } else if (map_style == Atom::MAP_HASH) {
-    k_map_hash = atomKK->k_map_hash;
-    k_map_hash.template sync<DeviceType>();
+  // The bond->prime-neigh table (bond endpoints a,b + their 3'/5' tetramer
+  // neighbours) is derived from the bond list and the atom map, both of which
+  // only change on a neighbor-list rebuild. Recompute it once per build instead
+  // of every step. The compute kernel below reads only d_bond_prime_neighs,
+  // which persists between rebuilds.
+  if (neighbor->lastcall != last_precompute_lastcall) {
+    bondlist = neighborKK->k_bondlist.view<DeviceType>();
+    id5p = atomKK->k_id5p.view<DeviceType>();
+    id3p = atomKK->k_id3p.view<DeviceType>();
+    neighborKK->k_bondlist.template sync<DeviceType>();
+
+    // Precompute bondlist atoms a/b 3'-> 5' directionality, as well as their 3' and 5' neighbors
+    // for tetramer type determination in compute.
+    map_style = atom->map_style;
+    if (map_style == Atom::MAP_ARRAY) {
+      k_map_array = atomKK->k_map_array;
+      k_map_array.template sync<DeviceType>();
+    } else if (map_style == Atom::MAP_HASH) {
+      k_map_hash = atomKK->k_map_hash;
+      k_map_hash.template sync<DeviceType>();
+    }
+    atomKK->k_sametag.sync<DeviceType>();
+    d_sametag = atomKK->k_sametag.view<DeviceType>();
+    // Reallocate if necessary - store 4 indices per bond: a, b, id3p[a], id5p[b]
+    if (nbondlist > k_bond_prime_neighs.extent_int(0)) {
+      MemKK::realloc_kokkos(k_bond_prime_neighs, "stk:bond_prime_neighs", nbondlist);
+      d_bond_prime_neighs = k_bond_prime_neighs.template view<DeviceType>();
+    }
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkPrecomputeBondPrimeNeighs>(0,nbondlist),*this);
+    k_bond_prime_neighs.template modify<DeviceType>();
+    last_precompute_lastcall = neighbor->lastcall;
   }
-  atomKK->k_sametag.sync<DeviceType>();
-  d_sametag = atomKK->k_sametag.view<DeviceType>();
-  // Reallocate if necessary - store 4 indices per bond: a, b, id3p[a], id5p[b]
-  if (nbondlist > k_bond_prime_neighs.extent_int(0)) {
-    MemKK::realloc_kokkos(k_bond_prime_neighs, "stk:bond_prime_neighs", nbondlist);
-    d_bond_prime_neighs = k_bond_prime_neighs.template view<DeviceType>();
-  }
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkPrecomputeBondPrimeNeighs>(0,nbondlist),*this);
-  k_bond_prime_neighs.template modify<DeviceType>();
 
   // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from fix_oxdna_lrf_kokkos.
   d_nx_xtrct = fix_oxdna_lrfKK->k_nx.template view<DeviceType>();
