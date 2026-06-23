@@ -296,48 +296,10 @@ void PairCHIMESKokkos<DeviceType, vector_length>::build_mb_neighlists()
     Kokkos::parallel_for("ComputeShortNeigh",policy_short,*this);
   }
 
-  // try building 3-body list, resize if necessary
-
-  if (chimes_calculatorKK.poly_orders[1] > 0 || chimes_calculatorKK.poly_orders[2] > 0) {
-    resize = 1;
-    while (resize) {
-      resize = 0;
-
-      PairCHIMESComputeNeigh3BodyFunctor<DeviceType, vector_length> neigh_3B_functor(this);
-      Kokkos::parallel_scan("ComputeNeigh3Body", size_2mers, neigh_3B_functor, size_3mers);
-
-      resize = size_3mers > max_3mers;
-      if (resize) {
-        max_3mers = MAX(max_3mers+MAX(1,max_3mers*0.1),size_3mers);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_3mers,"chimes:neighborlist_3mers",max_3mers);
-      }
-    }
-  }
-
-  // try building 4-body list, resize if necessary
-
-  if (chimes_calculatorKK.poly_orders[2] > 0) {
-    resize = 1;
-    while (resize) {
-      resize = 0;
-
-      Kokkos::deep_copy(d_size_4mers,0.0);
-
-      typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESComputeNeigh4Body> policy_neigh(0,size_3mers);
-      Kokkos::parallel_for("ComputeNeigh4Body",policy_neigh,*this);
-      //PairCHIMESComputeNeigh4BodyFunctor<DeviceType> neigh_4B_functor(this);
-      //Kokkos::parallel_scan("ComputeNeigh4Body", size_3mers, neigh_4B_functor), size_4mers;
-
-      auto h_size_4mers = Kokkos::create_mirror_view_and_copy(LMPHostType(),d_size_4mers);
-
-      size_4mers = h_size_4mers();
-      resize = size_4mers > max_4mers;
-      if (resize) {
-        max_4mers = MAX(max_4mers+MAX(1,max_4mers*0.1),size_4mers);
-        LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_4mers,"chimes:neighborlist_4mers",max_4mers);
-      }
-    }
-  }
+  // PROTOTYPE: the fused 3B/4B kernels enumerate clusters on the fly from the
+  // 2-mer list + short neighbor list, so the (memory-heavy) 3-mer and 4-mer
+  // lists are NOT materialized here. The materialized neigh_3B_item /
+  // ComputeNeigh4Body builders are intentionally left unused on this branch.
 }
 
 /* ---------------------------------------------------------------------- */
@@ -692,79 +654,59 @@ void PairCHIMESKokkos<DeviceType, vector_length>::compute(int eflag_in, int vfla
       }
     }
 
-    //Compute3Body
-    //
-    // Hierarchical parallelism (ported from Kokkos SNAP): one team per 3-body
-    // cluster, with the dense Chebyshev coefficient reduction distributed across
-    // the team's ThreadVectorRange. On host backends vector_length collapses to 1
-    // and this reproduces the original serial per-cluster behavior.
+    // Fused3Body (PROTOTYPE): enumerate 3-body clusters on the fly and evaluate
+    // them with no materialized 3-mer list. One team per lead unit (owned atom
+    // for CHIMES_FUSED_GRANULARITY==0, 2-mer for ==1); the per-cluster Chebyshev
+    // reduction runs over the team's ThreadVectorRange exactly as before.
     if (chimes_calculatorKK.poly_orders[1] > 0)
     {
       using LB3 = Kokkos::LaunchBounds<vector_length,chimes_min_blocks_3b>;
-      const int slot_floats_3b = 2*3*MAX_3B_POLY; // 3 pairs x (Tn + Tnd) per cluster
+      const auto scratch_req_3b = Kokkos::PerTeam(chimes_calculatorKK.scratch_bytes(2*3*MAX_3B_POLY));
+      const int league3 = (CHIMES_FUSED_GRANULARITY == 0) ? chunk_size : size_2mers;
       if (evflag) {
-        // Energy/virial path stays one cluster per team (avoids a packed-team
-        // reduction race); scratch holds a single cluster's Chebyshev arrays.
-        const auto scratch_req_3b = Kokkos::PerTeam(chimes_calculatorKK.scratch_bytes(slot_floats_3b));
         EV_FLOAT ev_tmp;
         if (neighflag == HALF) {
-          typename Kokkos::TeamPolicy<DeviceType,LB3,TagPairCHIMESCompute3Body<HALF,1> > policy_3body(size_3mers,1,vector_length);
-          Kokkos::parallel_reduce("Compute3Body", policy_3body.set_scratch_size(0,scratch_req_3b), *this, ev_tmp);
+          typename Kokkos::TeamPolicy<DeviceType,LB3,TagPairCHIMESFused3Body<HALF,1> > p(league3,1,vector_length);
+          Kokkos::parallel_reduce("Fused3Body", p.set_scratch_size(0,scratch_req_3b), *this, ev_tmp);
         } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::TeamPolicy<DeviceType,LB3,TagPairCHIMESCompute3Body<HALFTHREAD,1> > policy_3body(size_3mers,1,vector_length);
-          Kokkos::parallel_reduce("Compute3Body", policy_3body.set_scratch_size(0,scratch_req_3b), *this, ev_tmp);
+          typename Kokkos::TeamPolicy<DeviceType,LB3,TagPairCHIMESFused3Body<HALFTHREAD,1> > p(league3,1,vector_length);
+          Kokkos::parallel_reduce("Fused3Body", p.set_scratch_size(0,scratch_req_3b), *this, ev_tmp);
         }
         ev += ev_tmp;
       } else {
-        // Force-only path: pack CHIMES_CLUSTERS_PER_TEAM_3B clusters per team
-        // (default 1 => league=size_3mers, team_size=1, original behavior).
-        constexpr int cpt3 = CHIMES_CLUSTERS_PER_TEAM_3B;
-        const int league_3b = (size_3mers + cpt3 - 1) / cpt3;
-        const auto scratch_req_3b = Kokkos::PerTeam(chimes_calculatorKK.scratch_bytes(cpt3 * slot_floats_3b));
         if (neighflag == HALF) {
-          typename Kokkos::TeamPolicy<DeviceType,LB3,TagPairCHIMESCompute3Body<HALF,0> > policy_3body(league_3b,cpt3,vector_length);
-          Kokkos::parallel_for("Compute3Body", policy_3body.set_scratch_size(0,scratch_req_3b), *this);
+          typename Kokkos::TeamPolicy<DeviceType,LB3,TagPairCHIMESFused3Body<HALF,0> > p(league3,1,vector_length);
+          Kokkos::parallel_for("Fused3Body", p.set_scratch_size(0,scratch_req_3b), *this);
         } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::TeamPolicy<DeviceType,LB3,TagPairCHIMESCompute3Body<HALFTHREAD,0> > policy_3body(league_3b,cpt3,vector_length);
-          Kokkos::parallel_for("Compute3Body", policy_3body.set_scratch_size(0,scratch_req_3b), *this);
+          typename Kokkos::TeamPolicy<DeviceType,LB3,TagPairCHIMESFused3Body<HALFTHREAD,0> > p(league3,1,vector_length);
+          Kokkos::parallel_for("Fused3Body", p.set_scratch_size(0,scratch_req_3b), *this);
         }
       }
     }
 
-    //Compute4Body
-    //
-    // Hierarchical parallelism (ported from Kokkos SNAP): one team per 4-body
-    // cluster, with the dense Chebyshev coefficient reduction distributed across
-    // the team's ThreadVectorRange. On host backends vector_length collapses to 1
-    // and this reproduces the original serial per-cluster behavior.
+    // Fused4Body (PROTOTYPE): same scheme for 4-body clusters.
     if (chimes_calculatorKK.poly_orders[2] > 0)
     {
       using LB4 = Kokkos::LaunchBounds<vector_length,chimes_min_blocks_4b>;
-      const int slot_floats_4b = 2*6*MAX_4B_POLY; // 6 pairs x (Tn + Tnd) per cluster
+      const auto scratch_req_4b = Kokkos::PerTeam(chimes_calculatorKK.scratch_bytes(2*6*MAX_4B_POLY));
+      const int league4 = (CHIMES_FUSED_GRANULARITY == 0) ? chunk_size : size_2mers;
       if (evflag) {
-        // Energy/virial path stays one cluster per team (see 3-body note above).
-        const auto scratch_req_4b = Kokkos::PerTeam(chimes_calculatorKK.scratch_bytes(slot_floats_4b));
         EV_FLOAT ev_tmp;
         if (neighflag == HALF) {
-          typename Kokkos::TeamPolicy<DeviceType,LB4,TagPairCHIMESCompute4Body<HALF,1> > policy_4body(size_4mers,1,vector_length);
-          Kokkos::parallel_reduce("Compute4Body", policy_4body.set_scratch_size(0,scratch_req_4b), *this, ev_tmp);
+          typename Kokkos::TeamPolicy<DeviceType,LB4,TagPairCHIMESFused4Body<HALF,1> > p(league4,1,vector_length);
+          Kokkos::parallel_reduce("Fused4Body", p.set_scratch_size(0,scratch_req_4b), *this, ev_tmp);
         } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::TeamPolicy<DeviceType,LB4,TagPairCHIMESCompute4Body<HALFTHREAD,1> > policy_4body(size_4mers,1,vector_length);
-          Kokkos::parallel_reduce("Compute4Body",policy_4body.set_scratch_size(0,scratch_req_4b), *this, ev_tmp);
+          typename Kokkos::TeamPolicy<DeviceType,LB4,TagPairCHIMESFused4Body<HALFTHREAD,1> > p(league4,1,vector_length);
+          Kokkos::parallel_reduce("Fused4Body", p.set_scratch_size(0,scratch_req_4b), *this, ev_tmp);
         }
         ev += ev_tmp;
       } else {
-        // Force-only path: pack CHIMES_CLUSTERS_PER_TEAM_4B clusters per team
-        // (default 1 => league=size_4mers, team_size=1, original behavior).
-        constexpr int cpt4 = CHIMES_CLUSTERS_PER_TEAM_4B;
-        const int league_4b = (size_4mers + cpt4 - 1) / cpt4;
-        const auto scratch_req_4b = Kokkos::PerTeam(chimes_calculatorKK.scratch_bytes(cpt4 * slot_floats_4b));
         if (neighflag == HALF) {
-          typename Kokkos::TeamPolicy<DeviceType,LB4,TagPairCHIMESCompute4Body<HALF,0> > policy_4body(league_4b,cpt4,vector_length);
-          Kokkos::parallel_for("Compute4Body", policy_4body.set_scratch_size(0,scratch_req_4b), *this);
+          typename Kokkos::TeamPolicy<DeviceType,LB4,TagPairCHIMESFused4Body<HALF,0> > p(league4,1,vector_length);
+          Kokkos::parallel_for("Fused4Body", p.set_scratch_size(0,scratch_req_4b), *this);
         } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::TeamPolicy<DeviceType,LB4,TagPairCHIMESCompute4Body<HALFTHREAD,0> > policy_4body(league_4b,cpt4,vector_length);
-          Kokkos::parallel_for("Compute4Body", policy_4body.set_scratch_size(0,scratch_req_4b), *this);
+          typename Kokkos::TeamPolicy<DeviceType,LB4,TagPairCHIMESFused4Body<HALFTHREAD,0> > p(league4,1,vector_length);
+          Kokkos::parallel_for("Fused4Body", p.set_scratch_size(0,scratch_req_4b), *this);
         }
       }
     }
@@ -977,7 +919,9 @@ void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompu
   KK_FLOAT stensor[6];
   for (int n = 0; n < 6; n++) stensor[n] = 0.0;
 
-  chimes_calculatorKK.compute_3B(team, cpt, slot, dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy);
+  const int slot_floats_3b = 2*3*MAX_3B_POLY;
+  KK_FLOAT* scratch_3b = ((KK_FLOAT*) team.team_shmem().get_shmem(cpt * slot_floats_3b * sizeof(KK_FLOAT), 0)) + slot * slot_floats_3b;
+  chimes_calculatorKK.compute_3B(team, scratch_3b, dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy);
 
   if (valid) {
     auto scatter_and_tally = [&] () {
@@ -1083,7 +1027,9 @@ void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompu
   KK_FLOAT stensor[6];
   for (int n = 0; n < 6; n++) stensor[n] = 0.0;
 
-  chimes_calculatorKK.compute_4B(team, cpt, slot, dist_4b, dr_4b, typ_idxs_4b, force_4b, stensor, energy);
+  const int slot_floats_4b = 2*6*MAX_4B_POLY;
+  KK_FLOAT* scratch_4b = ((KK_FLOAT*) team.team_shmem().get_shmem(cpt * slot_floats_4b * sizeof(KK_FLOAT), 0)) + slot * slot_floats_4b;
+  chimes_calculatorKK.compute_4B(team, scratch_4b, dist_4b, dr_4b, typ_idxs_4b, force_4b, stensor, energy);
 
   if (valid) {
     auto scatter_and_tally = [&] () {
@@ -1130,6 +1076,245 @@ KOKKOS_INLINE_FUNCTION
 void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompute4Body<NEIGHFLAG,EVFLAG>,const t_team& team) const {
   EV_FLOAT ev;
   this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESCompute4Body<NEIGHFLAG,EVFLAG>(), team, ev);
+}
+
+/* ----------------------------------------------------------------------
+   PROTOTYPE fused (list-free) 3B/4B evaluation. Per-cluster evaluators below
+   merge the validity checks of the neighbor-list build (neigh_3B_item / the
+   4-body build) with the force/energy evaluation (Compute3Body/Compute4Body),
+   so no 3-/4-mer list is ever materialized. All vector lanes of a team evaluate
+   the same cluster, so the early-return validity checks are uniform across the
+   team and never diverge at compute_3B/compute_4B's team_barrier.
+ ------------------------------------------------------------------------- */
+
+template<class DeviceType, int vector_length>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType, vector_length>::eval_fused_3body(const t_team& team, KK_FLOAT* scratch, int i, int j, int k, EV_FLOAT& ev) const
+{
+  KK_FLOAT dr_3b[3*CHDIM], dist_3b[3];
+  dist_3b[0] = get_dist(i,j,&dr_3b[0*CHDIM]);
+  dist_3b[1] = get_dist(i,k,&dr_3b[1*CHDIM]);
+  dist_3b[2] = get_dist(j,k,&dr_3b[2*CHDIM]);
+
+  if (dist_3b[2] >= maxcut_3b) return;   // ij, ik are < maxcut_3b by construction
+
+  const int natmtyps = chimes_calculatorKK.natmtyps;
+  int typ[3];
+  typ[0] = d_chimes_type[type[i]-1];
+  typ[1] = d_chimes_type[type[j]-1];
+  typ[2] = d_chimes_type[type[k]-1];
+
+  const int type_idx = typ[0]*natmtyps*natmtyps + typ[1]*natmtyps + typ[2];
+  const int tripidx = chimes_calculatorKK.c_atom_int_trip_map[type_idx];
+  if (tripidx < 0) return;
+
+  const auto &c_cut = chimes_calculatorKK.c_chimes_3b_cutoff;
+  const auto &c_map = chimes_calculatorKK.c_pair_int_trip_map;
+  if (dist_3b[0] >= c_cut(tripidx,c_map(type_idx,0),1)) return;
+  if (dist_3b[1] >= c_cut(tripidx,c_map(type_idx,1),1)) return;
+  if (dist_3b[2] >= c_cut(tripidx,c_map(type_idx,2),1)) return;
+
+  KK_FLOAT energy = 0.0;
+  KK_FLOAT force_3b[3*CHDIM];
+  for (int idx = 0; idx < 3; idx++) {
+    force_3b[idx] = 0.0; force_3b[CHDIM+idx] = 0.0; force_3b[2*CHDIM+idx] = 0.0;
+  }
+  KK_FLOAT stensor[6];
+  for (int n = 0; n < 6; n++) stensor[n] = 0.0;
+
+  chimes_calculatorKK.compute_3B(team, scratch, dist_3b, dr_3b, typ, force_3b, stensor, energy);
+
+  const auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  const auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  Kokkos::single(Kokkos::PerTeam(team), [&] () {
+    for (int idx = 0; idx < 3; idx++) {
+      a_f(i,idx) += force_3b[idx];
+      a_f(j,idx) += force_3b[CHDIM+idx];
+      a_f(k,idx) += force_3b[2*CHDIM+idx];
+    }
+    int atmidxlst[6][2];
+    if (EVFLAG && vflag_atom) {
+      atmidxlst[0][0] = i; atmidxlst[0][1] = j;
+      atmidxlst[1][0] = i; atmidxlst[1][1] = k;
+      atmidxlst[2][0] = j; atmidxlst[2][1] = k;
+    }
+    if (EVFLAG) ev_tally_mb<NEIGHFLAG>(3, 3, atmidxlst, energy, stensor, ev);
+  });
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType, int vector_length>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType, vector_length>::eval_fused_4body(const t_team& team, KK_FLOAT* scratch, int i, int j, int k, int l, EV_FLOAT& ev) const
+{
+  KK_FLOAT dr_4b[6*CHDIM], dist_4b[6];
+  dist_4b[0] = get_dist(i,j,&dr_4b[0*CHDIM]);
+  dist_4b[1] = get_dist(i,k,&dr_4b[1*CHDIM]);
+  dist_4b[2] = get_dist(i,l,&dr_4b[2*CHDIM]);
+  dist_4b[3] = get_dist(j,k,&dr_4b[3*CHDIM]);
+  dist_4b[4] = get_dist(j,l,&dr_4b[4*CHDIM]);
+  dist_4b[5] = get_dist(k,l,&dr_4b[5*CHDIM]);
+
+  for (int p = 0; p < 6; p++) if (dist_4b[p] >= maxcut_4b) return;
+
+  const int natmtyps = chimes_calculatorKK.natmtyps;
+  int typ[4];
+  typ[0] = d_chimes_type[type[i]-1];
+  typ[1] = d_chimes_type[type[j]-1];
+  typ[2] = d_chimes_type[type[k]-1];
+  typ[3] = d_chimes_type[type[l]-1];
+
+  const int idx = typ[0]*natmtyps*natmtyps*natmtyps + typ[1]*natmtyps*natmtyps + typ[2]*natmtyps + typ[3];
+  const int quadidx = chimes_calculatorKK.c_atom_int_quad_map[idx];
+  if (quadidx < 0) return;
+
+  const auto &c_cut = chimes_calculatorKK.c_chimes_4b_cutoff;
+  const auto &c_map = chimes_calculatorKK.c_pair_int_quad_map;
+  for (int p = 0; p < 6; p++) if (dist_4b[p] >= c_cut(quadidx,c_map(idx,p),1)) return;
+
+  KK_FLOAT energy = 0.0;
+  KK_FLOAT force_4b[4*CHDIM];
+  for (int idx2 = 0; idx2 < 3; idx2++) {
+    force_4b[idx2] = 0.0; force_4b[CHDIM+idx2] = 0.0;
+    force_4b[2*CHDIM+idx2] = 0.0; force_4b[3*CHDIM+idx2] = 0.0;
+  }
+  KK_FLOAT stensor[6];
+  for (int n = 0; n < 6; n++) stensor[n] = 0.0;
+
+  chimes_calculatorKK.compute_4B(team, scratch, dist_4b, dr_4b, typ, force_4b, stensor, energy);
+
+  const auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  const auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  Kokkos::single(Kokkos::PerTeam(team), [&] () {
+    for (int idx2 = 0; idx2 < 3; idx2++) {
+      a_f(i,idx2) += force_4b[idx2];
+      a_f(j,idx2) += force_4b[CHDIM+idx2];
+      a_f(k,idx2) += force_4b[2*CHDIM+idx2];
+      a_f(l,idx2) += force_4b[3*CHDIM+idx2];
+    }
+    int atmidxlst[6][2];
+    if (EVFLAG && vflag_atom) {
+      atmidxlst[0][0] = i; atmidxlst[0][1] = j;
+      atmidxlst[1][0] = i; atmidxlst[1][1] = k;
+      atmidxlst[2][0] = i; atmidxlst[2][1] = l;
+      atmidxlst[3][0] = j; atmidxlst[3][1] = k;
+      atmidxlst[4][0] = j; atmidxlst[4][1] = l;
+      atmidxlst[5][0] = k; atmidxlst[5][1] = l;
+    }
+    if (EVFLAG) ev_tally_mb<NEIGHFLAG>(4, 6, atmidxlst, energy, stensor, ev);
+  });
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType, int vector_length>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESFused3Body<NEIGHFLAG,EVFLAG>, const t_team& team, EV_FLOAT& ev) const
+{
+  // Enumerate 3-body clusters on the fly with i = min-tag lead (itag<jtag<ktag),
+  // exactly the ordering the materialized build used, from the short neighbor
+  // list. compute_3B's per-cluster vector reduction runs once per triplet.
+  // One scratch slice is allocated per team and reused for every cluster the
+  // team evaluates (compute_3B no longer self-allocates).
+  KK_FLOAT* scratch = (KK_FLOAT*) team.team_shmem().get_shmem(2*3*MAX_3B_POLY * sizeof(KK_FLOAT), 0);
+  if constexpr (CHIMES_FUSED_GRANULARITY == 0) {
+    const int i = d_ilist[team.league_rank() + chunk_offset];
+    const tagint itag = tag[i];
+    const int n = d_numneigh_short[i];
+    for (int jj = 0; jj < n; jj++) {
+      const int j = d_neighbors_short(i,jj);
+      const tagint jtag = tag[j];
+      if (jtag <= itag) continue;
+      for (int kk = 0; kk < n; kk++) {
+        const int k = d_neighbors_short(i,kk);
+        if (tag[k] <= jtag) continue;
+        eval_fused_3body<NEIGHFLAG,EVFLAG>(team, scratch, i, j, k, ev);
+      }
+    }
+  } else {
+    const int m = team.league_rank();
+    const int i = d_neighborlist_2mers(m,0);
+    const int j = d_neighborlist_2mers(m,1);
+    if (get_dist(i,j) >= maxcut_3b) return;
+    const tagint jtag = tag[j];
+    const int n = d_numneigh_short[i];
+    for (int kk = 0; kk < n; kk++) {
+      const int k = d_neighbors_short(i,kk);
+      if (tag[k] <= jtag) continue;
+      eval_fused_3body<NEIGHFLAG,EVFLAG>(team, scratch, i, j, k, ev);
+    }
+  }
+}
+
+template<class DeviceType, int vector_length>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESFused3Body<NEIGHFLAG,EVFLAG>, const t_team& team) const {
+  EV_FLOAT ev;
+  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESFused3Body<NEIGHFLAG,EVFLAG>(), team, ev);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType, int vector_length>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESFused4Body<NEIGHFLAG,EVFLAG>, const t_team& team, EV_FLOAT& ev) const
+{
+  // Enumerate 4-body clusters on the fly with i = min-tag lead (itag<jtag<ktag<ltag).
+  // One team scratch slice, reused for every cluster the team evaluates.
+  KK_FLOAT* scratch = (KK_FLOAT*) team.team_shmem().get_shmem(2*6*MAX_4B_POLY * sizeof(KK_FLOAT), 0);
+  if constexpr (CHIMES_FUSED_GRANULARITY == 0) {
+    const int i = d_ilist[team.league_rank() + chunk_offset];
+    const tagint itag = tag[i];
+    const int n = d_numneigh_short[i];
+    for (int jj = 0; jj < n; jj++) {
+      const int j = d_neighbors_short(i,jj);
+      const tagint jtag = tag[j];
+      if (jtag <= itag) continue;
+      for (int kk = 0; kk < n; kk++) {
+        const int k = d_neighbors_short(i,kk);
+        const tagint ktag = tag[k];
+        if (ktag <= jtag) continue;
+        for (int ll = 0; ll < n; ll++) {
+          const int l = d_neighbors_short(i,ll);
+          if (tag[l] <= ktag) continue;
+          eval_fused_4body<NEIGHFLAG,EVFLAG>(team, scratch, i, j, k, l, ev);
+        }
+      }
+    }
+  } else {
+    const int m = team.league_rank();
+    const int i = d_neighborlist_2mers(m,0);
+    const int j = d_neighborlist_2mers(m,1);
+    if (get_dist(i,j) >= maxcut_4b) return;
+    const tagint jtag = tag[j];
+    const int n = d_numneigh_short[i];
+    for (int kk = 0; kk < n; kk++) {
+      const int k = d_neighbors_short(i,kk);
+      const tagint ktag = tag[k];
+      if (ktag <= jtag) continue;
+      for (int ll = 0; ll < n; ll++) {
+        const int l = d_neighbors_short(i,ll);
+        if (tag[l] <= ktag) continue;
+        eval_fused_4body<NEIGHFLAG,EVFLAG>(team, scratch, i, j, k, l, ev);
+      }
+    }
+  }
+}
+
+template<class DeviceType, int vector_length>
+template<int NEIGHFLAG, int EVFLAG>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESFused4Body<NEIGHFLAG,EVFLAG>, const t_team& team) const {
+  EV_FLOAT ev;
+  this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESFused4Body<NEIGHFLAG,EVFLAG>(), team, ev);
 }
 
 /* ----------------------------------------------------------------------

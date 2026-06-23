@@ -71,6 +71,14 @@ constexpr int chimes_min_blocks_4b = 1;
 constexpr int CHIMES_CLUSTERS_PER_TEAM_3B = 1;
 constexpr int CHIMES_CLUSTERS_PER_TEAM_4B = 1;
 
+// PROTOTYPE granularity for the fused 3B/4B kernels (no materialized 3-/4-mer
+// lists; clusters are enumerated on the fly from the short neighbor list):
+//   0 = one team per owned atom i (team loops its triplets/quads)
+//   1 = one team per 2-mer (i,j)  (team loops the remaining k[,l])
+// Benchmark both on the target GPU: (0) fewer, longer-lived teams with more load
+// imbalance; (1) many more teams, better balance, reuses the 2-mer list.
+constexpr int CHIMES_FUSED_GRANULARITY = 0;
+
 template<class DeviceType, int vector_length_>
 class PairCHIMESKokkos : public PairCHIMES
 {
@@ -94,6 +102,13 @@ class PairCHIMESKokkos : public PairCHIMES
 
   template<int NEIGHFLAG, int EVFLAG>
   struct TagPairCHIMESCompute4Body{};
+
+  // PROTOTYPE fused (list-free) 3B/4B compute tags
+  template<int NEIGHFLAG, int EVFLAG>
+  struct TagPairCHIMESFused3Body{};
+
+  template<int NEIGHFLAG, int EVFLAG>
+  struct TagPairCHIMESFused4Body{};
 
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
@@ -152,6 +167,31 @@ class PairCHIMESKokkos : public PairCHIMES
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairCHIMESCompute4Body<NEIGHFLAG,EVFLAG>,const t_team& team, EV_FLOAT&) const;
+
+  // PROTOTYPE fused (list-free) 3B/4B kernels + per-cluster evaluators
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairCHIMESFused3Body<NEIGHFLAG,EVFLAG>,const t_team& team) const;
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairCHIMESFused3Body<NEIGHFLAG,EVFLAG>,const t_team& team, EV_FLOAT&) const;
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairCHIMESFused4Body<NEIGHFLAG,EVFLAG>,const t_team& team) const;
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairCHIMESFused4Body<NEIGHFLAG,EVFLAG>,const t_team& team, EV_FLOAT&) const;
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void eval_fused_3body(const t_team& team, KK_FLOAT* scratch, int i, int j, int k, EV_FLOAT& ev) const;
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void eval_fused_4body(const t_team& team, KK_FLOAT* scratch, int i, int j, int k, int l, EV_FLOAT& ev) const;
 
   KOKKOS_INLINE_FUNCTION
   KK_FLOAT get_dist(int i, int j, KK_FLOAT* dr) const;

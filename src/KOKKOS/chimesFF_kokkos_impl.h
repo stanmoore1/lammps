@@ -646,17 +646,17 @@ void chimesFFKokkos<DeviceType>::compute_2B(const KK_FLOAT dx, const KK_FLOAT* d
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, int nslots, int slot, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
+void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, KK_FLOAT* scratch, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
 {
   KK_FLOAT dummy_force_scalar[3];
-  compute_3B(team, nslots, slot, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
+  compute_3B(team, scratch, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, int nslots, int slot, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
+void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, KK_FLOAT* scratch, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
 {
   // Compute 3b (input: 3 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -685,11 +685,7 @@ void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, int nslots, int 
   // of the team see the same scratch pointers; the arrays are built once (below)
   // and read by the ThreadVectorRange coefficient reduction.
 
-  // One team's scratch holds nslots clusters' Chebyshev arrays back to back;
-  // this cluster uses its slot's slice (nslots/slot = 1/0 for the default
-  // one-cluster-per-team launches, recovering the original single allocation).
-  const int slot_floats = 2 * npairs * MAX_3B_POLY;
-  KK_FLOAT* scratch = ((KK_FLOAT*) team.team_shmem().get_shmem(nslots * slot_floats * sizeof(KK_FLOAT), 0)) + slot * slot_floats;
+  // scratch (caller-allocated) holds this cluster's 2*npairs*MAX_3B_POLY floats.
   KK_FLOAT* Tn_ij  = scratch + 0 * MAX_3B_POLY;
   KK_FLOAT* Tn_ik  = scratch + 1 * MAX_3B_POLY;
   KK_FLOAT* Tn_jk  = scratch + 2 * MAX_3B_POLY;
@@ -916,17 +912,17 @@ void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, int nslots, int 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_4B(const t_team& team, int nslots, int slot, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
+void chimesFFKokkos<DeviceType>::compute_4B(const t_team& team, KK_FLOAT* scratch, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
 {
   KK_FLOAT dummy_force_scalar[6];
-  compute_4B(team, nslots, slot, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
+  compute_4B(team, scratch, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_4B(const t_team& team, int nslots, int slot, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
+void chimesFFKokkos<DeviceType>::compute_4B(const t_team& team, KK_FLOAT* scratch, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
 {
   // Compute 3b (input: 3 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -953,11 +949,7 @@ void chimesFFKokkos<DeviceType>::compute_4B(const t_team& team, int nslots, int 
   // Cache the Chebyshev arrays (Tn/Tnd) in per-team scratch memory rather than
   // recomputing them redundantly on every vector lane (mirrors Kokkos SNAP).
 
-  // One team's scratch holds nslots clusters' Chebyshev arrays back to back;
-  // this cluster uses its slot's slice (nslots/slot = 1/0 for the default
-  // one-cluster-per-team launches, recovering the original single allocation).
-  const int slot_floats = 2 * npairs * MAX_4B_POLY;
-  KK_FLOAT* scratch = ((KK_FLOAT*) team.team_shmem().get_shmem(nslots * slot_floats * sizeof(KK_FLOAT), 0)) + slot * slot_floats;
+  // scratch (caller-allocated) holds this cluster's 2*npairs*MAX_4B_POLY floats.
   KK_FLOAT* Tn_ij  = scratch +  0 * MAX_4B_POLY;
   KK_FLOAT* Tn_ik  = scratch +  1 * MAX_4B_POLY;
   KK_FLOAT* Tn_il  = scratch +  2 * MAX_4B_POLY;
