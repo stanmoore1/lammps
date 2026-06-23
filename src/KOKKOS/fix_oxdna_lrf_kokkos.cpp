@@ -127,7 +127,11 @@ void FixOxdnaLRFKokkos<DeviceType>::compute_lrf_kokkos()
   bonus = avecEllipKK->k_bonus.template view<DeviceType>();
 
   copymode = 1;
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixOxdnaLRFComputeQuatToXYZ>(0, atom->nmax), *this);
+  // Frames are needed for all owned + ghost atoms (the max index any neighbor
+  // list or bond list can reference); the slots in [nlocal+nghost, nmax) are
+  // never read, so iterate nall rather than the full allocated nmax.
+  const int nall = atom->nlocal + atom->nghost;
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixOxdnaLRFComputeQuatToXYZ>(0, nall), *this);
   copymode = 0;
 
   k_nx.template modify<DeviceType>();
