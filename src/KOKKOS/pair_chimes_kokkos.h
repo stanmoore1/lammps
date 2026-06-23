@@ -144,9 +144,8 @@ class PairCHIMESKokkos : public PairCHIMES
   // Cluster (m-mer) index lists stored LayoutLeft so the cluster index is the
   // fastest-varying dimension. Adjacent clusters then sit at adjacent addresses,
   // coalescing the per-cluster index writes during the parallel_scan/atomic list
-  // build and the reads in the RangePolicy 2-body compute (where neighboring
-  // threads handle neighboring clusters). The 3B/4B team kernels read one
-  // cluster's indices as a broadcast, so they are unaffected.
+  // build and the reads in the RangePolicy compute kernels, where neighboring
+  // threads handle neighboring clusters.
   Kokkos::View<int*[2], Kokkos::LayoutLeft, DeviceType> d_neighborlist_2mers;
   Kokkos::View<int*[3], Kokkos::LayoutLeft, DeviceType> d_neighborlist_3mers;
   Kokkos::View<int*[4], Kokkos::LayoutLeft, DeviceType> d_neighborlist_4mers;
