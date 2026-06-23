@@ -1362,6 +1362,12 @@ double PairOxdna2CoaxstkKokkos<DeviceType>::init_one(int i, int j)
   k_AA_cxst1.template sync<DeviceType>();
   k_BB_cxst1.template sync<DeviceType>();
 
+  // Register the COM screen cutoff for this pair: coaxial stacking acts at the
+  // stacking site (COM +/- 0.34*nx on each atom); use the same conservative
+  // 2*0.4 margin (>= 2*0.34) so a COM-distance screen never drops an interacting
+  // pair. The npair fix takes the max over all consuming styles and type-pairs.
+  if (fix_oxdna_npairKK) fix_oxdna_npairKK->request_screen_cutoff(cutone + 0.8);
+
   // "cutone" is "cut_cxst_hc[i][j]", sets the master list distance cutoff
   return cutone;
 }

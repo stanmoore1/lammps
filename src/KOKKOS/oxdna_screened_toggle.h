@@ -27,6 +27,19 @@ static inline bool oxdna_force_screened_host()
   return cached == 1;
 }
 
+// Benchmark aid: OXDNA_KK_NO_FUSE=1 disables the fused hbond+xstk kernel, so the
+// split hbond and xstk screened kernels run instead. Lets the fused vs split
+// kernels be A/B-timed on the same build/GPU. Defaults OFF (fusion on).
+static inline bool oxdna_disable_fusion()
+{
+  static int cached = -1;
+  if (cached < 0) {
+    const char *e = std::getenv("OXDNA_KK_NO_FUSE");
+    cached = (e && e[0] == '1') ? 1 : 0;
+  }
+  return cached == 1;
+}
+
 }    // namespace LAMMPS_NS
 
 #endif

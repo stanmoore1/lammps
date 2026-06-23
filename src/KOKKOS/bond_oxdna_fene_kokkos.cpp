@@ -111,34 +111,37 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   nlocal = atom->nlocal;
   newton_bond = force->newton_bond;
 
-  // Precompute bondlist atoms a/b 3'-> 5' directionality, as well as their 3' and 5' neighbors
-  // for tetramer type determination in compute.
-  map_style = atom->map_style;
-  if (map_style == Atom::MAP_ARRAY) {
-    k_map_array = atomKK->k_map_array;
-    k_map_array.template sync<DeviceType>();
-  } else if (map_style == Atom::MAP_HASH) {
-    k_map_hash = atomKK->k_map_hash;
-    k_map_hash.template sync<DeviceType>();
+  // The bond->prime-neigh table (a, b + 3'/5' tetramer neighbours) is derived
+  // from the bond list and the atom map, both of which only change on a neighbor
+  // rebuild. Recompute it once per build instead of every step. (bondlist itself
+  // stays synced above because the compute kernel reads the bond type from it.)
+  if (neighbor->lastcall != last_precompute_lastcall) {
+    // Precompute bondlist atoms a/b 3'-> 5' directionality, as well as their 3' and 5' neighbors
+    // for tetramer type determination in compute.
+    map_style = atom->map_style;
+    if (map_style == Atom::MAP_ARRAY) {
+      k_map_array = atomKK->k_map_array;
+      k_map_array.template sync<DeviceType>();
+    } else if (map_style == Atom::MAP_HASH) {
+      k_map_hash = atomKK->k_map_hash;
+      k_map_hash.template sync<DeviceType>();
+    }
+    atomKK->k_sametag.sync<DeviceType>();
+    d_sametag = atomKK->k_sametag.view<DeviceType>();
+    // Reallocate if necessary - store 4 indices per bond: a, b, id3p[a], id5p[b]
+    if (nbondlist > d_bond_prime_neighs.extent_int(0)) {
+      MemKK::realloc_kokkos(d_bond_prime_neighs, "fene:bond_prime_neighs", nbondlist);
+    }
+    copymode = 1;
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENEPrecomputeBondPrimeNeighs>(0,nbondlist),*this);
+    copymode = 0;
+    last_precompute_lastcall = neighbor->lastcall;
   }
-  atomKK->k_sametag.sync<DeviceType>();
-  d_sametag = atomKK->k_sametag.view<DeviceType>();
-  // Reallocate if necessary - store 4 indices per bond: a, b, id3p[a], id5p[b]
-  if (nbondlist > k_bond_prime_neighs.extent_int(0)) {
-    MemKK::realloc_kokkos(k_bond_prime_neighs, "fene:bond_prime_neighs", nbondlist);
-    d_bond_prime_neighs = k_bond_prime_neighs.template view<DeviceType>();
-  }
-  copymode = 1;
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENEPrecomputeBondPrimeNeighs>(0,nbondlist),*this);
-  copymode = 0;
-  k_bond_prime_neighs.template modify<DeviceType>();
 
   // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from fix_oxdna_lrf_kokkos.
   d_nx_xtrct = fix_oxdna_lrfKK->k_nx.template view<DeviceType>();
   d_ny_xtrct = fix_oxdna_lrfKK->k_ny.template view<DeviceType>();
   d_nz_xtrct = fix_oxdna_lrfKK->k_nz.template view<DeviceType>();
-
-  Kokkos::deep_copy(d_flag,0);
 
   copymode = 1;
 
@@ -184,9 +187,19 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
   }
   
-  Kokkos::deep_copy(h_flag,d_flag);
-
-  if (h_flag() == 1) error->warning(FLERR,"FENE bond too long: {}", update->ntimestep);
+  // The "FENE bond too long" flag is a benign diagnostic: the bond force is
+  // capped every step inside the kernel regardless. Copying the device flag
+  // back to the host every step forces a sync point that costs more than the
+  // diagnostic is worth. Only read (and warn/reset) on output/thermo steps;
+  // the flag accumulates across the intervening steps, so the warning reports
+  // "at or before step N".
+  if (eflag || vflag) {
+    Kokkos::deep_copy(h_flag,d_flag);
+    if (h_flag() == 1) {
+      error->warning(FLERR,"FENE bond too long at or before step {}", update->ntimestep);
+      Kokkos::deep_copy(d_flag,0);
+    }
+  }
 
   if (eflag_global) energy += ev.evdwl;
   if (vflag_global) {

@@ -157,7 +157,8 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // energy/virial output is not split by the fused kernel, so fall back to the
   // separate kernels when eflag_atom/vflag_atom is requested (rare, off the hot
   // path); global per-style energy and virial are split via EV_HBXST below.
-  const bool fuse = use_screened && (fused_xstkKK != nullptr) && !(eflag_atom || vflag_atom);
+  const bool fuse = use_screened && (fused_xstkKK != nullptr) && !(eflag_atom || vflag_atom)
+                    && !oxdna_disable_fusion();
   if (fuse) fused_xstkKK->export_fused_coeffs(xstk_fc);
 
   // loop over neighbors of my atoms for compute functors
@@ -1771,6 +1772,12 @@ double PairOxdnaHbondKokkos<DeviceType>::init_one(int i, int j)
   k_dtheta_hb8_ast.template sync<DeviceType>();
   k_b_hb8.template sync<DeviceType>();
   k_dtheta_hb8_c.template sync<DeviceType>();
+
+  // Register the COM screen cutoff for this pair: the h-bond cutoff acts at the
+  // base site (COM +/- 0.4*nx on each atom), so a COM-distance screen needs a
+  // 2*0.4 margin to never drop an interacting pair. The npair fix takes the max
+  // over all consuming styles and type-pairs.
+  if (fix_oxdna_npairKK) fix_oxdna_npairKK->request_screen_cutoff(cutone + 0.8);
 
   // "cutone" is "cut_hb_hc[i][j]", sets the master list distance cutoff
   return cutone;

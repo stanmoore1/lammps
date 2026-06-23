@@ -31,6 +31,7 @@ FixStyle(oxdna/npair/kk/host,FixOxdnaNpairKokkos<LMPHostType>);
 namespace LAMMPS_NS {
 
 struct TagFixOxdnaNpairNeighScreen{};
+struct TagFixOxdnaNpairFill{};
 
 template<class DeviceType>
 class FixOxdnaNpairKokkos : public Fix {
@@ -51,6 +52,15 @@ class FixOxdnaNpairKokkos : public Fix {
 
   void compute_neigh_screen_to_npair();
 
+  // Derived COM screen cutoff. Each consuming pair style (hbond / xstk /
+  // coaxstk) registers its max interaction-site cutoff plus the site-offset
+  // margin (so a center-of-mass test never drops an interacting pair) in its
+  // init_one; the screen uses the largest request. Falls back to the historical
+  // r < 2.0 if nothing registers.
+  void request_screen_cutoff(double cut_com) {
+    if (cut_com > screen_cut_max) screen_cut_max = cut_com;
+  }
+
   // Direct packed (a, b) pair lookup for coalesced access on GPUs.
   DAT::tdual_uint64_1d k_pairs_screened;
   typename AT::t_uint64_1d d_pairs_screened;
@@ -59,6 +69,10 @@ class FixOxdnaNpairKokkos : public Fix {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixOxdnaNpairNeighScreen, const int &) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixOxdnaNpairFill, const int &) const;
 
  private:
 
@@ -73,8 +87,6 @@ class FixOxdnaNpairKokkos : public Fix {
   typename AT::t_int_1d_randomread d_alist;
   typename AT::t_int_1d_randomread d_numneigh;
   // Screening takes place on GPUs only
-  DAT::tdual_int_2d k_neighbors_screened;
-  typename AT::t_int_2d d_neighbors_screened;
   DAT::tdual_int_1d k_numneigh_screened;
   typename AT::t_int_1d d_numneigh_screened;
   DAT::tdual_int_1d k_screened_offsets;
@@ -83,6 +95,8 @@ class FixOxdnaNpairKokkos : public Fix {
   typename AT::t_int_scalar d_screened_pair_count;
   int screened_max_atoms;
   int screened_max_neigh;
+  double screen_cut_max;   // max COM screen cutoff requested by consuming styles (host)
+  KK_FLOAT screen_cutsq;   // screen_cut_max^2, read on device by screen_pair_fast
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION

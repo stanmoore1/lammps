@@ -92,38 +92,44 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   torque = atomKK->k_torque.view<DeviceType>();
   type = atomKK->k_type.view<DeviceType>();
   tag = atomKK->k_tag.view<DeviceType>();
-  bondlist = neighborKK->k_bondlist.view<DeviceType>();
-  id5p = atomKK->k_id5p.view<DeviceType>();
-  id3p = atomKK->k_id3p.view<DeviceType>();
-
   nlocal = atom->nlocal;
   newton_bond = force->newton_bond;
-  neighborKK->k_bondlist.template sync<DeviceType>();
   nbondlist = neighborKK->nbondlist;
 
   int need_dup = lmp->kokkos->need_dup<DeviceType>();
 
   copymode = 1;
 
-  // Precompute bondlist atoms a/b 3'-> 5' directionality, as well as their 3' and 5' neighbors
-  // for tetramer type determination in compute.
-  map_style = atom->map_style;
-  if (map_style == Atom::MAP_ARRAY) {
-    k_map_array = atomKK->k_map_array;
-    k_map_array.template sync<DeviceType>();
-  } else if (map_style == Atom::MAP_HASH) {
-    k_map_hash = atomKK->k_map_hash;
-    k_map_hash.template sync<DeviceType>();
+  // The bond->prime-neigh table (bond endpoints a,b + their 3'/5' tetramer
+  // neighbours) is derived from the bond list and the atom map, both of which
+  // only change on a neighbor-list rebuild. Recompute it once per build instead
+  // of every step. The compute kernel below reads only d_bond_prime_neighs,
+  // which persists between rebuilds.
+  if (neighbor->lastcall != last_precompute_lastcall) {
+    bondlist = neighborKK->k_bondlist.view<DeviceType>();
+    id5p = atomKK->k_id5p.view<DeviceType>();
+    id3p = atomKK->k_id3p.view<DeviceType>();
+    neighborKK->k_bondlist.template sync<DeviceType>();
+
+    // Precompute bondlist atoms a/b 3'-> 5' directionality, as well as their 3' and 5' neighbors
+    // for tetramer type determination in compute.
+    map_style = atom->map_style;
+    if (map_style == Atom::MAP_ARRAY) {
+      k_map_array = atomKK->k_map_array;
+      k_map_array.template sync<DeviceType>();
+    } else if (map_style == Atom::MAP_HASH) {
+      k_map_hash = atomKK->k_map_hash;
+      k_map_hash.template sync<DeviceType>();
+    }
+    atomKK->k_sametag.sync<DeviceType>();
+    d_sametag = atomKK->k_sametag.view<DeviceType>();
+    // Reallocate if necessary - store 4 indices per bond: a, b, id3p[a], id5p[b]
+    if (nbondlist > d_bond_prime_neighs.extent_int(0)) {
+      MemKK::realloc_kokkos(d_bond_prime_neighs, "stk:bond_prime_neighs", nbondlist);
+    }
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkPrecomputeBondPrimeNeighs>(0,nbondlist),*this);
+    last_precompute_lastcall = neighbor->lastcall;
   }
-  atomKK->k_sametag.sync<DeviceType>();
-  d_sametag = atomKK->k_sametag.view<DeviceType>();
-  // Reallocate if necessary - store 4 indices per bond: a, b, id3p[a], id5p[b]
-  if (nbondlist > k_bond_prime_neighs.extent_int(0)) {
-    MemKK::realloc_kokkos(k_bond_prime_neighs, "stk:bond_prime_neighs", nbondlist);
-    d_bond_prime_neighs = k_bond_prime_neighs.template view<DeviceType>();
-  }
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkPrecomputeBondPrimeNeighs>(0,nbondlist),*this);
-  k_bond_prime_neighs.template modify<DeviceType>();
 
   // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from fix_oxdna_lrf_kokkos.
   d_nx_xtrct = fix_oxdna_lrfKK->k_nx.template view<DeviceType>();
@@ -235,14 +241,24 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEWTON_BO
   // is assigned such that we preserve the vanilla oxDNA convention of:
   // 3'neighbor a - a - b - 5'neighbor b
   // throughout the rest of compute.
-  int id3p_local = d_bond_prime_neighs(in,2);
-  a3ptype = (id3p_local != -1) ? type(id3p_local) : 0;
-
   atype = type(a);
   btype = type(b);
 
-  int id5p_local = d_bond_prime_neighs(in,3);
-  b5ptype = (id5p_local != -1) ? type(id5p_local) : 0;
+  // The 3'/5' tetramer-neighbour types only change the coefficients for
+  // sequence-DEPENDENT stacking. For seqav (seqdepflag==0) the 4D coefficient
+  // tables are filled uniformly across the tetramer dimensions, so skip the
+  // id3p/id5p loads + type lookups and index the (0,*,*,0) plane (the same
+  // index strand-end atoms already use) - identical value, far better cache
+  // locality, and 4 fewer global loads per bond every step.
+  if (seqdepflag) {
+    int id3p_local = d_bond_prime_neighs(in,2);
+    a3ptype = (id3p_local != -1) ? type(id3p_local) : 0;
+    int id5p_local = d_bond_prime_neighs(in,3);
+    b5ptype = (id5p_local != -1) ? type(id5p_local) : 0;
+  } else {
+    a3ptype = 0;
+    b5ptype = 0;
+  }
 
   rsq_stkstk = delr_stkstk[0]*delr_stkstk[0] + delr_stkstk[1]*delr_stkstk[1] + delr_stkstk[2]*delr_stkstk[2];
   r_stkstk = sqrtf(rsq_stkstk);

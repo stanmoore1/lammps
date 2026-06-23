@@ -96,6 +96,9 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
 
   int nlocal,newton_bond;
   int eflag,vflag;
+  // bond->prime-neigh table only changes on reneighbor; cache the lastcall it
+  // was built for so it is recomputed once per neighbor build, not every step.
+  bigint last_precompute_lastcall = -1;
 
   DAT::tdual_kkfloat_1d k_k;
   DAT::tdual_kkfloat_5d k_r0;
@@ -118,8 +121,12 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   DAT::tdual_int_1d k_sametag;
   typename AT::t_int_1d d_sametag;
   // Precomputed atom a/b 3'/5' directionality and atom mapping of their 3' and 5' neighbors.
-  // 0-3 : atom a, atom b, id3p[a], id5p[b] for each bond
-  DAT::tdual_int_1d_4 k_bond_prime_neighs;
+  // 0-3 : atom a, atom b, id3p[a], id5p[b] for each bond.
+  // Internal scratch: written by the precompute kernel and read by the compute
+  // kernel, both in the same (device) execution space, so a single device-space
+  // View suffices -- no DualView/host mirror (cf. bond_prime_neighs in the
+  // oxdna_kokkos standalone). A DualView would force a device<->host deep_copy
+  // of this int*[4] array on sync, which is both needless and fails on GPU.
   typename AT::t_int_1d_4 d_bond_prime_neighs;
 };
 

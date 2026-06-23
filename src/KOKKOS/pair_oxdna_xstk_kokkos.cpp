@@ -205,8 +205,10 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       // When the hbond pair style is present it runs the fused hbond+xstk kernel
       // on the screened path, so skip this style's screened pass to avoid double
       // counting. The hbond style falls back to separate kernels when per-atom
-      // energy/virial is requested, so run normally in that case.
-      if (fused_hbondKK != nullptr && !(eflag_atom || vflag_atom)) return;
+      // energy/virial is requested or when fusion is disabled (OXDNA_KK_NO_FUSE),
+      // so run normally in those cases. This condition must mirror the `fuse`
+      // test in PairOxdnaHbondKokkos::compute exactly.
+      if (fused_hbondKK != nullptr && !(eflag_atom || vflag_atom) && !oxdna_disable_fusion()) return;
       if (use_reduce) {
         Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, decltype(gpu_tag), OXDNA_SCREENED_LAUNCH_BOUNDS>(0,screened_pair_count),*this,ev);
       } else {
@@ -267,7 +269,8 @@ void PairOxdnaXstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // here (hbond runs earlier in the hybrid/overlay list). Add it after ev_init
   // has zeroed eng_vdwl/virial above.
   const bool was_fused = ((execution_space != HostKK) || oxdna_force_screened_host())
-                         && (fused_hbondKK != nullptr) && !(eflag_atom || vflag_atom);
+                         && (fused_hbondKK != nullptr) && !(eflag_atom || vflag_atom)
+                         && !oxdna_disable_fusion();
   if (was_fused) {
     if (eflag_global) eng_vdwl += fused_eng_vdwl;
     if (vflag_global) for (int k = 0; k < 6; k++) virial[k] += fused_virial[k];
@@ -1446,6 +1449,12 @@ double PairOxdnaXstkKokkos<DeviceType>::init_one(int i, int j)
   k_dtheta_xst8_ast.template sync<DeviceType>();
   k_b_xst8.template sync<DeviceType>();
   k_dtheta_xst8_c.template sync<DeviceType>();
+
+  // Register the COM screen cutoff for this pair: cross-stacking acts at the
+  // base site (COM +/- 0.4*nx on each atom), so a COM-distance screen needs a
+  // 2*0.4 margin to never drop an interacting pair. The npair fix takes the max
+  // over all consuming styles and type-pairs.
+  if (fix_oxdna_npairKK) fix_oxdna_npairKK->request_screen_cutoff(cutone + 0.8);
 
   // "cutone" is "cut_xst_hc[i][j]", sets the master list distance cutoff
   return cutone;
