@@ -649,25 +649,35 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       }
     }
 
+    // Occupancy cap for the register-heavy many-body kernels.
+    // Kokkos::LaunchBounds<BlockSize, MinBlocksPerCU> tells the backend to keep
+    // per-thread register use low enough that at least MinBlocks blocks stay
+    // resident, raising occupancy (the ChIMES 3B/4B kernels are occupancy/
+    // latency bound, so register pressure -- not the dense-loop unroll -- is the
+    // lever). Tunable: sweep the min-blocks value; on Serial/OpenMP it is a
+    // no-op so host builds are unaffected.
+    using LB3B = Kokkos::LaunchBounds<256, 4>;
+    using LB4B = Kokkos::LaunchBounds<256, 4>;
+
     //Compute3Body
     if (chimes_calculatorKK.poly_orders[1] > 0)
     {
       if (evflag) {
         EV_FLOAT ev_tmp;
         if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,1> > policy_3body(0,size_3mers);
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,1>,LB3B > policy_3body(0,size_3mers);
           Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
         } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,1> > policy_3body(0,size_3mers);
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,1>,LB3B > policy_3body(0,size_3mers);
           Kokkos::parallel_reduce("Compute3Body", policy_3body, *this, ev_tmp);
         }
         ev += ev_tmp;
       } else {
         if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,0> > policy_3body(0,size_3mers);
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALF,0>,LB3B > policy_3body(0,size_3mers);
           Kokkos::parallel_for("Compute3Body", policy_3body, *this);
         } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,0> > policy_3body(0,size_3mers);
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute3Body<HALFTHREAD,0>,LB3B > policy_3body(0,size_3mers);
           Kokkos::parallel_for("Compute3Body", policy_3body, *this);
         }
       }
@@ -679,19 +689,19 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       if (evflag) {
         EV_FLOAT ev_tmp;
         if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALF,1> > policy_4body(0,size_4mers);
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALF,1>,LB4B > policy_4body(0,size_4mers);
           Kokkos::parallel_reduce("Compute4Body", policy_4body, *this, ev_tmp);
         } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALFTHREAD,1> > policy_4body(0,size_4mers);
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALFTHREAD,1>,LB4B > policy_4body(0,size_4mers);
           Kokkos::parallel_reduce("Compute4Body",policy_4body, *this, ev_tmp);
         }
         ev += ev_tmp;
       } else {
         if (neighflag == HALF) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALF,0> > policy_4body(0,size_4mers);
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALF,0>,LB4B > policy_4body(0,size_4mers);
           Kokkos::parallel_for("Compute4Body", policy_4body, *this);
         } else if (neighflag == HALFTHREAD) {
-          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALFTHREAD,0> > policy_4body(0,size_4mers);
+          typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESCompute4Body<HALFTHREAD,0>,LB4B > policy_4body(0,size_4mers);
           Kokkos::parallel_for("Compute4Body", policy_4body, *this);
         }
       }
