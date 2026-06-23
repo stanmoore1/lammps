@@ -79,6 +79,8 @@ class PairCHIMESKokkos : public PairCHIMES
 
   struct TagPairCHIMESZero{};
 
+  struct TagPairCHIMESComputeShortNeigh{};
+
   struct TagPairCHIMESComputeNeigh4Body{};
 
   template<int NEIGHFLAG>
@@ -109,6 +111,9 @@ class PairCHIMESKokkos : public PairCHIMES
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairCHIMESZero, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairCHIMESComputeShortNeigh,const int& ii) const;
 
   KOKKOS_INLINE_FUNCTION
   void neigh_2B_item(const int& ii, int& offset, const bool& final) const;
@@ -192,6 +197,13 @@ class PairCHIMESKokkos : public PairCHIMES
   Kokkos::View<int*[2], Kokkos::LayoutLeft, DeviceType> d_neighborlist_2mers;
   Kokkos::View<int*[3], Kokkos::LayoutLeft, DeviceType> d_neighborlist_3mers;
   Kokkos::View<int*[4], Kokkos::LayoutLeft, DeviceType> d_neighborlist_4mers;
+
+  // Per-owned-atom compacted neighbor list of neighbors within maxcut_3b (the
+  // largest many-body cutoff), indexed by the owned atom's local index. The
+  // 3-/4-body cluster enumeration iterates this short list instead of the full
+  // 2-body neighbor list (mirrors pair_sw_kokkos's d_neighbors_short).
+  typename AT::t_int_2d d_neighbors_short;
+  typename AT::t_int_1d d_numneigh_short;
 
   typename AT::t_int_scalar d_size_4mers;
 

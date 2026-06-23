@@ -219,6 +219,34 @@ KK_FLOAT PairCHIMESKokkos<DeviceType, vector_length>::get_dist(int i, int j) con
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType, int vector_length>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESComputeShortNeigh, const int& ii) const
+{
+  // Build a per-owned-atom compacted list of neighbors within maxcut_3b, so the
+  // 3-/4-body enumeration scans only nearby candidates (maxcut_4b <= maxcut_3b
+  // <= maxcut_2b) instead of the full 2-body neighbor list. Stored at the lead
+  // atom's local index i; neighbors are pre-masked and self is removed. The
+  // accepted-neighbor order matches the full list, so downstream cluster offsets
+  // (and results) are unchanged.
+
+  const int i = d_ilist[ii + chunk_offset];
+  const int jnum = d_numneigh[i];
+
+  int inside = 0;
+  for (int jj = 0; jj < jnum; jj++) {
+    int j = d_neighbors(i,jj);
+    j &= NEIGHMASK;
+    if (j == i) continue;
+    if (get_dist(i,j) >= maxcut_3b) continue;
+    d_neighbors_short(i,inside) = j;
+    inside++;
+  }
+  d_numneigh_short(i) = inside;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType, int vector_length>
 void PairCHIMESKokkos<DeviceType, vector_length>::build_mb_neighlists()
 {
   if (maxcut_3b > maxcut_2b)
@@ -252,6 +280,20 @@ void PairCHIMESKokkos<DeviceType, vector_length>::build_mb_neighlists()
       max_2mers = MAX(max_2mers+MAX(1,max_2mers*0.1),size_2mers);
       LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_2mers,"chimes:neighborlist_2mers",max_2mers);
     }
+  }
+
+  // build the per-atom short neighbor list (neighbors within maxcut_3b) that the
+  // 3-/4-body enumeration below iterates instead of the full 2-body list
+
+  if (chimes_calculatorKK.poly_orders[1] > 0 || chimes_calculatorKK.poly_orders[2] > 0) {
+    const int nlocal = atom->nlocal;
+    const int maxn = d_neighbors.extent(1);
+    if ((int)d_neighbors_short.extent(0) < nlocal || (int)d_neighbors_short.extent(1) < maxn) {
+      LAMMPS_NS::MemKK::realloc_kokkos(d_neighbors_short,"chimes:neighbors_short",nlocal,maxn);
+      LAMMPS_NS::MemKK::realloc_kokkos(d_numneigh_short,"chimes:numneigh_short",nlocal);
+    }
+    typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESComputeShortNeigh> policy_short(0,chunk_size);
+    Kokkos::parallel_for("ComputeShortNeigh",policy_short,*this);
   }
 
   // try building 3-body list, resize if necessary
@@ -366,15 +408,16 @@ void PairCHIMESKokkos<DeviceType, vector_length>::neigh_3B_item(const int& ii, i
   typ_idxs[0] = d_chimes_type[type[i]-1];
   typ_idxs[1] = d_chimes_type[type[j]-1];
 
-  // ChIMES assumes all atoms must be within cutoff of each other for a valid interaction
-  const int knum = d_numneigh[i];
+  // ChIMES assumes all atoms must be within cutoff of each other for a valid
+  // interaction. Iterate the short neighbor list (already within maxcut_3b of i
+  // and pre-masked, self removed).
+  const int knum = d_numneigh_short[i];
 
   for (int kk = 0; kk < knum; kk++) {
-    int k = d_neighbors(i,kk);
-    k &= NEIGHMASK;
+    int k = d_neighbors_short(i,kk);
     const tagint ktag = tag[k];
 
-    if ((k == i) || (k == j)) continue;
+    if (k == j) continue;
 
     if ((ktag < itag) || (ktag < jtag)) continue;
 
@@ -462,15 +505,14 @@ void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompu
 
   // Now decide if we should continue on to 4-body neighbor list construction
 
-  const int lnum = d_numneigh[i];
+  const int lnum = d_numneigh_short[i];
 
   for (int ll = 0; ll < lnum; ll++)
   {
-    int l = d_neighbors(i,ll);
+    int l = d_neighbors_short(i,ll);
     const tagint ltag = tag[l];
-    l &= NEIGHMASK;
 
-    if ((l == i) || (l == j) || (l == k)) continue;
+    if ((l == j) || (l == k)) continue;
 
     if ((ltag < itag) || (ltag < jtag) || (ltag < ktag))
       continue;
