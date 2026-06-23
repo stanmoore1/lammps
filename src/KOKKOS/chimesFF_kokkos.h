@@ -184,6 +184,21 @@ class chimesFFKokkos : public chimesFF
   void set_cheby_polys(KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, const KK_FLOAT morse,
                        const KK_FLOAT inner_cutoff, const KK_FLOAT outer_cutoff, const int order) const;
 
+  // Compile-time-order variants of the Chebyshev setup. With NP (= order+1 =
+  // polynomials per pair) a template parameter, the recurrence loops fully
+  // unroll, so the Tn/Tnd arrays they fill are written at compile-time indices
+  // and can be kept in registers (SROA) rather than spilled to local memory.
+
+  template<int NP>
+  KOKKOS_INLINE_FUNCTION
+  void set_cheby_polys_t(KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, const KK_FLOAT morse,
+                         const KK_FLOAT inner_cutoff, const KK_FLOAT outer_cutoff) const;
+
+  template<int NP>
+  KOKKOS_INLINE_FUNCTION
+  void set_polys_out_of_range_t(KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, KK_FLOAT x,
+                                KK_FLOAT inner_cutoff, KK_FLOAT exprlen, KK_FLOAT dx_dr) const;
+
   KOKKOS_INLINE_FUNCTION
   void poly_2B(KK_FLOAT &e, KK_FLOAT &f0, int ncoeffs_2b, int pair_idx,
                KK_FLOAT* Tn, KK_FLOAT* Tnd) const;
@@ -214,6 +229,54 @@ class chimesFFKokkos : public chimesFF
                            int ncoeffs_3b, int tripidx, KK_FLOAT* Tn_ij,
                            KK_FLOAT* Tn_ik, KK_FLOAT* Tn_jk, KK_FLOAT* Tnd_ij,
                            KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_jk) const;
+
+  // Compile-time-order 3-body dense evaluator. NP (= cube root of the
+  // coefficient count = order+1) is a template parameter so the triple
+  // coefficient loop fully unrolls; combined with the templated Chebyshev
+  // setup the Tn/Tnd arrays stay in registers and the local-memory loads that
+  // dominate the runtime dense path are removed. Fills the canonical-order
+  // Tn/Tnd locally (no runtime pointer aliasing that would defeat SROA) and
+  // returns the polynomial value and its per-constituent-pair derivatives.
+  template<int NP>
+  KOKKOS_INLINE_FUNCTION
+  void poly_3B_dense_loop2_t(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                             int tripidx, const KK_FLOAT* Tn_ij,
+                             const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
+                             const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const;
+
+  // Manual unroll of poly_3B_dense_loop2_t's NP^3 coefficient loop. _term
+  // evaluates one compile-time linear index C (so the Tn/Tnd reads use
+  // compile-time offsets and stay in registers); the _i/_jk drivers walk the
+  // index space with plain "if constexpr" template recursion. This is the
+  // portable replacement for the #pragma unroll that HIP/clang reject on a
+  // loop this large (no fold expressions / std::integer_sequence in device
+  // code, and the recursion nests only NP + NP*NP deep).
+  template<int NP, int C>
+  KOKKOS_INLINE_FUNCTION
+  void poly_3B_dense_term(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                          int tripidx, const KK_FLOAT* Tn_ij,
+                          const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
+                          const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const;
+
+  template<int NP, int I, int L>
+  KOKKOS_INLINE_FUNCTION
+  void poly_3B_dense_jk(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                        int tripidx, const KK_FLOAT* Tn_ij,
+                        const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
+                        const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const;
+
+  template<int NP, int I>
+  KOKKOS_INLINE_FUNCTION
+  void poly_3B_dense_i(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                       int tripidx, const KK_FLOAT* Tn_ij,
+                       const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
+                       const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const;
+
+  template<int NP>
+  KOKKOS_INLINE_FUNCTION
+  void compute_3B_dense_t(KK_FLOAT &poly, KK_FLOAT* dpoly_dx, int tripidx,
+                          const KK_FLOAT* dxp, const KK_FLOAT* morsep,
+                          const KK_FLOAT* innerp, const KK_FLOAT* outerp, const int* pj) const;
 
   KOKKOS_INLINE_FUNCTION
   void poly_4B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_4b, int quadidx, int idx,
@@ -427,6 +490,95 @@ void chimesFFKokkos<DeviceType>::set_cheby_polys(KK_FLOAT* Tn, KK_FLOAT* Tnd, KK
     //////cout << "         Distance = " << dx_orig << endl;
 
     set_polys_out_of_range(Tn, Tnd, dx_orig, x, order, inner_cutoff, exprlen, dx_dr);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+// Compile-time-order copy of set_cheby_polys (NP = order+1). Identical math;
+// the only change is that the recurrence bounds are the template constant NP,
+// so the loops fully unroll and the Tn/Tnd writes use compile-time indices.
+
+template<class DeviceType>
+template<int NP>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::set_cheby_polys_t(KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, const KK_FLOAT morse,
+                                     const KK_FLOAT inner_cutoff, const KK_FLOAT outer_cutoff) const
+{
+  const KK_FLOAT x_min = exp(-1*inner_cutoff/morse);
+  const KK_FLOAT x_max = exp(-1*outer_cutoff/morse);
+
+  const KK_FLOAT x_avg   = 0.5 * (x_max + x_min);
+  KK_FLOAT x_diff  = 0.5 * (x_max - x_min);
+
+  x_diff *= -1.0; // Special for Morse style
+
+  bool out_of_range;
+  const KK_FLOAT dx_orig = dx;
+
+  if (dx < inner_cutoff) {
+    out_of_range = true;
+    dx = inner_cutoff;
+  } else
+    out_of_range = false;
+
+  const KK_FLOAT exprlen = exp(-1*dx/morse);
+  const KK_FLOAT x = (exprlen - x_avg)/x_diff;
+  const KK_FLOAT dx_dr = (-exprlen/morse)/x_diff;
+
+  if (!out_of_range) {
+
+    Tn[0] = 1.0;
+    Tn[1] = x;
+
+    Tnd[0] = 1.0;
+    Tnd[1] = 2.0 * x;
+
+    for (int i = 2; i < NP; i++) {
+      Tn[i]  = 2.0 * x *  Tn[i-1] -  Tn[i-2];
+      Tnd[i] = 2.0 * x * Tnd[i-1] - Tnd[i-2];
+    }
+
+    for (int i = NP - 1; i >= 1; i--)
+      Tnd[i] = i * dx_dr * Tnd[i-1];
+
+    Tnd[0] = 0.0;
+  } else { // out_of_range == true
+    set_polys_out_of_range_t<NP>(Tn, Tnd, dx_orig, x, inner_cutoff, exprlen, dx_dr);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+// Compile-time-order copy of set_polys_out_of_range (NP = order+1).
+
+template<class DeviceType>
+template<int NP>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::set_polys_out_of_range_t(KK_FLOAT* Tn, KK_FLOAT* Tnd, KK_FLOAT dx, KK_FLOAT x,
+                                     KK_FLOAT inner_cutoff, KK_FLOAT exprlen, KK_FLOAT dx_dr) const
+{
+  Tn[0] = 1.0;
+  Tn[1] = x;
+
+  Tnd[0] = 1.0;
+  Tnd[1] = 2.0 * x;
+
+  for (int i = 2; i < NP; i++) {
+    Tn[i] = 2.0 * x * Tn[i-1] - Tn[i-2];
+    Tnd[i] = 2.0 * x * Tnd[i-1] - Tnd[i-2];
+  }
+
+  for (int i = NP - 1; i >= 1; i--)
+    Tnd[i] = i * dx_dr * Tnd[i-1];
+
+  Tnd[0] = 0.0;
+
+  const KK_FLOAT damp_fac = exp((dx-inner_cutoff) / inner_smooth_distance);
+
+  for (int i = 0 ; i < NP ; i++) {
+    Tn[i] += inner_smooth_distance * (damp_fac-1.0)  * Tnd[i];
+    Tnd[i] *= damp_fac;
   }
 }
 

@@ -150,15 +150,6 @@ class PairCHIMESKokkos : public PairCHIMES
   Kokkos::View<int*[3], Kokkos::LayoutLeft, DeviceType> d_neighborlist_3mers;
   Kokkos::View<int*[4], Kokkos::LayoutLeft, DeviceType> d_neighborlist_4mers;
 
-  // Type-binning of the 3-mer list. d_key_3mers holds each cluster's triplet
-  // type (captured for free during the list build); d_perm_3mers is the
-  // type-sorted cluster order produced by a BinSort. Compute3Body iterates the
-  // permuted order so a RangePolicy wavefront processes clusters of one triplet
-  // type, making the per-cluster coefficient-table address wavefront-uniform
-  // (scalar loads / broadcast on GPU instead of divergent gathers).
-  typename AT::t_int_1d d_key_3mers;
-  typename AT::t_int_1d d_perm_3mers;
-
   typename AT::t_int_scalar d_size_4mers;
 
   chimesFFKokkos<DeviceType> chimes_calculatorKK; // chimesFF instance
