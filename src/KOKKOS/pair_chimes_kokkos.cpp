@@ -659,6 +659,18 @@ void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     using LB3B = Kokkos::LaunchBounds<256, 4>;
     using LB4B = Kokkos::LaunchBounds<256, 4>;
 
+    // Experiment 4: precompute the per-3mer Chebyshev tables once so the team
+    // Compute3Body loads them instead of every lane recomputing set_cheby_polys.
+    if (chimes_calculatorKK.poly_orders[1] > 0 && size_3mers > 0) {
+      const int width_3b = 3*MAX_3B_POLY;
+      if ((int)d_Tn_3mers.extent(0) < size_3mers) {
+        LAMMPS_NS::MemKK::realloc_kokkos(d_Tn_3mers, "chimes:Tn_3mers", size_3mers, width_3b);
+        LAMMPS_NS::MemKK::realloc_kokkos(d_Tnd_3mers,"chimes:Tnd_3mers",size_3mers, width_3b);
+      }
+      typename Kokkos::RangePolicy<DeviceType,TagPairCHIMESPrecompute3Body> policy_pre(0,size_3mers);
+      Kokkos::parallel_for("Precompute3Body", policy_pre, *this);
+    }
+
     //Compute3Body
     if (chimes_calculatorKK.poly_orders[1] > 0)
     {
@@ -974,9 +986,25 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFL
   KK_FLOAT stensor[6];
   for (int n = 0; n < 6; n++) stensor[n] = 0.0;
 
+  // Load the Chebyshev tables precomputed for this cluster (experiment 4)
+  // instead of recomputing them on every lane.
+  KK_FLOAT Tn_ij[MAX_3B_POLY], Tnd_ij[MAX_3B_POLY];
+  KK_FLOAT Tn_ik[MAX_3B_POLY], Tnd_ik[MAX_3B_POLY];
+  KK_FLOAT Tn_jk[MAX_3B_POLY], Tnd_jk[MAX_3B_POLY];
+  for (int n = 0; n < MAX_3B_POLY; n++) {
+    Tn_ij[n]  = d_Tn_3mers(ii, 0*MAX_3B_POLY + n);
+    Tn_ik[n]  = d_Tn_3mers(ii, 1*MAX_3B_POLY + n);
+    Tn_jk[n]  = d_Tn_3mers(ii, 2*MAX_3B_POLY + n);
+    Tnd_ij[n] = d_Tnd_3mers(ii, 0*MAX_3B_POLY + n);
+    Tnd_ik[n] = d_Tnd_3mers(ii, 1*MAX_3B_POLY + n);
+    Tnd_jk[n] = d_Tnd_3mers(ii, 2*MAX_3B_POLY + n);
+  }
+
   // Dense NP^3 reduction is split across the team; every lane returns with the
   // same force_3b/energy.
-  chimes_calculatorKK.compute_3B(team, dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy);
+  chimes_calculatorKK.compute_3B(team, dist_3b, dr_3b, typ_idxs_3b,
+                                 Tn_ij, Tnd_ij, Tn_ik, Tnd_ik, Tn_jk, Tnd_jk,
+                                 force_3b, stensor, energy);
 
   // Apply the per-cluster contribution exactly once.
   Kokkos::single(Kokkos::PerTeam(team), [&]() {
@@ -1012,6 +1040,47 @@ KOKKOS_INLINE_FUNCTION
 void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>, const team_member_3b& team) const {
   EV_FLOAT ev;
   this->template operator()<NEIGHFLAG,EVFLAG>(TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>(), team, ev);
+}
+
+/* ---------------------------------------------------------------------- */
+
+// Precompute pass (experiment 4): one thread per 3mer fills the cluster's three
+// constituent-pair Chebyshev tables into d_Tn_3mers/d_Tnd_3mers, which the team
+// Compute3Body then loads instead of recomputing.
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESPrecompute3Body, const int& ii) const
+{
+  const int i = d_neighborlist_3mers(ii,0);
+  const int j = d_neighborlist_3mers(ii,1);
+  const int k = d_neighborlist_3mers(ii,2);
+
+  KK_FLOAT dist_3b[3];
+  dist_3b[0] = get_dist(i,j);
+  dist_3b[1] = get_dist(i,k);
+  dist_3b[2] = get_dist(j,k);
+
+  int typ_idxs_3b[3];
+  typ_idxs_3b[0] = d_chimes_type[type[i]-1];
+  typ_idxs_3b[1] = d_chimes_type[type[j]-1];
+  typ_idxs_3b[2] = d_chimes_type[type[k]-1];
+
+  KK_FLOAT Tn_ij[MAX_3B_POLY], Tnd_ij[MAX_3B_POLY];
+  KK_FLOAT Tn_ik[MAX_3B_POLY], Tnd_ik[MAX_3B_POLY];
+  KK_FLOAT Tn_jk[MAX_3B_POLY], Tnd_jk[MAX_3B_POLY];
+
+  chimes_calculatorKK.set_cheby_3B(dist_3b, typ_idxs_3b,
+                                   Tn_ij, Tnd_ij, Tn_ik, Tnd_ik, Tn_jk, Tnd_jk);
+
+  for (int n = 0; n < MAX_3B_POLY; n++) {
+    d_Tn_3mers(ii, 0*MAX_3B_POLY + n)  = Tn_ij[n];
+    d_Tn_3mers(ii, 1*MAX_3B_POLY + n)  = Tn_ik[n];
+    d_Tn_3mers(ii, 2*MAX_3B_POLY + n)  = Tn_jk[n];
+    d_Tnd_3mers(ii, 0*MAX_3B_POLY + n) = Tnd_ij[n];
+    d_Tnd_3mers(ii, 1*MAX_3B_POLY + n) = Tnd_ik[n];
+    d_Tnd_3mers(ii, 2*MAX_3B_POLY + n) = Tnd_jk[n];
+  }
 }
 
 /* ---------------------------------------------------------------------- */

@@ -115,7 +115,18 @@ class chimesFFKokkos : public chimesFF
   template<class TeamMember>
   KOKKOS_INLINE_FUNCTION
   void compute_3B(const TeamMember& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs,
+                  KK_FLOAT* Tn_ij, KK_FLOAT* Tnd_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tnd_ik,
+                  KK_FLOAT* Tn_jk, KK_FLOAT* Tnd_jk,
                   KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
+
+  // Precompute (experiment 4): fill the three constituent-pair Chebyshev
+  // polynomial sets (and derivatives) for one 3-body cluster. Factored out of
+  // compute_3B so a separate pass can compute them once per cluster instead of
+  // the team variant recomputing them redundantly on every lane.
+  KOKKOS_INLINE_FUNCTION
+  void set_cheby_3B(const KK_FLOAT* dx, const int* typ_idxs,
+                    KK_FLOAT* Tn_ij, KK_FLOAT* Tnd_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tnd_ik,
+                    KK_FLOAT* Tn_jk, KK_FLOAT* Tnd_jk) const;
 
   KOKKOS_INLINE_FUNCTION
   void compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
