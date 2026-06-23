@@ -35,7 +35,6 @@ template<class DeviceType>
 class PairPACEKokkos : public PairPACE {
  public:
   struct TagPairPACEComputeNeigh{};
-  struct TagPairPACEComputeRadial{};
   struct TagPairPACEComputeAi{};
   struct TagPairPACEComputeRho{};
   struct TagPairPACEComputeFS{};
@@ -61,10 +60,6 @@ class PairPACEKokkos : public PairPACE {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairPACEComputeNeigh,const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeNeigh>::member_type& team) const;
-
-// NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairPACEComputeRadial,const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeRadial>::member_type& team) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -121,12 +116,10 @@ class PairPACEKokkos : public PairPACE {
   // ------------------------------------------------------------------
 #if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL)
   static constexpr int team_size_compute_neigh = 32;
-  static constexpr int team_size_compute_radial = 32;
   static constexpr int team_size_compute_ai = 32;
   static constexpr int team_size_compute_derivative = 32;
 #else
   static constexpr int team_size_compute_neigh = 1;
-  static constexpr int team_size_compute_radial = 1;
   static constexpr int team_size_compute_ai = 1;
   static constexpr int team_size_compute_derivative = 1;
 #endif
