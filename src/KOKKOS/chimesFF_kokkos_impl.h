@@ -1067,19 +1067,19 @@ void chimesFFKokkos<DeviceType>::compute_4B(const t_team& team, const KK_FLOAT* 
   get_fcut(dx[4], cutoff_4, fcut[4], fcutderiv[4]);
   get_fcut(dx[5], cutoff_5, fcut[5], fcutderiv[5]);
 
-  // Product of all 6 fcuts
-
-  const KK_FLOAT fcut_all = fcut[0] * fcut[1] * fcut[2] * fcut[3] * fcut[4] * fcut[5];
-
-  // Product of 5 fcuts
+  // Product of all 6 fcuts, plus the six "leave-one-out" products fcut_5[j]
+  // (product of every fcut except j) needed for the per-pair force scalars.
+  // Computed with a forward/backward sweep using two running products instead
+  // of recomputing a 5-fold product per pair: O(npairs) multiplies and only two
+  // extra scalars (vs. the prior ~5*npairs multiplies). Division by fcut[j] is
+  // avoided since a cutoff function can be zero at the outer cutoff.
 
   KK_FLOAT fcut_5[npairs];
-  fcut_5[0] = fcut[1] * fcut[2] * fcut[3] * fcut[4] * fcut[5];
-  fcut_5[1] = fcut[0] * fcut[2] * fcut[3] * fcut[4] * fcut[5];
-  fcut_5[2] = fcut[0] * fcut[1] * fcut[3] * fcut[4] * fcut[5];
-  fcut_5[3] = fcut[0] * fcut[1] * fcut[2] * fcut[4] * fcut[5];
-  fcut_5[4] = fcut[0] * fcut[1] * fcut[2] * fcut[3] * fcut[5];
-  fcut_5[5] = fcut[0] * fcut[1] * fcut[2] * fcut[3] * fcut[4];
+  KK_FLOAT run = 1.0;
+  for (int j = 0; j < npairs; j++) { fcut_5[j] = run; run *= fcut[j]; }   // prefix product
+  const KK_FLOAT fcut_all = run;
+  run = 1.0;
+  for (int j = npairs - 1; j >= 0; j--) { fcut_5[j] *= run; run *= fcut[j]; } // x suffix product
 
   // Start the force/stress/energy calculation
 
