@@ -296,6 +296,11 @@ several real LAMMPS per-step framework overheads. Setting `lammps_overhead = 1`
 in the input adds them back (physics/energy output is unchanged — verified
 identical on/off):
 
+- **Faithful per-bond bonded kernels**: stk/fene switch from the lean per-particle
+  gather (no atomics, each bond computed twice) to LAMMPS's per-**bond** + **atomic**
+  scatter (each bond once, scattered to both endpoints), plus the 4D sequence-
+  dependent ("tetramer") coefficient indexing (4 type reads + uniform table lookups
+  per bond; physics unchanged).
 - **Per-step bond-prime-neigh precompute**: two extra per-bond kernels (stk, fene)
   that re-derive the 3'/5' bonded-neighbour table every step, mirroring
   `TagPairOxdnaStkPrecomputeBondPrimeNeighs` (the lean code stores `bonds.n3/n5`

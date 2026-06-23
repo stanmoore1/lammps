@@ -298,6 +298,90 @@ struct BondedTermFunctor {
 };
 
 // ---------------------------------------------------------------------------
+// LAMMPS-overhead-mode bonded kernel: faithful per-BOND + ATOMIC scatter (each
+// bond computed ONCE by its 5' end, force/torque atomically scattered to both
+// endpoints), mirroring LAMMPS `pair oxdna/stk` and `bond oxdna/fene` (which run
+// over nbondlist with atomic dup_f/dup_torque) - as opposed to the lean
+// per-particle gather above (each bond computed twice, no atomics). Also models
+// LAMMPS's 4D sequence-dependent ("tetramer") coefficient indexing: 4 extra type
+// reads + uniform table lookups per bond (physics unchanged; only the memory
+// traffic is reproduced). Selected when lammps_overhead is on.
+// ---------------------------------------------------------------------------
+template <bool FENE>
+struct BondedScatterFunctor {
+    Vec4cr poss;
+    Vec4cr nx, ny, nz;
+    RandomRead<LR_bonds> bonds;
+    RandomRead<int> btype;
+    Kokkos::View<const c_number *> tet;   // 256-entry uniform (==1) tetramer table
+    ScatterF4 sf, st;                     // atomic force/torque (like LAMMPS dup_f)
+    DNAParams par;
+    SimBox box;
+
+    KOKKOS_INLINE_FUNCTION
+    c_number bond_call(const c_number p5[3], const c_number a1[3], const c_number a2[3], const c_number a3[3],
+                       const c_number p3[3], const c_number b1[3], const c_number b2[3], const c_number b3[3],
+                       c_number (&F)[3], c_number (&T5)[3], c_number (&T3)[3]) const {
+        if (FENE) return bonded_fene_excv(p5,a1,a2,a3,p3,b1,b2,b3,par,box,F,T5,T3);
+        else      return bonded_stk      (p5,a1,a2,a3,p3,b1,b2,b3,par,box,F,T5,T3);
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(int i) const { c_number ev=0; (*this)(i, ev); }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(int i, c_number &ev) const {
+        const int n3 = bonds(i).n3;
+        if (n3 < 0) return;          // i is the 5' end of bond (i,n3); process once
+        const int j = n3;            // 3' end
+
+        // Tetramer coefficient indexing overhead (4 type reads + 4D table lookups);
+        // tet is uniform (==1) so cf==1 and physics is unchanged.
+        const int n5i = bonds(i).n5, n3j = bonds(j).n3;
+        const int ta = btype(i), tb = btype(j);
+        const int t3 = (n5i >= 0) ? btype(n5i) : 0;
+        const int t4 = (n3j >= 0) ? btype(n3j) : 0;
+        const int idx = (((t3 & 3) * 4 + (ta & 3)) * 4 + (tb & 3)) * 4 + (t4 & 3);
+        const c_number cf = tet(idx) * tet((idx + 1) & 255) * tet((idx + 2) & 255)
+                          * tet((idx + 3) & 255) * tet((idx + 4) & 255);
+
+        c_number ai1[3], ai2[3], ai3[3], bj1[3], bj2[3], bj3[3];
+        bonded_load_frame(nx, ny, nz, i, ai1, ai2, ai3);
+        bonded_load_frame(nx, ny, nz, j, bj1, bj2, bj3);
+        c_number pi[3] = {poss(i,0), poss(i,1), poss(i,2)};
+        c_number pj[3] = {poss(j,0), poss(j,1), poss(j,2)};
+        c_number F5[3] = {0,0,0}, T5[3] = {0,0,0}, T3[3] = {0,0,0};
+        ev += cf * bond_call(pi, ai1, ai2, ai3, pj, bj1, bj2, bj3, F5, T5, T3);
+
+        auto af = sf.access();
+        auto at = st.access();
+        af(i,0)+=cf*F5[0]; af(i,1)+=cf*F5[1]; af(i,2)+=cf*F5[2];
+        at(i,0)+=T5[0];    at(i,1)+=T5[1];    at(i,2)+=T5[2];
+        af(j,0)-=cf*F5[0]; af(j,1)-=cf*F5[1]; af(j,2)-=cf*F5[2];
+        at(j,0)+=T3[0];    at(j,1)+=T3[1];    at(j,2)+=T3[2];
+    }
+};
+
+template <bool FENE>
+inline c_number run_bonded_term_scatter(ParticleArrays &p, const DNAParams &par,
+                                        const SimBox &box, bool want_energy,
+                                        const char *label) {
+    ScatterF4 sf(p.forces);
+    ScatterF4 st(p.torques);
+    BondedScatterFunctor<FENE> fun;
+    fun.poss = p.poss; fun.nx = p.nx; fun.ny = p.ny; fun.nz = p.nz;
+    fun.bonds = p.bonds; fun.btype = p.btype; fun.tet = p.tetramer_tbl;
+    fun.sf = sf; fun.st = st; fun.par = par; fun.box = box;
+    using BondPolicy = Kokkos::RangePolicy<Kokkos::LaunchBounds<OXDNA_BOND_MAXT, OXDNA_BOND_MINB>>;
+    c_number etot = 0;
+    if (want_energy) Kokkos::parallel_reduce(label, BondPolicy(0, p.N), fun, etot);
+    else             Kokkos::parallel_for(label, BondPolicy(0, p.N), fun);
+    Kokkos::Experimental::contribute(p.forces, sf);
+    Kokkos::Experimental::contribute(p.torques, st);
+    return etot;
+}
+
+// ---------------------------------------------------------------------------
 // LAMMPS-overhead-mode: per-step bond "prime-neigh" precompute (no-op for the
 // physics; faithfully reproduces the LAMMPS kernel that re-derives the 3'/5'
 // bonded-neighbour indices from the bond list + atom map every step, which the
@@ -353,12 +437,18 @@ inline c_number compute_bonded_forces(ParticleArrays &p, const DNAParams &par,
     // tools may invoke the bonded kernels on their own).
     compute_lrf(p);
     c_number e = 0;
-    // LAMMPS runs a separate bond-prime-neigh precompute kernel before EACH of
-    // stk and fene, every step. Reproduce that overhead (results are unaffected).
-    if (lammps_overhead) bond_precompute(p, "oxdna_stk_precompute");
-    e += run_bonded_term<false>(p, par, box, want_energy, "oxdna_stk");   // stacking
-    if (lammps_overhead) bond_precompute(p, "oxdna_fene_precompute");
-    e += run_bonded_term<true> (p, par, box, want_energy, "oxdna_fene");  // FENE + bonded excv
+    if (lammps_overhead) {
+        // Faithful LAMMPS bonded: per-bond + atomic scatter + tetramer indexing,
+        // each preceded by the per-step bond-prime-neigh precompute kernel.
+        bond_precompute(p, "oxdna_stk_precompute");
+        e += run_bonded_term_scatter<false>(p, par, box, want_energy, "oxdna_stk");
+        bond_precompute(p, "oxdna_fene_precompute");
+        e += run_bonded_term_scatter<true> (p, par, box, want_energy, "oxdna_fene");
+    } else {
+        // Lean (CUDA-standalone) bonded: per-particle gather, no atomics.
+        e += run_bonded_term<false>(p, par, box, want_energy, "oxdna_stk");   // stacking
+        e += run_bonded_term<true> (p, par, box, want_energy, "oxdna_fene");  // FENE + bonded excv
+    }
     // LAMMPS bond/fene does a device->host copy of a 1-int overstretch flag every
     // step; reproduce that host round-trip.
     if (lammps_overhead) {

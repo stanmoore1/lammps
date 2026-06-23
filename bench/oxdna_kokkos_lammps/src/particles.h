@@ -48,6 +48,12 @@ struct ParticleArrays {
     // the lammps_overhead toggle is on.
     Kokkos::View<int *[4]> bond_prime_neighs;
 
+    // LAMMPS-overhead mode: a 256-entry tetramer coefficient table, filled with
+    // 1.0, used by the per-bond stk/fene kernels to model LAMMPS's 4D
+    // sequence-dependent coefficient indexing (4 type reads + table lookups per
+    // bond). Uniform value => physics unchanged; only the memory traffic is modelled.
+    Kokkos::View<c_number *> tetramer_tbl;
+
     // Number of particles
     int N = 0;
 
@@ -65,6 +71,8 @@ struct ParticleArrays {
         bonds       = Kokkos::View<LR_bonds *>   ("bonds",       n);
         btype       = Kokkos::View<int *>        ("btype",       n);
         bond_prime_neighs = Kokkos::View<int *[4]>("bond_prime_neighs", n);
+        tetramer_tbl = Kokkos::View<c_number *>("tetramer_tbl", 256);
+        Kokkos::deep_copy(tetramer_tbl, c_number(1));
     }
 
     void zero_forces() {
