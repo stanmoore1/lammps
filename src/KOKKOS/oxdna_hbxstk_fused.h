@@ -77,6 +77,24 @@ struct OxdnaXstkCoeffs {
   typename AT::t_kkfloat_2d_randomread d_b_xst8, d_dtheta_xst8_c;
 };
 
+// Packed per-(atype,btype) cross-stacking coefficients as a single POD struct.
+// Stored in a View<OxdnaXstkPackedCoeff**>, the fused kernel loads ONE of these
+// per pair: one global base address + fixed field offsets, instead of indexing
+// ~39 separate Kokkos Views (each with its own base pointer that must occupy a
+// register at the access). This mirrors the standalone's single by-value param
+// struct and is the prototype for testing whether the fused kernel's
+// view-base-pointer register pressure is what makes fusion slower than the split
+// pair in LAMMPS KOKKOS (where every coefficient is its own View).
+struct OxdnaXstkPackedCoeff {
+  KK_FLOAT k_xst, cut_xst_0, cut_xst_c, cut_xst_lo, cut_xst_hi, cut_xst_lc, cut_xst_hc, b_xst_lo, b_xst_hi;
+  KK_FLOAT a_xst1, theta_xst1_0, dtheta_xst1_ast, b_xst1, dtheta_xst1_c;
+  KK_FLOAT a_xst2, theta_xst2_0, dtheta_xst2_ast, b_xst2, dtheta_xst2_c;
+  KK_FLOAT a_xst3, theta_xst3_0, dtheta_xst3_ast, b_xst3, dtheta_xst3_c;
+  KK_FLOAT a_xst4, theta_xst4_0, dtheta_xst4_ast, b_xst4, dtheta_xst4_c;
+  KK_FLOAT a_xst7, theta_xst7_0, dtheta_xst7_ast, b_xst7, dtheta_xst7_c;
+  KK_FLOAT a_xst8, theta_xst8_0, dtheta_xst8_ast, b_xst8, dtheta_xst8_c;
+};
+
 }    // namespace LAMMPS_NS
 
 #endif

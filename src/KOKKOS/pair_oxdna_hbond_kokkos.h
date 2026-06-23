@@ -217,6 +217,11 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
   // Prototype #1: fused hbond+xstk support.
   PairOxdnaXstkKokkos<DeviceType> *fused_xstkKK = nullptr;  // ptr to oxdna2/xstk/kk pair
   OxdnaXstkCoeffs<DeviceType> xstk_fc;                      // xstk coeff view handles
+  // Prototype #2: pack the ~39 xstk coefficient Views into one struct per
+  // (atype,btype), built once, so the fused kernel reads them through a single
+  // base pointer instead of ~39 separate View base pointers.
+  Kokkos::View<OxdnaXstkPackedCoeff**, DeviceType> d_xstk_packed;
+  bool xstk_packed_built = false;
 
  private:
 
