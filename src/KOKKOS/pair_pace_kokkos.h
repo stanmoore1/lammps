@@ -67,7 +67,7 @@ class PairPACEKokkos : public PairPACE {
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairPACEComputeRho,const int& iter) const;
+  void operator() (TagPairPACEComputeRho,const int ii, const int idx_ms_combs) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -75,7 +75,7 @@ class PairPACEKokkos : public PairPACE {
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairPACEComputeWeights,const int& iter) const;
+  void operator() (TagPairPACEComputeWeights,const int ii, const int idx_ms_combs) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -132,6 +132,21 @@ class PairPACEKokkos : public PairPACE {
   // kernels. 0 = no minimum (compiler chooses). Tune on the target GPU.
   static constexpr int min_blocks_compute_ai = 0;
   static constexpr int min_blocks_compute_derivative = 0;
+
+  // MDRange tiling + launch bounds for the flat (atom, ms-combination) kernels
+  // ComputeRho and ComputeWeights. The atom index is the fast (coalesced) tile
+  // dimension (Iterate::Left), so a warp still walks consecutive atoms as in
+  // the previous flat RangePolicy. Tile sizes and min_blocks are tuning hooks
+  // for the target GPU; the tile-thread product is the LaunchBounds max.
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL)
+  static constexpr int tile_atom_msrange = 32;
+  static constexpr int tile_ms_msrange = 1;
+#else
+  static constexpr int tile_atom_msrange = 1;
+  static constexpr int tile_ms_msrange = 1;
+#endif
+  static constexpr int min_blocks_compute_rho = 0;
+  static constexpr int min_blocks_compute_weights = 0;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;
