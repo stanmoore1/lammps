@@ -745,31 +745,57 @@ void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* 
     for (int j = 0; j < npairs; j++)
       inv_mapped_pair[c_pair_int_trip_map(type_idx,j)] = j;
 
-    KK_FLOAT* Tn[npairs];
-    KK_FLOAT* Tnd[npairs];
+    // Compile-time-order fast path: for the polynomial orders we instantiate,
+    // evaluate the dense reduction with NP (= order+1) as a template constant
+    // so the Tn/Tnd arrays are register-promoted and the local-memory loads
+    // that dominate the runtime path are removed. The guard confirms the
+    // coefficient table really is NP^3 dense before taking this path; any other
+    // order falls through to the runtime evaluator below (unchanged).
 
-    for (int j = 0; j < npairs; j++) {
-      switch (inv_mapped_pair[j]) {
-        case 0:
-          Tn[j] = &Tn_ij[0];
-          Tnd[j] = &Tnd_ij[0];
-          break;
-        case 1:
-          Tn[j] = &Tn_ik[0];
-          Tnd[j] = &Tnd_ik[0];
-          break;
-        case 2:
-          Tn[j] = &Tn_jk[0];
-          Tnd[j] = &Tnd_jk[0];
-          break;
-        default:
-          Kokkos::abort("Bad inverse pair mapping found");
+    const int np = order + 1;
+    const KK_FLOAT dxp[npairs]    = { dx[0], dx[1], dx[2] };
+    const KK_FLOAT morsep[npairs] = { c_morse_var[pair_type_1], c_morse_var[pair_type_2], c_morse_var[pair_type_3] };
+    const KK_FLOAT innerp[npairs] = { cutoff_00, cutoff_01, cutoff_02 };
+    const KK_FLOAT outerp[npairs] = { cutoff_0,  cutoff_1,  cutoff_2 };
+
+    bool handled = false;
+    if (np*np*np == c_ncoeffs_3b[tripidx]) {
+      handled = true;
+      switch (np) {
+        case 8:  compute_3B_dense_t<8> (poly, dpoly_dx, tripidx, dxp, morsep, innerp, outerp, inv_mapped_pair); break;
+        case 9:  compute_3B_dense_t<9> (poly, dpoly_dx, tripidx, dxp, morsep, innerp, outerp, inv_mapped_pair); break;
+        case 10: compute_3B_dense_t<10>(poly, dpoly_dx, tripidx, dxp, morsep, innerp, outerp, inv_mapped_pair); break;
+        default: handled = false; break;
       }
     }
 
-    poly_3B_dense(poly, dpoly_dx[inv_mapped_pair[0]], dpoly_dx[inv_mapped_pair[1]],
-                  dpoly_dx[inv_mapped_pair[2]], c_ncoeffs_3b[tripidx], tripidx,
-                  Tn[0], Tn[1], Tn[2], Tnd[0], Tnd[1], Tnd[2]);
+    if (!handled) {
+      KK_FLOAT* Tn[npairs];
+      KK_FLOAT* Tnd[npairs];
+
+      for (int j = 0; j < npairs; j++) {
+        switch (inv_mapped_pair[j]) {
+          case 0:
+            Tn[j] = &Tn_ij[0];
+            Tnd[j] = &Tnd_ij[0];
+            break;
+          case 1:
+            Tn[j] = &Tn_ik[0];
+            Tnd[j] = &Tnd_ik[0];
+            break;
+          case 2:
+            Tn[j] = &Tn_jk[0];
+            Tnd[j] = &Tnd_jk[0];
+            break;
+          default:
+            Kokkos::abort("Bad inverse pair mapping found");
+        }
+      }
+
+      poly_3B_dense(poly, dpoly_dx[inv_mapped_pair[0]], dpoly_dx[inv_mapped_pair[1]],
+                    dpoly_dx[inv_mapped_pair[2]], c_ncoeffs_3b[tripidx], tripidx,
+                    Tn[0], Tn[1], Tn[2], Tnd[0], Tnd[1], Tnd[2]);
+    }
   }
 
   if (eflag)
@@ -1522,6 +1548,87 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense_loop2(int max_poly, KK_FLOAT &e, 
       }
     }
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+// Compile-time-order copy of poly_3B_dense_loop2 (NP = order+1 = max_poly).
+// Every loop bound is the template constant NP, so the triple coefficient loop
+// fully unrolls: the Tn/Tnd reads use compile-time indices and stay in
+// registers, and the per-coefficient global loads are pipelined by the
+// unroll. Math and accumulation order are identical to the runtime version.
+
+template<class DeviceType>
+template<int NP>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::poly_3B_dense_loop2_t(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                                   int tripidx, const KK_FLOAT* Tn_ij,
+                                   const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
+                                   const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const
+{
+  auto c_chimes_3b_params_tripidx = Kokkos::subview(c_chimes_3b_params,tripidx,Kokkos::ALL);
+
+  int count = 0;
+  #pragma unroll
+  for (int i = 0; i < NP; i++) {
+    const KK_FLOAT tn_ij = Tn_ij[i];
+    const KK_FLOAT tnd_ij = Tnd_ij[i];
+
+    #pragma unroll
+    for (int j = 0; j < NP; j++) {
+      const KK_FLOAT tn_ik = Tn_ik[j];
+      const KK_FLOAT tnd_ik = Tnd_ik[j];
+      const KK_FLOAT tn_ij_ik = tn_ij * tn_ik;
+
+      #pragma unroll
+      for (int k = 0; k < NP; k++) {
+        const KK_FLOAT coeff = c_chimes_3b_params_tripidx[count];
+        if (coeff != 0.0) {
+          const KK_FLOAT tn_jk = Tn_jk[k];
+          const KK_FLOAT tnd_jk = Tnd_jk[k];
+
+          e += coeff * tn_ij_ik * tn_jk;
+          f0 += coeff * tnd_ij * tn_ik * tn_jk;
+          f1 += coeff * tnd_ik * tn_ij * tn_jk;
+          f2 += coeff * tnd_jk * tn_ij_ik;
+        }
+        count++;
+      }
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+// Compile-time-order 3-body dense evaluator. Fills the three canonical-order
+// Chebyshev pairs into local arrays (selecting each physical pair's inputs by
+// the runtime mapping pj, which only picks scalar inputs and never aliases the
+// arrays through a runtime pointer), then runs the fully-unrolled reduction.
+// With NP a compile-time constant the Tn/Tnd arrays are register-promoted.
+
+template<class DeviceType>
+template<int NP>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::compute_3B_dense_t(KK_FLOAT &poly, KK_FLOAT* dpoly_dx, int tripidx,
+                                   const KK_FLOAT* dxp, const KK_FLOAT* morsep,
+                                   const KK_FLOAT* innerp, const KK_FLOAT* outerp, const int* pj) const
+{
+  KK_FLOAT Tn0[NP], Tn1[NP], Tn2[NP];
+  KK_FLOAT Tnd0[NP], Tnd1[NP], Tnd2[NP];
+
+  const int p0 = pj[0], p1 = pj[1], p2 = pj[2];
+
+  set_cheby_polys_t<NP>(Tn0, Tnd0, dxp[p0], morsep[p0], innerp[p0], outerp[p0]);
+  set_cheby_polys_t<NP>(Tn1, Tnd1, dxp[p1], morsep[p1], innerp[p1], outerp[p1]);
+  set_cheby_polys_t<NP>(Tn2, Tnd2, dxp[p2], morsep[p2], innerp[p2], outerp[p2]);
+
+  KK_FLOAT f0 = 0.0, f1 = 0.0, f2 = 0.0;
+  poly = 0.0;
+  poly_3B_dense_loop2_t<NP>(poly, f0, f1, f2, tripidx, Tn0, Tn1, Tn2, Tnd0, Tnd1, Tnd2);
+
+  dpoly_dx[p0] = f0;
+  dpoly_dx[p1] = f1;
+  dpoly_dx[p2] = f2;
 }
 
 /* ---------------------------------------------------------------------- */
