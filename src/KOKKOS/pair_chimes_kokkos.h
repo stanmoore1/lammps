@@ -57,6 +57,20 @@ namespace LAMMPS_NS {
 constexpr int chimes_min_blocks_3b = 1;
 constexpr int chimes_min_blocks_4b = 1;
 
+// EXPERIMENTAL (default 1 = unchanged): number of 3B/4B clusters processed per
+// team. The 3B/4B Compute kernels otherwise launch one team (one vector
+// group/warp) per cluster, so the block dimension is a single warp and SM
+// occupancy is capped by the max resident blocks/SM (≈50% on recent NVIDIA),
+// independent of registers. Setting this > 1 packs that many clusters into one
+// team (block = clusters_per_team warps), each warp handling one cluster from
+// its own team-scratch slot, to raise occupancy. Only the force-only
+// (evflag==0) launches are packed — the energy/virial launches stay at 1 to
+// avoid a multi-warp reduction race. The per-cluster math is unchanged, but the
+// >1 path changes team-level synchronization, which CANNOT be validated on a
+// CPU (Serial) backend — VALIDATE ON THE TARGET GPU before relying on it.
+constexpr int CHIMES_CLUSTERS_PER_TEAM_3B = 1;
+constexpr int CHIMES_CLUSTERS_PER_TEAM_4B = 1;
+
 template<class DeviceType, int vector_length_>
 class PairCHIMESKokkos : public PairCHIMES
 {

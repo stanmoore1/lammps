@@ -128,17 +128,19 @@ class chimesFFKokkos : public chimesFF
   KOKKOS_INLINE_FUNCTION
   void compute_2B(const KK_FLOAT dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT& force_scalar) const;
 
+  // nslots = clusters sharing this team's scratch, slot = this cluster's index
+  // among them (both 1/0 for the default one-cluster-per-team launches).
   KOKKOS_INLINE_FUNCTION
-  void compute_3B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
+  void compute_3B(const t_team& team, int nslots, int slot, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_3B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force,KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
+  void compute_3B(const t_team& team, int nslots, int slot, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force,KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_4B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
+  void compute_4B(const t_team& team, int nslots, int slot, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_4B(const t_team& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
+  void compute_4B(const t_team& team, int nslots, int slot, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
 
   // Per-team scratch byte count for the n_values Chebyshev (Tn/Tnd) entries
   // cached in team scratch by compute_3B/compute_4B. Mirrors the Kokkos SNAP
