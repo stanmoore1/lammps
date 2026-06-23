@@ -158,8 +158,15 @@ class chimesFFKokkos : public chimesFF
   typename AT::t_int_3d d_chimes_3b_powers;    // [ntrips][nparams][constit. pair]
   typename AT::t_int_3d_const_um c_chimes_3b_powers;
 
-  typename AT::t_kkfloat_2d d_chimes_3b_params;    // [ntrips][nparams]
-  typename AT::t_kkfloat_2d_const_um c_chimes_3b_params;
+  // LayoutLeft (the _dl device layout) coefficient table: the parallel
+  // dimension (tripidx, one per cluster/thread) is the contiguous one, so at
+  // each step of the per-cluster coefficient loop the warp's threads read
+  // adjacent tripidx entries -> coalesced/broadcast coefficient reads on GPU
+  // (vs the default LayoutRight, where each thread streams its row contiguously
+  // but the warp reads are strided). No-op on host (array_layout is LayoutRight
+  // there). Fill/read are layout-agnostic so only the typedef changes.
+  typename AT::t_kkfloat_2d_dl d_chimes_3b_params;    // [ntrips][nparams]
+  typename AT::t_kkfloat_2d_dl_const_um c_chimes_3b_params;
 
   typename AT::t_kkfloat_3d d_chimes_3b_cutoff;    // [ntrips][constit. pair][2] inner and outer cutoff for pair 1
   typename AT::t_kkfloat_3d_const_um c_chimes_3b_cutoff;
@@ -170,8 +177,8 @@ class chimesFFKokkos : public chimesFF
   typename AT::t_int_3d d_chimes_4b_powers;    // [nquads][nparams][constit. pair]
   typename AT::t_int_3d_const_um c_chimes_4b_powers;
 
-  typename AT::t_kkfloat_2d d_chimes_4b_params;    // [nquads][nparams]
-  typename AT::t_kkfloat_2d_const_um c_chimes_4b_params;
+  typename AT::t_kkfloat_2d_dl d_chimes_4b_params;    // [nquads][nparams]  (LayoutLeft, see 3b note)
+  typename AT::t_kkfloat_2d_dl_const_um c_chimes_4b_params;
 
   typename AT::t_kkfloat_3d d_chimes_4b_cutoff;    // [nquads][constit. pair][2] inner and outer cutoff for pair 1
   typename AT::t_kkfloat_3d_const_um c_chimes_4b_cutoff;
