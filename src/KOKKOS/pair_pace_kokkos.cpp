@@ -706,7 +706,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       int vector_length = vector_length_default;
       int team_size = team_size_compute_ai;
       check_team_size_for<TagPairPACEComputeAi>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
-      typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeAi> policy_ai(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
+      typename Kokkos::TeamPolicy<DeviceType, Kokkos::LaunchBounds<team_size_compute_ai, min_blocks_compute_ai>, TagPairPACEComputeAi> policy_ai(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
       Kokkos::parallel_for("ComputeAi",policy_ai,*this);
     }
 
@@ -735,7 +735,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       int vector_length = vector_length_default;
       int team_size = team_size_compute_derivative;
       check_team_size_for<TagPairPACEComputeDerivative>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
-      typename Kokkos::TeamPolicy<DeviceType,TagPairPACEComputeDerivative> policy_derivative(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
+      typename Kokkos::TeamPolicy<DeviceType, Kokkos::LaunchBounds<team_size_compute_derivative, min_blocks_compute_derivative>, TagPairPACEComputeDerivative> policy_derivative(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
       Kokkos::parallel_for("ComputeDerivative",policy_derivative,*this);
     }
 
