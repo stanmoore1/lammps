@@ -35,6 +35,7 @@
 #include "memory_kokkos.h"
 #include "error.h"
 #include "pair_chimes_kokkos.h"
+#include <Kokkos_Sort.hpp>
 #include "group.h"
 #include "update.h" // Needed for mb neighlist updates and info printing for fitting
 #include "output.h" // Needed for infor printing for fitting -- dump 1 must be the "main" dump file used for fitting
@@ -231,8 +232,11 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
   if (d_neighborlist_2mers.extent(0) < max_2mers)
     LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_2mers,"chimes:neighborlist_2mers",max_2mers);
 
-  if (d_neighborlist_3mers.extent(0) < max_3mers)
+  if (d_neighborlist_3mers.extent(0) < max_3mers) {
     LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_3mers,"chimes:neighborlist_3mers",max_3mers);
+    LAMMPS_NS::MemKK::realloc_kokkos(d_key_3mers,"chimes:key_3mers",max_3mers);
+    LAMMPS_NS::MemKK::realloc_kokkos(d_perm_3mers,"chimes:perm_3mers",max_3mers);
+  }
 
   if (d_neighborlist_4mers.extent(0) < max_4mers)
     LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_4mers,"chimes:neighborlist_4mers",max_4mers);
@@ -267,7 +271,28 @@ void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
       if (resize) {
         max_3mers = MAX(max_3mers+MAX(1,max_3mers*0.1),size_3mers);
         LAMMPS_NS::MemKK::realloc_kokkos(d_neighborlist_3mers,"chimes:neighborlist_3mers",max_3mers);
+        LAMMPS_NS::MemKK::realloc_kokkos(d_key_3mers,"chimes:key_3mers",max_3mers);
+        LAMMPS_NS::MemKK::realloc_kokkos(d_perm_3mers,"chimes:perm_3mers",max_3mers);
       }
+    }
+
+    // Bin the 3-mer clusters by triplet type. Compute3Body then walks the
+    // type-sorted permutation, so each RangePolicy wavefront handles a single
+    // triplet type and its coefficient-table reads are wavefront-uniform.
+    // (Reordering only changes the cluster traversal order; forces accumulate
+    // via the ScatterView and energy/virial via the reduction, so results are
+    // unchanged to round-off.)
+    if (chimes_calculatorKK.poly_orders[1] > 0 && size_3mers > 0) {
+      const int ntrips = chimes_calculatorKK.d_chimes_3b_params.extent(0);
+      auto keys = Kokkos::subview(d_key_3mers, Kokkos::make_pair(0, size_3mers));
+      using KeyViewType = decltype(keys);
+      Kokkos::BinOp1D<KeyViewType> binner(ntrips, 0, ntrips);
+      Kokkos::BinSort<KeyViewType, Kokkos::BinOp1D<KeyViewType>> sorter(keys, binner, false);
+      sorter.create_permute_vector();
+      auto perm = sorter.get_permute_vector();
+      auto d_perm = d_perm_3mers;
+      Kokkos::parallel_for("BinPerm3B", Kokkos::RangePolicy<DeviceType>(0, size_3mers),
+        KOKKOS_LAMBDA(const int s) { d_perm(s) = perm(s); });
     }
   }
 
@@ -419,6 +444,7 @@ void PairCHIMESKokkos<DeviceType>::neigh_3B_item(const int& ii, int &offset, con
           d_neighborlist_3mers(offset,0) = i;
           d_neighborlist_3mers(offset,1) = j;
           d_neighborlist_3mers(offset,2) = k;
+          d_key_3mers(offset) = tripidx; // sort key for type-binning the list
         }
       }
 
@@ -858,9 +884,12 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESCompute3Body<NEIGHFL
   const auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
   const auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
-  const int i = d_neighborlist_3mers(ii,0);
-  const int j = d_neighborlist_3mers(ii,1);
-  const int k = d_neighborlist_3mers(ii,2);
+  // Walk the type-sorted permutation so this wavefront's clusters share a
+  // triplet type (wavefront-uniform coefficient reads in compute_3B).
+  const int cl = d_perm_3mers(ii);
+  const int i = d_neighborlist_3mers(cl,0);
+  const int j = d_neighborlist_3mers(cl,1);
+  const int k = d_neighborlist_3mers(cl,2);
 
   KK_FLOAT dist_3b[3], dr_3b[3*CHDIM];
   dist_3b[0] = get_dist(i,j,&dr_3b[0*CHDIM]);
