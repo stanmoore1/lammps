@@ -241,14 +241,24 @@ void PairOxdnaStkKokkos<DeviceType>::operator()(TagPairOxdnaStkCompute<NEWTON_BO
   // is assigned such that we preserve the vanilla oxDNA convention of:
   // 3'neighbor a - a - b - 5'neighbor b
   // throughout the rest of compute.
-  int id3p_local = d_bond_prime_neighs(in,2);
-  a3ptype = (id3p_local != -1) ? type(id3p_local) : 0;
-
   atype = type(a);
   btype = type(b);
 
-  int id5p_local = d_bond_prime_neighs(in,3);
-  b5ptype = (id5p_local != -1) ? type(id5p_local) : 0;
+  // The 3'/5' tetramer-neighbour types only change the coefficients for
+  // sequence-DEPENDENT stacking. For seqav (seqdepflag==0) the 4D coefficient
+  // tables are filled uniformly across the tetramer dimensions, so skip the
+  // id3p/id5p loads + type lookups and index the (0,*,*,0) plane (the same
+  // index strand-end atoms already use) - identical value, far better cache
+  // locality, and 4 fewer global loads per bond every step.
+  if (seqdepflag) {
+    int id3p_local = d_bond_prime_neighs(in,2);
+    a3ptype = (id3p_local != -1) ? type(id3p_local) : 0;
+    int id5p_local = d_bond_prime_neighs(in,3);
+    b5ptype = (id5p_local != -1) ? type(id5p_local) : 0;
+  } else {
+    a3ptype = 0;
+    b5ptype = 0;
+  }
 
   rsq_stkstk = delr_stkstk[0]*delr_stkstk[0] + delr_stkstk[1]*delr_stkstk[1] + delr_stkstk[2]*delr_stkstk[2];
   r_stkstk = sqrtf(rsq_stkstk);
