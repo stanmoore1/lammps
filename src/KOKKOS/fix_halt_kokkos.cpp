@@ -70,8 +70,9 @@ double FixHaltKokkos<DeviceType>::bondmax()
     copymode = 0;
   }
 
+  double maxone_double = maxone;
   double maxall;
-  MPI_Allreduce(&maxone, &maxall, 1, MPI_DOUBLE, MPI_MAX, world);
+  MPI_Allreduce(&maxone_double, &maxall, 1, MPI_DOUBLE, MPI_MAX, world);
 
   return sqrt(maxall);
 }
