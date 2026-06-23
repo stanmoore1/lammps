@@ -1552,6 +1552,12 @@ double PairOxdnaXstkKokkos<DeviceType>::init_one(int i, int j)
   k_b_xst8.template sync<DeviceType>();
   k_dtheta_xst8_c.template sync<DeviceType>();
 
+  // Register the COM screen cutoff for this pair: cross-stacking acts at the
+  // base site (COM +/- 0.4*nx on each atom), so a COM-distance screen needs a
+  // 2*0.4 margin to never drop an interacting pair. The npair fix takes the max
+  // over all consuming styles and type-pairs.
+  if (fix_oxdna_npairKK) fix_oxdna_npairKK->request_screen_cutoff(cutone + 0.8);
+
   // "cutone" is "cut_xst_hc[i][j]", sets the master list distance cutoff
   return cutone;
 }

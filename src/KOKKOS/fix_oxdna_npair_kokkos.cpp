@@ -43,6 +43,8 @@ FixOxdnaNpairKokkos<DeviceType>::FixOxdnaNpairKokkos(LAMMPS *lmp, int narg, char
   screened_max_atoms = 0;
   screened_max_neigh = 0;
   screened_pair_count = 0;
+  screen_cut_max = 0.0;
+  screen_cutsq = static_cast<KK_FLOAT>(4.0);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -161,15 +163,12 @@ void FixOxdnaNpairKokkos<DeviceType>::compute_neigh_screen_to_npair()
   if (max_atoms > screened_max_atoms || max_neigh > screened_max_neigh) {
     screened_max_atoms = max_atoms;
     screened_max_neigh = max_neigh;
-    MemKK::realloc_kokkos(k_neighbors_screened, "FixOxdnaNpair:neighbors_screened",
-                          screened_max_atoms, screened_max_neigh);
     MemKK::realloc_kokkos(k_numneigh_screened, "FixOxdnaNpair:numneigh_screened",
                           screened_max_atoms);
     MemKK::realloc_kokkos(k_screened_offsets, "FixOxdnaNpair:screened_offsets",
                           screened_max_atoms + 1);
     MemKK::realloc_kokkos(k_pairs_screened, "FixOxdnaNpair:pairs_screened",
               screened_max_atoms * screened_max_neigh);
-    d_neighbors_screened = k_neighbors_screened.template view<DeviceType>();
     d_numneigh_screened = k_numneigh_screened.template view<DeviceType>();
     d_screened_offsets = k_screened_offsets.template view<DeviceType>();
     d_pairs_screened = k_pairs_screened.template view<DeviceType>();
@@ -178,57 +177,42 @@ void FixOxdnaNpairKokkos<DeviceType>::compute_neigh_screen_to_npair()
   atomKK->sync(execution_space, datamask_read);
   x = atomKK->k_x.view<DeviceType>();
 
-  // Pretty simple first pass via "TagFixOxdnaNpairNeighScreen". We just loop through each atom a
-  // and its neighbors, run 'screen_pair_fast' for each a-neighbor and its b-neighs which runs up
-  // to a simple CoM bool. If true, we add the neighbor to the d_neighbors_screened neighbor
-  // list and increment the screened neighbor count.
+  // Derive the COM screen cutoff from the cutoffs registered by the consuming
+  // pair styles (hbond / xstk / coaxstk) in their init_one. screen_cut_max is
+  // max(cut_*_hc) + site-offset margin, so the COM test below never drops an
+  // interacting pair while being as tight as the parameters allow. Fall back to
+  // the historical r < 2.0 (rsq < 4.0) if nothing registered.
+  screen_cutsq = (screen_cut_max > 0.0)
+               ? static_cast<KK_FLOAT>(screen_cut_max * screen_cut_max)
+               : static_cast<KK_FLOAT>(4.0);
+
+  // Pass 1 (count): "TagFixOxdnaNpairNeighScreen" loops over each atom a and its
+  // raw neighbours, runs 'screen_pair_fast' (a cheap CoM distance bool) for each,
+  // and records only the surviving count per atom in d_numneigh_screened. No
+  // per-atom survivor list is stored - the fill pass below re-screens instead,
+  // which avoids an nmax x max_neigh scratch matrix.
   copymode = 1;
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixOxdnaNpairNeighScreen>(0, anum), *this);
   copymode = 0;
 
   // Perhaps "_local" suffixes are a little deceiving - these are shallow copies and point
-  // to the same data as the non "_local" views. They're just for use in the lambdas below
-  // to avoid "this->" captures which the compiler would not like. 
+  // to the same data as the non "_local" views. They're just for use in the lambda below
+  // to avoid "this->" captures which the compiler would not like.
   const auto d_alist_local = d_alist;
   const auto d_numneigh_screened_local = d_numneigh_screened;
   const auto d_screened_offsets_local = d_screened_offsets;
-  const auto d_neighbors_screened_local = d_neighbors_screened;
   const int anum_local = anum;
 
-  // Final/Second pass is a little more conceptually complex. ComputeGPUPair (in our bond/pair styles)
-  // takes two flat "pairs_screened_" a,b index(es) which runs from 0 to screened_pair_count - 1,
-  // and does a global lookup to get the corresponding a,b for that pair index.
-  // The parallel_scan is building a prefix sum
-  // over the screened neighbor counts per atom, which gives us the starting index in
-  // the screened neighbor list for each atom.
-  // So for example if atom 0 has 2 screened neighbors, atom 1 has 0 screened neighbors,
-  // and atom 2 has 3 screened neighbors, the scanned screened_offsets would be [0, 2, 2, 5].
-  // The Kokkos documentation/wiki explains parallel_scan, prefix sum, "update", "final", etc
-  // in more detail.
-  // Pretty much populating d_pairs_screened with the corresponding a,b for each
-  // screened pair index.
-  const auto d_pairs_screened_local = d_pairs_screened;
-  
+  // Pass 2 (scan): prefix-sum the per-atom screened counts (in neighbor-list
+  // order) into d_screened_offsets, giving the starting flat index for each atom.
+  // E.g. counts [2,0,3] -> offsets [0,2,2,5]; offsets(anum) is the total. The
+  // Kokkos docs explain parallel_scan / prefix sum / "update" / "final".
   Kokkos::parallel_scan(
     Kokkos::RangePolicy<DeviceType>(0, anum + 1),
     KOKKOS_LAMBDA(const int i, int &update, const bool final) {
       if (i < anum_local) {
         if (final) d_screened_offsets_local(i) = update;
-        const int a = d_alist_local(i);
-        const int num_screened = d_numneigh_screened_local(a);
-        if (final) {
-          for (int ib = 0; ib < num_screened; ib++) {
-            const int ipair = update + ib;
-            const int b = d_neighbors_screened_local(a, ib);
-            // So this utin64_t packing stores atom-a in the upper 32 bits and
-            // atom-b in the lower 32 bits. We can unpack these in the ComputeGPUPair functors,
-            // Meaning we only have to store one index and have one global load there.
-            d_pairs_screened_local(ipair) =
-              (static_cast<uint64_t>(static_cast<uint32_t>(a)) << 32) |
-              static_cast<uint64_t>(static_cast<uint32_t>(b));
-          }
-        }
-        update += num_screened;
+        update += d_numneigh_screened_local(d_alist_local(i));
       } else if (final) {
         d_screened_offsets_local(anum_local) = update;
       }
@@ -241,6 +225,15 @@ void FixOxdnaNpairKokkos<DeviceType>::compute_neigh_screen_to_npair()
   Kokkos::deep_copy(
     k_screened_pair_count.view_host(), Kokkos::subview(d_screened_offsets_local, anum_local));
   screened_pair_count = k_screened_pair_count.view_host()();
+
+  // Pass 3 (fill): re-screen each atom's neighbours and write its survivors as
+  // packed (a,b) uint64 keys directly at d_screened_offsets(i)..+count. The
+  // ComputeGPUPair functors then run one thread per flat pair index, unpacking
+  // a (upper 32 bits) and b (lower 32 bits, special-bond bits preserved) with a
+  // single global load.
+  copymode = 1;
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixOxdnaNpairFill>(0, anum), *this);
+  copymode = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -267,9 +260,9 @@ bool FixOxdnaNpairKokkos<DeviceType>::screen_pair_fast(const int &braw,
   const KK_FLOAT rsq_com = fma(delr_com[2], delr_com[2],
                            fma(delr_com[1], delr_com[1], delr_com[0] * delr_com[0]));
 
-  // Fast boolean screen: TODO: I've totally made up this cutoff - need a proper one...
-  constexpr KK_FLOAT cutoffsq = 4;  // 1.69=1.3^2, 2.25=1.5^2, 4=2^2
-  return (rsq_com < cutoffsq);
+  // Boolean screen against the derived COM cutoff (set in
+  // compute_neigh_screen_to_npair from the consuming styles' registered cutoffs).
+  return (rsq_com < screen_cutsq);
 }
 
 template<class DeviceType>
@@ -285,11 +278,35 @@ void FixOxdnaNpairKokkos<DeviceType>::operator()(TagFixOxdnaNpairNeighScreen, co
   int nscreen = 0;
   for (int ib = 0; ib < bnum; ib++) {
     const int braw = d_neighbors(a,ib);
-    if (screen_pair_fast(braw, a_com0, a_com1, a_com2)) {
-      d_neighbors_screened(a, nscreen++) = braw;
-    }
+    if (screen_pair_fast(braw, a_com0, a_com1, a_com2)) nscreen++;
   }
   d_numneigh_screened(a) = nscreen;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void FixOxdnaNpairKokkos<DeviceType>::operator()(TagFixOxdnaNpairFill, const int &ia) const
+{
+  const int a = d_alist(ia);
+  const int bnum = d_numneigh(a);
+  const KK_FLOAT a_com0 = x(a,0);
+  const KK_FLOAT a_com1 = x(a,1);
+  const KK_FLOAT a_com2 = x(a,2);
+
+  // Re-screen with the same predicate used in pass 1; write survivors as packed
+  // (a, braw) keys at the scanned base offset for this atom. braw keeps the
+  // special-bond bits so ComputeGPUPair can apply special_lj/sbmask on unpack.
+  int nscreen = d_screened_offsets(ia);
+  for (int ib = 0; ib < bnum; ib++) {
+    const int braw = d_neighbors(a,ib);
+    if (screen_pair_fast(braw, a_com0, a_com1, a_com2)) {
+      d_pairs_screened(nscreen++) =
+        (static_cast<uint64_t>(static_cast<uint32_t>(a)) << 32) |
+        static_cast<uint64_t>(static_cast<uint32_t>(braw));
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------- */
