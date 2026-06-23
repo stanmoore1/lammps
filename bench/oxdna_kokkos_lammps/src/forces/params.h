@@ -157,6 +157,9 @@ struct DNAParams {
 
     // Global nonbonded COM-COM cutoff squared (max over all terms)
     c_number cutsq_nb;
+    // Screened-pair COM-COM cutoff squared, used only by the hbond/xstk/coaxstk
+    // screen (excludes excv/dh). Matches LAMMPS fix_oxdna_npair's derived cutoff.
+    c_number screen_cutsq;
 };
 
 // make_f4: build an F4 term from (a, theta0, dtheta_ast), deriving the
@@ -332,6 +335,17 @@ inline DNAParams make_oxdna1_params(double T = 0.1, double hb_multi = 0.0) {
     max_cut = std::max(max_cut, static_cast<double>(p.xstk_f2.cut_hc) + 0.8);
     max_cut = std::max(max_cut, static_cast<double>(p.cxst_f2.cut_hc) + 0.8);
     p.cutsq_nb = static_cast<c_number>(max_cut * max_cut);
+
+    // Screen cutoff for the hbond/xstk/coaxstk one-thread-per-pair kernels: the
+    // largest of *those three* site ranges plus the two ~0.4 COM site offsets.
+    // This excludes excv (which consumes the full list, not the screen) and so is
+    // tighter than cutsq_nb, mirroring the derived cutoff in LAMMPS
+    // fix_oxdna_npair_kokkos (max(cut_*_hc) + 0.8). oxDNA2 leaves these three
+    // cut_hc values unchanged, so the value carries over to make_oxdna2_params.
+    double screen_cut = static_cast<double>(p.hb_f1.cut_hc)   + 0.8;
+    screen_cut = std::max(screen_cut, static_cast<double>(p.xstk_f2.cut_hc) + 0.8);
+    screen_cut = std::max(screen_cut, static_cast<double>(p.cxst_f2.cut_hc) + 0.8);
+    p.screen_cutsq = static_cast<c_number>(screen_cut * screen_cut);
 
     return p;
 }

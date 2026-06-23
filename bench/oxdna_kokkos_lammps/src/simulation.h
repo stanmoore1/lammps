@@ -69,6 +69,9 @@ public:
         c_number nl_cut = std::max(static_cast<double>(cfg_.cutoff),
                                    std::sqrt(static_cast<double>(par_.cutsq_nb)));
         nl_.init(nl_cut, cfg_.skin, N_, box_);
+        // Derived COM screen cutoff for the hbond/xstk/coaxstk pair kernels
+        // (mirrors LAMMPS fix_oxdna_npair); must be set before the first build.
+        nl_.screen_cutsq = par_.screen_cutsq;
         nl_.build(dev_, box_);
 
         // Initial forces: nonbonded (atomic scatter) first, then the bonded
@@ -128,7 +131,8 @@ public:
                        nl_.list_poss, nl_.d_needs_rebuild, nl_.rebuild_disp_sq());
             auto b = mark(); t_mod += sec(a, b);
 
-            if (nl_.flag_is_set()) nl_.build(dev_, box_);
+            const bool neigh_rebuilt = nl_.flag_is_set();
+            if (neigh_rebuilt) nl_.build(dev_, box_);
             auto c = mark(); t_neigh += sec(b, c);
 
             // Potential energy is only needed on output steps. Off those steps,
@@ -140,7 +144,7 @@ public:
             epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_, want_e, cfg_.lammps_overhead);
             auto e = mark(); t_nb += sec(c, e);
 
-            epot_ += compute_bonded_forces(dev_, par_, box_, want_e, cfg_.lammps_overhead);
+            epot_ += compute_bonded_forces(dev_, par_, box_, want_e, cfg_.lammps_overhead, neigh_rebuilt);
             auto f = mark(); t_bond += sec(e, f);
 
             second_step(dev_, cfg_.dt);

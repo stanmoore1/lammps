@@ -430,7 +430,8 @@ inline c_number run_bonded_term(ParticleArrays &p, const DNAParams &par,
 // the original fused driver (so fd_test / xcheck build unchanged).
 inline c_number compute_bonded_forces(ParticleArrays &p, const DNAParams &par,
                                       const SimBox &box, bool want_energy = true,
-                                      bool lammps_overhead = false) {
+                                      bool lammps_overhead = false,
+                                      bool neigh_rebuilt = true) {
     // Ensure the precomputed body frames (nx/ny/nz) are current. In the normal
     // per-step sequence compute_nonbonded_forces already ran the LRF pass, but
     // calling it here too keeps this entry point self-contained (the validation
@@ -438,22 +439,24 @@ inline c_number compute_bonded_forces(ParticleArrays &p, const DNAParams &par,
     compute_lrf(p);
     c_number e = 0;
     if (lammps_overhead) {
-        // Faithful LAMMPS bonded: per-bond + atomic scatter + tetramer indexing,
-        // each preceded by the per-step bond-prime-neigh precompute kernel.
-        bond_precompute(p, "oxdna_stk_precompute");
+        // Faithful LAMMPS bonded: per-bond + atomic scatter + tetramer indexing.
+        // The bond->prime-neigh precompute is a no-op for the physics (the table
+        // it writes is never read here); LAMMPS now caches it per neighbor build
+        // (gated on neighbor->lastcall), so only launch it on rebuild steps to
+        // match the optimized per-step kernel count.
+        if (neigh_rebuilt) bond_precompute(p, "oxdna_stk_precompute");
         e += run_bonded_term_scatter<false>(p, par, box, want_energy, "oxdna_stk");
-        bond_precompute(p, "oxdna_fene_precompute");
+        if (neigh_rebuilt) bond_precompute(p, "oxdna_fene_precompute");
         e += run_bonded_term_scatter<true> (p, par, box, want_energy, "oxdna_fene");
     } else {
         // Lean (CUDA-standalone) bonded: per-particle gather, no atomics.
         e += run_bonded_term<false>(p, par, box, want_energy, "oxdna_stk");   // stacking
         e += run_bonded_term<true> (p, par, box, want_energy, "oxdna_fene");  // FENE + bonded excv
     }
-    // LAMMPS bond/fene does a device->host copy of a 1-int overstretch flag every
-    // step; reproduce that host round-trip. Use the dedicated 0-D flag scalar and
-    // its host mirror (mirroring d_flag / h_flag in bond_oxdna_fene_kokkos): a
-    // contiguous scalar deep_copy that is valid across memory spaces.
-    if (lammps_overhead) {
+    // LAMMPS bond/fene copies its 1-int overstretch flag device->host. It now
+    // throttles that copy to output/thermo steps (eflag||vflag) instead of every
+    // step, so reproduce the host round-trip only when energy is requested.
+    if (lammps_overhead && want_energy) {
         Kokkos::deep_copy(p.overstretch_flag_host, p.overstretch_flag);
     }
     return e;

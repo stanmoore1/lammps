@@ -59,6 +59,10 @@ struct NeighborList {
     Kokkos::View<int *>    d_screened_offsets; // prefix-sum offsets (length N+1)
     int N_screened = 0;
     int screened_capacity = 0;
+    // COM-COM screen cutoff squared (set from DNAParams::screen_cutsq before the
+    // first build). Mirrors the derived cutoff in LAMMPS fix_oxdna_npair; the old
+    // hardcoded 4.0 (r < 2.0) is the fallback if it is never set.
+    c_number screen_cutsq = c_number(4.0);
 
     // Cell list
     Kokkos::View<int *>    d_cell_count;     // particles per cell
@@ -363,7 +367,7 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
         auto nscreen  = d_num_screened;
         auto soff     = d_screened_offsets;
         auto box_d    = box;
-        constexpr c_number screen_cutsq = c_number(4.0);   // r < 2.0 (LAMMPS)
+        const c_number screen_cutsq_l = screen_cutsq;   // derived cutoff (LAMMPS)
 
         // 1. count screened neighbours per atom
         Kokkos::parallel_for("count_screened", N, KOKKOS_LAMBDA(int i) {
@@ -376,7 +380,7 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
                 c_number dy = poss_d(j,1) - yi;
                 c_number dz = poss_d(j,2) - zi;
                 box_d.wrap(dx, dy, dz);
-                if (dx*dx + dy*dy + dz*dz < screen_cutsq) ns++;
+                if (dx*dx + dy*dy + dz*dz < screen_cutsq_l) ns++;
             }
             nscreen(i) = ns;
         });
@@ -419,7 +423,7 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
         auto sa       = screened_a;
         auto sb       = screened_b;
         auto box_d    = box;
-        constexpr c_number screen_cutsq = c_number(4.0);   // r < 2.0 (LAMMPS)
+        const c_number screen_cutsq_l = screen_cutsq;   // derived cutoff (LAMMPS)
         Kokkos::parallel_for("fill_screened", N, KOKKOS_LAMBDA(int i) {
             c_number xi = poss_d(i,0), yi = poss_d(i,1), zi = poss_d(i,2);
             int m = nnum(i);
@@ -431,7 +435,7 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
                 c_number dy = poss_d(j,1) - yi;
                 c_number dz = poss_d(j,2) - zi;
                 box_d.wrap(dx, dy, dz);
-                if (dx*dx + dy*dy + dz*dz < screen_cutsq) {
+                if (dx*dx + dy*dy + dz*dz < screen_cutsq_l) {
                     sa(base + ns) = i;
                     sb(base + ns) = j;
                     ns++;
