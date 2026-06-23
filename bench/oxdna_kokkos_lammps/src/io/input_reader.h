@@ -201,4 +201,5 @@ inline void read_input(const std::string &file, SimConfig &cfg) {
         cfg.timing = (v == "1" || v == "yes" || v == "true" || v == "on");
     }
     if (has("lammps_overhead")) { std::string v = str("lammps_overhead"); cfg.lammps_overhead = (v=="1"||v=="yes"||v=="true"||v=="on"); }
+    if (has("fuse_hbond_xstk")) { std::string v = str("fuse_hbond_xstk"); cfg.fuse_hbxstk = (v=="1"||v=="yes"||v=="true"||v=="on"); }
 }

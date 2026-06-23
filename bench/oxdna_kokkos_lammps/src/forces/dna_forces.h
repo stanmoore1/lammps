@@ -839,6 +839,66 @@ struct CoaxstkFunctor {
         }
     }
 };
+// -----------------------------------------------------------------------
+// FUSED hbond+xstk: one thread per screened pair computes BOTH terms. They
+// share the entire base-site geometry (positions, a1/a3 & b1/b3 frames, the
+// COM->base-site offsets, and the base-base separation d/r/rinv), so fusing
+// loads that geometry once and scatters the summed force/torque once, instead
+// of the two separate kernels each re-loading and re-scattering. Selected by the
+// fuse_hbond_xstk input toggle so it can be A/B'd against the split kernels;
+// physics is identical up to floating-point summation order.
+// -----------------------------------------------------------------------
+struct HbondXstkFusedFunctor {
+    Vec4cr poss, nx, ny, nz;
+    RandomRead<int> btype;
+    Kokkos::View<const int *> sa, sb;
+    DNAParams par;
+    ScatterF4 sf, st;
+    SimBox box;
+
+    KOKKOS_INLINE_FUNCTION void operator()(int e) const { c_number ev=0; (*this)(e, ev); }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(int e, c_number &ev) const {
+        const int ia = sa(e), ib = sb(e);
+
+        c_number dx = poss(ib,0)-poss(ia,0), dy = poss(ib,1)-poss(ia,1), dz = poss(ib,2)-poss(ia,2);
+        box.wrap(dx, dy, dz);
+        c_number a1[3], a2[3], a3[3], b1[3], b2[3], b3[3];
+        load_frame(nx, ny, nz, ia, a1, a2, a3);
+        load_frame(nx, ny, nz, ib, b1, b2, b3);
+        c_number d_cbs = par.d_cbs;
+        c_number ra_cbs[3] = {d_cbs*a1[0], d_cbs*a1[1], d_cbs*a1[2]};
+        c_number rb_cbs[3] = {d_cbs*b1[0], d_cbs*b1[1], d_cbs*b1[2]};
+        c_number d[3] = {dx+rb_cbs[0]-ra_cbs[0], dy+rb_cbs[1]-ra_cbs[1], dz+rb_cbs[2]-ra_cbs[2]};
+        c_number r = Kokkos::sqrt(dot3(d,d));
+        if (r <= 0) return;
+        c_number rinv = 1 / r;
+
+        c_number delf_a[3]={0,0,0}, delf_b[3]={0,0,0};
+        c_number delta_a[3]={0,0,0}, delta_b[3]={0,0,0};
+
+        // Hydrogen bonding (only for complementary base pairs).
+        c_number alpha = par.alpha_hb[btype(ia)][btype(ib)];
+        if (alpha != 0) {
+            ev += hbond_pair(ra_cbs, rb_cbs, d, r, rinv, par, alpha,
+                             a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
+        }
+        // Cross stacking (same base-site geometry) - accumulates into the same
+        // force/torque registers, so the pair is scattered just once below.
+        ev += crst_pair(ra_cbs, rb_cbs, d, r, rinv, par,
+                        a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
+
+        c_number nzc = dot3(delf_a,delf_a)+dot3(delta_a,delta_a)+dot3(delf_b,delf_b)+dot3(delta_b,delta_b);
+        if (nzc > c_number(0)) {
+            auto af = sf.access(); auto atv = st.access();
+            af(ia,0)+=delf_a[0]; af(ia,1)+=delf_a[1]; af(ia,2)+=delf_a[2];
+            af(ib,0)+=delf_b[0]; af(ib,1)+=delf_b[1]; af(ib,2)+=delf_b[2];
+            atv(ia,0)+=delta_a[0]; atv(ia,1)+=delta_a[1]; atv(ia,2)+=delta_a[2];
+            atv(ib,0)+=delta_b[0]; atv(ib,1)+=delta_b[1]; atv(ib,2)+=delta_b[2];
+        }
+    }
+};
 
 // -----------------------------------------------------------------------
 // Driver: dispatch the fragmented nonbonded kernels in LAMMPS order
@@ -852,7 +912,8 @@ inline c_number compute_nonbonded_forces(
     const DNAParams &par,
     const SimBox &box,
     bool want_energy = true,
-    bool lammps_overhead = false)
+    bool lammps_overhead = false,
+    bool fuse_hbond_xstk = false)
 {
     // LRF precompute (always — every kernel below reads nx/ny/nz).
     compute_lrf(p);
@@ -867,6 +928,9 @@ inline c_number compute_nonbonded_forces(
     Vec4cr poss_cr = p.poss;
     Vec4cr nx_cr = p.nx, ny_cr = p.ny, nz_cr = p.nz;
 
+    // Launch bounds for the nonbonded kernels (LaunchBounds is ignored on CPU).
+    using NBPolicy = Kokkos::RangePolicy<Kokkos::LaunchBounds<OXDNA_NB_MAXT, OXDNA_NB_MINB>>;
+
     // ---- EXCV (per-atom half list) ----
     {
         ExcvFunctor f;
@@ -874,30 +938,43 @@ inline c_number compute_nonbonded_forces(
         f.num_neigh = nl.d_num_neigh; f.neigh_matrix = nl.d_neigh_matrix;
         f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
         if (want_energy) { e_term = 0;
-            Kokkos::parallel_reduce("oxdna_excv", p.N, f, e_term); etot += e_term;
-        } else Kokkos::parallel_for("oxdna_excv", p.N, f);
+            Kokkos::parallel_reduce("oxdna_excv", NBPolicy(0, p.N), f, e_term); etot += e_term;
+        } else Kokkos::parallel_for("oxdna_excv", NBPolicy(0, p.N), f);
     }
 
-    // ---- HBOND (per screened pair) ----
-    if (nl.N_screened > 0) {
-        HbondFunctor f;
-        f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
-        f.btype = p.btype; f.sa = nl.screened_a; f.sb = nl.screened_b;
-        f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
-        if (want_energy) { e_term = 0;
-            Kokkos::parallel_reduce("oxdna_hbond", nl.N_screened, f, e_term); etot += e_term;
-        } else Kokkos::parallel_for("oxdna_hbond", nl.N_screened, f);
-    }
+    if (fuse_hbond_xstk) {
+        // ---- FUSED HBOND + XSTK (per screened pair, shared base-site geometry) ----
+        if (nl.N_screened > 0) {
+            HbondXstkFusedFunctor f;
+            f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
+            f.btype = p.btype; f.sa = nl.screened_a; f.sb = nl.screened_b;
+            f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
+            if (want_energy) { e_term = 0;
+                Kokkos::parallel_reduce("oxdna_hbond_xstk", NBPolicy(0, nl.N_screened), f, e_term); etot += e_term;
+            } else Kokkos::parallel_for("oxdna_hbond_xstk", NBPolicy(0, nl.N_screened), f);
+        }
+    } else {
+        // ---- HBOND (per screened pair) ----
+        if (nl.N_screened > 0) {
+            HbondFunctor f;
+            f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
+            f.btype = p.btype; f.sa = nl.screened_a; f.sb = nl.screened_b;
+            f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
+            if (want_energy) { e_term = 0;
+                Kokkos::parallel_reduce("oxdna_hbond", NBPolicy(0, nl.N_screened), f, e_term); etot += e_term;
+            } else Kokkos::parallel_for("oxdna_hbond", NBPolicy(0, nl.N_screened), f);
+        }
 
-    // ---- XSTK (per screened pair) ----
-    if (nl.N_screened > 0) {
-        XstkFunctor f;
-        f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
-        f.sa = nl.screened_a; f.sb = nl.screened_b;
-        f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
-        if (want_energy) { e_term = 0;
-            Kokkos::parallel_reduce("oxdna_xstk", nl.N_screened, f, e_term); etot += e_term;
-        } else Kokkos::parallel_for("oxdna_xstk", nl.N_screened, f);
+        // ---- XSTK (per screened pair) ----
+        if (nl.N_screened > 0) {
+            XstkFunctor f;
+            f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
+            f.sa = nl.screened_a; f.sb = nl.screened_b;
+            f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
+            if (want_energy) { e_term = 0;
+                Kokkos::parallel_reduce("oxdna_xstk", NBPolicy(0, nl.N_screened), f, e_term); etot += e_term;
+            } else Kokkos::parallel_for("oxdna_xstk", NBPolicy(0, nl.N_screened), f);
+        }
     }
 
     // ---- COAXSTK (per screened pair) ----
@@ -907,8 +984,8 @@ inline c_number compute_nonbonded_forces(
         f.sa = nl.screened_a; f.sb = nl.screened_b;
         f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
         if (want_energy) { e_term = 0;
-            Kokkos::parallel_reduce("oxdna_coaxstk", nl.N_screened, f, e_term); etot += e_term;
-        } else Kokkos::parallel_for("oxdna_coaxstk", nl.N_screened, f);
+            Kokkos::parallel_reduce("oxdna_coaxstk", NBPolicy(0, nl.N_screened), f, e_term); etot += e_term;
+        } else Kokkos::parallel_for("oxdna_coaxstk", NBPolicy(0, nl.N_screened), f);
     }
 
     // ---- DH (per-atom half list) ----
@@ -919,8 +996,8 @@ inline c_number compute_nonbonded_forces(
         f.num_neigh = nl.d_num_neigh; f.neigh_matrix = nl.d_neigh_matrix;
         f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
         if (want_energy) { e_term = 0;
-            Kokkos::parallel_reduce("oxdna_dh", p.N, f, e_term); etot += e_term;
-        } else Kokkos::parallel_for("oxdna_dh", p.N, f);
+            Kokkos::parallel_reduce("oxdna_dh", NBPolicy(0, p.N), f, e_term); etot += e_term;
+        } else Kokkos::parallel_for("oxdna_dh", NBPolicy(0, p.N), f);
     }
 
     Kokkos::Experimental::contribute(p.forces, sf);

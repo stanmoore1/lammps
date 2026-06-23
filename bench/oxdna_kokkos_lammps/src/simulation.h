@@ -28,6 +28,7 @@ struct SimConfig {
     int         output_freq = 1000;
     bool        timing      = false; // per-kernel breakdown (adds fences); off = production
     bool        lammps_overhead = false; // add LAMMPS per-step framework overheads (bond precompute, per-kernel scatter, host flag copy)
+    bool        fuse_hbxstk = false; // fuse hbond+xstk into one screened-pair kernel (shared base-site geometry)
     int         model       = 1;     // 1 = oxDNA1, 2 = oxDNA2
     c_number    salt        = 0.5;   // salt concentration [mol/L] (oxDNA2 only)
     bool        refresh_vel = false; // regenerate velocities from Maxwell-Boltzmann at startup
@@ -77,7 +78,7 @@ public:
         // Initial forces: nonbonded (atomic scatter) first, then the bonded
         // gather kernel adds on top (each thread owns its particle, no atomics).
         dev_.zero_forces();
-        epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_);
+        epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_, true, false, cfg_.fuse_hbxstk);
         epot_ += compute_bonded_forces(dev_, par_, box_);
 
         std::cout << "Precision: "
@@ -141,7 +142,7 @@ public:
             const bool want_e = ((s + 1) % cfg_.output_freq == 0);
 
             dev_.zero_forces();
-            epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_, want_e, cfg_.lammps_overhead);
+            epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_, want_e, cfg_.lammps_overhead, cfg_.fuse_hbxstk);
             auto e = mark(); t_nb += sec(c, e);
 
             // run_lrf=false: compute_nonbonded_forces above already ran the LRF
