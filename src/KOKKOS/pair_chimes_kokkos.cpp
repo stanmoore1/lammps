@@ -804,8 +804,6 @@ void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompu
   const int itype = type(i);
   const tagint itag = tag(i);
 
-  const int ncount = d_numneigh[i];
-
   const tagint jtag = tag[j]; // Get j's global atom index (sort of like its "parent")
 
   //if (jtag <= itag) // only allow calculation for j<i, since we've requested a full neighbor list

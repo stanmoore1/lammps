@@ -698,7 +698,6 @@ void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, const KK_FLOAT* 
 
   KK_FLOAT fcut[npairs];
   KK_FLOAT fcutderiv[npairs];
-  KK_FLOAT deriv[npairs];
 
   const int type_idx = typ_idxs[0]*natmtyps*natmtyps + typ_idxs[1]*natmtyps + typ_idxs[2];
   const int tripidx = c_atom_int_trip_map[type_idx];
@@ -946,7 +945,6 @@ void chimesFFKokkos<DeviceType>::compute_4B(const t_team& team, const KK_FLOAT* 
 
   KK_FLOAT fcut[npairs];
   KK_FLOAT fcutderiv[npairs];
-  KK_FLOAT deriv[npairs];
 
   // Cache the Chebyshev arrays (Tn/Tnd) in per-team scratch memory rather than
   // recomputing them redundantly on every vector lane (mirrors Kokkos SNAP).
