@@ -874,6 +874,252 @@ void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* 
 
 /* ---------------------------------------------------------------------- */
 
+// Team/warp-per-cluster variant of compute_3B (experiment). Body mirrors the
+// scalar 7-arg compute_3B exactly; the only change is that the dense NP^3
+// coefficient reduction is split across the team (poly_3B_dense_team). Setup
+// and force assembly run redundantly on every lane so all lanes finish with the
+// same force/energy; the caller applies them once via Kokkos::single.
+template<class DeviceType>
+template<class TeamMember>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::compute_3B(const TeamMember& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
+{
+  // Compute 3b (input: 3 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
+  //
+  // Input parameters:
+  //
+  // dx_ij: Scalar (pair distance)
+  // dr_ij: 1d-Array (pair distance: [x, y, and z-component])
+  // Force: [natoms in interaction set][x,y, and z-component] *note
+  // Stress [sxx, sxy, sxz, syy, syz, szz]
+  // Energy: Scalar; energy for interaction set
+  // Tmp: Temporary storage for 3-body interactions.
+
+  // Assumes atom indices start from zero
+  // Assumes distances are atom_2 - atom_1
+  //
+  // *note: force and dr are packed vectors of coordinates.
+
+  // Factored the Chebyshev polynomial and its derivatives from the cutoff function. (LEF 3/11/26)
+
+  constexpr int natoms = 3;                   // Number of atoms in an interaction set
+  constexpr int npairs = natoms*(natoms-1)/2; // Number of pairs in an interaction set
+
+  KK_FLOAT Tn_ij[MAX_3B_POLY];
+  KK_FLOAT Tn_ik[MAX_3B_POLY];
+  KK_FLOAT Tn_jk[MAX_3B_POLY];
+
+  KK_FLOAT Tnd_ij[MAX_3B_POLY];
+  KK_FLOAT Tnd_ik[MAX_3B_POLY];
+  KK_FLOAT Tnd_jk[MAX_3B_POLY];
+
+  // Avoid allocating vector quantities.  Heap memory allocation is slow on the GPU.
+  // fixed-length C arrays are allocated on the stack
+
+  KK_FLOAT fcut[npairs];
+  KK_FLOAT fcutderiv[npairs];
+  KK_FLOAT force_scalar[npairs]; // local scratch (team variant computes its own)
+
+  const int type_idx = typ_idxs[0]*natmtyps*natmtyps + typ_idxs[1]*natmtyps + typ_idxs[2];
+  const int tripidx = c_atom_int_trip_map[type_idx];
+
+  //if (tripidx < 0) // Skipping an excluded interaction
+  //  return;
+
+  // Check whether cutoffs are within allowed ranges
+  //auto c_mapped_pair_idx = c_pair_int_trip_map[type_idx];
+
+  const KK_FLOAT cutoff_00 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,0),0);
+  const KK_FLOAT cutoff_0 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,0),1);
+
+  //if (dx[0] >= cutoff_0) // ij
+  //  return;
+
+  const KK_FLOAT cutoff_01 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,1),0);
+  const KK_FLOAT cutoff_1 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,1),1);
+
+  //if (dx[1] >= cutoff_1) // ik
+  //  return;
+
+  const KK_FLOAT cutoff_02 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,2),0);
+  const KK_FLOAT cutoff_2 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,2),1);
+
+  //if (dx[2] >= cutoff_2) // jk
+  //  return;
+
+ const int pair_type_1 = c_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
+ const int pair_type_2 = c_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[2]);
+ const int pair_type_3 = c_atom_int_pair_map(typ_idxs[1]*natmtyps + typ_idxs[2]);
+ const int order = d_poly_orders[1];
+
+  // At this point, all distances are within allowed ranges. We can now proceed to the force/stress/energy calculation
+
+#ifdef USE_DISTANCE_TENSOR
+  // Tensor product of displacement vectors
+
+  KK_FLOAT dr2[CHDIM*CHDIM*npairs*npairs];
+  if (vflag)
+    init_distance_tensor(dr2, dr, npairs);
+#endif
+
+  // Set up the polynomials
+
+  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
+  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
+  set_cheby_polys(Tn_jk, Tnd_jk, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
+
+  // Set up the smoothing functions
+
+  get_fcut(dx[0], cutoff_0, fcut[0], fcutderiv[0]);
+  get_fcut(dx[1], cutoff_1, fcut[1], fcutderiv[1]);
+  get_fcut(dx[2], cutoff_2, fcut[2], fcutderiv[2]);
+  const KK_FLOAT fcut_all = fcut[0] * fcut[1] * fcut[2];
+
+  KK_FLOAT poly, dpoly_dx[npairs];
+
+  // Start the force/stress/energy calculation
+
+  if (!dense_coeffs) {
+    poly_3B(poly, dpoly_dx, c_ncoeffs_3b[tripidx], tripidx, type_idx,
+            Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+  } else {
+
+    // JIT evaluation of the chebyshev polynomial and its derivatives
+    int inv_mapped_pair[npairs];
+
+    for (int j = 0; j < npairs; j++)
+      inv_mapped_pair[c_pair_int_trip_map(type_idx,j)] = j;
+
+    KK_FLOAT* Tn[npairs];
+    KK_FLOAT* Tnd[npairs];
+
+    for (int j = 0; j < npairs; j++) {
+      switch (inv_mapped_pair[j]) {
+        case 0:
+          Tn[j] = &Tn_ij[0];
+          Tnd[j] = &Tnd_ij[0];
+          break;
+        case 1:
+          Tn[j] = &Tn_ik[0];
+          Tnd[j] = &Tnd_ik[0];
+          break;
+        case 2:
+          Tn[j] = &Tn_jk[0];
+          Tnd[j] = &Tnd_jk[0];
+          break;
+        default:
+          Kokkos::abort("Bad inverse pair mapping found");
+      }
+    }
+
+    poly_3B_dense_team(team, poly, dpoly_dx[inv_mapped_pair[0]], dpoly_dx[inv_mapped_pair[1]],
+                  dpoly_dx[inv_mapped_pair[2]], c_ncoeffs_3b[tripidx], tripidx,
+                  Tn[0], Tn[1], Tn[2], Tnd[0], Tnd[1], Tnd[2]);
+  }
+
+  if (eflag)
+    energy += poly * fcut_all;
+
+  force_scalar[0] = (fcut_all * dpoly_dx[0] + fcutderiv[0] * fcut[1] * fcut[2] * poly) / dx[0];
+  force_scalar[1] = (fcut_all * dpoly_dx[1] + fcutderiv[1] * fcut[0] * fcut[2] * poly) / dx[1];
+  force_scalar[2] = (fcut_all * dpoly_dx[2] + fcutderiv[2] * fcut[0] * fcut[1] * poly) / dx[2];
+
+  const KK_FLOAT &fscalar_0 = force_scalar[0];
+  const KK_FLOAT &fscalar_1 = force_scalar[1];
+  const KK_FLOAT &fscalar_2 = force_scalar[2];
+
+  // Accumulate forces/stresses on/from the ij pair
+
+  force[0] += fscalar_0 * dr[0];
+  force[1] += fscalar_0 * dr[1];
+  force[2] += fscalar_0 * dr[2];
+
+  force[CHDIM+0] -= fscalar_0 * dr[0];
+  force[CHDIM+1] -= fscalar_0 * dr[1];
+  force[CHDIM+2] -= fscalar_0 * dr[2];
+
+  // dr2_3B looks like a function call, but the optimizer should remove it entirely
+  if (vflag) {
+#ifdef USE_DISTANCE_TENSOR
+    // New stress code
+
+    stress[0] -= fscalar_0 * dr2_3B(dr2,0,0,0,0); // xx tensor component
+    stress[1] -= fscalar_0 * dr2_3B(dr2,0,0,0,1); // xy tensor component
+    stress[2] -= fscalar_0 * dr2_3B(dr2,0,0,0,2); // xz tensor component
+    stress[3] -= fscalar_0 * dr2_3B(dr2,0,1,0,1); // yy tensor component
+    stress[4] -= fscalar_0 * dr2_3B(dr2,0,1,0,2); // yz tensor component
+    stress[5] -= fscalar_0 * dr2_3B(dr2,0,2,0,2); // zz tensor component
+
+#else
+    stress[0] -= fscalar_0 * dr[0] * dr[0]; // xx tensor component
+    stress[1] -= fscalar_0 * dr[0] * dr[1]; // xy tensor component
+    stress[2] -= fscalar_0 * dr[0] * dr[2]; // xz tensor component
+    stress[3] -= fscalar_0 * dr[1] * dr[1]; // yy tensor component
+    stress[4] -= fscalar_0 * dr[1] * dr[2]; // yz tensor component
+    stress[5] -= fscalar_0 * dr[2] * dr[2]; // zz tensor component
+#endif
+  }
+
+  // Accumulate forces/stresses on/from the ik pair
+
+  force[0] += fscalar_1 * dr[CHDIM+0];
+  force[1] += fscalar_1 * dr[CHDIM+1];
+  force[2] += fscalar_1 * dr[CHDIM+2];
+
+  force[2*CHDIM+0] -= fscalar_1 * dr[CHDIM+0];
+  force[2*CHDIM+1] -= fscalar_1 * dr[CHDIM+1];
+  force[2*CHDIM+2] -= fscalar_1 * dr[CHDIM+2];
+
+  if (vflag) {
+#ifdef USE_DISTANCE_TENSOR
+    stress[0] -= fscalar_1 * dr2_3B(dr2,1,0,1,0); // xx tensor component
+    stress[1] -= fscalar_1 * dr2_3B(dr2,1,0,1,1); // xy tensor component
+    stress[2] -= fscalar_1 * dr2_3B(dr2,1,0,1,2); // xz tensor component
+    stress[3] -= fscalar_1 * dr2_3B(dr2,1,1,1,1); // yy tensor component
+    stress[4] -= fscalar_1 * dr2_3B(dr2,1,1,1,2); // yz tensor component
+    stress[5] -= fscalar_1 * dr2_3B(dr2,1,2,1,2); // zz tensor component
+#else
+    stress[0] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+0]; // xx tensor component
+    stress[1] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+1]; // xy tensor component
+    stress[2] -= fscalar_1 * dr[CHDIM+0] * dr[CHDIM+2]; // xz tensor component
+    stress[3] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+1]; // yy tensor component
+    stress[4] -= fscalar_1 * dr[CHDIM+1] * dr[CHDIM+2]; // yz tensor component
+    stress[5] -= fscalar_1 * dr[CHDIM+2] * dr[CHDIM+2]; // zz tensor component
+#endif
+  }
+
+  // Accumulate forces/stresses on/from the jk pair
+
+  force[CHDIM+0] += fscalar_2 * dr[2*CHDIM+0];
+  force[CHDIM+1] += fscalar_2 * dr[2*CHDIM+1];
+  force[CHDIM+2] += fscalar_2 * dr[2*CHDIM+2];
+
+  force[2*CHDIM+0] -= fscalar_2 * dr[2*CHDIM+0];
+  force[2*CHDIM+1] -= fscalar_2 * dr[2*CHDIM+1];
+  force[2*CHDIM+2] -= fscalar_2 * dr[2*CHDIM+2];
+
+  if (vflag) {
+#ifdef USE_DISTANCE_TENSOR
+    stress[0] -= fscalar_2 * dr2_3B(dr2,2,0,2,0); // xx tensor component
+    stress[1] -= fscalar_2 * dr2_3B(dr2,2,0,2,1); // xy tensor component
+    stress[2] -= fscalar_2 * dr2_3B(dr2,2,0,2,2); // xz tensor component
+    stress[3] -= fscalar_2 * dr2_3B(dr2,2,1,2,1); // yy tensor component
+    stress[4] -= fscalar_2 * dr2_3B(dr2,2,1,2,2); // yz tensor component
+    stress[5] -= fscalar_2 * dr2_3B(dr2,2,2,2,2); // zz tensor component
+#else
+    stress[0] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+0]; // xx tensor component
+    stress[1] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+1]; // xy tensor component
+    stress[2] -= fscalar_2 * dr[2*CHDIM+0] * dr[2*CHDIM+2]; // xz tensor component
+    stress[3] -= fscalar_2 * dr[2*CHDIM+1] * dr[2*CHDIM+1]; // yy tensor component
+    stress[4] -= fscalar_2 * dr[2*CHDIM+1] * dr[2*CHDIM+2]; // yz tensor component
+    stress[5] -= fscalar_2 * dr[2*CHDIM+2] * dr[2*CHDIM+2]; // zz tensor component
+#endif
+  }
+}
+
+
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
@@ -1441,6 +1687,54 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense(KK_FLOAT &e, KK_FLOAT &f0, KK_FLO
   } else {
     Kokkos::abort("Error: bad 3 body dense loop style");
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+// Team-parallel dense reduction: the flat coefficient loop (count -> l,m,n,
+// same decomposition as poly_3B_dense_loop1) is split across the team with one
+// 4-component parallel_reduce, so the coefficient row is read once and divided
+// among the lanes. TeamThreadRange broadcasts the reduced result to every lane.
+
+template<class DeviceType>
+template<class TeamMember>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::poly_3B_dense_team(const TeamMember& team, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                                   int ncoeffs_3b, int tripidx, KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik,
+                                   KK_FLOAT* Tn_jk, KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik, KK_FLOAT* Tnd_jk) const
+{
+  e = 0.0; f0 = 0.0; f1 = 0.0; f2 = 0.0;
+  if (ncoeffs_3b == 0) return;
+
+  int max_poly = 0;
+  const int loop_max = 1000;
+  int p = 0;
+  for (; p < loop_max; p++) {
+    if (p * p * p == ncoeffs_3b) { max_poly = p; break; }
+  }
+  if (p == loop_max)
+    Kokkos::abort("Bad number of 3 body coefficients for dense evaluation");
+
+  ChimesDense3B part;
+  Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, ncoeffs_3b),
+    [&](const int count, ChimesDense3B &upd) {
+      const int l = count / (max_poly * max_poly);
+      const int m = (count / max_poly) % max_poly;
+      const int n = count % max_poly;
+
+      const KK_FLOAT coeff = c_chimes_3b_params(tripidx, count);
+      if (coeff != 0.0) {
+        const KK_FLOAT tn_ij = Tn_ij[l];
+        const KK_FLOAT tn_ik = Tn_ik[m];
+        const KK_FLOAT tn_jk = Tn_jk[n];
+        upd.e  += coeff * tn_ij * tn_ik * tn_jk;
+        upd.f0 += coeff * Tnd_ij[l] * tn_ik * tn_jk;
+        upd.f1 += coeff * Tnd_ik[m] * tn_ij * tn_jk;
+        upd.f2 += coeff * Tnd_jk[n] * tn_ij * tn_ik;
+      }
+    }, part);
+
+  e = part.e; f0 = part.f0; f1 = part.f1; f2 = part.f2;
 }
 
 /* ---------------------------------------------------------------------- */

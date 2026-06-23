@@ -46,6 +46,27 @@ using namespace std;
 #define CHDIM 3 // The number of spatial dimensions.
 #define USE_DISTANCE_TENSOR 0 // Use tensor of distances in computing stresses.
 
+// Four-component accumulator for the 3-body dense reduction (polynomial value
+// e plus its three per-constituent-pair derivatives f0/f1/f2), used as the
+// reduction type when the NP^3 coefficient loop is split across a Kokkos team
+// (experiment: team/warp-per-cluster). Kept as a plain POD with operator+= and
+// a reduction_identity so a single team parallel_reduce produces all four sums
+// in one pass over the coefficients (one coalesced read stream).
+struct ChimesDense3B {
+  KK_FLOAT e, f0, f1, f2;
+  KOKKOS_INLINE_FUNCTION ChimesDense3B() : e(0.0), f0(0.0), f1(0.0), f2(0.0) {}
+  KOKKOS_INLINE_FUNCTION void operator+=(const ChimesDense3B &s) {
+    e += s.e; f0 += s.f0; f1 += s.f1; f2 += s.f2;
+  }
+};
+
+namespace Kokkos {
+  template<>
+  struct reduction_identity<ChimesDense3B> {
+    KOKKOS_FORCEINLINE_FUNCTION static ChimesDense3B sum() { return ChimesDense3B(); }
+  };
+}
+
 template<class DeviceType>
 class chimesFFKokkos : public chimesFF
 {
@@ -84,6 +105,17 @@ class chimesFFKokkos : public chimesFF
 
   KOKKOS_INLINE_FUNCTION
   void compute_3B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force,KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
+
+  // Team/warp-per-cluster variant (experiment): identical math to the scalar
+  // compute_3B above, but the expensive dense NP^3 coefficient reduction is
+  // split across the Kokkos team passed in. All lanes run the (cheap) setup and
+  // force assembly redundantly so every lane ends with the same force/energy;
+  // the caller applies the result once via Kokkos::single. Templated on the
+  // team member type to avoid coupling to a specific policy.
+  template<class TeamMember>
+  KOKKOS_INLINE_FUNCTION
+  void compute_3B(const TeamMember& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs,
+                  KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
 
   KOKKOS_INLINE_FUNCTION
   void compute_4B(const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
@@ -207,6 +239,17 @@ class chimesFFKokkos : public chimesFF
                      int tripidx, KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik,
                      KK_FLOAT* Tn_jk, KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik,
                      KK_FLOAT* Tnd_jk) const;
+
+  // Team-parallel form of poly_3B_dense: the flat count loop (count -> l,m,n)
+  // is distributed over the team with a single 4-component parallel_reduce, so
+  // the coefficient row is read once and split across lanes. e/f0/f1/f2 are the
+  // canonical (constituent-pair-ordered) outputs; the caller remaps as usual.
+  template<class TeamMember>
+  KOKKOS_INLINE_FUNCTION
+  void poly_3B_dense_team(const TeamMember& team, KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                          int ncoeffs_3b, int tripidx, KK_FLOAT* Tn_ij, KK_FLOAT* Tn_ik,
+                          KK_FLOAT* Tn_jk, KK_FLOAT* Tnd_ij, KK_FLOAT* Tnd_ik,
+                          KK_FLOAT* Tnd_jk) const;
 
   // Loop evaluators for poly_3B_dense
 

@@ -98,6 +98,18 @@ class PairCHIMESKokkos : public PairCHIMES
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>,const int& ii, EV_FLOAT&) const;
 
+  // Team/warp-per-cluster 3-body operators (experiment): one team per 3-mer,
+  // the dense coefficient reduction split across the team.
+  typedef typename Kokkos::TeamPolicy<DeviceType>::member_type team_member_3b;
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>, const team_member_3b& team) const;
+
+  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>, const team_member_3b& team, EV_FLOAT&) const;
+
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairCHIMESCompute4Body<NEIGHFLAG,EVFLAG>,const int& ii) const;
