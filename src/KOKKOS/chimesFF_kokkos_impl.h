@@ -874,15 +874,49 @@ void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* 
 
 /* ---------------------------------------------------------------------- */
 
+// Precompute the three constituent-pair Chebyshev polynomial sets for one
+// 3-body cluster (experiment 4). Same cutoff/pair-type lookups and
+// set_cheby_polys calls the scalar compute_3B does, factored out so a separate
+// pass can fill them once per cluster.
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::set_cheby_3B(const KK_FLOAT* dx, const int* typ_idxs,
+                                   KK_FLOAT* Tn_ij, KK_FLOAT* Tnd_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tnd_ik,
+                                   KK_FLOAT* Tn_jk, KK_FLOAT* Tnd_jk) const
+{
+  const int type_idx = typ_idxs[0]*natmtyps*natmtyps + typ_idxs[1]*natmtyps + typ_idxs[2];
+  const int tripidx = c_atom_int_trip_map[type_idx];
+
+  const KK_FLOAT cutoff_00 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,0),0);
+  const KK_FLOAT cutoff_0  = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,0),1);
+  const KK_FLOAT cutoff_01 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,1),0);
+  const KK_FLOAT cutoff_1  = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,1),1);
+  const KK_FLOAT cutoff_02 = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,2),0);
+  const KK_FLOAT cutoff_2  = c_chimes_3b_cutoff(tripidx,c_pair_int_trip_map(type_idx,2),1);
+
+  const int pair_type_1 = c_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[1]);
+  const int pair_type_2 = c_atom_int_pair_map(typ_idxs[0]*natmtyps + typ_idxs[2]);
+  const int pair_type_3 = c_atom_int_pair_map(typ_idxs[1]*natmtyps + typ_idxs[2]);
+  const int order = d_poly_orders[1];
+
+  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
+  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
+  set_cheby_polys(Tn_jk, Tnd_jk, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
+}
+
+/* ---------------------------------------------------------------------- */
+
 // Team/warp-per-cluster variant of compute_3B (experiment). Body mirrors the
-// scalar 7-arg compute_3B exactly; the only change is that the dense NP^3
-// coefficient reduction is split across the team (poly_3B_dense_team). Setup
-// and force assembly run redundantly on every lane so all lanes finish with the
-// same force/energy; the caller applies them once via Kokkos::single.
+// scalar 7-arg compute_3B exactly, except the Chebyshev polynomials are
+// precomputed (passed in) and the dense NP^3 coefficient reduction is split
+// across the team (poly_3B_dense_team). Setup and force assembly run
+// redundantly on every lane so all lanes finish with the same force/energy;
+// the caller applies them once via Kokkos::single.
 template<class DeviceType>
 template<class TeamMember>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_3B(const TeamMember& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
+void chimesFFKokkos<DeviceType>::compute_3B(const TeamMember& team, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* Tn_ij, KK_FLOAT* Tnd_ij, KK_FLOAT* Tn_ik, KK_FLOAT* Tnd_ik, KK_FLOAT* Tn_jk, KK_FLOAT* Tnd_jk, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
 {
   // Compute 3b (input: 3 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -905,13 +939,9 @@ void chimesFFKokkos<DeviceType>::compute_3B(const TeamMember& team, const KK_FLO
   constexpr int natoms = 3;                   // Number of atoms in an interaction set
   constexpr int npairs = natoms*(natoms-1)/2; // Number of pairs in an interaction set
 
-  KK_FLOAT Tn_ij[MAX_3B_POLY];
-  KK_FLOAT Tn_ik[MAX_3B_POLY];
-  KK_FLOAT Tn_jk[MAX_3B_POLY];
-
-  KK_FLOAT Tnd_ij[MAX_3B_POLY];
-  KK_FLOAT Tnd_ik[MAX_3B_POLY];
-  KK_FLOAT Tnd_jk[MAX_3B_POLY];
+  // Tn_ij/.../Tnd_jk are precomputed (filled by set_cheby_3B in a prior pass)
+  // and passed in, so this team variant does not recompute the Chebyshev
+  // polynomials on every lane.
 
   // Avoid allocating vector quantities.  Heap memory allocation is slow on the GPU.
   // fixed-length C arrays are allocated on the stack
@@ -962,11 +992,8 @@ void chimesFFKokkos<DeviceType>::compute_3B(const TeamMember& team, const KK_FLO
     init_distance_tensor(dr2, dr, npairs);
 #endif
 
-  // Set up the polynomials
-
-  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], c_morse_var[pair_type_1], cutoff_00, cutoff_0, order);
-  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], c_morse_var[pair_type_2], cutoff_01, cutoff_1, order);
-  set_cheby_polys(Tn_jk, Tnd_jk, dx[2], c_morse_var[pair_type_3], cutoff_02, cutoff_2, order);
+  // Chebyshev polynomials were precomputed into Tn_*/Tnd_* by the
+  // TagPairCHIMESPrecompute3Body pass; nothing to set up here.
 
   // Set up the smoothing functions
 

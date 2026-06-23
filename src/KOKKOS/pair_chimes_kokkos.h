@@ -49,6 +49,8 @@ class PairCHIMESKokkos : public PairCHIMES
   template<int NEIGHFLAG, int EVFLAG>
   struct TagPairCHIMESCompute3Body{};
 
+  struct TagPairCHIMESPrecompute3Body{};
+
   template<int NEIGHFLAG, int EVFLAG>
   struct TagPairCHIMESCompute4Body{};
 
@@ -110,6 +112,10 @@ class PairCHIMESKokkos : public PairCHIMES
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairCHIMESCompute3Body<NEIGHFLAG,EVFLAG>, const team_member_3b& team, EV_FLOAT&) const;
 
+  // Precompute pass (experiment 4): fill the per-cluster Chebyshev tables once.
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairCHIMESPrecompute3Body, const int& ii) const;
+
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairCHIMESCompute4Body<NEIGHFLAG,EVFLAG>,const int& ii) const;
@@ -161,6 +167,14 @@ class PairCHIMESKokkos : public PairCHIMES
   Kokkos::View<int*[2], Kokkos::LayoutLeft, DeviceType> d_neighborlist_2mers;
   Kokkos::View<int*[3], Kokkos::LayoutLeft, DeviceType> d_neighborlist_3mers;
   Kokkos::View<int*[4], Kokkos::LayoutLeft, DeviceType> d_neighborlist_4mers;
+
+  // Precomputed per-3mer Chebyshev tables (experiment 4). Each row holds the
+  // three constituent-pair polynomial sets Tn (and derivatives Tnd), flattened
+  // as [3*MAX_3B_POLY]. LayoutLeft so the precompute pass writes are coalesced
+  // across clusters. Filled by TagPairCHIMESPrecompute3Body, read by the team
+  // Compute3Body.
+  Kokkos::View<KK_FLOAT**, Kokkos::LayoutLeft, DeviceType> d_Tn_3mers;
+  Kokkos::View<KK_FLOAT**, Kokkos::LayoutLeft, DeviceType> d_Tnd_3mers;
 
   typename AT::t_int_scalar d_size_4mers;
 
