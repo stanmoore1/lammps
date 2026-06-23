@@ -117,8 +117,6 @@ class PairCHIMESKokkos : public PairCHIMES
   int host_flag, max_2mers, max_3mers, max_4mers;
   int size_2mers, size_3mers, size_4mers;
 
-  KK_FLOAT maxcut_3b_padded, maxcut_4b_padded;
-
   int eflag, vflag;
 
   typename AT::t_neighbors_2d d_neighbors;

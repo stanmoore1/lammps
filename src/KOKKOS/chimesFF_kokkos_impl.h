@@ -666,7 +666,6 @@ void chimesFFKokkos<DeviceType>::compute_3B(const KK_FLOAT* dx, const KK_FLOAT* 
 
   KK_FLOAT fcut[npairs];
   KK_FLOAT fcutderiv[npairs];
-  KK_FLOAT deriv[npairs];
 
   const int type_idx = typ_idxs[0]*natmtyps*natmtyps + typ_idxs[1]*natmtyps + typ_idxs[2];
   const int tripidx = c_atom_int_trip_map[type_idx];
@@ -902,7 +901,6 @@ void chimesFFKokkos<DeviceType>::compute_4B(const KK_FLOAT* dx, const KK_FLOAT* 
 
   KK_FLOAT fcut[npairs];
   KK_FLOAT fcutderiv[npairs];
-  KK_FLOAT deriv[npairs];
 
   KK_FLOAT Tn_ij[MAX_4B_POLY];
   KK_FLOAT Tn_ik[MAX_4B_POLY];
