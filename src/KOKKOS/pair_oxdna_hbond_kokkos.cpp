@@ -1285,39 +1285,44 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbXstkFused<NEIGHF
   delr_hb_norm[1]=delr_hb[1]*rinv_hb;
   delr_hb_norm[2]=delr_hb[2]*rinv_hb;
 
-  // --- shared cosines + angles (the expensive acosf, computed ONCE) ---
-  KK_FLOAT cost1=-fma(a_nx[2],b_nx[2], fma(a_nx[1],b_nx[1], a_nx[0]*b_nx[0]));
-  if (cost1> 1.0) cost1= 1.0; if (cost1<-1.0) cost1=-1.0;
-  const KK_FLOAT theta1=acosf(cost1);
-  KK_FLOAT cost2=-fma(a_nx[2],delr_hb_norm[2], fma(a_nx[1],delr_hb_norm[1], a_nx[0]*delr_hb_norm[0]));
-  if (cost2> 1.0) cost2= 1.0; if (cost2<-1.0) cost2=-1.0;
-  const KK_FLOAT theta2=acosf(cost2);
-  KK_FLOAT cost3= fma(b_nx[2],delr_hb_norm[2], fma(b_nx[1],delr_hb_norm[1], b_nx[0]*delr_hb_norm[0]));
-  if (cost3> 1.0) cost3= 1.0; if (cost3<-1.0) cost3=-1.0;
-  const KK_FLOAT theta3=acosf(cost3);
-  KK_FLOAT cost4= fma(a_nz[2],b_nz[2], fma(a_nz[1],b_nz[1], a_nz[0]*b_nz[0]));
-  if (cost4> 1.0) cost4= 1.0; if (cost4<-1.0) cost4=-1.0;
-  const KK_FLOAT theta4=acosf(cost4);
-  KK_FLOAT cost7=-fma(a_nz[2],delr_hb_norm[2], fma(a_nz[1],delr_hb_norm[1], a_nz[0]*delr_hb_norm[0]));
-  if (cost7> 1.0) cost7= 1.0; if (cost7<-1.0) cost7=-1.0;
-  const KK_FLOAT theta7=acosf(cost7);
-  KK_FLOAT cost8= fma(b_nz[2],delr_hb_norm[2], fma(b_nz[1],delr_hb_norm[1], b_nz[0]*delr_hb_norm[0]));
-  if (cost8> 1.0) cost8= 1.0; if (cost8<-1.0) cost8=-1.0;
-  const KK_FLOAT theta8=acosf(cost8);
-
-  // shared reciprocal-sine (theta in [0,pi] => sin>=0); xstk clamps <0 to 0,
-  // hbond skips when <=0. Compute the magnitude once; branches apply their guard.
-  const KK_FLOAT s1=fma(-cost1,cost1,static_cast<KK_FLOAT>(1.0));
-  const KK_FLOAT s2=fma(-cost2,cost2,static_cast<KK_FLOAT>(1.0));
-  const KK_FLOAT s3=fma(-cost3,cost3,static_cast<KK_FLOAT>(1.0));
-  const KK_FLOAT s4=fma(-cost4,cost4,static_cast<KK_FLOAT>(1.0));
-  const KK_FLOAT s7=fma(-cost7,cost7,static_cast<KK_FLOAT>(1.0));
-  const KK_FLOAT s8=fma(-cost8,cost8,static_cast<KK_FLOAT>(1.0));
+  // The six bond cosines/angles (the expensive acosf) are recomputed INSIDE each
+  // of the hbond and xstk blocks below rather than shared here. Sharing kept all
+  // of cost*/theta*/s* (~18 scalars) live across both blocks, and that register
+  // pressure dropped GPU occupancy enough to make the fused kernel slower than
+  // the split pair. Recomputing per block (the standalone's approach) costs a
+  // second set of acosf but keeps only the geometry (frames + delr_hb_norm) live
+  // across the blocks, so occupancy stays close to the split kernels and the
+  // fusion's once-loaded geometry + single scatter is a net win.
 
   KK_FLOAT delf[3], delta[3], deltb[3];
 
   // ============================ HBOND (F1) ============================
   {
+    KK_FLOAT cost1=-fma(a_nx[2],b_nx[2], fma(a_nx[1],b_nx[1], a_nx[0]*b_nx[0]));
+    if (cost1> 1.0) cost1= 1.0; if (cost1<-1.0) cost1=-1.0;
+    const KK_FLOAT theta1=acosf(cost1);
+    KK_FLOAT cost2=-fma(a_nx[2],delr_hb_norm[2], fma(a_nx[1],delr_hb_norm[1], a_nx[0]*delr_hb_norm[0]));
+    if (cost2> 1.0) cost2= 1.0; if (cost2<-1.0) cost2=-1.0;
+    const KK_FLOAT theta2=acosf(cost2);
+    KK_FLOAT cost3= fma(b_nx[2],delr_hb_norm[2], fma(b_nx[1],delr_hb_norm[1], b_nx[0]*delr_hb_norm[0]));
+    if (cost3> 1.0) cost3= 1.0; if (cost3<-1.0) cost3=-1.0;
+    const KK_FLOAT theta3=acosf(cost3);
+    KK_FLOAT cost4= fma(a_nz[2],b_nz[2], fma(a_nz[1],b_nz[1], a_nz[0]*b_nz[0]));
+    if (cost4> 1.0) cost4= 1.0; if (cost4<-1.0) cost4=-1.0;
+    const KK_FLOAT theta4=acosf(cost4);
+    KK_FLOAT cost7=-fma(a_nz[2],delr_hb_norm[2], fma(a_nz[1],delr_hb_norm[1], a_nz[0]*delr_hb_norm[0]));
+    if (cost7> 1.0) cost7= 1.0; if (cost7<-1.0) cost7=-1.0;
+    const KK_FLOAT theta7=acosf(cost7);
+    KK_FLOAT cost8= fma(b_nz[2],delr_hb_norm[2], fma(b_nz[1],delr_hb_norm[1], b_nz[0]*delr_hb_norm[0]));
+    if (cost8> 1.0) cost8= 1.0; if (cost8<-1.0) cost8=-1.0;
+    const KK_FLOAT theta8=acosf(cost8);
+    const KK_FLOAT s1=fma(-cost1,cost1,static_cast<KK_FLOAT>(1.0));
+    const KK_FLOAT s2=fma(-cost2,cost2,static_cast<KK_FLOAT>(1.0));
+    const KK_FLOAT s3=fma(-cost3,cost3,static_cast<KK_FLOAT>(1.0));
+    const KK_FLOAT s4=fma(-cost4,cost4,static_cast<KK_FLOAT>(1.0));
+    const KK_FLOAT s7=fma(-cost7,cost7,static_cast<KK_FLOAT>(1.0));
+    const KK_FLOAT s8=fma(-cost8,cost8,static_cast<KK_FLOAT>(1.0));
+
     const KK_FLOAT f1 = F1_KK(r_hb, d_epsilon_hb(atype,btype), d_a_hb(atype,btype),
         d_cut_hb_0(atype,btype), d_cut_hb_lc(atype,btype), d_cut_hb_hc(atype,btype),
         d_cut_hb_lo(atype,btype), d_cut_hb_hi(atype,btype),
@@ -1374,6 +1379,31 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbXstkFused<NEIGHF
 
   // ========================= CROSS-STACKING (F2) =========================
   {
+    KK_FLOAT cost1=-fma(a_nx[2],b_nx[2], fma(a_nx[1],b_nx[1], a_nx[0]*b_nx[0]));
+    if (cost1> 1.0) cost1= 1.0; if (cost1<-1.0) cost1=-1.0;
+    const KK_FLOAT theta1=acosf(cost1);
+    KK_FLOAT cost2=-fma(a_nx[2],delr_hb_norm[2], fma(a_nx[1],delr_hb_norm[1], a_nx[0]*delr_hb_norm[0]));
+    if (cost2> 1.0) cost2= 1.0; if (cost2<-1.0) cost2=-1.0;
+    const KK_FLOAT theta2=acosf(cost2);
+    KK_FLOAT cost3= fma(b_nx[2],delr_hb_norm[2], fma(b_nx[1],delr_hb_norm[1], b_nx[0]*delr_hb_norm[0]));
+    if (cost3> 1.0) cost3= 1.0; if (cost3<-1.0) cost3=-1.0;
+    const KK_FLOAT theta3=acosf(cost3);
+    KK_FLOAT cost4= fma(a_nz[2],b_nz[2], fma(a_nz[1],b_nz[1], a_nz[0]*b_nz[0]));
+    if (cost4> 1.0) cost4= 1.0; if (cost4<-1.0) cost4=-1.0;
+    const KK_FLOAT theta4=acosf(cost4);
+    KK_FLOAT cost7=-fma(a_nz[2],delr_hb_norm[2], fma(a_nz[1],delr_hb_norm[1], a_nz[0]*delr_hb_norm[0]));
+    if (cost7> 1.0) cost7= 1.0; if (cost7<-1.0) cost7=-1.0;
+    const KK_FLOAT theta7=acosf(cost7);
+    KK_FLOAT cost8= fma(b_nz[2],delr_hb_norm[2], fma(b_nz[1],delr_hb_norm[1], b_nz[0]*delr_hb_norm[0]));
+    if (cost8> 1.0) cost8= 1.0; if (cost8<-1.0) cost8=-1.0;
+    const KK_FLOAT theta8=acosf(cost8);
+    const KK_FLOAT s1=fma(-cost1,cost1,static_cast<KK_FLOAT>(1.0));
+    const KK_FLOAT s2=fma(-cost2,cost2,static_cast<KK_FLOAT>(1.0));
+    const KK_FLOAT s3=fma(-cost3,cost3,static_cast<KK_FLOAT>(1.0));
+    const KK_FLOAT s4=fma(-cost4,cost4,static_cast<KK_FLOAT>(1.0));
+    const KK_FLOAT s7=fma(-cost7,cost7,static_cast<KK_FLOAT>(1.0));
+    const KK_FLOAT s8=fma(-cost8,cost8,static_cast<KK_FLOAT>(1.0));
+
     const KK_FLOAT f2 = F2_KK(r_hb, xstk_fc.d_k_xst(atype,btype), xstk_fc.d_cut_xst_0(atype,btype),
         xstk_fc.d_cut_xst_lc(atype,btype), xstk_fc.d_cut_xst_hc(atype,btype),
         xstk_fc.d_cut_xst_lo(atype,btype), xstk_fc.d_cut_xst_hi(atype,btype),
