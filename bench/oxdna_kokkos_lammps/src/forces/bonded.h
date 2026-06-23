@@ -431,12 +431,15 @@ inline c_number run_bonded_term(ParticleArrays &p, const DNAParams &par,
 inline c_number compute_bonded_forces(ParticleArrays &p, const DNAParams &par,
                                       const SimBox &box, bool want_energy = true,
                                       bool lammps_overhead = false,
-                                      bool neigh_rebuilt = true) {
-    // Ensure the precomputed body frames (nx/ny/nz) are current. In the normal
-    // per-step sequence compute_nonbonded_forces already ran the LRF pass, but
-    // calling it here too keeps this entry point self-contained (the validation
-    // tools may invoke the bonded kernels on their own).
-    compute_lrf(p);
+                                      bool neigh_rebuilt = true,
+                                      bool run_lrf = true) {
+    // Ensure the precomputed body frames (nx/ny/nz) are current. LAMMPS runs the
+    // oxdna/lrf fix exactly once per step (PRE_FORCE), and every pair/bond style
+    // only reads nx/ny/nz - so in the per-step loop compute_nonbonded_forces has
+    // already populated them and the loop passes run_lrf=false to avoid a
+    // redundant second LRF kernel. Standalone callers (fd_test/xcheck) that drive
+    // the bonded kernels on their own keep the default (run_lrf=true).
+    if (run_lrf) compute_lrf(p);
     c_number e = 0;
     if (lammps_overhead) {
         // Faithful LAMMPS bonded: per-bond + atomic scatter + tetramer indexing.

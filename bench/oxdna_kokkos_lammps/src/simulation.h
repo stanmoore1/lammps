@@ -144,7 +144,9 @@ public:
             epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_, want_e, cfg_.lammps_overhead);
             auto e = mark(); t_nb += sec(c, e);
 
-            epot_ += compute_bonded_forces(dev_, par_, box_, want_e, cfg_.lammps_overhead, neigh_rebuilt);
+            // run_lrf=false: compute_nonbonded_forces above already ran the LRF
+            // frame precompute this step (LAMMPS runs the oxdna/lrf fix once/step).
+            epot_ += compute_bonded_forces(dev_, par_, box_, want_e, cfg_.lammps_overhead, neigh_rebuilt, /*run_lrf=*/false);
             auto f = mark(); t_bond += sec(e, f);
 
             second_step(dev_, cfg_.dt);
