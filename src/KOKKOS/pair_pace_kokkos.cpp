@@ -51,6 +51,37 @@ using namespace MathConst;
 
 enum{FS,FS_SHIFTEDSCALED};
 
+/* ----------------------------------------------------------------------
+   PROTOTYPE: access ACERecursiveEvaluator::species_dags (a private member of
+   the external lammps-user-pace library) without modifying that library.
+
+   This uses the standard, well-defined C++ explicit-instantiation idiom for
+   reaching a private member: an explicit template instantiation is permitted
+   to name a private member, and a friend function injected by the template
+   exposes a pointer-to-member. The ACEDAG fields we actually read (nodes,
+   coeffs, Aspec, the node counts, ...) are all public, so only the
+   species_dags container itself needs to be reached.
+
+   For a non-prototype implementation the clean fix is a one-line public
+   accessor upstream (e.g. `const std::vector<ACEDAG>& get_species_dags()`),
+   after which this block can be deleted.
+------------------------------------------------------------------------- */
+namespace {
+template<typename Tag, typename Tag::type Member>
+struct AcePrivateAccess {
+  friend typename Tag::type ace_get(Tag) { return Member; }
+};
+struct AceSpeciesDagsTag {
+  typedef std::vector<ACEDAG> ACERecursiveEvaluator::*type;
+  friend type ace_get(AceSpeciesDagsTag);
+};
+template struct AcePrivateAccess<AceSpeciesDagsTag, &ACERecursiveEvaluator::species_dags>;
+
+std::vector<ACEDAG> &ace_species_dags(ACERecursiveEvaluator *ace) {
+  return ace->*ace_get(AceSpeciesDagsTag());
+}
+}    // namespace
+
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
@@ -148,6 +179,14 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
     MemKK::realloc_kokkos(weights_re, "pace:weights_re", natom, nelements, idx_sph_max, nradmax + 1);
     MemKK::realloc_kokkos(weights_im, "pace:weights_im", natom, nelements, idx_sph_max, nradmax + 1);
     MemKK::realloc_kokkos(weights_rank1, "pace:weights_rank1", natom, nelements, nradbase);
+
+    // recursive (DAG) evaluator per-atom scratch (atom index innermost)
+    if (recursive && dag_ready) {
+      MemKK::realloc_kokkos(d_AAbuf_re, "pace:dag_AAbuf_re", dag_aabuf_max, natom);
+      MemKK::realloc_kokkos(d_AAbuf_im, "pace:dag_AAbuf_im", dag_aabuf_max, natom);
+      MemKK::realloc_kokkos(d_dagw_re, "pace:dag_w_re", dag_w_max, natom);
+      MemKK::realloc_kokkos(d_dagw_im, "pace:dag_w_im", dag_w_max, natom);
+    }
 
     // hard-core repulsion
     MemKK::realloc_kokkos(rho_core, "pace:rho_core", natom);
@@ -468,6 +507,96 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
 }
 
 /* ----------------------------------------------------------------------
+   PROTOTYPE: copy the per-species recursive-evaluator DAG to device Views.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairPACEKokkos<DeviceType>::copy_dag()
+{
+  auto basis_set = aceimpl->basis_set;
+  std::vector<ACEDAG> &dags = ace_species_dags(aceimpl->ace);
+
+  const int ndensitymax = basis_set->ndensitymax;
+
+  // first pass: find padding sizes across species
+  dag_num1_max = 0;
+  dag_aabuf_max = 0;   // max(num1 + num2_int)  -> AAbuf size
+  dag_node_max = 0;    // max(num2_int + num2_leaf) -> nodes/coeffs size
+  dag_w_max = 0;       // max(num_nodes) -> adjoint buffer size
+  for (int mu = 0; mu < nelements; mu++) {
+    ACEDAG &dag = dags[mu];
+    const int num1 = dag.get_num1();
+    const int num2_int = dag.get_num2_int();
+    const int num2_leaf = dag.get_num2_leaf();
+    dag_num1_max  = MAX(dag_num1_max, num1);
+    dag_aabuf_max = MAX(dag_aabuf_max, num1 + num2_int);
+    dag_node_max  = MAX(dag_node_max, num2_int + num2_leaf);
+    dag_w_max     = MAX(dag_w_max, dag.num_nodes);
+  }
+  if (dag_num1_max == 0) dag_num1_max = 1;
+  if (dag_aabuf_max == 0) dag_aabuf_max = 1;
+  if (dag_node_max == 0) dag_node_max = 1;
+  if (dag_w_max == 0) dag_w_max = 1;
+
+  MemKK::realloc_kokkos(d_dag_num1, "pace:dag_num1", nelements);
+  MemKK::realloc_kokkos(d_dag_num2_int, "pace:dag_num2_int", nelements);
+  MemKK::realloc_kokkos(d_dag_num2_leaf, "pace:dag_num2_leaf", nelements);
+  MemKK::realloc_kokkos(d_dag_num_nodes, "pace:dag_num_nodes", nelements);
+  MemKK::realloc_kokkos(d_dag_nrank1, "pace:dag_nrank1", nelements);
+  MemKK::realloc_kokkos(d_dag_Aspec, "pace:dag_Aspec", nelements, dag_num1_max, 4);
+  MemKK::realloc_kokkos(d_dag_nodes, "pace:dag_nodes", nelements, dag_node_max, 2);
+  MemKK::realloc_kokkos(d_dag_coeffs, "pace:dag_coeffs", nelements, dag_node_max, ndensitymax);
+
+  auto h_num1 = Kokkos::create_mirror_view(d_dag_num1);
+  auto h_num2_int = Kokkos::create_mirror_view(d_dag_num2_int);
+  auto h_num2_leaf = Kokkos::create_mirror_view(d_dag_num2_leaf);
+  auto h_num_nodes = Kokkos::create_mirror_view(d_dag_num_nodes);
+  auto h_nrank1 = Kokkos::create_mirror_view(d_dag_nrank1);
+  auto h_Aspec = Kokkos::create_mirror_view(d_dag_Aspec);
+  auto h_nodes = Kokkos::create_mirror_view(d_dag_nodes);
+  auto h_coeffs = Kokkos::create_mirror_view(d_dag_coeffs);
+
+  for (int mu = 0; mu < nelements; mu++) {
+    ACEDAG &dag = dags[mu];
+    const int num1 = dag.get_num1();
+    const int num2_int = dag.get_num2_int();
+    const int num2_leaf = dag.get_num2_leaf();
+    const int ndensity = basis_set->map_embedding_specifications.at(mu).ndensity;
+
+    h_num1(mu) = num1;
+    h_num2_int(mu) = num2_int;
+    h_num2_leaf(mu) = num2_leaf;
+    h_num_nodes(mu) = dag.num_nodes;
+    h_nrank1(mu) = basis_set->total_basis_size_rank1[mu];
+
+    // one-particle node specs (mu_a, n+1, l, m)
+    for (int idx = 0; idx < num1; idx++)
+      for (int c = 0; c < 4; c++)
+        h_Aspec(mu, idx, c) = dag.Aspec(idx, c);
+
+    // interior + leaf nodes: child indices and density coefficients
+    const int nnodes = num2_int + num2_leaf;
+    for (int node = 0; node < nnodes; node++) {
+      h_nodes(mu, node, 0) = dag.nodes(node, 0);
+      h_nodes(mu, node, 1) = dag.nodes(node, 1);
+      for (int p = 0; p < ndensity; p++)
+        h_coeffs(mu, node, p) = dag.coeffs(node, p);
+    }
+  }
+
+  Kokkos::deep_copy(d_dag_num1, h_num1);
+  Kokkos::deep_copy(d_dag_num2_int, h_num2_int);
+  Kokkos::deep_copy(d_dag_num2_leaf, h_num2_leaf);
+  Kokkos::deep_copy(d_dag_num_nodes, h_num_nodes);
+  Kokkos::deep_copy(d_dag_nrank1, h_nrank1);
+  Kokkos::deep_copy(d_dag_Aspec, h_Aspec);
+  Kokkos::deep_copy(d_dag_nodes, h_nodes);
+  Kokkos::deep_copy(d_dag_coeffs, h_coeffs);
+
+  dag_ready = true;
+}
+
+/* ----------------------------------------------------------------------
    init specific to this pair style
 ------------------------------------------------------------------------- */
 
@@ -516,6 +645,7 @@ void PairPACEKokkos<DeviceType>::init_style()
   copy_pertype();
   copy_splines();
   copy_tilde();
+  copy_dag();
 }
 
 /* ----------------------------------------------------------------------
@@ -635,8 +765,8 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   if (!force->newton_pair)
     error->all(FLERR,"PairPACEKokkos requires 'newton on'");
 
-  if (recursive)
-    error->all(FLERR,"Must use 'product' algorithm with pair pace/kk on the GPU");
+  if (recursive && !dag_ready)
+    error->all(FLERR,"pair pace/kk: recursive DAG not initialized");
 
   atomKK->sync(execution_space,X_MASK|F_MASK|TYPE_MASK);
   x = atomKK->k_x.view<DeviceType>();
@@ -712,8 +842,11 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     // (ConjugateAi removed: ComputeRho reads A_sph directly via conjugate symmetry)
 
-    //ComputeRho
-    {
+    //ComputeRho (forward pass): recursive DAG walk or product evaluator
+    if (recursive) {
+      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeRhoRecursive> policy_rho(0,chunk_size);
+      Kokkos::parallel_for("ComputeRhoRecursive",policy_rho,*this);
+    } else {
       typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeRho> policy_rho(0,chunk_size*idx_ms_combs_max);
       Kokkos::parallel_for("ComputeRho",policy_rho,*this);
     }
@@ -724,8 +857,11 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       Kokkos::parallel_for("ComputeFS",policy_fs,*this);
     }
 
-    //ComputeWeights
-    {
+    //ComputeWeights (backward/adjoint pass): recursive DAG walk or product
+    if (recursive) {
+      typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeWeightsRecursive> policy_weights(0,chunk_size);
+      Kokkos::parallel_for("ComputeWeightsRecursive",policy_weights,*this);
+    } else {
       typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeWeights> policy_weights(0,chunk_size * idx_ms_combs_max);
       Kokkos::parallel_for("ComputeWeights",policy_weights,*this);
     }
@@ -1290,6 +1426,157 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const in
   }
 }
 
+/* ----------------------------------------------------------------------
+   Recursive (DAG) forward pass: one thread per atom. Computes rhos by
+   walking the per-species computational graph, sharing intermediate AA
+   products instead of recomputing each B = prod(A) (the product path).
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRhoRecursive, const int& ii) const
+{
+  const int i = d_ilist[ii + chunk_offset];
+  const int mu_i = d_map(type(i));
+  const int ndensity = d_ndensity(mu_i);
+
+  // rhos already zeroed in compute() via deep_copy
+
+  // rank = 1 (handled separately from the DAG, as in the CPU evaluator)
+  const int nrank1 = d_dag_nrank1(mu_i);
+  for (int f = 0; f < nrank1; f++) {
+    const int mu = d_mus(mu_i, f, 0);
+    const int n = d_ns(mu_i, f, 0);
+    const KK_FLOAT A_cur = A_rank1(ii, mu, n - 1);
+    for (int p = 0; p < ndensity; p++)
+      rhos(ii, p) += d_ctildes(mu_i, f, p) * A_cur; // single thread owns ii
+  }
+
+  // STAGE 1: copy one-particle basis A into the AA buffer
+  const int num1 = d_dag_num1(mu_i);
+  for (int idx = 0; idx < num1; idx++) {
+    const int mu = d_dag_Aspec(mu_i, idx, 0);
+    const int n  = d_dag_Aspec(mu_i, idx, 1) - 1;
+    const int l  = d_dag_Aspec(mu_i, idx, 2);
+    const int m  = d_dag_Aspec(mu_i, idx, 3);
+    const complex Aval = read_A(ii, mu, l, m, n);
+    d_AAbuf_re(idx, ii) = Aval.re;
+    d_AAbuf_im(idx, ii) = Aval.im;
+  }
+
+  // STAGE 2: forward pass over the DAG
+  const int num2_int = d_dag_num2_int(mu_i);
+  const int num2_leaf = d_dag_num2_leaf(mu_i);
+
+  // interior nodes: store AA, accumulate rhos
+  for (int node = 0; node < num2_int; node++) {
+    const int i1 = d_dag_nodes(mu_i, node, 0);
+    const int i2 = d_dag_nodes(mu_i, node, 1);
+    const complex AA1(d_AAbuf_re(i1, ii), d_AAbuf_im(i1, ii));
+    const complex AA2(d_AAbuf_re(i2, ii), d_AAbuf_im(i2, ii));
+    const complex AAcur = AA1 * AA2;
+    d_AAbuf_re(num1 + node, ii) = AAcur.re;
+    d_AAbuf_im(num1 + node, ii) = AAcur.im;
+    for (int p = 0; p < ndensity; p++)
+      rhos(ii, p) += AAcur.real_part_product(d_dag_coeffs(mu_i, node, p));
+  }
+
+  // leaf nodes: no need to store AA
+  for (int lf = 0; lf < num2_leaf; lf++) {
+    const int node = num2_int + lf;
+    const int i1 = d_dag_nodes(mu_i, node, 0);
+    const int i2 = d_dag_nodes(mu_i, node, 1);
+    complex AA1(d_AAbuf_re(i1, ii), d_AAbuf_im(i1, ii));
+    const complex AA2(d_AAbuf_re(i2, ii), d_AAbuf_im(i2, ii));
+    const KK_FLOAT AAcur_re = AA1.real_part_product(AA2);
+    for (int p = 0; p < ndensity; p++)
+      rhos(ii, p) += AAcur_re * d_dag_coeffs(mu_i, node, p);
+  }
+}
+
+/* ----------------------------------------------------------------------
+   Recursive (DAG) backward/adjoint pass: one thread per atom. Computes the
+   adjoint weights w by reverse-mode differentiation through the graph, then
+   scatters them into the same weights_re/im / weights_rank1 arrays the
+   product path fills, so ComputeDerivative is unchanged.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeightsRecursive, const int& ii) const
+{
+  const int i = d_ilist[ii + chunk_offset];
+  const int mu_i = d_map(type(i));
+  const int ndensity = d_ndensity(mu_i);
+
+  // weights_re/im and weights_rank1 already zeroed in ComputeFS first-touch
+
+  // rank = 1 weights
+  const int nrank1 = d_dag_nrank1(mu_i);
+  for (int f = 0; f < nrank1; f++) {
+    const int mu = d_mus(mu_i, f, 0);
+    const int n = d_ns(mu_i, f, 0);
+    KK_FLOAT theta = 0.0;
+    for (int p = 0; p < ndensity; p++)
+      theta += dF_drho(ii, p) * d_ctildes(mu_i, f, p);
+    weights_rank1(ii, mu, n - 1) += theta; // single thread owns ii
+  }
+
+  const int num1 = d_dag_num1(mu_i);
+  const int num2_int = d_dag_num2_int(mu_i);
+  const int num2_leaf = d_dag_num2_leaf(mu_i);
+  const int num_nodes = d_dag_num_nodes(mu_i);
+
+  // zero the adjoint buffer for this atom
+  for (int idx = 0; idx < num_nodes; idx++) {
+    d_dagw_re(idx, ii) = 0.0;
+    d_dagw_im(idx, ii) = 0.0;
+  }
+
+  // backward pass: visit nodes high -> low so each node's accumulated
+  // adjoint w(idx) is complete before it is consumed
+  for (int idx = num_nodes - 1; idx >= num1; idx--) {
+    const int node = idx - num1;
+    const int i1 = d_dag_nodes(mu_i, node, 0);
+    const int i2 = d_dag_nodes(mu_i, node, 1);
+    const complex AA1(d_AAbuf_re(i1, ii), d_AAbuf_im(i1, ii));
+    const complex AA2(d_AAbuf_re(i2, ii), d_AAbuf_im(i2, ii));
+    complex wcur(d_dagw_re(idx, ii), d_dagw_im(idx, ii));
+    KK_FLOAT wreal = 0.0;
+    for (int p = 0; p < ndensity; p++)
+      wreal += dF_drho(ii, p) * d_dag_coeffs(mu_i, node, p);
+    wcur.re += wreal; // theta contribution is real
+    const complex c1 = wcur * AA2;
+    d_dagw_re(i1, ii) += c1.re;
+    d_dagw_im(i1, ii) += c1.im;
+    const complex c2 = wcur * AA1;
+    d_dagw_re(i2, ii) += c2.re;
+    d_dagw_im(i2, ii) += c2.im;
+  }
+
+  // STAGE 3: scatter one-particle adjoints into weights_re/im
+  for (int idx = 0; idx < num1; idx++) {
+    const int mu = d_dag_Aspec(mu_i, idx, 0);
+    const int n  = d_dag_Aspec(mu_i, idx, 1) - 1;
+    const int l  = d_dag_Aspec(mu_i, idx, 2);
+    const int m  = d_dag_Aspec(mu_i, idx, 3);
+    const complex wval(d_dagw_re(idx, ii), d_dagw_im(idx, ii));
+    if (m >= 0) {
+      const int idx_sph = d_idx_sph(l * (l + 1) + m);
+      weights_re(ii, mu, idx_sph, n) += wval.re;
+      weights_im(ii, mu, idx_sph, n) += wval.im;
+    } else {
+      const KK_FLOAT factor = (m % 2 == 0) ? 1.0 : -1.0;
+      const int idx_sph = d_idx_sph(l * (l + 1) + (-m));
+      const complex c = wval.conj() * factor;
+      weights_re(ii, mu, idx_sph, n) += c.re;
+      weights_im(ii, mu, idx_sph, n) += c.im;
+    }
+  }
+}
+
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
@@ -1478,8 +1765,10 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivative, const
     dylm[2].re = dyz.re - rdy.re * rz;
     dylm[2].im = dyz.im - rdy.im * rz;
 
-    // m = 1: weights doubled to account for the -m cases
-    compute_derivative_radial(ii, jj, mu_j, idx_sph, l, ylm, dylm, rinv, r_hat, 2.0, f_ji);
+    // m = 1: weights doubled to account for the -m cases. In the recursive
+    // (DAG) path STAGE 3 already folds both +m and -m one-particle adjoints
+    // into the m>=0 slot, so no doubling is applied there (wscale = 1).
+    compute_derivative_radial(ii, jj, mu_j, idx_sph, l, ylm, dylm, rinv, r_hat, recursive ? 1.0 : 2.0, f_ji);
 
     plm_idx2 = plm_idx1;
     dplm_idx2 = dplm_idx1;
@@ -1537,8 +1826,9 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivative, const
       dylm[2].re = dyz.re - rdy.re * rz;
       dylm[2].im = dyz.im - rdy.im * rz;
 
-      // m > 1: weights doubled to account for the -m cases
-      compute_derivative_radial(ii, jj, mu_j, idx_sph, l, ylm, dylm, rinv, r_hat, 2.0, f_ji);
+      // m > 1: weights doubled to account for the -m cases (product path only;
+      // see m = 1 note -- recursive STAGE 3 already folds both signs)
+      compute_derivative_radial(ii, jj, mu_j, idx_sph, l, ylm, dylm, rinv, r_hat, recursive ? 1.0 : 2.0, f_ji);
 
       plm_idx2 = plm_idx1;
       dplm_idx2 = dplm_idx1;
@@ -2101,6 +2391,18 @@ double PairPACEKokkos<DeviceType>::memory_usage()
   bytes += MemKK::memory_usage(d_ls);
   bytes += MemKK::memory_usage(d_ms_combs);
   bytes += MemKK::memory_usage(d_ctildes);
+  bytes += MemKK::memory_usage(d_dag_num1);
+  bytes += MemKK::memory_usage(d_dag_num2_int);
+  bytes += MemKK::memory_usage(d_dag_num2_leaf);
+  bytes += MemKK::memory_usage(d_dag_num_nodes);
+  bytes += MemKK::memory_usage(d_dag_nrank1);
+  bytes += MemKK::memory_usage(d_dag_Aspec);
+  bytes += MemKK::memory_usage(d_dag_nodes);
+  bytes += MemKK::memory_usage(d_dag_coeffs);
+  bytes += MemKK::memory_usage(d_AAbuf_re);
+  bytes += MemKK::memory_usage(d_AAbuf_im);
+  bytes += MemKK::memory_usage(d_dagw_re);
+  bytes += MemKK::memory_usage(d_dagw_im);
   bytes += MemKK::memory_usage(alm);
   bytes += MemKK::memory_usage(blm);
   bytes += MemKK::memory_usage(cl);

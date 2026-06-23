@@ -39,6 +39,10 @@ class PairPACEKokkos : public PairPACE {
   struct TagPairPACEComputeRho{};
   struct TagPairPACEComputeFS{};
   struct TagPairPACEComputeWeights{};
+  // Recursive (DAG) evaluator variants of Rho (forward pass) and Weights
+  // (backward/adjoint pass). One atom per thread; see compute() dispatch.
+  struct TagPairPACEComputeRhoRecursive{};
+  struct TagPairPACEComputeWeightsRecursive{};
   struct TagPairPACEComputeDerivative{};
 
   template<int NEIGHFLAG, int EVFLAG>
@@ -76,6 +80,14 @@ class PairPACEKokkos : public PairPACE {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairPACEComputeWeights,const int& iter) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeRhoRecursive,const int& ii) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeWeightsRecursive,const int& ii) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -168,6 +180,7 @@ class PairPACEKokkos : public PairPACE {
   void copy_pertype();
   void copy_splines();
   void copy_tilde();
+  void copy_dag(); // extract recursive-evaluator DAG to device Views (prototype)
   void allocate() override;
   void precompute_harmonics();
   double memory_usage() override;
@@ -350,6 +363,34 @@ class PairPACEKokkos : public PairPACE {
   t_ace_3i_lr d_ls;
   t_ace_3i_lr d_ms_combs;
   t_ace_3d d_ctildes;
+
+  // ------------------------------------------------------------------
+  // Recursive (DAG) evaluator device data (prototype).
+  //
+  // Mirrors the per-species ACEDAG built by the CPU ACERecursiveEvaluator:
+  // a computational graph that shares intermediate AA products across basis
+  // functions instead of recomputing each B = prod(A) independently (the
+  // product path). Forward pass -> rhos; backward (adjoint) pass -> weights.
+  //
+  // Per-species metadata (indexed by mu):
+  //   d_dag_*counts : num1 (one-particle nodes), num2_int (interior nodes
+  //                   with children, AA stored), num2_leaf (leaf nodes),
+  //                   num_nodes = num1+num2_int+num2_leaf, nrank1.
+  //   d_dag_Aspec(mu, idx, 0..3) = (mu_a, n+1, l, m) to read A for node idx.
+  //   d_dag_nodes(mu, node, 0..1) = (i1, i2) child AAbuf indices.
+  //   d_dag_coeffs(mu, node, p)   = density coefficients per node.
+  // Per-atom scratch (atom index innermost for coalescing):
+  //   d_AAbuf_re/im(idx, ii)  intermediate products (size num1+num2_int).
+  //   d_dagw_re/im(idx, ii)   adjoint weights buffer (size num_nodes).
+  // ------------------------------------------------------------------
+  bool dag_ready = false;
+  int dag_num1_max, dag_aabuf_max, dag_node_max, dag_w_max;
+  t_ace_1i d_dag_num1, d_dag_num2_int, d_dag_num2_leaf, d_dag_num_nodes, d_dag_nrank1;
+  t_ace_3i_lr d_dag_Aspec;   // [nelements][num1_max][4]
+  t_ace_3i_lr d_dag_nodes;   // [nelements][node_max][2]
+  t_ace_3d    d_dag_coeffs;  // [nelements][node_max][ndensity]
+  t_ace_2d d_AAbuf_re, d_AAbuf_im; // [aabuf_max][natom]
+  t_ace_2d d_dagw_re, d_dagw_im;   // [w_max][natom]
 
   t_ace_3d3 f_ij;
 
