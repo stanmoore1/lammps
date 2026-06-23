@@ -124,6 +124,15 @@ class PairPACEKokkos : public PairPACE {
   static constexpr int team_size_compute_derivative = 1;
 #endif
 
+  // Minimum resident blocks per SM passed to Kokkos::LaunchBounds for the
+  // register-heavy TeamPolicy kernels (ComputeAi, ComputeDerivative). The
+  // max-threads bound is the team size (vector_length is 1). A non-zero
+  // minimum tells the compiler to cap registers so more blocks stay resident,
+  // raising occupancy -- the dial that has consistently mattered for these
+  // kernels. 0 = no minimum (compiler chooses). Tune on the target GPU.
+  static constexpr int min_blocks_compute_ai = 0;
+  static constexpr int min_blocks_compute_derivative = 0;
+
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;
   typename AT::t_int_1d_randomread d_numneigh;
