@@ -450,10 +450,11 @@ inline c_number compute_bonded_forces(ParticleArrays &p, const DNAParams &par,
         e += run_bonded_term<true> (p, par, box, want_energy, "oxdna_fene");  // FENE + bonded excv
     }
     // LAMMPS bond/fene does a device->host copy of a 1-int overstretch flag every
-    // step; reproduce that host round-trip.
+    // step; reproduce that host round-trip. Use the dedicated 0-D flag scalar and
+    // its host mirror (mirroring d_flag / h_flag in bond_oxdna_fene_kokkos): a
+    // contiguous scalar deep_copy that is valid across memory spaces.
     if (lammps_overhead) {
-        auto hflag = Kokkos::create_mirror_view(Kokkos::subview(p.bond_prime_neighs, 0, Kokkos::ALL));
-        Kokkos::deep_copy(hflag, Kokkos::subview(p.bond_prime_neighs, 0, Kokkos::ALL));
+        Kokkos::deep_copy(p.overstretch_flag_host, p.overstretch_flag);
     }
     return e;
 }

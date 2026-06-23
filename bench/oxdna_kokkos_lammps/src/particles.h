@@ -54,6 +54,15 @@ struct ParticleArrays {
     // bond). Uniform value => physics unchanged; only the memory traffic is modelled.
     Kokkos::View<c_number *> tetramer_tbl;
 
+    // LAMMPS-overhead mode: a 1-int "bond overstretched" flag. LAMMPS bond/fene
+    // writes this on device and copies it back to the host every step, which is
+    // a per-step device->host sync point. We model the exact round-trip with a
+    // 0-D device scalar and its host mirror -- the same d_flag / h_flag pair
+    // bond_oxdna_fene_kokkos uses. A 0-D scalar deep_copy is contiguous and
+    // always valid across spaces (unlike a strided subview).
+    Kokkos::View<int>                  overstretch_flag;
+    Kokkos::View<int>::host_mirror_type overstretch_flag_host;
+
     // Number of particles
     int N = 0;
 
@@ -73,6 +82,8 @@ struct ParticleArrays {
         bond_prime_neighs = Kokkos::View<int *[4]>("bond_prime_neighs", n);
         tetramer_tbl = Kokkos::View<c_number *>("tetramer_tbl", 256);
         Kokkos::deep_copy(tetramer_tbl, c_number(1));
+        overstretch_flag      = Kokkos::View<int>("overstretch_flag");
+        overstretch_flag_host = Kokkos::create_mirror_view(overstretch_flag);
     }
 
     void zero_forces() {
