@@ -233,13 +233,31 @@ void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompu
   const int jnum = d_numneigh[i];
 
   int inside = 0;
-  for (int jj = 0; jj < jnum; jj++) {
-    int j = d_neighbors(i,jj);
-    j &= NEIGHMASK;
-    if (j == i) continue;
-    if (get_dist(i,j) >= maxcut_3b) continue;
-    d_neighbors_short(i,inside) = j;
-    inside++;
+  if constexpr (CHIMES_FUSED_LEAD_REUSE) {
+    // Emit neighbors grouped by chimes type (stable counting sort over the small
+    // natmtyps buckets) so the fused per-2-mer kernel can reuse the lead pair's
+    // Chebyshev arrays across each contiguous typ_k bucket.
+    const int natmtyps = chimes_calculatorKK.natmtyps;
+    for (int t = 0; t < natmtyps; t++) {
+      for (int jj = 0; jj < jnum; jj++) {
+        int j = d_neighbors(i,jj);
+        j &= NEIGHMASK;
+        if (j == i) continue;
+        if (d_chimes_type[type[j]-1] != t) continue;
+        if (get_dist(i,j) >= maxcut_3b) continue;
+        d_neighbors_short(i,inside) = j;
+        inside++;
+      }
+    }
+  } else {
+    for (int jj = 0; jj < jnum; jj++) {
+      int j = d_neighbors(i,jj);
+      j &= NEIGHMASK;
+      if (j == i) continue;
+      if (get_dist(i,j) >= maxcut_3b) continue;
+      d_neighbors_short(i,inside) = j;
+      inside++;
+    }
   }
   d_numneigh_short(i) = inside;
 }
@@ -1090,7 +1108,7 @@ void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESCompu
 template<class DeviceType, int vector_length>
 template<int NEIGHFLAG, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairCHIMESKokkos<DeviceType, vector_length>::eval_fused_3body(const t_team& team, KK_FLOAT* scratch, int i, int j, int k, EV_FLOAT& ev) const
+void PairCHIMESKokkos<DeviceType, vector_length>::eval_fused_3body(const t_team& team, KK_FLOAT* scratch, bool reuse_lead, int i, int j, int k, EV_FLOAT& ev) const
 {
   KK_FLOAT dr_3b[3*CHDIM], dist_3b[3];
   dist_3b[0] = get_dist(i,j,&dr_3b[0*CHDIM]);
@@ -1123,7 +1141,7 @@ void PairCHIMESKokkos<DeviceType, vector_length>::eval_fused_3body(const t_team&
   KK_FLOAT stensor[6];
   for (int n = 0; n < 6; n++) stensor[n] = 0.0;
 
-  chimes_calculatorKK.compute_3B(team, scratch, dist_3b, dr_3b, typ, force_3b, stensor, energy);
+  chimes_calculatorKK.compute_3B(team, scratch, dist_3b, dr_3b, typ, force_3b, stensor, energy, reuse_lead);
 
   const auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
   const auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
@@ -1234,7 +1252,7 @@ void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESFused
       for (int kk = 0; kk < n; kk++) {
         const int k = d_neighbors_short(i,kk);
         if (tag[k] <= jtag) continue;
-        eval_fused_3body<NEIGHFLAG,EVFLAG>(team, scratch, i, j, k, ev);
+        eval_fused_3body<NEIGHFLAG,EVFLAG>(team, scratch, false, i, j, k, ev);
       }
     }
   } else {
@@ -1244,10 +1262,38 @@ void PairCHIMESKokkos<DeviceType, vector_length>::operator() (TagPairCHIMESFused
     if (get_dist(i,j) >= maxcut_3b) return;
     const tagint jtag = tag[j];
     const int n = d_numneigh_short[i];
-    for (int kk = 0; kk < n; kk++) {
-      const int k = d_neighbors_short(i,kk);
-      if (tag[k] <= jtag) continue;
-      eval_fused_3body<NEIGHFLAG,EVFLAG>(team, scratch, i, j, k, ev);
+    if constexpr (CHIMES_FUSED_LEAD_REUSE) {
+      // The short list is type-sorted, so same-typ_k candidates are contiguous.
+      // Within a typ_k bucket the triplet type (and thus the lead pair's cutoffs)
+      // is fixed, so Tn(r_ij)/Tnd(r_ij) are reusable: fill them once per bucket
+      // with set_cheby_lead_3b, then evaluate each cluster with reuse_lead=true
+      // (compute_3B skips the lead pair's set_cheby_polys).
+      const int nt = chimes_calculatorKK.natmtyps;
+      const int typ_i = d_chimes_type[type[i]-1];
+      const int typ_j = d_chimes_type[type[j]-1];
+      const KK_FLOAT dist_ij = get_dist(i,j);
+      int prev_typ_k = -1;
+      int cur_tripidx = -1;
+      for (int kk = 0; kk < n; kk++) {
+        const int k = d_neighbors_short(i,kk);
+        if (tag[k] <= jtag) continue;
+        const int typ_k = d_chimes_type[type[k]-1];
+        if (typ_k != prev_typ_k) {                    // new bucket (uniform across the team)
+          prev_typ_k = typ_k;
+          const int type_idx = typ_i*nt*nt + typ_j*nt + typ_k;
+          cur_tripidx = chimes_calculatorKK.c_atom_int_trip_map[type_idx];
+          if (cur_tripidx >= 0)
+            chimes_calculatorKK.set_cheby_lead_3b(team, scratch, dist_ij, typ_i, typ_j, type_idx, cur_tripidx);
+        }
+        if (cur_tripidx < 0) continue;
+        eval_fused_3body<NEIGHFLAG,EVFLAG>(team, scratch, true, i, j, k, ev);
+      }
+    } else {
+      for (int kk = 0; kk < n; kk++) {
+        const int k = d_neighbors_short(i,kk);
+        if (tag[k] <= jtag) continue;
+        eval_fused_3body<NEIGHFLAG,EVFLAG>(team, scratch, false, i, j, k, ev);
+      }
     }
   }
 }

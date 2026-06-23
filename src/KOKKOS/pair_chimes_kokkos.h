@@ -79,6 +79,18 @@ constexpr int CHIMES_CLUSTERS_PER_TEAM_4B = 1;
 // imbalance; (1) many more teams, better balance, reuses the 2-mer list.
 constexpr int CHIMES_FUSED_GRANULARITY = 0;
 
+// PROTOTYPE (default 0 = off): with the per-2-mer fused granularity (==1), reuse
+// the lead pair's Chebyshev arrays Tn(r_ij)/Tnd(r_ij) across the inner k loop.
+// Tn(r_ij) depends on the triplet TYPE (cutoffs are per-tripidx), so it is only
+// constant for a fixed lead pair when typ_k is fixed -> we sort each atom's short
+// neighbor list by type and recompute the lead arrays once per typ_k bucket
+// ("sort by cluster, then exploit symmetry"). Correct for all FFs (incl. the HN3
+// special-offsets deck) because the bucket fixes tripidx by construction. Only
+// the lead pair is reused (the other two pairs' distances vary), so the win is
+// marginal (Chebyshev setup << coefficient reduction); profiling-gated. 3-body
+// only (4-body lead reuse would need 2D typ_k,typ_l bucketing; not implemented).
+constexpr int CHIMES_FUSED_LEAD_REUSE = 0;
+
 template<class DeviceType, int vector_length_>
 class PairCHIMESKokkos : public PairCHIMES
 {
@@ -187,7 +199,7 @@ class PairCHIMESKokkos : public PairCHIMES
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
-  void eval_fused_3body(const t_team& team, KK_FLOAT* scratch, int i, int j, int k, EV_FLOAT& ev) const;
+  void eval_fused_3body(const t_team& team, KK_FLOAT* scratch, bool reuse_lead, int i, int j, int k, EV_FLOAT& ev) const;
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION

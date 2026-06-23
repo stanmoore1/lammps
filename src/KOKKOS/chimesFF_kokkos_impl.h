@@ -642,21 +642,41 @@ void chimesFFKokkos<DeviceType>::compute_2B(const KK_FLOAT dx, const KK_FLOAT* d
 
 /* ---------------------------------------------------------------------- */
 
+// Fill the lead (ij) pair's Tn/Tnd into scratch slots 0 / 3*MAX_3B_POLY for a
+// fixed triplet type, so the fused per-2-mer kernel can reuse them across a
+// typ_k bucket (compute_3B called with reuse_lead=true skips this pair).
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::set_cheby_lead_3b(const t_team& team, KK_FLOAT* scratch, KK_FLOAT dist_ij, int typ_i, int typ_j, int type_idx, int tripidx) const
+{
+  const int pair_type = c_atom_int_pair_map(typ_i*natmtyps + typ_j);
+  const int slot = c_pair_int_trip_map(type_idx, 0);          // ij pair slot (== slot 0 in compute_3B)
+  const KK_FLOAT inner = c_chimes_3b_cutoff(tripidx, slot, 0);
+  const KK_FLOAT outer = c_chimes_3b_cutoff(tripidx, slot, 1);
+  Kokkos::single(Kokkos::PerTeam(team), [&] () {
+    set_cheby_polys(scratch + 0*MAX_3B_POLY, scratch + 3*MAX_3B_POLY, dist_ij, c_morse_var[pair_type], inner, outer, d_poly_orders[1]);
+  });
+  team.team_barrier();
+}
+
+/* ---------------------------------------------------------------------- */
+
 // Overload for calls from LAMMPS
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, KK_FLOAT* scratch, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const
+void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, KK_FLOAT* scratch, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, bool reuse_lead) const
 {
   KK_FLOAT dummy_force_scalar[3];
-  compute_3B(team, scratch, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar);
+  compute_3B(team, scratch, dx, dr, typ_idxs, force, stress, energy, dummy_force_scalar, reuse_lead);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, KK_FLOAT* scratch, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const
+void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, KK_FLOAT* scratch, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar, bool reuse_lead) const
 {
   // Compute 3b (input: 3 atoms or distances, corresponding types... outputs (updates) force, acceleration, energy, stress
   //
@@ -754,7 +774,11 @@ void chimesFFKokkos<DeviceType>::compute_3B(const t_team& team, KK_FLOAT* scratc
   const KK_FLOAT inner_p[npairs] = { cutoff_00, cutoff_01, cutoff_02 };
   const KK_FLOAT outer_p[npairs] = { cutoff_0,  cutoff_1,  cutoff_2 };
 
-  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, npairs), [&] (const int p) {
+  // When reuse_lead, the lead (ij = slot 0) Tn/Tnd are already in scratch (filled
+  // once per typ_k bucket by set_cheby_lead_3b), so build only pairs ik, jk here.
+  const int p0 = reuse_lead ? 1 : 0;
+  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, npairs - p0), [&] (const int pp) {
+    const int p = pp + p0;
     set_cheby_polys(Tn_p[p], Tnd_p[p], dx[p], morse_p[p], inner_p[p], outer_p[p], order);
   });
   team.team_barrier();

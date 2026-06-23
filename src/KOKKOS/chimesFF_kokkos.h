@@ -131,11 +131,20 @@ class chimesFFKokkos : public chimesFF
   // scratch points at this cluster's 2*npairs*MAX_*B_POLY-float slice of team
   // scratch (allocated once by the caller). The caller owns the get_shmem so a
   // team that evaluates many clusters (fused kernels) does not re-allocate.
+  // reuse_lead: skip the lead (ij) pair's set_cheby_polys and read its prebuilt
+  // Tn/Tnd from scratch slots 0 / npairs (filled once per typ_k bucket by
+  // set_cheby_lead_3b). Default false reproduces the standard per-cluster build.
   KOKKOS_INLINE_FUNCTION
-  void compute_3B(const t_team& team, KK_FLOAT* scratch, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
+  void compute_3B(const t_team& team, KK_FLOAT* scratch, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy, bool reuse_lead = false) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_3B(const t_team& team, KK_FLOAT* scratch, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force,KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar) const;
+  void compute_3B(const t_team& team, KK_FLOAT* scratch, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force,KK_FLOAT* stress, KK_FLOAT & energy, KK_FLOAT* force_scalar, bool reuse_lead = false) const;
+
+  // Fill the lead (ij) pair's Tn/Tnd into scratch slots 0 / npairs for a fixed
+  // triplet type (cutoffs from tripidx); team-collective, used by the fused
+  // per-2-mer kernel once per typ_k bucket.
+  KOKKOS_INLINE_FUNCTION
+  void set_cheby_lead_3b(const t_team& team, KK_FLOAT* scratch, KK_FLOAT dist_ij, int typ_i, int typ_j, int type_idx, int tripidx) const;
 
   KOKKOS_INLINE_FUNCTION
   void compute_4B(const t_team& team, KK_FLOAT* scratch, const KK_FLOAT* dx, const KK_FLOAT* dr, const int* typ_idxs, KK_FLOAT* force, KK_FLOAT* stress, KK_FLOAT & energy) const;
