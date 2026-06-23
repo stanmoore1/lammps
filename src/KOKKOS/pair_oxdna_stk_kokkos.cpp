@@ -124,12 +124,10 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     atomKK->k_sametag.sync<DeviceType>();
     d_sametag = atomKK->k_sametag.view<DeviceType>();
     // Reallocate if necessary - store 4 indices per bond: a, b, id3p[a], id5p[b]
-    if (nbondlist > k_bond_prime_neighs.extent_int(0)) {
-      MemKK::realloc_kokkos(k_bond_prime_neighs, "stk:bond_prime_neighs", nbondlist);
-      d_bond_prime_neighs = k_bond_prime_neighs.template view<DeviceType>();
+    if (nbondlist > d_bond_prime_neighs.extent_int(0)) {
+      MemKK::realloc_kokkos(d_bond_prime_neighs, "stk:bond_prime_neighs", nbondlist);
     }
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairOxdnaStkPrecomputeBondPrimeNeighs>(0,nbondlist),*this);
-    k_bond_prime_neighs.template modify<DeviceType>();
     last_precompute_lastcall = neighbor->lastcall;
   }
 
