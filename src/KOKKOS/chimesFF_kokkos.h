@@ -20,7 +20,6 @@
 #include<algorithm>
 #include<cmath>
 #include<map>
-#include<utility>
 
 #define pi 3.14159265359
 
@@ -247,9 +246,11 @@ class chimesFFKokkos : public chimesFF
 
   // Manual unroll of poly_3B_dense_loop2_t's NP^3 coefficient loop. _term
   // evaluates one compile-time linear index C (so the Tn/Tnd reads use
-  // compile-time offsets and stay in registers); _unroll expands the whole
-  // loop with a C++17 fold over make_integer_sequence<NP*NP*NP>. This replaces
-  // the #pragma unroll that HIP/clang reject on a loop this large.
+  // compile-time offsets and stay in registers); the _i/_jk drivers walk the
+  // index space with plain "if constexpr" template recursion. This is the
+  // portable replacement for the #pragma unroll that HIP/clang reject on a
+  // loop this large (no fold expressions / std::integer_sequence in device
+  // code, and the recursion nests only NP + NP*NP deep).
   template<int NP, int C>
   KOKKOS_INLINE_FUNCTION
   void poly_3B_dense_term(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
@@ -257,13 +258,19 @@ class chimesFFKokkos : public chimesFF
                           const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
                           const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const;
 
-  template<int NP, int... Cs>
+  template<int NP, int I, int L>
   KOKKOS_INLINE_FUNCTION
-  void poly_3B_dense_unroll(std::integer_sequence<int, Cs...>,
-                            KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
-                            int tripidx, const KK_FLOAT* Tn_ij,
-                            const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
-                            const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const;
+  void poly_3B_dense_jk(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                        int tripidx, const KK_FLOAT* Tn_ij,
+                        const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
+                        const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const;
+
+  template<int NP, int I>
+  KOKKOS_INLINE_FUNCTION
+  void poly_3B_dense_i(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                       int tripidx, const KK_FLOAT* Tn_ij,
+                       const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
+                       const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const;
 
   template<int NP>
   KOKKOS_INLINE_FUNCTION

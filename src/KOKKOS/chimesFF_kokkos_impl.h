@@ -1557,14 +1557,15 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense_loop2_t(KK_FLOAT &e, KK_FLOAT &f0
                                    const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
                                    const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const
 {
-  // Fully unroll the NP^3 coefficient loop via a compile-time fold. This is the
-  // portable equivalent of "#pragma unroll" (which HIP/clang reject on a loop
-  // this large): every coefficient term becomes a poly_3B_dense_term<NP,C>
-  // instantiation with a compile-time linear index C, so the Tn/Tnd reads use
-  // compile-time offsets and stay in registers.
-  poly_3B_dense_unroll<NP>(std::make_integer_sequence<int, NP * NP * NP>{},
-                           e, f0, f1, f2, tripidx,
-                           Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+  // Fully unroll the NP^3 coefficient loop with "if constexpr" template
+  // recursion. This is the portable equivalent of "#pragma unroll" (which
+  // HIP/clang reject on a loop this large): every coefficient term becomes a
+  // poly_3B_dense_term<NP,C> instantiation with a compile-time linear index C,
+  // so the Tn/Tnd reads use compile-time offsets and stay in registers. The
+  // recursion is split into an outer i walk and an inner j*k walk so it nests
+  // only NP + NP*NP deep, well under the compiler's instantiation-depth limit.
+  poly_3B_dense_i<NP, 0>(e, f0, f1, f2, tripidx,
+                         Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1601,20 +1602,44 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense_term(KK_FLOAT &e, KK_FLOAT &f0, K
 
 /* ---------------------------------------------------------------------- */
 
-// Expand the NP^3 terms with a C++17 comma fold (flat, so no deep template
-// recursion regardless of NP). Each Cs is a compile-time index.
+// Inner driver: walk the NP*NP (j,k) terms for a fixed i = I, using the linear
+// index L = j*NP + k so the chain nests only NP*NP deep.
 
 template<class DeviceType>
-template<int NP, int... Cs>
+template<int NP, int I, int L>
 KOKKOS_INLINE_FUNCTION
-void chimesFFKokkos<DeviceType>::poly_3B_dense_unroll(std::integer_sequence<int, Cs...>,
-                                   KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+void chimesFFKokkos<DeviceType>::poly_3B_dense_jk(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
                                    int tripidx, const KK_FLOAT* Tn_ij,
                                    const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
                                    const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const
 {
-  ( this->template poly_3B_dense_term<NP, Cs>(e, f0, f1, f2, tripidx,
-                                              Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk), ... );
+  if constexpr (L < NP * NP) {
+    this->template poly_3B_dense_term<NP, I * NP * NP + L>(e, f0, f1, f2, tripidx,
+                                       Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+    this->template poly_3B_dense_jk<NP, I, L + 1>(e, f0, f1, f2, tripidx,
+                                       Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+// Outer driver: walk the NP values of i, dispatching each to the inner j*k
+// driver. Outer chain nests NP deep, inner NP*NP deep -> NP + NP*NP total.
+
+template<class DeviceType>
+template<int NP, int I>
+KOKKOS_INLINE_FUNCTION
+void chimesFFKokkos<DeviceType>::poly_3B_dense_i(KK_FLOAT &e, KK_FLOAT &f0, KK_FLOAT &f1, KK_FLOAT &f2,
+                                   int tripidx, const KK_FLOAT* Tn_ij,
+                                   const KK_FLOAT* Tn_ik, const KK_FLOAT* Tn_jk, const KK_FLOAT* Tnd_ij,
+                                   const KK_FLOAT* Tnd_ik, const KK_FLOAT* Tnd_jk) const
+{
+  if constexpr (I < NP) {
+    this->template poly_3B_dense_jk<NP, I, 0>(e, f0, f1, f2, tripidx,
+                                       Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+    this->template poly_3B_dense_i<NP, I + 1>(e, f0, f1, f2, tripidx,
+                                       Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+  }
 }
 
 /* ---------------------------------------------------------------------- */
