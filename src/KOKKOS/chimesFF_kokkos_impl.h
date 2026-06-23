@@ -1527,12 +1527,6 @@ void chimesFFKokkos<DeviceType>::poly_3B_dense_loop2(int max_poly, KK_FLOAT &e, 
       const KK_FLOAT tnd_ik = Tnd_ik[j];
       const KK_FLOAT tn_ij_ik = tn_ij * tn_ik;
 
-      // Unroll the innermost (coefficient) loop so several independent coeff
-      // (global) and Tn_jk/Tnd_jk (local/scratch) loads are in flight at once.
-      // The reduction is latency-bound on these loads at the low occupancy this
-      // register-heavy kernel runs at, so exposing memory-level parallelism here
-      // overlaps the load latencies instead of stalling on each one in turn.
-      #pragma unroll 4
       for (int k = 0; k < max_poly; k++) {
         const KK_FLOAT coeff = c_chimes_3b_params_tripidx[count];
         if (coeff != 0.0) {
@@ -1808,9 +1802,6 @@ void chimesFFKokkos<DeviceType>::poly_4B_dense_loop2(
             const KK_FLOAT tn_jl = Tn_jl[n];
             const KK_FLOAT tnd_jl = Tnd_jl[n];
             const KK_FLOAT Tn_jk_jl = tn_jk * tn_jl;
-            // See poly_3B_dense_loop2: unroll so independent coeff (global) and
-            // Tn_kl/Tnd_kl (local/scratch) loads overlap, hiding their latency.
-            #pragma unroll 4
             for (int o = 0; o < max_poly; o++) {
               const KK_FLOAT tn_kl = Tn_kl[o];
               const KK_FLOAT tnd_kl = Tnd_kl[o];
