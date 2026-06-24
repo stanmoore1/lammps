@@ -111,6 +111,13 @@ int MinFireKokkos::run_iterate(int maxiter) {
   alpha_final = 0.0;
   int flagv0 = 1;
 
+  // (Re)acquire device views and nlocal here and after every energy_force()
+  // call. energy_force() may reneighbor, which migrates/reorders atoms,
+  // reallocates the per-atom arrays, and changes nlocal. Caching these once
+  // before the loop leaves stale views (silent corruption) and a host-modified
+  // atom:v that triggers a DualView concurrent-modification abort. The non-KK
+  // min_fire.cpp re-fetches x/v/f and nlocal inside the loop for this reason.
+
   atomKK->sync(Device, X_MASK | V_MASK | F_MASK | RMASS_MASK | TYPE_MASK);
   auto l_x = atomKK->k_x.view_device();
   auto l_v = atomKK->k_v.view_device();
@@ -120,16 +127,29 @@ int MinFireKokkos::run_iterate(int maxiter) {
   auto l_type = atomKK->k_type.view_device();
   int nlocal = atom->nlocal;
 
+  auto reacquire_views = [&]() {
+    atomKK->sync(Device, X_MASK | V_MASK | F_MASK | RMASS_MASK | TYPE_MASK);
+    l_x = atomKK->k_x.view_device();
+    l_v = atomKK->k_v.view_device();
+    l_f = atomKK->k_f.view_device();
+    l_rmass = atomKK->k_rmass.view_device();
+    l_mass = atomKK->k_mass.view_device();
+    l_type = atomKK->k_type.view_device();
+    nlocal = atom->nlocal;
+  };
+
   if constexpr (INTEGRATOR == LEAPFROG) {
     energy_force(0);
     neval++;
+    reacquire_views();
     double dtf = -0.5 * dt * force->ftm2v;
-    Kokkos::parallel_for("min_fire/leapfrog_init", atom->nlocal, LAMMPS_LAMBDA(const int i) {
+    Kokkos::parallel_for("min_fire/leapfrog_init", nlocal, LAMMPS_LAMBDA(const int i) {
       KK_FLOAT dtfm = dtf / (l_rmass.data() ? l_rmass(i) : l_mass(l_type(i)));
       l_v(i,0) = dtfm * l_f(i,0);
       l_v(i,1) = dtfm * l_f(i,1);
       l_v(i,2) = dtfm * l_f(i,2);
     });
+    atomKK->modified(Device, V_MASK);
   }
 
   for (int iter = 0; iter < maxiter; iter++) {
@@ -209,12 +229,14 @@ int MinFireKokkos::run_iterate(int maxiter) {
         }
         l_v(i,0) = l_v(i,1) = l_v(i,2) = 0.0;
       });
+      atomKK->modified(Device, X_MASK | V_MASK);
       flagv0 = 1;
     }
 
     if (!ABCFLAG && flagv0) {
       energy_force(0);
       neval++;
+      reacquire_views();
       double dtf_init = dt * force->ftm2v;
       Kokkos::parallel_for("min_fire/v_init", nlocal, LAMMPS_LAMBDA(const int i) {
         KK_FLOAT dtfm = dtf_init / (l_rmass.data() ? l_rmass(i) : l_mass(l_type(i)));
@@ -222,6 +244,7 @@ int MinFireKokkos::run_iterate(int maxiter) {
         l_v(i,1) = dtfm * l_f(i,1);
         l_v(i,2) = dtfm * l_f(i,2);
       });
+      atomKK->modified(Device, V_MASK);
     }
 
     // cannot use "if constexpr" below because CUDA device lambdas
@@ -315,9 +338,9 @@ int MinFireKokkos::run_iterate(int maxiter) {
     eprevious = ecurrent;
     ecurrent = energy_force(0);
     neval++;
+    reacquire_views();
 
     if constexpr (INTEGRATOR == VERLET) {
-      atomKK->sync(Device, V_MASK | F_MASK);
       Kokkos::parallel_for("min_fire/verlet_v_final", nlocal, LAMMPS_LAMBDA(const int i) {
         KK_FLOAT dtfm_half = dtf_half / (l_rmass.data() ? l_rmass(i) : l_mass(l_type(i)));
         l_v(i,0) += dtfm_half * l_f(i,0);
