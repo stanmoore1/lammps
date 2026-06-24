@@ -173,6 +173,7 @@ class AtomKokkos : public Atom {
   void sort() override;
   int add_custom(const char *, int, int, int border = 0) override;
   void remove_custom(int, int, int) override;
+  void *extract(const char *name) override;
   void deallocate_topology() override;
 
   void map_set_device();

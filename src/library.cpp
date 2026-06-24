@@ -2585,6 +2585,14 @@ A table with supported keywords is included in the documentation of the
    since per-atom data may be re-distributed, re-allocated, and
    re-ordered at every re-neighboring operation.
 
+.. note::
+
+   When using the KOKKOS package on a device (e.g. a GPU), the host copy
+   of the requested per-atom data is synchronized from the device before
+   the pointer is returned, so the data is current even when accessed
+   between output steps.  This sync is a no-op when the host copy is
+   already up to date.
+
 \endverbatim
  *
  * \param  handle  pointer to a previously created LAMMPS instance
