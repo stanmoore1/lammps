@@ -4,6 +4,7 @@
 .. index:: kspace_style ewald/dipole/spin
 .. index:: kspace_style ewald/disp
 .. index:: kspace_style ewald/disp/dipole
+.. index:: kspace_style ewald/disp/planar
 .. index:: kspace_style ewald/omp
 .. index:: kspace_style ewald/electrode
 .. index:: kspace_style esp
@@ -17,6 +18,7 @@
 .. index:: kspace_style pppm/dipole
 .. index:: kspace_style pppm/dipole/spin
 .. index:: kspace_style pppm/disp
+.. index:: kspace_style pppm/disp/planar
 .. index:: kspace_style pppm/disp/omp
 .. index:: kspace_style pppm/disp/tip4p
 .. index:: kspace_style pppm/disp/tip4p/omp
@@ -47,7 +49,7 @@ Syntax
 
    kspace_style style value
 
-* style = *none* or *ewald* or ewald/gpu or *ewald/dipole* or *ewald/dipole/spin* or *ewald/disp* or *ewald/disp/dipole* or *ewald/omp* or *ewald/electrode* or *pppm* or *pppm/cg* or *pppm/disp* or *pppm/tip4p* or *pppm/stagger* or *pppm/disp/tip4p* or *pppm/gpu* or *pppm/intel* or *pppm/disp/intel* or *pppm/kk* or *pppm/omp* or *pppm/cg/omp* or *pppm/disp/tip4p/omp* or *pppm/tip4p/omp* or *pppm/dielectic* or *pppm/disp/dielectric* or *pppm/electrode* or *pppm/electrode/intel* or *pppm/rk* or *msm* or *msm/cg* or *msm/omp* or *msm/cg/omp* or *msm/dielectric* or *scafacos* or *zero*
+* style = *none* or *ewald* or ewald/gpu or *ewald/dipole* or *ewald/dipole/spin* or *ewald/disp* or *ewald/disp/dipole* or *ewald/disp/planar* or *ewald/omp* or *ewald/electrode* or *pppm* or *pppm/cg* or *pppm/disp* or *pppm/disp/planar* or *pppm/tip4p* or *pppm/stagger* or *pppm/disp/tip4p* or *pppm/gpu* or *pppm/intel* or *pppm/disp/intel* or *pppm/kk* or *pppm/omp* or *pppm/cg/omp* or *pppm/disp/tip4p/omp* or *pppm/tip4p/omp* or *pppm/dielectic* or *pppm/disp/dielectric* or *pppm/electrode* or *pppm/electrode/intel* or *pppm/rk* or *msm* or *msm/cg* or *msm/omp* or *msm/cg/omp* or *msm/dielectric* or *scafacos* or *zero*
 
   .. parsed-literal::
 
@@ -63,6 +65,8 @@ Syntax
        *ewald/disp* value = accuracy
          accuracy = desired relative error in forces
        *ewald/disp/dipole* value = accuracy
+         accuracy = desired relative error in forces
+       *ewald/disp/planar* value = accuracy
          accuracy = desired relative error in forces
        *ewald/omp* value = accuracy
          accuracy = desired relative error in forces
@@ -81,6 +85,8 @@ Syntax
        *pppm/dipole/spin* value = accuracy
          accuracy = desired relative error in forces
        *pppm/disp* value = accuracy
+         accuracy = desired relative error in forces
+       *pppm/disp/planar* value = accuracy
          accuracy = desired relative error in forces
        *pppm/tip4p* value = accuracy
          accuracy = desired relative error in forces
@@ -218,6 +224,44 @@ used without a cutoff, i.e. they become full long-range potentials.
 The *ewald/disp/dipole* style can also be used with point-dipoles, see
 :ref:`(Toukmaji) <Toukmaji>`.
 
+.. versionadded:: TBD
+
+The *ewald/disp/planar* style is a "planar" Ewald solver for the
+long-range :math:`1/r^6` dispersion (van der Waals) interaction in
+systems whose mean density varies in only one direction (the
+inhomogeneous direction, *z* by default) -- for example a planar
+liquid-vapor interface.  Instead of the full three-dimensional
+reciprocal sum performed by *ewald/disp*, it evaluates a
+one-dimensional Fourier sum over the *z* wavevectors of the
+dispersion-weighted density and treats the two homogeneous lateral
+directions analytically, which is much cheaper for planar-inhomogeneous
+systems.  The :math:`1/r^6` interaction is split at the inner cutoff
+:math:`r_c` by a :math:`C^3`-continuous (septic) smoothstep over the
+shell :math:`[r_c, r_c+\Delta]`; only the smooth long-range remainder is
+fed to the reciprocal sum, which makes the *z*-Fourier coefficients
+decay rapidly and avoids Gibbs ringing.
+
+This style must be paired with the matched
+:doc:`pair_style lj/cut/dispplanar <pair_lj_cut_dispplanar>`, which
+evaluates the full Lennard-Jones interaction out to :math:`r_c+\Delta`.
+A real-space "shell correction" subtracts the laterally-uniform
+mean-field part of the reciprocal sum over the shell so that the pair
+style supplies the exact three-dimensional shell interaction; for a
+homogeneous fluid this reduces exactly to the standard tail correction.
+
+The *ewald/disp/planar* style requires fully periodic boundaries
+(``boundary p p p``), an orthogonal (non-triclinic) simulation box, and
+a three-dimensional simulation.  It cannot be combined with the EW3DC
+:doc:`kspace_modify slab <kspace_modify>` correction.  Several
+:doc:`kspace_modify <kspace_modify>` keywords control its behavior:
+*kmax* (override the number of *z* wavevectors), *corr* (shell-correction
+evaluation scheme), *contour* (local pressure-profile contour
+convention), *pressure/profile* (compute the long-range tangential and
+normal pressure profiles), and *dim* (select the inhomogeneous
+direction).
+
+This style was written by Stan Moore (SNL).
+
 The *ewald/dipole* style adds long-range standard Ewald summations
 for dipole-dipole interactions, see :ref:`(Toukmaji) <Toukmaji>`.
 
@@ -319,6 +363,32 @@ with an error message. Further information on the influence of the
 parameters and how to choose them is described in
 :ref:`(Isele-Holder) <Isele-Holder2012>`,
 :ref:`(Isele-Holder2) <Isele-Holder2013>` and the :doc:`Howto dispersion <Howto_dispersion>` doc page.
+
+.. versionadded:: TBD
+
+The *pppm/disp/planar* style is the mesh-accelerated (PPPM) counterpart
+of the *ewald/disp/planar* style.  It replaces the one-dimensional
+Fourier sum over the *z* wavevectors with a one-dimensional FFT of the
+dispersion-weighted density, giving an :math:`O(N)` reciprocal-space cost
+while reproducing the *ewald/disp/planar* result as the grid is refined.
+As with the Ewald variant, only the smooth long-range part of the
+:math:`1/r^6` interaction (the :math:`C^3` septic smoothstep applied over
+the shell :math:`[r_c, r_c+\Delta]`) is solved on the mesh, and it must
+be paired with the matched
+:doc:`pair_style lj/cut/dispplanar <pair_lj_cut_dispplanar>` together with
+its real-space shell correction.
+
+The *pppm/disp/planar* style requires fully periodic boundaries
+(``boundary p p p``), an orthogonal (non-triclinic) simulation box, and
+a three-dimensional simulation.  It cannot be combined with the EW3DC
+:doc:`kspace_modify slab <kspace_modify>` correction.  It supports the
+*corr*, *contour*, *pressure/profile*, and *dim*
+:doc:`kspace_modify <kspace_modify>` keywords (the *kmax* keyword applies
+only to *ewald/disp/planar*).  A Kokkos accelerator variant
+*pppm/disp/planar/kk* (and the corresponding ``/kk/host`` and
+``/kk/device`` forms) is available with the KOKKOS package.
+
+This style was written by Stan Moore (SNL).
 
 ----------
 

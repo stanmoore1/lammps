@@ -115,6 +115,19 @@ void FFT3dKokkos<DeviceType>::timing1d(typename FFT_AT::t_FFT_SCALAR_1d d_in, in
 }
 
 /* ----------------------------------------------------------------------
+   in-place 1d FFT on a plan configured as (nz,1,1) on MPI_COMM_SELF.
+   Uses the full 3d path (fft_3d_kokkos) so that all backends -- including
+   KISS -- correctly return the transform in d_in.  flag: 1 fwd, -1 bwd.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void FFT3dKokkos<DeviceType>::compute1d(typename FFT_AT::t_FFT_SCALAR_1d d_in, int /*nsize*/, int flag)
+{
+  typename FFT_AT::t_FFT_DATA_1d d_in_data((FFT_KOKKOS_DATA_POINTER)d_in.data(),d_in.size()/2);
+  fft_3d_kokkos(d_in_data,d_in_data,flag,plan);
+}
+
+/* ----------------------------------------------------------------------
    Data layout for 3d FFTs:
 
    data set of Nfast x Nmid x Nslow elements is owned by P procs

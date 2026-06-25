@@ -14,6 +14,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`ewald (go) <kspace_style>`
    * :doc:`ewald/disp <kspace_style>`
    * :doc:`ewald/disp/dipole <kspace_style>`
+   * :doc:`ewald/disp/planar <kspace_style>`
    * :doc:`ewald/dipole <kspace_style>`
    * :doc:`ewald/dipole/spin <kspace_style>`
    * :doc:`ewald/electrode <kspace_style>`
@@ -26,6 +27,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`pppm/dipole/spin <kspace_style>`
    * :doc:`pppm/dielectric <kspace_style>`
    * :doc:`pppm/disp (io) <kspace_style>`
+   * :doc:`pppm/disp/planar (k) <kspace_style>`
    * :doc:`pppm/disp/tip4p (o) <kspace_style>`
    * :doc:`pppm/disp/dielectric <kspace_style>`
    * :doc:`pppm/rk <kspace_style>`

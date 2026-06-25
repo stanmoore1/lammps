@@ -1,0 +1,46 @@
+Planar long-range dispersion examples
+=====================================
+
+Planar Lennard-Jones liquid-vapor slab (1267 atoms, fully periodic, with
+the inhomogeneous direction along z) using the "planar" long-range
+dispersion solvers for the 1/r^6 van der Waals interaction.
+
+These styles are designed for systems whose mean density varies in only
+one direction (e.g. a planar liquid-vapor interface).  Instead of the
+full 3-D reciprocal sum of ewald/disp or pppm/disp, they evaluate a 1-D
+Fourier sum (ewald) or 1-D FFT (pppm) over the z wavevectors of the
+dispersion-weighted density and treat the two homogeneous lateral
+directions analytically, which is much cheaper for planar systems.
+
+Three new styles are demonstrated:
+
+  pair_style lj/cut/dispplanar <rcut> <Delta>
+      Matched short-range pair style.  Evaluates the full LJ to
+      rcut+Delta and supplies the real-space shell correction.  The
+      1/r^6 dispersion is split at rcut by a C3 (septic) smoothstep over
+      the shell [rcut, rcut+Delta].  Incompatible with
+      "pair_modify tail yes" (the kspace handles the tail).
+
+  kspace_style ewald/disp/planar <accuracy>
+      1-D z Fourier-sum Ewald solver for the long-range 1/r^6 tail.
+
+  kspace_style pppm/disp/planar <accuracy>
+      Mesh-accelerated (1-D FFT, O(N)) version of ewald/disp/planar.
+      A Kokkos variant pppm/disp/planar/kk is also available.
+
+Input scripts:
+
+  in.planar_nve     pair lj/cut/dispplanar + kspace ewald/disp/planar,
+                    NVE run demonstrating energy conservation.
+
+  in.planar_gamma   pair lj/cut/dispplanar + kspace pppm/disp/planar,
+                    NVT run computing the long-range surface tension
+                    gamma = 0.5*Lz*(Pzz - 0.5*(Pxx+Pyy)).
+
+These styles require fully periodic boundaries (p p p), a 3-D orthogonal
+(non-triclinic) box, and must NOT be combined with the EW3DC
+"kspace_modify slab" correction.  Several kspace_modify keywords (kmax,
+corr, contour, pressure/profile, dim) tune their behavior; see the
+kspace_modify doc page.
+
+data.lj_slab is a 1267-atom LJ liquid-vapor slab configuration.

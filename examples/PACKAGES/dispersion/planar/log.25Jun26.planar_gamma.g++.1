@@ -1,0 +1,104 @@
+LAMMPS (30 Mar 2026 - Development - stable_17Nov2016-33190-g16f8568cde-modified)
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread.
+  using 1 OpenMP thread(s) per MPI task
+# Planar long-range dispersion: surface tension (gamma) in NVT
+# Same LJ liquid-vapor slab, but with the mesh-accelerated
+# pppm/disp/planar solver and an NVT run.  The surface tension of the
+# (z-normal) interface is computed from the pressure-tensor anisotropy:
+#
+#   gamma = 0.5 * Lz * ( Pzz - 0.5*(Pxx + Pyy) )
+#
+# The 0.5 prefactor accounts for the two interfaces in a periodic slab.
+
+units           lj
+atom_style      atomic
+boundary        p p p
+
+read_data       data.lj_slab
+Reading data file ...
+  orthogonal box = (0 0 0) to (10 10 36)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  1267 atoms
+  reading velocities ...
+  1267 velocities
+  read_data CPU = 0.008 seconds
+
+pair_style      lj/cut/dispplanar 3.0 0.6
+pair_coeff      1 1 1.0 1.0
+
+kspace_style    pppm/disp/planar 1.0e-4
+
+velocity        all create 0.85 12345 mom yes rot yes dist gaussian
+
+fix             1 all nvt temp 0.85 0.85 0.5
+
+# box length along the inhomogeneous (z) direction
+variable        Lz      equal lz
+
+# instantaneous surface tension from the pressure tensor
+variable        gamma   equal 0.5*v_Lz*(pzz-0.5*(pxx+pyy))
+
+# block-averaged gamma time series (10 samples/block x 100 blocks) to a file
+fix             avg all ave/time 10 100 1000 v_gamma file gamma.profile
+
+# cumulative running average of gamma, printed in the thermo output
+fix             run all ave/time 10 100 1000 v_gamma ave running
+variable        gamma_avg equal f_run
+
+thermo_style    custom step temp pe etotal pzz v_gamma v_gamma_avg
+thermo          1000
+
+timestep        0.004
+
+run             2000
+PPPM slab-based dispersion Ewald (pppm/disp/planar) ...
+  planar dispersion PPPM, z grid = 256, stencil order = 5, switch width Delta = 0.6
+  estimated absolute RMS force accuracy = 2.68338e-05
+  estimated relative force accuracy = 2.68338e-05
+Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 3.9
+  ghost atom cutoff = 3.9
+  binsize = 1.95, bins = 6 6 19
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair lj/cut/dispplanar, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 3.732 | 3.732 | 3.732 Mbytes
+   Step          Temp          PotEng         TotEng          Pzz          v_gamma      v_gamma_avg  
+         0   0.85          -4.9121572     -3.6381635     -0.18457068     0.90186352     0            
+      1000   0.86829377    -4.8482791     -3.5468664      0.074989608    1.9920582      1.3196389    
+      2000   0.85098481    -4.9437651     -3.6682953     -0.10774893     0.59391165     1.1696242    
+Loop time of 27.8169 on 1 procs for 2000 steps with 1267 atoms
+
+Performance: 24848.226 tau/day, 71.899 timesteps/s, 91.096 katom-step/s
+100.0% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 1.9861     | 1.9861     | 1.9861     |   0.0 |  7.14
+Kspace  | 25.141     | 25.141     | 25.141     |   0.0 | 90.38
+Neigh   | 0.57478    | 0.57478    | 0.57478    |   0.0 |  2.07
+Comm    | 0.045067   | 0.045067   | 0.045067   |   0.0 |  0.16
+Output  | 9.629e-05  | 9.629e-05  | 9.629e-05  |   0.0 |  0.00
+Modify  | 0.055475   | 0.055475   | 0.055475   |   0.0 |  0.20
+Other   |            | 0.01485    |            |       |  0.05
+
+Nlocal:           1267 ave        1267 max        1267 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:           2787 ave        2787 max        2787 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:         103793 ave      103793 max      103793 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 103793
+Ave neighs/atom = 81.920284
+Neighbor list builds = 197
+Dangerous builds = 0
+Total wall time: 0:00:27

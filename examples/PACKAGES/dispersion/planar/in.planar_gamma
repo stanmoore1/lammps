@@ -1,0 +1,43 @@
+# Planar long-range dispersion: surface tension (gamma) in NVT
+# Same LJ liquid-vapor slab, but with the mesh-accelerated
+# pppm/disp/planar solver and an NVT run.  The surface tension of the
+# (z-normal) interface is computed from the pressure-tensor anisotropy:
+#
+#   gamma = 0.5 * Lz * ( Pzz - 0.5*(Pxx + Pyy) )
+#
+# The 0.5 prefactor accounts for the two interfaces in a periodic slab.
+
+units           lj
+atom_style      atomic
+boundary        p p p
+
+read_data       data.lj_slab
+
+pair_style      lj/cut/dispplanar 3.0 0.6
+pair_coeff      1 1 1.0 1.0
+
+kspace_style    pppm/disp/planar 1.0e-4
+
+velocity        all create 0.85 12345 mom yes rot yes dist gaussian
+
+fix             1 all nvt temp 0.85 0.85 0.5
+
+# box length along the inhomogeneous (z) direction
+variable        Lz      equal lz
+
+# instantaneous surface tension from the pressure tensor
+variable        gamma   equal 0.5*v_Lz*(pzz-0.5*(pxx+pyy))
+
+# block-averaged gamma time series (10 samples/block x 100 blocks) to a file
+fix             avg all ave/time 10 100 1000 v_gamma file gamma.profile
+
+# cumulative running average of gamma, printed in the thermo output
+fix             run all ave/time 10 100 1000 v_gamma ave running
+variable        gamma_avg equal f_run
+
+thermo_style    custom step temp pe etotal pzz v_gamma v_gamma_avg
+thermo          1000
+
+timestep        0.004
+
+run             2000
