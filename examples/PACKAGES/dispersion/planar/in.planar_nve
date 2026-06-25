@@ -1,6 +1,6 @@
 # Planar long-range dispersion: NVE energy conservation
 # LJ liquid-vapor slab (1267 atoms), fully periodic, inhomogeneous in z.
-# Full LJ to rcut+Delta from pair lj/cut/dispplanar, long-range 1/r^6
+# Full LJ to rcut from pair lj/cut/dispplanar (switch ramps inward over [rcut-Delta,rcut]), long-range 1/r^6
 # tail from the 1-D z Fourier sum of ewald/disp/planar.
 
 units           lj

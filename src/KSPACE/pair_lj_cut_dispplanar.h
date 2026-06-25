@@ -26,15 +26,15 @@ namespace LAMMPS_NS {
 
 // Matched short-range pair style for the planar dispersion solvers
 // ewald/disp/planar and pppm/disp/planar.  It is a plain lj/cut evaluated to the
-// extended cutoff rcut+Delta (the inner cutoff rcut plus the switch width Delta),
-// with no energy offset.  The matched kspace style applies the C3 septic
-// smoothstep S(r) over the shell [rcut, rcut+Delta]: its reciprocal sum carries
-// S*u and a shell correction subtracts that mean field over the shell, so the
-// full 1/r^6 dispersion this pair computes there is replaced by the exact 3-D
-// laterally-correlated interaction.  This pair therefore exposes the inner cutoff
-// rcut (cut_lj), the switch width Delta (disp_switch_width), and the dispersion
-// amplitude B to the kspace via extract(); it must be paired with one of the
-// planar kspace styles (it does not apply the switch itself).
+// total cutoff rcut -- the same cutoff used by the other planar Ewald sums -- with
+// no energy offset.  The matched kspace style applies the C3 septic smoothstep S(r)
+// over the inner shell [rcut-Delta, rcut]: its reciprocal sum carries S*u and a
+// shell correction subtracts that mean field over the shell, so the full 1/r^6
+// dispersion this pair computes there is replaced by the exact 3-D laterally-
+// correlated interaction.  This pair therefore exposes the inner cutoff rcut-Delta
+// (cut_lj, where the switch starts), the switch width Delta (disp_switch_width), and
+// the dispersion amplitude B to the kspace via extract(); it must be paired with one
+// of the planar kspace styles (it does not apply the switch itself).
 
 class PairLJCutDispPlanar : public PairLJCut {
  public:
@@ -48,6 +48,7 @@ class PairLJCutDispPlanar : public PairLJCut {
 
  protected:
   double sw_width;     // switch width Delta
+  double inner_cut;    // inner cutoff rcut-Delta (where the switch starts, S=0)
 };
 
 }    // namespace LAMMPS_NS

@@ -1,4 +1,4 @@
-LAMMPS (30 Mar 2026 - Development - stable_17Nov2016-33190-g16f8568cde-modified)
+LAMMPS (30 Mar 2026 - Development - stable_17Nov2016-33192-gd9d8c34188-modified)
 OMP_NUM_THREADS environment is not set. Defaulting to 1 thread.
   using 1 OpenMP thread(s) per MPI task
 # Planar long-range dispersion: surface tension (gamma) in NVT
@@ -22,7 +22,7 @@ Reading data file ...
   1267 atoms
   reading velocities ...
   1267 velocities
-  read_data CPU = 0.008 seconds
+  read_data CPU = 0.007 seconds
 
 pair_style      lj/cut/dispplanar 3.0 0.6
 pair_coeff      1 1 1.0 1.0
@@ -54,51 +54,51 @@ timestep        0.004
 run             2000
 PPPM slab-based dispersion Ewald (pppm/disp/planar) ...
   planar dispersion PPPM, z grid = 256, stencil order = 5, switch width Delta = 0.6
-  estimated absolute RMS force accuracy = 2.68338e-05
-  estimated relative force accuracy = 2.68338e-05
+  estimated absolute RMS force accuracy = 6.99131e-05
+  estimated relative force accuracy = 6.99131e-05
 Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
 Neighbor list info ...
   update: every = 1 steps, delay = 0 steps, check = yes
   max neighbors/atom: 2000, page size: 100000
-  master list distance cutoff = 3.9
-  ghost atom cutoff = 3.9
-  binsize = 1.95, bins = 6 6 19
+  master list distance cutoff = 3.3
+  ghost atom cutoff = 3.3
+  binsize = 1.65, bins = 7 7 22
   1 neighbor lists, perpetual/occasional/extra = 1 0 0
   (1) pair lj/cut/dispplanar, perpetual
       attributes: half, newton on
       pair build: half/bin/atomonly/newton
       stencil: half/bin/3d
       bin: standard
-Per MPI rank memory allocation (min/avg/max) = 3.732 | 3.732 | 3.732 Mbytes
+Per MPI rank memory allocation (min/avg/max) = 3.323 | 3.323 | 3.323 Mbytes
    Step          Temp          PotEng         TotEng          Pzz          v_gamma      v_gamma_avg  
-         0   0.85          -4.9121572     -3.6381635     -0.18457068     0.90186352     0            
-      1000   0.86829377    -4.8482791     -3.5468664      0.074989608    1.9920582      1.3196389    
-      2000   0.85098481    -4.9437651     -3.6682953     -0.10774893     0.59391165     1.1696242    
-Loop time of 27.8169 on 1 procs for 2000 steps with 1267 atoms
+         0   0.85          -4.910577      -3.6365833     -0.18339327     0.9050801      0            
+      1000   0.86177451    -4.8290583     -3.5374168     -0.0040945818  -0.38704213     0.50560205   
+      2000   0.85597565    -4.9094333     -3.6264832      0.068710176    0.45959171     0.56647655   
+Loop time of 28.5483 on 1 procs for 2000 steps with 1267 atoms
 
-Performance: 24848.226 tau/day, 71.899 timesteps/s, 91.096 katom-step/s
+Performance: 24211.581 tau/day, 70.057 timesteps/s, 88.762 katom-step/s
 100.0% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 1.9861     | 1.9861     | 1.9861     |   0.0 |  7.14
-Kspace  | 25.141     | 25.141     | 25.141     |   0.0 | 90.38
-Neigh   | 0.57478    | 0.57478    | 0.57478    |   0.0 |  2.07
-Comm    | 0.045067   | 0.045067   | 0.045067   |   0.0 |  0.16
-Output  | 9.629e-05  | 9.629e-05  | 9.629e-05  |   0.0 |  0.00
-Modify  | 0.055475   | 0.055475   | 0.055475   |   0.0 |  0.20
-Other   |            | 0.01485    |            |       |  0.05
+Pair    | 1.4107     | 1.4107     | 1.4107     |   0.0 |  4.94
+Kspace  | 26.612     | 26.612     | 26.612     |   0.0 | 93.22
+Neigh   | 0.38732    | 0.38732    | 0.38732    |   0.0 |  1.36
+Comm    | 0.050081   | 0.050081   | 0.050081   |   0.0 |  0.18
+Output  | 0.0001154  | 0.0001154  | 0.0001154  |   0.0 |  0.00
+Modify  | 0.067046   | 0.067046   | 0.067046   |   0.0 |  0.23
+Other   |            | 0.02148    |            |       |  0.08
 
 Nlocal:           1267 ave        1267 max        1267 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-Nghost:           2787 ave        2787 max        2787 min
+Nghost:           2183 ave        2183 max        2183 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-Neighs:         103793 ave      103793 max      103793 min
+Neighs:          64781 ave       64781 max       64781 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 
-Total # of neighbors = 103793
-Ave neighs/atom = 81.920284
-Neighbor list builds = 197
+Total # of neighbors = 64781
+Ave neighs/atom = 51.12944
+Neighbor list builds = 196
 Dangerous builds = 0
-Total wall time: 0:00:27
+Total wall time: 0:00:28

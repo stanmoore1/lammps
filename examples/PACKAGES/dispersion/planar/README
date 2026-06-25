@@ -16,9 +16,9 @@ Three new styles are demonstrated:
 
   pair_style lj/cut/dispplanar <rcut> <Delta>
       Matched short-range pair style.  Evaluates the full LJ to
-      rcut+Delta and supplies the real-space shell correction.  The
+      rcut and supplies the real-space shell correction.  The
       1/r^6 dispersion is split at rcut by a C3 (septic) smoothstep over
-      the shell [rcut, rcut+Delta].  Incompatible with
+      the inner shell [rcut-Delta, rcut].  Incompatible with
       "pair_modify tail yes" (the kspace handles the tail).
 
   kspace_style ewald/disp/planar <accuracy>

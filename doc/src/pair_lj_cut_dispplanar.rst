@@ -10,8 +10,8 @@ Syntax
 
    pair_style lj/cut/dispplanar rcut Delta
 
-* rcut = inner cutoff for the full Lennard-Jones interaction (distance units)
-* Delta = width of the smoothstep switching shell (distance units)
+* rcut = total (outer) cutoff for the full Lennard-Jones interaction (distance units)
+* Delta = width of the smoothstep switching shell, which ramps inward over [rcut-Delta, rcut] (distance units)
 
 Examples
 """"""""
@@ -43,19 +43,20 @@ pppm/disp/planar <kspace_style>`, which compute the long-range
 varies in only one direction, such as a planar liquid-vapor interface.
 
 This style is a plain :doc:`lj/cut <pair_lj>` evaluated out to the total
-cutoff :math:`r_c + \Delta` with no energy offset; the switching is done
-entirely by the matched kspace style.  It exposes the inner cutoff
-:math:`r_c`, the switch width :math:`\Delta`, and the dispersion
-amplitude to the kspace style, which splits the long-range
-:math:`1/r^6` dispersion term at :math:`r_c` with a
-:math:`C^3`-continuous (septic) smoothstep
+cutoff :math:`r_c` (the same cutoff used by the other planar Ewald sums) with no
+energy offset; the switching is done entirely by the matched kspace style.  It
+exposes the inner cutoff :math:`r_c-\Delta` (where the switch starts), the switch
+width :math:`\Delta`, and the dispersion amplitude to the kspace style, which splits
+the long-range :math:`1/r^6` dispersion term over the inner shell with a
+:math:`C^3`-continuous (septic) smoothstep that ramps from 0 at
+:math:`r_c-\Delta` to 1 at :math:`r_c`,
 
 .. math::
 
    S(r) = t^4 \left( 35 - 84 t + 70 t^2 - 20 t^3 \right), \qquad
    t = \frac{r - r_c}{\Delta}
 
-over the shell :math:`[r_c, r_c+\Delta]`.  The smooth long-range part
+over the shell :math:`[r_c-\Delta, r_c]`.  The smooth long-range part
 :math:`S(r)\,u(r)` (where :math:`u(r) = -4\epsilon\sigma^6/r^6` is the
 attractive dispersion term) is summed by the reciprocal-space solver; it
 vanishes inside :math:`r_c` and is :math:`C^3`-continuous at
@@ -66,7 +67,7 @@ The kspace style also applies a real-space "shell correction" that
 subtracts the laterally-uniform mean-field part of its reciprocal sum
 over the shell.  Because this pair style evaluates the *full*
 :math:`1/r^6` dispersion (not the switched part) over
-:math:`[r_c, r_c+\Delta]`, the pair and kspace together supply the exact
+:math:`[r_c-\Delta, r_c]`, the pair and kspace together supply the exact
 three-dimensional shell interaction.  For a homogeneous fluid this
 reduces exactly to the standard long-range tail correction.
 
@@ -74,7 +75,7 @@ The *lj/cut/dispplanar* style must be used together with a matched
 :doc:`kspace_style ewald/disp/planar or pppm/disp/planar
 <kspace_style>`.  Using it without one of those kspace styles omits the
 long-range part of the interaction (it then behaves as a plain
-:doc:`lj/cut <pair_lj>` truncated at :math:`r_c + \Delta`).
+:doc:`lj/cut <pair_lj>` truncated at :math:`r_c`).
 
 Coefficients
 """"""""""""
@@ -90,7 +91,7 @@ commands:
 
 Unlike :doc:`pair_style lj/cut <pair_lj>`, a per-pair cutoff cannot be
 specified: the interaction and neighbor cutoff is always
-:math:`r_c + \Delta`, set globally by the *pair_style* command.
+:math:`r_c`, set globally by the *pair_style* command.
 
 ----------
 
