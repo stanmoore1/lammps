@@ -42,10 +42,13 @@ pppm/disp/planar <kspace_style>`, which compute the long-range
 :math:`1/r^6` (van der Waals) interaction for systems whose mean density
 varies in only one direction, such as a planar liquid-vapor interface.
 
-The full Lennard-Jones interaction is evaluated out to the total cutoff
-:math:`r_c + \Delta`.  The long-range :math:`1/r^6` dispersion term is
-split at the inner cutoff :math:`r_c` by a :math:`C^3`-continuous
-(septic) smoothstep
+This style is a plain :doc:`lj/cut <pair_lj>` evaluated out to the total
+cutoff :math:`r_c + \Delta` with no energy offset; the switching is done
+entirely by the matched kspace style.  It exposes the inner cutoff
+:math:`r_c`, the switch width :math:`\Delta`, and the dispersion
+amplitude to the kspace style, which splits the long-range
+:math:`1/r^6` dispersion term at :math:`r_c` with a
+:math:`C^3`-continuous (septic) smoothstep
 
 .. math::
 
@@ -54,23 +57,24 @@ split at the inner cutoff :math:`r_c` by a :math:`C^3`-continuous
 
 over the shell :math:`[r_c, r_c+\Delta]`.  The smooth long-range part
 :math:`S(r)\,u(r)` (where :math:`u(r) = -4\epsilon\sigma^6/r^6` is the
-attractive dispersion term) is handed to the reciprocal-space solver; it
+attractive dispersion term) is summed by the reciprocal-space solver; it
 vanishes inside :math:`r_c` and is :math:`C^3`-continuous at
-:math:`r_c`, so the *z*-Fourier coefficients of the
-dispersion-weighted density decay rapidly and no Gibbs ringing occurs.
+:math:`r_c`, so the *z*-Fourier coefficients of the dispersion-weighted
+density decay rapidly and no Gibbs ringing occurs.
 
-The pair style also applies a real-space "shell correction" that
-subtracts the laterally-uniform mean-field part of the reciprocal sum
-over the shell, so that the pair style together with the kspace style
-supplies the exact three-dimensional shell interaction.  For a
-homogeneous fluid this reduces exactly to the standard long-range tail
-correction.
+The kspace style also applies a real-space "shell correction" that
+subtracts the laterally-uniform mean-field part of its reciprocal sum
+over the shell.  Because this pair style evaluates the *full*
+:math:`1/r^6` dispersion (not the switched part) over
+:math:`[r_c, r_c+\Delta]`, the pair and kspace together supply the exact
+three-dimensional shell interaction.  For a homogeneous fluid this
+reduces exactly to the standard long-range tail correction.
 
 The *lj/cut/dispplanar* style must be used together with a matched
 :doc:`kspace_style ewald/disp/planar or pppm/disp/planar
-<kspace_style>`.  Using it without one of those kspace styles is an
-error, because the long-range part of the interaction would then be
-omitted.
+<kspace_style>`.  Using it without one of those kspace styles omits the
+long-range part of the interaction (it then behaves as a plain
+:doc:`lj/cut <pair_lj>` truncated at :math:`r_c + \Delta`).
 
 Coefficients
 """"""""""""

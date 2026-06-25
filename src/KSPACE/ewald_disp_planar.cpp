@@ -210,7 +210,9 @@ void EwaldDispPlanar::init()
   rc2 = cutoff * cutoff;
 
   // the matched pair style supplies the switch width Delta and evaluates the full
-  // dispersion (repulsion + 1/r^6) over the shell [rcut, rcut+Delta].  The pair's
+  // dispersion (repulsion + 1/r^6) over the shell [rcut, rcut+Delta] (exact 3-D);
+  // corr_shell() below removes the reciprocal sum's plane mean-field S*u there, so
+  // the pair supplies the laterally-correlated shell interaction.  The pair's
   // interaction cutoff is rcut+Delta; "cut_lj" above is the inner rcut.
 
   {
@@ -222,13 +224,6 @@ void EwaldDispPlanar::init()
                  "switch width (use pair_style lj/cut/dispplanar)");
     sw_width = *p_dz;
     if (sw_width <= 0.0) error->all(FLERR, "ewald/disp/planar switch width must be > 0");
-
-    // tell the pair to evaluate the FULL dispersion (repulsion + 1/r^6) over the
-    // shell [rcut, rcut+Delta] (exact 3-D): corr_shell() below removes the reciprocal
-    // sum's plane mean-field S*u there, so the pair supplies the laterally-
-    // correlated shell interaction.
-    int *p_full = (int *) force->pair->extract("disp_full_shell", itmp2);
-    if (p_full) *p_full = 1;
   }
 
   // accuracy in force units

@@ -212,11 +212,6 @@ void PPPMDispPlanar::init()
                  "switch width (use pair_style lj/cut/dispplanar)");
     sw_width = *p_dz;
     if (sw_width <= 0.0) error->all(FLERR, "pppm/disp/planar switch width must be > 0");
-
-    // tell the pair to evaluate the FULL dispersion u over the shell (exact 3-D),
-    // not the (1-S)*u complement: corr_shell() removes the plane mean-field S*u there.
-    int *p_full = (int *) force->pair->extract("disp_full_shell", itmp2);
-    if (p_full) *p_full = 1;
   }
 
   // accuracy in force units
