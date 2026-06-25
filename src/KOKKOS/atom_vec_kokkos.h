@@ -24,7 +24,13 @@
 
 namespace LAMMPS_NS {
 
+template<class DeviceType,int DEFAULT,class PermuteView>
+struct AtomVecKokkos_GatherSortFunctor;
+
 class AtomVecKokkos : virtual public AtomVec {
+  template<class DeviceType,int DEFAULT,class PermuteView>
+  friend struct AtomVecKokkos_GatherSortFunctor;
+
  public:
   AtomVecKokkos(class LAMMPS *);
   ~AtomVecKokkos() override;
@@ -246,8 +252,38 @@ class AtomVecKokkos : virtual public AtomVec {
 
   DAT::tdual_int_1d k_count;
 
-  // scratch buffer for fused device atom sort (see sort_kokkos)
-  DAT::tdual_double_2d_lr k_buf_sort;
+  // typed scratch arrays for the fused device atom sort.  After the gather
+  // kernel writes sorted data here, these are swapped into the AtomKokkos
+  // k_* arrays (no copy-back); the old allocation is reused next sort.
+  // Types must match AtomKokkos::k_* exactly so std::swap is valid.
+  DAT::tdual_tagint_1d k_tag_sort;
+  DAT::tdual_int_1d k_type_sort, k_mask_sort;
+  DAT::tdual_imageint_1d k_image_sort;
+  DAT::ttransform_kkfloat_1d_3_lr k_x_sort;
+  DAT::ttransform_kkfloat_1d_3 k_v_sort;
+  DAT::ttransform_kkfloat_1d k_q_sort, k_radius_sort, k_rmass_sort;
+  DAT::ttransform_kkfloat_1d_4 k_mu_sort;
+  DAT::ttransform_kkfloat_1d_3 k_omega_sort, k_angmom_sort;
+  DAT::tdual_tagint_1d k_molecule_sort;
+  DAT::ttransform_int_2d k_nspecial_sort;
+  DAT::ttransform_tagint_2d k_special_sort;
+  DAT::tdual_int_1d k_num_bond_sort;
+  DAT::ttransform_int_2d k_bond_type_sort;
+  DAT::ttransform_tagint_2d k_bond_atom_sort;
+  DAT::tdual_int_1d k_num_angle_sort;
+  DAT::ttransform_int_2d k_angle_type_sort;
+  DAT::ttransform_tagint_2d k_angle_atom1_sort, k_angle_atom2_sort, k_angle_atom3_sort;
+  DAT::tdual_int_1d k_num_dihedral_sort;
+  DAT::ttransform_int_2d k_dihedral_type_sort;
+  DAT::ttransform_tagint_2d k_dihedral_atom1_sort, k_dihedral_atom2_sort,
+    k_dihedral_atom3_sort, k_dihedral_atom4_sort;
+  DAT::tdual_int_1d k_num_improper_sort;
+  DAT::ttransform_int_2d k_improper_type_sort;
+  DAT::ttransform_tagint_2d k_improper_atom1_sort, k_improper_atom2_sort,
+    k_improper_atom3_sort, k_improper_atom4_sort;
+  DAT::ttransform_kkfloat_1d_4 k_sp_sort;
+  DAT::ttransform_kkfloat_1d k_dpdTheta_sort, k_uCond_sort, k_uMech_sort,
+    k_uChem_sort, k_uCG_sort, k_uCGnew_sort;
 
   uint64_t field2mask(std::string);
   int field2size(std::string);
