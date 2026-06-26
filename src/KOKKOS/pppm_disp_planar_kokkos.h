@@ -54,6 +54,24 @@ struct TagPPPMDispPlanar_peratom_finalize{};
 // compact-switch shell correction (exact pairwise, device)
 struct TagPPPMDispPlanar_corr_shell_raw{};
 
+// --- arithmetic (Lorentz-Berthelot) 7-channel device kernels ---
+struct TagPPPMDispPlanar_make_rho_arith{};
+struct TagPPPMDispPlanar_dens_to_work_arith{};   // one channel m -> d_work
+struct TagPPPMDispPlanar_save_rhohat_arith{};    // d_work -> d_rre/d_rim channel m
+struct TagPPPMDispPlanar_poisson_energy_arith{};
+struct TagPPPMDispPlanar_poisson_virial_arith{};
+struct TagPPPMDispPlanar_poisson_fz_prep_arith{};  // channel m -> d_work2
+struct TagPPPMDispPlanar_poisson_fz_copy_arith{};  // d_work2 -> d_fz_grid channel m
+struct TagPPPMDispPlanar_poisson_u_prep_arith{};
+struct TagPPPMDispPlanar_poisson_u_copy_arith{};
+struct TagPPPMDispPlanar_poisson_uT_prep_arith{};
+struct TagPPPMDispPlanar_poisson_uT_copy_arith{};
+struct TagPPPMDispPlanar_poisson_uN_prep_arith{};
+struct TagPPPMDispPlanar_poisson_uN_copy_arith{};
+struct TagPPPMDispPlanar_fieldforce_arith{};
+struct TagPPPMDispPlanar_fieldforce_peratom_arith{};
+struct TagPPPMDispPlanar_corr_shell_raw_arith{};
+
 // (tangential, normal) virial reduction accumulator for the compact-switch mesh
 struct s_PPPMDispPlanarVir {
   double vt, vn;
@@ -140,6 +158,54 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispPlanar_corr_shell_raw, const int&, s_csb&) const;
 
+  // --- arithmetic 7-channel kernels ---
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_make_rho_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_dens_to_work_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_save_rhohat_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_poisson_energy_arith, const int&, double&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_poisson_virial_arith, const int&, s_vir&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_poisson_fz_prep_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_poisson_fz_copy_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_poisson_u_prep_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_poisson_u_copy_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_poisson_uT_prep_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_poisson_uT_copy_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_poisson_uN_prep_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_poisson_uN_copy_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_fieldforce_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_fieldforce_peratom_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_corr_shell_raw_arith, const int&, s_csb&) const;
+
+  // per-mode folded channel pairing R[mode] for the arithmetic energy/virial
+  KOKKOS_INLINE_FUNCTION
+  double Rmode_kk(const int mode) const {
+    const double r0 = d_rre(0 * nz_kk + mode), i0 = d_rim(0 * nz_kk + mode);
+    const double r1 = d_rre(1 * nz_kk + mode), i1 = d_rim(1 * nz_kk + mode);
+    const double r2 = d_rre(2 * nz_kk + mode), i2 = d_rim(2 * nz_kk + mode);
+    const double r3 = d_rre(3 * nz_kk + mode), i3 = d_rim(3 * nz_kk + mode);
+    const double r4 = d_rre(4 * nz_kk + mode), i4 = d_rim(4 * nz_kk + mode);
+    const double r5 = d_rre(5 * nz_kk + mode), i5 = d_rim(5 * nz_kk + mode);
+    const double r6 = d_rre(6 * nz_kk + mode), i6 = d_rim(6 * nz_kk + mode);
+    return (r0 * r6 + i0 * i6) + (r1 * r5 + i1 * i5) + (r2 * r4 + i2 * i4) +
+        0.5 * (r3 * r3 + i3 * i3);
+  }
+
   // assignment weights w[0..order-1] at fractional offset dz (Horner in dz)
   KOKKOS_INLINE_FUNCTION
   void compute_rho1d_kk(const double dz, double *w) const {
@@ -172,6 +238,7 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   FFT3dKokkos<DeviceType> *fft_forward;
   FFT3dKokkos<DeviceType> *fft_backward;
   int nz_created;            // nz at last FFT/array allocation
+  int nchan_created;         // nchan at last channeled-array allocation
 
   // interleaved complex work buffers (size 2*nz): even = real, odd = imag
   typename FFT_AT::t_FFT_SCALAR_1d d_work, d_work2;
@@ -183,6 +250,8 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   typename AT::t_double_1d d_fz_grid;     // z-force field
   typename AT::t_double_1d d_ugrid;       // per-atom potential field
   typename AT::t_double_1d d_uTgrid, d_uNgrid;   // per-atom T/N virial fields (compact switch)
+  // arithmetic: the 7 FFT'd density channels (channel-major rho_hat_m[mode])
+  typename AT::t_double_1d d_rre, d_rim;
   typename AT::t_double_1d d_wEgrid, d_wFgrid, d_wTgrid, d_wNgrid;   // CSB shell kernel tables
   Kokkos::View<double*, Kokkos::LayoutRight, Kokkos::HostSpace> h_dens;   // Allreduce staging
 
@@ -212,6 +281,8 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   KK_FLOAT delzinv_kk, zlo_kk, shiftone_kk, zprd_kk;
   int nz_kk, order_kk, nlower_kk, nupper_kk;
   int dim_kk, lat1_kk, lat2_kk;   // inhomogeneous and lateral dim indices
+  int nchan_kk;                   // density channels (1 geom, 7 arith)
+  int chan_kk;                    // current channel m for per-channel kernels
 
   // scalar device copies for the shell correction
   int myoff_kk, natoms_all_kk;   // this proc's offset / total atom count in d_zall
