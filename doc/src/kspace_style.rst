@@ -249,6 +249,14 @@ mean-field part of the reciprocal sum over the shell so that the pair
 style supplies the exact three-dimensional shell interaction; for a
 homogeneous fluid this reduces exactly to the standard tail correction.
 
+For systems with more than one atom type, the :math:`C_6` dispersion
+cross coefficient is mixed with either geometric or arithmetic
+(Lorentz-Berthelot) mixing, following the mixing rule of the matched
+pair style by default (so *pair_modify mix arithmetic* selects arithmetic
+mixing for both the short-range pair and the long-range planar sum).  The
+mixing rule may also be forced to geometric with :doc:`kspace_modify
+mix/disp geom <kspace_modify>`.
+
 The *ewald/disp/planar* style requires fully periodic boundaries
 (``boundary p p p``), an orthogonal (non-triclinic) simulation box, and
 a three-dimensional simulation.  It cannot be combined with the EW3DC
@@ -376,7 +384,10 @@ As with the Ewald variant, only the smooth long-range part of the
 the shell :math:`[r_c, r_c+\Delta]`) is solved on the mesh, and it must
 be paired with the matched
 :doc:`pair_style lj/cut/dispplanar <pair_lj_cut_dispplanar>` together with
-its real-space shell correction.
+its real-space shell correction.  It supports geometric and arithmetic
+(Lorentz-Berthelot) :math:`C_6` mixing in the same way as
+*ewald/disp/planar* (following the pair style by default, or forced to
+geometric with :doc:`kspace_modify mix/disp geom <kspace_modify>`).
 
 The *pppm/disp/planar* style requires fully periodic boundaries
 (``boundary p p p``), an orthogonal (non-triclinic) simulation box, and

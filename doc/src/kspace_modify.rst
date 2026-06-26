@@ -149,6 +149,18 @@ the inhomogeneous direction.
 The *dim* keyword selects the inhomogeneous direction (the direction in
 which the mean density varies).  The default is *z*.
 
+The planar dispersion solvers support both geometric and arithmetic
+(Lorentz-Berthelot) mixing of the :math:`C_6` dispersion coefficient.
+By default the solver follows the mixing rule of the matched pair style
+(:doc:`lj/cut/dispplanar <pair_lj_cut_dispplanar>`), so setting
+*pair_modify mix arithmetic* selects arithmetic mixing for both the
+short-range pair and the long-range planar sum.  The *mix/disp* keyword
+overrides this: *geom* forces geometric mixing of the long-range
+dispersion term, *pair* (the default) follows the pair style, and *none*
+is not supported (the eigenvalue-split mixing of *pppm/disp* does not
+apply to the single-axis planar sum).  Arithmetic mixing cannot be forced
+through *mix/disp*; request it with *pair_modify mix arithmetic*.
+
 ----------
 
 .. versionadded:: 10Dec2025

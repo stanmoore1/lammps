@@ -51,10 +51,10 @@ class EwaldDispPlanar : public KSpace {
   //   mix_flag 0 = geometric (C6_ij = sqrt(C6_ii C6_jj), single B-amplitude per type)
   //   mix_flag 1 = arithmetic / Lorentz-Berthelot
   //               (C6_ij = 4 sqrt(eps_i eps_j) ((sigma_i+sigma_j)/2)^6, 7-channel)
-  // read from the pair style (force->pair->mix_flag) unless overridden below.
+  // read from the pair style (force->pair->mix_flag); kspace_modify mix/disp overrides
+  // it via the base-class KSpace::mixflag (0 = follow pair, 1 = force geometric, 2 = none).
   int mix_flag;
   int nchan;             // structure-factor channels per mode: 1 (geom) or 7 (arith)
-  int mix_disp_user;     // kspace_modify mix/disp override: -1 = none, 0 = geom, 1 = arith
   int corr_mode;         // shell correction: 0 = raw pairwise, 1 = binned (faster)
   double bin_dz_user;    // requested bin width (0 => default)
   double sw_width;       // compact-switch width Delta (read from the matched pair style)

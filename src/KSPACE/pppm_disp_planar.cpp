@@ -72,7 +72,6 @@ PPPMDispPlanar::PPPMDispPlanar(LAMMPS *lmp) :
   sw_width = 0.0;
   mix_flag = 0;
   nchan = 1;
-  mix_disp_user = -1;
   corr_mode = 0;
   bin_dz_user = 0.0;
   order_allocated = 0;
@@ -128,19 +127,8 @@ void PPPMDispPlanar::settings(int narg, char **arg)
 int PPPMDispPlanar::modify_param(int narg, char **arg)
 {
   // mesh/disp, order/disp are consumed by the base KSpace parser
-  // (they set nz_pppm_6/gridflag_6, order_6).
-  if (strcmp(arg[0], "mix/disp") == 0) {
-    if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify mix/disp", error);
-    if (strcmp(arg[1], "geom") == 0)
-      mix_disp_user = 0;    // force geometric mixing
-    else if (strcmp(arg[1], "arith") == 0)
-      mix_disp_user = 1;    // force arithmetic / Lorentz-Berthelot mixing
-    else if (strcmp(arg[1], "pair") == 0 || strcmp(arg[1], "none") == 0)
-      mix_disp_user = -1;    // follow the pair style's mixing rule
-    else
-      error->all(FLERR, "kspace_modify mix/disp must be geom, arith, pair, or none");
-    return 2;
-  }
+  // (they set nz_pppm_6/gridflag_6, order_6).  mix/disp is parsed by the base
+  // KSpace::modify_params (sets mixflag); see init_coeffs.
   if (strcmp(arg[0], "corr") == 0) {
     if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify corr", error);
     if (strcmp(arg[1], "raw") == 0) {
@@ -415,7 +403,10 @@ void PPPMDispPlanar::set_grid_params()
        ((sigma_i+sigma_j)/2)^6.  For a single type this reduces to
        4 eps sigma^6 = B_geom^2, so single-type results are bit-identical.
    The mixing rule follows the pair style (extract "ewald_mix") unless the user
-   forced it via kspace_modify mix/disp.
+   forced it via kspace_modify mix/disp, which sets the base-class KSpace::mixflag
+   (0 = follow pair, 1 = force geometric, 2 = none).  Only geometric and arithmetic
+   (Lorentz-Berthelot) are supported; request arithmetic with pair_modify mix
+   arithmetic (matching upstream ewald/disp and pppm/disp).
 ------------------------------------------------------------------------- */
 
 void PPPMDispPlanar::init_coeffs()
@@ -425,18 +416,22 @@ void PPPMDispPlanar::init_coeffs()
 
   int *p_mix = (int *) force->pair->extract("ewald_mix", tmp);
   int pair_mix = p_mix ? *p_mix : Pair::GEOMETRIC;
-  if (mix_disp_user == 0)
+  if (mixflag == 1) {    // kspace_modify mix/disp geom: force geometric
     mix_flag = 0;
-  else if (mix_disp_user == 1)
-    mix_flag = 1;
-  else if (pair_mix == Pair::GEOMETRIC)
-    mix_flag = 0;
-  else if (pair_mix == Pair::ARITHMETIC)
-    mix_flag = 1;
-  else
+  } else if (mixflag == 2) {    // kspace_modify mix/disp none
     error->all(FLERR,
-               "Unsupported pair mixing rule for kspace_style pppm/disp/planar "
-               "(use pair_modify mix geometric|arithmetic, or kspace_modify mix/disp)");
+               "kspace_modify mix/disp none is not supported by pppm/disp/planar; use "
+               "geometric or arithmetic mixing (pair_modify mix geometric|arithmetic)");
+  } else {    // mixflag 0 (default): follow the pair style
+    if (pair_mix == Pair::GEOMETRIC)
+      mix_flag = 0;
+    else if (pair_mix == Pair::ARITHMETIC)
+      mix_flag = 1;
+    else
+      error->all(FLERR,
+                 "Unsupported pair mixing rule for kspace_style pppm/disp/planar "
+                 "(use pair_modify mix geometric|arithmetic)");
+  }
   nchan = mix_flag ? 7 : 1;
 
   delete[] B;
