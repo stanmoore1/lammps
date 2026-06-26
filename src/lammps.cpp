@@ -127,7 +127,7 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator) :
   register_builtin_styles();
 
   num_in_arg = narg;
-  in_args = new char*[num_in_arg];
+  in_args = num_in_arg ? new char*[num_in_arg] : nullptr;
   for (int i = 0; i < num_in_arg; i++) {
     in_args[i] = utils::strdup(arg[i]);
   }
