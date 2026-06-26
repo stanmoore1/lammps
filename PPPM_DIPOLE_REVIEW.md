@@ -226,7 +226,23 @@ the **dipole** real-space error only, while `newton_raphson_f()` (used by
 quadrature. Recovered by `adjust_gewald` + grid search (convergence verified,
 §3E); consider adding the charge term to the initial objective for consistency.
 
-### Finding 4 — `atom->q` dereferenced unconditionally in hot loops (very minor)
+### Finding 4 — `musum_musq()` no-dipole error is an MPI deadlock (latent, **pre-existing**)
+`pppm_dipole.cpp:2679-2680`:
+```cpp
+if (mu2 == 0 && comm->me == 0)
+  error->all(FLERR,"Using kspace solver PPPMDipole on system with no dipoles");
+```
+`Error::all` is collective — it opens with `MPI_Barrier(world)` (`error.cpp`),
+so every rank must call it. `mu2` is an `MPI_Allreduce` result (globally
+identical), but the `&& comm->me == 0` guard lets **only rank 0** enter, so on
+≥2 ranks with no dipoles rank 0 blocks in the barrier forever while the other
+ranks run on → hang. This is **unchanged from the old code** (not introduced by
+this PR), but the new charge support makes the "has `mu` attribute, all dipoles
+zero" path more reachable. Fix: drop the `comm->me == 0` guard (`error->all`
+already prints only on rank 0), or make it `error->warning` if non-fatal is
+intended.
+
+### Finding 5 — `atom->q` dereferenced unconditionally in hot loops (very minor)
 `make_rho_dipole`/`fieldforce_*` read `q[i]` with no guard, relying on the
 dipole atom style always providing `q` (a pre-existing assumption — `init()`
 already calls `qsum_qsq`). Safe for supported atom styles.
@@ -247,6 +263,13 @@ already calls `qsum_qsq`). Safe for supported atom styles.
 - **C4** `slabcorr` duplicates the base-PPPM Yeh–Berkowitz charge logic merged
   with `ewald_dipole` torque logic — a third copy of the same formula
   (compounds the maintenance risk in Finding 1).
+
+### Test coverage gap
+- No regression example/test asserts the per-atom↔global identities
+  (`Σ eatom == elong`, `Σ vatom == virial`) for the charge+dipole case, nor
+  exercises the **slab** path (the example `in.charge_dipole` is 3-D periodic).
+  Given Finding 1, a 2-D slab charge+dipole regression with a checked-in log is
+  worth adding.
 
 ### Checked and cleared (not bugs)
 - `greensfn_qq` is **identical** to base `PPPM::compute_gf_ik`'s optimal kernel
