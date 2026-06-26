@@ -70,6 +70,9 @@ PPPMDispPlanar::PPPMDispPlanar(LAMMPS *lmp) :
   nz = 0;
   order = 6;
   sw_width = 0.0;
+  mix_flag = 0;
+  nchan = 1;
+  mix_disp_user = -1;
   corr_mode = 0;
   bin_dz_user = 0.0;
   order_allocated = 0;
@@ -126,6 +129,18 @@ int PPPMDispPlanar::modify_param(int narg, char **arg)
 {
   // mesh/disp, order/disp are consumed by the base KSpace parser
   // (they set nz_pppm_6/gridflag_6, order_6).
+  if (strcmp(arg[0], "mix/disp") == 0) {
+    if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify mix/disp", error);
+    if (strcmp(arg[1], "geom") == 0)
+      mix_disp_user = 0;    // force geometric mixing
+    else if (strcmp(arg[1], "arith") == 0)
+      mix_disp_user = 1;    // force arithmetic / Lorentz-Berthelot mixing
+    else if (strcmp(arg[1], "pair") == 0 || strcmp(arg[1], "none") == 0)
+      mix_disp_user = -1;    // follow the pair style's mixing rule
+    else
+      error->all(FLERR, "kspace_modify mix/disp must be geom, arith, pair, or none");
+    return 2;
+  }
   if (strcmp(arg[0], "corr") == 0) {
     if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify corr", error);
     if (strcmp(arg[1], "raw") == 0) {
@@ -222,19 +237,11 @@ void PPPMDispPlanar::init()
   else
     accuracy = accuracy_relative * two_charge_force;
 
-  // per-type dispersion amplitude B = 2 sqrt(eps) sigma^3 (geometric mixing).
+  // dispersion mixing rule (nchan) and the per-type B amplitude array.
   // kspace->init() runs before pair->init(), so lj4 may not be populated yet;
-  // epsilon/sigma (set by pair_coeff) give the identical value B = sqrt(lj4).
+  // init_coeffs() builds B from epsilon/sigma (already set by pair_coeff).
 
-  int n = atom->ntypes, dim;
-  auto **eps = (double **) force->pair->extract("epsilon", dim);
-  auto **sig = (double **) force->pair->extract("sigma", dim);
-  if (eps == nullptr || sig == nullptr)
-    error->all(FLERR, "Pair style does not provide epsilon/sigma for pppm/disp/planar");
-  delete[] B;
-  B = new double[n + 1];
-  B[0] = 0.0;
-  for (int t = 1; t <= n; t++) B[t] = 2.0 * sqrt(eps[t][t]) * sig[t][t] * sig[t][t] * sig[t][t];
+  init_coeffs();
 
   // stencil order from kspace_modify order/disp (base member; default 5)
   order = order_6;
@@ -321,12 +328,23 @@ void PPPMDispPlanar::estimate_params()
   // the compact switch has no g_ewald: the switch width Delta, fixed by the pair,
   // sets the reciprocal spectrum.
 
-  // dispersion sum b2 = sum_i B_i^2 (full system)
+  // dispersion sum b2 = sum_i B_i^2 (full system).  B_t = 2 sqrt(eps_tt) sigma_tt^3
+  // = sqrt(C6_tt) is the per-type self amplitude, independent of the mixing rule, so
+  // the grid estimate is the same for the geometric and arithmetic B layouts.
 
   int *type = atom->type;
   int nlocal = atom->nlocal;
+  int ntypes = atom->ntypes;
+  int etmp;
+  auto **eps = (double **) force->pair->extract("epsilon", etmp);
+  auto **sig = (double **) force->pair->extract("sigma", etmp);
+  auto *Bt = new double[ntypes + 1];
+  for (int t = 1; t <= ntypes; t++)
+    Bt[t] = (eps && sig) ? 2.0 * sqrt(eps[t][t]) * sig[t][t] * sig[t][t] * sig[t][t]
+                         : (nchan == 1 ? B[t] : B[7 * t]);
   double b2_local = 0.0;
-  for (int i = 0; i < nlocal; i++) b2_local += B[type[i]] * B[type[i]];
+  for (int i = 0; i < nlocal; i++) b2_local += Bt[type[i]] * Bt[type[i]];
+  delete[] Bt;
   double b2;
   MPI_Allreduce(&b2_local, &b2, 1, MPI_DOUBLE, MPI_SUM, world);
   double natoms = (double) atom->natoms;
@@ -386,11 +404,81 @@ void PPPMDispPlanar::set_grid_params()
   nupper = order / 2;
 }
 
+/* ----------------------------------------------------------------------
+   set the dispersion mixing rule (nchan) and build the per-type B amplitude
+   array.  Identical layout/normalization to ewald/disp/planar:
+     geometric (mix_flag 0): B[t] = 2 sqrt(eps_t) sigma_t^3, one per type (n+1).
+     arithmetic (mix_flag 1): the 7-channel binomial expansion of
+       (0.5(sigma_i+sigma_j))^6, B[7*t+j] = sigma_t^j sqrt(eps_t) c[j],
+       c={1,sqrt6,sqrt15,sqrt20,sqrt15,sqrt6,1}, so the cross amplitude
+       sum_j B[7*i+j] B[7*j_type+(6-j)] reproduces 4 sqrt(eps_i eps_j)
+       ((sigma_i+sigma_j)/2)^6.  For a single type this reduces to
+       4 eps sigma^6 = B_geom^2, so single-type results are bit-identical.
+   The mixing rule follows the pair style (extract "ewald_mix") unless the user
+   forced it via kspace_modify mix/disp.
+------------------------------------------------------------------------- */
+
+void PPPMDispPlanar::init_coeffs()
+{
+  int tmp;
+  int n = atom->ntypes;
+
+  int *p_mix = (int *) force->pair->extract("ewald_mix", tmp);
+  int pair_mix = p_mix ? *p_mix : Pair::GEOMETRIC;
+  if (mix_disp_user == 0)
+    mix_flag = 0;
+  else if (mix_disp_user == 1)
+    mix_flag = 1;
+  else if (pair_mix == Pair::GEOMETRIC)
+    mix_flag = 0;
+  else if (pair_mix == Pair::ARITHMETIC)
+    mix_flag = 1;
+  else
+    error->all(FLERR,
+               "Unsupported pair mixing rule for kspace_style pppm/disp/planar "
+               "(use pair_modify mix geometric|arithmetic, or kspace_modify mix/disp)");
+  nchan = mix_flag ? 7 : 1;
+
+  delete[] B;
+
+  if (mix_flag == 0) {    // geometric: single per-type amplitude B[t]=2 sqrt(eps) sigma^3
+    auto **eps = (double **) force->pair->extract("epsilon", tmp);
+    auto **sig = (double **) force->pair->extract("sigma", tmp);
+    if (eps == nullptr || sig == nullptr)
+      error->all(FLERR, "Pair style does not provide epsilon/sigma for pppm/disp/planar");
+    B = new double[n + 1];
+    B[0] = 0.0;
+    for (int t = 1; t <= n; t++) B[t] = 2.0 * sqrt(eps[t][t]) * sig[t][t] * sig[t][t] * sig[t][t];
+  } else {    // arithmetic (Lorentz-Berthelot): 7-channel binomial expansion
+    auto **epsilon = (double **) force->pair->extract("epsilon", tmp);
+    auto **sigma = (double **) force->pair->extract("sigma", tmp);
+    if (!(epsilon && sigma))
+      error->all(FLERR,
+                 "Pair style does not provide epsilon/sigma for arithmetic mixing in "
+                 "pppm/disp/planar");
+    B = new double[7 * n + 7];
+    const double c[7] = {1.0, sqrt(6.0), sqrt(15.0), sqrt(20.0), sqrt(15.0), sqrt(6.0), 1.0};
+    for (int j = 0; j < 7; ++j) B[j] = 0.0;    // type 0 (unused)
+    for (int i = 1; i <= n; ++i) {
+      const double eps_i = sqrt(epsilon[i][i]);
+      const double sigma_i = sigma[i][i];
+      double sigma_p = 1.0;
+      for (int j = 0; j < 7; ++j) {
+        B[7 * i + j] = sigma_p * eps_i * c[j];
+        sigma_p *= sigma_i;
+      }
+    }
+  }
+}
+
 /* ---------------------------------------------------------------------- */
 
 void PPPMDispPlanar::setup()
 {
   set_grid_params();
+  // reset the mixing rule (nchan) in case the pair style changed; sizes the
+  // per-channel density / field grids below
+  init_coeffs();
   delzinv = nz / zprd;
 
   memory->destroy(dens);
@@ -403,16 +491,19 @@ void PPPMDispPlanar::setup()
   memory->destroy(ugrid);
   memory->destroy(uTgrid);
   memory->destroy(uNgrid);
-  memory->create(dens, nz, "pppm/disp/planar:dens");
+  // dens and the force/potential fields carry nchan channels (1 geom, 7 arith);
+  // the FFT workspace (fre/fim) and the influence functions (Gk/GTk/GNk) are
+  // scalar per-mode (mixing-independent).
+  memory->create(dens, nz * nchan, "pppm/disp/planar:dens");
   memory->create(fre, nz, "pppm/disp/planar:fre");
   memory->create(fim, nz, "pppm/disp/planar:fim");
   memory->create(Gk, nz, "pppm/disp/planar:Gk");
   memory->create(GTk, nz, "pppm/disp/planar:GTk");
   memory->create(GNk, nz, "pppm/disp/planar:GNk");
-  memory->create(fz_grid, nz, "pppm/disp/planar:fz_grid");
-  memory->create(ugrid, nz, "pppm/disp/planar:ugrid");
-  memory->create(uTgrid, nz, "pppm/disp/planar:uTgrid");
-  memory->create(uNgrid, nz, "pppm/disp/planar:uNgrid");
+  memory->create(fz_grid, nz * nchan, "pppm/disp/planar:fz_grid");
+  memory->create(ugrid, nz * nchan, "pppm/disp/planar:ugrid");
+  memory->create(uTgrid, nz * nchan, "pppm/disp/planar:uTgrid");
+  memory->create(uNgrid, nz * nchan, "pppm/disp/planar:uNgrid");
 
   if (rho_coeff == nullptr || order != order_allocated) {
     if (rho_coeff) memory->destroy(rho_coeff);
@@ -727,30 +818,49 @@ void PPPMDispPlanar::compute_drho1d(double dz, double *dw)
 
 void PPPMDispPlanar::make_rho()
 {
-  for (int g = 0; g < nz; g++) dens[g] = 0.0;
+  for (int g = 0; g < nz * nchan; g++) dens[g] = 0.0;    // channel-major: dens[m*nz+g]
 
   double **x = atom->x;
   int *type = atom->type;
   int nlocal = atom->nlocal;
   double w[MAXORDER];
 
-  for (int i = 0; i < nlocal; i++) {
-    double u = (x[i][dim] - zlo) * delzinv;
-    int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;    // nearest grid pt
-    double dz = g0 + shiftone - u;
-    compute_rho1d(dz, w);
-    const double bi = B[type[i]];
-    for (int s = 0; s < order; s++) {
-      int g = g0 + nlower + s;
-      g = ((g % nz) + nz) % nz;
-      dens[g] += bi * w[s];
+  if (nchan == 1) {    // geometric: single B-weighted density grid
+
+    for (int i = 0; i < nlocal; i++) {
+      double u = (x[i][dim] - zlo) * delzinv;
+      int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;    // nearest grid pt
+      double dz = g0 + shiftone - u;
+      compute_rho1d(dz, w);
+      const double bi = B[type[i]];
+      for (int s = 0; s < order; s++) {
+        int g = g0 + nlower + s;
+        g = ((g % nz) + nz) % nz;
+        dens[g] += bi * w[s];
+      }
+    }
+
+  } else {    // arithmetic: spread 7 density channels dens[m*nz+g] (m=0..6)
+
+    for (int i = 0; i < nlocal; i++) {
+      double u = (x[i][dim] - zlo) * delzinv;
+      int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;
+      double dz = g0 + shiftone - u;
+      compute_rho1d(dz, w);
+      const double *bi = &B[7 * type[i]];    // 7 channel amplitudes of atom i
+      for (int s = 0; s < order; s++) {
+        int g = g0 + nlower + s;
+        g = ((g % nz) + nz) % nz;
+        const double ws = w[s];
+        for (int m = 0; m < 7; m++) dens[m * nz + g] += bi[m] * ws;
+      }
     }
   }
 
   double *tmp;
-  memory->create(tmp, nz, "pppm/disp/planar:tmp");
-  MPI_Allreduce(dens, tmp, nz, MPI_DOUBLE, MPI_SUM, world);
-  for (int g = 0; g < nz; g++) dens[g] = tmp[g];
+  memory->create(tmp, nz * nchan, "pppm/disp/planar:tmp");
+  MPI_Allreduce(dens, tmp, nz * nchan, MPI_DOUBLE, MPI_SUM, world);
+  for (int g = 0; g < nz * nchan; g++) dens[g] = tmp[g];
   memory->destroy(tmp);
 }
 
@@ -807,76 +917,196 @@ void PPPMDispPlanar::fft1d(double *re, double *im, int n, int sign)
 
 void PPPMDispPlanar::poisson()
 {
-  for (int g = 0; g < nz; g++) {
-    fre[g] = dens[g];
-    fim[g] = 0.0;
-  }
-  fft1d(fre, fim, nz, -1);    // rho_hat in (fre,fim)
+  if (nchan == 1) {    // geometric: single B-weighted density grid
 
-  // reciprocal energy (full system value) + tangential virial (xx=yy, GT=GU)
+    for (int g = 0; g < nz; g++) {
+      fre[g] = dens[g];
+      fim[g] = 0.0;
+    }
+    fft1d(fre, fim, nz, -1);    // rho_hat in (fre,fim)
+
+    // reciprocal energy (full system value) + tangential virial (xx=yy, GT=GU)
+
+    double e = 0.0;
+    for (int m = 0; m < nz; m++) e += Gk[m] * (fre[m] * fre[m] + fim[m] * fim[m]);
+    e_recip_mesh = e;
+    if (eflag_global) energy += e;
+    if (vflag_global) {
+      // compact switch: explicit tangential (GTk) and normal (GNk) kernels (the
+      // homogeneity trace relation does not hold for the non-power-law S*u)
+      double vt = 0.0, vn = 0.0;
+      for (int m = 0; m < nz; m++) {
+        double uk = fre[m] * fre[m] + fim[m] * fim[m];
+        vt += GTk[m] * uk;
+        vn += GNk[m] * uk;
+      }
+      virial[lat1] += vt;
+      virial[lat2] += vt;
+      virial[dim] += vn;
+    }
+
+    // per-atom potential field u_grid = IFFT[2 Gk rho_hat]
+
+    if (evflag_atom) {
+      double *ur, *ui;
+      memory->create(ur, nz, "pppm/disp/planar:ur");
+      memory->create(ui, nz, "pppm/disp/planar:ui");
+      for (int m = 0; m < nz; m++) {
+        double g2 = 2.0 * Gk[m];
+        ur[m] = g2 * fre[m];
+        ui[m] = g2 * fim[m];
+      }
+      fft1d(ur, ui, nz, +1);
+      for (int g = 0; g < nz; g++) ugrid[g] = ur[g];
+      // compact switch: tangential/normal per-atom virial fields (GTk/GNk kernels)
+      for (int m = 0; m < nz; m++) {
+        double gt2 = 2.0 * GTk[m];
+        ur[m] = gt2 * fre[m];
+        ui[m] = gt2 * fim[m];
+      }
+      fft1d(ur, ui, nz, +1);
+      for (int g = 0; g < nz; g++) uTgrid[g] = ur[g];
+      for (int m = 0; m < nz; m++) {
+        double gn2 = 2.0 * GNk[m];
+        ur[m] = gn2 * fre[m];
+        ui[m] = gn2 * fim[m];
+      }
+      fft1d(ur, ui, nz, +1);
+      for (int g = 0; g < nz; g++) uNgrid[g] = ur[g];
+      memory->destroy(ur);
+      memory->destroy(ui);
+    }
+
+    // z-force field: F_hat_m = -i k_m * 2 Gk[m] * rho_hat_m
+
+    for (int m = 0; m < nz; m++) {
+      int mm = (m <= nz / 2) ? m : m - nz;
+      double k = mm * 2.0 * MY_PI / zprd;
+      double g2k = 2.0 * Gk[m] * k;
+      double a = fre[m], bb = fim[m];
+      fre[m] = g2k * bb;    // Re(-i k 2Gk (a+ib)) = 2Gk k b
+      fim[m] = -g2k * a;    // Im = -2Gk k a
+    }
+    fft1d(fre, fim, nz, +1);
+    for (int g = 0; g < nz; g++) fz_grid[g] = fre[g];
+    return;
+  }
+
+  // ----- arithmetic (Lorentz-Berthelot): 7 density channels -----
+  //
+  // FFT each channel's density to rho_hat_m, then form the per-mode channel
+  // pairing (the mesh analog of ewald/disp/planar's R_k):
+  //   R[mode] = Re(rho0 conj(rho6)) + Re(rho1 conj(rho5)) + Re(rho2 conj(rho4))
+  //             + 0.5 |rho3|^2          (folded m<->6-m pairing, each pair once)
+  // The energy E = AS_E sum_mode Gk[mode] R[mode] with AS_E = 1/8 (the channels
+  // expand (sigma_i+sigma_j)^6 = 16 C6_ij; the m<->6-m folding halves it again).
+  // For a single type R/8 == |rho_hat|^2 exactly, so the geometric path is
+  // recovered bit-for-bit.  The influence functions Gk/GTk/GNk are unchanged.
+
+  const double as_e = 0.125;    // 1/8  energy / virial normalization
+
+  // store the 7 FFT'd density channels (channel-major rho_hat_m[mode])
+  auto *rre = new double[7 * nz];
+  auto *rim = new double[7 * nz];
+  for (int m = 0; m < 7; m++) {
+    for (int g = 0; g < nz; g++) {
+      rre[m * nz + g] = dens[m * nz + g];
+      rim[m * nz + g] = 0.0;
+    }
+    fft1d(&rre[m * nz], &rim[m * nz], nz, -1);
+  }
+
+  // per-mode folded channel pairing R[mode]
+  auto Rmode = [&](int mode) -> double {
+    const double *r0 = &rre[0 * nz], *i0 = &rim[0 * nz];
+    const double *r1 = &rre[1 * nz], *i1 = &rim[1 * nz];
+    const double *r2 = &rre[2 * nz], *i2 = &rim[2 * nz];
+    const double *r3 = &rre[3 * nz], *i3 = &rim[3 * nz];
+    const double *r4 = &rre[4 * nz], *i4 = &rim[4 * nz];
+    const double *r5 = &rre[5 * nz], *i5 = &rim[5 * nz];
+    const double *r6 = &rre[6 * nz], *i6 = &rim[6 * nz];
+    return (r0[mode] * r6[mode] + i0[mode] * i6[mode]) +
+        (r1[mode] * r5[mode] + i1[mode] * i5[mode]) +
+        (r2[mode] * r4[mode] + i2[mode] * i4[mode]) +
+        0.5 * (r3[mode] * r3[mode] + i3[mode] * i3[mode]);
+  };
 
   double e = 0.0;
-  for (int m = 0; m < nz; m++) e += Gk[m] * (fre[m] * fre[m] + fim[m] * fim[m]);
+  for (int mode = 0; mode < nz; mode++) e += Gk[mode] * Rmode(mode);
+  e *= as_e;
   e_recip_mesh = e;
   if (eflag_global) energy += e;
   if (vflag_global) {
-    // compact switch: explicit tangential (GTk) and normal (GNk) kernels (the
-    // homogeneity trace relation does not hold for the non-power-law S*u)
     double vt = 0.0, vn = 0.0;
-    for (int m = 0; m < nz; m++) {
-      double uk = fre[m] * fre[m] + fim[m] * fim[m];
-      vt += GTk[m] * uk;
-      vn += GNk[m] * uk;
+    for (int mode = 0; mode < nz; mode++) {
+      double R = Rmode(mode);
+      vt += GTk[mode] * R;
+      vn += GNk[mode] * R;
     }
-    virial[lat1] += vt;
-    virial[lat2] += vt;
-    virial[dim] += vn;
+    virial[lat1] += as_e * vt;
+    virial[lat2] += as_e * vt;
+    virial[dim] += as_e * vn;
   }
 
-  // per-atom potential field u_grid = IFFT[2 Gk rho_hat]
+  // per-atom potential / virial fields, one per channel:
+  //   ugrid[m*nz+.] = IFFT[2 Gk rho_hat_m]  (and GTk/GNk variants).
+  // fieldforce() pairs atom channel (6-m) with field channel m and applies the
+  // per-atom 0.25*as_e normalization (see fieldforce()).
 
   if (evflag_atom) {
     double *ur, *ui;
     memory->create(ur, nz, "pppm/disp/planar:ur");
     memory->create(ui, nz, "pppm/disp/planar:ui");
-    for (int m = 0; m < nz; m++) {
-      double g2 = 2.0 * Gk[m];
-      ur[m] = g2 * fre[m];
-      ui[m] = g2 * fim[m];
+    for (int m = 0; m < 7; m++) {
+      for (int mode = 0; mode < nz; mode++) {
+        double g2 = 2.0 * Gk[mode];
+        ur[mode] = g2 * rre[m * nz + mode];
+        ui[mode] = g2 * rim[m * nz + mode];
+      }
+      fft1d(ur, ui, nz, +1);
+      for (int g = 0; g < nz; g++) ugrid[m * nz + g] = ur[g];
+      for (int mode = 0; mode < nz; mode++) {
+        double gt2 = 2.0 * GTk[mode];
+        ur[mode] = gt2 * rre[m * nz + mode];
+        ui[mode] = gt2 * rim[m * nz + mode];
+      }
+      fft1d(ur, ui, nz, +1);
+      for (int g = 0; g < nz; g++) uTgrid[m * nz + g] = ur[g];
+      for (int mode = 0; mode < nz; mode++) {
+        double gn2 = 2.0 * GNk[mode];
+        ur[mode] = gn2 * rre[m * nz + mode];
+        ui[mode] = gn2 * rim[m * nz + mode];
+      }
+      fft1d(ur, ui, nz, +1);
+      for (int g = 0; g < nz; g++) uNgrid[m * nz + g] = ur[g];
     }
-    fft1d(ur, ui, nz, +1);
-    for (int g = 0; g < nz; g++) ugrid[g] = ur[g];
-    // compact switch: tangential/normal per-atom virial fields (GTk/GNk kernels)
-    for (int m = 0; m < nz; m++) {
-      double gt2 = 2.0 * GTk[m];
-      ur[m] = gt2 * fre[m];
-      ui[m] = gt2 * fim[m];
-    }
-    fft1d(ur, ui, nz, +1);
-    for (int g = 0; g < nz; g++) uTgrid[g] = ur[g];
-    for (int m = 0; m < nz; m++) {
-      double gn2 = 2.0 * GNk[m];
-      ur[m] = gn2 * fre[m];
-      ui[m] = gn2 * fim[m];
-    }
-    fft1d(ur, ui, nz, +1);
-    for (int g = 0; g < nz; g++) uNgrid[g] = ur[g];
     memory->destroy(ur);
     memory->destroy(ui);
   }
 
-  // z-force field: F_hat_m = -i k_m * 2 Gk[m] * rho_hat_m
+  // per-channel z-force field: Ffield_m = IFFT[-i k 2 Gk rho_hat_m].
+  // fieldforce() applies f = AS_F sum_m bi[6-m] Ffield_m(z_i), AS_F = 1/16.
 
-  for (int m = 0; m < nz; m++) {
-    int mm = (m <= nz / 2) ? m : m - nz;
-    double k = mm * 2.0 * MY_PI / zprd;
-    double g2k = 2.0 * Gk[m] * k;
-    double a = fre[m], bb = fim[m];
-    fre[m] = g2k * bb;    // Re(-i k 2Gk (a+ib)) = 2Gk k b
-    fim[m] = -g2k * a;    // Im = -2Gk k a
+  double *fr, *fi;
+  memory->create(fr, nz, "pppm/disp/planar:fr");
+  memory->create(fi, nz, "pppm/disp/planar:fi");
+  for (int m = 0; m < 7; m++) {
+    for (int mode = 0; mode < nz; mode++) {
+      int mm = (mode <= nz / 2) ? mode : mode - nz;
+      double k = mm * 2.0 * MY_PI / zprd;
+      double g2k = 2.0 * Gk[mode] * k;
+      double a = rre[m * nz + mode], bb = rim[m * nz + mode];
+      fr[mode] = g2k * bb;     // Re(-i k 2Gk (a+ib)) = 2Gk k b
+      fi[mode] = -g2k * a;     // Im = -2Gk k a
+    }
+    fft1d(fr, fi, nz, +1);
+    for (int g = 0; g < nz; g++) fz_grid[m * nz + g] = fr[g];
   }
-  fft1d(fre, fim, nz, +1);
-  for (int g = 0; g < nz; g++) fz_grid[g] = fre[g];
+  memory->destroy(fr);
+  memory->destroy(fi);
+
+  delete[] rre;
+  delete[] rim;
 }
 
 /* ----------------------------------------------------------------------
@@ -891,34 +1121,85 @@ void PPPMDispPlanar::fieldforce()
   int nlocal = atom->nlocal;
   double w[MAXORDER];
 
+  if (nchan == 1) {    // geometric: single B-weighted field
+
+    for (int i = 0; i < nlocal; i++) {
+      double u = (x[i][dim] - zlo) * delzinv;
+      int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;
+      double dz = g0 + shiftone - u;
+      compute_rho1d(dz, w);
+      const double bi = B[type[i]];
+
+      double fz = 0.0, uu = 0.0, uT = 0.0, uN = 0.0;
+      for (int s = 0; s < order; s++) {
+        int g = g0 + nlower + s;
+        g = ((g % nz) + nz) % nz;
+        fz += w[s] * fz_grid[g];
+        if (evflag_atom) {
+          uu += w[s] * ugrid[g];
+          uT += w[s] * uTgrid[g];
+          uN += w[s] * uNgrid[g];
+        }
+      }
+      f[i][dim] += bi * fz;
+
+      if (evflag_atom) {
+        double pe = 0.5 * bi * uu;    // per-atom reciprocal energy
+        peatom[i] += pe;
+        if (vflag_atom) {
+          // explicit tangential (GTk) and normal (GNk) per-atom virial fields
+          vatom[i][lat1] += 0.5 * bi * uT;
+          vatom[i][lat2] += 0.5 * bi * uT;
+          vatom[i][dim] += 0.5 * bi * uN;
+        }
+      }
+    }
+    return;
+  }
+
+  // ----- arithmetic: pair atom channel (6-m) with field channel m -----
+  //
+  // z-force:  f = AS_F sum_m bi[6-m] Ffield_m(z_i),  AS_F = 1/16 = AS_E/2 (the
+  //   force differentiates both indices of the bilinear, restoring the factor 2).
+  //   For a single type sum_m bi[6-m] Ffield_m == 64 * (geometric field)/B, so
+  //   AS_F=1/16 reproduces the geometric B-weighted force exactly.
+  // per-atom energy/virial use the ordered channel sum with the field built from
+  //   2 Gk rho_hat (same FFTs as the force); the per-atom normalization is then
+  //   0.25*AS_E (the 2 Gk field factor vs ewald's 0.5*AS_E on the raw products).
+
+  const double as_f = 1.0 / 16.0;          // z-force normalization
+  const double as_pe = 0.25 * 0.125;       // 0.25*AS_E per-atom (= 1/32)
+
   for (int i = 0; i < nlocal; i++) {
     double u = (x[i][dim] - zlo) * delzinv;
     int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;
     double dz = g0 + shiftone - u;
     compute_rho1d(dz, w);
-    const double bi = B[type[i]];
+    const double *bi = &B[7 * type[i]];
 
     double fz = 0.0, uu = 0.0, uT = 0.0, uN = 0.0;
     for (int s = 0; s < order; s++) {
       int g = g0 + nlower + s;
       g = ((g % nz) + nz) % nz;
-      fz += w[s] * fz_grid[g];
-      if (evflag_atom) {
-        uu += w[s] * ugrid[g];
-        uT += w[s] * uTgrid[g];
-        uN += w[s] * uNgrid[g];
+      const double ws = w[s];
+      for (int m = 0; m < 7; m++) {
+        const double a = bi[6 - m];    // atom channel (6-m) pairs with field channel m
+        fz += a * ws * fz_grid[m * nz + g];
+        if (evflag_atom) {
+          uu += a * ws * ugrid[m * nz + g];
+          uT += a * ws * uTgrid[m * nz + g];
+          uN += a * ws * uNgrid[m * nz + g];
+        }
       }
     }
-    f[i][dim] += bi * fz;
+    f[i][dim] += as_f * fz;
 
     if (evflag_atom) {
-      double pe = 0.5 * bi * uu;    // per-atom reciprocal energy
-      peatom[i] += pe;
+      peatom[i] += as_pe * uu;
       if (vflag_atom) {
-        // explicit tangential (GTk) and normal (GNk) per-atom virial fields
-        vatom[i][lat1] += 0.5 * bi * uT;
-        vatom[i][lat2] += 0.5 * bi * uT;
-        vatom[i][dim] += 0.5 * bi * uN;
+        vatom[i][lat1] += as_pe * uT;
+        vatom[i][lat2] += as_pe * uT;
+        vatom[i][dim] += as_pe * uN;
       }
     }
   }
@@ -1092,21 +1373,39 @@ void PPPMDispPlanar::corr_shell_raw()
     natoms_all += recvcounts[p];
   }
 
+  // gather z and the nchan dispersion channels of every atom.  For the arithmetic
+  // path each atom carries its 7 binomial channels B[7t+0..6]; the per-pair C6 cross
+  // amplitude is then (1/16) sum_m a_i[m] a_j[6-m] (the full ordered binomial sum
+  // (sigma_i+sigma_j)^6 = 16 C6_ij), matching the geometric bij = B_i B_j = C6_ij.
   auto *zloc = new double[nlocal > 0 ? nlocal : 1];
-  auto *bloc = new double[nlocal > 0 ? nlocal : 1];
+  auto *bloc = new double[(nlocal > 0 ? nlocal : 1) * nchan];
   for (int i = 0; i < nlocal; i++) {
     zloc[i] = x[i][dim];
-    bloc[i] = B[type[i]];
+    if (nchan == 1)
+      bloc[i] = B[type[i]];
+    else
+      for (int m = 0; m < 7; m++) bloc[i * 7 + m] = B[7 * type[i] + m];
   }
   auto *zall = new double[natoms_all > 0 ? natoms_all : 1];
-  auto *ball = new double[natoms_all > 0 ? natoms_all : 1];
+  auto *ball = new double[(natoms_all > 0 ? natoms_all : 1) * nchan];
   MPI_Allgatherv(zloc, nlocal, MPI_DOUBLE, zall, recvcounts, displs, MPI_DOUBLE, world);
-  MPI_Allgatherv(bloc, nlocal, MPI_DOUBLE, ball, recvcounts, displs, MPI_DOUBLE, world);
+  int *rc_b = new int[nprocs];
+  int *dp_b = new int[nprocs];
+  for (int p = 0; p < nprocs; p++) {
+    rc_b[p] = recvcounts[p] * nchan;
+    dp_b[p] = displs[p] * nchan;
+  }
+  MPI_Allgatherv(bloc, nlocal * nchan, MPI_DOUBLE, ball, rc_b, dp_b, MPI_DOUBLE, world);
+  delete[] rc_b;
+  delete[] dp_b;
+
+  const double as_shell = 1.0 / 16.0;    // arithmetic C6 cross normalization
 
   double e_local = 0.0, vt_local = 0.0, vn_local = 0.0;
   for (int i = 0; i < nlocal; i++) {
     const double zi = x[i][dim];
-    const double bi = B[type[i]];
+    const double bi = (nchan == 1) ? B[type[i]] : 0.0;
+    const double *ai = (nchan == 1) ? nullptr : &B[7 * type[i]];
     double e_i = 0.0, fz_i = 0.0, vt_i = 0.0, vn_i = 0.0;
     for (int jg = 0; jg < natoms_all; jg++) {
       double delz = zi - zall[jg];
@@ -1115,7 +1414,15 @@ void PPPMDispPlanar::corr_shell_raw()
       if (adz >= bcut) continue;
       double wE, wF, wT, wN;
       shell_vkernel(adz, wE, wF, wT, wN);
-      const double bij = bi * ball[jg];
+      double bij;
+      if (nchan == 1) {
+        bij = bi * ball[jg];
+      } else {
+        const double *aj = &ball[jg * 7];
+        double cross = 0.0;
+        for (int m = 0; m < 7; m++) cross += ai[m] * aj[6 - m];
+        bij = as_shell * cross;
+      }
       e_i += bij * wE;
       fz_i += 2.0 * delz * bij * wF;    // remove the plane z-force (factor 2: see above)
       vt_i += bij * wT;
@@ -1179,9 +1486,13 @@ void PPPMDispPlanar::corr_shell_bin()
   int nwin = (int) (bcut / dz) + 1;
   if (nwin > nbins / 2) nwin = nbins / 2;
 
-  auto *dens = new double[nbins];
-  auto *dens_all = new double[nbins];
-  for (int b = 0; b < nbins; b++) dens[b] = 0.0;
+  // nchan density channels (1 geometric, 7 arithmetic), flattened as dens[b*nchan+m].
+  // For arithmetic the binned energy mimics (1/16) sum_ij sum_m a_i[m] a_j[6-m] wE,
+  // so channel m of the density pairs with the field of channel (6-m).
+  const double as_shell = (nchan == 1) ? 1.0 : 1.0 / 16.0;
+  auto *dens = new double[nbins * nchan];
+  auto *dens_all = new double[nbins * nchan];
+  for (int b = 0; b < nbins * nchan; b++) dens[b] = 0.0;
 
   auto *ab0 = new int[nlocal > 0 ? nlocal : 1];
   auto *afrac = new double[nlocal > 0 ? nlocal : 1];
@@ -1195,11 +1506,19 @@ void PPPMDispPlanar::corr_shell_bin()
     afrac[i] = frac;
     int b1 = b0 + 1;
     if (b1 >= nbins) b1 -= nbins;
-    const double bi = B[type[i]];
-    dens[b0] += bi * (1.0 - frac);
-    dens[b1] += bi * frac;
+    if (nchan == 1) {
+      const double bi = B[type[i]];
+      dens[b0] += bi * (1.0 - frac);
+      dens[b1] += bi * frac;
+    } else {
+      const double *bi = &B[7 * type[i]];
+      for (int m = 0; m < 7; m++) {
+        dens[b0 * 7 + m] += bi[m] * (1.0 - frac);
+        dens[b1 * 7 + m] += bi[m] * frac;
+      }
+    }
   }
-  MPI_Allreduce(dens, dens_all, nbins, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(dens, dens_all, nbins * nchan, MPI_DOUBLE, MPI_SUM, world);
 
   // energy and virial kernels on the bin offsets (force = gradient of binned energy)
   auto *KE = new double[nwin + 1];
@@ -1213,60 +1532,95 @@ void PPPMDispPlanar::corr_shell_bin()
     KN[d] = wN;
   }
 
-  auto *phiE = new double[nbins];
-  auto *phiT = new double[nbins];
-  auto *phiN = new double[nbins];
-  for (int b = 0; b < nbins; b++) {
-    double sE = KE[0] * dens_all[b];
-    double sT = KT[0] * dens_all[b];
-    double sN = KN[0] * dens_all[b];
-    for (int d = 1; d <= nwin; d++) {
-      int bp = b + d;
-      if (bp >= nbins) bp -= nbins;
-      int bm = b - d;
-      if (bm < 0) bm += nbins;
-      double s = dens_all[bp] + dens_all[bm];
-      sE += KE[d] * s;
-      sT += KT[d] * s;
-      sN += KN[d] * s;
+  // per-channel convolved fields phiE_m[b] = sum_d KE[d](dens_m[b+d]+dens_m[b-d])
+  auto *phiE = new double[nbins * nchan];
+  auto *phiT = new double[nbins * nchan];
+  auto *phiN = new double[nbins * nchan];
+  for (int m = 0; m < nchan; m++) {
+    for (int b = 0; b < nbins; b++) {
+      double sE = KE[0] * dens_all[b * nchan + m];
+      double sT = KT[0] * dens_all[b * nchan + m];
+      double sN = KN[0] * dens_all[b * nchan + m];
+      for (int d = 1; d <= nwin; d++) {
+        int bp = b + d;
+        if (bp >= nbins) bp -= nbins;
+        int bm = b - d;
+        if (bm < 0) bm += nbins;
+        double s = dens_all[bp * nchan + m] + dens_all[bm * nchan + m];
+        sE += KE[d] * s;
+        sT += KT[d] * s;
+        sN += KN[d] * s;
+      }
+      phiE[b * nchan + m] = sE;
+      phiT[b * nchan + m] = sT;
+      phiN[b * nchan + m] = sN;
     }
-    phiE[b] = sE;
-    phiT[b] = sT;
-    phiN[b] = sN;
   }
 
+  // global energy = as_shell sum_b sum_m dens_m phiE_{6-m} (channel cross pairing;
+  // full ordered convention, no 1/2).  For nchan==1 this is sum_b dens phiE.
   if (eflag_global || vflag_global) {
     double e = 0.0;
-    for (int b = 0; b < nbins; b++) e += dens_all[b] * phiE[b];
+    for (int b = 0; b < nbins; b++)
+      for (int m = 0; m < nchan; m++)
+        e += dens_all[b * nchan + m] * phiE[b * nchan + (nchan - 1 - m)];
+    e *= as_shell;
     corr_energy -= e;
     if (eflag_global) energy -= e;
   }
   if (vflag_global) {
     double vt = 0.0, vn = 0.0;
-    for (int b = 0; b < nbins; b++) {
-      vt += dens_all[b] * phiT[b];
-      vn += dens_all[b] * phiN[b];
-    }
+    for (int b = 0; b < nbins; b++)
+      for (int m = 0; m < nchan; m++) {
+        vt += dens_all[b * nchan + m] * phiT[b * nchan + (nchan - 1 - m)];
+        vn += dens_all[b * nchan + m] * phiN[b * nchan + (nchan - 1 - m)];
+      }
+    vt *= as_shell;
+    vn *= as_shell;
     virial[lat1] -= vt;
     virial[lat2] -= vt;
     virial[dim] -= vn;
   }
 
+  // forces (CIC gradient of the binned energy; factor 2 from the ordered double
+  // sum) and per-atom energy/virial.  Atom i channel m pairs with field channel 6-m.
   for (int i = 0; i < nlocal; i++) {
     int b0 = ab0[i];
     double frac = afrac[i];
     int b1 = b0 + 1;
     if (b1 >= nbins) b1 -= nbins;
-    const double bi = B[type[i]];
-    // f += -d/dz_i[-E] = +B_i d/dz_i E,  E = sum dens phiE,  dE/d dens = 2 phiE
-    f[i][dim] += bi * 2.0 * (phiE[b1] - phiE[b0]) / dz;
-    if (evflag_atom) peatom[i] -= bi * (phiE[b0] * (1.0 - frac) + phiE[b1] * frac);
-    if (vflag_atom) {
-      const double pT = phiT[b0] * (1.0 - frac) + phiT[b1] * frac;
-      const double pN = phiN[b0] * (1.0 - frac) + phiN[b1] * frac;
-      vatom[i][lat1] -= bi * pT;
-      vatom[i][lat2] -= bi * pT;
-      vatom[i][dim] -= bi * pN;
+    if (nchan == 1) {
+      const double bi = B[type[i]];
+      // f += -d/dz_i[-E] = +B_i d/dz_i E,  E = sum dens phiE,  dE/d dens = 2 phiE
+      f[i][dim] += bi * 2.0 * (phiE[b1] - phiE[b0]) / dz;
+      if (evflag_atom) peatom[i] -= bi * (phiE[b0] * (1.0 - frac) + phiE[b1] * frac);
+      if (vflag_atom) {
+        const double pT = phiT[b0] * (1.0 - frac) + phiT[b1] * frac;
+        const double pN = phiN[b0] * (1.0 - frac) + phiN[b1] * frac;
+        vatom[i][lat1] -= bi * pT;
+        vatom[i][lat2] -= bi * pT;
+        vatom[i][dim] -= bi * pN;
+      }
+    } else {
+      const double *bi = &B[7 * type[i]];
+      double fz = 0.0, pe = 0.0, pT = 0.0, pN = 0.0;
+      for (int m = 0; m < 7; m++) {
+        const int n = 6 - m;    // atom channel m pairs with field channel 6-m
+        fz += bi[m] * (phiE[b1 * 7 + n] - phiE[b0 * 7 + n]);
+        if (evflag_atom)
+          pe += bi[m] * (phiE[b0 * 7 + n] * (1.0 - frac) + phiE[b1 * 7 + n] * frac);
+        if (vflag_atom) {
+          pT += bi[m] * (phiT[b0 * 7 + n] * (1.0 - frac) + phiT[b1 * 7 + n] * frac);
+          pN += bi[m] * (phiN[b0 * 7 + n] * (1.0 - frac) + phiN[b1 * 7 + n] * frac);
+        }
+      }
+      f[i][dim] += as_shell * 2.0 * fz / dz;
+      if (evflag_atom) peatom[i] -= as_shell * pe;
+      if (vflag_atom) {
+        vatom[i][lat1] -= as_shell * pT;
+        vatom[i][lat2] -= as_shell * pT;
+        vatom[i][dim] -= as_shell * pN;
+      }
     }
   }
 
@@ -1329,7 +1683,22 @@ void PPPMDispPlanar::compute_pressure_profile()
   memory->create(pt_profile, npro, "pppm/disp/planar:pt_profile");
   memory->create(pn_profile, npro, "pppm/disp/planar:pn_profile");
 
-  // structure factors sfac[n] = sum_j B_j exp(i n unitk z_j), n=0..K
+  // structure factors sfac[n] = sum_j B_j exp(i n unitk z_j), n=0..K.
+  // The pressure profile uses a single scalar dispersion weight per atom; under
+  // arithmetic mixing (7-channel B) this is approximated by the per-type self
+  // amplitude Bt = 2 sqrt(eps_t) sigma_t^3 = sqrt(C6_tt) (same single-channel
+  // approximation as ewald/disp/planar's profile; the profile is an optional
+  // diagnostic, off by default, and is exact only for geometric mixing).
+  int ntypes = atom->ntypes;
+  auto *Bt = new double[ntypes + 1];
+  if (nchan == 1) {
+    for (int t = 0; t <= ntypes; t++) Bt[t] = B[t];
+  } else {
+    // B[7t+3] = sigma^3 sqrt(eps) sqrt(20)  ->  Bt = 2 sqrt(eps) sigma^3 = 2 B[7t+3]/sqrt(20)
+    Bt[0] = 0.0;
+    for (int t = 1; t <= ntypes; t++) Bt[t] = 2.0 * B[7 * t + 3] / sqrt(20.0);
+  }
+
   auto *srl = new double[K + 1];
   auto *sim = new double[K + 1];
   auto *srl_all = new double[K + 1];
@@ -1340,7 +1709,7 @@ void PPPMDispPlanar::compute_pressure_profile()
   int *type = atom->type;
   int nlocal = atom->nlocal;
   for (int i = 0; i < nlocal; i++) {
-    const double bi = B[type[i]];
+    const double bi = Bt[type[i]];
     double c1 = cos(unitk * x[i][dim]), s1 = sin(unitk * x[i][dim]);
     double cn = 1.0, sn = 0.0;    // cos/sin(n*unitk*z), recurrence
     srl[0] += bi;
@@ -1375,7 +1744,7 @@ void PPPMDispPlanar::compute_pressure_profile()
       u -= npro * floor(u / npro);
       int g = (int) u;
       if (g >= npro) g -= npro;
-      bdens[g] += B[type[i]];
+      bdens[g] += Bt[type[i]];
     }
     auto *bdens_all = new double[npro];
     MPI_Allreduce(bdens, bdens_all, npro, MPI_DOUBLE, MPI_SUM, world);
@@ -1462,6 +1831,7 @@ void PPPMDispPlanar::compute_pressure_profile()
     delete[] ANim;
   }
 
+  delete[] Bt;
   delete[] srl;
   delete[] sim;
   delete[] srl_all;
@@ -1550,8 +1920,9 @@ void PPPMDispPlanar::sici_chain(double x, double *Aarr, double *Barr)
 
 double PPPMDispPlanar::memory_usage()
 {
-  double bytes = 8.0 * nz * sizeof(double);    // dens,fre,fim,Gk,GTk,GNk,fz_grid,ugrid
-  bytes += 2.0 * nz * sizeof(double);    // uTgrid, uNgrid
+  // fre,fim,Gk,GTk,GNk are scalar per-mode; dens,fz_grid,ugrid,uTgrid,uNgrid are nchan-strided
+  double bytes = 5.0 * nz * sizeof(double);          // fre,fim,Gk,GTk,GNk
+  bytes += 5.0 * nz * nchan * sizeof(double);        // dens,fz_grid,ugrid,uTgrid,uNgrid
   bytes += (double) nmax * sizeof(double);
   bytes += (double) order * order * sizeof(double);
   if (profile_flag) bytes += 2.0 * (double) npro * sizeof(double);

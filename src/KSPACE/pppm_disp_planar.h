@@ -58,15 +58,31 @@ class PPPMDispPlanar : public KSpace {
   int corr_mode;         // shell correction: 0 = raw pairwise, 1 = binned
   double bin_dz_user;    // user-requested bin width for corr bin (0 => auto)
   double sw_width;       // compact-switch width Delta (read from the matched pair style)
+  // dispersion mixing rule for the C6 cross term:
+  //   mix_flag 0 = geometric (C6_ij = sqrt(C6_ii C6_jj), single B-amplitude per type)
+  //   mix_flag 1 = arithmetic / Lorentz-Berthelot
+  //               (C6_ij = 4 sqrt(eps_i eps_j) ((sigma_i+sigma_j)/2)^6, 7-channel)
+  // read from the pair style (force->pair->mix_flag) unless overridden by
+  // kspace_modify mix/disp.  Same layout/normalization as ewald/disp/planar.
+  int mix_flag;
+  int nchan;             // density channels: 1 (geom) or 7 (arith)
+  int mix_disp_user;     // kspace_modify mix/disp override: -1 = none, 0 = geom, 1 = arith
 
   double volume, cutoff, rc2, area, zprd, zlo;
   double delzinv;        // nz/zprd
   double shiftone;       // grid-assignment shift (order parity)
   int nlower, nupper;    // stencil bounds [nlower..nupper]
-  double *B;             // per-type dispersion amplitude B[t] = 2 sqrt(eps) sigma^3
+  // dispersion amplitudes.  geometric (mix_flag 0): B[t] = 2 sqrt(eps_t) sigma_t^3,
+  // one per type (size n+1).  arithmetic (mix_flag 1): the 7-channel binomial
+  // expansion B[7*t+j] = sigma_t^j sqrt(eps_t) c[j], c={1,sqrt6,sqrt15,sqrt20,
+  // sqrt15,sqrt6,1} (size 7*n+7), so sum_j B[7*i+j] B[7*j_type+(6-j)] reproduces
+  // 4 sqrt(eps_i eps_j) ((sigma_i+sigma_j)/2)^6.  See init_coeffs().
+  double *B;
 
-  // z-grid fields (global, length nz)
-  double *dens;         // spread B-weighted density (real)
+  void init_coeffs();    // set mix_flag/nchan, build the B amplitude array
+
+  // z-grid fields (global, length nz; arithmetic uses nchan-strided channels)
+  double *dens;         // spread B-weighted density (real); nz*nchan for arith
   double *fre, *fim;    // FFT workspace (real/imag)
   double *Gk;           // de-convolved energy influence function (per grid mode)
   double *GTk, *GNk;    // de-convolved tangential/normal virial influence (compact switch)
