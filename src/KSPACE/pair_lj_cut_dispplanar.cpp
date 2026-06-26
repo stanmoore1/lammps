@@ -127,5 +127,10 @@ void *PairLJCutDispPlanar::extract(const char *str, int &dim)
     dim = 2;
     return (void *) lj4;    // 4*eps*sigma^6 (dispersion C6); B[i] = sqrt(|lj4[i][i]|)
   }
+  if (strcmp(str, "ewald_mix") == 0) {
+    dim = 0;
+    // dispersion C6 mixing rule for ewald/disp/planar: Pair::GEOMETRIC or ARITHMETIC
+    return (void *) &mix_flag;
+  }
   return PairLJCut::extract(str, dim);    // epsilon, sigma
 }

@@ -47,6 +47,14 @@ class EwaldDispPlanar : public KSpace {
   int kmax, kcount;    // # of 1-D wavevectors (modes k=0..kmax-1), kcount=kmax
   int kmax_created;
   int kmax_user;         // user override via kspace_modify kmax (0 if unset)
+  // dispersion mixing rule for the C6 cross term:
+  //   mix_flag 0 = geometric (C6_ij = sqrt(C6_ii C6_jj), single B-amplitude per type)
+  //   mix_flag 1 = arithmetic / Lorentz-Berthelot
+  //               (C6_ij = 4 sqrt(eps_i eps_j) ((sigma_i+sigma_j)/2)^6, 7-channel)
+  // read from the pair style (force->pair->mix_flag) unless overridden below.
+  int mix_flag;
+  int nchan;             // structure-factor channels per mode: 1 (geom) or 7 (arith)
+  int mix_disp_user;     // kspace_modify mix/disp override: -1 = none, 0 = geom, 1 = arith
   int corr_mode;         // shell correction: 0 = raw pairwise, 1 = binned (faster)
   double bin_dz_user;    // requested bin width (0 => default)
   double sw_width;       // compact-switch width Delta (read from the matched pair style)
@@ -62,7 +70,13 @@ class EwaldDispPlanar : public KSpace {
   double *peatom;          // per-atom kspace energy buffer (for the zz virial trace)
   double *sfacrl, *sfacim, *sfacrl_all, *sfacim_all;
   double **cs, **sn;    // per-atom cos/sin of k*unitk*z
-  double *B;            // per-type dispersion amplitude, B[i]=sqrt(|lj4[i][i]|)
+  // dispersion amplitudes.  geometric (mix_flag 0): B[i] = sqrt(|lj4[i][i]|) =
+  // 2 sqrt(eps_i) sigma_i^3, one per type (size n+1).  arithmetic (mix_flag 1):
+  // the 7-channel binomial expansion B[7*i+j] = sigma_i^j sqrt(eps_i) c[j],
+  // c[7]={1,sqrt6,sqrt15,sqrt20,sqrt15,sqrt6,1} (size 7*n+7), so that the cross
+  // amplitude sum_j B[7*i+j] B[7*j+(6-j)] reproduces 4 sqrt(eps_i eps_j)
+  // ((sigma_i+sigma_j)/2)^6.
+  double *B;
 
   void eik_dot_r();
   void init_coeffs();

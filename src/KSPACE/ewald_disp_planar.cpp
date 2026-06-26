@@ -66,6 +66,9 @@ EwaldDispPlanar::EwaldDispPlanar(LAMMPS *lmp) :
   dim = 2;
   lat1 = 0;
   lat2 = 1;
+  mix_flag = 0;
+  nchan = 1;
+  mix_disp_user = -1;
   corr_mode = 0;
   bin_dz_user = 0.0;
   sw_width = 0.0;
@@ -129,6 +132,18 @@ int EwaldDispPlanar::modify_param(int narg, char **arg)
     if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify kmax", error);
     kmax_user = utils::inumeric(FLERR, arg[1], false, lmp);
     if (kmax_user < 2) error->all(FLERR, "kspace_modify kmax must be >= 2");
+    return 2;
+  }
+  if (strcmp(arg[0], "mix/disp") == 0) {
+    if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify mix/disp", error);
+    if (strcmp(arg[1], "geom") == 0)
+      mix_disp_user = 0;    // force geometric mixing
+    else if (strcmp(arg[1], "arith") == 0)
+      mix_disp_user = 1;    // force arithmetic / Lorentz-Berthelot mixing
+    else if (strcmp(arg[1], "pair") == 0 || strcmp(arg[1], "none") == 0)
+      mix_disp_user = -1;    // follow the pair style's mixing rule
+    else
+      error->all(FLERR, "kspace_modify mix/disp must be geom, arith, pair, or none");
     return 2;
   }
   if (strcmp(arg[0], "corr") == 0) {
@@ -291,9 +306,12 @@ void EwaldDispPlanar::estimate_params()
   int etmp;    // extract() out-param; do NOT shadow the member `dim`
   auto **eps = (double **) force->pair->extract("epsilon", etmp);
   auto **sig = (double **) force->pair->extract("sigma", etmp);
+  // B_t = 2 sqrt(eps_tt) sigma_tt^3 = sqrt(C6_tt); independent of the mixing rule, so
+  // this kmax estimate is the same for the geometric and arithmetic B layouts.
   auto *Bt = new double[ntypes + 1];
   for (int t = 1; t <= ntypes; t++)
-    Bt[t] = (eps && sig) ? 2.0 * sqrt(eps[t][t]) * sig[t][t] * sig[t][t] * sig[t][t] : B[t];
+    Bt[t] = (eps && sig) ? 2.0 * sqrt(eps[t][t]) * sig[t][t] * sig[t][t] * sig[t][t]
+                         : (nchan == 1 ? B[t] : B[7 * t]);
   double b2_local = 0.0;
   for (int i = 0; i < nlocal; i++) b2_local += Bt[type[i]] * Bt[type[i]];
   delete[] Bt;
@@ -368,6 +386,10 @@ void EwaldDispPlanar::setup()
   volume = domain->prd[0] * domain->prd[1] * domain->prd[2];
   unitk = 2.0 * MY_PI / domain->prd[dim];
 
+  // set the mixing rule / channel count (nchan) before allocating the structure
+  // factors, whose size is kmax*nchan
+  init_coeffs();
+
   deallocate();
   allocate();
 
@@ -403,13 +425,65 @@ void EwaldDispPlanar::init_coeffs()
 {
   int tmp;
   int n = atom->ntypes;
-  auto **b = (double **) force->pair->extract("B", tmp);
-  if (b == nullptr)
-    error->all(FLERR, "Pair style does not provide dispersion coefficient B for ewald/disp/planar");
+
+  // select the dispersion mixing rule: follow the pair style (mix_flag) unless the
+  // user forced it via kspace_modify mix/disp.  Pair::mix_flag is GEOMETRIC(0),
+  // ARITHMETIC(1) or SIXTHPOWER(2); only GEOMETRIC and ARITHMETIC are supported.
+
+  int *p_mix = (int *) force->pair->extract("ewald_mix", tmp);
+  int pair_mix = p_mix ? *p_mix : Pair::GEOMETRIC;
+  if (mix_disp_user == 0)
+    mix_flag = 0;
+  else if (mix_disp_user == 1)
+    mix_flag = 1;
+  else if (pair_mix == Pair::GEOMETRIC)
+    mix_flag = 0;
+  else if (pair_mix == Pair::ARITHMETIC)
+    mix_flag = 1;
+  else
+    error->all(FLERR,
+               "Unsupported pair mixing rule for kspace_style ewald/disp/planar "
+               "(use pair_modify mix geometric|arithmetic, or kspace_modify mix/disp)");
+  nchan = mix_flag ? 7 : 1;
+
   delete[] B;
-  B = new double[n + 1];
-  B[0] = 0.0;
-  for (int i = 1; i <= n; ++i) B[i] = sqrt(fabs(b[i][i]));
+
+  if (mix_flag == 0) {    // geometric: single per-type amplitude B[i]=sqrt(|lj4[i][i]|)
+    auto **b = (double **) force->pair->extract("B", tmp);
+    if (b == nullptr)
+      error->all(FLERR,
+                 "Pair style does not provide dispersion coefficient B for ewald/disp/planar");
+    B = new double[n + 1];
+    B[0] = 0.0;
+    for (int i = 1; i <= n; ++i) B[i] = sqrt(fabs(b[i][i]));
+  } else {    // arithmetic (Lorentz-Berthelot): 7-channel binomial expansion
+    auto **epsilon = (double **) force->pair->extract("epsilon", tmp);
+    auto **sigma = (double **) force->pair->extract("sigma", tmp);
+    if (!(epsilon && sigma))
+      error->all(FLERR,
+                 "Pair style does not provide epsilon/sigma for arithmetic mixing in "
+                 "ewald/disp/planar");
+    B = new double[7 * n + 7];
+
+    // the seven per-type coefficients of the binomial expansion of
+    // (0.5*(sigma_i+sigma_j))^6 : sqrt(eps_i)*c[j]*sigma_i^j, j = 0..6.  The cross
+    // amplitude is C6_ij = 4 sqrt(eps_i eps_j) ((sigma_i+sigma_j)/2)^6 =
+    // sum_{j=0}^6 B[7*i+j] * B[7*j_type+(6-j)].  For a single type this reduces to
+    // C6_ii = 4 eps_i sigma_i^6 = (2 sqrt(eps_i) sigma_i^3)^2, identical to the
+    // geometric path's B[i]^2, so single-type results are bit-identical.
+
+    const double c[7] = {1.0, sqrt(6.0), sqrt(15.0), sqrt(20.0), sqrt(15.0), sqrt(6.0), 1.0};
+    for (int j = 0; j < 7; ++j) B[j] = 0.0;    // type 0 (unused) channels
+    for (int i = 1; i <= n; ++i) {
+      const double eps_i = sqrt(epsilon[i][i]);
+      const double sigma_i = sigma[i][i];
+      double sigma_p = 1.0;
+      for (int j = 0; j < 7; ++j) {
+        B[7 * i + j] = sigma_p * eps_i * c[j];
+        sigma_p *= sigma_i;
+      }
+    }
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -789,21 +863,40 @@ void EwaldDispPlanar::corr_shell_raw()
     natoms_all += recvcounts[p];
   }
 
+  // gather z and the nchan dispersion channels of every atom.  For the arithmetic
+  // path each atom carries its 7 binomial channels B[7t+0..6]; the per-pair C6 cross
+  // amplitude is then sum_m a_i[m] a_j[6-m] / 16 (the full ordered binomial sum
+  // (sigma_i+sigma_j)^6 = 16 C6_ij), matching the geometric bij = B_i B_j = C6_ij.
   auto *zloc = new double[nlocal > 0 ? nlocal : 1];
-  auto *bloc = new double[nlocal > 0 ? nlocal : 1];
+  auto *bloc = new double[(nlocal > 0 ? nlocal : 1) * nchan];
   for (int i = 0; i < nlocal; i++) {
     zloc[i] = x[i][dim];
-    bloc[i] = B[type[i]];
+    if (nchan == 1)
+      bloc[i] = B[type[i]];
+    else
+      for (int m = 0; m < 7; m++) bloc[i * 7 + m] = B[7 * type[i] + m];
   }
   auto *zall = new double[natoms_all > 0 ? natoms_all : 1];
-  auto *ball = new double[natoms_all > 0 ? natoms_all : 1];
+  auto *ball = new double[(natoms_all > 0 ? natoms_all : 1) * nchan];
   MPI_Allgatherv(zloc, nlocal, MPI_DOUBLE, zall, recvcounts, displs, MPI_DOUBLE, world);
-  MPI_Allgatherv(bloc, nlocal, MPI_DOUBLE, ball, recvcounts, displs, MPI_DOUBLE, world);
+  // channel counts/displacements (scaled by nchan) for the B-channel gather
+  int *rc_b = new int[nprocs];
+  int *dp_b = new int[nprocs];
+  for (int p = 0; p < nprocs; p++) {
+    rc_b[p] = recvcounts[p] * nchan;
+    dp_b[p] = displs[p] * nchan;
+  }
+  MPI_Allgatherv(bloc, nlocal * nchan, MPI_DOUBLE, ball, rc_b, dp_b, MPI_DOUBLE, world);
+  delete[] rc_b;
+  delete[] dp_b;
+
+  const double as_shell = 1.0 / 16.0;    // arithmetic C6 cross normalization
 
   double e_local = 0.0, vt_local = 0.0, vn_local = 0.0;
   for (int i = 0; i < nlocal; i++) {
     const double zi = x[i][dim];
-    const double bi = B[type[i]];
+    const double bi = (nchan == 1) ? B[type[i]] : 0.0;
+    const double *ai = (nchan == 1) ? nullptr : &B[7 * type[i]];
     double e_i = 0.0, fz_i = 0.0, vt_i = 0.0, vn_i = 0.0;
     for (int jg = 0; jg < natoms_all; jg++) {
       double delz = zi - zall[jg];
@@ -812,7 +905,15 @@ void EwaldDispPlanar::corr_shell_raw()
       if (adz >= bcut) continue;
       double wE, wF, wT, wN;
       shell_vkernel(adz, wE, wF, wT, wN);
-      const double bij = bi * ball[jg];
+      double bij;
+      if (nchan == 1) {
+        bij = bi * ball[jg];
+      } else {
+        const double *aj = &ball[jg * 7];
+        double cross = 0.0;
+        for (int m = 0; m < 7; m++) cross += ai[m] * aj[6 - m];
+        bij = as_shell * cross;
+      }
       e_i += bij * wE;
       fz_i += 2.0 * delz * bij * wF;    // remove the plane z-force (factor 2: see above)
       vt_i += bij * wT;
@@ -876,9 +977,13 @@ void EwaldDispPlanar::corr_shell_bin()
   int nwin = (int) (bcut / dz) + 1;
   if (nwin > nbins / 2) nwin = nbins / 2;
 
-  auto *dens = new double[nbins];
-  auto *dens_all = new double[nbins];
-  for (int b = 0; b < nbins; b++) dens[b] = 0.0;
+  // nchan density channels (1 geometric, 7 arithmetic), flattened as dens[b*nchan+m].
+  // For arithmetic the binned energy mimics (1/16) sum_ij sum_m a_i[m] a_j[6-m] wE,
+  // so channel m of the density pairs with the field of channel (6-m).
+  const double as_shell = (nchan == 1) ? 1.0 : 1.0 / 16.0;
+  auto *dens = new double[nbins * nchan];
+  auto *dens_all = new double[nbins * nchan];
+  for (int b = 0; b < nbins * nchan; b++) dens[b] = 0.0;
 
   auto *ab0 = new int[nlocal > 0 ? nlocal : 1];
   auto *afrac = new double[nlocal > 0 ? nlocal : 1];
@@ -892,11 +997,19 @@ void EwaldDispPlanar::corr_shell_bin()
     afrac[i] = frac;
     int b1 = b0 + 1;
     if (b1 >= nbins) b1 -= nbins;
-    const double bi = B[type[i]];
-    dens[b0] += bi * (1.0 - frac);
-    dens[b1] += bi * frac;
+    if (nchan == 1) {
+      const double bi = B[type[i]];
+      dens[b0] += bi * (1.0 - frac);
+      dens[b1] += bi * frac;
+    } else {
+      const double *bi = &B[7 * type[i]];
+      for (int m = 0; m < 7; m++) {
+        dens[b0 * 7 + m] += bi[m] * (1.0 - frac);
+        dens[b1 * 7 + m] += bi[m] * frac;
+      }
+    }
   }
-  MPI_Allreduce(dens, dens_all, nbins, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(dens, dens_all, nbins * nchan, MPI_DOUBLE, MPI_SUM, world);
 
   // precompute energy and virial kernels on the bin offsets (the force is the
   // exact gradient of the binned energy, so no separate force kernel is needed)
@@ -911,63 +1024,96 @@ void EwaldDispPlanar::corr_shell_bin()
     KN[d] = wN;
   }
 
-  auto *phiE = new double[nbins];
-  auto *phiT = new double[nbins];
-  auto *phiN = new double[nbins];
-  for (int b = 0; b < nbins; b++) {
-    double sE = KE[0] * dens_all[b];
-    double sT = KT[0] * dens_all[b];
-    double sN = KN[0] * dens_all[b];
-    for (int d = 1; d <= nwin; d++) {
-      int bp = b + d;
-      if (bp >= nbins) bp -= nbins;
-      int bm = b - d;
-      if (bm < 0) bm += nbins;
-      double s = dens_all[bp] + dens_all[bm];
-      sE += KE[d] * s;
-      sT += KT[d] * s;
-      sN += KN[d] * s;
+  // per-channel convolved fields phiE_m[b] = sum_d KE[d](dens_m[b+d]+dens_m[b-d])
+  auto *phiE = new double[nbins * nchan];
+  auto *phiT = new double[nbins * nchan];
+  auto *phiN = new double[nbins * nchan];
+  for (int m = 0; m < nchan; m++) {
+    for (int b = 0; b < nbins; b++) {
+      double sE = KE[0] * dens_all[b * nchan + m];
+      double sT = KT[0] * dens_all[b * nchan + m];
+      double sN = KN[0] * dens_all[b * nchan + m];
+      for (int d = 1; d <= nwin; d++) {
+        int bp = b + d;
+        if (bp >= nbins) bp -= nbins;
+        int bm = b - d;
+        if (bm < 0) bm += nbins;
+        double s = dens_all[bp * nchan + m] + dens_all[bm * nchan + m];
+        sE += KE[d] * s;
+        sT += KT[d] * s;
+        sN += KN[d] * s;
+      }
+      phiE[b * nchan + m] = sE;
+      phiT[b * nchan + m] = sT;
+      phiN[b * nchan + m] = sN;
     }
-    phiE[b] = sE;
-    phiT[b] = sT;
-    phiN[b] = sN;
   }
 
-  // global energy = sum_b dens phiE (full ordered convention, no 1/2); subtracted
+  // global energy = as_shell sum_b sum_m dens_m phiE_{6-m} (channel cross pairing;
+  // full ordered convention, no 1/2); subtracted.  For nchan==1 this is sum_b dens phiE.
   if (eflag_global || vflag_global) {
     double e = 0.0;
-    for (int b = 0; b < nbins; b++) e += dens_all[b] * phiE[b];
+    for (int b = 0; b < nbins; b++)
+      for (int m = 0; m < nchan; m++)
+        e += dens_all[b * nchan + m] * phiE[b * nchan + (nchan - 1 - m)];
+    e *= as_shell;
     corr_energy -= e;
     if (eflag_global) energy -= e;
   }
   if (vflag_global) {
     double vt = 0.0, vn = 0.0;
-    for (int b = 0; b < nbins; b++) {
-      vt += dens_all[b] * phiT[b];
-      vn += dens_all[b] * phiN[b];
-    }
+    for (int b = 0; b < nbins; b++)
+      for (int m = 0; m < nchan; m++) {
+        vt += dens_all[b * nchan + m] * phiT[b * nchan + (nchan - 1 - m)];
+        vn += dens_all[b * nchan + m] * phiN[b * nchan + (nchan - 1 - m)];
+      }
+    vt *= as_shell;
+    vn *= as_shell;
     virial[lat1] -= vt;
     virial[lat2] -= vt;
     virial[dim] -= vn;
   }
 
   // forces (CIC gradient of the binned energy; factor 2 from the ordered double
-  // sum, matching the reciprocal GF[k]=2k GU[k]) and per-atom energy/virial
+  // sum, matching the reciprocal GF[k]=2k GU[k]) and per-atom energy/virial.  Atom i
+  // contributes channel m and pairs with the field of channel (6-m).
   for (int i = 0; i < nlocal; i++) {
     int b0 = ab0[i];
     double frac = afrac[i];
     int b1 = b0 + 1;
     if (b1 >= nbins) b1 -= nbins;
-    const double bi = B[type[i]];
-    // f += -d/dz_i[-E] = +B_i d/dz_i E,  E = sum dens phiE,  dE/d dens = 2 phiE
-    f[i][dim] += bi * 2.0 * (phiE[b1] - phiE[b0]) / dz;
-    if (evflag_atom) peatom[i] -= bi * (phiE[b0] * (1.0 - frac) + phiE[b1] * frac);
-    if (vflag_atom) {
-      const double pT = phiT[b0] * (1.0 - frac) + phiT[b1] * frac;
-      const double pN = phiN[b0] * (1.0 - frac) + phiN[b1] * frac;
-      vatom[i][lat1] -= bi * pT;
-      vatom[i][lat2] -= bi * pT;
-      vatom[i][dim] -= bi * pN;
+    if (nchan == 1) {
+      const double bi = B[type[i]];
+      // f += -d/dz_i[-E] = +B_i d/dz_i E,  E = sum dens phiE,  dE/d dens = 2 phiE
+      f[i][dim] += bi * 2.0 * (phiE[b1] - phiE[b0]) / dz;
+      if (evflag_atom) peatom[i] -= bi * (phiE[b0] * (1.0 - frac) + phiE[b1] * frac);
+      if (vflag_atom) {
+        const double pT = phiT[b0] * (1.0 - frac) + phiT[b1] * frac;
+        const double pN = phiN[b0] * (1.0 - frac) + phiN[b1] * frac;
+        vatom[i][lat1] -= bi * pT;
+        vatom[i][lat2] -= bi * pT;
+        vatom[i][dim] -= bi * pN;
+      }
+    } else {
+      const double *bi = &B[7 * type[i]];
+      double fz = 0.0, pe = 0.0, pT = 0.0, pN = 0.0;
+      for (int m = 0; m < 7; m++) {
+        const int n = 6 - m;    // atom channel m pairs with field channel 6-m
+        fz += bi[m] * (phiE[b1 * 7 + n] - phiE[b0 * 7 + n]);
+        if (evflag_atom)
+          pe += bi[m] * (phiE[b0 * 7 + n] * (1.0 - frac) + phiE[b1 * 7 + n] * frac);
+        if (vflag_atom) {
+          pT += bi[m] * (phiT[b0 * 7 + n] * (1.0 - frac) + phiT[b1 * 7 + n] * frac);
+          pN += bi[m] * (phiN[b0 * 7 + n] * (1.0 - frac) + phiN[b1 * 7 + n] * frac);
+        }
+      }
+      f[i][dim] += as_shell * 2.0 * fz / dz;
+      if (evflag_atom) peatom[i] -= as_shell * pe;
+      if (vflag_atom) {
+        vatom[i][lat1] -= as_shell * pT;
+        vatom[i][lat2] -= as_shell * pT;
+        vatom[i][dim] -= as_shell * pN;
+      }
     }
   }
 
@@ -994,28 +1140,59 @@ void EwaldDispPlanar::eik_dot_r()
   int nlocal = atom->nlocal;
   int *type = atom->type;
 
-  memset(sfacrl, 0, kcount * sizeof(double));
-  memset(sfacim, 0, kcount * sizeof(double));
+  memset(sfacrl, 0, kcount * nchan * sizeof(double));
+  memset(sfacim, 0, kcount * nchan * sizeof(double));
 
-  for (i = 0; i < nlocal; i++) {
-    const double bi = B[type[i]];
+  if (nchan == 1) {    // geometric: single B-weighted structure factor per mode
 
-    cs[0][i] = 1.0;
-    sn[0][i] = 0.0;
-    sfacrl[0] += bi;
+    for (i = 0; i < nlocal; i++) {
+      const double bi = B[type[i]];
 
-    if (kcount > 1) {
-      cs[1][i] = cos(unitk * x[i][dim]);
-      sn[1][i] = sin(unitk * x[i][dim]);
-      sfacrl[1] += bi * cs[1][i];
-      sfacim[1] += bi * sn[1][i];
+      cs[0][i] = 1.0;
+      sn[0][i] = 0.0;
+      sfacrl[0] += bi;
+
+      if (kcount > 1) {
+        cs[1][i] = cos(unitk * x[i][dim]);
+        sn[1][i] = sin(unitk * x[i][dim]);
+        sfacrl[1] += bi * cs[1][i];
+        sfacim[1] += bi * sn[1][i];
+      }
+
+      for (k = 2; k < kcount; k++) {
+        cs[k][i] = cs[k - 1][i] * cs[1][i] - sn[k - 1][i] * sn[1][i];
+        sn[k][i] = sn[k - 1][i] * cs[1][i] + cs[k - 1][i] * sn[1][i];
+        sfacrl[k] += bi * cs[k][i];
+        sfacim[k] += bi * sn[k][i];
+      }
     }
 
-    for (k = 2; k < kcount; k++) {
-      cs[k][i] = cs[k - 1][i] * cs[1][i] - sn[k - 1][i] * sn[1][i];
-      sn[k][i] = sn[k - 1][i] * cs[1][i] + cs[k - 1][i] * sn[1][i];
-      sfacrl[k] += bi * cs[k][i];
-      sfacim[k] += bi * sn[k][i];
+  } else {    // arithmetic: 7 channel structure factors S_m = sum_i B[7*t_i+m] e^{-i h z_i}
+
+    for (i = 0; i < nlocal; i++) {
+      const double *bi = &B[7 * type[i]];
+
+      cs[0][i] = 1.0;
+      sn[0][i] = 0.0;
+      for (int m = 0; m < 7; m++) sfacrl[0 * 7 + m] += bi[m];
+
+      if (kcount > 1) {
+        cs[1][i] = cos(unitk * x[i][dim]);
+        sn[1][i] = sin(unitk * x[i][dim]);
+        for (int m = 0; m < 7; m++) {
+          sfacrl[1 * 7 + m] += bi[m] * cs[1][i];
+          sfacim[1 * 7 + m] += bi[m] * sn[1][i];
+        }
+      }
+
+      for (k = 2; k < kcount; k++) {
+        cs[k][i] = cs[k - 1][i] * cs[1][i] - sn[k - 1][i] * sn[1][i];
+        sn[k][i] = sn[k - 1][i] * cs[1][i] + cs[k - 1][i] * sn[1][i];
+        for (int m = 0; m < 7; m++) {
+          sfacrl[k * 7 + m] += bi[m] * cs[k][i];
+          sfacim[k * 7 + m] += bi[m] * sn[k][i];
+        }
+      }
     }
   }
 }
@@ -1048,8 +1225,8 @@ void EwaldDispPlanar::compute(int eflag, int vflag)
   // partial structure factors per proc, then global total
 
   eik_dot_r();
-  MPI_Allreduce(sfacrl, sfacrl_all, kcount, MPI_DOUBLE, MPI_SUM, world);
-  MPI_Allreduce(sfacim, sfacim_all, kcount, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(sfacrl, sfacrl_all, kcount * nchan, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(sfacim, sfacim_all, kcount * nchan, MPI_DOUBLE, MPI_SUM, world);
 
   double **f = atom->f;
   int nlocal = atom->nlocal;
@@ -1060,64 +1237,145 @@ void EwaldDispPlanar::compute(int eflag, int vflag)
   if (evflag_atom)
     for (i = 0; i < nlocal; i++) peatom[i] = 0.0;
 
-  for (k = 0; k < kcount; k++) {
-    const double srl = sfacrl_all[k], sim = sfacim_all[k];
-    for (i = 0; i < nlocal; i++) {
-      exprl = cs[k][i];
-      expim = sn[k][i];
-      partial = expim * srl - exprl * sim;
-      ek[i] += partial * GF[k];
+  double e_recip = 0.0;
 
-      if (evflag_atom) {
-        partial_peratom = exprl * srl + expim * sim;
-        // accumulate per-atom energy in a buffer (needed for the zz virial trace
-        // even when only the per-atom virial, not energy, is requested)
-        peatom[i] += GU[k] * partial_peratom;
-        if (vflag_atom) {
-          // tangential from GT, normal (dim) from the explicit GN kernel
-          vatom[i][lat1] += GT[k] * partial_peratom;
-          vatom[i][lat2] += GT[k] * partial_peratom;
-          vatom[i][dim] += GN[k] * partial_peratom;
+  if (nchan == 1) {    // geometric: single B-weighted structure factor per mode
+
+    for (k = 0; k < kcount; k++) {
+      const double srl = sfacrl_all[k], sim = sfacim_all[k];
+      for (i = 0; i < nlocal; i++) {
+        exprl = cs[k][i];
+        expim = sn[k][i];
+        partial = expim * srl - exprl * sim;
+        ek[i] += partial * GF[k];
+
+        if (evflag_atom) {
+          partial_peratom = exprl * srl + expim * sim;
+          // accumulate per-atom energy in a buffer (needed for the zz virial trace
+          // even when only the per-atom virial, not energy, is requested)
+          peatom[i] += GU[k] * partial_peratom;
+          if (vflag_atom) {
+            // tangential from GT, normal (dim) from the explicit GN kernel
+            vatom[i][lat1] += GT[k] * partial_peratom;
+            vatom[i][lat2] += GT[k] * partial_peratom;
+            vatom[i][dim] += GN[k] * partial_peratom;
+          }
         }
       }
     }
-  }
 
-  // reciprocal z-force on each atom (scaled by its own B)
+    // reciprocal z-force on each atom (scaled by its own B)
 
-  for (i = 0; i < nlocal; i++) f[i][dim] += B[type[i]] * ek[i];
+    for (i = 0; i < nlocal; i++) f[i][dim] += B[type[i]] * ek[i];
 
-  // reciprocal energy (full system value, identical on every proc); always
-  // evaluated when the virial is needed (the zz trace uses it)
+    // reciprocal energy (full system value, identical on every proc); always
+    // evaluated when the virial is needed (the zz trace uses it)
 
-  double e_recip = 0.0;
-  if (eflag_global || vflag_global) {
-    for (k = 0; k < kcount; k++)
-      e_recip += GU[k] * (sfacrl_all[k] * sfacrl_all[k] + sfacim_all[k] * sfacim_all[k]);
-  }
-  if (eflag_global) energy += e_recip;
-
-  // global tangential virial (xx=yy from GT); zz set from the trace after corr
-
-  if (vflag_global) {
-    for (k = 0; k < kcount; k++) {
-      double uk = sfacrl_all[k] * sfacrl_all[k] + sfacim_all[k] * sfacim_all[k];
-      virial[lat1] += uk * GT[k];
-      virial[lat2] += uk * GT[k];
-      virial[dim] += uk * GN[k];    // explicit normal kernel
+    if (eflag_global || vflag_global) {
+      for (k = 0; k < kcount; k++)
+        e_recip += GU[k] * (sfacrl_all[k] * sfacrl_all[k] + sfacim_all[k] * sfacim_all[k]);
     }
-  }
+    if (eflag_global) energy += e_recip;
 
-  // scale per-atom energy buffer / virial by each atom's B
+    // global tangential virial (xx=yy from GT); zz set from the trace after corr
 
-  if (evflag_atom)
-    for (i = 0; i < nlocal; i++) peatom[i] *= B[type[i]];
-  if (vflag_atom)
+    if (vflag_global) {
+      for (k = 0; k < kcount; k++) {
+        double uk = sfacrl_all[k] * sfacrl_all[k] + sfacim_all[k] * sfacim_all[k];
+        virial[lat1] += uk * GT[k];
+        virial[lat2] += uk * GT[k];
+        virial[dim] += uk * GN[k];    // explicit normal kernel
+      }
+    }
+
+    // scale per-atom energy buffer / virial by each atom's B
+
+    if (evflag_atom)
+      for (i = 0; i < nlocal; i++) peatom[i] *= B[type[i]];
+    if (vflag_atom)
+      for (i = 0; i < nlocal; i++) {
+        vatom[i][lat1] *= B[type[i]];
+        vatom[i][lat2] *= B[type[i]];
+        vatom[i][dim] *= B[type[i]];
+      }
+
+  } else {    // arithmetic (Lorentz-Berthelot): 7-channel cross pairing
+
+    // For each mode k the seven global structure factors S_0..S_6 (channels) pair
+    // as R_k = (sr0 sr6 + si0 si6) + (sr1 sr5 + si1 si5) + (sr2 sr4 + si2 si4)
+    //        + 0.5 (sr3^2 + si3^2), reproducing the LB cross amplitude.  Per atom i
+    // and mode k the z-force pairs atom channel (6-m) with global channel m; the
+    // per-atom energy/virial carry the same channel pairing with a 0.5 (the global
+    // value sums to GU[k] R_k).  No 0.5 in the force (it differentiates both indices).
+    //
+    // The channel amplitudes B[7t+j]=sigma^j sqrt(eps) c[j] expand
+    // (sigma_i+sigma_j)^6, so the folded channel pairing R_k reproduces the C6 cross
+    // double sum times 8 (= 16 from the (sigma_i+sigma_j)^6 vs C6_ij=.../16 binomial
+    // normalization, halved again by the folding of the m<->6-m pairs).  GU/GF/GT/GN
+    // carry the geometric (B_i B_j == C6_ij) normalization, so the arithmetic
+    // reciprocal channels are scaled by AS = 1/8 to recover the same convention.
+    // (For a single type R_k/8 == |S_k(geom)|^2 exactly: LB cross == geometric cross.)
+
+    // Energy/virial use the folded channel pairing R_k (each m<->6-m pair counted
+    // once), normalized by AS_E = 1/8.  The z-force is the exact gradient of that
+    // energy: differentiating the bilinear R_k w.r.t. z_i restores the dropped factor
+    // of 2 (both channels of each pair contain atom i), so the force uses AS_F = 1/16
+    // = AS_E/2 with the FULL ordered channel sum bi[6-m]*S_m.  (For a single type
+    // this gives exactly B^2 sum_k GF[k](sn S_re - cs S_im), the geometric z-force.)
+    const double as_e = 0.125;       // 1/8  energy / virial normalization
+    const double as_f = 1.0 / 16.0;  // 1/16 z-force normalization (= as_e/2)
+
     for (i = 0; i < nlocal; i++) {
-      vatom[i][lat1] *= B[type[i]];
-      vatom[i][lat2] *= B[type[i]];
-      vatom[i][dim] *= B[type[i]];
+      const double *bi = &B[7 * type[i]];
+      double fz_i = 0.0, pe_i = 0.0, pT_i = 0.0, pN_i = 0.0;
+      for (k = 0; k < kcount; k++) {
+        const double ci = cs[k][i], si = sn[k][i];
+        const double *sr = &sfacrl_all[k * 7];
+        const double *sm = &sfacim_all[k * 7];
+        double fsum = 0.0, esum = 0.0;
+        for (int m = 0; m < 7; m++) {
+          const double a = bi[6 - m];    // atom channel (6-m) pairs with global m
+          fsum += a * (si * sr[m] - ci * sm[m]);
+          if (evflag_atom) esum += a * (ci * sr[m] + si * sm[m]);
+        }
+        fz_i += GF[k] * fsum;
+        if (evflag_atom) {
+          pe_i += GU[k] * 0.5 * esum;
+          if (vflag_atom) {
+            pT_i += GT[k] * 0.5 * esum;
+            pN_i += GN[k] * 0.5 * esum;
+          }
+        }
+      }
+      f[i][dim] += as_f * fz_i;
+      if (evflag_atom) {
+        peatom[i] = as_e * pe_i;
+        if (vflag_atom) {
+          vatom[i][lat1] += as_e * pT_i;
+          vatom[i][lat2] += as_e * pT_i;
+          vatom[i][dim] += as_e * pN_i;
+        }
+      }
     }
+
+    // global reciprocal energy / virial from the per-mode channel pairing R_k
+    if (eflag_global || vflag_global) {
+      for (k = 0; k < kcount; k++) {
+        const double *sr = &sfacrl_all[k * 7];
+        const double *sm = &sfacim_all[k * 7];
+        const double R = (sr[0] * sr[6] + sm[0] * sm[6]) + (sr[1] * sr[5] + sm[1] * sm[5]) +
+            (sr[2] * sr[4] + sm[2] * sm[4]) + 0.5 * (sr[3] * sr[3] + sm[3] * sm[3]);
+        e_recip += GU[k] * R;
+        if (vflag_global) {
+          virial[lat1] += as_e * R * GT[k];
+          virial[lat2] += as_e * R * GT[k];
+          virial[dim] += as_e * R * GN[k];    // explicit normal kernel
+        }
+      }
+    }
+    e_recip *= as_e;
+    if (eflag_global) energy += e_recip;
+  }
 
   // compact-switch shell correction.  The reciprocal sum treats the shell
   // [rcut, rcut+Delta] with a laterally-uniform density (plane mean field), which
@@ -1431,10 +1689,13 @@ void EwaldDispPlanar::allocate()
   memory->create(GF, kmax, "ewald/disp/planar:GF");
   memory->create(GT, kmax, "ewald/disp/planar:GT");
   memory->create(GN, kmax, "ewald/disp/planar:GN");
-  memory->create(sfacrl, kmax, "ewald/disp/planar:sfacrl");
-  memory->create(sfacim, kmax, "ewald/disp/planar:sfacim");
-  memory->create(sfacrl_all, kmax, "ewald/disp/planar:sfacrl_all");
-  memory->create(sfacim_all, kmax, "ewald/disp/planar:sfacim_all");
+  // structure factors: nchan channels per mode (1 geometric, 7 arithmetic),
+  // flattened as sfacrl[k*nchan+m].  nchan is set by init_coeffs() which runs
+  // first (see setup()); allocate 7 channels in the arithmetic case.
+  memory->create(sfacrl, kmax * nchan, "ewald/disp/planar:sfacrl");
+  memory->create(sfacim, kmax * nchan, "ewald/disp/planar:sfacim");
+  memory->create(sfacrl_all, kmax * nchan, "ewald/disp/planar:sfacrl_all");
+  memory->create(sfacim_all, kmax * nchan, "ewald/disp/planar:sfacim_all");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1457,7 +1718,8 @@ void EwaldDispPlanar::deallocate()
 
 double EwaldDispPlanar::memory_usage()
 {
-  double bytes = 8.0 * kmax * sizeof(double);    // GU,GF,GT,GN,sfacrl/im,sfacrl/im_all
+  // GU,GF,GT,GN (kmax each) + sfacrl/im, sfacrl/im_all (kmax*nchan each)
+  double bytes = (4.0 * kmax + 4.0 * kmax * nchan) * sizeof(double);
   bytes += (double) nmax * sizeof(double);
   bytes += 2.0 * (double) kmax * nmax * sizeof(double);
   bytes += 4.0 * (nwgrid + 1) * sizeof(double);    // shell kernels
