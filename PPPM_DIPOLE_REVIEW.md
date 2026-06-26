@@ -16,7 +16,14 @@ The new charge–dipole methodology is **correct and matches `ewald/disp`**, bot
 analytically (term-by-term) and numerically. Per-atom energy and virial for
 dipole–dipole **and** charge–dipole are correct (sum exactly to the global
 values, which are themselves FD-verified). The solver converges to the
-requested RMS accuracy. No correctness bugs found; minor notes at the end.
+requested RMS accuracy. No crash/correctness bug in the core math.
+
+The one item warranting action (Finding 1, §4): the slab correction was
+rewritten and is now self-consistent (FD-verified), but it removes a `1/12`
+factor that the **unmodified** `ewald/dipole` (and the spin variants) still
+carry — so `pppm/dipole` now disagrees ~12× with `ewald/dipole` on dipole-only
+slab energy. FD confirms the new code is the correct one and the old `/12` was
+a latent bug; the sibling styles should be fixed and/or the change documented.
 
 ---
 
@@ -89,15 +96,16 @@ These match `ewald/disp` (`energy_self[DIPOLE]` at :673-674) and base
 term — correct: the on-site `q_i–μ_i` interaction is odd in `r` and vanishes,
 and neither code subtracts one.
 
-### 1.6 Slab correction (slabcorr, commit 055b29e5)
+### 1.6 Slab correction (slabcorr, commit 055b29e5) — see Finding 1
 Combined first moment `M_z = Σ(q_i z_i + μ_iz)` with
 `E = (2π/V)[M_z² − qsum·R2 − qsum²Lz²/12]` (Yeh–Berkowitz + Ballenegger
-non-neutral form). The previous dipole-only `μ²/12` self term is removed (the
-comment notes it was inconsistent with the `−4π/V` field); the combined moment
-with no `1/12` on `M_z²` is consistent with the field felt by both species, the
-`−4π/V·q(M_z − qsum·z)` force on charges, and the `±ffact·M_z·μ` torque on
-dipoles. Reviewed analytically; matches the standard EW3DC generalization.
-(Not exercised by the example, which is 3-D periodic.)
+non-neutral form). The previous dipole-only `M_z²/12` term is removed. The
+combined moment with no `1/12` on `M_z²` is consistent with the field felt by
+both species, the `−4π/V·q(M_z − qsum·z)` force on charges, and the
+`±ffact·M_z·μ` torque on dipoles, and matches the base-PPPM charge convention
+(`pppm.cpp` uses `M_z²` with no `1/12`; the `1/12` belongs only to the
+`qsum²Lz²` term). **FD-verified self-consistent** (§3F). This is correct, but
+it diverges from the unmodified `ewald/dipole` — see Finding 1.
 
 ---
 
@@ -169,21 +177,87 @@ Measured error is below the estimate and scales ~10× per decade — the solver
 converges to (and slightly inside) the requested RMS relative accuracy.
 (`two_charge_force ≈ 1` in these lj units, so abs ≈ rel.)
 
+**F. Slab energy↔torque self-consistency** (dipole-only slab, boundary `p p f`,
+`kspace_modify slab 3.0`; rotate one dipole about x, compare reported torque to
+−dE/dθ by central FD):
+| kspace_style | reported Tx | FD −dE/dθ | ratio |
+|--------------|------------:|----------:|------:|
+| `pppm/dipole` (new) | −0.13111882 | −0.13111882 | **1.0000** |
+| `ewald/dipole` (unmodified) | −0.13507122 | −0.13162583 | 0.9745 |
+(3-D non-slab control: `pppm/dipole` ratio = 1.0000.) The new `pppm/dipole`
+slab term is self-consistent; the unmodified `ewald/dipole` is **not** (its
+`/12` energy disagrees with its `−4π/V` torque) — confirming the new code is
+correct and the old `/12` was a latent bug. See Finding 1.
+
 ---
 
-## 4. Minor notes (not blocking)
+## 4. Full code-review findings
 
-1. `find_gewald_dipole` / `newton_raphson_f_dipole` build the g_ewald
-   *initial estimate* from the **dipole** real-space error only (no charge
-   term in the objective), whereas `newton_raphson_f()` (used by
-   `adjust_gewald`) and `compute_df_kspace_dipole` do add the charge error in
-   quadrature. For strongly charge-dominated systems the initial g_ewald guess
-   may be slightly off, but `adjust_gewald` + grid search recover it
-   (convergence test in §3E passed). Consider adding the charge term to the
-   initial objective for consistency.
-2. `musum_musq()` raises a hard error when `mu2 == 0`, so `pppm/dipole` cannot
-   run a pure-charge system (intended — use `pppm`), but the message
-   "Using kspace solver PPPMDipole on system with no dipoles" is an
-   `error->all` rather than the more usual guard; fine, just noting.
-3. The slab path is analytically reviewed but not covered by a regression
-   example; a slab (2-D) charge+dipole test would be worth adding.
+Eight finder angles (line-by-line, removed-behavior, cross-file, reuse,
+simplification, efficiency, altitude, conventions) + verification. No
+crash/correctness bug was found in the new charge–dipole math (forces, energy,
+virial all FD-verified). Findings below ranked by importance.
+
+### Finding 1 — Slab `/12` change diverges from `ewald/dipole` (correctness-adjacent, **action recommended**)
+`slabcorr` (`pppm_dipole.cpp:2510`) drops the `1/12` on the `M_z²` dipole term.
+This is **correct** — FD shows the new energy↔torque are self-consistent
+(ratio 1.0000, §3F) and it matches the base-PPPM charge convention — and it
+fixes a latent inconsistency. **But** the unmodified `ewald/dipole`
+(`ewald_dipole.cpp:793`) still uses `M_z²/12` (FD-confirmed inconsistent,
+ratio 0.9745), as do `ewald_dipole_spin` and `pppm_dipole_spin`. Consequences:
+- A dipole-only slab simulation now gives a **~12× different** slab-correction
+  energy than the previous `pppm/dipole` release and than `ewald/dipole`.
+- `pppm/dipole` and `ewald/dipole` now disagree for the same slab input.
+Recommend: apply the same fix to `ewald_dipole`, `ewald_dipole_spin`,
+`pppm_dipole_spin`, and note the change in the docs / a regression baseline.
+
+### Finding 2 — Removed "cannot yet" guards are now silently active (informational)
+The rewrite removes three old hard errors: "cannot use charges", "cannot
+compute per-atom virial", and the non-neutral/per-atom slab guard. Each is an
+intended feature enablement and each was validated here (§3: forces, per-atom
+E/virial, slab self-consistency). Flagging only because the validation surface
+is new and there is no regression test asserting `Σ eatom == elong` /
+`Σ vatom == virial` for the charge+dipole case — worth adding one.
+
+### Finding 3 — `find_gewald_dipole` initial guess ignores the charge channel (minor)
+`newton_raphson_f_dipole` (`:1223`) builds the g_ewald *initial estimate* from
+the **dipole** real-space error only, while `newton_raphson_f()` (used by
+`adjust_gewald`) and `compute_df_kspace_dipole` add the charge error in
+quadrature. Recovered by `adjust_gewald` + grid search (convergence verified,
+§3E); consider adding the charge term to the initial objective for consistency.
+
+### Finding 4 — `atom->q` dereferenced unconditionally in hot loops (very minor)
+`make_rho_dipole`/`fieldforce_*` read `q[i]` with no guard, relying on the
+dipole atom style always providing `q` (a pre-existing assumption — `init()`
+already calls `qsum_qsq`). Safe for supported atom styles.
+
+### Code-quality (non-blocking cleanup)
+- **C1** `poisson_peratom_dipole` (`:1908+`) copy-pastes the x/y/z FFT kernel
+  block 3× inside the `iv` loop (≈18 near-identical blocks) and repeats the
+  6-way `kb = (iv==0)?fkx:…` ternary in 4 places. A `kb_index[6]={0,1,2,1,2,2}`
+  table + a `{fkx,fky,fkz}`/`{vdx,vdy,vdz}` inner loop removes the
+  transcription-error surface (a single mis-typed component silently corrupts
+  one virial element — hard to catch in tests).
+- **C2** `D = k·P` is recomputed from `work1/2/3` + `fk{x,y,z}` in every k-loop
+  (energy loop, 9 field blocks, all peratom blocks → >20×/grid point/step). The
+  code comment even notes "D = k.P is recomputed locally"; cache it once after
+  the forward FFTs.
+- **C3** `poisson_ik_dipole` (`:1463-1511`) writes the full 3-channel energy
+  expression twice (vflag branch and eflag-only branch); factor out.
+- **C4** `slabcorr` duplicates the base-PPPM Yeh–Berkowitz charge logic merged
+  with `ewald_dipole` torque logic — a third copy of the same formula
+  (compounds the maintenance risk in Finding 1).
+
+### Checked and cleared (not bugs)
+- `greensfn_qq` is **identical** to base `PPPM::compute_gf_ik`'s optimal kernel
+  `(4π/k²)Σ[(k·k_n)/k_n²·S·W²]/(ΣW²)²`; the accuracy estimator (`compute_qopt`)
+  legitimately uses a different formula (the error, not the kernel) — same
+  split as base PPPM.
+- ghost-comm counts (REVERSE_MU=4, FORWARD_MU=12, FORWARD_MU_PERATOM=25) match
+  pack/unpack field counts and the `gc_buf` resize in `allocate_peratom`.
+- `Pw[6]={w1,w2,w3,w1,w1,w2}` / `kb={fkx,fky,fkz,fky,fkz,fkz}` Voigt mapping is
+  correct.
+- double-free of inherited base arrays is safe (`memory->destroy` nulls the
+  pointer); allocate/deallocate are symmetric.
+- charge self-energy terms match base PPPM exactly; per-atom slab energy sums
+  to the global slab energy.
