@@ -86,9 +86,19 @@ class PPPMDispPlanar : public KSpace {
   double *fre, *fim;    // FFT workspace (real/imag)
   double *Gk;           // de-convolved energy influence function (per grid mode)
   double *GTk, *GNk;    // de-convolved tangential/normal virial influence (compact switch)
-  double *fz_grid;      // z-force field on the grid
-  double *ugrid;        // per-atom potential field (for eatom/vatom)
+  double *fz_grid;      // z-force field on the grid (ik differentiation)
+  double *ugrid;        // potential field IFFT[2 Gk rho_hat]
+                        //   (per-atom e/v always; ad force also reads it)
   double *uTgrid, *uNgrid;    // per-atom tangential/normal virial fields (compact switch)
+
+  // analytic differentiation (kspace_modify diff ad): the z-force is the exact
+  // z-gradient of the mesh energy, f_z(i) = B_i*delzinv*sum_s drho1d[s]*ugrid[g_s],
+  // minus the spurious self-force.  sf_coeff[0,1] are the 1-D (z-only) self-force
+  // amplitudes (analog of pppm_disp's compute_sf_coeff_6); computed in setup()
+  // from the z-alias precoefficients and the influence function Gk.  Default
+  // (ik) leaves these unused and the ik path bit-identical.
+  double sf_coeff[2];
+  void compute_sf_coeff();    // fill sf_coeff[] (1-D z self-force calibration)
 
   // CSB shell correction: tabulated plane (mean-field) energy/z-force/virial kernels
   // of S*u over [rcut, rcut+Delta], subtracted in real space so the matched pair's

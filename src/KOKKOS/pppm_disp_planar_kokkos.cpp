@@ -157,6 +157,18 @@ void PPPMDispPlanarKokkos<DeviceType>::setup()
   const int nB = (nchan == 1) ? (ntypes + 1) : 7 * (ntypes + 1);
   for (int t = 0; t < nB; t++) h_B(t) = B[t];
   Kokkos::deep_copy(d_B, h_B);
+
+  // analytic differentiation: PPPMDispPlanar::setup() above already filled the
+  // host self-force amplitudes sf_coeff[0,1] via compute_sf_coeff() when
+  // differentiation_flag==1 (a cheap O(nz) host loop; no device port needed).
+  // Cache them (and zero them in the ik path) for the ad fieldforce kernels.
+  if (differentiation_flag == 1) {
+    sf_coeff0_kk = sf_coeff[0];
+    sf_coeff1_kk = sf_coeff[1];
+  } else {
+    sf_coeff0_kk = 0.0;
+    sf_coeff1_kk = 0.0;
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -251,6 +263,7 @@ void PPPMDispPlanarKokkos<DeviceType>::compute(int eflag, int vflag)
   lat1_kk = lat1;
   lat2_kk = lat2;
   nchan_kk = nchan;
+  adflag_kk = (differentiation_flag == 1);
 
   const int nlocal = atomKK->nlocal;
 
@@ -298,15 +311,21 @@ void PPPMDispPlanarKokkos<DeviceType>::compute(int eflag, int vflag)
       virial[dim] += vir.vn;
     }
 
-    copymode = 1;
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_fz_prep>(0, nz), *this);
-    copymode = 0;
-    fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
-    copymode = 1;
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_fz_copy>(0, nz), *this);
-    copymode = 0;
+    // ik z-force field F_hat = -i k 2 Gk rho_hat (ik differentiation only);
+    // ad differentiation derives the z-force from ugrid (built below), saving this IFFT.
+    if (differentiation_flag != 1) {
+      copymode = 1;
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_fz_prep>(0, nz), *this);
+      copymode = 0;
+      fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
+      copymode = 1;
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_fz_copy>(0, nz), *this);
+      copymode = 0;
+    }
 
-    if (evflag_atom) {
+    // potential field ugrid = IFFT[2 Gk rho_hat]: ad differentiation reads it for
+    // the z-force (always needed in ad), so build it whenever ad or per-atom e/v.
+    if (differentiation_flag == 1) {
       copymode = 1;
       Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_u_prep>(0, nz), *this);
       copymode = 0;
@@ -314,6 +333,19 @@ void PPPMDispPlanarKokkos<DeviceType>::compute(int eflag, int vflag)
       copymode = 1;
       Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_u_copy>(0, nz), *this);
       copymode = 0;
+    }
+
+    if (evflag_atom) {
+      // ugrid already built in the ad path above; ik builds it here
+      if (differentiation_flag != 1) {
+        copymode = 1;
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_u_prep>(0, nz), *this);
+        copymode = 0;
+        fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
+        copymode = 1;
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_u_copy>(0, nz), *this);
+        copymode = 0;
+      }
 
       // compact switch: per-atom tangential/normal virial fields (GTk/GNk kernels)
       copymode = 1;
@@ -369,19 +401,24 @@ void PPPMDispPlanarKokkos<DeviceType>::compute(int eflag, int vflag)
       virial[dim] += as_e * vir.vn;
     }
 
-    // per-channel z-force field Ffield_m = IFFT[-i k 2 Gk rho_hat_m]
-    for (int m = 0; m < 7; m++) {
-      chan_kk = m;
-      copymode = 1;
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_fz_prep_arith>(0, nz), *this);
-      copymode = 0;
-      fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
-      copymode = 1;
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_fz_copy_arith>(0, nz), *this);
-      copymode = 0;
+    // per-channel z-force field Ffield_m = IFFT[-i k 2 Gk rho_hat_m] (ik only).
+    // ad differentiation derives the z-force from the per-channel ugrid (below).
+    if (differentiation_flag != 1) {
+      for (int m = 0; m < 7; m++) {
+        chan_kk = m;
+        copymode = 1;
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_fz_prep_arith>(0, nz), *this);
+        copymode = 0;
+        fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
+        copymode = 1;
+        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_fz_copy_arith>(0, nz), *this);
+        copymode = 0;
+      }
     }
 
-    if (evflag_atom) {
+    // per-channel potential field ugrid[m*nz+.] = IFFT[2 Gk rho_hat_m]: ad reads
+    // it for the z-force (always needed in ad), so build it whenever ad or per-atom e/v.
+    if (differentiation_flag == 1) {
       for (int m = 0; m < 7; m++) {
         chan_kk = m;
         copymode = 1;
@@ -391,6 +428,22 @@ void PPPMDispPlanarKokkos<DeviceType>::compute(int eflag, int vflag)
         copymode = 1;
         Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_u_copy_arith>(0, nz), *this);
         copymode = 0;
+      }
+    }
+
+    if (evflag_atom) {
+      for (int m = 0; m < 7; m++) {
+        chan_kk = m;
+        // ugrid already built in the ad path above; ik builds it here
+        if (differentiation_flag != 1) {
+          copymode = 1;
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_u_prep_arith>(0, nz), *this);
+          copymode = 0;
+          fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
+          copymode = 1;
+          Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_u_copy_arith>(0, nz), *this);
+          copymode = 0;
+        }
         copymode = 1;
         Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_uT_prep_arith>(0, nz), *this);
         copymode = 0;
@@ -419,10 +472,19 @@ void PPPMDispPlanarKokkos<DeviceType>::compute(int eflag, int vflag)
   }
 
   copymode = 1;
-  if (nchan == 1)
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_fieldforce>(0, nlocal), *this);
-  else
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_fieldforce_arith>(0, nlocal), *this);
+  if (differentiation_flag == 1) {
+    // analytic differentiation: interpolate ugrid with the derivative B-spline
+    // weights * delzinv and subtract the per-atom self-force
+    if (nchan == 1)
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_fieldforce_ad>(0, nlocal), *this);
+    else
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_fieldforce_ad_arith>(0, nlocal), *this);
+  } else {
+    if (nchan == 1)
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_fieldforce>(0, nlocal), *this);
+    else
+      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_fieldforce_arith>(0, nlocal), *this);
+  }
   copymode = 0;
 
   if (evflag_atom) {
@@ -735,6 +797,36 @@ void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_fieldforce, 
   f(i, dim_kk) += static_cast<KK_ACC_FLOAT>(bi * fz);
 }
 
+// analytic-differentiation z-force (geometric).  The mesh z-force is the analytic
+// gradient of the mesh energy: since d(w_s)/dz_i = -delzinv*drho1d[s],
+//   f_z = B_i*delzinv*sum_s drho1d[s]*ugrid[g],  ugrid = IFFT[2 Gk rho_hat].
+// Subtract the spurious self-force (gradient of the atom's own gridded self-energy):
+//   fself = 2*B_i^2*(sf0*sin(2*PI*s) + sf1*sin(4*PI*s)),  s = (z_i-zlo)*delzinv.
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_fieldforce_ad, const int &i) const
+{
+  const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzinv_kk;
+  const double offs = (order_kk % 2) ? OFFSET + 0.5 : (double) OFFSET;
+  const int g0 = (int) (u + offs) - OFFSET;
+  const double dz = g0 + shiftone_kk - u;
+  double dw[8];
+  compute_drho1d_kk(dz, dw);
+  const double bi = d_B(type(i));
+
+  double fz = 0.0;
+  for (int s = 0; s < order_kk; s++) {
+    int g = g0 + nlower_kk + s;
+    g = ((g % nz_kk) + nz_kk) % nz_kk;
+    fz += dw[s] * d_ugrid(g);
+  }
+  // s = fractional grid coordinate (== u); self-force amplitudes from compute_sf_coeff
+  const double sloc = u;
+  const double fself = 2.0 * bi * bi *
+      (sf_coeff0_kk * sin(2.0 * MY_PI * sloc) + sf_coeff1_kk * sin(4.0 * MY_PI * sloc));
+  f(i, dim_kk) += static_cast<KK_ACC_FLOAT>(bi * delzinv_kk * fz - fself);
+}
+
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_peatom_zero, const int &i) const
@@ -970,6 +1062,44 @@ void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_fieldforce_a
     }
   }
   f(i, dim_kk) += static_cast<KK_ACC_FLOAT>(as_f * fz);
+}
+
+// analytic-differentiation z-force (arithmetic).  Mirrors the geometric ad form
+// with the channel pairing and the as_f=1/16 normalization:
+//   f_z = as_f*delzinv*sum_s drho1d[s]*sum_m bi[6-m]*ugrid[m*nz+g] - fself.
+// Self-force: Bself = as_f*sum_m B[7t+m]*B[7t+(6-m)] (== B_geom^2 for a single type),
+//   fself = 2*Bself*(sf0*sin(2*PI*s)+sf1*sin(4*PI*s)).
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_fieldforce_ad_arith, const int &i) const
+{
+  const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzinv_kk;
+  const double offs = (order_kk % 2) ? OFFSET + 0.5 : (double) OFFSET;
+  const int g0 = (int) (u + offs) - OFFSET;
+  const double dz = g0 + shiftone_kk - u;
+  double dw[8];
+  compute_drho1d_kk(dz, dw);
+  const int t7 = 7 * type(i);
+
+  const double as_f = 1.0 / 16.0;
+  double fz = 0.0;
+  for (int s = 0; s < order_kk; s++) {
+    int g = g0 + nlower_kk + s;
+    g = ((g % nz_kk) + nz_kk) % nz_kk;
+    const double dws = dw[s];
+    for (int m = 0; m < 7; m++) {
+      const double a = d_B(t7 + 6 - m);    // atom channel (6-m) pairs with field channel m
+      fz += a * dws * d_ugrid(m * nz_kk + g);
+    }
+  }
+  // self-force: Bself = as_f * sum_m B[7t+m] B[7t+(6-m)]
+  double bself = 0.0;
+  for (int m = 0; m < 7; m++) bself += d_B(t7 + m) * d_B(t7 + 6 - m);
+  bself *= as_f;
+  const double sloc = u;
+  const double fself = 2.0 * bself *
+      (sf_coeff0_kk * sin(2.0 * MY_PI * sloc) + sf_coeff1_kk * sin(4.0 * MY_PI * sloc));
+  f(i, dim_kk) += static_cast<KK_ACC_FLOAT>(as_f * delzinv_kk * fz - fself);
 }
 
 // arithmetic per-atom energy/virial: 0.25*AS_E sum_m bi[6-m] interp(field_m)

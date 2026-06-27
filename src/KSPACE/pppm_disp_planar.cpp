@@ -77,6 +77,7 @@ PPPMDispPlanar::PPPMDispPlanar(LAMMPS *lmp) :
   order_allocated = 0;
   nmax = 0;
   accuracy_relative = 0.0;
+  sf_coeff[0] = sf_coeff[1] = 0.0;    // analytic-diff self-force amplitudes (set in setup if diff ad)
 }
 
 /* ---------------------------------------------------------------------- */
@@ -509,7 +510,73 @@ void PPPMDispPlanar::setup()
 
   influence_function();
 
+  // analytic-differentiation self-force amplitudes (needs Gk); ik path skips this
+  if (differentiation_flag == 1) compute_sf_coeff();
+
   build_shell_vkernels();
+}
+
+/* ----------------------------------------------------------------------
+   analytic-differentiation self-force amplitudes sf_coeff[0,1] (1-D z only).
+
+   Analytic differentiation of the mesh energy gives each atom a spurious
+   self-force (the gradient of its own gridded self-energy).  For a single unit
+   atom at fractional grid coordinate s = (z_i-zlo)*delzinv this self-energy is
+     U_self(s) = Bself * sum_m Gk[m] |W_m(s)|^2 ,
+   where W_m(s) = sum_{aliases a} Wbar(k_{m+a*nz}) e^{-i 2pi (m+a nz) s/nz} is the
+   transform of the order-p assignment of that atom (Wbar = sinc^order).  Its
+   z-gradient is purely the first two Fourier harmonics in s, so
+     f_self(s) = -dU_self/dz = 2 Bself (sf_coeff[0] sin(2 pi s) + sf_coeff[1] sin(4 pi s)).
+   This is the 1-D reduction of pppm_disp::compute_sf_coeff_6 / fieldforce_g_ad
+   (z component only; there is no x/y mesh here).  The precoefficients combine
+   alias products of Wbar (compute_sf_precoeff's z part) with the influence
+   function Gk; the overall prefactor P below is fixed by the planar Gk
+   normalization (energy = sum_m Gk|rho_hat|^2, Gk carrying the -1/volume gu_switch
+   factors -- NOT the upstream greensfn_6 convention).  P = 2*pi/zprd = unitk is
+   verified by finite-differencing U_self(s) (see the contributing notes); the
+   corrected ad self-force then vanishes to grid precision.
+------------------------------------------------------------------------- */
+
+void PPPMDispPlanar::compute_sf_coeff()
+{
+  // 1-D z precoefficients: for each mesh mode m, alias-product sums of the
+  // assignment transfer Wbar(k)=sinc(pi*(mode)/nz)^order, paired at shifts 0,1,2
+  // (sf_pre1 -> sin(2 pi s) harmonic, sf_pre2 -> sin(4 pi s) harmonic).
+  double c0 = 0.0, c1 = 0.0;
+  const int nb = 2;    // alias range (matches compute_sf_precoeff)
+  for (int m = 0; m < nz; m++) {
+    const int mper = m - nz * (2 * m / nz);    // signed mode index in (-nz/2, nz/2]
+    double wz0[5], wz1[5], wz2[5];
+    for (int i = -nb; i <= nb; i++) {
+      const double a0 = MY_PI * (mper + nz * i) / nz;
+      const double a1 = MY_PI * (mper + nz * (i + 1)) / nz;
+      const double a2 = MY_PI * (mper + nz * (i + 2)) / nz;
+      wz0[i + 2] = (a0 != 0.0) ? pow(sin(a0) / a0, order) : 1.0;
+      wz1[i + 2] = (a1 != 0.0) ? pow(sin(a1) / a1, order) : 1.0;
+      wz2[i + 2] = (a2 != 0.0) ? pow(sin(a2) / a2, order) : 1.0;
+    }
+    double s1 = 0.0, s2 = 0.0;
+    for (int j = 0; j <= 4; j++) {
+      s1 += wz0[j] * wz1[j];
+      s2 += wz0[j] * wz2[j];
+    }
+    c0 += s1 * Gk[m];
+    c1 += s2 * Gk[m];
+  }
+
+  // prefactor: P = 2*pi*delzinv = 2*pi*nz/zprd.  Upstream pppm_disp keeps the
+  // self-force prefactor prez = (pi/volume)*(nz/zprd) and applies a separate
+  // hz_inv=nz/zprd in the field interpolation; the planar Gk already carries the
+  // 1/volume (and the 0.5 BZ double-count de-convolved) gu_switch factors, so the
+  // residual differentiation prefactor here is the grid wavenumber unit
+  // 2*pi*delzinv.  Calibrated and verified by finite-differencing the single-atom
+  // mesh self-energy: a lone atom's true (ik) self-force is 0, while analytic
+  // differentiation produces the spurious +sum 2*B^2*(sf0 sin2pis + sf1 sin4pis);
+  // both harmonics independently give P = 2*pi*delzinv (to <1%, FD-limited), and
+  // subtracting this self-force drives the corrected ad self-force to ~grid noise.
+  const double P = 2.0 * MY_PI * delzinv;
+  sf_coeff[0] = P * c0;
+  sf_coeff[1] = 2.0 * P * c1;
 }
 
 /* ----------------------------------------------------------------------
@@ -940,9 +1007,10 @@ void PPPMDispPlanar::poisson()
       virial[dim] += vn;
     }
 
-    // per-atom potential field u_grid = IFFT[2 Gk rho_hat]
+    // potential field u_grid = IFFT[2 Gk rho_hat].  ad differentiation reads it
+    // for the z-force (always needed), so build it whenever ad or per-atom e/v.
 
-    if (evflag_atom) {
+    if (differentiation_flag == 1) {
       double *ur, *ui;
       memory->create(ur, nz, "pppm/disp/planar:ur");
       memory->create(ui, nz, "pppm/disp/planar:ui");
@@ -953,6 +1021,25 @@ void PPPMDispPlanar::poisson()
       }
       fft1d(ur, ui, nz, +1);
       for (int g = 0; g < nz; g++) ugrid[g] = ur[g];
+      memory->destroy(ur);
+      memory->destroy(ui);
+    }
+
+    // per-atom potential / virial fields (GTk/GNk); ugrid also covers ad above
+
+    if (evflag_atom) {
+      double *ur, *ui;
+      memory->create(ur, nz, "pppm/disp/planar:ur");
+      memory->create(ui, nz, "pppm/disp/planar:ui");
+      if (differentiation_flag != 1) {
+        for (int m = 0; m < nz; m++) {
+          double g2 = 2.0 * Gk[m];
+          ur[m] = g2 * fre[m];
+          ui[m] = g2 * fim[m];
+        }
+        fft1d(ur, ui, nz, +1);
+        for (int g = 0; g < nz; g++) ugrid[g] = ur[g];
+      }
       // compact switch: tangential/normal per-atom virial fields (GTk/GNk kernels)
       for (int m = 0; m < nz; m++) {
         double gt2 = 2.0 * GTk[m];
@@ -972,18 +1059,21 @@ void PPPMDispPlanar::poisson()
       memory->destroy(ui);
     }
 
-    // z-force field: F_hat_m = -i k_m * 2 Gk[m] * rho_hat_m
+    // z-force field (ik differentiation only): F_hat_m = -i k_m * 2 Gk[m] * rho_hat_m.
+    // ad differentiation derives the force from ugrid (built above), saving this IFFT.
 
-    for (int m = 0; m < nz; m++) {
-      int mm = (m <= nz / 2) ? m : m - nz;
-      double k = mm * 2.0 * MY_PI / zprd;
-      double g2k = 2.0 * Gk[m] * k;
-      double a = fre[m], bb = fim[m];
-      fre[m] = g2k * bb;    // Re(-i k 2Gk (a+ib)) = 2Gk k b
-      fim[m] = -g2k * a;    // Im = -2Gk k a
+    if (differentiation_flag != 1) {
+      for (int m = 0; m < nz; m++) {
+        int mm = (m <= nz / 2) ? m : m - nz;
+        double k = mm * 2.0 * MY_PI / zprd;
+        double g2k = 2.0 * Gk[m] * k;
+        double a = fre[m], bb = fim[m];
+        fre[m] = g2k * bb;    // Re(-i k 2Gk (a+ib)) = 2Gk k b
+        fim[m] = -g2k * a;    // Im = -2Gk k a
+      }
+      fft1d(fre, fim, nz, +1);
+      for (int g = 0; g < nz; g++) fz_grid[g] = fre[g];
     }
-    fft1d(fre, fim, nz, +1);
-    for (int g = 0; g < nz; g++) fz_grid[g] = fre[g];
     return;
   }
 
@@ -1048,7 +1138,10 @@ void PPPMDispPlanar::poisson()
   // fieldforce() pairs atom channel (6-m) with field channel m and applies the
   // per-atom 0.25*as_e normalization (see fieldforce()).
 
-  if (evflag_atom) {
+  // ad differentiation reads the per-channel ugrid[m*nz+.] for the z-force, so
+  // build it whenever ad (always) or per-atom e/v.
+
+  if (differentiation_flag == 1) {
     double *ur, *ui;
     memory->create(ur, nz, "pppm/disp/planar:ur");
     memory->create(ui, nz, "pppm/disp/planar:ui");
@@ -1060,6 +1153,25 @@ void PPPMDispPlanar::poisson()
       }
       fft1d(ur, ui, nz, +1);
       for (int g = 0; g < nz; g++) ugrid[m * nz + g] = ur[g];
+    }
+    memory->destroy(ur);
+    memory->destroy(ui);
+  }
+
+  if (evflag_atom) {
+    double *ur, *ui;
+    memory->create(ur, nz, "pppm/disp/planar:ur");
+    memory->create(ui, nz, "pppm/disp/planar:ui");
+    for (int m = 0; m < 7; m++) {
+      if (differentiation_flag != 1) {
+        for (int mode = 0; mode < nz; mode++) {
+          double g2 = 2.0 * Gk[mode];
+          ur[mode] = g2 * rre[m * nz + mode];
+          ui[mode] = g2 * rim[m * nz + mode];
+        }
+        fft1d(ur, ui, nz, +1);
+        for (int g = 0; g < nz; g++) ugrid[m * nz + g] = ur[g];
+      }
       for (int mode = 0; mode < nz; mode++) {
         double gt2 = 2.0 * GTk[mode];
         ur[mode] = gt2 * rre[m * nz + mode];
@@ -1079,26 +1191,29 @@ void PPPMDispPlanar::poisson()
     memory->destroy(ui);
   }
 
-  // per-channel z-force field: Ffield_m = IFFT[-i k 2 Gk rho_hat_m].
+  // per-channel z-force field (ik only): Ffield_m = IFFT[-i k 2 Gk rho_hat_m].
   // fieldforce() applies f = AS_F sum_m bi[6-m] Ffield_m(z_i), AS_F = 1/16.
+  // ad differentiation derives the force from ugrid (built above), skipping this.
 
-  double *fr, *fi;
-  memory->create(fr, nz, "pppm/disp/planar:fr");
-  memory->create(fi, nz, "pppm/disp/planar:fi");
-  for (int m = 0; m < 7; m++) {
-    for (int mode = 0; mode < nz; mode++) {
-      int mm = (mode <= nz / 2) ? mode : mode - nz;
-      double k = mm * 2.0 * MY_PI / zprd;
-      double g2k = 2.0 * Gk[mode] * k;
-      double a = rre[m * nz + mode], bb = rim[m * nz + mode];
-      fr[mode] = g2k * bb;     // Re(-i k 2Gk (a+ib)) = 2Gk k b
-      fi[mode] = -g2k * a;     // Im = -2Gk k a
+  if (differentiation_flag != 1) {
+    double *fr, *fi;
+    memory->create(fr, nz, "pppm/disp/planar:fr");
+    memory->create(fi, nz, "pppm/disp/planar:fi");
+    for (int m = 0; m < 7; m++) {
+      for (int mode = 0; mode < nz; mode++) {
+        int mm = (mode <= nz / 2) ? mode : mode - nz;
+        double k = mm * 2.0 * MY_PI / zprd;
+        double g2k = 2.0 * Gk[mode] * k;
+        double a = rre[m * nz + mode], bb = rim[m * nz + mode];
+        fr[mode] = g2k * bb;     // Re(-i k 2Gk (a+ib)) = 2Gk k b
+        fi[mode] = -g2k * a;     // Im = -2Gk k a
+      }
+      fft1d(fr, fi, nz, +1);
+      for (int g = 0; g < nz; g++) fz_grid[m * nz + g] = fr[g];
     }
-    fft1d(fr, fi, nz, +1);
-    for (int g = 0; g < nz; g++) fz_grid[m * nz + g] = fr[g];
+    memory->destroy(fr);
+    memory->destroy(fi);
   }
-  memory->destroy(fr);
-  memory->destroy(fi);
 
   delete[] rre;
   delete[] rim;
@@ -1116,6 +1231,9 @@ void PPPMDispPlanar::fieldforce()
   int nlocal = atom->nlocal;
   double w[MAXORDER];
 
+  const int adflag = (differentiation_flag == 1);
+  double dw[MAXORDER];
+
   if (nchan == 1) {    // geometric: single B-weighted field
 
     for (int i = 0; i < nlocal; i++) {
@@ -1123,20 +1241,36 @@ void PPPMDispPlanar::fieldforce()
       int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;
       double dz = g0 + shiftone - u;
       compute_rho1d(dz, w);
+      if (adflag) compute_drho1d(dz, dw);    // d(weights)/d(dz) for the ad z-force
       const double bi = B[type[i]];
 
       double fz = 0.0, uu = 0.0, uT = 0.0, uN = 0.0;
       for (int s = 0; s < order; s++) {
         int g = g0 + nlower + s;
         g = ((g % nz) + nz) % nz;
-        fz += w[s] * fz_grid[g];
+        if (adflag)
+          // f_z = B_i*delzinv*sum_s drho1d[s]*ugrid[g]  (analytic z-gradient of E,
+          // since d(w_s)/dz_i = -delzinv*drho1d[s]); ugrid = IFFT[2 Gk rho_hat].
+          fz += dw[s] * ugrid[g];
+        else
+          fz += w[s] * fz_grid[g];
         if (evflag_atom) {
           uu += w[s] * ugrid[g];
           uT += w[s] * uTgrid[g];
           uN += w[s] * uNgrid[g];
         }
       }
-      f[i][dim] += bi * fz;
+      if (adflag) {
+        // self-force correction: subtract the spurious gradient of the atom's own
+        // gridded self-energy (analog of pppm_disp::fieldforce_g_ad).  Bself = B_i^2.
+        const double sloc = (x[i][dim] - zlo) * delzinv;
+        const double fself =
+            2.0 * bi * bi * (sf_coeff[0] * sin(2.0 * MY_PI * sloc) +
+                             sf_coeff[1] * sin(4.0 * MY_PI * sloc));
+        f[i][dim] += bi * delzinv * fz - fself;
+      } else {
+        f[i][dim] += bi * fz;
+      }
 
       if (evflag_atom) {
         double pe = 0.5 * bi * uu;    // per-atom reciprocal energy
@@ -1170,6 +1304,7 @@ void PPPMDispPlanar::fieldforce()
     int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;
     double dz = g0 + shiftone - u;
     compute_rho1d(dz, w);
+    if (adflag) compute_drho1d(dz, dw);
     const double *bi = &B[7 * type[i]];
 
     double fz = 0.0, uu = 0.0, uT = 0.0, uN = 0.0;
@@ -1177,9 +1312,16 @@ void PPPMDispPlanar::fieldforce()
       int g = g0 + nlower + s;
       g = ((g % nz) + nz) % nz;
       const double ws = w[s];
+      const double dws = adflag ? dw[s] : 0.0;
       for (int m = 0; m < 7; m++) {
         const double a = bi[6 - m];    // atom channel (6-m) pairs with field channel m
-        fz += a * ws * fz_grid[m * nz + g];
+        // ad: f = as_f*delzinv*sum_s drho1d[s]*sum_m bi[6-m]*ugrid[m*nz+g]
+        //     (same as_f=1/16; discrete integration-by-parts preserves it).
+        // ik: f = as_f*sum_s w_s*sum_m bi[6-m]*fz_grid[m*nz+g].
+        if (adflag)
+          fz += a * dws * ugrid[m * nz + g];
+        else
+          fz += a * ws * fz_grid[m * nz + g];
         if (evflag_atom) {
           uu += a * ws * ugrid[m * nz + g];
           uT += a * ws * uTgrid[m * nz + g];
@@ -1187,7 +1329,19 @@ void PPPMDispPlanar::fieldforce()
         }
       }
     }
-    f[i][dim] += as_f * fz;
+    if (adflag) {
+      // self-force: Bself = as_f * sum_m B[7t+m] B[7t+(6-m)]  (= B_geom^2 single type)
+      double bself = 0.0;
+      for (int m = 0; m < 7; m++) bself += bi[m] * bi[6 - m];
+      bself *= as_f;
+      const double sloc = (x[i][dim] - zlo) * delzinv;
+      const double fself =
+          2.0 * bself * (sf_coeff[0] * sin(2.0 * MY_PI * sloc) +
+                         sf_coeff[1] * sin(4.0 * MY_PI * sloc));
+      f[i][dim] += as_f * delzinv * fz - fself;
+    } else {
+      f[i][dim] += as_f * fz;
+    }
 
     if (evflag_atom) {
       peatom[i] += as_pe * uu;

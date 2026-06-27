@@ -46,6 +46,7 @@ struct TagPPPMDispPlanar_poisson_fz_copy{};
 struct TagPPPMDispPlanar_poisson_u_prep{};
 struct TagPPPMDispPlanar_poisson_u_copy{};
 struct TagPPPMDispPlanar_fieldforce{};
+struct TagPPPMDispPlanar_fieldforce_ad{};       // analytic-differentiation z-force (geometric)
 struct TagPPPMDispPlanar_fieldforce_peratom{};
 struct TagPPPMDispPlanar_peatom_zero{};
 
@@ -69,6 +70,7 @@ struct TagPPPMDispPlanar_poisson_uT_copy_arith{};
 struct TagPPPMDispPlanar_poisson_uN_prep_arith{};
 struct TagPPPMDispPlanar_poisson_uN_copy_arith{};
 struct TagPPPMDispPlanar_fieldforce_arith{};
+struct TagPPPMDispPlanar_fieldforce_ad_arith{};   // analytic-differentiation z-force (arithmetic)
 struct TagPPPMDispPlanar_fieldforce_peratom_arith{};
 struct TagPPPMDispPlanar_corr_shell_raw_arith{};
 
@@ -147,6 +149,9 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   void operator()(TagPPPMDispPlanar_fieldforce, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_fieldforce_ad, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispPlanar_fieldforce_peratom, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
@@ -188,6 +193,8 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispPlanar_fieldforce_arith, const int&) const;
   KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_fieldforce_ad_arith, const int&) const;
+  KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispPlanar_fieldforce_peratom_arith, const int&) const;
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispPlanar_corr_shell_raw_arith, const int&, s_csb&) const;
@@ -213,6 +220,17 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
       double r = 0.0;
       for (int l = order_kk - 1; l >= 0; l--) r = d_rho_coeff(l, s) + r * dz;
       w[s] = r;
+    }
+  }
+
+  // d/d(dz) of the assignment weights: dw[s] = sum_{l>=1} l*rho_coeff[l][s] dz^(l-1)
+  // (analytic-differentiation z-force weights; mirrors PPPMDispPlanar::compute_drho1d)
+  KOKKOS_INLINE_FUNCTION
+  void compute_drho1d_kk(const double dz, double *dw) const {
+    for (int s = 0; s < order_kk; s++) {
+      double r = 0.0;
+      for (int l = order_kk - 1; l >= 1; l--) r = l * d_rho_coeff(l, s) + r * dz;
+      dw[s] = r;
     }
   }
 
@@ -283,6 +301,10 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   int dim_kk, lat1_kk, lat2_kk;   // inhomogeneous and lateral dim indices
   int nchan_kk;                   // density channels (1 geom, 7 arith)
   int chan_kk;                    // current channel m for per-channel kernels
+
+  // analytic-differentiation (kspace_modify diff ad) scalars
+  int adflag_kk;                  // 1 = analytic differentiation, 0 = ik
+  double sf_coeff0_kk, sf_coeff1_kk;   // 1-D z self-force amplitudes (host compute_sf_coeff)
 
   // scalar device copies for the shell correction
   int myoff_kk, natoms_all_kk;   // this proc's offset / total atom count in d_zall
