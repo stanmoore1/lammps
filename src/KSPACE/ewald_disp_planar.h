@@ -108,8 +108,24 @@ class EwaldDispPlanar : public KSpace {
   void corr_shell_raw();                // global z-gather (N^2)
   void corr_shell_bin();                // z-binned
   void compute_pressure_profile();    // P_T(z), P_N(z) profiles (H or IK contour)
+  // shell-correction virial per profile bin (shellT[g], shellN[g]); dispatches on
+  // corr_mode so the contour profile uses the SAME real-space correction as the box
+  // average (raw = exact per-atom shell virial binned by z; bin = density convolution).
+  void shell_profile_virial(double dz, double *dens_all, double *shellT, double *shellN);
   double ik_phi(double h);            // IK tangential building block Phi(h)
   double ik_psi(double h);            // IK normal building block Psi(h)
+  // compact-switch shell correction for the local pressure-profile coefficients.
+  // The Harasima (Tn,Nn) and IK (Phi,Psi) coefficients are sharp tail integrals
+  // int_rcut^inf g(r) dr of a potential-form integrand g.  Made switch-aware by
+  // anchoring the tail at the OUTER cutoff rcut+Delta and adding the shell integral
+  // int_rcut^{rcut+Delta} W(r) g(r) dr, W(r) = S(r) - S'(r) r/6 = (S u)'/(6/r^7), the
+  // force-reweight that makes the shell term identical to the global switch_shell_virial
+  // (reduces to the sharp result as Delta->0).  which selects the integrand g:
+  //   PROF_T (combo_GT, used by Tn and Psi), PROF_N (combo_GN, used by Nn),
+  //   PROF_PHI (combo_phi, used by Phi).
+  enum { PROF_T, PROF_N, PROF_PHI };
+  double prof_integrand(int which, double r, double h);    // potential-form g(r)
+  double prof_shell(int which, double h);                  // int_rcut^c W(r) g(r) dr
 
   // generalized sine/cosine integrals via recurrence + continued fraction
   void cisi(double x, double &si, double &ci);
