@@ -74,7 +74,6 @@ EwaldDispPlanar::EwaldDispPlanar(LAMMPS *lmp) :
   wEgrid = wFgrid = wTgrid = wNgrid = nullptr;
   nwgrid = 0;
   wdz = 0.0;
-  contour_flag = 0;
   profile_flag = 0;
   npro = 0;
   pt_profile = pn_profile = nullptr;
@@ -119,7 +118,8 @@ void EwaldDispPlanar::settings(int narg, char **arg)
    handle the per-style kspace_modify keywords:
      kmax <N>          -- override the number of z wavevectors
      corr raw|bin [dz] -- shell correction: exact pairwise, or z-binned (faster)
-     contour h|ik      -- local pressure-profile contour (Harasima or Irving-Kirkwood)
+     (the local pressure profile is the Irving-Kirkwood contour; the Harasima contour is
+      the per-atom virial, available via compute stress/atom + fix ave/chunk)
      pressure/profile <N> -- compute P_T(z), P_N(z) on an N-point z grid
      dim x|y|z         -- the inhomogeneous direction (default z)
    returns number of args consumed (0 -> base errors on unknown keyword)
@@ -148,16 +148,6 @@ int EwaldDispPlanar::modify_param(int narg, char **arg)
     } else {
       error->all(FLERR, "kspace_modify corr must be raw or bin");
     }
-    return 2;
-  }
-  if (strcmp(arg[0], "contour") == 0) {
-    if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify contour", error);
-    if (strcmp(arg[1], "h") == 0)
-      contour_flag = 0;
-    else if (strcmp(arg[1], "ik") == 0)
-      contour_flag = 1;
-    else
-      error->all(FLERR, "kspace_modify contour must be h or ik");
     return 2;
   }
   if (strcmp(arg[0], "pressure/profile") == 0) {
@@ -1611,24 +1601,36 @@ void EwaldDispPlanar::shell_profile_virial(double dz, double *dens_all, double *
 }
 
 /* ----------------------------------------------------------------------
-   long-range pressure profiles P_T(z), P_N(z) on an npro-point z grid.
-   Harasima (contour_flag=0):  P(z) = rho_B(z) [ c0 + sum_n Re(C_n S_n e^{i h_n z}) ]
-       with C_n = T_n (tangential) or N_n (normal), c0 = -16 pi rho_avg/(3 rc^3).
-   Irving-Kirkwood (contour_flag=1):  P(z) = sum_{n,m} S_n S_m C_{n,m} e^{i(h_n+h_m)z},
-       C^T_{n,m} = -24 pi/(h_n+h_m)[Phi(h_m)+Phi(h_n)],
-       C^N_{n,m} = -48 pi/(h_n+h_m)[Psi(h_m)+Psi(h_n)],
-       with the n=-m (T_n/2, N_n/2) and (0,0) (-16pi/3rc^3) special cases.
-   S_n are the number-density Fourier coefficients = (1/V) sum_j B_j e^{-i h_n z_j}.
+   long-range Irving-Kirkwood pressure profiles P_T(z), P_N(z) on an npro-point z grid.
+   (The Harasima contour is the per-atom virial, obtained via compute stress/atom +
+   fix ave/chunk; only the IK contour -- which cannot be written per-atom -- is here.)
+     P(z) = sum_{n,m} S_n S_m C_{n,m} e^{i(h_n+h_m)z} - shell(z),
+   p=n+m=0 coefficients pinned to the verified global GT/GN ((0,0)=V*GT[0], n=-m diagonal
+   = V*GT[k]/2), off-diagonal C^{T}_{n,m}=-6pi/(h_n+h_m)[Phi(h_m)+Phi(h_n)],
+   C^{N}_{n,m}=-12pi/(h_n+h_m)[Psi(h_m)+Psi(h_n)] (these set only the SHAPE).  The shell
+   mean field uses the SAME corr_shell correction as the box average (corr_mode).
+   S_n = (1/V) sum_j B_j e^{-i h_n z_j}.  Requires npro > 2*kmax (anti-aliasing).
 ------------------------------------------------------------------------- */
 
 void EwaldDispPlanar::compute_pressure_profile()
 {
   const double zprd = domain->prd[dim], zlo = domain->boxlo[dim];
   const double area = domain->prd[lat1] * domain->prd[lat2];
-  const double rc3 = cutoff * cutoff * cutoff;
   const int K = kcount - 1;    // highest mode index
 
   if (npro < 1) return;
+
+  // anti-aliasing requirement: the Irving-Kirkwood profile sums reciprocal modes
+  // e^{i p unitk z} with |p|=|n+m| up to 2*kmax.  The z grid must resolve them or the
+  // high modes alias onto low ones and corrupt both the profile shape and its box-average
+  // (which must equal the global pressure).  K = kcount-1 is the highest mode index, so
+  // require npro > 2K.
+  if (npro <= 2 * K)
+    error->all(FLERR,
+               "kspace_modify pressure/profile grid {} is too coarse: it must exceed {} "
+               "(= 2*kmax) to resolve the Irving-Kirkwood reciprocal modes without aliasing",
+               npro, 2 * K);
+
   memory->destroy(pt_profile);
   memory->destroy(pn_profile);
   memory->create(pt_profile, npro, "ewald/disp/planar:pt_profile");
@@ -1681,37 +1683,11 @@ void EwaldDispPlanar::compute_pressure_profile()
   shell_profile_virial(dz, dens_all, shellT, shellN);
   const double inv_adz = 1.0 / (area * dz);
 
-  if (contour_flag == 0) {
+  {
 
-    // Harasima single-sum coefficients are fully determined by the box-average
-    // constraint box-avg(P_T) = sum_n T_n |S_n|^2 == sum_k GT[k]|sfac_k|^2/V, which
-    // (|S_n|^2=|sfac_n|^2/V^2) forces T_n = V*GT[k], N_n = V*GN[k].  Reuse the verified,
-    // switch-aware global coefficient arrays directly.
-    auto *Tarr = new double[K + 1];
-    auto *Narr = new double[K + 1];
-    for (int n = 1; n <= K; n++) {
-      Tarr[n] = volume * GT[n];
-      Narr[n] = volume * GN[n];
-    }
-    for (int g = 0; g < npro; g++) {
-      double z = zlo + (g + 0.5) * dz;
-      double gt = c0, gn = c0;
-      for (int n = 1; n <= K; n++) {
-        double hn = n * unitk;
-        double cz = cos(hn * z), sz = sin(hn * z);
-        gt += Tarr[n] * (Sre[n] * cz - Sim[n] * sz);
-        gn += Narr[n] * (Sre[n] * cz - Sim[n] * sz);
-      }
-      double rhoz = dens_all[g] / (area * dz);    // areal volume density
-      pt_profile[g] = rhoz * gt - shellT[g] * inv_adz;
-      pn_profile[g] = rhoz * gn - shellN[g] * inv_adz;
-    }
-    delete[] Tarr;
-    delete[] Narr;
-
-  } else {
-
-    // Irving-Kirkwood: P(z) = sum_{n,m} S_n S_m C_{n,m} e^{i(h_n+h_m)z}.  Only the
+    // Irving-Kirkwood pressure profile.  (The Harasima contour is just the per-atom
+    // virial, obtained from compute stress/atom + fix ave/chunk -- not computed here.)
+    // P(z) = sum_{n,m} S_n S_m C_{n,m} e^{i(h_n+h_m)z}.  Only the
     // p=n+m=0 terms survive the box-average, so they fix the integral (=> the global
     // pressure / surface tension), while p!=0 (the off-diagonal Phi/Psi kernels) set
     // only the SHAPE of the IK profile.  The box-average-relevant p=0 coefficients are

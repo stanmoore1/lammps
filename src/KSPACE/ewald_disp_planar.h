@@ -35,10 +35,10 @@ class EwaldDispPlanar : public KSpace {
   int modify_param(int, char **) override;
   double memory_usage() override;
 
-  // long-range pressure profiles P_T(z), P_N(z) on a z-grid (npro points), filled
-  // by compute_pressure_profile() when kspace_modify pressure/profile is on.
-  // contour 0 = Harasima (H), 1 = Irving-Kirkwood (IK).
-  int contour_flag, profile_flag, npro;
+  // long-range Irving-Kirkwood pressure profiles P_T(z), P_N(z) on a z-grid (npro
+  // points), filled by compute_pressure_profile() when kspace_modify pressure/profile is
+  // on.  (The Harasima contour is the per-atom virial -- compute stress/atom -- not here.)
+  int profile_flag, npro;
   double *pt_profile, *pn_profile;
 
  protected:
@@ -107,7 +107,7 @@ class EwaldDispPlanar : public KSpace {
   void corr_shell();                    // dispatcher (compact-switch shell correction)
   void corr_shell_raw();                // global z-gather (N^2)
   void corr_shell_bin();                // z-binned
-  void compute_pressure_profile();    // P_T(z), P_N(z) profiles (H or IK contour)
+  void compute_pressure_profile();    // P_T(z), P_N(z) Irving-Kirkwood profiles
   // shell-correction virial per profile bin (shellT[g], shellN[g]); dispatches on
   // corr_mode so the contour profile uses the SAME real-space correction as the box
   // average (raw = exact per-atom shell virial binned by z; bin = density convolution).
