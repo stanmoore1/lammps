@@ -74,9 +74,6 @@ EwaldDispPlanar::EwaldDispPlanar(LAMMPS *lmp) :
   wEgrid = wFgrid = wTgrid = wNgrid = nullptr;
   nwgrid = 0;
   wdz = 0.0;
-  profile_flag = 0;
-  npro = 0;
-  pt_profile = pn_profile = nullptr;
   kmax = 0;
   kcount = 0;
   kmax_created = 0;
@@ -95,8 +92,6 @@ EwaldDispPlanar::~EwaldDispPlanar()
   memory->destroy(cs);
   memory->destroy(sn);
   delete[] B;
-  memory->destroy(pt_profile);
-  memory->destroy(pn_profile);
   delete[] wEgrid;
   delete[] wFgrid;
   delete[] wTgrid;
@@ -120,7 +115,6 @@ void EwaldDispPlanar::settings(int narg, char **arg)
      corr raw|bin [dz] -- shell correction: exact pairwise, or z-binned (faster)
      (the local pressure profile is the Irving-Kirkwood contour; the Harasima contour is
       the per-atom virial, available via compute stress/atom + fix ave/chunk)
-     pressure/profile <N> -- compute P_T(z), P_N(z) on an N-point z grid
      dim x|y|z         -- the inhomogeneous direction (default z)
    returns number of args consumed (0 -> base errors on unknown keyword)
 ------------------------------------------------------------------------- */
@@ -148,12 +142,6 @@ int EwaldDispPlanar::modify_param(int narg, char **arg)
     } else {
       error->all(FLERR, "kspace_modify corr must be raw or bin");
     }
-    return 2;
-  }
-  if (strcmp(arg[0], "pressure/profile") == 0) {
-    if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify pressure/profile", error);
-    npro = utils::inumeric(FLERR, arg[1], false, lmp);
-    profile_flag = (npro > 0);
     return 2;
   }
   if (strcmp(arg[0], "dim") == 0) {
@@ -1379,9 +1367,6 @@ void EwaldDispPlanar::compute(int eflag, int vflag)
   // report per-atom energy (from the buffer) when requested
   if (eflag_atom)
     for (i = 0; i < nlocal; i++) eatom[i] += peatom[i];
-
-  // long-range pressure profiles P_T(z), P_N(z) (Harasima or Irving-Kirkwood)
-  if (profile_flag) compute_pressure_profile();
 }
 
 /* ----------------------------------------------------------------------
@@ -1488,23 +1473,23 @@ double EwaldDispPlanar::ik_psi(double h)
    profile uses the IDENTICAL real-space corr_shell correction as the box average:
      corr raw (0): each atom's EXACT shell virial vt_i = sum_j bij wT(|z_i-z_j|),
        vn_i = sum_j bij wN, binned by z_i; sum over bins == vt_all/vn_all exactly, so
-       box-avg(profile) == box pressure independent of npro.
+       box-avg(profile) == box pressure independent of nbins.
      corr bin (1): density-density convolution (the binned approximation).
    geometric (nchan==1): bij = B_i B_j.  arithmetic (nchan==7): bij = (1/16) sum_m
    a_i[m] a_j[6-m] (the same C6 cross used by corr_shell_raw).
 ------------------------------------------------------------------------- */
 
-void EwaldDispPlanar::shell_profile_virial(double dz, double *dens_all, double *shellT,
-                                           double *shellN)
+void EwaldDispPlanar::shell_profile_virial(int nbins, double lo, double dz, double *dens_all,
+                                           double *shellT, double *shellN)
 {
-  const double zprd = domain->prd[dim], zlo = domain->boxlo[dim];
+  const double zprd = domain->prd[dim];
   const double bcut = cutoff + sw_width;
-  for (int g = 0; g < npro; g++) shellT[g] = shellN[g] = 0.0;
+  for (int g = 0; g < nbins; g++) shellT[g] = shellN[g] = 0.0;
 
   if (corr_mode != 0) {    // BIN: density-density convolution (matches corr_shell_bin)
-    for (int g = 0; g < npro; g++) {
+    for (int g = 0; g < nbins; g++) {
       double sT = 0.0, sN = 0.0;
-      for (int gp = 0; gp < npro; gp++) {
+      for (int gp = 0; gp < nbins; gp++) {
         double ddz = (g - gp) * dz;
         ddz -= zprd * floor(ddz / zprd + 0.5);
         double wE, wF, wT, wN;
@@ -1552,17 +1537,17 @@ void EwaldDispPlanar::shell_profile_virial(double dz, double *dens_all, double *
   MPI_Allgatherv(bloc, nlocal * nchan, MPI_DOUBLE, ball, rcb, dpb, MPI_DOUBLE, world);
 
   const double as_shell = 1.0 / 16.0;
-  auto *sTloc = new double[npro];
-  auto *sNloc = new double[npro];
-  for (int g = 0; g < npro; g++) sTloc[g] = sNloc[g] = 0.0;
+  auto *sTloc = new double[nbins];
+  auto *sNloc = new double[nbins];
+  for (int g = 0; g < nbins; g++) sTloc[g] = sNloc[g] = 0.0;
   for (int i = 0; i < nlocal; i++) {
     double zi = x[i][dim];
     double bi = (nchan == 1) ? B[type[i]] : 0.0;
     const double *ai = (nchan == 1) ? nullptr : &B[7 * type[i]];
-    double u = (zi - zlo) / zprd * npro;
-    u -= npro * floor(u / npro);
+    double u = (zi - lo) / dz;
+    u -= nbins * floor(u / nbins);
     int g = (int) u;
-    if (g >= npro) g -= npro;
+    if (g >= nbins) g -= nbins;
     double vt = 0.0, vn = 0.0;
     for (int jg = 0; jg < natoms_all; jg++) {
       double delz = zi - zall[jg];
@@ -1586,8 +1571,8 @@ void EwaldDispPlanar::shell_profile_virial(double dz, double *dens_all, double *
     sTloc[g] += vt;
     sNloc[g] += vn;
   }
-  MPI_Allreduce(sTloc, shellT, npro, MPI_DOUBLE, MPI_SUM, world);
-  MPI_Allreduce(sNloc, shellN, npro, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(sTloc, shellT, nbins, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(sNloc, shellN, nbins, MPI_DOUBLE, MPI_SUM, world);
   delete[] rc;
   delete[] dp;
   delete[] rcb;
@@ -1601,7 +1586,8 @@ void EwaldDispPlanar::shell_profile_virial(double dz, double *dens_all, double *
 }
 
 /* ----------------------------------------------------------------------
-   long-range Irving-Kirkwood pressure profiles P_T(z), P_N(z) on an npro-point z grid.
+   long-range Irving-Kirkwood pressure profiles P_T(z), P_N(z) on the caller's nbins z grid
+   (bin centers lo+(g+0.5)*width); the caller allocates pT/pN.  Returns 1 on success.
    (The Harasima contour is the per-atom virial, obtained via compute stress/atom +
    fix ave/chunk; only the IK contour -- which cannot be written per-atom -- is here.)
      P(z) = sum_{n,m} S_n S_m C_{n,m} e^{i(h_n+h_m)z} - shell(z),
@@ -1609,32 +1595,33 @@ void EwaldDispPlanar::shell_profile_virial(double dz, double *dens_all, double *
    = V*GT[k]/2), off-diagonal C^{T}_{n,m}=-6pi/(h_n+h_m)[Phi(h_m)+Phi(h_n)],
    C^{N}_{n,m}=-12pi/(h_n+h_m)[Psi(h_m)+Psi(h_n)] (these set only the SHAPE).  The shell
    mean field uses the SAME corr_shell correction as the box average (corr_mode).
-   S_n = (1/V) sum_j B_j e^{-i h_n z_j}.  Requires npro > 2*kmax (anti-aliasing).
+   S_n = (1/V) sum_j B_j e^{-i h_n z_j}.  Requires nbins > 2*kmax (anti-aliasing).
 ------------------------------------------------------------------------- */
 
-void EwaldDispPlanar::compute_pressure_profile()
+int EwaldDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double width,
+                                           double *pN, double *pT)
 {
-  const double zprd = domain->prd[dim], zlo = domain->boxlo[dim];
+  if (dir != dim)
+    error->all(FLERR,
+               "compute stress/cartesian binning direction must match the inhomogeneous axis "
+               "(kspace_modify dim) of ewald/disp/planar");
+
+  const double zprd = domain->prd[dim];
   const double area = domain->prd[lat1] * domain->prd[lat2];
   const int K = kcount - 1;    // highest mode index
-
-  if (npro < 1) return;
 
   // anti-aliasing requirement: the Irving-Kirkwood profile sums reciprocal modes
   // e^{i p unitk z} with |p|=|n+m| up to 2*kmax.  The z grid must resolve them or the
   // high modes alias onto low ones and corrupt both the profile shape and its box-average
   // (which must equal the global pressure).  K = kcount-1 is the highest mode index, so
-  // require npro > 2K.
-  if (npro <= 2 * K)
+  // require nbins > 2K.
+  if (nbins <= 2 * K)
     error->all(FLERR,
-               "kspace_modify pressure/profile grid {} is too coarse: it must exceed {} "
-               "(= 2*kmax) to resolve the Irving-Kirkwood reciprocal modes without aliasing",
-               npro, 2 * K);
-
-  memory->destroy(pt_profile);
-  memory->destroy(pn_profile);
-  memory->create(pt_profile, npro, "ewald/disp/planar:pt_profile");
-  memory->create(pn_profile, npro, "ewald/disp/planar:pn_profile");
+               "compute stress/cartesian with ewald/disp/planar kspace: {} bins along the "
+               "inhomogeneous axis is too coarse; need > {} (= 2*kmax) to resolve the "
+               "Irving-Kirkwood reciprocal modes without aliasing (use a finer bin width or "
+               "smaller kmax)",
+               nbins, 2 * K);
 
   // number-density Fourier coefficients S_n = (1/V)(sfacrl - i sfacim) for n>=0
   // (S_{-n} = conj(S_n)); store Sre[n], Sim[n] for n=0..K
@@ -1645,42 +1632,34 @@ void EwaldDispPlanar::compute_pressure_profile()
     Sim[n] = -sfacim_all[n] / volume;
   }
 
-  // switch-aware isotropic (k=0) coefficient, consistent with the global GT[0]=GN[0]:
-  // the Harasima c0 term box-averages to c0*<rho_B> = c0*Sre[0], which must equal the
-  // global k=0 virial contribution GT[0]*sfacrl_all[0]^2/V to the pressure; with
-  // Sre[0]=sfacrl_all[0]/V this gives c0 = GT[0]*sfacrl_all[0].  (In the sharp Delta->0
-  // limit GT[0]->-(2pi/3V)/rc^3, so c0 -> -(2pi/3)Sre[0]/rc^3, i.e. half the old sharp
-  // -4pi Sre[0]/(3 rc^3); the factor 2 was the missing Ewald/k=0 convention.)
-  const double c0 = GT[0] * sfacrl_all[0];
-
   // bin the B-weighted density rho_B(z) -- the Harasima rho multiplier and the BIN-mode
   // shell convolution source; shared by both contours.
-  const double dz = zprd / npro;
-  auto *dens = new double[npro];
-  for (int g = 0; g < npro; g++) dens[g] = 0.0;
+  const double dz = width;
+  auto *dens = new double[nbins];
+  for (int g = 0; g < nbins; g++) dens[g] = 0.0;
   {
     int *type = atom->type;
     double **x = atom->x;
     for (int i = 0; i < atom->nlocal; i++) {
-      double u = (x[i][dim] - zlo) / zprd * npro;
-      u -= npro * floor(u / npro);
+      double u = (x[i][dim] - lo) / width;
+      u -= nbins * floor(u / nbins);
       int g = (int) u;
-      if (g >= npro) g -= npro;
+      if (g >= nbins) g -= nbins;
       dens[g] += B[type[i]];
     }
   }
-  auto *dens_all = new double[npro];
-  MPI_Allreduce(dens, dens_all, npro, MPI_DOUBLE, MPI_SUM, world);
+  auto *dens_all = new double[nbins];
+  MPI_Allreduce(dens, dens_all, nbins, MPI_DOUBLE, MPI_SUM, world);
 
   // shell-correction VIRIAL per bin shellT[g]/shellN[g].  The contour profile MUST use
   // the SAME real-space corr_shell correction as the box average so box-avg(profile)
   // == box pressure; dispatch on corr_mode exactly like the global correction (raw =
-  // exact per-atom shell virial binned by z, npro-independent exact; bin = density
+  // exact per-atom shell virial binned by z, nbins-independent exact; bin = density
   // convolution).  The kspace NET long-range pressure is reciprocal - shell, so subtract
   // shellT[g]/(area*dz) (a pressure) from the reciprocal profile below.
-  auto *shellT = new double[npro];
-  auto *shellN = new double[npro];
-  shell_profile_virial(dz, dens_all, shellT, shellN);
+  auto *shellT = new double[nbins];
+  auto *shellN = new double[nbins];
+  shell_profile_virial(nbins, lo, width, dens_all, shellT, shellN);
   const double inv_adz = 1.0 / (area * dz);
 
   {
@@ -1734,8 +1713,8 @@ void EwaldDispPlanar::compute_pressure_profile()
         ANim[p] += CN * sim;
       }
     }
-    for (int g = 0; g < npro; g++) {
-      double z = zlo + (g + 0.5) * dz;
+    for (int g = 0; g < nbins; g++) {
+      double z = lo + (g + 0.5) * width;
       double pt = ATre[0], pn = ANre[0];    // p=0 term (real)
       for (int p = 1; p <= P; p++) {
         double cz = cos(p * unitk * z), sz = sin(p * unitk * z);
@@ -1743,8 +1722,8 @@ void EwaldDispPlanar::compute_pressure_profile()
         pn += 2.0 * (ANre[p] * cz - ANim[p] * sz);
       }
       // subtract the laterally-uniform shell mean field (same corr correction as box)
-      pt_profile[g] = pt - shellT[g] * inv_adz;
-      pn_profile[g] = pn - shellN[g] * inv_adz;
+      pT[g] = pt - shellT[g] * inv_adz;
+      pN[g] = pn - shellN[g] * inv_adz;
     }
     delete[] ATre;
     delete[] ATim;
@@ -1757,6 +1736,7 @@ void EwaldDispPlanar::compute_pressure_profile()
   delete[] shellN;
   delete[] Sre;
   delete[] Sim;
+  return 1;
 }
 
 /* ----------------------------------------------------------------------
@@ -1915,6 +1895,5 @@ double EwaldDispPlanar::memory_usage()
   bytes += (double) nmax * sizeof(double);
   bytes += 2.0 * (double) kmax * nmax * sizeof(double);
   bytes += 4.0 * (nwgrid + 1) * sizeof(double);    // shell kernels
-  if (profile_flag) bytes += 2.0 * (double) npro * sizeof(double);
   return bytes;
 }

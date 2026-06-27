@@ -21,6 +21,7 @@
 #include "error.h"
 #include "fix.h"
 #include "force.h"
+#include "kspace.h"
 #include "memory.h"
 #include "modify.h"
 #include "neigh_list.h"
@@ -164,6 +165,8 @@ ComputeStressCartesian::ComputeStressCartesian(LAMMPS *lmp, int narg, char **arg
         compute_pair = true;
       else if (strcmp(arg[iarg], "bond") == 0)
         compute_bond = true;
+      else if (strcmp(arg[iarg], "kspace") == 0)
+        kspaceflag = 1;
       else
         error->all(FLERR, "Unknown compute stress/cartesian keyword: {}", arg[iarg]);
       iarg++;
@@ -227,6 +230,13 @@ void ComputeStressCartesian::init()
     error->all(FLERR, "No pair style is defined for compute stress/cartesian");
   if (force->pair->single_enable == 0)
     error->all(FLERR, "Pair style does not support compute stress/cartesian");
+
+  if (kspaceflag) {
+    if (dims != 1)
+      error->all(FLERR, "compute stress/cartesian kspace contribution requires 1-D binning");
+    if (force->kspace == nullptr)
+      error->all(FLERR, "compute stress/cartesian kspace requires a kspace style");
+  }
 
   // need an occasional half neighbor list.
   neighbor->add_request(this, NeighConst::REQ_OCCASIONAL);
@@ -422,6 +432,37 @@ void ComputeStressCartesian::compute_array()
   MPI_Allreduce(tpcxx, pcxx, nbins1 * nbins2, MPI_DOUBLE, MPI_SUM, world);
   MPI_Allreduce(tpcyy, pcyy, nbins1 * nbins2, MPI_DOUBLE, MPI_SUM, world);
   MPI_Allreduce(tpczz, pczz, nbins1 * nbins2, MPI_DOUBLE, MPI_SUM, world);
+
+  // add the long-range (kspace) Irving-Kirkwood pressure profile on this compute's
+  // own 1-D grid.  The hook returns a true pressure P = virial/Volume (same units as
+  // the configurational columns pcxx/.. which are already normalized to a pressure by
+  // invV above), so it is added directly: the normal axis (dir1) gets pN, the two
+  // lateral axes get pT.
+  if (kspaceflag) {
+    double *pN = new double[nbins1];
+    double *pT = new double[nbins1];
+    int ok = force->kspace->pressure_profile_long(dir1, nbins1, domain->boxlo[dir1],
+                                                  bin_width1, pN, pT);
+    if (ok == 0) {
+      delete[] pN;
+      delete[] pT;
+      error->all(FLERR,
+                 "kspace style {} does not provide a long-range pressure profile (only "
+                 "ewald/disp/planar / pppm/disp/planar do)",
+                 force->kspace_style);
+    } else {
+      const int lat1 = (dir1 + 1) % 3;
+      const int lat2 = (dir1 + 2) % 3;
+      double *pcaxis[3] = {pcxx, pcyy, pczz};
+      for (int b = 0; b < nbins1; b++) {
+        pcaxis[dir1][b] += pN[b];
+        pcaxis[lat1][b] += pT[b];
+        pcaxis[lat2][b] += pT[b];
+      }
+    }
+    delete[] pN;
+    delete[] pT;
+  }
 
   // populate array to output.
   for (int bin = 0; bin < nbins1 * nbins2; bin++) {

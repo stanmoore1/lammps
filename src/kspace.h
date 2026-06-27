@@ -187,6 +187,18 @@ class KSpace : protected Pointers {
   virtual void compute(int, int) = 0;
   virtual void compute_group_group(int, int, int) {};
 
+  // long-range contribution to the local NORMAL (pN) and TANGENTIAL (pT) pressure on a
+  // uniform 1-D grid of nbins bins along axis dir, centers lo+(g+0.5)*width.  Returns 1
+  // if this kspace style provides the profile (only the planar dispersion styles do),
+  // else 0 (default no-op).  Used by compute stress/cartesian (and stress/mop/profile)
+  // to add the planar dispersion long-range Irving-Kirkwood contribution on the
+  // compute's own grid.
+  virtual int pressure_profile_long(int /*dir*/, int /*nbins*/, double /*lo*/,
+                                    double /*width*/, double * /*pN*/, double * /*pT*/)
+  {
+    return 0;
+  }
+
   virtual void pack_forward_grid(int, void *, int, int *) {};
   virtual void unpack_forward_grid(int, void *, int, int *) {};
   virtual void pack_reverse_grid(int, void *, int, int *) {};
