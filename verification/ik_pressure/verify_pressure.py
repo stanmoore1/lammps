@@ -234,7 +234,7 @@ def main():
     plt.plot(z, ik["PT"], "-", lw=1, label="IK  $P_T$")
     plt.plot(z, h["PT"], "--", lw=1, label="Harasima $P_T$")
     plt.plot(z, ik["PN"], "k:", lw=0.8, label="IK $P_N$ (ref)")
-    plt.xlabel("z"); plt.ylabel(r"$P_T(z)=\tfrac12(P_{xx}+P_{yy})$")
+    plt.xlabel("z"); plt.ylabel(r"$P_T(z)=\frac{1}{2}(P_{xx}+P_{yy})$")
     plt.title("Tangential pressure — bulk matches $P_N$, interface wells differ by contour")
     plt.legend(); plt.tight_layout(); plt.savefig("fig_PT.png", dpi=130); plt.close()
 

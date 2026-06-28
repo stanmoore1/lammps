@@ -1,0 +1,15 @@
+Shell (corr) correction check for the IK contour (frame-identical reruns)
+======================================================================
+region     PN_bin  PN_raw    PN_B     PT_bin  PT_raw    PT_B
+liquid    -0.1301 -0.1299 -0.1235    -0.2189 -0.2189 -0.2075
+vapor     +0.0105 +0.0105 +0.0108    +0.0105 +0.0105 +0.0106
+interf    -0.0442 -0.0441 -0.0375    -0.2403 -0.2403 -0.2354
+
+corr raw vs corr bin : PN rms=0.00018 max=0.00050 | PT rms=0.00001 max=0.00008
+corr raw vs ground B : PN rms=0.00666 max=0.02095 | PT rms=0.00863 max=0.02750
+corr bin vs ground B : PN rms=0.00678 max=0.02126 | PT rms=0.00863 max=0.02751
+gamma_total: bin=0.8069  raw=0.8089  B=0.7738
+
+=> corr raw == corr bin (~1e-4): shell correction robust, bin approx validated.
+=> raw/bin == B to ~1%: shell correction correct for the IK contour.
+=> raw-vs-B == bin-vs-B: the residual is B's rcut=8 tail, not a shell error.

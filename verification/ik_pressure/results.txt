@@ -1,0 +1,20 @@
+======================================================================
+IK vs Harasima local pressure verification  (LJ liquid-vapor slab, T=0.85)
+======================================================================
+blocks: IK=5  H=5   dz=0.1  nbins=360
+
+PN flatness (constant-fit chi2/ndf):  IK=8.55   H=5.93
+mean normal pressure  PN_bar:         IK=+0.0055   H=+0.0046
+
+surface tension gamma_total (0.5*dz*sum(PN-PT)):
+   IK contour        = +0.6956
+   Harasima contour  = +0.6968
+   thermo 0.5*Lz*(Pzz-0.5(Pxx+Pyy)) = +0.6968 +/- 0.1578
+   thermo <Pxx,Pyy,Pzz> = -0.0998 -0.1088 -0.0656
+   IK box-avg <Pzz>=-0.0657  <PT>=-0.1043
+    H box-avg <Pzz>=-0.0656  <PT>=-0.1043
+
+Long-cutoff convergence (frame-identical rerun):
+   A short+kspace : gamma=+0.8069  <PN>=-0.0552
+   B lj/cut 8.0   : gamma=+0.7738  <PN>=-0.0515
+   max|PT_A-PT_B| = 0.0275   rms = 0.0086
