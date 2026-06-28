@@ -1,0 +1,44 @@
+========================================================================
+Independent check of ewald_disp_planar analytic reductions
+========================================================================
+
+[1] chain limits A_m(inf), B_m(inf)  ->  the 'magic' constants
+   A5(inf) = pi/48                        got=0.065449846950 exp=0.065449846950  [OK]
+   A7(inf)-B6(inf) = pi/288               got=0.010908307825 exp=0.010908307825  [OK]
+   pi/192 - pi/288 = pi/576               got=0.005454153912 exp=0.005454153912  [OK]
+   A5(inf)-2A7(inf)+2B6(inf) = pi/72      got=0.043633231300 exp=0.043633231300  [OK]
+
+[2] int_x^inf sin t/t^m dt  ==  A_m(inf)-A_m(x)   (and cos -> B)  [relative]
+   x=  0.5 m=5: sin rel=4.3e-12  cos rel=6.3e-12
+   x=  0.5 m=6: sin rel=2.1e-11  cos rel=6.1e-12
+   x=  0.5 m=7: sin rel=2.8e-13  cos rel=7.1e-14
+   x=  2.0 m=5: sin rel=1.4e-09  cos rel=7.4e-10
+   x=  2.0 m=6: sin rel=5.9e-09  cos rel=1.6e-08
+   x=  2.0 m=7: sin rel=2.4e-10  cos rel=8.1e-10
+   x=  5.0 m=5: sin rel=2.2e-08  cos rel=1.5e-07
+   x=  5.0 m=6: sin rel=4.3e-07  cos rel=1.3e-06
+   x=  5.0 m=7: sin rel=3.5e-08  cos rel=1.5e-07
+   -> max relative error [2]: 1.3e-06  [CHECK]
+
+[3] kernel tails int_c^inf g(r)dr vs closed-form bracket (c=3.0)
+   n=  1 h= 0.175 Psi/T : num=+7.206609e-01 cf=+7.206609e-01 rel=1.8e-11 [OK]
+   n=  1 h= 0.175 Phi   : num=+1.510837e+00 cf=+1.510837e+00 rel=2.0e-09 [OK]
+   n=  1 h= 0.175 N     : num=+6.235748e-01 cf=+6.235748e-01 rel=4.8e-11 [OK]
+   n=  2 h= 0.349 Psi/T : num=+7.459364e-02 cf=+7.459364e-02 rel=1.9e-11 [OK]
+   n=  2 h= 0.349 Phi   : num=+1.772464e-01 cf=+1.772464e-01 rel=1.4e-09 [OK]
+   n=  2 h= 0.349 N     : num=+3.872006e-02 cf=+3.872006e-02 rel=9.3e-10 [OK]
+   n=  5 h= 0.873 Psi/T : num=+1.377471e-03 cf=+1.377471e-03 rel=3.1e-09 [OK]
+   n=  5 h= 0.873 Phi   : num=+8.140162e-03 cf=+8.140162e-03 rel=9.5e-10 [OK]
+   n=  5 h= 0.873 N     : num=-3.084932e-03 cf=-3.084932e-03 rel=1.8e-08 [OK]
+   n= 20 h= 3.491 Psi/T : num=-3.954758e-07 cf=-3.954756e-07 rel=7.0e-07 [ok]
+   n= 20 h= 3.491 Phi   : num=+3.276104e-05 cf=+3.276104e-05 rel=8.1e-09 [OK]
+   n= 20 h= 3.491 N     : num=-4.895568e-06 cf=-4.895547e-06 rel=4.2e-06 [ok]
+   n= 80 h=13.963 Psi/T : num=-1.465367e-10 cf=-1.465366e-10 rel=5.7e-07 [ok]
+   n= 80 h=13.963 Phi   : num=+1.275630e-07 cf=+1.275630e-07 rel=1.3e-09 [OK]
+   n= 80 h=13.963 N     : num=-4.303123e-09 cf=-4.303100e-09 rel=5.3e-06 [ok]
+   n=175 h=30.543 Psi/T : num=-7.619835e-13 cf=-7.619842e-13 rel=9.2e-07 [ok]
+   n=175 h=30.543 Phi   : num=+5.570777e-09 cf=+5.570777e-09 rel=2.2e-10 [OK]
+   n=175 h=30.543 N     : num=-1.362787e-10 cf=-1.362780e-10 rel=5.0e-06 [ok]
+
+All [OK] => the sici_chain reduction and the kernel/coefficient
+closed forms reproduce the defining 1/r^6 tail integrals exactly.
