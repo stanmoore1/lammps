@@ -1,0 +1,11 @@
+Fig 4.7 reproduction: local long-range P_N^LR - P_T^LR(z)
+================================================================
+gamma_LR (0.5*dz*sum):  IK_lat=0.2327  IK_slab=0.2242 | H_lat=0.2340  H_slab=0.2244
+IK: lattice vs slab : max|diff|=0.00709 rms=0.00227
+H : lattice vs slab : max|diff|=0.00317 rms=0.00104
+H : lattice vs slab(switched) : max|diff|=0.01752
+wrote fig47_reproduction.png
+frames=76  atoms=1267  rcut=3.0 rmax=12.0
+gamma_LR (0.5*dz*sum):  real-space=0.2210   lattice(kspace)=0.2327
+real-space vs lattice : max|diff|=0.00791  rms=0.00238
+wrote fig_realspace_IK.png  g_realspace.npy

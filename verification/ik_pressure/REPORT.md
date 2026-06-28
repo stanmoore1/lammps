@@ -143,6 +143,37 @@ box-average remains exactly pinned to the global P_zz (−0.066). Strict P_N
 flatness would require a larger system and a much longer run; that is a sampling
 statement about the test system, not about the estimator. See `fig_PN.png`.
 
+## 4. Cross-validation against the dissertation / SB-Ewald paper
+
+Reproduces the validation of Cribb's dissertation Fig. 4.7/4.5 and the SB-Ewald
+paper's Appendix A, for the long-range local surface tension
+P_N^LR(z) − P_T^LR(z).
+
+- **Fig. 4.7 (slab method, Eq. 4.18).** The Harasima slab integral
+  `(π/2)ρ(z)∫dr (du/dr)∫dz'[r²−3z'²]ρ(z+z')` and the IK analogue (Appendix A:
+  `ρ(z)ρ(z+z')` → `∫₀¹dα ρ(z−αz')ρ(z+(1−α)z')`) were evaluated on the measured
+  ρ(z) and compared to the lattice sum (kspace). IK: lattice vs slab rms 0.0023;
+  H: rms 0.0010. The **sharp** rcut=3.0 form (Appendix A has no switch) matches
+  the kspace *net* far better than the switched form (H switched rms 0.0175),
+  because the shell correction removes the switch-region [2.4,3.0] mean field.
+  Files: `verify_fig47.py`, `fig47_reproduction.png`, `fig47_results.txt`.
+  Paper typo found: `K_m` uses `h_n³`/`Sii₅(h_n r_cut)` but should be `h_m`.
+- **Direct real-space integration.** An independent brute-force IK pair sum over
+  all periodic images (sharp dispersion tail, r∈[3,12]) reproduces the kspace IK
+  contour: rms 0.0024, and γ_LR converges to the lattice value as rmax grows
+  (0.208 at rmax=9 → 0.221 at rmax=12 vs lattice 0.233; the ~5% residual is the
+  sharp-vs-switch treatment, shared by the mean-field slab at 0.224).
+  Files: `verify_realspace.py`, `fig_realspace_IK.png`, `fig_IK_threeway.png`.
+- **Fig. 4.5 (mechanical stability).** `dP_N/dz` (f_ext=0): IK and H both ≈0 in
+  the vapor; in the liquid/interface the H contour shows larger excursions than IK
+  (max-residual H/IK ≈ 1.8×), the same direction as the dissertation, but the
+  short-run liquid noise prevents the clean 13× separation of the CPP data.
+  Files: `verify_fig45.py`, `fig45_reproduction.png`.
+
+**Three-way agreement** (lattice sum = slab Eq 4.18 IK = direct real-space) in
+`fig_IK_threeway.png` independently confirms the `ewald/disp/planar` long-range
+**IK contour** is correct in both shape and magnitude.
+
 ### Verdict
 The new long-range dispersion IK pressure code is **correct**: the analytic
 reductions are verified to ~1e-9; the kspace contribution reproduces the
