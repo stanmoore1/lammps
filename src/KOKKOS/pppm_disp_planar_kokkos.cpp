@@ -526,8 +526,21 @@ void PPPMDispPlanarKokkos<DeviceType>::compute(int eflag, int vflag)
 
   // the normal (zz) virial is the explicit GNk kernel accumulated above (the
   // compact switch is non-homogeneous, so the trace identity does not apply)
+}
 
-  if (profile_flag) compute_pressure_profile();
+/* ----------------------------------------------------------------------
+   long-range Irving-Kirkwood pressure profile hook (called by compute
+   stress/cartesian post-force).  The inherited host implementation reads
+   atom->x/type directly, so sync the KK atom data to host first (mirroring the
+   corr_shell host gather), then delegate to the base CPU method.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+int PPPMDispPlanarKokkos<DeviceType>::pressure_profile_long(int dir, int nbins, double lo,
+                                                            double width, double *pN, double *pT)
+{
+  atomKK->sync(Host, X_MASK | TYPE_MASK);
+  return PPPMDispPlanar::pressure_profile_long(dir, nbins, lo, width, pN, pT);
 }
 
 /* ----------------------------------------------------------------------
