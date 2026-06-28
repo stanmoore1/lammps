@@ -1,0 +1,20 @@
+# Rerun A: recompute the IK profile (short cutoff + ewald/disp/planar) over the
+# dumped trajectory, so it is FRAME-IDENTICAL with Run B for the magnitude check.
+
+units           lj
+atom_style      atomic
+boundary        p p p
+
+read_data       ../../examples/PACKAGES/dispersion/planar/data.lj_slab
+
+pair_style      lj/cut/dispplanar 3.0 0.6
+pair_coeff      1 1 1.0 1.0
+kspace_style    ewald/disp/planar 1.0e-5
+kspace_modify   corr bin        # match Run A (self-consistent shell correction)
+
+variable        dz      equal 0.1
+compute         pA all stress/cartesian z ${dz} NULL 0 ke pair kspace
+fix             fA all ave/time 1 1 500 c_pA[*] file ik_rerunA.dat mode vector ave running
+
+thermo          100
+rerun           traj.dump first 0 dump x y z vx vy vz

@@ -1,0 +1,66 @@
+# Run A: short cutoff + planar dispersion kspace (the new IK code)
+# Two-phase LJ liquid-vapor slab. Measures the IK contour (compute stress/cartesian
+# with the new "kspace" keyword) AND the Harasima contour (compute stress/atom +
+# fix ave/chunk) on the SAME trajectory, and dumps the trajectory for the Run B
+# long-cutoff rerun comparison.
+#
+# NOTE: the stress/cartesian kspace hook recomputes the O(kmax^2) Phi/Psi kernel
+# quadratures every invocation (~3 s each), so the profiles are sampled sparingly.
+
+units           lj
+atom_style      atomic
+boundary        p p p
+processors      2 2 1        # split laterally (homogeneous) -> balanced liquid/vapor per rank
+
+read_data       ../../examples/PACKAGES/dispersion/planar/data.lj_slab
+
+pair_style      lj/cut/dispplanar 3.0 0.6
+pair_coeff      1 1 1.0 1.0
+kspace_style    ewald/disp/planar 1.0e-5
+# corr bin: z-binned (density-convolution) shell correction -- ~4.5x faster
+# dynamics than the default "corr raw" (exact O(N^2) per-step shell). The profile
+# and the global pressure share this same correction, so the box-average pinning
+# (box-avg(profile)=global pressure) and all cross-checks stay self-consistent.
+kspace_modify   corr bin
+
+# inhomogeneous axis is z (default dim=2); bins: dz=0.1 -> nbins=360 > 2*kmax(~350)
+variable        dz      equal 0.1
+
+fix             1 all nvt temp 0.85 0.85 0.5
+timestep        0.004
+
+thermo_style    custom step temp pe etotal pxx pyy pzz press
+thermo          2000
+
+# ---- equilibrate (discarded) ----
+run             30000
+
+# ---- production: define profiles ----
+reset_timestep  0
+
+# IK contour: total local pressure = kinetic + pair(IK line) + long-range(IK kspace)
+# 5 blocks x 30 samples (every 1000 steps) = 150 samples over 150k steps
+compute         pIK all stress/cartesian z ${dz} NULL 0 ke pair kspace
+fix             fIK all ave/time 1000 30 30000 c_pIK[*] file ik_profile.dat mode vector
+
+# Harasima contour: per-atom stress (= -virial*vol), incl. ke + pair + kspace
+# norm none -> per-chunk SUM (time-averaged); convert in post: P = -sum/Vchunk
+compute         sa all stress/atom NULL ke pair kspace
+compute         cc all chunk/atom bin/1d z lower ${dz} units box
+fix             fHar all ave/chunk 1000 30 30000 cc c_sa[1] c_sa[2] c_sa[3] &
+                norm none file har_profile.dat
+
+# global pressure tensor + surface tension (consistency cross-check)
+variable        pxx     equal pxx
+variable        pyy     equal pyy
+variable        pzz     equal pzz
+variable        gamma   equal 0.5*lz*(v_pzz-0.5*(v_pxx+v_pyy))
+fix             fG all ave/time 1000 30 30000 v_pxx v_pyy v_pzz v_gamma &
+                file press_global.dat
+
+# sparse trajectory (incl. velocities) for the rerun-A / Run-B magnitude check
+# every 2000 steps -> 75 frames (rerun A re-incurs the ~3 s/frame kspace cost)
+dump            dtraj all custom 2000 traj.dump id type x y z vx vy vz
+dump_modify     dtraj sort id
+
+run             150000
