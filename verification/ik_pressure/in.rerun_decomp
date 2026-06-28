@@ -1,0 +1,21 @@
+# Decomposition check: confirm the kspace-only stress/cartesian really isolates
+# the long-range IK contribution, i.e. FULL = short-range(ke+pair) + kspace-only.
+units           lj
+atom_style      atomic
+boundary        p p p
+read_data       ../../examples/PACKAGES/dispersion/planar/data.lj_slab
+pair_style      lj/cut/dispplanar 3.0 0.6
+pair_coeff      1 1 1.0 1.0
+kspace_style    ewald/disp/planar 1.0e-5
+kspace_modify   corr bin
+variable        dz      equal 0.1
+
+compute         pFull all stress/cartesian z ${dz} NULL 0 ke pair kspace
+compute         pSR   all stress/cartesian z ${dz} NULL 0 ke pair
+compute         pKS   all stress/cartesian z ${dz} NULL 0 kspace
+fix             fF all ave/time 1 1 500 c_pFull[*] file dc_full.dat mode vector ave running
+fix             fS all ave/time 1 1 500 c_pSR[*]   file dc_sr.dat   mode vector ave running
+fix             fK all ave/time 1 1 500 c_pKS[*]   file dc_ks.dat   mode vector ave running
+
+thermo          100
+rerun           traj.dump first 0 dump x y z vx vy vz

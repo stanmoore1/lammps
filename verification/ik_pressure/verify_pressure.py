@@ -26,6 +26,18 @@ VCHUNK = AREA * DZ      # 10.0
 LZ = 36.0
 
 
+def fourier_smooth(p, nmodes=40):
+    """Low-pass periodic Fourier (symmetric cosine/sine) smoothing: keep the
+    lowest `nmodes` reciprocal harmonics of the box-periodic profile and drop the
+    rest.  The kspace IK profile is itself a Fourier sum up to 2*kmax, so this is
+    the matched band-limit; it removes per-bin statistical/binning noise from the
+    density and the real-space profiles without distorting the interface peaks
+    (which live in the low harmonics)."""
+    P = np.fft.rfft(p)
+    P[nmodes + 1:] = 0.0
+    return np.fft.irfft(P, n=len(p))
+
+
 # ----------------------------------------------------------------------
 def parse_ave_time_vector(fname):
     """fix ave/time mode vector: returns list of (timestep, array[nrows, ncols-1]).

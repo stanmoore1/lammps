@@ -1,0 +1,22 @@
+# Long-range-only reruns at rcut = 4.0 (to match dissertation Fig 4.7, r>4.0 sigma).
+# Recompute on the SAME traj.dump with the pair/kspace cutoff moved to 4.0:
+# pair lj/cut/dispplanar 4.0 0.6 -> switch [3.4,4.0], kspace handles r>3.4, and the
+# shell correction leaves the kspace NET = the r>4.0 tail (sharp), as in the paper.
+units           lj
+atom_style      atomic
+boundary        p p p
+read_data       ../../examples/PACKAGES/dispersion/planar/data.lj_slab
+pair_style      lj/cut/dispplanar 4.0 0.6
+pair_coeff      1 1 1.0 1.0
+kspace_style    ewald/disp/planar 1.0e-5
+kspace_modify   corr bin
+variable        dz      equal 0.1
+
+compute         pIKlr all stress/cartesian z ${dz} NULL 0 kspace
+fix             f1 all ave/time 1 1 500 c_pIKlr[*] file ikLR4.dat mode vector ave running
+compute         sa all stress/atom NULL kspace
+compute         cc all chunk/atom bin/1d z lower ${dz} units box
+fix             f2 all ave/chunk 1 1 500 cc c_sa[1] c_sa[2] c_sa[3] norm none ave running file hLR4.dat
+
+thermo          100
+rerun           traj.dump first 0 dump x y z vx vy vz
