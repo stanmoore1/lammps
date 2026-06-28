@@ -174,6 +174,30 @@ P_N^LR(z) − P_T^LR(z).
 `fig_IK_threeway.png` independently confirms the `ewald/disp/planar` long-range
 **IK contour** is correct in both shape and magnitude.
 
+## 5. Direct reproduction of the dissertation CPP 2 simulation
+
+To match the dissertation's Fig 4.7 quantitatively (which uses the long-range
+cutoff r>4.0σ, not our earlier r>3.0), the CPP 2 run was reproduced from Table 4.1
+(`in.cpp2`): supercritical LJ, N=2000, T\*=1.5, box L_x=L_y=11.872 / L_z=23.744
+(sc lattice 10×10×20), full LJ + `ewald/disp/planar` at **rcut=4.0**, and the
+cosine external field `U_ext(z)=(ΔU_max/2)cos(2πz/L_z)` (Eq 3.36, ΔU\*max=9.67)
+applied via `fix addforce` (`f_z=1.279 sin(2πz/L_z)`).
+
+- **Density profile** (`fig_cpp2_density.png`): the field produces ρ from ~0.05
+  (edges) to ~0.9 (centre), **avg 0.598** — matching the dissertation's
+  ρ_avg=0.598, ρ range 0.053–0.898.
+- **Fig 4.7 reproduction** (`fig_cpp2_fig47.png`, `verify_cpp2.py`): with rcut=4.0
+  the long-range P_N^LR−P_T^LR peaks at **~0.024**, matching the dissertation's
+  ~0.0245 (the earlier r>3.0 peak of ~0.075 was simply the longer-range tail).
+  - **H contour** (left): our lattice sum, the slab (Eq 4.18 H), and the
+    **digitized dissertation Fig 4.7** all overlay — double hump, peaks ~0.024,
+    slightly-negative bulk ~−0.007. The dissertation used the H contour for the
+    long-range (hybrid IK-short/H-long), so this is a direct reproduction.
+  - **IK contour** (right, the new code): lattice = slab (Appendix A IK) =
+    direct real-space; the IK profile peaks higher and dips lower than H in the
+    bulk (contour-dependent), while γ_LR matches H (0.119 vs 0.119) — the
+    contour-invariant integral.
+
 ### Verdict
 The new long-range dispersion IK pressure code is **correct**: the analytic
 reductions are verified to ~1e-9; the kspace contribution reproduces the

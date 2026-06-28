@@ -20,7 +20,7 @@ LX = LY = (2000.0/(2*0.598))**(1.0/3.0)      # 11.872
 LZ = 2*LX                                     # 23.744
 AREA = LX*LY
 DZ = 0.06
-NB = int(round(LZ/DZ))
+NB = int(LZ/DZ)             # LAMMPS floors: nbins = int((boxhi-boxlo)/bin_width) = 395
 DZ = LZ/NB
 VCHUNK = AREA*DZ
 RCUT = 4.0; RMAX = 9.0; NMODES = 25
@@ -93,13 +93,15 @@ def realspace_IK(frames):
 
 def main():
     z = (np.arange(NB)+0.5)*DZ
-    # density and H lattice from cpp2_hLR.dat
-    hb = V.parse_ave_chunk("cpp2_hLR.dat")[-1][1]
-    rho = hb[:,1]/VCHUNK
-    g_H_lat = (-hb[:,4] + 0.5*(hb[:,2]+hb[:,3]))/VCHUNK     # P_N-P_T (H), = -(Szz-0.5(Sxx+Syy))/V
-    # IK lattice from cpp2_ikLR.dat
+    # IK lattice from cpp2_ikLR.dat (395-bin master grid)
     ab = V.parse_ave_time_vector("cpp2_ikLR.dat")[-1][1]
     g_IK_lat = ab[:,7]-0.5*(ab[:,5]+ab[:,6])
+    # density and H lattice from cpp2_hLR.dat (chunk grid, 396 bins, width 0.06) ->
+    # interpolate onto the 395-bin master grid (periodic)
+    hb = V.parse_ave_chunk("cpp2_hLR.dat")[-1][1]
+    zh = hb[:,0]; VCH = AREA*0.06
+    rho = np.interp(z, zh, hb[:,1]/VCH, period=LZ)
+    g_H_lat = np.interp(z, zh, (-hb[:,4] + 0.5*(hb[:,2]+hb[:,3]))/VCH, period=LZ)
     # slab
     zp = np.arange(-int(14/DZ), int(14/DZ)+1)*DZ
     G = Gkernel(zp)
