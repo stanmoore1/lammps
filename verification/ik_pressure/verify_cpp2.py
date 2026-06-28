@@ -23,7 +23,7 @@ DZ = 0.06
 NB = int(LZ/DZ)             # LAMMPS floors: nbins = int((boxhi-boxlo)/bin_width) = 395
 DZ = LZ/NB
 VCHUNK = AREA*DZ
-RCUT = 4.0; RMAX = 9.0; NMODES = 25
+RCUT = 4.0; RMAX = 12.0; NMODES = 25
 
 # ---- digitized dissertation Fig 4.7 (H contour, r>4.0), z* in [0,23.74] ----
 DISS_Z = np.array([0,1,2,2.5,3,4,5,6,7,7.5,8,9,10,11,12,13,14,15,16,16.5,17,18,19,20,21,21.5,22,23,23.74])
@@ -42,16 +42,21 @@ def Gkernel(zp, rmax=14.0, nr=4000):
         r = np.linspace(a, rmax, nr)
         G[i] = np.trapezoid(dudr_sharp(r)*(r**2 - 3.0*z**2), r)
     return G
+def roll_frac(a, s):
+    """periodic shift of a by s bins (fractional), linear interp: result[i]=a(i-s)."""
+    n = len(a); idx = (np.arange(n) - s) % n
+    i0 = np.floor(idx).astype(int) % n; f = idx - np.floor(idx)
+    return a[i0]*(1.0-f) + a[(i0+1) % n]*f
 def slab_H(rho, G, zp):
-    out = np.zeros(NB); sh = np.round(zp/DZ).astype(int)
-    for k, s in enumerate(sh): out += G[k]*np.roll(rho, -s)
+    out = np.zeros(NB)
+    for k, sf in enumerate(zp/DZ): out += G[k]*roll_frac(rho, -sf)   # rho(z+z')
     return (np.pi/2.0)*rho*out*DZ
-def slab_IK(rho, G, zp, nlam=12):
+def slab_IK(rho, G, zp, nlam=24):
     out = np.zeros(NB); lam = (np.arange(nlam)+0.5)/nlam
     for k, sf in enumerate(zp/DZ):
         acc = np.zeros(NB)
-        for l in lam:
-            acc += np.roll(rho, -int(round(-l*sf)))*np.roll(rho, -int(round((1-l)*sf)))
+        for l in lam:                                                # rho(z-l z') rho(z+(1-l) z')
+            acc += roll_frac(rho, l*sf)*roll_frac(rho, -(1.0-l)*sf)
         out += G[k]*(acc/nlam)
     return (np.pi/2.0)*out*DZ
 
@@ -117,6 +122,9 @@ def main():
         0.5*DZ*g_IK_slab.sum(),0.5*DZ*g_IK_real.sum()))
     print("peaks: diss=%.4f  H_lat=%.4f  IK_lat=%.4f  IK_real=%.4f"%(
         DISS_G.max(), sm(g_H_lat).max(), sm(g_IK_lat).max(), sm(g_IK_real).max()))
+    rms = lambda a,b: np.sqrt(np.mean((sm(a)-sm(b))**2))
+    print("rms(smoothed):  H lat-vs-slab=%.5f | IK lat-vs-slab=%.5f  IK lat-vs-real=%.5f  IK slab-vs-real=%.5f"%(
+        rms(g_H_lat,g_H_slab), rms(g_IK_lat,g_IK_slab), rms(g_IK_lat,g_IK_real), rms(g_IK_slab,g_IK_real)))
 
     fig, ax = plt.subplots(1, 2, figsize=(13, 5))
     # left: H contour (reproduces dissertation Fig 4.7) + digitized diss
