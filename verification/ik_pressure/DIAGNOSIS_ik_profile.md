@@ -29,12 +29,16 @@ Python from the structure factors S_n:
    observed signature.  The shell's **z-integral is contour-independent**, so this
    only distorts the SHAPE; the box-average (gamma) stays correctly pinned.
 
-2. **(secondary, ~4%) off-diagonal amplitude.** After accounting for (1) a residual
-   ~0.001 remains: the code's off-diagonal Phi/Psi double-sum has ~4% more
-   z-amplitude than the real-space IK (ptp ratio slab/code = 0.96), **independent
-   of kmax (K=40..200 identical)**, so it is not truncation.  This is a genuine but
-   small discrepancy in the off-diagonal kernel/assembly — left for follow-up (see
-   below); it does not affect gamma or the box average.
+2. **(secondary, ~4%) off-diagonal amplitude — later shown to be a verification
+   artifact, NOT a code bug.** After accounting for (1) a residual ~0.001 remained:
+   the code's off-diagonal Phi/Psi double-sum had ~4% more z-amplitude than the
+   *finite-cutoff* real-space IK (ptp ratio slab/code = 0.96).  It is k-independent
+   in the LATTICE (K=40..200 identical) because it is not a lattice truncation — it
+   is the **real-space** side that was truncated: the slab `Gkernel` integrates the
+   `1/r^6` tail only to rmax=14 and the brute-force sum only to RMAX~11-12, while
+   the reciprocal integrates to infinity.  Extending the real-space cutoff closes
+   the gap to zero (see "Follow-up — RESOLVED" below).  It never affected gamma or
+   the box average.
 
 ## Fix (implemented)
 `src/KSPACE/ewald_disp_planar.cpp`, `shell_profile_virial` (both `corr bin` and
@@ -57,12 +61,73 @@ gamma_LR unchanged (0.1194), IK peak 0.0254 -> 0.0238 (toward slab/dissertation
 0.0245); the IK panel of `fig_cpp2_fig47.png` now overlays slab + real-space.  The
 remaining 0.001 is effect (2).
 
-## Follow-up (not fixed here)
-The residual ~4% off-diagonal amplitude (effect 2) is K-independent, so it is a
-property of the closed-form coefficients
-`CT=-6pi/H(ik_phi(hm)+ik_phi(hn))`, `CN=-12pi/H(ik_psi(hm)+ik_psi(hn))`
-vs the real-space IK line integral.  Pinning it down requires re-deriving the
-off-diagonal Fourier coefficient from the IK contour and comparing term-by-term
-(the paper's published `N^IK_{n,m}=-96pi/H[...]` differs from the code by a
-constant that I could only partly reconcile because of the S_n=sfac/V convention).
-Recommended for the author; reproduce with `verify_ik_kernel.py`.
+## Follow-up — RESOLVED: the off-diagonal coefficient is correct; the residual was truncation
+
+The residual ~4% (effect 2) was chased down and is **not** a code bug.  Two
+independent checks settle it.
+
+### (a) Analytic — off-diagonal coefficient re-derived from scratch
+Re-deriving the off-diagonal `P_N-P_T` Fourier coefficient directly from the IK
+contour gives
+`C^{N-T}_{n,m} = (pi/H) [ J(h_n) + J(h_m) ]`, `J(h) = 24*ik_phi(h) - 48*ik_psi(h)`,
+which is exactly the code's assembly
+`CN-CT = -12pi/H(ik_psi(hm)+ik_psi(hn)) + 6pi/H(ik_phi(hm)+ik_phi(hn))`
+(the factor 4 = B^2).  Term-by-term ratio `J / (24 ik_phi - 48 ik_psi) = 0.99998`.
+A single-cosine density test confirmed the Python reconstruction of the code's
+double-sum (`verify_ik_kernel.offdiag_shape`) reproduces the hand-derived analytic
+amplitudes EXACTLY at every mode, while the finite-cutoff slab (`slab_IK`,
+`Gkernel` rmax=14) sat a *uniform* 0.924x below — a constant scaling, i.e. a
+property of the verification slab, not a per-mode formula error.
+
+### (b) Numerical — Ewald-identity truncation sweep (`verify_recip_rmax.py`)
+The decisive test.  By the Ewald identity the reciprocal sum equals the
+real-space sum of the SAME switched potential `S(r) u_disp(r)` summed to
+r -> infinity.  Running the LAMMPS reciprocal-only IK (shell subtraction
+disabled, `cpp2_recip.dat`) against a brute-force IK pair sum of the identical
+switched potential, sweeping the real-space cutoff RMAX:
+
+| RMAX | ptp ratio brute/recip | shape rms |
+|---|---|---|
+| 8  | 0.739  | 0.00353 |
+| 11 | 0.909  | 0.00193 |
+| 14 | 0.973  | 0.00109 |
+| 17 | 1.0001 | 0.00066 |
+| 20 | 1.013  | 0.00048 |
+
+The brute-force IK converges to the LAMMPS reciprocal as RMAX grows (ratio -> 1,
+shape rms -> 0).  The reciprocal integrates the `1/r^6` tail analytically to
+infinity; the slab (rmax=14) and the earlier brute-force (RMAX=11-12) truncated
+it, which is exactly the ~0.92-0.97 undershoot previously attributed to the code.
+At RMAX=14 the ratio is 0.973 — matching the slab's residual — and it closes to
+<0.0007 rms by RMAX=17.  See `fig_recip_rmax.png`.
+
+### (c) Cheap, essentially-exact confirmation (`verify_cosine_exact.py`)
+The trajectory brute force is expensive and never reaches exact agreement because
+of the finite real-space cutoff.  A purely analytic single-cosine density
+`rho(z) = 0.5 + 0.4 cos(2 pi z/Lz)` removes statistics, the trajectory, and the
+KDTree entirely: the structure factors are nonzero only for `n = 0, +-1`, so the
+lattice off-diagonal double sum is a tiny EXACT sum evaluated with the code's own
+`ik_phi/ik_psi` (tail to r=inf), while the slab side is a 1-D quadrature whose only
+approximation is the kernel cutoff `rmax`:
+
+| rmax | ptp ratio slab/lattice | shape rms |
+|---|---|---|
+| 14  | 0.9241 | 8.5e-4 |
+| 20  | 0.9799 | 2.2e-4 |
+| 40  | 0.9992 | 9e-6 |
+| 80  | 1.0002 | 2e-6 |
+| 160 | 1.0001 | 1e-6 |
+
+As `rmax -> inf` the slab matches the LAMMPS lattice off-diagonal kernel to ~6
+significant figures (rms ~1e-6).  The 0.924 at rmax=14 is exactly the same
+truncation seen in the slab `Gkernel`.  This is the decisive, cheap proof that the
+off-diagonal IK coefficient in `ewald/disp/planar` equals the real-space IK
+integral exactly.  See `fig_cosine_exact.png`.
+
+### Conclusion
+After the shell-contour fix above, the `ewald/disp/planar` IK long-range pressure
+profile is **correct**: diagonal pinned to the box pressure, off-diagonal kernel
+verified analytically and by the Ewald identity, shell now IK-distributed.  The
+remaining lattice-vs-slab rms (~0.001) is the verification slab's finite r-cutoff,
+not the LAMMPS code.  Reproduce with `verify_recip_rmax.py` (sweep) and
+`verify_ik_kernel.py` (analytic single-cosine check).

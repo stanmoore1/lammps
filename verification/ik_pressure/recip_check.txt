@@ -1,0 +1,5 @@
+Ewald-identity test: LAMMPS reciprocal-only IK vs brute-force IK (same switched potential)
+  P_N-P_T shape rms = 0.00194   ptp recip=0.0258  ptp brute=0.0233  ratio=0.9024
+  => ~0 means the reciprocal IK formula is correct (Ewald identity holds);
+     a systematic gap means a genuine reciprocal-formula bug.
+  wrote fig_recip_check.png

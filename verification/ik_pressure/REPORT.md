@@ -222,3 +222,37 @@ mpirun -np 4 ../../build/lmp -in in.rerunA    # IK short+kspace over traj (frame
 mpirun -np 4 ../../build/lmp -in in.rerunB    # plain lj/cut 8.0, no kspace, over traj
 python3 verify_pressure.py                    # profiles, gamma, plots, results.txt
 ```
+
+---
+
+## Postscript — one IK-contour bug found and fixed, residual fully explained
+
+The tighter CPP 2 reproduction (rcut=4.0, §5) exposed a real bug in the IK
+long-range *shape* and a residual that was initially mis-attributed. Both are now
+resolved; see `DIAGNOSIS_ik_profile.md` for the full write-up.
+
+1. **Shell-contour bug (fixed, commit on this branch).** `pressure_profile_long`
+   builds the IK profile as `reciprocal − shell`. The reciprocal Φ/Ψ double-sum is
+   IK-distributed (virial spread along the bond), but `shell_profile_virial`
+   localized the compact-switch shell virial *at the field point* (Harasima).
+   Subtracting an H-shaped shell from an IK-shaped reciprocal pulled the IK profile
+   toward H. Fixed by spreading the shell pair virial uniformly in z along the bond
+   (both `corr bin` and `corr raw`). The shell's z-integral is contour-independent,
+   so γ / box pressure / the H contour are bit-identical; only the IK *shape*
+   changed (lattice-vs-slab rms 0.00216 → 0.00102). Only `shell_profile_virial`
+   (called solely from `pressure_profile_long`) was touched.
+
+2. **Residual ~4% (NOT a bug — verification-side real-space truncation).** The
+   off-diagonal coefficient was re-derived from scratch:
+   `C^{N−T}_{n,m}=(π/H)[J(h_n)+J(h_m)]`, `J=24·ik_phi−48·ik_psi`, matching the code
+   to 0.99998. The Ewald-identity sweep (`verify_recip_rmax.py`, `fig_recip_rmax.png`)
+   shows the brute-force IK of the *same switched potential* converging to the
+   LAMMPS reciprocal as the real-space cutoff grows (ptp ratio 0.74→0.91→0.97→1.00
+   for RMAX 8→11→14→17; shape rms 0.0035→0.0007). The reciprocal integrates the
+   `1/r⁶` tail to infinity; the finite-cutoff slab (rmax=14) and brute-force
+   (RMAX≈12) truncated it — that truncation, not the code, was the residual.
+
+**Final verdict:** after the shell fix, the `ewald/disp/planar` IK long-range
+pressure profile is correct in both shape and magnitude — diagonal pinned to the
+box pressure, off-diagonal kernel verified analytically and by the Ewald identity,
+shell now correctly IK-distributed.

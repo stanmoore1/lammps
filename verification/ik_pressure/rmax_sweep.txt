@@ -1,0 +1,13 @@
+Ewald-identity truncation sweep: brute-force IK (switched) vs LAMMPS reciprocal
+  ptp(LAMMPS reciprocal) = 0.02578   (integrates tail to r->inf)
+  RMAX   ptp_brute   ratio brute/recip   shape_rms
+   8.0   0.01906    0.7393             0.00353
+  11.0   0.02344    0.9093             0.00193
+  14.0   0.02508    0.9730             0.00109
+  17.0   0.02578    1.0001             0.00066
+  => brute-force IK of the SAME switched potential converges to the LAMMPS
+     reciprocal as RMAX->inf (Ewald identity): the reciprocal IK formula is correct;
+     the residual seen vs the finite-cutoff slab/brute methods was real-space truncation.
+  wrote fig_recip_rmax.png rmax_rows.npy
+tion.
+  wrote fig_recip_rmax.png rmax_rows.npy
