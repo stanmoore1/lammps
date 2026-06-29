@@ -28,7 +28,10 @@ create_atoms    1 box
 mass            1 26.98
 
 # --- overlap mitigation (only does work when the box is incommensurate) ---
-displace_atoms  all random 0.01 0.01 0.01 12345 units box
+# Tiny displacement (~0.04% of the 2.5435 A fcc NN distance) only needs to lift
+# exactly-coincident atoms off r=0, where the soft force sin(pi*r/rc) vanishes;
+# the minimization below relaxes it back out, so the lattice is not strained.
+displace_atoms  all random 0.001 0.001 0.001 12345 units box
 
 pair_style      soft 2.5
 pair_coeff      * * 0.0
