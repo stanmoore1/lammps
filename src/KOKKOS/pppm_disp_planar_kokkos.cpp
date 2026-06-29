@@ -68,6 +68,9 @@ PPPMDispPlanarKokkos<DeviceType>::PPPMDispPlanarKokkos(LAMMPS *lmp) : PPPMDispPl
   nchan_created = 0;
   nmax_kk = 0;
   natoms_all_created = 0;
+  profile_K_created = 0;
+  profile_nbins_created = 0;
+  profile_ntypes_created = 0;
 
   myoff_kk = 0;
   natoms_all_kk = 0;
@@ -529,18 +532,282 @@ void PPPMDispPlanarKokkos<DeviceType>::compute(int eflag, int vflag)
 }
 
 /* ----------------------------------------------------------------------
-   long-range Irving-Kirkwood pressure profile hook (called by compute
-   stress/cartesian post-force).  The inherited host implementation reads
-   atom->x/type directly, so sync the KK atom data to host first (mirroring the
-   corr_shell host gather), then delegate to the base CPU method.
+   (re)allocate the device pressure-profile buffers when K/nbins/ntypes grow and
+   upload the per-type amplitude tables (B is tiny and host-resident).
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PPPMDispPlanarKokkos<DeviceType>::pressure_profile_alloc(int K, int nbins, int ntypes)
+{
+  if (K > profile_K_created) {
+    profile_K_created = K;
+    d_srl = typename AT::t_double_1d("pppm/disp/planar/kk:srl", K + 1);
+    d_sim = typename AT::t_double_1d("pppm/disp/planar/kk:sim", K + 1);
+  }
+  if (nbins > profile_nbins_created) {
+    profile_nbins_created = nbins;
+    d_densb    = typename AT::t_double_1d("pppm/disp/planar/kk:densb", nbins);
+    d_dens_all = typename AT::t_double_1d("pppm/disp/planar/kk:dens_all", nbins);
+    d_shellT   = typename AT::t_double_1d("pppm/disp/planar/kk:shellT", nbins);
+    d_shellN   = typename AT::t_double_1d("pppm/disp/planar/kk:shellN", nbins);
+  }
+  if (ntypes > profile_ntypes_created) {
+    profile_ntypes_created = ntypes;
+    d_Bt    = typename AT::t_double_1d("pppm/disp/planar/kk:Bt", ntypes + 1);
+    d_Bdens = typename AT::t_double_1d("pppm/disp/planar/kk:Bdens", ntypes + 1);
+    d_Bfull = typename AT::t_double_1d("pppm/disp/planar/kk:Bfull", nchan * (ntypes + 1));
+  }
+
+  // per-type structure-factor amplitude Bt (host helper), density amplitude B[t],
+  // and the full nchan-strided B (arith field-atom channels) -> device.
+  auto *Bt = new double[ntypes + 1];
+  profile_Bt(Bt);
+  auto h_Bt    = Kokkos::create_mirror_view(d_Bt);
+  auto h_Bdens = Kokkos::create_mirror_view(d_Bdens);
+  auto h_Bfull = Kokkos::create_mirror_view(d_Bfull);
+  for (int t = 0; t <= ntypes; t++) { h_Bt(t) = Bt[t]; h_Bdens(t) = B[t]; }
+  for (int j = 0; j < nchan * (ntypes + 1); j++) h_Bfull(j) = B[j];
+  Kokkos::deep_copy(d_Bt, h_Bt);
+  Kokkos::deep_copy(d_Bdens, h_Bdens);
+  Kokkos::deep_copy(d_Bfull, h_Bfull);
+  delete[] Bt;
+}
+
+/* ----------------------------------------------------------------------
+   long-range Irving-Kirkwood pressure profile hook (compute stress/cartesian
+   post-force).  Native device implementation: exact structure factors, B-weighted
+   density, and the compact-switch shell virial (with the IK bond spread) run in
+   device kernels on the cached atom views; the scalar reciprocal double-sum /
+   coefficient math is the shared host PPPMDispPlanar helpers.
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
 int PPPMDispPlanarKokkos<DeviceType>::pressure_profile_long(int dir, int nbins, double lo,
                                                             double width, double *pN, double *pT)
 {
-  atomKK->sync(Host, X_MASK | TYPE_MASK);
-  return PPPMDispPlanar::pressure_profile_long(dir, nbins, lo, width, pN, pT);
+  if (dir != dim)
+    error->all(FLERR,
+               "compute stress/cartesian binning direction must match the inhomogeneous axis "
+               "(kspace_modify dim) of pppm/disp/planar");
+
+  const int K = nz / 2 - 1;    // highest resolved mode
+  if (nbins <= 2 * K)
+    error->all(FLERR,
+               "compute stress/cartesian with pppm/disp/planar kspace: {} bins along the "
+               "inhomogeneous axis is too coarse; need > {} (= 2*(nz/2-1)) to resolve the "
+               "Irving-Kirkwood reciprocal modes without aliasing (use a finer bin width or "
+               "smaller grid)",
+               nbins, 2 * K);
+
+  const int ntypes = atom->ntypes;
+  const int nlocal = atomKK->nlocal;
+
+  // refresh the device scalars and cached atom views, then upload amplitude tables
+  atomKK->sync(execution_space, X_MASK | TYPE_MASK);
+  x = atomKK->k_x.view<DeviceType>();
+  type = atomKK->k_type.view<DeviceType>();
+  nchan_kk = nchan;
+  dim_kk = dim;
+  zprd_kk = static_cast<KK_FLOAT>(zprd);
+  unitk_kk = 2.0 * MY_PI / zprd;
+  lo_kk = lo;
+  width_kk = width;
+  bcut_kk = cutoff + sw_width;
+  K_kk = K;
+  nbins_kk = nbins;
+  pressure_profile_alloc(K, nbins, ntypes);
+
+  // --- exact structure factors srl[n]/sim[n] = sum_j Bt_j cos/sin(n unitk z_j) ---
+  Kokkos::deep_copy(d_srl, 0.0);
+  Kokkos::deep_copy(d_sim, 0.0);
+  copymode = 1;
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_profile_sfac>(0, nlocal), *this);
+  copymode = 0;
+  auto *srl = new double[K + 1];
+  auto *sim = new double[K + 1];
+  auto *srl_all = new double[K + 1];
+  auto *sim_all = new double[K + 1];
+  {
+    auto h_srl = Kokkos::create_mirror_view(d_srl);
+    auto h_sim = Kokkos::create_mirror_view(d_sim);
+    Kokkos::deep_copy(h_srl, d_srl);
+    Kokkos::deep_copy(h_sim, d_sim);
+    for (int n = 0; n <= K; n++) { srl[n] = h_srl(n); sim[n] = h_sim(n); }
+  }
+  MPI_Allreduce(srl, srl_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(sim, sim_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
+  auto *Sre = new double[K + 1];
+  auto *Sim = new double[K + 1];
+  for (int n = 0; n <= K; n++) { Sre[n] = srl_all[n] / volume; Sim[n] = -sim_all[n] / volume; }
+
+  // --- B-weighted z density (bin-shell source) ---
+  Kokkos::deep_copy(d_densb, 0.0);
+  copymode = 1;
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_profile_dens>(0, nlocal), *this);
+  copymode = 0;
+  auto *dens_b = new double[nbins];
+  auto *dens_all = new double[nbins];
+  {
+    auto h_densb = Kokkos::create_mirror_view(d_densb);
+    Kokkos::deep_copy(h_densb, d_densb);
+    for (int g = 0; g < nbins; g++) dens_b[g] = h_densb(g);
+  }
+  MPI_Allreduce(dens_b, dens_all, nbins, MPI_DOUBLE, MPI_SUM, world);
+
+  // --- compact-switch shell virial per bin (IK bond spread), corr_mode dispatch ---
+  auto *shellT = new double[nbins];
+  auto *shellN = new double[nbins];
+  Kokkos::deep_copy(d_shellT, 0.0);
+  Kokkos::deep_copy(d_shellN, 0.0);
+  if (corr_mode != 0) {    // BIN: density-density convolution, global (no reduce)
+    auto h_dens_all = Kokkos::create_mirror_view(d_dens_all);
+    for (int g = 0; g < nbins; g++) h_dens_all(g) = dens_all[g];
+    Kokkos::deep_copy(d_dens_all, h_dens_all);
+    copymode = 1;
+    Kokkos::parallel_for(
+        Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_profile_shell_bin>(0, nbins), *this);
+    copymode = 0;
+    auto h_sT = Kokkos::create_mirror_view(d_shellT);
+    auto h_sN = Kokkos::create_mirror_view(d_shellN);
+    Kokkos::deep_copy(h_sT, d_shellT);
+    Kokkos::deep_copy(h_sN, d_shellN);
+    for (int g = 0; g < nbins; g++) { shellT[g] = h_sT(g); shellN[g] = h_sN(g); }
+  } else {                 // RAW: exact per-atom shell virial, gather then reduce
+    corr_gather();         // fills d_zall/d_ball, natoms_all_kk
+    copymode = 1;
+    Kokkos::parallel_for(
+        Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_profile_shell_raw>(0, nlocal), *this);
+    copymode = 0;
+    auto *sTloc = new double[nbins];
+    auto *sNloc = new double[nbins];
+    auto h_sT = Kokkos::create_mirror_view(d_shellT);
+    auto h_sN = Kokkos::create_mirror_view(d_shellN);
+    Kokkos::deep_copy(h_sT, d_shellT);
+    Kokkos::deep_copy(h_sN, d_shellN);
+    for (int g = 0; g < nbins; g++) { sTloc[g] = h_sT(g); sNloc[g] = h_sN(g); }
+    MPI_Allreduce(sTloc, shellT, nbins, MPI_DOUBLE, MPI_SUM, world);
+    MPI_Allreduce(sNloc, shellN, nbins, MPI_DOUBLE, MPI_SUM, world);
+    delete[] sTloc;
+    delete[] sNloc;
+  }
+
+  // --- scalar reciprocal double-sum + bin assembly - shell (shared host helpers) ---
+  auto *GTr = new double[K + 1];
+  auto *GNr = new double[K + 1];
+  profile_GTGN_raw(K, GTr, GNr);
+  profile_assemble(K, nbins, lo, width, Sre, Sim, GTr, GNr, shellT, shellN, pN, pT);
+
+  delete[] srl; delete[] sim; delete[] srl_all; delete[] sim_all;
+  delete[] Sre; delete[] Sim;
+  delete[] dens_b; delete[] dens_all;
+  delete[] shellT; delete[] shellN;
+  delete[] GTr; delete[] GNr;
+  return 1;
+}
+
+/* ----------------------------------------------------------------------
+   device kernels for the IK pressure profile
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_profile_sfac, const int &i) const
+{
+  const double zi = static_cast<double>(x(i, dim_kk));
+  const double bi = d_Bt(type(i));
+  const double c1 = cos(unitk_kk * zi), s1 = sin(unitk_kk * zi);
+  double cn = 1.0, sn = 0.0;
+  Kokkos::atomic_add(&d_srl(0), bi);
+  for (int n = 1; n <= K_kk; n++) {
+    const double cnn = cn * c1 - sn * s1;
+    const double snn = sn * c1 + cn * s1;
+    cn = cnn; sn = snn;
+    Kokkos::atomic_add(&d_srl(n), bi * cn);
+    Kokkos::atomic_add(&d_sim(n), bi * sn);
+  }
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_profile_dens, const int &i) const
+{
+  double u = (static_cast<double>(x(i, dim_kk)) - lo_kk) / width_kk;
+  u -= nbins_kk * floor(u / nbins_kk);
+  int g = (int) u;
+  if (g >= nbins_kk) g -= nbins_kk;
+  Kokkos::atomic_add(&d_densb(g), d_Bdens(type(i)));
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_profile_shell_bin,
+                                                  const int &g) const
+{
+  // IK contour: spread the shell pair (g,gp) virial uniformly in z along the bond
+  // (the z-integral is preserved, so box-average(profile) == box pressure).
+  const double dg = d_dens_all(g);
+  for (int gp = 0; gp < nbins_kk; gp++) {
+    double ddz = (gp - g) * width_kk;
+    ddz -= zprd_kk * floor(ddz / zprd_kk + 0.5);
+    double wE, wF, wT, wN;
+    shell_vkernel_kk(fabs(ddz), wE, wF, wT, wN);
+    if (wT == 0.0 && wN == 0.0) continue;
+    const double pT = dg * d_dens_all(gp) * wT;
+    const double pN = dg * d_dens_all(gp) * wN;
+    const int nspan = (int) (fabs(ddz) / width_kk + 0.5) + 1;
+    const int step = (ddz >= 0.0) ? 1 : -1;
+    const double iT = pT / nspan, iN = pN / nspan;
+    for (int s = 0; s < nspan; s++) {
+      int b = (g + s * step) % nbins_kk;
+      if (b < 0) b += nbins_kk;
+      Kokkos::atomic_add(&d_shellT(b), iT);
+      Kokkos::atomic_add(&d_shellN(b), iN);
+    }
+  }
+}
+
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_profile_shell_raw,
+                                                  const int &i) const
+{
+  const double as_shell = 1.0 / 16.0;    // arithmetic C6 cross normalization
+  const double zi = static_cast<double>(x(i, dim_kk));
+  const int ti = type(i);
+  const double bi = (nchan_kk == 1) ? d_Bdens(ti) : 0.0;
+  double u = (zi - lo_kk) / width_kk;
+  u -= nbins_kk * floor(u / nbins_kk);
+  int g = (int) u;
+  if (g >= nbins_kk) g -= nbins_kk;
+  for (int jg = 0; jg < natoms_all_kk; jg++) {
+    double delz = zi - d_zall(jg);
+    delz -= zprd_kk * floor(delz / zprd_kk + 0.5);
+    const double adz = fabs(delz);
+    if (adz >= bcut_kk) continue;
+    double wE, wF, wT, wN;
+    shell_vkernel_kk(adz, wE, wF, wT, wN);
+    double bij;
+    if (nchan_kk == 1) {
+      bij = bi * d_ball(jg);
+    } else {
+      double cross = 0.0;
+      for (int m = 0; m < 7; m++) cross += d_Bfull(7 * ti + m) * d_ball(jg * 7 + (6 - m));
+      bij = as_shell * cross;
+    }
+    // IK contour: spread the (i,jg) shell virial uniformly along the bond from atom
+    // i (bin g) to its partner at z_i - delz, instead of localizing it at g.
+    const int nspan = (int) (adz / width_kk + 0.5) + 1;
+    const int step = (delz <= 0.0) ? 1 : -1;
+    const double iT = bij * wT / nspan, iN = bij * wN / nspan;
+    for (int s = 0; s < nspan; s++) {
+      int b = (g + s * step) % nbins_kk;
+      if (b < 0) b += nbins_kk;
+      Kokkos::atomic_add(&d_shellT(b), iT);
+      Kokkos::atomic_add(&d_shellN(b), iN);
+    }
+  }
 }
 
 /* ----------------------------------------------------------------------

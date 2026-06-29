@@ -150,6 +150,18 @@ class PPPMDispPlanar : public KSpace {
   void shell_profile_virial(int nbins, double lo, double dz, double *dens_all, double *shellT,
                             double *shellN);
 
+  // pressure-profile scalar building blocks (no per-atom data; shared by the host
+  // pressure_profile_long and the Kokkos device override so the reciprocal
+  // double-sum / coefficient math is written once):
+  //   profile_GTGN_raw : raw per-mode tangential/normal box-pressure coefficients
+  //   profile_Bt       : per-type single-channel structure-factor amplitude
+  //   profile_assemble : S_n S_m C_{n,m} double sum + bin assembly - shell
+  void profile_GTGN_raw(int K, double *GTr, double *GNr);
+  void profile_Bt(double *Bt);
+  void profile_assemble(int K, int nbins, double lo, double width, const double *Sre,
+                        const double *Sim, const double *GTr, const double *GNr,
+                        const double *shellT, const double *shellN, double *pN, double *pT);
+
   // pressure-profile building blocks (shared with ewald/disp/planar)
   double ik_phi(double h), ik_psi(double h);
   // compact-switch reweight of the local pressure-profile coefficients: the sharp
