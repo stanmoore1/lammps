@@ -1,0 +1,11 @@
+Direct real-space check (HARASIMA): brute-force Harasima (sharp r>4) vs LAMMPS H lattice
+  ptp(LAMMPS H lattice) = 0.03220
+  RMAX   ptp_brute   ratio brute/lat   shape_rms
+   8.0   0.02810    0.8726           0.00365
+  11.0   0.03146    0.9770           0.00154
+  14.0   0.03210    0.9970           0.00061
+  17.0   0.03233    1.0042           0.00041
+  => brute-force Harasima converges to the LAMMPS stress/atom H contour
+     as RMAX grows: the H per-atom kspace virial reproduces the real-space
+     Harasima contour (the small residual is the [3.4,4] correlated shell).
+  wrote fig_recip_h.png rmax_h_rows.npy

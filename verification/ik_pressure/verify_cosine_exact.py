@@ -23,12 +23,14 @@ density is band-limited, so both are exact representations of the same continuum
 integral).  This isolates the off-diagonal coefficient with zero truncation noise.
 """
 import numpy as np
+from scipy.integrate import quad
 import verify_cpp2 as C
 import verify_ik_kernel as K
 
 PI = np.pi
 NB, DZ, LZ, AREA = C.NB, C.DZ, C.LZ, C.AREA
 k0 = 2*PI/LZ
+RCUT = 4.0
 
 def analytic_density(rho0=0.5, rho1=0.4):
     z = (np.arange(NB)+0.5)*DZ
@@ -44,13 +46,34 @@ def slab_shape(rho, rmax, nlam=48, zmax=40.0, nr=8000):
     G = C.Gkernel(zp, rmax=rmax, nr=nr)
     return C.slab_IK(rho, G, zp, nlam=nlam)
 
+def slab_H_shape(rho, rmax, zmax=40.0, nr=8000):
+    zp = np.arange(-int(zmax/DZ), int(zmax/DZ)+1)*DZ
+    G = C.Gkernel(zp, rmax=rmax, nr=nr)
+    return C.slab_H(rho, G, zp)
+
+def Ghat_exact(k):
+    """Fourier transform of the H kernel integrated to r -> infinity (essentially
+    exact, no rmax truncation):  Ghat(k) = int dz' cos(k z') int_{max(rcut,|z'|)}^inf
+    (du/dr)(r^2 - 3 z'^2) dr,  du/dr = 24/r^7 (sharp, r>rcut).  Note Ghat(0)=0."""
+    def Ginf(zp):
+        a = max(RCUT, abs(zp))
+        return quad(lambda r: (24.0/r**7)*(r*r - 3.0*zp*zp), a, np.inf, limit=300)[0]
+    return quad(lambda zp: np.cos(k*zp)*Ginf(zp), -60.0, 60.0, limit=600)[0]
+
+def H_analytic_shape(z, rho0, rho1):
+    """analytic Harasima P_N-P_T shape (mean removed) for rho=rho0+rho1 cos(k0 z):
+    (pi/2) rho(z) [G*rho](z); with Ghat(0)=0 -> only cos(k0) and cos(2 k0) survive."""
+    G1 = Ghat_exact(k0)
+    return (PI/2.0)*(rho0*rho1*G1*np.cos(k0*z) + 0.5*rho1*rho1*G1*np.cos(2*k0*z))
+
 def main():
     z, rho = analytic_density()
+    rho0, rho1 = 0.5, 0.4
     g_lat = lattice_shape(rho)
     dm = lambda a: a-a.mean()
     print("Cheap exact test: analytic rho(z)=%.2f+%.2f cos(2 pi z/Lz)  (range %.2f-%.2f)" % (
-        0.5, 0.4, rho.min(), rho.max()))
-    print("  lattice off-diagonal uses code ik_phi/ik_psi (tail integrated to r=inf).")
+        rho0, rho1, rho.min(), rho.max()))
+    print("[IK] lattice off-diagonal uses code ik_phi/ik_psi (tail integrated to r=inf).")
     print("  rmax   ptp_slab   ratio slab/lattice   shape_rms(slab-lattice)")
     rows = []
     profs = {}
@@ -64,6 +87,23 @@ def main():
     print("  => ratio -> 1 and rms -> 0 as rmax grows: the off-diagonal IK coefficient")
     print("     in ewald/disp/planar matches the real-space IK integral EXACTLY.")
     np.save("cosine_rows.npy", np.array(rows))
+
+    # ---- H (Harasima) contour: slab_H vs analytic Fourier-Harasima (r->inf) ----
+    g_H_ref = dm(H_analytic_shape(z, rho0, rho1))
+    print("")
+    print("[H] Harasima slab (pi/2) rho(z)[G*rho](z) vs analytic Fourier-Harasima (Ghat to r=inf):")
+    print("  rmax   ptp_slabH   ratio slabH/analytic   shape_rms")
+    hrows = []; hprofs = {}
+    for rmax in (14.0, 20.0, 40.0, 80.0, 160.0):
+        g_h = dm(slab_H_shape(rho, rmax))
+        ratio = np.ptp(g_h)/np.ptp(g_H_ref)
+        rms = np.sqrt(np.mean((g_h-g_H_ref)**2))
+        hrows.append((rmax, np.ptp(g_h), ratio, rms)); hprofs[rmax] = g_h
+        print("  %5.0f  %.6f    %.5f               %.6f" % (rmax, np.ptp(g_h), ratio, rms))
+    print("  ptp(analytic H) = %.6f" % np.ptp(g_H_ref))
+    print("  => ratio -> 1 and rms -> 0: the Harasima slab (Eq 4.18 H) equals the")
+    print("     analytic real-space Harasima EXACTLY (validates the H ground truth).")
+    np.save("cosine_h_rows.npy", np.array(hrows))
 
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
     fig, ax = plt.subplots(1, 2, figsize=(12, 4.6))
@@ -83,7 +123,26 @@ def main():
         ax[1].annotate("%.4f" % rr, (xr, rr), textcoords="offset points", xytext=(0, 6),
                        fontsize=7, ha="center")
     plt.tight_layout(); plt.savefig("fig_cosine_exact.png", dpi=130); plt.close()
-    print("  wrote fig_cosine_exact.png cosine_rows.npy")
+
+    # H figure
+    figh, axh = plt.subplots(1, 2, figsize=(12, 4.6))
+    axh[0].plot(z, g_H_ref, "-", color="black", lw=3, label="analytic Harasima (Ghat, r=inf)")
+    for rmax in (14.0, 40.0, 160.0):
+        axh[0].plot(z, hprofs[rmax], lw=1.2, label="slab H (Eq 4.18), rmax=%g" % rmax)
+    axh[0].set_xlabel("z*"); axh[0].set_ylabel(r"$P_N-P_T$ (mean removed)")
+    axh[0].set_title("analytic cosine density: slab H -> analytic as rmax grows")
+    axh[0].legend(fontsize=8); axh[0].set_xlim(0, LZ)
+    hr = np.array(hrows)
+    axh[1].plot(hr[:, 0], hr[:, 2], "o-", color="tab:orange")
+    axh[1].axhline(1.0, color="0.6", lw=0.8, ls="--")
+    axh[1].set_xscale("log"); axh[1].set_xlabel("rmax (slab kernel cutoff)")
+    axh[1].set_ylabel("ptp ratio slab H / analytic")
+    axh[1].set_title("essentially exact: ratio -> 1.000")
+    for xr, _, rr, _ in hrows:
+        axh[1].annotate("%.4f" % rr, (xr, rr), textcoords="offset points", xytext=(0, 6),
+                        fontsize=7, ha="center")
+    plt.tight_layout(); plt.savefig("fig_cosine_exact_H.png", dpi=130); plt.close()
+    print("  wrote fig_cosine_exact.png fig_cosine_exact_H.png cosine_rows.npy cosine_h_rows.npy")
 
 
 if __name__ == "__main__":

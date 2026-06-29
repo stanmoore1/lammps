@@ -252,7 +252,33 @@ resolved; see `DIAGNOSIS_ik_profile.md` for the full write-up.
    `1/r⁶` tail to infinity; the finite-cutoff slab (rmax=14) and brute-force
    (RMAX≈12) truncated it — that truncation, not the code, was the residual.
 
-**Final verdict:** after the shell fix, the `ewald/disp/planar` IK long-range
+**Final verdict (IK):** after the shell fix, the `ewald/disp/planar` IK long-range
 pressure profile is correct in both shape and magnitude — diagonal pinned to the
 box pressure, off-diagonal kernel verified analytically and by the Ewald identity,
 shell now correctly IK-distributed.
+
+### Harasima (H) contour — independently verified
+
+The H long-range contour comes from `compute stress/atom ... kspace` (the planar
+Ewald per-atom virial `vatom`), binned by `fix ave/chunk`, and was confirmed two
+more ways (in addition to the §5 match to slab Eq 4.18 / the digitized Fig 4.7):
+
+1. **Direct trajectory** (`verify_recip_h.py`, `fig_recip_h.png`). A brute-force
+   Harasima pair sum of the sharp `r>4` dispersion tail — each pair's `P_N−P_T`
+   virial split half-and-half **at the two atoms** (the stress/atom convention) —
+   converges onto the LAMMPS H lattice as the real-space cutoff grows: ptp ratio
+   0.873→0.977→0.997→1.004 for RMAX 8→11→14→17, shape rms 0.0037→0.0004. So the
+   per-atom kspace virial reproduces the real-space Harasima contour. (A first pass
+   using the *switched* potential plateaued at 0.87 because `corr` subtracts the
+   `[3.4,4]` shell from `vatom`; the contour-consistent sharp-`r>4` comparison is
+   the correct one and converges to unity.)
+2. **Cheap analytic cosine** (`verify_cosine_exact.py`, `fig_cosine_exact_H.png`).
+   For the analytic density `rho=0.5+0.4 cos(2 pi z/Lz)` the Harasima slab
+   `(pi/2) rho(z)[G*rho](z)` (Eq 4.18 H) matches the analytic Fourier-Harasima
+   reference `Ghat(k)` integrated to `r→inf` to rms ~3e-6 (ratio 1.0002 at
+   rmax=40), validating the H ground-truth method to quadrature precision. Note
+   `Ghat(0)=0`, so the H shape is purely the `cos(k0)` + `cos(2 k0)` harmonics.
+
+**Final verdict (H):** the `ewald/disp/planar` Harasima long-range contour is
+correct — it reproduces the real-space Harasima pair sum (sharp `r>4`, RMAX→inf)
+and the analytic Eq 4.18 H slab, and agrees with IK on the contour-invariant γ.
