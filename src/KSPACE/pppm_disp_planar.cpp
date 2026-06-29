@@ -1879,18 +1879,32 @@ void PPPMDispPlanar::shell_profile_virial(int nbins, double lo, double dz, doubl
   for (int g = 0; g < nbins; g++) shellT[g] = shellN[g] = 0.0;
 
   if (corr_mode != 0) {    // BIN: density-density convolution (matches corr_shell_bin)
+    // Irving-Kirkwood contour: spread the shell pair (g,gp) virial UNIFORMLY in z
+    // along the bond connecting the two bins, rather than localizing it at the
+    // field bin g (which would be the Harasima contour).  This matches the IK
+    // distribution of the reciprocal sum that this shell corrects; the z-integral
+    // sum_g shellT[g] is unchanged (so box-average(profile) == box pressure still
+    // holds), only the SHAPE differs.  Using the Harasima (at-field-point) shell
+    // here would distort the IK profile toward the H profile.
     for (int g = 0; g < nbins; g++) {
-      double sT = 0.0, sN = 0.0;
       for (int gp = 0; gp < nbins; gp++) {
-        double ddz = (g - gp) * dz;
-        ddz -= zprd * floor(ddz / zprd + 0.5);
+        double ddz = (gp - g) * dz;                    // signed g -> gp displacement
+        ddz -= zprd * floor(ddz / zprd + 0.5);         // minimum image
         double wE, wF, wT, wN;
         shell_vkernel(fabs(ddz), wE, wF, wT, wN);
-        sT += dens_all[gp] * wT;
-        sN += dens_all[gp] * wN;
+        if (wT == 0.0 && wN == 0.0) continue;
+        const double pT = dens_all[g] * dens_all[gp] * wT;
+        const double pN = dens_all[g] * dens_all[gp] * wN;
+        const int nspan = (int) (fabs(ddz) / dz + 0.5) + 1;    // bond length in bins (+1)
+        const int step = (ddz >= 0.0) ? 1 : -1;
+        const double iT = pT / nspan, iN = pN / nspan;
+        for (int s = 0; s < nspan; s++) {
+          int b = (g + s * step) % nbins;
+          if (b < 0) b += nbins;
+          shellT[b] += iT;
+          shellN[b] += iN;
+        }
       }
-      shellT[g] = dens_all[g] * sT;
-      shellN[g] = dens_all[g] * sN;
     }
     return;
   }
@@ -1940,7 +1954,6 @@ void PPPMDispPlanar::shell_profile_virial(int nbins, double lo, double dz, doubl
     u -= nbins * floor(u / nbins);
     int g = (int) u;
     if (g >= nbins) g -= nbins;
-    double vt = 0.0, vn = 0.0;
     for (int jg = 0; jg < natoms_all; jg++) {
       double delz = zi - zall[jg];
       delz -= zprd * floor(delz / zprd + 0.5);
@@ -1957,11 +1970,20 @@ void PPPMDispPlanar::shell_profile_virial(int nbins, double lo, double dz, doubl
         for (int m = 0; m < 7; m++) cross += ai[m] * aj[6 - m];
         bij = as_shell * cross;
       }
-      vt += bij * wT;
-      vn += bij * wN;
+      // Irving-Kirkwood contour: spread the (i,jg) shell virial uniformly along the
+      // bond from atom i (bin g) to its partner at z_i-delz, instead of localizing
+      // it at g (Harasima).  Matches the IK reciprocal sum it corrects; the
+      // z-integral is preserved, so box-average(profile) == box pressure still holds.
+      const int nspan = (int) (adz / dz + 0.5) + 1;
+      const int step = (delz <= 0.0) ? 1 : -1;
+      const double iT = bij * wT / nspan, iN = bij * wN / nspan;
+      for (int s = 0; s < nspan; s++) {
+        int b = (g + s * step) % nbins;
+        if (b < 0) b += nbins;
+        sTloc[b] += iT;
+        sNloc[b] += iN;
+      }
     }
-    sTloc[g] += vt;
-    sNloc[g] += vn;
   }
   MPI_Allreduce(sTloc, shellT, nbins, MPI_DOUBLE, MPI_SUM, world);
   MPI_Allreduce(sNloc, shellN, nbins, MPI_DOUBLE, MPI_SUM, world);
