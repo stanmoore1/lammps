@@ -11,15 +11,12 @@ Syntax
    kspace_modify keyword value ...
 
 * one or more keyword/value pairs may be listed
-* keyword = *collective* or *collective/self/copy* or *contour* or *corr* or *dim* or *kmax* or *pressure/profile* or *nonblocking* or *compute* or *cutoff/adjust* or *diff* or *disp/auto* or *fftbench* or *force/disp/kspace* or *force/disp/real* or *force* or *gewald/disp* or *gewald* or *kmax/ewald* or *mesh* or *minorder* or *mix/disp* or *order/disp* or *order* or *overlap* or *scafacos* or *slab* or *splittol* or *wire*
+* keyword = *collective* or *collective/self/copy* or *corr* or *dim* or *kmax* or *nonblocking* or *compute* or *cutoff/adjust* or *diff* or *disp/auto* or *fftbench* or *force/disp/kspace* or *force/disp/real* or *force* or *gewald/disp* or *gewald* or *kmax/ewald* or *mesh* or *minorder* or *mix/disp* or *order/disp* or *order* or *overlap* or *scafacos* or *slab* or *splittol* or *wire*
 
   .. parsed-literal::
 
        *collective* value = *yes* or *no*
        *collective/self/copy* value = *yes* or *no* or *onerank*
-       *contour* value = *h* or *ik*
-         h = Harasima contour (default)
-         ik = Irving-Kirkwood contour
        *corr* values = style (dz)
          style = *raw* or *bin*
          dz = bin width for the *bin* style (optional) (distance units)
@@ -27,8 +24,6 @@ Syntax
          selects the inhomogeneous direction (default z)
        *kmax* value = N
          N = number of z wavevectors for ewald/disp/planar
-       *pressure/profile* value = N
-         N = number of z grid points for the long-range pressure profiles
        *nonblocking* value = *yes* or *no*
        *compute* value = *yes* or *no*
        *cutoff/adjust* value = *yes* or *no*
@@ -119,10 +114,9 @@ all data maps to the same rank.
 
 .. versionadded:: TBD
 
-The *kmax*, *corr*, *contour*, *pressure/profile*, and *dim* keywords
-apply only to the planar long-range dispersion solvers
-:doc:`kspace_style ewald/disp/planar and pppm/disp/planar
-<kspace_style>`.
+The *kmax*, *corr*, and *dim* keywords apply only to the planar
+long-range dispersion solvers :doc:`kspace_style ewald/disp/planar and
+pppm/disp/planar <kspace_style>`.
 
 The *kmax* keyword (supported only by *ewald/disp/planar*) overrides the
 number of *z* wavevectors used in the one-dimensional reciprocal sum.
@@ -137,17 +131,23 @@ correction is evaluated with a faster *z*-binned one-dimensional
 particle-mesh scheme; an optional bin width *dz* may be specified after
 the *bin* keyword (otherwise it is chosen automatically).
 
-The *contour* keyword selects the contour convention used when computing
-the local pressure profile: *h* for the Harasima contour (the default)
-or *ik* for the Irving-Kirkwood contour.
-
-The *pressure/profile* keyword turns on computation of the long-range
-contributions to the tangential :math:`P_T(z)` and normal
-:math:`P_N(z)` pressure profiles, evaluated on an *N*-point grid along
-the inhomogeneous direction.
-
 The *dim* keyword selects the inhomogeneous direction (the direction in
 which the mean density varies).  The default is *z*.
+
+The planar dispersion solvers also expose their long-range contribution
+to the local pressure profile, which is needed for surface-tension and
+local-stress calculations.  This is no longer turned on through
+*kspace_modify*; instead it is collected directly by the local-stress
+computes:
+
+* The Harasima (H) contour is the long-range per-atom virial, available
+  through :doc:`compute stress/atom <compute_stress_atom>` with the
+  *kspace* keyword and binned with :doc:`fix ave/chunk <fix_ave_chunk>`.
+* The Irving-Kirkwood (IK) contour, which cannot be written per atom, is
+  added to the configurational profile of
+  :doc:`compute stress/cartesian <compute_stress_cartesian>` with its
+  *kspace* keyword (the compute supplies the bin grid along the
+  inhomogeneous axis).
 
 The planar dispersion solvers support both geometric and arithmetic
 (Lorentz-Berthelot) mixing of the :math:`C_6` dispersion coefficient.
@@ -588,7 +588,6 @@ The option defaults are as follows:
 
 * collective = no
 * collective/self/copy = onerank
-* contour = h (ewald/disp/planar, pppm/disp/planar)
 * corr = raw (ewald/disp/planar, pppm/disp/planar)
 * dim = z (ewald/disp/planar, pppm/disp/planar)
 * nonblocking = no
