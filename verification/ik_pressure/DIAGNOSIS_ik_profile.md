@@ -1,85 +1,68 @@
-# Diagnosis: ewald/disp/planar IK long-range profile disagrees with independent IK methods
+# ewald/disp/planar IK long-range profile: diagnosis, root cause, and fix
 
 ## Symptom
-On the CPP 2 system (rcut=4.0), the long-range local surface tension
-P_N^LR(z)−P_T^LR(z) computed three ways for the **IK contour**:
+On the CPP 2 system (rcut=4.0) the long-range local surface tension
+P_N^LR(z)-P_T^LR(z) for the **IK contour** disagreed between three methods:
 
-| method | what it is | γ_LR |
-|---|---|---|
-| **lattice** | `ewald/disp/planar` `pressure_profile_long` (Φ/Ψ double sum) | 0.1194 |
-| **slab** | Eq 4.18 IK analogue (Appendix A), evaluated on ρ(z) | 0.1167 |
-| **real-space** | direct brute-force IK pair sum over the trajectory (r>4) | 0.1133 |
+| method | what it is |
+|---|---|
+| lattice | `ewald/disp/planar` `pressure_profile_long` (the new code) |
+| slab    | Eq 4.18 IK analogue (Appendix A) on the measured rho(z) |
+| real    | direct brute-force IK pair sum over the trajectory (r>4) |
 
-Pairwise rms of the (Fourier-smoothed) profiles:
+slab and real agreed (rms 0.0006); the **lattice was the outlier** (rms 0.0022,
+~25% high in the bulk dip), while the H contour (`compute stress/atom`) matched its
+slab to 0.0005.
 
-```
-H  lattice-vs-slab  = 0.00046     <- H contour is fine
-IK lattice-vs-slab  = 0.00217     <- lattice IK is the outlier
-IK lattice-vs-real  = 0.00271
-IK slab-vs-real     = 0.00063     <- the two independent IK methods AGREE
-```
+## Root cause (found by numerical reconstruction — `verify_ik_kernel.py`)
+Two independent effects, separated by reconstructing the reciprocal double-sum in
+Python from the structure factors S_n:
 
-The lattice IK sits ~25% high in the bulk dip (lattice 0.0115 vs slab/real 0.0092)
-and is visibly pulled toward the H profile (H dip ≈ 0.018). See
-`fig_cpp2_fig47.png` (right panel).
+1. **(dominant) Harasima-distributed shell subtracted from the IK reciprocal.**
+   `pressure_profile_long` builds the IK profile as `reciprocal - shell`.  The
+   reciprocal Phi/Psi double-sum is IK-distributed, but `shell_profile_virial`
+   localized the compact-switch shell virial **at the field point** (Harasima:
+   `shellT[g]=dens[g]*sum_gp dens[gp] w(|g-gp|)`), not along the IK bond.  A direct
+   test confirmed `NET - slab == shell_IK - shell_H` (rms of the shell-contour
+   difference 0.00136 of the 0.00216 gap).  Subtracting an H-shaped shell from an
+   IK-shaped reciprocal pulls the IK profile toward the H profile — exactly the
+   observed signature.  The shell's **z-integral is contour-independent**, so this
+   only distorts the SHAPE; the box-average (gamma) stays correctly pinned.
 
-## What it is NOT
-- **Not statistics** — profiles are block-averaged and Fourier-smoothed; the gap is
-  smooth and systematic.
-- **Not correlations** — the mean-field slab (g=1) and the correlated brute-force
-  real-space agree to 0.0006, so correlations are negligible for the IK shape; the
-  lattice (which also uses the actual structure factors) should therefore match
-  them, but doesn't.
-- **Not the switch/shell** — rerunning the same trajectory at Δ=0.4 vs Δ=0.6 leaves
-  the lattice IK essentially unchanged (γ 0.1194 both; bulk dip 0.0115 vs 0.0117).
-  So the compact-switch shell correction is not the cause.
-- **Not the box-average** — ⟨P_N−P_T⟩ (γ) is pinned correctly; the H and IK
-  box-averages match the global pressure.
-- **Not the H path** — `compute stress/atom` (per-atom kspace virial, H contour)
-  matches its slab to 0.0005.
+2. **(secondary, ~4%) off-diagonal amplitude.** After accounting for (1) a residual
+   ~0.001 remains: the code's off-diagonal Phi/Psi double-sum has ~4% more
+   z-amplitude than the real-space IK (ptp ratio slab/code = 0.96), **independent
+   of kmax (K=40..200 identical)**, so it is not truncation.  This is a genuine but
+   small discrepancy in the off-diagonal kernel/assembly — left for follow-up (see
+   below); it does not affect gamma or the box average.
 
-## Where it is localized
-The discrepancy is in the **off-diagonal (p=n+m≠0) Φ/Ψ shape terms** of
-`EwaldDispPlanar::pressure_profile_long` — the p=0 (box-average) terms are pinned
-and correct, the H per-atom path is correct, and both P_N (Ψ) and P_T (Φ)
-off-diagonal components carry the error (~0.0025 each).
+## Fix (implemented)
+`src/KSPACE/ewald_disp_planar.cpp`, `shell_profile_virial` (both `corr bin` and
+`corr raw`): spread each shell pair (g,gp)/(i,j) virial **uniformly in z along the
+bond** connecting the two bins/atoms (IK contour) instead of localizing it at the
+field bin.  The z-integral `sum_g shellT[g]` is unchanged, so
+box-average(profile) == box pressure still holds (gamma unchanged).  Only
+`shell_profile_virial` was touched, and it is called only from
+`pressure_profile_long`, so forces, energy, the box pressure tensor, and the H
+contour are bit-identical.
 
-## Suspected cause (for the author to confirm)
-The off-diagonal coefficients (`ewald_disp_planar.cpp` ~1707):
-```
-CT = -6.0*MY_PI/H * (ik_phi(hm) + ik_phi(hn));
-CN = -12.0*MY_PI/H * (ik_psi(hm) + ik_psi(hn));
-```
-have **no explicit `volume` factor**, whereas the diagonal coefficients on the
-adjacent lines do:
-```
-CT = CN = volume * GT[0];                 // (0,0)
-CT = 0.5*volume*GT[kk]; CN = 0.5*volume*GN[kk];   // n=-m diagonal
-```
-With the structure factors normalized as `S_n = sfac/volume`, the diagonal terms
-scale like 1/V while the bare off-diagonal terms scale like 1/V² — an apparent
-normalization asymmetry between the diagonal and off-diagonal blocks.  Separately,
-matching the paper's published `N^IK_{n,m} = -96π/(h_n+h_m)[...]` to the code's
-`CN = -12π/H[ik_psi(hm)+ik_psi(hn)]` leaves a constant factor (the code is 1/8 of
-the paper bracket) that I could not reconcile with the S_n=sfac/V convention.
+## Verification (CPP 2, `verify_cpp2.py`)
+| IK lattice vs slab | rms |
+|---|---|
+| before (H-shell) | 0.00216 |
+| after (IK-shell, corr bin) | 0.00102 |
+| after (IK-shell, corr raw) | 0.00107 |
 
-Because the *box-average* (diagonal) is pinned independently, a wrong off-diagonal
-normalization would distort only the **shape** while preserving γ — exactly the
-observed signature.
+gamma_LR unchanged (0.1194), IK peak 0.0254 -> 0.0238 (toward slab/dissertation
+0.0245); the IK panel of `fig_cpp2_fig47.png` now overlays slab + real-space.  The
+remaining 0.001 is effect (2).
 
-**Caveat:** the measured discrepancy is only ~10–25% of the local signal, *not*
-the factor-8 or factor-V that a literal missing factor would produce — so if a
-normalization factor is involved it must be largely compensated elsewhere, and the
-true cause may instead be a subtler shape error (a single term, sign, or argument
-in the off-diagonal Φ/Ψ assembly, or the diagonal↔off-diagonal continuity).  The
-empirical localization (off-diagonal shape terms; not box-average / correlations /
-switch / H-path) is solid; the specific root cause above is a lead, not a
-conclusion.  Recommended concrete check: the m→−n limit of the off-diagonal CT/CN
-should reduce continuously to the diagonal coefficient (0.5·volume·GT[k],
-0.5·volume·GN[k]); a mismatch there would pinpoint the inconsistency.
-
-## How to reproduce
-```
-python3 verify_cpp2.py     # prints the rms table above; fig_cpp2_fig47.png
-```
-(uses cpp2_ikLR.dat = lattice IK, cpp2_hLR.dat = lattice H + density, traj_cpp2.dump)
+## Follow-up (not fixed here)
+The residual ~4% off-diagonal amplitude (effect 2) is K-independent, so it is a
+property of the closed-form coefficients
+`CT=-6pi/H(ik_phi(hm)+ik_phi(hn))`, `CN=-12pi/H(ik_psi(hm)+ik_psi(hn))`
+vs the real-space IK line integral.  Pinning it down requires re-deriving the
+off-diagonal Fourier coefficient from the IK contour and comparing term-by-term
+(the paper's published `N^IK_{n,m}=-96pi/H[...]` differs from the code by a
+constant that I could only partly reconcile because of the S_n=sfac/V convention).
+Recommended for the author; reproduce with `verify_ik_kernel.py`.
