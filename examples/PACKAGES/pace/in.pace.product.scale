@@ -45,10 +45,15 @@ unfix           lim
 reset_timestep  0
 
 # --- real potential + relaxation ---
+# A loose tolerance is deliberate: the minimization only needs to relax the
+# post-soft near-contacts enough that the ACE forces are not explosive before
+# dynamics, not to find a tight energy minimum.  Each PACE force evaluation is
+# expensive, and tightening to 1e-8 spends ~10x more steps shaving a physically
+# irrelevant residual force (e.g. 129 steps vs 9 for L=4.1).
 pair_style      pace product
 pair_coeff      * * Cu-PBE-core-rep.ace Cu
 min_style       cg
-minimize        1e-8 1e-8 1000 10000
+minimize        1e-4 1e-4 1000 10000
 
 # --- dynamics ---
 velocity        all create 300 8728 loop geom
