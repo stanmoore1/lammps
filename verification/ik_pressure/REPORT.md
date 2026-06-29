@@ -252,10 +252,23 @@ resolved; see `DIAGNOSIS_ik_profile.md` for the full write-up.
    `1/r⁶` tail to infinity; the finite-cutoff slab (rmax=14) and brute-force
    (RMAX≈12) truncated it — that truncation, not the code, was the residual.
 
+3. **P_N(z) and P_T(z) verified INDIVIDUALLY** (`verify_recip_NT.py`,
+   `fig_recip_NT.png`). All the checks above use `P_N−P_T` or the pinned means, so
+   a zero-mean error common to the `CN` and `CT` shapes would survive. Depositing
+   the normal (`-(du/dr)/r·rz²`) and tangential (`-(du/dr)/r·½(r²−rz²)`) pair
+   virials SEPARATELY along the IK bond and comparing each to the LAMMPS
+   reciprocal-only output (Ewald identity) gives, as RMAX grows: ratio_N
+   0.977→0.996→0.998, ratio_T 0.944→0.978→0.990 for RMAX 11→14→17 (rms_N→0.0005,
+   rms_T→0.0007). `P_T` lags slightly (its `r²` isotropic part is longer-ranged),
+   but both converge to unity on the same trend as `P_N−P_T`. So the `CN` and `CT`
+   off-diagonal shapes are each correct — no compensating error; the full IK
+   pressure tensor profile (not only the surface-tension combination) is right.
+
 **Final verdict (IK):** after the shell fix, the `ewald/disp/planar` IK long-range
 pressure profile is correct in both shape and magnitude — diagonal pinned to the
 box pressure, off-diagonal kernel verified analytically and by the Ewald identity,
-shell now correctly IK-distributed.
+both `P_N(z)` and `P_T(z)` confirmed individually, shell now correctly
+IK-distributed.
 
 ### Harasima (H) contour — independently verified
 

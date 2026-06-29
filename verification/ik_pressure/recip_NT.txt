@@ -1,0 +1,8 @@
+Separate P_N(z), P_T(z) IK shape: brute-force (switched) vs LAMMPS reciprocal-only
+  RMAX   ratio_N   rms_N      ratio_T   rms_T      ratio_(N-T) rms_(N-T)
+  11.0   0.9771    0.00089    0.9442    0.00263    0.9093      0.00193
+  14.0   0.9955    0.00045    0.9779    0.00115    0.9729      0.00109
+  17.0   0.9975    0.00045    0.9898    0.00072    0.9999      0.00066
+  => ratio_N, ratio_T -> 1 and rms_N, rms_T -> 0 confirms P_N(z) and P_T(z)
+     are INDIVIDUALLY correct (CN and CT shapes, not only their difference).
+  wrote fig_recip_NT.png
