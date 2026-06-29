@@ -106,6 +106,11 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   void compute(int, int) override;
   double memory_usage() override;
 
+  // long-range Irving-Kirkwood pressure profile (compute stress/cartesian hook).
+  // Inherits the host implementation PPPMDispPlanar::pressure_profile_long, which
+  // reads atom->x/type on the host; sync the KK atom data to host first.
+  int pressure_profile_long(int, int, double, double, double *, double *) override;
+
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispPlanar_make_rho_zero, const int&) const;
 

@@ -45,10 +45,10 @@ class PPPMDispPlanar : public KSpace {
   int modify_param(int, char **) override;
   double memory_usage() override;
 
-  // long-range pressure profiles P_T(z), P_N(z) (shared with ewald/disp/planar)
-  // contour 0 = Harasima (H), 1 = Irving-Kirkwood (IK).
-  int contour_flag, profile_flag, npro;
-  double *pt_profile, *pn_profile;
+  // long-range Irving-Kirkwood pressure profiles P_T(z), P_N(z) on the caller's z grid
+  // (compute stress/cartesian supplies the grid and allocates pN/pT).  (The Harasima
+  // contour is the per-atom virial -- compute stress/atom -- not here.)
+  int pressure_profile_long(int, int, double, double, double *, double *) override;
 
  protected:
   int dim;               // inhomogeneous dimension: 0=x, 1=y, 2=z (default 2)
@@ -144,10 +144,20 @@ class PPPMDispPlanar : public KSpace {
   void corr_shell();
   void corr_shell_raw();
   void corr_shell_bin();
+  // shell-correction virial per profile bin (shellT[g], shellN[g]); dispatches on
+  // corr_mode so the contour profile uses the SAME real-space correction as the box
+  // average (raw = exact per-atom shell virial binned by z; bin = density convolution).
+  void shell_profile_virial(int nbins, double lo, double dz, double *dens_all, double *shellT,
+                            double *shellN);
 
   // pressure-profile building blocks (shared with ewald/disp/planar)
-  void compute_pressure_profile();
   double ik_phi(double h), ik_psi(double h);
+  // compact-switch reweight of the local pressure-profile coefficients: the sharp
+  // tail integral int_rcut^inf g(r) dr is made switch-aware by anchoring at the outer
+  // cutoff rcut+Delta and adding int_rcut^{rcut+Delta} W(r) g(r) dr, W=S-S'r/6.
+  enum { PROF_T, PROF_N, PROF_PHI };
+  double prof_integrand(int which, double r, double h);    // potential-form g(r)
+  double prof_shell(int which, double h);                  // int_rcut^c W(r) g(r) dr
   void cisi(double x, double &si, double &ci);
   void sici_chain(double x, double *Aarr, double *Barr);
 };
