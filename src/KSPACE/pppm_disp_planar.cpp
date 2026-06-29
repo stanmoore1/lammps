@@ -2013,146 +2013,85 @@ void PPPMDispPlanar::shell_profile_virial(int nbins, double lo, double dz, doubl
    K = nz/2 - 1 the highest resolved mode.
 ------------------------------------------------------------------------- */
 
-int PPPMDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double width,
-                                          double *pN, double *pT)
+/* ----------------------------------------------------------------------
+   raw per-mode tangential/normal box-pressure coefficients GT[k], GN[k] for
+   k=0..K (the compact-switch coefficients ewald/disp/planar computes in coeffs();
+   NOT the de-convolved mesh GTk/GNk).  Scalar (no per-atom data); shared by the
+   host pressure_profile_long and the Kokkos device override.
+------------------------------------------------------------------------- */
+
+void PPPMDispPlanar::profile_GTGN_raw(int K, double *GTr, double *GNr)
 {
-  if (dir != dim)
-    error->all(FLERR,
-               "compute stress/cartesian binning direction must match the inhomogeneous axis "
-               "(kspace_modify dim) of pppm/disp/planar");
-
   const double unitk = 2.0 * MY_PI / zprd;
-  const int K = nz / 2 - 1;    // highest resolved mode
-
-  // anti-aliasing requirement: the Irving-Kirkwood profile sums reciprocal modes
-  // e^{i p unitk z} with |p|=|n+m| up to 2*K.  The z grid must resolve them or the
-  // high modes alias onto low ones and corrupt both the profile shape and its
-  // box-average (which must equal the global pressure).  Require nbins > 2K.
-  if (nbins <= 2 * K)
-    error->all(FLERR,
-               "compute stress/cartesian with pppm/disp/planar kspace: {} bins along the "
-               "inhomogeneous axis is too coarse; need > {} (= 2*(nz/2-1)) to resolve the "
-               "Irving-Kirkwood reciprocal modes without aliasing (use a finer bin width or "
-               "smaller grid)",
-               nbins, 2 * K);
-
-  // raw per-mode coefficients GT[k], GN[k] for k=0..K (the SAME compact-switch
-  // coefficients ewald/disp/planar computes in coeffs(); NOT the de-convolved mesh
-  // GTk/GNk -- the exact-structure-factor profile needs the raw ones).
-  auto *GTr = new double[K + 1];
-  auto *GNr = new double[K + 1];
-  {
-    const double c = cutoff + sw_width;
-    // k=0 (uniform) virial of S*u; GT[0]=GN[0] (includes the S'u switch term)
-    const double a = cutoff, dzs = sw_width;
-    const int ni = 2000;
-    const double dr = dzs / ni;
-    double iJ = 0.0, iT = 0.0;
-    for (int i = 0; i <= ni; i++) {
-      const double r = a + i * dr;
-      const double t = (r - a) / dzs;
-      const double S = switch_S(t);
-      const double Sp = switch_dS(t) / dzs;    // S'(r)
-      const double r3 = r * r * r, r4 = r3 * r;
-      const double w = (i == 0 || i == ni) ? 1.0 : (i % 2 ? 4.0 : 2.0);
-      iJ += w * Sp / r3;
-      iT += w * S / r4;
-    }
-    const double Jint = dr / 3.0 * iJ;
-    const double trans = dr / 3.0 * iT;
-    GTr[0] = GNr[0] = -(2.0 * MY_PI / (3.0 * volume)) * (-Jint + 6.0 * trans + 2.0 / (c * c * c));
-    for (int k = 1; k <= K; k++) {
-      const double kcell = k * unitk;
-      const double kcell3 = kcell * kcell * kcell;
-      double C[8], D[8];
-      sici_compl_chain(kcell * c, C, D);
-      const double GTtail = (-24.0 * MY_PI * kcell3 / volume) * (C[7] - D[6]);
-      const double GNtail =
-          (-24.0 * MY_PI * kcell3 / volume) * (C[5] - 2.0 * C[7] + 2.0 * D[6]);
-      double sGT, sGN;
-      switch_shell_virial(kcell, sGT, sGN);
-      GTr[k] = GTtail - (MY_PI / volume) * sGT;
-      GNr[k] = GNtail - (2.0 * MY_PI / volume) * sGN;
-    }
+  const double c = cutoff + sw_width;
+  // k=0 (uniform) virial of S*u; GT[0]=GN[0] (includes the S'u switch term)
+  const double a = cutoff, dzs = sw_width;
+  const int ni = 2000;
+  const double dr = dzs / ni;
+  double iJ = 0.0, iT = 0.0;
+  for (int i = 0; i <= ni; i++) {
+    const double r = a + i * dr;
+    const double t = (r - a) / dzs;
+    const double S = switch_S(t);
+    const double Sp = switch_dS(t) / dzs;    // S'(r)
+    const double r3 = r * r * r, r4 = r3 * r;
+    const double w = (i == 0 || i == ni) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+    iJ += w * Sp / r3;
+    iT += w * S / r4;
   }
+  const double Jint = dr / 3.0 * iJ;
+  const double trans = dr / 3.0 * iT;
+  GTr[0] = GNr[0] = -(2.0 * MY_PI / (3.0 * volume)) * (-Jint + 6.0 * trans + 2.0 / (c * c * c));
+  for (int k = 1; k <= K; k++) {
+    const double kcell = k * unitk;
+    const double kcell3 = kcell * kcell * kcell;
+    double C[8], D[8];
+    sici_compl_chain(kcell * c, C, D);
+    const double GTtail = (-24.0 * MY_PI * kcell3 / volume) * (C[7] - D[6]);
+    const double GNtail = (-24.0 * MY_PI * kcell3 / volume) * (C[5] - 2.0 * C[7] + 2.0 * D[6]);
+    double sGT, sGN;
+    switch_shell_virial(kcell, sGT, sGN);
+    GTr[k] = GTtail - (MY_PI / volume) * sGT;
+    GNr[k] = GNtail - (2.0 * MY_PI / volume) * sGN;
+  }
+}
 
-  // EXACT structure factors sfac[n] = sum_j Bt_j exp(i n unitk z_j), n=0..K.
-  // The profile uses a single scalar dispersion weight per atom; under arithmetic
-  // mixing (7-channel B) it is approximated by the per-type self amplitude
-  // Bt = 2 sqrt(eps_t) sigma_t^3 = sqrt(C6_tt) (same single-channel approximation as
-  // ewald/disp/planar's profile; exact only for geometric mixing).
-  int ntypes = atom->ntypes;
-  auto *Bt = new double[ntypes + 1];
+/* ----------------------------------------------------------------------
+   per-type single-channel structure-factor amplitude Bt[t].  The profile uses a
+   single scalar dispersion weight per atom; under arithmetic mixing (7-channel B)
+   it is approximated by the per-type self amplitude Bt = 2 sqrt(eps_t) sigma_t^3
+   = sqrt(C6_tt) (exact only for geometric mixing).  Scalar; shared with Kokkos.
+------------------------------------------------------------------------- */
+
+void PPPMDispPlanar::profile_Bt(double *Bt)
+{
+  const int ntypes = atom->ntypes;
   if (nchan == 1) {
     for (int t = 0; t <= ntypes; t++) Bt[t] = B[t];
   } else {
     Bt[0] = 0.0;
     for (int t = 1; t <= ntypes; t++) Bt[t] = 2.0 * B[7 * t + 3] / sqrt(20.0);
   }
+}
 
-  auto *srl = new double[K + 1];
-  auto *sim = new double[K + 1];
-  auto *srl_all = new double[K + 1];
-  auto *sim_all = new double[K + 1];
-  for (int n = 0; n <= K; n++) srl[n] = sim[n] = 0.0;
+/* ----------------------------------------------------------------------
+   Irving-Kirkwood profile assembly: P(z) = sum_{n,m} S_n S_m C_{n,m}
+   e^{i(h_n+h_m)z} - shell(z).  Only p=n+m=0 survives the box-average (=> the
+   global pressure / surface tension); p!=0 (off-diagonal Phi/Psi) set only the
+   SHAPE.  (0,0) -> V*GT[0], each n=-m diagonal -> V*GT[k]/2, V*GN[k]/2 (1/2 since
+   both +n and -n are summed).  The shell mean field is laterally uniform so the
+   SAME shellT/shellN (from corr_mode) is subtracted.  Scalar (no per-atom data);
+   shared by the host pressure_profile_long and the Kokkos device override.
+------------------------------------------------------------------------- */
 
-  double **x = atom->x;
-  int *type = atom->type;
-  int nlocal = atom->nlocal;
-  for (int i = 0; i < nlocal; i++) {
-    const double bi = Bt[type[i]];
-    double c1 = cos(unitk * x[i][dim]), s1 = sin(unitk * x[i][dim]);
-    double cn = 1.0, sn = 0.0;    // cos/sin(n*unitk*z), recurrence
-    srl[0] += bi;
-    for (int n = 1; n <= K; n++) {
-      double cnn = cn * c1 - sn * s1;
-      double snn = sn * c1 + cn * s1;
-      cn = cnn;
-      sn = snn;
-      srl[n] += bi * cn;
-      sim[n] += bi * sn;
-    }
-  }
-  MPI_Allreduce(srl, srl_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
-  MPI_Allreduce(sim, sim_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
-
-  // number-density coefficients S_n = (1/V)(sfacrl - i sfacim).  c0 = GT[0]*srl_all[0]
-  // (isotropic k=0; the box-average-pinned (0,0) coefficient times the k=0 structure factor).
-  auto *Sre = new double[K + 1];
-  auto *Sim = new double[K + 1];
-  for (int n = 0; n <= K; n++) {
-    Sre[n] = srl_all[n] / volume;
-    Sim[n] = -sim_all[n] / volume;
-  }
-
-  // bin the B-weighted density rho_B(z) -- the BIN-mode shell convolution source.
-  const double dz = width;
-  auto *dens_b = new double[nbins];
-  for (int g = 0; g < nbins; g++) dens_b[g] = 0.0;
-  for (int i = 0; i < nlocal; i++) {
-    double u = (x[i][dim] - lo) / width;
-    u -= nbins * floor(u / nbins);
-    int g = (int) u;
-    if (g >= nbins) g -= nbins;
-    dens_b[g] += B[type[i]];
-  }
-  auto *dens_all = new double[nbins];
-  MPI_Allreduce(dens_b, dens_all, nbins, MPI_DOUBLE, MPI_SUM, world);
-
-  // shell-correction VIRIAL per bin (same corr_mode correction as the box average,
-  // so box-avg(profile) == box pressure).  kspace NET long-range pressure is
-  // reciprocal - shell, so subtract shellT[g]/(area*dz), shellN[g]/(area*dz).
-  auto *shellT = new double[nbins];
-  auto *shellN = new double[nbins];
-  shell_profile_virial(nbins, lo, width, dens_all, shellT, shellN);
-  const double inv_adz = 1.0 / (area * dz);
-
-  // Irving-Kirkwood pressure profile.  P(z) = sum_{n,m} S_n S_m C_{n,m} e^{i(h_n+h_m)z}.
-  // Only p=n+m=0 survives the box-average (=> the global pressure / surface tension);
-  // p!=0 (off-diagonal Phi/Psi) set only the SHAPE.  (0,0) -> V*GT[0], each n=-m diagonal
-  // -> V*GT[k]/2, V*GN[k]/2 (1/2 since both +n and -n are summed).  The shell mean field
-  // is laterally uniform so the SAME shellT/shellN (from corr_mode) is subtracted.
-  int P = 2 * K;
+void PPPMDispPlanar::profile_assemble(int K, int nbins, double lo, double width, const double *Sre,
+                                      const double *Sim, const double *GTr, const double *GNr,
+                                      const double *shellT, const double *shellN, double *pN,
+                                      double *pT)
+{
+  const double unitk = 2.0 * MY_PI / zprd;
+  const double inv_adz = 1.0 / (area * width);
+  const int P = 2 * K;
   auto *ATre = new double[P + 1];
   auto *ATim = new double[P + 1];
   auto *ANre = new double[P + 1];
@@ -2202,11 +2141,106 @@ int PPPMDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double 
     pT[g] = pt - shellT[g] * inv_adz;
     pN[g] = pn - shellN[g] * inv_adz;
   }
-
   delete[] ATre;
   delete[] ATim;
   delete[] ANre;
   delete[] ANim;
+}
+
+int PPPMDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double width,
+                                          double *pN, double *pT)
+{
+  if (dir != dim)
+    error->all(FLERR,
+               "compute stress/cartesian binning direction must match the inhomogeneous axis "
+               "(kspace_modify dim) of pppm/disp/planar");
+
+  const double unitk = 2.0 * MY_PI / zprd;
+  const int K = nz / 2 - 1;    // highest resolved mode
+
+  // anti-aliasing requirement: the Irving-Kirkwood profile sums reciprocal modes
+  // e^{i p unitk z} with |p|=|n+m| up to 2*K.  The z grid must resolve them or the
+  // high modes alias onto low ones and corrupt both the profile shape and its
+  // box-average (which must equal the global pressure).  Require nbins > 2K.
+  if (nbins <= 2 * K)
+    error->all(FLERR,
+               "compute stress/cartesian with pppm/disp/planar kspace: {} bins along the "
+               "inhomogeneous axis is too coarse; need > {} (= 2*(nz/2-1)) to resolve the "
+               "Irving-Kirkwood reciprocal modes without aliasing (use a finer bin width or "
+               "smaller grid)",
+               nbins, 2 * K);
+
+  // raw per-mode coefficients GT[k], GN[k] for k=0..K (the SAME compact-switch
+  // coefficients ewald/disp/planar computes in coeffs(); NOT the de-convolved mesh
+  // GTk/GNk -- the exact-structure-factor profile needs the raw ones).
+  auto *GTr = new double[K + 1];
+  auto *GNr = new double[K + 1];
+  profile_GTGN_raw(K, GTr, GNr);
+
+  // EXACT structure factors sfac[n] = sum_j Bt_j exp(i n unitk z_j), n=0..K.
+  int ntypes = atom->ntypes;
+  auto *Bt = new double[ntypes + 1];
+  profile_Bt(Bt);
+
+  auto *srl = new double[K + 1];
+  auto *sim = new double[K + 1];
+  auto *srl_all = new double[K + 1];
+  auto *sim_all = new double[K + 1];
+  for (int n = 0; n <= K; n++) srl[n] = sim[n] = 0.0;
+
+  double **x = atom->x;
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+  for (int i = 0; i < nlocal; i++) {
+    const double bi = Bt[type[i]];
+    double c1 = cos(unitk * x[i][dim]), s1 = sin(unitk * x[i][dim]);
+    double cn = 1.0, sn = 0.0;    // cos/sin(n*unitk*z), recurrence
+    srl[0] += bi;
+    for (int n = 1; n <= K; n++) {
+      double cnn = cn * c1 - sn * s1;
+      double snn = sn * c1 + cn * s1;
+      cn = cnn;
+      sn = snn;
+      srl[n] += bi * cn;
+      sim[n] += bi * sn;
+    }
+  }
+  MPI_Allreduce(srl, srl_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(sim, sim_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
+
+  // number-density coefficients S_n = (1/V)(sfacrl - i sfacim).  c0 = GT[0]*srl_all[0]
+  // (isotropic k=0; the box-average-pinned (0,0) coefficient times the k=0 structure factor).
+  auto *Sre = new double[K + 1];
+  auto *Sim = new double[K + 1];
+  for (int n = 0; n <= K; n++) {
+    Sre[n] = srl_all[n] / volume;
+    Sim[n] = -sim_all[n] / volume;
+  }
+
+  // bin the B-weighted density rho_B(z) -- the BIN-mode shell convolution source.
+  auto *dens_b = new double[nbins];
+  for (int g = 0; g < nbins; g++) dens_b[g] = 0.0;
+  for (int i = 0; i < nlocal; i++) {
+    double u = (x[i][dim] - lo) / width;
+    u -= nbins * floor(u / nbins);
+    int g = (int) u;
+    if (g >= nbins) g -= nbins;
+    dens_b[g] += B[type[i]];
+  }
+  auto *dens_all = new double[nbins];
+  MPI_Allreduce(dens_b, dens_all, nbins, MPI_DOUBLE, MPI_SUM, world);
+
+  // shell-correction VIRIAL per bin (same corr_mode correction as the box average,
+  // so box-avg(profile) == box pressure).  kspace NET long-range pressure is
+  // reciprocal - shell, so subtract shellT[g]/(area*dz), shellN[g]/(area*dz).
+  auto *shellT = new double[nbins];
+  auto *shellN = new double[nbins];
+  shell_profile_virial(nbins, lo, width, dens_all, shellT, shellN);
+
+  // Irving-Kirkwood pressure profile: S_n S_m C_{n,m} double sum, bin assembly, and
+  // the shell subtraction (shared scalar tail; no per-atom data).
+  profile_assemble(K, nbins, lo, width, Sre, Sim, GTr, GNr, shellT, shellN, pN, pT);
+
   delete[] GTr;
   delete[] GNr;
   delete[] Bt;

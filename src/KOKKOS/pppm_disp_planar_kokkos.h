@@ -55,6 +55,12 @@ struct TagPPPMDispPlanar_peratom_finalize{};
 // compact-switch shell correction (exact pairwise, device)
 struct TagPPPMDispPlanar_corr_shell_raw{};
 
+// long-range IK pressure profile (compute stress/cartesian hook), device kernels
+struct TagPPPMDispPlanar_profile_sfac{};        // exact structure factors srl/sim
+struct TagPPPMDispPlanar_profile_dens{};        // B-weighted z density (bin shell source)
+struct TagPPPMDispPlanar_profile_shell_bin{};   // bin-mode shell virial (IK bond spread)
+struct TagPPPMDispPlanar_profile_shell_raw{};   // raw-mode shell virial (IK bond spread)
+
 // --- arithmetic (Lorentz-Berthelot) 7-channel device kernels ---
 struct TagPPPMDispPlanar_make_rho_arith{};
 struct TagPPPMDispPlanar_dens_to_work_arith{};   // one channel m -> d_work
@@ -107,8 +113,11 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   double memory_usage() override;
 
   // long-range Irving-Kirkwood pressure profile (compute stress/cartesian hook).
-  // Inherits the host implementation PPPMDispPlanar::pressure_profile_long, which
-  // reads atom->x/type on the host; sync the KK atom data to host first.
+  // Native device implementation: the per-atom work (exact structure factors,
+  // B-weighted density, and the compact-switch shell virial with the IK bond
+  // spread) runs in Kokkos device kernels on the cached atom views; only the
+  // scalar reciprocal double-sum / coefficient math (shared via the host
+  // profile_GTGN_raw / profile_Bt / profile_assemble helpers) runs on the host.
   int pressure_profile_long(int, int, double, double, double *, double *) override;
 
   KOKKOS_INLINE_FUNCTION
@@ -167,6 +176,16 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispPlanar_corr_shell_raw, const int&, s_csb&) const;
+
+  // long-range IK pressure-profile device kernels
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_profile_sfac, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_profile_dens, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_profile_shell_bin, const int&) const;
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_profile_shell_raw, const int&) const;
 
   // --- arithmetic 7-channel kernels ---
   KOKKOS_INLINE_FUNCTION
@@ -294,6 +313,20 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   // shell-correction (exact pairwise) device buffers
   typename AT::t_double_1d d_zall, d_ball;   // gathered z, B over all procs
   int natoms_all_created;                    // d_zall/d_ball allocation size
+
+  // long-range IK pressure-profile device buffers
+  typename AT::t_double_1d d_srl, d_sim;     // exact structure factors (K+1)
+  typename AT::t_double_1d d_densb;          // B-weighted z density (nbins)
+  typename AT::t_double_1d d_dens_all;       // reduced density, bin-shell source (nbins)
+  typename AT::t_double_1d d_shellT, d_shellN;  // shell virial per bin (nbins)
+  typename AT::t_double_1d d_Bt;             // per-type structure-factor amplitude
+  typename AT::t_double_1d d_Bdens;          // per-type density amplitude B[t]
+  typename AT::t_double_1d d_Bfull;          // full (nchan-strided) B for arith shell
+  int profile_K_created, profile_nbins_created, profile_ntypes_created;
+  // scalar device copies of the profile parameters (set before each launch)
+  double unitk_kk, lo_kk, width_kk, bcut_kk;
+  int K_kk, nbins_kk;
+  void pressure_profile_alloc(int K, int nbins, int ntypes);
 
   // cached atom views
   typename AT::t_kkfloat_1d_3_lr_randomread x;
