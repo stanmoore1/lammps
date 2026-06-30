@@ -49,6 +49,9 @@ class EwaldDispSlab : public KSpace {
   int kmax_user;         // user override via kspace_modify kmax (0 if unset)
   int damp_flag;         // 0 = non-damped (SB), 1 = damped (SSB), 2 = compact switch (CSB)
   int corr_mode;         // damped correction: 0 = raw pairwise, 1 = binned (faster)
+  int corr_switch;       // 1 = damped corr uses the smooth switched-pair kernel (no rcut
+                         //     force discontinuity -> high-order binning); set in init()
+                         //     when damp_flag==1 and the pair supplies disp_switch_width
   double bin_dz_user;    // requested bin width (0 => default)
   int bin_nbins;         // calibrated # corr bins (0 => not calibrated)
   double sw_width;       // compact-switch width Delta (read from the matched pair style)
@@ -106,6 +109,18 @@ class EwaldDispSlab : public KSpace {
   double ik_phi(double h);            // IK tangential building block Phi(h)
   double ik_psi(double h);            // IK normal building block Psi(h)
   void corr_kernels(double x2, double &w2, double &f2, double &pt2);    // shared kernel
+
+  // smooth (switched-pair) damped correction.  With the matched lj/cut/dispswitch
+  // pair the 1/r^6 dispersion is faded out by (1-S) over [rcut, rcut+Delta], so the
+  // corr potential corr_e(r) = u_smooth(r) - [r>rcut] S(r)/r^6 vanishes smoothly at
+  // rcut+Delta (no force discontinuity at rcut) -> the binned corr converges at high
+  // order.  f2 is analytic; w2/pt2 are tabulated by quadrature over [0, rcut+Delta].
+  double u_smooth(double r);                 // smooth (Gaussian-screened) 1/r^6, Taylor near 0
+  double *cWgrid, *cTgrid;                   // tabulated switched corr energy / tangential kernels
+  int ncgrid;                                // grid points on [0, rcut+Delta]
+  double cwdz;                               // grid spacing
+  void build_corr_kernels();                 // tabulate the switched corr w2/pt2 at setup
+  void corr_smooth_kernels(double adz, double &w2, double &f2, double &pt2);    // interp + analytic f2
 
   // generalized sine/cosine integrals via recurrence + continued fraction
   void cisi(double x, double &si, double &ci);

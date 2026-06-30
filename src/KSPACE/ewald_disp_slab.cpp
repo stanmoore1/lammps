@@ -72,6 +72,10 @@ EwaldDispSlab::EwaldDispSlab(LAMMPS *lmp) :
   wEgrid = wFgrid = wTgrid = wNgrid = nullptr;
   nwgrid = 0;
   wdz = 0.0;
+  corr_switch = 0;
+  cWgrid = cTgrid = nullptr;
+  ncgrid = 0;
+  cwdz = 0.0;
   contour_flag = 0;
   profile_flag = 0;
   npro = 0;
@@ -100,6 +104,8 @@ EwaldDispSlab::~EwaldDispSlab()
   delete[] wFgrid;
   delete[] wTgrid;
   delete[] wNgrid;
+  delete[] cWgrid;
+  delete[] cTgrid;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -244,6 +250,30 @@ void EwaldDispSlab::init()
     // this flag the same way.)
     int *p_full = (int *) force->pair->extract("csb_full_shell", itmp2);
     if (p_full) *p_full = 1;
+  }
+
+  // damped (SSB) variant: if the matched pair supplies a dispersion switch width
+  // (lj/cut/dispswitch in its default (1-S) mode), the 1/r^6 dispersion is faded
+  // out over [rcut, rcut+Delta].  The corr then removes u_smooth out to rcut+Delta
+  // and adds back the faded S/r^6 shell, so the corr potential -> 0 smoothly at
+  // rcut+Delta (no force discontinuity at rcut).  This "smooth corr" is what the
+  // high-order binned corr (corr bin) needs.  Exact corr raw works either way.
+  corr_switch = 0;
+  if (damp_flag == 1) {
+    int itmp2;
+    double *p_dz = (double *) force->pair->extract("disp_switch_width", itmp2);
+    if (p_dz && *p_dz > 0.0) {
+      sw_width = *p_dz;
+      corr_switch = 1;
+      // ensure the pair runs the (1-S) faded-dispersion path, not the CSB full shell
+      int *p_full = (int *) force->pair->extract("csb_full_shell", itmp2);
+      if (p_full) *p_full = 0;
+    } else if (corr_mode == 1) {
+      error->all(FLERR,
+                 "kspace_modify corr bin (damped ewald/disp/slab) requires the matched "
+                 "lj/cut/dispswitch pair style to switch off the dispersion smoothly at the "
+                 "cutoff; use pair_style lj/cut/dispswitch <rcut> <Delta>, or kspace_modify corr raw");
+    }
   }
 
   // accuracy in force units
@@ -463,6 +493,7 @@ void EwaldDispSlab::setup()
   init_coeffs();
   coeffs();
   if (damp_flag == 2) build_shell_vkernels();
+  if (corr_switch) build_corr_kernels();
 
   // size the corr bin count to the target force accuracy (auto, unless the user
   // fixed the bin width); the compact switch uses corr_csb, not corr(), so skip.
@@ -1519,6 +1550,110 @@ void EwaldDispSlab::corr_kernels(double x2, double &w2, double &f2, double &pt2)
 }
 
 /* ----------------------------------------------------------------------
+   smooth (Gaussian-screened) 1/r^6 = u(r) - u_short(r), the long-range part the
+   reciprocal sum represents.  Taylor series near r=0 to avoid 1/r^6 cancellation.
+------------------------------------------------------------------------- */
+
+double EwaldDispSlab::u_smooth(double r)
+{
+  const double g2 = g_ewald * g_ewald;
+  const double r2 = r * r;
+  const double a2 = g2 * r2;    // (g_ewald * r)^2
+  if (a2 < 0.1) {
+    const double g6 = g2 * g2 * g2, g8 = g6 * g2, g10 = g8 * g2, g12 = g10 * g2;
+    return g6 / 6.0 - g8 * r2 / 8.0 + g10 * r2 * r2 / 20.0 - g12 * r2 * r2 * r2 / 72.0;
+  }
+  const double r6 = r2 * r2 * r2;
+  return (1.0 - (1.0 + a2 + 0.5 * a2 * a2) * exp(-a2)) / r6;
+}
+
+/* ----------------------------------------------------------------------
+   tabulate the smooth (switched-pair) damped correction kernels over [0, rcut+Delta].
+   With the matched lj/cut/dispswitch pair the 1/r^6 dispersion is faded out by (1-S)
+   over [rcut, rcut+Delta], so the corr potential
+       corr_e(r) = u_smooth(r) - [r>rcut] S(r)/r^6
+   vanishes smoothly at rcut+Delta (corr_e(rcut+Delta) = u_short(rcut+Delta) ~ acc^2).
+   The z-force kernel f2 = (2 pi/area) corr_e(|dz|) is analytic (see corr_smooth_kernels);
+   here we tabulate the energy kernel w2 = (2 pi/area) int_{|dz|}^{b} r corr_e(r) dr by
+   quadrature (Simpson).  Matches the sharp corr_kernels conventions (so corr_raw/corr_bin
+   use it the same way), but the smooth upper limit removes the rcut force discontinuity.
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::build_corr_kernels()
+{
+  const double a = cutoff, b = cutoff + sw_width;
+  const double area = domain->prd[lat1] * domain->prd[lat2];
+  const double pre = 2.0 * MY_PI / area;
+  ncgrid = 1024;
+  cwdz = b / ncgrid;
+  delete[] cWgrid;
+  delete[] cTgrid;
+  cWgrid = new double[ncgrid + 1];
+  cTgrid = new double[ncgrid + 1];
+  const double a6 = a * a * a * a * a * a;
+  (void) a6;
+  for (int g = 0; g <= ncgrid; g++) {
+    const double adz = g * cwdz;
+    const int n = 800;
+    const double hr = (b - adz) / n;
+    double IE = 0.0;
+    if (hr > 0.0) {
+      for (int i = 0; i <= n; i++) {
+        const double r = adz + i * hr;
+        const double rr = (r > 1.0e-300) ? r : 1.0e-300;
+        double ce = u_smooth(rr);
+        if (rr > a) {
+          const double r6 = rr * rr * rr * rr * rr * rr;
+          ce -= switch_S((rr - a) / sw_width) / r6;
+        }
+        const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+        IE += w * rr * ce;
+      }
+      IE *= hr / 3.0;
+    }
+    cWgrid[g] = pre * IE;
+    // tangential virial: exact -u_smooth part (adz<rcut) from corr_kernels; the thin
+    // [rcut, b] shell tangential term is added in the pressure phase (Phase 2).
+    if (adz < a) {
+      double w2d, f2d, pt2d;
+      corr_kernels(adz * adz, w2d, f2d, pt2d);
+      cTgrid[g] = pt2d;
+    } else {
+      cTgrid[g] = 0.0;
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------
+   evaluate the smooth switched corr kernels: analytic z-force f2, interpolated
+   energy w2 and tangential pt2.  |dz| measured in z; support is [0, rcut+Delta].
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::corr_smooth_kernels(double adz, double &w2, double &f2, double &pt2)
+{
+  const double b = cutoff + sw_width;
+  if (adz >= b) {
+    w2 = f2 = pt2 = 0.0;
+    return;
+  }
+  const double area = domain->prd[lat1] * domain->prd[lat2];
+  const double pre = 2.0 * MY_PI / area;
+  const double rr = (adz > 1.0e-300) ? adz : 1.0e-300;
+  double ce = u_smooth(rr);
+  if (adz > cutoff) {
+    const double r6 = rr * rr * rr * rr * rr * rr;
+    ce -= switch_S((adz - cutoff) / sw_width) / r6;
+  }
+  f2 = pre * ce;
+  const double xg = adz / cwdz;
+  int g = (int) xg;
+  if (g >= ncgrid) g = ncgrid - 1;
+  const double fr = xg - g;
+  w2 = cWgrid[g] * (1.0 - fr) + cWgrid[g + 1] * fr;
+  pt2 = cTgrid[g] * (1.0 - fr) + cTgrid[g + 1] * fr;
+}
+
+/* ----------------------------------------------------------------------
    damped slab correction dispatcher: exact pairwise or z-binned
 ------------------------------------------------------------------------- */
 
@@ -1575,8 +1710,12 @@ void EwaldDispSlab::corr_raw()
 
   // self term = 0.5 * kernel(0)  (the i=j contribution)
 
+  const double cut2 = corr_switch ? (cutoff + sw_width) * (cutoff + sw_width) : rc2;
   double w0, f0, pt0;
-  corr_kernels(0.0, w0, f0, pt0);
+  if (corr_switch)
+    corr_smooth_kernels(0.0, w0, f0, pt0);
+  else
+    corr_kernels(0.0, w0, f0, pt0);
   const double w2_self = 0.5 * w0, pt2_self = 0.5 * pt0;
 
   double e_local = 0.0;
@@ -1608,10 +1747,13 @@ void EwaldDispSlab::corr_raw()
       double delz = zi - zall[jg];
       delz -= zprd * trunc(2.0 * delz / zprd);    // nearest image in z
       double x2 = delz * delz;
-      if (x2 >= rc2) continue;
+      if (x2 >= cut2) continue;
 
       double w2, f2, pt2;
-      corr_kernels(x2, w2, f2, pt2);
+      if (corr_switch)
+        corr_smooth_kernels(sqrt(x2), w2, f2, pt2);
+      else
+        corr_kernels(x2, w2, f2, pt2);
       const double bij = bi * ball[jg];
 
       // each unordered pair is summed from both ends -> 0.5 weight on energy/virial.
@@ -1672,11 +1814,13 @@ void EwaldDispSlab::corr_bin()
   // grid: bin width must resolve the kernel peak (width ~1/g_ewald).  Default
   // dz = 1/(40 g_ewald) (~0.4% error), capped at 0.025*cutoff; user-tunable.
 
+  const double rwin = corr_switch ? (cutoff + sw_width) : cutoff;
+  const double cut2 = corr_switch ? rwin * rwin : rc2;
   double dz_target = (bin_dz_user > 0.0) ? bin_dz_user : MIN(0.025 / g_ewald, 0.025 * cutoff);
   int nbins = (bin_nbins > 0) ? bin_nbins : (int) (zprd / dz_target + 0.5);
   if (nbins < 4) nbins = 4;
   const double dz = zprd / nbins;
-  int nwin = (int) (cutoff / dz) + 1;
+  int nwin = (int) (rwin / dz) + 1;
   if (nwin > nbins / 2) nwin = nbins / 2;    // kernel window cannot exceed half the box
 
   auto *dens = new double[nbins];
@@ -1718,8 +1862,12 @@ void EwaldDispSlab::corr_bin()
     double xi = d * dz;
     double x2 = xi * xi;
     double w2, f2, pt2;
-    if (x2 >= rc2) {
+    if (x2 >= cut2) {
       Kw[d] = Kpt[d] = 0.0;
+    } else if (corr_switch) {
+      corr_smooth_kernels(xi, w2, f2, pt2);
+      Kw[d] = w2;
+      Kpt[d] = pt2;
     } else {
       corr_kernels(x2, w2, f2, pt2);
       Kw[d] = w2;
@@ -1831,9 +1979,12 @@ void EwaldDispSlab::corr_raw_force(double *fzloc)
       double delz = zi - zall[jg];
       delz -= zprd * trunc(2.0 * delz / zprd);
       double x2 = delz * delz;
-      if (x2 >= rc2) continue;
+      if (x2 >= (corr_switch ? (cutoff + sw_width) * (cutoff + sw_width) : rc2)) continue;
       double w2, f2, pt2;
-      corr_kernels(x2, w2, f2, pt2);
+      if (corr_switch)
+        corr_smooth_kernels(sqrt(x2), w2, f2, pt2);
+      else
+        corr_kernels(x2, w2, f2, pt2);
       fz += delz * bi * ball[jg] * f2;
     }
     fzloc[i] = fz;
@@ -1861,7 +2012,9 @@ void EwaldDispSlab::corr_bin_force(int nbins, double *fzloc)
   int nlocal = atom->nlocal;
   if (nbins < 4) nbins = 4;
   const double dz = zprd / nbins;
-  int nwin = (int) (cutoff / dz) + 1;
+  const double rwin = corr_switch ? (cutoff + sw_width) : cutoff;
+  const double cut2 = corr_switch ? rwin * rwin : rc2;
+  int nwin = (int) (rwin / dz) + 1;
   if (nwin > nbins / 2) nwin = nbins / 2;
 
   auto *dens = new double[nbins];
@@ -1887,9 +2040,12 @@ void EwaldDispSlab::corr_bin_force(int nbins, double *fzloc)
   auto *Kw = new double[nwin + 1];
   for (int d = 0; d <= nwin; d++) {
     double xi = d * dz, x2 = xi * xi, w2, f2, pt2;
-    if (x2 >= rc2)
+    if (x2 >= cut2)
       Kw[d] = 0.0;
-    else {
+    else if (corr_switch) {
+      corr_smooth_kernels(xi, w2, f2, pt2);
+      Kw[d] = w2;
+    } else {
       corr_kernels(x2, w2, f2, pt2);
       Kw[d] = w2;
     }
