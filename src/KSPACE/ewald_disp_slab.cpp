@@ -498,7 +498,10 @@ void EwaldDispSlab::setup()
   // size the corr bin count to the target force accuracy (auto, unless the user
   // fixed the bin width); the compact switch uses corr_csb, not corr(), so skip.
   bin_nbins = 0;
-  if (damp_flag == 1 && corr_mode == 1 && bin_dz_user <= 0.0) calibrate_bin();
+  // the smooth switched corr_bin is high-order (cubic+Gauss); its default grid is
+  // set from dz_target, not the CIC force-error calibration (which sizes the O(h)
+  // CIC bin and would vastly over-provision the cubic grid).
+  if (damp_flag == 1 && corr_mode == 1 && bin_dz_user <= 0.0 && !corr_switch) calibrate_bin();
 }
 
 /* ----------------------------------------------------------------------
@@ -1804,6 +1807,12 @@ void EwaldDispSlab::corr_raw()
 
 void EwaldDispSlab::corr_bin()
 {
+  // smooth switched kernel -> high-order (cubic-moment + Gauss) binning
+  if (corr_switch) {
+    corr_bin_smooth();
+    return;
+  }
+
   const double zprd = domain->prd[dim];
   const double zlo = domain->boxlo[dim];
   double **x = atom->x;
@@ -1933,6 +1942,133 @@ void EwaldDispSlab::corr_bin()
   delete[] Kpt;
   delete[] ab0;
   delete[] afrac;
+}
+
+/* ----------------------------------------------------------------------
+   high-order binned corr for the smooth switched kernel.  Each atom is binned
+   into one cell; the cell's B-weighted density is reconstructed as a cubic
+   rho(s)=c0+c1 s+c2 s^2+c3 s^3 from its first four moments m_k=sum B (z-zc)^k,
+   and the corr energy/force/tangential convolutions are evaluated by 8-point
+   Gauss quadrature against the (smooth, analytic) kernel.  The smooth kernel has
+   no force discontinuity, so this converges ~O(h^3) (1e-5 at ~600 bins) where the
+   CIC corr_bin is O(h).  Force = sum_j B_i B_j (z_i-z_j) f2 is exactly the
+   z-gradient of the binned energy (f2 = -d w2/d dz), so energy is conserved.
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::corr_bin_smooth()
+{
+  const double zprd = domain->prd[dim];
+  const double zlo = domain->boxlo[dim];
+  const double bcut = cutoff + sw_width;
+  double **x = atom->x;
+  double **f = atom->f;
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+
+  double dz_target = (bin_dz_user > 0.0) ? bin_dz_user : MIN(0.025 / g_ewald, 0.025 * cutoff);
+  int nbins = (bin_nbins > 0) ? bin_nbins : (int) (zprd / dz_target + 0.5);
+  if (nbins < 4) nbins = 4;
+  const double dz = zprd / nbins;
+  const double half = 0.5 * dz;
+
+  // per-cell moments m_k = sum_j B_j (z_j - zc)^k, k=0..3
+  const int NM = 4;
+  auto *M = new double[NM * nbins];
+  for (int t = 0; t < NM * nbins; t++) M[t] = 0.0;
+  auto *acell = new int[nlocal > 0 ? nlocal : 1];
+  for (int i = 0; i < nlocal; i++) {
+    double u = (x[i][dim] - zlo) / dz;
+    u -= nbins * floor(u / nbins);
+    int c = (int) u;
+    if (c >= nbins) c -= nbins;
+    acell[i] = c;
+    const double zc = zlo + (c + 0.5) * dz;
+    double s = x[i][dim] - zc;
+    s -= zprd * floor(s / zprd + 0.5);
+    double sp = B[type[i]];
+    for (int k = 0; k < NM; k++) {
+      M[k * nbins + c] += sp;
+      sp *= s;
+    }
+  }
+  auto *Mall = new double[NM * nbins];
+  MPI_Allreduce(M, Mall, NM * nbins, MPI_DOUBLE, MPI_SUM, world);
+
+  // cubic moment matrix on [-half,half] is block-diagonal: even (c0,c2)<-(m0,m2),
+  // odd (c1,c3)<-(m1,m3).  p_k = int_{-half}^{half} s^k ds.
+  const double p0 = dz;
+  const double p2 = dz * dz * dz / 12.0;
+  const double p4 = dz * dz * dz * dz * dz / 80.0;
+  const double p6 = dz * dz * dz * dz * dz * dz * dz / 448.0;
+  const double detE = p0 * p4 - p2 * p2;
+  const double detO = p2 * p6 - p4 * p4;
+
+  static const double gx[8] = {-0.9602898564975363, -0.7966664774136267, -0.5255324099163290,
+                               -0.1834346424956498, 0.1834346424956498,  0.5255324099163290,
+                               0.7966664774136267,  0.9602898564975363};
+  static const double gw[8] = {0.1012285362903763, 0.2223810344533745, 0.3137066458778873,
+                               0.3626837833783620, 0.3626837833783620, 0.3137066458778873,
+                               0.2223810344533745, 0.1012285362903763};
+
+  const int reach = (int) ((bcut + half) / dz) + 1;
+
+  double e_local = 0.0, vt_local = 0.0;
+  for (int i = 0; i < nlocal; i++) {
+    const double zi = x[i][dim];
+    const double bi = B[type[i]];
+    const int ci = acell[i];
+    double accF = 0.0, accE = 0.0, accT = 0.0;
+    for (int off = -reach; off <= reach; off++) {
+      int c = (ci + off) % nbins;
+      if (c < 0) c += nbins;
+      const double zc = zlo + (c + 0.5) * dz;
+      double dc = zi - zc;
+      dc -= zprd * floor(dc / zprd + 0.5);
+      if (fabs(dc) >= bcut + half) continue;
+      const double m0 = Mall[0 * nbins + c], m1 = Mall[1 * nbins + c], m2 = Mall[2 * nbins + c],
+                   m3 = Mall[3 * nbins + c];
+      const double c0 = (p4 * m0 - p2 * m2) / detE;
+      const double c2 = (-p2 * m0 + p0 * m2) / detE;
+      const double c1 = (p6 * m1 - p4 * m3) / detO;
+      const double c3 = (-p4 * m1 + p2 * m3) / detO;
+      for (int q = 0; q < 8; q++) {
+        const double s = half * gx[q];
+        const double W = half * gw[q];
+        const double rho = c0 + s * (c1 + s * (c2 + s * c3));
+        const double d = dc - s;
+        const double ad = fabs(d);
+        if (ad >= bcut) continue;
+        double w2, f2, pt2;
+        corr_smooth_kernels(ad, w2, f2, pt2);
+        accF += W * rho * d * f2;    // KFz(d) = d * f2(|d|)
+        accE += W * rho * w2;
+        accT += W * rho * pt2;
+      }
+    }
+    f[i][dim] += bi * accF;
+    e_local += 0.5 * bi * accE;
+    vt_local += 0.5 * bi * accT;
+    if (evflag_atom) peatom[i] += 0.5 * bi * accE;
+    if (vflag_atom) {
+      vatom[i][lat1] += 0.5 * bi * accT;
+      vatom[i][lat2] += 0.5 * bi * accT;
+    }
+  }
+
+  double e_all;
+  MPI_Allreduce(&e_local, &e_all, 1, MPI_DOUBLE, MPI_SUM, world);
+  corr_energy = e_all;
+  if (eflag_global) energy += e_all;
+  if (vflag_global) {
+    double vt_all;
+    MPI_Allreduce(&vt_local, &vt_all, 1, MPI_DOUBLE, MPI_SUM, world);
+    virial[lat1] += vt_all;
+    virial[lat2] += vt_all;
+  }
+
+  delete[] M;
+  delete[] Mall;
+  delete[] acell;
 }
 
 /* ----------------------------------------------------------------------

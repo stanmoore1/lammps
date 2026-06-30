@@ -88,6 +88,8 @@ class EwaldDispSlab : public KSpace {
   void corr();                        // damped slab correction dispatcher
   void corr_raw();                    // exact pairwise (global z-gather) correction
   void corr_bin();                    // z-binned (1D particle-mesh, CIC) correction
+  void corr_bin_smooth();             // high-order z-binned corr (cubic moments + Gauss
+                                      // quadrature) for the smooth switched kernel
   void corr_raw_force(double *fzloc);          // exact pairwise corr z-force (calibration ref)
   void corr_bin_force(int nbins, double *fzloc);    // binned corr z-force (calibration)
   void calibrate_bin();               // size the corr bin count to the target accuracy
