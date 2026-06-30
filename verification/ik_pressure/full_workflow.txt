@@ -1,0 +1,8 @@
+FULL workflow (single frame): LAMMPS pair+kspace IK contour vs brute-force full-LJ IK
+  RMAX   P_N max|d|   P_N rms    P_N ptp(lmp/brute)    P_N-P_T ptp(lmp/brute)  ratio
+   8.0   1.99e-02    1.18e-02   7.979 / 7.992        7.0067 / 7.0075      1.0001
+  11.0   7.81e-03    4.10e-03   7.979 / 7.981        7.0067 / 7.0076      1.0001
+  14.0   4.84e-03    2.06e-03   7.979 / 7.980        7.0067 / 7.0077      1.0001
+  => P_N converges onto the brute force (r^-6 tail) and P_N-P_T ratio -> 1:
+     the full short(pair)+long(kspace) IK contour is correct in shape.
+  wrote fig_full_workflow.png
