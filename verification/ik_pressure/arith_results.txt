@@ -1,0 +1,14 @@
+Arithmetic mixing (nchan=7) KSPACE-ONLY IK contour, 2-type LB system:
+  gamma_LR:  ewald=0.08731  pppm=0.08731  pppm_kk=0.08731
+  ewald vs pppm:  ratio ptp=1.0000  rms=0.00e+00   (exact sum vs mesh)
+  pppm/kk vs pppm:  max|d| P_N=0.00e+00  P_N-P_T=0.00e+00   (device arith d_Bt/d_Bfull)
+  brute-force dispersion-mixed (exact LB C6) ptp, sharp r>4:
+    RMAX=8  ptp_brute=0.1591  (kspace ptp=0.1133)
+    RMAX=11  ptp_brute=0.1692  (kspace ptp=0.1133)
+    RMAX=14  ptp_brute=0.1739  (kspace ptp=0.1133)
+  => the strong test is the EXACT cross-code agreement ewald == pppm ==
+     pppm/kk (ratio 1.0000); the brute force is a scale/sign check and
+     confirms the fix gives a physical O(0.1) profile (the pre-fix ewald
+     gave O(10)).  The brute(sharp r>4)-vs-kspace(net) offset is the same
+     [rcut-Delta,rcut] shell-region systematic present for nchan=1, not
+     the mixing.

@@ -1649,9 +1649,57 @@ int EwaldDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double
   // (S_{-n} = conj(S_n)); store Sre[n], Sim[n] for n=0..K
   auto *Sre = new double[K + 1];
   auto *Sim = new double[K + 1];
-  for (int n = 0; n <= K; n++) {
-    Sre[n] = sfacrl_all[n] / volume;
-    Sim[n] = -sfacim_all[n] / volume;
+  if (nchan == 1) {
+    // geometric mixing: the solver's B-weighted structure factor sfacrl_all IS the
+    // single scalar dispersion-weight structure factor the IK profile needs.
+    for (int n = 0; n <= K; n++) {
+      Sre[n] = sfacrl_all[n] / volume;
+      Sim[n] = -sfacim_all[n] / volume;
+    }
+  } else {
+    // arithmetic (Lorentz-Berthelot): sfacrl_all is the 7-channel solver structure
+    // factor (size kmax*nchan), NOT the single scalar dispersion weight the IK
+    // profile sums.  Recompute the exact single-channel structure factor from the
+    // per-type self amplitude Bt = 2 sqrt(eps_t) sigma_t^3 = sqrt(C6_tt) = 2 B[7t+3]
+    // /sqrt(20) (same single-channel profile approximation as pppm/disp/planar;
+    // exact only for geometric mixing).  Using sfacrl_all here scales the profile by
+    // a wrong (channel-dependent) factor.
+    const int ntypes = atom->ntypes;
+    auto *Bt = new double[ntypes + 1];
+    Bt[0] = 0.0;
+    for (int t = 1; t <= ntypes; t++) Bt[t] = 2.0 * B[7 * t + 3] / sqrt(20.0);
+    auto *srl = new double[K + 1];
+    auto *sim = new double[K + 1];
+    for (int n = 0; n <= K; n++) srl[n] = sim[n] = 0.0;
+    int *type = atom->type;
+    double **x = atom->x;
+    for (int i = 0; i < atom->nlocal; i++) {
+      const double bi = Bt[type[i]];
+      const double c1 = cos(unitk * x[i][dim]), s1 = sin(unitk * x[i][dim]);
+      double cn = 1.0, sn = 0.0;
+      srl[0] += bi;
+      for (int n = 1; n <= K; n++) {
+        const double cnn = cn * c1 - sn * s1;
+        const double snn = sn * c1 + cn * s1;
+        cn = cnn;
+        sn = snn;
+        srl[n] += bi * cn;
+        sim[n] += bi * sn;
+      }
+    }
+    auto *srl_all = new double[K + 1];
+    auto *sim_all = new double[K + 1];
+    MPI_Allreduce(srl, srl_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
+    MPI_Allreduce(sim, sim_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
+    for (int n = 0; n <= K; n++) {
+      Sre[n] = srl_all[n] / volume;
+      Sim[n] = -sim_all[n] / volume;
+    }
+    delete[] Bt;
+    delete[] srl;
+    delete[] sim;
+    delete[] srl_all;
+    delete[] sim_all;
   }
 
   // bin the B-weighted density rho_B(z) -- the Harasima rho multiplier and the BIN-mode
