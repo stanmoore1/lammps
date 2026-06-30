@@ -4,3 +4,4 @@ traj.dump
 traj_cpp2.dump
 restart*
 *.restart
+traj_slab.dump

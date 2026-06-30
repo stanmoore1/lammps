@@ -1,0 +1,14 @@
+units lj
+atom_style atomic
+boundary p p p
+processors 2 2 1
+read_data ../../examples/PACKAGES/dispersion/planar/data.lj_slab
+pair_style lj/cut/dispplanar 3.0 0.6
+pair_coeff 1 1 1.0 1.0
+kspace_style ewald/disp/planar 1.0e-5
+kspace_modify corr bin
+variable dz equal 0.1
+compute pA all stress/cartesian z ${dz} NULL 0 ke pair kspace
+fix fa all ave/time 1 1 1 c_pA[*] file A_rerun.dat mode vector ave running
+thermo 1000
+rerun traj_slab.dump first 0 dump x y z vx vy vz
