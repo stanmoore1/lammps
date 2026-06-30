@@ -1,0 +1,23 @@
+Re-verification after merging ewald-disp-planar (commit 87c0f9d8):
+  author additions = per-mode ik_phi/ik_psi caching (57784b6d, O(K^2)->O(K)) and
+  pppm IK profile truncation at the force-accuracy kmax K_prof (a2683ea2, also
+  touches the native Kokkos kernel).  Rebuilt build/ and build_kk_omp/.
+
+ewald caching (numerically exact, exploits phi(-k)=-phi(k)):
+  geometric CPP2 ewald IK profile: max|new - pre-merge committed| = 0.0  (BIT-IDENTICAL)
+
+pppm K_prof truncation (drops only mesh-inaccurate high modes):
+  multimode kspace IK:  ewald == pppm  (gamma 0.06732, rms 0.0)
+  CPP2 real fluid:      gamma 0.1194, peak 0.0238 both; rms(ewald-pppm) < 5e-5
+                        (better than the pre-merge 5e-5: truncation aligns pppm's
+                         modes with ewald's force-accuracy kmax)
+
+Kokkos native kernel (after the author's a2683ea2 change):
+  multimode:  max|pppm_kk - pppm| = 0.0   (BIT-IDENTICAL, 4-thread OpenMP)
+  arith:      max|pppm_kk - pppm| = 0.0
+
+arithmetic mixing (nchan=7) fix still holds:
+  ewald == pppm == pppm_kk  (gamma 0.08731, ratio 1.0000, rms 0.0)
+
+=> the merge preserves all verified behavior: ewald bit-identical, pppm matches
+   ewald (truncation harmless / improving), kokkos bit-identical, arith fix intact.
