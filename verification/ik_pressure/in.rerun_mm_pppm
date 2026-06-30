@@ -1,0 +1,26 @@
+# pppm/disp/planar IK long-range profile over traj_multimode.dump (CPP 2, rcut=4.0).
+# Verifies the ported shell-contour IK fix in pppm_disp_planar.cpp by comparing
+# the IK profile to the verified ewald/disp/planar result (cpp2_ikLR.dat).
+units           lj
+atom_style      atomic
+boundary        p p p
+processors      2 2 1
+lattice         sc 0.598
+region          box block 0 10 0 10 0 20
+create_box      1 box
+create_atoms    1 box
+mass            1 1
+pair_style      lj/cut/dispplanar 4.0 0.6
+pair_coeff      1 1 1.0 1.0
+kspace_style    pppm/disp/planar 1.0e-5
+kspace_modify   corr bin
+variable        dz      equal 0.06
+
+compute         pIKlr all stress/cartesian z ${dz} NULL 0 kspace
+fix             f1 all ave/time 1 1 500 c_pIKlr[*] file mm_ikLR_pppm.dat mode vector ave running
+compute         sa all stress/atom NULL kspace
+compute         cc all chunk/atom bin/1d z lower ${dz} units box
+fix             f2 all ave/chunk 1 1 500 cc c_sa[1] c_sa[2] c_sa[3] norm none ave running file mm_hLR_pppm.dat
+
+thermo          100
+rerun           traj_multimode.dump first 0 dump x y z vx vy vz
