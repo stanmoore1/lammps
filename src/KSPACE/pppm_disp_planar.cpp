@@ -73,6 +73,9 @@ PPPMDispPlanar::PPPMDispPlanar(LAMMPS *lmp) :
   bin_dz_user = 0.0;
   order_allocated = 0;
   nmax = 0;
+  prof_kmax_cached = 0;
+  prof_kmax_nz = 0;
+  prof_kmax_zprd = 0.0;
   accuracy_relative = 0.0;
   sf_coeff[0] = sf_coeff[1] = 0.0;    // analytic-diff self-force amplitudes (set in setup if diff ad)
 }
@@ -2014,6 +2017,84 @@ void PPPMDispPlanar::shell_profile_virial(int nbins, double lo, double dz, doubl
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
+   physical mode cutoff K_prof (<= nz/2-1) for the IK pressure profile, set by the
+   SAME RMS-force-accuracy criterion that sizes the Ewald kmax: include modes until
+   the tail of the continuum force coefficient GF[k] = 2 h_k gu_switch(k) falls below
+   the target.  The pppm FFT grid carries nz/2 modes, but that count is inflated by
+   Nyquist + power-of-two rounding + mesh-aliasing headroom the profile does not need;
+   the profile (and its box-average, weighted by the same decaying coefficients) is
+   unchanged beyond `accuracy` when truncated here.  Capping the assembly at K_prof
+   cuts the O(K^2) double sum and relaxes the nbins > 2K anti-alias floor.  (ewald/
+   disp/planar needs no analogue: its K already equals this force-converged kmax.)
+------------------------------------------------------------------------- */
+
+int PPPMDispPlanar::profile_kmax()
+{
+  const int Kgrid = nz / 2 - 1;
+  if (Kgrid <= 8) return MAX(1, Kgrid);
+
+  // the cutoff depends only on the box (zprd), grid (nz), accuracy and the switch, which
+  // are fixed between volume changes; cache it (recompute on nz/zprd change, NPT-safe).
+  if (prof_kmax_cached > 0 && prof_kmax_nz == nz && fabs(prof_kmax_zprd - zprd) < 1.0e-12 * zprd)
+    return prof_kmax_cached;
+
+  // b2 = sum_i B_i^2 (full system, mixing-rule independent) -- the same dispersion
+  // sum used to size the grid in estimate_params().
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+  double b2_local = 0.0;
+  for (int i = 0; i < nlocal; i++) {
+    double bi = (nchan == 1) ? B[type[i]] : B[7 * type[i]];
+    b2_local += bi * bi;
+  }
+  double b2;
+  MPI_Allreduce(&b2_local, &b2, 1, MPI_DOUBLE, MPI_SUM, world);
+  double natoms = (double) atom->natoms;
+  if (natoms < 1.0) natoms = 1.0;
+
+  // same random-phase force-error model + bias as estimate_params()/ewald estimate_params.
+  // GF[k] = 2 (k unitk) gu_switch(k) decays only ALGEBRAICALLY past the switch bandwidth,
+  // so the force tail extends well beyond the FFT grid -- the scan MUST run to a large
+  // cap (kbig), with the genuinely-negligible high-k remainder zeroed, exactly as the
+  // grid/kmax estimators do.  (A grid-capped scan underestimates the tail and collapses
+  // to the floor.)  The force-converged kmax is then capped at the grid below.
+  const double prefac = 0.5 * b2 * b2 / natoms;
+  const double bias = 1.6;
+  const double target = accuracy * accuracy / (bias * bias);
+  const double uk = 2.0 * MY_PI / zprd;
+  const int kbig = 8192;
+  auto *gf2 = new double[kbig + 1];
+  const double tail_floor = 1.0e-3 * accuracy * accuracy / (16.0 * prefac);
+  int kstop = kbig;
+  for (int k = 1; k <= kbig; k++) {
+    double g = 2.0 * (k * uk) * gu_switch(k);
+    gf2[k] = g * g;
+    if (k > 16 && gf2[k] * k / 9.0 < tail_floor && gf2[k] < gf2[k - 1]) {
+      kstop = k;
+      break;
+    }
+  }
+  for (int k = kstop + 1; k <= kbig; k++) gf2[k] = 0.0;
+  double tail = 0.0;
+  int chosen = kbig;
+  for (int kmx = kbig - 1; kmx >= 4; kmx--) {
+    tail += gf2[kmx + 1];
+    if (prefac * tail >= target) {    // first kmx (scanning down) that fails -> kmx+1 enough
+      chosen = kmx + 1;
+      break;
+    }
+    chosen = kmx;
+  }
+  delete[] gf2;
+
+  const int kmax_phys = MAX(8, MIN(chosen, kbig));
+  prof_kmax_cached = MIN(kmax_phys, Kgrid);
+  prof_kmax_nz = nz;
+  prof_kmax_zprd = zprd;
+  return prof_kmax_cached;
+}
+
+/* ----------------------------------------------------------------------
    raw per-mode tangential/normal box-pressure coefficients GT[k], GN[k] for
    k=0..K (the compact-switch coefficients ewald/disp/planar computes in coeffs();
    NOT the de-convolved mesh GTk/GNk).  Scalar (no per-atom data); shared by the
@@ -2169,7 +2250,11 @@ int PPPMDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double 
                "(kspace_modify dim) of pppm/disp/planar");
 
   const double unitk = 2.0 * MY_PI / zprd;
-  const int K = nz / 2 - 1;    // highest resolved mode
+  // K = the force-accuracy mode cutoff K_prof (<= nz/2-1), not the full grid: the FFT
+  // grid over-resolves the physical mode content, so truncating the profile here at the
+  // force-converged kmax leaves it unchanged beyond `accuracy` while cutting the O(K^2)
+  // assembly and relaxing the nbins anti-alias floor (see profile_kmax()).
+  const int K = profile_kmax();
 
   // anti-aliasing requirement: the Irving-Kirkwood profile sums reciprocal modes
   // e^{i p unitk z} with |p|=|n+m| up to 2*K.  The z grid must resolve them or the
@@ -2178,9 +2263,9 @@ int PPPMDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double 
   if (nbins <= 2 * K)
     error->all(FLERR,
                "compute stress/cartesian with pppm/disp/planar kspace: {} bins along the "
-               "inhomogeneous axis is too coarse; need > {} (= 2*(nz/2-1)) to resolve the "
-               "Irving-Kirkwood reciprocal modes without aliasing (use a finer bin width or "
-               "smaller grid)",
+               "inhomogeneous axis is too coarse; need > {} (= 2*K_prof, the force-accuracy "
+               "mode cutoff) to resolve the Irving-Kirkwood reciprocal modes without aliasing "
+               "(use a finer bin width, looser accuracy, or wider switch)",
                nbins, 2 * K);
 
   // raw per-mode coefficients GT[k], GN[k] for k=0..K (the SAME compact-switch

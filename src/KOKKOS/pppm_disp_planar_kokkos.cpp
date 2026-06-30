@@ -590,13 +590,15 @@ int PPPMDispPlanarKokkos<DeviceType>::pressure_profile_long(int dir, int nbins, 
                "compute stress/cartesian binning direction must match the inhomogeneous axis "
                "(kspace_modify dim) of pppm/disp/planar");
 
-  const int K = nz / 2 - 1;    // highest resolved mode
+  // force-accuracy mode cutoff K_prof (<= nz/2-1); same truncation as the host path
+  // (the FFT grid over-resolves the physical mode content).  See PPPMDispPlanar::profile_kmax.
+  const int K = profile_kmax();
   if (nbins <= 2 * K)
     error->all(FLERR,
                "compute stress/cartesian with pppm/disp/planar kspace: {} bins along the "
-               "inhomogeneous axis is too coarse; need > {} (= 2*(nz/2-1)) to resolve the "
-               "Irving-Kirkwood reciprocal modes without aliasing (use a finer bin width or "
-               "smaller grid)",
+               "inhomogeneous axis is too coarse; need > {} (= 2*K_prof, the force-accuracy "
+               "mode cutoff) to resolve the Irving-Kirkwood reciprocal modes without aliasing "
+               "(use a finer bin width, looser accuracy, or wider switch)",
                nbins, 2 * K);
 
   const int ntypes = atom->ntypes;

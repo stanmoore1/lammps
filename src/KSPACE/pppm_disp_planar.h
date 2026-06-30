@@ -153,9 +153,14 @@ class PPPMDispPlanar : public KSpace {
   // pressure-profile scalar building blocks (no per-atom data; shared by the host
   // pressure_profile_long and the Kokkos device override so the reciprocal
   // double-sum / coefficient math is written once):
+  //   profile_kmax     : force-accuracy mode cutoff K_prof (<= nz/2-1) for the profile
   //   profile_GTGN_raw : raw per-mode tangential/normal box-pressure coefficients
   //   profile_Bt       : per-type single-channel structure-factor amplitude
   //   profile_assemble : S_n S_m C_{n,m} double sum + bin assembly - shell
+  int profile_kmax();
+  int prof_kmax_cached;     // cached force-accuracy mode cutoff (0 = not yet computed)
+  int prof_kmax_nz;         // nz at which prof_kmax_cached was computed
+  double prof_kmax_zprd;    // zprd at which prof_kmax_cached was computed
   void profile_GTGN_raw(int K, double *GTr, double *GNr);
   void profile_Bt(double *Bt);
   void profile_assemble(int K, int nbins, double lo, double width, const double *Sre,
