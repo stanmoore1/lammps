@@ -1707,6 +1707,17 @@ int EwaldDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double
       re = Sre[an];
       im = (n < 0) ? -Sim[an] : Sim[an];
     };
+    // precompute the per-mode IK shape kernels once (O(K)).  ik_phi/ik_psi depend only on
+    // the single mode index and are ODD in h (phi(-k)=-phi(k)), so caching them collapses
+    // the off-diagonal double sum from O(K^2) transcendental (Si/Ci) evaluations to O(K).
+    auto *phiP = new double[K + 1];
+    auto *psiP = new double[K + 1];
+    for (int k = 0; k <= K; k++) {
+      phiP[k] = ik_phi(k * unitk);
+      psiP[k] = ik_psi(k * unitk);
+    }
+    auto PHI = [&](int n) { return n < 0 ? -phiP[-n] : phiP[n]; };
+    auto PSI = [&](int n) { return n < 0 ? -psiP[-n] : psiP[n]; };
     for (int n = -K; n <= K; n++) {
       double hn = n * unitk;
       for (int m = -K; m <= K; m++) {
@@ -1726,8 +1737,8 @@ int EwaldDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double
           CT = 0.5 * volume * GT[kk];
           CN = 0.5 * volume * GN[kk];
         } else {    // off-diagonal: switch-aware Phi/Psi (sets the IK profile SHAPE)
-          CT = -6.0 * MY_PI / H * (ik_phi(hm) + ik_phi(hn));
-          CN = -12.0 * MY_PI / H * (ik_psi(hm) + ik_psi(hn));
+          CT = -6.0 * MY_PI / H * (PHI(m) + PHI(n));
+          CN = -12.0 * MY_PI / H * (PSI(m) + PSI(n));
         }
         ATre[p] += CT * sre;
         ATim[p] += CT * sim;
@@ -1751,6 +1762,8 @@ int EwaldDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double
     delete[] ATim;
     delete[] ANre;
     delete[] ANim;
+    delete[] phiP;
+    delete[] psiP;
   }
   delete[] dens;
   delete[] dens_all;
