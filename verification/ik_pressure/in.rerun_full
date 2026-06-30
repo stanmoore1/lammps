@@ -1,0 +1,24 @@
+# FULL IK contour: short-range pair + long-range kspace, over traj_cpp2.dump.
+units           lj
+atom_style      atomic
+boundary        p p p
+processors      2 2 1
+lattice         sc 0.598
+region          box block 0 10 0 10 0 20
+create_box      1 box
+create_atoms    1 box
+mass            1 1
+pair_style      lj/cut/dispplanar 4.0 0.6
+pair_coeff      1 1 1.0 1.0
+kspace_style    ewald/disp/planar 1.0e-5
+kspace_modify   corr bin
+variable        dz      equal 0.06
+# full configurational IK contour: pair (short) + kspace (long IK)
+compute         pfull all stress/cartesian z ${dz} NULL 0 pair kspace
+fix             f1 all ave/time 1 1 500 c_pfull[*] file full_ikLR.dat mode vector ave running
+# density for the brute-force grid
+compute         sa all stress/atom NULL pair
+compute         cc all chunk/atom bin/1d z lower ${dz} units box
+fix             f2 all ave/chunk 1 1 500 cc density/number ave running file full_dens.dat
+thermo          100
+rerun           traj_cpp2.dump first 0 dump x y z vx vy vz

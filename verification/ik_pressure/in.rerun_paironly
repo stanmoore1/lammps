@@ -1,0 +1,17 @@
+units           lj
+atom_style      atomic
+boundary        p p p
+processors      2 2 1
+lattice         sc 0.598
+region          box block 0 10 0 10 0 20
+create_box      1 box
+create_atoms    1 box
+mass            1 1
+pair_style      lj/cut 2.5
+pair_coeff      1 1 1.0 1.0
+pair_modify     tail no shift no
+variable        dz      equal 0.06
+compute         pp all stress/cartesian z ${dz} NULL 0 pair
+fix             f1 all ave/time 1 1 500 c_pp[*] file paironly.dat mode vector ave running
+thermo          100
+rerun           traj_cpp2.dump first 0 dump x y z vx vy vz
