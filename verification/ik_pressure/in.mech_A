@@ -1,0 +1,22 @@
+# Run A: short cutoff + kspace IK. Equilibrate, then production with the full IK
+# contour (ke pair kspace) AND dump the trajectory for the frame-identical Run B.
+units           lj
+atom_style      atomic
+boundary        p p p
+processors      2 2 1
+read_data       ../../examples/PACKAGES/dispersion/planar/data.lj_slab
+pair_style      lj/cut/dispplanar 3.0 0.6
+pair_coeff      1 1 1.0 1.0
+kspace_style    ewald/disp/planar 1.0e-5
+kspace_modify   corr bin
+variable        dz equal 0.1
+fix             1 all nvt temp 0.85 0.85 0.5
+timestep        0.004
+thermo          5000
+run             25000
+reset_timestep  0
+compute         pA all stress/cartesian z ${dz} NULL 0 ke pair kspace
+fix             fa all ave/time 1 1 200 c_pA[*] file AB_short.dat mode vector ave running
+dump            d1 all custom 300 traj_slab.dump id type x y z vx vy vz
+dump_modify     d1 sort id
+run             50000

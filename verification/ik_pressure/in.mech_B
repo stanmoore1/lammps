@@ -1,0 +1,17 @@
+# Run B: long plain cutoff, NO kspace -- the untruncated-LJ reference IK contour.
+# Frame-identical rerun of Run A's trajectory.  A (short pair + kspace IK) must
+# equal B (long pair, no kspace) for P_N(z) and P_T(z) if the kspace IK contour is
+# correct; any residual non-flatness of P_N is then shared (system/statistics).
+units           lj
+atom_style      atomic
+boundary        p p p
+processors      2 2 1
+read_data       ../../examples/PACKAGES/dispersion/planar/data.lj_slab
+pair_style      lj/cut 8.0
+pair_coeff      1 1 1.0 1.0
+pair_modify     tail no shift no
+variable        dz equal 0.1
+compute         pB all stress/cartesian z ${dz} NULL 0 ke pair
+fix             fb all ave/time 1 1 200 c_pB[*] file AB_long.dat mode vector ave running
+thermo          5000
+rerun           traj_slab.dump first 0 dump x y z vx vy vz
