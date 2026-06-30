@@ -20,7 +20,7 @@ Syntax
     bin_width1 = width of the bin
     dim2 = *x* or *y* or *z* or *NULL*
     bin_width2 = width of the bin
-    keyword = *ke* or *pair* or *bond*
+    keyword = *ke* or *pair* or *bond* or *kspace*
 
 Examples
 """"""""
@@ -30,6 +30,7 @@ Examples
    compute 1 all stress/cartesian x 0.1 NULL 0
    compute 1 all stress/cartesian y 0.1 z 0.1
    compute 1 all stress/cartesian x 0.1 NULL 0 ke pair
+   compute 1 all stress/cartesian z 0.1 NULL 0 ke pair kspace
 
 Description
 """""""""""
@@ -46,10 +47,34 @@ Irving--Kirkwood contour, which is the straight line between particle pairs.
 
    Added support for bond styles
 
-This compute only supports pair and bond (no angle, dihedral, improper,
-or kspace) forces. By default, if no extra keywords are specified, all
-supported contributions to the stress are included (ke, pair, bond). If any
-keywords are specified, then only those components are summed.
+This compute supports the kinetic, pair, and bond contributions to the
+stress, plus an optional long-range (*kspace*) contribution from the
+planar dispersion solvers (see below); it does not support angle,
+dihedral, or improper forces. By default, if no extra keywords are
+specified, the kinetic, pair, and bond contributions are included (the
+*kspace* contribution is off by default). If any keywords are specified,
+then only those components are summed.
+
+.. versionadded:: TBD
+
+The *kspace* keyword adds the long-range Irving-Kirkwood pressure profile
+from the planar dispersion solvers :doc:`ewald/disp/planar or
+pppm/disp/planar <kspace_style>` to the configurational (virial) stress
+columns :math:`P^v_{xx}`, :math:`P^v_{yy}`, and :math:`P^v_{zz}`.  The
+solver supplies its long-range contribution on this compute's own bin
+grid, so the binning matches automatically.  This keyword requires
+one-dimensional binning (the second dimension must be *NULL*), the binning
+direction *dim1* must match the inhomogeneous axis of the solver
+(:doc:`kspace_modify dim <kspace_modify>`), and a planar dispersion
+solver must be defined.  The number of bins must satisfy
+:math:`N_\text{bins} > 2\,k_\text{max}` so that the reciprocal-space modes
+of the Irving-Kirkwood contour are resolved without aliasing; if the bin
+width is too coarse the compute stops with an error stating the minimum
+number of bins.  Combining the *kspace* (Irving-Kirkwood) profile here
+with the Harasima per-atom profile from :doc:`compute stress/atom
+<compute_stress_atom>` and :doc:`fix ave/chunk <fix_ave_chunk>` lets you
+compare the two contour conventions; both integrate to the same global
+long-range pressure.
 
 Output info
 """""""""""
@@ -100,10 +125,11 @@ More information on the similarities and differences can be found in
 Restrictions
 """"""""""""
 
-These computes calculate the stress tensor contributions for pair and bond
-forces only (no angle, dihedral, improper, or kspace force).
-It requires pairwise force calculations not available for most
-many-body pair styles.
+These computes calculate the stress tensor contributions for pair and
+bond forces, plus the optional long-range contribution from the planar
+dispersion solvers via the *kspace* keyword (no angle, dihedral, or
+improper forces, and no other kspace style).  It requires pairwise force
+calculations not available for most many-body pair styles.
 
 These computes are part of the EXTRA-COMPUTE package.  They are only
 enabled if LAMMPS was built with that package.  See the :doc:`Build
@@ -114,7 +140,7 @@ Related commands
 
 :doc:`compute stress/atom <compute_stress_atom>`, :doc:`compute pressure <compute_pressure>`,
 :doc:`compute stress/mop/profile <compute_stress_mop>`, :doc:`compute stress/spherical <compute_stress_curvilinear>`,
-:doc:`compute stress/cylinder <compute_stress_curvilinear>`
+:doc:`compute stress/cylinder <compute_stress_curvilinear>`, :doc:`kspace_style <kspace_style>`
 
 ----------
 

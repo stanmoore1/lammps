@@ -263,10 +263,15 @@ a three-dimensional simulation.  It cannot be combined with the EW3DC
 :doc:`kspace_modify slab <kspace_modify>` correction.  Several
 :doc:`kspace_modify <kspace_modify>` keywords control its behavior:
 *kmax* (override the number of *z* wavevectors), *corr* (shell-correction
-evaluation scheme), *contour* (local pressure-profile contour
-convention), *pressure/profile* (compute the long-range tangential and
-normal pressure profiles), and *dim* (select the inhomogeneous
-direction).
+evaluation scheme), and *dim* (select the inhomogeneous direction).
+
+This style also exposes its long-range contribution to the local
+pressure profile, which is needed for surface-tension calculations.  The
+Harasima contour is the long-range per-atom virial, collected with
+:doc:`compute stress/atom <compute_stress_atom>` (with the *kspace*
+keyword) and :doc:`fix ave/chunk <fix_ave_chunk>`.  The Irving-Kirkwood
+contour is added to :doc:`compute stress/cartesian
+<compute_stress_cartesian>` with its *kspace* keyword.
 
 This style was written by Stan Moore (SNL).
 
@@ -393,11 +398,15 @@ The *pppm/disp/planar* style requires fully periodic boundaries
 (``boundary p p p``), an orthogonal (non-triclinic) simulation box, and
 a three-dimensional simulation.  It cannot be combined with the EW3DC
 :doc:`kspace_modify slab <kspace_modify>` correction.  It supports the
-*corr*, *contour*, *pressure/profile*, and *dim*
-:doc:`kspace_modify <kspace_modify>` keywords (the *kmax* keyword applies
-only to *ewald/disp/planar*).  A Kokkos accelerator variant
-*pppm/disp/planar/kk* (and the corresponding ``/kk/host`` and
-``/kk/device`` forms) is available with the KOKKOS package.
+*corr* and *dim* :doc:`kspace_modify <kspace_modify>` keywords (the
+*kmax* keyword applies only to *ewald/disp/planar*).  Like
+*ewald/disp/planar*, it exposes its long-range contribution to the local
+pressure profile through :doc:`compute stress/atom <compute_stress_atom>`
+(Harasima contour) and :doc:`compute stress/cartesian
+<compute_stress_cartesian>` (Irving-Kirkwood contour), each via their
+*kspace* keyword.  A Kokkos accelerator variant *pppm/disp/planar/kk*
+(and the corresponding ``/kk/host`` and ``/kk/device`` forms) is
+available with the KOKKOS package.
 
 This style was written by Stan Moore (SNL).
 
