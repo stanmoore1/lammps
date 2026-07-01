@@ -41,6 +41,13 @@ class EwaldDispSlab : public KSpace {
   int contour_flag, profile_flag, npro;
   double *pt_profile, *pn_profile;
 
+  // long-range Irving-Kirkwood pressure profiles P_T(z), P_N(z) on the caller's z
+  // grid (compute stress/cartesian supplies the grid and allocates pN/pT).  Ported
+  // from ewald/disp/planar; currently implemented for the compact-switch (CSB)
+  // variant (the sharp/damped variants report an error and keep the internal
+  // kspace_modify pressure/profile path).
+  int pressure_profile_long(int, int, double, double, double *, double *) override;
+
  protected:
   int dim;               // inhomogeneous dimension: 0=x, 1=y, 2=z (default 2)
   int lat1, lat2;        // lateral dimensions = (dim+1)%3, (dim+2)%3
@@ -110,6 +117,17 @@ class EwaldDispSlab : public KSpace {
   void compute_pressure_profile();    // P_T(z), P_N(z) profiles (H or IK contour)
   double ik_phi(double h);            // IK tangential building block Phi(h)
   double ik_psi(double h);            // IK normal building block Psi(h)
+  // compact-switch reweight of the local pressure-profile coefficients (ported from
+  // ewald/disp/planar): the sharp tail integral int_rcut^inf g(r) dr is anchored at
+  // the outer cutoff rcut+Delta and the shell integral int W(r) g(r) dr is added,
+  // W = S - S' r/6, so ik_phi/ik_psi are consistent with the switched potential.
+  enum { PROF_T, PROF_N, PROF_PHI };
+  double prof_integrand(int which, double r, double h);    // potential-form g(r)
+  double prof_shell(int which, double h);                  // int_rcut^c W(r) g(r) dr
+  // shell-correction virial per profile bin (CSB), dispatched on corr_mode so the
+  // contour profile uses the SAME real-space correction as the box average.
+  void shell_profile_virial(int nbins, double lo, double dz, double *dens_all, double *shellT,
+                            double *shellN);
   void corr_kernels(double x2, double &w2, double &f2, double &pt2);    // shared kernel
 
   // smooth (switched-pair) damped correction.  With the matched lj/cut/dispswitch
