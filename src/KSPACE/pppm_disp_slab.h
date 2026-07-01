@@ -51,6 +51,11 @@ class PPPMDispSlab : public KSpace {
   int contour_flag, profile_flag, npro;
   double *pt_profile, *pn_profile;
 
+  // long-range Irving-Kirkwood pressure profiles P_T(z), P_N(z) on the caller's z
+  // grid (compute stress/cartesian supplies the grid and allocates pN/pT).  Ported
+  // from pppm/disp/planar; compact-switch (CSB) variant only for now.
+  int pressure_profile_long(int, int, double, double, double *, double *) override;
+
  protected:
   int dim;               // inhomogeneous dimension: 0=x, 1=y, 2=z (default 2)
   int lat1, lat2;        // lateral dimensions = (dim+1)%3, (dim+2)%3
@@ -147,6 +152,27 @@ class PPPMDispSlab : public KSpace {
   void corr_kernels(double x2, double &w2, double &f2, double &pt2);
   void compute_pressure_profile();
   double ik_phi(double h), ik_psi(double h);
+  // compact-switch reweight of the local pressure-profile coefficients (ported from
+  // pppm/disp/planar): anchor the sharp tail at rcut+Delta and add the shell
+  // integral int W(r) g(r) dr, W = S - S' r/6.
+  enum { PROF_T, PROF_N, PROF_PHI };
+  double prof_integrand(int which, double r, double h);
+  double prof_shell(int which, double h);
+  // shell-correction virial per profile bin (CSB), dispatched on corr_mode
+  void shell_profile_virial(int nbins, double lo, double dz, double *dens_all, double *shellT,
+                            double *shellN);
+  // pressure-profile scalar building blocks (shared shape with pppm/disp/planar):
+  //   profile_kmax     : force-accuracy mode cutoff K_prof (<= nz/2-1)
+  //   profile_GTGN_raw : raw per-mode tangential/normal box-pressure coefficients
+  //   profile_assemble : S_n S_m C_{n,m} double sum + bin assembly - shell
+  int profile_kmax();
+  int prof_kmax_cached;     // cached force-accuracy mode cutoff (0 = not yet computed)
+  int prof_kmax_nz;         // nz at which prof_kmax_cached was computed
+  double prof_kmax_zprd;    // zprd at which prof_kmax_cached was computed
+  void profile_GTGN_raw(int K, double *GTr, double *GNr);
+  void profile_assemble(int K, int nbins, double lo, double width, const double *Sre,
+                        const double *Sim, const double *GTr, const double *GNr,
+                        const double *shellT, const double *shellN, double *pN, double *pT);
   void cisi(double x, double &si, double &ci);
   void sici_chain(double x, double *Aarr, double *Barr);
 };

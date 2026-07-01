@@ -73,6 +73,9 @@ PPPMDispSlab::PPPMDispSlab(LAMMPS *lmp) :
   switch_order = 3;
   corr_mode = 0;
   corr_switch = 0;
+  prof_kmax_cached = 0;
+  prof_kmax_nz = 0;
+  prof_kmax_zprd = 0.0;
   cWgrid = nullptr;
   ncgrid = 0;
   cwdz = 0.0;
@@ -2071,10 +2074,14 @@ double PPPMDispSlab::ik_phi(double h)
 {
   if (fabs(h) < 1.0e-300) return 0.0;
   const double ah = fabs(h);
+  // compact switch: anchor the tail at the OUTER cutoff rcut+Delta and add the
+  // switch-shell integral (ported from pppm/disp/planar; sharp as Delta->0)
+  const double c = (damp_flag == 2) ? cutoff + sw_width : cutoff;
   double A[8], Bc[8];
-  sici_chain(ah * cutoff, A, Bc);
-  const double sii5 = A[5] / 4.0 - A[1] / (4.0 * pow(ah * cutoff, 4));
-  const double phi = MY_PI / 576.0 - sii5 + A[7] - Bc[6];
+  sici_chain(ah * c, A, Bc);
+  const double sii5 = A[5] / 4.0 - A[1] / (4.0 * pow(ah * c, 4));
+  double phi = MY_PI / 576.0 - sii5 + A[7] - Bc[6];
+  if (damp_flag == 2) phi += prof_shell(PROF_PHI, ah);
   const double ah4 = ah * ah * ah * ah;
   return (h >= 0.0 ? 1.0 : -1.0) * ah4 * phi;
 }
@@ -2085,11 +2092,450 @@ double PPPMDispSlab::ik_psi(double h)
 {
   if (fabs(h) < 1.0e-300) return 0.0;
   const double ah = fabs(h);
+  const double c = (damp_flag == 2) ? cutoff + sw_width : cutoff;
   double A[8], Bc[8];
-  sici_chain(ah * cutoff, A, Bc);
-  const double psi = MY_PI / 288.0 - A[7] + Bc[6];
+  sici_chain(ah * c, A, Bc);
+  double psi = MY_PI / 288.0 - A[7] + Bc[6];
+  if (damp_flag == 2) psi += prof_shell(PROF_T, ah);
   const double ah4 = ah * ah * ah * ah;
   return (h >= 0.0 ? 1.0 : -1.0) * ah4 * psi;
+}
+
+/* ----------------------------------------------------------------------
+   potential-form integrand g(r) of a profile coefficient (x = h r); ported
+   from pppm/disp/planar (see ewald/disp/slab for the derivation notes).
+------------------------------------------------------------------------- */
+
+double PPPMDispSlab::prof_integrand(int which, double r, double h)
+{
+  const double x = h * r;
+  const double sx = sin(x), cx = cos(x);
+  const double h2 = h * h, h4 = h2 * h2, h5 = h4 * h, h6 = h4 * h2;
+  const double r2 = r * r, r4 = r2 * r2, r5 = r4 * r, r6 = r4 * r2, r7 = r6 * r;
+  if (which == PROF_T) {
+    return sx / (h6 * r7) - cx / (h5 * r6);
+  } else if (which == PROF_N) {
+    return sx / (h4 * r5) - 2.0 * sx / (h6 * r7) + 2.0 * cx / (h5 * r6);
+  } else {    // PROF_PHI
+    double si, ci;
+    cisi(x, si, ci);
+    return si / (h4 * r5) - sx / (h6 * r7) + cx / (h5 * r6);
+  }
+}
+
+/* ----------------------------------------------------------------------
+   compact-switch shell correction of a profile coefficient:
+   int_rcut^{rcut+Delta} W(r) g(r) dr, W = S - S' r/6 (see ewald/disp/slab).
+------------------------------------------------------------------------- */
+
+double PPPMDispSlab::prof_shell(int which, double h)
+{
+  static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
+                                -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
+                                0.4333953941292472,  0.6794095682990244,  0.8650633666889845,
+                                0.9739065285171717};
+  static const double gw[10] = {0.0666713443086881, 0.1494513491505806, 0.2190863625159820,
+                                0.2692667193099963, 0.2955242247147529, 0.2955242247147529,
+                                0.2692667193099963, 0.2190863625159820, 0.1494513491505806,
+                                0.0666713443086881};
+  const double a = cutoff, dzs = sw_width;
+  int np = (int) (8.0 * h * dzs / (2.0 * MY_PI)) + 1;
+  np = MAX(8, np);
+  np = MIN(np, 20000);
+  const double hp = dzs / np;
+  double acc = 0.0;
+  for (int p = 0; p < np; p++) {
+    const double c0 = a + (p + 0.5) * hp;
+    for (int g = 0; g < 10; g++) {
+      const double r = c0 + 0.5 * hp * gx[g];
+      const double t = (r - a) / dzs;
+      const double W = switch_S(t) - (switch_dS(t) / dzs) * r / 6.0;
+      acc += gw[g] * W * prof_integrand(which, r, h);
+    }
+  }
+  return 0.5 * hp * acc;
+}
+
+/* ----------------------------------------------------------------------
+   shell-correction virial per profile bin (CSB), dispatched on corr_mode so the
+   contour profile uses the IDENTICAL corr_csb correction as the box average
+   (raw = exact per-atom shell virial spread IK along each bond; bin = density
+   convolution).  Ported from pppm/disp/planar (geometric mixing).
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::shell_profile_virial(int nbins, double lo, double dz, double *dens_all,
+                                        double *shellT, double *shellN)
+{
+  const double zpd = domain->prd[dim];
+  const double bcut = cutoff + sw_width;
+  for (int g = 0; g < nbins; g++) shellT[g] = shellN[g] = 0.0;
+
+  if (corr_mode != 0) {    // BIN: density-density convolution (matches corr_csb_bin)
+    for (int g = 0; g < nbins; g++) {
+      for (int gp = 0; gp < nbins; gp++) {
+        double ddz = (gp - g) * dz;
+        ddz -= zpd * floor(ddz / zpd + 0.5);
+        double wE, wF, wT, wN;
+        shell_vkernel(fabs(ddz), wE, wF, wT, wN);
+        if (wT == 0.0 && wN == 0.0) continue;
+        const double pT = dens_all[g] * dens_all[gp] * wT;
+        const double pN = dens_all[g] * dens_all[gp] * wN;
+        const int nspan = (int) (fabs(ddz) / dz + 0.5) + 1;
+        const int step = (ddz >= 0.0) ? 1 : -1;
+        const double iT = pT / nspan, iN = pN / nspan;
+        for (int sp = 0; sp < nspan; sp++) {
+          int b = (g + sp * step) % nbins;
+          if (b < 0) b += nbins;
+          shellT[b] += iT;
+          shellN[b] += iN;
+        }
+      }
+    }
+    return;
+  }
+
+  // RAW: exact per-atom shell virial, spread IK along each bond (matches corr_csb_raw)
+  double **x = atom->x;
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+  int nprocs = comm->nprocs;
+  int *rc = new int[nprocs];
+  int *dp = new int[nprocs];
+  MPI_Allgather(&nlocal, 1, MPI_INT, rc, 1, MPI_INT, world);
+  int natoms_all = 0;
+  for (int p = 0; p < nprocs; p++) {
+    dp[p] = natoms_all;
+    natoms_all += rc[p];
+  }
+  auto *zloc = new double[nlocal > 0 ? nlocal : 1];
+  auto *bloc = new double[nlocal > 0 ? nlocal : 1];
+  for (int i = 0; i < nlocal; i++) {
+    zloc[i] = x[i][dim];
+    bloc[i] = B[type[i]];
+  }
+  auto *zall = new double[natoms_all > 0 ? natoms_all : 1];
+  auto *ball = new double[natoms_all > 0 ? natoms_all : 1];
+  MPI_Allgatherv(zloc, nlocal, MPI_DOUBLE, zall, rc, dp, MPI_DOUBLE, world);
+  MPI_Allgatherv(bloc, nlocal, MPI_DOUBLE, ball, rc, dp, MPI_DOUBLE, world);
+
+  auto *sTloc = new double[nbins];
+  auto *sNloc = new double[nbins];
+  for (int g = 0; g < nbins; g++) sTloc[g] = sNloc[g] = 0.0;
+  for (int i = 0; i < nlocal; i++) {
+    double zi = x[i][dim];
+    double bi = B[type[i]];
+    double u = (zi - lo) / dz;
+    u -= nbins * floor(u / nbins);
+    int g = (int) u;
+    if (g >= nbins) g -= nbins;
+    for (int jg = 0; jg < natoms_all; jg++) {
+      double delz = zi - zall[jg];
+      delz -= zpd * floor(delz / zpd + 0.5);
+      double adz = fabs(delz);
+      if (adz >= bcut) continue;
+      double wE, wF, wT, wN;
+      shell_vkernel(adz, wE, wF, wT, wN);
+      const double bij = bi * ball[jg];
+      const int nspan = (int) (adz / dz + 0.5) + 1;
+      const int step = (delz <= 0.0) ? 1 : -1;
+      const double iT = bij * wT / nspan, iN = bij * wN / nspan;
+      for (int sp = 0; sp < nspan; sp++) {
+        int b = (g + sp * step) % nbins;
+        if (b < 0) b += nbins;
+        sTloc[b] += iT;
+        sNloc[b] += iN;
+      }
+    }
+  }
+  MPI_Allreduce(sTloc, shellT, nbins, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(sNloc, shellN, nbins, MPI_DOUBLE, MPI_SUM, world);
+  delete[] rc;
+  delete[] dp;
+  delete[] zloc;
+  delete[] bloc;
+  delete[] zall;
+  delete[] ball;
+  delete[] sTloc;
+  delete[] sNloc;
+}
+
+/* ----------------------------------------------------------------------
+   force-accuracy mode cutoff K_prof for the profile: the FFT grid over-resolves
+   the physical mode content, so truncate the O(K^2) assembly at the force-
+   converged kmax (same random-phase model + kbig tail scan as the estimators).
+   Ported from pppm/disp/planar.
+------------------------------------------------------------------------- */
+
+int PPPMDispSlab::profile_kmax()
+{
+  const int Kgrid = nz / 2 - 1;
+  if (Kgrid <= 8) return MAX(1, Kgrid);
+
+  if (prof_kmax_cached > 0 && prof_kmax_nz == nz && fabs(prof_kmax_zprd - zprd) < 1.0e-12 * zprd)
+    return prof_kmax_cached;
+
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+  double b2_local = 0.0;
+  for (int i = 0; i < nlocal; i++) b2_local += B[type[i]] * B[type[i]];
+  double b2;
+  MPI_Allreduce(&b2_local, &b2, 1, MPI_DOUBLE, MPI_SUM, world);
+  double natoms = (double) atom->natoms;
+  if (natoms < 1.0) natoms = 1.0;
+
+  const double prefac = 0.5 * b2 * b2 / natoms;
+  const double bias = 1.6;
+  const double target = accuracy * accuracy / (bias * bias);
+  const double uk = 2.0 * MY_PI / zprd;
+  const int kbig = 8192;
+  auto *gf2 = new double[kbig + 1];
+  const double tail_floor = 1.0e-3 * accuracy * accuracy / (16.0 * prefac);
+  int kstop = kbig;
+  for (int k = 1; k <= kbig; k++) {
+    double g = 2.0 * (k * uk) * gu_switch(k);
+    gf2[k] = g * g;
+    if (k > 16 && gf2[k] * k / 9.0 < tail_floor && gf2[k] < gf2[k - 1]) {
+      kstop = k;
+      break;
+    }
+  }
+  for (int k = kstop + 1; k <= kbig; k++) gf2[k] = 0.0;
+  double tail = 0.0;
+  int chosen = kbig;
+  for (int kmx = kbig - 1; kmx >= 4; kmx--) {
+    tail += gf2[kmx + 1];
+    if (prefac * tail >= target) {
+      chosen = kmx + 1;
+      break;
+    }
+    chosen = kmx;
+  }
+  delete[] gf2;
+
+  const int kmax_phys = MAX(8, MIN(chosen, kbig));
+  prof_kmax_cached = MIN(kmax_phys, Kgrid);
+  prof_kmax_nz = nz;
+  prof_kmax_zprd = zprd;
+  return prof_kmax_cached;
+}
+
+/* ----------------------------------------------------------------------
+   raw per-mode tangential/normal box-pressure coefficients GT[k], GN[k],
+   k=0..K (the compact-switch coefficients ewald/disp/slab computes in coeffs();
+   NOT the de-convolved mesh GTk/GNk).  Ported from pppm/disp/planar.
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::profile_GTGN_raw(int K, double *GTr, double *GNr)
+{
+  const double unitk = 2.0 * MY_PI / zprd;
+  const double c = cutoff + sw_width;
+  const double a = cutoff, dzs = sw_width;
+  const int ni = 2000;
+  const double dr = dzs / ni;
+  double iJ = 0.0, iT = 0.0;
+  for (int i = 0; i <= ni; i++) {
+    const double r = a + i * dr;
+    const double t = (r - a) / dzs;
+    const double S = switch_S(t);
+    const double Sp = switch_dS(t) / dzs;
+    const double r3 = r * r * r, r4 = r3 * r;
+    const double w = (i == 0 || i == ni) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+    iJ += w * Sp / r3;
+    iT += w * S / r4;
+  }
+  const double Jint = dr / 3.0 * iJ;
+  const double trans = dr / 3.0 * iT;
+  GTr[0] = GNr[0] = -(2.0 * MY_PI / (3.0 * volume)) * (-Jint + 6.0 * trans + 2.0 / (c * c * c));
+  for (int k = 1; k <= K; k++) {
+    const double kcell = k * unitk;
+    const double kcell3 = kcell * kcell * kcell;
+    double C[8], D[8];
+    sici_compl_chain(kcell * c, C, D);
+    const double GTtail = (-24.0 * MY_PI * kcell3 / volume) * (C[7] - D[6]);
+    const double GNtail = (-24.0 * MY_PI * kcell3 / volume) * (C[5] - 2.0 * C[7] + 2.0 * D[6]);
+    double sGT, sGN;
+    switch_shell_virial(kcell, sGT, sGN);
+    GTr[k] = GTtail - (MY_PI / volume) * sGT;
+    GNr[k] = GNtail - (2.0 * MY_PI / volume) * sGN;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   Irving-Kirkwood profile assembly (see ewald/disp/slab pressure_profile_long
+   for the derivation); ported from pppm/disp/planar.
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::profile_assemble(int K, int nbins, double lo, double width, const double *Sre,
+                                    const double *Sim, const double *GTr, const double *GNr,
+                                    const double *shellT, const double *shellN, double *pN,
+                                    double *pT)
+{
+  const double unitk = 2.0 * MY_PI / zprd;
+  const double inv_adz = 1.0 / (area * width);
+  const int P = 2 * K;
+  auto *ATre = new double[P + 1];
+  auto *ATim = new double[P + 1];
+  auto *ANre = new double[P + 1];
+  auto *ANim = new double[P + 1];
+  for (int p = 0; p <= P; p++) ATre[p] = ATim[p] = ANre[p] = ANim[p] = 0.0;
+  auto Sn = [&](int n, double &re, double &im) {
+    int an = n < 0 ? -n : n;
+    re = Sre[an];
+    im = (n < 0) ? -Sim[an] : Sim[an];
+  };
+  auto *phiP = new double[K + 1];
+  auto *psiP = new double[K + 1];
+  for (int k = 0; k <= K; k++) {
+    phiP[k] = ik_phi(k * unitk);
+    psiP[k] = ik_psi(k * unitk);
+  }
+  auto PHI = [&](int n) { return n < 0 ? -phiP[-n] : phiP[n]; };
+  auto PSI = [&](int n) { return n < 0 ? -psiP[-n] : psiP[n]; };
+  for (int n = -K; n <= K; n++) {
+    double hn = n * unitk;
+    for (int m = -K; m <= K; m++) {
+      int p = n + m;
+      if (p < 0) continue;    // Hermitian symmetry; keep p>=0
+      double hm = m * unitk, H = hn + hm;
+      double snr, sni, smr, smi;
+      Sn(n, snr, sni);
+      Sn(m, smr, smi);
+      double sre = snr * smr - sni * smi, simv = snr * smi + sni * smr;
+      double CT, CN;
+      if (n == 0 && m == 0) {
+        CT = CN = volume * GTr[0];
+      } else if (fabs(H) < 1.0e-300) {
+        int kk = (n < 0) ? -n : n;
+        CT = 0.5 * volume * GTr[kk];
+        CN = 0.5 * volume * GNr[kk];
+      } else {
+        CT = -6.0 * MY_PI / H * (PHI(m) + PHI(n));
+        CN = -12.0 * MY_PI / H * (PSI(m) + PSI(n));
+      }
+      ATre[p] += CT * sre;
+      ATim[p] += CT * simv;
+      ANre[p] += CN * sre;
+      ANim[p] += CN * simv;
+    }
+  }
+  for (int g = 0; g < nbins; g++) {
+    double z = lo + (g + 0.5) * width;
+    double pt = ATre[0], pn = ANre[0];
+    for (int p = 1; p <= P; p++) {
+      double cz = cos(p * unitk * z), sz = sin(p * unitk * z);
+      pt += 2.0 * (ATre[p] * cz - ATim[p] * sz);
+      pn += 2.0 * (ANre[p] * cz - ANim[p] * sz);
+    }
+    pT[g] = pt - shellT[g] * inv_adz;
+    pN[g] = pn - shellN[g] * inv_adz;
+  }
+  delete[] ATre;
+  delete[] ATim;
+  delete[] ANre;
+  delete[] ANim;
+  delete[] phiP;
+  delete[] psiP;
+}
+
+/* ----------------------------------------------------------------------
+   long-range Irving-Kirkwood pressure profiles on the caller's z grid (ported
+   from pppm/disp/planar; compact-switch variant only for now).
+------------------------------------------------------------------------- */
+
+int PPPMDispSlab::pressure_profile_long(int dir, int nbins, double lo, double width,
+                                        double *pN, double *pT)
+{
+  if (damp_flag != 2)
+    error->all(FLERR,
+               "compute stress/cartesian kspace with pppm/disp/slab currently requires the "
+               "compact-switch variant (kspace_modify damp compact); use kspace_modify "
+               "pressure/profile for the damped variant");
+  if (dir != dim)
+    error->all(FLERR,
+               "compute stress/cartesian binning direction must match the inhomogeneous axis "
+               "of pppm/disp/slab");
+
+  const double unitk = 2.0 * MY_PI / zprd;
+  const int K = profile_kmax();
+
+  if (nbins <= 2 * K)
+    error->all(FLERR,
+               "compute stress/cartesian with pppm/disp/slab kspace: {} bins along the "
+               "inhomogeneous axis is too coarse; need > {} (= 2*K_prof, the force-accuracy "
+               "mode cutoff) to resolve the Irving-Kirkwood reciprocal modes without aliasing "
+               "(use a finer bin width, looser accuracy, or wider switch)",
+               nbins, 2 * K);
+
+  auto *GTr = new double[K + 1];
+  auto *GNr = new double[K + 1];
+  profile_GTGN_raw(K, GTr, GNr);
+
+  // EXACT structure factors sfac[n] = sum_j B_j exp(i n unitk z_j), n=0..K
+  auto *srl = new double[K + 1];
+  auto *sim = new double[K + 1];
+  auto *srl_all = new double[K + 1];
+  auto *sim_all = new double[K + 1];
+  for (int n = 0; n <= K; n++) srl[n] = sim[n] = 0.0;
+
+  double **x = atom->x;
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+  for (int i = 0; i < nlocal; i++) {
+    const double bi = B[type[i]];
+    double c1 = cos(unitk * x[i][dim]), s1 = sin(unitk * x[i][dim]);
+    double cn = 1.0, sn = 0.0;    // cos/sin(n*unitk*z), recurrence
+    srl[0] += bi;
+    for (int n = 1; n <= K; n++) {
+      double cnn = cn * c1 - sn * s1;
+      double snn = sn * c1 + cn * s1;
+      cn = cnn;
+      sn = snn;
+      srl[n] += bi * cn;
+      sim[n] += bi * sn;
+    }
+  }
+  MPI_Allreduce(srl, srl_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(sim, sim_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
+
+  auto *Sre = new double[K + 1];
+  auto *Sim = new double[K + 1];
+  for (int n = 0; n <= K; n++) {
+    Sre[n] = srl_all[n] / volume;
+    Sim[n] = -sim_all[n] / volume;
+  }
+
+  // bin the B-weighted density (BIN-mode shell convolution source)
+  auto *dens_b = new double[nbins];
+  for (int g = 0; g < nbins; g++) dens_b[g] = 0.0;
+  for (int i = 0; i < nlocal; i++) {
+    double u = (x[i][dim] - lo) / width;
+    u -= nbins * floor(u / nbins);
+    int g = (int) u;
+    if (g >= nbins) g -= nbins;
+    dens_b[g] += B[type[i]];
+  }
+  auto *dens_all = new double[nbins];
+  MPI_Allreduce(dens_b, dens_all, nbins, MPI_DOUBLE, MPI_SUM, world);
+
+  auto *shellT = new double[nbins];
+  auto *shellN = new double[nbins];
+  shell_profile_virial(nbins, lo, width, dens_all, shellT, shellN);
+
+  profile_assemble(K, nbins, lo, width, Sre, Sim, GTr, GNr, shellT, shellN, pN, pT);
+
+  delete[] GTr;
+  delete[] GNr;
+  delete[] srl;
+  delete[] sim;
+  delete[] srl_all;
+  delete[] sim_all;
+  delete[] Sre;
+  delete[] Sim;
+  delete[] dens_b;
+  delete[] dens_all;
+  delete[] shellT;
+  delete[] shellN;
+  return 1;
 }
 
 /* ----------------------------------------------------------------------
