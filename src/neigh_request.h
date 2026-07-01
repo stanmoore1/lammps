@@ -91,6 +91,9 @@ class NeighRequest : protected Pointers {
   //   If set, cut_fixed  implies the cutoff is uniform across all atom types.
   //     This is typical of fixes/computes with a fixed range of analysis (e.g. an RDF)
   int cut_fixed;        // toggles cutoff interpretation, whether fixed across types
+  int cut_min;          // 1 if cutoff is a minimum requirement and the requester
+                        //   filters by distance, so the default list may be reused
+                        //   when it already covers the cutoff for every type pair
   int cut;              // 1 if use a non-standard cutoff length
   double cutoff;        // special cutoff distance for this list
 

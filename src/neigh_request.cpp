@@ -71,6 +71,7 @@ NeighRequest::NeighRequest(LAMMPS *_lmp) : Pointers(_lmp)
   ssa = 0;
   cut = 0;
   cut_fixed = 0;
+  cut_min = 0;
   cutoff = 0.0;
 
   // skip info, default is no skipping
@@ -173,6 +174,7 @@ int NeighRequest::identical(NeighRequest *other)
   if (copy != other->copy) same = 0;
   if (cutoff != other->cutoff) same = 0;
   if (cut_fixed != other->cut_fixed) same = 0;
+  if (cut_min != other->cut_min) same = 0;
 
   if (skip != other->skip) same = 0;
   if (same && skip && other->skip) same = same_skip(other);
@@ -239,6 +241,7 @@ void NeighRequest::copy_request(NeighRequest *other, int skipflag)
   ssa = other->ssa;
   cut = other->cut;
   cut_fixed = other->cut_fixed;
+  cut_min = other->cut_min;
   cutoff = other->cutoff;
 
   iskip = nullptr;
@@ -302,11 +305,17 @@ void NeighRequest::set_cut_fixed(int flag)
 //   prototyped as a fixed (uniform) cutoff, which guarantees the list is not
 //   truncated to a smaller per-type cutoff
 
+// request a list that covers at least _cutoff for every atom type
+//   the requester filters by distance itself, so Neighbor may reuse the default
+//   list when it already covers _cutoff; otherwise a fixed (uniform) cutoff list
+//   is built.  cut_fixed governs the build case, cut_min enables the reuse case.
+
 void NeighRequest::set_cutoff_min(double _cutoff)
 {
   cut = 1;
   cutoff = _cutoff;
   cut_fixed = 1;
+  cut_min = 1;
 }
 
 void NeighRequest::set_id(int _id)

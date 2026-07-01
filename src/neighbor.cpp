@@ -128,6 +128,7 @@ pairclass(nullptr), pairnames(nullptr), pairmasks(nullptr)
 
   cutneighmax = 0.0;
   cutneighmin = BIG;
+  cutneighmin_pair = BIG;
   cutneighsq = nullptr;
   cutneighghostsq = nullptr;
   cuttype = nullptr;
@@ -380,6 +381,13 @@ void Neighbor::init()
     }
   }
   cutneighmaxsq = cutneighmax * cutneighmax;
+
+  // cutneighmin_pair = smallest per-type-pair neighbor cutoff of the default
+  //   list (pair styles only, before custom request cutoffs are folded in).
+  //   A cut_min request can reuse the default list only if its cutoff does not
+  //   exceed this value, i.e. the default list already covers it for every type.
+
+  cutneighmin_pair = cutneighmin;
 
   // update cutneighmin based on individual neighbor list requests
 
@@ -1212,7 +1220,14 @@ void Neighbor::morph_unique()
       if (!irq->occasional)
         irq->cutoff += skin;
 
-      if (irq->cut_fixed && (irq->cutoff > cutneighmin) && !irq->skip) {
+      // cut_min: the requester filters by distance itself and only needs a list
+      //   that covers its cutoff.  If the default list already does (cutoff does
+      //   not exceed the smallest per-type pair cutoff), reuse it by dropping the
+      //   custom cutoff instead of building or trimming a dedicated list.
+      if (irq->cut_min && (irq->cutoff <= cutneighmin_pair) && !irq->skip) {
+        irq->cut = 0;
+        irq->cutoff = 0.0;
+      } else if (irq->cut_fixed && (irq->cutoff > cutneighmin) && !irq->skip) {
         irq->unique = 1;
       } else if ((irq->cutoff != cutneighmax) && !irq->skip) {
         irq->unique = 1;
@@ -1903,8 +1918,11 @@ void Neighbor::print_pairwise_info()
     if (rq->kokkos_device) out += ", kokkos_device";
     if (rq->kokkos_host) out += ", kokkos_host";
     if (rq->ssa) out += ", ssa";
-    if (rq->cut) out += fmt::format(", cut {}", rq->cutoff);
-    if (rq->cut_fixed) out += fmt::format(", cut fixed {}", rq->cut_fixed);
+    if (rq->cut) {
+      out += fmt::format(", cut {}", rq->cutoff);
+      if (rq->cut_fixed) out += fmt::format(", cut fixed {}", rq->cut_fixed);
+      if (rq->cut_min) out += fmt::format(", cut min {}", rq->cut_min);
+    }
     if (rq->off2on) out += ", off2on";
     out += "\n";
 

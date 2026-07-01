@@ -96,11 +96,7 @@ void ComputeAveSphereAtom::init()
                  "use comm_modify cutoff command");
   }
 
-  int cutflag = 1;
-  if (force->pair) {
-    if (cutoff == 0.0) { cutoff = force->pair->cutforce; }
-    if (cutoff <= force->pair->cutforce + skin) cutflag = 0;
-  }
+  if (force->pair && cutoff == 0.0) cutoff = force->pair->cutforce;
 
   cutsq = cutoff * cutoff;
   if (domain->dimension == 3)
@@ -112,13 +108,12 @@ void ComputeAveSphereAtom::init()
     error->all(FLERR, "Compute ave/sphere/atom requires neighbor style 'bin' or 'nsq'");
 
   // need an occasional full neighbor list
+  // the sphere average filters neighbors by distance, so it only needs a list
+  //   covering cutoff for every type pair; set_cutoff_min reuses the default
+  //   list when it already does and builds a dedicated one otherwise
 
   auto *req = neighbor->add_request(this, NeighConst::REQ_FULL | NeighConst::REQ_OCCASIONAL);
-  if (cutflag) {
-    // Cutoff applies to all types
-    req->set_cut_fixed(1);
-    req->set_cutoff(cutoff);
-  }
+  req->set_cutoff_min(cutoff);
 }
 
 /* ---------------------------------------------------------------------- */
