@@ -298,6 +298,17 @@ void NeighRequest::set_cut_fixed(int flag)
   cut_fixed = flag;
 }
 
+// request a list whose cutoff must be at least _cutoff for every atom type
+//   prototyped as a fixed (uniform) cutoff, which guarantees the list is not
+//   truncated to a smaller per-type cutoff
+
+void NeighRequest::set_cutoff_min(double _cutoff)
+{
+  cut = 1;
+  cutoff = _cutoff;
+  cut_fixed = 1;
+}
+
 void NeighRequest::set_id(int _id)
 {
   id = _id;

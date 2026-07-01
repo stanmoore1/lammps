@@ -560,8 +560,6 @@ TEST_F(NeighborListsBin, one_hybrid_half_list_nonewton)
     }
 }
 
-#if 0
-// FIXME: currently trim is not detected and this test will thus fail
 TEST_F(NeighborListsBin, one_trim_half_list_newton)
 {
     create_system("charge", "real", "on");
@@ -615,7 +613,6 @@ TEST_F(NeighborListsBin, one_trim_half_list_newton)
     }
 }
 
-// FIXME: currently trim is not detected and this test will thus fail
 TEST_F(NeighborListsBin, one_trim_half_list_nonewton)
 {
     create_system("charge", "real", "off");
@@ -668,7 +665,33 @@ TEST_F(NeighborListsBin, one_trim_half_list_nonewton)
         GTEST_FAIL() << "No suitable neighbor list info found";
     }
 }
-#endif
+
+// regression for the issue #4529 follow-up: a perpetual list with a fixed
+// (uniform) cutoff equal to cutneighmax, in a system with heterogeneous per-type
+// pair cutoffs, must keep its uniform cutoff and not be truncated to the smaller
+// per-type cutoff of the default master list
+TEST_F(NeighborListsBin, perpetual_fixed_cutoff_uniform)
+{
+    create_system("atomic", "real", "on");
+    BEGIN_CAPTURE_OUTPUT();
+    command("pair_style lj/cut 3.5");
+    command("pair_coeff 1 1 0.01 2.0 2.5"); // short 1-1 cutoff -> per-type master is smaller
+    command("pair_coeff 1 2 0.01 2.0 3.5");
+    command("pair_coeff 2 2 0.01 2.0 3.5"); // cutneighmax = 3.5 + skin(2.0) = 5.5
+    // dynamic group -> perpetual full list, fixed cutoff 3.5 + skin = 5.5 == cutneighmax
+    command("group dyn dynamic all within 3.5 every 1");
+    command("run 0 post no");
+    auto neigh_info = get_neigh_info(END_CAPTURE_OUTPUT());
+    bool found = false;
+    for (int i = 0; i + 1 < (int) neigh_info.size(); ++i) {
+        if (utils::strmatch(neigh_info[i], "fix GROUP, perpetual")) {
+            // uniform cutoff kept (cut 5.5), not truncated to the 1-1 per-type cutoff (4.5)
+            EXPECT_THAT(neigh_info[i + 1], ContainsRegex("cut 5.5, cut fixed 1"));
+            found = true;
+        }
+    }
+    EXPECT_TRUE(found) << "fix GROUP neighbor list not found";
+}
 
 TEST_F(NeighborListsBin, one_atomic_full)
 {

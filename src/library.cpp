@@ -6485,7 +6485,11 @@ void NeighProxy::command(int narg, char **arg)
   int flags = atoi(arg[1]);
   double cutoff = atof(arg[2]);
   req->apply_flags(flags);
-  if (cutoff > 0.0) req->set_cutoff(cutoff);
+  if (cutoff > 0.0) {
+    // library-requested cutoff applies to all types
+    req->set_cut_fixed(1);
+    req->set_cutoff(cutoff);
+  }
   lmp->init();
 
   // setup domain, communication and neighboring

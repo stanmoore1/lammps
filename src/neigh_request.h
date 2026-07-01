@@ -145,6 +145,7 @@ class NeighRequest : protected Pointers {
 
   void apply_flags(int);
   void set_cutoff(double);
+  void set_cutoff_min(double);
   void set_cut_fixed(int);
   void set_id(int);
   void set_kokkos_device(int);
