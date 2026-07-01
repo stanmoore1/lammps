@@ -109,6 +109,9 @@ void FixRHEOOxidation::init()
 
   // need a half neighbor list
   auto *req = neighbor->add_request(this, NeighConst::REQ_FULL);
+
+  // Cutoff applies to all types
+  req->set_cut_fixed(1);
   req->set_cutoff(cut);
 }
 

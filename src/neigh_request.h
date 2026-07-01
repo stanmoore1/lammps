@@ -82,9 +82,17 @@ class NeighRequest : protected Pointers {
   int intel;           // set by INTEL package
   int kokkos_host;     // set by KOKKOS package
   int kokkos_device;
-  int ssa;          // set by DPD-REACT package, for Shardlow lists
-  int cut;          // 1 if use a non-standard cutoff length
-  double cutoff;    // special cutoff distance for this list
+  int ssa;              // set by DPD-REACT package, for Shardlow lists
+
+  // non-standard cutoffs
+  //   By default, the cutoff corresponds to the maximum cutoff across all types,
+  //     does not imply all types have the same cutoff.
+  //     This is typical of requests for pair styles
+  //   If set, cut_fixed  implies the cutoff is uniform across all atom types.
+  //     This is typical of fixes/computes with a fixed range of analysis (e.g. an RDF)
+  int cut_fixed;        // toggles cutoff interpretation, whether fixed across types
+  int cut;              // 1 if use a non-standard cutoff length
+  double cutoff;        // special cutoff distance for this list
 
   // flags set by pair hybrid
 
@@ -137,6 +145,7 @@ class NeighRequest : protected Pointers {
 
   void apply_flags(int);
   void set_cutoff(double);
+  void set_cut_fixed(int);
   void set_id(int);
   void set_kokkos_device(int);
   void set_kokkos_host(int);

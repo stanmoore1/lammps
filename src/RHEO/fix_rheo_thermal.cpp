@@ -294,6 +294,9 @@ void FixRHEOThermal::init()
 
     // need a half neighbor list, built only when particles freeze
     auto *req = neighbor->add_request(this, NeighConst::REQ_OCCASIONAL);
+
+    // Cutoff applies to all types
+    req->set_cut_fixed(1);
     req->set_cutoff(cut_kernel);
 
     // find instances of bond history to delete/shift data

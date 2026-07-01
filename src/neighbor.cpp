@@ -1199,8 +1199,12 @@ void Neighbor::morph_unique()
   for (int i = 0; i < nrequest; i++) {
     irq = requests[i];
 
-    // if cut flag set by requestor and cutoff is larger than minimum for default,
-    //   and the list is not a skip list, set unique flag; otherwise unset cut flag
+    // if cut flag set by requestor have two options
+    //   (1) cut_fixed is set (all types have the same cutoff)
+    //       check if cutoff is larger than minimum
+    //   (2) cut_fixed is not set (cutoff is just the maximum across types)
+    //       check if cutoff differs from current maximum
+    //   Then if the list is not a skip list, set unique flag; otherwise unset cut flag
     // this forces Pair,Stencil,Bin styles to be instantiated separately
     // also add skin to cutoff of perpetual lists
 
@@ -1208,7 +1212,9 @@ void Neighbor::morph_unique()
       if (!irq->occasional)
         irq->cutoff += skin;
 
-      if ((irq->cutoff > cutneighmin) && !irq->skip) {
+      if (irq->cut_fixed && (irq->cutoff > cutneighmin) && !irq->skip) {
+        irq->unique = 1;
+      } else if ((irq->cutoff != cutneighmax) && !irq->skip) {
         irq->unique = 1;
       } else {
         irq->cut = 0;
@@ -1609,7 +1615,8 @@ void Neighbor::morph_copy_trim()
     if (jj < nrequest) {
       irq->copy = 1;
       irq->trim = trim_flag;
-      if (jrq->copy && irq->cutoff == requests[jrq->copylist]->cutoff)
+      if (jrq->copy && irq->cut_fixed == requests[jrq->copylist]->cut_fixed &&
+          irq->cutoff == requests[jrq->copylist]->cutoff)
         irq->copylist = jrq->copylist;
       else
         irq->copylist = j;
@@ -1897,6 +1904,7 @@ void Neighbor::print_pairwise_info()
     if (rq->kokkos_host) out += ", kokkos_host";
     if (rq->ssa) out += ", ssa";
     if (rq->cut) out += fmt::format(", cut {}", rq->cutoff);
+    if (rq->cut_fixed) out += fmt::format(", cut fixed {}", rq->cut_fixed);
     if (rq->off2on) out += ", off2on";
     out += "\n";
 

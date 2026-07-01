@@ -329,6 +329,8 @@ void ComputeADF::init()
     if (neighbor->style == Neighbor::MULTI)
       error->all(FLERR, "Compute adf with custom cutoffs requires neighbor style 'bin' or 'nsq'");
 
+    // Cutoff applies to all types
+    req->set_cut_fixed(1);
     req->set_cutoff(mycutneigh);
   }
 }
