@@ -409,9 +409,9 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairBondValVecKokkos<DeviceType>::operator()(TagPairBondValVecPackForwardComm, const int &i) const {
   int j = d_sendlist(i);
-  v_buf[i*3+0] = d_Di(j,0);
-  v_buf[i*3+1] = d_Di(j,1);
-  v_buf[i*3+2] = d_Di(j,2);
+  v_buf[i*3+0] = static_cast<double>(d_Di(j,0));
+  v_buf[i*3+1] = static_cast<double>(d_Di(j,1));
+  v_buf[i*3+2] = static_cast<double>(d_Di(j,2));
 }
 
 /* ---------------------------------------------------------------------- */
@@ -427,9 +427,9 @@ void PairBondValVecKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int fir
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairBondValVecKokkos<DeviceType>::operator()(TagPairBondValVecUnpackForwardComm, const int &i) const {
-  d_Di(i + first,0) = v_buf[i*3+0];
-  d_Di(i + first,1) = v_buf[i*3+1];
-  d_Di(i + first,2) = v_buf[i*3+2];
+  d_Di(i + first,0) = static_cast<KK_FLOAT>(v_buf[i*3+0]);
+  d_Di(i + first,1) = static_cast<KK_FLOAT>(v_buf[i*3+1]);
+  d_Di(i + first,2) = static_cast<KK_FLOAT>(v_buf[i*3+2]);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -461,9 +461,9 @@ void PairBondValVecKokkos<DeviceType>::unpack_forward_comm(int n, int first, dou
   k_Di.sync_host();
   int m = 0;
   for (int i = 0; i < n; i++) {
-    h_Di(i + first,0) = buf[m++];
-    h_Di(i + first,1) = buf[m++];
-    h_Di(i + first,2) = buf[m++];
+    h_Di(i + first,0) = static_cast<KK_FLOAT>(buf[m++]);
+    h_Di(i + first,1) = static_cast<KK_FLOAT>(buf[m++]);
+    h_Di(i + first,2) = static_cast<KK_FLOAT>(buf[m++]);
   }
 
   k_Di.modify_host();
@@ -500,9 +500,9 @@ void PairBondValVecKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, dou
   m = 0;
   for (i = 0; i < n; i++) {
     j = list[i];
-    h_s0(j,0) += buf[m++];
-    h_s0(j,1) += buf[m++];
-    h_s0(j,2) += buf[m++];
+    h_s0(j,0) += static_cast<KK_ACC_FLOAT>(buf[m++]);
+    h_s0(j,1) += static_cast<KK_ACC_FLOAT>(buf[m++]);
+    h_s0(j,2) += static_cast<KK_ACC_FLOAT>(buf[m++]);
   }
 
   k_s0.modify_host();

@@ -135,7 +135,7 @@ class PairBondValKokkos : public PairBondVal, public KokkosBase {
   KK_FLOAT m_energy0[MAX_TYPES_STACKPARAMS+1];
 
   KK_FLOAT m_cutsq[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
-  typename AT::tdual_kkfloat_2d k_cutsq;
+  DAT::ttransform_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
 
   typename AT::t_kkfloat_1d_3 x;
