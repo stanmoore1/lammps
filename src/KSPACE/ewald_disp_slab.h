@@ -118,11 +118,17 @@ class EwaldDispSlab : public KSpace {
   // rcut+Delta (no force discontinuity at rcut) -> the binned corr converges at high
   // order.  f2 is analytic; w2/pt2 are tabulated by quadrature over [0, rcut+Delta].
   double u_smooth(double r);                 // smooth (Gaussian-screened) 1/r^6, Taylor near 0
-  double *cWgrid, *cTgrid;                   // tabulated switched corr energy / tangential kernels
+  double *cWgrid;                            // tabulated switched corr energy kernel
   int ncgrid;                                // grid points on [0, rcut+Delta]
   double cwdz;                               // grid spacing
-  void build_corr_kernels();                 // tabulate the switched corr w2/pt2 at setup
-  void corr_smooth_kernels(double adz, double &w2, double &f2, double &pt2);    // interp + analytic f2
+  void build_corr_kernels();                 // tabulate the switched corr w2 at setup
+  // interp w2 + analytic f2.  Virial kernels: tangential pt2 = w2 exactly (integrate
+  // the strain derivative by parts; the boundary term vanishes because the switched
+  // corr potential ~ 0 at rcut+Delta), and the normal per-pair kernel is dz^2*f2
+  // (r_z f_z), accumulated explicitly in corr_raw/corr_bin_smooth.  The reciprocal
+  // normal uses the exact per-mode strain derivative GN[k] = GU + h dGU/dh (coeffs()),
+  // so the switched variant never relies on the 6E homogeneity trace.
+  void corr_smooth_kernels(double adz, double &w2, double &f2, double &pt2);
 
   // generalized sine/cosine integrals via recurrence + continued fraction
   void cisi(double x, double &si, double &ci);

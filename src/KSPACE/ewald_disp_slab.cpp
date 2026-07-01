@@ -73,7 +73,7 @@ EwaldDispSlab::EwaldDispSlab(LAMMPS *lmp) :
   nwgrid = 0;
   wdz = 0.0;
   corr_switch = 0;
-  cWgrid = cTgrid = nullptr;
+  cWgrid = nullptr;
   ncgrid = 0;
   cwdz = 0.0;
   contour_flag = 0;
@@ -105,7 +105,6 @@ EwaldDispSlab::~EwaldDispSlab()
   delete[] wTgrid;
   delete[] wNgrid;
   delete[] cWgrid;
-  delete[] cTgrid;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -641,6 +640,7 @@ void EwaldDispSlab::coeffs()
     GU[0] = -MY_PI * sqrt(MY_PI) * g3 / (6.0 * volume);
     GF[0] = 0.0;
     GT[0] = GU[0];
+    GN[0] = GU[0];
 
     for (k = 1; k < kcount; k++) {
       kcell = k * unitk;
@@ -654,6 +654,13 @@ void EwaldDispSlab::coeffs()
       GU[k] = coef * Bk;
       GF[k] = coef * 2.0 * kcell * Bk;
       GT[k] = GU[k];
+      // exact per-mode normal (zz) coefficient: under an eps_zz strain, S_k is
+      // invariant (h_k z_i fixed), so GN = -dGU/deps = GU + h dGU/dh.  With
+      // Bk = h^3 F(b), b = h/(2g): F'(b) = -(3/2) e^{-b^2}/b^4 (the erfc and
+      // exponential terms cancel), giving h dBk/dh = 3 Bk - (3/2) h^3 e^{-b^2}/b^3.
+      // Used by the smooth switched variant (corr_switch), whose kspace share is
+      // not degree -6 homogeneous, so the 6E trace does not apply.
+      GN[k] = coef * (4.0 * Bk - 1.5 * kcell3 * exp(-b2) / b3);
     }
   }
 }
@@ -1260,7 +1267,7 @@ void EwaldDispSlab::compute(int eflag, int vflag)
           // virial trace (other variants, set after corr below)
           vatom[i][lat1] += GT[k] * partial_peratom;
           vatom[i][lat2] += GT[k] * partial_peratom;
-          if (damp_flag == 2) vatom[i][dim] += GN[k] * partial_peratom;
+          if (damp_flag == 2 || corr_switch) vatom[i][dim] += GN[k] * partial_peratom;
         }
       }
     }
@@ -1287,7 +1294,7 @@ void EwaldDispSlab::compute(int eflag, int vflag)
       double uk = sfacrl_all[k] * sfacrl_all[k] + sfacim_all[k] * sfacim_all[k];
       virial[lat1] += uk * GT[k];
       virial[lat2] += uk * GT[k];
-      if (damp_flag == 2) virial[dim] += uk * GN[k];    // explicit normal kernel
+      if (damp_flag == 2 || corr_switch) virial[dim] += uk * GN[k];    // explicit normal kernel
     }
   }
 
@@ -1299,7 +1306,7 @@ void EwaldDispSlab::compute(int eflag, int vflag)
     for (i = 0; i < nlocal; i++) {
       vatom[i][lat1] *= B[type[i]];
       vatom[i][lat2] *= B[type[i]];
-      if (damp_flag == 2) vatom[i][dim] *= B[type[i]];
+      if (damp_flag == 2 || corr_switch) vatom[i][dim] *= B[type[i]];
     }
 
   // damped variant: real-space "slab" correction (adds to energy, corr_energy,
@@ -1321,9 +1328,11 @@ void EwaldDispSlab::compute(int eflag, int vflag)
   // normal (zz) virial.  For the sharp/Gaussian variants the dispersion is the
   // exact power law (homogeneous degree -6), so the trace gives it cheaply:
   // sum r.f = 6 U => virial_zz = 6*E_kspace - virial_xx - virial_yy.  The compact
-  // switch is non-homogeneous (S varies), so its normal is the explicit GN kernel
-  // accumulated above instead.
-  if (damp_flag != 2) {
+  // switch and the smooth switched damped variant (corr_switch) are
+  // non-homogeneous (S varies), so their normal is explicit: the reciprocal GN
+  // kernel accumulated above plus (corr_switch) the corr dz^2*f2 term added in
+  // corr_raw/corr_bin_smooth.
+  if (damp_flag != 2 && !corr_switch) {
     if (vflag_global) virial[dim] = 6.0 * (e_recip + corr_energy) - virial[lat1] - virial[lat2];
     if (vflag_atom)
       for (i = 0; i < nlocal; i++)
@@ -1590,11 +1599,7 @@ void EwaldDispSlab::build_corr_kernels()
   ncgrid = 1024;
   cwdz = b / ncgrid;
   delete[] cWgrid;
-  delete[] cTgrid;
   cWgrid = new double[ncgrid + 1];
-  cTgrid = new double[ncgrid + 1];
-  const double a6 = a * a * a * a * a * a;
-  (void) a6;
   for (int g = 0; g <= ncgrid; g++) {
     const double adz = g * cwdz;
     const int n = 800;
@@ -1615,21 +1620,17 @@ void EwaldDispSlab::build_corr_kernels()
       IE *= hr / 3.0;
     }
     cWgrid[g] = pre * IE;
-    // tangential virial: exact -u_smooth part (adz<rcut) from corr_kernels; the thin
-    // [rcut, b] shell tangential term is added in the pressure phase (Phase 2).
-    if (adz < a) {
-      double w2d, f2d, pt2d;
-      corr_kernels(adz * adz, w2d, f2d, pt2d);
-      cTgrid[g] = pt2d;
-    } else {
-      cTgrid[g] = 0.0;
-    }
   }
 }
 
 /* ----------------------------------------------------------------------
    evaluate the smooth switched corr kernels: analytic z-force f2, interpolated
-   energy w2 and tangential pt2.  |dz| measured in z; support is [0, rcut+Delta].
+   energy w2, tangential pt2.  |dz| measured in z; support is [0, rcut+Delta].
+   pt2 = w2 exactly: the tangential strain derivative -(pi/A) int (r^2-dz^2)
+   phi'(r) dr integrates by parts to (2pi/A) int r phi dr = w2 because the
+   switched corr potential phi(rcut+Delta) ~ acc^2 ~ 0 (for the sharp lj/cut
+   kernel the rcut boundary term is what makes corr_kernels' pt2 != w2).
+   The normal (zz) virial is per-pair dz^2 * f2, accumulated by the callers.
 ------------------------------------------------------------------------- */
 
 void EwaldDispSlab::corr_smooth_kernels(double adz, double &w2, double &f2, double &pt2)
@@ -1653,7 +1654,7 @@ void EwaldDispSlab::corr_smooth_kernels(double adz, double &w2, double &f2, doub
   if (g >= ncgrid) g = ncgrid - 1;
   const double fr = xg - g;
   w2 = cWgrid[g] * (1.0 - fr) + cWgrid[g + 1] * fr;
-  pt2 = cTgrid[g] * (1.0 - fr) + cTgrid[g + 1] * fr;
+  pt2 = w2;
 }
 
 /* ----------------------------------------------------------------------
@@ -1760,16 +1761,19 @@ void EwaldDispSlab::corr_raw()
       const double bij = bi * ball[jg];
 
       // each unordered pair is summed from both ends -> 0.5 weight on energy/virial.
-      // normal (dim) virial is set from the trace in compute(), not here.
+      // normal (dim) virial: explicit dz^2*f2 (r_z f_z) for the smooth switched
+      // kernel; the sharp kernel keeps the trace in compute() instead.
       e_local += 0.5 * bij * w2;
       fz_i += delz * bij * f2;
       v_local[lat1] += 0.5 * bij * pt2;    // tangential lat1
       v_local[lat2] += 0.5 * bij * pt2;    // tangential lat2
+      if (corr_switch) v_local[dim] += 0.5 * bij * x2 * f2;
 
       if (evflag_atom) peatom[i] += 0.5 * bij * w2;
       if (vflag_atom) {
         vatom[i][lat1] += 0.5 * bij * pt2;
         vatom[i][lat2] += 0.5 * bij * pt2;
+        if (corr_switch) vatom[i][dim] += 0.5 * bij * x2 * f2;
       }
     }
 
@@ -1786,6 +1790,7 @@ void EwaldDispSlab::corr_raw()
     MPI_Allreduce(v_local, v_all, 6, MPI_DOUBLE, MPI_SUM, world);
     virial[lat1] += v_all[lat1];
     virial[lat2] += v_all[lat2];
+    if (corr_switch) virial[dim] += v_all[dim];
   }
 
   delete[] recvcounts;
@@ -2012,12 +2017,12 @@ void EwaldDispSlab::corr_bin_smooth()
 
   const int reach = (int) ((bcut + half) / dz) + 1;
 
-  double e_local = 0.0, vt_local = 0.0;
+  double e_local = 0.0, vt_local = 0.0, vn_local = 0.0;
   for (int i = 0; i < nlocal; i++) {
     const double zi = x[i][dim];
     const double bi = B[type[i]];
     const int ci = acell[i];
-    double accF = 0.0, accE = 0.0, accT = 0.0;
+    double accF = 0.0, accE = 0.0, accT = 0.0, accN = 0.0;
     for (int off = -reach; off <= reach; off++) {
       int c = (ci + off) % nbins;
       if (c < 0) c += nbins;
@@ -2043,15 +2048,18 @@ void EwaldDispSlab::corr_bin_smooth()
         accF += W * rho * d * f2;    // KFz(d) = d * f2(|d|)
         accE += W * rho * w2;
         accT += W * rho * pt2;
+        accN += W * rho * d * d * f2;    // normal (zz): r_z f_z = d^2 f2
       }
     }
     f[i][dim] += bi * accF;
     e_local += 0.5 * bi * accE;
     vt_local += 0.5 * bi * accT;
+    vn_local += 0.5 * bi * accN;
     if (evflag_atom) peatom[i] += 0.5 * bi * accE;
     if (vflag_atom) {
       vatom[i][lat1] += 0.5 * bi * accT;
       vatom[i][lat2] += 0.5 * bi * accT;
+      vatom[i][dim] += 0.5 * bi * accN;
     }
   }
 
@@ -2060,10 +2068,11 @@ void EwaldDispSlab::corr_bin_smooth()
   corr_energy = e_all;
   if (eflag_global) energy += e_all;
   if (vflag_global) {
-    double vt_all;
-    MPI_Allreduce(&vt_local, &vt_all, 1, MPI_DOUBLE, MPI_SUM, world);
-    virial[lat1] += vt_all;
-    virial[lat2] += vt_all;
+    double vtn[2] = {vt_local, vn_local}, vtn_all[2];
+    MPI_Allreduce(vtn, vtn_all, 2, MPI_DOUBLE, MPI_SUM, world);
+    virial[lat1] += vtn_all[0];
+    virial[lat2] += vtn_all[0];
+    virial[dim] += vtn_all[1];
   }
 
   delete[] M;
