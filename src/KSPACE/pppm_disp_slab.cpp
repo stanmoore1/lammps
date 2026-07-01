@@ -72,6 +72,10 @@ PPPMDispSlab::PPPMDispSlab(LAMMPS *lmp) :
   sw_width = 0.0;
   switch_order = 3;
   corr_mode = 0;
+  corr_switch = 0;
+  cWgrid = nullptr;
+  ncgrid = 0;
+  cwdz = 0.0;
   bin_dz_user = 0.0;
   bin_nbins = 0;
   g_ewald_set = 0.0;
@@ -96,6 +100,7 @@ PPPMDispSlab::~PPPMDispSlab()
   memory->destroy(ugrid);
   memory->destroy(uTgrid);
   memory->destroy(uNgrid);
+  delete[] cWgrid;
   delete[] wEgrid;
   delete[] wFgrid;
   delete[] wTgrid;
@@ -239,6 +244,21 @@ void PPPMDispSlab::init()
     // not the (1-S)*u complement: corr_csb() removes the plane mean-field S*u there.
     int *p_full = (int *) force->pair->extract("csb_full_shell", itmp2);
     if (p_full) *p_full = 1;
+  }
+
+  // damped variant: if the matched pair supplies a dispersion switch width
+  // (lj/cut/dispswitch in its default (1-S) mode), the smooth switched corr is
+  // merged into the influence function (corr_switch; no real-space corr step).
+  corr_switch = 0;
+  if (damp_flag != 2) {
+    int itmp2;
+    double *p_dz = (double *) force->pair->extract("disp_switch_width", itmp2);
+    if (p_dz && *p_dz > 0.0) {
+      sw_width = *p_dz;
+      corr_switch = 1;
+      int *p_full = (int *) force->pair->extract("csb_full_shell", itmp2);
+      if (p_full) *p_full = 0;
+    }
   }
 
   // accuracy in force units
@@ -407,6 +427,17 @@ void PPPMDispSlab::estimate_params()
       ngrid <<= 1;
     }
     nz = ngrid;
+    // merged smooth corr (corr_switch): the same grid must also resolve the corr
+    // kernel (peak width ~1/g_ewald).  Measured vs the exact ewald/disp/slab corr
+    // raw (bench slab, order 5): dz*g = 0.6 -> 3e-5, 0.3 -> 4.8e-6, 0.16 -> 2.4e-7
+    // relative force error, i.e. ~(dz*g)^4; invert with a ~2x safety margin.
+    if (corr_switch) {
+      double dzg = 0.35 * pow(acc / 1.0e-5, 0.25);
+      dzg = MAX(0.12, MIN(0.7, dzg));
+      int nzc = 1;
+      while (nzc < (int) (zprd * g_ewald / dzg)) nzc <<= 1;
+      if (nz < nzc) nz = nzc;
+    }
   }
   if (nz < 8) nz = 8;
 
@@ -466,7 +497,7 @@ void PPPMDispSlab::setup()
   memory->create(GNk, nz, "pppm/disp/slab:GNk");
   memory->create(fz_grid, nz, "pppm/disp/slab:fz_grid");
   memory->create(ugrid, nz, "pppm/disp/slab:ugrid");
-  if (damp_flag == 2) {
+  if (damp_flag == 2 || corr_switch) {
     memory->create(uTgrid, nz, "pppm/disp/slab:uTgrid");
     memory->create(uNgrid, nz, "pppm/disp/slab:uNgrid");
   }
@@ -478,6 +509,7 @@ void PPPMDispSlab::setup()
   }
   compute_rho_coeff();
 
+  if (corr_switch) build_corr_kernels();
   influence_function();
 
   if (damp_flag == 2) build_shell_vkernels();
@@ -485,7 +517,7 @@ void PPPMDispSlab::setup()
   // size the corr bin grid to the requested force accuracy (auto, unless the
   // user fixed the width with kspace_modify corr bin <dz>).  The compact-switch
   // shell correction (corr_csb_bin) sizes its own grid, so skip this calibration.
-  if (damp_flag != 2 && corr_mode == 1 && bin_dz_user <= 0.0) calibrate_bin();
+  if (damp_flag != 2 && !corr_switch && corr_mode == 1 && bin_dz_user <= 0.0) calibrate_bin();
 }
 
 /* ----------------------------------------------------------------------
@@ -567,6 +599,25 @@ void PPPMDispSlab::influence_function()
   const double coef = -2.0 * MY_PI * sqpi / (24.0 * volume);
   // m=0 (homogeneous tail) term: W_E(0) = GU[0] = -pi^1.5 g^3 / (6 V)
   Gk[0] = -MY_PI * sqpi * g_ewald * g_ewald * g_ewald / (6.0 * volume);
+  if (corr_switch) {
+    // merged smooth switched corr.  The binned corr convolution is diagonal in the
+    // grid's Fourier basis: E_corr = sum_k [0.5 W~2(k)/Lz] |S_k|^2 with W~2 the 1-D
+    // transform of the smooth corr kernel w2(|dz|) (corr_e vanishes smoothly at
+    // rcut+Delta, so W~2 decays fast and the grid resolves it).  Fold it into the
+    // influence function: one spread + FFT + combined kernel + interpolation does
+    // recip AND corr (energy, ik force, per-atom) with no real-space corr step.
+    // Virial: the corr tangential coefficient equals its energy coefficient
+    // (pt2 = w2, boundary term ~ acc^2), so GTk = Gk merged; the normal is the
+    // exact strain derivative: reciprocal GN = GU + h dGU/dh =
+    // 0.5 coef (4 Bk - 1.5 h^3 e^{-b^2}/b^3) per mode, corr
+    // CN = 0.5 (W~2 + k dW~2/dk)/Lz (the same identity structure).
+    double w2t0, kw2p0;
+    corr_tilde(0.0, w2t0, kw2p0);
+    const double ce0 = 0.5 * w2t0 / zprd;
+    GNk[0] = Gk[0] + ce0;    // reciprocal GN(k=0) = GU(0)
+    Gk[0] += ce0;
+    GTk[0] = Gk[0];
+  }
   for (int m = 1; m < nz; m++) {
     int mm = (m <= nz / 2) ? m : m - nz;    // signed mode index
     double k = mm * 2.0 * MY_PI / zprd;
@@ -576,8 +627,93 @@ void PPPMDispSlab::influence_function()
     double WE = 0.5 * coef * Bk;    // GU[|mm|]/2  (full-spectrum per-mode coeff)
     double s = sin(MY_PI * mm / nz) / (MY_PI * mm / nz);
     double w2 = pow(s, 2 * order);
-    Gk[m] = WE / w2;
+    if (corr_switch) {
+      double w2t, kw2p;
+      corr_tilde(ak, w2t, kw2p);
+      const double CE = 0.5 * w2t / zprd;
+      const double CN = 0.5 * (w2t + kw2p) / zprd;
+      const double WN = 0.5 * coef * (4.0 * Bk - 1.5 * ak * ak * ak * exp(-b2) / b3);
+      Gk[m] = (WE + CE) / w2;
+      GTk[m] = Gk[m];
+      GNk[m] = (WN + CN) / w2;
+    } else {
+      Gk[m] = WE / w2;
+    }
   }
+}
+
+/* ----------------------------------------------------------------------
+   smooth (Gaussian-screened) 1/r^6 = u(r) - u_short(r); Taylor near r=0.
+------------------------------------------------------------------------- */
+
+double PPPMDispSlab::u_smooth(double r)
+{
+  const double g2 = g_ewald * g_ewald;
+  const double r2 = r * r;
+  const double a2 = g2 * r2;
+  if (a2 < 0.1) {
+    const double g6 = g2 * g2 * g2, g8 = g6 * g2, g10 = g8 * g2, g12 = g10 * g2;
+    return g6 / 6.0 - g8 * r2 / 8.0 + g10 * r2 * r2 / 20.0 - g12 * r2 * r2 * r2 / 72.0;
+  }
+  const double r6 = r2 * r2 * r2;
+  return (1.0 - (1.0 + a2 + 0.5 * a2 * a2) * exp(-a2)) / r6;
+}
+
+/* ----------------------------------------------------------------------
+   tabulate the smooth switched corr energy kernel w2(|dz|) over [0, rcut+Delta]:
+   w2 = (2 pi/area) int_{|dz|}^{b} r corr_e(r) dr,
+   corr_e(r) = u_smooth(r) - [r>rcut] S(r)/r^6 (vanishes smoothly at b).
+   Same math as ewald/disp/slab build_corr_kernels.
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::build_corr_kernels()
+{
+  const double a = cutoff, b = cutoff + sw_width;
+  const double pre = 2.0 * MY_PI / area;
+  ncgrid = 2048;
+  cwdz = b / ncgrid;
+  delete[] cWgrid;
+  cWgrid = new double[ncgrid + 1];
+  for (int g = 0; g <= ncgrid; g++) {
+    const double adz = g * cwdz;
+    const int n = 400;
+    const double hr = (b - adz) / n;
+    double IE = 0.0;
+    if (hr > 0.0) {
+      for (int i = 0; i <= n; i++) {
+        const double r = adz + i * hr;
+        const double rr = (r > 1.0e-300) ? r : 1.0e-300;
+        double ce = u_smooth(rr);
+        if (rr > a) {
+          const double r6 = rr * rr * rr * rr * rr * rr;
+          ce -= switch_S((rr - a) / sw_width) / r6;
+        }
+        const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+        IE += w * rr * ce;
+      }
+      IE *= hr / 3.0;
+    }
+    cWgrid[g] = pre * IE;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   1-D Fourier transforms of the tabulated corr kernel (Simpson over the table):
+     w2t  = W~2(k)        = 2 int_0^b w2(z) cos(kz) dz
+     kw2p = k dW~2(k)/dk  = -2 k int_0^b z w2(z) sin(kz) dz
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::corr_tilde(double k, double &w2t, double &kw2p)
+{
+  double sc = 0.0, ss = 0.0;
+  for (int g = 0; g <= ncgrid; g++) {
+    const double z = g * cwdz;
+    const double w = (g == 0 || g == ncgrid) ? 1.0 : (g % 2 ? 4.0 : 2.0);
+    sc += w * cWgrid[g] * cos(k * z);
+    ss += w * z * cWgrid[g] * sin(k * z);
+  }
+  w2t = 2.0 * sc * cwdz / 3.0;
+  kw2p = -2.0 * k * ss * cwdz / 3.0;
 }
 
 /* ----------------------------------------------------------------------
@@ -927,7 +1063,7 @@ void PPPMDispSlab::poisson()
   e_recip_mesh = e;
   if (eflag_global) energy += e;
   if (vflag_global) {
-    if (damp_flag == 2) {
+    if (damp_flag == 2 || corr_switch) {
       // compact switch: explicit tangential (GTk) and normal (GNk) kernels (the
       // homogeneity trace relation does not hold for the non-power-law S*u)
       double vt = 0.0, vn = 0.0;
@@ -958,8 +1094,8 @@ void PPPMDispSlab::poisson()
     }
     fft1d(ur, ui, nz, +1);
     for (int g = 0; g < nz; g++) ugrid[g] = ur[g];
-    // compact switch: tangential/normal per-atom virial fields (GTk/GNk kernels)
-    if (damp_flag == 2) {
+    // compact switch / merged smooth corr: per-atom virial fields (GTk/GNk kernels)
+    if (damp_flag == 2 || corr_switch) {
       for (int m = 0; m < nz; m++) {
         double gt2 = 2.0 * GTk[m];
         ur[m] = gt2 * fre[m];
@@ -1019,7 +1155,7 @@ void PPPMDispSlab::fieldforce()
       fz += w[s] * fz_grid[g];
       if (evflag_atom) {
         uu += w[s] * ugrid[g];
-        if (damp_flag == 2) {
+        if (damp_flag == 2 || corr_switch) {
           uT += w[s] * uTgrid[g];
           uN += w[s] * uNgrid[g];
         }
@@ -1031,7 +1167,7 @@ void PPPMDispSlab::fieldforce()
       double pe = 0.5 * bi * uu;    // per-atom reciprocal energy
       peatom[i] += pe;
       if (vflag_atom) {
-        if (damp_flag == 2) {
+        if (damp_flag == 2 || corr_switch) {
           // explicit tangential (GTk) and normal (GNk) per-atom virial fields
           vatom[i][lat1] += 0.5 * bi * uT;
           vatom[i][lat2] += 0.5 * bi * uT;
@@ -1072,15 +1208,17 @@ void PPPMDispSlab::compute(int eflag, int vflag)
   // it must run every step (the z-force is removed unconditionally).
 
   corr_energy = 0.0;
-  if (damp_flag != 2) corr();
-  else corr_csb();
+  if (damp_flag == 2) corr_csb();
+  else if (!corr_switch) corr();
+  // corr_switch: the smooth switched corr is merged into the influence function
+  // (energy, ik force, virial, per-atom all handled in poisson()/fieldforce())
 
   // normal (zz) virial.  For the damped (power-law) variant the homogeneity trace
   // gives it cheaply: sum r.f = 6 U => virial_zz = 6*E - virial_xx - virial_yy.
   // The compact switch is non-homogeneous (S varies), so its normal is the
   // explicit GNk kernel accumulated in poisson()/fieldforce() instead.
 
-  if (damp_flag != 2) {
+  if (damp_flag != 2 && !corr_switch) {
     if (vflag_global)
       virial[dim] = 6.0 * (e_recip_mesh + corr_energy) - virial[lat1] - virial[lat2];
     if (vflag_atom)

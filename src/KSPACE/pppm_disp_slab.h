@@ -58,6 +58,9 @@ class PPPMDispSlab : public KSpace {
   int order;             // assignment/interpolation stencil order
   int damp_flag;         // 0 = damped (SSB); 2 = compact switch (CSB)
   int corr_mode;         // damped correction: 0 = raw pairwise, 1 = binned
+  int corr_switch;       // 1 = damped + matched lj/cut/dispswitch pair: the smooth
+                         //     switched corr is merged into the influence function
+                         //     (no real-space corr step; see influence_function)
   double bin_dz_user;    // user-requested bin width for corr bin (0 => auto)
   int bin_nbins;         // calibrated # corr bins (0 => not calibrated)
   double g_ewald_set;    // splitting parameter actually used
@@ -83,6 +86,16 @@ class PPPMDispSlab : public KSpace {
   // of S*u over [rcut, rcut+Delta], subtracted in real space so the matched pair's
   // exact 3-D shell interaction replaces the reciprocal sum's plane mean field.
   double *wEgrid, *wFgrid, *wTgrid, *wNgrid;
+  // smooth switched corr (corr_switch): tabulated plane energy kernel w2(|dz|) of
+  // corr_e(r) = u_smooth(r) - [r>rcut] S(r)/r^6 over [0, rcut+Delta], and its
+  // 1-D Fourier transforms (corr_tilde) merged per-mode into Gk/GTk/GNk.
+  double *cWgrid;
+  int ncgrid;
+  double cwdz;
+  double u_smooth(double r);       // smooth (Gaussian-screened) 1/r^6, Taylor near 0
+  void build_corr_kernels();       // tabulate w2 by quadrature at setup
+  // w2t = 2 int w2 cos(kz) dz;  kw2p = k dW~2/dk = -2k int z w2 sin(kz) dz
+  void corr_tilde(double k, double &w2t, double &kw2p);
   int nwgrid;
   double wdz;
 
