@@ -229,11 +229,8 @@ void EwaldDispSlab::init()
   rc2 = cutoff * cutoff;
 
   // compact-switch (CSB) variant: the matched pair style supplies the switch
-  // width Delta (and the (1-S)*u shell complement over the inner shell
-  // [rcut-Delta, rcut]).  "cut_lj" above is the INNER boundary rcut-Delta (where
-  // the switch starts); the pair's actual interaction cutoff is rcut = cutoff +
-  // sw_width (mirrors the planar lj/cut/dispplanar geometry -- the pair shares
-  // one neighbor cutoff with plain lj/cut instead of extending past rcut).
+  // width Delta (and the (1-S)*u shell complement over [rcut, rcut+Delta]).  The
+  // pair's interaction cutoff is rcut+Delta; "cut_lj" above is the inner rcut.
 
   if (damp_flag == 2) {
     int itmp2;

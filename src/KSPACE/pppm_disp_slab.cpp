@@ -228,11 +228,10 @@ void PPPMDispSlab::init()
   rc2 = cutoff * cutoff;
 
   // compact-switch (CSB) variant: the matched pair style supplies the switch width
-  // Delta; "cut_lj" above is the INNER boundary rcut-Delta (where the switch
-  // starts).  The pair evaluates the full dispersion u over the inner shell
-  // [rcut-Delta, rcut] (exact 3-D, ending at its own cutoff rcut = cutoff +
-  // sw_width) and corr_csb() removes the reciprocal sum's plane mean-field S*u
-  // there, eliminating the lateral-correlation residual in energy and pressure.
+  // Delta; "cut_lj" above is the inner rcut.  The pair evaluates the full dispersion
+  // u over the shell [rcut, rcut+Delta] (exact 3-D) and corr_csb() removes the
+  // reciprocal sum's plane mean-field S*u there, eliminating the lateral-correlation
+  // residual in energy and pressure.
 
   if (damp_flag == 2) {
     int itmp2;
