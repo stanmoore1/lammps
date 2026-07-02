@@ -59,6 +59,9 @@ class EwaldDispSlab : public KSpace {
   int corr_switch;       // 1 = damped corr uses the smooth switched-pair kernel (no rcut
                          //     force discontinuity -> high-order binning); set in init()
                          //     when damp_flag==1 and the pair supplies disp_switch_width
+  int corr_merge;        // 1 (default) = fold the smooth corr into the reciprocal
+                         //     coefficients (merge_corr_coeffs; no real-space corr step);
+                         //     kspace_modify corr raw|bin selects the real-space paths
   double bin_dz_user;    // requested bin width (0 => default)
   int bin_nbins;         // calibrated # corr bins (0 => not calibrated)
   double sw_width;       // compact-switch width Delta (read from the matched pair style)
@@ -147,6 +150,13 @@ class EwaldDispSlab : public KSpace {
   // normal uses the exact per-mode strain derivative GN[k] = GU + h dGU/dh (coeffs()),
   // so the switched variant never relies on the 6E homogeneity trace.
   void corr_smooth_kernels(double adz, double &w2, double &f2, double &pt2);
+  // MERGED smooth corr: the corr energy is a z-convolution of the B-density with
+  // w2(z), diagonal in the reciprocal basis (E_corr = sum_n [W~2(k_n)/Lz]|S_n|^2),
+  // so it folds directly into the per-mode GU/GT/GN coefficients -- no real-space
+  // corr() step, no binning.  corr_tilde returns W~2(k) and k dW~2/dk (1-D Fourier
+  // transforms of the tabulated kernel); merge_corr_coeffs adds them to GU/GF/GT/GN.
+  void corr_tilde(double k, double &w2t, double &kw2p);
+  void merge_corr_coeffs();
 
   // generalized sine/cosine integrals via recurrence + continued fraction
   void cisi(double x, double &si, double &ci);

@@ -73,6 +73,7 @@ EwaldDispSlab::EwaldDispSlab(LAMMPS *lmp) :
   nwgrid = 0;
   wdz = 0.0;
   corr_switch = 0;
+  corr_merge = 1;
   cWgrid = nullptr;
   ncgrid = 0;
   cwdz = 0.0;
@@ -154,15 +155,20 @@ int EwaldDispSlab::modify_param(int narg, char **arg)
     if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify corr", error);
     if (strcmp(arg[1], "raw") == 0) {
       corr_mode = 0;
+      corr_merge = 0;
     } else if (strcmp(arg[1], "bin") == 0) {
       corr_mode = 1;
+      corr_merge = 0;
       if (narg >= 3 && arg[2][0] != '\0' && (isdigit(arg[2][0]) || arg[2][0] == '.')) {
         bin_dz_user = utils::numeric(FLERR, arg[2], false, lmp);
         if (bin_dz_user <= 0.0) error->all(FLERR, "kspace_modify corr bin <dz> must be > 0");
         return 3;
       }
+    } else if (strcmp(arg[1], "merge") == 0) {
+      // smooth-damped default: corr folded into the reciprocal coefficients
+      corr_merge = 1;
     } else {
-      error->all(FLERR, "kspace_modify corr must be raw or bin");
+      error->all(FLERR, "kspace_modify corr must be raw, bin, or merge");
     }
     return 2;
   }
@@ -442,6 +448,44 @@ void EwaldDispSlab::estimate_params()
   if (kmax_user > 0) kmax = kmax_user;
   else kmax = MAX(8, MIN(chosen, kbig));
 
+  // merged smooth corr (corr_switch + corr_merge): the corr is folded into the
+  // reciprocal coefficients (merge_corr_coeffs), and its Fourier content W~2(k)
+  // decays SLOWER than the Gaussian reciprocal (the switch feature is sharper than
+  // the g_ewald Gaussian), so kmax must also resolve the corr force tail
+  // 2k*W~2(k)/Lz.  Same random-phase tail criterion as above, but that model
+  // over-predicts the corr force error by ~12-20x (measured: it picked kmax=205
+  // where the true error was 5.1e-7 at a 1e-5 target; the measured requirement is
+  // kmax ~ 106, err ~ kmax^-5.5).  Target 4*accuracy so the scan's over-prediction
+  // lands the true error at ~acc/3 (bench slab: ~+30% kmax over the reciprocal
+  // requirement, vs the real-space corr_bin_smooth step this replaces, which costs
+  // 10-40x the whole reciprocal sum per step).
+  if (corr_switch && corr_merge && kmax_user == 0) {
+    build_corr_kernels();
+    const double invLz = 1.0 / domain->prd[dim];
+    const double uk = 2.0 * MY_PI / domain->prd[dim];
+    const int ccap = MIN(kbig, 8 * kmax + 128);
+    auto *cf2 = new double[ccap + 1];
+    for (int k = 1; k <= ccap; k++) {
+      double w2t, kw2p;
+      corr_tilde(k * uk, w2t, kw2p);
+      const double cf = 2.0 * (k * uk) * w2t * invLz;    // corr force per mode
+      cf2[k] = cf * cf;
+    }
+    const double ctarget = 16.0 * accuracy * accuracy;    // (4*acc)^2, see above
+    double ctail = 0.0;
+    int ck = ccap;
+    for (int kmx = ccap - 1; kmx >= 4; kmx--) {
+      ctail += cf2[kmx + 1];
+      if (prefac * ctail >= ctarget) {
+        ck = kmx + 1;
+        break;
+      }
+      ck = kmx;
+    }
+    delete[] cf2;
+    if (ck > kmax) kmax = MIN(ck, kbig);
+  }
+
   // predicted RMS per-atom force error at the chosen kmax (bias-corrected)
   double tk = 0.0;
   for (int k = kmax + 1; k <= kbig; k++) tk += gf2[k];
@@ -492,7 +536,12 @@ void EwaldDispSlab::setup()
   init_coeffs();
   coeffs();
   if (damp_flag == 2) build_shell_vkernels();
-  if (corr_switch) build_corr_kernels();
+  if (corr_switch) {
+    build_corr_kernels();
+    // default: fold the corr into GU/GF/GT/GN (no real-space corr step).  The
+    // explicit kspace_modify corr raw|bin real-space paths remain as references.
+    if (corr_merge) merge_corr_coeffs();
+  }
 
   // size the corr bin count to the target force accuracy (auto, unless the user
   // fixed the bin width); the compact switch uses corr_csb, not corr(), so skip.
@@ -1314,7 +1363,10 @@ void EwaldDispSlab::compute(int eflag, int vflag)
   // set from the trace below)
 
   corr_energy = 0.0;
-  if (damp_flag == 1) corr();
+  if (damp_flag == 1 && !(corr_switch && corr_merge)) corr();
+  // corr_switch + corr_merge (default): the smooth corr is merged into GU/GF/GT/GN
+  // (merge_corr_coeffs), so the reciprocal sum above already includes it -- no
+  // real-space corr step.  kspace_modify corr raw|bin selects the real-space paths.
 
   // compact-switch (CSB) shell correction.  The reciprocal sum treats the shell
   // [rcut, rcut+Delta] with a laterally-uniform density (plane mean field), which
@@ -1934,6 +1986,53 @@ void EwaldDispSlab::build_corr_kernels()
       IE *= hr / 3.0;
     }
     cWgrid[g] = pre * IE;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   1-D Fourier transforms of the tabulated corr kernel (Simpson over the table):
+     w2t  = W~2(k)        = 2 int_0^b w2(z) cos(kz) dz
+     kw2p = k dW~2(k)/dk  = -2 k int_0^b z w2(z) sin(kz) dz
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::corr_tilde(double k, double &w2t, double &kw2p)
+{
+  double sc = 0.0, ss = 0.0;
+  for (int g = 0; g <= ncgrid; g++) {
+    const double z = g * cwdz;
+    const double w = (g == 0 || g == ncgrid) ? 1.0 : (g % 2 ? 4.0 : 2.0);
+    sc += w * cWgrid[g] * cos(k * z);
+    ss += w * z * cWgrid[g] * sin(k * z);
+  }
+  w2t = 2.0 * sc * cwdz / 3.0;
+  kw2p = -2.0 * k * ss * cwdz / 3.0;
+}
+
+/* ----------------------------------------------------------------------
+   fold the smooth switched corr into the reciprocal coefficients GU/GF/GT/GN
+   (corr_switch).  E_corr = sum_n [W~2(k_n)/Lz] |S_n|^2 is the same bilinear form
+   as the reciprocal sum, so per mode: GU += CE, GT += CE (corr tangential = corr
+   energy since pt2 = w2), GN += CN (the normal strain derivative), and GF is the
+   exact z-gradient 2k*GU of the merged energy.  The +/- k double-count gives a 0.5
+   on the k=0 term and 1.0 for k>=1 (each of the FFT's +-k modes carries 0.5, so
+   this matches the verified pppm/disp/slab merge exactly).  After this, compute()
+   skips corr() entirely -- the reciprocal sum does energy/force/virial + corr in
+   one pass, with no O(N^2) raw and no binning error.
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::merge_corr_coeffs()
+{
+  const double invLz = 1.0 / domain->prd[dim];
+  for (int k = 0; k < kcount; k++) {
+    double w2t, kw2p;
+    corr_tilde(k * unitk, w2t, kw2p);
+    const double f = (k == 0) ? 0.5 : 1.0;
+    const double CE = f * w2t * invLz;
+    const double CN = f * (w2t + kw2p) * invLz;
+    GU[k] += CE;
+    GT[k] += CE;
+    GN[k] += CN;
+    GF[k] = 2.0 * (k * unitk) * GU[k];    // exact z-gradient of the merged energy
   }
 }
 
