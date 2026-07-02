@@ -3,7 +3,7 @@ units           lj
 atom_style      atomic
 boundary        p p p
 read_data       data.lj_slab
-pair_style      lj/cut/dispswitch 3.0 0.6
+pair_style      lj/cut/dispswitch 3.6 0.6
 pair_coeff      1 1 1.0 1.0
 kspace_style    ewald/disp/slab 1.0e-4
 kspace_modify   damp compact
