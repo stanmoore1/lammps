@@ -431,14 +431,20 @@ void PPPMDispSlab::estimate_params()
     }
     nz = ngrid;
     // merged smooth corr (corr_switch): the same grid must also resolve the corr
-    // kernel (peak width ~1/g_ewald).  Measured vs the exact ewald/disp/slab corr
-    // raw (bench slab, order 5): dz*g = 0.6 -> 3e-5, 0.3 -> 4.8e-6, 0.16 -> 2.4e-7
-    // relative force error, i.e. ~(dz*g)^4; invert with a ~2x safety margin.
+    // kernel, which has TWO features -- the Gaussian-screened peak (width ~1/g_ewald)
+    // and, when the switch width Delta < 1/g_ewald, the sharper (1-S) switch shell
+    // (width ~Delta).  The grid must resolve the SHARPER of the two.  Measured vs the
+    // exact ewald/disp/slab corr raw (bench slab, order 5, acc 1e-5): dz ~ 0.35/g
+    // reaches ~2e-7, and for Delta < 1/g, dz ~ 0.39*Delta reaches ~1e-5 (dz*g ^4 /
+    // dz/Delta scaling); use 0.35*min(1/g, Delta) with the same ~2x margin as the
+    // Gaussian floor.  Delta >= 1/g reduces to the original 1/g-only floor.
     if (corr_switch) {
-      double dzg = 0.35 * pow(acc / 1.0e-5, 0.25);
-      dzg = MAX(0.12, MIN(0.7, dzg));
+      const double s = pow(acc / 1.0e-5, 0.25);
+      double feat = MIN(1.0 / g_ewald, sw_width);    // sharper corr-kernel feature
+      double dz_target = 0.35 * s * feat;
+      dz_target = MAX(dz_target, 0.02);              // sanity floor (avoid runaway nz)
       int nzc = 1;
-      while (nzc < (int) (zprd * g_ewald / dzg)) nzc <<= 1;
+      while (nzc < (int) (zprd / dz_target)) nzc <<= 1;
       if (nz < nzc) nz = nzc;
     }
   }
