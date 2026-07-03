@@ -13,21 +13,21 @@
 
 #ifdef KSPACE_CLASS
 // clang-format off
-KSpaceStyle(ewald/disp/slab,EwaldDispSlab);
+KSpaceStyle(ewald/disp/planar,EwaldDispPlanar);
 // clang-format on
 #else
 
-#ifndef LMP_EWALD_DISP_SLAB_H
-#define LMP_EWALD_DISP_SLAB_H
+#ifndef LMP_EWALD_DISP_PLANAR_H
+#define LMP_EWALD_DISP_PLANAR_H
 
 #include "kspace.h"
 
 namespace LAMMPS_NS {
 
-class EwaldDispSlab : public KSpace {
+class EwaldDispPlanar : public KSpace {
  public:
-  EwaldDispSlab(class LAMMPS *);
-  ~EwaldDispSlab() override;
+  EwaldDispPlanar(class LAMMPS *);
+  ~EwaldDispPlanar() override;
   void init() override;
   void setup() override;
   void settings(int, char **) override;
@@ -69,7 +69,7 @@ class EwaldDispSlab : public KSpace {
   double switch_dS(double t);    // dS/dt = 140 t^3 (1-t)^3
 
   // Irving-Kirkwood pressure-profile building blocks (S*u tail; shared with
-  // pppm/disp/slab / pppm/disp/planar).  All self-contained in the switched
+  // pppm/disp/planar / pppm/disp/planar).  All self-contained in the switched
   // dispersion potential (cutoff, sw_width, B, volume); independent of the solve.
   enum { PROF_T, PROF_N, PROF_PHI };
   void cisi(double x, double &si, double &ci);

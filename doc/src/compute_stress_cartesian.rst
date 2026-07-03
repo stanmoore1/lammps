@@ -49,7 +49,7 @@ Irving--Kirkwood contour, which is the straight line between particle pairs.
 
 This compute supports the kinetic, pair, and bond contributions to the
 stress, plus an optional long-range (*kspace*) contribution from the
-slab dispersion solvers (see below); it does not support angle,
+planar dispersion solvers (see below); it does not support angle,
 dihedral, or improper forces. By default, if no extra keywords are
 specified, the kinetic, pair, and bond contributions are included (the
 *kspace* contribution is off by default). If any keywords are specified,
@@ -58,13 +58,13 @@ then only those components are summed.
 .. versionadded:: TBD
 
 The *kspace* keyword adds the long-range Irving-Kirkwood pressure profile
-from the slab dispersion solver :doc:`pppm/disp/slab <kspace_style>` to the
+from the planar dispersion solver :doc:`pppm/disp/planar <kspace_style>` to the
 configurational (virial) stress columns :math:`P^v_{xx}`,
 :math:`P^v_{yy}`, and :math:`P^v_{zz}`.  The solver supplies its
 long-range contribution on this compute's own bin grid, so the binning
 matches automatically.  This keyword requires one-dimensional binning
 (the second dimension must be *NULL*), the binning direction *dim1* must
-match the inhomogeneous axis of the solver, and a slab dispersion solver
+match the inhomogeneous axis of the solver, and a planar dispersion solver
 must be defined.  The number of bins must satisfy
 :math:`N_\text{bins} > 2\,k_\text{max}` so that the reciprocal-space modes
 of the Irving-Kirkwood contour are resolved without aliasing; if the bin

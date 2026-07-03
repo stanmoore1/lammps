@@ -24,8 +24,8 @@ PairStyle(lj/cut/dispswitch,PairLJCutDispSwitch);
 
 namespace LAMMPS_NS {
 
-// Matched short-range pair style for the slab dispersion solvers ewald/disp/slab
-// and pppm/disp/slab.  The full LJ is computed to the inner cutoff rcut.  Over the
+// Matched short-range pair style for the slab dispersion solvers ewald/disp/planar
+// and pppm/disp/planar.  The full LJ is computed to the inner cutoff rcut.  Over the
 // shell [rcut, rcut+Delta] the attractive 1/r^6 dispersion is switched off by
 // (1-S(r)) with S the C3 septic smoothstep, and the matched reciprocal sum
 // supplies the plane S(r)*u tail (folded into its influence-function correction).

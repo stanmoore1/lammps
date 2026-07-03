@@ -13,17 +13,17 @@
 
 #ifdef KSPACE_CLASS
 // clang-format off
-KSpaceStyle(pppm/disp/slab/kk,PPPMDispSlabKokkos<LMPDeviceType>);
-KSpaceStyle(pppm/disp/slab/kk/device,PPPMDispSlabKokkos<LMPDeviceType>);
-KSpaceStyle(pppm/disp/slab/kk/host,PPPMDispSlabKokkos<LMPHostType>);
+KSpaceStyle(pppm/disp/planar/kk,PPPMDispPlanarKokkos<LMPDeviceType>);
+KSpaceStyle(pppm/disp/planar/kk/device,PPPMDispPlanarKokkos<LMPDeviceType>);
+KSpaceStyle(pppm/disp/planar/kk/host,PPPMDispPlanarKokkos<LMPHostType>);
 // clang-format on
 #else
 
 // clang-format off
-#ifndef LMP_PPPM_DISP_SLAB_KOKKOS_H
-#define LMP_PPPM_DISP_SLAB_KOKKOS_H
+#ifndef LMP_PPPM_DISP_PLANAR_KOKKOS_H
+#define LMP_PPPM_DISP_PLANAR_KOKKOS_H
 
-#include "pppm_disp_slab.h"
+#include "pppm_disp_planar.h"
 #include "fft3d_kokkos.h"
 #include "fftdata_kokkos.h"
 #include "kokkos_type.h"
@@ -32,103 +32,103 @@ KSpaceStyle(pppm/disp/slab/kk/host,PPPMDispSlabKokkos<LMPHostType>);
 namespace LAMMPS_NS {
 
 // functor tags for the device kernels
-struct TagPPPMDispSlab_make_rho_zero{};
-struct TagPPPMDispSlab_make_rho{};
-struct TagPPPMDispSlab_dens_to_work{};
-struct TagPPPMDispSlab_poisson_energy{};
-struct TagPPPMDispSlab_poisson_virial{};
-struct TagPPPMDispSlab_poisson_uT_prep{};
-struct TagPPPMDispSlab_poisson_uT_copy{};
-struct TagPPPMDispSlab_poisson_uN_prep{};
-struct TagPPPMDispSlab_poisson_uN_copy{};
-struct TagPPPMDispSlab_poisson_fz_prep{};
-struct TagPPPMDispSlab_poisson_fz_copy{};
-struct TagPPPMDispSlab_poisson_u_prep{};
-struct TagPPPMDispSlab_poisson_u_copy{};
-struct TagPPPMDispSlab_fieldforce{};
-struct TagPPPMDispSlab_fieldforce_peratom{};
-struct TagPPPMDispSlab_peatom_zero{};
-struct TagPPPMDispSlab_peratom_finalize{};
+struct TagPPPMDispPlanar_make_rho_zero{};
+struct TagPPPMDispPlanar_make_rho{};
+struct TagPPPMDispPlanar_dens_to_work{};
+struct TagPPPMDispPlanar_poisson_energy{};
+struct TagPPPMDispPlanar_poisson_virial{};
+struct TagPPPMDispPlanar_poisson_uT_prep{};
+struct TagPPPMDispPlanar_poisson_uT_copy{};
+struct TagPPPMDispPlanar_poisson_uN_prep{};
+struct TagPPPMDispPlanar_poisson_uN_copy{};
+struct TagPPPMDispPlanar_poisson_fz_prep{};
+struct TagPPPMDispPlanar_poisson_fz_copy{};
+struct TagPPPMDispPlanar_poisson_u_prep{};
+struct TagPPPMDispPlanar_poisson_u_copy{};
+struct TagPPPMDispPlanar_fieldforce{};
+struct TagPPPMDispPlanar_fieldforce_peratom{};
+struct TagPPPMDispPlanar_peatom_zero{};
+struct TagPPPMDispPlanar_peratom_finalize{};
 
 // (tangential, normal) virial reduction accumulator for the mesh
-struct s_PPPMDispSlabVir {
+struct s_PPPMDispPlanarVir {
   double vt, vn;
-  KOKKOS_INLINE_FUNCTION s_PPPMDispSlabVir() { vt = 0.0; vn = 0.0; }
+  KOKKOS_INLINE_FUNCTION s_PPPMDispPlanarVir() { vt = 0.0; vn = 0.0; }
   KOKKOS_INLINE_FUNCTION
-  void operator+=(const s_PPPMDispSlabVir &rhs) { vt += rhs.vt; vn += rhs.vn; }
+  void operator+=(const s_PPPMDispPlanarVir &rhs) { vt += rhs.vt; vn += rhs.vn; }
 };
-typedef struct s_PPPMDispSlabVir s_vir;
+typedef struct s_PPPMDispPlanarVir s_vir;
 
 template<class DeviceType>
-class PPPMDispSlabKokkos : public PPPMDispSlab {
+class PPPMDispPlanarKokkos : public PPPMDispPlanar {
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   typedef FFTArrayTypes<DeviceType> FFT_AT;
 
-  PPPMDispSlabKokkos(class LAMMPS *);
-  ~PPPMDispSlabKokkos() override;
+  PPPMDispPlanarKokkos(class LAMMPS *);
+  ~PPPMDispPlanarKokkos() override;
   void init() override;
   void setup() override;
   void compute(int, int) override;
   double memory_usage() override;
 
   // long-range Irving-Kirkwood pressure profile (compute stress/cartesian hook).
-  // The host implementation PPPMDispSlab::pressure_profile_long reads atom->x/type
+  // The host implementation PPPMDispPlanar::pressure_profile_long reads atom->x/type
   // directly, so sync the KK atom data to host first (the profile is a rare
   // diagnostic; no device kernel is warranted).
   int pressure_profile_long(int, int, double, double, double *, double *) override;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_make_rho_zero, const int&) const;
+  void operator()(TagPPPMDispPlanar_make_rho_zero, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_make_rho, const int&) const;
+  void operator()(TagPPPMDispPlanar_make_rho, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_dens_to_work, const int&) const;
+  void operator()(TagPPPMDispPlanar_dens_to_work, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_poisson_energy, const int&, double&) const;
+  void operator()(TagPPPMDispPlanar_poisson_energy, const int&, double&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_poisson_virial, const int&, s_vir&) const;
+  void operator()(TagPPPMDispPlanar_poisson_virial, const int&, s_vir&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_poisson_uT_prep, const int&) const;
+  void operator()(TagPPPMDispPlanar_poisson_uT_prep, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_poisson_uT_copy, const int&) const;
+  void operator()(TagPPPMDispPlanar_poisson_uT_copy, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_poisson_uN_prep, const int&) const;
+  void operator()(TagPPPMDispPlanar_poisson_uN_prep, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_poisson_uN_copy, const int&) const;
+  void operator()(TagPPPMDispPlanar_poisson_uN_copy, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_poisson_fz_prep, const int&) const;
+  void operator()(TagPPPMDispPlanar_poisson_fz_prep, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_poisson_fz_copy, const int&) const;
+  void operator()(TagPPPMDispPlanar_poisson_fz_copy, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_poisson_u_prep, const int&) const;
+  void operator()(TagPPPMDispPlanar_poisson_u_prep, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_poisson_u_copy, const int&) const;
+  void operator()(TagPPPMDispPlanar_poisson_u_copy, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_fieldforce, const int&) const;
+  void operator()(TagPPPMDispPlanar_fieldforce, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_fieldforce_peratom, const int&) const;
+  void operator()(TagPPPMDispPlanar_fieldforce_peratom, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_peatom_zero, const int&) const;
+  void operator()(TagPPPMDispPlanar_peatom_zero, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispSlab_peratom_finalize, const int&) const;
+  void operator()(TagPPPMDispPlanar_peratom_finalize, const int&) const;
 
   // assignment weights w[0..order-1] at fractional offset dz (Horner in dz)
   KOKKOS_INLINE_FUNCTION

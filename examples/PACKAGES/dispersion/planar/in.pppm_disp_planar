@@ -1,4 +1,4 @@
-# Mesh-accelerated slab-based dispersion Ewald (pppm/disp/slab) for a planar LJ
+# Mesh-accelerated planar dispersion Ewald (pppm/disp/planar) for a planar LJ
 # liquid-vapor slab -- typically the fastest accurate long-range dispersion for
 # planar interfaces.  Pairs with the matched lj/cut/dispswitch pair style; the
 # smooth switched correction is folded into the mesh influence function, so one
@@ -14,7 +14,7 @@ read_data       data.lj_slab
 pair_style      lj/cut/dispswitch 2.5 0.5
 pair_coeff      1 1 1.0 1.0
 
-kspace_style    pppm/disp/slab 1.0e-4
+kspace_style    pppm/disp/planar 1.0e-4
 
 variable        lz equal lz
 variable        gamma equal 0.5*v_lz*(pzz-0.5*(pxx+pyy))

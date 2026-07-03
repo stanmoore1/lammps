@@ -8,6 +8,6 @@ __pycache__/
 
 # copies of shipped example inputs/data and text scratch
 data.lj_slab*
-in.ewald_disp_slab
-in.pppm_disp_slab
+in.ewald_disp_planar
+in.pppm_disp_planar
 *.txt

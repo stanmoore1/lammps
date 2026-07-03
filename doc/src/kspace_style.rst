@@ -2,7 +2,7 @@
 .. index:: kspace_style ewald/dipole
 .. index:: kspace_style ewald/dipole/spin
 .. index:: kspace_style ewald/disp
-.. index:: kspace_style ewald/disp/slab
+.. index:: kspace_style ewald/disp/planar
 .. index:: kspace_style ewald/disp/dipole
 .. index:: kspace_style ewald/omp
 .. index:: kspace_style ewald/electrode
@@ -17,7 +17,7 @@
 .. index:: kspace_style pppm/dipole
 .. index:: kspace_style pppm/dipole/spin
 .. index:: kspace_style pppm/disp
-.. index:: kspace_style pppm/disp/slab
+.. index:: kspace_style pppm/disp/planar
 .. index:: kspace_style pppm/disp/omp
 .. index:: kspace_style pppm/disp/tip4p
 .. index:: kspace_style pppm/disp/tip4p/omp
@@ -47,7 +47,7 @@ Syntax
 
    kspace_style style value
 
-* style = *none* or *ewald* or *ewald/dipole* or *ewald/dipole/spin* or *ewald/disp* or *ewald/disp/slab* or *ewald/disp/dipole* or *ewald/omp* or *ewald/electrode* or *pppm* or *pppm/cg* or *pppm/disp* or *pppm/disp/slab* or *pppm/tip4p* or *pppm/stagger* or *pppm/disp/tip4p* or *pppm/gpu* or *pppm/intel* or *pppm/disp/intel* or *pppm/kk* or *pppm/omp* or *pppm/cg/omp* or *pppm/disp/tip4p/omp* or *pppm/tip4p/omp* or *pppm/dielectic* or *pppm/disp/dielectric* or *pppm/electrode* or *pppm/electrode/intel* or *msm* or *msm/cg* or *msm/omp* or *msm/cg/omp* or *msm/dielectric* or *scafacos* or *zero*
+* style = *none* or *ewald* or *ewald/dipole* or *ewald/dipole/spin* or *ewald/disp* or *ewald/disp/planar* or *ewald/disp/dipole* or *ewald/omp* or *ewald/electrode* or *pppm* or *pppm/cg* or *pppm/disp* or *pppm/disp/planar* or *pppm/tip4p* or *pppm/stagger* or *pppm/disp/tip4p* or *pppm/gpu* or *pppm/intel* or *pppm/disp/intel* or *pppm/kk* or *pppm/omp* or *pppm/cg/omp* or *pppm/disp/tip4p/omp* or *pppm/tip4p/omp* or *pppm/dielectic* or *pppm/disp/dielectric* or *pppm/electrode* or *pppm/electrode/intel* or *msm* or *msm/cg* or *msm/omp* or *msm/cg/omp* or *msm/dielectric* or *scafacos* or *zero*
 
   .. parsed-literal::
 
@@ -60,7 +60,7 @@ Syntax
          accuracy = desired relative error in forces
        *ewald/disp* value = accuracy
          accuracy = desired relative error in forces
-       *ewald/disp/slab* value = accuracy
+       *ewald/disp/planar* value = accuracy
          accuracy = desired relative error in forces
        *ewald/disp/dipole* value = accuracy
          accuracy = desired relative error in forces
@@ -82,7 +82,7 @@ Syntax
          accuracy = desired relative error in forces
        *pppm/disp* value = accuracy
          accuracy = desired relative error in forces
-       *pppm/disp/slab* value = accuracy
+       *pppm/disp/planar* value = accuracy
          accuracy = desired relative error in forces
        *pppm/tip4p* value = accuracy
          accuracy = desired relative error in forces
@@ -205,7 +205,7 @@ The *ewald/disp/dipole* style can also be used with point-dipoles, see
 
 .. versionadded:: TBD
 
-The *ewald/disp/slab* style is a slab-based (SB) Ewald sum for the
+The *ewald/disp/planar* style is a planar Ewald sum for the
 :math:`1/r^6` dispersion interaction in systems whose average density varies in
 only one (:math:`z`) direction, such as a planar liquid-vapor interface
 :ref:`(Moore) <MooreSB>`.  Instead of the full three-dimensional reciprocal sum
@@ -334,13 +334,13 @@ parameters and how to choose them is described in
 
 .. versionadded:: TBD
 
-The *pppm/disp/slab* style is the mesh-accelerated version of the
-*ewald/disp/slab* slab-based dispersion sum :ref:`(Moore) <MooreSB>`.  The
+The *pppm/disp/planar* style is the mesh-accelerated version of the
+*ewald/disp/planar* planar dispersion sum :ref:`(Moore) <MooreSB>`.  The
 dispersion-weighted density is spread onto a one-dimensional :math:`z` grid,
 transformed with an FFT, multiplied by an influence function, and the
 :math:`z`-force is interpolated back to the atoms, reducing the reciprocal cost
 to :math:`O(N)`.  It is typically the fastest accurate choice for planar
-interfaces.  Like *ewald/disp/slab* it uses the Gaussian (damped) split, must be
+interfaces.  Like *ewald/disp/planar* it uses the Gaussian (damped) split, must be
 paired with the matched :doc:`lj/cut/dispswitch <pair_lj_cut_dispswitch>` pair
 style, requires fully periodic boundaries, and forbids the EW3DC
 :doc:`kspace_modify slab <kspace_modify>` correction.  The smooth switched
@@ -349,7 +349,7 @@ Fourier basis), so there is no separate real-space correction step.  The grid,
 stencil order, and splitting parameter are set with the standard *mesh/disp*,
 *order/disp*, and *gewald/disp* keywords of :doc:`kspace_modify
 <kspace_modify>`, and the inhomogeneous axis with *dim*.  A Kokkos-accelerated
-*pppm/disp/slab/kk* variant runs the mesh solve on the device.
+*pppm/disp/planar/kk* variant runs the mesh solve on the device.
 
 ----------
 

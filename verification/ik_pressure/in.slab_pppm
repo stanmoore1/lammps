@@ -9,7 +9,7 @@ create_atoms 1 box
 mass 1 1
 pair_style lj/cut/dispswitch 4.0 0.6
 pair_coeff 1 1 1.0 1.0
-kspace_style pppm/disp/slab 1.0e-5
+kspace_style pppm/disp/planar 1.0e-5
 variable dz equal 0.06
 compute pIK all stress/cartesian z ${dz} NULL 0 kspace
 fix f1 all ave/time 1 1 500 c_pIK[*] file slab_ikLR_pppm.dat mode vector ave running

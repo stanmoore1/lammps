@@ -1,10 +1,10 @@
-LAMMPS (30 Mar 2026 - Development - e45f97e185-modified)
+LAMMPS (30 Mar 2026 - Development - 072f7a937f-modified)
 OMP_NUM_THREADS environment is not set. Defaulting to 1 thread.
   using 1 OpenMP thread(s) per MPI task
-# Slab-based (SB) Ewald long-range dispersion for a planar LJ liquid-vapor slab.
+# Planar (SB) Ewald long-range dispersion for a planar LJ liquid-vapor slab.
 # The smooth-damped slab kspace style pairs with the matched lj/cut/dispswitch
 # pair style: the pair does the full LJ to r_cut and fades the 1/r^6 dispersion
-# out smoothly over [r_cut, r_cut+Delta], while ewald/disp/slab adds the smooth
+# out smoothly over [r_cut, r_cut+Delta], while ewald/disp/planar adds the smooth
 # r>r_cut dispersion tail with a 1-D (z) Fourier sum.  The real-space slab
 # correction is folded into the reciprocal coefficients (no separate corr step).
 # Fully periodic; no EW3DC kspace_modify slab.
@@ -27,7 +27,7 @@ Reading data file ...
 pair_style      lj/cut/dispswitch 2.5 0.5
 pair_coeff      1 1 1.0 1.0
 
-kspace_style    ewald/disp/slab 1.0e-4
+kspace_style    ewald/disp/planar 1.0e-4
 
 # long-range surface tension gamma = (Lz/2)(P_zz - (P_xx+P_yy)/2)
 variable        lz equal lz
@@ -39,7 +39,7 @@ velocity        all create 0.85 4928 mom yes
 fix             1 all nve
 timestep        0.004
 run             500
-Slab-based dispersion Ewald (ewald/disp/slab) ...
+Slab-based dispersion Ewald (ewald/disp/planar) ...
   smooth-damped slab-based dispersion Ewald, 113 z wavevectors
   g_ewald = 1.71677
   switch width Delta = 0.5
@@ -60,32 +60,32 @@ Neighbor list info ...
       bin: standard
 Per MPI rank memory allocation (min/avg/max) = 31.69 | 31.69 | 31.69 Mbytes
    Step          Temp          PotEng         TotEng         Press           Pxx            Pyy            Pzz          v_gamma    
-         0   0.85          -4.9116209     -3.6376272     -0.2120941     -0.1577151     -0.29427065    -0.18429654     0.75053404   
-        50   0.83006389    -4.8816691     -3.6375559     -0.21635391    -0.20227198    -0.17962021    -0.26716955    -1.3720222    
-       100   0.81364104    -4.857075      -3.6375767     -0.19666736    -0.18635762    -0.23434532    -0.16929914     0.73894198   
-       150   0.81207927    -4.8547695     -3.637612      -0.14954782    -0.21806482    -0.16641507    -0.064163584    2.3053745    
-       200   0.82800703    -4.8785466     -3.6375163     -0.17373876    -0.22786333    -0.12244186    -0.17091108     0.07634732   
-       250   0.83556774    -4.8899309     -3.6375686     -0.098801399   -0.10023465    -0.18629075    -0.0098787877   2.4009105    
-       300   0.87761933    -4.9530165     -3.6376265     -0.11207045    -0.067858676   -0.21536544    -0.052987226    1.5952469    
-       350   0.86111617    -4.9282306     -3.6375758     -0.0095468469  -0.065113864   -0.045364378    0.081837701    2.4673828    
-       400   0.86013702    -4.9267458     -3.6375586      0.029389097   -0.020143126    0.014585859    0.093724558    1.7370574    
-       450   0.87619144    -4.9508211     -3.6375713      0.025553554   -0.015153543   -0.0053968632   0.097211067    1.9347529    
-       500   0.88048384    -4.9573066     -3.6376232      0.050327481   -0.024644284    0.12922053     0.046406201   -0.10587455   
-Loop time of 1.39138 on 1 procs for 500 steps with 1267 atoms
+         0   0.85          -4.9116209     -3.6376272     -0.2120941     -0.1577151     -0.29427066    -0.18429654     0.75053405   
+        50   0.83006389    -4.8816691     -3.637556      -0.21635392    -0.20227198    -0.17962021    -0.26716956    -1.3720222    
+       100   0.81364104    -4.857075      -3.6375767     -0.19666736    -0.18635763    -0.23434532    -0.16929914     0.738942     
+       150   0.81207927    -4.8547695     -3.637612      -0.14954783    -0.21806482    -0.16641508    -0.064163586    2.3053745    
+       200   0.82800703    -4.8785466     -3.6375163     -0.17373876    -0.22786333    -0.12244186    -0.17091108     0.076347343  
+       250   0.83556774    -4.889931      -3.6375686     -0.098801399   -0.10023465    -0.18629076    -0.009878787    2.4009105    
+       300   0.87761933    -4.9530165     -3.6376265     -0.11207045    -0.067858676   -0.21536544    -0.052987226    1.595247     
+       350   0.86111618    -4.9282306     -3.6375758     -0.0095468461  -0.065113861   -0.045364378    0.081837701    2.4673828    
+       400   0.86013702    -4.9267458     -3.6375586      0.029389096   -0.020143124    0.014585858    0.093724554    1.7370574    
+       450   0.87619144    -4.9508211     -3.6375713      0.025553561   -0.015153521   -0.0053968541   0.097211059    1.9347524    
+       500   0.88048384    -4.9573066     -3.6376232      0.050327497   -0.024644284    0.12922052     0.046406252   -0.1058736    
+Loop time of 1.37939 on 1 procs for 500 steps with 1267 atoms
 
-Performance: 124192.935 tau/day, 359.355 timesteps/s, 455.302 katom-step/s
+Performance: 125273.155 tau/day, 362.480 timesteps/s, 459.262 katom-step/s
 100.0% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 0.56866    | 0.56866    | 0.56866    |   0.0 | 40.87
-Kspace  | 0.70894    | 0.70894    | 0.70894    |   0.0 | 50.95
-Neigh   | 0.097036   | 0.097036   | 0.097036   |   0.0 |  6.97
-Comm    | 0.0078474  | 0.0078474  | 0.0078474  |   0.0 |  0.56
-Output  | 0.0007466  | 0.0007466  | 0.0007466  |   0.0 |  0.05
-Modify  | 0.0052527  | 0.0052527  | 0.0052527  |   0.0 |  0.38
-Other   |            | 0.002903   |            |       |  0.21
+Pair    | 0.4299     | 0.4299     | 0.4299     |   0.0 | 31.17
+Kspace  | 0.84181    | 0.84181    | 0.84181    |   0.0 | 61.03
+Neigh   | 0.09165    | 0.09165    | 0.09165    |   0.0 |  6.64
+Comm    | 0.0075232  | 0.0075232  | 0.0075232  |   0.0 |  0.55
+Output  | 0.00076105 | 0.00076105 | 0.00076105 |   0.0 |  0.06
+Modify  | 0.0045663  | 0.0045663  | 0.0045663  |   0.0 |  0.33
+Other   |            | 0.003177   |            |       |  0.23
 
 Nlocal:           1267 ave        1267 max        1267 min
 Histogram: 1 0 0 0 0 0 0 0 0 0

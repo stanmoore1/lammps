@@ -1,11 +1,11 @@
-Slab-based (SB) Ewald long-range dispersion examples
+Planar (SB) Ewald long-range dispersion examples
 ====================================================
 
 Planar Lennard-Jones liquid-vapor slab (1267 atoms, fully periodic) using the
-smooth-damped slab-based dispersion long-range solvers:
+smooth-damped planar dispersion long-range solvers:
 
-  in.ewald_disp_slab   kspace_style ewald/disp/slab (1-D z Fourier sum)
-  in.pppm_disp_slab    kspace_style pppm/disp/slab  (mesh-accelerated, O(N))
+  in.ewald_disp_planar   kspace_style ewald/disp/planar (1-D z Fourier sum)
+  in.pppm_disp_planar    kspace_style pppm/disp/planar  (mesh-accelerated, O(N))
 
 Both pair with the matched pair_style lj/cut/dispswitch, which does the full LJ
 to r_cut and fades the 1/r^6 dispersion out smoothly over [r_cut, r_cut+Delta].
@@ -14,8 +14,8 @@ sum, and folds the real-space slab correction into its reciprocal coefficients
 (no separate real-space correction step).  The thermo output includes the
 long-range surface tension gamma = (Lz/2)(P_zz - (P_xx+P_yy)/2).
 
-A Kokkos-accelerated pppm/disp/slab/kk variant runs the mesh solve on the device
-(add "-k on t <N> -sf kk" and use kspace_style pppm/disp/slab/kk).
+A Kokkos-accelerated pppm/disp/planar/kk variant runs the mesh solve on the device
+(add "-k on t <N> -sf kk" and use kspace_style pppm/disp/planar/kk).
 
 These styles require fully periodic boundaries and must NOT be combined with the
 EW3DC "kspace_modify slab" correction.

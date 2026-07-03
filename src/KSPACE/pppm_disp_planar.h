@@ -13,12 +13,12 @@
 
 #ifdef KSPACE_CLASS
 // clang-format off
-KSpaceStyle(pppm/disp/slab,PPPMDispSlab);
+KSpaceStyle(pppm/disp/planar,PPPMDispPlanar);
 // clang-format on
 #else
 
-#ifndef LMP_PPPM_DISP_SLAB_H
-#define LMP_PPPM_DISP_SLAB_H
+#ifndef LMP_PPPM_DISP_PLANAR_H
+#define LMP_PPPM_DISP_PLANAR_H
 
 #include "kspace.h"
 
@@ -33,10 +33,10 @@ namespace LAMMPS_NS {
 // function (diagonal in the grid's Fourier basis), so there is no separate
 // real-space correction step.  Matched to the lj/cut/dispswitch pair style.
 
-class PPPMDispSlab : public KSpace {
+class PPPMDispPlanar : public KSpace {
  public:
-  PPPMDispSlab(class LAMMPS *);
-  ~PPPMDispSlab() override;
+  PPPMDispPlanar(class LAMMPS *);
+  ~PPPMDispPlanar() override;
   void init() override;
   void setup() override;
   void settings(int, char **) override;
@@ -91,7 +91,7 @@ class PPPMDispSlab : public KSpace {
   double switch_dS(double t);    // dS/dt = 140 t^3 (1-t)^3
   // NPT-proof influence function: W~2(k) = (2*pi/area) times box-independent Fourier
   // transforms of cWraw; tabulate those once and interpolate at the shifted grid modes
-  // each setup instead of re-quadraturing (see ewald/disp/slab for the derivation).
+  // each setup instead of re-quadraturing (see ewald/disp/planar for the derivation).
   double *Araw_tab, *Braw_tab;    // A(kap)=2 int cWraw cos(kap z);  B=2 int z cWraw sin
   int nkap;                       // table length
   double kap_dk, kap_max;         // wavenumber grid spacing and covered range

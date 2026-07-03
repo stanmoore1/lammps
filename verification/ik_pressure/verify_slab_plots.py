@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate the verification plots for the smooth-damped slab dispersion method
-(ewald/disp/slab, pppm/disp/slab, pppm/disp/slab/kk) after the two IK-hook fixes."""
+(ewald/disp/planar, pppm/disp/planar, pppm/disp/planar/kk) after the two IK-hook fixes."""
 import numpy as np
 from scipy.spatial import cKDTree
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
@@ -49,9 +49,9 @@ hb = V.parse_ave_chunk("slab_hLR_pppm.dat")[-1][1]; rho = np.interp(z, hb[:, 0],
 fig, ax = plt.subplots(1, 2, figsize=(13, 4.6))
 ax[0].plot(z, sm(rho), color="gray", lw=1.4)
 ax[0].set_xlabel("z*"); ax[0].set_ylabel(r"$\rho(z)$"); ax[0].set_title("CPP2 density"); ax[0].set_xlim(0, LZ)
-ax[1].plot(z, sm(ge), "-", color="green", lw=3, label="ewald/disp/slab (Fix 1)")
-ax[1].plot(z, sm(gp), "--", color="black", lw=1.6, label="pppm/disp/slab")
-ax[1].plot(z, sm(gk), ":", color="red", lw=1.8, label="pppm/disp/slab/kk (Fix 2)")
+ax[1].plot(z, sm(ge), "-", color="green", lw=3, label="ewald/disp/planar (Fix 1)")
+ax[1].plot(z, sm(gp), "--", color="black", lw=1.6, label="pppm/disp/planar")
+ax[1].plot(z, sm(gk), ":", color="red", lw=1.8, label="pppm/disp/planar/kk (Fix 2)")
 ax[1].plot(z, sm(gb), "-.", color="purple", lw=1.2, label="brute IK of u_smooth (RMAX=14)")
 ax[1].set_xlabel("z*"); ax[1].set_ylabel(r"$P_N^{LR}-P_T^{LR}$"); ax[1].set_xlim(0, LZ)
 ax[1].set_title("IK contour: ewald = pppm = kk = real-space"); ax[1].legend(fontsize=8)
@@ -79,7 +79,7 @@ def brute_lb(RMAX=14.0):
     return acc/len(frames)
 glb = brute_lb()
 plt.figure(figsize=(7.5, 4.6))
-plt.plot(z, sm(gl), "-", color="darkgreen", lw=2.6, label="pppm/disp/slab IK (LB, nchan=7)")
+plt.plot(z, sm(gl), "-", color="darkgreen", lw=2.6, label="pppm/disp/planar IK (LB, nchan=7)")
 plt.plot(z, sm(glb), "--", color="red", lw=1.4, label="brute IK of mixed u_smooth (RMAX=14)")
 plt.xlabel("z*"); plt.ylabel(r"$P_N^{LR}-P_T^{LR}$"); plt.xlim(0, LZ)
 plt.title("Lorentz-Berthelot mixing: IK contour vs real-space"); plt.legend(fontsize=8)

@@ -44,9 +44,9 @@ Syntax
        *order/disp* value = N
          N = extent of Gaussian for PPPM mapping of dispersion term to grid
        *kmax* value = N
-         (ewald/disp/slab only) override the number of z wavevectors
+         (ewald/disp/planar only) override the number of z wavevectors
        *dim* value = *x* or *y* or *z*
-         (slab dispersion only) inhomogeneous direction of the 1-D sum (default z)
+         (planar dispersion only) inhomogeneous direction of the 1-D sum (default z)
        *overlap* = *yes* or *no* = whether the grid stencil for PPPM is allowed to overlap into more than the nearest-neighbor processor
        *pressure/scalar* value = *yes* or *no*
        *scafacos* values = option value1 value2 ...
@@ -326,10 +326,10 @@ Coulombics.
 
 ----------
 
-The *kmax* and *dim* keywords are specific to the slab-based dispersion solvers
-:doc:`ewald/disp/slab and pppm/disp/slab <kspace_style>`.
+The *kmax* and *dim* keywords are specific to the planar dispersion solvers
+:doc:`ewald/disp/planar and pppm/disp/planar <kspace_style>`.
 
-The *kmax* keyword (``ewald/disp/slab`` only) overrides the automatically chosen
+The *kmax* keyword (``ewald/disp/planar`` only) overrides the automatically chosen
 number of :math:`z` wavevectors.
 
 The *dim* keyword selects the inhomogeneous direction of the one-dimensional sum

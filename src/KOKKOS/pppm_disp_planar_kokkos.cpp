@@ -17,7 +17,7 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Kokkos port of pppm/disp/slab.  The hot, data-parallel parts of the mesh
+   Kokkos port of pppm/disp/planar.  The hot, data-parallel parts of the mesh
    reciprocal solve run on the device: the B-weighted density spread (make_rho),
    the per-mode influence/energy/force-field work (poisson), the 1d FFTs (via
    FFT3dKokkos, a local MPI_COMM_SELF nz x 1 x 1 plan), and the z-force/per-atom
@@ -26,7 +26,7 @@
    device correction step.  The MPI density gather runs on the host.
 ------------------------------------------------------------------------- */
 
-#include "pppm_disp_slab_kokkos.h"
+#include "pppm_disp_planar_kokkos.h"
 
 #include "atom_kokkos.h"
 #include "atom_masks.h"
@@ -55,7 +55,7 @@ static constexpr int OFFSET = 16384;
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-PPPMDispSlabKokkos<DeviceType>::PPPMDispSlabKokkos(LAMMPS *lmp) : PPPMDispSlab(lmp)
+PPPMDispPlanarKokkos<DeviceType>::PPPMDispPlanarKokkos(LAMMPS *lmp) : PPPMDispPlanar(lmp)
 {
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
@@ -71,7 +71,7 @@ PPPMDispSlabKokkos<DeviceType>::PPPMDispSlabKokkos(LAMMPS *lmp) : PPPMDispSlab(l
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-PPPMDispSlabKokkos<DeviceType>::~PPPMDispSlabKokkos()
+PPPMDispPlanarKokkos<DeviceType>::~PPPMDispPlanarKokkos()
 {
   if (copymode) return;
 
@@ -85,12 +85,12 @@ PPPMDispSlabKokkos<DeviceType>::~PPPMDispSlabKokkos()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::init()
+void PPPMDispPlanarKokkos<DeviceType>::init()
 {
   if (domain->triclinic)
-    error->all(FLERR, "Cannot (yet) use pppm/disp/slab/kk with triclinic boxes");
+    error->all(FLERR, "Cannot (yet) use pppm/disp/planar/kk with triclinic boxes");
 
-  PPPMDispSlab::init();    // estimates params and calls setup() (this override)
+  PPPMDispPlanar::init();    // estimates params and calls setup() (this override)
 }
 
 /* ----------------------------------------------------------------------
@@ -99,14 +99,14 @@ void PPPMDispSlabKokkos<DeviceType>::init()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::setup()
+void PPPMDispPlanarKokkos<DeviceType>::setup()
 {
-  PPPMDispSlab::setup();
+  PPPMDispPlanar::setup();
 
   allocate_device();
 
   // upload the per-mode energy, tangential and normal virial influence functions
-  // (each carries the merged smooth corr, built host-side in PPPMDispSlab::setup)
+  // (each carries the merged smooth corr, built host-side in PPPMDispPlanar::setup)
 
   auto h_Gk = Kokkos::create_mirror_view(d_Gk);
   auto h_GTk = Kokkos::create_mirror_view(d_GTk);
@@ -132,28 +132,28 @@ void PPPMDispSlabKokkos<DeviceType>::setup()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::allocate_device()
+void PPPMDispPlanarKokkos<DeviceType>::allocate_device()
 {
   const int ntypes = atom->ntypes;
-  d_B = typename AT::t_double_1d("pppm/disp/slab/kk:B", ntypes + 1);
-  d_rho_coeff = typename AT::t_double_2d("pppm/disp/slab/kk:rho_coeff", order, order);
+  d_B = typename AT::t_double_1d("pppm/disp/planar/kk:B", ntypes + 1);
+  d_rho_coeff = typename AT::t_double_2d("pppm/disp/planar/kk:rho_coeff", order, order);
 
   if (nz == nz_created) return;
   nz_created = nz;
 
-  d_dens = typename AT::t_double_1d("pppm/disp/slab/kk:dens", nz);
-  d_Gk = typename AT::t_double_1d("pppm/disp/slab/kk:Gk", nz);
-  d_GTk = typename AT::t_double_1d("pppm/disp/slab/kk:GTk", nz);
-  d_GNk = typename AT::t_double_1d("pppm/disp/slab/kk:GNk", nz);
-  d_fz_grid = typename AT::t_double_1d("pppm/disp/slab/kk:fz_grid", nz);
-  d_ugrid = typename AT::t_double_1d("pppm/disp/slab/kk:ugrid", nz);
-  d_uTgrid = typename AT::t_double_1d("pppm/disp/slab/kk:uTgrid", nz);
-  d_uNgrid = typename AT::t_double_1d("pppm/disp/slab/kk:uNgrid", nz);
+  d_dens = typename AT::t_double_1d("pppm/disp/planar/kk:dens", nz);
+  d_Gk = typename AT::t_double_1d("pppm/disp/planar/kk:Gk", nz);
+  d_GTk = typename AT::t_double_1d("pppm/disp/planar/kk:GTk", nz);
+  d_GNk = typename AT::t_double_1d("pppm/disp/planar/kk:GNk", nz);
+  d_fz_grid = typename AT::t_double_1d("pppm/disp/planar/kk:fz_grid", nz);
+  d_ugrid = typename AT::t_double_1d("pppm/disp/planar/kk:ugrid", nz);
+  d_uTgrid = typename AT::t_double_1d("pppm/disp/planar/kk:uTgrid", nz);
+  d_uNgrid = typename AT::t_double_1d("pppm/disp/planar/kk:uNgrid", nz);
   h_dens = Kokkos::View<double*, Kokkos::LayoutRight, Kokkos::HostSpace>(
-      "pppm/disp/slab/kk:h_dens", nz);
+      "pppm/disp/planar/kk:h_dens", nz);
 
-  d_work = typename FFT_AT::t_FFT_SCALAR_1d("pppm/disp/slab/kk:work", 2 * nz);
-  d_work2 = typename FFT_AT::t_FFT_SCALAR_1d("pppm/disp/slab/kk:work2", 2 * nz);
+  d_work = typename FFT_AT::t_FFT_SCALAR_1d("pppm/disp/planar/kk:work", 2 * nz);
+  d_work2 = typename FFT_AT::t_FFT_SCALAR_1d("pppm/disp/planar/kk:work2", 2 * nz);
 
   // local (per-proc) 1d FFT: nz x 1 x 1 on MPI_COMM_SELF
   delete fft_forward;
@@ -168,26 +168,26 @@ void PPPMDispSlabKokkos<DeviceType>::allocate_device()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
+void PPPMDispPlanarKokkos<DeviceType>::compute(int eflag, int vflag)
 {
   ev_init(eflag, vflag, 0);
 
   // (re)allocate per-atom energy/virial output arrays on device
   if (eflag_atom) {
     memoryKK->destroy_kokkos(k_eatom, eatom);
-    memoryKK->create_kokkos(k_eatom, eatom, maxeatom, "pppm/disp/slab/kk:eatom");
+    memoryKK->create_kokkos(k_eatom, eatom, maxeatom, "pppm/disp/planar/kk:eatom");
     d_eatom = k_eatom.view<DeviceType>();
   }
   if (vflag_atom) {
     memoryKK->destroy_kokkos(k_vatom, vatom);
-    memoryKK->create_kokkos(k_vatom, vatom, maxvatom, "pppm/disp/slab/kk:vatom");
+    memoryKK->create_kokkos(k_vatom, vatom, maxvatom, "pppm/disp/planar/kk:vatom");
     d_vatom = k_vatom.view<DeviceType>();
   }
 
   // grow device d_peatom if needed
   if (atom->nmax > nmax_kk) {
     nmax_kk = atom->nmax;
-    d_peatom = typename AT::t_double_1d("pppm/disp/slab/kk:peatom", nmax_kk);
+    d_peatom = typename AT::t_double_1d("pppm/disp/planar/kk:peatom", nmax_kk);
   }
 
   // arithmetic (Lorentz-Berthelot) mixing runs the channel-aware host base compute
@@ -195,7 +195,7 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
   // and push the results back.  Geometric mixing (the common case) stays on device.
   if (nchan != 1) {
     atomKK->sync(Host, X_MASK | F_MASK | TYPE_MASK);
-    PPPMDispSlab::compute(eflag, vflag);
+    PPPMDispPlanar::compute(eflag, vflag);
     atomKK->modified(Host, F_MASK);
     if (eflag_atom) {
       k_eatom.modify_host();
@@ -231,8 +231,8 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
   // --- make_rho: spread the B-weighted density onto the z grid ---
 
   copymode = 1;
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_make_rho_zero>(0, nz), *this);
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_make_rho>(0, nlocal), *this);
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_make_rho_zero>(0, nz), *this);
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_make_rho>(0, nlocal), *this);
   copymode = 0;
 
   // gather the global density across procs (host Allreduce, in place)
@@ -243,14 +243,14 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
   // --- poisson: FFT, influence function, energy, virial, z-force field ---
 
   copymode = 1;
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_dens_to_work>(0, nz), *this);
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_dens_to_work>(0, nz), *this);
   copymode = 0;
 
   fft_forward->compute1d(d_work, 2 * nz, FFT3dKokkos<DeviceType>::FORWARD);
 
   double e = 0.0;
   copymode = 1;
-  Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_energy>(0, nz),
+  Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_energy>(0, nz),
                           *this, e);
   copymode = 0;
   if (eflag_global) energy += e;
@@ -260,7 +260,7 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
     s_vir vir;
     copymode = 1;
     Kokkos::parallel_reduce(
-        Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_virial>(0, nz), *this, vir);
+        Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_virial>(0, nz), *this, vir);
     copymode = 0;
     virial[lat1] += vir.vt;
     virial[lat2] += vir.vt;
@@ -268,36 +268,36 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
   }
 
   copymode = 1;
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_fz_prep>(0, nz), *this);
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_fz_prep>(0, nz), *this);
   copymode = 0;
   fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
   copymode = 1;
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_fz_copy>(0, nz), *this);
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_fz_copy>(0, nz), *this);
   copymode = 0;
 
   if (evflag_atom) {
     copymode = 1;
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_u_prep>(0, nz), *this);
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_u_prep>(0, nz), *this);
     copymode = 0;
     fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
     copymode = 1;
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_u_copy>(0, nz), *this);
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_u_copy>(0, nz), *this);
     copymode = 0;
 
     // per-atom tangential/normal virial fields (GTk/GNk kernels)
     copymode = 1;
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uT_prep>(0, nz), *this);
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_uT_prep>(0, nz), *this);
     copymode = 0;
     fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
     copymode = 1;
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uT_copy>(0, nz), *this);
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_uT_copy>(0, nz), *this);
     copymode = 0;
     copymode = 1;
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uN_prep>(0, nz), *this);
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_uN_prep>(0, nz), *this);
     copymode = 0;
     fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
     copymode = 1;
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uN_copy>(0, nz), *this);
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_uN_copy>(0, nz), *this);
     copymode = 0;
   }
 
@@ -306,18 +306,18 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
   // zero per-atom accumulators before the reciprocal contributions
   if (evflag_atom) {
     copymode = 1;
-    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_peatom_zero>(0, nlocal), *this);
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_peatom_zero>(0, nlocal), *this);
     copymode = 0;
   }
 
   copymode = 1;
-  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_fieldforce>(0, nlocal), *this);
+  Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_fieldforce>(0, nlocal), *this);
   copymode = 0;
 
   if (evflag_atom) {
     copymode = 1;
     Kokkos::parallel_for(
-        Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_fieldforce_peratom>(0, nlocal), *this);
+        Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_fieldforce_peratom>(0, nlocal), *this);
     copymode = 0;
   }
 
@@ -328,7 +328,7 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
   if (evflag_atom) {
     copymode = 1;
     Kokkos::parallel_for(
-        Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_peratom_finalize>(0, nlocal), *this);
+        Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_peratom_finalize>(0, nlocal), *this);
     copymode = 0;
     if (eflag_atom) {
       k_eatom.template modify<DeviceType>();
@@ -347,14 +347,14 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_make_rho_zero, const int &g) const
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_make_rho_zero, const int &g) const
 {
   d_dens(g) = 0.0;
 }
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_make_rho, const int &i) const
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_make_rho, const int &i) const
 {
   const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzinv_kk;
   const double offs = (order_kk % 2) ? OFFSET + 0.5 : (double) OFFSET;
@@ -372,7 +372,7 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_make_rho, const 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_dens_to_work, const int &m) const
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_dens_to_work, const int &m) const
 {
   d_work(2 * m) = static_cast<FFT_SCALAR>(d_dens(m));
   d_work(2 * m + 1) = static_cast<FFT_SCALAR>(0.0);
@@ -380,7 +380,7 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_dens_to_work, co
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_energy, const int &m,
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_energy, const int &m,
                                                 double &esum) const
 {
   const double re = static_cast<double>(d_work(2 * m));
@@ -390,7 +390,7 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_energy, 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_virial, const int &m,
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_virial, const int &m,
                                                 s_vir &vir) const
 {
   const double re = static_cast<double>(d_work(2 * m));
@@ -402,7 +402,7 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_virial, 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_uT_prep, const int &m) const
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_uT_prep, const int &m) const
 {
   const double g2 = 2.0 * d_GTk(m);
   d_work2(2 * m) = static_cast<FFT_SCALAR>(g2 * static_cast<double>(d_work(2 * m)));
@@ -411,14 +411,14 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_uT_prep,
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_uT_copy, const int &m) const
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_uT_copy, const int &m) const
 {
   d_uTgrid(m) = static_cast<double>(d_work2(2 * m));
 }
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_uN_prep, const int &m) const
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_uN_prep, const int &m) const
 {
   const double g2 = 2.0 * d_GNk(m);
   d_work2(2 * m) = static_cast<FFT_SCALAR>(g2 * static_cast<double>(d_work(2 * m)));
@@ -427,14 +427,14 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_uN_prep,
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_uN_copy, const int &m) const
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_uN_copy, const int &m) const
 {
   d_uNgrid(m) = static_cast<double>(d_work2(2 * m));
 }
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_fz_prep, const int &m) const
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_fz_prep, const int &m) const
 {
   const int mm = (m <= nz_kk / 2) ? m : m - nz_kk;
   const double k = mm * 2.0 * MY_PI / zprd_kk;
@@ -447,14 +447,14 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_fz_prep,
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_fz_copy, const int &m) const
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_fz_copy, const int &m) const
 {
   d_fz_grid(m) = static_cast<double>(d_work2(2 * m));
 }
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_u_prep, const int &m) const
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_u_prep, const int &m) const
 {
   const double g2 = 2.0 * d_Gk(m);
   d_work2(2 * m) = static_cast<FFT_SCALAR>(g2 * static_cast<double>(d_work(2 * m)));
@@ -463,14 +463,14 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_u_prep, 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_u_copy, const int &m) const
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_u_copy, const int &m) const
 {
   d_ugrid(m) = static_cast<double>(d_work2(2 * m));
 }
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_fieldforce, const int &i) const
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_fieldforce, const int &i) const
 {
   const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzinv_kk;
   const double offs = (order_kk % 2) ? OFFSET + 0.5 : (double) OFFSET;
@@ -491,14 +491,14 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_fieldforce, cons
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_peatom_zero, const int &i) const
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_peatom_zero, const int &i) const
 {
   d_peatom(i) = 0.0;
 }
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_fieldforce_peratom,
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_fieldforce_peratom,
                                                 const int &i) const
 {
   const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzinv_kk;
@@ -530,7 +530,7 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_fieldforce_perat
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_peratom_finalize,
+void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_peratom_finalize,
                                                 const int &i) const
 {
   // d_peatom holds the full kspace per-atom energy; the normal per-atom virial is
@@ -547,19 +547,19 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_peratom_finalize
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-int PPPMDispSlabKokkos<DeviceType>::pressure_profile_long(int dir, int nbins, double lo,
+int PPPMDispPlanarKokkos<DeviceType>::pressure_profile_long(int dir, int nbins, double lo,
                                                           double width, double *pN, double *pT)
 {
   atomKK->sync(Host, X_MASK | TYPE_MASK);
-  return PPPMDispSlab::pressure_profile_long(dir, nbins, lo, width, pN, pT);
+  return PPPMDispPlanar::pressure_profile_long(dir, nbins, lo, width, pN, pT);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-double PPPMDispSlabKokkos<DeviceType>::memory_usage()
+double PPPMDispPlanarKokkos<DeviceType>::memory_usage()
 {
-  double bytes = PPPMDispSlab::memory_usage();
+  double bytes = PPPMDispPlanar::memory_usage();
   bytes += (double) 7 * nz * sizeof(double);       // d_dens,Gk,GTk,GNk,fz_grid,ugrid + h_dens
   bytes += (double) 2 * nz * sizeof(double);       // d_uTgrid, d_uNgrid
   bytes += (double) 4 * nz * sizeof(FFT_SCALAR);   // d_work, d_work2
@@ -569,8 +569,8 @@ double PPPMDispSlabKokkos<DeviceType>::memory_usage()
 /* ---------------------------------------------------------------------- */
 
 namespace LAMMPS_NS {
-template class PPPMDispSlabKokkos<LMPDeviceType>;
+template class PPPMDispPlanarKokkos<LMPDeviceType>;
 #ifdef LMP_KOKKOS_GPU
-template class PPPMDispSlabKokkos<LMPHostType>;
+template class PPPMDispPlanarKokkos<LMPHostType>;
 #endif
 }

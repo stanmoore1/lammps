@@ -700,7 +700,7 @@ void *PairLJCut::extract(const char *str, int &dim)
   dim = 2;
   if (strcmp(str, "epsilon") == 0) return (void *) epsilon;
   if (strcmp(str, "sigma") == 0) return (void *) sigma;
-  if (strcmp(str, "B") == 0) return (void *) lj4;    // 4*eps*sigma^6 (dispersion C6), for ewald/disp/slab
+  if (strcmp(str, "B") == 0) return (void *) lj4;    // 4*eps*sigma^6 (dispersion C6), for ewald/disp/planar
   dim = 0;
   if (strcmp(str, "cut_lj") == 0) return (void *) &cut_global;
   return nullptr;

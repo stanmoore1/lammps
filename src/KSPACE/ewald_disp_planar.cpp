@@ -16,7 +16,7 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Slab-based (SB) Ewald summation for 1/r^6 dispersion interactions in
+   Ewald summation for 1/r^6 dispersion interactions in
    systems whose mean density varies in one (z) direction only -- e.g. planar
    liquid-vapor interfaces.  The long-range dispersion energy is evaluated as a
    1-D Fourier sum over z wavevectors h_n = 2*pi*n/Lz of the dispersion-weighted
@@ -34,7 +34,7 @@
    References: S. Moore, dissertation (BYU); this paper.
 ------------------------------------------------------------------------- */
 
-#include "ewald_disp_slab.h"
+#include "ewald_disp_planar.h"
 
 #include "atom.h"
 #include "comm.h"
@@ -57,7 +57,7 @@ static constexpr double EULER = 0.57721566490153286061;
 
 /* ---------------------------------------------------------------------- */
 
-EwaldDispSlab::EwaldDispSlab(LAMMPS *lmp) :
+EwaldDispPlanar::EwaldDispPlanar(LAMMPS *lmp) :
     KSpace(lmp), GU(nullptr), GF(nullptr), GT(nullptr), GN(nullptr), ek(nullptr), peatom(nullptr),
     sfacrl(nullptr), sfacim(nullptr), sfacrl_all(nullptr), sfacim_all(nullptr), cs(nullptr),
     sn(nullptr), B(nullptr)
@@ -87,7 +87,7 @@ EwaldDispSlab::EwaldDispSlab(LAMMPS *lmp) :
 
 /* ---------------------------------------------------------------------- */
 
-EwaldDispSlab::~EwaldDispSlab()
+EwaldDispPlanar::~EwaldDispPlanar()
 {
   deallocate();
   memory->destroy(ek);
@@ -103,7 +103,7 @@ EwaldDispSlab::~EwaldDispSlab()
 
 /* ---------------------------------------------------------------------- */
 
-void EwaldDispSlab::settings(int narg, char **arg)
+void EwaldDispPlanar::settings(int narg, char **arg)
 {
   if (narg != 1) error->all(FLERR, "Illegal kspace_style {} command", force->kspace_style);
   accuracy_relative = fabs(utils::numeric(FLERR, arg[0], false, lmp));
@@ -119,7 +119,7 @@ void EwaldDispSlab::settings(int narg, char **arg)
    returns number of args consumed (0 -> base errors on unknown keyword)
 ------------------------------------------------------------------------- */
 
-int EwaldDispSlab::modify_param(int narg, char **arg)
+int EwaldDispPlanar::modify_param(int narg, char **arg)
 {
   if (strcmp(arg[0], "kmax") == 0) {
     if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify kmax", error);
@@ -142,26 +142,26 @@ int EwaldDispSlab::modify_param(int narg, char **arg)
 
 /* ---------------------------------------------------------------------- */
 
-void EwaldDispSlab::init()
+void EwaldDispPlanar::init()
 {
-  if (comm->me == 0) utils::logmesg(lmp, "Slab-based dispersion Ewald (ewald/disp/slab) ...\n");
+  if (comm->me == 0) utils::logmesg(lmp, "Slab-based dispersion Ewald (ewald/disp/planar) ...\n");
 
   // error checks
 
   triclinic_check();
-  if (domain->dimension == 2) error->all(FLERR, "Cannot use ewald/disp/slab with 2d simulation");
-  if (domain->triclinic) error->all(FLERR, "Cannot use ewald/disp/slab with triclinic box");
+  if (domain->dimension == 2) error->all(FLERR, "Cannot use ewald/disp/planar with 2d simulation");
+  if (domain->triclinic) error->all(FLERR, "Cannot use ewald/disp/planar with triclinic box");
   if (!domain->xperiodic || !domain->yperiodic || !domain->zperiodic)
-    error->all(FLERR, "ewald/disp/slab requires periodic boundaries in all dimensions");
+    error->all(FLERR, "ewald/disp/planar requires periodic boundaries in all dimensions");
   if (slabflag)
-    error->all(FLERR, "Cannot use slab correction (kspace_modify slab) with ewald/disp/slab");
+    error->all(FLERR, "Cannot use slab correction (kspace_modify slab) with ewald/disp/planar");
 
-  // ewald/disp/slab pairs with the matched lj/cut/dispswitch pair style: the pair
+  // ewald/disp/planar pairs with the matched lj/cut/dispswitch pair style: the pair
   // computes the full LJ to rcut and fades the 1/r^6 dispersion out over
   // [rcut, rcut+Delta]; this kspace adds the smooth r>rcut tail.
 
   if (force->pair == nullptr)
-    error->all(FLERR, "KSpace style ewald/disp/slab requires a pair style");
+    error->all(FLERR, "KSpace style ewald/disp/planar requires a pair style");
 
   // extract the LJ cutoff and dispersion amplitudes B from the pair style
 
@@ -169,7 +169,7 @@ void EwaldDispSlab::init()
   double *p_cutoff = (double *) force->pair->extract("cut_lj", itmp);
   if (p_cutoff == nullptr) p_cutoff = (double *) force->pair->extract("cut_LJ", itmp);
   if (p_cutoff == nullptr)
-    error->all(FLERR, "Pair style is incompatible with kspace_style ewald/disp/slab");
+    error->all(FLERR, "Pair style is incompatible with kspace_style ewald/disp/planar");
   cutoff = *p_cutoff;
   rc2 = cutoff * cutoff;
 
@@ -183,7 +183,7 @@ void EwaldDispSlab::init()
   double *p_dz = (double *) force->pair->extract("disp_switch_width", itmp2);
   if (p_dz == nullptr || *p_dz <= 0.0)
     error->all(FLERR,
-               "kspace_style ewald/disp/slab requires the matched lj/cut/dispswitch pair style "
+               "kspace_style ewald/disp/planar requires the matched lj/cut/dispswitch pair style "
                "to switch off the dispersion smoothly at the cutoff; use "
                "pair_style lj/cut/dispswitch <rcut> <Delta>");
   sw_width = *p_dz;
@@ -221,7 +221,7 @@ void EwaldDispSlab::init()
    cutoff and g_ewald to be set
 ------------------------------------------------------------------------- */
 
-double EwaldDispSlab::gf_of_k(int k)
+double EwaldDispPlanar::gf_of_k(int k)
 {
   const double kcell = k * unitk;
   const double kcell3 = kcell * kcell * kcell;
@@ -243,7 +243,7 @@ double EwaldDispSlab::gf_of_k(int k)
    target: (g*rcut)^2 = -2*ln(accuracy).
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::estimate_params()
+void EwaldDispPlanar::estimate_params()
 {
   lat1 = (dim + 1) % 3;
   lat2 = (dim + 2) % 3;
@@ -356,7 +356,7 @@ void EwaldDispSlab::estimate_params()
    adjust coefficients, called initially and whenever the volume changes
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::setup()
+void EwaldDispPlanar::setup()
 {
   volume = domain->prd[0] * domain->prd[1] * domain->prd[2];
   unitk = 2.0 * MY_PI / domain->prd[dim];
@@ -370,16 +370,16 @@ void EwaldDispSlab::setup()
     memory->destroy(cs);
     memory->destroy(sn);
     nmax = atom->nmax;
-    memory->create(ek, nmax, "ewald/disp/slab:ek");
-    memory->create(peatom, nmax, "ewald/disp/slab:peatom");
-    memory->create(cs, kmax, nmax, "ewald/disp/slab:cs");
-    memory->create(sn, kmax, nmax, "ewald/disp/slab:sn");
+    memory->create(ek, nmax, "ewald/disp/planar:ek");
+    memory->create(peatom, nmax, "ewald/disp/planar:peatom");
+    memory->create(cs, kmax, nmax, "ewald/disp/planar:cs");
+    memory->create(sn, kmax, nmax, "ewald/disp/planar:sn");
     kmax_created = kmax;
   } else if (kmax != kmax_created) {
     memory->destroy(cs);
     memory->destroy(sn);
-    memory->create(cs, kmax, nmax, "ewald/disp/slab:cs");
-    memory->create(sn, kmax, nmax, "ewald/disp/slab:sn");
+    memory->create(cs, kmax, nmax, "ewald/disp/planar:cs");
+    memory->create(sn, kmax, nmax, "ewald/disp/planar:sn");
     kmax_created = kmax;
   }
 
@@ -397,7 +397,7 @@ void EwaldDispSlab::setup()
    extract per-type dispersion amplitude B[i] = sqrt(|lj4[i][i]|) = 2*sqrt(eps)*sigma^3
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::init_coeffs()
+void EwaldDispPlanar::init_coeffs()
 {
   int tmp;
   int n = atom->ntypes;
@@ -413,7 +413,7 @@ void EwaldDispSlab::init_coeffs()
     mix_flag = 0;    // kspace_modify mix/disp geom
   } else if (mixflag == 2) {
     error->all(FLERR,
-               "kspace_modify mix/disp none is not supported by ewald/disp/slab; use "
+               "kspace_modify mix/disp none is not supported by ewald/disp/planar; use "
                "geometric or arithmetic mixing (pair_modify mix geometric|arithmetic)");
   } else {
     if (pair_mix == Pair::GEOMETRIC)
@@ -422,7 +422,7 @@ void EwaldDispSlab::init_coeffs()
       mix_flag = 1;
     else
       error->all(FLERR,
-                 "Unsupported pair mixing rule for kspace_style ewald/disp/slab (use "
+                 "Unsupported pair mixing rule for kspace_style ewald/disp/planar (use "
                  "pair_modify mix geometric|arithmetic)");
   }
   nchan = mix_flag ? 7 : 1;
@@ -433,7 +433,7 @@ void EwaldDispSlab::init_coeffs()
     auto **b = (double **) force->pair->extract("B", tmp);
     if (b == nullptr)
       error->all(FLERR,
-                 "Pair style does not provide dispersion coefficient B for ewald/disp/slab");
+                 "Pair style does not provide dispersion coefficient B for ewald/disp/planar");
     B = new double[n + 1];
     B[0] = 0.0;
     for (int i = 1; i <= n; ++i) B[i] = sqrt(fabs(b[i][i]));
@@ -443,7 +443,7 @@ void EwaldDispSlab::init_coeffs()
     if (!(epsilon && sigma))
       error->all(FLERR,
                  "Pair style does not provide epsilon/sigma for arithmetic mixing in "
-                 "ewald/disp/slab");
+                 "ewald/disp/planar");
     B = new double[7 * n + 7];
     // the seven per-type coefficients of the binomial expansion of
     // (0.5(sigma_i+sigma_j))^6: sqrt(eps_i) c[j] sigma_i^j, j=0..6, with
@@ -476,7 +476,7 @@ void EwaldDispSlab::init_coeffs()
    share non-homogeneous, so the 6E trace relation does not apply.
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::coeffs()
+void EwaldDispPlanar::coeffs()
 {
   int k;
   double kcell, kcell3;
@@ -517,7 +517,7 @@ void EwaldDispSlab::coeffs()
    coefficients decay as ~k^-5, no Gibbs ringing).
 ------------------------------------------------------------------------- */
 
-double EwaldDispSlab::switch_S(double t)
+double EwaldDispPlanar::switch_S(double t)
 {
   if (t <= 0.0) return 0.0;
   if (t >= 1.0) return 1.0;
@@ -528,7 +528,7 @@ double EwaldDispSlab::switch_S(double t)
 
 /* ---------------------------------------------------------------------- */
 
-double EwaldDispSlab::switch_dS(double t)
+double EwaldDispPlanar::switch_dS(double t)
 {
   if (t <= 0.0 || t >= 1.0) return 0.0;
   const double tu = t * (1.0 - t);
@@ -539,7 +539,7 @@ double EwaldDispSlab::switch_dS(double t)
    1-D dispersion-weighted structure factors S(h_n) = sum_j B_j exp(-i h_n z_j)
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::eik_dot_r()
+void EwaldDispPlanar::eik_dot_r()
 {
   int i, k;
   double **x = atom->x;
@@ -604,7 +604,7 @@ void EwaldDispSlab::eik_dot_r()
    compute the slab-based dispersion long-range force, energy, virial
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::compute(int eflag, int vflag)
+void EwaldDispPlanar::compute(int eflag, int vflag)
 {
   int i, k;
 
@@ -618,10 +618,10 @@ void EwaldDispSlab::compute(int eflag, int vflag)
     memory->destroy(cs);
     memory->destroy(sn);
     nmax = atom->nmax;
-    memory->create(ek, nmax, "ewald/disp/slab:ek");
-    memory->create(peatom, nmax, "ewald/disp/slab:peatom");
-    memory->create(cs, kmax, nmax, "ewald/disp/slab:cs");
-    memory->create(sn, kmax, nmax, "ewald/disp/slab:sn");
+    memory->create(ek, nmax, "ewald/disp/planar:ek");
+    memory->create(peatom, nmax, "ewald/disp/planar:peatom");
+    memory->create(cs, kmax, nmax, "ewald/disp/planar:cs");
+    memory->create(sn, kmax, nmax, "ewald/disp/planar:sn");
     kmax_created = kmax;
   }
 
@@ -758,7 +758,7 @@ void EwaldDispSlab::compute(int eflag, int vflag)
    reciprocal sum represents.  Taylor series near r=0 to avoid 1/r^6 cancellation.
 ------------------------------------------------------------------------- */
 
-double EwaldDispSlab::u_smooth(double r)
+double EwaldDispPlanar::u_smooth(double r)
 {
   const double g2 = g_ewald * g_ewald;
   const double r2 = r * r;
@@ -781,7 +781,7 @@ double EwaldDispSlab::u_smooth(double r)
    by Simpson quadrature; corr_tilde() Fourier-transforms it for merge_corr_coeffs().
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::build_corr_kernels()
+void EwaldDispPlanar::build_corr_kernels()
 {
   const double a = cutoff, b = cutoff + sw_width;
   ncgrid = 1024;
@@ -831,7 +831,7 @@ void EwaldDispSlab::build_corr_kernels()
    Exact reference (used to build the interpolation tables).
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::corr_tilde(double k, double &w2t, double &kw2p)
+void EwaldDispPlanar::corr_tilde(double k, double &w2t, double &kw2p)
 {
   double sc = 0.0, ss = 0.0;
   for (int g = 0; g <= ncgrid; g++) {
@@ -852,7 +852,7 @@ void EwaldDispSlab::corr_tilde(double k, double &w2t, double &kw2p)
    W~2(k)=(2*pi/area) A(k) and k dW~2/dk = -(2*pi/area) k B(k).
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::build_corr_ft_tables(double kap_need)
+void EwaldDispPlanar::build_corr_ft_tables(double kap_need)
 {
   const double target = 1.5 * MAX(kap_need, 1.0e-6);    // 50% headroom for NPT shrink
   if (Araw_tab && target <= kap_max) return;             // current tables suffice
@@ -886,7 +886,7 @@ void EwaldDispSlab::build_corr_ft_tables(double kap_need)
    far below the reciprocal accuracy the merge targets.
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::ft_interp(double kap, double &A, double &B)
+void EwaldDispPlanar::ft_interp(double kap, double &A, double &B)
 {
   double x = kap / kap_dk;
   int j = (int) x - 1;    // centered 4-point stencil j..j+3 (t in [1,2] interior)
@@ -908,11 +908,11 @@ void EwaldDispSlab::ft_interp(double kap, double &A, double &B)
    pt2 = w2), GN += CN (the normal strain derivative), and GF is the exact
    z-gradient 2k*GU of the merged energy.  The +/- k double-count gives a 0.5 on
    the k=0 term and 1.0 for k>=1 (each of the FFT's +-k modes carries 0.5, so this
-   matches the verified pppm/disp/slab merge exactly).  After this, compute() does
+   matches the verified pppm/disp/planar merge exactly).  After this, compute() does
    energy/force/virial + corr in one reciprocal pass -- no O(N^2) raw, no binning.
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::merge_corr_coeffs()
+void EwaldDispPlanar::merge_corr_coeffs()
 {
   // W~2(k) = (2*pi/area) A(k) and k dW~2/dk = -(2*pi/area) k B(k), so the merge
   // coefficients are (2*pi/volume) times the box-independent A(k), (A - k B)(k).
@@ -938,22 +938,22 @@ void EwaldDispSlab::merge_corr_coeffs()
    allocate K-vector-dependent arrays
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::allocate()
+void EwaldDispPlanar::allocate()
 {
-  memory->create(GU, kmax, "ewald/disp/slab:GU");
-  memory->create(GF, kmax, "ewald/disp/slab:GF");
-  memory->create(GT, kmax, "ewald/disp/slab:GT");
-  memory->create(GN, kmax, "ewald/disp/slab:GN");
+  memory->create(GU, kmax, "ewald/disp/planar:GU");
+  memory->create(GF, kmax, "ewald/disp/planar:GF");
+  memory->create(GT, kmax, "ewald/disp/planar:GT");
+  memory->create(GN, kmax, "ewald/disp/planar:GN");
   // structure factors carry nchan channels per mode (1 geometric, 7 arithmetic)
-  memory->create(sfacrl, kmax * nchan, "ewald/disp/slab:sfacrl");
-  memory->create(sfacim, kmax * nchan, "ewald/disp/slab:sfacim");
-  memory->create(sfacrl_all, kmax * nchan, "ewald/disp/slab:sfacrl_all");
-  memory->create(sfacim_all, kmax * nchan, "ewald/disp/slab:sfacim_all");
+  memory->create(sfacrl, kmax * nchan, "ewald/disp/planar:sfacrl");
+  memory->create(sfacim, kmax * nchan, "ewald/disp/planar:sfacim");
+  memory->create(sfacrl_all, kmax * nchan, "ewald/disp/planar:sfacrl_all");
+  memory->create(sfacim_all, kmax * nchan, "ewald/disp/planar:sfacim_all");
 }
 
 /* ---------------------------------------------------------------------- */
 
-void EwaldDispSlab::deallocate()
+void EwaldDispPlanar::deallocate()
 {
   memory->destroy(GU);
   memory->destroy(GF);
@@ -970,15 +970,15 @@ void EwaldDispSlab::deallocate()
 /* ----------------------------------------------------------------------
    Irving-Kirkwood long-range pressure profile (compute stress/cartesian hook).
    The merged-damped reciprocal represents the identical switched tail S(r)*u(r)
-   as pppm/disp/slab (the pair fades the dispersion by (1-S)), so the same S*u
-   pressure building blocks apply.  Ported from pppm/disp/slab (which was ported
+   as pppm/disp/planar (the pair fades the dispersion by (1-S)), so the same S*u
+   pressure building blocks apply.  Ported from pppm/disp/planar (which was ported
    from pppm/disp/planar); the only difference here is the exact-sum mode cutoff
    K = kcount-1 (no mesh over-resolution to truncate).  Special functions and
    kernels below are self-contained in terms of the S*u potential (cutoff,
    sw_width, B, volume), independent of the reciprocal solve.
 ------------------------------------------------------------------------- */
 
-void EwaldDispSlab::cisi(double x, double &si, double &ci)
+void EwaldDispPlanar::cisi(double x, double &si, double &ci)
 {
   if (x <= 2.0) {
     double term = x, s = x;
@@ -1032,7 +1032,7 @@ void EwaldDispSlab::cisi(double x, double &si, double &ci)
   }
 }
 
-void EwaldDispSlab::sici_chain(double x, double *Aarr, double *Barr)
+void EwaldDispPlanar::sici_chain(double x, double *Aarr, double *Barr)
 {
   double si, ci;
   cisi(x, si, ci);
@@ -1046,7 +1046,7 @@ void EwaldDispSlab::sici_chain(double x, double *Aarr, double *Barr)
   }
 }
 
-void EwaldDispSlab::sici_compl_chain(double x, double *Carr, double *Darr)
+void EwaldDispPlanar::sici_compl_chain(double x, double *Carr, double *Darr)
 {
   double si, ci;
   cisi(x, si, ci);
@@ -1060,7 +1060,7 @@ void EwaldDispSlab::sici_compl_chain(double x, double *Carr, double *Darr)
   }
 }
 
-double EwaldDispSlab::prof_integrand(int which, double r, double h)
+double EwaldDispPlanar::prof_integrand(int which, double r, double h)
 {
   const double x = h * r;
   const double sx = sin(x), cx = cos(x);
@@ -1077,7 +1077,7 @@ double EwaldDispSlab::prof_integrand(int which, double r, double h)
   }
 }
 
-double EwaldDispSlab::prof_shell(int which, double h)
+double EwaldDispPlanar::prof_shell(int which, double h)
 {
   static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
                                 -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
@@ -1105,7 +1105,7 @@ double EwaldDispSlab::prof_shell(int which, double h)
   return 0.5 * hp * acc;
 }
 
-double EwaldDispSlab::ik_phi(double h)
+double EwaldDispPlanar::ik_phi(double h)
 {
   if (fabs(h) < 1.0e-300) return 0.0;
   const double ah = fabs(h);
@@ -1119,7 +1119,7 @@ double EwaldDispSlab::ik_phi(double h)
   return (h >= 0.0 ? 1.0 : -1.0) * ah4 * phi;
 }
 
-double EwaldDispSlab::ik_psi(double h)
+double EwaldDispPlanar::ik_psi(double h)
 {
   if (fabs(h) < 1.0e-300) return 0.0;
   const double ah = fabs(h);
@@ -1132,7 +1132,7 @@ double EwaldDispSlab::ik_psi(double h)
   return (h >= 0.0 ? 1.0 : -1.0) * ah4 * psi;
 }
 
-void EwaldDispSlab::switch_shell_virial(double h, double &sGT, double &sGN)
+void EwaldDispPlanar::switch_shell_virial(double h, double &sGT, double &sGN)
 {
   static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
                                 -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
@@ -1169,7 +1169,7 @@ void EwaldDispSlab::switch_shell_virial(double h, double &sGT, double &sGN)
   sGN = 0.5 * hp * accN;
 }
 
-void EwaldDispSlab::shell_profile_virial(int nbins, double /*lo*/, double /*dz*/,
+void EwaldDispPlanar::shell_profile_virial(int nbins, double /*lo*/, double /*dz*/,
                                          double * /*dens_all*/, double *shellT, double *shellN)
 {
   // No shell subtraction for the merged-damped variant: the pair fades the
@@ -1178,7 +1178,7 @@ void EwaldDispSlab::shell_profile_virial(int nbins, double /*lo*/, double /*dz*/
   for (int g = 0; g < nbins; g++) shellT[g] = shellN[g] = 0.0;
 }
 
-void EwaldDispSlab::profile_GTGN_raw(int K, double *GTr, double *GNr)
+void EwaldDispPlanar::profile_GTGN_raw(int K, double *GTr, double *GNr)
 {
   const double zprd = domain->prd[dim];
   const double unitk = 2.0 * MY_PI / zprd;
@@ -1214,7 +1214,7 @@ void EwaldDispSlab::profile_GTGN_raw(int K, double *GTr, double *GNr)
   }
 }
 
-void EwaldDispSlab::profile_assemble(int K, int nbins, double lo, double width, const double *Sre,
+void EwaldDispPlanar::profile_assemble(int K, int nbins, double lo, double width, const double *Sre,
                                      const double *Sim, const double *GTr, const double *GNr,
                                      const double *shellT, const double *shellN, double *pN,
                                      double *pT)
@@ -1288,17 +1288,17 @@ void EwaldDispSlab::profile_assemble(int K, int nbins, double lo, double width, 
   delete[] psiP;
 }
 
-int EwaldDispSlab::pressure_profile_long(int dir, int nbins, double lo, double width, double *pN,
+int EwaldDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double width, double *pN,
                                          double *pT)
 {
   if (dir != dim)
     error->all(FLERR,
                "compute stress/cartesian binning direction must match the inhomogeneous axis "
-               "of ewald/disp/slab");
+               "of ewald/disp/planar");
   if (nchan != 1)
     error->all(FLERR,
                "compute stress/cartesian kspace (Irving-Kirkwood profile) is not yet "
-               "supported with arithmetic mixing in ewald/disp/slab; use geometric mixing "
+               "supported with arithmetic mixing in ewald/disp/planar; use geometric mixing "
                "or the Harasima profile via compute stress/atom");
 
   const double unitk = 2.0 * MY_PI / domain->prd[dim];
@@ -1306,7 +1306,7 @@ int EwaldDispSlab::pressure_profile_long(int dir, int nbins, double lo, double w
 
   if (nbins <= 2 * K)
     error->all(FLERR,
-               "compute stress/cartesian with ewald/disp/slab kspace: {} bins along the "
+               "compute stress/cartesian with ewald/disp/planar kspace: {} bins along the "
                "inhomogeneous axis is too coarse; need > {} (= 2*kmax) to resolve the "
                "Irving-Kirkwood reciprocal modes without aliasing (use a finer bin width, "
                "looser accuracy, or wider switch)",
@@ -1374,7 +1374,7 @@ int EwaldDispSlab::pressure_profile_long(int dir, int nbins, double lo, double w
 
 /* ---------------------------------------------------------------------- */
 
-double EwaldDispSlab::memory_usage()
+double EwaldDispPlanar::memory_usage()
 {
   double bytes = 8.0 * kmax * sizeof(double);    // GU,GF,GT,GN,sfacrl/im,sfacrl/im_all
   bytes += 2.0 * (double) nmax * sizeof(double);    // ek, peatom

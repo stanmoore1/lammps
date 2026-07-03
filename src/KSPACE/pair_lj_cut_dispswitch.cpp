@@ -37,7 +37,7 @@ PairLJCutDispSwitch::PairLJCutDispSwitch(LAMMPS *lmp) : PairLJCut(lmp)
 
 /* ----------------------------------------------------------------------
    C3 (septic) smoothstep S(t) and its derivative S'(t)=140 t^3 (1-t)^3,
-   identical to the kspace ewald/disp/slab compact switch.
+   identical to the kspace ewald/disp/planar compact switch.
 ------------------------------------------------------------------------- */
 
 double PairLJCutDispSwitch::sw_S(double t)
@@ -188,7 +188,7 @@ void PairLJCutDispSwitch::compute(int eflag, int vflag)
 
         // shell [rcut, rcut+Delta]: attractive dispersion switched by (1 - S).
         // E = -(1-S) lj4 r^-6 ; fpair = -lj4[ S'(t)/Delta r^-7 + 6 (1-S) r^-8 ].
-        // The kspace style supplies the plane S*u tail (used by pppm/disp/slab,
+        // The kspace style supplies the plane S*u tail (used by pppm/disp/planar,
         // which has no real-space shell correction).  Here t is guaranteed in
         // [0,1) (rcut <= r < rcut+Delta), so the switch polynomials are inlined
         // without the end clamps, and all divisions are replaced by the

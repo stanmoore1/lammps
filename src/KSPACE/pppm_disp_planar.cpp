@@ -16,12 +16,12 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Mesh-accelerated smooth-damped slab-based dispersion Ewald (pppm/disp/slab).
+   Mesh-accelerated smooth-damped slab-based dispersion Ewald (pppm/disp/planar).
    The dispersion-weighted density (geometric mixing) varies only in the chosen
    inhomogeneous dimension, so the smooth reciprocal part is a 1-D convolution:
    spread the B-weighted density onto a 1-D grid, FFT, apply the damped influence
    function, inverse-FFT the z-force field, and interpolate.  The reciprocal
-   energy/force reproduce the exact ewald/disp/slab result as the grid is
+   energy/force reproduce the exact ewald/disp/planar result as the grid is
    refined.
 
    Matched to a lj/cut/dispswitch pair that fades the 1/r^6 dispersion out
@@ -35,7 +35,7 @@
    References: S. Moore, dissertation (BYU); this paper.
 ------------------------------------------------------------------------- */
 
-#include "pppm_disp_slab.h"
+#include "pppm_disp_planar.h"
 
 #include "atom.h"
 #include "comm.h"
@@ -59,7 +59,7 @@ static constexpr double EULER = 0.57721566490153286061;
 
 /* ---------------------------------------------------------------------- */
 
-PPPMDispSlab::PPPMDispSlab(LAMMPS *lmp) :
+PPPMDispPlanar::PPPMDispPlanar(LAMMPS *lmp) :
     KSpace(lmp), B(nullptr), dens(nullptr), fre(nullptr), fim(nullptr), rhat_re(nullptr),
     rhat_im(nullptr), Gk(nullptr), GTk(nullptr),
     GNk(nullptr), fz_grid(nullptr), ugrid(nullptr), uTgrid(nullptr), uNgrid(nullptr),
@@ -93,7 +93,7 @@ PPPMDispSlab::PPPMDispSlab(LAMMPS *lmp) :
 
 /* ---------------------------------------------------------------------- */
 
-PPPMDispSlab::~PPPMDispSlab()
+PPPMDispPlanar::~PPPMDispPlanar()
 {
   if (copymode) return;
   delete[] B;
@@ -119,7 +119,7 @@ PPPMDispSlab::~PPPMDispSlab()
 
 /* ---------------------------------------------------------------------- */
 
-void PPPMDispSlab::settings(int narg, char **arg)
+void PPPMDispPlanar::settings(int narg, char **arg)
 {
   if (narg != 1) error->all(FLERR, "Illegal kspace_style {} command", force->kspace_style);
   accuracy_relative = fabs(utils::numeric(FLERR, arg[0], false, lmp));
@@ -134,7 +134,7 @@ void PPPMDispSlab::settings(int narg, char **arg)
      dim x|y|z    -- select the inhomogeneous direction (default z)
 ------------------------------------------------------------------------- */
 
-int PPPMDispSlab::modify_param(int narg, char **arg)
+int PPPMDispPlanar::modify_param(int narg, char **arg)
 {
   // mesh/disp, order/disp, gewald/disp are consumed by the base KSpace parser
   // (they set nz_pppm_6/gridflag_6, order_6, g_ewald_6/gewaldflag_6).
@@ -153,19 +153,19 @@ int PPPMDispSlab::modify_param(int narg, char **arg)
 
 /* ---------------------------------------------------------------------- */
 
-void PPPMDispSlab::init()
+void PPPMDispPlanar::init()
 {
-  if (comm->me == 0) utils::logmesg(lmp, "PPPM slab-based dispersion Ewald (pppm/disp/slab) ...\n");
+  if (comm->me == 0) utils::logmesg(lmp, "PPPM slab-based dispersion Ewald (pppm/disp/planar) ...\n");
 
   triclinic_check();
-  if (domain->dimension == 2) error->all(FLERR, "Cannot use pppm/disp/slab with 2d simulation");
-  if (domain->triclinic) error->all(FLERR, "Cannot use pppm/disp/slab with triclinic box");
+  if (domain->dimension == 2) error->all(FLERR, "Cannot use pppm/disp/planar with 2d simulation");
+  if (domain->triclinic) error->all(FLERR, "Cannot use pppm/disp/planar with triclinic box");
   if (!domain->xperiodic || !domain->yperiodic || !domain->zperiodic)
-    error->all(FLERR, "pppm/disp/slab requires periodic boundaries in all dimensions");
+    error->all(FLERR, "pppm/disp/planar requires periodic boundaries in all dimensions");
   if (slabflag)
-    error->all(FLERR, "Cannot use slab correction (kspace_modify slab) with pppm/disp/slab");
+    error->all(FLERR, "Cannot use slab correction (kspace_modify slab) with pppm/disp/planar");
   if (force->pair == nullptr)
-    error->all(FLERR, "KSpace style pppm/disp/slab requires a pair style");
+    error->all(FLERR, "KSpace style pppm/disp/planar requires a pair style");
 
   // LJ cutoff from the pair style
 
@@ -173,7 +173,7 @@ void PPPMDispSlab::init()
   double *p = (double *) force->pair->extract("cut_lj", itmp);
   if (p == nullptr) p = (double *) force->pair->extract("cut_LJ", itmp);
   if (p == nullptr)
-    error->all(FLERR, "Pair style is incompatible with kspace_style pppm/disp/slab");
+    error->all(FLERR, "Pair style is incompatible with kspace_style pppm/disp/planar");
   cutoff = *p;
   rc2 = cutoff * cutoff;
 
@@ -185,7 +185,7 @@ void PPPMDispSlab::init()
   double *p_dz = (double *) force->pair->extract("disp_switch_width", itmp2);
   if (p_dz == nullptr || *p_dz <= 0.0)
     error->all(FLERR,
-               "kspace_style pppm/disp/slab requires the matched lj/cut/dispswitch pair style "
+               "kspace_style pppm/disp/planar requires the matched lj/cut/dispswitch pair style "
                "to switch off the dispersion smoothly at the cutoff; use "
                "pair_style lj/cut/dispswitch <rcut> <Delta>");
   sw_width = *p_dz;
@@ -198,7 +198,7 @@ void PPPMDispSlab::init()
   else
     accuracy = accuracy_relative * two_charge_force;
 
-  // C6 cross-term mixing rule (see ewald/disp/slab): follow the pair style
+  // C6 cross-term mixing rule (see ewald/disp/planar): follow the pair style
   // (Pair::mix_flag via extract("ewald_mix")) unless kspace_modify mix/disp overrides.
   int etmp;
   int *p_mix = (int *) force->pair->extract("ewald_mix", etmp);
@@ -207,7 +207,7 @@ void PPPMDispSlab::init()
     mix_flag = 0;
   } else if (mixflag == 2) {
     error->all(FLERR,
-               "kspace_modify mix/disp none is not supported by pppm/disp/slab; use "
+               "kspace_modify mix/disp none is not supported by pppm/disp/planar; use "
                "geometric or arithmetic mixing (pair_modify mix geometric|arithmetic)");
   } else {
     if (pair_mix == Pair::GEOMETRIC)
@@ -216,7 +216,7 @@ void PPPMDispSlab::init()
       mix_flag = 1;
     else
       error->all(FLERR,
-                 "Unsupported pair mixing rule for kspace_style pppm/disp/slab (use "
+                 "Unsupported pair mixing rule for kspace_style pppm/disp/planar (use "
                  "pair_modify mix geometric|arithmetic)");
   }
   nchan = mix_flag ? 7 : 1;
@@ -230,7 +230,7 @@ void PPPMDispSlab::init()
   auto **eps = (double **) force->pair->extract("epsilon", edim);
   auto **sig = (double **) force->pair->extract("sigma", edim);
   if (eps == nullptr || sig == nullptr)
-    error->all(FLERR, "Pair style does not provide epsilon/sigma for pppm/disp/slab");
+    error->all(FLERR, "Pair style does not provide epsilon/sigma for pppm/disp/planar");
   delete[] B;
   if (mix_flag == 0) {
     B = new double[n + 1];
@@ -254,7 +254,7 @@ void PPPMDispSlab::init()
   // stencil order from kspace_modify order/disp (base member; default 5)
   order = order_6;
   if (order < 2 || order > MAXORDER)
-    error->all(FLERR, "pppm/disp/slab order/disp must be between 2 and {}", MAXORDER);
+    error->all(FLERR, "pppm/disp/planar order/disp must be between 2 and {}", MAXORDER);
 
   estimate_params();    // sets g_ewald and the z grid size nz
 
@@ -283,7 +283,7 @@ void PPPMDispSlab::init()
    (random-phase model; validated to ~1.4x against measured forces).
 ------------------------------------------------------------------------- */
 
-double PPPMDispSlab::compute_qopt(int ngrid, int ord)
+double PPPMDispPlanar::compute_qopt(int ngrid, int ord)
 {
   const double unitk = 2.0 * MY_PI / zprd;
   const double sqpi = sqrt(MY_PI);
@@ -332,7 +332,7 @@ double PPPMDispSlab::compute_qopt(int ngrid, int ord)
    ~1/g_ewald, and the (1-S) switch shell of width ~Delta -- whichever is sharper).
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::estimate_params()
+void PPPMDispPlanar::estimate_params()
 {
   set_grid_params();
 
@@ -373,7 +373,7 @@ void PPPMDispSlab::estimate_params()
     // the same grid must resolve the merged corr kernel, which has TWO features --
     // the Gaussian-screened peak (width ~1/g_ewald) and, when Delta < 1/g_ewald, the
     // sharper (1-S) switch shell (width ~Delta).  The grid must resolve the SHARPER
-    // of the two.  Measured vs the exact ewald/disp/slab corr raw (bench slab, order
+    // of the two.  Measured vs the exact ewald/disp/planar corr raw (bench slab, order
     // 5, acc 1e-5): dz ~ 0.35/g reaches ~2e-7, and for Delta < 1/g, dz ~ 0.39*Delta
     // reaches ~1e-5; use 0.35*min(1/g, Delta) with the same ~2x margin as the
     // Gaussian floor.  Delta >= 1/g reduces to the original 1/g-only floor.
@@ -390,7 +390,7 @@ void PPPMDispSlab::estimate_params()
   // reported RMS force error = the Gaussian grid aliasing (qopt) PLUS the merged
   // corr force content the grid cannot resolve (modes beyond nz/2).  The corr
   // Fourier tail decays only ~k^-5, so it dominates; qopt alone (Gaussian only)
-  // is far too optimistic.  Same random-phase corr-tail term as ewald/disp/slab.
+  // is far too optimistic.  Same random-phase corr-tail term as ewald/disp/planar.
   build_corr_kernels();
   const double uk = 2.0 * MY_PI / zprd;
   const double invLz = 1.0 / zprd;
@@ -408,7 +408,7 @@ void PPPMDispSlab::estimate_params()
    geometry, grid spacing, and B-spline stencil parameters
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::set_grid_params()
+void PPPMDispPlanar::set_grid_params()
 {
   lat1 = (dim + 1) % 3;
   lat2 = (dim + 2) % 3;
@@ -428,7 +428,7 @@ void PPPMDispSlab::set_grid_params()
 
 /* ---------------------------------------------------------------------- */
 
-void PPPMDispSlab::setup()
+void PPPMDispPlanar::setup()
 {
   set_grid_params();
   delzinv = nz / zprd;
@@ -448,22 +448,22 @@ void PPPMDispSlab::setup()
   // density and force/potential fields carry nchan channels (1 geom, 7 arith),
   // channel-major: dens[m*nz+g].  fre/fim are single-channel FFT scratch; rhat_*
   // store the nchan FFT'd density spectra.
-  memory->create(dens, nz * nchan, "pppm/disp/slab:dens");
-  memory->create(fre, nz, "pppm/disp/slab:fre");
-  memory->create(fim, nz, "pppm/disp/slab:fim");
-  memory->create(rhat_re, nz * nchan, "pppm/disp/slab:rhat_re");
-  memory->create(rhat_im, nz * nchan, "pppm/disp/slab:rhat_im");
-  memory->create(Gk, nz, "pppm/disp/slab:Gk");
-  memory->create(GTk, nz, "pppm/disp/slab:GTk");
-  memory->create(GNk, nz, "pppm/disp/slab:GNk");
-  memory->create(fz_grid, nz * nchan, "pppm/disp/slab:fz_grid");
-  memory->create(ugrid, nz * nchan, "pppm/disp/slab:ugrid");
-  memory->create(uTgrid, nz * nchan, "pppm/disp/slab:uTgrid");
-  memory->create(uNgrid, nz * nchan, "pppm/disp/slab:uNgrid");
+  memory->create(dens, nz * nchan, "pppm/disp/planar:dens");
+  memory->create(fre, nz, "pppm/disp/planar:fre");
+  memory->create(fim, nz, "pppm/disp/planar:fim");
+  memory->create(rhat_re, nz * nchan, "pppm/disp/planar:rhat_re");
+  memory->create(rhat_im, nz * nchan, "pppm/disp/planar:rhat_im");
+  memory->create(Gk, nz, "pppm/disp/planar:Gk");
+  memory->create(GTk, nz, "pppm/disp/planar:GTk");
+  memory->create(GNk, nz, "pppm/disp/planar:GNk");
+  memory->create(fz_grid, nz * nchan, "pppm/disp/planar:fz_grid");
+  memory->create(ugrid, nz * nchan, "pppm/disp/planar:ugrid");
+  memory->create(uTgrid, nz * nchan, "pppm/disp/planar:uTgrid");
+  memory->create(uNgrid, nz * nchan, "pppm/disp/planar:uNgrid");
 
   if (rho_coeff == nullptr || order != order_allocated) {
     if (rho_coeff) memory->destroy(rho_coeff);
-    memory->create(rho_coeff, order, order, "pppm/disp/slab:rho_coeff");
+    memory->create(rho_coeff, order, order, "pppm/disp/planar:rho_coeff");
     order_allocated = order;
   }
   compute_rho_coeff();
@@ -476,7 +476,7 @@ void PPPMDispSlab::setup()
    de-convolved smooth-damped influence function on the z grid modes.
 
    The PPPM mesh energy E = sum_{m=0}^{nz-1} Gk[m] |rho_hat_m|^2 (full FFT
-   spectrum) must equal the exact ewald/disp/slab energy
+   spectrum) must equal the exact ewald/disp/planar energy
    E = GU[0]|S_0|^2 + sum_{k>=1} GU[k]|S_k|^2.  Matching the spectra term by term
    (each +/- mode appears once in the FFT sum) gives the physical per-mode
    coefficient W_E(k) = GU[0] for m=0 and GU[|m|]/2 for m != 0.  De-convolving the
@@ -491,7 +491,7 @@ void PPPMDispSlab::setup()
    dW~2/dk)/Lz for the corr.
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::influence_function()
+void PPPMDispPlanar::influence_function()
 {
   const double sqpi = sqrt(MY_PI);
   const double coef = -2.0 * MY_PI * sqpi / (24.0 * volume);
@@ -533,7 +533,7 @@ void PPPMDispSlab::influence_function()
    smooth (Gaussian-screened) 1/r^6 = u(r) - u_short(r); Taylor near r=0.
 ------------------------------------------------------------------------- */
 
-double PPPMDispSlab::u_smooth(double r)
+double PPPMDispPlanar::u_smooth(double r)
 {
   const double g2 = g_ewald * g_ewald;
   const double r2 = r * r;
@@ -550,10 +550,10 @@ double PPPMDispSlab::u_smooth(double r)
    tabulate the smooth switched corr energy kernel w2(|dz|) over [0, rcut+Delta]:
    w2 = (2 pi/area) int_{|dz|}^{b} r corr_e(r) dr,
    corr_e(r) = u_smooth(r) - [r>rcut] S(r)/r^6 (vanishes smoothly at b).
-   Same math as ewald/disp/slab build_corr_kernels.
+   Same math as ewald/disp/planar build_corr_kernels.
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::build_corr_kernels()
+void PPPMDispPlanar::build_corr_kernels()
 {
   const double a = cutoff, b = cutoff + sw_width;
   ncgrid = 2048;
@@ -601,7 +601,7 @@ void PPPMDispSlab::build_corr_kernels()
    Exact reference (used to build the interpolation tables).
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::corr_tilde(double k, double &w2t, double &kw2p)
+void PPPMDispPlanar::corr_tilde(double k, double &w2t, double &kw2p)
 {
   double sc = 0.0, ss = 0.0;
   for (int g = 0; g <= ncgrid; g++) {
@@ -616,12 +616,12 @@ void PPPMDispSlab::corr_tilde(double k, double &w2t, double &kw2p)
 
 /* ----------------------------------------------------------------------
    (re)build the box-independent Fourier-transform tables of cWraw on a uniform
-   wavenumber grid (grow-only); see ewald/disp/slab for the derivation.
+   wavenumber grid (grow-only); see ewald/disp/planar for the derivation.
      A(kap) = 2 int cWraw cos(kap z) dz,  B(kap) = 2 int z cWraw sin(kap z) dz
    so W~2(k) = (2*pi/area) A(k) and k dW~2/dk = -(2*pi/area) k B(k).
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::build_corr_ft_tables(double kap_need)
+void PPPMDispPlanar::build_corr_ft_tables(double kap_need)
 {
   const double target = 1.5 * MAX(kap_need, 1.0e-6);
   if (Araw_tab && target <= kap_max) return;
@@ -652,7 +652,7 @@ void PPPMDispSlab::build_corr_ft_tables(double kap_need)
    4-point (cubic) Lagrange interpolation of the FT tables at wavenumber kap.
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::ft_interp(double kap, double &A, double &B)
+void PPPMDispPlanar::ft_interp(double kap, double &A, double &B)
 {
   double x = kap / kap_dk;
   int j = (int) x - 1;
@@ -672,7 +672,7 @@ void PPPMDispSlab::ft_interp(double kap, double &A, double &B)
    pair fades the 1/r^6 dispersion out by (1-S) over [rcut, rcut+Delta]).
 ------------------------------------------------------------------------- */
 
-double PPPMDispSlab::switch_S(double t)
+double PPPMDispPlanar::switch_S(double t)
 {
   if (t <= 0.0) return 0.0;
   if (t >= 1.0) return 1.0;
@@ -683,7 +683,7 @@ double PPPMDispSlab::switch_S(double t)
 
 /* ---------------------------------------------------------------------- */
 
-double PPPMDispSlab::switch_dS(double t)
+double PPPMDispPlanar::switch_dS(double t)
 {
   if (t <= 0.0 || t >= 1.0) return 0.0;
   const double tu = t * (1.0 - t);
@@ -696,7 +696,7 @@ double PPPMDispSlab::switch_dS(double t)
    (grid offset nlower+s); weight at fractional offset dz = sum_l rho_coeff[l][s] dz^l.
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::compute_rho_coeff()
+void PPPMDispPlanar::compute_rho_coeff()
 {
   int j, k, l, m;
   double s;
@@ -736,7 +736,7 @@ void PPPMDispSlab::compute_rho_coeff()
    assignment weights w[0..order-1] at fractional offset dz (Horner in dz)
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::compute_rho1d(double dz, double *w)
+void PPPMDispPlanar::compute_rho1d(double dz, double *w)
 {
   for (int s = 0; s < order; s++) {
     double r = 0.0;
@@ -750,7 +750,7 @@ void PPPMDispSlab::compute_rho1d(double dz, double *w)
    (used for the energy-conserving B-spline corr force)
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::compute_drho1d(double dz, double *dw)
+void PPPMDispPlanar::compute_drho1d(double dz, double *dw)
 {
   for (int s = 0; s < order; s++) {
     double r = 0.0;
@@ -763,7 +763,7 @@ void PPPMDispSlab::compute_drho1d(double dz, double *dw)
    spread the B-weighted density onto the global z grid (Allreduce)
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::make_rho()
+void PPPMDispPlanar::make_rho()
 {
   for (int g = 0; g < nz * nchan; g++) dens[g] = 0.0;
 
@@ -810,7 +810,7 @@ void PPPMDispSlab::make_rho()
    both unnormalized (X_m = sum_g x_g e^{-2pi i m g/n} for sign=-1)
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::fft1d(double *re, double *im, int n, int sign)
+void PPPMDispPlanar::fft1d(double *re, double *im, int n, int sign)
 {
   for (int i = 1, j = 0; i < n; i++) {
     int bit = n >> 1;
@@ -856,7 +856,7 @@ void PPPMDispSlab::fft1d(double *re, double *im, int n, int sign)
    Potential field (per-atom):  u_grid = IFFT[ 2 Gk[m] * rho_hat_m ].
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::poisson()
+void PPPMDispPlanar::poisson()
 {
   if (nchan == 1) {    // ------- geometric mixing -------
 
@@ -883,8 +883,8 @@ void PPPMDispSlab::poisson()
 
     if (evflag_atom) {
       double *ur, *ui;
-      memory->create(ur, nz, "pppm/disp/slab:ur");
-      memory->create(ui, nz, "pppm/disp/slab:ui");
+      memory->create(ur, nz, "pppm/disp/planar:ur");
+      memory->create(ui, nz, "pppm/disp/planar:ui");
       for (int m = 0; m < nz; m++) {
         double g2 = 2.0 * Gk[m];
         ur[m] = g2 * fre[m];
@@ -966,8 +966,8 @@ void PPPMDispSlab::poisson()
     // per-atom potential/virial fields, one per channel (u^(c)=IFFT[2 Gk rhat^(c)])
     if (evflag_atom) {
       double *ur, *ui;
-      memory->create(ur, nz, "pppm/disp/slab:ur");
-      memory->create(ui, nz, "pppm/disp/slab:ui");
+      memory->create(ur, nz, "pppm/disp/planar:ur");
+      memory->create(ui, nz, "pppm/disp/planar:ui");
       for (int c = 0; c < 7; c++) {
         for (int m = 0; m < nz; m++) {
           double g2 = 2.0 * Gk[m];
@@ -1015,7 +1015,7 @@ void PPPMDispSlab::poisson()
    interpolate the z-force field (and per-atom energy/virial) to atoms
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::fieldforce()
+void PPPMDispPlanar::fieldforce()
 {
   double **x = atom->x;
   double **f = atom->f;
@@ -1098,7 +1098,7 @@ void PPPMDispSlab::fieldforce()
 
 /* ---------------------------------------------------------------------- */
 
-void PPPMDispSlab::compute(int eflag, int vflag)
+void PPPMDispPlanar::compute(int eflag, int vflag)
 {
   ev_init(eflag, vflag);
 
@@ -1107,7 +1107,7 @@ void PPPMDispSlab::compute(int eflag, int vflag)
   if (atom->nmax > nmax) {
     memory->destroy(peatom);
     nmax = atom->nmax;
-    memory->create(peatom, nmax, "pppm/disp/slab:peatom");
+    memory->create(peatom, nmax, "pppm/disp/planar:peatom");
   }
   if (evflag_atom)
     for (int i = 0; i < atom->nlocal; i++) peatom[i] = 0.0;
@@ -1130,7 +1130,7 @@ void PPPMDispSlab::compute(int eflag, int vflag)
    count so the result is accurate ~1e-13 for all h).
 ------------------------------------------------------------------------- */
 
-double PPPMDispSlab::switch_trans5(double h)
+double PPPMDispPlanar::switch_trans5(double h)
 {
   static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
                                 -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
@@ -1165,7 +1165,7 @@ double PPPMDispSlab::switch_trans5(double h)
    GT = GT_tail - (pi/V) sGT, GN = GN_tail - (2 pi/V) sGN.
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::switch_shell_virial(double h, double &sGT, double &sGN)
+void PPPMDispPlanar::switch_shell_virial(double h, double &sGT, double &sGN)
 {
   static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
                                 -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
@@ -1207,7 +1207,7 @@ void PPPMDispSlab::switch_shell_virial(double h, double &sGT, double &sGN)
    tail at rcut+Delta plus the numerically integrated shell transition.
 ------------------------------------------------------------------------- */
 
-double PPPMDispSlab::gu_switch(int k)
+double PPPMDispPlanar::gu_switch(int k)
 {
   const double kcell = k * (2.0 * MY_PI / zprd);
   const double kcell3 = kcell * kcell * kcell;
@@ -1222,7 +1222,7 @@ double PPPMDispSlab::gu_switch(int k)
    compact-switch k=0 energy coefficient.
 ------------------------------------------------------------------------- */
 
-double PPPMDispSlab::gu0_switch()
+double PPPMDispPlanar::gu0_switch()
 {
   const double a = cutoff, b = cutoff + sw_width, dz = sw_width;
   const int n = 256;
@@ -1241,10 +1241,10 @@ double PPPMDispSlab::gu0_switch()
 
 /* ----------------------------------------------------------------------
    complementary chain C[m]=A[m](inf)-A[m], D[m]=B[m](inf)-B[m] (cancellation
-   free high-k tail coefficients); see ewald/disp/slab.
+   free high-k tail coefficients); see ewald/disp/planar.
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::sici_compl_chain(double x, double *Carr, double *Darr)
+void PPPMDispPlanar::sici_compl_chain(double x, double *Carr, double *Darr)
 {
   double si, ci;
   cisi(x, si, ci);
@@ -1259,10 +1259,10 @@ void PPPMDispSlab::sici_compl_chain(double x, double *Carr, double *Darr)
 }
 
 /* ----------------------------------------------------------------------
-   IK pressure building blocks Phi(h), Psi(h)  (see ewald/disp/slab)
+   IK pressure building blocks Phi(h), Psi(h)  (see ewald/disp/planar)
 ------------------------------------------------------------------------- */
 
-double PPPMDispSlab::ik_phi(double h)
+double PPPMDispPlanar::ik_phi(double h)
 {
   if (fabs(h) < 1.0e-300) return 0.0;
   const double ah = fabs(h);
@@ -1280,7 +1280,7 @@ double PPPMDispSlab::ik_phi(double h)
 
 /* ---------------------------------------------------------------------- */
 
-double PPPMDispSlab::ik_psi(double h)
+double PPPMDispPlanar::ik_psi(double h)
 {
   if (fabs(h) < 1.0e-300) return 0.0;
   const double ah = fabs(h);
@@ -1295,10 +1295,10 @@ double PPPMDispSlab::ik_psi(double h)
 
 /* ----------------------------------------------------------------------
    potential-form integrand g(r) of a profile coefficient (x = h r); ported
-   from pppm/disp/planar (see ewald/disp/slab for the derivation notes).
+   from pppm/disp/planar (see ewald/disp/planar for the derivation notes).
 ------------------------------------------------------------------------- */
 
-double PPPMDispSlab::prof_integrand(int which, double r, double h)
+double PPPMDispPlanar::prof_integrand(int which, double r, double h)
 {
   const double x = h * r;
   const double sx = sin(x), cx = cos(x);
@@ -1317,10 +1317,10 @@ double PPPMDispSlab::prof_integrand(int which, double r, double h)
 
 /* ----------------------------------------------------------------------
    compact-switch shell correction of a profile coefficient:
-   int_rcut^{rcut+Delta} W(r) g(r) dr, W = S - S' r/6 (see ewald/disp/slab).
+   int_rcut^{rcut+Delta} W(r) g(r) dr, W = S - S' r/6 (see ewald/disp/planar).
 ------------------------------------------------------------------------- */
 
-double PPPMDispSlab::prof_shell(int which, double h)
+double PPPMDispPlanar::prof_shell(int which, double h)
 {
   static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
                                 -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
@@ -1355,7 +1355,7 @@ double PPPMDispSlab::prof_shell(int which, double h)
    convolution).  Ported from pppm/disp/planar (geometric mixing).
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::shell_profile_virial(int nbins, double /*lo*/, double /*dz*/,
+void PPPMDispPlanar::shell_profile_virial(int nbins, double /*lo*/, double /*dz*/,
                                         double * /*dens_all*/, double *shellT, double *shellN)
 {
   // No shell subtraction for the merged-damped variant.  Unlike the compact-switch
@@ -1375,7 +1375,7 @@ void PPPMDispSlab::shell_profile_virial(int nbins, double /*lo*/, double /*dz*/,
    Ported from pppm/disp/planar.
 ------------------------------------------------------------------------- */
 
-int PPPMDispSlab::profile_kmax()
+int PPPMDispPlanar::profile_kmax()
 {
   const int Kgrid = nz / 2 - 1;
   if (Kgrid <= 8) return MAX(1, Kgrid);
@@ -1430,11 +1430,11 @@ int PPPMDispSlab::profile_kmax()
 
 /* ----------------------------------------------------------------------
    raw per-mode tangential/normal box-pressure coefficients GT[k], GN[k],
-   k=0..K (the compact-switch coefficients ewald/disp/slab computes in coeffs();
+   k=0..K (the compact-switch coefficients ewald/disp/planar computes in coeffs();
    NOT the de-convolved mesh GTk/GNk).  Ported from pppm/disp/planar.
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::profile_GTGN_raw(int K, double *GTr, double *GNr)
+void PPPMDispPlanar::profile_GTGN_raw(int K, double *GTr, double *GNr)
 {
   const double unitk = 2.0 * MY_PI / zprd;
   const double c = cutoff + sw_width;
@@ -1470,11 +1470,11 @@ void PPPMDispSlab::profile_GTGN_raw(int K, double *GTr, double *GNr)
 }
 
 /* ----------------------------------------------------------------------
-   Irving-Kirkwood profile assembly (see ewald/disp/slab pressure_profile_long
+   Irving-Kirkwood profile assembly (see ewald/disp/planar pressure_profile_long
    for the derivation); ported from pppm/disp/planar.
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::profile_assemble(int K, int nbins, double lo, double width, const double *Sre,
+void PPPMDispPlanar::profile_assemble(int K, int nbins, double lo, double width, const double *Sre,
                                     const double *Sim, const double *GTr, const double *GNr,
                                     const double *shellT, const double *shellN, double *pN,
                                     double *pT)
@@ -1553,17 +1553,17 @@ void PPPMDispSlab::profile_assemble(int K, int nbins, double lo, double width, c
    S*u pressure building blocks (ik_phi/ik_psi + switch shell) apply.
 ------------------------------------------------------------------------- */
 
-int PPPMDispSlab::pressure_profile_long(int dir, int nbins, double lo, double width,
+int PPPMDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double width,
                                         double *pN, double *pT)
 {
   if (dir != dim)
     error->all(FLERR,
                "compute stress/cartesian binning direction must match the inhomogeneous axis "
-               "of pppm/disp/slab");
+               "of pppm/disp/planar");
   if (nchan != 1)
     error->all(FLERR,
                "compute stress/cartesian kspace (Irving-Kirkwood profile) is not yet "
-               "supported with arithmetic mixing in pppm/disp/slab; use geometric mixing "
+               "supported with arithmetic mixing in pppm/disp/planar; use geometric mixing "
                "or the Harasima profile via compute stress/atom");
 
   const double unitk = 2.0 * MY_PI / zprd;
@@ -1571,7 +1571,7 @@ int PPPMDispSlab::pressure_profile_long(int dir, int nbins, double lo, double wi
 
   if (nbins <= 2 * K)
     error->all(FLERR,
-               "compute stress/cartesian with pppm/disp/slab kspace: {} bins along the "
+               "compute stress/cartesian with pppm/disp/planar kspace: {} bins along the "
                "inhomogeneous axis is too coarse; need > {} (= 2*K_prof, the force-accuracy "
                "mode cutoff) to resolve the Irving-Kirkwood reciprocal modes without aliasing "
                "(use a finer bin width, looser accuracy, or wider switch)",
@@ -1638,10 +1638,10 @@ int PPPMDispSlab::pressure_profile_long(int dir, int nbins, double lo, double wi
 }
 
 /* ----------------------------------------------------------------------
-   standard sine/cosine integrals (series x<=2, Lentz CF x>2); see ewald/disp/slab
+   standard sine/cosine integrals (series x<=2, Lentz CF x>2); see ewald/disp/planar
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::cisi(double x, double &si, double &ci)
+void PPPMDispPlanar::cisi(double x, double &si, double &ci)
 {
   if (x <= 2.0) {
     double term = x, s = x;
@@ -1699,7 +1699,7 @@ void PPPMDispSlab::cisi(double x, double &si, double &ci)
    generalized integrals A_m=Si_m, B_m=Ci_m via recurrence; fills [1..7]
 ------------------------------------------------------------------------- */
 
-void PPPMDispSlab::sici_chain(double x, double *Aarr, double *Barr)
+void PPPMDispPlanar::sici_chain(double x, double *Aarr, double *Barr)
 {
   double si, ci;
   cisi(x, si, ci);
@@ -1715,7 +1715,7 @@ void PPPMDispSlab::sici_chain(double x, double *Aarr, double *Barr)
 
 /* ---------------------------------------------------------------------- */
 
-double PPPMDispSlab::memory_usage()
+double PPPMDispPlanar::memory_usage()
 {
   double bytes = 10.0 * nz * sizeof(double);    // dens,fre,fim,Gk,GTk,GNk,fz_grid,ugrid,uTgrid,uNgrid
   bytes += (double) nmax * sizeof(double);

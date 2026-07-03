@@ -1,7 +1,7 @@
-# Slab-based (SB) Ewald long-range dispersion for a planar LJ liquid-vapor slab.
+# Planar (SB) Ewald long-range dispersion for a planar LJ liquid-vapor slab.
 # The smooth-damped slab kspace style pairs with the matched lj/cut/dispswitch
 # pair style: the pair does the full LJ to r_cut and fades the 1/r^6 dispersion
-# out smoothly over [r_cut, r_cut+Delta], while ewald/disp/slab adds the smooth
+# out smoothly over [r_cut, r_cut+Delta], while ewald/disp/planar adds the smooth
 # r>r_cut dispersion tail with a 1-D (z) Fourier sum.  The real-space slab
 # correction is folded into the reciprocal coefficients (no separate corr step).
 # Fully periodic; no EW3DC kspace_modify slab.
@@ -16,7 +16,7 @@ read_data       data.lj_slab
 pair_style      lj/cut/dispswitch 2.5 0.5
 pair_coeff      1 1 1.0 1.0
 
-kspace_style    ewald/disp/slab 1.0e-4
+kspace_style    ewald/disp/planar 1.0e-4
 
 # long-range surface tension gamma = (Lz/2)(P_zz - (P_xx+P_yy)/2)
 variable        lz equal lz

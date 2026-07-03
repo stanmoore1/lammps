@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-IK contour correctness for pppm/disp/slab (smooth-damped merged-corr method).
+IK contour correctness for pppm/disp/planar (smooth-damped merged-corr method).
 
 The reciprocal sum represents the SMOOTH dispersion tail
   u_smooth(r) = S(t) * (-4/r^6)  for rcut < r < rcut+Delta   (t=(r-rcut)/Delta)
@@ -63,7 +63,7 @@ def main():
     g_lat = ab[:, 7]-0.5*(ab[:, 5]+ab[:, 6])
     frames = C.read_dump("traj_cpp2.dump")[::4]
     sm = lambda a: V.fourier_smooth(a, 30); dm = lambda a: a-a.mean()
-    print("pppm/disp/slab IK contour vs brute-force IK of u_smooth (Ewald identity, no shell):")
+    print("pppm/disp/planar IK contour vs brute-force IK of u_smooth (Ewald identity, no shell):")
     print("  gamma_LR (lattice) = %.4f" % (0.5*DZ*g_lat.sum()))
     print("  RMAX  gamma_brute  ptp_brute/ptp_lat  shape_rms")
     for RMAX in (8.0, 11.0, 14.0):
