@@ -11,7 +11,7 @@ Syntax
    kspace_modify keyword value ...
 
 * one or more keyword/value pairs may be listed
-* keyword = *collective* or *collective/self/copy* or *nonblocking* or *compute* or *contour* or *corr* or *cutoff/adjust* or *damp* or *diff* or *disp/auto* or *fftbench* or *force/disp/kspace* or *force/disp/real* or *force* or *gewald/disp* or *gewald* or *kmax* or *kmax/ewald* or *mesh* or *minorder* or *mix/disp* or *order/disp* or *order* or *overlap* or *pressure/profile* or *scafacos* or *slab* or *splittol* or *wire*
+* keyword = *collective* or *collective/self/copy* or *nonblocking* or *compute* or *cutoff/adjust* or *diff* or *dim* or *disp/auto* or *fftbench* or *force/disp/kspace* or *force/disp/real* or *force* or *gewald/disp* or *gewald* or *kmax* or *kmax/ewald* or *mesh* or *minorder* or *mix/disp* or *order/disp* or *order* or *overlap* or *scafacos* or *slab* or *splittol* or *wire*
 
   .. parsed-literal::
 
@@ -43,17 +43,10 @@ Syntax
          N = extent of Gaussian for PPPM or MSM mapping of charge to grid
        *order/disp* value = N
          N = extent of Gaussian for PPPM mapping of dispersion term to grid
-       *damp* value = *yes* or *no*
-         (ewald/disp/slab only) use the damped (yes) or non-damped (no) slab Ewald sum
        *kmax* value = N
          (ewald/disp/slab only) override the number of z wavevectors
-       *corr* value = *raw* or *bin* [dz]
-         (slab dispersion only) real-space slab correction: exact pairwise or z-binned
-         dz = optional bin width for *bin*
-       *contour* value = *h* or *ik*
-         (slab dispersion only) Harasima or Irving-Kirkwood local pressure contour
-       *pressure/profile* value = N
-         (slab dispersion only) compute P_T(z), P_N(z) on an N-point z grid
+       *dim* value = *x* or *y* or *z*
+         (slab dispersion only) inhomogeneous direction of the 1-D sum (default z)
        *overlap* = *yes* or *no* = whether the grid stencil for PPPM is allowed to overlap into more than the nearest-neighbor processor
        *pressure/scalar* value = *yes* or *no*
        *scafacos* values = option value1 value2 ...
@@ -333,36 +326,16 @@ Coulombics.
 
 ----------
 
-The *damp*, *kmax*, *corr*, *contour*, and *pressure/profile* keywords are
-specific to the slab-based dispersion solvers :doc:`ewald/disp/slab and
-pppm/disp/slab <kspace_style>`.
-
-The *damp* keyword (``ewald/disp/slab`` only) selects the damped (``yes``,
-default) or non-damped (``no``) slab Ewald sum.  The damped variant uses a
-Gaussian split (like the 3-D dispersion Ewald sum) and converges in far fewer
-wavevectors; the non-damped variant needs no real-space correction term but
-converges only slowly because of Gibbs ringing from the sharp cutoff.
+The *kmax* and *dim* keywords are specific to the slab-based dispersion solvers
+:doc:`ewald/disp/slab and pppm/disp/slab <kspace_style>`.
 
 The *kmax* keyword (``ewald/disp/slab`` only) overrides the automatically chosen
 number of :math:`z` wavevectors.
 
-The *corr* keyword (damped slab solvers) selects how the real-space slab
-correction term is evaluated.  ``raw`` is an exact pairwise sum over all plane
-separations :math:`|z_{ij}|<r_{\mathrm{cut}}` and is used for the highest
-accuracy.  ``bin`` is a fast :math:`O(N)` particle-mesh evaluation on a fine
-:math:`z` grid (the default); an optional bin width ``dz`` may be given,
-otherwise it is chosen from the requested accuracy.  Because the correction is an
-interaction between planes (long-ranged laterally), the binned form converges
-only slowly for very tight force accuracy, in which case ``raw`` is preferred.
-
-The *contour* keyword (slab solvers) selects the local pressure-tensor contour,
-Harasima (``h``, default) or Irving-Kirkwood (``ik``).  The two give the same
-volume-averaged pressure but different local :math:`P_T(z)`/:math:`P_N(z)`
-profiles.
-
-The *pressure/profile* keyword (slab solvers) enables tabulation of the
-long-range :math:`P_T(z)` and :math:`P_N(z)` profiles on an :math:`N`-point
-:math:`z` grid.
+The *dim* keyword selects the inhomogeneous direction of the one-dimensional sum
+(``x``, ``y``, or ``z``; default ``z``), i.e. the axis along which the average
+density varies.  The two remaining directions are treated analytically as
+homogeneous.
 
 ----------
 

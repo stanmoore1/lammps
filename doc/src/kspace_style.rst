@@ -214,17 +214,21 @@ wavevectors of the dispersion-weighted density and treats the two homogeneous
 directions analytically, which is much cheaper for planar interfaces.  Unlike
 slab-based tail corrections it sums the periodic images in :math:`z` to infinity,
 so it reduces exactly to the standard tail correction for a homogeneous fluid.
-It pairs with a plain-cutoff dispersion pair style (e.g. :doc:`lj/cut
-<pair_lj>`), which supplies the full interaction to :math:`r_{\mathrm{cut}}`
-while this style adds the :math:`r>r_{\mathrm{cut}}` tail.  By default a damped
-(Gaussian-split) sum is used; the non-damped variant is selected with
-``kspace_modify damp no``.  The damped variant adds a real-space slab correction
-term (``kspace_modify corr raw|bin``).  The local pressure-tensor contour
-(Harasima or Irving-Kirkwood) is selected with ``kspace_modify contour``.  The
-style requires fully periodic boundaries and cannot be combined with the
-:doc:`kspace_modify slab <kspace_modify>` (EW3DC) correction.  See the
-:doc:`kspace_modify <kspace_modify>` doc page for the *damp*, *kmax*, *corr*,
-*contour*, and *pressure/profile* keywords specific to this style.
+
+It uses a Gaussian (damped) split and must be paired with the matched
+:doc:`lj/cut/dispswitch <pair_lj_cut_dispswitch>` pair style, which fades the
+attractive :math:`1/r^6` dispersion out smoothly with a :math:`C^3` switch over
+:math:`[r_{\mathrm{cut}}, r_{\mathrm{cut}}+\Delta]`.  Because the pair switch is
+smooth, the real-space slab correction (the plane-averaged short-range part the
+reciprocal sum leaves out) is a :math:`z`-convolution that is diagonal in the
+reciprocal basis, so it is folded directly into the per-mode coefficients: one
+reciprocal pass yields the energy, force and full pressure tensor with no
+separate real-space correction step.  The style requires fully periodic
+boundaries and cannot be combined with the :doc:`kspace_modify slab
+<kspace_modify>` (EW3DC) correction.  The splitting parameter and number of
+:math:`z` wavevectors are chosen automatically from the requested accuracy; see
+the :doc:`kspace_modify <kspace_modify>` doc page for the *kmax* and *dim*
+keywords specific to this style.
 
 The *ewald/dipole* style adds long-range standard Ewald summations
 for dipole-dipole interactions, see :ref:`(Toukmaji) <Toukmaji>`.
@@ -330,18 +334,22 @@ parameters and how to choose them is described in
 
 .. versionadded:: TBD
 
-The *pppm/disp/slab* style is the mesh-accelerated version of the damped
+The *pppm/disp/slab* style is the mesh-accelerated version of the
 *ewald/disp/slab* slab-based dispersion sum :ref:`(Moore) <MooreSB>`.  The
 dispersion-weighted density is spread onto a one-dimensional :math:`z` grid,
-transformed with an FFT, multiplied by a damped influence function, and the
+transformed with an FFT, multiplied by an influence function, and the
 :math:`z`-force is interpolated back to the atoms, reducing the reciprocal cost
 to :math:`O(N)`.  It is typically the fastest accurate choice for planar
-interfaces.  Like *ewald/disp/slab* it is damped-only, pairs with a plain-cutoff
-dispersion pair style, requires fully periodic boundaries, forbids the EW3DC
-:doc:`kspace_modify slab <kspace_modify>` correction, and supports the *corr*,
-*contour*, and *pressure/profile* keywords; the grid, stencil order, and
-splitting parameter are set with the standard *mesh/disp*, *order/disp*, and
-*gewald/disp* keywords of :doc:`kspace_modify <kspace_modify>`.
+interfaces.  Like *ewald/disp/slab* it uses the Gaussian (damped) split, must be
+paired with the matched :doc:`lj/cut/dispswitch <pair_lj_cut_dispswitch>` pair
+style, requires fully periodic boundaries, and forbids the EW3DC
+:doc:`kspace_modify slab <kspace_modify>` correction.  The smooth switched
+correction is folded into the mesh influence function (diagonal in the grid
+Fourier basis), so there is no separate real-space correction step.  The grid,
+stencil order, and splitting parameter are set with the standard *mesh/disp*,
+*order/disp*, and *gewald/disp* keywords of :doc:`kspace_modify
+<kspace_modify>`, and the inhomogeneous axis with *dim*.  A Kokkos-accelerated
+*pppm/disp/slab/kk* variant runs the mesh solve on the device.
 
 ----------
 
