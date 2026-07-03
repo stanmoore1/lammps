@@ -1,0 +1,15 @@
+units lj
+atom_style atomic
+boundary p p p
+processors 2 2 1
+read_data data.arith
+pair_style lj/cut/dispswitch 4.0 0.6
+pair_coeff 1 1 1.0 1.0
+pair_coeff 2 2 1.5 1.1
+pair_modify mix arithmetic
+kspace_style ewald/disp/slab 1.0e-5
+variable dz equal 0.06
+compute pIK all stress/cartesian z ${dz} NULL 0 kspace
+fix f1 all ave/time 1 1 1 c_pIK[*] file slab_arith_ewald.dat mode vector
+thermo 1
+run 0

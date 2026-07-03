@@ -1,0 +1,7 @@
+# large / regenerable run artifacts
+*.dump
+*.restart
+*.log
+*.dat
+*.npy
+__pycache__/

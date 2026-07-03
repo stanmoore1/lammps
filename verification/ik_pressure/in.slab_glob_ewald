@@ -1,0 +1,12 @@
+units lj
+atom_style atomic
+boundary p p p
+read_data data.lj_slab
+pair_style lj/cut/dispswitch 2.5 0.5
+pair_coeff 1 1 1.0 1.0
+kspace_style ewald/disp/slab 1.0e-4
+variable lz equal lz
+variable gamma equal 0.5*v_lz*(pzz-0.5*(pxx+pyy))
+thermo_style custom step pe pxx pyy pzz v_gamma
+thermo 1
+run 0

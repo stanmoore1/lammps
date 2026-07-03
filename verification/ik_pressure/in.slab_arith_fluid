@@ -1,0 +1,25 @@
+units lj
+atom_style atomic
+boundary p p p
+processors 2 2 1
+lattice sc 0.598
+region box block 0 10 0 10 0 20
+create_box 2 box
+create_atoms 1 box
+mass 1 1.0
+mass 2 1.0
+# alternate types by atom id (xy-disordered relative to the fluid positions)
+variable ty atom "(id % 2) + 1"
+set atom * type v_ty
+pair_style lj/cut/dispswitch 4.0 0.6
+pair_coeff 1 1 1.0 1.0
+pair_coeff 2 2 1.5 1.1
+pair_modify mix arithmetic
+kspace_style pppm/disp/slab 1.0e-5
+variable dz equal 0.06
+compute pIK all stress/cartesian z ${dz} NULL 0 kspace
+fix f1 all ave/time 1 1 500 c_pIK[*] file slab_arithfluid_pppm.dat mode vector ave running
+dump dd all custom 100000 traj_arithfluid.dump id type x y z
+dump_modify dd sort id
+thermo 100
+rerun traj_cpp2.dump first 0 dump x y z vx vy vz
