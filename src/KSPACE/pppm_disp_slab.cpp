@@ -55,6 +55,7 @@ using namespace MathConst;
 
 static constexpr int OFFSET = 16384;
 static constexpr int MAXORDER = 8;
+static constexpr double EULER = 0.57721566490153286061;
 
 /* ---------------------------------------------------------------------- */
 
@@ -77,6 +78,9 @@ PPPMDispSlab::PPPMDispSlab(LAMMPS *lmp) :
   order_allocated = 0;
   nmax = 0;
   accuracy_relative = 0.0;
+  prof_kmax_cached = 0;
+  prof_kmax_nz = 0;
+  prof_kmax_zprd = 0.0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -839,6 +843,591 @@ void PPPMDispSlab::compute(int eflag, int vflag)
 
   if (eflag_atom)
     for (int i = 0; i < atom->nlocal; i++) eatom[i] += peatom[i];
+}
+
+
+/* ----------------------------------------------------------------------
+   energy shell integral t5 = int_rcut^{rcut+Delta} S(r) r^-5 sin(h r) dr
+   (10-point Gauss-Legendre per panel, panel count scaled to the oscillation
+   count so the result is accurate ~1e-13 for all h).
+------------------------------------------------------------------------- */
+
+double PPPMDispSlab::switch_trans5(double h)
+{
+  static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
+                                -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
+                                0.4333953941292472,  0.6794095682990244,  0.8650633666889845,
+                                0.9739065285171717};
+  static const double gw[10] = {0.0666713443086881, 0.1494513491505806, 0.2190863625159820,
+                                0.2692667193099963, 0.2955242247147529, 0.2955242247147529,
+                                0.2692667193099963, 0.2190863625159820, 0.1494513491505806,
+                                0.0666713443086881};
+  const double a = cutoff, dz = sw_width;
+  int np = (int) (8.0 * h * dz / (2.0 * MY_PI)) + 1;
+  np = MAX(8, np);
+  np = MIN(np, 20000);
+  const double hp = dz / np;    // panel width
+  double s5 = 0.0;
+  for (int p = 0; p < np; p++) {
+    const double c0 = a + (p + 0.5) * hp;    // panel center
+    for (int g = 0; g < 10; g++) {
+      const double r = c0 + 0.5 * hp * gx[g];
+      const double S = switch_S((r - a) / dz);
+      const double r2 = r * r, r4 = r2 * r2;
+      s5 += gw[g] * S * sin(h * r) / (r4 * r);    // r^-5 sin
+    }
+  }
+  return 0.5 * hp * s5;
+}
+
+/* ----------------------------------------------------------------------
+   shell virial integrals over [rcut, rcut+Delta] with the smooth force
+   phi'(r) = (S u)' = -S'/r^6 + 6 S/r^7:
+     sGT = int phi'(r) A_T dr, sGN = int phi'(r) A_N dr.
+   GT = GT_tail - (pi/V) sGT, GN = GN_tail - (2 pi/V) sGN.
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::switch_shell_virial(double h, double &sGT, double &sGN)
+{
+  static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
+                                -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
+                                0.4333953941292472,  0.6794095682990244,  0.8650633666889845,
+                                0.9739065285171717};
+  static const double gw[10] = {0.0666713443086881, 0.1494513491505806, 0.2190863625159820,
+                                0.2692667193099963, 0.2955242247147529, 0.2955242247147529,
+                                0.2692667193099963, 0.2190863625159820, 0.1494513491505806,
+                                0.0666713443086881};
+  const double a = cutoff, dz = sw_width;
+  int np = (int) (8.0 * h * dz / (2.0 * MY_PI)) + 1;
+  np = MAX(8, np);
+  np = MIN(np, 20000);
+  const double hp = dz / np;
+  const double h2 = h * h, h3 = h2 * h;
+  double accT = 0.0, accN = 0.0;
+  for (int p = 0; p < np; p++) {
+    const double c0 = a + (p + 0.5) * hp;
+    for (int g = 0; g < 10; g++) {
+      const double r = c0 + 0.5 * hp * gx[g];
+      const double t = (r - a) / dz;
+      const double S = switch_S(t);
+      const double Sp = switch_dS(t) / dz;    // S'(r)
+      const double r2 = r * r, r6 = r2 * r2 * r2, r7 = r6 * r;
+      const double phip = -Sp / r6 + 6.0 * S / r7;    // (S u)' = S'u + S u'
+      const double sr = sin(h * r), cr = cos(h * r);
+      const double AT = -4.0 * r * cr / h2 + 4.0 * sr / h3;
+      const double AN = 2.0 * r2 * sr / h + 4.0 * r * cr / h2 - 4.0 * sr / h3;
+      accT += gw[g] * phip * AT;
+      accN += gw[g] * phip * AN;
+    }
+  }
+  sGT = 0.5 * hp * accT;
+  sGN = 0.5 * hp * accN;
+}
+
+/* ----------------------------------------------------------------------
+   compact-switch energy coefficient GU at mesh mode k (k = m*unitk): non-damped
+   tail at rcut+Delta plus the numerically integrated shell transition.
+------------------------------------------------------------------------- */
+
+double PPPMDispSlab::gu_switch(int k)
+{
+  const double kcell = k * (2.0 * MY_PI / zprd);
+  const double kcell3 = kcell * kcell * kcell;
+  const double c = cutoff + sw_width;
+  double C[8], D[8];
+  sici_compl_chain(kcell * c, C, D);
+  const double t5 = switch_trans5(kcell);
+  return (-4.0 * MY_PI * kcell3 / volume) * C[5] - (4.0 * MY_PI / volume) * t5 / kcell;
+}
+
+/* ----------------------------------------------------------------------
+   compact-switch k=0 energy coefficient.
+------------------------------------------------------------------------- */
+
+double PPPMDispSlab::gu0_switch()
+{
+  const double a = cutoff, b = cutoff + sw_width, dz = sw_width;
+  const int n = 256;
+  const double dr = (b - a) / n;
+  double s = 0.0;
+  for (int i = 0; i <= n; i++) {
+    const double r = a + i * dr;
+    const double S = switch_S((r - a) / dz);
+    const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+    s += w * S / (r * r * r * r);
+  }
+  const double trans = dr / 3.0 * s;
+  const double tail = 1.0 / (3.0 * b * b * b);
+  return -(2.0 * MY_PI / volume) * (trans + tail);
+}
+
+/* ----------------------------------------------------------------------
+   complementary chain C[m]=A[m](inf)-A[m], D[m]=B[m](inf)-B[m] (cancellation
+   free high-k tail coefficients); see ewald/disp/slab.
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::sici_compl_chain(double x, double *Carr, double *Darr)
+{
+  double si, ci;
+  cisi(x, si, ci);
+  Carr[1] = MY_PI / 2.0 - si;    // A[1](inf) - A[1] = pi/2 - Si(x)
+  Darr[1] = -ci;                 // B[1](inf) - B[1] = -Ci(x)
+  const double sx = sin(x), cx = cos(x);
+  for (int m = 2; m <= 7; m++) {
+    const double xm = pow(x, 1 - m);
+    Carr[m] = (Darr[m - 1] + sx * xm) / (m - 1);
+    Darr[m] = (cx * xm - Carr[m - 1]) / (m - 1);
+  }
+}
+
+/* ----------------------------------------------------------------------
+   IK pressure building blocks Phi(h), Psi(h)  (see ewald/disp/slab)
+------------------------------------------------------------------------- */
+
+double PPPMDispSlab::ik_phi(double h)
+{
+  if (fabs(h) < 1.0e-300) return 0.0;
+  const double ah = fabs(h);
+  // compact switch: anchor the tail at the OUTER cutoff rcut+Delta and add the
+  // switch-shell integral (ported from pppm/disp/planar; sharp as Delta->0)
+  const double c = cutoff + sw_width;
+  double A[8], Bc[8];
+  sici_chain(ah * c, A, Bc);
+  const double sii5 = A[5] / 4.0 - A[1] / (4.0 * pow(ah * c, 4));
+  double phi = MY_PI / 576.0 - sii5 + A[7] - Bc[6];
+  phi += prof_shell(PROF_PHI, ah);
+  const double ah4 = ah * ah * ah * ah;
+  return (h >= 0.0 ? 1.0 : -1.0) * ah4 * phi;
+}
+
+/* ---------------------------------------------------------------------- */
+
+double PPPMDispSlab::ik_psi(double h)
+{
+  if (fabs(h) < 1.0e-300) return 0.0;
+  const double ah = fabs(h);
+  const double c = cutoff + sw_width;
+  double A[8], Bc[8];
+  sici_chain(ah * c, A, Bc);
+  double psi = MY_PI / 288.0 - A[7] + Bc[6];
+  psi += prof_shell(PROF_T, ah);
+  const double ah4 = ah * ah * ah * ah;
+  return (h >= 0.0 ? 1.0 : -1.0) * ah4 * psi;
+}
+
+/* ----------------------------------------------------------------------
+   potential-form integrand g(r) of a profile coefficient (x = h r); ported
+   from pppm/disp/planar (see ewald/disp/slab for the derivation notes).
+------------------------------------------------------------------------- */
+
+double PPPMDispSlab::prof_integrand(int which, double r, double h)
+{
+  const double x = h * r;
+  const double sx = sin(x), cx = cos(x);
+  const double h2 = h * h, h4 = h2 * h2, h5 = h4 * h, h6 = h4 * h2;
+  const double r2 = r * r, r4 = r2 * r2, r5 = r4 * r, r6 = r4 * r2, r7 = r6 * r;
+  if (which == PROF_T) {
+    return sx / (h6 * r7) - cx / (h5 * r6);
+  } else if (which == PROF_N) {
+    return sx / (h4 * r5) - 2.0 * sx / (h6 * r7) + 2.0 * cx / (h5 * r6);
+  } else {    // PROF_PHI
+    double si, ci;
+    cisi(x, si, ci);
+    return si / (h4 * r5) - sx / (h6 * r7) + cx / (h5 * r6);
+  }
+}
+
+/* ----------------------------------------------------------------------
+   compact-switch shell correction of a profile coefficient:
+   int_rcut^{rcut+Delta} W(r) g(r) dr, W = S - S' r/6 (see ewald/disp/slab).
+------------------------------------------------------------------------- */
+
+double PPPMDispSlab::prof_shell(int which, double h)
+{
+  static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
+                                -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
+                                0.4333953941292472,  0.6794095682990244,  0.8650633666889845,
+                                0.9739065285171717};
+  static const double gw[10] = {0.0666713443086881, 0.1494513491505806, 0.2190863625159820,
+                                0.2692667193099963, 0.2955242247147529, 0.2955242247147529,
+                                0.2692667193099963, 0.2190863625159820, 0.1494513491505806,
+                                0.0666713443086881};
+  const double a = cutoff, dzs = sw_width;
+  int np = (int) (8.0 * h * dzs / (2.0 * MY_PI)) + 1;
+  np = MAX(8, np);
+  np = MIN(np, 20000);
+  const double hp = dzs / np;
+  double acc = 0.0;
+  for (int p = 0; p < np; p++) {
+    const double c0 = a + (p + 0.5) * hp;
+    for (int g = 0; g < 10; g++) {
+      const double r = c0 + 0.5 * hp * gx[g];
+      const double t = (r - a) / dzs;
+      const double W = switch_S(t) - (switch_dS(t) / dzs) * r / 6.0;
+      acc += gw[g] * W * prof_integrand(which, r, h);
+    }
+  }
+  return 0.5 * hp * acc;
+}
+
+/* ----------------------------------------------------------------------
+   shell-correction virial per profile bin (CSB), dispatched on corr_mode so the
+   contour profile uses the IDENTICAL corr_csb correction as the box average
+   (raw = exact per-atom shell virial spread IK along each bond; bin = density
+   convolution).  Ported from pppm/disp/planar (geometric mixing).
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::shell_profile_virial(int nbins, double /*lo*/, double /*dz*/,
+                                        double * /*dens_all*/, double *shellT, double *shellN)
+{
+  // No shell subtraction for the merged-damped variant.  Unlike the compact-switch
+  // method (where the pair evaluated the FULL shell and corr_csb removed the plane
+  // mean field), here the pair fades the dispersion by (1-S) and the kspace
+  // coefficients GT[k]/GN[k] already carry the full plane mean field of S*u
+  // (Gaussian split + merged corr), so the reciprocal double sum needs no
+  // additional shell correction -- the switched pair supplies the laterally
+  // resolved (1-S) shell separately in the stress/cartesian pair term.
+  for (int g = 0; g < nbins; g++) shellT[g] = shellN[g] = 0.0;
+}
+
+/* ----------------------------------------------------------------------
+   force-accuracy mode cutoff K_prof for the profile: the FFT grid over-resolves
+   the physical mode content, so truncate the O(K^2) assembly at the force-
+   converged kmax (same random-phase model + kbig tail scan as the estimators).
+   Ported from pppm/disp/planar.
+------------------------------------------------------------------------- */
+
+int PPPMDispSlab::profile_kmax()
+{
+  const int Kgrid = nz / 2 - 1;
+  if (Kgrid <= 8) return MAX(1, Kgrid);
+
+  if (prof_kmax_cached > 0 && prof_kmax_nz == nz && fabs(prof_kmax_zprd - zprd) < 1.0e-12 * zprd)
+    return prof_kmax_cached;
+
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+  double b2_local = 0.0;
+  for (int i = 0; i < nlocal; i++) b2_local += B[type[i]] * B[type[i]];
+  double b2;
+  MPI_Allreduce(&b2_local, &b2, 1, MPI_DOUBLE, MPI_SUM, world);
+  double natoms = (double) atom->natoms;
+  if (natoms < 1.0) natoms = 1.0;
+
+  const double prefac = 0.5 * b2 * b2 / natoms;
+  const double bias = 1.6;
+  const double target = accuracy * accuracy / (bias * bias);
+  const double uk = 2.0 * MY_PI / zprd;
+  const int kbig = 8192;
+  auto *gf2 = new double[kbig + 1];
+  const double tail_floor = 1.0e-3 * accuracy * accuracy / (16.0 * prefac);
+  int kstop = kbig;
+  for (int k = 1; k <= kbig; k++) {
+    double g = 2.0 * (k * uk) * gu_switch(k);
+    gf2[k] = g * g;
+    if (k > 16 && gf2[k] * k / 9.0 < tail_floor && gf2[k] < gf2[k - 1]) {
+      kstop = k;
+      break;
+    }
+  }
+  for (int k = kstop + 1; k <= kbig; k++) gf2[k] = 0.0;
+  double tail = 0.0;
+  int chosen = kbig;
+  for (int kmx = kbig - 1; kmx >= 4; kmx--) {
+    tail += gf2[kmx + 1];
+    if (prefac * tail >= target) {
+      chosen = kmx + 1;
+      break;
+    }
+    chosen = kmx;
+  }
+  delete[] gf2;
+
+  const int kmax_phys = MAX(8, MIN(chosen, kbig));
+  prof_kmax_cached = MIN(kmax_phys, Kgrid);
+  prof_kmax_nz = nz;
+  prof_kmax_zprd = zprd;
+  return prof_kmax_cached;
+}
+
+/* ----------------------------------------------------------------------
+   raw per-mode tangential/normal box-pressure coefficients GT[k], GN[k],
+   k=0..K (the compact-switch coefficients ewald/disp/slab computes in coeffs();
+   NOT the de-convolved mesh GTk/GNk).  Ported from pppm/disp/planar.
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::profile_GTGN_raw(int K, double *GTr, double *GNr)
+{
+  const double unitk = 2.0 * MY_PI / zprd;
+  const double c = cutoff + sw_width;
+  const double a = cutoff, dzs = sw_width;
+  const int ni = 2000;
+  const double dr = dzs / ni;
+  double iJ = 0.0, iT = 0.0;
+  for (int i = 0; i <= ni; i++) {
+    const double r = a + i * dr;
+    const double t = (r - a) / dzs;
+    const double S = switch_S(t);
+    const double Sp = switch_dS(t) / dzs;
+    const double r3 = r * r * r, r4 = r3 * r;
+    const double w = (i == 0 || i == ni) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+    iJ += w * Sp / r3;
+    iT += w * S / r4;
+  }
+  const double Jint = dr / 3.0 * iJ;
+  const double trans = dr / 3.0 * iT;
+  GTr[0] = GNr[0] = -(2.0 * MY_PI / (3.0 * volume)) * (-Jint + 6.0 * trans + 2.0 / (c * c * c));
+  for (int k = 1; k <= K; k++) {
+    const double kcell = k * unitk;
+    const double kcell3 = kcell * kcell * kcell;
+    double C[8], D[8];
+    sici_compl_chain(kcell * c, C, D);
+    const double GTtail = (-24.0 * MY_PI * kcell3 / volume) * (C[7] - D[6]);
+    const double GNtail = (-24.0 * MY_PI * kcell3 / volume) * (C[5] - 2.0 * C[7] + 2.0 * D[6]);
+    double sGT, sGN;
+    switch_shell_virial(kcell, sGT, sGN);
+    GTr[k] = GTtail - (MY_PI / volume) * sGT;
+    GNr[k] = GNtail - (2.0 * MY_PI / volume) * sGN;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   Irving-Kirkwood profile assembly (see ewald/disp/slab pressure_profile_long
+   for the derivation); ported from pppm/disp/planar.
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::profile_assemble(int K, int nbins, double lo, double width, const double *Sre,
+                                    const double *Sim, const double *GTr, const double *GNr,
+                                    const double *shellT, const double *shellN, double *pN,
+                                    double *pT)
+{
+  const double unitk = 2.0 * MY_PI / zprd;
+  const double inv_adz = 1.0 / (area * width);
+  const int P = 2 * K;
+  auto *ATre = new double[P + 1];
+  auto *ATim = new double[P + 1];
+  auto *ANre = new double[P + 1];
+  auto *ANim = new double[P + 1];
+  for (int p = 0; p <= P; p++) ATre[p] = ATim[p] = ANre[p] = ANim[p] = 0.0;
+  auto Sn = [&](int n, double &re, double &im) {
+    int an = n < 0 ? -n : n;
+    re = Sre[an];
+    im = (n < 0) ? -Sim[an] : Sim[an];
+  };
+  auto *phiP = new double[K + 1];
+  auto *psiP = new double[K + 1];
+  for (int k = 0; k <= K; k++) {
+    phiP[k] = ik_phi(k * unitk);
+    psiP[k] = ik_psi(k * unitk);
+  }
+  auto PHI = [&](int n) { return n < 0 ? -phiP[-n] : phiP[n]; };
+  auto PSI = [&](int n) { return n < 0 ? -psiP[-n] : psiP[n]; };
+  for (int n = -K; n <= K; n++) {
+    double hn = n * unitk;
+    for (int m = -K; m <= K; m++) {
+      int p = n + m;
+      if (p < 0) continue;    // Hermitian symmetry; keep p>=0
+      double hm = m * unitk, H = hn + hm;
+      double snr, sni, smr, smi;
+      Sn(n, snr, sni);
+      Sn(m, smr, smi);
+      double sre = snr * smr - sni * smi, simv = snr * smi + sni * smr;
+      double CT, CN;
+      if (n == 0 && m == 0) {
+        CT = CN = volume * GTr[0];
+      } else if (fabs(H) < 1.0e-300) {
+        int kk = (n < 0) ? -n : n;
+        CT = 0.5 * volume * GTr[kk];
+        CN = 0.5 * volume * GNr[kk];
+      } else {
+        CT = -6.0 * MY_PI / H * (PHI(m) + PHI(n));
+        CN = -12.0 * MY_PI / H * (PSI(m) + PSI(n));
+      }
+      ATre[p] += CT * sre;
+      ATim[p] += CT * simv;
+      ANre[p] += CN * sre;
+      ANim[p] += CN * simv;
+    }
+  }
+  for (int g = 0; g < nbins; g++) {
+    double z = lo + (g + 0.5) * width;
+    double pt = ATre[0], pn = ANre[0];
+    for (int p = 1; p <= P; p++) {
+      double cz = cos(p * unitk * z), sz = sin(p * unitk * z);
+      pt += 2.0 * (ATre[p] * cz - ATim[p] * sz);
+      pn += 2.0 * (ANre[p] * cz - ANim[p] * sz);
+    }
+    pT[g] = pt - shellT[g] * inv_adz;
+    pN[g] = pn - shellN[g] * inv_adz;
+  }
+  delete[] ATre;
+  delete[] ATim;
+  delete[] ANre;
+  delete[] ANim;
+  delete[] phiP;
+  delete[] psiP;
+}
+
+/* ----------------------------------------------------------------------
+   long-range Irving-Kirkwood pressure profiles on the caller's z grid.  The
+   merged-damped kspace represents the identical switched tail S(r)*u(r) as the
+   compact-switch method (the pair fades the dispersion by (1-S)), so the same
+   S*u pressure building blocks (ik_phi/ik_psi + switch shell) apply.
+------------------------------------------------------------------------- */
+
+int PPPMDispSlab::pressure_profile_long(int dir, int nbins, double lo, double width,
+                                        double *pN, double *pT)
+{
+  if (dir != dim)
+    error->all(FLERR,
+               "compute stress/cartesian binning direction must match the inhomogeneous axis "
+               "of pppm/disp/slab");
+
+  const double unitk = 2.0 * MY_PI / zprd;
+  const int K = profile_kmax();
+
+  if (nbins <= 2 * K)
+    error->all(FLERR,
+               "compute stress/cartesian with pppm/disp/slab kspace: {} bins along the "
+               "inhomogeneous axis is too coarse; need > {} (= 2*K_prof, the force-accuracy "
+               "mode cutoff) to resolve the Irving-Kirkwood reciprocal modes without aliasing "
+               "(use a finer bin width, looser accuracy, or wider switch)",
+               nbins, 2 * K);
+
+  auto *GTr = new double[K + 1];
+  auto *GNr = new double[K + 1];
+  profile_GTGN_raw(K, GTr, GNr);
+
+  // EXACT structure factors sfac[n] = sum_j B_j exp(i n unitk z_j), n=0..K
+  auto *srl = new double[K + 1];
+  auto *sim = new double[K + 1];
+  auto *srl_all = new double[K + 1];
+  auto *sim_all = new double[K + 1];
+  for (int n = 0; n <= K; n++) srl[n] = sim[n] = 0.0;
+
+  double **x = atom->x;
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+  for (int i = 0; i < nlocal; i++) {
+    const double bi = B[type[i]];
+    double c1 = cos(unitk * x[i][dim]), s1 = sin(unitk * x[i][dim]);
+    double cn = 1.0, sn = 0.0;    // cos/sin(n*unitk*z), recurrence
+    srl[0] += bi;
+    for (int n = 1; n <= K; n++) {
+      double cnn = cn * c1 - sn * s1;
+      double snn = sn * c1 + cn * s1;
+      cn = cnn;
+      sn = snn;
+      srl[n] += bi * cn;
+      sim[n] += bi * sn;
+    }
+  }
+  MPI_Allreduce(srl, srl_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(sim, sim_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
+
+  auto *Sre = new double[K + 1];
+  auto *Sim = new double[K + 1];
+  for (int n = 0; n <= K; n++) {
+    Sre[n] = srl_all[n] / volume;
+    Sim[n] = -sim_all[n] / volume;
+  }
+
+  // shell virial subtraction is zero for the merged-damped variant (the kspace
+  // GT/GN already carry the full plane mean field of S*u); keep the (zeroed)
+  // arrays so profile_assemble's signature is unchanged.
+  auto *shellT = new double[nbins];
+  auto *shellN = new double[nbins];
+  shell_profile_virial(nbins, lo, width, nullptr, shellT, shellN);
+
+  profile_assemble(K, nbins, lo, width, Sre, Sim, GTr, GNr, shellT, shellN, pN, pT);
+
+  delete[] GTr;
+  delete[] GNr;
+  delete[] srl;
+  delete[] sim;
+  delete[] srl_all;
+  delete[] sim_all;
+  delete[] Sre;
+  delete[] Sim;
+  delete[] shellT;
+  delete[] shellN;
+  return 1;
+}
+
+/* ----------------------------------------------------------------------
+   standard sine/cosine integrals (series x<=2, Lentz CF x>2); see ewald/disp/slab
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::cisi(double x, double &si, double &ci)
+{
+  if (x <= 2.0) {
+    double term = x, s = x;
+    for (int k = 1; k < 60; k++) {
+      term *= -x * x / ((2.0 * k) * (2.0 * k + 1.0));
+      double add = term / (2.0 * k + 1.0);
+      s += add;
+      if (fabs(add) < 1.0e-18 * fabs(s)) break;
+    }
+    si = s;
+    double cterm = 1.0, cin = 0.0;
+    for (int k = 1; k < 60; k++) {
+      cterm *= -x * x / ((2.0 * k - 1.0) * (2.0 * k));
+      double add = -cterm / (2.0 * k);
+      cin += add;
+      if (fabs(add) < 1.0e-18 * (fabs(cin) + 1.0e-300)) break;
+    }
+    ci = EULER + log(x) - cin;
+  } else {
+    const double tiny = 1.0e-300;
+    double br = 1.0, bi = x;
+    double cr = 1.0e308, cii = 0.0;
+    double den = br * br + bi * bi;
+    double dr = br / den, di = -bi / den;
+    double hr = dr, hi = di;
+    for (int i = 1; i < 400; i++) {
+      double a = -(double) i * i;
+      br += 2.0;
+      double tr = a * dr + br, ti = a * di + bi;
+      den = tr * tr + ti * ti;
+      if (den < tiny) den = tiny;
+      dr = tr / den;
+      di = -ti / den;
+      double cden = cr * cr + cii * cii;
+      if (cden < tiny) cden = tiny;
+      cr = br + a * cr / cden;
+      cii = bi - a * cii / cden;
+      double delr = cr * dr - cii * di;
+      double deli = cr * di + cii * dr;
+      double nhr = hr * delr - hi * deli;
+      double nhi = hr * deli + hi * delr;
+      hr = nhr;
+      hi = nhi;
+      if (fabs(delr - 1.0) + fabs(deli) < 1.0e-17) break;
+    }
+    double cx = cos(x), sx = sin(x);
+    double fr = hr * cx + hi * sx;
+    double fi = -hr * sx + hi * cx;
+    ci = -fr;
+    si = MY_PI / 2.0 + fi;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   generalized integrals A_m=Si_m, B_m=Ci_m via recurrence; fills [1..7]
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::sici_chain(double x, double *Aarr, double *Barr)
+{
+  double si, ci;
+  cisi(x, si, ci);
+  Aarr[1] = si;
+  Barr[1] = ci - EULER;
+  double sx = sin(x), cx = cos(x);
+  for (int m = 2; m <= 7; m++) {
+    double xm = pow(x, 1 - m);
+    Aarr[m] = -sx * xm / (m - 1) + Barr[m - 1] / (m - 1);
+    Barr[m] = -cx * xm / (m - 1) - Aarr[m - 1] / (m - 1);
+  }
 }
 
 /* ---------------------------------------------------------------------- */

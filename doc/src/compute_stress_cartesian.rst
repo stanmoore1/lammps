@@ -58,9 +58,8 @@ then only those components are summed.
 .. versionadded:: TBD
 
 The *kspace* keyword adds the long-range Irving-Kirkwood pressure profile
-from the slab dispersion solvers :doc:`ewald/disp/slab or
-pppm/disp/slab <kspace_style>` (compact-switch variant, kspace_modify damp
-compact) to the configurational (virial) stress columns :math:`P^v_{xx}`,
+from the slab dispersion solver :doc:`pppm/disp/slab <kspace_style>` to the
+configurational (virial) stress columns :math:`P^v_{xx}`,
 :math:`P^v_{yy}`, and :math:`P^v_{zz}`.  The solver supplies its
 long-range contribution on this compute's own bin grid, so the binning
 matches automatically.  This keyword requires one-dimensional binning
