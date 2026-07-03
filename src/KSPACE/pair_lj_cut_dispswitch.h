@@ -45,12 +45,9 @@ class PairLJCutDispSwitch : public PairLJCut {
   double single(int, int, int, int, double, double, double, double &) override;
 
  protected:
-  double sw_width;     // switch width Delta
-  double inner_rc2;    // rcut^2 (inner boundary; full LJ for r < rcut)
-  // shell [rcut, rcut+Delta] treatment, set via extract("csb_full_shell") by the
-  // matched kspace: 1 = full LJ (the live path; kspace removes the plane S*u in
-  // corr_csb), 0 = (1-S)*u complement fallback (unused by shipped kspace styles).
-  int csb_full_shell;
+  double sw_width;       // switch width Delta
+  double inv_sw_width;   // 1/Delta, precomputed for the hot loop
+  double inner_rc2;      // rcut^2 (inner boundary; full LJ for r < rcut)
   static double sw_S(double t);
   static double sw_dS(double t);
 };

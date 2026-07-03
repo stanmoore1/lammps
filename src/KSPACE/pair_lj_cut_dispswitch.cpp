@@ -65,6 +65,7 @@ void PairLJCutDispSwitch::settings(int narg, char **arg)
   cut_global = utils::numeric(FLERR, arg[0], false, lmp);
   sw_width = utils::numeric(FLERR, arg[1], false, lmp);
   if (sw_width <= 0.0) error->all(FLERR, "pair_style lj/cut/dispswitch switch width must be > 0");
+  inv_sw_width = 1.0 / sw_width;    // precomputed for the hot loop
 
   // reset per-type cutoffs (always global here)
   if (allocated) {
@@ -84,6 +85,7 @@ double PairLJCutDispSwitch::init_one(int i, int j)
   cut[i][j] = cut[j][i] = cut_global + sw_width;
   offset[i][j] = offset[j][i] = 0.0;    // kspace continues the tail: no shift
   inner_rc2 = cut_global * cut_global;
+  inv_sw_width = 1.0 / sw_width;    // precomputed for the hot loop (NPT-safe: Delta fixed)
   return cut_global + sw_width;
 }
 
@@ -117,6 +119,7 @@ void PairLJCutDispSwitch::read_restart_settings(FILE *fp)
   PairLJCut::read_restart_settings(fp);
   if (comm->me == 0) utils::sfread(FLERR, &sw_width, sizeof(double), 1, fp, nullptr, error);
   MPI_Bcast(&sw_width, 1, MPI_DOUBLE, 0, world);
+  inv_sw_width = 1.0 / sw_width;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -142,6 +145,10 @@ void PairLJCutDispSwitch::compute(int eflag, int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
+
+  // hoist the switch constants out of the pair loop
+  const double rc_inner = cut_global;    // inner cutoff rcut
+  const double invsw = inv_sw_width;      // 1/Delta
 
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
@@ -182,16 +189,21 @@ void PairLJCutDispSwitch::compute(int eflag, int vflag)
         // shell [rcut, rcut+Delta]: attractive dispersion switched by (1 - S).
         // E = -(1-S) lj4 r^-6 ; fpair = -lj4[ S'(t)/Delta r^-7 + 6 (1-S) r^-8 ].
         // The kspace style supplies the plane S*u tail (used by pppm/disp/slab,
-        // which has no real-space shell correction).
-        const double r = sqrt(rsq);
-        const double t = (r - cut_global) / sw_width;
-        const double S = sw_S(t);
-        const double dS = sw_dS(t);    // dS/dt
+        // which has no real-space shell correction).  Here t is guaranteed in
+        // [0,1) (rcut <= r < rcut+Delta), so the switch polynomials are inlined
+        // without the end clamps, and all divisions are replaced by the
+        // precomputed 1/Delta and rinv = sqrt(r2inv) (no 1/r, no /Delta).
+        const double rinv = sqrt(r2inv);
+        const double r = rsq * rinv;              // = sqrt(rsq), one mul not a div
+        const double t = (r - rc_inner) * invsw;
+        const double t2 = t * t, t3 = t2 * t, t4 = t3 * t;
+        const double S = t4 * (35.0 + t * (-84.0 + t * (70.0 - 20.0 * t)));    // Horner
+        const double u = 1.0 - t;
+        const double dS = 140.0 * t3 * u * u * u;    // dS/dt
         const double oneMinusS = 1.0 - S;
         const double lj4ij = lj4[itype][jtype];
-        const double rinv = 1.0 / r;
-        fpair = -factor_lj * lj4ij *
-            ((dS / sw_width) * r6inv * rinv + 6.0 * oneMinusS * r6inv * r2inv);
+        fpair = -factor_lj * lj4ij * r6inv *
+            ((dS * invsw) * rinv + 6.0 * oneMinusS * r2inv);
         if (eflag) evdwl = -factor_lj * oneMinusS * lj4ij * r6inv;
       }
 
@@ -229,12 +241,11 @@ double PairLJCutDispSwitch::single(int /*i*/, int /*j*/, int itype, int jtype, d
     fforce = factor_lj * forcelj * r2inv;
     phi = r6inv * (lj3[itype][jtype] * r6inv - lj4[itype][jtype]);
   } else {
-    const double r = sqrt(rsq), rinv = 1.0 / r;
-    const double t = (r - cut_global) / sw_width;
+    const double rinv = sqrt(r2inv), r = rsq * rinv;
+    const double t = (r - cut_global) * inv_sw_width;
     const double S = sw_S(t), dS = sw_dS(t), oneMinusS = 1.0 - S;
     const double lj4ij = lj4[itype][jtype];
-    fforce = -lj4ij * ((dS / sw_width) * r6inv * rinv + 6.0 * oneMinusS * r6inv * r2inv);
-    fforce *= factor_lj;
+    fforce = -factor_lj * lj4ij * r6inv * ((dS * inv_sw_width) * rinv + 6.0 * oneMinusS * r2inv);
     phi = -oneMinusS * lj4ij * r6inv;
   }
   return factor_lj * phi;
