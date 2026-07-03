@@ -35,6 +35,10 @@ class EwaldDispSlab : public KSpace {
   int modify_param(int, char **) override;
   double memory_usage() override;
 
+  // long-range Irving-Kirkwood pressure profiles P_T(z), P_N(z) (compute
+  // stress/cartesian hook); the merged-damped kspace represents the same S*u tail.
+  int pressure_profile_long(int, int, double, double, double *, double *) override;
+
  protected:
   int dim;               // inhomogeneous dimension: 0=x, 1=y, 2=z (default 2)
   int lat1, lat2;        // lateral dimensions = (dim+1)%3, (dim+2)%3
@@ -61,6 +65,24 @@ class EwaldDispSlab : public KSpace {
   double gf_of_k(int k);     // force coefficient GF for a single z mode k>=1
   double switch_S(double t);     // C3 septic smoothstep
   double switch_dS(double t);    // dS/dt = 140 t^3 (1-t)^3
+
+  // Irving-Kirkwood pressure-profile building blocks (S*u tail; shared with
+  // pppm/disp/slab / pppm/disp/planar).  All self-contained in the switched
+  // dispersion potential (cutoff, sw_width, B, volume); independent of the solve.
+  enum { PROF_T, PROF_N, PROF_PHI };
+  void cisi(double x, double &si, double &ci);
+  void sici_chain(double x, double *Aarr, double *Barr);
+  void sici_compl_chain(double x, double *Carr, double *Darr);
+  double prof_integrand(int which, double r, double h);
+  double prof_shell(int which, double h);
+  double ik_phi(double h), ik_psi(double h);
+  void switch_shell_virial(double h, double &sGT, double &sGN);
+  void shell_profile_virial(int nbins, double lo, double dz, double *dens_all, double *shellT,
+                            double *shellN);
+  void profile_GTGN_raw(int K, double *GTr, double *GNr);
+  void profile_assemble(int K, int nbins, double lo, double width, const double *Sre,
+                        const double *Sim, const double *GTr, const double *GNr,
+                        const double *shellT, const double *shellN, double *pN, double *pT);
   void estimate_params();    // choose g_ewald and kmax from target accuracy
   void allocate();
   void deallocate();
