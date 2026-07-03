@@ -1,8 +1,8 @@
-LAMMPS (30 Mar 2026 - Development - 072f7a937f-modified)
+LAMMPS (30 Mar 2026 - Development - 1ee175f03e)
 OMP_NUM_THREADS environment is not set. Defaulting to 1 thread.
   using 1 OpenMP thread(s) per MPI task
 # Planar (SB) Ewald long-range dispersion for a planar LJ liquid-vapor slab.
-# The smooth-damped slab kspace style pairs with the matched lj/cut/dispswitch
+# The smooth-damped slab kspace style pairs with the matched lj/disp/planar
 # pair style: the pair does the full LJ to r_cut and fades the 1/r^6 dispersion
 # out smoothly over [r_cut, r_cut+Delta], while ewald/disp/planar adds the smooth
 # r>r_cut dispersion tail with a 1-D (z) Fourier sum.  The real-space slab
@@ -21,10 +21,10 @@ Reading data file ...
   1267 atoms
   reading velocities ...
   1267 velocities
-  read_data CPU = 0.006 seconds
+  read_data CPU = 0.008 seconds
 
 # matched pair: r_cut = 2.5, switch width Delta = 0.5
-pair_style      lj/cut/dispswitch 2.5 0.5
+pair_style      lj/disp/planar 2.5 0.5
 pair_coeff      1 1 1.0 1.0
 
 kspace_style    ewald/disp/planar 1.0e-4
@@ -39,8 +39,8 @@ velocity        all create 0.85 4928 mom yes
 fix             1 all nve
 timestep        0.004
 run             500
-Slab-based dispersion Ewald (ewald/disp/planar) ...
-  smooth-damped slab-based dispersion Ewald, 113 z wavevectors
+Planar dispersion Ewald (ewald/disp/planar)
+  smooth-damped planar dispersion Ewald, 113 z wavevectors
   g_ewald = 1.71677
   switch width Delta = 0.5
   estimated absolute RMS force accuracy = 9.97841e-05
@@ -53,7 +53,7 @@ Neighbor list info ...
   ghost atom cutoff = 3.3
   binsize = 1.65, bins = 7 7 22
   1 neighbor lists, perpetual/occasional/extra = 1 0 0
-  (1) pair lj/cut/dispswitch, perpetual
+  (1) pair lj/disp/planar, perpetual
       attributes: half, newton on
       pair build: half/bin/atomonly/newton
       stencil: half/bin/3d
@@ -71,21 +71,21 @@ Per MPI rank memory allocation (min/avg/max) = 31.69 | 31.69 | 31.69 Mbytes
        400   0.86013702    -4.9267458     -3.6375586      0.029389096   -0.020143124    0.014585858    0.093724554    1.7370574    
        450   0.87619144    -4.9508211     -3.6375713      0.025553561   -0.015153521   -0.0053968541   0.097211059    1.9347524    
        500   0.88048384    -4.9573066     -3.6376232      0.050327497   -0.024644284    0.12922052     0.046406252   -0.1058736    
-Loop time of 1.37939 on 1 procs for 500 steps with 1267 atoms
+Loop time of 1.78046 on 1 procs for 500 steps with 1267 atoms
 
-Performance: 125273.155 tau/day, 362.480 timesteps/s, 459.262 katom-step/s
+Performance: 97053.334 tau/day, 280.826 timesteps/s, 355.806 katom-step/s
 100.0% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 0.4299     | 0.4299     | 0.4299     |   0.0 | 31.17
-Kspace  | 0.84181    | 0.84181    | 0.84181    |   0.0 | 61.03
-Neigh   | 0.09165    | 0.09165    | 0.09165    |   0.0 |  6.64
-Comm    | 0.0075232  | 0.0075232  | 0.0075232  |   0.0 |  0.55
-Output  | 0.00076105 | 0.00076105 | 0.00076105 |   0.0 |  0.06
-Modify  | 0.0045663  | 0.0045663  | 0.0045663  |   0.0 |  0.33
-Other   |            | 0.003177   |            |       |  0.23
+Pair    | 0.59753    | 0.59753    | 0.59753    |   0.0 | 33.56
+Kspace  | 1.0512     | 1.0512     | 1.0512     |   0.0 | 59.04
+Neigh   | 0.11142    | 0.11142    | 0.11142    |   0.0 |  6.26
+Comm    | 0.0099431  | 0.0099431  | 0.0099431  |   0.0 |  0.56
+Output  | 0.0006961  | 0.0006961  | 0.0006961  |   0.0 |  0.04
+Modify  | 0.0061303  | 0.0061303  | 0.0061303  |   0.0 |  0.34
+Other   |            | 0.003515   |            |       |  0.20
 
 Nlocal:           1267 ave        1267 max        1267 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
