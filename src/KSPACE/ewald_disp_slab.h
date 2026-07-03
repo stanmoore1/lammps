@@ -35,47 +35,22 @@ class EwaldDispSlab : public KSpace {
   int modify_param(int, char **) override;
   double memory_usage() override;
 
-  // long-range pressure profiles P_T(z), P_N(z) on a z-grid (npro points), filled
-  // by compute_pressure_profile() when kspace_modify pressure/profile is on.
-  // contour 0 = Harasima (H), 1 = Irving-Kirkwood (IK).
-  int contour_flag, profile_flag, npro;
-  double *pt_profile, *pn_profile;
-
-  // long-range Irving-Kirkwood pressure profiles P_T(z), P_N(z) on the caller's z
-  // grid (compute stress/cartesian supplies the grid and allocates pN/pT).  Ported
-  // from ewald/disp/planar; currently implemented for the compact-switch (CSB)
-  // variant (the sharp/damped variants report an error and keep the internal
-  // kspace_modify pressure/profile path).
-  int pressure_profile_long(int, int, double, double, double *, double *) override;
-
  protected:
   int dim;               // inhomogeneous dimension: 0=x, 1=y, 2=z (default 2)
   int lat1, lat2;        // lateral dimensions = (dim+1)%3, (dim+2)%3
-  int kmax, kcount;    // # of 1-D wavevectors (modes k=0..kmax-1), kcount=kmax
+  int kmax, kcount;      // # of 1-D wavevectors (modes k=0..kmax-1), kcount=kmax
   int kmax_created;
   int kmax_user;         // user override via kspace_modify kmax (0 if unset)
-  int damp_flag;         // 0 = non-damped (SB), 1 = damped (SSB), 2 = compact switch (CSB)
-  int corr_mode;         // damped correction: 0 = raw pairwise, 1 = binned (faster)
-  int corr_switch;       // 1 = damped corr uses the smooth switched-pair kernel (no rcut
-                         //     force discontinuity -> high-order binning); set in init()
-                         //     when damp_flag==1 and the pair supplies disp_switch_width
-  int corr_merge;        // 1 (default) = fold the smooth corr into the reciprocal
-                         //     coefficients (merge_corr_coeffs; no real-space corr step);
-                         //     kspace_modify corr raw|bin selects the real-space paths
-  double bin_dz_user;    // requested bin width (0 => default)
-  int bin_nbins;         // calibrated # corr bins (0 => not calibrated)
-  double sw_width;       // compact-switch width Delta (read from the matched pair style)
-  int switch_order;      // smoothstep continuity C^n (n=3 septic default, 5, or 7)
+  double sw_width;       // dispersion switch width Delta (read from the matched pair)
   double volume, cutoff, rc2;
   double unitk;                       // 2*pi/Lz
   double estimated_force_accuracy;    // predicted RMS per-atom force error
-  double corr_energy;                 // damped correction energy (for the virial trace)
   int nmax;                           // size of per-atom arrays
 
   double *GU, *GF, *GT;    // precomputed coeffs: energy, z-force, tangential pressure
-  double *GN;              // normal-pressure coeffs (compact switch; explicit, not via trace)
+  double *GN;              // normal-pressure coeffs (explicit per-mode strain derivative)
   double *ek;              // per-atom reciprocal z-force accumulator
-  double *peatom;          // per-atom kspace energy buffer (for the zz virial trace)
+  double *peatom;          // per-atom kspace energy buffer
   double *sfacrl, *sfacim, *sfacrl_all, *sfacim_all;
   double **cs, **sn;    // per-atom cos/sin of k*unitk*z
   double *B;            // per-type dispersion amplitude, B[i]=sqrt(|lj4[i][i]|)
@@ -84,87 +59,27 @@ class EwaldDispSlab : public KSpace {
   void init_coeffs();
   void coeffs();
   double gf_of_k(int k);     // force coefficient GF for a single z mode k>=1
-  // compact-switch (CSB) helpers: smoothed-truncation reciprocal coefficients
   double switch_S(double t);     // C3 septic smoothstep
   double switch_dS(double t);    // dS/dt = 140 t^3 (1-t)^3
-  double switch_trans5(double h);    // shell transition integral int S(r) r^-5 sin(h r) dr
-  // shell virial integrals int_rcut^{rcut+D} (S'u + S u') A_{T,N}(r,h) dr
-  void switch_shell_virial(double h, double &sGT, double &sGN);
-  double gu_switch(int k);     // GU[k] for the compact switch
-  double gu0_switch();         // k=0 energy coefficient
-  void estimate_params();    // choose g_ewald (damped) and kmax from target accuracy
+  void estimate_params();    // choose g_ewald and kmax from target accuracy
   void allocate();
   void deallocate();
-  void corr();                        // damped slab correction dispatcher
-  void corr_raw();                    // exact pairwise (global z-gather) correction
-  void corr_bin();                    // z-binned (1D particle-mesh, CIC) correction
-  void corr_bin_smooth();             // high-order z-binned corr (cubic moments + Gauss
-                                      // quadrature) for the smooth switched kernel
-  void corr_raw_force(double *fzloc);          // exact pairwise corr z-force (calibration ref)
-  void corr_bin_force(int nbins, double *fzloc);    // binned corr z-force (calibration)
-  void calibrate_bin();               // size the corr bin count to the target accuracy
-  // compact-switch shell correction: subtract the plane (mean-field) energy, z-force
-  // and virial of S*u over [rcut, rcut+Delta] (what the reciprocal sum injects there
-  // with a laterally-uniform density) so the matched pair's exact 3-D full-u shell
-  // interaction replaces it (removes the lateral-correlation residual in energy AND
-  // pressure).  Mirrors the damped corr_raw/corr_bin but on the shell slice.
-  double *wEgrid, *wFgrid;            // tabulated plane energy / z-force kernels
-  double *wTgrid, *wNgrid;            // tabulated plane virial kernels w_T(dz), w_N(dz)
-  int nwgrid;                         // grid points on [0, rcut+Delta]
-  double wdz;                         // grid spacing
-  void build_shell_vkernels();        // tabulate w_E, w_F, w_T, w_N at setup
-  void shell_vkernel(double adz, double &wE, double &wF, double &wT, double &wN);    // interp
-  void corr_csb();                    // dispatcher (compact-switch virial correction)
-  void corr_csb_raw();                // global z-gather (N^2)
-  void corr_csb_bin();                // z-binned
-  void compute_pressure_profile();    // P_T(z), P_N(z) profiles (H or IK contour)
-  double ik_phi(double h);            // IK tangential building block Phi(h)
-  double ik_psi(double h);            // IK normal building block Psi(h)
-  // compact-switch reweight of the local pressure-profile coefficients (ported from
-  // ewald/disp/planar): the sharp tail integral int_rcut^inf g(r) dr is anchored at
-  // the outer cutoff rcut+Delta and the shell integral int W(r) g(r) dr is added,
-  // W = S - S' r/6, so ik_phi/ik_psi are consistent with the switched potential.
-  enum { PROF_T, PROF_N, PROF_PHI };
-  double prof_integrand(int which, double r, double h);    // potential-form g(r)
-  double prof_shell(int which, double h);                  // int_rcut^c W(r) g(r) dr
-  // shell-correction virial per profile bin (CSB), dispatched on corr_mode so the
-  // contour profile uses the SAME real-space correction as the box average.
-  void shell_profile_virial(int nbins, double lo, double dz, double *dens_all, double *shellT,
-                            double *shellN);
-  void corr_kernels(double x2, double &w2, double &f2, double &pt2);    // shared kernel
 
-  // smooth (switched-pair) damped correction.  With the matched lj/cut/dispswitch
-  // pair the 1/r^6 dispersion is faded out by (1-S) over [rcut, rcut+Delta], so the
-  // corr potential corr_e(r) = u_smooth(r) - [r>rcut] S(r)/r^6 vanishes smoothly at
-  // rcut+Delta (no force discontinuity at rcut) -> the binned corr converges at high
-  // order.  f2 is analytic; w2/pt2 are tabulated by quadrature over [0, rcut+Delta].
+  // smooth (switched-pair) damped correction, folded into the reciprocal
+  // coefficients.  With the matched lj/cut/dispswitch pair the 1/r^6 dispersion is
+  // faded out by (1-S) over [rcut, rcut+Delta], so the corr potential corr_e(r) =
+  // u_smooth(r) - [r>rcut] S(r)/r^6 vanishes smoothly at rcut+Delta.  Its energy
+  // kernel w2(z) is tabulated by quadrature (build_corr_kernels); corr_tilde
+  // Fourier-transforms it and merge_corr_coeffs folds W~2(k) into GU/GF/GT/GN so
+  // the corr is diagonal in the reciprocal basis (E_corr = sum_n [W~2(k_n)/Lz]|S_n|^2)
+  // -- no real-space corr step.
   double u_smooth(double r);                 // smooth (Gaussian-screened) 1/r^6, Taylor near 0
   double *cWgrid;                            // tabulated switched corr energy kernel
   int ncgrid;                                // grid points on [0, rcut+Delta]
   double cwdz;                               // grid spacing
   void build_corr_kernels();                 // tabulate the switched corr w2 at setup
-  // interp w2 + analytic f2.  Virial kernels: tangential pt2 = w2 exactly (integrate
-  // the strain derivative by parts; the boundary term vanishes because the switched
-  // corr potential ~ 0 at rcut+Delta), and the normal per-pair kernel is dz^2*f2
-  // (r_z f_z), accumulated explicitly in corr_raw/corr_bin_smooth.  The reciprocal
-  // normal uses the exact per-mode strain derivative GN[k] = GU + h dGU/dh (coeffs()),
-  // so the switched variant never relies on the 6E homogeneity trace.
-  void corr_smooth_kernels(double adz, double &w2, double &f2, double &pt2);
-  // MERGED smooth corr: the corr energy is a z-convolution of the B-density with
-  // w2(z), diagonal in the reciprocal basis (E_corr = sum_n [W~2(k_n)/Lz]|S_n|^2),
-  // so it folds directly into the per-mode GU/GT/GN coefficients -- no real-space
-  // corr() step, no binning.  corr_tilde returns W~2(k) and k dW~2/dk (1-D Fourier
-  // transforms of the tabulated kernel); merge_corr_coeffs adds them to GU/GF/GT/GN.
-  void corr_tilde(double k, double &w2t, double &kw2p);
-  void merge_corr_coeffs();
-
-  // generalized sine/cosine integrals via recurrence + continued fraction
-  void cisi(double x, double &si, double &ci);
-  void sici_chain(double x, double *Aarr, double *Barr);    // fills A[1..7], B[1..7]
-  // complementary chain C[m]=A[m]_inf-A[m], D[m]=B[m]_inf-B[m] computed without the
-  // pi/2 (Si) constant subtraction; gives the small tail coefficients (pi/48-A[5])
-  // etc. directly so the high-k reciprocal coefficients are free of cancellation.
-  void sici_compl_chain(double x, double *Carr, double *Darr);    // fills C[1..7], D[1..7]
+  void corr_tilde(double k, double &w2t, double &kw2p);    // W~2(k) and k dW~2/dk
+  void merge_corr_coeffs();                  // add the corr to GU/GF/GT/GN
 };
 
 }    // namespace LAMMPS_NS
