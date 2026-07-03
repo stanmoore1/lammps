@@ -216,7 +216,7 @@ slab-based tail corrections it sums the periodic images in :math:`z` to infinity
 so it reduces exactly to the standard tail correction for a homogeneous fluid.
 
 It uses a Gaussian (damped) split and must be paired with the matched
-:doc:`lj/cut/dispswitch <pair_lj_cut_dispswitch>` pair style, which fades the
+:doc:`lj/disp/planar <pair_lj_disp_planar>` pair style, which fades the
 attractive :math:`1/r^6` dispersion out smoothly with a :math:`C^3` switch over
 :math:`[r_{\mathrm{cut}}, r_{\mathrm{cut}}+\Delta]`.  Because the pair switch is
 smooth, the real-space slab correction (the plane-averaged short-range part the
@@ -341,7 +341,7 @@ transformed with an FFT, multiplied by an influence function, and the
 :math:`z`-force is interpolated back to the atoms, reducing the reciprocal cost
 to :math:`O(N)`.  It is typically the fastest accurate choice for planar
 interfaces.  Like *ewald/disp/planar* it uses the Gaussian (damped) split, must be
-paired with the matched :doc:`lj/cut/dispswitch <pair_lj_cut_dispswitch>` pair
+paired with the matched :doc:`lj/disp/planar <pair_lj_disp_planar>` pair
 style, requires fully periodic boundaries, and forbids the EW3DC
 :doc:`kspace_modify slab <kspace_modify>` correction.  The smooth switched
 correction is folded into the mesh influence function (diagonal in the grid

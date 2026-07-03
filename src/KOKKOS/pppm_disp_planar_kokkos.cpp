@@ -21,7 +21,7 @@
    reciprocal solve run on the device: the B-weighted density spread (make_rho),
    the per-mode influence/energy/force-field work (poisson), the 1d FFTs (via
    FFT3dKokkos, a local MPI_COMM_SELF nz x 1 x 1 plan), and the z-force/per-atom
-   interpolation (fieldforce).  The smooth-damped real-space slab correction is
+   interpolation (fieldforce).  The smooth-damped real-space correction is
    folded into the influence function on the host (base class), so there is no
    device correction step.  The MPI density gather runs on the host.
 ------------------------------------------------------------------------- */

@@ -7,7 +7,7 @@ smooth-damped planar dispersion long-range solvers:
   in.ewald_disp_planar   kspace_style ewald/disp/planar (1-D z Fourier sum)
   in.pppm_disp_planar    kspace_style pppm/disp/planar  (mesh-accelerated, O(N))
 
-Both pair with the matched pair_style lj/cut/dispswitch, which does the full LJ
+Both pair with the matched pair_style lj/disp/planar, which does the full LJ
 to r_cut and fades the 1/r^6 dispersion out smoothly over [r_cut, r_cut+Delta].
 The kspace style adds the smooth r>r_cut dispersion tail with a 1-D z Fourier
 sum, and folds the real-space slab correction into its reciprocal coefficients

@@ -40,14 +40,14 @@ class EwaldDispPlanar : public KSpace {
   int pressure_profile_long(int, int, double, double, double *, double *) override;
 
  protected:
-  int dim;               // inhomogeneous dimension: 0=x, 1=y, 2=z (default 2)
-  int lat1, lat2;        // lateral dimensions = (dim+1)%3, (dim+2)%3
-  int kmax, kcount;      // # of 1-D wavevectors (modes k=0..kmax-1), kcount=kmax
+  int dim;             // inhomogeneous dimension: 0=x, 1=y, 2=z (default 2)
+  int lat1, lat2;      // lateral dimensions = (dim+1)%3, (dim+2)%3
+  int kmax, kcount;    // # of 1-D wavevectors (modes k=0..kmax-1), kcount=kmax
   int kmax_created;
-  int kmax_user;         // user override via kspace_modify kmax (0 if unset)
-  int mix_flag;          // C6 cross-term mixing: 0 = geometric, 1 = arithmetic (LB)
-  int nchan;             // # dispersion channels: 1 (geometric) or 7 (arithmetic)
-  double sw_width;       // dispersion switch width Delta (read from the matched pair)
+  int kmax_user;      // user override via kspace_modify kmax (0 if unset)
+  int mix_flag;       // C6 cross-term mixing: 0 = geometric, 1 = arithmetic (LB)
+  int nchan;          // # dispersion channels: 1 (geometric) or 7 (arithmetic)
+  double sw_width;    // dispersion switch width Delta (read from the matched pair)
   double volume, cutoff, rc2;
   double unitk;                       // 2*pi/Lz
   double estimated_force_accuracy;    // predicted RMS per-atom force error
@@ -64,7 +64,7 @@ class EwaldDispPlanar : public KSpace {
   void eik_dot_r();
   void init_coeffs();
   void coeffs();
-  double gf_of_k(int k);     // force coefficient GF for a single z mode k>=1
+  double gf_of_k(int k);         // force coefficient GF for a single z mode k>=1
   double switch_S(double t);     // C3 septic smoothstep
   double switch_dS(double t);    // dS/dt = 140 t^3 (1-t)^3
 
@@ -90,23 +90,23 @@ class EwaldDispPlanar : public KSpace {
   void deallocate();
 
   // smooth (switched-pair) damped correction, folded into the reciprocal
-  // coefficients.  With the matched lj/cut/dispswitch pair the 1/r^6 dispersion is
+  // coefficients.  With the matched lj/disp/planar pair the 1/r^6 dispersion is
   // faded out by (1-S) over [rcut, rcut+Delta], so the corr potential corr_e(r) =
   // u_smooth(r) - [r>rcut] S(r)/r^6 vanishes smoothly at rcut+Delta.  Its energy
   // kernel w2(z) is tabulated by quadrature (build_corr_kernels); corr_tilde
   // Fourier-transforms it and merge_corr_coeffs folds W~2(k) into GU/GF/GT/GN so
   // the corr is diagonal in the reciprocal basis (E_corr = sum_n [W~2(k_n)/Lz]|S_n|^2)
   // -- no real-space corr step.
-  double u_smooth(double r);                 // smooth (Gaussian-screened) 1/r^6, Taylor near 0
-  double *cWgrid;                            // tabulated switched corr energy kernel (= pre*cWraw)
-  double *cWraw;                             // box-INDEPENDENT kernel integral int r*corr_e dr;
-                                             //   precomputed once (g_ewald/cutoff/Delta fixed),
-                                             //   rescaled by pre=2*pi/area each setup (NPT hot loop)
-  int ncgrid;                                // grid points on [0, rcut+Delta]
-  double cwdz;                               // grid spacing
-  void build_corr_kernels();                 // tabulate the switched corr w2 at setup
+  double u_smooth(double r);    // smooth (Gaussian-screened) 1/r^6, Taylor near 0
+  double *cWgrid;               // tabulated switched corr energy kernel (= pre*cWraw)
+  double *cWraw;                // box-INDEPENDENT kernel integral int r*corr_e dr;
+                                //   precomputed once (g_ewald/cutoff/Delta fixed),
+                                //   rescaled by pre=2*pi/area each setup (NPT hot loop)
+  int ncgrid;                   // grid points on [0, rcut+Delta]
+  double cwdz;                  // grid spacing
+  void build_corr_kernels();    // tabulate the switched corr w2 at setup
   void corr_tilde(double k, double &w2t, double &kw2p);    // W~2(k) and k dW~2/dk (exact)
-  void merge_corr_coeffs();                  // add the corr to GU/GF/GT/GN
+  void merge_corr_coeffs();                                // add the corr to GU/GF/GT/GN
   // NPT-proof merge: W~2(k) and k dW~2/dk are (2*pi/area) times BOX-INDEPENDENT Fourier
   // transforms of cWraw.  Tabulate those transforms once on a uniform wavenumber grid,
   // then each setup just interpolate at the shifted modes k_m = m*(2*pi/Lz) and rescale

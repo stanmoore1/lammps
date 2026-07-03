@@ -11,7 +11,11 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#include "pair_lj_cut_dispswitch.h"
+/* ----------------------------------------------------------------------
+   Contributing authors: Stan Moore (SNL), Dean Wheeler (BYU)
+------------------------------------------------------------------------- */
+
+#include "pair_lj_disp_planar.h"
 
 #include "atom.h"
 #include "comm.h"
@@ -28,7 +32,7 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairLJCutDispSwitch::PairLJCutDispSwitch(LAMMPS *lmp) : PairLJCut(lmp)
+PairLJDispPlanar::PairLJDispPlanar(LAMMPS *lmp) : PairLJCut(lmp)
 {
   sw_width = 0.0;
   inner_rc2 = 0.0;
@@ -40,7 +44,7 @@ PairLJCutDispSwitch::PairLJCutDispSwitch(LAMMPS *lmp) : PairLJCut(lmp)
    identical to the kspace ewald/disp/planar compact switch.
 ------------------------------------------------------------------------- */
 
-double PairLJCutDispSwitch::sw_S(double t)
+double PairLJDispPlanar::sw_S(double t)
 {
   if (t <= 0.0) return 0.0;
   if (t >= 1.0) return 1.0;
@@ -48,7 +52,7 @@ double PairLJCutDispSwitch::sw_S(double t)
   return t4 * (35.0 - 84.0 * t + 70.0 * t2 - 20.0 * t3);
 }
 
-double PairLJCutDispSwitch::sw_dS(double t)
+double PairLJDispPlanar::sw_dS(double t)
 {
   if (t <= 0.0 || t >= 1.0) return 0.0;
   const double u = 1.0 - t;
@@ -56,15 +60,15 @@ double PairLJCutDispSwitch::sw_dS(double t)
 }
 
 /* ----------------------------------------------------------------------
-   pair_style lj/cut/dispswitch <rcut> <Delta>
+   pair_style lj/disp/planar <rcut> <Delta>
 ------------------------------------------------------------------------- */
 
-void PairLJCutDispSwitch::settings(int narg, char **arg)
+void PairLJDispPlanar::settings(int narg, char **arg)
 {
-  if (narg != 2) error->all(FLERR, "Illegal pair_style lj/cut/dispswitch command");
+  if (narg != 2) error->all(FLERR, "Illegal pair_style lj/disp/planar command");
   cut_global = utils::numeric(FLERR, arg[0], false, lmp);
   sw_width = utils::numeric(FLERR, arg[1], false, lmp);
-  if (sw_width <= 0.0) error->all(FLERR, "pair_style lj/cut/dispswitch switch width must be > 0");
+  if (sw_width <= 0.0) error->all(FLERR, "pair_style lj/disp/planar switch width must be > 0");
   inv_sw_width = 1.0 / sw_width;    // precomputed for the hot loop
 
   // reset per-type cutoffs (always global here)
@@ -79,7 +83,7 @@ void PairLJCutDispSwitch::settings(int narg, char **arg)
    inner = rcut; neighbor/interaction cutoff = rcut + Delta; no energy shift
 ------------------------------------------------------------------------- */
 
-double PairLJCutDispSwitch::init_one(int i, int j)
+double PairLJDispPlanar::init_one(int i, int j)
 {
   PairLJCut::init_one(i, j);    // mix epsilon/sigma -> lj1..lj4
   cut[i][j] = cut[j][i] = cut_global + sw_width;
@@ -94,11 +98,12 @@ double PairLJCutDispSwitch::init_one(int i, int j)
    the analytic long-range tail correction would double count it
 ------------------------------------------------------------------------- */
 
-void PairLJCutDispSwitch::init_style()
+void PairLJDispPlanar::init_style()
 {
   if (tail_flag)
-    error->all(FLERR, "Pair style lj/cut/dispswitch is incompatible with pair_modify tail yes "
-                      "(the dispersion tail is handled by the matched kspace style)");
+    error->all(FLERR,
+               "Pair style lj/disp/planar is incompatible with pair_modify tail yes "
+               "(the dispersion tail is handled by the matched kspace style)");
   PairLJCut::init_style();
 }
 
@@ -108,13 +113,13 @@ void PairLJCutDispSwitch::init_style()
    collapses the cutoff to the inner rcut and aborts the matched kspace).
 ------------------------------------------------------------------------- */
 
-void PairLJCutDispSwitch::write_restart_settings(FILE *fp)
+void PairLJDispPlanar::write_restart_settings(FILE *fp)
 {
   PairLJCut::write_restart_settings(fp);
   fwrite(&sw_width, sizeof(double), 1, fp);
 }
 
-void PairLJCutDispSwitch::read_restart_settings(FILE *fp)
+void PairLJDispPlanar::read_restart_settings(FILE *fp)
 {
   PairLJCut::read_restart_settings(fp);
   if (comm->me == 0) utils::sfread(FLERR, &sw_width, sizeof(double), 1, fp, nullptr, error);
@@ -124,7 +129,7 @@ void PairLJCutDispSwitch::read_restart_settings(FILE *fp)
 
 /* ---------------------------------------------------------------------- */
 
-void PairLJCutDispSwitch::compute(int eflag, int vflag)
+void PairLJDispPlanar::compute(int eflag, int vflag)
 {
   int i, j, ii, jj, inum, jnum, itype, jtype;
   double xtmp, ytmp, ztmp, delx, dely, delz, evdwl, fpair;
@@ -148,7 +153,7 @@ void PairLJCutDispSwitch::compute(int eflag, int vflag)
 
   // hoist the switch constants out of the pair loop
   const double rc_inner = cut_global;    // inner cutoff rcut
-  const double invsw = inv_sw_width;      // 1/Delta
+  const double invsw = inv_sw_width;     // 1/Delta
 
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
@@ -194,7 +199,7 @@ void PairLJCutDispSwitch::compute(int eflag, int vflag)
         // without the end clamps, and all divisions are replaced by the
         // precomputed 1/Delta and rinv = sqrt(r2inv) (no 1/r, no /Delta).
         const double rinv = sqrt(r2inv);
-        const double r = rsq * rinv;              // = sqrt(rsq), one mul not a div
+        const double r = rsq * rinv;    // = sqrt(rsq), one mul not a div
         const double t = (r - rc_inner) * invsw;
         const double t2 = t * t, t3 = t2 * t, t4 = t3 * t;
         const double S = t4 * (35.0 + t * (-84.0 + t * (70.0 - 20.0 * t)));    // Horner
@@ -202,8 +207,7 @@ void PairLJCutDispSwitch::compute(int eflag, int vflag)
         const double dS = 140.0 * t3 * u * u * u;    // dS/dt
         const double oneMinusS = 1.0 - S;
         const double lj4ij = lj4[itype][jtype];
-        fpair = -factor_lj * lj4ij * r6inv *
-            ((dS * invsw) * rinv + 6.0 * oneMinusS * r2inv);
+        fpair = -factor_lj * lj4ij * r6inv * ((dS * invsw) * rinv + 6.0 * oneMinusS * r2inv);
         if (eflag) evdwl = -factor_lj * oneMinusS * lj4ij * r6inv;
       }
 
@@ -225,8 +229,8 @@ void PairLJCutDispSwitch::compute(int eflag, int vflag)
 
 /* ---------------------------------------------------------------------- */
 
-double PairLJCutDispSwitch::single(int /*i*/, int /*j*/, int itype, int jtype, double rsq,
-                                   double /*factor_coul*/, double factor_lj, double &fforce)
+double PairLJDispPlanar::single(int /*i*/, int /*j*/, int itype, int jtype, double rsq,
+                                double /*factor_coul*/, double factor_lj, double &fforce)
 {
   if (rsq >= cutsq[itype][jtype]) {
     fforce = 0.0;
@@ -253,7 +257,7 @@ double PairLJCutDispSwitch::single(int /*i*/, int /*j*/, int itype, int jtype, d
 
 /* ---------------------------------------------------------------------- */
 
-void *PairLJCutDispSwitch::extract(const char *str, int &dim)
+void *PairLJDispPlanar::extract(const char *str, int &dim)
 {
   if (strcmp(str, "disp_switch_width") == 0) {
     dim = 0;

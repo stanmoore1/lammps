@@ -441,14 +441,14 @@ void ComputeStressCartesian::compute_array()
   if (kspaceflag) {
     double *pN = new double[nbins1];
     double *pT = new double[nbins1];
-    int ok = force->kspace->pressure_profile_long(dir1, nbins1, domain->boxlo[dir1],
-                                                  bin_width1, pN, pT);
+    int ok =
+        force->kspace->pressure_profile_long(dir1, nbins1, domain->boxlo[dir1], bin_width1, pN, pT);
     if (ok == 0) {
       delete[] pN;
       delete[] pT;
       error->all(FLERR,
                  "kspace style {} does not provide a long-range pressure profile (only the "
-                 "planar/slab dispersion styles do)",
+                 "planar dispersion styles do)",
                  force->kspace_style);
     } else {
       const int lat1 = (dir1 + 1) % 3;
@@ -521,7 +521,7 @@ void ComputeStressCartesian::compute_pressure(double fpair, double xi, double yi
       tmp1[dir1] = (bin1 + 1) * bin_width1 - xi;
     else
       tmp1[dir1] = bin1 * bin_width1 - xi;
-    domain->minimum_image(FLERR, tmp1[0],tmp1[1],tmp1[2]);
+    domain->minimum_image(FLERR, tmp1[0], tmp1[1], tmp1[2]);
     l1 = tmp1[dir1] / rij1;
 
     double l2;
@@ -530,7 +530,7 @@ void ComputeStressCartesian::compute_pressure(double fpair, double xi, double yi
       tmp2[dir2] = (bin2 + 1) * bin_width2 - yi;
     else
       tmp2[dir2] = bin2 * bin_width2 - yi;
-    domain->minimum_image(FLERR, tmp2[0],tmp2[1],tmp2[2]);
+    domain->minimum_image(FLERR, tmp2[0], tmp2[1], tmp2[2]);
     l2 = tmp2[dir2] / rij2;
 
     if ((dims == 1 || l1 < l2 || l2 < lb + SMALL) && l1 <= 1.0 && l1 > lb) {

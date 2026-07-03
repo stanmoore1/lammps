@@ -23,15 +23,15 @@
    structure factor, with analytic x-y tail corrections.
 
    Smooth-damped variant: Gaussian (erfc) smoothing like 3-D dispersion Ewald,
-   matched to a lj/cut/dispswitch pair that fades the 1/r^6 dispersion out
-   smoothly over [rcut, rcut+Delta].  The real-space slab correction (removing
+   matched to a lj/disp/planar pair that fades the 1/r^6 dispersion out
+   smoothly over [rcut, rcut+Delta].  The real-space correction (removing
    u_smooth inside rcut+Delta and adding back the faded S/r^6 shell) is a
    z-convolution of the dispersion-weighted density, diagonal in the reciprocal
    basis, so it folds directly into the per-mode coefficients GU/GF/GT/GN
    (merge_corr_coeffs) -- one reciprocal pass yields energy, force and the full
    pressure tensor with no separate real-space correction step.
 
-   References: S. Moore, dissertation (BYU); this paper.
+   Reference: S. G. Moore, Ph.D. thesis, Brigham Young University (2012).
 ------------------------------------------------------------------------- */
 
 #include "ewald_disp_planar.h"
@@ -46,7 +46,6 @@
 #include "pair.h"
 #include "utils.h"
 
-#include <cctype>
 #include <cmath>
 #include <cstring>
 
@@ -129,10 +128,14 @@ int EwaldDispPlanar::modify_param(int narg, char **arg)
   }
   if (strcmp(arg[0], "dim") == 0) {
     if (narg < 2) utils::missing_cmd_args(FLERR, "kspace_modify dim", error);
-    if (strcmp(arg[1], "x") == 0) dim = 0;
-    else if (strcmp(arg[1], "y") == 0) dim = 1;
-    else if (strcmp(arg[1], "z") == 0) dim = 2;
-    else error->all(FLERR, "kspace_modify dim must be x, y, or z");
+    if (strcmp(arg[1], "x") == 0)
+      dim = 0;
+    else if (strcmp(arg[1], "y") == 0)
+      dim = 1;
+    else if (strcmp(arg[1], "z") == 0)
+      dim = 2;
+    else
+      error->all(FLERR, "kspace_modify dim must be x, y, or z");
     lat1 = (dim + 1) % 3;
     lat2 = (dim + 2) % 3;
     return 2;
@@ -144,7 +147,7 @@ int EwaldDispPlanar::modify_param(int narg, char **arg)
 
 void EwaldDispPlanar::init()
 {
-  if (comm->me == 0) utils::logmesg(lmp, "Slab-based dispersion Ewald (ewald/disp/planar) ...\n");
+  if (comm->me == 0) utils::logmesg(lmp, "Planar dispersion Ewald (ewald/disp/planar)\n");
 
   // error checks
 
@@ -156,7 +159,7 @@ void EwaldDispPlanar::init()
   if (slabflag)
     error->all(FLERR, "Cannot use slab correction (kspace_modify slab) with ewald/disp/planar");
 
-  // ewald/disp/planar pairs with the matched lj/cut/dispswitch pair style: the pair
+  // ewald/disp/planar pairs with the matched lj/disp/planar pair style: the pair
   // computes the full LJ to rcut and fades the 1/r^6 dispersion out over
   // [rcut, rcut+Delta]; this kspace adds the smooth r>rcut tail.
 
@@ -173,7 +176,7 @@ void EwaldDispPlanar::init()
   cutoff = *p_cutoff;
   rc2 = cutoff * cutoff;
 
-  // the matched lj/cut/dispswitch pair fades the 1/r^6 dispersion out over
+  // the matched lj/disp/planar pair fades the 1/r^6 dispersion out over
   // [rcut, rcut+Delta], so the corr potential corr_e(r) = u_smooth(r) -
   // [r>rcut] S(r)/r^6 vanishes smoothly at rcut+Delta (no force discontinuity at
   // rcut).  Its Fourier content folds into the reciprocal coefficients
@@ -183,9 +186,9 @@ void EwaldDispPlanar::init()
   double *p_dz = (double *) force->pair->extract("disp_switch_width", itmp2);
   if (p_dz == nullptr || *p_dz <= 0.0)
     error->all(FLERR,
-               "kspace_style ewald/disp/planar requires the matched lj/cut/dispswitch pair style "
+               "kspace_style ewald/disp/planar requires the matched lj/disp/planar pair style "
                "to switch off the dispersion smoothly at the cutoff; use "
-               "pair_style lj/cut/dispswitch <rcut> <Delta>");
+               "pair_style lj/disp/planar <rcut> <Delta>");
   sw_width = *p_dz;
 
   // accuracy in force units
@@ -206,7 +209,7 @@ void EwaldDispPlanar::init()
   setup();
 
   if (comm->me == 0) {
-    utils::logmesg(lmp, "  smooth-damped slab-based dispersion Ewald, {} z wavevectors\n", kmax);
+    utils::logmesg(lmp, "  smooth-damped planar dispersion Ewald, {} z wavevectors\n", kmax);
     utils::logmesg(lmp, "  g_ewald = {:.6g}\n", g_ewald);
     utils::logmesg(lmp, "  switch width Delta = {:.6g}\n", sw_width);
     utils::logmesg(lmp, "  estimated absolute RMS force accuracy = {:.6g}\n",
@@ -303,8 +306,10 @@ void EwaldDispPlanar::estimate_params()
     chosen = kmx;
   }
 
-  if (kmax_user > 0) kmax = kmax_user;
-  else kmax = MAX(8, MIN(chosen, kbig));
+  if (kmax_user > 0)
+    kmax = kmax_user;
+  else
+    kmax = MAX(8, MIN(chosen, kbig));
 
   // The merged smooth corr adds W~2(k)/Lz to each mode; its Fourier content decays
   // only ~k^-5.5 (the switch feature is sharper than the g_ewald Gaussian), so at
@@ -601,7 +606,7 @@ void EwaldDispPlanar::eik_dot_r()
 }
 
 /* ----------------------------------------------------------------------
-   compute the slab-based dispersion long-range force, energy, virial
+   compute the planar dispersion long-range force, energy, virial
 ------------------------------------------------------------------------- */
 
 void EwaldDispPlanar::compute(int eflag, int vflag)
@@ -773,7 +778,7 @@ double EwaldDispPlanar::u_smooth(double r)
 
 /* ----------------------------------------------------------------------
    tabulate the smooth (switched-pair) damped correction energy kernel over
-   [0, rcut+Delta].  With the matched lj/cut/dispswitch pair the 1/r^6 dispersion
+   [0, rcut+Delta].  With the matched lj/disp/planar pair the 1/r^6 dispersion
    is faded out by (1-S) over [rcut, rcut+Delta], so the corr potential
        corr_e(r) = u_smooth(r) - [r>rcut] S(r)/r^6
    vanishes smoothly at rcut+Delta (corr_e(rcut+Delta) = u_short(rcut+Delta) ~ acc^2).
@@ -815,10 +820,14 @@ void EwaldDispPlanar::build_corr_kernels()
     }
   }
 
-  const double pre = 2.0 * MY_PI / (domain->prd[lat1] * domain->prd[lat2]);
-  delete[] cWgrid;
-  cWgrid = new double[ncgrid + 1];
-  for (int g = 0; g <= ncgrid; g++) cWgrid[g] = pre * cWraw[g];
+  // cWgrid (area-scaled kernel) is read ONLY by corr_tilde() during the init-time
+  // estimate_params(); build it once here (the per-step setup path uses the
+  // box-independent FT tables below, so no per-step rebuild is needed under NPT).
+  if (cWgrid == nullptr) {
+    const double pre = 2.0 * MY_PI / (domain->prd[lat1] * domain->prd[lat2]);
+    cWgrid = new double[ncgrid + 1];
+    for (int g = 0; g <= ncgrid; g++) cWgrid[g] = pre * cWraw[g];
+  }
 
   // ensure the box-independent Fourier-transform tables cover the current modes
   build_corr_ft_tables((kcount > 0 ? (kcount - 1) : kmax) * unitk);
@@ -855,7 +864,7 @@ void EwaldDispPlanar::corr_tilde(double k, double &w2t, double &kw2p)
 void EwaldDispPlanar::build_corr_ft_tables(double kap_need)
 {
   const double target = 1.5 * MAX(kap_need, 1.0e-6);    // 50% headroom for NPT shrink
-  if (Araw_tab && target <= kap_max) return;             // current tables suffice
+  if (Araw_tab && target <= kap_max) return;            // current tables suffice
 
   // resolve the FT oscillation (period 2*pi/b in kap); ~100 points per period
   kap_dk = (2.0 * MY_PI / (cutoff + sw_width)) / 100.0;
@@ -971,10 +980,9 @@ void EwaldDispPlanar::deallocate()
    Irving-Kirkwood long-range pressure profile (compute stress/cartesian hook).
    The merged-damped reciprocal represents the identical switched tail S(r)*u(r)
    as pppm/disp/planar (the pair fades the dispersion by (1-S)), so the same S*u
-   pressure building blocks apply.  Ported from pppm/disp/planar (which was ported
-   from pppm/disp/planar); the only difference here is the exact-sum mode cutoff
-   K = kcount-1 (no mesh over-resolution to truncate).  Special functions and
-   kernels below are self-contained in terms of the S*u potential (cutoff,
+   pressure building blocks apply; the only difference here is the exact-sum mode
+   cutoff K = kcount-1 (no mesh over-resolution to truncate).  Special functions
+   and kernels below are self-contained in terms of the S*u potential (cutoff,
    sw_width, B, volume), independent of the reciprocal solve.
 ------------------------------------------------------------------------- */
 
@@ -1170,7 +1178,7 @@ void EwaldDispPlanar::switch_shell_virial(double h, double &sGT, double &sGN)
 }
 
 void EwaldDispPlanar::shell_profile_virial(int nbins, double /*lo*/, double /*dz*/,
-                                         double * /*dens_all*/, double *shellT, double *shellN)
+                                           double * /*dens_all*/, double *shellT, double *shellN)
 {
   // No shell subtraction for the merged-damped variant: the pair fades the
   // dispersion by (1-S) and the kspace GT[k]/GN[k] already carry the full plane
@@ -1215,9 +1223,9 @@ void EwaldDispPlanar::profile_GTGN_raw(int K, double *GTr, double *GNr)
 }
 
 void EwaldDispPlanar::profile_assemble(int K, int nbins, double lo, double width, const double *Sre,
-                                     const double *Sim, const double *GTr, const double *GNr,
-                                     const double *shellT, const double *shellN, double *pN,
-                                     double *pT)
+                                       const double *Sim, const double *GTr, const double *GNr,
+                                       const double *shellT, const double *shellN, double *pN,
+                                       double *pT)
 {
   const double zprd = domain->prd[dim];
   const double area = domain->prd[lat1] * domain->prd[lat2];
@@ -1240,8 +1248,12 @@ void EwaldDispPlanar::profile_assemble(int K, int nbins, double lo, double width
     phiP[k] = ik_phi(k * unitk);
     psiP[k] = ik_psi(k * unitk);
   }
-  auto PHI = [&](int n) { return n < 0 ? -phiP[-n] : phiP[n]; };
-  auto PSI = [&](int n) { return n < 0 ? -psiP[-n] : psiP[n]; };
+  auto PHI = [&](int n) {
+    return n < 0 ? -phiP[-n] : phiP[n];
+  };
+  auto PSI = [&](int n) {
+    return n < 0 ? -psiP[-n] : psiP[n];
+  };
   for (int n = -K; n <= K; n++) {
     double hn = n * unitk;
     for (int m = -K; m <= K; m++) {
@@ -1289,7 +1301,7 @@ void EwaldDispPlanar::profile_assemble(int K, int nbins, double lo, double width
 }
 
 int EwaldDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double width, double *pN,
-                                         double *pT)
+                                           double *pT)
 {
   if (dir != dim)
     error->all(FLERR,
@@ -1376,9 +1388,9 @@ int EwaldDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double
 
 double EwaldDispPlanar::memory_usage()
 {
-  double bytes = 8.0 * kmax * sizeof(double);    // GU,GF,GT,GN,sfacrl/im,sfacrl/im_all
-  bytes += 2.0 * (double) nmax * sizeof(double);    // ek, peatom
+  double bytes = 8.0 * kmax * sizeof(double);              // GU,GF,GT,GN,sfacrl/im,sfacrl/im_all
+  bytes += 2.0 * (double) nmax * sizeof(double);           // ek, peatom
   bytes += 2.0 * (double) kmax * nmax * sizeof(double);    // cs, sn
-  bytes += (double) (ncgrid + 1) * sizeof(double);    // corr energy kernel
+  bytes += (double) (ncgrid + 1) * sizeof(double);         // corr energy kernel
   return bytes;
 }

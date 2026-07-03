@@ -1,5 +1,5 @@
 # Planar (SB) Ewald long-range dispersion for a planar LJ liquid-vapor slab.
-# The smooth-damped slab kspace style pairs with the matched lj/cut/dispswitch
+# The smooth-damped slab kspace style pairs with the matched lj/disp/planar
 # pair style: the pair does the full LJ to r_cut and fades the 1/r^6 dispersion
 # out smoothly over [r_cut, r_cut+Delta], while ewald/disp/planar adds the smooth
 # r>r_cut dispersion tail with a 1-D (z) Fourier sum.  The real-space slab
@@ -13,7 +13,7 @@ boundary        p p p
 read_data       data.lj_slab
 
 # matched pair: r_cut = 2.5, switch width Delta = 0.5
-pair_style      lj/cut/dispswitch 2.5 0.5
+pair_style      lj/disp/planar 2.5 0.5
 pair_coeff      1 1 1.0 1.0
 
 kspace_style    ewald/disp/planar 1.0e-4

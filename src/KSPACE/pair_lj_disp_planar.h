@@ -13,18 +13,18 @@
 
 #ifdef PAIR_CLASS
 // clang-format off
-PairStyle(lj/cut/dispswitch,PairLJCutDispSwitch);
+PairStyle(lj/disp/planar,PairLJDispPlanar);
 // clang-format on
 #else
 
-#ifndef LMP_PAIR_LJ_CUT_DISPSWITCH_H
-#define LMP_PAIR_LJ_CUT_DISPSWITCH_H
+#ifndef LMP_PAIR_LJ_DISP_PLANAR_H
+#define LMP_PAIR_LJ_DISP_PLANAR_H
 
 #include "pair_lj_cut.h"
 
 namespace LAMMPS_NS {
 
-// Matched short-range pair style for the slab dispersion solvers ewald/disp/planar
+// Matched short-range pair style for the planar dispersion solvers ewald/disp/planar
 // and pppm/disp/planar.  The full LJ is computed to the inner cutoff rcut.  Over the
 // shell [rcut, rcut+Delta] the attractive 1/r^6 dispersion is switched off by
 // (1-S(r)) with S the C3 septic smoothstep, and the matched reciprocal sum
@@ -32,9 +32,9 @@ namespace LAMMPS_NS {
 // The switch only splits the 1/r^6 dispersion; the 1/r^12 repulsion is short-
 // range and is always evaluated in full.  S here matches the kspace smoothstep.
 
-class PairLJCutDispSwitch : public PairLJCut {
+class PairLJDispPlanar : public PairLJCut {
  public:
-  PairLJCutDispSwitch(class LAMMPS *);
+  PairLJDispPlanar(class LAMMPS *);
   void compute(int, int) override;
   void settings(int, char **) override;
   void init_style() override;
@@ -45,9 +45,9 @@ class PairLJCutDispSwitch : public PairLJCut {
   double single(int, int, int, int, double, double, double, double &) override;
 
  protected:
-  double sw_width;       // switch width Delta
-  double inv_sw_width;   // 1/Delta, precomputed for the hot loop
-  double inner_rc2;      // rcut^2 (inner boundary; full LJ for r < rcut)
+  double sw_width;        // switch width Delta
+  double inv_sw_width;    // 1/Delta, precomputed for the hot loop
+  double inner_rc2;       // rcut^2 (inner boundary; full LJ for r < rcut)
   static double sw_S(double t);
   static double sw_dS(double t);
 };

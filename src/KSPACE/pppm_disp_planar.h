@@ -24,14 +24,14 @@ KSpaceStyle(pppm/disp/planar,PPPMDispPlanar);
 
 namespace LAMMPS_NS {
 
-// Mesh (1-D grid) accelerated smooth-damped slab-based dispersion Ewald.
+// Mesh (1-D grid) accelerated smooth-damped planar dispersion Ewald.
 // The dispersion-weighted (geometric-mixing) density varies only in the chosen
 // inhomogeneous dimension (x, y, or z; default z), so the smooth reciprocal
 // part is a 1-D convolution: spread the B-weighted density onto a 1-D grid,
 // FFT, apply the influence function, inverse-FFT the force field, and
-// interpolate.  The real-space slab correction is folded into the influence
+// interpolate.  The real-space correction is folded into the influence
 // function (diagonal in the grid's Fourier basis), so there is no separate
-// real-space correction step.  Matched to the lj/cut/dispswitch pair style.
+// real-space correction step.  Matched to the lj/disp/planar pair style.
 
 class PPPMDispPlanar : public KSpace {
  public:
@@ -67,14 +67,14 @@ class PPPMDispPlanar : public KSpace {
   double *B;             // per-type dispersion amplitude(s): B[t] geometric, B[7t+j] arith
 
   // z-grid fields (global, length nz*nchan, channel-major dens[m*nz+g])
-  double *dens;         // spread B-weighted density (real)
-  double *fre, *fim;    // FFT workspace (real/imag)
-  double *rhat_re, *rhat_im;  // FFT'd density channel spectra (nchan*nz)
-  double *Gk;           // de-convolved energy influence function (per grid mode)
-  double *GTk, *GNk;    // de-convolved tangential/normal virial influence
-  double *fz_grid;      // z-force field(s) on the grid (nchan channels)
-  double *ugrid;        // per-atom potential field(s) (for eatom)
-  double *uTgrid, *uNgrid;    // per-atom tangential/normal virial fields
+  double *dens;                 // spread B-weighted density (real)
+  double *fre, *fim;            // FFT workspace (real/imag)
+  double *rhat_re, *rhat_im;    // FFT'd density channel spectra (nchan*nz)
+  double *Gk;                   // de-convolved energy influence function (per grid mode)
+  double *GTk, *GNk;            // de-convolved tangential/normal virial influence
+  double *fz_grid;              // z-force field(s) on the grid (nchan channels)
+  double *ugrid;                // per-atom potential field(s) (for eatom)
+  double *uTgrid, *uNgrid;      // per-atom tangential/normal virial fields
 
   // smooth switched corr: tabulated plane energy kernel w2(|dz|) of
   // corr_e(r) = u_smooth(r) - [r>rcut] S(r)/r^6 over [0, rcut+Delta], and its
@@ -83,8 +83,8 @@ class PPPMDispPlanar : public KSpace {
   double *cWraw;    // box-INDEPENDENT kernel integral int r*corr_e dr, precomputed once
   int ncgrid;
   double cwdz;
-  double u_smooth(double r);       // smooth (Gaussian-screened) 1/r^6, Taylor near 0
-  void build_corr_kernels();       // tabulate w2 by quadrature at setup
+  double u_smooth(double r);    // smooth (Gaussian-screened) 1/r^6, Taylor near 0
+  void build_corr_kernels();    // tabulate w2 by quadrature at setup
   // w2t = 2 int w2 cos(kz) dz;  kw2p = k dW~2/dk = -2k int z w2 sin(kz) dz (exact)
   void corr_tilde(double k, double &w2t, double &kw2p);
   double switch_S(double t);     // C3 septic smoothstep
@@ -119,7 +119,8 @@ class PPPMDispPlanar : public KSpace {
   double compute_qopt(int ngrid, int ord);       // Hockney-Eastwood 1-D qopt (z aliases)
   // per-type self dispersion C6_tt = B[t]^2 (geometric) or (1/16) sum_j B[7t+j]B[7t+6-j]
   // (arithmetic); used only by the RMS/qopt magnitude estimates.
-  inline double c6_self(int t) const {
+  inline double c6_self(int t) const
+  {
     if (nchan == 1) return B[t] * B[t];
     double s = 0.0;
     for (int j = 0; j < 7; j++) s += B[7 * t + j] * B[7 * t + 6 - j];
@@ -130,10 +131,9 @@ class PPPMDispPlanar : public KSpace {
   // The kspace effective potential is S(r)*u(r) (S=0 inside rcut, ramps over the
   // shell, =1 beyond), so the profile reuses the compact-switch S*u pressure math:
   // the sharp tail anchored at rcut+Delta plus the switch-shell integral.
-  double switch_trans5(double h);                              // energy shell integral
+  double switch_trans5(double h);                                  // energy shell integral
   void switch_shell_virial(double h, double &sGT, double &sGN);    // shell virial integrals
-  double gu_switch(int k);     // GU[k] at mode k for the switched tail (force-accuracy est.)
-  double gu0_switch();         // k=0 energy coefficient
+  double gu_switch(int k);    // GU[k] at mode k for the switched tail (force-accuracy est.)
   void sici_compl_chain(double x, double *Carr, double *Darr);    // C[1..7], D[1..7]
   double ik_phi(double h), ik_psi(double h);    // IK tangential/normal building blocks
   enum { PROF_T, PROF_N, PROF_PHI };
