@@ -77,14 +77,23 @@ class PPPMDispSlab : public KSpace {
   // corr_e(r) = u_smooth(r) - [r>rcut] S(r)/r^6 over [0, rcut+Delta], and its
   // 1-D Fourier transforms (corr_tilde) merged per-mode into Gk/GTk/GNk.
   double *cWgrid;
+  double *cWraw;    // box-INDEPENDENT kernel integral int r*corr_e dr, precomputed once
   int ncgrid;
   double cwdz;
   double u_smooth(double r);       // smooth (Gaussian-screened) 1/r^6, Taylor near 0
   void build_corr_kernels();       // tabulate w2 by quadrature at setup
-  // w2t = 2 int w2 cos(kz) dz;  kw2p = k dW~2/dk = -2k int z w2 sin(kz) dz
+  // w2t = 2 int w2 cos(kz) dz;  kw2p = k dW~2/dk = -2k int z w2 sin(kz) dz (exact)
   void corr_tilde(double k, double &w2t, double &kw2p);
   double switch_S(double t);     // C3 septic smoothstep
   double switch_dS(double t);    // dS/dt = 140 t^3 (1-t)^3
+  // NPT-proof influence function: W~2(k) = (2*pi/area) times box-independent Fourier
+  // transforms of cWraw; tabulate those once and interpolate at the shifted grid modes
+  // each setup instead of re-quadraturing (see ewald/disp/slab for the derivation).
+  double *Araw_tab, *Braw_tab;    // A(kap)=2 int cWraw cos(kap z);  B=2 int z cWraw sin
+  int nkap;                       // table length
+  double kap_dk, kap_max;         // wavenumber grid spacing and covered range
+  void build_corr_ft_tables(double kap_need);          // (re)build the FT tables (grow-only)
+  void ft_interp(double kap, double &A, double &B);    // cubic-Lagrange interpolation
 
   double **rho_coeff;     // B-spline assignment polynomial coefficients
   int order_allocated;    // order at last rho_coeff allocation

@@ -72,8 +72,13 @@ PPPMDispSlab::PPPMDispSlab(LAMMPS *lmp) :
   order = 6;
   sw_width = 0.0;
   cWgrid = nullptr;
+  cWraw = nullptr;
   ncgrid = 0;
   cwdz = 0.0;
+  Araw_tab = Braw_tab = nullptr;
+  nkap = 0;
+  kap_dk = 0.0;
+  kap_max = 0.0;
   g_ewald_set = 0.0;
   order_allocated = 0;
   nmax = 0;
@@ -100,6 +105,9 @@ PPPMDispSlab::~PPPMDispSlab()
   memory->destroy(uTgrid);
   memory->destroy(uNgrid);
   delete[] cWgrid;
+  delete[] cWraw;
+  delete[] Araw_tab;
+  delete[] Braw_tab;
   memory->destroy(peatom);
   if (rho_coeff) memory->destroy(rho_coeff);
 }
@@ -436,12 +444,15 @@ void PPPMDispSlab::influence_function()
 {
   const double sqpi = sqrt(MY_PI);
   const double coef = -2.0 * MY_PI * sqpi / (24.0 * volume);
+  // merged corr coefficient = (2*pi/volume) times the interpolated box-independent
+  // Fourier transform A(k) (and A - k B for the normal); no per-step quadrature.
+  const double pre2 = 2.0 * MY_PI / volume;
 
   // m=0 (homogeneous tail) term: W_E(0) = GU[0] = -pi^1.5 g^3 / (6 V), plus corr
   Gk[0] = -MY_PI * sqpi * g_ewald * g_ewald * g_ewald / (6.0 * volume);
-  double w2t0, kw2p0;
-  corr_tilde(0.0, w2t0, kw2p0);
-  const double ce0 = 0.5 * w2t0 / zprd;
+  double A0, B0;
+  ft_interp(0.0, A0, B0);
+  const double ce0 = 0.5 * pre2 * A0;
   GNk[0] = Gk[0] + ce0;    // reciprocal GN(k=0) = GU(0)
   Gk[0] += ce0;
   GTk[0] = Gk[0];
@@ -456,10 +467,10 @@ void PPPMDispSlab::influence_function()
     double s = sin(MY_PI * mm / nz) / (MY_PI * mm / nz);
     double w2 = pow(s, 2 * order);
 
-    double w2t, kw2p;
-    corr_tilde(ak, w2t, kw2p);
-    const double CE = 0.5 * w2t / zprd;
-    const double CN = 0.5 * (w2t + kw2p) / zprd;
+    double A, Bv;
+    ft_interp(ak, A, Bv);
+    const double CE = 0.5 * pre2 * A;
+    const double CN = 0.5 * pre2 * (A - ak * Bv);
     const double WN = 0.5 * coef * (4.0 * Bk - 1.5 * ak * ak * ak * exp(-b2) / b3);
     Gk[m] = (WE + CE) / w2;
     GTk[m] = Gk[m];
@@ -494,38 +505,49 @@ double PPPMDispSlab::u_smooth(double r)
 void PPPMDispSlab::build_corr_kernels()
 {
   const double a = cutoff, b = cutoff + sw_width;
-  const double pre = 2.0 * MY_PI / area;
   ncgrid = 2048;
   cwdz = b / ncgrid;
+
+  // BOX-INDEPENDENT kernel integral, precomputed once (NPT hot loop -> just rescale)
+  if (cWraw == nullptr) {
+    cWraw = new double[ncgrid + 1];
+    for (int g = 0; g <= ncgrid; g++) {
+      const double adz = g * cwdz;
+      const int n = 400;
+      const double hr = (b - adz) / n;
+      double IE = 0.0;
+      if (hr > 0.0) {
+        for (int i = 0; i <= n; i++) {
+          const double r = adz + i * hr;
+          const double rr = (r > 1.0e-300) ? r : 1.0e-300;
+          double ce = u_smooth(rr);
+          if (rr > a) {
+            const double r6 = rr * rr * rr * rr * rr * rr;
+            ce -= switch_S((rr - a) / sw_width) / r6;
+          }
+          const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+          IE += w * rr * ce;
+        }
+        IE *= hr / 3.0;
+      }
+      cWraw[g] = IE;
+    }
+  }
+
+  const double pre = 2.0 * MY_PI / area;
   delete[] cWgrid;
   cWgrid = new double[ncgrid + 1];
-  for (int g = 0; g <= ncgrid; g++) {
-    const double adz = g * cwdz;
-    const int n = 400;
-    const double hr = (b - adz) / n;
-    double IE = 0.0;
-    if (hr > 0.0) {
-      for (int i = 0; i <= n; i++) {
-        const double r = adz + i * hr;
-        const double rr = (r > 1.0e-300) ? r : 1.0e-300;
-        double ce = u_smooth(rr);
-        if (rr > a) {
-          const double r6 = rr * rr * rr * rr * rr * rr;
-          ce -= switch_S((rr - a) / sw_width) / r6;
-        }
-        const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
-        IE += w * rr * ce;
-      }
-      IE *= hr / 3.0;
-    }
-    cWgrid[g] = pre * IE;
-  }
+  for (int g = 0; g <= ncgrid; g++) cWgrid[g] = pre * cWraw[g];
+
+  // ensure the FT tables cover the grid modes k = (nz/2)*(2*pi/zprd)
+  build_corr_ft_tables((nz / 2) * (2.0 * MY_PI / zprd));
 }
 
 /* ----------------------------------------------------------------------
    1-D Fourier transforms of the tabulated corr kernel (Simpson over the table):
      w2t  = W~2(k)        = 2 int_0^b w2(z) cos(kz) dz
      kw2p = k dW~2(k)/dk  = -2 k int_0^b z w2(z) sin(kz) dz
+   Exact reference (used to build the interpolation tables).
 ------------------------------------------------------------------------- */
 
 void PPPMDispSlab::corr_tilde(double k, double &w2t, double &kw2p)
@@ -539,6 +561,59 @@ void PPPMDispSlab::corr_tilde(double k, double &w2t, double &kw2p)
   }
   w2t = 2.0 * sc * cwdz / 3.0;
   kw2p = -2.0 * k * ss * cwdz / 3.0;
+}
+
+/* ----------------------------------------------------------------------
+   (re)build the box-independent Fourier-transform tables of cWraw on a uniform
+   wavenumber grid (grow-only); see ewald/disp/slab for the derivation.
+     A(kap) = 2 int cWraw cos(kap z) dz,  B(kap) = 2 int z cWraw sin(kap z) dz
+   so W~2(k) = (2*pi/area) A(k) and k dW~2/dk = -(2*pi/area) k B(k).
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::build_corr_ft_tables(double kap_need)
+{
+  const double target = 1.5 * MAX(kap_need, 1.0e-6);
+  if (Araw_tab && target <= kap_max) return;
+
+  kap_dk = (2.0 * MY_PI / (cutoff + sw_width)) / 100.0;    // ~100 points per oscillation
+  nkap = (int) (target / kap_dk) + 4;
+  kap_max = nkap * kap_dk;
+  delete[] Araw_tab;
+  delete[] Braw_tab;
+  Araw_tab = new double[nkap + 1];
+  Braw_tab = new double[nkap + 1];
+  const double c = 2.0 * cwdz / 3.0;
+  for (int j = 0; j <= nkap; j++) {
+    const double kap = j * kap_dk;
+    double sc = 0.0, ss = 0.0;
+    for (int g = 0; g <= ncgrid; g++) {
+      const double z = g * cwdz;
+      const double w = (g == 0 || g == ncgrid) ? 1.0 : (g % 2 ? 4.0 : 2.0);
+      sc += w * cWraw[g] * cos(kap * z);
+      ss += w * z * cWraw[g] * sin(kap * z);
+    }
+    Araw_tab[j] = c * sc;
+    Braw_tab[j] = c * ss;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   4-point (cubic) Lagrange interpolation of the FT tables at wavenumber kap.
+------------------------------------------------------------------------- */
+
+void PPPMDispSlab::ft_interp(double kap, double &A, double &B)
+{
+  double x = kap / kap_dk;
+  int j = (int) x - 1;
+  if (j < 0) j = 0;
+  if (j > nkap - 3) j = nkap - 3;
+  const double t = x - j;
+  const double L0 = -(t - 1.0) * (t - 2.0) * (t - 3.0) / 6.0;
+  const double L1 = t * (t - 2.0) * (t - 3.0) / 2.0;
+  const double L2 = -t * (t - 1.0) * (t - 3.0) / 2.0;
+  const double L3 = t * (t - 1.0) * (t - 2.0) / 6.0;
+  A = Araw_tab[j] * L0 + Araw_tab[j + 1] * L1 + Araw_tab[j + 2] * L2 + Araw_tab[j + 3] * L3;
+  B = Braw_tab[j] * L0 + Braw_tab[j + 1] * L1 + Braw_tab[j + 2] * L2 + Braw_tab[j + 3] * L3;
 }
 
 /* ----------------------------------------------------------------------
