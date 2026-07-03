@@ -801,11 +801,8 @@ void PPPMDispSlab::make_rho()
     }
   }
 
-  double *tmp;
-  memory->create(tmp, nz * nchan, "pppm/disp/slab:tmp");
-  MPI_Allreduce(dens, tmp, nz * nchan, MPI_DOUBLE, MPI_SUM, world);
-  for (int g = 0; g < nz * nchan; g++) dens[g] = tmp[g];
-  memory->destroy(tmp);
+  // reduce the spread density across procs in place (no per-step scratch alloc/copy)
+  MPI_Allreduce(MPI_IN_PLACE, dens, nz * nchan, MPI_DOUBLE, MPI_SUM, world);
 }
 
 /* ----------------------------------------------------------------------
