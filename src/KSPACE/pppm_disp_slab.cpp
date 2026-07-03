@@ -335,7 +335,21 @@ void PPPMDispSlab::estimate_params()
   }
   if (nz < 8) nz = 8;
 
-  estimated_force_accuracy = sqrt(compute_qopt(nz, order)) * pref;
+  // reported RMS force error = the Gaussian grid aliasing (qopt) PLUS the merged
+  // corr force content the grid cannot resolve (modes beyond nz/2).  The corr
+  // Fourier tail decays only ~k^-5, so it dominates; qopt alone (Gaussian only)
+  // is far too optimistic.  Same random-phase corr-tail term as ewald/disp/slab.
+  build_corr_kernels();
+  const double uk = 2.0 * MY_PI / zprd;
+  const double invLz = 1.0 / zprd;
+  double ctk = 0.0;
+  for (int k = nz / 2 + 1; k <= 8 * nz; k++) {
+    double w2t, kw2p;
+    corr_tilde(k * uk, w2t, kw2p);
+    const double cf = 2.0 * (k * uk) * w2t * invLz;
+    ctk += cf * cf;
+  }
+  estimated_force_accuracy = pref * sqrt(compute_qopt(nz, order) + 0.5 * ctk);
 }
 
 /* ----------------------------------------------------------------------

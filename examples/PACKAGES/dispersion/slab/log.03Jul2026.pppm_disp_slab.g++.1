@@ -1,4 +1,4 @@
-LAMMPS (30 Mar 2026 - Development - 426aa5da72-modified)
+LAMMPS (30 Mar 2026 - Development - e45f97e185-modified)
 OMP_NUM_THREADS environment is not set. Defaulting to 1 thread.
   using 1 OpenMP thread(s) per MPI task
 # Mesh-accelerated slab-based dispersion Ewald (pppm/disp/slab) for a planar LJ
@@ -19,7 +19,7 @@ Reading data file ...
   1267 atoms
   reading velocities ...
   1267 velocities
-  read_data CPU = 0.006 seconds
+  read_data CPU = 0.007 seconds
 
 # matched pair: r_cut = 2.5, switch width Delta = 0.5
 pair_style      lj/cut/dispswitch 2.5 0.5
@@ -38,8 +38,8 @@ timestep        0.004
 run             500
 PPPM slab-based dispersion Ewald (pppm/disp/slab) ...
   smooth-damped, z grid = 256, stencil order = 5, g_ewald = 1.71677, switch width Delta = 0.5
-  estimated absolute RMS force accuracy = 2.40624e-05
-  estimated relative force accuracy = 2.40624e-05
+  estimated absolute RMS force accuracy = 5.27673e-05
+  estimated relative force accuracy = 5.27673e-05
 Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
 Neighbor list info ...
   update: every = 1 steps, delay = 0 steps, check = yes
@@ -66,21 +66,21 @@ Per MPI rank memory allocation (min/avg/max) = 3.339 | 3.339 | 3.339 Mbytes
        400   0.86016117    -4.9267833     -3.6375599      0.029333345   -0.02042653     0.014414357    0.094012206    1.7463293    
        450   0.87617297    -4.9507945     -3.6375723      0.025737576   -0.015256905   -0.0044584325   0.096928065    1.9221432    
        500   0.87991407    -4.9564529     -3.6376235      0.051748535   -0.023564378    0.13288484     0.045925139   -0.15723169   
-Loop time of 0.721611 on 1 procs for 500 steps with 1267 atoms
+Loop time of 0.752627 on 1 procs for 500 steps with 1267 atoms
 
-Performance: 239464.140 tau/day, 692.894 timesteps/s, 877.897 katom-step/s
-100.0% CPU use with 1 MPI tasks x 1 OpenMP threads
+Performance: 229595.908 tau/day, 664.340 timesteps/s, 841.719 katom-step/s
+99.9% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 0.54601    | 0.54601    | 0.54601    |   0.0 | 75.67
-Kspace  | 0.069254   | 0.069254   | 0.069254   |   0.0 |  9.60
-Neigh   | 0.092362   | 0.092362   | 0.092362   |   0.0 | 12.80
-Comm    | 0.0063991  | 0.0063991  | 0.0063991  |   0.0 |  0.89
-Output  | 0.00068122 | 0.00068122 | 0.00068122 |   0.0 |  0.09
-Modify  | 0.0047363  | 0.0047363  | 0.0047363  |   0.0 |  0.66
-Other   |            | 0.002169   |            |       |  0.30
+Pair    | 0.57004    | 0.57004    | 0.57004    |   0.0 | 75.74
+Kspace  | 0.065895   | 0.065895   | 0.065895   |   0.0 |  8.76
+Neigh   | 0.09881    | 0.09881    | 0.09881    |   0.0 | 13.13
+Comm    | 0.0097262  | 0.0097262  | 0.0097262  |   0.0 |  1.29
+Output  | 0.00067752 | 0.00067752 | 0.00067752 |   0.0 |  0.09
+Modify  | 0.0049633  | 0.0049633  | 0.0049633  |   0.0 |  0.66
+Other   |            | 0.002512   |            |       |  0.33
 
 Nlocal:           1267 ave        1267 max        1267 min
 Histogram: 1 0 0 0 0 0 0 0 0 0

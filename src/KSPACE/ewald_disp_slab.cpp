@@ -295,25 +295,27 @@ void EwaldDispSlab::estimate_params()
   else kmax = MAX(8, MIN(chosen, kbig));
 
   // The merged smooth corr adds W~2(k)/Lz to each mode; its Fourier content decays
-  // SLOWER than the Gaussian reciprocal (the switch feature is sharper than the
-  // g_ewald Gaussian), so kmax must also resolve the corr force tail 2k*W~2(k)/Lz.
-  // Same random-phase tail criterion, but that model over-predicts the corr force
-  // error by ~12-20x (measured err ~ kmax^-5.5); target 4*accuracy so the scan's
-  // over-prediction lands the true error at ~acc/3.
+  // only ~k^-5.5 (the switch feature is sharper than the g_ewald Gaussian), so at
+  // any usable kmax the corr force tail 2k*W~2(k)/Lz DOMINATES the (super-
+  // exponentially small) Gaussian reciprocal tail.  kmax must resolve it: scan the
+  // same random-phase tail model and target the corr force tail at ~accuracy.
+  // (Measured on the interfacial slab example, err ~ kmax^-5 and the random-phase
+  // model tracks the true error to ~1.2x, so targeting accuracy^2 lands the
+  // delivered RMS force error at ~accuracy; see estimate_params verification.)
 
+  build_corr_kernels();
+  const double invLz = 1.0 / domain->prd[dim];
+  const double uk = 2.0 * MY_PI / domain->prd[dim];
+  const int ccap = MIN(kbig, 8 * kmax + 256);
+  auto *cf2 = new double[ccap + 1];
+  for (int k = 1; k <= ccap; k++) {
+    double w2t, kw2p;
+    corr_tilde(k * uk, w2t, kw2p);
+    const double cf = 2.0 * (k * uk) * w2t * invLz;    // corr force per mode
+    cf2[k] = cf * cf;
+  }
   if (kmax_user == 0) {
-    build_corr_kernels();
-    const double invLz = 1.0 / domain->prd[dim];
-    const double uk = 2.0 * MY_PI / domain->prd[dim];
-    const int ccap = MIN(kbig, 8 * kmax + 128);
-    auto *cf2 = new double[ccap + 1];
-    for (int k = 1; k <= ccap; k++) {
-      double w2t, kw2p;
-      corr_tilde(k * uk, w2t, kw2p);
-      const double cf = 2.0 * (k * uk) * w2t * invLz;    // corr force per mode
-      cf2[k] = cf * cf;
-    }
-    const double ctarget = 16.0 * accuracy * accuracy;    // (4*acc)^2, see above
+    const double ctarget = accuracy * accuracy;    // target the corr force tail at ~accuracy
     double ctail = 0.0;
     int ck = ccap;
     for (int kmx = ccap - 1; kmx >= 4; kmx--) {
@@ -324,15 +326,18 @@ void EwaldDispSlab::estimate_params()
       }
       ck = kmx;
     }
-    delete[] cf2;
     if (ck > kmax) kmax = MIN(ck, kbig);
   }
 
-  // predicted RMS per-atom force error at the chosen kmax
+  // predicted RMS per-atom force error at the chosen kmax = the Gaussian reciprocal
+  // tail PLUS the (dominant) merged corr force tail
   double tk = 0.0;
   for (int k = kmax + 1; k <= kbig; k++) tk += gf2[k];
-  estimated_force_accuracy = sqrt(prefac * tk);
+  double ctk = 0.0;
+  for (int k = kmax + 1; k <= ccap; k++) ctk += cf2[k];
+  estimated_force_accuracy = sqrt(prefac * (tk + ctk));
   delete[] gf2;
+  delete[] cf2;
 }
 
 /* ----------------------------------------------------------------------
