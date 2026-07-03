@@ -190,6 +190,24 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
     d_peatom = typename AT::t_double_1d("pppm/disp/slab/kk:peatom", nmax_kk);
   }
 
+  // arithmetic (Lorentz-Berthelot) mixing runs the channel-aware host base compute
+  // (the device kernels are geometric-only); sync the atom data to the host, run,
+  // and push the results back.  Geometric mixing (the common case) stays on device.
+  if (nchan != 1) {
+    atomKK->sync(Host, X_MASK | F_MASK | TYPE_MASK);
+    PPPMDispSlab::compute(eflag, vflag);
+    atomKK->modified(Host, F_MASK);
+    if (eflag_atom) {
+      k_eatom.modify_host();
+      k_eatom.template sync<DeviceType>();
+    }
+    if (vflag_atom) {
+      k_vatom.modify_host();
+      k_vatom.template sync<DeviceType>();
+    }
+    return;
+  }
+
   atomKK->sync(execution_space, X_MASK | F_MASK | TYPE_MASK);
   x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();
