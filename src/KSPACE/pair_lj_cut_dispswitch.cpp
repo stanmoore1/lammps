@@ -32,7 +32,6 @@ PairLJCutDispSwitch::PairLJCutDispSwitch(LAMMPS *lmp) : PairLJCut(lmp)
 {
   sw_width = 0.0;
   inner_rc2 = 0.0;
-  csb_full_shell = 0;    // default (1-S)*u; ewald/disp/slab sets 1 via extract
   respa_enable = 0;    // rRESPA inner/middle/outer not supported with the switch
 }
 
@@ -124,15 +123,6 @@ void PairLJCutDispSwitch::read_restart_settings(FILE *fp)
 
 void PairLJCutDispSwitch::compute(int eflag, int vflag)
 {
-  // csb_full_shell evaluates full LJ over the whole [0, rcut+Delta] range (the
-  // switch lives entirely in the kspace S*u split + corr_csb), which is exactly
-  // what the optimized base PairLJCut::compute does with cut = rcut+Delta and no
-  // energy offset.  Delegate to it so the matched pair is as fast as lj/cut.
-  if (csb_full_shell) {
-    PairLJCut::compute(eflag, vflag);
-    return;
-  }
-
   int i, j, ii, jj, inum, jnum, itype, jtype;
   double xtmp, ytmp, ztmp, delx, dely, delz, evdwl, fpair;
   double rsq, r2inv, r6inv, forcelj, factor_lj;
@@ -178,14 +168,11 @@ void PairLJCutDispSwitch::compute(int eflag, int vflag)
       r2inv = 1.0 / rsq;
       r6inv = r2inv * r2inv * r2inv;
 
-      if (rsq < inner_rc2 || csb_full_shell) {
+      if (rsq < inner_rc2) {
 
-        // full LJ to rcut+Delta (csb_full_shell) or to rcut (inner; kspace continues
-        // the dispersion tail).  The switch only splits the 1/r^6 dispersion between
-        // real and reciprocal space; the 1/r^12 repulsion is short-range and is
-        // computed in full here.  In csb_full_shell mode the reciprocal sum's plane
-        // mean-field S*u over the shell is removed by corr_csb(), so the pair supplies
-        // the exact 3-D dispersion as well as the repulsion to rcut+Delta.
+        // full LJ to rcut (inner; the matched kspace continues the dispersion tail).
+        // The switch only splits the 1/r^6 dispersion between real and reciprocal
+        // space; the 1/r^12 repulsion is short-range and is computed in full here.
         forcelj = r6inv * (lj1[itype][jtype] * r6inv - lj2[itype][jtype]);
         fpair = factor_lj * forcelj * r2inv;
         if (eflag) evdwl = factor_lj * r6inv * (lj3[itype][jtype] * r6inv - lj4[itype][jtype]);
@@ -236,9 +223,8 @@ double PairLJCutDispSwitch::single(int /*i*/, int /*j*/, int itype, int jtype, d
   const double r2inv = 1.0 / rsq;
   const double r6inv = r2inv * r2inv * r2inv;
   double phi, forcelj;
-  if (rsq < inner_rc2 || csb_full_shell) {
-    // full LJ (csb_full_shell evaluates the repulsion + full dispersion to rcut+Delta;
-    // the kspace plane mean-field S*u is removed by corr_csb)
+  if (rsq < inner_rc2) {
+    // full LJ to rcut (the matched kspace continues the dispersion tail)
     forcelj = r6inv * (lj1[itype][jtype] * r6inv - lj2[itype][jtype]);
     fforce = factor_lj * forcelj * r2inv;
     phi = r6inv * (lj3[itype][jtype] * r6inv - lj4[itype][jtype]);
@@ -261,10 +247,6 @@ void *PairLJCutDispSwitch::extract(const char *str, int &dim)
   if (strcmp(str, "disp_switch_width") == 0) {
     dim = 0;
     return (void *) &sw_width;
-  }
-  if (strcmp(str, "csb_full_shell") == 0) {
-    dim = 0;
-    return (void *) &csb_full_shell;
   }
   return PairLJCut::extract(str, dim);    // cut_lj -> rcut (inner), B, epsilon, sigma
 }

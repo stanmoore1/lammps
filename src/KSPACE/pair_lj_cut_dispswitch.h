@@ -24,22 +24,13 @@ PairStyle(lj/cut/dispswitch,PairLJCutDispSwitch);
 
 namespace LAMMPS_NS {
 
-// Matched short-range pair style for the slab dispersion solvers with
-// "kspace_modify damp compact".  The full LJ is computed to the inner cutoff
-// rcut.  Over the shell [rcut, rcut+Delta] the 1/r^6 dispersion is split between
-// this pair and the reciprocal sum by the smoothstep S(r), via the flag
-// csb_full_shell set by the matched kspace through extract("csb_full_shell"):
-//   1 (the live path -- both ewald/disp/slab and pppm/disp/slab set this): full
-//     LJ is evaluated over the whole [0, rcut+Delta] range (repulsion + full
-//     dispersion, exact 3-D); the reciprocal sum's plane mean-field S*u over the
-//     shell is removed by the kspace corr_csb(), so the pair supplies the exact
-//     laterally-correlated shell interaction.  compute() delegates to PairLJCut.
-//   0 (fallback, currently unused by any shipped kspace): over the shell the
-//     attractive dispersion is switched off by (1-S(r)) and the reciprocal sum
-//     supplies the plane S(r)*u with no real-space shell correction.
+// Matched short-range pair style for the slab dispersion solvers ewald/disp/slab
+// and pppm/disp/slab.  The full LJ is computed to the inner cutoff rcut.  Over the
+// shell [rcut, rcut+Delta] the attractive 1/r^6 dispersion is switched off by
+// (1-S(r)) with S the C3 septic smoothstep, and the matched reciprocal sum
+// supplies the plane S(r)*u tail (folded into its influence-function correction).
 // The switch only splits the 1/r^6 dispersion; the 1/r^12 repulsion is short-
-// range and is always evaluated in full.  S is the C^n smoothstep of the matched
-// kspace (n=3 septic by default); only the unused fallback path evaluates S here.
+// range and is always evaluated in full.  S here matches the kspace smoothstep.
 
 class PairLJCutDispSwitch : public PairLJCut {
  public:
