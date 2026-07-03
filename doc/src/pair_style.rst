@@ -271,6 +271,7 @@ accelerated styles exist.
 * :doc:`lj/cut/tip4p/cut <pair_lj_cut_tip4p>` - LJ with cutoff Coulomb for TIP4P water
 * :doc:`lj/cut/tip4p/long <pair_lj_cut_tip4p>` - LJ with long-range Coulomb for TIP4P water
 * :doc:`lj/cut/tip4p/long/soft <pair_fep_soft>` - LJ with cutoff Coulomb for TIP4P water with a soft core
+* :doc:`lj/disp/planar <pair_lj_disp_planar>` - LJ matched to the planar dispersion long-range solvers
 * :doc:`lj/expand <pair_lj_expand>` - Lennard-Jones for variable size particles
 * :doc:`lj/expand/coul/long <pair_lj_expand>` - Lennard-Jones for variable size particles with long-range Coulomb
 * :doc:`lj/expand/sphere <pair_lj_expand_sphere>` - Variable size LJ where per-atom radius is used as delta (size)

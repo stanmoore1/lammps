@@ -203,7 +203,7 @@ used without a cutoff, i.e. they become full long-range potentials.
 The *ewald/disp/dipole* style can also be used with point-dipoles, see
 :ref:`(Toukmaji) <Toukmaji>`.
 
-.. versionadded:: TBD
+.. versionadded:: 30Mar2026
 
 The *ewald/disp/planar* style is a planar Ewald sum for the
 :math:`1/r^6` dispersion interaction in systems whose average density varies in
@@ -219,7 +219,7 @@ It uses a Gaussian (damped) split and must be paired with the matched
 :doc:`lj/disp/planar <pair_lj_disp_planar>` pair style, which fades the
 attractive :math:`1/r^6` dispersion out smoothly with a :math:`C^3` switch over
 :math:`[r_{\mathrm{cut}}, r_{\mathrm{cut}}+\Delta]`.  Because the pair switch is
-smooth, the real-space slab correction (the plane-averaged short-range part the
+smooth, the real-space correction (the plane-averaged short-range part the
 reciprocal sum leaves out) is a :math:`z`-convolution that is diagonal in the
 reciprocal basis, so it is folded directly into the per-mode coefficients: one
 reciprocal pass yields the energy, force and full pressure tensor with no
@@ -332,7 +332,7 @@ parameters and how to choose them is described in
 :ref:`(Isele-Holder) <Isele-Holder2012>`,
 :ref:`(Isele-Holder2) <Isele-Holder2013>` and the :doc:`Howto dispersion <Howto_dispersion>` doc page.
 
-.. versionadded:: TBD
+.. versionadded:: 30Mar2026
 
 The *pppm/disp/planar* style is the mesh-accelerated version of the
 *ewald/disp/planar* planar dispersion sum :ref:`(Moore) <MooreSB>`.  The

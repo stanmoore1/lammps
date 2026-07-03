@@ -55,7 +55,7 @@ specified, the kinetic, pair, and bond contributions are included (the
 *kspace* contribution is off by default). If any keywords are specified,
 then only those components are summed.
 
-.. versionadded:: TBD
+.. versionadded:: 30Mar2026
 
 The *kspace* keyword adds the long-range Irving-Kirkwood pressure profile
 from the planar dispersion solver :doc:`pppm/disp/planar <kspace_style>` to the
