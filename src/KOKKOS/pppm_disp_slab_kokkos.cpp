@@ -17,14 +17,13 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Kokkos port of pppm/disp/slab.  The hot, data-parallel parts of the
-   mesh reciprocal solve run on the device: the B-weighted density spread
-   (make_rho), the per-mode influence/energy/force-field work (poisson),
-   the 1d FFTs (via FFT3dKokkos, a local MPI_COMM_SELF nz x 1 x 1 plan),
-   the z-force interpolation (fieldforce), and the full damped real-space
-   slab correction (corr_raw / corr_bin, including the O(nbins^2)
-   convolution and calibrate_bin).  The MPI density gather and the rare
-   pressure profiles run on the host via the base class.
+   Kokkos port of pppm/disp/slab.  The hot, data-parallel parts of the mesh
+   reciprocal solve run on the device: the B-weighted density spread (make_rho),
+   the per-mode influence/energy/force-field work (poisson), the 1d FFTs (via
+   FFT3dKokkos, a local MPI_COMM_SELF nz x 1 x 1 plan), and the z-force/per-atom
+   interpolation (fieldforce).  The smooth-damped real-space slab correction is
+   folded into the influence function on the host (base class), so there is no
+   device correction step.  The MPI density gather runs on the host.
 ------------------------------------------------------------------------- */
 
 #include "pppm_disp_slab_kokkos.h"
@@ -67,24 +66,6 @@ PPPMDispSlabKokkos<DeviceType>::PPPMDispSlabKokkos(LAMMPS *lmp) : PPPMDispSlab(l
   fft_backward = nullptr;
   nz_created = 0;
   nmax_kk = 0;
-  natoms_all_created = 0;
-  nbins_created = 0;
-  nwin_created = 0;
-
-  g_ewald_kk = 0.0;
-  rc2_kk = 0.0;
-  area_kk = 0.0;
-  w2self_kk = 0.0;
-  pt2self_kk = 0.0;
-  delzc_kk = 0.0;
-  bindz_kk = 0.0;
-  nbins_kk = 0;
-  nwin_kk = 0;
-  myoff_kk = 0;
-  natoms_all_kk = 0;
-  nwgrid_kk = 0;
-  wdz_kk = 0.0;
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -112,52 +93,28 @@ void PPPMDispSlabKokkos<DeviceType>::init()
   PPPMDispSlab::init();    // estimates params and calls setup() (this override)
 }
 
-/* ---------------------------------------------------------------------- */
-
 /* ----------------------------------------------------------------------
-   base setup() fills nz, Gk, rho_coeff, B; allocate/upload device data
+   base setup() fills nz, Gk/GTk/GNk (merged corr), rho_coeff, B; allocate and
+   upload the device data
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
 void PPPMDispSlabKokkos<DeviceType>::setup()
 {
-  PPPMDispSlab::setup();   // also calls calibrate_bin_kk() via override
+  PPPMDispSlab::setup();
 
   allocate_device();
 
-  // upload the per-mode influence function, B-spline coefficients, and B
+  // upload the per-mode energy, tangential and normal virial influence functions
+  // (each carries the merged smooth corr, built host-side in PPPMDispSlab::setup)
 
   auto h_Gk = Kokkos::create_mirror_view(d_Gk);
-  for (int m = 0; m < nz; m++) h_Gk(m) = Gk[m];
+  auto h_GTk = Kokkos::create_mirror_view(d_GTk);
+  auto h_GNk = Kokkos::create_mirror_view(d_GNk);
+  for (int m = 0; m < nz; m++) { h_Gk(m) = Gk[m]; h_GTk(m) = GTk[m]; h_GNk(m) = GNk[m]; }
   Kokkos::deep_copy(d_Gk, h_Gk);
-
-  // compact switch: upload the explicit tangential/normal virial influence too,
-  // plus the shell-correction kernel tables (built host-side in PPPMDispSlab::setup)
-  if (damp_flag == 2) {
-    auto h_GTk = Kokkos::create_mirror_view(d_GTk);
-    auto h_GNk = Kokkos::create_mirror_view(d_GNk);
-    for (int m = 0; m < nz; m++) { h_GTk(m) = GTk[m]; h_GNk(m) = GNk[m]; }
-    Kokkos::deep_copy(d_GTk, h_GTk);
-    Kokkos::deep_copy(d_GNk, h_GNk);
-
-    nwgrid_kk = nwgrid;
-    wdz_kk = wdz;
-    d_wEgrid = typename AT::t_double_1d("pppm/disp/slab/kk:wEgrid", nwgrid + 1);
-    d_wFgrid = typename AT::t_double_1d("pppm/disp/slab/kk:wFgrid", nwgrid + 1);
-    d_wTgrid = typename AT::t_double_1d("pppm/disp/slab/kk:wTgrid", nwgrid + 1);
-    d_wNgrid = typename AT::t_double_1d("pppm/disp/slab/kk:wNgrid", nwgrid + 1);
-    auto h_wE = Kokkos::create_mirror_view(d_wEgrid);
-    auto h_wF = Kokkos::create_mirror_view(d_wFgrid);
-    auto h_wT = Kokkos::create_mirror_view(d_wTgrid);
-    auto h_wN = Kokkos::create_mirror_view(d_wNgrid);
-    for (int g = 0; g <= nwgrid; g++) {
-      h_wE(g) = wEgrid[g]; h_wF(g) = wFgrid[g]; h_wT(g) = wTgrid[g]; h_wN(g) = wNgrid[g];
-    }
-    Kokkos::deep_copy(d_wEgrid, h_wE);
-    Kokkos::deep_copy(d_wFgrid, h_wF);
-    Kokkos::deep_copy(d_wTgrid, h_wT);
-    Kokkos::deep_copy(d_wNgrid, h_wN);
-  }
+  Kokkos::deep_copy(d_GTk, h_GTk);
+  Kokkos::deep_copy(d_GNk, h_GNk);
 
   auto h_rho = Kokkos::create_mirror_view(d_rho_coeff);
   for (int l = 0; l < order; l++)
@@ -168,10 +125,6 @@ void PPPMDispSlabKokkos<DeviceType>::setup()
   auto h_B = Kokkos::create_mirror_view(d_B);
   for (int t = 0; t <= ntypes; t++) h_B(t) = B[t];
   Kokkos::deep_copy(d_B, h_B);
-
-  // upload corr scalar parameters (NPT-safe values are refreshed each compute)
-  g_ewald_kk = g_ewald;
-  rc2_kk = cutoff * cutoff;
 }
 
 /* ----------------------------------------------------------------------
@@ -190,14 +143,12 @@ void PPPMDispSlabKokkos<DeviceType>::allocate_device()
 
   d_dens = typename AT::t_double_1d("pppm/disp/slab/kk:dens", nz);
   d_Gk = typename AT::t_double_1d("pppm/disp/slab/kk:Gk", nz);
+  d_GTk = typename AT::t_double_1d("pppm/disp/slab/kk:GTk", nz);
+  d_GNk = typename AT::t_double_1d("pppm/disp/slab/kk:GNk", nz);
   d_fz_grid = typename AT::t_double_1d("pppm/disp/slab/kk:fz_grid", nz);
   d_ugrid = typename AT::t_double_1d("pppm/disp/slab/kk:ugrid", nz);
-  if (damp_flag == 2) {
-    d_GTk = typename AT::t_double_1d("pppm/disp/slab/kk:GTk", nz);
-    d_GNk = typename AT::t_double_1d("pppm/disp/slab/kk:GNk", nz);
-    d_uTgrid = typename AT::t_double_1d("pppm/disp/slab/kk:uTgrid", nz);
-    d_uNgrid = typename AT::t_double_1d("pppm/disp/slab/kk:uNgrid", nz);
-  }
+  d_uTgrid = typename AT::t_double_1d("pppm/disp/slab/kk:uTgrid", nz);
+  d_uNgrid = typename AT::t_double_1d("pppm/disp/slab/kk:uNgrid", nz);
   h_dens = Kokkos::View<double*, Kokkos::LayoutRight, Kokkos::HostSpace>(
       "pppm/disp/slab/kk:h_dens", nz);
 
@@ -212,38 +163,6 @@ void PPPMDispSlabKokkos<DeviceType>::allocate_device()
       0, nz - 1, 0, 0, 0, 0, 0, nz - 1, 0, 0, 0, 0, 0, 0, &nbuf, 0, 0, 0);
   fft_backward = new FFT3dKokkos<DeviceType>(lmp, MPI_COMM_SELF, nz, 1, 1,
       0, nz - 1, 0, 0, 0, 0, 0, nz - 1, 0, 0, 0, 0, 0, 0, &nbuf, 0, 0, 0);
-}
-
-/* ----------------------------------------------------------------------
-   (re)allocate corr-bin device buffers when nbins or nwin changes
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::corr_bin_setup(int nbins)
-{
-  const double dz = zprd / nbins;
-  int nwin = (int) (cutoff / dz) + 1;
-  if (nwin > nbins / 2) nwin = nbins / 2;
-
-  nbins_kk = nbins;
-  nwin_kk = nwin;
-  delzc_kk = 1.0 / dz;
-  bindz_kk = dz;
-
-  if (nbins != nbins_created) {
-    nbins_created = nbins;
-    d_bdens    = typename AT::t_double_1d("pppm/disp/slab/kk:bdens",    nbins);
-    d_dens_all = typename AT::t_double_1d("pppm/disp/slab/kk:dens_all", nbins);
-    d_phiW     = typename AT::t_double_1d("pppm/disp/slab/kk:phiW",     nbins);
-    d_phiPT    = typename AT::t_double_1d("pppm/disp/slab/kk:phiPT",    nbins);
-    h_bdens    = Kokkos::View<double*, Kokkos::LayoutRight, Kokkos::HostSpace>(
-        "pppm/disp/slab/kk:h_bdens", nbins);
-  }
-  if (nwin + 1 > nwin_created) {
-    nwin_created = nwin + 1;
-    d_Kw  = typename AT::t_double_1d("pppm/disp/slab/kk:Kw",  nwin + 1);
-    d_Kpt = typename AT::t_double_1d("pppm/disp/slab/kk:Kpt", nwin + 1);
-  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -264,7 +183,6 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
     memoryKK->create_kokkos(k_vatom, vatom, maxvatom, "pppm/disp/slab/kk:vatom");
     d_vatom = k_vatom.view<DeviceType>();
   }
-  // eatom/vatom managed by memoryKK below; no allocate_peratom() needed
 
   // grow device d_peatom if needed
   if (atom->nmax > nmax_kk) {
@@ -289,7 +207,6 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
   dim_kk  = dim;
   lat1_kk = lat1;
   lat2_kk = lat2;
-  area_kk = domain->prd[lat1] * domain->prd[lat2];   // NPT-safe refresh
 
   const int nlocal = atomKK->nlocal;
 
@@ -305,7 +222,7 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
   MPI_Allreduce(MPI_IN_PLACE, h_dens.data(), nz, MPI_DOUBLE, MPI_SUM, world);
   Kokkos::deep_copy(d_dens, h_dens);
 
-  // --- poisson: FFT, influence function, energy, z-force field ---
+  // --- poisson: FFT, influence function, energy, virial, z-force field ---
 
   copymode = 1;
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_dens_to_work>(0, nz), *this);
@@ -318,23 +235,18 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_energy>(0, nz),
                           *this, e);
   copymode = 0;
-  e_recip_mesh = e;
   if (eflag_global) energy += e;
   if (vflag_global) {
-    if (damp_flag == 2) {
-      // compact switch: explicit tangential (GTk) and normal (GNk) virial kernels
-      s_vir vir;
-      copymode = 1;
-      Kokkos::parallel_reduce(
-          Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_virial_csb>(0, nz), *this, vir);
-      copymode = 0;
-      virial[lat1] += vir.vt;
-      virial[lat2] += vir.vt;
-      virial[dim] += vir.vn;
-    } else {
-      virial[lat1] += e;    // tangential (GT = GU)
-      virial[lat2] += e;
-    }
+    // explicit tangential (GTk) and normal (GNk) virial kernels (the merged corr
+    // makes the kspace share non-homogeneous, so the 6E trace does not apply)
+    s_vir vir;
+    copymode = 1;
+    Kokkos::parallel_reduce(
+        Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_virial>(0, nz), *this, vir);
+    copymode = 0;
+    virial[lat1] += vir.vt;
+    virial[lat2] += vir.vt;
+    virial[dim] += vir.vn;
   }
 
   copymode = 1;
@@ -354,28 +266,26 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_u_copy>(0, nz), *this);
     copymode = 0;
 
-    // compact switch: per-atom tangential/normal virial fields (GTk/GNk kernels)
-    if (damp_flag == 2) {
-      copymode = 1;
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uT_prep>(0, nz), *this);
-      copymode = 0;
-      fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
-      copymode = 1;
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uT_copy>(0, nz), *this);
-      copymode = 0;
-      copymode = 1;
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uN_prep>(0, nz), *this);
-      copymode = 0;
-      fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
-      copymode = 1;
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uN_copy>(0, nz), *this);
-      copymode = 0;
-    }
+    // per-atom tangential/normal virial fields (GTk/GNk kernels)
+    copymode = 1;
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uT_prep>(0, nz), *this);
+    copymode = 0;
+    fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
+    copymode = 1;
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uT_copy>(0, nz), *this);
+    copymode = 0;
+    copymode = 1;
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uN_prep>(0, nz), *this);
+    copymode = 0;
+    fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
+    copymode = 1;
+    Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_poisson_uN_copy>(0, nz), *this);
+    copymode = 0;
   }
 
   // --- fieldforce: interpolate the z-force field to atoms (device) ---
 
-  // zero per-atom accumulators before the reciprocal + corr contributions
+  // zero per-atom accumulators before the reciprocal contributions
   if (evflag_atom) {
     copymode = 1;
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_peatom_zero>(0, nlocal), *this);
@@ -393,17 +303,9 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
     copymode = 0;
   }
 
-  // --- real-space slab correction on the device ---
-  // damped: corr_kk(); compact switch: corr_csb_kk() subtracts the reciprocal sum's
-  // plane mean-field S*u over the shell so the matched pair's exact 3-D shell remains
-
-  corr_energy = 0.0;
-  if (damp_flag != 2) corr_kk();
-  else corr_csb_kk();
-
   atomKK->modified(execution_space, F_MASK);
 
-  // --- per-atom energy/virial finalization (device kernel) ---
+  // --- per-atom energy finalization (device kernel) ---
 
   if (evflag_atom) {
     copymode = 1;
@@ -419,404 +321,10 @@ void PPPMDispSlabKokkos<DeviceType>::compute(int eflag, int vflag)
       k_vatom.sync_host();
     }
   }
-
-  // normal virial from the exact 1/r^6 virial trace (the compact switch is
-  // non-homogeneous, so its normal virial is the explicit GNk kernel above)
-  if (damp_flag != 2 && vflag_global)
-    virial[dim] = 6.0 * (e_recip_mesh + corr_energy) - virial[lat1] - virial[lat2];
-
-  if (profile_flag) compute_pressure_profile();
 }
 
 /* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::corr_kk()
-{
-  if (corr_mode == 1)
-    corr_bin_kk();
-  else
-    corr_raw_kk();
-}
-
-/* ----------------------------------------------------------------------
-   compact-switch (CSB) shell correction: gather z/B, then an O(N*Nall) device
-   kernel subtracts the reciprocal sum's plane mean-field S*u over the shell
-   (energy, z-force, virial) so the matched pair's exact 3-D shell interaction
-   remains.  Full ordered double sum incl. self (no 1/2; force carries a factor
-   2).  Device port of PPPMDispSlab::corr_csb_raw.  The exact pairwise form is
-   used for both corr raw and corr bin requests on the device.
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::corr_csb_kk()
-{
-  corr_gather();    // fills d_zall/d_ball, natoms_all_kk (self included below)
-
-  const int nlocal = atomKK->nlocal;
-
-  s_csb ev{};
-  copymode = 1;
-  Kokkos::parallel_reduce(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_csb_raw>(0, nlocal), *this, ev);
-  copymode = 0;
-
-  if (eflag_global || vflag_global) {
-    double e_all;
-    MPI_Allreduce(&ev.e, &e_all, 1, MPI_DOUBLE, MPI_SUM, world);
-    corr_energy -= e_all;
-    if (eflag_global) energy -= e_all;
-  }
-  if (vflag_global) {
-    double vt_all, vn_all;
-    MPI_Allreduce(&ev.vt, &vt_all, 1, MPI_DOUBLE, MPI_SUM, world);
-    MPI_Allreduce(&ev.vn, &vn_all, 1, MPI_DOUBLE, MPI_SUM, world);
-    virial[lat1] -= vt_all;
-    virial[lat2] -= vt_all;
-    virial[dim] -= vn_all;
-  }
-}
-
-/* ----------------------------------------------------------------------
-   gather global (z, B) arrays to device via host MPI Allgather
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::corr_gather()
-{
-  int nlocal = atomKK->nlocal;
-  const int nprocs = comm->nprocs;
-
-  // MPI Allgather on host to get global z and B arrays
-  auto *recvcounts = new int[nprocs];
-  auto *displs = new int[nprocs];
-  MPI_Allgather(&nlocal, 1, MPI_INT, recvcounts, 1, MPI_INT, world);
-  int natoms_all = 0;
-  for (int p = 0; p < nprocs; p++) {
-    displs[p] = natoms_all;
-    natoms_all += recvcounts[p];
-  }
-  myoff_kk = displs[comm->me];
-  natoms_all_kk = natoms_all;
-
-  // sync atoms to host to read z/type for gather
-  atomKK->sync(Host, X_MASK | TYPE_MASK);
-  double **x_h = atom->x;
-  int *type_h = atom->type;
-
-  auto *zloc = new double[nlocal > 0 ? nlocal : 1];
-  auto *bloc = new double[nlocal > 0 ? nlocal : 1];
-  for (int i = 0; i < nlocal; i++) {
-    zloc[i] = x_h[i][2];
-    bloc[i] = B[type_h[i]];
-  }
-
-  auto *zall = new double[natoms_all > 0 ? natoms_all : 1];
-  auto *ball = new double[natoms_all > 0 ? natoms_all : 1];
-  MPI_Allgatherv(zloc, nlocal, MPI_DOUBLE, zall, recvcounts, displs, MPI_DOUBLE, world);
-  MPI_Allgatherv(bloc, nlocal, MPI_DOUBLE, ball, recvcounts, displs, MPI_DOUBLE, world);
-
-  // (re)allocate device buffers and upload
-  if (natoms_all > natoms_all_created) {
-    natoms_all_created = natoms_all;
-    d_zall  = typename AT::t_double_1d("pppm/disp/slab/kk:zall", natoms_all);
-    d_ball  = typename AT::t_double_1d("pppm/disp/slab/kk:ball", natoms_all);
-    d_fzref = typename AT::t_double_1d("pppm/disp/slab/kk:fzref", natoms_all);
-  }
-
-  auto h_zall = Kokkos::create_mirror_view(d_zall);
-  auto h_ball = Kokkos::create_mirror_view(d_ball);
-  for (int i = 0; i < natoms_all; i++) {
-    h_zall(i) = zall[i];
-    h_ball(i) = ball[i];
-  }
-  Kokkos::deep_copy(d_zall, h_zall);
-  Kokkos::deep_copy(d_ball, h_ball);
-
-  delete[] recvcounts;
-  delete[] displs;
-  delete[] zloc;
-  delete[] bloc;
-  delete[] zall;
-  delete[] ball;
-}
-
-/* ----------------------------------------------------------------------
-   exact pairwise corr: gather z/B, then O(N*Nall) device kernel
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::corr_raw_kk()
-{
-  corr_gather();
-
-  // self-interaction terms (x2 = 0): compute once on host using corr_kernels
-  double w0, f0, pt0;
-  corr_kernels(0.0, w0, f0, pt0);
-  w2self_kk  = 0.5 * w0;
-  pt2self_kk = 0.5 * pt0;
-
-  const int nlocal = atomKK->nlocal;
-
-  s_corr ev{};
-  copymode = 1;
-  Kokkos::parallel_reduce(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_raw>(0, nlocal), *this, ev);
-  copymode = 0;
-
-  double e_local = ev.e;
-  double vt_local = ev.vt;
-
-  double e_all;
-  MPI_Allreduce(&e_local, &e_all, 1, MPI_DOUBLE, MPI_SUM, world);
-  corr_energy += e_all;
-  if (eflag_global) energy += e_all;
-  if (vflag_global) {
-    double vt_all;
-    MPI_Allreduce(&vt_local, &vt_all, 1, MPI_DOUBLE, MPI_SUM, world);
-    virial[lat1] += vt_all;
-    virial[lat2] += vt_all;
-  }
-}
-
-/* ----------------------------------------------------------------------
-   force-only exact pairwise corr (for calibrate_bin_kk) -> d_fzref
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::corr_raw_force_kk()
-{
-  corr_gather();
-  double w0, f0, pt0;
-  corr_kernels(0.0, w0, f0, pt0);
-  w2self_kk  = 0.5 * w0;
-  pt2self_kk = 0.5 * pt0;
-
-  const int nlocal = atomKK->nlocal;
-  if (nlocal > (int)d_fzref.extent(0))
-    d_fzref = typename AT::t_double_1d("pppm/disp/slab/kk:fzref", nlocal);
-
-  copymode = 1;
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_raw_force>(0, nlocal), *this);
-  copymode = 0;
-}
-
-/* ----------------------------------------------------------------------
-   z-binned corr: spread -> Allreduce -> kernel table -> O(nbins^2) conv
-   -> energy/virial -> B-spline interp forces/per-atom energy
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::corr_bin_kk()
-{
-  // determine nbins (same logic as base corr_bin)
-  int nbins;
-  if (bin_dz_user > 0.0)
-    nbins = (int) (zprd / bin_dz_user + 0.5);
-  else if (bin_nbins > 0)
-    nbins = bin_nbins;
-  else
-    nbins = (int) (zprd / MIN(0.025 / g_ewald, 0.025 * cutoff) + 0.5);
-  if (nbins < 4) nbins = 4;
-
-  corr_bin_setup(nbins);
-
-  const int nlocal = atomKK->nlocal;
-
-  // 1. zero bin density
-  copymode = 1;
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_bin_zero>(0, nbins_kk), *this);
-
-  // 2. B-spline spread to corr bins
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_bin_spread>(0, nlocal), *this);
-  copymode = 0;
-
-  // 3. MPI Allreduce on host
-  Kokkos::deep_copy(h_bdens, d_bdens);
-  MPI_Allreduce(MPI_IN_PLACE, h_bdens.data(), nbins_kk, MPI_DOUBLE, MPI_SUM, world);
-  Kokkos::deep_copy(d_dens_all, h_bdens);
-
-  // 4. kernel table Kw, Kpt
-  copymode = 1;
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_bin_ktable>(0, nwin_kk + 1), *this);
-
-  // 5. O(nbins^2) convolution: phiW, phiPT
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_bin_conv>(0, nbins_kk), *this);
-  copymode = 0;
-
-  // 6. energy/virial (global)
-  s_corr ev{};
-  copymode = 1;
-  Kokkos::parallel_reduce(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_bin_energy>(0, nbins_kk), *this, ev);
-  copymode = 0;
-  corr_energy += 0.5 * ev.e;
-  if (eflag_global) energy += 0.5 * ev.e;
-  if (vflag_global) {
-    virial[lat1] += 0.5 * ev.vt;
-    virial[lat2] += 0.5 * ev.vt;
-  }
-
-  // 7. force/per-atom interpolation
-  copymode = 1;
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_bin_interp>(0, nlocal), *this);
-  copymode = 0;
-}
-
-/* ----------------------------------------------------------------------
-   force-only binned corr for calibration -> d_fzbin
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::corr_bin_force_kk(int nbins)
-{
-  corr_bin_setup(nbins);
-
-  const int nlocal = atomKK->nlocal;
-  if (nlocal > 0 && (d_fzbin.extent(0) < (size_t)nlocal))
-    d_fzbin = typename AT::t_double_1d("pppm/disp/slab/kk:fzbin", nlocal);
-
-  copymode = 1;
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_bin_zero>(0, nbins_kk), *this);
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_bin_spread>(0, nlocal), *this);
-  copymode = 0;
-
-  Kokkos::deep_copy(h_bdens, d_bdens);
-  MPI_Allreduce(MPI_IN_PLACE, h_bdens.data(), nbins_kk, MPI_DOUBLE, MPI_SUM, world);
-  Kokkos::deep_copy(d_dens_all, h_bdens);
-
-  copymode = 1;
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_bin_ktable>(0, nwin_kk + 1), *this);
-  // conv (phiW only: corr_bin_conv_w)
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_bin_conv_w>(0, nbins_kk), *this);
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_bin_interp_force>(0, nlocal), *this);
-  copymode = 0;
-}
-
-template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::calibrate_bin()
-{
-  calibrate_bin_kk();
-}
-
-/* ----------------------------------------------------------------------
-   size the corr bin count to target accuracy (fully on device)
-   mirrors PPPMDispSlab::calibrate_bin but uses device loops
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PPPMDispSlabKokkos<DeviceType>::calibrate_bin_kk()
-{
-  const int nlocal = atomKK->nlocal;
-  double natoms = (double) atom->natoms;
-  if (natoms < 1.0) natoms = 1.0;
-
-  // update all device scalars needed by corr/bin kernels during calibration
-  g_ewald_kk  = g_ewald;
-  rc2_kk      = cutoff * cutoff;
-  dim_kk      = dim;
-  lat1_kk     = lat1;
-  lat2_kk     = lat2;
-  area_kk     = domain->prd[lat1] * domain->prd[lat2];
-  zprd_kk     = static_cast<KK_FLOAT>(zprd);
-  zlo_kk      = static_cast<KK_FLOAT>(zlo);
-  shiftone_kk = static_cast<KK_FLOAT>(shiftone);
-  nlower_kk   = nlower;
-  nupper_kk   = nupper;
-  order_kk    = order;
-
-  // sync atoms to device (setup may run before first compute)
-  atomKK->sync(execution_space, X_MASK | TYPE_MASK);
-  x = atomKK->k_x.view<DeviceType>();
-  type = atomKK->k_type.view<DeviceType>();
-
-  // allocate coefficient tables if not yet done; calibrate_bin is called
-  // during PPPMDispSlab::setup() before our allocate_device() runs
-  const int ntypes = atom->ntypes;
-  if ((int) d_rho_coeff.extent(0) != order)
-    d_rho_coeff = typename AT::t_double_2d("pppm/disp/slab/kk:rho_coeff", order, order);
-  if ((int) d_B.extent(0) != ntypes + 1)
-    d_B = typename AT::t_double_1d("pppm/disp/slab/kk:B", ntypes + 1);
-
-  // upload rho_coeff and B (needed by spread/interp kernels during calibration)
-  {
-    auto h_rho = Kokkos::create_mirror_view(d_rho_coeff);
-    for (int l = 0; l < order; l++)
-      for (int s = 0; s < order; s++) h_rho(l, s) = rho_coeff[l][s];
-    Kokkos::deep_copy(d_rho_coeff, h_rho);
-    auto h_B2 = Kokkos::create_mirror_view(d_B);
-    for (int t = 0; t <= ntypes; t++) h_B2(t) = B[t];
-    Kokkos::deep_copy(d_B, h_B2);
-  }
-
-  // nbins_created etc. need to be reset so corr_bin_setup reallocates
-  nbins_created = 0;
-  nwin_created  = 0;
-
-  // exact pairwise reference force -> d_fzref
-  corr_raw_force_kk();
-
-  // see PPPMDispSlab::calibrate_bin -- stop refining once the binned correction
-  // hits its intrinsic error floor, otherwise the O(nbins^2) per-step cost blows
-  // up as nb runs to the cap.
-  const int nb_cap = (int) (zprd / (0.02 * cutoff) + 0.5);    // dz >= 0.02*cutoff
-  int nb = (int) (zprd / 0.1 + 0.5);
-  if (nb < 8) nb = 8;
-  int chosen = nb;
-  double err = 0.0, prev_err = -1.0;
-  int prev_nb = nb;
-
-  for (int it = 0; it < 20; it++) {
-    corr_bin_force_kk(nb);
-
-    // compute RMS(fzbin - fzref) over nlocal atoms on device
-    double s_local = 0.0;
-    copymode = 1;
-    Kokkos::parallel_reduce(
-        Kokkos::RangePolicy<DeviceType, TagPPPMDispSlab_corr_calib_err>(0, nlocal),
-        *this, s_local);
-    copymode = 0;
-
-    double sall;
-    MPI_Allreduce(&s_local, &sall, 1, MPI_DOUBLE, MPI_SUM, world);
-    err = sqrt(sall / natoms);
-    chosen = nb;
-    if (err < accuracy) break;                          // target met
-    if (prev_err > 0.0 && err > 0.7 * prev_err) {       // diminishing returns: at the floor
-      chosen = prev_nb;
-      err = prev_err;
-      break;
-    }
-    if (nb >= nb_cap) break;                            // safety cap
-    prev_err = err;
-    prev_nb = nb;
-    nb *= 2;
-  }
-  bin_nbins = chosen;
-  if (comm->me == 0) {
-    utils::logmesg(lmp, "  corr bin: {} bins (dz = {:.4g}), force error {:.3g} vs target {:.3g}\n",
-                   bin_nbins, zprd / bin_nbins, err, accuracy);
-    if (err > accuracy)
-      error->warning(FLERR,
-                     "pppm/disp/slab corr bin did not reach the target force accuracy {:.3g} "
-                     "(reached {:.3g}); use kspace_modify corr raw for tighter accuracy",
-                     accuracy, err);
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-/* device kernels — reciprocal mesh                                        */
+/* device kernels — mesh reciprocal solve                                 */
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
@@ -864,7 +372,7 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_energy, 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_virial_csb, const int &m,
+void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_poisson_virial, const int &m,
                                                 s_vir &vir) const
 {
   const double re = static_cast<double>(d_work(2 * m));
@@ -984,292 +492,22 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_fieldforce_perat
   const double bi = d_B(type(i));
 
   double uu = 0.0, uT = 0.0, uN = 0.0;
-  const bool csb = (damp_flag == 2);
   for (int s = 0; s < order_kk; s++) {
     int g = g0 + nlower_kk + s;
     g = ((g % nz_kk) + nz_kk) % nz_kk;
     uu += w[s] * d_ugrid(g);
-    if (csb) {
-      uT += w[s] * d_uTgrid(g);
-      uN += w[s] * d_uNgrid(g);
-    }
+    uT += w[s] * d_uTgrid(g);
+    uN += w[s] * d_uNgrid(g);
   }
   // reciprocal per-atom energy
   double pe = 0.5 * bi * uu;
   d_peatom(i) += pe;
   if (vflag_atom) {
-    if (csb) {
-      // explicit tangential (GTk) and normal (GNk) per-atom virial fields
-      d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * uT);
-      d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * uT);
-      d_vatom(i, dim_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * uN);
-    } else {
-      d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(pe);    // tangential (GT = GU)
-      d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(pe);
-    }
+    // explicit tangential (GTk) and normal (GNk) per-atom virial fields
+    d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * uT);
+    d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * uT);
+    d_vatom(i, dim_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * uN);
   }
-}
-
-/* ---------------------------------------------------------------------- */
-/* device kernels — corr raw (exact pairwise)                             */
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_raw, const int &i,
-                                                s_corr &ev) const
-{
-  const double zi = static_cast<double>(x(i, dim_kk));
-  const double bi = d_B(type(i));
-  const int iglob = myoff_kk + i;
-
-  // self term
-  ev.e  += bi * bi * w2self_kk;
-  ev.vt += bi * bi * pt2self_kk;
-  if (evflag_atom) d_peatom(i) += bi * bi * w2self_kk;
-  if (vflag_atom) {
-    d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(bi * bi * pt2self_kk);
-    d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(bi * bi * pt2self_kk);
-  }
-
-  double fz = 0.0;
-  for (int jg = 0; jg < natoms_all_kk; jg++) {
-    if (jg == iglob) continue;
-    double delz = zi - d_zall(jg);
-    delz -= static_cast<double>(zprd_kk) * trunc(2.0 * delz / static_cast<double>(zprd_kk));
-    const double x2 = delz * delz;
-    if (x2 >= rc2_kk) continue;
-
-    double w2, f2, pt2;
-    corr_kernels_kk(x2, w2, f2, pt2);
-    const double bij = bi * d_ball(jg);
-
-    ev.e  += 0.5 * bij * w2;
-    ev.vt += 0.5 * bij * pt2;
-    fz    += delz * bij * f2;
-
-    if (evflag_atom) d_peatom(i) += 0.5 * bij * w2;
-    if (vflag_atom) {
-      d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bij * pt2);
-      d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bij * pt2);
-    }
-  }
-  f(i, dim_kk) += static_cast<KK_ACC_FLOAT>(fz);
-}
-
-// compact-switch (CSB) shell correction: subtract the plane mean-field S*u over
-// the shell.  Full ordered sum incl. self; energy/virial carry no 1/2, the
-// z-force a factor 2.  Device port of PPPMDispSlab::corr_csb_raw.
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_csb_raw, const int &i,
-                                                s_csb &ev) const
-{
-  const double zi = static_cast<double>(x(i, dim_kk));
-  const double bi = d_B(type(i));
-  const double zprd = static_cast<double>(zprd_kk);
-  const double bcut = nwgrid_kk * wdz_kk;
-  double e_i = 0.0, fz_i = 0.0, vt_i = 0.0, vn_i = 0.0;
-  for (int jg = 0; jg < natoms_all_kk; jg++) {
-    double delz = zi - d_zall(jg);
-    delz -= zprd * floor(delz / zprd + 0.5);    // nearest image (self -> delz=0)
-    const double adz = fabs(delz);
-    if (adz >= bcut) continue;
-    double wE, wF, wT, wN;
-    shell_vkernel_kk(adz, wE, wF, wT, wN);
-    const double bij = bi * d_ball(jg);
-    e_i  += bij * wE;
-    fz_i += 2.0 * delz * bij * wF;    // remove the plane z-force (factor 2)
-    vt_i += bij * wT;
-    vn_i += bij * wN;
-  }
-  ev.e  += e_i;
-  ev.vt += vt_i;
-  ev.vn += vn_i;
-  f(i, dim_kk) += static_cast<KK_ACC_FLOAT>(fz_i);
-  if (evflag_atom) d_peatom(i) -= e_i;
-  if (vflag_atom) {
-    d_vatom(i, lat1_kk) -= static_cast<KK_ACC_FLOAT>(vt_i);
-    d_vatom(i, lat2_kk) -= static_cast<KK_ACC_FLOAT>(vt_i);
-    d_vatom(i, dim_kk)  -= static_cast<KK_ACC_FLOAT>(vn_i);
-  }
-}
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_raw_force, const int &i) const
-{
-  const double zi = static_cast<double>(x(i, dim_kk));
-  const double bi = d_B(type(i));
-  const int iglob = myoff_kk + i;
-  double fz = 0.0;
-  for (int jg = 0; jg < natoms_all_kk; jg++) {
-    if (jg == iglob) continue;
-    double delz = zi - d_zall(jg);
-    delz -= static_cast<double>(zprd_kk) * trunc(2.0 * delz / static_cast<double>(zprd_kk));
-    const double x2 = delz * delz;
-    if (x2 >= rc2_kk) continue;
-    double w2, f2, pt2;
-    corr_kernels_kk(x2, w2, f2, pt2);
-    fz += delz * bi * d_ball(jg) * f2;
-  }
-  d_fzref(i) = fz;
-}
-
-/* ---------------------------------------------------------------------- */
-/* device kernels — corr bin (z-binned)                                   */
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_bin_zero, const int &b) const
-{
-  d_bdens(b) = 0.0;
-}
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_bin_spread, const int &i) const
-{
-  const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzc_kk;
-  const double offs = (order_kk % 2) ? OFFSET + 0.5 : (double) OFFSET;
-  const int g0 = (int) (u + offs) - OFFSET;
-  const double dz = g0 + shiftone_kk - u;
-  double w[8];
-  compute_rho1d_kk(dz, w);
-  const double bi = d_B(type(i));
-  for (int s = 0; s < order_kk; s++) {
-    int g = g0 + nlower_kk + s;
-    g = ((g % nbins_kk) + nbins_kk) % nbins_kk;
-    Kokkos::atomic_add(&d_bdens(g), bi * w[s]);
-  }
-}
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_bin_ktable, const int &d) const
-{
-  const double xi = d * bindz_kk;
-  const double x2 = xi * xi;
-  if (x2 >= rc2_kk) {
-    d_Kw(d) = 0.0;
-    d_Kpt(d) = 0.0;
-  } else {
-    double w2, f2, pt2;
-    corr_kernels_kk(x2, w2, f2, pt2);
-    d_Kw(d) = w2;
-    if ((int)d_Kpt.extent(0) > d) d_Kpt(d) = pt2;
-  }
-}
-
-// full convolution (phiW and phiPT), used in the production per-step path
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_bin_conv, const int &b) const
-{
-  double sw = d_Kw(0) * d_dens_all(b);
-  double spt = d_Kpt(0) * d_dens_all(b);
-  for (int d = 1; d <= nwin_kk; d++) {
-    int bp = b + d;
-    if (bp >= nbins_kk) bp -= nbins_kk;
-    int bm = b - d;
-    if (bm < 0) bm += nbins_kk;
-    const double s = d_dens_all(bp) + d_dens_all(bm);
-    sw  += d_Kw(d) * s;
-    spt += d_Kpt(d) * s;
-  }
-  d_phiW(b)  = sw;
-  d_phiPT(b) = spt;
-}
-
-// phiW-only convolution for calibrate_bin_kk (no phiPT needed)
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_bin_conv_w, const int &b) const
-{
-  double sw = d_Kw(0) * d_dens_all(b);
-  for (int d = 1; d <= nwin_kk; d++) {
-    int bp = b + d;
-    if (bp >= nbins_kk) bp -= nbins_kk;
-    int bm = b - d;
-    if (bm < 0) bm += nbins_kk;
-    sw += d_Kw(d) * (d_dens_all(bp) + d_dens_all(bm));
-  }
-  d_phiW(b) = sw;
-}
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_bin_energy, const int &b,
-                                                s_corr &ev) const
-{
-  ev.e  += d_dens_all(b) * d_phiW(b);
-  ev.vt += d_dens_all(b) * d_phiPT(b);
-}
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_bin_interp, const int &i) const
-{
-  const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzc_kk;
-  const double offs = (order_kk % 2) ? OFFSET + 0.5 : (double) OFFSET;
-  const int g0 = (int) (u + offs) - OFFSET;
-  const double dz = g0 + shiftone_kk - u;
-  double w[8], dw[8];
-  compute_rho1d_kk(dz, w);
-  compute_drho1d_kk(dz, dw);
-  const double bi = d_B(type(i));
-
-  double fz = 0.0, pe = 0.0, pt = 0.0;
-  for (int s = 0; s < order_kk; s++) {
-    int g = g0 + nlower_kk + s;
-    g = ((g % nbins_kk) + nbins_kk) % nbins_kk;
-    fz += dw[s] * d_phiW(g);
-    if (evflag_atom) pe += w[s] * d_phiW(g);
-    if (vflag_atom)  pt += w[s] * d_phiPT(g);
-  }
-  f(i, dim_kk) += static_cast<KK_ACC_FLOAT>(bi * delzc_kk * fz);
-  if (evflag_atom) d_peatom(i) += 0.5 * bi * pe;
-  if (vflag_atom) {
-    d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * pt);
-    d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * pt);
-  }
-}
-
-// force-only variant for calibration
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_bin_interp_force,
-                                                const int &i) const
-{
-  const double u = (static_cast<double>(x(i, dim_kk)) - zlo_kk) * delzc_kk;
-  const double offs = (order_kk % 2) ? OFFSET + 0.5 : (double) OFFSET;
-  const int g0 = (int) (u + offs) - OFFSET;
-  const double dz = g0 + shiftone_kk - u;
-  double dw[8];
-  compute_drho1d_kk(dz, dw);
-  const double bi = d_B(type(i));
-
-  double fz = 0.0;
-  for (int s = 0; s < order_kk; s++) {
-    int g = g0 + nlower_kk + s;
-    g = ((g % nbins_kk) + nbins_kk) % nbins_kk;
-    fz += dw[s] * d_phiW(g);
-  }
-  d_fzbin(i) = bi * delzc_kk * fz;
-}
-
-/* ---------------------------------------------------------------------- */
-/* device kernels — calibration error + per-atom finalization             */
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_corr_calib_err, const int &i,
-                                                double &s) const
-{
-  const double d = d_fzbin(i) - d_fzref(i);
-  s += d * d;
 }
 
 template<class DeviceType>
@@ -1277,14 +515,9 @@ KOKKOS_INLINE_FUNCTION
 void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_peratom_finalize,
                                                 const int &i) const
 {
-  // d_peatom holds the full kspace per-atom energy (reciprocal + corr)
+  // d_peatom holds the full kspace per-atom energy; the normal per-atom virial is
+  // the explicit GNk field (set in fieldforce_peratom), no trace needed
   if (eflag_atom) d_eatom(i) += static_cast<KK_ACC_FLOAT>(d_peatom(i));
-  // normal per-atom virial from the virial trace: 6*e_i - v_lat1 - v_lat2.
-  // The compact switch already set vatom[dim] from its explicit GNk field.
-  if (vflag_atom && damp_flag != 2)
-    d_vatom(i, dim_kk) += static_cast<KK_ACC_FLOAT>(
-        6.0 * d_peatom(i) - static_cast<double>(d_vatom(i, lat1_kk)) -
-        static_cast<double>(d_vatom(i, lat2_kk)));
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1293,10 +526,9 @@ template<class DeviceType>
 double PPPMDispSlabKokkos<DeviceType>::memory_usage()
 {
   double bytes = PPPMDispSlab::memory_usage();
-  bytes += (double) 4 * nz * sizeof(double);       // d_dens, d_Gk, d_fz_grid, d_ugrid
+  bytes += (double) 7 * nz * sizeof(double);       // d_dens,Gk,GTk,GNk,fz_grid,ugrid + h_dens
+  bytes += (double) 2 * nz * sizeof(double);       // d_uTgrid, d_uNgrid
   bytes += (double) 4 * nz * sizeof(FFT_SCALAR);   // d_work, d_work2
-  if (nbins_created > 0)
-    bytes += (double) (2 * nbins_created + (nwin_created)) * sizeof(double);
   return bytes;
 }
 
