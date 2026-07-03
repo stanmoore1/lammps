@@ -57,20 +57,23 @@ class PPPMDispSlab : public KSpace {
   int order;             // assignment/interpolation stencil order
   double g_ewald_set;    // splitting parameter actually used
   double sw_width;       // dispersion switch width Delta (read from the matched pair)
+  int mix_flag;          // C6 cross-term mixing: 0 = geometric, 1 = arithmetic (LB)
+  int nchan;             // # dispersion channels: 1 (geometric) or 7 (arithmetic)
 
   double volume, cutoff, rc2, area, zprd, zlo;
   double delzinv;        // nz/zprd
   double shiftone;       // grid-assignment shift (order parity)
   int nlower, nupper;    // stencil bounds [nlower..nupper]
-  double *B;             // per-type dispersion amplitude B[t] = 2 sqrt(eps) sigma^3
+  double *B;             // per-type dispersion amplitude(s): B[t] geometric, B[7t+j] arith
 
-  // z-grid fields (global, length nz)
+  // z-grid fields (global, length nz*nchan, channel-major dens[m*nz+g])
   double *dens;         // spread B-weighted density (real)
   double *fre, *fim;    // FFT workspace (real/imag)
+  double *rhat_re, *rhat_im;  // FFT'd density channel spectra (nchan*nz)
   double *Gk;           // de-convolved energy influence function (per grid mode)
   double *GTk, *GNk;    // de-convolved tangential/normal virial influence
-  double *fz_grid;      // z-force field on the grid
-  double *ugrid;        // per-atom potential field (for eatom)
+  double *fz_grid;      // z-force field(s) on the grid (nchan channels)
+  double *ugrid;        // per-atom potential field(s) (for eatom)
   double *uTgrid, *uNgrid;    // per-atom tangential/normal virial fields
 
   // smooth switched corr: tabulated plane energy kernel w2(|dz|) of
@@ -114,6 +117,14 @@ class PPPMDispSlab : public KSpace {
   void compute_drho1d(double dz, double *dw);    // d(assignment weights)/d(dz)
   void estimate_params();                        // choose g_ewald and the z grid size nz
   double compute_qopt(int ngrid, int ord);       // Hockney-Eastwood 1-D qopt (z aliases)
+  // per-type self dispersion C6_tt = B[t]^2 (geometric) or (1/16) sum_j B[7t+j]B[7t+6-j]
+  // (arithmetic); used only by the RMS/qopt magnitude estimates.
+  inline double c6_self(int t) const {
+    if (nchan == 1) return B[t] * B[t];
+    double s = 0.0;
+    for (int j = 0; j < 7; j++) s += B[7 * t + j] * B[7 * t + 6 - j];
+    return s / 16.0;
+  }
 
   // --- Irving-Kirkwood long-range pressure profile (switched S*u building blocks) ---
   // The kspace effective potential is S(r)*u(r) (S=0 inside rcut, ramps over the

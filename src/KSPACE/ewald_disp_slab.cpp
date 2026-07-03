@@ -1295,6 +1295,11 @@ int EwaldDispSlab::pressure_profile_long(int dir, int nbins, double lo, double w
     error->all(FLERR,
                "compute stress/cartesian binning direction must match the inhomogeneous axis "
                "of ewald/disp/slab");
+  if (nchan != 1)
+    error->all(FLERR,
+               "compute stress/cartesian kspace (Irving-Kirkwood profile) is not yet "
+               "supported with arithmetic mixing in ewald/disp/slab; use geometric mixing "
+               "or the Harasima profile via compute stress/atom");
 
   const double unitk = 2.0 * MY_PI / domain->prd[dim];
   const int K = kcount - 1;    // highest resolved mode (force-accuracy sized)

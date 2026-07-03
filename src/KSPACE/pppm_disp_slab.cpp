@@ -60,7 +60,8 @@ static constexpr double EULER = 0.57721566490153286061;
 /* ---------------------------------------------------------------------- */
 
 PPPMDispSlab::PPPMDispSlab(LAMMPS *lmp) :
-    KSpace(lmp), B(nullptr), dens(nullptr), fre(nullptr), fim(nullptr), Gk(nullptr), GTk(nullptr),
+    KSpace(lmp), B(nullptr), dens(nullptr), fre(nullptr), fim(nullptr), rhat_re(nullptr),
+    rhat_im(nullptr), Gk(nullptr), GTk(nullptr),
     GNk(nullptr), fz_grid(nullptr), ugrid(nullptr), uTgrid(nullptr), uNgrid(nullptr),
     rho_coeff(nullptr), peatom(nullptr)
 {
@@ -70,6 +71,8 @@ PPPMDispSlab::PPPMDispSlab(LAMMPS *lmp) :
   lat2 = 1;
   nz = 0;
   order = 6;
+  mix_flag = 0;
+  nchan = 1;
   sw_width = 0.0;
   cWgrid = nullptr;
   cWraw = nullptr;
@@ -97,6 +100,8 @@ PPPMDispSlab::~PPPMDispSlab()
   memory->destroy(dens);
   memory->destroy(fre);
   memory->destroy(fim);
+  memory->destroy(rhat_re);
+  memory->destroy(rhat_im);
   memory->destroy(Gk);
   memory->destroy(GTk);
   memory->destroy(GNk);
@@ -193,9 +198,33 @@ void PPPMDispSlab::init()
   else
     accuracy = accuracy_relative * two_charge_force;
 
-  // per-type dispersion amplitude B = 2 sqrt(eps) sigma^3 (geometric mixing).
-  // kspace->init() runs before pair->init(), so lj4 may not be populated yet;
-  // epsilon/sigma (set by pair_coeff) give the identical value B = sqrt(lj4).
+  // C6 cross-term mixing rule (see ewald/disp/slab): follow the pair style
+  // (Pair::mix_flag via extract("ewald_mix")) unless kspace_modify mix/disp overrides.
+  int etmp;
+  int *p_mix = (int *) force->pair->extract("ewald_mix", etmp);
+  const int pair_mix = p_mix ? *p_mix : Pair::GEOMETRIC;
+  if (mixflag == 1) {
+    mix_flag = 0;
+  } else if (mixflag == 2) {
+    error->all(FLERR,
+               "kspace_modify mix/disp none is not supported by pppm/disp/slab; use "
+               "geometric or arithmetic mixing (pair_modify mix geometric|arithmetic)");
+  } else {
+    if (pair_mix == Pair::GEOMETRIC)
+      mix_flag = 0;
+    else if (pair_mix == Pair::ARITHMETIC)
+      mix_flag = 1;
+    else
+      error->all(FLERR,
+                 "Unsupported pair mixing rule for kspace_style pppm/disp/slab (use "
+                 "pair_modify mix geometric|arithmetic)");
+  }
+  nchan = mix_flag ? 7 : 1;
+
+  // per-type dispersion amplitude(s).  kspace->init() runs before pair->init(), so
+  // lj4 may not be populated yet; epsilon/sigma (set by pair_coeff) give
+  // B[t] = 2 sqrt(eps) sigma^3 = sqrt(lj4) for geometric, and the 7 binomial channels
+  // B[7t+j] = sqrt(eps) sigma^j sqrt(C(6,j)) for arithmetic (Lorentz-Berthelot).
 
   int n = atom->ntypes, edim;
   auto **eps = (double **) force->pair->extract("epsilon", edim);
@@ -203,9 +232,24 @@ void PPPMDispSlab::init()
   if (eps == nullptr || sig == nullptr)
     error->all(FLERR, "Pair style does not provide epsilon/sigma for pppm/disp/slab");
   delete[] B;
-  B = new double[n + 1];
-  B[0] = 0.0;
-  for (int t = 1; t <= n; t++) B[t] = 2.0 * sqrt(eps[t][t]) * sig[t][t] * sig[t][t] * sig[t][t];
+  if (mix_flag == 0) {
+    B = new double[n + 1];
+    B[0] = 0.0;
+    for (int t = 1; t <= n; t++) B[t] = 2.0 * sqrt(eps[t][t]) * sig[t][t] * sig[t][t] * sig[t][t];
+  } else {
+    const double c[7] = {1.0, sqrt(6.0), sqrt(15.0), sqrt(20.0), sqrt(15.0), sqrt(6.0), 1.0};
+    B = new double[7 * n + 7];
+    for (int j = 0; j < 7; ++j) B[j] = 0.0;
+    for (int t = 1; t <= n; t++) {
+      const double eps_t = sqrt(eps[t][t]);
+      const double sig_t = sig[t][t];
+      double sp = 1.0;
+      for (int j = 0; j < 7; ++j) {
+        B[7 * t + j] = sp * eps_t * c[j];
+        sp *= sig_t;
+      }
+    }
+  }
 
   // stencil order from kspace_modify order/disp (base member; default 5)
   order = order_6;
@@ -307,7 +351,7 @@ void PPPMDispSlab::estimate_params()
   int *type = atom->type;
   int nlocal = atom->nlocal;
   double b2_local = 0.0;
-  for (int i = 0; i < nlocal; i++) b2_local += B[type[i]] * B[type[i]];
+  for (int i = 0; i < nlocal; i++) b2_local += c6_self(type[i]);
   double b2;
   MPI_Allreduce(&b2_local, &b2, 1, MPI_DOUBLE, MPI_SUM, world);
   double natoms = (double) atom->natoms;
@@ -392,6 +436,8 @@ void PPPMDispSlab::setup()
   memory->destroy(dens);
   memory->destroy(fre);
   memory->destroy(fim);
+  memory->destroy(rhat_re);
+  memory->destroy(rhat_im);
   memory->destroy(Gk);
   memory->destroy(GTk);
   memory->destroy(GNk);
@@ -399,16 +445,21 @@ void PPPMDispSlab::setup()
   memory->destroy(ugrid);
   memory->destroy(uTgrid);
   memory->destroy(uNgrid);
-  memory->create(dens, nz, "pppm/disp/slab:dens");
+  // density and force/potential fields carry nchan channels (1 geom, 7 arith),
+  // channel-major: dens[m*nz+g].  fre/fim are single-channel FFT scratch; rhat_*
+  // store the nchan FFT'd density spectra.
+  memory->create(dens, nz * nchan, "pppm/disp/slab:dens");
   memory->create(fre, nz, "pppm/disp/slab:fre");
   memory->create(fim, nz, "pppm/disp/slab:fim");
+  memory->create(rhat_re, nz * nchan, "pppm/disp/slab:rhat_re");
+  memory->create(rhat_im, nz * nchan, "pppm/disp/slab:rhat_im");
   memory->create(Gk, nz, "pppm/disp/slab:Gk");
   memory->create(GTk, nz, "pppm/disp/slab:GTk");
   memory->create(GNk, nz, "pppm/disp/slab:GNk");
-  memory->create(fz_grid, nz, "pppm/disp/slab:fz_grid");
-  memory->create(ugrid, nz, "pppm/disp/slab:ugrid");
-  memory->create(uTgrid, nz, "pppm/disp/slab:uTgrid");
-  memory->create(uNgrid, nz, "pppm/disp/slab:uNgrid");
+  memory->create(fz_grid, nz * nchan, "pppm/disp/slab:fz_grid");
+  memory->create(ugrid, nz * nchan, "pppm/disp/slab:ugrid");
+  memory->create(uTgrid, nz * nchan, "pppm/disp/slab:uTgrid");
+  memory->create(uNgrid, nz * nchan, "pppm/disp/slab:uNgrid");
 
   if (rho_coeff == nullptr || order != order_allocated) {
     if (rho_coeff) memory->destroy(rho_coeff);
@@ -714,30 +765,46 @@ void PPPMDispSlab::compute_drho1d(double dz, double *dw)
 
 void PPPMDispSlab::make_rho()
 {
-  for (int g = 0; g < nz; g++) dens[g] = 0.0;
+  for (int g = 0; g < nz * nchan; g++) dens[g] = 0.0;
 
   double **x = atom->x;
   int *type = atom->type;
   int nlocal = atom->nlocal;
   double w[MAXORDER];
 
-  for (int i = 0; i < nlocal; i++) {
-    double u = (x[i][dim] - zlo) * delzinv;
-    int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;    // nearest grid pt
-    double dz = g0 + shiftone - u;
-    compute_rho1d(dz, w);
-    const double bi = B[type[i]];
-    for (int s = 0; s < order; s++) {
-      int g = g0 + nlower + s;
-      g = ((g % nz) + nz) % nz;
-      dens[g] += bi * w[s];
+  if (nchan == 1) {    // geometric: single B-weighted density grid
+    for (int i = 0; i < nlocal; i++) {
+      double u = (x[i][dim] - zlo) * delzinv;
+      int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;    // nearest grid pt
+      double dz = g0 + shiftone - u;
+      compute_rho1d(dz, w);
+      const double bi = B[type[i]];
+      for (int s = 0; s < order; s++) {
+        int g = g0 + nlower + s;
+        g = ((g % nz) + nz) % nz;
+        dens[g] += bi * w[s];
+      }
+    }
+  } else {    // arithmetic: spread 7 binomial density channels dens[m*nz+g]
+    for (int i = 0; i < nlocal; i++) {
+      double u = (x[i][dim] - zlo) * delzinv;
+      int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;
+      double dz = g0 + shiftone - u;
+      compute_rho1d(dz, w);
+      const double *bi = &B[7 * type[i]];
+      for (int s = 0; s < order; s++) {
+        int g = g0 + nlower + s;
+        g = ((g % nz) + nz) % nz;
+        const double ws = w[s];
+        for (int m = 0; m < 7; m++) dens[m * nz + g] += bi[m] * ws;
+      }
     }
   }
 
   double *tmp;
-  memory->create(tmp, nz, "pppm/disp/slab:tmp");
-  MPI_Allreduce(dens, tmp, nz, MPI_DOUBLE, MPI_SUM, world);
-  for (int g = 0; g < nz; g++) dens[g] = tmp[g];
+  memory->create(tmp, nz * nchan, "pppm/disp/slab:tmp");
+  MPI_Allreduce(dens, tmp, nz * nchan, MPI_DOUBLE, MPI_SUM, world);
+  for (int g = 0; g < nz * nchan; g++) dens[g] = tmp[g];
   memory->destroy(tmp);
 }
 
@@ -794,73 +861,157 @@ void PPPMDispSlab::fft1d(double *re, double *im, int n, int sign)
 
 void PPPMDispSlab::poisson()
 {
-  for (int g = 0; g < nz; g++) {
-    fre[g] = dens[g];
-    fim[g] = 0.0;
-  }
-  fft1d(fre, fim, nz, -1);    // rho_hat in (fre,fim)
+  if (nchan == 1) {    // ------- geometric mixing -------
 
-  // reciprocal energy (full system value) + virial: explicit tangential (GTk) and
-  // normal (GNk) kernels (the homogeneity trace does not hold for the merged corr)
-
-  double e = 0.0;
-  for (int m = 0; m < nz; m++) e += Gk[m] * (fre[m] * fre[m] + fim[m] * fim[m]);
-  if (eflag_global) energy += e;
-  if (vflag_global) {
-    double vt = 0.0, vn = 0.0;
-    for (int m = 0; m < nz; m++) {
-      double uk = fre[m] * fre[m] + fim[m] * fim[m];
-      vt += GTk[m] * uk;
-      vn += GNk[m] * uk;
+    for (int g = 0; g < nz; g++) {
+      fre[g] = dens[g];
+      fim[g] = 0.0;
     }
-    virial[lat1] += vt;
-    virial[lat2] += vt;
-    virial[dim] += vn;
-  }
+    fft1d(fre, fim, nz, -1);    // rho_hat in (fre,fim)
 
-  // per-atom potential/virial fields (u = IFFT[2 Gk rho_hat], uT, uN)
-
-  if (evflag_atom) {
-    double *ur, *ui;
-    memory->create(ur, nz, "pppm/disp/slab:ur");
-    memory->create(ui, nz, "pppm/disp/slab:ui");
-    for (int m = 0; m < nz; m++) {
-      double g2 = 2.0 * Gk[m];
-      ur[m] = g2 * fre[m];
-      ui[m] = g2 * fim[m];
+    double e = 0.0;
+    for (int m = 0; m < nz; m++) e += Gk[m] * (fre[m] * fre[m] + fim[m] * fim[m]);
+    if (eflag_global) energy += e;
+    if (vflag_global) {
+      double vt = 0.0, vn = 0.0;
+      for (int m = 0; m < nz; m++) {
+        double uk = fre[m] * fre[m] + fim[m] * fim[m];
+        vt += GTk[m] * uk;
+        vn += GNk[m] * uk;
+      }
+      virial[lat1] += vt;
+      virial[lat2] += vt;
+      virial[dim] += vn;
     }
-    fft1d(ur, ui, nz, +1);
-    for (int g = 0; g < nz; g++) ugrid[g] = ur[g];
-    for (int m = 0; m < nz; m++) {
-      double gt2 = 2.0 * GTk[m];
-      ur[m] = gt2 * fre[m];
-      ui[m] = gt2 * fim[m];
-    }
-    fft1d(ur, ui, nz, +1);
-    for (int g = 0; g < nz; g++) uTgrid[g] = ur[g];
-    for (int m = 0; m < nz; m++) {
-      double gn2 = 2.0 * GNk[m];
-      ur[m] = gn2 * fre[m];
-      ui[m] = gn2 * fim[m];
-    }
-    fft1d(ur, ui, nz, +1);
-    for (int g = 0; g < nz; g++) uNgrid[g] = ur[g];
-    memory->destroy(ur);
-    memory->destroy(ui);
-  }
 
-  // z-force field: F_hat_m = -i k_m * 2 Gk[m] * rho_hat_m
+    if (evflag_atom) {
+      double *ur, *ui;
+      memory->create(ur, nz, "pppm/disp/slab:ur");
+      memory->create(ui, nz, "pppm/disp/slab:ui");
+      for (int m = 0; m < nz; m++) {
+        double g2 = 2.0 * Gk[m];
+        ur[m] = g2 * fre[m];
+        ui[m] = g2 * fim[m];
+      }
+      fft1d(ur, ui, nz, +1);
+      for (int g = 0; g < nz; g++) ugrid[g] = ur[g];
+      for (int m = 0; m < nz; m++) {
+        double gt2 = 2.0 * GTk[m];
+        ur[m] = gt2 * fre[m];
+        ui[m] = gt2 * fim[m];
+      }
+      fft1d(ur, ui, nz, +1);
+      for (int g = 0; g < nz; g++) uTgrid[g] = ur[g];
+      for (int m = 0; m < nz; m++) {
+        double gn2 = 2.0 * GNk[m];
+        ur[m] = gn2 * fre[m];
+        ui[m] = gn2 * fim[m];
+      }
+      fft1d(ur, ui, nz, +1);
+      for (int g = 0; g < nz; g++) uNgrid[g] = ur[g];
+      memory->destroy(ur);
+      memory->destroy(ui);
+    }
 
-  for (int m = 0; m < nz; m++) {
-    int mm = (m <= nz / 2) ? m : m - nz;
-    double k = mm * 2.0 * MY_PI / zprd;
-    double g2k = 2.0 * Gk[m] * k;
-    double a = fre[m], bb = fim[m];
-    fre[m] = g2k * bb;    // Re(-i k 2Gk (a+ib)) = 2Gk k b
-    fim[m] = -g2k * a;    // Im = -2Gk k a
+    for (int m = 0; m < nz; m++) {
+      int mm = (m <= nz / 2) ? m : m - nz;
+      double k = mm * 2.0 * MY_PI / zprd;
+      double g2k = 2.0 * Gk[m] * k;
+      double a = fre[m], bb = fim[m];
+      fre[m] = g2k * bb;    // Re(-i k 2Gk (a+ib)) = 2Gk k b
+      fim[m] = -g2k * a;    // Im = -2Gk k a
+    }
+    fft1d(fre, fim, nz, +1);
+    for (int g = 0; g < nz; g++) fz_grid[g] = fre[g];
+
+  } else {    // ------- arithmetic (Lorentz-Berthelot): 7 density channels -------
+
+    // FFT each channel's density -> rhat_re/rhat_im[c*nz + mode]
+    for (int c = 0; c < 7; c++) {
+      for (int g = 0; g < nz; g++) {
+        fre[g] = dens[c * nz + g];
+        fim[g] = 0.0;
+      }
+      fft1d(fre, fim, nz, -1);
+      for (int g = 0; g < nz; g++) {
+        rhat_re[c * nz + g] = fre[g];
+        rhat_im[c * nz + g] = fim[g];
+      }
+    }
+
+    // energy/virial from the per-mode channel pairing R (each m<->6-m pair counted
+    // twice except m=3, hence 0.5), with the as_e = 1/8 normalization.
+    const double as_e = 0.125;
+    double e = 0.0, vt = 0.0, vn = 0.0;
+    for (int mm = 0; mm < nz; mm++) {
+      const double r0 = rhat_re[mm], i0 = rhat_im[mm];
+      const double r1 = rhat_re[nz + mm], i1 = rhat_im[nz + mm];
+      const double r2 = rhat_re[2 * nz + mm], i2 = rhat_im[2 * nz + mm];
+      const double r3 = rhat_re[3 * nz + mm], i3 = rhat_im[3 * nz + mm];
+      const double r4 = rhat_re[4 * nz + mm], i4 = rhat_im[4 * nz + mm];
+      const double r5 = rhat_re[5 * nz + mm], i5 = rhat_im[5 * nz + mm];
+      const double r6 = rhat_re[6 * nz + mm], i6 = rhat_im[6 * nz + mm];
+      const double R = (r0 * r6 + i0 * i6) + (r1 * r5 + i1 * i5) + (r2 * r4 + i2 * i4) +
+          0.5 * (r3 * r3 + i3 * i3);
+      e += Gk[mm] * R;
+      if (vflag_global) {
+        vt += GTk[mm] * R;
+        vn += GNk[mm] * R;
+      }
+    }
+    if (eflag_global) energy += as_e * e;
+    if (vflag_global) {
+      virial[lat1] += as_e * vt;
+      virial[lat2] += as_e * vt;
+      virial[dim] += as_e * vn;
+    }
+
+    // per-atom potential/virial fields, one per channel (u^(c)=IFFT[2 Gk rhat^(c)])
+    if (evflag_atom) {
+      double *ur, *ui;
+      memory->create(ur, nz, "pppm/disp/slab:ur");
+      memory->create(ui, nz, "pppm/disp/slab:ui");
+      for (int c = 0; c < 7; c++) {
+        for (int m = 0; m < nz; m++) {
+          double g2 = 2.0 * Gk[m];
+          ur[m] = g2 * rhat_re[c * nz + m];
+          ui[m] = g2 * rhat_im[c * nz + m];
+        }
+        fft1d(ur, ui, nz, +1);
+        for (int g = 0; g < nz; g++) ugrid[c * nz + g] = ur[g];
+        for (int m = 0; m < nz; m++) {
+          double gt2 = 2.0 * GTk[m];
+          ur[m] = gt2 * rhat_re[c * nz + m];
+          ui[m] = gt2 * rhat_im[c * nz + m];
+        }
+        fft1d(ur, ui, nz, +1);
+        for (int g = 0; g < nz; g++) uTgrid[c * nz + g] = ur[g];
+        for (int m = 0; m < nz; m++) {
+          double gn2 = 2.0 * GNk[m];
+          ur[m] = gn2 * rhat_re[c * nz + m];
+          ui[m] = gn2 * rhat_im[c * nz + m];
+        }
+        fft1d(ur, ui, nz, +1);
+        for (int g = 0; g < nz; g++) uNgrid[c * nz + g] = ur[g];
+      }
+      memory->destroy(ur);
+      memory->destroy(ui);
+    }
+
+    // z-force field per channel: fz_grid^(c) = IFFT[-i k 2 Gk rhat^(c)]
+    for (int c = 0; c < 7; c++) {
+      for (int m = 0; m < nz; m++) {
+        int mm = (m <= nz / 2) ? m : m - nz;
+        double k = mm * 2.0 * MY_PI / zprd;
+        double g2k = 2.0 * Gk[m] * k;
+        double a = rhat_re[c * nz + m], bb = rhat_im[c * nz + m];
+        fre[m] = g2k * bb;
+        fim[m] = -g2k * a;
+      }
+      fft1d(fre, fim, nz, +1);
+      for (int g = 0; g < nz; g++) fz_grid[c * nz + g] = fre[g];
+    }
   }
-  fft1d(fre, fim, nz, +1);
-  for (int g = 0; g < nz; g++) fz_grid[g] = fre[g];
 }
 
 /* ----------------------------------------------------------------------
@@ -875,33 +1026,74 @@ void PPPMDispSlab::fieldforce()
   int nlocal = atom->nlocal;
   double w[MAXORDER];
 
-  for (int i = 0; i < nlocal; i++) {
-    double u = (x[i][dim] - zlo) * delzinv;
-    int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;
-    double dz = g0 + shiftone - u;
-    compute_rho1d(dz, w);
-    const double bi = B[type[i]];
+  if (nchan == 1) {    // geometric
 
-    double fz = 0.0, uu = 0.0, uT = 0.0, uN = 0.0;
-    for (int s = 0; s < order; s++) {
-      int g = g0 + nlower + s;
-      g = ((g % nz) + nz) % nz;
-      fz += w[s] * fz_grid[g];
+    for (int i = 0; i < nlocal; i++) {
+      double u = (x[i][dim] - zlo) * delzinv;
+      int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;
+      double dz = g0 + shiftone - u;
+      compute_rho1d(dz, w);
+      const double bi = B[type[i]];
+
+      double fz = 0.0, uu = 0.0, uT = 0.0, uN = 0.0;
+      for (int s = 0; s < order; s++) {
+        int g = g0 + nlower + s;
+        g = ((g % nz) + nz) % nz;
+        fz += w[s] * fz_grid[g];
+        if (evflag_atom) {
+          uu += w[s] * ugrid[g];
+          uT += w[s] * uTgrid[g];
+          uN += w[s] * uNgrid[g];
+        }
+      }
+      f[i][dim] += bi * fz;
+
       if (evflag_atom) {
-        uu += w[s] * ugrid[g];
-        uT += w[s] * uTgrid[g];
-        uN += w[s] * uNgrid[g];
+        double pe = 0.5 * bi * uu;    // per-atom reciprocal energy
+        peatom[i] += pe;
+        if (vflag_atom) {
+          vatom[i][lat1] += 0.5 * bi * uT;
+          vatom[i][lat2] += 0.5 * bi * uT;
+          vatom[i][dim] += 0.5 * bi * uN;
+        }
       }
     }
-    f[i][dim] += bi * fz;
 
-    if (evflag_atom) {
-      double pe = 0.5 * bi * uu;    // per-atom reciprocal energy
-      peatom[i] += pe;
-      if (vflag_atom) {
-        vatom[i][lat1] += 0.5 * bi * uT;
-        vatom[i][lat2] += 0.5 * bi * uT;
-        vatom[i][dim] += 0.5 * bi * uN;
+  } else {    // arithmetic: atom channel (6-m) pairs with field channel m
+
+    const double as_f = 1.0 / 16.0;
+    const double as_e = 0.125;
+    for (int i = 0; i < nlocal; i++) {
+      double u = (x[i][dim] - zlo) * delzinv;
+      int g0 = (int) (u + (order % 2 ? OFFSET + 0.5 : OFFSET)) - OFFSET;
+      double dz = g0 + shiftone - u;
+      compute_rho1d(dz, w);
+      const double *bi = &B[7 * type[i]];
+
+      double fz = 0.0, uu = 0.0, uT = 0.0, uN = 0.0;
+      for (int s = 0; s < order; s++) {
+        int g = g0 + nlower + s;
+        g = ((g % nz) + nz) % nz;
+        const double ws = w[s];
+        for (int m = 0; m < 7; m++) {
+          const double a = bi[6 - m];    // atom channel (6-m) pairs with field channel m
+          fz += a * ws * fz_grid[m * nz + g];
+          if (evflag_atom) {
+            uu += a * ws * ugrid[m * nz + g];
+            uT += a * ws * uTgrid[m * nz + g];
+            uN += a * ws * uNgrid[m * nz + g];
+          }
+        }
+      }
+      f[i][dim] += as_f * fz;
+
+      if (evflag_atom) {
+        peatom[i] += 0.25 * as_e * uu;
+        if (vflag_atom) {
+          vatom[i][lat1] += 0.25 * as_e * uT;
+          vatom[i][lat2] += 0.25 * as_e * uT;
+          vatom[i][dim] += 0.25 * as_e * uN;
+        }
       }
     }
   }
@@ -1197,7 +1389,7 @@ int PPPMDispSlab::profile_kmax()
   int *type = atom->type;
   int nlocal = atom->nlocal;
   double b2_local = 0.0;
-  for (int i = 0; i < nlocal; i++) b2_local += B[type[i]] * B[type[i]];
+  for (int i = 0; i < nlocal; i++) b2_local += c6_self(type[i]);
   double b2;
   MPI_Allreduce(&b2_local, &b2, 1, MPI_DOUBLE, MPI_SUM, world);
   double natoms = (double) atom->natoms;
@@ -1371,6 +1563,11 @@ int PPPMDispSlab::pressure_profile_long(int dir, int nbins, double lo, double wi
     error->all(FLERR,
                "compute stress/cartesian binning direction must match the inhomogeneous axis "
                "of pppm/disp/slab");
+  if (nchan != 1)
+    error->all(FLERR,
+               "compute stress/cartesian kspace (Irving-Kirkwood profile) is not yet "
+               "supported with arithmetic mixing in pppm/disp/slab; use geometric mixing "
+               "or the Harasima profile via compute stress/atom");
 
   const double unitk = 2.0 * MY_PI / zprd;
   const int K = profile_kmax();
