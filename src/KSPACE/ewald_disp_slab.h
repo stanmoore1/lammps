@@ -96,12 +96,24 @@ class EwaldDispSlab : public KSpace {
   // the corr is diagonal in the reciprocal basis (E_corr = sum_n [W~2(k_n)/Lz]|S_n|^2)
   // -- no real-space corr step.
   double u_smooth(double r);                 // smooth (Gaussian-screened) 1/r^6, Taylor near 0
-  double *cWgrid;                            // tabulated switched corr energy kernel
+  double *cWgrid;                            // tabulated switched corr energy kernel (= pre*cWraw)
+  double *cWraw;                             // box-INDEPENDENT kernel integral int r*corr_e dr;
+                                             //   precomputed once (g_ewald/cutoff/Delta fixed),
+                                             //   rescaled by pre=2*pi/area each setup (NPT hot loop)
   int ncgrid;                                // grid points on [0, rcut+Delta]
   double cwdz;                               // grid spacing
   void build_corr_kernels();                 // tabulate the switched corr w2 at setup
-  void corr_tilde(double k, double &w2t, double &kw2p);    // W~2(k) and k dW~2/dk
+  void corr_tilde(double k, double &w2t, double &kw2p);    // W~2(k) and k dW~2/dk (exact)
   void merge_corr_coeffs();                  // add the corr to GU/GF/GT/GN
+  // NPT-proof merge: W~2(k) and k dW~2/dk are (2*pi/area) times BOX-INDEPENDENT Fourier
+  // transforms of cWraw.  Tabulate those transforms once on a uniform wavenumber grid,
+  // then each setup just interpolate at the shifted modes k_m = m*(2*pi/Lz) and rescale
+  // by 2*pi/area -- O(kmax) instead of O(kmax x quadrature) per box change.
+  double *Araw_tab, *Braw_tab;    // A(kap)=2 int cWraw cos(kap z) dz;  B=2 int z cWraw sin
+  int nkap;                       // table length
+  double kap_dk, kap_max;         // wavenumber grid spacing and covered range
+  void build_corr_ft_tables(double kap_need);          // (re)build the FT tables (grow-only)
+  void ft_interp(double kap, double &A, double &B);    // cubic-Lagrange interpolation
 };
 
 }    // namespace LAMMPS_NS

@@ -68,8 +68,13 @@ EwaldDispSlab::EwaldDispSlab(LAMMPS *lmp) :
   lat2 = 1;
   sw_width = 0.0;
   cWgrid = nullptr;
+  cWraw = nullptr;
   ncgrid = 0;
   cwdz = 0.0;
+  Araw_tab = Braw_tab = nullptr;
+  nkap = 0;
+  kap_dk = 0.0;
+  kap_max = 0.0;
   kmax = 0;
   kcount = 0;
   kmax_created = 0;
@@ -89,6 +94,9 @@ EwaldDispSlab::~EwaldDispSlab()
   memory->destroy(sn);
   delete[] B;
   delete[] cWgrid;
+  delete[] cWraw;
+  delete[] Araw_tab;
+  delete[] Braw_tab;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -634,39 +642,51 @@ double EwaldDispSlab::u_smooth(double r)
 void EwaldDispSlab::build_corr_kernels()
 {
   const double a = cutoff, b = cutoff + sw_width;
-  const double area = domain->prd[lat1] * domain->prd[lat2];
-  const double pre = 2.0 * MY_PI / area;
   ncgrid = 1024;
   cwdz = b / ncgrid;
+
+  // BOX-INDEPENDENT kernel integral IE[g] = int_{z_g}^b r*corr_e(r) dr (g_ewald,
+  // cutoff, Delta are all fixed after init), precomputed once.  Under NPT only the
+  // 2*pi/area prefactor changes, so the per-step build is just a rescale.
+  if (cWraw == nullptr) {
+    cWraw = new double[ncgrid + 1];
+    for (int g = 0; g <= ncgrid; g++) {
+      const double adz = g * cwdz;
+      const int n = 800;
+      const double hr = (b - adz) / n;
+      double IE = 0.0;
+      if (hr > 0.0) {
+        for (int i = 0; i <= n; i++) {
+          const double r = adz + i * hr;
+          const double rr = (r > 1.0e-300) ? r : 1.0e-300;
+          double ce = u_smooth(rr);
+          if (rr > a) {
+            const double r6 = rr * rr * rr * rr * rr * rr;
+            ce -= switch_S((rr - a) / sw_width) / r6;
+          }
+          const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+          IE += w * rr * ce;
+        }
+        IE *= hr / 3.0;
+      }
+      cWraw[g] = IE;
+    }
+  }
+
+  const double pre = 2.0 * MY_PI / (domain->prd[lat1] * domain->prd[lat2]);
   delete[] cWgrid;
   cWgrid = new double[ncgrid + 1];
-  for (int g = 0; g <= ncgrid; g++) {
-    const double adz = g * cwdz;
-    const int n = 800;
-    const double hr = (b - adz) / n;
-    double IE = 0.0;
-    if (hr > 0.0) {
-      for (int i = 0; i <= n; i++) {
-        const double r = adz + i * hr;
-        const double rr = (r > 1.0e-300) ? r : 1.0e-300;
-        double ce = u_smooth(rr);
-        if (rr > a) {
-          const double r6 = rr * rr * rr * rr * rr * rr;
-          ce -= switch_S((rr - a) / sw_width) / r6;
-        }
-        const double w = (i == 0 || i == n) ? 1.0 : (i % 2 ? 4.0 : 2.0);
-        IE += w * rr * ce;
-      }
-      IE *= hr / 3.0;
-    }
-    cWgrid[g] = pre * IE;
-  }
+  for (int g = 0; g <= ncgrid; g++) cWgrid[g] = pre * cWraw[g];
+
+  // ensure the box-independent Fourier-transform tables cover the current modes
+  build_corr_ft_tables((kcount > 0 ? (kcount - 1) : kmax) * unitk);
 }
 
 /* ----------------------------------------------------------------------
    1-D Fourier transforms of the tabulated corr kernel (Simpson over the table):
      w2t  = W~2(k)        = 2 int_0^b w2(z) cos(kz) dz
      kw2p = k dW~2(k)/dk  = -2 k int_0^b z w2(z) sin(kz) dz
+   Exact reference (used to build the interpolation tables).
 ------------------------------------------------------------------------- */
 
 void EwaldDispSlab::corr_tilde(double k, double &w2t, double &kw2p)
@@ -683,6 +703,63 @@ void EwaldDispSlab::corr_tilde(double k, double &w2t, double &kw2p)
 }
 
 /* ----------------------------------------------------------------------
+   (re)build the box-independent Fourier-transform tables of the corr kernel on
+   a uniform wavenumber grid kap_j = j*kap_dk covering [0, kap_need] with margin.
+   Grow-only: rebuilt only when the modes outgrow the current range (an NPT box
+   that shrinks).  A(kap)=2 int cWraw cos(kap z) dz, B(kap)=2 int z cWraw sin, so
+   W~2(k)=(2*pi/area) A(k) and k dW~2/dk = -(2*pi/area) k B(k).
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::build_corr_ft_tables(double kap_need)
+{
+  const double target = 1.5 * MAX(kap_need, 1.0e-6);    // 50% headroom for NPT shrink
+  if (Araw_tab && target <= kap_max) return;             // current tables suffice
+
+  // resolve the FT oscillation (period 2*pi/b in kap); ~100 points per period
+  kap_dk = (2.0 * MY_PI / (cutoff + sw_width)) / 100.0;
+  nkap = (int) (target / kap_dk) + 4;
+  kap_max = nkap * kap_dk;
+  delete[] Araw_tab;
+  delete[] Braw_tab;
+  Araw_tab = new double[nkap + 1];
+  Braw_tab = new double[nkap + 1];
+  const double c = 2.0 * cwdz / 3.0;
+  for (int j = 0; j <= nkap; j++) {
+    const double kap = j * kap_dk;
+    double sc = 0.0, ss = 0.0;
+    for (int g = 0; g <= ncgrid; g++) {
+      const double z = g * cwdz;
+      const double w = (g == 0 || g == ncgrid) ? 1.0 : (g % 2 ? 4.0 : 2.0);
+      sc += w * cWraw[g] * cos(kap * z);
+      ss += w * z * cWraw[g] * sin(kap * z);
+    }
+    Araw_tab[j] = c * sc;
+    Braw_tab[j] = c * ss;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   4-point (cubic) Lagrange interpolation of the FT tables at wavenumber kap.
+   The tables are ~100 points per oscillation, so the error is ~1e-9 relative --
+   far below the reciprocal accuracy the merge targets.
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::ft_interp(double kap, double &A, double &B)
+{
+  double x = kap / kap_dk;
+  int j = (int) x - 1;    // centered 4-point stencil j..j+3 (t in [1,2] interior)
+  if (j < 0) j = 0;
+  if (j > nkap - 3) j = nkap - 3;
+  const double t = x - j;
+  const double L0 = -(t - 1.0) * (t - 2.0) * (t - 3.0) / 6.0;
+  const double L1 = t * (t - 2.0) * (t - 3.0) / 2.0;
+  const double L2 = -t * (t - 1.0) * (t - 3.0) / 2.0;
+  const double L3 = t * (t - 1.0) * (t - 2.0) / 6.0;
+  A = Araw_tab[j] * L0 + Araw_tab[j + 1] * L1 + Araw_tab[j + 2] * L2 + Araw_tab[j + 3] * L3;
+  B = Braw_tab[j] * L0 + Braw_tab[j + 1] * L1 + Braw_tab[j + 2] * L2 + Braw_tab[j + 3] * L3;
+}
+
+/* ----------------------------------------------------------------------
    fold the smooth switched corr into the reciprocal coefficients GU/GF/GT/GN.
    E_corr = sum_n [W~2(k_n)/Lz] |S_n|^2 is the same bilinear form as the reciprocal
    sum, so per mode: GU += CE, GT += CE (corr tangential = corr energy since
@@ -695,17 +772,23 @@ void EwaldDispSlab::corr_tilde(double k, double &w2t, double &kw2p)
 
 void EwaldDispSlab::merge_corr_coeffs()
 {
-  const double invLz = 1.0 / domain->prd[dim];
+  // W~2(k) = (2*pi/area) A(k) and k dW~2/dk = -(2*pi/area) k B(k), so the merge
+  // coefficients are (2*pi/volume) times the box-independent A(k), (A - k B)(k).
+  // Interpolate A, B from the precomputed tables at the current modes -- no
+  // per-step quadrature (NPT-proof).
+  const double area = domain->prd[lat1] * domain->prd[lat2];
+  const double pre2 = 2.0 * MY_PI / (area * domain->prd[dim]);    // 2*pi/volume
   for (int k = 0; k < kcount; k++) {
-    double w2t, kw2p;
-    corr_tilde(k * unitk, w2t, kw2p);
+    const double kc = k * unitk;
+    double A, Bv;
+    ft_interp(kc, A, Bv);
     const double f = (k == 0) ? 0.5 : 1.0;
-    const double CE = f * w2t * invLz;
-    const double CN = f * (w2t + kw2p) * invLz;
+    const double CE = f * pre2 * A;
+    const double CN = f * pre2 * (A - kc * Bv);
     GU[k] += CE;
     GT[k] += CE;
     GN[k] += CN;
-    GF[k] = 2.0 * (k * unitk) * GU[k];    // exact z-gradient of the merged energy
+    GF[k] = 2.0 * kc * GU[k];    // exact z-gradient of the merged energy
   }
 }
 
