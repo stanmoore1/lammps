@@ -45,6 +45,8 @@ class EwaldDispSlab : public KSpace {
   int kmax, kcount;      // # of 1-D wavevectors (modes k=0..kmax-1), kcount=kmax
   int kmax_created;
   int kmax_user;         // user override via kspace_modify kmax (0 if unset)
+  int mix_flag;          // C6 cross-term mixing: 0 = geometric, 1 = arithmetic (LB)
+  int nchan;             // # dispersion channels: 1 (geometric) or 7 (arithmetic)
   double sw_width;       // dispersion switch width Delta (read from the matched pair)
   double volume, cutoff, rc2;
   double unitk;                       // 2*pi/Lz

@@ -259,5 +259,9 @@ void *PairLJCutDispSwitch::extract(const char *str, int &dim)
     dim = 0;
     return (void *) &sw_width;
   }
+  if (strcmp(str, "ewald_mix") == 0) {    // C6 mixing rule for the matched kspace style
+    dim = 0;
+    return (void *) &mix_flag;
+  }
   return PairLJCut::extract(str, dim);    // cut_lj -> rcut (inner), B, epsilon, sigma
 }
