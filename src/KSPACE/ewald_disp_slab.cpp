@@ -53,6 +53,8 @@
 using namespace LAMMPS_NS;
 using namespace MathConst;
 
+static constexpr double EULER = 0.57721566490153286061;
+
 /* ---------------------------------------------------------------------- */
 
 EwaldDispSlab::EwaldDispSlab(LAMMPS *lmp) :
@@ -737,6 +739,406 @@ void EwaldDispSlab::deallocate()
   memory->destroy(sfacim_all);
   GU = GF = GT = GN = nullptr;
   sfacrl = sfacim = sfacrl_all = sfacim_all = nullptr;
+}
+
+/* ----------------------------------------------------------------------
+   Irving-Kirkwood long-range pressure profile (compute stress/cartesian hook).
+   The merged-damped reciprocal represents the identical switched tail S(r)*u(r)
+   as pppm/disp/slab (the pair fades the dispersion by (1-S)), so the same S*u
+   pressure building blocks apply.  Ported from pppm/disp/slab (which was ported
+   from pppm/disp/planar); the only difference here is the exact-sum mode cutoff
+   K = kcount-1 (no mesh over-resolution to truncate).  Special functions and
+   kernels below are self-contained in terms of the S*u potential (cutoff,
+   sw_width, B, volume), independent of the reciprocal solve.
+------------------------------------------------------------------------- */
+
+void EwaldDispSlab::cisi(double x, double &si, double &ci)
+{
+  if (x <= 2.0) {
+    double term = x, s = x;
+    for (int k = 1; k < 60; k++) {
+      term *= -x * x / ((2.0 * k) * (2.0 * k + 1.0));
+      double add = term / (2.0 * k + 1.0);
+      s += add;
+      if (fabs(add) < 1.0e-18 * fabs(s)) break;
+    }
+    si = s;
+    double cterm = 1.0, cin = 0.0;
+    for (int k = 1; k < 60; k++) {
+      cterm *= -x * x / ((2.0 * k - 1.0) * (2.0 * k));
+      double add = -cterm / (2.0 * k);
+      cin += add;
+      if (fabs(add) < 1.0e-18 * (fabs(cin) + 1.0e-300)) break;
+    }
+    ci = EULER + log(x) - cin;
+  } else {
+    const double tiny = 1.0e-300;
+    double br = 1.0, bi = x;
+    double cr = 1.0e308, cii = 0.0;
+    double den = br * br + bi * bi;
+    double dr = br / den, di = -bi / den;
+    double hr = dr, hi = di;
+    for (int i = 1; i < 400; i++) {
+      double a = -(double) i * i;
+      br += 2.0;
+      double tr = a * dr + br, ti = a * di + bi;
+      den = tr * tr + ti * ti;
+      if (den < tiny) den = tiny;
+      dr = tr / den;
+      di = -ti / den;
+      double cden = cr * cr + cii * cii;
+      if (cden < tiny) cden = tiny;
+      cr = br + a * cr / cden;
+      cii = bi - a * cii / cden;
+      double delr = cr * dr - cii * di;
+      double deli = cr * di + cii * dr;
+      double nhr = hr * delr - hi * deli;
+      double nhi = hr * deli + hi * delr;
+      hr = nhr;
+      hi = nhi;
+      if (fabs(delr - 1.0) + fabs(deli) < 1.0e-17) break;
+    }
+    double cx = cos(x), sx = sin(x);
+    double fr = hr * cx + hi * sx;
+    double fi = -hr * sx + hi * cx;
+    ci = -fr;
+    si = MY_PI / 2.0 + fi;
+  }
+}
+
+void EwaldDispSlab::sici_chain(double x, double *Aarr, double *Barr)
+{
+  double si, ci;
+  cisi(x, si, ci);
+  Aarr[1] = si;
+  Barr[1] = ci - EULER;
+  double sx = sin(x), cx = cos(x);
+  for (int m = 2; m <= 7; m++) {
+    double xm = pow(x, 1 - m);
+    Aarr[m] = -sx * xm / (m - 1) + Barr[m - 1] / (m - 1);
+    Barr[m] = -cx * xm / (m - 1) - Aarr[m - 1] / (m - 1);
+  }
+}
+
+void EwaldDispSlab::sici_compl_chain(double x, double *Carr, double *Darr)
+{
+  double si, ci;
+  cisi(x, si, ci);
+  Carr[1] = MY_PI / 2.0 - si;    // A[1](inf) - A[1] = pi/2 - Si(x)
+  Darr[1] = -ci;                 // B[1](inf) - B[1] = -Ci(x)
+  const double sx = sin(x), cx = cos(x);
+  for (int m = 2; m <= 7; m++) {
+    const double xm = pow(x, 1 - m);
+    Carr[m] = (Darr[m - 1] + sx * xm) / (m - 1);
+    Darr[m] = (cx * xm - Carr[m - 1]) / (m - 1);
+  }
+}
+
+double EwaldDispSlab::prof_integrand(int which, double r, double h)
+{
+  const double x = h * r;
+  const double sx = sin(x), cx = cos(x);
+  const double h2 = h * h, h4 = h2 * h2, h5 = h4 * h, h6 = h4 * h2;
+  const double r2 = r * r, r4 = r2 * r2, r5 = r4 * r, r6 = r4 * r2, r7 = r6 * r;
+  if (which == PROF_T) {
+    return sx / (h6 * r7) - cx / (h5 * r6);
+  } else if (which == PROF_N) {
+    return sx / (h4 * r5) - 2.0 * sx / (h6 * r7) + 2.0 * cx / (h5 * r6);
+  } else {    // PROF_PHI
+    double si, ci;
+    cisi(x, si, ci);
+    return si / (h4 * r5) - sx / (h6 * r7) + cx / (h5 * r6);
+  }
+}
+
+double EwaldDispSlab::prof_shell(int which, double h)
+{
+  static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
+                                -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
+                                0.4333953941292472,  0.6794095682990244,  0.8650633666889845,
+                                0.9739065285171717};
+  static const double gw[10] = {0.0666713443086881, 0.1494513491505806, 0.2190863625159820,
+                                0.2692667193099963, 0.2955242247147529, 0.2955242247147529,
+                                0.2692667193099963, 0.2190863625159820, 0.1494513491505806,
+                                0.0666713443086881};
+  const double a = cutoff, dzs = sw_width;
+  int np = (int) (8.0 * h * dzs / (2.0 * MY_PI)) + 1;
+  np = MAX(8, np);
+  np = MIN(np, 20000);
+  const double hp = dzs / np;
+  double acc = 0.0;
+  for (int p = 0; p < np; p++) {
+    const double c0 = a + (p + 0.5) * hp;
+    for (int g = 0; g < 10; g++) {
+      const double r = c0 + 0.5 * hp * gx[g];
+      const double t = (r - a) / dzs;
+      const double W = switch_S(t) - (switch_dS(t) / dzs) * r / 6.0;
+      acc += gw[g] * W * prof_integrand(which, r, h);
+    }
+  }
+  return 0.5 * hp * acc;
+}
+
+double EwaldDispSlab::ik_phi(double h)
+{
+  if (fabs(h) < 1.0e-300) return 0.0;
+  const double ah = fabs(h);
+  const double c = cutoff + sw_width;
+  double A[8], Bc[8];
+  sici_chain(ah * c, A, Bc);
+  const double sii5 = A[5] / 4.0 - A[1] / (4.0 * pow(ah * c, 4));
+  double phi = MY_PI / 576.0 - sii5 + A[7] - Bc[6];
+  phi += prof_shell(PROF_PHI, ah);
+  const double ah4 = ah * ah * ah * ah;
+  return (h >= 0.0 ? 1.0 : -1.0) * ah4 * phi;
+}
+
+double EwaldDispSlab::ik_psi(double h)
+{
+  if (fabs(h) < 1.0e-300) return 0.0;
+  const double ah = fabs(h);
+  const double c = cutoff + sw_width;
+  double A[8], Bc[8];
+  sici_chain(ah * c, A, Bc);
+  double psi = MY_PI / 288.0 - A[7] + Bc[6];
+  psi += prof_shell(PROF_T, ah);
+  const double ah4 = ah * ah * ah * ah;
+  return (h >= 0.0 ? 1.0 : -1.0) * ah4 * psi;
+}
+
+void EwaldDispSlab::switch_shell_virial(double h, double &sGT, double &sGN)
+{
+  static const double gx[10] = {-0.9739065285171717, -0.8650633666889845, -0.6794095682990244,
+                                -0.4333953941292472, -0.1488743389816312, 0.1488743389816312,
+                                0.4333953941292472,  0.6794095682990244,  0.8650633666889845,
+                                0.9739065285171717};
+  static const double gw[10] = {0.0666713443086881, 0.1494513491505806, 0.2190863625159820,
+                                0.2692667193099963, 0.2955242247147529, 0.2955242247147529,
+                                0.2692667193099963, 0.2190863625159820, 0.1494513491505806,
+                                0.0666713443086881};
+  const double a = cutoff, dz = sw_width;
+  int np = (int) (8.0 * h * dz / (2.0 * MY_PI)) + 1;
+  np = MAX(8, np);
+  np = MIN(np, 20000);
+  const double hp = dz / np;
+  const double h2 = h * h, h3 = h2 * h;
+  double accT = 0.0, accN = 0.0;
+  for (int p = 0; p < np; p++) {
+    const double c0 = a + (p + 0.5) * hp;
+    for (int g = 0; g < 10; g++) {
+      const double r = c0 + 0.5 * hp * gx[g];
+      const double t = (r - a) / dz;
+      const double S = switch_S(t);
+      const double Sp = switch_dS(t) / dz;    // S'(r)
+      const double r2 = r * r, r6 = r2 * r2 * r2, r7 = r6 * r;
+      const double phip = -Sp / r6 + 6.0 * S / r7;    // (S u)' = S'u + S u'
+      const double sr = sin(h * r), cr = cos(h * r);
+      const double AT = -4.0 * r * cr / h2 + 4.0 * sr / h3;
+      const double AN = 2.0 * r2 * sr / h + 4.0 * r * cr / h2 - 4.0 * sr / h3;
+      accT += gw[g] * phip * AT;
+      accN += gw[g] * phip * AN;
+    }
+  }
+  sGT = 0.5 * hp * accT;
+  sGN = 0.5 * hp * accN;
+}
+
+void EwaldDispSlab::shell_profile_virial(int nbins, double /*lo*/, double /*dz*/,
+                                         double * /*dens_all*/, double *shellT, double *shellN)
+{
+  // No shell subtraction for the merged-damped variant: the pair fades the
+  // dispersion by (1-S) and the kspace GT[k]/GN[k] already carry the full plane
+  // mean field of S*u, so the reciprocal double sum needs no shell correction.
+  for (int g = 0; g < nbins; g++) shellT[g] = shellN[g] = 0.0;
+}
+
+void EwaldDispSlab::profile_GTGN_raw(int K, double *GTr, double *GNr)
+{
+  const double zprd = domain->prd[dim];
+  const double unitk = 2.0 * MY_PI / zprd;
+  const double c = cutoff + sw_width;
+  const double a = cutoff, dzs = sw_width;
+  const int ni = 2000;
+  const double dr = dzs / ni;
+  double iJ = 0.0, iT = 0.0;
+  for (int i = 0; i <= ni; i++) {
+    const double r = a + i * dr;
+    const double t = (r - a) / dzs;
+    const double S = switch_S(t);
+    const double Sp = switch_dS(t) / dzs;
+    const double r3 = r * r * r, r4 = r3 * r;
+    const double w = (i == 0 || i == ni) ? 1.0 : (i % 2 ? 4.0 : 2.0);
+    iJ += w * Sp / r3;
+    iT += w * S / r4;
+  }
+  const double Jint = dr / 3.0 * iJ;
+  const double trans = dr / 3.0 * iT;
+  GTr[0] = GNr[0] = -(2.0 * MY_PI / (3.0 * volume)) * (-Jint + 6.0 * trans + 2.0 / (c * c * c));
+  for (int k = 1; k <= K; k++) {
+    const double kcell = k * unitk;
+    const double kcell3 = kcell * kcell * kcell;
+    double C[8], D[8];
+    sici_compl_chain(kcell * c, C, D);
+    const double GTtail = (-24.0 * MY_PI * kcell3 / volume) * (C[7] - D[6]);
+    const double GNtail = (-24.0 * MY_PI * kcell3 / volume) * (C[5] - 2.0 * C[7] + 2.0 * D[6]);
+    double sGT, sGN;
+    switch_shell_virial(kcell, sGT, sGN);
+    GTr[k] = GTtail - (MY_PI / volume) * sGT;
+    GNr[k] = GNtail - (2.0 * MY_PI / volume) * sGN;
+  }
+}
+
+void EwaldDispSlab::profile_assemble(int K, int nbins, double lo, double width, const double *Sre,
+                                     const double *Sim, const double *GTr, const double *GNr,
+                                     const double *shellT, const double *shellN, double *pN,
+                                     double *pT)
+{
+  const double zprd = domain->prd[dim];
+  const double area = domain->prd[lat1] * domain->prd[lat2];
+  const double unitk = 2.0 * MY_PI / zprd;
+  const double inv_adz = 1.0 / (area * width);
+  const int P = 2 * K;
+  auto *ATre = new double[P + 1];
+  auto *ATim = new double[P + 1];
+  auto *ANre = new double[P + 1];
+  auto *ANim = new double[P + 1];
+  for (int p = 0; p <= P; p++) ATre[p] = ATim[p] = ANre[p] = ANim[p] = 0.0;
+  auto Sn = [&](int n, double &re, double &im) {
+    int an = n < 0 ? -n : n;
+    re = Sre[an];
+    im = (n < 0) ? -Sim[an] : Sim[an];
+  };
+  auto *phiP = new double[K + 1];
+  auto *psiP = new double[K + 1];
+  for (int k = 0; k <= K; k++) {
+    phiP[k] = ik_phi(k * unitk);
+    psiP[k] = ik_psi(k * unitk);
+  }
+  auto PHI = [&](int n) { return n < 0 ? -phiP[-n] : phiP[n]; };
+  auto PSI = [&](int n) { return n < 0 ? -psiP[-n] : psiP[n]; };
+  for (int n = -K; n <= K; n++) {
+    double hn = n * unitk;
+    for (int m = -K; m <= K; m++) {
+      int p = n + m;
+      if (p < 0) continue;    // Hermitian symmetry; keep p>=0
+      double hm = m * unitk, H = hn + hm;
+      double snr, sni, smr, smi;
+      Sn(n, snr, sni);
+      Sn(m, smr, smi);
+      double sre = snr * smr - sni * smi, simv = snr * smi + sni * smr;
+      double CT, CN;
+      if (n == 0 && m == 0) {
+        CT = CN = volume * GTr[0];
+      } else if (fabs(H) < 1.0e-300) {
+        int kk = (n < 0) ? -n : n;
+        CT = 0.5 * volume * GTr[kk];
+        CN = 0.5 * volume * GNr[kk];
+      } else {
+        CT = -6.0 * MY_PI / H * (PHI(m) + PHI(n));
+        CN = -12.0 * MY_PI / H * (PSI(m) + PSI(n));
+      }
+      ATre[p] += CT * sre;
+      ATim[p] += CT * simv;
+      ANre[p] += CN * sre;
+      ANim[p] += CN * simv;
+    }
+  }
+  for (int g = 0; g < nbins; g++) {
+    double z = lo + (g + 0.5) * width;
+    double pt = ATre[0], pn = ANre[0];
+    for (int p = 1; p <= P; p++) {
+      double cz = cos(p * unitk * z), sz = sin(p * unitk * z);
+      pt += 2.0 * (ATre[p] * cz - ATim[p] * sz);
+      pn += 2.0 * (ANre[p] * cz - ANim[p] * sz);
+    }
+    pT[g] = pt - shellT[g] * inv_adz;
+    pN[g] = pn - shellN[g] * inv_adz;
+  }
+  delete[] ATre;
+  delete[] ATim;
+  delete[] ANre;
+  delete[] ANim;
+  delete[] phiP;
+  delete[] psiP;
+}
+
+int EwaldDispSlab::pressure_profile_long(int dir, int nbins, double lo, double width, double *pN,
+                                         double *pT)
+{
+  if (dir != dim)
+    error->all(FLERR,
+               "compute stress/cartesian binning direction must match the inhomogeneous axis "
+               "of ewald/disp/slab");
+
+  const double unitk = 2.0 * MY_PI / domain->prd[dim];
+  const int K = kcount - 1;    // highest resolved mode (force-accuracy sized)
+
+  if (nbins <= 2 * K)
+    error->all(FLERR,
+               "compute stress/cartesian with ewald/disp/slab kspace: {} bins along the "
+               "inhomogeneous axis is too coarse; need > {} (= 2*kmax) to resolve the "
+               "Irving-Kirkwood reciprocal modes without aliasing (use a finer bin width, "
+               "looser accuracy, or wider switch)",
+               nbins, 2 * K);
+
+  auto *GTr = new double[K + 1];
+  auto *GNr = new double[K + 1];
+  profile_GTGN_raw(K, GTr, GNr);
+
+  // EXACT structure factors sfac[n] = sum_j B_j exp(i n unitk z_j), n=0..K
+  auto *srl = new double[K + 1];
+  auto *sim = new double[K + 1];
+  auto *srl_all = new double[K + 1];
+  auto *sim_all = new double[K + 1];
+  for (int n = 0; n <= K; n++) srl[n] = sim[n] = 0.0;
+
+  double **x = atom->x;
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+  for (int i = 0; i < nlocal; i++) {
+    const double bi = B[type[i]];
+    double c1 = cos(unitk * x[i][dim]), s1 = sin(unitk * x[i][dim]);
+    double cn = 1.0, sn = 0.0;    // cos/sin(n*unitk*z), recurrence
+    srl[0] += bi;
+    for (int n = 1; n <= K; n++) {
+      double cnn = cn * c1 - sn * s1;
+      double snn = sn * c1 + cn * s1;
+      cn = cnn;
+      sn = snn;
+      srl[n] += bi * cn;
+      sim[n] += bi * sn;
+    }
+  }
+  MPI_Allreduce(srl, srl_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
+  MPI_Allreduce(sim, sim_all, K + 1, MPI_DOUBLE, MPI_SUM, world);
+
+  auto *Sre = new double[K + 1];
+  auto *Sim = new double[K + 1];
+  for (int n = 0; n <= K; n++) {
+    Sre[n] = srl_all[n] / volume;
+    Sim[n] = -sim_all[n] / volume;
+  }
+
+  // no shell subtraction for the merged-damped variant (GT/GN carry the full S*u
+  // plane mean field); keep the zeroed arrays so profile_assemble's signature is
+  // unchanged.
+  auto *shellT = new double[nbins];
+  auto *shellN = new double[nbins];
+  shell_profile_virial(nbins, lo, width, nullptr, shellT, shellN);
+
+  profile_assemble(K, nbins, lo, width, Sre, Sim, GTr, GNr, shellT, shellN, pN, pT);
+
+  delete[] GTr;
+  delete[] GNr;
+  delete[] srl;
+  delete[] sim;
+  delete[] srl_all;
+  delete[] sim_all;
+  delete[] Sre;
+  delete[] Sim;
+  delete[] shellT;
+  delete[] shellN;
+  return 1;
 }
 
 /* ---------------------------------------------------------------------- */

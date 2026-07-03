@@ -73,6 +73,12 @@ class PPPMDispSlabKokkos : public PPPMDispSlab {
   void compute(int, int) override;
   double memory_usage() override;
 
+  // long-range Irving-Kirkwood pressure profile (compute stress/cartesian hook).
+  // The host implementation PPPMDispSlab::pressure_profile_long reads atom->x/type
+  // directly, so sync the KK atom data to host first (the profile is a rare
+  // diagnostic; no device kernel is warranted).
+  int pressure_profile_long(int, int, double, double, double *, double *) override;
+
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispSlab_make_rho_zero, const int&) const;
 

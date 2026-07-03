@@ -522,6 +522,22 @@ void PPPMDispSlabKokkos<DeviceType>::operator()(TagPPPMDispSlab_peratom_finalize
 
 /* ---------------------------------------------------------------------- */
 
+/* ----------------------------------------------------------------------
+   long-range Irving-Kirkwood pressure profile hook (compute stress/cartesian).
+   The inherited host implementation reads atom->x/type on the host, so sync the
+   KK atom data to host first (mirrors corr_gather); then delegate to the base.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+int PPPMDispSlabKokkos<DeviceType>::pressure_profile_long(int dir, int nbins, double lo,
+                                                          double width, double *pN, double *pT)
+{
+  atomKK->sync(Host, X_MASK | TYPE_MASK);
+  return PPPMDispSlab::pressure_profile_long(dir, nbins, lo, width, pN, pT);
+}
+
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 double PPPMDispSlabKokkos<DeviceType>::memory_usage()
 {
