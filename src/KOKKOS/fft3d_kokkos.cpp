@@ -998,7 +998,7 @@ void FFT3dKokkos<DeviceType>::fft_3d_1d_only_kokkos(typename FFT_AT::t_FFT_DATA_
   // scaling if required
   // limit num to size of data
 
-  if (flag == 1 && plan->scaled) {
+  if (flag == -1 && plan->scaled) {
     FFT_SCALAR norm = plan->norm;
     int num = MIN(plan->normnum,nsize);
 
