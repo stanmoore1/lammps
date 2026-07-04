@@ -117,7 +117,10 @@ void FFT3dKokkos<DeviceType>::timing1d(typename FFT_AT::t_FFT_SCALAR_1d d_in, in
 /* ----------------------------------------------------------------------
    1D in-place FFT on a plan configured as (nz,1,1) on MPI_COMM_SELF.
    Uses the full 3D path so that all backends (including KISS) correctly
-   return the result in d_in.  flag: 1 = forward, -1 = backward.
+   return the result in d_in.  NOTE: fft_3d_1d_only_kokkos() is a timing-only
+   routine (it skips the inter-dimension remaps and operates on dummy data, so
+   its output is not a correct transform); it cannot be used here.  The remaps
+   for the trivial (nz,1,1) geometry are cheap.  flag: 1 = forward, -1 = backward.
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
