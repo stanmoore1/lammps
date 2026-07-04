@@ -49,6 +49,16 @@ struct TagPPPMDispPlanar_fieldforce{};
 struct TagPPPMDispPlanar_fieldforce_peratom{};
 struct TagPPPMDispPlanar_peatom_zero{};
 struct TagPPPMDispPlanar_peratom_finalize{};
+// influence function built on the device (NPT: rebuilt every step on the device)
+struct TagPPPMDispPlanar_influence{};
+// arithmetic (Lorentz-Berthelot) 7-channel device kernels
+struct TagPPPMDispPlanar_make_rho_arith{};
+struct TagPPPMDispPlanar_store_rhat{};
+struct TagPPPMDispPlanar_work_from_rhat{};
+struct TagPPPMDispPlanar_energy_arith{};
+struct TagPPPMDispPlanar_virial_arith{};
+struct TagPPPMDispPlanar_fieldforce_arith{};
+struct TagPPPMDispPlanar_fieldforce_peratom_arith{};
 
 // (tangential, normal) virial reduction accumulator for the mesh
 struct s_PPPMDispPlanarVir {
@@ -70,6 +80,7 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   ~PPPMDispPlanarKokkos() override;
   void init() override;
   void setup() override;
+  void influence_function() override;    // built on the device (NPT-safe)
   void compute(int, int) override;
   double memory_usage() override;
 
@@ -130,6 +141,49 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispPlanar_peratom_finalize, const int&) const;
 
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_influence, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_make_rho_arith, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_store_rhat, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_work_from_rhat, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_energy_arith, const int&, double&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_virial_arith, const int&, s_vir&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_fieldforce_arith, const int&) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPPPMDispPlanar_fieldforce_peratom_arith, const int&) const;
+
+  // 4-point cubic-Lagrange interpolation of the box-independent FT tables (device
+  // mirror of PPPMDispPlanar::ft_interp), used by the on-device influence function
+  KOKKOS_INLINE_FUNCTION
+  void ft_interp_kk(const double kap, double &A, double &B) const {
+    double xx = kap / kap_dk_kk;
+    int j = (int) xx - 1;
+    if (j < 0) j = 0;
+    if (j > nkap_kk - 3) j = nkap_kk - 3;
+    const double t = xx - j;
+    const double L0 = -(t - 1.0) * (t - 2.0) * (t - 3.0) / 6.0;
+    const double L1 = t * (t - 2.0) * (t - 3.0) / 2.0;
+    const double L2 = -t * (t - 1.0) * (t - 3.0) / 2.0;
+    const double L3 = t * (t - 1.0) * (t - 2.0) / 6.0;
+    A = L0 * d_Araw_tab(j) + L1 * d_Araw_tab(j + 1) + L2 * d_Araw_tab(j + 2) +
+        L3 * d_Araw_tab(j + 3);
+    B = L0 * d_Braw_tab(j) + L1 * d_Braw_tab(j + 1) + L2 * d_Braw_tab(j + 2) +
+        L3 * d_Braw_tab(j + 3);
+  }
+
   // assignment weights w[0..order-1] at fractional offset dz (Horner in dz)
   KOKKOS_INLINE_FUNCTION
   void compute_rho1d_kk(const double dz, double *w) const {
@@ -161,8 +215,18 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   typename AT::t_double_1d d_uTgrid, d_uNgrid;   // per-atom T/N virial fields
   Kokkos::View<double*, Kokkos::LayoutRight, Kokkos::HostSpace> h_dens;   // Allreduce staging
 
-  typename AT::t_double_1d d_B;           // per-type amplitude B[ntypes+1]
+  typename AT::t_double_1d d_B;           // per-type amplitude(s): B[t] geom, B[7t+j] arith
   typename AT::t_double_2d d_rho_coeff;   // B-spline coefficients [order][order]
+
+  // arithmetic (7-channel) density spectra, channel-major [c*nz + mode]
+  typename AT::t_double_1d d_rhat_re, d_rhat_im;
+
+  // box-independent corr FT tables on the device (mirror of Araw_tab/Braw_tab),
+  // used by the on-device influence function; grow-only, re-uploaded when they grow
+  typename AT::t_double_1d d_Araw_tab, d_Braw_tab;
+  int nkap_created;        // table length at last upload
+  int nchan_created;       // nchan at last channel-array allocation
+  int chan_kk;             // active channel for the per-channel device kernels
 
   // per-atom reciprocal energy (device, kspace per-atom energy buffer)
   typename AT::t_double_1d d_peatom;
@@ -183,6 +247,10 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   KK_FLOAT delzinv_kk, zlo_kk, shiftone_kk, zprd_kk;
   int nz_kk, order_kk, nlower_kk, nupper_kk;
   int dim_kk, lat1_kk, lat2_kk;   // inhomogeneous and lateral dim indices
+  int nchan_kk;                   // # dispersion channels (1 geom, 7 arith)
+  // on-device influence-function parameters (NPT: refreshed every setup)
+  double g_ewald_kk, volume_kk, kap_dk_kk;
+  int nkap_kk;
 
   void allocate_device();
 };

@@ -105,11 +105,11 @@ class PPPMDispPlanar : public KSpace {
   double *peatom;    // per-atom kspace energy buffer
   int nmax;
 
-  void set_grid_params();       // geometry, delzinv, stencil params
-  void make_rho();              // spread density to z grid (global)
-  void poisson();               // FFT, influence fn, energy/force/per-atom field
-  void fieldforce();            // interpolate z-force (and per-atom e/v) to atoms
-  void influence_function();    // fill Gk/GTk/GNk (damped, merged corr, de-convolved)
+  void set_grid_params();               // geometry, delzinv, stencil params
+  void make_rho();                      // spread density to z grid (global)
+  void poisson();                       // FFT, influence fn, energy/force/per-atom field
+  void fieldforce();                    // interpolate z-force (and per-atom e/v) to atoms
+  virtual void influence_function();    // fill Gk/GTk/GNk (damped, merged corr, de-convolved)
 
   void fft1d(double *re, double *im, int n, int sign);    // radix-2 in-place FFT
   void compute_rho_coeff();                      // B-spline coefficients (LAMMPS PPPM convention)
