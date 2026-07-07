@@ -251,6 +251,18 @@ boundaries and cannot be combined with the :doc:`kspace_modify slab
 the :doc:`kspace_modify <kspace_modify>` doc page for the *kmax* and *dim*
 keywords specific to this style.
 
+.. warning::
+
+   The planar dispersion styles treat the two directions *perpendicular* to the
+   inhomogeneous axis with a lateral mean-field (:math:`g(r)=1`) approximation
+   beyond the cutoff.  This is exact only when the average density is uniform in
+   those two directions, i.e. for a *planar* interface or a laterally homogeneous
+   slab.  It is systematically wrong for systems with lateral structure at long
+   range -- droplets, cylindrical pillars, micelles, or strongly corrugated
+   interfaces -- for which the full three-dimensional :doc:`pppm/disp
+   <kspace_style>` should be used instead.  When in doubt, spot-check the energy
+   and pressure against ``pppm/disp`` on a representative configuration.
+
 The *ewald/dipole* style adds long-range standard Ewald summations
 for dipole-dipole interactions, see :ref:`(Toukmaji) <Toukmaji>`.
 
