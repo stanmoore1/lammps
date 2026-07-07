@@ -61,8 +61,8 @@ static constexpr double EULER = 0.57721566490153286061;
 
 PPPMDispPlanar::PPPMDispPlanar(LAMMPS *lmp) :
     KSpace(lmp), B(nullptr), dens(nullptr), fre(nullptr), fim(nullptr), rhat_re(nullptr),
-    rhat_im(nullptr), Gk(nullptr), GTk(nullptr), GNk(nullptr), fz_grid(nullptr), ugrid(nullptr),
-    uTgrid(nullptr), uNgrid(nullptr), rho_coeff(nullptr), peatom(nullptr)
+    rhat_im(nullptr), Gk(nullptr), GNk(nullptr), fz_grid(nullptr), ugrid(nullptr), uNgrid(nullptr),
+    uscr_re(nullptr), uscr_im(nullptr), rho_coeff(nullptr), peatom(nullptr)
 {
   dispersionflag = 1;
   dim = 2;
@@ -105,12 +105,12 @@ PPPMDispPlanar::~PPPMDispPlanar()
   memory->destroy(rhat_re);
   memory->destroy(rhat_im);
   memory->destroy(Gk);
-  memory->destroy(GTk);
   memory->destroy(GNk);
   memory->destroy(fz_grid);
   memory->destroy(ugrid);
-  memory->destroy(uTgrid);
   memory->destroy(uNgrid);
+  memory->destroy(uscr_re);
+  memory->destroy(uscr_im);
   delete[] cWgrid;
   delete[] cWraw;
   delete[] Araw_tab;
@@ -450,27 +450,28 @@ void PPPMDispPlanar::setup()
     memory->destroy(rhat_re);
     memory->destroy(rhat_im);
     memory->destroy(Gk);
-    memory->destroy(GTk);
     memory->destroy(GNk);
     memory->destroy(fz_grid);
     memory->destroy(ugrid);
-    memory->destroy(uTgrid);
     memory->destroy(uNgrid);
+    memory->destroy(uscr_re);
+    memory->destroy(uscr_im);
     // density and force/potential fields carry nchan channels (1 geom, 7 arith),
-    // channel-major: dens[m*nz+g].  fre/fim are single-channel FFT scratch; rhat_*
-    // store the nchan FFT'd density spectra.
+    // channel-major: dens[m*nz+g].  fre/fim/uscr_* are single-channel FFT scratch;
+    // rhat_* store the nchan FFT'd density spectra.  The tangential virial fields
+    // (GTk, uTgrid) are omitted: GTk == Gk, so they duplicate the energy pipeline.
     memory->create(dens, nz * nchan, "pppm/disp/planar:dens");
     memory->create(fre, nz, "pppm/disp/planar:fre");
     memory->create(fim, nz, "pppm/disp/planar:fim");
     memory->create(rhat_re, nz * nchan, "pppm/disp/planar:rhat_re");
     memory->create(rhat_im, nz * nchan, "pppm/disp/planar:rhat_im");
     memory->create(Gk, nz, "pppm/disp/planar:Gk");
-    memory->create(GTk, nz, "pppm/disp/planar:GTk");
     memory->create(GNk, nz, "pppm/disp/planar:GNk");
     memory->create(fz_grid, nz * nchan, "pppm/disp/planar:fz_grid");
     memory->create(ugrid, nz * nchan, "pppm/disp/planar:ugrid");
-    memory->create(uTgrid, nz * nchan, "pppm/disp/planar:uTgrid");
     memory->create(uNgrid, nz * nchan, "pppm/disp/planar:uNgrid");
+    memory->create(uscr_re, nz, "pppm/disp/planar:uscr_re");
+    memory->create(uscr_im, nz, "pppm/disp/planar:uscr_im");
     nz_alloc = nz;
     nchan_alloc = nchan;
   }
@@ -519,8 +520,7 @@ void PPPMDispPlanar::influence_function()
   ft_interp(0.0, A0, B0);
   const double ce0 = 0.5 * pre2 * A0;
   GNk[0] = Gk[0] + ce0;    // reciprocal GN(k=0) = GU(0)
-  Gk[0] += ce0;
-  GTk[0] = Gk[0];
+  Gk[0] += ce0;            // tangential GTk == Gk (not stored separately)
 
   for (int m = 1; m < nz; m++) {
     int mm = (m <= nz / 2) ? m : m - nz;    // signed mode index
@@ -537,8 +537,7 @@ void PPPMDispPlanar::influence_function()
     const double CE = 0.5 * pre2 * A;
     const double CN = 0.5 * pre2 * (A - ak * Bv);
     const double WN = 0.5 * coef * (4.0 * Bk - 1.5 * ak * ak * ak * exp(-b2) / b3);
-    Gk[m] = (WE + CE) / w2;
-    GTk[m] = Gk[m];
+    Gk[m] = (WE + CE) / w2;    // tangential GTk == Gk (not stored separately)
     GNk[m] = (WN + CN) / w2;
   }
 }
@@ -909,44 +908,32 @@ void PPPMDispPlanar::poisson()
     for (int m = 0; m < nz; m++) e += Gk[m] * (fre[m] * fre[m] + fim[m] * fim[m]);
     if (eflag_global) energy += e;
     if (vflag_global) {
-      double vt = 0.0, vn = 0.0;
-      for (int m = 0; m < nz; m++) {
-        double uk = fre[m] * fre[m] + fim[m] * fim[m];
-        vt += GTk[m] * uk;
-        vn += GNk[m] * uk;
-      }
-      virial[lat1] += vt;
-      virial[lat2] += vt;
+      // tangential coefficient GTk == Gk, so the tangential virial IS the reciprocal
+      // energy e; only the normal (GNk) reduction is distinct.
+      double vn = 0.0;
+      for (int m = 0; m < nz; m++) vn += GNk[m] * (fre[m] * fre[m] + fim[m] * fim[m]);
+      virial[lat1] += e;
+      virial[lat2] += e;
       virial[dim] += vn;
     }
 
     if (evflag_atom) {
-      double *ur, *ui;
-      memory->create(ur, nz, "pppm/disp/planar:ur");
-      memory->create(ui, nz, "pppm/disp/planar:ui");
+      // per-atom potential field (energy) and normal-virial field; the tangential
+      // field uTgrid == ugrid (GTk == Gk), so it is not computed separately.
       for (int m = 0; m < nz; m++) {
         double g2 = 2.0 * Gk[m];
-        ur[m] = g2 * fre[m];
-        ui[m] = g2 * fim[m];
+        uscr_re[m] = g2 * fre[m];
+        uscr_im[m] = g2 * fim[m];
       }
-      fft1d(ur, ui, nz, +1);
-      for (int g = 0; g < nz; g++) ugrid[g] = ur[g];
-      for (int m = 0; m < nz; m++) {
-        double gt2 = 2.0 * GTk[m];
-        ur[m] = gt2 * fre[m];
-        ui[m] = gt2 * fim[m];
-      }
-      fft1d(ur, ui, nz, +1);
-      for (int g = 0; g < nz; g++) uTgrid[g] = ur[g];
+      fft1d(uscr_re, uscr_im, nz, +1);
+      for (int g = 0; g < nz; g++) ugrid[g] = uscr_re[g];
       for (int m = 0; m < nz; m++) {
         double gn2 = 2.0 * GNk[m];
-        ur[m] = gn2 * fre[m];
-        ui[m] = gn2 * fim[m];
+        uscr_re[m] = gn2 * fre[m];
+        uscr_im[m] = gn2 * fim[m];
       }
-      fft1d(ur, ui, nz, +1);
-      for (int g = 0; g < nz; g++) uNgrid[g] = ur[g];
-      memory->destroy(ur);
-      memory->destroy(ui);
+      fft1d(uscr_re, uscr_im, nz, +1);
+      for (int g = 0; g < nz; g++) uNgrid[g] = uscr_re[g];
     }
 
     for (int m = 0; m < nz; m++) {
@@ -978,7 +965,7 @@ void PPPMDispPlanar::poisson()
     // energy/virial from the per-mode channel pairing R (each m<->6-m pair counted
     // twice except m=3, hence 0.5), with the as_e = 1/8 normalization.
     const double as_e = 0.125;
-    double e = 0.0, vt = 0.0, vn = 0.0;
+    double e = 0.0, vn = 0.0;
     for (int mm = 0; mm < nz; mm++) {
       const double r0 = rhat_re[mm], i0 = rhat_im[mm];
       const double r1 = rhat_re[nz + mm], i1 = rhat_im[nz + mm];
@@ -990,48 +977,34 @@ void PPPMDispPlanar::poisson()
       const double R = (r0 * r6 + i0 * i6) + (r1 * r5 + i1 * i5) + (r2 * r4 + i2 * i4) +
           0.5 * (r3 * r3 + i3 * i3);
       e += Gk[mm] * R;
-      if (vflag_global) {
-        vt += GTk[mm] * R;
-        vn += GNk[mm] * R;
-      }
+      if (vflag_global) vn += GNk[mm] * R;    // tangential (GTk==Gk) equals e
     }
     if (eflag_global) energy += as_e * e;
     if (vflag_global) {
-      virial[lat1] += as_e * vt;
-      virial[lat2] += as_e * vt;
+      virial[lat1] += as_e * e;    // GTk == Gk
+      virial[lat2] += as_e * e;
       virial[dim] += as_e * vn;
     }
 
-    // per-atom potential/virial fields, one per channel (u^(c)=IFFT[2 Gk rhat^(c)])
+    // per-atom potential/virial fields, one per channel (u^(c)=IFFT[2 Gk rhat^(c)]);
+    // the tangential field uTgrid == ugrid (GTk == Gk), so it is not computed separately.
     if (evflag_atom) {
-      double *ur, *ui;
-      memory->create(ur, nz, "pppm/disp/planar:ur");
-      memory->create(ui, nz, "pppm/disp/planar:ui");
       for (int c = 0; c < 7; c++) {
         for (int m = 0; m < nz; m++) {
           double g2 = 2.0 * Gk[m];
-          ur[m] = g2 * rhat_re[c * nz + m];
-          ui[m] = g2 * rhat_im[c * nz + m];
+          uscr_re[m] = g2 * rhat_re[c * nz + m];
+          uscr_im[m] = g2 * rhat_im[c * nz + m];
         }
-        fft1d(ur, ui, nz, +1);
-        for (int g = 0; g < nz; g++) ugrid[c * nz + g] = ur[g];
-        for (int m = 0; m < nz; m++) {
-          double gt2 = 2.0 * GTk[m];
-          ur[m] = gt2 * rhat_re[c * nz + m];
-          ui[m] = gt2 * rhat_im[c * nz + m];
-        }
-        fft1d(ur, ui, nz, +1);
-        for (int g = 0; g < nz; g++) uTgrid[c * nz + g] = ur[g];
+        fft1d(uscr_re, uscr_im, nz, +1);
+        for (int g = 0; g < nz; g++) ugrid[c * nz + g] = uscr_re[g];
         for (int m = 0; m < nz; m++) {
           double gn2 = 2.0 * GNk[m];
-          ur[m] = gn2 * rhat_re[c * nz + m];
-          ui[m] = gn2 * rhat_im[c * nz + m];
+          uscr_re[m] = gn2 * rhat_re[c * nz + m];
+          uscr_im[m] = gn2 * rhat_im[c * nz + m];
         }
-        fft1d(ur, ui, nz, +1);
-        for (int g = 0; g < nz; g++) uNgrid[c * nz + g] = ur[g];
+        fft1d(uscr_re, uscr_im, nz, +1);
+        for (int g = 0; g < nz; g++) uNgrid[c * nz + g] = uscr_re[g];
       }
-      memory->destroy(ur);
-      memory->destroy(ui);
     }
 
     // z-force field per channel: fz_grid^(c) = IFFT[-i k 2 Gk rhat^(c)]
@@ -1071,14 +1044,13 @@ void PPPMDispPlanar::fieldforce()
       compute_rho1d(dz, w);
       const double bi = B[type[i]];
 
-      double fz = 0.0, uu = 0.0, uT = 0.0, uN = 0.0;
+      double fz = 0.0, uu = 0.0, uN = 0.0;
       for (int s = 0; s < order; s++) {
         int g = g0 + nlower + s;
         g = ((g % nz) + nz) % nz;
         fz += w[s] * fz_grid[g];
         if (evflag_atom) {
           uu += w[s] * ugrid[g];
-          uT += w[s] * uTgrid[g];
           uN += w[s] * uNgrid[g];
         }
       }
@@ -1088,8 +1060,8 @@ void PPPMDispPlanar::fieldforce()
         double pe = 0.5 * bi * uu;    // per-atom reciprocal energy
         peatom[i] += pe;
         if (vflag_atom) {
-          vatom[i][lat1] += 0.5 * bi * uT;
-          vatom[i][lat2] += 0.5 * bi * uT;
+          vatom[i][lat1] += pe;    // tangential per-atom virial == per-atom energy
+          vatom[i][lat2] += pe;
           vatom[i][dim] += 0.5 * bi * uN;
         }
       }
@@ -1106,7 +1078,7 @@ void PPPMDispPlanar::fieldforce()
       compute_rho1d(dz, w);
       const double *bi = &B[7 * type[i]];
 
-      double fz = 0.0, uu = 0.0, uT = 0.0, uN = 0.0;
+      double fz = 0.0, uu = 0.0, uN = 0.0;
       for (int s = 0; s < order; s++) {
         int g = g0 + nlower + s;
         g = ((g % nz) + nz) % nz;
@@ -1116,7 +1088,6 @@ void PPPMDispPlanar::fieldforce()
           fz += a * ws * fz_grid[m * nz + g];
           if (evflag_atom) {
             uu += a * ws * ugrid[m * nz + g];
-            uT += a * ws * uTgrid[m * nz + g];
             uN += a * ws * uNgrid[m * nz + g];
           }
         }
@@ -1124,10 +1095,11 @@ void PPPMDispPlanar::fieldforce()
       f[i][dim] += as_f * fz;
 
       if (evflag_atom) {
-        peatom[i] += 0.25 * as_e * uu;
+        const double pe = 0.25 * as_e * uu;
+        peatom[i] += pe;
         if (vflag_atom) {
-          vatom[i][lat1] += 0.25 * as_e * uT;
-          vatom[i][lat2] += 0.25 * as_e * uT;
+          vatom[i][lat1] += pe;    // tangential per-atom virial == per-atom energy
+          vatom[i][lat2] += pe;
           vatom[i][dim] += 0.25 * as_e * uN;
         }
       }
@@ -1737,9 +1709,9 @@ void PPPMDispPlanar::sici_chain(double x, double *Aarr, double *Barr)
 
 double PPPMDispPlanar::memory_usage()
 {
-  // channel-major fields: dens, rhat_re, rhat_im, fz_grid, ugrid, uTgrid, uNgrid
-  double bytes = 7.0 * nz * nchan * sizeof(double);
-  bytes += 5.0 * nz * sizeof(double);                  // fre, fim, Gk, GTk, GNk
+  // channel-major fields: dens, rhat_re, rhat_im, fz_grid, ugrid, uNgrid
+  double bytes = 6.0 * nz * nchan * sizeof(double);
+  bytes += 5.0 * nz * sizeof(double);                  // fre, fim, Gk, GNk, uscr_re, uscr_im
   bytes += (double) nmax * sizeof(double);             // peatom
   bytes += (double) order * order * sizeof(double);    // rho_coeff
   bytes += 2.0 * (ncgrid + 1) * sizeof(double);        // cWraw, cWgrid

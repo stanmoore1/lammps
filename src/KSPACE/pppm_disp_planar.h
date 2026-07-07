@@ -71,10 +71,11 @@ class PPPMDispPlanar : public KSpace {
   double *fre, *fim;            // FFT workspace (real/imag)
   double *rhat_re, *rhat_im;    // FFT'd density channel spectra (nchan*nz)
   double *Gk;                   // de-convolved energy influence function (per grid mode)
-  double *GTk, *GNk;            // de-convolved tangential/normal virial influence
+  double *GNk;                  // de-convolved normal-virial influence (GTk == Gk, omitted)
   double *fz_grid;              // z-force field(s) on the grid (nchan channels)
   double *ugrid;                // per-atom potential field(s) (for eatom)
-  double *uTgrid, *uNgrid;      // per-atom tangential/normal virial fields
+  double *uNgrid;               // per-atom normal-virial field(s) (uTgrid == ugrid, omitted)
+  double *uscr_re, *uscr_im;    // single-channel inverse-FFT scratch (persistent)
 
   // smooth switched corr: tabulated plane energy kernel w2(|dz|) of
   // corr_e(r) = u_smooth(r) - [r>rcut] S(r)/r^6 over [0, rcut+Delta], and its
