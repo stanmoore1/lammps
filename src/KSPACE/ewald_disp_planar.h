@@ -54,10 +54,10 @@ class EwaldDispPlanar : public KSpace {
   double estimated_force_accuracy;    // predicted RMS per-atom force error
   int nmax;                           // size of per-atom arrays
 
-  double *GU, *GF, *GT;    // precomputed coeffs: energy, z-force, tangential pressure
-  double *GN;              // normal-pressure coeffs (explicit per-mode strain derivative)
-  double *ek;              // per-atom reciprocal z-force accumulator
-  double *peatom;          // per-atom kspace energy buffer
+  double *GU, *GF;    // precomputed coeffs: energy, z-force (tangential GT == GU, omitted)
+  double *GN;         // normal-pressure coeffs (explicit per-mode strain derivative)
+  double *ek;         // per-atom reciprocal z-force accumulator
+  double *peatom;     // per-atom kspace energy buffer
   double *sfacrl, *sfacim, *sfacrl_all, *sfacim_all;
   double **cs, **sn;    // per-atom cos/sin of k*unitk*z
   double *B;            // per-type dispersion amplitude, B[i]=sqrt(|lj4[i][i]|)

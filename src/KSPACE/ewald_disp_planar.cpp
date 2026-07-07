@@ -57,7 +57,7 @@ static constexpr double EULER = 0.57721566490153286061;
 /* ---------------------------------------------------------------------- */
 
 EwaldDispPlanar::EwaldDispPlanar(LAMMPS *lmp) :
-    KSpace(lmp), GU(nullptr), GF(nullptr), GT(nullptr), GN(nullptr), ek(nullptr), peatom(nullptr),
+    KSpace(lmp), GU(nullptr), GF(nullptr), GN(nullptr), ek(nullptr), peatom(nullptr),
     sfacrl(nullptr), sfacim(nullptr), sfacrl_all(nullptr), sfacim_all(nullptr), cs(nullptr),
     sn(nullptr), B(nullptr)
 {
@@ -499,7 +499,6 @@ void EwaldDispPlanar::coeffs()
   double g3 = g_ewald * g_ewald * g_ewald;
   GU[0] = -MY_PI * sqrt(MY_PI) * g3 / (6.0 * volume);
   GF[0] = 0.0;
-  GT[0] = GU[0];
   GN[0] = GU[0];
 
   for (k = 1; k < kcount; k++) {
@@ -513,7 +512,6 @@ void EwaldDispPlanar::coeffs()
 
     GU[k] = coef * Bk;
     GF[k] = coef * 2.0 * kcell * Bk;
-    GT[k] = GU[k];
     // exact per-mode normal (zz) coefficient: under an eps_zz strain, S_k is
     // invariant (h_k z_i fixed), so GN = -dGU/deps = GU + h dGU/dh.  With
     // Bk = h^3 F(b), b = h/(2g): F'(b) = -(3/2) e^{-b^2}/b^4 (the erfc and
@@ -667,8 +665,8 @@ void EwaldDispPlanar::compute(int eflag, int vflag)
           partial_peratom = exprl * srl + expim * sim;
           if (eflag_atom) peatom[i] += GU[k] * partial_peratom;
           if (vflag_atom) {
-            vatom[i][lat1] += GT[k] * partial_peratom;
-            vatom[i][lat2] += GT[k] * partial_peratom;
+            vatom[i][lat1] += GU[k] * partial_peratom;
+            vatom[i][lat2] += GU[k] * partial_peratom;
             vatom[i][dim] += GN[k] * partial_peratom;
           }
         }
@@ -686,8 +684,8 @@ void EwaldDispPlanar::compute(int eflag, int vflag)
     if (vflag_global) {
       for (k = 0; k < kcount; k++) {
         double uk = sfacrl_all[k] * sfacrl_all[k] + sfacim_all[k] * sfacim_all[k];
-        virial[lat1] += uk * GT[k];
-        virial[lat2] += uk * GT[k];
+        virial[lat1] += uk * GU[k];
+        virial[lat2] += uk * GU[k];
         virial[dim] += uk * GN[k];
       }
     }
@@ -728,7 +726,7 @@ void EwaldDispPlanar::compute(int eflag, int vflag)
         if (evflag_atom) {
           pe_i += GU[k] * 0.5 * esum;
           if (vflag_atom) {
-            pT_i += GT[k] * 0.5 * esum;
+            pT_i += GU[k] * 0.5 * esum;
             pN_i += GN[k] * 0.5 * esum;
           }
         }
@@ -753,8 +751,8 @@ void EwaldDispPlanar::compute(int eflag, int vflag)
             (sr[2] * sr[4] + sm[2] * sm[4]) + 0.5 * (sr[3] * sr[3] + sm[3] * sm[3]);
         e_recip += GU[k] * R;
         if (vflag_global) {
-          virial[lat1] += as_e * R * GT[k];
-          virial[lat2] += as_e * R * GT[k];
+          virial[lat1] += as_e * R * GU[k];
+          virial[lat2] += as_e * R * GU[k];
           virial[dim] += as_e * R * GN[k];
         }
       }
@@ -965,7 +963,6 @@ void EwaldDispPlanar::merge_corr_coeffs()
     const double CE = f * pre2 * A;
     const double CN = f * pre2 * (A - kc * Bv);
     GU[k] += CE;
-    GT[k] += CE;
     GN[k] += CN;
     GF[k] = 2.0 * kc * GU[k];    // exact z-gradient of the merged energy
   }
@@ -979,7 +976,7 @@ void EwaldDispPlanar::allocate()
 {
   memory->create(GU, kmax, "ewald/disp/planar:GU");
   memory->create(GF, kmax, "ewald/disp/planar:GF");
-  memory->create(GT, kmax, "ewald/disp/planar:GT");
+
   memory->create(GN, kmax, "ewald/disp/planar:GN");
   // structure factors carry nchan channels per mode (1 geometric, 7 arithmetic)
   memory->create(sfacrl, kmax * nchan, "ewald/disp/planar:sfacrl");
@@ -994,13 +991,12 @@ void EwaldDispPlanar::deallocate()
 {
   memory->destroy(GU);
   memory->destroy(GF);
-  memory->destroy(GT);
   memory->destroy(GN);
   memory->destroy(sfacrl);
   memory->destroy(sfacim);
   memory->destroy(sfacrl_all);
   memory->destroy(sfacim_all);
-  GU = GF = GT = GN = nullptr;
+  GU = GF = GN = nullptr;
   sfacrl = sfacim = sfacrl_all = sfacim_all = nullptr;
 }
 
@@ -1209,7 +1205,7 @@ void EwaldDispPlanar::shell_profile_virial(int nbins, double /*lo*/, double /*dz
                                            double * /*dens_all*/, double *shellT, double *shellN)
 {
   // No shell subtraction for the merged-damped variant: the pair fades the
-  // dispersion by (1-S) and the kspace GT[k]/GN[k] already carry the full plane
+  // dispersion by (1-S) and the kspace GU[k]/GN[k] already carry the full plane
   // mean field of S*u, so the reciprocal double sum needs no shell correction.
   for (int g = 0; g < nbins; g++) shellT[g] = shellN[g] = 0.0;
 }
@@ -1416,7 +1412,7 @@ int EwaldDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double
 
 double EwaldDispPlanar::memory_usage()
 {
-  double bytes = 4.0 * kmax * sizeof(double);               // GU, GF, GT, GN
+  double bytes = 3.0 * kmax * sizeof(double);               // GU, GF, GN
   bytes += 4.0 * (double) kmax * nchan * sizeof(double);    // sfacrl/im, sfacrl/im_all
   bytes += 2.0 * (double) nmax * sizeof(double);            // ek, peatom
   bytes += 2.0 * (double) kmax * nmax * sizeof(double);     // cs, sn
