@@ -90,6 +90,28 @@ double PairLJDispPlanar::init_one(int i, int j)
   offset[i][j] = offset[j][i] = 0.0;    // kspace continues the tail: no shift
   inner_rc2 = cut_global * cut_global;
   inv_sw_width = 1.0 / sw_width;    // precomputed for the hot loop (NPT-safe: Delta fixed)
+
+  // The matched kspace derives the i-j dispersion C6 cross term from the per-type
+  // diagonals via its mixing rule (geometric, or arithmetic Lorentz-Berthelot); an
+  // explicit non-conforming pair_coeff i j is represented in the pair but NOT in the
+  // reciprocal tail.  Warn if they disagree (reference built from the diagonals, so
+  // this is independent of the order in which init_one is called).
+  if (i != j) {
+    const double si6 = pow(sigma[i][i], 6.0), sj6 = pow(sigma[j][j], 6.0);
+    double ref;
+    if (mix_flag == ARITHMETIC) {
+      const double sij = 0.5 * (sigma[i][i] + sigma[j][j]);
+      ref = 4.0 * sqrt(epsilon[i][i] * epsilon[j][j]) * pow(sij, 6.0);
+    } else {    // geometric (the kspace treats any other rule as geometric)
+      ref = sqrt((4.0 * epsilon[i][i] * si6) * (4.0 * epsilon[j][j] * sj6));
+    }
+    if (fabs(lj4[i][j] - ref) > 1.0e-6 * MAX(fabs(ref), 1.0e-300))
+      error->warning(FLERR,
+                     "pair lj/disp/planar: the {}-{} dispersion C6 does not match the "
+                     "kspace mixing rule; the long-range tail will use the mixed value, "
+                     "not the explicit pair_coeff",
+                     i, j);
+  }
   return cut_global + sw_width;
 }
 
@@ -191,12 +213,15 @@ void PairLJDispPlanar::compute(int eflag, int vflag)
 
       } else {
 
-        // shell [rcut, rcut+Delta]: attractive dispersion switched by (1 - S).
-        // E = -(1-S) lj4 r^-6 ; fpair = -lj4[ S'(t)/Delta r^-7 + 6 (1-S) r^-8 ].
-        // The kspace style supplies the plane S*u tail (used by pppm/disp/planar,
-        // which has no real-space shell correction).  Here t is guaranteed in
-        // [0,1) (rcut <= r < rcut+Delta), so the switch polynomials are inlined
-        // without the end clamps, and all divisions are replaced by the
+        // shell [rcut, rcut+Delta]: only the attractive 1/r^6 dispersion is split
+        // between real and reciprocal space (switched by (1 - S)); the 1/r^12
+        // repulsion is short-range and is evaluated in FULL here, exactly as inside
+        // rcut, so the potential and force are continuous across rcut (they are
+        // truncated only at rcut+Delta, where 1/r^12 is negligible).  The kspace
+        // style supplies the plane S*u dispersion tail.  E = lj3 r^-12 - (1-S) lj4
+        // r^-6 ; fpair = lj1 r^-14 - lj4[S'(t)/Delta r^-7 + 6 (1-S) r^-8].  Here t is
+        // guaranteed in [0,1) (rcut <= r < rcut+Delta), so the switch polynomials are
+        // inlined without the end clamps, and all divisions are replaced by the
         // precomputed 1/Delta and rinv = sqrt(r2inv) (no 1/r, no /Delta).
         const double rinv = sqrt(r2inv);
         const double r = rsq * rinv;    // = sqrt(rsq), one mul not a div
@@ -206,9 +231,12 @@ void PairLJDispPlanar::compute(int eflag, int vflag)
         const double u = 1.0 - t;
         const double dS = 140.0 * t3 * u * u * u;    // dS/dt
         const double oneMinusS = 1.0 - S;
+        const double lj1ij = lj1[itype][jtype], lj3ij = lj3[itype][jtype];
         const double lj4ij = lj4[itype][jtype];
-        fpair = -factor_lj * lj4ij * r6inv * ((dS * invsw) * rinv + 6.0 * oneMinusS * r2inv);
-        if (eflag) evdwl = -factor_lj * oneMinusS * lj4ij * r6inv;
+        const double frep = lj1ij * r6inv * r6inv * r2inv;    // full 1/r^12 repulsion
+        const double fatt = lj4ij * r6inv * ((dS * invsw) * rinv + 6.0 * oneMinusS * r2inv);
+        fpair = factor_lj * (frep - fatt);
+        if (eflag) evdwl = factor_lj * (lj3ij * r6inv * r6inv - oneMinusS * lj4ij * r6inv);
       }
 
       f[i][0] += delx * fpair;
@@ -248,9 +276,13 @@ double PairLJDispPlanar::single(int /*i*/, int /*j*/, int itype, int jtype, doub
     const double rinv = sqrt(r2inv), r = rsq * rinv;
     const double t = (r - cut_global) * inv_sw_width;
     const double S = sw_S(t), dS = sw_dS(t), oneMinusS = 1.0 - S;
+    const double lj1ij = lj1[itype][jtype], lj3ij = lj3[itype][jtype];
     const double lj4ij = lj4[itype][jtype];
-    fforce = -factor_lj * lj4ij * r6inv * ((dS * inv_sw_width) * rinv + 6.0 * oneMinusS * r2inv);
-    phi = -oneMinusS * lj4ij * r6inv;
+    // full 1/r^12 repulsion + switched (1-S) 1/r^6 attraction (matches compute())
+    fforce = factor_lj *
+        (lj1ij * r6inv * r6inv * r2inv -
+         lj4ij * r6inv * ((dS * inv_sw_width) * rinv + 6.0 * oneMinusS * r2inv));
+    phi = lj3ij * r6inv * r6inv - oneMinusS * lj4ij * r6inv;
   }
   return factor_lj * phi;
 }
