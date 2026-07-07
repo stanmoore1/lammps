@@ -134,7 +134,7 @@ void PPPMDispPlanarKokkos<DeviceType>::setup()
 template<class DeviceType>
 void PPPMDispPlanarKokkos<DeviceType>::influence_function()
 {
-  allocate_device();    // ensure d_Gk/d_GTk/d_GNk (and the FFT plans) exist for this nz
+  allocate_device();    // ensure d_Gk/d_GNk (and the FFT plans) exist for this nz
 
   // (re)upload the box-independent corr FT tables when they grow (NPT box shrink)
   if (nkap != nkap_created) {
@@ -181,11 +181,9 @@ void PPPMDispPlanarKokkos<DeviceType>::allocate_device()
   // density and force/potential fields are channel-major [c*nz + g]
   d_dens = typename AT::t_double_1d("pppm/disp/planar/kk:dens", nz * nchan);
   d_Gk = typename AT::t_double_1d("pppm/disp/planar/kk:Gk", nz);
-  d_GTk = typename AT::t_double_1d("pppm/disp/planar/kk:GTk", nz);
   d_GNk = typename AT::t_double_1d("pppm/disp/planar/kk:GNk", nz);
   d_fz_grid = typename AT::t_double_1d("pppm/disp/planar/kk:fz_grid", nz * nchan);
   d_ugrid = typename AT::t_double_1d("pppm/disp/planar/kk:ugrid", nz * nchan);
-  d_uTgrid = typename AT::t_double_1d("pppm/disp/planar/kk:uTgrid", nz * nchan);
   d_uNgrid = typename AT::t_double_1d("pppm/disp/planar/kk:uNgrid", nz * nchan);
   d_rhat_re = typename AT::t_double_1d("pppm/disp/planar/kk:rhat_re", nz * nchan);
   d_rhat_im = typename AT::t_double_1d("pppm/disp/planar/kk:rhat_im", nz * nchan);
@@ -286,16 +284,16 @@ void PPPMDispPlanarKokkos<DeviceType>::compute(int eflag, int vflag)
     copymode = 0;
     if (eflag_global) energy += e;
     if (vflag_global) {
-      // explicit tangential (GTk) and normal (GNk) virial kernels (the merged corr
-      // makes the kspace share non-homogeneous, so the 6E trace does not apply)
-      s_vir vir;
+      // tangential coefficient GTk == Gk, so the tangential virial IS the reciprocal
+      // energy e; only the normal (GNk) reduction is distinct.
+      double vn = 0.0;
       copymode = 1;
       Kokkos::parallel_reduce(
-          Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_virial>(0, nz), *this, vir);
+          Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_virial>(0, nz), *this, vn);
       copymode = 0;
-      virial[lat1] += vir.vt;
-      virial[lat2] += vir.vt;
-      virial[dim] += vir.vn;
+      virial[lat1] += e;
+      virial[lat2] += e;
+      virial[dim] += vn;
     }
 
     copymode = 1;
@@ -307,19 +305,14 @@ void PPPMDispPlanarKokkos<DeviceType>::compute(int eflag, int vflag)
     copymode = 0;
 
     if (evflag_atom) {
+      // per-atom energy field (ugrid) and normal-virial field (uNgrid); the tangential
+      // field uTgrid == ugrid (GTk == Gk), so it is not computed separately.
       copymode = 1;
       Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_u_prep>(0, nz), *this);
       copymode = 0;
       fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
       copymode = 1;
       Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_u_copy>(0, nz), *this);
-      copymode = 0;
-      copymode = 1;
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_uT_prep>(0, nz), *this);
-      copymode = 0;
-      fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
-      copymode = 1;
-      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_uT_copy>(0, nz), *this);
       copymode = 0;
       copymode = 1;
       Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_uN_prep>(0, nz), *this);
@@ -354,14 +347,14 @@ void PPPMDispPlanarKokkos<DeviceType>::compute(int eflag, int vflag)
     copymode = 0;
     if (eflag_global) energy += as_e * e;
     if (vflag_global) {
-      s_vir vir;
+      double vn = 0.0;    // tangential (GTk == Gk) equals the reciprocal energy e
       copymode = 1;
       Kokkos::parallel_reduce(
-          Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_virial_arith>(0, nz), *this, vir);
+          Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_virial_arith>(0, nz), *this, vn);
       copymode = 0;
-      virial[lat1] += as_e * vir.vt;
-      virial[lat2] += as_e * vir.vt;
-      virial[dim] += as_e * vir.vn;
+      virial[lat1] += as_e * e;
+      virial[lat2] += as_e * e;
+      virial[dim] += as_e * vn;
     }
 
     // per-channel z-force field (and per-atom potential/virial fields) via inverse FFTs
@@ -386,13 +379,6 @@ void PPPMDispPlanarKokkos<DeviceType>::compute(int eflag, int vflag)
         fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
         copymode = 1;
         Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_u_copy>(0, nz), *this);
-        copymode = 0;
-        copymode = 1;
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_uT_prep>(0, nz), *this);
-        copymode = 0;
-        fft_backward->compute1d(d_work2, 2 * nz, FFT3dKokkos<DeviceType>::BACKWARD);
-        copymode = 1;
-        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_uT_copy>(0, nz), *this);
         copymode = 0;
         copymode = 1;
         Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPMDispPlanar_poisson_uN_prep>(0, nz), *this);
@@ -504,29 +490,12 @@ void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_ener
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_virial, const int &m,
-                                                s_vir &vir) const
+                                                  double &vn) const
 {
   const double re = static_cast<double>(d_work(2 * m));
   const double im = static_cast<double>(d_work(2 * m + 1));
-  const double uk = re * re + im * im;
-  vir.vt += d_GTk(m) * uk;
-  vir.vn += d_GNk(m) * uk;
-}
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_uT_prep, const int &m) const
-{
-  const double g2 = 2.0 * d_GTk(m);
-  d_work2(2 * m) = static_cast<FFT_SCALAR>(g2 * static_cast<double>(d_work(2 * m)));
-  d_work2(2 * m + 1) = static_cast<FFT_SCALAR>(g2 * static_cast<double>(d_work(2 * m + 1)));
-}
-
-template<class DeviceType>
-KOKKOS_INLINE_FUNCTION
-void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_poisson_uT_copy, const int &m) const
-{
-  d_uTgrid(chan_kk * nz_kk + m) = static_cast<double>(d_work2(2 * m));
+  // tangential GTk == Gk, so only the normal (GNk) virial is reduced here
+  vn += d_GNk(m) * (re * re + im * im);
 }
 
 template<class DeviceType>
@@ -622,21 +591,20 @@ void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_fieldforce_p
   compute_rho1d_kk(dz, w);
   const double bi = d_B(type(i));
 
-  double uu = 0.0, uT = 0.0, uN = 0.0;
+  double uu = 0.0, uN = 0.0;
   for (int s = 0; s < order_kk; s++) {
     int g = g0 + nlower_kk + s;
     g = ((g % nz_kk) + nz_kk) % nz_kk;
     uu += w[s] * d_ugrid(g);
-    uT += w[s] * d_uTgrid(g);
     uN += w[s] * d_uNgrid(g);
   }
   // reciprocal per-atom energy
   double pe = 0.5 * bi * uu;
   d_peatom(i) += pe;
   if (vflag_atom) {
-    // explicit tangential (GTk) and normal (GNk) per-atom virial fields
-    d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * uT);
-    d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * uT);
+    // tangential per-atom virial == per-atom energy (GTk == Gk); normal from uNgrid
+    d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(pe);
+    d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(pe);
     d_vatom(i, dim_kk) += static_cast<KK_ACC_FLOAT>(0.5 * bi * uN);
   }
 }
@@ -671,9 +639,8 @@ void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_influence, c
     ft_interp_kk(0.0, A0, B0);
     const double ce0 = 0.5 * pre2 * A0;
     const double gk0 = -MY_PI * sqpi * g * g * g / (6.0 * volume_kk) + ce0;
-    d_Gk(0) = gk0;
-    d_GTk(0) = gk0;
-    d_GNk(0) = gk0;    // reciprocal GN(0) = GU(0); corr CN(0) = CE(0) since B(0) = 0
+    d_Gk(0) = gk0;    // tangential GTk == Gk (not stored)
+    d_GNk(0) = gk0;   // reciprocal GN(0) = GU(0); corr CN(0) = CE(0) since B(0) = 0
     return;
   }
 
@@ -691,8 +658,7 @@ void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_influence, c
   const double CE = 0.5 * pre2 * A;
   const double CN = 0.5 * pre2 * (A - ak * Bv);
   const double WN = 0.5 * coef * (4.0 * Bk - 1.5 * ak * ak * ak * exp(-b2) / b3);
-  d_Gk(m) = (WE + CE) / w2;
-  d_GTk(m) = d_Gk(m);
+  d_Gk(m) = (WE + CE) / w2;    // tangential GTk == Gk (not stored separately)
   d_GNk(m) = (WN + CN) / w2;
 }
 
@@ -762,7 +728,7 @@ void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_energy_arith
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_virial_arith, const int &m,
-                                                  s_vir &vir) const
+                                                  double &vn) const
 {
   const int nz = nz_kk;
   const double r0 = d_rhat_re(m), i0 = d_rhat_im(m);
@@ -774,8 +740,7 @@ void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_virial_arith
   const double r6 = d_rhat_re(6 * nz + m), i6 = d_rhat_im(6 * nz + m);
   const double R = (r0 * r6 + i0 * i6) + (r1 * r5 + i1 * i5) + (r2 * r4 + i2 * i4) +
       0.5 * (r3 * r3 + i3 * i3);
-  vir.vt += d_GTk(m) * R;
-  vir.vn += d_GNk(m) * R;
+  vn += d_GNk(m) * R;    // tangential (GTk == Gk) equals the reciprocal energy
 }
 
 template<class DeviceType>
@@ -817,7 +782,7 @@ void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_fieldforce_p
   compute_rho1d_kk(dz, w);
   const int t7 = 7 * type(i);
 
-  double uu = 0.0, uT = 0.0, uN = 0.0;
+  double uu = 0.0, uN = 0.0;
   for (int s = 0; s < order_kk; s++) {
     int g = g0 + nlower_kk + s;
     g = ((g % nz_kk) + nz_kk) % nz_kk;
@@ -825,15 +790,15 @@ void PPPMDispPlanarKokkos<DeviceType>::operator()(TagPPPMDispPlanar_fieldforce_p
     for (int c = 0; c < 7; c++) {
       const double a = d_B(t7 + (6 - c));
       uu += a * ws * d_ugrid(c * nz_kk + g);
-      uT += a * ws * d_uTgrid(c * nz_kk + g);
       uN += a * ws * d_uNgrid(c * nz_kk + g);
     }
   }
   const double as_e = 0.125;
-  d_peatom(i) += 0.25 * as_e * uu;
+  const double pe = 0.25 * as_e * uu;
+  d_peatom(i) += pe;
   if (vflag_atom) {
-    d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(0.25 * as_e * uT);
-    d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(0.25 * as_e * uT);
+    d_vatom(i, lat1_kk) += static_cast<KK_ACC_FLOAT>(pe);    // tangential == per-atom energy
+    d_vatom(i, lat2_kk) += static_cast<KK_ACC_FLOAT>(pe);
     d_vatom(i, dim_kk) += static_cast<KK_ACC_FLOAT>(0.25 * as_e * uN);
   }
 }
@@ -860,9 +825,9 @@ template<class DeviceType>
 double PPPMDispPlanarKokkos<DeviceType>::memory_usage()
 {
   double bytes = PPPMDispPlanar::memory_usage();
-  // channel-major fields: dens, fz_grid, ugrid, uTgrid, uNgrid, rhat_re, rhat_im, h_dens
+  // channel-major fields: dens, fz_grid, ugrid, uNgrid, rhat_re, rhat_im, h_dens
   bytes += (double) 8 * nz * nchan * sizeof(double);
-  bytes += (double) 3 * nz * sizeof(double);       // d_Gk, d_GTk, d_GNk
+  bytes += (double) 2 * nz * sizeof(double);       // d_Gk, d_GNk
   bytes += (double) 4 * nz * sizeof(FFT_SCALAR);   // d_work, d_work2
   return bytes;
 }

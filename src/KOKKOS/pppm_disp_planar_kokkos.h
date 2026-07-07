@@ -37,8 +37,6 @@ struct TagPPPMDispPlanar_make_rho{};
 struct TagPPPMDispPlanar_dens_to_work{};
 struct TagPPPMDispPlanar_poisson_energy{};
 struct TagPPPMDispPlanar_poisson_virial{};
-struct TagPPPMDispPlanar_poisson_uT_prep{};
-struct TagPPPMDispPlanar_poisson_uT_copy{};
 struct TagPPPMDispPlanar_poisson_uN_prep{};
 struct TagPPPMDispPlanar_poisson_uN_copy{};
 struct TagPPPMDispPlanar_poisson_fz_prep{};
@@ -59,15 +57,6 @@ struct TagPPPMDispPlanar_energy_arith{};
 struct TagPPPMDispPlanar_virial_arith{};
 struct TagPPPMDispPlanar_fieldforce_arith{};
 struct TagPPPMDispPlanar_fieldforce_peratom_arith{};
-
-// (tangential, normal) virial reduction accumulator for the mesh
-struct s_PPPMDispPlanarVir {
-  double vt, vn;
-  KOKKOS_INLINE_FUNCTION s_PPPMDispPlanarVir() { vt = 0.0; vn = 0.0; }
-  KOKKOS_INLINE_FUNCTION
-  void operator+=(const s_PPPMDispPlanarVir &rhs) { vt += rhs.vt; vn += rhs.vn; }
-};
-typedef struct s_PPPMDispPlanarVir s_vir;
 
 template<class DeviceType>
 class PPPMDispPlanarKokkos : public PPPMDispPlanar {
@@ -103,13 +92,7 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   void operator()(TagPPPMDispPlanar_poisson_energy, const int&, double&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispPlanar_poisson_virial, const int&, s_vir&) const;
-
-  KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispPlanar_poisson_uT_prep, const int&) const;
-
-  KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispPlanar_poisson_uT_copy, const int&) const;
+  void operator()(TagPPPMDispPlanar_poisson_virial, const int&, double&) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispPlanar_poisson_uN_prep, const int&) const;
@@ -157,7 +140,7 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   void operator()(TagPPPMDispPlanar_energy_arith, const int&, double&) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(TagPPPMDispPlanar_virial_arith, const int&, s_vir&) const;
+  void operator()(TagPPPMDispPlanar_virial_arith, const int&, double&) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPPPMDispPlanar_fieldforce_arith, const int&) const;
@@ -209,10 +192,10 @@ class PPPMDispPlanarKokkos : public PPPMDispPlanar {
   // z-grid fields (length nz)
   typename AT::t_double_1d d_dens;        // gathered B-weighted density
   typename AT::t_double_1d d_Gk;          // energy influence function (merged corr)
-  typename AT::t_double_1d d_GTk, d_GNk;  // tangential/normal virial influence
+  typename AT::t_double_1d d_GNk;   // normal virial influence (GTk == Gk, omitted)
   typename AT::t_double_1d d_fz_grid;     // z-force field
   typename AT::t_double_1d d_ugrid;       // per-atom potential field
-  typename AT::t_double_1d d_uTgrid, d_uNgrid;   // per-atom T/N virial fields
+  typename AT::t_double_1d d_uNgrid;   // per-atom normal virial field (uTgrid == ugrid, omitted)
   Kokkos::View<double*, Kokkos::LayoutRight, Kokkos::HostSpace> h_dens;   // Allreduce staging
 
   typename AT::t_double_1d d_B;           // per-type amplitude(s): B[t] geom, B[7t+j] arith
