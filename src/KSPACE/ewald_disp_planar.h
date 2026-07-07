@@ -43,11 +43,12 @@ class EwaldDispPlanar : public KSpace {
   int dim;             // inhomogeneous dimension: 0=x, 1=y, 2=z (default 2)
   int lat1, lat2;      // lateral dimensions = (dim+1)%3, (dim+2)%3
   int kmax, kcount;    // # of 1-D wavevectors (modes k=0..kmax-1), kcount=kmax
-  int kmax_created;
-  int kmax_user;      // user override via kspace_modify kmax (0 if unset)
-  int mix_flag;       // C6 cross-term mixing: 0 = geometric, 1 = arithmetic (LB)
-  int nchan;          // # dispersion channels: 1 (geometric) or 7 (arithmetic)
-  double sw_width;    // dispersion switch width Delta (read from the matched pair)
+  int kmax_created;    // kmax at last cs/sn allocation
+  int kmax_alloc;      // kmax at last mode-coefficient (GU/GF/GT/GN/sfac) allocation
+  int kmax_user;       // user override via kspace_modify kmax (0 if unset)
+  int mix_flag;        // C6 cross-term mixing: 0 = geometric, 1 = arithmetic (LB)
+  int nchan;           // # dispersion channels: 1 (geometric) or 7 (arithmetic)
+  double sw_width;     // dispersion switch width Delta (read from the matched pair)
   double volume, cutoff, rc2;
   double unitk;                       // 2*pi/Lz
   double estimated_force_accuracy;    // predicted RMS per-atom force error
@@ -114,6 +115,9 @@ class EwaldDispPlanar : public KSpace {
   double *Araw_tab, *Braw_tab;    // A(kap)=2 int cWraw cos(kap z) dz;  B=2 int z cWraw sin
   int nkap;                       // table length
   double kap_dk, kap_max;         // wavenumber grid spacing and covered range
+  int corr_ft_version;            // bumped whenever the FT tables are (re)built
+  // parameters cWraw was built with; a change (rcut, Delta, g_ewald) invalidates it
+  double corr_cut_cached, corr_dz_cached, corr_g_cached;
   void build_corr_ft_tables(double kap_need);          // (re)build the FT tables (grow-only)
   void ft_interp(double kap, double &A, double &B);    // cubic-Lagrange interpolation
 };

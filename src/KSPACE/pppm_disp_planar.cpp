@@ -81,8 +81,11 @@ PPPMDispPlanar::PPPMDispPlanar(LAMMPS *lmp) :
   nkap = 0;
   kap_dk = 0.0;
   kap_max = 0.0;
+  corr_ft_version = 0;
+  corr_cut_cached = corr_dz_cached = corr_g_cached = -1.0;
   g_ewald_set = 0.0;
   order_allocated = 0;
+  nz_alloc = nchan_alloc = -1;
   nmax = 0;
   accuracy_relative = 0.0;
   prof_kmax_cached = 0;
@@ -383,7 +386,9 @@ void PPPMDispPlanar::estimate_params()
     const double s = pow(acc / 1.0e-5, 0.25);
     double feat = MIN(1.0 / g_ewald, sw_width);    // sharper corr-kernel feature
     double dz_target = 0.35 * s * feat;
-    dz_target = MAX(dz_target, 0.02);    // sanity floor (avoid runaway nz)
+    // sanity floor (avoid runaway nz); scaled by the cutoff so it is unit-independent
+    // (0.008*rcut reproduces the previous 0.02 at the LJ rcut=2.5)
+    dz_target = MAX(dz_target, 0.008 * cutoff);
     int nzc = 1;
     while (nzc < (int) (zprd / dz_target)) nzc <<= 1;
     if (nz < nzc) nz = nzc;
@@ -436,33 +441,39 @@ void PPPMDispPlanar::setup()
   set_grid_params();
   delzinv = nz / zprd;
 
-  memory->destroy(dens);
-  memory->destroy(fre);
-  memory->destroy(fim);
-  memory->destroy(rhat_re);
-  memory->destroy(rhat_im);
-  memory->destroy(Gk);
-  memory->destroy(GTk);
-  memory->destroy(GNk);
-  memory->destroy(fz_grid);
-  memory->destroy(ugrid);
-  memory->destroy(uTgrid);
-  memory->destroy(uNgrid);
-  // density and force/potential fields carry nchan channels (1 geom, 7 arith),
-  // channel-major: dens[m*nz+g].  fre/fim are single-channel FFT scratch; rhat_*
-  // store the nchan FFT'd density spectra.
-  memory->create(dens, nz * nchan, "pppm/disp/planar:dens");
-  memory->create(fre, nz, "pppm/disp/planar:fre");
-  memory->create(fim, nz, "pppm/disp/planar:fim");
-  memory->create(rhat_re, nz * nchan, "pppm/disp/planar:rhat_re");
-  memory->create(rhat_im, nz * nchan, "pppm/disp/planar:rhat_im");
-  memory->create(Gk, nz, "pppm/disp/planar:Gk");
-  memory->create(GTk, nz, "pppm/disp/planar:GTk");
-  memory->create(GNk, nz, "pppm/disp/planar:GNk");
-  memory->create(fz_grid, nz * nchan, "pppm/disp/planar:fz_grid");
-  memory->create(ugrid, nz * nchan, "pppm/disp/planar:ugrid");
-  memory->create(uTgrid, nz * nchan, "pppm/disp/planar:uTgrid");
-  memory->create(uNgrid, nz * nchan, "pppm/disp/planar:uNgrid");
+  // nz, nchan, and order are fixed after init(); under NPT setup() runs every step,
+  // so (re)allocate the mode/grid arrays only when they actually change.
+  if (nz != nz_alloc || nchan != nchan_alloc) {
+    memory->destroy(dens);
+    memory->destroy(fre);
+    memory->destroy(fim);
+    memory->destroy(rhat_re);
+    memory->destroy(rhat_im);
+    memory->destroy(Gk);
+    memory->destroy(GTk);
+    memory->destroy(GNk);
+    memory->destroy(fz_grid);
+    memory->destroy(ugrid);
+    memory->destroy(uTgrid);
+    memory->destroy(uNgrid);
+    // density and force/potential fields carry nchan channels (1 geom, 7 arith),
+    // channel-major: dens[m*nz+g].  fre/fim are single-channel FFT scratch; rhat_*
+    // store the nchan FFT'd density spectra.
+    memory->create(dens, nz * nchan, "pppm/disp/planar:dens");
+    memory->create(fre, nz, "pppm/disp/planar:fre");
+    memory->create(fim, nz, "pppm/disp/planar:fim");
+    memory->create(rhat_re, nz * nchan, "pppm/disp/planar:rhat_re");
+    memory->create(rhat_im, nz * nchan, "pppm/disp/planar:rhat_im");
+    memory->create(Gk, nz, "pppm/disp/planar:Gk");
+    memory->create(GTk, nz, "pppm/disp/planar:GTk");
+    memory->create(GNk, nz, "pppm/disp/planar:GNk");
+    memory->create(fz_grid, nz * nchan, "pppm/disp/planar:fz_grid");
+    memory->create(ugrid, nz * nchan, "pppm/disp/planar:ugrid");
+    memory->create(uTgrid, nz * nchan, "pppm/disp/planar:uTgrid");
+    memory->create(uNgrid, nz * nchan, "pppm/disp/planar:uNgrid");
+    nz_alloc = nz;
+    nchan_alloc = nchan;
+  }
 
   if (rho_coeff == nullptr || order != order_allocated) {
     if (rho_coeff) memory->destroy(rho_coeff);
@@ -562,8 +573,28 @@ void PPPMDispPlanar::build_corr_kernels()
   ncgrid = 2048;
   cwdz = b / ncgrid;
 
+  // Invalidate the box-independent kernel table if the parameters it was built with
+  // (rcut, Delta, g_ewald) have changed since -- e.g. a second run after a new
+  // pair_style/accuracy.  Otherwise the stale table would be reinterpreted on the new
+  // grid spacing cwdz, giving silently wrong energies.
+  if (cWraw != nullptr &&
+      (cutoff != corr_cut_cached || sw_width != corr_dz_cached || g_ewald != corr_g_cached)) {
+    delete[] cWraw;
+    cWraw = nullptr;
+    delete[] cWgrid;
+    cWgrid = nullptr;
+    delete[] Araw_tab;
+    Araw_tab = nullptr;
+    delete[] Braw_tab;
+    Braw_tab = nullptr;
+    nkap = 0;    // force the FT tables to rebuild too
+  }
+
   // BOX-INDEPENDENT kernel integral, precomputed once (NPT hot loop -> just rescale)
   if (cWraw == nullptr) {
+    corr_cut_cached = cutoff;
+    corr_dz_cached = sw_width;
+    corr_g_cached = g_ewald;
     cWraw = new double[ncgrid + 1];
     for (int g = 0; g <= ncgrid; g++) {
       const double adz = g * cwdz;
@@ -633,6 +664,7 @@ void PPPMDispPlanar::build_corr_ft_tables(double kap_need)
   const double target = 1.5 * MAX(kap_need, 1.0e-6);
   if (Araw_tab && target <= kap_max) return;
 
+  corr_ft_version++;    // signal consumers (Kokkos device copy) that the table changed
   kap_dk = (2.0 * MY_PI / (cutoff + sw_width)) / 100.0;    // ~100 points per oscillation
   nkap = (int) (target / kap_dk) + 4;
   kap_max = nkap * kap_dk;
@@ -1705,10 +1737,12 @@ void PPPMDispPlanar::sici_chain(double x, double *Aarr, double *Barr)
 
 double PPPMDispPlanar::memory_usage()
 {
-  double bytes =
-      10.0 * nz * sizeof(double);    // dens,fre,fim,Gk,GTk,GNk,fz_grid,ugrid,uTgrid,uNgrid
-  bytes += (double) nmax * sizeof(double);
-  bytes += (double) order * order * sizeof(double);
-  bytes += (double) (ncgrid + 1) * sizeof(double);    // corr energy kernel
+  // channel-major fields: dens, rhat_re, rhat_im, fz_grid, ugrid, uTgrid, uNgrid
+  double bytes = 7.0 * nz * nchan * sizeof(double);
+  bytes += 5.0 * nz * sizeof(double);                  // fre, fim, Gk, GTk, GNk
+  bytes += (double) nmax * sizeof(double);             // peatom
+  bytes += (double) order * order * sizeof(double);    // rho_coeff
+  bytes += 2.0 * (ncgrid + 1) * sizeof(double);        // cWraw, cWgrid
+  bytes += 2.0 * (nkap + 1) * sizeof(double);          // Araw_tab, Braw_tab
   return bytes;
 }

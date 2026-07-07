@@ -95,11 +95,16 @@ class PPPMDispPlanar : public KSpace {
   double *Araw_tab, *Braw_tab;    // A(kap)=2 int cWraw cos(kap z);  B=2 int z cWraw sin
   int nkap;                       // table length
   double kap_dk, kap_max;         // wavenumber grid spacing and covered range
+  int corr_ft_version;            // bumped whenever the FT tables are (re)built (KK re-upload)
   void build_corr_ft_tables(double kap_need);          // (re)build the FT tables (grow-only)
   void ft_interp(double kap, double &A, double &B);    // cubic-Lagrange interpolation
+  // parameters the box-independent corr table cWraw was built with; a change (rcut,
+  // Delta, g_ewald) between runs invalidates it (else it is read on a new grid spacing)
+  double corr_cut_cached, corr_dz_cached, corr_g_cached;
 
-  double **rho_coeff;     // B-spline assignment polynomial coefficients
-  int order_allocated;    // order at last rho_coeff allocation
+  double **rho_coeff;           // B-spline assignment polynomial coefficients
+  int order_allocated;          // order at last rho_coeff allocation
+  int nz_alloc, nchan_alloc;    // nz, nchan at last grid allocation (NPT: skip realloc)
 
   double estimated_force_accuracy;
   double *peatom;    // per-atom kspace energy buffer

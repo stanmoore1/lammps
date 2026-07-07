@@ -76,9 +76,12 @@ EwaldDispPlanar::EwaldDispPlanar(LAMMPS *lmp) :
   nkap = 0;
   kap_dk = 0.0;
   kap_max = 0.0;
+  corr_ft_version = 0;
+  corr_cut_cached = corr_dz_cached = corr_g_cached = -1.0;
   kmax = 0;
   kcount = 0;
   kmax_created = 0;
+  kmax_alloc = -1;
   kmax_user = 0;
   nmax = 0;
   accuracy_relative = 0.0;
@@ -366,8 +369,13 @@ void EwaldDispPlanar::setup()
   volume = domain->prd[0] * domain->prd[1] * domain->prd[2];
   unitk = 2.0 * MY_PI / domain->prd[dim];
 
-  deallocate();
-  allocate();
+  // kmax is fixed after init(); under NPT setup() runs every step, so (re)allocate the
+  // mode-coefficient arrays (GU/GF/GT/GN, structure factors) only when kmax changes.
+  if (kmax != kmax_alloc) {
+    deallocate();
+    allocate();
+    kmax_alloc = kmax;
+  }
 
   if (atom->nmax > nmax) {
     memory->destroy(ek);
@@ -792,10 +800,29 @@ void EwaldDispPlanar::build_corr_kernels()
   ncgrid = 1024;
   cwdz = b / ncgrid;
 
+  // Invalidate the box-independent table if the parameters it was built with (rcut,
+  // Delta, g_ewald) changed since -- e.g. a second run with a new pair_style/accuracy.
+  // Otherwise the stale table would be reinterpreted on the new grid spacing cwdz.
+  if (cWraw != nullptr &&
+      (cutoff != corr_cut_cached || sw_width != corr_dz_cached || g_ewald != corr_g_cached)) {
+    delete[] cWraw;
+    cWraw = nullptr;
+    delete[] cWgrid;
+    cWgrid = nullptr;
+    delete[] Araw_tab;
+    Araw_tab = nullptr;
+    delete[] Braw_tab;
+    Braw_tab = nullptr;
+    nkap = 0;
+  }
+
   // BOX-INDEPENDENT kernel integral IE[g] = int_{z_g}^b r*corr_e(r) dr (g_ewald,
   // cutoff, Delta are all fixed after init), precomputed once.  Under NPT only the
   // 2*pi/area prefactor changes, so the per-step build is just a rescale.
   if (cWraw == nullptr) {
+    corr_cut_cached = cutoff;
+    corr_dz_cached = sw_width;
+    corr_g_cached = g_ewald;
     cWraw = new double[ncgrid + 1];
     for (int g = 0; g <= ncgrid; g++) {
       const double adz = g * cwdz;
@@ -866,6 +893,7 @@ void EwaldDispPlanar::build_corr_ft_tables(double kap_need)
   const double target = 1.5 * MAX(kap_need, 1.0e-6);    // 50% headroom for NPT shrink
   if (Araw_tab && target <= kap_max) return;            // current tables suffice
 
+  corr_ft_version++;    // signal consumers that the table changed
   // resolve the FT oscillation (period 2*pi/b in kap); ~100 points per period
   kap_dk = (2.0 * MY_PI / (cutoff + sw_width)) / 100.0;
   nkap = (int) (target / kap_dk) + 4;
@@ -1388,9 +1416,11 @@ int EwaldDispPlanar::pressure_profile_long(int dir, int nbins, double lo, double
 
 double EwaldDispPlanar::memory_usage()
 {
-  double bytes = 8.0 * kmax * sizeof(double);              // GU,GF,GT,GN,sfacrl/im,sfacrl/im_all
-  bytes += 2.0 * (double) nmax * sizeof(double);           // ek, peatom
-  bytes += 2.0 * (double) kmax * nmax * sizeof(double);    // cs, sn
-  bytes += (double) (ncgrid + 1) * sizeof(double);         // corr energy kernel
+  double bytes = 4.0 * kmax * sizeof(double);               // GU, GF, GT, GN
+  bytes += 4.0 * (double) kmax * nchan * sizeof(double);    // sfacrl/im, sfacrl/im_all
+  bytes += 2.0 * (double) nmax * sizeof(double);            // ek, peatom
+  bytes += 2.0 * (double) kmax * nmax * sizeof(double);     // cs, sn
+  bytes += 2.0 * (ncgrid + 1) * sizeof(double);             // cWraw, cWgrid
+  bytes += 2.0 * (nkap + 1) * sizeof(double);               // Araw_tab, Braw_tab
   return bytes;
 }
