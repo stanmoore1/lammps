@@ -181,14 +181,22 @@ class chimesFF {
 
   void compute_1B(const int typ_idx, double &energy);
 
+  // vflag selects whether the stress tensor is accumulated.  LAMMPS asks for
+  // the virial only on the steps a pressure or per-atom stress is needed, and
+  // on every other step the stress arithmetic -- twelve operations per pair
+  // slot, so 36 per 3-mer and 72 per 4-mer -- is discarded by the caller.
+
   void compute_2B(const double dx, const vector<double> &dr, const vector<int> &typ_idxs,
-                  vector<double> &force, vector<double> &stress, double &energy, chimes2BTmp &tmp);
+                  vector<double> &force, vector<double> &stress, double &energy, chimes2BTmp &tmp,
+                  const bool vflag = true);
 
   void compute_3B(const vector<double> &dx, const vector<double> &dr, const vector<int> &typ_idxs,
-                  vector<double> &force, vector<double> &stress, double &energy, chimes3BTmp &tmp);
+                  vector<double> &force, vector<double> &stress, double &energy, chimes3BTmp &tmp,
+                  const bool vflag = true);
 
   void compute_4B(const vector<double> &dx, const vector<double> &dr, const vector<int> &typ_idxs,
-                  vector<double> &force, vector<double> &stress, double &energy, chimes4BTmp &tmp);
+                  vector<double> &force, vector<double> &stress, double &energy, chimes4BTmp &tmp,
+                  const bool vflag = true);
 
   void get_cutoff_2B(vector<vector<double>> &cutoff_2b);    // Populates the 2b cutoffs
 
@@ -733,6 +741,9 @@ inline void chimesFF::set_cheby_polys(vector<double> &Tn, vector<double> &Tnd, d
   double x = (exprlen - sc.x_avg) / sc.x_diff;
   double dx_dr = (-exprlen / sc.morse) / sc.x_diff;
 
+  double *const tn = Tn.data();
+  double *const tnd = Tnd.data();
+
   if (!out_of_range) {
     // Generate Chebyshev polynomials by recursion.
     //
@@ -747,19 +758,21 @@ inline void chimesFF::set_cheby_polys(vector<double> &Tn, vector<double> &Tnd, d
 
     // First two 1st-kind Chebys:
 
-    Tn[0] = 1.0;
-    Tn[1] = x;
+    tn[0] = 1.0;
+    tn[1] = x;
 
     // Start the derivative setup. Set the first two 1st-kind Cheby's equal to the first two of the 2nd-kind
 
-    Tnd[0] = 1.0;
-    Tnd[1] = 2.0 * x;
+    tnd[0] = 1.0;
+    tnd[1] = 2.0 * x;
 
     // Use recursion to set up the higher n-value Tn and Tnd's
 
+    const double x2 = 2.0 * x;
+
     for (int i = 2; i <= poly_orders[bodiedness_idx]; i++) {
-      Tn[i] = 2.0 * x * Tn[i - 1] - Tn[i - 2];
-      Tnd[i] = 2.0 * x * Tnd[i - 1] - Tnd[i - 2];
+      tn[i] = x2 * tn[i - 1] - tn[i - 2];
+      tnd[i] = x2 * tnd[i - 1] - tnd[i - 2];
     }
 
     // Now multiply by n to convert Tnd's to actual derivatives of Tn
@@ -767,9 +780,9 @@ inline void chimesFF::set_cheby_polys(vector<double> &Tn, vector<double> &Tnd, d
     // The following dx_dr compuation assumes a Morse transformation
     // DERIV_CONST is no longer used. (old way: dx_dr = DERIV_CONST*cheby_var_deriv(x_diff, rlen, ff_2body.LAMBDA, ff_2body.CHEBY_TYPE, exprlen);)
 
-    for (int i = poly_orders[bodiedness_idx]; i >= 1; i--) Tnd[i] = i * dx_dr * Tnd[i - 1];
+    for (int i = poly_orders[bodiedness_idx]; i >= 1; i--) tnd[i] = i * dx_dr * tnd[i - 1];
 
-    Tnd[0] = 0.0;
+    tnd[0] = 0.0;
   } else    // out_of_range == true
   {
     cout << "Warning: An intermolecular distance less than the inner cutoff = " << sc.inner

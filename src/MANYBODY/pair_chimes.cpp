@@ -513,12 +513,13 @@ void PairCHIMES::compute(int eflag, int vflag)
       // Using std::fill for maximum efficiency.
       std::fill(force_2b.begin(), force_2b.end(), 0.0);
 
-      // Do the same for stress tensors
-      std::fill(stensor.begin(), stensor.end(), 0.0);
+      // Do the same for stress tensors, but only when a virial was asked for
+      if (vflag_either) std::fill(stensor.begin(), stensor.end(), 0.0);
 
       energy = 0.0;
 
-      chimes_calculator->compute_2B(dist, dr, typ_idxs_2b, force_2b, stensor, energy, chimes_2btmp);
+      chimes_calculator->compute_2B(dist, dr, typ_idxs_2b, force_2b, stensor, energy, chimes_2btmp,
+                                    vflag_either);
 
       for (idx = 0; idx < 3; idx++) {
         f[i][idx] += force_2b[0 * CHDIM + idx];
@@ -554,12 +555,13 @@ void PairCHIMES::compute(int eflag, int vflag)
       typ_idxs_3b[2] = chimes_type[type[k] - 1];
 
       std::fill(force_3b.begin(), force_3b.end(), 0.0);
-      std::fill(stensor.begin(), stensor.end(), 0.0);
+
+      if (vflag_either) std::fill(stensor.begin(), stensor.end(), 0.0);
 
       energy = 0.0;
 
       chimes_calculator->compute_3B(dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy,
-                                    chimes_3btmp);
+                                    chimes_3btmp, vflag_either);
 
       for (idx = 0; idx < 3; idx++) {
         f[i][idx] += force_3b[0 * CHDIM + idx];
@@ -600,12 +602,13 @@ void PairCHIMES::compute(int eflag, int vflag)
       typ_idxs_4b[3] = chimes_type[type[l] - 1];
 
       std::fill(force_4b.begin(), force_4b.end(), 0.0);
-      std::fill(stensor.begin(), stensor.end(), 0.0);
+
+      if (vflag_either) std::fill(stensor.begin(), stensor.end(), 0.0);
 
       energy = 0.0;
 
       chimes_calculator->compute_4B(dist_4b, dr_4b, typ_idxs_4b, force_4b, stensor, energy,
-                                    chimes_4btmp);
+                                    chimes_4btmp, vflag_either);
 
       for (idx = 0; idx < 3; idx++) {
         f[i][idx] += force_4b[0 * CHDIM + idx];
