@@ -27,6 +27,7 @@ PairStyle(chimesFF, PairCHIMES);    // PairStyle(key, class)
 #include "pair.h"
 
 #include "chimesFF.h"
+#include <cstdint>
 #include <vector>
 
 /*    Functions required by LAMMPS:
@@ -84,7 +85,15 @@ class PairCHIMES : public Pair {
 
   std::vector<MBCand> cand_3b;
   std::vector<MBCand> cand_4b;
-  std::vector<double> cand_rsq;
+
+  // Which 4-body candidates can share a cluster.  Row a of cand_adj marks the
+  // candidates within the 4-body cutoff of a, and row a of cand_ge marks those
+  // whose global ID does not order before a's.  Both are bitmaps, cand_words
+  // 64-bit words per row.
+
+  std::vector<uint64_t> cand_adj;
+  std::vector<uint64_t> cand_ge;
+  int cand_words;
 
   // Scratch for grouping the triplets by cluster type (counting sort).
 
@@ -144,6 +153,25 @@ class PairCHIMES : public Pair {
     dist = sqrt(rsq);
 
     return true;
+  }
+
+  // Position of the lowest set bit, for walking a candidate bitmap in
+  // increasing candidate order.  The de Bruijn fallback keeps the cluster
+  // enumeration available on compilers without the GNU builtin.
+
+  static inline int lowest_bit(uint64_t v)
+  {
+#if defined(__GNUC__) || defined(__clang__)
+    return __builtin_ctzll(v);
+#else
+    static const int debruijn[64] = {0,  1,  2,  53, 3,  7,  54, 27, 4,  38, 41, 8,  34,
+                                     55, 48, 28, 62, 5,  39, 46, 44, 42, 22, 9,  24, 35,
+                                     59, 56, 49, 18, 29, 11, 63, 52, 6,  26, 37, 40, 33,
+                                     47, 61, 45, 43, 21, 23, 58, 17, 10, 51, 25, 36, 32,
+                                     60, 20, 57, 16, 50, 31, 19, 15, 30, 14, 13, 12};
+
+    return debruijn[((v & (~v + 1)) * 0x022fdd63cc95386dULL) >> 58];
+#endif
   }
 
   static inline double dist_sq(double **x, int i, int j)

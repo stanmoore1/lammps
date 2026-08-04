@@ -239,10 +239,10 @@ void PairCHIMES::build_mb_neighlists()
   n_3mers = 0;
   n_4mers = 0;
 
-  int i, j, k, l, inum, jnum, ii, jj, kk, ll;     // Local iterator vars
+  int i, j, k, inum, jnum, ii, jj, kk, ll;        // Local iterator vars
   int *ilist, *jlist, *numneigh, **firstneigh;    // Local neighborlist vars
   tagint *tag = atom->tag;                        // Access to global atom indices
-  tagint itag, jtag, ktag, ltag;                  // holds tags
+  tagint itag, jtag, ktag;                        // holds tags
   double **x = atom->x;                           // Access to system coordinates
 
   const double maxcut_3b_padded = maxcut_3b + neighbor->skin;
@@ -356,58 +356,77 @@ void PairCHIMES::build_mb_neighlists()
 
     if (n4 < 3) continue;
 
-    // Tabulate the squared distances among the 4-body candidates once.  The
-    // jl and kl distances were previously recomputed for every (j,k,l) triple;
-    // there are only n4*(n4-1)/2 distinct values, and for this benchmark that
-    // is roughly a factor of forty fewer evaluations.
+    // Reduce the candidates to two bitmaps in one pass over the n4*(n4-1)/2
+    // candidate pairs.  Everything the cluster loops below ask about a pair is
+    // a yes/no question -- is it inside the cutoff, does it order the right way
+    // -- so a bit answers it, and sixty-four candidates are answered by one
+    // machine word.  That turns the innermost loop from a scan over every
+    // candidate into an intersection of three words: the l that can join (j,k)
+    // are exactly those adjacent to both and not ordering before k.
+    //
+    // Tags are not unique among candidates, because a periodic image carries
+    // the tag of the atom it images, so cand_ge is built from the same "does
+    // not order before" test the scan used rather than from a strict rank.
 
-    cand_rsq.resize((size_t) n4 * n4);
+    cand_words = (n4 + 63) / 64;
+
+    cand_adj.assign((size_t) n4 * cand_words, 0);
+    cand_ge.assign((size_t) n4 * cand_words, 0);
 
     for (int a = 0; a < n4; a++) {
-      cand_rsq[(size_t) a * n4 + a] = 0.0;
+      uint64_t *const adj_a = &cand_adj[(size_t) a * cand_words];
+      uint64_t *const ge_a = &cand_ge[(size_t) a * cand_words];
 
       for (int b = a + 1; b < n4; b++) {
-        const double rsq = dist_sq(x, cand_4b[a].idx, cand_4b[b].idx);
+        uint64_t *const ge_b = &cand_ge[(size_t) b * cand_words];
 
-        cand_rsq[(size_t) a * n4 + b] = rsq;
-        cand_rsq[(size_t) b * n4 + a] = rsq;
+        if (dist_sq(x, cand_4b[a].idx, cand_4b[b].idx) < cutsq_4b) {
+          adj_a[b >> 6] |= (uint64_t) 1 << (b & 63);
+          cand_adj[(size_t) b * cand_words + (a >> 6)] |= (uint64_t) 1 << (a & 63);
+        }
+
+        // Both tests, not one and its negation: two candidates can carry the
+        // same tag when they are periodic images of one atom, and the scan
+        // this replaces accepted that pair in either order.
+
+        if (cand_4b[b].tag >= cand_4b[a].tag) ge_a[b >> 6] |= (uint64_t) 1 << (b & 63);
+
+        if (cand_4b[a].tag >= cand_4b[b].tag) ge_b[a >> 6] |= (uint64_t) 1 << (a & 63);
       }
     }
 
     for (jj = 0; jj < n4; jj++) {
       j = cand_4b[jj].idx;
-      jtag = cand_4b[jj].tag;
 
-      const double *rsq_j = &cand_rsq[(size_t) jj * n4];
+      const uint64_t *const adj_j = &cand_adj[(size_t) jj * cand_words];
+      const uint64_t *const ge_j = &cand_ge[(size_t) jj * cand_words];
 
-      for (kk = 0; kk < n4; kk++) {
-        k = cand_4b[kk].idx;
+      for (int wk = 0; wk < cand_words; wk++) {
+        uint64_t mk = adj_j[wk] & ge_j[wk];
 
-        if (k == j) continue;
+        while (mk) {
+          kk = (wk << 6) + lowest_bit(mk);
+          mk &= mk - 1;
 
-        ktag = cand_4b[kk].tag;
+          k = cand_4b[kk].idx;
 
-        if (ktag < jtag) continue;
-        if (rsq_j[kk] >= cutsq_4b) continue;
+          const uint64_t *const adj_k = &cand_adj[(size_t) kk * cand_words];
+          const uint64_t *const ge_k = &cand_ge[(size_t) kk * cand_words];
 
-        const double *rsq_k = &cand_rsq[(size_t) kk * n4];
+          for (int wl = 0; wl < cand_words; wl++) {
+            uint64_t ml = adj_j[wl] & adj_k[wl] & ge_k[wl];
 
-        for (ll = 0; ll < n4; ll++) {
-          l = cand_4b[ll].idx;
+            while (ml) {
+              ll = (wl << 6) + lowest_bit(ml);
+              ml &= ml - 1;
 
-          if ((l == j) || (l == k)) continue;
-
-          ltag = cand_4b[ll].tag;
-
-          if ((ltag < jtag) || (ltag < ktag)) continue;
-          if (rsq_j[ll] >= cutsq_4b) continue;
-          if (rsq_k[ll] >= cutsq_4b) continue;
-
-          neighborlist_4mers.push_back(i);
-          neighborlist_4mers.push_back(j);
-          neighborlist_4mers.push_back(k);
-          neighborlist_4mers.push_back(l);
-          n_4mers++;
+              neighborlist_4mers.push_back(i);
+              neighborlist_4mers.push_back(j);
+              neighborlist_4mers.push_back(k);
+              neighborlist_4mers.push_back(cand_4b[ll].idx);
+              n_4mers++;
+            }
+          }
         }
       }
     }
