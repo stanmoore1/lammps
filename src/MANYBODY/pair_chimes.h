@@ -72,6 +72,20 @@ class PairCHIMES : public Pair {
   std::vector<int> neighborlist_3mers;
   std::vector<int> neighborlist_4mers;
 
+  // Scratch for build_mb_neighlists(): the neighbors of the current atom that
+  // can take part in one of its clusters, and the squared distances among the
+  // 4-body candidates.  Kept as members so the capacity persists.
+
+  struct MBCand {
+    int idx;       // local atom index
+    tagint tag;    // global atom ID, cached to keep it off the inner loop
+    double rsq;    // squared distance to the owning atom
+  };
+
+  std::vector<MBCand> cand_3b;
+  std::vector<MBCand> cand_4b;
+  std::vector<double> cand_rsq;
+
   // 2-body vars for chimesFF access
 
   std::vector<double> dr;
@@ -107,6 +121,14 @@ class PairCHIMES : public Pair {
   virtual void build_mb_neighlists();
   inline double get_dist(int i, int j, double *dr);
   inline double get_dist(int i, int j);
+  static inline double dist_sq(double **x, int i, int j)
+  {
+    const double dx = x[j][0] - x[i][0];
+    const double dy = x[j][1] - x[i][1];
+    const double dz = x[j][2] - x[i][2];
+
+    return dx * dx + dy * dy + dz * dz;
+  }
   void set_chimes_type();
   void ev_tally_mb(int ninteractionatoms, const int *atmlist, double evdwl, const double *stress);
 

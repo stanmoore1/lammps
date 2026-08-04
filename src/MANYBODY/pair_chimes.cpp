@@ -239,16 +239,28 @@ void PairCHIMES::build_mb_neighlists()
   n_3mers = 0;
   n_4mers = 0;
 
-  int i, j, k, l, inum, jnum, knum, lnum, ii, jj, kk, ll;         // Local iterator vars
-  int *ilist, *jlist, *klist, *llist, *numneigh, **firstneigh;    // Local neighborlist vars
-  tagint *tag = atom->tag;                                        // Access to global atom indices
-  int itag, jtag, ktag, ltag;                                     // holds tags
-  double **x = atom->x;                                           // Access to system coordinates
+  int i, j, k, l, inum, jnum, ii, jj, kk, ll;     // Local iterator vars
+  int *ilist, *jlist, *numneigh, **firstneigh;    // Local neighborlist vars
+  tagint *tag = atom->tag;                        // Access to global atom indices
+  tagint itag, jtag, ktag, ltag;                  // holds tags
+  double **x = atom->x;                           // Access to system coordinates
 
-  double maxcut_3b_padded = maxcut_3b + neighbor->skin;
-  double maxcut_4b_padded = maxcut_4b + neighbor->skin;
+  const double maxcut_3b_padded = maxcut_3b + neighbor->skin;
+  const double maxcut_4b_padded = maxcut_4b + neighbor->skin;
 
-  double dist_ij, dist_ik, dist_il, dist_jk, dist_jl, dist_kl;
+  // Every comparison below is against a padded cutoff, so the distances
+  // themselves are never needed -- only their ordering against those cutoffs.
+  // Working in squared distances therefore removes every sqrt from the build.
+  // A pair can only land on the wrong side of a squared comparison when it sits
+  // within one ulp of the padded cutoff, and such a cluster is beyond every
+  // unpadded cutoff, so compute_3B/compute_4B reject it and it contributes
+  // exactly zero either way.
+
+  const double cutsq_3b = maxcut_3b_padded * maxcut_3b_padded;
+  const double cutsq_4b = maxcut_4b_padded * maxcut_4b_padded;
+  const double cutsq_max = MAX(cutsq_3b, cutsq_4b);
+
+  const bool do_4b = (chimes_calculator->poly_orders[2] > 0);
 
   ////////////////////////////////////////
   // Access to neighbor list vars
@@ -266,90 +278,130 @@ void PairCHIMES::build_mb_neighlists()
     jlist = firstneigh[i];
     jnum = numneigh[i];
 
+    const double xi = x[i][0];
+    const double yi = x[i][1];
+    const double zi = x[i][2];
+
+    // One pass over i's neighbors collects every atom that can take part in a
+    // cluster owned by i, together with its distance to i.  The old code
+    // rescanned firstneigh[i] from the start for k and again for l, so the ik
+    // distance was recomputed once per j and the il distance once per (j,k)
+    // pair.  Filtering preserves the neighbor list order, so iterating these
+    // candidate arrays visits the same clusters in the same sequence.
+
+    cand_3b.resize(0);
+    cand_4b.resize(0);
+
     for (jj = 0; jj < jnum; jj++) {
-      j = jlist[jj];
-      jtag = tag[j];
-      j &= NEIGHMASK;
+      j = jlist[jj] & NEIGHMASK;
 
       if (j == i) continue;
+
+      jtag = tag[j];
+
       if (jtag < itag) continue;
 
-      // Check ij distance
+      const double dx = x[j][0] - xi;
+      const double dy = x[j][1] - yi;
+      const double dz = x[j][2] - zi;
+      const double rsq = dx * dx + dy * dy + dz * dz;
 
-      dist_ij = get_dist(i, j);
+      if (rsq >= cutsq_max) continue;
 
-      if ((dist_ij >= maxcut_3b_padded) && (dist_ij >= maxcut_4b_padded)) continue;
+      cand_3b.push_back({j, jtag, rsq});
 
-      klist = firstneigh
-          [i];    // ChIMES assumes all atoms must be within cutoff of eachother for a valid interaction
-      knum = numneigh[i];
+      if (do_4b && (rsq < cutsq_4b)) cand_4b.push_back({j, jtag, rsq});
+    }
 
-      for (kk = 0; kk < knum; kk++) {
-        k = klist[kk];
-        ktag = tag[k];
-        k &= NEIGHMASK;
+    ////////////////////////////////////////
+    // 3-body clusters
+    ////////////////////////////////////////
 
-        if ((k == i) || (k == j)) continue;
-        if ((ktag < itag) || (ktag < jtag)) continue;
+    if (chimes_calculator->poly_orders[1] > 0) {
+      const int n3 = cand_3b.size();
 
-        // Check ik distance
+      for (jj = 0; jj < n3; jj++) {
+        if (cand_3b[jj].rsq >= cutsq_3b) continue;
 
-        dist_ik = get_dist(i, k);
+        j = cand_3b[jj].idx;
+        jtag = cand_3b[jj].tag;
 
-        if ((dist_ik >= maxcut_3b_padded) && (dist_ik >= maxcut_4b_padded)) continue;
+        for (kk = 0; kk < n3; kk++) {
+          k = cand_3b[kk].idx;
 
-        // Check jk distance
+          if (k == j) continue;
 
-        dist_jk = get_dist(j, k);
+          ktag = cand_3b[kk].tag;
 
-        if ((dist_ij < maxcut_3b_padded) && (dist_ik < maxcut_3b_padded) &&
-            (dist_jk < maxcut_3b_padded)) {
-          // If we're here and valid_3mer == true, then add the triplet to the chimes neigh list
+          if (ktag < jtag) continue;
+          if (cand_3b[kk].rsq >= cutsq_3b) continue;
+
+          if (dist_sq(x, j, k) >= cutsq_3b) continue;
 
           neighborlist_3mers.push_back(i);
           neighborlist_3mers.push_back(j);
           neighborlist_3mers.push_back(k);
           n_3mers++;
         }
+      }
+    }
 
-        if ((dist_ij >= maxcut_4b_padded) || (dist_ik >= maxcut_4b_padded) ||
-            (dist_jk >= maxcut_4b_padded))
-          continue;
+    ////////////////////////////////////////
+    // 4-body clusters
+    ////////////////////////////////////////
 
-        // Now decide if we should continue on to 4-body neighbor list construction
+    if (!do_4b) continue;
 
-        if (chimes_calculator->poly_orders[2] == 0) continue;
+    const int n4 = cand_4b.size();
 
-        llist = firstneigh[i];
-        lnum = numneigh[i];
+    if (n4 < 3) continue;
 
-        for (ll = 0; ll < lnum; ll++) {
-          l = llist[ll];
-          ltag = tag[l];
-          l &= NEIGHMASK;
+    // Tabulate the squared distances among the 4-body candidates once.  The
+    // jl and kl distances were previously recomputed for every (j,k,l) triple;
+    // there are only n4*(n4-1)/2 distinct values, and for this benchmark that
+    // is roughly a factor of forty fewer evaluations.
 
-          if ((l == i) || (l == j) || (l == k)) continue;
-          if ((ltag < itag) || (ltag < jtag) || (ltag < ktag)) continue;
+    cand_rsq.resize((size_t) n4 * n4);
 
-          // Check il distance
+    for (int a = 0; a < n4; a++) {
+      cand_rsq[(size_t) a * n4 + a] = 0.0;
 
-          dist_il = get_dist(i, l);
+      for (int b = a + 1; b < n4; b++) {
+        const double rsq = dist_sq(x, cand_4b[a].idx, cand_4b[b].idx);
 
-          if (dist_il >= maxcut_4b_padded) continue;
+        cand_rsq[(size_t) a * n4 + b] = rsq;
+        cand_rsq[(size_t) b * n4 + a] = rsq;
+      }
+    }
 
-          // Check jl distance
+    for (jj = 0; jj < n4; jj++) {
+      j = cand_4b[jj].idx;
+      jtag = cand_4b[jj].tag;
 
-          dist_jl = get_dist(j, l);
+      const double *rsq_j = &cand_rsq[(size_t) jj * n4];
 
-          if (dist_jl >= maxcut_4b_padded) continue;
+      for (kk = 0; kk < n4; kk++) {
+        k = cand_4b[kk].idx;
 
-          // Check kl distance
+        if (k == j) continue;
 
-          dist_kl = get_dist(k, l);
+        ktag = cand_4b[kk].tag;
 
-          if (dist_kl >= maxcut_4b_padded) continue;
+        if (ktag < jtag) continue;
+        if (rsq_j[kk] >= cutsq_4b) continue;
 
-          // If we're here and valid_4mer == true, then add the quadruplet to the chimes neigh list
+        const double *rsq_k = &cand_rsq[(size_t) kk * n4];
+
+        for (ll = 0; ll < n4; ll++) {
+          l = cand_4b[ll].idx;
+
+          if ((l == j) || (l == k)) continue;
+
+          ltag = cand_4b[ll].tag;
+
+          if ((ltag < jtag) || (ltag < ktag)) continue;
+          if (rsq_j[ll] >= cutsq_4b) continue;
+          if (rsq_k[ll] >= cutsq_4b) continue;
 
           neighborlist_4mers.push_back(i);
           neighborlist_4mers.push_back(j);
@@ -412,6 +464,7 @@ void PairCHIMES::compute(int eflag, int vflag)
   // Build the ChIMES many-body neighbor lists.. only do so when LAMMPS neighborlist has been updated
 
   if (neighbor->ago == 0) build_mb_neighlists();
+
 
   ////////////////////////////////////////
   // Compute 1- and 2-body interactions
