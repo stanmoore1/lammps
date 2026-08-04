@@ -1334,14 +1334,15 @@ void chimesFF::compute_2B(const double dx, const vector<double> &dr, const vecto
   vector<double> &Tn = tmp.Tn;
   vector<double> &Tnd = tmp.Tnd;
 
+  const chimesSlotConst &sc = slot_2b[typ_idxs[0] * natmtyps + typ_idxs[1]];
+
+  if (dx >= sc.outer) return;
+
   pair_idx = atom_int_pair_map[typ_idxs[0] * natmtyps + typ_idxs[1]];
 
-  if (dx >= chimes_2b_cutoff[pair_idx][1]) return;
+  set_cheby_polys(Tn, Tnd, dx, sc, 0);
 
-  set_cheby_polys(Tn, Tnd, dx, pair_idx, chimes_2b_cutoff[pair_idx][0],
-                  chimes_2b_cutoff[pair_idx][1], 0);
-
-  get_fcut(dx, chimes_2b_cutoff[pair_idx][1], fcut, fcutderiv);
+  get_fcut(dx, sc, fcut, fcutderiv);
 
   double poly, dpoly_dx;
 
@@ -1374,7 +1375,7 @@ void chimesFF::compute_2B(const double dx, const vector<double> &dr, const vecto
   stress[5] -= force_scalar * dr[2] * dr[2];    // zz tensor component
 
   double E_penalty = 0.0;
-  get_penalty(dx, pair_idx, E_penalty, force_scalar);
+  get_penalty(dx, pair_idx, sc.inner, E_penalty, force_scalar);
 
   if (E_penalty > 0.0) {
     energy += E_penalty;
@@ -1480,33 +1481,25 @@ void chimesFF::compute_3B(const vector<double> &dx, const vector<double> &dr,
 
   // Check whether cutoffs are within allowed ranges
   vector<int> &mapped_pair_idx = pair_int_trip_map[type_idx];
+  const chimesSlotConst *sc = &slot_3b[type_idx * 3];
 
-  if (dx[0] >= chimes_3b_cutoff[tripidx][1][mapped_pair_idx[0]])    // ij
-    return;
-  if (dx[1] >= chimes_3b_cutoff[tripidx][1][mapped_pair_idx[1]])    // ik
-    return;
-  if (dx[2] >= chimes_3b_cutoff[tripidx][1][mapped_pair_idx[2]])    // jk
-    return;
+  if (dx[0] >= sc[0].outer) return;    // ij
+  if (dx[1] >= sc[1].outer) return;    // ik
+  if (dx[2] >= sc[2].outer) return;    // jk
 
   // At this point, all distances are within allowed ranges. We can now proceed to the force/stress/energy calculation
 
   // Set up the polynomials
 
-  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], atom_int_pair_map[typ_idxs[0] * natmtyps + typ_idxs[1]],
-                  chimes_3b_cutoff[tripidx][0][mapped_pair_idx[0]],
-                  chimes_3b_cutoff[tripidx][1][mapped_pair_idx[0]], 1);
-  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], atom_int_pair_map[typ_idxs[0] * natmtyps + typ_idxs[2]],
-                  chimes_3b_cutoff[tripidx][0][mapped_pair_idx[1]],
-                  chimes_3b_cutoff[tripidx][1][mapped_pair_idx[1]], 1);
-  set_cheby_polys(Tn_jk, Tnd_jk, dx[2], atom_int_pair_map[typ_idxs[1] * natmtyps + typ_idxs[2]],
-                  chimes_3b_cutoff[tripidx][0][mapped_pair_idx[2]],
-                  chimes_3b_cutoff[tripidx][1][mapped_pair_idx[2]], 1);
+  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], sc[0], 1);
+  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], sc[1], 1);
+  set_cheby_polys(Tn_jk, Tnd_jk, dx[2], sc[2], 1);
 
   // Set up the smoothing functions
 
-  get_fcut(dx[0], chimes_3b_cutoff[tripidx][1][mapped_pair_idx[0]], fcut[0], fcutderiv[0]);
-  get_fcut(dx[1], chimes_3b_cutoff[tripidx][1][mapped_pair_idx[1]], fcut[1], fcutderiv[1]);
-  get_fcut(dx[2], chimes_3b_cutoff[tripidx][1][mapped_pair_idx[2]], fcut[2], fcutderiv[2]);
+  get_fcut(dx[0], sc[0], fcut[0], fcutderiv[0]);
+  get_fcut(dx[1], sc[1], fcut[1], fcutderiv[1]);
+  get_fcut(dx[2], sc[2], fcut[2], fcutderiv[2]);
   double fcut_all = fcut[0] * fcut[1] * fcut[2];
 
   double poly, dpoly_dx[npairs];
@@ -1667,43 +1660,26 @@ void chimesFF::compute_4B(const vector<double> &dx, const vector<double> &dr,
     return;
 
   vector<int> &mapped_pair_idx = pair_int_quad_map[idx];
+  const chimesSlotConst *sc = &slot_4b[idx * 6];
 
   // Check whether cutoffs are within allowed ranges
 
   for (int i = 0; i < npairs; i++)
-    if (dx[i] >= chimes_4b_cutoff[quadidx][1][mapped_pair_idx[i]]) return;
+    if (dx[i] >= sc[i].outer) return;
 
   // At this point, all distances are within allowed ranges. We can now proceed to the force/stress/energy calculation
 
   // Set up the polynomials
 
-  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], atom_int_pair_map[typ_idxs[0] * natmtyps + typ_idxs[1]],
-                  chimes_4b_cutoff[quadidx][0][mapped_pair_idx[0]],
-                  chimes_4b_cutoff[quadidx][1][mapped_pair_idx[0]], 2);
-
-  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], atom_int_pair_map[typ_idxs[0] * natmtyps + typ_idxs[2]],
-                  chimes_4b_cutoff[quadidx][0][mapped_pair_idx[1]],
-                  chimes_4b_cutoff[quadidx][1][mapped_pair_idx[1]], 2);
-
-  set_cheby_polys(Tn_il, Tnd_il, dx[2], atom_int_pair_map[typ_idxs[0] * natmtyps + typ_idxs[3]],
-                  chimes_4b_cutoff[quadidx][0][mapped_pair_idx[2]],
-                  chimes_4b_cutoff[quadidx][1][mapped_pair_idx[2]], 2);
-
-  set_cheby_polys(Tn_jk, Tnd_jk, dx[3], atom_int_pair_map[typ_idxs[1] * natmtyps + typ_idxs[2]],
-                  chimes_4b_cutoff[quadidx][0][mapped_pair_idx[3]],
-                  chimes_4b_cutoff[quadidx][1][mapped_pair_idx[3]], 2);
-
-  set_cheby_polys(Tn_jl, Tnd_jl, dx[4], atom_int_pair_map[typ_idxs[1] * natmtyps + typ_idxs[3]],
-                  chimes_4b_cutoff[quadidx][0][mapped_pair_idx[4]],
-                  chimes_4b_cutoff[quadidx][1][mapped_pair_idx[4]], 2);
-
-  set_cheby_polys(Tn_kl, Tnd_kl, dx[5], atom_int_pair_map[typ_idxs[2] * natmtyps + typ_idxs[3]],
-                  chimes_4b_cutoff[quadidx][0][mapped_pair_idx[5]],
-                  chimes_4b_cutoff[quadidx][1][mapped_pair_idx[5]], 2);
+  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], sc[0], 2);
+  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], sc[1], 2);
+  set_cheby_polys(Tn_il, Tnd_il, dx[2], sc[2], 2);
+  set_cheby_polys(Tn_jk, Tnd_jk, dx[3], sc[3], 2);
+  set_cheby_polys(Tn_jl, Tnd_jl, dx[4], sc[4], 2);
+  set_cheby_polys(Tn_kl, Tnd_kl, dx[5], sc[5], 2);
 
   // Set up the smoothing functions
-  for (int i = 0; i < npairs; i++)
-    get_fcut(dx[i], chimes_4b_cutoff[quadidx][1][mapped_pair_idx[i]], fcut[i], fcutderiv[i]);
+  for (int i = 0; i < npairs; i++) get_fcut(dx[i], sc[i], fcut[i], fcutderiv[i]);
 
   // Product of all 6 fcuts.
   double fcut_all = fcut[0] * fcut[1] * fcut[2] * fcut[3] * fcut[4] * fcut[5];
@@ -2047,6 +2023,99 @@ void chimesFF::build_pair_int_trip_map()
     if (pair_int_trip_map[i].size() == 0) {
       cout << "Error: Did not initialize pair_int_trip_map entry " << i << endl;
     }
+  }
+}
+
+// Fill one slot record.  This is the only place the Morse transform bounds and
+// the cutoff-function constants are derived; the expressions match what the
+// compute routines used to evaluate inline, so the tabulated values are the
+// same bits the old code produced on every call.
+
+void chimesFF::fill_slot(chimesSlotConst &sc, int pair_idx, double inner, double outer)
+{
+  sc.morse = morse_var[pair_idx];
+  sc.inner = inner;
+  sc.outer = outer;
+
+  const double x_min = exp(-1 * inner / sc.morse);
+  const double x_max = exp(-1 * outer / sc.morse);
+
+  sc.x_avg = 0.5 * (x_max + x_min);
+  sc.x_diff = 0.5 * (x_max - x_min);
+  sc.x_diff *= -1.0;    // Special for Morse style
+
+  sc.fcut_thresh = outer - fcut_var * outer;
+  sc.fcut_denom = outer - sc.fcut_thresh;
+
+  if (fcut_type == fcutType::CUBIC)
+    sc.fcut_dscale = -1.0 * 3.0 / outer;
+  else
+    sc.fcut_dscale = CHIMES_PI / sc.fcut_denom;
+}
+
+void chimesFF::build_interaction_tables()
+{
+  const int n = natmtyps;
+
+  // 2-body: one slot per ordered atom type pair
+
+  slot_2b.assign(n * n, chimesSlotConst());
+
+  for (int i = 0; i < n; i++)
+    for (int j = 0; j < n; j++) {
+      const int pair_idx = atom_int_pair_map[i * n + j];
+      fill_slot(slot_2b[i * n + j], pair_idx, chimes_2b_cutoff[pair_idx][0],
+                chimes_2b_cutoff[pair_idx][1]);
+    }
+
+  // 3-body: three slots per ordered atom type triple.  The Morse lambda comes
+  // from the runtime pair's own type and the cutoffs from the parameter slot it
+  // maps onto, exactly as compute_3B looked them up.
+
+  if (poly_orders[1] > 0) {
+    slot_3b.assign(n * n * n * 3, chimesSlotConst());
+
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++) {
+          const int type_idx = (i * n + j) * n + k;
+          const int tripidx = atom_int_trip_map[type_idx];
+
+          if (tripidx < 0) continue;    // excluded interaction
+
+          const vector<int> &map = pair_int_trip_map[type_idx];
+          const int pidx[3] = {atom_int_pair_map[i * n + j], atom_int_pair_map[i * n + k],
+                               atom_int_pair_map[j * n + k]};
+
+          for (int p = 0; p < 3; p++)
+            fill_slot(slot_3b[type_idx * 3 + p], pidx[p], chimes_3b_cutoff[tripidx][0][map[p]],
+                      chimes_3b_cutoff[tripidx][1][map[p]]);
+        }
+  }
+
+  // 4-body: six slots per ordered atom type quadruple
+
+  if (poly_orders[2] > 0) {
+    slot_4b.assign(n * n * n * n * 6, chimesSlotConst());
+
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+          for (int l = 0; l < n; l++) {
+            const int type_idx = ((i * n + j) * n + k) * n + l;
+            const int quadidx = atom_int_quad_map[type_idx];
+
+            if (quadidx < 0) continue;    // excluded interaction
+
+            const vector<int> &map = pair_int_quad_map[type_idx];
+            const int pidx[6] = {atom_int_pair_map[i * n + j], atom_int_pair_map[i * n + k],
+                                 atom_int_pair_map[i * n + l], atom_int_pair_map[j * n + k],
+                                 atom_int_pair_map[j * n + l], atom_int_pair_map[k * n + l]};
+
+            for (int p = 0; p < 6; p++)
+              fill_slot(slot_4b[type_idx * 6 + p], pidx[p], chimes_4b_cutoff[quadidx][0][map[p]],
+                        chimes_4b_cutoff[quadidx][1][map[p]]);
+          }
   }
 }
 

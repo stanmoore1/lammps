@@ -107,6 +107,22 @@ enum class fcutType {
   TERSOFF,
 };
 
+// Everything about one pair slot of one cluster type that does not depend on
+// the configuration.  The Morse transform bounds and the cutoff-function
+// constants were previously re-derived on every single interaction, which cost
+// two of the three exp() calls in set_cheby_polys plus a handful of divisions.
+// They are functions of the atom types alone, so they are tabulated at setup.
+
+struct chimesSlotConst {
+  double morse;         // Morse lambda of the pair type occupying this slot
+  double inner, outer;  // inner and outer cutoff of this slot
+  double x_avg;         // Morse transform: x = (exp(-r/morse) - x_avg) / x_diff
+  double x_diff;
+  double fcut_thresh;   // TERSOFF: distance at which the cutoff function starts
+  double fcut_denom;    // TERSOFF: outer - fcut_thresh
+  double fcut_dscale;   // TERSOFF: pi/fcut_denom.  CUBIC: -3/outer
+};
+
 class chimesFF {
  public:
   ////////////////////////
@@ -154,6 +170,15 @@ class chimesFF {
   int get_atom_pair_index(int pair_id);
   virtual void build_pair_int_trip_map();
   virtual void build_pair_int_quad_map();
+
+  // Tabulates the configuration-independent per-slot constants.  Must be called
+  // after read_parameters() and the two build_pair_int_*_map() calls.
+  void build_interaction_tables();
+
+ protected:
+  void fill_slot(chimesSlotConst &sc, int pair_idx, double inner, double outer);
+
+ public:
 
  protected:
   bool dense_coeffs;
@@ -249,11 +274,20 @@ class chimesFF {
   vector<vector<vector<double>>>
       chimes_4b_cutoff;    // [nquads][2][constit. pair] inner and outer cutoff for pair 1
 
+  // Per-slot constants, indexed by the packed atom-type index of the cluster:
+  //   2-body: [t0*natmtyps + t1]
+  //   3-body: [type_idx*3 + pair],  pair order (ij, ik, jk)
+  //   4-body: [type_idx*6 + pair],  pair order (ij, ik, il, jk, jl, kl)
+  // Entries for excluded cluster types are left zeroed and never read.
+
+  vector<chimesSlotConst> slot_2b;
+  vector<chimesSlotConst> slot_3b;
+  vector<chimesSlotConst> slot_4b;
+
   // Tools for compute functions
 
   inline void set_cheby_polys(vector<double> &Tn, vector<double> &Tnd, double dx,
-                              const int pair_idx, const double inner_cutoff,
-                              const double outer_cutoff, const int bodiedness_idx);
+                              const chimesSlotConst &sc, const int bodiedness_idx);
 
   void poly_2B(double *e, double *f0, int ncoeffs_2b, vector<double> &chimes_2b_params,
                vector<int> &chimes_2b_pows, vector<double> &Tn, vector<double> &Tnd);
@@ -336,10 +370,10 @@ class chimesFF {
   void set_polys_out_of_range(vector<double> &Tn, vector<double> &Tnd, double dx, double x,
                               int poly_order, double inner_cutoff, double exprlen, double dx_dr);
 
-  inline void get_fcut(const double dx, const double outer_cutoff, double &fcut, double &fcutderiv);
+  inline void get_fcut(const double dx, const chimesSlotConst &sc, double &fcut, double &fcutderiv);
 
-  inline void get_penalty(const double dx, const int &pair_idx, double &E_penalty,
-                          double &force_scalar);
+  inline void get_penalty(const double dx, const int &pair_idx, const double inner_cutoff,
+                          double &E_penalty, double &force_scalar);
 
   inline void build_atom_and_pair_mappers(const int natoms, const int npairs,
                                           const vector<int> &typ_idxs,
@@ -463,53 +497,47 @@ class chimesFF {
   }
 };
 
-inline void chimesFF::get_fcut(const double dx, const double outer_cutoff, double &fcut,
+inline void chimesFF::get_fcut(const double dx, const chimesSlotConst &sc, double &fcut,
                                double &fcutderiv)
 {
 
   double fcut0;
-  double fcut0_deriv;
 
   if (fcut_type == fcutType::CUBIC) {
-    fcut0 = (1.0 - dx / outer_cutoff);
+    fcut0 = (1.0 - dx / sc.outer);
     fcut = pow(fcut0, 3.0);
     fcutderiv = pow(fcut0, 2.0);
-    fcutderiv *= -1.0 * 3.0 / outer_cutoff;
+    fcutderiv *= sc.fcut_dscale;
 
   } else if (fcut_type == fcutType::TERSOFF) {
 
-    double THRESH = outer_cutoff - fcut_var * outer_cutoff;
-
-    if (dx < THRESH)    // Case 1: Our pair distance is less than the fcut kick-in distance
+    if (dx < sc.fcut_thresh)    // Case 1: Our pair distance is less than the fcut kick-in distance
     {
       fcut = 1.0;
       fcutderiv = 0.0;
-    } else if (dx > outer_cutoff)    // Case 2: Our pair distance is greater than the cutoff
+    } else if (dx > sc.outer)    // Case 2: Our pair distance is greater than the cutoff
     {
       fcut = 0.0;
       fcutderiv = 0.0;
     } else    // Case 3: We'll use our modified sin function
     {
-      fcut0 = (dx - THRESH) / (outer_cutoff - THRESH) * CHIMES_PI + CHIMES_PI / 2.0;
-      fcut0_deriv = CHIMES_PI / (outer_cutoff - THRESH);
+      fcut0 = (dx - sc.fcut_thresh) / sc.fcut_denom * CHIMES_PI + CHIMES_PI / 2.0;
 
       fcut = 0.5 + 0.5 * sin(fcut0);
-      fcutderiv = 0.5 * cos(fcut0) * fcut0_deriv;
+      fcutderiv = 0.5 * cos(fcut0) * sc.fcut_dscale;
     }
   }
 }
 
-inline void chimesFF::get_penalty(const double dx, const int &pair_idx, double &E_penalty,
-                                  double &force_scalar)
+inline void chimesFF::get_penalty(const double dx, const int &pair_idx, const double inner_cutoff,
+                                  double &E_penalty, double &force_scalar)
 {
   double r_penalty = 0.0;
 
   E_penalty = 0.0;
   force_scalar = 1.0;
 
-  if (dx - penalty_params[0] < chimes_2b_cutoff[pair_idx][0])
-
-    r_penalty = chimes_2b_cutoff[pair_idx][0] + penalty_params[0] - dx;
+  if (dx - penalty_params[0] < inner_cutoff) r_penalty = inner_cutoff + penalty_params[0] - dx;
 
   if (r_penalty > 0.0) {
     E_penalty = r_penalty * r_penalty * r_penalty * penalty_params[1];
@@ -517,8 +545,8 @@ inline void chimesFF::get_penalty(const double dx, const int &pair_idx, double &
     force_scalar = -3.0 * r_penalty * r_penalty * penalty_params[1];
 
     cout << "chimesFF: " << "Warning: Adding penalty in 2B Cheby calc, r < rmin+penalty_dist "
-         << fixed << dx << " " << chimes_2b_cutoff[pair_idx][0] + penalty_params[0]
-         << " pair type: " << pair_idx << endl;
+         << fixed << dx << " " << inner_cutoff + penalty_params[0] << " pair type: " << pair_idx
+         << endl;
     cout << "chimesFF: " << "\t...Penalty potential = " << E_penalty << endl;
   }
 }
@@ -628,38 +656,31 @@ inline void chimesFF::build_atom_and_pair_mappers(const int natoms, const int np
 }
 
 inline void chimesFF::set_cheby_polys(vector<double> &Tn, vector<double> &Tnd, double dx,
-                                      const int pair_idx, const double inner_cutoff,
-                                      const double outer_cutoff, const int bodiedness_idx)
+                                      const chimesSlotConst &sc, const int bodiedness_idx)
 {
   // Currently assumes a Morse-style transformation has been requested
 
   // Sets the value of the Chebyshev polynomials (Tn) and their derivatives (Tnd).  Tnd is the derivative
   // with respect to the interatomic distance, not the transformed distance (x).
 
-  // Do the Morse transformation
-
-  double x_min = exp(-1 * inner_cutoff / morse_var[pair_idx]);
-  double x_max = exp(-1 * outer_cutoff / morse_var[pair_idx]);
-
-  double x_avg = 0.5 * (x_max + x_min);
-  double x_diff = 0.5 * (x_max - x_min);
-
-  x_diff *= -1.0;    // Special for Morse style
+  // The Morse transformation bounds (x_avg, x_diff) depend only on the pair
+  // type and this slot's cutoffs, so they come from the precomputed table
+  // rather than from two exp() calls per interaction.
 
   bool out_of_range;
   double dx_orig = dx;
 
   //  The case dx > outer_cutoff is not treated, because it is assumed that the outer smoothing
   //  function will be zero for dx > outer_cutoff.
-  if (dx < inner_cutoff) {
+  if (dx < sc.inner) {
     out_of_range = true;
-    dx = inner_cutoff;
+    dx = sc.inner;
   } else
     out_of_range = false;
 
-  double exprlen = exp(-1 * dx / morse_var[pair_idx]);
-  double x = (exprlen - x_avg) / x_diff;
-  double dx_dr = (-exprlen / morse_var[pair_idx]) / x_diff;
+  double exprlen = exp(-1 * dx / sc.morse);
+  double x = (exprlen - sc.x_avg) / sc.x_diff;
+  double dx_dr = (-exprlen / sc.morse) / sc.x_diff;
 
   if (!out_of_range) {
     // Generate Chebyshev polynomials by recursion.
@@ -700,11 +721,11 @@ inline void chimesFF::set_cheby_polys(vector<double> &Tn, vector<double> &Tnd, d
     Tnd[0] = 0.0;
   } else    // out_of_range == true
   {
-    cout << "Warning: An intermolecular distance less than the inner cutoff = " << inner_cutoff
+    cout << "Warning: An intermolecular distance less than the inner cutoff = " << sc.inner
          << " was found\n ";
     cout << "         Distance = " << dx_orig << endl;
 
-    set_polys_out_of_range(Tn, Tnd, dx_orig, x, poly_orders[bodiedness_idx], inner_cutoff, exprlen,
+    set_polys_out_of_range(Tn, Tnd, dx_orig, x, poly_orders[bodiedness_idx], sc.inner, exprlen,
                            dx_dr);
   }
 }

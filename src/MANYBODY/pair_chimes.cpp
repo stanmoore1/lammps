@@ -136,6 +136,7 @@ void PairCHIMES::coeff(int narg, char **arg)
   //chimes_calculator->set_atomtypes(chimes_type);
   chimes_calculator->build_pair_int_trip_map();
   chimes_calculator->build_pair_int_quad_map();
+  chimes_calculator->build_interaction_tables();
 
   // Set special LAMMPS flags/cutoffs
 
