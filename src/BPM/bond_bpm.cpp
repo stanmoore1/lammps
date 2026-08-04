@@ -144,7 +144,7 @@ void BondBPM::init_style()
         error->all(FLERR,
                    "With overlay/pair no and break yes, BPM bond styles require Newton bond off");
 
-      // special lj must be 0 1 1 to censor pair forces between bonded particles
+      // special lj must be 0 1 1 to exclude pair forces between bonded particles
       if (force->special_lj[1] != 0.0 || force->special_lj[2] != 1.0 || force->special_lj[3] != 1.0)
         error->all(FLERR,
                    "With overlay/pair no, BPM bond styles require special LJ weights = 0,1,1");
@@ -327,16 +327,6 @@ void BondBPM::settings(int narg, char **arg)
         }
       }
     }
-  }
-
-  // Set up necessary history fix
-  if (!fix_bond_history) {
-    auto *newfix = modify->replace_fix(
-        id_fix_dummy_history,
-        fmt::format("{} all BOND_HISTORY {} {}", id_fix_bond_history, update_flag, nhistory), 1);
-    fix_bond_history = dynamic_cast<FixBondHistory *>(newfix);
-    delete[] id_fix_dummy_history;
-    id_fix_dummy_history = nullptr;
   }
 
   // If bonds don't break and there's no overlay, can ignore special requirements

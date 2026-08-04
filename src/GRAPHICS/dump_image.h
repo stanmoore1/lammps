@@ -43,8 +43,10 @@ class DumpImage : public DumpCustom {
   ~DumpImage() override;
   int pack_forward_comm(int, int *, double *, int, int *) override;
   void unpack_forward_comm(int, int, double *) override;
+  void write() override;
 
   void *extract(const char *, int &) override;
+  int colormap_active(int);    // 1 if the colormap with the given index colors something
 
  protected:
   int filetype;
@@ -68,10 +70,13 @@ class DumpImage : public DumpCustom {
   int bodycolor;                  // what determines color of bodies
   double bodyflag1, bodyflag2;    // user-specified params for drawing bodies
 
-  int bondflag;         // NO/YES/AUTO for drawing bonds
-  int bcolor, bdiam;    // what determines color/diam of bonds
-  double bdiamvalue;    // bond diameter value
-  double bondcutoff;    // autobond cutoff
+  int bondflag;             // NO/YES/AUTO for drawing bonds
+  int bcolor, bdiam;        // what determines color/diam of bonds
+  double bdiamvalue;        // bond diameter value
+  double bondcutoff;        // autobond cutoff
+  char *id_bond_compute;    // ID of per-bond /local compute for bond coloring (or null)
+  Compute *bond_compute;    // ptr to that compute, resolved in init_style()
+  int bond_argindex;        // 1-based column for c_ID[N]; 0 selects the whole vector
 
   int extraflag;                                    // 0/1 for any of line/tri/body flag set
   char *thetastr, *phistr;                          // variables for view theta,phi
@@ -103,6 +108,7 @@ class DumpImage : public DumpCustom {
   Compute *grid_compute;
   Fix *grid_fix;
   int grid_igrid, grid_idata, grid_index;
+  double grid_opacity;
   int nxgrid, nygrid, nzgrid;
   int nxlo_in, nxhi_in, nylo_in, nyhi_in, nzlo_in, nzhi_in;
   double *gbuf;
@@ -162,7 +168,6 @@ class DumpImage : public DumpCustom {
 
   void init_style() override;
   int modify_param(int, char **) override;
-  void write() override;
 
   void box_center();
   void view_params();

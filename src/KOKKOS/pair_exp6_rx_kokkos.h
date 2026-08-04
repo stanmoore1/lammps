@@ -189,7 +189,8 @@ class PairExp6rxKokkos : public PairExp6rx {
   DAT::ttransform_kkfloat_2d k_cutsq;
   typename AT::t_kkfloat_2d d_cutsq;
 
-  void read_file(char *) override;
+  void initialize_exp6_params_array() override;
+  void grow_exp6_params_array(int old_size, int new_size) override;
   void setup() override;
 
 // NOLINTNEXTLINE
@@ -197,7 +198,7 @@ class PairExp6rxKokkos : public PairExp6rx {
   void getMixingWeights(int, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;
 
   template <class ArrayT>
-  void getMixingWeightsVect(const int, int, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &) const;
+  void getMixingWeightsVect(const int, int &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &, ArrayT &) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION

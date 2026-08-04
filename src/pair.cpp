@@ -44,9 +44,11 @@ using MathConst::MY_ISPI4;
 using MathConst::THIRD;
 using MathSpecial::powint;
 
+namespace {
 enum { NONE, RLINEAR, RSQ, BMP };
-static const std::string mixing_rule_names[Pair::SIXTHPOWER + 1] = {"geometric", "arithmetic",
-                                                                    "sixthpower"};
+// NOLINTNEXTLINE
+const std::vector<std::string> mixing_rule_names{"geometric", "arithmetic", "sixthpower"};
+}    // namespace
 
 // allocate space for static class instance variable and initialize it
 
@@ -87,7 +89,7 @@ Pair::Pair(LAMMPS *lmp) :
   nextra = 0;
   single_extra = 0;
 
-  ewaldflag = pppmflag = msmflag = dispersionflag = tip4pflag = dipoleflag = spinflag = 0;
+  ewaldflag = pppmflag = espflag = msmflag = dispersionflag = tip4pflag = dipoleflag = spinflag = 0;
   reinitflag = 1;
   centroidstressflag = CENTROID_SAME;
 
@@ -374,12 +376,18 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
 {
   int masklo,maskhi;
   double r,grij,expm2,derfc,egamma,fgamma,rsw;
+  double fesp,eesp;
   double qqrd2e = force->qqrd2e;
 
   if (force->kspace == nullptr)
     error->all(FLERR, Error::NOLASTLINE,
                "Pair style {} requires a KSpace style", force->pair_style);
   double g_ewald = force->kspace->g_ewald;
+
+  double *force_poly_coeff = force->kspace->force_poly_coeff;
+  int num_of_force_poly = force->kspace->num_of_force_poly;
+  double *energy_poly_coeff = force->kspace->energy_poly_coeff;
+  int num_of_energy_poly = force->kspace->num_of_energy_poly;
 
   double cut_coulsq = cut_coul * cut_coul;
 
@@ -432,17 +440,35 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
       egamma = 1.0 - (r/cut_coul)*force->kspace->gamma(r/cut_coul);
       fgamma = 1.0 + ((double)rsq_lookup.f/cut_coulsq)*
         force->kspace->dgamma(r/cut_coul);
+    } else if (espflag) {
+      double r_coul = 2.0 * r/cut_coul - 1.0;
+      double poly_r = 1.0;
+      fesp = force_poly_coeff[0];
+      for (int ii = 1; ii < num_of_force_poly; ii++) {
+        poly_r *= r_coul;
+        fesp += force_poly_coeff[ii] * poly_r;
+      }
+      poly_r = 1.0;
+      eesp = energy_poly_coeff[0];
+      for (int ii = 1; ii < num_of_energy_poly; ii++) {
+        poly_r *= r_coul;
+        eesp += energy_poly_coeff[ii] * poly_r;
+      }
     } else {
       grij = g_ewald * r;
       expm2 = exp(-grij*grij);
       derfc = erfc(grij);
     }
+
     if (cut_respa == nullptr) {
       rtable[i] = (double)rsq_lookup.f;
       ctable[i] = qqrd2e/r;
       if (msmflag) {
         ftable[i] = qqrd2e/r * fgamma;
         etable[i] = qqrd2e/r * egamma;
+      } else if (espflag) {
+        ftable[i] = qqrd2e/r * fesp;
+        etable[i] = qqrd2e/r * eesp;
       } else {
         ftable[i] = qqrd2e/r * (derfc + MY_ISPI4*grij*expm2);
         etable[i] = qqrd2e/r * derfc;
@@ -455,6 +481,10 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
         ftable[i] = qqrd2e/r * (fgamma - 1.0);
         etable[i] = qqrd2e/r * egamma;
         vtable[i] = qqrd2e/r * fgamma;
+      } else if (espflag) {
+        ftable[i] = qqrd2e/r * (fesp - 1.0);
+        etable[i] = qqrd2e/r * eesp;
+        vtable[i] = qqrd2e/r * fesp;
       } else {
         ftable[i] = qqrd2e/r * (derfc + MY_ISPI4*grij*expm2 - 1.0);
         etable[i] = qqrd2e/r * derfc;
@@ -467,6 +497,7 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
           ctable[i] = qqrd2e/r * rsw*rsw*(3.0 - 2.0*rsw);
         } else {
           if (msmflag) ftable[i] = qqrd2e/r * fgamma;
+          else if (espflag) ftable[i] = qqrd2e/r * fesp;
           else ftable[i] = qqrd2e/r * (derfc + MY_ISPI4*grij*expm2);
           ctable[i] = qqrd2e/r;
         }
@@ -529,6 +560,20 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
       egamma = 1.0 - (r/cut_coul)*force->kspace->gamma(r/cut_coul);
       fgamma = 1.0 + ((double)rsq_lookup.f/cut_coulsq)*
         force->kspace->dgamma(r/cut_coul);
+    } else if (espflag) {
+      double r_coul = 2.0 * r/cut_coul - 1.0;
+      double poly_r = 1.0;
+      fesp = force_poly_coeff[0];
+      for (int ii = 1; ii < num_of_force_poly; ii++) {
+        poly_r *= r_coul;
+        fesp += force_poly_coeff[ii] * poly_r;
+      }
+      poly_r = 1.0;
+      eesp = energy_poly_coeff[0];
+      for (int ii = 1; ii < num_of_energy_poly; ii++) {
+        poly_r *= r_coul;
+        eesp += energy_poly_coeff[ii] * poly_r;
+      }
     } else {
       grij = g_ewald * r;
       expm2 = exp(-grij*grij);
@@ -539,6 +584,9 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
       if (msmflag) {
         f_tmp = qqrd2e/r * fgamma;
         e_tmp = qqrd2e/r * egamma;
+      } else if (espflag) {
+        f_tmp = qqrd2e/r * fesp;
+        e_tmp = qqrd2e/r * eesp;
       } else {
         f_tmp = qqrd2e/r * (derfc + MY_ISPI4*grij*expm2);
         e_tmp = qqrd2e/r * derfc;
@@ -550,6 +598,10 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
         f_tmp = qqrd2e/r * (fgamma - 1.0);
         e_tmp = qqrd2e/r * egamma;
         v_tmp = qqrd2e/r * fgamma;
+      } else if (espflag) {
+        f_tmp = qqrd2e/r * (fesp - 1.0);
+        e_tmp = qqrd2e/r * eesp;
+        v_tmp = qqrd2e/r * fesp;
       } else {
         f_tmp = qqrd2e/r * (derfc + MY_ISPI4*grij*expm2 - 1.0);
         e_tmp = qqrd2e/r * derfc;
@@ -562,6 +614,7 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
           c_tmp = qqrd2e/r * rsw*rsw*(3.0 - 2.0*rsw);
         } else {
           if (msmflag) f_tmp = qqrd2e/r * fgamma;
+          else if (espflag) f_tmp = qqrd2e/r * fesp;
           else f_tmp = qqrd2e/r * (derfc + MY_ISPI4*grij*expm2);
           c_tmp = qqrd2e/r;
         }
@@ -1894,7 +1947,7 @@ void Pair::write_file(int narg, char **arg)
 
   Pair *epair = force->pair_match("^eam",0);
   if (epair) epair->swap_eam(eamfp, &eamfp_hold);
-  if ((comm->me == 0) && (epair))
+  if ((comm->me == 0) && epair)
     error->warning(FLERR,"EAM pair style. Table will not include embedding term");
 
   // if atom style defines charge, swap in dummy q vec
@@ -2005,9 +2058,9 @@ void Pair::init_bitmap(double inner, double outer, int ntablebits,
 
   union_int_float_t rsq_lookup;
   rsq_lookup.f = outer*outer;
-  maskhi = rsq_lookup.i & ~(nmask);
+  maskhi = rsq_lookup.i & ~nmask;
   rsq_lookup.f = inner*inner;
-  masklo = rsq_lookup.i & ~(nmask);
+  masklo = rsq_lookup.i & ~nmask;
 }
 
 /* ---------------------------------------------------------------------- */

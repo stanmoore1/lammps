@@ -313,7 +313,7 @@ defined as :math:`\kappa_e = D_e \cdot rho_e \cdot C_e`, where
 
 Electronic pressure effects are included in the TTM model to account for
 the blast force acting on ions because of electronic pressure gradient
-(see :ref:`(Chen) <Chen>`, :ref:`(Norman) <Norman>`).  The total force
+(see :ref:`(Chen2) <Chen>`, :ref:`(Norman) <Norman>`).  The total force
 acting on an ion is:
 
 .. math::
@@ -351,6 +351,24 @@ electronic pressure gradient is calculated as
 where :math:`\lambda` is the electron mean free path (see :ref:`(Norman)
 <Norman>`, :ref:`(Pisarev) <Pisarev>`)
 
+.. note::
+
+  The *lsurface* and *rsurface* parameters always define the range of
+  electronic grid cells in the x-direction over which the electron-ion
+  (Langevin) coupling and any external (laser) source term are applied,
+  regardless of the *surface_movement* setting.  Only atoms in grid
+  cells whose x grid index *ix* satisfies *lsurface* <= *ix* <
+  *rsurface* are coupled to the electronic subsystem; atoms in cells
+  outside this range exchange no energy with the electrons.  Therefore,
+  to model a bulk system with full periodicity and no vacuum (i.e. to
+  reproduce the behavior of fix *ttm*), you must set *lsurface* = 0 and
+  *rsurface* = *Nx* so that the coupling acts on the entire simulation
+  box.  Setting *rsurface* to a smaller value couples only a sub-slab of
+  the grid cells and will make energy transfer between the two
+  subsystems appear much too slow.  Fix *ttm/mod* prints a warning when
+  this coupling region does not span the whole box (with
+  *surface_movement* disabled).
+
 The fix *ttm/mod* parameter file *init_file* has the following syntax.
 Every line with an odd number is considered as a comment and
 ignored. The lines with the even numbers are treated as follows:
@@ -370,9 +388,9 @@ ignored. The lines with the even numbers are treated as follows:
    gamma_s, mass/time units
    v_0, length/time units
    I_0, energy/(time\*length\^2) units
-   lsurface, electron grid units (positive integer)
-   rsurface, electron grid units (positive integer)
-   l_skin, length units
+   lsurface, lower x grid index of the coupled (electron) region (positive integer; see note above)
+   rsurface, upper x grid index of the coupled (electron) region (positive integer; see note above)
+   l_skin, electron grid units (positive integer)
    tau, time units
    B, dimensionless
    lambda, length units
@@ -525,7 +543,7 @@ Condens. Matter, 19, 496201-496210 (2007).
 
 .. _Chen:
 
-**(Chen)** J Chen, D Tzou and J Beraun, Int. J. Heat
+**(Chen2)** J Chen, D Tzou and J Beraun, Int. J. Heat
 Mass Transfer, 49, 307-316 (2006).
 
 .. _Norman:
