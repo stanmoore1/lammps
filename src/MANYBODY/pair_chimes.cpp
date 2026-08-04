@@ -432,7 +432,9 @@ void PairCHIMES::build_mb_neighlists()
     }
   }
 
-  sort_3mers_by_type();
+  if (chimes_calculator->poly_orders[1] > 0) sort_mers_by_type<3>(neighborlist_3mers, n_3mers);
+
+  if (do_4b) sort_mers_by_type<4>(neighborlist_4mers, n_4mers);
 }
 
 /* ----------------------------------------------------------------------
@@ -442,39 +444,48 @@ void PairCHIMES::build_mb_neighlists()
    per neighbor rebuild rather than once per step.
 ------------------------------------------------------------------------- */
 
-void PairCHIMES::sort_3mers_by_type()
+template <int WIDTH>
+void PairCHIMES::sort_mers_by_type(std::vector<int> &mers, int nmers)
 {
-  if ((chimes_calculator->poly_orders[1] == 0) || (n_3mers == 0)) return;
+  if (nmers == 0) return;
 
   const int nt = chimes_calculator->natmtyps;
-  const int nkey = nt * nt * nt;
+  int nkey = 1;
+
+  for (int w = 0; w < WIDTH; w++) nkey *= nt;
+
   int *type = atom->type;
 
-  mer_key.resize(n_3mers);
+  mer_key.resize(nmers);
   type_count.assign(nkey + 1, 0);
 
-  for (int c = 0; c < n_3mers; c++) {
-    const int *m = &neighborlist_3mers[3 * c];
-    const int key = chimes_calculator->type_index_3B(chimes_type[type[m[0]] - 1],
-                                                     chimes_type[type[m[1]] - 1],
-                                                     chimes_type[type[m[2]] - 1]);
+  for (int c = 0; c < nmers; c++) {
+    const int *m = &mers[(size_t) WIDTH * c];
+    int key = 0;
+
+    for (int w = 0; w < WIDTH; w++) key = key * nt + chimes_type[type[m[w]] - 1];
+
     mer_key[c] = key;
     type_count[key + 1]++;
   }
 
   for (int t = 0; t < nkey; t++) type_count[t + 1] += type_count[t];
 
-  mer_scratch.resize((size_t) n_3mers * 3);
+  mer_scratch.resize((size_t) nmers * WIDTH);
 
-  for (int c = 0; c < n_3mers; c++) {
-    const int dst = type_count[mer_key[c]]++;
+  // A counting sort is stable, so clusters that share a type keep the order the
+  // build gave them.  That matters: the build emits the last atom fastest, so
+  // clusters that are adjacent already share most of their pairs, and keeping
+  // them adjacent keeps the distances a batch works on close together in
+  // memory.
 
-    mer_scratch[3 * dst + 0] = neighborlist_3mers[3 * c + 0];
-    mer_scratch[3 * dst + 1] = neighborlist_3mers[3 * c + 1];
-    mer_scratch[3 * dst + 2] = neighborlist_3mers[3 * c + 2];
+  for (int c = 0; c < nmers; c++) {
+    const size_t dst = (size_t) WIDTH * type_count[mer_key[c]]++;
+
+    for (int w = 0; w < WIDTH; w++) mer_scratch[dst + w] = mers[(size_t) WIDTH * c + w];
   }
 
-  neighborlist_3mers.swap(mer_scratch);
+  mers.swap(mer_scratch);
 }
 
 void PairCHIMES::compute(int eflag, int vflag)
@@ -524,7 +535,7 @@ void PairCHIMES::compute(int eflag, int vflag)
   chimes2BTmp chimes_2btmp(chimes_calculator->poly_orders[0]);
   chimes3BTmp chimes_3btmp(chimes_calculator->poly_orders[1]);
   chimes3BBatch chimes_3bbatch(chimes_calculator->poly_orders[1]);
-  chimes4BTmp chimes_4btmp(chimes_calculator->poly_orders[2]);
+  chimes4BBatch chimes_4bbatch(chimes_calculator->poly_orders[2]);
 
   // Build the ChIMES many-body neighbor lists.. only do so when LAMMPS neighborlist has been updated
 
@@ -735,56 +746,140 @@ void PairCHIMES::compute(int eflag, int vflag)
     // Compute 4-body interactions
     ////////////////////////////////////////
 
-    for (ii = 0; ii < n_4mers; ii++) {
-      const int *mer = &neighborlist_4mers[4 * ii];
-      i = mer[0];
-      j = mer[1];
-      k = mer[2];
-      l = mer[3];
+    // Quadruplets are batched exactly as the triplets are, and for the same
+    // reason: the list is sorted by cluster type, so a run of clusters shares
+    // one coefficient set and can be evaluated lane by lane.  Sorting is what
+    // makes this work -- an earlier attempt that batched the list in build
+    // order averaged 2.6 of 8 lanes, because a run of quadruplets sharing
+    // (i,j,k) holds barely more than one surviving cluster.
 
-      typ_idxs_4b[0] = chimes_type[type[i] - 1];
-      typ_idxs_4b[1] = chimes_type[type[j] - 1];
-      typ_idxs_4b[2] = chimes_type[type[k] - 1];
-      typ_idxs_4b[3] = chimes_type[type[l] - 1];
+    double bdx[6][CHIMES_VLEN];
+    double bdr[6][CHDIM][CHIMES_VLEN];
+    int batom[4][CHIMES_VLEN];
 
-      // As for the triplets, and it matters more here: two thirds of the
-      // enumerated quadruplets are outside the real cutoffs on a given step,
-      // and each one used to cost six square roots before being discarded.
+    int nb = 0;
+    int batch_type = -1;
 
-      const chimesSlotConst *sc4 = chimes_calculator->slots_4B(
-          typ_idxs_4b[0], typ_idxs_4b[1], typ_idxs_4b[2], typ_idxs_4b[3]);
+    // Pair p acts between the two atoms of the cluster it connects.
 
-      if (!sc4) continue;
+    static const int pa[6] = {0, 0, 0, 1, 1, 2}, pb[6] = {1, 2, 3, 2, 3, 3};
 
-      if (!within(x, i, j, sc4[0].outer_sq, &dr_4b[0 * CHDIM], dist_4b[0])) continue;
-      if (!within(x, i, k, sc4[1].outer_sq, &dr_4b[1 * CHDIM], dist_4b[1])) continue;
-      if (!within(x, i, l, sc4[2].outer_sq, &dr_4b[2 * CHDIM], dist_4b[2])) continue;
-      if (!within(x, j, k, sc4[3].outer_sq, &dr_4b[3 * CHDIM], dist_4b[3])) continue;
-      if (!within(x, j, l, sc4[4].outer_sq, &dr_4b[4 * CHDIM], dist_4b[4])) continue;
-      if (!within(x, k, l, sc4[5].outer_sq, &dr_4b[5 * CHDIM], dist_4b[5])) continue;
+    for (ii = 0; ii <= n_4mers; ii++) {
+      int this_type = -1;
 
-      std::fill(force_4b.begin(), force_4b.end(), 0.0);
+      if (ii < n_4mers) {
+        const int *mer = &neighborlist_4mers[4 * ii];
+        i = mer[0];
+        j = mer[1];
+        k = mer[2];
+        l = mer[3];
 
-      if (vflag_either) std::fill(stensor.begin(), stensor.end(), 0.0);
+        typ_idxs_4b[0] = chimes_type[type[i] - 1];
+        typ_idxs_4b[1] = chimes_type[type[j] - 1];
+        typ_idxs_4b[2] = chimes_type[type[k] - 1];
+        typ_idxs_4b[3] = chimes_type[type[l] - 1];
 
-      energy = 0.0;
+        // As for the triplets, and it matters more here: two thirds of the
+        // enumerated quadruplets are outside the real cutoffs on a given step,
+        // and each one used to cost six square roots before being discarded.
 
-      chimes_calculator->compute_4B(dist_4b, dr_4b, typ_idxs_4b, force_4b, stensor, energy,
-                                    chimes_4btmp, vflag_either);
+        const chimesSlotConst *sc4 = chimes_calculator->slots_4B(
+            typ_idxs_4b[0], typ_idxs_4b[1], typ_idxs_4b[2], typ_idxs_4b[3]);
 
-      for (idx = 0; idx < 3; idx++) {
-        f[i][idx] += force_4b[0 * CHDIM + idx];
-        f[j][idx] += force_4b[1 * CHDIM + idx];
-        f[k][idx] += force_4b[2 * CHDIM + idx];
-        f[l][idx] += force_4b[3 * CHDIM + idx];
+        if (sc4) {
+          if (within(x, i, j, sc4[0].outer_sq, &dr_4b[0 * CHDIM], dist_4b[0]) &&
+              within(x, i, k, sc4[1].outer_sq, &dr_4b[1 * CHDIM], dist_4b[1]) &&
+              within(x, i, l, sc4[2].outer_sq, &dr_4b[2 * CHDIM], dist_4b[2]) &&
+              within(x, j, k, sc4[3].outer_sq, &dr_4b[3 * CHDIM], dist_4b[3]) &&
+              within(x, j, l, sc4[4].outer_sq, &dr_4b[4 * CHDIM], dist_4b[4]) &&
+              within(x, k, l, sc4[5].outer_sq, &dr_4b[5 * CHDIM], dist_4b[5]))
+            this_type = chimes_calculator->type_index_4B(typ_idxs_4b[0], typ_idxs_4b[1],
+                                                         typ_idxs_4b[2], typ_idxs_4b[3]);
+        }
       }
 
-      atmlist[0] = i;
-      atmlist[1] = j;
-      atmlist[2] = k;
-      atmlist[3] = l;
+      const bool at_end = (ii == n_4mers);
 
-      if (evflag) ev_tally_mb(4, atmlist, energy, stensor.data());
+      // A rejected cluster must not disturb the batch in hand.
+
+      if (!at_end && (this_type < 0)) continue;
+
+      if ((nb > 0) && (at_end || (this_type != batch_type) || (nb == CHIMES_VLEN))) {
+        for (int p = 0; p < 6; p++)
+          for (int lane = nb; lane < CHIMES_VLEN; lane++) bdx[p][lane] = bdx[p][0];
+
+        chimes_calculator->compute_4B_batch(nb, batch_type, bdx, chimes_4bbatch);
+
+        for (int lane = 0; lane < nb; lane++) {
+          double fc[6], fcut_5[6];
+
+          for (int p = 0; p < 6; p++) fc[p] = chimes_4bbatch.fcut[p][lane];
+
+          const double fcut_all = fc[0] * fc[1] * fc[2] * fc[3] * fc[4] * fc[5];
+          const double poly = chimes_4bbatch.poly[lane];
+
+          // Products of the other five cutoffs, from one pass each way.
+
+          double pre[6], suf[6];
+
+          pre[0] = 1.0;
+          suf[5] = 1.0;
+
+          for (int p = 1; p < 6; p++) pre[p] = pre[p - 1] * fc[p - 1];
+
+          for (int p = 4; p >= 0; p--) suf[p] = suf[p + 1] * fc[p + 1];
+
+          for (int p = 0; p < 6; p++) fcut_5[p] = pre[p] * suf[p];
+
+          if (vflag_either) std::fill(stensor.begin(), stensor.end(), 0.0);
+
+          for (int p = 0; p < 6; p++) {
+            const double fs = (fcut_all * chimes_4bbatch.dpoly[p][lane] +
+                               chimes_4bbatch.fcutderiv[p][lane] * fcut_5[p] * poly) /
+                bdx[p][lane];
+
+            const int a = batom[pa[p]][lane], b = batom[pb[p]][lane];
+
+            for (idx = 0; idx < CHDIM; idx++) {
+              f[a][idx] += fs * bdr[p][idx][lane];
+              f[b][idx] -= fs * bdr[p][idx][lane];
+            }
+
+            if (vflag_either) {
+              stensor[0] -= fs * bdr[p][0][lane] * bdr[p][0][lane];
+              stensor[1] -= fs * bdr[p][0][lane] * bdr[p][1][lane];
+              stensor[2] -= fs * bdr[p][0][lane] * bdr[p][2][lane];
+              stensor[3] -= fs * bdr[p][1][lane] * bdr[p][1][lane];
+              stensor[4] -= fs * bdr[p][1][lane] * bdr[p][2][lane];
+              stensor[5] -= fs * bdr[p][2][lane] * bdr[p][2][lane];
+            }
+          }
+
+          if (evflag) {
+            for (int a = 0; a < 4; a++) atmlist[a] = batom[a][lane];
+
+            ev_tally_mb(4, atmlist, poly * fcut_all, stensor.data());
+          }
+        }
+
+        nb = 0;
+      }
+
+      if (at_end) break;
+
+      batch_type = this_type;
+      batom[0][nb] = i;
+      batom[1][nb] = j;
+      batom[2][nb] = k;
+      batom[3][nb] = l;
+
+      for (int p = 0; p < 6; p++) {
+        bdx[p][nb] = dist_4b[p];
+
+        for (idx = 0; idx < CHDIM; idx++) bdr[p][idx][nb] = dr_4b[p * CHDIM + idx];
+      }
+
+      nb++;
     }
   }
 

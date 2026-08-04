@@ -2448,8 +2448,9 @@ void chimesFF::poly_3B(double *e, double *f, const chimesPolySet &ps, vector<dou
 
 CHIMES_VECTOR_CLONES
 void chimesFF::set_cheby_polys_batch(double *Tn, double *Tnd, const double *dx,
-                                     const chimesSlotConst &sc, const int order)
+                                     const chimesSlotConst &sc, const int bodyness)
 {
+  const int order = poly_orders[bodyness];
   const int dim = order + 1;
 
   double x[CHIMES_VLEN], dx_dr[CHIMES_VLEN];
@@ -2499,7 +2500,7 @@ void chimesFF::set_cheby_polys_batch(double *Tn, double *Tnd, const double *dx,
     for (int l = 0; l < CHIMES_VLEN; l++) {
       if (dx[l] >= sc.inner) continue;
 
-      set_cheby_polys(tn, tnd, dx[l], sc, 1);
+      set_cheby_polys(tn, tnd, dx[l], sc, bodyness);
 
       for (int i = 0; i < dim; i++) {
         Tn[i * CHIMES_VLEN + l] = tn[i];
@@ -2514,10 +2515,9 @@ void chimesFF::compute_3B_batch(const int nlane, const int type_idx,
                                 const double dx[3][CHIMES_VLEN], chimes3BBatch &b)
 {
   const chimesSlotConst *sc = &slot_3b[type_idx * 3];
-  const int order = poly_orders[1];
 
   for (int p = 0; p < 3; p++) {
-    set_cheby_polys_batch(b.Tn[p].data(), b.Tnd[p].data(), dx[p], sc[p], order);
+    set_cheby_polys_batch(b.Tn[p].data(), b.Tnd[p].data(), dx[p], sc[p], 1);
 
     for (int l = 0; l < CHIMES_VLEN; l++) get_fcut(dx[p][l], sc[p], b.fcut[p][l], b.fcutderiv[p][l]);
   }
@@ -3209,6 +3209,132 @@ void chimesFF::poly_4B_dense(double &e, double &f0, double &f1, double &f2, doub
   } else if (loop_style == 3) {
     poly_4B_dense_loop3(max_poly, e, f0, f1, f2, f3, f4, f5, ncoeffs_4b, params_4b, Tn_ij, Tn_ik,
                         Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+  }
+}
+
+// The batched form of poly_4B.  Same arithmetic, six pairs at a time across
+// CHIMES_VLEN clusters of one type: because the batch stores its Chebyshev
+// values lane-minor, a coefficient's power selects one contiguous run of
+// doubles per pair rather than one scalar, so the lane loop is the shape a
+// vector unit wants and the coefficient's power indices are loaded once for
+// the whole batch instead of once per cluster.
+
+CHIMES_VECTOR_CLONES
+void chimesFF::poly_4B_batch(const chimesPolySet &ps, chimes4BBatch &b)
+{
+  const int ncoeffs = ps.ncoeffs;
+  const double *const params = ps.params;
+  const int *pw = ps.powers;
+
+  double E[CHIMES_VLEN], F[6][CHIMES_VLEN];
+
+  for (int l = 0; l < CHIMES_VLEN; l++) {
+    E[l] = 0.0;
+
+    for (int p = 0; p < 6; p++) F[p][l] = 0.0;
+  }
+
+  for (int c = 0; c < ncoeffs; c++, pw += 6) {
+    const double coeff = params[c];
+
+    const double *const t0 = b.Tn[0].data() + (size_t) pw[0] * CHIMES_VLEN;
+    const double *const t1 = b.Tn[1].data() + (size_t) pw[1] * CHIMES_VLEN;
+    const double *const t2 = b.Tn[2].data() + (size_t) pw[2] * CHIMES_VLEN;
+    const double *const t3 = b.Tn[3].data() + (size_t) pw[3] * CHIMES_VLEN;
+    const double *const t4 = b.Tn[4].data() + (size_t) pw[4] * CHIMES_VLEN;
+    const double *const t5 = b.Tn[5].data() + (size_t) pw[5] * CHIMES_VLEN;
+
+    const double *const d0 = b.Tnd[0].data() + (size_t) pw[0] * CHIMES_VLEN;
+    const double *const d1 = b.Tnd[1].data() + (size_t) pw[1] * CHIMES_VLEN;
+    const double *const d2 = b.Tnd[2].data() + (size_t) pw[2] * CHIMES_VLEN;
+    const double *const d3 = b.Tnd[3].data() + (size_t) pw[3] * CHIMES_VLEN;
+    const double *const d4 = b.Tnd[4].data() + (size_t) pw[4] * CHIMES_VLEN;
+    const double *const d5 = b.Tnd[5].data() + (size_t) pw[5] * CHIMES_VLEN;
+
+    for (int l = 0; l < CHIMES_VLEN; l++) {
+      const double g0 = t0[l];
+      const double g1 = t1[l];
+      const double g2 = t2[l];
+      const double g3 = t3[l];
+      const double g4 = t4[l];
+      const double g5 = t5[l];
+
+      const double p1 = coeff * g0;
+      const double p2 = p1 * g1;
+      const double p3 = p2 * g2;
+      const double p4 = p3 * g3;
+      const double p5 = p4 * g4;
+
+      const double s4 = g5;
+      const double s3 = s4 * g4;
+      const double s2 = s3 * g3;
+      const double s1 = s2 * g2;
+      const double s0 = s1 * g1;
+
+      E[l] += p5 * g5;
+
+      F[0][l] += coeff * d0[l] * s0;
+      F[1][l] += p1 * d1[l] * s1;
+      F[2][l] += p2 * d2[l] * s2;
+      F[3][l] += p3 * d3[l] * s3;
+      F[4][l] += p4 * d4[l] * s4;
+      F[5][l] += p5 * d5[l];
+    }
+  }
+
+  for (int l = 0; l < CHIMES_VLEN; l++) {
+    b.poly[l] = E[l];
+
+    for (int p = 0; p < 6; p++) b.dpoly[p][l] = F[p][l];
+  }
+}
+
+// Set up and evaluate one batch of same-typed 4-body clusters.  Mirrors
+// compute_3B_batch: the caller has already grouped the clusters by type and
+// filled dx lane-minor, with unused lanes padded from lane 0.
+
+CHIMES_VECTOR_CLONES
+void chimesFF::compute_4B_batch(const int nlane, const int type_idx,
+                                const double dx[6][CHIMES_VLEN], chimes4BBatch &b)
+{
+  const chimesSlotConst *sc = &slot_4b[type_idx * 6];
+
+  for (int p = 0; p < 6; p++) {
+    set_cheby_polys_batch(b.Tn[p].data(), b.Tnd[p].data(), dx[p], sc[p], 2);
+
+    for (int l = 0; l < CHIMES_VLEN; l++) get_fcut(dx[p][l], sc[p], b.fcut[p][l], b.fcutderiv[p][l]);
+  }
+
+  const chimesPolySet &ps = poly_4b_set[type_idx];
+
+  if (!ps.grouped) {
+    poly_4B_batch(ps, b);
+    return;
+  }
+
+  // This type has a coefficient tree, which is built for one cluster at a
+  // time; unpack the lanes and use it.
+
+  vector<double> t[6], d[6];
+
+  for (int p = 0; p < 6; p++) {
+    t[p].resize(b.dim);
+    d[p].resize(b.dim);
+  }
+
+  for (int l = 0; l < nlane; l++) {
+    for (int p = 0; p < 6; p++)
+      for (int i = 0; i < b.dim; i++) {
+        t[p][i] = b.Tn[p][(size_t) i * CHIMES_VLEN + l];
+        d[p][i] = b.Tnd[p][(size_t) i * CHIMES_VLEN + l];
+      }
+
+    double f[6];
+
+    poly_4B_grouped(&b.poly[l], f, *ps.grouped, t[0], t[1], t[2], t[3], t[4], t[5], d[0], d[1], d[2],
+                    d[3], d[4], d[5]);
+
+    for (int p = 0; p < 6; p++) b.dpoly[p][l] = f[p];
   }
 }
 

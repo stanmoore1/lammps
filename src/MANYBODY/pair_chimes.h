@@ -134,7 +134,11 @@ class PairCHIMES : public Pair {
   double init_one(int i, int j) override;
   void compute(int eflag, int vflag) override;
   virtual void build_mb_neighlists();
-  void sort_3mers_by_type();
+  // Counting sort of a cluster list by packed atom-type index, so the compute
+  // loops see runs of one type and can batch them.  The width is a template
+  // parameter so the per-cluster copy unrolls: leaving it a runtime argument
+  // cost more than the sort saved.
+  template <int WIDTH> void sort_mers_by_type(std::vector<int> &mers, int nmers);
   inline double get_dist(int i, int j, double *dr);
   inline double get_dist(int i, int j);
   // Displacement and distance for a pair, but only if it is inside cutsq.

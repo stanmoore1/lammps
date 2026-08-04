@@ -170,6 +170,24 @@ class chimes3BBatch {
   double poly[CHIMES_VLEN], dpoly[3][CHIMES_VLEN];
 };
 
+// The same, for a batch of same-typed 4-body clusters over their six pairs.
+
+class chimes4BBatch {
+ public:
+  inline chimes4BBatch(int poly_order) : dim(poly_order + 1)
+  {
+    for (int p = 0; p < 6; p++) {
+      Tn[p].resize((size_t) dim * CHIMES_VLEN);
+      Tnd[p].resize((size_t) dim * CHIMES_VLEN);
+    }
+  }
+
+  int dim;
+  vector<double> Tn[6], Tnd[6];
+  double fcut[6][CHIMES_VLEN], fcutderiv[6][CHIMES_VLEN];
+  double poly[CHIMES_VLEN], dpoly[6][CHIMES_VLEN];
+};
+
 enum class fcutType {
   CUBIC,
   TERSOFF,
@@ -321,6 +339,15 @@ class chimesFF {
   {
     return (t0 * natmtyps + t1) * natmtyps + t2;
   }
+
+  // The same for a 4-body cluster.
+  inline int type_index_4B(const int t0, const int t1, const int t2, const int t3) const
+  {
+    return ((t0 * natmtyps + t1) * natmtyps + t2) * natmtyps + t3;
+  }
+
+  void compute_4B_batch(const int nlane, const int type_idx, const double dx[6][CHIMES_VLEN],
+                        chimes4BBatch &b);
 
   void compute_4B(const vector<double> &dx, const vector<double> &dr, const vector<int> &typ_idxs,
                   vector<double> &force, vector<double> &stress, double &energy, chimes4BTmp &tmp,
@@ -506,8 +533,8 @@ class chimesFF {
 
   void poly_3B_grouped_batch(const chimesGroupedPoly &g, chimes3BBatch &b);
 
-  void set_cheby_polys_batch(double *Tn, double *Tnd, const double *dx, const chimesSlotConst &sc,
-                             const int order);
+  void set_cheby_polys_batch(double *Tn, double *Tnd, const double *dx,
+                             const chimesSlotConst &sc, const int bodyness);
 
   void poly_4B_grouped(double *e, double *f, const chimesGroupedPoly &g, vector<double> &Tn_ij,
                        vector<double> &Tn_ik, vector<double> &Tn_il, vector<double> &Tn_jk,
@@ -544,6 +571,8 @@ class chimesFF {
   // Transforms 4-body input ChIMES model into a "dense" format where all
   // possible coefficients are allocated.
   void densify_4B(int &ncoeffs4, vector<vector<int>> &powers_4b, vector<double> &params_4b);
+
+  void poly_4B_batch(const chimesPolySet &ps, chimes4BBatch &b);
 
   void poly_4B(double *e, double *f, const chimesPolySet &ps, vector<double> &Tn_ij,
                vector<double> &Tn_ik, vector<double> &Tn_il, vector<double> &Tn_jk,
