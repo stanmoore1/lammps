@@ -1302,6 +1302,7 @@ void chimesFF::compute_1B(const int typ_idx, double &energy)
   energy += energy_offsets[typ_idx];
 }
 
+CHIMES_VECTOR_CLONES
 void chimesFF::compute_2B(const double dx, const vector<double> &dr, const vector<int> &typ_idxs,
                           vector<double> &force, vector<double> &stress, double &energy,
                           chimes2BTmp &tmp, const bool vflag)
@@ -1431,6 +1432,7 @@ inline void chimesFF::init_distance_tensor(double *dr2, const vector<double> &dr
   }
 }
 
+CHIMES_VECTOR_CLONES
 void chimesFF::compute_3B(const vector<double> &dx, const vector<double> &dr,
                           const vector<int> &typ_idxs, vector<double> &force,
                           vector<double> &stress, double &energy, chimes3BTmp &tmp,
@@ -1631,6 +1633,7 @@ void chimesFF::compute_3B(const vector<double> &dx, const vector<double> &dr,
   return;
 }
 
+CHIMES_VECTOR_CLONES
 void chimesFF::compute_4B(const vector<double> &dx, const vector<double> &dr,
                           const vector<int> &typ_idxs, vector<double> &force,
                           vector<double> &stress, double &energy, chimes4BTmp &tmp,
@@ -2384,6 +2387,7 @@ int chimesFF::build_grouped(int npairs, const vector<int> &flatpow, const double
   return slot;
 }
 
+CHIMES_VECTOR_CLONES
 void chimesFF::poly_2B(double *e, double *f0, int ncoeffs_2b, vector<double> &chimes_2b_params,
                        vector<int> &chimes_2b_pows, vector<double> &Tn, vector<double> &Tnd)
 // Compute the 2 body polynomial (e) and derivatives with respect to the pair distance (f0)
@@ -2400,6 +2404,7 @@ void chimesFF::poly_2B(double *e, double *f0, int ncoeffs_2b, vector<double> &ch
   }
 }
 
+CHIMES_VECTOR_CLONES
 void chimesFF::poly_3B(double *e, double *f, const chimesPolySet &ps, vector<double> &Tn_ij,
                        vector<double> &Tn_ik, vector<double> &Tn_jk, vector<double> &Tnd_ij,
                        vector<double> &Tnd_ik, vector<double> &Tnd_jk)
@@ -2441,6 +2446,7 @@ void chimesFF::poly_3B(double *e, double *f, const chimesPolySet &ps, vector<dou
 // recurrence itself is a plain lane loop, so it vectorizes; only the exp stays
 // per lane, since there is no vector exp without extra libraries.
 
+CHIMES_VECTOR_CLONES
 void chimesFF::set_cheby_polys_batch(double *Tn, double *Tnd, const double *dx,
                                      const chimesSlotConst &sc, const int order)
 {
@@ -2503,6 +2509,7 @@ void chimesFF::set_cheby_polys_batch(double *Tn, double *Tnd, const double *dx,
   }
 }
 
+CHIMES_VECTOR_CLONES
 void chimesFF::compute_3B_batch(const int nlane, const int type_idx,
                                 const double dx[3][CHIMES_VLEN], chimes3BBatch &b)
 {
@@ -2550,6 +2557,7 @@ void chimesFF::compute_3B_batch(const int nlane, const int type_idx,
 // indices stay scalar and only the arithmetic is per lane -- which is what
 // makes the innermost load contiguous.
 
+CHIMES_VECTOR_CLONES
 void chimesFF::poly_3B_grouped_batch(const chimesGroupedPoly &g, chimes3BBatch &b)
 {
   const int *const l0_pow = g.level_pow[0].data();
@@ -2622,6 +2630,7 @@ void chimesFF::poly_3B_grouped_batch(const chimesGroupedPoly &g, chimes3BBatch &
   }
 }
 
+CHIMES_VECTOR_CLONES
 void chimesFF::poly_3B_grouped(double *e, double *f, const chimesGroupedPoly &g,
                                vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_jk,
                                vector<double> &Tnd_ij, vector<double> &Tnd_ik,
@@ -2688,6 +2697,7 @@ void chimesFF::poly_3B_grouped(double *e, double *f, const chimesGroupedPoly &g,
   f[2] = F2;
 }
 
+CHIMES_VECTOR_CLONES
 void chimesFF::poly_4B_grouped(double *e, double *f, const chimesGroupedPoly &g,
                                vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_il,
                                vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
@@ -3202,6 +3212,7 @@ void chimesFF::poly_4B_dense(double &e, double &f0, double &f1, double &f2, doub
   }
 }
 
+CHIMES_VECTOR_CLONES
 void chimesFF::poly_4B(double *e, double *f, const chimesPolySet &ps, vector<double> &Tn_ij,
                        vector<double> &Tn_ik, vector<double> &Tn_il, vector<double> &Tn_jk,
                        vector<double> &Tn_jl, vector<double> &Tn_kl, vector<double> &Tnd_ij,

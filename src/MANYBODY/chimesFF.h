@@ -20,6 +20,26 @@
 
 #define CHIMES_PI 3.14159265359
 
+// The cluster kernels below are loops over a fixed number of lanes, which is
+// what a vector unit is for -- but LAMMPS is built without any -march option
+// by default, so on x86 the compiler targets the baseline architecture: two
+// doubles to a register and no fused multiply-add.  Marking a kernel here has
+// the compiler emit a second copy for a wider instruction set and pick between
+// them once, at load time, from what the processor reports.  Nothing is asked
+// of the build, and a processor without the wider set runs the baseline copy.
+//
+// x86-64-v3 is the level that brings both the wider registers and the fused
+// multiply-add; either alone leaves most of the gain behind.  The dispatch
+// needs indirect-function support from the runtime loader, so it is limited to
+// GNU/Linux, and it is pointless when the build already asks for that level.
+
+#if defined(__x86_64__) && defined(__gnu_linux__) && defined(__GNUC__) && !defined(__clang__) && \
+    !defined(__AVX2__)
+#define CHIMES_VECTOR_CLONES __attribute__((target_clones("arch=x86-64-v3", "default")))
+#else
+#define CHIMES_VECTOR_CLONES
+#endif
+
 using namespace std;
 
 // Notes:
