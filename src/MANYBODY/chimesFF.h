@@ -30,6 +30,16 @@ using namespace std;
 
 #define CHDIM 3                  // The number of spatial dimensions.
 
+// How many clusters the batched evaluators handle at once.  The polynomial's
+// innermost loop is a gather when one cluster is evaluated at a time -- the
+// coefficient's power indexes a Chebyshev array -- which leaves the vector
+// units idle.  Evaluating several clusters of the same type together and
+// storing their Chebyshev values lane-minor turns that gather into a
+// contiguous load of CHIMES_VLEN doubles.  A power of two at least as wide as
+// the widest vector register keeps the lane loops fully unrollable.
+
+#define CHIMES_VLEN 8
+
 // Temporary storage for ChIMES interaction.
 class chimes2BTmp {
  public:
@@ -117,6 +127,28 @@ inline void chimes3BTmp::resize(int poly_order)
 
   if (Tnd_jk.size() < poly_order + 1) Tnd_jk.resize(poly_order + 1);
 }
+
+// Scratch for a batch of same-typed 3-body clusters.  Tn[p] holds the
+// Chebyshev values for pair slot p as [power][lane], so the polynomial reads
+// CHIMES_VLEN contiguous doubles for a given power.  Inactive lanes are padded
+// with a copy of lane 0 rather than left undefined, which keeps every lane loop
+// a fixed CHIMES_VLEN trips and lets the compiler unroll it.
+
+class chimes3BBatch {
+ public:
+  inline chimes3BBatch(int poly_order) : dim(poly_order + 1)
+  {
+    for (int p = 0; p < 3; p++) {
+      Tn[p].resize((size_t) dim * CHIMES_VLEN);
+      Tnd[p].resize((size_t) dim * CHIMES_VLEN);
+    }
+  }
+
+  int dim;
+  vector<double> Tn[3], Tnd[3];
+  double fcut[3][CHIMES_VLEN], fcutderiv[3][CHIMES_VLEN];
+  double poly[CHIMES_VLEN], dpoly[3][CHIMES_VLEN];
+};
 
 enum class fcutType {
   CUBIC,
@@ -210,6 +242,21 @@ class chimesFF {
   void compute_3B(const vector<double> &dx, const vector<double> &dr, const vector<int> &typ_idxs,
                   vector<double> &force, vector<double> &stress, double &energy, chimes3BTmp &tmp,
                   const bool vflag = true);
+
+  // Evaluate nlane clusters of one type together.  dx is [pair][lane]; on
+  // return b.poly, b.dpoly, b.fcut and b.fcutderiv hold the per-lane results
+  // the caller turns into forces.  Every lane sums its coefficients in the same
+  // order the one-at-a-time path does, so a cluster's numbers are unchanged --
+  // only which clusters sit next to each other differs.
+
+  void compute_3B_batch(const int nlane, const int type_idx, const double dx[3][CHIMES_VLEN],
+                        chimes3BBatch &b);
+
+  // Packed atom-type index of a 3-body cluster, the key the batches group on.
+  inline int type_index_3B(const int t0, const int t1, const int t2) const
+  {
+    return (t0 * natmtyps + t1) * natmtyps + t2;
+  }
 
   void compute_4B(const vector<double> &dx, const vector<double> &dr, const vector<int> &typ_idxs,
                   vector<double> &force, vector<double> &stress, double &energy, chimes4BTmp &tmp,
@@ -392,6 +439,11 @@ class chimesFF {
   void poly_3B_grouped(double *e, double *f, const chimesGroupedPoly &g, vector<double> &Tn_ij,
                        vector<double> &Tn_ik, vector<double> &Tn_jk, vector<double> &Tnd_ij,
                        vector<double> &Tnd_ik, vector<double> &Tnd_jk);
+
+  void poly_3B_grouped_batch(const chimesGroupedPoly &g, chimes3BBatch &b);
+
+  void set_cheby_polys_batch(double *Tn, double *Tnd, const double *dx, const chimesSlotConst &sc,
+                             const int order);
 
   void poly_4B_grouped(double *e, double *f, const chimesGroupedPoly &g, vector<double> &Tn_ij,
                        vector<double> &Tn_ik, vector<double> &Tn_il, vector<double> &Tn_jk,

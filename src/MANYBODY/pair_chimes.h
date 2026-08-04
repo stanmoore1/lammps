@@ -86,6 +86,12 @@ class PairCHIMES : public Pair {
   std::vector<MBCand> cand_4b;
   std::vector<double> cand_rsq;
 
+  // Scratch for grouping the triplets by cluster type (counting sort).
+
+  std::vector<int> mer_key;
+  std::vector<int> mer_scratch;
+  std::vector<int> type_count;
+
   // 2-body vars for chimesFF access
 
   std::vector<double> dr;
@@ -119,6 +125,7 @@ class PairCHIMES : public Pair {
   double init_one(int i, int j) override;
   void compute(int eflag, int vflag) override;
   virtual void build_mb_neighlists();
+  void sort_3mers_by_type();
   inline double get_dist(int i, int j, double *dr);
   inline double get_dist(int i, int j);
   // Displacement and distance for a pair, but only if it is inside cutsq.

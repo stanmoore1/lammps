@@ -412,6 +412,50 @@ void PairCHIMES::build_mb_neighlists()
       }
     }
   }
+
+  sort_3mers_by_type();
+}
+
+/* ----------------------------------------------------------------------
+   Group the triplets by cluster type so that the force loop can hand a run of
+   same-typed clusters to the batched evaluator.  A counting sort over the
+   packed type index, which is small (ntypes^3), keeps this linear; it runs once
+   per neighbor rebuild rather than once per step.
+------------------------------------------------------------------------- */
+
+void PairCHIMES::sort_3mers_by_type()
+{
+  if ((chimes_calculator->poly_orders[1] == 0) || (n_3mers == 0)) return;
+
+  const int nt = chimes_calculator->natmtyps;
+  const int nkey = nt * nt * nt;
+  int *type = atom->type;
+
+  mer_key.resize(n_3mers);
+  type_count.assign(nkey + 1, 0);
+
+  for (int c = 0; c < n_3mers; c++) {
+    const int *m = &neighborlist_3mers[3 * c];
+    const int key = chimes_calculator->type_index_3B(chimes_type[type[m[0]] - 1],
+                                                     chimes_type[type[m[1]] - 1],
+                                                     chimes_type[type[m[2]] - 1]);
+    mer_key[c] = key;
+    type_count[key + 1]++;
+  }
+
+  for (int t = 0; t < nkey; t++) type_count[t + 1] += type_count[t];
+
+  mer_scratch.resize((size_t) n_3mers * 3);
+
+  for (int c = 0; c < n_3mers; c++) {
+    const int dst = type_count[mer_key[c]]++;
+
+    mer_scratch[3 * dst + 0] = neighborlist_3mers[3 * c + 0];
+    mer_scratch[3 * dst + 1] = neighborlist_3mers[3 * c + 1];
+    mer_scratch[3 * dst + 2] = neighborlist_3mers[3 * c + 2];
+  }
+
+  neighborlist_3mers.swap(mer_scratch);
 }
 
 void PairCHIMES::compute(int eflag, int vflag)
@@ -460,6 +504,7 @@ void PairCHIMES::compute(int eflag, int vflag)
 
   chimes2BTmp chimes_2btmp(chimes_calculator->poly_orders[0]);
   chimes3BTmp chimes_3btmp(chimes_calculator->poly_orders[1]);
+  chimes3BBatch chimes_3bbatch(chimes_calculator->poly_orders[1]);
   chimes4BTmp chimes_4btmp(chimes_calculator->poly_orders[2]);
 
   // Build the ChIMES many-body neighbor lists.. only do so when LAMMPS neighborlist has been updated
@@ -541,50 +586,128 @@ void PairCHIMES::compute(int eflag, int vflag)
     // Compute 3-body interactions
     ////////////////////////////////////////
 
-    for (ii = 0; ii < n_3mers; ii++) {
-      const int *mer = &neighborlist_3mers[3 * ii];
-      i = mer[0];
-      j = mer[1];
-      k = mer[2];
+    // The triplets arrive grouped by cluster type, so clusters that survive the
+    // cutoff test are collected into a batch of CHIMES_VLEN and evaluated
+    // together.  Rejected clusters never enter a lane, so no lane is wasted on
+    // them, and the batch is flushed whenever it fills or the type changes.
 
-      typ_idxs_3b[0] = chimes_type[type[i] - 1];
-      typ_idxs_3b[1] = chimes_type[type[j] - 1];
-      typ_idxs_3b[2] = chimes_type[type[k] - 1];
+    double bdx[3][CHIMES_VLEN];
+    double bdr[3][CHDIM][CHIMES_VLEN];
+    int batom[3][CHIMES_VLEN];
+    int nb = 0;
+    int batch_type = -1;
 
-      // Reject on squared distances before taking any square root.  The lists
-      // are built with the neighbor skin added to the cutoffs, so a large
-      // fraction of the clusters they hold are outside the real cutoffs on any
-      // given step and used to pay for three sqrt and a call before saying so.
+    for (ii = 0; ii <= n_3mers; ii++) {
+      int this_type = -1;
+      const chimesSlotConst *sc3 = nullptr;
 
-      const chimesSlotConst *sc3 =
-          chimes_calculator->slots_3B(typ_idxs_3b[0], typ_idxs_3b[1], typ_idxs_3b[2]);
+      if (ii < n_3mers) {
+        const int *mer = &neighborlist_3mers[3 * ii];
+        i = mer[0];
+        j = mer[1];
+        k = mer[2];
 
-      if (!sc3) continue;
+        typ_idxs_3b[0] = chimes_type[type[i] - 1];
+        typ_idxs_3b[1] = chimes_type[type[j] - 1];
+        typ_idxs_3b[2] = chimes_type[type[k] - 1];
 
-      if (!within(x, i, j, sc3[0].outer_sq, &dr_3b[0 * CHDIM], dist_3b[0])) continue;
-      if (!within(x, i, k, sc3[1].outer_sq, &dr_3b[1 * CHDIM], dist_3b[1])) continue;
-      if (!within(x, j, k, sc3[2].outer_sq, &dr_3b[2 * CHDIM], dist_3b[2])) continue;
+        sc3 = chimes_calculator->slots_3B(typ_idxs_3b[0], typ_idxs_3b[1], typ_idxs_3b[2]);
 
-      std::fill(force_3b.begin(), force_3b.end(), 0.0);
-
-      if (vflag_either) std::fill(stensor.begin(), stensor.end(), 0.0);
-
-      energy = 0.0;
-
-      chimes_calculator->compute_3B(dist_3b, dr_3b, typ_idxs_3b, force_3b, stensor, energy,
-                                    chimes_3btmp, vflag_either);
-
-      for (idx = 0; idx < 3; idx++) {
-        f[i][idx] += force_3b[0 * CHDIM + idx];
-        f[j][idx] += force_3b[1 * CHDIM + idx];
-        f[k][idx] += force_3b[2 * CHDIM + idx];
+        if (sc3) {
+          if (within(x, i, j, sc3[0].outer_sq, &dr_3b[0 * CHDIM], dist_3b[0]) &&
+              within(x, i, k, sc3[1].outer_sq, &dr_3b[1 * CHDIM], dist_3b[1]) &&
+              within(x, j, k, sc3[2].outer_sq, &dr_3b[2 * CHDIM], dist_3b[2]))
+            this_type = chimes_calculator->type_index_3B(typ_idxs_3b[0], typ_idxs_3b[1],
+                                                         typ_idxs_3b[2]);
+        }
       }
 
-      atmlist[0] = i;
-      atmlist[1] = j;
-      atmlist[2] = k;
+      // A cluster outside the cutoffs is simply skipped: it must not disturb
+      // the batch in hand, or the 44% of clusters that fail would flush it
+      // constantly and leave every batch a fraction full.
 
-      if (evflag) ev_tally_mb(3, atmlist, energy, stensor.data());
+      const bool at_end = (ii == n_3mers);
+
+      if (!at_end && (this_type < 0)) continue;
+
+      // Flush first if this cluster cannot join the batch in hand.
+
+      if ((nb > 0) && (at_end || (this_type != batch_type) || (nb == CHIMES_VLEN))) {
+        for (int p = 0; p < 3; p++)
+          for (int l = nb; l < CHIMES_VLEN; l++) bdx[p][l] = bdx[p][0];
+
+        chimes_calculator->compute_3B_batch(nb, batch_type, bdx, chimes_3bbatch);
+
+        for (int l = 0; l < nb; l++) {
+          const double fc0 = chimes_3bbatch.fcut[0][l];
+          const double fc1 = chimes_3bbatch.fcut[1][l];
+          const double fc2 = chimes_3bbatch.fcut[2][l];
+          const double fcut_all = fc0 * fc1 * fc2;
+          const double poly = chimes_3bbatch.poly[l];
+
+          double fs[3];
+
+          fs[0] = (fcut_all * chimes_3bbatch.dpoly[0][l] +
+                   chimes_3bbatch.fcutderiv[0][l] * fc1 * fc2 * poly) /
+              bdx[0][l];
+          fs[1] = (fcut_all * chimes_3bbatch.dpoly[1][l] +
+                   chimes_3bbatch.fcutderiv[1][l] * fc0 * fc2 * poly) /
+              bdx[1][l];
+          fs[2] = (fcut_all * chimes_3bbatch.dpoly[2][l] +
+                   chimes_3bbatch.fcutderiv[2][l] * fc0 * fc1 * poly) /
+              bdx[2][l];
+
+          // Pair p acts between the two atoms of the cluster it connects:
+          // 0 = ij, 1 = ik, 2 = jk.
+
+          static const int pa[3] = {0, 0, 1}, pb[3] = {1, 2, 2};
+
+          if (vflag_either) std::fill(stensor.begin(), stensor.end(), 0.0);
+
+          for (int p = 0; p < 3; p++) {
+            const int a = batom[pa[p]][l], b = batom[pb[p]][l];
+
+            for (idx = 0; idx < CHDIM; idx++) {
+              f[a][idx] += fs[p] * bdr[p][idx][l];
+              f[b][idx] -= fs[p] * bdr[p][idx][l];
+            }
+
+            if (vflag_either) {
+              stensor[0] -= fs[p] * bdr[p][0][l] * bdr[p][0][l];
+              stensor[1] -= fs[p] * bdr[p][0][l] * bdr[p][1][l];
+              stensor[2] -= fs[p] * bdr[p][0][l] * bdr[p][2][l];
+              stensor[3] -= fs[p] * bdr[p][1][l] * bdr[p][1][l];
+              stensor[4] -= fs[p] * bdr[p][1][l] * bdr[p][2][l];
+              stensor[5] -= fs[p] * bdr[p][2][l] * bdr[p][2][l];
+            }
+          }
+
+          if (evflag) {
+            atmlist[0] = batom[0][l];
+            atmlist[1] = batom[1][l];
+            atmlist[2] = batom[2][l];
+
+            ev_tally_mb(3, atmlist, poly * fcut_all, stensor.data());
+          }
+        }
+
+        nb = 0;
+      }
+
+      if (at_end) break;
+
+      batch_type = this_type;
+      batom[0][nb] = i;
+      batom[1][nb] = j;
+      batom[2][nb] = k;
+
+      for (int p = 0; p < 3; p++) {
+        bdx[p][nb] = dist_3b[p];
+
+        for (idx = 0; idx < CHDIM; idx++) bdr[p][idx][nb] = dr_3b[p * CHDIM + idx];
+      }
+
+      nb++;
     }
   }
 

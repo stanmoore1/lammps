@@ -2435,6 +2435,191 @@ void chimesFF::poly_3B(double *e, double *f, const chimesPolySet &ps, vector<dou
   }
 }
 
+// Chebyshev values for one pair slot across a batch, written lane-minor.  The
+// recurrence itself is a plain lane loop, so it vectorizes; only the exp stays
+// per lane, since there is no vector exp without extra libraries.
+
+void chimesFF::set_cheby_polys_batch(double *Tn, double *Tnd, const double *dx,
+                                     const chimesSlotConst &sc, const int order)
+{
+  const int dim = order + 1;
+
+  double x[CHIMES_VLEN], dx_dr[CHIMES_VLEN];
+  bool any_short = false;
+
+  for (int l = 0; l < CHIMES_VLEN; l++) {
+    const double r = (dx[l] < sc.inner) ? sc.inner : dx[l];
+
+    if (dx[l] < sc.inner) any_short = true;
+
+    const double exprlen = exp(-1 * r / sc.morse);
+
+    x[l] = (exprlen - sc.x_avg) / sc.x_diff;
+    dx_dr[l] = (-exprlen / sc.morse) / sc.x_diff;
+  }
+
+  for (int l = 0; l < CHIMES_VLEN; l++) {
+    Tn[l] = 1.0;
+    Tnd[l] = 1.0;
+  }
+  for (int l = 0; l < CHIMES_VLEN; l++) {
+    Tn[CHIMES_VLEN + l] = x[l];
+    Tnd[CHIMES_VLEN + l] = 2.0 * x[l];
+  }
+
+  for (int i = 2; i < dim; i++)
+    for (int l = 0; l < CHIMES_VLEN; l++) {
+      const double x2 = 2.0 * x[l];
+
+      Tn[i * CHIMES_VLEN + l] = x2 * Tn[(i - 1) * CHIMES_VLEN + l] - Tn[(i - 2) * CHIMES_VLEN + l];
+      Tnd[i * CHIMES_VLEN + l] =
+          x2 * Tnd[(i - 1) * CHIMES_VLEN + l] - Tnd[(i - 2) * CHIMES_VLEN + l];
+    }
+
+  for (int i = order; i >= 1; i--)
+    for (int l = 0; l < CHIMES_VLEN; l++)
+      Tnd[i * CHIMES_VLEN + l] = i * dx_dr[l] * Tnd[(i - 1) * CHIMES_VLEN + l];
+
+  for (int l = 0; l < CHIMES_VLEN; l++) Tnd[l] = 0.0;
+
+  // A separation inside the inner cutoff needs the damped form, which is rare
+  // enough that those lanes are simply redone one at a time.
+
+  if (any_short) {
+    vector<double> tn(dim), tnd(dim);
+
+    for (int l = 0; l < CHIMES_VLEN; l++) {
+      if (dx[l] >= sc.inner) continue;
+
+      set_cheby_polys(tn, tnd, dx[l], sc, 1);
+
+      for (int i = 0; i < dim; i++) {
+        Tn[i * CHIMES_VLEN + l] = tn[i];
+        Tnd[i * CHIMES_VLEN + l] = tnd[i];
+      }
+    }
+  }
+}
+
+void chimesFF::compute_3B_batch(const int nlane, const int type_idx,
+                                const double dx[3][CHIMES_VLEN], chimes3BBatch &b)
+{
+  const chimesSlotConst *sc = &slot_3b[type_idx * 3];
+  const int order = poly_orders[1];
+
+  for (int p = 0; p < 3; p++) {
+    set_cheby_polys_batch(b.Tn[p].data(), b.Tnd[p].data(), dx[p], sc[p], order);
+
+    for (int l = 0; l < CHIMES_VLEN; l++) get_fcut(dx[p][l], sc[p], b.fcut[p][l], b.fcutderiv[p][l]);
+  }
+
+  const chimesPolySet &ps = poly_3b_set[type_idx];
+
+  if (ps.grouped) {
+    poly_3B_grouped_batch(*ps.grouped, b);
+    return;
+  }
+
+  // No coefficient tree for this type: fall back to the flat kernel per lane,
+  // reading the batch's Chebyshev values back out of their lane-minor layout.
+
+  vector<double> tij(b.dim), tik(b.dim), tjk(b.dim), dij(b.dim), dik(b.dim), djk(b.dim);
+
+  for (int l = 0; l < nlane; l++) {
+    for (int i = 0; i < b.dim; i++) {
+      tij[i] = b.Tn[0][i * CHIMES_VLEN + l];
+      tik[i] = b.Tn[1][i * CHIMES_VLEN + l];
+      tjk[i] = b.Tn[2][i * CHIMES_VLEN + l];
+      dij[i] = b.Tnd[0][i * CHIMES_VLEN + l];
+      dik[i] = b.Tnd[1][i * CHIMES_VLEN + l];
+      djk[i] = b.Tnd[2][i * CHIMES_VLEN + l];
+    }
+
+    double f[3];
+
+    poly_3B(&b.poly[l], f, ps, tij, tik, tjk, dij, dik, djk);
+
+    for (int p = 0; p < 3; p++) b.dpoly[p][l] = f[p];
+  }
+}
+
+// The coefficient tree, walked once for the whole batch.  The traversal is
+// identical for every lane because they share a cluster type, so the tree
+// indices stay scalar and only the arithmetic is per lane -- which is what
+// makes the innermost load contiguous.
+
+void chimesFF::poly_3B_grouped_batch(const chimesGroupedPoly &g, chimes3BBatch &b)
+{
+  const int *const l0_pow = g.level_pow[0].data();
+  const int *const l0_start = g.level_start[0].data();
+  const int *const l1_pow = g.level_pow[1].data();
+  const int *const l1_start = g.level_start[1].data();
+  const int *const leaf_pow = g.leaf_pow.data();
+  const double *const leaf_c = g.leaf_c.data();
+
+  const double *const tij = b.Tn[0].data();
+  const double *const tik = b.Tn[1].data();
+  const double *const tjk = b.Tn[2].data();
+  const double *const dij = b.Tnd[0].data();
+  const double *const dik = b.Tnd[1].data();
+  const double *const djk = b.Tnd[2].data();
+
+  const int n0 = g.level_pow[0].size();
+
+  double E[CHIMES_VLEN], F0[CHIMES_VLEN], F1[CHIMES_VLEN], F2[CHIMES_VLEN];
+
+  for (int l = 0; l < CHIMES_VLEN; l++) E[l] = F0[l] = F1[l] = F2[l] = 0.0;
+
+  for (int a = 0; a < n0; a++) {
+    const double *const t0 = tij + (size_t) l0_pow[a] * CHIMES_VLEN;
+    const double *const d0 = dij + (size_t) l0_pow[a] * CHIMES_VLEN;
+
+    double A[CHIMES_VLEN], A1[CHIMES_VLEN], A2[CHIMES_VLEN];
+
+    for (int l = 0; l < CHIMES_VLEN; l++) A[l] = A1[l] = A2[l] = 0.0;
+
+    for (int bb = l0_start[a]; bb < l0_start[a + 1]; bb++) {
+      const double *const t1 = tik + (size_t) l1_pow[bb] * CHIMES_VLEN;
+      const double *const d1 = dik + (size_t) l1_pow[bb] * CHIMES_VLEN;
+
+      double S[CHIMES_VLEN], S2[CHIMES_VLEN];
+
+      for (int l = 0; l < CHIMES_VLEN; l++) S[l] = S2[l] = 0.0;
+
+      for (int c = l1_start[bb]; c < l1_start[bb + 1]; c++) {
+        const double coeff = leaf_c[c];
+        const double *const t2 = tjk + (size_t) leaf_pow[c] * CHIMES_VLEN;
+        const double *const d2 = djk + (size_t) leaf_pow[c] * CHIMES_VLEN;
+
+        for (int l = 0; l < CHIMES_VLEN; l++) {
+          S[l] += coeff * t2[l];
+          S2[l] += coeff * d2[l];
+        }
+      }
+
+      for (int l = 0; l < CHIMES_VLEN; l++) {
+        A[l] += t1[l] * S[l];
+        A1[l] += d1[l] * S[l];
+        A2[l] += t1[l] * S2[l];
+      }
+    }
+
+    for (int l = 0; l < CHIMES_VLEN; l++) {
+      E[l] += t0[l] * A[l];
+      F0[l] += d0[l] * A[l];
+      F1[l] += t0[l] * A1[l];
+      F2[l] += t0[l] * A2[l];
+    }
+  }
+
+  for (int l = 0; l < CHIMES_VLEN; l++) {
+    b.poly[l] = E[l];
+    b.dpoly[0][l] = F0[l];
+    b.dpoly[1][l] = F1[l];
+    b.dpoly[2][l] = F2[l];
+  }
+}
+
 void chimesFF::poly_3B_grouped(double *e, double *f, const chimesGroupedPoly &g,
                                vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_jk,
                                vector<double> &Tnd_ij, vector<double> &Tnd_ik,
