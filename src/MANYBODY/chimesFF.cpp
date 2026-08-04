@@ -1,7 +1,7 @@
 /*
-	ChIMES Calculator
-	Copyright (C) 2020 Rebecca K. Lindsey, Nir Goldman, and Laurence E. Fried
-	Contributing Author:  Rebecca K. Lindsey (2020)
+    ChIMES Calculator
+    Copyright (C) 2020 Rebecca K. Lindsey, Nir Goldman, and Laurence E. Fried
+    Contributing Author:  Rebecca K. Lindsey (2020)
 */
 
 #include <algorithm>
@@ -115,38 +115,38 @@ void chimesFF::print_pretty_stuff()
     cout << "chimesFF: " << endl;
     cout << "chimesFF: "
          << "01000011011010001001001010011010100010101010011 "
-            "0100010101101110110011101101001011011101100101	 "
+            "0100010101101110110011101101001011011101100101     "
          << endl;
     cout << "chimesFF: " << endl;
-    cout << "chimesFF: " << "	   _____  _		 _____	__	__	______	 _____	 ______		   _			  "
+    cout << "chimesFF: " << "       _____  _         _____    __    __    ______     _____     ______           _              "
          << endl;
     cout << "chimesFF: "
-         << "	  / ____|| |	|_	 _||  \\/  ||  ____| / ____| |	____|		   (_)			  " << endl;
+         << "      / ____|| |    |_     _||  \\/  ||  ____| / ____| |    ____|           (_)              " << endl;
     cout << "chimesFF: "
-         << "	 | |	 | |__	  | |  | \\	 / || |__	| (___	 | |__	  _ __	  __ _	_  _ __	   ___	 "
+         << "     | |     | |__      | |  | \\     / || |__    | (___     | |__      _ __      __ _    _  _ __       ___     "
             " "
          << endl;
     cout << "chimesFF: "
-         << "	 | |	 | '_ \\   | |	| |\\/| ||	__|	  \\___ \\	|  __|	| '_ \\	 / _` || || '_ \\  "
+         << "     | |     | '_ \\   | |    | |\\/| ||    __|      \\___ \\    |  __|    | '_ \\     / _` || || '_ \\  "
             "/ _ \\ "
          << endl;
     cout << "chimesFF: "
-         << "	 | |____ | | | | _| |_ | |	| || |____	____) | | |____ | | | || (_| || || | | ||  "
-            "__/	  "
+         << "     | |____ | | | | _| |_ | |    | || |____    ____) | | |____ | | | || (_| || || | | ||  "
+            "__/      "
          << endl;
     cout << "chimesFF: "
-         << "	  \\_____||_| |_||_____||_|	 |_||______||_____/	 |______||_| |_| \\__, ||_||_| |_| "
-            "\\___|	  "
+         << "      \\_____||_| |_||_____||_|     |_||______||_____/     |______||_| |_| \\__, ||_||_| |_| "
+            "\\___|      "
          << endl;
-    cout << "chimesFF: " << "									 __/ |			  " << endl;
-    cout << "chimesFF: " << "									|___/			  " << endl;
+    cout << "chimesFF: " << "                                     __/ |              " << endl;
+    cout << "chimesFF: " << "                                    |___/              " << endl;
     cout << "chimesFF: " << endl;
-    cout << "chimesFF: " << "			  Copyright (C) 2020 R.K. Lindsey, L.E. Fried, N. Goldman			  "
+    cout << "chimesFF: " << "              Copyright (C) 2020 R.K. Lindsey, L.E. Fried, N. Goldman              "
          << endl;
     cout << "chimesFF: " << endl;
     cout << "chimesFF: "
          << "01000011011010001001001010011010100010101010011 "
-            "0100010101101110110011101101001011011101100101	  "
+            "0100010101101110110011101101001011011101100101      "
          << endl;
     cout << "chimesFF: " << endl;
   }
@@ -233,7 +233,7 @@ void chimesFF::read_parameters(string paramfile)
       if (rank == 0) {
         cout << "chimesFF: " << "ERROR: Could not find line containing: \" PAIRTYP: CHEBYSHEV\" "
              << endl;
-        cout << "chimesFF: " << "	...Is this a ChIMES force field parameter file?" << endl;
+        cout << "chimesFF: " << "    ...Is this a ChIMES force field parameter file?" << endl;
       }
       exit(0);
     }
@@ -1256,14 +1256,14 @@ void chimesFF::read_parameters(string paramfile)
 void chimesFF::set_polys_out_of_range(vector<double> &Tn, vector<double> &Tnd, double dx, double x,
                                       int poly_order, double inner_cutoff, double exprlen,
                                       double dx_dr)
-//	Sets the value of the Chebyshev polynomials (Tn) and their derivatives (Tnd) when dx is < inner_cutoff.
-//	Tnd is the derivative with respect to the interatomic distance, not the transformed distance (x).
+//    Sets the value of the Chebyshev polynomials (Tn) and their derivatives (Tnd) when dx is < inner_cutoff.
+//    Tnd is the derivative with respect to the interatomic distance, not the transformed distance (x).
 //
-//	The derivative Tnd is continuously set to zero inside the cutoff.
-//	The exponential smoothing distance is set to chimesFF::inner_smooth_distance.
-//	x, exprlen, and dx_dr are evaluated at the inner cutoff.
+//    The derivative Tnd is continuously set to zero inside the cutoff.
+//    The exponential smoothing distance is set to chimesFF::inner_smooth_distance.
+//    x, exprlen, and dx_dr are evaluated at the inner cutoff.
 //
-//	dx is the pair distance, which is assumed to be less than inner_cutoff.
+//    dx is the pair distance, which is assumed to be less than inner_cutoff.
 {
   Tn[0] = 1.0;
   Tn[1] = x;
@@ -1361,11 +1361,11 @@ void chimesFF::compute_2B(const double dx, const vector<double> &dr, const vecto
   force[1 * CHDIM + 2] -= force_scalar * dr[2];
 
   // xx xy xz yy yz zz
-  // 0  1	 2	3  4  5
+  // 0  1     2    3  4  5
 
   // xx xy xz yx yy yz zx zy zz
-  // 0  1	 2	3  4  5	 6	7  8
-  // *		   *	   *
+  // 0  1     2    3  4  5     6    7  8
+  // *           *       *
 
   if (vflag) {
     stress[0] -= force_scalar * dr[0] * dr[0];    // xx tensor component
@@ -1986,7 +1986,7 @@ int chimesFF::get_atom_pair_index(int pair_id)
 }
 
 void chimesFF::build_pair_int_quad_map()
-// Build the pair maps for all possible quads.	Moved build_atom_and_pair_mappers out of the compute_XX routines
+// Build the pair maps for all possible quads.    Moved build_atom_and_pair_mappers out of the compute_XX routines
 // to support GPU environment without string operations.
 // This must be called prior to force evaluation.
 {

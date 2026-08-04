@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -29,20 +29,20 @@ PairStyle(chimesFF, PairCHIMES);    // PairStyle(key, class)
 #include "chimesFF.h"
 #include <vector>
 
-/*	Functions required by LAMMPS:
+/*    Functions required by LAMMPS:
 
 
-settings 	(done)		reads the input script line with arguments defined here
-coeff		(done)		set coefficients for one i,j pair type
-compute		(done)		workhorse routine that computes pairwise interactions
-init_one	(done)		perform initalization for one i,j type pair
-init_style 	(done)		initialization specific to this pair style
+settings     (done)        reads the input script line with arguments defined here
+coeff        (done)        set coefficients for one i,j pair type
+compute        (done)        workhorse routine that computes pairwise interactions
+init_one    (done)        perform initalization for one i,j type pair
+init_style     (done)        initialization specific to this pair style
 
-write_restart			write i,j pair coeffs to restart file
-read_restart			read i,j pair coeffs from restart file
-write_restart_settings	        write global settings to restart file
-read_restart_settings	        read global settings from restart file
-single				force and energy fo a single pairwise interaction between two atoms
+write_restart            write i,j pair coeffs to restart file
+read_restart            read i,j pair coeffs from restart file
+write_restart_settings            write global settings to restart file
+read_restart_settings            read global settings from restart file
+single                force and energy fo a single pairwise interaction between two atoms
 */
 
 namespace LAMMPS_NS {

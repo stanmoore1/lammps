@@ -411,11 +411,11 @@ void chimesFFKokkos<DeviceType>::set_polys_out_of_range(KK_FLOAT* Tn, KK_FLOAT* 
 {
   //  Sets the value of the Chebyshev polynomials (Tn) and their derivatives (Tnd) when dx is < inner_cutoff.
   //  Tnd is the derivative with respect to the interatomic distance, not the transformed distance (x).
-  //	
+  //
   //  The derivative Tnd is continuously set to zero inside the cutoff.
   //  The exponential smoothing distance is set to ChimesFF::inner_smooth_distance.
   //  x, exprlen, and dx_dr are evaluated at the inner cutoff.
-  //	
+  //
   //  dx is the pair distance, which is assumed to be less than inner_cutoff.
   Tn[0] = 1.0;
   Tn[1] = x;
@@ -1379,8 +1379,8 @@ void chimesFFKokkos<DeviceType>::poly_3B(KK_FLOAT &e, KK_FLOAT *f, int ncoeffs_3
   for (int coeffs = 0; coeffs < ncoeffs_3b; coeffs++) {
     const KK_FLOAT coeff = c_chimes_3b_params_tripidx(coeffs);
 
-    const int powers[3] = { c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[0]), 
-                      c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[1]), 
+    const int powers[3] = { c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[0]),
+                      c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[1]),
                       c_chimes_3b_powers_tripidx(coeffs,trip_map_idx[2]) };
 
     e += coeff * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
