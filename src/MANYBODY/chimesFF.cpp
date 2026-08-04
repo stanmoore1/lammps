@@ -3230,32 +3230,44 @@ void chimesFF::poly_4B(double *e, double *f, const chimesPolySet &ps, vector<dou
   *e = 0;
   for (int i = 0; i < 6; i++) f[i] = 0.0;
 
-  for (int coeffs = 0; coeffs < ncoeffs; coeffs++, pow += 6) {
-    const double coeff = params[coeffs];
+  // Each term needs the product of all six Chebyshev factors for the energy,
+  // and for each pair the product of the other five for its derivative.  Six
+  // separate five-way products repeat almost all of the same multiplications,
+  // so build them from one pass forward and one back: with the running
+  // products p (everything before a pair, the coefficient folded in) and s
+  // (everything after it), the derivative term for that pair is p*s times its
+  // own derivative factor.  That is twenty-one multiplications per term where
+  // the direct form takes thirty-two.
 
+  for (int coeffs = 0; coeffs < ncoeffs; coeffs++, pow += 6) {
     const double t0 = tij[pow[0]];
     const double t1 = tik[pow[1]];
     const double t2 = til[pow[2]];
     const double t3 = tjk[pow[3]];
     const double t4 = tjl[pow[4]];
+    const double t5 = tkl[pow[5]];
 
-    double Tn_ij_ik_il = t0 * t1 * t2;
-    double Tn_jk_jl = t3 * t4;
-    double Tn_kl_5 = tkl[pow[5]];
+    const double p0 = params[coeffs];    // coeff
+    const double p1 = p0 * t0;           // coeff * t0
+    const double p2 = p1 * t1;
+    const double p3 = p2 * t2;
+    const double p4 = p3 * t3;
+    const double p5 = p4 * t4;           // coeff * t0..t4
 
-    *e += coeff * Tn_ij_ik_il * Tn_jk_jl * Tn_kl_5;
+    const double s4 = t5;    // t5
+    const double s3 = s4 * t4;
+    const double s2 = s3 * t3;
+    const double s1 = s2 * t2;
+    const double s0 = s1 * t1;    // t1..t5
 
-    f[0] += coeff * dij[pow[0]] * t1 * t2 * Tn_jk_jl * Tn_kl_5;
+    *e += p5 * t5;
 
-    f[1] += coeff * dik[pow[1]] * t0 * t2 * Tn_jk_jl * Tn_kl_5;
-
-    f[2] += coeff * dil[pow[2]] * t0 * t1 * Tn_jk_jl * Tn_kl_5;
-
-    f[3] += coeff * djk[pow[3]] * Tn_ij_ik_il * t4 * Tn_kl_5;
-
-    f[4] += coeff * djl[pow[4]] * Tn_ij_ik_il * t3 * Tn_kl_5;
-
-    f[5] += coeff * dkl[pow[5]] * Tn_ij_ik_il * Tn_jk_jl;
+    f[0] += p0 * dij[pow[0]] * s0;
+    f[1] += p1 * dik[pow[1]] * s1;
+    f[2] += p2 * dil[pow[2]] * s2;
+    f[3] += p3 * djk[pow[3]] * s3;
+    f[4] += p4 * djl[pow[4]] * s4;
+    f[5] += p5 * dkl[pow[5]];
   }
 }
 
