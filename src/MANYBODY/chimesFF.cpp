@@ -1480,7 +1480,6 @@ void chimesFF::compute_3B(const vector<double> &dx, const vector<double> &dr,
     return;
 
   // Check whether cutoffs are within allowed ranges
-  vector<int> &mapped_pair_idx = pair_int_trip_map[type_idx];
   const chimesSlotConst *sc = &slot_3b[type_idx * 3];
 
   if (dx[0] >= sc[0].outer) return;    // ij
@@ -1508,11 +1507,11 @@ void chimesFF::compute_3B(const vector<double> &dx, const vector<double> &dr,
   double force_scalar[npairs];
 
   if (!dense_coeffs) {
-    poly_3B(&poly, dpoly_dx, ncoeffs_3b[tripidx], chimes_3b_params[tripidx], mapped_pair_idx,
-            chimes_3b_powers[tripidx], Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+    poly_3B(&poly, dpoly_dx, poly_3b_set[type_idx], Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
   } else {
 
     // JIT evaluation of the chebyshev polynomial and its derivatives
+    const vector<int> &mapped_pair_idx = pair_int_trip_map[type_idx];
     int inv_mapped_pair[npairs];
 
     for (int j = 0; j < npairs; j++) { inv_mapped_pair[mapped_pair_idx[j]] = j; }
@@ -1659,7 +1658,6 @@ void chimesFF::compute_4B(const vector<double> &dx, const vector<double> &dr,
   if (quadidx < 0)    // Skipping an excluded interaction
     return;
 
-  vector<int> &mapped_pair_idx = pair_int_quad_map[idx];
   const chimesSlotConst *sc = &slot_4b[idx * 6];
 
   // Check whether cutoffs are within allowed ranges
@@ -1696,11 +1694,11 @@ void chimesFF::compute_4B(const vector<double> &dx, const vector<double> &dr,
   double poly, dpoly_dx[npairs];
 
   if (!dense_coeffs) {
-    poly_4B(&poly, dpoly_dx, ncoeffs_4b[quadidx], chimes_4b_params[quadidx], mapped_pair_idx,
-            chimes_4b_powers[quadidx], Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik,
-            Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+    poly_4B(&poly, dpoly_dx, poly_4b_set[idx], Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij,
+            Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
   } else {
     // Dense evaluation of the chebyshev polynomial and its derivatives
+    const vector<int> &mapped_pair_idx = pair_int_quad_map[idx];
     int inv_mapped_pair[npairs];
 
     for (int j = 0; j < npairs; j++) { inv_mapped_pair[mapped_pair_idx[j]] = j; }
@@ -2057,6 +2055,14 @@ void chimesFF::build_interaction_tables()
 {
   const int n = natmtyps;
 
+  // A pre-permuted power block depends only on (parameter set, permutation),
+  // not on the atom-type index, so the blocks are pooled and shared.  Pool
+  // slots are recorded as indices first and turned into pointers in a second
+  // pass, because growing the pool would invalidate any pointer taken early.
+
+  map<pair<int, vector<int>>, int> pool_slot;
+  vector<int> set_slot_3b, set_slot_4b;
+
   // 2-body: one slot per ordered atom type pair
 
   slot_2b.assign(n * n, chimesSlotConst());
@@ -2074,6 +2080,8 @@ void chimesFF::build_interaction_tables()
 
   if (poly_orders[1] > 0) {
     slot_3b.assign(n * n * n * 3, chimesSlotConst());
+    poly_3b_set.assign(n * n * n, chimesPolySet{0, nullptr, nullptr});
+    set_slot_3b.assign(n * n * n, -1);
 
     for (int i = 0; i < n; i++)
       for (int j = 0; j < n; j++)
@@ -2090,6 +2098,11 @@ void chimesFF::build_interaction_tables()
           for (int p = 0; p < 3; p++)
             fill_slot(slot_3b[type_idx * 3 + p], pidx[p], chimes_3b_cutoff[tripidx][0][map[p]],
                       chimes_3b_cutoff[tripidx][1][map[p]]);
+
+          poly_3b_set[type_idx].ncoeffs = ncoeffs_3b[tripidx];
+          poly_3b_set[type_idx].params = chimes_3b_params[tripidx].data();
+          set_slot_3b[type_idx] = permuted_powers(pool_slot, tripidx, 3, map,
+                                                  chimes_3b_powers[tripidx], ncoeffs_3b[tripidx]);
         }
   }
 
@@ -2097,6 +2110,8 @@ void chimesFF::build_interaction_tables()
 
   if (poly_orders[2] > 0) {
     slot_4b.assign(n * n * n * n * 6, chimesSlotConst());
+    poly_4b_set.assign(n * n * n * n, chimesPolySet{0, nullptr, nullptr});
+    set_slot_4b.assign(n * n * n * n, -1);
 
     for (int i = 0; i < n; i++)
       for (int j = 0; j < n; j++)
@@ -2115,8 +2130,47 @@ void chimesFF::build_interaction_tables()
             for (int p = 0; p < 6; p++)
               fill_slot(slot_4b[type_idx * 6 + p], pidx[p], chimes_4b_cutoff[quadidx][0][map[p]],
                         chimes_4b_cutoff[quadidx][1][map[p]]);
+
+            poly_4b_set[type_idx].ncoeffs = ncoeffs_4b[quadidx];
+            poly_4b_set[type_idx].params = chimes_4b_params[quadidx].data();
+            set_slot_4b[type_idx] = permuted_powers(pool_slot, quadidx, 6, map,
+                                                    chimes_4b_powers[quadidx], ncoeffs_4b[quadidx]);
           }
   }
+
+  // The pool is complete, so it is now safe to hand out pointers into it.
+
+  for (size_t t = 0; t < set_slot_3b.size(); t++)
+    if (set_slot_3b[t] >= 0) poly_3b_set[t].powers = powers_pool[set_slot_3b[t]].data();
+
+  for (size_t t = 0; t < set_slot_4b.size(); t++)
+    if (set_slot_4b[t] >= 0) poly_4b_set[t].powers = powers_pool[set_slot_4b[t]].data();
+}
+
+// Return the pool slot holding chimes_Xb_powers permuted into runtime pair
+// order for this cluster type, creating it if this (parameter set,
+// permutation) combination has not been seen yet.
+
+int chimesFF::permuted_powers(map<pair<int, vector<int>>, int> &pool_slot, int cluster_idx,
+                              int npairs, const vector<int> &map, const vector<vector<int>> &powers,
+                              int ncoeffs)
+{
+  const pair<int, vector<int>> key(cluster_idx, map);
+  auto it = pool_slot.find(key);
+
+  if (it != pool_slot.end()) return it->second;
+
+  const int slot = powers_pool.size();
+  powers_pool.emplace_back();
+  vector<int> &flat = powers_pool.back();
+  flat.resize((size_t) ncoeffs * npairs);
+
+  for (int c = 0; c < ncoeffs; c++)
+    for (int p = 0; p < npairs; p++) flat[(size_t) c * npairs + p] = powers[c][map[p]];
+
+  pool_slot[key] = slot;
+
+  return slot;
 }
 
 void chimesFF::poly_2B(double *e, double *f0, int ncoeffs_2b, vector<double> &chimes_2b_params,
@@ -2135,38 +2189,33 @@ void chimesFF::poly_2B(double *e, double *f0, int ncoeffs_2b, vector<double> &ch
   }
 }
 
-void chimesFF::poly_3B(double *e, double *f, int ncoeffs_3b, vector<double> &chimes_3b_params,
-                       vector<int> &mapped_pair_idx, vector<vector<int>> &chimes_3b_powers,
-                       vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_jk,
-                       vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_jk)
+void chimesFF::poly_3B(double *e, double *f, const chimesPolySet &ps, vector<double> &Tn_ij,
+                       vector<double> &Tn_ik, vector<double> &Tn_jk, vector<double> &Tnd_ij,
+                       vector<double> &Tnd_ik, vector<double> &Tnd_jk)
 // Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f)
 // (LEF) 3/11/26
 {
-  double coeff;
-  int powers[3];
-  double deriv[3];
+  const int ncoeffs = ps.ncoeffs;
+  const double *const params = ps.params;
+  const int *pow = ps.powers;
 
   *e = 0.0;
   f[0] = 0.0;
   f[1] = 0.0;
   f[2] = 0.0;
 
-  for (int coeffs = 0; coeffs < ncoeffs_3b; coeffs++) {
-    coeff = chimes_3b_params[coeffs];
+  for (int coeffs = 0; coeffs < ncoeffs; coeffs++, pow += 3) {
+    const double coeff = params[coeffs];
 
-    powers[0] = chimes_3b_powers[coeffs][mapped_pair_idx[0]];
-    powers[1] = chimes_3b_powers[coeffs][mapped_pair_idx[1]];
-    powers[2] = chimes_3b_powers[coeffs][mapped_pair_idx[2]];
+    const double t0 = Tn_ij[pow[0]];
+    const double t1 = Tn_ik[pow[1]];
+    const double t2 = Tn_jk[pow[2]];
 
-    *e += coeff * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
+    *e += coeff * t0 * t1 * t2;
 
-    deriv[0] = Tnd_ij[powers[0]];
-    deriv[1] = Tnd_ik[powers[1]];
-    deriv[2] = Tnd_jk[powers[2]];
-
-    f[0] += coeff * deriv[0] * Tn_ik[powers[1]] * Tn_jk[powers[2]];
-    f[1] += coeff * deriv[1] * Tn_ij[powers[0]] * Tn_jk[powers[2]];
-    f[2] += coeff * deriv[2] * Tn_ij[powers[0]] * Tn_ik[powers[1]];
+    f[0] += coeff * Tnd_ij[pow[0]] * t1 * t2;
+    f[1] += coeff * Tnd_ik[pow[1]] * t0 * t2;
+    f[2] += coeff * Tnd_jk[pow[2]] * t0 * t1;
   }
 }
 
@@ -2562,52 +2611,47 @@ void chimesFF::poly_4B_dense(double &e, double &f0, double &f1, double &f2, doub
   }
 }
 
-void chimesFF::poly_4B(double *e, double *f, int ncoeffs_4b, vector<double> &chimes_4b_params,
-                       vector<int> &mapped_pair_idx, vector<vector<int>> &chimes_4b_powers,
-                       vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_il,
-                       vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
-                       vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_il,
-                       vector<double> &Tnd_jk, vector<double> &Tnd_jl, vector<double> &Tnd_kl)
+void chimesFF::poly_4B(double *e, double *f, const chimesPolySet &ps, vector<double> &Tn_ij,
+                       vector<double> &Tn_ik, vector<double> &Tn_il, vector<double> &Tn_jk,
+                       vector<double> &Tn_jl, vector<double> &Tn_kl, vector<double> &Tnd_ij,
+                       vector<double> &Tnd_ik, vector<double> &Tnd_il, vector<double> &Tnd_jk,
+                       vector<double> &Tnd_jl, vector<double> &Tnd_kl)
 // Compute the 4 body polynomial (e) and derivatives with respect to each pair distance (f)
 // (LEF) 3/11/26
 {
-  double coeff;
-  const int npairs = 6;
-  int powers[npairs];
-  double deriv[npairs];
+  const int ncoeffs = ps.ncoeffs;
+  const double *const params = ps.params;
+  const int *pow = ps.powers;
 
   *e = 0;
   for (int i = 0; i < 6; i++) f[i] = 0.0;
 
-  for (int coeffs = 0; coeffs < ncoeffs_4b; coeffs++) {
-    coeff = chimes_4b_params[coeffs];
+  for (int coeffs = 0; coeffs < ncoeffs; coeffs++, pow += 6) {
+    const double coeff = params[coeffs];
 
-    for (int i = 0; i < npairs; i++) powers[i] = chimes_4b_powers[coeffs][mapped_pair_idx[i]];
+    const double t0 = Tn_ij[pow[0]];
+    const double t1 = Tn_ik[pow[1]];
+    const double t2 = Tn_il[pow[2]];
+    const double t3 = Tn_jk[pow[3]];
+    const double t4 = Tn_jl[pow[4]];
 
-    double Tn_ij_ik_il = Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_il[powers[2]];
-    double Tn_jk_jl = Tn_jk[powers[3]] * Tn_jl[powers[4]];
-    double Tn_kl_5 = Tn_kl[powers[5]];
+    double Tn_ij_ik_il = t0 * t1 * t2;
+    double Tn_jk_jl = t3 * t4;
+    double Tn_kl_5 = Tn_kl[pow[5]];
 
     *e += coeff * Tn_ij_ik_il * Tn_jk_jl * Tn_kl_5;
 
-    deriv[0] = Tnd_ij[powers[0]];
-    deriv[1] = Tnd_ik[powers[1]];
-    deriv[2] = Tnd_il[powers[2]];
-    deriv[3] = Tnd_jk[powers[3]];
-    deriv[4] = Tnd_jl[powers[4]];
-    deriv[5] = Tnd_kl[powers[5]];
+    f[0] += coeff * Tnd_ij[pow[0]] * t1 * t2 * Tn_jk_jl * Tn_kl_5;
 
-    f[0] += coeff * deriv[0] * Tn_ik[powers[1]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
+    f[1] += coeff * Tnd_ik[pow[1]] * t0 * t2 * Tn_jk_jl * Tn_kl_5;
 
-    f[1] += coeff * deriv[1] * Tn_ij[powers[0]] * Tn_il[powers[2]] * Tn_jk_jl * Tn_kl_5;
+    f[2] += coeff * Tnd_il[pow[2]] * t0 * t1 * Tn_jk_jl * Tn_kl_5;
 
-    f[2] += coeff * deriv[2] * Tn_ij[powers[0]] * Tn_ik[powers[1]] * Tn_jk_jl * Tn_kl_5;
+    f[3] += coeff * Tnd_jk[pow[3]] * Tn_ij_ik_il * t4 * Tn_kl_5;
 
-    f[3] += coeff * deriv[3] * Tn_ij_ik_il * Tn_jl[powers[4]] * Tn_kl_5;
+    f[4] += coeff * Tnd_jl[pow[4]] * Tn_ij_ik_il * t3 * Tn_kl_5;
 
-    f[4] += coeff * deriv[4] * Tn_ij_ik_il * Tn_jk[powers[3]] * Tn_kl_5;
-
-    f[5] += coeff * deriv[5] * Tn_ij_ik_il * Tn_jk_jl;
+    f[5] += coeff * Tnd_kl[pow[5]] * Tn_ij_ik_il * Tn_jk_jl;
   }
 }
 

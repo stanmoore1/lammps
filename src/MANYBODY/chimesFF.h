@@ -123,6 +123,17 @@ struct chimesSlotConst {
   double fcut_dscale;   // TERSOFF: pi/fcut_denom.  CUBIC: -3/outer
 };
 
+// The polynomial coefficients of one cluster type, in a form the inner loop
+// can stream.  powers is contiguous with stride npairs and already permuted
+// into runtime pair order, so evaluating a coefficient no longer costs a walk
+// through vector<vector<int>> plus a mapped_pair_idx indirection per pair.
+
+struct chimesPolySet {
+  int ncoeffs;
+  const double *params;    // [ncoeffs]
+  const int *powers;       // [ncoeffs*npairs], runtime pair order
+};
+
 class chimesFF {
  public:
   ////////////////////////
@@ -177,6 +188,8 @@ class chimesFF {
 
  protected:
   void fill_slot(chimesSlotConst &sc, int pair_idx, double inner, double outer);
+  int permuted_powers(map<pair<int, vector<int>>, int> &pool_slot, int cluster_idx, int npairs,
+                      const vector<int> &map, const vector<vector<int>> &powers, int ncoeffs);
 
  public:
 
@@ -284,6 +297,14 @@ class chimesFF {
   vector<chimesSlotConst> slot_3b;
   vector<chimesSlotConst> slot_4b;
 
+  // Pre-permuted coefficient sets, indexed by the packed atom-type index.
+  // Many type indices share a (parameter set, permutation) pair, so the power
+  // blocks themselves live in a pool and the sets point into it.
+
+  vector<chimesPolySet> poly_3b_set;    // [natmtyps^3]
+  vector<chimesPolySet> poly_4b_set;    // [natmtyps^4]
+  vector<vector<int>> powers_pool;
+
   // Tools for compute functions
 
   inline void set_cheby_polys(vector<double> &Tn, vector<double> &Tnd, double dx,
@@ -292,10 +313,9 @@ class chimesFF {
   void poly_2B(double *e, double *f0, int ncoeffs_2b, vector<double> &chimes_2b_params,
                vector<int> &chimes_2b_pows, vector<double> &Tn, vector<double> &Tnd);
 
-  void poly_3B(double *e, double *f, int ncoeffs_3b, vector<double> &chimes_3b_params,
-               vector<int> &mapped_pair_idx, vector<vector<int>> &chimes_3b_powers,
-               vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_jk,
-               vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_jk);
+  void poly_3B(double *e, double *f, const chimesPolySet &ps, vector<double> &Tn_ij,
+               vector<double> &Tn_ik, vector<double> &Tn_jk, vector<double> &Tnd_ij,
+               vector<double> &Tnd_ik, vector<double> &Tnd_jk);
 
   // Evaluates the 3-Body chebyshev polynomial in dense format.
   void poly_3B_dense(double &e, double &f0, double &f1, double &f2, int ncoeffs_3b,
@@ -327,12 +347,11 @@ class chimesFF {
   // possible coefficients are allocated.
   void densify_4B(int &ncoeffs4, vector<vector<int>> &powers_4b, vector<double> &params_4b);
 
-  void poly_4B(double *e, double *f, int ncoeffs_4b, vector<double> &chimes_4b_params,
-               vector<int> &mapped_pair_idx, vector<vector<int>> &chimes_4b_powers,
-               vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_il,
-               vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
-               vector<double> &Tnd_ij, vector<double> &Tnd_ik, vector<double> &Tnd_il,
-               vector<double> &Tnd_jk, vector<double> &Tnd_jl, vector<double> &Tnd_kl);
+  void poly_4B(double *e, double *f, const chimesPolySet &ps, vector<double> &Tn_ij,
+               vector<double> &Tn_ik, vector<double> &Tn_il, vector<double> &Tn_jk,
+               vector<double> &Tn_jl, vector<double> &Tn_kl, vector<double> &Tnd_ij,
+               vector<double> &Tnd_ik, vector<double> &Tnd_il, vector<double> &Tnd_jk,
+               vector<double> &Tnd_jl, vector<double> &Tnd_kl);
 
   // Loop1 uses a flat loop to evaluate a dense 4-body polynomial.
   void poly_4B_dense_loop1(int max_poly, double &e, double &f0, double &f1, double &f2, double &f3,
