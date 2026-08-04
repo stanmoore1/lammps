@@ -121,6 +121,24 @@ class PairCHIMES : public Pair {
   virtual void build_mb_neighlists();
   inline double get_dist(int i, int j, double *dr);
   inline double get_dist(int i, int j);
+  // Displacement and distance for a pair, but only if it is inside cutsq.
+  // Returns false without taking the sqrt otherwise; dr is filled either way
+  // since it is needed to decide.
+  static inline bool within(double **x, int i, int j, double cutsq_pair, double *drp, double &dist)
+  {
+    drp[0] = x[j][0] - x[i][0];
+    drp[1] = x[j][1] - x[i][1];
+    drp[2] = x[j][2] - x[i][2];
+
+    const double rsq = drp[0] * drp[0] + drp[1] * drp[1] + drp[2] * drp[2];
+
+    if (rsq >= cutsq_pair) return false;
+
+    dist = sqrt(rsq);
+
+    return true;
+  }
+
   static inline double dist_sq(double **x, int i, int j)
   {
     const double dx = x[j][0] - x[i][0];

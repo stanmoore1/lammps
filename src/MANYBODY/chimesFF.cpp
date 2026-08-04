@@ -2087,6 +2087,7 @@ void chimesFF::fill_slot(chimesSlotConst &sc, int pair_idx, double inner, double
   sc.morse = morse_var[pair_idx];
   sc.inner = inner;
   sc.outer = outer;
+  sc.outer_sq = outer * outer;
 
   const double x_min = exp(-1 * inner / sc.morse);
   const double x_max = exp(-1 * outer / sc.morse);

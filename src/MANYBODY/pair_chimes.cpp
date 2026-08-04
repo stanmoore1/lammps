@@ -430,6 +430,7 @@ void PairCHIMES::compute(int eflag, int vflag)
   int *ilist, *jlist, *numneigh, **firstneigh;    // Local neighborlist vars
   int idx;
 
+  double **x = atom->x;    // Access to system coordinates
   double **f = atom->f;    // Access to system forces
 
   int *type =
@@ -546,13 +547,23 @@ void PairCHIMES::compute(int eflag, int vflag)
       j = mer[1];
       k = mer[2];
 
-      dist_3b[0] = get_dist(i, j, &dr_3b[0 * CHDIM]);
-      dist_3b[1] = get_dist(i, k, &dr_3b[1 * CHDIM]);
-      dist_3b[2] = get_dist(j, k, &dr_3b[2 * CHDIM]);
-
       typ_idxs_3b[0] = chimes_type[type[i] - 1];
       typ_idxs_3b[1] = chimes_type[type[j] - 1];
       typ_idxs_3b[2] = chimes_type[type[k] - 1];
+
+      // Reject on squared distances before taking any square root.  The lists
+      // are built with the neighbor skin added to the cutoffs, so a large
+      // fraction of the clusters they hold are outside the real cutoffs on any
+      // given step and used to pay for three sqrt and a call before saying so.
+
+      const chimesSlotConst *sc3 =
+          chimes_calculator->slots_3B(typ_idxs_3b[0], typ_idxs_3b[1], typ_idxs_3b[2]);
+
+      if (!sc3) continue;
+
+      if (!within(x, i, j, sc3[0].outer_sq, &dr_3b[0 * CHDIM], dist_3b[0])) continue;
+      if (!within(x, i, k, sc3[1].outer_sq, &dr_3b[1 * CHDIM], dist_3b[1])) continue;
+      if (!within(x, j, k, sc3[2].outer_sq, &dr_3b[2 * CHDIM], dist_3b[2])) continue;
 
       std::fill(force_3b.begin(), force_3b.end(), 0.0);
 
@@ -589,17 +600,26 @@ void PairCHIMES::compute(int eflag, int vflag)
       k = mer[2];
       l = mer[3];
 
-      dist_4b[0] = get_dist(i, j, &dr_4b[0 * CHDIM]);
-      dist_4b[1] = get_dist(i, k, &dr_4b[1 * CHDIM]);
-      dist_4b[2] = get_dist(i, l, &dr_4b[2 * CHDIM]);
-      dist_4b[3] = get_dist(j, k, &dr_4b[3 * CHDIM]);
-      dist_4b[4] = get_dist(j, l, &dr_4b[4 * CHDIM]);
-      dist_4b[5] = get_dist(k, l, &dr_4b[5 * CHDIM]);
-
       typ_idxs_4b[0] = chimes_type[type[i] - 1];
       typ_idxs_4b[1] = chimes_type[type[j] - 1];
       typ_idxs_4b[2] = chimes_type[type[k] - 1];
       typ_idxs_4b[3] = chimes_type[type[l] - 1];
+
+      // As for the triplets, and it matters more here: two thirds of the
+      // enumerated quadruplets are outside the real cutoffs on a given step,
+      // and each one used to cost six square roots before being discarded.
+
+      const chimesSlotConst *sc4 = chimes_calculator->slots_4B(
+          typ_idxs_4b[0], typ_idxs_4b[1], typ_idxs_4b[2], typ_idxs_4b[3]);
+
+      if (!sc4) continue;
+
+      if (!within(x, i, j, sc4[0].outer_sq, &dr_4b[0 * CHDIM], dist_4b[0])) continue;
+      if (!within(x, i, k, sc4[1].outer_sq, &dr_4b[1 * CHDIM], dist_4b[1])) continue;
+      if (!within(x, i, l, sc4[2].outer_sq, &dr_4b[2 * CHDIM], dist_4b[2])) continue;
+      if (!within(x, j, k, sc4[3].outer_sq, &dr_4b[3 * CHDIM], dist_4b[3])) continue;
+      if (!within(x, j, l, sc4[4].outer_sq, &dr_4b[4 * CHDIM], dist_4b[4])) continue;
+      if (!within(x, k, l, sc4[5].outer_sq, &dr_4b[5 * CHDIM], dist_4b[5])) continue;
 
       std::fill(force_4b.begin(), force_4b.end(), 0.0);
 

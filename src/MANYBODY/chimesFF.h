@@ -132,6 +132,7 @@ enum class fcutType {
 struct chimesSlotConst {
   double morse;         // Morse lambda of the pair type occupying this slot
   double inner, outer;  // inner and outer cutoff of this slot
+  double outer_sq;      // outer*outer, so callers can reject before taking a sqrt
   double x_avg;         // Morse transform: x = (exp(-r/morse) - x_avg) / x_diff
   double x_diff;
   double fcut_thresh;   // TERSOFF: distance at which the cutoff function starts
@@ -221,6 +222,31 @@ class chimesFF {
   double max_cutoff_4B(bool silent = false);    // Returns the largest 4B cutoff
 
   void set_atomtypes(vector<string> &type_list);
+
+  // The per-slot constants for a cluster of the given atom types, or nullptr if
+  // the force field excludes that combination.  Callers use these to reject a
+  // cluster on squared distances, before paying for any sqrt: on a typical
+  // model most enumerated clusters are outside the real cutoffs, because the
+  // lists are built with the neighbor skin added.
+
+  inline const chimesSlotConst *slots_3B(const int t0, const int t1, const int t2) const
+  {
+    const int idx = (t0 * natmtyps + t1) * natmtyps + t2;
+
+    if (atom_int_trip_map[idx] < 0) return nullptr;
+
+    return &slot_3b[idx * 3];
+  }
+
+  inline const chimesSlotConst *slots_4B(const int t0, const int t1, const int t2,
+                                         const int t3) const
+  {
+    const int idx = ((t0 * natmtyps + t1) * natmtyps + t2) * natmtyps + t3;
+
+    if (atom_int_quad_map[idx] < 0) return nullptr;
+
+    return &slot_4b[idx * 6];
+  }
 
   int get_atom_pair_index(int pair_id);
   virtual void build_pair_int_trip_map();
