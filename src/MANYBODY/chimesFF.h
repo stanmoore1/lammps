@@ -168,9 +168,53 @@ struct chimesSlotConst {
   double x_avg;         // Morse transform: x = (exp(-r/morse) - x_avg) / x_diff
   double x_diff;
   double fcut_thresh;   // TERSOFF: distance at which the cutoff function starts
-  double fcut_denom;    // TERSOFF: outer - fcut_thresh
-  double fcut_dscale;   // TERSOFF: pi/fcut_denom.  CUBIC: -3/outer
+  double fcut_mid;      // TERSOFF: where the ramp reaches 1/2 (see get_fcut)
+  double fcut_dscale;   // TERSOFF: 1/(outer - fcut_thresh).  CUBIC: -3/outer
 };
+
+// CHIMES_PI is pi truncated to twelve digits, and the cutoff function is
+// defined in terms of it, so sin(x + CHIMES_PI) is not exactly -sin(x): the
+// two differ by the phase CHIMES_PI - pi.  Expressed as a fraction of a half
+// period that is the shift below, which get_fcut folds into fcut_mid so the
+// series reproduces the original argument rather than an idealized one.  A
+// long double literal for pi keeps the difference meaningful; it is around
+// 2e-13, which sounds negligible but shows up in the forces at 1e-10.
+
+static constexpr double CHIMES_PI_PHASE =
+    (CHIMES_PI - 3.14159265358979323846L) / CHIMES_PI;
+
+// Coefficients of the Taylor series of sin(CHIMES_PI*s), and of its
+// term-by-term derivative, for the cutoff function (see get_fcut).  Ten terms
+// hold the series to one ulp over the only interval it is ever asked about,
+// s in [-1/2, 1/2].  CHIMES_PI rather than a longer pi on purpose: the series
+// has to approximate the same function the rest of the model is defined by.
+
+struct chimesSinPi {
+  double a[10];    // sin(pi*s) = s * sum_k a[k]*s^(2k)
+  double b[10];    // its s derivative = sum_k b[k]*s^(2k)
+};
+
+constexpr chimesSinPi chimes_sinpi_series()
+{
+  chimesSinPi c {};
+
+  double num = CHIMES_PI;    // pi^(2k+1)
+  double fac = 1.0;          // (2k+1)!
+
+  for (int k = 0; k < 10; k++) {
+    if (k > 0) {
+      num *= CHIMES_PI * CHIMES_PI;
+      fac *= (2.0 * k) * (2.0 * k + 1.0);
+    }
+
+    c.a[k] = ((k & 1) ? -1.0 : 1.0) * num / fac;
+    c.b[k] = (2.0 * k + 1.0) * c.a[k];
+  }
+
+  return c;
+}
+
+static constexpr chimesSinPi CHIMES_SINPI = chimes_sinpi_series();
 
 // The polynomial coefficients of one cluster type, in a form the inner loop
 // can stream.  powers is contiguous with stride npairs and already permuted
@@ -699,10 +743,29 @@ inline void chimesFF::get_fcut(const double dx, const chimesSlotConst &sc, doubl
       fcutderiv = 0.0;
     } else    // Case 3: We'll use our modified sin function
     {
-      fcut0 = (dx - sc.fcut_thresh) / sc.fcut_denom * CHIMES_PI + CHIMES_PI / 2.0;
+      // 0.5 + 0.5*sin(u*pi + pi/2), with u = (dx - fcut_thresh)/denom running
+      // over [0,1], is 0.5 - 0.5*sin(pi*s) when written about the middle of the
+      // ramp, s = u - 1/2.  So the cutoff function only ever needs a sine over
+      // one half period, and there a short series matches libm to an ulp while
+      // -- unlike a libm call -- vectorizing across the lanes of a batch.
+      //
+      // fcutderiv uses the differentiated series rather than a separate cosine,
+      // which makes the reported force exactly the derivative of the reported
+      // energy.  Two independent libm calls do not have that property.
 
-      fcut = 0.5 + 0.5 * sin(fcut0);
-      fcutderiv = 0.5 * cos(fcut0) * sc.fcut_dscale;
+      const double s = (dx - sc.fcut_mid) * sc.fcut_dscale;
+      const double y = s * s;
+
+      double p = CHIMES_SINPI.a[9];
+      double q = CHIMES_SINPI.b[9];
+
+      for (int k = 8; k >= 0; k--) {
+        p = p * y + CHIMES_SINPI.a[k];
+        q = q * y + CHIMES_SINPI.b[k];
+      }
+
+      fcut = 0.5 - 0.5 * (p * s);
+      fcutderiv = -0.5 * q * sc.fcut_dscale;
     }
   }
 }

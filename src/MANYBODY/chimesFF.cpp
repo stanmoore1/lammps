@@ -2097,12 +2097,14 @@ void chimesFF::fill_slot(chimesSlotConst &sc, int pair_idx, double inner, double
   sc.x_diff *= -1.0;    // Special for Morse style
 
   sc.fcut_thresh = outer - fcut_var * outer;
-  sc.fcut_denom = outer - sc.fcut_thresh;
+  const double fcut_span = outer - sc.fcut_thresh;
+
+  sc.fcut_mid = 0.5 * (sc.fcut_thresh + outer) - CHIMES_PI_PHASE * fcut_span;
 
   if (fcut_type == fcutType::CUBIC)
     sc.fcut_dscale = -1.0 * 3.0 / outer;
   else
-    sc.fcut_dscale = CHIMES_PI / sc.fcut_denom;
+    sc.fcut_dscale = 1.0 / fcut_span;
 }
 
 void chimesFF::build_interaction_tables()
