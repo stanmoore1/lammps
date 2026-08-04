@@ -132,6 +132,26 @@ struct chimesPolySet {
   int ncoeffs;
   const double *params;    // [ncoeffs]
   const int *powers;       // [ncoeffs*npairs], runtime pair order
+  const struct chimesGroupedPoly *grouped;    // nullptr if not built
+};
+
+// The same coefficients arranged as a tree over the leading npairs-1 power
+// indices, so that the Chebyshev factors shared by a whole subtree are applied
+// once instead of once per coefficient.  Each node at level d carries its power
+// value, and level_start[d] gives its children's range in level d+1 -- or, at
+// the last level, in the leaf arrays.  Sibling subtrees are contiguous, so the
+// evaluator walks all three arrays sequentially.
+//
+// At the leaf only two sums are accumulated; every level up multiplies those by
+// its own Chebyshev value and carries one more accumulator, so the whole
+// derivative set falls out of a single pass.
+
+struct chimesGroupedPoly {
+  int nlevels;                 // npairs - 1
+  vector<int> level_pow[5];    // [nlevels][nodes at that level]
+  vector<int> level_start[5];  // [nlevels][nodes + 1]
+  vector<int> leaf_pow;
+  vector<double> leaf_c;
 };
 
 class chimesFF {
@@ -190,6 +210,7 @@ class chimesFF {
   void fill_slot(chimesSlotConst &sc, int pair_idx, double inner, double outer);
   int permuted_powers(map<pair<int, vector<int>>, int> &pool_slot, int cluster_idx, int npairs,
                       const vector<int> &map, const vector<vector<int>> &powers, int ncoeffs);
+  int build_grouped(int npairs, const vector<int> &flatpow, const double *params, int ncoeffs);
 
  public:
 
@@ -304,6 +325,7 @@ class chimesFF {
   vector<chimesPolySet> poly_3b_set;    // [natmtyps^3]
   vector<chimesPolySet> poly_4b_set;    // [natmtyps^4]
   vector<vector<int>> powers_pool;
+  vector<chimesGroupedPoly> grouped_pool;
 
   // Tools for compute functions
 
@@ -316,6 +338,16 @@ class chimesFF {
   void poly_3B(double *e, double *f, const chimesPolySet &ps, vector<double> &Tn_ij,
                vector<double> &Tn_ik, vector<double> &Tn_jk, vector<double> &Tnd_ij,
                vector<double> &Tnd_ik, vector<double> &Tnd_jk);
+
+  void poly_3B_grouped(double *e, double *f, const chimesGroupedPoly &g, vector<double> &Tn_ij,
+                       vector<double> &Tn_ik, vector<double> &Tn_jk, vector<double> &Tnd_ij,
+                       vector<double> &Tnd_ik, vector<double> &Tnd_jk);
+
+  void poly_4B_grouped(double *e, double *f, const chimesGroupedPoly &g, vector<double> &Tn_ij,
+                       vector<double> &Tn_ik, vector<double> &Tn_il, vector<double> &Tn_jk,
+                       vector<double> &Tn_jl, vector<double> &Tn_kl, vector<double> &Tnd_ij,
+                       vector<double> &Tnd_ik, vector<double> &Tnd_il, vector<double> &Tnd_jk,
+                       vector<double> &Tnd_jl, vector<double> &Tnd_kl);
 
   // Evaluates the 3-Body chebyshev polynomial in dense format.
   void poly_3B_dense(double &e, double &f0, double &f1, double &f2, int ncoeffs_3b,

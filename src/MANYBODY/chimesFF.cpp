@@ -1507,7 +1507,12 @@ void chimesFF::compute_3B(const vector<double> &dx, const vector<double> &dr,
   double force_scalar[npairs];
 
   if (!dense_coeffs) {
-    poly_3B(&poly, dpoly_dx, poly_3b_set[type_idx], Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+    const chimesPolySet &ps = poly_3b_set[type_idx];
+
+    if (ps.grouped)
+      poly_3B_grouped(&poly, dpoly_dx, *ps.grouped, Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
+    else
+      poly_3B(&poly, dpoly_dx, ps, Tn_ij, Tn_ik, Tn_jk, Tnd_ij, Tnd_ik, Tnd_jk);
   } else {
 
     // JIT evaluation of the chebyshev polynomial and its derivatives
@@ -1694,8 +1699,14 @@ void chimesFF::compute_4B(const vector<double> &dx, const vector<double> &dr,
   double poly, dpoly_dx[npairs];
 
   if (!dense_coeffs) {
-    poly_4B(&poly, dpoly_dx, poly_4b_set[idx], Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij,
-            Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+    const chimesPolySet &ps = poly_4b_set[idx];
+
+    if (ps.grouped)
+      poly_4B_grouped(&poly, dpoly_dx, *ps.grouped, Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl,
+                      Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
+    else
+      poly_4B(&poly, dpoly_dx, ps, Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl, Tnd_ij, Tnd_ik,
+              Tnd_il, Tnd_jk, Tnd_jl, Tnd_kl);
   } else {
     // Dense evaluation of the chebyshev polynomial and its derivatives
     const vector<int> &mapped_pair_idx = pair_int_quad_map[idx];
@@ -2062,6 +2073,8 @@ void chimesFF::build_interaction_tables()
 
   map<pair<int, vector<int>>, int> pool_slot;
   vector<int> set_slot_3b, set_slot_4b;
+  vector<int> grp_slot_3b, grp_slot_4b;
+  vector<int> grouped_of_pool;    // powers_pool slot -> grouped_pool slot
 
   // 2-body: one slot per ordered atom type pair
 
@@ -2080,8 +2093,9 @@ void chimesFF::build_interaction_tables()
 
   if (poly_orders[1] > 0) {
     slot_3b.assign(n * n * n * 3, chimesSlotConst());
-    poly_3b_set.assign(n * n * n, chimesPolySet{0, nullptr, nullptr});
+    poly_3b_set.assign(n * n * n, chimesPolySet{0, nullptr, nullptr, nullptr});
     set_slot_3b.assign(n * n * n, -1);
+    grp_slot_3b.assign(n * n * n, -1);
 
     for (int i = 0; i < n; i++)
       for (int j = 0; j < n; j++)
@@ -2101,8 +2115,18 @@ void chimesFF::build_interaction_tables()
 
           poly_3b_set[type_idx].ncoeffs = ncoeffs_3b[tripidx];
           poly_3b_set[type_idx].params = chimes_3b_params[tripidx].data();
-          set_slot_3b[type_idx] = permuted_powers(pool_slot, tripidx, 3, map,
-                                                  chimes_3b_powers[tripidx], ncoeffs_3b[tripidx]);
+          const int ps = permuted_powers(pool_slot, tripidx, 3, map, chimes_3b_powers[tripidx],
+                                         ncoeffs_3b[tripidx]);
+          set_slot_3b[type_idx] = ps;
+
+          if ((int) grouped_of_pool.size() <= ps) grouped_of_pool.resize(ps + 1, -1);
+
+          if (grouped_of_pool[ps] < 0)
+            grouped_of_pool[ps] = build_grouped(3, powers_pool[ps],
+                                                chimes_3b_params[tripidx].data(),
+                                                ncoeffs_3b[tripidx]);
+
+          grp_slot_3b[type_idx] = grouped_of_pool[ps];
         }
   }
 
@@ -2110,8 +2134,9 @@ void chimesFF::build_interaction_tables()
 
   if (poly_orders[2] > 0) {
     slot_4b.assign(n * n * n * n * 6, chimesSlotConst());
-    poly_4b_set.assign(n * n * n * n, chimesPolySet{0, nullptr, nullptr});
+    poly_4b_set.assign(n * n * n * n, chimesPolySet{0, nullptr, nullptr, nullptr});
     set_slot_4b.assign(n * n * n * n, -1);
+    grp_slot_4b.assign(n * n * n * n, -1);
 
     for (int i = 0; i < n; i++)
       for (int j = 0; j < n; j++)
@@ -2133,18 +2158,34 @@ void chimesFF::build_interaction_tables()
 
             poly_4b_set[type_idx].ncoeffs = ncoeffs_4b[quadidx];
             poly_4b_set[type_idx].params = chimes_4b_params[quadidx].data();
-            set_slot_4b[type_idx] = permuted_powers(pool_slot, quadidx, 6, map,
-                                                    chimes_4b_powers[quadidx], ncoeffs_4b[quadidx]);
+            const int ps = permuted_powers(pool_slot, quadidx, 6, map, chimes_4b_powers[quadidx],
+                                           ncoeffs_4b[quadidx]);
+            set_slot_4b[type_idx] = ps;
+
+            if ((int) grouped_of_pool.size() <= ps) grouped_of_pool.resize(ps + 1, -1);
+
+            if (grouped_of_pool[ps] < 0)
+              grouped_of_pool[ps] = build_grouped(6, powers_pool[ps],
+                                                  chimes_4b_params[quadidx].data(),
+                                                  ncoeffs_4b[quadidx]);
+
+            grp_slot_4b[type_idx] = grouped_of_pool[ps];
           }
   }
 
   // The pool is complete, so it is now safe to hand out pointers into it.
 
   for (size_t t = 0; t < set_slot_3b.size(); t++)
-    if (set_slot_3b[t] >= 0) poly_3b_set[t].powers = powers_pool[set_slot_3b[t]].data();
+    if (set_slot_3b[t] >= 0) {
+      poly_3b_set[t].powers = powers_pool[set_slot_3b[t]].data();
+      if (grp_slot_3b[t] >= 0) poly_3b_set[t].grouped = &grouped_pool[grp_slot_3b[t]];
+    }
 
   for (size_t t = 0; t < set_slot_4b.size(); t++)
-    if (set_slot_4b[t] >= 0) poly_4b_set[t].powers = powers_pool[set_slot_4b[t]].data();
+    if (set_slot_4b[t] >= 0) {
+      poly_4b_set[t].powers = powers_pool[set_slot_4b[t]].data();
+      if (grp_slot_4b[t] >= 0) poly_4b_set[t].grouped = &grouped_pool[grp_slot_4b[t]];
+    }
 }
 
 // Return the pool slot holding chimes_Xb_powers permuted into runtime pair
@@ -2169,6 +2210,131 @@ int chimesFF::permuted_powers(map<pair<int, vector<int>>, int> &pool_slot, int c
     for (int p = 0; p < npairs; p++) flat[(size_t) c * npairs + p] = powers[c][map[p]];
 
   pool_slot[key] = slot;
+
+  return slot;
+}
+
+// Arrange one coefficient set as a tree over its leading npairs-1 powers.
+// Sorting the coefficients lexicographically by power tuple makes every subtree
+// a contiguous run, so the tree is just a set of index ranges over the sorted
+// order and the evaluator never chases a pointer.
+
+int chimesFF::build_grouped(int npairs, const vector<int> &flatpow, const double *params,
+                            int ncoeffs)
+{
+  const int nlevels = npairs - 1;
+
+  vector<int> order(ncoeffs);
+
+  for (int c = 0; c < ncoeffs; c++) order[c] = c;
+
+  sort(order.begin(), order.end(), [&](int a, int b) {
+    for (int p = 0; p < npairs; p++) {
+      const int pa = flatpow[(size_t) a * npairs + p];
+      const int pb = flatpow[(size_t) b * npairs + p];
+
+      if (pa != pb) return pa < pb;
+    }
+    return false;
+  });
+
+  const int slot = grouped_pool.size();
+  grouped_pool.emplace_back();
+  chimesGroupedPoly &g = grouped_pool.back();
+  g.nlevels = nlevels;
+
+  g.leaf_pow.resize(ncoeffs);
+  g.leaf_c.resize(ncoeffs);
+
+  for (int c = 0; c < ncoeffs; c++) {
+    g.leaf_pow[c] = flatpow[(size_t) order[c] * npairs + nlevels];
+    g.leaf_c[c] = params[order[c]];
+  }
+
+  // Split the sorted range level by level.  ranges holds, for each node of the
+  // level just built, the span of sorted coefficients underneath it.
+
+  vector<pair<int, int>> ranges(1, make_pair(0, ncoeffs));
+
+  for (int d = 0; d < nlevels; d++) {
+    vector<pair<int, int>> child;
+
+    g.level_pow[d].resize(0);
+    g.level_start[d].resize(0);
+
+    for (size_t r = 0; r < ranges.size(); r++) {
+      int c = ranges[r].first;
+
+      while (c < ranges[r].second) {
+        const int v = flatpow[(size_t) order[c] * npairs + d];
+        int c2 = c;
+
+        while ((c2 < ranges[r].second) && (flatpow[(size_t) order[c2] * npairs + d] == v)) c2++;
+
+        g.level_pow[d].push_back(v);
+        child.push_back(make_pair(c, c2));
+
+        c = c2;
+      }
+    }
+
+    // Record where each parent's children begin.  For d > 0 that is an index
+    // into this level's node array; the parent level was built last iteration.
+
+    if (d > 0) {
+      g.level_start[d - 1].resize(ranges.size() + 1);
+      g.level_start[d - 1][0] = 0;
+
+      size_t node = 0, done = 0;
+
+      for (size_t r = 0; r < ranges.size(); r++) {
+        while ((node < child.size()) && (child[node].first < ranges[r].second)) {
+          node++;
+          done++;
+        }
+        g.level_start[d - 1][r + 1] = done;
+      }
+    }
+
+    ranges.swap(child);
+  }
+
+  // The deepest level's children are the leaf coefficients themselves.
+
+  g.level_start[nlevels - 1].resize(ranges.size() + 1);
+
+  for (size_t r = 0; r < ranges.size(); r++) g.level_start[nlevels - 1][r] = ranges[r].first;
+
+  g.level_start[nlevels - 1][ranges.size()] = ncoeffs;
+
+  // The tree only pays off when its nodes actually have several children.  A
+  // node costs roughly NODE_COST instructions of loop and index bookkeeping on
+  // top of the two operations per accumulator it carries, so a tree that is
+  // mostly a chain does strictly more work than the flat loop.  That is exactly
+  // what happens to the 4-body term of a typical model: a few dozen sparse
+  // coefficients spread over five levels leave almost every group a singleton.
+  // Estimate both and keep the tree only when it is clearly ahead.
+
+  // The flat loop spends about npairs multiplies on the energy term and another
+  // npairs on each of the npairs derivatives, plus the accumulates: 12
+  // operations per coefficient at npairs = 3 and 39 at npairs = 6, which
+  // npairs^2 + 3 reproduces.
+
+  const double NODE_COST = 6.0;
+  const double flat_cost = (double) ncoeffs * (npairs * npairs + 3);
+
+  double grouped_cost = 4.0 * ncoeffs;
+
+  for (int d = nlevels - 1; d >= 0; d--) {
+    const double nacc = nlevels - d + 1;    // accumulators carried out of level d
+
+    grouped_cost += (double) g.level_pow[d].size() * (2.0 * nacc + NODE_COST);
+  }
+
+  if (grouped_cost * 1.25 > flat_cost) {
+    grouped_pool.pop_back();
+    return -1;
+  }
 
   return slot;
 }
@@ -2217,6 +2383,161 @@ void chimesFF::poly_3B(double *e, double *f, const chimesPolySet &ps, vector<dou
     f[1] += coeff * Tnd_ik[pow[1]] * t0 * t2;
     f[2] += coeff * Tnd_jk[pow[2]] * t0 * t1;
   }
+}
+
+void chimesFF::poly_3B_grouped(double *e, double *f, const chimesGroupedPoly &g,
+                               vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_jk,
+                               vector<double> &Tnd_ij, vector<double> &Tnd_ik,
+                               vector<double> &Tnd_jk)
+// Same sum as poly_3B, evaluated over the coefficient tree.  Coefficients that
+// share p_ij and p_ik share the products of those two Chebyshev factors, so the
+// leaf costs two multiply-adds instead of the twelve multiplies the flat loop
+// needed.  The summation order changes, so this is not bit-for-bit poly_3B.
+{
+  const int *const l0_pow = g.level_pow[0].data();
+  const int *const l0_start = g.level_start[0].data();
+  const int *const l1_pow = g.level_pow[1].data();
+  const int *const l1_start = g.level_start[1].data();
+  const int *const leaf_pow = g.leaf_pow.data();
+  const double *const leaf_c = g.leaf_c.data();
+
+  const int n0 = g.level_pow[0].size();
+
+  double E = 0.0, F0 = 0.0, F1 = 0.0, F2 = 0.0;
+
+  for (int a = 0; a < n0; a++) {
+    const int p0 = l0_pow[a];
+    const double t0 = Tn_ij[p0];
+    const double d0 = Tnd_ij[p0];
+
+    double A = 0.0, A1 = 0.0, A2 = 0.0;
+
+    for (int b = l0_start[a]; b < l0_start[a + 1]; b++) {
+      const int p1 = l1_pow[b];
+      const double t1 = Tn_ik[p1];
+      const double d1 = Tnd_ik[p1];
+
+      double S = 0.0, S2 = 0.0;
+
+      for (int c = l1_start[b]; c < l1_start[b + 1]; c++) {
+        const double coeff = leaf_c[c];
+        const int p2 = leaf_pow[c];
+
+        S += coeff * Tn_jk[p2];
+        S2 += coeff * Tnd_jk[p2];
+      }
+
+      A += t1 * S;
+      A1 += d1 * S;
+      A2 += t1 * S2;
+    }
+
+    E += t0 * A;
+    F0 += d0 * A;
+    F1 += t0 * A1;
+    F2 += t0 * A2;
+  }
+
+  *e = E;
+  f[0] = F0;
+  f[1] = F1;
+  f[2] = F2;
+}
+
+void chimesFF::poly_4B_grouped(double *e, double *f, const chimesGroupedPoly &g,
+                               vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_il,
+                               vector<double> &Tn_jk, vector<double> &Tn_jl, vector<double> &Tn_kl,
+                               vector<double> &Tnd_ij, vector<double> &Tnd_ik,
+                               vector<double> &Tnd_il, vector<double> &Tnd_jk,
+                               vector<double> &Tnd_jl, vector<double> &Tnd_kl)
+// The 4-body analogue: five nested group levels over (ij, ik, il, jk, jl) and a
+// leaf over kl.  Each level multiplies the accumulators coming from below by
+// its own Chebyshev value and adds one more for its own derivative.
+{
+  const int n0 = g.level_pow[0].size();
+
+  double E = 0.0, F[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
+  for (int a = 0; a < n0; a++) {
+    const int p0 = g.level_pow[0][a];
+    const double t0 = Tn_ij[p0];
+    const double d0 = Tnd_ij[p0];
+
+    double D = 0.0, D1 = 0.0, D2 = 0.0, D3 = 0.0, D4 = 0.0, D5 = 0.0;
+
+    for (int b = g.level_start[0][a]; b < g.level_start[0][a + 1]; b++) {
+      const int p1 = g.level_pow[1][b];
+      const double t1 = Tn_ik[p1];
+      const double d1 = Tnd_ik[p1];
+
+      double C = 0.0, C2 = 0.0, C3 = 0.0, C4 = 0.0, C5 = 0.0;
+
+      for (int c = g.level_start[1][b]; c < g.level_start[1][b + 1]; c++) {
+        const int p2 = g.level_pow[2][c];
+        const double t2 = Tn_il[p2];
+        const double d2 = Tnd_il[p2];
+
+        double B = 0.0, B3 = 0.0, B4 = 0.0, B5 = 0.0;
+
+        for (int m = g.level_start[2][c]; m < g.level_start[2][c + 1]; m++) {
+          const int p3 = g.level_pow[3][m];
+          const double t3 = Tn_jk[p3];
+          const double d3 = Tnd_jk[p3];
+
+          double A = 0.0, A4 = 0.0, A5 = 0.0;
+
+          for (int n = g.level_start[3][m]; n < g.level_start[3][m + 1]; n++) {
+            const int p4 = g.level_pow[4][n];
+            const double t4 = Tn_jl[p4];
+            const double d4 = Tnd_jl[p4];
+
+            double S = 0.0, S5 = 0.0;
+
+            for (int q = g.level_start[4][n]; q < g.level_start[4][n + 1]; q++) {
+              const double coeff = g.leaf_c[q];
+              const int p5 = g.leaf_pow[q];
+
+              S += coeff * Tn_kl[p5];
+              S5 += coeff * Tnd_kl[p5];
+            }
+
+            A += t4 * S;
+            A4 += d4 * S;
+            A5 += t4 * S5;
+          }
+
+          B += t3 * A;
+          B3 += d3 * A;
+          B4 += t3 * A4;
+          B5 += t3 * A5;
+        }
+
+        C += t2 * B;
+        C2 += d2 * B;
+        C3 += t2 * B3;
+        C4 += t2 * B4;
+        C5 += t2 * B5;
+      }
+
+      D += t1 * C;
+      D1 += d1 * C;
+      D2 += t1 * C2;
+      D3 += t1 * C3;
+      D4 += t1 * C4;
+      D5 += t1 * C5;
+    }
+
+    E += t0 * D;
+    F[0] += d0 * D;
+    F[1] += t0 * D1;
+    F[2] += t0 * D2;
+    F[3] += t0 * D3;
+    F[4] += t0 * D4;
+    F[5] += t0 * D5;
+  }
+
+  *e = E;
+  for (int p = 0; p < 6; p++) f[p] = F[p];
 }
 
 void chimesFF::poly_3B_dense(double &e, double &f0, double &f1, double &f2, int ncoeffs_3b,
