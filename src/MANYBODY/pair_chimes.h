@@ -64,9 +64,13 @@ class PairCHIMES : public Pair {
   int n_3mers;    // number of neighborlist_Xmers entries
   int n_4mers;
 
-  std::vector<std::vector<int>>
-      neighborlist_3mers;    // custom neighbor list; neighborlist_Xmers[cluster idx][atom in cluster idx]
-  std::vector<std::vector<int>> neighborlist_4mers;
+  // Custom many-body neighbor lists, stored flat: cluster c occupies
+  // neighborlist_3mers[3*c .. 3*c+2] and neighborlist_4mers[4*c .. 4*c+3].
+  // Flat storage keeps the capacity across rebuilds, so the steady state does
+  // no allocation at all, and the compute loops read it as one stream.
+
+  std::vector<int> neighborlist_3mers;
+  std::vector<int> neighborlist_4mers;
 
   // 2-body vars for chimesFF access
 
@@ -86,11 +90,6 @@ class PairCHIMES : public Pair {
   std::vector<int> typ_idxs_3b;
   std::vector<int> typ_idxs_4b;
 
-  // Vars for neighlist construction
-
-  std::vector<int> tmp_3mer;
-  std::vector<int> tmp_4mer;
-
   // Constructor/Deconstructor
 
   PairCHIMES(class LAMMPS *);
@@ -109,8 +108,7 @@ class PairCHIMES : public Pair {
   inline double get_dist(int i, int j, double *dr);
   inline double get_dist(int i, int j);
   void set_chimes_type();
-  void ev_tally_mb(int ninteractionatoms, int npairs, int atmpairidxlst[6][2], double evdwl,
-                   std::vector<double> stress);
+  void ev_tally_mb(int ninteractionatoms, const int *atmlist, double evdwl, const double *stress);
 
   // Functions I haven't worked on
 

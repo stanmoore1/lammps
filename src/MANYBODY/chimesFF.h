@@ -134,7 +134,7 @@ class chimesFF {
 
   void compute_1B(const int typ_idx, double &energy);
 
-  void compute_2B(const double dx, const vector<double> &dr, const vector<int> typ_idxs,
+  void compute_2B(const double dx, const vector<double> &dr, const vector<int> &typ_idxs,
                   vector<double> &force, vector<double> &stress, double &energy, chimes2BTmp &tmp);
 
   void compute_3B(const vector<double> &dx, const vector<double> &dr, const vector<int> &typ_idxs,

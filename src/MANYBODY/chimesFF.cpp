@@ -1302,7 +1302,7 @@ void chimesFF::compute_1B(const int typ_idx, double &energy)
   energy += energy_offsets[typ_idx];
 }
 
-void chimesFF::compute_2B(const double dx, const vector<double> &dr, const vector<int> typ_idxs,
+void chimesFF::compute_2B(const double dx, const vector<double> &dr, const vector<int> &typ_idxs,
                           vector<double> &force, vector<double> &stress, double &energy,
                           chimes2BTmp &tmp)
 {
@@ -1347,8 +1347,6 @@ void chimesFF::compute_2B(const double dx, const vector<double> &dr, const vecto
 
   poly_2B(&poly, &dpoly_dx, ncoeffs_2b[pair_idx], chimes_2b_params[pair_idx],
           chimes_2b_pows[pair_idx], Tn, Tnd);
-
-  double dx_inv = (dx > 0.0) ? 1.0 / dx : 1e20;
 
   energy += poly * fcut;
   double force_scalar = (fcut * dpoly_dx + fcutderiv * poly) / dx;
@@ -1466,7 +1464,6 @@ void chimesFF::compute_3B(const vector<double> &dx, const vector<double> &dr,
   // fixed-length C arrays are allocated on the stack.
   double fcut[npairs];
   double fcutderiv[npairs];
-  double deriv[npairs];
 
 #if DEBUG == 1
   if (dr.size() != 9) {
@@ -1512,17 +1509,9 @@ void chimesFF::compute_3B(const vector<double> &dx, const vector<double> &dr,
   get_fcut(dx[2], chimes_3b_cutoff[tripidx][1][mapped_pair_idx[2]], fcut[2], fcutderiv[2]);
   double fcut_all = fcut[0] * fcut[1] * fcut[2];
 
-  // Product of 2 fcuts divided by dx. Index i = product of all fcuts except i.
-  double fcut_2[npairs];
-  fcut_2[0] = fcut[1] * fcut[2] / dx[0];
-  fcut_2[1] = fcut[0] * fcut[2] / dx[1];
-  fcut_2[2] = fcut[0] * fcut[1] / dx[2];
-
   double poly, dpoly_dx[npairs];
 
   // Start the force/stress/energy calculation
-  double coeff;
-  int powers[npairs];
   double force_scalar[npairs];
 
   if (!dense_coeffs) {
@@ -1535,7 +1524,7 @@ void chimesFF::compute_3B(const vector<double> &dx, const vector<double> &dr,
 
     for (int j = 0; j < npairs; j++) { inv_mapped_pair[mapped_pair_idx[j]] = j; }
 
-    vector<vector<double> *> Tn{npairs}, Tnd{npairs};
+    vector<double> *Tn[npairs], *Tnd[npairs];
 
     for (int j = 0; j < npairs; j++) {
       switch (inv_mapped_pair[j]) {
@@ -1647,7 +1636,6 @@ void chimesFF::compute_4B(const vector<double> &dx, const vector<double> &dr,
 
   double fcut[npairs];
   double fcutderiv[npairs];
-  double deriv[npairs];
 
 #if DEBUG == 1
   if (force.size() != CHDIM * natoms) {
@@ -1741,7 +1729,7 @@ void chimesFF::compute_4B(const vector<double> &dx, const vector<double> &dr,
 
     for (int j = 0; j < npairs; j++) { inv_mapped_pair[mapped_pair_idx[j]] = j; }
 
-    vector<vector<double> *> Tn{npairs}, Tnd{npairs};
+    vector<double> *Tn[npairs], *Tnd[npairs];
 
     for (int j = 0; j < npairs; j++) {
       switch (inv_mapped_pair[j]) {
@@ -2120,9 +2108,6 @@ void chimesFF::poly_3B_dense(double &e, double &f0, double &f1, double &f2, int 
 // Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f0, f1, f2)
 // (LEF) 4/02/26
 {
-  double coeff;
-  int powers[3];
-  double deriv[3];
   const int loop_style = CHIMES_LOOP_STYLE;
 
   e = 0.0;
@@ -2470,9 +2455,6 @@ void chimesFF::poly_4B_dense(double &e, double &f0, double &f1, double &f2, doub
 // Compute the 3 body polynomial (e) and derivatives with respect to each pair distance (f0, f1, f2)
 // (LEF) 4/02/26
 {
-  double coeff;
-  int powers[6];
-  double deriv[6];
   const int loop_style = CHIMES_LOOP_STYLE;
 
   e = 0.0;
@@ -2572,7 +2554,7 @@ void chimesFF::densify_3B(int &ncoeffs3, vector<vector<int>> &powers_3b, vector<
     }
   }
 
-  cout << "Maximum 3-B power found = " << max_pow3b << endl;
+  if (rank == 0) cout << "chimesFF: Maximum 3-B power found = " << max_pow3b << endl;
 
   int dim1 = max_pow3b + 1;
   int dim = dim1 * dim1 * dim1;
@@ -2617,7 +2599,7 @@ void chimesFF::densify_4B(int &ncoeffs4, vector<vector<int>> &powers_4b, vector<
     }
   }
 
-  cout << "Maximum 4-B power found = " << max_pow4b << endl;
+  if (rank == 0) cout << "chimesFF: Maximum 4-B power found = " << max_pow4b << endl;
 
   int dim1 = max_pow4b + 1;
   int dim = dim1 * dim1 * dim1 * dim1 * dim1 * dim1;

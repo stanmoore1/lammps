@@ -60,8 +60,7 @@ PairCHIMES::PairCHIMES(LAMMPS *lmp) : Pair(lmp)
 {
   restartinfo = 0;
 
-  int me = comm->me;
-  MPI_Comm_rank(world, &me);
+  const int me = comm->me;
 
   chimes_calculator = new chimesFF();
 
@@ -85,10 +84,8 @@ PairCHIMES::PairCHIMES(LAMMPS *lmp) : Pair(lmp)
   typ_idxs_3b.resize(3);
   typ_idxs_4b.resize(4);
 
-  // Vars for neighlist construction
-
-  tmp_3mer.resize(3);
-  tmp_4mer.resize(4);
+  n_3mers = 0;
+  n_4mers = 0;
 
   if (chimes_calculator->rank == 0) {
     std::cout << std::endl;
@@ -234,9 +231,12 @@ void PairCHIMES::build_mb_neighlists()
   if ((chimes_calculator->poly_orders[1] == 0) && (chimes_calculator->poly_orders[2] == 0)) return;
 
   // List gets built based on atoms owned by calling proc.
+  // resize(0) rather than clear() so the capacity survives to the next rebuild.
 
-  neighborlist_3mers.clear();
-  neighborlist_4mers.clear();
+  neighborlist_3mers.resize(0);
+  neighborlist_4mers.resize(0);
+  n_3mers = 0;
+  n_4mers = 0;
 
   int i, j, k, l, inum, jnum, knum, lnum, ii, jj, kk, ll;         // Local iterator vars
   int *ilist, *jlist, *klist, *llist, *numneigh, **firstneigh;    // Local neighborlist vars
@@ -305,11 +305,10 @@ void PairCHIMES::build_mb_neighlists()
             (dist_jk < maxcut_3b_padded)) {
           // If we're here and valid_3mer == true, then add the triplet to the chimes neigh list
 
-          tmp_3mer[0] = i;
-          tmp_3mer[1] = j;
-          tmp_3mer[2] = k;
-
-          neighborlist_3mers.push_back(tmp_3mer);
+          neighborlist_3mers.push_back(i);
+          neighborlist_3mers.push_back(j);
+          neighborlist_3mers.push_back(k);
+          n_3mers++;
         }
 
         if ((dist_ij >= maxcut_4b_padded) || (dist_ik >= maxcut_4b_padded) ||
@@ -351,12 +350,11 @@ void PairCHIMES::build_mb_neighlists()
 
           // If we're here and valid_4mer == true, then add the quadruplet to the chimes neigh list
 
-          tmp_4mer[0] = i;
-          tmp_4mer[1] = j;
-          tmp_4mer[2] = k;
-          tmp_4mer[3] = l;
-
-          neighborlist_4mers.push_back(tmp_4mer);
+          neighborlist_4mers.push_back(i);
+          neighborlist_4mers.push_back(j);
+          neighborlist_4mers.push_back(k);
+          neighborlist_4mers.push_back(l);
+          n_4mers++;
         }
       }
     }
@@ -369,9 +367,9 @@ void PairCHIMES::compute(int eflag, int vflag)
 
   std::vector<double> stensor(6);    // pointers to system stress tensor
 
-  // Temp vars to hold chimes output for passing to ev_tally function
+  // Atom indices of the current cluster, passed on to ev_tally_mb
 
-  int atmidxlst[6][2];
+  int atmlist[4];
 
   // General LAMMPS compute vars
 
@@ -379,22 +377,13 @@ void PairCHIMES::compute(int eflag, int vflag)
   int *ilist, *jlist, *numneigh, **firstneigh;    // Local neighborlist vars
   int idx;
 
-  double **x = atom->x;    // Access to system coordinates
   double **f = atom->f;    // Access to system forces
 
   int *type =
       atom->type;    // Acces to system atom types (countng starts from 1, chimesFF class expects counting from 0!)
-  tagint *tag = atom->tag;       // Access to global atom indices (sort of like "parent" indices)
-  int itag, jtag, ktag, ltag;    // holds tags
-  int nlocal =
-      atom->nlocal;    // Number of real atoms owned by current process .. used used to assure force assignments aren't duplicated
-  int newton_pair =
-      force
-          ->newton_pair;    // Should f_j be automatically set to -f_i (true) or manually calculated (false)
-  double energy;            // pair energy
-
-  int me = comm->me;
-  MPI_Comm_rank(world, &me);
+  tagint *tag = atom->tag;    // Access to global atom indices (sort of like "parent" indices)
+  int itag, jtag;             // holds tags
+  double energy;              // pair energy
 
   // Set up vars controlling if energy/pressure (virial) contributions are computed
 
@@ -421,19 +410,7 @@ void PairCHIMES::compute(int eflag, int vflag)
 
   // Build the ChIMES many-body neighbor lists.. only do so when LAMMPS neighborlist has been updated
 
-  if (neighbor->ago == 0) {
-    if (0 && chimes_calculator->rank == 0)
-      std::cout << "Updating chimesFF neighbor lists..." << std::endl;
-
-    build_mb_neighlists();
-    if (0 && chimes_calculator->rank == 0) {
-      std::cout << "	Rank " << me << " 3-body list size: " << neighborlist_3mers.size()
-                << std::endl;
-      std::cout << "	Rank " << me << " 4-body list size: " << neighborlist_4mers.size()
-                << std::endl;
-      std::cout << "	...update complete" << std::endl;
-    }
-  }
+  if (neighbor->ago == 0) build_mb_neighlists();
 
   ////////////////////////////////////////
   // Compute 1- and 2-body interactions
@@ -447,23 +424,27 @@ void PairCHIMES::compute(int eflag, int vflag)
     jlist = firstneigh[i];    // Neighborlist for atom i
     jnum = numneigh[i];       // Number of neighbors of atom i
 
+    // Type (index) of the current atom... subtract 1 to account for chimesFF
+    // vs LAMMPS numbering convention
+
+    typ_idxs_2b[0] = chimes_type[type[i] - 1];
+
     // First, get the single-atom energy contribution
 
     energy = 0.0;
 
     chimes_calculator->compute_1B(type[i] - 1, energy);
 
-    atmidxlst[0][0] = i;
+    atmlist[0] = i;
 
-    if (evflag) ev_tally_mb(1, 0, atmidxlst, energy, stensor);
+    if (evflag) ev_tally_mb(1, atmlist, energy, stensor.data());
 
     // Now move on to two-body force, stress, and energy
 
     for (jj = 0; jj < jnum; jj++)    // Loop over neighbors of i
     {
-      j = jlist[jj];     // Index of the jj atom
-      jtag = tag[j];     // Get j's global atom index (sort of like its "parent")
-      j &= NEIGHMASK;    // Strip possible extra bits of j
+      j = jlist[jj] & NEIGHMASK;    // Index of the jj atom, extra bits stripped
+      jtag = tag[j];                // Get j's global atom index (sort of like its "parent")
 
       if (jtag <=
           itag)    // only allow calculation for j<i, since we've requested a full neighbor list
@@ -473,9 +454,6 @@ void PairCHIMES::compute(int eflag, int vflag)
 
       dist = get_dist(i, j, &dr[0]);
 
-      typ_idxs_2b[0] = chimes_type
-          [type[i] -
-           1];    // Type (index) of the current atom... subtract 1 to account for chimesFF vs LAMMPS numbering convention
       typ_idxs_2b[1] = chimes_type[type[j] - 1];
 
       // Using std::fill for maximum efficiency.
@@ -496,12 +474,9 @@ void PairCHIMES::compute(int eflag, int vflag)
       // "Save"/tally up the energy and stresses to the global virial/energy data objects (see pair.cpp ~ line 1000)
       // Compute pressure, (in contrast to chimes_md) AFTER penalty has been added
 
-      if (vflag_atom) {
-        atmidxlst[0][0] = i;
-        atmidxlst[0][1] = j;
-      }
+      atmlist[1] = j;
 
-      if (evflag) ev_tally_mb(2, 1, atmidxlst, energy, stensor);
+      if (evflag) ev_tally_mb(2, atmlist, energy, stensor.data());
     }
   }
 
@@ -510,10 +485,11 @@ void PairCHIMES::compute(int eflag, int vflag)
     // Compute 3-body interactions
     ////////////////////////////////////////
 
-    for (ii = 0; ii < neighborlist_3mers.size(); ii++) {
-      i = neighborlist_3mers[ii][0];
-      j = neighborlist_3mers[ii][1];
-      k = neighborlist_3mers[ii][2];
+    for (ii = 0; ii < n_3mers; ii++) {
+      const int *mer = &neighborlist_3mers[3 * ii];
+      i = mer[0];
+      j = mer[1];
+      k = mer[2];
 
       dist_3b[0] = get_dist(i, j, &dr_3b[0 * CHDIM]);
       dist_3b[1] = get_dist(i, k, &dr_3b[1 * CHDIM]);
@@ -537,16 +513,11 @@ void PairCHIMES::compute(int eflag, int vflag)
         f[k][idx] += force_3b[2 * CHDIM + idx];
       }
 
-      if (vflag_atom) {
-        atmidxlst[0][0] = i;
-        atmidxlst[0][1] = j;
-        atmidxlst[1][0] = i;
-        atmidxlst[1][1] = k;
-        atmidxlst[2][0] = j;
-        atmidxlst[2][1] = k;
-      }
+      atmlist[0] = i;
+      atmlist[1] = j;
+      atmlist[2] = k;
 
-      if (evflag) ev_tally_mb(3, 3, atmidxlst, energy, stensor);
+      if (evflag) ev_tally_mb(3, atmlist, energy, stensor.data());
     }
   }
 
@@ -555,11 +526,12 @@ void PairCHIMES::compute(int eflag, int vflag)
     // Compute 4-body interactions
     ////////////////////////////////////////
 
-    for (ii = 0; ii < neighborlist_4mers.size(); ii++) {
-      i = neighborlist_4mers[ii][0];
-      j = neighborlist_4mers[ii][1];
-      k = neighborlist_4mers[ii][2];
-      l = neighborlist_4mers[ii][3];
+    for (ii = 0; ii < n_4mers; ii++) {
+      const int *mer = &neighborlist_4mers[4 * ii];
+      i = mer[0];
+      j = mer[1];
+      k = mer[2];
+      l = mer[3];
 
       dist_4b[0] = get_dist(i, j, &dr_4b[0 * CHDIM]);
       dist_4b[1] = get_dist(i, k, &dr_4b[1 * CHDIM]);
@@ -588,22 +560,12 @@ void PairCHIMES::compute(int eflag, int vflag)
         f[l][idx] += force_4b[3 * CHDIM + idx];
       }
 
-      if (vflag_atom) {
-        atmidxlst[0][0] = i;
-        atmidxlst[0][1] = j;
-        atmidxlst[1][0] = i;
-        atmidxlst[1][1] = k;
-        atmidxlst[2][0] = i;
-        atmidxlst[2][1] = l;
-        atmidxlst[3][0] = j;
-        atmidxlst[3][1] = k;
-        atmidxlst[4][0] = j;
-        atmidxlst[4][1] = l;
-        atmidxlst[5][0] = k;
-        atmidxlst[5][1] = l;
-      }
+      atmlist[0] = i;
+      atmlist[1] = j;
+      atmlist[2] = k;
+      atmlist[3] = l;
 
-      if (evflag) ev_tally_mb(4, 6, atmidxlst, energy, stensor);
+      if (evflag) ev_tally_mb(4, atmlist, energy, stensor.data());
     }
   }
 
@@ -643,26 +605,13 @@ void PairCHIMES::set_chimes_type()
    do not make sense. Expects newton_pair = 1.
  ------------------------------------------------------------------------- */
 
-void PairCHIMES::ev_tally_mb(int ninteractionatoms, int npairs, int atmpairidxlst[6][2],
-                             double evdwl, std::vector<double> stress)
+void PairCHIMES::ev_tally_mb(int ninteractionatoms, const int *atmlist, double evdwl,
+                             const double *stress)
 {
   // Assumes newton pair is always true
   // Assumes a full neighbor list is always true (hard coded in pair_chimes.cpp)
   // Modeled after ev_tally_full and ev_tally3 (to get MB handling)
-  // force and distance vector are flattened 2d vectors, e.g., atom_idx*3 + [0,1,2 == x,y,z dims]
-
-  std::vector<int> atmlist(4);
-
-  atmlist[0] = atmpairidxlst[0][0];    // i
-
-  if (ninteractionatoms > 1)             // 2, 3, and/or 4b
-    atmlist[1] = atmpairidxlst[0][1];    // j
-
-  if (ninteractionatoms > 2)             // 3 and/or 4b
-    atmlist[2] = atmpairidxlst[1][1];    // k
-
-  if (ninteractionatoms > 3)             // 4b only
-    atmlist[3] = atmpairidxlst[2][1];    // l
+  // atmlist holds the ninteractionatoms local atom indices of the cluster.
 
   if (eflag_global) eng_vdwl += evdwl;
 
