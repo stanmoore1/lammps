@@ -1493,17 +1493,29 @@ void chimesFF::compute_3B(const vector<double> &dx, const vector<double> &dr,
 
   // At this point, all distances are within allowed ranges. We can now proceed to the force/stress/energy calculation
 
-  // Set up the polynomials
+  // Set up the polynomials and the smoothing functions, reusing whatever the
+  // previous cluster left behind for a pair slot it shares with this one.
+  // Neighboring triplets differ only in k, so the ij slot is almost always a
+  // hit, and that is one of the three exp() and one of the three sincos().
 
-  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], sc[0], 1);
-  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], sc[1], 1);
-  set_cheby_polys(Tn_jk, Tnd_jk, dx[2], sc[2], 1);
+  if (!pair_cached(tmp.cache[0], sc[0], dx[0])) {
+    set_cheby_polys(Tn_ij, Tnd_ij, dx[0], sc[0], 1);
+    get_fcut(dx[0], sc[0], tmp.cache[0].fcut, tmp.cache[0].fcutderiv);
+  }
+  if (!pair_cached(tmp.cache[1], sc[1], dx[1])) {
+    set_cheby_polys(Tn_ik, Tnd_ik, dx[1], sc[1], 1);
+    get_fcut(dx[1], sc[1], tmp.cache[1].fcut, tmp.cache[1].fcutderiv);
+  }
+  if (!pair_cached(tmp.cache[2], sc[2], dx[2])) {
+    set_cheby_polys(Tn_jk, Tnd_jk, dx[2], sc[2], 1);
+    get_fcut(dx[2], sc[2], tmp.cache[2].fcut, tmp.cache[2].fcutderiv);
+  }
 
-  // Set up the smoothing functions
+  for (int p = 0; p < npairs; p++) {
+    fcut[p] = tmp.cache[p].fcut;
+    fcutderiv[p] = tmp.cache[p].fcutderiv;
+  }
 
-  get_fcut(dx[0], sc[0], fcut[0], fcutderiv[0]);
-  get_fcut(dx[1], sc[1], fcut[1], fcutderiv[1]);
-  get_fcut(dx[2], sc[2], fcut[2], fcutderiv[2]);
   double fcut_all = fcut[0] * fcut[1] * fcut[2];
 
   double poly, dpoly_dx[npairs];
@@ -1686,15 +1698,21 @@ void chimesFF::compute_4B(const vector<double> &dx, const vector<double> &dr,
 
   // Set up the polynomials
 
-  set_cheby_polys(Tn_ij, Tnd_ij, dx[0], sc[0], 2);
-  set_cheby_polys(Tn_ik, Tnd_ik, dx[1], sc[1], 2);
-  set_cheby_polys(Tn_il, Tnd_il, dx[2], sc[2], 2);
-  set_cheby_polys(Tn_jk, Tnd_jk, dx[3], sc[3], 2);
-  set_cheby_polys(Tn_jl, Tnd_jl, dx[4], sc[4], 2);
-  set_cheby_polys(Tn_kl, Tnd_kl, dx[5], sc[5], 2);
+  // Neighboring quadruplets differ only in l, so ij, ik and jk -- half the
+  // slots -- are typically already set up from the previous cluster.
 
-  // Set up the smoothing functions
-  for (int i = 0; i < npairs; i++) get_fcut(dx[i], sc[i], fcut[i], fcutderiv[i]);
+  vector<double> *const tn[6] = {&Tn_ij, &Tn_ik, &Tn_il, &Tn_jk, &Tn_jl, &Tn_kl};
+  vector<double> *const tnd[6] = {&Tnd_ij, &Tnd_ik, &Tnd_il, &Tnd_jk, &Tnd_jl, &Tnd_kl};
+
+  for (int p = 0; p < npairs; p++) {
+    if (!pair_cached(tmp.cache[p], sc[p], dx[p])) {
+      set_cheby_polys(*tn[p], *tnd[p], dx[p], sc[p], 2);
+      get_fcut(dx[p], sc[p], tmp.cache[p].fcut, tmp.cache[p].fcutderiv);
+    }
+
+    fcut[p] = tmp.cache[p].fcut;
+    fcutderiv[p] = tmp.cache[p].fcutderiv;
+  }
 
   // Product of all 6 fcuts.
   double fcut_all = fcut[0] * fcut[1] * fcut[2] * fcut[3] * fcut[4] * fcut[5];

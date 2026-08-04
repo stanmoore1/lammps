@@ -52,6 +52,20 @@ inline void chimes2BTmp::resize(int poly_order)
   if (Tnd.size() < poly_order + 1) Tnd.resize(poly_order + 1);
 }
 
+// Records what the last cluster left in a pair slot, so that a slot whose pair
+// is unchanged can reuse it.  The many-body lists are generated with the last
+// atom varying fastest, so consecutive clusters share most of their pairs: all
+// of ij, ik and jk are constant while l runs, and ij is constant while k runs.
+// Keying on the slot's constant record together with the distance means a hit
+// guarantees an identical result -- same cutoffs, same Morse lambda, same
+// separation -- without the caller having to say anything about atom indices.
+
+struct chimesPairCache {
+  double morse, inner, outer;    // the slot constants the cached setup was built from
+  double dx;
+  double fcut, fcutderiv;
+};
+
 class chimes3BTmp {
  public:
   inline chimes3BTmp(int poly_order);
@@ -59,13 +73,14 @@ class chimes3BTmp {
 
   vector<double> Tn_ij, Tn_ik, Tn_jk;       // The Chebyshev polymonials
   vector<double> Tnd_ij, Tnd_ik, Tnd_jk;    // The Chebyshev polymonial derivatives
+  chimesPairCache cache[3];
 };
 
 inline chimes3BTmp::chimes3BTmp(int poly_order) :
     Tn_ij(poly_order + 1), Tn_ik(poly_order + 1), Tn_jk(poly_order + 1), Tnd_ij(poly_order + 1),
     Tnd_ik(poly_order + 1), Tnd_jk(poly_order + 1)
 {
-  ;
+  for (int p = 0; p < 3; p++) cache[p] = chimesPairCache{-1.0, -1.0, -1.0, -1.0, 0.0, 0.0};
 }
 
 class chimes4BTmp {
@@ -76,6 +91,7 @@ class chimes4BTmp {
   vector<double> Tn_ij, Tn_ik, Tn_il, Tn_jk, Tn_jl, Tn_kl;    // The Chebyshev polymonials
   vector<double> Tnd_ij, Tnd_ik, Tnd_il, Tnd_jk, Tnd_jl,
       Tnd_kl;    // The Chebyshev polymonial derivatives
+  chimesPairCache cache[6];
 };
 
 inline chimes4BTmp::chimes4BTmp(int poly_order) :
@@ -83,7 +99,7 @@ inline chimes4BTmp::chimes4BTmp(int poly_order) :
     Tn_jl(poly_order + 1), Tn_kl(poly_order + 1), Tnd_ij(poly_order + 1), Tnd_ik(poly_order + 1),
     Tnd_il(poly_order + 1), Tnd_jk(poly_order + 1), Tnd_jl(poly_order + 1), Tnd_kl(poly_order + 1)
 {
-  ;
+  for (int p = 0; p < 6; p++) cache[p] = chimesPairCache{-1.0, -1.0, -1.0, -1.0, 0.0, 0.0};
 }
 
 inline void chimes3BTmp::resize(int poly_order)
@@ -430,6 +446,31 @@ class chimesFF {
                               int poly_order, double inner_cutoff, double exprlen, double dx_dr);
 
   inline void get_fcut(const double dx, const chimesSlotConst &sc, double &fcut, double &fcutderiv);
+
+  // True when this slot already holds the setup for exactly this pair, so the
+  // Chebyshev arrays and the cutoff function can be left alone.  Otherwise the
+  // cache is claimed for the new pair and the caller refills it.
+  //
+  // The comparison is against the slot's values rather than its address on
+  // purpose: the slot record is selected by the cluster's full atom-type index,
+  // so consecutive clusters that genuinely share a pair still land on different
+  // records as soon as one of the *other* atoms changes type.  Matching on
+  // (Morse lambda, inner, outer) instead recognizes those, which for a model
+  // whose cutoffs do not vary by cluster type is nearly every one of them.
+  // Everything else in the record is derived from these three.
+
+  static inline bool pair_cached(chimesPairCache &c, const chimesSlotConst &sc, const double dx)
+  {
+    if ((c.dx == dx) && (c.morse == sc.morse) && (c.inner == sc.inner) && (c.outer == sc.outer))
+      return true;
+
+    c.dx = dx;
+    c.morse = sc.morse;
+    c.inner = sc.inner;
+    c.outer = sc.outer;
+
+    return false;
+  }
 
   inline void get_penalty(const double dx, const int &pair_idx, const double inner_cutoff,
                           double &E_penalty, double &force_scalar);
