@@ -574,6 +574,8 @@ class chimesFF {
 
   void poly_4B_batch(const chimesPolySet &ps, chimes4BBatch &b);
 
+  void poly_4B_grouped_batch(const chimesGroupedPoly &g, chimes4BBatch &b);
+
   void poly_4B(double *e, double *f, const chimesPolySet &ps, vector<double> &Tn_ij,
                vector<double> &Tn_ik, vector<double> &Tn_il, vector<double> &Tn_jk,
                vector<double> &Tn_jl, vector<double> &Tn_kl, vector<double> &Tnd_ij,

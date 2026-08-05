@@ -2697,6 +2697,160 @@ void chimesFF::poly_3B_grouped(double *e, double *f, const chimesGroupedPoly &g,
   f[2] = F2;
 }
 
+// The batched form of poly_4B_grouped.  Same six-level tree, evaluated for
+// CHIMES_VLEN clusters at once: every accumulator becomes a lane vector and
+// every Chebyshev value becomes a contiguous run of CHIMES_VLEN doubles, so
+// each level's update is a flat lane loop rather than a scalar chain.  The
+// scalar kernel is kept for the callers that hold one cluster.
+
+CHIMES_VECTOR_CLONES
+void chimesFF::poly_4B_grouped_batch(const chimesGroupedPoly &g, chimes4BBatch &b)
+{
+  const int *const lp0 = g.level_pow[0].data();
+  const int *const lp1 = g.level_pow[1].data();
+  const int *const lp2 = g.level_pow[2].data();
+  const int *const lp3 = g.level_pow[3].data();
+  const int *const lp4 = g.level_pow[4].data();
+
+  const int *const ls0 = g.level_start[0].data();
+  const int *const ls1 = g.level_start[1].data();
+  const int *const ls2 = g.level_start[2].data();
+  const int *const ls3 = g.level_start[3].data();
+  const int *const ls4 = g.level_start[4].data();
+
+  const int *const leaf_pow = g.leaf_pow.data();
+  const double *const leaf_c = g.leaf_c.data();
+
+  const double *const tij = b.Tn[0].data();
+  const double *const tik = b.Tn[1].data();
+  const double *const til = b.Tn[2].data();
+  const double *const tjk = b.Tn[3].data();
+  const double *const tjl = b.Tn[4].data();
+  const double *const tkl = b.Tn[5].data();
+
+  const double *const dij = b.Tnd[0].data();
+  const double *const dik = b.Tnd[1].data();
+  const double *const dil = b.Tnd[2].data();
+  const double *const djk = b.Tnd[3].data();
+  const double *const djl = b.Tnd[4].data();
+  const double *const dkl = b.Tnd[5].data();
+
+  const int n0 = g.level_pow[0].size();
+
+  double E[CHIMES_VLEN], F[6][CHIMES_VLEN];
+
+  for (int l = 0; l < CHIMES_VLEN; l++) {
+    E[l] = 0.0;
+
+    for (int p = 0; p < 6; p++) F[p][l] = 0.0;
+  }
+
+  for (int a = 0; a < n0; a++) {
+    const double *const t0 = tij + (size_t) lp0[a] * CHIMES_VLEN;
+    const double *const d0 = dij + (size_t) lp0[a] * CHIMES_VLEN;
+
+    double D[CHIMES_VLEN], D1[CHIMES_VLEN], D2[CHIMES_VLEN];
+    double D3[CHIMES_VLEN], D4[CHIMES_VLEN], D5[CHIMES_VLEN];
+
+    for (int l = 0; l < CHIMES_VLEN; l++)
+      D[l] = D1[l] = D2[l] = D3[l] = D4[l] = D5[l] = 0.0;
+
+    for (int bb = ls0[a]; bb < ls0[a + 1]; bb++) {
+      const double *const t1 = tik + (size_t) lp1[bb] * CHIMES_VLEN;
+      const double *const d1 = dik + (size_t) lp1[bb] * CHIMES_VLEN;
+
+      double C[CHIMES_VLEN], C2[CHIMES_VLEN], C3[CHIMES_VLEN];
+      double C4[CHIMES_VLEN], C5[CHIMES_VLEN];
+
+      for (int l = 0; l < CHIMES_VLEN; l++) C[l] = C2[l] = C3[l] = C4[l] = C5[l] = 0.0;
+
+      for (int c = ls1[bb]; c < ls1[bb + 1]; c++) {
+        const double *const t2 = til + (size_t) lp2[c] * CHIMES_VLEN;
+        const double *const d2 = dil + (size_t) lp2[c] * CHIMES_VLEN;
+
+        double B[CHIMES_VLEN], B3[CHIMES_VLEN], B4[CHIMES_VLEN], B5[CHIMES_VLEN];
+
+        for (int l = 0; l < CHIMES_VLEN; l++) B[l] = B3[l] = B4[l] = B5[l] = 0.0;
+
+        for (int m = ls2[c]; m < ls2[c + 1]; m++) {
+          const double *const t3 = tjk + (size_t) lp3[m] * CHIMES_VLEN;
+          const double *const d3 = djk + (size_t) lp3[m] * CHIMES_VLEN;
+
+          double A[CHIMES_VLEN], A4[CHIMES_VLEN], A5[CHIMES_VLEN];
+
+          for (int l = 0; l < CHIMES_VLEN; l++) A[l] = A4[l] = A5[l] = 0.0;
+
+          for (int n = ls3[m]; n < ls3[m + 1]; n++) {
+            const double *const t4 = tjl + (size_t) lp4[n] * CHIMES_VLEN;
+            const double *const d4 = djl + (size_t) lp4[n] * CHIMES_VLEN;
+
+            double S[CHIMES_VLEN], S5[CHIMES_VLEN];
+
+            for (int l = 0; l < CHIMES_VLEN; l++) S[l] = S5[l] = 0.0;
+
+            for (int q = ls4[n]; q < ls4[n + 1]; q++) {
+              const double coeff = leaf_c[q];
+              const double *const t5 = tkl + (size_t) leaf_pow[q] * CHIMES_VLEN;
+              const double *const d5 = dkl + (size_t) leaf_pow[q] * CHIMES_VLEN;
+
+              for (int l = 0; l < CHIMES_VLEN; l++) {
+                S[l] += coeff * t5[l];
+                S5[l] += coeff * d5[l];
+              }
+            }
+
+            for (int l = 0; l < CHIMES_VLEN; l++) {
+              A[l] += t4[l] * S[l];
+              A4[l] += d4[l] * S[l];
+              A5[l] += t4[l] * S5[l];
+            }
+          }
+
+          for (int l = 0; l < CHIMES_VLEN; l++) {
+            B[l] += t3[l] * A[l];
+            B3[l] += d3[l] * A[l];
+            B4[l] += t3[l] * A4[l];
+            B5[l] += t3[l] * A5[l];
+          }
+        }
+
+        for (int l = 0; l < CHIMES_VLEN; l++) {
+          C[l] += t2[l] * B[l];
+          C2[l] += d2[l] * B[l];
+          C3[l] += t2[l] * B3[l];
+          C4[l] += t2[l] * B4[l];
+          C5[l] += t2[l] * B5[l];
+        }
+      }
+
+      for (int l = 0; l < CHIMES_VLEN; l++) {
+        D[l] += t1[l] * C[l];
+        D1[l] += d1[l] * C[l];
+        D2[l] += t1[l] * C2[l];
+        D3[l] += t1[l] * C3[l];
+        D4[l] += t1[l] * C4[l];
+        D5[l] += t1[l] * C5[l];
+      }
+    }
+
+    for (int l = 0; l < CHIMES_VLEN; l++) {
+      E[l] += t0[l] * D[l];
+      F[0][l] += d0[l] * D[l];
+      F[1][l] += t0[l] * D1[l];
+      F[2][l] += t0[l] * D2[l];
+      F[3][l] += t0[l] * D3[l];
+      F[4][l] += t0[l] * D4[l];
+      F[5][l] += t0[l] * D5[l];
+    }
+  }
+
+  for (int l = 0; l < CHIMES_VLEN; l++) {
+    b.poly[l] = E[l];
+
+    for (int p = 0; p < 6; p++) b.dpoly[p][l] = F[p][l];
+  }
+}
+
 CHIMES_VECTOR_CLONES
 void chimesFF::poly_4B_grouped(double *e, double *f, const chimesGroupedPoly &g,
                                vector<double> &Tn_ij, vector<double> &Tn_ik, vector<double> &Tn_il,
@@ -3307,35 +3461,10 @@ void chimesFF::compute_4B_batch(const int nlane, const int type_idx,
 
   const chimesPolySet &ps = poly_4b_set[type_idx];
 
-  if (!ps.grouped) {
+  if (ps.grouped)
+    poly_4B_grouped_batch(*ps.grouped, b);
+  else
     poly_4B_batch(ps, b);
-    return;
-  }
-
-  // This type has a coefficient tree, which is built for one cluster at a
-  // time; unpack the lanes and use it.
-
-  vector<double> t[6], d[6];
-
-  for (int p = 0; p < 6; p++) {
-    t[p].resize(b.dim);
-    d[p].resize(b.dim);
-  }
-
-  for (int l = 0; l < nlane; l++) {
-    for (int p = 0; p < 6; p++)
-      for (int i = 0; i < b.dim; i++) {
-        t[p][i] = b.Tn[p][(size_t) i * CHIMES_VLEN + l];
-        d[p][i] = b.Tnd[p][(size_t) i * CHIMES_VLEN + l];
-      }
-
-    double f[6];
-
-    poly_4B_grouped(&b.poly[l], f, *ps.grouped, t[0], t[1], t[2], t[3], t[4], t[5], d[0], d[1], d[2],
-                    d[3], d[4], d[5]);
-
-    for (int p = 0; p < 6; p++) b.dpoly[p][l] = f[p];
-  }
 }
 
 CHIMES_VECTOR_CLONES
