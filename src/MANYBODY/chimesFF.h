@@ -205,6 +205,9 @@ struct chimesSlotConst {
   double outer_sq;      // outer*outer, so callers can reject before taking a sqrt
   double x_avg;         // Morse transform: x = (exp(-r/morse) - x_avg) / x_diff
   double x_diff;
+  double neg_inv_morse;  // -1/morse
+  double inv_x_diff;     // 1/x_diff
+  double dxdr_scale;     // -1/(morse*x_diff), the whole factor dx_dr needs
   double fcut_thresh;   // TERSOFF: distance at which the cutoff function starts
   double fcut_mid;      // TERSOFF: where the ramp reaches 1/2 (see get_fcut)
   double fcut_dscale;   // TERSOFF: 1/(outer - fcut_thresh).  CUBIC: -3/outer
