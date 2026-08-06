@@ -2615,10 +2615,17 @@ void chimesFF::compute_3B_batch(const int nlane, const int type_idx,
 {
   const chimesSlotConst *sc = &slot_3b[type_idx * 3];
 
+  // The caller turns each cluster's polynomial derivative into a force by
+  // dividing by the separation.  Done there it is one scalar division per pair
+  // per cluster; done here it is a lane loop, so the whole block goes through
+  // one vector divide.
+
   for (int p = 0; p < 3; p++) {
     set_cheby_polys_batch(b.Tn[p].data(), b.Tnd[p].data(), dx[p], sc[p], 1);
 
     for (int l = 0; l < CHIMES_VLEN; l++) get_fcut(dx[p][l], sc[p], b.fcut[p][l], b.fcutderiv[p][l]);
+
+    for (int l = 0; l < CHIMES_VLEN; l++) b.inv_dx[p][l] = 1.0 / dx[p][l];
   }
 
   const chimesPolySet &ps = poly_3b_set[type_idx];
@@ -3556,6 +3563,8 @@ void chimesFF::compute_4B_batch(const int nlane, const int type_idx,
     set_cheby_polys_batch(b.Tn[p].data(), b.Tnd[p].data(), dx[p], sc[p], 2);
 
     for (int l = 0; l < CHIMES_VLEN; l++) get_fcut(dx[p][l], sc[p], b.fcut[p][l], b.fcutderiv[p][l]);
+
+    for (int l = 0; l < CHIMES_VLEN; l++) b.inv_dx[p][l] = 1.0 / dx[p][l];
   }
 
   const chimesPolySet &ps = poly_4b_set[type_idx];

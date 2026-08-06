@@ -73,6 +73,14 @@ class PairCHIMES : public Pair {
   std::vector<int> neighborlist_3mers;
   std::vector<int> neighborlist_4mers;
 
+  // The packed cluster type index of each entry above, in the same order.  The
+  // grouping pass already derives it from the atom types, and the atom types do
+  // not change between rebuilds, so the force loop reads it instead of chasing
+  // type[] and chimes_type[] once per atom of every cluster on every step.
+
+  std::vector<int> mer_type_3b;
+  std::vector<int> mer_type_4b;
+
   // Scratch for build_mb_neighlists(): the neighbors of the current atom that
   // can take part in one of its clusters, and the squared distances among the
   // 4-body candidates.  Kept as members so the capacity persists.
@@ -116,8 +124,6 @@ class PairCHIMES : public Pair {
   std::vector<double> force_4b;
 
   std::vector<int> typ_idxs_2b;
-  std::vector<int> typ_idxs_3b;
-  std::vector<int> typ_idxs_4b;
 
   // Constructor/Deconstructor
 
@@ -138,7 +144,8 @@ class PairCHIMES : public Pair {
   // loops see runs of one type and can batch them.  The width is a template
   // parameter so the per-cluster copy unrolls: leaving it a runtime argument
   // cost more than the sort saved.
-  template <int WIDTH> void sort_mers_by_type(std::vector<int> &mers, int nmers);
+  template <int WIDTH> void sort_mers_by_type(std::vector<int> &mers, int nmers,
+                                              std::vector<int> &mer_type);
   inline double get_dist(int i, int j, double *dr);
   inline double get_dist(int i, int j);
   // Displacement and distance for a pair, but only if it is inside cutsq.

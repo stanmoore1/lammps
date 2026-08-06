@@ -168,6 +168,7 @@ class chimes3BBatch {
   vector<double> Tn[3], Tnd[3];
   double fcut[3][CHIMES_VLEN], fcutderiv[3][CHIMES_VLEN];
   double poly[CHIMES_VLEN], dpoly[3][CHIMES_VLEN];
+  double inv_dx[3][CHIMES_VLEN];    // 1/separation, taken a lane block at a time
 };
 
 // The same, for a batch of same-typed 4-body clusters over their six pairs.
@@ -186,6 +187,7 @@ class chimes4BBatch {
   vector<double> Tn[6], Tnd[6];
   double fcut[6][CHIMES_VLEN], fcutderiv[6][CHIMES_VLEN];
   double poly[CHIMES_VLEN], dpoly[6][CHIMES_VLEN];
+  double inv_dx[6][CHIMES_VLEN];    // 1/separation, taken a lane block at a time
 };
 
 enum class fcutType {
@@ -377,6 +379,23 @@ class chimesFF {
     if (atom_int_trip_map[idx] < 0) return nullptr;
 
     return &slot_3b[idx * 3];
+  }
+
+  // The same lookups when the caller already has the packed cluster type index,
+  // which is what the many-body lists carry once they have been grouped by it.
+
+  inline const chimesSlotConst *slots_3B_idx(const int idx) const
+  {
+    if (atom_int_trip_map[idx] < 0) return nullptr;
+
+    return &slot_3b[idx * 3];
+  }
+
+  inline const chimesSlotConst *slots_4B_idx(const int idx) const
+  {
+    if (atom_int_quad_map[idx] < 0) return nullptr;
+
+    return &slot_4b[idx * 6];
   }
 
   inline const chimesSlotConst *slots_4B(const int t0, const int t1, const int t2,

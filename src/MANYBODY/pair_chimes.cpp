@@ -81,8 +81,6 @@ PairCHIMES::PairCHIMES(LAMMPS *lmp) : Pair(lmp)
   force_4b.resize(4 * CHDIM);
 
   typ_idxs_2b.resize(2);
-  typ_idxs_3b.resize(3);
-  typ_idxs_4b.resize(4);
 
   n_3mers = 0;
   n_4mers = 0;
@@ -432,9 +430,10 @@ void PairCHIMES::build_mb_neighlists()
     }
   }
 
-  if (chimes_calculator->poly_orders[1] > 0) sort_mers_by_type<3>(neighborlist_3mers, n_3mers);
+  if (chimes_calculator->poly_orders[1] > 0)
+    sort_mers_by_type<3>(neighborlist_3mers, n_3mers, mer_type_3b);
 
-  if (do_4b) sort_mers_by_type<4>(neighborlist_4mers, n_4mers);
+  if (do_4b) sort_mers_by_type<4>(neighborlist_4mers, n_4mers, mer_type_4b);
 }
 
 /* ----------------------------------------------------------------------
@@ -445,7 +444,7 @@ void PairCHIMES::build_mb_neighlists()
 ------------------------------------------------------------------------- */
 
 template <int WIDTH>
-void PairCHIMES::sort_mers_by_type(std::vector<int> &mers, int nmers)
+void PairCHIMES::sort_mers_by_type(std::vector<int> &mers, int nmers, std::vector<int> &mer_type)
 {
   if (nmers == 0) return;
 
@@ -472,6 +471,7 @@ void PairCHIMES::sort_mers_by_type(std::vector<int> &mers, int nmers)
   for (int t = 0; t < nkey; t++) type_count[t + 1] += type_count[t];
 
   mer_scratch.resize((size_t) nmers * WIDTH);
+  mer_type.resize(nmers);
 
   // A counting sort is stable, so clusters that share a type keep the order the
   // build gave them.  That matters: the build emits the last atom fastest, so
@@ -480,9 +480,12 @@ void PairCHIMES::sort_mers_by_type(std::vector<int> &mers, int nmers)
   // memory.
 
   for (int c = 0; c < nmers; c++) {
-    const size_t dst = (size_t) WIDTH * type_count[mer_key[c]]++;
+    const int dst = type_count[mer_key[c]]++;
 
-    for (int w = 0; w < WIDTH; w++) mer_scratch[dst + w] = mers[(size_t) WIDTH * c + w];
+    mer_type[dst] = mer_key[c];
+
+    for (int w = 0; w < WIDTH; w++)
+      mer_scratch[(size_t) WIDTH * dst + w] = mers[(size_t) WIDTH * c + w];
   }
 
   mers.swap(mer_scratch);
@@ -637,18 +640,15 @@ void PairCHIMES::compute(int eflag, int vflag)
         j = mer[1];
         k = mer[2];
 
-        typ_idxs_3b[0] = chimes_type[type[i] - 1];
-        typ_idxs_3b[1] = chimes_type[type[j] - 1];
-        typ_idxs_3b[2] = chimes_type[type[k] - 1];
+        const int cand_type = mer_type_3b[ii];
 
-        sc3 = chimes_calculator->slots_3B(typ_idxs_3b[0], typ_idxs_3b[1], typ_idxs_3b[2]);
+        sc3 = chimes_calculator->slots_3B_idx(cand_type);
 
         if (sc3) {
           if (within(x, i, j, sc3[0].outer_sq, &dr_3b[0 * CHDIM], dist_3b[0]) &&
               within(x, i, k, sc3[1].outer_sq, &dr_3b[1 * CHDIM], dist_3b[1]) &&
               within(x, j, k, sc3[2].outer_sq, &dr_3b[2 * CHDIM], dist_3b[2]))
-            this_type = chimes_calculator->type_index_3B(typ_idxs_3b[0], typ_idxs_3b[1],
-                                                         typ_idxs_3b[2]);
+            this_type = cand_type;
         }
       }
 
@@ -678,14 +678,14 @@ void PairCHIMES::compute(int eflag, int vflag)
           double fs[3];
 
           fs[0] = (fcut_all * chimes_3bbatch.dpoly[0][l] +
-                   chimes_3bbatch.fcutderiv[0][l] * fc1 * fc2 * poly) /
-              bdx[0][l];
+                   chimes_3bbatch.fcutderiv[0][l] * fc1 * fc2 * poly) *
+              chimes_3bbatch.inv_dx[0][l];
           fs[1] = (fcut_all * chimes_3bbatch.dpoly[1][l] +
-                   chimes_3bbatch.fcutderiv[1][l] * fc0 * fc2 * poly) /
-              bdx[1][l];
+                   chimes_3bbatch.fcutderiv[1][l] * fc0 * fc2 * poly) *
+              chimes_3bbatch.inv_dx[1][l];
           fs[2] = (fcut_all * chimes_3bbatch.dpoly[2][l] +
-                   chimes_3bbatch.fcutderiv[2][l] * fc0 * fc1 * poly) /
-              bdx[2][l];
+                   chimes_3bbatch.fcutderiv[2][l] * fc0 * fc1 * poly) *
+              chimes_3bbatch.inv_dx[2][l];
 
           // Pair p acts between the two atoms of the cluster it connects:
           // 0 = ij, 1 = ik, 2 = jk.
@@ -774,17 +774,12 @@ void PairCHIMES::compute(int eflag, int vflag)
         k = mer[2];
         l = mer[3];
 
-        typ_idxs_4b[0] = chimes_type[type[i] - 1];
-        typ_idxs_4b[1] = chimes_type[type[j] - 1];
-        typ_idxs_4b[2] = chimes_type[type[k] - 1];
-        typ_idxs_4b[3] = chimes_type[type[l] - 1];
-
         // As for the triplets, and it matters more here: two thirds of the
         // enumerated quadruplets are outside the real cutoffs on a given step,
         // and each one used to cost six square roots before being discarded.
 
-        const chimesSlotConst *sc4 = chimes_calculator->slots_4B(
-            typ_idxs_4b[0], typ_idxs_4b[1], typ_idxs_4b[2], typ_idxs_4b[3]);
+        const int cand_type = mer_type_4b[ii];
+        const chimesSlotConst *sc4 = chimes_calculator->slots_4B_idx(cand_type);
 
         if (sc4) {
           if (within(x, i, j, sc4[0].outer_sq, &dr_4b[0 * CHDIM], dist_4b[0]) &&
@@ -793,8 +788,7 @@ void PairCHIMES::compute(int eflag, int vflag)
               within(x, j, k, sc4[3].outer_sq, &dr_4b[3 * CHDIM], dist_4b[3]) &&
               within(x, j, l, sc4[4].outer_sq, &dr_4b[4 * CHDIM], dist_4b[4]) &&
               within(x, k, l, sc4[5].outer_sq, &dr_4b[5 * CHDIM], dist_4b[5]))
-            this_type = chimes_calculator->type_index_4B(typ_idxs_4b[0], typ_idxs_4b[1],
-                                                         typ_idxs_4b[2], typ_idxs_4b[3]);
+            this_type = cand_type;
         }
       }
 
@@ -835,8 +829,8 @@ void PairCHIMES::compute(int eflag, int vflag)
 
           for (int p = 0; p < 6; p++) {
             const double fs = (fcut_all * chimes_4bbatch.dpoly[p][lane] +
-                               chimes_4bbatch.fcutderiv[p][lane] * fcut_5[p] * poly) /
-                bdx[p][lane];
+                               chimes_4bbatch.fcutderiv[p][lane] * fcut_5[p] * poly) *
+                chimes_4bbatch.inv_dx[p][lane];
 
             const int a = batom[pa[p]][lane], b = batom[pb[p]][lane];
 
