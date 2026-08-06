@@ -2682,57 +2682,62 @@ void chimesFF::poly_3B_grouped_batch(const chimesGroupedPoly &g, chimes3BBatch &
 
   const int n0 = g.level_pow[0].size();
 
-  double E[CHIMES_VLEN], F0[CHIMES_VLEN], F1[CHIMES_VLEN], F2[CHIMES_VLEN];
+  const int half = CHIMES_VLEN / 2;
 
-  for (int l = 0; l < CHIMES_VLEN; l++) E[l] = F0[l] = F1[l] = F2[l] = 0.0;
+  for (int lo = 0; lo < CHIMES_VLEN; lo += half) {
 
-  for (int a = 0; a < n0; a++) {
-    const double *const t0 = tij + (size_t) l0_pow[a] * CHIMES_VLEN;
-    const double *const d0 = dij + (size_t) l0_pow[a] * CHIMES_VLEN;
+    double E[half], F0[half], F1[half], F2[half];
 
-    double A[CHIMES_VLEN], A1[CHIMES_VLEN], A2[CHIMES_VLEN];
+    for (int l = 0; l < half; l++) E[l] = F0[l] = F1[l] = F2[l] = 0.0;
 
-    for (int l = 0; l < CHIMES_VLEN; l++) A[l] = A1[l] = A2[l] = 0.0;
+    for (int a = 0; a < n0; a++) {
+      const double *const t0 = tij + (size_t) l0_pow[a] * CHIMES_VLEN + lo;
+      const double *const d0 = dij + (size_t) l0_pow[a] * CHIMES_VLEN + lo;
 
-    for (int bb = l0_start[a]; bb < l0_start[a + 1]; bb++) {
-      const double *const t1 = tik + (size_t) l1_pow[bb] * CHIMES_VLEN;
-      const double *const d1 = dik + (size_t) l1_pow[bb] * CHIMES_VLEN;
+      double A[half], A1[half], A2[half];
 
-      double S[CHIMES_VLEN], S2[CHIMES_VLEN];
+      for (int l = 0; l < half; l++) A[l] = A1[l] = A2[l] = 0.0;
 
-      for (int l = 0; l < CHIMES_VLEN; l++) S[l] = S2[l] = 0.0;
+      for (int bb = l0_start[a]; bb < l0_start[a + 1]; bb++) {
+        const double *const t1 = tik + (size_t) l1_pow[bb] * CHIMES_VLEN + lo;
+        const double *const d1 = dik + (size_t) l1_pow[bb] * CHIMES_VLEN + lo;
 
-      for (int c = l1_start[bb]; c < l1_start[bb + 1]; c++) {
-        const double coeff = leaf_c[c];
-        const double *const t2 = tjk + (size_t) leaf_pow[c] * CHIMES_VLEN;
-        const double *const d2 = djk + (size_t) leaf_pow[c] * CHIMES_VLEN;
+        double S[half], S2[half];
 
-        for (int l = 0; l < CHIMES_VLEN; l++) {
-          S[l] += coeff * t2[l];
-          S2[l] += coeff * d2[l];
+        for (int l = 0; l < half; l++) S[l] = S2[l] = 0.0;
+
+        for (int c = l1_start[bb]; c < l1_start[bb + 1]; c++) {
+          const double coeff = leaf_c[c];
+          const double *const t2 = tjk + (size_t) leaf_pow[c] * CHIMES_VLEN + lo;
+          const double *const d2 = djk + (size_t) leaf_pow[c] * CHIMES_VLEN + lo;
+
+          for (int l = 0; l < half; l++) {
+            S[l] += coeff * t2[l];
+            S2[l] += coeff * d2[l];
+          }
+        }
+
+        for (int l = 0; l < half; l++) {
+          A[l] += t1[l] * S[l];
+          A1[l] += d1[l] * S[l];
+          A2[l] += t1[l] * S2[l];
         }
       }
 
-      for (int l = 0; l < CHIMES_VLEN; l++) {
-        A[l] += t1[l] * S[l];
-        A1[l] += d1[l] * S[l];
-        A2[l] += t1[l] * S2[l];
+      for (int l = 0; l < half; l++) {
+        E[l] += t0[l] * A[l];
+        F0[l] += d0[l] * A[l];
+        F1[l] += t0[l] * A1[l];
+        F2[l] += t0[l] * A2[l];
       }
     }
 
-    for (int l = 0; l < CHIMES_VLEN; l++) {
-      E[l] += t0[l] * A[l];
-      F0[l] += d0[l] * A[l];
-      F1[l] += t0[l] * A1[l];
-      F2[l] += t0[l] * A2[l];
+    for (int l = 0; l < half; l++) {
+      b.poly[lo + l] = E[l];
+      b.dpoly[0][lo + l] = F0[l];
+      b.dpoly[1][lo + l] = F1[l];
+      b.dpoly[2][lo + l] = F2[l];
     }
-  }
-
-  for (int l = 0; l < CHIMES_VLEN; l++) {
-    b.poly[l] = E[l];
-    b.dpoly[0][l] = F0[l];
-    b.dpoly[1][l] = F1[l];
-    b.dpoly[2][l] = F2[l];
   }
 }
 
