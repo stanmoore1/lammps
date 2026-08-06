@@ -694,12 +694,18 @@ void PairCHIMES::compute(int eflag, int vflag)
 
           if (vflag_either) std::fill(stensor.begin(), stensor.end(), 0.0);
 
-          for (int p = 0; p < 3; p++) {
-            const int a = batom[pa[p]][l], b = batom[pb[p]][l];
+          // Three pairs but only three atoms, so each is written twice.  As for
+          // the quadruplets, the cluster's own contribution is summed per atom
+          // before it touches the global force array.
 
+          double fatom[3][CHDIM] = {{0.0}};
+
+          for (int p = 0; p < 3; p++) {
             for (idx = 0; idx < CHDIM; idx++) {
-              f[a][idx] += fs[p] * bdr[p][idx][l];
-              f[b][idx] -= fs[p] * bdr[p][idx][l];
+              const double fpair = fs[p] * bdr[p][idx][l];
+
+              fatom[pa[p]][idx] += fpair;
+              fatom[pb[p]][idx] -= fpair;
             }
 
             if (vflag_either) {
@@ -710,6 +716,12 @@ void PairCHIMES::compute(int eflag, int vflag)
               stensor[4] -= fs[p] * bdr[p][1][l] * bdr[p][2][l];
               stensor[5] -= fs[p] * bdr[p][2][l] * bdr[p][2][l];
             }
+          }
+
+          for (int a = 0; a < 3; a++) {
+            const int ga = batom[a][l];
+
+            for (idx = 0; idx < CHDIM; idx++) f[ga][idx] += fatom[a][idx];
           }
 
           if (evflag) {
@@ -827,16 +839,22 @@ void PairCHIMES::compute(int eflag, int vflag)
 
           if (vflag_either) std::fill(stensor.begin(), stensor.end(), 0.0);
 
+          // Six pairs but only four atoms, so every atom is written three
+          // times.  Summing per atom first turns thirty-six read-modify-writes
+          // scattered through the global force array into twelve.
+
+          double fatom[4][CHDIM] = {{0.0}};
+
           for (int p = 0; p < 6; p++) {
             const double fs = (fcut_all * chimes_4bbatch.dpoly[p][lane] +
                                chimes_4bbatch.fcutderiv[p][lane] * fcut_5[p] * poly) *
                 chimes_4bbatch.inv_dx[p][lane];
 
-            const int a = batom[pa[p]][lane], b = batom[pb[p]][lane];
-
             for (idx = 0; idx < CHDIM; idx++) {
-              f[a][idx] += fs * bdr[p][idx][lane];
-              f[b][idx] -= fs * bdr[p][idx][lane];
+              const double fpair = fs * bdr[p][idx][lane];
+
+              fatom[pa[p]][idx] += fpair;
+              fatom[pb[p]][idx] -= fpair;
             }
 
             if (vflag_either) {
@@ -847,6 +865,12 @@ void PairCHIMES::compute(int eflag, int vflag)
               stensor[4] -= fs * bdr[p][1][lane] * bdr[p][2][lane];
               stensor[5] -= fs * bdr[p][2][lane] * bdr[p][2][lane];
             }
+          }
+
+          for (int a = 0; a < 4; a++) {
+            const int ga = batom[a][lane];
+
+            for (idx = 0; idx < CHDIM; idx++) f[ga][idx] += fatom[a][idx];
           }
 
           if (evflag) {
