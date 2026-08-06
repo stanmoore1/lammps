@@ -183,15 +183,18 @@ void PairCHIMES::init_style()
 
   if (force->newton_pair == 0) error->all(FLERR, "Pair style ChIMES requires newton pair on");
 
-  // Set up neighbor lists... borrowing this from pair_airebo:
-  // need a full neighbor list, including neighbors of ghosts
+  // A full list, and only for the atoms this processor owns.
+  //
+  // The request used to ask for neighbors of ghosts as well, copied from
+  // pair_airebo, which needs them because its bond order reaches through a
+  // neighbor to that neighbor's own neighbors.  Nothing here does: both the
+  // many-body list build and the force loop iterate ii < inum, which is the
+  // owned atoms, and read firstneigh only for those.  A full list already
+  // carries ghosts as neighbors of owned atoms; the flag additionally builds a
+  // list for every ghost, and this model's cutoff makes ghosts the majority of
+  // the atoms in the box.
 
-  // int irequest = neighbor->request(this, instance_me);
-  // neighbor->requests[irequest]->half = 0;
-  // neighbor->requests[irequest]->full = 1;
-  // neighbor->requests[irequest]->ghost = 1;
-
-  neighbor->add_request(this, NeighConst::REQ_FULL | NeighConst::REQ_GHOST);
+  neighbor->add_request(this, NeighConst::REQ_FULL);
 }
 
 double PairCHIMES::init_one(int i, int j)
