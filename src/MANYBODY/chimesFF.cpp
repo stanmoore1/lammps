@@ -2477,6 +2477,11 @@ constexpr double CHEXP_LOG2E = 1.4426950408889634074;
 constexpr double CHEXP_LN2_HI = 6.93147180369123816490e-01;
 constexpr double CHEXP_LN2_LO = 1.90821492927058770002e-10;
 
+// 2^52 + 2^51, the smallest value whose addition discards every fractional bit
+// of a double in round-to-nearest
+
+constexpr double CHEXP_ROUND_MAGIC = 6755399441055744.0;
+
 constexpr double CHEXP_C[13] = {1.0,
                                 1.0,
                                 1.0 / 2.0,
@@ -2493,12 +2498,24 @@ constexpr double CHEXP_C[13] = {1.0,
 
 inline void chimes_exp_batch(double *out, const double *y)
 {
-  bool safe = true;
+  // The range guard is a reduction over the lanes, so writing it as a flag set
+  // inside the loop makes the loop carry a dependency and stops it vectorizing.
+  // A running maximum of the magnitudes carries no dependency the vector unit
+  // cannot handle and settles the question with one comparison at the end.
 
-  for (int l = 0; l < CHIMES_VLEN; l++)
-    if ((y[l] < -700.0) || (y[l] > 700.0)) safe = false;
+  // Written as comparisons rather than fmax: fmax has NaN semantics the vector
+  // maximum does not, so unless the build promises otherwise the compiler emits
+  // a library call for it, which is exactly what this loop is trying to avoid.
 
-  if (!safe) {
+  double amax = 0.0;
+
+  for (int l = 0; l < CHIMES_VLEN; l++) {
+    const double a = (y[l] < 0.0) ? -y[l] : y[l];
+
+    amax = (a > amax) ? a : amax;
+  }
+
+  if (amax > 700.0) {
     for (int l = 0; l < CHIMES_VLEN; l++) out[l] = exp(y[l]);
     return;
   }
@@ -2507,10 +2524,16 @@ inline void chimes_exp_batch(double *out, const double *y)
   double t[CHIMES_VLEN], p[CHIMES_VLEN], scale[CHIMES_VLEN];
   uint64_t bits[CHIMES_VLEN];
 
+  // Round to nearest without a branch or a select.  Adding a constant large
+  // enough that the fractional bits fall off the end of the significand, then
+  // subtracting it again, leaves the nearest integer; the guard above bounds
+  // the argument far below the point where that breaks down.
+
   for (int l = 0; l < CHIMES_VLEN; l++) {
     const double s = y[l] * CHEXP_LOG2E;
+    const double z = s + CHEXP_ROUND_MAGIC;
 
-    ki[l] = (int) ((s < 0.0) ? (s - 0.5) : (s + 0.5));
+    ki[l] = (int) (z - CHEXP_ROUND_MAGIC);
   }
 
   for (int l = 0; l < CHIMES_VLEN; l++) {
@@ -2549,15 +2572,19 @@ void chimesFF::set_cheby_polys_batch(double *Tn, double *Tnd, const double *dx,
 
   double x[CHIMES_VLEN], dx_dr[CHIMES_VLEN];
   double arg[CHIMES_VLEN], exprlen[CHIMES_VLEN];
-  bool any_short = false;
+
+  // As in the exponential: clamping, and asking afterwards whether any lane was
+  // clamped, keeps this loop free of the flag that would serialize it.
+
+  double dmin = dx[0];
 
   for (int l = 0; l < CHIMES_VLEN; l++) {
-    const double r = (dx[l] < sc.inner) ? sc.inner : dx[l];
+    dmin = (dx[l] < dmin) ? dx[l] : dmin;
 
-    if (dx[l] < sc.inner) any_short = true;
-
-    arg[l] = r * sc.neg_inv_morse;
+    arg[l] = ((dx[l] > sc.inner) ? dx[l] : sc.inner) * sc.neg_inv_morse;
   }
+
+  const bool any_short = (dmin < sc.inner);
 
   chimes_exp_batch(exprlen, arg);
 
