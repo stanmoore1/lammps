@@ -3484,68 +3484,80 @@ void chimesFF::poly_4B_batch(const chimesPolySet &ps, chimes4BBatch &b)
 {
   const int ncoeffs = ps.ncoeffs;
   const double *const params = ps.params;
-  const int *pw = ps.powers;
 
-  double E[CHIMES_VLEN], F[6][CHIMES_VLEN];
+  // Seven accumulators -- the energy and one derivative per pair -- are live
+  // across the whole coefficient loop, and at CHIMES_VLEN lanes that is fourteen
+  // vector registers before anything else is counted.  The batch is therefore
+  // worked in half-width groups, so the accumulators stay in registers and only
+  // the Chebyshev values come from memory.  Coefficients are broadcast either
+  // way, and the second group finds them all in L1.
 
-  for (int l = 0; l < CHIMES_VLEN; l++) {
-    E[l] = 0.0;
+  const int half = CHIMES_VLEN / 2;
 
-    for (int p = 0; p < 6; p++) F[p][l] = 0.0;
-  }
+  for (int lo = 0; lo < CHIMES_VLEN; lo += half) {
+    const int *pw = ps.powers;
 
-  for (int c = 0; c < ncoeffs; c++, pw += 6) {
-    const double coeff = params[c];
+    double E[half], F[6][half];
 
-    const double *const t0 = b.Tn[0].data() + (size_t) pw[0] * CHIMES_VLEN;
-    const double *const t1 = b.Tn[1].data() + (size_t) pw[1] * CHIMES_VLEN;
-    const double *const t2 = b.Tn[2].data() + (size_t) pw[2] * CHIMES_VLEN;
-    const double *const t3 = b.Tn[3].data() + (size_t) pw[3] * CHIMES_VLEN;
-    const double *const t4 = b.Tn[4].data() + (size_t) pw[4] * CHIMES_VLEN;
-    const double *const t5 = b.Tn[5].data() + (size_t) pw[5] * CHIMES_VLEN;
+    for (int l = 0; l < half; l++) {
+      E[l] = 0.0;
 
-    const double *const d0 = b.Tnd[0].data() + (size_t) pw[0] * CHIMES_VLEN;
-    const double *const d1 = b.Tnd[1].data() + (size_t) pw[1] * CHIMES_VLEN;
-    const double *const d2 = b.Tnd[2].data() + (size_t) pw[2] * CHIMES_VLEN;
-    const double *const d3 = b.Tnd[3].data() + (size_t) pw[3] * CHIMES_VLEN;
-    const double *const d4 = b.Tnd[4].data() + (size_t) pw[4] * CHIMES_VLEN;
-    const double *const d5 = b.Tnd[5].data() + (size_t) pw[5] * CHIMES_VLEN;
-
-    for (int l = 0; l < CHIMES_VLEN; l++) {
-      const double g0 = t0[l];
-      const double g1 = t1[l];
-      const double g2 = t2[l];
-      const double g3 = t3[l];
-      const double g4 = t4[l];
-      const double g5 = t5[l];
-
-      const double p1 = coeff * g0;
-      const double p2 = p1 * g1;
-      const double p3 = p2 * g2;
-      const double p4 = p3 * g3;
-      const double p5 = p4 * g4;
-
-      const double s4 = g5;
-      const double s3 = s4 * g4;
-      const double s2 = s3 * g3;
-      const double s1 = s2 * g2;
-      const double s0 = s1 * g1;
-
-      E[l] += p5 * g5;
-
-      F[0][l] += coeff * d0[l] * s0;
-      F[1][l] += p1 * d1[l] * s1;
-      F[2][l] += p2 * d2[l] * s2;
-      F[3][l] += p3 * d3[l] * s3;
-      F[4][l] += p4 * d4[l] * s4;
-      F[5][l] += p5 * d5[l];
+      for (int p = 0; p < 6; p++) F[p][l] = 0.0;
     }
-  }
 
-  for (int l = 0; l < CHIMES_VLEN; l++) {
-    b.poly[l] = E[l];
+    for (int c = 0; c < ncoeffs; c++, pw += 6) {
+      const double coeff = params[c];
 
-    for (int p = 0; p < 6; p++) b.dpoly[p][l] = F[p][l];
+      const double *const t0 = b.Tn[0].data() + (size_t) pw[0] * CHIMES_VLEN + lo;
+      const double *const t1 = b.Tn[1].data() + (size_t) pw[1] * CHIMES_VLEN + lo;
+      const double *const t2 = b.Tn[2].data() + (size_t) pw[2] * CHIMES_VLEN + lo;
+      const double *const t3 = b.Tn[3].data() + (size_t) pw[3] * CHIMES_VLEN + lo;
+      const double *const t4 = b.Tn[4].data() + (size_t) pw[4] * CHIMES_VLEN + lo;
+      const double *const t5 = b.Tn[5].data() + (size_t) pw[5] * CHIMES_VLEN + lo;
+
+      const double *const d0 = b.Tnd[0].data() + (size_t) pw[0] * CHIMES_VLEN + lo;
+      const double *const d1 = b.Tnd[1].data() + (size_t) pw[1] * CHIMES_VLEN + lo;
+      const double *const d2 = b.Tnd[2].data() + (size_t) pw[2] * CHIMES_VLEN + lo;
+      const double *const d3 = b.Tnd[3].data() + (size_t) pw[3] * CHIMES_VLEN + lo;
+      const double *const d4 = b.Tnd[4].data() + (size_t) pw[4] * CHIMES_VLEN + lo;
+      const double *const d5 = b.Tnd[5].data() + (size_t) pw[5] * CHIMES_VLEN + lo;
+
+      for (int l = 0; l < half; l++) {
+        const double g0 = t0[l];
+        const double g1 = t1[l];
+        const double g2 = t2[l];
+        const double g3 = t3[l];
+        const double g4 = t4[l];
+        const double g5 = t5[l];
+
+        const double p1 = coeff * g0;
+        const double p2 = p1 * g1;
+        const double p3 = p2 * g2;
+        const double p4 = p3 * g3;
+        const double p5 = p4 * g4;
+
+        const double s4 = g5;
+        const double s3 = s4 * g4;
+        const double s2 = s3 * g3;
+        const double s1 = s2 * g2;
+        const double s0 = s1 * g1;
+
+        E[l] += p5 * g5;
+
+        F[0][l] += coeff * d0[l] * s0;
+        F[1][l] += p1 * d1[l] * s1;
+        F[2][l] += p2 * d2[l] * s2;
+        F[3][l] += p3 * d3[l] * s3;
+        F[4][l] += p4 * d4[l] * s4;
+        F[5][l] += p5 * d5[l];
+      }
+    }
+
+    for (int l = 0; l < half; l++) {
+      b.poly[lo + l] = E[l];
+
+      for (int p = 0; p < 6; p++) b.dpoly[p][lo + l] = F[p][l];
+    }
   }
 }
 
