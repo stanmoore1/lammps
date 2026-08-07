@@ -169,6 +169,8 @@ class chimes3BBatch {
   double fcut[3][CHIMES_VLEN], fcutderiv[3][CHIMES_VLEN];
   double poly[CHIMES_VLEN], dpoly[3][CHIMES_VLEN];
   double inv_dx[3][CHIMES_VLEN];    // 1/separation, taken a lane block at a time
+  bool any_short;    // a leaf-slot lane inside the inner cutoff carries the
+                     // damped form, which only the Chebyshev arrays represent
 };
 
 // The same, for a batch of same-typed 4-body clusters over their six pairs.
@@ -188,6 +190,7 @@ class chimes4BBatch {
   double fcut[6][CHIMES_VLEN], fcutderiv[6][CHIMES_VLEN];
   double poly[CHIMES_VLEN], dpoly[6][CHIMES_VLEN];
   double inv_dx[6][CHIMES_VLEN];    // 1/separation, taken a lane block at a time
+  bool any_short;
 };
 
 enum class fcutType {
@@ -288,6 +291,17 @@ struct chimesGroupedPoly {
   vector<int> level_start[5];  // [nlevels][nodes + 1]
   vector<int> leaf_pow;
   vector<double> leaf_c;
+
+  // The leaf polynomials again, re-expressed in the monomial basis.  Each
+  // deepest node's Chebyshev series over the last pair becomes a plain
+  // polynomial in x, evaluated by Horner's rule -- which reads no basis arrays
+  // at all, only its own coefficients.  mono_start[i] .. mono_start[i+1] is
+  // node i's row, stored by ascending power and trimmed of trailing zeros.
+  // Empty mono_start means the basis change was judged not worth it and the
+  // evaluators use the Chebyshev leaves above.
+
+  vector<double> mono_c;
+  vector<int> mono_start;
 };
 
 class chimesFF {
@@ -554,6 +568,11 @@ class chimesFF {
                        vector<double> &Tnd_ik, vector<double> &Tnd_jk);
 
   void poly_3B_grouped_batch(const chimesGroupedPoly &g, chimes3BBatch &b);
+
+  // The same walk with Horner leaves in the monomial basis; used when the tree
+  // built them and no lane of the last pair carries the damped form.
+
+  void poly_3B_horner_batch(const chimesGroupedPoly &g, chimes3BBatch &b);
 
   void set_cheby_polys_batch(double *Tn, double *Tnd, const double *dx,
                              const chimesSlotConst &sc, const int bodyness);

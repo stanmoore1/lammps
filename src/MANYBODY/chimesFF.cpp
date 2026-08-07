@@ -2364,6 +2364,93 @@ int chimesFF::build_grouped(int npairs, const vector<int> &flatpow, const double
 
   g.level_start[nlevels - 1][ranges.size()] = ncoeffs;
 
+  // Re-express each deepest node's leaf series in the monomial basis, so the
+  // evaluators can use Horner's rule: no basis arrays to load, only the node's
+  // own coefficients and the transformed coordinate.  The change of basis is a
+  // fixed integer matrix (the monomial coefficients of each Chebyshev
+  // polynomial), applied once here.
+  //
+  // Two guards.  Monomial coefficients of a re-expressed Chebyshev series can
+  // be large and alternating, and what the cancellation costs is the ratio of
+  // their magnitudes; measured on real parameter files it stays near 1e3,
+  // which is three digits of the sixteen available, but a pathological set is
+  // refused rather than evaluated wrongly.  And a node holding one high power
+  // would pay Horner's full walk up to it for a single term, so trees whose
+  // rows are mostly empty keep their Chebyshev leaves.
+
+  if (npairs == 3) {
+    int maxpow = 0;
+
+    for (int c = 0; c < ncoeffs; c++)
+      if (g.leaf_pow[c] > maxpow) maxpow = g.leaf_pow[c];
+
+    const int dim = maxpow + 1;
+
+    vector<double> M((size_t) dim * dim, 0.0);
+
+    M[0] = 1.0;
+
+    if (dim > 1) M[1 * dim + 1] = 1.0;
+
+    for (int pp = 2; pp < dim; pp++) {
+      for (int k = 1; k < dim; k++)
+        M[(size_t) pp * dim + k] = 2.0 * M[(size_t) (pp - 1) * dim + k - 1];
+
+      for (int k = 0; k < dim; k++) M[(size_t) pp * dim + k] -= M[(size_t) (pp - 2) * dim + k];
+    }
+
+    const int ndeep = (int) ranges.size();
+
+    g.mono_start.assign(ndeep + 1, 0);
+
+    double amp_num = 0.0, amp_den = 0.0;
+    long rowsum = 0;
+
+    vector<double> rows;
+
+    for (int r = 0; r < ndeep; r++) {
+      const int c0 = g.level_start[nlevels - 1][r];
+      const int c1 = g.level_start[nlevels - 1][r + 1];
+
+      int rowlen = 0;
+
+      for (int c = c0; c < c1; c++) rowlen = std::max(rowlen, g.leaf_pow[c] + 1);
+
+      const size_t base = rows.size();
+
+      rows.resize(base + rowlen, 0.0);
+
+      for (int c = c0; c < c1; c++) {
+        const double v = g.leaf_c[c];
+        const int pp = g.leaf_pow[c];
+
+        amp_den += fabs(v);
+
+        for (int k = 0; k <= pp; k++) rows[base + k] += v * M[(size_t) pp * dim + k];
+      }
+
+      for (int k = 0; k < rowlen; k++) amp_num += fabs(rows[base + k]);
+
+      rowsum += rowlen;
+      g.mono_start[r + 1] = (int) rows.size();
+    }
+
+    // Horner's descent visits every power up to the row's highest whether a
+    // coefficient sits there or not, and its multiply-add chain is serial where
+    // the sparse leaf loop is not.  Measured across both benchmark models, the
+    // crossover sits near rows that are mostly full: silicon's rows carry a
+    // coefficient in almost every slot and gain twenty percent, while a
+    // multi-element model at two-fifths fill loses ten.
+
+    const bool dense_enough = rowsum <= (long) (1.3 * ncoeffs);
+    const bool well_conditioned = amp_num <= 1.0e5 * amp_den;
+
+    if (dense_enough && well_conditioned)
+      g.mono_c.swap(rows);
+    else
+      g.mono_start.clear();
+  }
+
   // The tree only pays off when its nodes actually have several children.  A
   // node costs roughly NODE_COST instructions of loop and index bookkeeping on
   // top of the two operations per accumulator it carries, so a tree that is
@@ -2593,6 +2680,7 @@ void chimesFF::set_cheby_polys_batch(double *Tn, double *Tnd, const double *dx,
     dx_dr[l] = exprlen[l] * sc.dxdr_scale;
   }
 
+
   for (int l = 0; l < CHIMES_VLEN; l++) {
     Tn[l] = 1.0;
     Tnd[l] = 1.0;
@@ -2642,6 +2730,14 @@ void chimesFF::compute_3B_batch(const int nlane, const int type_idx,
 {
   const chimesSlotConst *sc = &slot_3b[type_idx * 3];
 
+  // A lane of the last pair inside the inner cutoff carries the damped form,
+  // which only the Chebyshev arrays represent; the Horner leaves must know.
+
+  b.any_short = false;
+
+  for (int l = 0; l < CHIMES_VLEN; l++)
+    if (dx[2][l] < sc[2].inner) b.any_short = true;
+
   // The caller turns each cluster's polynomial derivative into a force by
   // dividing by the separation.  Done there it is one scalar division per pair
   // per cluster; done here it is a lane loop, so the whole block goes through
@@ -2658,7 +2754,10 @@ void chimesFF::compute_3B_batch(const int nlane, const int type_idx,
   const chimesPolySet &ps = poly_3b_set[type_idx];
 
   if (ps.grouped) {
-    poly_3B_grouped_batch(*ps.grouped, b);
+    if (!ps.grouped->mono_start.empty() && !b.any_short)
+      poly_3B_horner_batch(*ps.grouped, b);
+    else
+      poly_3B_grouped_batch(*ps.grouped, b);
     return;
   }
 
@@ -2689,6 +2788,97 @@ void chimesFF::compute_3B_batch(const int nlane, const int type_idx,
 // identical for every lane because they share a cluster type, so the tree
 // indices stay scalar and only the arithmetic is per lane -- which is what
 // makes the innermost load contiguous.
+
+// The same walk as poly_3B_grouped_batch with the leaf level in the monomial
+// basis: each deepest node's series over the last pair is a plain polynomial,
+// taken by Horner's rule with its derivative in the same descent.  The leaf
+// reads no basis arrays at all -- the transformed coordinate is row 1 of the
+// batch (T_1(x) = x, and row 1 of the derivative array is dx/dr), copied to
+// locals once and register-resident for the whole tree.  A separate function
+// on purpose: a branch inside the shared evaluator's inner loop cost the
+// models that never take it seven percent.
+
+CHIMES_VECTOR_CLONES
+void chimesFF::poly_3B_horner_batch(const chimesGroupedPoly &g, chimes3BBatch &b)
+{
+  const int *const l0_pow = g.level_pow[0].data();
+  const int *const l0_start = g.level_start[0].data();
+  const int *const l1_pow = g.level_pow[1].data();
+  const int *const l1_start = g.level_start[1].data();
+  const double *const mono_c = g.mono_c.data();
+  const int *const mono_start = g.mono_start.data();
+
+  const double *const tij = b.Tn[0].data();
+  const double *const tik = b.Tn[1].data();
+  const double *const dij = b.Tnd[0].data();
+  const double *const dik = b.Tnd[1].data();
+
+  const int n0 = g.level_pow[0].size();
+
+  const int half = CHIMES_VLEN / 2;
+
+  for (int lo = 0; lo < CHIMES_VLEN; lo += half) {
+    double xv[half], xd[half];
+
+    for (int l = 0; l < half; l++) {
+      xv[l] = b.Tn[2][CHIMES_VLEN + lo + l];
+      xd[l] = b.Tnd[2][CHIMES_VLEN + lo + l];
+    }
+
+    double E[half], F0[half], F1[half], F2[half];
+
+    for (int l = 0; l < half; l++) E[l] = F0[l] = F1[l] = F2[l] = 0.0;
+
+    for (int a = 0; a < n0; a++) {
+      const double *const t0 = tij + (size_t) l0_pow[a] * CHIMES_VLEN + lo;
+      const double *const d0 = dij + (size_t) l0_pow[a] * CHIMES_VLEN + lo;
+
+      double A[half], A1[half], A2[half];
+
+      for (int l = 0; l < half; l++) A[l] = A1[l] = A2[l] = 0.0;
+
+      for (int bb = l0_start[a]; bb < l0_start[a + 1]; bb++) {
+        const double *const t1 = tik + (size_t) l1_pow[bb] * CHIMES_VLEN + lo;
+        const double *const d1 = dik + (size_t) l1_pow[bb] * CHIMES_VLEN + lo;
+
+        double V[half], D[half];
+
+        for (int l = 0; l < half; l++) V[l] = D[l] = 0.0;
+
+        for (int k = mono_start[bb + 1] - 1; k >= mono_start[bb]; k--) {
+          const double rk = mono_c[k];
+
+          for (int l = 0; l < half; l++) {
+            D[l] = D[l] * xv[l] + V[l];
+            V[l] = V[l] * xv[l] + rk;
+          }
+        }
+
+        for (int l = 0; l < half; l++) {
+          const double S2 = D[l] * xd[l];
+
+          A[l] += t1[l] * V[l];
+          A1[l] += d1[l] * V[l];
+          A2[l] += t1[l] * S2;
+        }
+      }
+
+      for (int l = 0; l < half; l++) {
+        E[l] += t0[l] * A[l];
+        F0[l] += d0[l] * A[l];
+        F1[l] += t0[l] * A1[l];
+        F2[l] += t0[l] * A2[l];
+      }
+    }
+
+    for (int l = 0; l < half; l++) {
+      b.poly[lo + l] = E[l];
+      b.dpoly[0][lo + l] = F0[l];
+      b.dpoly[1][lo + l] = F1[l];
+      b.dpoly[2][lo + l] = F2[l];
+    }
+  }
+}
 
 CHIMES_VECTOR_CLONES
 void chimesFF::poly_3B_grouped_batch(const chimesGroupedPoly &g, chimes3BBatch &b)
