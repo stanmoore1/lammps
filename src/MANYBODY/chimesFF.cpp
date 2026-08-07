@@ -1343,14 +1343,37 @@ void chimesFF::compute_2B(const double dx, const vector<double> &dr, const vecto
 
   pair_idx = atom_int_pair_map[typ_idxs[0] * natmtyps + typ_idxs[1]];
 
-  set_cheby_polys(Tn, Tnd, dx, sc, 0);
-
   get_fcut(dx, sc, fcut, fcutderiv);
 
   double poly, dpoly_dx;
 
-  poly_2B(&poly, &dpoly_dx, ncoeffs_2b[pair_idx], chimes_2b_params[pair_idx],
-          chimes_2b_pows[pair_idx], Tn, Tnd);
+  if (!mono_2b[pair_idx].empty() && (dx >= sc.inner)) {
+    // The series in the monomial basis: one exponential, then Horner's rule
+    // for the value and the derivative together.  The Chebyshev recurrence,
+    // its arrays, and the coefficient gather all disappear.  A separation
+    // inside the inner cutoff needs the damped form and takes the old path.
+
+    const double exprlen = exp(dx * sc.neg_inv_morse);
+    const double x = (exprlen - sc.x_avg) * sc.inv_x_diff;
+    const double dx_dr = exprlen * sc.dxdr_scale;
+
+    const vector<double> &row = mono_2b[pair_idx];
+
+    double V = 0.0, D = 0.0;
+
+    for (int k = (int) row.size() - 1; k >= 0; k--) {
+      D = D * x + V;
+      V = V * x + row[k];
+    }
+
+    poly = V;
+    dpoly_dx = D * dx_dr;
+  } else {
+    set_cheby_polys(Tn, Tnd, dx, sc, 0);
+
+    poly_2B(&poly, &dpoly_dx, ncoeffs_2b[pair_idx], chimes_2b_params[pair_idx],
+            chimes_2b_pows[pair_idx], Tn, Tnd);
+  }
 
   energy += poly * fcut;
   double force_scalar = (fcut * dpoly_dx + fcutderiv * poly) / dx;
@@ -2136,6 +2159,49 @@ void chimesFF::build_interaction_tables()
   // 2-body: one slot per ordered atom type pair
 
   slot_2b.assign(n * n, chimesSlotConst());
+
+  // The 2-body series in the monomial basis, one row per pair type.  Same
+  // change of basis as the 3-body Horner leaves; same conditioning guard.
+
+  mono_2b.assign(chimes_2b_params.size(), vector<double>());
+
+  {
+    const int dim = poly_orders[0] + 1;
+
+    vector<double> M((size_t) dim * dim, 0.0);
+
+    M[0] = 1.0;
+
+    if (dim > 1) M[1 * dim + 1] = 1.0;
+
+    for (int pp = 2; pp < dim; pp++) {
+      for (int k = 1; k < dim; k++)
+        M[(size_t) pp * dim + k] = 2.0 * M[(size_t) (pp - 1) * dim + k - 1];
+
+      for (int k = 0; k < dim; k++) M[(size_t) pp * dim + k] -= M[(size_t) (pp - 2) * dim + k];
+    }
+
+    for (size_t pi = 0; pi < chimes_2b_params.size(); pi++) {
+      vector<double> row(dim, 0.0);
+
+      double amp_den = 0.0;
+
+      for (size_t c = 0; c < chimes_2b_params[pi].size(); c++) {
+        const double v = chimes_2b_params[pi][c];
+        const int pp = chimes_2b_pows[pi][c] + 1;
+
+        amp_den += fabs(v);
+
+        for (int k = 0; k <= pp; k++) row[k] += v * M[(size_t) pp * dim + k];
+      }
+
+      double amp_num = 0.0;
+
+      for (int k = 0; k < dim; k++) amp_num += fabs(row[k]);
+
+      if (amp_num <= 1.0e5 * amp_den) mono_2b[pi].swap(row);
+    }
+  }
 
   for (int i = 0; i < n; i++)
     for (int j = 0; j < n; j++) {

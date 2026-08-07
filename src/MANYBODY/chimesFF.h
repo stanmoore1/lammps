@@ -551,6 +551,11 @@ class chimesFF {
   vector<vector<int>> powers_pool;
   vector<chimesGroupedPoly> grouped_pool;
 
+  // The 2-body series per pair type in the monomial basis, for Horner
+  // evaluation; empty when the change of basis was refused (see build).
+
+  vector<vector<double>> mono_2b;
+
   // Tools for compute functions
 
   inline void set_cheby_polys(vector<double> &Tn, vector<double> &Tnd, double dx,
