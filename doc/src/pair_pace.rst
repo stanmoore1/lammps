@@ -82,6 +82,15 @@ The pair_style *pace* command may be followed by the optional keyword
 used for the calculation of basis functions and derivatives.  The
 default is *recursive*.
 
+.. versionchanged:: TBD
+
+The KOKKOS version of this pair style now runs its calculation on the CPU
+as well, using the Serial and OpenMP backends, and may be run with more
+than one thread.  Previously *pace/kk* fell back to the non-accelerated
+calculation on a CPU and refused to run with more than one thread.  The
+KOKKOS version requires the *product* keyword; the *recursive* algorithm
+has no KOKKOS implementation.
+
 The keyword *chunksize* is only applicable when using the pair style
 *pace* with the KOKKOS package on GPUs and is ignored otherwise.  This
 keyword controls the number of atoms in each pass used to compute the

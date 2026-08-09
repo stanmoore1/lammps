@@ -125,7 +125,10 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
     MemKK::realloc_kokkos(rhos, "pace:rhos", natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
     MemKK::realloc_kokkos(dF_drho, "pace:dF_drho", natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
 
-    MemKK::realloc_kokkos(weights, "pace:weights", natom, nelements, idx_sph_max, nradmax + 1);
+    // one extra row on the host: the sink for (l,m) entries outside the
+    // packed triangle, see d_idx_sph_cpu
+    MemKK::realloc_kokkos(weights, "pace:weights", natom, nelements,
+                          idx_sph_max + (host_flag ? 1 : 0), nradmax + 1);
     MemKK::realloc_kokkos(weights_rank1, "pace:weights_rank1", natom, nelements, nradbase);
 
     // hard-core repulsion
@@ -414,6 +417,20 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
 template<class DeviceType>
 void PairPACEKokkos<DeviceType>::init_style()
 {
+  // the recursive evaluator has no KOKKOS implementation.  On a GPU that is
+  // an error (see compute()), but on a CPU backend the non-accelerated
+  // evaluator is available and is what pace/kk used before it gained CPU
+  // kernels, so keep using it rather than rejecting the default keyword.
+  if (host_flag && recursive) {
+    if (comm->me == 0)
+      error->warning(FLERR, "Pair style pace/kk has no KOKKOS implementation of the "
+                            "recursive evaluator and falls back to the non-accelerated "
+                            "one; use the 'product' keyword for the threaded KOKKOS "
+                            "calculation");
+    PairPACE::init_style();
+    return;
+  }
+
   if (atom->tag_enable == 0) error->all(FLERR, "Pair style PACE requires atom IDs");
   if (force->newton_pair == 0) error->all(FLERR, "Pair style PACE requires newton pair on");
 
@@ -443,6 +460,7 @@ void PairPACEKokkos<DeviceType>::init_style()
   // spherical harmonics
 
   MemKK::realloc_kokkos(d_idx_sph, "pace:idx_sph", (lmax + 1) * (lmax + 1));
+  MemKK::realloc_kokkos(d_idx_sph_cpu, "pace:idx_sph_cpu", (lmax + 1) * (lmax + 1));
   MemKK::realloc_kokkos(alm, "pace:alm", (lmax + 1) * (lmax + 1));
   MemKK::realloc_kokkos(blm, "pace:blm", (lmax + 1) * (lmax + 1));
   MemKK::realloc_kokkos(cl, "pace:cl", lmax + 1);
@@ -533,6 +551,13 @@ struct FindMaxNumNeighs {
 template<class DeviceType>
 void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 {
+  if (host_flag && recursive) {
+    atomKK->sync(Host,X_MASK|TYPE_MASK);
+    PairPACE::compute(eflag_in,vflag_in);
+    atomKK->modified(Host,F_MASK);
+    return;
+  }
+
   eflag = eflag_in;
   vflag = vflag_in;
 
@@ -1296,6 +1321,7 @@ void PairPACEKokkos<DeviceType>::set_basis_ptrs(BasisPtrs &b, const int ii, cons
   b.ms      = &d_ms_combs(mu_i, 0, 0);
   b.ctildes = &d_ctildes(mu_i, 0, 0);
   b.idx_funcs = &d_idx_funcs(mu_i, 0);
+  b.idx_sph = &d_idx_sph_cpu(0);
   b.rank    = &d_rank(mu_i, 0);
 
   b.A_l   = (int) A.extent(2);            // (lmax+1)^2
@@ -1546,19 +1572,17 @@ void PairPACEKokkos<DeviceType>::compute_weights_one_cpu(const BasisPtrs &b,
     const int l_t = ls[t];
     const int lbase = l_t * (l_t + 1);
     complex *w_t = b.w + (mus[t] * b.w_l) * b.w_n + ns[t] - 1;
-    const int idx_sph = (int) d_idx_sph(lbase + m_t);
-    if (idx_sph >= 0) {
-      const complex value = theta * dB[t];
-      w_t[idx_sph * b.w_n].re += value.re;
-      w_t[idx_sph * b.w_n].im += value.im;
-    }
-    // update -m_t (that could also be positive), because the basis is half_basis
-    const int idxm_sph = (int) d_idx_sph(lbase - m_t);
-    if (idxm_sph >= 0) {
-      const complex valuem = theta * dB[t].conj() * (KK_FLOAT)factor;
-      w_t[idxm_sph * b.w_n].re += valuem.re;
-      w_t[idxm_sph * b.w_n].im += valuem.im;
-    }
+    // both (l,m) and (l,-m) are updated unconditionally; entries outside the
+    // packed triangle land in the trash row
+    const int idx_sph = b.idx_sph[lbase + m_t];
+    const complex value = theta * dB[t];
+    w_t[idx_sph * b.w_n].re += value.re;
+    w_t[idx_sph * b.w_n].im += value.im;
+
+    const int idxm_sph = b.idx_sph[lbase - m_t];
+    const complex valuem = theta * dB[t].conj() * (KK_FLOAT)factor;
+    w_t[idxm_sph * b.w_n].re += valuem.re;
+    w_t[idxm_sph * b.w_n].im += valuem.im;
   }
 }
 
@@ -1620,7 +1644,6 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
 
   // for rank = 1
   for (int n = 0; n < nradbase; ++n) {
-    if (weights_rank1(ii, mu_j, n) == 0) continue;
     KK_FLOAT &DG = dgr(ii, jj, n);
     KK_FLOAT DGR = DG * Y00;
     DGR *= weights_rank1(ii, mu_j, n);
@@ -1696,7 +1719,6 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
       const complex Y_DR = ylm * DR;
 
       complex w = weights(ii, mu_j, idx_sph, n);
-      if (w.re == 0.0 && w.im == 0.0) continue;
 
       complex grad_phi_nlm[3];
       grad_phi_nlm[0] = Y_DR * r_hat[0] + dylm[0] * R_over_r;
@@ -1763,7 +1785,6 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
       const complex Y_DR = ylm * DR;
 
       complex w = weights(ii, mu_j, idx_sph, n);
-      if (w.re == 0.0 && w.im == 0.0) continue;
       // counting for -m cases if m > 0
       w.re *= 2.0;
       w.im *= 2.0;
@@ -1841,7 +1862,6 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
         const complex Y_DR = ylm * DR;
 
         complex w = weights(ii, mu_j, idx_sph, n);
-        if (w.re == 0.0 && w.im == 0.0) continue;
         // counting for -m cases if m > 0
         w.re *= 2.0;
         w.im *= 2.0;
@@ -2043,6 +2063,18 @@ void PairPACEKokkos<DeviceType>::pre_compute_harmonics(int lmax)
   }
 
   Kokkos::deep_copy(d_idx_sph, h_idx_sph);
+
+  // Host copy of the same table, as int, with the "no such (l,m)" sentinel
+  // pointing at a trash slot appended to weights instead of -1.  That turns
+  // the two data-dependent guards in the weights scatter, which alternate
+  // with the sign of m and are essentially unpredictable, into unconditional
+  // stores.
+  auto h_idx_sph_cpu = Kokkos::create_mirror_view(d_idx_sph_cpu);
+  for (int idx = 0; idx < (lmax + 1) * (lmax + 1); idx++) {
+    const int v = (int) h_idx_sph(idx);
+    h_idx_sph_cpu(idx) = (v >= 0) ? v : idx_sph_max;
+  }
+  Kokkos::deep_copy(d_idx_sph_cpu, h_idx_sph_cpu);
   Kokkos::deep_copy(alm, h_alm);
   Kokkos::deep_copy(blm, h_blm);
   Kokkos::deep_copy(cl, h_cl);
