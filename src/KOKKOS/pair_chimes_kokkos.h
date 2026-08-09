@@ -80,6 +80,21 @@ class PairCHIMESKokkos : public PairCHIMES
   void compute_host(int eflag, int vflag);
   void host_setup_chunks();
 
+  // Threaded cluster build and the threaded counting sort that groups the
+  // result by cluster type.
+
+  void host_build_mb_neighlists();
+  void host_build_chunk(const int chunk) const;
+
+  template<int WIDTH>
+  void host_sort_mers(std::vector<int> &mers, int nmers, std::vector<int> &mer_type);
+
+  template<int WIDTH>
+  void host_sort_count(const int chunk) const;
+
+  template<int WIDTH>
+  void host_sort_scatter(const int chunk) const;
+
   template<int NEIGHFLAG>
   void host_launch(EV_FLOAT &ev);
 
@@ -174,6 +189,20 @@ class PairCHIMESKokkos : public PairCHIMES
   std::vector<int *> host_firstneigh;
   std::vector<int> host_neigh_buf;
 
+  // Threaded build state: one scratch and one output buffer per work item,
+  // plus the (block, key) offset table the threaded counting sort walks.
+
+  int host_nchunk_build, host_nchunk_sort;
+
+  MBContext mb_ctx;
+
+  std::vector<MBScratch> host_mb_scratch;
+  std::vector<std::vector<int>> host_out3, host_out4;
+
+  std::vector<int> host_sort_hist, host_sort_key, host_sort_scratch;
+  std::vector<int> *sort_mers, *sort_type;
+  int sort_nmers, sort_nkey;
+
   KK_FLOAT maxcut_3b_padded, maxcut_4b_padded;
 
   int eflag, vflag;
@@ -240,6 +269,28 @@ class PairCHIMESKokkos : public PairCHIMES
 // style: Kokkos copies the functor into every launch, and the style owns the
 // coefficient tables and the cluster lists, which run to tens of megabytes.
 // They are host-only, so the pointer is always dereferenceable.
+
+// Host build kernels.  WHICH selects the stage, WIDTH the cluster size for the
+// two sort stages; both are compile-time so the per-cluster copy unrolls.
+
+template <class DeviceType, int WHICH, int WIDTH>
+struct PairCHIMESHostBuildFunctor {
+  typedef DeviceType execution_space;
+
+  PairCHIMESKokkos<DeviceType> *p;
+
+  PairCHIMESHostBuildFunctor(PairCHIMESKokkos<DeviceType> *p_in) : p(p_in) {}
+
+  void operator()(const int &chunk) const
+  {
+    if (WHICH == 0)
+      p->host_build_chunk(chunk);
+    else if (WHICH == 1)
+      p->template host_sort_count<WIDTH>(chunk);
+    else
+      p->template host_sort_scatter<WIDTH>(chunk);
+  }
+};
 
 template <class DeviceType, int NBODY, int NEIGHFLAG>
 struct PairCHIMESHostClusterFunctor {

@@ -100,17 +100,44 @@ class PairCHIMES : public Pair {
     double rsq;    // squared distance to the owning atom
   };
 
-  std::vector<MBCand> cand_3b;
-  std::vector<MBCand> cand_4b;
+  // Working storage for one atom's cluster enumeration.  It is a struct rather
+  // than a set of members so that an accelerated variant can give each thread
+  // its own copy and enumerate several atoms at once.
 
-  // Which 4-body candidates can share a cluster.  Row a of cand_adj marks the
-  // candidates within the 4-body cutoff of a, and row a of cand_ge marks those
-  // whose global ID does not order before a's.  Both are bitmaps, cand_words
-  // 64-bit words per row.
+  struct MBScratch {
+    std::vector<MBCand> cand_3b;
+    std::vector<MBCand> cand_4b;
 
-  std::vector<uint64_t> cand_adj;
-  std::vector<uint64_t> cand_ge;
-  int cand_words;
+    // Which 4-body candidates can share a cluster.  Row a of cand_adj marks the
+    // candidates within the 4-body cutoff of a, and row a of cand_ge marks those
+    // whose global ID does not order before a's.  Both are bitmaps, cand_words
+    // 64-bit words per row.
+
+    std::vector<uint64_t> cand_adj;
+    std::vector<uint64_t> cand_ge;
+    int cand_words;
+  };
+
+  // The cutoffs and system arrays the enumeration reads, gathered once so the
+  // per-atom function does not re-derive them.
+
+  struct MBContext {
+    double **x;
+    tagint *tag;
+    double cutsq_3b, cutsq_4b, cutsq_max;
+    bool do_3b, do_4b;
+  };
+
+  MBScratch mb_scratch;
+
+  MBContext mb_context() const;
+
+  // Enumerate the clusters owned by atom i, appending them to out3 and out4.
+  // Reads only its arguments and the neighbor list, so several atoms can be
+  // enumerated at once given a scratch each.
+
+  void mb_clusters_for_atom(int i, const MBContext &ctx, MBScratch &s, std::vector<int> &out3,
+                            std::vector<int> &out4) const;
 
   // Scratch for grouping the triplets by cluster type (counting sort).
 

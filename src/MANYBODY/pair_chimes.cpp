@@ -242,6 +242,200 @@ void PairCHIMES::setup_neighlist_ptrs()
 
 /* ---------------------------------------------------------------------- */
 
+PairCHIMES::MBContext PairCHIMES::mb_context() const
+{
+  MBContext ctx;
+
+  ctx.x = atom->x;
+  ctx.tag = atom->tag;
+
+  // Every comparison in the enumeration is against a padded cutoff, so the
+  // distances themselves are never needed -- only their ordering against those
+  // cutoffs.  Working in squared distances therefore removes every sqrt from
+  // the build.  A pair can only land on the wrong side of a squared comparison
+  // when it sits within one ulp of the padded cutoff, and such a cluster is
+  // beyond every unpadded cutoff, so compute_3B/compute_4B reject it and it
+  // contributes exactly zero either way.
+
+  const double maxcut_3b_padded = maxcut_3b + neighbor->skin;
+  const double maxcut_4b_padded = maxcut_4b + neighbor->skin;
+
+  ctx.cutsq_3b = maxcut_3b_padded * maxcut_3b_padded;
+  ctx.cutsq_4b = maxcut_4b_padded * maxcut_4b_padded;
+  ctx.cutsq_max = MAX(ctx.cutsq_3b, ctx.cutsq_4b);
+
+  ctx.do_3b = (chimes_calculator->poly_orders[1] > 0);
+  ctx.do_4b = (chimes_calculator->poly_orders[2] > 0);
+
+  return ctx;
+}
+
+/* ----------------------------------------------------------------------
+   Enumerate the clusters owned by one atom.
+------------------------------------------------------------------------- */
+
+void PairCHIMES::mb_clusters_for_atom(int i, const MBContext &ctx, MBScratch &s,
+                                      std::vector<int> &out3, std::vector<int> &out4) const
+{
+  double **x = ctx.x;
+  tagint *tag = ctx.tag;
+
+  const tagint itag = tag[i];
+  const int *const jlist = nl_firstneigh[i];
+  const int jnum = nl_numneigh[i];
+
+  const double xi = x[i][0];
+  const double yi = x[i][1];
+  const double zi = x[i][2];
+
+  // One pass over i's neighbors collects every atom that can take part in a
+  // cluster owned by i, together with its distance to i.  The old code
+  // rescanned firstneigh[i] from the start for k and again for l, so the ik
+  // distance was recomputed once per j and the il distance once per (j,k)
+  // pair.  Filtering preserves the neighbor list order, so iterating these
+  // candidate arrays visits the same clusters in the same sequence.
+
+  s.cand_3b.resize(0);
+  s.cand_4b.resize(0);
+
+  for (int jj = 0; jj < jnum; jj++) {
+    const int j = jlist[jj] & NEIGHMASK;
+
+    if (j == i) continue;
+
+    const tagint jtag = tag[j];
+
+    if (jtag < itag) continue;
+
+    const double dx = x[j][0] - xi;
+    const double dy = x[j][1] - yi;
+    const double dz = x[j][2] - zi;
+    const double rsq = dx * dx + dy * dy + dz * dz;
+
+    if (rsq >= ctx.cutsq_max) continue;
+
+    s.cand_3b.push_back({j, jtag, rsq});
+
+    if (ctx.do_4b && (rsq < ctx.cutsq_4b)) s.cand_4b.push_back({j, jtag, rsq});
+  }
+
+  ////////////////////////////////////////
+  // 3-body clusters
+  ////////////////////////////////////////
+
+  if (ctx.do_3b) {
+    const int n3 = s.cand_3b.size();
+
+    for (int jj = 0; jj < n3; jj++) {
+      if (s.cand_3b[jj].rsq >= ctx.cutsq_3b) continue;
+
+      const int j = s.cand_3b[jj].idx;
+      const tagint jtag = s.cand_3b[jj].tag;
+
+      for (int kk = 0; kk < n3; kk++) {
+        const int k = s.cand_3b[kk].idx;
+
+        if (k == j) continue;
+
+        if (s.cand_3b[kk].tag < jtag) continue;
+        if (s.cand_3b[kk].rsq >= ctx.cutsq_3b) continue;
+
+        if (dist_sq(x, j, k) >= ctx.cutsq_3b) continue;
+
+        out3.push_back(i);
+        out3.push_back(j);
+        out3.push_back(k);
+      }
+    }
+  }
+
+  ////////////////////////////////////////
+  // 4-body clusters
+  ////////////////////////////////////////
+
+  if (!ctx.do_4b) return;
+
+  const int n4 = s.cand_4b.size();
+
+  if (n4 < 3) return;
+
+  // Reduce the candidates to two bitmaps in one pass over the n4*(n4-1)/2
+  // candidate pairs.  Everything the cluster loops below ask about a pair is
+  // a yes/no question -- is it inside the cutoff, does it order the right way
+  // -- so a bit answers it, and sixty-four candidates are answered by one
+  // machine word.  That turns the innermost loop from a scan over every
+  // candidate into an intersection of three words: the l that can join (j,k)
+  // are exactly those adjacent to both and not ordering before k.
+  //
+  // Tags are not unique among candidates, because a periodic image carries
+  // the tag of the atom it images, so cand_ge is built from the same "does
+  // not order before" test the scan used rather than from a strict rank.
+
+  s.cand_words = (n4 + 63) / 64;
+
+  s.cand_adj.assign((size_t) n4 * s.cand_words, 0);
+  s.cand_ge.assign((size_t) n4 * s.cand_words, 0);
+
+  for (int a = 0; a < n4; a++) {
+    uint64_t *const adj_a = &s.cand_adj[(size_t) a * s.cand_words];
+    uint64_t *const ge_a = &s.cand_ge[(size_t) a * s.cand_words];
+
+    for (int b = a + 1; b < n4; b++) {
+      uint64_t *const ge_b = &s.cand_ge[(size_t) b * s.cand_words];
+
+      if (dist_sq(x, s.cand_4b[a].idx, s.cand_4b[b].idx) < ctx.cutsq_4b) {
+        adj_a[b >> 6] |= (uint64_t) 1 << (b & 63);
+        s.cand_adj[(size_t) b * s.cand_words + (a >> 6)] |= (uint64_t) 1 << (a & 63);
+      }
+
+      // Both tests, not one and its negation: two candidates can carry the
+      // same tag when they are periodic images of one atom, and the scan
+      // this replaces accepted that pair in either order.
+
+      if (s.cand_4b[b].tag >= s.cand_4b[a].tag) ge_a[b >> 6] |= (uint64_t) 1 << (b & 63);
+
+      if (s.cand_4b[a].tag >= s.cand_4b[b].tag) ge_b[a >> 6] |= (uint64_t) 1 << (a & 63);
+    }
+  }
+
+  for (int jj = 0; jj < n4; jj++) {
+    const int j = s.cand_4b[jj].idx;
+
+    const uint64_t *const adj_j = &s.cand_adj[(size_t) jj * s.cand_words];
+    const uint64_t *const ge_j = &s.cand_ge[(size_t) jj * s.cand_words];
+
+    for (int wk = 0; wk < s.cand_words; wk++) {
+      uint64_t mk = adj_j[wk] & ge_j[wk];
+
+      while (mk) {
+        const int kk = (wk << 6) + lowest_bit(mk);
+        mk &= mk - 1;
+
+        const int k = s.cand_4b[kk].idx;
+
+        const uint64_t *const adj_k = &s.cand_adj[(size_t) kk * s.cand_words];
+        const uint64_t *const ge_k = &s.cand_ge[(size_t) kk * s.cand_words];
+
+        for (int wl = 0; wl < s.cand_words; wl++) {
+          uint64_t ml = adj_j[wl] & adj_k[wl] & ge_k[wl];
+
+          while (ml) {
+            const int ll = (wl << 6) + lowest_bit(ml);
+            ml &= ml - 1;
+
+            out4.push_back(i);
+            out4.push_back(j);
+            out4.push_back(k);
+            out4.push_back(s.cand_4b[ll].idx);
+          }
+        }
+      }
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
 void PairCHIMES::build_mb_neighlists()
 {
 
@@ -252,208 +446,20 @@ void PairCHIMES::build_mb_neighlists()
 
   neighborlist_3mers.resize(0);
   neighborlist_4mers.resize(0);
-  n_3mers = 0;
-  n_4mers = 0;
-
-  int i, j, k, inum, jnum, ii, jj, kk, ll;    // Local iterator vars
-  int *ilist, *jlist, *numneigh, **firstneigh;    // Local neighborlist vars
-  tagint *tag = atom->tag;                        // Access to global atom indices
-  tagint itag, jtag, ktag;                        // holds tags
-  double **x = atom->x;                           // Access to system coordinates
-
-  const double maxcut_3b_padded = maxcut_3b + neighbor->skin;
-  const double maxcut_4b_padded = maxcut_4b + neighbor->skin;
-
-  // Every comparison below is against a padded cutoff, so the distances
-  // themselves are never needed -- only their ordering against those cutoffs.
-  // Working in squared distances therefore removes every sqrt from the build.
-  // A pair can only land on the wrong side of a squared comparison when it sits
-  // within one ulp of the padded cutoff, and such a cluster is beyond every
-  // unpadded cutoff, so compute_3B/compute_4B reject it and it contributes
-  // exactly zero either way.
-
-  const double cutsq_3b = maxcut_3b_padded * maxcut_3b_padded;
-  const double cutsq_4b = maxcut_4b_padded * maxcut_4b_padded;
-  const double cutsq_max = MAX(cutsq_3b, cutsq_4b);
-
-  const bool do_4b = (chimes_calculator->poly_orders[2] > 0);
-
-  ////////////////////////////////////////
-  // Access to neighbor list vars
-  ////////////////////////////////////////
 
   setup_neighlist_ptrs();
 
-  inum = nl_inum;                // length of the list
-  ilist = nl_ilist;              // list of i atoms for which neighbor list exists
-  numneigh = nl_numneigh;        // length of each of the ilist neighbor lists
-  firstneigh = nl_firstneigh;    // point to the list of neighbors of i
+  const MBContext ctx = mb_context();
 
-  for (ii = 0; ii < inum; ii++)    // Loop over real atoms (ai)
-  {
-    i = ilist[ii];
-    itag = tag[i];
-    jlist = firstneigh[i];
-    jnum = numneigh[i];
+  for (int ii = 0; ii < nl_inum; ii++)    // Loop over real atoms (ai)
+    mb_clusters_for_atom(nl_ilist[ii], ctx, mb_scratch, neighborlist_3mers, neighborlist_4mers);
 
-    const double xi = x[i][0];
-    const double yi = x[i][1];
-    const double zi = x[i][2];
+  n_3mers = neighborlist_3mers.size() / 3;
+  n_4mers = neighborlist_4mers.size() / 4;
 
-    // One pass over i's neighbors collects every atom that can take part in a
-    // cluster owned by i, together with its distance to i.  The old code
-    // rescanned firstneigh[i] from the start for k and again for l, so the ik
-    // distance was recomputed once per j and the il distance once per (j,k)
-    // pair.  Filtering preserves the neighbor list order, so iterating these
-    // candidate arrays visits the same clusters in the same sequence.
+  if (ctx.do_3b) sort_mers_by_type<3>(neighborlist_3mers, n_3mers, mer_type_3b);
 
-    cand_3b.resize(0);
-    cand_4b.resize(0);
-
-    for (jj = 0; jj < jnum; jj++) {
-      j = jlist[jj] & NEIGHMASK;
-
-      if (j == i) continue;
-
-      jtag = tag[j];
-
-      if (jtag < itag) continue;
-
-      const double dx = x[j][0] - xi;
-      const double dy = x[j][1] - yi;
-      const double dz = x[j][2] - zi;
-      const double rsq = dx * dx + dy * dy + dz * dz;
-
-      if (rsq >= cutsq_max) continue;
-
-      cand_3b.push_back({j, jtag, rsq});
-
-      if (do_4b && (rsq < cutsq_4b)) cand_4b.push_back({j, jtag, rsq});
-    }
-
-    ////////////////////////////////////////
-    // 3-body clusters
-    ////////////////////////////////////////
-
-    if (chimes_calculator->poly_orders[1] > 0) {
-      const int n3 = cand_3b.size();
-
-      for (jj = 0; jj < n3; jj++) {
-        if (cand_3b[jj].rsq >= cutsq_3b) continue;
-
-        j = cand_3b[jj].idx;
-        jtag = cand_3b[jj].tag;
-
-        for (kk = 0; kk < n3; kk++) {
-          k = cand_3b[kk].idx;
-
-          if (k == j) continue;
-
-          ktag = cand_3b[kk].tag;
-
-          if (ktag < jtag) continue;
-          if (cand_3b[kk].rsq >= cutsq_3b) continue;
-
-          if (dist_sq(x, j, k) >= cutsq_3b) continue;
-
-          neighborlist_3mers.push_back(i);
-          neighborlist_3mers.push_back(j);
-          neighborlist_3mers.push_back(k);
-          n_3mers++;
-        }
-      }
-    }
-
-    ////////////////////////////////////////
-    // 4-body clusters
-    ////////////////////////////////////////
-
-    if (!do_4b) continue;
-
-    const int n4 = cand_4b.size();
-
-    if (n4 < 3) continue;
-
-    // Reduce the candidates to two bitmaps in one pass over the n4*(n4-1)/2
-    // candidate pairs.  Everything the cluster loops below ask about a pair is
-    // a yes/no question -- is it inside the cutoff, does it order the right way
-    // -- so a bit answers it, and sixty-four candidates are answered by one
-    // machine word.  That turns the innermost loop from a scan over every
-    // candidate into an intersection of three words: the l that can join (j,k)
-    // are exactly those adjacent to both and not ordering before k.
-    //
-    // Tags are not unique among candidates, because a periodic image carries
-    // the tag of the atom it images, so cand_ge is built from the same "does
-    // not order before" test the scan used rather than from a strict rank.
-
-    cand_words = (n4 + 63) / 64;
-
-    cand_adj.assign((size_t) n4 * cand_words, 0);
-    cand_ge.assign((size_t) n4 * cand_words, 0);
-
-    for (int a = 0; a < n4; a++) {
-      uint64_t *const adj_a = &cand_adj[(size_t) a * cand_words];
-      uint64_t *const ge_a = &cand_ge[(size_t) a * cand_words];
-
-      for (int b = a + 1; b < n4; b++) {
-        uint64_t *const ge_b = &cand_ge[(size_t) b * cand_words];
-
-        if (dist_sq(x, cand_4b[a].idx, cand_4b[b].idx) < cutsq_4b) {
-          adj_a[b >> 6] |= (uint64_t) 1 << (b & 63);
-          cand_adj[(size_t) b * cand_words + (a >> 6)] |= (uint64_t) 1 << (a & 63);
-        }
-
-        // Both tests, not one and its negation: two candidates can carry the
-        // same tag when they are periodic images of one atom, and the scan
-        // this replaces accepted that pair in either order.
-
-        if (cand_4b[b].tag >= cand_4b[a].tag) ge_a[b >> 6] |= (uint64_t) 1 << (b & 63);
-
-        if (cand_4b[a].tag >= cand_4b[b].tag) ge_b[a >> 6] |= (uint64_t) 1 << (a & 63);
-      }
-    }
-
-    for (jj = 0; jj < n4; jj++) {
-      j = cand_4b[jj].idx;
-
-      const uint64_t *const adj_j = &cand_adj[(size_t) jj * cand_words];
-      const uint64_t *const ge_j = &cand_ge[(size_t) jj * cand_words];
-
-      for (int wk = 0; wk < cand_words; wk++) {
-        uint64_t mk = adj_j[wk] & ge_j[wk];
-
-        while (mk) {
-          kk = (wk << 6) + lowest_bit(mk);
-          mk &= mk - 1;
-
-          k = cand_4b[kk].idx;
-
-          const uint64_t *const adj_k = &cand_adj[(size_t) kk * cand_words];
-          const uint64_t *const ge_k = &cand_ge[(size_t) kk * cand_words];
-
-          for (int wl = 0; wl < cand_words; wl++) {
-            uint64_t ml = adj_j[wl] & adj_k[wl] & ge_k[wl];
-
-            while (ml) {
-              ll = (wl << 6) + lowest_bit(ml);
-              ml &= ml - 1;
-
-              neighborlist_4mers.push_back(i);
-              neighborlist_4mers.push_back(j);
-              neighborlist_4mers.push_back(k);
-              neighborlist_4mers.push_back(cand_4b[ll].idx);
-              n_4mers++;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  if (chimes_calculator->poly_orders[1] > 0)
-    sort_mers_by_type<3>(neighborlist_3mers, n_3mers, mer_type_3b);
-
-  if (do_4b) sort_mers_by_type<4>(neighborlist_4mers, n_4mers, mer_type_4b);
+  if (ctx.do_4b) sort_mers_by_type<4>(neighborlist_4mers, n_4mers, mer_type_4b);
 }
 
 /* ----------------------------------------------------------------------

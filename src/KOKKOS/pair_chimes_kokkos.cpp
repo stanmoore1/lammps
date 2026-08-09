@@ -197,6 +197,11 @@ KK_FLOAT PairCHIMESKokkos<DeviceType>::get_dist(int i, int j) const
 template<class DeviceType>
 void PairCHIMESKokkos<DeviceType>::build_mb_neighlists()
 {
+  if constexpr (host_flag) {
+    host_build_mb_neighlists();
+    return;
+  }
+
   if (maxcut_3b > maxcut_2b)
     error->all(FLERR,"KOKKOS ChIMES assumes 2-body cutoffs >= 3-body cutoffs");
 
@@ -566,6 +571,216 @@ void PairCHIMESKokkos<DeviceType>::setup_neighlist_ptrs()
   }
 
   nl_firstneigh = host_firstneigh.data();
+}
+
+/* ----------------------------------------------------------------------
+   Cluster enumeration for one block of owned atoms.  Each block writes to its
+   own output buffers, so the blocks are independent; they are concatenated in
+   block order afterwards, which reproduces the order a single pass would have
+   produced.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairCHIMESKokkos<DeviceType>::host_build_chunk(const int chunk) const
+{
+  const int sz = (nl_inum + host_nchunk_build - 1) / host_nchunk_build;
+  const int lo = chunk * sz;
+  const int hi = MIN(lo + sz, nl_inum);
+
+  auto &out3 = const_cast<std::vector<int> &>(host_out3[chunk]);
+  auto &out4 = const_cast<std::vector<int> &>(host_out4[chunk]);
+  auto &scr = const_cast<MBScratch &>(host_mb_scratch[chunk]);
+
+  out3.resize(0);
+  out4.resize(0);
+
+  for (int ii = lo; ii < hi; ii++)
+    mb_clusters_for_atom(nl_ilist[ii], mb_ctx, scr, out3, out4);
+}
+
+/* ----------------------------------------------------------------------
+   Counting sort of a cluster list by packed atom-type index, threaded.  Each
+   block histograms its own clusters, the per-block starting offsets are formed
+   by one pass over the (key, block) table, and the blocks then scatter in
+   parallel.  Walking the table key-major and block-minor is what makes the
+   result identical to the serial stable sort: within a key the clusters keep
+   their build order.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int WIDTH>
+void PairCHIMESKokkos<DeviceType>::host_sort_count(const int chunk) const
+{
+  const int sz = (sort_nmers + host_nchunk_sort - 1) / host_nchunk_sort;
+  const int lo = chunk * sz;
+  const int hi = MIN(lo + sz, sort_nmers);
+
+  const int nt = chimes_calculator->natmtyps;
+  const int *atype = atom->type;
+  const int *mers = sort_mers->data();
+
+  int *const hist = const_cast<int *>(&host_sort_hist[(size_t) chunk * sort_nkey]);
+  int *const key_of = const_cast<int *>(host_sort_key.data());
+
+  for (int k = 0; k < sort_nkey; k++) hist[k] = 0;
+
+  for (int c = lo; c < hi; c++) {
+    const int *m = &mers[(size_t) WIDTH * c];
+    int key = 0;
+
+    for (int w = 0; w < WIDTH; w++) key = key * nt + chimes_type[atype[m[w]] - 1];
+
+    key_of[c] = key;
+    hist[key]++;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int WIDTH>
+void PairCHIMESKokkos<DeviceType>::host_sort_scatter(const int chunk) const
+{
+  const int sz = (sort_nmers + host_nchunk_sort - 1) / host_nchunk_sort;
+  const int lo = chunk * sz;
+  const int hi = MIN(lo + sz, sort_nmers);
+
+  const int *mers = sort_mers->data();
+  int *const dst = const_cast<int *>(host_sort_scratch.data());
+  int *const type_out = const_cast<int *>(sort_type->data());
+  const int *key_of = host_sort_key.data();
+
+  int *const off = const_cast<int *>(&host_sort_hist[(size_t) chunk * sort_nkey]);
+
+  for (int c = lo; c < hi; c++) {
+    const int key = key_of[c];
+    const int d = off[key]++;
+
+    type_out[d] = key;
+
+    for (int w = 0; w < WIDTH; w++) dst[(size_t) WIDTH * d + w] = mers[(size_t) WIDTH * c + w];
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int WIDTH>
+void PairCHIMESKokkos<DeviceType>::host_sort_mers(std::vector<int> &mers, int nmers,
+                                                  std::vector<int> &mer_type)
+{
+  if (nmers == 0) {
+    mer_type.resize(0);
+    return;
+  }
+
+  const int nt = chimes_calculator->natmtyps;
+
+  sort_nkey = 1;
+
+  for (int w = 0; w < WIDTH; w++) sort_nkey *= nt;
+
+  const int nthreads = lmp->kokkos->nthreads;
+
+  host_nchunk_sort = MAX(MIN(nthreads * 8, (nmers + 4095) / 4096), 1);
+
+  // The offset table is one int per (block, key).  A model with many atom types
+  // makes it the larger of the two allocations, so past a few megabytes the
+  // block count is cut back rather than the table grown.
+
+  while ((host_nchunk_sort > 1) && ((double) host_nchunk_sort * sort_nkey > 4.0e6))
+    host_nchunk_sort /= 2;
+
+  sort_mers = &mers;
+  sort_type = &mer_type;
+  sort_nmers = nmers;
+
+  host_sort_hist.resize((size_t) host_nchunk_sort * sort_nkey);
+  host_sort_key.resize(nmers);
+  host_sort_scratch.resize((size_t) nmers * WIDTH);
+  mer_type.resize(nmers);
+
+  using policy_t = Kokkos::RangePolicy<DeviceType, Kokkos::Schedule<Kokkos::Dynamic>>;
+
+  PairCHIMESHostBuildFunctor<DeviceType,1,WIDTH> fcount(this);
+  Kokkos::parallel_for("CHIMESHostSortCount", policy_t(0,host_nchunk_sort), fcount);
+
+  // Key-major, block-minor running total: block b's clusters of key k land
+  // after every cluster of key k from the blocks before it.
+
+  int running = 0;
+
+  for (int k = 0; k < sort_nkey; k++)
+    for (int b = 0; b < host_nchunk_sort; b++) {
+      const int n = host_sort_hist[(size_t) b * sort_nkey + k];
+
+      host_sort_hist[(size_t) b * sort_nkey + k] = running;
+      running += n;
+    }
+
+  PairCHIMESHostBuildFunctor<DeviceType,2,WIDTH> fscat(this);
+  Kokkos::parallel_for("CHIMESHostSortScatter", policy_t(0,host_nchunk_sort), fscat);
+
+  mers.swap(host_sort_scratch);
+}
+
+/* ----------------------------------------------------------------------
+   Threaded replacement for PairCHIMES::build_mb_neighlists on the host.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairCHIMESKokkos<DeviceType>::host_build_mb_neighlists()
+{
+  if ((chimes_calculator->poly_orders[1] == 0) && (chimes_calculator->poly_orders[2] == 0)) return;
+
+  setup_neighlist_ptrs();
+
+  mb_ctx = mb_context();
+
+  const int nthreads = lmp->kokkos->nthreads;
+
+  host_nchunk_build = MAX(MIN(nthreads * 16, (nl_inum + 7) / 8), 1);
+
+  if ((int) host_out3.size() < host_nchunk_build) {
+    host_out3.resize(host_nchunk_build);
+    host_out4.resize(host_nchunk_build);
+    host_mb_scratch.resize(host_nchunk_build);
+  }
+
+  using policy_t = Kokkos::RangePolicy<DeviceType, Kokkos::Schedule<Kokkos::Dynamic>>;
+
+  PairCHIMESHostBuildFunctor<DeviceType,0,0> fbuild(this);
+  Kokkos::parallel_for("CHIMESHostBuild", policy_t(0,host_nchunk_build), fbuild);
+
+  size_t n3 = 0, n4 = 0;
+
+  for (int c = 0; c < host_nchunk_build; c++) {
+    n3 += host_out3[c].size();
+    n4 += host_out4[c].size();
+  }
+
+  neighborlist_3mers.resize(n3);
+  neighborlist_4mers.resize(n4);
+
+  size_t o3 = 0, o4 = 0;
+
+  for (int c = 0; c < host_nchunk_build; c++) {
+    if (!host_out3[c].empty())
+      memcpy(&neighborlist_3mers[o3], host_out3[c].data(), host_out3[c].size() * sizeof(int));
+
+    if (!host_out4[c].empty())
+      memcpy(&neighborlist_4mers[o4], host_out4[c].data(), host_out4[c].size() * sizeof(int));
+
+    o3 += host_out3[c].size();
+    o4 += host_out4[c].size();
+  }
+
+  n_3mers = n3 / 3;
+  n_4mers = n4 / 4;
+
+  if (mb_ctx.do_3b) host_sort_mers<3>(neighborlist_3mers, n_3mers, mer_type_3b);
+
+  if (mb_ctx.do_4b) host_sort_mers<4>(neighborlist_4mers, n_4mers, mer_type_4b);
 }
 
 /* ----------------------------------------------------------------------
@@ -1203,7 +1418,7 @@ void PairCHIMESKokkos<DeviceType>::compute_host(int eflag_in, int vflag_in)
 
   setup_neighlist_ptrs();
 
-  if (neighbor->ago == 0) PairCHIMES::build_mb_neighlists();
+  if (neighbor->ago == 0) host_build_mb_neighlists();
 
   need_dup = lmp->kokkos->need_dup<DeviceType>();
 
@@ -1218,6 +1433,7 @@ void PairCHIMESKokkos<DeviceType>::compute_host(int eflag_in, int vflag_in)
   }
 
   host_setup_chunks();
+
 
 
   // Kokkos overwrites the reduction target on each launch rather than adding
