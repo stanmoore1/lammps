@@ -722,6 +722,7 @@ class chimesFF {
 
   inline void get_fcut(const double dx, const chimesSlotConst &sc, double &fcut, double &fcutderiv);
 
+
   // True when this slot already holds the setup for exactly this pair, so the
   // Chebyshev arrays and the cutoff function can be left alone.  Otherwise the
   // cache is claimed for the new pair and the caller refills it.

@@ -2653,6 +2653,59 @@ constexpr double CHEXP_C[13] = {1.0,
 // attribute this stays at the baseline SSE2 width while its callers run at
 // AVX2 width, so the exponential does twice the instructions it needs to.
 
+// Beside the vectorized exponential and cloned like it: as an inline member in
+// the header it was out-lined at the baseline width and called from kernels
+// running at AVX2 width, which is the whole point of batching it.
+
+CHIMES_VECTOR_CLONES
+void chimes_fcut_batch(const double *dx, const chimesSlotConst &sc, double *fcut,
+                       double *fcutderiv, const bool cubic)
+{
+  if (cubic) {
+    for (int l = 0; l < CHIMES_VLEN; l++) {
+      const double fcut0 = 1.0 - dx[l] / sc.outer;
+
+      fcut[l] = fcut0 * fcut0 * fcut0;
+      fcutderiv[l] = fcut0 * fcut0 * sc.fcut_dscale;
+    }
+
+    return;
+  }
+
+  // Every lane in a batch is a real separation inside its outer cutoff, or a
+  // copy of lane 0, so the series argument stays inside the half period it is
+  // fitted over and evaluating it for a lane that will be discarded cannot
+  // overflow.
+
+  double s[CHIMES_VLEN], y[CHIMES_VLEN], p[CHIMES_VLEN], q[CHIMES_VLEN];
+
+  for (int l = 0; l < CHIMES_VLEN; l++) {
+    s[l] = (dx[l] - sc.fcut_mid) * sc.fcut_dscale;
+    y[l] = s[l] * s[l];
+    p[l] = CHIMES_SINPI.a[9];
+    q[l] = CHIMES_SINPI.b[9];
+  }
+
+  // Lane loop innermost: the Horner descent carries a dependency from one term
+  // to the next, so with the lanes on the outside the only loop the vectorizer
+  // sees is the serial one and the whole thing stays scalar.  Turned inside out
+  // the innermost loop is over independent lanes and widens.
+
+  for (int k = 8; k >= 0; k--)
+    for (int l = 0; l < CHIMES_VLEN; l++) {
+      p[l] = p[l] * y[l] + CHIMES_SINPI.a[k];
+      q[l] = q[l] * y[l] + CHIMES_SINPI.b[k];
+    }
+
+  for (int l = 0; l < CHIMES_VLEN; l++) {
+    const bool below = (dx[l] < sc.fcut_thresh);
+    const bool above = (dx[l] > sc.outer);
+
+    fcut[l] = below ? 1.0 : (above ? 0.0 : (0.5 - 0.5 * (p[l] * s[l])));
+    fcutderiv[l] = (below || above) ? 0.0 : (-0.5 * q[l] * sc.fcut_dscale);
+  }
+}
+
 CHIMES_VECTOR_CLONES
 void chimes_exp_batch(double *out, const double *y)
 {
@@ -2758,7 +2811,7 @@ void chimesFF::compute_2B_batch(const int key, const double *dist, double *e_out
 
   double fcut[CHIMES_VLEN], fcutd[CHIMES_VLEN];
 
-  for (int l = 0; l < CHIMES_VLEN; l++) get_fcut(dist[l], sc, fcut[l], fcutd[l]);
+  chimes_fcut_batch(dist, sc, fcut, fcutd, fcut_type == fcutType::CUBIC);
 
   for (int l = 0; l < CHIMES_VLEN; l++) {
     const double dpoly = D[l] * dx_dr[l];
@@ -2867,7 +2920,7 @@ void chimesFF::compute_3B_batch(const int nlane, const int type_idx,
   for (int p = 0; p < 3; p++) {
     set_cheby_polys_batch(b.Tn[p].data(), b.Tnd[p].data(), dx[p], sc[p], 1);
 
-    for (int l = 0; l < CHIMES_VLEN; l++) get_fcut(dx[p][l], sc[p], b.fcut[p][l], b.fcutderiv[p][l]);
+    chimes_fcut_batch(dx[p], sc[p], b.fcut[p], b.fcutderiv[p], fcut_type == fcutType::CUBIC);
 
     for (int l = 0; l < CHIMES_VLEN; l++) b.inv_dx[p][l] = 1.0 / dx[p][l];
   }
@@ -3917,7 +3970,7 @@ void chimesFF::compute_4B_batch(const int nlane, const int type_idx,
   for (int p = 0; p < 6; p++) {
     set_cheby_polys_batch(b.Tn[p].data(), b.Tnd[p].data(), dx[p], sc[p], 2);
 
-    for (int l = 0; l < CHIMES_VLEN; l++) get_fcut(dx[p][l], sc[p], b.fcut[p][l], b.fcutderiv[p][l]);
+    chimes_fcut_batch(dx[p], sc[p], b.fcut[p], b.fcutderiv[p], fcut_type == fcutType::CUBIC);
 
     for (int l = 0; l < CHIMES_VLEN; l++) b.inv_dx[p][l] = 1.0 / dx[p][l];
   }
