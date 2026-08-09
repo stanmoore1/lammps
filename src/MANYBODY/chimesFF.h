@@ -556,6 +556,28 @@ class chimesFF {
 
   vector<vector<double>> mono_2b;
 
+ public:
+  // True when the batched 2-body path can take a pair of this slot key at this
+  // separation: inside the outer cutoff, clear of the inner cutoff and the
+  // penalty region, with the monomial form of the series available.  A pair it
+  // refuses goes through the scalar path, which handles every case.
+
+  inline bool fast_2b(const int key, const double dist) const
+  {
+    const chimesSlotConst &sc = slot_2b[key];
+
+    return (dist < sc.outer) && (dist >= sc.inner + penalty_params[0]) &&
+        !mono_2b[atom_int_pair_map[key]].empty();
+  }
+
+  // A batch of 2-body pairs sharing one slot key: energies and the scalar
+  // force factors, one vector exponential and one broadcast-coefficient
+  // Horner descent for the lot.
+
+  void compute_2B_batch(const int key, const double *dist, double *e_out, double *fs_out);
+
+ protected:
+
   // Tools for compute functions
 
   inline void set_cheby_polys(vector<double> &Tn, vector<double> &Tnd, double dx,

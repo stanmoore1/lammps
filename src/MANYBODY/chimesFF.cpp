@@ -2713,6 +2713,56 @@ inline void chimes_exp_batch(double *out, const double *y)
 
 }    // namespace
 
+// A batch of 2-body pairs of one slot key.  The caller has already excluded
+// separations beyond the outer cutoff, inside the inner cutoff, and inside the
+// penalty region, so this is the unconditional middle of the potential: one
+// vector exponential, one Horner descent with broadcast coefficients, the
+// cutoff function per lane.
+
+CHIMES_VECTOR_CLONES
+void chimesFF::compute_2B_batch(const int key, const double *dist, double *e_out, double *fs_out)
+{
+  const chimesSlotConst &sc = slot_2b[key];
+  const vector<double> &row = mono_2b[atom_int_pair_map[key]];
+
+  double arg[CHIMES_VLEN], ex[CHIMES_VLEN];
+
+  for (int l = 0; l < CHIMES_VLEN; l++) arg[l] = dist[l] * sc.neg_inv_morse;
+
+  chimes_exp_batch(ex, arg);
+
+  double x[CHIMES_VLEN], dx_dr[CHIMES_VLEN];
+
+  for (int l = 0; l < CHIMES_VLEN; l++) {
+    x[l] = (ex[l] - sc.x_avg) * sc.inv_x_diff;
+    dx_dr[l] = ex[l] * sc.dxdr_scale;
+  }
+
+  double V[CHIMES_VLEN], D[CHIMES_VLEN];
+
+  for (int l = 0; l < CHIMES_VLEN; l++) V[l] = D[l] = 0.0;
+
+  for (int k = (int) row.size() - 1; k >= 0; k--) {
+    const double rk = row[k];
+
+    for (int l = 0; l < CHIMES_VLEN; l++) {
+      D[l] = D[l] * x[l] + V[l];
+      V[l] = V[l] * x[l] + rk;
+    }
+  }
+
+  double fcut[CHIMES_VLEN], fcutd[CHIMES_VLEN];
+
+  for (int l = 0; l < CHIMES_VLEN; l++) get_fcut(dist[l], sc, fcut[l], fcutd[l]);
+
+  for (int l = 0; l < CHIMES_VLEN; l++) {
+    const double dpoly = D[l] * dx_dr[l];
+
+    e_out[l] = V[l] * fcut[l];
+    fs_out[l] = (fcut[l] * dpoly + fcutd[l] * V[l]) / dist[l];
+  }
+}
+
 // Chebyshev values for one pair slot across a batch, written lane-minor.  The
 // recurrence is a plain lane loop, and so, now, is the exponential.
 

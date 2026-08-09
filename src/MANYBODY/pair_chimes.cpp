@@ -548,6 +548,55 @@ void PairCHIMES::compute(int eflag, int vflag)
   if (neighbor->ago == 0) build_mb_neighlists();
 
 
+  // Per-key staging for the batched 2-body path.
+
+  const int nchem = chimes_calculator->natmtyps;
+
+  b2_cnt.assign(nchem * nchem, 0);
+  b2_i.resize(nchem * nchem);
+  b2_j.resize(nchem * nchem);
+  b2_dist.resize(nchem * nchem);
+  b2_dr.resize(nchem * nchem);
+
+  auto flush_2b = [&](const int key2) {
+    const int nb = b2_cnt[key2];
+    double bd[CHIMES_VLEN], be[CHIMES_VLEN], bfs[CHIMES_VLEN];
+
+    for (int l = 0; l < nb; l++) bd[l] = b2_dist[key2][l];
+
+    for (int l = nb; l < CHIMES_VLEN; l++) bd[l] = bd[0];
+
+    chimes_calculator->compute_2B_batch(key2, bd, be, bfs);
+
+    for (int l = 0; l < nb; l++) {
+      const int ai = b2_i[key2][l], aj = b2_j[key2][l];
+      const double *const pdr = b2_dr[key2][l].data();
+
+      for (int idx2 = 0; idx2 < CHDIM; idx2++) {
+        const double fc = bfs[l] * pdr[idx2];
+
+        f[ai][idx2] += fc;
+        f[aj][idx2] -= fc;
+      }
+
+      if (evflag) {
+        int alist[2] = {ai, aj};
+        double st[6];
+
+        st[0] = -bfs[l] * pdr[0] * pdr[0];
+        st[1] = -bfs[l] * pdr[0] * pdr[1];
+        st[2] = -bfs[l] * pdr[0] * pdr[2];
+        st[3] = -bfs[l] * pdr[1] * pdr[1];
+        st[4] = -bfs[l] * pdr[1] * pdr[2];
+        st[5] = -bfs[l] * pdr[2] * pdr[2];
+
+        ev_tally_mb(2, alist, be[l], st);
+      }
+    }
+
+    b2_cnt[key2] = 0;
+  };
+
   ////////////////////////////////////////
   // Compute 1- and 2-body interactions
   ////////////////////////////////////////
@@ -575,7 +624,13 @@ void PairCHIMES::compute(int eflag, int vflag)
 
     if (evflag) ev_tally_mb(1, atmlist, energy, stensor.data());
 
-    // Now move on to two-body force, stress, and energy
+    // Now move on to two-body force, stress, and energy.  Pairs that sit in
+    // the plain middle of the potential -- outside the outer cutoff test,
+    // clear of the inner cutoff and the penalty region, with a monomial form
+    // of their series available -- are collected into per-key batches of
+    // CHIMES_VLEN and evaluated together: one vector exponential and one
+    // broadcast-coefficient Horner descent instead of eight scalar ones.
+    // Everything else takes the scalar path unchanged.
 
     for (jj = 0; jj < jnum; jj++)    // Loop over neighbors of i
     {
@@ -590,7 +645,24 @@ void PairCHIMES::compute(int eflag, int vflag)
 
       dist = get_dist(i, j, &dr[0]);
 
-      typ_idxs_2b[1] = chimes_type[type[j] - 1];
+      const int jchem = chimes_type[type[j] - 1];
+      const int key2 = typ_idxs_2b[0] * nchem + jchem;
+
+      if (chimes_calculator->fast_2b(key2, dist)) {
+        const int nb = b2_cnt[key2];
+
+        b2_i[key2][nb] = i;
+        b2_j[key2][nb] = j;
+        b2_dist[key2][nb] = dist;
+
+        for (idx = 0; idx < CHDIM; idx++) b2_dr[key2][nb][idx] = dr[idx];
+
+        if (++b2_cnt[key2] == CHIMES_VLEN) flush_2b(key2);
+
+        continue;
+      }
+
+      typ_idxs_2b[1] = jchem;
 
       // Using std::fill for maximum efficiency.
       std::fill(force_2b.begin(), force_2b.end(), 0.0);
@@ -616,6 +688,9 @@ void PairCHIMES::compute(int eflag, int vflag)
       if (evflag) ev_tally_mb(2, atmlist, energy, stensor.data());
     }
   }
+
+  for (int key2 = 0; key2 < nchem * nchem; key2++)
+    if (b2_cnt[key2]) flush_2b(key2);
 
   if (chimes_calculator->poly_orders[1] > 0) {
     ////////////////////////////////////////

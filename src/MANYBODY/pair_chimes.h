@@ -26,6 +26,8 @@ PairStyle(chimesFF, PairCHIMES);    // PairStyle(key, class)
 
 #include "pair.h"
 
+#include <array>
+
 #include "chimesFF.h"
 #include <cstdint>
 #include <vector>
@@ -80,6 +82,13 @@ class PairCHIMES : public Pair {
 
   std::vector<int> mer_type_3b;
   std::vector<int> mer_type_4b;
+
+  // Per-slot-key staging for the batched 2-body path.
+
+  std::vector<int> b2_cnt;
+  std::vector<std::array<int, CHIMES_VLEN>> b2_i, b2_j;
+  std::vector<std::array<double, CHIMES_VLEN>> b2_dist;
+  std::vector<std::array<std::array<double, CHDIM>, CHIMES_VLEN>> b2_dr;
 
   // Scratch for build_mb_neighlists(): the neighbors of the current atom that
   // can take part in one of its clusters, and the squared distances among the
