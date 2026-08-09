@@ -32,12 +32,30 @@
 // multiply-add; either alone leaves most of the gain behind.  The dispatch
 // needs indirect-function support from the runtime loader, so it is limited to
 // GNU/Linux, and it is pointless when the build already asks for that level.
+// Clang understands the same attribute with architecture-level strings from
+// version 18, verified here; earlier versions reject the string outright, so
+// they take the plain path.  x86-64-v4 was measured as well and left out on
+// purpose: on a Skylake-class test machine engaging 512-bit lanes cost about
+// twenty percent in clock speed across the whole program and both benchmarks.
 
-#if defined(__x86_64__) && defined(__gnu_linux__) && defined(__GNUC__) && !defined(__clang__) && \
-    !defined(__AVX2__)
+// The two compilers want the attribute in different places: GCC accepts it
+// only on the definitions -- on a declaration every calling unit emits a
+// resolver that references clone symbols it cannot see -- while Clang requires
+// it on the declaration, before the first use.  So the definition macro
+// expands for both and the declaration macro expands only for Clang.
+
+#if defined(__x86_64__) && defined(__gnu_linux__) && !defined(__AVX2__) &&        \
+    ((defined(__GNUC__) && !defined(__clang__)) ||                                \
+     (defined(__clang__) && (__clang_major__ >= 18)))
 #define CHIMES_VECTOR_CLONES __attribute__((target_clones("arch=x86-64-v3", "default")))
+#if defined(__clang__)
+#define CHIMES_VECTOR_CLONES_DECL CHIMES_VECTOR_CLONES
+#else
+#define CHIMES_VECTOR_CLONES_DECL
+#endif
 #else
 #define CHIMES_VECTOR_CLONES
+#define CHIMES_VECTOR_CLONES_DECL
 #endif
 
 using namespace std;
@@ -336,10 +354,12 @@ class chimesFF {
   // on every other step the stress arithmetic -- twelve operations per pair
   // slot, so 36 per 3-mer and 72 per 4-mer -- is discarded by the caller.
 
+  CHIMES_VECTOR_CLONES_DECL
   void compute_2B(const double dx, const vector<double> &dr, const vector<int> &typ_idxs,
                   vector<double> &force, vector<double> &stress, double &energy, chimes2BTmp &tmp,
                   const bool vflag = true);
 
+  CHIMES_VECTOR_CLONES_DECL
   void compute_3B(const vector<double> &dx, const vector<double> &dr, const vector<int> &typ_idxs,
                   vector<double> &force, vector<double> &stress, double &energy, chimes3BTmp &tmp,
                   const bool vflag = true);
@@ -350,6 +370,7 @@ class chimesFF {
   // order the one-at-a-time path does, so a cluster's numbers are unchanged --
   // only which clusters sit next to each other differs.
 
+  CHIMES_VECTOR_CLONES_DECL
   void compute_3B_batch(const int nlane, const int type_idx, const double dx[3][CHIMES_VLEN],
                         chimes3BBatch &b);
 
@@ -365,9 +386,11 @@ class chimesFF {
     return ((t0 * natmtyps + t1) * natmtyps + t2) * natmtyps + t3;
   }
 
+  CHIMES_VECTOR_CLONES_DECL
   void compute_4B_batch(const int nlane, const int type_idx, const double dx[6][CHIMES_VLEN],
                         chimes4BBatch &b);
 
+  CHIMES_VECTOR_CLONES_DECL
   void compute_4B(const vector<double> &dx, const vector<double> &dr, const vector<int> &typ_idxs,
                   vector<double> &force, vector<double> &stress, double &energy, chimes4BTmp &tmp,
                   const bool vflag = true);
@@ -574,6 +597,7 @@ class chimesFF {
   // force factors, one vector exponential and one broadcast-coefficient
   // Horner descent for the lot.
 
+  CHIMES_VECTOR_CLONES_DECL
   void compute_2B_batch(const int key, const double *dist, double *e_out, double *fs_out);
 
  protected:
@@ -583,27 +607,34 @@ class chimesFF {
   inline void set_cheby_polys(vector<double> &Tn, vector<double> &Tnd, double dx,
                               const chimesSlotConst &sc, const int bodiedness_idx);
 
+  CHIMES_VECTOR_CLONES_DECL
   void poly_2B(double *e, double *f0, int ncoeffs_2b, vector<double> &chimes_2b_params,
                vector<int> &chimes_2b_pows, vector<double> &Tn, vector<double> &Tnd);
 
+  CHIMES_VECTOR_CLONES_DECL
   void poly_3B(double *e, double *f, const chimesPolySet &ps, vector<double> &Tn_ij,
                vector<double> &Tn_ik, vector<double> &Tn_jk, vector<double> &Tnd_ij,
                vector<double> &Tnd_ik, vector<double> &Tnd_jk);
 
+  CHIMES_VECTOR_CLONES_DECL
   void poly_3B_grouped(double *e, double *f, const chimesGroupedPoly &g, vector<double> &Tn_ij,
                        vector<double> &Tn_ik, vector<double> &Tn_jk, vector<double> &Tnd_ij,
                        vector<double> &Tnd_ik, vector<double> &Tnd_jk);
 
+  CHIMES_VECTOR_CLONES_DECL
   void poly_3B_grouped_batch(const chimesGroupedPoly &g, chimes3BBatch &b);
 
   // The same walk with Horner leaves in the monomial basis; used when the tree
   // built them and no lane of the last pair carries the damped form.
 
+  CHIMES_VECTOR_CLONES_DECL
   void poly_3B_horner_batch(const chimesGroupedPoly &g, chimes3BBatch &b);
 
+  CHIMES_VECTOR_CLONES_DECL
   void set_cheby_polys_batch(double *Tn, double *Tnd, const double *dx,
                              const chimesSlotConst &sc, const int bodyness);
 
+  CHIMES_VECTOR_CLONES_DECL
   void poly_4B_grouped(double *e, double *f, const chimesGroupedPoly &g, vector<double> &Tn_ij,
                        vector<double> &Tn_ik, vector<double> &Tn_il, vector<double> &Tn_jk,
                        vector<double> &Tn_jl, vector<double> &Tn_kl, vector<double> &Tnd_ij,
@@ -640,10 +671,13 @@ class chimesFF {
   // possible coefficients are allocated.
   void densify_4B(int &ncoeffs4, vector<vector<int>> &powers_4b, vector<double> &params_4b);
 
+  CHIMES_VECTOR_CLONES_DECL
   void poly_4B_batch(const chimesPolySet &ps, chimes4BBatch &b);
 
+  CHIMES_VECTOR_CLONES_DECL
   void poly_4B_grouped_batch(const chimesGroupedPoly &g, chimes4BBatch &b);
 
+  CHIMES_VECTOR_CLONES_DECL
   void poly_4B(double *e, double *f, const chimesPolySet &ps, vector<double> &Tn_ij,
                vector<double> &Tn_ik, vector<double> &Tn_il, vector<double> &Tn_jk,
                vector<double> &Tn_jl, vector<double> &Tn_kl, vector<double> &Tnd_ij,
