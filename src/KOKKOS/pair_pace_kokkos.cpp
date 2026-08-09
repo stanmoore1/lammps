@@ -289,6 +289,8 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
 
   MemKK::realloc_kokkos(d_idx_ms_combs_count, "pace:idx_ms_combs_count", nelements);
   auto h_idx_ms_combs_count = Kokkos::create_mirror_view(d_idx_ms_combs_count);
+  MemKK::realloc_kokkos(d_nms_rank1, "pace:nms_rank1", nelements);
+  auto h_nms_rank1 = Kokkos::create_mirror_view(d_nms_rank1);
 
   for (int mu = 0; mu < nelements; mu++) {
     int idx_ms_combs = 0;
@@ -310,11 +312,13 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
         idx_ms_combs++;
     }
     h_idx_ms_combs_count(mu) = idx_ms_combs;
+    h_nms_rank1(mu) = total_basis_size_rank1;
     idx_ms_combs_max = MAX(idx_ms_combs_max, idx_ms_combs);
     total_basis_size_max = MAX(total_basis_size_max, total_basis_size_rank1 + total_basis_size);
   }
 
   Kokkos::deep_copy(d_idx_ms_combs_count, h_idx_ms_combs_count);
+  Kokkos::deep_copy(d_nms_rank1, h_nms_rank1);
 
   MemKK::realloc_kokkos(d_rank, "pace:rank", nelements, total_basis_size_max);
   MemKK::realloc_kokkos(d_num_ms_combs, "pace:num_ms_combs", nelements, total_basis_size_max);
@@ -629,7 +633,9 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
 
     //ComputeRadial
-    {
+    if constexpr (host_flag) {
+      Kokkos::parallel_for("ComputeRadial", host_atom_policy<TagPairPACEComputeRadialCPU>(), *this);
+    } else {
       int vector_length = vector_length_default;
       int team_size = team_size_default;
       check_team_size_for<TagPairPACEComputeRadial>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
@@ -658,28 +664,28 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     //ComputeRho
     if constexpr (host_flag) {
-      Kokkos::parallel_for("ComputeRho", host_atom_policy<TagPairPACEComputeRhoCPU>(), *this);
+      Kokkos::parallel_for("ComputeRhoFSWeights", host_atom_policy<TagPairPACEComputeRhoCPU>(), *this);
     } else {
       typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeRho> policy_rho(0,chunk_size*idx_ms_combs_max);
       Kokkos::parallel_for("ComputeRho",policy_rho,*this);
     }
 
     //ComputeFS
-    {
+    if constexpr (!host_flag) {
       typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeFS> policy_fs(0,chunk_size);
       Kokkos::parallel_for("ComputeFS",policy_fs,*this);
     }
 
-    //ComputeWeights
-    if constexpr (host_flag) {
-      Kokkos::parallel_for("ComputeWeights", host_atom_policy<TagPairPACEComputeWeightsCPU>(), *this);
-    } else {
+    //ComputeWeights (fused into ComputeRho on the host)
+    if constexpr (!host_flag) {
       typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeWeights> policy_weights(0,chunk_size * idx_ms_combs_max);
       Kokkos::parallel_for("ComputeWeights",policy_weights,*this);
     }
 
     //ComputeDerivative
-    {
+    if constexpr (host_flag) {
+      Kokkos::parallel_for("ComputeDerivative", host_atom_policy<TagPairPACEComputeDerivativeCPU>(), *this);
+    } else {
       int vector_length = vector_length_default;
       int team_size = team_size_default;
       check_team_size_for<TagPairPACEComputeDerivative>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
@@ -884,6 +890,25 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRadial, const typ
   const int mu_j = d_mu(ii, jj);
 
   evaluate_splines(ii, jj, r_norm, nradbase, nradmax, mu_i, mu_j);
+}
+
+/* ----------------------------------------------------------------------
+   CPU backend: one atom per thread.  Besides dropping the two integer
+   divisions per work item, this skips the maxneigh - ncount empty items
+   the flattened team policy has to launch for every atom.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRadialCPU, const int& ii) const
+{
+  const int i = d_ilist[ii + chunk_offset];
+  const int mu_i = d_map(type(i));
+  const int ncount = d_ncount(ii);
+
+  for (int jj = 0; jj < ncount; jj++)
+    evaluate_splines(ii, jj, d_rnorms(ii, jj), nradbase, nradmax, mu_i, d_mu(ii, jj));
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1217,9 +1242,37 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRhoCPU, const int
   const int mu_i = d_map(type(i));
   const int ndensity = d_ndensity(mu_i);
   const int nms = d_idx_ms_combs_count(mu_i);
+  // rank-1 basis functions occupy the first entries, so the two cases are
+  // separate loops rather than a branch inside one
+  const int nms1 = d_nms_rank1(mu_i);
 
-  for (int idx_ms_combs = 0; idx_ms_combs < nms; idx_ms_combs++)
-    compute_rho_one_cpu(ii, mu_i, ndensity, idx_ms_combs, nullptr);
+  // The atom index and the element index are loop invariant here, but the
+  // multi-dimensional View subscripts below recompute their contribution to
+  // the offset on every one of the millions of accesses this kernel makes.
+  // Hoisting them into base pointers and explicit strides removes about half
+  // of the kernel's instructions.  This is a host-only code path and the host
+  // layout is LayoutRight, so the last index is the contiguous one.
+  static_assert(std::is_same_v<typename t_ace_4c::array_layout, Kokkos::LayoutRight>,
+                "pace/kk CPU kernels assume LayoutRight on the host");
+  BasisPtrs b;
+  set_basis_ptrs(b, ii, mu_i);
+
+  // densities
+  for (int idx = 0; idx < nms1; idx++)
+    rho_one_rank1_cpu(b, ndensity, idx);
+  for (int idx = nms1; idx < nms; idx++)
+    compute_rho_one_cpu(b, ndensity, idx);
+
+  // embedding function F(rho) and its derivatives for this atom
+  compute_fs_one(ii);
+
+  // weights, reusing the dB products just written for this atom while they
+  // are still cache resident
+  b.dF = &dF_drho(ii, 0);
+  for (int idx = 0; idx < nms1; idx++)
+    weights_one_rank1_cpu(b, ndensity, idx);
+  for (int idx = nms1; idx < nms; idx++)
+    compute_weights_one_cpu(b, ndensity, idx);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1227,23 +1280,85 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRhoCPU, const int
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::compute_rho_one_cpu(const int ii, const int mu_i,
-                                                     const int ndensity,
-                                                     const int idx_ms_combs,
-                                                     KK_FLOAT * /*unused*/) const
+void PairPACEKokkos<DeviceType>::set_basis_ptrs(BasisPtrs &b, const int ii, const int mu_i) const
 {
-  const int idx_func = d_idx_funcs(mu_i, idx_ms_combs);
-  const int rank = d_rank(mu_i, idx_func);
+  b.A       = &A(ii, 0, 0, 0);
+  b.A_rank1 = &A_rank1(ii, 0, 0);
+  b.dB      = &dB_flatten(ii, 0, 0);
+  b.w       = &weights(ii, 0, 0, 0);
+  b.w_rank1 = &weights_rank1(ii, 0, 0);
+  b.rho     = &rhos(ii, 0);
+  b.dF      = &dF_drho(ii, 0);
+
+  b.mus     = &d_mus(mu_i, 0, 0);
+  b.ns      = &d_ns(mu_i, 0, 0);
+  b.ls      = &d_ls(mu_i, 0, 0);
+  b.ms      = &d_ms_combs(mu_i, 0, 0);
+  b.ctildes = &d_ctildes(mu_i, 0, 0);
+  b.idx_funcs = &d_idx_funcs(mu_i, 0);
+  b.rank    = &d_rank(mu_i, 0);
+
+  b.A_l   = (int) A.extent(2);            // (lmax+1)^2
+  b.A_n   = (int) A.extent(3);            // nradmax+1
+  b.w_l   = (int) weights.extent(2);      // idx_sph_max
+  b.w_n   = (int) weights.extent(3);      // nradmax+1
+  b.rankmax = (int) d_ms_combs.extent(2);
+  b.ndensitymax = (int) d_ctildes.extent(2);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::rho_one_rank1_cpu(const BasisPtrs &b,
+                                                   const int ndensity, const int idx) const
+{
+  const int idx_func = b.idx_funcs[idx];
+  const int mu = b.mus[idx_func * b.rankmax];
+  const int n = b.ns[idx_func * b.rankmax];
+  const KK_FLOAT A_cur = b.A_rank1[mu * nradbase + n - 1];
+  const KK_FLOAT *ct = b.ctildes + idx * b.ndensitymax;
+  for (int p = 0; p < ndensity; ++p)
+    b.rho[p] += ct[p] * A_cur;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::weights_one_rank1_cpu(const BasisPtrs &b,
+                                                       const int ndensity, const int idx) const
+{
+  const int idx_func = b.idx_funcs[idx];
+  const int mu = b.mus[idx_func * b.rankmax];
+  const int n = b.ns[idx_func * b.rankmax];
+  const KK_FLOAT *ct = b.ctildes + idx * b.ndensitymax;
+  KK_FLOAT theta = 0.0;
+  for (int p = 0; p < ndensity; ++p)
+    theta += b.dF[p] * ct[p];
+  b.w_rank1[mu * nradbase + n - 1] += theta;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::compute_rho_one_cpu(const BasisPtrs &b,
+                                                     const int ndensity,
+                                                     const int idx_ms_combs) const
+{
+  const int idx_func = b.idx_funcs[idx_ms_combs];
+  const int rank = b.rank[idx_func];
   const int r = rank - 1;
 
-  if (rank == 1) {
-    const int mu = d_mus(mu_i, idx_func, 0);
-    const int n = d_ns(mu_i, idx_func, 0);
-    const KK_FLOAT A_cur = A_rank1(ii, mu, n - 1);
-    for (int p = 0; p < ndensity; ++p)
-      rhos(ii, p) += d_ctildes(mu_i, idx_ms_combs, p) * A_cur;
-    return;
-  }
+  const int *mus = b.mus + idx_func * b.rankmax;
+  const int *ns  = b.ns  + idx_func * b.rankmax;
+  const int *ls  = b.ls  + idx_func * b.rankmax;
+  const int *ms  = b.ms  + idx_ms_combs * b.rankmax;
+  complex *dB    = b.dB  + idx_ms_combs * b.rankmax;
 
   // rank > 1: forward and backward products over the ms-combination
   complex A_list_l[MAX_RANK_CPU];
@@ -1251,25 +1366,23 @@ void PairPACEKokkos<DeviceType>::compute_rho_one_cpu(const int ii, const int mu_
 
   A_fwd_l[0] = complex::one();
   for (int t = 0; t < rank; t++) {
-    const int mu = d_mus(mu_i, idx_func, t);
-    const int n = d_ns(mu_i, idx_func, t);
-    const int l = d_ls(mu_i, idx_func, t);
-    const int m = d_ms_combs(mu_i, idx_ms_combs, t);
-    const int idx = l * (l + 1) + m; // (l, m)
-    A_list_l[t] = A(ii, mu, idx, n - 1);
+    const int l = ls[t];
+    const int idx = l * (l + 1) + ms[t]; // (l, m)
+    A_list_l[t] = b.A[(mus[t] * b.A_l + idx) * b.A_n + ns[t] - 1];
     A_fwd_l[t + 1] = A_fwd_l[t] * A_list_l[t];
   }
 
   complex A_backward_prod = complex::one();
   for (int t = r; t >= 1; t--) {
-    dB_flatten(ii, idx_ms_combs, t) = A_fwd_l[t] * A_backward_prod;
+    dB[t] = A_fwd_l[t] * A_backward_prod;
     A_backward_prod = A_backward_prod * A_list_l[t];
   }
-  dB_flatten(ii, idx_ms_combs, 0) = A_fwd_l[0] * A_backward_prod;
+  dB[0] = A_fwd_l[0] * A_backward_prod;
 
   const complex B = A_fwd_l[rank];
+  const KK_FLOAT *ct = b.ctildes + idx_ms_combs * b.ndensitymax;
   for (int p = 0; p < ndensity; ++p)
-    rhos(ii, p) += B.real_part_product(d_ctildes(mu_i, idx_ms_combs, p));
+    b.rho[p] += B.real_part_product(ct[p]);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1278,6 +1391,16 @@ template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeFS, const int& ii) const
+{
+  compute_fs_one(ii);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::compute_fs_one(const int ii) const
 {
   const int i = d_ilist[ii + chunk_offset];
   const int mu_i = d_map(type(i));
@@ -1398,62 +1521,43 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const in
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeightsCPU, const int& ii) const
-{
-  const int i = d_ilist[ii + chunk_offset];
-  const int mu_i = d_map(type(i));
-  const int ndensity = d_ndensity(mu_i);
-  const int nms = d_idx_ms_combs_count(mu_i);
-
-  for (int idx_ms_combs = 0; idx_ms_combs < nms; idx_ms_combs++)
-    compute_weights_one_cpu(ii, mu_i, ndensity, idx_ms_combs);
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-// NOLINTNEXTLINE
-KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::compute_weights_one_cpu(const int ii, const int mu_i,
+void PairPACEKokkos<DeviceType>::compute_weights_one_cpu(const BasisPtrs &b,
                                                          const int ndensity,
                                                          const int idx_ms_combs) const
 {
-  const int idx_func = d_idx_funcs(mu_i, idx_ms_combs);
-  const int rank = d_rank(mu_i, idx_func);
+  const int idx_func = b.idx_funcs[idx_ms_combs];
+  const int rank = b.rank[idx_func];
+
+  const int *mus = b.mus + idx_func * b.rankmax;
+  const int *ns  = b.ns  + idx_func * b.rankmax;
+  const int *ls  = b.ls  + idx_func * b.rankmax;
+  const int *ms  = b.ms  + idx_ms_combs * b.rankmax;
+  const complex *dB = b.dB + idx_ms_combs * b.rankmax;
+  const KK_FLOAT *ct = b.ctildes + idx_ms_combs * b.ndensitymax;
 
   KK_FLOAT theta = 0.0;
   for (int p = 0; p < ndensity; ++p)
-    theta += dF_drho(ii, p) * d_ctildes(mu_i, idx_ms_combs, p);
-
-  if (rank == 1) {
-    const int mu = d_mus(mu_i, idx_func, 0);
-    const int n = d_ns(mu_i, idx_func, 0);
-    weights_rank1(ii, mu, n - 1) += theta;
-    return;
-  }
+    theta += b.dF[p] * ct[p];
 
   theta *= 0.5; // 0.5 factor due to possible double counting
   for (int t = 0; t < rank; ++t) {
-    const int m_t = d_ms_combs(mu_i, idx_ms_combs, t);
+    const int m_t = ms[t];
     const int factor = (m_t % 2 == 0 ? 1 : -1);
-    const complex dB = dB_flatten(ii, idx_ms_combs, t);
-    const int mu_t = d_mus(mu_i, idx_func, t);
-    const int n_t = d_ns(mu_i, idx_func, t);
-    const int l_t = d_ls(mu_i, idx_func, t);
-    const int idx = l_t * (l_t + 1) + m_t; // (l, m)
-    const int idx_sph = d_idx_sph(idx);
+    const int l_t = ls[t];
+    const int lbase = l_t * (l_t + 1);
+    complex *w_t = b.w + (mus[t] * b.w_l) * b.w_n + ns[t] - 1;
+    const int idx_sph = (int) d_idx_sph(lbase + m_t);
     if (idx_sph >= 0) {
-      const complex value = theta * dB;
-      weights(ii, mu_t, idx_sph, n_t - 1).re += value.re;
-      weights(ii, mu_t, idx_sph, n_t - 1).im += value.im;
+      const complex value = theta * dB[t];
+      w_t[idx_sph * b.w_n].re += value.re;
+      w_t[idx_sph * b.w_n].im += value.im;
     }
     // update -m_t (that could also be positive), because the basis is half_basis
-    const int idxm = l_t * (l_t + 1) - m_t; // (l, -m)
-    const int idxm_sph = d_idx_sph(idxm);
+    const int idxm_sph = (int) d_idx_sph(lbase - m_t);
     if (idxm_sph >= 0) {
-      const complex valuem = theta * dB.conj() * (KK_FLOAT)factor;
-      weights(ii, mu_t, idxm_sph, n_t - 1).re += valuem.re;
-      weights(ii, mu_t, idxm_sph, n_t - 1).im += valuem.im;
+      const complex valuem = theta * dB[t].conj() * (KK_FLOAT)factor;
+      w_t[idxm_sph * b.w_n].re += valuem.re;
+      w_t[idxm_sph * b.w_n].im += valuem.im;
     }
   }
 }
@@ -1468,13 +1572,38 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivative, const
   int ii = team.team_rank() + team.team_size() * (team.league_rank() %
            ((chunk_size+team.team_size()-1)/team.team_size()));
   if (ii >= chunk_size) return;
-  const int i = d_ilist[ii + chunk_offset];
 
   // Extract the neighbor number
   const int jj = team.league_rank() / ((chunk_size+team.team_size()-1)/team.team_size());
   const int ncount = d_ncount(ii);
   if (jj >= ncount) return;
 
+  compute_derivative_one(ii, jj);
+}
+
+/* ----------------------------------------------------------------------
+   CPU backend: one atom per thread, so the atom's weights block is loaded
+   once and reused across its whole neighbor list
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivativeCPU, const int& ii) const
+{
+  const int ncount = d_ncount(ii);
+  for (int jj = 0; jj < ncount; jj++)
+    compute_derivative_one(ii, jj);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int jj) const
+{
+  const int i = d_ilist[ii + chunk_offset];
   const int itype = type(i);
   const KK_FLOAT scale = d_scale(itype,itype);
 

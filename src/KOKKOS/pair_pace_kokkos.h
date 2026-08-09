@@ -51,8 +51,9 @@ class PairPACEKokkos : public PairPACE {
   // looped over serially inside the kernel.  That removes every atomic and
   // makes the per-atom accumulators the innermost working set.
   struct TagPairPACEComputeAiCPU{};
-  struct TagPairPACEComputeRhoCPU{};
-  struct TagPairPACEComputeWeightsCPU{};
+  struct TagPairPACEComputeRadialCPU{};
+  struct TagPairPACEComputeRhoCPU{};   // fused rho -> F(rho) -> weights
+  struct TagPairPACEComputeDerivativeCPU{};
 
   template<int NEIGHFLAG, int EVFLAG>
   struct TagPairPACEComputeForce{};
@@ -104,11 +105,16 @@ class PairPACEKokkos : public PairPACE {
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeRadialCPU,const int& ii) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
   void operator() (TagPairPACEComputeRhoCPU,const int& ii) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairPACEComputeWeightsCPU,const int& ii) const;
+  void operator() (TagPairPACEComputeDerivativeCPU,const int& ii) const;
+
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -223,13 +229,44 @@ class PairPACEKokkos : public PairPACE {
   KOKKOS_INLINE_FUNCTION
   void compute_ai_one(const int, const int) const;
 
+  // Base pointers and strides for one atom, hoisted out of the basis-function
+  // loops so the multi-dimensional View subscripts are not recomputed for
+  // every access.  Host only, where the layout is LayoutRight.
+  struct BasisPtrs {
+    const complex *A;
+    const KK_FLOAT *A_rank1;
+    complex *dB;
+    complex *w;
+    KK_FLOAT *w_rank1;
+    KK_FLOAT *rho;
+    const KK_FLOAT *dF;
+    const int *mus, *ns, *ls, *ms, *idx_funcs, *rank;
+    const KK_FLOAT *ctildes;
+    int A_l, A_n, w_l, w_n, rankmax, ndensitymax;
+  };
+
+  KOKKOS_INLINE_FUNCTION
+  void set_basis_ptrs(BasisPtrs &, const int, const int) const;
+
   // CPU-only bodies for one (atom, ms-combination): the rank-length products
   // live on the stack instead of in chunk-sized global arrays
   KOKKOS_INLINE_FUNCTION
-  void compute_rho_one_cpu(const int, const int, const int, const int, KK_FLOAT *) const;
+  void compute_rho_one_cpu(const BasisPtrs &, const int, const int) const;
 
   KOKKOS_INLINE_FUNCTION
-  void compute_weights_one_cpu(const int, const int, const int, const int) const;
+  void compute_weights_one_cpu(const BasisPtrs &, const int, const int) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void rho_one_rank1_cpu(const BasisPtrs &, const int, const int) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void weights_one_rank1_cpu(const BasisPtrs &, const int, const int) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void compute_fs_one(const int) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void compute_derivative_one(const int, const int) const;
 
   // upper bound on the ACE correlation order, for the stack temporaries above
   static constexpr int MAX_RANK_CPU = 16;
@@ -344,6 +381,7 @@ class PairPACEKokkos : public PairPACE {
 
   // tilde
   t_ace_1i d_idx_ms_combs_count;
+  t_ace_1i d_nms_rank1;   // number of rank-1 ms-combinations, which come first
   t_ace_2i_lr d_rank;
   t_ace_2i_lr d_num_ms_combs;
   t_ace_2i_lr d_idx_funcs;
