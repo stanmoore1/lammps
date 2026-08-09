@@ -30,6 +30,8 @@ PairStyle(chimesFF/kk/host,PairCHIMESKokkos<LMPHostType>);
 #include "chimesFF_kokkos.h"
 #include "pair_chimes.h"
 
+#include <vector>
+
 namespace LAMMPS_NS {
 
 template<class DeviceType>
@@ -56,6 +58,13 @@ class PairCHIMESKokkos : public PairCHIMES
   typedef ArrayTypes<DeviceType> AT;
   typedef EV_FLOAT value_type;
 
+  // True when this instantiation executes on the host.  The host has the
+  // batched, type-grouped chimesFF evaluators, a cluster build that works in
+  // squared distances, and no limit on the polynomial order, so it takes an
+  // entirely different code path from the device kernels below.
+
+  static constexpr int host_flag = (ExecutionSpaceFromDevice<DeviceType>::space == LAMMPS_NS::HostKK);
+
   PairCHIMESKokkos(class LAMMPS *);
   ~PairCHIMESKokkos() override;
   void init_style() override;
@@ -63,6 +72,30 @@ class PairCHIMESKokkos : public PairCHIMES
   void allocate() override;
   void compute(int eflag, int vflag) override;
   void build_mb_neighlists() override;
+  void setup_neighlist_ptrs() override;
+
+  // Host path: the batched chimesFF evaluators, driven over chunks of the
+  // type-sorted cluster lists so the work threads.
+
+  void compute_host(int eflag, int vflag);
+  void host_setup_chunks();
+
+  template<int NEIGHFLAG>
+  void host_launch(EV_FLOAT &ev);
+
+  template<int NEIGHFLAG>
+  void host_2body_chunk(const int chunk, EV_FLOAT &ev) const;
+
+  template<int NEIGHFLAG>
+  void host_3body_chunk(const int chunk, EV_FLOAT &ev) const;
+
+  template<int NEIGHFLAG>
+  void host_4body_chunk(const int chunk, EV_FLOAT &ev) const;
+
+  template<class EAtomAccess, class VAtomAccess>
+  void host_tally(int ninteractionatoms, const int *atmlist, double evdwl,
+                  const double *stress, EV_FLOAT &ev, const EAtomAccess &a_eatom,
+                  const VAtomAccess &a_vatom) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairCHIMESZero, const int&) const;
@@ -114,8 +147,32 @@ class PairCHIMESKokkos : public PairCHIMES
  private:
   int neighflag;
   int inum, maxneigh, chunk_size, chunk_offset;
-  int host_flag, max_2mers, max_3mers, max_4mers;
+  int max_2mers, max_3mers, max_4mers;
   int size_2mers, size_3mers, size_4mers;
+
+  // Host path state.  The cluster lists are the base class's type-sorted flat
+  // arrays; each work item takes one contiguous chunk of them and runs the
+  // batched evaluator over it, so a batch only ever breaks at a chunk edge.
+
+  int host_nchunk_2b, host_nchunk_3b, host_nchunk_4b;
+
+  // Per-chunk scratch, allocated once per run rather than per launch: the
+  // batch objects own heap buffers, and the 2-body path stages one partial
+  // lane group per chemical-pair key.
+
+  std::vector<chimes3BBatch> host_batch3;
+  std::vector<chimes4BBatch> host_batch4;
+
+  std::vector<int> host_b2_cnt;
+  std::vector<int> host_b2_i, host_b2_j;
+  std::vector<double> host_b2_dist, host_b2_dr;
+
+  // Neighbor list in the form the shared CPU loops expect.  d_neighbors is one
+  // padded 2d block, so a row is already contiguous whenever its inner stride
+  // is one; when it is not, the rows are compacted into host_neigh_buf.
+
+  std::vector<int *> host_firstneigh;
+  std::vector<int> host_neigh_buf;
 
   KK_FLOAT maxcut_3b_padded, maxcut_4b_padded;
 
@@ -177,6 +234,31 @@ class PairCHIMESKokkos : public PairCHIMES
                    KK_FLOAT, KK_FLOAT[6],
                    EV_FLOAT &ev) const;
 
+};
+
+// Host cluster kernels.  These hold a pointer rather than a copy of the pair
+// style: Kokkos copies the functor into every launch, and the style owns the
+// coefficient tables and the cluster lists, which run to tens of megabytes.
+// They are host-only, so the pointer is always dereferenceable.
+
+template <class DeviceType, int NBODY, int NEIGHFLAG>
+struct PairCHIMESHostClusterFunctor {
+  typedef DeviceType execution_space;
+  typedef EV_FLOAT value_type;
+
+  PairCHIMESKokkos<DeviceType> *p;
+
+  PairCHIMESHostClusterFunctor(PairCHIMESKokkos<DeviceType> *p_in) : p(p_in) {}
+
+  void operator()(const int &chunk, EV_FLOAT &ev) const
+  {
+    if (NBODY == 2)
+      p->template host_2body_chunk<NEIGHFLAG>(chunk, ev);
+    else if (NBODY == 3)
+      p->template host_3body_chunk<NEIGHFLAG>(chunk, ev);
+    else
+      p->template host_4body_chunk<NEIGHFLAG>(chunk, ev);
+  }
 };
 
 template <class DeviceType>

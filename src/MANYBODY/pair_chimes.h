@@ -205,6 +205,16 @@ class PairCHIMES : public Pair {
   void set_chimes_type();
   void ev_tally_mb(int ninteractionatoms, const int *atmlist, double evdwl, const double *stress);
 
+  // Neighbor list access used by build_mb_neighlists() and the 2-body loop.
+  // Reading it through these members rather than through `list` directly lets
+  // an accelerated variant supply the same lists from its own storage, so the
+  // cluster enumeration and the pair loop are written once.
+
+  int nl_inum;
+  int *nl_ilist, *nl_numneigh, **nl_firstneigh;
+
+  virtual void setup_neighlist_ptrs();
+
   // Functions I haven't worked on
 
   void write_restart();

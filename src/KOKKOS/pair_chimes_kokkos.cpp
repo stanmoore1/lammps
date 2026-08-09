@@ -133,20 +133,27 @@ void PairCHIMESKokkos<DeviceType>::coeff(int narg, char **arg)
 {
   PairCHIMES::coeff(narg,arg);
 
-  if (chimes_calculatorKK.poly_orders[0]+1 > MAX_2B_POLY)
-    lmp->error->all(FLERR,"Exceeded maximum poly order for 2-body interactions, "
-                    "increase value of MAX_2B_POLY in src/KOKKOS/chimes_kokkos.h "
-                    "and recompile");
+  // The device kernels hold the Chebyshev values in fixed-size registers, so
+  // they cap the polynomial order.  The host path sizes its scratch from the
+  // parameter file and has no such limit, so models that the device cannot
+  // run are still usable there.
 
-  if (chimes_calculatorKK.poly_orders[1]+1 > MAX_3B_POLY)
-    lmp->error->all(FLERR,"Exceeded maximum poly order for 3-body interactions, "
-                    "increase value of MAX_3B_POLY in src/KOKKOS/chimes_kokkos.h "
-                    "and recompile");
+  if constexpr (!host_flag) {
+    if (chimes_calculatorKK.poly_orders[0]+1 > MAX_2B_POLY)
+      lmp->error->all(FLERR,"Exceeded maximum poly order for 2-body interactions, "
+                      "increase value of MAX_2B_POLY in src/KOKKOS/chimesFF_kokkos.h "
+                      "and recompile");
 
-  if (chimes_calculatorKK.poly_orders[2]+1 > MAX_4B_POLY)
-    lmp->error->all(FLERR,"Exceeded maximum poly order for 4-body interactions, "
-                    "increase value of MAX_4B_POLY in src/KOKKOS/chimes_kokkos.h "
-                    "and recompile");
+    if (chimes_calculatorKK.poly_orders[1]+1 > MAX_3B_POLY)
+      lmp->error->all(FLERR,"Exceeded maximum poly order for 3-body interactions, "
+                      "increase value of MAX_3B_POLY in src/KOKKOS/chimesFF_kokkos.h "
+                      "and recompile");
+
+    if (chimes_calculatorKK.poly_orders[2]+1 > MAX_4B_POLY)
+      lmp->error->all(FLERR,"Exceeded maximum poly order for 4-body interactions, "
+                      "increase value of MAX_4B_POLY in src/KOKKOS/chimesFF_kokkos.h "
+                      "and recompile");
+  }
 
   // chimes_type
 
@@ -503,11 +510,775 @@ void PairCHIMESKokkos<DeviceType>::operator() (TagPairCHIMESComputeNeigh4Body, c
   }
 }
 
+/* ----------------------------------------------------------------------
+   Host execution path.
+
+   On the host the batched chimesFF evaluators are available: clusters of one
+   type are handed to the polynomial a lane group at a time, the Morse
+   transform runs through a vectorized exponential, and the coefficient tree
+   is walked once per group rather than once per cluster.  That machinery is
+   plain C++ operating on flat double arrays, so the /kk variant runs it
+   directly instead of the one-cluster-at-a-time device kernels below, and
+   threads it by handing each work item a contiguous chunk of the type-sorted
+   cluster list.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairCHIMESKokkos<DeviceType>::setup_neighlist_ptrs()
+{
+  if (!host_flag) {
+    PairCHIMES::setup_neighlist_ptrs();
+    return;
+  }
+
+  NeighListKokkos<DeviceType> *k_list = static_cast<NeighListKokkos<DeviceType>*>(list);
+
+  nl_inum = list->inum;
+  nl_ilist = k_list->d_ilist.data();
+  nl_numneigh = k_list->d_numneigh.data();
+
+  const int nrows = k_list->d_neighbors.extent(0);
+  const int ncols = k_list->d_neighbors.extent(1);
+
+  host_firstneigh.resize(nrows);
+
+  // A neighbor row is contiguous when the inner stride is one, which is the
+  // layout every host-only build produces; then the rows are handed out as
+  // they lie.  A device-ordered list reaching the host variant is strided
+  // instead, so those rows are compacted once per rebuild.
+
+  const bool contiguous = (ncols < 2) ||
+      ((&k_list->d_neighbors(0,1) - &k_list->d_neighbors(0,0)) == 1);
+
+  if (contiguous) {
+    for (int i = 0; i < nrows; i++) host_firstneigh[i] = &k_list->d_neighbors(i,0);
+  } else {
+    host_neigh_buf.resize((size_t) nrows * ncols);
+
+    for (int i = 0; i < nrows; i++) {
+      int *const row = &host_neigh_buf[(size_t) i * ncols];
+      const int n = k_list->d_numneigh(i);
+
+      for (int jj = 0; jj < n; jj++) row[jj] = k_list->d_neighbors(i,jj);
+
+      host_firstneigh[i] = row;
+    }
+  }
+
+  nl_firstneigh = host_firstneigh.data();
+}
+
+/* ----------------------------------------------------------------------
+   Split the cluster lists into work items.  Clusters cost the same to
+   evaluate, so equal-sized chunks balance; several per thread absorb the
+   fraction of clusters that fall outside the cutoffs and are skipped.  The
+   floor keeps a chunk long enough to fill lane groups -- a chunk shorter than
+   a lane group would evaluate partly empty batches.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairCHIMESKokkos<DeviceType>::host_setup_chunks()
+{
+  const int nthreads = lmp->kokkos->nthreads;
+  const int per_thread = 32;
+  const int min_chunk = 64;
+
+  // Several chunks per thread rather than one: the list is grouped by cluster
+  // type, and the cost of a cluster is set by how many coefficients its type
+  // carries, which varies by more than an order of magnitude across types.  An
+  // equal split by cluster count is therefore not an equal split of work, so
+  // the chunks are made small enough for dynamic scheduling to even out.
+
+  auto nchunk = [&](const int nitem) {
+    if (nitem <= 0) return 0;
+
+    int n = nthreads * per_thread;
+
+    if (n > (nitem + min_chunk - 1) / min_chunk) n = (nitem + min_chunk - 1) / min_chunk;
+
+    return MAX(n,1);
+  };
+
+  host_nchunk_2b = nchunk(nl_inum);
+  host_nchunk_3b = nchunk(n_3mers);
+  host_nchunk_4b = nchunk(n_4mers);
+
+  // Per-chunk scratch.  The batch objects hold the Chebyshev arrays for one
+  // lane group, sized from the polynomial order, so they are built once and
+  // reused for every batch a chunk evaluates.
+
+  const int order3 = chimes_calculator->poly_orders[1];
+  const int order4 = chimes_calculator->poly_orders[2];
+
+  while ((int) host_batch3.size() < host_nchunk_3b) host_batch3.emplace_back(order3);
+  while ((int) host_batch4.size() < host_nchunk_4b) host_batch4.emplace_back(order4);
+
+  const int nchem = chimes_calculator->natmtyps;
+  const size_t nkey = (size_t) nchem * nchem;
+  const size_t nslot = (size_t) host_nchunk_2b * nkey;
+
+  host_b2_cnt.assign(nslot, 0);
+  host_b2_i.resize(nslot * CHIMES_VLEN);
+  host_b2_j.resize(nslot * CHIMES_VLEN);
+  host_b2_dist.resize(nslot * CHIMES_VLEN);
+  host_b2_dr.resize(nslot * CHIMES_VLEN * CHDIM);
+}
+
+/* ----------------------------------------------------------------------
+   Energy and virial tally for one cluster.  Mirrors PairCHIMES::ev_tally_mb,
+   but accumulates the globals into the reduction value and the per-atom
+   arrays through the scatter views, so it is safe to call from several
+   threads at once.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<class EAtomAccess, class VAtomAccess>
+void PairCHIMESKokkos<DeviceType>::host_tally(int ninteractionatoms, const int *atmlist,
+                                              double evdwl, const double *stress,
+                                              EV_FLOAT &ev, const EAtomAccess &a_eatom,
+                                              const VAtomAccess &a_vatom) const
+{
+  if (eflag_global) ev.evdwl += evdwl;
+
+  if (eflag_atom) {
+    const double share = evdwl/ninteractionatoms;
+
+    for (int a = 0; a < ninteractionatoms; a++) a_eatom[atmlist[a]] += share;
+  }
+
+  if (ninteractionatoms < 2) return;
+
+  if (!vflag_either) return;
+
+  if (vflag_global) {
+    ev.v[0] += stress[0];
+    ev.v[1] += stress[3];
+    ev.v[2] += stress[5];
+    ev.v[3] += stress[1];
+    ev.v[4] += stress[2];
+    ev.v[5] += stress[4];
+  }
+
+  if (vflag_atom) {
+    for (int a = 0; a < ninteractionatoms; a++) {
+      const int ga = atmlist[a];
+
+      a_vatom(ga,0) += stress[0]/ninteractionatoms;
+      a_vatom(ga,1) += stress[3]/ninteractionatoms;
+      a_vatom(ga,2) += stress[5]/ninteractionatoms;
+      a_vatom(ga,3) += stress[1]/ninteractionatoms;
+      a_vatom(ga,4) += stress[2]/ninteractionatoms;
+      a_vatom(ga,5) += stress[4]/ninteractionatoms;
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------
+   1- and 2-body interactions for one block of owned atoms.  Pairs that sit in
+   the plain middle of the potential are staged per chemical-pair key and
+   evaluated CHIMES_VLEN at a time; everything else takes the scalar path.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG>
+void PairCHIMESKokkos<DeviceType>::host_2body_chunk(const int chunk, EV_FLOAT &ev) const
+{
+  const auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  const auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  // Built once per chunk, not once per cluster: a duplicated scatter view's
+  // accessor takes a unique token, and acquiring one is an atomic on a pool
+  // shared by every thread.  Per cluster that atomic dominated the tally.
+
+  auto v_eatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_eatom),decltype(ndup_eatom)>::get(dup_eatom,ndup_eatom);
+  auto a_eatom = v_eatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
+  auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  double **xx = atom->x;
+  int *atype = atom->type;
+  tagint *atag = atom->tag;
+
+  const int nchem = chimes_calculator->natmtyps;
+  const int nkey = nchem * nchem;
+
+  const int sz = (nl_inum + host_nchunk_2b - 1) / host_nchunk_2b;
+  const int lo = chunk * sz;
+  const int hi = MIN(lo + sz, nl_inum);
+
+  // Staging for this chunk only, so no two threads share a key's lanes.
+
+  int *const cnt = const_cast<int *>(&host_b2_cnt[(size_t) chunk * nkey]);
+  int *const b_i = const_cast<int *>(&host_b2_i[(size_t) chunk * nkey * CHIMES_VLEN]);
+  int *const b_j = const_cast<int *>(&host_b2_j[(size_t) chunk * nkey * CHIMES_VLEN]);
+  double *const b_d = const_cast<double *>(&host_b2_dist[(size_t) chunk * nkey * CHIMES_VLEN]);
+  double *const b_dr = const_cast<double *>(&host_b2_dr[(size_t) chunk * nkey * CHIMES_VLEN * CHDIM]);
+
+  chimes2BTmp tmp(chimes_calculator->poly_orders[0]);
+
+  std::vector<double> lforce(2*CHDIM), lstress(6), ldr(CHDIM);
+  std::vector<int> ltyp(2);
+
+  auto flush = [&](const int key) {
+    const int nb = cnt[key];
+    double bd[CHIMES_VLEN], be[CHIMES_VLEN], bfs[CHIMES_VLEN];
+
+    for (int l = 0; l < nb; l++) bd[l] = b_d[key*CHIMES_VLEN + l];
+
+    for (int l = nb; l < CHIMES_VLEN; l++) bd[l] = bd[0];
+
+    chimes_calculator->compute_2B_batch(key, bd, be, bfs);
+
+    for (int l = 0; l < nb; l++) {
+      const int ai = b_i[key*CHIMES_VLEN + l], aj = b_j[key*CHIMES_VLEN + l];
+      const double *const pdr = &b_dr[(key*CHIMES_VLEN + l)*CHDIM];
+
+      for (int idx = 0; idx < CHDIM; idx++) {
+        const double fc = bfs[l] * pdr[idx];
+
+        a_f(ai,idx) += fc;
+        a_f(aj,idx) -= fc;
+      }
+
+      if (evflag) {
+        const int alist[2] = {ai, aj};
+        double st[6];
+
+        st[0] = -bfs[l] * pdr[0] * pdr[0];
+        st[1] = -bfs[l] * pdr[0] * pdr[1];
+        st[2] = -bfs[l] * pdr[0] * pdr[2];
+        st[3] = -bfs[l] * pdr[1] * pdr[1];
+        st[4] = -bfs[l] * pdr[1] * pdr[2];
+        st[5] = -bfs[l] * pdr[2] * pdr[2];
+
+        host_tally(2, alist, be[l], st, ev, a_eatom, a_vatom);
+      }
+    }
+
+    cnt[key] = 0;
+  };
+
+  for (int ii = lo; ii < hi; ii++) {
+    const int i = nl_ilist[ii];
+    const tagint itag = atag[i];
+    const int *const jlist = nl_firstneigh[i];
+    const int jnum = nl_numneigh[i];
+
+    const int ichem = chimes_type[atype[i] - 1];
+
+    double energy = 0.0;
+
+    chimes_calculator->compute_1B(atype[i] - 1, energy);
+
+    if (evflag) {
+      const int alist[1] = {i};
+
+      host_tally(1, alist, energy, nullptr, ev, a_eatom, a_vatom);
+    }
+
+    for (int jj = 0; jj < jnum; jj++) {
+      const int j = jlist[jj] & NEIGHMASK;
+
+      if (atag[j] <= itag) continue;
+
+      const double dxv = xx[j][0] - xx[i][0];
+      const double dyv = xx[j][1] - xx[i][1];
+      const double dzv = xx[j][2] - xx[i][2];
+      const double dist = sqrt(dxv*dxv + dyv*dyv + dzv*dzv);
+
+      const int jchem = chimes_type[atype[j] - 1];
+      const int key = ichem * nchem + jchem;
+
+      if (chimes_calculator->fast_2b(key, dist)) {
+        const int nb = cnt[key];
+
+        b_i[key*CHIMES_VLEN + nb] = i;
+        b_j[key*CHIMES_VLEN + nb] = j;
+        b_d[key*CHIMES_VLEN + nb] = dist;
+
+        double *const pdr = &b_dr[(key*CHIMES_VLEN + nb)*CHDIM];
+
+        pdr[0] = dxv;
+        pdr[1] = dyv;
+        pdr[2] = dzv;
+
+        if (++cnt[key] == CHIMES_VLEN) flush(key);
+
+        continue;
+      }
+
+      ldr[0] = dxv;
+      ldr[1] = dyv;
+      ldr[2] = dzv;
+
+      ltyp[0] = ichem;
+      ltyp[1] = jchem;
+
+      std::fill(lforce.begin(), lforce.end(), 0.0);
+
+      if (vflag_either) std::fill(lstress.begin(), lstress.end(), 0.0);
+
+      energy = 0.0;
+
+      chimes_calculator->compute_2B(dist, ldr, ltyp, lforce, lstress, energy, tmp, vflag_either);
+
+      for (int idx = 0; idx < CHDIM; idx++) {
+        a_f(i,idx) += lforce[idx];
+        a_f(j,idx) += lforce[CHDIM + idx];
+      }
+
+      if (evflag) {
+        const int alist[2] = {i, j};
+
+        host_tally(2, alist, energy, lstress.data(), ev, a_eatom, a_vatom);
+      }
+    }
+  }
+
+  for (int key = 0; key < nkey; key++)
+    if (cnt[key]) flush(key);
+}
+
+/* ----------------------------------------------------------------------
+   3-body interactions for one block of the type-sorted triplet list.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG>
+void PairCHIMESKokkos<DeviceType>::host_3body_chunk(const int chunk, EV_FLOAT &ev) const
+{
+  const auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  const auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  // Built once per chunk, not once per cluster: a duplicated scatter view's
+  // accessor takes a unique token, and acquiring one is an atomic on a pool
+  // shared by every thread.  Per cluster that atomic dominated the tally.
+
+  auto v_eatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_eatom),decltype(ndup_eatom)>::get(dup_eatom,ndup_eatom);
+  auto a_eatom = v_eatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
+  auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  double **xx = atom->x;
+
+  const int sz = (n_3mers + host_nchunk_3b - 1) / host_nchunk_3b;
+  const int lo = chunk * sz;
+  const int hi = MIN(lo + sz, n_3mers);
+
+  chimes3BBatch &b = const_cast<chimes3BBatch &>(host_batch3[chunk]);
+
+  double bdx[3][CHIMES_VLEN];
+  double bdr[3][CHDIM][CHIMES_VLEN];
+  int batom[3][CHIMES_VLEN];
+  double dist_l[3], dr_l[3*CHDIM];
+  double stensor[6];
+
+  int nb = 0;
+  int batch_type = -1;
+
+  static const int pa[3] = {0, 0, 1}, pb[3] = {1, 2, 2};
+
+  for (int ii = lo; ii <= hi; ii++) {
+    int this_type = -1;
+    int i = 0, j = 0, k = 0;
+
+    if (ii < hi) {
+      const int *mer = &neighborlist_3mers[3 * ii];
+
+      i = mer[0];
+      j = mer[1];
+      k = mer[2];
+
+      const int cand_type = mer_type_3b[ii];
+      const chimesSlotConst *sc3 = chimes_calculator->slots_3B_idx(cand_type);
+
+      if (sc3) {
+        if (within(xx, i, j, sc3[0].outer_sq, &dr_l[0*CHDIM], dist_l[0]) &&
+            within(xx, i, k, sc3[1].outer_sq, &dr_l[1*CHDIM], dist_l[1]) &&
+            within(xx, j, k, sc3[2].outer_sq, &dr_l[2*CHDIM], dist_l[2]))
+          this_type = cand_type;
+      }
+    }
+
+    const bool at_end = (ii == hi);
+
+    if (!at_end && (this_type < 0)) continue;
+
+    if ((nb > 0) && (at_end || (this_type != batch_type) || (nb == CHIMES_VLEN))) {
+      for (int p = 0; p < 3; p++)
+        for (int l = nb; l < CHIMES_VLEN; l++) bdx[p][l] = bdx[p][0];
+
+      chimes_calculator->compute_3B_batch(nb, batch_type, bdx, b);
+
+      for (int l = 0; l < nb; l++) {
+        const double fc0 = b.fcut[0][l];
+        const double fc1 = b.fcut[1][l];
+        const double fc2 = b.fcut[2][l];
+        const double fcut_all = fc0 * fc1 * fc2;
+        const double poly = b.poly[l];
+
+        double fs[3];
+
+        fs[0] = (fcut_all * b.dpoly[0][l] + b.fcutderiv[0][l] * fc1 * fc2 * poly) * b.inv_dx[0][l];
+        fs[1] = (fcut_all * b.dpoly[1][l] + b.fcutderiv[1][l] * fc0 * fc2 * poly) * b.inv_dx[1][l];
+        fs[2] = (fcut_all * b.dpoly[2][l] + b.fcutderiv[2][l] * fc0 * fc1 * poly) * b.inv_dx[2][l];
+
+        if (vflag_either)
+          for (int n = 0; n < 6; n++) stensor[n] = 0.0;
+
+        double fatom[3][CHDIM] = {{0.0}};
+
+        for (int p = 0; p < 3; p++) {
+          for (int idx = 0; idx < CHDIM; idx++) {
+            const double fpair = fs[p] * bdr[p][idx][l];
+
+            fatom[pa[p]][idx] += fpair;
+            fatom[pb[p]][idx] -= fpair;
+          }
+
+          if (vflag_either) {
+            stensor[0] -= fs[p] * bdr[p][0][l] * bdr[p][0][l];
+            stensor[1] -= fs[p] * bdr[p][0][l] * bdr[p][1][l];
+            stensor[2] -= fs[p] * bdr[p][0][l] * bdr[p][2][l];
+            stensor[3] -= fs[p] * bdr[p][1][l] * bdr[p][1][l];
+            stensor[4] -= fs[p] * bdr[p][1][l] * bdr[p][2][l];
+            stensor[5] -= fs[p] * bdr[p][2][l] * bdr[p][2][l];
+          }
+        }
+
+        for (int a = 0; a < 3; a++) {
+          const int ga = batom[a][l];
+
+          for (int idx = 0; idx < CHDIM; idx++) a_f(ga,idx) += fatom[a][idx];
+        }
+
+        if (evflag) {
+          const int alist[3] = {batom[0][l], batom[1][l], batom[2][l]};
+
+          host_tally(3, alist, poly * fcut_all, stensor, ev, a_eatom, a_vatom);
+        }
+      }
+
+      nb = 0;
+    }
+
+    if (at_end) break;
+
+    batch_type = this_type;
+    batom[0][nb] = i;
+    batom[1][nb] = j;
+    batom[2][nb] = k;
+
+    for (int p = 0; p < 3; p++) {
+      bdx[p][nb] = dist_l[p];
+
+      for (int idx = 0; idx < CHDIM; idx++) bdr[p][idx][nb] = dr_l[p*CHDIM + idx];
+    }
+
+    nb++;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   4-body interactions for one block of the type-sorted quadruplet list.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG>
+void PairCHIMESKokkos<DeviceType>::host_4body_chunk(const int chunk, EV_FLOAT &ev) const
+{
+  const auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  const auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  // Built once per chunk, not once per cluster: a duplicated scatter view's
+  // accessor takes a unique token, and acquiring one is an atomic on a pool
+  // shared by every thread.  Per cluster that atomic dominated the tally.
+
+  auto v_eatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_eatom),decltype(ndup_eatom)>::get(dup_eatom,ndup_eatom);
+  auto a_eatom = v_eatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
+  auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  double **xx = atom->x;
+
+  const int sz = (n_4mers + host_nchunk_4b - 1) / host_nchunk_4b;
+  const int lo = chunk * sz;
+  const int hi = MIN(lo + sz, n_4mers);
+
+  chimes4BBatch &b = const_cast<chimes4BBatch &>(host_batch4[chunk]);
+
+  double bdx[6][CHIMES_VLEN];
+  double bdr[6][CHDIM][CHIMES_VLEN];
+  int batom[4][CHIMES_VLEN];
+  double dist_l[6], dr_l[6*CHDIM];
+  double stensor[6];
+
+  int nb = 0;
+  int batch_type = -1;
+
+  static const int pa[6] = {0, 0, 0, 1, 1, 2}, pb[6] = {1, 2, 3, 2, 3, 3};
+
+  for (int ii = lo; ii <= hi; ii++) {
+    int this_type = -1;
+    int i = 0, j = 0, k = 0, l = 0;
+
+    if (ii < hi) {
+      const int *mer = &neighborlist_4mers[4 * ii];
+
+      i = mer[0];
+      j = mer[1];
+      k = mer[2];
+      l = mer[3];
+
+      const int cand_type = mer_type_4b[ii];
+      const chimesSlotConst *sc4 = chimes_calculator->slots_4B_idx(cand_type);
+
+      if (sc4) {
+        if (within(xx, i, j, sc4[0].outer_sq, &dr_l[0*CHDIM], dist_l[0]) &&
+            within(xx, i, k, sc4[1].outer_sq, &dr_l[1*CHDIM], dist_l[1]) &&
+            within(xx, i, l, sc4[2].outer_sq, &dr_l[2*CHDIM], dist_l[2]) &&
+            within(xx, j, k, sc4[3].outer_sq, &dr_l[3*CHDIM], dist_l[3]) &&
+            within(xx, j, l, sc4[4].outer_sq, &dr_l[4*CHDIM], dist_l[4]) &&
+            within(xx, k, l, sc4[5].outer_sq, &dr_l[5*CHDIM], dist_l[5]))
+          this_type = cand_type;
+      }
+    }
+
+    const bool at_end = (ii == hi);
+
+    if (!at_end && (this_type < 0)) continue;
+
+    if ((nb > 0) && (at_end || (this_type != batch_type) || (nb == CHIMES_VLEN))) {
+      for (int p = 0; p < 6; p++)
+        for (int lane = nb; lane < CHIMES_VLEN; lane++) bdx[p][lane] = bdx[p][0];
+
+      chimes_calculator->compute_4B_batch(nb, batch_type, bdx, b);
+
+      for (int lane = 0; lane < nb; lane++) {
+        double fc[6], fcut_5[6];
+
+        for (int p = 0; p < 6; p++) fc[p] = b.fcut[p][lane];
+
+        const double fcut_all = fc[0] * fc[1] * fc[2] * fc[3] * fc[4] * fc[5];
+        const double poly = b.poly[lane];
+
+        double pre[6], suf[6];
+
+        pre[0] = 1.0;
+        suf[5] = 1.0;
+
+        for (int p = 1; p < 6; p++) pre[p] = pre[p-1] * fc[p-1];
+
+        for (int p = 4; p >= 0; p--) suf[p] = suf[p+1] * fc[p+1];
+
+        for (int p = 0; p < 6; p++) fcut_5[p] = pre[p] * suf[p];
+
+        if (vflag_either)
+          for (int n = 0; n < 6; n++) stensor[n] = 0.0;
+
+        double fatom[4][CHDIM] = {{0.0}};
+
+        for (int p = 0; p < 6; p++) {
+          const double fs = (fcut_all * b.dpoly[p][lane] +
+                             b.fcutderiv[p][lane] * fcut_5[p] * poly) * b.inv_dx[p][lane];
+
+          for (int idx = 0; idx < CHDIM; idx++) {
+            const double fpair = fs * bdr[p][idx][lane];
+
+            fatom[pa[p]][idx] += fpair;
+            fatom[pb[p]][idx] -= fpair;
+          }
+
+          if (vflag_either) {
+            stensor[0] -= fs * bdr[p][0][lane] * bdr[p][0][lane];
+            stensor[1] -= fs * bdr[p][0][lane] * bdr[p][1][lane];
+            stensor[2] -= fs * bdr[p][0][lane] * bdr[p][2][lane];
+            stensor[3] -= fs * bdr[p][1][lane] * bdr[p][1][lane];
+            stensor[4] -= fs * bdr[p][1][lane] * bdr[p][2][lane];
+            stensor[5] -= fs * bdr[p][2][lane] * bdr[p][2][lane];
+          }
+        }
+
+        for (int a = 0; a < 4; a++) {
+          const int ga = batom[a][lane];
+
+          for (int idx = 0; idx < CHDIM; idx++) a_f(ga,idx) += fatom[a][idx];
+        }
+
+        if (evflag) {
+          const int alist[4] = {batom[0][lane], batom[1][lane], batom[2][lane], batom[3][lane]};
+
+          host_tally(4, alist, poly * fcut_all, stensor, ev, a_eatom, a_vatom);
+        }
+      }
+
+      nb = 0;
+    }
+
+    if (at_end) break;
+
+    batch_type = this_type;
+    batom[0][nb] = i;
+    batom[1][nb] = j;
+    batom[2][nb] = k;
+    batom[3][nb] = l;
+
+    for (int p = 0; p < 6; p++) {
+      bdx[p][nb] = dist_l[p];
+
+      for (int idx = 0; idx < CHDIM; idx++) bdr[p][idx][nb] = dr_l[p*CHDIM + idx];
+    }
+
+    nb++;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   Launch the three host cluster kernels and sum their reductions.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NEIGHFLAG>
+void PairCHIMESKokkos<DeviceType>::host_launch(EV_FLOAT &ev)
+{
+  EV_FLOAT ev_tmp;
+
+  using policy_t = Kokkos::RangePolicy<DeviceType, Kokkos::Schedule<Kokkos::Dynamic>>;
+
+  PairCHIMESHostClusterFunctor<DeviceType,2,NEIGHFLAG> fn2(this);
+  Kokkos::parallel_reduce("CHIMESHost2Body",
+      policy_t(0,host_nchunk_2b), fn2, ev_tmp);
+  ev += ev_tmp;
+
+  if (chimes_calculator->poly_orders[1] > 0) {
+    PairCHIMESHostClusterFunctor<DeviceType,3,NEIGHFLAG> fn3(this);
+    Kokkos::parallel_reduce("CHIMESHost3Body",
+        policy_t(0,host_nchunk_3b), fn3, ev_tmp);
+    ev += ev_tmp;
+  }
+
+  if (chimes_calculator->poly_orders[2] > 0) {
+    PairCHIMESHostClusterFunctor<DeviceType,4,NEIGHFLAG> fn4(this);
+    Kokkos::parallel_reduce("CHIMESHost4Body",
+        policy_t(0,host_nchunk_4b), fn4, ev_tmp);
+    ev += ev_tmp;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairCHIMESKokkos<DeviceType>::compute_host(int eflag_in, int vflag_in)
+{
+  copymode = 1;
+
+  eflag = eflag_in;
+  vflag = vflag_in;
+
+  ev_init(eflag,vflag,0);
+
+  if (eflag_atom) {
+    memoryKK->destroy_kokkos(k_eatom,eatom);
+    memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"pair:eatom");
+    d_eatom = k_eatom.view<DeviceType>();
+  }
+
+  if (vflag_atom) {
+    memoryKK->destroy_kokkos(k_vatom,vatom);
+    memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"pair:vatom");
+    d_vatom = k_vatom.view<DeviceType>();
+  }
+
+  atomKK->sync(execution_space,X_MASK|F_MASK|TYPE_MASK|TAG_MASK);
+
+  x = atomKK->k_x.view<DeviceType>();
+  f = atomKK->k_f.view<DeviceType>();
+  type = atomKK->k_type.view<DeviceType>();
+  tag = atomKK->k_tag.view<DeviceType>();
+
+  inum = list->inum;
+
+  setup_neighlist_ptrs();
+
+  if (neighbor->ago == 0) PairCHIMES::build_mb_neighlists();
+
+  need_dup = lmp->kokkos->need_dup<DeviceType>();
+
+  if (need_dup) {
+    dup_f     = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(f);
+    dup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_eatom);
+    dup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterDuplicated>(d_vatom);
+  } else {
+    ndup_f     = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(f);
+    ndup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_eatom);
+    ndup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
+  }
+
+  host_setup_chunks();
+
+
+  // Kokkos overwrites the reduction target on each launch rather than adding
+  // to it, so each kernel reduces into its own value and the three are summed.
+
+  EV_FLOAT ev;
+
+  if (neighflag == HALF)
+    host_launch<HALF>(ev);
+  else
+    host_launch<HALFTHREAD>(ev);
+
+  if (need_dup) Kokkos::Experimental::contribute(f, dup_f);
+
+  if (eflag_global) eng_vdwl += ev.evdwl;
+
+  if (vflag_global) {
+    virial[0] += ev.v[0];
+    virial[1] += ev.v[1];
+    virial[2] += ev.v[2];
+    virial[3] += ev.v[3];
+    virial[4] += ev.v[4];
+    virial[5] += ev.v[5];
+  }
+
+  atomKK->modified(execution_space,F_MASK);
+
+  if (eflag_atom) {
+    if (need_dup) Kokkos::Experimental::contribute(d_eatom, dup_eatom);
+    k_eatom.template modify<DeviceType>();
+    k_eatom.sync_host();
+  }
+
+  if (vflag_atom) {
+    if (need_dup) Kokkos::Experimental::contribute(d_vatom, dup_vatom);
+    k_vatom.template modify<DeviceType>();
+    k_vatom.sync_host();
+  }
+
+  if (vflag_fdotr) pair_virial_fdotr_compute(this);
+
+
+  copymode = 0;
+
+  if (need_dup) {
+    dup_f     = {};
+    dup_eatom = {};
+    dup_vatom = {};
+  }
+}
+
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 void PairCHIMESKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 {
+  if constexpr (host_flag) {
+    compute_host(eflag_in, vflag_in);
+    return;
+  }
+
   copymode = 1;
 
   // Vars for access to chimesFF compute_XB functions

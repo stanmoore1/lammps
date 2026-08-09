@@ -227,6 +227,21 @@ inline double PairCHIMES::get_dist(int i, int j)
   return get_dist(i, j, dummy_dr);
 }
 
+/* ----------------------------------------------------------------------
+   Point the neighbor list members at the list this style requested.  An
+   accelerated variant overrides this to supply its own storage instead.
+------------------------------------------------------------------------- */
+
+void PairCHIMES::setup_neighlist_ptrs()
+{
+  nl_inum = list->inum;
+  nl_ilist = list->ilist;
+  nl_numneigh = list->numneigh;
+  nl_firstneigh = list->firstneigh;
+}
+
+/* ---------------------------------------------------------------------- */
+
 void PairCHIMES::build_mb_neighlists()
 {
 
@@ -240,7 +255,7 @@ void PairCHIMES::build_mb_neighlists()
   n_3mers = 0;
   n_4mers = 0;
 
-  int i, j, k, inum, jnum, ii, jj, kk, ll;        // Local iterator vars
+  int i, j, k, inum, jnum, ii, jj, kk, ll;    // Local iterator vars
   int *ilist, *jlist, *numneigh, **firstneigh;    // Local neighborlist vars
   tagint *tag = atom->tag;                        // Access to global atom indices
   tagint itag, jtag, ktag;                        // holds tags
@@ -267,10 +282,12 @@ void PairCHIMES::build_mb_neighlists()
   // Access to neighbor list vars
   ////////////////////////////////////////
 
-  inum = list->inum;                // length of the list
-  ilist = list->ilist;              // list of i atoms for which neighbor list exists
-  numneigh = list->numneigh;        // length of each of the ilist neighbor lists
-  firstneigh = list->firstneigh;    // point to the list of neighbors of i
+  setup_neighlist_ptrs();
+
+  inum = nl_inum;                // length of the list
+  ilist = nl_ilist;              // list of i atoms for which neighbor list exists
+  numneigh = nl_numneigh;        // length of each of the ilist neighbor lists
+  firstneigh = nl_firstneigh;    // point to the list of neighbors of i
 
   for (ii = 0; ii < inum; ii++)    // Loop over real atoms (ai)
   {
@@ -533,10 +550,12 @@ void PairCHIMES::compute(int eflag, int vflag)
   // Access to (2-body) neighbor list vars
   ////////////////////////////////////////
 
-  inum = list->inum;                // length of the list
-  ilist = list->ilist;              // list of i atoms for which neighbor list exists
-  numneigh = list->numneigh;        // length of each of the ilist neighbor lists
-  firstneigh = list->firstneigh;    // point to the list of neighbors of i
+  setup_neighlist_ptrs();
+
+  inum = nl_inum;                // length of the list
+  ilist = nl_ilist;              // list of i atoms for which neighbor list exists
+  numneigh = nl_numneigh;        // length of each of the ilist neighbor lists
+  firstneigh = nl_firstneigh;    // point to the list of neighbors of i
 
   chimes2BTmp chimes_2btmp(chimes_calculator->poly_orders[0]);
   chimes3BTmp chimes_3btmp(chimes_calculator->poly_orders[1]);
