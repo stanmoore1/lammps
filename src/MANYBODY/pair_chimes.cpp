@@ -274,6 +274,7 @@ PairCHIMES::MBContext PairCHIMES::mb_context() const
    Enumerate the clusters owned by one atom.
 ------------------------------------------------------------------------- */
 
+CHIMES_VECTOR_CLONES
 void PairCHIMES::mb_clusters_for_atom(int i, const MBContext &ctx, MBScratch &s,
                                       std::vector<int> &out3, std::vector<int> &out4) const
 {

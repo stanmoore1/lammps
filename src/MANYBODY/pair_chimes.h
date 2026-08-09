@@ -136,6 +136,7 @@ class PairCHIMES : public Pair {
   // Reads only its arguments and the neighbor list, so several atoms can be
   // enumerated at once given a scratch each.
 
+  CHIMES_VECTOR_CLONES_DECL
   void mb_clusters_for_atom(int i, const MBContext &ctx, MBScratch &s, std::vector<int> &out3,
                             std::vector<int> &out4) const;
 
