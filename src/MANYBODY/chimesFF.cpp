@@ -2649,7 +2649,12 @@ constexpr double CHEXP_C[13] = {1.0,
                                 1.0 / 39916800.0,
                                 1.0 / 479001600.0};
 
-inline void chimes_exp_batch(double *out, const double *y)
+// Marked for the vector clones like the kernels that call it: without the
+// attribute this stays at the baseline SSE2 width while its callers run at
+// AVX2 width, so the exponential does twice the instructions it needs to.
+
+CHIMES_VECTOR_CLONES
+void chimes_exp_batch(double *out, const double *y)
 {
   // The range guard is a reduction over the lanes, so writing it as a flag set
   // inside the loop makes the loop carry a dependency and stops it vectorizing.
