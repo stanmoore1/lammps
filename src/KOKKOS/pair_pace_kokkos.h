@@ -15,7 +15,11 @@
 // clang-format off
 PairStyle(pace/kk,PairPACEKokkos<LMPDeviceType>);
 PairStyle(pace/kk/device,PairPACEKokkos<LMPDeviceType>);
+#ifdef LMP_KOKKOS_GPU
 PairStyle(pace/kk/host,PairPACEKokkos<LMPHostType>);
+#else
+PairStyle(pace/kk/host,PairPACEKokkos<LMPDeviceType>);
+#endif
 // clang-format on
 #else
 
@@ -103,7 +107,11 @@ class PairPACEKokkos : public PairPACE {
 
  protected:
   int inum, maxneigh, chunk_size, chunk_offset, idx_ms_combs_max, idx_sph_max;
-  int host_flag;
+
+  // compile-time host/device switch, so the branches below are "if constexpr"
+  // and the unused kernel set is never instantiated (cf. pair_snap_kokkos.h)
+  static constexpr int host_flag =
+      (ExecutionSpaceFromDevice<DeviceType>::space == LAMMPS_NS::HostKK);
 
   int eflag, vflag;
 
