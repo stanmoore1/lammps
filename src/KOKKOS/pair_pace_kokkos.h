@@ -53,6 +53,7 @@ class PairPACEKokkos : public PairPACE {
   struct TagPairPACEComputeAiCPU{};
   struct TagPairPACEComputeRadialCPU{};
   struct TagPairPACEComputeRhoCPU{};   // fused rho -> F(rho) -> weights
+  struct TagPairPACEComputeRhoBatchCPU{};   // same, 8 atoms per work item
   struct TagPairPACEComputeDerivativeCPU{};
 
   template<int NEIGHFLAG, int EVFLAG>
@@ -110,6 +111,10 @@ class PairPACEKokkos : public PairPACE {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairPACEComputeRhoCPU,const int& ii) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeRhoBatchCPU,const int& ib) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -255,6 +260,10 @@ class PairPACEKokkos : public PairPACE {
   template<int NDENSITY>
   KOKKOS_INLINE_FUNCTION
   void rho_fs_weights_cpu(const int) const;
+
+  template<int NDENSITY>
+  KOKKOS_INLINE_FUNCTION
+  void rho_fs_weights_batch_cpu(const int, const int, const int) const;
 
   template<int NDENSITY>
   KOKKOS_INLINE_FUNCTION

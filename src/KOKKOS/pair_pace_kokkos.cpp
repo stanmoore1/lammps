@@ -1058,7 +1058,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     //ComputeRadial
     if constexpr (host_flag) {
-      Kokkos::parallel_for("ComputeRadial", host_atom_policy<TagPairPACEComputeRadialCPU>(), *this);
+      Kokkos::parallel_for("ComputeRadialAi", host_atom_policy<TagPairPACEComputeRadialCPU>(), *this);
     } else {
       int vector_length = vector_length_default;
       int team_size = team_size_default;
@@ -1067,12 +1067,8 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       Kokkos::parallel_for("ComputeRadial",policy_radial,*this);
     }
 
-    //ComputeAi
-    if constexpr (host_flag) {
-      // one atom per thread, neighbors looped inside: no atomics, and the
-      // atom's A_sph block stays in L1 for the whole neighbor loop
-      Kokkos::parallel_for("ComputeAi", host_atom_policy<TagPairPACEComputeAiCPU>(), *this);
-    } else {
+    //ComputeAi (fused into ComputeRadial on the host)
+    if constexpr (!host_flag) {
       int vector_length = vector_length_default;
       int team_size = team_size_default;
       check_team_size_for<TagPairPACEComputeAi>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
@@ -1088,7 +1084,10 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     //ComputeRho
     if constexpr (host_flag) {
-      Kokkos::parallel_for("ComputeRhoFSWeights", host_atom_policy<TagPairPACEComputeRhoCPU>(), *this);
+      const int nbatch = (chunk_size + PACE_VLEN - 1) / PACE_VLEN;
+      Kokkos::parallel_for("ComputeRhoFSWeights",
+          Kokkos::RangePolicy<DeviceType, Kokkos::Schedule<Kokkos::Dynamic>,
+                              TagPairPACEComputeRhoBatchCPU>(0, nbatch), *this);
     } else {
       typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeRho> policy_rho(0,chunk_size*idx_ms_combs_max);
       Kokkos::parallel_for("ComputeRho",policy_rho,*this);
@@ -1362,6 +1361,11 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRadialCPU, const 
     }
 #endif
     evaluate_splines(ii, jj, d_rnorms(ii, jj), nradbase, nradmax, mu_i, d_mu(ii, jj));
+
+    // consume the radial functions for the A projection while their lines
+    // are still in L1, instead of re-reading fr/gr from L3 a kernel later.
+    // compute_ai_one also accumulates this pair's rho_core contribution.
+    compute_ai_one<false>(ii, jj);
   }
 }
 
@@ -1723,6 +1727,146 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRhoCPU, const int
   else if (nd == 1) rho_fs_weights_cpu<1>(ii);
   else rho_fs_weights_cpu<0>(ii);
 }
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRhoBatchCPU, const int& ib) const
+{
+  const int ii0 = ib * PACE_VLEN;
+  const int nb = (chunk_size - ii0 < PACE_VLEN) ? (chunk_size - ii0) : PACE_VLEN;
+
+  // the shared basis tables require every lane to have the same element
+  const int mu_i = d_map(type(d_ilist[ii0 + chunk_offset]));
+  bool uniform = true;
+  for (int k = 1; k < nb; k++)
+    if ((int) d_map(type(d_ilist[ii0 + k + chunk_offset])) != mu_i) { uniform = false; break; }
+
+  if (!uniform) {
+    for (int k = 0; k < nb; k++) {
+      const int nd = d_ndensity(d_map(type(d_ilist[ii0 + k + chunk_offset])));
+      if (nd == 2) rho_fs_weights_cpu<2>(ii0 + k);
+      else if (nd == 1) rho_fs_weights_cpu<1>(ii0 + k);
+      else rho_fs_weights_cpu<0>(ii0 + k);
+    }
+    return;
+  }
+
+  const int nd = d_ndensity(mu_i);
+  if (nd == 2) rho_fs_weights_batch_cpu<2>(ii0, nb, mu_i);
+  else if (nd == 1) rho_fs_weights_batch_cpu<1>(ii0, nb, mu_i);
+  else rho_fs_weights_batch_cpu<0>(ii0, nb, mu_i);
+}
+
+/* ----------------------------------------------------------------------
+   the fused density -> F(rho) -> weights pass for a batch of atoms of the
+   same element.  Every basis-table entry (offsets, coefficients, ranks) is
+   read once per batch instead of once per atom; only the per-atom A blocks,
+   dB stores and weights blocks are touched per lane.  On this evaluator's
+   validated profile the per-atom re-streaming of those shared tables from
+   L3 was the largest remaining traffic term.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<int NDENSITY>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::rho_fs_weights_batch_cpu(const int ii0, const int nb,
+                                                          const int mu_i) const
+{
+  const int ndensity = NDENSITY ? NDENSITY : d_ndensity(mu_i);
+  const int nms = d_idx_ms_combs_count(mu_i);
+  const int nms1 = d_nms_rank1(mu_i);
+
+  BasisPtrs bl[PACE_VLEN];
+  for (int k = 0; k < nb; k++) set_basis_ptrs(bl[k], ii0 + k, mu_i);
+  const BasisPtrs &b0 = bl[0];
+
+  // ---- densities ----
+  for (int idx = 0; idx < nms1; idx++) {
+    const int ro = b0.r1_off[idx];
+    const KK_FLOAT *ct = b0.ctildes + idx * b0.ndensitymax;
+    const int ndl = NDENSITY ? NDENSITY : ndensity;
+    for (int k = 0; k < nb; k++) {
+      const KK_FLOAT A_cur = bl[k].A_rank1[ro];
+      for (int p = 0; p < ndl; ++p) bl[k].rho[p] += ct[p] * A_cur;
+    }
+  }
+
+  for (int idx = nms1; idx < nms; idx++) {
+    const int rank = b0.rank[b0.idx_funcs[idx]];
+    const int *aoff = b0.A_off + idx * b0.rankmax;
+    const int dbo = b0.dB_off[idx];
+    const KK_FLOAT *ct = b0.ctildes + idx * b0.ndensitymax;
+    const int ndl = NDENSITY ? NDENSITY : ndensity;
+
+    if (rank == 3) {
+      const int o0 = aoff[0], o1 = aoff[1], o2 = aoff[2];
+      for (int k = 0; k < nb; k++) {
+        const complex a0 = bl[k].A[o0], a1 = bl[k].A[o1], a2 = bl[k].A[o2];
+        const complex a01 = a0 * a1;
+        complex *dB = bl[k].dB + dbo;
+        dB[0] = a1 * a2;
+        dB[1] = a0 * a2;
+        dB[2] = a01;
+        const complex B = a01 * a2;
+        for (int p = 0; p < ndl; ++p) bl[k].rho[p] += B.real_part_product(ct[p]);
+      }
+    } else {
+      for (int k = 0; k < nb; k++)
+        compute_rho_one_cpu<NDENSITY>(bl[k], ndensity, idx);
+    }
+  }
+
+  // ---- embedding function per lane ----
+  for (int k = 0; k < nb; k++) compute_fs_one(ii0 + k);
+
+  // ---- weights ----
+  for (int idx = 0; idx < nms1; idx++) {
+    const int ro = b0.r1_off[idx];
+    const KK_FLOAT *ct = b0.ctildes + idx * b0.ndensitymax;
+    const int ndl = NDENSITY ? NDENSITY : ndensity;
+    for (int k = 0; k < nb; k++) {
+      KK_FLOAT theta = 0.0;
+      for (int p = 0; p < ndl; ++p) theta += bl[k].dF[p] * ct[p];
+      bl[k].w_rank1[ro] += theta;
+    }
+  }
+
+  for (int idx = nms1; idx < nms; idx++) {
+    const int rank = b0.rank[b0.idx_funcs[idx]];
+    const int *woff = b0.w_off + idx * b0.rankmax;
+    const int *wmoff = b0.wm_off + idx * b0.rankmax;
+    const int dbo = b0.dB_off[idx];
+    const KK_FLOAT *ct = b0.ctildes + idx * b0.ndensitymax;
+    const int ndl = NDENSITY ? NDENSITY : ndensity;
+
+    if (rank == 3) {
+      for (int k = 0; k < nb; k++) {
+        KK_FLOAT theta = 0.0;
+        for (int p = 0; p < ndl; ++p) theta += bl[k].dF[p] * ct[p];
+        theta *= 0.5;
+        const complex *dB = bl[k].dB + dbo;
+        complex *w = bl[k].w;
+        for (int t = 0; t < 3; ++t) {
+          const complex value = theta * dB[t];
+          w[woff[t]].re += value.re;
+          w[woff[t]].im += value.im;
+          const int packed = wmoff[t];
+          const KK_FLOAT factor = (packed & 1) ? KK_FLOAT(-1.0) : KK_FLOAT(1.0);
+          const complex valuem = theta * dB[t].conj() * factor;
+          w[packed >> 1].re += valuem.re;
+          w[packed >> 1].im += valuem.im;
+        }
+      }
+    } else {
+      for (int k = 0; k < nb; k++)
+        compute_weights_one_cpu<NDENSITY>(bl[k], ndensity, idx);
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 template<int NDENSITY>
