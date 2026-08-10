@@ -250,16 +250,25 @@ class PairPACEKokkos : public PairPACE {
   void set_basis_ptrs(BasisPtrs &, const int, const int) const;
 
   // CPU-only bodies for one (atom, ms-combination): the rank-length products
-  // live on the stack instead of in chunk-sized global arrays
+  // live on the stack instead of in chunk-sized global arrays.  NDENSITY
+  // fixes the density count at compile time (0 = runtime).
+  template<int NDENSITY>
+  KOKKOS_INLINE_FUNCTION
+  void rho_fs_weights_cpu(const int) const;
+
+  template<int NDENSITY>
   KOKKOS_INLINE_FUNCTION
   void compute_rho_one_cpu(const BasisPtrs &, const int, const int) const;
 
+  template<int NDENSITY>
   KOKKOS_INLINE_FUNCTION
   void compute_weights_one_cpu(const BasisPtrs &, const int, const int) const;
 
+  template<int NDENSITY>
   KOKKOS_INLINE_FUNCTION
   void rho_one_rank1_cpu(const BasisPtrs &, const int, const int) const;
 
+  template<int NDENSITY>
   KOKKOS_INLINE_FUNCTION
   void weights_one_rank1_cpu(const BasisPtrs &, const int, const int) const;
 
