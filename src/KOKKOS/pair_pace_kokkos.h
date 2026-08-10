@@ -241,6 +241,7 @@ class PairPACEKokkos : public PairPACE {
     KK_FLOAT *rho;
     const KK_FLOAT *dF;
     const int *mus, *ns, *ls, *ms, *idx_funcs, *rank, *idx_sph;
+    const int *A_off, *w_off, *wm_off, *r1_off;
     const KK_FLOAT *ctildes;
     int A_l, A_n, w_l, w_n, rankmax, ndensitymax;
   };
@@ -391,6 +392,16 @@ class PairPACEKokkos : public PairPACE {
   t_ace_3i_lr d_ls;
   t_ace_3i_lr d_ms_combs;
   t_ace_3d d_ctildes;
+
+  // CPU only: the flattened offset of each (ms-combination, rank) term into an
+  // atom's A and weights blocks, precomputed once so the inner loops do a
+  // single load instead of walking mus/ns/ls/ms_combs and rebuilding the
+  // subscript.  d_wm_off carries the (l,-m) offset with the sign of the
+  // half-basis factor packed into its low bit.
+  t_ace_3i_lr d_A_off, d_w_off, d_wm_off;
+  t_ace_2i_lr d_r1_off;
+
+  void build_cpu_offset_tables();
 
   t_ace_3d3 f_ij;
 
