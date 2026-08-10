@@ -182,6 +182,11 @@ class PairCHIMESKokkos : public PairCHIMES
   std::vector<int> host_b2_i, host_b2_j;
   std::vector<double> host_b2_dist, host_b2_dr;
 
+  // Cache-line-padded per-chunk strides for the staging above (see
+  // host_setup_chunks).
+
+  size_t host_b2_cnt_stride, host_b2_stride;
+
   // Neighbor list in the form the shared CPU loops expect.  d_neighbors is one
   // padded 2d block, so a row is already contiguous whenever its inner stride
   // is one; when it is not, the rows are compacted into host_neigh_buf.

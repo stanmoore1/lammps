@@ -830,13 +830,23 @@ void PairCHIMESKokkos<DeviceType>::host_setup_chunks()
 
   const int nchem = chimes_calculator->natmtyps;
   const size_t nkey = (size_t) nchem * nchem;
-  const size_t nslot = (size_t) host_nchunk_2b * nkey;
 
-  host_b2_cnt.assign(nslot, 0);
-  host_b2_i.resize(nslot * CHIMES_VLEN);
-  host_b2_j.resize(nslot * CHIMES_VLEN);
-  host_b2_dist.resize(nslot * CHIMES_VLEN);
-  host_b2_dr.resize(nslot * CHIMES_VLEN * CHDIM);
+  // Each chunk's staging is padded out to whole cache lines.  With one
+  // chemical species nkey is 1, and unpadded the per-chunk lane counters are
+  // four bytes apart: every thread then writes the same line once per pair,
+  // and the two-body kernel ran slower on four threads than on one.
+
+  host_b2_cnt_stride = ((nkey + 15) / 16) * 16;
+
+  const size_t data_stride = ((nkey * CHIMES_VLEN + 15) / 16) * 16;
+
+  host_b2_stride = data_stride;
+
+  host_b2_cnt.assign((size_t) host_nchunk_2b * host_b2_cnt_stride, 0);
+  host_b2_i.resize((size_t) host_nchunk_2b * data_stride);
+  host_b2_j.resize((size_t) host_nchunk_2b * data_stride);
+  host_b2_dist.resize((size_t) host_nchunk_2b * data_stride);
+  host_b2_dr.resize((size_t) host_nchunk_2b * data_stride * CHDIM);
 }
 
 /* ----------------------------------------------------------------------
@@ -924,11 +934,11 @@ void PairCHIMESKokkos<DeviceType>::host_2body_chunk(const int chunk, EV_FLOAT &e
 
   // Staging for this chunk only, so no two threads share a key's lanes.
 
-  int *const cnt = const_cast<int *>(&host_b2_cnt[(size_t) chunk * nkey]);
-  int *const b_i = const_cast<int *>(&host_b2_i[(size_t) chunk * nkey * CHIMES_VLEN]);
-  int *const b_j = const_cast<int *>(&host_b2_j[(size_t) chunk * nkey * CHIMES_VLEN]);
-  double *const b_d = const_cast<double *>(&host_b2_dist[(size_t) chunk * nkey * CHIMES_VLEN]);
-  double *const b_dr = const_cast<double *>(&host_b2_dr[(size_t) chunk * nkey * CHIMES_VLEN * CHDIM]);
+  int *const cnt = const_cast<int *>(&host_b2_cnt[(size_t) chunk * host_b2_cnt_stride]);
+  int *const b_i = const_cast<int *>(&host_b2_i[(size_t) chunk * host_b2_stride]);
+  int *const b_j = const_cast<int *>(&host_b2_j[(size_t) chunk * host_b2_stride]);
+  double *const b_d = const_cast<double *>(&host_b2_dist[(size_t) chunk * host_b2_stride]);
+  double *const b_dr = const_cast<double *>(&host_b2_dr[(size_t) chunk * host_b2_stride * CHDIM]);
 
   chimes2BTmp tmp(chimes_calculator->poly_orders[0]);
 
