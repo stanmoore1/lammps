@@ -241,7 +241,7 @@ class PairPACEKokkos : public PairPACE {
     KK_FLOAT *rho;
     const KK_FLOAT *dF;
     const int *mus, *ns, *ls, *ms, *idx_funcs, *rank, *idx_sph;
-    const int *A_off, *w_off, *wm_off, *r1_off;
+    const int *A_off, *w_off, *wm_off, *r1_off, *dB_off;
     const KK_FLOAT *ctildes;
     int A_l, A_n, w_l, w_n, rankmax, ndensitymax;
   };
@@ -400,6 +400,13 @@ class PairPACEKokkos : public PairPACE {
   // half-basis factor packed into its low bit.
   t_ace_3i_lr d_A_off, d_w_off, d_wm_off;
   t_ace_2i_lr d_r1_off;
+  // prefix offsets into the rank-compacted dB store: entry idx begins at
+  // d_dB_off(mu,idx).  Compaction halves the dB stream for typical bases,
+  // where most ms-combinations have rank ~3 but the padded stride is rankmax.
+  t_ace_2i_lr d_dB_off;
+  int dB_total_max;
+  // whether the basis fits the stack buffers of the batched CPU kernels
+  bool use_batched_cpu = false;
 
   void build_cpu_offset_tables();
 
