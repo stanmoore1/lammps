@@ -85,6 +85,7 @@ class PairCHIMESKokkos : public PairCHIMES
 
   void host_build_mb_neighlists();
   void host_build_chunk(const int chunk) const;
+  void host_concat_chunk(const int chunk) const;
 
   template<int WIDTH>
   void host_sort_mers(std::vector<int> &mers, int nmers, std::vector<int> &mer_type);
@@ -203,6 +204,7 @@ class PairCHIMESKokkos : public PairCHIMES
 
   std::vector<MBScratch> host_mb_scratch;
   std::vector<std::vector<int>> host_out3, host_out4;
+  std::vector<size_t> host_out3_off, host_out4_off;
 
   std::vector<int> host_sort_hist, host_sort_key, host_sort_scratch;
   std::vector<int> *sort_mers, *sort_type;
@@ -292,8 +294,10 @@ struct PairCHIMESHostBuildFunctor {
       p->host_build_chunk(chunk);
     else if (WHICH == 1)
       p->template host_sort_count<WIDTH>(chunk);
-    else
+    else if (WHICH == 2)
       p->template host_sort_scatter<WIDTH>(chunk);
+    else
+      p->host_concat_chunk(chunk);
   }
 };
 

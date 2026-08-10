@@ -598,6 +598,23 @@ void PairCHIMESKokkos<DeviceType>::host_build_chunk(const int chunk) const
     mb_clusters_for_atom(nl_ilist[ii], mb_ctx, scr, out3, out4);
 }
 
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairCHIMESKokkos<DeviceType>::host_concat_chunk(const int chunk) const
+{
+  auto &nl3 = const_cast<std::vector<int> &>(neighborlist_3mers);
+  auto &nl4 = const_cast<std::vector<int> &>(neighborlist_4mers);
+
+  if (!host_out3[chunk].empty())
+    memcpy(&nl3[host_out3_off[chunk]], host_out3[chunk].data(),
+           host_out3[chunk].size() * sizeof(int));
+
+  if (!host_out4[chunk].empty())
+    memcpy(&nl4[host_out4_off[chunk]], host_out4[chunk].data(),
+           host_out4[chunk].size() * sizeof(int));
+}
+
 /* ----------------------------------------------------------------------
    Counting sort of a cluster list by packed atom-type index, threaded.  Each
    block histograms its own clusters, the per-block starting offsets are formed
@@ -752,28 +769,28 @@ void PairCHIMESKokkos<DeviceType>::host_build_mb_neighlists()
   PairCHIMESHostBuildFunctor<DeviceType,0,0> fbuild(this);
   Kokkos::parallel_for("CHIMESHostBuild", policy_t(0,host_nchunk_build), fbuild);
 
-  size_t n3 = 0, n4 = 0;
+  // Concatenate the per-chunk buffers in chunk order.  The offsets are a
+  // prefix sum over the chunk sizes; the copies themselves are independent
+  // once the offsets are known, and at tens of megabytes per rebuild the
+  // serial memcpy pass was measurable, so they run as a second parallel loop.
+
+  host_out3_off.resize(host_nchunk_build + 1);
+  host_out4_off.resize(host_nchunk_build + 1);
+  host_out3_off[0] = host_out4_off[0] = 0;
 
   for (int c = 0; c < host_nchunk_build; c++) {
-    n3 += host_out3[c].size();
-    n4 += host_out4[c].size();
+    host_out3_off[c + 1] = host_out3_off[c] + host_out3[c].size();
+    host_out4_off[c + 1] = host_out4_off[c] + host_out4[c].size();
   }
+
+  const size_t n3 = host_out3_off[host_nchunk_build];
+  const size_t n4 = host_out4_off[host_nchunk_build];
 
   neighborlist_3mers.resize(n3);
   neighborlist_4mers.resize(n4);
 
-  size_t o3 = 0, o4 = 0;
-
-  for (int c = 0; c < host_nchunk_build; c++) {
-    if (!host_out3[c].empty())
-      memcpy(&neighborlist_3mers[o3], host_out3[c].data(), host_out3[c].size() * sizeof(int));
-
-    if (!host_out4[c].empty())
-      memcpy(&neighborlist_4mers[o4], host_out4[c].data(), host_out4[c].size() * sizeof(int));
-
-    o3 += host_out3[c].size();
-    o4 += host_out4[c].size();
-  }
+  PairCHIMESHostBuildFunctor<DeviceType,3,0> fconcat(this);
+  Kokkos::parallel_for("CHIMESHostConcat", policy_t(0,host_nchunk_build), fconcat);
 
   n_3mers = n3 / 3;
   n_4mers = n4 / 4;
