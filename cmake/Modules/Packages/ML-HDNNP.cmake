@@ -1,4 +1,11 @@
 find_package(N2P2 QUIET)
+
+# set policy to use the time of extraction as timestamps of files unpacked from downloaded
+# archives, so that updating an archive version triggers rebuilding all dependent objects
+ if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
+
 if(N2P2_FOUND)
   set(DOWNLOAD_N2P2_DEFAULT OFF)
 else()
@@ -79,7 +86,6 @@ if(DOWNLOAD_N2P2)
     CONFIGURE_COMMAND ""
     PATCH_COMMAND sed -i -e "s/\\(MPI_\\(P\\|Unp\\)ack(\\)/\\1(void *) /" src/libnnpif/LAMMPS/InterfaceLammps.cpp
     BUILD_COMMAND ${N2P2_MAKE} -C <SOURCE_DIR>/src -f makefile libnnpif ${N2P2_BUILD_OPTIONS}
-    BUILD_ALWAYS YES
     INSTALL_COMMAND ""
     BUILD_IN_SOURCE 1
     LOG_BUILD ON

@@ -3,6 +3,12 @@
 # Created by Axel Kohlmeyer and Richard Berger
 ########################################
 
+# set policy to use the time of extraction as timestamps of files unpacked from downloaded
+# archives, so that updating an archive version triggers rebuilding all dependent objects
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
+
 # download and build googletest framework
 # cannot compile googletest anymore with the default GCC on RHEL 7.x
 if((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") AND (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.3))

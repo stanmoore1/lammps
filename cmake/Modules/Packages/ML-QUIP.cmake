@@ -55,6 +55,10 @@ if(DOWNLOAD_QUIP)
   ExternalProject_Add(quip_build
     GIT_REPOSITORY "https://github.com/libAtoms/QUIP/"
     GIT_TAG origin/public
+    # do not contact the remote git repository on every build; it re-runs all subsequent
+    # steps and re-links all dependents.  build the "quip_build-update" target explicitly
+    # to update an existing checkout to the current state of the "public" branch.
+    UPDATE_DISCONNECTED YES
     GIT_SHALLOW YES
     GIT_PROGRESS YES
     GIT_SUBMODULES "src/fox;src/GAP"
