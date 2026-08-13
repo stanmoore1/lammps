@@ -398,7 +398,9 @@ void PPPMDispPlanar::estimate_params()
   // reported RMS force error = the Gaussian grid aliasing (qopt) PLUS the merged
   // corr force content the grid cannot resolve (modes beyond nz/2).  The corr
   // Fourier tail decays only ~k^-5, so it dominates; qopt alone (Gaussian only)
-  // is far too optimistic.  Same random-phase corr-tail term as ewald/disp/planar.
+  // is far too optimistic.  The corr-tail term is identical to the (verified)
+  // ewald/disp/planar estimator -- same per-mode corr force cf and same unit
+  // weight -- so the two styles report consistent accuracy for the same target.
   build_corr_kernels();
   const double uk = 2.0 * MY_PI / zprd;
   const double invLz = 1.0 / zprd;
@@ -409,7 +411,7 @@ void PPPMDispPlanar::estimate_params()
     const double cf = 2.0 * (k * uk) * w2t * invLz;
     ctk += cf * cf;
   }
-  estimated_force_accuracy = pref * sqrt(compute_qopt(nz, order) + 0.5 * ctk);
+  estimated_force_accuracy = pref * sqrt(compute_qopt(nz, order) + ctk);
 }
 
 /* ----------------------------------------------------------------------

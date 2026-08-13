@@ -34,7 +34,7 @@ using namespace LAMMPS_NS;
 
 PairLJDispPlanar::PairLJDispPlanar(LAMMPS *lmp) : PairLJCut(lmp)
 {
-  sw_width = 0.0;
+  sw_width = 0.1;      // default switch width Delta
   inner_rc2 = 0.0;
   respa_enable = 0;    // rRESPA inner/middle/outer not supported with the switch
 }
@@ -65,9 +65,9 @@ double PairLJDispPlanar::sw_dS(double t)
 
 void PairLJDispPlanar::settings(int narg, char **arg)
 {
-  if (narg != 2) error->all(FLERR, "Illegal pair_style lj/disp/planar command");
+  if (narg < 1 || narg > 2) error->all(FLERR, "Illegal pair_style lj/disp/planar command");
   cut_global = utils::numeric(FLERR, arg[0], false, lmp);
-  sw_width = utils::numeric(FLERR, arg[1], false, lmp);
+  if (narg >= 2) sw_width = utils::numeric(FLERR, arg[1], false, lmp);    // else default 0.1
   if (sw_width <= 0.0) error->all(FLERR, "pair_style lj/disp/planar switch width must be > 0");
   inv_sw_width = 1.0 / sw_width;    // precomputed for the hot loop
 

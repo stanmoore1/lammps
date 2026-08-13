@@ -13,14 +13,15 @@ Syntax
    pair_style lj/disp/planar rcut Delta
 
 * rcut = inner cutoff for the Lennard-Jones interaction (distance units)
-* Delta = width of the dispersion switching shell (distance units)
+* Delta = width of the dispersion switching shell (optional): 0.1 (default) (distance units)
 
 Examples
 """"""""
 
 .. code-block:: LAMMPS
 
-   pair_style lj/disp/planar 2.5 0.5
+   pair_style lj/disp/planar 2.5
+   pair_style lj/disp/planar 2.5 0.1
    pair_coeff * * 1.0 1.0
 
 Description
