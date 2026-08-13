@@ -65,8 +65,6 @@ PairPACEKokkos<DeviceType>::PairPACEKokkos(LAMMPS *lmp) : PairPACE(lmp)
   datamask_read = EMPTY_MASK;
   datamask_modify = EMPTY_MASK;
 
-  host_flag = (execution_space == HostKK);
-
   neigh_scratch_request = NEIGH_SCRATCH_AUTO;
   neigh_scratch_level = 0;
   neigh_scratch_warned = 0;
@@ -408,15 +406,6 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
 template<class DeviceType>
 void PairPACEKokkos<DeviceType>::init_style()
 {
-  if (host_flag) {
-    if (lmp->kokkos->nthreads > 1)
-      error->all(FLERR,"Pair style pace/kk can currently only run on a single "
-                         "CPU thread");
-
-    PairPACE::init_style();
-    return;
-  }
-
   if (atom->tag_enable == 0) error->all(FLERR, "Pair style PACE requires atom IDs");
   if (force->newton_pair == 0) error->all(FLERR, "Pair style PACE requires newton pair on");
 
@@ -601,13 +590,6 @@ struct FindMaxNumNeighs {
 template<class DeviceType>
 void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 {
-  if (host_flag) {
-    atomKK->sync(Host,X_MASK|TYPE_MASK);
-    PairPACE::compute(eflag_in,vflag_in);
-    atomKK->modified(Host,F_MASK);
-    return;
-  }
-
   eflag = eflag_in;
   vflag = vflag_in;
 
@@ -640,7 +622,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     error->all(FLERR,"PairPACEKokkos requires 'newton on'");
 
   if (recursive)
-    error->all(FLERR,"Must use 'product' algorithm with pair pace/kk on the GPU");
+    error->all(FLERR,"Must use 'product' algorithm with pair pace/kk");
 
   atomKK->sync(execution_space,X_MASK|F_MASK|TYPE_MASK);
   x = atomKK->k_x.view<DeviceType>();
