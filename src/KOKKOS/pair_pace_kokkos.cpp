@@ -51,6 +51,291 @@ using namespace MathConst;
 
 enum{FS,FS_SHIFTEDSCALED};
 
+/* ----------------------------------------------------------------------
+   Host-only batched helpers: 8 neighbors of one atom per call, one value
+   per lane, everything laid out [quantity][lane] so the serial (l,m)
+   recurrences run with independent lanes innermost and vectorize.  The
+   pattern (lane-minor batches, tail lanes padded with valid data, plain
+   C++ lane loops, vector clones on the definitions) follows the batched
+   ChIMES evaluator and pair_snap_intel.
+------------------------------------------------------------------------- */
+
+namespace {
+
+constexpr int PACE_VLEN = 8;
+
+// stack-buffer capacities for the batched path; potentials that exceed them
+// (far beyond any published ACE basis) fall back to the scalar per-neighbor
+// path selected in init_style
+constexpr int PACE_BATCH_NRL_MAX = 160;   // (lmax+1)*nradmax
+constexpr int PACE_BATCH_SPH_MAX = 512;   // idx_sph_max*nradmax
+constexpr int PACE_BATCH_NRB_MAX = 64;    // nradbase
+
+// Compile the batched kernels once per instruction-set level and let the
+// loader pick at run time, so the stock (generic -O2) build still runs the
+// lane loops at AVX2+FMA width on machines that have it.  GCC wants the
+// attribute on the definition only; the guard keeps device and non-x86
+// compilers away from it.
+#if defined(__x86_64__) && defined(__gnu_linux__) && !defined(__AVX2__) && \
+    !defined(__CUDACC__) && !defined(__HIP_DEVICE_COMPILE__) && \
+    defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
+#define PACE_VECTOR_CLONES __attribute__((target_clones("arch=x86-64-v3", "default")))
+#else
+#define PACE_VECTOR_CLONES
+#endif
+
+// Force contraction for one batch: the Ylm+dYlm recurrence of the scalar
+// compute_derivative_one turned inside out.  The weights of the shared atom
+// are broadcast scalars; every lane keeps its own force accumulator, so no
+// cross-lane reduction is needed.  w is the atom's weights block viewed as
+// re,im pairs; strides are in complex elements.
+PACE_VECTOR_CLONES
+void pace_batched_derivative(const int lmax, const int nradmax, const int nradbase,
+                             const double *alm, const double *blm,
+                             const double *cl, const double *dl,
+                             const double *rx, const double *ry, const double *rz,
+                             const double *rinv,
+                             const double *fr_b, const double *dfr_b,
+                             const double *dgr_b,
+                             const double *w, const int w_ss, const int w_sn,
+                             const double *w_r1, const int wr1_sn,
+                             double *fx, double *fy, double *fz)
+{
+  constexpr int V = PACE_VLEN;
+
+  for (int lane = 0; lane < V; lane++) fx[lane] = fy[lane] = fz[lane] = 0.0;
+
+  for (int n = 0; n < nradbase; ++n) {
+    const double wn = w_r1[n * wr1_sn] * Y00;
+    for (int lane = 0; lane < V; lane++) {
+      const double DGR = dgr_b[n * V + lane] * wn;
+      fx[lane] += DGR * rx[lane];
+      fy[lane] += DGR * ry[lane];
+      fz[lane] += DGR * rz[lane];
+    }
+  }
+
+  double plm[V], plm1[V], plm2[V];
+  double dplm[V], dplm1[V], dplm2[V];
+
+  int idx_sph = 0;
+
+  // m = 0: ylm and dylm are real
+  for (int l = 0; l <= lmax; l++) {
+    if (l == 0) {
+      for (int lane = 0; lane < V; lane++) { plm[lane] = Y00; dplm[lane] = 0.0; }
+    } else if (l == 1) {
+      for (int lane = 0; lane < V; lane++) {
+        plm[lane] = Y00 * sq3 * rz[lane];
+        dplm[lane] = Y00 * sq3;
+      }
+    } else {
+      const double al = alm[idx_sph], bl = blm[idx_sph];
+      for (int lane = 0; lane < V; lane++) {
+        plm[lane] = al * (rz[lane] * plm1[lane] + bl * plm2[lane]);
+        dplm[lane] = al * (plm1[lane] + rz[lane] * dplm1[lane] + bl * dplm2[lane]);
+      }
+    }
+
+    // ylm and dylm are real for m = 0 and depend only on l
+    double d0[V], d1[V], d2[V];
+    for (int lane = 0; lane < V; lane++) {
+      const double rdy = dplm[lane] * rz[lane];
+      d0[lane] = -rdy * rx[lane];
+      d1[lane] = -rdy * ry[lane];
+      d2[lane] = dplm[lane] - rdy * rz[lane];
+    }
+
+    const double *fr_l = fr_b + l * nradmax * V;
+    const double *dfr_l = dfr_b + l * nradmax * V;
+    const double *w_l = w + 2 * (idx_sph * w_ss);
+    for (int n = 0; n < nradmax; n++) {
+      const double wre = w_l[2 * (n * w_sn)];
+      for (int lane = 0; lane < V; lane++) {
+        const double R_over_r = fr_l[n * V + lane] * rinv[lane];
+        const double DR = dfr_l[n * V + lane];
+        const double ydr = plm[lane] * DR;
+        fx[lane] += wre * (ydr * rx[lane] + d0[lane] * R_over_r);
+        fy[lane] += wre * (ydr * ry[lane] + d1[lane] * R_over_r);
+        fz[lane] += wre * (ydr * rz[lane] + d2[lane] * R_over_r);
+      }
+    }
+
+    for (int lane = 0; lane < V; lane++) {
+      plm2[lane] = plm1[lane]; dplm2[lane] = dplm1[lane];
+      plm1[lane] = plm[lane]; dplm1[lane] = dplm[lane];
+    }
+    idx_sph++;
+  }
+
+  // m = 1
+  for (int lane = 0; lane < V; lane++)
+    plm1[lane] = plm2[lane] = dplm1[lane] = dplm2[lane] = 0.0;
+  for (int l = 1; l <= lmax; l++) {
+    if (l == 1) {
+      for (int lane = 0; lane < V; lane++) { plm[lane] = -sq3o2 * Y00; dplm[lane] = 0.0; }
+    } else if (l == 2) {
+      const double d2 = dl[l];
+      for (int lane = 0; lane < V; lane++) {
+        const double t = d2 * plm1[lane];
+        plm[lane] = t * rz[lane];
+        dplm[lane] = t;
+      }
+    } else {
+      const double al = alm[idx_sph], bl = blm[idx_sph];
+      for (int lane = 0; lane < V; lane++) {
+        plm[lane] = al * (rz[lane] * plm1[lane] + bl * plm2[lane]);
+        dplm[lane] = al * (plm1[lane] + rz[lane] * dplm1[lane] + bl * dplm2[lane]);
+      }
+    }
+
+    // ylm and dylm depend only on (l, m): computed once per l, reused for
+    // every n (as in the scalar kernel)
+    double ylm_re[V], ylm_im[V];
+    double d0_re[V], d0_im[V], d1_re[V], d1_im[V], d2_re[V], d2_im[V];
+    for (int lane = 0; lane < V; lane++) {
+      ylm_re[lane] = rx[lane] * plm[lane];
+      ylm_im[lane] = ry[lane] * plm[lane];
+      // dyx = (plm, 0), dyy = (0, plm), dyz = phase * dplm
+      const double dyz_re = rx[lane] * dplm[lane];
+      const double dyz_im = ry[lane] * dplm[lane];
+      const double rdy_re = rx[lane] * plm[lane] + rz[lane] * dyz_re;
+      const double rdy_im = ry[lane] * plm[lane] + rz[lane] * dyz_im;
+      d0_re[lane] = plm[lane] - rdy_re * rx[lane];
+      d0_im[lane] = -rdy_im * rx[lane];
+      d1_re[lane] = -rdy_re * ry[lane];
+      d1_im[lane] = plm[lane] - rdy_im * ry[lane];
+      d2_re[lane] = dyz_re - rdy_re * rz[lane];
+      d2_im[lane] = dyz_im - rdy_im * rz[lane];
+    }
+
+    const double *fr_l = fr_b + l * nradmax * V;
+    const double *dfr_l = dfr_b + l * nradmax * V;
+    const double *w_l = w + 2 * (idx_sph * w_ss);
+    for (int n = 0; n < nradmax; n++) {
+      const double wre = 2.0 * w_l[2 * (n * w_sn)];
+      const double wim = 2.0 * w_l[2 * (n * w_sn) + 1];
+      for (int lane = 0; lane < V; lane++) {
+        const double R_over_r = fr_l[n * V + lane] * rinv[lane];
+        const double DR = dfr_l[n * V + lane];
+        const double ydr_re = ylm_re[lane] * DR;
+        const double ydr_im = ylm_im[lane] * DR;
+        const double gx_re = ydr_re * rx[lane] + d0_re[lane] * R_over_r;
+        const double gx_im = ydr_im * rx[lane] + d0_im[lane] * R_over_r;
+        const double gy_re = ydr_re * ry[lane] + d1_re[lane] * R_over_r;
+        const double gy_im = ydr_im * ry[lane] + d1_im[lane] * R_over_r;
+        const double gz_re = ydr_re * rz[lane] + d2_re[lane] * R_over_r;
+        const double gz_im = ydr_im * rz[lane] + d2_im[lane] * R_over_r;
+        fx[lane] += wre * gx_re - wim * gx_im;
+        fy[lane] += wre * gy_re - wim * gy_im;
+        fz[lane] += wre * gz_re - wim * gz_im;
+      }
+    }
+
+    for (int lane = 0; lane < V; lane++) {
+      plm2[lane] = plm1[lane]; dplm2[lane] = dplm1[lane];
+      plm1[lane] = plm[lane]; dplm1[lane] = dplm[lane];
+    }
+    idx_sph++;
+  }
+
+  // m > 1
+  for (int lane = 0; lane < V; lane++)
+    plm1[lane] = plm2[lane] = dplm1[lane] = dplm2[lane] = 0.0;
+  double plm_mm1_mm1 = -sq3o2 * Y00;
+  double phasem_re[V], phasem_im[V];
+  for (int lane = 0; lane < V; lane++) {
+    phasem_re[lane] = rx[lane];
+    phasem_im[lane] = ry[lane];
+  }
+  for (int m = 2; m <= lmax; m++) {
+    double mph_re[V], mph_im[V];
+    for (int lane = 0; lane < V; lane++) {
+      mph_re[lane] = phasem_re[lane] * (double) m;
+      mph_im[lane] = phasem_im[lane] * (double) m;
+      const double pre = phasem_re[lane] * rx[lane] - phasem_im[lane] * ry[lane];
+      const double pim = phasem_re[lane] * ry[lane] + phasem_im[lane] * rx[lane];
+      phasem_re[lane] = pre;
+      phasem_im[lane] = pim;
+    }
+
+    for (int l = m; l <= lmax; l++) {
+      if (l == m) {
+        const double seed = cl[l] * plm_mm1_mm1;
+        plm_mm1_mm1 = seed;
+        for (int lane = 0; lane < V; lane++) { plm[lane] = seed; dplm[lane] = 0.0; }
+      } else if (l == (m + 1)) {
+        const double t = dl[l] * plm_mm1_mm1;
+        for (int lane = 0; lane < V; lane++) {
+          plm[lane] = t * rz[lane];
+          dplm[lane] = t;
+        }
+      } else {
+        const double al = alm[idx_sph], bl = blm[idx_sph];
+        for (int lane = 0; lane < V; lane++) {
+          plm[lane] = al * (rz[lane] * plm1[lane] + bl * plm2[lane]);
+          dplm[lane] = al * (plm1[lane] + rz[lane] * dplm1[lane] + bl * dplm2[lane]);
+        }
+      }
+
+      double ylm_re[V], ylm_im[V];
+      double d0_re[V], d0_im[V], d1_re[V], d1_im[V], d2_re[V], d2_im[V];
+      for (int lane = 0; lane < V; lane++) {
+        ylm_re[lane] = phasem_re[lane] * plm[lane];
+        ylm_im[lane] = phasem_im[lane] * plm[lane];
+        // dyx = mphasem1 * plm, dyy = i * dyx, dyz = phasem * dplm
+        const double dyx_re = mph_re[lane] * plm[lane];
+        const double dyx_im = mph_im[lane] * plm[lane];
+        const double dyy_re = -dyx_im;
+        const double dyy_im = dyx_re;
+        const double dyz_re = phasem_re[lane] * dplm[lane];
+        const double dyz_im = phasem_im[lane] * dplm[lane];
+        const double rdy_re = rx[lane] * dyx_re + ry[lane] * dyy_re + rz[lane] * dyz_re;
+        const double rdy_im = rx[lane] * dyx_im + ry[lane] * dyy_im + rz[lane] * dyz_im;
+        d0_re[lane] = dyx_re - rdy_re * rx[lane];
+        d0_im[lane] = dyx_im - rdy_im * rx[lane];
+        d1_re[lane] = dyy_re - rdy_re * ry[lane];
+        d1_im[lane] = dyy_im - rdy_im * ry[lane];
+        d2_re[lane] = dyz_re - rdy_re * rz[lane];
+        d2_im[lane] = dyz_im - rdy_im * rz[lane];
+      }
+
+      const double *fr_l = fr_b + l * nradmax * V;
+      const double *dfr_l = dfr_b + l * nradmax * V;
+      const double *w_l = w + 2 * (idx_sph * w_ss);
+      for (int n = 0; n < nradmax; n++) {
+        const double wre = 2.0 * w_l[2 * (n * w_sn)];
+        const double wim = 2.0 * w_l[2 * (n * w_sn) + 1];
+        for (int lane = 0; lane < V; lane++) {
+          const double R_over_r = fr_l[n * V + lane] * rinv[lane];
+          const double DR = dfr_l[n * V + lane];
+          const double ydr_re = ylm_re[lane] * DR;
+          const double ydr_im = ylm_im[lane] * DR;
+          const double gx_re = ydr_re * rx[lane] + d0_re[lane] * R_over_r;
+          const double gx_im = ydr_im * rx[lane] + d0_im[lane] * R_over_r;
+          const double gy_re = ydr_re * ry[lane] + d1_re[lane] * R_over_r;
+          const double gy_im = ydr_im * ry[lane] + d1_im[lane] * R_over_r;
+          const double gz_re = ydr_re * rz[lane] + d2_re[lane] * R_over_r;
+          const double gz_im = ydr_im * rz[lane] + d2_im[lane] * R_over_r;
+          fx[lane] += wre * gx_re - wim * gx_im;
+          fy[lane] += wre * gy_re - wim * gy_im;
+          fz[lane] += wre * gz_re - wim * gz_im;
+        }
+      }
+
+      for (int lane = 0; lane < V; lane++) {
+        plm2[lane] = plm1[lane]; dplm2[lane] = dplm1[lane];
+        plm1[lane] = plm[lane]; dplm1[lane] = dplm[lane];
+      }
+      idx_sph++;
+    }
+  }
+}
+
+}    // namespace
+
+
+
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
@@ -139,7 +424,11 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
     MemKK::realloc_kokkos(d_jj_min, "pace:j_min_pair", natom);
     MemKK::realloc_kokkos(d_corerep, "pace:corerep", natom); // per-atom corerep
 
-    MemKK::realloc_kokkos(dB_flatten, "pace:dB_flatten", natom, idx_ms_combs_max, basis_set->rankmax);
+    if constexpr (host_flag)
+      // rank-compacted on the host, indexed through d_dB_off
+      MemKK::realloc_kokkos(dB_flatten, "pace:dB_flatten", natom, dB_total_max, 1);
+    else
+      MemKK::realloc_kokkos(dB_flatten, "pace:dB_flatten", natom, idx_ms_combs_max, basis_set->rankmax);
   }
 
   if constexpr (host_flag) {
@@ -481,7 +770,12 @@ void PairPACEKokkos<DeviceType>::init_style()
   copy_splines();
   copy_tilde();
 
-  if constexpr (host_flag) build_cpu_offset_tables();
+  if constexpr (host_flag) {
+    build_cpu_offset_tables();
+    use_batched_cpu = (((lmax + 1) * nradmax <= PACE_BATCH_NRL_MAX) &&
+                       (idx_sph_max * nradmax <= PACE_BATCH_SPH_MAX) &&
+                       (nradbase <= PACE_BATCH_NRB_MAX));
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -505,11 +799,13 @@ void PairPACEKokkos<DeviceType>::build_cpu_offset_tables()
   MemKK::realloc_kokkos(d_w_off, "pace:w_off", nelements, idx_ms_combs_max, rankmax);
   MemKK::realloc_kokkos(d_wm_off, "pace:wm_off", nelements, idx_ms_combs_max, rankmax);
   MemKK::realloc_kokkos(d_r1_off, "pace:r1_off", nelements, idx_ms_combs_max);
+  MemKK::realloc_kokkos(d_dB_off, "pace:dB_off", nelements, idx_ms_combs_max + 1);
 
   auto h_A_off = Kokkos::create_mirror_view(d_A_off);
   auto h_w_off = Kokkos::create_mirror_view(d_w_off);
   auto h_wm_off = Kokkos::create_mirror_view(d_wm_off);
   auto h_r1_off = Kokkos::create_mirror_view(d_r1_off);
+  auto h_dB_off = Kokkos::create_mirror_view(d_dB_off);
 
   auto h_idx_funcs = Kokkos::create_mirror_view(d_idx_funcs);
   auto h_rank = Kokkos::create_mirror_view(d_rank);
@@ -530,9 +826,19 @@ void PairPACEKokkos<DeviceType>::build_cpu_offset_tables()
   Kokkos::deep_copy(h_count, d_idx_ms_combs_count);
   Kokkos::deep_copy(h_nms1, d_nms_rank1);
 
+  dB_total_max = 0;
   for (int mu_i = 0; mu_i < nelements; mu_i++) {
     const int nms = h_count(mu_i);
     const int nms1 = h_nms1(mu_i);
+
+    // rank-compacted prefix offsets for the dB store
+    int run = 0;
+    for (int idx = 0; idx < nms; idx++) {
+      h_dB_off(mu_i, idx) = run;
+      if (idx >= nms1) run += h_rank(mu_i, h_idx_funcs(mu_i, idx));
+    }
+    h_dB_off(mu_i, nms) = run;
+    dB_total_max = MAX(dB_total_max, run);
 
     for (int idx = 0; idx < nms1; idx++) {
       const int idx_func = h_idx_funcs(mu_i, idx);
@@ -562,6 +868,7 @@ void PairPACEKokkos<DeviceType>::build_cpu_offset_tables()
   Kokkos::deep_copy(d_w_off, h_w_off);
   Kokkos::deep_copy(d_wm_off, h_wm_off);
   Kokkos::deep_copy(d_r1_off, h_r1_off);
+  Kokkos::deep_copy(d_dB_off, h_dB_off);
 }
 
 /* ----------------------------------------------------------------------
@@ -1060,6 +1367,10 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAiCPU, const int& ii) const
 {
+  // measured: batching this kernel across neighbors loses -- its arithmetic
+  // is too small to amortize the staging and the cross-lane reduction of the
+  // A_sph accumulators, unlike ComputeDerivative where each lane owns its
+  // own output
   const int ncount = d_ncount(ii);
   for (int jj = 0; jj < ncount; jj++)
     compute_ai_one<false>(ii, jj);
@@ -1438,6 +1749,7 @@ void PairPACEKokkos<DeviceType>::set_basis_ptrs(BasisPtrs &b, const int ii, cons
   b.w_off   = &d_w_off(mu_i, 0, 0);
   b.wm_off  = &d_wm_off(mu_i, 0, 0);
   b.r1_off  = &d_r1_off(mu_i, 0);
+  b.dB_off  = &d_dB_off(mu_i, 0);
   b.rank    = &d_rank(mu_i, 0);
 
   b.A_l   = (int) A.extent(2);            // (lmax+1)^2
@@ -1490,7 +1802,7 @@ void PairPACEKokkos<DeviceType>::compute_rho_one_cpu(const BasisPtrs &b,
   const int r = rank - 1;
 
   const int *aoff = b.A_off + idx_ms_combs * b.rankmax;
-  complex *dB     = b.dB    + idx_ms_combs * b.rankmax;
+  complex *dB     = b.dB    + b.dB_off[idx_ms_combs];
 
   // rank > 1: forward and backward products over the ms-combination
   complex A_list_l[MAX_RANK_CPU];
@@ -1659,7 +1971,7 @@ void PairPACEKokkos<DeviceType>::compute_weights_one_cpu(const BasisPtrs &b,
 
   const int *woff  = b.w_off  + idx_ms_combs * b.rankmax;
   const int *wmoff = b.wm_off + idx_ms_combs * b.rankmax;
-  const complex *dB = b.dB + idx_ms_combs * b.rankmax;
+  const complex *dB = b.dB + b.dB_off[idx_ms_combs];
   const KK_FLOAT *ct = b.ctildes + idx_ms_combs * b.ndensitymax;
 
   KK_FLOAT theta = 0.0;
@@ -1714,8 +2026,121 @@ KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivativeCPU, const int& ii) const
 {
   const int ncount = d_ncount(ii);
-  for (int jj = 0; jj < ncount; jj++)
-    compute_derivative_one(ii, jj);
+
+  if (!use_batched_cpu) {
+    for (int jj = 0; jj < ncount; jj++)
+      compute_derivative_one(ii, jj);
+    return;
+  }
+
+  constexpr int V = PACE_VLEN;
+  const int nrl = (lmax + 1) * nradmax;
+
+  const int i = d_ilist[ii + chunk_offset];
+  const int itype = type(i);
+  const KK_FLOAT scale = d_scale(itype, itype);
+
+  const int fr_sl = (int) fr.stride(2);
+  const int fr_sn = (int) fr.stride(3);
+  const int dgr_sn = (int) dgr.stride(2);
+  const int w_ss = (int) weights.stride(2);
+  const int w_sn = (int) weights.stride(3);
+  const int wr1_sn = (int) weights_rank1.stride(2);
+
+  const double *alm_p = alm.data();
+  const double *blm_p = blm.data();
+  const double *cl_p = cl.data();
+  const double *dl_p = dl.data();
+
+  const KK_FLOAT dfcore = dF_drho_core(ii);
+  const int jj_min = is_zbl ? (int) d_jj_min(ii) : -1;
+  const KK_FLOAT dfc = is_zbl ? dF_dfcut(ii) : 0.0;
+
+  double rxb[V], ryb[V], rzb[V], rinvb[V];
+  double fr_b[PACE_BATCH_NRL_MAX * V];
+  double dfr_b[PACE_BATCH_NRL_MAX * V];
+  double dgr_b[PACE_BATCH_NRB_MAX * V];
+  double fxb[V], fyb[V], fzb[V];
+  int jidx[V];
+
+  for (int mu = 0; mu < nelements; mu++) {
+    const double *w_mu = reinterpret_cast<const double *>(&weights(ii, mu, 0, 0));
+    const KK_FLOAT *wr1_mu = &weights_rank1(ii, mu, 0);
+
+    int nb = 0;
+    for (int jj = 0; jj < ncount; jj++) {
+      if ((int) d_mu(ii, jj) != mu) continue;
+
+      rxb[nb] = d_rhats(ii, jj, 0);
+      ryb[nb] = d_rhats(ii, jj, 1);
+      rzb[nb] = d_rhats(ii, jj, 2);
+      rinvb[nb] = 1.0 / d_rnorms(ii, jj);
+      jidx[nb] = jj;
+      const KK_FLOAT *frp = &fr(ii, jj, 0, 0);
+      const KK_FLOAT *dfrp = &dfr(ii, jj, 0, 0);
+      for (int l = 0; l <= lmax; l++)
+        for (int n = 0; n < nradmax; n++) {
+          fr_b[(l * nradmax + n) * V + nb] = frp[l * fr_sl + n * fr_sn];
+          dfr_b[(l * nradmax + n) * V + nb] = dfrp[l * fr_sl + n * fr_sn];
+        }
+      const KK_FLOAT *dgrp = &dgr(ii, jj, 0);
+      for (int n = 0; n < nradbase; n++)
+        dgr_b[n * V + nb] = dgrp[n * dgr_sn];
+
+      if (++nb < V) continue;
+
+      pace_batched_derivative(lmax, nradmax, nradbase, alm_p, blm_p, cl_p, dl_p,
+                              rxb, ryb, rzb, rinvb, fr_b, dfr_b, dgr_b,
+                              w_mu, w_ss, w_sn, wr1_mu, wr1_sn, fxb, fyb, fzb);
+      for (int lane = 0; lane < V; lane++) {
+        const int jjl = jidx[lane];
+        const KK_FLOAT fpair = dfcore * dcr(ii, jjl);
+        f_ij(ii, jjl, 0) = scale * fxb[lane] + fpair * rxb[lane];
+        f_ij(ii, jjl, 1) = scale * fyb[lane] + fpair * ryb[lane];
+        f_ij(ii, jjl, 2) = scale * fzb[lane] + fpair * rzb[lane];
+        if (jjl == jj_min) {
+          f_ij(ii, jjl, 0) += dfc * rxb[lane];
+          f_ij(ii, jjl, 1) += dfc * ryb[lane];
+          f_ij(ii, jjl, 2) += dfc * rzb[lane];
+        }
+      }
+      nb = 0;
+    }
+
+    if (nb > 0) {
+      // tail lanes copy lane-0 data so every value stays finite; only the
+      // first nb lanes are consumed
+      for (int lane = nb; lane < V; lane++) {
+        rxb[lane] = rxb[0];
+        ryb[lane] = ryb[0];
+        rzb[lane] = rzb[0];
+        rinvb[lane] = rinvb[0];
+      }
+      for (int f = 0; f < nrl; f++)
+        for (int lane = nb; lane < V; lane++) {
+          fr_b[f * V + lane] = fr_b[f * V];
+          dfr_b[f * V + lane] = dfr_b[f * V];
+        }
+      for (int n = 0; n < nradbase; n++)
+        for (int lane = nb; lane < V; lane++) dgr_b[n * V + lane] = dgr_b[n * V];
+
+      pace_batched_derivative(lmax, nradmax, nradbase, alm_p, blm_p, cl_p, dl_p,
+                              rxb, ryb, rzb, rinvb, fr_b, dfr_b, dgr_b,
+                              w_mu, w_ss, w_sn, wr1_mu, wr1_sn, fxb, fyb, fzb);
+      for (int lane = 0; lane < nb; lane++) {
+        const int jjl = jidx[lane];
+        const KK_FLOAT fpair = dfcore * dcr(ii, jjl);
+        f_ij(ii, jjl, 0) = scale * fxb[lane] + fpair * rxb[lane];
+        f_ij(ii, jjl, 1) = scale * fyb[lane] + fpair * ryb[lane];
+        f_ij(ii, jjl, 2) = scale * fzb[lane] + fpair * rzb[lane];
+        if (jjl == jj_min) {
+          f_ij(ii, jjl, 0) += dfc * rxb[lane];
+          f_ij(ii, jjl, 1) += dfc * ryb[lane];
+          f_ij(ii, jjl, 2) += dfc * rzb[lane];
+        }
+      }
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------- */
