@@ -47,6 +47,13 @@ class PairPACEKokkos : public PairPACE {
   struct TagPairPACEComputeWeights{};
   struct TagPairPACEComputeDerivative{};
 
+  // CPU backend variants: one atom per thread, neighbours and basis functions
+  // looped over serially inside the kernel.  That removes every atomic and
+  // makes the per-atom accumulators the innermost working set.
+  struct TagPairPACEComputeAiCPU{};
+  struct TagPairPACEComputeRhoCPU{};
+  struct TagPairPACEComputeWeightsCPU{};
+
   template<int NEIGHFLAG, int EVFLAG>
   struct TagPairPACEComputeForce{};
 
@@ -90,6 +97,18 @@ class PairPACEKokkos : public PairPACE {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairPACEComputeWeights,const int& iter) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeAiCPU,const int& ii) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeRhoCPU,const int& ii) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeWeightsCPU,const int& ii) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -195,6 +214,34 @@ class PairPACEKokkos : public PairPACE {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void evaluate_splines(const int, const int, KK_FLOAT, int, int, int, int) const;
+
+  // shared body of ComputeAi.  NEED_ATOMICS is true when several threads may
+  // accumulate into the same atom (device backends), false when one thread
+  // owns the atom (CPU backends), following the sna_kokkos pattern.
+  template<bool NEED_ATOMICS>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void compute_ai_one(const int, const int) const;
+
+  // CPU-only bodies for one (atom, ms-combination): the rank-length products
+  // live on the stack instead of in chunk-sized global arrays
+  KOKKOS_INLINE_FUNCTION
+  void compute_rho_one_cpu(const int, const int, const int, const int, KK_FLOAT *) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void compute_weights_one_cpu(const int, const int, const int, const int) const;
+
+  // upper bound on the ACE correlation order, for the stack temporaries above
+  static constexpr int MAX_RANK_CPU = 16;
+
+  // flat one-atom-per-thread policy used by the CPU kernels.  A dynamic
+  // schedule matters because the per-atom cost follows the neighbor count,
+  // which is ragged (cf. snap_get_policy in pair_snap_kokkos.h).
+  template<class TagStyle>
+  auto host_atom_policy() const {
+    return Kokkos::RangePolicy<DeviceType, Kokkos::Schedule<Kokkos::Dynamic>,
+                               TagStyle>(0, chunk_size);
+  }
 
   template<class TagStyle>
   void check_team_size_for(int, int&, int);

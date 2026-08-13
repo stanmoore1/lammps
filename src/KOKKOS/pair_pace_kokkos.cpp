@@ -111,9 +111,15 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
     MemKK::realloc_kokkos(A, "pace:A", natom, nelements, (lmax + 1) * (lmax + 1), nradmax + 1);
     MemKK::realloc_kokkos(A_rank1, "pace:A_rank1", natom, nelements, nradbase);
 
-    MemKK::realloc_kokkos(A_list, "pace:A_list", natom, idx_ms_combs_max, basis_set->rankmax);
-    //size is +1 of max to avoid out-of-boundary array access in double-triangular scheme
-    MemKK::realloc_kokkos(A_forward_prod, "pace:A_forward_prod", natom, idx_ms_combs_max, basis_set->rankmax + 1);
+    if constexpr (host_flag) {
+      // the CPU kernels keep the rank-length products on the stack
+      MemKK::realloc_kokkos(A_list, "pace:A_list", 1, 1, 1);
+      MemKK::realloc_kokkos(A_forward_prod, "pace:A_forward_prod", 1, 1, 1);
+    } else {
+      MemKK::realloc_kokkos(A_list, "pace:A_list", natom, idx_ms_combs_max, basis_set->rankmax);
+      //size is +1 of max to avoid out-of-boundary array access in double-triangular scheme
+      MemKK::realloc_kokkos(A_forward_prod, "pace:A_forward_prod", natom, idx_ms_combs_max, basis_set->rankmax + 1);
+    }
 
     MemKK::realloc_kokkos(e_atom, "pace:e_atom", natom);
     MemKK::realloc_kokkos(rhos, "pace:rhos", natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
@@ -420,6 +426,11 @@ void PairPACEKokkos<DeviceType>::init_style()
 
   auto basis_set = aceimpl->basis_set;
 
+  if (host_flag && basis_set->rankmax > MAX_RANK_CPU)
+    error->all(FLERR, "Pair style pace/kk supports a maximum correlation order of {} "
+                      "on CPU backends, but this potential file uses {}",
+               MAX_RANK_CPU, basis_set->rankmax);
+
   nelements = basis_set->nelements;
   lmax = basis_set->lmax;
   nradmax = basis_set->nradmax;
@@ -627,7 +638,11 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
 
     //ComputeAi
-    {
+    if constexpr (host_flag) {
+      // one atom per thread, neighbors looped inside: no atomics, and the
+      // atom's A_sph block stays in L1 for the whole neighbor loop
+      Kokkos::parallel_for("ComputeAi", host_atom_policy<TagPairPACEComputeAiCPU>(), *this);
+    } else {
       int vector_length = vector_length_default;
       int team_size = team_size_default;
       check_team_size_for<TagPairPACEComputeAi>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
@@ -642,7 +657,9 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
 
     //ComputeRho
-    {
+    if constexpr (host_flag) {
+      Kokkos::parallel_for("ComputeRho", host_atom_policy<TagPairPACEComputeRhoCPU>(), *this);
+    } else {
       typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeRho> policy_rho(0,chunk_size*idx_ms_combs_max);
       Kokkos::parallel_for("ComputeRho",policy_rho,*this);
     }
@@ -654,7 +671,9 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
 
     //ComputeWeights
-    {
+    if constexpr (host_flag) {
+      Kokkos::parallel_for("ComputeWeights", host_atom_policy<TagPairPACEComputeWeightsCPU>(), *this);
+    } else {
       typename Kokkos::RangePolicy<DeviceType,TagPairPACEComputeWeights> policy_weights(0,chunk_size * idx_ms_combs_max);
       Kokkos::parallel_for("ComputeWeights",policy_weights,*this);
     }
@@ -884,11 +903,43 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
   const int ncount = d_ncount(ii);
   if (jj >= ncount) return;
 
+  // several teams accumulate into the same atom, so the adds must be atomic
+  compute_ai_one<true>(ii, jj);
+}
+
+/* ----------------------------------------------------------------------
+   CPU backend: one thread owns atom ii and walks its whole neighbor list,
+   so nothing else writes A_sph/A_rank1/rho_core for this atom and the
+   accumulation needs no atomics
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAiCPU, const int& ii) const
+{
+  const int ncount = d_ncount(ii);
+  for (int jj = 0; jj < ncount; jj++)
+    compute_ai_one<false>(ii, jj);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+template<bool NEED_ATOMICS>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::compute_ai_one(const int ii, const int jj) const
+{
   const int mu_j = d_mu(ii, jj);
 
   // rank = 1
-  for (int n = 0; n < nradbase; n++)
-    Kokkos::atomic_add(&A_rank1(ii, mu_j, n), gr(ii, jj, n) * Y00);
+  for (int n = 0; n < nradbase; n++) {
+    if constexpr (NEED_ATOMICS)
+      Kokkos::atomic_add(&A_rank1(ii, mu_j, n), gr(ii, jj, n) * Y00);
+    else
+      A_rank1(ii, mu_j, n) += gr(ii, jj, n) * Y00;
+  }
 
   // rank > 1
 
@@ -936,8 +987,13 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
     ylm.im = 0.0;
 
     for (int n = 0; n < nradmax; n++) {
-      Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).re, fr(ii, jj, l, n) * ylm.re);
-      Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).im, fr(ii, jj, l, n) * ylm.im);
+      if constexpr (NEED_ATOMICS) {
+        Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).re, fr(ii, jj, l, n) * ylm.re);
+        Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).im, fr(ii, jj, l, n) * ylm.im);
+      } else {
+        A_sph(ii, mu_j, idx_sph, n).re += fr(ii, jj, l, n) * ylm.re;
+        A_sph(ii, mu_j, idx_sph, n).im += fr(ii, jj, l, n) * ylm.im;
+      }
     }
 
     plm_idx2 = plm_idx1;
@@ -965,8 +1021,13 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
     ylm = phase * plm_idx;
 
     for (int n = 0; n < nradmax; n++) {
-      Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).re, fr(ii, jj, l, n) * ylm.re);
-      Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).im, fr(ii, jj, l, n) * ylm.im);
+      if constexpr (NEED_ATOMICS) {
+        Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).re, fr(ii, jj, l, n) * ylm.re);
+        Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).im, fr(ii, jj, l, n) * ylm.im);
+      } else {
+        A_sph(ii, mu_j, idx_sph, n).re += fr(ii, jj, l, n) * ylm.re;
+        A_sph(ii, mu_j, idx_sph, n).im += fr(ii, jj, l, n) * ylm.im;
+      }
     }
 
     plm_idx2 = plm_idx1;
@@ -1004,8 +1065,13 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
       ylm.im = phasem.im * plm_idx;
 
       for (int n = 0; n < nradmax; n++) {
-        Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).re, fr(ii, jj, l, n) * ylm.re);
-        Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).im, fr(ii, jj, l, n) * ylm.im);
+        if constexpr (NEED_ATOMICS) {
+          Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).re, fr(ii, jj, l, n) * ylm.re);
+          Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).im, fr(ii, jj, l, n) * ylm.im);
+        } else {
+          A_sph(ii, mu_j, idx_sph, n).re += fr(ii, jj, l, n) * ylm.re;
+          A_sph(ii, mu_j, idx_sph, n).im += fr(ii, jj, l, n) * ylm.im;
+        }
       }
 
       plm_idx2 = plm_idx1;
@@ -1016,7 +1082,10 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
   }
 
   // hard-core repulsion
-  Kokkos::atomic_add(&rho_core(ii), cr(ii, jj));
+  if constexpr (NEED_ATOMICS)
+    Kokkos::atomic_add(&rho_core(ii), cr(ii, jj));
+  else
+    rho_core(ii) += cr(ii, jj);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1127,6 +1196,80 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& i
       Kokkos::atomic_add(&rhos(ii, p), B.real_part_product(d_ctildes(mu_i, idx_ms_combs, p)));
     }
   }
+}
+
+/* ----------------------------------------------------------------------
+   CPU backend: one thread owns atom ii and loops over all of its basis
+   functions.  A_list and A_forward_prod never outlive a single
+   (atom, ms-combination) iteration, so on the CPU they are stack arrays of
+   at most rankmax+1 entries instead of chunk-sized global arrays.  That
+   removes the dominant store stream of the whole evaluator and, because
+   only this thread touches rhos(ii,:), the density accumulation needs no
+   atomics either.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRhoCPU, const int& ii) const
+{
+  const int i = d_ilist[ii + chunk_offset];
+  const int mu_i = d_map(type(i));
+  const int ndensity = d_ndensity(mu_i);
+  const int nms = d_idx_ms_combs_count(mu_i);
+
+  for (int idx_ms_combs = 0; idx_ms_combs < nms; idx_ms_combs++)
+    compute_rho_one_cpu(ii, mu_i, ndensity, idx_ms_combs, nullptr);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::compute_rho_one_cpu(const int ii, const int mu_i,
+                                                     const int ndensity,
+                                                     const int idx_ms_combs,
+                                                     KK_FLOAT * /*unused*/) const
+{
+  const int idx_func = d_idx_funcs(mu_i, idx_ms_combs);
+  const int rank = d_rank(mu_i, idx_func);
+  const int r = rank - 1;
+
+  if (rank == 1) {
+    const int mu = d_mus(mu_i, idx_func, 0);
+    const int n = d_ns(mu_i, idx_func, 0);
+    const KK_FLOAT A_cur = A_rank1(ii, mu, n - 1);
+    for (int p = 0; p < ndensity; ++p)
+      rhos(ii, p) += d_ctildes(mu_i, idx_ms_combs, p) * A_cur;
+    return;
+  }
+
+  // rank > 1: forward and backward products over the ms-combination
+  complex A_list_l[MAX_RANK_CPU];
+  complex A_fwd_l[MAX_RANK_CPU + 1];
+
+  A_fwd_l[0] = complex::one();
+  for (int t = 0; t < rank; t++) {
+    const int mu = d_mus(mu_i, idx_func, t);
+    const int n = d_ns(mu_i, idx_func, t);
+    const int l = d_ls(mu_i, idx_func, t);
+    const int m = d_ms_combs(mu_i, idx_ms_combs, t);
+    const int idx = l * (l + 1) + m; // (l, m)
+    A_list_l[t] = A(ii, mu, idx, n - 1);
+    A_fwd_l[t + 1] = A_fwd_l[t] * A_list_l[t];
+  }
+
+  complex A_backward_prod = complex::one();
+  for (int t = r; t >= 1; t--) {
+    dB_flatten(ii, idx_ms_combs, t) = A_fwd_l[t] * A_backward_prod;
+    A_backward_prod = A_backward_prod * A_list_l[t];
+  }
+  dB_flatten(ii, idx_ms_combs, 0) = A_fwd_l[0] * A_backward_prod;
+
+  const complex B = A_fwd_l[rank];
+  for (int p = 0; p < ndensity; ++p)
+    rhos(ii, p) += B.real_part_product(d_ctildes(mu_i, idx_ms_combs, p));
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1242,6 +1385,75 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const in
         Kokkos::atomic_add(&(weights(ii, mu_t, idxm_sph, n_t - 1).re), valuem.re);
         Kokkos::atomic_add(&(weights(ii, mu_t, idxm_sph, n_t - 1).im), valuem.im);
       }
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------
+   CPU backend: one thread owns atom ii, so the weights scatter is a plain
+   accumulation into that atom's own block instead of four atomics per
+   (ms-combination, rank) step
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeightsCPU, const int& ii) const
+{
+  const int i = d_ilist[ii + chunk_offset];
+  const int mu_i = d_map(type(i));
+  const int ndensity = d_ndensity(mu_i);
+  const int nms = d_idx_ms_combs_count(mu_i);
+
+  for (int idx_ms_combs = 0; idx_ms_combs < nms; idx_ms_combs++)
+    compute_weights_one_cpu(ii, mu_i, ndensity, idx_ms_combs);
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::compute_weights_one_cpu(const int ii, const int mu_i,
+                                                         const int ndensity,
+                                                         const int idx_ms_combs) const
+{
+  const int idx_func = d_idx_funcs(mu_i, idx_ms_combs);
+  const int rank = d_rank(mu_i, idx_func);
+
+  KK_FLOAT theta = 0.0;
+  for (int p = 0; p < ndensity; ++p)
+    theta += dF_drho(ii, p) * d_ctildes(mu_i, idx_ms_combs, p);
+
+  if (rank == 1) {
+    const int mu = d_mus(mu_i, idx_func, 0);
+    const int n = d_ns(mu_i, idx_func, 0);
+    weights_rank1(ii, mu, n - 1) += theta;
+    return;
+  }
+
+  theta *= 0.5; // 0.5 factor due to possible double counting
+  for (int t = 0; t < rank; ++t) {
+    const int m_t = d_ms_combs(mu_i, idx_ms_combs, t);
+    const int factor = (m_t % 2 == 0 ? 1 : -1);
+    const complex dB = dB_flatten(ii, idx_ms_combs, t);
+    const int mu_t = d_mus(mu_i, idx_func, t);
+    const int n_t = d_ns(mu_i, idx_func, t);
+    const int l_t = d_ls(mu_i, idx_func, t);
+    const int idx = l_t * (l_t + 1) + m_t; // (l, m)
+    const int idx_sph = d_idx_sph(idx);
+    if (idx_sph >= 0) {
+      const complex value = theta * dB;
+      weights(ii, mu_t, idx_sph, n_t - 1).re += value.re;
+      weights(ii, mu_t, idx_sph, n_t - 1).im += value.im;
+    }
+    // update -m_t (that could also be positive), because the basis is half_basis
+    const int idxm = l_t * (l_t + 1) - m_t; // (l, -m)
+    const int idxm_sph = d_idx_sph(idxm);
+    if (idxm_sph >= 0) {
+      const complex valuem = theta * dB.conj() * (KK_FLOAT)factor;
+      weights(ii, mu_t, idxm_sph, n_t - 1).re += valuem.re;
+      weights(ii, mu_t, idxm_sph, n_t - 1).im += valuem.im;
     }
   }
 }
