@@ -240,7 +240,7 @@ class PairPACEKokkos : public PairPACE {
     KK_FLOAT *w_rank1;
     KK_FLOAT *rho;
     const KK_FLOAT *dF;
-    const int *mus, *ns, *ls, *ms, *idx_funcs, *rank;
+    const int *mus, *ns, *ls, *ms, *idx_funcs, *rank, *idx_sph;
     const KK_FLOAT *ctildes;
     int A_l, A_n, w_l, w_n, rankmax, ndensitymax;
   };
@@ -353,6 +353,7 @@ class PairPACEKokkos : public PairPACE {
 
   t_ace_4c A_sph;
   t_ace_1d d_idx_sph;
+  t_ace_1i d_idx_sph_cpu;   // int copy, sentinel -1 remapped to a trash row
   t_ace_1d alm;
   t_ace_1d blm;
   t_ace_1d cl;
