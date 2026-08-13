@@ -1331,8 +1331,38 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRadialCPU, const 
   const int mu_i = d_map(type(i));
   const int ncount = d_ncount(ii);
 
-  for (int jj = 0; jj < ncount; jj++)
+  // The lookup tables are far larger than L2 and the bin is data dependent,
+  // so this kernel is bound by L3/DRAM gather latency (measured: ~52 lines
+  // per pair).  Both tables share the same binning, so the next neighbor's
+  // rows can be prefetched while the current one is evaluated.
+#if defined(__GNUC__)
+  const int mu0 = (ncount > 0) ? (int) d_mu(ii, 0) : 0;
+  if (ncount > 0) {
+    auto &sp_gk = k_splines_gk.template view<DeviceType>()(mu_i, mu0);
+    auto &sp_rnl = k_splines_rnl.template view<DeviceType>()(mu_i, mu0);
+    const int nl0 = (int) (d_rnorms(ii, 0) * sp_gk.rscalelookup);
+    const double *g0 = &sp_gk.lookupTable(nl0, 0, 0);
+    const double *r0 = &sp_rnl.lookupTable(nl0, 0, 0);
+    for (int q = 0; q < sp_gk.num_of_functions * 4; q += 8) __builtin_prefetch(g0 + q, 0, 1);
+    for (int q = 0; q < sp_rnl.num_of_functions * 4; q += 8) __builtin_prefetch(r0 + q, 0, 1);
+  }
+#endif
+
+  for (int jj = 0; jj < ncount; jj++) {
+#if defined(__GNUC__)
+    if (jj + 1 < ncount) {
+      const int mu_n = (int) d_mu(ii, jj + 1);
+      auto &sp_gk = k_splines_gk.template view<DeviceType>()(mu_i, mu_n);
+      auto &sp_rnl = k_splines_rnl.template view<DeviceType>()(mu_i, mu_n);
+      const int nl_n = (int) (d_rnorms(ii, jj + 1) * sp_gk.rscalelookup);
+      const double *gn = &sp_gk.lookupTable(nl_n, 0, 0);
+      const double *rn = &sp_rnl.lookupTable(nl_n, 0, 0);
+      for (int q = 0; q < sp_gk.num_of_functions * 4; q += 8) __builtin_prefetch(gn + q, 0, 1);
+      for (int q = 0; q < sp_rnl.num_of_functions * 4; q += 8) __builtin_prefetch(rn + q, 0, 1);
+    }
+#endif
     evaluate_splines(ii, jj, d_rnorms(ii, jj), nradbase, nradmax, mu_i, d_mu(ii, jj));
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1686,9 +1716,23 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRhoCPU, const int& ii) const
 {
+  // ndensity is 1 or 2 for every published ACE potential; fixing it at
+  // compile time lets the short coefficient loops unroll
+  const int nd = d_ndensity(d_map(type(d_ilist[ii + chunk_offset])));
+  if (nd == 2) rho_fs_weights_cpu<2>(ii);
+  else if (nd == 1) rho_fs_weights_cpu<1>(ii);
+  else rho_fs_weights_cpu<0>(ii);
+}
+
+template<class DeviceType>
+template<int NDENSITY>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void PairPACEKokkos<DeviceType>::rho_fs_weights_cpu(const int ii) const
+{
   const int i = d_ilist[ii + chunk_offset];
   const int mu_i = d_map(type(i));
-  const int ndensity = d_ndensity(mu_i);
+  const int ndensity = NDENSITY ? NDENSITY : d_ndensity(mu_i);
   const int nms = d_idx_ms_combs_count(mu_i);
   // rank-1 basis functions occupy the first entries, so the two cases are
   // separate loops rather than a branch inside one
@@ -1707,9 +1751,9 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRhoCPU, const int
 
   // densities
   for (int idx = 0; idx < nms1; idx++)
-    rho_one_rank1_cpu(b, ndensity, idx);
+    rho_one_rank1_cpu<NDENSITY>(b, ndensity, idx);
   for (int idx = nms1; idx < nms; idx++)
-    compute_rho_one_cpu(b, ndensity, idx);
+    compute_rho_one_cpu<NDENSITY>(b, ndensity, idx);
 
   // embedding function F(rho) and its derivatives for this atom
   compute_fs_one(ii);
@@ -1718,9 +1762,9 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRhoCPU, const int
   // are still cache resident
   b.dF = &dF_drho(ii, 0);
   for (int idx = 0; idx < nms1; idx++)
-    weights_one_rank1_cpu(b, ndensity, idx);
+    weights_one_rank1_cpu<NDENSITY>(b, ndensity, idx);
   for (int idx = nms1; idx < nms; idx++)
-    compute_weights_one_cpu(b, ndensity, idx);
+    compute_weights_one_cpu<NDENSITY>(b, ndensity, idx);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1763,6 +1807,7 @@ void PairPACEKokkos<DeviceType>::set_basis_ptrs(BasisPtrs &b, const int ii, cons
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+template<int NDENSITY>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::rho_one_rank1_cpu(const BasisPtrs &b,
@@ -1770,13 +1815,15 @@ void PairPACEKokkos<DeviceType>::rho_one_rank1_cpu(const BasisPtrs &b,
 {
   const KK_FLOAT A_cur = b.A_rank1[b.r1_off[idx]];
   const KK_FLOAT *ct = b.ctildes + idx * b.ndensitymax;
-  for (int p = 0; p < ndensity; ++p)
+  const int nd = NDENSITY ? NDENSITY : ndensity;
+  for (int p = 0; p < nd; ++p)
     b.rho[p] += ct[p] * A_cur;
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+template<int NDENSITY>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::weights_one_rank1_cpu(const BasisPtrs &b,
@@ -1784,7 +1831,8 @@ void PairPACEKokkos<DeviceType>::weights_one_rank1_cpu(const BasisPtrs &b,
 {
   const KK_FLOAT *ct = b.ctildes + idx * b.ndensitymax;
   KK_FLOAT theta = 0.0;
-  for (int p = 0; p < ndensity; ++p)
+  const int nd = NDENSITY ? NDENSITY : ndensity;
+  for (int p = 0; p < nd; ++p)
     theta += b.dF[p] * ct[p];
   b.w_rank1[b.r1_off[idx]] += theta;
 }
@@ -1792,6 +1840,7 @@ void PairPACEKokkos<DeviceType>::weights_one_rank1_cpu(const BasisPtrs &b,
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
+template<int NDENSITY>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::compute_rho_one_cpu(const BasisPtrs &b,
@@ -1804,26 +1853,40 @@ void PairPACEKokkos<DeviceType>::compute_rho_one_cpu(const BasisPtrs &b,
   const int *aoff = b.A_off + idx_ms_combs * b.rankmax;
   complex *dB     = b.dB    + b.dB_off[idx_ms_combs];
 
-  // rank > 1: forward and backward products over the ms-combination
-  complex A_list_l[MAX_RANK_CPU];
-  complex A_fwd_l[MAX_RANK_CPU + 1];
+  complex B;
+  if (rank == 3) {
+    // the dominant correlation order in typical bases; fixed trip count so
+    // the product chains unroll fully, and the terms are grouped by rank in
+    // the tables so this branch is long-run predictable
+    const complex a0 = b.A[aoff[0]], a1 = b.A[aoff[1]], a2 = b.A[aoff[2]];
+    const complex a01 = a0 * a1;
+    dB[0] = a1 * a2;
+    dB[1] = a0 * a2;
+    dB[2] = a01;
+    B = a01 * a2;
+  } else {
+    // general rank > 1: forward and backward products over the ms-combination
+    complex A_list_l[MAX_RANK_CPU];
+    complex A_fwd_l[MAX_RANK_CPU + 1];
 
-  A_fwd_l[0] = complex::one();
-  for (int t = 0; t < rank; t++) {
-    A_list_l[t] = b.A[aoff[t]];
-    A_fwd_l[t + 1] = A_fwd_l[t] * A_list_l[t];
+    A_fwd_l[0] = complex::one();
+    for (int t = 0; t < rank; t++) {
+      A_list_l[t] = b.A[aoff[t]];
+      A_fwd_l[t + 1] = A_fwd_l[t] * A_list_l[t];
+    }
+
+    complex A_backward_prod = complex::one();
+    for (int t = r; t >= 1; t--) {
+      dB[t] = A_fwd_l[t] * A_backward_prod;
+      A_backward_prod = A_backward_prod * A_list_l[t];
+    }
+    dB[0] = A_fwd_l[0] * A_backward_prod;
+
+    B = A_fwd_l[rank];
   }
-
-  complex A_backward_prod = complex::one();
-  for (int t = r; t >= 1; t--) {
-    dB[t] = A_fwd_l[t] * A_backward_prod;
-    A_backward_prod = A_backward_prod * A_list_l[t];
-  }
-  dB[0] = A_fwd_l[0] * A_backward_prod;
-
-  const complex B = A_fwd_l[rank];
   const KK_FLOAT *ct = b.ctildes + idx_ms_combs * b.ndensitymax;
-  for (int p = 0; p < ndensity; ++p)
+  const int nd = NDENSITY ? NDENSITY : ndensity;
+  for (int p = 0; p < nd; ++p)
     b.rho[p] += B.real_part_product(ct[p]);
 }
 
@@ -1961,6 +2024,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const in
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
+template<int NDENSITY>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::compute_weights_one_cpu(const BasisPtrs &b,
@@ -1975,7 +2039,8 @@ void PairPACEKokkos<DeviceType>::compute_weights_one_cpu(const BasisPtrs &b,
   const KK_FLOAT *ct = b.ctildes + idx_ms_combs * b.ndensitymax;
 
   KK_FLOAT theta = 0.0;
-  for (int p = 0; p < ndensity; ++p)
+  const int nd = NDENSITY ? NDENSITY : ndensity;
+  for (int p = 0; p < nd; ++p)
     theta += b.dF[p] * ct[p];
 
   theta *= 0.5; // 0.5 factor due to possible double counting
