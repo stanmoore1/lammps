@@ -45,6 +45,16 @@ class PairPACEKokkos : public PairPACE {
   struct TagPairPACEComputeWeights{};
   struct TagPairPACEComputeDerivative{};
 
+  // CPU backend variants: one atom per thread, neighbours and basis functions
+  // looped over serially inside the kernel.  That removes every atomic and
+  // makes the per-atom accumulators the innermost working set.
+  struct TagPairPACEComputeAiCPU{};
+  struct TagPairPACEConjugateAi{};   // host only: builds the full A from A_sph
+  struct TagPairPACEComputeRadialCPU{};
+  struct TagPairPACEComputeRhoCPU{};   // fused rho -> F(rho) -> weights
+  struct TagPairPACEComputeRhoBatchCPU{};   // same, 8 atoms per work item
+  struct TagPairPACEComputeDerivativeCPU{};
+
   template<int NEIGHFLAG, int EVFLAG>
   struct TagPairPACEComputeForce{};
 
@@ -84,6 +94,31 @@ class PairPACEKokkos : public PairPACE {
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeAiCPU,const int& ii) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEConjugateAi,const int& ii) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeRadialCPU,const int& ii) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeRhoCPU,const int& ii) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeRhoBatchCPU,const int& ib) const;
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPairPACEComputeDerivativeCPU,const int& ii) const;
+
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
   void operator() (TagPairPACEComputeDerivative,const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeDerivative>::member_type& team) const;
 
   template<int NEIGHFLAG, int EVFLAG>
@@ -103,7 +138,6 @@ class PairPACEKokkos : public PairPACE {
   // and the unused kernel set is never instantiated (cf. pair_snap_kokkos.h)
   static constexpr int host_flag =
       (ExecutionSpaceFromDevice<DeviceType>::space == LAMMPS_NS::HostKK);
-
   // team scratch memory level used by the ComputeNeigh short neighbor list build:
   //   NEIGH_SCRATCH_AUTO   - automatically use level 0 (fast on-chip shared
   //                          memory) when it fits, else fall back to level 1
@@ -240,6 +274,78 @@ class PairPACEKokkos : public PairPACE {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   complex read_A(const int ii, const int mu, const int l, const int m, const int n) const;
+  // shared body of ComputeAi.  NEED_ATOMICS is true when several threads may
+  // accumulate into the same atom (device backends), false when one thread
+  // owns the atom (CPU backends), following the sna_kokkos pattern.
+  template<bool NEED_ATOMICS>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void compute_ai_one(const int, const int) const;
+
+  // Base pointers and strides for one atom, hoisted out of the basis-function
+  // loops so the multi-dimensional View subscripts are not recomputed for
+  // every access.  Host only, where the layout is LayoutRight.
+  struct BasisPtrs {
+    const complex *A;
+    const KK_FLOAT *A_rank1;
+    complex *dB;
+    complex *w;
+    KK_FLOAT *w_rank1;
+    KK_FLOAT *rho;
+    const KK_FLOAT *dF;
+    const int *mus, *ns, *ls, *ms, *idx_funcs, *rank, *idx_sph;
+    const int *A_off, *w_off, *wm_off, *r1_off, *dB_off;
+    const KK_FLOAT *ctildes;
+    int A_l, A_n, w_l, w_n, rankmax, ndensitymax;
+  };
+
+  KOKKOS_INLINE_FUNCTION
+  void set_basis_ptrs(BasisPtrs &, const int, const int) const;
+
+  // CPU-only bodies for one (atom, ms-combination): the rank-length products
+  // live on the stack instead of in chunk-sized global arrays.  NDENSITY
+  // fixes the density count at compile time (0 = runtime).
+  template<int NDENSITY>
+  KOKKOS_INLINE_FUNCTION
+  void rho_fs_weights_cpu(const int) const;
+
+  template<int NDENSITY>
+  KOKKOS_INLINE_FUNCTION
+  void rho_fs_weights_batch_cpu(const int, const int, const int) const;
+
+  template<int NDENSITY>
+  KOKKOS_INLINE_FUNCTION
+  void compute_rho_one_cpu(const BasisPtrs &, const int, const int) const;
+
+  template<int NDENSITY>
+  KOKKOS_INLINE_FUNCTION
+  void compute_weights_one_cpu(const BasisPtrs &, const int, const int) const;
+
+  template<int NDENSITY>
+  KOKKOS_INLINE_FUNCTION
+  void rho_one_rank1_cpu(const BasisPtrs &, const int, const int) const;
+
+  template<int NDENSITY>
+  KOKKOS_INLINE_FUNCTION
+  void weights_one_rank1_cpu(const BasisPtrs &, const int, const int) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void compute_fs_one(const int) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void compute_derivative_one(const int, const int) const;
+
+  // upper bound on the ACE correlation order, for the stack temporaries above
+  static constexpr int MAX_RANK_CPU = 16;
+
+  // flat one-atom-per-thread policy used by the CPU kernels.  A dynamic
+  // schedule matters because the per-atom cost follows the neighbor count,
+  // which is ragged (cf. snap_get_policy in pair_snap_kokkos.h).
+  template<class TagStyle>
+  auto host_atom_policy() const {
+    return Kokkos::RangePolicy<DeviceType, Kokkos::Schedule<Kokkos::Dynamic>,
+                               TagStyle>(0, chunk_size);
+  }
 
   template<class TagStyle>
   void check_team_size_for(int, int&, int);
@@ -317,9 +423,25 @@ class PairPACEKokkos : public PairPACE {
   // (rather than an interleaved complex array) so that the atomic
   // accumulation over neighbors in ComputeAi is coalesced across the
   // (innermost) atom index on GPUs. Mirrors Kokkos SNAP's ulisttot_re/im.
+  // ------------------------------------------------------------------
+  // Host-only ("dual layout") arrays.
+  //
+  // The CPU kernels keep the original interleaved-complex layout, which is
+  // what a single thread walking one atom wants: re/im land in the same
+  // cache line. The device kernels use the split re/im arrays below, which
+  // is what a warp scattering across atoms wants (coalescing). Only one set
+  // is ever allocated -- see grow() -- so the duplication is in the
+  // declarations, not in memory.
+  // ------------------------------------------------------------------
+  t_ace_4c A;           // full (l,m) A basis, host only
+  t_ace_4c A_sph;       // interleaved half-basis A, host only
+  t_ace_4c weights;     // interleaved weights, host only
+  t_ace_3c dB_flatten;  // stored leave-one-out products, host only
+
   t_ace_4d A_sph_re;
   t_ace_4d A_sph_im;
   t_ace_1d d_idx_sph;
+  t_ace_1i d_idx_sph_cpu;   // int copy, sentinel -1 remapped to a trash row
   t_ace_1d alm;
   t_ace_1d blm;
   t_ace_1d cl;
@@ -348,6 +470,7 @@ class PairPACEKokkos : public PairPACE {
 
   // tilde
   t_ace_1i d_idx_ms_combs_count;
+  t_ace_1i d_nms_rank1;   // number of rank-1 ms-combinations, which come first
   t_ace_2i_lr d_rank;
   t_ace_2i_lr d_num_ms_combs;
   t_ace_2i_lr d_idx_funcs;
@@ -356,6 +479,23 @@ class PairPACEKokkos : public PairPACE {
   t_ace_3i_lr d_ls;
   t_ace_3i_lr d_ms_combs;
   t_ace_3d d_ctildes;
+
+  // CPU only: the flattened offset of each (ms-combination, rank) term into an
+  // atom's A and weights blocks, precomputed once so the inner loops do a
+  // single load instead of walking mus/ns/ls/ms_combs and rebuilding the
+  // subscript.  d_wm_off carries the (l,-m) offset with the sign of the
+  // half-basis factor packed into its low bit.
+  t_ace_3i_lr d_A_off, d_w_off, d_wm_off;
+  t_ace_2i_lr d_r1_off;
+  // prefix offsets into the rank-compacted dB store: entry idx begins at
+  // d_dB_off(mu,idx).  Compaction halves the dB stream for typical bases,
+  // where most ms-combinations have rank ~3 but the padded stride is rankmax.
+  t_ace_2i_lr d_dB_off;
+  int dB_total_max;
+  // whether the basis fits the stack buffers of the batched CPU kernels
+  bool use_batched_cpu = false;
+
+  void build_cpu_offset_tables();
 
   t_ace_3d3 f_ij;
 
