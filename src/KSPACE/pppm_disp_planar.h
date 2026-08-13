@@ -57,6 +57,7 @@ class PPPMDispPlanar : public KSpace {
   int order;             // assignment/interpolation stencil order
   double g_ewald_set;    // splitting parameter actually used
   double sw_width;       // dispersion switch width Delta (read from the matched pair)
+  int sw_order;          // C^n switch order (read from the matched pair; default 3)
   int mix_flag;          // C6 cross-term mixing: 0 = geometric, 1 = arithmetic (LB)
   int nchan;             // # dispersion channels: 1 (geometric) or 7 (arithmetic)
 

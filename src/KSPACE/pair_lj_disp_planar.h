@@ -48,8 +48,9 @@ class PairLJDispPlanar : public PairLJCut {
   double sw_width;        // switch width Delta
   double inv_sw_width;    // 1/Delta, precomputed for the hot loop
   double inner_rc2;       // rcut^2 (inner boundary; full LJ for r < rcut)
-  static double sw_S(double t);
-  static double sw_dS(double t);
+  int sw_order;           // switch smoothness n: C^n smootherstep (3 default, 4, 5)
+  double sw_S(double t) const;     // generalized smootherstep S_n(t)
+  double sw_dS(double t) const;    // its derivative S_n'(t) = c_n (t(1-t))^n
 };
 
 }    // namespace LAMMPS_NS

@@ -36,39 +36,56 @@ PairLJDispPlanar::PairLJDispPlanar(LAMMPS *lmp) : PairLJCut(lmp)
 {
   sw_width = 0.1;      // default switch width Delta
   inner_rc2 = 0.0;
+  sw_order = 3;        // default C3 septic switch
   respa_enable = 0;    // rRESPA inner/middle/outer not supported with the switch
 }
 
 /* ----------------------------------------------------------------------
-   C3 (septic) smoothstep S(t) and its derivative S'(t)=140 t^3 (1-t)^3,
-   identical to the kspace ewald/disp/planar compact switch.
+   Generalized C^n smootherstep S_n(t) (degree 2n+1 Hermite interpolant, first n
+   derivatives vanishing at t=0,1) and its derivative S_n'(t) = c_n (t(1-t))^n
+   with c_n = (2n+1)!/(n!)^2.  n=3 is the septic default; higher n gives faster
+   reciprocal-coefficient decay (h^-(n+2)) and a smaller grid at fixed accuracy.
+   MUST match the kspace ewald/disp/planar / pppm/disp/planar switch_S/switch_dS.
 ------------------------------------------------------------------------- */
 
-double PairLJDispPlanar::sw_S(double t)
+double PairLJDispPlanar::sw_S(double t) const
 {
   if (t <= 0.0) return 0.0;
   if (t >= 1.0) return 1.0;
-  const double t2 = t * t, t3 = t2 * t, t4 = t3 * t;
-  return t4 * (35.0 - 84.0 * t + 70.0 * t2 - 20.0 * t3);
+  const double t2 = t * t, t3 = t2 * t, t4 = t3 * t, t5 = t4 * t;
+  if (sw_order == 4)
+    return t5 * (126.0 + t * (-420.0 + t * (540.0 + t * (-315.0 + 70.0 * t))));
+  if (sw_order == 5) {
+    const double t6 = t5 * t;
+    return t6 * (462.0 + t * (-1980.0 + t * (3465.0 + t * (-3080.0 + t * (1386.0 - 252.0 * t)))));
+  }
+  return t4 * (35.0 + t * (-84.0 + t * (70.0 - 20.0 * t)));    // n=3 (default)
 }
 
-double PairLJDispPlanar::sw_dS(double t)
+double PairLJDispPlanar::sw_dS(double t) const
 {
   if (t <= 0.0 || t >= 1.0) return 0.0;
-  const double u = 1.0 - t;
-  return 140.0 * t * t * t * u * u * u;
+  const double tu = t * (1.0 - t), tu2 = tu * tu;
+  if (sw_order == 4) return 630.0 * tu2 * tu2;             // 630 (t(1-t))^4
+  if (sw_order == 5) return 2772.0 * tu2 * tu2 * tu;       // 2772 (t(1-t))^5
+  return 140.0 * tu2 * tu;                                 // 140 (t(1-t))^3 (default)
 }
 
 /* ----------------------------------------------------------------------
-   pair_style lj/disp/planar <rcut> <Delta>
+   pair_style lj/disp/planar <rcut> [Delta] [order]
 ------------------------------------------------------------------------- */
 
 void PairLJDispPlanar::settings(int narg, char **arg)
 {
-  if (narg < 1 || narg > 2) error->all(FLERR, "Illegal pair_style lj/disp/planar command");
+  if (narg < 1 || narg > 3) error->all(FLERR, "Illegal pair_style lj/disp/planar command");
   cut_global = utils::numeric(FLERR, arg[0], false, lmp);
   if (narg >= 2) sw_width = utils::numeric(FLERR, arg[1], false, lmp);    // else default 0.1
   if (sw_width <= 0.0) error->all(FLERR, "pair_style lj/disp/planar switch width must be > 0");
+  if (narg == 3) {
+    sw_order = utils::inumeric(FLERR, arg[2], false, lmp);
+    if (sw_order < 3 || sw_order > 5)
+      error->all(FLERR, "pair_style lj/disp/planar switch order must be 3, 4, or 5");
+  }
   inv_sw_width = 1.0 / sw_width;    // precomputed for the hot loop
 
   // reset per-type cutoffs (always global here)
@@ -139,13 +156,18 @@ void PairLJDispPlanar::write_restart_settings(FILE *fp)
 {
   PairLJCut::write_restart_settings(fp);
   fwrite(&sw_width, sizeof(double), 1, fp);
+  fwrite(&sw_order, sizeof(int), 1, fp);
 }
 
 void PairLJDispPlanar::read_restart_settings(FILE *fp)
 {
   PairLJCut::read_restart_settings(fp);
-  if (comm->me == 0) utils::sfread(FLERR, &sw_width, sizeof(double), 1, fp, nullptr, error);
+  if (comm->me == 0) {
+    utils::sfread(FLERR, &sw_width, sizeof(double), 1, fp, nullptr, error);
+    utils::sfread(FLERR, &sw_order, sizeof(int), 1, fp, nullptr, error);
+  }
   MPI_Bcast(&sw_width, 1, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&sw_order, 1, MPI_INT, 0, world);
   inv_sw_width = 1.0 / sw_width;
 }
 
@@ -226,10 +248,7 @@ void PairLJDispPlanar::compute(int eflag, int vflag)
         const double rinv = sqrt(r2inv);
         const double r = rsq * rinv;    // = sqrt(rsq), one mul not a div
         const double t = (r - rc_inner) * invsw;
-        const double t2 = t * t, t3 = t2 * t, t4 = t3 * t;
-        const double S = t4 * (35.0 + t * (-84.0 + t * (70.0 - 20.0 * t)));    // Horner
-        const double u = 1.0 - t;
-        const double dS = 140.0 * t3 * u * u * u;    // dS/dt
+        const double S = sw_S(t), dS = sw_dS(t);    // C^n smootherstep (order sw_order)
         const double oneMinusS = 1.0 - S;
         const double lj1ij = lj1[itype][jtype], lj3ij = lj3[itype][jtype];
         const double lj4ij = lj4[itype][jtype];
@@ -294,6 +313,10 @@ void *PairLJDispPlanar::extract(const char *str, int &dim)
   if (strcmp(str, "disp_switch_width") == 0) {
     dim = 0;
     return (void *) &sw_width;
+  }
+  if (strcmp(str, "disp_switch_order") == 0) {    // C^n switch order for the matched kspace
+    dim = 0;
+    return (void *) &sw_order;
   }
   if (strcmp(str, "ewald_mix") == 0) {    // C6 mixing rule for the matched kspace style
     dim = 0;

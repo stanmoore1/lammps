@@ -49,6 +49,7 @@ class EwaldDispPlanar : public KSpace {
   int mix_flag;        // C6 cross-term mixing: 0 = geometric, 1 = arithmetic (LB)
   int nchan;           // # dispersion channels: 1 (geometric) or 7 (arithmetic)
   double sw_width;     // dispersion switch width Delta (read from the matched pair)
+  int sw_order;        // C^n switch order (read from the matched pair; default 3)
   double volume, cutoff, rc2;
   double unitk;                       // 2*pi/Lz
   double estimated_force_accuracy;    // predicted RMS per-atom force error

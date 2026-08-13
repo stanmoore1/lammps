@@ -73,6 +73,7 @@ PPPMDispPlanar::PPPMDispPlanar(LAMMPS *lmp) :
   mix_flag = 0;
   nchan = 1;
   sw_width = 0.0;
+  sw_order = 3;
   cWgrid = nullptr;
   cWraw = nullptr;
   ncgrid = 0;
@@ -195,6 +196,11 @@ void PPPMDispPlanar::init()
                "to switch off the dispersion smoothly at the cutoff; use "
                "pair_style lj/disp/planar <rcut> <Delta>");
   sw_width = *p_dz;
+
+  // C^n switch order (must match the pair); default 3 if the pair predates the option
+  int otmp;
+  int *p_ord = (int *) force->pair->extract("disp_switch_order", otmp);
+  sw_order = (p_ord != nullptr) ? *p_ord : 3;
 
   // accuracy in force units
 
@@ -716,9 +722,14 @@ double PPPMDispPlanar::switch_S(double t)
 {
   if (t <= 0.0) return 0.0;
   if (t >= 1.0) return 1.0;
-  const double t2 = t * t;
-  const double t3 = t2 * t, t4 = t3 * t;
-  return t4 * (35.0 - 84.0 * t + 70.0 * t2 - 20.0 * t3);
+  const double t2 = t * t, t3 = t2 * t, t4 = t3 * t, t5 = t4 * t;
+  if (sw_order == 4)
+    return t5 * (126.0 + t * (-420.0 + t * (540.0 + t * (-315.0 + 70.0 * t))));
+  if (sw_order == 5) {
+    const double t6 = t5 * t;
+    return t6 * (462.0 + t * (-1980.0 + t * (3465.0 + t * (-3080.0 + t * (1386.0 - 252.0 * t)))));
+  }
+  return t4 * (35.0 + t * (-84.0 + t * (70.0 - 20.0 * t)));    // n=3 (default)
 }
 
 /* ---------------------------------------------------------------------- */
@@ -726,8 +737,10 @@ double PPPMDispPlanar::switch_S(double t)
 double PPPMDispPlanar::switch_dS(double t)
 {
   if (t <= 0.0 || t >= 1.0) return 0.0;
-  const double tu = t * (1.0 - t);
-  return 140.0 * tu * tu * tu;    // 140 (t(1-t))^3
+  const double tu = t * (1.0 - t), tu2 = tu * tu;
+  if (sw_order == 4) return 630.0 * tu2 * tu2;          // 630 (t(1-t))^4
+  if (sw_order == 5) return 2772.0 * tu2 * tu2 * tu;    // 2772 (t(1-t))^5
+  return 140.0 * tu2 * tu;                              // 140 (t(1-t))^3 (default)
 }
 
 /* ----------------------------------------------------------------------
