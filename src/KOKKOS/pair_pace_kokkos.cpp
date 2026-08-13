@@ -142,6 +142,16 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
     MemKK::realloc_kokkos(dB_flatten, "pace:dB_flatten", natom, idx_ms_combs_max, basis_set->rankmax);
   }
 
+  if constexpr (host_flag) {
+    // the offset tables assume the trailing dimensions are packed
+    if (((int)A.stride(2) != (int)A.extent(3)) ||
+        ((int)A.stride(1) != (int)A.extent(2) * (int)A.extent(3)) ||
+        ((int)weights.stride(2) != (int)weights.extent(3)) ||
+        ((int)weights.stride(1) != (int)weights.extent(2) * (int)weights.extent(3)))
+      error->all(FLERR, "Pair style pace/kk: unexpected padding in the "
+                        "coefficient arrays on a CPU backend");
+  }
+
   if (((int)fr.extent(0) < natom) || ((int)fr.extent(1) < maxneigh)) {
 
     // radial functions
@@ -470,6 +480,88 @@ void PairPACEKokkos<DeviceType>::init_style()
   copy_pertype();
   copy_splines();
   copy_tilde();
+
+  if constexpr (host_flag) build_cpu_offset_tables();
+}
+
+/* ----------------------------------------------------------------------
+   CPU only: precompute, for every (ms-combination, rank) term, the flat
+   offset of the A entry it gathers and of the two weights entries it
+   scatters into.  The inner loops of the density and weights passes then do
+   one integer load each instead of four loads out of mus/ns/ls/ms_combs plus
+   the index arithmetic to rebuild the subscript.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairPACEKokkos<DeviceType>::build_cpu_offset_tables()
+{
+  const int rankmax = (int) d_ms_combs.extent(2);
+  const int A_l = (lmax + 1) * (lmax + 1);
+  const int A_n = nradmax + 1;
+  const int w_l = idx_sph_max + 1;      // includes the trash row
+  const int w_n = nradmax + 1;
+
+  MemKK::realloc_kokkos(d_A_off, "pace:A_off", nelements, idx_ms_combs_max, rankmax);
+  MemKK::realloc_kokkos(d_w_off, "pace:w_off", nelements, idx_ms_combs_max, rankmax);
+  MemKK::realloc_kokkos(d_wm_off, "pace:wm_off", nelements, idx_ms_combs_max, rankmax);
+  MemKK::realloc_kokkos(d_r1_off, "pace:r1_off", nelements, idx_ms_combs_max);
+
+  auto h_A_off = Kokkos::create_mirror_view(d_A_off);
+  auto h_w_off = Kokkos::create_mirror_view(d_w_off);
+  auto h_wm_off = Kokkos::create_mirror_view(d_wm_off);
+  auto h_r1_off = Kokkos::create_mirror_view(d_r1_off);
+
+  auto h_idx_funcs = Kokkos::create_mirror_view(d_idx_funcs);
+  auto h_rank = Kokkos::create_mirror_view(d_rank);
+  auto h_mus = Kokkos::create_mirror_view(d_mus);
+  auto h_ns = Kokkos::create_mirror_view(d_ns);
+  auto h_ls = Kokkos::create_mirror_view(d_ls);
+  auto h_ms = Kokkos::create_mirror_view(d_ms_combs);
+  auto h_isph = Kokkos::create_mirror_view(d_idx_sph_cpu);
+  auto h_count = Kokkos::create_mirror_view(d_idx_ms_combs_count);
+  auto h_nms1 = Kokkos::create_mirror_view(d_nms_rank1);
+  Kokkos::deep_copy(h_idx_funcs, d_idx_funcs);
+  Kokkos::deep_copy(h_rank, d_rank);
+  Kokkos::deep_copy(h_mus, d_mus);
+  Kokkos::deep_copy(h_ns, d_ns);
+  Kokkos::deep_copy(h_ls, d_ls);
+  Kokkos::deep_copy(h_ms, d_ms_combs);
+  Kokkos::deep_copy(h_isph, d_idx_sph_cpu);
+  Kokkos::deep_copy(h_count, d_idx_ms_combs_count);
+  Kokkos::deep_copy(h_nms1, d_nms_rank1);
+
+  for (int mu_i = 0; mu_i < nelements; mu_i++) {
+    const int nms = h_count(mu_i);
+    const int nms1 = h_nms1(mu_i);
+
+    for (int idx = 0; idx < nms1; idx++) {
+      const int idx_func = h_idx_funcs(mu_i, idx);
+      h_r1_off(mu_i, idx) = h_mus(mu_i, idx_func, 0) * nradbase
+                            + h_ns(mu_i, idx_func, 0) - 1;
+    }
+
+    for (int idx = nms1; idx < nms; idx++) {
+      const int idx_func = h_idx_funcs(mu_i, idx);
+      const int rank = h_rank(mu_i, idx_func);
+      for (int t = 0; t < rank; t++) {
+        const int mu = h_mus(mu_i, idx_func, t);
+        const int n = h_ns(mu_i, idx_func, t);
+        const int l = h_ls(mu_i, idx_func, t);
+        const int m = h_ms(mu_i, idx, t);
+        const int lbase = l * (l + 1);
+        h_A_off(mu_i, idx, t) = (mu * A_l + lbase + m) * A_n + n - 1;
+        h_w_off(mu_i, idx, t) = (mu * w_l + h_isph(lbase + m)) * w_n + n - 1;
+        // low bit carries the (-1)^m factor of the half-basis
+        h_wm_off(mu_i, idx, t) =
+            (((mu * w_l + h_isph(lbase - m)) * w_n + n - 1) << 1) | (m & 1);
+      }
+    }
+  }
+
+  Kokkos::deep_copy(d_A_off, h_A_off);
+  Kokkos::deep_copy(d_w_off, h_w_off);
+  Kokkos::deep_copy(d_wm_off, h_wm_off);
+  Kokkos::deep_copy(d_r1_off, h_r1_off);
 }
 
 /* ----------------------------------------------------------------------
@@ -983,12 +1075,26 @@ void PairPACEKokkos<DeviceType>::compute_ai_one(const int ii, const int jj) cons
 {
   const int mu_j = d_mu(ii, jj);
 
+  // Hoist the (atom, neighbor) and (atom, element) parts of the subscripts out
+  // of the innermost loops.  Using View::stride() keeps this correct for any
+  // layout, so it is a strength reduction rather than a layout assumption.
+  const KK_FLOAT * const fr_ij = &fr(ii, jj, 0, 0);
+  const KK_FLOAT * const gr_ij = &gr(ii, jj, 0);
+  complex * const A_sph_i = &A_sph(ii, mu_j, 0, 0);
+  KK_FLOAT * const A_rank1_i = &A_rank1(ii, mu_j, 0);
+  const int fr_sl = (int) fr.stride(2);
+  const int fr_sn = (int) fr.stride(3);
+  const int gr_sn = (int) gr.stride(2);
+  const int sph_ss = (int) A_sph.stride(2);
+  const int sph_sn = (int) A_sph.stride(3);
+  const int ar1_sn = (int) A_rank1.stride(2);
+
   // rank = 1
   for (int n = 0; n < nradbase; n++) {
     if constexpr (NEED_ATOMICS)
-      Kokkos::atomic_add(&A_rank1(ii, mu_j, n), gr(ii, jj, n) * Y00);
+      Kokkos::atomic_add(&A_rank1_i[n * ar1_sn], gr_ij[n * gr_sn] * Y00);
     else
-      A_rank1(ii, mu_j, n) += gr(ii, jj, n) * Y00;
+      A_rank1_i[n * ar1_sn] += gr_ij[n * gr_sn] * Y00;
   }
 
   // rank > 1
@@ -1036,13 +1142,15 @@ void PairPACEKokkos<DeviceType>::compute_ai_one(const int ii, const int jj) cons
     ylm.re = plm_idx;
     ylm.im = 0.0;
 
+    complex * const a_sph = A_sph_i + idx_sph * sph_ss;
+    const KK_FLOAT * const r_nl = fr_ij + l * fr_sl;
     for (int n = 0; n < nradmax; n++) {
       if constexpr (NEED_ATOMICS) {
-        Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).re, fr(ii, jj, l, n) * ylm.re);
-        Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).im, fr(ii, jj, l, n) * ylm.im);
+        Kokkos::atomic_add(&a_sph[n * sph_sn].re, r_nl[n * fr_sn] * ylm.re);
+        Kokkos::atomic_add(&a_sph[n * sph_sn].im, r_nl[n * fr_sn] * ylm.im);
       } else {
-        A_sph(ii, mu_j, idx_sph, n).re += fr(ii, jj, l, n) * ylm.re;
-        A_sph(ii, mu_j, idx_sph, n).im += fr(ii, jj, l, n) * ylm.im;
+        a_sph[n * sph_sn].re += r_nl[n * fr_sn] * ylm.re;
+        a_sph[n * sph_sn].im += r_nl[n * fr_sn] * ylm.im;
       }
     }
 
@@ -1070,13 +1178,15 @@ void PairPACEKokkos<DeviceType>::compute_ai_one(const int ii, const int jj) cons
 
     ylm = phase * plm_idx;
 
+    complex * const a_sph = A_sph_i + idx_sph * sph_ss;
+    const KK_FLOAT * const r_nl = fr_ij + l * fr_sl;
     for (int n = 0; n < nradmax; n++) {
       if constexpr (NEED_ATOMICS) {
-        Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).re, fr(ii, jj, l, n) * ylm.re);
-        Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).im, fr(ii, jj, l, n) * ylm.im);
+        Kokkos::atomic_add(&a_sph[n * sph_sn].re, r_nl[n * fr_sn] * ylm.re);
+        Kokkos::atomic_add(&a_sph[n * sph_sn].im, r_nl[n * fr_sn] * ylm.im);
       } else {
-        A_sph(ii, mu_j, idx_sph, n).re += fr(ii, jj, l, n) * ylm.re;
-        A_sph(ii, mu_j, idx_sph, n).im += fr(ii, jj, l, n) * ylm.im;
+        a_sph[n * sph_sn].re += r_nl[n * fr_sn] * ylm.re;
+        a_sph[n * sph_sn].im += r_nl[n * fr_sn] * ylm.im;
       }
     }
 
@@ -1114,13 +1224,15 @@ void PairPACEKokkos<DeviceType>::compute_ai_one(const int ii, const int jj) cons
       ylm.re = phasem.re * plm_idx;
       ylm.im = phasem.im * plm_idx;
 
+      complex * const a_sph = A_sph_i + idx_sph * sph_ss;
+      const KK_FLOAT * const r_nl = fr_ij + l * fr_sl;
       for (int n = 0; n < nradmax; n++) {
         if constexpr (NEED_ATOMICS) {
-          Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).re, fr(ii, jj, l, n) * ylm.re);
-          Kokkos::atomic_add(&A_sph(ii, mu_j, idx_sph, n).im, fr(ii, jj, l, n) * ylm.im);
+          Kokkos::atomic_add(&a_sph[n * sph_sn].re, r_nl[n * fr_sn] * ylm.re);
+          Kokkos::atomic_add(&a_sph[n * sph_sn].im, r_nl[n * fr_sn] * ylm.im);
         } else {
-          A_sph(ii, mu_j, idx_sph, n).re += fr(ii, jj, l, n) * ylm.re;
-          A_sph(ii, mu_j, idx_sph, n).im += fr(ii, jj, l, n) * ylm.im;
+          a_sph[n * sph_sn].re += r_nl[n * fr_sn] * ylm.re;
+          a_sph[n * sph_sn].im += r_nl[n * fr_sn] * ylm.im;
         }
       }
 
@@ -1322,6 +1434,10 @@ void PairPACEKokkos<DeviceType>::set_basis_ptrs(BasisPtrs &b, const int ii, cons
   b.ctildes = &d_ctildes(mu_i, 0, 0);
   b.idx_funcs = &d_idx_funcs(mu_i, 0);
   b.idx_sph = &d_idx_sph_cpu(0);
+  b.A_off   = &d_A_off(mu_i, 0, 0);
+  b.w_off   = &d_w_off(mu_i, 0, 0);
+  b.wm_off  = &d_wm_off(mu_i, 0, 0);
+  b.r1_off  = &d_r1_off(mu_i, 0);
   b.rank    = &d_rank(mu_i, 0);
 
   b.A_l   = (int) A.extent(2);            // (lmax+1)^2
@@ -1340,10 +1456,7 @@ KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::rho_one_rank1_cpu(const BasisPtrs &b,
                                                    const int ndensity, const int idx) const
 {
-  const int idx_func = b.idx_funcs[idx];
-  const int mu = b.mus[idx_func * b.rankmax];
-  const int n = b.ns[idx_func * b.rankmax];
-  const KK_FLOAT A_cur = b.A_rank1[mu * nradbase + n - 1];
+  const KK_FLOAT A_cur = b.A_rank1[b.r1_off[idx]];
   const KK_FLOAT *ct = b.ctildes + idx * b.ndensitymax;
   for (int p = 0; p < ndensity; ++p)
     b.rho[p] += ct[p] * A_cur;
@@ -1357,14 +1470,11 @@ KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::weights_one_rank1_cpu(const BasisPtrs &b,
                                                        const int ndensity, const int idx) const
 {
-  const int idx_func = b.idx_funcs[idx];
-  const int mu = b.mus[idx_func * b.rankmax];
-  const int n = b.ns[idx_func * b.rankmax];
   const KK_FLOAT *ct = b.ctildes + idx * b.ndensitymax;
   KK_FLOAT theta = 0.0;
   for (int p = 0; p < ndensity; ++p)
     theta += b.dF[p] * ct[p];
-  b.w_rank1[mu * nradbase + n - 1] += theta;
+  b.w_rank1[b.r1_off[idx]] += theta;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1376,15 +1486,11 @@ void PairPACEKokkos<DeviceType>::compute_rho_one_cpu(const BasisPtrs &b,
                                                      const int ndensity,
                                                      const int idx_ms_combs) const
 {
-  const int idx_func = b.idx_funcs[idx_ms_combs];
-  const int rank = b.rank[idx_func];
+  const int rank = b.rank[b.idx_funcs[idx_ms_combs]];
   const int r = rank - 1;
 
-  const int *mus = b.mus + idx_func * b.rankmax;
-  const int *ns  = b.ns  + idx_func * b.rankmax;
-  const int *ls  = b.ls  + idx_func * b.rankmax;
-  const int *ms  = b.ms  + idx_ms_combs * b.rankmax;
-  complex *dB    = b.dB  + idx_ms_combs * b.rankmax;
+  const int *aoff = b.A_off + idx_ms_combs * b.rankmax;
+  complex *dB     = b.dB    + idx_ms_combs * b.rankmax;
 
   // rank > 1: forward and backward products over the ms-combination
   complex A_list_l[MAX_RANK_CPU];
@@ -1392,9 +1498,7 @@ void PairPACEKokkos<DeviceType>::compute_rho_one_cpu(const BasisPtrs &b,
 
   A_fwd_l[0] = complex::one();
   for (int t = 0; t < rank; t++) {
-    const int l = ls[t];
-    const int idx = l * (l + 1) + ms[t]; // (l, m)
-    A_list_l[t] = b.A[(mus[t] * b.A_l + idx) * b.A_n + ns[t] - 1];
+    A_list_l[t] = b.A[aoff[t]];
     A_fwd_l[t + 1] = A_fwd_l[t] * A_list_l[t];
   }
 
@@ -1551,13 +1655,10 @@ void PairPACEKokkos<DeviceType>::compute_weights_one_cpu(const BasisPtrs &b,
                                                          const int ndensity,
                                                          const int idx_ms_combs) const
 {
-  const int idx_func = b.idx_funcs[idx_ms_combs];
-  const int rank = b.rank[idx_func];
+  const int rank = b.rank[b.idx_funcs[idx_ms_combs]];
 
-  const int *mus = b.mus + idx_func * b.rankmax;
-  const int *ns  = b.ns  + idx_func * b.rankmax;
-  const int *ls  = b.ls  + idx_func * b.rankmax;
-  const int *ms  = b.ms  + idx_ms_combs * b.rankmax;
+  const int *woff  = b.w_off  + idx_ms_combs * b.rankmax;
+  const int *wmoff = b.wm_off + idx_ms_combs * b.rankmax;
   const complex *dB = b.dB + idx_ms_combs * b.rankmax;
   const KK_FLOAT *ct = b.ctildes + idx_ms_combs * b.ndensitymax;
 
@@ -1567,22 +1668,19 @@ void PairPACEKokkos<DeviceType>::compute_weights_one_cpu(const BasisPtrs &b,
 
   theta *= 0.5; // 0.5 factor due to possible double counting
   for (int t = 0; t < rank; ++t) {
-    const int m_t = ms[t];
-    const int factor = (m_t % 2 == 0 ? 1 : -1);
-    const int l_t = ls[t];
-    const int lbase = l_t * (l_t + 1);
-    complex *w_t = b.w + (mus[t] * b.w_l) * b.w_n + ns[t] - 1;
     // both (l,m) and (l,-m) are updated unconditionally; entries outside the
     // packed triangle land in the trash row
-    const int idx_sph = b.idx_sph[lbase + m_t];
     const complex value = theta * dB[t];
-    w_t[idx_sph * b.w_n].re += value.re;
-    w_t[idx_sph * b.w_n].im += value.im;
+    complex &w = b.w[woff[t]];
+    w.re += value.re;
+    w.im += value.im;
 
-    const int idxm_sph = b.idx_sph[lbase - m_t];
-    const complex valuem = theta * dB[t].conj() * (KK_FLOAT)factor;
-    w_t[idxm_sph * b.w_n].re += valuem.re;
-    w_t[idxm_sph * b.w_n].im += valuem.im;
+    const int packed = wmoff[t];
+    const KK_FLOAT factor = (packed & 1) ? KK_FLOAT(-1.0) : KK_FLOAT(1.0);
+    const complex valuem = theta * dB[t].conj() * factor;
+    complex &wm = b.w[packed >> 1];
+    wm.re += valuem.re;
+    wm.im += valuem.im;
   }
 }
 
@@ -1632,6 +1730,21 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
   const KK_FLOAT scale = d_scale(itype,itype);
 
   const int mu_j = d_mu(ii, jj);
+
+  // same strength reduction as in compute_ai_one: the (atom, neighbor) and
+  // (atom, element) parts of the subscripts are loop invariant here
+  const KK_FLOAT * const fr_ij = &fr(ii, jj, 0, 0);
+  const KK_FLOAT * const dfr_ij = &dfr(ii, jj, 0, 0);
+  const KK_FLOAT * const dgr_ij = &dgr(ii, jj, 0);
+  const complex * const w_i = &weights(ii, mu_j, 0, 0);
+  const KK_FLOAT * const wr1_i = &weights_rank1(ii, mu_j, 0);
+  const int fr_sl = (int) fr.stride(2);
+  const int fr_sn = (int) fr.stride(3);
+  const int dgr_sn = (int) dgr.stride(2);
+  const int w_ss = (int) weights.stride(2);
+  const int w_sn = (int) weights.stride(3);
+  const int wr1_sn = (int) weights_rank1.stride(2);
+
   KK_FLOAT r_hat[3];
   r_hat[0] = d_rhats(ii, jj, 0);
   r_hat[1] = d_rhats(ii, jj, 1);
@@ -1644,9 +1757,8 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
 
   // for rank = 1
   for (int n = 0; n < nradbase; ++n) {
-    KK_FLOAT &DG = dgr(ii, jj, n);
-    KK_FLOAT DGR = DG * Y00;
-    DGR *= weights_rank1(ii, mu_j, n);
+    KK_FLOAT DGR = dgr_ij[n * dgr_sn] * Y00;
+    DGR *= wr1_i[n * wr1_sn];
     f_ji[0] += DGR * r_hat[0];
     f_ji[1] += DGR * r_hat[1];
     f_ji[2] += DGR * r_hat[2];
@@ -1712,13 +1824,16 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
     dylm[2].re = dyz.re - rdy.re * rz;
     dylm[2].im = 0;
 
+    const KK_FLOAT * const r_nl = fr_ij + l * fr_sl;
+    const KK_FLOAT * const dr_nl = dfr_ij + l * fr_sl;
+    const complex * const w_nl = w_i + idx_sph * w_ss;
     for (int n = 0; n < nradmax; n++) {
 
-      const KK_FLOAT R_over_r = fr(ii, jj, l, n) * rinv;
-      const KK_FLOAT DR = dfr(ii, jj, l, n);
+      const KK_FLOAT R_over_r = r_nl[n * fr_sn] * rinv;
+      const KK_FLOAT DR = dr_nl[n * fr_sn];
       const complex Y_DR = ylm * DR;
 
-      complex w = weights(ii, mu_j, idx_sph, n);
+      complex w = w_nl[n * w_sn];
 
       complex grad_phi_nlm[3];
       grad_phi_nlm[0] = Y_DR * r_hat[0] + dylm[0] * R_over_r;
@@ -1778,13 +1893,16 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
     dylm[2].re = dyz.re - rdy.re * rz;
     dylm[2].im = dyz.im - rdy.im * rz;
 
+    const KK_FLOAT * const r_nl = fr_ij + l * fr_sl;
+    const KK_FLOAT * const dr_nl = dfr_ij + l * fr_sl;
+    const complex * const w_nl = w_i + idx_sph * w_ss;
     for (int n = 0; n < nradmax; n++) {
 
-      const KK_FLOAT R_over_r = fr(ii, jj, l, n) * rinv;
-      const KK_FLOAT DR = dfr(ii, jj, l, n);
+      const KK_FLOAT R_over_r = r_nl[n * fr_sn] * rinv;
+      const KK_FLOAT DR = dr_nl[n * fr_sn];
       const complex Y_DR = ylm * DR;
 
-      complex w = weights(ii, mu_j, idx_sph, n);
+      complex w = w_nl[n * w_sn];
       // counting for -m cases if m > 0
       w.re *= 2.0;
       w.im *= 2.0;
@@ -1855,13 +1973,16 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
       dylm[2].re = dyz.re - rdy.re * rz;
       dylm[2].im = dyz.im - rdy.im * rz;
 
+      const KK_FLOAT * const r_nl = fr_ij + l * fr_sl;
+      const KK_FLOAT * const dr_nl = dfr_ij + l * fr_sl;
+      const complex * const w_nl = w_i + idx_sph * w_ss;
       for (int n = 0; n < nradmax; n++) {
 
-        const KK_FLOAT R_over_r = fr(ii, jj, l, n) * rinv;
-        const KK_FLOAT DR = dfr(ii, jj, l, n);
+        const KK_FLOAT R_over_r = r_nl[n * fr_sn] * rinv;
+        const KK_FLOAT DR = dr_nl[n * fr_sn];
         const complex Y_DR = ylm * DR;
 
-        complex w = weights(ii, mu_j, idx_sph, n);
+        complex w = w_nl[n * w_sn];
         // counting for -m cases if m > 0
         w.re *= 2.0;
         w.im *= 2.0;
@@ -2272,8 +2393,10 @@ void PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos::calcSplines(const int
     for (int func_id = 0; func_id < num_of_functions; func_id++) {
       for (int idx = 0; idx < 4; idx++)
         c[idx] = lookupTable(nl, func_id, idx);
-      d_values(ii, jj, func_id) = c[0] + c[1] * wl + c[2] * wl2 + c[3] * wl3;
-      d_derivatives(ii, jj, func_id) = (c[1] + c[2] * w2l1 + c[3] * w3l2) * rscalelookup;
+      // Horner: three FMAs for the value, two for the derivative
+      d_values(ii, jj, func_id) = c[0] + wl * (c[1] + wl * (c[2] + wl * c[3]));
+      d_derivatives(ii, jj, func_id) =
+          (c[1] + wl * (2.0 * c[2] + wl * (3.0 * c[3]))) * rscalelookup;
     }
   } else { // fill with zeroes
     for (int func_id = 0; func_id < num_of_functions; func_id++) {
