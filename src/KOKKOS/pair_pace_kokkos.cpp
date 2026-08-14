@@ -92,32 +92,32 @@ constexpr int PACE_BATCH_NRB_MAX = 64;    // nradbase
 // re,im pairs; strides are in complex elements.
 PACE_VECTOR_CLONES
 void pace_batched_derivative(const int lmax, const int nradmax, const int nradbase,
-                             const double *alm, const double *blm,
-                             const double *cl, const double *dl,
-                             const double *rx, const double *ry, const double *rz,
-                             const double *rinv,
-                             const double *fr_b, const double *dfr_b,
-                             const double *dgr_b,
-                             const double *w, const int w_ss, const int w_sn,
-                             const double *w_r1, const int wr1_sn,
-                             double *fx, double *fy, double *fz)
+                             const KK_FLOAT *alm, const KK_FLOAT *blm,
+                             const KK_FLOAT *cl, const KK_FLOAT *dl,
+                             const KK_FLOAT *rx, const KK_FLOAT *ry, const KK_FLOAT *rz,
+                             const KK_FLOAT *rinv,
+                             const KK_FLOAT *fr_b, const KK_FLOAT *dfr_b,
+                             const KK_FLOAT *dgr_b,
+                             const KK_FLOAT *w, const int w_ss, const int w_sn,
+                             const KK_FLOAT *w_r1, const int wr1_sn,
+                             KK_FLOAT *fx, KK_FLOAT *fy, KK_FLOAT *fz)
 {
   constexpr int V = PACE_VLEN;
 
   for (int lane = 0; lane < V; lane++) fx[lane] = fy[lane] = fz[lane] = 0.0;
 
   for (int n = 0; n < nradbase; ++n) {
-    const double wn = w_r1[n * wr1_sn] * Y00;
+    const KK_FLOAT wn = w_r1[n * wr1_sn] * Y00;
     for (int lane = 0; lane < V; lane++) {
-      const double DGR = dgr_b[n * V + lane] * wn;
+      const KK_FLOAT DGR = dgr_b[n * V + lane] * wn;
       fx[lane] += DGR * rx[lane];
       fy[lane] += DGR * ry[lane];
       fz[lane] += DGR * rz[lane];
     }
   }
 
-  double plm[V], plm1[V], plm2[V];
-  double dplm[V], dplm1[V], dplm2[V];
+  KK_FLOAT plm[V], plm1[V], plm2[V];
+  KK_FLOAT dplm[V], dplm1[V], dplm2[V];
 
   int idx_sph = 0;
 
@@ -131,7 +131,7 @@ void pace_batched_derivative(const int lmax, const int nradmax, const int nradba
         dplm[lane] = Y00 * sq3;
       }
     } else {
-      const double al = alm[idx_sph], bl = blm[idx_sph];
+      const KK_FLOAT al = alm[idx_sph], bl = blm[idx_sph];
       for (int lane = 0; lane < V; lane++) {
         plm[lane] = al * (rz[lane] * plm1[lane] + bl * plm2[lane]);
         dplm[lane] = al * (plm1[lane] + rz[lane] * dplm1[lane] + bl * dplm2[lane]);
@@ -139,23 +139,23 @@ void pace_batched_derivative(const int lmax, const int nradmax, const int nradba
     }
 
     // ylm and dylm are real for m = 0 and depend only on l
-    double d0[V], d1[V], d2[V];
+    KK_FLOAT d0[V], d1[V], d2[V];
     for (int lane = 0; lane < V; lane++) {
-      const double rdy = dplm[lane] * rz[lane];
+      const KK_FLOAT rdy = dplm[lane] * rz[lane];
       d0[lane] = -rdy * rx[lane];
       d1[lane] = -rdy * ry[lane];
       d2[lane] = dplm[lane] - rdy * rz[lane];
     }
 
-    const double *fr_l = fr_b + l * nradmax * V;
-    const double *dfr_l = dfr_b + l * nradmax * V;
-    const double *w_l = w + 2 * (idx_sph * w_ss);
+    const KK_FLOAT *fr_l = fr_b + l * nradmax * V;
+    const KK_FLOAT *dfr_l = dfr_b + l * nradmax * V;
+    const KK_FLOAT *w_l = w + 2 * (idx_sph * w_ss);
     for (int n = 0; n < nradmax; n++) {
-      const double wre = w_l[2 * (n * w_sn)];
+      const KK_FLOAT wre = w_l[2 * (n * w_sn)];
       for (int lane = 0; lane < V; lane++) {
-        const double R_over_r = fr_l[n * V + lane] * rinv[lane];
-        const double DR = dfr_l[n * V + lane];
-        const double ydr = plm[lane] * DR;
+        const KK_FLOAT R_over_r = fr_l[n * V + lane] * rinv[lane];
+        const KK_FLOAT DR = dfr_l[n * V + lane];
+        const KK_FLOAT ydr = plm[lane] * DR;
         fx[lane] += wre * (ydr * rx[lane] + d0[lane] * R_over_r);
         fy[lane] += wre * (ydr * ry[lane] + d1[lane] * R_over_r);
         fz[lane] += wre * (ydr * rz[lane] + d2[lane] * R_over_r);
@@ -176,14 +176,14 @@ void pace_batched_derivative(const int lmax, const int nradmax, const int nradba
     if (l == 1) {
       for (int lane = 0; lane < V; lane++) { plm[lane] = -sq3o2 * Y00; dplm[lane] = 0.0; }
     } else if (l == 2) {
-      const double d2 = dl[l];
+      const KK_FLOAT d2 = dl[l];
       for (int lane = 0; lane < V; lane++) {
-        const double t = d2 * plm1[lane];
+        const KK_FLOAT t = d2 * plm1[lane];
         plm[lane] = t * rz[lane];
         dplm[lane] = t;
       }
     } else {
-      const double al = alm[idx_sph], bl = blm[idx_sph];
+      const KK_FLOAT al = alm[idx_sph], bl = blm[idx_sph];
       for (int lane = 0; lane < V; lane++) {
         plm[lane] = al * (rz[lane] * plm1[lane] + bl * plm2[lane]);
         dplm[lane] = al * (plm1[lane] + rz[lane] * dplm1[lane] + bl * dplm2[lane]);
@@ -192,16 +192,16 @@ void pace_batched_derivative(const int lmax, const int nradmax, const int nradba
 
     // ylm and dylm depend only on (l, m): computed once per l, reused for
     // every n (as in the scalar kernel)
-    double ylm_re[V], ylm_im[V];
-    double d0_re[V], d0_im[V], d1_re[V], d1_im[V], d2_re[V], d2_im[V];
+    KK_FLOAT ylm_re[V], ylm_im[V];
+    KK_FLOAT d0_re[V], d0_im[V], d1_re[V], d1_im[V], d2_re[V], d2_im[V];
     for (int lane = 0; lane < V; lane++) {
       ylm_re[lane] = rx[lane] * plm[lane];
       ylm_im[lane] = ry[lane] * plm[lane];
       // dyx = (plm, 0), dyy = (0, plm), dyz = phase * dplm
-      const double dyz_re = rx[lane] * dplm[lane];
-      const double dyz_im = ry[lane] * dplm[lane];
-      const double rdy_re = rx[lane] * plm[lane] + rz[lane] * dyz_re;
-      const double rdy_im = ry[lane] * plm[lane] + rz[lane] * dyz_im;
+      const KK_FLOAT dyz_re = rx[lane] * dplm[lane];
+      const KK_FLOAT dyz_im = ry[lane] * dplm[lane];
+      const KK_FLOAT rdy_re = rx[lane] * plm[lane] + rz[lane] * dyz_re;
+      const KK_FLOAT rdy_im = ry[lane] * plm[lane] + rz[lane] * dyz_im;
       d0_re[lane] = plm[lane] - rdy_re * rx[lane];
       d0_im[lane] = -rdy_im * rx[lane];
       d1_re[lane] = -rdy_re * ry[lane];
@@ -210,23 +210,23 @@ void pace_batched_derivative(const int lmax, const int nradmax, const int nradba
       d2_im[lane] = dyz_im - rdy_im * rz[lane];
     }
 
-    const double *fr_l = fr_b + l * nradmax * V;
-    const double *dfr_l = dfr_b + l * nradmax * V;
-    const double *w_l = w + 2 * (idx_sph * w_ss);
+    const KK_FLOAT *fr_l = fr_b + l * nradmax * V;
+    const KK_FLOAT *dfr_l = dfr_b + l * nradmax * V;
+    const KK_FLOAT *w_l = w + 2 * (idx_sph * w_ss);
     for (int n = 0; n < nradmax; n++) {
-      const double wre = 2.0 * w_l[2 * (n * w_sn)];
-      const double wim = 2.0 * w_l[2 * (n * w_sn) + 1];
+      const KK_FLOAT wre = 2.0 * w_l[2 * (n * w_sn)];
+      const KK_FLOAT wim = 2.0 * w_l[2 * (n * w_sn) + 1];
       for (int lane = 0; lane < V; lane++) {
-        const double R_over_r = fr_l[n * V + lane] * rinv[lane];
-        const double DR = dfr_l[n * V + lane];
-        const double ydr_re = ylm_re[lane] * DR;
-        const double ydr_im = ylm_im[lane] * DR;
-        const double gx_re = ydr_re * rx[lane] + d0_re[lane] * R_over_r;
-        const double gx_im = ydr_im * rx[lane] + d0_im[lane] * R_over_r;
-        const double gy_re = ydr_re * ry[lane] + d1_re[lane] * R_over_r;
-        const double gy_im = ydr_im * ry[lane] + d1_im[lane] * R_over_r;
-        const double gz_re = ydr_re * rz[lane] + d2_re[lane] * R_over_r;
-        const double gz_im = ydr_im * rz[lane] + d2_im[lane] * R_over_r;
+        const KK_FLOAT R_over_r = fr_l[n * V + lane] * rinv[lane];
+        const KK_FLOAT DR = dfr_l[n * V + lane];
+        const KK_FLOAT ydr_re = ylm_re[lane] * DR;
+        const KK_FLOAT ydr_im = ylm_im[lane] * DR;
+        const KK_FLOAT gx_re = ydr_re * rx[lane] + d0_re[lane] * R_over_r;
+        const KK_FLOAT gx_im = ydr_im * rx[lane] + d0_im[lane] * R_over_r;
+        const KK_FLOAT gy_re = ydr_re * ry[lane] + d1_re[lane] * R_over_r;
+        const KK_FLOAT gy_im = ydr_im * ry[lane] + d1_im[lane] * R_over_r;
+        const KK_FLOAT gz_re = ydr_re * rz[lane] + d2_re[lane] * R_over_r;
+        const KK_FLOAT gz_im = ydr_im * rz[lane] + d2_im[lane] * R_over_r;
         fx[lane] += wre * gx_re - wim * gx_im;
         fy[lane] += wre * gy_re - wim * gy_im;
         fz[lane] += wre * gz_re - wim * gz_im;
@@ -243,56 +243,56 @@ void pace_batched_derivative(const int lmax, const int nradmax, const int nradba
   // m > 1
   for (int lane = 0; lane < V; lane++)
     plm1[lane] = plm2[lane] = dplm1[lane] = dplm2[lane] = 0.0;
-  double plm_mm1_mm1 = -sq3o2 * Y00;
-  double phasem_re[V], phasem_im[V];
+  KK_FLOAT plm_mm1_mm1 = -sq3o2 * Y00;
+  KK_FLOAT phasem_re[V], phasem_im[V];
   for (int lane = 0; lane < V; lane++) {
     phasem_re[lane] = rx[lane];
     phasem_im[lane] = ry[lane];
   }
   for (int m = 2; m <= lmax; m++) {
-    double mph_re[V], mph_im[V];
+    KK_FLOAT mph_re[V], mph_im[V];
     for (int lane = 0; lane < V; lane++) {
-      mph_re[lane] = phasem_re[lane] * (double) m;
-      mph_im[lane] = phasem_im[lane] * (double) m;
-      const double pre = phasem_re[lane] * rx[lane] - phasem_im[lane] * ry[lane];
-      const double pim = phasem_re[lane] * ry[lane] + phasem_im[lane] * rx[lane];
+      mph_re[lane] = phasem_re[lane] * (KK_FLOAT) m;
+      mph_im[lane] = phasem_im[lane] * (KK_FLOAT) m;
+      const KK_FLOAT pre = phasem_re[lane] * rx[lane] - phasem_im[lane] * ry[lane];
+      const KK_FLOAT pim = phasem_re[lane] * ry[lane] + phasem_im[lane] * rx[lane];
       phasem_re[lane] = pre;
       phasem_im[lane] = pim;
     }
 
     for (int l = m; l <= lmax; l++) {
       if (l == m) {
-        const double seed = cl[l] * plm_mm1_mm1;
+        const KK_FLOAT seed = cl[l] * plm_mm1_mm1;
         plm_mm1_mm1 = seed;
         for (int lane = 0; lane < V; lane++) { plm[lane] = seed; dplm[lane] = 0.0; }
       } else if (l == (m + 1)) {
-        const double t = dl[l] * plm_mm1_mm1;
+        const KK_FLOAT t = dl[l] * plm_mm1_mm1;
         for (int lane = 0; lane < V; lane++) {
           plm[lane] = t * rz[lane];
           dplm[lane] = t;
         }
       } else {
-        const double al = alm[idx_sph], bl = blm[idx_sph];
+        const KK_FLOAT al = alm[idx_sph], bl = blm[idx_sph];
         for (int lane = 0; lane < V; lane++) {
           plm[lane] = al * (rz[lane] * plm1[lane] + bl * plm2[lane]);
           dplm[lane] = al * (plm1[lane] + rz[lane] * dplm1[lane] + bl * dplm2[lane]);
         }
       }
 
-      double ylm_re[V], ylm_im[V];
-      double d0_re[V], d0_im[V], d1_re[V], d1_im[V], d2_re[V], d2_im[V];
+      KK_FLOAT ylm_re[V], ylm_im[V];
+      KK_FLOAT d0_re[V], d0_im[V], d1_re[V], d1_im[V], d2_re[V], d2_im[V];
       for (int lane = 0; lane < V; lane++) {
         ylm_re[lane] = phasem_re[lane] * plm[lane];
         ylm_im[lane] = phasem_im[lane] * plm[lane];
         // dyx = mphasem1 * plm, dyy = i * dyx, dyz = phasem * dplm
-        const double dyx_re = mph_re[lane] * plm[lane];
-        const double dyx_im = mph_im[lane] * plm[lane];
-        const double dyy_re = -dyx_im;
-        const double dyy_im = dyx_re;
-        const double dyz_re = phasem_re[lane] * dplm[lane];
-        const double dyz_im = phasem_im[lane] * dplm[lane];
-        const double rdy_re = rx[lane] * dyx_re + ry[lane] * dyy_re + rz[lane] * dyz_re;
-        const double rdy_im = rx[lane] * dyx_im + ry[lane] * dyy_im + rz[lane] * dyz_im;
+        const KK_FLOAT dyx_re = mph_re[lane] * plm[lane];
+        const KK_FLOAT dyx_im = mph_im[lane] * plm[lane];
+        const KK_FLOAT dyy_re = -dyx_im;
+        const KK_FLOAT dyy_im = dyx_re;
+        const KK_FLOAT dyz_re = phasem_re[lane] * dplm[lane];
+        const KK_FLOAT dyz_im = phasem_im[lane] * dplm[lane];
+        const KK_FLOAT rdy_re = rx[lane] * dyx_re + ry[lane] * dyy_re + rz[lane] * dyz_re;
+        const KK_FLOAT rdy_im = rx[lane] * dyx_im + ry[lane] * dyy_im + rz[lane] * dyz_im;
         d0_re[lane] = dyx_re - rdy_re * rx[lane];
         d0_im[lane] = dyx_im - rdy_im * rx[lane];
         d1_re[lane] = dyy_re - rdy_re * ry[lane];
@@ -301,23 +301,23 @@ void pace_batched_derivative(const int lmax, const int nradmax, const int nradba
         d2_im[lane] = dyz_im - rdy_im * rz[lane];
       }
 
-      const double *fr_l = fr_b + l * nradmax * V;
-      const double *dfr_l = dfr_b + l * nradmax * V;
-      const double *w_l = w + 2 * (idx_sph * w_ss);
+      const KK_FLOAT *fr_l = fr_b + l * nradmax * V;
+      const KK_FLOAT *dfr_l = dfr_b + l * nradmax * V;
+      const KK_FLOAT *w_l = w + 2 * (idx_sph * w_ss);
       for (int n = 0; n < nradmax; n++) {
-        const double wre = 2.0 * w_l[2 * (n * w_sn)];
-        const double wim = 2.0 * w_l[2 * (n * w_sn) + 1];
+        const KK_FLOAT wre = 2.0 * w_l[2 * (n * w_sn)];
+        const KK_FLOAT wim = 2.0 * w_l[2 * (n * w_sn) + 1];
         for (int lane = 0; lane < V; lane++) {
-          const double R_over_r = fr_l[n * V + lane] * rinv[lane];
-          const double DR = dfr_l[n * V + lane];
-          const double ydr_re = ylm_re[lane] * DR;
-          const double ydr_im = ylm_im[lane] * DR;
-          const double gx_re = ydr_re * rx[lane] + d0_re[lane] * R_over_r;
-          const double gx_im = ydr_im * rx[lane] + d0_im[lane] * R_over_r;
-          const double gy_re = ydr_re * ry[lane] + d1_re[lane] * R_over_r;
-          const double gy_im = ydr_im * ry[lane] + d1_im[lane] * R_over_r;
-          const double gz_re = ydr_re * rz[lane] + d2_re[lane] * R_over_r;
-          const double gz_im = ydr_im * rz[lane] + d2_im[lane] * R_over_r;
+          const KK_FLOAT R_over_r = fr_l[n * V + lane] * rinv[lane];
+          const KK_FLOAT DR = dfr_l[n * V + lane];
+          const KK_FLOAT ydr_re = ylm_re[lane] * DR;
+          const KK_FLOAT ydr_im = ylm_im[lane] * DR;
+          const KK_FLOAT gx_re = ydr_re * rx[lane] + d0_re[lane] * R_over_r;
+          const KK_FLOAT gx_im = ydr_im * rx[lane] + d0_im[lane] * R_over_r;
+          const KK_FLOAT gy_re = ydr_re * ry[lane] + d1_re[lane] * R_over_r;
+          const KK_FLOAT gy_im = ydr_im * ry[lane] + d1_im[lane] * R_over_r;
+          const KK_FLOAT gz_re = ydr_re * rz[lane] + d2_re[lane] * R_over_r;
+          const KK_FLOAT gz_im = ydr_im * rz[lane] + d2_im[lane] * R_over_r;
           fx[lane] += wre * gx_re - wim * gx_im;
           fy[lane] += wre * gy_re - wim * gy_im;
           fz[lane] += wre * gz_re - wim * gz_im;
@@ -1398,41 +1398,46 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRadialCPU, const int& ii) const
 {
-  const int i = d_ilist[ii + chunk_offset];
-  const int mu_i = d_map(type(i));
-  const int ncount = d_ncount(ii);
+  // Host-only kernel. The body is guarded so the explicit instantiation of
+  // PairPACEKokkos<LMPDeviceType> does not compile it for the device, where
+  // it would pull in host-only helpers and the LayoutRight assumption.
+  if constexpr (host_flag) {
+    const int i = d_ilist[ii + chunk_offset];
+    const int mu_i = d_map(type(i));
+    const int ncount = d_ncount(ii);
 
-  // The lookup tables are far larger than L2 and the bin is data dependent,
-  // so this kernel is bound by L3/DRAM gather latency (measured: ~52 lines
-  // per pair).  Both tables share the same binning, so the next neighbor's
-  // rows can be prefetched while the current one is evaluated.
-#if defined(__GNUC__)
-  const int mu0 = (ncount > 0) ? (int) d_mu(ii, 0) : 0;
-  if (ncount > 0) {
-    auto &sp_gk = k_splines_gk.template view<DeviceType>()(mu_i, mu0);
-    auto &sp_rnl = k_splines_rnl.template view<DeviceType>()(mu_i, mu0);
-    const int nl0 = (int) (d_rnorms(ii, 0) * sp_gk.rscalelookup);
-    const double *g0 = &sp_gk.lookupTable(nl0, 0, 0);
-    const double *r0 = &sp_rnl.lookupTable(nl0, 0, 0);
-    for (int q = 0; q < sp_gk.num_of_functions * 4; q += 8) __builtin_prefetch(g0 + q, 0, 1);
-    for (int q = 0; q < sp_rnl.num_of_functions * 4; q += 8) __builtin_prefetch(r0 + q, 0, 1);
-  }
-#endif
-
-  for (int jj = 0; jj < ncount; jj++) {
-#if defined(__GNUC__)
-    if (jj + 1 < ncount) {
-      const int mu_n = (int) d_mu(ii, jj + 1);
-      auto &sp_gk = k_splines_gk.template view<DeviceType>()(mu_i, mu_n);
-      auto &sp_rnl = k_splines_rnl.template view<DeviceType>()(mu_i, mu_n);
-      const int nl_n = (int) (d_rnorms(ii, jj + 1) * sp_gk.rscalelookup);
-      const double *gn = &sp_gk.lookupTable(nl_n, 0, 0);
-      const double *rn = &sp_rnl.lookupTable(nl_n, 0, 0);
-      for (int q = 0; q < sp_gk.num_of_functions * 4; q += 8) __builtin_prefetch(gn + q, 0, 1);
-      for (int q = 0; q < sp_rnl.num_of_functions * 4; q += 8) __builtin_prefetch(rn + q, 0, 1);
+    // The lookup tables are far larger than L2 and the bin is data dependent,
+    // so this kernel is bound by L3/DRAM gather latency (measured: ~52 lines
+    // per pair).  Both tables share the same binning, so the next neighbor's
+    // rows can be prefetched while the current one is evaluated.
+  #if defined(__GNUC__)
+    const int mu0 = (ncount > 0) ? (int) d_mu(ii, 0) : 0;
+    if (ncount > 0) {
+      auto &sp_gk = k_splines_gk.template view<DeviceType>()(mu_i, mu0);
+      auto &sp_rnl = k_splines_rnl.template view<DeviceType>()(mu_i, mu0);
+      const int nl0 = (int) (d_rnorms(ii, 0) * sp_gk.rscalelookup);
+      const KK_FLOAT *g0 = &sp_gk.lookupTable(nl0, 0, 0);
+      const KK_FLOAT *r0 = &sp_rnl.lookupTable(nl0, 0, 0);
+      for (int q = 0; q < sp_gk.num_of_functions * 4; q += 8) __builtin_prefetch(g0 + q, 0, 1);
+      for (int q = 0; q < sp_rnl.num_of_functions * 4; q += 8) __builtin_prefetch(r0 + q, 0, 1);
     }
-#endif
-    evaluate_splines(ii, jj, d_rnorms(ii, jj), nradbase, nradmax, mu_i, d_mu(ii, jj));
+  #endif
+
+    for (int jj = 0; jj < ncount; jj++) {
+  #if defined(__GNUC__)
+      if (jj + 1 < ncount) {
+        const int mu_n = (int) d_mu(ii, jj + 1);
+        auto &sp_gk = k_splines_gk.template view<DeviceType>()(mu_i, mu_n);
+        auto &sp_rnl = k_splines_rnl.template view<DeviceType>()(mu_i, mu_n);
+        const int nl_n = (int) (d_rnorms(ii, jj + 1) * sp_gk.rscalelookup);
+        const KK_FLOAT *gn = &sp_gk.lookupTable(nl_n, 0, 0);
+        const KK_FLOAT *rn = &sp_rnl.lookupTable(nl_n, 0, 0);
+        for (int q = 0; q < sp_gk.num_of_functions * 4; q += 8) __builtin_prefetch(gn + q, 0, 1);
+        for (int q = 0; q < sp_rnl.num_of_functions * 4; q += 8) __builtin_prefetch(rn + q, 0, 1);
+      }
+  #endif
+      evaluate_splines(ii, jj, d_rnorms(ii, jj), nradbase, nradmax, mu_i, d_mu(ii, jj));
+    }
   }
 }
 
@@ -1468,13 +1473,18 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAiCPU, const int& ii) const
 {
-  // measured: batching this kernel across neighbors loses -- its arithmetic
-  // is too small to amortize the staging and the cross-lane reduction of the
-  // A_sph accumulators, unlike ComputeDerivative where each lane owns its
-  // own output
-  const int ncount = d_ncount(ii);
-  for (int jj = 0; jj < ncount; jj++)
-    compute_ai_one<false>(ii, jj);
+  // Host-only kernel. The body is guarded so the explicit instantiation of
+  // PairPACEKokkos<LMPDeviceType> does not compile it for the device, where
+  // it would pull in host-only helpers and the LayoutRight assumption.
+  if constexpr (host_flag) {
+    // measured: batching this kernel across neighbors loses -- its arithmetic
+    // is too small to amortize the staging and the cross-lane reduction of the
+    // A_sph accumulators, unlike ComputeDerivative where each lane owns its
+    // own output
+    const int ncount = d_ncount(ii);
+    for (int jj = 0; jj < ncount; jj++)
+      compute_ai_one<false>(ii, jj);
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1491,28 +1501,33 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEConjugateAi, const int& ii) const
 {
-  for (int mu_j = 0; mu_j < nelements; mu_j++) {
+  // Host-only kernel. The body is guarded so the explicit instantiation of
+  // PairPACEKokkos<LMPDeviceType> does not compile it for the device, where
+  // it would pull in host-only helpers and the LayoutRight assumption.
+  if constexpr (host_flag) {
+    for (int mu_j = 0; mu_j < nelements; mu_j++) {
 
-    // transpose
-    int idx_sph = 0;
-    for (int m = 0; m <= lmax; m++) {
-      for (int l = m; l <= lmax; l++) {
-        const int idx = l * (l + 1) + m;
-        for (int n = 0; n < nradmax; n++)
-          A(ii, mu_j, idx, n) = A_sph(ii, mu_j, idx_sph, n);
-        idx_sph++;
+      // transpose
+      int idx_sph = 0;
+      for (int m = 0; m <= lmax; m++) {
+        for (int l = m; l <= lmax; l++) {
+          const int idx = l * (l + 1) + m;
+          for (int n = 0; n < nradmax; n++)
+            A(ii, mu_j, idx, n) = A_sph(ii, mu_j, idx_sph, n);
+          idx_sph++;
+        }
       }
-    }
 
-    // complex conjugate A's (for NEGATIVE (-m) terms) for rank > 1
-    for (int l = 0; l <= lmax; l++) {
-      for (int m = 1; m <= l; m++) {
-        const int idx = l * (l + 1) + m;   // (l, m)
-        const int idxm = l * (l + 1) - m;  // (l, -m)
-        const int idx_sph = d_idx_sph(idx);
-        const int factor = m % 2 == 0 ? 1 : -1;
-        for (int n = 0; n < nradmax; n++)
-          A(ii, mu_j, idxm, n) = A_sph(ii, mu_j, idx_sph, n).conj() * (KK_FLOAT)factor;
+      // complex conjugate A's (for NEGATIVE (-m) terms) for rank > 1
+      for (int l = 0; l <= lmax; l++) {
+        for (int m = 1; m <= l; m++) {
+          const int idx = l * (l + 1) + m;   // (l, m)
+          const int idxm = l * (l + 1) - m;  // (l, -m)
+          const int idx_sph = d_idx_sph(idx);
+          const int factor = m % 2 == 0 ? 1 : -1;
+          for (int n = 0; n < nradmax; n++)
+            A(ii, mu_j, idxm, n) = A_sph(ii, mu_j, idx_sph, n).conj() * (KK_FLOAT)factor;
+        }
       }
     }
   }
@@ -1545,14 +1560,23 @@ void PairPACEKokkos<DeviceType>::compute_ai_one(const int ii, const int jj) cons
   // layout, so it is a strength reduction rather than a layout assumption.
   const KK_FLOAT * const fr_ij = &fr(ii, jj, 0);
   const KK_FLOAT * const gr_ij = &gr(ii, jj, 0);
-  complex * const A_sph_i = &A_sph(ii, mu_j, 0, 0);
   KK_FLOAT * const A_rank1_i = &A_rank1(ii, mu_j, 0);
   const int fr_sl = 1;              // fr is flat (n*(lmax+1)+l): l-stride
   const int fr_sn = lmax + 1;       // ... and n-stride
   const int gr_sn = (int) gr.stride(2);
-  const int sph_ss = (int) A_sph.stride(2);
-  const int sph_sn = (int) A_sph.stride(3);
   const int ar1_sn = (int) A_rank1.stride(2);
+
+  // A_sph is the host-only interleaved array; the device accumulates into
+  // A_sph_re/A_sph_im instead and grow() never allocates A_sph there, so its
+  // address must not be taken on that path. With a null base and zero stride
+  // the derived a_sph below stays a well-defined (never dereferenced) null.
+  complex *A_sph_i = nullptr;
+  int sph_ss = 0, sph_sn = 0;
+  if constexpr (!NEED_ATOMICS) {
+    A_sph_i = &A_sph(ii, mu_j, 0, 0);
+    sph_ss = (int) A_sph.stride(2);
+    sph_sn = (int) A_sph.stride(3);
+  }
 
   // rank = 1
   for (int n = 0; n < nradbase; n++) {
@@ -1809,12 +1833,17 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRhoCPU, const int& ii) const
 {
-  // ndensity is 1 or 2 for every published ACE potential; fixing it at
-  // compile time lets the short coefficient loops unroll
-  const int nd = d_ndensity(d_map(type(d_ilist[ii + chunk_offset])));
-  if (nd == 2) rho_fs_weights_cpu<2>(ii);
-  else if (nd == 1) rho_fs_weights_cpu<1>(ii);
-  else rho_fs_weights_cpu<0>(ii);
+  // Host-only kernel. The body is guarded so the explicit instantiation of
+  // PairPACEKokkos<LMPDeviceType> does not compile it for the device, where
+  // it would pull in host-only helpers and the LayoutRight assumption.
+  if constexpr (host_flag) {
+    // ndensity is 1 or 2 for every published ACE potential; fixing it at
+    // compile time lets the short coefficient loops unroll
+    const int nd = d_ndensity(d_map(type(d_ilist[ii + chunk_offset])));
+    if (nd == 2) rho_fs_weights_cpu<2>(ii);
+    else if (nd == 1) rho_fs_weights_cpu<1>(ii);
+    else rho_fs_weights_cpu<0>(ii);
+  }
 }
 
 template<class DeviceType>
@@ -1822,29 +1851,34 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRhoBatchCPU, const int& ib) const
 {
-  const int ii0 = ib * PACE_VLEN;
-  const int nb = (chunk_size - ii0 < PACE_VLEN) ? (chunk_size - ii0) : PACE_VLEN;
+  // Host-only kernel. The body is guarded so the explicit instantiation of
+  // PairPACEKokkos<LMPDeviceType> does not compile it for the device, where
+  // it would pull in host-only helpers and the LayoutRight assumption.
+  if constexpr (host_flag) {
+    const int ii0 = ib * PACE_VLEN;
+    const int nb = (chunk_size - ii0 < PACE_VLEN) ? (chunk_size - ii0) : PACE_VLEN;
 
-  // the shared basis tables require every lane to have the same element
-  const int mu_i = d_map(type(d_ilist[ii0 + chunk_offset]));
-  bool uniform = true;
-  for (int k = 1; k < nb; k++)
-    if ((int) d_map(type(d_ilist[ii0 + k + chunk_offset])) != mu_i) { uniform = false; break; }
+    // the shared basis tables require every lane to have the same element
+    const int mu_i = d_map(type(d_ilist[ii0 + chunk_offset]));
+    bool uniform = true;
+    for (int k = 1; k < nb; k++)
+      if ((int) d_map(type(d_ilist[ii0 + k + chunk_offset])) != mu_i) { uniform = false; break; }
 
-  if (!uniform) {
-    for (int k = 0; k < nb; k++) {
-      const int nd = d_ndensity(d_map(type(d_ilist[ii0 + k + chunk_offset])));
-      if (nd == 2) rho_fs_weights_cpu<2>(ii0 + k);
-      else if (nd == 1) rho_fs_weights_cpu<1>(ii0 + k);
-      else rho_fs_weights_cpu<0>(ii0 + k);
+    if (!uniform) {
+      for (int k = 0; k < nb; k++) {
+        const int nd = d_ndensity(d_map(type(d_ilist[ii0 + k + chunk_offset])));
+        if (nd == 2) rho_fs_weights_cpu<2>(ii0 + k);
+        else if (nd == 1) rho_fs_weights_cpu<1>(ii0 + k);
+        else rho_fs_weights_cpu<0>(ii0 + k);
+      }
+      return;
     }
-    return;
-  }
 
-  const int nd = d_ndensity(mu_i);
-  if (nd == 2) rho_fs_weights_batch_cpu<2>(ii0, nb, mu_i);
-  else if (nd == 1) rho_fs_weights_batch_cpu<1>(ii0, nb, mu_i);
-  else rho_fs_weights_batch_cpu<0>(ii0, nb, mu_i);
+    const int nd = d_ndensity(mu_i);
+    if (nd == 2) rho_fs_weights_batch_cpu<2>(ii0, nb, mu_i);
+    else if (nd == 1) rho_fs_weights_batch_cpu<1>(ii0, nb, mu_i);
+    else rho_fs_weights_batch_cpu<0>(ii0, nb, mu_i);
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -2388,118 +2422,123 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivativeCPU, const int& ii) const
 {
-  const int ncount = d_ncount(ii);
+  // Host-only kernel. The body is guarded so the explicit instantiation of
+  // PairPACEKokkos<LMPDeviceType> does not compile it for the device, where
+  // it would pull in host-only helpers and the LayoutRight assumption.
+  if constexpr (host_flag) {
+    const int ncount = d_ncount(ii);
 
-  if (!use_batched_cpu) {
-    for (int jj = 0; jj < ncount; jj++)
-      compute_derivative_one(ii, jj);
-    return;
-  }
-
-  constexpr int V = PACE_VLEN;
-  const int nrl = (lmax + 1) * nradmax;
-
-  const int i = d_ilist[ii + chunk_offset];
-  const int itype = type(i);
-  const KK_FLOAT scale = d_scale(itype, itype);
-
-  const int fr_sl = 1;              // fr is flat (n*(lmax+1)+l): l-stride
-  const int fr_sn = lmax + 1;       // ... and n-stride
-  const int dgr_sn = (int) dgr.stride(2);
-  const int w_ss = (int) weights.stride(2);
-  const int w_sn = (int) weights.stride(3);
-  const int wr1_sn = (int) weights_rank1.stride(2);
-
-  const double *alm_p = alm.data();
-  const double *blm_p = blm.data();
-  const double *cl_p = cl.data();
-  const double *dl_p = dl.data();
-
-  const KK_FLOAT dfcore = dF_drho_core(ii);
-  const int jj_min = is_zbl ? (int) d_jj_min(ii) : -1;
-  const KK_FLOAT dfc = is_zbl ? dF_dfcut(ii) : 0.0;
-
-  double rxb[V], ryb[V], rzb[V], rinvb[V];
-  double fr_b[PACE_BATCH_NRL_MAX * V];
-  double dfr_b[PACE_BATCH_NRL_MAX * V];
-  double dgr_b[PACE_BATCH_NRB_MAX * V];
-  double fxb[V], fyb[V], fzb[V];
-  int jidx[V];
-
-  for (int mu = 0; mu < nelements; mu++) {
-    const double *w_mu = reinterpret_cast<const double *>(&weights(ii, mu, 0, 0));
-    const KK_FLOAT *wr1_mu = &weights_rank1(ii, mu, 0);
-
-    int nb = 0;
-    for (int jj = 0; jj < ncount; jj++) {
-      if ((int) d_mu(ii, jj) != mu) continue;
-
-      rxb[nb] = d_rhats(ii, jj, 0);
-      ryb[nb] = d_rhats(ii, jj, 1);
-      rzb[nb] = d_rhats(ii, jj, 2);
-      rinvb[nb] = 1.0 / d_rnorms(ii, jj);
-      jidx[nb] = jj;
-      const KK_FLOAT *frp = &fr(ii, jj, 0);
-      const KK_FLOAT *dfrp = &dfr(ii, jj, 0);
-      for (int l = 0; l <= lmax; l++)
-        for (int n = 0; n < nradmax; n++) {
-          fr_b[(l * nradmax + n) * V + nb] = frp[l * fr_sl + n * fr_sn];
-          dfr_b[(l * nradmax + n) * V + nb] = dfrp[l * fr_sl + n * fr_sn];
-        }
-      const KK_FLOAT *dgrp = &dgr(ii, jj, 0);
-      for (int n = 0; n < nradbase; n++)
-        dgr_b[n * V + nb] = dgrp[n * dgr_sn];
-
-      if (++nb < V) continue;
-
-      pace_batched_derivative(lmax, nradmax, nradbase, alm_p, blm_p, cl_p, dl_p,
-                              rxb, ryb, rzb, rinvb, fr_b, dfr_b, dgr_b,
-                              w_mu, w_ss, w_sn, wr1_mu, wr1_sn, fxb, fyb, fzb);
-      for (int lane = 0; lane < V; lane++) {
-        const int jjl = jidx[lane];
-        const KK_FLOAT fpair = dfcore * dcr(ii, jjl);
-        f_ij(ii, jjl, 0) = scale * fxb[lane] + fpair * rxb[lane];
-        f_ij(ii, jjl, 1) = scale * fyb[lane] + fpair * ryb[lane];
-        f_ij(ii, jjl, 2) = scale * fzb[lane] + fpair * rzb[lane];
-        if (jjl == jj_min) {
-          f_ij(ii, jjl, 0) += dfc * rxb[lane];
-          f_ij(ii, jjl, 1) += dfc * ryb[lane];
-          f_ij(ii, jjl, 2) += dfc * rzb[lane];
-        }
-      }
-      nb = 0;
+    if (!use_batched_cpu) {
+      for (int jj = 0; jj < ncount; jj++)
+        compute_derivative_one(ii, jj);
+      return;
     }
 
-    if (nb > 0) {
-      // tail lanes copy lane-0 data so every value stays finite; only the
-      // first nb lanes are consumed
-      for (int lane = nb; lane < V; lane++) {
-        rxb[lane] = rxb[0];
-        ryb[lane] = ryb[0];
-        rzb[lane] = rzb[0];
-        rinvb[lane] = rinvb[0];
-      }
-      for (int f = 0; f < nrl; f++)
-        for (int lane = nb; lane < V; lane++) {
-          fr_b[f * V + lane] = fr_b[f * V];
-          dfr_b[f * V + lane] = dfr_b[f * V];
-        }
-      for (int n = 0; n < nradbase; n++)
-        for (int lane = nb; lane < V; lane++) dgr_b[n * V + lane] = dgr_b[n * V];
+    constexpr int V = PACE_VLEN;
+    const int nrl = (lmax + 1) * nradmax;
 
-      pace_batched_derivative(lmax, nradmax, nradbase, alm_p, blm_p, cl_p, dl_p,
-                              rxb, ryb, rzb, rinvb, fr_b, dfr_b, dgr_b,
-                              w_mu, w_ss, w_sn, wr1_mu, wr1_sn, fxb, fyb, fzb);
-      for (int lane = 0; lane < nb; lane++) {
-        const int jjl = jidx[lane];
-        const KK_FLOAT fpair = dfcore * dcr(ii, jjl);
-        f_ij(ii, jjl, 0) = scale * fxb[lane] + fpair * rxb[lane];
-        f_ij(ii, jjl, 1) = scale * fyb[lane] + fpair * ryb[lane];
-        f_ij(ii, jjl, 2) = scale * fzb[lane] + fpair * rzb[lane];
-        if (jjl == jj_min) {
-          f_ij(ii, jjl, 0) += dfc * rxb[lane];
-          f_ij(ii, jjl, 1) += dfc * ryb[lane];
-          f_ij(ii, jjl, 2) += dfc * rzb[lane];
+    const int i = d_ilist[ii + chunk_offset];
+    const int itype = type(i);
+    const KK_FLOAT scale = d_scale(itype, itype);
+
+    const int fr_sl = 1;              // fr is flat (n*(lmax+1)+l): l-stride
+    const int fr_sn = lmax + 1;       // ... and n-stride
+    const int dgr_sn = (int) dgr.stride(2);
+    const int w_ss = (int) weights.stride(2);
+    const int w_sn = (int) weights.stride(3);
+    const int wr1_sn = (int) weights_rank1.stride(2);
+
+    const KK_FLOAT *alm_p = alm.data();
+    const KK_FLOAT *blm_p = blm.data();
+    const KK_FLOAT *cl_p = cl.data();
+    const KK_FLOAT *dl_p = dl.data();
+
+    const KK_FLOAT dfcore = dF_drho_core(ii);
+    const int jj_min = is_zbl ? (int) d_jj_min(ii) : -1;
+    const KK_FLOAT dfc = is_zbl ? dF_dfcut(ii) : 0.0;
+
+    double rxb[V], ryb[V], rzb[V], rinvb[V];
+    double fr_b[PACE_BATCH_NRL_MAX * V];
+    double dfr_b[PACE_BATCH_NRL_MAX * V];
+    double dgr_b[PACE_BATCH_NRB_MAX * V];
+    double fxb[V], fyb[V], fzb[V];
+    int jidx[V];
+
+    for (int mu = 0; mu < nelements; mu++) {
+      const KK_FLOAT *w_mu = reinterpret_cast<const KK_FLOAT *>(&weights(ii, mu, 0, 0));
+      const KK_FLOAT *wr1_mu = &weights_rank1(ii, mu, 0);
+
+      int nb = 0;
+      for (int jj = 0; jj < ncount; jj++) {
+        if ((int) d_mu(ii, jj) != mu) continue;
+
+        rxb[nb] = d_rhats(ii, jj, 0);
+        ryb[nb] = d_rhats(ii, jj, 1);
+        rzb[nb] = d_rhats(ii, jj, 2);
+        rinvb[nb] = 1.0 / d_rnorms(ii, jj);
+        jidx[nb] = jj;
+        const KK_FLOAT *frp = &fr(ii, jj, 0);
+        const KK_FLOAT *dfrp = &dfr(ii, jj, 0);
+        for (int l = 0; l <= lmax; l++)
+          for (int n = 0; n < nradmax; n++) {
+            fr_b[(l * nradmax + n) * V + nb] = frp[l * fr_sl + n * fr_sn];
+            dfr_b[(l * nradmax + n) * V + nb] = dfrp[l * fr_sl + n * fr_sn];
+          }
+        const KK_FLOAT *dgrp = &dgr(ii, jj, 0);
+        for (int n = 0; n < nradbase; n++)
+          dgr_b[n * V + nb] = dgrp[n * dgr_sn];
+
+        if (++nb < V) continue;
+
+        pace_batched_derivative(lmax, nradmax, nradbase, alm_p, blm_p, cl_p, dl_p,
+                                rxb, ryb, rzb, rinvb, fr_b, dfr_b, dgr_b,
+                                w_mu, w_ss, w_sn, wr1_mu, wr1_sn, fxb, fyb, fzb);
+        for (int lane = 0; lane < V; lane++) {
+          const int jjl = jidx[lane];
+          const KK_FLOAT fpair = dfcore * dcr(ii, jjl);
+          f_ij(ii, jjl, 0) = scale * fxb[lane] + fpair * rxb[lane];
+          f_ij(ii, jjl, 1) = scale * fyb[lane] + fpair * ryb[lane];
+          f_ij(ii, jjl, 2) = scale * fzb[lane] + fpair * rzb[lane];
+          if (jjl == jj_min) {
+            f_ij(ii, jjl, 0) += dfc * rxb[lane];
+            f_ij(ii, jjl, 1) += dfc * ryb[lane];
+            f_ij(ii, jjl, 2) += dfc * rzb[lane];
+          }
+        }
+        nb = 0;
+      }
+
+      if (nb > 0) {
+        // tail lanes copy lane-0 data so every value stays finite; only the
+        // first nb lanes are consumed
+        for (int lane = nb; lane < V; lane++) {
+          rxb[lane] = rxb[0];
+          ryb[lane] = ryb[0];
+          rzb[lane] = rzb[0];
+          rinvb[lane] = rinvb[0];
+        }
+        for (int f = 0; f < nrl; f++)
+          for (int lane = nb; lane < V; lane++) {
+            fr_b[f * V + lane] = fr_b[f * V];
+            dfr_b[f * V + lane] = dfr_b[f * V];
+          }
+        for (int n = 0; n < nradbase; n++)
+          for (int lane = nb; lane < V; lane++) dgr_b[n * V + lane] = dgr_b[n * V];
+
+        pace_batched_derivative(lmax, nradmax, nradbase, alm_p, blm_p, cl_p, dl_p,
+                                rxb, ryb, rzb, rinvb, fr_b, dfr_b, dgr_b,
+                                w_mu, w_ss, w_sn, wr1_mu, wr1_sn, fxb, fyb, fzb);
+        for (int lane = 0; lane < nb; lane++) {
+          const int jjl = jidx[lane];
+          const KK_FLOAT fpair = dfcore * dcr(ii, jjl);
+          f_ij(ii, jjl, 0) = scale * fxb[lane] + fpair * rxb[lane];
+          f_ij(ii, jjl, 1) = scale * fyb[lane] + fpair * ryb[lane];
+          f_ij(ii, jjl, 2) = scale * fzb[lane] + fpair * rzb[lane];
+          if (jjl == jj_min) {
+            f_ij(ii, jjl, 0) += dfc * rxb[lane];
+            f_ij(ii, jjl, 1) += dfc * ryb[lane];
+            f_ij(ii, jjl, 2) += dfc * rzb[lane];
+          }
         }
       }
     }
@@ -3166,7 +3205,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos::calcSplines(const int ii, const int jj, const KK_FLOAT r, const t_ace_3d &d_values, const t_ace_3d &d_derivatives) const
 {
-  KK_FLOAT wl, wl2, wl3, w2l1, w3l2;
+  KK_FLOAT wl;
   KK_FLOAT c[4];
   KK_FLOAT x = r * rscalelookup;
   int nl = static_cast<int>(floor(x));
@@ -3176,10 +3215,6 @@ void PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos::calcSplines(const int
 
   if (nl < nlut) {
     wl = x - KK_FLOAT(nl);
-    wl2 = wl * wl;
-    wl3 = wl2 * wl;
-    w2l1 = 2.0 * wl;
-    w3l2 = 3.0 * wl2;
     for (int func_id = 0; func_id < num_of_functions; func_id++) {
       for (int idx = 0; idx < 4; idx++)
         c[idx] = lookupTable(nl, func_id, idx);
@@ -3240,13 +3275,19 @@ double PairPACEKokkos<DeviceType>::memory_usage()
   double bytes = 0;
 
   bytes += MemKK::memory_usage(A_rank1);
+  // dual layout: only one of these sets is allocated, so both are counted and
+  // the unallocated one contributes nothing
   bytes += MemKK::memory_usage(A_sph_re);
   bytes += MemKK::memory_usage(A_sph_im);
+  bytes += MemKK::memory_usage(A_sph);
+  bytes += MemKK::memory_usage(A);
+  bytes += MemKK::memory_usage(dB_flatten);
   bytes += MemKK::memory_usage(e_atom);
   bytes += MemKK::memory_usage(rhos);
   bytes += MemKK::memory_usage(dF_drho);
   bytes += MemKK::memory_usage(weights_re);
   bytes += MemKK::memory_usage(weights_im);
+  bytes += MemKK::memory_usage(weights);
   bytes += MemKK::memory_usage(weights_rank1);
   bytes += MemKK::memory_usage(rho_core);
   bytes += MemKK::memory_usage(dF_drho_core);

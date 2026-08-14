@@ -162,23 +162,20 @@ class PairPACEKokkos : public PairPACE {
   // These set the team size used to launch each TeamPolicy kernel. They
   // replace a single hard-coded team size (formerly 32 for every GPU
   // kernel) so that occupancy can be tuned per kernel and per backend.
-  // The host backend falls back to the non-Kokkos evaluator in compute(),
-  // so the values in the host branch are only used to keep the launches
-  // well-formed and are not performance critical.
   //
-  // NOTE: the values below intentionally reproduce the previous behaviour
+  // They are selected by host_flag, not by the build configuration: in a GPU
+  // build the host instantiation (pace/kk/host) is a CPU backend and wants
+  // team size 1. Keying them off KOKKOS_ENABLE_CUDA and friends would give it
+  // team size 32, which for ComputeNeigh also means requesting 32x the team
+  // scratch it actually needs.
+  //
+  // NOTE: the GPU values intentionally reproduce the previous behaviour
   // (team size 32 on all GPU kernels). They are the hook for the empirical
   // per-architecture tuning sweep; do not change them without benchmarking.
   // ------------------------------------------------------------------
-#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL)
-  static constexpr int team_size_compute_neigh = 32;
-  static constexpr int team_size_compute_ai = 32;
-  static constexpr int team_size_compute_derivative = 32;
-#else
-  static constexpr int team_size_compute_neigh = 1;
-  static constexpr int team_size_compute_ai = 1;
-  static constexpr int team_size_compute_derivative = 1;
-#endif
+  static constexpr int team_size_compute_neigh = host_flag ? 1 : 32;
+  static constexpr int team_size_compute_ai = host_flag ? 1 : 32;
+  static constexpr int team_size_compute_derivative = host_flag ? 1 : 32;
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;

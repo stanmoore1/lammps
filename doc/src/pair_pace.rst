@@ -96,9 +96,10 @@ two passes (running on a single GPU).
 
 .. versionadded:: TBD
 
-The keyword *neigh* is only applicable when using the pair style *pace*
-or *pace/extrapolation* with the KOKKOS package on GPUs and is ignored
-otherwise.  It controls which level of Kokkos team scratch memory is
+The keyword *neigh* is only recognized by the KOKKOS versions of the pair
+styles (*pace/kk* and *pace/extrapolation/kk*); the non-accelerated styles
+will stop with an "unknown keyword" error if it is given.  It only has an
+effect on GPU backends, where team scratch memory is a limited resource.  It controls which level of Kokkos team scratch memory is
 used to build the short neighbor list.  Level 0 is fast on-chip shared
 memory, but it is a limited resource that can be exceeded when atoms
 have many neighbors and/or when there are many atomic species, which
