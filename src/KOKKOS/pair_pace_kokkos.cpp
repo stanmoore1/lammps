@@ -394,7 +394,11 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
 {
   auto basis_set = aceimpl->basis_set;
 
-  if ((int)A_sph_re.extent(0) < natom) {
+  // A_sph_re is allocated on the device path only, so it cannot be the
+  // growth test: on a host backend its extent stays 0 and every call would
+  // re-allocate (and re-zero, and re-fault) the whole set.  A_rank1 is
+  // allocated by both paths.
+  if ((int)A_rank1.extent(0) < natom) {
 
     // Dual layout: the host kernels use the interleaved-complex A/A_sph (re
     // and im in the same cache line, which is what one thread walking one
