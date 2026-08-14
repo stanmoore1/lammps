@@ -128,7 +128,10 @@ Input::Input(LAMMPS *lmp, int argc, char **argv) :
     inlines = new int[LMP_MAXFILE];
   }
 
-  variable = new Variable(lmp);
+  if (lmp->kokkos && lmp->kokkos->kokkos_exists)
+    variable = new VariableKokkos(lmp);
+  else
+    variable = new Variable(lmp);
 
   // fill map with commands listed in style_command.h
 

@@ -27,6 +27,7 @@
 #include "kokkos.h"               // IWYU pragma: export
 #include "memory_kokkos.h"        // IWYU pragma: export
 #include "modify_kokkos.h"        // IWYU pragma: export
+#include "variable_kokkos.h"      // IWYU pragma: export
 #include "neighbor_kokkos.h"      // IWYU pragma: export
 
 #define LAMMPS_INLINE KOKKOS_INLINE_FUNCTION
@@ -43,6 +44,7 @@
 #include "group.h"
 #include "memory.h"
 #include "modify.h"
+#include "variable.h"
 #include "neighbor.h"
 
 #define LAMMPS_INLINE inline
@@ -108,6 +110,11 @@ class MemoryKokkos : public Memory {
 class ModifyKokkos : public Modify {
  public:
   ModifyKokkos(class LAMMPS *lmp) : Modify(lmp) {}
+};
+
+class VariableKokkos : public Variable {
+ public:
+  VariableKokkos(class LAMMPS *lmp) : Variable(lmp) {}
 };
 
 // NOLINTBEGIN

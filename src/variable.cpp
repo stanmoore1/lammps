@@ -1651,6 +1651,10 @@ double Variable::evaluate(char *str, Tree **tree, int ivar)
           print_var_error(FLERR,"Variable evaluation before simulation box is defined"
                           + utils::errorurl(30),ivar);
 
+        // the compute is invoked below and reads per-atom data on the host
+
+        sync_peratom(nullptr);
+
         // uppercase used to access of peratom data by equal-style var
 
         int lowercase = 1;
@@ -1937,6 +1941,10 @@ double Variable::evaluate(char *str, Tree **tree, int ivar)
         if (domain->box_exist == 0)
           print_var_error(FLERR,"Variable evaluation before simulation box is defined"
                           + utils::errorurl(30),ivar);
+
+        // the fix supplies per-atom data it stores on the host
+
+        sync_peratom(nullptr);
 
         // uppercase used to force access of
         // global vector vs global scalar, and global array vs global vector
@@ -2359,6 +2367,10 @@ double Variable::evaluate(char *str, Tree **tree, int ivar)
         if (domain->box_exist == 0)
           print_var_error(FLERR,"Variable evaluation before simulation box is defined"
                           + utils::errorurl(30),ivar);
+
+        // the i_ / d_ / i2_ / d2_ prefix says which custom array is read
+
+        sync_peratom(word);
 
         int index_custom,type_custom,cols_custom;
         if (word[1] == '2') index_custom = atom->find_custom(word+3,type_custom,cols_custom);
@@ -4335,19 +4347,25 @@ int Variable::math_function(char *word, char *contents, Tree **tree, Tree **tree
      torque(group,dim),inertia(group,dim),omega(group,dim)
 ------------------------------------------------------------------------- */
 
+int Variable::is_group_function(const char *word)
+{
+  return (strcmp(word,"count") == 0) || (strcmp(word,"mass") == 0) ||
+         (strcmp(word,"charge") == 0) || (strcmp(word,"xcm") == 0) ||
+         (strcmp(word,"vcm") == 0) || (strcmp(word,"fcm") == 0) ||
+         (strcmp(word,"bound") == 0) || (strcmp(word,"gyration") == 0) ||
+         (strcmp(word,"ke") == 0) || (strcmp(word,"angmom") == 0) ||
+         (strcmp(word,"torque") == 0) || (strcmp(word,"inertia") == 0) ||
+         (strcmp(word,"omega") == 0);
+}
+
+/* ---------------------------------------------------------------------- */
+
 int Variable::group_function(char *word, char *contents, Tree **tree, Tree **treestack,
                              int &ntreestack, double *argstack, int &nargstack, int ivar)
 {
   // word not a match to any group function
 
-  if (strcmp(word,"count") != 0 && strcmp(word,"mass") &&
-      strcmp(word,"charge") != 0 && strcmp(word,"xcm") != 0 &&
-      strcmp(word,"vcm") != 0 && strcmp(word,"fcm") != 0 &&
-      strcmp(word,"bound") != 0 && strcmp(word,"gyration") != 0 &&
-      strcmp(word,"ke") != 0 && strcmp(word,"angmom") != 0 &&
-      strcmp(word,"torque") != 0 && strcmp(word,"inertia") != 0 &&
-      strcmp(word,"omega") != 0)
-    return 0;
+  if (!is_group_function(word)) return 0;
 
   // parse contents for comma-separated args
   // narg = number of args, args = strings between commas
