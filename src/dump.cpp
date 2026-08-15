@@ -31,7 +31,6 @@
 #include "update.h"
 #include "variable.h"
 
-#include <cstdio>
 #include <cstring>
 #include <stdexcept>
 
@@ -404,14 +403,13 @@ void Dump::write()
 
   if (pbcflag) {
     int nlocal = atom->nlocal;
+
+    // with KOKKOS the current data may only exist on the device,
+    // so the host copies have to be refreshed before they are copied
+
 #if defined(LMP_KOKKOS)
-    // Kokkos: canonical coords live on device; refresh host before memcpy.
-    // While atom->x points at xpbc, DomainKokkos::x2lamda/pbc/lamda2x still
-    // transform k_x on device (#4923, #4940). Use Domain::* on host buffers.
-    if (lmp->kokkos) {
-      if (auto *atomkk = dynamic_cast<AtomKokkos *>(atom))
-        atomkk->sync(Host, X_MASK | V_MASK | IMAGE_MASK);
-    }
+    if (lmp->kokkos)
+      ((AtomKokkos *) atom)->sync(Host, X_MASK | V_MASK | MASK_MASK | IMAGE_MASK);
 #endif
     if (nlocal > maxpbc) pbc_allocate();
     if (nlocal) {
@@ -427,20 +425,23 @@ void Dump::write()
     atom->image = imagepbc;
 
     // for triclinic, PBC is applied in lamda coordinates
+    // atom->x, atom->v and atom->image point at the copies made above, so with
+    // KOKKOS the Domain base class versions must be called explicitly.  The
+    // DomainKokkos versions would remap the real coordinates on the device
+    // instead and leave the copies unchanged (see issues #4923 and #4940)
 
 #if defined(LMP_KOKKOS)
     if (lmp->kokkos) {
       if (domain->triclinic) domain->Domain::x2lamda(nlocal);
       domain->Domain::pbc();
       if (domain->triclinic) domain->Domain::lamda2x(nlocal);
-    } else {
+    } else
 #endif
+    {
       if (domain->triclinic) domain->x2lamda(nlocal);
       domain->pbc();
       if (domain->triclinic) domain->lamda2x(nlocal);
-#if defined(LMP_KOKKOS)
     }
-#endif
   }
 
   // pack my data into buf
