@@ -46,7 +46,7 @@ class FixWallRegionKokkos : public FixWallRegion {
   template<class T>
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  void wall_particle(T, const int, value_type) const;
+  void wall_particle(T *, const int, value_type) const;
 
  private:
 

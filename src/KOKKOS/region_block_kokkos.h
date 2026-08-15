@@ -33,8 +33,6 @@ namespace LAMMPS_NS {
 
 using namespace MathSpecialKokkos;
 
-typedef Kokkos::Array<Region::Contact,6> contacts_t;
-
 struct TagRegBlockMatchAll{};
 
 template<class DeviceType>
@@ -43,6 +41,11 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
 
  public:
   typedef DeviceType device_type;
+
+  // per-thread contact scratch: a block region can report up to 6 contacts
+
+  typedef Kokkos::Array<Region::Contact,6> contacts_t;
+
   typedef ArrayTypes<DeviceType> AT;
 
   RegBlockKokkos(class LAMMPS *, int, char **);
@@ -103,8 +106,6 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
 
     return ncontact;
   }
-
-  //Kokkos::View<Contact*, DeviceType> d_contact;
 
  private:
   int groupbit;

@@ -27,7 +27,6 @@ RegionStyle(sphere/kk/host,RegSphereKokkos<LMPHostType>);
 
 #include "kokkos_base.h"
 #include "kokkos_type.h"
-#include "region_block_kokkos.h" 
 
 namespace LAMMPS_NS {
 
@@ -39,6 +38,11 @@ class RegSphereKokkos : public RegSphere, public KokkosBase  {
 
  public:
   typedef DeviceType device_type;
+
+  // per-thread contact scratch: a sphere region reports at most 1 contact
+
+  typedef Kokkos::Array<Region::Contact,1> contacts_t;
+
   typedef ArrayTypes<DeviceType> AT;
 
   RegSphereKokkos(class LAMMPS *, int, char **);

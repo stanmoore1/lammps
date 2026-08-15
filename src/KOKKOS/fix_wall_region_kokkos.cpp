@@ -152,7 +152,7 @@ template<class DeviceType>
 template<class T>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
-void FixWallRegionKokkos<DeviceType>::wall_particle(T regionKK, const int i, value_type result) const {
+void FixWallRegionKokkos<DeviceType>::wall_particle(T *regionKK, const int i, value_type result) const {
   if (d_mask(i) & groupbit) {
 
     if (!regionKK->match_kokkos(d_x(i,0), d_x(i,1), d_x(i,2))) Kokkos::abort("Particle outside surface of region used in fix wall/region");
@@ -164,7 +164,9 @@ void FixWallRegionKokkos<DeviceType>::wall_particle(T regionKK, const int i, val
     else
       tooclose = 0.0;
 
-    contacts_t contacts;
+    // per-thread contact scratch: must not be shared between threads
+
+    typename T::contacts_t contacts;
     int n = regionKK->surface_kokkos(d_x(i,0), d_x(i,1), d_x(i,2), cutoff, contacts);
 
     for ( int m = 0; m < n; m++) {
