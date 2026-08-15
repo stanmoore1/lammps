@@ -50,6 +50,16 @@ void MinFireKokkos::init() {
   alpha = alpha0;
   last_negative = ntimestep_start = update->ntimestep;
   vdotf_negatif = 0;
+
+  // the per-type masses are not covered by the sync()/modified() mask
+  // machinery, so they have to be pushed to the device explicitly, the same
+  // way fix nve/kk and fix nh/kk do it.  Without this the device copy stays
+  // zero whenever it is a separate allocation (GPU backends, and the mixed
+  // and single precision builds), so dtfm = dtf/mass becomes inf and the
+  // positions turn into NaN on the first iteration.
+
+  atomKK->k_mass.modify_host();
+  atomKK->k_mass.sync_device();
 }
 
 void MinFireKokkos::setup_style() {
@@ -107,7 +117,12 @@ template <int INTEGRATOR, bool ABCFLAG>
 int MinFireKokkos::run_iterate(int maxiter) {
   double vdotf_local, vdotfall, vdotv_local, vdotvall, fdotf_local, fdotfall;
   KK_FLOAT scale1 = 0.0, scale2 = 0.0; // Initialize to zero
-  KK_FLOAT dtv;
+
+  // dtv is the receive buffer of an MPI_DOUBLE reduction below and therefore
+  // has to be a double: as a KK_FLOAT it is only 4 bytes wide in the mixed and
+  // single precision builds and MPI_Allreduce() writes 8 bytes past it
+
+  double dtv;
   alpha_final = 0.0;
   int flagv0 = 1;
 
