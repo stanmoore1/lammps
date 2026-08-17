@@ -956,6 +956,15 @@ it can be found with a debugger.
    mode, since without a GPU there is only one execution space to run the
    communication on.
 
+Note that a CPU build using reduced precision, as set by the
+``KOKKOS_PREC`` option above, already finds some of these errors on its
+own with no need for this option.  The per-atom arrays are then kept in
+single precision for the KOKKOS styles and in double precision for the
+rest of LAMMPS, so those two copies are separate and a missing
+declaration between them changes the results.  What this option adds is
+the copy between the host and the device, which is the one a GPU
+actually uses.
+
 ----------
 
 .. _lepton:
