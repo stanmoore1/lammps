@@ -294,6 +294,13 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void resize(Args... args)
   {
     if constexpr (SPLIT) {
+      // A default constructed dual view carries no counters, and resizing is the
+      // one way it gains data without being replaced wholesale, so allocate them
+      // here or every later modify_host() would quietly do nothing and the
+      // checks would pass by never seeing the writes.  Kokkos::DualView does the
+      // same for its own flags in impl_resize().
+      if (!lmp_flags.data()) lmp_flags = t_lmp_flags("LAMMPS::DualView::lmp_flags");
+
       // Fold the host side back into the base allocation first, so that the base
       // class resize preserves it.  Without this any newer host data would be
       // dropped and the new buffer silently rebuilt from a stale device copy.
