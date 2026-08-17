@@ -39,7 +39,7 @@ using DualView = Kokkos::DualView<DataType, Properties...>;
    CPU-only build, which is why a missing sync() or modify() -- silent data
    corruption on a GPU -- cannot be observed without one.
 
-   When that happens this class allocates a second buffer for the device side and
+   When that happens this class allocates a second buffer for the host side and
    drives the coherence state machine itself, so the host/device edge behaves the
    way it does on a GPU and the same bugs become reproducible on the CPU.  On a
    real GPU backend the two sides are already distinct and everything is
@@ -69,8 +69,13 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   using t_lmp_flags = Kokkos::View<unsigned int[2], Kokkos::LayoutLeft, Kokkos::HostSpace>;
 
  private:
-  // second device-side allocation, empty unless SPLIT
-  t_dev d_split;
+  // The extra allocation is given to the HOST side, not the device side, and the
+  // base class views are left to serve as the device side.  That ordering
+  // matters: Kokkos::subview() of a dual view slices the base class views, and
+  // every such subview in the package is consumed by a device kernel, so slicing
+  // the base has to yield device data.  Splitting the device side instead would
+  // hand those subviews a buffer the device never wrote to.
+  t_host h_split;
 
   // lmp_flags(0) counts modifications of the host side, lmp_flags(1) of the
   // device side, exactly like Kokkos::DualView::modified_flags.  Held in a View
@@ -80,10 +85,10 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void allocate_split()
   {
     if constexpr (SPLIT) {
-      if (!base_type::view_device().data()) return;
+      if (!base_type::view_host().data()) return;
       // create_mirror always allocates, unlike create_mirror_view
-      d_split = Kokkos::create_mirror(base_type::view_device());
-      Kokkos::deep_copy(d_split, base_type::view_device());
+      h_split = Kokkos::create_mirror(base_type::view_host());
+      Kokkos::deep_copy(h_split, base_type::view_host());
     }
   }
 
@@ -112,9 +117,11 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // types for overload resolution even though either can be built from the
   // other, so accept anything the base class itself accepts.
   //
-  // Note the result does not share this object's coherence counters: a subview
-  // gets its own, which is a missed check rather than a false alarm.  All such
-  // uses today are on communication bookkeeping arrays, not per-atom data.
+  // The subview shares the base class buffers, so it sees the same device data
+  // as its parent.  It does not share the coherence counters, though, so a sync
+  // that the parent still owes is not detected through the subview.  That is a
+  // missed check rather than a false alarm, and all such uses today are on
+  // communication bookkeeping arrays rather than per-atom data.
 
   template <class DT, class... DP,
             class = std::enable_if_t<
@@ -129,16 +136,16 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   /* ---- the two views ---- */
 
   KOKKOS_INLINE_FUNCTION
-  const t_dev &view_device() const
-  {
-    if constexpr (SPLIT)
-      return d_split;
-    else
-      return base_type::view_device();
-  }
+  const t_dev &view_device() const { return base_type::view_device(); }
 
   KOKKOS_INLINE_FUNCTION
-  const t_host &view_host() const { return base_type::view_host(); }
+  const t_host &view_host() const
+  {
+    if constexpr (SPLIT)
+      return h_split;
+    else
+      return base_type::view_host();
+  }
 
   // On a CPU build LMPDeviceType and LMPHostType are the same type, so the
   // template argument cannot express host-versus-device intent and this always
@@ -148,7 +155,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   KOKKOS_INLINE_FUNCTION auto view() const
   {
     if constexpr (SPLIT)
-      return d_split;
+      return base_type::view_device();
     else
       return base_type::template view<Device>();
   }
@@ -209,9 +216,9 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void sync_device()
   {
     if constexpr (SPLIT) {
-      if (!lmp_flags.data() || !d_split.data()) return;
+      if (!lmp_flags.data() || !h_split.data()) return;
       if (lmp_flags(0) > lmp_flags(1)) {
-        Kokkos::deep_copy(d_split, base_type::view_host());
+        Kokkos::deep_copy(base_type::view_device(), h_split);
         lmp_flags(0) = lmp_flags(1) = 0;
       }
     } else
@@ -221,9 +228,9 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void sync_host()
   {
     if constexpr (SPLIT) {
-      if (!lmp_flags.data() || !d_split.data()) return;
+      if (!lmp_flags.data() || !h_split.data()) return;
       if (lmp_flags(1) > lmp_flags(0)) {
-        Kokkos::deep_copy(base_type::view_host(), d_split);
+        Kokkos::deep_copy(h_split, base_type::view_device());
         lmp_flags(0) = lmp_flags(1) = 0;
       }
     } else
@@ -253,17 +260,17 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void resize(Args... args)
   {
     if constexpr (SPLIT) {
-      // Fold the device side back into the host allocation first, so that the
-      // base class resize preserves it.  Without this the device data would be
-      // dropped and the new buffer silently rebuilt from a stale host copy.
+      // Fold the host side back into the base allocation first, so that the base
+      // class resize preserves it.  Without this any newer host data would be
+      // dropped and the new buffer silently rebuilt from a stale device copy.
       // TransformView::resize() handles its legacy edge the same way.
-      sync_host();
+      sync_device();
     }
 
     base_type::resize(args...);
 
     if constexpr (SPLIT) {
-      d_split = t_dev();
+      h_split = t_host();
       allocate_split();
       if (lmp_flags.data()) lmp_flags(0) = lmp_flags(1) = 0;
     }
