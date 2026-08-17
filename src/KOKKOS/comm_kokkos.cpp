@@ -504,7 +504,7 @@ void CommKokkos::reverse_comm_device(Fix *fix, int size)
         buf_recv_fix = k_buf_recv_fix.view<DeviceType>().data();
       } else {
         k_buf_send_fix.modify<DeviceType>();
-        k_buf_send_fix.sync<LMPHostType>();
+        k_buf_send_fix.sync_host();
         buf_send_fix = k_buf_send_fix.view_host().data();
         buf_recv_fix = k_buf_recv_fix.view_host().data();
       }
@@ -524,7 +524,7 @@ void CommKokkos::reverse_comm_device(Fix *fix, int size)
       }
 
       if (!lmp->kokkos->gpu_aware_flag) {
-        k_buf_recv_fix.modify<LMPHostType>();
+        k_buf_recv_fix.modify_host();
         k_buf_recv_fix.sync<DeviceType>();
       }
       k_buf_tmp = k_buf_recv_fix;
@@ -1469,9 +1469,14 @@ void CommKokkos::borders_device() {
 
   k_sendlist.sync<DeviceType>();
 
+  // the team size is a property of the backend, not of the logical execution
+  // space: only a GPU backend can run teams this wide, so guard on the backend
+
   int team_size = 1;
+#ifdef LMP_KOKKOS_GPU
   if (exec_space == Device)
     team_size = 128;
+#endif
 
   // do swaps over all 3 dimensions
 

@@ -33,8 +33,17 @@ string(TOUPPER ${KOKKOS_LAYOUT} KOKKOS_LAYOUT)
 
 target_compile_definitions(lammps PRIVATE -DLMP_KOKKOS_LAYOUT_${KOKKOS_LAYOUT})
 
+# Set Kokkos host/device data transfer debugging
+option(KOKKOS_DEBUG_SYNC "Check KOKKOS host/device data transfers" OFF)
+if(KOKKOS_DEBUG_SYNC)
+  target_compile_definitions(lammps PRIVATE -DLMP_KOKKOS_DEBUG_SYNC)
+endif()
+
 message(STATUS "Using " ${KOKKOS_PREC_LOWER} " precision for KOKKOS package")
 message(STATUS "Using " ${KOKKOS_LAYOUT_LOWER} " view layout for KOKKOS package")
+if(KOKKOS_DEBUG_SYNC)
+  message(STATUS "Checking host/device data transfers for KOKKOS package")
+endif()
 
 ########################################################################
 # consistency checks and Kokkos options/settings required by LAMMPS

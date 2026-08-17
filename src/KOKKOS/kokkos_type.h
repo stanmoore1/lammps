@@ -217,10 +217,26 @@ using KKScatterView = Kokkos::Experimental::ScatterView<DataType, Layout, Device
 template<class Device>
 struct ExecutionSpaceFromDevice;
 
+#if defined(LMP_KOKKOS_DEBUG_SYNC) && !defined(LMP_KOKKOS_GPU)
+
+// In a sync-debugging build without a GPU backend LMPHostType is also the default
+// execution space, so styles are routed to the Device space to keep the device
+// coherence edge live.  Otherwise every style runs on HostKK and the device edge,
+// where the host/device sync and modify bugs live, is never exercised at all.
+
+template<>
+struct ExecutionSpaceFromDevice<LMPHostType> {
+  static const LAMMPS_NS::ExecutionSpace space = LAMMPS_NS::Device;
+};
+
+#else
+
 template<>
 struct ExecutionSpaceFromDevice<LMPHostType> {
   static const LAMMPS_NS::ExecutionSpace space = LAMMPS_NS::HostKK;
 };
+
+#endif
 
 #ifdef KOKKOS_ENABLE_CUDA
 template<>
