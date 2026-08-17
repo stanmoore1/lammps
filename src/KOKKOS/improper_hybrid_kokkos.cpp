@@ -117,7 +117,7 @@ void ImproperHybridKokkos::compute(int eflag, int vflag)
 
   for (int m = 0; m < nstyles; m++) {
     neighbor->nimproperlist = h_nimproperlist[m];
-    auto k_improperlist_m = Kokkos::subview(k_improperlist,m,Kokkos::ALL,Kokkos::ALL);
+    auto k_improperlist_m = LAMMPS_NS::subview(k_improperlist,m,Kokkos::ALL,Kokkos::ALL);
     k_improperlist_m.modify_device();
     neighborKK->k_improperlist = k_improperlist_m;
 

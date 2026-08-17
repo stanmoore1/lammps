@@ -115,7 +115,7 @@ void AngleHybridKokkos::compute(int eflag, int vflag)
 
   for (int m = 0; m < nstyles; m++) {
     neighbor->nanglelist = h_nanglelist[m];
-    auto k_anglelist_m = Kokkos::subview(k_anglelist,m,Kokkos::ALL,Kokkos::ALL);
+    auto k_anglelist_m = LAMMPS_NS::subview(k_anglelist,m,Kokkos::ALL,Kokkos::ALL);
     k_anglelist_m.modify_device();
     neighborKK->k_anglelist = k_anglelist_m;
 

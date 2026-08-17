@@ -28,6 +28,12 @@ namespace LAMMPS_NS {
 template <class DataType, class... Properties>
 using DualView = Kokkos::DualView<DataType, Properties...>;
 
+template <class... Args>
+auto subview(Args &&...args)
+{
+  return Kokkos::subview(std::forward<Args>(args)...);
+}
+
 #else
 
 /* ----------------------------------------------------------------------
@@ -117,11 +123,11 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // types for overload resolution even though either can be built from the
   // other, so accept anything the base class itself accepts.
   //
-  // The subview shares the base class buffers, so it sees the same device data
-  // as its parent.  It does not share the coherence counters, though, so a sync
-  // that the parent still owes is not detected through the subview.  That is a
-  // missed check rather than a false alarm, and all such uses today are on
-  // communication bookkeeping arrays rather than per-atom data.
+  // Such a subview shares the base class buffers, so it sees the same device
+  // data as its parent, but it gets a host buffer and coherence counters of its
+  // own.  That is wrong for a subview and callers must use LAMMPS_NS::subview()
+  // below instead, which slices both sides; this constructor exists only so that
+  // an unconverted call site keeps compiling.
 
   template <class DT, class... DP,
             class = std::enable_if_t<
@@ -132,6 +138,34 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     lmp_flags = t_lmp_flags("LAMMPS::DualView::lmp_flags");
     allocate_split();
   }
+
+  // Build from already sliced buffers and a borrowed set of counters.  Only
+  // LAMMPS_NS::subview() uses this; the counters are shared on purpose, so that
+  // a sync of the parent is seen through the child and the other way round.
+
+  DualView(const base_type &base, const t_host &host, const t_lmp_flags &flags)
+      : base_type(base), h_split(host), lmp_flags(flags)
+  {
+  }
+
+  // Conversion between two spellings of the same dual view, which keeps the host
+  // buffer and the counters.  Without this the result of subview() below, whose
+  // space is spelled as a device_type, would go through the Kokkos::DualView
+  // constructor above when it is assigned to a member declared with an execution
+  // space, and quietly lose the sharing that makes the subview work at all.
+
+  template <class DT, class... DP,
+            class = std::enable_if_t<
+                std::is_constructible_v<Kokkos::DualView<DataType, Properties...>,
+                                        const Kokkos::DualView<DT, DP...> &>>>
+  DualView(const DualView<DT, DP...> &src)
+      : base_type(static_cast<const Kokkos::DualView<DT, DP...> &>(src)),
+        h_split(src.impl_h_split()), lmp_flags(src.impl_lmp_flags())
+  {
+  }
+
+  const t_lmp_flags &impl_lmp_flags() const { return lmp_flags; }
+  const t_host &impl_h_split() const { return h_split; }
 
   /* ---- the two views ---- */
 
@@ -276,6 +310,35 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     }
   }
 };
+
+/* ----------------------------------------------------------------------
+   Slice a dual view.
+
+   Kokkos::subview() only knows about the base class buffers, so it would slice
+   the device side and leave the child with a host buffer of its own.  Writing
+   to the child's host view and then syncing the parent, which is what the
+   communication code does with its slices of k_swap, would then quietly lose
+   the data.  Slice both sides here and let parent and child share one set of
+   coherence counters.
+------------------------------------------------------------------------- */
+
+template <class DataType, class... Properties, class... Args>
+auto subview(const DualView<DataType, Properties...> &src, Args... args)
+{
+  using src_type = DualView<DataType, Properties...>;
+  using base_type = typename src_type::base_type;
+
+  auto base = Kokkos::subview(static_cast<const base_type &>(src), args...);
+
+  using result_type = DualView<typename decltype(base)::traits::data_type,
+                               typename decltype(base)::traits::array_layout,
+                               typename decltype(base)::traits::device_type>;
+
+  if constexpr (src_type::SPLIT)
+    return result_type(base, Kokkos::subview(src.view_host(), args...), src.impl_lmp_flags());
+  else
+    return result_type(base);
+}
 
 #endif    // LMP_KOKKOS_DEBUG_SYNC
 

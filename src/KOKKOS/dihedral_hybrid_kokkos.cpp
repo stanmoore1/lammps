@@ -116,7 +116,7 @@ void DihedralHybridKokkos::compute(int eflag, int vflag)
 
   for (int m = 0; m < nstyles; m++) {
     neighbor->ndihedrallist = h_ndihedrallist[m];
-    auto k_dihedrallist_m = Kokkos::subview(k_dihedrallist,m,Kokkos::ALL,Kokkos::ALL);
+    auto k_dihedrallist_m = LAMMPS_NS::subview(k_dihedrallist,m,Kokkos::ALL,Kokkos::ALL);
     k_dihedrallist_m.modify_device();
     neighborKK->k_dihedrallist = k_dihedrallist_m;
 

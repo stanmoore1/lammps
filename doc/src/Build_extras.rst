@@ -952,9 +952,9 @@ it can be found with a debugger.
 
    Runs with this option enabled use about twice as much memory for
    per-atom data, are considerably slower, and should use a single MPI
-   process.  Use the default communication settings: the ``comm device``
-   and ``comm host`` settings of the :doc:`package kokkos <package>`
-   command are not supported yet in this mode.
+   process.  The ``comm host`` setting of the :doc:`package kokkos
+   <package>` command is rejected in this mode, since without a GPU there
+   is only one execution space to run the communication on.
 
 ----------
 

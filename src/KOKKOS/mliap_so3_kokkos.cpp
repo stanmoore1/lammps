@@ -923,7 +923,7 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
     double y = t_rij(ipair, 1);
     double z = t_rij(ipair, 2);
     ipair++;
-    auto dplist_r=Kokkos::subview(k_dplist_r,ipair-1,Kokkos::ALL, Kokkos::ALL);
+    auto dplist_r=LAMMPS_NS::subview(k_dplist_r,ipair-1,Kokkos::ALL, Kokkos::ALL);
 
     double r = sqrt(x * x + y * y + z * z);
     if (r < SMALL) continue;

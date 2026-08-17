@@ -149,7 +149,7 @@ void CommTiledKokkos::forward_comm_device()
       }
       if (sendother[iswap]) {
         for (i = 0; i < nsend; i++) {
-          auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,i,Kokkos::ALL);
+          auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,i,Kokkos::ALL);
           n = atomKK->avecKK->pack_comm_kokkos(sendnum[iswap][i],k_sendlist_small,
                               k_buf_send,pbc_flag[iswap][i],pbc[iswap][i]);
           DeviceType().fence();
@@ -157,7 +157,7 @@ void CommTiledKokkos::forward_comm_device()
         }
       }
       if (sendself[iswap]) {
-        auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
+        auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
         atomKK->avecKK->pack_comm_self_kokkos(sendnum[iswap][nsend],k_sendlist_small,
                         firstrecv[iswap][nrecv],pbc_flag[iswap][nsend],pbc[iswap][nsend]);
       }
@@ -178,7 +178,7 @@ void CommTiledKokkos::forward_comm_device()
       }
       if (sendother[iswap]) {
         for (i = 0; i < nsend; i++) {
-          auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,i,Kokkos::ALL);
+          auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,i,Kokkos::ALL);
           n = atomKK->avecKK->pack_comm_vel_kokkos(sendnum[iswap][i],k_sendlist_small,
                                   k_buf_send,pbc_flag[iswap][i],pbc[iswap][i]);
           DeviceType().fence();
@@ -187,7 +187,7 @@ void CommTiledKokkos::forward_comm_device()
         }
       }
       if (sendself[iswap]) {
-        auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
+        auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
         atomKK->avecKK->pack_comm_vel_kokkos(sendnum[iswap][nsend],k_sendlist_small,
                             k_buf_send,pbc_flag[iswap][nsend],pbc[iswap][nsend]);
         atomKK->avecKK->unpack_comm_vel_kokkos(recvnum[iswap][nrecv],firstrecv[iswap][nrecv],k_buf_send);
@@ -196,7 +196,7 @@ void CommTiledKokkos::forward_comm_device()
         for (i = 0; i < nrecv; i++) {
           MPI_Waitany(nrecv,requests,&irecv,MPI_STATUS_IGNORE);
           DeviceType().fence();
-          auto k_buf_recv_offset = Kokkos::subview(k_buf_recv,std::pair<int,int>(forward_recv_offset[iswap][irecv],(int)k_buf_recv.extent(0)),Kokkos::ALL);
+          auto k_buf_recv_offset = LAMMPS_NS::subview(k_buf_recv,std::pair<int,int>(forward_recv_offset[iswap][irecv],(int)k_buf_recv.extent(0)),Kokkos::ALL);
           atomKK->avecKK->unpack_comm_vel_kokkos(recvnum[iswap][irecv],firstrecv[iswap][irecv],
                                 k_buf_recv_offset);
         }
@@ -214,7 +214,7 @@ void CommTiledKokkos::forward_comm_device()
       }
       if (sendother[iswap]) {
         for (i = 0; i < nsend; i++) {
-          auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,i,Kokkos::ALL);
+          auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,i,Kokkos::ALL);
           n = atomKK->avecKK->pack_comm_kokkos(sendnum[iswap][i],k_sendlist_small,
                               k_buf_send,pbc_flag[iswap][i],pbc[iswap][i]);
           DeviceType().fence();
@@ -222,7 +222,7 @@ void CommTiledKokkos::forward_comm_device()
         }
       }
       if (sendself[iswap]) {
-        auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
+        auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
         n = atomKK->avecKK->pack_comm_kokkos(sendnum[iswap][nsend],k_sendlist_small,
                         k_buf_send,pbc_flag[iswap][nsend],pbc[iswap][nsend]);
       }
@@ -230,7 +230,7 @@ void CommTiledKokkos::forward_comm_device()
         for (i = 0; i < nrecv; i++) {
           MPI_Waitany(nrecv,requests,&irecv,MPI_STATUS_IGNORE);
           DeviceType().fence();
-          auto k_buf_recv_offset = Kokkos::subview(k_buf_recv,std::pair<int,int>(forward_recv_offset[iswap][irecv],(int)k_buf_recv.extent(0)),Kokkos::ALL);
+          auto k_buf_recv_offset = LAMMPS_NS::subview(k_buf_recv,std::pair<int,int>(forward_recv_offset[iswap][irecv],(int)k_buf_recv.extent(0)),Kokkos::ALL);
           atomKK->avecKK->unpack_comm_kokkos(recvnum[iswap][irecv],firstrecv[iswap][irecv],
                                    k_buf_recv_offset);
         }
@@ -301,7 +301,7 @@ void CommTiledKokkos::reverse_comm_device()
         }
       }
       if (sendself[iswap]) {
-        auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
+        auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
         atomKK->avecKK->pack_reverse_self_kokkos(sendnum[iswap][nsend],k_sendlist_small,
                              firstrecv[iswap][nrecv]);
       }
@@ -309,8 +309,8 @@ void CommTiledKokkos::reverse_comm_device()
         for (i = 0; i < nsend; i++) {
           MPI_Waitany(nsend,requests,&irecv,MPI_STATUS_IGNORE);
           DeviceType().fence();
-          auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,irecv,Kokkos::ALL);
-          auto k_buf_recv_offset = Kokkos::subview(k_buf_recv,std::pair<int,int>(reverse_recv_offset[iswap][irecv],(int)k_buf_recv.extent(0)),Kokkos::ALL);
+          auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,irecv,Kokkos::ALL);
+          auto k_buf_recv_offset = LAMMPS_NS::subview(k_buf_recv,std::pair<int,int>(reverse_recv_offset[iswap][irecv],(int)k_buf_recv.extent(0)),Kokkos::ALL);
           atomKK->avecKK->unpack_reverse_kokkos(sendnum[iswap][irecv],k_sendlist_small,
                                       k_buf_recv_offset);
         }
@@ -334,7 +334,7 @@ void CommTiledKokkos::reverse_comm_device()
         }
       }
       if (sendself[iswap]) {
-        auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
+        auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
         atomKK->avecKK->pack_reverse_kokkos(recvnum[iswap][nrecv],firstrecv[iswap][nrecv],k_buf_send);
         atomKK->avecKK->unpack_reverse_kokkos(sendnum[iswap][nsend],k_sendlist_small,k_buf_send);
       }
@@ -342,8 +342,8 @@ void CommTiledKokkos::reverse_comm_device()
         for (i = 0; i < nsend; i++) {
           MPI_Waitany(nsend,requests,&irecv,MPI_STATUS_IGNORE);
           DeviceType().fence();
-          auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,irecv,Kokkos::ALL);
-          auto k_buf_recv_offset = Kokkos::subview(k_buf_recv,std::pair<int,int>(reverse_recv_offset[iswap][irecv],(int)k_buf_recv.extent(0)),Kokkos::ALL);
+          auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,irecv,Kokkos::ALL);
+          auto k_buf_recv_offset = LAMMPS_NS::subview(k_buf_recv,std::pair<int,int>(reverse_recv_offset[iswap][irecv],(int)k_buf_recv.extent(0)),Kokkos::ALL);
           atomKK->avecKK->unpack_reverse_kokkos(sendnum[iswap][irecv],k_sendlist_small,
                                k_buf_recv_offset);
         }
@@ -482,7 +482,7 @@ void CommTiledKokkos::forward_comm_device(Pair *pair, int size)
 
     if (sendother[iswap]) {
       for (i = 0; i < nsend; i++) {
-        auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,i,Kokkos::ALL);
+        auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,i,Kokkos::ALL);
         n = pairKKBase->pack_forward_comm_kokkos(sendnum[iswap][i],k_sendlist_small,
                                     k_buf_send_pair,pbc_flag[iswap][i],pbc[iswap][i]);
         if (!lmp->kokkos->gpu_aware_flag) {
@@ -495,7 +495,7 @@ void CommTiledKokkos::forward_comm_device(Pair *pair, int size)
     }
 
     if (sendself[iswap]) {
-      auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
+      auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
       pairKKBase->pack_forward_comm_kokkos(sendnum[iswap][nsend],k_sendlist_small,
                               k_buf_send_pair,pbc_flag[iswap][nsend],pbc[iswap][nsend]);
       pairKKBase->unpack_forward_comm_kokkos(recvnum[iswap][nrecv],firstrecv[iswap][nrecv],
@@ -511,7 +511,7 @@ void CommTiledKokkos::forward_comm_device(Pair *pair, int size)
       }
       for (i = 0; i < nrecv; i++) {
         DAT::tdual_double_1d k_buf_recv_offset =
-          Kokkos::subview(k_buf_recv_pair,std::pair<int,int>(nsize*forward_recv_offset[iswap][i],
+          LAMMPS_NS::subview(k_buf_recv_pair,std::pair<int,int>(nsize*forward_recv_offset[iswap][i],
                           (int)k_buf_recv_pair.extent(0)));
         pairKKBase->unpack_forward_comm_kokkos(recvnum[iswap][i],firstrecv[iswap][i],
                                   k_buf_recv_offset);
@@ -608,7 +608,7 @@ void CommTiledKokkos::reverse_comm_device(Pair *pair, int size)
     }
 
     if (sendself[iswap]) {
-      auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
+      auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,nsend,Kokkos::ALL);
       pairKKBase->pack_reverse_comm_kokkos(recvnum[iswap][nrecv],firstrecv[iswap][nrecv],
                               k_buf_send_pair);
       pairKKBase->unpack_reverse_comm_kokkos(sendnum[iswap][nsend],k_sendlist_small,
@@ -623,9 +623,9 @@ void CommTiledKokkos::reverse_comm_device(Pair *pair, int size)
         k_buf_recv_pair.sync<DeviceType>();
       }
       for (i = 0; i < nsend; i++) {
-        auto k_sendlist_small = Kokkos::subview(k_sendlist,iswap,i,Kokkos::ALL);
+        auto k_sendlist_small = LAMMPS_NS::subview(k_sendlist,iswap,i,Kokkos::ALL);
         DAT::tdual_double_1d k_buf_recv_offset =
-          Kokkos::subview(k_buf_recv_pair,std::pair<int,int>(nsize*reverse_recv_offset[iswap][i],
+          LAMMPS_NS::subview(k_buf_recv_pair,std::pair<int,int>(nsize*reverse_recv_offset[iswap][i],
                           (int)k_buf_recv_pair.extent(0)));
         pairKKBase->unpack_reverse_comm_kokkos(sendnum[iswap][i],k_sendlist_small,
                                   k_buf_recv_offset);

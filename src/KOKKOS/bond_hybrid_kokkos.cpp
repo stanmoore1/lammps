@@ -114,7 +114,7 @@ void BondHybridKokkos::compute(int eflag, int vflag)
 
   for (int m = 0; m < nstyles; m++) {
     neighbor->nbondlist = h_nbondlist[m];
-    auto k_bondlist_m = Kokkos::subview(k_bondlist,m,Kokkos::ALL,Kokkos::ALL);
+    auto k_bondlist_m = LAMMPS_NS::subview(k_bondlist,m,Kokkos::ALL,Kokkos::ALL);
     k_bondlist_m.modify_device();
     neighborKK->k_bondlist = k_bondlist_m;
 
