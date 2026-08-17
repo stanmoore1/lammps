@@ -123,7 +123,17 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   memoryKK = (MemoryKokkos*) memory;
 
   auto_sync = 1;
+
+  // overlapping host and device work is a GPU feature.  VerletKokkos enables it
+  // by comparing the two force buffers, which differ in a sync debugging build
+  // without a GPU, so turn it off explicitly rather than let a pointer
+  // comparison switch on a path that has nothing to overlap with.
+
+#if defined(LMP_KOKKOS_DEBUG_SYNC) && !defined(LMP_KOKKOS_GPU)
+  allow_overlap = 0;
+#else
   allow_overlap = 1;
+#endif
 
   int me = 0;
   MPI_Comm_rank(world,&me);

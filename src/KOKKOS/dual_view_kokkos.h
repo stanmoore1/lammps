@@ -104,10 +104,23 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     allocate_split();
   }
 
-  // conversion from a plain Kokkos::DualView, needed because Kokkos::subview()
-  // deduces and returns the base type
+  // Conversion from a plain Kokkos::DualView, needed because Kokkos::subview()
+  // deduces and returns the base type.  This has to be a template rather than
+  // take base_type directly: subview() spells the space as a device_type, so it
+  // hands back Kokkos::DualView<int*,LayoutRight,Device<Serial,HostSpace>> where
+  // base_type is Kokkos::DualView<int*,LayoutRight,Serial>.  Those are distinct
+  // types for overload resolution even though either can be built from the
+  // other, so accept anything the base class itself accepts.
+  //
+  // Note the result does not share this object's coherence counters: a subview
+  // gets its own, which is a missed check rather than a false alarm.  All such
+  // uses today are on communication bookkeeping arrays, not per-atom data.
 
-  DualView(const base_type &src) : base_type(src)
+  template <class DT, class... DP,
+            class = std::enable_if_t<
+                std::is_constructible_v<Kokkos::DualView<DataType, Properties...>,
+                                        const Kokkos::DualView<DT, DP...> &>>>
+  DualView(const Kokkos::DualView<DT, DP...> &src) : base_type(src)
   {
     lmp_flags = t_lmp_flags("LAMMPS::DualView::lmp_flags");
     allocate_split();
@@ -239,7 +252,16 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   template <class... Args>
   void resize(Args... args)
   {
+    if constexpr (SPLIT) {
+      // Fold the device side back into the host allocation first, so that the
+      // base class resize preserves it.  Without this the device data would be
+      // dropped and the new buffer silently rebuilt from a stale host copy.
+      // TransformView::resize() handles its legacy edge the same way.
+      sync_host();
+    }
+
     base_type::resize(args...);
+
     if constexpr (SPLIT) {
       d_split = t_dev();
       allocate_split();

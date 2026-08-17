@@ -18,6 +18,8 @@
 #include "pointers.h"
 #include "lmptype.h"
 
+#include "dual_view_kokkos.h"
+
 #include <Kokkos_Core.hpp>
 #include <Kokkos_DualView.hpp>
 #include <Kokkos_Timer.hpp>
@@ -715,7 +717,7 @@ struct TransformView {
 
   static constexpr int NEED_TRANSFORM = !(std::is_same<KKType,LegacyType>::value && std::is_same<KKLayout,Kokkos::LayoutRight>::value);
 
-  typedef Kokkos::DualView<KKType, KKLayout, KKSpace> kk_view;
+  typedef LAMMPS_NS::DualView<KKType, KKLayout, KKSpace> kk_view;
   typedef typename Kokkos::DualView<LegacyType, Kokkos::LayoutRight, KKSpace>::t_host legacy_view;
 
  private:
@@ -727,8 +729,19 @@ struct TransformView {
  public:
   // does the DualView have only one device
 
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+
+  // the dual view provides a second allocation for the device side even when
+  // Kokkos would alias the two, so the device edge is never collapsed here
+
+  static constexpr int SINGLE_DEVICE = 0;
+
+#else
+
   static constexpr int SINGLE_DEVICE =
     std::is_same_v<typename kk_view::t_dev::device_type, typename kk_view::t_host::device_type>;
+
+#endif
 
   typedef typename legacy_view::value_type value_type;
   typedef typename legacy_view::array_layout array_layout;
@@ -1191,7 +1204,7 @@ struct TransformView {
 
 // For device views with fully qualified types
 #define KOKKOS_DEVICE_DUALVIEW(TYPE, LAYOUT, SUFFIX) \
-typedef Kokkos::DualView<TYPE, LAYOUT, LMPDeviceType> tdual_##SUFFIX; \
+typedef LAMMPS_NS::DualView<TYPE, LAYOUT, LMPDeviceType> tdual_##SUFFIX; \
 typedef typename tdual_##SUFFIX::t_dev t_##SUFFIX; \
 typedef typename tdual_##SUFFIX::t_dev_const t_##SUFFIX##_const; \
 typedef typename tdual_##SUFFIX::t_dev_um t_##SUFFIX##_um; \
@@ -1200,7 +1213,7 @@ typedef typename tdual_##SUFFIX::t_dev_const_randomread t_##SUFFIX##_randomread;
 
 // For host views with fully qualified types
 #define KOKKOS_HOST_DUALVIEW(TYPE, LAYOUT, SUFFIX) \
-typedef Kokkos::DualView<TYPE, LAYOUT, LMPDeviceType> tdual_##SUFFIX; \
+typedef LAMMPS_NS::DualView<TYPE, LAYOUT, LMPDeviceType> tdual_##SUFFIX; \
 typedef typename tdual_##SUFFIX::t_host t_##SUFFIX; \
 typedef typename tdual_##SUFFIX::t_host_const t_##SUFFIX##_const; \
 typedef typename tdual_##SUFFIX::t_host_um t_##SUFFIX##_um; \
@@ -1392,6 +1405,17 @@ typedef tdual_neighbors_2d_lr::t_host_const_randomread t_neighbors_2d_lr_randomr
 //default LAMMPS Types
 typedef struct ArrayTypes<LMPDeviceType> DAT;
 typedef struct ArrayTypes<LMPHostType> HAT;
+
+#ifndef LMP_KOKKOS_DEBUG_SYNC
+
+// Without the sync debugging option the dual views must be plain Kokkos dual
+// views, so that a normal build is unaffected by the option even existing.
+
+static_assert(std::is_same_v<DAT::tdual_int_1d,
+                             Kokkos::DualView<int *, Kokkos::LayoutRight, LMPDeviceType>>,
+              "LAMMPS_NS::DualView must be Kokkos::DualView unless LMP_KOKKOS_DEBUG_SYNC is set");
+
+#endif
 
 // View-of-views pattern (used by fix property/atom for the per-atom custom
 // iarray/darray arrays, which are "ragged" -- each property has its own column

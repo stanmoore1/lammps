@@ -929,6 +929,31 @@ speedup on GPUs for some models, but a slowdown for others. LayoutRight
 is always used for positions on GPUs since it has been found to be
 faster, and when compiling exclusively for CPUs.
 
+.. versionadded:: TBD
+
+The CMake option ``-D KOKKOS_DEBUG_SYNC=on`` builds a version of the
+KOKKOS package that checks the transfers of per-atom data between the
+host and the device.  It is a tool for developers working on KOKKOS
+styles and is off by default; a build with the option off is unaffected.
+
+A KOKKOS style declares which per-atom arrays it reads and which it
+modifies, and the package copies data between the host and the device
+based on those declarations.  If a style fails to declare that it
+modified an array, a later copy overwrites the new values with old ones,
+which changes the results without any error message.  On a GPU this is
+hard to track down, and on a CPU it cannot be observed at all, because
+the host and the device then use the same memory and no copies take
+place.  With this option the CPU version keeps a separate copy of the
+per-atom data for the device and performs the transfers between them, so
+that a missing declaration changes the results in a plain CPU run, where
+it can be found with a debugger.
+
+.. note::
+
+   Runs with this option enabled use about twice as much memory for
+   per-atom data, are considerably slower, and should use a single MPI
+   process.
+
 ----------
 
 .. _lepton:
