@@ -163,8 +163,22 @@ DatamaskAudit::~DatamaskAudit()
     if (memcmp(cur->data, before[i].data(), before[i].size()) == 0) continue;
 
     int iatom = -1;
+    size_t byte = 0;
     for (size_t b = 0; b < before[i].size(); b++)
-      if (cur->data[b] != before[i][b]) { iatom = (int) ((int) b / cur->stride); break; }
+      if (cur->data[b] != before[i][b]) { iatom = (int) ((int) b / cur->stride); byte = b; break; }
+
+    // show the values, and whether the atom is one we own or a ghost: a ghost
+    // changing usually means a communication brought it in rather than the style
+    // having written it
+    char oldbuf[32], newbuf[32];
+    const size_t off = (size_t) iatom * cur->stride;
+    long long ov = 0, nv = 0;
+    const size_t n = (cur->stride > (int) sizeof(long long)) ? sizeof(long long) : cur->stride;
+    memcpy(&ov, before[i].data() + off, n);
+    memcpy(&nv, cur->data + off, n);
+    snprintf(oldbuf, sizeof(oldbuf), "%lld", ov);
+    snprintf(newbuf, sizeof(newbuf), "%lld", nv);
+    (void) byte;
 
     const std::string key = style + " changed " + arrays[i].name;
     if (audit_found.count(key)) { audit_found[key]++; continue; }
@@ -172,9 +186,11 @@ DatamaskAudit::~DatamaskAudit()
 
     lmp->error->warning(FLERR,
                         "datamask audit: {} {} changed {} without declaring it in "
-                        "datamask_modify or marking it modified, first at atom {} of {} "
-                        "on step {}",
-                        what, style, arrays[i].name, iatom, nall, lmp->update->ntimestep);
+                        "datamask_modify or marking it modified, first at {} atom {} of {} "
+                        "({} -> {}) on step {}",
+                        what, style, arrays[i].name,
+                        (iatom < atomKK->nlocal) ? "owned" : "ghost", iatom, nall, oldbuf, newbuf,
+                        lmp->update->ntimestep);
   }
 }
 
