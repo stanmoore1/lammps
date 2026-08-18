@@ -951,10 +951,7 @@ it can be found with a debugger.
 .. note::
 
    Runs with this option enabled use about twice as much memory for
-   per-atom data and are considerably slower.  The ``comm host`` setting
-   of the :doc:`package kokkos <package>` command is rejected in this
-   mode, since without a GPU there is only one execution space to run the
-   communication on.
+   per-atom data and are considerably slower.
 
 Note that a CPU build using reduced precision, as set by the
 ``KOKKOS_PREC`` option above, already finds some of these errors on its

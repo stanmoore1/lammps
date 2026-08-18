@@ -841,21 +841,6 @@ void KokkosLMP::accelerator(int narg, char **arg)
   if (autotuning) autotuning = 0;
 #endif
 
-#if defined(LMP_KOKKOS_DEBUG_SYNC) && !defined(LMP_KOKKOS_GPU)
-
-  // Running communication on the host is a way to split work between the host
-  // and a GPU.  Without a GPU there is only one execution space, so the host and
-  // device variants of the communication routines are one and the same and the
-  // setting cannot do what it says, while the data transfer checks do assume the
-  // two spaces are told apart.  Refuse it rather than produce wrong results.
-
-  if ((exchange_comm_on_host != 0) || (forward_comm_on_host != 0) ||
-      (reverse_comm_on_host != 0))
-    error->all(FLERR, "Cannot run communication on the host when LAMMPS is compiled "
-                      "with KOKKOS_DEBUG_SYNC and without a GPU");
-
-#endif
-
   // set newton flags
   // set neighbor binsize, same as neigh_modify command
 

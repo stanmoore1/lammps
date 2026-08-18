@@ -88,13 +88,16 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // so that copies of this object share one set of counters.
   t_lmp_flags lmp_flags;
 
-  void allocate_split()
+  // create_mirror always allocates, unlike create_mirror_view, and zero fills
+  // unless told otherwise.  copy_across carries the base contents over, which is
+  // right when the two sides are meant to agree, and wrong after a resize, where
+  // Kokkos leaves the other side freshly zeroed and marks the resized one.
+  void allocate_split(bool copy_across = true)
   {
     if constexpr (SPLIT) {
       if (!base_type::view_host().data()) return;
-      // create_mirror always allocates, unlike create_mirror_view
       h_split = Kokkos::create_mirror(base_type::view_host());
-      Kokkos::deep_copy(h_split, base_type::view_host());
+      if (copy_across) Kokkos::deep_copy(h_split, base_type::view_host());
     }
   }
 
@@ -218,10 +221,16 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     if constexpr (SPLIT) {
       if (!lmp_flags.data()) return;
-      if ((lmp_flags(0) > 0) && (lmp_flags(1) > 0))
-        Kokkos::abort("LAMMPS::DualView::modify_device ERROR: concurrent modification "
-                      "of host and device views");
+
+      // Claim first and test afterwards, the way Kokkos::DualView does: the case
+      // worth catching is a claim on one side while the other side still holds
+      // one, and testing first would let exactly that through.
       lmp_flags(1) = (lmp_flags(1) > lmp_flags(0) ? lmp_flags(1) : lmp_flags(0)) + 1;
+      if (lmp_flags(0) && lmp_flags(1))
+        Kokkos::abort(("LAMMPS::DualView::modify_device ERROR: concurrent modification of "
+                       "host and device views in DualView \"" +
+                       base_type::view_device().label() + "\"")
+                          .c_str());
     } else
       base_type::modify_device();
   }
@@ -230,10 +239,14 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     if constexpr (SPLIT) {
       if (!lmp_flags.data()) return;
-      if ((lmp_flags(0) > 0) && (lmp_flags(1) > 0))
-        Kokkos::abort("LAMMPS::DualView::modify_host ERROR: concurrent modification "
-                      "of host and device views");
+
+      // see modify_device(): claim first, then test
       lmp_flags(0) = (lmp_flags(0) > lmp_flags(1) ? lmp_flags(0) : lmp_flags(1)) + 1;
+      if (lmp_flags(0) && lmp_flags(1))
+        Kokkos::abort(("LAMMPS::DualView::modify_host ERROR: concurrent modification of "
+                       "host and device views in DualView \"" +
+                       base_type::view_device().label() + "\"")
+                          .c_str());
     } else
       base_type::modify_host();
   }
@@ -301,20 +314,35 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       // same for its own flags in impl_resize().
       if (!lmp_flags.data()) lmp_flags = t_lmp_flags("LAMMPS::DualView::lmp_flags");
 
-      // Fold the host side back into the base allocation first, so that the base
-      // class resize preserves it.  Without this any newer host data would be
-      // dropped and the new buffer silently rebuilt from a stale device copy.
-      // TransformView::resize() handles its legacy edge the same way.
-      sync_device();
+      // Kokkos resizes on whichever side the counters say is newer, keeps that
+      // side's contents, and marks it modified.  A tie goes to the device, so it
+      // resizes on the host only when the host counter is strictly higher, i.e.
+      // when something marked the host and has not synced since.  All of that
+      // happens only when the two sides really differ, so a build without a GPU
+      // never sees the claim left behind -- and code that then marks the other
+      // side without clearing this one is exactly the bug worth finding.
+      const bool on_device = (lmp_flags(1) >= lmp_flags(0));
+
+      // Resizing on the host: fold it into the base, which the base class resize
+      // preserves, and copy it back afterwards.  Kokkos would leave the device
+      // side zeroed here; keeping the values is the more forgiving of the two and
+      // the counter still says the device owes a sync.
+      if (!on_device) sync_device();
+
+      base_type::resize(args...);
+
+      h_split = t_host();
+      allocate_split(!on_device);
+
+      lmp_flags(0) = lmp_flags(1) = 0;
+      if (on_device)
+        lmp_flags(1) = 1;
+      else
+        lmp_flags(0) = 1;
+      return;
     }
 
     base_type::resize(args...);
-
-    if constexpr (SPLIT) {
-      h_split = t_host();
-      allocate_split();
-      if (lmp_flags.data()) lmp_flags(0) = lmp_flags(1) = 0;
-    }
   }
 };
 
