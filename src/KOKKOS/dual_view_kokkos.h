@@ -17,6 +17,14 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_DualView.hpp>
 
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+#include <execinfo.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#endif
+
 namespace LAMMPS_NS {
 
 // Defined in datamask_audit_kokkos.cpp.  A sync writes the very side the audit
@@ -93,6 +101,16 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // so that copies of this object share one set of counters.
   t_lmp_flags lmp_flags;
 
+  // Watch mode state, allocated only for the views LMP_KOKKOS_WATCH selects: the
+  // contents of each side as they were at the previous coherence call, and the
+  // counters as they stood then.  See watch() below.
+  t_host shadow_h, shadow_d;
+  t_lmp_flags shadow_flags;
+  // name of the call the shadows were taken at, so a report can bracket the
+  // unclaimed write between two calls rather than only naming where it surfaced
+  using t_watch_op = Kokkos::View<char[32], Kokkos::HostSpace>;
+  t_watch_op shadow_op;
+
   // create_mirror always allocates, unlike create_mirror_view, and zero fills
   // unless told otherwise.  copy_across carries the base contents over, which is
   // right when the two sides are meant to agree, and wrong after a resize, where
@@ -101,10 +119,12 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // the base allocation and the build behaves exactly like an ordinary one.
   // If a case fails when split and passes here, the split is showing a real
   // coherence bug; if it fails here too, the emulation itself is at fault.
-  static bool alias_mode()
+  bool alias_mode() const
   {
     static const char *f = std::getenv("LMP_KOKKOS_ALIAS");
-    return f && *f == '1';
+    if (!f) return false;
+    if (*f == '1' && f[1] == '\0') return true;    // every view
+    return base_type::view_host().label().find(f) != std::string::npos;
   }
 
   void allocate_split(bool copy_across = true)
@@ -268,8 +288,154 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (!paranoid() || !lmp_flags.data() || !h_split.data()) return;
       Kokkos::deep_copy(base_type::view_device(), h_split);
       lmp_flags(0) = lmp_flags(1) = 0;
+      watch_refresh();
       datamask_audit_note_copy(base_type::view_device().data());
     }
+  }
+
+  /* ---- watch mode ---------------------------------------------------------
+
+     LMP_KOKKOS_VERIFY only sees a view whose counters call it in sync, and the
+     ordinary way to write a dual view -- fill one side, then claim it -- leaves
+     the counters saying exactly that for as long as it takes to reach the claim.
+     So it cannot tell a forgotten claim from a claim that has not happened yet.
+
+     Watch mode removes the ambiguity by remembering, for the views whose label
+     contains LMP_KOKKOS_WATCH, what each side held at the previous coherence
+     call.  At the next one it compares:
+
+       host differs from its shadow    -> the host side was written since
+       device differs from its shadow  -> the device side was written since
+
+     which is a fact about the data and needs no interpretation.  A write is
+     legitimate when the counter for that side went up in the meantime, or when
+     the call we are entering is the claim for it.  Anything else is a write
+     nobody claimed: on a GPU the next sync in that direction silently discards
+     it.  The report names the view, the element, both values and the call that
+     found it; set LMP_KOKKOS_WATCH_BT to add a backtrace, which points straight
+     at the routine that needs the claim.
+
+     The shadows are then brought up to date, so one bug is reported once rather
+     than at every later call.
+  --------------------------------------------------------------------------- */
+
+  static const char *watch_filter()
+  {
+    static const char *f = std::getenv("LMP_KOKKOS_WATCH");
+    return f;
+  }
+
+  bool watched() const
+  {
+    const char *f = watch_filter();
+    if (!f) return false;
+    if (!*f) return true;
+    return base_type::view_device().label().find(f) != std::string::npos;
+  }
+
+  static void watch_backtrace()
+  {
+    if (!std::getenv("LMP_KOKKOS_WATCH_BT")) return;
+    void *frames[32];
+    const int n = backtrace(frames, 32);
+    backtrace_symbols_fd(frames, n, fileno(stderr));
+  }
+
+  // Report the first element in which the two buffers differ.  The values are
+  // printed as the value type reads them, so an index array shows the atom it
+  // points at rather than a byte pattern.
+  void watch_report(const char *side, const char *op, const t_host &now, const t_host &was) const
+  {
+    using value_type = typename std::remove_const<typename t_host::value_type>::type;
+    const value_type *a = (const value_type *) now.data();
+    const value_type *b = (const value_type *) was.data();
+    const size_t n = now.span();
+    const std::string label = base_type::view_device().label();
+    for (size_t i = 0; i < n; i++) {
+      if (!std::memcmp(&a[i], &b[i], sizeof(value_type))) continue;
+      std::fprintf(stderr,
+                   "[watch] %s: the %s side was written but never claimed\n"
+                   "        the write is between %s and %s\n"
+                   "        element %zu of %zu changed ",
+                   label.c_str(), side, shadow_op.data() ? shadow_op.data() : "the start",
+                   op, i, n);
+      if constexpr (std::is_floating_point_v<value_type>)
+        std::fprintf(stderr, "from %g to %g\n", (double) b[i], (double) a[i]);
+      else if constexpr (std::is_integral_v<value_type>)
+        std::fprintf(stderr, "from %lld to %lld\n", (long long) b[i], (long long) a[i]);
+      else
+        std::fprintf(stderr, "(value type is not printable)\n");
+      std::fprintf(stderr, "        counters are (host %u, device %u)\n",
+                   lmp_flags(0), lmp_flags(1));
+      watch_backtrace();
+      return;
+    }
+  }
+
+  // claim_host/claim_device say which write the call we are entering is about to
+  // account for, so that the ordinary fill-then-claim sequence is not reported.
+  void watch(const char *op, bool claim_host = false, bool claim_device = false)
+  {
+    if constexpr (SPLIT) {
+      if (!watched()) return;
+      if (!lmp_flags.data() || !h_split.data()) return;
+      if (h_split.data() == base_type::view_host().data()) return;    // alias mode
+
+      const t_dev &dev = base_type::view_device();
+      if (shadow_h.data() && shadow_h.span() == h_split.span()) {
+        const bool host_wrote =
+            std::memcmp(h_split.data(), shadow_h.data(),
+                        h_split.span() * sizeof(typename t_host::value_type)) != 0;
+        const bool dev_wrote =
+            std::memcmp(dev.data(), shadow_d.data(),
+                        dev.span() * sizeof(typename t_dev::value_type)) != 0;
+
+        if (host_wrote && !claim_host && lmp_flags(0) <= shadow_flags(0))
+          watch_report("host", op, h_split, shadow_h);
+        if (dev_wrote && !claim_device && lmp_flags(1) <= shadow_flags(1)) {
+          t_host dev_now = Kokkos::create_mirror(dev);
+          Kokkos::deep_copy(dev_now, dev);
+          watch_report("device", op, dev_now, shadow_d);
+        }
+      }
+
+      watch_op_name() = op;
+    }
+    watch_refresh();
+  }
+
+  // Take the shadows from the current contents without checking anything.  Used
+  // after this class has itself changed a side -- a sync copy or a resize -- so
+  // that its own writes are not reported as somebody's missing claim.
+  void watch_refresh()
+  {
+    if constexpr (SPLIT) {
+      if (!watched()) return;
+      if (!lmp_flags.data() || !h_split.data()) return;
+      if (h_split.data() == base_type::view_host().data()) return;
+      if (!shadow_h.data() || shadow_h.span() != h_split.span()) {
+        shadow_h = Kokkos::create_mirror(h_split);
+        shadow_d = Kokkos::create_mirror(h_split);
+        if (!shadow_flags.data()) shadow_flags = t_lmp_flags("LAMMPS::DualView::shadow_flags");
+        if (!shadow_op.data()) shadow_op = t_watch_op("LAMMPS::DualView::shadow_op");
+      }
+      Kokkos::deep_copy(shadow_h, h_split);
+      Kokkos::deep_copy(shadow_d, base_type::view_device());
+      shadow_flags(0) = lmp_flags(0);
+      shadow_flags(1) = lmp_flags(1);
+      if (shadow_op.data() && watch_op_name()) {
+        std::strncpy(shadow_op.data(), watch_op_name(), 31);
+        shadow_op(31) = 0;
+      }
+    }
+  }
+
+  // set by watch() so watch_refresh() can record which call the shadows belong
+  // to; a refresh that follows a copy this class made keeps the caller's name
+  static const char *&watch_op_name()
+  {
+    static const char *name = nullptr;
+    return name;
   }
 
   void settle_from_device()
@@ -278,21 +444,63 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (!paranoid() || !lmp_flags.data() || !h_split.data()) return;
       Kokkos::deep_copy(h_split, base_type::view_device());
       lmp_flags(0) = lmp_flags(1) = 0;
+      watch_refresh();
     }
   }
 
   /* ---- the two views ---- */
 
   KOKKOS_INLINE_FUNCTION
-  const t_dev &view_device() const { return base_type::view_device(); }
+  const t_dev &view_device() const
+  {
+    stale_check(true);
+    return base_type::view_device();
+  }
 
   KOKKOS_INLINE_FUNCTION
   const t_host &view_host() const
   {
+    stale_check(false);
     if constexpr (SPLIT)
       return h_split;
     else
       return base_type::view_host();
+  }
+
+  /* ---- stale read reporting, enabled by LMP_KOKKOS_STALE=<label> -----------
+
+     Watch mode sees a write nobody claimed.  The other half of the bug class is
+     a read of a side that somebody else has claimed and not copied over: the
+     counters are perfectly consistent, the data is simply old.  Nothing in the
+     coherence state can distinguish that from a legitimate handing out of the
+     view just before a sync, so this is reported rather than fatal, and is
+     filtered by label -- it is meant to be pointed at one suspect view.
+
+     Combine with LMP_KOKKOS_WATCH_BT for the backtrace of the reader.
+  --------------------------------------------------------------------------- */
+
+  static const char *stale_filter()
+  {
+    static const char *f = std::getenv("LMP_KOKKOS_STALE");
+    return f;
+  }
+
+  void stale_check(bool want_device) const
+  {
+    if constexpr (SPLIT) {
+      const char *f = stale_filter();
+      if (!f) return;
+      if (!lmp_flags.data() || !h_split.data()) return;
+      if (want_device ? !need_sync_device() : !need_sync_host()) return;
+      const std::string label = base_type::view_device().label();
+      if (*f && label.find(f) == std::string::npos) return;
+      std::fprintf(stderr,
+                   "[stale] %s: the %s side is handed out while the %s side is newer, "
+                   "counters (host %u, device %u)\n",
+                   label.c_str(), want_device ? "device" : "host",
+                   want_device ? "host" : "device", lmp_flags(0), lmp_flags(1));
+      watch_backtrace();
+    }
   }
 
   // On a CPU build LMPDeviceType and LMPHostType are the same type, so the
@@ -302,9 +510,10 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   template <class Device>
   KOKKOS_INLINE_FUNCTION auto view() const
   {
-    if constexpr (SPLIT)
+    if constexpr (SPLIT) {
+      stale_check(true);
       return base_type::view_device();
-    else
+    } else
       return base_type::template view<Device>();
   }
 
@@ -332,6 +541,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     trace("modify_device");
     verify("modify_device");
+    watch("modify_device", false, true);
     if constexpr (SPLIT) {
       if (!lmp_flags.data()) return;
 
@@ -353,6 +563,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     trace("modify_host");
     verify("modify_host");
+    watch("modify_host", true, false);
     if constexpr (SPLIT) {
       if (!lmp_flags.data()) return;
 
@@ -381,11 +592,13 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     trace("sync_device");
     verify("sync_device");
+    watch("sync_device");
     if constexpr (SPLIT) {
       if (!lmp_flags.data() || !h_split.data()) return;
       if (lmp_flags(0) > lmp_flags(1)) {
         Kokkos::deep_copy(base_type::view_device(), h_split);
         lmp_flags(0) = lmp_flags(1) = 0;
+        watch_refresh();
         datamask_audit_note_copy(base_type::view_device().data());
       }
     } else
@@ -396,11 +609,13 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     trace("sync_host");
     verify("sync_host");
+    watch("sync_host");
     if constexpr (SPLIT) {
       if (!lmp_flags.data() || !h_split.data()) return;
       if (lmp_flags(1) > lmp_flags(0)) {
         Kokkos::deep_copy(h_split, base_type::view_device());
         lmp_flags(0) = lmp_flags(1) = 0;
+        watch_refresh();
       }
     } else
       base_type::sync_host();
@@ -418,6 +633,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void clear_sync_state()
   {
     trace("clear_sync_state");
+    watch("clear_sync_state");
     if constexpr (SPLIT) {
       if (lmp_flags.data()) lmp_flags(0) = lmp_flags(1) = 0;
     }
@@ -430,6 +646,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void resize(Args... args)
   {
     trace("resize");
+    watch("resize");
     if constexpr (SPLIT) {
       // A default constructed dual view carries no counters, and resizing is the
       // one way it gains data without being replaced wholesale, so allocate them
@@ -463,6 +680,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (paranoid()) {
         allocate_split(true);
         lmp_flags(0) = lmp_flags(1) = 0;
+        watch_refresh();
         return;
       }
 
@@ -473,6 +691,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
         lmp_flags(1) = 1;
       else
         lmp_flags(0) = 1;
+      watch_refresh();
       return;
     }
 

@@ -37,6 +37,12 @@ target_compile_definitions(lammps PRIVATE -DLMP_KOKKOS_LAYOUT_${KOKKOS_LAYOUT})
 option(KOKKOS_DEBUG_SYNC "Check KOKKOS host/device data transfers" OFF)
 if(KOKKOS_DEBUG_SYNC)
   target_compile_definitions(lammps PRIVATE -DLMP_KOKKOS_DEBUG_SYNC)
+  # LMP_KOKKOS_WATCH_BT prints a backtrace at the point a coherence error is
+  # found; keep the dynamic symbols so that it names functions rather than
+  # offsets the reader has to feed to addr2line
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_options(lammps PUBLIC -rdynamic)
+  endif()
 endif()
 
 message(STATUS "Using " ${KOKKOS_PREC_LOWER} " precision for KOKKOS package")

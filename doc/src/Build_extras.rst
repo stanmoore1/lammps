@@ -953,6 +953,34 @@ it can be found with a debugger.
    Runs with this option enabled use about twice as much memory for
    per-atom data and are considerably slower.
 
+Once a run built this way gives different results from the same run
+without the option, these environment variables narrow down which array
+is at fault and where.  They are read at the first use and cost nothing
+when unset, and each takes the text to look for in a view's name, so that
+one array can be followed on its own; an empty value selects every view.
+
+* ``LMP_KOKKOS_WATCH`` reports an array that was written on one side and
+  never declared as modified, naming the element, the old and the new
+  value, and the two calls the write happened between.  Set
+  ``LMP_KOKKOS_WATCH_BT`` as well for a listing of the routines that were
+  running when it was found.
+* ``LMP_KOKKOS_STALE`` reports an array handed to a style while the other
+  side holds newer values, which is a missing copy rather than a missing
+  declaration.  This one is expected to report a great deal, since a view
+  is also handed out just before it is copied, so use it on a single
+  array at a time.
+* ``LMP_KOKKOS_TRACE`` prints every copy, declaration and resize of an
+  array along with the counters that drive them.
+* ``LMP_KOKKOS_PARANOID`` copies an array between the host and the device
+  after each declaration, so those never differ.  A run that is correct
+  with one array treated this way and wrong without it is missing a copy
+  of that array.
+* ``LMP_KOKKOS_VERIFY`` checks that the two copies of an array really do
+  hold the same values whenever the counters say they agree.
+* ``LMP_KOKKOS_ALIAS`` keeps a single copy for the selected arrays, as a
+  control.  A run that fails with two copies and passes here has a real
+  error; one that fails both ways points at the emulation itself.
+
 Note that a CPU build using reduced precision, as set by the
 ``KOKKOS_PREC`` option above, already finds some of these errors on its
 own with no need for this option.  The per-atom arrays are then kept in
