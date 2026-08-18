@@ -192,7 +192,7 @@ typedef LMPDeviceType::array_layout LMPDeviceLayout;
 template<class DeviceType>
 class KKDevice {
  public:
-#if ((defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOS_ENABLE_CUDA_UVM)) || \
+#if ((defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOS_ENABLE_IMPL_CUDA_UNIFIED_MEMORY)) || \
      (defined(KOKKOS_ENABLE_HIP) && defined(KOKKOS_ARCH_AMD_GFX942_APU)))
   typedef Kokkos::Device<DeviceType,LMPDeviceType::memory_space> value;
 #else
@@ -1125,11 +1125,25 @@ struct TransformView {
     return static_cast<int>(k_view.extent(r));
   }
 
-  template<class DeviceType>
-  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_dev&> view() {return d_view;}
+  // The stale read check has to sit on every way out of this class, not only on
+  // view_device()/view_hostkk() below: a style asks for its buffers through
+  // whichever of these spellings its author happened to use.
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_host&> view() {return h_viewkk;}
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_dev&> view() {
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+    k_view.stale_check(true);
+#endif
+    return d_view;
+  }
+
+  template<class DeviceType>
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_host&> view() {
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+    k_view.stale_check(false);
+#endif
+    return h_viewkk;
+  }
 
   template<class DeviceType>
 // NOLINTNEXTLINE
@@ -1192,11 +1206,26 @@ struct TransformView {
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  const typename kk_view::t_host& view_hostkk() const { return h_viewkk; }
+  const typename kk_view::t_host& view_hostkk() const
+  {
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+    k_view.stale_check(false);
+#endif
+    return h_viewkk;
+  }
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  const typename kk_view::t_dev& view_device() const { return d_view; }
+  const typename kk_view::t_dev& view_device() const
+  {
+    // These hand out buffers cached from k_view rather than asking k_view for
+    // them, so without this the stale read check never sees the reads that
+    // matter: every per-atom array reaches a style through here.
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+    k_view.stale_check(true);
+#endif
+    return d_view;
+  }
 
 };
 

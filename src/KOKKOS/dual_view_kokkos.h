@@ -561,6 +561,19 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     return f;
   }
 
+  // LMP_KOKKOS_STALE_STRICT also reports a read of a side that nothing owes a
+  // copy to but that the other side has moved away from, which is what a write
+  // through a legacy pointer with no claim leaves behind.  It needs watch mode
+  // running as well, for the shadows that say which side moved, and it reports
+  // freely: a view fetched to be stored rather than read -- grow_pointers() and
+  // the refresh_atom_views() of the styles do that -- looks the same from here.
+  // Point it at one array with a name in LMP_KOKKOS_STALE.
+  static bool stale_strict()
+  {
+    static const bool on = std::getenv("LMP_KOKKOS_STALE_STRICT") != nullptr;
+    return on;
+  }
+
   // One line per array the first time it is caught, a count after that, and the
   // totals at exit.  Keyed by name rather than by object, because the same array
   // is handed out through many copies of the same dual view.
@@ -584,7 +597,27 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (!f) return;
       if (!lmp_flags.data() || !h_split.data()) return;
       if (h_split.data() == base_type::view_host().data()) return;    // alias mode
-      if (want_device ? !need_sync_device() : !need_sync_host()) return;
+      // A sync is owed in the direction of this read and has not run: the plain
+      // missing copy.
+      bool behind = want_device ? need_sync_device() : need_sync_host();
+
+      // The counters can also say the two agree while they do not, because one
+      // side was written through a legacy pointer and never claimed.  Nothing is
+      // owed, nothing will ever be copied, and the reader keeps the old values
+      // for good.  Telling that apart from the ordinary "fill a side, read it
+      // back, claim it a few statements later" needs to know which side moved,
+      // which is what the watch shadows record, so this part only applies when
+      // watch mode is running as well.  The other side changed and this one did
+      // not, so this one is the stale one.
+      if (!behind && stale_strict() && shadow_h.data() && same_shape(shadow_h, h_split)) {
+        const size_t bytes = h_split.span() * sizeof(typename t_host::value_type);
+        const bool host_moved = std::memcmp(h_split.data(), shadow_h.data(), bytes) != 0;
+        const bool dev_moved = std::memcmp(base_type::view_device().data(),
+                                           shadow_d.data(), bytes) != 0;
+        behind = want_device ? (host_moved && !dev_moved) : (dev_moved && !host_moved);
+      }
+      if (!behind) return;
+
       const std::string label = base_type::view_device().label();
       if (*f && label.find(f) == std::string::npos) return;
 
