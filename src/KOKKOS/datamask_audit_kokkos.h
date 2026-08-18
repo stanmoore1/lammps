@@ -34,6 +34,7 @@ class DatamaskAudit {
   static void note_modified(uint64_t) {}
   static void note_synced(uint64_t) {}
   static void report(LAMMPS *) {}
+  static void trace_end(const char *, const char *) {}
 };
 
 #else
@@ -76,7 +77,11 @@ class DatamaskAudit {
   // had written it.  Take the affected arrays' contents again instead, which
   // keeps a later write by the style itself visible.
   static void note_synced(uint64_t mask);
+
+  // called from the dual view once a sync has written the device side
+  void rebaseline_one(const void *device_data);
   static void report(LAMMPS *lmp);
+  static void trace_end(const char *what, const char *style);
 
   struct Array {
     uint64_t bit;
@@ -84,6 +89,7 @@ class DatamaskAudit {
     const char *data;
     size_t bytes;
     int stride;    // bytes per atom, to name the atom that changed
+    bool stale;    // the device side owed a sync when the style started
   };
 
  private:

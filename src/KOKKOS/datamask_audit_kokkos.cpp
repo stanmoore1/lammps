@@ -24,12 +24,21 @@
 #include "update.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 
 using namespace LAMMPS_NS;
 
 static int audit_enabled = 0;
+
+// When LMP_KOKKOS_TRACE selects a view, bracket each audited call in the same
+// stream as the dual view events, so the two can be read together.
+static const char *audit_trace()
+{
+  static const char *f = std::getenv("LMP_KOKKOS_TRACE");
+  return f;
+}
 
 // masks that the style being audited marked itself, by calling
 // AtomKokkos::modified() rather than declaring them in datamask_modify
@@ -66,6 +75,25 @@ void DatamaskAudit::note_synced(uint64_t mask)
 
 /* ---------------------------------------------------------------------- */
 
+void LAMMPS_NS::datamask_audit_note_copy(const void *device_data)
+{
+  if (audit_active) audit_active->rebaseline_one(device_data);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void DatamaskAudit::rebaseline_one(const void *device_data)
+{
+  if (!active || !device_data) return;
+  for (size_t i = 0; i < arrays.size(); i++) {
+    if (arrays[i].data != (const char *) device_data || before[i].empty()) continue;
+    before[i].assign(arrays[i].data, arrays[i].data + arrays[i].bytes);
+    return;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
 void DatamaskAudit::rebaseline(uint64_t mask)
 {
   if (!active) return;
@@ -90,18 +118,18 @@ static void collect(AtomKokkos *atomKK, int nall, std::vector<DatamaskAudit::Arr
   out.clear();
 
   auto take = [&](uint64_t bit, const char *name, const char *data, size_t span, size_t esz,
-                  size_t n0) {
+                  size_t n0, bool stale) {
     if (!data || n0 == 0 || nall <= 0 || nall > (int) n0) return;
     const size_t per = span * esz / n0;
     if (per == 0) return;
-    out.push_back({bit, name, data, (size_t) nall * per, (int) per});
+    out.push_back({bit, name, data, (size_t) nall * per, (int) per, stale});
   };
 
 #define LMP_AUDIT_ARRAY(BIT, NAME, KV)                                                    \
   {                                                                                       \
     auto v = (KV).view_device();                                                          \
     take(BIT, NAME, (const char *) v.data(), v.span(),                                    \
-         sizeof(typename decltype(v)::value_type), v.extent(0));                          \
+         sizeof(typename decltype(v)::value_type), v.extent(0), (KV).need_sync_device());  \
   }
 
   LMP_AUDIT_ARRAY(X_MASK, "x", atomKK->k_x)
@@ -152,8 +180,25 @@ DatamaskAudit::DatamaskAudit(LAMMPS *lmp_in, const char *what_in, const char *st
     before[i].assign(arrays[i].data, arrays[i].data + arrays[i].bytes);
   }
 
+  // ModifyKokkos syncs datamask_read just before the call, so an array that is
+  // still stale here is one the style did not declare.  If it then reads it, it
+  // reads what the other side wrote -- the missing-sync half of the problem,
+  // which no comparison of contents can see.
+  for (auto &a : arrays) {
+    if (!a.stale) continue;
+    const std::string key = style + " reads stale " + a.name;
+    if (audit_found.count(key)) { audit_found[key]++; continue; }
+    audit_found[key] = 1;
+    lmp->error->warning(FLERR,
+                        "datamask audit: {} {} starts with {} stale on the device, so it is "
+                        "not covered by datamask_read, on step {}",
+                        what, style, a.name, lmp->update->ntimestep);
+  }
+
   active = true;
   audit_active = this;
+
+  if (audit_trace()) std::fprintf(stderr, "[audit] begin  %s %s\n", what, style.c_str());
 }
 
 /* ---------------------------------------------------------------------- */
@@ -161,6 +206,8 @@ DatamaskAudit::DatamaskAudit(LAMMPS *lmp_in, const char *what_in, const char *st
 DatamaskAudit::~DatamaskAudit()
 {
   if (!active || !audit_enabled) return;
+
+  trace_end(what, style.c_str());
 
   auto *atomKK = (AtomKokkos *) lmp->atom;
 
@@ -219,6 +266,13 @@ DatamaskAudit::~DatamaskAudit()
                         (iatom < atomKK->nlocal) ? "owned" : "ghost", iatom, nall, oldbuf, newbuf,
                         lmp->update->ntimestep);
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void DatamaskAudit::trace_end(const char *what, const char *style)
+{
+  if (audit_trace()) std::fprintf(stderr, "[audit] end    %s %s\n", what, style);
 }
 
 /* ---------------------------------------------------------------------- */

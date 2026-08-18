@@ -19,6 +19,11 @@
 
 namespace LAMMPS_NS {
 
+// Defined in datamask_audit_kokkos.cpp.  A sync writes the very side the audit
+// watches, so the audit has to be told once the copy has landed, or it reports
+// the style's own sync as if the style had written the array itself.
+void datamask_audit_note_copy(const void *device_data);
+
 #ifndef LMP_KOKKOS_DEBUG_SYNC
 
 // Production builds use Kokkos::DualView unchanged.  This is a type alias rather
@@ -92,9 +97,20 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // unless told otherwise.  copy_across carries the base contents over, which is
   // right when the two sides are meant to agree, and wrong after a resize, where
   // Kokkos leaves the other side freshly zeroed and marks the resized one.
+  // Control mode, LMP_KOKKOS_ALIAS=1: do not split at all, so the host side is
+  // the base allocation and the build behaves exactly like an ordinary one.
+  // If a case fails when split and passes here, the split is showing a real
+  // coherence bug; if it fails here too, the emulation itself is at fault.
+  static bool alias_mode()
+  {
+    static const char *f = std::getenv("LMP_KOKKOS_ALIAS");
+    return f && *f == '1';
+  }
+
   void allocate_split(bool copy_across = true)
   {
     if constexpr (SPLIT) {
+      if (alias_mode()) { h_split = base_type::view_host(); return; }
       if (!base_type::view_host().data()) return;
       h_split = Kokkos::create_mirror(base_type::view_host());
       if (copy_across) Kokkos::deep_copy(h_split, base_type::view_host());
@@ -170,6 +186,101 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   const t_lmp_flags &impl_lmp_flags() const { return lmp_flags; }
   const t_host &impl_h_split() const { return h_split; }
 
+  // Event trace for one view, selected by a substring in LMP_KOKKOS_TRACE.
+  // Nothing is looked up and nothing printed unless that variable is set, so an
+  // ordinary sync debugging run pays only a pointer test per operation.
+
+  static const char *trace_filter()
+  {
+    static const char *f = std::getenv("LMP_KOKKOS_TRACE");
+    return f;
+  }
+
+  void trace(const char *op) const
+  {
+    const char *f = trace_filter();
+    if (!f) return;
+    const std::string label = base_type::view_device().label();
+    if (label.find(f) == std::string::npos) return;
+    std::fprintf(stderr, "[dualview] %-24s %-14s flags=(%u,%u)\n", label.c_str(), op,
+                 lmp_flags.data() ? lmp_flags(0) : 0u, lmp_flags.data() ? lmp_flags(1) : 0u);
+  }
+
+  // Coherence check, enabled by LMP_KOKKOS_VERIFY.  When the counters say the
+  // two sides agree, they have to hold the same bytes; if they do not, some
+  // copy was skipped or a claim was dropped while the data really did differ.
+  // This is what catches a wrong claim, which no comparison of one side alone
+  // can see.
+
+  static const char *verify_filter()
+  {
+    static const char *f = std::getenv("LMP_KOKKOS_VERIFY");
+    return f;
+  }
+
+  void verify(const char *when) const
+  {
+    const char *f = verify_filter();
+    if (!f) return;
+    if constexpr (SPLIT) {
+      if (!lmp_flags.data() || !h_split.data()) return;
+      if (lmp_flags(0) != 0 || lmp_flags(1) != 0) return;    // a claim is pending
+      const std::string label = base_type::view_device().label();
+      if (*f && label.find(f) == std::string::npos) return;
+      const char *d = (const char *) base_type::view_device().data();
+      const char *h = (const char *) h_split.data();
+      if (!d || !h) return;
+      const size_t n = h_split.span() * sizeof(typename t_host::value_type);
+      for (size_t b = 0; b < n; b++) {
+        if (d[b] == h[b]) continue;
+        std::fprintf(stderr,
+                     "[verify] %s: host and device differ at byte %zu of %zu while the "
+                     "counters call them in sync (at %s)\n",
+                     label.c_str(), b, n, when);
+        break;
+      }
+    }
+  }
+
+  // Paranoid mode, selected by a substring in LMP_KOKKOS_PARANOID (empty string
+  // for every view).  Each claim is followed straight away by the copy it
+  // implies, so the two sides never actually diverge.  This does not report
+  // anything: it is for bisecting.  If a run is correct with a view forced this
+  // way and wrong without, then a sync of that view is missing somewhere.
+
+  static const char *paranoid_filter()
+  {
+    static const char *f = std::getenv("LMP_KOKKOS_PARANOID");
+    return f;
+  }
+
+  bool paranoid() const
+  {
+    const char *f = paranoid_filter();
+    if (!f) return false;
+    if (!*f) return true;
+    return base_type::view_device().label().find(f) != std::string::npos;
+  }
+
+  void settle_from_host()
+  {
+    if constexpr (SPLIT) {
+      if (!paranoid() || !lmp_flags.data() || !h_split.data()) return;
+      Kokkos::deep_copy(base_type::view_device(), h_split);
+      lmp_flags(0) = lmp_flags(1) = 0;
+      datamask_audit_note_copy(base_type::view_device().data());
+    }
+  }
+
+  void settle_from_device()
+  {
+    if constexpr (SPLIT) {
+      if (!paranoid() || !lmp_flags.data() || !h_split.data()) return;
+      Kokkos::deep_copy(h_split, base_type::view_device());
+      lmp_flags(0) = lmp_flags(1) = 0;
+    }
+  }
+
   /* ---- the two views ---- */
 
   KOKKOS_INLINE_FUNCTION
@@ -219,6 +330,8 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
   void modify_device()
   {
+    trace("modify_device");
+    verify("modify_device");
     if constexpr (SPLIT) {
       if (!lmp_flags.data()) return;
 
@@ -231,12 +344,15 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
                        "host and device views in DualView \"" +
                        base_type::view_device().label() + "\"")
                           .c_str());
+      settle_from_device();
     } else
       base_type::modify_device();
   }
 
   void modify_host()
   {
+    trace("modify_host");
+    verify("modify_host");
     if constexpr (SPLIT) {
       if (!lmp_flags.data()) return;
 
@@ -247,6 +363,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
                        "host and device views in DualView \"" +
                        base_type::view_device().label() + "\"")
                           .c_str());
+      settle_from_host();
     } else
       base_type::modify_host();
   }
@@ -262,11 +379,14 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
   void sync_device()
   {
+    trace("sync_device");
+    verify("sync_device");
     if constexpr (SPLIT) {
       if (!lmp_flags.data() || !h_split.data()) return;
       if (lmp_flags(0) > lmp_flags(1)) {
         Kokkos::deep_copy(base_type::view_device(), h_split);
         lmp_flags(0) = lmp_flags(1) = 0;
+        datamask_audit_note_copy(base_type::view_device().data());
       }
     } else
       base_type::sync_device();
@@ -274,6 +394,8 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
   void sync_host()
   {
+    trace("sync_host");
+    verify("sync_host");
     if constexpr (SPLIT) {
       if (!lmp_flags.data() || !h_split.data()) return;
       if (lmp_flags(1) > lmp_flags(0)) {
@@ -295,6 +417,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
   void clear_sync_state()
   {
+    trace("clear_sync_state");
     if constexpr (SPLIT) {
       if (lmp_flags.data()) lmp_flags(0) = lmp_flags(1) = 0;
     }
@@ -306,6 +429,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   template <class... Args>
   void resize(Args... args)
   {
+    trace("resize");
     if constexpr (SPLIT) {
       // A default constructed dual view carries no counters, and resizing is the
       // one way it gains data without being replaced wholesale, so allocate them
@@ -332,6 +456,16 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       base_type::resize(args...);
 
       h_split = t_host();
+
+      // Paranoid mode keeps the two sides equal, so carry the contents across
+      // and leave no claim; otherwise follow Kokkos and leave the other side
+      // zeroed with the resized one claimed.
+      if (paranoid()) {
+        allocate_split(true);
+        lmp_flags(0) = lmp_flags(1) = 0;
+        return;
+      }
+
       allocate_split(!on_device);
 
       lmp_flags(0) = lmp_flags(1) = 0;
