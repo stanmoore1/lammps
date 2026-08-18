@@ -284,6 +284,7 @@ action kokkos_base.h
 action kokkos_few.h
 action kokkos_type.h
 action kokkos.cpp
+action datamask_audit_kokkos.cpp
 action kokkos.h
 action math_extra_kokkos.h
 action math_special_kokkos.cpp

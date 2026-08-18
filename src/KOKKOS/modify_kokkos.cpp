@@ -13,6 +13,8 @@
 ------------------------------------------------------------------------- */
 
 #include "modify_kokkos.h"
+
+#include "datamask_audit_kokkos.h"
 #include "atom_kokkos.h"
 #include "update.h"
 #include "fix.h"
@@ -88,6 +90,7 @@ void ModifyKokkos::setup_pre_exchange()
                    fix[list_pre_exchange[i]]->datamask_read);
       int prev_auto_sync = lmp->kokkos->auto_sync;
       if (!fix[list_pre_exchange[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+      DatamaskAudit audit(lmp, "fix", fix[list_pre_exchange[i]]->style, fix[list_pre_exchange[i]]->datamask_modify);
       fix[list_pre_exchange[i]]->setup_pre_exchange();
       lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(fix[list_pre_exchange[i]]->execution_space,
@@ -99,6 +102,7 @@ void ModifyKokkos::setup_pre_exchange()
                    fix[list_min_pre_exchange[i]]->datamask_read);
       int prev_auto_sync = lmp->kokkos->auto_sync;
       if (!fix[list_min_pre_exchange[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+      DatamaskAudit audit(lmp, "fix", fix[list_min_pre_exchange[i]]->style, fix[list_min_pre_exchange[i]]->datamask_modify);
       fix[list_min_pre_exchange[i]]->setup_pre_exchange();
       lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(fix[list_min_pre_exchange[i]]->execution_space,
@@ -119,6 +123,7 @@ void ModifyKokkos::setup_pre_neighbor()
                    fix[list_pre_neighbor[i]]->datamask_read);
       int prev_auto_sync = lmp->kokkos->auto_sync;
       if (!fix[list_pre_neighbor[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+      DatamaskAudit audit(lmp, "fix", fix[list_pre_neighbor[i]]->style, fix[list_pre_neighbor[i]]->datamask_modify);
       fix[list_pre_neighbor[i]]->setup_pre_neighbor();
       lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(fix[list_pre_neighbor[i]]->execution_space,
@@ -130,6 +135,7 @@ void ModifyKokkos::setup_pre_neighbor()
                    fix[list_min_pre_neighbor[i]]->datamask_read);
       int prev_auto_sync = lmp->kokkos->auto_sync;
       if (!fix[list_min_pre_neighbor[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+      DatamaskAudit audit(lmp, "fix", fix[list_min_pre_neighbor[i]]->style, fix[list_min_pre_neighbor[i]]->datamask_modify);
       fix[list_min_pre_neighbor[i]]->setup_pre_neighbor();
       lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(fix[list_min_pre_neighbor[i]]->execution_space,
@@ -150,6 +156,7 @@ void ModifyKokkos::setup_post_neighbor()
                    fix[list_post_neighbor[i]]->datamask_read);
       int prev_auto_sync = lmp->kokkos->auto_sync;
       if (!fix[list_post_neighbor[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+      DatamaskAudit audit(lmp, "fix", fix[list_post_neighbor[i]]->style, fix[list_post_neighbor[i]]->datamask_modify);
       fix[list_post_neighbor[i]]->setup_post_neighbor();
       lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(fix[list_post_neighbor[i]]->execution_space,
@@ -161,6 +168,7 @@ void ModifyKokkos::setup_post_neighbor()
                    fix[list_min_post_neighbor[i]]->datamask_read);
       int prev_auto_sync = lmp->kokkos->auto_sync;
       if (!fix[list_min_post_neighbor[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+      DatamaskAudit audit(lmp, "fix", fix[list_min_post_neighbor[i]]->style, fix[list_min_post_neighbor[i]]->datamask_modify);
       fix[list_min_post_neighbor[i]]->setup_post_neighbor();
       lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(fix[list_min_post_neighbor[i]]->execution_space,
@@ -181,6 +189,7 @@ void ModifyKokkos::setup_pre_force(int vflag)
                    fix[list_pre_force[i]]->datamask_read);
       int prev_auto_sync = lmp->kokkos->auto_sync;
       if (!fix[list_pre_force[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+      DatamaskAudit audit(lmp, "fix", fix[list_pre_force[i]]->style, fix[list_pre_force[i]]->datamask_modify);
       fix[list_pre_force[i]]->setup_pre_force(vflag);
       lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(fix[list_pre_force[i]]->execution_space,
@@ -192,6 +201,7 @@ void ModifyKokkos::setup_pre_force(int vflag)
                    fix[list_min_pre_force[i]]->datamask_read);
       int prev_auto_sync = lmp->kokkos->auto_sync;
       if (!fix[list_min_pre_force[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+      DatamaskAudit audit(lmp, "fix", fix[list_min_pre_force[i]]->style, fix[list_min_pre_force[i]]->datamask_modify);
       fix[list_min_pre_force[i]]->setup_pre_force(vflag);
       lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(fix[list_min_pre_force[i]]->execution_space,
@@ -212,6 +222,7 @@ void ModifyKokkos::setup_pre_reverse(int eflag, int vflag)
                    fix[list_pre_reverse[i]]->datamask_read);
       int prev_auto_sync = lmp->kokkos->auto_sync;
       if (!fix[list_pre_reverse[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+      DatamaskAudit audit(lmp, "fix", fix[list_pre_reverse[i]]->style, fix[list_pre_reverse[i]]->datamask_modify);
       fix[list_pre_reverse[i]]->setup_pre_reverse(eflag,vflag);
       lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(fix[list_pre_reverse[i]]->execution_space,
@@ -223,6 +234,7 @@ void ModifyKokkos::setup_pre_reverse(int eflag, int vflag)
                    fix[list_min_pre_reverse[i]]->datamask_read);
       int prev_auto_sync = lmp->kokkos->auto_sync;
       if (!fix[list_min_pre_reverse[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+      DatamaskAudit audit(lmp, "fix", fix[list_min_pre_reverse[i]]->style, fix[list_min_pre_reverse[i]]->datamask_modify);
       fix[list_min_pre_reverse[i]]->setup_pre_reverse(eflag,vflag);
       lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(fix[list_min_pre_reverse[i]]->execution_space,
@@ -241,6 +253,7 @@ void ModifyKokkos::initial_integrate(int vflag)
                  fix[list_initial_integrate[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_initial_integrate[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_initial_integrate[i]]->style, fix[list_initial_integrate[i]]->datamask_modify);
     fix[list_initial_integrate[i]]->initial_integrate(vflag);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_initial_integrate[i]]->execution_space,
@@ -259,6 +272,7 @@ void ModifyKokkos::post_integrate()
                  fix[list_post_integrate[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_post_integrate[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_post_integrate[i]]->style, fix[list_post_integrate[i]]->datamask_modify);
     fix[list_post_integrate[i]]->post_integrate();
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_post_integrate[i]]->execution_space,
@@ -277,6 +291,7 @@ void ModifyKokkos::pre_exchange()
                  fix[list_pre_exchange[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_pre_exchange[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_pre_exchange[i]]->style, fix[list_pre_exchange[i]]->datamask_modify);
     fix[list_pre_exchange[i]]->pre_exchange();
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_pre_exchange[i]]->execution_space,
@@ -295,6 +310,7 @@ void ModifyKokkos::pre_neighbor()
                  fix[list_pre_neighbor[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_pre_neighbor[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_pre_neighbor[i]]->style, fix[list_pre_neighbor[i]]->datamask_modify);
     fix[list_pre_neighbor[i]]->pre_neighbor();
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_pre_neighbor[i]]->execution_space,
@@ -313,6 +329,7 @@ void ModifyKokkos::post_neighbor()
                  fix[list_post_neighbor[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_post_neighbor[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_post_neighbor[i]]->style, fix[list_post_neighbor[i]]->datamask_modify);
     fix[list_post_neighbor[i]]->post_neighbor();
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_post_neighbor[i]]->execution_space,
@@ -331,6 +348,7 @@ void ModifyKokkos::pre_force(int vflag)
                  fix[list_pre_force[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_pre_force[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_pre_force[i]]->style, fix[list_pre_force[i]]->datamask_modify);
     fix[list_pre_force[i]]->pre_force(vflag);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_pre_force[i]]->execution_space,
@@ -349,6 +367,7 @@ void ModifyKokkos::pre_reverse(int eflag, int vflag)
                  fix[list_pre_reverse[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_pre_reverse[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_pre_reverse[i]]->style, fix[list_pre_reverse[i]]->datamask_modify);
     fix[list_pre_reverse[i]]->pre_reverse(eflag,vflag);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_pre_reverse[i]]->execution_space,
@@ -367,6 +386,7 @@ void ModifyKokkos::post_force(int vflag)
                  fix[list_post_force_group[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_post_force_group[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_post_force_group[i]]->style, fix[list_post_force_group[i]]->datamask_modify);
     fix[list_post_force_group[i]]->post_force(vflag);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_post_force_group[i]]->execution_space,
@@ -378,6 +398,7 @@ void ModifyKokkos::post_force(int vflag)
                  fix[list_post_force[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_post_force[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_post_force[i]]->style, fix[list_post_force[i]]->datamask_modify);
     fix[list_post_force[i]]->post_force(vflag);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_post_force[i]]->execution_space,
@@ -396,6 +417,7 @@ void ModifyKokkos::final_integrate()
                  fix[list_final_integrate[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_final_integrate[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_final_integrate[i]]->style, fix[list_final_integrate[i]]->datamask_modify);
     fix[list_final_integrate[i]]->final_integrate();
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_final_integrate[i]]->execution_space,
@@ -414,6 +436,7 @@ void ModifyKokkos::fused_integrate(int vflag)
                  fix[list_final_integrate[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_final_integrate[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_final_integrate[i]]->style, fix[list_final_integrate[i]]->datamask_modify);
     fix[list_final_integrate[i]]->fused_integrate(vflag);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_final_integrate[i]]->execution_space,
@@ -434,6 +457,7 @@ void ModifyKokkos::end_of_step()
                    fix[list_end_of_step[i]]->datamask_read);
       int prev_auto_sync = lmp->kokkos->auto_sync;
       if (!fix[list_end_of_step[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+      DatamaskAudit audit(lmp, "fix", fix[list_end_of_step[i]]->style, fix[list_end_of_step[i]]->datamask_modify);
       fix[list_end_of_step[i]]->end_of_step();
       lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(fix[list_end_of_step[i]]->execution_space,
@@ -530,6 +554,7 @@ void ModifyKokkos::setup_pre_force_respa(int vflag, int ilevel)
                  fix[list_pre_force[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_pre_force[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_pre_force[i]]->style, fix[list_pre_force[i]]->datamask_modify);
     fix[list_pre_force[i]]->setup_pre_force_respa(vflag,ilevel);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_pre_force[i]]->execution_space,
@@ -567,6 +592,7 @@ void ModifyKokkos::post_integrate_respa(int ilevel, int iloop)
                  fix[list_post_integrate_respa[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_post_integrate_respa[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_post_integrate_respa[i]]->style, fix[list_post_integrate_respa[i]]->datamask_modify);
     fix[list_post_integrate_respa[i]]->post_integrate_respa(ilevel,iloop);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_post_integrate_respa[i]]->execution_space,
@@ -585,6 +611,7 @@ void ModifyKokkos::pre_force_respa(int vflag, int ilevel, int iloop)
                  fix[list_pre_force_respa[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_pre_force_respa[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_pre_force_respa[i]]->style, fix[list_pre_force_respa[i]]->datamask_modify);
     fix[list_pre_force_respa[i]]->pre_force_respa(vflag,ilevel,iloop);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_pre_force_respa[i]]->execution_space,
@@ -603,6 +630,7 @@ void ModifyKokkos::post_force_respa(int vflag, int ilevel, int iloop)
                  fix[list_post_force_respa[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_post_force_respa[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_post_force_respa[i]]->style, fix[list_post_force_respa[i]]->datamask_modify);
     fix[list_post_force_respa[i]]->post_force_respa(vflag,ilevel,iloop);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_post_force_respa[i]]->execution_space,
@@ -621,6 +649,7 @@ void ModifyKokkos::final_integrate_respa(int ilevel, int iloop)
                  fix[list_final_integrate_respa[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_final_integrate_respa[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_final_integrate_respa[i]]->style, fix[list_final_integrate_respa[i]]->datamask_modify);
     fix[list_final_integrate_respa[i]]->final_integrate_respa(ilevel,iloop);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_final_integrate_respa[i]]->execution_space,
@@ -639,6 +668,7 @@ void ModifyKokkos::min_pre_exchange()
                  fix[list_min_pre_exchange[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_min_pre_exchange[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_min_pre_exchange[i]]->style, fix[list_min_pre_exchange[i]]->datamask_modify);
     fix[list_min_pre_exchange[i]]->min_pre_exchange();
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_min_pre_exchange[i]]->execution_space,
@@ -657,6 +687,7 @@ void ModifyKokkos::min_pre_neighbor()
                  fix[list_min_pre_neighbor[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_min_pre_neighbor[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_min_pre_neighbor[i]]->style, fix[list_min_pre_neighbor[i]]->datamask_modify);
     fix[list_min_pre_neighbor[i]]->min_pre_neighbor();
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_min_pre_neighbor[i]]->execution_space,
@@ -675,6 +706,7 @@ void ModifyKokkos::min_post_neighbor()
                  fix[list_min_post_neighbor[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_min_post_neighbor[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_min_post_neighbor[i]]->style, fix[list_min_post_neighbor[i]]->datamask_modify);
     fix[list_min_post_neighbor[i]]->min_post_neighbor();
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_min_post_neighbor[i]]->execution_space,
@@ -693,6 +725,7 @@ void ModifyKokkos::min_pre_force(int vflag)
                  fix[list_min_pre_force[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_min_pre_force[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_min_pre_force[i]]->style, fix[list_min_pre_force[i]]->datamask_modify);
     fix[list_min_pre_force[i]]->min_pre_force(vflag);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_min_pre_force[i]]->execution_space,
@@ -711,6 +744,7 @@ void ModifyKokkos::min_pre_reverse(int eflag, int vflag)
                  fix[list_min_pre_reverse[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_min_pre_reverse[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_min_pre_reverse[i]]->style, fix[list_min_pre_reverse[i]]->datamask_modify);
     fix[list_min_pre_reverse[i]]->min_pre_reverse(eflag,vflag);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_min_pre_reverse[i]]->execution_space,
@@ -729,6 +763,7 @@ void ModifyKokkos::min_post_force(int vflag)
                  fix[list_min_post_force[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_min_post_force[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_min_post_force[i]]->style, fix[list_min_post_force[i]]->datamask_modify);
     fix[list_min_post_force[i]]->min_post_force(vflag);
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_min_post_force[i]]->execution_space,
@@ -771,6 +806,7 @@ void ModifyKokkos::min_store()
                  fix[list_min_energy[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_min_energy[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_min_energy[i]]->style, fix[list_min_energy[i]]->datamask_modify);
     fix[list_min_energy[i]]->min_store();
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_min_energy[i]]->execution_space,
@@ -789,6 +825,7 @@ void ModifyKokkos::min_clearstore()
                  fix[list_min_energy[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_min_energy[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_min_energy[i]]->style, fix[list_min_energy[i]]->datamask_modify);
     fix[list_min_energy[i]]->min_clearstore();
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_min_energy[i]]->execution_space,
@@ -803,6 +840,7 @@ void ModifyKokkos::min_pushstore()
                  fix[list_min_energy[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_min_energy[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_min_energy[i]]->style, fix[list_min_energy[i]]->datamask_modify);
     fix[list_min_energy[i]]->min_pushstore();
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_min_energy[i]]->execution_space,
@@ -817,6 +855,7 @@ void ModifyKokkos::min_popstore()
                  fix[list_min_energy[i]]->datamask_read);
     int prev_auto_sync = lmp->kokkos->auto_sync;
     if (!fix[list_min_energy[i]]->kokkosable) lmp->kokkos->auto_sync = 1;
+    DatamaskAudit audit(lmp, "fix", fix[list_min_energy[i]]->style, fix[list_min_energy[i]]->datamask_modify);
     fix[list_min_energy[i]]->min_popstore();
     lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(fix[list_min_energy[i]]->execution_space,

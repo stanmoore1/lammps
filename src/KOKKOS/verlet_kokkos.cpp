@@ -13,6 +13,8 @@
 ------------------------------------------------------------------------- */
 
 #include "verlet_kokkos.h"
+
+#include "datamask_audit_kokkos.h"
 #include "neighbor.h"
 #include "domain.h"
 #include "comm.h"
@@ -289,6 +291,7 @@ void VerletKokkos::run(int n)
   atomKK->sync(Device,ALL_MASK);
 
   timer->init_timeout();
+  DatamaskAudit::enable(1);
   for (int i = 0; i < n; i++) {
     if (timer->check_timeout(i)) {
       update->nsteps = i;
@@ -560,6 +563,9 @@ void VerletKokkos::run(int n)
       timer->stamp(Timer::OUTPUT);
     }
   }
+
+  DatamaskAudit::enable(0);
+  DatamaskAudit::report(lmp);
 
   atomKK->sync(Host,ALL_MASK);
   lmp->kokkos->auto_sync = 1;
