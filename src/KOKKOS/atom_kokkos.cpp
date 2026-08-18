@@ -242,6 +242,8 @@ void *AtomKokkos::extract(const char *name)
 
 void AtomKokkos::sync(const ExecutionSpace space, uint64_t mask)
 {
+  DatamaskAudit::note_synced(mask);
+
   if ((space == Device || space == HostKK) && lmp->kokkos->auto_sync) {
 
     // sync HostKK -> Host if needed

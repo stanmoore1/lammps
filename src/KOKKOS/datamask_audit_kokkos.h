@@ -32,6 +32,7 @@ class DatamaskAudit {
   DatamaskAudit(LAMMPS *, const char *, const char *, uint64_t) {}
   static void enable(int) {}
   static void note_modified(uint64_t) {}
+  static void note_synced(uint64_t) {}
   static void report(LAMMPS *) {}
 };
 
@@ -70,6 +71,11 @@ class DatamaskAudit {
   // which is just as correct as declaring it up front.  AtomKokkos::modified()
   // reports the masks it is given here so that those count as declared too.
   static void note_modified(uint64_t mask);
+
+  // A sync writes the very side being watched, so it would look like the style
+  // had written it.  Take the affected arrays' contents again instead, which
+  // keeps a later write by the style itself visible.
+  static void note_synced(uint64_t mask);
   static void report(LAMMPS *lmp);
 
   struct Array {
@@ -89,6 +95,8 @@ class DatamaskAudit {
   std::vector<Array> arrays;
   std::vector<std::vector<char>> before;
   bool active;
+
+  void rebaseline(uint64_t mask);
 };
 
 #endif    // LMP_KOKKOS_DEBUG_SYNC

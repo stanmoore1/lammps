@@ -23,6 +23,7 @@
 #include "kokkos_type.h"
 #include "update.h"
 
+#include <cstdio>
 #include <cstring>
 #include <map>
 
@@ -33,6 +34,9 @@ static int audit_enabled = 0;
 // masks that the style being audited marked itself, by calling
 // AtomKokkos::modified() rather than declaring them in datamask_modify
 static uint64_t audit_self_declared = 0;
+
+// the audit in progress, so that a sync can refresh what it is comparing against
+static DatamaskAudit *audit_active = nullptr;
 
 // one entry per style and array, so that a wrong declaration in the inner loop
 // is reported once instead of on every step
@@ -51,6 +55,26 @@ void DatamaskAudit::enable(int flag)
 void DatamaskAudit::note_modified(uint64_t mask)
 {
   audit_self_declared |= mask;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void DatamaskAudit::note_synced(uint64_t mask)
+{
+  if (audit_active) audit_active->rebaseline(mask);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void DatamaskAudit::rebaseline(uint64_t mask)
+{
+  if (!active) return;
+  for (size_t i = 0; i < arrays.size(); i++) {
+    if (!(mask & arrays[i].bit) || before[i].empty()) continue;
+    // the array may have moved or changed size since the snapshot
+    if (!arrays[i].data) continue;
+    before[i].assign(arrays[i].data, arrays[i].data + arrays[i].bytes);
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -129,6 +153,7 @@ DatamaskAudit::DatamaskAudit(LAMMPS *lmp_in, const char *what_in, const char *st
   }
 
   active = true;
+  audit_active = this;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -141,6 +166,8 @@ DatamaskAudit::~DatamaskAudit()
 
   // whatever the style marked itself while it ran is declared just as much as
   // what it named in datamask_modify
+  audit_active = nullptr;
+
   const uint64_t covered = declared | audit_self_declared;
   audit_self_declared = 0;
 
