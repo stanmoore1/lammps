@@ -85,7 +85,12 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
   static constexpr bool SPLIT = base_type::impl_dualview_is_single_device;
 
-  using t_lmp_flags = Kokkos::View<unsigned int[2], Kokkos::LayoutLeft, Kokkos::HostSpace>;
+  // (0) and (1) mirror Kokkos::DualView::modified_flags for the host and the
+  // device side.  (2) and (3) count the claims each side has ever had and are
+  // never reset, which is what watch mode needs: a sync puts the first two back
+  // to zero, so from those alone a claim followed by a sync cannot be told apart
+  // from no claim at all.
+  using t_lmp_flags = Kokkos::View<unsigned int[4], Kokkos::LayoutLeft, Kokkos::HostSpace>;
 
  private:
   // The extra allocation is given to the HOST side, not the device side, and the
@@ -222,8 +227,9 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     if (!f) return;
     const std::string label = base_type::view_device().label();
     if (label.find(f) == std::string::npos) return;
-    std::fprintf(stderr, "[dualview] %-24s %-14s flags=(%u,%u)\n", label.c_str(), op,
-                 lmp_flags.data() ? lmp_flags(0) : 0u, lmp_flags.data() ? lmp_flags(1) : 0u);
+    std::fprintf(stderr, "[dualview] %-24s %-14s flags=(%u,%u) claims=(%u,%u)\n", label.c_str(),
+                 op, lmp_flags.data() ? lmp_flags(0) : 0u, lmp_flags.data() ? lmp_flags(1) : 0u,
+                 lmp_flags.data() ? lmp_flags(2) : 0u, lmp_flags.data() ? lmp_flags(3) : 0u);
   }
 
   // Coherence check, enabled by LMP_KOKKOS_VERIFY.  When the counters say the
@@ -325,12 +331,41 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     return f;
   }
 
+  // Views to leave out, as a comma separated list of substrings in
+  // LMP_KOKKOS_WATCH_SKIP.  Some buffers really are scratch -- filled on one
+  // side and thrown away rather than copied, which is a lost write by any
+  // definition and still not a bug -- and a whole run scan is only readable once
+  // those are named and set aside.
+  static const char *watch_skip_filter()
+  {
+    static const char *f = std::getenv("LMP_KOKKOS_WATCH_SKIP");
+    return f;
+  }
+
+  static bool watch_skipped(const std::string &label)
+  {
+    const char *f = watch_skip_filter();
+    if (!f || !*f) return false;
+    const std::string list(f);
+    size_t pos = 0;
+    while (pos <= list.size()) {
+      const size_t end = list.find(',', pos);
+      const std::string one = list.substr(pos, end == std::string::npos ? end : end - pos);
+      if (!one.empty() && label.find(one) != std::string::npos) return true;
+      if (end == std::string::npos) break;
+      pos = end + 1;
+    }
+    return false;
+  }
+
   bool watched() const
   {
     const char *f = watch_filter();
     if (!f) return false;
+    const std::string label = base_type::view_device().label();
+    if (watch_skipped(label)) return false;
     if (!*f) return true;
-    return base_type::view_device().label().find(f) != std::string::npos;
+    return label.find(f) != std::string::npos;
   }
 
   static void watch_backtrace()
@@ -354,8 +389,8 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     for (size_t i = 0; i < n; i++) {
       if (!std::memcmp(&a[i], &b[i], sizeof(value_type))) continue;
       std::fprintf(stderr,
-                   "[watch] %s: the %s side was written but never claimed\n"
-                   "        the write is between %s and %s\n"
+                   "[watch] %s: the %s side was written, never claimed, and is now lost\n"
+                   "        the write is between %s and %s, which discards it\n"
                    "        element %zu of %zu changed ",
                    label.c_str(), side, shadow_op.data() ? shadow_op.data() : "the start",
                    op, i, n);
@@ -372,9 +407,32 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     }
   }
 
-  // claim_host/claim_device say which write the call we are entering is about to
-  // account for, so that the ordinary fill-then-claim sequence is not reported.
-  void watch(const char *op, bool claim_host = false, bool claim_device = false)
+  // Which call is being entered.  An unclaimed write is only worth reporting
+  // where it is about to be lost, which is what these distinguish: filling a
+  // side and claiming it a few statements later is the ordinary way to write a
+  // dual view and has to stay silent, even though the write is unclaimed for as
+  // long as it takes to reach the claim.
+  enum WatchOp {
+    OP_OTHER,
+    OP_MODIFY_HOST,
+    OP_MODIFY_DEVICE,
+    OP_SYNC_HOST,
+    OP_SYNC_DEVICE,
+    OP_RESIZE
+  };
+
+  // A zero extent makes span() zero whatever the other extents are, so the
+  // shadows have to be matched on the extents themselves: a view that grows from
+  // (1,0) to (16384,0) keeps span() at zero and deep_copy then rejects the pair.
+  static bool same_shape(const t_host &a, const t_host &b)
+  {
+    if (a.data() == nullptr || b.data() == nullptr) return false;
+    for (size_t d = 0; d < t_host::rank(); d++)
+      if (a.extent(d) != b.extent(d)) return false;
+    return true;
+  }
+
+  void watch(const char *op, WatchOp kind = OP_OTHER)
   {
     if constexpr (SPLIT) {
       if (!watched()) return;
@@ -382,7 +440,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (h_split.data() == base_type::view_host().data()) return;    // alias mode
 
       const t_dev &dev = base_type::view_device();
-      if (shadow_h.data() && shadow_h.span() == h_split.span()) {
+      if (same_shape(shadow_h, h_split)) {
         const bool host_wrote =
             std::memcmp(h_split.data(), shadow_h.data(),
                         h_split.span() * sizeof(typename t_host::value_type)) != 0;
@@ -390,9 +448,22 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
             std::memcmp(dev.data(), shadow_d.data(),
                         dev.span() * sizeof(typename t_dev::value_type)) != 0;
 
-        if (host_wrote && !claim_host && lmp_flags(0) <= shadow_flags(0))
+        // A write to one side is lost when the other side is copied over it, or
+        // when the other side is claimed, which makes that copy inevitable.  A
+        // resize keeps whichever side the counters call newer and leaves the
+        // other freshly allocated, so it loses an unclaimed write to that other
+        // side.
+        const bool on_device = (lmp_flags(1) >= lmp_flags(0));
+        const bool host_lost = (kind == OP_MODIFY_DEVICE) ||
+            ((kind == OP_SYNC_HOST) && (lmp_flags(1) > lmp_flags(0))) ||
+            ((kind == OP_RESIZE) && on_device);
+        const bool device_lost = (kind == OP_MODIFY_HOST) ||
+            ((kind == OP_SYNC_DEVICE) && (lmp_flags(0) > lmp_flags(1))) ||
+            ((kind == OP_RESIZE) && !on_device);
+
+        if (host_wrote && host_lost && lmp_flags(2) == shadow_flags(2))
           watch_report("host", op, h_split, shadow_h);
-        if (dev_wrote && !claim_device && lmp_flags(1) <= shadow_flags(1)) {
+        if (dev_wrote && device_lost && lmp_flags(3) == shadow_flags(3)) {
           t_host dev_now = Kokkos::create_mirror(dev);
           Kokkos::deep_copy(dev_now, dev);
           watch_report("device", op, dev_now, shadow_d);
@@ -413,7 +484,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (!watched()) return;
       if (!lmp_flags.data() || !h_split.data()) return;
       if (h_split.data() == base_type::view_host().data()) return;
-      if (!shadow_h.data() || shadow_h.span() != h_split.span()) {
+      if (!same_shape(shadow_h, h_split)) {
         shadow_h = Kokkos::create_mirror(h_split);
         shadow_d = Kokkos::create_mirror(h_split);
         if (!shadow_flags.data()) shadow_flags = t_lmp_flags("LAMMPS::DualView::shadow_flags");
@@ -421,8 +492,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       }
       Kokkos::deep_copy(shadow_h, h_split);
       Kokkos::deep_copy(shadow_d, base_type::view_device());
-      shadow_flags(0) = lmp_flags(0);
-      shadow_flags(1) = lmp_flags(1);
+      for (int i = 0; i < 4; i++) shadow_flags(i) = lmp_flags(i);
       if (shadow_op.data() && watch_op_name()) {
         std::strncpy(shadow_op.data(), watch_op_name(), 31);
         shadow_op(31) = 0;
@@ -541,7 +611,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     trace("modify_device");
     verify("modify_device");
-    watch("modify_device", false, true);
+    watch("modify_device", OP_MODIFY_DEVICE);
     if constexpr (SPLIT) {
       if (!lmp_flags.data()) return;
 
@@ -549,6 +619,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       // worth catching is a claim on one side while the other side still holds
       // one, and testing first would let exactly that through.
       lmp_flags(1) = (lmp_flags(1) > lmp_flags(0) ? lmp_flags(1) : lmp_flags(0)) + 1;
+      lmp_flags(3)++;
       if (lmp_flags(0) && lmp_flags(1))
         Kokkos::abort(("LAMMPS::DualView::modify_device ERROR: concurrent modification of "
                        "host and device views in DualView \"" +
@@ -563,12 +634,13 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     trace("modify_host");
     verify("modify_host");
-    watch("modify_host", true, false);
+    watch("modify_host", OP_MODIFY_HOST);
     if constexpr (SPLIT) {
       if (!lmp_flags.data()) return;
 
       // see modify_device(): claim first, then test
       lmp_flags(0) = (lmp_flags(0) > lmp_flags(1) ? lmp_flags(0) : lmp_flags(1)) + 1;
+      lmp_flags(2)++;
       if (lmp_flags(0) && lmp_flags(1))
         Kokkos::abort(("LAMMPS::DualView::modify_host ERROR: concurrent modification of "
                        "host and device views in DualView \"" +
@@ -592,7 +664,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     trace("sync_device");
     verify("sync_device");
-    watch("sync_device");
+    watch("sync_device", OP_SYNC_DEVICE);
     if constexpr (SPLIT) {
       if (!lmp_flags.data() || !h_split.data()) return;
       if (lmp_flags(0) > lmp_flags(1)) {
@@ -609,7 +681,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     trace("sync_host");
     verify("sync_host");
-    watch("sync_host");
+    watch("sync_host", OP_SYNC_HOST);
     if constexpr (SPLIT) {
       if (!lmp_flags.data() || !h_split.data()) return;
       if (lmp_flags(1) > lmp_flags(0)) {
@@ -646,7 +718,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void resize(Args... args)
   {
     trace("resize");
-    watch("resize");
+    watch("resize", OP_RESIZE);
     if constexpr (SPLIT) {
       // A default constructed dual view carries no counters, and resizing is the
       // one way it gains data without being replaced wholesale, so allocate them

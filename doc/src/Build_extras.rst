@@ -959,11 +959,13 @@ is at fault and where.  They are read at the first use and cost nothing
 when unset, and each takes the text to look for in a view's name, so that
 one array can be followed on its own; an empty value selects every view.
 
-* ``LMP_KOKKOS_WATCH`` reports an array that was written on one side and
-  never declared as modified, naming the element, the old and the new
-  value, and the two calls the write happened between.  Set
-  ``LMP_KOKKOS_WATCH_BT`` as well for a listing of the routines that were
-  running when it was found.
+* ``LMP_KOKKOS_WATCH`` reports an array that was written on one side,
+  never declared as modified, and then discarded by a copy from the other
+  side, naming the element, the old and the new value, and the two calls
+  the write happened between.  Set ``LMP_KOKKOS_WATCH_BT`` as well for a
+  listing of the routines that were running when it was found, and
+  ``LMP_KOKKOS_WATCH_SKIP`` to a comma separated list of names to leave
+  out the scratch buffers that are filled and thrown away on purpose.
 * ``LMP_KOKKOS_STALE`` reports an array handed to a style while the other
   side holds newer values, which is a missing copy rather than a missing
   declaration.  This one is expected to report a great deal, since a view
