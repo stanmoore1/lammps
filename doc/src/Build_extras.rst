@@ -966,11 +966,10 @@ one array can be followed on its own; an empty value selects every view.
   listing of the routines that were running when it was found, and
   ``LMP_KOKKOS_WATCH_SKIP`` to a comma separated list of names to leave
   out the scratch buffers that are filled and thrown away on purpose.
-* ``LMP_KOKKOS_STALE`` reports an array handed to a style while the other
-  side holds newer values, which is a missing copy rather than a missing
-  declaration.  This one is expected to report a great deal, since a view
-  is also handed out just before it is copied, so use it on a single
-  array at a time.
+* ``LMP_KOKKOS_STALE`` reports an array read while the other side holds
+  newer values that differ from it, which is a missing copy rather than a
+  missing declaration.  Each array is named once, with a count, and the
+  totals are printed when the run ends.
 * ``LMP_KOKKOS_TRACE`` prints every copy, declaration and resize of an
   array along with the counters that drive them.
 * ``LMP_KOKKOS_PARANOID`` copies an array between the host and the device

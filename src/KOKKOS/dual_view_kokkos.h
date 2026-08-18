@@ -22,6 +22,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <string>
 #endif
 
@@ -537,16 +538,21 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       return base_type::view_host();
   }
 
-  /* ---- stale read reporting, enabled by LMP_KOKKOS_STALE=<label> -----------
+  /* ---- stale read reporting, enabled by LMP_KOKKOS_STALE ------------------
 
      Watch mode sees a write nobody claimed.  The other half of the bug class is
-     a read of a side that somebody else has claimed and not copied over: the
-     counters are perfectly consistent, the data is simply old.  Nothing in the
-     coherence state can distinguish that from a legitimate handing out of the
-     view just before a sync, so this is reported rather than fatal, and is
-     filtered by label -- it is meant to be pointed at one suspect view.
+     a read of a side that somebody else has claimed and has not copied over:
+     the counters are perfectly consistent, the data is simply old.
 
-     Combine with LMP_KOKKOS_WATCH_BT for the backtrace of the reader.
+     Two things keep this from drowning the reader.  A view is also handed out
+     immediately before it is copied, and on most of those the two sides already
+     hold the same bytes, so nothing would have changed had the copy run first;
+     only a difference in the data is worth a word.  And one missing copy is
+     read over and over, so each array is named once and counted thereafter,
+     with the totals printed when the run ends.
+
+     LMP_KOKKOS_STALE takes the text to look for in a name, empty for every
+     view; combine with LMP_KOKKOS_WATCH_BT for the backtrace of the reader.
   --------------------------------------------------------------------------- */
 
   static const char *stale_filter()
@@ -555,21 +561,53 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     return f;
   }
 
+  // One line per array the first time it is caught, a count after that, and the
+  // totals at exit.  Keyed by name rather than by object, because the same array
+  // is handed out through many copies of the same dual view.
+  static std::map<std::string, long> &stale_counts()
+  {
+    static std::map<std::string, long> counts;
+    return counts;
+  }
+
+  static void stale_report_at_exit()
+  {
+    std::fprintf(stderr, "\n[stale] arrays read while the other side was newer:\n");
+    for (const auto &c : stale_counts())
+      std::fprintf(stderr, "[stale]   %-28s %ld times\n", c.first.c_str(), c.second);
+  }
+
   void stale_check(bool want_device) const
   {
     if constexpr (SPLIT) {
       const char *f = stale_filter();
       if (!f) return;
       if (!lmp_flags.data() || !h_split.data()) return;
+      if (h_split.data() == base_type::view_host().data()) return;    // alias mode
       if (want_device ? !need_sync_device() : !need_sync_host()) return;
       const std::string label = base_type::view_device().label();
       if (*f && label.find(f) == std::string::npos) return;
-      std::fprintf(stderr,
-                   "[stale] %s: the %s side is handed out while the %s side is newer, "
-                   "counters (host %u, device %u)\n",
-                   label.c_str(), want_device ? "device" : "host",
-                   want_device ? "host" : "device", lmp_flags(0), lmp_flags(1));
-      watch_backtrace();
+
+      // The copy that is owed would change nothing unless the two sides really
+      // hold different bytes, and handing out a view just before syncing it is
+      // ordinary.  Only a difference is worth reporting.
+      const t_dev &dev = base_type::view_device();
+      if (!dev.data() || dev.span() != h_split.span()) return;
+      if (!std::memcmp(dev.data(), h_split.data(),
+                       h_split.span() * sizeof(typename t_host::value_type)))
+        return;
+
+      long &seen = stale_counts()[label];
+      if (seen++ == 0) {
+        static bool registered = false;
+        if (!registered) { registered = true; std::atexit(stale_report_at_exit); }
+        std::fprintf(stderr,
+                     "[stale] %s: the %s side is read while the %s side is newer and "
+                     "holds different values\n        counters are (host %u, device %u)\n",
+                     label.c_str(), want_device ? "device" : "host",
+                     want_device ? "host" : "device", lmp_flags(0), lmp_flags(1));
+        watch_backtrace();
+      }
     }
   }
 
