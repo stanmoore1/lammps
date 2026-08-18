@@ -30,6 +30,10 @@ using namespace LAMMPS_NS;
 
 static int audit_enabled = 0;
 
+// masks that the style being audited marked itself, by calling
+// AtomKokkos::modified() rather than declaring them in datamask_modify
+static uint64_t audit_self_declared = 0;
+
 // one entry per style and array, so that a wrong declaration in the inner loop
 // is reported once instead of on every step
 
@@ -40,6 +44,13 @@ static std::map<std::string, bigint> audit_found;
 void DatamaskAudit::enable(int flag)
 {
   audit_enabled = flag;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void DatamaskAudit::note_modified(uint64_t mask)
+{
+  audit_self_declared |= mask;
 }
 
 /* ----------------------------------------------------------------------
@@ -106,6 +117,8 @@ DatamaskAudit::DatamaskAudit(LAMMPS *lmp_in, const char *what_in, const char *st
   nall = atomKK->nlocal + atomKK->nghost;
   if (nall <= 0) return;
 
+  audit_self_declared = 0;
+
   collect(atomKK, nall, arrays);
   if (arrays.empty()) return;
 
@@ -126,6 +139,11 @@ DatamaskAudit::~DatamaskAudit()
 
   auto *atomKK = (AtomKokkos *) lmp->atom;
 
+  // whatever the style marked itself while it ran is declared just as much as
+  // what it named in datamask_modify
+  const uint64_t covered = declared | audit_self_declared;
+  audit_self_declared = 0;
+
   // an exchange or a growth in the middle leaves nothing comparable
   if (atomKK->nlocal + atomKK->nghost != nall) return;
 
@@ -133,7 +151,7 @@ DatamaskAudit::~DatamaskAudit()
   collect(atomKK, nall, now);
 
   for (size_t i = 0; i < arrays.size(); i++) {
-    if (declared & arrays[i].bit) continue;
+    if (covered & arrays[i].bit) continue;
     if (before[i].empty()) continue;
 
     // find the same array again rather than trusting the old pointer
@@ -154,7 +172,8 @@ DatamaskAudit::~DatamaskAudit()
 
     lmp->error->warning(FLERR,
                         "datamask audit: {} {} changed {} without declaring it in "
-                        "datamask_modify, first at atom {} of {} on step {}",
+                        "datamask_modify or marking it modified, first at atom {} of {} "
+                        "on step {}",
                         what, style, arrays[i].name, iatom, nall, lmp->update->ntimestep);
   }
 }

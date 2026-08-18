@@ -31,6 +31,7 @@ class DatamaskAudit {
  public:
   DatamaskAudit(LAMMPS *, const char *, const char *, uint64_t) {}
   static void enable(int) {}
+  static void note_modified(uint64_t) {}
   static void report(LAMMPS *) {}
 };
 
@@ -64,6 +65,11 @@ class DatamaskAudit {
 
   // off during setup and input processing, which rewrite whatever they like
   static void enable(int flag);
+
+  // A style may declare EMPTY_MASK and mark what it changed itself, per routine,
+  // which is just as correct as declaring it up front.  AtomKokkos::modified()
+  // reports the masks it is given here so that those count as declared too.
+  static void note_modified(uint64_t mask);
   static void report(LAMMPS *lmp);
 
   struct Array {

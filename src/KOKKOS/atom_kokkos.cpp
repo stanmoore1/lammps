@@ -13,6 +13,8 @@
 
 #include "atom_kokkos.h"
 
+#include "datamask_audit_kokkos.h"
+
 #include "atom_masks.h"
 #include "atom_vec.h"
 #include "atom_vec_kokkos.h"
@@ -259,6 +261,8 @@ void AtomKokkos::sync(const ExecutionSpace space, uint64_t mask)
 
 void AtomKokkos::modified(const ExecutionSpace space, uint64_t mask)
 {
+  DatamaskAudit::note_modified(mask);
+
   avecKK->modified(space, mask);
   for (int n = 0; n < nprop_atom; n++) fix_prop_atom[n]->modified(space, mask);
 
