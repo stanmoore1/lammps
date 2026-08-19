@@ -221,7 +221,7 @@ inline const char *sprintf_arg(const std::string &arg)
 
 \verbatim embed:rst
 
-.. versionadded:: TBD
+.. versionadded:: 31Aug2026
 
 This function formats its arguments according to a printf() style format
 string and returns the result as a ``std::string``, similar to the

@@ -967,7 +967,7 @@ around its center of mass, ordered as Ixx,Iyy,Izz,Ixy,Iyz,Ixz.
 Omega() returns components of the angular velocity of the group of
 atoms around its center of mass.
 
-.. versionchanged:: TBD
+.. versionchanged:: 31Aug2026
 
 The inertia() and angmom() functions now include the contributions of
 :doc:`finite-size particles <Howto_spherical>`; previously all atoms

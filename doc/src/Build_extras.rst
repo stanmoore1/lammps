@@ -118,7 +118,7 @@ versions use an incompatible API and thus LAMMPS will fail to compile.
 FENIX package
 -------------
 
-.. versionadded:: TBD
+.. versionadded:: 31Aug2026
 
 To build with this package you must have the `Fenix library
 <https://github.com/sandialabs/fenix>` available on your system. The Fenix
