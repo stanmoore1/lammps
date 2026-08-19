@@ -22,8 +22,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <csignal>
+#include <cxxabi.h>
 #include <map>
 #include <string>
+#include <vector>
 #endif
 
 namespace LAMMPS_NS {
@@ -601,20 +604,72 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     return on;
   }
 
-  // One line per array the first time it is caught, a count after that, and the
-  // totals at exit.  Keyed by name rather than by object, because the same array
-  // is handed out through many copies of the same dual view.
-  static std::map<std::string, long> &stale_counts()
+  // One line the first time a place is caught reading an array, a count after
+  // that, and the totals at exit.
+  //
+  // Keyed by the array's name and by where it is read from, not by the name
+  // alone.  The same array is read from many places, only some of them wrong,
+  // so a run that is compared against a clean one has to be able to say that an
+  // array is now read stale from somewhere new; on the name alone the two runs
+  // look the same and a real fault hides behind an existing report.  Not keyed
+  // by object either, since an array is handed out through many copies of the
+  // same dual view.
+  struct StaleSite {
+    long count;
+    std::vector<void *> frames;
+  };
+
+  static std::map<std::string, std::map<size_t, StaleSite>> &stale_counts()
   {
-    static std::map<std::string, long> counts;
+    static std::map<std::string, std::map<size_t, StaleSite>> counts;
     return counts;
+  }
+
+  // The name of the first frame that is not part of this file, which is the
+  // routine that asked for the view.  backtrace_symbols() gives
+  //   /path/to/lmp(_ZN9LAMMPS_NS...+0x2f2)[0x5635ffdd163d]
+  // so take what sits between the parenthesis and the plus and demangle it.
+  static std::string stale_site_name(const std::vector<void *> &frames)
+  {
+    if (frames.empty()) return "unknown";
+    char **syms = backtrace_symbols(frames.data(), (int) frames.size());
+    if (!syms) return "unknown";
+    std::string out = "unknown";
+    for (size_t i = 0; i < frames.size(); i++) {
+      const char *open = std::strchr(syms[i], '(');
+      const char *plus = open ? std::strchr(open, '+') : nullptr;
+      if (!open || !plus || plus == open + 1) continue;
+      const std::string mangled(open + 1, plus - open - 1);
+      int status = 0;
+      char *pretty = abi::__cxa_demangle(mangled.c_str(), nullptr, nullptr, &status);
+      const std::string name = (status == 0 && pretty) ? pretty : mangled;
+      if (pretty) std::free(pretty);
+      if (name.find("DualView") != std::string::npos) continue;
+      if (name.find("TransformView") != std::string::npos) continue;
+      out = name;
+      break;
+    }
+    std::free(syms);
+    return out;
+  }
+
+  // Not async-signal-safe -- it resolves symbols, which allocates -- but this
+  // runs in a build that exists to be debugged, and the alternative is losing
+  // the totals on every run that fails.
+  static void stale_report_on_signal(int sig)
+  {
+    stale_report_at_exit();
+    std::signal(sig, SIG_DFL);
+    std::raise(sig);
   }
 
   static void stale_report_at_exit()
   {
     std::fprintf(stderr, "\n[stale] arrays read while the other side was newer:\n");
     for (const auto &c : stale_counts())
-      std::fprintf(stderr, "[stale]   %-28s %ld times\n", c.first.c_str(), c.second);
+      for (const auto &site : c.second)
+        std::fprintf(stderr, "[stale]   %-26s %8ld times  from %s\n", c.first.c_str(),
+                     site.second.count, stale_site_name(site.second.frames).c_str());
   }
 
   void stale_check(bool want_device) const
@@ -652,15 +707,35 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
                        h_split.span() * sizeof(typename t_host::value_type)))
         return;
 
-      long &seen = stale_counts()[label];
-      if (seen++ == 0) {
+      void *frames[24];
+      const int nframes = backtrace(frames, 24);
+      size_t key = 1469598103934665603ull;
+      for (int i = 0; i < nframes; i++) {
+        key ^= (size_t) frames[i];
+        key *= 1099511628211ull;
+      }
+
+      StaleSite &site = stale_counts()[label][key];
+      if (site.count++ == 0) {
+        site.frames.assign(frames, frames + nframes);
         static bool registered = false;
-        if (!registered) { registered = true; std::atexit(stale_report_at_exit); }
+        if (!registered) {
+          registered = true;
+          std::atexit(stale_report_at_exit);
+          // A run that dies takes MPI_Abort, and that never reaches atexit --
+          // yet a run that dies is exactly the one whose totals are wanted.
+          std::signal(SIGABRT, stale_report_on_signal);
+          std::signal(SIGSEGV, stale_report_on_signal);
+        }
+        // Everything that identifies the finding goes on one line -- which
+        // array, which way round, and who read it -- so that a run can be
+        // compared against a clean one with a single pass over the output.
         std::fprintf(stderr,
-                     "[stale] %s: the %s side is read while the %s side is newer and "
-                     "holds different values\n        counters are (host %u, device %u)\n",
+                     "[stale] %s: %s side read while %s side is newer, from %s\n"
+                     "        counters are (host %u, device %u)\n",
                      label.c_str(), want_device ? "device" : "host",
-                     want_device ? "host" : "device", lmp_flags(0), lmp_flags(1));
+                     want_device ? "host" : "device",
+                     stale_site_name(site.frames).c_str(), lmp_flags(0), lmp_flags(1));
         watch_backtrace();
       }
     }
@@ -887,8 +962,14 @@ auto subview(const DualView<DataType, Properties...> &src, Args... args)
                                typename decltype(base)::traits::array_layout,
                                typename decltype(base)::traits::device_type>;
 
+  // impl_h_split() rather than view_host(): slicing the host side to build the
+  // child is not a read of it, and going through the checked accessor made every
+  // subview of a device-current array report a stale read.  The communication
+  // slices its send list on every swap, so that alone was enough to mask a real
+  // fault in it behind a permanent one of its own making.
   if constexpr (src_type::SPLIT)
-    return result_type(base, Kokkos::subview(src.view_host(), args...), src.impl_lmp_flags());
+    return result_type(base, Kokkos::subview(src.impl_h_split(), args...),
+                       src.impl_lmp_flags());
   else
     return result_type(base);
 }

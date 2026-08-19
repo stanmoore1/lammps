@@ -968,8 +968,10 @@ one array can be followed on its own; an empty value selects every view.
   out the scratch buffers that are filled and thrown away on purpose.
 * ``LMP_KOKKOS_STALE`` reports an array read while the other side holds
   newer values that differ from it, which is a missing copy rather than a
-  missing declaration.  Each array is named once, with a count, and the
-  totals are printed when the run ends.
+  missing declaration.  Each report names the array, which of its two
+  copies was read, and the routine that read it, so a run can be compared
+  against one of the unmodified code by its reports alone; the totals per
+  array and reader are printed when the run ends.
 * ``LMP_KOKKOS_STALE_STRICT`` extends that to an array whose two copies
   differ although nothing is waiting to be copied, which is what a write
   through one of the plain LAMMPS pointers with no matching declaration
