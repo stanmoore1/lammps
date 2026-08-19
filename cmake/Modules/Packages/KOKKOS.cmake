@@ -56,8 +56,16 @@ if(KOKKOS_DEBUG_SYNC_ASAN)
   if(NOT KOKKOS_DEBUG_SYNC)
     message(FATAL_ERROR "KOKKOS_DEBUG_SYNC_ASAN requires KOKKOS_DEBUG_SYNC=on")
   endif()
-  add_compile_options(-fsanitize=address -fsanitize-recover=address)
-  add_link_options(-fsanitize=address)
+  # Through the flag variables rather than add_compile_options()/add_link_options():
+  # this file is processed after the lammps and lmp targets already exist, so the
+  # directory properties would not reach the final link line and the sanitizer
+  # runtime would come up undefined.
+  string(APPEND CMAKE_CXX_FLAGS " -fsanitize=address -fsanitize-recover=address")
+  string(APPEND CMAKE_EXE_LINKER_FLAGS " -fsanitize=address")
+  string(APPEND CMAKE_SHARED_LINKER_FLAGS " -fsanitize=address")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" PARENT_SCOPE)
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" PARENT_SCOPE)
 endif()
 
 message(STATUS "Using " ${KOKKOS_PREC_LOWER} " precision for KOKKOS package")
