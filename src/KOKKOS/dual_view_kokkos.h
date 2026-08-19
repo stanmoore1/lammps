@@ -805,9 +805,29 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       // on, and unlike a comparison against the shadows it stays put across the
       // later calls, so the fault is still reported at the read that matters and
       // not only at the step in which the two came apart.
-      if (!behind && stale_strict())
-        behind = lmp_flags(4) != AUTH_NONE &&
-                 lmp_flags(4) != (want_device ? (unsigned) AUTH_DEVICE : (unsigned) AUTH_HOST);
+      if (!behind && stale_strict()) {
+        unsigned auth = lmp_flags(4);
+
+        // lmp_flags(4) is only ever set at a coherence call, and a divergence
+        // can be created and consumed without one: a command outside the
+        // package writes an array through the plain LAMMPS pointers and the
+        // next thing to touch it is a kernel.  Under auto_sync the claim for
+        // such a write is issued by AtomKokkos::sync() itself, so removing that
+        // one call removes the claim as well as the copy and leaves no call at
+        // all on the array in between.  Work the answer out here instead when
+        // nothing has recorded one.
+        if (auth == AUTH_NONE && shadow_h.data() && same_shape(shadow_h, h_split)) {
+          const size_t bytes = h_split.span() * sizeof(typename t_host::value_type);
+          const bool host_moved = std::memcmp(h_split.data(), shadow_h.data(), bytes) != 0;
+          const bool dev_moved =
+              std::memcmp(base_type::view_device().data(), shadow_d.data(), bytes) != 0;
+          if (host_moved && !dev_moved) auth = AUTH_HOST;
+          else if (dev_moved && !host_moved) auth = AUTH_DEVICE;
+        }
+
+        behind = auth != AUTH_NONE &&
+                 auth != (want_device ? (unsigned) AUTH_DEVICE : (unsigned) AUTH_HOST);
+      }
       if (!behind) return;
 
       const std::string label = base_type::view_device().label();
