@@ -45,6 +45,21 @@ if(KOKKOS_DEBUG_SYNC)
   endif()
 endif()
 
+# The poison mode of the sync debugging marks the stale copy of each array as
+# off limits through AddressSanitizer, so any access to it stops the run at the
+# faulting line.  Built with recovery so ASAN_OPTIONS=halt_on_error=0 can turn
+# a run into a survey that logs every stale access instead of stopping at the
+# first.  Applied globally so the styles' kernels are instrumented wherever
+# they are instantiated.
+option(KOKKOS_DEBUG_SYNC_ASAN "Add AddressSanitizer to the KOKKOS sync debugging" OFF)
+if(KOKKOS_DEBUG_SYNC_ASAN)
+  if(NOT KOKKOS_DEBUG_SYNC)
+    message(FATAL_ERROR "KOKKOS_DEBUG_SYNC_ASAN requires KOKKOS_DEBUG_SYNC=on")
+  endif()
+  add_compile_options(-fsanitize=address -fsanitize-recover=address)
+  add_link_options(-fsanitize=address)
+endif()
+
 message(STATUS "Using " ${KOKKOS_PREC_LOWER} " precision for KOKKOS package")
 message(STATUS "Using " ${KOKKOS_LAYOUT_LOWER} " view layout for KOKKOS package")
 if(KOKKOS_DEBUG_SYNC)
@@ -198,6 +213,13 @@ set(KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/kokkos.cpp
 # fix wall/gran has been refactored in an incompatible way. Use old version of base class for now
 if(PKG_GRANULAR)
   list(APPEND KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/fix_wall_gran_old.cpp)
+endif()
+
+# fix rigid/nh/small/kk is an abstract base class (no style header) and must be
+# listed explicitly, like fix_nh_kokkos.cpp; its concrete nve/nvt/npt/nph styles
+# are picked up by the generic style detection
+if(PKG_RIGID)
+  list(APPEND KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/fix_rigid_nh_small_kokkos.cpp)
 endif()
 
 if(PKG_KSPACE)

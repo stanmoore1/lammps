@@ -56,6 +56,10 @@ static std::map<std::string, bigint> audit_found;
 
 void DatamaskAudit::enable(int flag)
 {
+  // the audit snapshots the device buffers directly, and in poison mode those
+  // bytes are off limits whenever the host side is the authoritative one, so
+  // the two cannot run together
+  if (flag && std::getenv("LMP_KOKKOS_POISON")) return;
   audit_enabled = flag;
 }
 

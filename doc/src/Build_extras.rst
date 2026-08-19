@@ -953,6 +953,22 @@ it can be found with a debugger.
    Runs with this option enabled use about twice as much memory for
    per-atom data and are considerably slower.
 
+The strongest of the checks needs AddressSanitizer in the build as well:
+
+.. code-block:: bash
+
+   cmake -D KOKKOS_DEBUG_SYNC=on -D KOKKOS_DEBUG_SYNC_ASAN=on ...
+
+and is switched on by setting ``LMP_KOKKOS_POISON`` in the environment.
+It marks the bytes of whichever copy of an array is out of date as off
+limits, so any use of stale data -- through a Kokkos view, a plain
+LAMMPS pointer, or a copy inside a library -- stops the run at the
+faulting source line with a report of what was touched and from where.
+Only taking a pointer without using it stays silent.  By default the
+first fault stops the run; set ``ASAN_OPTIONS=halt_on_error=0`` to log
+every fault and keep going instead, and add ``detect_leaks=0`` to quiet
+the leak reports from the MPI library on parallel runs.
+
 Once a run built this way gives different results from the same run
 without the option, these environment variables narrow down which array
 is at fault and where.  They are read at the first use and cost nothing

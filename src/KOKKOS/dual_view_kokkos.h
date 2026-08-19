@@ -27,6 +27,19 @@
 #include <map>
 #include <string>
 #include <vector>
+
+// Poison mode needs AddressSanitizer.  GCC advertises it with a macro, clang
+// through __has_feature, and a build without it compiles the mode away.
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define LMP_KOKKOS_DVK_ASAN 1
+#endif
+#elif defined(__SANITIZE_ADDRESS__)
+#define LMP_KOKKOS_DVK_ASAN 1
+#endif
+#ifdef LMP_KOKKOS_DVK_ASAN
+#include <sanitizer/asan_interface.h>
+#endif
 #endif
 
 namespace LAMMPS_NS {
@@ -155,6 +168,102 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (copy_across) Kokkos::deep_copy(h_split, base_type::view_host());
     }
   }
+
+  /* ---- poison mode, LMP_KOKKOS_POISON (needs an AddressSanitizer build) ----
+
+     The other detectors intercept the accessors, and a read through a cached
+     view or one of the plain LAMMPS pointers never calls an accessor.  Poison
+     mode enforces the invariant on the memory itself: whichever side of the
+     dual view is not the authoritative one has its bytes poisoned, so any
+     dereference of stale data -- through an accessor, a cached view, a subview,
+     a raw pointer, or a memcpy inside a library -- stops the run at the exact
+     instruction with a full AddressSanitizer report.  Fetching a pointer
+     without dereferencing it never traps, so the pointer-caching that the
+     accessor checks had to be taught to ignore is silent by construction.
+
+     The rule follows the package's own convention: a side may be touched after
+     it was synced, after it was claimed, or after clear_sync_state() opted out
+     of coherence; touching the stale side without one of those first is the
+     bug.  The state is re-derived from the counters at the end of every
+     coherence call, and both sides are opened at the start of one so the
+     tool's own copies and comparisons never trap.
+
+     Survey mode: build with -fsanitize-recover=address and run with
+     ASAN_OPTIONS=halt_on_error=0 to log every stale access and keep going.
+  ------------------------------------------------------------------------- */
+
+ public:
+  static bool poison_mode()
+  {
+#ifdef LMP_KOKKOS_DVK_ASAN
+    static const bool on = std::getenv("LMP_KOKKOS_POISON") != nullptr;
+    return on;
+#else
+    return false;
+#endif
+  }
+
+ private:
+  static void poison_bytes(const void *p, size_t bytes, bool poison)
+  {
+#ifdef LMP_KOKKOS_DVK_ASAN
+    if (!p || !bytes) return;
+    if (poison)
+      ASAN_POISON_MEMORY_REGION(p, bytes);
+    else
+      ASAN_UNPOISON_MEMORY_REGION(p, bytes);
+#else
+    (void) p; (void) bytes; (void) poison;
+#endif
+  }
+
+  bool poison_active() const
+  {
+    if constexpr (SPLIT) {
+      if (!poison_mode() || !lmp_flags.data() || !h_split.data()) return false;
+      if (h_split.data() == base_type::view_host().data()) return false;    // alias mode
+      return true;
+    }
+    return false;
+  }
+
+  // Open both sides for the duration of a coherence call, so the copies and
+  // comparisons this class performs itself never trap.
+  void poison_open() const
+  {
+    if constexpr (SPLIT) {
+      if (!poison_active()) return;
+      poison_bytes(h_split.data(), h_split.span() * sizeof(typename t_host::value_type), false);
+      poison_bytes(base_type::view_device().data(),
+                   base_type::view_device().span() * sizeof(typename t_dev::value_type), false);
+    }
+  }
+
+  // Re-establish the state the counters imply: the side that owes nothing may
+  // be read and written, the stale one may not be touched at all.
+  void poison_apply() const
+  {
+    if constexpr (SPLIT) {
+      if (!poison_active()) return;
+      const bool host_newer = lmp_flags(0) > lmp_flags(1);
+      const bool dev_newer = lmp_flags(1) > lmp_flags(0);
+      poison_bytes(h_split.data(), h_split.span() * sizeof(typename t_host::value_type),
+                   dev_newer);
+      poison_bytes(base_type::view_device().data(),
+                   base_type::view_device().span() * sizeof(typename t_dev::value_type),
+                   host_newer);
+    }
+  }
+
+  // One of these at the top of every coherence call: opens on entry, applies
+  // the counters' verdict on every way out.  A subview shares its parent's
+  // buffers and counters, so whichever object performs the call settles the
+  // bytes it can see; the transitions in the package all run on the parents.
+  struct PoisonScope {
+    const DualView *dv;
+    explicit PoisonScope(const DualView *d) : dv(d) { dv->poison_open(); }
+    ~PoisonScope() { dv->poison_apply(); }
+  };
 
  public:
   DualView() : base_type() {}
@@ -304,6 +413,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
   void settle_from_host()
   {
+    PoisonScope pscope(this);
     if constexpr (SPLIT) {
       if (!paranoid() || !lmp_flags.data() || !h_split.data()) return;
       Kokkos::deep_copy(base_type::view_device(), h_split);
@@ -541,6 +651,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
   void settle_from_device()
   {
+    PoisonScope pscope(this);
     if constexpr (SPLIT) {
       if (!paranoid() || !lmp_flags.data() || !h_split.data()) return;
       Kokkos::deep_copy(h_split, base_type::view_device());
@@ -675,6 +786,10 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void stale_check(bool want_device) const
   {
     if constexpr (SPLIT) {
+      // In poison mode the memory itself enforces this check, for every access
+      // path at once, and the comparison below would trip over the poisoned
+      // bytes from outside a coherence call.
+      if (poison_mode()) return;
       const char *f = stale_filter();
       if (!f) return;
       if (!lmp_flags.data() || !h_split.data()) return;
@@ -777,6 +892,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
   void modify_device()
   {
+    PoisonScope pscope(this);
     trace("modify_device");
     verify("modify_device");
     watch("modify_device", OP_MODIFY_DEVICE);
@@ -800,6 +916,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
   void modify_host()
   {
+    PoisonScope pscope(this);
     trace("modify_host");
     verify("modify_host");
     watch("modify_host", OP_MODIFY_HOST);
@@ -830,6 +947,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
   void sync_device()
   {
+    PoisonScope pscope(this);
     trace("sync_device");
     verify("sync_device");
     watch("sync_device", OP_SYNC_DEVICE);
@@ -847,6 +965,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
   void sync_host()
   {
+    PoisonScope pscope(this);
     trace("sync_host");
     verify("sync_host");
     watch("sync_host", OP_SYNC_HOST);
@@ -872,6 +991,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
   void clear_sync_state()
   {
+    PoisonScope pscope(this);
     trace("clear_sync_state");
     watch("clear_sync_state");
     if constexpr (SPLIT) {
@@ -885,6 +1005,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   template <class... Args>
   void resize(Args... args)
   {
+    PoisonScope pscope(this);
     trace("resize");
     watch("resize", OP_RESIZE);
     if constexpr (SPLIT) {
