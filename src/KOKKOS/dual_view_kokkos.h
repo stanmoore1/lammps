@@ -91,7 +91,17 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // never reset, which is what watch mode needs: a sync puts the first two back
   // to zero, so from those alone a claim followed by a sync cannot be told apart
   // from no claim at all.
-  using t_lmp_flags = Kokkos::View<unsigned int[4], Kokkos::LayoutLeft, Kokkos::HostSpace>;
+  //
+  // (4) says which side holds the values that are worth keeping while the two
+  // differ: AUTH_NONE when they agree, otherwise the side that moved away from
+  // the other.  The counters cannot answer that.  A write through one of the
+  // plain LAMMPS pointers with no matching declaration leaves them saying the
+  // two agree when they do not, and nothing will ever copy either way, so the
+  // reader of the other side keeps the old values for good.  Unlike a
+  // comparison against the shadows, which only sees the step just taken, this
+  // survives every later call until a copy really does bring the two together.
+  enum { AUTH_NONE = 0, AUTH_HOST = 1, AUTH_DEVICE = 2 };
+  using t_lmp_flags = Kokkos::View<unsigned int[6], Kokkos::LayoutLeft, Kokkos::HostSpace>;
 
  private:
   // The extra allocation is given to the HOST side, not the device side, and the
@@ -491,9 +501,26 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
         if (!shadow_flags.data()) shadow_flags = t_lmp_flags("LAMMPS::DualView::shadow_flags");
         if (!shadow_op.data()) shadow_op = t_watch_op("LAMMPS::DualView::shadow_op");
       }
+      // Work out who is authoritative before the shadows are overwritten.  A
+      // side that moved while the other stood still now holds the values; if
+      // both moved, or neither did while they still differ, leave the previous
+      // answer alone rather than guess.
+      const size_t bytes = h_split.span() * sizeof(typename t_host::value_type);
+      const void *dev_data = base_type::view_device().data();
+      if (bytes && dev_data) {
+        if (!std::memcmp(dev_data, h_split.data(), bytes)) {
+          lmp_flags(4) = AUTH_NONE;
+        } else {
+          const bool host_moved = std::memcmp(h_split.data(), shadow_h.data(), bytes) != 0;
+          const bool dev_moved = std::memcmp(dev_data, shadow_d.data(), bytes) != 0;
+          if (host_moved && !dev_moved) lmp_flags(4) = AUTH_HOST;
+          else if (dev_moved && !host_moved) lmp_flags(4) = AUTH_DEVICE;
+        }
+      }
+
       Kokkos::deep_copy(shadow_h, h_split);
       Kokkos::deep_copy(shadow_d, base_type::view_device());
-      for (int i = 0; i < 4; i++) shadow_flags(i) = lmp_flags(i);
+      for (int i = 0; i < 6; i++) shadow_flags(i) = lmp_flags(i);
       if (shadow_op.data() && watch_op_name()) {
         std::strncpy(shadow_op.data(), watch_op_name(), 31);
         shadow_op(31) = 0;
@@ -602,20 +629,15 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       bool behind = want_device ? need_sync_device() : need_sync_host();
 
       // The counters can also say the two agree while they do not, because one
-      // side was written through a legacy pointer and never claimed.  Nothing is
-      // owed, nothing will ever be copied, and the reader keeps the old values
-      // for good.  Telling that apart from the ordinary "fill a side, read it
-      // back, claim it a few statements later" needs to know which side moved,
-      // which is what the watch shadows record, so this part only applies when
-      // watch mode is running as well.  The other side changed and this one did
-      // not, so this one is the stale one.
-      if (!behind && stale_strict() && shadow_h.data() && same_shape(shadow_h, h_split)) {
-        const size_t bytes = h_split.span() * sizeof(typename t_host::value_type);
-        const bool host_moved = std::memcmp(h_split.data(), shadow_h.data(), bytes) != 0;
-        const bool dev_moved = std::memcmp(base_type::view_device().data(),
-                                           shadow_d.data(), bytes) != 0;
-        behind = want_device ? (host_moved && !dev_moved) : (dev_moved && !host_moved);
-      }
+      // side was written through a plain LAMMPS pointer and never claimed.
+      // Nothing is owed, nothing will ever be copied, and the reader keeps the
+      // old values for good.  lmp_flags(4) carries which side those values are
+      // on, and unlike a comparison against the shadows it stays put across the
+      // later calls, so the fault is still reported at the read that matters and
+      // not only at the step in which the two came apart.
+      if (!behind && stale_strict())
+        behind = lmp_flags(4) != AUTH_NONE &&
+                 lmp_flags(4) != (want_device ? (unsigned) AUTH_DEVICE : (unsigned) AUTH_HOST);
       if (!behind) return;
 
       const std::string label = base_type::view_device().label();

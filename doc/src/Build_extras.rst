@@ -974,9 +974,8 @@ one array can be followed on its own; an empty value selects every view.
   differ although nothing is waiting to be copied, which is what a write
   through one of the plain LAMMPS pointers with no matching declaration
   leaves behind: nothing will ever bring the two together again.  It needs
-  ``LMP_KOKKOS_WATCH`` set as well, and reports freely, because a view
-  fetched to be stored rather than read looks the same from where it
-  checks, so give ``LMP_KOKKOS_STALE`` a name to narrow it down.
+  ``LMP_KOKKOS_WATCH`` set as well, for the record of which copy the values
+  are on.
 * ``LMP_KOKKOS_TRACE`` prints every copy, declaration and resize of an
   array along with the counters that drive them.
 * ``LMP_KOKKOS_PARANOID`` copies an array between the host and the device
