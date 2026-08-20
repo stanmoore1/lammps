@@ -143,6 +143,13 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   using t_watch_op = Kokkos::View<char[32], Kokkos::HostSpace>;
   t_watch_op shadow_op;
 
+  // The contents of each side as they were the last time the two were brought
+  // into agreement -- a sync that copied, a clear_sync_state, a resize.  The
+  // shadows above cannot answer "was this side written and never claimed",
+  // because every coherence call refreshes them and so absorbs the write; a
+  // snapshot that moves only at those resets can.
+  t_host agreed_h, agreed_d;
+
   // create_mirror always allocates, unlike create_mirror_view, and zero fills
   // unless told otherwise.  copy_across carries the base contents over, which is
   // right when the two sides are meant to agree, and wrong after a resize, where
@@ -282,6 +289,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     lmp_flags = t_lmp_flags("LAMMPS::DualView::lmp_flags");
     allocate_split();
     watch_refresh();
+    watch_agree();
   }
 
   template <class... P, class... Args>
@@ -290,6 +298,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     lmp_flags = t_lmp_flags("LAMMPS::DualView::lmp_flags");
     allocate_split();
     watch_refresh();
+    watch_agree();
   }
 
   // Conversion from a plain Kokkos::DualView, needed because Kokkos::subview()
@@ -315,6 +324,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     lmp_flags = t_lmp_flags("LAMMPS::DualView::lmp_flags");
     allocate_split();
     watch_refresh();
+    watch_agree();
   }
 
   // Build from already sliced buffers and a borrowed set of counters.  Only
@@ -503,23 +513,38 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     return label.find(f) != std::string::npos;
   }
 
-  // Index of the first element in which the two sides disagree, or
-  // NO_DIFFERENCE when they agree everywhere.
+  // Index of the first element in which two buffers disagree, or NO_DIFFERENCE
+  // when they agree everywhere.
   static constexpr size_t NO_DIFFERENCE = ~static_cast<size_t>(0);
 
-  size_t first_difference(size_t nbytes) const
+  static size_t first_difference(const void *a_data, const void *b_data, size_t nbytes)
   {
     using value_type = typename std::remove_const<typename t_host::value_type>::type;
-    if (!nbytes) return NO_DIFFERENCE;
-    const void *dev_data = base_type::view_device().data();
-    if (!dev_data || !h_split.data()) return NO_DIFFERENCE;
-    if (!std::memcmp(dev_data, h_split.data(), nbytes)) return NO_DIFFERENCE;
-    const value_type *a = (const value_type *) dev_data;
-    const value_type *b = (const value_type *) h_split.data();
+    if (!nbytes || !a_data || !b_data) return NO_DIFFERENCE;
+    if (!std::memcmp(a_data, b_data, nbytes)) return NO_DIFFERENCE;
+    const value_type *a = (const value_type *) a_data;
+    const value_type *b = (const value_type *) b_data;
     const size_t n = nbytes / sizeof(value_type);
     for (size_t i = 0; i < n; i++)
       if (std::memcmp(&a[i], &b[i], sizeof(value_type))) return i;
     return NO_DIFFERENCE;
+  }
+
+  // Record the pair as agreeing from here on.  Called where the wrapper knows
+  // the two sides have been reconciled, never from watch() itself.
+  void watch_agree()
+  {
+    if constexpr (SPLIT) {
+      if (!watched()) return;
+      if (!h_split.data()) return;
+      if (h_split.data() == base_type::view_host().data()) return;    // alias mode
+      if (!same_shape(agreed_h, h_split)) {
+        agreed_h = Kokkos::create_mirror(h_split);
+        agreed_d = Kokkos::create_mirror(h_split);
+      }
+      Kokkos::deep_copy(agreed_h, h_split);
+      Kokkos::deep_copy(agreed_d, base_type::view_device());
+    }
   }
 
   // The empty-sync report repeats on every later sync of the same view -- the
@@ -628,30 +653,37 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
             ((kind == OP_SYNC_DEVICE) && (lmp_flags(0) > lmp_flags(1))) ||
             ((kind == OP_RESIZE) && !on_device);
 
-        // What a sync promises is that afterwards the two sides agree.  A sync
-        // whose counters say the destination is already current copies nothing,
-        // so if the sides differ at that moment the promise is broken and
-        // somebody wrote a side without claiming it.  State it as that
-        // invariant rather than as "a side changed since the last call": the
-        // shadows are refreshed at every coherence call, so an unclaimed write
-        // followed by any other call on the same view -- a sync of the other
-        // direction, a resize -- was absorbed into the shadow and became
-        // invisible.  That is how a lost modify_host() on atom:special stayed
-        // hidden.  The counters carry the whole condition already: had the
-        // source side been claimed, the sync would have copied.
+        // A sync whose counters say the destination is already current copies
+        // nothing.  If the side it would have read from has changed since the
+        // two were last reconciled, that change is going nowhere: it was never
+        // claimed, or the sync would have carried it.  Measuring the change
+        // against the last reconciliation rather than against the previous
+        // coherence call is what makes this work at all -- the shadows are
+        // refreshed at every such call, so an unclaimed write followed by any
+        // other call on the same view was absorbed into them and became
+        // invisible.  That is how a lost claim on atom:special stayed hidden.
         const size_t nbytes = h_split.span() * sizeof(typename t_host::value_type);
         const bool sync_dev_copies_nothing =
             (kind == OP_SYNC_DEVICE) && (lmp_flags(1) >= lmp_flags(0));
         const bool sync_host_copies_nothing =
             (kind == OP_SYNC_HOST) && (lmp_flags(0) >= lmp_flags(1));
         if (sync_dev_copies_nothing || sync_host_copies_nothing) {
-          // Where the sides first differ tells the two apart that otherwise
-          // read alike: a buffer whose unused tail holds old bytes differs far
-          // out and does so on clean runs too, while a lost claim on live data
-          // differs among the elements in use.  Reporting the element keeps
-          // those from being confused for one another.
-          const size_t at = first_difference(nbytes);
-          if (at != NO_DIFFERENCE) {
+          // The side the sync would have read from, against its contents at the
+          // last reconciliation.  Asking it this way rather than "do the two
+          // sides differ" is what keeps the ordinary case quiet: a pair left
+          // deliberately apart, by clear_sync_state or by a claim on the side
+          // the sync is not headed for, differs without anybody having written
+          // anything since.
+          const void *src_now = sync_dev_copies_nothing
+              ? (const void *) h_split.data() : (const void *) dev.data();
+          const void *src_then = sync_dev_copies_nothing
+              ? (const void *) agreed_h.data() : (const void *) agreed_d.data();
+          const size_t at = same_shape(agreed_h, h_split)
+              ? first_difference(src_now, src_then, nbytes) : NO_DIFFERENCE;
+          // A write that put back the values the other side already holds
+          // costs nothing, so say so only when the two really disagree.
+          if ((at != NO_DIFFERENCE) &&
+              first_difference(dev.data(), h_split.data(), nbytes) != NO_DIFFERENCE) {
             const std::string label = base_type::view_device().label();
             if (empty_sync_seen(label)) {
               std::fprintf(stderr,
@@ -738,6 +770,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       Kokkos::deep_copy(h_split, base_type::view_device());
       lmp_flags(0) = lmp_flags(1) = 0;
       watch_refresh();
+      watch_agree();
     }
   }
 
@@ -1058,6 +1091,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
         Kokkos::deep_copy(base_type::view_device(), h_split);
         lmp_flags(0) = lmp_flags(1) = 0;
         watch_refresh();
+        watch_agree();
         datamask_audit_note_copy(base_type::view_device().data());
       }
     } else
@@ -1076,6 +1110,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
         Kokkos::deep_copy(h_split, base_type::view_device());
         lmp_flags(0) = lmp_flags(1) = 0;
         watch_refresh();
+        watch_agree();
       }
     } else
       base_type::sync_host();
@@ -1097,6 +1132,9 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     watch("clear_sync_state");
     if constexpr (SPLIT) {
       if (lmp_flags.data()) lmp_flags(0) = lmp_flags(1) = 0;
+      // the documented opt-out: the two sides are declared reconciled as they
+      // stand, whatever they hold
+      watch_agree();
     }
     base_type::clear_sync_state();
   }
@@ -1143,6 +1181,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
         allocate_split(true);
         lmp_flags(0) = lmp_flags(1) = 0;
         watch_refresh();
+        watch_agree();
         return;
       }
 
@@ -1154,6 +1193,9 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       else
         lmp_flags(0) = 1;
       watch_refresh();
+      // a resize reallocates the other side, so whatever the two held before is
+      // gone; the pair starts again from what they hold now
+      watch_agree();
       return;
     }
 
