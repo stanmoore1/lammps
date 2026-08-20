@@ -585,6 +585,35 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
             ((kind == OP_SYNC_DEVICE) && (lmp_flags(0) > lmp_flags(1))) ||
             ((kind == OP_RESIZE) && !on_device);
 
+        // A sync that arrives with the counters tied copies nothing.  When a
+        // side changed since the last call without a claim and the two really
+        // differ, that nothing-to-do is the bug: the ordinary way this arises
+        // is a style whose coeff() filled the host table and lost its
+        // modify_host(), while the kernel reads a device view cached long
+        // before, so no later call ever sees the stale read.  This sync is the
+        // one place the fault shows, and its backtrace names the style.
+        const bool tied = lmp_flags(0) == lmp_flags(1);
+        const size_t nbytes = h_split.span() * sizeof(typename t_host::value_type);
+        if (tied && (kind == OP_SYNC_DEVICE || kind == OP_SYNC_HOST) &&
+            std::memcmp(base_type::view_device().data(), h_split.data(), nbytes) != 0) {
+          if (host_wrote && lmp_flags(2) == shadow_flags(2) && kind == OP_SYNC_DEVICE) {
+            const std::string label = base_type::view_device().label();
+            std::fprintf(stderr,
+                         "[watch] %s: the host side was written without a claim and this "
+                         "sync_device has nothing to copy -- the device keeps stale data\n",
+                         label.c_str());
+            watch_backtrace();
+          }
+          if (dev_wrote && lmp_flags(3) == shadow_flags(3) && kind == OP_SYNC_HOST) {
+            const std::string label = base_type::view_device().label();
+            std::fprintf(stderr,
+                         "[watch] %s: the device side was written without a claim and this "
+                         "sync_host has nothing to copy -- the host keeps stale data\n",
+                         label.c_str());
+            watch_backtrace();
+          }
+        }
+
         if (host_wrote && host_lost && lmp_flags(2) == shadow_flags(2))
           watch_report("host", op, h_split, shadow_h);
         if (dev_wrote && device_lost && lmp_flags(3) == shadow_flags(3)) {
