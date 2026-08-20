@@ -63,8 +63,6 @@ class NBinSSAKokkos : public NBinStandard {
 
   typename AT::t_int_scalar d_resize;
   HAT::t_int_scalar h_resize;
-  typename AT::t_int_scalar d_error_flag;
-  HAT::t_int_scalar h_error_flag;
   typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_int_1d_randomread mask;
 

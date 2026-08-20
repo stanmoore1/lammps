@@ -21,7 +21,6 @@
 
 #include "atom_kokkos.h"
 #include "domain.h"
-#include "error.h"
 #include "group.h"
 #include "update.h"
 #include "atom_masks.h"
@@ -37,7 +36,6 @@ NBinSSAKokkos<DeviceType>::NBinSSAKokkos(LAMMPS *lmp) : NBinStandard(lmp)
   atoms_per_bin = ghosts_per_gbin = 16;
 
   d_resize = typename AT::t_int_scalar("NBinSSAKokkos::d_resize");
-  d_error_flag = typename AT::t_int_scalar("NBinSSAKokkos::d_error_flag");
   d_lbinxlo = typename AT::t_int_scalar("NBinSSAKokkos::d_lbinxlo");
   d_lbinylo = typename AT::t_int_scalar("NBinSSAKokkos::d_lbinylo");
   d_lbinzlo = typename AT::t_int_scalar("NBinSSAKokkos::d_lbinzlo");
@@ -45,7 +43,6 @@ NBinSSAKokkos<DeviceType>::NBinSSAKokkos(LAMMPS *lmp) : NBinStandard(lmp)
   d_lbinyhi = typename AT::t_int_scalar("NBinSSAKokkos::d_lbinyhi");
   d_lbinzhi = typename AT::t_int_scalar("NBinSSAKokkos::d_lbinzhi");
   h_resize = Kokkos::create_mirror_view(d_resize);
-  h_error_flag = Kokkos::create_mirror_view(d_error_flag);
   h_lbinxlo = Kokkos::create_mirror_view(d_lbinxlo);
   h_lbinylo = Kokkos::create_mirror_view(d_lbinylo);
   h_lbinzlo = Kokkos::create_mirror_view(d_lbinzlo);
@@ -53,7 +50,6 @@ NBinSSAKokkos<DeviceType>::NBinSSAKokkos(LAMMPS *lmp) : NBinStandard(lmp)
   h_lbinyhi = Kokkos::create_mirror_view(d_lbinyhi);
   h_lbinzhi = Kokkos::create_mirror_view(d_lbinzhi);
   h_resize() = 1;
-  h_error_flag() = 0;
 
   k_gbincount = DAT::tdual_int_1d("NBinSSAKokkos::gbincount",8);
   gbincount = k_gbincount.view<DeviceType>();
@@ -135,22 +131,12 @@ void NBinSSAKokkos<DeviceType>::bin_atoms()
   k_binID = DAT::tdual_int_1d("NBinSSAKokkos::binID",nall);
   binID = k_binID.view<DeviceType>();
 
-  h_error_flag() = 0;
-  Kokkos::deep_copy(d_error_flag, h_error_flag);
-
   // find each local atom's binID
   {
     atoms_per_bin = 0;
     NPairSSAKokkosBinIDAtomsFunctor<DeviceType> f(*this);
     Kokkos::parallel_reduce(nlocal, f, atoms_per_bin);
   }
-
-  // atoms with non-numeric coordinates have no valid binID, so bail out
-  // before the binID data is used
-
-  Kokkos::deep_copy(h_error_flag, d_error_flag);
-  if (h_error_flag())
-    error->one(FLERR,"Non-numeric positions - simulation unstable" + utils::errorurl(6));
 
   Kokkos::deep_copy(h_lbinxlo, d_lbinxlo);
   Kokkos::deep_copy(h_lbinylo, d_lbinylo);
@@ -249,13 +235,11 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void NBinSSAKokkos<DeviceType>::binIDAtomsItem(const int &i, int &update) const
 {
-  // a non-numeric coordinate would produce a bogus bin index
-  // flag it for the host to turn into an error and skip this atom
+  // a non-numeric coordinate would produce a bogus bin index and the atomic
+  // update below would write out of bounds, so stop right here
 
-  if (!Kokkos::isfinite(x(i, 0)) || !Kokkos::isfinite(x(i, 1)) || !Kokkos::isfinite(x(i, 2))) {
-    d_error_flag() = 1;
-    return;
-  }
+  if (!Kokkos::isfinite(x(i, 0)) || !Kokkos::isfinite(x(i, 1)) || !Kokkos::isfinite(x(i, 2)))
+    Kokkos::abort("Non-numeric positions - simulation unstable");
 
   int loc[3];
   const int ibin = coord2bin(x(i, 0), x(i, 1), x(i, 2), &(loc[0]));

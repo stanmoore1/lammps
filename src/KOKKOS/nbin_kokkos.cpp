@@ -17,7 +17,6 @@
 #include "atom_kokkos.h"
 #include "atom_masks.h"
 #include "comm.h"
-#include "error.h"
 #include "group.h"
 #include "kokkos.h"
 #include "memory_kokkos.h"
@@ -34,10 +33,6 @@ NBinKokkos<DeviceType>::NBinKokkos(LAMMPS *lmp) : NBinStandard(lmp) {
   d_resize = typename AT::t_int_scalar("NeighborKokkosFunctor::resize");
   h_resize = Kokkos::create_mirror_view(d_resize);
   h_resize() = 1;
-
-  d_error_flag = typename AT::t_int_scalar("NeighborKokkosFunctor::error_flag");
-  h_error_flag = Kokkos::create_mirror_view(d_error_flag);
-  h_error_flag() = 0;
 
   if (lmp->kokkos->nbin_atoms_per_bin_set)
     atoms_per_bin = lmp->kokkos->nbin_atoms_per_bin;
@@ -96,8 +91,6 @@ void NBinKokkos<DeviceType>::bin_atoms()
   k_atom2bin.template sync<DeviceType>();
 
   h_resize() = 1;
-  h_error_flag() = 0;
-  Kokkos::deep_copy(d_error_flag, h_error_flag);
 
   while (h_resize() > 0) {
     h_resize() = 0;
@@ -125,13 +118,6 @@ void NBinKokkos<DeviceType>::bin_atoms()
     NPairKokkosBinAtomsFunctor<DeviceType> f(*this);
 
     Kokkos::parallel_for(atom->nlocal+atom->nghost, f);
-
-    // atoms with non-numeric coordinates cannot be binned, so bail out
-    // before looping again and before the bin data is used
-
-    Kokkos::deep_copy(h_error_flag, d_error_flag);
-    if (h_error_flag())
-      error->one(FLERR,"Non-numeric positions - simulation unstable" + utils::errorurl(6));
 
     Kokkos::deep_copy(h_resize, d_resize);
     if (h_resize()) {
@@ -164,13 +150,11 @@ void NBinKokkos<DeviceType>::binatomsItem(const int &i) const
     } else if (!(mask(i) & bitmask_)) return;
   }
 
-  // a non-numeric coordinate would produce a bogus bin index
-  // flag it for the host to turn into an error and skip this atom
+  // a non-numeric coordinate would produce a bogus bin index and the atomic
+  // update below would write out of bounds, so stop right here
 
-  if (!Kokkos::isfinite(x(i, 0)) || !Kokkos::isfinite(x(i, 1)) || !Kokkos::isfinite(x(i, 2))) {
-    d_error_flag() = 1;
-    return;
-  }
+  if (!Kokkos::isfinite(x(i, 0)) || !Kokkos::isfinite(x(i, 1)) || !Kokkos::isfinite(x(i, 2)))
+    Kokkos::abort("Non-numeric positions - simulation unstable");
 
   const int ibin = coord2bin(x(i, 0), x(i, 1), x(i, 2));
 
