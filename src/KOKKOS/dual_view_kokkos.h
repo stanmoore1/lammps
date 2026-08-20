@@ -268,11 +268,20 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
  public:
   DualView() : base_type() {}
 
+  // The constructors seed the watch shadows right away.  Without this the
+  // first watch() call on a view finds no shadow to compare against and can
+  // only record one, so a table that is written once and then read forever --
+  // the angle coefficient pattern -- keeps its unclaimed write forever on the
+  // wrong side of the first comparison.  Freshly built views are zeroed on
+  // both sides, which is exactly the shadow a later write should be seen
+  // against.
+
   template <class... Args>
   DualView(const std::string &label, Args... args) : base_type(label, args...)
   {
     lmp_flags = t_lmp_flags("LAMMPS::DualView::lmp_flags");
     allocate_split();
+    watch_refresh();
   }
 
   template <class... P, class... Args>
@@ -280,6 +289,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     lmp_flags = t_lmp_flags("LAMMPS::DualView::lmp_flags");
     allocate_split();
+    watch_refresh();
   }
 
   // Conversion from a plain Kokkos::DualView, needed because Kokkos::subview()
@@ -304,6 +314,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     lmp_flags = t_lmp_flags("LAMMPS::DualView::lmp_flags");
     allocate_split();
+    watch_refresh();
   }
 
   // Build from already sliced buffers and a borrowed set of counters.  Only
@@ -492,6 +503,19 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     return label.find(f) != std::string::npos;
   }
 
+  // The empty-sync report repeats on every later sync of the same view -- the
+  // stale pair stays stale -- so a run with one lost claim on a per-step table
+  // prints hundreds of identical lines.  Three per view name the fault; after
+  // that say once that the rest are suppressed.
+  static bool empty_sync_seen(const std::string &label)
+  {
+    static std::map<std::string, int> counts;
+    const int n = ++counts[label];
+    if (n == 4)
+      std::fprintf(stderr, "[watch] %s: further empty-sync reports suppressed\n", label.c_str());
+    return n <= 3;
+  }
+
   static void watch_backtrace()
   {
     if (!std::getenv("LMP_KOKKOS_WATCH_BT")) return;
@@ -598,19 +622,23 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
             std::memcmp(base_type::view_device().data(), h_split.data(), nbytes) != 0) {
           if (host_wrote && lmp_flags(2) == shadow_flags(2) && kind == OP_SYNC_DEVICE) {
             const std::string label = base_type::view_device().label();
-            std::fprintf(stderr,
-                         "[watch] %s: the host side was written without a claim and this "
-                         "sync_device has nothing to copy -- the device keeps stale data\n",
-                         label.c_str());
-            watch_backtrace();
+            if (empty_sync_seen(label)) {
+              std::fprintf(stderr,
+                           "[watch] %s: the host side was written without a claim and this "
+                           "sync_device has nothing to copy -- the device keeps stale data\n",
+                           label.c_str());
+              watch_backtrace();
+            }
           }
           if (dev_wrote && lmp_flags(3) == shadow_flags(3) && kind == OP_SYNC_HOST) {
             const std::string label = base_type::view_device().label();
-            std::fprintf(stderr,
-                         "[watch] %s: the device side was written without a claim and this "
-                         "sync_host has nothing to copy -- the host keeps stale data\n",
-                         label.c_str());
-            watch_backtrace();
+            if (empty_sync_seen(label)) {
+              std::fprintf(stderr,
+                           "[watch] %s: the device side was written without a claim and this "
+                           "sync_host has nothing to copy -- the host keeps stale data\n",
+                           label.c_str());
+              watch_backtrace();
+            }
           }
         }
 
