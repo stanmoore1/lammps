@@ -609,18 +609,23 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
             ((kind == OP_SYNC_DEVICE) && (lmp_flags(0) > lmp_flags(1))) ||
             ((kind == OP_RESIZE) && !on_device);
 
-        // A sync that arrives with the counters tied copies nothing.  When a
-        // side changed since the last call without a claim and the two really
-        // differ, that nothing-to-do is the bug: the ordinary way this arises
-        // is a style whose coeff() filled the host table and lost its
-        // modify_host(), while the kernel reads a device view cached long
-        // before, so no later call ever sees the stale read.  This sync is the
-        // one place the fault shows, and its backtrace names the style.
-        const bool tied = lmp_flags(0) == lmp_flags(1);
+        // A sync that will not copy toward its destination leaves that side
+        // exactly as it was.  When the source side changed since the last call
+        // without a claim and the two really differ, that nothing-to-do is the
+        // bug: a style whose coeff() filled the host table and lost its
+        // modify_host() (counters tied), or a grown array whose resize left a
+        // device claim so the host fill is outranked (device "newer").  Either
+        // way the kernel then reads a device view cached long before, no later
+        // call ever sees the stale read, and this sync is the one place the
+        // fault shows -- its backtrace names the style.
         const size_t nbytes = h_split.span() * sizeof(typename t_host::value_type);
-        if (tied && (kind == OP_SYNC_DEVICE || kind == OP_SYNC_HOST) &&
+        const bool sync_dev_copies_nothing =
+            (kind == OP_SYNC_DEVICE) && (lmp_flags(1) >= lmp_flags(0));
+        const bool sync_host_copies_nothing =
+            (kind == OP_SYNC_HOST) && (lmp_flags(0) >= lmp_flags(1));
+        if ((sync_dev_copies_nothing || sync_host_copies_nothing) &&
             std::memcmp(base_type::view_device().data(), h_split.data(), nbytes) != 0) {
-          if (host_wrote && lmp_flags(2) == shadow_flags(2) && kind == OP_SYNC_DEVICE) {
+          if (host_wrote && lmp_flags(2) == shadow_flags(2) && sync_dev_copies_nothing) {
             const std::string label = base_type::view_device().label();
             if (empty_sync_seen(label)) {
               std::fprintf(stderr,
@@ -630,7 +635,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
               watch_backtrace();
             }
           }
-          if (dev_wrote && lmp_flags(3) == shadow_flags(3) && kind == OP_SYNC_HOST) {
+          if (dev_wrote && lmp_flags(3) == shadow_flags(3) && sync_host_copies_nothing) {
             const std::string label = base_type::view_device().label();
             if (empty_sync_seen(label)) {
               std::fprintf(stderr,
