@@ -503,6 +503,25 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     return label.find(f) != std::string::npos;
   }
 
+  // Index of the first element in which the two sides disagree, or
+  // NO_DIFFERENCE when they agree everywhere.
+  static constexpr size_t NO_DIFFERENCE = ~static_cast<size_t>(0);
+
+  size_t first_difference(size_t nbytes) const
+  {
+    using value_type = typename std::remove_const<typename t_host::value_type>::type;
+    if (!nbytes) return NO_DIFFERENCE;
+    const void *dev_data = base_type::view_device().data();
+    if (!dev_data || !h_split.data()) return NO_DIFFERENCE;
+    if (!std::memcmp(dev_data, h_split.data(), nbytes)) return NO_DIFFERENCE;
+    const value_type *a = (const value_type *) dev_data;
+    const value_type *b = (const value_type *) h_split.data();
+    const size_t n = nbytes / sizeof(value_type);
+    for (size_t i = 0; i < n; i++)
+      if (std::memcmp(&a[i], &b[i], sizeof(value_type))) return i;
+    return NO_DIFFERENCE;
+  }
+
   // The empty-sync report repeats on every later sync of the same view -- the
   // stale pair stays stale -- so a run with one lost claim on a per-step table
   // prints hundreds of identical lines.  Three per view name the fault; after
@@ -609,39 +628,39 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
             ((kind == OP_SYNC_DEVICE) && (lmp_flags(0) > lmp_flags(1))) ||
             ((kind == OP_RESIZE) && !on_device);
 
-        // A sync that will not copy toward its destination leaves that side
-        // exactly as it was.  When the source side changed since the last call
-        // without a claim and the two really differ, that nothing-to-do is the
-        // bug: a style whose coeff() filled the host table and lost its
-        // modify_host() (counters tied), or a grown array whose resize left a
-        // device claim so the host fill is outranked (device "newer").  Either
-        // way the kernel then reads a device view cached long before, no later
-        // call ever sees the stale read, and this sync is the one place the
-        // fault shows -- its backtrace names the style.
+        // What a sync promises is that afterwards the two sides agree.  A sync
+        // whose counters say the destination is already current copies nothing,
+        // so if the sides differ at that moment the promise is broken and
+        // somebody wrote a side without claiming it.  State it as that
+        // invariant rather than as "a side changed since the last call": the
+        // shadows are refreshed at every coherence call, so an unclaimed write
+        // followed by any other call on the same view -- a sync of the other
+        // direction, a resize -- was absorbed into the shadow and became
+        // invisible.  That is how a lost modify_host() on atom:special stayed
+        // hidden.  The counters carry the whole condition already: had the
+        // source side been claimed, the sync would have copied.
         const size_t nbytes = h_split.span() * sizeof(typename t_host::value_type);
         const bool sync_dev_copies_nothing =
             (kind == OP_SYNC_DEVICE) && (lmp_flags(1) >= lmp_flags(0));
         const bool sync_host_copies_nothing =
             (kind == OP_SYNC_HOST) && (lmp_flags(0) >= lmp_flags(1));
-        if ((sync_dev_copies_nothing || sync_host_copies_nothing) &&
-            std::memcmp(base_type::view_device().data(), h_split.data(), nbytes) != 0) {
-          if (host_wrote && lmp_flags(2) == shadow_flags(2) && sync_dev_copies_nothing) {
+        if (sync_dev_copies_nothing || sync_host_copies_nothing) {
+          // Where the sides first differ tells the two apart that otherwise
+          // read alike: a buffer whose unused tail holds old bytes differs far
+          // out and does so on clean runs too, while a lost claim on live data
+          // differs among the elements in use.  Reporting the element keeps
+          // those from being confused for one another.
+          const size_t at = first_difference(nbytes);
+          if (at != NO_DIFFERENCE) {
             const std::string label = base_type::view_device().label();
             if (empty_sync_seen(label)) {
               std::fprintf(stderr,
-                           "[watch] %s: the host side was written without a claim and this "
-                           "sync_device has nothing to copy -- the device keeps stale data\n",
-                           label.c_str());
-              watch_backtrace();
-            }
-          }
-          if (dev_wrote && lmp_flags(3) == shadow_flags(3) && sync_host_copies_nothing) {
-            const std::string label = base_type::view_device().label();
-            if (empty_sync_seen(label)) {
-              std::fprintf(stderr,
-                           "[watch] %s: the device side was written without a claim and this "
-                           "sync_host has nothing to copy -- the host keeps stale data\n",
-                           label.c_str());
+                           "[watch] %s: the %s side was written without a claim and this %s "
+                           "has nothing to copy -- the %s keeps stale data\n"
+                           "        element %zu of %zu is where they part\n",
+                           label.c_str(), sync_dev_copies_nothing ? "host" : "device",
+                           sync_dev_copies_nothing ? "sync_device" : "sync_host",
+                           sync_dev_copies_nothing ? "device" : "host", at, h_split.span());
               watch_backtrace();
             }
           }
