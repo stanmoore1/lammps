@@ -275,7 +275,7 @@ void FixLambdaLACSPAPIP::init()
     error->all(FLERR, "cutoff of potential ({}) smaller than cutoff of the CSP ({})",
                force->pair->cutforce, sqrt(csp_cutsq));
 
-  if (strcmp(atom->atom_style, "apip"))
+  if (strcmp(atom->atom_style, "apip") != 0)
     error->all(FLERR, "fix lambda/la/csp/apip requires atom style apip");
 }
 
@@ -457,7 +457,8 @@ void FixLambdaLACSPAPIP::pre_force_dyn_pairs()
         pairs_value[n_pairs] = delx * delx + dely * dely + delz * delz;
         pairs_j[n_pairs] = jj;
         pairs_k[n_pairs] = kk;
-        pairs_index[n_pairs++] = n_pairs;
+        pairs_index[n_pairs] = n_pairs;
+        n_pairs++;
       }
     }
 
