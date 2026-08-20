@@ -1005,10 +1005,12 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   static constexpr bool means_host()
   {
 #if defined(LMP_KOKKOS_SPLIT_HOST)
-    // Device is spelled either as an execution space (LMPHostType) or as a
-    // Kokkos::Device pairing one with a memory space; both name the execution
-    // space the same way.
-    return std::is_same_v<typename Device::execution_space, LMPHostType>;
+    // Named as Kokkos::Serial rather than LMPHostType: this header is included
+    // before kokkos_type.h names the two, and under LMP_KOKKOS_SPLIT_HOST the
+    // host space is pinned to Serial there.  Device is spelled either as an
+    // execution space or as a Kokkos::Device pairing one with a memory space;
+    // both name the execution space the same way.
+    return std::is_same_v<typename Device::execution_space, Kokkos::Serial>;
 #else
     return false;
 #endif

@@ -1373,7 +1373,7 @@ typedef tdual_neighbors_2d_lr::t_dev_const_randomread t_neighbors_2d_randomread_
 
 };
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template <>
 struct ArrayTypes<LMPHostType> {
 
