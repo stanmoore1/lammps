@@ -62,7 +62,7 @@ DumpCustom::DumpCustom(LAMMPS *lmp, int narg, char **arg) :
     field2index(nullptr), argindex(nullptr), id_compute(nullptr), compute(nullptr), id_fix(nullptr),
     fix(nullptr), id_variable(nullptr), variable(nullptr), vbuf(nullptr), id_custom(nullptr),
     custom(nullptr), custom_flag(nullptr), typenames(nullptr), header_choice(nullptr),
-    pack_choice(nullptr)
+    write_choice(nullptr), pack_choice(nullptr)
 {
   if (narg == 5) error->all(FLERR,"No dump {} arguments specified", style);
 
@@ -160,10 +160,12 @@ DumpCustom::DumpCustom(LAMMPS *lmp, int narg, char **arg) :
   for (int iarg = 0; iarg < nfield; iarg++) {
     key2col[earg[iarg]] = iarg;
     keyword_user[iarg].clear();
-    if (cols.size()) cols += " ";
+    if (!cols.empty()) cols += " ";
     cols += earg[iarg];
   }
   columns_default = utils::strdup(cols);
+
+  nchoose = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -248,8 +250,8 @@ void DumpCustom::init_style()
   std::string combined;
   int icol = 0;
   for (const auto &item : utils::split_words(columns_default)) {
-    if (combined.size()) combined += " ";
-    if (keyword_user[icol].size()) combined += keyword_user[icol];
+    if (!combined.empty()) combined += " ";
+    if (!keyword_user[icol].empty()) combined += keyword_user[icol];
     else combined += item;
     ++icol;
   }
@@ -1238,6 +1240,9 @@ int DumpCustom::count()
         double **darray = atom->darray[iwhich];
         ptr = &darray[0][argindex[i]-1];
         nstride = atom->dcols[iwhich];
+
+      } else {
+        error->all(FLERR, "Unknown dump_modify threshold attribute");
       }
 
       // unselect atoms that don't meet threshold criterion

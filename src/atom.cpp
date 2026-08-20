@@ -160,7 +160,7 @@ Atom::Atom(LAMMPS *_lmp) : Pointers(_lmp), atom_style(nullptr), avec(nullptr), a
 
   // PERI package
 
-  vfrac = s0 = nullptr;
+  vfrac = s0 = smin = nullptr;
   x0 = nullptr;
 
   // SPIN package
@@ -325,8 +325,7 @@ Atom::~Atom()
   }
   for (int i = 0; i < ndvector; i++) {
     delete[] dvname[i];
-    if (dvector) // (needed for Kokkos)
-      memory->destroy(dvector[i]);
+    memory->destroy(dvector[i]);
   }
   for (int i = 0; i < niarray; i++) {
     delete[] ianame[i];
@@ -495,6 +494,7 @@ void Atom::peratom_create()
 
   add_peratom("vfrac",&vfrac,DOUBLE,0);
   add_peratom("s0",&s0,DOUBLE,0);
+  add_peratom("smin",&smin,DOUBLE,0);
   add_peratom("x0",&x0,DOUBLE,3);
 
   // SPIN package
@@ -680,7 +680,7 @@ void Atom::set_atomflag_defaults()
 void Atom::create_avec(const std::string &style, int narg, char **arg, int trysuffix)
 {
   delete[] atom_style;
-  if (avec) delete avec;
+  delete avec;
   atom_style = nullptr;
   avec = nullptr;
 
@@ -1316,7 +1316,7 @@ void Atom::data_vels(int n, char *buf, tagint id_offset)
     if (!next) error->all(FLERR, "Missing data in Velocities section of data file");
     *next = '\0';
     auto values = Tokenizer(utils::trim_comment(buf)).as_vector();
-    if (values.size() == 0) {
+    if (values.empty()) {
       // skip over empty or comment lines
     } else if ((int)values.size() != avec->size_data_vel) {
       error->all(FLERR, "Incorrect format in Velocities section of data file: {}{}",
@@ -1809,7 +1809,7 @@ void Atom::data_bonus(int n, char *buf, AtomVec *avec_bonus, tagint id_offset)
     if (!next) error->all(FLERR, "Missing data in Bonus section of data file");
     *next = '\0';
     auto values = Tokenizer(utils::trim_comment(buf)).as_vector();
-    if (values.size() == 0) {
+    if (values.empty()) {
       // skip over empty or comment lines
     } else if ((int)values.size() != avec_bonus->size_data_bonus) {
       error->all(FLERR, "Incorrect format in Bonus section of data file: {}{}",
@@ -1852,7 +1852,7 @@ void Atom::data_bodies(int n, char *buf, AtomVec *avec_body, tagint id_offset)
     *next = '\0';
 
     auto values = Tokenizer(utils::trim_comment(buf)).as_vector();
-    if (values.size()) {
+    if (!values.empty()) {
       tagint tagdata = utils::tnumeric(FLERR,values[0],false,lmp) + id_offset;
       int ninteger = utils::inumeric(FLERR,values[1],false,lmp);
       int ndouble = utils::inumeric(FLERR,values[2],false,lmp);

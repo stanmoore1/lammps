@@ -104,8 +104,8 @@ function executed, and finally the class instance is deleted.
  * \param  argv  argument vector  */
 
 Input::Input(LAMMPS *lmp, int argc, char **argv) :
-    Pointers(lmp), variable(nullptr), labelstr(nullptr), infiles(nullptr), inlines(nullptr),
-    command_map(nullptr)
+    Pointers(lmp), command(nullptr), variable(nullptr), labelstr(nullptr), infiles(nullptr),
+    inlines(nullptr), command_map(nullptr)
 {
   MPI_Comm_rank(world, &me);
 
@@ -586,8 +586,9 @@ void Input::substitute(char *&str, char *&str2, int &max, int &max2, int flag)
   // beyond = points to text following variable
 
   int i,n,paren_count,nchars;
-  char immediate[256];
-  char *var,*value,*beyond;
+  std::string immediate;
+  char *var,*beyond;
+  const char *value;
   char *ptrmatch;
 
   char *ptr = str;
@@ -658,8 +659,8 @@ void Input::substitute(char *&str, char *&str2, int &max, int &max2, int flag)
         if (!utils::strmatch(fmtstr,R"(%[0-9 ]*\.[0-9]+[efgEFG])"))
           error->all(FLERR,"Incorrect conversion in format string {}", fmtstr);
 
-        snprintf(immediate,256,fmtstr,variable->compute_equal(var));
-        value = immediate;
+        immediate = utils::sprintf(fmtstr, variable->compute_equal(var));
+        value = immediate.c_str();
 
       // single character variable name, e.g. $a
 
@@ -898,7 +899,10 @@ void Input::clear()
   lmp->destroy();
   lmp->create();
   lmp->post_create();
+
+  // reset to clean status for classes that are not re-created
   variable->clear_in_progress();
+  error->reset_warn();
 }
 
 /* ---------------------------------------------------------------------- */

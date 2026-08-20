@@ -706,7 +706,7 @@ void FixMBX::post_neighbor()
 
   // tear down existing MBX objects
 
-  if (mbx_impl->ptr_mbx) delete mbx_impl->ptr_mbx;
+  delete mbx_impl->ptr_mbx;
 
   if (mbx_impl->ptr_mbx_local) {
     // accumulate timing info from pme electrostatics
@@ -2034,4 +2034,14 @@ void FixMBX::add_monomer_atom_types(char *name, std::vector<std::string> &n)
     n.emplace_back("X");
   } else
     error->one(FLERR, "Unsupported molecule type in MBX");
+}
+
+/* ---------------------------------------------------------------------- */
+
+double FixMBX::memory_usage()
+{
+  double bytes = (double) atom->nmax * 3 * sizeof(int);    // mol_type + mol_anchor + mol_local
+  if (aspc_dip_hist) bytes += (double) atom->nmax * aspc_per_atom_size * sizeof(double);
+  if (mbx_dip) bytes += (double) atom->nmax * 9 * sizeof(double);    // mbx_dip[nmax][9]
+  return bytes;
 }
