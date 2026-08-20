@@ -251,6 +251,7 @@ automatically: read them before starting the corresponding kind of work.
 | finite-size particles, inertia/angmom | `.github/dev-docs/finite-size-particles.md` |
 | new/changed styles: MPI, restart, buffers | `.github/dev-docs/style-implementation-notes.md` |
 | refactor validation, benchmarks, debugging | `.github/dev-docs/testing-and-verification.md` |
+| a KOKKOS host/device sync bug in an input | `.github/dev-docs/kokkos-sync-debugging.md` |
 
 ## Trust These Instructions
 
