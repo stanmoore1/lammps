@@ -171,8 +171,26 @@ t_scalar3<Scalar> operator *
 }
 
 // set LMPHostype and LMPDeviceType from Kokkos Default Types
+
+#if defined(LMP_KOKKOS_SPLIT_HOST)
+
+// A CPU sync-debugging build that also wants the host/device EXECUTION edge.
+// Without a GPU backend the two default types are one and the same, so the
+// /kk/host and /kk/device variants of a style register the same class and a
+// run that mixes them exercises nothing: the bugs that live between a host
+// executing style and a device executing one cannot happen.  Standing OpenMP
+// in for the device and Serial for the host makes them distinct types, so the
+// two variants become distinct classes routed to different spaces, while both
+// still allocate in host memory and keep the split-buffer emulation working.
+typedef Kokkos::OpenMP LMPDeviceType;
+typedef Kokkos::Serial LMPHostType;
+
+#else
+
 typedef Kokkos::DefaultExecutionSpace LMPDeviceType;
 typedef Kokkos::HostSpace::execution_space LMPHostType;
+
+#endif
 
 // set default device layout
 
@@ -219,12 +237,14 @@ using KKScatterView = Kokkos::Experimental::ScatterView<DataType, Layout, Device
 template<class Device>
 struct ExecutionSpaceFromDevice;
 
-#if defined(LMP_KOKKOS_DEBUG_SYNC) && !defined(LMP_KOKKOS_GPU)
+#if defined(LMP_KOKKOS_DEBUG_SYNC) && !defined(LMP_KOKKOS_GPU) && !defined(LMP_KOKKOS_SPLIT_HOST)
 
 // In a sync-debugging build without a GPU backend LMPHostType is also the default
 // execution space, so styles are routed to the Device space to keep the device
 // coherence edge live.  Otherwise every style runs on HostKK and the device edge,
 // where the host/device sync and modify bugs live, is never exercised at all.
+// LMP_KOKKOS_SPLIT_HOST gives the two their own types instead, and then each
+// belongs in its own space and this stand-in is neither needed nor right.
 
 template<>
 struct ExecutionSpaceFromDevice<LMPHostType> {

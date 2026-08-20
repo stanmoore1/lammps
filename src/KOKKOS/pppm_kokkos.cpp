@@ -1305,7 +1305,7 @@ void PPPMKokkos<DeviceType>::make_rho()
 
   nlocal = atomKK->nlocal;
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
   copymode = 1;
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPM_make_rho_atomic>(0,nlocal),*this);
   copymode = 0;
@@ -2770,7 +2770,7 @@ double PPPMKokkos<DeviceType>::memory_usage()
 
 namespace LAMMPS_NS {
 template class PPPMKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PPPMKokkos<LMPHostType>;
 #endif
 }

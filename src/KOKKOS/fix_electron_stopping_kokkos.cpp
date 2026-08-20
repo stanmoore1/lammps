@@ -186,7 +186,7 @@ FixElectronStoppingKokkos<DeviceType>::operator()(TagFixElectronStopping, const 
 
 namespace LAMMPS_NS {
 template class FixElectronStoppingKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixElectronStoppingKokkos<LMPHostType>;
 #endif
 }    // namespace LAMMPS_NS

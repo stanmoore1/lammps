@@ -373,7 +373,7 @@ void AngleMWLCKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i, const int 
 
 namespace LAMMPS_NS {
 template class AngleMWLCKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class AngleMWLCKokkos<LMPHostType>;
 #endif
 }

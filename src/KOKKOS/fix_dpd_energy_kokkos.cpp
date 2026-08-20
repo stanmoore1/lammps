@@ -87,7 +87,7 @@ void FixDPDenergyKokkos<DeviceType>::final_integrate()
 
 namespace LAMMPS_NS {
 template class FixDPDenergyKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixDPDenergyKokkos<LMPHostType>;
 #endif
 }

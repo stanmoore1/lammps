@@ -244,7 +244,7 @@ void ComputeTempCOMKokkos<DeviceType>::operator()(TagComputeTempCOMRestoreBias, 
 
 namespace LAMMPS_NS {
 template class ComputeTempCOMKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeTempCOMKokkos<LMPHostType>;
 #endif
 }

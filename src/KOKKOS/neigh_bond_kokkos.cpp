@@ -1193,7 +1193,7 @@ void NeighBondKokkos<DeviceType>::update_class_variables()
 
 namespace LAMMPS_NS {
 template class NeighBondKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class NeighBondKokkos<LMPHostType>;
 #endif
 }

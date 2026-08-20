@@ -89,7 +89,7 @@ void FixNVENoforceKokkos<DeviceType>::operator()(TagFixNVENoforce, const int &i)
 
 namespace LAMMPS_NS {
 template class FixNVENoforceKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixNVENoforceKokkos<LMPHostType>;
 #endif
 }

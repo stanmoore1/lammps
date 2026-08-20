@@ -208,7 +208,7 @@ void FixNHSphereKokkos<DeviceType>::operator()(TagFixNHSphere_nh_v_temp_omega, c
 
 namespace LAMMPS_NS {
 template class FixNHSphereKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixNHSphereKokkos<LMPHostType>;
 #endif
 }

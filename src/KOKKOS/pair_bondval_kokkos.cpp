@@ -838,7 +838,7 @@ struct PairBondValKokkos<DeviceType>::policyInstance {
 
 namespace LAMMPS_NS {
 template class PairBondValKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairBondValKokkos<LMPHostType>;
 #endif
 }

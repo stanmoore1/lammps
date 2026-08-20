@@ -337,7 +337,7 @@ double PairLJCutCoulWolfKokkos<DeviceType>::init_one(int i, int j)
 
 namespace LAMMPS_NS {
 template class PairLJCutCoulWolfKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairLJCutCoulWolfKokkos<LMPHostType>;
 #endif
 }

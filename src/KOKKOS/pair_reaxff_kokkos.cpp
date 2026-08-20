@@ -3221,7 +3221,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
   const KK_FLOAT inv_sin_ijk_rnd = 1.0 / sin_ijk_rnd;
   const KK_FLOAT inv_sin_jil_rnd = 1.0 / sin_jil_rnd;
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
   #pragma unroll
 #endif
   for (int d = 0; d < 3; d++) {
@@ -4409,7 +4409,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxFindBondSpecies, const 
 }
 
 template class PairReaxFFKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairReaxFFKokkos<LMPHostType>;
 #endif
 }

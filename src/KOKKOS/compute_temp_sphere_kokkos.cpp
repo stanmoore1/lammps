@@ -185,7 +185,7 @@ void ComputeTempSphereKokkos<DeviceType>::operator()(TagComputeTempSphereVector<
 
 namespace LAMMPS_NS {
 template class ComputeTempSphereKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeTempSphereKokkos<LMPHostType>;
 #endif
 }

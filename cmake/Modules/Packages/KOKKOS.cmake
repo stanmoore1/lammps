@@ -51,6 +51,21 @@ endif()
 # a run into a survey that logs every stale access instead of stopping at the
 # first.  Applied globally so the styles' kernels are instrumented wherever
 # they are instantiated.
+option(KOKKOS_DEBUG_SYNC_SPLIT_HOST "Give the KOKKOS sync debugging separate host and device execution spaces" OFF)
+if(KOKKOS_DEBUG_SYNC_SPLIT_HOST)
+  if(NOT KOKKOS_DEBUG_SYNC)
+    message(FATAL_ERROR "KOKKOS_DEBUG_SYNC_SPLIT_HOST requires KOKKOS_DEBUG_SYNC=on")
+  endif()
+  if(NOT Kokkos_ENABLE_SERIAL OR NOT Kokkos_ENABLE_OPENMP)
+    message(FATAL_ERROR
+      "KOKKOS_DEBUG_SYNC_SPLIT_HOST needs both Kokkos backends: "
+      "-D Kokkos_ENABLE_SERIAL=on -D Kokkos_ENABLE_OPENMP=on. "
+      "OpenMP stands in for the device and Serial for the host, which is what "
+      "makes the /kk/host and /kk/device variants of a style distinct.")
+  endif()
+  target_compile_definitions(lammps PRIVATE -DLMP_KOKKOS_SPLIT_HOST)
+endif()
+
 option(KOKKOS_DEBUG_SYNC_ASAN "Add AddressSanitizer to the KOKKOS sync debugging" OFF)
 if(KOKKOS_DEBUG_SYNC_ASAN)
   if(NOT KOKKOS_DEBUG_SYNC)

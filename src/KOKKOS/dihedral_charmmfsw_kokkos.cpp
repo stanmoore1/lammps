@@ -818,7 +818,7 @@ void DihedralCharmmfswKokkos<DeviceType>::ev_tally(EVM_FLOAT &evm, const int i, 
 
 namespace LAMMPS_NS {
 template class DihedralCharmmfswKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class DihedralCharmmfswKokkos<LMPHostType>;
 #endif
 }

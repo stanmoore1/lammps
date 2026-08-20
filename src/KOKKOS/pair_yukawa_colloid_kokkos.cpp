@@ -261,7 +261,7 @@ compute_evdwl(const KK_FLOAT &rsq, const int &i, const int &j,
 
 namespace LAMMPS_NS {
 template class PairYukawaColloidKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairYukawaColloidKokkos<LMPHostType>;
 #endif
 }

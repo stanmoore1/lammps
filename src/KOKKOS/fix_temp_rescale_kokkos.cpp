@@ -136,7 +136,7 @@ void FixTempRescaleKokkos<DeviceType>::end_of_step()
 
 namespace LAMMPS_NS {
 template class FixTempRescaleKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixTempRescaleKokkos<LMPHostType>;
 #endif
 }

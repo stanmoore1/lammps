@@ -191,7 +191,7 @@ void NPairTrimKokkos<DeviceType>::trim_to_cpu(NeighList *list)
 
 namespace LAMMPS_NS {
 template class NPairTrimKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class NPairTrimKokkos<LMPHostType>;
 #endif
 }

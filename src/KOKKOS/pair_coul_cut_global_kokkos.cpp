@@ -52,7 +52,7 @@ void *PairCoulCutGlobalKokkos<DeviceType>::extract(const char *str, int &dim)
 
 namespace LAMMPS_NS {
 template class PairCoulCutGlobalKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairCoulCutGlobalKokkos<LMPHostType>;
 #endif
 }

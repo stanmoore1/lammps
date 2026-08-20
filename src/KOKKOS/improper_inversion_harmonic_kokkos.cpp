@@ -409,7 +409,7 @@ void ImproperInversionHarmonicKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const i
 
 namespace LAMMPS_NS {
 template class ImproperInversionHarmonicKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ImproperInversionHarmonicKokkos<LMPHostType>;
 #endif
 }

@@ -500,7 +500,7 @@ double PairLJSPICACoulLongKokkos<DeviceType>::init_one(int i, int j)
 
 namespace LAMMPS_NS {
 template class PairLJSPICACoulLongKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairLJSPICACoulLongKokkos<LMPHostType>;
 #endif
 }

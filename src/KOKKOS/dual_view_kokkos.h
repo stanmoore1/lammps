@@ -994,12 +994,37 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // template argument cannot express host-versus-device intent and this always
   // means the device side.  Code that wants the host side must say view_host().
 
+  // Which side a template accessor means.  LAMMPS spells the device side as
+  // view<DeviceType>() from a style templated on its execution space, and on a
+  // build where the two spaces are one type that can only mean the device.
+  // With LMP_KOKKOS_SPLIT_HOST they are distinct types and a style carrying
+  // LMPHostType is a /kk/host style, which on a GPU reads and writes the host
+  // side; hand it that side here or the emulation puts host executing styles
+  // on the device buffer and the edge between them disappears.
+  template <class Device>
+  static constexpr bool means_host()
+  {
+#if defined(LMP_KOKKOS_SPLIT_HOST)
+    // Device is spelled either as an execution space (LMPHostType) or as a
+    // Kokkos::Device pairing one with a memory space; both name the execution
+    // space the same way.
+    return std::is_same_v<typename Device::execution_space, LMPHostType>;
+#else
+    return false;
+#endif
+  }
+
   template <class Device>
   KOKKOS_INLINE_FUNCTION auto view() const
   {
     if constexpr (SPLIT) {
-      stale_check(true);
-      return base_type::view_device();
+      if constexpr (means_host<Device>()) {
+        stale_check(false);
+        return h_split;
+      } else {
+        stale_check(true);
+        return base_type::view_device();
+      }
     } else
       return base_type::template view<Device>();
   }
@@ -1073,9 +1098,12 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   template <class Device>
   void modify()
   {
-    if constexpr (SPLIT)
-      modify_device();
-    else
+    if constexpr (SPLIT) {
+      if constexpr (means_host<Device>())
+        modify_host();
+      else
+        modify_device();
+    } else
       base_type::template modify<Device>();
   }
 
@@ -1119,9 +1147,12 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   template <class Device>
   void sync()
   {
-    if constexpr (SPLIT)
-      sync_device();
-    else
+    if constexpr (SPLIT) {
+      if constexpr (means_host<Device>())
+        sync_host();
+      else
+        sync_device();
+    } else
       base_type::template sync<Device>();
   }
 

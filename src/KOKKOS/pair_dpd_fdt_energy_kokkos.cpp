@@ -772,7 +772,7 @@ int PairDPDfdtEnergyKokkos<DeviceType>::sbmask(const int& j) const {
 
 namespace LAMMPS_NS {
 template class PairDPDfdtEnergyKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairDPDfdtEnergyKokkos<LMPHostType>;
 #endif
 }

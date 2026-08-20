@@ -1126,7 +1126,7 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
 
 namespace LAMMPS_NS {
 template class MLIAP_SO3Kokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class MLIAP_SO3Kokkos<LMPHostType>;
 #endif
 }

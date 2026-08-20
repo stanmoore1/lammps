@@ -547,7 +547,7 @@ double FixNeighHistoryKokkos<DeviceType>::memory_usage()
 
 namespace LAMMPS_NS {
 template class FixNeighHistoryKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixNeighHistoryKokkos<LMPHostType>;
 #endif
 }

@@ -1131,7 +1131,7 @@ int PairTersoffZBLKokkos<DeviceType>::sbmask(const int& j) const {
 
 namespace LAMMPS_NS {
 template class PairTersoffZBLKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairTersoffZBLKokkos<LMPHostType>;
 #endif
 }

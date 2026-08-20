@@ -2135,7 +2135,7 @@ double PairPACEExtrapolationKokkos<DeviceType>::memory_usage()
 
 namespace LAMMPS_NS {
 template class PairPACEExtrapolationKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairPACEExtrapolationKokkos<LMPHostType>;
 #endif
 }

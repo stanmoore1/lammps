@@ -409,7 +409,7 @@ void AngleCosineSquaredRestrictedKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, cons
 
 namespace LAMMPS_NS {
 template class AngleCosineSquaredRestrictedKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class AngleCosineSquaredRestrictedKokkos<LMPHostType>;
 #endif
 }

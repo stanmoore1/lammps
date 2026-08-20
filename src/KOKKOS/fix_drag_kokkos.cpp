@@ -182,7 +182,7 @@ void FixDragKokkos<DeviceType>::minimum_image(KK_FLOAT &dx, KK_FLOAT &dy, KK_FLO
 
 namespace LAMMPS_NS {
 template class FixDragKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixDragKokkos<LMPHostType>;
 #endif
 }

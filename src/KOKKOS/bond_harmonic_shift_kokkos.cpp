@@ -322,7 +322,7 @@ void BondHarmonicShiftKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, c
 
 namespace LAMMPS_NS {
 template class BondHarmonicShiftKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class BondHarmonicShiftKokkos<LMPHostType>;
 #endif
 }

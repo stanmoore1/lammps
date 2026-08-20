@@ -565,7 +565,7 @@ void DihedralFourierKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, con
 
 namespace LAMMPS_NS {
 template class DihedralFourierKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class DihedralFourierKokkos<LMPHostType>;
 #endif
 }

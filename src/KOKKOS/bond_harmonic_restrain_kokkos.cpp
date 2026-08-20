@@ -413,7 +413,7 @@ void BondHarmonicRestrainKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i
 
 namespace LAMMPS_NS {
 template class BondHarmonicRestrainKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class BondHarmonicRestrainKokkos<LMPHostType>;
 #endif
 }

@@ -444,7 +444,7 @@ void FixWallGranKokkos<DeviceType>::unpack_exchange_kokkos(
 
 namespace LAMMPS_NS {
 template class FixWallGranKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixWallGranKokkos<LMPHostType>;
 #endif
 }

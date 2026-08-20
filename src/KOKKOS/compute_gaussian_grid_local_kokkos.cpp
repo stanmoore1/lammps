@@ -302,7 +302,7 @@ void ComputeGaussianGridLocalKokkos<DeviceType>::check_team_size_for(int inum, i
 
 namespace LAMMPS_NS {
 template class ComputeGaussianGridLocalKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeGaussianGridLocalKokkos<LMPHostType>;
 #endif
 }

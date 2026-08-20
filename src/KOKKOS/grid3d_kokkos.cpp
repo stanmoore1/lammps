@@ -970,7 +970,7 @@ int Grid3dKokkos<DeviceType>::indices(DAT::tdual_int_2d_lr &k_list, int index,
 
 namespace LAMMPS_NS {
 template class Grid3dKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class Grid3dKokkos<LMPHostType>;
 #endif
 }

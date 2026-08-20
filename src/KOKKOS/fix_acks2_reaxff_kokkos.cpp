@@ -2015,7 +2015,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::get_chi_field()
 
 namespace LAMMPS_NS {
 template class FixACKS2ReaxFFKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixACKS2ReaxFFKokkos<LMPHostType>;
 #endif
 }

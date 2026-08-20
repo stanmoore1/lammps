@@ -1310,7 +1310,7 @@ void PairTableRXKokkos<DeviceType>::init_style()
 
 namespace LAMMPS_NS {
 template class PairTableRXKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairTableRXKokkos<LMPHostType>;
 #endif
 

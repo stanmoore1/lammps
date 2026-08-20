@@ -305,7 +305,7 @@ void ComputeAveSphereAtomKokkos<DeviceType>::unpack_forward_comm(int n, int firs
 
 namespace LAMMPS_NS {
 template class ComputeAveSphereAtomKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeAveSphereAtomKokkos<LMPHostType>;
 #endif
 }

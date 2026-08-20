@@ -276,7 +276,7 @@ void FixAddForceKokkos<DeviceType>::v_tally(value_type result, int i, KK_FLOAT *
 
 namespace LAMMPS_NS {
 template class FixAddForceKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixAddForceKokkos<LMPHostType>;
 #endif
 }

@@ -1747,7 +1747,7 @@ void FixQEqReaxFFKokkosNeighborFunctor<DeviceType>::operator()(TagQEqNeighborCom
 
 namespace LAMMPS_NS {
 template class FixQEqReaxFFKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixQEqReaxFFKokkos<LMPHostType>;
 #endif
 }

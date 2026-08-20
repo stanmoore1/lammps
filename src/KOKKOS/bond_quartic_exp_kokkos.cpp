@@ -397,7 +397,7 @@ void BondQuarticExpKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, cons
 
 namespace LAMMPS_NS {
 template class BondQuarticExpKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class BondQuarticExpKokkos<LMPHostType>;
 #endif
 }

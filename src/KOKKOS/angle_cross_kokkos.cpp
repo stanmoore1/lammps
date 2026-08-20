@@ -427,7 +427,7 @@ void AngleCrossKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i, const int
 
 namespace LAMMPS_NS {
 template class AngleCrossKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class AngleCrossKokkos<LMPHostType>;
 #endif
 }

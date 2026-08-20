@@ -953,7 +953,7 @@ int FixCMAPKokkos<DeviceType>::closest_image(const int i, int j) const
 
 namespace LAMMPS_NS {
 template class FixCMAPKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixCMAPKokkos<LMPHostType>;
 #endif
 }

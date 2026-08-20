@@ -238,7 +238,7 @@ void FixNVESphereKokkos<DeviceType>::fused_integrate_item(const int i) const
 
 namespace LAMMPS_NS {
 template class FixNVESphereKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixNVESphereKokkos<LMPHostType>;
 #endif
 }

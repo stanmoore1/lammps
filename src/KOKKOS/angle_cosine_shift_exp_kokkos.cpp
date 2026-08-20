@@ -450,7 +450,7 @@ void AngleCosineShiftExpKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i, 
 
 namespace LAMMPS_NS {
 template class AngleCosineShiftExpKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class AngleCosineShiftExpKokkos<LMPHostType>;
 #endif
 }

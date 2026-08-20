@@ -326,7 +326,7 @@ void BondHarmonicShiftCutKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i
 
 namespace LAMMPS_NS {
 template class BondHarmonicShiftCutKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class BondHarmonicShiftCutKokkos<LMPHostType>;
 #endif
 }

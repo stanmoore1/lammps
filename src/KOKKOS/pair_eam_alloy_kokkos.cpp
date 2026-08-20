@@ -30,7 +30,7 @@ PairEAMAlloyKokkos<DeviceType>::PairEAMAlloyKokkos(LAMMPS *lmp) : PairEAMKokkos<
 
 namespace LAMMPS_NS {
 template class PairEAMAlloyKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairEAMAlloyKokkos<LMPHostType>;
 #endif
 }    // namespace LAMMPS_NS

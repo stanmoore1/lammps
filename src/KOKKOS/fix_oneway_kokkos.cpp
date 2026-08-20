@@ -104,7 +104,7 @@ void FixOneWayKokkos<DeviceType>::operator()(TagFixOneWay, const int &i) const
 
 namespace LAMMPS_NS {
 template class FixOneWayKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixOneWayKokkos<LMPHostType>;
 #endif
 }

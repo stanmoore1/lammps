@@ -36,7 +36,7 @@
 #include <unistd.h>             // for getpid()
 #endif
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 #if (OPEN_MPI) && (OMPI_MAJOR_VERSION >= 2)
 #include <mpi-ext.h>
 #endif
@@ -163,7 +163,7 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
 
   // unified memory
 
-#if ((defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOS_ENABLE_CUDA_UVM)) || \
+#if ((defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOS_ENABLE_IMPL_CUDA_UNIFIED_MEMORY)) || \
      (defined(KOKKOS_ENABLE_HIP) && defined(KOKKOS_ARCH_AMD_GFX942_APU)))
   if (me == 0)
     utils::logmesg(lmp,"  using unified memory\n");
@@ -312,7 +312,7 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   if ((me == 0) && (ngpus > 0))
     utils::logmesg(lmp, "  will use up to {} GPU(s) per node\n", ngpus);
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
   if (ngpus <= 0)
     error->all(FLERR,"Kokkos has been compiled with GPU-enabled backend but no GPUs are requested");
 #endif
@@ -375,7 +375,7 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
     exchange_comm_on_host = forward_comm_on_host = reverse_comm_on_host = 0;
   }
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 
   // check and warn about GPU-aware MPI availability when using multiple MPI tasks
   // change default only if we can detect that GPU-aware MPI is not available
@@ -731,7 +731,7 @@ void KokkosLMP::accelerator(int narg, char **arg)
     } else error->all(FLERR,"Illegal package kokkos command");
   }
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 
   int nmpi = 0;
   MPI_Comm_size(world,&nmpi);

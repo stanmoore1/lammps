@@ -270,7 +270,7 @@ double MLIAPDescriptorSO3Kokkos<DeviceType>::memory_usage()
 
 namespace LAMMPS_NS {
 template class MLIAPDescriptorSO3Kokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class MLIAPDescriptorSO3Kokkos<LMPHostType>;
 #endif
 }

@@ -350,7 +350,7 @@ void ImproperSQDistHarmKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, 
 
 namespace LAMMPS_NS {
 template class ImproperSQDistHarmKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ImproperSQDistHarmKokkos<LMPHostType>;
 #endif
 }

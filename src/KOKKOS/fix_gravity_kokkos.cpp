@@ -120,7 +120,7 @@ void FixGravityKokkos<DeviceType>::operator()(TagFixGravityMass, const int i, do
 
 namespace LAMMPS_NS {
 template class FixGravityKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixGravityKokkos<LMPHostType>;
 #endif
 }

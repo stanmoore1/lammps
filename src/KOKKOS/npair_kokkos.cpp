@@ -221,9 +221,14 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::build(NeighList *list_)
     else
       atomKK->sync(Device,X_MASK|RADIUS_MASK|TYPE_MASK|TAG_MASK|SPECIAL_MASK);
   } else {
-    if (exclude)
-      atomKK->sync(Device,X_MASK|RADIUS_MASK|TYPE_MASK|MASK_MASK);
-    else
+    if (exclude) {
+      uint64_t mask = X_MASK|RADIUS_MASK|TYPE_MASK|MASK_MASK;
+      if (nex_mol) {
+        atomKK->k_molecule.modify_host();
+        mask |= MOLECULE_MASK;
+      }
+      atomKK->sync(Device,mask);
+    } else
       atomKK->sync(Device,X_MASK|RADIUS_MASK|TYPE_MASK);
   }
 
@@ -274,7 +279,7 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::build(NeighList *list_)
     } else {
       if (SIZE) {
         NPairKokkosBuildFunctorSize<DeviceType,HALF,NEWTON,TRI> f(data,atoms_per_bin * 7 * sizeof(double) * factor);
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
         if (ExecutionSpaceFromDevice<DeviceType>::space == Device) {
           int team_size = atoms_per_bin*factor;
           int team_size_max = Kokkos::TeamPolicy<DeviceType>(team_size,Kokkos::AUTO).team_size_max(f,Kokkos::ParallelForTag());
@@ -292,7 +297,7 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::build(NeighList *list_)
 #endif
       } else {
         NPairKokkosBuildFunctor<DeviceType,HALF,NEWTON,TRI> f(data,atoms_per_bin * 6 * sizeof(double) * factor);
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
         if (ExecutionSpaceFromDevice<DeviceType>::space == Device) {
           int team_size = atoms_per_bin*factor;
           int team_size_max = Kokkos::TeamPolicy<DeviceType>(team_size,Kokkos::AUTO).team_size_max(f,Kokkos::ParallelForTag());
@@ -594,7 +599,7 @@ __device__ __forceinline__ int __syncthreads_count(int predicate) {
 #endif
 #endif
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template<class DeviceType> template<int HalfNeigh,int Newton,int Tri>
 LAMMPS_DEVICE_FUNCTION inline
 void NeighborKokkosExecute<DeviceType>::build_ItemGPU(typename Kokkos::TeamPolicy<DeviceType>::member_type dev,
@@ -954,7 +959,7 @@ void NeighborKokkosExecute<DeviceType>::
 
 /* ---------------------------------------------------------------------- */
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template<class DeviceType> template<int HalfNeigh>
 LAMMPS_DEVICE_FUNCTION inline
 void NeighborKokkosExecute<DeviceType>::build_ItemGhostGPU(typename Kokkos::TeamPolicy<DeviceType>::member_type dev,
@@ -1313,7 +1318,7 @@ void NeighborKokkosExecute<DeviceType>::
 
 /* ---------------------------------------------------------------------- */
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template<class DeviceType> template<int HalfNeigh,int Newton,int Tri>
 LAMMPS_DEVICE_FUNCTION inline
 void NeighborKokkosExecute<DeviceType>::build_ItemSizeGPU(typename Kokkos::TeamPolicy<DeviceType>::member_type dev,
@@ -1580,7 +1585,7 @@ template class NPairKokkos<LMPDeviceType,1,1,0,0,1>;
 template class NPairKokkos<LMPDeviceType,1,0,0,0,1>;
 template class NPairKokkos<LMPDeviceType,1,1,0,1,1>;
 template class NPairKokkos<LMPDeviceType,1,0,0,1,1>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class NPairKokkos<LMPHostType,0,0,0,0,0>;
 template class NPairKokkos<LMPHostType,0,0,1,0,0>;
 template class NPairKokkos<LMPHostType,1,1,0,0,0>;
