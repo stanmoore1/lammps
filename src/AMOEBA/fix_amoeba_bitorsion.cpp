@@ -782,6 +782,14 @@ void FixAmoebaBiTorsion::read_grid_data(char *bitorsion_file)
 
     MPI_Bcast(&nx,1,MPI_INT,0,world);
     MPI_Bcast(&ny,1,MPI_INT,0,world);
+
+    // sanity check the grid dimensions from the file; this also keeps
+    // the products below within the range of an int
+
+    if ((nx < 2) || (ny < 2) || (nx > 1000) || (ny > 1000))
+      error->all(FLERR, Error::NOLASTLINE,
+                 "Invalid {} by {} grid for type {} in fix amoeba/bitorsion file", nx, ny, itype);
+
     nxgrid[itype] = nx;
     nygrid[itype] = ny;
 
@@ -791,10 +799,11 @@ void FixAmoebaBiTorsion::read_grid_data(char *bitorsion_file)
 
     // read the whole nx by ny grid of (x, y, value) lines in one call
 
+    const int nvalues = 3*nx*ny;
     if (me == 0) {
-      std::vector<double> grid(3*nx*ny);
+      std::vector<double> grid(nvalues);
       try {
-        reader->next_dvector(grid.data(), 3*nx*ny);
+        reader->next_dvector(grid.data(), nvalues);
       } catch (std::exception &e) {
         error->one(FLERR, Error::NOLASTLINE, "Error reading fix amoeba/bitorsion file: {}",
                    e.what());
