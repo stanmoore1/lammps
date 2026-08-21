@@ -143,7 +143,7 @@ static void collect(AtomKokkos *atomKK, int nall, std::vector<DatamaskAudit::Arr
 
 #define LMP_AUDIT_ARRAY(BIT, NAME, KV)                                                    \
   {                                                                                       \
-    auto v = (KV).view_device();                                                          \
+    auto v = (KV).impl_view_device();                                                          \
     take(BIT, NAME, (const char *) v.data(), v.span(),                                    \
          sizeof(typename decltype(v)::value_type), v.extent(0), (KV).need_sync_device());  \
   }

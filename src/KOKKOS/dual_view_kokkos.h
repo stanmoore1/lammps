@@ -124,7 +124,15 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // comparison against the shadows, which only sees the step just taken, this
   // survives every later call until a copy really does bring the two together.
   enum { AUTH_NONE = 0, AUTH_HOST = 1, AUTH_DEVICE = 2 };
-  using t_lmp_flags = Kokkos::View<unsigned int[6], Kokkos::LayoutLeft, Kokkos::HostSpace>;
+  // (6) counts the copies this class has made into the pair's buffers.  It is
+  // shared, like the rest of these, and that is the point: a subview slices the
+  // buffers but gets shadows of its own, so a sync performed through the child
+  // writes the parent's buffer while only the child's shadows learn of it.  The
+  // parent then sees its side change with nothing having claimed it and calls a
+  // copy an unclaimed write.  Each object records the count it last saw in its
+  // own shadow_flags(6), so any object whose shadows predate a copy rebaselines
+  // instead of reporting.
+  using t_lmp_flags = Kokkos::View<unsigned int[8], Kokkos::LayoutLeft, Kokkos::HostSpace>;
 
  private:
   // The extra allocation is given to the HOST side, not the device side, and the
@@ -388,6 +396,12 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // copy was skipped or a claim was dropped while the data really did differ.
   // This is what catches a wrong claim, which no comparison of one side alone
   // can see.
+  //
+  // Only a sync is a fair place to ask.  At the top of modify_host() the caller
+  // has just written the host side and is about to say so, so the two differ
+  // with the counters still calling them reconciled -- the ordinary
+  // write-then-claim sequence, not a fault.  Asking there reported every
+  // correct claim in the run and buried everything else, so it is not asked.
 
   static const char *verify_filter()
   {
@@ -408,6 +422,16 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       const char *h = (const char *) h_split.data();
       if (!d || !h) return;
       const size_t n = h_split.span() * sizeof(typename t_host::value_type);
+
+      // A pair parted on purpose by clear_sync_state() reads as in sync while
+      // holding different bytes, and that is not a fault either.  Ask instead
+      // whether a side has changed since the two were last reconciled: only a
+      // change the counters were never told about is a dropped claim.
+      if (!same_shape(agreed_h, h_split)) return;
+      if ((first_difference(h, agreed_h.data(), n) == NO_DIFFERENCE) &&
+          (first_difference(d, agreed_d.data(), n) == NO_DIFFERENCE))
+        return;
+
       for (size_t b = 0; b < n; b++) {
         if (d[b] == h[b]) continue;
         std::fprintf(stderr,
@@ -503,7 +527,16 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     while (pos <= list.size()) {
       const size_t end = list.find(',', pos);
       const std::string one = list.substr(pos, end == std::string::npos ? end : end - pos);
-      if (!one.empty() && label.find(one) != std::string::npos) return true;
+      // Match the whole label, not a piece of it.  As a substring test the
+      // entry meant for comm:k_buf_send also silenced comm:k_buf_send_fix and
+      // its two siblings, and their findings were written down as things the
+      // detectors had missed.  A trailing * asks for the family on purpose.
+      if (!one.empty()) {
+        if (one.back() == '*') {
+          if (label.compare(0, one.size() - 1, one, 0, one.size() - 1) == 0) return true;
+        } else if (label == one)
+          return true;
+      }
       if (end == std::string::npos) break;
       pos = end + 1;
     }
@@ -675,6 +708,16 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
         const bool sync_host_copies_nothing =
             (kind == OP_SYNC_HOST) && (lmp_flags(0) >= lmp_flags(1));
         if (sync_dev_copies_nothing || sync_host_copies_nothing) {
+          // A copy through a view that aliases these buffers -- a subview of
+          // this one, or this one when the slice performed the sync -- has
+          // landed since these shadows were taken.  Whatever changed is that
+          // copy, not a write nobody claimed, so bring the shadows up to date
+          // and report nothing.
+          if (shadow_flags.data() && lmp_flags(6) != shadow_flags(6)) {
+            watch_refresh();
+            watch_agree();
+            return;
+          }
           // The side the sync would have read from, against its contents at the
           // last reconciliation.  Asking it this way rather than "do the two
           // sides differ" is what keeps the ordinary case quiet: a pair left
@@ -753,7 +796,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
       Kokkos::deep_copy(shadow_h, h_split);
       Kokkos::deep_copy(shadow_d, base_type::view_device());
-      for (int i = 0; i < 6; i++) shadow_flags(i) = lmp_flags(i);
+      for (int i = 0; i < 8; i++) shadow_flags(i) = lmp_flags(i);
       if (shadow_op.data() && watch_op_name()) {
         std::strncpy(shadow_op.data(), watch_op_name(), 31);
         shadow_op(31) = 0;
@@ -788,6 +831,21 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     stale_check(true);
     return base_type::view_device();
+  }
+
+  // The same two buffers, reached without the access counting as a read.  Only
+  // the debugging tools may use these: the audit snapshots every per-atom array
+  // around every style call, and going through the checked accessor above makes
+  // the audit turn up in its own report as the routine that read the array
+  // while it was stale.
+  const t_dev &impl_view_device() const { return base_type::view_device(); }
+
+  const t_host &impl_view_host() const
+  {
+    if constexpr (SPLIT)
+      return h_split;
+    else
+      return base_type::view_host();
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -1062,7 +1120,6 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     PoisonScope pscope(this);
     trace("modify_device");
-    verify("modify_device");
     watch("modify_device", OP_MODIFY_DEVICE);
     if constexpr (SPLIT) {
       if (!lmp_flags.data()) return;
@@ -1086,7 +1143,6 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   {
     PoisonScope pscope(this);
     trace("modify_host");
-    verify("modify_host");
     watch("modify_host", OP_MODIFY_HOST);
     if constexpr (SPLIT) {
       if (!lmp_flags.data()) return;
@@ -1126,6 +1182,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (!lmp_flags.data() || !h_split.data()) return;
       if (lmp_flags(0) > lmp_flags(1)) {
         Kokkos::deep_copy(base_type::view_device(), h_split);
+        lmp_flags(6)++;    // see lmp_flags(6): tell every aliasing view
         lmp_flags(0) = lmp_flags(1) = 0;
         watch_refresh();
         watch_agree();
@@ -1145,6 +1202,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (!lmp_flags.data() || !h_split.data()) return;
       if (lmp_flags(1) > lmp_flags(0)) {
         Kokkos::deep_copy(h_split, base_type::view_device());
+        lmp_flags(6)++;    // see lmp_flags(6): tell every aliasing view
         lmp_flags(0) = lmp_flags(1) = 0;
         watch_refresh();
         watch_agree();

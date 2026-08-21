@@ -1306,6 +1306,17 @@ struct TransformView {
     return d_view;
   }
 
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  const typename kk_view::t_dev& impl_view_device() const
+  {
+    // The same buffer without the check above, for the debugging tools only.
+    // The datamask audit surveys every per-atom array on both ends of every
+    // style call, and going through view_device() made it turn up in its own
+    // report as the routine that read an array while it was stale.
+    return d_view;
+  }
+
 };
 
 // --------------------------------------------------------------------------------
