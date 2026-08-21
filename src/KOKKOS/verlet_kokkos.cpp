@@ -570,6 +570,7 @@ void VerletKokkos::run(int n)
 
   DatamaskAudit::enable(0);
   DatamaskAudit::report(lmp);
+  kk_copystats_report();
 
   atomKK->sync(Host,ALL_MASK);
   lmp->kokkos->auto_sync = 1;

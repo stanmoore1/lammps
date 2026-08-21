@@ -24,6 +24,7 @@
 #include <cstring>
 #include <csignal>
 #include <cxxabi.h>
+#include <array>
 #include <map>
 #include <string>
 #include <vector>
@@ -48,6 +49,46 @@ namespace LAMMPS_NS {
 // watches, so the audit has to be told once the copy has landed, or it reports
 // the style's own sync as if the style had written the array itself.
 void datamask_audit_note_copy(const void *device_data);
+
+// Copy census, enabled by LMP_KOKKOS_COPYSTATS.  One line per array and
+// direction saying how many copies the wrapper actually made.  A sync whose
+// direction never copied for its array cannot matter: removing it leaves the
+// run identical.  Same for a claim, whose only effect is to make such a copy
+// happen later.  That turns "inert under these inputs" from something only a
+// mutation can find out into something one clean run proves, and it tells an
+// array the deck never touches apart from a call that is simply redundant.
+//
+// These live outside the class because a static member of a template belongs
+// to each instantiation, and the census has to be one table for the whole run.
+
+inline bool kk_copystats_wanted()
+{
+  static const bool want = std::getenv("LMP_KOKKOS_COPYSTATS") != nullptr;
+  return want;
+}
+
+// [0] host to device, [1] device to host.
+inline std::map<std::string, std::array<bigint, 2>> &kk_copystats()
+{
+  static std::map<std::string, std::array<bigint, 2>> counts;
+  return counts;
+}
+
+inline void kk_copystats_note(const std::string &label, int direction)
+{
+  if (!kk_copystats_wanted()) return;
+  kk_copystats()[label][direction]++;
+}
+
+inline void kk_copystats_report()
+{
+  if (!kk_copystats_wanted()) return;
+  for (const auto &c : kk_copystats())
+    std::fprintf(stderr, "[copies] %s h2d=%lld d2h=%lld\n", c.first.c_str(),
+                 (long long) c.second[0], (long long) c.second[1]);
+  std::fprintf(stderr, "[copies] end of census\n");
+}
+
 
 #ifndef LMP_KOKKOS_DEBUG_SYNC
 
@@ -1182,6 +1223,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (!lmp_flags.data() || !h_split.data()) return;
       if (lmp_flags(0) > lmp_flags(1)) {
         Kokkos::deep_copy(base_type::view_device(), h_split);
+        kk_copystats_note(base_type::view_device().label(), 0);
         lmp_flags(6)++;    // see lmp_flags(6): tell every aliasing view
         lmp_flags(0) = lmp_flags(1) = 0;
         watch_refresh();
@@ -1202,6 +1244,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (!lmp_flags.data() || !h_split.data()) return;
       if (lmp_flags(1) > lmp_flags(0)) {
         Kokkos::deep_copy(h_split, base_type::view_device());
+        kk_copystats_note(base_type::view_device().label(), 1);
         lmp_flags(6)++;    // see lmp_flags(6): tell every aliasing view
         lmp_flags(0) = lmp_flags(1) = 0;
         watch_refresh();
