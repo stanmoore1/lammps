@@ -254,5 +254,8 @@ atom_vec_molecular_kokkos.cpp:612 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:
 atom_vec_molecular_kokkos.cpp:613 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:angle_atom2<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::angle_all(), watch:atom:angle_atom2=host@0,
 atom_vec_molecular_kokkos.cpp:617 MANIFESTS-DIVERGED in.molecular-mix.4 stale:atom:num_dihedral,atom:num_dihedral<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(), watch:atom:num_dihedral=host@0,atom:num_dihedral=host@1,
 atom_vec_molecular_kokkos.cpp:618 MANIFESTS-DIVERGED in.molecular-mix.4 stale:atom:dihedral_type,atom:dihedral_type<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(), watch:atom:dihedral_type=host@0,
+atom_vec_molecular_kokkos.cpp:619 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:dihedral_atom1<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(), watch:atom:dihedral_atom1=host@0,
 atom_vec_molecular_kokkos.cpp:62 INERT 
+atom_vec_molecular_kokkos.cpp:620 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:dihedral_atom2<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(), watch:atom:dihedral_atom2=host@0,
+atom_vec_molecular_kokkos.cpp:621 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:dihedral_atom3<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(), watch:atom:dihedral_atom3=host@0,
 atom_vec_molecular_kokkos.cpp:63 INERT 
