@@ -52,10 +52,22 @@ static DatamaskAudit *audit_active = nullptr;
 
 static std::map<std::string, bigint> audit_found;
 
+// Asked for or not.  The audit copies every per-atom array on both sides of
+// every style call, so it is the one detector that is worth real time even when
+// it finds nothing; keep it behind a switch like the others rather than paying
+// for it on every run of the debug build.
+static bool audit_wanted()
+{
+  static const bool want = std::getenv("LMP_KOKKOS_AUDIT") != nullptr;
+  return want;
+}
+
 /* ---------------------------------------------------------------------- */
 
 void DatamaskAudit::enable(int flag)
 {
+  if (!audit_wanted()) return;
+
   // the audit snapshots the device buffers directly, and in poison mode those
   // bytes are off limits whenever the host side is the authoritative one, so
   // the two cannot run together
@@ -301,6 +313,7 @@ void DatamaskAudit::trace_end(const char *what, const char *style)
 
 void DatamaskAudit::report(LAMMPS *lmp)
 {
+  if (!audit_wanted()) return;
   if (lmp->comm->me != 0) return;
 
   if (audit_found.empty()) {

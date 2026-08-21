@@ -67,7 +67,9 @@ class DatamaskAudit {
   DatamaskAudit(LAMMPS *lmp, const char *what, const char *style, uint64_t datamask_modify);
   ~DatamaskAudit();
 
-  // off during setup and input processing, which rewrite whatever they like
+  // Off unless LMP_KOKKOS_AUDIT is set, and off during setup and input
+  // processing even then: those rewrite whatever they like and would bury the
+  // reports.
   static void enable(int flag);
 
   // A style may declare EMPTY_MASK and mark what it changed itself, per routine,

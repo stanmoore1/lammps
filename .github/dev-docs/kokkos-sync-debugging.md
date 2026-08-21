@@ -114,7 +114,25 @@ An empty value means "every view"; give a substring instead to follow one array
 (`LMP_KOKKOS_WATCH=atom:special`).  Add `LMP_KOKKOS_WATCH_BT=1` for a backtrace
 at each report once you know which array to chase -- it is verbose.
 
-### 3. Always diff against a clean run
+### 3. The audit for an undeclared write
+
+Poison and watch both work from the coherence state.  A style that writes an
+array it never named in `datamask_modify` leaves that state looking perfectly
+clean, so neither can see it; the audit compares the bytes instead:
+
+```bash
+LMP_KOKKOS_AUDIT=1 ./build-sync/lmp -in in.your_input -k on -sf kk
+```
+
+It copies every per-atom array around every style call, which is slow, so it is
+off unless the variable is set.  It reports at the end of the run, naming the
+style, the array, the atom and the values.  Two things it deliberately says out
+loud: an array that was already stale when the style started is not covered by
+`datamask_read`, and a style that declares *every* array cannot be checked at
+all -- which is what a style gets by leaving `datamask_modify` at the `ALL_MASK`
+its base class sets.
+
+### 4. Always diff against a clean run
 
 This is the step that decides whether a report matters.  Some reports appear on
 correct runs too: scratch buffers filled and thrown away on purpose, and pairs
