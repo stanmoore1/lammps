@@ -156,7 +156,12 @@ void FixRigidSmallKokkos<DeviceType>::init()
   // paired with a host sort with no warning; extended-particle rigid bodies hit
   // the bonus-data case routinely.  Follow the sort onto the host when that is
   // going to happen, and equally follow a forced host exchange onto the host
-  // sort.  The all-host combination is a supported path: the tied DualViews are
+  // sort.  exchange_comm_on_host ("comm host") also routes through the
+  // exchange_device<LMPHostType> Kokkos path, which leaves atom-vec arrays
+  // host-modified; if the device sort then runs on a stale snapshot the
+  // resulting atom ordering differs from what a true device exchange would give,
+  // producing a trajectory that deviates from the correct physics.
+  // The all-host combination is a supported path: the tied DualViews are
   // flushed in pre_exchange() and pushed back in pre_neighbor().
   if (std::is_same<DeviceType,LMPDeviceType>::value) {
     bool sort_on_host = lmp->kokkos->sort_legacy || atomKK->hybrid_flag ||
@@ -164,7 +169,8 @@ void FixRigidSmallKokkos<DeviceType>::init()
     for (int i = 0; i < atom->nextra_grow; i++)
       if (!modify->fix[atom->extra_grow[i]]->sort_device) sort_on_host = true;
 
-    if (sort_on_host || lmp->kokkos->exchange_comm_legacy) {
+    if (sort_on_host || lmp->kokkos->exchange_comm_legacy ||
+        lmp->kokkos->exchange_comm_on_host) {
       exchange_comm_device = 0;
       sort_device = 0;
     }
@@ -283,7 +289,8 @@ void FixRigidSmallKokkos<DeviceType>::setup_pre_neighbor()
   // cannot protect the setup-time sort, which Verlet::setup() has already run by
   // the time we get here; that is why the decision is made in init().
   if (std::is_same<DeviceType,LMPDeviceType>::value) {
-    if (lmp->kokkos->exchange_comm_legacy || lmp->kokkos->sort_legacy) {
+    if (lmp->kokkos->exchange_comm_legacy || lmp->kokkos->exchange_comm_on_host ||
+        lmp->kokkos->sort_legacy) {
       exchange_comm_device = 0;
       sort_device = 0;
     }
@@ -542,6 +549,13 @@ void FixRigidSmallKokkos<DeviceType>::setup_device_push()
     if (atom->omega_flag)  extended_datamask |= OMEGA_MASK;
     if (atom->angmom_flag) extended_datamask |= ANGMOM_MASK;
     if (atom->mu_flag)     extended_datamask |= MU_MASK;
+
+    // The host setup (FixRigidSmall::setup -> set_xv/set_v) already wrote the
+    // per-atom omega/angmom/mu on the host; push them to the device so the first
+    // device kernel does not see a stale host claim and trip the concurrent-
+    // modification guard.
+    atomKK->modified(Host, extended_datamask);
+    atomKK->sync(execution_space, extended_datamask);
   }
 
   // size the body DualView and push host body[] to device
@@ -556,6 +570,7 @@ void FixRigidSmallKokkos<DeviceType>::setup_device_push()
     k_langextra.resize(nmax_body, 6);
     k_langextra.clear_sync_state();   // resize marked the device side (see grow_body)
     k_langextra.modify_host();
+    k_langextra.template sync<DeviceType>();
     d_langextra = k_langextra.template view<DeviceType>();
   }
 
@@ -576,7 +591,8 @@ void FixRigidSmallKokkos<DeviceType>::setup_device_push()
     // both on the same side for the run, following whichever one has been forced
     // onto the host.  forward/reverse comm above are dispatched per call and are
     // unaffected by this.
-    if (lmp->kokkos->exchange_comm_legacy || lmp->kokkos->sort_legacy) {
+    if (lmp->kokkos->exchange_comm_legacy || lmp->kokkos->exchange_comm_on_host ||
+        lmp->kokkos->sort_legacy) {
       exchange_comm_device = 0;
       sort_device = 0;
     }
@@ -660,6 +676,13 @@ void FixRigidSmallKokkos<DeviceType>::pre_neighbor(){
       k_eflags.template sync<DeviceType>();
       if (orientflag) { k_orient.modify_host(); k_orient.template sync<DeviceType>(); }
       if (dorientflag) { k_dorient.modify_host(); k_dorient.template sync<DeviceType>(); }
+      // The legacy exchange/sort/borders left the atom-style extended-particle
+      // arrays (omega, angmom, mu) host-modified.  Retire that host claim now by
+      // pushing them to the device.  On a build with strict host/device memory
+      // separation (e.g. HIP without UVM), a subsequent modify_device() call for
+      // any of these arrays would trip the concurrent-modification guard if the
+      // host-modified flag is still set at that point.
+      if (extended_datamask) atomKK->sync(execution_space, extended_datamask);
     }
     refresh_atom_views();
     copy_body_device();  // push host body[] → d_body
@@ -1240,6 +1263,7 @@ void FixRigidSmallKokkos<DeviceType>::set_xv_kokkos(int setxflag)
   this->yz = domain->yz;
 
   atomKK->sync(execution_space, datamask_read);
+  if (extended) atomKK->sync(execution_space, extended_datamask);
   d_x = atomKK->k_x.view<DeviceType>();
   d_v = atomKK->k_v.view<DeviceType>();
   d_f = atomKK->k_f.view<DeviceType>();
@@ -2514,6 +2538,50 @@ void FixRigidSmallKokkos<DeviceType>::image_shift()
   k_xcmimage.template modify<DeviceType>();
   Kokkos::Profiling::popRegion();
 }
+
+/* ----------------------------------------------------------------------
+   The legacy sort permutes these arrays through copy_arrays() on the host,
+   where sort_kokkos() below permutes them on the device.  Bring them to the
+   host for it, and claim the host side once it has run, or the device copies
+   keep the pre-sort ordering: atom2body then resolves an atom to the wrong
+   body and set_xv() places it at that body's centre.
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void FixRigidSmallKokkos<DeviceType>::sync_host_for_sort()
+{
+  k_bodytag.sync_host();
+  k_bodyown.sync_host();
+  k_atom2body.sync_host();
+  k_xcmimage.sync_host();
+  k_displace.sync_host();
+  k_vatom.sync_host();
+  if (extended) {
+    k_eflags.sync_host();
+    if (orientflag) k_orient.sync_host();
+    if (dorientflag) k_dorient.sync_host();
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void FixRigidSmallKokkos<DeviceType>::modified_host_for_sort()
+{
+  k_bodytag.modify_host();
+  k_bodyown.modify_host();
+  k_atom2body.modify_host();
+  k_xcmimage.modify_host();
+  k_displace.modify_host();
+  k_vatom.modify_host();
+  if (extended) {
+    k_eflags.modify_host();
+    if (orientflag) k_orient.modify_host();
+    if (dorientflag) k_dorient.modify_host();
+  }
+}
+
+/* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
 void FixRigidSmallKokkos<DeviceType>::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter)
