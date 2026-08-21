@@ -241,4 +241,7 @@ atom_vec_molecular_kokkos.cpp:629 INERT
 atom_vec_molecular_kokkos.cpp:63 INERT
 bond_harmonic_kokkos.cpp:247 MANIFESTS-DIVERGED
 bond_harmonic_kokkos.cpp:248 MANIFESTS-DIVERGED
+bond_harmonic_kokkos.cpp:249 MANIFESTS-DIVERGED
+bond_harmonic_kokkos.cpp:250 MANIFESTS-DIVERGED
 bond_harmonic_kokkos.cpp:91 INERT
+comm_kokkos.cpp:150 INERT
