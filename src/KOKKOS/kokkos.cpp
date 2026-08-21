@@ -124,6 +124,16 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
 
   auto_sync = 1;
 
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+  // Automatic syncing copies every array through the plain LAMMPS pointers
+  // around each coherence call, which keeps a run alive even where the styles
+  // themselves declare nothing, and so hides exactly the faults this build
+  // exists to find.  LMP_KOKKOS_NO_AUTOSYNC turns it off, leaving the styles
+  // to sync for themselves; a run that only survives with it on is relying on
+  // it.  Inert in an ordinary build.
+  if (std::getenv("LMP_KOKKOS_NO_AUTOSYNC")) auto_sync = 0;
+#endif
+
   // overlapping host and device work is a GPU feature.  VerletKokkos enables it
   // by comparing the two force buffers, which differ in a sync debugging build
   // without a GPU, so turn it off explicitly rather than let a pointer
