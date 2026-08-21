@@ -588,6 +588,16 @@ void VerletKokkos::force_clear()
     if (force->newton) nall += atomKK->nghost;
 
     Kokkos::parallel_for(nall, Zero<DAT::t_kkacc_1d_3>(atomKK->k_f.view_device()));
+
+    // clear the host side as well.  A style that runs on the host adds its
+    // forces into that buffer, and a style without KOKKOS support adds into
+    // the plain LAMMPS array behind it; neither is cleared by the loop above,
+    // so whatever they added last step is still there and gets counted again
+    // when the two sides are brought together.  With everything on the device
+    // this costs one clear of an array that is about to be overwritten anyway.
+    Kokkos::deep_copy(LMPHostType(),atomKK->k_f.view_hostkk(),0.0);
+    Kokkos::deep_copy(LMPHostType(),atomKK->k_f.view_host(),0.0);
+
     atomKK->modified(Device,F_MASK);
 
     if (torqueflag) {
