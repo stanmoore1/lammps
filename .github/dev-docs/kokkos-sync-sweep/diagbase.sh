@@ -8,7 +8,7 @@ while read d i np pk; do
   tag="$i.$np${pk:+.dev}"
   bash $SP/runcase.sh $d $i $np $SP/inj/base.$tag "$pk"
   LMP_KOKKOS_WATCH= LMP_KOKKOS_STALE= LMP_KOKKOS_STALE_STRICT=1 \
-    LMP_KOKKOS_WATCH_SKIP=comm:k_count,comm:k_buf_send \
+    LMP_KOKKOS_WATCH_SKIP=comm:k_count \
     bash $SP/runcase.sh $d $i $np $SP/inj/base.$tag.w "$pk"
   echo "  $tag labels=$(sed -n 's/^\[stale\] \+\([A-Za-z_/][A-Za-z_0-9/]*:[A-Za-z_0-9]*\).*/\1/p' $SP/inj/base.$tag.w.err | sort -u | wc -l)"
 done < $SP/cases.txt

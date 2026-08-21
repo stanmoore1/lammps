@@ -128,7 +128,7 @@ diagnose() {
   fi
   if [ -z "$verdict" ]; then
     LMP_KOKKOS_WATCH= LMP_KOKKOS_STALE= LMP_KOKKOS_STALE_STRICT=1 \
-      LMP_KOKKOS_WATCH_SKIP=comm:k_count,comm:k_buf_send \
+      LMP_KOKKOS_WATCH_SKIP=comm:k_count \
       bash $SP/runcase.sh $d $i $np /tmp/diagw.$tag "$pk"
     local new=$(comm -13 <(labels $SP/inj/base.$tag.w.err) <(labels /tmp/diagw.$tag.err) | tr '\n' ',')
     local neww=$(comm -13 <(wlabels $SP/inj/base.$tag.w.err) <(wlabels /tmp/diagw.$tag.err) | tr '\n' ',')
