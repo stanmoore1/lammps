@@ -3221,7 +3221,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxComputeTorsionPreproces
   const KK_FLOAT inv_sin_ijk_rnd = 1.0 / sin_ijk_rnd;
   const KK_FLOAT inv_sin_jil_rnd = 1.0 / sin_jil_rnd;
 
-#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
+#ifdef LMP_KOKKOS_GPU
   #pragma unroll
 #endif
   for (int d = 0; d < 3; d++) {

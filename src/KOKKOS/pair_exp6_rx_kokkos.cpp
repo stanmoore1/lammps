@@ -202,7 +202,7 @@ void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
      } else
        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairExp6rxZeroMixingWeights>(0,np_total),*this);
 
-#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
+#ifdef LMP_KOKKOS_GPU
      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairExp6rxgetMixingWeights>(0,np_total),*this);
 #else
      int errorFlag = 0;

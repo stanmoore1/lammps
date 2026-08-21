@@ -20,7 +20,7 @@
 // clang-format off
 PairStyle(snap/kk,PairSNAPKokkosDevice<LMPDeviceType>);
 PairStyle(snap/kk/device,PairSNAPKokkosDevice<LMPDeviceType>);
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 PairStyle(snap/kk/host,PairSNAPKokkosHost<LMPHostType>);
 #else
 PairStyle(snap/kk/host,PairSNAPKokkosDevice<LMPHostType>);
@@ -564,7 +564,7 @@ class PairSNAPKokkosDevice : public PairSNAPKokkos<DeviceType, SNAP_KOKKOS_REAL,
 
 };
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template <class DeviceType>
 class PairSNAPKokkosHost : public PairSNAPKokkos<DeviceType, SNAP_KOKKOS_REAL, SNAP_KOKKOS_ACCUM, SNAP_KOKKOS_HOST_VECLEN> {
 

@@ -182,8 +182,13 @@ t_scalar3<Scalar> operator *
 // in for the device and Serial for the host makes them distinct types, so the
 // two variants become distinct classes routed to different spaces, while both
 // still allocate in host memory and keep the split-buffer emulation working.
-typedef Kokkos::OpenMP LMPDeviceType;
-typedef Kokkos::Serial LMPHostType;
+// Serial stands in for the device and OpenMP is the host.  That way round,
+// not the other: Kokkos takes a dual view's host side to be
+// DefaultHostExecutionSpace, which is OpenMP whenever OpenMP is built, so
+// naming Serial the host would make every sync<LMPHostType>() fail its
+// static assert.
+typedef Kokkos::Serial LMPDeviceType;
+typedef Kokkos::OpenMP LMPHostType;
 
 #else
 
@@ -256,6 +261,19 @@ struct ExecutionSpaceFromDevice<LMPHostType> {
 template<>
 struct ExecutionSpaceFromDevice<LMPHostType> {
   static const LAMMPS_NS::ExecutionSpace space = LAMMPS_NS::HostKK;
+};
+
+#endif
+
+#if defined(LMP_KOKKOS_SPLIT_HOST)
+
+// Serial stands in for the device in this build, so it is the space the
+// device styles belong to; OpenMP is the host and takes the HostKK space
+// from the branch above.
+
+template<>
+struct ExecutionSpaceFromDevice<Kokkos::Serial> {
+  static const LAMMPS_NS::ExecutionSpace space = LAMMPS_NS::Device;
 };
 
 #endif

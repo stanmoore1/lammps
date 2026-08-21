@@ -15,7 +15,7 @@
 // clang-format off
 ComputeStyle(sna/grid/kk,ComputeSNAGridKokkosDevice<LMPDeviceType>);
 ComputeStyle(sna/grid/kk/device,ComputeSNAGridKokkosDevice<LMPDeviceType>);
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 ComputeStyle(sna/grid/kk/host,ComputeSNAGridKokkosHost<LMPHostType>);
 #else
 ComputeStyle(sna/grid/kk/host,ComputeSNAGridKokkosDevice<LMPHostType>);
@@ -298,7 +298,7 @@ class ComputeSNAGridKokkosDevice : public ComputeSNAGridKokkos<DeviceType, SNAP_
 
 };
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template <class DeviceType>
 class ComputeSNAGridKokkosHost : public ComputeSNAGridKokkos<DeviceType, SNAP_KOKKOS_REAL, SNAP_KOKKOS_ACCUM, SNAP_KOKKOS_HOST_VECLEN> {
 

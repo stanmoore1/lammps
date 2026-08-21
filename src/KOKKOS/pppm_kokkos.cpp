@@ -1305,7 +1305,7 @@ void PPPMKokkos<DeviceType>::make_rho()
 
   nlocal = atomKK->nlocal;
 
-#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
+#ifdef LMP_KOKKOS_GPU
   copymode = 1;
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPPPM_make_rho_atomic>(0,nlocal),*this);
   copymode = 0;

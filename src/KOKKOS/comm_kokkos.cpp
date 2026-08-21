@@ -1528,7 +1528,7 @@ void CommKokkos::borders_device() {
   // space: only a GPU backend can run teams this wide, so guard on the backend
 
   int team_size = 1;
-#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
+#ifdef LMP_KOKKOS_GPU
   if (exec_space == Device)
     team_size = 128;
 #endif

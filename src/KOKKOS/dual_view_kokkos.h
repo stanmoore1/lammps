@@ -100,7 +100,14 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // true when Kokkos would alias the two sides, i.e. when LAMMPS has to provide
   // the second allocation and the state machine itself
 
-  static constexpr bool SPLIT = base_type::impl_dualview_is_single_device;
+  // The question is whether Kokkos would hand out one allocation for both
+  // sides, which is decided by the MEMORY spaces alone.  Kokkos answers a
+  // narrower one -- whether the two device_types match -- and those differ as
+  // soon as the host and device execution spaces do, which is exactly what
+  // LMP_KOKKOS_SPLIT_HOST arranges.  Asking it that way there would turn the
+  // whole emulation off in the build that needs it most.
+  static constexpr bool SPLIT =
+      std::is_same_v<typename t_dev::memory_space, typename t_host::memory_space>;
 
   // (0) and (1) mirror Kokkos::DualView::modified_flags for the host and the
   // device side.  (2) and (3) count the claims each side has ever had and are
@@ -1007,10 +1014,10 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 #if defined(LMP_KOKKOS_SPLIT_HOST)
     // Named as Kokkos::Serial rather than LMPHostType: this header is included
     // before kokkos_type.h names the two, and under LMP_KOKKOS_SPLIT_HOST the
-    // host space is pinned to Serial there.  Device is spelled either as an
+    // host space is pinned to OpenMP there.  Device is spelled either as an
     // execution space or as a Kokkos::Device pairing one with a memory space;
     // both name the execution space the same way.
-    return std::is_same_v<typename Device::execution_space, Kokkos::Serial>;
+    return std::is_same_v<typename Device::execution_space, Kokkos::OpenMP>;
 #else
     return false;
 #endif

@@ -36,7 +36,7 @@
 #include <unistd.h>             // for getpid()
 #endif
 
-#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
+#ifdef LMP_KOKKOS_GPU
 #if (OPEN_MPI) && (OMPI_MAJOR_VERSION >= 2)
 #include <mpi-ext.h>
 #endif
@@ -127,9 +127,13 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   // overlapping host and device work is a GPU feature.  VerletKokkos enables it
   // by comparing the two force buffers, which differ in a sync debugging build
   // without a GPU, so turn it off explicitly rather than let a pointer
-  // comparison switch on a path that has nothing to overlap with.
+  // comparison switch on a path that has nothing to overlap with.  With
+  // LMP_KOKKOS_SPLIT_HOST there is something: the host executing styles are
+  // their own classes in their own space, and the overlap path -- the fence,
+  // the pinned sync, the zeroing of the host force buffer and the merge back
+  // -- is the very thing a mixed /kk/host run leans on, so leave it on.
 
-#if defined(LMP_KOKKOS_DEBUG_SYNC) && !defined(LMP_KOKKOS_GPU)
+#if defined(LMP_KOKKOS_DEBUG_SYNC) && !defined(LMP_KOKKOS_GPU) && !defined(LMP_KOKKOS_SPLIT_HOST)
   allow_overlap = 0;
 #else
   allow_overlap = 1;
@@ -312,7 +316,7 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   if ((me == 0) && (ngpus > 0))
     utils::logmesg(lmp, "  will use up to {} GPU(s) per node\n", ngpus);
 
-#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
+#ifdef LMP_KOKKOS_GPU
   if (ngpus <= 0)
     error->all(FLERR,"Kokkos has been compiled with GPU-enabled backend but no GPUs are requested");
 #endif
@@ -375,7 +379,7 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
     exchange_comm_on_host = forward_comm_on_host = reverse_comm_on_host = 0;
   }
 
-#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
+#ifdef LMP_KOKKOS_GPU
 
   // check and warn about GPU-aware MPI availability when using multiple MPI tasks
   // change default only if we can detect that GPU-aware MPI is not available
@@ -731,7 +735,7 @@ void KokkosLMP::accelerator(int narg, char **arg)
     } else error->all(FLERR,"Illegal package kokkos command");
   }
 
-#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
+#ifdef LMP_KOKKOS_GPU
 
   int nmpi = 0;
   MPI_Comm_size(world,&nmpi);

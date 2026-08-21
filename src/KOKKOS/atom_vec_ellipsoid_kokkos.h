@@ -43,7 +43,7 @@ struct AtomVecEllipsoidKokkosBonusArray<LMPDeviceType> {
   typedef tdual_bonus_1d::t_dev t_bonus_1d;
   typedef tdual_bonus_1d::t_dev_const_randomread t_bonus_1d_randomread;
 };
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template <>
 struct AtomVecEllipsoidKokkosBonusArray<LMPHostType> {
   typedef Kokkos::
