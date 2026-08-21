@@ -24,7 +24,7 @@ concurrency:
 jobs:
   build:
     name: Linux Unit Test MPI FFTW3
-    if: ${{ github.repository == 'lammps/lammps' }}
+    if: ${{ github.repository == 'akohlmey/lammps' }}
     runs-on: ubuntu-latest
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
@@ -82,7 +82,6 @@ jobs:
               -D PKG_LATBOLTZ=on \
               -D PKG_MANIFOLD=on \
               -D PKG_ML-PACE=on \
-              -D PKG_ML-RANN=on \
               -D PKG_RHEO=on \
               -D PKG_PTM=on \
               -D PKG_PYTHON=on \
