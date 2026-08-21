@@ -288,6 +288,7 @@ comm_kokkos.cpp:1016 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:angle_atom1<-
 comm_kokkos.cpp:1107 INERT 
 comm_kokkos.cpp:1160 MANIFESTS-CRASH in.melt.4.dev NOT-DETECTED
 comm_kokkos.cpp:1161 MANIFESTS-CRASH in.melt.4.dev poison:LAMMPS_NS::CommKokkos::exchange()
+comm_kokkos.cpp:1165 INERT 
 comm_kokkos.cpp:147 INERT 
 comm_kokkos.cpp:150 INERT 
 comm_kokkos.cpp:152 MANIFESTS-CRASH in.micelle.1 poison:LAMMPS_NS::AtomVec::pack_comm(int, int*, double*, int, int*)
