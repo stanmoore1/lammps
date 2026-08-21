@@ -99,9 +99,7 @@ void ComputeEfieldWolfAtom::init()
 
   auto *req = neighbor->add_request(this, NeighConst::REQ_FULL | NeighConst::REQ_OCCASIONAL);
   if (cutoff_flag) {
-    // Cutoff applies to all types
-    req->set_cut_fixed(1);
-    req->set_cutoff(cutoff);
+    req->set_cutoff_fixed(cutoff);
   }
 
   jgroup = group->find(group2);

@@ -184,6 +184,20 @@ protected:
         }
         return 0;
     }
+
+    // total number of neighbors stored in a neighbor list, -1 if there is none
+    int count_neighbors(int nlidx)
+    {
+        if (nlidx < 0) return -1;
+        int total = 0, numneigh = -1, iatom = -1;
+        int *neighbors = nullptr;
+        int inum = lammps_neighlist_num_elements(lmp, nlidx);
+        for (int i = 0; i < inum; ++i) {
+            lammps_neighlist_element_neighbors(lmp, nlidx, i, &iatom, &numneigh, &neighbors);
+            total += numneigh;
+        }
+        return total;
+    }
 };
 
 class NeighborListsNsq : public NeighborListsBin {
@@ -560,8 +574,6 @@ TEST_F(NeighborListsBin, one_hybrid_half_list_nonewton)
     }
 }
 
-#if 0
-// FIXME: currently trim is not detected and this test will thus fail
 TEST_F(NeighborListsBin, one_trim_half_list_newton)
 {
     create_system("charge", "real", "on");
@@ -615,7 +627,6 @@ TEST_F(NeighborListsBin, one_trim_half_list_newton)
     }
 }
 
-// FIXME: currently trim is not detected and this test will thus fail
 TEST_F(NeighborListsBin, one_trim_half_list_nonewton)
 {
     create_system("charge", "real", "off");
@@ -668,7 +679,39 @@ TEST_F(NeighborListsBin, one_trim_half_list_nonewton)
         GTEST_FAIL() << "No suitable neighbor list info found";
     }
 }
-#endif
+
+// a list requested with a uniform cutoff must reach that cutoff for every atom
+// type, also when the pair style uses a shorter cutoff for some type pairs and
+// the default list is therefore truncated for them.  The contents of such a
+// list may not depend on the pair style's per-type cutoffs at all
+TEST_F(NeighborListsBin, perpetual_fixed_cutoff_uniform)
+{
+    create_system("atomic", "real", "on");
+    BEGIN_HIDE_OUTPUT();
+    // small skin, so that a truncated per-type cutoff really does lose pairs
+    command("neighbor 0.3 bin");
+    command("pair_style lj/cut 3.5");
+    // 1-1 pairs use a shorter cutoff, so the default list is truncated for them
+    command("pair_coeff 1 1 0.01 2.0 2.5");
+    command("pair_coeff 1 2 0.01 2.0 3.5");
+    command("pair_coeff 2 2 0.01 2.0 3.5");
+    // perpetual full list with a uniform cutoff of 3.5 + skin, equal to cutneighmax
+    command("group dyn dynamic all within 3.5 every 1");
+    command("run 0 post no");
+    END_HIDE_OUTPUT();
+    int nneigh_mixed = count_neighbors(lammps_find_fix_neighlist(lmp, "GROUP_dyn", 0));
+
+    // same uniform group cutoff, but now no type pair uses a shorter cutoff, so
+    // the default list cannot be truncated and yields the reference answer
+    BEGIN_HIDE_OUTPUT();
+    command("pair_coeff 1 1 0.01 2.0 3.5");
+    command("run 0 post no");
+    END_HIDE_OUTPUT();
+    int nneigh_uniform = count_neighbors(lammps_find_fix_neighlist(lmp, "GROUP_dyn", 0));
+
+    EXPECT_GT(nneigh_uniform, 0);
+    EXPECT_EQ(nneigh_mixed, nneigh_uniform);
+}
 
 TEST_F(NeighborListsBin, one_atomic_full)
 {

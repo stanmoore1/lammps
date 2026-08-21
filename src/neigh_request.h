@@ -144,8 +144,11 @@ class NeighRequest : protected Pointers {
   void copy_request(NeighRequest *, int);
 
   void apply_flags(int);
-  void set_cutoff(double);
-  void set_cut_fixed(int);
+  // a non-standard cutoff requires stating its interpretation, exactly one of:
+  //   max   - cutoff is the maximum across types (typical of pair styles)
+  //   fixed - cutoff applies uniformly to all types (typical of analysis)
+  void set_cutoff_max(double);
+  void set_cutoff_fixed(double);
   void set_id(int);
   void set_kokkos_device(int);
   void set_kokkos_host(int);
