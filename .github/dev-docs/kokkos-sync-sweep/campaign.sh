@@ -222,10 +222,29 @@ echo "campaign: ${#all[@]} sites, ${#todo[@]} to do, pool size $POOL"
 # link dominate instead of being multiplied.  Injecting several lines of one
 # file together is fine -- restore is per file and the bisect re-injects
 # subsets from a clean file each time.
+# Size the pool to what the region is turning out to be.  Screening dominates
+# the cost and the bisect multiplies it: a pool of six where every site
+# manifests costs eleven screen passes to resolve six sites, where testing them
+# one at a time costs six.  In an inert region the same pooling is six times
+# better.  So follow the recent verdicts -- shrink where sites are manifesting,
+# grow again where they are not.
+recent=""
+adapt_pool() {
+  local m=${recent//[^M]/}
+  if [ ${#m} -ge 5 ]; then echo 1
+  elif [ ${#m} -ge 3 ]; then echo 2
+  elif [ ${#m} -ge 1 ]; then echo 3
+  else echo $POOL; fi
+}
+
 pool=()
 for s in "${todo[@]}"; do
-  if [ ${#pool[@]} -ge $POOL ]; then
+  if [ ${#pool[@]} -ge $(adapt_pool) ]; then
+    before=$(grep -c ' MANIFESTS' $STATE 2>/dev/null)
     test_pool "${pool[@]}"; pool=()
+    after=$(grep -c ' MANIFESTS' $STATE 2>/dev/null)
+    [ "$after" -gt "$before" ] && recent="${recent}M" || recent="${recent}i"
+    recent=${recent: -8}
   fi
   pool+=("$s")
 done
