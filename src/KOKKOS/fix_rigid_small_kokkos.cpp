@@ -619,13 +619,9 @@ void FixRigidSmallKokkos<DeviceType>::setup_device_push()
   // need to set up the body sendlist and send the ghost bodies now
   nghost_body = 0;
   max_body_sent = 0;
-  n_body_recv.clear();
-  n_body_sent.clear();
-  first_body.clear();
-  // keyed by the k_sendlist row pointer, which CommKokkos reallocates when it
-  // grows the send lists -- stale keys would otherwise accumulate for the whole
-  // run and could be matched by a later allocation landing on the same address
-  d_body_sendlists.clear();
+  body_recvs.clear();
+  body_sends.clear();
+
   commflag = BODY_SENDLIST;
   commKK->forward_comm_device<DeviceType>(this, 1);
   commflag = FULL_BODY;
@@ -774,13 +770,9 @@ void FixRigidSmallKokkos<DeviceType>::pre_neighbor(){
   );
 
   max_body_sent = 0;
-  n_body_recv.clear();
-  n_body_sent.clear();
-  first_body.clear();
-  // keyed by the k_sendlist row pointer, which CommKokkos reallocates when it
-  // grows the send lists -- stale keys would otherwise accumulate for the whole
-  // run and could be matched by a later allocation landing on the same address
-  d_body_sendlists.clear();
+  body_recvs.clear();
+  body_sends.clear();
+
   commflag = BODY_SENDLIST;
   commKK->forward_comm_device<DeviceType>(this, 1);
   commflag = FULL_BODY;
@@ -1777,7 +1769,9 @@ int FixRigidSmallKokkos<DeviceType>::pack_exchange_kokkos (
   // followed by the densely packed payloads.  A non-body atom costs 1 double, a
   // body member 12, and a body owner 12 + bodysize -- versus the old fixed
   // maxexchange stride for every atom.  d_count holds the total doubles written.
-  Kokkos::View<int, DeviceType> d_count("rigid/small:exchange_count");
+  if (!d_exchange_count.data())
+    d_exchange_count = Kokkos::View<int, DeviceType>("rigid/small:exchange_count");
+  auto d_count = d_exchange_count;
   Kokkos::deep_copy(d_count, 0);
 
   // count bodies whose owner is being sent (their slots are freed below); read
@@ -1856,7 +1850,9 @@ int FixRigidSmallKokkos<DeviceType>::pack_exchange_kokkos (
 
   // Need to pack remaining bodies densely
   int new_nlocal_body = nlocal_body - n_deleted_bodies;
-  IntView1D from_indices("from idx", n_deleted_bodies);
+  if (d_from_indices.extent_int(0) < n_deleted_bodies)
+    d_from_indices = IntView1D("rigid/small:from_idx", n_deleted_bodies);
+  auto from_indices = d_from_indices;
 
   // count bodies that need to be moved
   // and do cumulative sum to determine
@@ -2085,8 +2081,9 @@ int FixRigidSmallKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_
   auto d_bodyown = this->d_bodyown;
 
   if (commflag == INITIAL) {
-    int n_body = n_body_sent[iswap];
-    auto d_body_sendlist = d_body_sendlists[iswap];
+    const auto &send = body_send(iswap);
+    int n_body = send.n;
+    auto d_body_sendlist = send.list;
     Kokkos::parallel_for("fix rigid/small pack forward comm initial",
       Range1D(0, n_body),
       KOKKOS_LAMBDA (const int ibodysend) {
@@ -2128,8 +2125,9 @@ int FixRigidSmallKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_
     return 29*n_body;
   }
   if (commflag == FINAL) {
-    int n_body = n_body_sent[iswap];
-    auto d_body_sendlist = d_body_sendlists[iswap];
+    const auto &send = body_send(iswap);
+    int n_body = send.n;
+    auto d_body_sendlist = send.list;
     Kokkos::parallel_for("fix rigid/small pack forward comm final",
       Range1D(0, n_body),
       KOKKOS_LAMBDA (const int ibodysend) {
@@ -2152,8 +2150,9 @@ int FixRigidSmallKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_
     return 10*n_body;
   } else if (commflag == FULL_BODY) {
     auto bodysize = this->bodysize;
-    int n_body = n_body_sent[iswap];
-    auto d_body_sendlist = d_body_sendlists[iswap];
+    const auto &send = body_send(iswap);
+    int n_body = send.n;
+    auto d_body_sendlist = send.list;
     Kokkos::parallel_for(
       "fix rigid/small full body pack forward",
       Range1D(0, n_body),
@@ -2182,13 +2181,12 @@ int FixRigidSmallKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_
       },
       n_sent
     );
-    n_body_sent[iswap] = n_sent;
+    auto &send = body_send(iswap);
+    send.n = n_sent;
     if (n_sent > max_body_sent) max_body_sent = n_sent;
 
-    if (d_body_sendlists.count(iswap)==0 || d_body_sendlists[iswap].extent_int(0)<n_sent) {
-      d_body_sendlists[iswap] = IntView1D("body sendlist", n_sent);
-    }
-    auto d_body_sendlist = d_body_sendlists[iswap];
+    if (send.list.extent_int(0) < n_sent) send.list = IntView1D("body sendlist", n_sent);
+    auto d_body_sendlist = send.list;
 
     Kokkos::parallel_scan(
       "fix rigid/small create body sendlist",
@@ -2228,8 +2226,9 @@ void FixRigidSmallKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int firs
   auto d_body = this->d_body;
 
   if (commflag == INITIAL) {
-    int n_incoming_bodies = n_body_recv[first];
-    int start_body = first_body[first];
+    const auto &recv = body_recv(first);
+    int n_incoming_bodies = recv.n;
+    int start_body = recv.start;
     Kokkos::parallel_for("fix rigid/small unpack forward comm initial",
       Range1D(0, n_incoming_bodies),
       KOKKOS_LAMBDA(const int ibodyrecv) {
@@ -2268,8 +2267,9 @@ void FixRigidSmallKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int firs
       }
     );
   } else if (commflag == FINAL) {
-    int n_incoming_bodies = n_body_recv[first];
-    int start_body = first_body[first];
+    const auto &recv = body_recv(first);
+    int n_incoming_bodies = recv.n;
+    int start_body = recv.start;
     Kokkos::parallel_for("fix rigid/small/kk unpack forward comm final",
       Range1D(0, n_incoming_bodies),
       KOKKOS_LAMBDA(const int ibodyrecv) {
@@ -2291,8 +2291,9 @@ void FixRigidSmallKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int firs
   } else if (commflag == FULL_BODY) {
     Kokkos::Profiling::pushRegion("unpack forward full body");
     auto bodysize = this->bodysize;
-    int n_incoming_bodies = n_body_recv[first];
-    int start_body = first_body[first];
+    const auto &recv = body_recv(first);
+    int n_incoming_bodies = recv.n;
+    int start_body = recv.start;
 
     Kokkos::parallel_for(
       "fix rigid/small pack incoming ghost bodies",
@@ -2306,7 +2307,7 @@ void FixRigidSmallKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int firs
   } else if (commflag == BODY_SENDLIST) {
     Kokkos::Profiling::pushRegion("unpack forward body sendlist");
     int n_curr_bodies = this->nlocal_body + this->nghost_body;
-    first_body[first] = n_curr_bodies;
+    body_recv(first).start = n_curr_bodies;
     int n_incoming_bodies = 0;
     Kokkos::parallel_scan(
       "fix rigid/small count incoming bodies",
@@ -2324,10 +2325,12 @@ void FixRigidSmallKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int firs
       },
       n_incoming_bodies
     );
-    if (n_body_recv.count(first))
+    if (has_body_recv(first))
       error->one(FLERR, "Internal error in fix rigid/small/kk: receive buffer offset {} "
                  "is already registered", first);
-    n_body_recv[first] = n_incoming_bodies;
+    auto &recv_entry = body_recv(first);
+    recv_entry.n = n_incoming_bodies;
+    recv_entry.n_set = true;
     while (n_curr_bodies+n_incoming_bodies > nmax_body) {
       grow_body();
     }
@@ -2353,8 +2356,9 @@ int FixRigidSmallKokkos<DeviceType>::pack_reverse_comm_kokkos(int n, int first, 
   auto d_bodyown = this->d_bodyown;
   auto d_body = this->d_body;
 
-  int n_body = n_body_recv[first];
-  int start_body = first_body[first];
+  const auto &recv = body_recv(first);
+  int n_body = recv.n;
+  int start_body = recv.start;
 
   Kokkos::parallel_for(
     "fix rigid/small pack reverse comm",
@@ -2391,8 +2395,9 @@ void FixRigidSmallKokkos<DeviceType>::unpack_reverse_comm_kokkos(int n, DAT::tdu
   auto d_sendlist = k_sendlist.view<DeviceType>();
   int *iswap = d_sendlist.data();
 
-  int n_body = n_body_sent[iswap];
-  auto d_body_sendlist = d_body_sendlists[iswap];
+  const auto &send = body_send(iswap);
+  int n_body = send.n;
+  auto d_body_sendlist = send.list;
   Kokkos::parallel_for(
     "fix rigid/small unpack reverse comm",
     Range1D(0, n_body),
@@ -2494,25 +2499,23 @@ void FixRigidSmallKokkos<DeviceType>::reset_atom2body()
   // FixRigidSmall::reset_atom2body() treats this as a fatal error.  Doing it on
   // the device avoids the out-of-bounds d_bodyown(-1) read the previous code
   // performed, and lets us reproduce the host error afterwards.
-  Kokkos::View<int,DeviceType> d_nmissing("rigid/small:nmissing");
-  Kokkos::deep_copy(d_nmissing, 0);
-
-  Kokkos::parallel_for(
+  // reduce the missing-owner count rather than atomically incrementing one
+  // device address from every atom, which serialises the whole kernel
+  int nmissing = 0;
+  Kokkos::parallel_reduce(
     "fix rigid/small reset atom2body",
     Range1D(0, nlocal),
-    KOKKOS_LAMBDA(const int i){
+    KOKKOS_LAMBDA(const int i, int &missing){
       d_atom2body(i) = -1;
       if (d_bodytag(i)) {
         int iowner = AtomKokkos::map_kokkos<DeviceType>(d_bodytag(i),map_style,k_map_array,k_map_hash);
         if (iowner >= 0) d_atom2body(i) = d_bodyown(iowner);
-        else Kokkos::atomic_add(&d_nmissing(), 1);
+        else missing++;
       }
-    }
+    },
+    nmissing
   );
   k_atom2body.template modify<DeviceType>();
-
-  int nmissing = 0;
-  Kokkos::deep_copy(nmissing, d_nmissing);
   if (nmissing)
     error->one(FLERR, "Rigid body atoms missing on proc {} at step {} "
                "(fix rigid/small/kk)", comm->me, update->ntimestep);

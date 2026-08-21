@@ -31,6 +31,7 @@ FixStyle(rigid/small/kk/host,FixRigidSmallKokkos<LMPHostType>);
 #include "rand_pool_wrap_kokkos.h"
 #endif
 #include <map>
+#include <vector>
 
 struct TagInitialIntegrate {};
 struct TagPackForwardInitial {};
@@ -208,10 +209,51 @@ template <class DeviceType> class FixRigidSmallKokkos : public FixRigidSmall, pu
   // take their host fallback even though setupflag is already 1 by then
   bool setup_host_rebuild = false;
 
+  // scratch reused across calls: allocating a device View (and, for the counter,
+  // a fenced readback) inside every pack_exchange_kokkos / reset_atom2body call
+  // costs an allocation per dimension per reneighbor
+  Kokkos::View<int, DeviceType> d_exchange_count;
+  IntView1D d_from_indices;
+
   int max_body_sent = 0;
-  std::map<int, int> n_body_recv, first_body;
-  std::map<int *, int> n_body_sent;
-  std::map<int *, IntView1D> d_body_sendlists;
+  // Per-swap ghost-body bookkeeping, rebuilt every reneighbor by the
+  // BODY_SENDLIST comm and read by the INITIAL/FINAL/FULL_BODY packers on every
+  // timestep.  Flat vectors scanned linearly rather than std::map: nswap is
+  // small, and this keeps the per-step lookups out of a red-black tree (and off
+  // its node allocations).  The send side is still keyed by the k_sendlist row
+  // pointer because the packer signature carries no swap index; both vectors are
+  // cleared wherever the swaps are rebuilt, so a stale key cannot survive.
+  struct BodySend {
+    int *key;
+    int n;
+    IntView1D list;
+  };
+  struct BodyRecv {
+    int first;
+    int n;
+    int start;
+    bool n_set;   // n and start are registered independently, as the two maps
+  };              // this replaced were
+  std::vector<BodySend> body_sends;
+  std::vector<BodyRecv> body_recvs;
+
+  BodySend &body_send(int *key) {
+    for (auto &e : body_sends)
+      if (e.key == key) return e;
+    body_sends.push_back(BodySend{key, 0, IntView1D()});
+    return body_sends.back();
+  }
+  BodyRecv &body_recv(int first) {
+    for (auto &e : body_recvs)
+      if (e.first == first) return e;
+    body_recvs.push_back(BodyRecv{first, 0, 0, false});
+    return body_recvs.back();
+  }
+  bool has_body_recv(int first) const {
+    for (const auto &e : body_recvs)
+      if (e.first == first) return e.n_set;
+    return false;
+  }
 
   IntView1D d_sendlist;
   typename AT::t_double_1d_um d_buf;
