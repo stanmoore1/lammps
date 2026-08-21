@@ -270,22 +270,10 @@ bond_harmonic_kokkos.cpp:249 MANIFESTS-DIVERGED in.micelle.1 poison:LAMMPS_NS::B
 bond_harmonic_kokkos.cpp:250 MANIFESTS-DIVERGED in.micelle.1 poison:LAMMPS_NS::BondHarmonicKokkos<Kokkos::Serial>::compute(int, int)
 bond_harmonic_kokkos.cpp:91 INERT 
 comm_kokkos.cpp:150 INERT 
-comm_kokkos.cpp:152 MANIFESTS-CRASH in.micelle.1 poison:LAMMPS_NS::AtomVec::pack_comm(int, int*, double*, int, int*)
 comm_kokkos.cpp:157 INERT 
-comm_kokkos.cpp:159 MANIFESTS-DIVERGED in.micelle.1 stale:atom:x<-LAMMPS_NS::BondHarmonicKokkos<Kokkos::Serial>::compute(int,_int),atom:x<-LAMMPS_NS::FixNVEKokkos<Kokkos::Serial>::initial_integrate(int),atom:x<-LAMMPS_NS::PairLJCutKokkos<Kokkos::Serial>::compute(int,_int), watch:atom:x=host@3600,
 comm_kokkos.cpp:175 INERT 
 comm_kokkos.cpp:180 INERT 
 comm_kokkos.cpp:281 INERT 
-comm_kokkos.cpp:283 MANIFESTS-CRASH in.micelle.1 poison:LAMMPS_NS::AtomVec::unpack_reverse(int, int*, double*)
-comm_kokkos.cpp:285 MANIFESTS-CRASH in.micelle.1 stale:atom:f<-LAMMPS_NS::FixEnforce2DKokkos<Kokkos::Serial>::post_force(int),atom:f<-LAMMPS_NS::FixNVEKokkos<Kokkos::Serial>::final_integrate(),atom:f<-LAMMPS_NS::FixNVEKokkos<Kokkos::Serial>::initial_integrate(int), watch:atom:f=host@30,
-comm_kokkos.cpp:301 MANIFESTS-DIVERGED in.rigid.cubes.multirun.4.dev poison:AtomVecKokkos_UnPackReverse<Kokkos::Serial, 1>::operator()(int const&) const
 comm_kokkos.cpp:371 INERT 
-comm_kokkos.cpp:394 MANIFESTS-CRASH in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::pack_forward_comm_kokkos(int, LAMMPS_NS::D
-comm_kokkos.cpp:421 MANIFESTS-CRASH in.rigid.cubes.4 NOT-DETECTED
-comm_kokkos.cpp:422 MANIFESTS-CRASH in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::setup_device_push()
-comm_kokkos.cpp:443 MANIFESTS-CRASH in.rigid.cubes.4  watch:comm:k_recv_send_fix=host@0,comm:k_recv_send_fix=host@10,comm:k_recv_send_fix=host@116,comm:k_recv_send_fix=host@20,
 comm_kokkos.cpp:468 INERT 
 comm_kokkos.cpp:494 INERT 
-comm_kokkos.cpp:520 MANIFESTS-DIVERGED in.rigid.cubes.4 NOT-DETECTED
-comm_kokkos.cpp:521 MANIFESTS-DIVERGED in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::compute_forces_and_torques_kokkos()
-comm_kokkos.cpp:541 MANIFESTS-DIVERGED in.rigid.cubes.4 stale:comm:k_recv_send_fix<-void_LAMMPS_NS::CommKokkos::reverse_comm_device<Kokkos::Serial>(LAMMPS_NS::Fix*,_int), watch:comm:k_recv_send_fix=host@0,
