@@ -284,3 +284,6 @@ comm_kokkos.cpp:394 MANIFESTS-CRASH in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidS
 comm_kokkos.cpp:421 MANIFESTS-CRASH in.rigid.cubes.4 NOT-DETECTED
 comm_kokkos.cpp:422 MANIFESTS-CRASH in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::setup_device_push()
 comm_kokkos.cpp:443 MANIFESTS-CRASH in.rigid.cubes.4  watch:comm:k_recv_send_fix=host@0,comm:k_recv_send_fix=host@10,comm:k_recv_send_fix=host@116,comm:k_recv_send_fix=host@20,
+comm_kokkos.cpp:468 INERT 
+comm_kokkos.cpp:494 INERT 
+comm_kokkos.cpp:520 MANIFESTS-DIVERGED in.rigid.cubes.4 NOT-DETECTED
