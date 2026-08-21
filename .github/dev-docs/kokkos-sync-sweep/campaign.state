@@ -257,6 +257,9 @@ bond_harmonic_kokkos.cpp:248 MANIFESTS-DIVERGED
 bond_harmonic_kokkos.cpp:249 MANIFESTS-DIVERGED
 bond_harmonic_kokkos.cpp:250 MANIFESTS-DIVERGED
 bond_harmonic_kokkos.cpp:91 INERT
+comm_kokkos.cpp:1011 INERT
+comm_kokkos.cpp:1016 MANIFESTS-CRASH
+comm_kokkos.cpp:1107 INERT
 comm_kokkos.cpp:147 INERT
 comm_kokkos.cpp:150 INERT
 comm_kokkos.cpp:152 MANIFESTS-CRASH
@@ -278,3 +281,4 @@ comm_kokkos.cpp:468 INERT
 comm_kokkos.cpp:494 INERT
 comm_kokkos.cpp:520 MANIFESTS-DIVERGED
 comm_kokkos.cpp:541 MANIFESTS-DIVERGED
+comm_kokkos.cpp:542 MANIFESTS-DIVERGED
