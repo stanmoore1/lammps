@@ -175,15 +175,9 @@ if(PKG_KSPACE AND PKG_KOKKOS)
   if(BUILD_MPI)
     # Test with 2 processes
     add_mpi_test(NAME FFT3DKokkos_MPI_2proc NUM_PROCS 2 COMMAND $<TARGET_FILE:test_fft3d_kokkos>)
-    set_tests_properties(FFT3DKokkos_MPI_2proc PROPERTIES
-      LABELS "fft;kokkos;kspace;mpi;utils"
-      ENVIRONMENT "OMP_PROC_BIND=false")
 
     # Test with 4 processes
     add_mpi_test(NAME FFT3DKokkos_MPI_4proc NUM_PROCS 4 COMMAND $<TARGET_FILE:test_fft3d_kokkos>)
-    set_tests_properties(FFT3DKokkos_MPI_4proc PROPERTIES
-      LABELS "fft;kokkos;kspace;mpi;utils"
-      ENVIRONMENT "OMP_PROC_BIND=false")
   endif()
 endif()
 
