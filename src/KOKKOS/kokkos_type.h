@@ -865,10 +865,32 @@ struct TransformView {
     }
   }
 
+  // Trace the legacy/Kokkos-host/device triangle, which the dual view below
+  // cannot see: it knows only its own two sides, while the copies between them
+  // and the plain LAMMPS pointers are decided by the four flags here.  Selected
+  // by the same LMP_KOKKOS_TRACE that selects a dual view.
+  void tvtrace(const char *op) const
+  {
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+    static const char *f = std::getenv("LMP_KOKKOS_TRACE");
+    if (!f || !d_view.data()) return;
+    const std::string label = d_view.label();
+    if (*f && label.find(f) == std::string::npos) return;
+    std::fprintf(stderr,
+                 "[transform] %-22s %-20s hostkk_legacy=%d device_legacy=%d "
+                 "legacy_hostkk=%d legacy_device=%d\n",
+                 label.c_str(), op, modified_hostkk_legacy, modified_device_legacy,
+                 modified_legacy_hostkk, modified_legacy_device);
+#else
+    (void) op;
+#endif
+  }
+
   // mark device as modified wrt all
 
   void modify_device()
   {
+    tvtrace("modify_device");
     if (SINGLE_DEVICE) return modify_hostkk();
 
     k_view.modify_device();
@@ -896,6 +918,7 @@ struct TransformView {
 
   void modify_hostkk()
   {
+    tvtrace("modify_hostkk");
     k_view.modify_host();
     modify_hostkk_legacy();
   }
@@ -988,6 +1011,7 @@ struct TransformView {
 
   void sync_device(void* buffer = nullptr, int async_flag = 0)
   {
+    tvtrace("sync_device");
     if (SINGLE_DEVICE) return sync_hostkk(buffer,async_flag);
 
     if (!d_view.data()) return;
@@ -1038,6 +1062,7 @@ struct TransformView {
 
   void sync_hostkk(void* buffer = nullptr, int async_flag = 0)
   {
+    tvtrace("sync_hostkk");
     if (!h_viewkk.data()) return;
 
     // prevent double copy
@@ -1120,6 +1145,7 @@ struct TransformView {
   // sync all to legacy host
 
   void sync_host(void* buffer = nullptr, int async_flag = 0) {
+    tvtrace("sync_host_legacy");
     if constexpr (NEED_TRANSFORM) {
       if (!h_view.data()) return;
 
