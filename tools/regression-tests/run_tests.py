@@ -17,6 +17,10 @@ With the current features, users can:
       running them, detected by comparing the -help output of the binary with the styles that
       exist in the source tree, and optionally validated with a "-skiprun" dry run of every
       input script (--preflight, with cacheable verdicts via --preflight-cache)
+    + check that every example input script parses, sets up, and takes one step without
+      crashing by running all of them with "-skiprun" (--preflight-only); together with
+      a small MPI setup this exercises the domain decomposition and communication at a
+      small fraction of the cost of the full runs (see the check-examples.yml workflow)
     + set a timeout for every input script run if they may take too long
     + skip numerical checks if the goal is just to check if the runs do not fail
 
@@ -143,8 +147,10 @@ import get_quick_list
              'passed'    all numerical checks passed
              'failed'    the run completed but numerical checks failed
              'error'     the run did not complete (crash, timeout, missing log file)
-             'completed' the run completed but no numerical checks were possible
-                         (e.g. no reference log file, skipped numerical checks)
+             'runtest'   the run completed but no numerical checks were possible
+                         (e.g. no reference log file, skipped numerical checks), so
+                         only the run itself was tested; reported separately from
+                         'passed' since nothing was verified beyond not crashing
              'skipped'   the input script was not run at all
    status  : human readable description of the outcome (stored in the progress file)
    message : additional details (e.g. the individual failed checks)
@@ -252,9 +258,13 @@ def write_junit_xml(output_file, results, suite_name, properties=None):
         elif result.category == 'error':
             elem = ET.SubElement(case, 'error')
             num_errors += 1
-        elif result.category in ('skipped', 'completed'):
-            # 'completed' means the run finished but nothing could be verified,
-            # so it is reported as skipped rather than as passed
+        elif result.category in ('skipped', 'runtest'):
+            # 'runtest' means the run finished but nothing could be verified, so
+            # it must not be reported as passed; JUnit XML has no separate element
+            # for that, so it is written as skipped with a status attribute that
+            # merge_results.py reads back to keep the two apart
+            if result.category == 'runtest':
+                case.set('status', 'runtest')
             elem = ET.SubElement(case, 'skipped')
             num_skipped += 1
         else:
@@ -398,6 +408,17 @@ def iterate(lmp_binary, input_folder, input_list, config, results, progress_file
                 test_id = test_id + 1
                 continue
 
+        # the input scripts under examples/COUPLE couple LAMMPS to another code
+        # (or drive it from one), so they can never be tested standalone
+        if coupling_example(input_test):
+            msg = "   + " + input + f" ({test_id+1}/{num_tests}): skipped, {COUPLE_REASON}"
+            print(msg)
+            logger.info(msg)
+            result.status = f'skipped, {COUPLE_REASON}'
+            record(result)
+            test_id = test_id + 1
+            continue
+
         # input scripts that need a multi-partition run write one log file per partition
         # and cannot be tested with a configuration that runs them in a single partition
         if not ({'-p', '-partition'} & set(config['args'].split())):
@@ -421,6 +442,68 @@ def iterate(lmp_binary, input_folder, input_list, config, results, progress_file
             print(msg)
             logger.info(msg)
             result.status = f'skipped, {incompat}'
+            record(result)
+            test_id = test_id + 1
+            continue
+
+        # with --preflight-only the "-skiprun" run is the whole test: the input script
+        # runs with the configured MPI setup, but the loops of all run and minimize
+        # commands end after one step.  This tests that the input script parses, that
+        # every style exists, that the setup (reading files, building neighbor lists,
+        # initial communication) works, and that one step runs without crashing --
+        # without the cost of the full runs and without any numerical checks
+        if config.get('preflight_only', False):
+            str_t = "   + " + input_test + f" ({test_id+1}/{num_tests}) [-skiprun check]"
+            logger.info(str_t)
+            print(str_t)
+            skconfig = dict(config)
+            skconfig['args'] = (config['args'] + " -skiprun").strip()
+            status = execute(lmp_binary, skconfig, input_test)
+            result.elapsed = status['elapsed']
+            output = status['stdout']
+            if "ERROR" in output:
+                error_line = ""
+                for line in output.split('\n'):
+                    if "ERROR" in line:
+                        error_line = line
+                        break
+                # a style from a package missing in the binary, hidden where the
+                # static screening cannot see it: skipped, like with --preflight
+                if any(pattern in error_line for pattern in PREFLIGHT_SKIP_PATTERNS):
+                    result.status = f'skipped, -skiprun check: {shorten(error_line)}'
+                # post-run analysis that cannot work with the runs cut short
+                elif any(pattern in error_line for pattern in SKIPRUN_ARTIFACT_PATTERNS):
+                    result.status = ('skipped, cannot be checked with -skiprun: '
+                                     + shorten(error_line))
+                else:
+                    result.category = 'error'
+                    result.status = f"failed, {shorten(error_line)}"
+                    result.message = error_line
+                    logger.info(f"     Output:")
+                    logger.info(f"     {output}")
+                print(f"     {result.status}")
+            elif status['timedout']:
+                result.category = 'error'
+                result.status = "failed, timeout in the -skiprun check"
+                result.message = shorten(status['stderr'], maxlen=1000)
+                print(f"     {result.status}")
+            elif int(status['returncode']) != 0:
+                result.category = 'error'
+                result.status = (f"failed, -skiprun check stopped with return code"
+                                 f" {status['returncode']}, {shorten(status['stderr'])}")
+                result.message = shorten(status['stderr'], maxlen=1000)
+                logger.info(f"     Error:\n{status['stderr']}")
+                print(f"     {result.status}")
+            else:
+                result.category = 'runtest'
+                result.status = 'completed, -skiprun check only'
+                result.time = 0.0
+                for line in output.split('\n'):
+                    if "Total wall time" in line:
+                        hms = line.split('time:')[1].split(':')
+                        result.time = float(hms[0]) * 3600.0 + float(hms[1]) * 60.0 \
+                            + float(hms[2])
+                        break
             record(result)
             test_id = test_id + 1
             continue
@@ -688,7 +771,7 @@ def iterate(lmp_binary, input_folder, input_list, config, results, progress_file
         # if skip numerical checks, then skip the rest
         if skip_numerical_check == True:
             msg = "completed, skipping numerical checks"
-            result.category = 'completed'
+            result.category = 'runtest'
             if use_valgrind == True:
                 if "All heap blocks were freed" in error:
                     msg += ", no memory leak"
@@ -726,7 +809,7 @@ def iterate(lmp_binary, input_folder, input_list, config, results, progress_file
             logger.info(f"\n    Output:\n{output}")
             logger.info(f"\n    Error:\n{error}")
 
-            result.category = 'completed'
+            result.category = 'runtest'
             result.status = 'completed, but no Step nor Loop in the output'
             record(result, walltime_norm=walltime_norm)
             test_id = test_id + 1
@@ -742,7 +825,7 @@ def iterate(lmp_binary, input_folder, input_list, config, results, progress_file
             logger.info(f"     {output}")
 
             msg = "completed"
-            result.category = 'completed'
+            result.category = 'runtest'
             if use_valgrind == True:
                 if "All heap blocks were freed" in error:
                     msg += ", no memory leak"
@@ -769,7 +852,7 @@ def iterate(lmp_binary, input_folder, input_list, config, results, progress_file
             else:
                 # the thermo_ref dictionary is empty
                 logger.info(f"    failed, error parsing the reference log file {thermo_ref_file}.")
-                result.category = 'completed'
+                result.category = 'runtest'
                 result.status = 'completed, numerical checks skipped, unsupported log file format'
                 record(result, walltime_norm=walltime_norm)
                 test_id = test_id + 1
@@ -787,7 +870,7 @@ def iterate(lmp_binary, input_folder, input_list, config, results, progress_file
             else:
                 # most likely to reach here if the reference log file does not exist
                 logger.info(f"       {thermo_ref_file} also does not exist in the working directory.")
-                result.category = 'completed'
+                result.category = 'runtest'
                 if smoke_input:
                     result.status = (f"completed, no reference log file, only checked that a run"
                                      f" shortened to {smoke_steps} steps does not crash")
@@ -849,7 +932,7 @@ def iterate(lmp_binary, input_folder, input_list, config, results, progress_file
                    f" {logfilename} or {thermo_ref_file}.")
             print(msg)
             logger.info(msg)
-            result.category = 'completed'
+            result.category = 'runtest'
             result.status = 'completed, numerical checks skipped, unsupported log file format'
             record(result, walltime_norm=walltime_norm)
             test_id = test_id + 1
@@ -992,6 +1075,7 @@ def iterate(lmp_binary, input_folder, input_list, config, results, progress_file
     # collect statistics over the results recorded in this call
     stat = { 'num_completed': 0,
              'num_passed': 0,
+             'num_runtest': 0,
              'num_skipped': 0,
              'num_error': 0,
              'num_timeout': 0,
@@ -999,10 +1083,12 @@ def iterate(lmp_binary, input_folder, input_list, config, results, progress_file
              'num_memleak': 0,
            }
     for result in results[num_results_initial:]:
-        if result.category in ('passed', 'failed', 'completed'):
+        if result.category in ('passed', 'failed', 'runtest'):
             stat['num_completed'] += 1
         if result.category == 'passed':
             stat['num_passed'] += 1
+        elif result.category == 'runtest':
+            stat['num_runtest'] += 1
         elif result.category == 'failed':
             stat['num_failed'] += 1
         elif result.category == 'error':
@@ -1051,6 +1137,19 @@ def needs_partitions(input_file):
     except OSError:
         pass
     return ""
+
+# input scripts under these folders under examples/ couple LAMMPS to another code:
+# through library or file based coupling (COUPLE) or through the MDI protocol as a
+# driver or engine (mdi, QUANTUM), so they can never be tested standalone
+COUPLED_FOLDERS = ('COUPLE', 'mdi', 'QUANTUM')
+COUPLE_REASON = "couples LAMMPS to another code and cannot be tested standalone"
+
+'''
+    check whether a path is under one of the COUPLED_FOLDERS under examples/
+'''
+def coupling_example(path):
+    parts = os.path.abspath(path).split(os.sep)
+    return any(folder in parts for folder in COUPLED_FOLDERS)
 
 # STATIC AND DYNAMIC SCREENING FOR STYLES MISSING FROM THE TESTED BINARY
 #
@@ -1208,7 +1307,19 @@ def incompatible_style_usage(input_file, missing_styles, installed_packages=None
 # script cannot work with the tested binary; any other failure is inconclusive
 # (e.g. an artifact of the runs being cut short) and the input is tested normally
 PREFLIGHT_SKIP_PATTERNS = ("package which is not enabled",
-                           "missing because of a dependency")
+                           "missing because of a dependency",
+                           "requires ML-IAP with python support",
+                           "Must enable ML-PACE package")
+
+# error messages that are a consequence of the run and minimize loops being cut
+# short by -skiprun: post-run analysis (e.g. variables dividing by averages that a
+# fix accumulates over the full run, or energies tallied on the expected timestep
+# schedule) cannot work with runs that end after one step.  Such an input script
+# cannot be checked with -skiprun, which is not a failure of the input script.
+SKIPRUN_ARTIFACT_PATTERNS = ("was not tallied on needed timestep",
+                             "Divide by 0 in variable formula",
+                             "compute cannot be invoked before initialization",
+                             "in variable requires thermo to use/init")
 
 '''
     validate an input script with a "-skiprun" dry run of the tested binary
@@ -2289,6 +2400,10 @@ if __name__ == "__main__":
                         help="JSON lines file caching the -skiprun preflight verdicts; it can be "
                              "shared between workers and is reused as long as the binary "
                              "configuration stays the same")
+    parser.add_argument("--preflight-only", dest="preflight_only", action='store_true', default=False,
+                        help="Run every input script with \"-skiprun\" appended and only test "
+                             "that it parses, sets up, and takes one step without crashing; "
+                             "no numerical checks are performed")
     parser.add_argument("--gen-ref",dest="genref", action='store_true', default=False,
                         help="Generating reference log files")
     parser.add_argument("--verbose",dest="verbose", action='store_true', default=False,
@@ -2385,6 +2500,16 @@ if __name__ == "__main__":
         return the list without those input scripts
     '''
     def screen_input_list(input_list):
+        # the inputs under examples/COUPLE, examples/mdi and examples/QUANTUM couple
+        # LAMMPS to another code and are always left out (several are not even
+        # LAMMPS input scripts)
+        couple = [inp for inp in input_list if coupling_example(inp)]
+        if couple:
+            input_list = [inp for inp in input_list if not coupling_example(inp)]
+            msg = (f"\n{len(couple)} input script(s) under " +
+                   ", ".join("examples/" + f for f in COUPLED_FOLDERS) + " are left out.")
+            print(msg)
+            logger.info(msg)
         if not missing_styles:
             return input_list
         packages = build_config['installed_packages'] if build_config else None
@@ -2538,7 +2663,9 @@ if __name__ == "__main__":
             cmd_str = f"find {example_toplevel} -name \"in.*\" "
             p = subprocess.run(cmd_str, shell=True, text=True, capture_output=True)
             # sort the list, since find returns the input scripts in file system order
-            input_list = sorted(inp for inp in p.stdout.split('\n') if inp)
+            # leave out editor backup copies (e.g. in.melt~) of input scripts
+            input_list = sorted(inp for inp in p.stdout.split('\n')
+                                if inp and not inp.endswith('~'))
             msg = f"\nThere are {len(input_list)} input scripts in total under the {example_toplevel} folder."
             print(msg)
             logger.info(msg)
@@ -2688,6 +2815,7 @@ if __name__ == "__main__":
     config['installed_packages'] = packages
     config['preflight'] = args.preflight
     config['preflight_cache'] = args.preflight_cache
+    config['preflight_only'] = args.preflight_only
     if args.preflight:
         config['known_commands'] = style_universe['command']
         # the preflight verdicts only depend on which styles the binary includes, so
@@ -2738,6 +2866,7 @@ if __name__ == "__main__":
     total_tests = 0
     completed_tests = 0
     passed_tests = 0
+    runtest_tests = 0
     skipped_tests = 0
     error_tests = 0
     timeout_tests = 0
@@ -2788,9 +2917,11 @@ if __name__ == "__main__":
             logger.info("Entering " + directory)
             os.chdir(directory)
 
-            # test all input scripts in the folder if none were selected explicitly
+            # test all input scripts in the folder if none were selected explicitly,
+            # leaving out editor backup copies (e.g. in.melt~)
             if input_list is None:
-                input_list = sorted(glob.glob("in.*"))
+                input_list = sorted(inp for inp in glob.glob("in.*")
+                                    if not inp.endswith('~'))
             else:
                 input_list = [inp for inp in input_list if os.path.isfile(inp)]
 
@@ -2805,6 +2936,7 @@ if __name__ == "__main__":
             completed_tests += stat['num_completed']
             skipped_tests += stat['num_skipped']
             passed_tests += stat['num_passed']
+            runtest_tests += stat['num_runtest']
             error_tests += stat['num_error']
             timeout_tests += stat['num_timeout']
             failed_tests += stat['num_failed']
@@ -2827,6 +2959,7 @@ if __name__ == "__main__":
         completed_tests = stat['num_completed']
         skipped_tests = stat['num_skipped']
         passed_tests = stat['num_passed']
+        runtest_tests = stat['num_runtest']
         error_tests = stat['num_error']
         timeout_tests += stat['num_timeout']
         failed_tests = stat['num_failed']
@@ -2846,12 +2979,14 @@ if __name__ == "__main__":
     msg += f"     - timeout  : {timeout_tests}\n"
     msg += f"  - Completed: {completed_tests}\n"
     msg += f"     - failed   : {failed_tests}\n"
+    msg += f"     - runtest  : {runtest_tests} (run completed, nothing checked)\n"
 
     # print notice to GitHub
     if 'GITHUB_STEP_SUMMARY' in os.environ:
         with open(os.environ.get('GITHUB_STEP_SUMMARY'), 'a') as f:
             print(f"Total: {total_tests}  Skipped: {skipped_tests}  Error: {error_tests}  Timeout: {timeout_tests}"
-                  f"  Failed: {failed_tests}  Passed: {passed_tests}  Completed: {completed_tests}", file=f)
+                  f"  Failed: {failed_tests}  Passed: {passed_tests}  Runtest: {runtest_tests}"
+                  f"  Completed: {completed_tests}", file=f)
 
     if 'valgrind' in config['mpiexec']:
         msg += f"     - memory leak detected  : {memleak_tests}\n"

@@ -305,6 +305,9 @@ def get_examples_using_styles(regex, examples='examples'):
     commands = re.compile(regex)
     inputs = []
     for filename in Path(examples).rglob('in.*'):
+        # leave out editor backup copies (e.g. in.melt~) of input scripts
+        if str(filename).endswith('~'):
+            continue
         with open(filename) as f:
             for line in f:
                 if commands.match(line):
