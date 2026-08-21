@@ -287,3 +287,5 @@ comm_kokkos.cpp:443 MANIFESTS-CRASH in.rigid.cubes.4  watch:comm:k_recv_send_fix
 comm_kokkos.cpp:468 INERT 
 comm_kokkos.cpp:494 INERT 
 comm_kokkos.cpp:520 MANIFESTS-DIVERGED in.rigid.cubes.4 NOT-DETECTED
+comm_kokkos.cpp:521 MANIFESTS-DIVERGED in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::compute_forces_and_torques_kokkos()
+comm_kokkos.cpp:541 MANIFESTS-DIVERGED in.rigid.cubes.4 stale:comm:k_recv_send_fix<-void_LAMMPS_NS::CommKokkos::reverse_comm_device<Kokkos::Serial>(LAMMPS_NS::Fix*,_int), watch:comm:k_recv_send_fix=host@0,
