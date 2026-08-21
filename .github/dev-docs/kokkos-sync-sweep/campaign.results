@@ -1,0 +1,196 @@
+DualView "atom:angle_type"
+DualView "atom:bond_atom"
+DualView "atom:dihedral_type"
+DualView "atom:nspecial"
+DualView "atom:num_dihedral"
+DualView "atom:special"
+angle_charmm_kokkos.cpp:293 MANIFESTS-CRASH in.peptide.4.dev  watch:239
+angle_charmm_kokkos.cpp:293 MANIFESTS-CRASH in.peptide.4.dev NOT-DETECTED
+angle_charmm_kokkos.cpp:294 MANIFESTS-CRASH in.peptide.4.dev  watch:238
+angle_charmm_kokkos.cpp:294 MANIFESTS-CRASH in.peptide.4.dev NOT-DETECTED
+angle_charmm_kokkos.cpp:295 INERT 
+angle_charmm_kokkos.cpp:296 INERT 
+angle_charmm_kokkos.cpp:298 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::AngleCharmmKokkos<Kokkos::Serial>::compute(int, int)
+angle_charmm_kokkos.cpp:299 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::AngleCharmmKokkos<Kokkos::Serial>::compute(int, int)
+angle_charmm_kokkos.cpp:300 INERT 
+angle_charmm_kokkos.cpp:301 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::AngleCharmmKokkos<Kokkos::Serial>::compute(int, int)
+angle_charmm_kokkos.cpp:91 INERT 
+angle_harmonic_kokkos.cpp:276 MANIFESTS-DIVERGED in.molecular-mix.4 NOT-DETECTED
+angle_harmonic_kokkos.cpp:276 MANIFESTS-DIVERGED in.molecular-mix.4 stale:atom:type<-LAMMPS_NS::NPairKokkos<Kokkos::Serial,_1,_1,_0,_0,_0>::build([watch]_atom:nspecial:_the_device_side_was_written_without_a_claim_and_this_sync_host_has_nothing_to_copy_--_the_host_keeps_stale_data, watch:AngleHarmonic::k=host@1,Neighbor::d_atom2bin=host@3872,atom:bond_type=device@1,atom:dihedral_atom4=device@1,atom:nspecial=device@1,neigh:neighbor->anglelist=host@1,
+angle_harmonic_kokkos.cpp:277 MANIFESTS-DIVERGED in.molecular-mix.4  watch:AngleHarmonic::theta0=host@1,atom:molecule=device@1,
+angle_harmonic_kokkos.cpp:277 MANIFESTS-DIVERGED in.molecular-mix.4 NOT-DETECTED
+angle_harmonic_kokkos.cpp:90 MANIFESTS-DIVERGED in.molecular-mix.4 poison:LAMMPS_NS::AngleHarmonicKokkos<Kokkos::Serial>::compute(int, int)
+angle_harmonic_kokkos.cpp:91 MANIFESTS-DIVERGED in.molecular-mix.4 poison:LAMMPS_NS::AngleHarmonicKokkos<Kokkos::Serial>::compute(int, int)
+angle_harmonic_kokkos.cpp:97 INERT 
+atom_kokkos.cpp:290 MANIFESTS-CRASH in.micelle.1 stale:atom:,
+atom_map_kokkos.cpp:131 INERT 
+atom_map_kokkos.cpp:140 INERT 
+atom_map_kokkos.cpp:278 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::AtomKokkos::map_set_host()
+atom_map_kokkos.cpp:279 INERT 
+atom_map_kokkos.cpp:282 INERT 
+atom_map_kokkos.cpp:372 MANIFESTS-CRASH in.micelle.1 stale:atom:sametag,
+atom_map_kokkos.cpp:374 INERT 
+atom_map_kokkos.cpp:374 SKIP build-failed
+atom_map_kokkos.cpp:376 INERT 
+atom_map_kokkos.cpp:376 SKIP build-failed
+atom_map_kokkos.cpp:389 INERT 
+atom_vec_atomic_kokkos.cpp:61 INERT 
+atom_vec_atomic_kokkos.cpp:62 INERT 
+atom_vec_atomic_kokkos.cpp:74 MANIFESTS-CRASH in.melt.4 poison:LAMMPS_NS::AtomVec::create_atom(int, double*)
+atom_vec_bond_kokkos.cpp:176 MANIFESTS-CRASH in.micelle.1  abort:DualView "atom:nspecial"
+atom_vec_bond_kokkos.cpp:177 MANIFESTS-CRASH in.micelle.1  abort:DualView "atom:special"
+atom_vec_bond_kokkos.cpp:180 MANIFESTS-CRASH in.micelle.1  abort:DualView "atom:num_bond"
+atom_vec_bond_kokkos.cpp:181 MANIFESTS-DIVERGED in.micelle.1 poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondBondAll, int
+atom_vec_bond_kokkos.cpp:182 MANIFESTS-CRASH in.micelle.1 poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondBondAll, int
+atom_vec_bond_kokkos.cpp:194 MANIFESTS-CRASH in.micelle.1 poison:LAMMPS_NS::AtomVec::data_atom(double*, int, std::vector<std::__cxx11::basic_string<char, s
+atom_vec_bond_kokkos.cpp:195 MANIFESTS-CRASH in.micelle.1  abort:DualView "atom:special"
+atom_vec_bond_kokkos.cpp:198 MANIFESTS-CRASH in.micelle.1 poison:LAMMPS_NS::AtomVec::data_atom(double*, int, std::vector<std::__cxx11::basic_string<char, s
+atom_vec_bond_kokkos.cpp:199 INERT 
+atom_vec_bond_kokkos.cpp:200 INERT 
+atom_vec_bond_kokkos.cpp:306 INERT 
+atom_vec_bond_kokkos.cpp:307 INERT 
+atom_vec_bond_kokkos.cpp:310 INERT 
+atom_vec_bond_kokkos.cpp:311 INERT 
+atom_vec_bond_kokkos.cpp:312 INERT 
+atom_vec_bond_kokkos.cpp:324 MANIFESTS-DIVERGED in.micelle.1 stale:atom:v,atom:v<-LAMMPS_NS::DatamaskAudit::DatamaskAudit(LAMMPS_NS::LAMMPS*,_char_const*,_char_const*,_unsigned_long),atom:v<-LAMMPS_NS::DatamaskAudit::~DatamaskAudit(),
+atom_vec_bond_kokkos.cpp:325 MANIFESTS-DIVERGED in.micelle.1 stale:atom:v, watch:1
+atom_vec_bond_kokkos.cpp:328 MANIFESTS-DIVERGED in.micelle.1 stale:atom:v, watch:1
+atom_vec_bond_kokkos.cpp:329 MANIFESTS-DIVERGED in.micelle.1 stale:atom:v, watch:1
+atom_vec_bond_kokkos.cpp:330 MANIFESTS-CRASH in.micelle.1 NOT-DETECTED
+atom_vec_bond_kokkos.cpp:330 MANIFESTS-CRASH in.micelle.1 stale:atom:bond_atom<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::bond_all(),
+atom_vec_bond_kokkos.cpp:61 MANIFESTS-CRASH in.micelle.1  watch:5
+atom_vec_bond_kokkos.cpp:62 INERT 
+atom_vec_bond_kokkos.cpp:81 MANIFESTS-CRASH in.micelle.1 poison:LAMMPS_NS::AtomVec::data_atom(double*, int, std::vector<std::__cxx11::basic_string<char, s
+atom_vec_full_kokkos.cpp:119 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::AtomVec::data_atom(double*, int, std::vector<std::__cxx11::basic_string<char, s
+atom_vec_full_kokkos.cpp:293 MANIFESTS-CRASH in.peptide.4.dev  abort:DualView "atom:nspecial"
+atom_vec_full_kokkos.cpp:294 MANIFESTS-CRASH in.peptide.4.dev  abort:DualView "atom:special"
+atom_vec_full_kokkos.cpp:297 MANIFESTS-CRASH in.peptide.4.dev  abort:DualView "atom:num_bond"
+atom_vec_full_kokkos.cpp:298 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondBondPartial,
+atom_vec_full_kokkos.cpp:299 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondBondPartial,
+atom_vec_full_kokkos.cpp:302 MANIFESTS-CRASH in.peptide.4.dev  abort:DualView "atom:num_angle"
+atom_vec_full_kokkos.cpp:303 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondAnglePartial
+atom_vec_full_kokkos.cpp:304 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondAnglePartial
+atom_vec_full_kokkos.cpp:305 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondAnglePartial
+atom_vec_full_kokkos.cpp:306 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondAnglePartial
+atom_vec_full_kokkos.cpp:309 MANIFESTS-CRASH in.peptide.4.dev  abort:DualView "atom:num_dihedral"
+atom_vec_full_kokkos.cpp:310 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondDihedralAll,
+atom_vec_full_kokkos.cpp:311 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondDihedralAll,
+atom_vec_full_kokkos.cpp:312 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondDihedralAll,
+atom_vec_full_kokkos.cpp:313 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondDihedralAll,
+atom_vec_full_kokkos.cpp:314 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondDihedralAll,
+atom_vec_full_kokkos.cpp:317 MANIFESTS-CRASH in.peptide.4.dev  abort:DualView "atom:num_improper"
+atom_vec_full_kokkos.cpp:318 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondImproperAll,
+atom_vec_full_kokkos.cpp:319 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondImproperAll,
+atom_vec_full_kokkos.cpp:320 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondImproperAll,
+atom_vec_full_kokkos.cpp:321 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondImproperAll,
+atom_vec_full_kokkos.cpp:322 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::operator()(LAMMPS_NS::TagNeighBondImproperAll,
+atom_vec_full_kokkos.cpp:335 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::AtomVec::data_atom(double*, int, std::vector<std::__cxx11::basic_string<char, s
+atom_vec_full_kokkos.cpp:336 MANIFESTS-CRASH in.peptide.4.dev  abort:DualView "atom:special"
+atom_vec_full_kokkos.cpp:339 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::AtomVec::data_atom(double*, int, std::vector<std::__cxx11::basic_string<char, s
+atom_vec_full_kokkos.cpp:340 INERT 
+atom_vec_full_kokkos.cpp:341 INERT 
+atom_vec_full_kokkos.cpp:344 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::AtomVec::data_atom(double*, int, std::vector<std::__cxx11::basic_string<char, s
+atom_vec_full_kokkos.cpp:345 INERT 
+atom_vec_full_kokkos.cpp:346 INERT 
+atom_vec_full_kokkos.cpp:347 INERT 
+atom_vec_full_kokkos.cpp:348 INERT 
+atom_vec_full_kokkos.cpp:351 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::AtomVec::data_atom(double*, int, std::vector<std::__cxx11::basic_string<char, s
+atom_vec_full_kokkos.cpp:352 INERT 
+atom_vec_full_kokkos.cpp:353 INERT 
+atom_vec_full_kokkos.cpp:354 INERT 
+atom_vec_full_kokkos.cpp:355 INERT 
+atom_vec_full_kokkos.cpp:356 INERT 
+atom_vec_full_kokkos.cpp:359 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::AtomVec::data_atom(double*, int, std::vector<std::__cxx11::basic_string<char, s
+atom_vec_full_kokkos.cpp:360 INERT 
+atom_vec_full_kokkos.cpp:361 INERT 
+atom_vec_full_kokkos.cpp:362 INERT 
+atom_vec_full_kokkos.cpp:363 INERT 
+atom_vec_full_kokkos.cpp:364 INERT 
+atom_vec_full_kokkos.cpp:577 INERT 
+atom_vec_full_kokkos.cpp:578 INERT 
+atom_vec_full_kokkos.cpp:581 INERT 
+atom_vec_full_kokkos.cpp:582 INERT 
+atom_vec_full_kokkos.cpp:583 MANIFESTS-CRASH in.peptide.4.dev  watch:Neighbor::d_atom2bin=host@?,Neighbor::d_bincount=host@4368,atom:dihedral_atom4=device@3,atom:improper_atom3=device@4,atom:molecule=host@73,atom:q=device@?,shake:list=host@29,shake:shake_atom=device@?,
+atom_vec_full_kokkos.cpp:583 MANIFESTS-CRASH in.peptide.4.dev  watch:atom:bond_atom=device@111,atom:bond_atom=device@165,atom:bond_atom=device@21,atom:bond_atom=device@228,atom:bond_atom=device@267,atom:bond_atom=device@327,atom:bond_atom=device@372,atom:bond_atom=device@459,
+atom_vec_full_kokkos.cpp:583 MANIFESTS-CRASH in.peptide.4.dev NOT-DETECTED
+atom_vec_full_kokkos.cpp:586 INERT 
+atom_vec_full_kokkos.cpp:587 INERT 
+atom_vec_full_kokkos.cpp:588 INERT 
+atom_vec_full_kokkos.cpp:589 INERT 
+atom_vec_full_kokkos.cpp:590 INERT 
+atom_vec_full_kokkos.cpp:593 INERT 
+atom_vec_full_kokkos.cpp:594 INERT 
+atom_vec_full_kokkos.cpp:595 INERT 
+atom_vec_full_kokkos.cpp:596 INERT 
+atom_vec_full_kokkos.cpp:597 INERT 
+atom_vec_full_kokkos.cpp:598 INERT 
+atom_vec_full_kokkos.cpp:60 MANIFESTS-CRASH in.peptide.4.dev  watch:49
+atom_vec_full_kokkos.cpp:60 MANIFESTS-CRASH in.peptide.4.dev  watch:51
+atom_vec_full_kokkos.cpp:60 MANIFESTS-CRASH in.peptide.4.dev  watch:52
+atom_vec_full_kokkos.cpp:60 MANIFESTS-CRASH in.peptide.4.dev  watch:55
+atom_vec_full_kokkos.cpp:60 MANIFESTS-CRASH in.peptide.4.dev  watch:56
+atom_vec_full_kokkos.cpp:601 INERT 
+atom_vec_full_kokkos.cpp:602 INERT 
+atom_vec_full_kokkos.cpp:603 INERT 
+atom_vec_full_kokkos.cpp:604 INERT 
+atom_vec_full_kokkos.cpp:605 INERT 
+atom_vec_full_kokkos.cpp:606 INERT 
+atom_vec_full_kokkos.cpp:61 INERT 
+atom_vec_full_kokkos.cpp:619 MANIFESTS-CRASH in.peptide.4.dev  watch:atom:nspecial=host@0,
+atom_vec_full_kokkos.cpp:619 MANIFESTS-CRASH in.peptide.4.dev NOT-DETECTED
+atom_vec_full_kokkos.cpp:620 MANIFESTS-CRASH in.peptide.4.dev  watch:atom:special=host@0,
+atom_vec_full_kokkos.cpp:620 MANIFESTS-CRASH in.peptide.4.dev NOT-DETECTED
+atom_vec_full_kokkos.cpp:623 INERT 
+atom_vec_full_kokkos.cpp:624 INERT 
+atom_vec_full_kokkos.cpp:625 MANIFESTS-CRASH in.peptide.4.dev stale:atom:bond_atom<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::bond_partial(),
+atom_vec_full_kokkos.cpp:628 INERT 
+atom_vec_full_kokkos.cpp:628 MANIFESTS-CRASH in.peptide.4.dev stale:atom:num_angle<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::angle_partial(),atom:num_angle<-void_LAMMPS_NS::CommKokkos::exchange_device<Kokkos::Serial>(), watch:8
+atom_vec_full_kokkos.cpp:629 MANIFESTS-CRASH in.peptide.4.dev stale:atom:angle_type<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::angle_partial(),
+atom_vec_full_kokkos.cpp:630 INERT 
+atom_vec_full_kokkos.cpp:631 INERT 
+atom_vec_full_kokkos.cpp:632 INERT 
+atom_vec_full_kokkos.cpp:635 INERT 
+atom_vec_full_kokkos.cpp:636 INERT 
+atom_vec_full_kokkos.cpp:637 MANIFESTS-CRASH in.peptide.4.dev stale:atom:dihedral_atom1<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(),
+atom_vec_full_kokkos.cpp:638 MANIFESTS-CRASH in.peptide.4.dev stale:atom:dihedral_atom2<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedra[vm:27123]_[[1293,0],0]_ORTE_ERROR_LOG:_Data_unpack_had_inadequate_space_in_file_../../../orte/util/show_help.c_at_line_513,atom:dihedral_atom2<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(),
+atom_vec_full_kokkos.cpp:639 MANIFESTS-CRASH in.peptide.4.dev stale:atom:dihedral_atom3<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedra--------------------------------------------------------------------------,atom:dihedral_atom3<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(),
+atom_vec_full_kokkos.cpp:640 MANIFESTS-CRASH in.peptide.4.dev stale:atom:dihedral_atom4<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(),
+atom_vec_full_kokkos.cpp:643 INERT 
+atom_vec_full_kokkos.cpp:644 INERT 
+atom_vec_full_kokkos.cpp:645 MANIFESTS-CRASH in.peptide.4.dev stale:atom:improper_atom1<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::improper_all(),
+atom_vec_full_kokkos.cpp:646 MANIFESTS-CRASH in.peptide.4.dev stale:atom:improper_atom2<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::improper_all(),
+atom_vec_full_kokkos.cpp:647 MANIFESTS-CRASH in.peptide.4.dev stale:atom:improper_atom3<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::improper_all(),
+atom_vec_full_kokkos.cpp:648 MANIFESTS-CRASH in.peptide.4.dev stale:atom:improper_atom4<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::improper_all(),
+atom_vec_kokkos.cpp:1346 INERT 
+atom_vec_kokkos.cpp:1348 INERT 
+atom_vec_kokkos.cpp:1356 MANIFESTS-DIVERGED in.melt.4.dev  watch:24
+atom_vec_kokkos.cpp:1431 INERT 
+atom_vec_kokkos.cpp:1433 INERT 
+atom_vec_kokkos.cpp:1441 MANIFESTS-DIVERGED in.melt.4.dev  watch:atom:f=device,
+atom_vec_kokkos.cpp:1560 MANIFESTS-CRASH in.peptide.4.dev poison:AtomVecKokkos_PackBorder<Kokkos::Serial, 1, 0>::operator()(int const&) const
+atom_vec_kokkos.cpp:1738 INERT 
+atom_vec_kokkos.cpp:1764 MANIFESTS-CRASH in.melt.4.dev  watch:atom:mask=device@1001,atom:mask=device@1200,atom:mask=device@1350,atom:tag=device@1000,atom:tag=device@1200,atom:tag=device@1350,atom:type=device@1001,atom:type=device@1200,atom:type=device@1350,atom:x=device@3000,atom:x=device@3600,atom:x=device@4051,atom:x=device@?,
+atom_vec_kokkos.cpp:216 INERT 
+atom_vec_kokkos.cpp:2515 INERT 
+atom_vec_kokkos.cpp:2550 INERT 
+atom_vec_kokkos.cpp:2792 INERT 
+atom_vec_kokkos.cpp:2820 MANIFESTS-CRASH in.melt.4.dev poison:LAMMPS_NS::NBinKokkos<Kokkos::Serial>::binatomsItem(int const&) const
+atom_vec_kokkos.cpp:2845 MANIFESTS-CRASH in.melt.4.dev stale:atom:k_count,atom:k_count<-void_LAMMPS_NS::CommKokkos::exchange_device<Kokkos::Serial>(), watch:atom:k_count=device@0,
+atom_vec_kokkos.cpp:2846 MANIFESTS-CRASH in.melt.4.dev stale:atom:k_count,atom:k_count<-void_LAMMPS_NS::CommKokkos::exchange_device<Kokkos::Serial>(),atom:k_count<-void_LAMMPS_NS::CommKokkos::exchange_device<Kokkos::SerialLAMMPS::DualView::modify_host_ERROR:_concurrent_modification_of_host_and_device_views_in_DualView_"atom:k_count", abort:DualView "atom:k_count"
+atom_vec_kokkos.cpp:2851 INERT 
+atom_vec_kokkos.cpp:529 INERT 
+atom_vec_kokkos.cpp:531 INERT 
+atom_vec_kokkos.cpp:585 INERT 
+atom_vec_molecular_kokkos.cpp:119 MANIFESTS-CRASH in.molecular-mix.4 poison:LAMMPS_NS::AtomVec::create_atom(int, double*)
+atom_vec_molecular_kokkos.cpp:285 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:nspecial"
+atom_vec_molecular_kokkos.cpp:289 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:num_bond"
+atom_vec_molecular_kokkos.cpp:290 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:bond_type"
+atom_vec_molecular_kokkos.cpp:291 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:bond_atom"
+atom_vec_molecular_kokkos.cpp:294 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:num_angle"
+atom_vec_molecular_kokkos.cpp:295 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:angle_type"
+atom_vec_molecular_kokkos.cpp:297 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:angle_atom2"
+atom_vec_molecular_kokkos.cpp:298 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:angle_atom3"
+atom_vec_molecular_kokkos.cpp:301 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:num_dihedral"
+atom_vec_molecular_kokkos.cpp:302 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:dihedral_type"
+atom_vec_molecular_kokkos.cpp:62 INERT 
+atom_vec_molecular_kokkos.cpp:63 INERT 
