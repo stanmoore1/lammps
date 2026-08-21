@@ -285,6 +285,7 @@ bond_harmonic_kokkos.cpp:250 MANIFESTS-DIVERGED in.micelle.1 poison:LAMMPS_NS::B
 bond_harmonic_kokkos.cpp:91 INERT 
 comm_kokkos.cpp:147 INERT 
 comm_kokkos.cpp:150 INERT 
+comm_kokkos.cpp:152 MANIFESTS-CRASH in.micelle.1 poison:LAMMPS_NS::AtomVec::pack_comm(int, int*, double*, int, int*)
 comm_kokkos.cpp:157 INERT 
 comm_kokkos.cpp:175 INERT 
 comm_kokkos.cpp:180 INERT 
