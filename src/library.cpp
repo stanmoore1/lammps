@@ -6487,8 +6487,7 @@ void NeighProxy::command(int narg, char **arg)
   req->apply_flags(flags);
   if (cutoff > 0.0) {
     // library-requested cutoff applies to all types
-    req->set_cut_fixed(1);
-    req->set_cutoff(cutoff);
+    req->set_cutoff_fixed(cutoff);
   }
   lmp->init();
 

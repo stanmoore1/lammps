@@ -220,9 +220,7 @@ void ComputeRDF::init()
       error->all(FLERR, Error::NOLASTLINE,
                  "Compute rdf with custom cutoff requires neighbor style 'bin' or 'nsq'");
 
-    // Cutoff applies to all types
-    req->set_cut_fixed(1);
-    req->set_cutoff(mycutneigh);
+    req->set_cutoff_fixed(mycutneigh);
   }
 }
 

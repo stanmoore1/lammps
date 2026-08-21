@@ -313,9 +313,7 @@ void FixHyperLocal::init()
   auto *req = neighbor->add_request(this, NeighConst::REQ_FULL | NeighConst::REQ_OCCASIONAL);
   req->set_id(1);
 
-  // Cutoff applies to all types
-  req->set_cut_fixed(1);
-  req->set_cutoff(dcut);
+  req->set_cutoff_fixed(dcut);
 
   // also need occasional half neighbor list derived from pair style
   // used for building local bond list

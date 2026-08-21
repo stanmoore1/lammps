@@ -150,9 +150,7 @@ void ComputeHBondLocal::init()
                "Compute hbond/local requires neighbor style 'bin' or 'nsq'");
   auto *req = neighbor->add_request(this, NeighConst::REQ_FULL | NeighConst::REQ_OCCASIONAL);
 
-  // Cutoff applies to all types
-  req->set_cut_fixed(1);
-  req->set_cutoff(distcutoff);
+  req->set_cutoff_fixed(distcutoff);
 
   // do initial memory allocation assuming all donors have two hydrogen bonds
 

@@ -290,25 +290,34 @@ void NeighRequest::apply_flags(int flags)
 
 /* ---------------------------------------------------------------------- */
 
-void NeighRequest::set_cutoff(double _cutoff)
+// a requestor with a non-standard cutoff must state how to interpret it,
+//   by calling exactly one of the three methods below
+//   there is deliberately no plain set_cutoff(): the interpretation cannot be
+//   guessed, and getting it wrong silently truncates the list for some type pairs
+
+// _cutoff is the MAXIMUM cutoff across atom types, individual type pairs may
+//   use a shorter cutoff.  This is the usual case for pair styles
+
+void NeighRequest::set_cutoff_max(double _cutoff)
 {
   cut = 1;
   cutoff = _cutoff;
 }
 
-void NeighRequest::set_cut_fixed(int flag)
+// _cutoff applies UNIFORMLY to every atom type pair.  This is the usual case
+//   for fixes/computes analyzing a fixed range (e.g. an RDF)
+
+void NeighRequest::set_cutoff_fixed(double _cutoff)
 {
-  cut_fixed = flag;
+  cut = 1;
+  cutoff = _cutoff;
+  cut_fixed = 1;
 }
 
-// request a list whose cutoff must be at least _cutoff for every atom type
-//   prototyped as a fixed (uniform) cutoff, which guarantees the list is not
-//   truncated to a smaller per-type cutoff
-
-// request a list that covers at least _cutoff for every atom type
-//   the requester filters by distance itself, so Neighbor may reuse the default
-//   list when it already covers _cutoff; otherwise a fixed (uniform) cutoff list
-//   is built.  cut_fixed governs the build case, cut_min enables the reuse case.
+// _cutoff is the MINIMUM range the requestor needs for every atom type pair,
+//   and the requestor filters neighbors by distance itself, so a longer list is
+//   acceptable.  Neighbor may then reuse the default list when it already covers
+//   _cutoff, and otherwise builds a uniform cutoff list
 
 void NeighRequest::set_cutoff_min(double _cutoff)
 {

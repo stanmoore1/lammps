@@ -1207,33 +1207,46 @@ void Neighbor::morph_unique()
   for (int i = 0; i < nrequest; i++) {
     irq = requests[i];
 
-    // if cut flag set by requestor have two options
-    //   (1) cut_fixed is set (all types have the same cutoff)
-    //       check if cutoff is larger than minimum
-    //   (2) cut_fixed is not set (cutoff is just the maximum across types)
-    //       check if cutoff differs from current maximum
-    //   Then if the list is not a skip list, set unique flag; otherwise unset cut flag
-    // this forces Pair,Stencil,Bin styles to be instantiated separately
+    // decide whether a requested non-standard cutoff needs a list of its own
+    //   (unique = its own Bin,Stencil,Pair styles are instantiated) or whether
+    //   the default cutoffs already serve it, in which case the cut flag is
+    //   unset and the request falls back on the default list
     // also add skin to cutoff of perpetual lists
 
     if (irq->cut) {
       if (!irq->occasional)
         irq->cutoff += skin;
 
-      // cut_min: the requester filters by distance itself and only needs a list
-      //   that covers its cutoff.  If the default list already does (cutoff does
-      //   not exceed the smallest per-type pair cutoff), reuse it by dropping the
-      //   custom cutoff instead of building or trimming a dedicated list.
-      if (irq->cut_min && (irq->cutoff <= cutneighmin_pair) && !irq->skip) {
-        irq->cut = 0;
-        irq->cutoff = 0.0;
-      } else if (irq->cut_fixed && (irq->cutoff > cutneighmin) && !irq->skip) {
-        irq->unique = 1;
-      } else if ((irq->cutoff != cutneighmax) && !irq->skip) {
+      int needs_own_cutoff;
+      if (irq->skip) {
+        // skip lists inherit the cutoff of the parent they skip from
+        needs_own_cutoff = 0;
+      } else if (irq->cut_min && (irq->cutoff <= cutneighmin_pair)) {
+        // requestor only needs the cutoff covered and filters by distance
+        //   itself, and every type pair of the default list already reaches it,
+        //   so reuse the default list rather than building or trimming one
+        needs_own_cutoff = 0;
+      } else if (irq->cut_fixed && (irq->cutoff > cutneighmin)) {
+        // uniform cutoff that some type pair of the default list does not
+        //   reach, so the default list would be truncated for those pairs
+        needs_own_cutoff = 1;
+      } else {
+        // remaining cases, for either interpretation of the cutoff, only need
+        //   their own list if the requested value differs from the default one
+        //   they would otherwise inherit.  A shorter cutoff still lands here so
+        //   that morph_copy_trim() can trim it down instead of widening it
+        needs_own_cutoff = (irq->cutoff != cutneighmax);
+      }
+
+      if (needs_own_cutoff) {
         irq->unique = 1;
       } else {
+        // reverts to the default cutoff, so drop its interpretation as well,
+        //   otherwise the stale flags leak into later cutoff comparisons
         irq->cut = 0;
         irq->cutoff = 0.0;
+        irq->cut_fixed = 0;
+        irq->cut_min = 0;
       }
     }
 
