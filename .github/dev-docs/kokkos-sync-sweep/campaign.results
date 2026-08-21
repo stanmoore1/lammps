@@ -257,28 +257,33 @@ atom_vec_molecular_kokkos.cpp:601 MANIFESTS-DIVERGED in.molecular-mix.4  watch:a
 atom_vec_molecular_kokkos.cpp:602 MANIFESTS-DIVERGED in.molecular-mix.4  watch:atom:special=host@0,
 atom_vec_molecular_kokkos.cpp:605 MANIFESTS-DIVERGED in.molecular-mix.4 stale:atom:num_bond,atom:num_bond<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::bond_all(), watch:atom:num_bond=host@0,atom:num_bond=host@1,
 atom_vec_molecular_kokkos.cpp:605 MANIFESTS-DIVERGED in.molecular-mix.4 stale:atom:num_bond,atom:num_bond<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::bond_all(),atom:tag<-LAMMPS_NS::NPairKokkos<Kokkos::Serial,_1,_1,_0,_0,_0>::build(Lild(LAMMPS_NS::NeighList*), watch:atom:num_bond=host@0,atom:num_bond=host@1,
+atom_vec_molecular_kokkos.cpp:606 MANIFESTS-DIVERGED in.molecular-mix.4 stale:atom:bond_type,atom:bond_type<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::bond_all(), watch:atom:bond_type=host@0,
 atom_vec_molecular_kokkos.cpp:607 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:bond_atom<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::bond_all(), watch:atom:bond_atom=host@0,
 atom_vec_molecular_kokkos.cpp:610 MANIFESTS-DIVERGED in.molecular-mix.4 stale:atom:num_angle,atom:num_angle<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::angle_all(), watch:atom:num_angle=host@0,
 atom_vec_molecular_kokkos.cpp:611 MANIFESTS-DIVERGED in.molecular-mix.4 stale:atom:angle_type,atom:angle_type<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::angle_all(), watch:atom:angle_type=host@0,atom:f=host@?,
 atom_vec_molecular_kokkos.cpp:612 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:angle_atom1<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::angle_all(), watch:atom:angle_atom1=host@0,
 atom_vec_molecular_kokkos.cpp:613 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:angle_atom2<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::angle_all(), watch:atom:angle_atom2=host@0,
+atom_vec_molecular_kokkos.cpp:614 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:angle_atom3<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::angle_all(), watch:atom:angle_atom3=host@0,
 atom_vec_molecular_kokkos.cpp:617 MANIFESTS-DIVERGED in.molecular-mix.4 stale:atom:num_dihedral,atom:num_dihedral<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(), watch:atom:num_dihedral=host@0,atom:num_dihedral=host@1,
 atom_vec_molecular_kokkos.cpp:618 MANIFESTS-DIVERGED in.molecular-mix.4 stale:atom:dihedral_type,atom:dihedral_type<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(), watch:atom:dihedral_type=host@0,
 atom_vec_molecular_kokkos.cpp:619 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:dihedral_atom1<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(), watch:atom:dihedral_atom1=host@0,
 atom_vec_molecular_kokkos.cpp:62 INERT 
 atom_vec_molecular_kokkos.cpp:620 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:dihedral_atom2<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(), watch:atom:dihedral_atom2=host@0,
 atom_vec_molecular_kokkos.cpp:621 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:dihedral_atom3<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(), watch:atom:dihedral_atom3=host@0,
+atom_vec_molecular_kokkos.cpp:622 MANIFESTS-CRASH in.molecular-mix.4 stale:atom:dihedral_atom4<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::dihedral_all(), watch:atom:dihedral_atom4=host@0,
 atom_vec_molecular_kokkos.cpp:625 INERT 
 atom_vec_molecular_kokkos.cpp:626 INERT 
 atom_vec_molecular_kokkos.cpp:627 INERT 
 atom_vec_molecular_kokkos.cpp:628 INERT 
 atom_vec_molecular_kokkos.cpp:629 INERT 
 atom_vec_molecular_kokkos.cpp:63 INERT 
+atom_vec_molecular_kokkos.cpp:630 INERT 
 bond_harmonic_kokkos.cpp:247 MANIFESTS-DIVERGED in.micelle.1  watch:BondHarmonic::k=host@1,
 bond_harmonic_kokkos.cpp:248 MANIFESTS-DIVERGED in.micelle.1  watch:BondHarmonic::r0=host@1,
 bond_harmonic_kokkos.cpp:249 MANIFESTS-DIVERGED in.micelle.1 poison:LAMMPS_NS::BondHarmonicKokkos<Kokkos::Serial>::compute(int, int)
 bond_harmonic_kokkos.cpp:250 MANIFESTS-DIVERGED in.micelle.1 poison:LAMMPS_NS::BondHarmonicKokkos<Kokkos::Serial>::compute(int, int)
 bond_harmonic_kokkos.cpp:91 INERT 
+comm_kokkos.cpp:147 INERT 
 comm_kokkos.cpp:150 INERT 
 comm_kokkos.cpp:157 INERT 
 comm_kokkos.cpp:175 INERT 
