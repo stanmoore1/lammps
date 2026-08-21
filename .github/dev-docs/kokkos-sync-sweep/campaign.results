@@ -3,6 +3,7 @@ DualView "atom:bond_atom"
 DualView "atom:dihedral_type"
 DualView "atom:improper_atom1"
 DualView "atom:improper_atom2"
+DualView "atom:improper_type"
 DualView "atom:nspecial"
 DualView "atom:num_dihedral"
 DualView "atom:num_improper"
@@ -201,46 +202,55 @@ atom_vec_molecular_kokkos.cpp:302 MANIFESTS-CRASH in.molecular-mix.4  abort:Dual
 atom_vec_molecular_kokkos.cpp:303 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:dihedral_atom1"
 atom_vec_molecular_kokkos.cpp:304 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:dihedral_atom2"
 atom_vec_molecular_kokkos.cpp:305 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:dihedral_atom3"
+atom_vec_molecular_kokkos.cpp:306 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:dihedral_atom4"
 atom_vec_molecular_kokkos.cpp:309 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:num_improper"
 atom_vec_molecular_kokkos.cpp:310 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:improper_type"
 atom_vec_molecular_kokkos.cpp:311 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:improper_atom1"
 atom_vec_molecular_kokkos.cpp:312 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:improper_atom2"
 atom_vec_molecular_kokkos.cpp:313 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:improper_atom3"
+atom_vec_molecular_kokkos.cpp:314 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:improper_atom4"
 atom_vec_molecular_kokkos.cpp:326 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:nspecial"
 atom_vec_molecular_kokkos.cpp:327 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:special"
 atom_vec_molecular_kokkos.cpp:330 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:num_bond"
 atom_vec_molecular_kokkos.cpp:331 MANIFESTS-CRASH in.molecular-mix.4 poison:LAMMPS_NS::Atom::add_molecule_atom(LAMMPS_NS::Molecule*, int, int, int)
 atom_vec_molecular_kokkos.cpp:332 MANIFESTS-CRASH in.molecular-mix.4 poison:LAMMPS_NS::Atom::add_molecule_atom(LAMMPS_NS::Molecule*, int, int, int)
+atom_vec_molecular_kokkos.cpp:335 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:num_angle"
 atom_vec_molecular_kokkos.cpp:336 MANIFESTS-CRASH in.molecular-mix.4 poison:LAMMPS_NS::Atom::add_molecule_atom(LAMMPS_NS::Molecule*, int, int, int)
 atom_vec_molecular_kokkos.cpp:337 MANIFESTS-CRASH in.molecular-mix.4 poison:LAMMPS_NS::Atom::add_molecule_atom(LAMMPS_NS::Molecule*, int, int, int)
 atom_vec_molecular_kokkos.cpp:338 MANIFESTS-CRASH in.molecular-mix.4 poison:LAMMPS_NS::Atom::add_molecule_atom(LAMMPS_NS::Molecule*, int, int, int)
 atom_vec_molecular_kokkos.cpp:339 MANIFESTS-CRASH in.molecular-mix.4 poison:LAMMPS_NS::Atom::add_molecule_atom(LAMMPS_NS::Molecule*, int, int, int)
 atom_vec_molecular_kokkos.cpp:342 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:num_dihedral"
+atom_vec_molecular_kokkos.cpp:343 MANIFESTS-CRASH in.molecular-mix.4 poison:LAMMPS_NS::Atom::add_molecule_atom(LAMMPS_NS::Molecule*, int, int, int)
 atom_vec_molecular_kokkos.cpp:344 MANIFESTS-CRASH in.molecular-mix.4 poison:LAMMPS_NS::Atom::add_molecule_atom(LAMMPS_NS::Molecule*, int, int, int)
 atom_vec_molecular_kokkos.cpp:345 MANIFESTS-CRASH in.molecular-mix.4 poison:LAMMPS_NS::Atom::add_molecule_atom(LAMMPS_NS::Molecule*, int, int, int)
 atom_vec_molecular_kokkos.cpp:346 MANIFESTS-CRASH in.molecular-mix.4 poison:LAMMPS_NS::Atom::add_molecule_atom(LAMMPS_NS::Molecule*, int, int, int)
 atom_vec_molecular_kokkos.cpp:347 MANIFESTS-CRASH in.molecular-mix.4 poison:LAMMPS_NS::Atom::add_molecule_atom(LAMMPS_NS::Molecule*, int, int, int)
 atom_vec_molecular_kokkos.cpp:350 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:num_improper"
+atom_vec_molecular_kokkos.cpp:351 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:improper_type"
 atom_vec_molecular_kokkos.cpp:352 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:improper_atom1"
 atom_vec_molecular_kokkos.cpp:353 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:improper_atom2"
 atom_vec_molecular_kokkos.cpp:354 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:improper_atom3"
 atom_vec_molecular_kokkos.cpp:355 MANIFESTS-CRASH in.molecular-mix.4  abort:DualView "atom:improper_atom4"
 atom_vec_molecular_kokkos.cpp:560 INERT 
+atom_vec_molecular_kokkos.cpp:561 INERT 
 atom_vec_molecular_kokkos.cpp:564 INERT 
 atom_vec_molecular_kokkos.cpp:565 INERT 
 atom_vec_molecular_kokkos.cpp:566 INERT 
 atom_vec_molecular_kokkos.cpp:569 INERT 
 atom_vec_molecular_kokkos.cpp:570 INERT 
+atom_vec_molecular_kokkos.cpp:571 INERT 
 atom_vec_molecular_kokkos.cpp:572 INERT 
 atom_vec_molecular_kokkos.cpp:573 INERT 
 atom_vec_molecular_kokkos.cpp:576 INERT 
 atom_vec_molecular_kokkos.cpp:577 INERT 
 atom_vec_molecular_kokkos.cpp:578 INERT 
+atom_vec_molecular_kokkos.cpp:579 INERT 
 atom_vec_molecular_kokkos.cpp:580 INERT 
 atom_vec_molecular_kokkos.cpp:581 INERT 
 atom_vec_molecular_kokkos.cpp:584 INERT 
 atom_vec_molecular_kokkos.cpp:585 INERT 
 atom_vec_molecular_kokkos.cpp:586 INERT 
+atom_vec_molecular_kokkos.cpp:587 INERT 
 atom_vec_molecular_kokkos.cpp:588 INERT 
 atom_vec_molecular_kokkos.cpp:589 INERT 
 atom_vec_molecular_kokkos.cpp:601 MANIFESTS-DIVERGED in.molecular-mix.4  watch:atom:nspecial=host@0,atom:nspecial=host@3,
