@@ -128,6 +128,7 @@ pairclass(nullptr), pairnames(nullptr), pairmasks(nullptr)
 
   cutneighmax = 0.0;
   cutneighmin = BIG;
+  cutneighmin_pair = BIG;
   cutneighsq = nullptr;
   cutneighghostsq = nullptr;
   cuttype = nullptr;
@@ -380,6 +381,13 @@ void Neighbor::init()
     }
   }
   cutneighmaxsq = cutneighmax * cutneighmax;
+
+  // cutneighmin_pair = smallest per-type-pair neighbor cutoff of the default
+  //   list (pair styles only, before custom request cutoffs are folded in).
+  //   A cut_min request can reuse the default list only if its cutoff does not
+  //   exceed this value, i.e. the default list already covers it for every type.
+
+  cutneighmin_pair = cutneighmin;
 
   // update cutneighmin based on individual neighbor list requests
 
@@ -1213,6 +1221,11 @@ void Neighbor::morph_unique()
       if (irq->skip) {
         // skip lists inherit the cutoff of the parent they skip from
         needs_own_cutoff = 0;
+      } else if (irq->cut_min && (irq->cutoff <= cutneighmin_pair)) {
+        // requestor only needs the cutoff covered and filters by distance
+        //   itself, and every type pair of the default list already reaches it,
+        //   so reuse the default list rather than building or trimming one
+        needs_own_cutoff = 0;
       } else if (irq->cut_fixed && (irq->cutoff > cutneighmin)) {
         // uniform cutoff that some type pair of the default list does not
         //   reach, so the default list would be truncated for those pairs
@@ -1233,6 +1246,7 @@ void Neighbor::morph_unique()
         irq->cut = 0;
         irq->cutoff = 0.0;
         irq->cut_fixed = 0;
+        irq->cut_min = 0;
       }
     }
 
@@ -1923,6 +1937,7 @@ void Neighbor::print_pairwise_info()
     if (rq->cut) {
       out += fmt::format(", cut {}", rq->cutoff);
       if (rq->cut_fixed) out += fmt::format(", cut fixed {}", rq->cut_fixed);
+      if (rq->cut_min) out += fmt::format(", cut min {}", rq->cut_min);
     }
     if (rq->off2on) out += ", off2on";
     out += "\n";

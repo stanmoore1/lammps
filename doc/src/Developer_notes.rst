@@ -208,6 +208,11 @@ how its cutoff is to be interpreted, by calling exactly one of:
    * - ``set_cutoff_fixed(cutoff)``
      - applies uniformly to every pair of atom types.  This is the typical
        case for a fix or compute analyzing a fixed range, e.g. an RDF.
+   * - ``set_cutoff_min(cutoff)``
+     - the minimum range required for every pair of atom types, where the
+       requesting style filters neighbors by distance itself so that a longer
+       list is acceptable.  The default list is then reused when it already
+       covers the cutoff, which avoids binning all atoms a second time.
 
 Using ``set_cutoff_max()`` where a uniform cutoff is meant will silently
 truncate the list for those type pairs that use a shorter pair style cutoff.

@@ -692,7 +692,7 @@ mean "the largest cutoff used by any type pair" or "this cutoff for every type
 pair".  Assuming the former where the latter was meant silently truncates the
 list for the type pairs that use a shorter pair style cutoff.
 
-``NeighRequest::set_cutoff()`` has therefore been replaced by two functions
+``NeighRequest::set_cutoff()`` has therefore been replaced by three functions
 that each state the intended interpretation, and must be called instead:
 
 - ``set_cutoff_max(cutoff)`` -- the maximum across atom types, individual type
@@ -700,6 +700,8 @@ that each state the intended interpretation, and must be called instead:
 - ``set_cutoff_fixed(cutoff)`` -- applies uniformly to every pair of atom
   types.  This is the typical case for a fix or compute analyzing a fixed
   range, e.g. an RDF.
+- ``set_cutoff_min(cutoff)`` -- the minimum range required for every pair of
+  atom types, where the requesting style filters neighbors by distance itself.
 
 Old:
 

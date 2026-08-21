@@ -71,6 +71,7 @@ NeighRequest::NeighRequest(LAMMPS *_lmp) : Pointers(_lmp)
   ssa = 0;
   cut = 0;
   cut_fixed = 0;
+  cut_min = 0;
   cutoff = 0.0;
 
   // skip info, default is no skipping
@@ -173,6 +174,7 @@ int NeighRequest::identical(NeighRequest *other)
   if (copy != other->copy) same = 0;
   if (cutoff != other->cutoff) same = 0;
   if (cut_fixed != other->cut_fixed) same = 0;
+  if (cut_min != other->cut_min) same = 0;
 
   if (skip != other->skip) same = 0;
   if (same && skip && other->skip) same = same_skip(other);
@@ -239,6 +241,7 @@ void NeighRequest::copy_request(NeighRequest *other, int skipflag)
   ssa = other->ssa;
   cut = other->cut;
   cut_fixed = other->cut_fixed;
+  cut_min = other->cut_min;
   cutoff = other->cutoff;
 
   iskip = nullptr;
@@ -288,7 +291,7 @@ void NeighRequest::apply_flags(int flags)
 /* ---------------------------------------------------------------------- */
 
 // a requestor with a non-standard cutoff must state how to interpret it,
-//   by calling exactly one of the two methods below
+//   by calling exactly one of the three methods below
 //   there is deliberately no plain set_cutoff(): the interpretation cannot be
 //   guessed, and getting it wrong silently truncates the list for some type pairs
 
@@ -309,6 +312,19 @@ void NeighRequest::set_cutoff_fixed(double _cutoff)
   cut = 1;
   cutoff = _cutoff;
   cut_fixed = 1;
+}
+
+// _cutoff is the MINIMUM range the requestor needs for every atom type pair,
+//   and the requestor filters neighbors by distance itself, so a longer list is
+//   acceptable.  Neighbor may then reuse the default list when it already covers
+//   _cutoff, and otherwise builds a uniform cutoff list
+
+void NeighRequest::set_cutoff_min(double _cutoff)
+{
+  cut = 1;
+  cutoff = _cutoff;
+  cut_fixed = 1;
+  cut_min = 1;
 }
 
 void NeighRequest::set_id(int _id)

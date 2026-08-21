@@ -91,6 +91,9 @@ class NeighRequest : protected Pointers {
   //   If set, cut_fixed  implies the cutoff is uniform across all atom types.
   //     This is typical of fixes/computes with a fixed range of analysis (e.g. an RDF)
   int cut_fixed;        // toggles cutoff interpretation, whether fixed across types
+  int cut_min;          // 1 if cutoff is a minimum requirement and the requester
+                        //   filters by distance, so the default list may be reused
+                        //   when it already covers the cutoff for every type pair
   int cut;              // 1 if use a non-standard cutoff length
   double cutoff;        // special cutoff distance for this list
 
@@ -147,8 +150,10 @@ class NeighRequest : protected Pointers {
   // a non-standard cutoff requires stating its interpretation, exactly one of:
   //   max   - cutoff is the maximum across types (typical of pair styles)
   //   fixed - cutoff applies uniformly to all types (typical of analysis)
+  //   min   - cutoff is a minimum requirement and the requestor self-filters
   void set_cutoff_max(double);
   void set_cutoff_fixed(double);
+  void set_cutoff_min(double);
   void set_id(int);
   void set_kokkos_device(int);
   void set_kokkos_host(int);
