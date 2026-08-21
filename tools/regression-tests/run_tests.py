@@ -408,13 +408,12 @@ def iterate(lmp_binary, input_folder, input_list, config, results, progress_file
                 test_id = test_id + 1
                 continue
 
-        # the input scripts under examples/COUPLE couple LAMMPS to another code
-        # (or drive it from one), so they can never be tested standalone
-        if coupling_example(input_test):
-            msg = "   + " + input + f" ({test_id+1}/{num_tests}): skipped, {COUPLE_REASON}"
+        # the input scripts that couple LAMMPS to other codes or are graphics demos can or should not be tested standalone
+        if excluded_example(input_test):
+            msg = "   + " + input + f" ({test_id+1}/{num_tests}): skipped, {EXCLUDED_REASON}"
             print(msg)
             logger.info(msg)
-            result.status = f'skipped, {COUPLE_REASON}'
+            result.status = f'skipped, {EXCLUDED_REASON}'
             record(result)
             test_id = test_id + 1
             continue
@@ -1138,18 +1137,17 @@ def needs_partitions(input_file):
         pass
     return ""
 
-# input scripts under these folders under examples/ couple LAMMPS to another code:
-# through library or file based coupling (COUPLE) or through the MDI protocol as a
-# driver or engine (mdi, QUANTUM), so they can never be tested standalone
-COUPLED_FOLDERS = ('COUPLE', 'mdi', 'QUANTUM')
-COUPLE_REASON = "couples LAMMPS to another code and cannot be tested standalone"
+# input scripts under these folders under examples/ couple LAMMPS to another code
+# or are not meant for showing physics, but as GRAPHICS package demos.
+EXCLUDED_FOLDERS = ('COUPLE', 'mdi', 'QUANTUM', 'GRAPHICS')
+EXCLUDED_REASON = "couples LAMMPS to another code or is a graphics demo and cannot be tested standalone"
 
 '''
-    check whether a path is under one of the COUPLED_FOLDERS under examples/
+    check whether a path is under one of the EXCLUDED_FOLDERS under examples/
 '''
-def coupling_example(path):
+def excluded_example(path):
     parts = os.path.abspath(path).split(os.sep)
-    return any(folder in parts for folder in COUPLED_FOLDERS)
+    return any(folder in parts for folder in EXCLUDED_FOLDERS)
 
 # STATIC AND DYNAMIC SCREENING FOR STYLES MISSING FROM THE TESTED BINARY
 #
@@ -2500,14 +2498,12 @@ if __name__ == "__main__":
         return the list without those input scripts
     '''
     def screen_input_list(input_list):
-        # the inputs under examples/COUPLE, examples/mdi and examples/QUANTUM couple
-        # LAMMPS to another code and are always left out (several are not even
-        # LAMMPS input scripts)
-        couple = [inp for inp in input_list if coupling_example(inp)]
-        if couple:
-            input_list = [inp for inp in input_list if not coupling_example(inp)]
-            msg = (f"\n{len(couple)} input script(s) under " +
-                   ", ".join("examples/" + f for f in COUPLED_FOLDERS) + " are left out.")
+        # the input scripts that couple LAMMPS to other codes or are graphics demos can or should not be tested standalone
+        exclude = [inp for inp in input_list if excluded_example(inp)]
+        if exclude:
+            input_list = [inp for inp in input_list if not excluded_example(inp)]
+            msg = (f"\n{len(exclude)} input script(s) under " +
+                   ", ".join("examples/" + f for f in EXCLUDED_FOLDERS) + " are left out.")
             print(msg)
             logger.info(msg)
         if not missing_styles:

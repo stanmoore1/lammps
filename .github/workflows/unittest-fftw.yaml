@@ -4,7 +4,7 @@
 # LATBOLTZ can be included, FFTW3 instead of the bundled KISS FFT, and the
 # KOKKOS package with the OpenMP backend.  The check-examples.yml workflow
 # builds the same configuration and shares the ccache cache with this one.
-name: "Unittest for Linux /w MPI, FFTW3 and KOKKOS OpenMP"
+name: "Unittest for Linux, FFTW3 and KOKKOS OpenMP"
 
 on:
   push:
@@ -80,6 +80,7 @@ jobs:
               -D MLIAP_ENABLE_ACE=on \
               -D MLIAP_ENABLE_PYTHON=off \
               -D PKG_LATBOLTZ=on \
+              -D PKG_MESOCNT=off \
               -D PKG_MANIFOLD=on \
               -D PKG_ML-PACE=on \
               -D PKG_RHEO=on \

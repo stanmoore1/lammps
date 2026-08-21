@@ -81,6 +81,7 @@ jobs:
               -D MLIAP_ENABLE_ACE=on \
               -D MLIAP_ENABLE_PYTHON=off \
               -D PKG_LATBOLTZ=on \
+              -D PKG_MESOCNT=off \
               -D PKG_MANIFOLD=on \
               -D PKG_ML-PACE=on \
               -D PKG_RHEO=on \
