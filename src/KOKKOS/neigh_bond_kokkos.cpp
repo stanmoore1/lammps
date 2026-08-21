@@ -66,6 +66,8 @@ NeighBondKokkos<DeviceType>::NeighBondKokkos(LAMMPS *lmp) : Pointers(lmp)
   maxangle = 0;
   maxdihedral = 0;
   maximproper = 0;
+
+  copymode = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -73,6 +75,12 @@ NeighBondKokkos<DeviceType>::NeighBondKokkos(LAMMPS *lmp) : Pointers(lmp)
 template<class DeviceType>
 NeighBondKokkos<DeviceType>::~NeighBondKokkos()
 {
+  // Kokkos hands the loop bodies below a copy of this class as the functor and
+  // destroys that copy when the loop is done.  The topology lists belong to
+  // Neighbor, not to the copy, so only the original may release them.
+
+  if (copymode) return;
+
   memoryKK->destroy_kokkos(k_bondlist,neighbor->bondlist);
   memoryKK->destroy_kokkos(k_anglelist,neighbor->anglelist);
   memoryKK->destroy_kokkos(k_dihedrallist,neighbor->dihedrallist);
@@ -256,7 +264,9 @@ void NeighBondKokkos<DeviceType>::bond_all()
 
     Kokkos::deep_copy(d_scalars,0);
 
+    copymode = 1;
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagNeighBondBondAll>(0,nlocal),*this,nmissing);
+    copymode = 0;
 
     Kokkos::deep_copy(h_scalars,d_scalars);
 
@@ -337,7 +347,9 @@ void NeighBondKokkos<DeviceType>::bond_partial()
 
     Kokkos::deep_copy(d_scalars,0);
 
+    copymode = 1;
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagNeighBondBondPartial>(0,nlocal),*this,nmissing);
+    copymode = 0;
 
     Kokkos::deep_copy(h_scalars,d_scalars);
 
@@ -399,7 +411,9 @@ void NeighBondKokkos<DeviceType>::bond_check()
   atomKK->sync(execution_space, X_MASK);
   k_bondlist.sync<DeviceType>();
 
+  copymode = 1;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagNeighBondBondCheck>(0,neighbor->nbondlist),*this,flag);
+  copymode = 0;
 
   int flag_all;
   MPI_Allreduce(&flag,&flag_all,1,MPI_INT,MPI_SUM,world);
@@ -444,7 +458,9 @@ void NeighBondKokkos<DeviceType>::angle_all()
 
     Kokkos::deep_copy(d_scalars,0);
 
+    copymode = 1;
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagNeighBondAngleAll>(0,nlocal),*this,nmissing);
+    copymode = 0;
 
     Kokkos::deep_copy(h_scalars,d_scalars);
 
@@ -531,7 +547,9 @@ void NeighBondKokkos<DeviceType>::angle_partial()
 
     Kokkos::deep_copy(d_scalars,0);
 
+    copymode = 1;
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagNeighBondAnglePartial>(0,nlocal),*this,nmissing);
+    copymode = 0;
 
     Kokkos::deep_copy(h_scalars,d_scalars);
 
@@ -601,7 +619,9 @@ void NeighBondKokkos<DeviceType>::angle_check()
   atomKK->sync(execution_space, X_MASK);
   k_anglelist.sync<DeviceType>();
 
+  copymode = 1;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagNeighBondAngleCheck>(0,neighbor->nanglelist),*this,flag);
+  copymode = 0;
 
   int flag_all;
   MPI_Allreduce(&flag,&flag_all,1,MPI_INT,MPI_SUM,world);
@@ -658,7 +678,9 @@ void NeighBondKokkos<DeviceType>::dihedral_all()
 
     Kokkos::deep_copy(d_scalars,0);
 
+    copymode = 1;
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagNeighBondDihedralAll>(0,nlocal),*this,nmissing);
+    copymode = 0;
 
     Kokkos::deep_copy(h_scalars,d_scalars);
 
@@ -750,7 +772,9 @@ void NeighBondKokkos<DeviceType>::dihedral_partial()
 
     Kokkos::deep_copy(d_scalars,0);
 
+    copymode = 1;
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagNeighBondDihedralPartial>(0,nlocal),*this,nmissing);
+    copymode = 0;
 
     Kokkos::deep_copy(h_scalars,d_scalars);
 
@@ -825,7 +849,9 @@ void NeighBondKokkos<DeviceType>::dihedral_check(int nlist, typename AT::t_int_2
   atomKK->sync(execution_space, X_MASK);
   k_dihedrallist.sync<DeviceType>();
 
+  copymode = 1;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagNeighBondDihedralCheck>(0,nlist),*this,flag);
+  copymode = 0;
 
   int flag_all;
   MPI_Allreduce(&flag,&flag_all,1,MPI_INT,MPI_SUM,world);
@@ -899,7 +925,9 @@ void NeighBondKokkos<DeviceType>::improper_all()
 
     Kokkos::deep_copy(d_scalars,0);
 
+    copymode = 1;
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagNeighBondImproperAll>(0,nlocal),*this,nmissing);
+    copymode = 0;
 
     Kokkos::deep_copy(h_scalars,d_scalars);
 
@@ -991,7 +1019,9 @@ void NeighBondKokkos<DeviceType>::improper_partial()
 
     Kokkos::deep_copy(d_scalars,0);
 
+    copymode = 1;
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagNeighBondImproperPartial>(0,nlocal),*this,nmissing);
+    copymode = 0;
 
     Kokkos::deep_copy(h_scalars,d_scalars);
 
