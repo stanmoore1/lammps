@@ -373,12 +373,9 @@ void FixRigidSmallKokkos<DeviceType>::setup_pre_neighbor()
     if (k_body.view_device().extent_int(0) < nbody_all) {
       k_body.sync_host();
       k_body.resize(nbody_all > nmax_body ? nbody_all : nmax_body);
-      // DualView::resize() takes its resize_on_device branch here (both modify
-      // flags are 0 after the sync) and marks the device side modified; clear that
-      // before claiming the host copy, or modify_host() sees both flags set and
-      // Kokkos::abort()s on a build where the two memory spaces differ.
-      k_body.clear_sync_state();
-      k_body.modify_host();
+      // refill the host mirror resize() re-created empty, and clear the device
+      // claim it left, before the host rebuild below writes body[] (see grow_body)
+      k_body.sync_host();
     }
     copy_body_device();
     k_bodytag.modify_host();
@@ -568,7 +565,7 @@ void FixRigidSmallKokkos<DeviceType>::setup_device_push()
   if (langflag) {
     k_langextra.sync_host();
     k_langextra.resize(nmax_body, 6);
-    k_langextra.clear_sync_state();   // resize marked the device side (see grow_body)
+    k_langextra.sync_host();          // refill the mirror resize() re-created (see grow_body)
     k_langextra.modify_host();
     k_langextra.template sync<DeviceType>();
     d_langextra = k_langextra.template view<DeviceType>();
@@ -625,6 +622,10 @@ void FixRigidSmallKokkos<DeviceType>::setup_device_push()
   n_body_recv.clear();
   n_body_sent.clear();
   first_body.clear();
+  // keyed by the k_sendlist row pointer, which CommKokkos reallocates when it
+  // grows the send lists -- stale keys would otherwise accumulate for the whole
+  // run and could be matched by a later allocation landing on the same address
+  d_body_sendlists.clear();
   commflag = BODY_SENDLIST;
   commKK->forward_comm_device<DeviceType>(this, 1);
   commflag = FULL_BODY;
@@ -776,6 +777,10 @@ void FixRigidSmallKokkos<DeviceType>::pre_neighbor(){
   n_body_recv.clear();
   n_body_sent.clear();
   first_body.clear();
+  // keyed by the k_sendlist row pointer, which CommKokkos reallocates when it
+  // grows the send lists -- stale keys would otherwise accumulate for the whole
+  // run and could be matched by a later allocation landing on the same address
+  d_body_sendlists.clear();
   commflag = BODY_SENDLIST;
   commKK->forward_comm_device<DeviceType>(this, 1);
   commflag = FULL_BODY;
@@ -1167,8 +1172,10 @@ bigint FixRigidSmallKokkos<DeviceType>::dof(int tgroup)
   // on the host, and does a DOF reverse_comm.  On the device path a reneighbor
   // may have left those host mirrors stale, so flush them when they are actually
   // read (setupflag true); sync_host() is a no-op when the host copy is current.
-  // dof() does not read body[], so no copy_body_host() is needed.
+  // It also reads body[ibody].inertia to detect linear bodies, so the body
+  // array has to come down from the device as well.
   if (setupflag) {
+    copy_body_host();
     k_atom2body.sync_host();
     k_bodyown.sync_host();
     k_bodytag.sync_host();
@@ -1502,7 +1509,9 @@ void FixRigidSmallKokkos<DeviceType>::operator()(TagUpdateXGC, const int ibody) 
 template<class DeviceType>
 void FixRigidSmallKokkos<DeviceType>::write_restart_file(const char *file)
 {
-  copy_body_host();
+  // k_body is not sized until setup_device_push(); the base method returns
+  // early before setup, so guard the flush the same way (cf. compute_scalar)
+  if (setupflag) copy_body_host();
   FixRigidSmall::write_restart_file(file);
 }
 
@@ -1593,23 +1602,23 @@ void FixRigidSmallKokkos<DeviceType>::grow_arrays(int nmax)
 
   refresh_atom_views();
 
-  // grow_kokkos() resizes the DualView, and DualView::resize() takes its
-  // resize_on_device branch and marks the device side modified.  Retire that
-  // claim on every array grown above, or the next modify_host() on one of them
-  // -- from here, setup_device_push(), pre_neighbor() or sort_kokkos() -- sees
-  // both flags set and Kokkos::abort()s.  The sync_host() calls do this for the
-  // five arrays whose contents are restored below; k_vatom and the extended
-  // arrays only need the claim dropped.
+  // grow_kokkos() resizes the DualView.  DualView::resize() resizes the device
+  // view in place, replaces the host mirror with a fresh empty allocation, and
+  // marks the device modified -- so after a grow the data is on the device and
+  // the mirror is empty.  Every array grown above therefore needs sync_host():
+  // it refills the mirror and clears the claim, which is also what keeps the
+  // next modify_host() -- from here, setup_device_push(), pre_neighbor() or
+  // sort_kokkos() -- from seeing both flags set and aborting.
   k_bodyown.sync_host();
   k_atom2body.sync_host();
   k_bodytag.sync_host();
   k_xcmimage.sync_host();
   k_displace.sync_host();
-  k_vatom.clear_sync_state();
+  k_vatom.sync_host();
   if (extended) {
-    k_eflags.clear_sync_state();
-    if (orientflag) k_orient.clear_sync_state();
-    if (dorientflag) k_dorient.clear_sync_state();
+    k_eflags.sync_host();
+    if (orientflag) k_orient.sync_host();
+    if (dorientflag) k_dorient.sync_host();
   }
 
   // restore the preserved contents into the new host mirrors
@@ -1680,8 +1689,9 @@ void FixRigidSmallKokkos<DeviceType>::set_molecule(int nlocalprev, tagint tagpre
 
   // add new bodies on host
   FixRigidSmall::set_molecule(nlocalprev, tagprev, imol, xgeom, vcm, quat);
-  // update device body list to same size and copy
-  grow_body();
+  // the base call already grew the capacity through the virtual grow_body() if
+  // the body list was full; only match the device views to it here
+  resize_body_views();
   copy_body_device();
 
   // base set_molecule wrote new atoms' bodytag/bodyown/displace/xcmimage (and,
@@ -2406,33 +2416,48 @@ void FixRigidSmallKokkos<DeviceType>::unpack_reverse_comm_kokkos(int n, DAT::tdu
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
+void FixRigidSmallKokkos<DeviceType>::resize_body_views()
+{
+  // Match the device views to nmax_body without changing the capacity itself.
+  //
+  // DualView::resize() takes its resize_on_device branch (both modify flags are
+  // 0 after the sync above it), which resizes the device view -- preserving its
+  // contents -- and then replaces the host mirror with a fresh, empty
+  // allocation, marking the device modified.  That device claim is real: the
+  // data is on the device and the mirror is empty.  sync_host() refills the
+  // mirror and clears the claim; clear_sync_state() would instead leave the
+  // empty mirror standing as authoritative and the next modify_host()/
+  // sync<DeviceType>() would push zeros back over the live device data.
+  if (k_body.view_device().extent_int(0) != nmax_body) {
+    k_body.sync_host();
+    k_body.resize(nmax_body);
+    k_body.sync_host();
+  }
+  d_body = k_body.view_device();
+
+  if (langflag && k_langextra.view_device().extent_int(0) != nmax_body) {
+    k_langextra.sync_host();
+    k_langextra.resize(nmax_body,6);
+    k_langextra.sync_host();
+    d_langextra = k_langextra.template view<DeviceType>();
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
 void FixRigidSmallKokkos<DeviceType>::grow_body()
 {
   Kokkos::Profiling::pushRegion("rigid/small grow body");
 
-  // In set_molecule, CPU code calls grow_body first
-  // Want to not double grow
-  // Still need to do it during initial FULL_BODY unpack forward comm
-  if (nmax_body == k_body.view_device().extent_int(0) || k_body.view_device().extent_int(0) == 0) {
-    FixRigidSmall::grow_body();
-  }
-  // DualView::resize() takes its resize_on_device branch here -- both modify flags
-  // are 0 after the sync, so it picks the device side -- and marks the device
-  // modified.  Clear that before claiming the host copy: otherwise modify_host()
-  // sees both flags set and Kokkos::abort()s ("Concurrent modification of host and
-  // device views") on any build where host and device memory spaces differ.
-  k_body.sync_host();
-  k_body.resize(nmax_body);
-  k_body.clear_sync_state();
-  k_body.modify_host();
-  d_body = k_body.view_device();
-  if (langflag) {
-    k_langextra.sync_host();
-    k_langextra.resize(nmax_body,6);
-    k_langextra.clear_sync_state();
-    k_langextra.modify_host();
-    d_langextra = k_langextra.template view<DeviceType>();
-  }
+  // Always grow the capacity: callers loop on `while (... > nmax_body)
+  // grow_body();`, so nmax_body has to advance on every call.  (Guarding this
+  // on the device extent instead made set_molecule() -- which the base class
+  // already calls grow_body() from when the body list is full -- add another
+  // DELTA_BODY slots on top for every single molecule insertion.)
+  FixRigidSmall::grow_body();
+  resize_body_views();
+
   Kokkos::Profiling::popRegion();
 }
 
@@ -2952,6 +2977,16 @@ double FixRigidSmallKokkos<DeviceType>::compute_scalar()
 template<class DeviceType>
 void FixRigidSmallKokkos<DeviceType>::copy_body_host(){
   Kokkos::Profiling::pushRegion("rigid/small copy body host");
+  // k_body is not sized until setup_device_push().  Callers can run before that
+  // even with setupflag already set -- setup_pre_neighbor() sets it, and
+  // ModifyKokkos::setup() then runs compute temp -> dof() before the fix setup()
+  // loop is reached.  Until the device array exists the host body[] that
+  // create_bodies() filled is the authoritative copy, so there is nothing to
+  // bring down.
+  if (k_body.view_device().extent_int(0) < nlocal_body + nghost_body) {
+    Kokkos::Profiling::popRegion();
+    return;
+  }
   // d_body is written directly by device kernels (integrate/comm) without
   // updating DualView modify flags, so copy explicitly device -> host
   Kokkos::deep_copy(k_body.view_host(), k_body.view_device());

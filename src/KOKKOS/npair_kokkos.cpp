@@ -224,6 +224,14 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::build(NeighList *list_)
     if (exclude) {
       uint64_t mask = X_MASK|RADIUS_MASK|TYPE_MASK|MASK_MASK;
       if (nex_mol) {
+        // molecule IDs can come from fix property/atom with a non-molecular
+        // atom style, where the host copy is written without the DualView being
+        // marked, so the sync below would not carry it to the device.  Retire
+        // any outstanding device claim first: sync_host() is a no-op when the
+        // device has nothing newer, and pulls the newer copy down when it does,
+        // so the modify_host() cannot collide with a device claim (which would
+        // abort) and cannot push a stale host copy over a newer device one.
+        atomKK->k_molecule.sync_host();
         atomKK->k_molecule.modify_host();
         mask |= MOLECULE_MASK;
       }

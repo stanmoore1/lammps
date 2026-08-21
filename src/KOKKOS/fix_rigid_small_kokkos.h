@@ -151,6 +151,7 @@ template <class DeviceType> class FixRigidSmallKokkos : public FixRigidSmall, pu
 
   using Range1D = Kokkos::RangePolicy<DeviceType>;
 
+  void resize_body_views();
   void copy_body_host();
   void copy_body_device();
   void refresh_atom_views();
