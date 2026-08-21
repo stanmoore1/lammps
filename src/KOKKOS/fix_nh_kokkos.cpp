@@ -325,13 +325,17 @@ void FixNHKokkos<DeviceType>::remap()
 
   if (allremap) domainKK->x2lamda(nlocal);
   else {
-    for ( int i = 0; i < nlocal; i++)
-      if (mask[i] & dilate_group_bit) {
-        auto h_x = atomKK->k_x.view_host();
-        atomKK->sync(Host,X_MASK);
+    // this loop runs on the host, so it needs the host side of both arrays:
+    // "mask" is the view for the execution space, and reading it here is an
+    // access to device memory from host code.  Sync once for the whole loop
+    // rather than once per atom as well.
+    atomKK->sync(Host,X_MASK|MASK_MASK);
+    auto h_x = atomKK->k_x.view_host();
+    auto h_mask = atomKK->k_mask.view_host();
+    for (int i = 0; i < nlocal; i++)
+      if (h_mask[i] & dilate_group_bit)
         domainKK->x2lamda(&h_x(i,0), &h_x(i,0));
-        atomKK->modified(Host,X_MASK);
-      }
+    atomKK->modified(Host,X_MASK);
   }
 
   if (rfix.size() > 0)
@@ -476,13 +480,17 @@ void FixNHKokkos<DeviceType>::remap()
 
   if (allremap) domainKK->lamda2x(nlocal);
   else {
-    for ( int i = 0; i < nlocal; i++)
-      if (mask[i] & dilate_group_bit) {
-        auto h_x = atomKK->k_x.view_host();
-        atomKK->sync(Host,X_MASK);
+    // this loop runs on the host, so it needs the host side of both arrays:
+    // "mask" is the view for the execution space, and reading it here is an
+    // access to device memory from host code.  Sync once for the whole loop
+    // rather than once per atom as well.
+    atomKK->sync(Host,X_MASK|MASK_MASK);
+    auto h_x = atomKK->k_x.view_host();
+    auto h_mask = atomKK->k_mask.view_host();
+    for (int i = 0; i < nlocal; i++)
+      if (h_mask[i] & dilate_group_bit)
         domainKK->lamda2x(&h_x(i,0), &h_x(i,0));
-        atomKK->modified(Host,X_MASK);
-      }
+    atomKK->modified(Host,X_MASK);
   }
 
   // for (auto &ifix : rfix) ifix->deform(1);
