@@ -203,6 +203,21 @@ typedef Kokkos::HostSpace::execution_space LMPHostType;
 #define LMP_KOKKOS_LAYOUT_LEGACY
 #endif
 
+// Whether a style that runs on the host may simply use the device buffer.  It
+// may when the two share memory, which is every ordinary CPU build and any
+// unified-memory GPU build.  It may NOT under LMP_KOKKOS_SPLIT_HOST: the two
+// sides are separate allocations there precisely so that a host executing
+// style and a device executing one can be told apart, and handing the host
+// style the device buffer would collapse that distinction again -- it would
+// write its forces into the side it does not then claim.
+#if defined(LMP_KOKKOS_SPLIT_HOST)
+static constexpr bool LMP_DEVICE_REACHABLE_FROM_HOST = false;
+#else
+static constexpr bool LMP_DEVICE_REACHABLE_FROM_HOST =
+    Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,
+                               LMPHostType::memory_space>::accessible;
+#endif
+
 #if defined(LMP_KOKKOS_LAYOUT_LEGACY)
 typedef Kokkos::LayoutRight LMPDeviceLayout;
 #else
@@ -688,20 +703,20 @@ struct dual_hash_type {
  }
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),hash_type&> view() {return d_view;}
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),hash_type&> view() {return d_view;}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),host_hash_type&> view() {return h_view;}
-
-  template<class DeviceType>
-// NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION
-  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const hash_type&> const_view() const {return d_view;}
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),host_hash_type&> view() {return h_view;}
 
   template<class DeviceType>
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const host_hash_type&> const_view() const {return h_view;}
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),const hash_type&> const_view() const {return d_view;}
+
+  template<class DeviceType>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),const host_hash_type&> const_view() const {return h_view;}
 
   void modify_device()
   {
@@ -734,10 +749,10 @@ struct dual_hash_type {
   }
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_device();}
+  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || LMP_DEVICE_REACHABLE_FROM_HOST),void> sync() {sync_device();}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_host();}
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || LMP_DEVICE_REACHABLE_FROM_HOST),void> sync() {sync_host();}
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -1194,7 +1209,7 @@ struct TransformView {
   // whichever of these spellings its author happened to use.
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_dev&> view() {
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),typename kk_view::t_dev&> view() {
 #ifdef LMP_KOKKOS_DEBUG_SYNC
     k_view.stale_check(true);
 #endif
@@ -1202,7 +1217,7 @@ struct TransformView {
   }
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_host&> view() {
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),typename kk_view::t_host&> view() {
 #ifdef LMP_KOKKOS_DEBUG_SYNC
     k_view.stale_check(false);
 #endif
@@ -1211,23 +1226,23 @@ struct TransformView {
 
   template<class DeviceType>
 // NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const typename kk_view::t_dev&> view() const {return d_view;}
+  KOKKOS_INLINE_FUNCTION std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),const typename kk_view::t_dev&> view() const {return d_view;}
 
   template<class DeviceType>
 // NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const typename kk_view::t_host&> view() const {return h_viewkk;}
+  KOKKOS_INLINE_FUNCTION std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),const typename kk_view::t_host&> view() const {return h_viewkk;}
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify() {modify_device();}
+  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || LMP_DEVICE_REACHABLE_FROM_HOST),void> modify() {modify_device();}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify() {modify_hostkk();}
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || LMP_DEVICE_REACHABLE_FROM_HOST),void> modify() {modify_hostkk();}
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_device();}
+  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || LMP_DEVICE_REACHABLE_FROM_HOST),void> sync() {sync_device();}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_hostkk();}
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || LMP_DEVICE_REACHABLE_FROM_HOST),void> sync() {sync_hostkk();}
 
   void clear_sync_state()
   {
