@@ -276,3 +276,6 @@ comm_kokkos.cpp:159 MANIFESTS-DIVERGED in.micelle.1 stale:atom:x<-LAMMPS_NS::Bon
 comm_kokkos.cpp:175 INERT 
 comm_kokkos.cpp:180 INERT 
 comm_kokkos.cpp:281 INERT 
+comm_kokkos.cpp:283 MANIFESTS-CRASH in.micelle.1 poison:LAMMPS_NS::AtomVec::unpack_reverse(int, int*, double*)
+comm_kokkos.cpp:285 MANIFESTS-CRASH in.micelle.1 stale:atom:f<-LAMMPS_NS::FixEnforce2DKokkos<Kokkos::Serial>::post_force(int),atom:f<-LAMMPS_NS::FixNVEKokkos<Kokkos::Serial>::final_integrate(),atom:f<-LAMMPS_NS::FixNVEKokkos<Kokkos::Serial>::initial_integrate(int), watch:atom:f=host@30,
+comm_kokkos.cpp:301 MANIFESTS-DIVERGED in.rigid.cubes.multirun.4.dev poison:AtomVecKokkos_UnPackReverse<Kokkos::Serial, 1>::operator()(int const&) const
