@@ -57,7 +57,9 @@ class DatamaskAudit {
    so the modified() calls inside a style are redundant with it: what has to be
    right is the declaration, not the call.
 
-   Declaring more than is written is only wasteful and is not reported.
+   Declaring more than is written is only wasteful and is not reported, except
+   for a style that declares every array: that one is reported, because there is
+   then nothing left to compare and silence would read as a clean result.
 ------------------------------------------------------------------------- */
 
 class DatamaskAudit {

@@ -179,9 +179,27 @@ DatamaskAudit::DatamaskAudit(LAMMPS *lmp_in, const char *what_in, const char *st
   if (arrays.empty()) return;
 
   before.resize(arrays.size());
+  int checked = 0;
   for (size_t i = 0; i < arrays.size(); i++) {
     if (declared & arrays[i].bit) continue;    // free to change it, do not copy
     before[i].assign(arrays[i].data, arrays[i].data + arrays[i].bytes);
+    checked++;
+  }
+
+  // A style that never sets datamask_modify keeps the ALL_MASK that the base
+  // class puts there, which declares every array and leaves nothing to compare.
+  // Say so, rather than let the style pass as though it had been checked.
+
+  if (checked == 0) {
+    const std::string key = style + " declares every array";
+    if (audit_found.count(key)) audit_found[key]++;
+    else {
+      audit_found[key] = 1;
+      lmp->error->warning(FLERR,
+                          "datamask audit: {} {} declares every per-atom array in "
+                          "datamask_modify, so nothing about it can be checked, on step {}",
+                          what, style, lmp->update->ntimestep);
+    }
   }
 
   // ModifyKokkos syncs datamask_read just before the call, so an array that is
