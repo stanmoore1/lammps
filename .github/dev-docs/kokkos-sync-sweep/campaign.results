@@ -244,5 +244,7 @@ atom_vec_molecular_kokkos.cpp:586 INERT
 atom_vec_molecular_kokkos.cpp:588 INERT 
 atom_vec_molecular_kokkos.cpp:589 INERT 
 atom_vec_molecular_kokkos.cpp:601 MANIFESTS-DIVERGED in.molecular-mix.4  watch:atom:nspecial=host@0,atom:nspecial=host@3,
+atom_vec_molecular_kokkos.cpp:602 MANIFESTS-DIVERGED in.molecular-mix.4  watch:atom:special=host@0,
+atom_vec_molecular_kokkos.cpp:605 MANIFESTS-DIVERGED in.molecular-mix.4 stale:atom:num_bond,atom:num_bond<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::bond_all(),atom:tag<-LAMMPS_NS::NPairKokkos<Kokkos::Serial,_1,_1,_0,_0,_0>::build(Lild(LAMMPS_NS::NeighList*), watch:atom:num_bond=host@0,atom:num_bond=host@1,
 atom_vec_molecular_kokkos.cpp:62 INERT 
 atom_vec_molecular_kokkos.cpp:63 INERT 

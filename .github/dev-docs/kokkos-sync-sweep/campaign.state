@@ -220,5 +220,7 @@ atom_vec_molecular_kokkos.cpp:586 INERT
 atom_vec_molecular_kokkos.cpp:588 INERT
 atom_vec_molecular_kokkos.cpp:589 INERT
 atom_vec_molecular_kokkos.cpp:601 MANIFESTS-DIVERGED
+atom_vec_molecular_kokkos.cpp:602 MANIFESTS-DIVERGED
+atom_vec_molecular_kokkos.cpp:605 MANIFESTS-DIVERGED
 atom_vec_molecular_kokkos.cpp:62 INERT
 atom_vec_molecular_kokkos.cpp:63 INERT
