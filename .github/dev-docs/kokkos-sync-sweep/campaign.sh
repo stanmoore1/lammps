@@ -130,6 +130,7 @@ diagnose() {
     LMP_KOKKOS_WATCH= LMP_KOKKOS_STALE= LMP_KOKKOS_STALE_STRICT=1 \
       LMP_KOKKOS_WATCH_SKIP= \
       bash $SP/runcase.sh $d $i $np /tmp/diagw.$tag "$pk"
+    local wrc=$?
     local new=$(comm -13 <(labels $SP/inj/base.$tag.w.err) <(labels /tmp/diagw.$tag.err) | tr '\n' ',')
     local neww=$(comm -13 <(wlabels $SP/inj/base.$tag.w.err) <(wlabels /tmp/diagw.$tag.err) | tr '\n' ',')
     [ -n "$new" ] && verdict="stale:$new"
@@ -143,6 +144,17 @@ diagnose() {
       LMP_KOKKOS_AUDIT=1 bash $SP/runcase.sh $d $i $np /tmp/diaga.$tag "$pk"
       local newa=$(comm -13 <(alabels $SP/inj/base.$tag.a) <(alabels /tmp/diaga.$tag) | tr '\n' ',')
       [ -n "$newa" ] && verdict="audit:$newa"
+    fi
+
+    # A run the fault killed before it reached the stale read cannot be
+    # diagnosed by anything, and neither can one the timeout cut short.  Either
+    # way the detectors were never given the chance, so the site goes back on
+    # the queue instead of being written down as something they missed -- which
+    # is what seven of the nine standing blind spots may well turn out to be.
+    if [ -z "$verdict" ] && [ $wrc -ne 0 ]; then
+      echo "  $site: diagnosis run ended with $wrc, leaving unclassified"
+      echo "$site DIAGNOSIS-RUN-FAILED rc=$wrc" >> $SP/campaign.warnings
+      return 1
     fi
 
     # Poison is the detector that names the root cause, and its binary is a
