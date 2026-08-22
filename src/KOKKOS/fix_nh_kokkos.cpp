@@ -613,7 +613,6 @@ template<class DeviceType>
 void FixNHKokkos<DeviceType>::nve_x()
 {
   atomKK->sync(execution_space,X_MASK | V_MASK | MASK_MASK);
-  atomKK->modified(execution_space,X_MASK);
 
   x = atomKK->k_x.view<DeviceType>();
   v = atomKK->k_v.view<DeviceType>();
@@ -626,6 +625,12 @@ void FixNHKokkos<DeviceType>::nve_x()
   copymode = 1;
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixNH_nve_x>(0,nlocal),*this);
   copymode = 0;
+
+  // claim the coordinates after the kernel has written them, not before: a
+  // claim made up front is taken by any copy that runs in between, and under
+  // rRESPA one does, which leaves the new coordinates on the device unclaimed
+
+  atomKK->modified(execution_space,X_MASK);
 }
 
 template<class DeviceType>
