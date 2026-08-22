@@ -164,8 +164,6 @@ void PairDPDfdtEnergyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   k_cutsq.template sync<DeviceType>();
   k_params.template sync<DeviceType>();
   atomKK->sync(execution_space,X_MASK | F_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK);
-  if (evflag) atomKK->modified(execution_space,F_MASK | ENERGY_MASK | VIRIAL_MASK);
-  else atomKK->modified(execution_space,F_MASK);
 
   special_lj[0] = force->special_lj[0];
   special_lj[1] = force->special_lj[1];
@@ -337,6 +335,15 @@ void PairDPDfdtEnergyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     k_duCond.modify_host();
     k_duMech.modify_host();
   }
+
+  // claim the forces here rather than before the kernels above: this style
+  // declares an empty datamask, so this is the only claim they get, and the
+  // reverse communication of the energy changes syncs the host in between,
+  // which would take a claim made up there with it and leave the forces the
+  // kernels wrote unclaimed
+
+  if (evflag) atomKK->modified(execution_space,F_MASK | ENERGY_MASK | VIRIAL_MASK);
+  else atomKK->modified(execution_space,F_MASK);
 
   if (eflag_global) eng_vdwl += ev.evdwl;
   if (vflag_global) {
