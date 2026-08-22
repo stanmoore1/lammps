@@ -44,7 +44,7 @@ for in in ${inputs}
 do \
     echo "Input: ${in}"
     dir=$(dirname "${in}")
-    stem=$(basename "${in}" | sed -e 's/^in\.//' -e 's/\.lmp$//')
+    stem=$(basename "${in}" | sed -e 's/^in\.//' -e 's/\.lmp$//' -e 's/~$//')
     date=$(date +%d%b%Y)
     for n in 1 4
     do \
