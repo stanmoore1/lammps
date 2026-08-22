@@ -89,7 +89,7 @@ screen() {
     [ "$pk" = "-" ] && pk="" || pk=$(echo "$pk" | tr ':' ' ')
     tag="$i.$np${pk:+.dev}"
     o=/tmp/camp.$tag
-    bash $SP/runcase.sh $d $i $np $o "$pk"; rc=$?
+    RUNCASE_TIMEOUT=300 bash $SP/runcase.sh $d $i $np $o "$pk"; rc=$?
     if [ $rc -ne 0 ]; then echo "FAIL $tag CRASH"; return 1; fi
     if ! diff -q <(python3 $SP/thermo.py $SP/inj/base.$tag 2>/dev/null) \
                  <(python3 $SP/thermo.py $o 2>/dev/null) >/dev/null 2>&1; then
@@ -269,7 +269,12 @@ echo "campaign: ${#all[@]} sites, ${#todo[@]} to do, pool size $POOL"
 # one at a time costs six.  In an inert region the same pooling is six times
 # better.  So follow the recent verdicts -- shrink where sites are manifesting,
 # grow again where they are not.
-recent=""
+# Seed the history from the verdicts already on disk.  Starting it empty meant
+# every relaunch opened with a pool of six, which in a manifesting-dense file is
+# the worst choice available -- eleven screen passes to resolve six sites where
+# one at a time takes six -- and the sweep relaunches often enough that the
+# adaptation never got going.
+recent=$(tail -8 $STATE 2>/dev/null | awk '{print ($2 ~ /MANIFESTS/) ? "M" : "i"}' | tr -d '\n')
 adapt_pool() {
   local m=${recent//[^M]/}
   if [ ${#m} -ge 5 ]; then echo 1
