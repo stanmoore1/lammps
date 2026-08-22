@@ -576,7 +576,7 @@ void FixQEqReaxFFKokkos<DeviceType>::sparse_matvec_kokkos(typename AT::t_kkfloat
   int teamsize;
   int vectorsize;
   int leaguesize;
-  if (execution_space == HostKK) {
+  if (HostBackendFromDevice<DeviceType>::value) {
     teamsize = 1;
     vectorsize = 1;
     leaguesize = nn;

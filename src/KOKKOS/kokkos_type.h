@@ -257,6 +257,19 @@ using KKScatterView = Kokkos::Experimental::ScatterView<DataType, Layout, Device
 template<class Device>
 struct ExecutionSpaceFromDevice;
 
+// Whether Device runs on the host processor.  This asks about the backend, not
+// about which side of the host/device data transfer a style is placed on, so it
+// must not be answered with ExecutionSpaceFromDevice: a sync-debugging build
+// without a GPU backend deliberately places host-backend styles on the device
+// side to keep those transfers alive, and a style that read its team and tile
+// sizes off that would ask a Serial backend for GPU sized teams.
+
+template<class Device>
+struct HostBackendFromDevice {
+  static constexpr int value =
+    std::is_same<typename Device::memory_space, Kokkos::HostSpace>::value ? 1 : 0;
+};
+
 #if defined(LMP_KOKKOS_DEBUG_SYNC) && !defined(LMP_KOKKOS_GPU) && !defined(LMP_KOKKOS_SPLIT_HOST)
 
 // In a sync-debugging build without a GPU backend LMPHostType is also the default

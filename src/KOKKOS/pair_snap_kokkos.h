@@ -83,7 +83,7 @@ class PairSNAPKokkos : public PairSNAP {
   typedef ArrayTypes<DeviceType> AT;
   typedef EV_FLOAT value_type;
 
-  static constexpr int host_flag = (ExecutionSpaceFromDevice<DeviceType>::space == LAMMPS_NS::HostKK);
+  static constexpr int host_flag = HostBackendFromDevice<DeviceType>::value;
   static constexpr bool legacy_on_gpu = false; // run the CPU path on the GPU
   static constexpr int vector_length = vector_length_;
   using real_type = real_type_;

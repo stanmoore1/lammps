@@ -58,7 +58,7 @@ ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>::Com
   auto d_cutsq = k_cutsq.template view<DeviceType>();
   rnd_cutsq = d_cutsq;
 
-  host_flag = (execution_space == HostKK);
+  host_flag = HostBackendFromDevice<DeviceType>::value;
 
   // TODO: Extract cutsq in double loop below, no need for cutsq_tmp
 

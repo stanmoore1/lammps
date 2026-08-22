@@ -71,7 +71,7 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
  public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  static constexpr bool is_host = (ExecutionSpaceFromDevice<DeviceType>::space == HostKK);
+  static constexpr bool is_host = HostBackendFromDevice<DeviceType>::value;
   typedef KK_double2 value_type;
   FixQEqReaxFFKokkos(class LAMMPS *, int, char **);
   ~FixQEqReaxFFKokkos() override;
