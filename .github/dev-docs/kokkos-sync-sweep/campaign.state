@@ -97,6 +97,7 @@ atom_vec_full_kokkos.cpp:577 INERT
 atom_vec_full_kokkos.cpp:578 INERT
 atom_vec_full_kokkos.cpp:581 INERT
 atom_vec_full_kokkos.cpp:582 INERT
+atom_vec_full_kokkos.cpp:583 MANIFESTS-CRASH
 atom_vec_full_kokkos.cpp:586 INERT
 atom_vec_full_kokkos.cpp:587 INERT
 atom_vec_full_kokkos.cpp:588 INERT
@@ -116,6 +117,8 @@ atom_vec_full_kokkos.cpp:604 INERT
 atom_vec_full_kokkos.cpp:605 INERT
 atom_vec_full_kokkos.cpp:606 INERT
 atom_vec_full_kokkos.cpp:61 INERT
+atom_vec_full_kokkos.cpp:619 MANIFESTS-CRASH
+atom_vec_full_kokkos.cpp:620 MANIFESTS-CRASH
 atom_vec_full_kokkos.cpp:623 INERT
 atom_vec_full_kokkos.cpp:624 INERT
 atom_vec_full_kokkos.cpp:625 MANIFESTS-CRASH
@@ -260,6 +263,7 @@ comm_kokkos.cpp:1107 INERT
 comm_kokkos.cpp:1159 MANIFESTS-CRASH
 comm_kokkos.cpp:1161 MANIFESTS-CRASH
 comm_kokkos.cpp:1165 INERT
+comm_kokkos.cpp:1186 MANIFESTS-CRASH
 comm_kokkos.cpp:147 INERT
 comm_kokkos.cpp:150 INERT
 comm_kokkos.cpp:152 MANIFESTS-CRASH
@@ -282,4 +286,5 @@ comm_kokkos.cpp:468 INERT
 comm_kokkos.cpp:494 INERT
 comm_kokkos.cpp:520 MANIFESTS-DIVERGED
 comm_kokkos.cpp:521 MANIFESTS-DIVERGED
+comm_kokkos.cpp:541 MANIFESTS-DIVERGED
 comm_kokkos.cpp:542 MANIFESTS-DIVERGED

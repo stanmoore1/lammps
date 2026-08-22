@@ -111,6 +111,7 @@ atom_vec_full_kokkos.cpp:577 INERT
 atom_vec_full_kokkos.cpp:578 INERT 
 atom_vec_full_kokkos.cpp:581 INERT 
 atom_vec_full_kokkos.cpp:582 INERT 
+atom_vec_full_kokkos.cpp:583 MANIFESTS-CRASH in.peptide.4.dev stale:comm:k_count<-void_LAMMPS_NS::CommKokkos::exchange_device<Kokkos::Serial[watch]_comm:k_count:_the_host_side_was_written,_never_claimed,_and_is_now_lost, watch:atom:bond_atom=device@111,atom:bond_atom=device@165,atom:bond_atom=device@21,atom:bond_atom=device@228,atom:bond_atom=device@267,atom:bond_atom=device@327,atom:bond_atom=device@372,atom:bond_atom=device@459,
 atom_vec_full_kokkos.cpp:586 INERT 
 atom_vec_full_kokkos.cpp:587 INERT 
 atom_vec_full_kokkos.cpp:588 INERT 
@@ -134,6 +135,8 @@ atom_vec_full_kokkos.cpp:604 INERT
 atom_vec_full_kokkos.cpp:605 INERT 
 atom_vec_full_kokkos.cpp:606 INERT 
 atom_vec_full_kokkos.cpp:61 INERT 
+atom_vec_full_kokkos.cpp:619 MANIFESTS-CRASH in.peptide.4.dev  watch:atom:nspecial=host@0,
+atom_vec_full_kokkos.cpp:620 MANIFESTS-CRASH in.peptide.4.dev  watch:atom:special=host@0,
 atom_vec_full_kokkos.cpp:623 INERT 
 atom_vec_full_kokkos.cpp:624 INERT 
 atom_vec_full_kokkos.cpp:625 MANIFESTS-CRASH in.peptide.4.dev stale:atom:bond_atom<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::bond_partial(),
@@ -279,6 +282,7 @@ comm_kokkos.cpp:1107 INERT
 comm_kokkos.cpp:1159 MANIFESTS-CRASH in.melt.4.dev  watch:74=host@50,Neighbor::d_bincount=host@30720,Neighbor::d_bincount=host@50,Neighbor::d_bincount=host@74,Neighbor::d_bins=host@30720,comm:k_exchange_sendlist=device@0,comm:k_exchange_sendlist=device@1,
 comm_kokkos.cpp:1161 MANIFESTS-CRASH in.melt.4.dev poison:LAMMPS_NS::CommKokkos::exchange()
 comm_kokkos.cpp:1165 INERT 
+comm_kokkos.cpp:1186 MANIFESTS-CRASH in.melt.4.dev poison:LAMMPS_NS::CommKokkos::exchange()
 comm_kokkos.cpp:147 INERT 
 comm_kokkos.cpp:150 INERT 
 comm_kokkos.cpp:152 MANIFESTS-CRASH in.micelle.1 poison:LAMMPS_NS::AtomVec::pack_comm(int, int*, double*, int, int*)
@@ -301,4 +305,5 @@ comm_kokkos.cpp:468 INERT
 comm_kokkos.cpp:494 INERT 
 comm_kokkos.cpp:520 MANIFESTS-DIVERGED in.rigid.cubes.4 stale:comm:k_buf_send_fix,comm:k_buf_send_fix<-void_LAMMPS_NS::CommKokkos::reverse_comm_device<Kokkos::Serial>(LAMMPS_NS::Fix*,_int), watch:comm:k_buf_send_fix=device@0,
 comm_kokkos.cpp:521 MANIFESTS-DIVERGED in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::compute_forces_and_torques_kokkos()
+comm_kokkos.cpp:541 MANIFESTS-DIVERGED in.rigid.cubes.4 stale:comm:k_recv_send_fix<-void_LAMMPS_NS::CommKokkos::reverse_comm_device<Kokkos::Serial>(LAMMPS_NS::Fix*,_int), watch:comm:k_recv_send_fix=host@0,
 comm_kokkos.cpp:542 MANIFESTS-DIVERGED in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::unpack_reverse_comm_kokkos(int, LAMMPS_NS:
