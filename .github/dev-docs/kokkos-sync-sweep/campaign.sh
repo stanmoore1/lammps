@@ -133,7 +133,20 @@ diagnose() {
     [ -n "$hit" ] && verdict="poison:$hit"
   fi
   if [ -z "$verdict" ]; then
-    LMP_KOKKOS_WATCH= LMP_KOKKOS_STALE= LMP_KOKKOS_STALE_STRICT=1 \
+    # Watch the view the site names, not every view in the run.  Watching all of
+    # them keeps four shadow buffers per dual view on top of the emulation's own
+    # duplicate, which took a four rank run to 3.7 GB a rank and had the cgroup
+    # out-of-memory killer stopping the diagnosis before it could report.  A site
+    # that names no view -- the mask forms of atomKK->sync() -- still gets the
+    # whole run.
+    local var=$(sed -n "${site##*:}p" src/KOKKOS/${site%%:*} | grep -o '\bk_[a-z_0-9]*' | head -1)
+    local sel=""
+    if [ -n "$var" ]; then
+      sel=$(grep -E ":(${var}|${var#k_})$" $SP/labels_all.txt 2>/dev/null | head -1)
+    fi
+    # Only WATCH keeps shadows, so only WATCH is narrowed; STALE reads the
+    # coherence flags and allocates nothing, so it still sees every view.
+    LMP_KOKKOS_WATCH=$sel LMP_KOKKOS_STALE= LMP_KOKKOS_STALE_STRICT=1 \
       LMP_KOKKOS_WATCH_SKIP= \
       bash $SP/runcase.sh $d $i $np /tmp/diagw.$tag "$pk"
     local wrc=$?
@@ -158,8 +171,18 @@ diagnose() {
     # the queue instead of being written down as something they missed -- which
     # is what seven of the nine standing blind spots may well turn out to be.
     if [ -z "$verdict" ] && [ $wrc -ne 0 ]; then
-      echo "  $site: diagnosis run ended with $wrc, leaving unclassified"
       echo "$site DIAGNOSIS-RUN-FAILED rc=$wrc" >> $SP/campaign.warnings
+      # Some sites cannot be diagnosed at all: the watch pass shadow-copies
+      # every view and at four ranks that has been killed outright.  Retrying
+      # such a site costs a rebuild and a screen pass every time it comes round,
+      # so give up after the third try and say what happened.  Undiagnosed is
+      # not the same as missed and does not belong in the same column.
+      if [ "$(grep -c "^$site DIAGNOSIS-RUN-FAILED" $SP/campaign.warnings)" -ge 3 ]; then
+        echo "  $site: diagnosis run failed three times, recording it as undiagnosed"
+        mark "$site" "MANIFESTS-$kind" "$tag UNDIAGNOSED-RUN-DIED-rc=$wrc"
+        return 0
+      fi
+      echo "  $site: diagnosis run ended with $wrc, leaving unclassified"
       return 1
     fi
 
