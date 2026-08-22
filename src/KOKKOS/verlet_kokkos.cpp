@@ -588,6 +588,16 @@ void VerletKokkos::force_clear()
   atomKK->k_f.clear_sync_state(); // ignore host forces/torques since device views
   atomKK->k_torque.clear_sync_state(); //   will be cleared below
 
+  // the SPIN forces below are overwritten in the same way, so their host side
+  // has to be released here as well -- without this a host side left claimed
+  // from the setup is still claimed when the device side is claimed below, and
+  // the two disagree with nothing to say which one is current
+
+  if (extraflag) {
+    atomKK->k_fm.clear_sync_state();
+    atomKK->k_fm_long.clear_sync_state();
+  }
+
   // clear force on all particles
   // if either newton flag is set, also include ghosts
   // when using threads always clear all forces.
