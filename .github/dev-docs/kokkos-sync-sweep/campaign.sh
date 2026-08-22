@@ -89,7 +89,7 @@ screen() {
     [ "$pk" = "-" ] && pk="" || pk=$(echo "$pk" | tr ':' ' ')
     tag="$i.$np${pk:+.dev}"
     o=/tmp/camp.$tag
-    RUNCASE_TIMEOUT=300 bash $SP/runcase.sh $d $i $np $o "$pk"; rc=$?
+    bash $SP/runcase.sh $d $i $np $o "$pk"; rc=$?
     if [ $rc -ne 0 ]; then echo "FAIL $tag CRASH"; return 1; fi
     if ! diff -q <(python3 $SP/thermo.py $SP/inj/base.$tag 2>/dev/null) \
                  <(python3 $SP/thermo.py $o 2>/dev/null) >/dev/null 2>&1; then
