@@ -75,7 +75,13 @@ rebuild() { (cd $SP/build-rigdbg && cmake --build . -j 4 >/dev/null 2>&1); }
 # The poison binary lives in its own build directory and needs its own rebuild,
 # or the diagnosis runs the unmodified code and can never trap.  Only the sites
 # that actually manifest pay for this.
-rebuild_poison() { (cd $SP/build-poison && cmake --build . -j 4 >/dev/null 2>&1); }
+# Take the same lock keepalive.sh uses.  Two ninja runs in one build directory
+# write the same object files, and the poison build is the one directory both
+# the campaign and the keepalive want to rebuild.
+rebuild_poison() {
+  ( flock 7 || exit 1
+    cd $SP/build-poison && cmake --build . -j 4 >/dev/null 2>&1 ) 7>$SP/poison.lock
+}
 
 # cheap screen over the core cases; echoes "PASS" or the failing tag + kind
 screen() {
