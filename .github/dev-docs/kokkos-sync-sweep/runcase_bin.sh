@@ -1,4 +1,5 @@
 #!/bin/bash
+: "${RUNCASE_TIMEOUT:=900}"
 # runcase_bin.sh <binary> <dir> <input> <np> <outfile> [pk args]
 # timeout: an injected fault under poison can spin forever (a stale sametag
 # once looped the micelle map rebuild for an hour); runcase.sh already has
@@ -8,7 +9,7 @@ L=$1; shift
 cd /home/user/lammps/examples/$1 || exit 99
 PK="$5"
 if [ "$3" -gt 1 ]; then
-  timeout 900 mpirun --allow-run-as-root --oversubscribe -np $3 timeout 900 $L -in $2 -log none -screen "$4" -k on -sf kk ${PK:+-pk kokkos $PK} >"$4.err" 2>&1 </dev/null
+  timeout $RUNCASE_TIMEOUT mpirun --allow-run-as-root --oversubscribe -np $3 timeout $RUNCASE_TIMEOUT $L -in $2 -log none -screen "$4" -k on -sf kk ${PK:+-pk kokkos $PK} >"$4.err" 2>&1 </dev/null
 else
-  timeout 900 $L -in $2 -log none -screen "$4" -k on -sf kk ${PK:+-pk kokkos $PK} >"$4.err" 2>&1 </dev/null
+  timeout $RUNCASE_TIMEOUT $L -in $2 -log none -screen "$4" -k on -sf kk ${PK:+-pk kokkos $PK} >"$4.err" 2>&1 </dev/null
 fi

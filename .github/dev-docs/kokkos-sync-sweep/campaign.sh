@@ -127,7 +127,7 @@ diagnose() {
     rm -rf /tmp/diaglog.$tag; mkdir -p /tmp/diaglog.$tag
     LMP_KOKKOS_POISON=1 \
       ASAN_OPTIONS=detect_leaks=0:halt_on_error=0:log_path=/tmp/diaglog.$tag/a \
-      bash $SP/runcase_bin.sh $SP/build-poison/lmp $d $i $np /tmp/diag.$tag "$pk"
+      RUNCASE_TIMEOUT=400 bash $SP/runcase_bin.sh $SP/build-poison/lmp $d $i $np /tmp/diag.$tag "$pk"
     local hit=$(cat /tmp/diaglog.$tag/a.* 2>/dev/null | grep -m1 -A12 "use-after-poison" \
       | grep -m1 "in LAMMPS_NS\|in AtomVec" | sed 's/.* in //;s/ \/.*//' | cut -c1-90)
     [ -n "$hit" ] && verdict="poison:$hit"
@@ -148,7 +148,7 @@ diagnose() {
     # coherence flags and allocates nothing, so it still sees every view.
     LMP_KOKKOS_WATCH=$sel LMP_KOKKOS_STALE= LMP_KOKKOS_STALE_STRICT=1 \
       LMP_KOKKOS_WATCH_SKIP= \
-      bash $SP/runcase.sh $d $i $np /tmp/diagw.$tag "$pk"
+      RUNCASE_TIMEOUT=400 bash $SP/runcase.sh $d $i $np /tmp/diagw.$tag "$pk"
     local wrc=$?
     local new=$(comm -13 <(labels $SP/inj/base.$tag.w.err) <(labels /tmp/diagw.$tag.err) | tr '\n' ',')
     local neww=$(comm -13 <(wlabels $SP/inj/base.$tag.w.err) <(wlabels /tmp/diagw.$tag.err) | tr '\n' ',')
