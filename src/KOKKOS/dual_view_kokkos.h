@@ -25,6 +25,7 @@
 #include <csignal>
 #include <cxxabi.h>
 #include <array>
+#include <type_traits>
 #include <map>
 #include <string>
 #include <vector>
@@ -147,8 +148,39 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // soon as the host and device execution spaces do, which is exactly what
   // LMP_KOKKOS_SPLIT_HOST arranges.  Asking it that way there would turn the
   // whole emulation off in the build that needs it most.
+  //
+  // The emulation gives the host side a buffer of its own and moves values
+  // between the two with deep_copy, so it can only model an element type whose
+  // bytes are a second, independent value.  struct_tdual_int_2d and
+  // struct_tdual_double_2d are not: they wrap a DualView, and the outer
+  // DualView-of-DualView (AtomKokkos::k_iarray / k_darray, the ragged custom
+  // per-atom arrays) is claimed on the host and synced to the device so that
+  // device kernels can reach the inner views.
+  //
+  // On a GPU that copy lands in device memory, where Kokkos never runs an
+  // element destructor.  Under the emulation both sides are HostSpace, so
+  // Kokkos destroys the elements of both, and the duplicate's reference-counted
+  // handles -- copied as bytes, never incremented -- are decremented a second
+  // time: a heap-use-after-free at teardown that reads as a coherence fault and
+  // is not one.  A second failure follows from view_alloc(SequentialHostInit),
+  // which atom_kokkos.cpp:469,489 passes on exactly these two: that path in
+  // Kokkos::DualView::impl_resize() marks NEITHER side, so the modify_host()
+  // after it is legal, while resize() below takes the ordinary path and leaves
+  // the device claimed -- the next modify_host() then aborts on concurrent
+  // modification.
+  //
+  // Neither can happen today, because those two typedefs in kokkos_type.h name
+  // Kokkos::DualView rather than LAMMPS_NS::DualView and so never reach this
+  // class.  That is one token away from both, and every other typedef in that
+  // file names the wrapper.  Gate the emulation on the element type rather than
+  // rely on it: what is given up is emulated coverage of two arrays whose bytes
+  // cannot be duplicated in the first place, and on a real GPU build this class
+  // is a pass-through either way.
+  using lmp_value_type = std::remove_cv_t<typename t_dev::value_type>;
   static constexpr bool SPLIT =
-      std::is_same_v<typename t_dev::memory_space, typename t_host::memory_space>;
+      std::is_same_v<typename t_dev::memory_space, typename t_host::memory_space> &&
+      std::is_trivially_copyable_v<lmp_value_type> &&
+      std::is_trivially_destructible_v<lmp_value_type>;
 
   // (0) and (1) mirror Kokkos::DualView::modified_flags for the host and the
   // device side.  (2) and (3) count the claims each side has ever had and are
