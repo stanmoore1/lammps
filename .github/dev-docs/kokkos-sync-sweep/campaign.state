@@ -279,6 +279,7 @@ comm_kokkos.cpp:301 MANIFESTS-DIVERGED
 comm_kokkos.cpp:368 INERT
 comm_kokkos.cpp:371 INERT
 comm_kokkos.cpp:394 MANIFESTS-CRASH
+comm_kokkos.cpp:421 MANIFESTS-CRASH
 comm_kokkos.cpp:422 MANIFESTS-CRASH
 comm_kokkos.cpp:443 MANIFESTS-CRASH
 comm_kokkos.cpp:444 MANIFESTS-CRASH

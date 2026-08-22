@@ -298,6 +298,7 @@ comm_kokkos.cpp:301 MANIFESTS-DIVERGED in.rigid.cubes.multirun.4.dev poison:Atom
 comm_kokkos.cpp:368 INERT 
 comm_kokkos.cpp:371 INERT 
 comm_kokkos.cpp:394 MANIFESTS-CRASH in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::pack_forward_comm_kokkos(int, LAMMPS_NS::D
+comm_kokkos.cpp:421 MANIFESTS-CRASH in.rigid.cubes.4 stale:comm:k_buf_send_fix<-void_LAMMPS_NS::CommKokkos::forward_comm_device<Kokkos::Serial>(LAMMPS_NS::Fix*,_int), watch:comm:k_buf_send_fix=device@0,comm:k_buf_send_fix=device@10,comm:k_buf_send_fix=device@112,comm:k_buf_send_fix=device@20,
 comm_kokkos.cpp:422 MANIFESTS-CRASH in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::setup_device_push()
 comm_kokkos.cpp:443 MANIFESTS-CRASH in.rigid.cubes.4  watch:comm:k_recv_send_fix=host@0,comm:k_recv_send_fix=host@10,comm:k_recv_send_fix=host@116,comm:k_recv_send_fix=host@20,
 comm_kokkos.cpp:444 MANIFESTS-CRASH in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::unpack_forward_comm_kokkos(int, int, LAMMP
