@@ -17,6 +17,10 @@ angle_charmm_kokkos.cpp:299 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::A
 angle_charmm_kokkos.cpp:300 INERT 
 angle_charmm_kokkos.cpp:301 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::AngleCharmmKokkos<Kokkos::Serial>::compute(int, int)
 angle_charmm_kokkos.cpp:91 INERT 
+angle_harmonic_kokkos.cpp:276 MANIFESTS-DIVERGED in.molecular-mix.4 NOT-DETECTED
+angle_harmonic_kokkos.cpp:276 MANIFESTS-DIVERGED in.molecular-mix.4 stale:atom:type<-LAMMPS_NS::NPairKokkos<Kokkos::Serial,_1,_1,_0,_0,_0>::build([watch]_atom:nspecial:_the_device_side_was_written_without_a_claim_and_this_sync_host_has_nothing_to_copy_--_the_host_keeps_stale_data, watch:AngleHarmonic::k=host@1,Neighbor::d_atom2bin=host@3872,atom:bond_type=device@1,atom:dihedral_atom4=device@1,atom:nspecial=device@1,neigh:neighbor->anglelist=host@1,
+angle_harmonic_kokkos.cpp:277 MANIFESTS-DIVERGED in.molecular-mix.4  watch:AngleHarmonic::theta0=host@1,atom:molecule=device@1,
+angle_harmonic_kokkos.cpp:277 MANIFESTS-DIVERGED in.molecular-mix.4 NOT-DETECTED
 angle_harmonic_kokkos.cpp:90 MANIFESTS-DIVERGED in.molecular-mix.4 poison:LAMMPS_NS::AngleHarmonicKokkos<Kokkos::Serial>::compute(int, int)
 angle_harmonic_kokkos.cpp:91 MANIFESTS-DIVERGED in.molecular-mix.4 poison:LAMMPS_NS::AngleHarmonicKokkos<Kokkos::Serial>::compute(int, int)
 angle_harmonic_kokkos.cpp:97 INERT 
@@ -280,9 +284,6 @@ comm_kokkos.cpp:1160 MANIFESTS-CRASH in.melt.4.dev UNDIAGNOSED-RUN-DIED-rc=137
 comm_kokkos.cpp:1161 MANIFESTS-CRASH in.melt.4.dev poison:LAMMPS_NS::CommKokkos::exchange()
 comm_kokkos.cpp:1165 INERT 
 comm_kokkos.cpp:1186 MANIFESTS-CRASH in.melt.4.dev poison:LAMMPS_NS::CommKokkos::exchange()
-comm_kokkos.cpp:1207 MANIFESTS-CRASH in.melt.4.dev stale:comm:k_exchange_copylist,comm:k_exchange_copylist<-void_LAMMPS_NS::CommKokkos::exchange_device<Kokkos::Serial>(), watch:comm:k_exchange_copylist=host@0,
-comm_kokkos.cpp:1207 MANIFESTS-CRASH in.melt.4.dev stale:comm:k_exchange_copylist,comm:k_exchange_copylist<-void_LAMMPS_NS::CommKokkos::exchange_device<Kokkos::Serial>(), watch:comm:k_exchange_copylist=host@0,comm:k_exchange_copylist=host@?,
-comm_kokkos.cpp:1208 MANIFESTS-CRASH in.melt.4.dev poison:AtomVecKokkos_PackExchangeFunctor<Kokkos::Serial, 1>::operator()(int const&) const
 comm_kokkos.cpp:147 INERT 
 comm_kokkos.cpp:150 INERT 
 comm_kokkos.cpp:152 MANIFESTS-CRASH in.micelle.1 poison:LAMMPS_NS::AtomVec::pack_comm(int, int*, double*, int, int*)
