@@ -220,3 +220,13 @@ before rebuilding LAMMPS, which takes far longer.
   circuits the accessor checks by design.
 * **A run whose results did not change proves nothing** about a detector's
   coverage.  Establish the fault first (step 0), then ask what the tools say.
+* **The debug build places host-backend styles on the device side**, so
+  `execution_space == HostKK` is false for every style in it.  That is what
+  keeps the host/device transfers alive and checkable, and code asking which
+  *side of the transfer* a style sits on is right to read it.  Code asking
+  which *hardware* it runs on is not: use `HostBackendFromDevice<DeviceType>`
+  instead, which reads the backend's memory space and gives the same answer as
+  the old expression in every build that does not do this re-routing.  Styles
+  that got this wrong asked a Serial backend for GPU sized teams -- snap/kk and
+  reaxff/kk aborted outright, pace, pod, orientorder/atom, sna/grid, tersoff,
+  qeq/reaxff and acks2/reaxff silently ran their GPU paths on a CPU.
