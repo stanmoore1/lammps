@@ -91,6 +91,22 @@ void DatamaskAudit::note_synced(uint64_t mask)
 
 /* ---------------------------------------------------------------------- */
 
+void LAMMPS_NS::datamask_audit_note_claim(const void *device_data)
+{
+  if (audit_active) audit_active->note_claim_one(device_data);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void DatamaskAudit::note_claim_one(const void *device_data)
+{
+  if (!active || !device_data) return;
+  for (const auto &a : arrays)
+    if (a.data == (const char *) device_data) { audit_self_declared |= a.bit; return; }
+}
+
+/* ---------------------------------------------------------------------- */
+
 void LAMMPS_NS::datamask_audit_note_copy(const void *device_data)
 {
   if (audit_active) audit_active->rebaseline_one(device_data);

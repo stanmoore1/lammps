@@ -51,6 +51,15 @@ namespace LAMMPS_NS {
 // the style's own sync as if the style had written the array itself.
 void datamask_audit_note_copy(const void *device_data);
 
+// A claim made straight on one of atom's dual views rather than through
+// AtomKokkos::modified() never reaches DatamaskAudit::note_modified(), so the
+// audit had no way of knowing the style had declared the write and reported it
+// as undeclared.  Seven call sites do it that way -- fix nve, fix nh, verlet,
+// bond quartic, npair, dynamical_matrix, third_order -- and they are not wrong
+// to: the mask form does an auto_sync back-copy they do not need.  Tell the
+// audit by data pointer instead, the way a copy already does.
+void datamask_audit_note_claim(const void *device_data);
+
 // Copy census, enabled by LMP_KOKKOS_COPYSTATS.  One line per array and
 // direction saying how many copies the wrapper actually made.  A sync whose
 // direction never copied for its array cannot matter: removing it leaves the
@@ -1192,6 +1201,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void modify_device()
   {
     PoisonScope pscope(this);
+    datamask_audit_note_claim(base_type::view_device().data());
     trace("modify_device");
     watch("modify_device", OP_MODIFY_DEVICE);
     if constexpr (SPLIT) {
@@ -1215,6 +1225,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void modify_host()
   {
     PoisonScope pscope(this);
+    datamask_audit_note_claim(base_type::view_device().data());
     trace("modify_host");
     watch("modify_host", OP_MODIFY_HOST);
     if constexpr (SPLIT) {
