@@ -229,7 +229,7 @@ test_pool() {
       echo "  pool of ${#sites[@]}: inert"
       return
     fi
-    echo "  pool of ${#sites[@]}: $out"
+    echo "  pool of ${#sites[@]}: $out  [${sites[*]}]"
     if [ ${#sites[@]} -eq 1 ]; then
       set -- $out
       python3 $SP/inject.py ${sites[0]%%:*} ${sites[0]##*:} >/dev/null
