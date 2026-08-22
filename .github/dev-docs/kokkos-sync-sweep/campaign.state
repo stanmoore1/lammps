@@ -1,3 +1,5 @@
+angle_charmm_kokkos.cpp:293 MANIFESTS-CRASH
+angle_charmm_kokkos.cpp:294 MANIFESTS-CRASH
 angle_charmm_kokkos.cpp:295 INERT
 angle_charmm_kokkos.cpp:296 INERT
 angle_charmm_kokkos.cpp:298 MANIFESTS-CRASH
@@ -42,6 +44,7 @@ atom_vec_bond_kokkos.cpp:324 MANIFESTS-DIVERGED
 atom_vec_bond_kokkos.cpp:325 MANIFESTS-DIVERGED
 atom_vec_bond_kokkos.cpp:328 MANIFESTS-DIVERGED
 atom_vec_bond_kokkos.cpp:329 MANIFESTS-DIVERGED
+atom_vec_bond_kokkos.cpp:330 MANIFESTS-CRASH
 atom_vec_bond_kokkos.cpp:61 MANIFESTS-CRASH
 atom_vec_bond_kokkos.cpp:62 INERT
 atom_vec_bond_kokkos.cpp:81 MANIFESTS-CRASH

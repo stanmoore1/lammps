@@ -8,6 +8,8 @@ DualView "atom:nspecial"
 DualView "atom:num_dihedral"
 DualView "atom:num_improper"
 DualView "atom:special"
+angle_charmm_kokkos.cpp:293 MANIFESTS-CRASH in.peptide.4.dev  watch:AngleCharmm::k=host@1,write=host@0,
+angle_charmm_kokkos.cpp:294 MANIFESTS-CRASH in.peptide.4.dev  watch:AngleCharmm::theta0=host@1,
 angle_charmm_kokkos.cpp:295 INERT 
 angle_charmm_kokkos.cpp:296 INERT 
 angle_charmm_kokkos.cpp:298 MANIFESTS-CRASH in.peptide.4.dev poison:LAMMPS_NS::AngleCharmmKokkos<Kokkos::Serial>::compute(int, int)
@@ -56,6 +58,7 @@ atom_vec_bond_kokkos.cpp:324 MANIFESTS-DIVERGED in.micelle.1 stale:atom:v,atom:v
 atom_vec_bond_kokkos.cpp:325 MANIFESTS-DIVERGED in.micelle.1 stale:atom:v, watch:1
 atom_vec_bond_kokkos.cpp:328 MANIFESTS-DIVERGED in.micelle.1 stale:atom:v, watch:1
 atom_vec_bond_kokkos.cpp:329 MANIFESTS-DIVERGED in.micelle.1 stale:atom:v, watch:1
+atom_vec_bond_kokkos.cpp:330 MANIFESTS-CRASH in.micelle.1 stale:atom:bond_atom<-LAMMPS_NS::NeighBondKokkos<Kokkos::Serial>::bond_all(), watch:atom:bond_atom=host@0,
 atom_vec_bond_kokkos.cpp:61 MANIFESTS-CRASH in.micelle.1  watch:5
 atom_vec_bond_kokkos.cpp:62 INERT 
 atom_vec_bond_kokkos.cpp:81 MANIFESTS-CRASH in.micelle.1 poison:LAMMPS_NS::AtomVec::data_atom(double*, int, std::vector<std::__cxx11::basic_string<char, s
