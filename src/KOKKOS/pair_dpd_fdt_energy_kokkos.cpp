@@ -328,6 +328,14 @@ void PairDPDfdtEnergyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     k_duMech.template modify<DeviceType>();
     k_duMech.sync_host();
     comm->reverse_comm(this);
+
+    // the reverse communication adds the ghost contributions through the plain
+    // host arrays, so claim that write: without it the device copy keeps the
+    // pre-communication values and the sync in fix dpd/energy/kk has nothing
+    // left to copy
+
+    k_duCond.modify_host();
+    k_duMech.modify_host();
   }
 
   if (eflag_global) eng_vdwl += ev.evdwl;
