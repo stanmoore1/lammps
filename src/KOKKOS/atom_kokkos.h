@@ -168,6 +168,9 @@ class AtomKokkos : public Atom {
   void update_property_atom();
   void allocate_type_arrays() override;
 
+  void sync_host_arrays(uint64_t mask) override { sync(Host, mask); }
+  void modified_host_arrays(uint64_t mask) override { modified(Host, mask); }
+
   // the per-type masses are written through the plain host array, which leaves
   // the device copy behind with nothing to say so.  Claim the write here, at
   // the one place all four spellings of the mass command go through, rather
