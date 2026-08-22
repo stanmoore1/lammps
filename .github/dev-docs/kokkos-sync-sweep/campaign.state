@@ -7,8 +7,6 @@ angle_charmm_kokkos.cpp:299 MANIFESTS-CRASH
 angle_charmm_kokkos.cpp:300 INERT
 angle_charmm_kokkos.cpp:301 MANIFESTS-CRASH
 angle_charmm_kokkos.cpp:91 INERT
-angle_harmonic_kokkos.cpp:276 MANIFESTS-DIVERGED
-angle_harmonic_kokkos.cpp:277 MANIFESTS-DIVERGED
 angle_harmonic_kokkos.cpp:90 MANIFESTS-DIVERGED
 angle_harmonic_kokkos.cpp:91 MANIFESTS-DIVERGED
 angle_harmonic_kokkos.cpp:97 INERT
