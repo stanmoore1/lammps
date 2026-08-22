@@ -149,6 +149,7 @@ int MinFireKokkos::run_iterate(int maxiter) {
       l_v(i,1) = dtfm * l_f(i,1);
       l_v(i,2) = dtfm * l_f(i,2);
     });
+    atomKK->modified(Device, V_MASK);
   }
 
   for (int iter = 0; iter < maxiter; iter++) {
@@ -230,6 +231,7 @@ int MinFireKokkos::run_iterate(int maxiter) {
         }
         l_v(i,0) = l_v(i,1) = l_v(i,2) = 0.0;
       });
+      atomKK->modified(Device, X_MASK | V_MASK);
       flagv0 = 1;
     }
 
@@ -244,6 +246,7 @@ int MinFireKokkos::run_iterate(int maxiter) {
         l_v(i,1) = dtfm * l_f(i,1);
         l_v(i,2) = dtfm * l_f(i,2);
       });
+      atomKK->modified(Device, V_MASK);
     }
 
     // cannot use "if constexpr" below because CUDA device lambdas
@@ -268,6 +271,7 @@ int MinFireKokkos::run_iterate(int maxiter) {
       Kokkos::parallel_for("min_fire/final_v_zero", nlocal, LAMMPS_LAMBDA(const int i) {
         l_v(i,0) = l_v(i,1) = l_v(i,2) = 0.0;
       });
+      atomKK->modified(Device, V_MASK);
     }
 
     KK_FLOAT dtf_final = dtv * force->ftm2v;
