@@ -284,6 +284,7 @@ comm_kokkos.cpp:1160 MANIFESTS-CRASH in.melt.4.dev UNDIAGNOSED-RUN-DIED-rc=137
 comm_kokkos.cpp:1161 MANIFESTS-CRASH in.melt.4.dev poison:LAMMPS_NS::CommKokkos::exchange()
 comm_kokkos.cpp:1165 INERT 
 comm_kokkos.cpp:1186 MANIFESTS-CRASH in.melt.4.dev poison:LAMMPS_NS::CommKokkos::exchange()
+comm_kokkos.cpp:1207 MANIFESTS-CRASH in.melt.4.dev stale:comm:k_exchange_copylist,comm:k_exchange_copylist<-void_LAMMPS_NS::CommKokkos::exchange_device<Kokkos::Serial>(), watch:comm:k_exchange_copylist=host@0,comm:k_exchange_copylist=host@?,
 comm_kokkos.cpp:147 INERT 
 comm_kokkos.cpp:150 INERT 
 comm_kokkos.cpp:152 MANIFESTS-CRASH in.micelle.1 poison:LAMMPS_NS::AtomVec::pack_comm(int, int*, double*, int, int*)
