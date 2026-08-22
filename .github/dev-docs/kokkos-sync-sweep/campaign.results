@@ -302,5 +302,7 @@ comm_kokkos.cpp:368 INERT
 comm_kokkos.cpp:371 INERT 
 comm_kokkos.cpp:394 MANIFESTS-CRASH in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::pack_forward_comm_kokkos(int, LAMMPS_NS::D
 comm_kokkos.cpp:422 MANIFESTS-CRASH in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::setup_device_push()
+comm_kokkos.cpp:443 MANIFESTS-CRASH in.rigid.cubes.4  watch:comm:k_recv_send_fix=host@0,comm:k_recv_send_fix=host@10,comm:k_recv_send_fix=host@116,comm:k_recv_send_fix=host@20,
+comm_kokkos.cpp:444 MANIFESTS-CRASH in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::unpack_forward_comm_kokkos(int, int, LAMMP
 comm_kokkos.cpp:468 INERT 
 comm_kokkos.cpp:494 INERT 
