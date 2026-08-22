@@ -300,5 +300,7 @@ comm_kokkos.cpp:285 MANIFESTS-CRASH in.micelle.1 stale:atom:f<-LAMMPS_NS::FixEnf
 comm_kokkos.cpp:301 MANIFESTS-DIVERGED in.rigid.cubes.multirun.4.dev poison:AtomVecKokkos_UnPackReverse<Kokkos::Serial, 1>::operator()(int const&) const
 comm_kokkos.cpp:368 INERT 
 comm_kokkos.cpp:371 INERT 
+comm_kokkos.cpp:394 MANIFESTS-CRASH in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::pack_forward_comm_kokkos(int, LAMMPS_NS::D
+comm_kokkos.cpp:422 MANIFESTS-CRASH in.rigid.cubes.4 poison:LAMMPS_NS::FixRigidSmallKokkos<Kokkos::Serial>::setup_device_push()
 comm_kokkos.cpp:468 INERT 
 comm_kokkos.cpp:494 INERT 
