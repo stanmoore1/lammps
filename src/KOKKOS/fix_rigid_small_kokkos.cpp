@@ -103,7 +103,13 @@ FixRigidSmallKokkos<DeviceType>::~FixRigidSmallKokkos()
 {
   if (copymode) return;
 
-  atomKK->sync(Host, ALL_MASK);
+  // No atomKK->sync() here.  Modify::delete_fix() deletes the fix before it
+  // compacts modify->fix[], and AtomKokkos::sync() walks that list for the
+  // property/atom fixes -- so a sync from this destructor reads a fix that has
+  // already been freed, which AddressSanitizer reports as a heap-use-after-free
+  // at the end of any run whose input has a fix property/atom.  Nothing reads
+  // the atom arrays after this point, and no other KOKKOS fix syncs from its
+  // destructor.
 
   // free the Kokkos-owned buffers and null the base pointers so the
   // FixRigidSmall destructor's memory->destroy() calls become no-ops
@@ -1584,6 +1590,22 @@ void FixRigidSmallKokkos<DeviceType>::grow_arrays(int nmax)
   std::vector<double> save_displace;
   int nsave = 0;
 
+  // The grow below keeps the device copy of each array and refills the host
+  // mirror from it (see the sync_host() calls further down).  That is right
+  // during a run, when the device copy is the current one -- and wrong while
+  // the host setup still owns this bookkeeping.  create_bodies() fills bodytag,
+  // bodyown, atom2body, xcmimage and displace on the host through the base
+  // class' raw pointers without touching the modify flags, and nothing pushes
+  // them to the device until setup_device_push().  setup_bodies_static() calls
+  // grow_arrays() in the middle of that -- but only for bodies of finite-size
+  // particles, which is why this was invisible for point particles -- and the
+  // refill then replaced all five arrays with the empty device allocation:
+  // every bodytag went to zero, no atom was left assigned to a body, and every
+  // body came out with zero mass, zero inertia and, through a zero degree-of-
+  // freedom count, a nan temperature.  Carry the host side across the grow
+  // whenever the host side is the one holding the values.
+  const bool host_holds_bookkeeping = (!setupflag || setup_host_rebuild);
+
   if (!tied_initialized) {
     // the base ctor's virtual grow_arrays() allocated these as plain
     // memory->grow pointers before the Kokkos views existed; free them so the
@@ -1609,6 +1631,15 @@ void FixRigidSmallKokkos<DeviceType>::grow_arrays(int nmax)
     maxvatom = 0;
     tied_initialized = true;
     prev_size = nsave;
+  } else if (host_holds_bookkeeping && (bodyown != nullptr)) {
+    nsave = MIN(prev_size, nmax);
+    save_bodyown.assign(bodyown, bodyown+nsave);
+    save_bodytag.assign(bodytag, bodytag+nsave);
+    save_atom2body.assign(atom2body, atom2body+nsave);
+    save_xcmimage.assign(xcmimage, xcmimage+nsave);
+    save_displace.resize((size_t)nsave*3);
+    for (int i = 0; i < nsave; i++)
+      for (int k = 0; k < 3; k++) save_displace[(size_t)i*3+k] = displace[i][k];
   }
 
   // extended-particle per-atom arrays: tied DualViews so the host setup writes
