@@ -35,9 +35,17 @@
 bool verbose = false;
 
 namespace LAMMPS_NS {
+using ::testing::AnyOf;
 using ::testing::ContainsRegex;
 using ::testing::HasSubstr;
 using ::testing::Not;
+
+// gtest's ContainsRegex() uses different regular expression engines on different
+// platforms (POSIX ERE vs. its own limited fallback on Windows) whose common
+// subset is too small.  Content checks with patterns therefore use the bundled
+// (and thus platform-independent) LAMMPS regex implementation instead.
+#define ASSERT_MATCH(text, pattern) \
+    ASSERT_TRUE(utils::strmatch(text, pattern)) << "no match for pattern: " << (pattern)
 
 // small LJ system with one of each kind of object the info command reports on.
 // only core functionality is used, so the test runs with any package selection.
@@ -130,7 +138,7 @@ TEST_F(InfoTest, System)
     ASSERT_THAT(output, HasSubstr("Units         = lj"));
     ASSERT_THAT(output, HasSubstr("Atom style    = atomic"));
     ASSERT_THAT(output, HasSubstr("Atom map      = "));
-    ASSERT_THAT(output, ContainsRegex("Atoms += +32, +types = +2, +style = lj/cut"));
+    ASSERT_MATCH(output, "Atoms += +32, +types = +2, +style = lj/cut");
     ASSERT_THAT(output, HasSubstr("Atoms with atom IDs"));
     ASSERT_THAT(output, HasSubstr("Atoms with per-type masses"));
     ASSERT_THAT(output, Not(HasSubstr("Atoms with per-atom charges")));
@@ -159,32 +167,32 @@ TEST_F(InfoTest, Objects)
 {
     auto output = run_info("groups regions computes fixes dumps variables");
     ASSERT_THAT(output, HasSubstr("Group information:"));
-    ASSERT_THAT(output, ContainsRegex("Group\\[ 0\\]: +all +\\(static\\)"));
-    ASSERT_THAT(output, ContainsRegex("Group\\[ 1\\]: +g1 +\\(static\\)"));
+    ASSERT_MATCH(output, "Group\\[ 0\\]: +all +\\(static\\)");
+    ASSERT_MATCH(output, "Group\\[ 1\\]: +g1 +\\(static\\)");
     ASSERT_THAT(output, HasSubstr("Region information:"));
-    ASSERT_THAT(output, ContainsRegex("Region\\[ +[0-9]\\]: +box, +style = block, +side = in"));
-    ASSERT_THAT(output, ContainsRegex("Region\\[ +[0-9]\\]: +r1, +style = sphere, +side = in"));
-    ASSERT_THAT(output, ContainsRegex("Region\\[ +[0-9]\\]: +r2, +style = plane, +side = out"));
+    ASSERT_MATCH(output, "Region\\[ +[0-9]\\]: +box, +style = block, +side = in");
+    ASSERT_MATCH(output, "Region\\[ +[0-9]\\]: +r1, +style = sphere, +side = in");
+    ASSERT_MATCH(output, "Region\\[ +[0-9]\\]: +r2, +style = plane, +side = out");
     ASSERT_THAT(output, HasSubstr("Region[  0]:"));
     ASSERT_THAT(output, HasSubstr("Region[  1]:"));
     ASSERT_THAT(output, HasSubstr("Region[  2]:"));
     ASSERT_THAT(output, HasSubstr("   Boundary:  lo "));
     ASSERT_THAT(output, HasSubstr("   No Boundary"));
     ASSERT_THAT(output, HasSubstr("Compute information:"));
-    ASSERT_THAT(output, ContainsRegex("Compute\\[ +[0-9]\\]: +ke, +style = ke, +group = all"));
+    ASSERT_MATCH(output, "Compute\\[ +[0-9]\\]: +ke, +style = ke, +group = all");
     ASSERT_THAT(output, HasSubstr("Dump information:"));
-    ASSERT_THAT(output, ContainsRegex("Dump\\[ +0\\]: +d1, +file = info_test.dump, +style = atom, "
-                                      "+group = all, +every = 100"));
-    ASSERT_THAT(output, ContainsRegex("Dump\\[ +1\\]: +d2, +file = info_test2.dump, +style = atom, "
-                                      "+group = all, +every = eq"));
+    ASSERT_MATCH(output, "Dump\\[ +0\\]: +d1, +file = info_test.dump, +style = atom, "
+                                      "+group = all, +every = 100");
+    ASSERT_MATCH(output, "Dump\\[ +1\\]: +d2, +file = info_test2.dump, +style = atom, "
+                                      "+group = all, +every = eq");
     ASSERT_THAT(output, HasSubstr("Fix information:"));
-    ASSERT_THAT(output, ContainsRegex("Fix\\[ +0\\]: +nve, +style = nve, +group = all"));
+    ASSERT_MATCH(output, "Fix\\[ +0\\]: +nve, +style = nve, +group = all");
     ASSERT_THAT(output, HasSubstr("Variable information:"));
-    ASSERT_THAT(output, ContainsRegex("Variable\\[ +[0-9]+\\]: +eq, +style = equal,"));
-    ASSERT_THAT(output, ContainsRegex("Variable\\[ +[0-9]+\\]: +str, +style = string,"));
-    ASSERT_THAT(output, ContainsRegex("Variable\\[ +[0-9]+\\]: +idx, +style = index,"));
-    ASSERT_THAT(output, ContainsRegex("Variable\\[ +[0-9]+\\]: +atm, +style = atom,"));
-    ASSERT_THAT(output, ContainsRegex("Variable\\[ +[0-9]+\\]: +vec, +style = vector,"));
+    ASSERT_MATCH(output, "Variable\\[ +[0-9]+\\]: +eq, +style = equal,");
+    ASSERT_MATCH(output, "Variable\\[ +[0-9]+\\]: +str, +style = string,");
+    ASSERT_MATCH(output, "Variable\\[ +[0-9]+\\]: +idx, +style = index,");
+    ASSERT_MATCH(output, "Variable\\[ +[0-9]+\\]: +atm, +style = atom,");
+    ASSERT_MATCH(output, "Variable\\[ +[0-9]+\\]: +vec, +style = vector,");
     ASSERT_THAT(output, Not(HasSubstr("System information:")));
 }
 
@@ -194,7 +202,7 @@ TEST_F(InfoTest, Misc)
     ASSERT_THAT(output, HasSubstr("LAMMPS version: "));
     ASSERT_THAT(output, HasSubstr("sizeof(bigint):   64-bit"));
     ASSERT_THAT(output, HasSubstr("C++ standard: "));
-    ASSERT_THAT(output, ContainsRegex("-DLAMMPS_(SMALL|BIG)BIG"));
+    ASSERT_THAT(output, AnyOf(HasSubstr("-DLAMMPS_SMALLBIG"), HasSubstr("-DLAMMPS_BIGBIG")));
     ASSERT_THAT(output, HasSubstr("Installed packages:"));
 
     output = run_info("communication");
@@ -267,29 +275,28 @@ TEST_F(InfoTest, Styles)
 
     output = run_info("styles atom");
     ASSERT_THAT(output, HasSubstr("Atom styles:"));
-    ASSERT_THAT(output, ContainsRegex("[ \n]atomic[ \n]"));
+    ASSERT_MATCH(output, "[ \n]atomic[ \n]");
     ASSERT_THAT(output, Not(HasSubstr("Pair styles:")));
 
     output = run_info("styles pair");
     ASSERT_THAT(output, HasSubstr("Pair styles:"));
-    ASSERT_THAT(output, ContainsRegex("[ \n]lj/cut[ \n]"));
+    ASSERT_MATCH(output, "[ \n]lj/cut[ \n]");
     ASSERT_THAT(output, Not(HasSubstr("Atom styles:")));
 
-    ASSERT_THAT(run_info("styles integrate"),
-                ContainsRegex("Integrate styles:[^:]*[ \n]verlet[ \n]"));
-    ASSERT_THAT(run_info("styles minimize"), ContainsRegex("Minimize styles:[^:]*[ \n]cg[ \n]"));
-    ASSERT_THAT(run_info("styles bond"), ContainsRegex("Bond styles:[^:]*[ \n]zero[ \n]"));
-    ASSERT_THAT(run_info("styles angle"), ContainsRegex("Angle styles:[^:]*[ \n]zero[ \n]"));
-    ASSERT_THAT(run_info("styles dihedral"), ContainsRegex("Dihedral styles:[^:]*[ \n]zero[ \n]"));
-    ASSERT_THAT(run_info("styles improper"), ContainsRegex("Improper styles:[^:]*[ \n]zero[ \n]"));
+    ASSERT_MATCH(run_info("styles integrate"), "Integrate styles:[^:]*[ \n]verlet[ \n]");
+    ASSERT_MATCH(run_info("styles minimize"), "Minimize styles:[^:]*[ \n]cg[ \n]");
+    ASSERT_MATCH(run_info("styles bond"), "Bond styles:[^:]*[ \n]zero[ \n]");
+    ASSERT_MATCH(run_info("styles angle"), "Angle styles:[^:]*[ \n]zero[ \n]");
+    ASSERT_MATCH(run_info("styles dihedral"), "Dihedral styles:[^:]*[ \n]zero[ \n]");
+    ASSERT_MATCH(run_info("styles improper"), "Improper styles:[^:]*[ \n]zero[ \n]");
     ASSERT_THAT(run_info("styles kspace"), HasSubstr("KSpace styles:"));
-    ASSERT_THAT(run_info("styles fix"), ContainsRegex("Fix styles:[^:]*[ \n]nve[ \n]"));
-    ASSERT_THAT(run_info("styles compute"), ContainsRegex("Compute styles:[^:]*[ \n]temp[ \n]"));
-    ASSERT_THAT(run_info("styles region"), ContainsRegex("Region styles:[^:]*[ \n]block[ \n]"));
-    ASSERT_THAT(run_info("styles dump"), ContainsRegex("Dump styles:[^:]*[ \n]atom[ \n]"));
+    ASSERT_MATCH(run_info("styles fix"), "Fix styles:[^:]*[ \n]nve[ \n]");
+    ASSERT_MATCH(run_info("styles compute"), "Compute styles:[^:]*[ \n]temp[ \n]");
+    ASSERT_MATCH(run_info("styles region"), "Region styles:[^:]*[ \n]block[ \n]");
+    ASSERT_MATCH(run_info("styles dump"), "Dump styles:[^:]*[ \n]atom[ \n]");
     output = run_info("styles command");
     ASSERT_THAT(output, HasSubstr("Command styles (add-on input script commands):"));
-    ASSERT_THAT(output, ContainsRegex("[ \n]info[ \n]"));
+    ASSERT_MATCH(output, "[ \n]info[ \n]");
     ASSERT_THAT(output, Not(HasSubstr("Dump styles:")));
 }
 
@@ -469,7 +476,7 @@ TEST_F(InfoEmptyTest, NoBox)
     ASSERT_THAT(output, HasSubstr("System information:"));
     ASSERT_THAT(output, HasSubstr("Box has not yet been created"));
     ASSERT_THAT(output, HasSubstr("Kspace style = none"));
-    ASSERT_THAT(output, ContainsRegex("Group\\[ 0\\]: +all +\\(static\\)"));
+    ASSERT_MATCH(output, "Group\\[ 0\\]: +all +\\(static\\)");
     ASSERT_THAT(output, HasSubstr("Region information:"));
     ASSERT_THAT(output, HasSubstr("Compute information:"));
     ASSERT_THAT(output, HasSubstr("Dump information:"));

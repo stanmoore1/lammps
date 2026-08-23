@@ -40,6 +40,13 @@ using ::testing::ContainsRegex;
 using ::testing::HasSubstr;
 using ::testing::Not;
 
+// gtest's ContainsRegex() uses different regular expression engines on different
+// platforms (POSIX ERE vs. its own limited fallback on Windows) whose common
+// subset is too small.  Content checks with patterns therefore use the bundled
+// (and thus platform-independent) LAMMPS regex implementation instead.
+#define ASSERT_MATCH(text, pattern) \
+    ASSERT_TRUE(utils::strmatch(text, pattern)) << "no match for pattern: " << (pattern)
+
 // small LJ system; only core functionality is used, so the test runs with
 // any package selection.  LJ units => thermo_modify norm defaults to yes.
 
@@ -90,20 +97,18 @@ TEST_F(ThermoTest, Styles)
 {
     // default style "one"
     auto output = run0();
-    ASSERT_THAT(output, ContainsRegex("Step +Temp +E_pair +E_mol +TotEng +Press *\n"));
-    ASSERT_THAT(output, ContainsRegex("\n +0 +1 +-[0-9.]+ +0 +-[0-9.]+ +-?[0-9.]+ *\n"));
+    ASSERT_MATCH(output, "Step +Temp +E_pair +E_mol +TotEng +Press *\n");
+    ASSERT_MATCH(output, "\n +0 +1 +-[0-9.]+ +0 +-[0-9.]+ +-?[0-9.]+ *\n");
 
     HIDE_OUTPUT([&] {
         command("thermo_style multi");
     });
     output = run0();
-    ASSERT_THAT(output, ContainsRegex("-+ Step +0 -+ CPU = +[0-9.]+ \\(sec\\) -+"));
-    ASSERT_THAT(output, ContainsRegex("TotEng += +-[0-9.]+ +KinEng += +[0-9.]+ +Temp += +1.0000"));
-    ASSERT_THAT(output,
-                ContainsRegex("PotEng += +-[0-9.]+ +E_bond += +0.0000 +E_angle += +0.0000"));
-    ASSERT_THAT(output,
-                ContainsRegex("E_dihed += +0.0000 +E_impro += +0.0000 +E_vdwl += +-[0-9.]+"));
-    ASSERT_THAT(output, ContainsRegex("E_coul += +0.0000 +E_long += +0.0000 +Press += +-?[0-9.]+"));
+    ASSERT_MATCH(output, "-+ Step +0 -+ CPU = +[0-9.]+ \\(sec\\) -+");
+    ASSERT_MATCH(output, "TotEng += +-[0-9.]+ +KinEng += +[0-9.]+ +Temp += +1.0000");
+    ASSERT_MATCH(output, "PotEng += +-[0-9.]+ +E_bond += +0.0000 +E_angle += +0.0000");
+    ASSERT_MATCH(output, "E_dihed += +0.0000 +E_impro += +0.0000 +E_vdwl += +-[0-9.]+");
+    ASSERT_MATCH(output, "E_coul += +0.0000 +E_long += +0.0000 +Press += +-?[0-9.]+");
 
     HIDE_OUTPUT([&] {
         command("thermo_style yaml");
@@ -113,11 +118,8 @@ TEST_F(ThermoTest, Styles)
         output,
         HasSubstr("---\nkeywords: ['Step', 'Temp', 'KinEng', 'PotEng', 'E_bond', 'E_angle', "
                   "'E_dihed', 'E_impro', 'E_vdwl', 'E_coul', 'E_long', 'Press', ]\ndata:\n"));
-    ASSERT_THAT(
-        output,
-        ContainsRegex(
-            "\n  - \\[0, 1, [0-9.]+, -[0-9.]+, 0, 0, 0, 0, -[0-9.]+, 0, 0, -?[0-9.]+, \\]\n"));
-    ASSERT_THAT(output, ContainsRegex("\n  - \\[2, [0-9.]+, .*\\]\n\\.\\.\\.\n"));
+    ASSERT_MATCH(output, "\n  - \\[0, 1, [0-9.]+, -[0-9.]+, 0, 0, 0, 0, -[0-9.]+, 0, 0, -?[0-9.]+, \\]\n");
+    ASSERT_MATCH(output, "\n  - \\[2, [0-9.]+, .*\\]\n\\.\\.\\.\n");
 
     // line keyword switches the format, not the content
     HIDE_OUTPUT([&] {
@@ -125,10 +127,9 @@ TEST_F(ThermoTest, Styles)
         command("thermo_modify line multi");
     });
     output = run0();
-    ASSERT_THAT(output, ContainsRegex("-+ Step +2 -+ CPU = +[0-9.]+ \\(sec\\) -+"));
-    ASSERT_THAT(output, ContainsRegex("Step += +2 +Temp += +[0-9.]+ +E_pair += +-[0-9.]+"));
-    ASSERT_THAT(output,
-                ContainsRegex("E_mol += +0.0000 +TotEng += +-[0-9.]+ +Press += +-?[0-9.]+"));
+    ASSERT_MATCH(output, "-+ Step +2 -+ CPU = +[0-9.]+ \\(sec\\) -+");
+    ASSERT_MATCH(output, "Step += +2 +Temp += +[0-9.]+ +E_pair += +-[0-9.]+");
+    ASSERT_MATCH(output, "E_mol += +0.0000 +TotEng += +-[0-9.]+ +Press += +-?[0-9.]+");
     ASSERT_THAT(output, Not(HasSubstr("E_bond   =")));
 
     HIDE_OUTPUT([&] {
@@ -143,14 +144,14 @@ TEST_F(ThermoTest, Styles)
         command("thermo_modify line one");
     });
     output = run0();
-    ASSERT_THAT(output, ContainsRegex("Step +Temp +E_pair +E_mol +TotEng +Press *\n +2 "));
+    ASSERT_MATCH(output, "Step +Temp +E_pair +E_mol +TotEng +Press *\n +2 ");
 
     TEST_FAILURE(".*ERROR: Unknown thermo_modify line argument: xxx.*",
                  command("thermo_modify line xxx"););
     TEST_FAILURE(".*ERROR: Unknown thermo style xxx.*", command("thermo_style xxx"););
     // the previous thermo settings survive a failed thermo_style command
     output = run0();
-    ASSERT_THAT(output, ContainsRegex("Step +Temp +E_pair +E_mol +TotEng +Press *\n +2 "));
+    ASSERT_MATCH(output, "Step +Temp +E_pair +E_mol +TotEng +Press *\n +2 ");
     TEST_FAILURE(".*ERROR: Illegal thermo_style command.*", command("thermo_style"););
     TEST_FAILURE(".*ERROR: Illegal thermo_modify command.*", command("thermo_modify"););
     TEST_FAILURE(".*ERROR: Unknown thermo_modify keyword: xxx.*",
@@ -178,9 +179,7 @@ TEST_F(ThermoTest, Custom)
         command("thermo_modify format float %.8g");
     });
     auto output = run(5);
-    ASSERT_THAT(
-        output,
-        ContainsRegex("Step +Elapsed +Elaplong +Dt +Time +CPU +T/CPU +S/CPU +CPULeft +Part "
+    ASSERT_MATCH(output, "Step +Elapsed +Elaplong +Dt +Time +CPU +T/CPU +S/CPU +CPULeft +Part "
                       "+TimeoutLeft +Atoms"
                       " +Temp +Press +PotEng +KinEng +TotEng +Enthalpy +E_vdwl +E_coul +E_pair "
                       "+E_bond +E_angle +E_dihed"
@@ -189,7 +188,7 @@ TEST_F(ThermoTest, Custom)
                       " +Impros +Pxx +Pyy +Pzz +Pxy +Pxz +Pyz +Fmax +Fnorm +Nbuild +Ndanger +Cella"
                       " +Cellb +Cellc +CellAlpha +CellBeta +CellGamma +Ecouple +Econserve +c_ke "
                       "+c_rdc\\[2\\] +f_ave1 +f_ave\\[1\\] +f_ave\\[2\\]"
-                      " +v_eq +v_vec\\[2\\]"));
+                      " +v_eq +v_vec\\[2\\]");
 
     // consistency checks through the variable interface of the thermo keywords
     ASSERT_NEAR(get_variable_value("eq"), 2.0 * lmp->input->variable->compute_equal("temp"), 1e-12);
@@ -362,7 +361,7 @@ TEST_F(ThermoTest, Modify)
         command("thermo_modify flush no");
         command("run 0 post no");
     });
-    ASSERT_THAT(output, ContainsRegex("Step +Temp"));
+    ASSERT_MATCH(output, "Step +Temp");
     TEST_FAILURE(".*ERROR: Expected boolean parameter instead of 'xxx'.*",
                  command("thermo_modify flush xxx"););
     TEST_FAILURE(".*ERROR: Illegal thermo_modify flush command: missing argument.*",
@@ -375,14 +374,14 @@ TEST_F(ThermoTest, Format)
         command("thermo_style custom step atoms temp pe");
     });
     auto output = run0();
-    ASSERT_THAT(output, ContainsRegex("\n +0 +32 +1 +-[0-9.]+ *\n"));
+    ASSERT_MATCH(output, "\n +0 +32 +1 +-[0-9.]+ *\n");
 
     // format line: one format per column
     HIDE_OUTPUT([&] {
         command("thermo_modify format line \"%8d %6d T=%.3f PE=%.4e\"");
     });
     output = run0();
-    ASSERT_THAT(output, ContainsRegex("\n +0 +32 T=1.000 PE=-[0-9]\\.[0-9]{4}e[-+][0-9]{2} *\n"));
+    ASSERT_MATCH(output, "\n +0 +32 T=1.000 PE=-[0-9]\\.[0-9][0-9][0-9][0-9]e[-+][0-9][0-9] *\n");
 
     // format int / float override types, format N overrides one column
     HIDE_OUTPUT([&] {
@@ -390,27 +389,27 @@ TEST_F(ThermoTest, Format)
         command("thermo_modify format int %04d format float %.2f");
     });
     output = run0();
-    ASSERT_THAT(output, ContainsRegex("\n0000 +0032 +1.00 +-[0-9]\\.[0-9]{2} *\n"));
+    ASSERT_MATCH(output, "\n0000 +0032 +1.00 +-[0-9]\\.[0-9][0-9] *\n");
     HIDE_OUTPUT([&] {
         command("thermo_modify format 3 %10.5f");
         command("thermo_modify format -1 %.1e");
     });
     output = run0();
-    ASSERT_THAT(output, ContainsRegex("\n0000 +0032 +1.00000 -[0-9]\\.[0-9]e[-+][0-9]{2} *\n"));
+    ASSERT_MATCH(output, "\n0000 +0032 +1.00000 -[0-9]\\.[0-9]e[-+][0-9][0-9] *\n");
 
     // format none resets everything
     HIDE_OUTPUT([&] {
         command("thermo_modify format none");
     });
     output = run0();
-    ASSERT_THAT(output, ContainsRegex("\n +0 +32 +1 +-[0-9.]+ *\n"));
+    ASSERT_MATCH(output, "\n +0 +32 +1 +-[0-9.]+ *\n");
 
     // integer format for a bigint column gets the correct conversion specifier
     HIDE_OUTPUT([&] {
         command("thermo_modify format int %3d");
     });
     output = run0();
-    ASSERT_THAT(output, ContainsRegex("\n +0 +32 +1 +-[0-9.]+ *\n"));
+    ASSERT_MATCH(output, "\n +0 +32 +1 +-[0-9.]+ *\n");
 
     TEST_FAILURE(".*ERROR: Illegal thermo_modify format command: missing argument.*",
                  command("thermo_modify format"););
@@ -435,37 +434,36 @@ TEST_F(ThermoTest, Colname)
         command("thermo_style custom step temp pe f_nvt f_nvt[1] c_rdc[2]");
     });
     auto output = run0();
-    ASSERT_THAT(output, ContainsRegex("Step +Temp +PotEng +f_nvt +f_nvt\\[1\\] +c_rdc\\[2\\] *\n"));
+    ASSERT_MATCH(output, "Step +Temp +PotEng +f_nvt +f_nvt\\[1\\] +c_rdc\\[2\\] *\n");
 
     // by index, by negative index, by keyword
     HIDE_OUTPUT([&] {
         command("thermo_modify colname 1 Timestep colname -1 MaxVy colname temp Temperature");
     });
     output = run0();
-    ASSERT_THAT(output,
-                ContainsRegex("Timestep +Temperature +PotEng +f_nvt +f_nvt\\[1\\] +MaxVy *\n"));
+    ASSERT_MATCH(output, "Timestep +Temperature +PotEng +f_nvt +f_nvt\\[1\\] +MaxVy *\n");
 
     // auto names from fix nvt and compute reduce
     HIDE_OUTPUT([&] {
         command("thermo_modify colname auto");
     });
     output = run0();
-    ASSERT_THAT(output, ContainsRegex("Timestep +Temperature +PotEng +f_nvt:ecouple "
-                                      "+f_nvt:eta\\[1\\] +c_rdc:max\\(vy\\) *\n"));
+    ASSERT_MATCH(output, "Timestep +Temperature +PotEng +f_nvt:ecouple "
+                                      "+f_nvt:eta\\[1\\] +c_rdc:max\\(vy\\) *\n");
 
     // default restores all
     HIDE_OUTPUT([&] {
         command("thermo_modify colname default");
     });
     output = run0();
-    ASSERT_THAT(output, ContainsRegex("Step +Temp +PotEng +f_nvt +f_nvt\\[1\\] +c_rdc\\[2\\] *\n"));
+    ASSERT_MATCH(output, "Step +Temp +PotEng +f_nvt +f_nvt\\[1\\] +c_rdc\\[2\\] *\n");
 
     // custom names are also used in multi and yaml format
     HIDE_OUTPUT([&] {
         command("thermo_modify colname pe Energy line multi");
     });
     output = run0();
-    ASSERT_THAT(output, ContainsRegex("Energy += +-[0-9.]+"));
+    ASSERT_MATCH(output, "Energy += +-[0-9.]+");
     HIDE_OUTPUT([&] {
         command("thermo_modify line yaml");
     });
