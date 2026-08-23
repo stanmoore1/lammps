@@ -132,8 +132,15 @@ void NeighBondKokkos<DeviceType>::init_topology_kk() {
   int i,m;
   int bond_off = 0;
   int angle_off = 0;
+  // keep this list the same as the one in Neighbor::init_topology(): a fix
+  // that turns bonds off by making their type negative has to be named here,
+  // because it does so after this decision is taken and the scan below cannot
+  // see it yet.  Without the name the all variant is chosen, and that one
+  // copies the type into the list without looking at its sign.
+
   for (const auto &ifix : modify->get_fix_list())
-    if (utils::strmatch(ifix->style,"^shake") || utils::strmatch(ifix->style,"^rattle"))
+    if (utils::strmatch(ifix->style,"^shake") || utils::strmatch(ifix->style,"^rattle") ||
+        utils::strmatch(ifix->style,"^ilves"))
       bond_off = angle_off = 1;
   if (force->bond && force->bond_match("quartic")) bond_off = 1;
 
