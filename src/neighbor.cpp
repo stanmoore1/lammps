@@ -1566,11 +1566,14 @@ void Neighbor::morph_copy_trim()
 
       // other list (jrq) to copy from must be perpetual
       // list that becomes a copy list (irq) can be perpetual or occasional
-      // if both lists are perpetual, require j < i
+      // if both lists are perpetual and have the same cutoff, require j < i
       //   to prevent circular dependence with 3 or more copies of a list
+      // lists with a shorter cutoff are exempt: they are trimmed from a strictly
+      //   longer one, so the cutoff increases along the chain and it cannot close
+      //   into a cycle.  Only equal cutoffs need the index ordering as tie break
 
       if (jrq->occasional) continue;
-      if (!irq->occasional && !irq->cut && j > i) continue;
+      if (!irq->occasional && (icut == jcut) && j > i) continue;
 
       // both lists must be half, or both full
 

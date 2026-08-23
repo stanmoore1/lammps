@@ -680,6 +680,34 @@ TEST_F(NeighborListsBin, one_trim_half_list_nonewton)
     }
 }
 
+// three or more perpetual lists that share the same custom cutoff must not be
+// turned into copies of each other, which would be a circular dependency that
+// the reordering of the build order cannot resolve (issue #4529).  Sub-styles
+// with a shorter cutoff are trimmed from the longest one instead
+TEST_F(NeighborListsBin, several_sublists_equal_cutoff)
+{
+    create_system("atomic", "real", "on");
+    // the lambda form releases the output capture if setting up the lists fails,
+    // so that a circular dependency shows up as a failed test and not an abort
+    ASSERT_NO_THROW(HIDE_OUTPUT([&] {
+        command("pair_style hybrid/overlay lj/cut 3.5 lj/cut 2.0 lj/cut 2.0 lj/cut 2.0");
+        for (int i = 1; i <= 4; ++i)
+            command(fmt::format("pair_coeff * * lj/cut {} 0.01 2.0", i));
+        command("run 0 post no");
+    }));
+
+    // every sub-style must end up with a list, the three that share a cutoff
+    // must hold the same neighbors, and the longer ranged one must hold more
+    int n1 = count_neighbors(lammps_find_pair_neighlist(lmp, "lj/cut", 1, 1, 0));
+    int n2 = count_neighbors(lammps_find_pair_neighlist(lmp, "lj/cut", 1, 2, 0));
+    int n3 = count_neighbors(lammps_find_pair_neighlist(lmp, "lj/cut", 1, 3, 0));
+    int n4 = count_neighbors(lammps_find_pair_neighlist(lmp, "lj/cut", 1, 4, 0));
+    EXPECT_GT(n2, 0);
+    EXPECT_EQ(n2, n3);
+    EXPECT_EQ(n2, n4);
+    EXPECT_GT(n1, n2);
+}
+
 // a list requested with a uniform cutoff must reach that cutoff for every atom
 // type, also when the pair style uses a shorter cutoff for some type pairs and
 // the default list is therefore truncated for them.  The contents of such a
