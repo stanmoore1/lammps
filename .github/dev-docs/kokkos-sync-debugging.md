@@ -220,6 +220,14 @@ before rebuilding LAMMPS, which takes far longer.
   circuits the accessor checks by design.
 * **A run whose results did not change proves nothing** about a detector's
   coverage.  Establish the fault first (step 0), then ask what the tools say.
+* **`-pk kokkos comm host` cannot be tested without `KOKKOS_DEBUG_SYNC_SPLIT_HOST`.**
+  In the plain debug build `LMPHostType` and `LMPDeviceType` are the same type,
+  so `CommKokkos::reverse_comm_device<LMPHostType>()` -- what `comm host`
+  dispatches to -- compiles to the device path and reduces the forces through
+  the device view while the host side holds them.  Poison duly traps it in
+  `AtomVecKokkos_UnPackReverseSelf` and every deck's thermo diverges, on
+  correct code.  Build with `-D KOKKOS_DEBUG_SYNC_SPLIT_HOST=on`, which gives
+  the two their own backends, before believing anything a `comm host` run says.
 * **The debug build places host-backend styles on the device side**, so
   `execution_space == HostKK` is false for every style in it.  That is what
   keeps the host/device transfers alive and checkable, and code asking which
