@@ -37,8 +37,6 @@
 
 #include <cmath>
 #include <cstring>
-#include <map>
-#include <utility>
 #include <vector>
 
 using namespace LAMMPS_NS;
@@ -270,7 +268,7 @@ void FixRigidSmallKokkos<DeviceType>::setup_pre_neighbor()
   // setup_bodies_static() rebuilds the bodies from the unwrapped atom
   // positions, so it also reads atom->image and atom->mask (and rmass for
   // finite-size particles), which are not in this fix's per-step datamask.
-  atomKK->sync(Host, datamask_read | IMAGE_MASK | MASK_MASK | RMASS_MASK | extended_datamask);
+  atomKK->sync(Host, host_rebuild_datamask);
 
   // On the 2nd and later runs the host rebuild below (setup_bodies_static/
   // _dynamic) also re-derives the extended-particle state from the per-atom
@@ -423,7 +421,7 @@ void FixRigidSmallKokkos<DeviceType>::setup_pre_neighbor()
 template<class DeviceType>
 void FixRigidSmallKokkos<DeviceType>::setup(int vflag)
 {
-  atomKK->sync(Host, datamask_read);
+  atomKK->sync(Host, host_rebuild_datamask);
 
   // FixRigidSmall::setup() is host code throughout: compute_forces_and_torques()
   // does a commflag=FORCE_TORQUE reverse comm and then reads the host body[],
@@ -618,9 +616,8 @@ void FixRigidSmallKokkos<DeviceType>::setup_device_push()
   // pre_neighbor isn't called again until necessary during the run,
   // need to set up the body sendlist and send the ghost bodies now
   nghost_body = 0;
-  max_body_sent = 0;
   body_recvs.clear();
-  body_sends.clear();
+  retire_body_sends();
 
   commflag = BODY_SENDLIST;
   commKK->forward_comm_device<DeviceType>(this, 1);
@@ -769,9 +766,8 @@ void FixRigidSmallKokkos<DeviceType>::pre_neighbor(){
     }
   );
 
-  max_body_sent = 0;
   body_recvs.clear();
-  body_sends.clear();
+  retire_body_sends();
 
   commflag = BODY_SENDLIST;
   commKK->forward_comm_device<DeviceType>(this, 1);
@@ -929,6 +925,12 @@ void FixRigidSmallKokkos<DeviceType>::apply_langevin_thermostat_kokkos()
 template<class DeviceType>
 void FixRigidSmallKokkos<DeviceType>::enforce2d()
 {
+  // NOTE: the langextra columns zeroed below follow FixRigid::enforce2d();
+  // FixRigidSmall::enforce2d() deliberately leaves langextra alone.  The
+  // divergence is currently unreachable -- init() rejects 2d systems -- but it
+  // has to be reconciled with the CPU style before that restriction is lifted,
+  // or the Langevin buffer will differ between the two.
+
   auto d_body = this->d_body;
   auto langflag = this->langflag && (langextra!=nullptr);
   auto d_langextra = this->d_langextra;
@@ -1491,6 +1493,46 @@ void FixRigidSmallKokkos<DeviceType>::operator()(TagUpdateXGC, const int ibody) 
   b.xgc[2] = xgc[2] + b.xcm[2];
 }
 
+
+/* ----------------------------------------------------------------------
+   resample body momenta (fix hmc); the base implementation is host code that
+   rewrites body[], does a host FINAL forward comm and calls the host set_v()
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void FixRigidSmallKokkos<DeviceType>::resample_momenta(int groupbit_in, int mom_flag,
+                                                       class RanPark *random_in, double KT)
+{
+  if (!setupflag) {
+    FixRigidSmall::resample_momenta(groupbit_in, mom_flag, random_in, KT);
+    return;
+  }
+
+  // bring the bodies and the atom arrays the base reads down to the host, and
+  // put the comm back on the host for the duration, exactly as setup() and
+  // dof() do -- otherwise the FINAL forward comm goes to the device packers
+  // while the host body[] this reads and writes stays stale, and the resampled
+  // momenta never reach the device at all
+  atomKK->sync(Host, host_rebuild_datamask);
+  copy_body_host();
+
+  const int saved_forward_comm_device = forward_comm_device;
+  const int saved_reverse_comm_device = reverse_comm_device;
+  forward_comm_device = 0;
+  reverse_comm_device = 0;
+  setup_host_rebuild = true;
+
+  FixRigidSmall::resample_momenta(groupbit_in, mom_flag, random_in, KT);
+
+  setup_host_rebuild = false;
+  forward_comm_device = saved_forward_comm_device;
+  reverse_comm_device = saved_reverse_comm_device;
+
+  // push the new body momenta and the per-atom velocities set_v() wrote back
+  copy_body_device();
+  atomKK->modified(Host, V_MASK);
+  atomKK->sync(execution_space, V_MASK);
+}
 
 /* ----------------------------------------------------------------------
    write out restart info for mass, COM, inertia tensor to file
@@ -2183,7 +2225,6 @@ int FixRigidSmallKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_
     );
     auto &send = body_send(iswap);
     send.n = n_sent;
-    if (n_sent > max_body_sent) max_body_sent = n_sent;
 
     if (send.list.extent_int(0) < n_sent) send.list = IntView1D("body sendlist", n_sent);
     auto d_body_sendlist = send.list;
@@ -2334,7 +2375,6 @@ void FixRigidSmallKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int firs
     while (n_curr_bodies+n_incoming_bodies > nmax_body) {
       grow_body();
     }
-    d_body = this->d_body;
 
     this->nghost_body += n_incoming_bodies;
     k_bodyown.template modify<DeviceType>();
@@ -3002,6 +3042,18 @@ void FixRigidSmallKokkos<DeviceType>::copy_body_host(){
 template<class DeviceType>
 void FixRigidSmallKokkos<DeviceType>::copy_body_device(){
   Kokkos::Profiling::pushRegion("rigid/small copy body device");
+  // Size the device array to what we are about to write.  nlocal_body +
+  // nghost_body can exceed nmax_body (the base set_molecule() only grows when
+  // nlocal_body == nmax_body, which misses the ghost bodies), and k_body does
+  // not exist at all before setup_device_push(); either way writing
+  // k_body.view_host()(ibody) below would run past the extent.
+  const int nbody_all = nlocal_body + nghost_body;
+  if (k_body.view_host().extent_int(0) < nbody_all) {
+    k_body.sync_host();
+    k_body.resize(nbody_all);
+    k_body.sync_host();
+    d_body = k_body.view_device();
+  }
   for(int ibody = 0; ibody < nlocal_body + nghost_body; ibody++){
     copy_body(&k_body.view_host()(ibody), &body[ibody]);
   }
