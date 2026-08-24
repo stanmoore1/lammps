@@ -62,6 +62,32 @@ struct Zero {
   }
 };
 
+/* ----------------------------------------------------------------------
+   zero count entries of a per-atom array on both host sides, from first
+
+   the loops that zero the device copy leave the host side alone.  A style
+   that runs on the host adds its forces into the Kokkos host view, and a
+   style without KOKKOS support adds into the plain LAMMPS array behind it,
+   so whatever either of them added last step is still there and is counted
+   again when the two sides are brought together.  Each call takes the same
+   range as the device loop it goes with, so that the atoms the plain code
+   leaves alone -- those outside an include group -- are left alone here too.
+------------------------------------------------------------------------- */
+
+template<class View>
+static void zero_host_view(const View &v, int first, int count)
+{
+  Kokkos::parallel_for(Kokkos::RangePolicy<LMPHostType>(first,first+count),Zero<View>(v));
+}
+
+template<class DualView>
+static void zero_host(const DualView &k, int first, int count)
+{
+  if (count <= 0) return;
+  zero_host_view(k.view_hostkk(),first,count);
+  zero_host_view(k.view_host(),first,count);
+}
+
 /* ---------------------------------------------------------------------- */
 
 VerletKokkos::VerletKokkos(LAMMPS *lmp, int narg, char **arg) :
@@ -598,20 +624,12 @@ void VerletKokkos::force_clear()
     if (force->newton) nall += atomKK->nghost;
 
     Kokkos::parallel_for(nall, Zero<DAT::t_kkacc_1d_3>(atomKK->k_f.view_device()));
-
-    // clear the host side as well.  A style that runs on the host adds its
-    // forces into that buffer, and a style without KOKKOS support adds into
-    // the plain LAMMPS array behind it; neither is cleared by the loop above,
-    // so whatever they added last step is still there and gets counted again
-    // when the two sides are brought together.  With everything on the device
-    // this costs one clear of an array that is about to be overwritten anyway.
-    Kokkos::deep_copy(LMPHostType(),atomKK->k_f.view_hostkk(),0.0);
-    Kokkos::deep_copy(LMPHostType(),atomKK->k_f.view_host(),0.0);
-
+    zero_host(atomKK->k_f,0,nall);
     atomKK->modified(Device,F_MASK);
 
     if (torqueflag) {
       Kokkos::parallel_for(nall, Zero<DAT::t_kkacc_1d_3>(atomKK->k_torque.view_device()));
+      zero_host(atomKK->k_torque,0,nall);
       atomKK->modified(Device,TORQUE_MASK);
     }
 
@@ -619,8 +637,10 @@ void VerletKokkos::force_clear()
 
     if (extraflag) {
       Kokkos::parallel_for(nall, Zero<DAT::t_kkacc_1d_3>(atomKK->k_fm.view_device()));
+      zero_host(atomKK->k_fm,0,nall);
       atomKK->modified(Device,FM_MASK);
       Kokkos::parallel_for(nall, Zero<DAT::t_kkacc_1d_3>(atomKK->k_fm_long.view_device()));
+      zero_host(atomKK->k_fm_long,0,nall);
       atomKK->modified(Device,FML_MASK);
     }
 
@@ -630,10 +650,12 @@ void VerletKokkos::force_clear()
 
   } else {
     Kokkos::parallel_for(atomKK->nfirst, Zero<DAT::t_kkacc_1d_3>(atomKK->k_f.view_device()));
+    zero_host(atomKK->k_f,0,atomKK->nfirst);
     atomKK->modified(Device,F_MASK);
 
     if (torqueflag) {
       Kokkos::parallel_for(atomKK->nfirst, Zero<DAT::t_kkacc_1d_3>(atomKK->k_torque.view_device()));
+      zero_host(atomKK->k_torque,0,atomKK->nfirst);
       atomKK->modified(Device,TORQUE_MASK);
     }
 
@@ -641,18 +663,22 @@ void VerletKokkos::force_clear()
 
     if (extraflag) {
       Kokkos::parallel_for(atomKK->nfirst, Zero<DAT::t_kkacc_1d_3>(atomKK->k_fm.view_device()));
+      zero_host(atomKK->k_fm,0,atomKK->nfirst);
       atomKK->modified(Device,FM_MASK);
       Kokkos::parallel_for(atomKK->nfirst, Zero<DAT::t_kkacc_1d_3>(atomKK->k_fm_long.view_device()));
+      zero_host(atomKK->k_fm_long,0,atomKK->nfirst);
       atomKK->modified(Device,FML_MASK);
     }
 
     if (force->newton) {
       auto range = Kokkos::RangePolicy<LMPDeviceType>(atomKK->nlocal, atomKK->nlocal + atomKK->nghost);
       Kokkos::parallel_for(range, Zero<DAT::t_kkacc_1d_3>(atomKK->k_f.view_device()));
+      zero_host(atomKK->k_f,atomKK->nlocal,atomKK->nghost);
       atomKK->modified(Device,F_MASK);
 
       if (torqueflag) {
         Kokkos::parallel_for(range, Zero<DAT::t_kkacc_1d_3>(atomKK->k_torque.view_device()));
+        zero_host(atomKK->k_torque,atomKK->nlocal,atomKK->nghost);
         atomKK->modified(Device,TORQUE_MASK);
       }
 
@@ -660,8 +686,10 @@ void VerletKokkos::force_clear()
 
       if (extraflag) {
         Kokkos::parallel_for(range, Zero<DAT::t_kkacc_1d_3>(atomKK->k_fm.view_device()));
+        zero_host(atomKK->k_fm,atomKK->nlocal,atomKK->nghost);
         atomKK->modified(Device,FM_MASK);
         Kokkos::parallel_for(range, Zero<DAT::t_kkacc_1d_3>(atomKK->k_fm_long.view_device()));
+        zero_host(atomKK->k_fm_long,atomKK->nlocal,atomKK->nghost);
         atomKK->modified(Device,FML_MASK);
       }
     }
