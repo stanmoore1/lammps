@@ -185,14 +185,43 @@ typedef LMPDeviceType::array_layout LMPDeviceLayout;
 //typedef Kokkos::LayoutLeft LMPDeviceLayout;
 #endif
 
-// If unified memory, need to use device memory space for host execution space
+// set the memory space used for device views
+//
+// Kokkos::SharedSpace is memory that both the host and the device can access
+// directly, so the host can supplement the memory of the GPU (unified memory
+// on NVIDIA GPUs, managed memory on AMD GPUs, shared USM on Intel GPUs).  It
+// is requested with -D KOKKOS_ENABLE_SHARED_SPACE=on and is used by default on
+// AMD MI300A, where host and device already share physical memory anyway.
+
+#if (defined(KOKKOS_ENABLE_HIP) && defined(KOKKOS_ARCH_AMD_GFX942_APU))
+#define LMP_KOKKOS_SHARED_SPACE
+#endif
+
+#if defined(LMP_KOKKOS_SHARED_SPACE)
+#if !defined(KOKKOS_HAS_SHARED_SPACE)
+#error KOKKOS_ENABLE_SHARED_SPACE requires a Kokkos backend that provides Kokkos::SharedSpace
+#endif
+typedef Kokkos::SharedSpace LMPDeviceMemorySpace;
+#else
+typedef LMPDeviceType::memory_space LMPDeviceMemorySpace;
+#endif
+
+typedef Kokkos::Device<LMPDeviceType,LMPDeviceMemorySpace> LMPDeviceDevice;
+
+// true when the host can access device views directly, i.e. when device views
+// live in shared memory and no host/device copies are needed
+
+static constexpr bool lmp_kokkos_shared_memory =
+  Kokkos::SpaceAccessibility<LMPDeviceMemorySpace,LMPHostType::memory_space>::accessible;
+
+// with shared memory the device memory space is also used for the host
+// execution space
 
 template<class DeviceType>
 class KKDevice {
  public:
-#if ((defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOS_ENABLE_CUDA_UVM)) || \
-     (defined(KOKKOS_ENABLE_HIP) && defined(KOKKOS_ARCH_AMD_GFX942_APU)))
-  typedef Kokkos::Device<DeviceType,LMPDeviceType::memory_space> value;
+#if defined(LMP_KOKKOS_SHARED_SPACE)
+  typedef Kokkos::Device<DeviceType,LMPDeviceMemorySpace> value;
 #else
   typedef Kokkos::Device<DeviceType,typename DeviceType::memory_space> value;
 #endif
@@ -234,7 +263,7 @@ struct ExecutionSpaceFromDevice<Kokkos::HIP> {
 };
 #elif defined(KOKKOS_ENABLE_SYCL)
 template<>
-struct ExecutionSpaceFromDevice<Kokkos::Experimental::SYCL> {
+struct ExecutionSpaceFromDevice<Kokkos::SYCL> {
   static const LAMMPS_NS::ExecutionSpace space = LAMMPS_NS::Device;
 };
 #elif defined(KOKKOS_ENABLE_OPENMPTARGET)
@@ -245,16 +274,10 @@ struct ExecutionSpaceFromDevice<Kokkos::Experimental::OpenMPTarget> {
 #endif
 
 // set host pinned space
-#if defined(KOKKOS_ENABLE_CUDA)
-typedef Kokkos::CudaHostPinnedSpace LMPPinnedHostType;
-#elif defined(KOKKOS_ENABLE_HIP)
-typedef Kokkos::HIPHostPinnedSpace LMPPinnedHostType;
-#elif defined(KOKKOS_ENABLE_SYCL)
-typedef Kokkos::Experimental::SYCLHostUSMSpace LMPPinnedHostType;
-#elif defined(KOKKOS_ENABLE_OPENMPTARGET)
-typedef Kokkos::Serial LMPPinnedHostType;
+#if defined(KOKKOS_HAS_SHARED_HOST_PINNED_SPACE)
+typedef Kokkos::SharedHostPinnedSpace LMPPinnedHostType;
 #else
-typedef LMPHostType LMPPinnedHostType;
+typedef Kokkos::HostSpace LMPPinnedHostType;
 #endif
 
 // create simple LMPDeviceSpace typedef for non CUDA-, HIP-, or SYCL-specific
@@ -264,7 +287,7 @@ typedef Kokkos::Cuda LMPDeviceSpace;
 #elif defined(KOKKOS_ENABLE_HIP)
 typedef Kokkos::HIP LMPDeviceSpace;
 #elif defined(KOKKOS_ENABLE_SYCL)
-typedef Kokkos::Experimental::SYCL LMPDeviceSpace;
+typedef Kokkos::SYCL LMPDeviceSpace;
 #elif defined(KOKKOS_ENABLE_OPENMPTARGET)
 typedef Kokkos::Experimental::OpenMPTarget LMPDeviceSpace;
 #endif
@@ -305,7 +328,7 @@ struct AtomicDup<HALFTHREAD,Kokkos::HIP> {
 };
 #elif defined(KOKKOS_ENABLE_SYCL)
 template<>
-struct AtomicDup<HALFTHREAD,Kokkos::Experimental::SYCL> {
+struct AtomicDup<HALFTHREAD,Kokkos::SYCL> {
   using value = Kokkos::Experimental::ScatterAtomic;
 };
 #elif defined(KOKKOS_ENABLE_OPENMPTARGET)
@@ -606,7 +629,7 @@ typedef int T_INT;
 
 // LAMMPS types
 
-typedef Kokkos::UnorderedMap<LAMMPS_NS::tagint,int,LMPDeviceType> hash_type;
+typedef Kokkos::UnorderedMap<LAMMPS_NS::tagint,int,LMPDeviceDevice> hash_type;
 typedef hash_type::host_mirror_type host_hash_type;
 
 struct dual_hash_type {
@@ -632,20 +655,20 @@ struct dual_hash_type {
  }
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),hash_type&> view() {return d_view;}
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),hash_type&> view() {return d_view;}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),host_hash_type&> view() {return h_view;}
-
-  template<class DeviceType>
-// NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION
-  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const hash_type&> const_view() const {return d_view;}
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),host_hash_type&> view() {return h_view;}
 
   template<class DeviceType>
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const host_hash_type&> const_view() const {return h_view;}
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),const hash_type&> const_view() const {return d_view;}
+
+  template<class DeviceType>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),const host_hash_type&> const_view() const {return h_view;}
 
   void modify_device()
   {
@@ -678,10 +701,10 @@ struct dual_hash_type {
   }
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_device();}
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),void> sync() {sync_device();}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_host();}
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),void> sync() {sync_host();}
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -694,7 +717,7 @@ struct dual_hash_type {
 };
 
 
-template<class KKType, class LegacyType, class KKLayout, class KKSpace = LMPDeviceType>
+template<class KKType, class LegacyType, class KKLayout, class KKSpace = LMPDeviceDevice>
 struct TransformView {
 
   static constexpr int NEED_TRANSFORM = !(std::is_same<KKType,LegacyType>::value && std::is_same<KKLayout,Kokkos::LayoutRight>::value);
@@ -1097,30 +1120,30 @@ struct TransformView {
   }
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_dev&> view() {return d_view;}
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),typename kk_view::t_dev&> view() {return d_view;}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_host&> view() {return h_viewkk;}
-
-  template<class DeviceType>
-// NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const typename kk_view::t_dev&> view() const {return d_view;}
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),typename kk_view::t_host&> view() {return h_viewkk;}
 
   template<class DeviceType>
 // NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const typename kk_view::t_host&> view() const {return h_viewkk;}
+  KOKKOS_INLINE_FUNCTION std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),const typename kk_view::t_dev&> view() const {return d_view;}
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify() {modify_device();}
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),const typename kk_view::t_host&> view() const {return h_viewkk;}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify() {modify_hostkk();}
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),void> modify() {modify_device();}
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_device();}
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),void> modify() {modify_hostkk();}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_hostkk();}
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),void> sync() {sync_device();}
+
+  template<class DeviceType>
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || lmp_kokkos_shared_memory),void> sync() {sync_hostkk();}
 
   void clear_sync_state()
   {
@@ -1175,7 +1198,7 @@ struct TransformView {
 
 // For device views with fully qualified types
 #define KOKKOS_DEVICE_DUALVIEW(TYPE, LAYOUT, SUFFIX) \
-typedef Kokkos::DualView<TYPE, LAYOUT, LMPDeviceType> tdual_##SUFFIX; \
+typedef Kokkos::DualView<TYPE, LAYOUT, LMPDeviceDevice> tdual_##SUFFIX; \
 typedef typename tdual_##SUFFIX::t_dev t_##SUFFIX; \
 typedef typename tdual_##SUFFIX::t_dev_const t_##SUFFIX##_const; \
 typedef typename tdual_##SUFFIX::t_dev_um t_##SUFFIX##_um; \
@@ -1184,7 +1207,7 @@ typedef typename tdual_##SUFFIX::t_dev_const_randomread t_##SUFFIX##_randomread;
 
 // For host views with fully qualified types
 #define KOKKOS_HOST_DUALVIEW(TYPE, LAYOUT, SUFFIX) \
-typedef Kokkos::DualView<TYPE, LAYOUT, LMPDeviceType> tdual_##SUFFIX; \
+typedef Kokkos::DualView<TYPE, LAYOUT, LMPDeviceDevice> tdual_##SUFFIX; \
 typedef typename tdual_##SUFFIX::t_host t_##SUFFIX; \
 typedef typename tdual_##SUFFIX::t_host_const t_##SUFFIX##_const; \
 typedef typename tdual_##SUFFIX::t_host_um t_##SUFFIX##_um; \

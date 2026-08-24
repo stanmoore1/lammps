@@ -435,8 +435,10 @@ between CPU and GPU as needed.  The resulting LAMMPS performance depends
 on `memory access pattern, data residency, and GPU memory
 oversubscription
 <https://developer.nvidia.com/blog/improving-gpu-memory-oversubscription-performance/>`_
-. The CMake option ``-DKokkos_ENABLE_CUDA_UVM=on`` enables using
-:ref:`UVM with Kokkos <kokkos>` when compiling LAMMPS.
+. AMD and Intel GPUs offer equivalent capabilities, called "managed
+memory" and "shared unified memory", respectively.  The CMake option
+``-D KOKKOS_ENABLE_SHARED_SPACE=on`` enables using :ref:`shared memory
+with the KOKKOS package <kokkos>` when compiling LAMMPS.
 
 Run with the KOKKOS package by editing an input script
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

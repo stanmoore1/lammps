@@ -151,12 +151,11 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
     utils::logmesg(lmp,"  using view layout = default\n");
 #endif
 
-  // unified memory
+  // shared memory
 
-#if ((defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOS_ENABLE_CUDA_UVM)) || \
-     (defined(KOKKOS_ENABLE_HIP) && defined(KOKKOS_ARCH_AMD_GFX942_APU)))
+#ifdef LMP_KOKKOS_SHARED_SPACE
   if (me == 0)
-    utils::logmesg(lmp,"  using unified memory\n");
+    utils::logmesg(lmp,"  using shared memory\n");
 #endif
 
 

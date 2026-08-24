@@ -33,8 +33,18 @@ string(TOUPPER ${KOKKOS_LAYOUT} KOKKOS_LAYOUT)
 
 target_compile_definitions(lammps PRIVATE -DLMP_KOKKOS_LAYOUT_${KOKKOS_LAYOUT})
 
+# Use shared memory, i.e. memory that both the host and the device can access
+option(KOKKOS_ENABLE_SHARED_SPACE "Use Kokkos::SharedSpace for KOKKOS package device data" OFF)
+if(KOKKOS_ENABLE_SHARED_SPACE)
+  target_compile_definitions(lammps PRIVATE -DLMP_KOKKOS_SHARED_SPACE)
+  set(KOKKOS_MEMORY_SETTING "shared")
+else()
+  set(KOKKOS_MEMORY_SETTING "device")
+endif()
+
 message(STATUS "Using " ${KOKKOS_PREC_LOWER} " precision for KOKKOS package")
 message(STATUS "Using " ${KOKKOS_LAYOUT_LOWER} " view layout for KOKKOS package")
+message(STATUS "Using " ${KOKKOS_MEMORY_SETTING} " memory for KOKKOS package")
 
 ########################################################################
 # consistency checks and Kokkos options/settings required by LAMMPS
