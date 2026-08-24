@@ -635,8 +635,8 @@ void FixNHKokkos<DeviceType>::nve_x()
   copymode = 0;
 
   // claim the coordinates after the kernel has written them, not before: a
-  // claim made up front is taken by any copy that runs in between, and under
-  // rRESPA one does, which leaves the new coordinates on the device unclaimed
+  // claim made up front can be taken by a copy that runs in between, which
+  // leaves the coordinates this kernel writes unclaimed
 
   atomKK->modified(execution_space,X_MASK);
 }
