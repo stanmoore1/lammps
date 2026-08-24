@@ -442,11 +442,13 @@ void VerletKokkos::run(int n)
     if (pair_compute_flag) {
       int prev_auto_sync = lmp->kokkos->auto_sync;
       if (!force->pair->kokkosable) lmp->kokkos->auto_sync = 1;
-      atomKK->sync(force->pair->execution_space,force->pair->datamask_read);
+      // the masked form only: the mask is the plain one when nothing is
+      // excluded, and syncing or claiming the full one first would put the
+      // force array back in play exactly where the overlap path is trying to
+      // keep it out
       atomKK->sync(force->pair->execution_space,~(~force->pair->datamask_read|datamask_exclude));
       force->pair->compute(eflag,vflag);
       lmp->kokkos->auto_sync = prev_auto_sync;
-      atomKK->modified(force->pair->execution_space,force->pair->datamask_modify);
       atomKK->modified(force->pair->execution_space,~(~force->pair->datamask_modify|datamask_exclude));
       timer->stamp(Timer::PAIR);
     }
