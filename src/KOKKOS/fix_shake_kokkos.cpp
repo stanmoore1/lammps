@@ -345,7 +345,22 @@ template<class DeviceType>
 void FixShakeKokkos<DeviceType>::min_post_force(int vflag)
 {
   int eflag = eflag_pre_reverse;
-  ev_init(eflag, vflag);
+
+  // the per-atom virial is accumulated into a dual view, so the plain
+  // base-class arrays must not be allocated here (alloc = 0)
+
+  ev_init(eflag, vflag, 0);
+
+  // reallocate the per-atom virial dual view if necessary.  minimization
+  // only tallies the global virial, but the freshly created view keeps the
+  // per-atom virial zeroed for computes reading it
+
+  if (vflag_atom) {
+    memoryKK->destroy_kokkos(k_vatom,vatom);
+    memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"shake:vatom");
+    d_vatom = k_vatom.template view<DeviceType>();
+  }
+
   ebond = 0.0;
 
   atomKK->sync(execution_space, X_MASK | F_MASK);
@@ -568,13 +583,16 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
 
   // virial setup
 
-  v_init(vflag);
+  // the per-atom virial is accumulated into a dual view, so the plain
+  // base-class vatom array must not be allocated here (alloc = 0)
 
-  // reallocate per-atom arrays if necessary
+  v_init(vflag,0);
+
+  // reallocate the per-atom virial dual view if necessary
 
   if (vflag_atom) {
     memoryKK->destroy_kokkos(k_vatom,vatom);
-    memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"improper:vatom");
+    memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"shake:vatom");
     d_vatom = k_vatom.template view<DeviceType>();
   }
 

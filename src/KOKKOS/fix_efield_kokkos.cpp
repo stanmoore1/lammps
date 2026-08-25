@@ -93,9 +93,12 @@ void FixEfieldKokkos<DeviceType>::post_force(int vflag)
 
   // virial setup
 
-  v_init(vflag);
+  // the per-atom virial is accumulated into a dual view, so the plain
+  // base-class vatom array must not be allocated here (alloc = 0)
 
-  // reallocate per-atom arrays if necessary
+  v_init(vflag,0);
+
+  // reallocate the per-atom virial dual view if necessary
 
   if (vflag_atom) {
     memoryKK->destroy_kokkos(k_vatom,vatom);
