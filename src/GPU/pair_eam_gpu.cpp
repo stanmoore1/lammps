@@ -155,9 +155,10 @@ void PairEAMGPU::init_style()
   int fp_size;
   int mnf = 5e-2 * neighbor->oneatom;
   int success = gpu_init_fn(atom->ntypes + 1, cutforcesq, type2rhor, type2z2r, type2frho,
-                            rhor_spline, z2r_spline, frho_spline, cutsq, rdr, rdrho, rhomax, nrhor,
-                            nrho, nz2r, nfrho, nr, atom->nlocal, atom->nlocal + atom->nghost, mnf,
-                            maxspecial, cell_size, gpu_mode, screen, fp_size);
+                            rhor_spline, z2r_spline, frho_spline, cutsq, rdr, rdrho, rhomax, rhomin,
+                            he_flag, nrhor, nrho, nz2r, nfrho, nr, atom->nlocal,
+                            atom->nlocal + atom->nghost, mnf, maxspecial, cell_size, gpu_mode,
+                            screen, fp_size);
   GPU_EXTRA::check_flag(success, error, world);
 
   if (gpu_mode == GPU_FORCE) neighbor->add_request(this, NeighConst::REQ_FULL);

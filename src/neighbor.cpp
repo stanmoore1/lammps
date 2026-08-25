@@ -911,8 +911,8 @@ int Neighbor::init_pair()
   nlist = nrequest;
 
   lists = new NeighList*[nrequest];
-  neigh_bin = new NBin*[nrequest];
-  neigh_stencil = new NStencil*[nrequest];
+  neigh_bin = new NBin*[nrequest]();
+  neigh_stencil = new NStencil*[nrequest]();
   neigh_pair = new NPair*[nrequest];
 
   // allocate new lists
@@ -1255,7 +1255,7 @@ void Neighbor::morph_skip()
   NeighRequest *irq, *jrq, *nrq;
 
   // loop over irq from largest to smallest cutoff
-  //  to prevent adding unecessary neighbor lists
+  //  to prevent adding unnecessary neighbor lists
 
   for (i = nrequest - 1; i >= 0; i--) {
     irq = requests[j_sorted[i]];
@@ -1974,7 +1974,7 @@ NeighRequest *Neighbor::find_request(void *classptr, const int id) const
    return vector with neighbor list requests from pair styles
 ------------------------------------------------------------------------- */
 
-const std::vector<NeighRequest *> Neighbor::get_pair_requests() const
+std::vector<NeighRequest *> Neighbor::get_pair_requests() const
 {
   std::vector<NeighRequest *> matches;
   for (int i=0; i < nrequest; ++i)
