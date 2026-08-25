@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
@@ -10,14 +11,22 @@
 
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
-/* ------------------------------------------------------
-    This file is part of the BOCS package for LAMMPS.
-    Contributed by Michael R. DeLyser, mrd5285@psu.edu
-    and Maria C. Lesniewski, mjl6766@psu.edu
-    The Pennsylvania State University
-   ------------------------------------------------------ */
-#include "ldd_indicator_lucy.h"
-#include "ldd_indicator_shell.h"
-#include "ldd_indicator_sphere.h"
-#include "ldd_indicator_smooth.h"
-#include "ldd_indicator_dpd.h"
+
+#include "fix_rigid_nve_small_kokkos.h"
+
+using namespace LAMMPS_NS;
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+FixRigidNVESmallKokkos<DeviceType>::FixRigidNVESmallKokkos(LAMMPS *lmp, int narg, char **arg) :
+  FixRigidNHSmallKokkos<DeviceType>(lmp, narg, arg) {}
+
+/* ---------------------------------------------------------------------- */
+
+namespace LAMMPS_NS {
+template class FixRigidNVESmallKokkos<LMPDeviceType>;
+#ifdef LMP_KOKKOS_GPU
+template class FixRigidNVESmallKokkos<LMPHostType>;
+#endif
+}
