@@ -1992,6 +1992,13 @@ int FixShakeKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_1
                                                          DAT::tdual_double_1d &k_buf,
                                                          int pbc_flag, int* pbc)
 {
+  // the host variant below syncs before it reads and claims after it writes;
+  // this one has to do the same, or the buffer is packed from whichever side
+  // the device copy last held and the ghosts it unpacks are discarded by the
+  // next sync
+
+  k_xshake.sync<DeviceType>();
+
   d_sendlist = k_sendlist.view<DeviceType>();
   d_buf = k_buf.view<DeviceType>();
 
@@ -2053,6 +2060,8 @@ void FixShakeKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in,
   first = first_in;
   d_buf = buf.view<DeviceType>();
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagFixShakeUnpackForwardComm>(0,n),*this);
+
+  k_xshake.modify<DeviceType>();
 }
 
 template<class DeviceType>
