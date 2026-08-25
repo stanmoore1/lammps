@@ -53,11 +53,20 @@ const char *device=0;
 #include "device_cubin.h"
 #endif
 
+// When set, defer the GPU device teardown: clear_device() skips deleting the
+// UCL_Device (which would reset the whole GPU device). This is used only by the
+// unit test harness so the GPU package does not reset a device that the KOKKOS
+// package is also using -- that reset invalidates the KOKKOS device context and
+// crashes at Kokkos::finalize(). The device is reclaimed at process exit.
+// Toggled through lmp_gpu_defer_device_clear().
+static bool lal_defer_device_clear = false;
+
 namespace LAMMPS_AL {
 #define DeviceT Device<numtyp, acctyp>
 
 template <class numtyp, class acctyp>
 DeviceT::Device() : _init_count(0), _device_init(false),
+                    _comm_gpu_allocated(false),
                     _gpu_mode(GPU_FORCE), _first_device(0),
                     _last_device(0), _platform_id(-1), _compiled(false),
                     _use_old_nbor_build(0), _use_device_sort(0) {
@@ -293,6 +302,8 @@ int DeviceT::init_device(MPI_Comm /*world*/, MPI_Comm replica, const int ngpu,
   // Set up a per device communicator
   MPI_Comm_split(node_comm,my_gpu,0,&_comm_gpu);
   MPI_Comm_rank(_comm_gpu,&_gpu_rank);
+  _comm_gpu_allocated=true;
+  MPI_Comm_free(&node_comm);
 
   #if !defined(CUDA_MPS_SUPPORT)
   if (_procs_per_gpu>1 && !gpu->sharing_supported(my_gpu))
@@ -386,7 +397,7 @@ int DeviceT::set_ocl_params(std::string s_config, const std::string &extra_args)
 
   #include "lal_pre_ocl_config.h"
 
-  if (s_config=="" || s_config=="none")
+  if (s_config.empty() || s_config=="none")
     s_config="generic";
 
   int config_index=-1;
@@ -1048,9 +1059,17 @@ void DeviceT::clear_device() {
     delete dev_program;
     _compiled=false;
   }
-  if (_device_init) {
+  if (_device_init && !lal_defer_device_clear) {
     delete gpu;
     _device_init=false;
+  }
+  // the global Device instance is destroyed after MPI_Finalize(), so the
+  // per-device communicator can only be freed when torn down before that
+  if (_comm_gpu_allocated) {
+    int mpi_finalized;
+    MPI_Finalized(&mpi_finalized);
+    if (!mpi_finalized) MPI_Comm_free(&_comm_gpu);
+    _comm_gpu_allocated=false;
   }
 }
 
@@ -1230,6 +1249,12 @@ int lmp_init_device(MPI_Comm world, MPI_Comm replica, const int ngpu,
 
 void lmp_clear_device() {
   global_device.clear_device();
+}
+
+// defer (flag != 0) or restore (flag == 0) the GPU device teardown.
+// see the comment on lal_defer_device_clear above. test-harness use only.
+void lmp_gpu_defer_device_clear(int flag) {
+  lal_defer_device_clear = (flag != 0);
 }
 
 double lmp_gpu_forces(double **f, double **tor, double *eatom, double **vatom,

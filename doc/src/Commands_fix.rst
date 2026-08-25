@@ -102,6 +102,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`hmc <fix_hmc>`
    * :doc:`hyper/global <fix_hyper_global>`
    * :doc:`hyper/local <fix_hyper_local>`
+   * :doc:`ilves <fix_ilves>`
    * :doc:`imd <fix_imd>`
    * :doc:`indent <fix_indent>`
    * :doc:`ipi <fix_ipi>`
@@ -208,6 +209,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`qeq/shielded (o) <fix_qeq>`
    * :doc:`qeq/slater (o) <fix_qeq>`
    * :doc:`qmmm <fix_qmmm>`
+   * :doc:`qmmm/xtb <fix_qmmm_xtb>`
    * :doc:`qtb <fix_qtb>`
    * :doc:`qtpie/reaxff <fix_qtpie_reaxff>`
    * :doc:`rattle <fix_shake>`
@@ -224,14 +226,14 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`rigid (o) <fix_rigid>`
    * :doc:`rigid/meso <fix_rigid_meso>`
    * :doc:`rigid/nph (o) <fix_rigid>`
-   * :doc:`rigid/nph/small <fix_rigid>`
+   * :doc:`rigid/nph/small (k) <fix_rigid>`
    * :doc:`rigid/npt (o) <fix_rigid>`
-   * :doc:`rigid/npt/small <fix_rigid>`
+   * :doc:`rigid/npt/small (k) <fix_rigid>`
    * :doc:`rigid/nve (o) <fix_rigid>`
-   * :doc:`rigid/nve/small <fix_rigid>`
+   * :doc:`rigid/nve/small (k) <fix_rigid>`
    * :doc:`rigid/nvt (o) <fix_rigid>`
-   * :doc:`rigid/nvt/small <fix_rigid>`
-   * :doc:`rigid/small (o) <fix_rigid>`
+   * :doc:`rigid/nvt/small (k) <fix_rigid>`
+   * :doc:`rigid/small (ko) <fix_rigid>`
    * :doc:`rx (k) <fix_rx>`
    * :doc:`saed/vtk <fix_saed_vtk>`
    * :doc:`set <fix_set>`
@@ -272,6 +274,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`ti/spring <fix_ti_spring>`
    * :doc:`tmd <fix_tmd>`
    * :doc:`ttm <fix_ttm>`
+   * :doc:`ttm/cascade <fix_ttm>`
    * :doc:`ttm/grid <fix_ttm>`
    * :doc:`ttm/mod <fix_ttm>`
    * :doc:`ttm/thermal <fix_ttm>`
@@ -279,6 +282,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`vector <fix_vector>`
    * :doc:`viscosity <fix_viscosity>`
    * :doc:`viscous (k) <fix_viscous>`
+   * :doc:`viscous/nonlinear <fix_viscous_nonlinear>`
    * :doc:`viscous/sphere (k) <fix_viscous_sphere>`
    * :doc:`wall/body/polygon <fix_wall_body_polygon>`
    * :doc:`wall/body/polyhedron <fix_wall_body_polyhedron>`

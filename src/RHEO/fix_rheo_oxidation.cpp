@@ -54,7 +54,7 @@ static const char cite_rheo_oxide[] =
 /* ---------------------------------------------------------------------- */
 
 FixRHEOOxidation::FixRHEOOxidation(LAMMPS *lmp, int narg, char **arg) :
-    Fix(lmp, narg, arg), compute_surface(nullptr), fix_rheo(nullptr)
+    Fix(lmp, narg, arg), list(nullptr), compute_surface(nullptr), fix_rheo(nullptr)
 {
   if (narg != 6) error->all(FLERR, "Illegal fix rheo/oxidation command");
 
@@ -93,7 +93,7 @@ int FixRHEOOxidation::setmask()
 void FixRHEOOxidation::init()
 {
   auto fixes = modify->get_fix_by_style("^rheo$");
-  if (fixes.size() == 0) error->all(FLERR, "Need to define fix rheo to use fix rheo/oxidation");
+  if (fixes.empty()) error->all(FLERR, "Need to define fix rheo to use fix rheo/oxidation");
   fix_rheo = dynamic_cast<FixRHEO *>(fixes[0]);
 
   if (cut > fix_rheo->cut) error->all(FLERR, "Bonding length exceeds kernel cutoff");
