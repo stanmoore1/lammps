@@ -6,9 +6,12 @@
 /lmp_*
 
 /style_*.h
+/style_*.cpp
 /packages_*.h
+/package_registry.cpp
 /lmpinstalledpkgs.h
 /lmpgitversion.h
+/stylegen.exe
 
 /*_gpu.h
 /*_gpu.cpp
@@ -217,6 +220,15 @@
 
 /fix_qeq*.cpp
 /fix_qeq*.h
+
+/fix_qmmm_xtb.cpp
+/fix_qmmm_xtb.h
+/pppm_tip4p_xtb.h
+/pppm_xtb.h
+/qmmm_xtb_adapter.h
+/qmmm_xtb_ewald.cpp
+/qmmm_xtb_ewald.h
+/qmmm_xtb_pppm.cpp
 
 /fix_*cauchy.cpp
 /fix_*cauchy.h
@@ -438,7 +450,6 @@
 /ldd_indicator_smooth.h
 /ldd_indicator_sphere.cpp
 /ldd_indicator_sphere.h
-/ldd_indicator_styles.h
 /ldd_potential_constant.cpp
 /ldd_potential_constant.h
 /ldd_potential.cpp
@@ -459,7 +470,6 @@
 /ldd_potential_tablelin.h
 /ldd_potential_tablespline.cpp
 /ldd_potential_tablespline.h
-/ldd_potential_styles.h
 /pair_ldd.cpp
 /pair_ldd.h
 
@@ -1997,4 +2007,3 @@
 /pair_bondval.h
 /pair_bondval_vec.cpp
 /pair_bondval_vec.h
-
