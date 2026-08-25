@@ -308,9 +308,10 @@ void PairDispersionD3Kokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   d_ilist = k_list->d_ilist;
   inum = list->inum;
 
-  if constexpr (std::is_same_v<DeviceType,LMPDeviceType>) {
-    need_dup = false;
-  } else if (neighflag == FULL) {
+  // must stay in sync with the DUP alias of the kernels below, or the wrong
+  // one of the dup_/ndup_ scatter view pair is handed to the functor
+
+  if (neighflag == FULL) {
     need_dup = std::is_same_v<NeedDup_v<FULL,DeviceType>, Kokkos::Experimental::ScatterDuplicated>;
   } else if (neighflag == HALFTHREAD) {
     need_dup = std::is_same_v<NeedDup_v<HALFTHREAD,DeviceType>, Kokkos::Experimental::ScatterDuplicated>;

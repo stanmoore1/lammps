@@ -122,9 +122,7 @@ struct PairDispersionD3UnpackReverseCommFunctor {
 template <class DeviceType, int NEIGHFLAG, int NEWTON_PAIR>
 struct PairDispersionD3CoordinationNumberKernel {
   typedef ArrayTypes<DeviceType> AT;
-  using DUP = std::conditional_t<std::is_same_v<DeviceType,LMPDeviceType>,
-                                 Kokkos::Experimental::ScatterNonDuplicated,
-                                 NeedDup_v<NEIGHFLAG,DeviceType>>;
+  using DUP = NeedDup_v<NEIGHFLAG,DeviceType>;
   using ScatterAccess = std::conditional_t<
       std::is_same_v<DUP,Kokkos::Experimental::ScatterDuplicated>,
       Kokkos::Experimental::ScatterNonAtomic,
@@ -211,9 +209,7 @@ template <class DeviceType, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct PairDispersionD3KernelA {
   typedef ArrayTypes<DeviceType> AT;
   using value_type = EV_FLOAT;
-  using DUP = std::conditional_t<std::is_same_v<DeviceType,LMPDeviceType>,
-                                 Kokkos::Experimental::ScatterNonDuplicated,
-                                 NeedDup_v<NEIGHFLAG,DeviceType>>;
+  using DUP = NeedDup_v<NEIGHFLAG,DeviceType>;
   using ScatterAccess = std::conditional_t<
       std::is_same_v<DUP,Kokkos::Experimental::ScatterDuplicated>,
       Kokkos::Experimental::ScatterNonAtomic,
@@ -675,9 +671,7 @@ template <class DeviceType, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct PairDispersionD3KernelB {
   typedef ArrayTypes<DeviceType> AT;
   using value_type = EV_FLOAT;
-  using DUP = std::conditional_t<std::is_same_v<DeviceType,LMPDeviceType>,
-                                 Kokkos::Experimental::ScatterNonDuplicated,
-                                 NeedDup_v<NEIGHFLAG,DeviceType>>;
+  using DUP = NeedDup_v<NEIGHFLAG,DeviceType>;
   using ScatterAccess = std::conditional_t<
       std::is_same_v<DUP,Kokkos::Experimental::ScatterDuplicated>,
       Kokkos::Experimental::ScatterNonAtomic,

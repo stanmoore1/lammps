@@ -49,7 +49,6 @@ PairDispersionD3OMP::PairDispersionD3OMP(LAMMPS *lmp) :
 void PairDispersionD3OMP::calc_coordination_number()
 {
   const int nthreads = comm->nthreads;
-  const int nall = atom->nlocal + atom->nghost;
   const int newton_pair = force->newton_pair;
 
   // cn and dc6 hold one copy per thread, each nall long.  The threads only
@@ -454,7 +453,7 @@ void PairDispersionD3OMP::eval_second_phase(int iifrom, int iito, ThrData * cons
   const int * _noalias const numneigh = list->numneigh;
   const int * const * const firstneigh = list->firstneigh;
 
-  double dc6tmp,xtmp,ytmp,ztmp,delx,dely,delz,rsq,factor_lj,dcn,rcovij,expterm,fpair,fxtmp,fytmp,fztmp,r;
+  double xtmp,ytmp,ztmp,delx,dely,delz,rsq,factor_lj,dcn,rcovij,expterm,fpair,fxtmp,fytmp,fztmp,r;
 
   // Loop over assigned center atoms
   for (int ii = iifrom; ii < iito; ii++) {
