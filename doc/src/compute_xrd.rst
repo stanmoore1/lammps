@@ -20,7 +20,8 @@ Syntax
 * lambda = wavelength of incident radiation (length units)
 * type1 type2 ... typeN = chemical symbol of each atom type (see valid options below)
 * zero or more keyword/value pairs may be appended
-* keyword = *2Theta* or *c* or *LP* or *manual* or *echo* or *order* or *oversample*
+* keyword = *2Theta* or *c* or *LP* or *manual* or *echo*
+* additional keywords of compute xrd/fft = *order* or *oversample*
 
   .. parsed-literal::
 
@@ -35,9 +36,9 @@ Syntax
        *manual* = flag to use manual spacing of reciprocal lattice points
                   based on the values of the *c* parameters
        *echo* = flag to provide extra output for debugging purposes
-       *order* value = width of the spreading stencil of compute xrd/fft (default 7)
+       *order* value = width of the spreading stencil (default 7)
          must be an odd number of 3 or larger
-       *oversample* value = oversampling factor of the FFT mesh of compute xrd/fft (default 2.0)
+       *oversample* value = oversampling factor of the FFT mesh (default 2.0)
          must be 1.25 or larger
 
 Examples
@@ -306,14 +307,14 @@ roughly :math:`c^3/P` of the mesh with :math:`P` processors, which is the whole
 mesh once :math:`c^3` exceeds :math:`P`, and falls with :math:`P` beyond that.
 Only the parts of the mesh a processor holds are communicated when the
 contributions are summed, so the same applies to the volume of communication.
-A warning is printed when the mesh would need more than 512 Mbytes on one
+A warning is printed when the mesh would need more than 512 MBytes on one
 processor, which is the amount needed in the worst case above.
 
 The *c* values are the control for this.  They set the spacing of the
 reciprocal lattice nodes in units of the inverse cell dimensions, so the number
 of mesh points falls as :math:`c^{-3}` and the number of rows of the output
 array falls with it.  For a cell of a few hundred nanometers, values of *c*
-between 10 and 30 keep both within a few hundred Mbytes per processor while
+between 10 and 30 keep both within a few hundred MBytes per processor while
 still resolving a powder pattern far more finely than the width of a
 measured peak.  Values near 1 are appropriate for small cells, where every
 reciprocal lattice node of the cell is of interest.
@@ -389,7 +390,8 @@ Default
 """""""
 
 The option defaults are *2Theta* = 1 179 (degrees), *c* = 1 1 1, *LP* = 1,
-no manual flag, no echo flag, *order* = 7, *oversample* = 2.0.
+no manual flag, no echo flag.  For compute xrd/fft, *order* = 7 and
+*oversample* = 2.0.
 
 ----------
 

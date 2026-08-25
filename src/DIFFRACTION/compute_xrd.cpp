@@ -102,8 +102,9 @@ ComputeXRD::ComputeXRD(LAMMPS *lmp, int narg, char **arg) :
   LP = 1;
   manual = false;
   echo = false;
-  nufft_order = 7;
-  nufft_oversample = 2.0;
+
+  nunclaimed = 0;
+  unclaimed = new int[narg];
 
   // Process optional args
   while (iarg < narg) {
@@ -138,25 +139,18 @@ ComputeXRD::ComputeXRD(LAMMPS *lmp, int narg, char **arg) :
       manual = true;
       iarg += 1;
 
-    // only used by the derived compute xrd/fft style, parsed here because the
-    // reciprocal lattice nodes are enumerated by this constructor
+    // a word this style does not know may be a keyword of a style derived from
+    // it.  record it and step over it: the values of such a keyword are
+    // recorded in the same way, and no keyword of this style can be mistaken
+    // for one of them, since they are all words rather than numbers.
 
-    } else if (strcmp(arg[iarg],"order") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR,"compute xrd order",error);
-      nufft_order = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
-      if ((nufft_order < 3) || (nufft_order % 2 == 0))
-        error->all(FLERR,"Compute XRD: order must be an odd number of 3 or larger");
-      iarg += 2;
-
-    } else if (strcmp(arg[iarg],"oversample") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR,"compute xrd oversample",error);
-      nufft_oversample = utils::numeric(FLERR,arg[iarg+1],false,lmp);
-      if (nufft_oversample < MIN_OVERSAMPLE)
-        error->all(FLERR,"Compute XRD: oversample must be {} or larger",MIN_OVERSAMPLE);
-      iarg += 2;
-
-    } else error->all(FLERR,"Unknown compute xrd keyword: {}",arg[iarg]);
+    } else unclaimed[nunclaimed++] = iarg++;
   }
+
+  // compute xrd/fft claims its own keywords in its constructor and rejects what
+  // is left there.  nothing else derives from this class.
+
+  if (strcmp(style,"xrd") == 0) reject_unclaimed(arg);
 
   // error check and process min/max 2Theta values
   Min2Theta /= 2.0;
@@ -276,11 +270,23 @@ ComputeXRD::ComputeXRD(LAMMPS *lmp, int narg, char **arg) :
 
 /* ---------------------------------------------------------------------- */
 
+void ComputeXRD::reject_unclaimed(char **arg)
+{
+  if (nunclaimed)
+    error->all(FLERR,"Unknown compute {} keyword: {}",style,arg[unclaimed[0]]);
+
+  delete[] unclaimed;
+  unclaimed = nullptr;
+}
+
+/* ---------------------------------------------------------------------- */
+
 ComputeXRD::~ComputeXRD()
 {
   memory->destroy(array);
   memory->destroy(store_tmp);
   delete[] ztype;
+  delete[] unclaimed;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -448,6 +454,7 @@ void ComputeXRD::compute_array()
   int nlocal = atom->nlocal;
   int *type  = atom->type;
   bigint natoms = group->count(igroup);
+  if (natoms == 0) natoms = 1;    // an empty group scatters nothing, rather than NaN
   int *mask = atom->mask;
 
   nlocalgroup = 0;

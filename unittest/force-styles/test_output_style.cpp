@@ -299,8 +299,15 @@ TEST(OutputStyle, plain)
     // relax test precision for styles transforming on an FFT mesh when the
     // FFTs are done in single precision
 #if defined(FFT_SINGLE)
+    // single precision transforms put a floor of a few times 1e-5 on the
+    // relative accuracy of these styles, whatever the stencil width, so the
+    // tolerances written for double precision cannot all be met.  raise them to
+    // just above that floor rather than scaling them: scaling would leave the
+    // loosest of these tests with a tolerance of several hundred percent, and
+    // so unable to fail.
     auto *test_compute = lmp->modify->get_compute_by_id("test");
-    if (test_compute && utils::strmatch(test_compute->style, "/fft$")) epsilon *= 1.0e5;
+    if (test_compute && utils::strmatch(test_compute->style, "/fft$"))
+        epsilon = std::max(epsilon, 1.0e-3);
 #endif
 
     ErrorStats stats;

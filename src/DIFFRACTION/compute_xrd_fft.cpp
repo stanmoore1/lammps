@@ -59,6 +59,8 @@
 using namespace LAMMPS_NS;
 using MathConst::MY_PI;
 
+static constexpr double MIN_OVERSAMPLE = 1.25;
+
 /* ---------------------------------------------------------------------- */
 
 ComputeXRDFFT::ComputeXRDFFT(LAMMPS *lmp, int narg, char **arg) :
@@ -66,7 +68,8 @@ ComputeXRDFFT::ComputeXRDFFT(LAMMPS *lmp, int narg, char **arg) :
   foot_all(nullptr), recvcounts(nullptr), density_own(nullptr), density_slab(nullptr),
   work1(nullptr), sendbuf(nullptr), recvbuf(nullptr),
   kb_cheb(nullptr), kb_tcheb(nullptr), rho0(nullptr), rho1(nullptr), rho2(nullptr),
-  mx(nullptr), my(nullptr), mz(nullptr), sstart(nullptr), scount(nullptr),
+  mx(nullptr), my(nullptr), mz(nullptr), slot_atoms(nullptr), slot_start(nullptr),
+  sstart(nullptr), scount(nullptr),
   destlist(nullptr), requests(nullptr),
   slot_of_type(nullptr), ztype_of_slot(nullptr), own_row(nullptr), own_idx(nullptr),
   own_deconv(nullptr), own_lp(nullptr), own_asf(nullptr), Fre(nullptr), Fim(nullptr),
@@ -77,14 +80,44 @@ ComputeXRDFFT::ComputeXRDFFT(LAMMPS *lmp, int narg, char **arg) :
   fft_comm = MPI_COMM_NULL;
   nfoot = 0;
   all_full = 0;
+  maxbucket = 0;
   maxsend = maxrecv = 0;
   foot_lo[0] = foot_lo[1] = foot_lo[2] = 0;
   foot_n[0] = foot_n[1] = foot_n[2] = 0;
 
-  // both are validated by ComputeXRD, which parses them
+  // the stencil width and the oversampling belong to this style alone, so they
+  // are claimed from the words ComputeXRD did not recognize rather than taught
+  // to it.  what nothing claims is rejected here.
 
-  order = nufft_order;
-  oversample = nufft_oversample;
+  order = 7;
+  oversample = 2.0;
+
+  int kept = 0;
+  for (int i = 0; i < nunclaimed; i++) {
+    int iarg = unclaimed[i];
+
+    if (strcmp(arg[iarg],"order") == 0) {
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR,"compute xrd/fft order",error);
+      order = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
+      if ((order < 3) || (order % 2 == 0))
+        error->all(FLERR,"Compute XRD/FFT: order must be an odd number of 3 or larger");
+      i++;    // the value was recorded as unclaimed as well
+      continue;
+
+    } else if (strcmp(arg[iarg],"oversample") == 0) {
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR,"compute xrd/fft oversample",error);
+      oversample = utils::numeric(FLERR,arg[iarg+1],false,lmp);
+      if (oversample < MIN_OVERSAMPLE)
+        error->all(FLERR,"Compute XRD/FFT: oversample must be {} or larger",MIN_OVERSAMPLE);
+      i++;
+      continue;
+    }
+
+    unclaimed[kept++] = iarg;
+  }
+
+  nunclaimed = kept;
+  reject_unclaimed(arg);
 
   nlower = -(order-1)/2;
   nupper = (order-1)/2;
@@ -122,6 +155,8 @@ void ComputeXRDFFT::deallocate()
   memory->destroy(recvbuf);
   memory->destroy(foot_all);
   memory->destroy(recvcounts);
+  memory->destroy(slot_atoms);
+  memory->destroy(slot_start);
   memory->destroy(kb_cheb);
   memory->destroy(kb_tcheb);
   memory->destroy(rho0);
@@ -147,14 +182,12 @@ void ComputeXRDFFT::deallocate()
   memory->destroy(Iloc);
   memory->destroy(Iall);
 
-  density_own = density_slab = work1 = sendbuf = recvbuf = nullptr;
-  foot_all = recvcounts = slot_of_type = ztype_of_slot = own_row = own_idx = nullptr;
-  kb_cheb = kb_tcheb = rho0 = rho1 = rho2 = nullptr;
-  mx = my = mz = sstart = scount = destlist = nullptr;
-  own_deconv = own_lp = own_asf = Fre = Fim = Iloc = Iall = nullptr;
+  // Memory::destroy() takes its pointer by reference and nulls it, so only the
+  // two allocated another way are cleared here
 
   nfoot = 0;
   maxsend = maxrecv = 0;
+  maxbucket = 0;
   setup_done = 0;
 }
 
@@ -171,6 +204,17 @@ void ComputeXRDFFT::init()
 
   ComputeXRD::init();
 
+  // the mesh, the transform and the spreading window follow from the node set,
+  // the stencil width and the oversampling, none of which can change once the
+  // compute is defined.  only their scaling with the box is refreshed, so that
+  // a script with many run commands does not pay to free and rebuild a
+  // communicator and an FFT plan before each one.
+
+  if (setup_done) {
+    refresh_scaling();
+    return;
+  }
+
   deallocate();
   set_grid();
   setup_mesh();
@@ -184,12 +228,13 @@ void ComputeXRDFFT::init()
   if ((me == 0) && echo) {
     double mb = 1.0/1024.0/1024.0;
     double mem = (double)nmesh[0]*nmesh[1]*nmesh[2]*sizeof(FFT_SCALAR)*mb;
+    double own = (double)nfoot*sizeof(FFT_SCALAR)*mb;
     utils::logmesg(lmp,"-----\nCompute XRD/FFT id:{}, # of relp:{}\n"
                    "Kaiser-Bessel order {}, FFT mesh {}x{}x{}, {} element transform(s)\n"
                    "Mesh divided {}x{}x{} over the MPI ranks\n"
-                   "Mesh memory per MPI rank = {:.4} Mbytes\n-----\n",
+                   "Whole mesh {:.4} Mbytes, most on one MPI rank so far {:.4} Mbytes\n-----\n",
                    id,size_array_rows,order,nmesh[0],nmesh[1],nmesh[2],nslot,
-                   pgrid[0],pgrid[1],pgrid[2],mem);
+                   pgrid[0],pgrid[1],pgrid[2],mem,own);
   }
 }
 
@@ -300,11 +345,6 @@ void ComputeXRDFFT::build_window()
 }
 
 /* ----------------------------------------------------------------------
-   allocate the mesh, set up the FFT, and cache everything that only depends
-   on the mesh geometry
-------------------------------------------------------------------------- */
-
-/* ----------------------------------------------------------------------
    split the ranks over the three dimensions of the mesh
 
    the surface of a brick is what has to be received, so the grid is chosen to
@@ -365,7 +405,10 @@ void ComputeXRDFFT::set_pgrid()
   pme[2] = me/(pgrid[0]*pgrid[1]);
 }
 
-/* ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+   allocate the mesh, set up the FFT, and cache everything that only depends
+   on the mesh geometry
+------------------------------------------------------------------------- */
 
 void ComputeXRDFFT::setup_mesh()
 {
@@ -647,6 +690,8 @@ void ComputeXRDFFT::set_footprint()
     memory->grow(density_own,(int)nfoot,"xrd/fft:density_own");
   }
 
+  bucket_atoms();
+
   // every rank needs the others' footprints to know what it will be sent
 
   int mine[6];
@@ -655,6 +700,48 @@ void ComputeXRDFFT::set_footprint()
     mine[3+d] = foot_n[d];
   }
   MPI_Allgather(mine,6,MPI_INT,foot_all,6,MPI_INT,world);
+}
+
+/* ----------------------------------------------------------------------
+   list the group atoms of each element together
+
+   spread() is called once per element, and walked every atom each time to pick
+   out the ones of that element, so a system of several elements tested every
+   atom several times over to spread each one once.
+------------------------------------------------------------------------- */
+
+void ComputeXRDFFT::bucket_atoms()
+{
+  int *type = atom->type;
+  int *mask = atom->mask;
+  int nlocal = atom->nlocal;
+
+  memory->grow(slot_start,nslot+1,"xrd/fft:slot_start");
+  for (int s = 0; s <= nslot; s++) slot_start[s] = 0;
+
+  // count, then place; the counts become the starts by a running sum
+
+  for (int ii = 0; ii < nlocal; ii++) {
+    if (!(mask[ii] & groupbit)) continue;
+    slot_start[slot_of_type[type[ii]-1] + 1]++;
+  }
+
+  for (int s = 0; s < nslot; s++) slot_start[s+1] += slot_start[s];
+
+  if (slot_start[nslot] > maxbucket) {
+    maxbucket = slot_start[nslot];
+    memory->grow(slot_atoms,maxbucket,"xrd/fft:slot_atoms");
+  }
+
+  auto *fill = new int[nslot];
+  for (int s = 0; s < nslot; s++) fill[s] = slot_start[s];
+
+  for (int ii = 0; ii < nlocal; ii++) {
+    if (!(mask[ii] & groupbit)) continue;
+    slot_atoms[fill[slot_of_type[type[ii]-1]]++] = ii;
+  }
+
+  delete [] fill;
 }
 
 /* ----------------------------------------------------------------------
@@ -966,19 +1053,16 @@ void ComputeXRDFFT::compute_array()
 /* ----------------------------------------------------------------------
    spread all group atoms of element slot s onto the mesh with unit weight
 
-   every rank spreads onto a full copy of the mesh and the copies are summed by
-   the MPI_Reduce_scatter in compute_array().  the mesh is not aligned with the
-   simulation box -- when the diffraction cell is smaller than the box, two
-   points that are far apart in space fold onto the same mesh cell -- so a
-   spatial decomposition of the mesh is not possible.
+   the mesh is not aligned with the simulation box: when the diffraction cell is
+   smaller than the box, two points far apart in space fold onto the same mesh
+   cell.  A rank therefore spreads into the run of mesh points its own atoms
+   reach, found by set_footprint(), and fold_reduce() then sums those runs into
+   the bricks of the mesh the ranks own.
 ------------------------------------------------------------------------- */
 
 void ComputeXRDFFT::spread(int s)
 {
   double **x = atom->x;
-  int *type = atom->type;
-  int *mask = atom->mask;
-  int nlocal = atom->nlocal;
 
   if (!nfoot) return;
 
@@ -989,9 +1073,8 @@ void ComputeXRDFFT::spread(int s)
   const int fx = foot_n[0], fy = foot_n[1];
   const int lox = foot_lo[0], loy = foot_lo[1], loz = foot_lo[2];
 
-  for (int ii = 0; ii < nlocal; ii++) {
-    if (!(mask[ii] & groupbit)) continue;
-    if (slot_of_type[type[ii]-1] != s) continue;
+  for (int b = slot_start[s]; b < slot_start[s+1]; b++) {
+    const int ii = slot_atoms[b];
 
     const double xi = x[ii][0], yi = x[ii][1], zi = x[ii][2];
 

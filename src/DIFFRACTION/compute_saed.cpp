@@ -408,6 +408,7 @@ void ComputeSAED::compute_vector()
   int nlocal = atom->nlocal;
   int *type  = atom->type;
   bigint natoms = group->count(igroup);
+  if (natoms == 0) natoms = 1;    // an empty group scatters nothing, rather than NaN
   int *mask = atom->mask;
 
   nlocalgroup = 0;

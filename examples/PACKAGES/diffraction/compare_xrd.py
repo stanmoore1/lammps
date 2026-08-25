@@ -24,7 +24,8 @@ def load(filename):
             if line.startswith('#'):
                 continue
             parts = line.split()
-            if len(parts) == 2:    # "timestep number-of-rows" record
+            # a blank line, or the "timestep number-of-rows" record
+            if len(parts) < 3:
                 continue
             rows.append((float(parts[1]), float(parts[2])))
     return rows

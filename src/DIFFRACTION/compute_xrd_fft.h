@@ -118,6 +118,7 @@ class ComputeXRDFFT : public ComputeXRD {
   void refresh_scaling();
   void deallocate();
   void set_footprint();
+  void bucket_atoms();
   void fold_reduce(int);
   void set_pgrid();
   static int segments(int, int, int, int, int, int (*)[3]);
@@ -163,6 +164,14 @@ class ComputeXRDFFT : public ComputeXRD {
 
   double *rho0, *rho1, *rho2;
   int *mx, *my, *mz;
+
+  // the group atoms grouped by element, so that spreading one element does not
+  // walk over the atoms of all the others.  the order within an element stays
+  // the order of the atoms themselves, so the sum is the same one as before.
+
+  int *slot_atoms;    // group atoms, ordered by element
+  int *slot_start;    // where each element starts in slot_atoms, nslot+1 long
+  int maxbucket;      // allocated length of slot_atoms
 
   // scratch for fold_reduce(), likewise
 

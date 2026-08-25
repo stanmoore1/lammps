@@ -74,14 +74,15 @@ class ComputeXRD : public Compute {
   int radflag;
   int *store_tmp;
 
-  // parsed here so that the derived compute xrd/fft style, which builds on this
-  // constructor to guarantee an identical set of reciprocal lattice nodes, can
-  // accept its own keywords.  Unused by compute xrd itself.
+  // a keyword this style does not recognize may belong to a style derived from
+  // it, which parses the command again once this constructor has finished, so
+  // the leftovers are recorded rather than rejected here.  whichever class ends
+  // up parsing last rejects the ones nothing claimed.
 
-  static constexpr double MIN_OVERSAMPLE = 1.25;
+  int nunclaimed;      // number of argument indices below
+  int *unclaimed;      // indices in argv of the words no style has claimed
 
-  int nufft_order;            // width of the Kaiser-Bessel spreading stencil
-  double nufft_oversample;    // oversampling factor of the FFT mesh
+  void reject_unclaimed(char **);
 };
 
 }    // namespace LAMMPS_NS
