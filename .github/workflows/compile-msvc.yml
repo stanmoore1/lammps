@@ -20,7 +20,7 @@ jobs:
   build:
     name: Windows Compilation Test
     if: ${{ github.repository == 'lammps/lammps' }}
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
 
