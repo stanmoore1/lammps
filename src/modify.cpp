@@ -1057,6 +1057,9 @@ void Modify::modify_fix(int narg, char **arg)
 
 void Modify::delete_fix(const std::string &id)
 {
+  // no more fixes, nothing to do
+  if (!nfix) return;
+
   int ifix = find_fix(id);
   if (ifix < 0) error->all(FLERR, Error::NOLASTLINE, "Could not find fix ID {} to delete", id);
   delete_fix(ifix);
@@ -1064,7 +1067,8 @@ void Modify::delete_fix(const std::string &id)
 
 void Modify::delete_fix(int ifix)
 {
-  if ((ifix < 0) || (ifix >= nfix)) return;
+  // don't do anything if out of range or no fixes left
+  if (!nfix || (ifix < 0) || (ifix >= nfix)) return;
 
   // delete instance and move other Fixes and fmask down in list one slot
 
@@ -1108,7 +1112,7 @@ Fix *Modify::get_fix_by_id(const std::string &id) const
    return vector of matching pointers
 ------------------------------------------------------------------------- */
 
-const std::vector<Fix *> Modify::get_fix_by_style(const std::string &style) const
+std::vector<Fix *> Modify::get_fix_by_style(const std::string &style) const
 {
   std::vector<Fix *> matches;
   if (style.empty()) return matches;
@@ -1340,6 +1344,9 @@ void Modify::modify_compute(int narg, char **arg)
 
 void Modify::delete_compute(const std::string &id)
 {
+  // no more computes, nothing to do
+  if (!ncompute) return;
+
   int icompute = find_compute(id);
   if (icompute < 0)
     error->all(FLERR, Error::NOLASTLINE, "Could not find compute ID {} to delete", id);
@@ -1348,7 +1355,8 @@ void Modify::delete_compute(const std::string &id)
 
 void Modify::delete_compute(int icompute)
 {
-  if ((icompute < 0) || (icompute >= ncompute)) return;
+  // don't do anything if out of range or no computes left
+  if (!ncompute || (icompute < 0) || (icompute >= ncompute)) return;
 
   // delete and move other Computes down in list one slot
 
@@ -1389,7 +1397,7 @@ Compute *Modify::get_compute_by_id(const std::string &id) const
    return vector with matching pointers
 ------------------------------------------------------------------------- */
 
-const std::vector<Compute *> Modify::get_compute_by_style(const std::string &style) const
+std::vector<Compute *> Modify::get_compute_by_style(const std::string &style) const
 {
   std::vector<Compute *> matches;
   if (style.empty()) return matches;
@@ -1524,6 +1532,8 @@ int Modify::read_restart(FILE *fp)
   int me = comm->me;
   if (me == 0) utils::sfread(FLERR, &nfix_restart_global, sizeof(int), 1, fp, nullptr, error);
   MPI_Bcast(&nfix_restart_global, 1, MPI_INT, 0, world);
+  if ((nfix_restart_global < 0) || (nfix_restart_global > 4096))
+    error->all(FLERR, "Invalid number of fix entries in restart file");
 
   // allocate space for each entry
 
@@ -1541,18 +1551,21 @@ int Modify::read_restart(FILE *fp)
   for (int i = 0; i < nfix_restart_global; i++) {
     if (me == 0) utils::sfread(FLERR, &n, sizeof(int), 1, fp, nullptr, error);
     MPI_Bcast(&n, 1, MPI_INT, 0, world);
+    if ((n < 1) || (n > 65536)) error->all(FLERR, "Invalid fix info size in restart file");
     id_restart_global[i] = new char[n];
     if (me == 0) utils::sfread(FLERR, id_restart_global[i], sizeof(char), n, fp, nullptr, error);
     MPI_Bcast(id_restart_global[i], n, MPI_CHAR, 0, world);
 
     if (me == 0) utils::sfread(FLERR, &n, sizeof(int), 1, fp, nullptr, error);
     MPI_Bcast(&n, 1, MPI_INT, 0, world);
+    if ((n < 1) || (n > 65536)) error->all(FLERR, "Invalid fix info size in restart file");
     style_restart_global[i] = new char[n];
     if (me == 0) utils::sfread(FLERR, style_restart_global[i], sizeof(char), n, fp, nullptr, error);
     MPI_Bcast(style_restart_global[i], n, MPI_CHAR, 0, world);
 
     if (me == 0) utils::sfread(FLERR, &n, sizeof(int), 1, fp, nullptr, error);
     MPI_Bcast(&n, 1, MPI_INT, 0, world);
+    if ((n < 0) || (n > (1 << 30))) error->all(FLERR, "Invalid fix data size in restart file");
     state_restart_global[i] = new char[n];
     if (me == 0) utils::sfread(FLERR, state_restart_global[i], sizeof(char), n, fp, nullptr, error);
     MPI_Bcast(state_restart_global[i], n, MPI_CHAR, 0, world);
@@ -1562,10 +1575,12 @@ int Modify::read_restart(FILE *fp)
 
   // nfix_restart_peratom = # of restart entries with peratom info
 
-  int maxsize = 0;
+  bigint maxsize = 0;
 
   if (me == 0) utils::sfread(FLERR, &nfix_restart_peratom, sizeof(int), 1, fp, nullptr, error);
   MPI_Bcast(&nfix_restart_peratom, 1, MPI_INT, 0, world);
+  if ((nfix_restart_peratom < 0) || (nfix_restart_peratom > 4096))
+    error->all(FLERR, "Invalid number of fix entries in restart file");
 
   // allocate space for each entry
 
@@ -1583,12 +1598,14 @@ int Modify::read_restart(FILE *fp)
   for (int i = 0; i < nfix_restart_peratom; i++) {
     if (me == 0) utils::sfread(FLERR, &n, sizeof(int), 1, fp, nullptr, error);
     MPI_Bcast(&n, 1, MPI_INT, 0, world);
+    if ((n < 1) || (n > 65536)) error->all(FLERR, "Invalid fix info size in restart file");
     id_restart_peratom[i] = new char[n];
     if (me == 0) utils::sfread(FLERR, id_restart_peratom[i], sizeof(char), n, fp, nullptr, error);
     MPI_Bcast(id_restart_peratom[i], n, MPI_CHAR, 0, world);
 
     if (me == 0) utils::sfread(FLERR, &n, sizeof(int), 1, fp, nullptr, error);
     MPI_Bcast(&n, 1, MPI_INT, 0, world);
+    if ((n < 1) || (n > 65536)) error->all(FLERR, "Invalid fix info size in restart file");
     style_restart_peratom[i] = new char[n];
     if (me == 0)
       utils::sfread(FLERR, style_restart_peratom[i], sizeof(char), n, fp, nullptr, error);
@@ -1596,13 +1613,16 @@ int Modify::read_restart(FILE *fp)
 
     if (me == 0) utils::sfread(FLERR, &n, sizeof(int), 1, fp, nullptr, error);
     MPI_Bcast(&n, 1, MPI_INT, 0, world);
+    if (n < 0) error->all(FLERR, "Invalid per-atom data size in restart file");
     maxsize += n;
 
     index_restart_peratom[i] = i;
     used_restart_peratom[i] = 0;
   }
 
-  return maxsize;
+  if (maxsize > MAXSMALLINT) error->all(FLERR, "Per-atom fix data in restart file is too large");
+
+  return (int) maxsize;
 }
 
 /* ----------------------------------------------------------------------

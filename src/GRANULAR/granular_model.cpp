@@ -195,12 +195,15 @@ int GranularModel::define_classic_model(char **arg, int iarg, int narg)
   normal_model->coeffs[0] = kn;
   normal_model->coeffs[1] = gamman;
 
+  // avoid division by zero for undamped (elastic) classic models
+  const double gamma_ratio = (gamman != 0.0) ? gammat / gamman : 0.0;
+
   if (tangential_model->num_coeffs == 2) {
-    tangential_model->coeffs[0] = gammat / gamman;
+    tangential_model->coeffs[0] = gamma_ratio;
     tangential_model->coeffs[1] = xmu;
   } else {
     tangential_model->coeffs[0] = kt;
-    tangential_model->coeffs[1] = gammat / gamman;
+    tangential_model->coeffs[1] = gamma_ratio;
     tangential_model->coeffs[2] = xmu;
   }
 
@@ -340,6 +343,8 @@ void GranularModel::read_restart(FILE *fp)
     if (comm->me == 0)
       utils::sfread(FLERR, &num_char, sizeof(int), 1, fp, nullptr, error);
     MPI_Bcast(&num_char, 1, MPI_INT, 0, world);
+    if ((num_char < 0) || (num_char > 65536))
+      error->all(FLERR, "Invalid granular model name in restart file");
 
     std::string model_name(num_char, ' ');
     if (comm->me == 0)

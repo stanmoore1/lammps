@@ -174,7 +174,8 @@ void Domain::init()
   for (const auto &fix : fixes)
     if (utils::strmatch(fix->style,"^deform")) {
       deform_flag = 1;
-      if ((dynamic_cast<FixDeform *>(fix))->remapflag == Domain::V_REMAP) {
+      auto *deform = dynamic_cast<FixDeform *>(fix);
+      if (deform && (deform->remapflag == Domain::V_REMAP)) {
         deform_vremap = 1;
         deform_groupbit = fix->groupbit;
       }
@@ -2093,7 +2094,7 @@ int Domain::ownatom(int /*id*/, double *x, imageint *image, int shrinkexceed)
 
 void Domain::set_lattice(int narg, char **arg)
 {
-  if (lattice) delete lattice;
+  delete lattice;
   lattice = nullptr;
   lattice = new Lattice(lmp,narg,arg);
 }
@@ -2172,7 +2173,7 @@ void Domain::delete_region(const std::string &id)
    return null if no match
 ------------------------------------------------------------------------- */
 
-Region *Domain::get_region_by_id(const std::string &name) const
+Region *Domain::get_region_by_id(const std::string &name)
 {
   for (const auto &reg : regions)
     if (name == reg->id) return reg;
@@ -2184,7 +2185,7 @@ Region *Domain::get_region_by_id(const std::string &name) const
    return vector with matching pointers
 ------------------------------------------------------------------------- */
 
-const std::vector<Region *> Domain::get_region_by_style(const std::string &name) const
+std::vector<Region *> Domain::get_region_by_style(const std::string &name)
 {
   std::vector<Region *> matches;
   if (name.empty()) return matches;
@@ -2199,9 +2200,9 @@ const std::vector<Region *> Domain::get_region_by_style(const std::string &name)
    return list of regions as vector
 ------------------------------------------------------------------------- */
 
-const std::vector<Region *> Domain::get_region_list()
+std::vector<Region *> Domain::get_region_list()
 {
-  return std::vector<Region *>(regions.begin(), regions.end());
+  return {regions.begin(), regions.end()};
 }
 
 /* ----------------------------------------------------------------------

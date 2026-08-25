@@ -578,8 +578,9 @@ void Input::substitute(char *&str, char *&str2, int &max, int &max2, int flag)
   // beyond = points to text following variable
 
   int i,n,paren_count,nchars;
-  char immediate[256];
-  char *var,*value,*beyond;
+  std::string immediate;
+  char *var,*beyond;
+  const char *value;
   char *ptrmatch;
 
   char *ptr = str;
@@ -650,8 +651,8 @@ void Input::substitute(char *&str, char *&str2, int &max, int &max2, int flag)
         if (!utils::strmatch(fmtstr,R"(%[0-9 ]*\.[0-9]+[efgEFG])"))
           error->all(FLERR,"Incorrect conversion in format string {}", fmtstr);
 
-        snprintf(immediate,256,fmtstr,variable->compute_equal(var));
-        value = immediate;
+        immediate = utils::sprintf(fmtstr, variable->compute_equal(var));
+        value = immediate.c_str();
 
       // single character variable name, e.g. $a
 
@@ -891,7 +892,10 @@ void Input::clear()
   lmp->destroy();
   lmp->create();
   lmp->post_create();
+
+  // reset to clean status for classes that are not re-created
   variable->clear_in_progress();
+  error->reset_warn();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -2015,6 +2019,8 @@ void Input::uncompute()
 {
   if (narg != 1)
     error->all(FLERR, Error::COMMAND, "Uncompute command expects exactly one argument");
+  if (!modify->get_compute_by_id(arg[0]))
+    error->all(FLERR, Error::ARGZERO, "Could not find compute ID {} to delete", arg[0]);
   modify->delete_compute(arg[0]);
 }
 
@@ -2031,6 +2037,8 @@ void Input::undump()
 void Input::unfix()
 {
   if (narg != 1) error->all(FLERR, Error::COMMAND, "Unfix command expects exactly one argument");
+  if (!modify->get_fix_by_id(arg[0]))
+    error->all(FLERR, Error::ARGZERO, "Could not find fix ID {} to delete", arg[0]);
   modify->delete_fix(arg[0]);
 }
 
