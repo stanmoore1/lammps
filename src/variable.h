@@ -125,6 +125,7 @@ class Variable : protected Pointers {
   virtual void atom_vector(char *, Tree **, Tree **, int &);
   static int is_group_function(const char *);
   virtual int group_function(char *, char *, Tree **, Tree **, int &, double *, int &, int);
+  static int is_special_function(const std::string &);
   virtual int special_function(const std::string &, char *, Tree **, Tree **, int &, double *,
                                int &, int, char *, int &, char *&);
   virtual void peratom2global(int, char *, double *, int, tagint, Tree **, Tree **, int &,

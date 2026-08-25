@@ -2546,6 +2546,11 @@ double Variable::evaluate(char *str, Tree **tree, int ivar)
             print_var_error(FLERR,"Variable evaluation before simulation box is defined"
                             + utils::errorurl(30),ivar);
 
+          // thermo keywords invoke the thermo computes, which read per-atom
+          // data on the host
+
+          sync_peratom(nullptr);
+
           int flag = output->thermo->evaluate_keyword(word,&value1);
           if (flag)
             print_var_error(FLERR,fmt::format("Invalid thermo keyword '{}' in variable formula",
@@ -4337,19 +4342,6 @@ int Variable::math_function(char *word, char *contents, Tree **tree, Tree **tree
   return 1;
 }
 
-/* ----------------------------------------------------------------------
-   process a group function in formula with optional region arg
-   push result onto tree or arg stack
-   word = group function
-   contents = str between parentheses with one,two,three args
-   return 0 if not a match, 1 if successfully processed
-   customize by adding a group function with optional region arg:
-     count(group),mass(group),charge(group),
-     xcm(group,dim),vcm(group,dim),fcm(group,dim),
-     bound(group,xmin),gyration(group),ke(group),angmom(group,dim),
-     torque(group,dim),inertia(group,dim),omega(group,dim)
-------------------------------------------------------------------------- */
-
 int Variable::is_group_function(const char *word)
 {
   return (strcmp(word,"count") == 0) || (strcmp(word,"mass") == 0) ||
@@ -4362,6 +4354,19 @@ int Variable::is_group_function(const char *word)
 }
 
 /* ---------------------------------------------------------------------- */
+
+/* ----------------------------------------------------------------------
+   process a group function in formula with optional region arg
+   push result onto tree or arg stack
+   word = group function
+   contents = str between parentheses with one,two,three args
+   return 0 if not a match, 1 if successfully processed
+   customize by adding a group function with optional region arg:
+     count(group),mass(group),charge(group),
+     xcm(group,dim),vcm(group,dim),fcm(group,dim),
+     bound(group,xmin),gyration(group),ke(group),angmom(group,dim),
+     torque(group,dim),inertia(group,dim),omega(group,dim)
+------------------------------------------------------------------------- */
 
 int Variable::group_function(char *word, char *contents, Tree **tree, Tree **treestack,
                              int &ntreestack, double *argstack, int &nargstack, int ivar)
@@ -4616,6 +4621,13 @@ const std::unordered_map<std::string,int> special_function_map = {
 // NOLINTEND
 }
 
+int Variable::is_special_function(const std::string &word)
+{
+  return special_function_map.find(word) != special_function_map.end();
+}
+
+/* ---------------------------------------------------------------------- */
+
 int Variable::special_function(const std::string &word, char *contents, Tree **tree,
                                Tree **treestack, int &ntreestack, double *argstack,
                                int &nargstack, int ivar, char *str, int &istr, char *&ptr)
@@ -4624,7 +4636,7 @@ int Variable::special_function(const std::string &word, char *contents, Tree **t
   double value,sy,sxy;
 
   // return if "word" is not a match to any special function
-  if (special_function_map.find(word) == special_function_map.end()) return 0;
+  if (!is_special_function(word)) return 0;
 
   // process label2type() separately b/c its label arg can have commas in it
 

@@ -14,7 +14,6 @@
 #include "lammps.h"
 
 #include "atom.h"
-#include "atom_masks.h"
 #include "domain.h"
 #include "group.h"
 #include "info.h"
@@ -943,7 +942,10 @@ protected:
                          int &ntreestack, double *argstack, int &nargstack, int ivar, char *str,
                          int &i, char *&ptr) override
     {
-        if ((word == "gmask") || (word == "rmask") || (word == "grmask")) seen.insert(word);
+        // record the name of any special function reached, so this test
+        // measures which seams a formula uses rather than duplicating the
+        // mask policy that lives in VariableKokkos
+        if (is_special_function(word)) seen.insert(word);
         return Variable::special_function(word, contents, tree, treestack, ntreestack, argstack,
                                           nargstack, ivar, str, i, ptr);
     }
@@ -995,6 +997,7 @@ protected:
         command("mass * 1.0");
         command("region left block -2.0 -1.0 INF INF INF INF");
         command("compute dm_ke all ke/atom");
+        command("compute dm_msd all msd");
         command("run 0 post no");
         END_HIDE_OUTPUT();
     }
@@ -1051,6 +1054,16 @@ TEST_F(VariableSyncTest, AcceleratorSeams)
     EXPECT_THAT(seams_for("c_dm_ke"), ::testing::Contains("<all>"));
     EXPECT_THAT(seams_for("x*count(all)"), ::testing::Contains("<all>"));
     EXPECT_THAT(seams_for("x[1]+y[2]"), ::testing::Contains("<all>"));
+
+    // special functions that reduce a compute or fix invoke it, and thermo
+    // keywords invoke the thermo computes; both read per-atom data on the host
+
+    EXPECT_THAT(seams_for("sum(c_dm_msd)"), ::testing::Contains("sum"));
+    EXPECT_THAT(seams_for("x*temp"), ::testing::Contains("<all>"));
+
+    // special functions that touch no per-atom data must not force a sync
+
+    EXPECT_EQ(seams_for("x*is_os(^Linux)"), (StrSet{"x", "is_os", "mask"}));
 
     // constant-folded formulas touch no per-atom data beyond the group test
 

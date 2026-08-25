@@ -97,16 +97,31 @@ int VariableKokkos::group_function(char *word, char *contents, Tree **tree, Tree
 
 /* ----------------------------------------------------------------------
    gmask() tests atom->mask, rmask() and grmask() also match a region
-   against atom->x.  the other special functions read no per-atom data.
+   against atom->x.  sum(), min(), ave(), sort() and the like take a
+   compute or fix as their argument and invoke it, which reads per-atom
+   data that cannot be narrowed down.  the rest touch no per-atom data.
 ------------------------------------------------------------------------- */
 
 int VariableKokkos::special_function(const std::string &word, char *contents, Tree **tree,
                                      Tree **treestack, int &ntreestack, double *argstack,
                                      int &nargstack, int ivar, char *str, int &i, char *&ptr)
 {
-  if (word == "gmask") sync_host(MASK_MASK);
-  else if (word == "rmask") sync_host(X_MASK);
-  else if (word == "grmask") sync_host(X_MASK | MASK_MASK);
+  // like group_function(), this is tried for every function word in a formula
+  // and returns 0 for anything that is not a special function
+
+  if (is_special_function(word)) {
+    if (word == "gmask") sync_host(MASK_MASK);
+    else if (word == "rmask") sync_host(X_MASK);
+    else if (word == "grmask") sync_host(X_MASK | MASK_MASK);
+
+    // these read nothing per-atom; anything else, including a special
+    // function added later, falls through to ALL_MASK
+
+    else if ((word != "next") && (word != "is_file") && (word != "is_os") &&
+             (word != "is_timeout") && (word != "extract_setting") &&
+             (word != "label2type") && (word != "is_typelabel"))
+      sync_host(ALL_MASK);
+  }
 
   return Variable::special_function(word, contents, tree, treestack, ntreestack, argstack,
                                     nargstack, ivar, str, i, ptr);
