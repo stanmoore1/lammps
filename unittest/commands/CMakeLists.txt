@@ -28,6 +28,13 @@ endif()
 
 target_link_libraries(test_simple_commands PRIVATE lammps GTest::GMock)
 add_test(NAME SimpleCommands COMMAND test_simple_commands)
+
+# the geturl test downloads from the network, which takes long and varies with
+# the connection, so it is a separate executable with the "slow" label
+add_executable(test_geturl_command test_geturl_command.cpp)
+target_link_libraries(test_geturl_command PRIVATE lammps GTest::GMock)
+add_test(NAME GeturlCommand COMMAND test_geturl_command)
+set_tests_properties(GeturlCommand PROPERTIES LABELS "slow")
 if(CMAKE_VERSION VERSION_LESS 3.20)
   set_tests_properties(SimpleCommands PROPERTIES
                        ENVIRONMENT "LAMMPS_PLUGIN_DIR=${CMAKE_BINARY_DIR}")
