@@ -345,6 +345,7 @@ set(STANDARD_PACKAGES
   PYTHON
   QEQ
   QMMM
+  QMMM-XTB
   QTB
   REACTION
   REAXFF
@@ -463,6 +464,7 @@ pkg_depends(ELECTRODE KSPACE)
 pkg_depends(EXTRA-MOLECULE MOLECULE)
 pkg_depends(MESONT MOLECULE)
 pkg_depends(ML-RUNNER KSPACE)
+pkg_depends(QMMM-XTB KSPACE)
 pkg_depends(RHEO BPM)
 pkg_depends(APIP ML-PACE)
 
@@ -604,7 +606,7 @@ else()
 endif()
 
 foreach(PKG_WITH_INCL GRAPHICS KSPACE PYTHON ML-IAP VORONOI COLVARS ML-HDNNP MDI MOLFILE NETCDF
-        PLUMED QMMM ML-QUIP ML-RUNNER SCAFACOS MACHDYN KIM COMPRESS ML-PACE LEPTON EXTRA-COMMAND MBX)
+        PLUMED QMMM QMMM-XTB ML-QUIP ML-RUNNER SCAFACOS MACHDYN KIM COMPRESS ML-PACE LEPTON EXTRA-COMMAND MBX)
   if(PKG_${PKG_WITH_INCL})
     include(Packages/${PKG_WITH_INCL})
   endif()
@@ -751,9 +753,14 @@ endif()
 set(LAMMPS_STYLE_HEADERS_DIR ${CMAKE_CURRENT_BINARY_DIR}/styles)
 
 GenerateStyleHeaders(${LAMMPS_STYLE_HEADERS_DIR})
-GeneratePackagesHeaders(${LAMMPS_STYLE_HEADERS_DIR})
+GenerateStyleSources(${LAMMPS_STYLE_HEADERS_DIR})
+GeneratePackageRegistry(${LAMMPS_STYLE_HEADERS_DIR})
 
 target_include_directories(lammps PRIVATE ${LAMMPS_STYLE_HEADERS_DIR})
+
+# add the generated style_*.cpp registration translation units to the library
+get_property(LAMMPS_STYLE_SOURCES GLOBAL PROPERTY LAMMPS_STYLE_SOURCES)
+target_sources(lammps PRIVATE ${LAMMPS_STYLE_SOURCES})
 
 ######################################
 # Generate lmpinstalledpkgs.h
