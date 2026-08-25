@@ -158,6 +158,14 @@ void NBinKokkos<DeviceType>::binatomsItem(const int &i) const
 
   const int ibin = coord2bin(static_cast<double>(x(i, 0)), static_cast<double>(x(i, 1)), static_cast<double>(x(i, 2)));
 
+  // an atom that has left the region covered by the bins gets a bin index
+  // outside of the bin arrays and the atomic update below would write out of
+  // bounds.  this happens when atoms are lost or move too far between two
+  // neighbor list builds, so stop right here as well
+
+  if ((ibin < 0) || (ibin >= mbins))
+    Kokkos::abort("Atom outside of neighbor bin range - simulation unstable");
+
   atom2bin(i) = ibin;
   const int ac = Kokkos::atomic_fetch_add(&bincount[ibin], (int)1);
   if (ac < (int)bins.extent(1)) {
