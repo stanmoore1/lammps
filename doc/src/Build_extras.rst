@@ -953,6 +953,26 @@ it can be found with a debugger.
    Runs with this option enabled use about twice as much memory for
    per-atom data and are considerably slower.
 
+.. warning::
+
+   Give the run the settings a GPU would use, or the problem may not
+   come back.  The :doc:`package kokkos <package>` command takes its
+   defaults from whether the build found a GPU, and this build has not,
+   so without further arguments the communication, the atom sorting and
+   the atom map all run on the host through the plain LAMMPS code and
+   never touch the device copy at all, the neighbor list is built the
+   half-list way, and the pair styles run with Newton's third law on.
+   None of the transfers that the missing declaration would spoil are
+   then made, so a problem seen on a GPU leaves no trace here.  Ask for
+   the GPU settings by hand:
+
+   .. code-block:: bash
+
+      lmp -in in.file -k on -sf kk -pk kokkos neigh full newton off \
+          comm device sort device atom/map device gpu/aware on
+
+   Change one of them back only to find out which one the problem needs.
+
 The strongest of the checks needs AddressSanitizer in the build as well:
 
 .. code-block:: bash

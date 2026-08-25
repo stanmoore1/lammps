@@ -51,11 +51,46 @@ cmake -S cmake -B build-poison -G Ninja \
 cmake --build build-poison -j 4
 ```
 
-Every run below must use the KOKKOS styles, or the debug build tests nothing:
+Every run below must use the KOKKOS styles, or the debug build tests nothing.
+
+## Ask for the GPU settings, every time
+
+`package kokkos` chooses its defaults from whether the build found a GPU, and a
+debug build has not.  The defaults you get are therefore the *host* ones, and
+they route almost everything around the code this tool exists to check:
+
+| `package kokkos` setting             | default without a GPU | default with a GPU |
+|---|---|---|
+| `comm` (exchange / forward / reverse) | `no` -- the plain `CommBrick` host path | `device` |
+| `sort`                                | `no` -- the legacy host sort            | `device` |
+| `atom/map`                            | `no` -- the legacy host map             | `device` |
+| `neigh`                               | `half` (`halfthread` with threads)      | `full`   |
+| `newton`                              | `on`                                    | `off`    |
+| `gpu/aware`                           | `off`                                   | `on`     |
+
+Left at those defaults the atom exchange, the border builds, the sort and the
+atom map never touch a device view at all, the neighbor list is built by a
+different kernel, and the pair styles run their `HALF`/newton-on path.  A
+missing sync on any of that cannot show up, so a bug a user reports from a GPU
+does not reproduce and the run comes out clean.  That is the single most common
+reason for a fruitless session with this tool.
+
+Ask for the GPU settings explicitly, and treat this as the baseline command
+line for everything below:
 
 ```bash
-./build-sync/lmp -in in.your_input -k on -sf kk       # add -pk kokkos ... as needed
+./build-sync/lmp -in in.your_input -k on -sf kk \
+    -pk kokkos neigh full newton off comm device sort device atom/map device gpu/aware on
 ```
+
+Vary *away* from that baseline only to find out which path a fault needs (step
+0 below), never as the starting point.  Two settings deserve their own warning:
+
+* `comm host` and `comm no` are not testable in a build that is not
+  `KOKKOS_DEBUG_SYNC_SPLIT_HOST` -- see the pitfall at the end of this file.
+* `sort no` and `atom/map no` put the base class in charge of arrays the KOKKOS
+  styles hold DualViews on.  That pairing is legitimate and worth testing, but
+  it is not what a GPU run does.
 
 Runs use about twice the per-atom memory and are considerably slower.
 
@@ -63,13 +98,16 @@ Runs use about twice the per-atom memory and are considerably slower.
 
 ### 0. Establish that there is a fault, and where it shows
 
-Run the input on a stock build and on `build-sync`, and compare thermo output.
-A difference is the bug reproducing.  If the two agree, vary the conditions the
-coherence paths depend on before concluding there is nothing to find:
+Run the input on a stock build and on `build-sync`, both with the GPU settings
+above, and compare thermo output.  A difference is the bug reproducing.  If the
+two agree, vary the conditions the coherence paths depend on before concluding
+there is nothing to find -- but keep the GPU settings as the baseline and change
+one thing at a time:
 
 ```bash
--pk kokkos comm device / comm host      # which side the communication runs on
--pk kokkos sort device / sort no        # atom sorting
+-pk kokkos ... comm device / comm host  # which side the communication runs on
+-pk kokkos ... sort device / sort no    # atom sorting
+-pk kokkos ... neigh full / neigh half  # which neighbor build and pair kernel
 -np 1 / -np 4                           # exchange and border paths differ
 ```
 
@@ -209,6 +247,10 @@ before rebuilding LAMMPS, which takes far longer.
 * **`-k on -sf kk` is mandatory.**  Without it the run uses the plain styles and
   every detector is correctly silent.  This has produced false conclusions more
   than once.
+* **The CPU defaults are not the GPU defaults.**  Without an explicit
+  `-pk kokkos ... comm device sort device atom/map device neigh full newton off`
+  the run takes the host comm, host sort and host atom map, and a GPU-only bug
+  in any of them cannot reproduce.  See "Ask for the GPU settings" above.
 * **Multi-rank output interleaves.**  Capture per rank
   (`mpirun --output-filename DIR ...`) and concatenate afterwards, and use
   `ASAN_OPTIONS=log_path=...` for the poison build.

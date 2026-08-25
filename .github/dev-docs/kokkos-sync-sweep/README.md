@@ -26,6 +26,26 @@ survive a container restart, so the authoritative copies live here and
 either `INERT`, `MANIFESTS-CRASH`, `MANIFESTS-DIVERGED` or `SKIP`, with the
 detector verdict beside it in `campaign.results`.
 
+## What `cases.txt` covers, and what it does not
+
+The fourth field of a `cases.txt` line is passed to `package kokkos`, and a `-`
+there means "no arguments" -- which on a build without a GPU is not neutral.  It
+is the host defaults: `comm no`, `sort no`, `atom/map no`, `neigh half`,
+`newton on`.  The atom exchange, the border builds, the sort and the atom map
+then never touch a device view, so a site in any of them screens as `INERT`
+whatever the truth is.  Only the lines carrying `gpu/aware:on:comm:device`
+exercise the device communication at all, and none of the current lines asks for
+`sort device`, `atom/map device`, `neigh full` or `newton off`.
+
+Read the recorded verdicts with that in mind: `INERT` means "inert under these
+cases", not "inert".  A case list meant to stand in for a GPU wants
+
+```
+... 4 neigh:full:newton:off:comm:device:sort:device:atom/map:device:gpu/aware:on
+```
+
+and `../kokkos-sync-debugging.md` explains why.
+
 Two rules the harness enforces, both learned the hard way:
 
 * A site is only written down once the fault was really there to be found.  If
