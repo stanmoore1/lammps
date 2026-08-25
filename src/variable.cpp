@@ -120,7 +120,6 @@ enum{DONE, ADD, SUBTRACT, MULTIPLY, DIVIDE, CARAT, MODULO, UNARY,
 enum { SUM, XMIN, XMAX, AVE, TRAP, SLOPE, SORT, RSORT, NOVECTOR };
 
 }    // namespace
-// NOLINTEND
 
 // clang-format on
 
@@ -562,8 +561,7 @@ void Variable::set(int narg, char **arg)
     newvar.data = new char *[newvar.num];
     newvar.data[0] = utils::strdup(arg[2]);
     newvar.data[1] = utils::strdup(arg[3]);
-    newvar.data[2] = new char[VALUELENGTH];
-    strcpy(newvar.data[2], "(undefined)");
+    newvar.data[2] = utils::strdup("(undefined)");
     newvar.style = FORMAT;
     return;
 
@@ -1191,7 +1189,8 @@ char *Variable::retrieve(const char *name)
       error->all(FLERR, "Variable {}: format variable {} has incompatible style",
                  var.name, var.data[0]);
     double answer = compute_equal(jvar);
-    snprintf(var.data[2],VALUELENGTH,var.data[1],answer);
+    delete[] var.data[2];
+    var.data[2] = utils::strdup(utils::sprintf(var.data[1], answer));
     str = var.data[2];
 
   } else if (var.style == GETENV) {
@@ -2808,8 +2807,10 @@ double Variable::collapse_tree(Tree *tree)
     arg2 = collapse_tree(tree->second);
     if (tree->first->type != VALUE || tree->second->type != VALUE) return 0.0;
     tree->type = VALUE;
-    if (arg2 == 0.0) error->one(FLERR,"Power by 0 in variable formula");
-    tree->value = pow(arg1,arg2);
+    if (arg2 == 0.0) tree->value = 1.0;
+    else if ((arg1 == 0.0) && (arg2 < 0.0))
+      error->one(FLERR,"Invalid power expression in variable formula");
+    else tree->value = pow(arg1,arg2);
     return tree->value;
   }
 
@@ -3176,7 +3177,6 @@ double Variable::collapse_tree(Tree *tree)
         ivalue3-ivalue1+1 < ivalue2 )
       error->all(FLERR,"Invalid math function in variable formula");
     if (update->ntimestep < ivalue1) tree->value = ivalue1;
-    //else if (update->ntimestep <= ivalue3) {
     else {
       tree->value = ivalue1;
       double logsp = ivalue1;
@@ -3375,9 +3375,12 @@ double Variable::eval_tree(Tree *tree, int i)
     return fmod(eval_tree(tree->first,i),denom);
   }
   if (tree->type == CARAT) {
+    double base = eval_tree(tree->first,i);
     double exponent = eval_tree(tree->second,i);
-    if (exponent == 0.0) error->one(FLERR,"Power by 0 in variable formula");
-    return pow(eval_tree(tree->first,i),exponent);
+    if (exponent == 0.0) return 1.0;
+    else if ((base == 0.0) && (exponent < 0.0))
+      error->one(FLERR,"Invalid power expression in variable formula");
+    else return pow(base,exponent);
   }
   if (tree->type == UNARY) return -eval_tree(tree->first,i);
 
@@ -3737,7 +3740,7 @@ void Variable::free_tree(Tree *tree)
     for (int i = 0; i < tree->nextra; i++) free_tree(tree->extra[i]);
     delete[] tree->extra;
   }
-  if (tree->argvars) delete[] tree->argvars;
+  delete[] tree->argvars;
 
   if (tree->selfalloc) memory->destroy(tree->array);
   delete tree;
@@ -3863,18 +3866,18 @@ int Variable::math_function(char *word, char *contents, Tree **tree, Tree **tree
 {
   // word not a match to any math function
 
-  if (strcmp(word,"sqrt") != 0 && strcmp(word,"exp") && strcmp(word,"ln") != 0 &&
-      strcmp(word,"log") != 0 &&  strcmp(word,"abs") != 0 && strcmp(word,"sin") != 0 &&
-      strcmp(word,"cos") != 0 &&  strcmp(word,"tan") != 0 && strcmp(word,"asin") != 0 &&
-      strcmp(word,"acos") != 0 && strcmp(word,"atan") != 0 && strcmp(word,"atan2") != 0 &&
-      strcmp(word,"random") != 0 && strcmp(word,"normal") != 0 && strcmp(word,"ceil") != 0 &&
-      strcmp(word,"floor") != 0 && strcmp(word,"round") != 0 && strcmp(word,"ternary") != 0 &&
-      strcmp(word,"ramp") != 0 && strcmp(word,"stagger") != 0 &&
-      strcmp(word,"logfreq") != 0 && strcmp(word,"logfreq2") != 0 &&
-      strcmp(word,"logfreq3") != 0 && strcmp(word,"stride") != 0 &&
-      strcmp(word,"stride2") != 0 && strcmp(word,"vdisplace") != 0 &&
-      strcmp(word,"swiggle") != 0 && strcmp(word,"cwiggle") != 0 && strcmp(word,"sign") != 0 &&
-      strstr(word,"py_") != word)
+  if ((strcmp(word,"sqrt") != 0) && (strcmp(word,"exp") != 0) && (strcmp(word,"ln") != 0) &&
+      (strcmp(word,"log") != 0) &&  (strcmp(word,"abs") != 0) && (strcmp(word,"sin") != 0) &&
+      (strcmp(word,"cos") != 0) &&  (strcmp(word,"tan") != 0) && (strcmp(word,"asin") != 0) &&
+      (strcmp(word,"acos") != 0) && (strcmp(word,"atan") != 0) && (strcmp(word,"atan2") != 0) &&
+      (strcmp(word,"random") != 0) && (strcmp(word,"normal") != 0) && (strcmp(word,"ceil") != 0) &&
+      (strcmp(word,"floor") != 0) && (strcmp(word,"round") != 0) && (strcmp(word,"ternary") != 0) &&
+      (strcmp(word,"ramp") != 0) && (strcmp(word,"stagger") != 0) &&
+      (strcmp(word,"logfreq") != 0) && (strcmp(word,"logfreq2") != 0) &&
+      (strcmp(word,"logfreq3") != 0) && (strcmp(word,"stride") != 0) &&
+      (strcmp(word,"stride2") != 0) && (strcmp(word,"vdisplace") != 0) &&
+      (strcmp(word,"swiggle") != 0) && (strcmp(word,"cwiggle") != 0) && (strcmp(word,"sign") != 0) &&
+      (strstr(word,"py_") != word))
     return 0;
 
   // parse contents for comma-separated args
@@ -4242,7 +4245,7 @@ int Variable::math_function(char *word, char *contents, Tree **tree, Tree **tree
   } else if (strcmp(word,"vdisplace") == 0) {
     if (narg != 2)
       print_var_error(FLERR,"Invalid vdisplace function in variable formula: must have 2 arguments",ivar);
-    if (modify->get_fix_by_style("dt/reset").size() > 0)
+    if (!modify->get_fix_by_style("dt/reset").empty())
       print_var_error(FLERR,"Must not use vdisplace(x,y) function with fix dt/reset",ivar);
     if (tree) newtree->type = VDISPLACE;
     else {
@@ -4254,7 +4257,7 @@ int Variable::math_function(char *word, char *contents, Tree **tree, Tree **tree
   } else if (strcmp(word,"swiggle") == 0) {
     if (narg != 3)
       print_var_error(FLERR,"Invalid swiggle function in variable formula: must have 3 arguments",ivar);
-    if (modify->get_fix_by_style("dt/reset").size() > 0)
+    if (!modify->get_fix_by_style("dt/reset").empty())
       print_var_error(FLERR,"Must not use swiggle(x,y,z) function with fix dt/reset",ivar);
     if (tree) newtree->type = SWIGGLE;
     else {
@@ -4269,7 +4272,7 @@ int Variable::math_function(char *word, char *contents, Tree **tree, Tree **tree
   } else if (strcmp(word,"cwiggle") == 0) {
     if (narg != 3)
       print_var_error(FLERR,"Invalid cwiggle function in variable formula: must have 3 arguments",ivar);
-    if (modify->get_fix_by_style("dt/reset").size() > 0)
+    if (!modify->get_fix_by_style("dt/reset").empty())
       print_var_error(FLERR,"Must not use cwiggle(x,y,z) function with fix dt/reset",ivar);
     if (tree) newtree->type = CWIGGLE;
     else {
@@ -4903,8 +4906,8 @@ int Variable::special_function(const std::string &word, char *contents, Tree **t
     }
 
     if ((method == SORT) || (method == RSORT)) {
-      if (method == SORT) std::sort(unsorted.begin(), unsorted.end(), std::less<double>());
-      if (method == RSORT) std::sort(unsorted.begin(), unsorted.end(), std::greater<double>());
+      if (method == SORT) std::sort(unsorted.begin(), unsorted.end(), std::less<>());
+      if (method == RSORT) std::sort(unsorted.begin(), unsorted.end(), std::greater<>());
 
       if (tree) {
         double *newvec;
@@ -5104,7 +5107,7 @@ int Variable::special_function(const std::string &word, char *contents, Tree **t
     } else argstack[nargstack++] = value;
 
   } else if (word == "is_timeout") {
-    if ((narg != 1) || (std::string(args[0]).size() != 0))
+    if ((narg != 1) || (!std::string(args[0]).empty()))
       print_var_error(FLERR,"Invalid is_timeout() function in variable formula",ivar);
     value = timer->is_timeout() ? 1.0 : 0.0;
 
@@ -5143,7 +5146,7 @@ int Variable::feature_function(char *word, char *contents, Tree **tree, Tree **t
 
   // word is not a match to any feature function
 
-  if (strcmp(word,"is_available") && strcmp(word,"is_active") && strcmp(word,"is_defined") != 0)
+  if ((strcmp(word,"is_available") != 0) && (strcmp(word,"is_active") != 0) && (strcmp(word,"is_defined") != 0))
     return 0;
 
   // process feature functions

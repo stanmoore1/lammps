@@ -27,6 +27,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include <cstdio>
 #include <cstring>
 #include <set>
 #include <string>
@@ -171,6 +172,7 @@ TEST_F(VariableTest, CreateDelete)
     ASSERT_EQ(idummy, 22);
 
     ASSERT_THAT(variable->retrieve("three"), StrEq("three"));
+    ASSERT_EQ(variable->retrieve("xxxx"), nullptr);
     variable->set_string("three", "four");
     ASSERT_THAT(variable->retrieve("three"), StrEq("four"));
     ASSERT_THAT(variable->retrieve("four2"), StrEq("2"));
@@ -393,6 +395,16 @@ TEST_F(VariableTest, Expressions)
     command("variable rmax   equal     rsort(v_vec4)[1]");
     command("variable xxxl   equal     rsort(v_vec4)[11]");
     command("variable isrt   vector    sort(v_one)");
+    command("variable pow30  equal     v_three^0");
+    command("variable pow31  equal     v_three^1");
+    command("variable pow32  equal     v_three^2");
+    command("variable pow00  equal     v_ten7^0");
+    command("variable pow01  equal     v_ten7^1");
+    command("variable pow02  equal     v_ten7^2");
+    command("variable pow0v  vector    v_vec1^0");
+    command("variable err4   equal     v_ten7^v_seven");
+    command("variable err5   vector    v_vec1^-1");
+
     variable->set("dummy  index     1 2");
     END_HIDE_OUTPUT();
 
@@ -426,7 +438,13 @@ TEST_F(VariableTest, Expressions)
     EXPECT_THAT(variable->retrieve("rsrt"), StrEq("[120,20,5,4,3,3,2.5,1,-5,-10]"));
     ASSERT_DOUBLE_EQ(variable->compute_equal("v_max2"), -5);
     ASSERT_DOUBLE_EQ(variable->compute_equal("v_rmax"), 120);
-
+    ASSERT_DOUBLE_EQ(variable->compute_equal("v_pow00"), 1.0);
+    ASSERT_DOUBLE_EQ(variable->compute_equal("v_pow01"), 0.0);
+    ASSERT_DOUBLE_EQ(variable->compute_equal("v_pow02"), 0.0);
+    ASSERT_DOUBLE_EQ(variable->compute_equal("v_pow30"), 1.0);
+    ASSERT_DOUBLE_EQ(variable->compute_equal("v_pow31"), 3.0);
+    ASSERT_DOUBLE_EQ(variable->compute_equal("v_pow32"), 9.0);
+    EXPECT_THAT(variable->retrieve("pow0v"), StrEq("[1,1,1,1,1,1,1]"));
     TEST_FAILURE(".*ERROR: Variable six: Invalid thermo keyword 'XXX' in variable formula.*",
                  command("print \"${six}\""););
     TEST_FAILURE(".*ERROR: Variable ten9: has a circular dependency.*",
@@ -442,6 +460,10 @@ TEST_F(VariableTest, Expressions)
         command("print \"${isrt}\""););
     TEST_FAILURE(".*ERROR: Variable vec4: index 11 exceeds vector size of 10.*",
                  command("print \"${xxxl}\""););
+    TEST_FAILURE(".*ERROR on proc 0: Variable err4: Invalid power expression in variable formula.*",
+                 command("print \"${err4}\""););
+    TEST_FAILURE(".*ERROR on proc 0: Invalid power expression in variable formula.*",
+                 command("print \"${err5}\""););
 }
 
 TEST_F(VariableTest, Functions)
@@ -826,6 +848,21 @@ TEST_F(VariableTest, Format)
     command("variable three delete");
     END_HIDE_OUTPUT();
     EXPECT_THAT(variable->retrieve("f1one"), StrEq("-0.6220 "));
+
+    // format variable results are no longer truncated to 63 characters
+    char refbuf[512];
+    snprintf(refbuf, sizeof(refbuf), "%70.40f", -0.622);
+    BEGIN_HIDE_OUTPUT();
+    command("variable wide1 format one \"%70.40f\"");
+    END_HIDE_OUTPUT();
+    EXPECT_THAT(variable->retrieve("wide1"), StrEq(refbuf));
+
+    // formatted immediate variable expansions are no longer truncated to 255 characters
+    snprintf(refbuf, sizeof(refbuf), "%.310f", 1.0 / 3.0);
+    BEGIN_HIDE_OUTPUT();
+    command("variable wide2 index $(1.0/3.0:%.310f)");
+    END_HIDE_OUTPUT();
+    EXPECT_THAT(variable->retrieve("wide2"), StrEq(refbuf));
 
     TEST_FAILURE(".*ERROR: Variable f1idx: format variable idx has incompatible style.*",
                  command("variable f1idx format idx %8.4f"););
