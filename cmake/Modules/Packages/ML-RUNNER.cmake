@@ -70,14 +70,13 @@ if(DOWNLOAD_RUNNER)
 
   ExternalProject_Add(runner_build
     GIT_REPOSITORY "https://gitlab.com/runner-suite/runner2.git"
-    GIT_TAG "2.0.3_20260528"
+    GIT_TAG "2.0.4_20260610"
     # do not contact the remote git repository on every build; it re-runs all subsequent
     # steps and re-links all dependents.  changing GIT_TAG still triggers an update
     # with CMake 3.21 and later.
     UPDATE_DISCONNECTED YES
     GIT_SHALLOW YES
     GIT_PROGRESS YES
-    PATCH_COMMAND sed -i -e "s/--not --show-signature/--no-show-signature/" build_system/check_git.sh
 
     # Pass CMake arguments to RuNNer's build system
     CMAKE_ARGS
