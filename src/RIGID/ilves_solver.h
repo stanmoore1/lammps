@@ -28,9 +28,23 @@
 
 #include <list>
 #include <map>
-#include <memory_resource>
 #include <tuple>
 #include <vector>
+
+#if __has_include(<memory_resource>)
+#include <memory_resource>
+#else
+// emulation
+#include "growing_mem_pool.h"
+#include "growing_allocator.h"
+namespace std::pmr {
+  using monotonic_buffer_resource = mempool::GrowingMemPool;
+  template <class T>
+  using polymorphic_allocator = mempool::GrowingAllocator<T>;
+  template <class T>
+  using list = std::list<T, mempool::GrowingAllocator<T>>;
+}
+#endif
 
 /**
  * A sparse direct solver for a structurally symmetric matrix.  The matrix is
