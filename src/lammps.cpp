@@ -1290,6 +1290,14 @@ void _noopt LAMMPS::help()
   fprintf(fp,"\n\n");
 
   pos = 80;
+  fprintf(fp,"* Body styles:\n");
+#define BODY_CLASS
+#define BodyStyle(key,Class) print_style(fp,#key,pos);
+#include "style_body.h"  // IWYU pragma: keep
+#undef BODY_CLASS
+  fprintf(fp,"\n\n");
+
+  pos = 80;
   fprintf(fp,"* Integrate styles:\n");
 #define INTEGRATE_CLASS
 #define IntegrateStyle(key,Class) print_style(fp,#key,pos);
