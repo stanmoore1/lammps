@@ -170,7 +170,7 @@ namespace LAMMPS_NS::MathSpecial {
     if (x == 0.0) return 0.0;  // Use MathSpecial powint convention (different from std::pow convention)
     const double rounded = std::round(n);
     if (n == rounded) {
-      return powint(x, static_cast<int>(rounded)); 
+      return powint(x, static_cast<int>(rounded));
     }
     return std::pow(x, n);
   }
