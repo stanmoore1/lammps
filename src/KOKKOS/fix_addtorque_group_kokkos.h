@@ -54,9 +54,6 @@ class FixAddTorqueGroupKokkos : public FixAddTorqueGroup {
   void operator()(TagFixAddTorqueGroupRmass, const int &, value_type) const;
 
  private:
-  class AtomKokkos *atomKK;
-  ExecutionSpace execution_space;
-
   typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkacc_1d_3 f;
   typename AT::t_imageint_1d_randomread image;
