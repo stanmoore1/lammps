@@ -110,6 +110,8 @@ class ComputeTempProfileKokkos : public ComputeTempProfile {
   // average COM velocity per bin (device), mirroring ComputeTempProfile::bin_average
   void bin_average_kk();
 
+  typedef Kokkos::View<double**, DeviceType> t_double_2d;
+
   typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkfloat_1d_3 v;
   typename AT::t_kkfloat_1d_randomread rmass;
@@ -117,8 +119,9 @@ class ComputeTempProfileKokkos : public ComputeTempProfile {
   typename AT::t_int_1d_randomread type;
   typename AT::t_int_1d_randomread mask;
 
-  typename AT::t_kkfloat_2d d_vbin;      // per-bin mass-weighted v + mass + count (scatter)
-  typename AT::t_kkfloat_2d d_binave;    // per-bin COM velocity (after Allreduce + divide)
+  t_double_2d d_vbin;                    // per-bin mass-weighted v + mass + count (scatter)
+  t_double_2d d_binave;                  // per-bin COM velocity (after Allreduce + divide)
+  typename t_double_2d::host_mirror_type h_vbin, h_binave;   // persistent host mirrors
   typename AT::t_int_1d d_bin;           // per-atom bin index
 
   int maxbin;
