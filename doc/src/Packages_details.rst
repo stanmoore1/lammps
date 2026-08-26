@@ -57,6 +57,7 @@ gives those details.
    * :ref:`EXTRA-FIX <PKG-EXTRA-FIX>`
    * :ref:`EXTRA-MOLECULE <PKG-EXTRA-MOLECULE>`
    * :ref:`EXTRA-PAIR <PKG-EXTRA-PAIR>`
+   * :ref:`FENIX <PKG-FENIX>`
    * :ref:`FEP <PKG-FEP>`
    * :ref:`GPU <PKG-GPU>`
    * :ref:`GRAPHICS <PKG-GRAPHICS>`

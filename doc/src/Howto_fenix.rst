@@ -3,10 +3,10 @@ Fenix online recovery
 
 The :ref:`Fenix package <PKG-FENIX>` enables the use of new and emerging User
 Level Failure Mitigation (ULFM) MPI functionality described at the `ULFM
-research hub <https://fault-tolerance.org>`, in the `Open MPI ULFM
-documentation <https://docs.open-mpi.org/en/v5.0.x/features/ulfm.html>`, and in
+research hub <https://fault-tolerance.org>`_, in the `Open MPI ULFM
+documentation <https://docs.open-mpi.org/en/v5.0.x/features/ulfm.html>`_, and in
 :ref:`(Bland2013) <Bland2013>`. The `Fenix library
-<https://github.com/sandialabs/fenix>` uses the low-level ULFM functionality to
+<https://github.com/sandialabs/fenix>`_ uses the low-level ULFM functionality to
 enable high-level online recovery of MPI applications. The benefits of Fenix
 are described in :ref:`(Whitlock2022) <Whitlock2022>` and :ref:`(Whitlock2024)
 <Whitlock2024>`.
@@ -73,13 +73,14 @@ multiple spare processes per node.
    #   Starting with 100 ranks
    #   Running with 100 ranks
    #   <... simulation output ...>
-   #   ERROR: not enough spare ranks to maintain initial communicator size (src/FENIX/fenix.cpp:217)
+   #   Starting with 99 ranks
+   #   Running with 99 ranks
 
 When running LAMMPS with only a single partition, Fenix will leverage the highest N
 ranks as spares when N spares are requested. When running with multiple
 partitions, Fenix will default to operating on the world comm for each partition
 as if it were the only communicator. This will cause problems if your different
-partitions communicate with eachother over the universe communicator. In that
+partitions communicate with each other over the universe communicator. In that
 case, you should use the :code:`universal` argument to initialize Fenix in
 universal mode. In universal mode, shrinking recovery is not supported and Fenix
 will claim the final partition as spares.
@@ -106,8 +107,7 @@ will claim the final partition as spares.
    #   Partition 0 running with 10 ranks
    #   Partition 1 running with 10 ranks
    #   <... simulation output ...>
-   #   Starting with 99 ranks
-   #   Running with 99 ranks
+   #   ERROR: not enough spare ranks to maintain initial communicator size (src/FENIX/fenix.cpp:217)
 
 
 Once a failure has been recovered from, the LAMMPS state is entirely wiped.

@@ -218,7 +218,7 @@ whether an extra library is needed to build and use the package:
      - :doc:`pair_style <pair_style>`
      - n/a
      - no
-   * - :ref:`FENIX <PKG_FENIX>`
+   * - :ref:`FENIX <PKG-FENIX>`
      - online process recovery with Fenix
      - :doc:`Howto Fenix <Howto_fenix>`
      - ``PACKAGES/fenix``

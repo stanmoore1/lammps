@@ -39,13 +39,13 @@ Description
 
 .. versionadded:: TBD
 
-This command initializes `Fenix <https://github.com/sandialabs/fenix>` for
+This command initializes `Fenix <https://github.com/sandialabs/fenix>`_ for
 online process recovery. From this point on, Fenix claims a number of ranks to
 be used as spares. The LAMMPS world is rebuilt without the spare ranks.
 Importantly, this means Fenix should be initialized before you perform any steps
 that rely on knowing the number of ranks or communicating. In general, the
-safest approach is to only have variable setup commands before calling this
-command.
+safest approach is to only have :doc:`variable <variable>` setup commands before
+calling this command.
 
 On detecting a process failure, Fenix will automatically regain control. It will
 rebuild the LAMMPS world to the same number of ranks as before (when possible),
@@ -64,19 +64,17 @@ that do not involve partitions, or runs with partitions but no communication
 between them. For runs with partitions that communicate, the universal flag is
 needed to ensure the universe's uworld is always valid to communicate on.
 
+When the universal flag is not used, communication on the universe's uworld may
+cause MPI to abort if any processes have failed. When the universal flag is
+used, you must not specify a number of spare ranks - instead, all ranks in the
+last partition are used as spares. When the universal flag is used, shrinking
+recovery (recovering when all spare ranks have been consumed) is not currently
+supported.
+
 ----------
 
 Restrictions
 """"""""""""
-
-When the universal flag is not used, communication on the universe's uworld may
-cause MPI to abort if any processes have failed.
-
-When the universal flag is used, you must not specify a number of spare ranks -
-instead, all ranks in the last partition are used as spares.
-
-When the universal flag is used, shrinking recovery (recovering when all spare
-ranks have been consumed) is not currently supported.
 
 This command is part of the FENIX package. It is only enabled if LAMMPS was built
 with that package. See the :doc:`Build package <Build_package>` page for more
@@ -85,9 +83,10 @@ info.
 Related commands
 """"""""""""""""
 
-:doc:`restart`, :doc:`write_restart`, :doc:`read_restart`,
+:doc:`restart <restart>`, :doc:`write restart <write_restart>`,
+:doc:`read restart <read_restart>`
 
 Default
 """""""
 
-none
+The default *restart_file* = SELF.
