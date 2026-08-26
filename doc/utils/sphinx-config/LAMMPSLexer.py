@@ -46,11 +46,11 @@ class LAMMPSLexer(RegexLexer):
     name = 'LAMMPS'
     tokens = {
         'root': [
-            cmd_rule('fix', 'fix'),
+            cmd_rule('fix', 'define_cmd'),
             cmd_rule('fix_modify', 'modify_cmd'),
-            cmd_rule('compute', 'compute'),
+            cmd_rule('compute', 'define_cmd'),
             cmd_rule('compute_modify', 'modify_cmd'),
-            cmd_rule('dump', 'dump'),
+            cmd_rule('dump', 'define_cmd'),
             cmd_rule('dump_modify', 'modify_cmd'),
             cmd_rule('region', 'region'),
             cmd_rule('variable', 'variable_cmd'),
@@ -74,12 +74,27 @@ class LAMMPSLexer(RegexLexer):
             cmd_rule('write_data', 'ndx_cmd'),
             cmd_rule('write_dump', 'write_dump'),
             cmd_rule('write_restart', 'ndx_cmd'),
+            cmd_rule('angle_style', 'style_name'),
+            cmd_rule('atom_style', 'style_name'),
+            cmd_rule('bond_style', 'style_name'),
+            cmd_rule('dihedral_style', 'style_name'),
+            cmd_rule('improper_style', 'style_name'),
+            cmd_rule('kspace_style', 'style_name'),
+            cmd_rule('min_style', 'style_name'),
+            cmd_rule('pair_style', 'style_name'),
+            cmd_rule('run_style', 'style_name'),
             include('conditionals'),
             include('keywords'),
             (r'#.*?\n', Comment),
             (r'&[ \t]*\n', Literal.String.Char),
             (r'"', String, 'string'),
             (r'\'', String, 'single_quote_string'),
+            # special argument words accepted by several commands
+            (words(('NULL', 'EDGE', 'INF', 'SELF'), prefix=r'\b', suffix=r'\b'),
+             Keyword.Constant),
+            # references to variables (v_), computes (c_), fixes (f_), and
+            # custom per-atom properties (i_, d_, i2_, d2_)
+            (r'\b(i2|d2|[cdfiv])_[\w\[\]]+', Name.Variable),
             (r'[0-9]+:[0-9]+(:[0-9]+)?', Number),
             (r'([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?', Number),
             (r'\$?\(', Name.Variable, 'expression'),
@@ -122,19 +137,10 @@ class LAMMPSLexer(RegexLexer):
             (r'[\w_\-\.\[\]]+', Name.Variable.Identifier),
             default('#pop')
         ],
-        'fix' : [
+        # fix/compute/dump: ID, then group-ID, then style name
+        'define_cmd' : [
             (r'[\w_\-\.\[\]]+', Name.Variable.Identifier),
-            (r'[^\S\n]+', Whitespace, 'group_id'),
-            default('#pop')
-        ],
-        'compute' : [
-            (r'[\w_\-\.\[\]]+', Name.Variable.Identifier),
-            (r'[^\S\n]+', Whitespace, 'group_id'),
-            default('#pop')
-        ],
-        'dump' : [
-            (r'[\w_\-\.\[\]]+', Name.Variable.Identifier),
-            (r'[^\S\n]+', Whitespace, 'group_id'),
+            (r'[^\S\n]+', Whitespace, ('#pop', 'style_name', 'group_id')),
             default('#pop')
         ],
         'region' : [
@@ -155,7 +161,7 @@ class LAMMPSLexer(RegexLexer):
         ],
         'create_box' : [
             (r'[\w_\-\.\[\]]+', Name.Variable.Identifier),
-            (r'[^\S\n]+', Whitespace, 'group_id'),
+            (r'[^\S\n]+', Whitespace, ('#pop', 'id_cmd')),
             default('#pop')
         ],
         'id_cmd' : [
@@ -174,12 +180,20 @@ class LAMMPSLexer(RegexLexer):
             (r'[\w_\-\.\[\]]+', Literal.String.Single),
             default('#pop')
         ],
+        # write_dump: group-ID, then style name
         'write_dump' : [
             (r'[\w_\-\.\[\]]+', Name.Variable.Identifier),
+            (r'[^\S\n]+', Whitespace, ('#pop', 'style_name')),
             default('#pop')
         ],
         'group_id' : [
             (r'[\w_\-\.\[\]]+', Name.Variable.Identifier),
+            (r'[^\S\n]+', Whitespace, '#pop'),
             default('#pop:2')
+        ],
+        # one style name; entered with the style word as the next token
+        'style_name' : [
+            (r'[A-Za-z][\w/]*', Name.Class, '#pop'),
+            default('#pop')
         ]
     }
