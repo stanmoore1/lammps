@@ -145,6 +145,10 @@ action dihedral_harmonic_kokkos.cpp dihedral_harmonic.cpp
 action dihedral_harmonic_kokkos.h dihedral_harmonic.h
 action dihedral_multi_harmonic_kokkos.cpp dihedral_multi_harmonic.cpp
 action dihedral_multi_harmonic_kokkos.h dihedral_multi_harmonic.h
+action dihedral_table_cut_kokkos.cpp dihedral_table_cut.cpp
+action dihedral_table_cut_kokkos.h dihedral_table_cut.h
+action dihedral_table_kokkos.cpp dihedral_table.cpp
+action dihedral_table_kokkos.h dihedral_table.h
 action dihedral_opls_kokkos.cpp dihedral_opls.cpp
 action dihedral_opls_kokkos.h dihedral_opls.h
 action dihedral_hybrid_kokkos.cpp dihedral_hybrid.cpp

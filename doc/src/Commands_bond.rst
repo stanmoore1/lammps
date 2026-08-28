@@ -140,8 +140,8 @@ OPT.
    * :doc:`opls (iko) <dihedral_opls>`
    * :doc:`quadratic (ko) <dihedral_quadratic>`
    * :doc:`spherical (ko) <dihedral_spherical>`
-   * :doc:`table (o) <dihedral_table>`
-   * :doc:`table/cut (o) <dihedral_table>`
+   * :doc:`table (ko) <dihedral_table>`
+   * :doc:`table/cut (ko) <dihedral_table>`
 
 .. _improper:
 
