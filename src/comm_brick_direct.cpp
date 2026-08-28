@@ -855,7 +855,7 @@ void CommBrickDirect::borders()
 
   // perform border comm via direct swaps
   // use pack/unpack border and pack/unpack border_vel
-  // post receives, perform sends, copy to self, wait for all incoming messages
+  // post receives, copy to self, perform sends, wait for all incoming messages
 
   int offset;
 
@@ -869,18 +869,8 @@ void CommBrickDirect::borders()
     }
   }
 
-  for (iswap = 0; iswap < ndirect; iswap++) {
-    if (proc_direct[iswap] == me) continue;
-    if (ghost_velocity) {
-      n = avec->pack_border_vel(sendnum_direct[iswap],sendlist_direct[iswap],buf_send_direct,
-                              pbc_flag_direct[iswap],pbc_direct[iswap]);
-      if (n) MPI_Send(buf_send_direct,n,MPI_DOUBLE,proc_direct[iswap],sendtag[iswap],world);
-    } else {
-      n = avec->pack_border(sendnum_direct[iswap],sendlist_direct[iswap],buf_send_direct,
-                          pbc_flag_direct[iswap],pbc_direct[iswap]);
-      if (n) MPI_Send(buf_send_direct,n,MPI_DOUBLE,proc_direct[iswap],sendtag[iswap],world);
-    }
-  }
+  // copy to self first, since the sends below use buf_send_direct from
+  //   offset 0 and their data must stay intact until they complete
 
   for (int iself = 0; iself < nself_direct; iself++) {
     iswap = self_indices_direct[iself];
@@ -893,6 +883,32 @@ void CommBrickDirect::borders()
       avec->pack_border(sendnum_direct[iswap],sendlist_direct[iswap],buf_send_direct,
                         pbc_flag_direct[iswap],pbc_direct[iswap]);
       avec->unpack_border(recvnum_direct[iswap],firstrecv_direct[iswap],buf_send_direct);
+    }
+  }
+
+  // each swap packs into its own region of buf_send_direct and is sent with
+  //   a non-blocking send, so packing a swap does not wait on the previous
+  //   swap's message being picked up by its receiver
+
+  int nsendpost = 0;
+  int send_offset = 0;
+
+  for (iswap = 0; iswap < ndirect; iswap++) {
+    if (proc_direct[iswap] == me) continue;
+    if (sendnum_direct[iswap] == 0) continue;
+    if (ghost_velocity) {
+      n = avec->pack_border_vel(sendnum_direct[iswap],sendlist_direct[iswap],
+                                &buf_send_direct[send_offset],
+                                pbc_flag_direct[iswap],pbc_direct[iswap]);
+    } else {
+      n = avec->pack_border(sendnum_direct[iswap],sendlist_direct[iswap],
+                            &buf_send_direct[send_offset],
+                            pbc_flag_direct[iswap],pbc_direct[iswap]);
+    }
+    if (n) {
+      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+                sendtag[iswap],world,&send_requests[nsendpost++]);
+      send_offset += n;
     }
   }
 
@@ -915,6 +931,8 @@ void CommBrickDirect::borders()
       }
     }
   }
+
+  if (nsendpost) MPI_Waitall(nsendpost,send_requests,MPI_STATUS_IGNORE);
 
   // for molecular systems some bits are lost for local atom indices
   //   due to encoding of special pairs in neighbor lists
@@ -1648,8 +1666,8 @@ void CommBrickDirect::deallocate_lists(int nlist)
 
 void CommBrickDirect::check_buffer_sizes()
 {
-  int max = size_border * smax_direct;
-  max = MAX(max,maxforward*ssum_direct);    // forward_comm() packs all swaps at once
+  int max = size_border * ssum_direct;      // borders() packs all swaps at once
+  max = MAX(max,maxforward*ssum_direct);   // forward_comm() packs all swaps at once
   max = MAX(max,maxreverse*rmax_direct);
   if (max > maxsend_direct) grow_send_direct(max,0);
 
