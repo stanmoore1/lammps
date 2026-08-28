@@ -188,12 +188,17 @@ void CommBrickDirectKokkos::forward_comm_device()
   // send all owned atoms to receiving procs
   // except for self copies
 
+  // all swaps are already packed into distinct regions of k_buf_send_direct,
+  // so use non-blocking sends to get every message in flight at once
+
+  int nsendpost = 0;
   offset = 0;
   for (int iswap = 0; iswap < ndirect; iswap++) {
     if (sendnum_direct[iswap]) {
       int n = sendnum_direct[iswap]*atomKK->avecKK->size_forward;
       if (proc_direct[iswap] != me)
-        MPI_Send(k_buf_send_direct.view<DeviceType>().data() + offset,n,MPI_DOUBLE,proc_direct[iswap],sendtag[iswap],world);
+        MPI_Isend(k_buf_send_direct.view<DeviceType>().data() + offset,n,MPI_DOUBLE,
+                  proc_direct[iswap],sendtag[iswap],world,&send_requests[nsendpost++]);
       offset += n;
     }
   }
@@ -201,11 +206,17 @@ void CommBrickDirectKokkos::forward_comm_device()
   // wait on incoming messages with ghost atoms
   // unpack all messages at once
 
-  if (npost == 0) return;
+  if (npost == 0) {
+    if (nsendpost) MPI_Waitall(nsendpost,send_requests,MPI_STATUS_IGNORE);
+    return;
+  }
 
   MPI_Waitall(npost,requests,MPI_STATUS_IGNORE);
 
-  if (comm_x_only) return;
+  if (comm_x_only) {
+    if (nsendpost) MPI_Waitall(nsendpost,send_requests,MPI_STATUS_IGNORE);
+    return;
+  }
 
   if (ghost_velocity) {
     //atomKK->avecKK->unpack_comm_vel_direct(recvnum_direct,firstrecv_direct,buf_recv_direct);
@@ -213,6 +224,8 @@ void CommBrickDirectKokkos::forward_comm_device()
     //atomKK->avecKK->unpack_comm_direct(recvnum_direct,firstrecv_direct,buf_recv_direct);
   }
   DeviceType().fence();
+
+  if (nsendpost) MPI_Waitall(nsendpost,send_requests,MPI_STATUS_IGNORE);
 }
 
 /* ----------------------------------------------------------------------

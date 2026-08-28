@@ -90,6 +90,7 @@ void CommBrickDirect::init_pointers()
   recv_offset_forward_atoms = nullptr;
   recv_offset_reverse_atoms = nullptr;
   requests = nullptr;
+  send_requests = nullptr;
 
   active_list = nullptr;
   check_list = nullptr;
@@ -540,23 +541,9 @@ void CommBrickDirect::forward_comm(int /*dummy*/)
     }
   }
 
-  // send all owned atoms to receiving procs
-  // except for self copies
-
-  for (int iswap = 0; iswap < ndirect; iswap++) {
-    if (proc_direct[iswap] == me) continue;
-    if (ghost_velocity) {
-      n = avec->pack_comm_vel(sendnum_direct[iswap],sendlist_direct[iswap],buf_send_direct,
-                              pbc_flag_direct[iswap],pbc_direct[iswap]);
-      if (n) MPI_Send(buf_send_direct,n,MPI_DOUBLE,proc_direct[iswap],sendtag[iswap],world);
-    } else {
-      n = avec->pack_comm(sendnum_direct[iswap],sendlist_direct[iswap],buf_send_direct,
-                          pbc_flag_direct[iswap],pbc_direct[iswap]);
-      if (n) MPI_Send(buf_send_direct,n,MPI_DOUBLE,proc_direct[iswap],sendtag[iswap],world);
-    }
-  }
-
   // copy atoms to self via pack and unpack
+  // done before the sends below, b/c those use buf_send_direct from offset 0
+  //   and their data must stay intact until the sends complete
 
   for (int iself = 0; iself < nself_direct; iself++) {
     iswap = self_indices_direct[iself];
@@ -575,10 +562,41 @@ void CommBrickDirect::forward_comm(int /*dummy*/)
     }
   }
 
+  // send all owned atoms to receiving procs
+  // except for self copies
+  // each swap packs into its own region of buf_send_direct and is sent
+  //   with a non-blocking send, so that packing a swap does not have to
+  //   wait on the previous swap's message to be picked up by its receiver
+
+  int nsendpost = 0;
+  int send_offset = 0;
+
+  for (int iswap = 0; iswap < ndirect; iswap++) {
+    if (proc_direct[iswap] == me) continue;
+    if (sendnum_direct[iswap] == 0) continue;
+    if (ghost_velocity) {
+      n = avec->pack_comm_vel(sendnum_direct[iswap],sendlist_direct[iswap],
+                              &buf_send_direct[send_offset],
+                              pbc_flag_direct[iswap],pbc_direct[iswap]);
+    } else {
+      n = avec->pack_comm(sendnum_direct[iswap],sendlist_direct[iswap],
+                          &buf_send_direct[send_offset],
+                          pbc_flag_direct[iswap],pbc_direct[iswap]);
+    }
+    if (n) {
+      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+                sendtag[iswap],world,&send_requests[nsendpost++]);
+      send_offset += n;
+    }
+  }
+
   // wait on incoming messages with ghost atoms
   // unpack each message as it arrives
 
-  if (npost == 0) return;
+  if (npost == 0) {
+    if (nsendpost) MPI_Waitall(nsendpost,send_requests,MPI_STATUS_IGNORE);
+    return;
+  }
 
   if (comm_x_only) {
     MPI_Waitall(npost,requests,MPI_STATUS_IGNORE);
@@ -597,6 +615,8 @@ void CommBrickDirect::forward_comm(int /*dummy*/)
       avec->unpack_comm(recvnum_direct[iswap],firstrecv_direct[iswap],&buf_recv_direct[offset]);
     }
   }
+
+  if (nsendpost) MPI_Waitall(nsendpost,send_requests,MPI_STATUS_IGNORE);
 }
 
 /* ----------------------------------------------------------------------
@@ -1540,6 +1560,8 @@ void CommBrickDirect::allocate_direct()
   memory->create(recv_offset_forward_atoms,maxdirect,"comm:recv_offset_forward_atoms");
   memory->create(recv_offset_reverse_atoms,maxdirect,"comm:recv_offset_reverse_atoms");
   requests = (MPI_Request *) memory->smalloc(maxdirect*sizeof(MPI_Request),"comm:requests");
+  send_requests = (MPI_Request *)
+    memory->smalloc(maxdirect*sizeof(MPI_Request),"comm:send_requests");
 }
 
 /* ----------------------------------------------------------------------
@@ -1590,6 +1612,7 @@ void CommBrickDirect::deallocate_direct()
   memory->destroy(recv_offset_forward_atoms);
   memory->destroy(recv_offset_reverse_atoms);
   memory->sfree(requests);
+  memory->sfree(send_requests);
 }
 
 /* ----------------------------------------------------------------------
@@ -1617,7 +1640,7 @@ void CommBrickDirect::deallocate_lists(int nlist)
 void CommBrickDirect::check_buffer_sizes()
 {
   int max = size_border * smax_direct;
-  max = MAX(max,maxforward*smax_direct);
+  max = MAX(max,maxforward*ssum_direct);    // forward_comm() packs all swaps at once
   max = MAX(max,maxreverse*rmax_direct);
   if (max > maxsend_direct) grow_send_direct(max,0);
 

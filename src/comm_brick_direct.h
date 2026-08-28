@@ -109,7 +109,8 @@ class CommBrickDirect : public CommBrick {
   int maxsend_direct;       // size of buf_send_direct
   int maxrecv_direct;       // size of buf_recv_direct
 
-  MPI_Request *requests;    // list of requests, length = ndirect
+  MPI_Request *requests;         // list of recv requests, length = ndirect
+  MPI_Request *send_requests;    // list of send requests, length = ndirect
 
   // private methods
   // init_pointers and init_buffers_direct are called from a constructor
